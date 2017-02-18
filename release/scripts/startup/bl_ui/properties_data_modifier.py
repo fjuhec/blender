@@ -949,7 +949,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
 
     def SURFACE_DEFORM(self, layout, ob, md):
         col = layout.column()
-        col.enabled = not md.is_bound
+        col.active = not md.is_bound
 
         col.prop(md, "target")
         col.prop(md, "falloff")

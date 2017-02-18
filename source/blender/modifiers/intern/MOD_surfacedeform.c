@@ -1006,11 +1006,11 @@ static bool surfacedeformBind(SurfaceDeformModifierData *smd, float (*vertexCos)
 		freeData((ModifierData *)smd);
 	}
 	else if (data.success == MOD_SDEF_BIND_RESULT_CONCAVE_ERR) {
-		modifier_setError((ModifierData *)smd, "Target containts concave polys");
+		modifier_setError((ModifierData *)smd, "Target contains concave polys");
 		freeData((ModifierData *)smd);
 	}
 	else if (data.success == MOD_SDEF_BIND_RESULT_OVERLAP_ERR) {
-		modifier_setError((ModifierData *)smd, "Target containts overlapping verts");
+		modifier_setError((ModifierData *)smd, "Target contains overlapping verts");
 		freeData((ModifierData *)smd);
 	}
 	else if (data.success == MOD_SDEF_BIND_RESULT_GENERIC_ERR) {
