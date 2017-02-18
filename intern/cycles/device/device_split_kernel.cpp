@@ -158,6 +158,9 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 
 	tile.sample = tile.start_sample;
 
+	/* for exponential increase between tile updates */
+	int time_multiplier = 1;
+
 	while(tile.sample < tile.start_sample + tile.num_samples) {
 		/* to keep track of how long it takes to run a number of samples */
 		double start_time = time_dt();
@@ -166,7 +169,7 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 		const int initial_num_samples = 1;
 		/* approx number of samples per second */
 		int samples_per_second = (avg_time_per_sample > 0.0) ?
-		                         int(1.0 / avg_time_per_sample) + 1 : initial_num_samples;
+		                         int(double(time_multiplier) / avg_time_per_sample) + 1 : initial_num_samples;
 
 		RenderTile subtile = tile;
 		subtile.start_sample = tile.sample;
@@ -264,6 +267,8 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 
 		tile.sample += subtile.num_samples;
 		task->update_progress(&tile, tile.w*tile.h*subtile.num_samples);
+
+		time_multiplier = min(time_multiplier << 1, 10);
 
 		if(task->get_cancel()) {
 			return true;
