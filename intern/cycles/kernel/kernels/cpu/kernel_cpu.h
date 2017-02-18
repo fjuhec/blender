@@ -61,17 +61,11 @@ void KERNEL_FUNCTION_FULL_NAME(data_init)(
         int start_sample,
         int end_sample,
         int sx, int sy, int sw, int sh, int offset, int stride,
-        int rng_state_offset_x,
-        int rng_state_offset_y,
-        int rng_state_stride,
         ccl_global int *Queue_index,
         int queuesize,
         ccl_global char *use_queues_flag,
         ccl_global unsigned int *work_pool_wgs,
         unsigned int num_samples,
-        int buffer_offset_x,
-        int buffer_offset_y,
-        int buffer_stride,
         ccl_global float *buffer);
 
 #define DECLARE_SPLIT_KERNEL_FUNCTION(name) \

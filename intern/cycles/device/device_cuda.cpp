@@ -1508,17 +1508,11 @@ bool CUDASplitKernel::enqueue_split_kernel_data_init(const KernelDimensions& dim
 		int* sh;
 		int* offset;
 		int* stride;
-		int* rng_state_offset_x;
-		int* rng_state_offset_y;
-		int* rng_state_stride;
 		CUdeviceptr* queue_index;
 		int* queuesize;
 		CUdeviceptr* use_queues_flag;
 		CUdeviceptr* work_pool_wgs;
 		int* num_samples;
-		int* buffer_offset_x;
-		int* buffer_offset_y;
-		int* buffer_stride;
 		CUdeviceptr* buffer;
 	};
 
@@ -1535,17 +1529,11 @@ bool CUDASplitKernel::enqueue_split_kernel_data_init(const KernelDimensions& dim
 		&rtile.h,
 		&rtile.offset,
 		&rtile.stride,
-		&rtile.rng_state_offset_x,
-		&rtile.rng_state_offset_y,
-		&rtile.buffer_rng_state_stride,
 		&d_queue_index,
 		&queue_size,
 		&d_use_queues_flag,
 		&d_work_pool_wgs,
 		&rtile.num_samples,
-		&rtile.buffer_offset_x,
-		&rtile.buffer_offset_y,
-		&rtile.buffer_rng_state_stride,
 		&d_buffer
 	};
 
