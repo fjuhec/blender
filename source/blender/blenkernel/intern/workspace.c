@@ -46,6 +46,22 @@
 bool workspaces_is_screen_used(const Main *bmain, bScreen *screen);
 
 
+static void workspace_layout_type_remove(WorkSpace *workspace, WorkSpaceLayoutType *layout_type)
+{
+	BLI_assert(BLI_findindex(&workspace->layout_types, layout_type) >= 0);
+	BLI_freelinkN(&workspace->layout_types, layout_type);
+}
+
+static void workspace_layout_remove(WorkSpace *workspace, WorkSpaceLayout *layout, Main *bmain)
+{
+	bScreen *screen = BKE_workspace_layout_screen_get(layout);
+
+	BLI_assert(BLI_findindex(&workspace->layouts, layout) >= 0);
+	BKE_libblock_free(bmain, screen);
+	BLI_freelinkN(&workspace->layouts, layout);
+}
+
+
 /* -------------------------------------------------------------------- */
 /* Create, delete, init */
 
@@ -73,9 +89,14 @@ void BKE_workspace_remove(WorkSpace *workspace, Main *bmain)
 {
 	BKE_workspace_layout_iter_begin(layout, workspace->layouts.first)
 	{
-		BKE_workspace_layout_remove(workspace, layout, bmain);
+		workspace_layout_remove(workspace, layout, bmain);
 	}
 	BKE_workspace_layout_iter_end;
+	BKE_workspace_layout_type_iter_begin(layout_type, workspace->layout_types.first)
+	{
+		workspace_layout_type_remove(workspace, layout_type);
+	}
+	BKE_workspace_layout_type_iter_end;
 
 	BKE_libblock_free(bmain, workspace);
 }
@@ -116,13 +137,8 @@ WorkSpaceLayout *BKE_workspace_layout_add(WorkSpace *workspace, bScreen *screen)
 void BKE_workspace_layout_remove(WorkSpace *workspace, WorkSpaceLayout *layout, Main *bmain)
 {
 	WorkSpaceLayoutType *layout_type = layout->type;
-	bScreen *screen = BKE_workspace_layout_screen_get(layout);
-
-	BLI_assert(BLI_findindex(&workspace->layouts, layout) >= 0);
-	BLI_assert(BLI_findindex(&workspace->layout_types, layout_type) >= 0);
-	BKE_libblock_free(bmain, screen);
-	BLI_freelinkN(&workspace->layouts, layout);
-	BLI_freelinkN(&workspace->layout_types, layout_type);
+	workspace_layout_remove(workspace, layout, bmain);
+	workspace_layout_type_remove(workspace, layout_type);
 }
 
 
@@ -143,27 +159,11 @@ void BKE_workspaces_transform_orientation_remove(const ListBase *workspaces, con
 }
 
 /**
- * Checks if \a screen is already used within any workspace. A screen should never be assigned to multiple
- * WorkSpaceLayouts, but that should be ensured outside of the BKE_workspace module and without such checks.
- * Hence, this should only be used as assert check before assigining a screen to a workflow.
- */
-bool workspaces_is_screen_used(const Main *bmain, bScreen *screen)
-{
-	for (WorkSpace *workspace = bmain->workspaces.first; workspace; workspace = workspace->id.next) {
-		if (BKE_workspace_layout_find_exec(workspace, screen)) {
-			return true;
-		}
-	}
-
-	return false;
-}
-
-/**
  * This should only be used directly when it is to be expected that there isn't
  * a layout within \a workspace that wraps \a screen. Usually - especially outside
  * of BKE_workspace - #BKE_workspace_layout_find should be used!
  */
-WorkSpaceLayout *BKE_workspace_layout_find_exec(const WorkSpace *ws, const bScreen *screen)
+static WorkSpaceLayout *workspace_layout_find(const WorkSpace *ws, const bScreen *screen)
 {
 	for (WorkSpaceLayout *layout = ws->layouts.first; layout; layout = layout->next) {
 		if (layout->screen == screen) {
@@ -174,9 +174,25 @@ WorkSpaceLayout *BKE_workspace_layout_find_exec(const WorkSpace *ws, const bScre
 	return NULL;
 }
 
+/**
+ * Checks if \a screen is already used within any workspace. A screen should never be assigned to multiple
+ * WorkSpaceLayouts, but that should be ensured outside of the BKE_workspace module and without such checks.
+ * Hence, this should only be used as assert check before assigining a screen to a workflow.
+ */
+bool workspaces_is_screen_used(const Main *bmain, bScreen *screen)
+{
+	for (WorkSpace *workspace = bmain->workspaces.first; workspace; workspace = workspace->id.next) {
+		if (workspace_layout_find(workspace, screen)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 WorkSpaceLayout *BKE_workspace_layout_find(const WorkSpace *ws, const bScreen *screen)
 {
-	WorkSpaceLayout *layout = BKE_workspace_layout_find_exec(ws, screen);
+	WorkSpaceLayout *layout = workspace_layout_find(ws, screen);
 	if (layout) {
 		return layout;
 	}

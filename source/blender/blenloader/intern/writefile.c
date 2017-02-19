@@ -2882,6 +2882,7 @@ static void write_windowmanagers(WriteData *wd, ListBase *lb)
 		for (wmWindow *win = wm->windows.first; win; win = win->next) {
 			writestruct(wd, DATA, wmWindow, 1, win);
 			writestruct(wd, DATA, Stereo3dFormat, 1, win->stereo3d_format);
+			writelist(wd, DATA, WorkSpaceLayout, &win->workspace_layouts);
 		}
 	}
 

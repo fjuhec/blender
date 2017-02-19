@@ -130,6 +130,17 @@ WorkSpace *ED_workspace_duplicate(WorkSpace *workspace_old, Main *bmain, wmWindo
 		}
 	}
 	BKE_workspace_layout_iter_end;
+#if 0
+	ListBase *layouts_types_old = BKE_workspace_layout_types_get(workspace_old);
+	BKE_workspace_layout_type_iter_begin(layout_type_old, layouts_types_old->first)
+	{
+		const char *name_new = BKE_workspace_layout_type_name_get(layout_type_old);
+		WorkSpaceLayoutType *layout_type_new = BKE_workspace_layout_type_add(workspace_new, name_new);
+
+		
+	}
+	BKE_workspace_layout_type_iter_end;
+#endif
 
 	return workspace_new;
 }

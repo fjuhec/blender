@@ -2772,6 +2772,18 @@ static void lib_link_workspaces(FileData *fd, Main *bmain)
 	BKE_workspace_iter_end;
 }
 
+static void lib_link_workspace_layouts(FileData *fd, const void *lib, ListBase *layouts)
+{
+	BKE_workspace_layout_iter_begin(layout, layouts->first)
+	{
+		bScreen *screen = newlibadr(fd, lib, BKE_workspace_layout_screen_get(layout));
+		if (screen) {
+			BKE_workspace_layout_screen_set(layout, screen);
+		}
+	}
+	BKE_workspace_layout_iter_end;
+}
+
 static void direct_link_workspace(FileData *fd, WorkSpace *ws)
 {
 	WorkSpaceLayout *act_layout = BKE_workspace_active_layout_get(ws);
@@ -6348,6 +6360,7 @@ static void direct_link_windowmanager(FileData *fd, wmWindowManager *wm)
 		if (win->stereo3d_format) {
 			win->stereo3d_format->display_mode = S3D_DISPLAY_ANAGLYPH;
 		}
+		link_list(fd, &win->workspace_layouts);
 	}
 	
 	BLI_listbase_clear(&wm->timers);
@@ -6381,6 +6394,7 @@ static void lib_link_windowmanager(FileData *fd, Main *main)
 			for (win = wm->windows.first; win; win = win->next) {
 				win->scene = newlibadr(fd, wm->id.lib, win->scene);
 				win->workspace = newlibadr(fd, wm->id.lib, win->workspace);
+				lib_link_workspace_layouts(fd, wm->id.lib, &win->workspace_layouts);
 				/* deprecated, but needed for versioning (will be NULL'ed then) */
 				win->screen = newlibadr(fd, NULL, win->screen);
 			}
@@ -7028,21 +7042,15 @@ void blo_lib_link_restore(Main *newmain, wmWindowManager *curwm, Scene *curscene
 {
 	struct IDNameLib_Map *id_map = BKE_main_idmap_create(newmain);
 
-	BKE_workspace_iter_begin(workspace, newmain->workspaces.first)
-	{
-		ListBase *layouts = BKE_workspace_layouts_get(workspace);
+	for (wmWindow *win = curwm->windows.first; win; win = win->next) {
+		Scene *oldscene = win->scene;
+		WorkSpace *workspace = restore_pointer_by_name(id_map, (ID *)win->workspace, USER_REAL);
 
-		BKE_workspace_layout_iter_begin(layout, layouts->first)
+		BKE_workspace_layout_iter_begin(layout, win->workspace_layouts.first)
 		{
 			lib_link_workspace_layout_restore(id_map, newmain, layout);
 		}
 		BKE_workspace_layout_iter_end;
-	}
-	BKE_workspace_iter_end;
-
-	for (wmWindow *win = curwm->windows.first; win; win = win->next) {
-		Scene *oldscene = win->scene;
-		WorkSpace *workspace = restore_pointer_by_name(id_map, (ID *)win->workspace, USER_REAL);
 
 		win->scene = restore_pointer_by_name(id_map, (ID *)win->scene, USER_REAL);
 		if (win->scene == NULL) {
@@ -9877,6 +9885,17 @@ static void expand_gpencil(FileData *fd, Main *mainvar, bGPdata *gpd)
 		expand_animdata(fd, mainvar, gpd->adt);
 }
 
+static void expand_windowmanager(FileData *fd, Main *mainvar, wmWindowManager *wm)
+{
+	for (wmWindow *win = wm->windows.first; win; win = win->next) {
+		BKE_workspace_layout_iter_begin(layout, win->workspace_layouts.first)
+		{
+			expand_doit(fd, mainvar, BKE_workspace_layout_screen_get(layout));
+		}
+		BKE_workspace_layout_iter_end;
+	}
+}
+
 static void expand_workspace(FileData *fd, Main *mainvar, WorkSpace *workspace)
 {
 	ListBase *layouts = BKE_workspace_layouts_get(workspace);
@@ -9999,6 +10018,9 @@ void BLO_expand_main(void *fdhandle, Main *mainvar)
 						break;
 					case ID_CF:
 						expand_cachefile(fd, mainvar, (CacheFile *)id);
+						break;
+					case ID_WM:
+						expand_windowmanager(fd, mainvar, (wmWindowManager *)id);
 						break;
 					case ID_WS:
 						expand_workspace(fd, mainvar, (WorkSpace *)id);

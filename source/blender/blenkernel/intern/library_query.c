@@ -918,6 +918,16 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 
 					CALLBACK_INVOKE(win->scene, IDWALK_CB_USER_ONE);
 
+					BKE_workspace_layout_iter_begin(layout, win->workspace_layouts.first)
+					{
+						bScreen *screen = BKE_workspace_layout_screen_get(layout);
+
+						CALLBACK_INVOKE(screen, IDWALK_CB_NOP);
+						/* allow callback to set a different screen */
+						BKE_workspace_layout_screen_set(layout, screen);
+					}
+					BKE_workspace_layout_iter_end;
+
 					CALLBACK_INVOKE_ID(workspace, IDWALK_CB_NOP);
 					/* allow callback to set a different workspace */
 					win->workspace = (WorkSpace *)workspace;

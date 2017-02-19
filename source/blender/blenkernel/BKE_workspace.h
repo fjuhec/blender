@@ -74,7 +74,6 @@ void BKE_workspaces_transform_orientation_remove(const struct ListBase *workspac
                                                  const struct TransformOrientation *orientation) ATTR_NONNULL();
 
 WorkSpaceLayout *BKE_workspace_layout_find(const WorkSpace *ws, const struct bScreen *screen) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-WorkSpaceLayout *BKE_workspace_layout_find_exec(const WorkSpace *ws, const struct bScreen *screen) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
 
 #define BKE_workspace_layout_iter_begin(_layout, _start_layout) \
 	for (WorkSpaceLayout *_layout = _start_layout, *_layout##_next; _layout; _layout = _layout##_next) { \
