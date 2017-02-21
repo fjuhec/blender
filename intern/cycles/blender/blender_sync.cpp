@@ -653,13 +653,6 @@ SessionParams BlenderSync::get_session_params(BL::RenderEngine& b_engine,
 	}
 
 	/* tiles */
-	/* TODO(mai): Currently the debug_tile_size is really large and without
-	 * automatic tile splitting running out of memory with the split kernel
-	 * is very likely, so for now we just use the user supplied tile size.
-	 *
-	 * This can be reenabled after we find a solution to the memory issues.
-	 */
-#if 0
 	if(params.device.type != DEVICE_CPU && !background) {
 		/* currently GPU could be much slower than CPU when using tiles,
 		 * still need to be investigated, but meanwhile make it possible
@@ -669,9 +662,7 @@ SessionParams BlenderSync::get_session_params(BL::RenderEngine& b_engine,
 
 		params.tile_size = make_int2(debug_tile_size, debug_tile_size);
 	}
-	else
-#endif
-	{
+	else {
 		int tile_x = b_engine.tile_x();
 		int tile_y = b_engine.tile_y();
 
