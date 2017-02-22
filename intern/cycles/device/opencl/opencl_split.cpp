@@ -307,7 +307,7 @@ public:
 		        << string_human_readable_size(max_buffer_size) << ").";
 
 		size_t num_elements = max_elements_for_max_buffer_size(max_buffer_size / 2, task->passes_size);
-		int2 global_size = make_int2(round_up((int)sqrt(num_elements), 64), (int)sqrt(num_elements));
+		int2 global_size = make_int2(round_down((int)sqrt(num_elements), 64), (int)sqrt(num_elements));
 		VLOG(1) << "Global size: " << global_size << ".";
 		return global_size;
 	}

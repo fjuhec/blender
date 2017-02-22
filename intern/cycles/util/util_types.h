@@ -484,6 +484,11 @@ ccl_device_inline int round_up(int x, int multiple)
 	return ((x + multiple - 1) / multiple) * multiple;
 }
 
+ccl_device_inline int round_down(int x, int multiple)
+{
+	return (x / multiple) * multiple;
+}
+
 /* Interpolation types for textures
  * cuda also use texture space to store other objects */
 enum InterpolationType {
