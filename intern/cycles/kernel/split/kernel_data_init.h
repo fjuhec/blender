@@ -173,7 +173,7 @@ void KERNEL_FUNCTION_FULL_NAME(data_init)(
 	                        ray_index);
 	kernel_split_state.work_array[ray_index] = work_index;
 
-	rng_state += tile_x + tile_y*stride;
+	rng_state += kernel_split_params.offset + pixel_x + pixel_y*stride;
 
 	ccl_global float *per_sample_output_buffers = kernel_split_state.per_sample_output_buffers;
 	per_sample_output_buffers += ((tile_x + (tile_y * stride)) + (my_sample_tile)) * kernel_data.film.pass_stride;
