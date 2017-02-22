@@ -90,7 +90,7 @@ void param_delete(ParamHandle *chart);
  */
 
 void add_index_to_vertices(BMEditMesh *em);
-int retrieve_weightmap_index(Object *obedit);
+int retrieve_weightmap_index(Object *obedit, char *vertex_group);
 void param_slim_enrich_handle(Object *obedit,
 							  BMEditMesh *em,
 							  ParamHandle *handle,
@@ -98,6 +98,7 @@ void param_slim_enrich_handle(Object *obedit,
 							  MDeformVert *dvert,
 							  int weightMapIndex,
 							  double weightInfluence,
+							  double relative_scale,
 							  int n_iterations,
 							  bool skip_initialization,
 							  bool pack_islands,
