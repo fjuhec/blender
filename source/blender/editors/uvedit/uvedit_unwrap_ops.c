@@ -511,26 +511,23 @@ static ParamHandle *construct_param_handle_subsurfed(Scene *scene, Object *ob, B
 	return handle;
 }
 
-int setup_weight_transfer(Object *obedit, BMEditMesh *em){
+int setup_weight_transfer(Object *obedit, BMEditMesh *em, char *vertex_group){
 
-	int defgrp_index = retrieve_weightmap_index(obedit);
-
-	if (defgrp_index >= 0) {
-		//add_index_to_vertices(em);
-	}
+	int defgrp_index = retrieve_weightmap_index(obedit, vertex_group);
 
 	return defgrp_index;
 }
 
 void enrich_handle_slim(Scene *scene, Object *obedit, BMEditMesh *em, ParamHandle *handle, matrix_transfer *mt) {
 
-	int weightMapIndex = setup_weight_transfer(obedit, em);
+	int weightMapIndex = setup_weight_transfer(obedit, em, scene->toolsettings->slim_vertex_group);
 	bool with_weighted_parameterization = (weightMapIndex >=0);
 
 	int n_iterations = scene->toolsettings->slim_n_iterations;
 	bool skip_initialization = scene->toolsettings->slim_skip_initialization;
 	bool pack_islands = scene->toolsettings->slim_pack_islands;
 	double weight_influence = scene->toolsettings->slim_weight_influence;
+	double relative_scale = scene->toolsettings->slim_relative_scale;
 
 	MDeformVert *weightMapData = NULL;
 
@@ -547,6 +544,7 @@ void enrich_handle_slim(Scene *scene, Object *obedit, BMEditMesh *em, ParamHandl
 							 weightMapData,
 							 weightMapIndex,
 							 weight_influence,
+							 relative_scale,
 							 n_iterations,
 							 skip_initialization,
 							 pack_islands,
@@ -899,8 +897,8 @@ static void minimize_stretch_SLIM_exit(bContext *C, wmOperator *op, bool cancel)
 	param_flush(mss->handle);
 	param_delete(mss->handle);
 
-	free_matrix_transfer(mss->mt);
 	free_slimPtrs(mss->slimPtrs, mss->mt->nCharts);
+	free_matrix_transfer(mss->mt);
 	MEM_freeN(mss->slimPtrs);
 	MEM_freeN(mss);
 	op->customdata = NULL;
@@ -1477,14 +1475,17 @@ void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
 
 	if (use_slim_method){
 		matrix_transfer *mt = MEM_callocN(sizeof(matrix_transfer), "matrix transfer data");
+		mt->slim_reflection_mode = scene->toolsettings->slim_reflection_mode;
 		enrich_handle_slim(scene, obedit, em, handle, mt);
 	}
 
 	param_begin(handle, scene->toolsettings->unwrapper == 0, use_slim_method);
 	param_solve(handle, use_slim_method);
+	bool transform = (!use_slim_method || transformIslands(handle));
 	param_end(handle, use_slim_method);
 
-	if (!use_slim_method || transformIslands(handle)){
+	if (transform){
+		printf("packing & scaling islands");
 		param_average(handle);
 		param_pack(handle, scene->toolsettings->uvcalc_margin, false);
 	}
@@ -1502,6 +1503,11 @@ static int unwrap_exec(bContext *C, wmOperator *op)
 
 	int n_slim_iterations = RNA_int_get(op->ptr, "slim_iterations");
 	double slim_weight_influence = RNA_float_get(op->ptr, "slim_weight_influence");
+	double slim_relative_scale = RNA_float_get(op->ptr, "slim_relative_scale");
+	int slim_reflection_mode = RNA_enum_get(op->ptr, "slim_reflection_mode");
+
+	char slim_vertex_group[64];
+	RNA_string_get(op->ptr, "slim_vertex_group", slim_vertex_group);
 
 	const bool fill_holes = RNA_boolean_get(op->ptr, "fill_holes");
 	const bool correct_aspect = RNA_boolean_get(op->ptr, "correct_aspect");
@@ -1536,6 +1542,9 @@ static int unwrap_exec(bContext *C, wmOperator *op)
 	/* get number of iterations and method in global phase for SLIM unwraping*/
 	scene->toolsettings->slim_n_iterations = n_slim_iterations;
 	scene->toolsettings->slim_weight_influence = slim_weight_influence;
+	scene->toolsettings->slim_reflection_mode = slim_reflection_mode;
+	scene->toolsettings->slim_relative_scale = slim_relative_scale;
+	scene->toolsettings->slim_vertex_group = slim_vertex_group;
 
 	/* remember packing marging */
 	if (RNA_struct_property_is_set(op->ptr, "margin"))
@@ -1576,6 +1585,12 @@ void UV_OT_unwrap(wmOperatorType *ot)
 		{0, NULL, 0, NULL, NULL}
 	};
 
+	static EnumPropertyItem reflection_items[] = {
+		{0, "ALLOW", 0, "Allow Flips", ""},
+		{1, "DISALLOW", 0, "Don't Allow Flips", ""},
+		{0, NULL, 0, NULL, NULL}
+	};
+
 	/* identifiers */
 	ot->name = "Unwrap";
 	ot->description = "Unwrap the mesh of the object being edited";
@@ -1597,8 +1612,17 @@ void UV_OT_unwrap(wmOperatorType *ot)
 	                "Map UVs taking vertex position after Subdivision Surface modifier has been applied");
 	RNA_def_float_factor(ot->srna, "margin", 0.001f, 0.0f, 1.0f, "Margin", "Space between islands", 0.0f, 1.0f);
 
-	RNA_def_int(ot->srna, "slim_iterations", 1, 0, 10000, "SLIM Iterations",
+	RNA_def_enum(ot->srna, "slim_reflection_mode", reflection_items, 0, "SLIM Reflection Mode",
+				 "Allowing reflections means that depending on the position of pins, the map may be flipped. Lower distortion.");
+	RNA_def_int(ot->srna, "slim_iterations", 1, -10, 10000, "SLIM Iterations",
 				"Number of Iterations if the SLIM algorithm is used.", 1, 30);
+	RNA_def_float(ot->srna, "slim_relative_scale", 1.0, 0.001, 1000.0, "SLIM Relative Scale",
+				  "Relative Scale of UV Map with respect to pins.", 0.1, 10.0);
+
+	PropertyRNA *prop;
+	prop = RNA_def_property(ot->srna, "slim_vertex_group", PROP_STRING, PROP_NONE);
+	RNA_def_property_ui_text(prop, "Vertex Group", "Vertex group name for modulating the deform");
+
 	RNA_def_float(ot->srna, "slim_weight_influence", 1.0, -10000.0, 10000.0, "SLIM Weight Map Influence",
 				"How much influence the weightmap has for weighted parameterization, 0 being no influence.", 0.0, 10.0);
 }

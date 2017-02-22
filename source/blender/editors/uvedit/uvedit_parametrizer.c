@@ -253,6 +253,7 @@ typedef struct PHandle {
 	MDeformVert *weightMapData;
 	int weightMapIndex;
 	double weightInfluence;
+	double relative_scale;
 	BMesh *bm;
 
 } PHandle;
@@ -4360,9 +4361,8 @@ void add_index_to_vertices(BMEditMesh *em){
 	}
 }
 
-int retrieve_weightmap_index(Object *obedit){
-	char *name = "slim";
-	return defgroup_name_index(obedit, name);
+int retrieve_weightmap_index(Object *obedit, char *vertex_group){
+	return defgroup_name_index(obedit, vertex_group);
 }
 
 void param_slim_enrich_handle(Object *obedit,
@@ -4372,6 +4372,7 @@ void param_slim_enrich_handle(Object *obedit,
 							  MDeformVert *dvert,
 							  int weightMapIndex,
 							  double weightInfluence,
+							  double relative_scale,
 							  int n_iterations,
 							  bool skip_initialization,
 							  bool pack_islands,
@@ -4387,6 +4388,7 @@ void param_slim_enrich_handle(Object *obedit,
 	phandle->weightMapData = dvert;
 	phandle->weightMapIndex = weightMapIndex;
 	phandle->weightInfluence = weightInfluence;
+	phandle->relative_scale = relative_scale;
 	phandle->bm = em->bm;
 }
 
@@ -4428,7 +4430,6 @@ void param_slim_end(ParamHandle *handle) {
 	PHandle *phandle = (PHandle *) handle;
 	matrix_transfer *mt = phandle->mt;
 	set_uv_param_slim(handle, mt);
-	free_matrix_transfer(mt);
 }
 
 
@@ -4835,6 +4836,7 @@ void transfer_data_to_slim(ParamHandle *handle){
 	mt->transform_islands = true;
 	mt->with_weighted_parameterization = phandle->with_weighted_parameterization;
 	mt->weight_influence = phandle->weightInfluence;
+	mt->relative_scale = phandle->relative_scale;
 	convert_blender_slim(handle, false, phandle->weightMapIndex);
 }
 

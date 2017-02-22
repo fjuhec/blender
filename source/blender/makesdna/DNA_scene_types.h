@@ -1458,8 +1458,13 @@ typedef struct ToolSettings {
 	char uv_flag;
 	char uv_selectmode;
 	/* AUREL THESIS*/
+
+
+	float slim_weight_influence;
+	double slim_relative_scale;
+	char *slim_vertex_group;
 	int slim_n_iterations;
-	double slim_weight_influence;
+	int slim_reflection_mode;
 	int slim_skip_initialization;
 	int slim_fixed_boundary;
 	int slim_pack_islands;
