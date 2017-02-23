@@ -631,6 +631,7 @@ wmWindow *WM_window_open(bContext *C, const rcti *rect)
 wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
 {
 	Main *bmain = CTX_data_main(C);
+	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *win_prev = CTX_wm_window(C);
 	wmWindow *win;
 	bScreen *screen;
@@ -644,7 +645,7 @@ wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
 	wm_window_check_position(&rect);
 	
 	/* test if we have a temp screen already */
-	for (win = CTX_wm_manager(C)->windows.first; win; win = win->next)
+	for (win = wm->windows.first; win; win = win->next)
 		if (WM_window_is_temp_screen(win))
 			break;
 	
@@ -673,8 +674,11 @@ wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
 
 	if (screen == NULL) {
 		/* add new screen layout */
-		WorkSpaceLayout *layout = ED_workspace_layout_add(WM_window_get_active_workspace(win), win, "temp");
+		WorkSpace *workspace = WM_window_get_active_workspace(win);
+		WorkSpaceLayout *layout;
 
+		ED_workspace_layout_add(workspace, &wm->windows, "temp");
+		layout = BKE_workspace_active_layout_get(workspace);
 		screen = BKE_workspace_layout_screen_get(layout);
 		WM_window_set_active_layout(win, layout);
 	}
@@ -707,7 +711,7 @@ wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
 	}
 	
 	ED_screen_change(C, screen);
-	ED_screen_refresh(CTX_wm_manager(C), win); /* test scale */
+	ED_screen_refresh(wm, win); /* test scale */
 	
 	if (sa->spacetype == SPACE_IMAGE)
 		title = IFACE_("Blender Render");
@@ -724,7 +728,7 @@ wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
 	}
 	else {
 		/* very unlikely! but opening a new window can fail */
-		wm_window_close(C, CTX_wm_manager(C), win);
+		wm_window_close(C, wm, win);
 		CTX_wm_window_set(C, win_prev);
 
 		return NULL;

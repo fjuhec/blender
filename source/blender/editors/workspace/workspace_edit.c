@@ -120,7 +120,7 @@ WorkSpace *ED_workspace_duplicate(WorkSpace *workspace_old, Main *bmain, wmWindo
 
 	BKE_workspace_layout_iter_begin(layout_old, layouts_old->first)
 	{
-		WorkSpaceLayout *layout_new = ED_workspace_layout_duplicate(workspace_new, layout_old, win);
+		WorkSpaceLayout *layout_new = ED_workspace_layout_duplicate(workspace_new, layout_old, bmain->wm.first);
 
 		if (layout_active_old == layout_old) {
 			bScreen *screen_new = BKE_workspace_layout_screen_get(layout_new);

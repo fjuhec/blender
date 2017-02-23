@@ -246,10 +246,8 @@ static void wm_window_match_do(bContext *C, ListBase *oldwmlist)
 
 			/* when loading without UI, no matching needed */
 			if (!(G.fileflags & G_FILE_NO_UI) && (screen = CTX_wm_screen(C))) {
-
 				/* match oldwm to new dbase, only old files */
 				for (wm = oldwmlist->first; wm; wm = wm->id.next) {
-					
 					for (win = wm->windows.first; win; win = win->next) {
 						/* all windows get active screen from file */
 						if (screen->winid == 0) {
@@ -258,7 +256,7 @@ static void wm_window_match_do(bContext *C, ListBase *oldwmlist)
 						else {
 							WorkSpace *workspace = WM_window_get_active_workspace(win);
 							WorkSpaceLayout *layout_old = WM_window_get_active_layout(win);
-							WorkSpaceLayout *layout_new = ED_workspace_layout_duplicate(workspace, layout_old, win);
+							WorkSpaceLayout *layout_new = ED_workspace_layout_duplicate(workspace, layout_old, wm);
 
 							WM_window_set_active_layout(win, layout_new);
 						}

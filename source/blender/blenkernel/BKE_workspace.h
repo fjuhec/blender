@@ -57,7 +57,7 @@ void BKE_workspace_free(WorkSpace *ws);
 void BKE_workspace_remove(WorkSpace *workspace, struct Main *bmain);
 
 WorkSpaceLayout *BKE_workspace_layout_add_from_type(WorkSpace *workspace, WorkSpaceLayoutType *type, struct bScreen *screen) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-WorkSpaceLayoutType *BKE_workspace_layout_type_add(WorkSpace *workspace, struct bScreen *screen) ATTR_NONNULL();
+WorkSpaceLayoutType *BKE_workspace_layout_type_add(WorkSpace *workspace, const char *name) ATTR_NONNULL();
 WorkSpaceLayout *BKE_workspace_layout_add(WorkSpace *workspace, struct bScreen *screen) ATTR_NONNULL();
 void BKE_workspace_layout_remove(WorkSpace *workspace, WorkSpaceLayout *layout, struct Main *bmain) ATTR_NONNULL();
 

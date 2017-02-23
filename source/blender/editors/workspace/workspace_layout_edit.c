@@ -43,20 +43,28 @@
 
 
 /**
- * Empty screen, with 1 dummy area without spacedata. Uses window size.
+ * Creates an layout type for \a workspace and layout instances for all windows showing this workspace.
+ * Layout instances get an empty screen, with 1 dummy area without spacedata. Uses window size.
  */
-WorkSpaceLayout *ED_workspace_layout_add(WorkSpace *workspace, wmWindow *win, const char *name)
+void ED_workspace_layout_add(WorkSpace *workspace, ListBase *windows, const char *name)
 {
-	const int winsize_x = WM_window_pixels_x(win);
-	const int winsize_y = WM_window_pixels_y(win);
+	WorkSpaceLayoutType *layout_type = BKE_workspace_layout_type_add(workspace, name);
 
-	bScreen *screen = screen_add(win, name, winsize_x, winsize_y);
-	WorkSpaceLayout *layout = BKE_workspace_layout_add(workspace, screen);
+	for (wmWindow *win = windows->first; win; win = win->next) {
+		if (win->workspace == workspace) {
+			const int winsize_x = WM_window_pixels_x(win);
+			const int winsize_y = WM_window_pixels_y(win);
+			bScreen *screen = screen_add(win, name, winsize_x, winsize_y);
+			WorkSpaceLayout *layout = BKE_workspace_layout_add_from_type(workspace, layout_type, screen);
 
-	return layout;
+			BLI_addhead(&win->workspace_layouts, layout);
+			BKE_workspace_active_layout_set(workspace, layout);
+		}
+	}
 }
 
-WorkSpaceLayout *ED_workspace_layout_duplicate(WorkSpace *workspace, const WorkSpaceLayout *layout_old, wmWindow *win)
+WorkSpaceLayout *ED_workspace_layout_duplicate(WorkSpace *workspace, const WorkSpaceLayout *layout_old,
+                                               wmWindowManager *wm)
 {
 	bScreen *screen_old = BKE_workspace_layout_screen_get(layout_old);
 	bScreen *screen_new;
@@ -66,7 +74,8 @@ WorkSpaceLayout *ED_workspace_layout_duplicate(WorkSpace *workspace, const WorkS
 		return NULL; /* XXX handle this case! */
 	}
 
-	layout_new = ED_workspace_layout_add(workspace, win, screen_old->id.name + 2);
+	ED_workspace_layout_add(workspace, &wm->windows, screen_old->id.name + 2);
+	layout_new = BKE_workspace_active_layout_get(workspace);
 	screen_new = BKE_workspace_layout_screen_get(layout_new);
 	screen_data_copy(screen_new, screen_old);
 

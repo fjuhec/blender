@@ -1515,7 +1515,8 @@ ScrArea *ED_screen_state_toggle(bContext *C, wmWindow *win, ScrArea *sa, const s
 		oldscreen->state = state;
 		BLI_snprintf(newname, sizeof(newname), "%s-%s", oldscreen->id.name + 2, "nonnormal");
 
-		layout_new = ED_workspace_layout_add(workspace, win, newname);
+		ED_workspace_layout_add(workspace, &wm->windows, newname);
+		layout_new = BKE_workspace_active_layout_get(workspace);
 
 		sc = BKE_workspace_layout_screen_get(layout_new);
 		sc->state = state;

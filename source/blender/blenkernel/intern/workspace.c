@@ -115,11 +115,11 @@ WorkSpaceLayout *BKE_workspace_layout_add_from_type(WorkSpace *workspace, WorkSp
 	return layout;
 }
 
-WorkSpaceLayoutType *BKE_workspace_layout_type_add(WorkSpace *workspace, bScreen *screen)
+WorkSpaceLayoutType *BKE_workspace_layout_type_add(WorkSpace *workspace, const char *name)
 {
 	WorkSpaceLayoutType *layout_type = MEM_mallocN(sizeof(*layout_type), __func__);
 
-	layout_type->name = screen->id.name + 2;
+	layout_type->name = name;
 	BLI_addhead(&workspace->layout_types, layout_type);
 
 	return layout_type;
@@ -130,7 +130,7 @@ WorkSpaceLayoutType *BKE_workspace_layout_type_add(WorkSpace *workspace, bScreen
  */
 WorkSpaceLayout *BKE_workspace_layout_add(WorkSpace *workspace, bScreen *screen)
 {
-	WorkSpaceLayoutType *layout_type = BKE_workspace_layout_type_add(workspace, screen);
+	WorkSpaceLayoutType *layout_type = BKE_workspace_layout_type_add(workspace, screen->id.name + 2);
 	return BKE_workspace_layout_add_from_type(workspace, layout_type, screen);
 }
 
