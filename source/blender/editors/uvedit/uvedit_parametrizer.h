@@ -112,16 +112,12 @@ void param_begin(ParamHandle *handle, ParamBool abf, bool useSlim);
 void param_solve(ParamHandle *handle, bool useSlim);
 void param_end(ParamHandle *handle, bool useSlim);
 
-/* Least Squares Conformal Maps:
+/* SLIM:
  * -----------------------------
- * - charts with less than two pinned vertices are assigned 2 pins
- * - lscm is divided in three steps:
- * - begin: compute matrix and it's factorization (expensive)
- * - solve using pinned coordinates (cheap)
+ * - begin: Data is gathered into matrices and transferred to SLIM
+ * - solve: compute cheap initialization (if necessary) and refine iteratively
  * - end: clean up
- * - uv coordinates are allowed to change within begin/end, for
- *   quick re-solving
- */
+*/
 
 void param_slim_begin(ParamHandle *handle);
 void param_slim_solve(ParamHandle *handle);
