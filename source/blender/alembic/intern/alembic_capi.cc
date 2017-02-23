@@ -507,11 +507,10 @@ static int visit_object(const IObject &object,
 //		          << " with data " << reader->data_name();
 	}
 	else {
-		std::cerr << "object is of unsupported schema type "
-		          << "'" << object.getMetaData().get("schemaObjTitle") << "'"
+		std::cerr << "Alembic object " << full_name
+		          << " is of unsupported schema type '"
+		          << object.getMetaData().get("schemaObjTitle") << "'"
 		          << std::endl;
-		BLI_assert(false);
-		return false;
 	}
 
 //	std::cerr << std::endl;
