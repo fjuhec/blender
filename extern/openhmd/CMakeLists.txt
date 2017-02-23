@@ -33,6 +33,7 @@ set(SRC
 	src/omath.c
 	src/platform-posix.c
 	src/fusion.c
+	src/queue.c
 )
 
 # TODO: Either remove this or move to main CMakeLists.txt
