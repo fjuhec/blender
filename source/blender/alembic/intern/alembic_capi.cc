@@ -376,7 +376,7 @@ void ABC_export(
 
 /* ********************** Import file ********************** */
 
-static int visit_object(const IObject &object,
+static int visit_object(IObject object,
                          std::vector<AbcObjectReader *> &readers,
                          GHash *readers_map,
                          ImportSettings &settings)
@@ -514,6 +514,17 @@ static int visit_object(const IObject &object,
 	}
 
 //	std::cerr << std::endl;
+
+	if (object.isInstanceRoot()) {
+		std::cerr << "Alembic object " << full_name
+		          << " is an instance of other object "
+		          << object.instanceSourcePath()
+		          << ", ignoring for now." << std::endl;
+		if (reader) {
+			delete reader;
+			reader = NULL;
+		}
+	}
 
 	if (reader) {
 		readers.push_back(reader);
