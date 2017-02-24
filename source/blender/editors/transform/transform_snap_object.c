@@ -2638,7 +2638,7 @@ static bool transform_snap_context_project_view3d_mixed_impl(
 					snpdt->clip.plane = temp_plane;
 #else
 					snpdt->clip.plane = MEM_reallocN(
-					        snpdt->clip.plane, sizeof(*snpdt->clip.plane) * snpdt->clip.plane_num + 1);
+					        snpdt->clip.plane, sizeof(*snpdt->clip.plane) * (snpdt->clip.plane_num + 1));
 #endif
 				}
 				else {
