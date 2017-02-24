@@ -1873,6 +1873,8 @@ static bool snapDerivedMesh(
 		}
 	}
 
+	dm->release(dm);
+
 	return retval;
 }
 
