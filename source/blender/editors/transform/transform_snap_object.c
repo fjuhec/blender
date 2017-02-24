@@ -23,6 +23,7 @@
  */
 
 #include <stdlib.h>
+#include <limits.h>
 #include <math.h>
 #include <float.h>
 #include <stdio.h>
@@ -1590,9 +1591,9 @@ static bool snapCamera(
 
 static const BVHTreeFromMesh *G_treedata = NULL;
 static uint G_ed_num = 0;
-static void G_test_ed(char *func) {
+static void G_test_ed(const char *pre, const char *func, const char *post) {
 	if (G_treedata && G_treedata->edge) {
-		printf("%s\n", func);
+		printf("%s%s%s\n", pre, func, post);
 		printf("edge_allocated = %s\n", G_treedata->edge_allocated ? "True" : "False");
 		const MEdge *ed = &G_treedata->edge[G_ed_num - 1];
 		printf("reading edge %d:\n", G_ed_num - 1);
@@ -1871,7 +1872,7 @@ static bool snapDerivedMesh(
 
 			G_treedata = treedata_lt;
 			G_ed_num = dm->getNumEdges(dm);
-			G_test_ed("***start***\n"__func__);
+			G_test_ed("***start***\n", __func__, "");
 
 			copy_v3_v3(r_loc, neasrest2d.co);
 			mul_m4_v3(obmat, r_loc);
@@ -1889,9 +1890,9 @@ static bool snapDerivedMesh(
 		}
 	}
 
-	G_test_ed(__func__": before release");
+	G_test_ed("", __func__, ": before release");
 	dm->release(dm);
-	G_test_ed(__func__": after release :(");
+	G_test_ed("", __func__, ": after release :(");
 
 	return retval;
 }
