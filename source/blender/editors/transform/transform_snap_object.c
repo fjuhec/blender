@@ -1588,18 +1588,6 @@ static bool snapCamera(
 	return retval;
 }
 
-static const BVHTreeFromMesh *G_treedata = NULL;
-static uint G_ed_num = 0;
-static void G_test_ed(char *func) {
-	if (G_treedata && G_treedata->edge) {
-		printf("%s\n", func);
-		printf("edge_allocated = %s\n", G_treedata->edge_allocated ? "True" : "False");
-		const MEdge *ed = &G_treedata->edge[G_ed_num - 1];
-		printf("reading edge %d:\n", G_ed_num - 1);
-		printf("\t[v1, v2: %d, %d]\n", ed->v1, ed->v2);
-	}
-}
-
 static bool snapDerivedMesh(
         SnapObjectContext *sctx, SnapData *snpdt,
         Object *ob, float obmat[4][4], const unsigned int ob_index,
@@ -1779,6 +1767,9 @@ static bool snapDerivedMesh(
 		}
 
 		if (snpdt->snap_to_flag & SCE_SELECT_VERTEX) {
+			if (!treedata_lt->edge_allocated) { /* Snap to edges may already have been used before */
+				treedata_lt->edge = DM_get_edge_array(dm, &treedata_lt->edge_allocated);
+			}
 			if (sod->has_loose_vert) {
 				/* the tree is owned by the DM and may have been freed since we last used! */
 				if (sod->bvh_trees[0] && !bvhcache_has_tree(dm->bvhCache, sod->bvh_trees[0])) {
@@ -1786,9 +1777,6 @@ static bool snapDerivedMesh(
 					sod->bvh_trees[0] = NULL;
 				}
 				if (sod->bvh_trees[0] == NULL) {
-					if (treedata_lt->edge == NULL) { /* Snap to edges may already have been used before */
-						treedata_lt->edge = DM_get_edge_array(dm, &treedata_lt->edge_allocated);
-					}
 					sod->bvh_trees[0] = snp_bvhtree_from_mesh_loose_verts(
 					        dm, treedata_lt->edge, treedata_lt->vert);
 
@@ -1797,6 +1785,9 @@ static bool snapDerivedMesh(
 			}
 		}
 		if (snpdt->snap_to_flag & SCE_SELECT_EDGE) {
+			if (!treedata_lt->edge_allocated) {
+				treedata_lt->edge = DM_get_edge_array(dm, &treedata_lt->edge_allocated);
+			}
 			if (sod->has_loose_edge) {
 				/* the tree is owned by the DM and may have been freed since we last used! */
 				if (sod->bvh_trees[1] && !bvhcache_has_tree(dm->bvhCache, sod->bvh_trees[1])) {
@@ -1804,9 +1795,6 @@ static bool snapDerivedMesh(
 					sod->bvh_trees[1] = NULL;
 				}
 				if (sod->bvh_trees[1] == NULL) {
-					if (treedata_lt->edge == NULL) {
-						treedata_lt->edge = DM_get_edge_array(dm, &treedata_lt->edge_allocated);
-					}
 					sod->bvh_trees[1] = snp_bvhtree_from_mesh_loose_edges(
 					        dm, treedata_lt->edge, treedata_lt->vert);
 
@@ -1869,10 +1857,6 @@ static bool snapDerivedMesh(
 
 		if ((neasrest2d.vert_index != -1) || (neasrest2d.edge_index != -1)) {
 
-			G_treedata = treedata_lt;
-			G_ed_num = dm->getNumEdges(dm);
-			G_test_ed("***start***\n"__func__);
-
 			copy_v3_v3(r_loc, neasrest2d.co);
 			mul_m4_v3(obmat, r_loc);
 			if (r_no) {
@@ -1888,10 +1872,6 @@ static bool snapDerivedMesh(
 			retval = true;
 		}
 	}
-
-	G_test_ed(__func__": before release");
-	dm->release(dm);
-	G_test_ed(__func__": after release :(");
 
 	return retval;
 }
