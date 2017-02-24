@@ -1980,7 +1980,7 @@ static bool bvhtree_walk_dfs_recursive(
 		return walk_leaf_cb((const BVHTreeAxisRange *)node->bv, node->index, parent_flag, userdata);
 	}
 	else {
-		short i;
+		int i;
 		/* First pick the closest node to recurse into */
 		if (walk_order_cb((const BVHTreeAxisRange *)node->bv, node->main_axis, parent_flag, userdata)) {
 			for (i = 0; i != node->totnode; i++) {

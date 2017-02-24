@@ -23,6 +23,7 @@
  */
 
 #include <stdlib.h>
+#include <limits.h>
 #include <math.h>
 #include <float.h>
 #include <stdio.h>
@@ -1856,7 +1857,6 @@ static bool snapDerivedMesh(
 		snp_free_nearestdata(&localdata.nearest);
 
 		if ((neasrest2d.vert_index != -1) || (neasrest2d.edge_index != -1)) {
-
 			copy_v3_v3(r_loc, neasrest2d.co);
 			mul_m4_v3(obmat, r_loc);
 			if (r_no) {
@@ -2617,7 +2617,7 @@ static bool transform_snap_context_project_view3d_mixed_impl(
 					snpdt->clip.plane = temp_plane;
 #else
 					snpdt->clip.plane = MEM_reallocN(
-					        snpdt->clip.plane, sizeof(*snpdt->clip.plane) * snpdt->clip.plane_num + 1);
+					        snpdt->clip.plane, sizeof(*snpdt->clip.plane) * (snpdt->clip.plane_num + 1));
 #endif
 				}
 				else {
