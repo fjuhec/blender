@@ -1759,18 +1759,14 @@ static bool snapDerivedMesh(
 		}
 	}
 	else { /* TODO (Germano): separate raycast from nearest */
-
-		/* If the tree continues NULL, probably there are no looptris :\
-		 * In this case, at least take the vertices */
-		if (treedata_lt->vert == NULL) {
-			/* Get the vert array again, to use in the snap to verts or edges */
+		if (treedata_lt->vert == NULL) { /* Use !treedata_lt->vert_allocated? */
 			treedata_lt->vert = DM_get_vert_array(dm, &treedata_lt->vert_allocated);
+		}
+		if (!treedata_lt->edge_allocated) { /* The reference can be lost in dm->release(dm); */
+			treedata_lt->edge = DM_get_edge_array(dm, &treedata_lt->edge_allocated);
 		}
 
 		if (snpdt->snap_to_flag & SCE_SELECT_VERTEX) {
-			if (!treedata_lt->edge_allocated) { /* Snap to edges may already have been used before */
-				treedata_lt->edge = DM_get_edge_array(dm, &treedata_lt->edge_allocated);
-			}
 			if (sod->has_loose_vert) {
 				/* the tree is owned by the DM and may have been freed since we last used! */
 				if (sod->bvh_trees[0] && !bvhcache_has_tree(dm->bvhCache, sod->bvh_trees[0])) {
@@ -1785,10 +1781,8 @@ static bool snapDerivedMesh(
 				}
 			}
 		}
+
 		if (snpdt->snap_to_flag & SCE_SELECT_EDGE) {
-			if (!treedata_lt->edge_allocated) {
-				treedata_lt->edge = DM_get_edge_array(dm, &treedata_lt->edge_allocated);
-			}
 			if (sod->has_loose_edge) {
 				/* the tree is owned by the DM and may have been freed since we last used! */
 				if (sod->bvh_trees[1] && !bvhcache_has_tree(dm->bvhCache, sod->bvh_trees[1])) {
@@ -1833,21 +1827,21 @@ static bool snapDerivedMesh(
 			flag |= ISECT_CLIP_PLANE;
 		}
 
-		if (sod->bvh_trees[0]) { /* VERTS */
+		if (sod->bvh_trees[0]) { /* LOOSE_VERTS */
 			BLI_bvhtree_walk_dfs(
 			        sod->bvh_trees[0],
 			        cb_walk_parent_snap_project, cb_walk_leaf_snap_vert,
 			        cb_nearest_walk_order, flag, &neasrest2d);
 		}
 
-		if (sod->bvh_trees[1]) { /* EDGES */
+		if (sod->bvh_trees[1]) { /* LOOSE_EDGES */
 			BLI_bvhtree_walk_dfs(
 			        sod->bvh_trees[1],
 			        cb_walk_parent_snap_project, cb_walk_leaf_snap_edge,
 			        cb_nearest_walk_order, flag, &neasrest2d);
 		}
 
-		if (treedata_lt->tree) { /* LOOPTRIS */
+		if (treedata_lt->tree) { /* LOOPTRIS (for non loose Verts and Egdes) */
 			BLI_bvhtree_walk_dfs(
 			        treedata_lt->tree,
 			        cb_walk_parent_snap_project, cb_walk_leaf_snap_tri,
