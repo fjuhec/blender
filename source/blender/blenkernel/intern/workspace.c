@@ -141,6 +141,16 @@ void BKE_workspace_layout_remove(WorkSpace *workspace, WorkSpaceLayout *layout, 
 	workspace_layout_type_remove(workspace, layout_type);
 }
 
+WorkSpaceHook *BKE_workspace_hook_new(void)
+{
+	return MEM_callocN(sizeof(WorkSpaceHook), __func__);
+}
+
+void BKE_workspace_hook_delete(WorkSpaceHook *hook)
+{
+	MEM_freeN(hook);
+}
+
 
 /* -------------------------------------------------------------------- */
 /* General Utils */
@@ -336,4 +346,27 @@ WorkSpaceLayout *BKE_workspace_layout_next_get(const WorkSpaceLayout *layout)
 WorkSpaceLayout *BKE_workspace_layout_prev_get(const WorkSpaceLayout *layout)
 {
 	return layout->prev;
+}
+
+WorkSpace *BKE_workspace_active_get(const WorkSpaceHook *hook)
+{
+	return hook->act_workspace;
+}
+void BKE_workspace_active_set(WorkSpaceHook *hook, WorkSpace *workspace)
+{
+	hook->act_workspace = workspace;
+}
+
+WorkSpace *BKE_workspace_active_delayed_get(const WorkSpaceHook *hook)
+{
+	return hook->new_workspace;
+}
+void BKE_workspace_active_delayed_set(WorkSpaceHook *hook, WorkSpace *workspace)
+{
+	hook->new_workspace = workspace;
+}
+
+ListBase *BKE_workspace_hook_layouts_get(WorkSpaceHook *workspace_hook)
+{
+	return &workspace_hook->layouts;
 }

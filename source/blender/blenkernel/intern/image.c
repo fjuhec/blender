@@ -2542,7 +2542,8 @@ void BKE_image_walk_all_users(const Main *mainp, void *customdata,
 	/* image window, compo node users */
 	for (wm = mainp->wm.first; wm; wm = wm->id.next) { /* only 1 wm */
 		for (win = wm->windows.first; win; win = win->next) {
-			const bScreen *screen = BKE_workspace_active_screen_get(win->workspace);
+			WorkSpace *workspace = BKE_workspace_active_get(win->workspace_hook);
+			const bScreen *screen = BKE_workspace_active_screen_get(workspace);
 
 			for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
 				if (sa->spacetype == SPACE_VIEW3D) {

@@ -1086,6 +1086,7 @@ static void current_screen_compat(Main *mainvar, bScreen **r_screen, Scene **r_s
 {
 	wmWindowManager *wm;
 	wmWindow *window = NULL;
+	WorkSpace *workspace;
 
 	/* find a global current screen in the first open window, to have
 	 * a reasonable default for reading in older versions */
@@ -1110,7 +1111,8 @@ static void current_screen_compat(Main *mainvar, bScreen **r_screen, Scene **r_s
 		}
 	}
 
-	*r_screen = (window) ? BKE_workspace_active_screen_get(window->workspace) : NULL;
+	workspace = BKE_workspace_active_get(window->workspace_hook);
+	*r_screen = (window) ? BKE_workspace_active_screen_get(workspace) : NULL;
 	*r_scene = (window) ? window->scene : NULL;
 }
 
@@ -2906,7 +2908,7 @@ static void write_windowmanagers(WriteData *wd, ListBase *lb)
 		for (wmWindow *win = wm->windows.first; win; win = win->next) {
 			writestruct(wd, DATA, wmWindow, 1, win);
 			writestruct(wd, DATA, Stereo3dFormat, 1, win->stereo3d_format);
-			writelist(wd, DATA, WorkSpaceLayout, &win->workspace_layouts);
+			writelist(wd, DATA, WorkSpaceLayout, BKE_workspace_hook_layouts_get(win->workspace_hook));
 		}
 	}
 

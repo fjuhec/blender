@@ -59,10 +59,27 @@ typedef struct WorkSpace {
 	ListBase layouts;
 	struct WorkSpaceLayoutType *act_layout_type;
 	struct WorkSpaceLayout *act_layout;
-	struct WorkSpaceLayout *new_layout; /* temporary when switching screens */
+	/* We can't switch layout from within handlers since handler loop
+	 * heavily depends on layout, so we store it here and change later */
+	struct WorkSpaceLayout *new_layout;
 
 	int object_mode; /* enum ObjectMode */
 	int pad;
 } WorkSpace;
+
+/**
+ * This struct is the bridge between workspaces and the entity type they belong to, currently wmWindow.
+ * It makes it possible to manage workspace data completely on workspace level, totally separate from wmWindow.
+ */
+typedef struct WorkSpaceHook {
+	WorkSpace *act_workspace;
+	/* We can't switch workspace from within handlers since handler loop
+	 * heavily depends on workspace, so we store it here and change later */
+	WorkSpace *new_workspace; /* temporary when switching */
+
+	/* To support opening a workspace in multiple windows while keeping the individual layouts independent, each
+	 * window stores a list of layouts that is synced with a list of layout-type definitions from the workspace */
+	ListBase layouts;
+} WorkSpaceHook;
 
 #endif /* __DNA_WORKSPACE_TYPES_H__ */

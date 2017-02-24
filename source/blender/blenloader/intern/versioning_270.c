@@ -270,6 +270,12 @@ static void do_version_workspaces_before_lib_link(Main *main)
 		/* For compatibility, the workspace should be activated that represents the active
 		 * screen of the old file. This is done in blo_do_versions_after_linking_270. */
 	}
+
+	for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
+		for (wmWindow *win = wm->windows.first; win; win = win->next) {
+			win->workspace_hook = BKE_workspace_hook_new();
+		}
+	}
 }
 
 /**
@@ -287,10 +293,11 @@ static void do_version_workspaces_after_lib_link(Main *main)
 			bScreen *screen = win->screen;
 			WorkSpace *workspace = BLI_findstring(&main->workspaces, screen->id.name + 2, offsetof(ID, name) + 2);
 			ListBase *layout_types = BKE_workspace_layout_types_get(workspace);
+			ListBase *layouts = BKE_workspace_hook_layouts_get(win->workspace_hook);
 			WorkSpaceLayout *layout = BKE_workspace_layout_add_from_type(workspace, layout_types->first, screen);
 
 			BLI_assert(BLI_listbase_count(layout_types) == 1);
-			BLI_addhead(&win->workspace_layouts, layout);
+			BLI_addhead(layouts, layout);
 			BKE_workspace_active_layout_set(workspace, layout); /* TODO */
 			win->scene = screen->scene;
 

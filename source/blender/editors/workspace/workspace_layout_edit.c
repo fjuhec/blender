@@ -51,13 +51,14 @@ void ED_workspace_layout_add(WorkSpace *workspace, ListBase *windows, const char
 	WorkSpaceLayoutType *layout_type = BKE_workspace_layout_type_add(workspace, name);
 
 	for (wmWindow *win = windows->first; win; win = win->next) {
-		if (win->workspace == workspace) {
+		if (BKE_workspace_active_get(win->workspace_hook) == workspace) {
 			const int winsize_x = WM_window_pixels_x(win);
 			const int winsize_y = WM_window_pixels_y(win);
 			bScreen *screen = screen_add(win, name, winsize_x, winsize_y);
+			ListBase *layouts = BKE_workspace_hook_layouts_get(win->workspace_hook);
 			WorkSpaceLayout *layout = BKE_workspace_layout_add_from_type(workspace, layout_type, screen);
 
-			BLI_addhead(&win->workspace_layouts, layout);
+			BLI_addhead(layouts, layout);
 			BKE_workspace_active_layout_set(workspace, layout);
 		}
 	}

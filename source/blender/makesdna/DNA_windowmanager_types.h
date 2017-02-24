@@ -180,11 +180,7 @@ typedef struct wmWindow {
 	struct Scene *scene;     /* The scene displayed in this window. */
 	struct Scene *new_scene; /* temporary when switching */
 
-	struct WorkSpace *workspace;     /* active workspace */
-	struct WorkSpace *new_workspace; /* temporary when switching */
-	/* To support opening a workspace in multiple windows while keeping the individual layouts independent, each
-	 * window stores a list of layouts that is synced with a list of layout-type definitions from the workspace */
-	ListBase workspace_layouts;   /* WorkSpaceLayout */
+	struct WorkSpaceHook *workspace_hook;
 
 	struct bScreen *screen DNA_DEPRECATED;
 	char screenname[64];         /* MAX_ID_NAME for matching window with active screen after file read */

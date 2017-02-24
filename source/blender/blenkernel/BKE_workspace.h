@@ -35,6 +35,7 @@ struct TransformOrientation;
 struct WorkSpace;
 
 typedef struct WorkSpace WorkSpace;
+typedef struct WorkSpaceHook WorkSpaceHook;
 typedef struct WorkSpaceLayout WorkSpaceLayout;
 typedef struct WorkSpaceLayoutType WorkSpaceLayoutType;
 
@@ -60,6 +61,8 @@ WorkSpaceLayout *BKE_workspace_layout_add_from_type(WorkSpace *workspace, WorkSp
 WorkSpaceLayoutType *BKE_workspace_layout_type_add(WorkSpace *workspace, const char *name) ATTR_NONNULL();
 WorkSpaceLayout *BKE_workspace_layout_add(WorkSpace *workspace, struct bScreen *screen) ATTR_NONNULL();
 void BKE_workspace_layout_remove(WorkSpace *workspace, WorkSpaceLayout *layout, struct Main *bmain) ATTR_NONNULL();
+WorkSpaceHook *BKE_workspace_hook_new(void) ATTR_WARN_UNUSED_RESULT;
+void BKE_workspace_hook_delete(WorkSpaceHook *hook) ATTR_NONNULL();
 
 
 /* -------------------------------------------------------------------- */
@@ -126,6 +129,12 @@ void            BKE_workspace_layout_screen_set(WorkSpaceLayout *layout, struct 
 
 WorkSpaceLayout *BKE_workspace_layout_next_get(const WorkSpaceLayout *layout) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
 WorkSpaceLayout *BKE_workspace_layout_prev_get(const WorkSpaceLayout *layout) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
+
+WorkSpace *BKE_workspace_active_get(const WorkSpaceHook *hook) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
+void BKE_workspace_active_set(WorkSpaceHook *hook, WorkSpace *workspace) ATTR_NONNULL(1);
+WorkSpace *BKE_workspace_active_delayed_get(const WorkSpaceHook *hook) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
+void BKE_workspace_active_delayed_set(WorkSpaceHook *hook, WorkSpace *workspace) ATTR_NONNULL(1);
+struct ListBase *BKE_workspace_hook_layouts_get(WorkSpaceHook *workspace_hook) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
 
 /* -------------------------------------------------------------------- */
 /* Don't use outside of BKE! */

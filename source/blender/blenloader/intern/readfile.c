@@ -2790,9 +2790,19 @@ static void direct_link_workspace(FileData *fd, WorkSpace *ws)
 	WorkSpaceLayout *act_layout = BKE_workspace_active_layout_get(ws);
 
 	link_list(fd, BKE_workspace_layouts_get(ws));
+	link_list(fd, BKE_workspace_layout_types_get(ws));
 
 	act_layout = newdataadr(fd, act_layout);
 	BKE_workspace_active_layout_set(ws, act_layout);
+}
+
+static void direct_link_workspace_hook(FileData *fd, WorkSpaceHook *hook)
+{
+	hook = newdataadr(fd, hook);
+	if (hook) {
+		ListBase *layouts = BKE_workspace_hook_layouts_get(hook);
+		link_list(fd, layouts);
+	}
 }
 
 /* ************ READ MOTION PATHS *************** */
@@ -6368,9 +6378,10 @@ static void direct_link_windowmanager(FileData *fd, wmWindowManager *wm)
 		if (win->stereo3d_format) {
 			win->stereo3d_format->display_mode = S3D_DISPLAY_ANAGLYPH;
 		}
-		link_list(fd, &win->workspace_layouts);
+		win->workspace_hook = newdataadr(fd, win->workspace_hook);
+		direct_link_workspace_hook(fd, win->workspace_hook);
 	}
-	
+
 	BLI_listbase_clear(&wm->timers);
 	BLI_listbase_clear(&wm->operators);
 	BLI_listbase_clear(&wm->paintcursors);
@@ -6400,9 +6411,11 @@ static void lib_link_windowmanager(FileData *fd, Main *main)
 	for (wm = main->wm.first; wm; wm = wm->id.next) {
 		if (wm->id.tag & LIB_TAG_NEED_LINK) {
 			for (win = wm->windows.first; win; win = win->next) {
+				WorkSpace *workspace_new = newlibadr(fd, wm->id.lib, BKE_workspace_active_get(win->workspace_hook));
+
 				win->scene = newlibadr(fd, wm->id.lib, win->scene);
-				win->workspace = newlibadr(fd, wm->id.lib, win->workspace);
-				lib_link_workspace_layouts(fd, wm->id.lib, &win->workspace_layouts);
+				BKE_workspace_active_set(win->workspace_hook, workspace_new);
+				lib_link_workspace_layouts(fd, wm->id.lib, BKE_workspace_hook_layouts_get(win->workspace_hook));
 				/* deprecated, but needed for versioning (will be NULL'ed then) */
 				win->screen = newlibadr(fd, NULL, win->screen);
 			}
@@ -7048,9 +7061,11 @@ void blo_lib_link_restore(Main *newmain, wmWindowManager *curwm, Scene *curscene
 
 	for (wmWindow *win = curwm->windows.first; win; win = win->next) {
 		Scene *oldscene = win->scene;
-		WorkSpace *workspace = restore_pointer_by_name(id_map, (ID *)win->workspace, USER_REAL);
+		const ListBase *layouts = BKE_workspace_hook_layouts_get(win->workspace_hook);
+		WorkSpace *workspace_old = BKE_workspace_active_get(win->workspace_hook);
+		WorkSpace *workspace = restore_pointer_by_name(id_map, (ID *)workspace_old, USER_REAL);
 
-		BKE_workspace_layout_iter_begin(layout, win->workspace_layouts.first)
+		BKE_workspace_layout_iter_begin(layout, layouts->first)
 		{
 			lib_link_workspace_layout_restore(id_map, newmain, layout);
 		}
@@ -7060,7 +7075,7 @@ void blo_lib_link_restore(Main *newmain, wmWindowManager *curwm, Scene *curscene
 		if (win->scene == NULL) {
 			win->scene = curscene;
 		}
-		win->workspace = workspace;
+		BKE_workspace_active_set(win->workspace_hook, workspace);
 
 		/* keep cursor location through undo */
 		copy_v3_v3(win->scene->cursor, oldscene->cursor);
@@ -9888,7 +9903,9 @@ static void expand_gpencil(FileData *fd, Main *mainvar, bGPdata *gpd)
 static void expand_windowmanager(FileData *fd, Main *mainvar, wmWindowManager *wm)
 {
 	for (wmWindow *win = wm->windows.first; win; win = win->next) {
-		BKE_workspace_layout_iter_begin(layout, win->workspace_layouts.first)
+		const ListBase *layouts = BKE_workspace_hook_layouts_get(win->workspace_hook);
+
+		BKE_workspace_layout_iter_begin(layout, layouts->first)
 		{
 			expand_doit(fd, mainvar, BKE_workspace_layout_screen_get(layout));
 		}
