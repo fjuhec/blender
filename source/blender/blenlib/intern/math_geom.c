@@ -578,7 +578,7 @@ float dist_squared_to_ray_v3(
 float dist_squared_ray_to_seg_v3(
         const float ray_origin[3], const float ray_direction[3],
         const float v0[3], const float v1[3],
-        float r_point[3], float *r_depth)
+        float r_point[3], float *r_lambda, float *r_depth)
 {
 	float a[3], t[3], n[3], lambda;
 	sub_v3_v3v3(a, v1, v0);
@@ -616,6 +616,11 @@ float dist_squared_ray_to_seg_v3(
 			*r_depth = dot_v3v3(t, ray_direction);
 		}
 	}
+
+	if (r_lambda) {
+		*r_lambda = lambda;
+	}
+
 	return len_squared_v3(t) - SQUARE(*r_depth);
 }
 

@@ -160,8 +160,8 @@ BVHTree *bvhtree_from_mesh_looptri(
         struct BVHTreeFromMesh *data, struct DerivedMesh *mesh, float epsilon, int tree_type, int axis);
 BVHTree *bvhtree_from_mesh_looptri_ex(
         struct BVHTreeFromMesh *data,
-        const struct MVert *vert, const bool vert_allocated,
-        const struct MLoop *mloop, const bool loop_allocated,
+        struct MVert *vert, const bool vert_allocated,
+        struct MLoop *mloop, const bool loop_allocated,
         const struct MLoopTri *looptri, const int looptri_num, const bool looptri_allocated,
         const BLI_bitmap *mask, int looptri_num_active,
         float epsilon, int tree_type, int axis);
@@ -195,12 +195,20 @@ enum {
 	BVHTREE_FROM_LOOPTRI         = 3,
 
 	BVHTREE_FROM_EM_LOOPTRI      = 4,
+
+	BVHTREE_FROM_LOOSE_VERTS     = 5,
+	BVHTREE_FROM_LOOSE_EDGES     = 6,
 };
 
 
 BVHTree *bvhcache_find(BVHCache *cache, int type);
+BVHTree *bvhcache_thread_safe_find(BVHCache *cache, int type);
+
 bool     bvhcache_has_tree(const BVHCache *cache, const BVHTree *tree);
+
 void     bvhcache_insert(BVHCache **cache_p, BVHTree *tree, int type);
+void     bvhcache_thread_safe_insert(BVHCache **cache_p, BVHTree *tree, int type);
+
 void     bvhcache_init(BVHCache **cache_p);
 void     bvhcache_free(BVHCache **cache_p);
 

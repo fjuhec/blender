@@ -1974,19 +1974,21 @@ static bool bvhtree_walk_dfs_recursive(
         BVHTree_WalkParentCallback walk_parent_cb,
         BVHTree_WalkLeafCallback walk_leaf_cb,
         BVHTree_WalkOrderCallback walk_order_cb,
-        const BVHNode *node, void *userdata)
+        const BVHNode *node, short *parent_flag, void *userdata)
 {
 	if (node->totnode == 0) {
-		return walk_leaf_cb((const BVHTreeAxisRange *)node->bv, node->index, userdata);
+		return walk_leaf_cb((const BVHTreeAxisRange *)node->bv, node->index, parent_flag, userdata);
 	}
 	else {
+		short i;
 		/* First pick the closest node to recurse into */
-		if (walk_order_cb((const BVHTreeAxisRange *)node->bv, node->main_axis, userdata)) {
-			for (int i = 0; i != node->totnode; i++) {
-				if (walk_parent_cb((const BVHTreeAxisRange *)node->children[i]->bv, userdata)) {
+		if (walk_order_cb((const BVHTreeAxisRange *)node->bv, node->main_axis, parent_flag, userdata)) {
+			for (i = 0; i != node->totnode; i++) {
+				short child_flag = *parent_flag;
+				if (walk_parent_cb((const BVHTreeAxisRange *)node->children[i]->bv, &child_flag, userdata)) {
 					if (!bvhtree_walk_dfs_recursive(
 					        walk_parent_cb, walk_leaf_cb, walk_order_cb,
-					        node->children[i], userdata))
+					        node->children[i], &child_flag, userdata))
 					{
 						return false;
 					}
@@ -1994,11 +1996,12 @@ static bool bvhtree_walk_dfs_recursive(
 			}
 		}
 		else {
-			for (int i = node->totnode - 1; i >= 0; i--) {
-				if (walk_parent_cb((const BVHTreeAxisRange *)node->children[i]->bv, userdata)) {
+			for (i = node->totnode - 1; i >= 0; i--) {
+				short child_flag = *parent_flag;
+				if (walk_parent_cb((const BVHTreeAxisRange *)node->children[i]->bv, &child_flag, userdata)) {
 					if (!bvhtree_walk_dfs_recursive(
 					        walk_parent_cb, walk_leaf_cb, walk_order_cb,
-					        node->children[i], userdata))
+					        node->children[i], &child_flag, userdata))
 					{
 						return false;
 					}
@@ -2025,13 +2028,15 @@ void BLI_bvhtree_walk_dfs(
         BVHTree *tree,
         BVHTree_WalkParentCallback walk_parent_cb,
         BVHTree_WalkLeafCallback walk_leaf_cb,
-        BVHTree_WalkOrderCallback walk_order_cb, void *userdata)
+        BVHTree_WalkOrderCallback walk_order_cb,
+        short root_flag, void *userdata)
 {
 	const BVHNode *root = tree->nodes[tree->totleaf];
 	if (root != NULL) {
 		/* first make sure the bv of root passes in the test too */
-		if (walk_parent_cb((const BVHTreeAxisRange *)root->bv, userdata)) {
-			bvhtree_walk_dfs_recursive(walk_parent_cb, walk_leaf_cb, walk_order_cb, root, userdata);
+		if (walk_parent_cb((const BVHTreeAxisRange *)root->bv, &root_flag, userdata)) {
+			bvhtree_walk_dfs_recursive(
+			        walk_parent_cb, walk_leaf_cb, walk_order_cb, root, &root_flag, userdata);
 		}
 	}
 }

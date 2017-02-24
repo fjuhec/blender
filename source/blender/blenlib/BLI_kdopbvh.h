@@ -104,11 +104,11 @@ typedef void (*BVHTree_RangeQuery)(void *userdata, int index, const float co[3],
 
 /* callbacks to BLI_bvhtree_walk_dfs */
 /* return true to traverse into this nodes children, else skip. */
-typedef bool (*BVHTree_WalkParentCallback)(const BVHTreeAxisRange *bounds, void *userdata);
+typedef bool (*BVHTree_WalkParentCallback)(const BVHTreeAxisRange *bounds, short *parent_flag, void *userdata);
 /* return true to keep walking, else early-exit the search. */
-typedef bool (*BVHTree_WalkLeafCallback)(const BVHTreeAxisRange *bounds, int index, void *userdata);
+typedef bool (*BVHTree_WalkLeafCallback)(const BVHTreeAxisRange *bounds, int index, short *parent_flag, void *userdata);
 /* return true to search (min, max) else (max, min). */
-typedef bool (*BVHTree_WalkOrderCallback)(const BVHTreeAxisRange *bounds, char axis, void *userdata);
+typedef bool (*BVHTree_WalkOrderCallback)(const BVHTreeAxisRange *bounds, char axis, short *parent_flag, void *userdata);
 
 
 BVHTree *BLI_bvhtree_new(int maxsize, float epsilon, char tree_type, char axis);
@@ -167,7 +167,7 @@ void BLI_bvhtree_walk_dfs(
         BVHTree_WalkParentCallback walk_parent_cb,
         BVHTree_WalkLeafCallback walk_leaf_cb,
         BVHTree_WalkOrderCallback walk_order_cb,
-        void *userdata);
+        short root_flag, void *userdata);
 
 
 /* expose for bvh callbacks to use */
