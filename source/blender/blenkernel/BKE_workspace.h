@@ -103,38 +103,41 @@ WorkSpaceLayout *BKE_workspace_layout_iter_circular(const WorkSpace *workspace, 
 /* -------------------------------------------------------------------- */
 /* Getters/Setters */
 
-struct ID *BKE_workspace_id_get(WorkSpace *workspace);
-const char *BKE_workspace_name_get(const WorkSpace *workspace);
-WorkSpaceLayout *BKE_workspace_active_layout_get(const struct WorkSpace *ws) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-void             BKE_workspace_active_layout_set(WorkSpace *ws, WorkSpaceLayout *layout) ATTR_NONNULL(1);
-struct bScreen *BKE_workspace_active_screen_get(const WorkSpace *ws) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-void            BKE_workspace_active_screen_set(WorkSpace *ws, struct bScreen *screen) ATTR_NONNULL(1);
-enum ObjectMode BKE_workspace_object_mode_get(const WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
+#define GETTER_ATTRS ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT
+#define SETTER_ATTRS ATTR_NONNULL(1)
+
+struct ID *BKE_workspace_id_get(WorkSpace *workspace) GETTER_ATTRS;
+const char *BKE_workspace_name_get(const WorkSpace *workspace) GETTER_ATTRS;
+WorkSpaceLayout *BKE_workspace_active_layout_get(const struct WorkSpace *ws) GETTER_ATTRS;
+void             BKE_workspace_active_layout_set(WorkSpace *ws, WorkSpaceLayout *layout) SETTER_ATTRS;
+struct bScreen *BKE_workspace_active_screen_get(const WorkSpace *ws) GETTER_ATTRS;
+void            BKE_workspace_active_screen_set(WorkSpace *ws, struct bScreen *screen) SETTER_ATTRS;
+enum ObjectMode BKE_workspace_object_mode_get(const WorkSpace *workspace) GETTER_ATTRS;
 #ifdef USE_WORKSPACE_MODE
-void            BKE_workspace_object_mode_set(WorkSpace *workspace, const enum ObjectMode mode) ATTR_NONNULL();
+void            BKE_workspace_object_mode_set(WorkSpace *workspace, const enum ObjectMode mode) SETTER_ATTRS;
 #endif
-struct ListBase *BKE_workspace_layouts_get(WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-WorkSpaceLayoutType *BKE_workspace_active_layout_type_get(WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-struct ListBase *BKE_workspace_layout_types_get(WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-const char      *BKE_workspace_layout_type_name_get(WorkSpaceLayoutType *layout_type) ATTR_NONNULL();
-WorkSpaceLayoutType *BKE_workspace_layout_type_next_get(WorkSpaceLayoutType *layout_type) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-WorkSpaceLayout *BKE_workspace_new_layout_get(const WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-void             BKE_workspace_new_layout_set(WorkSpace *workspace, WorkSpaceLayout *layout) ATTR_NONNULL(1);
+struct ListBase *BKE_workspace_layouts_get(WorkSpace *workspace) GETTER_ATTRS;
+WorkSpaceLayoutType *BKE_workspace_active_layout_type_get(WorkSpace *workspace) GETTER_ATTRS;
+struct ListBase *BKE_workspace_layout_types_get(WorkSpace *workspace) GETTER_ATTRS;
+const char      *BKE_workspace_layout_type_name_get(WorkSpaceLayoutType *layout_type) GETTER_ATTRS;
+WorkSpaceLayoutType *BKE_workspace_layout_type_next_get(WorkSpaceLayoutType *layout_type) GETTER_ATTRS;
+WorkSpaceLayout *BKE_workspace_new_layout_get(const WorkSpace *workspace) GETTER_ATTRS;
+void             BKE_workspace_new_layout_set(WorkSpace *workspace, WorkSpaceLayout *layout) SETTER_ATTRS;
 
-WorkSpace *BKE_workspace_next_get(const WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-WorkSpace *BKE_workspace_prev_get(const WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
+WorkSpace *BKE_workspace_next_get(const WorkSpace *workspace) GETTER_ATTRS;
+WorkSpace *BKE_workspace_prev_get(const WorkSpace *workspace) GETTER_ATTRS;
 
-struct bScreen *BKE_workspace_layout_screen_get(const WorkSpaceLayout *layout) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-void            BKE_workspace_layout_screen_set(WorkSpaceLayout *layout, struct bScreen *screen) ATTR_NONNULL(1);
+struct bScreen *BKE_workspace_layout_screen_get(const WorkSpaceLayout *layout) GETTER_ATTRS;
+void            BKE_workspace_layout_screen_set(WorkSpaceLayout *layout, struct bScreen *screen) SETTER_ATTRS;
 
-WorkSpaceLayout *BKE_workspace_layout_next_get(const WorkSpaceLayout *layout) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-WorkSpaceLayout *BKE_workspace_layout_prev_get(const WorkSpaceLayout *layout) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
+WorkSpaceLayout *BKE_workspace_layout_next_get(const WorkSpaceLayout *layout) GETTER_ATTRS;
+WorkSpaceLayout *BKE_workspace_layout_prev_get(const WorkSpaceLayout *layout) GETTER_ATTRS;
 
-WorkSpace *BKE_workspace_active_get(const WorkSpaceHook *hook) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-void BKE_workspace_active_set(WorkSpaceHook *hook, WorkSpace *workspace) ATTR_NONNULL(1);
-WorkSpace *BKE_workspace_active_delayed_get(const WorkSpaceHook *hook) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-void BKE_workspace_active_delayed_set(WorkSpaceHook *hook, WorkSpace *workspace) ATTR_NONNULL(1);
-struct ListBase *BKE_workspace_hook_layouts_get(WorkSpaceHook *workspace_hook) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
+WorkSpace *BKE_workspace_active_get(const WorkSpaceHook *hook) GETTER_ATTRS;
+void BKE_workspace_active_set(WorkSpaceHook *hook, WorkSpace *workspace) SETTER_ATTRS;
+WorkSpace *BKE_workspace_active_delayed_get(const WorkSpaceHook *hook) GETTER_ATTRS;
+void BKE_workspace_active_delayed_set(WorkSpaceHook *hook, WorkSpace *workspace) SETTER_ATTRS;
+struct ListBase *BKE_workspace_hook_layouts_get(WorkSpaceHook *workspace_hook) GETTER_ATTRS;
 
 /* -------------------------------------------------------------------- */
 /* Don't use outside of BKE! */
