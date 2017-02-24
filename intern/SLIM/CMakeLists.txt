@@ -1,10 +1,16 @@
 cmake_minimum_required(VERSION 2.6)
 
+set(ADDITIONAL_LIBRARIES "extern_ceres")
+
 set(INC
   ext/libigl_extract
   ../../source/blender/editors/uvedit
   ../../source/blender/makesdna
   ../../source/blender/blenlib
+  ../../extern/ceres/include
+  ../../extern/ceres/config
+  ../../extern/glog/src
+  ../../extern/gflags/src
 )
 
 set(INC_SYS
@@ -19,6 +25,7 @@ set(SRC
   src/area_compensation.cpp
   src/least_squares_relocator.cpp
   src/geometry_data_retrieval.cpp
+  src/ceres_mesh_unwrapper.cpp
 
   src/matrix_transfer.h
   src/slim.h
@@ -28,6 +35,7 @@ set(SRC
   src/area_compensation.h
   src/least_squares_relocator.h
   src/geometry_data_retrieval.h
+  src/ceres_mesh_unwrapper.h
 
   ${ADDITIONAL_SOURCES}
 )

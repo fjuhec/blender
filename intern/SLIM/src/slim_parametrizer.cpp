@@ -21,6 +21,7 @@
 #include <Eigen/SparseCholesky>
 
 #include "slim_parametrizer.h"
+#include "ceres_mesh_unwrapper.h"
 
 using namespace std;
 using namespace igl;
@@ -61,9 +62,16 @@ void param_slim(matrix_transfer *mt, int nIterations, bool borderVerticesArePinn
 
 	for (int uvChartIndex = 0; uvChartIndex < mt->nCharts; uvChartIndex++) {
 
+		cout << "doing " << nIterations % 100 << " SLIM iterations" << endl;
 		SLIMData *slimData = setup_slim(mt, nIterations, uvChartIndex, timer, borderVerticesArePinned, skipInitialization);
 
-		slim_solve(*slimData, nIterations);
+
+		slim_solve(*slimData, nIterations % 100);
+
+		if (nIterations > 99){
+			cout << "using ceres with " << (nIterations / 100) * 10 << " iterations..." << endl;
+			solve_map_with_ceres(slimData->V, slimData->F, slimData->V_o, (nIterations / 100) * 10);
+		}
 
 		areacomp::correctMapSurfaceAreaIfNecessary(slimData);
 
