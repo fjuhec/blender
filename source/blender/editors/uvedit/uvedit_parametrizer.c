@@ -4430,6 +4430,7 @@ void param_slim_end(ParamHandle *handle) {
 	PHandle *phandle = (PHandle *) handle;
 	matrix_transfer *mt = phandle->mt;
 	set_uv_param_slim(handle, mt);
+	free_matrix_transfer(mt);
 }
 
 
