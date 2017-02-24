@@ -309,6 +309,31 @@ MINLINE bool snp_is_in_front_all_planes(
 	return true;
 }
 
+/**
+ * Check if a AABB is:
+ * - BEHIND_A_PLANE     (0),
+ * - ISECT_CLIP_PLANE   (1),
+ * - IN_FRONT_ALL_PLANES(2)
+*/
+static short snp_isect_aabb_planes_v3(
+        float(*planes)[4], int totplane, const float bbmin[3], const float bbmax[3])
+{
+	short ret = IN_FRONT_ALL_PLANES;
+
+	float bb_near[3], bb_afar[3];
+	for (int i = 0; i < totplane; i++) {
+		aabb_get_near_far_from_plane(planes[i], bbmin, bbmax, bb_near, bb_afar);
+		if (plane_point_side_v3(planes[i], bb_afar) < 0.0f) {
+			return BEHIND_A_PLANE;
+		}
+		else if ((ret != ISECT_CLIP_PLANE) && (plane_point_side_v3(planes[i], bb_near) < 0.0f)) {
+			ret = ISECT_CLIP_PLANE;
+		}
+	}
+
+	return ret;
+}
+
 static void *snp_clipplanes_calc_local(
         const float(*clip)[4], const short clip_num, float obmat[4][4])
 {
@@ -571,19 +596,20 @@ static bool snap_segment_v3v3(
 	bool ret = false;
 
 	if (snap_to & SCE_SELECT_EDGE) {
+		/* TODO (Germano): Compensate object scale */
 		dist_squared_ray_to_seg_v3(localdata->ray_orig, localdata->ray_dir, va, vb, tmp_co, &lambda, &depth);
 
-		if ((snap_to & SCE_SELECT_VERTEX) && (lambda < 0.25f || 0.75f < lambda)) {
-			/* Use rv3d clip segments: `rv3d->clip` */
-			ret = snap_point_v3(
+		if ((snap_to & SCE_SELECT_VERTEX) && (lambda < 0.25f || 0.75f < lambda) &&
+			snap_point_v3(
 			        depth_range, mval, lambda < 0.5f ? va : vb, localdata->pmat, win_half, is_persp,
-			        flag, localdata->clip.plane, localdata->clip.plane_num, dist_px_sq, r_co);
+			        flag, localdata->clip.plane, localdata->clip.plane_num, dist_px_sq, r_co))
+		{
+			ret = true;
 		}
-
-		if (!ret) {
+		else {
 			ret = snap_point_v3(
-		        depth_range, mval, tmp_co, localdata->pmat, win_half, is_persp,
-		        flag, localdata->clip.plane, localdata->clip.plane_num, dist_px_sq, r_co);
+			        depth_range, mval, tmp_co, localdata->pmat, win_half, is_persp,
+			        flag, localdata->clip.plane, localdata->clip.plane_num, dist_px_sq, r_co);
 		}
 	}
 	else {
@@ -593,31 +619,6 @@ static bool snap_segment_v3v3(
 		ret |= snap_point_v3(
 		        depth_range, mval, vb, localdata->pmat, win_half, is_persp,
 		        flag, localdata->clip.plane, localdata->clip.plane_num, dist_px_sq, r_co);
-	}
-
-	return ret;
-}
-
-/**
- * Check if a AABB is:
- * - BEHIND_A_PLANE     (0),
- * - ISECT_CLIP_PLANE   (1),
- * - IN_FRONT_ALL_PLANES(2)
- */
-static short snp_isect_aabb_planes_v3(
-	float(*planes)[4], int totplane, const float bbmin[3], const float bbmax[3])
-{
-	short ret = IN_FRONT_ALL_PLANES;
-
-	float bb_near[3], bb_afar[3];
-	for (int i = 0; i < totplane; i++) {
-		aabb_get_near_far_from_plane(planes[i], bbmin, bbmax, bb_near, bb_afar);
-		if (plane_point_side_v3(planes[i], bb_afar) < 0.0f) {
-			return BEHIND_A_PLANE;
-		}
-		else if ((ret != ISECT_CLIP_PLANE) && (plane_point_side_v3(planes[i], bb_near) < 0.0f)) {
-			ret = ISECT_CLIP_PLANE;
-		}
 	}
 
 	return ret;
@@ -827,7 +828,7 @@ static float snp_dist_squared_to_projected_aabb(
 	return rdist;
 }
 
-static bool snp_snap_boundbox_nearest_test(
+static bool snap_boundbox_nearest_test(
         SnapData *snpdt, SnapNearestLocalData *localdata, BoundBox *bb, float dist_px)
 {
 	struct SnapNearest2dPrecalc data;
@@ -878,17 +879,20 @@ static float dist_aabb_to_plane(
 /** \Utilities for DerivedMeshes and EditMeshes
 * \{ */
 
-static void object_dm_final_get(Scene *scn, Object *ob, DerivedMesh **dm)
+static DerivedMesh *object_dm_final_get(Scene *scn, Object *ob)
 {
-	/* in this case we want the mesh from the editmesh, avoids stale data. see: T45978.
-	 * still set the 'em' to NULL, since we only want the 'dm'. */
+	DerivedMesh *dm;
+
+	/* in this case we want the mesh from the editmesh, avoids stale data. see: T45978 */
 	BMEditMesh *em = BKE_editmesh_from_object(ob);
 	if (em) {
-		editbmesh_get_derived_cage_and_final(scn, ob, em, CD_MASK_BAREMESH, dm);
+		editbmesh_get_derived_cage_and_final(scn, ob, em, CD_MASK_BAREMESH, &dm);
 	}
 	else {
-		*dm = mesh_get_derived_final(scn, ob, CD_MASK_BAREMESH);
+		dm = mesh_get_derived_final(scn, ob, CD_MASK_BAREMESH);
 	}
+
+	return dm;
 }
 
 static void dm_get_vert_co_cb(const int index, const float **co, const BVHTreeFromMesh *data)
@@ -1614,9 +1618,9 @@ static bool snapDerivedMesh(
 		}
 	}
 	else {
-		/* In vertex and edges you need to get the pixel distance from mval to BoundBox, see T46816. */
+		/* In vertex and edges you need to get the pixel distance from mval to BoundBox, see T46816 */
 		snp_nearest_local_data_get(&localdata.nearest, snpdt, obmat);
-		if (bb && !snp_snap_boundbox_nearest_test(snpdt, &localdata.nearest, bb, *dist_px)) {
+		if (bb && !snap_boundbox_nearest_test(snpdt, &localdata.nearest, bb, *dist_px)) {
 			snp_free_nearestdata(&localdata.nearest);
 			return retval;
 		}
@@ -1634,8 +1638,7 @@ static bool snapDerivedMesh(
 		sod->has_loose_vert = sod->has_loose_edge = sod->has_looptris = true;
 	}
 
-	DerivedMesh *dm;
-	object_dm_final_get(sctx->scene, ob, &dm);
+	DerivedMesh *dm = object_dm_final_get(sctx->scene, ob);
 
 	if (dm->getNumVerts(dm) == 0) {
 		return retval;
@@ -1993,7 +1996,7 @@ static bool snapEditMesh(
 		else {
 			BVHTreeRayHit hit = {.index = -1, .dist = raycastlocaldata.depth};
 
-			if (BLI_bvhtree_ray_cast(
+			if (treedata->tree && BLI_bvhtree_ray_cast(
 			        treedata->tree, raycastlocaldata.ray_start, raycastlocaldata.ray_dir, 0.0f,
 			        &hit, treedata->raycast_callback, treedata) != -1)
 			{
@@ -2451,8 +2454,7 @@ bool ED_transform_snap_object_project_ray_ex(
 			sod = *sod_p;
 			if (sod->type == SNAP_MESH) {
 
-				DerivedMesh *dm;
-				object_dm_final_get(sctx->scene, *r_ob, &dm);
+				DerivedMesh *dm = object_dm_final_get(sctx->scene, *r_ob);
 
 				const int *index_mp_to_orig = dm->getPolyDataArray(dm, CD_ORIGINDEX);
 				*r_index = index_mp_to_orig ? index_mp_to_orig[*r_index] : *r_index;
@@ -2630,8 +2632,7 @@ static bool transform_snap_context_project_view3d_mixed_impl(
 					const MLoop *mloop = ((SnapObjectData_Mesh *)sod)->treedata.loop;
 					const MVert *mvert = ((SnapObjectData_Mesh *)sod)->treedata.vert;
 
-					DerivedMesh *dm;
-					object_dm_final_get(sctx->scene, obj, &dm);
+					DerivedMesh *dm = object_dm_final_get(sctx->scene, obj);
 
 					bool poly_allocated;
 					MPoly *mpoly = DM_get_poly_array(dm, &poly_allocated);
@@ -2694,7 +2695,6 @@ static bool transform_snap_context_project_view3d_mixed_impl(
 				snpdt->clip.plane[snpdt->clip.plane_num - 1][3] += 0.000005;
 
 #endif
-//				print_v4("new_clip_plane", snpdt->clip.plane[0]);
 			}
 		}
 
