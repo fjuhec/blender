@@ -444,11 +444,8 @@ static bool snapdata_init_v3d(
 
 	if (rv3d->rflag & RV3D_CLIPPING) {
 		/* Referencing or copying? */
-		snpdt->clip.plane = MEM_mallocN( 4 * sizeof(float[4]), __func__);
-		for (int i = 0; i < 4; i++) {
-			copy_v4_v4(snpdt->clip.plane[i], rv3d->clip[i]);
-		}
-		//memcpy(snpdt->clip.plane, rv3d->clip, 4 * sizeof(float[4]));
+		snpdt->clip.plane = MEM_mallocN( 4 * sizeof(*snpdt->clip.plane), __func__);
+		memcpy(snpdt->clip.plane, rv3d->clip, 4 * sizeof(*snpdt->clip.plane));
 		snpdt->clip.plane_num = 4;
 
 		float dummy_ray_end[3];
@@ -2626,7 +2623,8 @@ static bool transform_snap_context_project_view3d_mixed_impl(
 				mul_m4_v3(imat, normal_local);
 
 				if (snpdt->clip.plane) {
-#if PREPEND_PLANE
+#define PREPEND_PLANE
+#ifdef PREPEND_PLANE
 					/* Alloc the new plane at the beginning of the array */
 					float (*temp_plane)[4] = MEM_mallocN(
 					        sizeof(*temp_plane) * (snpdt->clip.plane_num + 1), __func__);
@@ -2638,7 +2636,8 @@ static bool transform_snap_context_project_view3d_mixed_impl(
 
 					snpdt->clip.plane = temp_plane;
 #else
-					snpdt->clip.plane = MEM_reallocN(snpdt->clip.plane, snpdt->clip.plane_num + 1);
+					snpdt->clip.plane = MEM_reallocN(
+					        snpdt->clip.plane, sizeof(*snpdt->clip.plane) * snpdt->clip.plane_num + 1);
 #endif
 				}
 				else {
@@ -2705,7 +2704,7 @@ static bool transform_snap_context_project_view3d_mixed_impl(
 
 				mul_m4_v3(obmat, far_vert);
 
-#if PREPEND_PLANE
+#ifdef PREPEND_PLANE
 				plane_from_point_normal_v3(
 				        snpdt->clip.plane[0], far_vert, plane_no);
 
