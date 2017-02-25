@@ -72,6 +72,11 @@ enum {
 	ISECT_CLIP_PLANE    = 1 << 0,
 	IN_FRONT_ALL_PLANES = 1 << 1,
 	TEST_RANGE_DEPTH    = 1 << 2,
+#if 0
+	NEAR_BEGINNING_X    = 1 << 3,
+	NEAR_BEGINNING_Y    = 1 << 4,
+	NEAR_BEGINNING_Z    = 1 << 5,
+#endif
 };
 
 typedef struct SnapData {
@@ -345,8 +350,7 @@ static void *snp_clipplanes_calc_local(
 	for (short i = 0; i < clip_num; i++) {
 		mul_v4_m4v4(clip_local[i], tobmat, clip[i]);
 
-//		const float d = len_v3(clip_local[i]);
-//		mul_v4_fl(clip_local[i], 1 / d); /* normalize plane */
+//		mul_v4_fl(clip_local[i], 1 / len_v3(clip_local[i])); /* normalize plane */
 	}
 
 	return clip_local;
@@ -469,16 +473,19 @@ static bool snapdata_init_v3d(
 	madd_v3_v3v3fl(snpdt->ray_start, snpdt->ray_origin, snpdt->ray_dir, snpdt->depth_range[0]);
 
 	if (rv3d->rflag & RV3D_CLIPPING) {
-		/* Referencing or copying? */
-		snpdt->clip.plane = MEM_mallocN( 4 * sizeof(*snpdt->clip.plane), __func__);
-		memcpy(snpdt->clip.plane, rv3d->clip, 4 * sizeof(*snpdt->clip.plane));
-		snpdt->clip.plane_num = 4;
+		if (snpdt->snap_to_flag != SCE_SELECT_FACE) {
+			/* Referencing or copying? */
+			snpdt->clip.plane = MEM_mallocN( 4 * sizeof(*snpdt->clip.plane), __func__);
+			memcpy(snpdt->clip.plane, rv3d->clip, 4 * sizeof(*snpdt->clip.plane));
+			snpdt->clip.plane_num = 4;
+		}
 
+		/* Get a new ray_start and a new depth to use in occlusion or snap to faces */
 		float dummy_ray_end[3];
 		madd_v3_v3v3fl(dummy_ray_end, snpdt->ray_origin, snpdt->ray_dir, snpdt->depth_range[1]);
 
 		if (!clip_segment_v3_plane_n(
-		        snpdt->ray_start, dummy_ray_end, snpdt->clip.plane, snpdt->clip.plane_num,
+		        snpdt->ray_start, dummy_ray_end, rv3d->clip, 4,
 		        snpdt->ray_start, dummy_ray_end))
 		{
 			return false;
@@ -666,6 +673,7 @@ static float snp_dist_squared_to_projected_aabb(
 		float depth_near;
 		float depth_afar;
 		if (data->is_persp) {
+			/* TODO: in perspective mode depth is not necessaly taken from bb_near and bb_afar */
 			depth_near = mul_project_m4_v3_zfac(data->local->pmat, bb_near);
 			depth_afar = mul_project_m4_v3_zfac(data->local->pmat, bb_afar);
 			if (depth_afar < data->depth_range[0]) {
@@ -711,63 +719,68 @@ static float snp_dist_squared_to_projected_aabb(
 	float va[3], vb[3];
 	/* `rtmin` and `rtmax` are the minimum and maximum distances of the ray hits on the AABB */
 	float rtmin, rtmax;
-	int main_axis;
+	int main_axis, tmin_axis, tmax_axis;
 
 	if ((tmax[0] <= tmax[1]) && (tmax[0] <= tmax[2])) {
 		rtmax = tmax[0];
 		va[0] = vb[0] = bb_afar[0];
-		main_axis = 3;
-		r_axis_closest[0] = data->local->ray_inv_dir[0] < 0;
+		tmin_axis = 0;
 	}
 	else if ((tmax[1] <= tmax[0]) && (tmax[1] <= tmax[2])) {
 		rtmax = tmax[1];
 		va[1] = vb[1] = bb_afar[1];
-		main_axis = 2;
-		r_axis_closest[1] = data->local->ray_inv_dir[1] < 0;
+		tmin_axis = 1;
 	}
 	else {
 		rtmax = tmax[2];
 		va[2] = vb[2] = bb_afar[2];
-		main_axis = 1;
-		r_axis_closest[2] = data->local->ray_inv_dir[2] < 0;
+		tmin_axis = 2;
 	}
 
 	if ((tmin[0] >= tmin[1]) && (tmin[0] >= tmin[2])) {
 		rtmin = tmin[0];
 		va[0] = vb[0] = bb_near[0];
-		main_axis -= 3;
-		r_axis_closest[0] = data->local->ray_inv_dir[0] >= 0;
+		tmax_axis = 0;
 	}
 	else if ((tmin[1] >= tmin[0]) && (tmin[1] >= tmin[2])) {
 		rtmin = tmin[1];
 		va[1] = vb[1] = bb_near[1];
-		main_axis -= 1;
-		r_axis_closest[1] = data->local->ray_inv_dir[1] >= 0;
+		tmax_axis = 1;
 	}
 	else {
 		rtmin = tmin[2];
 		va[2] = vb[2] = bb_near[2];
-		main_axis -= 2;
-		r_axis_closest[2] = data->local->ray_inv_dir[2] >= 0;
-	}
-	if (main_axis < 0) {
-		main_axis += 3;
+		tmax_axis = 2;
 	}
 
-	/* if rtmin < rtmax, ray intersect `AABB` */
-	if (rtmin <= rtmax) {
-		const float proj = rtmin * data->local->ray_dir[main_axis];
-		r_axis_closest[main_axis] = (proj - va[main_axis]) < (vb[main_axis] - proj);
+	if (tmin_axis == tmax_axis) {
+		float proj;
+		r_axis_closest[tmin_axis] = data->local->ray_inv_dir[tmin_axis] >= 0;
+		tmin_axis = abs(tmax_axis - 1);
+		proj = data->local->ray_orig[tmin_axis] + rtmin * data->local->ray_dir[tmin_axis];
+		r_axis_closest[tmin_axis] = (proj - bbmin[tmin_axis]) < (bbmax[tmin_axis] - proj);
+		tmin_axis = abs(tmax_axis - 2);
+		proj = data->local->ray_orig[tmin_axis] + rtmin * data->local->ray_dir[tmin_axis];
+		r_axis_closest[tmin_axis] = (proj - bbmin[tmin_axis]) < (bbmax[tmin_axis] - proj);
 		return 0.0f;
 	}
-	if (data->local->ray_inv_dir[main_axis] < 0) {
-		va[main_axis] = bb_afar[main_axis];
-		vb[main_axis] = bb_near[main_axis];
-	}
 	else {
-		va[main_axis] = bb_near[main_axis];
-		vb[main_axis] = bb_afar[main_axis];
+		r_axis_closest[tmin_axis] = data->local->ray_inv_dir[tmin_axis] >= 0;
+		r_axis_closest[tmax_axis] = data->local->ray_inv_dir[tmax_axis] < 0;
+
+		main_axis = 3 - (tmin_axis + tmax_axis);
+
+		/* if rtmin < rtmax, ray intersect `AABB` */
+		if (rtmin <= rtmax) {
+			const float proj = data->local->ray_orig[main_axis] + rtmin * data->local->ray_dir[main_axis];
+			r_axis_closest[main_axis] = (proj - bbmin[main_axis]) < (bbmax[main_axis] - proj);
+			return 0.0f;
+		}
 	}
+
+	va[main_axis] = bbmin[main_axis];
+	vb[main_axis] = bbmax[main_axis];
+
 	float scale = fabsf(bb_afar[main_axis] - bb_near[main_axis]);
 
 	float va2d[2] = {
@@ -825,6 +838,7 @@ static float snp_dist_squared_to_projected_aabb(
 	else {
 		rdist = len_squared_v2v2(data->mval, va2d);
 	}
+
 	return rdist;
 }
 
@@ -852,8 +866,8 @@ static bool snap_boundbox_nearest_test(
 }
 
 static bool snp_snap_boundbox_raycast_test(
-        SnapData *snpdt, SnapRayCastLocalData *localdata, BoundBox *bb) {
-{}
+        SnapData *snpdt, SnapRayCastLocalData *localdata, BoundBox *bb)
+{
 	/* was BKE_boundbox_ray_hit_check, see: cf6ca226fa58 */
 	return isect_ray_aabb_v3_simple(
 	        localdata->ray_start, localdata->ray_dir, bb->vec[0], bb->vec[6], NULL, NULL);
@@ -1131,7 +1145,6 @@ typedef struct Nearest2dUserData {
 	float no[3];
 } Nearest2dUserData;
 
-
 static bool cb_walk_parent_snap_project(
         const BVHTreeAxisRange *bounds, short *parent_flag, void *user_data)
 {
@@ -1159,6 +1172,13 @@ static bool cb_walk_parent_snap_project(
 	        &data->data_precalc, bbmin, bbmax, parent_flag, data->r_axis_closest);
 
 	return rdist < data->dist_px_sq;
+}
+
+static bool cb_nearest_walk_order(
+        const BVHTreeAxisRange *UNUSED(bounds), char axis, short *parent_flag, void *userdata)
+{
+	const bool *r_axis_closest = ((struct Nearest2dUserData *)userdata)->r_axis_closest;
+	return r_axis_closest[axis];
 }
 
 static bool cb_walk_leaf_snap_vert(
@@ -1275,13 +1295,6 @@ static bool cb_walk_leaf_snap_tri(
 	return true;
 }
 
-static bool cb_nearest_walk_order(
-        const BVHTreeAxisRange *UNUSED(bounds), char axis, short *UNUSED(parent_flag), void *userdata)
-{
-	const bool *r_axis_closest = ((struct Nearest2dUserData *)userdata)->r_axis_closest;
-	return r_axis_closest[axis];
-}
-
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -1305,6 +1318,12 @@ static bool snapArmature(
 
 	SnapNearestLocalData nearestlocaldata;
 	snp_nearest_local_data_get(&nearestlocaldata, snpdt, obmat);
+
+	BoundBox *bb = BKE_object_boundbox_get(ob);
+	if (bb && !snap_boundbox_nearest_test(snpdt, &nearestlocaldata, bb, *dist_px)) {
+		snp_free_nearestdata(&nearestlocaldata);
+		return retval;
+	}
 
 	short flag = nearestlocaldata.clip.plane ? (ISECT_CLIP_PLANE | TEST_RANGE_DEPTH) : TEST_RANGE_DEPTH;
 
@@ -1383,7 +1402,7 @@ static bool snapCurve(
 	if (snpdt->clip.plane) {
 		flag |= ISECT_CLIP_PLANE;
 		local_clip_planes = snp_clipplanes_calc_local(
-			snpdt->clip.plane, snpdt->clip.plane_num, obmat);
+		        snpdt->clip.plane, snpdt->clip.plane_num, obmat);
 	}
 
 	for (Nurb *nu = (ob->mode == OB_MODE_EDIT ? cu->editnurb->nurbs.first : cu->nurb.first); nu; nu = nu->next) {
