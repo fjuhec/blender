@@ -727,6 +727,62 @@ void immUniform1f(const char* name, float x)
 	glUniform1f(loc, x);
 	}
 
+void immUniform2f(const char* name, float x, float y)
+{
+	int loc = glGetUniformLocation(imm.bound_program, name);
+
+#if TRUST_NO_ONE
+	assert(loc != -1);
+#endif
+
+	glUniform2f(loc, x, y);
+}
+
+void immUniform2fv(const char* name, const float data[2])
+{
+	int loc = glGetUniformLocation(imm.bound_program, name);
+
+#if TRUST_NO_ONE
+	assert(loc != -1);
+#endif
+
+	glUniform2fv(loc, 1, data);
+}
+
+void immUniform3f(const char* name, float x, float y, float z)
+	{
+	int loc = glGetUniformLocation(imm.bound_program, name);
+
+#if TRUST_NO_ONE
+	assert(loc != -1);
+#endif
+
+	glUniform3f(loc, x, y, z);
+	}
+
+void immUniform3fv(const char* name, const float data[3])
+	{
+	int loc = glGetUniformLocation(imm.bound_program, name);
+
+#if TRUST_NO_ONE
+	assert(loc != -1);
+#endif
+
+	glUniform3fv(loc, 1, data);
+	}
+
+void immUniformArray3fv(const char* name, const float *data, int count)
+	{
+	int loc = glGetUniformLocation(imm.bound_program, name);
+
+#if TRUST_NO_ONE
+	assert(loc != -1);
+	assert(count > 0);
+#endif
+
+	glUniform3fv(loc, count, data);
+	}
+
 void immUniform4f(const char* name, float x, float y, float z, float w)
 	{
 	int loc = glGetUniformLocation(imm.bound_program, name);
@@ -747,6 +803,17 @@ void immUniform4fv(const char* name, const float data[4])
 #endif
 
 	glUniform4fv(loc, 1, data);
+	}
+
+void immUniformMatrix4fv(const char* name, const float data[4][4])
+	{
+	int loc = glGetUniformLocation(imm.bound_program, name);
+
+#if TRUST_NO_ONE
+	assert(loc != -1);
+#endif
+
+	glUniformMatrix4fv(loc, 1, GL_FALSE, (float *)data);
 	}
 
 void immUniform1i(const char* name, int x)

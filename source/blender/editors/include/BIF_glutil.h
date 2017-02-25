@@ -49,7 +49,6 @@ struct ColorManagedDisplaySettings;
 
 void fdrawline(float x1, float y1, float x2, float y2); /* DEPRECATED */
 void fdrawbox(float x1, float y1, float x2, float y2); /* DEPRECATED */
-void fdrawbox_filled(float x1, float y1, float x2, float y2);
 void sdrawline(int x1, int y1, int x2, int y2); /* DEPRECATED */
 void sdrawbox(int x1, int y1, int x2, int y2); /* DEPRECATED */
 
@@ -129,13 +128,29 @@ void imm_draw_line_box(unsigned pos, float x1, float y1, float x2, float y2);
 /* use this version when VertexFormat has a vec3 position */
 void imm_draw_line_box_3D(unsigned pos, float x1, float y1, float x2, float y2);
 
-void imm_draw_line(unsigned pos, float x1, float y1, float x2, float y2);
+/* Draw a standard checkerboard to indicate transparent backgrounds */
+void imm_draw_checker_box(float x1, float y1, float x2, float y2);
+
 /**
 * Pack color into 3 bytes
 *
 * \param x color.
 */
 void imm_cpack(unsigned int x);
+
+/**
+* Draw a cylinder. Replacement for gluCylinder.
+* _warning_ : Slow, better use it only if you no other choices.
+*
+* \param pos The vertex attribute number for position.
+* \param nor The vertex attribute number for normal.
+* \param base Specifies the radius of the cylinder at z = 0.
+* \param top Specifies the radius of the cylinder at z = height.
+* \param height Specifies the height of the cylinder.
+* \param slices Specifies the number of subdivisions around the z axis.
+* \param stacks Specifies the number of subdivisions along the z axis.
+*/
+void imm_cylinder(unsigned int pos, unsigned int nor, float base, float top, float height, int slices, int stacks);
 
 /**
  * Returns a float value as obtained by glGetFloatv.
@@ -157,6 +172,7 @@ int glaGetOneInt(int param);
  */
 void glaRasterPosSafe2f(float x, float y, float known_good_x, float known_good_y);
 
+#if 0 /* Obsolete / unused */
 /**
  * Functions like a limited glDrawPixels, except ensures that
  * the image is displayed onscreen even if the \a x and \a y
@@ -190,11 +206,36 @@ void glaDrawPixelsSafe(float x, float y, int img_w, int img_h, int row_w, int fo
  * modelview and projection matrices are assumed to define a
  * 1-to-1 mapping to screen space.
  */
-
 void glaDrawPixelsTex(float x, float y, int img_w, int img_h, int format, int type, int zoomfilter, void *rect);
 void glaDrawPixelsTex_clipping(float x, float y, int img_w, int img_h, int format, int type, int zoomfilter, void *rect,
                                float clip_min_x, float clip_min_y, float clip_max_x, float clip_max_y);
+#endif
 
+/* To be used before calling immDrawPixelsTex
+ * Default shader is GPU_SHADER_2D_IMAGE_COLOR
+ * Returns a shader to be able to set uniforms */
+struct GPUShader *immDrawPixelsTexSetup(int builtin);
+
+/**
+ * immDrawPixelsTex - Functions like a limited glDrawPixels, but actually draws the
+ * image using textures, which can be tremendously faster on low-end
+ * cards, and also avoids problems with the raster position being
+ * clipped when offscreen. Pixel unpacking parameters and
+ * the glPixelZoom values are _not_ respected.
+ *
+ * \attention Use immDrawPixelsTexSetup before calling this function.
+ *
+ * \attention This routine makes many assumptions: the rect data
+ * is expected to be in RGBA byte or float format, and the
+ * modelview and projection matrices are assumed to define a
+ * 1-to-1 mapping to screen space.
+ */
+void immDrawPixelsTex(float x, float y, int img_w, int img_h, int format, int type, int zoomfilter, void *rect,
+                      float xzoom, float yzoom, float color[4]);
+void immDrawPixelsTex_clipping(float x, float y, int img_w, int img_h, int format, int type, int zoomfilter, void *rect,
+                               float clip_min_x, float clip_min_y, float clip_max_x, float clip_max_y,
+                               float xzoom, float yzoom, float color[4]);
+#if 0 /* Obsolete / unused */
 /**
  * glaDrawPixelsAuto - Switches between texture or pixel drawing using UserDef.
  * only RGBA
@@ -208,7 +249,13 @@ void glaDrawPixelsAuto_clipping(float x, float y, int img_w, int img_h, int form
 void glaDrawPixelsTexScaled(float x, float y, int img_w, int img_h, int format, int type, int zoomfilter, void *rect, float scaleX, float scaleY);
 void glaDrawPixelsTexScaled_clipping(float x, float y, int img_w, int img_h, int format, int type, int zoomfilter, void *rect, float scaleX, float scaleY,
                                      float clip_min_x, float clip_min_y, float clip_max_x, float clip_max_y);
+#endif
 
+void immDrawPixelsTexScaled(float x, float y, int img_w, int img_h, int format, int type, int zoomfilter, void *rect, float scaleX, float scaleY,
+                           float xzoom, float yzoom, float color[4]);
+void immDrawPixelsTexScaled_clipping(float x, float y, int img_w, int img_h, int format, int type, int zoomfilter, void *rect, float scaleX, float scaleY,
+                                     float clip_min_x, float clip_min_y, float clip_max_x, float clip_max_y,
+                                     float xzoom, float yzoom, float color[4]);
 /* 2D Drawing Assistance */
 
 /** Define a 2D area (viewport, scissor, matrices) for OpenGL rendering.
@@ -223,7 +270,6 @@ void glaDrawPixelsTexScaled_clipping(float x, float y, int img_w, int img_h, int
  * \param screen_rect The screen rectangle to be defined for 2D drawing.
  */
 void glaDefine2DArea(struct rcti *screen_rect);
-
 #if 0  /* UNUSED */
 
 typedef struct gla2DDrawInfo gla2DDrawInfo;
@@ -259,24 +305,30 @@ void bgl_get_mats(bglMats *mats);
 /* Draw imbuf on a screen, preferably using GLSL display transform */
 void glaDrawImBuf_glsl(struct ImBuf *ibuf, float x, float y, int zoomfilter,
                        struct ColorManagedViewSettings *view_settings,
-                       struct ColorManagedDisplaySettings *display_settings);
+                       struct ColorManagedDisplaySettings *display_settings,
+                       float zoom_x, float zoom_y);
 void glaDrawImBuf_glsl_clipping(struct ImBuf *ibuf, float x, float y, int zoomfilter,
                                 struct ColorManagedViewSettings *view_settings,
                                 struct ColorManagedDisplaySettings *display_settings,
                                 float clip_min_x, float clip_min_y,
-                                float clip_max_x, float clip_max_y);
+                                float clip_max_x, float clip_max_y,
+                                float zoom_x, float zoom_y);
 
 
 /* Draw imbuf on a screen, preferably using GLSL display transform */
-void glaDrawImBuf_glsl_ctx(const struct bContext *C, struct ImBuf *ibuf, float x, float y, int zoomfilter);
+void glaDrawImBuf_glsl_ctx(const struct bContext *C, struct ImBuf *ibuf, float x, float y, int zoomfilter,
+                           float zoom_x, float zoom_y);
 void glaDrawImBuf_glsl_ctx_clipping(const struct bContext *C,
                                     struct ImBuf *ibuf,
                                     float x, float y,
                                     int zoomfilter,
                                     float clip_min_x, float clip_min_y,
-                                    float clip_max_x, float clip_max_y);
+                                    float clip_max_x, float clip_max_y,
+                                    float zoom_x, float zoom_y);
 
 void glaDrawBorderCorners(const struct rcti *border, float zoomx, float zoomy);
+
+void immDrawBorderCorners(unsigned int pos, const struct rcti *border, float zoomx, float zoomy);
 
 #endif /* __BIF_GLUTIL_H__ */
 

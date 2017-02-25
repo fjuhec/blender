@@ -341,6 +341,7 @@ static void file_draw_preview(
 	float scale;
 	int ex, ey;
 	bool use_dropshadow = !is_icon && (typeflags & FILE_TYPE_IMAGE);
+	float col[4] = {1.0f, 1.0f, 1.0f, 1.0f};
 
 	BLI_assert(imb != NULL);
 
@@ -387,12 +388,12 @@ static void file_draw_preview(
 
 	/* the image */
 	if (!is_icon && typeflags & FILE_TYPE_FTFONT) {
-		UI_ThemeColor(TH_TEXT);
+		UI_GetThemeColor4fv(TH_TEXT, col);
 	}
-	else {
-		glColor4f(1.0, 1.0, 1.0, 1.0);
-	}
-	glaDrawPixelsTexScaled((float)xco, (float)yco, imb->x, imb->y, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST, imb->rect, scale, scale);
+
+	immDrawPixelsTexSetup(GPU_SHADER_2D_IMAGE_COLOR);
+	immDrawPixelsTexScaled((float)xco, (float)yco, imb->x, imb->y, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST, imb->rect,
+	                       scale, scale, 1.0f, 1.0f, col);
 
 	if (icon) {
 		UI_icon_draw_aspect((float)xco, (float)yco, icon, icon_aspect, 1.0f);
@@ -400,8 +401,8 @@ static void file_draw_preview(
 
 	/* border */
 	if (use_dropshadow) {
-		VertexFormat* format = immVertexFormat();
-		unsigned pos = add_attrib(format, "pos", GL_FLOAT, 2,KEEP_FLOAT);
+		VertexFormat *format = immVertexFormat();
+		unsigned int pos = add_attrib(format, "pos", GL_FLOAT, 2,KEEP_FLOAT);
 
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 		immUniformColor4f(0.0f, 0.0f, 0.0f, 0.4f);
@@ -481,9 +482,9 @@ static void draw_dividers(FileLayout *layout, View2D *v2d)
 	unsigned int vertex_ct = 0;
 	unsigned char col_hi[3], col_lo[3];
 
-	VertexFormat* format = immVertexFormat();
-	unsigned pos = add_attrib(format, "pos", GL_INT, 2, CONVERT_INT_TO_FLOAT);
-	unsigned color = add_attrib(format, "color", GL_UNSIGNED_BYTE, 3, NORMALIZE_INT_TO_FLOAT);
+	VertexFormat *format = immVertexFormat();
+	unsigned int pos = add_attrib(format, "pos", GL_INT, 2, CONVERT_INT_TO_FLOAT);
+	unsigned int color = add_attrib(format, "color", GL_UNSIGNED_BYTE, 3, NORMALIZE_INT_TO_FLOAT);
 
 	vertex_ct = (v2d->cur.xmax - v2d->tot.xmin) / step + 1; /* paint at least 1 divider */
 	vertex_ct *= 4; /* vertex_count = 2 points per divider * 2 lines per divider */

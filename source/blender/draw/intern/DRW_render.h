@@ -46,13 +46,13 @@
 
 #include "draw_mode_pass.h"
 #include "draw_cache.h"
+#include "draw_view.h"
 
 #include "MEM_guardedalloc.h"
 
 #include "RE_engine.h"
 
-//#define WITH_VIEWPORT_CACHE_TEST
-
+struct bContext;
 struct GPUFrameBuffer;
 struct GPUShader;
 struct GPUTexture;
@@ -92,11 +92,11 @@ typedef enum {
 } DRWTextureFlag;
 
 struct GPUTexture *DRW_texture_create_1D(
-		int w, DRWTextureFormat format, DRWTextureFlag flags, const float *fpixels);
+        int w, DRWTextureFormat format, DRWTextureFlag flags, const float *fpixels);
 struct GPUTexture *DRW_texture_create_2D(
-		int w, int h, DRWTextureFormat format, DRWTextureFlag flags, const float *fpixels);
+        int w, int h, DRWTextureFormat format, DRWTextureFlag flags, const float *fpixels);
 struct GPUTexture *DRW_texture_create_2D_array(
-		int w, int h, int d, DRWTextureFormat UNUSED(format), DRWTextureFlag flags, const float *fpixels);
+        int w, int h, int d, DRWTextureFormat UNUSED(format), DRWTextureFlag flags, const float *fpixels);
 void DRW_texture_free(struct GPUTexture *tex);
 
 /* UBOs */
@@ -133,6 +133,7 @@ void DRW_framebuffer_init(struct GPUFrameBuffer **fb, int width, int height, DRW
 void DRW_framebuffer_bind(struct GPUFrameBuffer *fb);
 void DRW_framebuffer_texture_attach(struct GPUFrameBuffer *fb, struct GPUTexture *tex, int slot);
 void DRW_framebuffer_texture_detach(struct GPUTexture *tex);
+void DRW_framebuffer_blit(struct GPUFrameBuffer *fb_read, struct GPUFrameBuffer *fb_write, bool depth);
 /* Shaders */
 struct GPUShader *DRW_shader_create(const char *vert, const char *geom, const char *frag, const char *defines);
 struct GPUShader *DRW_shader_create_2D(const char *frag, const char *defines);
@@ -158,16 +159,17 @@ typedef enum {
 	DRW_STATE_BLEND       = (1 << 12),
 } DRWState;
 
-/* Used by DRWShadingGroup.dyntype */
-#define DRW_DYN_POINTS 1
-#define DRW_DYN_LINES 2
-#define DRW_DYN_INSTANCE 3
-
 DRWShadingGroup *DRW_shgroup_create(struct GPUShader *shader, DRWPass *pass);
+DRWShadingGroup *DRW_shgroup_instance_create(struct GPUShader *shader, DRWPass *pass, struct Batch *geom);
+DRWShadingGroup *DRW_shgroup_point_batch_create(struct GPUShader *shader, DRWPass *pass);
+DRWShadingGroup *DRW_shgroup_line_batch_create(struct GPUShader *shader, DRWPass *pass);
+
 void DRW_shgroup_free(struct DRWShadingGroup *shgroup);
 void DRW_shgroup_call_add(DRWShadingGroup *shgroup, struct Batch *geom, float (*obmat)[4]);
+void DRW_shgroup_dynamic_call_add(DRWShadingGroup *shgroup, ...);
 void DRW_shgroup_state_set(DRWShadingGroup *shgroup, DRWState state);
-void DRW_shgroup_dyntype_set(DRWShadingGroup *shgroup, int type);
+void DRW_shgroup_attrib_int(DRWShadingGroup *shgroup, const char *name, int size);
+void DRW_shgroup_attrib_float(DRWShadingGroup *shgroup, const char *name, int size);
 
 void DRW_shgroup_uniform_texture(DRWShadingGroup *shgroup, const char *name, const struct GPUTexture *tex, int loc);
 void DRW_shgroup_uniform_block(DRWShadingGroup *shgroup, const char *name, const struct GPUUniformBuffer *ubo, int loc);
@@ -185,7 +187,6 @@ void DRW_shgroup_uniform_mat4(DRWShadingGroup *shgroup, const char *name, const 
 
 /* Passes */
 DRWPass *DRW_pass_create(const char *name, DRWState state);
-DRWShadingGroup *DRW_pass_nth_shgroup_get(DRWPass *pass, int n);
 
 /* Viewport */
 typedef enum {
@@ -194,7 +195,7 @@ typedef enum {
 	DRW_MAT_WIN,
 } DRWViewportMatrixType;
 
-void DRW_viewport_init(const bContext *C, void **buffers, void **textures, void **passes, void **storage);
+void DRW_viewport_init(const bContext *C);
 void DRW_viewport_matrix_get(float mat[4][4], DRWViewportMatrixType type);
 float *DRW_viewport_size_get(void);
 float *DRW_viewport_screenvecs_get(void);
@@ -208,14 +209,26 @@ void *DRW_material_settings_get(Material *ma, const char *engine_name);
 void *DRW_render_settings_get(Scene *scene, const char *engine_name);
 #endif /* __DRW_ENGINE_H__ */
 
+/* Cache */
+void DRW_mode_cache_init(void);
+void DRW_mode_cache_populate(struct Object *ob);
+void DRW_mode_cache_finish(void);
+
 /* Draw commands */
-void DRW_draw_background(void);
-void DRW_centercircle(const float co[3]);
 void DRW_draw_pass(DRWPass *pass);
+void DRW_draw_mode_overlays(void);
 
 void DRW_state_reset(void);
 
 /* Other */
 void DRW_get_dfdy_factors(float dfdyfac[2]);
-
+const struct bContext *DRW_get_context(void);
+void *DRW_engine_pass_list_get(void);
+void *DRW_engine_storage_list_get(void);
+void *DRW_engine_texture_list_get(void);
+void *DRW_engine_framebuffer_list_get(void);
+void *DRW_mode_pass_list_get(void);
+void *DRW_mode_storage_list_get(void);
+void *DRW_mode_texture_list_get(void);
+void *DRW_mode_framebuffer_list_get(void);
 #endif /* __DRW_RENDER_H__ */

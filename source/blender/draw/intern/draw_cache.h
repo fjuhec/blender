@@ -34,19 +34,31 @@ void DRW_shape_cache_free(void);
 /* Common Shapes */
 struct Batch *DRW_cache_fullscreen_quad_get(void);
 struct Batch *DRW_cache_single_vert_get(void);
+struct Batch *DRW_cache_single_line_get(void);
 
 /* Empties */
 struct Batch *DRW_cache_plain_axes_get(void);
-struct Batch *DRW_cache_single_arrow_get(struct Batch **line);
+struct Batch *DRW_cache_single_arrow_get(void);
 struct Batch *DRW_cache_cube_get(void);
 struct Batch *DRW_cache_circle_get(void);
 struct Batch *DRW_cache_empty_sphere_get(void);
 struct Batch *DRW_cache_empty_cone_get(void);
 struct Batch *DRW_cache_arrows_get(void);
+struct Batch *DRW_cache_axis_names_get(void);
 
 /* Lamps */
 struct Batch *DRW_cache_lamp_get(void);
 struct Batch *DRW_cache_lamp_sunrays_get(void);
+
+/* Speaker */
+struct Batch *DRW_cache_speaker_get(void);
+
+/* Bones */
+struct Batch *DRW_cache_bone_octahedral_get(void);
+struct Batch *DRW_cache_bone_octahedral_wire_outline_get(void);
+struct Batch *DRW_cache_bone_point_get(void);
+struct Batch *DRW_cache_bone_point_wire_outline_get(void);
+struct Batch *DRW_cache_bone_arrows_get(void);
 
 /* Meshes */
 struct Batch *DRW_cache_wire_overlay_get(struct Object *ob);
