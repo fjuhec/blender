@@ -662,7 +662,7 @@ static int rna_userdef_hmd_use_device_ipd_editeable(PointerRNA *UNUSED(ptr), con
 			WM_device_HMD_state_set(U.hmd_settings.device, true);
 		}
 		if (WM_device_HMD_IPD_get() == -1.0f) {
-			*r_info = "Active HMD device doesn't return valid interocular distance";
+			*r_info = "Active HMD device doesn't return valid interpupillary distance";
 			editable = false;
 		}
 		if (!has_active_device) {
@@ -4075,10 +4075,13 @@ static void rna_def_userdef_system(BlenderRNA *brna)
 
 #ifdef WITH_INPUT_HMD
 	static EnumPropertyItem hmd_lensdist_type_items[] = {
-		{GPU_FX_LENSDIST_NONE,		"NONE", 0, "None", "Don't use a lens distortion/correction shader for the HMD view"},
-		{GPU_FX_LENSDIST_GENERIC,	"GENERIC",  0, "Generic",  "Use a lens distortion/correction shader for Generic Use, might not be perfect or work at all"},
-		{GPU_FX_LENSDIST_DK1,  		"DK1",  0, "Oculus DK1",  "Use a lens distortion/correction shader for the Oculus DK1 (1280x800)"},
-		{GPU_FX_LENSDIST_DK2,  		"DK2",  0, "Oculus DK2/CV1",  "Use a lens distortion/correction shader for the Oculus DK2 (1080p) and CV1 (2160x1200)"},
+		{GPU_FX_LENSDIST_NONE, "NONE", 0, "None", "Don't use a lens distortion/correction shader for the HMD view"},
+		{GPU_FX_LENSDIST_GENERIC, "GENERIC", 0, "Generic", "Use a lens distortion/correction shader for generic use, "
+		                                                   "might not be perfect or work at all"},
+		{GPU_FX_LENSDIST_DK1, "DK1", 0, "Oculus DK1", "Use a lens distortion/correction shader for the "
+		                                              "Oculus DK1 (1280x800)"},
+		{GPU_FX_LENSDIST_DK2, "DK2", 0, "Oculus DK2/CV1", "Use a lens distortion/correction shader for the Oculus DK2 "
+		                                                  "(1080p) and CV1 (2160x1200)"},
 		{0, NULL, 0, NULL, NULL}
 	};
 #endif
