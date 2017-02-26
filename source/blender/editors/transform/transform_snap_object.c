@@ -298,6 +298,18 @@ MINLINE void aabb_get_near_far_from_plane(
 	}
 }
 
+static float dist_aabb_to_plane(
+        const float bbmin[3], const float bbmax[3],
+        const float plane_co[3], const float plane_no[3])
+{
+	const float bb_near[3] = {
+		(plane_no[0] < 0) ? bbmax[0] : bbmin[0],
+		(plane_no[1] < 0) ? bbmax[1] : bbmin[1],
+		(plane_no[2] < 0) ? bbmax[2] : bbmin[2],
+	};
+	return depth_get(bb_near, plane_co, plane_no);
+}
+
 /**
  * Check if a point is in front all planes.
  * (Similar to `isect_point_planes_v3` but checks the opposite side)
@@ -371,7 +383,6 @@ typedef struct SnapRayCastLocalData {
 typedef struct SnapNearestLocalData {
 	float ray_orig[3];
 	float ray_dir[3];
-	float ray_inv_dir[3];
 	float pmat[4][4]; /* perspective matrix */
 
 	float imat[4][4];
@@ -416,12 +427,6 @@ static void snp_nearest_local_data_get(
 
 	mul_m4_v3(localdata->imat, localdata->ray_orig);
 	mul_mat3_m4_v3(localdata->imat, localdata->ray_dir);
-
-	for (int i = 0; i < 3; i++) {
-		localdata->ray_inv_dir[i] =
-		        (localdata->ray_dir[i] != 0.0f) ?
-		        (1.0f / localdata->ray_dir[i]) : FLT_MAX;
-	}
 
 	if (snpdt->clip.plane) {
 		localdata->clip.plane = snp_clipplanes_calc_local(
@@ -634,6 +639,7 @@ static bool snap_segment_v3v3(
 typedef struct SnapNearest2dPrecalc {
 	SnapNearestLocalData *local;
 
+	float ray_inv_dir[3];
 	bool is_persp;
 	float win_half[2];
 
@@ -650,6 +656,12 @@ static void snp_dist_squared_to_projected_aabb_precalc(
 	nearest_precalc->local = localdata;
 //	memcpy(&nearest_precalc->local, localdata, sizeof(nearest_precalc->local));
 
+	for (int i = 0; i < 3; i++) {
+		nearest_precalc->ray_inv_dir[i] =
+			(localdata->ray_dir[i] != 0.0f) ?
+			(1.0f / localdata->ray_dir[i]) : FLT_MAX;
+	}
+
 	nearest_precalc->is_persp = snpdt->view_proj == VIEW_PROJ_PERSP;
 	copy_v2_v2(nearest_precalc->win_half, snpdt->win_half);
 	copy_v2_v2(nearest_precalc->depth_range, snpdt->depth_range);
@@ -665,7 +677,7 @@ static float snp_dist_squared_to_projected_aabb(
 {
 	float bb_near[3], bb_afar[3];
 	aabb_get_near_far_from_plane(
-	        data->local->ray_inv_dir, bbmin, bbmax, bb_near, bb_afar);
+	        data->ray_inv_dir, bbmin, bbmax, bb_near, bb_afar);
 
 	/* ISECT_CLIP_PLANE can replace this ? */
 	if (*flag & TEST_RANGE_DEPTH) {
@@ -706,14 +718,14 @@ static float snp_dist_squared_to_projected_aabb(
 	}
 
 	const float tmin[3] = {
-		(bb_near[0] - data->local->ray_orig[0]) * data->local->ray_inv_dir[0],
-		(bb_near[1] - data->local->ray_orig[1]) * data->local->ray_inv_dir[1],
-		(bb_near[2] - data->local->ray_orig[2]) * data->local->ray_inv_dir[2],
+		(bb_near[0] - data->local->ray_orig[0]) * data->ray_inv_dir[0],
+		(bb_near[1] - data->local->ray_orig[1]) * data->ray_inv_dir[1],
+		(bb_near[2] - data->local->ray_orig[2]) * data->ray_inv_dir[2],
 	};
 	const float tmax[3] = {
-		(bb_afar[0] - data->local->ray_orig[0]) * data->local->ray_inv_dir[0],
-		(bb_afar[1] - data->local->ray_orig[1]) * data->local->ray_inv_dir[1],
-		(bb_afar[2] - data->local->ray_orig[2]) * data->local->ray_inv_dir[2],
+		(bb_afar[0] - data->local->ray_orig[0]) * data->ray_inv_dir[0],
+		(bb_afar[1] - data->local->ray_orig[1]) * data->ray_inv_dir[1],
+		(bb_afar[2] - data->local->ray_orig[2]) * data->ray_inv_dir[2],
 	};
 	/* `va` and `vb` are the coordinates of the AABB edge closest to the ray */
 	float va[3], vb[3];
@@ -755,7 +767,7 @@ static float snp_dist_squared_to_projected_aabb(
 
 	if (tmin_axis == tmax_axis) {
 		float proj;
-		r_axis_closest[tmin_axis] = data->local->ray_inv_dir[tmin_axis] >= 0;
+		r_axis_closest[tmin_axis] = data->ray_inv_dir[tmin_axis] >= 0;
 		tmin_axis = abs(tmax_axis - 1);
 		proj = data->local->ray_orig[tmin_axis] + rtmin * data->local->ray_dir[tmin_axis];
 		r_axis_closest[tmin_axis] = (proj - bbmin[tmin_axis]) < (bbmax[tmin_axis] - proj);
@@ -765,8 +777,8 @@ static float snp_dist_squared_to_projected_aabb(
 		return 0.0f;
 	}
 	else {
-		r_axis_closest[tmin_axis] = data->local->ray_inv_dir[tmin_axis] >= 0;
-		r_axis_closest[tmax_axis] = data->local->ray_inv_dir[tmax_axis] < 0;
+		r_axis_closest[tmin_axis] = data->ray_inv_dir[tmin_axis] >= 0;
+		r_axis_closest[tmax_axis] = data->ray_inv_dir[tmax_axis] < 0;
 
 		main_axis = 3 - (tmin_axis + tmax_axis);
 
@@ -871,18 +883,6 @@ static bool snp_snap_boundbox_raycast_test(
 	/* was BKE_boundbox_ray_hit_check, see: cf6ca226fa58 */
 	return isect_ray_aabb_v3_simple(
 	        localdata->ray_start, localdata->ray_dir, bb->vec[0], bb->vec[6], NULL, NULL);
-}
-
-static float dist_aabb_to_plane(
-        const float bbmin[3], const float bbmax[3],
-        const float plane_co[3], const float plane_no[3])
-{
-	const float bb_near[3] = {
-		(plane_no[0] < 0) ? bbmax[0] : bbmin[0],
-		(plane_no[1] < 0) ? bbmax[1] : bbmin[1],
-		(plane_no[2] < 0) ? bbmax[2] : bbmin[2],
-	};
-	return depth_get(bb_near, plane_co, plane_no);
 }
 
 /** \} */
@@ -1500,16 +1500,13 @@ static bool snapEmpty(
 		return retval;
 	}
 
-	short flag = snpdt->clip.plane ? (TEST_RANGE_DEPTH | ISECT_CLIP_PLANE) : TEST_RANGE_DEPTH;
-
 	/* for now only vertex supported */
 	if (snpdt->snap_to_flag & SCE_SELECT_VERTEX) {
 		bool is_persp = snpdt->view_proj == VIEW_PROJ_PERSP;
+		short flag = snpdt->clip.plane ? (TEST_RANGE_DEPTH | ISECT_CLIP_PLANE) : TEST_RANGE_DEPTH;
 		float dist_px_sq = SQUARE(*dist_px);
-		float tmp_co[3];
-		copy_v3_v3(tmp_co, obmat[3]);
 		if (snap_point_v3(
-			        snpdt->depth_range, snpdt->mval, tmp_co,
+			        snpdt->depth_range, snpdt->mval, obmat[3],
 			        snpdt->pmat, snpdt->win_half, is_persp,
 			        flag, snpdt->clip.plane, snpdt->clip.plane_num,
 			        &dist_px_sq, r_loc))
