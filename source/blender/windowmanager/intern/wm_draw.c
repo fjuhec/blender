@@ -154,6 +154,14 @@ static void wm_region_test_render_do_draw(const Scene *scene, ScrArea *sa, ARegi
 	}
 }
 
+static void wm_draw_region(bContext *C, ARegion *ar)
+{
+	CTX_wm_region_set(C, ar);
+	ED_region_do_draw(C, ar);
+	ar->do_draw = false;
+	CTX_wm_region_set(C, NULL);
+}
+
 /********************** draw all **************************/
 /* - reference method, draw all each time                 */
 
@@ -557,6 +565,20 @@ static void wm_method_draw_triple(bContext *C, wmWindow *win)
 
 	wmDrawTriple *triple = drawdata->triple;
 
+	/* draw global area regions */
+	for (sa = win->global_areas.first; sa; sa = sa->next) {
+		CTX_wm_area_set(C, sa);
+
+		for (ar = sa->regionbase.first; ar; ar = ar->next) {
+			if (ar->swinid && ar->do_draw) {
+				wm_draw_region(C, ar);
+				copytex = true;
+			}
+		}
+		wm_area_mark_invalid_backbuf(sa);
+		CTX_wm_area_set(C, NULL);
+	}
+
 	/* draw marked area regions */
 	for (sa = screen->areabase.first; sa; sa = sa->next) {
 		CTX_wm_area_set(C, sa);
@@ -564,10 +586,7 @@ static void wm_method_draw_triple(bContext *C, wmWindow *win)
 		for (ar = sa->regionbase.first; ar; ar = ar->next) {
 			if (ar->swinid && ar->do_draw) {
 				if (ar->overlap == false) {
-					CTX_wm_region_set(C, ar);
-					ED_region_do_draw(C, ar);
-					ar->do_draw = false;
-					CTX_wm_region_set(C, NULL);
+					wm_draw_region(C, ar);
 					copytex = true;
 				}
 			}
@@ -609,11 +628,7 @@ static void wm_method_draw_triple(bContext *C, wmWindow *win)
 
 		for (ar = sa->regionbase.first; ar; ar = ar->next) {
 			if (ar->swinid && ar->overlap) {
-				CTX_wm_region_set(C, ar);
-				ED_region_do_draw(C, ar);
-				ar->do_draw = false;
-				CTX_wm_region_set(C, NULL);
-
+				wm_draw_region(C, ar);
 				wm_draw_region_blend(win, ar, triple);
 			}
 		}
@@ -1012,10 +1027,17 @@ void wm_draw_window_clear(wmWindow *win)
 
 	/* clear screen swap flags */
 	if (screen) {
-		for (sa = screen->areabase.first; sa; sa = sa->next)
-			for (ar = sa->regionbase.first; ar; ar = ar->next)
+		for (sa = screen->areabase.first; sa; sa = sa->next) {
+			for (ar = sa->regionbase.first; ar; ar = ar->next) {
 				ar->swap = WIN_NONE_OK;
-		
+			}
+		}
+		for (sa = win->global_areas.first; sa; sa = sa->next) {
+			for (ar = sa->regionbase.first; ar; ar = ar->next) {
+				ar->swap = WIN_NONE_OK;
+			}
+		}
+
 		screen->swap = WIN_NONE_OK;
 	}
 }

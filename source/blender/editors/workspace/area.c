@@ -1129,7 +1129,7 @@ static bool region_is_overlap(wmWindow *win, ScrArea *sa, ARegion *ar)
 	return 0;
 }
 
-static void region_rect_recursive(wmWindow *win, ScrArea *sa, ARegion *ar, rcti *remainder, int quad)
+static void region_rect_recursive(wmWindow *win, ScrArea *sa, ARegion *ar, rcti *remainder, int quad, bool add_azones)
 {
 	rcti *remainder_prev = remainder;
 	int prefsizex, prefsizey;
@@ -1358,7 +1358,7 @@ static void region_rect_recursive(wmWindow *win, ScrArea *sa, ARegion *ar, rcti 
 		 * but accounts for small common rounding problems when scaling the UI,
 		 * must be minimum '4' */
 	}
-	else {
+	else if (add_azones) {
 		const bScreen *screen = WM_window_get_active_screen(win);
 
 		if (ELEM(screen->state, SCREENNORMAL, SCREENMAXIMIZED)) {
@@ -1370,7 +1370,7 @@ static void region_rect_recursive(wmWindow *win, ScrArea *sa, ARegion *ar, rcti 
 		}
 	}
 
-	region_rect_recursive(win, sa, ar->next, remainder, quad);
+	region_rect_recursive(win, sa, ar->next, remainder, quad, add_azones);
 }
 
 static void area_calc_totrct(ScrArea *sa, int sizex, int sizey)
@@ -1510,7 +1510,7 @@ void ED_area_initialize(wmWindowManager *wm, wmWindow *win, ScrArea *sa)
 
 	/* region rect sizes */
 	rect = sa->totrct;
-	region_rect_recursive(win, sa, sa->regionbase.first, &rect, 0);
+	region_rect_recursive(win, sa, sa->regionbase.first, &rect, 0, true);
 	
 	/* default area handlers */
 	ed_default_handlers(wm, sa, &sa->handlers, sa->type->keymapflag);
@@ -1534,6 +1534,71 @@ void ED_area_initialize(wmWindowManager *wm, wmWindow *win, ScrArea *sa)
 			UI_blocklist_free(NULL, &ar->uiblocks);
 		}
 	}
+}
+
+static void area_global_calc_totrct(ScrArea *sa, int sizex, int sizey)
+{
+	short rt = (short)U.pixelsize;
+
+	sa->v1->vec.x = sa->v2->vec.x = rt;
+	sa->v3->vec.x = sa->v4->vec.x = sizex - rt;
+	sa->v1->vec.y = sa->v4->vec.y = sizey - (2 * HEADERY) + rt;
+	sa->v2->vec.y = sa->v3->vec.y = sizey - rt;
+	sa->totrct.xmin = sa->v1->vec.x;
+	sa->totrct.xmax = sa->v4->vec.x;
+	sa->totrct.ymin = sa->v1->vec.y;
+	sa->totrct.ymax = sa->v2->vec.y;
+
+	/* for speedup */
+	sa->winx = BLI_rcti_size_x(&sa->totrct) + 1;
+	sa->winy = BLI_rcti_size_y(&sa->totrct) + 1;
+}
+
+/* XXX code duplicated from ED_area_initialize */
+void ED_area_global_initialize(wmWindowManager *wm, wmWindow *win, ScrArea *sa)
+{
+	const int size_x = WM_window_pixels_x(win);
+	const int size_y = WM_window_pixels_y(win);
+	rcti rect;
+
+	sa->type = BKE_spacetype_from_id(sa->spacetype);
+	for (ARegion *ar = sa->regionbase.first; ar; ar = ar->next) {
+		ar->type = BKE_regiontype_from_id(sa->type, ar->regiontype);
+	}
+
+	/* area sizes */
+	area_global_calc_totrct(sa, size_x, size_y);
+
+	/* region rect sizes */
+	rect = sa->totrct;
+	region_rect_recursive(win, sa, sa->regionbase.first, &rect, 0, false);
+
+	/* default area handlers */
+	ed_default_handlers(wm, sa, &sa->handlers, sa->type->keymapflag);
+	/* checks spacedata, adds own handlers */
+	if (sa->type->init) {
+		sa->type->init(wm, sa);
+	}
+
+	/* region windows, default and own handlers */
+	for (ARegion *ar = sa->regionbase.first; ar; ar = ar->next) {
+		region_subwindow(win, ar, false);
+
+		if (ar->swinid) {
+			/* default region handlers */
+			ed_default_handlers(wm, sa, &ar->handlers, ar->type->keymapflag);
+			/* own handlers */
+			if (ar->type->init) {
+				ar->type->init(wm, ar);
+			}
+		}
+		else {
+			/* prevent uiblocks to run */
+			UI_blocklist_free(NULL, &ar->uiblocks);
+		}
+	}
+	/* XXX hack to force drawing */
+	ED_area_tag_redraw(sa);
 }
 
 static void region_update_rect(ARegion *ar)

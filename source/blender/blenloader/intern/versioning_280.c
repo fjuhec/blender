@@ -32,12 +32,15 @@
 #include "DNA_layer_types.h"
 #include "DNA_material_types.h"
 #include "DNA_scene_types.h"
+#include "DNA_screen_types.h"
 #include "DNA_genfile.h"
 
 #include "BKE_collection.h"
 #include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_scene.h"
+#include "BKE_screen.h"
+#include "BKE_workspace.h"
 
 #include "BLI_listbase.h"
 #include "BLI_string.h"
@@ -47,7 +50,8 @@
 
 #include "MEM_guardedalloc.h"
 
-void do_versions_after_linking_280(Main *main)
+
+void do_versions_after_linking_280(FileData *fd, Main *main)
 {
 	if (!MAIN_VERSION_ATLEAST(main, 280, 0)) {
 		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
@@ -171,6 +175,46 @@ void do_versions_after_linking_280(Main *main)
 			}
 		}
 	}
+
+#if 1
+	{
+		if (!DNA_struct_find(fd->filesdna, "SpaceTopBar")) {
+			for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
+				for (wmWindow *win = wm->windows.first; win; win = win->next) {
+					const bScreen *screen = BKE_workspace_active_screen_get(win->workspace);
+
+					/* XXX duplicated from wm_window_global_areas_create */
+					if (screen->temp == 0) {
+						ScrArea *sa = MEM_callocN(sizeof(*sa), "do version topbar area");
+
+						sa->v1 = MEM_callocN(sizeof(*sa->v1), "do_version topbar vert");
+						sa->v2 = MEM_callocN(sizeof(*sa->v1), "do_version topbar vert");
+						sa->v3 = MEM_callocN(sizeof(*sa->v1), "do_version topbar vert");
+						sa->v4 = MEM_callocN(sizeof(*sa->v1), "do_version topbar vert");
+
+						sa->v1->vec.x = sa->v2->vec.x = 0;
+						sa->v3->vec.x = sa->v4->vec.x = win->sizex;
+						sa->v1->vec.y = sa->v4->vec.y = win->sizey - (2 * HEADERY);
+						sa->v2->vec.y = sa->v3->vec.y = win->sizey;
+						sa->headertype = HEADERTOP;
+						sa->spacetype = sa->butspacetype = SPACE_TOPBAR;
+
+						BLI_addhead(&win->global_areas, sa);
+
+						{
+							SpaceType *st = BKE_spacetype_from_id(SPACE_TOPBAR);
+							SpaceLink *sl = st->new(NULL); /* XXX passing NULL as context */
+
+							BLI_addhead(&sa->spacedata, sl);
+							sa->regionbase = sl->regionbase;
+							BLI_listbase_clear(&sl->regionbase);
+						}
+					}
+				}
+			}
+		}
+	}
+#endif
 }
 
 static void blo_do_version_temporary(Main *main)

@@ -224,6 +224,8 @@ typedef struct wmWindow {
 	ListBase subwindows;          /* opengl stuff for sub windows, see notes in wm_subwindow.c */
 	ListBase gesture;             /* gesture stuff */
 
+	ListBase global_areas;
+
 	struct Stereo3dFormat *stereo3d_format; /* properties for stereoscopic displays */
 } wmWindow;
 

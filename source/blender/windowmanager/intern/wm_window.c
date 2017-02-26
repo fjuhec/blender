@@ -188,6 +188,18 @@ void wm_window_free(bContext *C, wmWindowManager *wm, wmWindow *win)
 			CTX_wm_window_set(C, NULL);
 	}
 
+	for (ScrArea *sa = win->global_areas.first, *sa_next; sa; sa = sa_next) {
+		sa_next = sa->next;
+
+		MEM_freeN(sa->v1);
+		MEM_freeN(sa->v2);
+		MEM_freeN(sa->v3);
+		MEM_freeN(sa->v4);
+
+		BKE_screen_area_free(sa);
+		BLI_freelinkN(&win->global_areas, sa);
+	}
+
 	/* always set drawable and active to NULL,
 	 * prevents non-drawable state of main windows (bugs #22967 and #25071, possibly #22477 too) */
 	wm->windrawable = NULL;
@@ -381,6 +393,38 @@ void wm_window_title(wmWindowManager *wm, wmWindow *win)
 		 * in case of OS application terminate request (e.g. OS Shortcut Alt+F4, Cmd+Q, (...), or session end) */
 		GHOST_SetWindowModifiedState(win->ghostwin, (GHOST_TUns8) !wm->file_saved);
 		
+	}
+}
+
+void wm_window_global_areas_create(const bContext *C, wmWindow *win)
+{
+	const bScreen *screen = BKE_workspace_active_screen_get(win->workspace);
+
+	if (screen->temp == 0) {
+		ScrArea *sa = MEM_callocN(sizeof(*sa), "top bar area");
+
+		sa->v1 = MEM_callocN(sizeof(*sa->v1), __func__);
+		sa->v2 = MEM_callocN(sizeof(*sa->v1), __func__);
+		sa->v3 = MEM_callocN(sizeof(*sa->v1), __func__);
+		sa->v4 = MEM_callocN(sizeof(*sa->v1), __func__);
+
+		sa->v1->vec.x = sa->v2->vec.x = 0;
+		sa->v3->vec.x = sa->v4->vec.x = win->sizex;
+		sa->v1->vec.y = sa->v4->vec.y = win->sizey - (2 * U.widget_unit);
+		sa->v2->vec.y = sa->v3->vec.y = win->sizey;
+		sa->headertype = HEADERTOP;
+		sa->spacetype = sa->butspacetype = SPACE_TOPBAR;
+
+		BLI_addhead(&win->global_areas, sa);
+
+		{
+			SpaceType *st = BKE_spacetype_from_id(SPACE_TOPBAR);
+			SpaceLink *sl = st->new(C);
+
+			BLI_addhead(&sa->spacedata, sl);
+			sa->regionbase = sl->regionbase;
+			BLI_listbase_clear(&sl->regionbase);
+		}
 	}
 }
 
@@ -1738,7 +1782,8 @@ int WM_window_screen_pixels_x(const wmWindow *win)
 }
 int WM_window_screen_pixels_y(const wmWindow *win)
 {
-	return WM_window_pixels_y(win) - (2 * UI_UNIT_Y);
+	/* TODO calculate total global area size */
+	return WM_window_pixels_y(win) - (2 * HEADERY);
 }
 
 bool WM_window_is_fullscreen(wmWindow *win)

@@ -420,6 +420,7 @@ void wm_add_default(bContext *C)
 	
 	CTX_wm_manager_set(C, wm);
 	win = wm_window_new(C);
+	wm_window_global_areas_create(C, win);
 	WM_window_set_active_workspace(win, G.main->workspaces.last);
 	WM_window_set_active_screen(win, screen);
 	screen->winid = win->winid;

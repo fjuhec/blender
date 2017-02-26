@@ -930,7 +930,10 @@ void ED_screen_refresh(wmWindowManager *wm, wmWindow *win)
 		else {
 			wm_subwindow_position(win, screen->mainwin, &screen_rect, false);
 		}
-		
+
+		for (sa = win->global_areas.first; sa; sa = sa->next) {
+			ED_area_global_initialize(wm, win, sa);
+		}
 		for (sa = screen->areabase.first; sa; sa = sa->next) {
 			/* set spacetype and region callbacks, calls init() */
 			/* sets subwindows for regions, adds handlers */
@@ -1040,11 +1043,15 @@ void ED_screen_exit(bContext *C, wmWindow *window, bScreen *screen)
 	screen->mainwin = 0;
 	screen->subwinactive = 0;
 	
-	for (ar = screen->regionbase.first; ar; ar = ar->next)
+	for (ar = screen->regionbase.first; ar; ar = ar->next) {
 		ED_region_exit(C, ar);
-
-	for (sa = screen->areabase.first; sa; sa = sa->next)
+	}
+	for (sa = screen->areabase.first; sa; sa = sa->next) {
 		ED_area_exit(C, sa);
+	}
+	for (sa = window->global_areas.first; sa; sa = sa->next) {
+		ED_area_exit(C, sa);
+	}
 
 	/* mark it available for use for other windows */
 	screen->winid = 0;

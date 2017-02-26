@@ -48,6 +48,7 @@ void		wm_window_free			(bContext *C, wmWindowManager *wm, wmWindow *win);
 void		wm_window_close			(bContext *C, wmWindowManager *wm, wmWindow *win);
 
 void		wm_window_title				(wmWindowManager *wm, wmWindow *win);
+void		wm_window_global_areas_create(const bContext *C, wmWindow *win);
 void		wm_window_ghostwindows_ensure(wmWindowManager *wm);
 void		wm_window_ghostwindows_remove_invalid(bContext *C, wmWindowManager *wm);
 void		wm_window_process_events	(const bContext *C);

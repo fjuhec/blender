@@ -175,7 +175,7 @@ void blo_do_versions_280(struct FileData *fd, struct Library *lib, struct Main *
 
 void blo_do_versions_after_linking_270(struct FileData *fd, struct Main *main);
 void do_versions_after_linking_270(struct Main *main);
-void do_versions_after_linking_280(struct Main *main);
+void do_versions_after_linking_280(FileData *fd, struct Main *main);
 
 #endif
 

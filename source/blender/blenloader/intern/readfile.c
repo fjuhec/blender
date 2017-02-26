@@ -8599,7 +8599,7 @@ static void do_versions_after_linking(FileData *fd, Main *main)
 //	printf("%s for %s (%s), %d.%d\n", __func__, main->curlib ? main->curlib->name : main->name,
 //	       main->curlib ? "LIB" : "MAIN", main->versionfile, main->subversionfile);
 	do_versions_after_linking_270(main);
-	do_versions_after_linking_280(main);
+	do_versions_after_linking_280(fd, main);
 }
 
 static void lib_link_all(FileData *fd, Main *main)

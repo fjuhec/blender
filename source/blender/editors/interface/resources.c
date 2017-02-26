@@ -2877,7 +2877,9 @@ void init_userdef_do_versions(void)
 	 * (keep this block even if it becomes empty).
 	 */
 	{
-		
+		for (bTheme *btheme = U.themes.first; btheme; btheme = btheme->next) {
+			btheme->ttopbar = btheme->tv3d;
+		}
 	}
 
 	if (U.pixelsize == 0.0f)
