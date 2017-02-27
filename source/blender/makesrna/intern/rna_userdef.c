@@ -638,49 +638,13 @@ void rna_userdef_hmd_use_device_ipd_set(PointerRNA *UNUSED(ptr), int value)
 	}
 }
 
-static bool rna_userdef_hmd_active_device_poll(const char **r_info)
+static int rna_userdef_hmd_active_device_poll(PointerRNA *UNUSED(ptr), const char **r_info)
 {
 	if (U.hmd_settings.device == -1) {
 		*r_info = "No valid HMD device selected";
 		return false;
 	}
-	return true;
-}
-
-static int rna_userdef_hmd_use_device_ipd_editeable(PointerRNA *UNUSED(ptr), const char **r_info)
-{
-	bool editable = true;
-
-	if (!rna_userdef_hmd_active_device_poll(r_info)) {
-		editable = false;
-	}
-	else {
-		const bool has_active_device = WM_device_HMD_current_get() >= 0;
-
-		if (!has_active_device) {
-			/* temporary activate device to see if it returns an IPD */
-			WM_device_HMD_state_set(U.hmd_settings.device, true);
-		}
-		if (WM_device_HMD_IPD_get() == -1.0f) {
-			*r_info = "Active HMD device doesn't return valid interpupillary distance";
-			editable = false;
-		}
-		if (!has_active_device) {
-			WM_device_HMD_state_set(U.hmd_settings.device, false);
-		}
-	}
-
-	if (!editable) {
-		U.hmd_settings.flag |= USER_HMD_USE_DEVICE_IPD;
-		return false;
-	}
-
 	return PROP_EDITABLE;
-}
-
-static int rna_userdef_hmd_use_device_rotation_editable(PointerRNA *UNUSED(ptr), const char **r_info)
-{
-	return (rna_userdef_hmd_active_device_poll(r_info) ? PROP_EDITABLE : false);
 }
 
 static void rna_userdef_hmd_lensdist_type_set(PointerRNA *UNUSED(ptr), int value)
@@ -4389,13 +4353,13 @@ static void rna_def_userdef_system(BlenderRNA *brna)
 	RNA_def_property_boolean_funcs(prop, NULL, "rna_userdef_hmd_use_device_ipd_set");
 	RNA_def_property_ui_text(prop, "IPD from HMD", "Request the interpupillary distance (distance between the "
 	                         "eye pupil centers) from the HMD driver");
-	RNA_def_property_editable_func(prop, "rna_userdef_hmd_use_device_ipd_editeable");
+	RNA_def_property_editable_func(prop, "rna_userdef_hmd_active_device_poll");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 
 	prop = RNA_def_property(srna, "hmd_use_device_rotation", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "hmd_settings.flag", USER_HMD_USE_DEVICE_ROT);
 	RNA_def_property_ui_text(prop, "Rotation from HMD", "Use the rotation of a head mounted display if available");
-	RNA_def_property_editable_func(prop, "rna_userdef_hmd_use_device_rotation_editable");
+	RNA_def_property_editable_func(prop, "rna_userdef_hmd_active_device_poll");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 
 	prop = RNA_def_property(srna, "hmd_lensdist_type", PROP_ENUM, PROP_ENUM);

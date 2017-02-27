@@ -446,7 +446,7 @@ class USERPREF_PT_system(Panel):
         col.prop(system, "hmd_use_device_rotation")
         col.prop(system, "hmd_use_device_ipd")
         subcol = col.column()
-        subcol.active = not system.hmd_use_device_ipd
+        subcol.active = not system.hmd_use_device_ipd or system.hmd_device == 'NONE'
         subcol.prop(system, "hmd_custom_ipd")
         col.prop(system, "hmd_lensdist_type", text="Lens Distortion")
 
