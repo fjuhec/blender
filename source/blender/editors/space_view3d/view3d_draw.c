@@ -3640,8 +3640,48 @@ static bool view3d_hmd_view_active(wmWindowManager *wm, wmWindow *win)
 	return ((wm->hmd_view.hmd_win == win) && (wm->hmd_view.hmd_win->screen->is_hmd_running));
 }
 
+static void view3d_hmd_view_calc_matrices_from_device(const View3D *v3d, const RegionView3D *rv3d, const bool is_left,
+                                                      float r_modelviewmat[4][4], float r_projectionmat[4][4])
+{
+	float hmd_modelviewmat[4][4];
+
+	WM_device_HMD_modelview_matrix_get(is_left, hmd_modelviewmat);
+	WM_device_HMD_projection_matrix_get(is_left, r_projectionmat);
+
+	if (rv3d->persp == RV3D_CAMOB && v3d->camera) {
+		float v3d_modelviewmat[4][4], hmd_modelviewmat_tmp[4][4];
+
+		normalize_m4_m4(v3d_modelviewmat, v3d->camera->obmat);
+		invert_m4(v3d_modelviewmat);
+		copy_m4_m4(hmd_modelviewmat_tmp, hmd_modelviewmat);
+		copy_v3_fl(hmd_modelviewmat_tmp[3], 1.0f);
+		mul_m4_m4m4(r_modelviewmat, hmd_modelviewmat_tmp, v3d_modelviewmat);
+	}
+	else {
+		float hmd_rotmat[3][3], v3d_rotmat[4][4], v3d_scalemat[4][4];
+
+		unit_m4(r_modelviewmat);
+		unit_m4(v3d_scalemat);
+		v3d_scalemat[3][2] -= rv3d->dist;
+		quat_to_mat4(v3d_rotmat, rv3d->viewquat);
+		copy_m3_m4(hmd_rotmat, hmd_modelviewmat);
+
+		mul_m4_m4m3(r_modelviewmat, r_modelviewmat, hmd_rotmat); /* apply hmd rotation first! */
+		mul_m4_m4m4(r_modelviewmat, r_modelviewmat, v3d_scalemat);
+		mul_m4_m4m4(r_modelviewmat, r_modelviewmat, v3d_rotmat); /* now, apply viewrotation after scaling */
+		translate_m4(r_modelviewmat, rv3d->ofs[0], rv3d->ofs[1], rv3d->ofs[2]);
+	}
+	/* apply IPD offset */
+	add_v3_v3(r_modelviewmat[3], hmd_modelviewmat[3]);
+
+	if (rv3d->persp == RV3D_CAMOB) {
+		/* projection matrix contains camera zoom and camera view shift, needs to be applied */
+		add_m4_m4m4(r_projectionmat, r_projectionmat, (float (*)[4])rv3d->winmat);
+	}
+}
+
 static void view3d_hmd_view_get_matrices(
-        RegionView3D *rv3d, const bool is_left,
+        View3D *v3d, RegionView3D *rv3d, const bool is_left,
         float r_modelviewmat[4][4], float r_projectionmat[4][4])
 {
 	const bool has_device = U.hmd_settings.device > -1;
@@ -3652,20 +3692,7 @@ static void view3d_hmd_view_get_matrices(
 		copy_m4_m4(r_projectionmat, rv3d->winmat);
 	}
 	else if (use_device_rot) {
-		WM_device_HMD_modelview_matrix_get(is_left, r_modelviewmat);
-		WM_device_HMD_projection_matrix_get(is_left, r_projectionmat);
-
-		/* apply modelview matrix from 3D View onto hmd device one */
-		mul_m4_m4m4(r_modelviewmat, r_modelviewmat, rv3d->viewmat);
-
-		if (rv3d->persp == RV3D_CAMOB) {
-			/* projection matrix contains camera zoom and camera view offset, needs to be applied */
-			add_m4_m4m4(r_projectionmat, r_projectionmat, rv3d->winmat);
-		}
-		else {
-			/* apply modelview zoom */
-			r_modelviewmat[3][2] -= rv3d->dist;
-		}
+		view3d_hmd_view_calc_matrices_from_device(v3d, rv3d, is_left, r_modelviewmat, r_projectionmat);
 	}
 	else {
 		const float shiftx = WM_device_HMD_lens_horizontal_separation_get();
@@ -3694,7 +3721,7 @@ static void view3d_hmd_view_setup(Scene *scene, View3D *v3d, ARegion *ar)
 	view3d_viewmatrix_set(scene, v3d, rv3d);
 	view3d_winmatrix_set(ar, v3d, NULL);
 
-	view3d_hmd_view_get_matrices(rv3d, is_left, modelviewmat, projmat);
+	view3d_hmd_view_get_matrices(v3d, rv3d, is_left, modelviewmat, projmat);
 
 	/* setup view with adjusted matrices */
 	view3d_main_region_setup_view(scene, v3d, ar, modelviewmat, projmat);
