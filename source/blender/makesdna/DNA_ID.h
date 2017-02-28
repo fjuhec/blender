@@ -160,8 +160,12 @@ typedef struct IDOverride {
 	struct ID *reference;  /* Reference linked ID which this one overrides. */
 	ListBase properties;  /* List of IDOverrideProperty structs. */
 
+	/* Read/write data. */
+	/* Temp ID storing extra override data (used for differential operations only currently).
+	 * Always NULL outside of read/write context. */
+	struct ID *storage;
+
 	/* Runtime data. */
-	void *pad_p1;
 	double last_auto_run;  /* Last time auto-override detection was run, to avoid too mush overhead on that. */
 } IDOverride;
 

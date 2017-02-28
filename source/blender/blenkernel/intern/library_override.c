@@ -35,7 +35,6 @@
 #include "DNA_object_types.h"
 
 #include "BKE_depsgraph.h"
-#include "BKE_global.h"  /* XXX Yuck! temp hack! */
 #include "BKE_library.h"
 #include "BKE_library_override.h"
 #include "BKE_library_remap.h"
@@ -276,76 +275,6 @@ bool BKE_override_status_check_reference(ID *local)
 }
 
 /**
- * Generate suitable 'write' data (this only affects differential override operations).
- *
- * \note ID is in 'invalid' state for all usages but being written to file, after this function has been called and
- * until \a BKE_override_operations_store_end is called to restore it. */
-bool BKE_override_operations_store_start(ID *local)
-{
-	BLI_assert(local->override != NULL);
-	bool ret = false;
-
-	/* Forcefully ensure we now about all needed poverride operations. */
-	BKE_override_operations_create(local, true);
-
-	TIMEIT_START_AVERAGED(BKE_override_operations_store_start);
-
-	/* Here we work on original local data-block, after having made a temp copy of it.
-	 * Once we are done, _store_end() will swap temp and local contents.
-	 * This allows us to keep most of original data to write (which is needed to (hopefully) avoid memory/pointers
-	 * collisions in .blend file), and also neats things like original ID name. ;) */
-	/* Note: ideally I'd rather work on copy here as well, and not touch to original at all, but then we'd have
-	 * issues with ID data itself (which is currently not swapped by BKE_id_swap()) AND pointers overlapping. */
-
-	ID *tmp_id;
-	/* XXX TODO We *need* an id_copy_nolib(), that stays out of Main and does not inc/dec ID pointers... */
-	id_copy(G.main, local, &tmp_id, false);  /* XXX ...and worse of all, this won't work with scene! */
-
-	if (tmp_id == NULL) {
-		return ret;
-	}
-
-	PointerRNA rnaptr_reference, rnaptr_final;
-	RNA_id_pointer_create(local->override->reference, &rnaptr_reference);
-	RNA_id_pointer_create(local, &rnaptr_final);
-
-	if (!RNA_struct_override_store(&rnaptr_final, &rnaptr_reference, local->override)) {
-		BKE_libblock_free_ex(G.main, tmp_id, true, false);
-	}
-	else {
-		local->tag &= ~LIB_TAG_OVERRIDE_OK;
-		local->newid = tmp_id;
-		ret = true;
-	}
-
-	TIMEIT_END_AVERAGED(BKE_override_operations_store_start);
-	return ret;
-}
-
-/** Restore given ID modified by \a BKE_override_operations_store_start, to its valid original state. */
-void BKE_override_operations_store_end(ID *local)
-{
-	BLI_assert(local->override != NULL);
-
-	ID *tmp_id = local->newid;
-	BLI_assert(tmp_id != NULL);
-
-	/* Swapping here allows us to get back original data. */
-	BKE_id_swap(local, tmp_id);
-	/* Swap above may have broken internal references to itself. */
-	BKE_libblock_relink_ex(G.main, local, tmp_id, local, false);
-	BKE_libblock_relink_ex(G.main, tmp_id, local, tmp_id, false);  /* Grrrr... */
-
-	local->tag |= LIB_TAG_OVERRIDE_OK;
-	local->newid = NULL;
-
-	BKE_libblock_free_ex(G.main, tmp_id, true, false);
-
-	/* Full rebuild of DAG! */
-	DAG_relations_tag_update(G.main);
-}
-
-/**
  * Compares local and reference data-blocks and create new override operations as needed,
  * or reset to reference values if overriding is not allowed.
  *
@@ -386,7 +315,7 @@ bool BKE_override_operations_create(ID *local, const bool no_skip)
 }
 
 /** Update given override from its reference (re-applying overriden properties). */
-void BKE_override_update(Main *bmain, ID *local, const bool do_init)
+void BKE_override_update(Main *bmain, ID *local)
 {
 	if (local->override == NULL) {
 		return;
@@ -394,7 +323,7 @@ void BKE_override_update(Main *bmain, ID *local, const bool do_init)
 
 	/* Recursively do 'ancestors' overrides first, if any. */
 	if (local->override->reference->override && (local->override->reference->tag & LIB_TAG_OVERRIDE_OK) == 0) {
-		BKE_override_update(bmain, local->override->reference, do_init);
+		BKE_override_update(bmain, local->override->reference);
 	}
 
 	/* We want to avoid having to remap here, however creating up-to-date override is much simpler if based
@@ -415,11 +344,15 @@ void BKE_override_update(Main *bmain, ID *local, const bool do_init)
 		return;
 	}
 
-	PointerRNA rnaptr_local, rnaptr_final;
+	PointerRNA rnaptr_local, rnaptr_final, rnaptr_storage_stack, *rnaptr_storage = NULL;
 	RNA_id_pointer_create(local, &rnaptr_local);
 	RNA_id_pointer_create(tmp_id, &rnaptr_final);
+	if (local->override->storage) {
+		rnaptr_storage = &rnaptr_storage_stack;
+		RNA_id_pointer_create(local->override->storage, rnaptr_storage);
+	}
 
-	RNA_struct_override_apply(&rnaptr_final, &rnaptr_local, local->override, do_init);
+	RNA_struct_override_apply(&rnaptr_final, &rnaptr_local, rnaptr_storage, local->override);
 
 	/* This also transfers all pointers (memory) owned by local to tmp_id, and vice-versa. So when we'll free tmp_id,
 	 * we'll actually free old, outdated data from local. */
@@ -432,6 +365,14 @@ void BKE_override_update(Main *bmain, ID *local, const bool do_init)
 	/* XXX And crashing in complex cases (e.g. because depsgraph uses same data...). */
 	BKE_libblock_free_ex(bmain, tmp_id, true, false);
 
+	if (local->override->storage) {
+		/* We know this datablock is not used anywhere besides local->override->storage. */
+		/* XXX For until we get fully shadow copies, we still need to ensure storage releases
+		 *     its usage of any ID pointers it may have. */
+		BKE_libblock_free_ex(bmain, local->override->storage, true, false);
+		local->override->storage = NULL;
+	}
+
 	local->tag |= LIB_TAG_OVERRIDE_OK;
 
 	/* Full rebuild of DAG! */
@@ -439,7 +380,7 @@ void BKE_override_update(Main *bmain, ID *local, const bool do_init)
 }
 
 /** Update all overrides from given \a bmain. */
-void BKE_main_override_update(Main *bmain, const bool do_init)
+void BKE_main_override_update(Main *bmain)
 {
 	ListBase *lbarray[MAX_LIBARRAY];
 	int base_count, i;
@@ -452,8 +393,103 @@ void BKE_main_override_update(Main *bmain, const bool do_init)
 
 		for (id = lb->first; id; id = id->next) {
 			if (id->override != NULL && id->lib == NULL) {
-				BKE_override_update(bmain, id, do_init);
+				BKE_override_update(bmain, id);
 			}
 		}
 	}
+}
+
+/***********************************************************************************************************************
+ * Storage (how to wtore overriding data into .blend files).
+ *
+ * Basically:
+ * I) Only 'differential' storage needs special handling here. All others (replacing values or
+ *    inserting/removing items from a collection) can be handled with simply storing current content of local data-block.
+ * II) We store the differential value into a second 'ghost' data-block, which is an empty ID of same type as local one,
+ *     where we only define values that need differential data.
+ *
+ * This avoids us having to modify 'real' data-block at write time (and retoring it afterwards), which is inneficient,
+ * and potentially dangerous (in case of concurrent access...), while not using much extra memory in typical cases.
+ * It also ensures stored data-block always contains exact same data as "desired" ones (kind of "baked" data-blocks).
+ */
+
+/** Initialize an override storage. */
+OverrideStorage *BKE_override_operations_store_initialize(void)
+{
+	return BKE_main_new();
+}
+
+/**
+ * Generate suitable 'write' data (this only affects differential override operations).
+ *
+ * \note ID is in 'invalid' state for all usages but being written to file, after this function has been called and
+ * until \a BKE_override_operations_store_end is called to restore it. */
+ID *BKE_override_operations_store_start(OverrideStorage *override_storage, ID *local)
+{
+	BLI_assert(local->override != NULL);
+	BLI_assert(override_storage != NULL);
+
+	/* Forcefully ensure we now about all needed override operations. */
+	BKE_override_operations_create(local, true);
+
+	ID *storage_id;
+	TIMEIT_START_AVERAGED(BKE_override_operations_store_start);
+
+	/* Here we work on original local data-block, after having made a temp copy of it.
+	 * Once we are done, _store_end() will swap temp and local contents.
+	 * This allows us to keep most of original data to write (which is needed to (hopefully) avoid memory/pointers
+	 * collisions in .blend file), and also neats things like original ID name. ;) */
+	/* Note: ideally I'd rather work on copy here as well, and not touch to original at all, but then we'd have
+	 * issues with ID data itself (which is currently not swapped by BKE_id_swap()) AND pointers overlapping. */
+
+	/* XXX TODO We *need* an id_copy_nolib(), that stays out of Main and does not inc/dec ID pointers... */
+	id_copy(override_storage, local, &storage_id, false);  /* XXX ...and worse of all, this won't work with scene! */
+
+	if (storage_id != NULL) {
+		PointerRNA rnaptr_reference, rnaptr_final, rnaptr_storage;
+		RNA_id_pointer_create(local->override->reference, &rnaptr_reference);
+		RNA_id_pointer_create(local, &rnaptr_final);
+		RNA_id_pointer_create(storage_id, &rnaptr_storage);
+
+		if (!RNA_struct_override_store(&rnaptr_final, &rnaptr_reference, &rnaptr_storage, local->override)) {
+			BKE_libblock_free_ex(override_storage, storage_id, true, false);
+			storage_id = NULL;
+		}
+	}
+
+	local->override->storage = storage_id;
+
+	TIMEIT_END_AVERAGED(BKE_override_operations_store_start);
+	return storage_id;
+}
+
+/** Restore given ID modified by \a BKE_override_operations_store_start, to its valid original state. */
+void BKE_override_operations_store_end(OverrideStorage *UNUSED(override_storage), ID *local)
+{
+	BLI_assert(local->override != NULL);
+
+	/* Nothing else to do here really, we need to keep all temp override storage data-blocks in memory until
+	 * whole file is written anyway (otherwise we'd get mem pointers overlap...). */
+	local->override->storage = NULL;
+}
+
+void BKE_override_operations_store_finalize(OverrideStorage *override_storage)
+{
+	/* We cannot just call BKE_main_free(override_storage), not until we have option to make 'ghost' copies of IDs
+	 * without increasing usercount of used data-blocks... */
+	ListBase *lbarray[MAX_LIBARRAY];
+	int base_count, i;
+
+	base_count = set_listbasepointers(override_storage, lbarray);
+
+	for (i = 0; i < base_count; i++) {
+		ListBase *lb = lbarray[i];
+		ID *id;
+
+		while ((id = lb->first)) {
+			BKE_libblock_free_ex(override_storage, id, true, false);
+		}
+	}
+
+	BKE_main_free(override_storage);
 }

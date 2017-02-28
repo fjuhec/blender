@@ -2176,6 +2176,7 @@ static void lib_link_id(FileData *fd, Main *main)
 		for (id = lb->first; id; id = id->next) {
 			if (id->override) {
 				id->override->reference = newlibadr_us(fd, id->lib, id->override->reference);
+				id->override->storage = newlibadr_us(fd, id->lib, id->override->storage);
 			}
 		}
 	}
@@ -8659,7 +8660,7 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
 	/* Now that all our data-blocks are loaded, we can re-generate overrides from their references. */
 	if (fd->memfile == NULL) {
 		/* Do not apply in undo case! */
-		BKE_main_override_update(bfd->main, true);
+		BKE_main_override_update(bfd->main);
 	}
 
 	lib_verify_nodetree(bfd->main, true);

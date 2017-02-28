@@ -1190,6 +1190,8 @@ void BKE_libblock_copy_data(ID *id, const ID *id_from, const bool do_action)
 	if (id_from->properties)
 		id->properties = IDP_CopyProperty(id_from->properties);
 
+	/* For now, just never copy override stuff... */
+
 	/* the duplicate should get a copy of the animdata */
 	id_copy_animdata(id, do_action);
 }

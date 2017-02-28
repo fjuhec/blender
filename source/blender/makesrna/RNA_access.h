@@ -1222,13 +1222,15 @@ bool RNA_struct_equals(struct PointerRNA *a, struct PointerRNA *b, eRNAEqualsMod
 bool RNA_struct_override_matches(struct PointerRNA *local, struct PointerRNA *reference,
         struct IDOverride *override, const bool ignore_non_overridable, const bool ignore_overridden);
 
-bool RNA_struct_override_store(struct PointerRNA *local, struct PointerRNA *reference, struct IDOverride *override);
+bool RNA_struct_override_store(
+        struct PointerRNA *local, struct PointerRNA *reference, PointerRNA *storage, struct IDOverride *override);
 
 void RNA_property_override_apply(
-        struct PointerRNA *dst, struct PointerRNA *src, struct PropertyRNA *prop,
-        struct IDOverrideProperty *op, const bool do_init);
+        struct PointerRNA *dst, struct PointerRNA *src, struct PointerRNA *storage, struct PropertyRNA *prop,
+        struct IDOverrideProperty *op);
 void RNA_struct_override_apply(
-        struct PointerRNA *dst, struct PointerRNA *src, struct IDOverride *override, const bool do_init);
+        struct PointerRNA *dst, struct PointerRNA *src, struct PointerRNA *storage,
+        struct IDOverride *override);
 
 bool RNA_struct_auto_override(
         struct PointerRNA *local, struct PointerRNA *reference, struct IDOverride *override, const char *root_path);

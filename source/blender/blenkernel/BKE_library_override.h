@@ -57,13 +57,22 @@ struct IDOverridePropertyOperation *BKE_override_property_operation_get(
 bool BKE_override_status_check_local(struct ID *local);
 bool BKE_override_status_check_reference(struct ID *local);
 
-bool BKE_override_operations_store_start(struct ID *local);
-void BKE_override_operations_store_end(struct ID *local);
-
 bool BKE_override_operations_create(struct ID *local, const bool no_skip);
 
-void BKE_override_update(struct Main *bmain, struct ID *local, const bool do_init);
-void BKE_main_override_update(struct Main *bmain, const bool do_init);
+void BKE_override_update(struct Main *bmain, struct ID *local);
+void BKE_main_override_update(struct Main *bmain);
+
+
+/* Storage (.blend file writing) part. */
+
+/* For now, we just use a temp main list. */
+typedef struct Main OverrideStorage;
+
+OverrideStorage *BKE_override_operations_store_initialize(void);
+struct ID *BKE_override_operations_store_start(OverrideStorage *override_storage, struct ID *local);
+void BKE_override_operations_store_end(OverrideStorage *override_storage, struct ID *local);
+void BKE_override_operations_store_finalize(OverrideStorage *override_storage);
+
 
 
 #endif  /* __BKE_LIBRARY_OVERRIDE_H__ */
