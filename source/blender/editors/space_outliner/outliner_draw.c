@@ -569,7 +569,7 @@ static void outliner_draw_restrictbuts(uiBlock *block, Scene *scene, ARegion *ar
 				
 				UI_block_emboss_set(block, UI_EMBOSS);
 			}
-			else if (tselem->type == TSE_COLLECTION) {
+			else if (tselem->type == TSE_LAYER_COLLECTION) {
 				LayerCollection *collection = te->directdata;
 
 				UI_block_emboss_set(block, UI_EMBOSS_NONE);
@@ -944,6 +944,7 @@ static void tselem_draw_icon(uiBlock *block, int xmax, float x, float y, TreeSto
 						ICON_DRAW(ICON_MOD_CAST);
 						break;
 					case eModifierType_MeshDeform:
+					case eModifierType_SurfaceDeform:
 						ICON_DRAW(ICON_MOD_MESHDEFORM);
 						break;
 					case eModifierType_Bevel:
