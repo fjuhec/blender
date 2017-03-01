@@ -102,7 +102,6 @@ DEFINE_SPLIT_KERNEL_FUNCTION(holdout_emission_blurring_pathtermination_ao)
 DEFINE_SPLIT_KERNEL_FUNCTION(direct_lighting)
 DEFINE_SPLIT_KERNEL_FUNCTION(shadow_blocked)
 DEFINE_SPLIT_KERNEL_FUNCTION(next_iteration_setup)
-DEFINE_SPLIT_KERNEL_FUNCTION(sum_all_radiance)
 
 extern "C" __global__ void
 CUDA_LAUNCH_BOUNDS(CUDA_THREADS_BLOCK_WIDTH, CUDA_KERNEL_MAX_REGISTERS)
