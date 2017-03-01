@@ -3160,8 +3160,9 @@ int rna_parameter_size(PropertyRNA *parm)
 					StringPropertyRNA *sparm = (StringPropertyRNA *)parm;
 					return sizeof(char) * sparm->maxlength;
 				}
-				else
+				else {
 					return sizeof(char *);
+				}
 			case PROP_POINTER:
 			{
 #ifdef RNA_RUNTIME
