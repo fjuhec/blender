@@ -255,6 +255,7 @@ EnumPropertyItem rna_enum_file_sort_items[] = {
 #include "BKE_colortools.h"
 #include "BKE_context.h"
 #include "BKE_depsgraph.h"
+#include "BKE_layer.h"
 #include "BKE_global.h"
 #include "BKE_nla.h"
 #include "BKE_paint.h"
@@ -835,7 +836,10 @@ static int rna_SpaceImageEditor_show_maskedit_get(PointerRNA *ptr)
 	bScreen *sc = (bScreen *)ptr->id.data;
 	Scene *scene = ED_screen_scene_find(sc, G.main->wm.first);
 
-	return ED_space_image_check_show_maskedit(scene, sima);
+	TODO_LAYER_CONTEXT; /* get SceneLayer from context/window/workspace instead */
+	SceneLayer *sl = BKE_scene_layer_context_active(scene);
+
+	return ED_space_image_check_show_maskedit(sl, sima);
 }
 
 static void rna_SpaceImageEditor_image_set(PointerRNA *ptr, PointerRNA value)

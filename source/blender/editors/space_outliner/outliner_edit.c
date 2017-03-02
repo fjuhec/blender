@@ -149,55 +149,6 @@ TreeElement *outliner_dropzone_find(const SpaceOops *soops, const float fmval[2]
 	return NULL;
 }
 
-/**
- * Try to find an item under y-coordinate \a view_co_y (view-space).
- * \note Recursive
- */
-TreeElement *outliner_find_item_at_y(const SpaceOops *soops, const ListBase *tree, float view_co_y)
-{
-	for (TreeElement *te_iter = tree->first; te_iter; te_iter = te_iter->next) {
-		if (view_co_y < (te_iter->ys + UI_UNIT_Y)) {
-			if (view_co_y > te_iter->ys) {
-				/* co_y is inside this element */
-				return te_iter;
-			}
-			else if (TSELEM_OPEN(te_iter->store_elem, soops)) {
-				/* co_y is lower than current element, possibly inside children */
-				TreeElement *te_sub = outliner_find_item_at_y(soops, &te_iter->subtree, view_co_y);
-				if (te_sub) {
-					return te_sub;
-				}
-			}
-		}
-	}
-
-	return NULL;
-}
-
-/**
- * Collapsed items can show their children as click-able icons. This function tries to find
- * such an icon that represents the child item at x-coordinate \a view_co_x (view-space).
- *
- * \return a hovered child item or \a parent_te (if no hovered child found).
- */
-TreeElement *outliner_find_item_at_x_in_row(const SpaceOops *soops, const TreeElement *parent_te, float view_co_x)
-{
-	if (!TSELEM_OPEN(TREESTORE(parent_te), soops)) { /* if parent_te is opened, it doesn't show childs in row */
-		/* no recursion, items can only display their direct children in the row */
-		for (TreeElement *child_te = parent_te->subtree.first;
-		     child_te && view_co_x >= child_te->xs; /* don't look further if co_x is smaller than child position*/
-		     child_te = child_te->next)
-		{
-			if ((child_te->flag & TE_ICONROW) && (view_co_x > child_te->xs) && (view_co_x < child_te->xend)) {
-				return child_te;
-			}
-		}
-	}
-
-	/* return parent if no child is hovered */
-	return (TreeElement *)parent_te;
-}
-
 
 /* ************************************************************** */
 
@@ -1965,6 +1916,7 @@ static int parent_drop_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = NULL;
 	TreeElement *te = NULL;
+	TreeStoreElem *tselem;
 	char childname[MAX_ID_NAME];
 	char parname[MAX_ID_NAME];
 	int partype = 0;
@@ -1974,8 +1926,21 @@ static int parent_drop_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
 	/* Find object hovered over */
 	te = outliner_dropzone_find(soops, fmval, true);
+	tselem = te ? TREESTORE(te) : NULL;
 
-	if (te) {
+	if (tselem && ELEM(tselem->type, TSE_LAYER_COLLECTION, TSE_SCENE_COLLECTION)) {
+		SceneCollection *sc = outliner_scene_collection_from_tree_element(te);
+
+		scene = BKE_scene_find_from_collection(bmain, sc);
+		BLI_assert(scene);
+		RNA_string_get(op->ptr, "child", childname);
+		ob = (Object *)BKE_libblock_find_name(ID_OB, childname);
+		BKE_collection_object_add(scene, sc, ob);
+
+		DAG_relations_tag_update(bmain);
+		WM_event_add_notifier(C, NC_SCENE | ND_LAYER, scene);
+	}
+	else if (te) {
 		RNA_string_set(op->ptr, "parent", te->name);
 		/* Identify parent and child */
 		RNA_string_get(op->ptr, "child", childname);

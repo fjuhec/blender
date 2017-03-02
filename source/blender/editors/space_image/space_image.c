@@ -45,6 +45,7 @@
 #include "BKE_colortools.h"
 #include "BKE_context.h"
 #include "BKE_image.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
@@ -534,6 +535,7 @@ static void image_listener(bScreen *UNUSED(sc), ScrArea *sa, wmNotifier *wmn, co
 				case ND_TRANSFORM:
 				case ND_MODIFIER:
 				{
+					TODO_LAYER_CONTEXT; /* need to use OBACT_NEW */
 					Object *ob = OBACT;
 					if (ob && (ob == wmn->reference) && (ob->mode & OB_MODE_EDIT)) {
 						if (sima->lock && (sima->flag & SI_DRAWSHADOW)) {

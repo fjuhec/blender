@@ -6108,6 +6108,7 @@ static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
 		sce->toolsettings->imapaint.paintcursor = NULL;
 		sce->toolsettings->particle.paintcursor = NULL;
 		sce->toolsettings->particle.scene = NULL;
+		sce->toolsettings->particle.scene_layer = NULL;
 		sce->toolsettings->particle.object = NULL;
 		sce->toolsettings->gp_sculpt.paintcursor = NULL;
 

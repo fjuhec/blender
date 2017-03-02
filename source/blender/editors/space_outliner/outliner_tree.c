@@ -203,105 +203,6 @@ void outliner_cleanup_tree(SpaceOops *soops)
 	outliner_storage_cleanup(soops);
 }
 
-/* Find specific item from the treestore */
-TreeElement *outliner_find_tree_element(ListBase *lb, const TreeStoreElem *store_elem)
-{
-	TreeElement *te, *tes;
-	for (te = lb->first; te; te = te->next) {
-		if (te->store_elem == store_elem) return te;
-		tes = outliner_find_tree_element(&te->subtree, store_elem);
-		if (tes) return tes;
-	}
-	return NULL;
-}
-
-/* tse is not in the treestore, we use its contents to find a match */
-TreeElement *outliner_find_tse(SpaceOops *soops, const TreeStoreElem *tse)
-{
-	TreeStoreElem *tselem;
-
-	if (tse->id == NULL) return NULL;
-	
-	/* check if 'tse' is in treestore */
-	tselem = BKE_outliner_treehash_lookup_any(soops->treehash, tse->type, tse->nr, tse->id);
-	if (tselem) 
-		return outliner_find_tree_element(&soops->tree, tselem);
-	
-	return NULL;
-}
-
-/* Find treestore that refers to given ID */
-TreeElement *outliner_find_id(SpaceOops *soops, ListBase *lb, const ID *id)
-{
-	for (TreeElement *te = lb->first; te; te = te->next) {
-		TreeStoreElem *tselem = TREESTORE(te);
-		if (tselem->type == 0) {
-			if (tselem->id == id) {
-				return te;
-			}
-			/* only deeper on scene or object */
-			if (ELEM(te->idcode, ID_OB, ID_SCE) ||
-			    ((soops->outlinevis == SO_GROUPS) && (te->idcode == ID_GR)))
-			{
-				TreeElement *tes = outliner_find_id(soops, &te->subtree, id);
-				if (tes) {
-					return tes;
-				}
-			}
-		}
-	}
-	return NULL;
-}
-
-TreeElement *outliner_find_posechannel(ListBase *lb, const bPoseChannel *pchan)
-{
-	for (TreeElement *te = lb->first; te; te = te->next) {
-		if (te->directdata == pchan) {
-			return te;
-		}
-
-		TreeStoreElem *tselem = TREESTORE(te);
-		if (ELEM(tselem->type, TSE_POSE_BASE, TSE_POSE_CHANNEL)) {
-			TreeElement *tes = outliner_find_posechannel(&te->subtree, pchan);
-			if (tes) {
-				return tes;
-			}
-		}
-	}
-	return NULL;
-}
-
-TreeElement *outliner_find_editbone(ListBase *lb, const EditBone *ebone)
-{
-	for (TreeElement *te = lb->first; te; te = te->next) {
-		if (te->directdata == ebone) {
-			return te;
-		}
-
-		TreeStoreElem *tselem = TREESTORE(te);
-		if (ELEM(tselem->type, 0, TSE_EBONE)) {
-			TreeElement *tes = outliner_find_editbone(&te->subtree, ebone);
-			if (tes) {
-				return tes;
-			}
-		}
-	}
-	return NULL;
-}
-
-ID *outliner_search_back(SpaceOops *UNUSED(soops), TreeElement *te, short idcode)
-{
-	TreeStoreElem *tselem;
-	te = te->parent;
-	
-	while (te) {
-		tselem = TREESTORE(te);
-		if (tselem->type == 0 && te->idcode == idcode) return tselem->id;
-		te = te->parent;
-	}
-	return NULL;
-}
-
 
 /* ********************************************************* */
 
@@ -1240,6 +1141,15 @@ static TreeElement *outliner_add_element(SpaceOops *soops, ListBase *lb, void *i
 	return te;
 }
 
+/**
+ * \note Really only removes \a tselem, not it's TreeElement instance or any children.
+ */
+void outliner_remove_treestore_element(SpaceOops *soops, TreeStoreElem *tselem)
+{
+	BKE_outliner_treehash_remove_element(soops->treehash, tselem);
+	BLI_mempool_free(soops->treestore, tselem);
+}
+
 /* ======================================================= */
 /* Sequencer mode tree building */
 
@@ -1377,49 +1287,76 @@ static void outliner_add_orphaned_datablocks(Main *mainvar, SpaceOops *soops)
 	}
 }
 
-static void outliner_collections_reorder(const Scene *scene, TreeElement *insert_element, TreeElement *insert_after)
+static void outliner_layer_collections_reorder(const Scene *scene, TreeElement *insert_element, TreeElement *insert_handle,
+                                         TreeElementInsertType action)
 {
 	SceneLayer *sl = BKE_scene_layer_render_active(scene);
 	LayerCollection *insert_coll = insert_element->directdata;
-	LayerCollection *insert_after_coll = insert_after ? insert_after->directdata : NULL;
+	LayerCollection *insert_handle_coll = insert_handle ? insert_handle->directdata : NULL;
 
-	BKE_layer_collection_reinsert_after(scene, sl, insert_coll, insert_after_coll);
+	if (action == TE_INSERT_AFTER) {
+		BKE_layer_collection_reinsert_after(scene, sl, insert_coll, insert_handle_coll);
+	}
+	else if (action == TE_INSERT_INTO) {
+		BKE_layer_collection_reinsert_into(insert_coll, insert_handle_coll);
+	}
+}
+
+static void outliner_scene_collections_reorder(const Scene *scene, TreeElement *insert_element, TreeElement *insert_handle,
+                                         TreeElementInsertType action)
+{
+	SceneCollection *insert_coll = insert_element->directdata;
+	SceneCollection *insert_handle_coll = insert_handle ? insert_handle->directdata : NULL;
+
+	if (action == TE_INSERT_AFTER) {
+		BKE_collection_reinsert_after(scene, insert_coll, insert_handle_coll);
+	}
+	else if (action == TE_INSERT_INTO) {
+		BKE_collection_reinsert_into(insert_coll, insert_handle_coll);
+	}
 }
 
 static void outliner_add_layer_collections_recursive(SpaceOops *soops, ListBase *tree, Scene *scene,
-                                                     ListBase *layer_collections, TreeElement *parent_ten)
+                                                     ListBase *layer_collections, TreeElement *parent_ten,
+                                                     int *io_collection_counter)
 {
 	for (LayerCollection *collection = layer_collections->first; collection; collection = collection->next) {
-		TreeElement *ten = outliner_add_element(soops, tree, scene, parent_ten, TSE_LAYER_COLLECTION, 0);
+		TreeElement *ten = outliner_add_element(soops, tree, scene, parent_ten, TSE_LAYER_COLLECTION,
+		                                        (*io_collection_counter)++);
 
 		ten->name = collection->scene_collection->name;
 		ten->directdata = collection;
-		ten->reinsert = outliner_collections_reorder;
+		ten->reinsert = outliner_layer_collections_reorder;
 
 		for (LinkData *link = collection->object_bases.first; link; link = link->next) {
 			outliner_add_element(soops, &ten->subtree, ((Base *)link->data)->object, NULL, 0, 0);
 		}
 		outliner_make_hierarchy(&ten->subtree);
 
-		outliner_add_layer_collections_recursive(soops, &ten->subtree, scene, &collection->layer_collections, ten);
+		outliner_add_layer_collections_recursive(soops, &ten->subtree, scene, &collection->layer_collections, ten,
+		                                         io_collection_counter);
 	}
 }
 static void outliner_add_collections_act_layer(SpaceOops *soops, SceneLayer *layer, Scene *scene)
 {
-	outliner_add_layer_collections_recursive(soops, &soops->tree, scene, &layer->layer_collections, NULL);
+	int collection_counter = 0;
+	outliner_add_layer_collections_recursive(soops, &soops->tree, scene, &layer->layer_collections, NULL, &collection_counter);
 }
 
 static void outliner_add_scene_collection_init(TreeElement *te, SceneCollection *collection)
 {
 	te->name = collection->name;
 	te->directdata = collection;
+	te->reinsert = outliner_scene_collections_reorder;
 }
 
 static void outliner_add_scene_collections_recursive(SpaceOops *soops, ListBase *tree, Scene *scene,
-                                                     ListBase *scene_collections, TreeElement *parent_ten)
+                                                     ListBase *scene_collections, TreeElement *parent_ten,
+                                                     int *io_collection_counter)
 {
 	for (SceneCollection *collection = scene_collections->first; collection; collection = collection->next) {
-		TreeElement *ten = outliner_add_element(soops, tree, scene, parent_ten, TSE_SCENE_COLLECTION, 0);
+		TreeElement *ten = outliner_add_element(soops, tree, scene, parent_ten, TSE_SCENE_COLLECTION,
+		                                        (*io_collection_counter)++);
 
 		outliner_add_scene_collection_init(ten, collection);
 		for (LinkData *link = collection->objects.first; link; link = link->next) {
@@ -1427,16 +1364,20 @@ static void outliner_add_scene_collections_recursive(SpaceOops *soops, ListBase 
 		}
 		outliner_make_hierarchy(&ten->subtree);
 
-		outliner_add_scene_collections_recursive(soops, &ten->subtree, scene, &collection->scene_collections, ten);
+		outliner_add_scene_collections_recursive(soops, &ten->subtree, scene, &collection->scene_collections, ten,
+		                                         io_collection_counter);
 	}
 }
 static void outliner_add_collections_master(SpaceOops *soops, Scene *scene)
 {
 	SceneCollection *master = BKE_collection_master(scene);
-	TreeElement *ten = outliner_add_element(soops, &soops->tree, scene, NULL, TSE_SCENE_COLLECTION, 0);
+	int collection_counter = 0;
+	TreeElement *ten = outliner_add_element(soops, &soops->tree, scene, NULL, TSE_SCENE_COLLECTION,
+	                                        collection_counter++);
 
 	outliner_add_scene_collection_init(ten, master);
-	outliner_add_scene_collections_recursive(soops, &ten->subtree, scene, &master->scene_collections, ten);
+	outliner_add_scene_collections_recursive(soops, &ten->subtree, scene, &master->scene_collections, ten,
+	                                         &collection_counter);
 }
 
 /* ======================================================= */
