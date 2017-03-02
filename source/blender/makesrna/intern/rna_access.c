@@ -8046,6 +8046,80 @@ bool RNA_struct_auto_override(PointerRNA *local, PointerRNA *reference, IDOverri
 	return changed;
 }
 
+IDOverrideProperty *RNA_property_override_property_get(PointerRNA *ptr, PropertyRNA *prop)
+{
+	ID *id = ptr->id.data;
+
+	if (!id || !id->override) {
+		return NULL;
+	}
+
+	char *rna_path = RNA_path_from_ID_to_property(ptr, prop);
+	if (rna_path) {
+		for (IDOverrideProperty *op = id->override->properties.first; op; op = op->next) {
+			if (STREQ(rna_path, op->rna_path)) {
+				MEM_freeN(rna_path);
+				return op;
+			}
+		}
+		MEM_freeN(rna_path);
+	}
+	return NULL;
+}
+
+IDOverridePropertyOperation *RNA_property_override_property_operation_get(
+        PointerRNA *ptr, PropertyRNA *prop, const int index)
+{
+	IDOverrideProperty *op = RNA_property_override_property_get(ptr, prop);
+
+	if (!op) {
+		return NULL;
+	}
+
+	IDOverridePropertyOperation *opop_generic = NULL;
+	for (IDOverridePropertyOperation *opop = op->operations.first; opop; opop = opop->next) {
+		if (opop->subitem_local_index == index) {
+			return opop;
+		}
+		else if (opop->subitem_local_index == -1 && !opop_generic) {
+			/* index == -1 means all indices, that is valid fallback in case we requested specific index. */
+			opop_generic = opop;
+		}
+	}
+	return opop_generic;
+}
+
+bool RNA_property_overridable(PointerRNA *ptr, PropertyRNA *prop)
+{
+	if (!ptr || !prop || !ptr->id.data || !((ID *)ptr->id.data)->override) {
+		return false;
+	}
+
+	prop = rna_ensure_property(prop);
+
+	if (!(prop->flag & PROP_OVERRIDABLE)) {
+		return false;
+	}
+
+	return (prop->flag & PROP_EDITABLE) != 0;
+}
+
+bool RNA_property_overridden(PointerRNA *ptr, PropertyRNA *prop, const int index)
+{
+	if (!ptr || !prop) {
+		return false;
+	}
+
+	if (RNA_property_override_property_operation_get(ptr, prop, index)) {
+		return true;
+	}
+
+	return false;
+}
+
+
+
+
 bool RNA_path_resolved_create(
         PointerRNA *ptr, struct PropertyRNA *prop,
         const int prop_index,

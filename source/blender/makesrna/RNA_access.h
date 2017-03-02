@@ -41,6 +41,7 @@ struct bContext;
 struct ID;
 struct IDOverride;
 struct IDOverrideProperty;
+struct IDOverridePropertyOperation;
 struct ListBase;
 struct Main;
 struct ReportList;
@@ -1235,6 +1236,13 @@ void RNA_struct_override_apply(
 
 bool RNA_struct_auto_override(
         struct PointerRNA *local, struct PointerRNA *reference, struct IDOverride *override, const char *root_path);
+
+struct IDOverrideProperty *RNA_property_override_property_get(PointerRNA *ptr, PropertyRNA *prop);
+struct IDOverridePropertyOperation *RNA_property_override_property_operation_get(
+        PointerRNA *ptr, PropertyRNA *prop, const int index);
+
+bool RNA_property_overridable(PointerRNA *ptr, PropertyRNA *prop);
+bool RNA_property_overridden(PointerRNA *ptr, PropertyRNA *prop, const int index);
 
 #ifdef __cplusplus
 }
