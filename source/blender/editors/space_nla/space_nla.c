@@ -426,6 +426,11 @@ static void nla_main_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), A
 			if (wmn->action == NA_RENAME)
 				ED_region_tag_redraw(ar);
 			break;
+		case NC_WORKSPACE:
+			if (ELEM(wmn->data, ND_LAYER)) {
+				ED_region_tag_redraw(ar);
+			}
+			break;
 		default:
 			if (wmn->data == ND_KEYS)
 				ED_region_tag_redraw(ar);

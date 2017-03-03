@@ -33,15 +33,18 @@
 #include "BLT_translation.h"
 
 #include "BKE_collection.h"
+#include "BKE_global.h"
 #include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
+#include "BKE_workspace.h"
 
 #include "DNA_ID.h"
 #include "DNA_layer_types.h"
 #include "DNA_object_types.h"
 #include "DNA_node_types.h"
 #include "DNA_scene_types.h"
+#include "DNA_windowmanager_types.h"
 
 #include "DRW_engine.h"
 
@@ -76,11 +79,18 @@ SceneLayer *BKE_scene_layer_render_active(const Scene *scene)
  * Returns the SceneLayer to be used for drawing, outliner, and
  * other context related areas.
  */
-SceneLayer *BKE_scene_layer_context_active(Scene *scene)
+SceneLayer *BKE_scene_layer_context_active(const Scene *scene)
 {
-	/* waiting for workspace to get the layer from context*/
-	TODO_LAYER_CONTEXT;
-	return BKE_scene_layer_render_active(scene);
+	/* XXX iterating over windows here is not so nice, we could pass the workspace or the window as argument. */
+	for (wmWindowManager *wm = G.main->wm.first; wm; wm = wm->id.next) {
+		for (wmWindow *win = wm->windows.first; win; win = win->next) {
+			if (win->scene == scene) {
+				return BKE_workspace_render_layer_get(win->workspace);
+			}
+		}
+	}
+
+	return NULL;
 }
 
 /**

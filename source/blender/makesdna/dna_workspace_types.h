@@ -55,6 +55,8 @@ typedef struct WorkSpace {
 
 	int object_mode; /* enum ObjectMode */
 	int pad;
+
+	struct SceneLayer *render_layer;
 } WorkSpace;
 
 #endif /* __DNA_WORKSPACE_TYPES_H__ */

@@ -99,6 +99,8 @@ enum ObjectMode BKE_workspace_object_mode_get(const WorkSpace *workspace) ATTR_N
 #ifdef USE_WORKSPACE_MODE
 void            BKE_workspace_object_mode_set(WorkSpace *workspace, const enum ObjectMode mode) ATTR_NONNULL();
 #endif
+struct SceneLayer *BKE_workspace_render_layer_get(const WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
+void               BKE_workspace_render_layer_set(WorkSpace *workspace, struct SceneLayer *layer) ATTR_NONNULL(1);
 struct ListBase *BKE_workspace_layouts_get(WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
 WorkSpaceLayout *BKE_workspace_new_layout_get(const WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
 void             BKE_workspace_new_layout_set(WorkSpace *workspace, WorkSpaceLayout *layout) ATTR_NONNULL(1);

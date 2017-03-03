@@ -39,6 +39,7 @@
 #include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_scene.h"
+#include "BKE_workspace.h"
 
 #include "BLI_listbase.h"
 #include "BLI_string.h"
@@ -48,7 +49,55 @@
 
 #include "MEM_guardedalloc.h"
 
-void do_versions_after_linking_280(Main *main)
+/**
+ * \brief Before lib-link versioning for new workspace design.
+ *
+ * Adds a workspace for each screen of the old file and adds the needed workspace-layout to wrap the screen.
+ * Rest of the conversion is done in #do_version_workspaces_after_lib_link.
+ *
+ * Note that some of the created workspaces might be deleted again in case of reading the default startup.blend.
+ */
+static void do_version_workspaces_before_lib_link(Main *main)
+{
+	BLI_assert(BLI_listbase_is_empty(&main->workspaces));
+
+	for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
+		WorkSpace *ws = BKE_workspace_add(main, screen->id.name + 2);
+		WorkSpaceLayout *layout = BKE_workspace_layout_add(ws, screen);
+
+		BKE_workspace_active_layout_set(ws, layout);
+
+		/* For compatibility, the workspace should be activated that represents the active
+		 * screen of the old file. This is done in blo_do_versions_after_linking_270. */
+	}
+}
+
+/**
+ * \brief After lib-link versioning for new workspace design.
+ *
+ *  *  Active screen isn't stored directly in window anymore, but in the active workspace.
+ *     We already created a new workspace for each screen in #do_version_workspaces_before_lib_link,
+ *     here we need to find and activate the workspace that contains the active screen of the old file.
+ *  *  Active scene isn't stored in screen anymore, but in window.
+ */
+static void do_version_workspaces_after_lib_link(Main *main)
+{
+	for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
+		for (wmWindow *win = wm->windows.first; win; win = win->next) {
+			bScreen *screen = win->screen;
+
+			win->workspace = BLI_findstring(&main->workspaces, screen->id.name + 2, offsetof(ID, name) + 2);
+			win->scene = screen->scene;
+			BKE_workspace_render_layer_set(win->workspace, win->scene->render_layers.first);
+
+			/* Deprecated from now on! */
+			win->screen = NULL;
+			screen->scene = NULL;
+		}
+	}
+}
+
+void do_versions_after_linking_280(FileData *fd, Main *main)
 {
 	if (!MAIN_VERSION_ATLEAST(main, 280, 0)) {
 		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
@@ -172,6 +221,13 @@ void do_versions_after_linking_280(Main *main)
 			}
 		}
 	}
+
+	{
+		/* New workspace design */
+		if (!DNA_struct_find(fd->filesdna, "WorkSpace")) {
+			do_version_workspaces_after_lib_link(main);
+		}
+	}
 }
 
 static void blo_do_version_temporary(Main *main)
@@ -194,4 +250,10 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 		blo_do_version_temporary(main);
 	}
 
+	{
+		/* New workspace design */
+		if (!DNA_struct_find(fd->filesdna, "WorkSpace")) {
+			do_version_workspaces_before_lib_link(main);
+		}
+	}
 }

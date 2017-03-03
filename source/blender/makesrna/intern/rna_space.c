@@ -835,8 +835,6 @@ static int rna_SpaceImageEditor_show_maskedit_get(PointerRNA *ptr)
 	SpaceImage *sima = (SpaceImage *)(ptr->data);
 	bScreen *sc = (bScreen *)ptr->id.data;
 	Scene *scene = ED_screen_scene_find(sc, G.main->wm.first);
-
-	TODO_LAYER_CONTEXT; /* get SceneLayer from context/window/workspace instead */
 	SceneLayer *sl = BKE_scene_layer_context_active(scene);
 
 	return ED_space_image_check_show_maskedit(sl, sima);

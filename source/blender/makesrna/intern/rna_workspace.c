@@ -28,6 +28,9 @@
 #include "RNA_enum_types.h"
 #include "RNA_types.h"
 
+#include "WM_api.h"
+#include "WM_types.h"
+
 #include "rna_internal.h"
 
 
@@ -35,9 +38,6 @@
 
 #include "DNA_object_types.h"
 #include "DNA_screen_types.h"
-
-#include "WM_api.h"
-#include "WM_types.h"
 
 
 PointerRNA rna_workspace_screen_get(PointerRNA *ptr)
@@ -116,6 +116,18 @@ static void rna_workspace_object_mode_set(PointerRNA *ptr, int value)
 
 #endif /* USE_WORKSPACE_MODE */
 
+static PointerRNA rna_workspace_render_layer_get(PointerRNA *ptr)
+{
+	WorkSpace *workspace = ptr->data;
+	return rna_pointer_inherit_refine(ptr, &RNA_SceneLayer, BKE_workspace_render_layer_get(workspace));
+}
+
+static void rna_workspace_render_layer_set(PointerRNA *ptr, PointerRNA value)
+{
+	WorkSpace *workspace = ptr->data;
+	BKE_workspace_render_layer_set(workspace, value.data);
+}
+
 #else /* RNA_RUNTIME */
 
 static void rna_def_workspace(BlenderRNA *brna)
@@ -150,6 +162,14 @@ static void rna_def_workspace(BlenderRNA *brna)
 	RNA_def_property_enum_funcs(prop, "rna_workspace_object_mode_get", "rna_workspace_object_mode_set", NULL);
 	RNA_def_property_ui_text(prop, "Mode", "Object interaction mode");
 #endif
+
+	prop = RNA_def_property(srna, "render_layer", PROP_POINTER, PROP_NONE);
+	RNA_def_property_struct_type(prop, "SceneLayer");
+	RNA_def_property_pointer_funcs(prop, "rna_workspace_render_layer_get", "rna_workspace_render_layer_set",
+	                               NULL, NULL);
+	RNA_def_property_ui_text(prop, "Active Render Layer", "The active render layer used in this workspace");
+	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_NEVER_NULL);
+	RNA_def_property_update(prop, NC_WORKSPACE | ND_LAYER, NULL);
 }
 
 void RNA_def_workspace(BlenderRNA *brna)

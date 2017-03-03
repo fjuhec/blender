@@ -535,8 +535,9 @@ static void image_listener(bScreen *UNUSED(sc), ScrArea *sa, wmNotifier *wmn, co
 				case ND_TRANSFORM:
 				case ND_MODIFIER:
 				{
-					TODO_LAYER_CONTEXT; /* need to use OBACT_NEW */
-					Object *ob = OBACT;
+					SceneLayer *sl = BKE_scene_layer_context_active(scene);
+
+					Object *ob = OBACT_NEW;
 					if (ob && (ob == wmn->reference) && (ob->mode & OB_MODE_EDIT)) {
 						if (sima->lock && (sima->flag & SI_DRAWSHADOW)) {
 							ED_area_tag_refresh(sa);
@@ -824,6 +825,11 @@ static void image_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegion
 
 				if (sima->iuser.scene && (sima->iuser.scene->toolsettings->uv_flag & UV_SHOW_SAME_IMAGE))
 					ED_region_tag_redraw(ar);
+			}
+			break;
+		case NC_WORKSPACE:
+			if (ELEM(wmn->data, ND_LAYER)) {
+				ED_region_tag_redraw(ar);
 			}
 			break;
 	}
