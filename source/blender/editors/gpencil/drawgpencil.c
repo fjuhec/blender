@@ -1733,7 +1733,7 @@ static void gp_draw_data_all(Scene *scene, bGPdata *gpd, int offsx, int offsy, i
 	 * if gpd_source == gpd, we don't have any object/track data and we can skip */
 	if (gpd_source == NULL || (gpd_source && gpd_source != gpd)) {
 		if (brush != NULL) {
-			gp_draw_data(brush, ts->gp_sculpt.alpha, obact, gpd,
+			gp_draw_data(brush, ts->gp_sculpt.alpha, NULL, gpd,
 			             offsx, offsy, winx, winy, cfra, dflag);
 		}
 	}
