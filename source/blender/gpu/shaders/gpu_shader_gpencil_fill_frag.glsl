@@ -26,10 +26,10 @@ uniform sampler2D myTexture;
 #define TEXTURE 4
 
 #if __VERSION__ == 120
-	noperspective varying vec2 texCoord_interp;
+	varying vec2 texCoord_interp;
 	#define fragColor gl_FragColor
 #else
-	noperspective in vec2 texCoord_interp;
+	in vec2 texCoord_interp;
 	out vec4 fragColor;
 	#define texture2D texture
 #endif
