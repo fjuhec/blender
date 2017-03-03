@@ -82,7 +82,6 @@ WorkSpace *BKE_workspace_add(Main *bmain, const char *name)
 void BKE_workspace_free(WorkSpace *ws)
 {
 	BLI_freelistN(&ws->layout_types);
-	BLI_freelistN(&ws->layouts);
 }
 
 void BKE_workspace_remove(WorkSpace *workspace, Main *bmain)
@@ -106,7 +105,7 @@ WorkSpaceLayout *BKE_workspace_layout_add_from_type(WorkSpace *workspace, WorkSp
 {
 	WorkSpaceLayout *layout = MEM_mallocN(sizeof(*layout), __func__);
 
-//	BLI_assert(!workspaces_is_screen_used(G.main, screen));
+	BLI_assert(!workspaces_is_screen_used(G.main, screen));
 
 	layout->type = type;
 	layout->screen = screen;
@@ -115,23 +114,17 @@ WorkSpaceLayout *BKE_workspace_layout_add_from_type(WorkSpace *workspace, WorkSp
 	return layout;
 }
 
-WorkSpaceLayoutType *BKE_workspace_layout_type_add(WorkSpace *workspace, const char *name)
+WorkSpaceLayoutType *BKE_workspace_layout_type_add(WorkSpace *workspace, const char *name,
+                                                   ListBase *vertbase, ListBase *areabase)
 {
 	WorkSpaceLayoutType *layout_type = MEM_mallocN(sizeof(*layout_type), __func__);
 
-	layout_type->name = name;
+	layout_type->name = name; /* XXX should probably copy name */
+	layout_type->vertbase = vertbase;
+	layout_type->areabase = areabase;
 	BLI_addhead(&workspace->layout_types, layout_type);
 
 	return layout_type;
-}
-
-/**
- * Add a new layout to \a workspace for \a screen.
- */
-WorkSpaceLayout *BKE_workspace_layout_add(WorkSpace *workspace, bScreen *screen)
-{
-	WorkSpaceLayoutType *layout_type = BKE_workspace_layout_type_add(workspace, screen->id.name + 2);
-	return BKE_workspace_layout_add_from_type(workspace, layout_type, screen);
 }
 
 void BKE_workspace_layout_remove(WorkSpace *workspace, WorkSpaceLayout *layout, Main *bmain)
@@ -146,14 +139,44 @@ WorkSpaceHook *BKE_workspace_hook_new(void)
 	return MEM_callocN(sizeof(WorkSpaceHook), __func__);
 }
 
-void BKE_workspace_hook_delete(WorkSpaceHook *hook)
+void BKE_workspace_hook_delete(Main *bmain, WorkSpaceHook *hook)
 {
+	for (WorkSpaceLayout *layout = hook->layouts.first, *layout_next; layout; layout = layout_next) {
+		layout_next = layout->next;
+
+		BKE_libblock_free(bmain, layout->screen);
+		BLI_freelinkN(&hook->layouts, layout);
+	}
 	MEM_freeN(hook);
 }
 
 
 /* -------------------------------------------------------------------- */
 /* General Utils */
+
+void BKE_workspace_change_prepare(Main *bmain, WorkSpaceHook *workspace_hook)
+{
+	WorkSpace *workspace = workspace_hook->act_workspace;
+	BLI_freelistN(&workspace_hook->layouts);
+
+	for (WorkSpaceLayoutType *type = workspace->layout_types.first; type; type = type->next) {
+		bScreen *screen = BKE_libblock_alloc(bmain, ID_SCR, type->name);
+		WorkSpaceLayout *layout;
+
+		for (ScrVert *sv = type->vertbase->first; sv; sv = sv->next) {
+			ScrVert *sv_new = MEM_callocN(sizeof(ScrVert), "workspace_change_add_screenvert");
+			*sv_new = *sv;
+			BLI_addtail(&screen->vertbase, sv_new);
+		}
+		for (ScrArea *sa = type->areabase->first; sa; sa = sa->next) {
+			ScrArea *sa_new = MEM_callocN(sizeof(ScrArea), "workspace_change_add_screenarea");
+			*sa_new = *sa;
+			BLI_addtail(&screen->areabase, sa_new);
+		}
+		layout = BKE_workspace_layout_add_from_type(workspace, type, screen);
+		BLI_addtail(&workspace_hook->layouts, layout);
+	}
+}
 
 void BKE_workspaces_transform_orientation_remove(const ListBase *workspaces, const TransformOrientation *orientation)
 {
@@ -309,9 +332,13 @@ ListBase *BKE_workspace_layouts_get(WorkSpace *workspace)
 	return &workspace->layouts;
 }
 
-WorkSpaceLayoutType *BKE_workspace_active_layout_type_get(WorkSpace *workspace)
+WorkSpaceLayoutType *BKE_workspace_active_layout_type_get(const WorkSpace *workspace)
 {
 	return workspace->act_layout_type;
+}
+void BKE_workspace_active_layout_type_set(WorkSpace *workspace, WorkSpaceLayoutType *layout_type)
+{
+	workspace->act_layout_type = layout_type;
 }
 
 ListBase *BKE_workspace_layout_types_get(WorkSpace *workspace)
@@ -319,9 +346,18 @@ ListBase *BKE_workspace_layout_types_get(WorkSpace *workspace)
 	return &workspace->layout_types;
 }
 
-const char *BKE_workspace_layout_type_name_get(WorkSpaceLayoutType *layout_type)
+const char *BKE_workspace_layout_type_name_get(const WorkSpaceLayoutType *layout_type)
 {
 	return layout_type->name;
+}
+
+ListBase *BKE_workspace_layout_type_vertbase_get(const WorkSpaceLayoutType *type)
+{
+	return type->areabase;
+}
+ListBase *BKE_workspace_layout_type_areabase_get(const WorkSpaceLayoutType *type)
+{
+	return type->areabase;
 }
 
 WorkSpaceLayoutType *BKE_workspace_layout_type_next_get(WorkSpaceLayoutType *layout_type)

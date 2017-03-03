@@ -301,21 +301,29 @@ ScrEdge *screen_find_active_scredge(const bScreen *sc,
 }
 
 
-
 /* adds no space data */
-static ScrArea *screen_addarea(bScreen *sc, ScrVert *v1, ScrVert *v2, ScrVert *v3, ScrVert *v4, short headertype, short spacetype)
+static ScrArea *areabase_add_area(ListBase *areabase, ScrVert *v1, ScrVert *v2, ScrVert *v3, ScrVert *v4,
+                                  short headertype, short spacetype)
 {
 	ScrArea *sa = MEM_callocN(sizeof(ScrArea), "addscrarea");
+
 	sa->v1 = v1;
 	sa->v2 = v2;
 	sa->v3 = v3;
 	sa->v4 = v4;
 	sa->headertype = headertype;
 	sa->spacetype = sa->butspacetype = spacetype;
-	
-	BLI_addtail(&sc->areabase, sa);
-	
+
+	BLI_addtail(areabase, sa);
+
 	return sa;
+}
+
+/* adds no space data */
+static ScrArea *screen_addarea(bScreen *sc, ScrVert *v1, ScrVert *v2, ScrVert *v3, ScrVert *v4,
+                               short headertype, short spacetype)
+{
+	return areabase_add_area(&sc->areabase, v1, v2, v3, v4, headertype, spacetype);
 }
 
 static void screen_delarea(bContext *C, bScreen *sc, ScrArea *sa)
@@ -459,20 +467,49 @@ ScrArea *area_split(bScreen *sc, ScrArea *sa, char dir, float fac, int merge)
 /**
  * Empty screen, with 1 dummy area without spacedata. Uses window size.
  */
-bScreen *screen_add(wmWindow *win, const char *name, const int winsize_x, const int winsize_y)
+void ED_screen_empty_data_create(int size_x, int size_y, ListBase *r_vertbase, ListBase *r_areabase)
+{
+	ScrVert *sv1, *sv2, *sv3, *sv4;
+
+	sv1 = MEM_callocN(sizeof(ScrVert), "addscrvert1");
+	sv1->vec.x = 0;
+	sv1->vec.y = 0;
+	BLI_addtail(r_vertbase, sv1);
+	sv2 = MEM_callocN(sizeof(ScrVert), "addscrvert2");
+	sv2->vec.x = 0;
+	sv2->vec.y = size_y - 1;
+	BLI_addtail(r_vertbase, sv2);
+	sv3 = MEM_callocN(sizeof(ScrVert), "addscrvert3");
+	sv3->vec.x = size_x - 1;
+	sv3->vec.y = size_y - 1;
+	BLI_addtail(r_vertbase, sv3);
+	sv4 = MEM_callocN(sizeof(ScrVert), "addscrvert4");
+	sv4->vec.x = size_x - 1;
+	sv4->vec.y = 0;
+	BLI_addtail(r_vertbase, sv4);
+
+	areabase_add_area(r_areabase, sv1, sv2, sv3, sv4, HEADERDOWN, SPACE_EMPTY);
+}
+
+/**
+ * Empty screen, with 1 dummy area without spacedata. Uses window size.
+ */
+bScreen *screen_add_from_layout_type(WorkSpaceLayoutType *layout_type, short winid)
 {
 	bScreen *sc;
 	ScrVert *sv1, *sv2, *sv3, *sv4;
+	ListBase *vertbase = BKE_workspace_layout_type_vertbase_get(layout_type);
 
-	sc = BKE_libblock_alloc(G.main, ID_SCR, name);
+	sc = BKE_libblock_alloc(G.main, ID_SCR, BKE_workspace_layout_type_name_get(layout_type));
 	sc->do_refresh = true;
 	sc->redraws_flag = TIME_ALL_3D_WIN | TIME_ALL_ANIM_WIN;
-	sc->winid = win->winid;
+	sc->winid = winid;
 
-	sv1 = screen_addvert(sc, 0, 0);
-	sv2 = screen_addvert(sc, 0, winsize_y - 1);
-	sv3 = screen_addvert(sc, winsize_x - 1, winsize_y - 1);
-	sv4 = screen_addvert(sc, winsize_x - 1, 0);
+	BLI_assert(BLI_listbase_count(vertbase) == 4);
+	sv1 = vertbase->first;
+	sv2 = sv1->next;
+	sv3 = sv2->next;
+	sv4 = sv3->next;
 
 	screen_addedge(sc, sv1, sv2);
 	screen_addedge(sc, sv2, sv3);
@@ -1515,7 +1552,7 @@ ScrArea *ED_screen_state_toggle(bContext *C, wmWindow *win, ScrArea *sa, const s
 		oldscreen->state = state;
 		BLI_snprintf(newname, sizeof(newname), "%s-%s", oldscreen->id.name + 2, "nonnormal");
 
-		ED_workspace_layout_add(workspace, &wm->windows, newname);
+		ED_workspace_layout_add(workspace, &wm->windows, newname, &oldscreen->vertbase, &oldscreen->areabase);
 		layout_new = BKE_workspace_active_layout_get(workspace);
 
 		sc = BKE_workspace_layout_screen_get(layout_new);

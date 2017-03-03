@@ -175,7 +175,7 @@ static void wm_ghostwindow_destroy(wmWindow *win)
 
 /* including window itself, C can be NULL. 
  * ED_screen_exit should have been called */
-void wm_window_free(bContext *C, wmWindowManager *wm, wmWindow *win)
+void wm_window_free(Main *bmain, bContext *C, wmWindowManager *wm, wmWindow *win)
 {
 	wmTimer *wt, *wtnext;
 	
@@ -216,7 +216,7 @@ void wm_window_free(bContext *C, wmWindowManager *wm, wmWindow *win)
 
 	wm_ghostwindow_destroy(win);
 
-	BKE_workspace_hook_delete(win->workspace_hook);
+	BKE_workspace_hook_delete(bmain, win->workspace_hook);
 	MEM_freeN(win->stereo3d_format);
 
 	MEM_freeN(win);
@@ -304,6 +304,7 @@ wmWindow *wm_window_copy_test(bContext *C, wmWindow *win_src)
 /* this is event from ghost, or exit-blender op */
 void wm_window_close(bContext *C, wmWindowManager *wm, wmWindow *win)
 {
+	Main *bmain = CTX_data_main(C);
 	wmWindow *tmpwin;
 	bool do_exit = false;
 	
@@ -347,11 +348,10 @@ void wm_window_close(bContext *C, wmWindowManager *wm, wmWindow *win)
 			ED_screen_exit(C, win, screen);
 		}
 		
-		wm_window_free(C, wm, win);
+		wm_window_free(bmain, C, wm, win);
 	
 		/* if temp screen, delete it after window free (it stops jobs that can access it) */
 		if (screen && screen->temp) {
-			Main *bmain = CTX_data_main(C);
 			WorkSpaceLayout *layout = BKE_workspace_active_layout_get(workspace);
 
 			BLI_assert(BKE_workspace_layout_screen_get(layout) == screen);
@@ -679,8 +679,10 @@ wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
 		/* add new screen layout */
 		WorkSpace *workspace = WM_window_get_active_workspace(win);
 		WorkSpaceLayout *layout;
+		ListBase vertbase, areabase;
 
-		ED_workspace_layout_add(workspace, &wm->windows, "temp");
+		ED_screen_empty_data_create(win->sizex, win->sizey, &vertbase, &areabase);
+		ED_workspace_layout_add(workspace, &wm->windows, "temp", &vertbase, &areabase);
 		layout = BKE_workspace_active_layout_get(workspace);
 		screen = BKE_workspace_layout_screen_get(layout);
 		WM_window_set_active_layout(win, layout);
@@ -1790,26 +1792,10 @@ WorkSpace *WM_window_get_active_workspace(const wmWindow *win)
 }
 void WM_window_set_active_workspace(wmWindow *win, WorkSpace *workspace)
 {
-	ListBase *layout_types = BKE_workspace_layout_types_get(workspace);
-	ListBase *layouts = BKE_workspace_hook_layouts_get(win->workspace_hook);
-
 	BKE_workspace_active_set(win->workspace_hook, workspace);
-
-	/* TODO rest should be done in BKE_workspace_active_set */
-	BLI_freelistN(layouts);
-	if (!workspace) {
-		return;
+	if (workspace) {
+		BKE_workspace_change_prepare(G.main, win->workspace_hook);
 	}
-
-	BKE_workspace_layout_type_iter_begin(layout_type, layout_types->first)
-	{
-		bScreen *screen = BLI_findstring(&G.main->screen, BKE_workspace_layout_type_name_get(layout_type),
-		                                 offsetof(ID, name) + 2); /* XXX */
-		WorkSpaceLayout *layout = BKE_workspace_layout_add_from_type(workspace, layout_type, screen);
-
-		BLI_addhead(layouts, layout);
-	}
-	BKE_workspace_layout_type_iter_end;
 }
 
 WorkSpaceLayout *WM_window_get_active_layout(const wmWindow *win)

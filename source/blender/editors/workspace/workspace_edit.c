@@ -61,6 +61,17 @@ WorkSpace *ED_workspace_add(Main *bmain, const char *name, SceneLayer *act_rende
 	return workspace;
 }
 
+void ED_workspace_exit(WorkSpaceHook *hook, bContext *C, wmWindow *win)
+{
+	ListBase *layouts = BKE_workspace_hook_layouts_get(hook);
+
+	BKE_workspace_layout_iter_begin(layout, layouts->first)
+	{
+		ED_screen_exit(C, win, BKE_workspace_layout_screen_get(layout));
+	}
+	BKE_workspace_layout_iter_end;
+}
+
 #ifdef USE_WORKSPACE_MODE
 /**
  * Changes the object mode (if needed) to the one set in \a workspace_new.
@@ -138,36 +149,30 @@ bool ED_workspace_change(bContext *C, wmWindowManager *wm, wmWindow *win, WorkSp
  */
 WorkSpace *ED_workspace_duplicate(WorkSpace *workspace_old, Main *bmain, wmWindow *win)
 {
-	WorkSpaceLayout *layout_active_old = BKE_workspace_active_layout_get(workspace_old);
-	ListBase *layouts_old = BKE_workspace_layouts_get(workspace_old);
 	WorkSpace *workspace_new = ED_workspace_add(bmain, BKE_workspace_name_get(workspace_old),
 	                                            BKE_workspace_render_layer_get(workspace_old));
 
 	BKE_workspace_object_mode_set(workspace_new, BKE_workspace_object_mode_get(workspace_old));
 
-	BKE_workspace_layout_iter_begin(layout_old, layouts_old->first)
+	ListBase *layout_types_old = BKE_workspace_layout_types_get(workspace_old);
+	WorkSpaceLayoutType *layout_type_act_old = BKE_workspace_active_layout_type_get(workspace_old);
+	WorkSpaceLayoutType *layout_type_act_new = NULL;
+	BKE_workspace_layout_type_iter_begin(layout_type_old, layout_types_old->first)
 	{
-		WorkSpaceLayout *layout_new = ED_workspace_layout_duplicate(workspace_new, layout_old, bmain->wm.first);
+		const char *name = BKE_workspace_layout_type_name_get(layout_type_old);
+		ListBase *vertbase = BKE_workspace_layout_type_vertbase_get(layout_type_act_old);
+		ListBase *areabase = BKE_workspace_layout_type_areabase_get(layout_type_act_old);
+		WorkSpaceLayoutType *layout_type_new = BKE_workspace_layout_type_add(workspace_new, name, vertbase, areabase);
 
-		if (layout_active_old == layout_old) {
-			bScreen *screen_new = BKE_workspace_layout_screen_get(layout_new);
-
-			screen_new_activate_prepare(win, screen_new);
-			BKE_workspace_active_layout_set(workspace_new, layout_new);
+		if (layout_type_old == layout_type_act_old) {
+			layout_type_act_new = layout_type_new;
 		}
 	}
-	BKE_workspace_layout_iter_end;
-#if 0
-	ListBase *layouts_types_old = BKE_workspace_layout_types_get(workspace_old);
-	BKE_workspace_layout_type_iter_begin(layout_type_old, layouts_types_old->first)
-	{
-		const char *name_new = BKE_workspace_layout_type_name_get(layout_type_old);
-		WorkSpaceLayoutType *layout_type_new = BKE_workspace_layout_type_add(workspace_new, name_new);
-
-		
-	}
 	BKE_workspace_layout_type_iter_end;
-#endif
+
+	BLI_assert(layout_type_act_new != NULL);
+	BKE_workspace_active_layout_type_set(workspace_new, layout_type_act_new);
+	UNUSED_VARS(win);
 
 	return workspace_new;
 }

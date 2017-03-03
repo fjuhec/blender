@@ -477,7 +477,7 @@ void WM_exit_ext(bContext *C, const bool do_python)
 			CTX_wm_window_set(C, win);  /* needed by operator close callbacks */
 			WM_event_remove_handlers(C, &win->handlers);
 			WM_event_remove_handlers(C, &win->modalhandlers);
-			ED_screen_exit(C, win, WM_window_get_active_screen(win));
+			ED_workspace_exit(win->workspace_hook, C, win);
 		}
 	}
 

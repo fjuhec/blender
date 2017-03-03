@@ -432,7 +432,7 @@ void wm_add_default(bContext *C)
 
 
 /* context is allowed to be NULL, do not free wm itself (library.c) */
-void wm_close_and_free(bContext *C, wmWindowManager *wm)
+void wm_close_and_free(Main *bmain, bContext *C, wmWindowManager *wm)
 {
 	wmWindow *win;
 	wmOperator *op;
@@ -444,7 +444,7 @@ void wm_close_and_free(bContext *C, wmWindowManager *wm)
 	while ((win = BLI_pophead(&wm->windows))) {
 		WM_window_set_active_workspace(win, NULL); /* prevent draw clear to use screen */
 		wm_draw_window_clear(win);
-		wm_window_free(C, wm, win);
+		wm_window_free(bmain, C, wm, win);
 	}
 	
 	while ((op = BLI_pophead(&wm->operators))) {
@@ -472,7 +472,7 @@ void wm_close_and_free_all(bContext *C, ListBase *wmlist)
 	wmWindowManager *wm;
 	
 	while ((wm = wmlist->first)) {
-		wm_close_and_free(C, wm);
+		wm_close_and_free(bmain, C, wm);
 		BLI_remlink(wmlist, wm);
 		BKE_libblock_free_data(bmain, &wm->id);
 		MEM_freeN(wm);

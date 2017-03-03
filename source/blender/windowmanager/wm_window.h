@@ -32,6 +32,7 @@
 #ifndef __WM_WINDOW_H__
 #define __WM_WINDOW_H__
 
+struct Main;
 struct wmOperator;
 
 /* *************** internal api ************** */
@@ -44,7 +45,7 @@ void wm_get_desktopsize(int *r_width, int *r_height);
 wmWindow	*wm_window_new			(bContext *C);
 wmWindow	*wm_window_copy			(bContext *C, wmWindow *win_src);
 wmWindow	*wm_window_copy_test	(bContext *C, wmWindow *win_src);
-void		wm_window_free			(bContext *C, wmWindowManager *wm, wmWindow *win);
+void		wm_window_free			(struct Main *bmain, bContext *C, wmWindowManager *wm, wmWindow *win);
 void		wm_window_close			(bContext *C, wmWindowManager *wm, wmWindow *win);
 
 void		wm_window_title				(wmWindowManager *wm, wmWindow *win);

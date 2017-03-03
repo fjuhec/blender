@@ -33,6 +33,7 @@
 
 struct bContextDataResult;
 struct Main;
+struct WorkSpaceLayoutType;
 
 /* internal exports only */
 
@@ -47,6 +48,7 @@ void        region_toggle_hidden(struct bContext *C, ARegion *ar, const bool do_
 
 /* screen_edit.c */
 bScreen    *screen_add(wmWindow *win, const char *name, const int winsize_x, const int winsize_y);
+bScreen    *screen_add_from_layout_type(struct WorkSpaceLayoutType *layout_type, short winid);
 void        screen_data_copy(bScreen *to, bScreen *from);
 void        screen_new_activate_prepare(const wmWindow *win, bScreen *screen_new);
 void        screen_changed_update(struct bContext *C, wmWindow *win, bScreen *sc);

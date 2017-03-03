@@ -50,6 +50,11 @@ typedef struct WorkSpaceLayout {
 typedef struct WorkSpaceLayoutType {
 	struct WorkSpaceLayoutType *next, *prev;
 	const char *name;
+
+	/* pointer to screen data based on which we'll create new layout (bScreen) instances from */
+	/* XXX could add a wrapper struct for these, makes it easier to pass them around */
+	ListBase *vertbase;
+	ListBase *areabase;
 } WorkSpaceLayoutType;
 
 typedef struct WorkSpace {

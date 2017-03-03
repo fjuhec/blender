@@ -44,6 +44,7 @@ struct wmNotifier;
 struct wmEvent;
 struct wmKeyConfig;
 struct WorkSpace;
+struct WorkSpaceHook;
 struct bContext;
 struct Scene;
 struct bScreen;
@@ -121,13 +122,16 @@ void    ED_screens_header_tools_menu_create(struct bContext *C, struct uiLayout 
 bool    ED_screen_stereo3d_required(const struct bScreen *screen, const struct Scene *scene);
 Scene   *ED_screen_scene_find(const struct bScreen *screen, const struct wmWindowManager *wm);
 void    ED_screen_preview_render(const struct bScreen *screen, int size_x, int size_y, unsigned int *r_rect) ATTR_NONNULL();
+void    ED_screen_empty_data_create(int size_x, int size_y, ListBase *r_vertbase, ListBase *r_areabase);
 
 /* workspaces */
 struct WorkSpace *ED_workspace_add(struct Main *bmain, const char *name, SceneLayer *act_render_layer) ATTR_NONNULL();
+void ED_workspace_exit(struct WorkSpaceHook *hook, struct bContext *C, struct wmWindow *win) ATTR_NONNULL();
 bool ED_workspace_change(struct bContext *C, struct wmWindowManager *wm, struct wmWindow *win,
                          struct WorkSpace *ws_new) ATTR_NONNULL();
 struct WorkSpace *ED_workspace_duplicate(struct WorkSpace *workspace_old, struct Main *bmain, struct wmWindow *win);
-void ED_workspace_layout_add(struct WorkSpace *workspace, ListBase *windows, const char *name) ATTR_NONNULL();
+void ED_workspace_layout_add(struct WorkSpace *workspace, ListBase *windows, const char *name,
+                             ListBase *vertbase, ListBase *areabase) ATTR_NONNULL();
 struct WorkSpaceLayout *ED_workspace_layout_duplicate(struct WorkSpace *workspace,
                                                       const struct WorkSpaceLayout *layout_old,
                                                       struct wmWindowManager *wm) ATTR_NONNULL();
