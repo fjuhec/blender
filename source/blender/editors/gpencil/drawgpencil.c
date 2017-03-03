@@ -408,7 +408,7 @@ static void gp_draw_stroke_volumetric_3d(
 
 /* --------------- Stroke Fills ----------------- */
 /* calc bounding box in 2d using flat projection data */
-static void gp_calc_2d_bounding_box(const float(*points2d)[2], int totpoints, float minv[2], float maxv[2])
+static void gp_calc_2d_bounding_box(const float(*points2d)[2], int totpoints, float minv[2], float maxv[2], bool expand)
 {
 	minv[0] = points2d[0][0];
 	minv[1] = points2d[0][1];
@@ -430,6 +430,15 @@ static void gp_calc_2d_bounding_box(const float(*points2d)[2], int totpoints, fl
 		}
 		if (points2d[i][1] > maxv[1]) {
 			maxv[1] = points2d[i][1];
+		}
+	}
+	/* If not expanded, use a perfect square */
+	if (expand == false) {
+		if (maxv[0] > maxv[1]) {
+			maxv[1] = maxv[0];
+		}
+		else {
+			maxv[0] = maxv[1];
 		}
 	}
 }
@@ -512,7 +521,7 @@ static void gp_triangulate_stroke_fill(bGPDstroke *gps)
 	float minv[2];
 	float maxv[2];
 	/* first needs bounding box data */
-	gp_calc_2d_bounding_box((const float(*)[2])points2d, gps->totpoints, minv, maxv);
+	gp_calc_2d_bounding_box((const float(*)[2])points2d, gps->totpoints, minv, maxv, false);
 	/* calc uv data */
 	gp_calc_stroke_text_coordinates((const float(*)[2])points2d, gps->totpoints, minv, maxv, uv);
 
