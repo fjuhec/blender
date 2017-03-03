@@ -692,6 +692,14 @@ Object *BKE_object_add(
 	ob->data = BKE_object_obdata_add_from_type(bmain, type, name);
 
 	lc = BKE_layer_collection_active(sl);
+
+	if (lc == NULL) {
+		BLI_assert(BLI_listbase_count_ex(&sl->layer_collections, 1) == 0);
+		/* when there is no collection linked to this SceneLayer, create one */
+		SceneCollection *sc = BKE_collection_add(scene, NULL, NULL);
+		lc = BKE_collection_link(sl, sc);
+	}
+
 	BKE_collection_object_add(scene, lc->scene_collection, ob);
 
 	base = BKE_scene_layer_base_find(sl, ob);
@@ -793,9 +801,9 @@ static LodLevel *lod_level_select(Object *ob, const float camera_position[3])
 	return current;
 }
 
-bool BKE_object_lod_is_usable(Object *ob, Scene *scene)
+bool BKE_object_lod_is_usable(Object *ob, SceneLayer *sl)
 {
-	bool active = (scene) ? ob == OBACT : false;
+	bool active = (sl) ? ob == OBACT_NEW : false;
 	return (ob->mode == OB_MODE_OBJECT || !active);
 }
 
@@ -809,11 +817,11 @@ void BKE_object_lod_update(Object *ob, const float camera_position[3])
 	}
 }
 
-static Object *lod_ob_get(Object *ob, Scene *scene, int flag)
+static Object *lod_ob_get(Object *ob, SceneLayer *sl, int flag)
 {
 	LodLevel *current = ob->currentlod;
 
-	if (!current || !BKE_object_lod_is_usable(ob, scene))
+	if (!current || !BKE_object_lod_is_usable(ob, sl))
 		return ob;
 
 	while (current->prev && (!(current->flags & flag) || !current->source || current->source->type != OB_MESH)) {
@@ -823,14 +831,14 @@ static Object *lod_ob_get(Object *ob, Scene *scene, int flag)
 	return current->source;
 }
 
-struct Object *BKE_object_lod_meshob_get(Object *ob, Scene *scene)
+struct Object *BKE_object_lod_meshob_get(Object *ob, SceneLayer *sl)
 {
-	return lod_ob_get(ob, scene, OB_LOD_USE_MESH);
+	return lod_ob_get(ob, sl, OB_LOD_USE_MESH);
 }
 
-struct Object *BKE_object_lod_matob_get(Object *ob, Scene *scene)
+struct Object *BKE_object_lod_matob_get(Object *ob, SceneLayer *sl)
 {
-	return lod_ob_get(ob, scene, OB_LOD_USE_MAT);
+	return lod_ob_get(ob, sl, OB_LOD_USE_MAT);
 }
 
 #endif  /* WITH_GAMEENGINE */
@@ -1168,6 +1176,7 @@ Object *BKE_object_copy_ex(Main *bmain, Object *ob, bool copy_caches)
 
 	BLI_listbase_clear(&obn->gpulamp);
 	BLI_listbase_clear(&obn->pc_ids);
+	BLI_listbase_clear(&obn->collection_settings);
 
 	obn->mpath = NULL;
 

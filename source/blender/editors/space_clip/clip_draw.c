@@ -58,7 +58,6 @@
 #include "BIF_gl.h"
 #include "BIF_glutil.h"
 
-#include "GPU_basic_shader.h"
 #include "GPU_immediate.h"
 #include "GPU_matrix.h"
 
@@ -67,7 +66,6 @@
 #include "UI_interface.h"
 #include "UI_resources.h"
 #include "UI_view2d.h"
-
 
 #include "BLF_api.h"
 
@@ -328,13 +326,7 @@ static void draw_movieclip_buffer(const bContext *C, SpaceClip *sc, ARegion *ar,
 		filter = GL_NEAREST;
 	}
 
-	/* set zoom */
-	glPixelZoom(zoomx * width / ibuf->x, zoomy * height / ibuf->y);
-
-	glaDrawImBuf_glsl_ctx(C, ibuf, x, y, filter);
-	/* reset zoom */
-	glPixelZoom(1.0f, 1.0f);
-
+	glaDrawImBuf_glsl_ctx(C, ibuf, x, y, filter, zoomx * width / ibuf->x, zoomy * height / ibuf->y);
 
 	if (sc->flag & SC_SHOW_METADATA) {
 		rctf frame;

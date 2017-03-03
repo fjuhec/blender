@@ -81,6 +81,10 @@ set(SRC
 	gawain/immediate.h
 	gawain/imm_util.c
 	gawain/imm_util.h
+	gawain/primitive.h
+	gawain/primitive.c
+	gawain/shader_interface.c
+	gawain/shader_interface.h
 	gawain/vertex_buffer.c
 	gawain/vertex_buffer.h
 	gawain/vertex_format.c
@@ -140,9 +144,12 @@ data_to_c_simple(shaders/gpu_shader_flat_color_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_flat_color_alpha_test_0_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_2D_vert.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_2D_flat_color_vert.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_2D_line_dashed_vert.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_2D_line_dashed_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_2D_smooth_color_vert.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_2D_smooth_color_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_2D_image_vert.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_image_shuffle_color_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_image_mask_uniform_color_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_image_modulate_alpha_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_image_color_frag.glsl SRC)
@@ -166,19 +173,19 @@ data_to_c_simple(shaders/gpu_shader_3D_groundline_geom.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_3D_groundpoint_vert.glsl SRC)
 
 data_to_c_simple(shaders/gpu_shader_point_uniform_color_frag.glsl SRC)
-data_to_c_simple(shaders/gpu_shader_point_uniform_color_smooth_frag.glsl SRC)
-data_to_c_simple(shaders/gpu_shader_point_uniform_color_outline_smooth_frag.glsl SRC)
-data_to_c_simple(shaders/gpu_shader_point_varying_color_outline_smooth_frag.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_point_uniform_color_aa_frag.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_point_uniform_color_outline_aa_frag.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_point_varying_color_outline_aa_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_point_varying_color_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_3D_point_fixed_size_varying_color_vert.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_3D_point_varying_size_vert.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_3D_point_varying_size_varying_color_vert.glsl SRC)
-data_to_c_simple(shaders/gpu_shader_3D_point_uniform_size_smooth_vert.glsl SRC)
-data_to_c_simple(shaders/gpu_shader_3D_point_uniform_size_outline_smooth_vert.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_3D_point_uniform_size_aa_vert.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_3D_point_uniform_size_outline_aa_vert.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_2D_point_varying_size_varying_color_vert.glsl SRC)
-data_to_c_simple(shaders/gpu_shader_2D_point_uniform_size_smooth_vert.glsl SRC)
-data_to_c_simple(shaders/gpu_shader_2D_point_uniform_size_outline_smooth_vert.glsl SRC)
-data_to_c_simple(shaders/gpu_shader_2D_point_uniform_size_varying_color_outline_smooth_vert.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_2D_point_uniform_size_aa_vert.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_2D_point_uniform_size_outline_aa_vert.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_2D_point_uniform_size_varying_color_outline_aa_vert.glsl SRC)
 
 data_to_c_simple(shaders/gpu_shader_edges_front_back_persp_vert.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_edges_front_back_persp_geom.glsl SRC)

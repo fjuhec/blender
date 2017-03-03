@@ -2264,10 +2264,7 @@ static void rna_SceneCollection_name_set(PointerRNA *ptr, const char *value)
 {
 	Scene *scene = (Scene *)ptr->id.data;
 	SceneCollection *sc = (SceneCollection *)ptr->data;
-	SceneCollection *sc_master = BKE_collection_master(scene);
-
-	BLI_strncpy_utf8(sc->name, value, sizeof(sc->name));
-	BLI_uniquename(&sc_master->scene_collections, sc, DATA_("SceneCollection"), '.', offsetof(SceneCollection, name), sizeof(sc->name));
+	BKE_collection_rename(scene, sc, value);
 }
 
 static void rna_SceneCollection_filter_set(PointerRNA *ptr, const char *value)
@@ -2490,6 +2487,7 @@ RNA_LAYER_MODE_OBJECT_GET_SET_BOOL(show_backface_culling)
 
 /* mesh engine */
 RNA_LAYER_MODE_EDIT_GET_SET_BOOL(show_occlude_wire)
+RNA_LAYER_MODE_EDIT_GET_SET_FLOAT(backwire_opacity)
 
 #undef RNA_LAYER_ENGINE_GET_SET
 #undef RNA_LAYER_ENGINE_USE_GET_SET
@@ -2519,10 +2517,7 @@ static void rna_LayerCollection_name_set(PointerRNA *ptr, const char *value)
 {
 	Scene *scene = (Scene *)ptr->id.data;
 	SceneCollection *sc = ((LayerCollection *)ptr->data)->scene_collection;
-	SceneCollection *sc_master = BKE_collection_master(scene);
-
-	BLI_strncpy_utf8(sc->name, value, sizeof(sc->name));
-	BLI_uniquename(&sc_master->scene_collections, sc, DATA_("SceneCollection"), '.', offsetof(SceneCollection, name), sizeof(sc->name));
+	BKE_collection_rename(scene, sc, value);
 }
 
 static PointerRNA rna_LayerCollection_objects_get(CollectionPropertyIterator *iter)
@@ -6045,11 +6040,19 @@ static void rna_def_layer_collection_mode_settings_edit(BlenderRNA *brna)
 	/* see RNA_LAYER_ENGINE_GET_SET macro */
 
 	prop = RNA_def_property(srna, "show_occlude_wire", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_ui_text(prop, "Hidden Wire", "");
+	RNA_def_property_ui_text(prop, "Hidden Wire", "Use hidden wireframe display");
 	RNA_def_property_boolean_funcs(prop, "rna_LayerEngineSettings_EditMode_show_occlude_wire_get", "rna_LayerEngineSettings_EditMode_show_occlude_wire_set");
 	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_CollectionEngineSettings_update");
 	RNA_LAYER_MODE_EDIT_USE(show_occlude_wire)
+
+	prop = RNA_def_property(srna, "backwire_opacity", PROP_FLOAT, PROP_FACTOR);
+	RNA_def_property_ui_text(prop, "Backwire Opacity", "Opacity when rendering transparent wires");
+	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_EditMode_backwire_opacity_get", "rna_LayerEngineSettings_EditMode_backwire_opacity_set", NULL);
+	RNA_def_property_range(prop, 0.0f, 1.0f);
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_CollectionEngineSettings_update");
+	RNA_LAYER_MODE_EDIT_USE(backwire_opacity)
 }
 
 static void rna_def_layer_collection_mode_settings(BlenderRNA *brna)

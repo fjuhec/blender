@@ -51,8 +51,17 @@
  * \brief API for managing workspaces and their data.
  * \{ */
 
-#ifdef USE_WORKSPACE_MODE
+WorkSpace *ED_workspace_add(Main *bmain, const char *name, SceneLayer *act_render_layer)
+{
+	WorkSpace *workspace = BKE_workspace_add(bmain, name);
 
+	BKE_workspace_object_mode_set(workspace, OB_MODE_OBJECT);
+	BKE_workspace_render_layer_set(workspace, act_render_layer);
+
+	return workspace;
+}
+
+#ifdef USE_WORKSPACE_MODE
 /**
  * Changes the object mode (if needed) to the one set in \a workspace_new.
  * Object mode is still stored on object level. In future it should all be workspace level instead.
@@ -68,8 +77,26 @@ static void workspace_change_update_mode(const WorkSpace *workspace_old, const W
 		ED_object_toggle_modes(C, mode_new);
 	}
 }
-
 #endif
+
+static void workspace_change_update_render_layer(WorkSpace *workspace_new, const Scene *scene)
+{
+	if (!BKE_workspace_render_layer_get(workspace_new)) {
+		BKE_workspace_render_layer_set(workspace_new, scene->render_layers.first);
+	}
+}
+
+static void workspace_change_update(WorkSpace *workspace_new, const WorkSpace *workspace_old,
+                                    bContext *C, wmWindowManager *wm, Scene *scene)
+{
+	/* needs to be done before changing mode! (to ensure right context) */
+	workspace_change_update_render_layer(workspace_new, scene);
+#ifdef USE_WORKSPACE_MODE
+	workspace_change_update_mode(workspace_old, workspace_new, C, CTX_data_active_object(C), &wm->reports);
+#else
+	UNUSED_VARS(wm);
+#endif
+}
 
 /**
  * \brief Change the active workspace.
@@ -83,6 +110,7 @@ static void workspace_change_update_mode(const WorkSpace *workspace_old, const W
 bool ED_workspace_change(bContext *C, wmWindowManager *wm, wmWindow *win, WorkSpace *workspace_new)
 {
 	Main *bmain = CTX_data_main(C);
+	Scene *scene = CTX_data_scene(C);
 	WorkSpace *workspace_old = WM_window_get_active_workspace(win);
 	bScreen *screen_old = BKE_workspace_active_screen_get(workspace_old);
 	bScreen *screen_new = BKE_workspace_active_screen_get(workspace_new);
@@ -94,13 +122,9 @@ bool ED_workspace_change(bContext *C, wmWindowManager *wm, wmWindow *win, WorkSp
 
 		/* update screen *after* changing workspace - which also causes the actual screen change */
 		screen_changed_update(C, win, screen_new);
+		workspace_change_update(workspace_new, workspace_old, C, wm, scene);
 
-#ifdef USE_WORKSPACE_MODE
-		workspace_change_update_mode(workspace_old, workspace_new, C, CTX_data_active_object(C), &wm->reports);
-#else
-		UNUSED_VARS(wm);
-#endif
-
+		BLI_assert(BKE_workspace_render_layer_get(workspace_new) != NULL);
 		BLI_assert(CTX_wm_workspace(C) == workspace_new);
 
 		return true;
@@ -116,7 +140,10 @@ WorkSpace *ED_workspace_duplicate(WorkSpace *workspace_old, Main *bmain, wmWindo
 {
 	WorkSpaceLayout *layout_active_old = BKE_workspace_active_layout_get(workspace_old);
 	ListBase *layouts_old = BKE_workspace_layouts_get(workspace_old);
-	WorkSpace *workspace_new = BKE_workspace_add(bmain, BKE_workspace_name_get(workspace_old));
+	WorkSpace *workspace_new = ED_workspace_add(bmain, BKE_workspace_name_get(workspace_old),
+	                                            BKE_workspace_render_layer_get(workspace_old));
+
+	BKE_workspace_object_mode_set(workspace_new, BKE_workspace_object_mode_get(workspace_old));
 
 	BKE_workspace_layout_iter_begin(layout_old, layouts_old->first)
 	{

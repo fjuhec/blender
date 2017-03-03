@@ -45,11 +45,15 @@ struct Scene;
 struct SceneCollection *BKE_collection_add(struct Scene *scene, struct SceneCollection *sc_parent, const char *name);
 bool BKE_collection_remove(struct Scene *scene, struct SceneCollection *sc);
 struct SceneCollection *BKE_collection_master(const struct Scene *scene);
+void BKE_collection_rename(const struct Scene *scene, struct SceneCollection *sc, const char *name);
 void BKE_collection_master_free(struct Scene *scene);
 void BKE_collection_object_add(struct Scene *scene, struct SceneCollection *sc, struct Object *object);
 void BKE_collection_object_add_from(struct Scene *scene, struct Object *ob_src, struct Object *ob_dst);
 void BKE_collection_object_remove(struct Main *bmain, struct Scene *scene, struct SceneCollection *sc, struct Object *object, const bool free_us);
 void BKE_collections_object_remove(struct Main *bmain, struct Scene *scene, struct Object *object, const bool free_us);
+
+void BKE_collection_reinsert_after(const struct Scene *scene, struct SceneCollection *sc_reinsert, struct SceneCollection *sc_after);
+void BKE_collection_reinsert_into(struct SceneCollection *sc_reinsert, struct SceneCollection *sc_into);
 
 typedef void (*BKE_scene_objects_Cb)(struct Object *ob, void *data);
 typedef void (*BKE_scene_collections_Cb)(struct SceneCollection *ob, void *data);

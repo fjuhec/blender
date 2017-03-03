@@ -255,6 +255,7 @@ EnumPropertyItem rna_enum_file_sort_items[] = {
 #include "BKE_colortools.h"
 #include "BKE_context.h"
 #include "BKE_depsgraph.h"
+#include "BKE_layer.h"
 #include "BKE_global.h"
 #include "BKE_nla.h"
 #include "BKE_paint.h"
@@ -834,8 +835,9 @@ static int rna_SpaceImageEditor_show_maskedit_get(PointerRNA *ptr)
 	SpaceImage *sima = (SpaceImage *)(ptr->data);
 	bScreen *sc = (bScreen *)ptr->id.data;
 	Scene *scene = ED_screen_scene_find(sc, G.main->wm.first);
+	SceneLayer *sl = BKE_scene_layer_context_active(scene);
 
-	return ED_space_image_check_show_maskedit(scene, sima);
+	return ED_space_image_check_show_maskedit(sl, sima);
 }
 
 static void rna_SpaceImageEditor_image_set(PointerRNA *ptr, PointerRNA value)
@@ -2124,7 +2126,9 @@ static void rna_def_space_outliner(BlenderRNA *brna)
 		{SO_USERDEF, "USER_PREFERENCES", 0, "User Preferences", "Display user preference data"},
 		{SO_ID_ORPHANS, "ORPHAN_DATA", 0, "Orphan Data",
 		                "Display data-blocks which are unused and/or will be lost when the file is reloaded"},
-		{SO_COLLECTIONS, "COLLECTIONS", 0, "Collections", "Display the collections of the active render layer"},
+		{SO_ACT_LAYER, "ACT_LAYER", 0, "Active Render Layer", "Display the collections of the active render layer"},
+		{SO_COLLECTIONS, "COLLECTIONS", 0, "All Collections", "Display all collections based on the master "
+		                 "collection hierarchy"},
 		{0, NULL, 0, NULL, NULL}
 	};
 	

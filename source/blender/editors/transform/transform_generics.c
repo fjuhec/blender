@@ -325,6 +325,7 @@ static void recalcData_actedit(TransInfo *t)
 	/* initialize relevant anim-context 'context' data from TransInfo data */
 	/* NOTE: sync this with the code in ANIM_animdata_get_context() */
 	ac.scene = t->scene;
+	ac.scene_layer = t->sl;
 	ac.obact = OBACT_NEW;
 	ac.sa = t->sa;
 	ac.ar = t->ar;
@@ -374,6 +375,7 @@ static void recalcData_graphedit(TransInfo *t)
 	/* initialize relevant anim-context 'context' data from TransInfo data */
 	/* NOTE: sync this with the code in ANIM_animdata_get_context() */
 	ac.scene = t->scene;
+	ac.scene_layer = t->sl;
 	ac.obact = OBACT_NEW;
 	ac.sa = t->sa;
 	ac.ar = t->ar;
@@ -895,7 +897,7 @@ static void recalcData_objects(TransInfo *t)
 		else
 			BKE_pose_where_is(t->scene, ob);
 	}
-	else if (base && (base->object->mode & OB_MODE_PARTICLE_EDIT) && PE_get_current(t->scene, base->object)) {
+	else if (base && (base->object->mode & OB_MODE_PARTICLE_EDIT) && PE_get_current(t->scene, t->sl, base->object)) {
 		if (t->state != TRANS_CANCEL) {
 			applyProject(t);
 		}
@@ -925,7 +927,7 @@ static void recalcData_objects(TransInfo *t)
 			// TODO: autokeyframe calls need some setting to specify to add samples (FPoints) instead of keyframes?
 			if ((t->animtimer) && IS_AUTOKEY_ON(t->scene)) {
 				animrecord_check_state(t->scene, &ob->id, t->animtimer);
-				autokeyframe_ob_cb_func(t->context, t->scene, (View3D *)t->view, ob, t->mode);
+				autokeyframe_ob_cb_func(t->context, t->scene, t->sl, (View3D *)t->view, ob, t->mode);
 			}
 			
 			/* sets recalc flags fully, instead of flushing existing ones 

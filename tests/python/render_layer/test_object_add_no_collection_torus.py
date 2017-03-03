@@ -1,4 +1,4 @@
-# ./blender.bin --background -noaudio --python tests/python/render_layer/test_link.py -- --testdir="/data/lib/tests/"
+# ./blender.bin --background -noaudio --python tests/python/render_layer/test_scene_copy.py -- --testdir="/data/lib/tests/"
 
 # ############################################################
 # Importing - Same For All Render Layer Tests
@@ -17,28 +17,12 @@ from render_layer_common import *
 # ############################################################
 
 class UnitTesting(RenderLayerTesting):
-    def do_link(self, master_collection):
-        import bpy
-        self.assertEqual(master_collection.name, "Master Collection")
-        self.assertEqual(master_collection, bpy.context.scene.master_collection)
-        master_collection.objects.link(bpy.data.objects.new('object', None))
-
-    def test_link_scene(self):
+    def test_syncing_object_add_torus(self):
         """
-        See if we can link objects
+        See if new objects are added to the correct collection
+        bpy.ops.mesh.primitive_torus_add()
         """
-        import bpy
-        master_collection = bpy.context.scene.master_collection
-        self.do_link(master_collection)
-
-    def test_link_context(self):
-        """
-        See if we can link objects via bpy.context.scene_collection
-        """
-        import bpy
-        bpy.context.scene.render_layers.active_index = len(bpy.context.scene.render_layers) - 1
-        master_collection = bpy.context.scene_collection
-        self.do_link(master_collection)
+        self.do_object_add_no_collection('TORUS')
 
 
 # ############################################################

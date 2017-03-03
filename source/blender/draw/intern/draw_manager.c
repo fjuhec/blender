@@ -81,7 +81,7 @@ typedef enum {
 	DRW_ATTRIB_FLOAT,
 } DRWAttribType;
 
-typedef struct DRWUniform {
+struct DRWUniform {
 	struct DRWUniform *next, *prev;
 	DRWUniformType type;
 	int location;
@@ -89,7 +89,7 @@ typedef struct DRWUniform {
 	int arraysize;
 	int bindloc;
 	const void *value;
-} DRWUniform;
+};
 
 typedef struct DRWAttrib {
 	struct DRWAttrib *next, *prev;
@@ -474,14 +474,14 @@ void DRW_shgroup_free(struct DRWShadingGroup *shgroup)
 
 void DRW_shgroup_call_add(DRWShadingGroup *shgroup, Batch *geom, float (*obmat)[4])
 {
-	if (geom) {
-		DRWCall *call = MEM_callocN(sizeof(DRWCall), "DRWCall");
+	BLI_assert(geom != NULL);
 
-		call->obmat = obmat;
-		call->geometry = geom;
+	DRWCall *call = MEM_callocN(sizeof(DRWCall), "DRWCall");
 
-		BLI_addtail(&shgroup->calls, call);
-	}
+	call->obmat = obmat;
+	call->geometry = geom;
+
+	BLI_addtail(&shgroup->calls, call);
 }
 
 void DRW_shgroup_dynamic_call_add(DRWShadingGroup *shgroup, ...)
@@ -526,10 +526,9 @@ void DRW_shgroup_uniform_block(DRWShadingGroup *shgroup, const char *name, const
 	DRW_interface_uniform(shgroup, name, DRW_UNIFORM_BLOCK, ubo, 0, 0, loc);
 }
 
-void DRW_shgroup_uniform_buffer(DRWShadingGroup *shgroup, const char *name, const int value, int loc)
+void DRW_shgroup_uniform_buffer(DRWShadingGroup *shgroup, const char *name, GPUTexture **tex, int loc)
 {
-	/* we abuse the lenght attrib to store the buffer index */
-	DRW_interface_uniform(shgroup, name, DRW_UNIFORM_BUFFER, NULL, value, 0, loc);
+	DRW_interface_uniform(shgroup, name, DRW_UNIFORM_BUFFER, tex, 0, 0, loc);
 }
 
 void DRW_shgroup_uniform_bool(DRWShadingGroup *shgroup, const char *name, const bool *value, int arraysize)
@@ -829,6 +828,7 @@ static void draw_shgroup(DRWShadingGroup *shgroup)
 	BLI_assert(shgroup->interface);
 
 	DRWInterface *interface = shgroup->interface;
+	GPUTexture *tex;
 
 	if (DST.shader != shgroup->shader) {
 		if (DST.shader) GPU_shader_unbind();
@@ -858,25 +858,26 @@ static void draw_shgroup(DRWShadingGroup *shgroup)
 				GPU_shader_uniform_vector(shgroup->shader, uni->location, uni->length, uni->arraysize, (float *)uni->value);
 				break;
 			case DRW_UNIFORM_TEXTURE:
-				GPU_texture_bind((GPUTexture *)uni->value, uni->bindloc);
+				tex = (GPUTexture *)uni->value;
+				GPU_texture_bind(tex, uni->bindloc);
 
 				bound_tex = MEM_callocN(sizeof(DRWBoundTexture), "DRWBoundTexture");
-				bound_tex->tex = (GPUTexture *)uni->value;
+				bound_tex->tex = tex;
 				BLI_addtail(&DST.bound_texs, bound_tex);
 
-				GPU_shader_uniform_texture(shgroup->shader, uni->location, (GPUTexture *)uni->value);
+				GPU_shader_uniform_texture(shgroup->shader, uni->location, tex);
 				break;
 			case DRW_UNIFORM_BUFFER:
-				/* restore index from lenght we abused */
-				GPU_texture_bind(DST.txl->textures[uni->length], uni->bindloc);
-				GPU_texture_compare_mode(DST.txl->textures[uni->length], false);
-				GPU_texture_filter_mode(DST.txl->textures[uni->length], false);
+				tex = *((GPUTexture **)uni->value);
+				GPU_texture_bind(tex, uni->bindloc);
+				GPU_texture_compare_mode(tex, false);
+				GPU_texture_filter_mode(tex, false);
 				
 				bound_tex = MEM_callocN(sizeof(DRWBoundTexture), "DRWBoundTexture");
-				bound_tex->tex = DST.txl->textures[uni->length];
+				bound_tex->tex = tex;
 				BLI_addtail(&DST.bound_texs, bound_tex);
 
-				GPU_shader_uniform_texture(shgroup->shader, uni->location, DST.txl->textures[uni->length]);
+				GPU_shader_uniform_texture(shgroup->shader, uni->location, tex);
 				break;
 			case DRW_UNIFORM_BLOCK:
 				GPU_uniformbuffer_bind((GPUUniformBuffer *)uni->value, uni->bindloc);
@@ -941,8 +942,7 @@ static void set_state(short flag)
 	}
 
 	/* Depht Test */
-	if (flag & DRW_STATE_DEPTH_LESS ||
-	    flag & DRW_STATE_DEPTH_EQUAL)
+	if (flag & (DRW_STATE_DEPTH_LESS | DRW_STATE_DEPTH_EQUAL | DRW_STATE_DEPTH_GREATER))
 	{
 
 		glEnable(GL_DEPTH_TEST);
@@ -951,6 +951,8 @@ static void set_state(short flag)
 			glDepthFunc(GL_LEQUAL);
 		else if (flag & DRW_STATE_DEPTH_EQUAL)
 			glDepthFunc(GL_EQUAL);
+		else if (flag & DRW_STATE_DEPTH_GREATER)
+			glDepthFunc(GL_GREATER);
 	}
 	else {
 		glDisable(GL_DEPTH_TEST);
@@ -976,6 +978,7 @@ static void set_state(short flag)
 	/* Blending (all buffer) */
 	if (flag & DRW_STATE_BLEND) {
 		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	}
 	else {
 		glDisable(GL_BLEND);
@@ -1062,6 +1065,23 @@ void DRW_draw_pass(DRWPass *UNUSED(pass))
 #endif
 
 /* ******************************************* Mode Engine Cache ****************************************** */
+
+void DRW_mode_init(void)
+{
+	const bContext *C = DRW_get_context();
+	int mode = CTX_data_mode_enum(C);
+
+	switch (mode) {
+		case CTX_MODE_EDIT_MESH:
+			EDIT_MESH_init();
+			break;
+		case CTX_MODE_EDIT_ARMATURE:
+			break;
+		case CTX_MODE_OBJECT:
+			break;
+	}
+}
+
 void DRW_mode_cache_init(void)
 {
 	const bContext *C = DRW_get_context();
@@ -1187,6 +1207,8 @@ void *DRW_render_settings_get(Scene *scene, const char *engine_name)
 void DRW_framebuffer_init(struct GPUFrameBuffer **fb, int width, int height, DRWFboTexture textures[MAX_FBO_TEX],
                           int texnbr)
 {
+	BLI_assert(texnbr <= MAX_FBO_TEX);
+
 	if (!*fb) {
 		int color_attachment = -1;
 		*fb = GPU_framebuffer_create();
@@ -1223,6 +1245,19 @@ void DRW_framebuffer_init(struct GPUFrameBuffer **fb, int width, int height, DRW
 void DRW_framebuffer_bind(struct GPUFrameBuffer *fb)
 {
 	GPU_framebuffer_bind(fb);
+}
+
+void DRW_framebuffer_clear(bool color, bool depth, float clear_col[4])
+{
+	if (color) {
+		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+		glClearColor(clear_col[0], clear_col[1], clear_col[2], clear_col[4]);
+	}
+	if (depth) {
+		glDepthMask(GL_TRUE);
+	}
+	glClear(((color) ? GL_COLOR_BUFFER_BIT : 0) |
+	        ((depth) ? GL_DEPTH_BUFFER_BIT : 0));
 }
 
 void DRW_framebuffer_texture_attach(struct GPUFrameBuffer *fb, GPUTexture *tex, int slot)
@@ -1284,6 +1319,8 @@ void DRW_viewport_init(const bContext *C)
 
 	/* Save context for all later needs */
 	DST.context = C;
+
+	DRW_update_global_values();
 }
 
 void DRW_viewport_matrix_get(float mat[4][4], DRWViewportMatrixType type)
@@ -1366,12 +1403,18 @@ void DRW_engines_init(void)
 #endif
 }
 
+extern struct GPUUniformBuffer *globals_ubo; /* draw_mode_pass.c */
 void DRW_engines_free(void)
 {
 #ifdef WITH_CLAY_ENGINE
-	clay_engine_free();
+	CLAY_engine_free();
+
+	EDIT_MESH_engine_free();
 
 	DRW_shape_cache_free();
+
+	if (globals_ubo)
+		GPU_uniformbuffer_free(globals_ubo);
 
 	BLI_remlink(&R_engines, &viewport_clay_type);
 #endif

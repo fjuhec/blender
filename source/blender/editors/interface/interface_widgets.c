@@ -903,15 +903,15 @@ static void widget_draw_icon(
 	if (icon && icon != ICON_BLANK1) {
 		float ofs = 1.0f / aspect;
 		
-		if (but->drawflag & UI_BUT_ICON_LEFT) {
+		if (but->drawflag & UI_BUT_ICON_LEFT || ui_block_is_pie_menu(but->block)) {
 			if (but->block->flag & UI_BLOCK_LOOP) {
 				if (but->type == UI_BTYPE_SEARCH_MENU)
 					xs = rect->xmin + 4.0f * ofs;
 				else
-					xs = rect->xmin + ofs;
+					xs = rect->xmin + 2.0f * ofs;
 			}
 			else {
-				xs = rect->xmin + 4.0f * ofs;
+				xs = rect->xmin + 2.0f * ofs;
 			}
 			ys = (rect->ymin + rect->ymax - height) / 2.0f;
 		}
@@ -1394,7 +1394,7 @@ static void widget_draw_text(uiFontStyle *fstyle, uiWidgetColors *wcol, uiBut *b
 
 				selwidth_draw = BLF_width(fstyle->uifont_id, drawstr + but->ofs, but->selend - but->ofs);
 
-				unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_INT, 2, KEEP_INT);
+				unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_INT, 2, CONVERT_INT_TO_FLOAT);
 				immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
 				immUniformColor4ubv((unsigned char *)wcol->item);
@@ -1426,7 +1426,7 @@ static void widget_draw_text(uiFontStyle *fstyle, uiWidgetColors *wcol, uiBut *b
 				t = 0;
 			}
 
-			unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_INT, 2, KEEP_INT);
+			unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_INT, 2, CONVERT_INT_TO_FLOAT);
 			immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
 			immUniformColor3f(0.2f, 0.6f, 0.9f);
@@ -1598,11 +1598,11 @@ static void widget_draw_text_icon(uiFontStyle *fstyle, uiWidgetColors *wcol, uiB
 	/* Icons on the left with optional text label on the right */
 	else if (but->flag & UI_HAS_ICON || show_menu_icon) {
 		const BIFIconID icon = (but->flag & UI_HAS_ICON) ? but->icon + but->iconadd : ICON_NONE;
-		const float icon_size = ICON_SIZE_FROM_BUTRECT(rect);
+		const float icon_size = ICON_DEFAULT_WIDTH;
 
 		/* menu item - add some more padding so menus don't feel cramped. it must
 		 * be part of the button so that this area is still clickable */
-		if (ui_block_is_menu(but->block))
+		if (ui_block_is_menu(but->block) && !ui_block_is_pie_menu(but->block))
 			rect->xmin += 0.3f * U.widget_unit;
 
 		widget_draw_icon(but, icon, alpha, rect, show_menu_icon);
@@ -4102,7 +4102,7 @@ void ui_draw_pie_center(uiBlock *block)
 			draw_disk_shaded(angle - range / 2.0f, range, pie_radius_internal, pie_radius_external, subd, col1, col2, true);
 		}
 		else {
-			draw_disk_shaded(angle - range / 2.0f, range, pie_radius_internal, pie_radius_external, subd, btheme->tui.wcol_pie_menu.inner, NULL, false);
+			draw_disk_shaded(angle - range / 2.0f, range, pie_radius_internal, pie_radius_external, subd, btheme->tui.wcol_pie_menu.inner_sel, NULL, false);
 		}
 	}
 

@@ -116,6 +116,8 @@ enum ObjectMode BKE_workspace_object_mode_get(const WorkSpace *workspace) GETTER
 #ifdef USE_WORKSPACE_MODE
 void            BKE_workspace_object_mode_set(WorkSpace *workspace, const enum ObjectMode mode) SETTER_ATTRS;
 #endif
+struct SceneLayer *BKE_workspace_render_layer_get(const WorkSpace *workspace) GETTER_ATTRS;
+void               BKE_workspace_render_layer_set(WorkSpace *workspace, struct SceneLayer *layer) SETTER_ATTRS;
 struct ListBase *BKE_workspace_layouts_get(WorkSpace *workspace) GETTER_ATTRS;
 WorkSpaceLayoutType *BKE_workspace_active_layout_type_get(WorkSpace *workspace) GETTER_ATTRS;
 struct ListBase *BKE_workspace_layout_types_get(WorkSpace *workspace) GETTER_ATTRS;

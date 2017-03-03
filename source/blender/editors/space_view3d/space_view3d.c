@@ -1021,6 +1021,9 @@ static void view3d_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegio
 					}
 					ED_region_tag_redraw(ar);
 					break;
+				case ND_LAYER:
+					ED_region_tag_redraw(ar);
+					break;
 			}
 
 			break;

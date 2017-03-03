@@ -33,8 +33,6 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "GPU_extensions.h"
-#include "GPU_basic_shader.h"
 #include "GPU_draw.h"
 #include "GPU_immediate.h"
 
@@ -264,12 +262,12 @@ static void vicon_keytype_draw_wrapper(int x, int y, int w, int h, float alpha, 
 	immBindBuiltinProgram(GPU_SHADER_KEYFRAME_DIAMOND);
 	GPU_enable_program_point_size();
 	immBegin(PRIM_POINTS, 1);
-	
+
 	/* draw keyframe
-	 * - size: 0.3 * h (found out experimentally... dunno why!)
+	 * - size: 0.6 * h (found out experimentally... dunno why!)
 	 * - sel: true (so that "keyframe" state shows the iconic yellow icon)
 	 */
-	draw_keyframe_shape(xco, yco, 0.3f * h, true, key_type, KEYFRAME_SHAPE_BOTH, alpha,
+	draw_keyframe_shape(xco, yco, 0.6f * h, true, key_type, KEYFRAME_SHAPE_BOTH, alpha,
 	                    pos_id, size_id, color_id, outline_color_id);
 
 	immEnd();
@@ -961,7 +959,7 @@ PreviewImage *UI_icon_to_preview(int icon_id)
 }
 
 static void icon_draw_rect(float x, float y, int w, int h, float UNUSED(aspect), int rw, int rh,
-                           unsigned int *rect, float alpha, const float rgb[3], const bool is_preview)
+                           unsigned int *rect, float alpha, const float rgb[3], const bool UNUSED(is_preview))
 {
 	ImBuf *ima = NULL;
 	int draw_w = w;
@@ -975,15 +973,13 @@ static void icon_draw_rect(float x, float y, int w, int h, float UNUSED(aspect),
 		BLI_assert(!"invalid icon size");
 		return;
 	}
-
 	/* modulate color */
-	if (alpha != 1.0f)
-		glPixelTransferf(GL_ALPHA_SCALE, alpha);
+	float col[4] = {1.0f, 1.0f, 1.0f, alpha};
 
 	if (rgb) {
-		glPixelTransferf(GL_RED_SCALE, rgb[0]);
-		glPixelTransferf(GL_GREEN_SCALE, rgb[1]);
-		glPixelTransferf(GL_BLUE_SCALE, rgb[2]);
+		col[0] = rgb[0];
+		col[1] = rgb[1];
+		col[2] = rgb[2];
 	}
 
 	/* rect contains image in 'rendersize', we only scale if needed */
@@ -1009,31 +1005,12 @@ static void icon_draw_rect(float x, float y, int w, int h, float UNUSED(aspect),
 	}
 
 	/* draw */
-	if (is_preview) {
-		glaDrawPixelsSafe(draw_x, draw_y, draw_w, draw_h, draw_w, GL_RGBA, GL_UNSIGNED_BYTE, rect);
-	}
-	else {
-		int bound_options;
-		GPU_BASIC_SHADER_DISABLE_AND_STORE(bound_options);
-
-		glRasterPos2f(draw_x, draw_y);
-		glDrawPixels(draw_w, draw_h, GL_RGBA, GL_UNSIGNED_BYTE, rect);
-
-		GPU_BASIC_SHADER_ENABLE_AND_RESTORE(bound_options);
-	}
+	immDrawPixelsTexSetup(GPU_SHADER_2D_IMAGE_COLOR);
+	immDrawPixelsTex(draw_x, draw_y, draw_w, draw_h, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST, rect,
+	                 1.0f, 1.0f, col);
 
 	if (ima)
 		IMB_freeImBuf(ima);
-
-	/* restore color */
-	if (alpha != 0.0f)
-		glPixelTransferf(GL_ALPHA_SCALE, 1.0f);
-	
-	if (rgb) {
-		glPixelTransferf(GL_RED_SCALE, 1.0f);
-		glPixelTransferf(GL_GREEN_SCALE, 1.0f);
-		glPixelTransferf(GL_BLUE_SCALE, 1.0f);
-	}
 }
 
 static void icon_draw_texture(
@@ -1080,7 +1057,6 @@ static void icon_draw_texture(
 	glTexEnvf(GL_TEXTURE_FILTER_CONTROL, GL_TEXTURE_LOD_BIAS, 0.0f);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
-	GPU_basic_shader_bind(GPU_SHADER_USE_COLOR);
 }
 
 /* Drawing size for preview images */
