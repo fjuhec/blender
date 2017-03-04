@@ -7846,17 +7846,9 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 								}
 								
 								/* apply parent transformations */
-								if (gpl->parent == NULL) {
-									copy_m3_m3(td->smtx, smtx);
-									copy_m3_m3(td->mtx, mtx);
-									unit_m3(td->axismtx); // XXX?
-								}
-								else {
-									/* apply matrix transformation relative to parent */
-									copy_m3_m4(td->smtx, inverse_diff_mat); /* final position */
-									copy_m3_m4(td->mtx, diff_mat);  /* display position */
-									copy_m3_m4(td->axismtx, diff_mat); /* axis orientation */
-								}
+								copy_m3_m4(td->smtx, inverse_diff_mat); /* final position */
+								copy_m3_m4(td->mtx, diff_mat);  /* display position */
+								copy_m3_m4(td->axismtx, diff_mat); /* axis orientation */
 							}
 							/* Triangulation must be calculated again, so save the stroke for recalc function */
 							td->extra = gps;
