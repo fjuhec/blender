@@ -70,7 +70,7 @@ if(OPENHMD_DRIVER_DEEPOON)
 	list(APPEND INC_SYS ${HIDAPI_INCLUDE_DIRS})
 endif()
 
-if(OPENHMD_HTC_VIVE)
+if(OPENHMD_DRIVER_HTC_VIVE)
 	list(APPEND SRC
 		src/drv_htc_vive/vive.c
 		src/drv_htc_vive/packet.c
