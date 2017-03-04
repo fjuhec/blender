@@ -93,8 +93,13 @@ bGPdata **ED_gpencil_data_get_pointers_direct(ID *screen_id, Scene *scene, ScrAr
 				                         GP_TOOL_SOURCE_SCENE, GP_TOOL_SOURCE_OBJECT));
 				
 				if (scene->toolsettings->gpencil_src == GP_TOOL_SOURCE_OBJECT) {
-					/* legacy behaviour for usage with old addons requiring object-linked to objects */
-					
+
+					/* return obgpencil datablock */
+					if (ob && ob->type == OB_GPENCIL) {
+						if (ptr) RNA_id_pointer_create(&ob->id, ptr);
+						return &ob->gpd;
+					}
+
 					/* just in case no active/selected object... */
 					if (ob && (ob->flag & SELECT)) {
 						/* for now, as long as there's an object, default to using that in 3D-View */
