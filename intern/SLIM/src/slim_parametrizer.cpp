@@ -63,7 +63,7 @@ void param_slim(matrix_transfer *mt, int nIterations, bool borderVerticesArePinn
 
 		SLIMData *slimData = setup_slim(mt, nIterations, uvChartIndex, timer, borderVerticesArePinned, skipInitialization);
 
-		slim_solve(*slimData, nIterations);
+		//slim_solve(*slimData, nIterations);
 
 		areacomp::correctMapSurfaceAreaIfNecessary(slimData);
 
@@ -90,14 +90,21 @@ void initializeUvs(retrieval::GeometryData &gd, SLIMData *slimData){
 		return;
 	}
 
-	/*
-	 UVInitializer::uniform_laplacian(*gd.edgesByVertexindices,
-	 *gd.edgeLengths,
+
+	Eigen::MatrixXd CotMatrix;
+	igl::cotmatrix_entries(Eigen::MatrixXd(gd.vertexPositions3D), Eigen::MatrixXi(gd.facesByVertexindices), CotMatrix);
+
+	 UVInitializer::uniform_laplacian(
+gd.facesByVertexindices,
+									  gd.vertexPositions3D,
+									  gd.edgesByVertexindices,
+	 gd.edgeLengths,
 	 boundaryVertexIndices,
 	 uvPositionsOfBoundary,
-	 slimData->V_o);
-	 */
+	 slimData->V_o,
+	 CotMatrix);
 
+	/*
 	int harmonicPower = 1; // 1 is harmonic map, 2 is biharmonic ...
 	UVInitializer::harmonic(vertexPositions2D,
 							facesByVertexIndices,
@@ -114,7 +121,7 @@ void initializeUvs(retrieval::GeometryData &gd, SLIMData *slimData){
 										 boundaryVertexIndices,
 										 uvPositionsOfBoundary,
 										 slimData->V_o);
-	}
+	}*/
 }
 
 void initializeIfNeeded(retrieval::GeometryData &gd, SLIMData *slimData){

@@ -7,134 +7,206 @@
 //
 
 #include "UVInitializer.h"
+#include<Eigen/SparseLU>
 
-#include <Eigen/Sparse>
 #include "igl/Timer.h"
 #include "igl/harmonic.h"
+#include "cotmatrix.h"
+#include <iostream>
 
+using namespace std;
+
+double computeAngle(const Eigen::Vector3d &a,const Eigen::Vector3d &b){
+	cout << "points for angle " << a << "   and    " << b << endl;
+	double angle = acos(a.dot(b) / (a.norm() * b.norm()));
+	return angle;
+}
+
+void findVertexToOppositeAnglesCorrespondence(const Eigen::MatrixXi &F,const Eigen::MatrixXd &V, Eigen::SparseMatrix<double> &vertexToFaceIndices){
+
+	typedef Eigen::Triplet<double> T;
+	std::vector<T> coefficients;
+
+	for (int i = 0; i < F.rows(); i++){
+
+		int vertexIndex1 = F(i,0); // retrieve vertex index that is part of face
+		int vertexIndex2 = F(i,1); // retrieve vertex index that is part of face
+		int vertexIndex3 = F(i,2); // retrieve vertex index that is part of face
+
+		double angle1 = computeAngle(V.row(vertexIndex2) - V.row(vertexIndex1), V.row(vertexIndex3) - V.row(vertexIndex1));
+		double angle2 = computeAngle(V.row(vertexIndex3) - V.row(vertexIndex2), V.row(vertexIndex1) - V.row(vertexIndex2));
+		double angle3 = computeAngle(V.row(vertexIndex1) - V.row(vertexIndex3), V.row(vertexIndex2) - V.row(vertexIndex3));
+
+		cout << "vertex " << V.row(vertexIndex1) << " has angle " << angle1 << "for neighbors " << V.row(vertexIndex2) << " and" << V.row(vertexIndex3) << endl << endl;
+		cout << "vertex " << V.row(vertexIndex2) << " has angle " << angle2 << "for neighbors " << V.row(vertexIndex3) << " and" << V.row(vertexIndex1) << endl << endl;
+		cout << "vertex " << V.row(vertexIndex3) << " has angle " << angle3 << "for neighbors " << V.row(vertexIndex1) << " and" << V.row(vertexIndex2) << endl << endl;
+
+		coefficients.push_back(T(vertexIndex1, 2*vertexIndex2, angle3));
+		coefficients.push_back(T(vertexIndex1, 2*vertexIndex3 + 1, angle2));
+
+		coefficients.push_back(T(vertexIndex2, 2*vertexIndex1 + 1, angle3));
+		coefficients.push_back(T(vertexIndex2, 2*vertexIndex3, angle1));
+
+		coefficients.push_back(T(vertexIndex3, 2*vertexIndex1, angle2));
+		coefficients.push_back(T(vertexIndex3, 2*vertexIndex2 + 1, angle1));
+
+	}
+
+	vertexToFaceIndices.setFromTriplets(coefficients.begin(), coefficients.end());
+}
+
+void findVertexToItsAnglesCorrespondence(const Eigen::MatrixXi &F,const Eigen::MatrixXd &V, Eigen::SparseMatrix<double> &vertexToFaceIndices){
+
+	typedef Eigen::Triplet<double> T;
+	std::vector<T> coefficients;
+
+	for (int i = 0; i < F.rows(); i++){
+
+		int vertexIndex1 = F(i,0); // retrieve vertex index that is part of face
+		int vertexIndex2 = F(i,1); // retrieve vertex index that is part of face
+		int vertexIndex3 = F(i,2); // retrieve vertex index that is part of face
+
+		double angle1 = computeAngle(V.row(vertexIndex2) - V.row(vertexIndex1), V.row(vertexIndex3) - V.row(vertexIndex1));
+		double angle2 = computeAngle(V.row(vertexIndex3) - V.row(vertexIndex2), V.row(vertexIndex1) - V.row(vertexIndex2));
+		double angle3 = computeAngle(V.row(vertexIndex1) - V.row(vertexIndex3), V.row(vertexIndex2) - V.row(vertexIndex3));
+
+		coefficients.push_back(T(vertexIndex1, 2*vertexIndex2, angle1));
+		coefficients.push_back(T(vertexIndex1, 2*vertexIndex3 + 1, angle1));
+
+		coefficients.push_back(T(vertexIndex2, 2*vertexIndex1 + 1, angle2));
+		coefficients.push_back(T(vertexIndex2, 2*vertexIndex3, angle2));
+
+		coefficients.push_back(T(vertexIndex3, 2*vertexIndex1, angle3));
+		coefficients.push_back(T(vertexIndex3, 2*vertexIndex2 + 1, angle3));
+
+	}
+
+	vertexToFaceIndices.setFromTriplets(coefficients.begin(), coefficients.end());
+}
 
 /*	AUREL THESIS
 	My own implementation of unfirom laplacian parameterization, for speed comparison and curiosity. Mine is faster then the libigl implementation.
 	Unfortunatly it is a very bad initialisation for our use.
  */
-void UVInitializer::uniform_laplacian(const Eigen::MatrixXi &E, const Eigen::VectorXd &EL, const Eigen::VectorXi &bnd, Eigen::MatrixXd &bnd_uv, Eigen::MatrixXd &UV){
+void UVInitializer::uniform_laplacian(const Eigen::MatrixXi &F, const Eigen::MatrixXd &V, const Eigen::MatrixXi &E, const Eigen::VectorXd &EL, const Eigen::VectorXi &bnd, Eigen::MatrixXd &bnd_uv, Eigen::MatrixXd &UV, Eigen::MatrixXd &CotMatrix){
 
-	igl::Timer timer;
-	timer.start();
+	enum Method{TUTTE, HARMONIC, MVC};
+	Method method = HARMONIC;
 
 	int nVerts = UV.rows();
 	int nEdges = E.rows();
 
+	Eigen::SparseMatrix<double> vertexToAngles(nVerts, nVerts*2);
+
+	switch (method){
+		case HARMONIC:
+			findVertexToOppositeAnglesCorrespondence(F, V, vertexToAngles);
+			break;
+		case MVC:
+			findVertexToItsAnglesCorrespondence(F, V, vertexToAngles);
+			break;
+		case TUTTE:
+			break;
+	}
+
 	int nUnknowns = nVerts - bnd.size();
 	int nKnowns = bnd.size();
 
-	Eigen::SparseMatrix<double> Aint(2 * nUnknowns, 2 * nUnknowns);
-	Eigen::SparseMatrix<double> Abnd(2 * nUnknowns, 2 * nKnowns);
-	Eigen::VectorXd	z(2 * nKnowns);
+	Eigen::SparseMatrix<double> Aint(nUnknowns, nUnknowns);
+	Eigen::SparseMatrix<double> Abnd(nUnknowns, nKnowns);
+	Eigen::VectorXd	z(nKnowns);
 
 	std::vector<Eigen::Triplet<double>> intTripletVector;
 	std::vector<Eigen::Triplet<double>> bndTripletVector;
 
 	int rowindex;
 	int columnindex;
-	int i;
-	int e;
-	double edgeWeight;
+	double edgeWeight, edgeLength;
+	Eigen::RowVector2i edge;
 
+	int firstVertex, secondVertex;
 
-	int first, second;
+	for (int e = 0; e < nEdges; e++){
+		edge = E.row(e);
+		edgeLength = EL(e);
+		firstVertex = edge(0);
+		secondVertex = edge(1);
 
-	//cout << "		" << timer.getElapsedTime() << " edge-iteration started" << endl;
+		if (firstVertex >= nKnowns){//into Aint
 
-	for (e = 0; e < nEdges; e++){
-		Eigen::RowVector2i r = E.row(e);
+			rowindex = firstVertex - nKnowns;
 
-		for (i = 0; i < 2; i++){
+			double angle1 = vertexToAngles.coeff(firstVertex, 2*secondVertex);
+			double angle2 = vertexToAngles.coeff(firstVertex, 2*secondVertex+1);
 
-			first = r(i);
-			second = r((i + 1) % 2);
-
-			if (first >= nKnowns){//into Aint
-				rowindex = first - nKnowns;
-				edgeWeight = 1; //EL(e);
-
-				intTripletVector.push_back(Eigen::Triplet<double>(rowindex, rowindex, edgeWeight));
-				intTripletVector.push_back(Eigen::Triplet<double>(rowindex + nUnknowns, rowindex + nUnknowns, edgeWeight));
-
-				//cout << "inserted into INT cc: " << rowindex << ", " << rowindex << endl;
-
-				if (second >= nKnowns){
-					columnindex = second - nKnowns;
-
-					intTripletVector.push_back(Eigen::Triplet<double>(rowindex, columnindex, -edgeWeight));
-					intTripletVector.push_back(Eigen::Triplet<double>(rowindex + nUnknowns, columnindex + nUnknowns, -edgeWeight));
-
-					//cout << "inserted into INT rc: " << rowindex << ", " << columnindex << endl;
-				} else {
-					columnindex = second;
-					bndTripletVector.push_back(Eigen::Triplet<double>(rowindex, columnindex, -edgeWeight));
-					bndTripletVector.push_back(Eigen::Triplet<double>(rowindex + nUnknowns, columnindex + nKnowns, -edgeWeight));
-
-					//cout << "inserted into BND rc: " << rowindex << ", " << columnindex << endl;
-				}
+			switch (method){
+				case HARMONIC:
+					edgeWeight = 1/tan(angle1) + 1/tan(angle2);
+					break;
+				case MVC:
+					edgeWeight = tan(angle1/2) + tan(angle2/2);
+					edgeWeight /= edgeLength;
+					break;
+				case TUTTE:
+					edgeWeight = 1;
+					break;
 			}
+
+			cout << "edgeWeight " << edgeWeight << "r.norm: "<< edgeLength << endl;
+
+			intTripletVector.push_back(Eigen::Triplet<double>(rowindex, rowindex, edgeWeight));
+
+			if (secondVertex >= nKnowns){ // also an unknown point in the interior
+				columnindex = secondVertex - nKnowns;
+
+				intTripletVector.push_back(Eigen::Triplet<double>(rowindex, columnindex, -edgeWeight));
+
+			} else { // known point on the border
+				columnindex = secondVertex;
+				bndTripletVector.push_back(Eigen::Triplet<double>(rowindex, columnindex, edgeWeight));
+			}
+
 		}
 	}
 
 
-	//cout << "		" << timer.getElapsedTime() << " edge-iteration ended" << endl;
-
 	Aint.setFromTriplets(intTripletVector.begin(), intTripletVector.end());
 	Aint.makeCompressed();
-
-	//cout << "		" << timer.getElapsedTime() << " Aint set & compressed" << endl;
 
 	Abnd.setFromTriplets(bndTripletVector.begin(), bndTripletVector.end());
 	Abnd.makeCompressed();
 
-	//cout << "		" << timer.getElapsedTime() << " Abnd set & compressed" << endl;
+	//cout << "Aint before: " << endl << Aint.toDense() << endl;
+	//cout << "Abnd before: " << endl << Abnd.toDense() << endl;
 
-	//cout << " bnd " << endl << bnd << endl;
-
-	//cout << " bnd_uv " << endl << bnd_uv << endl;
-
-	for (int zindex = 0; zindex < nKnowns; zindex++){
-		z(zindex) = bnd_uv(bnd(zindex), 0);
-		z(zindex + nKnowns) = bnd_uv(bnd(zindex), 1);
+	for (int i = 0; i < nUnknowns; i++){
+		double factor = Aint.coeff(i, i);
+		Aint.row(i) /= factor;
+		Abnd.row(i) /= factor;
 	}
 
-	//cout << "		" << timer.getElapsedTime() << " z created" << endl;
+	//cout << "Aint: " << endl << Aint.toDense() << endl;
+	//cout << "Abnd: " << endl << Abnd.toDense() << endl;
 
-	Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> solver;
+	Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
 	solver.compute(Aint);
 
+	for (int i = 0; i<2; i++){// solve for u and v coordinates
 
-	//cout << "		" << timer.getElapsedTime() << " solver precomputed" << endl;
+		for (int zindex = 0; zindex < nKnowns; zindex++){
+			z(zindex) = bnd_uv(bnd(zindex), i);
+		}
 
-	Eigen::VectorXd b = Abnd*z;
+		Eigen::VectorXd b = Abnd*z;
 
+		Eigen::VectorXd uvs;
+		uvs = solver.solve(b);
 
-	//cout << "		" << timer.getElapsedTime() << " b cast" << endl;
+		Eigen::VectorXd boundary = bnd_uv.col(i);
+		Eigen::VectorXd interior = uvs;
 
-	Eigen::VectorXd uvs;
-	uvs = solver.solve(-b);
-
-	//cout << "		" << timer.getElapsedTime() << " solved!" << endl;
-
-	Eigen::VectorXd bnd_x = bnd_uv.col(0);
-	Eigen::VectorXd bnd_y = bnd_uv.col(1);
-	Eigen::VectorXd int_x = uvs.head(uvs.size() / 2);
-	Eigen::VectorXd int_y = uvs.tail(uvs.size() / 2);
-
-	if (int_x.rows() > 0){
-		UV.col(0) << bnd_x, int_x;
-		UV.col(1) << bnd_y, int_y;
-	} else {
-		UV.col(0) << bnd_x;
-		UV.col(1) << bnd_y;
+		UV.col(i) << boundary, interior;
 	}
-
-	//cout << "		" << timer.getElapsedTime() << " UV generated" << endl;
 }
 
 void UVInitializer::harmonic(const Eigen::MatrixXd &V,

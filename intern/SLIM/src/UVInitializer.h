@@ -12,16 +12,20 @@
 #include <stdio.h>
 
 #include <Eigen/Dense>
+#include <Eigen/Sparse>
 
 #endif /* UVInitializer_hpp */
 
 namespace UVInitializer {
 
-	void uniform_laplacian(const Eigen::MatrixXi &E,
+	void uniform_laplacian(const Eigen::MatrixXi &F,
+						   const Eigen::MatrixXd &V,
+						   const Eigen::MatrixXi &E,
 						   const Eigen::VectorXd &EL,
 						   const Eigen::VectorXi &bnd,
 						   Eigen::MatrixXd &bnd_uv,
-						   Eigen::MatrixXd &UV);
+						   Eigen::MatrixXd &UV,
+						   Eigen::MatrixXd &CotMatrix);
 
 	void harmonic(const Eigen::MatrixXd &V,
 				  const Eigen::MatrixXi &F,
