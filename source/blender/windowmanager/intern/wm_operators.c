@@ -4130,25 +4130,25 @@ static void WM_OT_stereo3d_set(wmOperatorType *ot)
 /* ******************************************************* */
 /* Head Mounted Display */
 
-static void hmd_view_prepare_screen(wmWindowManager *wm, wmWindow *win)
+static void hmd_view_prepare_screen(wmWindowManager *wm, wmWindow *win, const RegionView3D *rv3d_current)
 {
-	ScrArea *sa = win->screen->areabase.first;
-	View3D *v3d = sa->spacedata.first;
-	RegionView3D *rv3d = BKE_area_find_region_type(sa, RGN_TYPE_WINDOW)->regiondata;
+	ScrArea *sa_hmd = win->screen->areabase.first;
+	View3D *v3d_hmd = sa_hmd->spacedata.first;
+	RegionView3D *rv3d_hmd = BKE_area_find_region_type(sa_hmd, RGN_TYPE_WINDOW)->regiondata;
 
-	BLI_assert(sa->spacetype == SPACE_VIEW3D);
+	BLI_assert(sa_hmd->spacetype == SPACE_VIEW3D);
 
 	/* sync view options */
-	v3d->drawtype = wm->hmd_view.view_shade;
+	v3d_hmd->drawtype = wm->hmd_view.view_shade;
 	if (U.hmd_settings.lensdist_shader != GPU_FX_LENSDIST_NONE) {
-		v3d->fx_settings.fx_flag |= GPU_FX_FLAG_LensDist;
+		v3d_hmd->fx_settings.fx_flag |= GPU_FX_FLAG_LensDist;
 		/* Set distortion type for 3D View but first we need to validate fx settings. */
-		BKE_screen_gpu_fx_validate(&v3d->fx_settings);
-		v3d->fx_settings.lensdist->type = U.hmd_settings.lensdist_shader;
+		BKE_screen_gpu_fx_validate(&v3d_hmd->fx_settings);
+		v3d_hmd->fx_settings.lensdist->type = U.hmd_settings.lensdist_shader;
 	}
 
-	rv3d->persp = RV3D_CAMOB;
-	rv3d->camzoom = BKE_screen_view3d_zoom_from_fac(1.0f);
+	/* copy view orientation from current 3D view to newly opened HMD view */
+	ED_view3d_copy_region_view_data(rv3d_current, rv3d_hmd);
 }
 
 static int wm_hmd_view_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
@@ -4167,12 +4167,22 @@ static int wm_hmd_view_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 	}
 	/* open */
 	else {
+		ARegion *ar_current;
+		View3D *v3d_current;
+		RegionView3D *rv3d_current;
+
 		rcti rect = {prevwin->posx, prevwin->posx + (int)(prevwin->sizex * 0.9f),
 		             prevwin->posy, prevwin->posy + (int)(prevwin->sizey * 0.9f)};
+
+		/* WM_window_open_restricted changes context, so get current context data first */
+		ED_view3d_context_user_region(C, &v3d_current, &ar_current);
+		rv3d_current = ar_current->regiondata;
+		BLI_assert(v3d_current && ar_current && rv3d_current);
+
 		win = WM_window_open_restricted(C, &rect, WM_WINDOW_HMD);
 		wm->hmd_view.hmd_win = win;
 
-		hmd_view_prepare_screen(wm, win);
+		hmd_view_prepare_screen(wm, win, rv3d_current);
 	}
 
 	return OPERATOR_FINISHED;

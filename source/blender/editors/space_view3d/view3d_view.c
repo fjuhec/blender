@@ -1024,6 +1024,25 @@ bool ED_view3d_lock(RegionView3D *rv3d)
 	return ED_view3d_quat_from_axis_view(rv3d->view, rv3d->viewquat);
 }
 
+/**
+ * Copy all view navigation/orientation related data from \a src into \a dst. Local view data is not included.
+ */
+void ED_view3d_copy_region_view_data(const RegionView3D *src, RegionView3D *dst)
+{
+	copy_v4_v4(dst->viewquat, src->viewquat);
+	copy_v3_v3(dst->ofs, src->ofs);
+	copy_v4_v4(dst->lviewquat, src->lviewquat);
+	dst->dist = src->dist;
+	dst->camdx = src->camdx;
+	dst->camdy = src->camdy;
+	dst->pixsize = src->pixsize;
+	dst->camzoom = src->camzoom;
+	dst->persp = src->persp;
+	dst->view = src->view;
+	dst->lpersp = src->lpersp;
+	dst->lview = src->lview;
+}
+
 /* don't set windows active in here, is used by renderwin too */
 void view3d_viewmatrix_set(Scene *scene, const View3D *v3d, RegionView3D *rv3d)
 {
