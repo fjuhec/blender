@@ -51,6 +51,7 @@ static PyStructSequence_Field app_builtopts_info_fields[] = {
 	{(char *)"image_openexr", NULL},
 	{(char *)"image_openjpeg", NULL},
 	{(char *)"image_tiff", NULL},
+	{(char *)"input_hmd", NULL},
 	{(char *)"input_ndof", NULL},
 	{(char *)"audaspace", NULL},
 	{(char *)"international", NULL},

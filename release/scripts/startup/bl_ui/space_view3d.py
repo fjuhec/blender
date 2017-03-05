@@ -3396,6 +3396,10 @@ class VIEW3D_PT_view3d_hmd_view(Panel):
     bl_label = "HMD View"
     bl_options = {'DEFAULT_CLOSED'}
 
+    @classmethod
+    def poll(cls, context):
+        return bpy.app.build_options.input_hmd
+
     def draw(self, context):
         layout = self.layout
 
