@@ -3412,7 +3412,10 @@ class VIEW3D_PT_view3d_hmd_view(Panel):
         row.operator("wm.hmd_session_run", text=text_run, icon=icon_run)
         layout.prop(view, "use_hmd_mirror")
 
+        layout.separator()
+
         layout.prop(wm, "hmd_view_shade", text="Shading")
+        layout.prop(wm, "hmd_view_show_only_render")
 
 
 class VIEW3D_PT_view3d_motion_tracking(Panel):

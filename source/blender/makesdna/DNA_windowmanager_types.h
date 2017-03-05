@@ -131,7 +131,14 @@ typedef struct ReportTimerInfo {
 
 struct HMDViewInfo {
 	struct wmWindow *hmd_win;         /* HMD (virtual reality) window. Stored to avoid lookups. */
-	char view_shade, pad[7]; /* rna_enum_viewport_shade_items */
+
+	char view_shade; /* rna_enum_viewport_shade_items */
+	char flag;
+	char pad[6];
+};
+
+enum {
+	HMD_VIEW_RENDER_OVERRIDE = (1 << 0), /* only render (equivalent to V3D_RENDER_OVERRIDE) */
 };
 
 /* windowmanager is saved, tag WMAN */

@@ -976,6 +976,31 @@ static void rna_hmd_view_shade_set(PointerRNA *ptr, int value)
 	}
 }
 
+static void rna_hmd_view_show_only_render_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
+{
+	wmWindowManager *wm = ptr->data;
+	wmWindow *win = wm->hmd_view.hmd_win;
+
+	if (win) {
+		for (ScrArea *sa = win->screen->areabase.first; sa; sa = sa->next) {
+			if (sa->spacetype == SPACE_VIEW3D) {
+				View3D *v3d = sa->spacedata.first;
+
+				if (wm->hmd_view.flag & HMD_VIEW_RENDER_OVERRIDE) {
+					v3d->flag2 |= V3D_RENDER_OVERRIDE;
+				}
+				else {
+					v3d->flag2 &= ~V3D_RENDER_OVERRIDE;
+				}
+
+				ED_area_tag_redraw(sa);
+				/* we assume one 3D view only */
+				break;
+			}
+		}
+	}
+}
+
 #endif /* WITH_INPUT_HMD */
 
 #ifdef WITH_PYTHON
@@ -2069,6 +2094,11 @@ static void rna_def_windowmanager(BlenderRNA *brna)
 	RNA_def_property_enum_items(prop, rna_enum_viewport_shade_items);
 	RNA_def_property_enum_funcs(prop, NULL, "rna_hmd_view_shade_set", NULL);
 	RNA_def_property_ui_text(prop, "HMD View Shading", "Method to draw in the HMD view");
+
+	prop = RNA_def_property(srna, "hmd_view_show_only_render", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "hmd_view.flag", HMD_VIEW_RENDER_OVERRIDE);
+	RNA_def_property_ui_text(prop, "Only Render", "Display only objects which will be rendered");
+	RNA_def_property_update(prop, 0, "rna_hmd_view_show_only_render_update");
 #endif
 
 	RNA_api_wm(srna);
