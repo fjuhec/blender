@@ -674,7 +674,7 @@ static bool wm_window_setup_type(bContext *C, Scene *scene, wmWindow *win, rcti 
 	sa = win->screen->areabase.first;
 	CTX_wm_area_set(C, sa);
 
-	int spacetype;
+	int spacetype = SPACE_EMPTY;
 	switch (type) {
 		case WM_WINDOW_RENDER:
 			spacetype = SPACE_IMAGE;

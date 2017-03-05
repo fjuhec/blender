@@ -51,7 +51,14 @@
 
 int WM_device_HMD_num_devices_get(void)
 {
-	return GHOST_HMDgetNumDevices();
+	const int tot_devices = GHOST_HMDgetNumDevices();
+
+#ifdef NDEBUG
+	/* OpenHMD always places the dummy device last, we don't want to display it in non-debug builds. */
+	return tot_devices - 1;
+#else
+	return tot_devices;
+#endif
 }
 
 /**
