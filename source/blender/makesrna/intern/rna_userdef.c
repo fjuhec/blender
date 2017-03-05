@@ -616,13 +616,9 @@ static void rna_userdef_hmd_device_update(Main *UNUSED(bmain), Scene *UNUSED(sce
 {
 	const int act_device = WM_device_HMD_current_get();
 
-	/* Change the active device. */
-	if (act_device < 0) {
-		/* pass, no device active */
-	}
-	else if (U.hmd_settings.device < 0) {
+	if (U.hmd_settings.device < 0) {
 		/* disabled device ('None' entry) */
-		WM_device_HMD_state_set(U.hmd_settings.device, false);
+		WM_device_HMD_state_set(act_device, false);
 	}
 	else if (act_device != U.hmd_settings.device) {
 		/* change device */

@@ -439,7 +439,6 @@ class USERPREF_PT_system(Panel):
             col.label(text="OpenSubdiv compute:")
             col.row().prop(system, "opensubdiv_compute_type", text="")
 
-
         if bpy.app.build_options.input_hmd:
             col.separator()
 
