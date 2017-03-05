@@ -3016,7 +3016,8 @@ static void view3d_localview_update_rv3d(struct RegionView3D *rv3d)
 {
 	if (rv3d->localvd) {
 		rv3d->localvd->view = rv3d->view;
-		rv3d->localvd->persp = rv3d->persp;
+		rv3d->localvd->persp = ((rv3d->viewlock & RV3D_LOCK_PERSP_VIEW) && (rv3d->localvd->persp == RV3D_ORTHO)) ?
+		                            RV3D_PERSP : rv3d->persp;
 		copy_qt_qt(rv3d->localvd->viewquat, rv3d->viewquat);
 	}
 }
@@ -3030,6 +3031,7 @@ static void region_quadview_init_rv3d(ScrArea *sa, ARegion *ar,
 		ED_view3d_lastview_store(rv3d);
 	}
 
+	BLI_assert((rv3d->viewlock & RV3D_LOCK_PERSP_VIEW) == 0 || view != RV3D_ORTHO);
 	rv3d->viewlock = viewlock;
 	rv3d->view = view;
 	rv3d->persp = persp;

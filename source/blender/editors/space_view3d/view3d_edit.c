@@ -269,7 +269,7 @@ static void view3d_persp_switch_from_camera(View3D *v3d, RegionView3D *rv3d, con
 	}
 
 	if (!ED_view3d_camera_lock_check(v3d, rv3d)) {
-		rv3d->persp = persp;
+		rv3d->persp = ((rv3d->viewlock & RV3D_LOCK_PERSP_VIEW) && persp != RV3D_ORTHO) ? persp : RV3D_PERSP;
 	}
 }
 
@@ -505,6 +505,7 @@ void ED_view3d_quadview_update(ScrArea *sa, ARegion *ar, bool do_clip)
 					if (!RV3D_VIEW_IS_AXIS(rv3d->view)) {
 						rv3d->view = ED_view3d_lock_view_from_index(index_qsplit);
 						rv3d->persp = RV3D_ORTHO;
+						BLI_assert((rv3d->viewlock & RV3D_LOCK_PERSP_VIEW) == 0);
 						ED_view3d_lock(rv3d);
 					}
 				}
@@ -3820,7 +3821,12 @@ static void axis_set_view(bContext *C, View3D *v3d, ARegion *ar,
 	}
 
 	if (U.uiflag & USER_AUTOPERSP) {
-		rv3d->persp = RV3D_VIEW_IS_AXIS(view) ? RV3D_ORTHO : perspo;
+		if (RV3D_VIEW_IS_AXIS(view)) {
+			rv3d->persp = (rv3d->viewlock & RV3D_LOCK_PERSP_VIEW) ? RV3D_PERSP : RV3D_ORTHO;
+		}
+		else {
+			rv3d->persp = perspo;
+		}
 	}
 	else if (rv3d->persp == RV3D_CAMOB) {
 		rv3d->persp = perspo;
@@ -4415,9 +4421,12 @@ static int viewpersportho_exec(bContext *C, wmOperator *UNUSED(op))
 	rv3d = ar->regiondata;
 
 	if ((rv3d->viewlock & RV3D_LOCKED) == 0) {
-		if (rv3d->persp != RV3D_ORTHO)
+		if (rv3d->persp != RV3D_ORTHO && (rv3d->viewlock & RV3D_LOCK_PERSP_VIEW) == 0) {
 			rv3d->persp = RV3D_ORTHO;
-		else rv3d->persp = RV3D_PERSP;
+		}
+		else {
+			rv3d->persp = RV3D_PERSP;
+		}
 		ED_region_tag_redraw(ar);
 	}
 

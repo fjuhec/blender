@@ -280,13 +280,19 @@ typedef struct View3D {
  */
 #define RV3D_ZOFFSET_DISABLED		64
 
-/* RegionView3d->viewlock */
-#define RV3D_LOCKED			(1 << 0)
-#define RV3D_BOXVIEW		(1 << 1)
-#define RV3D_BOXCLIP		(1 << 2)
-#define RV3D_LOCKED_SHARED	(RV3D_LOCKED | (1 << 3)) /* uses viewdata from another rv3d so view manipulation is disabled. */
-/* RegionView3d->viewlock_quad */
-#define RV3D_VIEWLOCK_INIT	(1 << 7)
+enum {
+	/* RegionView3d->viewlock */
+	RV3D_LOCKED          = (1 << 0),
+	RV3D_BOXVIEW         = (1 << 1),
+	RV3D_BOXCLIP         = (1 << 2),
+	/* uses viewdata from another rv3d so view manipulation is disabled */
+	RV3D_LOCKED_SHARED   = (RV3D_LOCKED | (1 << 3)),
+	/* Don't allow changing to othographic view. Note that orthographic camera views are allowed though. */
+	RV3D_LOCK_PERSP_VIEW = (1 << 4),
+
+	/* RegionView3d->viewlock_quad */
+	RV3D_VIEWLOCK_INIT   = (1 << 7),
+};
 
 /* check if the region is both, locked and shared */
 #define RV3D_IS_LOCKED_SHARED(rv3d) (((rv3d)->viewlock & RV3D_LOCKED_SHARED) == RV3D_LOCKED_SHARED)

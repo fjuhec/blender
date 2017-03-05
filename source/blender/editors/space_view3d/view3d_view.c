@@ -279,6 +279,7 @@ void ED_view3d_smooth_view_ex(
 				                (sview->camera->type == OB_CAMERA) &&
 				                (((Camera *)sview->camera->data)->type == CAM_ORTHO)) ?
 				                RV3D_ORTHO : RV3D_PERSP);
+				BLI_assert((rv3d->viewlock & RV3D_LOCK_PERSP_VIEW) == 0 || rv3d->persp == RV3D_PERSP);
 			}
 
 			rv3d->rflag |= RV3D_NAVIGATING;
@@ -917,6 +918,8 @@ void view3d_winmatrix_set(ARegion *ar, const View3D *v3d, const rctf *rect)
 	
 	is_ortho = ED_view3d_viewplane_get(v3d, rv3d, ar->winx, ar->winy, &viewplane, &clipsta, &clipend, NULL);
 	rv3d->is_persp = !is_ortho;
+	/* don't check for is_persp in assert, we allow showing orthographic camera view even with LOCK_PERSP_VIEW */
+	BLI_assert((rv3d->viewlock & RV3D_LOCK_PERSP_VIEW) == 0 || rv3d->persp != RV3D_ORTHO);
 
 #if 0
 	printf("%s: %d %d %f %f %f %f %f %f\n", __func__, winx, winy,
@@ -1038,6 +1041,7 @@ void ED_view3d_copy_region_view_data(const RegionView3D *src, RegionView3D *dst)
 	dst->pixsize = src->pixsize;
 	dst->camzoom = src->camzoom;
 	dst->persp = src->persp;
+	BLI_assert((dst->viewlock & RV3D_LOCK_PERSP_VIEW) == 0 || dst->persp != RV3D_ORTHO);
 	dst->view = src->view;
 	dst->lpersp = src->lpersp;
 	dst->lview = src->lview;
@@ -1484,7 +1488,8 @@ static void restore_localviewdata(wmWindowManager *wm, wmWindow *win, Main *bmai
 				camera_old_rv3d = (rv3d->persp          == RV3D_CAMOB) ? camera_old : NULL;
 				camera_new_rv3d = (rv3d->localvd->persp == RV3D_CAMOB) ? camera_new : NULL;
 
-				rv3d->view = rv3d->localvd->view;
+				rv3d->view = ((rv3d->viewlock & RV3D_LOCK_PERSP_VIEW) && rv3d->localvd->view == RV3D_ORTHO) ?
+				                 RV3D_PERSP : rv3d->localvd->view;
 				rv3d->persp = rv3d->localvd->persp;
 				rv3d->camzoom = rv3d->localvd->camzoom;
 

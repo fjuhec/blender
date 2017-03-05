@@ -4241,14 +4241,20 @@ static int hmd_session_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 	}
 
 	if (hmd_win->screen->is_hmd_running) {
+		/* exit session */
 		hmd_win->screen->is_hmd_running = false;
 		WM_window_fullscreen_toggle(hmd_win, false, true);
 		WM_device_HMD_state_set(U.hmd_settings.device, false);
+		hmd_session_disable_viewlocks(wm);
+
 		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
 	}
 	else {
+		/* start session */
 		ScrArea *sa = hmd_win->screen->areabase.first;
-		BLI_assert(sa->spacetype = SPACE_VIEW3D);
+		ARegion *ar = BKE_area_find_region_type(sa, RGN_TYPE_WINDOW);
+		RegionView3D *rv3d = ar->regiondata;
+		BLI_assert(ar && sa->spacetype == SPACE_VIEW3D);
 
 		hmd_win->screen->is_hmd_running = true;
 		WM_device_HMD_state_set(U.hmd_settings.device, true);
@@ -4256,8 +4262,11 @@ static int hmd_session_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 			U.hmd_settings.init_ipd = WM_device_HMD_IPD_get();
 			WM_device_HMD_IPD_set(U.hmd_settings.custom_ipd);
 		}
-		hmd_session_disable_viewlocks(wm);
 
+		if (rv3d->persp == RV3D_ORTHO) {
+			rv3d->persp = RV3D_PERSP;
+		}
+		rv3d->viewlock |= RV3D_LOCK_PERSP_VIEW;
 		WM_window_fullscreen_toggle(hmd_win, true, false);
 
 		return OPERATOR_FINISHED;
