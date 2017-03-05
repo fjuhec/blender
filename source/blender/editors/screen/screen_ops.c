@@ -3076,14 +3076,16 @@ static int region_quadview_exec(bContext *C, wmOperator *op)
 			}
 
 			rv3d->viewlock_quad = RV3D_VIEWLOCK_INIT;
-			rv3d->viewlock = 0;
+			/* allow keeping the LOCKED_SHARED flag */
+			rv3d->viewlock = RV3D_IS_LOCKED_SHARED(rv3d) ? RV3D_LOCKED_SHARED : 0;
 			rv3d->rflag &= ~RV3D_CLIPPING;
 
 			/* accumulate locks, incase they're mixed */
 			for (ar_iter = sa->regionbase.first; ar_iter; ar_iter = ar_iter->next) {
 				if (ar_iter->regiontype == RGN_TYPE_WINDOW) {
 					RegionView3D *rv3d_iter = ar_iter->regiondata;
-					rv3d->viewlock_quad |= rv3d_iter->viewlock;
+					rv3d->viewlock_quad |= (RV3D_IS_LOCKED_SHARED(rv3d_iter)) ?
+					                        (rv3d_iter->viewlock & ~RV3D_LOCKED_SHARED) : rv3d_iter->viewlock;
 				}
 			}
 		}

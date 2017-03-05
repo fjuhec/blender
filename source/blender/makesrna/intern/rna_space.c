@@ -749,6 +749,28 @@ static EnumPropertyItem *rna_SpaceView3D_stereo3d_camera_itemf(bContext *UNUSED(
 		return stereo3d_camera_items;
 }
 
+#ifdef WITH_INPUT_HMD
+static void rna_SpaceView3D_use_hmd_mirror_update(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop))
+{
+	View3D *v3d = (View3D *)ptr->data;
+	ScrArea *sa = CTX_wm_area(C);
+
+	BLI_assert(sa->spacetype == SPACE_VIEW3D);
+	BLI_assert(sa->spacedata.first == v3d);
+	for (ARegion *ar = sa->regionbase.first; ar; ar = ar->next) {
+		if (ar->regiontype == RGN_TYPE_WINDOW) {
+			RegionView3D *rv3d = ar->regiondata;
+			if ((v3d->flag3 & V3D_SHOW_HMD_MIRROR) && (rv3d->viewlock & RV3D_LOCKED) == 0) {
+				rv3d->viewlock |= RV3D_LOCKED_SHARED;
+			}
+			else if (((v3d->flag3 & V3D_SHOW_HMD_MIRROR) == 0) && RV3D_IS_LOCKED_SHARED(rv3d)) {
+				rv3d->viewlock &= ~RV3D_LOCKED_SHARED;
+			}
+		}
+	}
+}
+#endif
+
 /* Space Image Editor */
 
 static PointerRNA rna_SpaceImageEditor_uvedit_get(PointerRNA *ptr)
@@ -2780,6 +2802,15 @@ static void rna_def_space_view3d(BlenderRNA *brna)
 	RNA_def_property_float_sdna(prop, NULL, "stereo3d_volume_alpha");
 	RNA_def_property_ui_text(prop, "Volume Alpha", "Opacity (alpha) of the cameras' frustum volume");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
+
+#ifdef WITH_INPUT_HMD
+	prop = RNA_def_property(srna, "use_hmd_mirror", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag3", V3D_SHOW_HMD_MIRROR);
+	RNA_def_property_ui_text(prop, "Mirror HMD View", "Link the orientation of this 3D View to the HMD view "
+	                         "(may slowdown viewport drawing)");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_SpaceView3D_use_hmd_mirror_update");
+#endif
 
 	/* *** Animated *** */
 	RNA_define_animate_sdna(true);

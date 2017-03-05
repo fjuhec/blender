@@ -284,8 +284,12 @@ typedef struct View3D {
 #define RV3D_LOCKED			(1 << 0)
 #define RV3D_BOXVIEW		(1 << 1)
 #define RV3D_BOXCLIP		(1 << 2)
+#define RV3D_LOCKED_SHARED	(RV3D_LOCKED | (1 << 3)) /* uses viewdata from another rv3d so view manipulation is disabled. */
 /* RegionView3d->viewlock_quad */
 #define RV3D_VIEWLOCK_INIT	(1 << 7)
+
+/* check if the region is both, locked and shared */
+#define RV3D_IS_LOCKED_SHARED(rv3d) (((rv3d)->viewlock & RV3D_LOCKED_SHARED) == RV3D_LOCKED_SHARED)
 
 /* RegionView3d->view */
 #define RV3D_VIEW_USER			 0
@@ -319,6 +323,7 @@ typedef struct View3D {
 
 /* View3d->flag3 (short) */
 #define V3D_SHOW_WORLD			(1 << 0)
+#define V3D_SHOW_HMD_MIRROR		(1 << 1)
 
 /* View3D->around */
 enum {

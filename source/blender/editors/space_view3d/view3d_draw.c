@@ -3729,6 +3729,31 @@ static void view3d_hmd_view_setup(Scene *scene, View3D *v3d, ARegion *ar)
 	ar->winx *= 2;
 }
 
+static void view3d_hmd_view_mirrored_setup(wmWindowManager *wm, Scene *scene, View3D *v3d, ARegion *ar)
+{
+	wmWindow *hmd_win = wm->hmd_view.hmd_win;
+	ScrArea *sa = hmd_win->screen->areabase.first;
+	View3D *v3d_hmd = sa->spacedata.first;
+	ARegion *ar_hmd = BKE_area_find_region_type(sa, RGN_TYPE_WINDOW);
+	RegionView3D *rv3d_hmd = ar_hmd->regiondata;
+	const bool is_left = v3d->multiview_eye == STEREO_LEFT_ID;
+	float projmat[4][4];
+	float modelviewmat[4][4];
+
+	/* we calculate a modelviewmatrix (viewmatrix) based on HMD device and
+	 * HMD view, but use the projection matrix (winmatrix) from this v3d */
+
+	BLI_assert(sa->spacetype == SPACE_VIEW3D);
+	/* update 3d view matrices before applying matrices from HMD */
+	view3d_viewmatrix_set(scene, v3d_hmd, rv3d_hmd);
+	view3d_winmatrix_set(ar, v3d, NULL);
+
+	view3d_hmd_view_get_matrices(v3d_hmd, rv3d_hmd, is_left, modelviewmat, projmat);
+
+	/* setup view with adjusted matrices */
+	view3d_main_region_setup_view(scene, v3d, ar, modelviewmat, NULL);
+}
+
 #endif /* WITH_INPUT_HMD */
 
 /* setup the view and win matrices for the multiview cameras
@@ -3825,6 +3850,7 @@ static void view3d_main_region_draw_objects(
         const bContext *C, Scene *scene, View3D *v3d,
         ARegion *ar, const char **grid_unit)
 {
+	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *win = CTX_wm_window(C);
 	RegionView3D *rv3d = ar->regiondata;
 	unsigned int lay_used = v3d->lay_used;
@@ -3844,10 +3870,19 @@ static void view3d_main_region_draw_objects(
 
 	/* setup the view matrix */
 #ifdef WITH_INPUT_HMD
-	if (view3d_hmd_view_active(CTX_wm_manager(C), win)) {
+	if (view3d_hmd_view_active(wm, win)) {
 		view3d_hmd_view_setup(scene, v3d, ar);
 	}
+	else if (wm->hmd_view.hmd_win &&
+	         wm->hmd_view.hmd_win->screen->is_hmd_running &&
+	         (v3d->flag3 & V3D_SHOW_HMD_MIRROR) &&
+	         RV3D_IS_LOCKED_SHARED(rv3d))
+	{
+		view3d_hmd_view_mirrored_setup(wm, scene, v3d, ar);
+	}
 	else
+#else
+	UNUSED_VARS(wm);
 #endif
 	if (view3d_stereo3d_active(C, scene, v3d, rv3d)) {
 		view3d_stereo3d_setup(scene, v3d, ar);

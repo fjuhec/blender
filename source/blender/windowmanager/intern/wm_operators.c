@@ -4199,6 +4199,28 @@ static int hmd_session_toggle_poll(bContext *C)
 	return true;
 }
 
+static void hmd_session_disable_viewlocks(wmWindowManager *wm)
+{
+	for (wmWindow *win = wm->windows.first; win; win = win->next) {
+		for (ScrArea *sa = win->screen->areabase.first; sa; sa = sa->next) {
+			if (sa->spacetype == SPACE_VIEW3D) {
+				View3D *v3d = sa->spacedata.first;
+
+				if (v3d->flag3 & V3D_SHOW_HMD_MIRROR) {
+					for (ARegion *ar = sa->regionbase.first; ar; ar = ar->next) {
+						if (ar->regiontype == RGN_TYPE_WINDOW) {
+							RegionView3D *rv3d = ar->regiondata;
+							if (RV3D_IS_LOCKED_SHARED(rv3d)) {
+								rv3d->viewlock &= ~RV3D_LOCKED_SHARED;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 static int hmd_session_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
@@ -4224,6 +4246,7 @@ static int hmd_session_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 			U.hmd_settings.init_ipd = WM_device_HMD_IPD_get();
 			WM_device_HMD_IPD_set(U.hmd_settings.custom_ipd);
 		}
+		hmd_session_disable_viewlocks(wm);
 
 		WM_window_fullscreen_toggle(hmd_win, true, false);
 
@@ -4247,16 +4270,39 @@ static int hmd_session_refresh_invoke(bContext *C, wmOperator *UNUSED(op), const
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *hmd_win = wm->hmd_view.hmd_win;
+	ScrArea *sa;
+	View3D *v3d;
 
 	if (!hmd_win || !hmd_win->screen->is_hmd_running) {
 		return OPERATOR_CANCELLED;
 	}
 
-	ScrArea *sa = hmd_win->screen->areabase.first;
+	sa = hmd_win->screen->areabase.first;
+	v3d = sa->spacedata.first;
 	BLI_assert(sa->spacetype == SPACE_VIEW3D);
 	/* Actually the only thing we have to do is ensuring a redraw, we'll then
 	 * get the modelview/projection matrices from HMD device when drawing */
 	ED_area_tag_redraw(sa);
+
+	/* Tag mirrored 3D views for redraw too and make sure they're locked (don't allow rotating it etc) */
+	for (wmWindow *win = wm->windows.first; win; win = win->next) {
+		for (sa = win->screen->areabase.first; sa; sa = sa->next) {
+			if (sa->spacetype == SPACE_VIEW3D) {
+				v3d = sa->spacedata.first;
+				if (v3d->flag3 & V3D_SHOW_HMD_MIRROR) {
+					for (ARegion *ar = sa->regionbase.first; ar; ar = ar->next) {
+						if (ar->regiontype == RGN_TYPE_WINDOW) {
+							RegionView3D *rv3d = ar->regiondata;
+							if (RV3D_IS_LOCKED_SHARED(rv3d)) {
+								/* this rv3d shares data with the HMD view */
+								ED_region_tag_redraw(ar);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 
 	return OPERATOR_FINISHED;
 }

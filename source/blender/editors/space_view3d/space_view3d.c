@@ -181,7 +181,12 @@ bool ED_view3d_context_user_region(bContext *C, View3D **r_v3d, ARegion **r_ar)
 
 		if (ar) {
 			RegionView3D *rv3d;
-			if ((ar->regiontype == RGN_TYPE_WINDOW) && (rv3d = ar->regiondata) && (rv3d->viewlock & RV3D_LOCKED) == 0) {
+			if ((ar->regiontype == RGN_TYPE_WINDOW) &&
+			    (rv3d = ar->regiondata) &&
+			    /* the user region may also use LOCKED_SHARED, meaning the LOCKED flag is
+			     * set but only because it's using the region data from another region */
+			    ((rv3d->viewlock & RV3D_LOCKED) == 0 || RV3D_IS_LOCKED_SHARED(rv3d)))
+			{
 				*r_v3d = v3d;
 				*r_ar = ar;
 				return true;
@@ -193,7 +198,9 @@ bool ED_view3d_context_user_region(bContext *C, View3D **r_v3d, ARegion **r_ar)
 					/* find the first unlocked rv3d */
 					if (ar->regiondata && ar->regiontype == RGN_TYPE_WINDOW) {
 						rv3d = ar->regiondata;
-						if ((rv3d->viewlock & RV3D_LOCKED) == 0) {
+						/* the user region may also use LOCKED_SHARED, meaning the LOCKED flag is
+						 * set but only because it's using the region data from another region */
+						if ((rv3d->viewlock & RV3D_LOCKED) == 0 || RV3D_IS_LOCKED_SHARED(rv3d)) {
 							ar_unlock = ar;
 							if (rv3d->persp == RV3D_PERSP || rv3d->persp == RV3D_CAMOB) {
 								ar_unlock_user = ar;
