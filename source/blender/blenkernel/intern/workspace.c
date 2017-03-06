@@ -353,7 +353,7 @@ const char *BKE_workspace_layout_type_name_get(const WorkSpaceLayoutType *layout
 
 ListBase *BKE_workspace_layout_type_vertbase_get(const WorkSpaceLayoutType *type)
 {
-	return type->areabase;
+	return type->vertbase;
 }
 ListBase *BKE_workspace_layout_type_areabase_get(const WorkSpaceLayoutType *type)
 {
