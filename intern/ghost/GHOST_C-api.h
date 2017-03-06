@@ -945,6 +945,7 @@ extern void        GHOST_HMDgetLeftModelviewMatrix(float r_mat[4][4]);
 extern void        GHOST_HMDgetRightModelviewMatrix(float r_mat[4][4]);
 extern void        GHOST_HMDgetLeftProjectionMatrix(float r_mat[4][4]);
 extern void        GHOST_HMDgetRightProjectionMatrix(float r_mat[4][4]);
+extern void*       GHOST_HMDgetDistortionParameters(void);
 
 #ifdef __cplusplus
 }

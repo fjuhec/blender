@@ -1,8 +1,5 @@
 #include "vive.h"
-
-/* Suppress the warnings for this include, since we don't care about them for external dependencies
-/* Requires at least GCC 4.6 or higher
-*/
+#include "config.h"
 
 inline static uint8_t read8(const unsigned char** buffer)
 {

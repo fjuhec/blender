@@ -141,6 +141,10 @@ void WM_device_HMD_projection_matrix_get(const bool is_left, float r_projmat[4][
 	}
 }
 
+void* WM_device_HMD_distortion_parameters_get(void)
+{
+	return GHOST_HMDgetDistortionParameters();
+}
 /** \} */
 
 #endif

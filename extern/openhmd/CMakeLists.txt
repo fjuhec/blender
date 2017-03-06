@@ -34,12 +34,14 @@ set(SRC
 	src/platform-posix.c
 	src/fusion.c
 	src/queue.c
+	src/shaders.c
 )
 
 # TODO: Either remove this or move to main CMakeLists.txt
 OPTION(OPENHMD_DRIVER_OCULUS_RIFT "Oculus Rift DK1, DK2 and CV1" ON)
-OPTION(OPENHMD_DRIVER_DEEPOON "Deepoon E2 support" ON)
-OPTION(OPENHMD_DRIVER_HTC_VIVE "HTC Vive support" ON)
+OPTION(OPENHMD_DRIVER_DEEPOON "Deepoon E2" ON)
+OPTION(OPENHMD_DRIVER_PSVR "Sony PSVR" ON)
+OPTION(OPENHMD_DRIVER_HTC_VIVE "HTC Vive" ON)
 OPTION(OPENHMD_DRIVER_EXTERNAL "External sensor driver" OFF)
 OPTION(OPENHMD_DRIVER_ANDROID "General Android driver" OFF)
 
@@ -65,6 +67,17 @@ if(OPENHMD_DRIVER_DEEPOON)
 		src/drv_deepoon/packet.c
 	)
 	add_definitions(-DDRIVER_DEEPOON)
+
+	find_package(HIDAPI REQUIRED)
+	list(APPEND INC_SYS ${HIDAPI_INCLUDE_DIRS})
+endif()
+
+if(OPENHMD_DRIVER_PSVR)
+	list(APPEND SRC
+		src/drv_psvr/psvr.c
+		src/drv_psvr/packet.c
+	)
+	add_definitions(-DDRIVER_PSVR)
 
 	find_package(HIDAPI REQUIRED)
 	list(APPEND INC_SYS ${HIDAPI_INCLUDE_DIRS})

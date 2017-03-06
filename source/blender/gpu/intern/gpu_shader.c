@@ -539,6 +539,14 @@ void GPU_shader_uniform_int(GPUShader *UNUSED(shader), int location, int value)
 	GPU_CHECK_ERRORS_AROUND(glUniform1i(location, value));
 }
 
+void GPU_shader_uniform_float(GPUShader *UNUSED(shader), int location, float value)
+{
+	if (location == -1)
+		return;
+
+	GPU_CHECK_ERRORS_AROUND(glUniform1f(location, value));
+}
+
 void GPU_shader_geometry_stage_primitive_io(GPUShader *shader, int input, int output, int number)
 {
 	if (GPU_geometry_shader_support_via_extension()) {
@@ -712,14 +720,6 @@ GPUShader *GPU_shader_get_builtin_fx_shader(int effect, bool persp)
 				break;
 
 			case GPU_SHADER_FX_LENS_DISTORTION:
-				shader = GPU_shader_create(datatoc_gpu_shader_fx_lensdistortion_vert_glsl, datatoc_gpu_shader_fx_lensdistortion_frag_glsl, NULL, NULL, defines, 0, 0, 0);
-				break;
-			case GPU_SHADER_FX_LENS_DISTORTION_DK1:
-				strcat(defines, "#define DK1\n");
-				shader = GPU_shader_create(datatoc_gpu_shader_fx_lensdistortion_vert_glsl, datatoc_gpu_shader_fx_lensdistortion_frag_glsl, NULL, NULL, defines, 0, 0, 0);
-				break;
-			case GPU_SHADER_FX_LENS_DISTORTION_DK2:
-				strcat(defines, "#define DK2\n");
 				shader = GPU_shader_create(datatoc_gpu_shader_fx_lensdistortion_vert_glsl, datatoc_gpu_shader_fx_lensdistortion_frag_glsl, NULL, NULL, defines, 0, 0, 0);
 				break;
 		}

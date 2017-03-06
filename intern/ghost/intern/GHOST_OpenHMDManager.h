@@ -23,9 +23,17 @@
 
 #include "GHOST_System.h"
 
-// TODO probably shouldn't forward declare this here
 struct ohmd_context;
 struct ohmd_device;
+
+struct OpenHMDDistortionParameters {
+	float viewport_scale[2];
+	float distortion_coeffs[4];
+	float aberr_scale[3];
+	float sep;
+	float left_lens_center[2];
+	float right_lens_center[2];
+};
 
 class GHOST_OpenHMDManager
 {
@@ -272,14 +280,19 @@ public:
 	 *  \return The device
 	 *  Device is only valid if available() is true.
 	 */
-	 ohmd_device *getOpenHMDDevice();
+	ohmd_device *getOpenHMDDevice();
 
-	 /**
-	  * Get the index of the currently selected device of this manager.
-	  * \return The index.
-	  * Index is only valid if available() is true.
-	  */
-	 const int getDeviceIndex();
+	/**
+	* Get the index of the currently selected device of this manager.
+	* \return The index.
+	* Index is only valid if available() is true.
+	*/
+	const int getDeviceIndex();
+
+	/**
+	 * \return contains all the information for the lens correction shader
+	 */
+	void* getDistortionParameters();
 
 protected:
 	GHOST_System& m_system;
@@ -300,6 +313,7 @@ private:
 	ohmd_context *m_context;
 	ohmd_device *m_device;
 	int m_deviceIndex;
+	OpenHMDDistortionParameters *m_projection_params;
 };
 
 #endif //__GHOST_OPENHMDMANAGER_H__

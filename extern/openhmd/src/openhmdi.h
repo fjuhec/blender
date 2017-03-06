@@ -77,6 +77,8 @@ typedef struct {
 
 		mat4x4f proj_left; // adjusted projection matrix for left screen
 		mat4x4f proj_right; // adjusted projection matrix for right screen
+		float universal_distortion_k[4]; //PanoTools lens distiorion model [a,b,c,d]
+		float universal_aberration_k[3]; //post-warp per channel scaling [r,g,b]
 } ohmd_device_properties;
 
 struct ohmd_device_settings
@@ -135,8 +137,9 @@ void ohmd_calc_default_proj_matrices(ohmd_device_properties* props);
 // drivers
 ohmd_driver* ohmd_create_dummy_drv(ohmd_context* ctx);
 ohmd_driver* ohmd_create_oculus_rift_drv(ohmd_context* ctx);
-ohmd_driver* ohmd_create_htc_vive_drv(ohmd_context* ctx);
 ohmd_driver* ohmd_create_deepoon_drv(ohmd_context* ctx);
+ohmd_driver* ohmd_create_psvr_drv(ohmd_context* ctx);
+ohmd_driver* ohmd_create_htc_vive_drv(ohmd_context* ctx);
 ohmd_driver* ohmd_create_external_drv(ohmd_context* ctx);
 ohmd_driver* ohmd_create_android_drv(ohmd_context* ctx);
 

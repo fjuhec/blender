@@ -730,7 +730,7 @@ void GPU_fx_compositor_XRay_resolve(GPUFX *fx)
 bool GPU_fx_do_composite_pass(
         GPUFX *fx, float projmat[4][4], bool is_persp,
         struct Scene *scene, struct GPUOffScreen *ofs,
-        const short region_size[2])
+        const short region_size[2], bool is_left, void *hmd_distortion_params)
 {
 	GPUTexture *src, *target;
 	int numslots = 0;
@@ -1296,29 +1296,44 @@ bool GPU_fx_do_composite_pass(
 	/* third pass, Lens Distortion */
 	if (fx->effects & GPU_FX_FLAG_LensDist) {
 		eGPULensDistType type = fx->settings.lensdist->type;
-		GPUShader *lensdist_shader = NULL;
+		GPUShader *lensdist_shader = GPU_shader_get_builtin_fx_shader(GPU_SHADER_FX_LENS_DISTORTION, is_persp);
 
-		switch(type) {
-			case GPU_FX_LENSDIST_DK1: 
-				lensdist_shader = GPU_shader_get_builtin_fx_shader(GPU_SHADER_FX_LENS_DISTORTION_DK1, is_persp); 
-				break;
-			case GPU_FX_LENSDIST_DK2: 
-				lensdist_shader = GPU_shader_get_builtin_fx_shader(GPU_SHADER_FX_LENS_DISTORTION_DK2, is_persp); 
-				break;
-			case GPU_FX_LENSDIST_GENERIC: 
-			default: lensdist_shader = 
-				GPU_shader_get_builtin_fx_shader(GPU_SHADER_FX_LENS_DISTORTION, is_persp); 
-				break;
-		}
+		if (lensdist_shader && hmd_distortion_params) {
 
-		if (lensdist_shader) {
+			struct OpenHMDDistortionParameters {
+				float viewport_scale[2];
+				float distortion_coeffs[4];
+				float aberr_scale[3];
+				float sep;
+				float left_lens_center[2];
+				float right_lens_center[2];
+			};
+
+			struct OpenHMDDistortionParameters* distparams = (struct OpenHMDDistortionParameters*)hmd_distortion_params;
+
+			distparams->left_lens_center[0] = distparams->viewport_scale[0] - distparams->sep/2.0f;
+			distparams->right_lens_center[0] = distparams->sep/2.0f;
+			//asume calibration was for lens view to which ever edge of screen is further away from lens center
+			float warp_scale = (distparams->left_lens_center[0] > distparams->right_lens_center[0]) ? distparams->left_lens_center[0] : distparams->right_lens_center[0];
+
 			const int color_uniform = GPU_shader_get_uniform(lensdist_shader, "warpTexture");
-			const int regionsize_uniform = GPU_shader_get_uniform(lensdist_shader, "RegionSize");
-			const int region_size_i[2] = {UNPACK2(region_size)};
+			const int viewport_scale = GPU_shader_get_uniform(lensdist_shader, "ViewportScale");
+			const int lens_center_f = GPU_shader_get_uniform(lensdist_shader, "LensCenter");
+			const int warp_scale_f = GPU_shader_get_uniform(lensdist_shader, "WarpScale");
+			const int HmdWarpParam_f = GPU_shader_get_uniform(lensdist_shader, "HmdWarpParam");
+			const int aberr_f = GPU_shader_get_uniform(lensdist_shader, "aberr");
 
 			GPU_shader_bind(lensdist_shader);
 
-			GPU_shader_uniform_vector_int(lensdist_shader, regionsize_uniform, 2, 1, region_size_i);
+			if (is_left)
+				GPU_shader_uniform_vector(lensdist_shader, lens_center_f, 2, 1, distparams->left_lens_center);
+			else
+				GPU_shader_uniform_vector(lensdist_shader, lens_center_f, 2, 1, distparams->right_lens_center);
+
+			GPU_shader_uniform_vector(lensdist_shader, viewport_scale, 2, 1, distparams->viewport_scale);
+			GPU_shader_uniform_float(lensdist_shader, warp_scale_f, warp_scale);
+			GPU_shader_uniform_vector(lensdist_shader, HmdWarpParam_f, 4, 1, distparams->distortion_coeffs);
+			GPU_shader_uniform_vector(lensdist_shader, aberr_f, 3, 1, distparams->aberr_scale);
 
 			GPU_texture_bind(src, numslots++);
 			GPU_shader_uniform_texture(lensdist_shader, color_uniform, src);

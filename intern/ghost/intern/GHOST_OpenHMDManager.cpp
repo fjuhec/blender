@@ -34,7 +34,8 @@ GHOST_OpenHMDManager::GHOST_OpenHMDManager(GHOST_System& sys)
 	: m_system(sys),
 	  m_context(NULL),
 	  m_device(NULL),
-	  m_deviceIndex(-1)
+	  m_deviceIndex(-1),
+	  m_projection_params(NULL)
 {
 	// context can be pre-created. the device can be opened later at will
 	createContext();
@@ -178,6 +179,19 @@ bool GHOST_OpenHMDManager::openDevice(int index)
 	m_device = ohmd_list_open_device_s(m_context, index, settings);
 	ohmd_device_settings_destroy(settings); //cleanup settings
 
+	m_projection_params = new OpenHMDDistortionParameters;
+	// Set the thing for the stuff
+	ohmd_device_getf(m_device, OHMD_SCREEN_HORIZONTAL_SIZE, &(m_projection_params->viewport_scale[0]));
+	m_projection_params->viewport_scale[0] /= 2.0f;
+	ohmd_device_getf(m_device, OHMD_SCREEN_VERTICAL_SIZE, &(m_projection_params->viewport_scale[1]));
+	//distortion coefficients
+	ohmd_device_getf(m_device, OHMD_UNIVERSAL_DISTORTION_K, &(m_projection_params->distortion_coeffs[0]));
+	ohmd_device_getf(m_device, OHMD_UNIVERSAL_ABERRATION_K, &(m_projection_params->aberr_scale[0]));
+	//calculate lens centers (assuming the eye separation is the distance betweenteh lense centers)
+	ohmd_device_getf(m_device, OHMD_LENS_HORIZONTAL_SEPARATION, &m_projection_params->sep);
+	ohmd_device_getf(m_device, OHMD_LENS_VERTICAL_POSITION, &(m_projection_params->left_lens_center[1]));
+	ohmd_device_getf(m_device, OHMD_LENS_VERTICAL_POSITION, &(m_projection_params->right_lens_center[1]));
+
 	return true;
 }
 
@@ -189,6 +203,7 @@ void GHOST_OpenHMDManager::closeDevice()
 
 	ohmd_close_device(m_device);
 
+	delete m_projection_params;
 	m_device = NULL;
 	m_deviceIndex = -1;
 }
@@ -510,4 +525,12 @@ ohmd_device *GHOST_OpenHMDManager::getOpenHMDDevice()
 const int GHOST_OpenHMDManager::getDeviceIndex()
 {
 	return m_deviceIndex;
+}
+
+void* GHOST_OpenHMDManager::getDistortionParameters()
+{
+	if (!m_device) {
+		return NULL;
+	}
+	return m_projection_params;
 }

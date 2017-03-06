@@ -1090,4 +1090,14 @@ void GHOST_HMDgetRightProjectionMatrix(float r_mat[4][4])
 #endif
 }
 
+void* GHOST_HMDgetDistortionParameters(void)
+{
+#ifdef WITH_OPENHMD
+	GHOST_ISystem *system = GHOST_ISystem::getSystem();
+	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
+	return ohmd->getDistortionParameters();
+#else
+#endif
+}
+
 #endif /* WITH_INPUT_HMD */
