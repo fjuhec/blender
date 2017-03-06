@@ -23,13 +23,17 @@
  *  \ingroup draw
  */
 
+#include "DNA_camera_types.h"
 #include "DNA_userdef_types.h"
+#include "DNA_view3d_types.h"
+#include "DNA_world_types.h"
 
 #include "GPU_shader.h"
 
 #include "UI_resources.h"
 
 #include "BKE_global.h"
+#include "BKE_camera.h"
 
 #include "DRW_render.h"
 
@@ -61,6 +65,15 @@ static DRWShadingGroup *lamp_groundline;
 static DRWShadingGroup *lamp_circle;
 static DRWShadingGroup *lamp_circle_shadow;
 static DRWShadingGroup *lamp_sunrays;
+static DRWShadingGroup *lamp_distance;
+static DRWShadingGroup *lamp_buflimit;
+static DRWShadingGroup *lamp_buflimit_points;
+static DRWShadingGroup *lamp_area;
+static DRWShadingGroup *lamp_hemi;
+static DRWShadingGroup *lamp_spot_cone;
+static DRWShadingGroup *lamp_spot_blend;
+static DRWShadingGroup *lamp_spot_pyramid;
+static DRWShadingGroup *lamp_spot_blend_rect;
 
 /* Helpers */
 static DRWShadingGroup *relationship_lines;
@@ -69,6 +82,15 @@ static DRWShadingGroup *relationship_lines;
 static DRWShadingGroup *center_active;
 static DRWShadingGroup *center_selected;
 static DRWShadingGroup *center_deselected;
+
+/* Camera */
+static DRWShadingGroup *camera;
+static DRWShadingGroup *camera_tria;
+static DRWShadingGroup *camera_focus;
+static DRWShadingGroup *camera_clip;
+static DRWShadingGroup *camera_clip_points;
+static DRWShadingGroup *camera_mist;
+static DRWShadingGroup *camera_mist_points;
 
 /* Colors & Constant */
 GlobalsUboStorage ts;
@@ -244,6 +266,51 @@ static DRWShadingGroup *shgroup_instance(DRWPass *pass, struct Batch *geom)
 	return grp;
 }
 
+static DRWShadingGroup *shgroup_camera_instance(DRWPass *pass, struct Batch *geom)
+{
+	GPUShader *sh_inst = GPU_shader_get_builtin_shader(GPU_SHADER_CAMERA);
+
+	DRWShadingGroup *grp = DRW_shgroup_instance_create(sh_inst, pass, geom);
+	DRW_shgroup_attrib_float(grp, "color", 3);
+	DRW_shgroup_attrib_float(grp, "corners", 8);
+	DRW_shgroup_attrib_float(grp, "depth", 1);
+	DRW_shgroup_attrib_float(grp, "tria", 4);
+	DRW_shgroup_attrib_float(grp, "InstanceModelMatrix", 16);
+
+	return grp;
+}
+
+static DRWShadingGroup *shgroup_distance_lines_instance(DRWPass *pass, struct Batch *geom)
+{
+	GPUShader *sh_inst = GPU_shader_get_builtin_shader(GPU_SHADER_DISTANCE_LINES);
+	static float point_size = 4.0f;
+
+	DRWShadingGroup *grp = DRW_shgroup_instance_create(sh_inst, pass, geom);
+	DRW_shgroup_attrib_float(grp, "color", 3);
+	DRW_shgroup_attrib_float(grp, "start", 1);
+	DRW_shgroup_attrib_float(grp, "end", 1);
+	DRW_shgroup_attrib_float(grp, "InstanceModelMatrix", 16);
+	DRW_shgroup_uniform_float(grp, "size", &point_size, 1);
+
+	return grp;
+}
+
+static DRWShadingGroup *shgroup_spot_instance(DRWPass *pass, struct Batch *geom)
+{
+	GPUShader *sh_inst = GPU_shader_get_builtin_shader(GPU_SHADER_INSTANCE_EDGES_VARIYING_COLOR);
+	static bool True = true;
+	static bool False = false;
+
+	DRWShadingGroup *grp = DRW_shgroup_instance_create(sh_inst, pass, geom);
+	DRW_shgroup_attrib_float(grp, "color", 3);
+	DRW_shgroup_attrib_float(grp, "InstanceModelMatrix", 16);
+	DRW_shgroup_uniform_bool(grp, "drawFront", &False, 1);
+	DRW_shgroup_uniform_bool(grp, "drawBack", &False, 1);
+	DRW_shgroup_uniform_bool(grp, "drawSilhouette", &True, 1);
+
+	return grp;
+}
+
 /* This Function setup the passes needed for the mode rendering.
  * The passes are populated by the rendering engines using the DRW_shgroup_* functions.
  * If a pass is not needed use NULL instead of the pass pointer */
@@ -293,7 +360,7 @@ void DRW_mode_passes_setup(DRWPass **psl_wire_overlay,
 		/* Non Meshes Pass (Camera, empties, lamps ...) */
 		struct Batch *geom;
 
-		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS | DRW_STATE_BLEND;
+		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS | DRW_STATE_BLEND | DRW_STATE_POINT;
 		state |= DRW_STATE_WIRE;
 		*psl_non_meshes = DRW_pass_create("Non Meshes Pass", state);
 
@@ -329,10 +396,33 @@ void DRW_mode_passes_setup(DRWPass **psl_wire_overlay,
 		geom = DRW_cache_speaker_get();
 		speaker = shgroup_instance(*psl_non_meshes, geom);
 
+		/* Camera */
+		geom = DRW_cache_camera_get();
+		camera = shgroup_camera_instance(*psl_non_meshes, geom);
+
+		geom = DRW_cache_camera_tria_get();
+		camera_tria = shgroup_camera_instance(*psl_non_meshes, geom);
+
+		geom = DRW_cache_plain_axes_get();
+		camera_focus = shgroup_instance(*psl_non_meshes, geom);
+
+		geom = DRW_cache_single_line_get();
+		camera_clip = shgroup_distance_lines_instance(*psl_non_meshes, geom);
+		camera_mist = shgroup_distance_lines_instance(*psl_non_meshes, geom);
+
+		geom = DRW_cache_single_line_endpoints_get();
+		camera_clip_points = shgroup_distance_lines_instance(*psl_non_meshes, geom);
+		camera_mist_points = shgroup_distance_lines_instance(*psl_non_meshes, geom);
+
 		/* Lamps */
 		/* TODO
-		 * for now we create 3 times the same VBO with only lamp center coordinates
+		 * for now we create multiple times the same VBO with only lamp center coordinates
 		 * but ideally we would only create it once */
+
+		/* start with buflimit because we don't want stipples */
+		geom = DRW_cache_single_line_get();
+		lamp_buflimit = shgroup_distance_lines_instance(*psl_non_meshes, geom);
+
 		lamp_center = shgroup_dynpoints_uniform_color(*psl_non_meshes, ts.colorLampNoAlpha, &ts.sizeLampCenter);
 		lamp_center_group = shgroup_dynpoints_uniform_color(*psl_non_meshes, ts.colorGroup, &ts.sizeLampCenter);
 
@@ -345,6 +435,30 @@ void DRW_mode_passes_setup(DRWPass **psl_wire_overlay,
 
 		lamp_groundline = shgroup_groundlines_uniform_color(*psl_non_meshes, ts.colorLamp);
 		lamp_groundpoint = shgroup_groundpoints_uniform_color(*psl_non_meshes, ts.colorLamp);
+
+		geom = DRW_cache_lamp_area_get();
+		lamp_area = shgroup_instance(*psl_non_meshes, geom);
+
+		geom = DRW_cache_lamp_hemi_get();
+		lamp_hemi = shgroup_instance(*psl_non_meshes, geom);
+
+		geom = DRW_cache_single_line_get();
+		lamp_distance = shgroup_distance_lines_instance(*psl_non_meshes, geom);
+
+		geom = DRW_cache_single_line_endpoints_get();
+		lamp_buflimit_points = shgroup_distance_lines_instance(*psl_non_meshes, geom);
+
+		geom = DRW_cache_lamp_spot_get();
+		lamp_spot_cone = shgroup_spot_instance(*psl_non_meshes, geom);
+
+		geom = DRW_cache_circle_get();
+		lamp_spot_blend = shgroup_instance(*psl_non_meshes, geom);
+
+		geom = DRW_cache_lamp_spot_square_get();
+		lamp_spot_pyramid = shgroup_instance(*psl_non_meshes, geom);
+
+		geom = DRW_cache_square_get();
+		lamp_spot_blend_rect = shgroup_instance(*psl_non_meshes, geom);
 
 		/* Relationship Lines */
 		relationship_lines = shgroup_dynlines_uniform_color(*psl_non_meshes, ts.colorWire);
@@ -530,6 +644,7 @@ void DRW_shgroup_lamp(Object *ob)
 	Lamp *la = ob->data;
 	float *color;
 	int theme_id = draw_object_wire_theme(ob, &color);
+	static float zero = 0.0f;
 
 	/* Don't draw the center if it's selected or active */
 	if (theme_id == TH_GROUP)
@@ -542,17 +657,156 @@ void DRW_shgroup_lamp(Object *ob)
 
 	/* draw dashed outer circle if shadow is on. remember some lamps can't have certain shadows! */
 	if (la->type != LA_HEMI) {
-		DRW_shgroup_dynamic_call_add(lamp_circle_shadow, ob->obmat[3], color);
+		if ((la->mode & LA_SHAD_RAY) || ((la->mode & LA_SHAD_BUF) && (la->type == LA_SPOT))) {
+			DRW_shgroup_dynamic_call_add(lamp_circle_shadow, ob->obmat[3], color);
+		}
 	}
 
-	/* Sunrays */
+	/* Distance */
+	if (ELEM(la->type, LA_HEMI, LA_SUN, LA_AREA)) {
+		DRW_shgroup_dynamic_call_add(lamp_distance, color, &zero, &la->dist, ob->obmat);
+	}
+
+	copy_m4_m4(la->shapemat, ob->obmat);
+
 	if (la->type == LA_SUN) {
 		DRW_shgroup_dynamic_call_add(lamp_sunrays, ob->obmat[3], color);
+	}
+	else if (la->type == LA_SPOT) {
+		float size[3], sizemat[4][4];
+		static float one = 1.0f;
+		float blend = 1.0f - pow2f(la->spotblend);
+
+		size[0] = size[1] = sinf(la->spotsize * 0.5f) * la->dist;
+		size[2] = cosf(la->spotsize * 0.5f) * la->dist;
+
+		size_to_mat4(sizemat, size);
+		mul_m4_m4m4(la->spotconemat, ob->obmat, sizemat);
+
+		size[0] = size[1] = blend; size[2] = 1.0f;
+		size_to_mat4(sizemat, size);
+		translate_m4(sizemat, 0.0f, 0.0f, -1.0f);
+		rotate_m4(sizemat, 'X', M_PI / 2.0f);
+		mul_m4_m4m4(la->spotblendmat, la->spotconemat, sizemat);
+
+		if (la->mode & LA_SQUARE) {
+			DRW_shgroup_dynamic_call_add(lamp_spot_pyramid,    color, &one, la->spotconemat);
+
+			/* hide line if it is zero size or overlaps with outer border,
+			 * previously it adjusted to always to show it but that seems
+			 * confusing because it doesn't show the actual blend size */
+			if (blend != 0.0f && blend != 1.0f) {
+				DRW_shgroup_dynamic_call_add(lamp_spot_blend_rect, color, &one, la->spotblendmat);
+			}
+		}
+		else {
+			DRW_shgroup_dynamic_call_add(lamp_spot_cone,  color, la->spotconemat);
+
+			/* hide line if it is zero size or overlaps with outer border,
+			 * previously it adjusted to always to show it but that seems
+			 * confusing because it doesn't show the actual blend size */
+			if (blend != 0.0f && blend != 1.0f) {
+				DRW_shgroup_dynamic_call_add(lamp_spot_blend, color, &one, la->spotblendmat);
+			}
+		}
+
+		normalize_m4(la->shapemat);
+		DRW_shgroup_dynamic_call_add(lamp_buflimit,        color, &la->clipsta, &la->clipend, ob->obmat);
+		DRW_shgroup_dynamic_call_add(lamp_buflimit_points, color, &la->clipsta, &la->clipend, ob->obmat);
+	}
+	else if (la->type == LA_HEMI) {
+		static float hemisize = 2.0f;
+		DRW_shgroup_dynamic_call_add(lamp_hemi, color, &hemisize, la->shapemat);
+	}
+	else if (la->type == LA_AREA) {
+		float size[3] = {1.0f, 1.0f, 1.0f}, sizemat[4][4];
+
+		if (la->area_shape == LA_AREA_RECT) {
+			size[1] = la->area_sizey / la->area_size;
+			size_to_mat4(sizemat, size);
+			mul_m4_m4m4(la->shapemat, la->shapemat, sizemat);
+		}
+
+		DRW_shgroup_dynamic_call_add(lamp_area, color, &la->area_size, la->shapemat);
 	}
 
 	/* Line and point going to the ground */
 	DRW_shgroup_dynamic_call_add(lamp_groundline, ob->obmat[3]);
 	DRW_shgroup_dynamic_call_add(lamp_groundpoint, ob->obmat[3]);
+}
+
+void DRW_shgroup_camera(Object *ob)
+{
+	const struct bContext *C = DRW_get_context();
+	View3D *v3d = CTX_wm_view3d(C);
+	Scene *scene = CTX_data_scene(C);
+
+	Camera *cam = ob->data;
+	const bool is_active = (ob == v3d->camera);
+	float *color;
+	draw_object_wire_theme(ob, &color);
+
+	float vec[4][3], asp[2], shift[2], scale[3], drawsize;
+
+	scale[0] = 1.0f / len_v3(ob->obmat[0]);
+	scale[1] = 1.0f / len_v3(ob->obmat[1]);
+	scale[2] = 1.0f / len_v3(ob->obmat[2]);
+
+	BKE_camera_view_frame_ex(scene, cam, cam->drawsize, false, scale,
+	                         asp, shift, &drawsize, vec);
+
+	// /* Frame coords */
+	copy_v2_v2(cam->drwcorners[0], vec[0]);
+	copy_v2_v2(cam->drwcorners[1], vec[1]);
+	copy_v2_v2(cam->drwcorners[2], vec[2]);
+	copy_v2_v2(cam->drwcorners[3], vec[3]);
+
+	/* depth */
+	cam->drwdepth = vec[0][2];
+
+	/* tria */
+	cam->drwtria[0][0] = shift[0] + ((0.7f * drawsize) * scale[0]);
+	cam->drwtria[0][1] = shift[1] + ((drawsize * (asp[1] + 0.1f)) * scale[1]);
+	cam->drwtria[1][0] = shift[0];
+	cam->drwtria[1][1] = shift[1] + ((1.1f * drawsize * (asp[1] + 0.7f)) * scale[1]);
+
+	DRW_shgroup_dynamic_call_add(camera, color, cam->drwcorners, &cam->drwdepth, cam->drwtria, ob->obmat);
+
+	/* Active cam */
+	if (is_active) {
+		DRW_shgroup_dynamic_call_add(camera_tria, color, cam->drwcorners, &cam->drwdepth, cam->drwtria, ob->obmat);
+	}
+
+	/* draw the rest in normalize object space */
+	copy_m4_m4(cam->drwnormalmat, ob->obmat);
+	normalize_m4(cam->drwnormalmat);
+
+	if (cam->flag & CAM_SHOWLIMITS) {
+		static float col[3] = {0.5f, 0.5f, 0.25f}, col_hi[3] = {1.0f, 1.0f, 0.5f};
+		float sizemat[4][4], size[3] = {1.0f, 1.0f, 0.0f};
+		float focusdist = BKE_camera_object_dof_distance(ob);
+
+		copy_m4_m4(cam->drwfocusmat, cam->drwnormalmat);
+		translate_m4(cam->drwfocusmat, 0.0f, 0.0f, -focusdist);
+		size_to_mat4(sizemat, size);
+		mul_m4_m4m4(cam->drwfocusmat, cam->drwfocusmat, sizemat);
+
+		DRW_shgroup_dynamic_call_add(camera_focus, (is_active ? col_hi : col), &cam->drawsize, cam->drwfocusmat);
+
+		DRW_shgroup_dynamic_call_add(camera_clip, color, &cam->clipsta, &cam->clipend, cam->drwnormalmat);
+		DRW_shgroup_dynamic_call_add(camera_clip_points, (is_active ? col_hi : col), &cam->clipsta, &cam->clipend, cam->drwnormalmat);
+	}
+
+	if (cam->flag & CAM_SHOWMIST) {
+		World *world = scene->world;
+
+		if (world) {
+			static float col[3] = {0.5f, 0.5f, 0.5f}, col_hi[3] = {1.0f, 1.0f, 1.0f};
+			world->mistend = world->miststa + world->mistdist;
+			DRW_shgroup_dynamic_call_add(camera_mist,        color, &world->miststa, &world->mistend, cam->drwnormalmat);
+			DRW_shgroup_dynamic_call_add(camera_mist_points, (is_active ? col_hi : col), &world->miststa, &world->mistend, cam->drwnormalmat);
+		}
+	}
 }
 
 void DRW_shgroup_empty(Object *ob)
