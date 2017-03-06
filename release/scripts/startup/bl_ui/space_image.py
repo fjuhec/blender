@@ -30,9 +30,9 @@ from bl_ui.properties_grease_pencil_common import (
         GreasePencilStrokeEditPanel,
         GreasePencilStrokeSculptPanel,
         GreasePencilBrushPanel,
+        GreasePencilPaletteColorPanel,
         GreasePencilBrushCurvesPanel,
-        GreasePencilDataPanel,
-        GreasePencilPaletteColorPanel
+        GreasePencilDataPanel
         )
 from bpy.app.translations import pgettext_iface as iface_
 
@@ -1212,7 +1212,6 @@ class IMAGE_PT_grease_pencil(GreasePencilDataPanel, Panel):
 # Grease Pencil palette colors
 class IMAGE_PT_grease_pencil_palettecolor(GreasePencilPaletteColorPanel, Panel):
     bl_space_type = 'IMAGE_EDITOR'
-    bl_region_type = 'UI'
 
     # NOTE: this is just a wrapper around the generic GP Panel
 

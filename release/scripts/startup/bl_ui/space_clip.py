@@ -26,9 +26,9 @@ from bl_ui.properties_grease_pencil_common import (
         GreasePencilStrokeEditPanel,
         GreasePencilStrokeSculptPanel,
         GreasePencilBrushPanel,
+        GreasePencilPaletteColorPanel,
         GreasePencilBrushCurvesPanel,
-        GreasePencilDataPanel,
-        GreasePencilPaletteColorPanel)
+        GreasePencilDataPanel)
 
 
 class CLIP_UL_tracking_objects(UIList):
@@ -1164,14 +1164,8 @@ class CLIP_PT_grease_pencil(GreasePencilDataPanel, CLIP_PT_clip_view_panel, Pane
 
 
 # Grease Pencil palette colors
-class CLIP_PT_grease_pencil_palettecolor(GreasePencilPaletteColorPanel, CLIP_PT_clip_view_panel, Panel):
+class CLIP_PT_grease_pencil_palettecolor(GreasePencilPaletteColorPanel, Panel):
     bl_space_type = 'CLIP_EDITOR'
-    bl_region_type = 'UI'
-    bl_options = {'DEFAULT_CLOSED'}
-
-    # NOTE: this is just a wrapper around the generic GP Panel
-    # But, this should only be visible in "clip" view
-
 
 # Grease Pencil drawing tools
 class CLIP_PT_tools_grease_pencil_draw(GreasePencilDrawingToolsPanel, Panel):
