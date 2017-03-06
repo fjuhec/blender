@@ -197,6 +197,12 @@ static PyObject *make_builtopts_info(void)
 	SetObjIncref(Py_False);
 #endif
 
+#ifdef WITH_INPUT_HMD
+	SetObjIncref(Py_True);
+#else
+	SetObjIncref(Py_False);
+#endif
+
 #ifdef WITH_INPUT_NDOF
 	SetObjIncref(Py_True);
 #else
