@@ -3715,9 +3715,6 @@ static void view3d_hmd_view_setup(Scene *scene, View3D *v3d, ARegion *ar)
 	float projmat[4][4];
 	float modelviewmat[4][4];
 
-	/* hmd view uses half screen width, this makes sure winmatrix is calculated correctly for that */
-	ar->winx /= 2;
-
 	/* update 3d view matrices before applying matrices from HMD */
 	view3d_viewmatrix_set(scene, v3d, rv3d);
 	view3d_winmatrix_set(ar, v3d, NULL);
@@ -3726,8 +3723,6 @@ static void view3d_hmd_view_setup(Scene *scene, View3D *v3d, ARegion *ar)
 
 	/* setup view with adjusted matrices */
 	view3d_main_region_setup_view(scene, v3d, ar, modelviewmat, projmat);
-
-	ar->winx *= 2;
 }
 
 static void view3d_hmd_view_mirrored_setup(wmWindowManager *wm, Scene *scene, View3D *v3d, ARegion *ar)

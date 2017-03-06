@@ -826,18 +826,16 @@ static void wm_method_draw_triple_multiview(bContext *C, wmWindow *win, StereoVi
 static void wm_method_draw_triple_hmd_view(wmWindow *win)
 {
 	wmDrawData *drawdata;
-	int view;
 
-	for (view = 0; view < 2; view++) {
+	for (int view = 0; view < 2; view++) {
 		const int win_x_h = WM_window_pixels_x(win) / 2;
-		const int win_y = WM_window_pixels_y(win);
 
 		drawdata = BLI_findlink(&win->drawdata, (view * 2) + 1);
 
-		/* OpenHMD sends us matrices for one eye (half screen), but we draw viewport over
-		 * entire screen. Using glViewport compensates that and prevents streched view. */
-		glViewport(view * win_x_h, 0, win_x_h, win_y);
+		glPushMatrix();
+		glTranslatef(view * win_x_h, 0.0f, 0.0f);
 		wm_triple_draw_textures(win, drawdata->triple, 1.0f, false);
+		glPopMatrix();
 	}
 }
 

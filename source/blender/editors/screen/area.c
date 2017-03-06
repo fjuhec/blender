@@ -473,18 +473,52 @@ void ED_region_set(const bContext *C, ARegion *ar)
 	ED_region_pixelspace(ar);
 }
 
+static void region_draw_view_setup(wmWindowManager *wm, wmWindow *win, ARegion *ar, bool is_popup)
+{
+#ifdef WITH_INPUT_HMD
+	if (!(wm->hmd_view.hmd_win == win && win->screen->is_hmd_running) || is_popup) {
+		/* pass */
+	}
+	else if ((wm->hmd_view.hmd_win == win) && win->screen->is_hmd_running) {
+		ar->winx /= 2;
+		ar->winrct.xmax -= ar->winx;
+		wm_subwindow_rect_set(win, ar->swinid, &ar->winrct);
+	}
+#else
+	UNUSED_VARS(wm, win, ar, is_popup);
+#endif
+}
+static void region_draw_view_reset(wmWindowManager *wm, wmWindow *win, ARegion *ar, bool is_popup)
+{
+#ifdef WITH_INPUT_HMD
+	if (!(wm->hmd_view.hmd_win == win && win->screen->is_hmd_running) || is_popup) {
+		/* pass */
+	}
+	else if ((wm->hmd_view.hmd_win == win) && win->screen->is_hmd_running) {
+		ar->winrct.xmax += ar->winx;
+		ar->winx *= 2;
+		wm_subwindow_rect_set(win, ar->swinid, &ar->winrct);
+	}
+#else
+	UNUSED_VARS(wm, win, ar, is_popup);
+#endif
+}
 
 /* only exported for WM */
 void ED_region_do_draw(bContext *C, ARegion *ar)
 {
+	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *win = CTX_wm_window(C);
 	ScrArea *sa = CTX_wm_area(C);
 	ARegionType *at = ar->type;
+	const bool is_popup = ar == CTX_wm_menu(C);
 	bool scissor_pad;
 
 	/* see BKE_spacedata_draw_locks() */
 	if (at->do_lock)
 		return;
+
+	region_draw_view_setup(wm, win, ar, is_popup);
 
 	/* if no partial draw rect set, full rect */
 	if (ar->drawrct.xmin == ar->drawrct.xmax) {
@@ -545,6 +579,8 @@ void ED_region_do_draw(bContext *C, ARegion *ar)
 			region_draw_emboss(ar, &ar->winrct);
 		}
 	}
+
+	region_draw_view_reset(wm, win, ar, is_popup);
 }
 
 /* **********************************
