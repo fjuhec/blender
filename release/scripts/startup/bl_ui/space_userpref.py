@@ -449,7 +449,6 @@ class USERPREF_PT_system(Panel):
             subcol = col.column()
             subcol.active = not system.hmd_use_device_ipd or system.hmd_device == 'NONE'
             subcol.prop(system, "hmd_custom_ipd")
-            col.prop(system, "hmd_lensdist_type", text="Lens Distortion")
 
         # 2. Column
         column = split.column()
