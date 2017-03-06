@@ -4255,13 +4255,17 @@ static int hmd_session_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 	}
 
 	if (hmd_win->screen->is_hmd_running) {
+		ScrArea *sa = hmd_win->screen->areabase.first;
+		View3D *v3d = sa->spacedata.first;
+		BLI_assert(sa->spacetype == SPACE_VIEW3D);
+
 		/* exit session */
+		v3d->fx_settings.fx_flag &= ~GPU_FX_FLAG_LensDist;
+		MEM_SAFE_FREE(v3d->fx_settings.lensdist);
 		hmd_win->screen->is_hmd_running = false;
 		WM_window_fullscreen_toggle(hmd_win, false, true);
 		WM_device_HMD_state_set(U.hmd_settings.device, false);
 		hmd_session_disable_viewlocks(wm);
-
-		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
 	}
 	else {
 		/* start session */
@@ -4272,9 +4276,9 @@ static int hmd_session_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 			WM_device_HMD_IPD_set(U.hmd_settings.custom_ipd);
 		}
 		hmd_session_prepare_screen(hmd_win);
-
-		return OPERATOR_FINISHED;
 	}
+
+	return OPERATOR_FINISHED;
 }
 
 static void WM_OT_hmd_session_toggle(wmOperatorType *ot)
@@ -4307,7 +4311,7 @@ static int hmd_session_refresh_invoke(bContext *C, wmOperator *UNUSED(op), const
 	 * get the modelview/projection matrices from HMD device when drawing */
 	ED_area_tag_redraw(sa);
 
-	/* Tag mirrored 3D views for redraw too and make sure they're locked (don't allow rotating it etc) */
+	/* Tag mirrored 3D views for redraw too */
 	for (wmWindow *win = wm->windows.first; win; win = win->next) {
 		for (sa = win->screen->areabase.first; sa; sa = sa->next) {
 			if (sa->spacetype == SPACE_VIEW3D) {
