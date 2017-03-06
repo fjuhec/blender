@@ -4140,10 +4140,6 @@ static void hmd_view_prepare_screen(wmWindowManager *wm, wmWindow *win, const Re
 
 	/* sync view options */
 	v3d_hmd->drawtype = wm->hmd_view.view_shade;
-	v3d_hmd->fx_settings.fx_flag |= GPU_FX_FLAG_LensDist;
-	/* Set distortion type for 3D View but first we need to validate fx settings. */
-	BKE_screen_gpu_fx_validate(&v3d_hmd->fx_settings);
-	
 	/* copy view orientation from current 3D view to newly opened HMD view */
 	ED_view3d_copy_region_view_data(rv3d_current, rv3d_hmd);
 }
@@ -4228,6 +4224,27 @@ static void hmd_session_disable_viewlocks(wmWindowManager *wm)
 	}
 }
 
+static void hmd_session_prepare_screen(wmWindow *hmd_win)
+{
+	ScrArea *sa = hmd_win->screen->areabase.first;
+	View3D *v3d = sa->spacedata.first;
+	ARegion *ar = BKE_area_find_region_type(sa, RGN_TYPE_WINDOW);
+	RegionView3D *rv3d = ar->regiondata;
+	BLI_assert(ar && sa->spacetype == SPACE_VIEW3D);
+
+	v3d->fx_settings.fx_flag |= GPU_FX_FLAG_LensDist;
+	/* Set distortion type for 3D View but first we need to validate fx settings. */
+	BKE_screen_gpu_fx_validate(&v3d->fx_settings);
+
+	if (rv3d->persp == RV3D_ORTHO) {
+		rv3d->persp = RV3D_PERSP;
+	}
+	rv3d->viewlock |= RV3D_LOCK_PERSP_VIEW;
+
+	hmd_win->screen->is_hmd_running = true;
+	WM_window_fullscreen_toggle(hmd_win, true, false);
+}
+
 static int hmd_session_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
@@ -4248,23 +4265,13 @@ static int hmd_session_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 	}
 	else {
 		/* start session */
-		ScrArea *sa = hmd_win->screen->areabase.first;
-		ARegion *ar = BKE_area_find_region_type(sa, RGN_TYPE_WINDOW);
-		RegionView3D *rv3d = ar->regiondata;
-		BLI_assert(ar && sa->spacetype == SPACE_VIEW3D);
 
-		hmd_win->screen->is_hmd_running = true;
 		WM_device_HMD_state_set(U.hmd_settings.device, true);
 		if ((U.hmd_settings.flag & USER_HMD_USE_DEVICE_IPD) == 0) {
 			U.hmd_settings.init_ipd = WM_device_HMD_IPD_get();
 			WM_device_HMD_IPD_set(U.hmd_settings.custom_ipd);
 		}
-
-		if (rv3d->persp == RV3D_ORTHO) {
-			rv3d->persp = RV3D_PERSP;
-		}
-		rv3d->viewlock |= RV3D_LOCK_PERSP_VIEW;
-		WM_window_fullscreen_toggle(hmd_win, true, false);
+		hmd_session_prepare_screen(hmd_win);
 
 		return OPERATOR_FINISHED;
 	}
