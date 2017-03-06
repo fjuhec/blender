@@ -30,6 +30,9 @@ from bl_ui.properties_physics_common import (
         point_cache_ui,
         effector_weights_ui,
         )
+from bl_ui.properties_grease_pencil_common import (
+        GreasePencilDataPanel
+        )
 
 
 class SCENE_MT_units_length_presets(Menu):
@@ -437,6 +440,12 @@ class SCENE_PT_simplify(SceneButtonsPanel, Panel):
         col.prop(rd, "simplify_ao_sss", text="AO and SSS")
         col.prop(rd, "use_simplify_triangulate")
 
+class DATA_PT_gpencil_datapanel(GreasePencilDataPanel, Panel):
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = "scene"
+
+    # NOTE: this is just a wrapper around the generic GP Panel
 
 class SCENE_PT_custom_props(SceneButtonsPanel, PropertyPanel, Panel):
     COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME'}
