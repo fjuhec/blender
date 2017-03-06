@@ -41,4 +41,4 @@ void main()
     float blue = texture2D(warpTexture, tc_b).b;
     //Black edges off the texture
     gl_FragColor = ((tc_g.x < 0.0) || (tc_g.x > 1.0) || (tc_g.y < 0.0) || (tc_g.y > 1.0)) ? vec4(0.0, 0.0, 0.0, 1.0) : vec4(red, green, blue, 1.0);
-};
+}
