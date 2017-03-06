@@ -40,6 +40,8 @@
 
 #include "DNA_view3d_types.h"
 
+#include "ED_space_api.h"
+
 #include "GPU_batch.h"
 #include "GPU_draw.h"
 #include "GPU_extensions.h"
@@ -1025,6 +1027,36 @@ void DRW_draw_pass(DRWPass *pass)
 	}
 }
 
+void DRW_draw_callbacks_pre_scene(void)
+{
+	struct ARegion *ar = CTX_wm_region(DST.context);
+	RegionView3D *rv3d = CTX_wm_region_view3d(DST.context);
+
+	/* This is temporary
+	 * waiting for the full matrix switch */
+	glMatrixMode(GL_PROJECTION);
+	glLoadMatrixf((float *)rv3d->winmat);
+	glMatrixMode(GL_MODELVIEW);
+	glLoadMatrixf((float *)rv3d->viewmat);
+
+	ED_region_draw_cb_draw(DST.context, ar, REGION_DRAW_PRE_VIEW);
+}
+
+void DRW_draw_callbacks_post_scene(void)
+{
+	struct ARegion *ar = CTX_wm_region(DST.context);
+	RegionView3D *rv3d = CTX_wm_region_view3d(DST.context);
+
+	/* This is temporary
+	 * waiting for the full matrix switch */
+	glMatrixMode(GL_PROJECTION);
+	glLoadMatrixf((float *)rv3d->winmat);
+	glMatrixMode(GL_MODELVIEW);
+	glLoadMatrixf((float *)rv3d->viewmat);
+
+	ED_region_draw_cb_draw(DST.context, ar, REGION_DRAW_POST_VIEW);
+}
+
 /* Reset state to not interfer with other UI drawcall */
 void DRW_state_reset(void)
 {
@@ -1247,14 +1279,15 @@ void DRW_framebuffer_bind(struct GPUFrameBuffer *fb)
 	GPU_framebuffer_bind(fb);
 }
 
-void DRW_framebuffer_clear(bool color, bool depth, float clear_col[4])
+void DRW_framebuffer_clear(bool color, bool depth, float clear_col[4], float clear_depth)
 {
 	if (color) {
 		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		glClearColor(clear_col[0], clear_col[1], clear_col[2], clear_col[4]);
+		glClearColor(clear_col[0], clear_col[1], clear_col[2], clear_col[3]);
 	}
 	if (depth) {
 		glDepthMask(GL_TRUE);
+		glClearDepth(clear_depth);
 	}
 	glClear(((color) ? GL_COLOR_BUFFER_BIT : 0) |
 	        ((depth) ? GL_DEPTH_BUFFER_BIT : 0));
