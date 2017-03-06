@@ -440,7 +440,7 @@ class SCENE_PT_simplify(SceneButtonsPanel, Panel):
         col.prop(rd, "simplify_ao_sss", text="AO and SSS")
         col.prop(rd, "use_simplify_triangulate")
 
-class DATA_PT_gpencil_datapanel(GreasePencilDataPanel, Panel):
+class SCENE_PT_gpencil_datapanel(GreasePencilDataPanel, Panel):
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "scene"
