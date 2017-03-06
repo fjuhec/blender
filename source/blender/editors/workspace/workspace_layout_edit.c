@@ -47,9 +47,9 @@
  * Layout instances get an empty screen, with 1 dummy area without spacedata. Uses window size.
  */
 void ED_workspace_layout_add(WorkSpace *workspace, ListBase *windows, const char *name,
-                             ListBase *vertbase, ListBase *areabase)
+                             ScreenLayoutData layout_blueprint)
 {
-	WorkSpaceLayoutType *layout_type = BKE_workspace_layout_type_add(workspace, name, vertbase, areabase);
+	WorkSpaceLayoutType *layout_type = BKE_workspace_layout_type_add(workspace, name, layout_blueprint);
 
 	for (wmWindow *win = windows->first; win; win = win->next) {
 		if (BKE_workspace_active_get(win->workspace_hook) == workspace) {
@@ -74,8 +74,8 @@ WorkSpaceLayout *ED_workspace_layout_duplicate(WorkSpace *workspace, const WorkS
 		return NULL; /* XXX handle this case! */
 	}
 
-	ED_workspace_layout_add(workspace, &wm->windows, screen_old->id.name + 2,
-	                        &screen_old->vertbase, &screen_old->areabase);
+	ED_workspace_layout_add(workspace, &wm->windows, screen_old->id.name + 2, (ScreenLayoutData) {
+	                        .vertbase = screen_old->vertbase, .areabase = screen_old->areabase});
 	layout_new = BKE_workspace_active_layout_get(workspace);
 	screen_new = BKE_workspace_layout_screen_get(layout_new);
 	screen_data_copy(screen_new, screen_old);

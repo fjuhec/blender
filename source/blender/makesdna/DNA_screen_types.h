@@ -47,9 +47,18 @@ struct uiLayout;
 struct wmTimer;
 
 
+/**
+ * Struct storing the data that makes up the actual layout - vertices, edges and areas.
+*/
+typedef struct ScreenLayoutData {
+	ListBase vertbase; /* screens have vertices/edges to define areas */
+	ListBase areabase;
+} ScreenLayoutData;
+
 typedef struct bScreen {
 	ID id;
 	
+	/* Could be wrapped into ScreenLayoutData */
 	ListBase vertbase;					/* screens have vertices/edges to define areas */
 	ListBase edgebase;
 	ListBase areabase;

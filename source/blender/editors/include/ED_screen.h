@@ -131,7 +131,7 @@ bool ED_workspace_change(struct bContext *C, struct wmWindowManager *wm, struct 
                          struct WorkSpace *ws_new) ATTR_NONNULL();
 struct WorkSpace *ED_workspace_duplicate(struct WorkSpace *workspace_old, struct Main *bmain, struct wmWindow *win);
 void ED_workspace_layout_add(struct WorkSpace *workspace, ListBase *windows, const char *name,
-                             ListBase *vertbase, ListBase *areabase) ATTR_NONNULL();
+                             ScreenLayoutData layout_blueprint) ATTR_NONNULL();
 struct WorkSpaceLayout *ED_workspace_layout_duplicate(struct WorkSpace *workspace,
                                                       const struct WorkSpaceLayout *layout_old,
                                                       struct wmWindowManager *wm) ATTR_NONNULL();

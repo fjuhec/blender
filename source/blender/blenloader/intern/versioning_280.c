@@ -64,8 +64,9 @@ static void do_version_workspaces_before_lib_link(Main *main)
 
 	for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
 		WorkSpace *ws = BKE_workspace_add(main, screen->id.name + 2);
-		WorkSpaceLayoutType *layout_type = BKE_workspace_layout_type_add(ws, screen->id.name + 2,
-		                                                                 &screen->vertbase, &screen->areabase);
+		WorkSpaceLayoutType *layout_type = BKE_workspace_layout_type_add(ws, screen->id.name + 2, (ScreenLayoutData){
+		                                                                     .vertbase = screen->vertbase,
+		                                                                     .areabase = screen->areabase});
 
 		BKE_workspace_active_layout_type_set(ws, layout_type);
 

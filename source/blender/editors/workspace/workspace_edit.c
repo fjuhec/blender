@@ -161,10 +161,10 @@ WorkSpace *ED_workspace_duplicate(WorkSpace *workspace_old, Main *bmain, wmWindo
 	WorkSpaceLayoutType *layout_type_act_new = NULL;
 	BKE_workspace_layout_type_iter_begin(layout_type_old, layout_types_old->first)
 	{
+		ScreenLayoutData layout_blueprint = BKE_workspace_layout_type_blueprint_get(layout_type_old);
 		const char *name = BKE_workspace_layout_type_name_get(layout_type_old);
-		ListBase *vertbase = BKE_workspace_layout_type_vertbase_get(layout_type_act_old);
-		ListBase *areabase = BKE_workspace_layout_type_areabase_get(layout_type_act_old);
-		WorkSpaceLayoutType *layout_type_new = BKE_workspace_layout_type_add(workspace_new, name, vertbase, areabase);
+		/* XXX should duplicate the listbases */
+		WorkSpaceLayoutType *layout_type_new = BKE_workspace_layout_type_add(workspace_new, name, layout_blueprint);
 
 		if (layout_type_old == layout_type_act_old) {
 			layout_type_act_new = layout_type_new;

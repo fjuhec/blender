@@ -31,6 +31,7 @@
 struct bScreen;
 struct ListBase;
 struct Main;
+struct ScreenLayoutData;
 struct TransformOrientation;
 struct WorkSpace;
 
@@ -60,7 +61,7 @@ void BKE_workspace_remove(WorkSpace *workspace, struct Main *bmain);
 WorkSpaceLayout *BKE_workspace_layout_add_from_type(WorkSpace *workspace, WorkSpaceLayoutType *type,
                                                     struct bScreen *screen) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
 WorkSpaceLayoutType *BKE_workspace_layout_type_add(WorkSpace *workspace, const char *name,
-                                                   struct ListBase *vertbase, struct ListBase *areabase) ATTR_NONNULL();
+                                                   struct ScreenLayoutData layout_blueprint) ATTR_NONNULL();
 void BKE_workspace_layout_remove(WorkSpace *workspace, WorkSpaceLayout *layout, struct Main *bmain) ATTR_NONNULL();
 WorkSpaceHook *BKE_workspace_hook_new(void) ATTR_WARN_UNUSED_RESULT;
 void BKE_workspace_hook_delete(struct Main *bmain, WorkSpaceHook *hook) ATTR_NONNULL();
@@ -126,8 +127,9 @@ WorkSpaceLayoutType *BKE_workspace_active_layout_type_get(const WorkSpace *works
 void                 BKE_workspace_active_layout_type_set(WorkSpace *workspace, WorkSpaceLayoutType *layout_type) SETTER_ATTRS;
 struct ListBase *BKE_workspace_layout_types_get(WorkSpace *workspace) GETTER_ATTRS;
 const char      *BKE_workspace_layout_type_name_get(const WorkSpaceLayoutType *layout_type) GETTER_ATTRS;
-struct ListBase *BKE_workspace_layout_type_vertbase_get(const WorkSpaceLayoutType *type) GETTER_ATTRS;
-struct ListBase *BKE_workspace_layout_type_areabase_get(const WorkSpaceLayoutType *type) GETTER_ATTRS;
+struct ScreenLayoutData BKE_workspace_layout_type_blueprint_get(WorkSpaceLayoutType *type) GETTER_ATTRS;
+struct ListBase *BKE_workspace_layout_type_vertbase_get(WorkSpaceLayoutType *type) GETTER_ATTRS;
+struct ListBase *BKE_workspace_layout_type_areabase_get(WorkSpaceLayoutType *type) GETTER_ATTRS;
 WorkSpaceLayoutType *BKE_workspace_layout_type_next_get(WorkSpaceLayoutType *layout_type) GETTER_ATTRS;
 WorkSpaceLayout *BKE_workspace_new_layout_get(const WorkSpace *workspace) GETTER_ATTRS;
 void             BKE_workspace_new_layout_set(WorkSpace *workspace, WorkSpaceLayout *layout) SETTER_ATTRS;
