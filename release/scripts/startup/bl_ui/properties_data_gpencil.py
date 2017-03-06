@@ -41,21 +41,6 @@ class DATA_PT_gpencil(DataButtonsPanel, Panel):
         layout = self.layout
 
         ob = context.object
-
-        layout.prop(ob, "empty_draw_type", text="Display")
-
-        if ob.empty_draw_type == 'IMAGE':
-            layout.template_ID(ob, "data", open="image.open", unlink="object.unlink_data")
-            layout.template_image(ob, "data", ob.image_user, compact=True)
-
-            row = layout.row(align=True)
-            row = layout.row(align=True)
-
-            layout.prop(ob, "color", text="Transparency", index=3, slider=True)
-            row = layout.row(align=True)
-            row.prop(ob, "empty_image_offset", text="Offset X", index=0)
-            row.prop(ob, "empty_image_offset", text="Offset Y", index=1)
-
         layout.prop(ob, "empty_draw_size", text="Size")
 
 class DATA_PT_gpencil_datapanel(GreasePencilDataPanel, Panel):
