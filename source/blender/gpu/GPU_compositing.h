@@ -94,7 +94,7 @@ bool GPU_fx_compositor_initialize_passes(
 bool GPU_fx_do_composite_pass(
         GPUFX *fx, float projmat[4][4], bool is_persp,
         struct Scene *scene, struct GPUOffScreen *ofs,
-        const short region_size[2], bool is_left, void* hmd_distortion_parms);
+        bool is_left, void* hmd_distortion_parms);
 
 /* bind new depth buffer for XRay pass */
 void GPU_fx_compositor_setup_XRay_pass(GPUFX *fx, bool do_xray);
@@ -104,7 +104,6 @@ void GPU_fx_compositor_XRay_resolve(GPUFX *fx);
 
 void GPU_fx_compositor_init_dof_settings(struct GPUDOFSettings *dof);
 void GPU_fx_compositor_init_ssao_settings(struct GPUSSAOSettings *ssao);
-void GPU_fx_compositor_init_lensdist_settings(struct GPULensDistSettings *fx_lensdist);
 
 
 /* initialize and cache the shader unform interface for effects */

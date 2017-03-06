@@ -648,36 +648,6 @@ static int rna_userdef_hmd_active_device_poll(PointerRNA *UNUSED(ptr), const cha
 	return PROP_EDITABLE;
 }
 
-static void rna_userdef_hmd_lensdist_type_set(PointerRNA *UNUSED(ptr), int value)
-{
-	wmWindowManager *wm = G.main->wm.first;
-	wmWindow *hmd_win = wm->hmd_view.hmd_win;
-
-	/* store new value so it'll be applied the next time we open an HMD view */
-	U.hmd_settings.lensdist_shader = value;
-
-	if (hmd_win) {
-		for (ScrArea *sa = hmd_win->screen->areabase.first; sa; sa = sa->next) {
-			if (sa->spacetype == SPACE_VIEW3D) {
-				View3D *v3d = sa->spacedata.first;
-
-				if (value == GPU_FX_LENSDIST_NONE) {
-					v3d->fx_settings.fx_flag &= ~GPU_FX_FLAG_LensDist;
-				}
-				else {
-					v3d->fx_settings.fx_flag |= GPU_FX_FLAG_LensDist;
-				}
-
-				/* Set distortion type for 3D View but first we need to validate fx settings. */
-				BKE_screen_gpu_fx_validate(&v3d->fx_settings);
-				v3d->fx_settings.lensdist->type = value;
-				ED_area_tag_redraw(sa);
-				break;
-			}
-		}
-	}
-}
-
 void rna_userdef_hmd_custom_ipd_set(PointerRNA *UNUSED(ptr), float value)
 {
 	U.hmd_settings.custom_ipd = value;
@@ -4038,19 +4008,6 @@ static void rna_def_userdef_system(BlenderRNA *brna)
 		{0, NULL, 0, NULL, NULL}
 	};
 
-#ifdef WITH_INPUT_HMD
-	static EnumPropertyItem hmd_lensdist_type_items[] = {
-		{GPU_FX_LENSDIST_NONE, "NONE", 0, "None", "Don't use a lens distortion/correction shader for the HMD view"},
-		{GPU_FX_LENSDIST_GENERIC, "GENERIC", 0, "Generic", "Use a lens distortion/correction shader for generic use, "
-		                                                   "might not be perfect or work at all"},
-		{GPU_FX_LENSDIST_DK1, "DK1", 0, "Oculus DK1", "Use a lens distortion/correction shader for the "
-		                                              "Oculus DK1 (1280x800)"},
-		{GPU_FX_LENSDIST_DK2, "DK2", 0, "Oculus DK2/CV1", "Use a lens distortion/correction shader for the Oculus DK2 "
-		                                                  "(1080p) and CV1 (2160x1200)"},
-		{0, NULL, 0, NULL, NULL}
-	};
-#endif
-
 	srna = RNA_def_struct(brna, "UserPreferencesSystem", NULL);
 	RNA_def_struct_sdna(srna, "UserDef");
 	RNA_def_struct_nested(brna, srna, "UserPreferences");
@@ -4362,13 +4319,6 @@ static void rna_def_userdef_system(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Rotation from HMD", "Use the rotation of a head mounted display if available");
 	RNA_def_property_editable_func(prop, "rna_userdef_hmd_active_device_poll");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
-
-	prop = RNA_def_property(srna, "hmd_lensdist_type", PROP_ENUM, PROP_ENUM);
-	RNA_def_property_flag(prop, PROP_ENUM_NO_CONTEXT);
-	RNA_def_property_enum_sdna(prop, NULL, "hmd_settings.lensdist_shader");
-	RNA_def_property_enum_items(prop, hmd_lensdist_type_items);
-	RNA_def_property_enum_funcs(prop, NULL, "rna_userdef_hmd_lensdist_type_set", NULL);
-	RNA_def_property_ui_text(prop, "HMD View Lens Distortion", "Draw the HMD viewport using a distorted lens");
 
 	prop = RNA_def_property(srna, "hmd_custom_ipd", PROP_FLOAT, PROP_DISTANCE);
 	RNA_def_property_float_sdna(prop, NULL, "hmd_settings.custom_ipd");

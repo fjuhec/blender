@@ -4140,13 +4140,10 @@ static void hmd_view_prepare_screen(wmWindowManager *wm, wmWindow *win, const Re
 
 	/* sync view options */
 	v3d_hmd->drawtype = wm->hmd_view.view_shade;
-	if (U.hmd_settings.lensdist_shader != GPU_FX_LENSDIST_NONE) {
-		v3d_hmd->fx_settings.fx_flag |= GPU_FX_FLAG_LensDist;
-		/* Set distortion type for 3D View but first we need to validate fx settings. */
-		BKE_screen_gpu_fx_validate(&v3d_hmd->fx_settings);
-		v3d_hmd->fx_settings.lensdist->type = U.hmd_settings.lensdist_shader;
-	}
-
+	v3d_hmd->fx_settings.fx_flag |= GPU_FX_FLAG_LensDist;
+	/* Set distortion type for 3D View but first we need to validate fx settings. */
+	BKE_screen_gpu_fx_validate(&v3d_hmd->fx_settings);
+	
 	/* copy view orientation from current 3D view to newly opened HMD view */
 	ED_view3d_copy_region_view_data(rv3d_current, rv3d_hmd);
 }

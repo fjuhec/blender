@@ -454,10 +454,7 @@ static void view3d_init(wmWindowManager *wm, ScrArea *sa)
 
 	/* Make sure the HMD view is initialized with the shader set in UserPrefs. */
 	if (is_hmd_view && v3d->fx_settings.lensdist) {
-		v3d->fx_settings.lensdist->type = U.hmd_settings.lensdist_shader;
-		if (U.hmd_settings.lensdist_shader != GPU_FX_LENSDIST_NONE) {
 			v3d->fx_settings.fx_flag |= GPU_FX_FLAG_LensDist;
-		}
 	}
 #else
 	UNUSED_VARS(wm, sa);

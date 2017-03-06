@@ -399,7 +399,7 @@ bool GPU_fx_compositor_initialize_passes(
 	if (!fx_settings->ssao || fx_settings->ssao->samples < 1) {
 		fx_flag &= ~GPU_FX_FLAG_SSAO;
 	}
-	if (!fx_settings->lensdist || fx_settings->lensdist->type == GPU_FX_LENSDIST_NONE) {
+	if (!fx_settings->lensdist) {
 		fx_flag &= ~GPU_FX_FLAG_LensDist;
 	}
 
@@ -730,7 +730,7 @@ void GPU_fx_compositor_XRay_resolve(GPUFX *fx)
 bool GPU_fx_do_composite_pass(
         GPUFX *fx, float projmat[4][4], bool is_persp,
         struct Scene *scene, struct GPUOffScreen *ofs,
-        const short region_size[2], bool is_left, void *hmd_distortion_params)
+        bool is_left, void *hmd_distortion_params)
 {
 	GPUTexture *src, *target;
 	int numslots = 0;
@@ -1295,7 +1295,6 @@ bool GPU_fx_do_composite_pass(
 
 	/* third pass, Lens Distortion */
 	if (fx->effects & GPU_FX_FLAG_LensDist) {
-		eGPULensDistType type = fx->settings.lensdist->type;
 		GPUShader *lensdist_shader = GPU_shader_get_builtin_fx_shader(GPU_SHADER_FX_LENS_DISTORTION, is_persp);
 
 		if (lensdist_shader && hmd_distortion_params) {
@@ -1387,11 +1386,6 @@ void GPU_fx_compositor_init_ssao_settings(GPUSSAOSettings *fx_ssao)
 	fx_ssao->distance_max = 0.2f;
 	fx_ssao->attenuation = 1.0f;
 	fx_ssao->samples = 20;
-}
-
-void GPU_fx_compositor_init_lensdist_settings(GPULensDistSettings *fx_lensdist)
-{
-	fx_lensdist->type = GPU_FX_LENSDIST_NONE;
 }
 
 void GPU_fx_shader_init_interface(struct GPUShader *shader, GPUFXShaderEffect effect)
