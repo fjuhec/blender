@@ -865,8 +865,6 @@ class GPENCIL_MT_palettecolor_specials(Menu):
 
 
 class GreasePencilDataPanel:
-    # subclass must set
-    # bl_space_type = 'IMAGE_EDITOR'
     bl_label = "Grease Pencil Layers"
     bl_region_type = 'UI'
 
@@ -894,7 +892,9 @@ class GreasePencilDataPanel:
         elif context.space_data.type == 'CLIP_EDITOR':
             layout.prop(context.space_data, "grease_pencil_source", expand=True)
         elif context.space_data.type == 'PROPERTIES':
-            layout.prop(context.scene.tool_settings, "grease_pencil_source", expand=True)
+            if context.space_data.context == 'SCENE':
+                gpd_owner = context.scene
+                gpd = context.scene.grease_pencil
 
         # Grease Pencil data selector
         layout.template_ID(gpd_owner, "grease_pencil", new="gpencil.data_add", unlink="gpencil.data_unlink")
