@@ -439,17 +439,17 @@ void BKE_screen_free(bScreen *sc)
 	BKE_previewimg_free(&sc->preview);
 }
 
-bScreen *BKE_screen_create_from_screen_data(
-        struct Main *bmain, const ListBase *vertbase, const ListBase *areabase, const char *name)
+bScreen *BKE_screen_create_from_layout_data(
+        struct Main *bmain, const ScreenLayoutData *layout_data, const char *name)
 {
 	bScreen *screen = BKE_libblock_alloc(bmain, ID_SCR, name);
 
-	for (ScrVert *sv = vertbase->first; sv; sv = sv->next) {
+	for (ScrVert *sv = layout_data->vertbase.first; sv; sv = sv->next) {
 		ScrVert *sv_new = MEM_callocN(sizeof(ScrVert), "workspace_change_add_screenvert");
 		*sv_new = *sv;
 		BLI_addtail(&screen->vertbase, sv_new);
 	}
-	for (ScrArea *sa = areabase->first; sa; sa = sa->next) {
+	for (ScrArea *sa = layout_data->areabase.first; sa; sa = sa->next) {
 		ScrArea *sa_new = MEM_callocN(sizeof(ScrArea), "workspace_change_add_screenarea");
 
 		sa_new->v1 = BKE_screen_add_vert(screen, sa->v1->vec.x, sa->v1->vec.y);

@@ -41,6 +41,7 @@ struct Menu;
 struct Panel;
 struct Scene;
 struct ScrArea;
+struct ScreenLayoutData;
 struct SpaceType;
 struct TransformOrientation;
 struct View3D;
@@ -321,8 +322,8 @@ float BKE_screen_view3d_zoom_from_fac(float zoomfac);
 
 /* screen */
 void BKE_screen_free(struct bScreen *sc);
-struct bScreen *BKE_screen_create_from_screen_data(
-        struct Main *bmain, const ListBase *vertbase, const ListBase *areabase, const char *name) ATTR_NONNULL();
+struct bScreen *BKE_screen_create_from_layout_data(
+        struct Main *bmain, const struct ScreenLayoutData *layout_data, const char *name) ATTR_NONNULL();
 struct ScrVert *BKE_screen_add_vert(struct bScreen *sc, short x, short y);
 unsigned int BKE_screen_visible_layers(struct bScreen *screen, struct Scene *scene);
 

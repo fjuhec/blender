@@ -129,7 +129,6 @@ struct ListBase *BKE_workspace_layout_types_get(WorkSpace *workspace) GETTER_ATT
 const char      *BKE_workspace_layout_type_name_get(const WorkSpaceLayoutType *layout_type) GETTER_ATTRS;
 struct ScreenLayoutData BKE_workspace_layout_type_blueprint_get(WorkSpaceLayoutType *type) GETTER_ATTRS;
 struct ListBase *BKE_workspace_layout_type_vertbase_get(WorkSpaceLayoutType *type) GETTER_ATTRS;
-struct ListBase *BKE_workspace_layout_type_areabase_get(WorkSpaceLayoutType *type) GETTER_ATTRS;
 WorkSpaceLayoutType *BKE_workspace_layout_type_next_get(WorkSpaceLayoutType *layout_type) GETTER_ATTRS;
 WorkSpaceLayout *BKE_workspace_new_layout_get(const WorkSpace *workspace) GETTER_ATTRS;
 void             BKE_workspace_new_layout_set(WorkSpace *workspace, WorkSpaceLayout *layout) SETTER_ATTRS;

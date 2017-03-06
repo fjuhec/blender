@@ -682,7 +682,7 @@ wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
 		ListBase vertbase = {}, areabase = {};
 
 		ED_screen_empty_data_create(win->sizex, win->sizey, &vertbase, &areabase);
-		ED_workspace_layout_add(workspace, &wm->windows, "temp", (ScreenLayoutData){
+		ED_workspace_layout_add(workspace, &wm->windows, "temp", (ScreenLayoutData) {
 		                            .vertbase = vertbase, .areabase = areabase});
 		layout = BKE_workspace_active_layout_get(workspace);
 		screen = BKE_workspace_layout_screen_get(layout);
