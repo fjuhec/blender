@@ -4085,12 +4085,6 @@ void view3d_main_region_draw(const bContext *C, ARegion *ar)
 			draw_sim_debug_data(scene, v3d, ar);
 		
 		ED_region_pixelspace(ar);
-
-#ifdef WITH_INPUT_HMD
-		if (view3d_hmd_view_active(CTX_wm_manager(C), CTX_wm_window(C))) {
-			return;
-		}
-#endif
 	}
 
 	/* draw viewport using external renderer */
