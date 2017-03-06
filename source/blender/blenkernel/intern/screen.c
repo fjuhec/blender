@@ -52,6 +52,7 @@
 
 #include "BKE_icons.h"
 #include "BKE_idprop.h"
+#include "BKE_library.h"
 #include "BKE_screen.h"
 
 /* ************ Spacetype/regiontype handling ************** */
@@ -275,6 +276,45 @@ void BKE_spacedata_draw_locks(int set)
 	}
 }
 
+/**
+ * we swap spaces for fullscreen to keep all allocated data area vertices were set
+ */
+void BKE_screen_area_data_copy(ScrArea *sa_dst, ScrArea *sa_src, const bool do_free)
+{
+	SpaceType *st;
+	ARegion *ar;
+	const char spacetype = sa_dst->spacetype;
+	const short flag_copy = HEADER_NO_PULLDOWN;
+
+	sa_dst->headertype = sa_src->headertype;
+	sa_dst->spacetype = sa_src->spacetype;
+	sa_dst->type = sa_src->type;
+	sa_dst->butspacetype = sa_src->butspacetype;
+
+	sa_dst->flag = (sa_dst->flag & ~flag_copy) | (sa_src->flag & flag_copy);
+
+	/* area */
+	if (do_free) {
+		BKE_spacedata_freelist(&sa_dst->spacedata);
+	}
+	BKE_spacedata_copylist(&sa_dst->spacedata, &sa_src->spacedata);
+
+	/* Note; SPACE_EMPTY is possible on new screens */
+
+	/* regions */
+	if (do_free) {
+		st = BKE_spacetype_from_id(spacetype);
+		for (ar = sa_dst->regionbase.first; ar; ar = ar->next)
+			BKE_area_region_free(st, ar);
+		BLI_freelistN(&sa_dst->regionbase);
+	}
+	st = BKE_spacetype_from_id(sa_src->spacetype);
+	for (ar = sa_src->regionbase.first; ar; ar = ar->next) {
+		ARegion *newar = BKE_area_region_copy(st, ar);
+		BLI_addtail(&sa_dst->regionbase, newar);
+	}
+}
+
 static void (*spacedata_id_remap_cb)(struct ScrArea *sa, struct SpaceLink *sl, ID *old_id, ID *new_id) = NULL;
 
 void BKE_spacedata_callback_id_remap_set(void (*func)(ScrArea *sa, SpaceLink *sl, ID *, ID *))
@@ -397,6 +437,42 @@ void BKE_screen_free(bScreen *sc)
 	BLI_freelistN(&sc->areabase);
 
 	BKE_previewimg_free(&sc->preview);
+}
+
+bScreen *BKE_screen_create_from_screen_data(
+        struct Main *bmain, const ListBase *vertbase, const ListBase *areabase, const char *name)
+{
+	bScreen *screen = BKE_libblock_alloc(bmain, ID_SCR, name);
+
+	for (ScrVert *sv = vertbase->first; sv; sv = sv->next) {
+		ScrVert *sv_new = MEM_callocN(sizeof(ScrVert), "workspace_change_add_screenvert");
+		*sv_new = *sv;
+		BLI_addtail(&screen->vertbase, sv_new);
+	}
+	for (ScrArea *sa = areabase->first; sa; sa = sa->next) {
+		ScrArea *sa_new = MEM_callocN(sizeof(ScrArea), "workspace_change_add_screenarea");
+
+		sa_new->v1 = BKE_screen_add_vert(screen, sa->v1->vec.x, sa->v1->vec.y);
+		sa_new->v2 = BKE_screen_add_vert(screen, sa->v2->vec.x, sa->v2->vec.y);
+		sa_new->v3 = BKE_screen_add_vert(screen, sa->v3->vec.x, sa->v3->vec.y);
+		sa_new->v4 = BKE_screen_add_vert(screen, sa->v4->vec.x, sa->v4->vec.y);
+
+		BKE_screen_area_data_copy(sa_new, sa, false);
+		BLI_addtail(&screen->areabase, sa_new);
+	}
+
+	return screen;
+}
+
+ScrVert *BKE_screen_add_vert(bScreen *sc, short x, short y)
+{
+	ScrVert *sv = MEM_callocN(sizeof(ScrVert), __func__);
+
+	sv->vec.x = x;
+	sv->vec.y = y;
+	BLI_addtail(&sc->vertbase, sv);
+
+	return sv;
 }
 
 /* for depsgraph */

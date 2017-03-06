@@ -73,16 +73,6 @@
 
 /* ******************* screen vert, edge, area managing *********************** */
 
-static ScrVert *screen_addvert(bScreen *sc, short x, short y)
-{
-	ScrVert *sv = MEM_callocN(sizeof(ScrVert), "addscrvert");
-	sv->vec.x = x;
-	sv->vec.y = y;
-	
-	BLI_addtail(&sc->vertbase, sv);
-	return sv;
-}
-
 static void sortscrvert(ScrVert **v1, ScrVert **v2)
 {
 	ScrVert *tmp;
@@ -393,8 +383,8 @@ ScrArea *area_split(bScreen *sc, ScrArea *sa, char dir, float fac, int merge)
 
 	if (dir == 'h') {
 		/* new vertices */
-		sv1 = screen_addvert(sc, sa->v1->vec.x, split);
-		sv2 = screen_addvert(sc, sa->v4->vec.x, split);
+		sv1 = BKE_screen_add_vert(sc, sa->v1->vec.x, split);
+		sv2 = BKE_screen_add_vert(sc, sa->v4->vec.x, split);
 		
 		/* new edges */
 		screen_addedge(sc, sa->v1, sv1);
@@ -420,13 +410,13 @@ ScrArea *area_split(bScreen *sc, ScrArea *sa, char dir, float fac, int merge)
 			sa->v4 = sv2;
 		}
 
-		ED_area_data_copy(newa, sa, true);
+		BKE_screen_area_data_copy(newa, sa, true);
 		
 	}
 	else {
 		/* new vertices */
-		sv1 = screen_addvert(sc, split, sa->v1->vec.y);
-		sv2 = screen_addvert(sc, split, sa->v2->vec.y);
+		sv1 = BKE_screen_add_vert(sc, split, sa->v1->vec.y);
+		sv2 = BKE_screen_add_vert(sc, split, sa->v2->vec.y);
 		
 		/* new edges */
 		screen_addedge(sc, sa->v1, sv1);
@@ -452,7 +442,7 @@ ScrArea *area_split(bScreen *sc, ScrArea *sa, char dir, float fac, int merge)
 			sa->v2 = sv2;
 		}
 
-		ED_area_data_copy(newa, sa, true);
+		BKE_screen_area_data_copy(newa, sa, true);
 	}
 	
 	/* remove double vertices en edges */
@@ -559,7 +549,7 @@ void screen_data_copy(bScreen *to, bScreen *from)
 		BLI_listbase_clear(&sa->actionzones);
 		BLI_listbase_clear(&sa->handlers);
 		
-		ED_area_data_copy(sa, saf, true);
+		BKE_screen_area_data_copy(sa, saf, true);
 	}
 	
 	/* put at zero (needed?) */

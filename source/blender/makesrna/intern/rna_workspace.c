@@ -63,8 +63,8 @@ static void rna_workspace_screen_set(PointerRNA *ptr, PointerRNA value)
 	}
 
 	/* exception: can't set screens inside of area/region handlers */
-	layout_new = BKE_workspace_layout_find(ws, value.data);
-	BKE_workspace_new_layout_set(ws, layout_new);
+//	layout_new = BKE_workspace_layout_find(ws, value.data);
+//	BKE_workspace_new_layout_set(ws, layout_new);
 }
 
 static int rna_workspace_screen_assign_poll(PointerRNA *UNUSED(ptr), PointerRNA value)

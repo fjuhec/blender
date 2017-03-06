@@ -1031,7 +1031,7 @@ static int area_dupli_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 	WM_window_set_active_layout(newwin, layout_new);
 
 	/* copy area to new screen */
-	ED_area_data_copy((ScrArea *)newsc->areabase.first, sa, true);
+	BKE_screen_area_data_copy((ScrArea *)newsc->areabase.first, sa, true);
 
 	ED_area_tag_redraw((ScrArea *)newsc->areabase.first);
 
@@ -3916,8 +3916,8 @@ static void SCREEN_OT_new(wmOperatorType *ot)
 static int screen_delete_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	bScreen *sc = CTX_wm_screen(C);
-	WorkSpace *workspace = CTX_wm_workspace(C);
-	WorkSpaceLayout *layout = BKE_workspace_layout_find(workspace, sc);
+	wmWindow *win = CTX_wm_window(C);
+	WorkSpaceLayout *layout = BKE_workspace_layout_find(win->workspace_hook, sc);
 
 	WM_event_add_notifier(C, NC_WORKSPACE | ND_SCREENDELETE, layout);
 

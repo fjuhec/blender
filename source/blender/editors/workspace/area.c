@@ -1602,45 +1602,6 @@ void ED_region_toggle_hidden(bContext *C, ARegion *ar)
 	region_toggle_hidden(C, ar, true);
 }
 
-/**
- * we swap spaces for fullscreen to keep all allocated data area vertices were set
- */
-void ED_area_data_copy(ScrArea *sa_dst, ScrArea *sa_src, const bool do_free)
-{
-	SpaceType *st;
-	ARegion *ar;
-	const char spacetype = sa_dst->spacetype;
-	const short flag_copy = HEADER_NO_PULLDOWN;
-	
-	sa_dst->headertype = sa_src->headertype;
-	sa_dst->spacetype = sa_src->spacetype;
-	sa_dst->type = sa_src->type;
-	sa_dst->butspacetype = sa_src->butspacetype;
-
-	sa_dst->flag = (sa_dst->flag & ~flag_copy) | (sa_src->flag & flag_copy);
-
-	/* area */
-	if (do_free) {
-		BKE_spacedata_freelist(&sa_dst->spacedata);
-	}
-	BKE_spacedata_copylist(&sa_dst->spacedata, &sa_src->spacedata);
-
-	/* Note; SPACE_EMPTY is possible on new screens */
-
-	/* regions */
-	if (do_free) {
-		st = BKE_spacetype_from_id(spacetype);
-		for (ar = sa_dst->regionbase.first; ar; ar = ar->next)
-			BKE_area_region_free(st, ar);
-		BLI_freelistN(&sa_dst->regionbase);
-	}
-	st = BKE_spacetype_from_id(sa_src->spacetype);
-	for (ar = sa_src->regionbase.first; ar; ar = ar->next) {
-		ARegion *newar = BKE_area_region_copy(st, ar);
-		BLI_addtail(&sa_dst->regionbase, newar);
-	}
-}
-
 void ED_area_data_swap(ScrArea *sa_dst, ScrArea *sa_src)
 {
 	SWAP(short, sa_dst->headertype, sa_src->headertype);
@@ -1662,9 +1623,9 @@ void ED_area_swapspace(bContext *C, ScrArea *sa1, ScrArea *sa2)
 	ED_area_exit(C, sa1);
 	ED_area_exit(C, sa2);
 
-	ED_area_data_copy(tmp, sa1, false);
-	ED_area_data_copy(sa1, sa2, true);
-	ED_area_data_copy(sa2, tmp, true);
+	BKE_screen_area_data_copy(tmp, sa1, false);
+	BKE_screen_area_data_copy(sa1, sa2, true);
+	BKE_screen_area_data_copy(sa2, tmp, true);
 	ED_area_initialize(CTX_wm_manager(C), CTX_wm_window(C), sa1);
 	ED_area_initialize(CTX_wm_manager(C), CTX_wm_window(C), sa2);
 

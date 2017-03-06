@@ -105,7 +105,7 @@ WorkSpaceLayout *BKE_workspace_layout_add_from_type(WorkSpace *workspace, WorkSp
 {
 	WorkSpaceLayout *layout = MEM_mallocN(sizeof(*layout), __func__);
 
-	BLI_assert(!workspaces_is_screen_used(G.main, screen));
+//	BLI_assert(!workspaces_is_screen_used(G.main, screen));
 
 	layout->type = type;
 	layout->screen = screen;
@@ -154,27 +154,20 @@ void BKE_workspace_hook_delete(Main *bmain, WorkSpaceHook *hook)
 /* -------------------------------------------------------------------- */
 /* General Utils */
 
-void BKE_workspace_change_prepare(Main *bmain, WorkSpaceHook *workspace_hook)
+void BKE_workspace_change_prepare(Main *bmain, WorkSpaceHook *workspace_hook, WorkSpace *workspace_new)
 {
-	WorkSpace *workspace = workspace_hook->act_workspace;
 	BLI_freelistN(&workspace_hook->layouts);
 
-	for (WorkSpaceLayoutType *type = workspace->layout_types.first; type; type = type->next) {
-		bScreen *screen = BKE_libblock_alloc(bmain, ID_SCR, type->name);
-		WorkSpaceLayout *layout;
+	for (WorkSpaceLayoutType *type = workspace_new->layout_types.first; type; type = type->next) {
+		bScreen *screen = BKE_screen_create_from_screen_data(bmain, type->vertbase, type->areabase, type->name);
+		WorkSpaceLayout *layout = BKE_workspace_layout_add_from_type(workspace_new, type, screen);
 
-		for (ScrVert *sv = type->vertbase->first; sv; sv = sv->next) {
-			ScrVert *sv_new = MEM_callocN(sizeof(ScrVert), "workspace_change_add_screenvert");
-			*sv_new = *sv;
-			BLI_addtail(&screen->vertbase, sv_new);
-		}
-		for (ScrArea *sa = type->areabase->first; sa; sa = sa->next) {
-			ScrArea *sa_new = MEM_callocN(sizeof(ScrArea), "workspace_change_add_screenarea");
-			*sa_new = *sa;
-			BLI_addtail(&screen->areabase, sa_new);
-		}
-		layout = BKE_workspace_layout_add_from_type(workspace, type, screen);
 		BLI_addtail(&workspace_hook->layouts, layout);
+
+		/* XXX Just setting the active layout matching the active type stored in workspace */
+		if (type == workspace_new->act_layout_type) {
+			workspace_new->act_layout = layout;
+		}
 	}
 }
 
@@ -196,9 +189,9 @@ void BKE_workspaces_transform_orientation_remove(const ListBase *workspaces, con
  * a layout within \a workspace that wraps \a screen. Usually - especially outside
  * of BKE_workspace - #BKE_workspace_layout_find should be used!
  */
-static WorkSpaceLayout *workspace_layout_find(const WorkSpace *ws, const bScreen *screen)
+static WorkSpaceLayout *workspace_layout_find(const WorkSpaceHook *hook, const bScreen *screen)
 {
-	for (WorkSpaceLayout *layout = ws->layouts.first; layout; layout = layout->next) {
+	for (WorkSpaceLayout *layout = hook->layouts.first; layout; layout = layout->next) {
 		if (layout->screen == screen) {
 			return layout;
 		}
@@ -207,6 +200,7 @@ static WorkSpaceLayout *workspace_layout_find(const WorkSpace *ws, const bScreen
 	return NULL;
 }
 
+#if 0
 /**
  * Checks if \a screen is already used within any workspace. A screen should never be assigned to multiple
  * WorkSpaceLayouts, but that should be ensured outside of the BKE_workspace module and without such checks.
@@ -222,10 +216,11 @@ bool workspaces_is_screen_used(const Main *bmain, bScreen *screen)
 
 	return false;
 }
+#endif
 
-WorkSpaceLayout *BKE_workspace_layout_find(const WorkSpace *ws, const bScreen *screen)
+WorkSpaceLayout *BKE_workspace_layout_find(const WorkSpaceHook *hook, const bScreen *screen)
 {
-	WorkSpaceLayout *layout = workspace_layout_find(ws, screen);
+	WorkSpaceLayout *layout = workspace_layout_find(hook, screen);
 	if (layout) {
 		return layout;
 	}
@@ -299,12 +294,13 @@ bScreen *BKE_workspace_active_screen_get(const WorkSpace *ws)
 {
 	return ws->act_layout->screen;
 }
-void BKE_workspace_active_screen_set(WorkSpace *ws, bScreen *screen)
+void BKE_workspace_active_screen_set(const WorkSpaceHook *hook, bScreen *screen)
 {
-	WorkSpaceLayout *layout = BKE_workspace_layout_find(ws, screen);
+	WorkSpace *workspace = hook->act_workspace;
+	WorkSpaceLayout *layout = BKE_workspace_layout_find(hook, screen);
 	/* we need to find the WorkspaceLayout that wraps this screen */
-	ws->act_layout = layout;
-	ws->act_layout_type = layout->type;
+	workspace->act_layout = layout;
+	workspace->act_layout_type = layout->type;
 }
 
 #ifdef USE_WORKSPACE_MODE

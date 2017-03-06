@@ -288,6 +288,7 @@ void BKE_spacedata_id_unref(struct ScrArea *sa, struct SpaceLink *sl, struct ID 
 /* area/regions */
 struct ARegion *BKE_area_region_copy(struct SpaceType *st, struct ARegion *ar);
 void            BKE_area_region_free(struct SpaceType *st, struct ARegion *ar);
+void            BKE_screen_area_data_copy(struct ScrArea *sa_dst, struct ScrArea *sa_src, const bool do_free);
 void            BKE_screen_area_free(struct ScrArea *sa);
 /* Manipulator-maps of a region need to be freed with the region. Uses callback to avoid low-level call. */
 void BKE_region_callback_free_manipulatormap_set(void (*callback)(struct wmManipulatorMap *));
@@ -319,7 +320,10 @@ float BKE_screen_view3d_zoom_to_fac(float camzoom);
 float BKE_screen_view3d_zoom_from_fac(float zoomfac);
 
 /* screen */
-void BKE_screen_free(struct bScreen *sc); 
+void BKE_screen_free(struct bScreen *sc);
+struct bScreen *BKE_screen_create_from_screen_data(
+        struct Main *bmain, const ListBase *vertbase, const ListBase *areabase, const char *name) ATTR_NONNULL();
+struct ScrVert *BKE_screen_add_vert(struct bScreen *sc, short x, short y);
 unsigned int BKE_screen_visible_layers(struct bScreen *screen, struct Scene *scene);
 
 #endif

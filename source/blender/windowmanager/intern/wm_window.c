@@ -1794,7 +1794,7 @@ void WM_window_set_active_workspace(wmWindow *win, WorkSpace *workspace)
 {
 	BKE_workspace_active_set(win->workspace_hook, workspace);
 	if (workspace) {
-		BKE_workspace_change_prepare(G.main, win->workspace_hook);
+		BKE_workspace_change_prepare(G.main, win->workspace_hook, workspace);
 	}
 }
 
@@ -1820,8 +1820,7 @@ bScreen *WM_window_get_active_screen(const wmWindow *win)
 }
 void WM_window_set_active_screen(wmWindow *win, bScreen *screen)
 {
-	WorkSpace *workspace = BKE_workspace_active_get(win->workspace_hook);
-	BKE_workspace_active_screen_set(workspace, screen);
+	BKE_workspace_active_screen_set(win->workspace_hook, screen);
 }
 
 bool WM_window_is_temp_screen(const wmWindow *win)
