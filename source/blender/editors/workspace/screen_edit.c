@@ -73,35 +73,12 @@
 
 /* ******************* screen vert, edge, area managing *********************** */
 
-static void sortscrvert(ScrVert **v1, ScrVert **v2)
-{
-	ScrVert *tmp;
-	
-	if (*v1 > *v2) {
-		tmp = *v1;
-		*v1 = *v2;
-		*v2 = tmp;
-	}
-}
-
-static ScrEdge *screen_addedge(bScreen *sc, ScrVert *v1, ScrVert *v2)
-{
-	ScrEdge *se = MEM_callocN(sizeof(ScrEdge), "addscredge");
-	
-	sortscrvert(&v1, &v2);
-	se->v1 = v1;
-	se->v2 = v2;
-	
-	BLI_addtail(&sc->edgebase, se);
-	return se;
-}
-
 
 ScrEdge *screen_findedge(bScreen *sc, ScrVert *v1, ScrVert *v2)
 {
 	ScrEdge *se;
 	
-	sortscrvert(&v1, &v2);
+	BKE_screen_vert_sort(&v1, &v2);
 	for (se = sc->edgebase.first; se; se = se->next)
 		if (se->v1 == v1 && se->v2 == v2)
 			return se;
@@ -138,7 +115,7 @@ void removedouble_scrverts(bScreen *sc)
 		if (se->v1->newv) se->v1 = se->v1->newv;
 		if (se->v2->newv) se->v2 = se->v2->newv;
 		/* edges changed: so.... */
-		sortscrvert(&(se->v1), &(se->v2));
+		BKE_screen_vert_sort(&(se->v1), &(se->v2));
 		se = se->next;
 	}
 	sa = sc->areabase.first;
@@ -387,11 +364,11 @@ ScrArea *area_split(bScreen *sc, ScrArea *sa, char dir, float fac, int merge)
 		sv2 = BKE_screen_add_vert(sc, sa->v4->vec.x, split);
 		
 		/* new edges */
-		screen_addedge(sc, sa->v1, sv1);
-		screen_addedge(sc, sv1, sa->v2);
-		screen_addedge(sc, sa->v3, sv2);
-		screen_addedge(sc, sv2, sa->v4);
-		screen_addedge(sc, sv1, sv2);
+		BKE_screen_add_edge(sc, sa->v1, sv1);
+		BKE_screen_add_edge(sc, sv1, sa->v2);
+		BKE_screen_add_edge(sc, sa->v3, sv2);
+		BKE_screen_add_edge(sc, sv2, sa->v4);
+		BKE_screen_add_edge(sc, sv1, sv2);
 		
 		if (fac > 0.5f) {
 			/* new areas: top */
@@ -419,11 +396,11 @@ ScrArea *area_split(bScreen *sc, ScrArea *sa, char dir, float fac, int merge)
 		sv2 = BKE_screen_add_vert(sc, split, sa->v2->vec.y);
 		
 		/* new edges */
-		screen_addedge(sc, sa->v1, sv1);
-		screen_addedge(sc, sv1, sa->v4);
-		screen_addedge(sc, sa->v2, sv2);
-		screen_addedge(sc, sv2, sa->v3);
-		screen_addedge(sc, sv1, sv2);
+		BKE_screen_add_edge(sc, sa->v1, sv1);
+		BKE_screen_add_edge(sc, sv1, sa->v4);
+		BKE_screen_add_edge(sc, sa->v2, sv2);
+		BKE_screen_add_edge(sc, sv2, sa->v3);
+		BKE_screen_add_edge(sc, sv1, sv2);
 		
 		if (fac > 0.5f) {
 			/* new areas: right */
@@ -495,16 +472,15 @@ bScreen *screen_add_from_layout_type(WorkSpaceLayoutType *layout_type, short win
 	sc->redraws_flag = TIME_ALL_3D_WIN | TIME_ALL_ANIM_WIN;
 	sc->winid = winid;
 
-	BLI_assert(BLI_listbase_count(vertbase) == 4);
 	sv1 = vertbase->first;
 	sv2 = sv1->next;
 	sv3 = sv2->next;
 	sv4 = sv3->next;
 
-	screen_addedge(sc, sv1, sv2);
-	screen_addedge(sc, sv2, sv3);
-	screen_addedge(sc, sv3, sv4);
-	screen_addedge(sc, sv4, sv1);
+	BKE_screen_add_edge(sc, sv1, sv2);
+	BKE_screen_add_edge(sc, sv2, sv3);
+	BKE_screen_add_edge(sc, sv3, sv4);
+	BKE_screen_add_edge(sc, sv4, sv1);
 
 	/* dummy type, no spacedata */
 	screen_addarea(sc, sv1, sv2, sv3, sv4, HEADERDOWN, SPACE_EMPTY);
@@ -514,47 +490,10 @@ bScreen *screen_add_from_layout_type(WorkSpaceLayoutType *layout_type, short win
 
 void screen_data_copy(bScreen *to, bScreen *from)
 {
-	ScrVert *s1, *s2;
-	ScrEdge *se;
-	ScrArea *sa, *saf;
-	
+	ScreenLayoutData layout_data = BKE_screen_layout_data_get(from);
 	/* free contents of 'to', is from blenkernel screen.c */
 	BKE_screen_free(to);
-	
-	BLI_duplicatelist(&to->vertbase, &from->vertbase);
-	BLI_duplicatelist(&to->edgebase, &from->edgebase);
-	BLI_duplicatelist(&to->areabase, &from->areabase);
-	BLI_listbase_clear(&to->regionbase);
-	
-	s2 = to->vertbase.first;
-	for (s1 = from->vertbase.first; s1; s1 = s1->next, s2 = s2->next) {
-		s1->newv = s2;
-	}
-	
-	for (se = to->edgebase.first; se; se = se->next) {
-		se->v1 = se->v1->newv;
-		se->v2 = se->v2->newv;
-		sortscrvert(&(se->v1), &(se->v2));
-	}
-	
-	saf = from->areabase.first;
-	for (sa = to->areabase.first; sa; sa = sa->next, saf = saf->next) {
-		sa->v1 = sa->v1->newv;
-		sa->v2 = sa->v2->newv;
-		sa->v3 = sa->v3->newv;
-		sa->v4 = sa->v4->newv;
-
-		BLI_listbase_clear(&sa->spacedata);
-		BLI_listbase_clear(&sa->regionbase);
-		BLI_listbase_clear(&sa->actionzones);
-		BLI_listbase_clear(&sa->handlers);
-		
-		BKE_screen_area_data_copy(sa, saf, true);
-	}
-	
-	/* put at zero (needed?) */
-	for (s1 = from->vertbase.first; s1; s1 = s1->next)
-		s1->newv = NULL;
+	BKE_screen_init_from_layout_data(to, &layout_data);
 }
 
 /**
@@ -622,26 +561,26 @@ int screen_area_join(bContext *C, bScreen *scr, ScrArea *sa1, ScrArea *sa2)
 	if (dir == 0) {
 		sa1->v1 = sa2->v1;
 		sa1->v2 = sa2->v2;
-		screen_addedge(scr, sa1->v2, sa1->v3);
-		screen_addedge(scr, sa1->v1, sa1->v4);
+		BKE_screen_add_edge(scr, sa1->v2, sa1->v3);
+		BKE_screen_add_edge(scr, sa1->v1, sa1->v4);
 	}
 	else if (dir == 1) {
 		sa1->v2 = sa2->v2;
 		sa1->v3 = sa2->v3;
-		screen_addedge(scr, sa1->v1, sa1->v2);
-		screen_addedge(scr, sa1->v3, sa1->v4);
+		BKE_screen_add_edge(scr, sa1->v1, sa1->v2);
+		BKE_screen_add_edge(scr, sa1->v3, sa1->v4);
 	}
 	else if (dir == 2) {
 		sa1->v3 = sa2->v3;
 		sa1->v4 = sa2->v4;
-		screen_addedge(scr, sa1->v2, sa1->v3);
-		screen_addedge(scr, sa1->v1, sa1->v4);
+		BKE_screen_add_edge(scr, sa1->v2, sa1->v3);
+		BKE_screen_add_edge(scr, sa1->v1, sa1->v4);
 	}
 	else if (dir == 3) {
 		sa1->v1 = sa2->v1;
 		sa1->v4 = sa2->v4;
-		screen_addedge(scr, sa1->v1, sa1->v2);
-		screen_addedge(scr, sa1->v3, sa1->v4);
+		BKE_screen_add_edge(scr, sa1->v1, sa1->v2);
+		BKE_screen_add_edge(scr, sa1->v3, sa1->v4);
 	}
 	
 	screen_delarea(C, scr, sa2);
@@ -1534,16 +1473,17 @@ ScrArea *ED_screen_state_toggle(bContext *C, wmWindow *win, ScrArea *sa, const s
 	else {
 		/* change from SCREENNORMAL to new state */
 		WorkSpaceLayout *layout_new;
+		ScreenLayoutData layout_data;
 		ScrArea *newa;
 		char newname[MAX_ID_NAME - 2];
 
 		oldscreen = WM_window_get_active_screen(win);
+		layout_data = BKE_screen_layout_data_get(oldscreen);
 
 		oldscreen->state = state;
 		BLI_snprintf(newname, sizeof(newname), "%s-%s", oldscreen->id.name + 2, "nonnormal");
 
-		ED_workspace_layout_add(workspace, &wm->windows, newname, (ScreenLayoutData) {
-		                            .vertbase = oldscreen->vertbase, .areabase = oldscreen->areabase});
+		ED_workspace_layout_add(workspace, &wm->windows, newname, layout_data);
 		layout_new = BKE_workspace_active_layout_get(workspace);
 
 		sc = BKE_workspace_layout_screen_get(layout_new);

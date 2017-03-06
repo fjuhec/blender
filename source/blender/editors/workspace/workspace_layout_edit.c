@@ -67,6 +67,7 @@ WorkSpaceLayout *ED_workspace_layout_duplicate(WorkSpace *workspace, const WorkS
                                                wmWindowManager *wm)
 {
 	bScreen *screen_old = BKE_workspace_layout_screen_get(layout_old);
+	ScreenLayoutData layout_data = BKE_screen_layout_data_get(screen_old);
 	bScreen *screen_new;
 	WorkSpaceLayout *layout_new;
 
@@ -74,8 +75,7 @@ WorkSpaceLayout *ED_workspace_layout_duplicate(WorkSpace *workspace, const WorkS
 		return NULL; /* XXX handle this case! */
 	}
 
-	ED_workspace_layout_add(workspace, &wm->windows, screen_old->id.name + 2, (ScreenLayoutData) {
-	                        .vertbase = screen_old->vertbase, .areabase = screen_old->areabase});
+	ED_workspace_layout_add(workspace, &wm->windows, screen_old->id.name + 2, layout_data);
 	layout_new = BKE_workspace_active_layout_get(workspace);
 	screen_new = BKE_workspace_layout_screen_get(layout_new);
 	screen_data_copy(screen_new, screen_old);

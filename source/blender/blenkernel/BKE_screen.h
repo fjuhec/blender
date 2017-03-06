@@ -41,7 +41,6 @@ struct Menu;
 struct Panel;
 struct Scene;
 struct ScrArea;
-struct ScreenLayoutData;
 struct SpaceType;
 struct TransformOrientation;
 struct View3D;
@@ -313,6 +312,7 @@ void BKE_screen_view3d_scene_sync(struct bScreen *sc, struct Scene *scene);
 void BKE_screen_transform_orientation_remove(const struct bScreen *screen,
                                              const struct TransformOrientation *orientation) ATTR_NONNULL();
 void BKE_screen_gpu_fx_validate(struct GPUFXSettings *fx_settings);
+struct ScreenLayoutData BKE_screen_layout_data_get(const struct bScreen *screen);
 bool BKE_screen_is_fullscreen_area(const struct bScreen *screen) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 bool BKE_screen_is_used(const struct bScreen *screen) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 
@@ -322,9 +322,12 @@ float BKE_screen_view3d_zoom_from_fac(float zoomfac);
 
 /* screen */
 void BKE_screen_free(struct bScreen *sc);
+void BKE_screen_init_from_layout_data(struct bScreen *screen, const struct ScreenLayoutData *layout_data) ATTR_NONNULL();
 struct bScreen *BKE_screen_create_from_layout_data(
         struct Main *bmain, const struct ScreenLayoutData *layout_data, const char *name) ATTR_NONNULL();
 struct ScrVert *BKE_screen_add_vert(struct bScreen *sc, short x, short y);
+struct ScrEdge *BKE_screen_add_edge(struct bScreen *sc, struct ScrVert *v1, struct ScrVert *v2);
+void            BKE_screen_vert_sort(struct ScrVert **v1, struct ScrVert **v2);
 unsigned int BKE_screen_visible_layers(struct bScreen *screen, struct Scene *scene);
 
 #endif

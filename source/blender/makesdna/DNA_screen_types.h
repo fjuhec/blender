@@ -52,6 +52,7 @@ struct wmTimer;
 */
 typedef struct ScreenLayoutData {
 	ListBase vertbase; /* screens have vertices/edges to define areas */
+	ListBase edgebase;
 	ListBase areabase;
 } ScreenLayoutData;
 

@@ -985,6 +985,7 @@ static int area_dupli_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 	WorkSpace *workspace_old = WM_window_get_active_workspace(win);
 	WorkSpace *workspace_new;
 	WorkSpaceLayout *layout_new;
+	ScreenLayoutData layout_data;
 	bScreen *newsc, *sc;
 	ScrArea *sa;
 	rcti rect;
@@ -993,7 +994,8 @@ static int area_dupli_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 	scene = CTX_data_scene(C);
 	sc = CTX_wm_screen(C);
 	sa = CTX_wm_area(C);
-	
+	layout_data = BKE_screen_layout_data_get(sc);
+
 	/* XXX hrmf! */
 	if (event->type == EVT_ACTIONZONE_AREA) {
 		sActionzoneData *sad = event->customdata;
@@ -1025,8 +1027,7 @@ static int area_dupli_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 	WM_window_set_active_workspace(newwin, workspace_new);
 
 	/* allocs new screen and adds to newly created window, using window size */
-	ED_workspace_layout_add(workspace_new, &wm->windows, sc->id.name + 2, (ScreenLayoutData) {
-	                            .vertbase = sc->vertbase, .areabase = sc->areabase});
+	ED_workspace_layout_add(workspace_new, &wm->windows, sc->id.name + 2, layout_data);
 	layout_new = BKE_workspace_active_layout_get(workspace_new);
 	newsc = BKE_workspace_layout_screen_get(layout_new);
 	WM_window_set_active_layout(newwin, layout_new);

@@ -156,10 +156,7 @@ void BKE_workspace_hook_delete(Main *bmain, WorkSpaceHook *hook)
 void BKE_workspace_change_prepare(Main *bmain, WorkSpaceHook *workspace_hook, WorkSpace *workspace_new)
 {
 	for (WorkSpaceLayoutType *type = workspace_new->layout_types.first; type; type = type->next) {
-		bScreen *screen = BKE_screen_create_from_layout_data(bmain, &(const ScreenLayoutData) {
-		                                                         .vertbase = type->layout_blueprint.vertbase,
-		                                                         .areabase = type->layout_blueprint.areabase},
-		                                                     type->name);
+		bScreen *screen = BKE_screen_create_from_layout_data(bmain, &type->layout_blueprint, type->name);
 		WorkSpaceLayout *layout = BKE_workspace_layout_add_from_type(workspace_new, type, screen);
 
 		BLI_addtail(&workspace_hook->layouts, layout);

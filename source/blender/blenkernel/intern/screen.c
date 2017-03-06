@@ -439,28 +439,50 @@ void BKE_screen_free(bScreen *sc)
 	BKE_previewimg_free(&sc->preview);
 }
 
+void BKE_screen_init_from_layout_data(bScreen *screen, const ScreenLayoutData *layout_data)
+{
+	BLI_duplicatelist(&screen->vertbase, &layout_data->vertbase);
+	BLI_duplicatelist(&screen->edgebase, &layout_data->edgebase);
+	BLI_duplicatelist(&screen->areabase, &layout_data->areabase);
+
+	for (ScrVert *sv1 = layout_data->vertbase.first, *se2 = screen->vertbase.first;
+	     sv1 != NULL;
+	     sv1 = sv1->next, se2 = se2->next)
+	{
+		sv1->newv = se2;
+	}
+
+	for (ScrEdge *se = screen->edgebase.first; se; se = se->next) {
+		se->v1 = se->v1->newv;
+		se->v2 = se->v2->newv;
+		BKE_screen_vert_sort(&(se->v1), &(se->v2));
+	}
+
+	for (ScrArea *sa = screen->areabase.first, *saf = layout_data->areabase.first; sa; sa = sa->next, saf = saf->next) {
+		sa->v1 = sa->v1->newv;
+		sa->v2 = sa->v2->newv;
+		sa->v3 = sa->v3->newv;
+		sa->v4 = sa->v4->newv;
+
+		BLI_listbase_clear(&sa->spacedata);
+		BLI_listbase_clear(&sa->regionbase);
+		BLI_listbase_clear(&sa->actionzones);
+		BLI_listbase_clear(&sa->handlers);
+
+		BKE_screen_area_data_copy(sa, saf, true);
+	}
+
+	/* put at zero (needed?) */
+	for (ScrVert *sv = layout_data->vertbase.first; sv; sv = sv->next) {
+		sv->newv = NULL;
+	}
+}
+
 bScreen *BKE_screen_create_from_layout_data(
         struct Main *bmain, const ScreenLayoutData *layout_data, const char *name)
 {
 	bScreen *screen = BKE_libblock_alloc(bmain, ID_SCR, name);
-
-	for (ScrVert *sv = layout_data->vertbase.first; sv; sv = sv->next) {
-		ScrVert *sv_new = MEM_callocN(sizeof(ScrVert), "workspace_change_add_screenvert");
-		*sv_new = *sv;
-		BLI_addtail(&screen->vertbase, sv_new);
-	}
-	for (ScrArea *sa = layout_data->areabase.first; sa; sa = sa->next) {
-		ScrArea *sa_new = MEM_callocN(sizeof(ScrArea), "workspace_change_add_screenarea");
-
-		sa_new->v1 = BKE_screen_add_vert(screen, sa->v1->vec.x, sa->v1->vec.y);
-		sa_new->v2 = BKE_screen_add_vert(screen, sa->v2->vec.x, sa->v2->vec.y);
-		sa_new->v3 = BKE_screen_add_vert(screen, sa->v3->vec.x, sa->v3->vec.y);
-		sa_new->v4 = BKE_screen_add_vert(screen, sa->v4->vec.x, sa->v4->vec.y);
-
-		BKE_screen_area_data_copy(sa_new, sa, false);
-		BLI_addtail(&screen->areabase, sa_new);
-	}
-
+	BKE_screen_init_from_layout_data(screen, layout_data);
 	return screen;
 }
 
@@ -473,6 +495,29 @@ ScrVert *BKE_screen_add_vert(bScreen *sc, short x, short y)
 	BLI_addtail(&sc->vertbase, sv);
 
 	return sv;
+}
+
+ScrEdge *BKE_screen_add_edge(bScreen *sc, ScrVert *v1, ScrVert *v2)
+{
+	ScrEdge *se = MEM_callocN(sizeof(ScrEdge), "addscredge");
+
+	BKE_screen_vert_sort(&v1, &v2);
+	se->v1 = v1;
+	se->v2 = v2;
+	BLI_addtail(&sc->edgebase, se);
+
+	return se;
+}
+
+void BKE_screen_vert_sort(ScrVert **v1, ScrVert **v2)
+{
+	ScrVert *tmp;
+
+	if (*v1 > *v2) {
+		tmp = *v1;
+		*v1 = *v2;
+		*v2 = tmp;
+	}
 }
 
 /* for depsgraph */
@@ -743,6 +788,17 @@ void BKE_screen_gpu_fx_validate(GPUFXSettings *fx_settings)
 
 		GPU_fx_compositor_init_ssao_settings(fx_ssao);
 	}
+}
+
+ScreenLayoutData BKE_screen_layout_data_get(const bScreen *screen)
+{
+	ScreenLayoutData layout_data = {
+	    .vertbase = screen->vertbase,
+	    .edgebase = screen->edgebase,
+	    .areabase = screen->areabase,
+	};
+
+	return layout_data;
 }
 
 bool BKE_screen_is_fullscreen_area(const bScreen *screen)
