@@ -3697,14 +3697,12 @@ static void view3d_hmd_view_get_matrices(
 	}
 	else {
 		const float shiftx = WM_device_HMD_lens_horizontal_separation_get();
-		const float ipd = WM_device_HMD_IPD_get();
+
+		WM_device_HMD_projection_matrix_get(is_left, r_projectionmat);
 
 		copy_m4_m4(r_modelviewmat, rv3d->viewmat);
-		copy_m4_m4(r_projectionmat, rv3d->winmat);
-
 		/* apply ipd and lens shift */
 		r_modelviewmat[3][0]  += (shiftx * 0.5f) * (is_left ? 1.0f : -1.0f);
-		r_projectionmat[3][0] += (ipd    * 0.5f) * (is_left ? 1.0f : -1.0f);
 	}
 }
 
