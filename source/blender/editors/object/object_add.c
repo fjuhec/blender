@@ -2067,6 +2067,10 @@ static Base *object_add_duplicate_internal(Main *bmain, Scene *scene, SceneLayer
 				}
 			}
 		}
+		/* duplicate grease pencil data for OB_GPENCIL */
+		if ((dupflag != 0) && (obn->type == OB_GPENCIL)) {
+			obn->gpd = BKE_gpencil_data_duplicate(bmain, obn->gpd, false);
+		}
 
 		id = obn->data;
 		didit = 0;
