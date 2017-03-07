@@ -110,9 +110,7 @@
 #include "view3d_intern.h"  /* bad level include */
 
 /* prototypes */
-#ifdef WITH_GAMEENGINE
 static void imm_draw_box(const float vec[8][3], bool solid, unsigned pos);
-#endif
 
 /* Workaround for sequencer scene render mode.
  *
@@ -4251,7 +4249,7 @@ static void draw_mesh_fancy(Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v
 
 	if (dt == OB_BOUNDBOX) {
 		if (((v3d->flag2 & V3D_RENDER_OVERRIDE) && v3d->drawtype >= OB_WIRE) == 0)
-			draw_bounding_volume(ob, ob->boundtype);
+			draw_bounding_volume(ob, ob->boundtype, ob_wire_col);
 	}
 	else if ((no_faces && no_edges) ||
 	         ((!is_obact || (ob->mode == OB_MODE_OBJECT)) && object_is_halo(scene, ob)))
@@ -4672,7 +4670,7 @@ static void draw_mesh_fancy_new(Scene *scene, SceneLayer *sl, ARegion *ar, View3
 
 	if (dt == OB_BOUNDBOX) {
 		if (((v3d->flag2 & V3D_RENDER_OVERRIDE) && v3d->drawtype >= OB_WIRE) == 0)
-			draw_bounding_volume(ob, ob->boundtype);
+			draw_bounding_volume(ob, ob->boundtype, ob_wire_col);
 	}
 	else if ((no_faces && no_edges) ||
 	         ((!is_obact || (ob->mode == OB_MODE_OBJECT)) && object_is_halo(scene, ob)))
@@ -7773,7 +7771,6 @@ static void draw_box(const float vec[8][3], bool solid)
 	glDisableClientState(GL_VERTEX_ARRAY);
 }
 
-#ifdef WITH_GAMEENGINE
 static void imm_draw_box(const float vec[8][3], bool solid, unsigned pos)
 {
 	static const GLubyte quad_indices[24] = {0,1,2,3,7,6,5,4,4,5,1,0,3,2,6,7,3,7,4,0,1,5,6,2};
@@ -7797,14 +7794,13 @@ static void imm_draw_box(const float vec[8][3], bool solid, unsigned pos)
 	}
 	immEnd();
 }
-#endif
 
-static void draw_bb_quadric(BoundBox *bb, char type, bool around_origin)
+static void imm_draw_bb(BoundBox *bb, char type, bool around_origin, const unsigned char ob_wire_col[4])
 {
 	float size[3], cent[3];
-	GLUquadricObj *qobj = gluNewQuadric();
-	
-	gluQuadricDrawStyle(qobj, GLU_SILHOUETTE);
+	Batch *sphere = Batch_get_sphere_wire(0);
+	Batch_set_builtin_program(sphere, GPU_SHADER_3D_UNIFORM_COLOR);
+	if (ob_wire_col) Batch_Uniform4f(sphere, "color", ob_wire_col[0]/255.0f, ob_wire_col[1]/255.0f, ob_wire_col[2]/255.0f, 1.0f);
 	
 	BKE_boundbox_calc_size_aabb(bb, size);
 
@@ -7815,40 +7811,53 @@ static void draw_bb_quadric(BoundBox *bb, char type, bool around_origin)
 		BKE_boundbox_calc_center_aabb(bb, cent);
 	}
 	
-	glPushMatrix();
+	gpuMatrixBegin3D_legacy();
+	gpuPushMatrix();
+
+	unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+	if (ob_wire_col) immUniformColor3ubv(ob_wire_col);
+
 	if (type == OB_BOUND_SPHERE) {
 		float scale = MAX3(size[0], size[1], size[2]);
-		glTranslate3fv(cent);
-		glScalef(scale, scale, scale);
-		gluSphere(qobj, 1.0, 8, 5);
+		gpuTranslate3fv(cent);
+		gpuRotateAxis(90, 'X');
+		gpuScaleUniform(scale);
+		Batch_draw(sphere);
 	}
 	else if (type == OB_BOUND_CYLINDER) {
 		float radius = size[0] > size[1] ? size[0] : size[1];
-		glTranslatef(cent[0], cent[1], cent[2] - size[2]);
-		glScalef(radius, radius, 2.0f * size[2]);
-		gluCylinder(qobj, 1.0, 1.0, 1.0, 8, 1);
+		gpuTranslate3f(cent[0], cent[1], cent[2] - size[2]);
+		gpuScale3f(radius, radius, 2.0f * size[2]);
+		imm_cylinder_wire(pos, 1.0f, 1.0f, 1.0f, 8, 1);
 	}
 	else if (type == OB_BOUND_CONE) {
 		float radius = size[0] > size[1] ? size[0] : size[1];
-		glTranslatef(cent[0], cent[1], cent[2] - size[2]);
-		glScalef(radius, radius, 2.0f * size[2]);
-		gluCylinder(qobj, 1.0, 0.0, 1.0, 8, 1);
+		gpuTranslate3f(cent[0], cent[1], cent[2] - size[2]);
+		gpuScale3f(radius, radius, 2.0f * size[2]);
+		imm_cylinder_wire(pos, 1.0f, 0.0f, 1.0f, 8, 1);
+
 	}
 	else if (type == OB_BOUND_CAPSULE) {
 		float radius = size[0] > size[1] ? size[0] : size[1];
 		float length = size[2] > radius ? 2.0f * (size[2] - radius) : 0.0f;
-		glTranslatef(cent[0], cent[1], cent[2] - length * 0.5f);
-		gluCylinder(qobj, radius, radius, length, 8, 1);
-		gluSphere(qobj, radius, 8, 4);
-		glTranslatef(0.0, 0.0, length);
-		gluSphere(qobj, radius, 8, 4);
+		gpuTranslate3f(cent[0], cent[1], cent[2] - length * 0.5f);
+		imm_cylinder_wire(pos, radius, radius, length, 8, 1);
+
+		gpuRotateAxis(90, 'X');
+		gpuScaleUniform(radius);
+		Batch_draw(sphere);
+
+		gpuTranslate3f(0.0f, length / radius, 0.0f);
+		Batch_draw(sphere);
 	}
-	glPopMatrix();
-	
-	gluDeleteQuadric(qobj);
+	gpuPopMatrix();
+	gpuMatrixEnd();
+
+	immUnbindProgram();
 }
 
-void draw_bounding_volume(Object *ob, char type)
+void draw_bounding_volume(Object *ob, char type, const unsigned char ob_wire_col[4])
 {
 	BoundBox  bb_local;
 	BoundBox *bb = NULL;
@@ -7878,12 +7887,16 @@ void draw_bounding_volume(Object *ob, char type)
 	
 	if (bb == NULL)
 		return;
-	
+
 	if (ob->gameflag & OB_BOUNDS) { /* bounds need to be drawn around origin for game engine */
 
 		if (type == OB_BOUND_BOX) {
 			float vec[8][3], size[3];
-			
+
+			unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+			immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+			if (ob_wire_col) immUniformColor3ubv(ob_wire_col);
+
 			BKE_boundbox_calc_size_aabb(bb, size);
 			
 			vec[0][0] = vec[1][0] = vec[2][0] = vec[3][0] = -size[0];
@@ -7893,18 +7906,28 @@ void draw_bounding_volume(Object *ob, char type)
 			vec[0][2] = vec[3][2] = vec[4][2] = vec[7][2] = -size[2];
 			vec[1][2] = vec[2][2] = vec[5][2] = vec[6][2] = +size[2];
 			
-			draw_box(vec, false);
+			imm_draw_box(vec, false, pos);
+
+			immUnbindProgram();
 		}
 		else {
-			draw_bb_quadric(bb, type, true);
+			imm_draw_bb(bb, type, true, ob_wire_col);
 		}
 	}
 	else {
-		if (type == OB_BOUND_BOX)
-			draw_box(bb->vec, false);
+		if (type == OB_BOUND_BOX) {
+			unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+			immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+			if (ob_wire_col) immUniformColor3ubv(ob_wire_col);
+
+			imm_draw_box(bb->vec, false, pos);
+
+			immUnbindProgram();
+		}
 		else
-			draw_bb_quadric(bb, type, false);
+			imm_draw_bb(bb, type, false, ob_wire_col);
 	}
+
 }
 
 static void drawtexspace(Object *ob)
@@ -8037,7 +8060,7 @@ static void draw_wire_extra(Scene *scene, RegionView3D *rv3d, Object *ob, const 
 }
 
 /* should be called in view space */
-static void draw_hooks(Object *ob)
+static void draw_hooks(Object *ob, unsigned int pos)
 {
 	for (ModifierData *md = ob->modifiers.first; md; md = md->next) {
 		if (md->type == eModifierType_Hook) {
@@ -8048,17 +8071,17 @@ static void draw_hooks(Object *ob)
 
 			if (hmd->object) {
 				setlinestyle(3);
-				glBegin(GL_LINES);
-				glVertex3fv(hmd->object->obmat[3]);
-				glVertex3fv(vec);
-				glEnd();
+				immBegin(GL_LINES, 2);
+				immVertex3fv(pos, hmd->object->obmat[3]);
+				immVertex3fv(pos, vec);
+				immEnd();
 				setlinestyle(0);
 			}
 
 			glPointSize(3.0f);
-			glBegin(GL_POINTS);
-			glVertex3fv(vec);
-			glEnd();
+			immBegin(GL_POINTS, 1);
+			immVertex3fv(pos, vec);
+			immEnd();
 		}
 	}
 }
@@ -8191,7 +8214,7 @@ static void draw_object_matcap_check(View3D *v3d, Object *ob)
 	v3d->flag2 |= V3D_SHOW_SOLID_MATCAP;
 }
 
-void draw_rigidbody_shape(Object *ob)
+void draw_rigidbody_shape(Object *ob, const unsigned char ob_wire_col[4])
 {
 	BoundBox *bb = NULL;
 	float size[3], vec[8][3];
@@ -8217,16 +8240,16 @@ void draw_rigidbody_shape(Object *ob)
 			draw_box(vec, false);
 			break;
 		case RB_SHAPE_SPHERE:
-			draw_bb_quadric(bb, OB_BOUND_SPHERE, true);
+			imm_draw_bb(bb, OB_BOUND_SPHERE, true, ob_wire_col);
 			break;
 		case RB_SHAPE_CONE:
-			draw_bb_quadric(bb, OB_BOUND_CONE, true);
+			imm_draw_bb(bb, OB_BOUND_CONE, true, ob_wire_col);
 			break;
 		case RB_SHAPE_CYLINDER:
-			draw_bb_quadric(bb, OB_BOUND_CYLINDER, true);
+			imm_draw_bb(bb, OB_BOUND_CYLINDER, true, ob_wire_col);
 			break;
 		case RB_SHAPE_CAPSULE:
-			draw_bb_quadric(bb, OB_BOUND_CAPSULE, true);
+			imm_draw_bb(bb, OB_BOUND_CAPSULE, true, ob_wire_col);
 			break;
 	}
 }
@@ -8456,7 +8479,7 @@ void draw_object(Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d, Base *b
 #ifdef SEQUENCER_DAG_WORKAROUND
 						ensure_curve_cache(scene, base->object);
 #endif
-						draw_bounding_volume(ob, ob->boundtype);
+						draw_bounding_volume(ob, ob->boundtype, ob_wire_col);
 					}
 				}
 				else if (ED_view3d_boundbox_clip(rv3d, ob->bb)) {
@@ -8477,7 +8500,7 @@ void draw_object(Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d, Base *b
 #ifdef SEQUENCER_DAG_WORKAROUND
 						ensure_curve_cache(scene, base->object);
 #endif
-						draw_bounding_volume(ob, ob->boundtype);
+						draw_bounding_volume(ob, ob->boundtype, ob_wire_col);
 					}
 				}
 				else if (ED_view3d_boundbox_clip(rv3d, ob->bb)) {
@@ -8495,7 +8518,7 @@ void draw_object(Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d, Base *b
 #ifdef SEQUENCER_DAG_WORKAROUND
 						ensure_curve_cache(scene, base->object);
 #endif
-						draw_bounding_volume(ob, ob->boundtype);
+						draw_bounding_volume(ob, ob->boundtype, ob_wire_col);
 					}
 				}
 				else
@@ -8539,7 +8562,7 @@ void draw_object(Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d, Base *b
 					if ((dt == OB_BOUNDBOX) && (ob->mode & OB_MODE_EDIT))
 						dt = OB_WIRE;
 					if (dt == OB_BOUNDBOX) {
-						draw_bounding_volume(ob, ob->boundtype);
+						draw_bounding_volume(ob, ob->boundtype, ob_wire_col);
 					}
 					else {
 #ifdef SEQUENCER_DAG_WORKAROUND
@@ -8555,7 +8578,7 @@ void draw_object(Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d, Base *b
 					if ((dt == OB_BOUNDBOX) && (ob->mode & (OB_MODE_EDIT | OB_MODE_POSE)))
 						dt = OB_WIRE;
 					if (dt == OB_BOUNDBOX) {
-						draw_bounding_volume(ob, ob->boundtype);
+						draw_bounding_volume(ob, ob->boundtype, ob_wire_col);
 					}
 					else {
 						unsigned char arm_col[4];
@@ -8748,12 +8771,12 @@ afterdraw:
 		if ((ob->gameflag & OB_BOUNDS) && (ob->mode == OB_MODE_OBJECT)) {
 			if (ob->boundtype != ob->collision_boundtype || (dtx & OB_DRAWBOUNDOX) == 0) {
 				setlinestyle(2);
-				draw_bounding_volume(ob, ob->collision_boundtype);
+				draw_bounding_volume(ob, ob->collision_boundtype, ob_wire_col);
 				setlinestyle(0);
 			}
 		}
 		if (ob->rigidbody_object) {
-			draw_rigidbody_shape(ob);
+			draw_rigidbody_shape(ob, ob_wire_col);
 		}
 
 		/* draw extra: after normal draw because of makeDispList */
@@ -8769,7 +8792,7 @@ afterdraw:
 				}
 			}
 			if (dtx & OB_DRAWBOUNDOX) {
-				draw_bounding_volume(ob, ob->boundtype);
+				draw_bounding_volume(ob, ob->boundtype, ob_wire_col);
 			}
 			if (dtx & OB_TEXSPACE) {
 				if ((dflag & DRAW_CONSTCOLOR) == 0) {
@@ -8803,16 +8826,21 @@ afterdraw:
 		{
 			float imat[4][4], vec[3] = {0.0f, 0.0f, 0.0f};
 
+			unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+			immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+
 			invert_m4_m4(imat, rv3d->viewmatob);
 
 			if ((dflag & DRAW_CONSTCOLOR) == 0) {
 				/* prevent random colors being used */
-				glColor3ubv(ob_wire_col);
+				immUniformColor3ubv(ob_wire_col);
 			}
 
 			setlinestyle(2);
-			drawcircball(GL_LINE_LOOP, vec, ob->inertia, imat);
+			imm_drawcircball(vec, ob->inertia, imat, pos);
 			setlinestyle(0);
+
+			immUnbindProgram();
 		}
 	}
 	
@@ -8882,17 +8910,21 @@ afterdraw:
 		ListBase *list;
 		RigidBodyCon *rbc = ob->rigidbody_constraint;
 		
+		unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+		immUniformColor3ubv(ob_wire_col);
+
 		/* draw hook center and offset line */
 		if (ob != scene->obedit)
-			draw_hooks(ob);
+			draw_hooks(ob, pos);
 
 		/* help lines and so */
 		if (ob != scene->obedit && ob->parent && (ob->parent->lay & v3d->lay)) {
 			setlinestyle(3);
-			glBegin(GL_LINES);
-			glVertex3fv(ob->obmat[3]);
-			glVertex3fv(ob->orig);
-			glEnd();
+			immBegin(GL_LINES, 2);
+			immVertex3fv(pos, ob->obmat[3]);
+			immVertex3fv(pos, ob->orig);
+			immEnd();
 			setlinestyle(0);
 		}
 
@@ -8906,7 +8938,7 @@ afterdraw:
 			
 			UI_GetThemeColor3ubv(TH_GRID, col1);
 			UI_make_axis_color(col1, col2, 'Z');
-			glColor3ubv(col2);
+			immUniformColor3ubv(col2);
 			
 			cob = BKE_constraints_make_evalob(scene, ob, NULL, CONSTRAINT_OBTYPE_OBJECT);
 			
@@ -8931,10 +8963,10 @@ afterdraw:
 
 					if (camob) {
 						setlinestyle(3);
-						glBegin(GL_LINES);
-						glVertex3fv(camob->obmat[3]);
-						glVertex3fv(ob->obmat[3]);
-						glEnd();
+						immBegin(GL_LINES, 2);
+						immVertex3fv(pos, camob->obmat[3]);
+						immVertex3fv(pos, ob->obmat[3]);
+						immEnd();
 						setlinestyle(0);
 					}
 				}
@@ -8955,10 +8987,10 @@ afterdraw:
 								unit_m4(ct->matrix);
 
 							setlinestyle(3);
-							glBegin(GL_LINES);
-							glVertex3fv(ct->matrix[3]);
-							glVertex3fv(ob->obmat[3]);
-							glEnd();
+							immBegin(GL_LINES, 2);
+							immVertex3fv(pos, ct->matrix[3]);
+							immVertex3fv(pos, ob->obmat[3]);
+							immEnd();
 							setlinestyle(0);
 						}
 
@@ -8971,21 +9003,24 @@ afterdraw:
 			BKE_constraints_clear_evalob(cob);
 		}
 		/* draw rigid body constraint lines */
-		if (rbc) {
-			UI_ThemeColor(TH_WIRE);
+		if (rbc && (rbc->ob1 || rbc->ob2)) {
+			immUniformThemeColor(TH_WIRE);
+
 			setlinestyle(3);
-			glBegin(GL_LINES);
+			immBegin(GL_LINES, ((int)((bool)rbc->ob1) + (int)((bool)rbc->ob2)) * 2);
 			if (rbc->ob1) {
-				glVertex3fv(ob->obmat[3]);
-				glVertex3fv(rbc->ob1->obmat[3]);
+				immVertex3fv(pos, ob->obmat[3]);
+				immVertex3fv(pos, rbc->ob1->obmat[3]);
 			}
 			if (rbc->ob2) {
-				glVertex3fv(ob->obmat[3]);
-				glVertex3fv(rbc->ob2->obmat[3]);
+				immVertex3fv(pos, ob->obmat[3]);
+				immVertex3fv(pos, rbc->ob2->obmat[3]);
 			}
-			glEnd();
+			immEnd();
 			setlinestyle(0);
 		}
+
+		immUnbindProgram();
 	}
 
 	ED_view3d_clear_mats_rv3d(rv3d);

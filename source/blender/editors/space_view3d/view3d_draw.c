@@ -62,6 +62,8 @@
 
 #include "ED_keyframing.h"
 #include "ED_armature.h"
+#include "ED_keyframing.h"
+#include "ED_gpencil.h"
 #include "ED_screen.h"
 #include "ED_transform.h"
 #include "ED_gpencil.h"
@@ -1659,8 +1661,6 @@ static void draw_view_axis(RegionView3D *rv3d, rcti *rect)
 		BLF_color4ubv(BLF_default(), axis_col[i]);
 		BLF_draw_default_ascii(axis_pos[i][0] + 2, axis_pos[i][1] + 2, 0.0f, axis_text, 1);
 	}
-
-	/* BLF_draw disabled blending for us */
 }
 
 #ifdef WITH_INPUT_NDOF
@@ -1799,7 +1799,7 @@ RegionView3D *rv3d, const bool is_boundingbox, const unsigned char color[4])
 		case OB_SURF:
 		case OB_MBALL:
 			if (is_boundingbox) {
-				draw_bounding_volume(ob, ob->boundtype);
+				draw_bounding_volume(ob, ob->boundtype, color);
 			}
 			break;
 		case OB_EMPTY:
@@ -1829,7 +1829,7 @@ RegionView3D *rv3d, const bool is_boundingbox, const unsigned char color[4])
 	}
 
 	if (ob->rigidbody_object) {
-		draw_rigidbody_shape(ob);
+		draw_rigidbody_shape(ob, color);
 	}
 
 	ED_view3d_clear_mats_rv3d(rv3d);
