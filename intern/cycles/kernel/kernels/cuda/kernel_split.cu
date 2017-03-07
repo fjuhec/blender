@@ -25,6 +25,7 @@
 
 #include "../../split/kernel_split_common.h"
 #include "../../split/kernel_data_init.h"
+#include "../../split/kernel_path_init.h"
 #include "../../split/kernel_scene_intersect.h"
 #include "../../split/kernel_lamp_emission.h"
 #include "../../split/kernel_queue_enqueue.h"
@@ -34,17 +35,22 @@
 #include "../../split/kernel_direct_lighting.h"
 #include "../../split/kernel_shadow_blocked.h"
 #include "../../split/kernel_next_iteration_setup.h"
-#include "../../split/kernel_sum_all_radiance.h"
 
 #include "../../kernel_film.h"
 
 /* kernels */
-
 extern "C" __global__ void
 CUDA_LAUNCH_BOUNDS(CUDA_THREADS_BLOCK_WIDTH, CUDA_KERNEL_MAX_REGISTERS)
 kernel_cuda_state_buffer_size(uint num_threads, uint *size)
 {
 	*size = split_data_buffer_size(NULL, num_threads);
+}
+
+extern "C" __global__ void
+CUDA_LAUNCH_BOUNDS(CUDA_THREADS_BLOCK_WIDTH, CUDA_KERNEL_MAX_REGISTERS)
+kernel_cuda_path_init()
+{
+	kernel_path_init(NULL);
 }
 
 extern "C" __global__ void
@@ -57,17 +63,11 @@ kernel_cuda_path_trace_data_init(
         int start_sample,
         int end_sample,
         int sx, int sy, int sw, int sh, int offset, int stride,
-        int rng_state_offset_x,
-        int rng_state_offset_y,
-        int rng_state_stride,
         ccl_global int *Queue_index,
         int queuesize,
         ccl_global char *use_queues_flag,
         ccl_global unsigned int *work_pool_wgs,
         unsigned int num_samples,
-        int buffer_offset_x,
-        int buffer_offset_y,
-        int buffer_stride,
         ccl_global float *buffer)
 {
 	kernel_data_init(NULL,
@@ -79,17 +79,11 @@ kernel_cuda_path_trace_data_init(
 	                 start_sample,
 	                 end_sample,
 	                 sx, sy, sw, sh, offset, stride,
-	                 rng_state_offset_x,
-	                 rng_state_offset_y,
-	                 rng_state_stride,
 	                 Queue_index,
 	                 queuesize,
 	                 use_queues_flag,
 	                 work_pool_wgs,
 	                 num_samples,
-	                 buffer_offset_x,
-	                 buffer_offset_y,
-	                 buffer_stride,
 	                 buffer);
 }
 
