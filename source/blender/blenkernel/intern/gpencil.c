@@ -780,15 +780,6 @@ bGPdata *BKE_gpencil_data_duplicate(Main *bmain, bGPdata *gpd_src, bool internal
 		gpl_dst = BKE_gpencil_layer_duplicate(gpl_src);
 		BLI_addtail(&gpd_dst->layers, gpl_dst);
 	}
-	if (!internal_copy) {
-		/* copy palettes */
-		bGPDpalette *palette_src, *palette_dst;
-		BLI_listbase_clear(&gpd_dst->palettes);
-		for (palette_src = gpd_src->palettes.first; palette_src; palette_src = palette_src->next) {
-			palette_dst = BKE_gpencil_palette_duplicate(palette_src);
-			BLI_addtail(&gpd_dst->palettes, palette_dst);
-		}
-	}
 	
 	/* return new */
 	return gpd_dst;
