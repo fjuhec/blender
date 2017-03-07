@@ -116,7 +116,7 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 
 static bool is_brush_cb(Object *UNUSED(ob), ModifierData *pmd)
 {
-	return ((DynamicPaintModifierData*)pmd)->brush != NULL;
+	return ((DynamicPaintModifierData *)pmd)->brush != NULL;
 }
 
 static void updateDepgraph(ModifierData *md, DagForest *forest,
@@ -181,15 +181,15 @@ static void foreachIDLink(ModifierData *md, Object *ob,
 		DynamicPaintSurface *surface = pmd->canvas->surfaces.first;
 
 		for (; surface; surface = surface->next) {
-			walk(userData, ob, (ID **)&surface->brush_group, IDWALK_NOP);
-			walk(userData, ob, (ID **)&surface->init_texture, IDWALK_USER);
+			walk(userData, ob, (ID **)&surface->brush_group, IDWALK_CB_NOP);
+			walk(userData, ob, (ID **)&surface->init_texture, IDWALK_CB_USER);
 			if (surface->effector_weights) {
-				walk(userData, ob, (ID **)&surface->effector_weights->group, IDWALK_NOP);
+				walk(userData, ob, (ID **)&surface->effector_weights->group, IDWALK_CB_NOP);
 			}
 		}
 	}
 	if (pmd->brush) {
-		walk(userData, ob, (ID **)&pmd->brush->mat, IDWALK_USER);
+		walk(userData, ob, (ID **)&pmd->brush->mat, IDWALK_CB_USER);
 	}
 }
 
