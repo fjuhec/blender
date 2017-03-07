@@ -122,8 +122,7 @@ bool ED_workspace_change(bContext *C, wmWindowManager *wm, wmWindow *win, WorkSp
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
-	WorkSpace *workspace_old = WM_window_get_active_workspace(win);
-	bScreen *screen_old = BKE_workspace_active_screen_get(workspace_old);
+	bScreen *screen_old = BKE_workspace_hook_active_screen_get(win->workspace_hook);
 	bScreen *screen_new;
 
 	BKE_workspace_change_prepare(bmain, win->workspace_hook, workspace_new);
@@ -131,6 +130,8 @@ bool ED_workspace_change(bContext *C, wmWindowManager *wm, wmWindow *win, WorkSp
 	screen_new = screen_change_prepare(screen_old, screen_new, bmain, C, win);
 
 	if (screen_new) {
+		WorkSpace *workspace_old = WM_window_get_active_workspace(win);
+
 		BKE_workspace_active_set(win->workspace_hook, workspace_new);
 
 		/* update screen *after* changing workspace - which also causes the actual screen change */
@@ -201,11 +202,11 @@ bool ED_workspace_delete(Main *bmain, bContext *C, wmWindowManager *wm, wmWindow
 
 /**
  * Some editor data may need to be synced with scene data (3D View camera and layers).
- * This function ensures data is synced for editors in active layout of \a workspace.
+ * This function ensures data is synced for editors in active layout of \a hook.
  */
-void ED_workspace_scene_data_sync(WorkSpace *workspace, Scene *scene)
+void ED_workspace_scene_data_sync(WorkSpaceHook *hook, Scene *scene)
 {
-	bScreen *screen = BKE_workspace_active_screen_get(workspace);
+	bScreen *screen = BKE_workspace_hook_active_screen_get(hook);
 	BKE_screen_view3d_scene_sync(screen, scene);
 }
 

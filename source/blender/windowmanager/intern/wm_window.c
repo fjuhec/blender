@@ -1754,7 +1754,7 @@ void WM_windows_scene_data_sync(const ListBase *win_lb, Scene *scene)
 {
 	for (wmWindow *win = win_lb->first; win; win = win->next) {
 		if (WM_window_get_active_scene(win) == scene) {
-			ED_workspace_scene_data_sync(WM_window_get_active_workspace(win), scene);
+			ED_workspace_scene_data_sync(win->workspace_hook, scene);
 		}
 	}
 }

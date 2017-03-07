@@ -1404,8 +1404,7 @@ static bool check_rendered_viewport_visible(Main *bmain)
 	wmWindowManager *wm = bmain->wm.first;
 	wmWindow *window;
 	for (window = wm->windows.first; window != NULL; window = window->next) {
-		const WorkSpace *workspace = BKE_workspace_active_get(window->workspace_hook);
-		const bScreen *screen = BKE_workspace_active_screen_get(workspace);
+		const bScreen *screen = BKE_workspace_hook_active_screen_get(window->workspace_hook);
 
 		for (ScrArea *area = screen->areabase.first; area != NULL; area = area->next) {
 			View3D *v3d = area->spacedata.first;

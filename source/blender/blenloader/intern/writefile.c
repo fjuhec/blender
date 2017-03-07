@@ -1086,7 +1086,6 @@ static void current_screen_compat(Main *mainvar, bScreen **r_screen, Scene **r_s
 {
 	wmWindowManager *wm;
 	wmWindow *window = NULL;
-	WorkSpace *workspace;
 
 	/* find a global current screen in the first open window, to have
 	 * a reasonable default for reading in older versions */
@@ -1111,8 +1110,7 @@ static void current_screen_compat(Main *mainvar, bScreen **r_screen, Scene **r_s
 		}
 	}
 
-	workspace = BKE_workspace_active_get(window->workspace_hook);
-	*r_screen = (window) ? BKE_workspace_active_screen_get(workspace) : NULL;
+	*r_screen = (window) ? BKE_workspace_hook_active_screen_get(window->workspace_hook) : NULL;
 	*r_scene = (window) ? window->scene : NULL;
 }
 
