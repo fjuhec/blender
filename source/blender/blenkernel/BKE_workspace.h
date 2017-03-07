@@ -116,6 +116,7 @@ WorkSpaceLayout *BKE_workspace_active_layout_get(const struct WorkSpace *ws) GET
 void             BKE_workspace_active_layout_set(WorkSpace *ws, WorkSpaceLayout *layout) SETTER_ATTRS;
 struct bScreen *BKE_workspace_active_screen_get(const WorkSpace *ws) GETTER_ATTRS;
 void            BKE_workspace_active_screen_set(const WorkSpaceHook *hook, struct bScreen *screen) SETTER_ATTRS;
+struct bScreen *BKE_workspace_hook_active_screen_get(const WorkSpaceHook *hook) GETTER_ATTRS;
 enum ObjectMode BKE_workspace_object_mode_get(const WorkSpace *workspace) GETTER_ATTRS;
 #ifdef USE_WORKSPACE_MODE
 void            BKE_workspace_object_mode_set(WorkSpace *workspace, const enum ObjectMode mode) SETTER_ATTRS;

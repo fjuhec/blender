@@ -299,6 +299,17 @@ void BKE_workspace_active_screen_set(const WorkSpaceHook *hook, bScreen *screen)
 	workspace->act_layout = layout;
 	workspace->act_layout_type = layout->type;
 }
+bScreen *BKE_workspace_hook_active_screen_get(const WorkSpaceHook *hook)
+{
+	/* XXX should be able to get screen from hook directly (no iterating) */
+	for (WorkSpaceLayout *layout = hook->layouts.first; layout; layout = layout->next) {
+		if (layout->type == hook->act_workspace->act_layout_type) {
+			return layout->screen;
+		}
+	}
+
+	return NULL;
+}
 
 #ifdef USE_WORKSPACE_MODE
 ObjectMode BKE_workspace_object_mode_get(const WorkSpace *workspace)

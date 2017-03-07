@@ -253,7 +253,6 @@ wmWindow *wm_window_new(bContext *C)
 /* part of wm_window.c api */
 wmWindow *wm_window_copy(bContext *C, wmWindow *win_src)
 {
-	Main *bmain = CTX_data_main(C);
 	wmWindow *win_dst = wm_window_new(C);
 	WorkSpace *workspace_src = WM_window_get_active_workspace(win_src);
 	Scene *scene = WM_window_get_active_scene(win_src);
@@ -265,7 +264,8 @@ wmWindow *wm_window_copy(bContext *C, wmWindow *win_src)
 	win_dst->sizey = win_src->sizey;
 
 	win_dst->scene = scene;
-	WM_window_set_active_workspace(win_dst, ED_workspace_duplicate(workspace_src, bmain, win_dst));
+	WM_window_set_active_workspace(win_dst, workspace_src);
+	/* the active screen that has been created for this workspace */
 	new_screen = WM_window_get_active_screen(win_dst);
 	BLI_strncpy(win_dst->screenname, new_screen->id.name + 2, sizeof(win_dst->screenname));
 
@@ -1817,7 +1817,7 @@ bScreen *WM_window_get_active_screen(const wmWindow *win)
 {
 	const WorkSpace *workspace = BKE_workspace_active_get(win->workspace_hook);
 	/* May be NULL in rare cases like closing Blender */
-	return (LIKELY(workspace != NULL) ? BKE_workspace_active_screen_get(workspace) : NULL);
+	return (LIKELY(workspace != NULL) ? BKE_workspace_hook_active_screen_get(win->workspace_hook) : NULL);
 }
 void WM_window_set_active_screen(wmWindow *win, bScreen *screen)
 {
