@@ -3215,7 +3215,7 @@ static void rna_def_tool_settings(BlenderRNA  *brna)
 	};
 	
 	static EnumPropertyItem gpencil_stroke_placement_items[] = {
-		{GP_PROJECT_VIEWSPACE, "CURSOR", 0, "Cursor", "Draw stroke at the 3D cursor"},
+		{GP_PROJECT_VIEWSPACE, "CURSOR", 0, "Cursor", "Draw stroke at the 3D cursor or Object origin"},
 		{0, "VIEW", 0, "View", "Stick stroke to the view "}, /* weird, GP_PROJECT_VIEWALIGN is inverted */
 		{GP_PROJECT_VIEWSPACE | GP_PROJECT_DEPTH_VIEW, "SURFACE", 0, "Surface", "Stick stroke to surfaces"},
 		{GP_PROJECT_VIEWSPACE | GP_PROJECT_DEPTH_STROKE, "STROKE", 0, "Stroke", "Stick stroke to other strokes"},
@@ -3451,8 +3451,8 @@ static void rna_def_tool_settings(BlenderRNA  *brna)
 
 	prop = RNA_def_property(srna, "use_gpencil_3dcursor", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "gpencil_flags", GP_TOOL_FLAG_USE_3DCURSOR);
-	RNA_def_property_ui_text(prop, "Use 3d Cursor",
-		"When draw new strokes, use 3d cursor location as origin");
+	RNA_def_property_ui_text(prop, "Use 3D Cursor",
+		"When draw new strokes, use 3D cursor location as origin");
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 
 	prop = RNA_def_property(srna, "grease_pencil_source", PROP_ENUM, PROP_NONE);

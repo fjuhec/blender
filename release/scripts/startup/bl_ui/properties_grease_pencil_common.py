@@ -41,7 +41,10 @@ def gpencil_stroke_placement_settings(context, layout):
 
     row = col.row(align=True)
     row.prop_enum(ts, propname, 'VIEW')
-    row.prop_enum(ts, propname, 'CURSOR')
+    if ts.grease_pencil_source != 'OBJECT' or context.space_data.type != 'VIEW_3D':
+        row.prop_enum(ts, propname, 'CURSOR')
+    else:
+        row.prop_enum(ts, propname, 'CURSOR', text='Origin')
 
     if context.space_data.type == 'VIEW_3D':
         row = col.row(align=True)
