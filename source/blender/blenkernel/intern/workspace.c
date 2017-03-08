@@ -165,7 +165,6 @@ void BKE_workspace_hook_delete(Main *bmain, WorkSpaceHook *hook)
 	}
 
 	BLI_freelinkN(&hooks_all, hook);
-	MEM_freeN(hook);
 }
 
 
@@ -470,9 +469,11 @@ WorkSpace *BKE_workspace_active_get(const WorkSpaceHook *hook)
 void BKE_workspace_active_set(WorkSpaceHook *hook, WorkSpace *workspace)
 {
 	hook->act_workspace = workspace;
-	for (WorkSpaceLayout *layout = hook->layouts.first; layout; layout = layout->next) {
-		if (layout->type == workspace->act_layout_type) {
-			hook->act_layout = layout;
+	if (workspace) {
+		for (WorkSpaceLayout *layout = hook->layouts.first; layout; layout = layout->next) {
+			if (layout->type == workspace->act_layout_type) {
+				hook->act_layout = layout;
+			}
 		}
 	}
 }
