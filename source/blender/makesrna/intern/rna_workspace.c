@@ -40,20 +40,6 @@
 #include "DNA_screen_types.h"
 
 
-void rna_workspace_screens_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
-{
-	WorkSpace *workspace = ptr->id.data;
-	rna_iterator_listbase_begin(iter, BKE_workspace_layouts_get(workspace), NULL);
-}
-
-static PointerRNA rna_workspace_screens_item_get(CollectionPropertyIterator *iter)
-{
-	WorkSpaceLayout *layout = rna_iterator_listbase_get(iter);
-	bScreen *screen = BKE_workspace_layout_screen_get(layout);
-
-	return rna_pointer_inherit_refine(&iter->parent, &RNA_Screen, screen);
-}
-
 #ifdef USE_WORKSPACE_MODE
 
 static int rna_workspace_object_mode_get(PointerRNA *ptr)
@@ -143,13 +129,6 @@ static void rna_def_workspace(BlenderRNA *brna)
 	RNA_def_struct_sdna(srna, "WorkSpace");
 	RNA_def_struct_ui_text(srna, "Workspace", "Workspace data-block, defining the working environment for the user");
 	RNA_def_struct_ui_icon(srna, ICON_NONE);
-
-	prop = RNA_def_property(srna, "screens", PROP_COLLECTION, PROP_NONE);
-	RNA_def_property_collection_sdna(prop, NULL, "layouts", NULL);
-	RNA_def_property_struct_type(prop, "Screen");
-	RNA_def_property_collection_funcs(prop, "rna_workspace_screens_begin", NULL, NULL,
-	                                  "rna_workspace_screens_item_get", NULL, NULL, NULL, NULL);
-	RNA_def_property_ui_text(prop, "Screens", "Screen layouts of a workspace");
 
 	prop = RNA_def_property(srna, "layout_type", PROP_POINTER, PROP_NONE);
 	RNA_def_property_pointer_sdna(prop, NULL, "act_layout_type");

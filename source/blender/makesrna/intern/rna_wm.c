@@ -748,6 +748,27 @@ static void rna_Window_screen_update(bContext *C, PointerRNA *ptr)
 	}
 }
 
+void rna_Window_screens_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
+{
+	wmWindow *win = ptr->data;
+	rna_iterator_listbase_begin(iter, BKE_workspace_hook_layouts_get(win->workspace_hook), NULL);
+}
+
+static void rna_Window_screens_next(CollectionPropertyIterator *iter)
+{
+	ListBaseIterator *internal = &iter->internal.listbase;
+	internal->link = (Link *)BKE_workspace_layout_next_get((WorkSpaceLayout *)internal->link);
+	iter->valid = internal->link != NULL;
+}
+
+static PointerRNA rna_Window_screens_item_get(CollectionPropertyIterator *iter)
+{
+	WorkSpaceLayout *layout = rna_iterator_listbase_get(iter);
+	bScreen *screen = BKE_workspace_layout_screen_get(layout);
+
+	return rna_pointer_inherit_refine(&iter->parent, &RNA_Screen, screen);
+}
+
 static PointerRNA rna_KeyMapItem_properties_get(PointerRNA *ptr)
 {
 	wmKeyMapItem *kmi = ptr->data;
@@ -2022,6 +2043,12 @@ static void rna_def_window(BlenderRNA *brna)
 	                               "rna_Window_screen_assign_poll");
 	RNA_def_property_flag(prop, PROP_NEVER_NULL | PROP_EDITABLE | PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, 0, "rna_Window_screen_update");
+
+	prop = RNA_def_property(srna, "screens", PROP_COLLECTION, PROP_NONE);
+	RNA_def_property_struct_type(prop, "Screen");
+	RNA_def_property_collection_funcs(prop, "rna_Window_screens_begin", "rna_Window_screens_next", NULL,
+	                                  "rna_Window_screens_item_get", NULL, NULL, NULL, NULL);
+	RNA_def_property_ui_text(prop, "Screens", "Screen layouts of a workspace");
 
 	prop = RNA_def_property(srna, "x", PROP_INT, PROP_NONE);
 	RNA_def_property_int_sdna(prop, NULL, "posx");
