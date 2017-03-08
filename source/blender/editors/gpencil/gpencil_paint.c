@@ -1389,7 +1389,7 @@ static bool gp_session_initdata(bContext *C, tGPsdata *p)
 				return 0;
 			}
 			/* if object mode and is not active a OB_GPENCIL, create one */
-			if (ts->gpencil_src &  GP_TOOL_SOURCE_OBJECT) {
+			if (ts->gpencil_src & GP_TOOL_SOURCE_OBJECT) {
 				float *cur = ED_view3d_cursor3d_get(p->scene, v3d);
 				if (obact) {
 					if (obact->type != OB_GPENCIL) {
