@@ -300,7 +300,7 @@ static bool gp_stroke_filtermval(tGPsdata *p, const int mval[2], int pmval[2])
 }
 
 /* reproject the points of the stroke to a plane locked to axis to avoid stroke offset */
-static void gp_project_points_to_plane(RegionView3D *rv3d, bGPDstroke *gps, const float origin[3], const int axis)
+static void gp_project_points_to_plane(Object *ob, RegionView3D *rv3d, bGPDstroke *gps, const float origin[3], const int axis, char type)
 {
 	float plane_normal[3];
 	float vn[3];
@@ -311,6 +311,12 @@ static void gp_project_points_to_plane(RegionView3D *rv3d, bGPDstroke *gps, cons
 	/* normal vector for a plane locked to axis */
 	zero_v3(plane_normal);
 	plane_normal[axis] = 1.0f;
+	/* if object, apply object rotation */
+	if (type & GP_TOOL_SOURCE_OBJECT) {
+		if (ob && ob->type == OB_GPENCIL) {
+			mul_m3_v3(ob->obmat, plane_normal);
+		}
+	}
 
 	/* Reproject the points in the plane */
 	for (int i = 0; i < gps->totpoints; i++) {
@@ -334,6 +340,8 @@ static void gp_project_points_to_plane(RegionView3D *rv3d, bGPDstroke *gps, cons
 static void gp_reproject_toplane(tGPsdata *p, bGPDstroke *gps)
 {
 	bGPdata *gpd = p->gpd;
+	Object *obact = (Object *)p->ownerPtr.data;
+
 	float origin[3];
 	float cursor[3];
 	RegionView3D *rv3d = p->ar->regiondata;
@@ -349,12 +357,12 @@ static void gp_reproject_toplane(tGPsdata *p, bGPDstroke *gps)
 		return;
 	}
 
-	/* get 3d cursor and set origin for locked axis only. Uses axis-1 because the enum for XYZ start with 1 */
+	/* get drawing origin and copy origin for locked axis only. Uses axis-1 because the enum for XYZ start with 1 */
 	gp_get_3d_reference(p, cursor);
 	zero_v3(origin);
 	origin[p->lock_axis - 1] = cursor[p->lock_axis - 1];
 
-	gp_project_points_to_plane(rv3d, gps, origin, p->lock_axis - 1);
+	gp_project_points_to_plane(obact, rv3d, gps, origin, p->lock_axis - 1, p->scene->toolsettings->gpencil_src);
 }
 
 /* convert screen-coordinates to buffer-coordinates */
