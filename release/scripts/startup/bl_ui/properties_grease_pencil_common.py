@@ -52,11 +52,17 @@ def gpencil_stroke_placement_settings(context, layout):
         row.active = getattr(ts, propname) in {'SURFACE', 'STROKE'}
         row.prop(ts, "use_gpencil_stroke_endpoints")
 
-        if context.scene.tool_settings.gpencil_stroke_placement_view3d == 'CURSOR':
-            row = col.row(align=True)
-            row.label("Lock axis:")
-            row = col.row(align=True)
-            row.prop(ts.gpencil_sculpt, "lockaxis", expand=True)
+        row = col.row(align=True)
+        row.label("Lock axis:")
+        row = col.row(align=True)
+        if ts.gpencil_stroke_placement_view3d != 'CURSOR':
+            row.active = False
+        row.prop(ts.gpencil_sculpt, "lockaxis", expand=True)
+
+        row = col.row(align=True)
+        if ts.gpencil_stroke_placement_view3d != 'CURSOR' or ts.grease_pencil_source != 'OBJECT':
+            row.active = False
+        row.prop(ts, "use_gpencil_3dcursor")
 
 
 def gpencil_active_brush_settings_simple(context, layout):

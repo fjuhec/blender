@@ -2258,7 +2258,9 @@ typedef enum eGPencil_Flags {
 	/* When creating new frames, the last frame gets used as the basis for the new one */
 	GP_TOOL_FLAG_RETAIN_LAST            = (1 << 1),
 	/* Add the strokes below all strokes in the layer */
-	GP_TOOL_FLAG_PAINT_ONBACK = (1 << 2)
+	GP_TOOL_FLAG_PAINT_ONBACK = (1 << 2),
+	/* Add the strokes using 3D cursor location (only for gp objects) */
+	GP_TOOL_FLAG_USE_3DCURSOR = (1 << 3)
 } eGPencil_Flags;
 
 /* toolsettings->gpencil_src */

@@ -232,6 +232,7 @@ static bool gpencil_project_check(tGPsdata *p)
 static void gp_get_3d_reference(tGPsdata *p, float vec[3])
 {
 	View3D *v3d = p->sa->spacedata.first;
+	ToolSettings *ts = p->scene->toolsettings;
 	const float *fp = ED_view3d_cursor3d_get(p->scene, v3d);
 	
 	/* the reference point used depends on the owner... */
@@ -244,8 +245,24 @@ static void gp_get_3d_reference(tGPsdata *p, float vec[3])
 		 */
 		sub_v3_v3v3(vec, fp, ob->loc);
 	}
-	else
 #endif
+	/* if using a gpencil object at cursor mode, can use the location of the object */
+	if ((ts->gpencil_src & GP_TOOL_SOURCE_OBJECT) && (*p->align_flag & GP_PROJECT_VIEWSPACE)) {
+		if (p->ownerPtr.type == &RNA_Object) {
+			Object *ob = (Object *)p->ownerPtr.data;
+			if (ob->type == OB_GPENCIL) {
+				if (ts->gpencil_flags & GP_TOOL_FLAG_USE_3DCURSOR) {
+					/* use 3D-cursor */
+					copy_v3_v3(vec, fp);
+				}
+				else {
+					/* use object location */
+					copy_v3_v3(vec, ob->loc);
+				}
+			}
+		}
+	}
+	else
 	{
 		/* use 3D-cursor */
 		copy_v3_v3(vec, fp);
