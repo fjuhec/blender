@@ -1028,7 +1028,7 @@ static int area_dupli_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
 	/* allocs new screen and adds to newly created window, using window size */
 	ED_workspace_layout_add(workspace_new, &wm->windows, sc->id.name + 2, layout_data);
-	layout_new = BKE_workspace_active_layout_get(workspace_new);
+	layout_new = BKE_workspace_hook_active_layout_get(newwin->workspace_hook);
 	newsc = BKE_workspace_layout_screen_get(layout_new);
 	WM_window_set_active_layout(newwin, layout_new);
 
@@ -3891,8 +3891,9 @@ static void SCREEN_OT_userpref_show(struct wmOperatorType *ot)
 static int screen_new_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
-	WorkSpace *workspace = CTX_wm_workspace(C);
-	WorkSpaceLayout *layout_old = BKE_workspace_active_layout_get(workspace);
+	wmWindow *win = CTX_wm_window(C);
+	WorkSpace *workspace = WM_window_get_active_workspace(win);
+	WorkSpaceLayout *layout_old = BKE_workspace_hook_active_layout_get(win->workspace_hook);
 	WorkSpaceLayout *layout_new;
 
 	layout_new = ED_workspace_layout_duplicate(workspace, layout_old, wm);

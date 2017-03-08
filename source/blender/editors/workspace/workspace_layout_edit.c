@@ -43,7 +43,7 @@
 
 
 /**
- * Creates an layout type for \a workspace and layout instances for all windows showing this workspace.
+ * Creates and activates an layout type for \a workspace and layout instances for all windows showing this workspace.
  * Layout instances get an empty screen, with 1 dummy area without spacedata. Uses window size.
  */
 void ED_workspace_layout_add(WorkSpace *workspace, ListBase *windows, const char *name,
@@ -58,7 +58,7 @@ void ED_workspace_layout_add(WorkSpace *workspace, ListBase *windows, const char
 			WorkSpaceLayout *layout = BKE_workspace_layout_add_from_type(workspace, layout_type, screen);
 
 			BLI_addhead(layouts, layout);
-			BKE_workspace_active_layout_set(workspace, layout);
+			BKE_workspace_hook_active_layout_set(win->workspace_hook, layout);
 		}
 	}
 }
@@ -76,29 +76,45 @@ WorkSpaceLayout *ED_workspace_layout_duplicate(WorkSpace *workspace, const WorkS
 	}
 
 	ED_workspace_layout_add(workspace, &wm->windows, screen_old->id.name + 2, layout_data);
-	layout_new = BKE_workspace_active_layout_get(workspace);
-	screen_new = BKE_workspace_layout_screen_get(layout_new);
-	screen_data_copy(screen_new, screen_old);
+	for (wmWindow *win = wm->windows.first; win; win = win->next) {
+		if (BKE_workspace_active_get(win->workspace_hook) == workspace) {
+			layout_new = BKE_workspace_hook_active_layout_get(win->workspace_hook);
+			screen_new = BKE_workspace_layout_screen_get(layout_new);
+			screen_data_copy(screen_new, screen_old);
+		}
+	}
 
 	return layout_new;
 }
 
-static bool workspace_layout_delete_doit(bContext *C, WorkSpace *workspace,
-                                         WorkSpaceLayout *layout_old, WorkSpaceLayout *layout_new)
+static bool workspace_layout_delete_doit(
+        bContext *C, WorkSpace *workspace, WorkSpaceLayoutType *layout_type_old, WorkSpaceLayoutType *layout_type_new)
 {
+	wmWindowManager *wm = CTX_wm_manager(C);
 	Main *bmain = CTX_data_main(C);
-	bScreen *screen_new = BKE_workspace_layout_screen_get(layout_new);
 
-	ED_screen_change(C, screen_new);
+	for (wmWindow *win = wm->windows.first; win; win = win->next) {
+		if (BKE_workspace_active_get(win->workspace_hook) == workspace &&
+		    BKE_workspace_active_layout_type_get(workspace) == layout_type_old)
+		{
+			wmWindow *win_ctx = CTX_wm_window(C);
+			bScreen *screen_new = BKE_workspace_layout_screen_find_from_type(win->workspace_hook, layout_type_new);
 
-	if (BKE_workspace_active_layout_get(workspace) != layout_old) {
-		BKE_workspace_layout_remove(workspace, layout_old, bmain);
+			CTX_wm_window_set(C, win);
+			ED_screen_change(C, screen_new);
+			CTX_wm_window_set(C, win_ctx);
+		}
+	}
+
+	if (BKE_workspace_active_layout_type_get(workspace) != layout_type_new) {
+		BKE_workspace_layout_type_remove(workspace, layout_type_old, bmain);
 		return true;
 	}
 
 	return false;
 }
 
+#if 0
 static bool workspace_layout_set_poll(const WorkSpaceLayout *layout)
 {
 	const bScreen *screen = BKE_workspace_layout_screen_get(layout);
@@ -133,68 +149,92 @@ static WorkSpaceLayout *workspace_layout_delete_find_new(const WorkSpaceLayout *
 
 	return NULL;
 }
+#endif
 
 /**
+ * Delete all layout variations based on the layout-type of \a layout_old.
  * \warning Only call outside of area/region loops!
  * \return true if succeeded.
  */
-bool ED_workspace_layout_delete(bContext *C, WorkSpace *workspace, WorkSpaceLayout *layout_old)
+bool ED_workspace_layout_delete(bContext *C, wmWindow *win, WorkSpace *workspace, WorkSpaceLayout *layout_old)
 {
-	const bScreen *screen_old = BKE_workspace_layout_screen_get(layout_old);
-	WorkSpaceLayout *layout_new;
+	WorkSpaceLayoutType *layout_type_old = BKE_workspace_layout_type_get(layout_old);
+	WorkSpaceLayoutType *layout_type_new = BKE_workspace_layout_type_next_get(layout_type_old);
 
-	BLI_assert(BLI_findindex(BKE_workspace_layouts_get(workspace), layout_old) != -1);
+	BLI_assert(BLI_findindex(BKE_workspace_hook_layouts_get(win->workspace_hook), layout_old) != -1);
 
 	/* don't allow deleting temp fullscreens for now */
-	if (BKE_screen_is_fullscreen_area(screen_old)) {
-		return false;
-	}
+	/* XXX */
+//	if (BKE_screen_is_fullscreen_area(screen_old)) {
+//		return false;
+//	}
 
 	/* A layout/screen can only be in use by one window at a time, so as
 	 * long as we are able to find a layout/screen that is unused, we
 	 * can safely assume ours is not in use anywhere an delete it. */
 
-	layout_new = workspace_layout_delete_find_new(layout_old);
+	/* XXX */
+//	layout_new = workspace_layout_delete_find_new(layout_old);
 
-	if (layout_new) {
-		return workspace_layout_delete_doit(C, workspace, layout_old, layout_new);
+	if (layout_type_new && (layout_type_new != layout_type_old)) {
+		return workspace_layout_delete_doit(C, workspace, layout_type_old, layout_type_new);
 	}
 
 	return false;
 }
 
+#if 0
 static bool workspace_layout_cycle_iter_cb(const WorkSpaceLayout *layout, void *UNUSED(arg))
 {
 	return workspace_layout_set_poll(layout);
 }
+#endif
 
 bool ED_workspace_layout_cycle(bContext *C, WorkSpace *workspace, const short direction)
 {
+	wmWindowManager *wm = CTX_wm_manager(C);
+	WorkSpaceLayoutType *old_type = BKE_workspace_active_layout_type_get(workspace);
+	WorkSpaceLayoutType *new_type;
 	WorkSpaceLayout *old_layout = BKE_workspace_active_layout_get(workspace);
-	WorkSpaceLayout *new_layout;
 	const bScreen *old_screen = BKE_workspace_layout_screen_get(old_layout);
 	ScrArea *sa = CTX_wm_area(C);
+	bool changed = false;
 
 	if (old_screen->temp || (sa && sa->full && sa->full->temp)) {
 		return false;
 	}
 
-	BLI_assert(ELEM(direction, 1, -1));
-	new_layout = BKE_workspace_layout_iter_circular(workspace, old_layout, workspace_layout_cycle_iter_cb,
-	                                                NULL, (direction == -1) ? true : false);
-
-	if (new_layout && (old_layout != new_layout)) {
-		bScreen *new_screen = BKE_workspace_layout_screen_get(new_layout);
-
-		if (sa && sa->full) {
-			/* return to previous state before switching screens */
-			ED_screen_full_restore(C, sa); /* may free screen of old_layout */
-		}
-
-		ED_screen_change(C, new_screen);
-
-		return true;
+	/* XXX new_type isn't necessarily usable */
+	if (direction == 1) {
+		new_type = BKE_workspace_layout_type_next_get(old_type);
+	}
+	else if (direction == -1) {
+		new_type = BKE_workspace_layout_type_prev_get(old_type);
+	}
+	else {
+		BLI_assert(0);
 	}
 
-	return false;
+	if (new_type && (new_type != old_type)) {
+		for (wmWindow *win = wm->windows.first; win; win = win->next) {
+			if (BKE_workspace_active_get(win->workspace_hook) == workspace) {
+				WorkSpaceLayout *layout = BKE_workspace_layout_find_from_type(win->workspace_hook, new_type);
+				BLI_assert(layout != NULL);
+				bScreen *new_screen = BKE_workspace_layout_screen_get(layout);
+
+				BKE_workspace_hook_active_layout_set(win->workspace_hook, layout);
+
+				if (sa && sa->full) {
+					/* return to previous state before switching screens */
+					ED_screen_full_restore(C, sa); /* may free screen of old_layout */
+				}
+
+				ED_screen_change(C, new_screen);
+				changed = true;
+			}
+		}
+
+	}
+
+	return changed;
 }

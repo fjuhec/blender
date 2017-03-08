@@ -352,7 +352,7 @@ void wm_window_close(bContext *C, wmWindowManager *wm, wmWindow *win)
 	
 		/* if temp screen, delete it after window free (it stops jobs that can access it) */
 		if (screen && screen->temp) {
-			WorkSpaceLayout *layout = BKE_workspace_active_layout_get(workspace);
+			WorkSpaceLayout *layout = BKE_workspace_hook_active_layout_get(win->workspace_hook);
 
 			BLI_assert(BKE_workspace_layout_screen_get(layout) == screen);
 			BKE_workspace_layout_remove(workspace, layout, bmain);
@@ -678,15 +678,12 @@ wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
 	if (screen == NULL) {
 		/* add new screen layout */
 		WorkSpace *workspace = WM_window_get_active_workspace(win);
-		WorkSpaceLayout *layout;
 		ListBase vertbase = {}, areabase = {};
 
 		ED_screen_empty_data_create(win->sizex, win->sizey, &vertbase, &areabase);
 		ED_workspace_layout_add(workspace, &wm->windows, "temp", (ScreenLayoutData) {
 		                            .vertbase = vertbase, .areabase = areabase});
-		layout = BKE_workspace_active_layout_get(workspace);
-		screen = BKE_workspace_layout_screen_get(layout);
-		WM_window_set_active_layout(win, layout);
+		screen = WM_window_get_active_screen(win);
 	}
 
 	if (WM_window_get_active_scene(win) != scene) {
@@ -1793,21 +1790,20 @@ WorkSpace *WM_window_get_active_workspace(const wmWindow *win)
 }
 void WM_window_set_active_workspace(wmWindow *win, WorkSpace *workspace)
 {
-	BKE_workspace_active_set(win->workspace_hook, workspace);
 	if (workspace) {
 		BKE_workspace_change_prepare(G.main, win->workspace_hook, workspace);
 	}
+	BKE_workspace_active_set(win->workspace_hook, workspace);
 }
 
 WorkSpaceLayout *WM_window_get_active_layout(const wmWindow *win)
 {
 	const WorkSpace *workspace = BKE_workspace_active_get(win->workspace_hook);
-	return (LIKELY(workspace != NULL) ? BKE_workspace_active_layout_get(workspace): NULL);
+	return (LIKELY(workspace != NULL) ? BKE_workspace_hook_active_layout_get(win->workspace_hook): NULL);
 }
 void WM_window_set_active_layout(wmWindow *win, WorkSpaceLayout *layout)
 {
-	WorkSpace *workspace = BKE_workspace_active_get(win->workspace_hook);
-	BKE_workspace_active_layout_set(workspace, layout);
+	BKE_workspace_hook_active_layout_set(win->workspace_hook, layout);
 }
 
 /**

@@ -843,14 +843,6 @@ void CTX_wm_window_set(bContext *C, wmWindow *win)
 	C->wm.region = NULL;
 }
 
-void CTX_wm_workspace_set(bContext *C, WorkSpace *ws)
-{
-	C->wm.workspace = ws;
-	C->wm.screen = (C->wm.workspace) ? BKE_workspace_active_screen_get(C->wm.workspace) : NULL;
-	C->wm.area = NULL;
-	C->wm.region = NULL;
-}
-
 void CTX_wm_screen_set(bContext *C, bScreen *screen)
 {
 	C->wm.screen = screen;

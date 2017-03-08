@@ -6820,9 +6820,9 @@ static void lib_link_clipboard_restore(struct IDNameLib_Map *id_map)
 	BKE_sequencer_base_recursive_apply(&seqbase_clipboard, lib_link_seq_clipboard_cb, id_map);
 }
 
-static void lib_link_workspace_scene_data_restore(WorkSpace *workspace, Scene *scene)
+static void lib_link_workspace_scene_data_restore(WorkSpaceHook *hook, Scene *scene)
 {
-	bScreen *screen = BKE_workspace_active_screen_get(workspace);
+	bScreen *screen = BKE_workspace_hook_active_screen_get(hook);
 
 	for (ScrArea *area = screen->areabase.first; area; area = area->next) {
 		for (SpaceLink *sl = area->spacedata.first; sl; sl = sl->next) {
@@ -7111,7 +7111,7 @@ void blo_lib_link_restore(Main *newmain, wmWindowManager *curwm, Scene *curscene
 
 		/* keep cursor location through undo */
 		copy_v3_v3(win->scene->cursor, oldscene->cursor);
-		lib_link_workspace_scene_data_restore(workspace, win->scene);
+		lib_link_workspace_scene_data_restore(win->workspace_hook, win->scene);
 
 		BLI_assert(win->screen == NULL);
 	}

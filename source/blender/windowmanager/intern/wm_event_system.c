@@ -317,7 +317,7 @@ void wm_event_do_notifiers(bContext *C)
 						WorkSpace *workspace = WM_window_get_active_workspace(win);
 						WorkSpaceLayout *layout = note->reference;
 
-						ED_workspace_layout_delete(C, workspace, layout);   // XXX hrms, think this over!
+						ED_workspace_layout_delete(C, win, workspace, layout);   // XXX hrms, think this over!
 						if (G.debug & G_DEBUG_EVENTS)
 							printf("%s: screen delete %p\n", __func__, note->reference);
 					}
@@ -2458,7 +2458,6 @@ void wm_event_do_handlers(bContext *C)
 				if (is_playing_sound != -1) {
 					bool is_playing_screen;
 					CTX_wm_window_set(C, win);
-					CTX_wm_workspace_set(C, WM_window_get_active_workspace(win));
 					CTX_data_scene_set(C, scene);
 					
 					is_playing_screen = (ED_screen_animation_playing(wm) != NULL);
@@ -2483,7 +2482,6 @@ void wm_event_do_handlers(bContext *C)
 					
 					CTX_data_scene_set(C, NULL);
 					CTX_wm_screen_set(C, NULL);
-					CTX_wm_workspace_set(C, NULL);
 					CTX_wm_window_set(C, NULL);
 				}
 			}

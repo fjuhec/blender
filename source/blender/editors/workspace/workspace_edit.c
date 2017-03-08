@@ -123,10 +123,9 @@ bool ED_workspace_change(bContext *C, wmWindowManager *wm, wmWindow *win, WorkSp
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
 	bScreen *screen_old = BKE_workspace_hook_active_screen_get(win->workspace_hook);
-	bScreen *screen_new;
+	WorkSpaceLayout *act_layout_new = BKE_workspace_change_prepare(bmain, win->workspace_hook, workspace_new);
+	bScreen *screen_new = BKE_workspace_layout_screen_get(act_layout_new);
 
-	BKE_workspace_change_prepare(bmain, win->workspace_hook, workspace_new);
-	screen_new = BKE_workspace_active_screen_get(workspace_new);
 	screen_new = screen_change_prepare(screen_old, screen_new, bmain, C, win);
 
 	if (screen_new) {

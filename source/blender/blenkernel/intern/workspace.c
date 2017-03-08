@@ -45,20 +45,20 @@
 
 bool workspaces_is_screen_used(const Main *bmain, bScreen *screen);
 
+ListBase hooks_all = {};
 
-static void workspace_layout_type_remove(WorkSpace *workspace, WorkSpaceLayoutType *layout_type)
-{
-	BLI_assert(BLI_findindex(&workspace->layout_types, layout_type) >= 0);
-	BLI_freelinkN(&workspace->layout_types, layout_type);
-}
 
-static void workspace_layout_remove(WorkSpace *workspace, WorkSpaceLayout *layout, Main *bmain)
+/* -------------------------------------------------------------------- */
+
+/**
+ * Remove the layout instance \a layout and the screen it represents, doesn't modify other layout instances or types.
+ */
+static void workspace_layout_remove(WorkSpaceHook *hook, WorkSpaceLayout *layout, Main *bmain)
 {
 	bScreen *screen = BKE_workspace_layout_screen_get(layout);
 
-	BLI_assert(BLI_findindex(&workspace->layouts, layout) >= 0);
 	BKE_libblock_free(bmain, screen);
-	BLI_freelinkN(&workspace->layouts, layout);
+	BLI_freelinkN(&hook->layouts, layout);
 }
 
 
@@ -86,14 +86,9 @@ void BKE_workspace_free(WorkSpace *ws)
 
 void BKE_workspace_remove(WorkSpace *workspace, Main *bmain)
 {
-	BKE_workspace_layout_iter_begin(layout, workspace->layouts.first)
-	{
-		workspace_layout_remove(workspace, layout, bmain);
-	}
-	BKE_workspace_layout_iter_end;
 	BKE_workspace_layout_type_iter_begin(layout_type, workspace->layout_types.first)
 	{
-		workspace_layout_type_remove(workspace, layout_type);
+		BKE_workspace_layout_type_remove(workspace, layout_type, bmain);
 	}
 	BKE_workspace_layout_type_iter_end;
 
@@ -126,16 +121,38 @@ WorkSpaceLayoutType *BKE_workspace_layout_type_add(
 	return layout_type;
 }
 
+/**
+ * Remove \a layout_type and all instances of it.
+ */
+void BKE_workspace_layout_type_remove(WorkSpace *workspace, WorkSpaceLayoutType *layout_type, Main *bmain)
+{
+	for (WorkSpaceHook *hook = hooks_all.first; hook; hook = hook->next) {
+		for (WorkSpaceLayout *layout = hook->layouts.first, *layout_next; layout; layout = layout_next) {
+			layout_next = layout->next;
+
+			if (layout->type == layout_type) {
+				workspace_layout_remove(hook, layout, bmain);
+			}
+		}
+	}
+
+	BLI_assert(BLI_findindex(&workspace->layout_types, layout_type) >= 0);
+	BLI_freelinkN(&workspace->layout_types, layout_type);
+}
+
+/**
+ * Removes all variations of the layout-type of \a layout.
+ */
 void BKE_workspace_layout_remove(WorkSpace *workspace, WorkSpaceLayout *layout, Main *bmain)
 {
-	WorkSpaceLayoutType *layout_type = layout->type;
-	workspace_layout_remove(workspace, layout, bmain);
-	workspace_layout_type_remove(workspace, layout_type);
+	BKE_workspace_layout_type_remove(workspace, layout->type, bmain);
 }
 
 WorkSpaceHook *BKE_workspace_hook_new(void)
 {
-	return MEM_callocN(sizeof(WorkSpaceHook), __func__);
+	WorkSpaceHook *hook = MEM_callocN(sizeof(WorkSpaceHook), __func__);
+	BLI_addtail(&hooks_all, hook);
+	return hook;
 }
 
 void BKE_workspace_hook_delete(Main *bmain, WorkSpaceHook *hook)
@@ -146,6 +163,8 @@ void BKE_workspace_hook_delete(Main *bmain, WorkSpaceHook *hook)
 		BKE_libblock_free(bmain, layout->screen);
 		BLI_freelinkN(&hook->layouts, layout);
 	}
+
+	BLI_freelinkN(&hooks_all, hook);
 	MEM_freeN(hook);
 }
 
@@ -153,8 +172,13 @@ void BKE_workspace_hook_delete(Main *bmain, WorkSpaceHook *hook)
 /* -------------------------------------------------------------------- */
 /* General Utils */
 
-void BKE_workspace_change_prepare(Main *bmain, WorkSpaceHook *workspace_hook, WorkSpace *workspace_new)
+/**
+ * \return The workspace layout to activate.
+ */
+WorkSpaceLayout *BKE_workspace_change_prepare(Main *bmain, WorkSpaceHook *workspace_hook, WorkSpace *workspace_new)
 {
+	WorkSpaceLayout *act_layout = NULL;
+
 	for (WorkSpaceLayoutType *type = workspace_new->layout_types.first; type; type = type->next) {
 		bScreen *screen = BKE_screen_create_from_layout_data(bmain, &type->layout_blueprint, type->name);
 		WorkSpaceLayout *layout = BKE_workspace_layout_add_from_type(workspace_new, type, screen);
@@ -163,9 +187,11 @@ void BKE_workspace_change_prepare(Main *bmain, WorkSpaceHook *workspace_hook, Wo
 
 		/* XXX Just setting the active layout matching the active type stored in workspace */
 		if (type == workspace_new->act_layout_type) {
-			workspace_new->act_layout = layout;
+			act_layout = layout;
 		}
 	}
+
+	return act_layout;
 }
 
 void BKE_workspaces_transform_orientation_remove(const ListBase *workspaces, const TransformOrientation *orientation)
@@ -226,6 +252,24 @@ WorkSpaceLayout *BKE_workspace_layout_find(const WorkSpaceHook *hook, const bScr
 	return NULL;
 }
 
+WorkSpaceLayout *BKE_workspace_layout_find_from_type(const WorkSpaceHook *hook, const WorkSpaceLayoutType *type)
+{
+	for (WorkSpaceLayout *layout = hook->layouts.first; layout; layout = layout->next) {
+		if (layout->type == type) {
+			return layout;
+		}
+	}
+
+	return NULL;
+}
+
+bScreen *BKE_workspace_layout_screen_find_from_type(const WorkSpaceHook *hook, const WorkSpaceLayoutType *type)
+{
+	WorkSpaceLayout *layout = BKE_workspace_layout_find_from_type(hook, type);
+	return layout->screen;
+}
+
+/* XXX UNUSED */
 WorkSpaceLayout *BKE_workspace_layout_iter_circular(const WorkSpace *workspace, WorkSpaceLayout *start,
                                                     bool (*callback)(const WorkSpaceLayout *layout, void *arg),
                                                     void *arg, const bool iter_backward)
@@ -268,35 +312,47 @@ const char *BKE_workspace_name_get(const WorkSpace *workspace)
 	return workspace->id.name + 2;
 }
 
+/* DEPRECATED */
 WorkSpaceLayout *BKE_workspace_active_layout_get(const WorkSpace *workspace)
 {
 	return workspace->act_layout;
 }
+/* DEPRECATED */
 void BKE_workspace_active_layout_set(WorkSpace *workspace, WorkSpaceLayout *layout)
 {
 	workspace->act_layout = layout;
 	workspace->act_layout_type = layout->type;
 }
-
-WorkSpaceLayout *BKE_workspace_new_layout_get(const WorkSpace *workspace)
+WorkSpaceLayout *BKE_workspace_hook_active_layout_get(const WorkSpaceHook *hook)
 {
-	return workspace->new_layout;
+	return hook->act_layout;
 }
-void BKE_workspace_new_layout_set(WorkSpace *workspace, WorkSpaceLayout *layout)
+void BKE_workspace_hook_active_layout_set(WorkSpaceHook *hook, WorkSpaceLayout *layout)
 {
-	workspace->new_layout = layout;
+	hook->act_layout = layout;
+	hook->act_workspace->act_layout_type = layout->type;
+}
+
+WorkSpaceLayout *BKE_workspace_new_layout_get(const WorkSpaceHook *hook)
+{
+	return hook->new_layout;
+}
+void BKE_workspace_new_layout_set(WorkSpaceHook *hook, WorkSpaceLayout *layout)
+{
+	hook->new_layout = layout;
 }
 
 bScreen *BKE_workspace_active_screen_get(const WorkSpace *ws)
 {
 	return ws->act_layout->screen;
 }
-void BKE_workspace_active_screen_set(const WorkSpaceHook *hook, bScreen *screen)
+void BKE_workspace_active_screen_set(WorkSpaceHook *hook, bScreen *screen)
 {
 	WorkSpace *workspace = hook->act_workspace;
-	WorkSpaceLayout *layout = BKE_workspace_layout_find(hook, screen);
 	/* we need to find the WorkspaceLayout that wraps this screen */
-	workspace->act_layout = layout;
+	WorkSpaceLayout *layout = BKE_workspace_layout_find(hook, screen);
+
+	hook->act_layout = layout;
 	workspace->act_layout_type = layout->type;
 }
 bScreen *BKE_workspace_hook_active_screen_get(const WorkSpaceHook *hook)
@@ -345,6 +401,11 @@ void BKE_workspace_active_layout_type_set(WorkSpace *workspace, WorkSpaceLayoutT
 	workspace->act_layout_type = layout_type;
 }
 
+WorkSpaceLayoutType *BKE_workspace_layout_type_get(const WorkSpaceLayout *layout)
+{
+	return layout->type;
+}
+
 ListBase *BKE_workspace_layout_types_get(WorkSpace *workspace)
 {
 	return &workspace->layout_types;
@@ -368,6 +429,10 @@ ListBase *BKE_workspace_layout_type_vertbase_get(WorkSpaceLayoutType *type)
 WorkSpaceLayoutType *BKE_workspace_layout_type_next_get(WorkSpaceLayoutType *layout_type)
 {
 	return layout_type->next;
+}
+WorkSpaceLayoutType *BKE_workspace_layout_type_prev_get(WorkSpaceLayoutType *layout_type)
+{
+	return layout_type->prev;
 }
 
 WorkSpace *BKE_workspace_next_get(const WorkSpace *workspace)
@@ -405,6 +470,11 @@ WorkSpace *BKE_workspace_active_get(const WorkSpaceHook *hook)
 void BKE_workspace_active_set(WorkSpaceHook *hook, WorkSpace *workspace)
 {
 	hook->act_workspace = workspace;
+	for (WorkSpaceLayout *layout = hook->layouts.first; layout; layout = layout->next) {
+		if (layout->type == workspace->act_layout_type) {
+			hook->act_layout = layout;
+		}
+	}
 }
 
 WorkSpace *BKE_workspace_active_delayed_get(const WorkSpaceHook *hook)
