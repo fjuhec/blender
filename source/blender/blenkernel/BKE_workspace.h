@@ -112,7 +112,6 @@ struct ID *BKE_workspace_id_get(WorkSpace *workspace) GETTER_ATTRS;
 const char *BKE_workspace_name_get(const WorkSpace *workspace) GETTER_ATTRS;
 WorkSpaceLayout *BKE_workspace_hook_active_layout_get(const WorkSpaceHook *hook) GETTER_ATTRS;
 void             BKE_workspace_hook_active_layout_set(WorkSpaceHook *hook, WorkSpaceLayout *layout) SETTER_ATTRS;
-struct bScreen *BKE_workspace_active_screen_get(const WorkSpace *ws) GETTER_ATTRS;
 void            BKE_workspace_hook_active_screen_set(WorkSpaceHook *hook, struct bScreen *screen) SETTER_ATTRS;
 struct bScreen *BKE_workspace_hook_active_screen_get(const WorkSpaceHook *hook) GETTER_ATTRS;
 enum ObjectMode BKE_workspace_object_mode_get(const WorkSpace *workspace) GETTER_ATTRS;

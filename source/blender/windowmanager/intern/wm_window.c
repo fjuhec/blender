@@ -669,11 +669,10 @@ wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
 	if (screen == NULL) {
 		/* add new screen layout */
 		WorkSpace *workspace = WM_window_get_active_workspace(win);
-		ListBase vertbase = {}, areabase = {};
+		ScreenLayoutData layout_data = {};
 
-		ED_screen_empty_data_create(win->sizex, win->sizey, &vertbase, &areabase);
-		ED_workspace_layout_add(workspace, &wm->windows, "temp", (ScreenLayoutData) {
-		                            .vertbase = vertbase, .areabase = areabase});
+		ED_screen_empty_data_create(win->sizex, win->sizey, &layout_data);
+		ED_workspace_layout_add(workspace, &wm->windows, "temp", layout_data);
 		screen = WM_window_get_active_screen(win);
 	}
 

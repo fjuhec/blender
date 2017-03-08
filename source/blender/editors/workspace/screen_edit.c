@@ -434,28 +434,46 @@ ScrArea *area_split(bScreen *sc, ScrArea *sa, char dir, float fac, int merge)
 /**
  * Empty screen, with 1 dummy area without spacedata. Uses window size.
  */
-void ED_screen_empty_data_create(int size_x, int size_y, ListBase *r_vertbase, ListBase *r_areabase)
+void ED_screen_empty_data_create(int size_x, int size_y, ScreenLayoutData *layout_data)
 {
 	ScrVert *sv1, *sv2, *sv3, *sv4;
+	ScrEdge *se1, *se2, *se3, *se4;
 
 	sv1 = MEM_callocN(sizeof(ScrVert), "addscrvert1");
 	sv1->vec.x = 0;
 	sv1->vec.y = 0;
-	BLI_addtail(r_vertbase, sv1);
+	BLI_addtail(&layout_data->vertbase, sv1);
 	sv2 = MEM_callocN(sizeof(ScrVert), "addscrvert2");
 	sv2->vec.x = 0;
 	sv2->vec.y = size_y - 1;
-	BLI_addtail(r_vertbase, sv2);
+	BLI_addtail(&layout_data->vertbase, sv2);
 	sv3 = MEM_callocN(sizeof(ScrVert), "addscrvert3");
 	sv3->vec.x = size_x - 1;
 	sv3->vec.y = size_y - 1;
-	BLI_addtail(r_vertbase, sv3);
+	BLI_addtail(&layout_data->vertbase, sv3);
 	sv4 = MEM_callocN(sizeof(ScrVert), "addscrvert4");
 	sv4->vec.x = size_x - 1;
 	sv4->vec.y = 0;
-	BLI_addtail(r_vertbase, sv4);
+	BLI_addtail(&layout_data->vertbase, sv4);
 
-	areabase_add_area(r_areabase, sv1, sv2, sv3, sv4, HEADERDOWN, SPACE_EMPTY);
+	se1 = MEM_callocN(sizeof(ScrEdge), "addscredge1");
+	se1->v1 = sv1;
+	se1->v2 = sv2;
+	BLI_addtail(&layout_data->edgebase, se1);
+	se2 = MEM_callocN(sizeof(ScrEdge), "addscredge2");
+	se2->v1 = sv2;
+	se2->v2 = sv3;
+	BLI_addtail(&layout_data->edgebase, se2);
+	se3 = MEM_callocN(sizeof(ScrEdge), "addscredge3");
+	se3->v1 = sv3;
+	se3->v2 = sv4;
+	BLI_addtail(&layout_data->edgebase, se3);
+	se4 = MEM_callocN(sizeof(ScrEdge), "addscredge4");
+	se4->v1 = sv4;
+	se4->v2 = sv1;
+	BLI_addtail(&layout_data->edgebase, se4);
+
+	areabase_add_area(&layout_data->areabase, sv1, sv2, sv3, sv4, HEADERDOWN, SPACE_EMPTY);
 }
 
 /**
@@ -463,27 +481,15 @@ void ED_screen_empty_data_create(int size_x, int size_y, ListBase *r_vertbase, L
  */
 bScreen *screen_add_from_layout_type(WorkSpaceLayoutType *layout_type, short winid)
 {
-	bScreen *sc;
-	ScrVert *sv1, *sv2, *sv3, *sv4;
-	ListBase *vertbase = BKE_workspace_layout_type_vertbase_get(layout_type);
+	ScreenLayoutData layout_data = BKE_workspace_layout_type_blueprint_get(layout_type);
+	const char *name = BKE_workspace_layout_type_name_get(layout_type);
+	bScreen *sc = BKE_screen_create_from_layout_data(G.main, &layout_data, name);
 
-	sc = BKE_libblock_alloc(G.main, ID_SCR, BKE_workspace_layout_type_name_get(layout_type));
 	sc->do_refresh = true;
 	sc->redraws_flag = TIME_ALL_3D_WIN | TIME_ALL_ANIM_WIN;
 	sc->winid = winid;
 
-	sv1 = vertbase->first;
-	sv2 = sv1->next;
-	sv3 = sv2->next;
-	sv4 = sv3->next;
-
-	BKE_screen_add_edge(sc, sv1, sv2);
-	BKE_screen_add_edge(sc, sv2, sv3);
-	BKE_screen_add_edge(sc, sv3, sv4);
-	BKE_screen_add_edge(sc, sv4, sv1);
-
-	/* dummy type, no spacedata */
-	screen_addarea(sc, sv1, sv2, sv3, sv4, HEADERDOWN, SPACE_EMPTY);
+	BLI_assert(!BLI_listbase_is_empty(&layout_data.areabase));
 
 	return sc;
 }

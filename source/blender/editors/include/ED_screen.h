@@ -122,7 +122,7 @@ void    ED_screens_header_tools_menu_create(struct bContext *C, struct uiLayout 
 bool    ED_screen_stereo3d_required(const struct bScreen *screen, const struct Scene *scene);
 Scene   *ED_screen_scene_find(const struct bScreen *screen, const struct wmWindowManager *wm);
 void    ED_screen_preview_render(const struct bScreen *screen, int size_x, int size_y, unsigned int *r_rect) ATTR_NONNULL();
-void    ED_screen_empty_data_create(int size_x, int size_y, ListBase *r_vertbase, ListBase *r_areabase);
+void    ED_screen_empty_data_create(int size_x, int size_y, ScreenLayoutData *layout_data) ATTR_NONNULL();
 
 /* workspaces */
 struct WorkSpace *ED_workspace_add(struct Main *bmain, const char *name, SceneLayer *act_render_layer) ATTR_NONNULL();

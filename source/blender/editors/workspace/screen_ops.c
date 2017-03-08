@@ -981,20 +981,12 @@ static int area_dupli_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *newwin, *win = CTX_wm_window(C);
-	Scene *scene;
-	WorkSpace *workspace_old = WM_window_get_active_workspace(win);
-	WorkSpace *workspace_new;
-	WorkSpaceLayout *layout_new;
+	Scene *scene = CTX_data_scene(C);
+	WorkSpace *workspace = WM_window_get_active_workspace(win);
 	ScreenLayoutData layout_data;
-	bScreen *newsc, *sc;
-	ScrArea *sa;
+	bScreen *newsc;
+	ScrArea *sa = CTX_wm_area(C);
 	rcti rect;
-	
-	win = CTX_wm_window(C);
-	scene = CTX_data_scene(C);
-	sc = CTX_wm_screen(C);
-	sa = CTX_wm_area(C);
-	layout_data = BKE_screen_layout_data_get(sc);
 
 	/* XXX hrmf! */
 	if (event->type == EVT_ACTIONZONE_AREA) {
@@ -1022,18 +1014,21 @@ static int area_dupli_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
 	newwin->scene = scene;
 
-	workspace_new = ED_workspace_add(CTX_data_main(C), BKE_workspace_name_get(workspace_old),
-	                                 BKE_workspace_render_layer_get(workspace_old));
-	WM_window_set_active_workspace(newwin, workspace_new);
+	WM_window_set_active_workspace(newwin, workspace);
+	/* a new screen for newwin has been created when activating the workspace */
+	newsc = BKE_workspace_hook_active_screen_get(newwin->workspace_hook);
 
-	/* allocs new screen and adds to newly created window, using window size */
-	ED_workspace_layout_add(workspace_new, &wm->windows, sc->id.name + 2, layout_data);
-	layout_new = BKE_workspace_hook_active_layout_get(newwin->workspace_hook);
-	newsc = BKE_workspace_layout_screen_get(layout_new);
-	WM_window_set_active_layout(newwin, layout_new);
+	/* remove all data from screen, and add a new empty area */
+	BKE_screen_free(newsc);
+	ED_screen_empty_data_create(BLI_rcti_size_x(&rect), BLI_rcti_size_y(&rect), &layout_data);
+	newsc->areabase = layout_data.areabase;
+	newsc->vertbase = layout_data.vertbase;
+	newsc->edgebase = layout_data.edgebase;
+	BLI_assert(BLI_listbase_count(&newsc->areabase) == 1);
 
 	/* copy area to new screen */
-	BKE_screen_area_data_copy((ScrArea *)newsc->areabase.first, sa, true);
+	BKE_screen_area_data_copy((ScrArea *)newsc->areabase.first, sa, false);
+	ED_screen_refresh(wm, win);
 
 	ED_area_tag_redraw((ScrArea *)newsc->areabase.first);
 
