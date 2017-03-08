@@ -267,6 +267,7 @@ wmWindow *wm_window_copy(bContext *C, wmWindow *win_src)
 	WM_window_set_active_workspace(win_dst, workspace_src);
 	/* the active screen that has been created for this workspace */
 	new_screen = WM_window_get_active_screen(win_dst);
+	ED_screen_refresh(CTX_wm_manager(C), win_dst);
 	BLI_strncpy(win_dst->screenname, new_screen->id.name + 2, sizeof(win_dst->screenname));
 
 	win_dst->drawmethod = U.wmdrawmethod;
