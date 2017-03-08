@@ -877,6 +877,17 @@ class GreasePencilDataPanel:
     bl_label = "Grease Pencil Layers"
     bl_region_type = 'UI'
 
+    @classmethod
+    def poll(cls, context):
+        if context.gpencil_data is None:
+            return False
+
+        if context.space_data.context == 'DATA':
+            if context.object.type != 'GPENCIL':
+                return False
+
+        return True
+
     @staticmethod
     def draw_header(self, context):
         if context.space_data.type != 'PROPERTIES':
