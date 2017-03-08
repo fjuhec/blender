@@ -68,14 +68,13 @@ typedef struct SplitParams {
 	SPLIT_DATA_ENTRY(PathRadiance, path_radiance, 1) \
 	SPLIT_DATA_ENTRY(ccl_global Ray, ray, 1) \
 	SPLIT_DATA_ENTRY(ccl_global PathState, path_state, 1) \
-	SPLIT_DATA_ENTRY(Intersection, isect, 1) \
+	SPLIT_DATA_ENTRY(ccl_global Intersection, isect, 1) \
 	SPLIT_DATA_ENTRY(ccl_global float3, ao_alpha, 1) \
 	SPLIT_DATA_ENTRY(ccl_global float3, ao_bsdf, 1) \
 	SPLIT_DATA_ENTRY(ccl_global Ray, ao_light_ray, 1) \
 	SPLIT_DATA_ENTRY(ccl_global BsdfEval, bsdf_eval, 1) \
 	SPLIT_DATA_ENTRY(ccl_global int, is_lamp, 1) \
 	SPLIT_DATA_ENTRY(ccl_global Ray, light_ray, 1) \
-	SPLIT_DATA_ENTRY(Intersection, isect_shadow, 2) \
 	SPLIT_DATA_ENTRY(ccl_global int, queue_data, (NUM_QUEUES*2)) /* TODO(mai): this is too large? */ \
 	SPLIT_DATA_ENTRY(ccl_global uint, work_array, 1) \
 	SPLIT_DATA_ENTRY(ShaderData, sd, 1) \
@@ -87,6 +86,14 @@ typedef struct SplitData {
 #define SPLIT_DATA_ENTRY(type, name, num) type *name;
 	SPLIT_DATA_ENTRIES
 #undef SPLIT_DATA_ENTRY
+
+#ifdef __SUBSURFACE__
+	ccl_global SubsurfaceIndirectRays *ss_rays;
+#endif
+
+#ifdef __VOLUME__
+	ccl_global PathState *state_shadow;
+#endif
 
 	/* this is actually in a separate buffer from the rest of the split state data (so it can be read back from
 	 * the host easily) but is still used the same as the other data so we have it here in this struct as well
@@ -104,6 +111,14 @@ ccl_device_inline size_t split_data_buffer_size(ccl_global void *kg, size_t num_
 	size = size SPLIT_DATA_ENTRIES;
 #undef SPLIT_DATA_ENTRY
 
+#ifdef __SUBSURFACE__
+	size += align_up(num_elements * sizeof(SubsurfaceIndirectRays), 16); /* ss_rays */
+#endif
+
+#ifdef __VOLUME__
+	size += align_up(2 * num_elements * sizeof(PathState), 16); /* state_shadow */
+#endif
+
 	return size;
 }
 
@@ -119,8 +134,18 @@ ccl_device_inline void split_data_init(ccl_global void *kg,
 
 #define SPLIT_DATA_ENTRY(type, name, num) \
 	split_data->name = (type*)p; p += align_up(num_elements * num * sizeof(type), 16);
-	SPLIT_DATA_ENTRIES
+	SPLIT_DATA_ENTRIES;
 #undef SPLIT_DATA_ENTRY
+
+#ifdef __SUBSURFACE__
+	split_data->ss_rays = (ccl_global SubsurfaceIndirectRays*)p;
+	p += align_up(num_elements * sizeof(SubsurfaceIndirectRays), 16);
+#endif
+
+#ifdef __VOLUME__
+	split_data->state_shadow = (ccl_global PathState*)p;
+	p += align_up(2 * num_elements * sizeof(PathState), 16);
+#endif
 
 	split_data->ray_state = ray_state;
 }
