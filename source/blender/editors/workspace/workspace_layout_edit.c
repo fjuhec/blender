@@ -54,10 +54,8 @@ void ED_workspace_layout_add(WorkSpace *workspace, ListBase *windows, const char
 	for (wmWindow *win = windows->first; win; win = win->next) {
 		if (BKE_workspace_active_get(win->workspace_hook) == workspace) {
 			bScreen *screen = screen_add_from_layout_type(layout_type, win->winid);
-			ListBase *layouts = BKE_workspace_hook_layouts_get(win->workspace_hook);
-			WorkSpaceLayout *layout = BKE_workspace_layout_add_from_type(workspace, layout_type, screen);
+			WorkSpaceLayout *layout = BKE_workspace_layout_add_from_type(win->workspace_hook, layout_type, screen);
 
-			BLI_addhead(layouts, layout);
 			BKE_workspace_hook_active_layout_set(win->workspace_hook, layout);
 		}
 	}
@@ -195,14 +193,12 @@ bool ED_workspace_layout_cycle(bContext *C, WorkSpace *workspace, const short di
 	wmWindowManager *wm = CTX_wm_manager(C);
 	WorkSpaceLayoutType *old_type = BKE_workspace_active_layout_type_get(workspace);
 	WorkSpaceLayoutType *new_type;
-	WorkSpaceLayout *old_layout = BKE_workspace_active_layout_get(workspace);
-	const bScreen *old_screen = BKE_workspace_layout_screen_get(old_layout);
 	ScrArea *sa = CTX_wm_area(C);
 	bool changed = false;
 
-	if (old_screen->temp || (sa && sa->full && sa->full->temp)) {
-		return false;
-	}
+//	if (old_screen->temp || (sa && sa->full && sa->full->temp)) {
+//		return false;
+//	}
 
 	/* XXX new_type isn't necessarily usable */
 	if (direction == 1) {

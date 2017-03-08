@@ -1807,7 +1807,7 @@ bScreen *WM_window_get_active_screen(const wmWindow *win)
 }
 void WM_window_set_active_screen(wmWindow *win, bScreen *screen)
 {
-	BKE_workspace_active_screen_set(win->workspace_hook, screen);
+	BKE_workspace_hook_active_screen_set(win->workspace_hook, screen);
 }
 
 bool WM_window_is_temp_screen(const wmWindow *win)

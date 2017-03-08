@@ -936,24 +936,6 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 				break;
 			}
 
-			case ID_WS:
-			{
-				WorkSpace *workspace = (WorkSpace *)id;
-				ListBase *layouts = BKE_workspace_layouts_get(workspace);
-
-				BKE_workspace_layout_iter_begin(layout, layouts->first);
-				{
-					bScreen *screen = BKE_workspace_layout_screen_get(layout);
-
-					CALLBACK_INVOKE(screen, IDWALK_CB_NOP);
-					/* allow callback to set a different screen */
-					BKE_workspace_layout_screen_set(layout, screen);
-				}
-				BKE_workspace_layout_iter_end;
-
-				break;
-			}
-
 			/* Nothing needed for those... */
 			case ID_SCR:
 			case ID_IM:
@@ -965,6 +947,7 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 			case ID_PAL:
 			case ID_PC:
 			case ID_CF:
+			case ID_WS:
 				break;
 
 			/* Deprecated. */

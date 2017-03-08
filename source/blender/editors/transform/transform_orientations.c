@@ -348,12 +348,11 @@ TransformOrientation *addMatrixSpace(bContext *C, float mat[3][3],
 
 void BIF_removeTransformOrientation(bContext *C, TransformOrientation *target)
 {
-	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
 	ListBase *transform_spaces = &scene->transform_spaces;
 
 	BLI_assert(BLI_findindex(transform_spaces, target) != -1);
-	BKE_workspaces_transform_orientation_remove(&bmain->workspaces, target);
+	BKE_workspaces_transform_orientation_remove(target);
 	BLI_freelinkN(transform_spaces, target);
 }
 

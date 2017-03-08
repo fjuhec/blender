@@ -96,11 +96,10 @@ static void do_version_workspaces_after_lib_link(Main *main)
 			bScreen *screen = win->screen;
 			WorkSpace *workspace = BLI_findstring(&main->workspaces, screen->id.name + 2, offsetof(ID, name) + 2);
 			ListBase *layout_types = BKE_workspace_layout_types_get(workspace);
-			ListBase *layouts = BKE_workspace_hook_layouts_get(win->workspace_hook);
-			WorkSpaceLayout *layout = BKE_workspace_layout_add_from_type(workspace, layout_types->first, screen);
+			WorkSpaceLayout *layout = BKE_workspace_layout_add_from_type(win->workspace_hook, layout_types->first,
+			                                                             screen);
 
 			BLI_assert(BLI_listbase_count(layout_types) == 1);
-			BLI_addhead(layouts, layout);
 			BKE_workspace_active_set(win->workspace_hook, workspace);
 			BKE_workspace_hook_active_layout_set(win->workspace_hook, layout);
 			win->scene = screen->scene;

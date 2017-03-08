@@ -58,8 +58,8 @@ WorkSpace *BKE_workspace_add(struct Main *bmain, const char *name);
 void BKE_workspace_free(WorkSpace *ws);
 void BKE_workspace_remove(WorkSpace *workspace, struct Main *bmain);
 
-WorkSpaceLayout *BKE_workspace_layout_add_from_type(WorkSpace *workspace, WorkSpaceLayoutType *type,
-                                                    struct bScreen *screen) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
+WorkSpaceLayout *BKE_workspace_layout_add_from_type(
+        WorkSpaceHook *hook, WorkSpaceLayoutType *type, struct bScreen *screen) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
 void BKE_workspace_layout_remove(WorkSpace *workspace, WorkSpaceLayout *layout, struct Main *bmain) ATTR_NONNULL();
 WorkSpaceLayoutType *BKE_workspace_layout_type_add(WorkSpace *workspace, const char *name,
                                                    struct ScreenLayoutData layout_blueprint) ATTR_NONNULL();
@@ -79,8 +79,7 @@ void BKE_workspace_hook_delete(struct Main *bmain, WorkSpaceHook *hook) ATTR_NON
 WorkSpaceLayout *BKE_workspace_change_prepare(
         struct Main *bmain, WorkSpaceHook *workspace_hook, WorkSpace *workspace_new) ATTR_NONNULL();
 
-void BKE_workspaces_transform_orientation_remove(const struct ListBase *workspaces,
-                                                 const struct TransformOrientation *orientation) ATTR_NONNULL();
+void BKE_workspaces_transform_orientation_remove(const struct TransformOrientation *orientation) ATTR_NONNULL();
 
 WorkSpaceLayout *BKE_workspace_layout_find(const WorkSpaceHook *hook, const struct bScreen *screen) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
 WorkSpaceLayout *BKE_workspace_layout_find_from_type(const WorkSpaceHook *hook, const WorkSpaceLayoutType *type) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
@@ -93,10 +92,6 @@ struct bScreen  *BKE_workspace_layout_screen_find_from_type(const WorkSpaceHook 
 	for (WorkSpaceLayout *_layout = _start_layout, *_layout##_prev; _layout; _layout = _layout##_prev) {\
 		_layout##_prev = BKE_workspace_layout_prev_get(_layout); /* support removing layout from list */
 #define BKE_workspace_layout_iter_end } (void)0
-
-WorkSpaceLayout *BKE_workspace_layout_iter_circular(const WorkSpace *workspace, WorkSpaceLayout *start,
-                                                    bool (*callback)(const WorkSpaceLayout *layout, void *arg),
-                                                    void *arg, const bool iter_backward);
 
 #define BKE_workspace_layout_type_iter_begin(_layout_type, _start_layout_type) \
 	for (WorkSpaceLayoutType *_layout_type = _start_layout_type, *_layout_type##_next; \
@@ -115,12 +110,10 @@ WorkSpaceLayout *BKE_workspace_layout_iter_circular(const WorkSpace *workspace, 
 
 struct ID *BKE_workspace_id_get(WorkSpace *workspace) GETTER_ATTRS;
 const char *BKE_workspace_name_get(const WorkSpace *workspace) GETTER_ATTRS;
-WorkSpaceLayout *BKE_workspace_active_layout_get(const struct WorkSpace *ws) GETTER_ATTRS;
-void             BKE_workspace_active_layout_set(WorkSpace *ws, WorkSpaceLayout *layout) SETTER_ATTRS;
 WorkSpaceLayout *BKE_workspace_hook_active_layout_get(const WorkSpaceHook *hook) GETTER_ATTRS;
 void             BKE_workspace_hook_active_layout_set(WorkSpaceHook *hook, WorkSpaceLayout *layout) SETTER_ATTRS;
 struct bScreen *BKE_workspace_active_screen_get(const WorkSpace *ws) GETTER_ATTRS;
-void            BKE_workspace_active_screen_set(WorkSpaceHook *hook, struct bScreen *screen) SETTER_ATTRS;
+void            BKE_workspace_hook_active_screen_set(WorkSpaceHook *hook, struct bScreen *screen) SETTER_ATTRS;
 struct bScreen *BKE_workspace_hook_active_screen_get(const WorkSpaceHook *hook) GETTER_ATTRS;
 enum ObjectMode BKE_workspace_object_mode_get(const WorkSpace *workspace) GETTER_ATTRS;
 #ifdef USE_WORKSPACE_MODE
@@ -128,7 +121,6 @@ void            BKE_workspace_object_mode_set(WorkSpace *workspace, const enum O
 #endif
 struct SceneLayer *BKE_workspace_render_layer_get(const WorkSpace *workspace) GETTER_ATTRS;
 void               BKE_workspace_render_layer_set(WorkSpace *workspace, struct SceneLayer *layer) SETTER_ATTRS;
-struct ListBase *BKE_workspace_layouts_get(WorkSpace *workspace) GETTER_ATTRS;
 WorkSpaceLayoutType *BKE_workspace_active_layout_type_get(const WorkSpace *workspace) GETTER_ATTRS;
 void                 BKE_workspace_active_layout_type_set(WorkSpace *workspace, WorkSpaceLayoutType *layout_type) SETTER_ATTRS;
 WorkSpaceLayoutType *BKE_workspace_layout_type_get(const WorkSpaceLayout *layout) GETTER_ATTRS;

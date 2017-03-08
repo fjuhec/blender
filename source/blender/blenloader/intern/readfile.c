@@ -2749,7 +2749,7 @@ static void direct_link_cachefile(FileData *fd, CacheFile *cache_file)
 
 /* ************ READ WORKSPACES *************** */
 
-static void lib_link_workspaces(FileData *fd, Main *bmain)
+static void lib_link_workspaces(FileData *UNUSED(fd), Main *bmain)
 {
 	/* Note the NULL pointer checks for result of newlibadr. This is needed for reading old files from before the
 	 * introduction of workspaces (in do_versioning code we already created workspaces for screens of old file). */
@@ -2757,18 +2757,7 @@ static void lib_link_workspaces(FileData *fd, Main *bmain)
 	BKE_workspace_iter_begin(workspace, bmain->workspaces.first)
 	{
 		ID *id = BKE_workspace_id_get(workspace);
-		ListBase *layouts = BKE_workspace_layouts_get(workspace);
-
 		id_us_ensure_real(id);
-
-		BKE_workspace_layout_iter_begin(layout, layouts->first)
-		{
-			bScreen *screen = newlibadr(fd, id->lib, BKE_workspace_layout_screen_get(layout));
-			if (screen) {
-				BKE_workspace_layout_screen_set(layout, screen);
-			}
-		}
-		BKE_workspace_layout_iter_end;
 	}
 	BKE_workspace_iter_end;
 }
@@ -2787,22 +2776,34 @@ static void lib_link_workspace_layouts(FileData *fd, const void *lib, ListBase *
 
 static void direct_link_workspace(FileData *fd, WorkSpace *ws)
 {
-	WorkSpaceLayout *act_layout = BKE_workspace_active_layout_get(ws);
+	WorkSpaceLayoutType *act_layout_type = BKE_workspace_active_layout_type_get(ws);
+	ListBase *layout_types = BKE_workspace_layout_types_get(ws);
+	SceneLayer *render_layer = BKE_workspace_render_layer_get(ws);
 
-	link_list(fd, BKE_workspace_layouts_get(ws));
-	link_list(fd, BKE_workspace_layout_types_get(ws));
+	link_list(fd, layout_types);
 
-	act_layout = newdataadr(fd, act_layout);
-	BKE_workspace_active_layout_set(ws, act_layout);
+	BKE_workspace_layout_type_iter_begin(layout_type, layout_types->first)
+	{
+		ScreenLayoutData layout_data = BKE_workspace_layout_type_blueprint_get(layout_type);
+		link_list(fd, &layout_data.vertbase);
+		link_list(fd, &layout_data.edgebase);
+		link_list(fd, &layout_data.areabase);
+	}
+	BKE_workspace_layout_type_iter_end;
+
+	act_layout_type = newdataadr(fd, act_layout_type);
+	BKE_workspace_active_layout_type_set(ws, act_layout_type);
+	render_layer = newdataadr(fd, render_layer);
 }
 
 static void direct_link_workspace_hook(FileData *fd, WorkSpaceHook *hook)
 {
-	hook = newdataadr(fd, hook);
-	if (hook) {
-		ListBase *layouts = BKE_workspace_hook_layouts_get(hook);
-		link_list(fd, layouts);
-	}
+	WorkSpaceLayout *act_layout = BKE_workspace_hook_active_layout_get(hook);
+	ListBase *layouts = BKE_workspace_hook_layouts_get(hook);
+
+	link_list(fd, layouts);
+	act_layout = newdataadr(fd, act_layout);
+	BKE_workspace_hook_active_layout_set(hook, act_layout);
 }
 
 /* ************ READ MOTION PATHS *************** */
@@ -6411,7 +6412,9 @@ static void direct_link_windowmanager(FileData *fd, wmWindowManager *wm)
 			win->stereo3d_format->display_mode = S3D_DISPLAY_ANAGLYPH;
 		}
 		win->workspace_hook = newdataadr(fd, win->workspace_hook);
-		direct_link_workspace_hook(fd, win->workspace_hook);
+		if (win->workspace_hook) {
+			direct_link_workspace_hook(fd, win->workspace_hook);
+		}
 	}
 
 	BLI_listbase_clear(&wm->timers);
@@ -9944,17 +9947,6 @@ static void expand_windowmanager(FileData *fd, Main *mainvar, wmWindowManager *w
 	}
 }
 
-static void expand_workspace(FileData *fd, Main *mainvar, WorkSpace *workspace)
-{
-	ListBase *layouts = BKE_workspace_layouts_get(workspace);
-
-	BKE_workspace_layout_iter_begin(layout, layouts->first)
-	{
-		expand_doit(fd, mainvar, BKE_workspace_layout_screen_get(layout));
-	}
-	BKE_workspace_layout_iter_end;
-}
-
 /**
  * Set the callback func used over all ID data found by \a BLO_expand_main func.
  *
@@ -10069,9 +10061,6 @@ void BLO_expand_main(void *fdhandle, Main *mainvar)
 						break;
 					case ID_WM:
 						expand_windowmanager(fd, mainvar, (wmWindowManager *)id);
-						break;
-					case ID_WS:
-						expand_workspace(fd, mainvar, (WorkSpace *)id);
 						break;
 					}
 					

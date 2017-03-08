@@ -59,9 +59,7 @@ typedef struct WorkSpace {
 	ID id;
 
 	ListBase layout_types;
-	ListBase layouts;
 	struct WorkSpaceLayoutType *act_layout_type;
-	struct WorkSpaceLayout *act_layout;
 
 	int object_mode; /* enum ObjectMode */
 	int pad;
