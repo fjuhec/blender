@@ -1807,6 +1807,8 @@ RegionView3D *rv3d, const bool is_boundingbox, const unsigned char color[4])
 			break;
 		case OB_GPENCIL:
 			drawaxes(rv3d->viewmatob, ob->empty_drawsize, ob->empty_drawtype, color);
+			/* draw small box to make different of empty type */
+			drawaxes(rv3d->viewmatob, ob->empty_drawsize / 4.0f, OB_CUBE, color);
 			break;
 		case OB_LAMP:
 			drawlamp(v3d, rv3d, base, OB_SOLID, DRAW_CONSTCOLOR, color, ob == OBACT_NEW);

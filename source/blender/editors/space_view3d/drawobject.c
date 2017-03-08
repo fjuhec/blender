@@ -8538,6 +8538,8 @@ void draw_object(Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d, Base *b
 			case OB_GPENCIL:
 				if (!render_override) {
 					drawaxes(rv3d->viewmatob, ob->empty_drawsize, ob->empty_drawtype, ob_wire_col);
+					/* draw small box to make different of empty type */
+					drawaxes(rv3d->viewmatob, ob->empty_drawsize / 4.0f, OB_CUBE, ob_wire_col);
 				}
 				break;
 			case OB_LAMP:
@@ -9360,6 +9362,8 @@ void draw_object_instance(Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3
 			break;
 		case OB_GPENCIL:
 			drawaxes(rv3d->viewmatob, ob->empty_drawsize, ob->empty_drawtype, NULL);
+			/* draw small box to make different of empty type */
+			drawaxes(rv3d->viewmatob, ob->empty_drawsize / 4.0f, OB_CUBE, NULL);
 			break;
 	}
 }
