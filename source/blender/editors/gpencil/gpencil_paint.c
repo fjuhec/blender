@@ -314,7 +314,7 @@ static void gp_project_points_to_plane(Object *ob, RegionView3D *rv3d, bGPDstrok
 	/* if object, apply object rotation */
 	if (type & GP_TOOL_SOURCE_OBJECT) {
 		if (ob && ob->type == OB_GPENCIL) {
-			mul_m3_v3(ob->obmat, plane_normal);
+			mul_mat3_m4_v3(ob->obmat, plane_normal);
 		}
 	}
 
@@ -357,11 +357,9 @@ static void gp_reproject_toplane(tGPsdata *p, bGPDstroke *gps)
 		return;
 	}
 
-	/* get drawing origin and copy origin for locked axis only. Uses axis-1 because the enum for XYZ start with 1 */
+	/* get drawing origin and copy */
 	gp_get_3d_reference(p, cursor);
-	zero_v3(origin);
-	origin[p->lock_axis - 1] = cursor[p->lock_axis - 1];
-
+	copy_v3_v3(origin, cursor);
 	gp_project_points_to_plane(obact, rv3d, gps, origin, p->lock_axis - 1, p->scene->toolsettings->gpencil_src);
 }
 
