@@ -94,34 +94,14 @@ void initializeUvs(retrieval::GeometryData &gd, SLIMData *slimData){
 	Eigen::MatrixXd CotMatrix;
 	igl::cotmatrix_entries(Eigen::MatrixXd(gd.vertexPositions3D), Eigen::MatrixXi(gd.facesByVertexindices), CotMatrix);
 
-	 UVInitializer::uniform_laplacian(
-gd.facesByVertexindices,
-									  gd.vertexPositions3D,
-									  gd.edgesByVertexindices,
-	 gd.edgeLengths,
-	 boundaryVertexIndices,
-	 uvPositionsOfBoundary,
-	 slimData->V_o,
-	 CotMatrix);
-
-	/*
-	int harmonicPower = 1; // 1 is harmonic map, 2 is biharmonic ...
-	UVInitializer::harmonic(vertexPositions2D,
-							facesByVertexIndices,
-							boundaryVertexIndices,
-							uvPositionsOfBoundary,
-							harmonicPower,
-							slimData->V_o);
-
-	bool flippedTrianglesInMap = UVInitializer::count_flips(slimData->V, slimData->F, slimData->V_o) > 0;
-
-	if (flippedTrianglesInMap) { // fallback to lower-quality, guaranteed-to-be flip free method
-		UVInitializer::uniform_laplacian(gd.edgesByVertexindices,
-										 gd.edgeLengths,
-										 boundaryVertexIndices,
-										 uvPositionsOfBoundary,
-										 slimData->V_o);
-	}*/
+	 UVInitializer::mvc(
+		gd.facesByVertexindices,
+		gd.vertexPositions3D,
+		gd.edgesByVertexindices,
+	 	gd.edgeLengths,
+	 	boundaryVertexIndices,
+	 	uvPositionsOfBoundary,
+	 	slimData->V_o);
 }
 
 void initializeIfNeeded(retrieval::GeometryData &gd, SLIMData *slimData){

@@ -17,9 +17,7 @@
 using namespace std;
 
 double computeAngle(const Eigen::Vector3d &a,const Eigen::Vector3d &b){
-	cout << "points for angle " << a << "   and    " << b << endl;
-	double angle = acos(a.dot(b) / (a.norm() * b.norm()));
-	return angle;
+	return acos(a.dot(b) / (a.norm() * b.norm()));
 }
 
 void findVertexToOppositeAnglesCorrespondence(const Eigen::MatrixXi &F,const Eigen::MatrixXd &V, Eigen::SparseMatrix<double> &vertexToFaceIndices){
@@ -36,10 +34,6 @@ void findVertexToOppositeAnglesCorrespondence(const Eigen::MatrixXi &F,const Eig
 		double angle1 = computeAngle(V.row(vertexIndex2) - V.row(vertexIndex1), V.row(vertexIndex3) - V.row(vertexIndex1));
 		double angle2 = computeAngle(V.row(vertexIndex3) - V.row(vertexIndex2), V.row(vertexIndex1) - V.row(vertexIndex2));
 		double angle3 = computeAngle(V.row(vertexIndex1) - V.row(vertexIndex3), V.row(vertexIndex2) - V.row(vertexIndex3));
-
-		cout << "vertex " << V.row(vertexIndex1) << " has angle " << angle1 << "for neighbors " << V.row(vertexIndex2) << " and" << V.row(vertexIndex3) << endl << endl;
-		cout << "vertex " << V.row(vertexIndex2) << " has angle " << angle2 << "for neighbors " << V.row(vertexIndex3) << " and" << V.row(vertexIndex1) << endl << endl;
-		cout << "vertex " << V.row(vertexIndex3) << " has angle " << angle3 << "for neighbors " << V.row(vertexIndex1) << " and" << V.row(vertexIndex2) << endl << endl;
 
 		coefficients.push_back(T(vertexIndex1, 2*vertexIndex2, angle3));
 		coefficients.push_back(T(vertexIndex1, 2*vertexIndex3 + 1, angle2));
@@ -84,14 +78,17 @@ void findVertexToItsAnglesCorrespondence(const Eigen::MatrixXi &F,const Eigen::M
 	vertexToFaceIndices.setFromTriplets(coefficients.begin(), coefficients.end());
 }
 
-/*	AUREL THESIS
-	My own implementation of unfirom laplacian parameterization, for speed comparison and curiosity. Mine is faster then the libigl implementation.
-	Unfortunatly it is a very bad initialisation for our use.
+/*
+	Implementation of different fixed-border parameterizations, Mean Value Coordinates, Harmonic, Tutte.
  */
-void UVInitializer::uniform_laplacian(const Eigen::MatrixXi &F, const Eigen::MatrixXd &V, const Eigen::MatrixXi &E, const Eigen::VectorXd &EL, const Eigen::VectorXi &bnd, Eigen::MatrixXd &bnd_uv, Eigen::MatrixXd &UV, Eigen::MatrixXd &CotMatrix){
-
-	enum Method{TUTTE, HARMONIC, MVC};
-	Method method = HARMONIC;
+void UVInitializer::convex_border_parameterization(const Eigen::MatrixXi &F,
+												   const Eigen::MatrixXd &V,
+												   const Eigen::MatrixXi &E,
+												   const Eigen::VectorXd &EL,
+												   const Eigen::VectorXi &bnd,
+												   const Eigen::MatrixXd &bnd_uv,
+												   Eigen::MatrixXd &UV,
+												   Method method){
 
 	int nVerts = UV.rows();
 	int nEdges = E.rows();
@@ -152,8 +149,6 @@ void UVInitializer::uniform_laplacian(const Eigen::MatrixXi &F, const Eigen::Mat
 					break;
 			}
 
-			cout << "edgeWeight " << edgeWeight << "r.norm: "<< edgeLength << endl;
-
 			intTripletVector.push_back(Eigen::Triplet<double>(rowindex, rowindex, edgeWeight));
 
 			if (secondVertex >= nKnowns){ // also an unknown point in the interior
@@ -176,17 +171,11 @@ void UVInitializer::uniform_laplacian(const Eigen::MatrixXi &F, const Eigen::Mat
 	Abnd.setFromTriplets(bndTripletVector.begin(), bndTripletVector.end());
 	Abnd.makeCompressed();
 
-	//cout << "Aint before: " << endl << Aint.toDense() << endl;
-	//cout << "Abnd before: " << endl << Abnd.toDense() << endl;
-
 	for (int i = 0; i < nUnknowns; i++){
 		double factor = Aint.coeff(i, i);
 		Aint.row(i) /= factor;
 		Abnd.row(i) /= factor;
 	}
-
-	//cout << "Aint: " << endl << Aint.toDense() << endl;
-	//cout << "Abnd: " << endl << Abnd.toDense() << endl;
 
 	Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
 	solver.compute(Aint);
@@ -209,16 +198,38 @@ void UVInitializer::uniform_laplacian(const Eigen::MatrixXi &F, const Eigen::Mat
 	}
 }
 
-void UVInitializer::harmonic(const Eigen::MatrixXd &V,
-							 const Eigen::MatrixXi &F,
-							 const Eigen::MatrixXi &B,
-							 const Eigen::MatrixXd &bnd_uv,
-							 int powerOfHarmonicOperaton,
-							 Eigen::MatrixXd &UV){
+void UVInitializer::mvc(const Eigen::MatrixXi &F,
+						const Eigen::MatrixXd &V,
+						const Eigen::MatrixXi &E,
+						const Eigen::VectorXd &EL,
+						const Eigen::VectorXi &bnd,
+						const Eigen::MatrixXd &bnd_uv,
+						Eigen::MatrixXd &UV){
 
-	igl::harmonic(V, F, B, bnd_uv, powerOfHarmonicOperaton, UV);
+	UVInitializer::convex_border_parameterization(F, V, E, EL, bnd, bnd_uv, UV, Method::MVC);
 }
 
+void UVInitializer::harmonic(const Eigen::MatrixXi &F,
+						const Eigen::MatrixXd &V,
+						const Eigen::MatrixXi &E,
+						const Eigen::VectorXd &EL,
+						const Eigen::VectorXi &bnd,
+						const Eigen::MatrixXd &bnd_uv,
+						Eigen::MatrixXd &UV){
+
+	UVInitializer::convex_border_parameterization(F, V, E, EL, bnd, bnd_uv, UV, Method::HARMONIC);
+}
+
+void UVInitializer::tutte(const Eigen::MatrixXi &F,
+						const Eigen::MatrixXd &V,
+						const Eigen::MatrixXi &E,
+						const Eigen::VectorXd &EL,
+						const Eigen::VectorXi &bnd,
+						const Eigen::MatrixXd &bnd_uv,
+						Eigen::MatrixXd &UV){
+
+	UVInitializer::convex_border_parameterization(F, V, E, EL, bnd, bnd_uv, UV, Method::TUTTE);
+}
 void get_flips(const Eigen::MatrixXd& V,
 							  const Eigen::MatrixXi& F,
 							  const Eigen::MatrixXd& uv,

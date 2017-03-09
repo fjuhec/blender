@@ -6,26 +6,55 @@
 //
 //
 
-#ifndef UVInitializer_hpp
-#define UVInitializer_hpp
+#ifndef UVInitializer_h
+#define UVInitializer_h
 
 #include <stdio.h>
 
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 
-#endif /* UVInitializer_hpp */
+
+enum Method{TUTTE, HARMONIC, MVC};
 
 namespace UVInitializer {
 
-	void uniform_laplacian(const Eigen::MatrixXi &F,
-						   const Eigen::MatrixXd &V,
-						   const Eigen::MatrixXi &E,
-						   const Eigen::VectorXd &EL,
-						   const Eigen::VectorXi &bnd,
-						   Eigen::MatrixXd &bnd_uv,
-						   Eigen::MatrixXd &UV,
-						   Eigen::MatrixXd &CotMatrix);
+
+	void convex_border_parameterization(const Eigen::MatrixXi &F,
+										const Eigen::MatrixXd &V,
+										const Eigen::MatrixXi &E,
+										const Eigen::VectorXd &EL,
+										const Eigen::VectorXi &bnd,
+										const Eigen::MatrixXd &bnd_uv,
+										Eigen::MatrixXd &UV,
+										Method method);
+
+	void mvc(
+			 const Eigen::MatrixXi &F,
+			 const Eigen::MatrixXd &V,
+			 const Eigen::MatrixXi &E,
+			 const Eigen::VectorXd &EL,
+			 const Eigen::VectorXi &bnd,
+			 const Eigen::MatrixXd &bnd_uv,
+			 Eigen::MatrixXd &UV);
+
+	void harmonic(
+				  const Eigen::MatrixXi &F,
+				  const Eigen::MatrixXd &V,
+				  const Eigen::MatrixXi &E,
+				  const Eigen::VectorXd &EL,
+				  const Eigen::VectorXi &bnd,
+				  const Eigen::MatrixXd &bnd_uv,
+				  Eigen::MatrixXd &UV);
+
+	void tutte(
+			   const Eigen::MatrixXi &F,
+			   const Eigen::MatrixXd &V,
+			   const Eigen::MatrixXi &E,
+			   const Eigen::VectorXd &EL,
+			   const Eigen::VectorXi &bnd,
+			   const Eigen::MatrixXd &bnd_uv,
+			   Eigen::MatrixXd &UV);
 
 	void harmonic(const Eigen::MatrixXd &V,
 				  const Eigen::MatrixXi &F,
@@ -38,3 +67,5 @@ namespace UVInitializer {
 									const Eigen::MatrixXi& F,
 									const Eigen::MatrixXd& uv);
 }
+
+#endif /* UVInitializer_h */
