@@ -45,7 +45,10 @@ class INFO_HT_header(Header):
             layout.separator()
         else:
             layout.template_ID(window, "workspace", new="workspace.workspace_new", unlink="workspace.workspace_delete")
-            layout.template_ID_preview(window, "screen", window, "screens", new="screen.new", unlink="screen.delete", rows=2, cols=6)
+            row = layout.row(align=True)
+            row.template_layouts(window, "workspace")
+            row.operator("screen.new", text="", icon='ZOOMIN')
+            row.operator("screen.delete", text="", icon='X')
 
         if hasattr(workspace, 'object_mode'):
             act_mode_item = bpy.types.Object.bl_rna.properties['mode'].enum_items[workspace.object_mode]

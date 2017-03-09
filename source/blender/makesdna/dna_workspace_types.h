@@ -49,7 +49,7 @@ typedef struct WorkSpaceLayout {
 
 typedef struct WorkSpaceLayoutType {
 	struct WorkSpaceLayoutType *next, *prev;
-	const char *name;
+	char name[64];
 
 	/* this contains the data we use for creating a new WorkSpaceLayout from this type. */
 	ScreenLayoutData layout_blueprint;

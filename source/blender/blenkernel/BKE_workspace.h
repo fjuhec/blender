@@ -60,6 +60,7 @@ void BKE_workspace_remove(WorkSpace *workspace, struct Main *bmain);
 
 WorkSpaceLayout *BKE_workspace_layout_add_from_type(
         WorkSpaceHook *hook, WorkSpaceLayoutType *type, struct bScreen *screen) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
+void BKE_workspace_layout_rename(WorkSpace *workspace, WorkSpaceLayoutType *layout_type, const char *name) ATTR_NONNULL();
 void BKE_workspace_layout_remove(WorkSpace *workspace, WorkSpaceLayout *layout, struct Main *bmain) ATTR_NONNULL();
 WorkSpaceLayoutType *BKE_workspace_layout_type_add(WorkSpace *workspace, const char *name,
                                                    struct ScreenLayoutData layout_blueprint) ATTR_NONNULL();

@@ -28,6 +28,8 @@
 
 #include "BLI_utildefines.h"
 #include "BLI_listbase.h"
+#include "BLI_string.h"
+#include "BLI_string_utils.h"
 
 #include "BKE_global.h"
 #include "BKE_library.h"
@@ -114,9 +116,9 @@ WorkSpaceLayoutType *BKE_workspace_layout_type_add(
 {
 	WorkSpaceLayoutType *layout_type = MEM_mallocN(sizeof(*layout_type), __func__);
 
-	layout_type->name = name; /* XXX should probably copy name */
 	layout_type->layout_blueprint = layout_blueprint;
-	BLI_addhead(&workspace->layout_types, layout_type);
+	BKE_workspace_layout_rename(workspace, layout_type, name);
+	BLI_addtail(&workspace->layout_types, layout_type);
 
 	return layout_type;
 }
@@ -138,6 +140,13 @@ void BKE_workspace_layout_type_remove(WorkSpace *workspace, WorkSpaceLayoutType 
 
 	BLI_assert(BLI_findindex(&workspace->layout_types, layout_type) >= 0);
 	BLI_freelinkN(&workspace->layout_types, layout_type);
+}
+
+void BKE_workspace_layout_rename(WorkSpace *workspace, WorkSpaceLayoutType *layout_type, const char *name)
+{
+	BLI_strncpy(layout_type->name, name, sizeof(layout_type->name));
+	BLI_uniquename(&workspace->layout_types, layout_type, "Layout", '.', offsetof(WorkSpaceLayoutType, name),
+	               sizeof(layout_type->name));
 }
 
 /**

@@ -70,6 +70,7 @@
 #include "BKE_sca.h"
 #include "BKE_screen.h"
 #include "BKE_texture.h"
+#include "BKE_workspace.h"
 
 #include "ED_screen.h"
 #include "ED_object.h"
@@ -842,6 +843,126 @@ void uiTemplateAnyID(
 	uiLayoutSetAlignment(sub, UI_LAYOUT_ALIGN_EXPAND);  /*       enum, which now pushes everything too far right         */
 	
 	uiItemFullR(sub, ptr, propID, 0, 0, 0, "", ICON_NONE);
+}
+
+/********************* Screen-layout Template ********************/
+
+struct ScreenLayoutTemplate {
+	WorkSpace *workspace;
+	int prv_rows, prv_cols;
+};
+
+static void layout_search_call_cb(bContext *C, void *UNUSED(arg), void *item)
+{
+	WorkSpaceLayout *layout = item;
+	WM_event_add_notifier(C, NC_WORKSPACE | ND_SCREENBROWSE, layout);
+}
+
+static void layout_search_cb(const bContext *C, void *arg, const char *str, uiSearchItems *items)
+{
+	struct ScreenLayoutTemplate *templ = arg;
+	wmWindow *win = CTX_wm_window(C);
+	ListBase *layout_types = BKE_workspace_layout_types_get(templ->workspace);
+
+	BKE_workspace_layout_type_iter_begin(layout_type, layout_types->first)
+	{
+		WorkSpaceLayout *layout = BKE_workspace_layout_find_from_type(win->workspace_hook, layout_type);
+		bScreen *screen = BKE_workspace_layout_screen_get(layout);
+		const char *name = BKE_workspace_layout_type_name_get(layout_type);
+
+		if (*str == '\0' || BLI_strcasestr(name, str)) {
+			int iconid = ui_id_icon_get(C, &screen->id, true);
+
+			if (UI_search_item_add(items, name, layout, iconid) == false) {
+				break;
+			}
+		}
+	}
+	BKE_workspace_layout_type_iter_end;
+}
+
+static uiBlock *layout_search_menu(bContext *C, ARegion *ar, void *arg)
+{
+	struct ScreenLayoutTemplate *templ = arg;
+	wmWindow *win = CTX_wm_window(C);
+	uiBlock *block = UI_block_begin(C, ar, "_popup", UI_EMBOSS);
+	int w = 4 * U.widget_unit * templ->prv_cols;
+	int h = 5 * U.widget_unit * templ->prv_rows;
+	uiBut *but;
+	static char search[256];
+
+	/* clear initial search string, then all items show */
+	search[0] = 0;
+	UI_block_flag_enable(block, UI_BLOCK_LOOP | UI_BLOCK_SEARCH_MENU);
+
+	/* fake button, it holds space for search items */
+	uiDefBut(block, UI_BTYPE_LABEL, 0, "", 10, 26, w, h, NULL, 0, 0, 0, 0, NULL);
+	/* search button (layout items are added through callbacks) */
+	but = uiDefSearchBut(block, search, 0, ICON_VIEWZOOM, sizeof(search), 10, 0, w, UI_UNIT_Y,
+	                     templ->prv_rows, templ->prv_cols, "");
+	UI_but_func_search_set(
+	        but, ui_searchbox_create_generic, layout_search_cb,
+	        templ, layout_search_call_cb, NULL);
+
+	UI_block_bounds_set_normal(block, 0.3f * U.widget_unit);
+	UI_block_direction_set(block, UI_DIR_DOWN);
+
+	/* give search-field focus */
+	UI_but_focus_on_enter_event(win, but);
+	/* this type of search menu requires undo */
+	but->flag |= UI_BUT_UNDO;
+
+	return block;
+}
+
+static void template_layouts_draw(uiLayout *layout, struct ScreenLayoutTemplate *templ)
+{
+	WorkSpaceLayoutType *layout_type = BKE_workspace_active_layout_type_get(templ->workspace);
+	const char *layout_name = BKE_workspace_layout_type_name_get(layout_type);
+	uiBlock *block = uiLayoutGetBlock(layout);
+	uiBut *but;
+
+	/* menu button */
+	but = uiDefBlockButN(block, layout_search_menu, templ, "", 0, 0, UI_UNIT_X * 1.6f, UI_UNIT_Y,
+	                    "Browse the screen-layouts of this workspace");
+	ui_def_but_icon(but, RNA_struct_ui_icon(&RNA_Screen), UI_HAS_ICON);
+	UI_but_drawflag_enable(but, UI_BUT_ICON_LEFT);
+	/* text button with name */
+	but = uiDefBut(block, UI_BTYPE_TEXT, 0, "", 0, 0, UI_UNIT_X * 6, UI_UNIT_Y, (void *)layout_name,
+	               0.0f, 64, 0.0f, 0.0f, "Name of the layout");
+	UI_but_flag_enable(but, UI_BUT_NO_UTF8); /* allow non utf8 names */
+}
+
+void uiTemplateLayouts(uiLayout *layout, PointerRNA *ptr, const char *propname, int rows, int cols)
+{
+	struct ScreenLayoutTemplate *templ;
+	PropertyRNA *prop;
+	PointerRNA workspace_ptr;
+
+	if (!ptr->data) {
+		return;
+	}
+
+	prop = RNA_struct_find_property(ptr, propname);
+
+	if (!prop) {
+		printf("%s: property not found: %s.%s\n",
+		       __func__, RNA_struct_identifier(ptr->type), propname);
+		return;
+	}
+
+	if (RNA_property_type(prop) != PROP_POINTER) {
+		printf("%s: expected pointer property for %s.%s\n",
+		       __func__, RNA_struct_identifier(ptr->type), propname);
+		return;
+	}
+
+	workspace_ptr = RNA_property_pointer_get(ptr, prop);
+	templ = MEM_callocN(sizeof(*templ), __func__);
+	templ->workspace = workspace_ptr.data;
+	templ->prv_rows = rows;
+	templ->prv_cols = cols;
+	template_layouts_draw(layout, templ);
 }
 
 /********************* RNA Path Builder Template ********************/

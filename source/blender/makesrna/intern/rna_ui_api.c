@@ -931,6 +931,12 @@ void RNA_api_ui_layout(StructRNA *srna)
 	RNA_def_function_ui_description(func, "Item(s). User interface for selecting cache files and their source paths");
 	RNA_def_function_flag(func, FUNC_USE_CONTEXT);
 	api_ui_item_rna_common(func);
+
+	func = RNA_def_function(srna, "template_layouts", "uiTemplateLayouts");
+	RNA_def_function_ui_description(func, "A template looking similar to template_ID for the screen-layout list");
+	api_ui_item_rna_common(func);
+	RNA_def_int(func, "rows", 2, 0, INT_MAX, "Number of thumbnail preview rows to display", "", 0, INT_MAX);
+	RNA_def_int(func, "cols", 6, 0, INT_MAX, "Number of thumbnail preview columns to display", "", 0, INT_MAX);
 }
 
 #endif
