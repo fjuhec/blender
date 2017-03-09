@@ -983,7 +983,6 @@ static int area_dupli_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 	wmWindow *newwin, *win = CTX_wm_window(C);
 	Scene *scene = CTX_data_scene(C);
 	WorkSpace *workspace = WM_window_get_active_workspace(win);
-	ScreenLayoutData layout_data = {};
 	bScreen *newsc;
 	ScrArea *sa = CTX_wm_area(C);
 	rcti rect;
@@ -1019,12 +1018,7 @@ static int area_dupli_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 	newsc = BKE_workspace_hook_active_screen_get(newwin->workspace_hook);
 
 	/* remove all data from screen, and add a new empty area */
-	BKE_screen_free(newsc);
-	ED_screen_empty_data_create(BLI_rcti_size_x(&rect), BLI_rcti_size_y(&rect), &layout_data);
-	newsc->areabase = layout_data.areabase;
-	newsc->vertbase = layout_data.vertbase;
-	newsc->edgebase = layout_data.edgebase;
-	BLI_assert(BLI_listbase_count(&newsc->areabase) == 1);
+	ED_workspace_layout_make_single_area(newsc, BLI_rcti_size_x(&rect), BLI_rcti_size_y(&rect));
 
 	/* copy area to new screen */
 	BKE_screen_area_data_copy((ScrArea *)newsc->areabase.first, sa, false);

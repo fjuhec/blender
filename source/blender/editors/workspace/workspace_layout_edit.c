@@ -234,3 +234,19 @@ bool ED_workspace_layout_cycle(bContext *C, WorkSpace *workspace, const short di
 
 	return changed;
 }
+
+/**
+ * Delete data from \a screen and create an empty area into it.
+ * \note Doesn't exit \a screen (usually not needed).
+ */
+void ED_workspace_layout_make_single_area(bScreen *screen, const int size_x, const int size_y)
+{
+	ScreenLayoutData layout_data = {};
+
+	BKE_screen_free(screen);
+	ED_screen_empty_data_create(size_y, size_x, &layout_data);
+	screen->areabase = layout_data.areabase;
+	screen->vertbase = layout_data.vertbase;
+	screen->edgebase = layout_data.edgebase;
+	BLI_assert(BLI_listbase_count(&screen->areabase) == 1);
+}

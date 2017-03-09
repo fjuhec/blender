@@ -1518,6 +1518,7 @@ void ED_area_initialize(wmWindowManager *wm, wmWindow *win, ScrArea *sa)
 	
 	/* region windows, default and own handlers */
 	for (ar = sa->regionbase.first; ar; ar = ar->next) {
+		ar->v2d.flag &= ~V2D_IS_INITIALISED;
 		region_subwindow(win, ar, false);
 		
 		if (ar->swinid) {

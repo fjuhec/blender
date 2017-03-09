@@ -650,8 +650,6 @@ wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
 		win->posy = rect.ymin;
 	}
 
-	screen = WM_window_get_active_screen(win);
-
 	/* multiply with virtual pixelsize, ghost handles native one (e.g. for retina) */
 	win->sizex = BLI_rcti_size_x(&rect) * px_virtual;
 	win->sizey = BLI_rcti_size_y(&rect) * px_virtual;
@@ -662,19 +660,11 @@ wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
 	}
 
 	if (WM_window_get_active_workspace(win) == NULL) {
-		WorkSpace *workspace = ED_workspace_add(bmain, "Temp", scene->render_layers.first);
-		WM_window_set_active_workspace(win, workspace);
+		/* same workspace as active window */
+		WM_window_set_active_workspace(win, WM_window_get_active_workspace(win_prev));
 	}
-
-	if (screen == NULL) {
-		/* add new screen layout */
-		WorkSpace *workspace = WM_window_get_active_workspace(win);
-		ScreenLayoutData layout_data = {};
-
-		ED_screen_empty_data_create(win->sizex, win->sizey, &layout_data);
-		ED_workspace_layout_add(workspace, &wm->windows, "temp", layout_data);
-		screen = WM_window_get_active_screen(win);
-	}
+	screen = WM_window_get_active_screen(win);
+	ED_workspace_layout_make_single_area(screen, win->sizex, win->sizey);
 
 	if (WM_window_get_active_scene(win) != scene) {
 		WM_window_change_active_scene(bmain, C, win, scene);
