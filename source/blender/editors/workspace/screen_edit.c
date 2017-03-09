@@ -1468,7 +1468,7 @@ ScrArea *ED_screen_state_toggle(bContext *C, wmWindow *win, ScrArea *sa, const s
 
 		ED_screen_change(C, sc);
 
-		BKE_workspace_layout_remove(workspace, layout_old, CTX_data_main(C));
+		ED_workspace_layout_delete(C, win, workspace, layout_old);
 
 		/* After we've restored back to SCREENNORMAL, we have to wait with
 		 * screen handling as it uses the area coords which aren't updated yet.
@@ -1478,7 +1478,6 @@ ScrArea *ED_screen_state_toggle(bContext *C, wmWindow *win, ScrArea *sa, const s
 	}
 	else {
 		/* change from SCREENNORMAL to new state */
-		WorkSpaceLayout *layout_new;
 		ScreenLayoutData layout_data;
 		ScrArea *newa;
 		char newname[MAX_ID_NAME - 2];
@@ -1490,9 +1489,9 @@ ScrArea *ED_screen_state_toggle(bContext *C, wmWindow *win, ScrArea *sa, const s
 		BLI_snprintf(newname, sizeof(newname), "%s-%s", oldscreen->id.name + 2, "nonnormal");
 
 		ED_workspace_layout_add(workspace, &wm->windows, newname, layout_data);
-		layout_new = BKE_workspace_hook_active_layout_get(win->workspace_hook);
+		sc = WM_window_get_active_screen(win);
+		ED_workspace_layout_make_single_area(sc, win->sizex, win->sizey);
 
-		sc = BKE_workspace_layout_screen_get(layout_new);
 		sc->state = state;
 		sc->redraws_flag = oldscreen->redraws_flag;
 		sc->temp = oldscreen->temp;
