@@ -4351,8 +4351,8 @@ void param_construct_end(ParamHandle *handle, ParamBool fill, ParamBool impl)
 
 void add_index_to_vertices(BMEditMesh *em){
 	
-	// AUREL THESIS iterate over bm edit mesh and set indices for weight retrieval,
-	//				This allows for later matching of vertices to weights.
+	// iterate over bm edit mesh and set indices for weight retrieval,
+	// This allows for later matching of vertices to weights.
 	BMVert *vert;
 	BMIter iter;
 	int i;
@@ -4813,8 +4813,7 @@ void param_flush_restore(ParamHandle *handle)
 	}
 }
 
-/*	AUREL THESIS
-	In the following are all functions necessary to transfer data from the native part to SLIM.
+/*	In the following are all functions necessary to transfer data from the native part to SLIM.
  */
 
 void allocate_memory_for_pointerarrays(matrix_transfer *mt, PHandle *phandle);
@@ -4841,7 +4840,7 @@ void transfer_data_to_slim(ParamHandle *handle){
 	convert_blender_slim(handle, false, phandle->weightMapIndex);
 }
 
-/* AUREL THESIS: Conversion Function to build matrix for SLIM Parametrization */
+/* Conversion Function to build matrix for SLIM Parametrization */
 void convert_blender_slim(ParamHandle *handle, bool selectionOnly, int weightMapIndex)
 {
 	PHandle *phandle = (PHandle *)handle;
@@ -4888,8 +4887,7 @@ void convert_blender_slim(ParamHandle *handle, bool selectionOnly, int weightMap
 
 };
 
-/*	AUREL THESIS
-	Allocate pointer arrays for each matrix-group. Meaning as many pointers per array as there are charts.
+/*	Allocate pointer arrays for each matrix-group. Meaning as many pointers per array as there are charts.
  */
 void allocate_memory_for_pointerarrays(matrix_transfer *mt, PHandle *phandle){
 	mt->nCharts = phandle->ncharts;
@@ -4912,8 +4910,7 @@ void allocate_memory_for_pointerarrays(matrix_transfer *mt, PHandle *phandle){
 	mt->Wvectors = MEM_mallocN(mt->nCharts * sizeof(*mt->Wvectors), "Array of pointers to weight-per-face vectors");
 }
 
-/*	AUREL THESIS
-	For one chart, allocate memory. If no accurate estimate (e.g. for number of pinned vertices) overestimate and
+/*	For one chart, allocate memory. If no accurate estimate (e.g. for number of pinned vertices) overestimate and
 	correct later.
  */
 void allocate_memory_for_matrices(const int chartNr, const PHandle *phandle, const matrix_transfer *mt){
@@ -4936,8 +4933,7 @@ void allocate_memory_for_matrices(const int chartNr, const PHandle *phandle, con
 	mt->ELvectors[chartNr] = MEM_mallocN(mt->nEdges[chartNr] * 2 * sizeof(**mt->ELvectors), " Edge-Length Vector");
 }
 
-/*	AUREL THESIS
-	Get weights from the weight map for weighted parametrisation.
+/*	Get weights from the weight map for weighted parametrisation.
  */
 void create_weight_matrix(const PHandle *phandle,
 						  float *tempW,
@@ -4955,7 +4951,7 @@ void create_weight_matrix(const PHandle *phandle,
 	}
 }
 
-/*	AUREL THESIS	Transfer edges and edge lengths */
+/*	Transfer edges and edge lengths */
 void transfer_edges(const int chartNr, const PHandle *phandle, const matrix_transfer *mt){
 
 	PChart *chart = phandle->charts[chartNr];
@@ -4993,10 +4989,8 @@ void transfer_edges(const int chartNr, const PHandle *phandle, const matrix_tran
 	}
 }
 
-/*	AUREL THESIS	Transfer vertices and pinned information */
+/*	Transfer vertices and pinned information */
 void transfer_vertices(const int chartNr, const PHandle *phandle, matrix_transfer *mt, float *tempW){
-
-	/*AUREL GRUBER:  Attempt to get weight paint colors end*/
 
 	PChart *chart = phandle->charts[chartNr];
 	PVert *v;
@@ -5062,7 +5056,7 @@ void transfer_vertices(const int chartNr, const PHandle *phandle, matrix_transfe
 
 }
 
-/*	AUREL THESIS	Transfer boundary vertices */
+/*	Transfer boundary vertices */
 void transfer_boundary_vertices(const int chartNr, const PHandle *phandle, const matrix_transfer *mt, float *tempW){
 
 	PChart *chart = phandle->charts[chartNr];
@@ -5102,7 +5096,7 @@ void transfer_boundary_vertices(const int chartNr, const PHandle *phandle, const
 	} while (be != outer);
 }
 
-/*	AUREL THESIS	Transfer faces */
+/*	Transfer faces */
 void transfer_faces(const int chartNr, const PHandle *phandle, const matrix_transfer *mt){
 	PChart *chart = phandle->charts[chartNr];
 
@@ -5133,8 +5127,7 @@ void transfer_faces(const int chartNr, const PHandle *phandle, const matrix_tran
 	}
 };
 
-/*	AUREL THESIS
-	Set UV on each vertex after SLIM parametrization, for each chart.
+/*	Set UV on each vertex after SLIM parametrization, for each chart.
  */
 void set_uv_param_slim(ParamHandle *handle, matrix_transfer *mt){
 	PHandle *phandle = (PHandle*) handle;
@@ -5158,8 +5151,7 @@ void set_uv_param_slim(ParamHandle *handle, matrix_transfer *mt){
 }
 
 
-/*	AUREL THESIS
-	Cleanup memory.
+/*	Cleanup memory.
  */
 void free_matrix_transfer(matrix_transfer *mt){
 
@@ -5221,8 +5213,7 @@ double norm(PVert *min, PVert *max){
 	return sqrt(x*x + y*y);
 }
 
-/*	AUREL THESIS
-	Examines if any pins are present or not.
+/*	Examines if any pins are present or not.
  */
 bool mark_pins(ParamHandle *paramHandle){
 	bool noPins = true;

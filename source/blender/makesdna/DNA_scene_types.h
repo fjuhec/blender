@@ -1457,9 +1457,8 @@ typedef struct ToolSettings {
 	char uvcalc_flag;
 	char uv_flag;
 	char uv_selectmode;
-	/* AUREL THESIS*/
 
-
+	/* SLIM uv unwrapping*/
 	float slim_weight_influence;
 	double slim_relative_scale;
 	char *slim_vertex_group;

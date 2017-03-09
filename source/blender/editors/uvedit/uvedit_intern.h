@@ -75,7 +75,6 @@ void UV_OT_cube_project(struct wmOperatorType *ot);
 void UV_OT_cylinder_project(struct wmOperatorType *ot);
 void UV_OT_project_from_view(struct wmOperatorType *ot);
 void UV_OT_minimize_stretch(struct wmOperatorType *ot);
-// AUREL SLIM interactive parameterization
 void UV_OT_minimize_stretch_slim(struct wmOperatorType *ot);
 void UV_OT_pack_islands(struct wmOperatorType *ot);
 void UV_OT_reset(struct wmOperatorType *ot);

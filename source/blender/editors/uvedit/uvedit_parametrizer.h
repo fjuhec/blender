@@ -166,7 +166,7 @@ void param_scale(ParamHandle *handle, float x, float y);
 void param_flush(ParamHandle *handle);
 void param_flush_restore(ParamHandle *handle);
 
-/*	AUREL THESIS */
+/*	SLIM UV unwrapping data transfer */
 void transfer_data_to_slim(ParamHandle *handle);
 void convert_blender_slim(ParamHandle *handle, bool selectionOnly, int weightMapIndex);
 void set_uv_param_slim(ParamHandle *handle, matrix_transfer *mt);

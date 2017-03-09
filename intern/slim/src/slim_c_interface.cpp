@@ -38,8 +38,7 @@
 
 using namespace igl;
 
-/*	AUREL THESIS
-	Called from the native part during each iteration of interactive parametrisation.
+/*  Called from the native part during each iteration of interactive parametrisation.
 	The blend parameter decides the linear blending between the original UV map and the one
 	optained from the accumulated SLIM iterations so far.
  */
@@ -50,8 +49,7 @@ void transfer_uvs_blended_C(matrix_transfer *mt, void* slimDataPtr, int uvChartI
 	transferUvsBackToNativePart(mt, blendedUvs, uvChartIndex);
 }
 
-/*	AUREL THESIS
-	Setup call from the native C part. Necessary for interactive parametrisation.
+/*	Setup call from the native C part. Necessary for interactive parametrisation.
  */
 void* setup_slim_C(matrix_transfer *mt, int uvChartIndex, bool borderVerticesArePinned, bool skipInitialization){
 	igl::Timer timer;
@@ -60,8 +58,7 @@ void* setup_slim_C(matrix_transfer *mt, int uvChartIndex, bool borderVerticesAre
 	return slimData;
 }
 
-/*	AUREL THESIS
-	Executes a single iteration of SLIM, to be called from the native part. It recasts the pointer to a SLIM object.
+/*	Executes a single iteration of SLIM, to be called from the native part. It recasts the pointer to a SLIM object.
  */
 void param_slim_single_iteration_C(void* slimDataPtr){
 	SLIMData* slimData = (SLIMData*) slimDataPtr;

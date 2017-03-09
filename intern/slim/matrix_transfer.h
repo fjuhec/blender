@@ -30,8 +30,7 @@
 
 #include <stdio.h>
 
-/*	AUREL THESIS
-	Struct that holds all the information and data matrices to be transfered from the native Blender part to SLIM, named as follows:
+/*	Struct that holds all the information and data matrices to be transfered from the native Blender part to SLIM, named as follows:
 
 	Matrix/Vector	|	contains pointers to arrays of:
 	________________|_____________________________________________

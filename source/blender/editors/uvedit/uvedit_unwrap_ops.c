@@ -765,11 +765,9 @@ void UV_OT_minimize_stretch(wmOperatorType *ot)
 }
 
 
-/*	AUREL THESIS
-	******************** Minimize Stretch SLIM operator **************** */
+/********************* Minimize Stretch SLIM operator **************** */
 
-/*	AUREL GRUBER
-	Holds all necessary state for one session of interactive parametrisation.
+/*	Holds all necessary state for one session of interactive parametrisation.
  */
 typedef struct {
 	matrix_transfer *mt;
@@ -785,8 +783,7 @@ typedef struct {
 	bool noPins;
 } MinStretchSlim;
 
-/*	AUREL THESIS
-	Initialises SLIM and transfars data matrices
+/*	Initialises SLIM and transfars data matrices
  */
 static bool minimize_stretch_SLIM_init(bContext *C, wmOperator *op)
 {
@@ -825,12 +822,11 @@ static bool minimize_stretch_SLIM_init(bContext *C, wmOperator *op)
 	return true;
 }
 
-/*	AUREL THESIS
-	After initialisation, these iterations are executed, until applied or canceled by the user.
+/*	After initialisation, these iterations are executed, until applied or canceled by the user.
  */
 static void minimize_stretch_SLIM_iteration(bContext *C, wmOperator *op, bool interactive)
 {
-	// AUREL THESIS In first iteration, check if pins are present
+	// In first iteration, check if pins are present
 	MinStretchSlim *mss = op->customdata;
 	if (mss->firstIteration){
 		mss->firstIteration = false;
@@ -839,14 +835,14 @@ static void minimize_stretch_SLIM_iteration(bContext *C, wmOperator *op, bool in
 		}
 	}
 
-	// AUREL THESIS Do one iteration and tranfer UVs
+	// Do one iteration and tranfer UVs
 	for (int chartNr = 0; chartNr < mss->mt->nCharts; chartNr++){
 		void *slimPtr = mss->slimPtrs[chartNr];
 		param_slim_single_iteration_C(slimPtr);
 		transfer_uvs_blended_C(mss->mt, slimPtr, chartNr, mss->blend);
 	}
 
-	//	AUREL THESIS Assign new UVs back to each vertex
+	//	Assign new UVs back to each vertex
 	set_uv_param_slim(mss->handle, mss->mt);
 	if (!(mss->fixBorder)){
 		if (mss->noPins){
@@ -866,8 +862,7 @@ void free_slimPtrs(void **slimPtrs, int nCharts){
 	}
 }
 
-/*	AUREL THESIS
-	Exit interactive parametrisation. Clean up memory.
+/*	Exit interactive parametrisation. Clean up memory.
  */
 static void minimize_stretch_SLIM_exit(bContext *C, wmOperator *op, bool cancel)
 {
@@ -904,8 +899,7 @@ static void minimize_stretch_SLIM_exit(bContext *C, wmOperator *op, bool cancel)
 	op->customdata = NULL;
 }
 
-/*	AUREL THESIS
-	Used Only to adjust parameters.
+/*	Used Only to adjust parameters.
  */
 static int minimize_stretch_SLIM_exec(bContext *C, wmOperator *op)
 {
@@ -913,8 +907,7 @@ static int minimize_stretch_SLIM_exec(bContext *C, wmOperator *op)
 	return OPERATOR_FINISHED;
 }
 
-/*	AUREL THESIS
-	Entry point to interactive parametrisation. Already executes one iteration, allowing faster feedback.
+/*	Entry point to interactive parametrisation. Already executes one iteration, allowing faster feedback.
  */
 static int minimize_stretch_SLIM_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
@@ -932,8 +925,7 @@ static int minimize_stretch_SLIM_invoke(bContext *C, wmOperator *op, const wmEve
 	return OPERATOR_RUNNING_MODAL;
 }
 
-/*	AUREL THESIS
-	The control structure of the modal operator. a next iteration is either started due to a timer or
+/*	The control structure of the modal operator. a next iteration is either started due to a timer or
 	user input.
  */
 static int minimize_stretch_SLIM_modal(bContext *C, wmOperator *op, const wmEvent *event)
@@ -987,16 +979,14 @@ static int minimize_stretch_SLIM_modal(bContext *C, wmOperator *op, const wmEven
 	return OPERATOR_RUNNING_MODAL;
 }
 
-/*	AUREL THESIS
-	Cancels the interactive parametrisation and discards the obtained map.
+/*	Cancels the interactive parametrisation and discards the obtained map.
  */
 static void minimize_stretch_SLIM_cancel(bContext *C, wmOperator *op)
 {
 	minimize_stretch_SLIM_exit(C, op, true);
 }
 
-/*	AUREL THESIS
-	Registration of the operator and integration into UI (can be executed with ctrl. + M)
+/*	Registration of the operator and integration into UI
  */
 void UV_OT_minimize_stretch_slim(wmOperatorType *ot)
 {

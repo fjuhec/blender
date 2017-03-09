@@ -35,8 +35,7 @@
 
 using namespace igl;
 
-/*	AUREL THESIS
-	The header file that exposes the C++ functions to the native C part of Blender, see thesis.
+/*	The header file that exposes the C++ functions to the native C part of Blender, see thesis.
 */
 
 Eigen::MatrixXd getInteractiveResultBlendedWithOriginal(float blend, SLIMData *slimData);
