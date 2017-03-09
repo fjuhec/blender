@@ -983,7 +983,7 @@ static int area_dupli_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 	wmWindow *newwin, *win = CTX_wm_window(C);
 	Scene *scene = CTX_data_scene(C);
 	WorkSpace *workspace = WM_window_get_active_workspace(win);
-	ScreenLayoutData layout_data;
+	ScreenLayoutData layout_data = {};
 	bScreen *newsc;
 	ScrArea *sa = CTX_wm_area(C);
 	rcti rect;
