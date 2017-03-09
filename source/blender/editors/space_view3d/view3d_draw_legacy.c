@@ -1473,7 +1473,7 @@ CustomDataMask ED_view3d_screen_datamask(const bScreen *screen)
 /**
 * Draw grease pencil object strokes
 */
-void draw_gpencil_object_strokes(const bContext *C, Scene *scene, ARegion *ar, View3D *v3d, Base *base)
+static void draw_gpencil_object_strokes(const bContext *C, Scene *scene, ARegion *ar, View3D *v3d, Base *base)
 {
 	const bool render_override = (v3d->flag2 & V3D_RENDER_OVERRIDE) != 0;
 	Object *ob = base->object;
