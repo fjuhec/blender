@@ -5039,7 +5039,7 @@ void transfer_vertices(const int chartNr, const PHandle *phandle, SLIMMatrixTran
 		UV[v->slimId] = v->uv[0];
 		UV[r + v->slimId] = v->uv[1];
 
-		if (v->flag & PVERT_PIN || !(v->flag & PVERT_SELECT)){
+		if (v->flag & PVERT_PIN || !(v->flag & PVERT_SELECT)) {
 			mt->pinned_vertices = true;
 			mt->n_pinned_vertices[chartNr] += 1;
 
