@@ -22,13 +22,13 @@ set(SRC
   least_squares_relocator.h
   geometry_data_retrieval.h
 
-  src/slim.cpp
-  src/slim_parametrizer.cpp
-  src/uv_initializer.cpp
-  src/slim_c_interface.cpp
-  src/area_compensation.cpp
-  src/least_squares_relocator.cpp
-  src/geometry_data_retrieval.cpp
+  intern/slim.cpp
+  intern/slim_parametrizer.cpp
+  intern/uv_initializer.cpp
+  intern/slim_c_interface.cpp
+  intern/area_compensation.cpp
+  intern/least_squares_relocator.cpp
+  intern/geometry_data_retrieval.cpp
 
 
   ${ADDITIONAL_SOURCES}
