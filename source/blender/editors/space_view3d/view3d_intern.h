@@ -159,8 +159,8 @@ void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
 void drawcamera(Scene *scene, View3D *v3d, RegionView3D *rv3d, Base *base,
                 const short dflag, const unsigned char ob_wire_col[4]);
 void drawspeaker(const unsigned char ob_wire_col[3]);
-void draw_bounding_volume(struct Object *ob, char type);
-void draw_rigidbody_shape(struct Object *ob);
+void draw_bounding_volume(struct Object *ob, char type, const unsigned char ob_wire_col[4]);
+void draw_rigidbody_shape(struct Object *ob, const unsigned char ob_wire_col[4]);
 
 void view3d_cached_text_draw_begin(void);
 void view3d_cached_text_draw_add(const float co[3],
@@ -258,7 +258,7 @@ void ED_view3d_smooth_view_force_finish(
         struct bContext *C,
         struct View3D *v3d, struct ARegion *ar);
 
-void view3d_winmatrix_set(ARegion *ar, const View3D *v3d, const rctf *rect);
+void view3d_winmatrix_set(ARegion *ar, const View3D *v3d, const rcti *rect);
 void view3d_viewmatrix_set(Scene *scene, const View3D *v3d, RegionView3D *rv3d);
 
 void fly_modal_keymap(struct wmKeyConfig *keyconf);

@@ -52,7 +52,7 @@ set(INC_SYS
 
 set(SRC
 	intern/draw_manager.c
-	intern/draw_mode_pass.c
+	intern/draw_common.c
 	intern/draw_cache.c
 	intern/draw_view.c
 	intern/draw_armature.c
@@ -62,13 +62,11 @@ set(SRC
 	modes/object_mode.c
 
 	intern/DRW_render.h
-	intern/draw_mode_pass.h
+	intern/draw_common.h
 	intern/draw_cache.h
 	intern/draw_view.h
 	engines/clay/clay.h
-	modes/edit_armature_mode.h
-	modes/edit_mesh_mode.h
-	modes/object_mode.h
+	modes/draw_mode_engines.h
 
 	./DRW_engine.h
 )
@@ -93,6 +91,8 @@ data_to_c_simple(modes/shaders/edit_overlay_mix_frag.glsl SRC)
 data_to_c_simple(modes/shaders/edit_overlay_mix_vert.glsl SRC)
 data_to_c_simple(modes/shaders/edit_overlay_facefill_vert.glsl SRC)
 data_to_c_simple(modes/shaders/edit_overlay_facefill_frag.glsl SRC)
+data_to_c_simple(modes/shaders/edit_normals_vert.glsl SRC)
+data_to_c_simple(modes/shaders/edit_normals_geom.glsl SRC)
 
 list(APPEND INC
 )

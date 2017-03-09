@@ -888,6 +888,7 @@ static void view3d_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegio
 				case ND_CONSTRAINT:
 				case ND_KEYS:
 				case ND_PARTICLE:
+				case ND_POINTCACHE:
 				case ND_LOD:
 					ED_region_tag_redraw(ar);
 					break;
