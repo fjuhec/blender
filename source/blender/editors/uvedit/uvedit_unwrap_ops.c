@@ -85,9 +85,6 @@
 #include "matrix_transfer.h"
 #include "slim_c_interface.h"
 
-#define max(x, y) (((x) > (y)) ? (x) : (y))
-#define min(x, y) (((x) < (y)) ? (x) : (y))
-
 static void modifier_unwrap_state(Object *obedit, Scene *scene, bool *r_use_subsurf)
 {
 	ModifierData *md;
@@ -511,15 +508,13 @@ static ParamHandle *construct_param_handle_subsurfed(Scene *scene, Object *ob, B
 	return handle;
 }
 
-int setup_weight_transfer(Object *obedit, BMEditMesh *em, char *vertex_group){
-
-	int defgrp_index = retrieve_weightmap_index(obedit, vertex_group);
-
-	return defgrp_index;
+int setup_weight_transfer(Object *obedit, BMEditMesh *em, char *vertex_group)
+{
+	return retrieve_weightmap_index(obedit, vertex_group);
 }
 
-void enrich_handle_slim(Scene *scene, Object *obedit, BMEditMesh *em, ParamHandle *handle, matrix_transfer *mt) {
-
+void enrich_handle_slim(Scene *scene, Object *obedit, BMEditMesh *em, ParamHandle *handle, matrix_transfer *mt)
+{
 	int weightMapIndex = setup_weight_transfer(obedit, em, scene->toolsettings->slim_vertex_group);
 	bool with_weighted_parameterization = (weightMapIndex >=0);
 
@@ -550,8 +545,6 @@ void enrich_handle_slim(Scene *scene, Object *obedit, BMEditMesh *em, ParamHandl
 							 pack_islands,
 							 with_weighted_parameterization);
 }
-
-
 
 /* ******************** Minimize Stretch operator **************** */
 
@@ -764,12 +757,11 @@ void UV_OT_minimize_stretch(wmOperatorType *ot)
 	RNA_def_int(ot->srna, "iterations", 0, 0, INT_MAX, "Iterations", "Number of iterations to run, 0 is unlimited when run interactively", 0, 100);
 }
 
-
 /********************* Minimize Stretch SLIM operator **************** */
 
 /*	Holds all necessary state for one session of interactive parametrisation.
  */
-typedef struct {
+typedef struct MinStretchSlim {
 	matrix_transfer *mt;
 	ParamHandle *handle;
 	Object *obedit;
@@ -787,7 +779,6 @@ typedef struct {
  */
 static bool minimize_stretch_SLIM_init(bContext *C, wmOperator *op)
 {
-
 	Scene *scene = CTX_data_scene(C);
 	Object *obedit = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -814,7 +805,7 @@ static bool minimize_stretch_SLIM_init(bContext *C, wmOperator *op)
 
 	mss->slimPtrs = MEM_callocN(mss->mt->nCharts * sizeof(void*), "pointers to Slim-objects");
 
-	for (int chartNr = 0; chartNr < mss->mt->nCharts; chartNr++){
+	for (int chartNr = 0; chartNr < mss->mt->nCharts; chartNr++) {
 		mss->slimPtrs[chartNr] = setup_slim_C(mss->mt, chartNr, mss->fixBorder, true);
 	}
 
@@ -828,15 +819,15 @@ static void minimize_stretch_SLIM_iteration(bContext *C, wmOperator *op, bool in
 {
 	// In first iteration, check if pins are present
 	MinStretchSlim *mss = op->customdata;
-	if (mss->firstIteration){
+	if (mss->firstIteration) {
 		mss->firstIteration = false;
-		if (!(mss->fixBorder)){
+		if (!(mss->fixBorder)) {
 			mss->noPins = mark_pins(mss->handle);
 		}
 	}
 
 	// Do one iteration and tranfer UVs
-	for (int chartNr = 0; chartNr < mss->mt->nCharts; chartNr++){
+	for (int chartNr = 0; chartNr < mss->mt->nCharts; chartNr++) {
 		void *slimPtr = mss->slimPtrs[chartNr];
 		param_slim_single_iteration_C(slimPtr);
 		transfer_uvs_blended_C(mss->mt, slimPtr, chartNr, mss->blend);
@@ -844,7 +835,7 @@ static void minimize_stretch_SLIM_iteration(bContext *C, wmOperator *op, bool in
 
 	//	Assign new UVs back to each vertex
 	set_uv_param_slim(mss->handle, mss->mt);
-	if (!(mss->fixBorder)){
+	if (!(mss->fixBorder)) {
 		if (mss->noPins){
 			param_pack(mss->handle, 0, false);
 		}
@@ -856,8 +847,8 @@ static void minimize_stretch_SLIM_iteration(bContext *C, wmOperator *op, bool in
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, mss->obedit->data);
 }
 
-void free_slimPtrs(void **slimPtrs, int nCharts){
-	for (int i = 0; i<nCharts; i++){
+void free_slimPtrs(void **slimPtrs, int nCharts) {
+	for (int i = 0; i<nCharts; i++) {
 		free_slim_data_C(slimPtrs[i]);
 	}
 }
@@ -872,18 +863,18 @@ static void minimize_stretch_SLIM_exit(bContext *C, wmOperator *op, bool cancel)
 		remove_pins(mss->handle);
 	 }*/
 
-	if (cancel){
+	if (cancel) {
 		mss->blend = 1.0f;
 	}
 
-	for (int chartNr = 0; chartNr < mss->mt->nCharts; chartNr++){
+	for (int chartNr = 0; chartNr < mss->mt->nCharts; chartNr++) {
 		void *slimPtr = mss->slimPtrs[chartNr];
 		transfer_uvs_blended_C(mss->mt, slimPtr, chartNr, mss->blend);
 	}
 
 	set_uv_param_slim(mss->handle, mss->mt);
 
-	if (!(mss->fixBorder)){
+	if (!(mss->fixBorder)) {
 		if (mss->noPins){
 			param_pack(mss->handle, 0, false);
 		}
@@ -1439,7 +1430,6 @@ static void uv_map_clip_correct(Scene *scene, Object *ob, BMEditMesh *em, wmOper
 /* assumes UV Map is checked, doesn't run update funcs */
 void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
 {
-
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 	ParamHandle *handle;
 
@@ -1452,7 +1442,7 @@ void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
 
 	bool use_slim_method = (scene->toolsettings->unwrapper == 2);
 
-	if(use_slim_method){
+	if(use_slim_method) {
 		add_index_to_vertices(em);
 	}
 
@@ -1463,7 +1453,7 @@ void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
 	else
 		handle = construct_param_handle(scene, obedit, em->bm, false, fill_holes, sel, correct_aspect);
 
-	if (use_slim_method){
+	if (use_slim_method) {
 		matrix_transfer *mt = MEM_callocN(sizeof(matrix_transfer), "matrix transfer data");
 		mt->slim_reflection_mode = scene->toolsettings->slim_reflection_mode;
 		enrich_handle_slim(scene, obedit, em, handle, mt);
@@ -1474,7 +1464,7 @@ void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
 	bool transform = (!use_slim_method || transformIslands(handle));
 	param_end(handle, use_slim_method);
 
-	if (transform){
+	if (transform) {
 		printf("packing & scaling islands");
 		param_average(handle);
 		param_pack(handle, scene->toolsettings->uvcalc_margin, false);
