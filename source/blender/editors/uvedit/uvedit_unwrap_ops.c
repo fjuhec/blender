@@ -583,7 +583,6 @@ static bool minimize_stretch_init(bContext *C, wmOperator *op)
 	scene->toolsettings->slim_skip_initialization = true;
 	scene->toolsettings->slim_pack_islands = false;
 	scene->toolsettings->slim_fixed_boundary = true;
-	scene->toolsettings->slim_weight_influence = RNA_float_get(op->ptr, "slim_weight_influence");
 
 	enrich_handle_slim(scene, obedit, em, handle, mss->mt);
 	param_slim_begin(handle);
@@ -782,9 +781,7 @@ void UV_OT_minimize_stretch(wmOperatorType *ot)
 	/* properties */
 	RNA_def_boolean(ot->srna, "fill_holes_slim", 1, "Fill Holes", "Virtual fill holes in mesh before unwrapping, to better avoid overlaps and preserve symmetry");
 	RNA_def_float_factor(ot->srna, "blend_slim", 0.0f, 0.0f, 1.0f, "Blend", "Blend factor between stretch minimized and original", 0.0f, 1.0f);
-	RNA_def_int(ot->srna, "iterations_slim", 0, 0, INT_MAX, "Iterations", "Number of iterations to run, 0 is unlimited when run interactively", 0, 100);
-	RNA_def_float(ot->srna, "slim_weight_influence", 1.0, -10000.0, 10000.0, "SLIM Weight Map Influence",
-				  "How much influence the weightmap has for weighted parameterization, 0 being no influence.", 0.0, 10.0);}
+}
 
 /* ******************** Pack Islands operator **************** */
 
