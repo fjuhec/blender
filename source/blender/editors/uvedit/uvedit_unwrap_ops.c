@@ -546,222 +546,11 @@ void enrich_handle_slim(Scene *scene, Object *obedit, BMEditMesh *em, ParamHandl
 							 with_weighted_parameterization);
 }
 
-/* ******************** Minimize Stretch operator **************** */
-
-typedef struct MinStretch {
-	Scene *scene;
-	Object *obedit;
-	BMEditMesh *em;
-	ParamHandle *handle;
-	float blend;
-	double lasttime;
-	int i, iterations;
-	wmTimer *timer;
-} MinStretch;
-
-static bool minimize_stretch_init(bContext *C, wmOperator *op)
-{
-	Scene *scene = CTX_data_scene(C);
-	Object *obedit = CTX_data_edit_object(C);
-	BMEditMesh *em = BKE_editmesh_from_object(obedit);
-	MinStretch *ms;
-	const bool fill_holes = RNA_boolean_get(op->ptr, "fill_holes");
-	bool implicit = true;
-
-	if (!uvedit_have_selection(scene, em, implicit)) {
-		return false;
-	}
-
-	ms = MEM_callocN(sizeof(MinStretch), "MinStretch");
-	ms->scene = scene;
-	ms->obedit = obedit;
-	ms->em = em;
-	ms->blend = RNA_float_get(op->ptr, "blend");
-	ms->iterations = RNA_int_get(op->ptr, "iterations");
-	ms->i = 0;
-	ms->handle = construct_param_handle(scene, obedit, em->bm, implicit, fill_holes, 1, 1);
-	ms->lasttime = PIL_check_seconds_timer();
-
-	param_stretch_begin(ms->handle);
-	if (ms->blend != 0.0f)
-		param_stretch_blend(ms->handle, ms->blend);
-
-	op->customdata = ms;
-
-	return true;
-}
-
-static void minimize_stretch_iteration(bContext *C, wmOperator *op, bool interactive)
-{
-	MinStretch *ms = op->customdata;
-	ScrArea *sa = CTX_wm_area(C);
-
-	param_stretch_blend(ms->handle, ms->blend);
-	param_stretch_iter(ms->handle);
-
-	ms->i++;
-	RNA_int_set(op->ptr, "iterations", ms->i);
-
-	if (interactive && (PIL_check_seconds_timer() - ms->lasttime > 0.5)) {
-		char str[UI_MAX_DRAW_STR];
-
-		param_flush(ms->handle);
-
-		if (sa) {
-			BLI_snprintf(str, sizeof(str),
-			             IFACE_("Minimize Stretch. Blend %.2f (Press + and -, or scroll wheel to set)"), ms->blend);
-			ED_area_headerprint(sa, str);
-		}
-
-		ms->lasttime = PIL_check_seconds_timer();
-
-		DAG_id_tag_update(ms->obedit->data, 0);
-		WM_event_add_notifier(C, NC_GEOM | ND_DATA, ms->obedit->data);
-	}
-}
-
-static void minimize_stretch_exit(bContext *C, wmOperator *op, bool cancel)
-{
-	MinStretch *ms = op->customdata;
-	ScrArea *sa = CTX_wm_area(C);
-
-	if (sa)
-		ED_area_headerprint(sa, NULL);
-	if (ms->timer)
-		WM_event_remove_timer(CTX_wm_manager(C), CTX_wm_window(C), ms->timer);
-
-	if (cancel)
-		param_flush_restore(ms->handle);
-	else
-		param_flush(ms->handle);
-
-	param_stretch_end(ms->handle);
-	param_delete(ms->handle);
-
-	DAG_id_tag_update(ms->obedit->data, 0);
-	WM_event_add_notifier(C, NC_GEOM | ND_DATA, ms->obedit->data);
-
-	MEM_freeN(ms);
-	op->customdata = NULL;
-}
-
-static int minimize_stretch_exec(bContext *C, wmOperator *op)
-{
-	int i, iterations;
-
-	if (!minimize_stretch_init(C, op))
-		return OPERATOR_CANCELLED;
-
-	iterations = RNA_int_get(op->ptr, "iterations");
-	for (i = 0; i < iterations; i++)
-		minimize_stretch_iteration(C, op, false);
-	minimize_stretch_exit(C, op, false);
-
-	return OPERATOR_FINISHED;
-}
-
-static int minimize_stretch_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
-{
-	MinStretch *ms;
-
-	if (!minimize_stretch_init(C, op))
-		return OPERATOR_CANCELLED;
-
-	minimize_stretch_iteration(C, op, true);
-
-	ms = op->customdata;
-	WM_event_add_modal_handler(C, op);
-	ms->timer = WM_event_add_timer(CTX_wm_manager(C), CTX_wm_window(C), TIMER, 0.01f);
-
-	return OPERATOR_RUNNING_MODAL;
-}
-
-static int minimize_stretch_modal(bContext *C, wmOperator *op, const wmEvent *event)
-{
-	MinStretch *ms = op->customdata;
-
-	switch (event->type) {
-		case ESCKEY:
-		case RIGHTMOUSE:
-			minimize_stretch_exit(C, op, true);
-			return OPERATOR_CANCELLED;
-		case RETKEY:
-		case PADENTER:
-		case LEFTMOUSE:
-			minimize_stretch_exit(C, op, false);
-			return OPERATOR_FINISHED;
-		case PADPLUSKEY:
-		case WHEELUPMOUSE:
-			if (event->val == KM_PRESS) {
-				if (ms->blend < 0.95f) {
-					ms->blend += 0.1f;
-					ms->lasttime = 0.0f;
-					RNA_float_set(op->ptr, "blend", ms->blend);
-					minimize_stretch_iteration(C, op, true);
-				}
-			}
-			break;
-		case PADMINUS:
-		case WHEELDOWNMOUSE:
-			if (event->val == KM_PRESS) {
-				if (ms->blend > 0.05f) {
-					ms->blend -= 0.1f;
-					ms->lasttime = 0.0f;
-					RNA_float_set(op->ptr, "blend", ms->blend);
-					minimize_stretch_iteration(C, op, true);
-				}
-			}
-			break;
-		case TIMER:
-			if (ms->timer == event->customdata) {
-				double start = PIL_check_seconds_timer();
-
-				do {
-					minimize_stretch_iteration(C, op, true);
-				} while (PIL_check_seconds_timer() - start < 0.01);
-			}
-			break;
-	}
-
-	if (ms->iterations && ms->i >= ms->iterations) {
-		minimize_stretch_exit(C, op, false);
-		return OPERATOR_FINISHED;
-	}
-
-	return OPERATOR_RUNNING_MODAL;
-}
-
-static void minimize_stretch_cancel(bContext *C, wmOperator *op)
-{
-	minimize_stretch_exit(C, op, true);
-}
-
-void UV_OT_minimize_stretch(wmOperatorType *ot)
-{
-	/* identifiers */
-	ot->name = "Minimize Stretch";
-	ot->idname = "UV_OT_minimize_stretch";
-	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_GRAB_CURSOR | OPTYPE_BLOCKING;
-	ot->description = "Reduce UV stretching by relaxing angles";
-	
-	/* api callbacks */
-	ot->exec = minimize_stretch_exec;
-	ot->invoke = minimize_stretch_invoke;
-	ot->modal = minimize_stretch_modal;
-	ot->cancel = minimize_stretch_cancel;
-	ot->poll = ED_operator_uvedit;
-
-	/* properties */
-	RNA_def_boolean(ot->srna, "fill_holes", 1, "Fill Holes", "Virtual fill holes in mesh before unwrapping, to better avoid overlaps and preserve symmetry");
-	RNA_def_float_factor(ot->srna, "blend", 0.0f, 0.0f, 1.0f, "Blend", "Blend factor between stretch minimized and original", 0.0f, 1.0f);
-	RNA_def_int(ot->srna, "iterations", 0, 0, INT_MAX, "Iterations", "Number of iterations to run, 0 is unlimited when run interactively", 0, 100);
-}
-
-/********************* Minimize Stretch SLIM operator **************** */
+/********************* Minimize Stretch operator **************** */
 
 /*	Holds all necessary state for one session of interactive parametrisation.
  */
-typedef struct MinStretchSlim {
+typedef struct MinStretch {
 	matrix_transfer *mt;
 	ParamHandle *handle;
 	Object *obedit;
@@ -773,11 +562,11 @@ typedef struct MinStretchSlim {
 	bool fixBorder;
 
 	bool noPins;
-} MinStretchSlim;
+} MinStretch;
 
 /*	Initialises SLIM and transfars data matrices
  */
-static bool minimize_stretch_SLIM_init(bContext *C, wmOperator *op)
+static bool minimize_stretch_init(bContext *C, wmOperator *op)
 {
 	Scene *scene = CTX_data_scene(C);
 	Object *obedit = CTX_data_edit_object(C);
@@ -815,7 +604,7 @@ static bool minimize_stretch_SLIM_init(bContext *C, wmOperator *op)
 
 /*	After initialisation, these iterations are executed, until applied or canceled by the user.
  */
-static void minimize_stretch_SLIM_iteration(bContext *C, wmOperator *op, bool interactive)
+static void minimize_stretch_iteration(bContext *C, wmOperator *op, bool interactive)
 {
 	// In first iteration, check if pins are present
 	MinStretchSlim *mss = op->customdata;
@@ -855,7 +644,7 @@ void free_slimPtrs(void **slimPtrs, int nCharts) {
 
 /*	Exit interactive parametrisation. Clean up memory.
  */
-static void minimize_stretch_SLIM_exit(bContext *C, wmOperator *op, bool cancel)
+static void minimize_stretch_exit(bContext *C, wmOperator *op, bool cancel)
 {
 	MinStretchSlim *mss = op->customdata;
 	/*
@@ -892,7 +681,7 @@ static void minimize_stretch_SLIM_exit(bContext *C, wmOperator *op, bool cancel)
 
 /*	Used Only to adjust parameters.
  */
-static int minimize_stretch_SLIM_exec(bContext *C, wmOperator *op)
+static int minimize_stretch_exec(bContext *C, wmOperator *op)
 {
 
 	return OPERATOR_FINISHED;
@@ -900,14 +689,14 @@ static int minimize_stretch_SLIM_exec(bContext *C, wmOperator *op)
 
 /*	Entry point to interactive parametrisation. Already executes one iteration, allowing faster feedback.
  */
-static int minimize_stretch_SLIM_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+static int minimize_stretch_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
 	MinStretchSlim *mss;
 
-	if (!minimize_stretch_SLIM_init(C, op))
+	if (!minimize_stretch_init(C, op))
 		return OPERATOR_CANCELLED;
 
-	minimize_stretch_SLIM_iteration(C, op, true);
+	minimize_stretch_iteration(C, op, true);
 
 	mss = op->customdata;
 	WM_event_add_modal_handler(C, op);
@@ -919,26 +708,26 @@ static int minimize_stretch_SLIM_invoke(bContext *C, wmOperator *op, const wmEve
 /*	The control structure of the modal operator. a next iteration is either started due to a timer or
 	user input.
  */
-static int minimize_stretch_SLIM_modal(bContext *C, wmOperator *op, const wmEvent *event)
+static int minimize_stretch_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	MinStretchSlim *mss = op->customdata;
 
 	switch (event->type) {
 		case ESCKEY:
 		case RIGHTMOUSE:
-			minimize_stretch_SLIM_exit(C, op, true);
+			minimize_stretch_exit(C, op, true);
 			return OPERATOR_CANCELLED;
 		case RETKEY:
 		case PADENTER:
 		case LEFTMOUSE:
-			minimize_stretch_SLIM_exit(C, op, false);
+			minimize_stretch_exit(C, op, false);
 			return OPERATOR_FINISHED;
 		case PADPLUSKEY:
 		case WHEELUPMOUSE:
 			if (event->val == KM_PRESS) {
 				if (mss->blend < 1.0f) {
 					mss->blend += min(0.1f, 1 - (mss->blend));
-					minimize_stretch_SLIM_iteration(C, op, true);
+					minimize_stretch_iteration(C, op, true);
 				}
 			}
 			break;
@@ -947,7 +736,7 @@ static int minimize_stretch_SLIM_modal(bContext *C, wmOperator *op, const wmEven
 			if (event->val == KM_PRESS) {
 				if (mss->blend > 0.0f) {
 					mss->blend -= min(0.1f, mss->blend);
-					minimize_stretch_SLIM_iteration(C, op, true);
+					minimize_stretch_iteration(C, op, true);
 				}
 			}
 			break;
@@ -956,7 +745,7 @@ static int minimize_stretch_SLIM_modal(bContext *C, wmOperator *op, const wmEven
 				double start = PIL_check_seconds_timer();
 
 				do {
-					minimize_stretch_SLIM_iteration(C, op, true);
+					minimize_stretch_iteration(C, op, true);
 				} while (PIL_check_seconds_timer() - start < 0.01);
 			}
 			break;
@@ -972,26 +761,26 @@ static int minimize_stretch_SLIM_modal(bContext *C, wmOperator *op, const wmEven
 
 /*	Cancels the interactive parametrisation and discards the obtained map.
  */
-static void minimize_stretch_SLIM_cancel(bContext *C, wmOperator *op)
+static void minimize_stretch_cancel(bContext *C, wmOperator *op)
 {
-	minimize_stretch_SLIM_exit(C, op, true);
+	minimize_stretch_exit(C, op, true);
 }
 
 /*	Registration of the operator and integration into UI
  */
-void UV_OT_minimize_stretch_slim(wmOperatorType *ot)
+void UV_OT_minimize_stretch(wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name = "Minimize Stretch SLIM";
-	ot->idname = "UV_OT_minimize_stretch_slim";
+	ot->name = "Minimize Stretch";
+	ot->idname = "UV_OT_minimize_stretch";
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_GRAB_CURSOR | OPTYPE_BLOCKING;
 	ot->description = "Reduce UV stretching by applying the SLIM algorithm";
 
 	/* api callbacks */
-	ot->exec = minimize_stretch_SLIM_exec;
-	ot->invoke = minimize_stretch_SLIM_invoke;
-	ot->modal = minimize_stretch_SLIM_modal;
-	ot->cancel = minimize_stretch_SLIM_cancel;
+	ot->exec = minimize_stretch_exec;
+	ot->invoke = minimize_stretch_invoke;
+	ot->modal = minimize_stretch_modal;
+	ot->cancel = minimize_stretch_cancel;
 	ot->poll = ED_operator_uvedit;
 
 	/* properties */
