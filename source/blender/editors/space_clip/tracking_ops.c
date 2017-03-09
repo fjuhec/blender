@@ -1537,7 +1537,8 @@ static int join_tracks_exec(bContext *C, wmOperator *op)
 				update_stabilization = true;
 				if ((act_track->flag & TRACK_USE_2D_STAB) == 0) {
 					act_track->flag |= TRACK_USE_2D_STAB;
-				} else {
+				}
+				else {
 					stab->tot_track--;
 				}
 				BLI_assert(0 <= stab->tot_track);
@@ -1546,7 +1547,8 @@ static int join_tracks_exec(bContext *C, wmOperator *op)
 				update_stabilization = true;
 				if ((act_track->flag & TRACK_USE_2D_STAB_ROT) == 0) {
 					act_track->flag |= TRACK_USE_2D_STAB_ROT;
-				} else {
+				}
+				else {
 					stab->tot_rot_track--;
 				}
 				BLI_assert(0 <= stab->tot_rot_track);

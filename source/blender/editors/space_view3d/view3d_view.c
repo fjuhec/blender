@@ -908,7 +908,7 @@ void ED_view3d_polygon_offset(const RegionView3D *rv3d, const float dist)
 /**
  * \param rect optional for picking (can be NULL).
  */
-void view3d_winmatrix_set(ARegion *ar, const View3D *v3d, const rctf *rect)
+void view3d_winmatrix_set(ARegion *ar, const View3D *v3d, const rcti *rect)
 {
 	RegionView3D *rv3d = ar->regiondata;
 	rctf viewplane;
@@ -1170,29 +1170,64 @@ static void view3d_select_loop(ViewContext *vc, Scene *scene, View3D *v3d, ARegi
  *
  * \note (vc->obedit == NULL) can be set to explicitly skip edit-object selection.
  */
-short view3d_opengl_select(ViewContext *vc, unsigned int *buffer, unsigned int bufsize, const rcti *input, bool do_nearest)
+int view3d_opengl_select(
+        ViewContext *vc, unsigned int *buffer, unsigned int bufsize, const rcti *input,
+        int select_mode)
 {
 	Scene *scene = vc->scene;
 	View3D *v3d = vc->v3d;
 	ARegion *ar = vc->ar;
-	rctf rect;
-	short hits;
+	rcti rect;
+	int hits;
 	const bool use_obedit_skip = (scene->obedit != NULL) && (vc->obedit == NULL);
-	const bool do_passes = do_nearest && GPU_select_query_check_active();
+	const bool is_pick_select = (U.gpu_select_pick_deph != 0);
+	const bool do_passes = (
+	        (is_pick_select == false) &&
+	        (select_mode == VIEW3D_SELECT_PICK_NEAREST) &&
+	        GPU_select_query_check_active());
 
-	G.f |= G_PICKSEL;
-	
+	char gpu_select_mode;
+
 	/* case not a border select */
 	if (input->xmin == input->xmax) {
-		rect.xmin = input->xmin - 12;  /* seems to be default value for bones only now */
-		rect.xmax = input->xmin + 12;
-		rect.ymin = input->ymin - 12;
-		rect.ymax = input->ymin + 12;
+		/* seems to be default value for bones only now */
+		BLI_rcti_init_pt_radius(&rect, (const int[2]){input->xmin, input->ymin}, 12);
 	}
 	else {
-		BLI_rctf_rcti_copy(&rect, input);
+		rect = *input;
 	}
-	
+
+	if (is_pick_select) {
+		if (is_pick_select && select_mode == VIEW3D_SELECT_PICK_NEAREST) {
+			gpu_select_mode = GPU_SELECT_PICK_NEAREST;
+		}
+		else if (is_pick_select && select_mode == VIEW3D_SELECT_PICK_ALL) {
+			gpu_select_mode = GPU_SELECT_PICK_ALL;
+		}
+		else {
+			gpu_select_mode = GPU_SELECT_ALL;
+		}
+	}
+	else {
+		if (do_passes) {
+			gpu_select_mode = GPU_SELECT_NEAREST_FIRST_PASS;
+		}
+		else {
+			gpu_select_mode = GPU_SELECT_ALL;
+		}
+	}
+
+	/* Re-use cache (rect must be smaller then the cached)
+	 * other context is assumed to be unchanged */
+	if (GPU_select_is_cached()) {
+		GPU_select_begin(buffer, bufsize, &rect, gpu_select_mode, 0);
+		GPU_select_cache_load_id();
+		hits = GPU_select_end();
+		goto finally;
+	}
+
+	G.f |= G_PICKSEL;
+
 	view3d_winmatrix_set(ar, v3d, &rect);
 	mul_m4_m4m4(vc->rv3d->persmat, vc->rv3d->winmat, vc->rv3d->viewmat);
 	
@@ -1204,10 +1239,7 @@ short view3d_opengl_select(ViewContext *vc, unsigned int *buffer, unsigned int b
 	if (vc->rv3d->rflag & RV3D_CLIPPING)
 		ED_view3d_clipping_set(vc->rv3d);
 	
-	if (do_passes)
-		GPU_select_begin(buffer, bufsize, &rect, GPU_SELECT_NEAREST_FIRST_PASS, 0);
-	else
-		GPU_select_begin(buffer, bufsize, &rect, GPU_SELECT_ALL, 0);
+	GPU_select_begin(buffer, bufsize, &rect, gpu_select_mode, 0);
 
 	view3d_select_loop(vc, scene, v3d, ar, use_obedit_skip);
 
@@ -1233,7 +1265,8 @@ short view3d_opengl_select(ViewContext *vc, unsigned int *buffer, unsigned int b
 	
 	if (vc->rv3d->rflag & RV3D_CLIPPING)
 		ED_view3d_clipping_disable();
-	
+
+finally:
 	if (hits < 0) printf("Too many objects in select buffer\n");  /* XXX make error message */
 
 	return hits;

@@ -564,7 +564,7 @@ static void attr_create_pointiness(Scene *scene,
 	 *         original vertex.
 	 */
 	vector<int> sorted_vert_indeices(num_verts);
-	for (int vert_index = 0; vert_index < num_verts; ++vert_index) {
+	for(int vert_index = 0; vert_index < num_verts; ++vert_index) {
 		sorted_vert_indeices[vert_index] = vert_index;
 	}
 	VertexAverageComparator compare(mesh->verts);
@@ -573,9 +573,9 @@ static void attr_create_pointiness(Scene *scene,
 	 * index.
 	 */
 	vector<int> vert_orig_index(num_verts);
-	for (int sorted_vert_index = 0;
-	     sorted_vert_index < num_verts;
-	     ++sorted_vert_index)
+	for(int sorted_vert_index = 0;
+	    sorted_vert_index < num_verts;
+	    ++sorted_vert_index)
 	{
 		const int vert_index = sorted_vert_indeices[sorted_vert_index];
 		const float3 &vert_co = mesh->verts[vert_index];
@@ -589,12 +589,12 @@ static void attr_create_pointiness(Scene *scene,
 			const float3 &other_vert_co = mesh->verts[other_vert_index];
 			/* We are too far away now, we wouldn't have duplicate. */
 			if ((other_vert_co.x + other_vert_co.y + other_vert_co.z) -
-			    (vert_co.x + vert_co.y + vert_co.z) > 0.0f)
+			    (vert_co.x + vert_co.y + vert_co.z) > 3 * FLT_EPSILON)
 			{
 				break;
 			}
 			/* Found duplicate. */
-			if(other_vert_co == vert_co) {
+			if(len_squared(other_vert_co - vert_co) < FLT_EPSILON) {
 				found = true;
 				vert_orig_index[vert_index] = other_vert_index;
 				break;
@@ -776,6 +776,15 @@ static void create_mesh(Scene *scene,
 			int n = (vi[3] == 0)? 3: 4;
 			int shader = clamp(f->material_index(), 0, used_shaders.size()-1);
 			bool smooth = f->use_smooth() || use_loop_normals;
+
+			if(use_loop_normals) {
+				BL::Array<float, 12> loop_normals = f->split_normals();
+				for(int i = 0; i < n; i++) {
+					N[vi[i]] = make_float3(loop_normals[i * 3],
+					                       loop_normals[i * 3 + 1],
+					                       loop_normals[i * 3 + 2]);
+				}
+			}
 
 			/* Create triangles.
 			 *
