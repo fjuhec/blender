@@ -31,7 +31,7 @@
 
 #include "slim.h"
 #include <Eigen/Dense>
-#include "matrix_transfer.h"
+#include "slim_matrix_transfer.h"
 
 using namespace igl;
 using namespace Eigen;
@@ -155,37 +155,37 @@ namespace retrieval {
 		}
 	}
 
-	void retrieveGeometryDataMatrices(const matrix_transfer *transferredData,
+	void retrieveGeometryDataMatrices(const SLIMMatrixTransfer *transferredData,
 									  const int uvChartIndex,
 									  GeometryData &gd){
 
-		gd.numberOfVertices = transferredData->nVerts[uvChartIndex];
-		gd.numberOfFaces = transferredData->nFaces[uvChartIndex];
+		gd.numberOfVertices = transferredData->n_verts[uvChartIndex];
+		gd.numberOfFaces = transferredData->n_faces[uvChartIndex];
 		// nEdges in transferredData accounts for boundary edges only once
-		gd.numberOfEdgesTwice = transferredData->nEdges[uvChartIndex] + transferredData->nBoundaryVertices[uvChartIndex];
-		gd.numberOfBoundaryVertices = transferredData->nBoundaryVertices[uvChartIndex];
-		gd.numberOfPinnedVertices = transferredData->nPinnedVertices[uvChartIndex];
+		gd.numberOfEdgesTwice = transferredData->n_edges[uvChartIndex] + transferredData->n_boundary_vertices[uvChartIndex];
+		gd.numberOfBoundaryVertices = transferredData->n_boundary_vertices[uvChartIndex];
+		gd.numberOfPinnedVertices = transferredData->n_pinned_vertices[uvChartIndex];
 
-		new (&gd.vertexPositions3D) Map<MatrixXd>(transferredData->Vmatrices[uvChartIndex], gd.numberOfVertices, gd.COLUMNS_3);
-		new (&gd.uvPositions2D) Map<MatrixXd>(transferredData->UVmatrices[uvChartIndex], gd.numberOfVertices, gd.COLUMNS_2);
+		new (&gd.vertexPositions3D) Map<MatrixXd>(transferredData->v_matrices[uvChartIndex], gd.numberOfVertices, gd.COLUMNS_3);
+		new (&gd.uvPositions2D) Map<MatrixXd>(transferredData->uv_matrices[uvChartIndex], gd.numberOfVertices, gd.COLUMNS_2);
 		gd.positionsOfPinnedVertices2D = MatrixXd();
 
-		new (&gd.facesByVertexindices) Map<MatrixXi>(transferredData->Fmatrices[uvChartIndex], gd.numberOfFaces, gd.COLUMNS_3);
-		new (&gd.edgesByVertexindices) Map<MatrixXi>(transferredData->Ematrices[uvChartIndex], gd.numberOfEdgesTwice, gd.COLUMNS_2);
+		new (&gd.facesByVertexindices) Map<MatrixXi>(transferredData->f_matrices[uvChartIndex], gd.numberOfFaces, gd.COLUMNS_3);
+		new (&gd.edgesByVertexindices) Map<MatrixXi>(transferredData->e_matrices[uvChartIndex], gd.numberOfEdgesTwice, gd.COLUMNS_2);
 		gd.PinnedVertexIndices = VectorXi();
 
-		new (&gd.edgeLengths) Map<VectorXd>(transferredData->ELvectors[uvChartIndex], gd.numberOfEdgesTwice);
-		new (&gd.boundaryVertexIndices) Map<VectorXi>(transferredData->Bvectors[uvChartIndex], gd.numberOfBoundaryVertices);
+		new (&gd.edgeLengths) Map<VectorXd>(transferredData->el_vectors[uvChartIndex], gd.numberOfEdgesTwice);
+		new (&gd.boundaryVertexIndices) Map<VectorXi>(transferredData->b_vectors[uvChartIndex], gd.numberOfBoundaryVertices);
 
 		gd.withWeightedParameteriztion = transferredData->with_weighted_parameterization;
-		new (&gd.weightsPerVertex) Map<VectorXf>(transferredData->Wvectors[uvChartIndex], gd.numberOfVertices);
+		new (&gd.weightsPerVertex) Map<VectorXf>(transferredData->w_vectors[uvChartIndex], gd.numberOfVertices);
 		gd.weightInfluence = transferredData->weight_influence;
 
 		if (gd.numberOfPinnedVertices != 0){
 			new (&gd.ExplicitlyPinnedVertexIndices) Map<VectorXi>(
-											transferredData->Pmatrices[uvChartIndex], gd.numberOfPinnedVertices);
+											transferredData->p_matrices[uvChartIndex], gd.numberOfPinnedVertices);
 			new (&gd.positionsOfExplicitlyPinnedVertices2D) Map<Matrix<double, Dynamic, Dynamic, RowMajor>>(
-									transferredData->PPmatrices[uvChartIndex], gd.numberOfPinnedVertices, gd.COLUMNS_2);
+									transferredData->pp_matrices[uvChartIndex], gd.numberOfPinnedVertices, gd.COLUMNS_2);
 		}
 	}
 }

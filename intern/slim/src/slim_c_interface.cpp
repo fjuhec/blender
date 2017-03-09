@@ -42,33 +42,33 @@ using namespace igl;
 	The blend parameter decides the linear blending between the original UV map and the one
 	optained from the accumulated SLIM iterations so far.
  */
-void transfer_uvs_blended_C(matrix_transfer *mt, void* slimDataPtr, int uvChartIndex, float blend){
-	SLIMData* slimData = (SLIMData*) slimDataPtr;
-	Eigen::MatrixXd blendedUvs = getInteractiveResultBlendedWithOriginal(blend, slimData);
-	areacomp::correctMapSurfaceAreaIfNecessary(slimData);
-	transferUvsBackToNativePart(mt, blendedUvs, uvChartIndex);
+void transfer_uvs_blended_C(SLIMMatrixTransfer *mt, void* slim_data_ptr, int uv_chart_index, float blend){
+	SLIMData* slim_data = (SLIMData*) slim_data_ptr;
+	Eigen::MatrixXd blended_uvs = getInteractiveResultBlendedWithOriginal(blend, slim_data);
+	areacomp::correctMapSurfaceAreaIfNecessary(slim_data);
+	transferUvsBackToNativePart(mt, blended_uvs, uv_chart_index);
 }
 
 /*	Setup call from the native C part. Necessary for interactive parametrisation.
  */
-void* setup_slim_C(matrix_transfer *mt, int uvChartIndex, bool borderVerticesArePinned, bool skipInitialization){
+void* setup_slim_C(SLIMMatrixTransfer *mt, int uv_chart_index, bool are_border_vertices_pinned, bool skip_initialization){
 	igl::Timer timer;
 	timer.start();
-	SLIMData* slimData = setup_slim(mt, 0, uvChartIndex, timer, borderVerticesArePinned, skipInitialization);
-	return slimData;
+	SLIMData* slim_data = setup_slim(mt, 0, uv_chart_index, timer, are_border_vertices_pinned, skip_initialization);
+	return slim_data;
 }
 
 /*	Executes a single iteration of SLIM, to be called from the native part. It recasts the pointer to a SLIM object.
  */
-void param_slim_single_iteration_C(void* slimDataPtr){
-	SLIMData* slimData = (SLIMData*) slimDataPtr;
-	param_slim_single_iteration(slimData);
+void param_slim_single_iteration_C(void* slim_data_ptr){
+	SLIMData* slim_data = (SLIMData*) slim_data_ptr;
+	param_slim_single_iteration(slim_data);
 }
 
-void param_slim_C(matrix_transfer *mt, int nIterations, bool borderVerticesArePinned, bool skipInitialization){
-	param_slim(mt, nIterations, borderVerticesArePinned, skipInitialization);
+void param_slim_C(SLIMMatrixTransfer *mt, int n_iterations, bool are_border_vertices_pinned, bool skip_initialization){
+	param_slim(mt, n_iterations, are_border_vertices_pinned, skip_initialization);
 }
 
-void free_slim_data_C(void* slimDataPtr){
-	free_slim_data((SLIMData*) slimDataPtr);
+void free_slim_data_C(void* slim_data_ptr){
+	free_slim_data((SLIMData*) slim_data_ptr);
 }

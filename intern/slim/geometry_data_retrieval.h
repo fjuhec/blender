@@ -31,7 +31,7 @@
 #include <stdio.h>
 #include <Eigen/Dense>
 
-#include "matrix_transfer.h"
+#include "slim_matrix_transfer.h"
 #include "slim.h"
 #include "uv_initializer.h"
 
@@ -71,7 +71,7 @@ namespace retrieval {
 
 	void retrievePinnedVertices(GeometryData &gd, bool borderVerticesArePinned);
 
-	void retrieveGeometryDataMatrices(const matrix_transfer *transferredData,
+	void retrieveGeometryDataMatrices(const SLIMMatrixTransfer *transferredData,
 									  const int uvChartIndex,
 									  GeometryData &gd);
 }

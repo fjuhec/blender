@@ -40,7 +40,7 @@ extern "C" {
 
 #include "BLI_sys_types.h" // for intptr_t support
 
-#include "matrix_transfer.h" // for SLIM
+#include "slim_matrix_transfer.h" // for SLIM
 #include "slim_c_interface.h"
 
 typedef void ParamHandle;	/* handle to a set of charts */
@@ -71,7 +71,6 @@ void param_face_add(ParamHandle *handle,
                     ParamKey *vkeys,
                     float *co[4],
                     float *uv[4],
-					float id[4],
                     ParamBool *pin,
                     ParamBool *select,
                     float face_normal[3]);
@@ -94,10 +93,10 @@ int retrieve_weightmap_index(Object *obedit, char *vertex_group);
 void param_slim_enrich_handle(Object *obedit,
 							  BMEditMesh *em,
 							  ParamHandle *handle,
-							  matrix_transfer *mt,
+							  SLIMMatrixTransfer *mt,
 							  MDeformVert *dvert,
-							  int weightMapIndex,
-							  double weightInfluence,
+							  int weight_map_index,
+							  double weight_influence,
 							  double relative_scale,
 							  int n_iterations,
 							  bool skip_initialization,
@@ -108,9 +107,9 @@ void param_slim_enrich_handle(Object *obedit,
  * - Either Conformal or SLIM
  */
 
-void param_begin(ParamHandle *handle, ParamBool abf, bool useSlim);
-void param_solve(ParamHandle *handle, bool useSlim);
-void param_end(ParamHandle *handle, bool useSlim);
+void param_begin(ParamHandle *handle, ParamBool abf, bool use_slim);
+void param_solve(ParamHandle *handle, bool use_slim);
+void param_end(ParamHandle *handle, bool use_slim);
 
 /* SLIM:
  * -----------------------------
@@ -168,12 +167,12 @@ void param_flush_restore(ParamHandle *handle);
 
 /*	SLIM UV unwrapping data transfer */
 void transfer_data_to_slim(ParamHandle *handle);
-void convert_blender_slim(ParamHandle *handle, bool selectionOnly, int weightMapIndex);
-void set_uv_param_slim(ParamHandle *handle, matrix_transfer *mt);
+void convert_blender_slim(ParamHandle *handle, bool selection_only, int weight_map_index);
+void set_uv_param_slim(ParamHandle *handle, SLIMMatrixTransfer *mt);
 bool transformIslands(ParamHandle *handle);
-bool mark_pins(ParamHandle *paramHandle);
+bool mark_pins(ParamHandle *param_handle);
 void add_index_to_vertices(BMEditMesh *em);
-void free_matrix_transfer(matrix_transfer *mt);
+void free_slim_matrix_transfer(SLIMMatrixTransfer *mt);
 	
 #ifdef __cplusplus
 }

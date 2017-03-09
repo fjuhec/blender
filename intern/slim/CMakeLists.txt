@@ -13,7 +13,7 @@ set(INC_SYS
 )
 
 set(SRC
-  matrix_transfer.h
+  slim_matrix_transfer.h
   slim.h
   slim_parametrizer.h
   uv_initializer.h

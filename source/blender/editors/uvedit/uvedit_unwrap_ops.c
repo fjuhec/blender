@@ -82,7 +82,7 @@
 #include "uvedit_intern.h"
 #include "uvedit_parametrizer.h"
 
-#include "matrix_transfer.h"
+#include "slim_matrix_transfer.h"
 #include "slim_c_interface.h"
 
 static void modifier_unwrap_state(Object *obedit, Scene *scene, bool *r_use_subsurf)
@@ -238,7 +238,6 @@ static void construct_param_handle_face_add(ParamHandle *handle, Scene *scene,
 	ParamBool *select = BLI_array_alloca(select, efa->len);
 	float **co = BLI_array_alloca(co, efa->len);
 	float **uv = BLI_array_alloca(uv, efa->len);
-	float *id = BLI_array_alloca(id, efa->len);
 	int i;
 
 	BMIter liter;
@@ -254,12 +253,11 @@ static void construct_param_handle_face_add(ParamHandle *handle, Scene *scene,
 		vkeys[i] = (ParamKey)BM_elem_index_get(l->v);
 		co[i] = l->v->co;
 		uv[i] = luv->uv;
-		id[i] = l->v->id;
 		pin[i] = (luv->flag & MLOOPUV_PINNED) != 0;
 		select[i] = uvedit_uv_select_test(scene, l, cd_loop_uv_offset);
 	}
 
-	param_face_add(handle, key, i, vkeys, co, uv, id, pin, select, efa->no);
+	param_face_add(handle, key, i, vkeys, co, uv, pin, select, efa->no);
 }
 
 static ParamHandle *construct_param_handle(Scene *scene, Object *ob, BMesh *bm,
@@ -329,7 +327,8 @@ static ParamHandle *construct_param_handle(Scene *scene, Object *ob, BMesh *bm,
 }
 
 
-static void texface_from_original_index(BMFace *efa, int index, float **uv, ParamBool *pin, ParamBool *select, float *id, Scene *scene, const int cd_loop_uv_offset)
+static void texface_from_original_index(BMFace *efa, int index, float **uv, ParamBool *pin, ParamBool *select,
+										Scene *scene, const int cd_loop_uv_offset)
 {
 	BMLoop *l;
 	BMIter liter;
@@ -338,7 +337,6 @@ static void texface_from_original_index(BMFace *efa, int index, float **uv, Para
 	*uv = NULL;
 	*pin = 0;
 	*select = 1;
-	*id = 0;
 
 	if (index == ORIGINDEX_NONE)
 		return;
@@ -347,7 +345,6 @@ static void texface_from_original_index(BMFace *efa, int index, float **uv, Para
 		if (BM_elem_index_get(l->v) == index) {
 			luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
 			*uv = luv->uv;
-			*id = l->v->id;
 			*pin = (luv->flag & MLOOPUV_PINNED) ? 1 : 0;
 			*select = uvedit_uv_select_test(scene, l, cd_loop_uv_offset);
 			break;
@@ -451,7 +448,6 @@ static ParamHandle *construct_param_handle_subsurfed(Scene *scene, Object *ob, B
 		ParamBool pin[4], select[4];
 		float *co[4];
 		float *uv[4];
-		float *id[4];
 		BMFace *origFace = faceMap[i];
 
 		if (scene->toolsettings->uv_flag & UV_SYNC_SELECTION) {
@@ -480,12 +476,12 @@ static ParamHandle *construct_param_handle_subsurfed(Scene *scene, Object *ob, B
 		
 		/* This is where all the magic is done. If the vertex exists in the, we pass the original uv pointer to the solver, thus
 		 * flushing the solution to the edit mesh. */
-		texface_from_original_index(origFace, origVertIndices[mloop[0].v], &uv[0], &pin[0], &select[0], &id[0], scene, cd_loop_uv_offset);
-		texface_from_original_index(origFace, origVertIndices[mloop[1].v], &uv[1], &pin[1], &select[1], &id[1], scene, cd_loop_uv_offset);
-		texface_from_original_index(origFace, origVertIndices[mloop[2].v], &uv[2], &pin[2], &select[2], &id[2], scene, cd_loop_uv_offset);
-		texface_from_original_index(origFace, origVertIndices[mloop[3].v], &uv[3], &pin[3], &select[3], &id[3], scene, cd_loop_uv_offset);
+		texface_from_original_index(origFace, origVertIndices[mloop[0].v], &uv[0], &pin[0], &select[0], scene, cd_loop_uv_offset);
+		texface_from_original_index(origFace, origVertIndices[mloop[1].v], &uv[1], &pin[1], &select[1], scene, cd_loop_uv_offset);
+		texface_from_original_index(origFace, origVertIndices[mloop[2].v], &uv[2], &pin[2], &select[2], scene, cd_loop_uv_offset);
+		texface_from_original_index(origFace, origVertIndices[mloop[3].v], &uv[3], &pin[3], &select[3], scene, cd_loop_uv_offset);
 
-		param_face_add(handle, key, 4, vkeys, co, uv, pin, select, id, NULL);
+		param_face_add(handle, key, 4, vkeys, co, uv, pin, select, NULL);
 	}
 
 	/* these are calculated from original mesh too */
@@ -513,10 +509,10 @@ int setup_weight_transfer(Object *obedit, BMEditMesh *em, char *vertex_group)
 	return retrieve_weightmap_index(obedit, vertex_group);
 }
 
-void enrich_handle_slim(Scene *scene, Object *obedit, BMEditMesh *em, ParamHandle *handle, matrix_transfer *mt)
+void enrich_handle_slim(Scene *scene, Object *obedit, BMEditMesh *em, ParamHandle *handle, SLIMMatrixTransfer *mt)
 {
-	int weightMapIndex = setup_weight_transfer(obedit, em, scene->toolsettings->slim_vertex_group);
-	bool with_weighted_parameterization = (weightMapIndex >=0);
+	int weight_map_index = setup_weight_transfer(obedit, em, scene->toolsettings->slim_vertex_group);
+	bool with_weighted_parameterization = (weight_map_index >=0);
 
 	int n_iterations = scene->toolsettings->slim_n_iterations;
 	bool skip_initialization = scene->toolsettings->slim_skip_initialization;
@@ -524,20 +520,20 @@ void enrich_handle_slim(Scene *scene, Object *obedit, BMEditMesh *em, ParamHandl
 	double weight_influence = scene->toolsettings->slim_weight_influence;
 	double relative_scale = scene->toolsettings->slim_relative_scale;
 
-	MDeformVert *weightMapData = NULL;
+	MDeformVert *weight_map_data = NULL;
 
 	if (with_weighted_parameterization) {
 		Mesh *me = obedit->data;
 		DerivedMesh *dm = mesh_create_derived(me, NULL);
-		weightMapData = dm->getVertDataArray(dm, CD_MDEFORMVERT);
+		weight_map_data = dm->getVertDataArray(dm, CD_MDEFORMVERT);
 	}
 
 	param_slim_enrich_handle(obedit,
 							 em,
 							 handle,
 							 mt,
-							 weightMapData,
-							 weightMapIndex,
+							 weight_map_data,
+							 weight_map_index,
 							 weight_influence,
 							 relative_scale,
 							 n_iterations,
@@ -551,7 +547,7 @@ void enrich_handle_slim(Scene *scene, Object *obedit, BMEditMesh *em, ParamHandl
 /*	Holds all necessary state for one session of interactive parametrisation.
  */
 typedef struct MinStretch {
-	matrix_transfer *mt;
+	SLIMMatrixTransfer *mt;
 	ParamHandle *handle;
 	Object *obedit;
 
@@ -576,8 +572,8 @@ static bool minimize_stretch_init(bContext *C, wmOperator *op)
 
 	ParamHandle *handle = construct_param_handle(scene, obedit, em->bm, false, true, 1, 1);
 
-	MinStretchSlim *mss = MEM_callocN(sizeof(MinStretchSlim), "Data for minimizing stretch with SLIM");
-	mss->mt = MEM_callocN(sizeof(matrix_transfer), "Matrix Transfer to SLIM");
+	MinStretch *mss = MEM_callocN(sizeof(MinStretch), "Data for minimizing stretch with SLIM");
+	mss->mt = MEM_callocN(sizeof(SLIMMatrixTransfer), "Matrix Transfer to SLIM");
 	mss->handle = handle;
 	mss->obedit = obedit;
 	mss->firstIteration = true;
@@ -592,9 +588,9 @@ static bool minimize_stretch_init(bContext *C, wmOperator *op)
 	enrich_handle_slim(scene, obedit, em, handle, mss->mt);
 	param_slim_begin(handle);
 
-	mss->slimPtrs = MEM_callocN(mss->mt->nCharts * sizeof(void*), "pointers to Slim-objects");
+	mss->slimPtrs = MEM_callocN(mss->mt->n_charts * sizeof(void*), "pointers to Slim-objects");
 
-	for (int chartNr = 0; chartNr < mss->mt->nCharts; chartNr++) {
+	for (int chartNr = 0; chartNr < mss->mt->n_charts; chartNr++) {
 		mss->slimPtrs[chartNr] = setup_slim_C(mss->mt, chartNr, mss->fixBorder, true);
 	}
 
@@ -607,7 +603,7 @@ static bool minimize_stretch_init(bContext *C, wmOperator *op)
 static void minimize_stretch_iteration(bContext *C, wmOperator *op, bool interactive)
 {
 	// In first iteration, check if pins are present
-	MinStretchSlim *mss = op->customdata;
+	MinStretch *mss = op->customdata;
 	if (mss->firstIteration) {
 		mss->firstIteration = false;
 		if (!(mss->fixBorder)) {
@@ -616,7 +612,7 @@ static void minimize_stretch_iteration(bContext *C, wmOperator *op, bool interac
 	}
 
 	// Do one iteration and tranfer UVs
-	for (int chartNr = 0; chartNr < mss->mt->nCharts; chartNr++) {
+	for (int chartNr = 0; chartNr < mss->mt->n_charts; chartNr++) {
 		void *slimPtr = mss->slimPtrs[chartNr];
 		param_slim_single_iteration_C(slimPtr);
 		transfer_uvs_blended_C(mss->mt, slimPtr, chartNr, mss->blend);
@@ -636,8 +632,8 @@ static void minimize_stretch_iteration(bContext *C, wmOperator *op, bool interac
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, mss->obedit->data);
 }
 
-void free_slimPtrs(void **slimPtrs, int nCharts) {
-	for (int i = 0; i<nCharts; i++) {
+void free_slimPtrs(void **slimPtrs, int n_charts) {
+	for (int i = 0; i<n_charts; i++) {
 		free_slim_data_C(slimPtrs[i]);
 	}
 }
@@ -646,7 +642,7 @@ void free_slimPtrs(void **slimPtrs, int nCharts) {
  */
 static void minimize_stretch_exit(bContext *C, wmOperator *op, bool cancel)
 {
-	MinStretchSlim *mss = op->customdata;
+	MinStretch *mss = op->customdata;
 	/*
 	 if (!mss->fixBorder){
 		remove_pins(mss->handle);
@@ -656,7 +652,7 @@ static void minimize_stretch_exit(bContext *C, wmOperator *op, bool cancel)
 		mss->blend = 1.0f;
 	}
 
-	for (int chartNr = 0; chartNr < mss->mt->nCharts; chartNr++) {
+	for (int chartNr = 0; chartNr < mss->mt->n_charts; chartNr++) {
 		void *slimPtr = mss->slimPtrs[chartNr];
 		transfer_uvs_blended_C(mss->mt, slimPtr, chartNr, mss->blend);
 	}
@@ -672,8 +668,8 @@ static void minimize_stretch_exit(bContext *C, wmOperator *op, bool cancel)
 	param_flush(mss->handle);
 	param_delete(mss->handle);
 
-	free_slimPtrs(mss->slimPtrs, mss->mt->nCharts);
-	free_matrix_transfer(mss->mt);
+	free_slimPtrs(mss->slimPtrs, mss->mt->n_charts);
+	free_slim_matrix_transfer(mss->mt);
 	MEM_freeN(mss->slimPtrs);
 	MEM_freeN(mss);
 	op->customdata = NULL;
@@ -691,7 +687,7 @@ static int minimize_stretch_exec(bContext *C, wmOperator *op)
  */
 static int minimize_stretch_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
-	MinStretchSlim *mss;
+	MinStretch *mss;
 
 	if (!minimize_stretch_init(C, op))
 		return OPERATOR_CANCELLED;
@@ -710,7 +706,7 @@ static int minimize_stretch_invoke(bContext *C, wmOperator *op, const wmEvent *U
  */
 static int minimize_stretch_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
-	MinStretchSlim *mss = op->customdata;
+	MinStretch *mss = op->customdata;
 
 	switch (event->type) {
 		case ESCKEY:
@@ -726,7 +722,7 @@ static int minimize_stretch_modal(bContext *C, wmOperator *op, const wmEvent *ev
 		case WHEELUPMOUSE:
 			if (event->val == KM_PRESS) {
 				if (mss->blend < 1.0f) {
-					mss->blend += min(0.1f, 1 - (mss->blend));
+					mss->blend += MIN2(0.1f, 1 - (mss->blend));
 					minimize_stretch_iteration(C, op, true);
 				}
 			}
@@ -735,7 +731,7 @@ static int minimize_stretch_modal(bContext *C, wmOperator *op, const wmEvent *ev
 		case WHEELDOWNMOUSE:
 			if (event->val == KM_PRESS) {
 				if (mss->blend > 0.0f) {
-					mss->blend -= min(0.1f, mss->blend);
+					mss->blend -= MIN2(0.1f, mss->blend);
 					minimize_stretch_iteration(C, op, true);
 				}
 			}
@@ -1243,7 +1239,7 @@ void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
 		handle = construct_param_handle(scene, obedit, em->bm, false, fill_holes, sel, correct_aspect);
 
 	if (use_slim_method) {
-		matrix_transfer *mt = MEM_callocN(sizeof(matrix_transfer), "matrix transfer data");
+		SLIMMatrixTransfer *mt = MEM_callocN(sizeof(SLIMMatrixTransfer), "matrix transfer data");
 		mt->slim_reflection_mode = scene->toolsettings->slim_reflection_mode;
 		enrich_handle_slim(scene, obedit, em, handle, mt);
 	}
@@ -1254,7 +1250,6 @@ void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
 	param_end(handle, use_slim_method);
 
 	if (transform) {
-		printf("packing & scaling islands");
 		param_average(handle);
 		param_pack(handle, scene->toolsettings->uvcalc_margin, false);
 	}

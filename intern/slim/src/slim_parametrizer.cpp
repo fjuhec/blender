@@ -54,10 +54,10 @@ using namespace igl;
 using namespace Eigen;
 
 
-void transferUvsBackToNativePart(matrix_transfer *mt, Eigen::MatrixXd &UV, int uvChartIndex){
+void transferUvsBackToNativePart(SLIMMatrixTransfer *mt, Eigen::MatrixXd &UV, int uvChartIndex){
 	double *uvCoordinateArray;
-	uvCoordinateArray = mt->UVmatrices[uvChartIndex];
-	int numberOfVertices = mt->nVerts[uvChartIndex];
+	uvCoordinateArray = mt->uv_matrices[uvChartIndex];
+	int numberOfVertices = mt->n_verts[uvChartIndex];
 
 	for (int i = 0; i < numberOfVertices; i++) {
 		for (int j = 0; j < 2; j++) {
@@ -81,16 +81,16 @@ void param_slim_single_iteration(SLIMData *slimData){
 	
 }
 
-void param_slim(matrix_transfer *mt, int nIterations, bool borderVerticesArePinned, bool skipInitialization){
+void param_slim(SLIMMatrixTransfer *mt, int nIterations, bool borderVerticesArePinned, bool skipInitialization){
 
 	igl::Timer timer;
 	timer.start();
 
-	for (int uvChartIndex = 0; uvChartIndex < mt->nCharts; uvChartIndex++) {
+	for (int uvChartIndex = 0; uvChartIndex < mt->n_charts; uvChartIndex++) {
 
 		SLIMData *slimData = setup_slim(mt, nIterations, uvChartIndex, timer, borderVerticesArePinned, skipInitialization);
 
-		//slim_solve(*slimData, nIterations);
+		slim_solve(*slimData, nIterations);
 
 		areacomp::correctMapSurfaceAreaIfNecessary(slimData);
 
@@ -140,7 +140,7 @@ void initializeIfNeeded(retrieval::GeometryData &gd, SLIMData *slimData){
 /*
 	Transfers all the matrices from the native part and initialises slim.
  */
-SLIMData* setup_slim(matrix_transfer *transferredData,
+SLIMData* setup_slim(SLIMMatrixTransfer *transferredData,
 					 int nIterations,
 					 int uvChartIndex,
 					 igl::Timer &timer,
@@ -151,7 +151,7 @@ SLIMData* setup_slim(matrix_transfer *transferredData,
 	retrieval::retrieveGeometryDataMatrices(transferredData, uvChartIndex, geometryData);
 
 	retrieval::retrievePinnedVertices(geometryData, borderVerticesArePinned);
-	transferredData->nPinnedVertices[uvChartIndex] = geometryData.numberOfPinnedVertices;
+	transferredData->n_pinned_vertices[uvChartIndex] = geometryData.numberOfPinnedVertices;
 
 	SLIMData *slimData = new SLIMData();
 	retrieval::constructSlimData(geometryData, slimData, skipInitialization, transferredData->slim_reflection_mode);

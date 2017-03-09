@@ -32,7 +32,7 @@ set(INC
 	../../../../intern/eigen
 	../../../../intern/glew-mx
 
-	../../../../intern/SLIM/src
+	../../../../intern/slim
 )
 
 set(INC_SYS

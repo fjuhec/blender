@@ -28,18 +28,17 @@
 #ifndef slim_c_interface_h
 #define slim_c_interface_h
 
-#include "matrix_transfer.h"
+#include "slim_matrix_transfer.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-
-void param_slim_C(matrix_transfer *mt, int nIterations, bool borderVerticesArePinned, bool skipInitialization);
-void transfer_uvs_blended_C(matrix_transfer *mt, void* slim, int chartNr, float blend);
+void param_slim_C(SLIMMatrixTransfer *mt, int n_iterations, bool are_border_vertices_pinned, bool skip_initialization);
+void transfer_uvs_blended_C(SLIMMatrixTransfer *mt, void *slim, int uv_chart_index, float blend);
 void param_slim_single_iteration_C(void *slim);
-void* setup_slim_C(matrix_transfer *mt, int chartNr, bool fixBorder, bool skipInitialization);
-void free_slim_data_C(void* slimDataPtr);
+void* setup_slim_C(SLIMMatrixTransfer *mt, int uv_chart_index, bool are_border_vertices_pinned, bool skip_initialization);
+void free_slim_data_C(void* slim_data_ptr);
 
 #ifdef __cplusplus
 }
