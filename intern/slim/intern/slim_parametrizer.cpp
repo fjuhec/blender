@@ -78,7 +78,6 @@ Eigen::MatrixXd getInteractiveResultBlendedWithOriginal(float blend, SLIMData *s
 void param_slim_single_iteration(SLIMData *slimData){
 	int numberOfIterations = 1;
 	slim_solve(*slimData, numberOfIterations);
-	
 }
 
 void param_slim(SLIMMatrixTransfer *mt, int nIterations, bool borderVerticesArePinned, bool skipInitialization){
