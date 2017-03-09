@@ -3882,11 +3882,10 @@ static int screen_new_exec(bContext *C, wmOperator *UNUSED(op))
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *win = CTX_wm_window(C);
 	WorkSpace *workspace = WM_window_get_active_workspace(win);
-	WorkSpaceLayout *layout_old = BKE_workspace_hook_active_layout_get(win->workspace_hook);
-	WorkSpaceLayout *layout_new;
+	WorkSpaceLayout *layout_old = WM_window_get_active_layout(win);
 
-	layout_new = ED_workspace_layout_duplicate(workspace, layout_old, wm);
-	WM_event_add_notifier(C, NC_WORKSPACE | ND_SCREENBROWSE, layout_new);
+	ED_workspace_layout_duplicate(workspace, layout_old, wm);
+	WM_event_add_notifier(C, NC_WORKSPACE | ND_SCREENBROWSE, WM_window_get_active_layout(win));
 
 	return OPERATOR_FINISHED;
 }

@@ -45,6 +45,7 @@ struct wmEvent;
 struct wmKeyConfig;
 struct WorkSpace;
 struct WorkSpaceHook;
+struct WorkSpaceLayout;
 struct bContext;
 struct Scene;
 struct bScreen;
@@ -132,9 +133,8 @@ bool ED_workspace_change(struct bContext *C, struct wmWindowManager *wm, struct 
 struct WorkSpace *ED_workspace_duplicate(struct WorkSpace *workspace_old, struct Main *bmain, struct wmWindow *win);
 void ED_workspace_layout_add(struct WorkSpace *workspace, ListBase *windows, const char *name,
                              ScreenLayoutData layout_blueprint) ATTR_NONNULL();
-struct WorkSpaceLayout *ED_workspace_layout_duplicate(struct WorkSpace *workspace,
-                                                      const struct WorkSpaceLayout *layout_old,
-                                                      struct wmWindowManager *wm) ATTR_NONNULL();
+void ED_workspace_layout_duplicate(
+        struct WorkSpace *workspace, const struct WorkSpaceLayout *layout_old, struct wmWindowManager *wm) ATTR_NONNULL();
 bool ED_workspace_delete(struct Main *bmain, struct bContext *C,
                          struct wmWindowManager *wm, struct wmWindow *win,
                          struct WorkSpace *ws);

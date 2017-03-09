@@ -38,6 +38,7 @@
 #include "ED_screen.h"
 
 #include "WM_api.h"
+#include "WM_types.h"
 
 #include "screen_intern.h"
 
@@ -61,28 +62,25 @@ void ED_workspace_layout_add(WorkSpace *workspace, ListBase *windows, const char
 	}
 }
 
-WorkSpaceLayout *ED_workspace_layout_duplicate(WorkSpace *workspace, const WorkSpaceLayout *layout_old,
-                                               wmWindowManager *wm)
+void ED_workspace_layout_duplicate(
+        WorkSpace *workspace, const WorkSpaceLayout *layout_old, wmWindowManager *wm)
 {
 	bScreen *screen_old = BKE_workspace_layout_screen_get(layout_old);
-	ScreenLayoutData layout_data = BKE_screen_layout_data_get(screen_old);
-	bScreen *screen_new;
-	WorkSpaceLayout *layout_new;
+	ScreenLayoutData layout_data = BKE_workspace_layout_type_blueprint_get(BKE_workspace_layout_type_get(layout_old));
 
 	if (BKE_screen_is_fullscreen_area(screen_old)) {
-		return NULL; /* XXX handle this case! */
+		return; /* XXX handle this case! */
 	}
 
 	ED_workspace_layout_add(workspace, &wm->windows, screen_old->id.name + 2, layout_data);
 	for (wmWindow *win = wm->windows.first; win; win = win->next) {
 		if (BKE_workspace_active_get(win->workspace_hook) == workspace) {
-			layout_new = BKE_workspace_hook_active_layout_get(win->workspace_hook);
-			screen_new = BKE_workspace_layout_screen_get(layout_new);
+			bScreen *screen_new = BKE_workspace_hook_active_screen_get(win->workspace_hook);
 			screen_data_copy(screen_new, screen_old);
 		}
 	}
-
-	return layout_new;
+	/* Not sure if calling WM function from here is so nice, we can also directly tag areas for redraw. */
+	WM_main_add_notifier(NC_WINDOW, NULL);
 }
 
 static bool workspace_layout_delete_doit(
