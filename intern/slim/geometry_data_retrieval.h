@@ -14,7 +14,7 @@
 
 #include "matrix_transfer.h"
 #include "slim.h"
-#include "UVInitializer.h"
+#include "uv_initializer.h"
 
 using namespace Eigen;
 using namespace igl;

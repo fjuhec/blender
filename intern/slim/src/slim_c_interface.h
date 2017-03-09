@@ -1,13 +1,13 @@
 //
-//  slim_C_interface.hpp
+//  slim_c_interface.h
 //  Blender
 //
 //  Created by Aurel Gruber on 30.11.16.
 //
 //
 
-#ifndef slim_C_interface_hpp
-#define slim_C_interface_hpp
+#ifndef slim_c_interface_h
+#define slim_c_interface_h
 
 #include "matrix_transfer.h"
 

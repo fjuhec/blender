@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 2.6)
 
 set(INC
+  ./
   ext/libigl_extract
   ../../source/blender/editors/uvedit
   ../../source/blender/makesdna
@@ -12,22 +13,23 @@ set(INC_SYS
 )
 
 set(SRC
+  matrix_transfer.h
+  slim.h
+  slim_parametrizer.h
+  uv_initializer.h
+  slim_c_interface.h
+  area_compensation.h
+  least_squares_relocator.h
+  geometry_data_retrieval.h
+
   src/slim.cpp
   src/slim_parametrizer.cpp
-  src/UVInitializer.cpp
-  src/slim_C_interface.cpp
+  src/uv_initializer.cpp
+  src/slim_c_interface.cpp
   src/area_compensation.cpp
   src/least_squares_relocator.cpp
   src/geometry_data_retrieval.cpp
 
-  src/matrix_transfer.h
-  src/slim.h
-  src/slim_parametrizer.h
-  src/UVInitializer.h
-  src/slim_C_interface.h
-  src/area_compensation.h
-  src/least_squares_relocator.h
-  src/geometry_data_retrieval.h
 
   ${ADDITIONAL_SOURCES}
 )

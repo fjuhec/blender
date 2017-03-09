@@ -2,7 +2,7 @@
 #include <stdlib.h>
 
 #include "slim.h"
-#include "UVInitializer.h"
+#include "uv_initializer.h"
 #include "area_compensation.h"
 #include "least_squares_relocator.h"
 #include "geometry_data_retrieval.h"

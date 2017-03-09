@@ -41,7 +41,7 @@ extern "C" {
 #include "BLI_sys_types.h" // for intptr_t support
 
 #include "matrix_transfer.h" // for SLIM
-#include "slim_C_interface.h"
+#include "slim_c_interface.h"
 
 typedef void ParamHandle;	/* handle to a set of charts */
 typedef intptr_t ParamKey;		/* (hash) key for identifying verts and faces */

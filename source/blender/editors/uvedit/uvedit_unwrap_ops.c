@@ -83,7 +83,7 @@
 #include "uvedit_parametrizer.h"
 
 #include "matrix_transfer.h"
-#include "slim_C_interface.h"
+#include "slim_c_interface.h"
 
 #define max(x, y) (((x) > (y)) ? (x) : (y))
 #define min(x, y) (((x) < (y)) ? (x) : (y))

@@ -1,5 +1,5 @@
 //
-//  slim_C_interface.cpp
+//  slim_c_interface.cpp
 //  Blender
 //
 //  Created by Aurel Gruber on 30.11.16.
@@ -8,7 +8,7 @@
 
 #include <Eigen/Dense>
 
-#include "slim_C_interface.h"
+#include "slim_c_interface.h"
 #include "slim_parametrizer.h"
 #include "slim.h"
 

@@ -6,7 +6,7 @@
 //
 //
 
-#include "UVInitializer.h"
+#include "uv_initializer.h"
 #include<Eigen/SparseLU>
 
 #include "igl/Timer.h"
