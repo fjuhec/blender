@@ -4428,7 +4428,7 @@ void param_slim_solve(ParamHandle *handle)
 {
 	PHandle *phandle = (PHandle *) handle;
 	SLIMMatrixTransfer *mt = phandle->mt;
-	param_slim_C(mt, phandle->n_iterations, mt->fixed_boundary, phandle->skip_initialization);
+	SLIM_parametrize(mt, phandle->n_iterations, mt->fixed_boundary, phandle->skip_initialization);
 }
 
 void param_slim_end(ParamHandle *handle)

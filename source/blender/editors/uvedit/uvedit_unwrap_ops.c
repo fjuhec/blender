@@ -83,7 +83,7 @@
 #include "uvedit_parametrizer.h"
 
 #include "slim_matrix_transfer.h"
-#include "slim_c_interface.h"
+#include "slim_capi.h"
 
 static void modifier_unwrap_state(Object *obedit, Scene *scene, bool *r_use_subsurf)
 {
@@ -591,7 +591,7 @@ static bool minimize_stretch_init(bContext *C, wmOperator *op)
 	mss->slimPtrs = MEM_callocN(mss->mt->n_charts * sizeof(void*), "pointers to Slim-objects");
 
 	for (int chartNr = 0; chartNr < mss->mt->n_charts; chartNr++) {
-		mss->slimPtrs[chartNr] = setup_slim_C(mss->mt, chartNr, mss->fixBorder, true);
+		mss->slimPtrs[chartNr] = SLIM_setup(mss->mt, chartNr, mss->fixBorder, true);
 	}
 
 	op->customdata = mss;
@@ -614,8 +614,8 @@ static void minimize_stretch_iteration(bContext *C, wmOperator *op, bool interac
 	// Do one iteration and tranfer UVs
 	for (int chartNr = 0; chartNr < mss->mt->n_charts; chartNr++) {
 		void *slimPtr = mss->slimPtrs[chartNr];
-		param_slim_single_iteration_C(slimPtr);
-		transfer_uvs_blended_C(mss->mt, slimPtr, chartNr, mss->blend);
+		SLIM_parametrize_single_iteration(slimPtr);
+		SLIM_transfer_uvs_blended(mss->mt, slimPtr, chartNr, mss->blend);
 	}
 
 	//	Assign new UVs back to each vertex
@@ -634,7 +634,7 @@ static void minimize_stretch_iteration(bContext *C, wmOperator *op, bool interac
 
 void free_slimPtrs(void **slimPtrs, int n_charts) {
 	for (int i = 0; i<n_charts; i++) {
-		free_slim_data_C(slimPtrs[i]);
+		SLIM_free_data(slimPtrs[i]);
 	}
 }
 
@@ -654,7 +654,7 @@ static void minimize_stretch_exit(bContext *C, wmOperator *op, bool cancel)
 
 	for (int chartNr = 0; chartNr < mss->mt->n_charts; chartNr++) {
 		void *slimPtr = mss->slimPtrs[chartNr];
-		transfer_uvs_blended_C(mss->mt, slimPtr, chartNr, mss->blend);
+		SLIM_transfer_uvs_blended(mss->mt, slimPtr, chartNr, mss->blend);
 	}
 
 	set_uv_param_slim(mss->handle, mss->mt);
