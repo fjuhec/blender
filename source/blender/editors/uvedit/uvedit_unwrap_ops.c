@@ -568,7 +568,9 @@ static bool minimize_stretch_init(bContext *C, wmOperator *op)
 	Object *obedit = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 
-	add_index_to_vertices(em);
+	if (!uvedit_have_selection(scene, em, true)) {
+		return false;
+	}
 
 	ParamHandle *handle = construct_param_handle(scene, obedit, em->bm, false, true, 1, 1);
 
@@ -1223,10 +1225,6 @@ void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
 	bool use_subsurf;
 
 	bool use_slim_method = (scene->toolsettings->unwrapper == 2);
-
-	if(use_slim_method) {
-		add_index_to_vertices(em);
-	}
 
 	modifier_unwrap_state(obedit, scene, &use_subsurf);
 

@@ -137,13 +137,6 @@ void param_lscm_begin(ParamHandle *handle, ParamBool live, ParamBool abf);
 void param_lscm_solve(ParamHandle *handle);
 void param_lscm_end(ParamHandle *handle);
 
-/* Stretch */
-
-void param_stretch_begin(ParamHandle *handle);
-void param_stretch_blend(ParamHandle *handle, float blend);
-void param_stretch_iter(ParamHandle *handle);
-void param_stretch_end(ParamHandle *handle);
-
 /* Area Smooth */
 
 void param_smooth_area(ParamHandle *handle);
@@ -171,7 +164,6 @@ void convert_blender_slim(ParamHandle *handle, bool selection_only, int weight_m
 void set_uv_param_slim(ParamHandle *handle, SLIMMatrixTransfer *mt);
 bool transformIslands(ParamHandle *handle);
 bool mark_pins(ParamHandle *param_handle);
-void add_index_to_vertices(BMEditMesh *em);
 void free_slim_matrix_transfer(SLIMMatrixTransfer *mt);
 	
 #ifdef __cplusplus
