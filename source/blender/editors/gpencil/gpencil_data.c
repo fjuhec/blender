@@ -46,6 +46,7 @@
 
 #include "BLT_translation.h"
 
+#include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_space_types.h"
@@ -1463,4 +1464,51 @@ void GPENCIL_OT_convert_old_palettes(wmOperatorType *ot)
 	/* callbacks */
 	ot->exec = gp_convert_old_palettes_exec;
 	ot->poll = gp_convert_old_palettes_poll;
+}
+
+/* ******************* Convert scene gp data to gp object ************************ */
+static int gp_convert_scene_to_object_poll(bContext *C)
+{
+	Scene *scene = CTX_data_scene(C);
+	if (scene->gpd) {
+		return true;
+	}
+	else {
+		return false;
+	}
+}
+
+/* convert scene datablock to gpencil object */
+static int gp_convert_scene_to_object_exec(bContext *C, wmOperator *op)
+{
+	Scene *scene = CTX_data_scene(C);
+	ToolSettings *ts = CTX_data_tool_settings(C);
+	bGPdata *gpd = scene->gpd;
+	float loc[3] = { 0.0f, 0.0f, 0.0f };
+
+	Object *ob = ED_add_gpencil_object(C, scene, loc); /* always in origin */
+	ob->gpd = gpd;
+	scene->gpd = NULL;
+
+	/* set grease pencil mode to object */
+	ts->gpencil_src = GP_TOOL_SOURCE_OBJECT;
+
+	/* notifiers */
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED | ND_SPACE_PROPERTIES, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void GPENCIL_OT_convert_scene_to_object(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Convert Scene Datablock to gpencil Object";
+	ot->idname = "GPENCIL_OT_convert_scene_to_object";
+	ot->description = "Convert scene grease pencil datablock to gpencil object";
+
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	/* callbacks */
+	ot->exec = gp_convert_scene_to_object_exec;
+	ot->poll = gp_convert_scene_to_object_poll;
 }
