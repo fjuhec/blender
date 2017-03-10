@@ -75,6 +75,7 @@
 #include "RNA_access.h"
 #include "RNA_define.h"
 
+#include "BKE_deform.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -504,42 +505,76 @@ static ParamHandle *construct_param_handle_subsurfed(Scene *scene, Object *ob, B
 	return handle;
 }
 
-int setup_weight_transfer(Object *obedit, BMEditMesh *em, char *vertex_group)
+/*	Get weights from the weight map for weighted parametrisation.
+ */
+static void create_weight_matrix(BMesh *bm,
+								 MDeformVert *weight_map_data,
+								 float *weight_array,
+								 int weight_map_index)
 {
-	return retrieve_weightmap_index(obedit, vertex_group);
+	BMIter iter;
+	BMVert *vert;
+	int i;
+	double weight;
+
+
+	BM_ITER_MESH_INDEX(vert, &iter, bm, BM_VERTS_OF_MESH, i) {
+		weight = defvert_find_weight(weight_map_data + i, weight_map_index);
+		weight_array[i] = weight;
+	}
 }
 
-void enrich_handle_slim(Scene *scene, Object *obedit, BMEditMesh *em, ParamHandle *handle, SLIMMatrixTransfer *mt)
+static int retrieve_weightmap_index(Object *obedit, char *vertex_group)
 {
-	int weight_map_index = setup_weight_transfer(obedit, em, scene->toolsettings->slim_vertex_group);
+	return defgroup_name_index(obedit, vertex_group);
+}
+
+static void fill_in_matrix_transfer(SLIMMatrixTransfer *mt,
+									bool with_weighted_parameterization,
+									double weight_influence,
+									bool transform_islands,
+									double relative_scale) {
+
+	mt->with_weighted_parameterization = with_weighted_parameterization;
+	mt->weight_influence = weight_influence;
+	mt->transform_islands = transform_islands;
+	mt->relative_scale = relative_scale;
+}
+
+static void enrich_handle_slim(Scene *scene,
+							   Object *obedit,
+							   BMEditMesh *em,
+							   ParamHandle *handle,
+							   SLIMMatrixTransfer *mt,
+							   bool is_interactive)
+{
+	int weight_map_index = retrieve_weightmap_index(obedit, scene->toolsettings->slim_vertex_group);
 	bool with_weighted_parameterization = (weight_map_index >=0);
-
-	int n_iterations = scene->toolsettings->slim_n_iterations;
-	bool skip_initialization = scene->toolsettings->slim_skip_initialization;
-	bool pack_islands = scene->toolsettings->slim_pack_islands;
-	double weight_influence = scene->toolsettings->slim_weight_influence;
-	double relative_scale = scene->toolsettings->slim_relative_scale;
-
-	MDeformVert *weight_map_data = NULL;
+	float *weight_array = NULL;
 
 	if (with_weighted_parameterization) {
 		Mesh *me = obedit->data;
 		DerivedMesh *dm = mesh_create_derived(me, NULL);
-		weight_map_data = dm->getVertDataArray(dm, CD_MDEFORMVERT);
+		MDeformVert *weight_map_data = dm->getVertDataArray(dm, CD_MDEFORMVERT);
+		weight_array = MEM_callocN(sizeof(double) * dm->numVertData, "SLIM Weights retrieved from the weightmap.");
+		create_weight_matrix(em->bm, weight_map_data, weight_array, weight_map_index);
 	}
 
-	param_slim_enrich_handle(obedit,
-							 em,
-							 handle,
+	fill_in_matrix_transfer(mt,
+							with_weighted_parameterization,
+							scene->toolsettings->slim_weight_influence,
+							scene->toolsettings->slim_pack_islands,
+							scene->toolsettings->slim_relative_scale);
+
+	int n_iterations = scene->toolsettings->slim_n_iterations;
+	bool skip_initialization = scene->toolsettings->slim_skip_initialization;
+
+	param_slim_enrich_handle(handle,
 							 mt,
-							 weight_map_data,
-							 weight_map_index,
-							 weight_influence,
-							 relative_scale,
+							 weight_array,
 							 n_iterations,
 							 skip_initialization,
-							 pack_islands,
-							 with_weighted_parameterization);
+							 is_interactive);
 }
 
 /********************* Minimize Stretch operator **************** */
@@ -586,7 +621,9 @@ static bool minimize_stretch_init(bContext *C, wmOperator *op)
 	scene->toolsettings->slim_pack_islands = false;
 	scene->toolsettings->slim_fixed_boundary = true;
 
-	enrich_handle_slim(scene, obedit, em, handle, mss->mt);
+	scene->toolsettings->slim_relative_scale = 1.0;
+
+	enrich_handle_slim(scene, obedit, em, handle, mss->mt, true);
 	param_slim_begin(handle);
 
 	mss->slimPtrs = MEM_callocN(mss->mt->n_charts * sizeof(void*), "pointers to Slim-objects");
@@ -633,7 +670,7 @@ static void minimize_stretch_iteration(bContext *C, wmOperator *op, bool interac
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, mss->obedit->data);
 }
 
-void free_slimPtrs(void **slimPtrs, int n_charts) {
+static void free_slimPtrs(void **slimPtrs, int n_charts) {
 	for (int i = 0; i<n_charts; i++) {
 		SLIM_free_data(slimPtrs[i]);
 	}
@@ -1236,7 +1273,7 @@ void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
 	if (use_slim_method) {
 		SLIMMatrixTransfer *mt = MEM_callocN(sizeof(SLIMMatrixTransfer), "matrix transfer data");
 		mt->slim_reflection_mode = scene->toolsettings->slim_reflection_mode;
-		enrich_handle_slim(scene, obedit, em, handle, mt);
+		enrich_handle_slim(scene, obedit, em, handle, mt, false);
 	}
 
 	param_begin(handle, scene->toolsettings->unwrapper == 0, use_slim_method);

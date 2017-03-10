@@ -31,13 +31,6 @@
 extern "C" {
 #endif
 
-
-#include "DNA_meshdata_types.h"
-#include "DNA_object_types.h"
-
-#include "BKE_deform.h"
-
-
 #include "BLI_sys_types.h" // for intptr_t support
 
 #include "slim_matrix_transfer.h" // for SLIM
@@ -88,20 +81,12 @@ void param_delete(ParamHandle *chart);
  * - enrich handle
  */
 
-void add_index_to_vertices(BMEditMesh *em);
-int retrieve_weightmap_index(Object *obedit, char *vertex_group);
-void param_slim_enrich_handle(Object *obedit,
-							  BMEditMesh *em,
-							  ParamHandle *handle,
+void param_slim_enrich_handle(ParamHandle *handle,
 							  SLIMMatrixTransfer *mt,
-							  MDeformVert *dvert,
-							  int weight_map_index,
-							  double weight_influence,
-							  double relative_scale,
+							  float *weight_array,
 							  int n_iterations,
 							  bool skip_initialization,
-							  bool pack_islands,
-							  bool with_weighted_parameterization);
+							  bool is_interactive);
 /* unwrapping:
  * -----------------------------
  * - Either Conformal or SLIM
@@ -159,12 +144,10 @@ void param_flush(ParamHandle *handle);
 void param_flush_restore(ParamHandle *handle);
 
 /*	SLIM UV unwrapping data transfer */
-void transfer_data_to_slim(ParamHandle *handle);
-void convert_blender_slim(ParamHandle *handle, bool selection_only, int weight_map_index);
 void set_uv_param_slim(ParamHandle *handle, SLIMMatrixTransfer *mt);
-bool transformIslands(ParamHandle *handle);
-bool mark_pins(ParamHandle *param_handle);
 void free_slim_matrix_transfer(SLIMMatrixTransfer *mt);
+bool mark_pins(ParamHandle *param_handle);
+bool transformIslands(ParamHandle *handle);
 	
 #ifdef __cplusplus
 }
