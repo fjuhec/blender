@@ -3500,7 +3500,7 @@ static void rna_def_tool_settings(BlenderRNA  *brna)
 	RNA_def_property_enum_items(prop, gpencil_source_3d_items);
 	RNA_def_property_ui_text(prop, "Grease Pencil Source",
 	                         "Data-block where active Grease Pencil data is found from");
-	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
+	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | NC_GPENCIL | ND_DATA | ND_SPACE_PROPERTIES, NULL);
 	
 	prop = RNA_def_property(srna, "gpencil_sculpt", PROP_POINTER, PROP_NONE);
 	RNA_def_property_pointer_sdna(prop, NULL, "gp_sculpt");
