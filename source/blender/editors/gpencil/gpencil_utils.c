@@ -1098,4 +1098,46 @@ Object *ED_add_gpencil_object(bContext *C, Scene *scene, const float loc[3])
 	
 	return ob;
 }
+
+/* allocate memory for saving gp object to be sorted by zdepth */
+tGPencilSort *ED_gpencil_allocate_cache(tGPencilSort *cache, int *gp_cache_size, int gp_cache_used)
+{
+	tGPencilSort *p = NULL;
+
+	/* By default a cache is created with one block with a predefined number of free slots,
+	if the size is not enough, the cache is reallocated adding a new block of free slots.
+	This is done in order to keep cache small */
+	if (gp_cache_used + 1 > *gp_cache_size) {
+		if ((*gp_cache_size == 0) || (cache == NULL)) {
+			p = MEM_callocN(sizeof(struct tGPencilSort) * GP_CACHE_BLOCK_SIZE, "tGPencilSort");
+			*gp_cache_size = GP_CACHE_BLOCK_SIZE;
+		}
+		else {
+			*gp_cache_size += GP_CACHE_BLOCK_SIZE;
+			p = MEM_recallocN(cache, sizeof(struct tGPencilSort) * *gp_cache_size);
+		}
+		cache = p;
+	}
+	return cache;
+}
+
+/* add gp object to the temporary cache for sorting */
+void ED_gpencil_add_to_cache(tGPencilSort *cache, RegionView3D *rv3d, Base *base, int *gp_cache_used)
+{
+	/* save object */
+	cache[*gp_cache_used].base = base;
+
+	/* calculate zdepth from point of view */
+	float zdepth = 0.0;
+	if (rv3d->is_persp) {
+		zdepth = ED_view3d_calc_zfac(rv3d, base->object->loc, NULL);
+	}
+	else {
+		zdepth = -dot_v3v3(rv3d->viewinv[2], base->object->loc);
+	}
+	cache[*gp_cache_used].zdepth = zdepth;
+
+	/* increase slots used in cache */
+	++*gp_cache_used;
+}
 /* ******************************************************** */

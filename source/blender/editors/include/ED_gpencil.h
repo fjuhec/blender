@@ -98,6 +98,14 @@ typedef struct tGPspoint {
 	float time;             /* Time relative to stroke start (used when converting to path) */
 } tGPspoint;
 
+/* used to sort by zdepth gpencil objects in viewport */
+/* TODO: this could be a system parameter in userprefs screen */
+#define GP_CACHE_BLOCK_SIZE 16
+typedef struct tGPencilSort {
+	struct Base *base;
+	float zdepth;
+} tGPencilSort;
+
 
 /* Check if 'sketching sessions' are enabled */
 #define GPENCIL_SKETCH_SESSIONS_ON(scene) ((scene)->toolsettings->gpencil_flags & GP_TOOL_FLAG_PAINTSESSIONS_ON)
@@ -194,5 +202,8 @@ void ED_gpencil_reset_layers_parent(struct Object *obact, struct bGPdata *gpd);
 /* TODO: add size as userprefs parameter */
 #define GP_OBGPENCIL_DEFAULT_SIZE  0.5f 
 struct Object *ED_add_gpencil_object(struct bContext *C, struct Scene *scene, const float loc[3]);
+
+struct tGPencilSort *ED_gpencil_allocate_cache(struct tGPencilSort *cache, int *gp_cache_size, int gp_cache_used);
+void ED_gpencil_add_to_cache(struct tGPencilSort *cache, struct RegionView3D *rv3d, struct Base *base, int *gp_cache_used);
 
 #endif /*  __ED_GPENCIL_H__ */

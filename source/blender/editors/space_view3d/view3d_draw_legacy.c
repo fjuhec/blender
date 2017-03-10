@@ -1470,10 +1470,11 @@ CustomDataMask ED_view3d_screen_datamask(const bScreen *screen)
 
 	return mask;
 }
+
 /**
 * Draw grease pencil object strokes
 */
-static void draw_gpencil_object_strokes(const bContext *C, Scene *scene, ARegion *ar, View3D *v3d, Base *base)
+static void draw_gpencil_object_strokes(const bContext *C, Scene *scene, View3D *v3d, ARegion *ar, Base *base)
 {
 	const bool render_override = (v3d->flag2 & V3D_RENDER_OVERRIDE) != 0;
 	Object *ob = base->object;
@@ -1495,6 +1496,35 @@ static void draw_gpencil_object_strokes(const bContext *C, Scene *scene, ARegion
 	if (v3d->zbuf) glDisable(GL_DEPTH_TEST);
 	ED_gpencil_draw_view3d_object(wm, scene, ob, v3d, ar, true);
 	if (v3d->zbuf) glEnable(GL_DEPTH_TEST);
+}
+
+/* helper function to sort gpencil objects using qsort */
+static int compare_gpencil_zdepth(const void *a1, const void *a2)
+{
+	const tGPencilSort *ps1 = a1, *ps2 = a2;
+
+	if (ps1->zdepth > ps2->zdepth) return 1;
+	else if (ps1->zdepth < ps2->zdepth) return -1;
+
+	return 0;
+}
+
+/* draw objects in cache from back to from */
+static void gpencil_draw_objects(const bContext *C,	Scene *scene, View3D *v3d, ARegion *ar, tGPencilSort *cache, int gp_cache_used)
+{
+	if (gp_cache_used > 0) {
+		/* sort by zdepth */
+		qsort(cache, gp_cache_used, sizeof(tGPencilSort), compare_gpencil_zdepth);
+		/* inverse loop to draw from back to front */
+		for (int i = gp_cache_used; i > 0; --i) {
+			Base *base = cache[i - 1].base;
+			draw_gpencil_object_strokes(C, scene, v3d, ar, base);
+		}
+	}
+	/* free memory */
+	if (cache) {
+		MEM_freeN(cache);
+	}
 }
 
 /**
@@ -1519,6 +1549,10 @@ static void view3d_draw_objects(
 	const bool draw_grids_after = draw_grids && draw_floor && (v3d->drawtype > OB_WIRE) && fx;
 	bool do_composite_xray = false;
 	bool xrayclear = true;
+
+	int gp_cache_used = 0;
+	int gp_cache_size = 0;
+	tGPencilSort *gp_cache = NULL;
 
 	if (!draw_offscreen) {
 		ED_region_draw_cb_draw(C, ar, REGION_DRAW_PRE_VIEW);
@@ -1592,10 +1626,15 @@ static void view3d_draw_objects(
 				draw_object(scene, sl, ar, v3d, base, 0);
 				/* draw grease pencil */
 				if (base->object->type == OB_GPENCIL) {
-					draw_gpencil_object_strokes(C, scene, ar, v3d, base);
+					/* allocate memory for saving gp objects */
+					gp_cache = ED_gpencil_allocate_cache(gp_cache, &gp_cache_size, gp_cache_used);
+					/* add for drawing later */
+					ED_gpencil_add_to_cache(gp_cache, rv3d, base, &gp_cache_used);
 				}
 			}
 		}
+		/* draw pending gpencil strokes */
+		gpencil_draw_objects(C, scene, v3d, ar, gp_cache, gp_cache_used);
 	}
 	else {
 		unsigned int lay_used = 0;
@@ -1613,9 +1652,13 @@ static void view3d_draw_objects(
 				if ((base->flag & BASE_SELECTED) == 0) {
 					if (base->object != scene->obedit) {
 						draw_object(scene, sl, ar, v3d, base, 0);
+
 						/* draw grease pencil */
 						if (base->object->type == OB_GPENCIL) {
-							draw_gpencil_object_strokes(C, scene, ar, v3d, base);
+							/* allocate memory for saving gp objects */
+							gp_cache = ED_gpencil_allocate_cache(gp_cache, &gp_cache_size, gp_cache_used);
+							/* add for drawing later */
+							ED_gpencil_add_to_cache(gp_cache, rv3d, base, &gp_cache_used);
 						}
 					}
 				}
@@ -1632,11 +1675,16 @@ static void view3d_draw_objects(
 					draw_object(scene, sl, ar, v3d, base, 0);
 					/* draw grease pencil */
 					if (base->object->type == OB_GPENCIL) {
-						draw_gpencil_object_strokes(C, scene, ar, v3d, base);
+						/* allocate memory for saving gp objects */
+						gp_cache = ED_gpencil_allocate_cache(gp_cache, &gp_cache_size, gp_cache_used);
+						/* add for drawing later */
+						ED_gpencil_add_to_cache(gp_cache, rv3d, base, &gp_cache_used);
 					}
 				}
 			}
 		}
+		/* draw pending gpencil strokes */
+		gpencil_draw_objects(C, scene, v3d, ar, gp_cache, gp_cache_used);
 	}
 
 	/* perspective floor goes last to use scene depth and avoid writing to depth buffer */
