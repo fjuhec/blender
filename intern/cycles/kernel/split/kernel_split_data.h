@@ -22,14 +22,22 @@
 
 CCL_NAMESPACE_BEGIN
 
-ccl_device_inline size_t split_data_buffer_size(KernelGlobals *kg, size_t num_elements)
+ccl_device_inline uint64_t split_data_buffer_size(KernelGlobals *kg, size_t num_elements)
 {
 	(void)kg;  /* Unused on CPU. */
 
-	size_t size = 0;
+	uint64_t size = 0;
 #define SPLIT_DATA_ENTRY(type, name, num) + align_up(num_elements * num * sizeof(type), 16)
 	size = size SPLIT_DATA_ENTRIES;
 #undef SPLIT_DATA_ENTRY
+
+#ifdef __SUBSURFACE__
+	size += align_up(num_elements * sizeof(SubsurfaceIndirectRays), 16); /* ss_rays */
+#endif
+
+#ifdef __VOLUME__
+	size += align_up(2 * num_elements * sizeof(PathState), 16); /* state_shadow */
+#endif
 
 	return size;
 }
@@ -46,8 +54,18 @@ ccl_device_inline void split_data_init(KernelGlobals *kg,
 
 #define SPLIT_DATA_ENTRY(type, name, num) \
 	split_data->name = (type*)p; p += align_up(num_elements * num * sizeof(type), 16);
-	SPLIT_DATA_ENTRIES
+	SPLIT_DATA_ENTRIES;
 #undef SPLIT_DATA_ENTRY
+
+#ifdef __SUBSURFACE__
+	split_data->ss_rays = (ccl_global SubsurfaceIndirectRays*)p;
+	p += align_up(num_elements * sizeof(SubsurfaceIndirectRays), 16);
+#endif
+
+#ifdef __VOLUME__
+	split_data->state_shadow = (ccl_global PathState*)p;
+	p += align_up(2 * num_elements * sizeof(PathState), 16);
+#endif
 
 	split_data->ray_state = ray_state;
 }
