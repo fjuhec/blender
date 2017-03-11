@@ -5139,6 +5139,58 @@ static void drawDispListVerts(int dt, const void *data, unsigned int vert_ct, co
 	Batch_discard_all(batch);
 }
 
+/* convert dispList with elem indices to batch, only support triangles and quads
+ * XXX : This is a huge perf issue. We should cache the resulting batches inside the object instead.
+ *       But new viewport will do it anyway
+ * TODO implement flat drawing */
+static void drawDispListElem(bool quads, bool UNUSED(smooth), const float *data, const float *ndata, unsigned int vert_ct,
+                             const int *elem, unsigned int elem_ct, const unsigned char wire_col[3])
+{
+	VertexFormat format = {0};
+	int i;
+	const int *idx = elem;
+	unsigned int pos_id, nor_id;
+
+	pos_id = add_attrib(&format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	if (ndata) {
+		nor_id = add_attrib(&format, "nor", GL_FLOAT, 3, KEEP_FLOAT);
+	}
+
+	ElementListBuilder elb;
+	ElementListBuilder_init(&elb, GL_TRIANGLES, (quads) ? elem_ct * 2 : elem_ct, 0xffffffff);
+
+	if (quads) {
+		for (i = elem_ct; i; --i, idx += 4) {
+			add_triangle_vertices(&elb, idx[0], idx[1], idx[2]);
+			add_triangle_vertices(&elb, idx[0], idx[2], idx[3]);
+		}
+	}
+	else {
+		for (i = elem_ct; i; --i, idx += 3) {
+			add_triangle_vertices(&elb, idx[0], idx[1], idx[2]);
+		}
+	}
+
+	VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
+	VertexBuffer_allocate_data(vbo, vert_ct);
+
+	fillAttrib(vbo, pos_id, data);
+
+	if (ndata) {
+		fillAttrib(vbo, nor_id, ndata);
+	}
+
+	Batch *batch = Batch_create(GL_TRIANGLES, vbo, ElementList_build(&elb));
+	Batch_set_builtin_program(batch, GPU_SHADER_SIMPLE_LIGHTING);
+	if (wire_col) {
+		Batch_Uniform4f(batch, "color", wire_col[0]/255.0f, wire_col[1]/255.0f, wire_col[2]/255.0f, 1.0f);
+	}
+	Batch_Uniform4f(batch, "color", 0.8f, 0.8f, 0.8f, 1.0f);
+	Batch_Uniform3f(batch, "light", 0.0f, 0.0f, 1.0f);
+	Batch_draw(batch);
+	Batch_discard_all(batch);
+}
+
 /**
  * \param dl_type_mask Only draw types matching this mask.
  * \return true when nothing was drawn
@@ -5205,17 +5257,13 @@ static bool drawDispListwire_ex(ListBase *dlbase, unsigned int dl_type_mask, con
 
 				break;
 
-#if 0 /* Only needed by Metaballs and mathutils_geometry.c and both need to be recoded somehow */
 			case DL_INDEX3:
-				glVertexPointer(3, GL_FLOAT, 0, dl->verts);
-				glDrawElements(GL_TRIANGLES, 3 * dl->parts, GL_UNSIGNED_INT, dl->index);
+				drawDispListElem(false, true, dl->verts, NULL, dl->nr, dl->index, dl->parts, wire_col);
 				break;
 
 			case DL_INDEX4:
-				glVertexPointer(3, GL_FLOAT, 0, dl->verts);
-				glDrawElements(GL_QUADS, 4 * dl->parts, GL_UNSIGNED_INT, dl->index);
+				drawDispListElem(true, true, dl->verts, NULL, dl->nr, dl->index, dl->parts, wire_col);
 				break;
-#endif
 		}
 	}
 	
@@ -5238,14 +5286,12 @@ static bool drawDispListwire(ListBase *dlbase, const short ob_type, const unsign
 
 static bool index3_nors_incr = true;
 
-static void drawDispListsolid(ListBase *lb, Object *ob, const short dflag,
+static void drawDispListsolid(ListBase *lb, Object *ob, const short UNUSED(dflag),
                               const unsigned char ob_wire_col[4], const bool use_glsl)
 {
 	GPUVertexAttribs gattribs;
 	
 	if (lb == NULL) return;
-
-	glEnableClientState(GL_VERTEX_ARRAY);
 
 	/* track current material, -1 for none (needed for lines) */
 	short col = -1;
@@ -5253,7 +5299,7 @@ static void drawDispListsolid(ListBase *lb, Object *ob, const short dflag,
 	DispList *dl = lb->first;
 	while (dl) {
 		const float *data = dl->verts;
-		const float *ndata = dl->nors;
+		//const float *ndata = dl->nors;
 
 		switch (dl->type) {
 			case DL_SEGM:
@@ -5263,15 +5309,7 @@ static void drawDispListsolid(ListBase *lb, Object *ob, const short dflag,
 						col = -1;
 					}
 
-					if ((dflag & DRAW_CONSTCOLOR) == 0)
-						glColor3ubv(ob_wire_col);
-
-					// glVertexPointer(3, GL_FLOAT, 0, dl->verts);
-					// glDrawArrays(GL_LINE_STRIP, 0, dl->nr);
-					glBegin(GL_LINE_STRIP);
-					for (int nr = dl->nr; nr; nr--, data += 3)
-						glVertex3fv(data);
-					glEnd();
+					drawDispListVerts(GL_LINE_STRIP, data, dl->nr, ob_wire_col);
 				}
 				break;
 			case DL_POLY:
@@ -5281,14 +5319,7 @@ static void drawDispListsolid(ListBase *lb, Object *ob, const short dflag,
 						col = -1;
 					}
 
-					/* for some reason glDrawArrays crashes here in half of the platforms (not osx) */
-					//glVertexPointer(3, GL_FLOAT, 0, dl->verts);
-					//glDrawArrays(GL_LINE_LOOP, 0, dl->nr);
-
-					glBegin(GL_LINE_LOOP);
-					for (int nr = dl->nr; nr; nr--, data += 3)
-						glVertex3fv(data);
-					glEnd();
+					drawDispListVerts(GL_LINE_LOOP, data, dl->nr, ob_wire_col);
 				}
 				break;
 			case DL_SURF:
@@ -5298,15 +5329,8 @@ static void drawDispListsolid(ListBase *lb, Object *ob, const short dflag,
 						GPU_object_material_bind(dl->col + 1, use_glsl ? &gattribs : NULL);
 						col = dl->col;
 					}
-					/* FLAT/SMOOTH shading for surfaces */
-					glShadeModel((dl->rt & CU_SMOOTH) ? GL_SMOOTH : GL_FLAT);
 
-					glEnableClientState(GL_NORMAL_ARRAY);
-					glVertexPointer(3, GL_FLOAT, 0, dl->verts);
-					glNormalPointer(GL_FLOAT, 0, dl->nors);
-					glDrawElements(GL_QUADS, 4 * dl->totindex, GL_UNSIGNED_INT, dl->index);
-					glDisableClientState(GL_NORMAL_ARRAY);
-					glShadeModel(GL_SMOOTH);
+					drawDispListElem(true, (dl->rt & CU_SMOOTH), dl->verts, dl->nors, dl->nr * dl->parts, dl->index, dl->totindex, ob_wire_col);
 				}
 				break;
 
@@ -5316,8 +5340,7 @@ static void drawDispListsolid(ListBase *lb, Object *ob, const short dflag,
 					col = dl->col;
 				}
 
-				glVertexPointer(3, GL_FLOAT, 0, dl->verts);
-
+#if 0
 				/* for polys only one normal needed */
 				if (index3_nors_incr) {
 					glEnableClientState(GL_NORMAL_ARRAY);
@@ -5325,11 +5348,13 @@ static void drawDispListsolid(ListBase *lb, Object *ob, const short dflag,
 				}
 				else
 					glNormal3fv(ndata);
+#endif
+				drawDispListElem(false, (dl->rt & CU_SMOOTH), dl->verts, dl->nors, dl->nr, dl->index, dl->parts, ob_wire_col);
 
-				glDrawElements(GL_TRIANGLES, 3 * dl->parts, GL_UNSIGNED_INT, dl->index);
-
+#if 0
 				if (index3_nors_incr)
 					glDisableClientState(GL_NORMAL_ARRAY);
+#endif
 
 				break;
 
@@ -5339,18 +5364,13 @@ static void drawDispListsolid(ListBase *lb, Object *ob, const short dflag,
 					col = dl->col;
 				}
 
-				glEnableClientState(GL_NORMAL_ARRAY);
-				glVertexPointer(3, GL_FLOAT, 0, dl->verts);
-				glNormalPointer(GL_FLOAT, 0, dl->nors);
-				glDrawElements(GL_QUADS, 4 * dl->parts, GL_UNSIGNED_INT, dl->index);
-				glDisableClientState(GL_NORMAL_ARRAY);
+				drawDispListElem(true, true, dl->verts, dl->nors, dl->nr, dl->index, dl->parts, ob_wire_col);
 
 				break;
 		}
 		dl = dl->next;
 	}
 
-	glDisableClientState(GL_VERTEX_ARRAY);
 	glFrontFace(GL_CCW);
 
 	if (col != -1) {
@@ -5453,8 +5473,8 @@ static bool drawDispList_nobackface(Scene *scene, SceneLayer *sl, View3D *v3d, R
 						GPU_end_object_materials();
 					}
 					if (cu->editnurb && cu->bevobj == NULL && cu->taperobj == NULL && cu->ext1 == 0.0f && cu->ext2 == 0.0f) {
-						cpack(0);
-						drawDispListwire(lb, ob->type, ob_wire_col);
+						unsigned char col[4] = {0, 0, 0, 0};
+						drawDispListwire(lb, ob->type, col);
 					}
 				}
 				index3_nors_incr = true;
@@ -5569,16 +5589,62 @@ static bool drawDispList(Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3D
 }
 
 /* *********** drawing for particles ************* */
-static void draw_particle_arrays(int draw_as, int totpoint, int ob_dt, int select)
+/* stride :   offset size in bytes
+ * col[4] :   the color to use when *color is NULL, can be also NULL */
+static void draw_vertex_array(int dt, const float *vert, const float *nor, const float *color, int stride, int vert_ct, float col[4])
+{
+	VertexFormat format = {0};
+	unsigned int pos_id, nor_id, col_id;
+	pos_id = add_attrib(&format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	if (nor) nor_id = add_attrib(&format, "nor", GL_FLOAT, 3, KEEP_FLOAT);
+	if (color) col_id = add_attrib(&format, "color", GL_FLOAT, 3, KEEP_FLOAT);
+
+	VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
+	VertexBuffer_allocate_data(vbo, vert_ct);
+
+	if (stride == 0) {
+		fillAttrib(vbo, pos_id, vert);
+		if (nor) fillAttrib(vbo, nor_id, nor);
+		if (color) fillAttrib(vbo, col_id, color);
+	}
+	else {
+		fillAttribStride(vbo, pos_id, stride, vert);
+		if (nor) fillAttribStride(vbo, nor_id, stride, nor);
+		if (color) fillAttribStride(vbo, col_id, stride, color);
+	}
+
+	Batch *batch = Batch_create(dt, vbo, NULL);
+	if (nor && color) {
+		Batch_set_builtin_program(batch, GPU_SHADER_SIMPLE_LIGHTING_SMOOTH_COLOR);
+		Batch_Uniform3f(batch, "light", 0.0f, 0.0f, 1.0f);
+	}
+	else if (nor) {
+		Batch_set_builtin_program(batch, GPU_SHADER_SIMPLE_LIGHTING);
+		Batch_Uniform3f(batch, "light", 0.0f, 0.0f, 1.0f);
+		if (col) Batch_Uniform4fv(batch, "color", col);
+	}
+	else if (color) {
+		Batch_set_builtin_program(batch, GPU_SHADER_3D_SMOOTH_COLOR);
+	}
+	else {
+		Batch_set_builtin_program(batch, GPU_SHADER_3D_UNIFORM_COLOR);
+		if (col) Batch_Uniform4fv(batch, "color", col);
+	}
+	Batch_draw(batch);
+	Batch_discard_all(batch);
+}
+static void draw_particle_arrays_new(int draw_as, int ob_dt, int select,
+                                     const float *vert, const float *nor, const float *color,
+                                     int totpoint, float col[4])
 {
 	/* draw created data arrays */
 	switch (draw_as) {
 		case PART_DRAW_AXIS:
 		case PART_DRAW_CROSS:
-			glDrawArrays(GL_LINES, 0, 6 * totpoint);
+			draw_vertex_array(GL_LINES, vert, nor, color, 0, 6 * totpoint, col);
 			break;
 		case PART_DRAW_LINE:
-			glDrawArrays(GL_LINES, 0, 2 * totpoint);
+			draw_vertex_array(GL_LINES, vert, nor, color, 0, 2 * totpoint, col);
 			break;
 		case PART_DRAW_BB:
 			if (ob_dt <= OB_WIRE || select)
@@ -5586,10 +5652,10 @@ static void draw_particle_arrays(int draw_as, int totpoint, int ob_dt, int selec
 			else
 				glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-			glDrawArrays(GL_QUADS, 0, 4 * totpoint);
+			draw_vertex_array(GL_QUADS, vert, nor, color, 0, 4 * totpoint, col);
 			break;
 		default:
-			glDrawArrays(GL_POINTS, 0, totpoint);
+			draw_vertex_array(GL_POINTS, vert, nor, color, 0, totpoint, col);
 			break;
 	}
 }
@@ -6214,25 +6280,10 @@ static void draw_new_particle_system(Scene *scene, View3D *v3d, RegionView3D *rv
 /* 6. */
 
 	glGetIntegerv(GL_POLYGON_MODE, polygonmode);
-	glEnableClientState(GL_VERTEX_ARRAY);
 
 	if (draw_as == PART_DRAW_PATH) {
 		ParticleCacheKey **cache, *path;
 		float *cdata2 = NULL;
-
-		/* setup gl flags */
-		if (1) { //ob_dt > OB_WIRE) {
-			glEnableClientState(GL_NORMAL_ARRAY);
-
-			if ((dflag & DRAW_CONSTCOLOR) == 0) {
-				if (part->draw_col == PART_DRAW_COL_MAT)
-					glEnableClientState(GL_COLOR_ARRAY);
-			}
-
-			// XXX test
-			GPU_basic_shader_colors(NULL, NULL, 0.0f, 1.0f);
-			GPU_basic_shader_bind(GPU_SHADER_LIGHTING | GPU_SHADER_USE_COLOR);
-		}
 
 		if (totchild && (part->draw & PART_DRAW_PARENT) == 0)
 			totpart = 0;
@@ -6244,41 +6295,27 @@ static void draw_new_particle_system(Scene *scene, View3D *v3d, RegionView3D *rv
 		for (a = 0, pa = psys->particles; a < totpart; a++, pa++) {
 			path = cache[a];
 			if (path->segments > 0) {
-				glVertexPointer(3, GL_FLOAT, sizeof(ParticleCacheKey), path->co);
-
-				if (1) { //ob_dt > OB_WIRE) {
-					glNormalPointer(GL_FLOAT, sizeof(ParticleCacheKey), path->vel);
-					if ((dflag & DRAW_CONSTCOLOR) == 0) {
-						if (part->draw_col == PART_DRAW_COL_MAT) {
-							glColorPointer(3, GL_FLOAT, sizeof(ParticleCacheKey), path->col);
-						}
-					}
+				if (((dflag & DRAW_CONSTCOLOR) == 0) && (part->draw_col == PART_DRAW_COL_MAT)) {
+					draw_vertex_array(GL_LINE_STRIP, path->co, path->vel, path->col, sizeof(ParticleCacheKey), path->segments + 1, NULL);
 				}
-
-				glDrawArrays(GL_LINE_STRIP, 0, path->segments + 1);
+				else {
+					float color[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+					draw_vertex_array(GL_LINE_STRIP, path->co, path->vel, NULL, sizeof(ParticleCacheKey), path->segments + 1, color);
+				}
 			}
 		}
 
 		if (part->type ==  PART_HAIR) {
 			if (part->draw & PART_DRAW_GUIDE_HAIRS) {
 				DerivedMesh *hair_dm = psys->hair_out_dm;
-				
-				glDisableClientState(GL_NORMAL_ARRAY);
-				glDisableClientState(GL_COLOR_ARRAY);
-				
+
 				for (a = 0, pa = psys->particles; a < totpart; a++, pa++) {
 					if (pa->totkey > 1) {
 						HairKey *hkey = pa->hair;
 						
-						glVertexPointer(3, GL_FLOAT, sizeof(HairKey), hkey->world_co);
-
-#if 0 /* XXX use proper theme color here */
-						UI_ThemeColor(TH_NORMAL);
-#else
-						glColor3f(0.58f, 0.67f, 1.0f);
-#endif
-
-						glDrawArrays(GL_LINE_STRIP, 0, pa->totkey);
+						/* XXX use proper theme color here */
+						float color[4] = {0.58f, 0.67f, 1.0f, 1.0f};
+						draw_vertex_array(GL_LINE_STRIP, hkey->world_co, NULL, NULL, sizeof(HairKey), pa->totkey, color);
 					}
 				}
 				
@@ -6286,30 +6323,36 @@ static void draw_new_particle_system(Scene *scene, View3D *v3d, RegionView3D *rv
 					MVert *mvert = hair_dm->getVertArray(hair_dm);
 					int i;
 					
-					glColor3f(0.9f, 0.4f, 0.4f);
-					
-					glBegin(GL_LINES);
+					unsigned int pos_id = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+					immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+					immUniformColor3f(0.9f, 0.4f, 0.4f);
+
+					unsigned int count = 0;
 					for (a = 0, pa = psys->particles; a < totpart; a++, pa++) {
-						for (i = 1; i < pa->totkey; ++i) {
-							float v1[3], v2[3];
-							
-							copy_v3_v3(v1, mvert[pa->hair_index + i - 1].co);
-							copy_v3_v3(v2, mvert[pa->hair_index + i].co);
-							
-							mul_m4_v3(ob->obmat, v1);
-							mul_m4_v3(ob->obmat, v2);
-							
-							glVertex3fv(v1);
-							glVertex3fv(v2);
-						}
+						count += MAX2(pa->totkey - 1, 0);
 					}
-					glEnd();
+
+					if (count > 0) {
+						immBegin(GL_LINES, count * 2);
+						for (a = 0, pa = psys->particles; a < totpart; a++, pa++) {
+							for (i = 1; i < pa->totkey; ++i) {
+								float v1[3], v2[3];
+
+								copy_v3_v3(v1, mvert[pa->hair_index + i - 1].co);
+								copy_v3_v3(v2, mvert[pa->hair_index + i].co);
+
+								mul_m4_v3(ob->obmat, v1);
+								mul_m4_v3(ob->obmat, v2);
+
+								immVertex3fv(pos_id, v1);
+								immVertex3fv(pos_id, v2);
+							}
+						}
+						immEnd();
+					}
+
+					immUnbindProgram();
 				}
-				
-				glEnableClientState(GL_NORMAL_ARRAY);
-				if ((dflag & DRAW_CONSTCOLOR) == 0)
-					if (part->draw_col == PART_DRAW_COL_MAT)
-						glEnableClientState(GL_COLOR_ARRAY);
 			}
 			
 			if (part->draw & PART_DRAW_HAIR_GRID) {
@@ -6320,64 +6363,69 @@ static void draw_new_particle_system(Scene *scene, View3D *v3d, RegionView3D *rv
 					int *res = clmd->hair_grid_res;
 					int i;
 					
-					glDisableClientState(GL_NORMAL_ARRAY);
-					glDisableClientState(GL_COLOR_ARRAY);
+					unsigned int pos_id = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+					immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+					if (select)
+						immUniformThemeColor(TH_ACTIVE);
+					else
+						immUniformThemeColor(TH_WIRE);
+
+					immBegin(GL_LINES, 24);
+					immVertex3f(pos_id, gmin[0], gmin[1], gmin[2]); immVertex3f(pos_id, gmax[0], gmin[1], gmin[2]);
+					immVertex3f(pos_id, gmax[0], gmin[1], gmin[2]); immVertex3f(pos_id, gmax[0], gmax[1], gmin[2]);
+					immVertex3f(pos_id, gmax[0], gmax[1], gmin[2]); immVertex3f(pos_id, gmin[0], gmax[1], gmin[2]);
+					immVertex3f(pos_id, gmin[0], gmax[1], gmin[2]); immVertex3f(pos_id, gmin[0], gmin[1], gmin[2]);
+					
+					immVertex3f(pos_id, gmin[0], gmin[1], gmax[2]); immVertex3f(pos_id, gmax[0], gmin[1], gmax[2]);
+					immVertex3f(pos_id, gmax[0], gmin[1], gmax[2]); immVertex3f(pos_id, gmax[0], gmax[1], gmax[2]);
+					immVertex3f(pos_id, gmax[0], gmax[1], gmax[2]); immVertex3f(pos_id, gmin[0], gmax[1], gmax[2]);
+					immVertex3f(pos_id, gmin[0], gmax[1], gmax[2]); immVertex3f(pos_id, gmin[0], gmin[1], gmax[2]);
+					
+					immVertex3f(pos_id, gmin[0], gmin[1], gmin[2]); immVertex3f(pos_id, gmin[0], gmin[1], gmax[2]);
+					immVertex3f(pos_id, gmax[0], gmin[1], gmin[2]); immVertex3f(pos_id, gmax[0], gmin[1], gmax[2]);
+					immVertex3f(pos_id, gmin[0], gmax[1], gmin[2]); immVertex3f(pos_id, gmin[0], gmax[1], gmax[2]);
+					immVertex3f(pos_id, gmax[0], gmax[1], gmin[2]); immVertex3f(pos_id, gmax[0], gmax[1], gmax[2]);
+					immEnd();
 					
 					if (select)
-						UI_ThemeColor(TH_ACTIVE);
+						immUniformThemeColorShadeAlpha(TH_ACTIVE, 0, -100);
 					else
-						UI_ThemeColor(TH_WIRE);
-					glBegin(GL_LINES);
-					glVertex3f(gmin[0], gmin[1], gmin[2]); glVertex3f(gmax[0], gmin[1], gmin[2]);
-					glVertex3f(gmax[0], gmin[1], gmin[2]); glVertex3f(gmax[0], gmax[1], gmin[2]);
-					glVertex3f(gmax[0], gmax[1], gmin[2]); glVertex3f(gmin[0], gmax[1], gmin[2]);
-					glVertex3f(gmin[0], gmax[1], gmin[2]); glVertex3f(gmin[0], gmin[1], gmin[2]);
-					
-					glVertex3f(gmin[0], gmin[1], gmax[2]); glVertex3f(gmax[0], gmin[1], gmax[2]);
-					glVertex3f(gmax[0], gmin[1], gmax[2]); glVertex3f(gmax[0], gmax[1], gmax[2]);
-					glVertex3f(gmax[0], gmax[1], gmax[2]); glVertex3f(gmin[0], gmax[1], gmax[2]);
-					glVertex3f(gmin[0], gmax[1], gmax[2]); glVertex3f(gmin[0], gmin[1], gmax[2]);
-					
-					glVertex3f(gmin[0], gmin[1], gmin[2]); glVertex3f(gmin[0], gmin[1], gmax[2]);
-					glVertex3f(gmax[0], gmin[1], gmin[2]); glVertex3f(gmax[0], gmin[1], gmax[2]);
-					glVertex3f(gmin[0], gmax[1], gmin[2]); glVertex3f(gmin[0], gmax[1], gmax[2]);
-					glVertex3f(gmax[0], gmax[1], gmin[2]); glVertex3f(gmax[0], gmax[1], gmax[2]);
-					glEnd();
-					
-					if (select)
-						UI_ThemeColorShadeAlpha(TH_ACTIVE, 0, -100);
-					else
-						UI_ThemeColorShadeAlpha(TH_WIRE, 0, -100);
-					glEnable(GL_BLEND);
-					glBegin(GL_LINES);
-					for (i = 1; i < res[0] - 1; ++i) {
-						float f = interpf(gmax[0], gmin[0], (float)i / (float)(res[0] - 1));
-						glVertex3f(f, gmin[1], gmin[2]); glVertex3f(f, gmax[1], gmin[2]);
-						glVertex3f(f, gmax[1], gmin[2]); glVertex3f(f, gmax[1], gmax[2]);
-						glVertex3f(f, gmax[1], gmax[2]); glVertex3f(f, gmin[1], gmax[2]);
-						glVertex3f(f, gmin[1], gmax[2]); glVertex3f(f, gmin[1], gmin[2]);
+						immUniformThemeColorShadeAlpha(TH_WIRE, 0, -100);
+
+					int count = 0;
+					count += MAX2(0, res[0] - 2) * 8;
+					count += MAX2(0, res[1] - 2) * 8;
+					count += MAX2(0, res[2] - 2) * 8;
+
+					if (count >= 2) {
+						glEnable(GL_BLEND);
+						immBegin(GL_LINES, count);
+						for (i = 1; i < res[0] - 1; ++i) {
+							float f = interpf(gmax[0], gmin[0], (float)i / (float)(res[0] - 1));
+							immVertex3f(pos_id, f, gmin[1], gmin[2]); immVertex3f(pos_id, f, gmax[1], gmin[2]);
+							immVertex3f(pos_id, f, gmax[1], gmin[2]); immVertex3f(pos_id, f, gmax[1], gmax[2]);
+							immVertex3f(pos_id, f, gmax[1], gmax[2]); immVertex3f(pos_id, f, gmin[1], gmax[2]);
+							immVertex3f(pos_id, f, gmin[1], gmax[2]); immVertex3f(pos_id, f, gmin[1], gmin[2]);
+						}
+						for (i = 1; i < res[1] - 1; ++i) {
+							float f = interpf(gmax[1], gmin[1], (float)i / (float)(res[1] - 1));
+							immVertex3f(pos_id, gmin[0], f, gmin[2]); immVertex3f(pos_id, gmax[0], f, gmin[2]);
+							immVertex3f(pos_id, gmax[0], f, gmin[2]); immVertex3f(pos_id, gmax[0], f, gmax[2]);
+							immVertex3f(pos_id, gmax[0], f, gmax[2]); immVertex3f(pos_id, gmin[0], f, gmax[2]);
+							immVertex3f(pos_id, gmin[0], f, gmax[2]); immVertex3f(pos_id, gmin[0], f, gmin[2]);
+						}
+						for (i = 1; i < res[2] - 1; ++i) {
+							float f = interpf(gmax[2], gmin[2], (float)i / (float)(res[2] - 1));
+							immVertex3f(pos_id, gmin[0], gmin[1], f); immVertex3f(pos_id, gmax[0], gmin[1], f);
+							immVertex3f(pos_id, gmax[0], gmin[1], f); immVertex3f(pos_id, gmax[0], gmax[1], f);
+							immVertex3f(pos_id, gmax[0], gmax[1], f); immVertex3f(pos_id, gmin[0], gmax[1], f);
+							immVertex3f(pos_id, gmin[0], gmax[1], f); immVertex3f(pos_id, gmin[0], gmin[1], f);
+						}
+						immEnd();
+						glDisable(GL_BLEND);
 					}
-					for (i = 1; i < res[1] - 1; ++i) {
-						float f = interpf(gmax[1], gmin[1], (float)i / (float)(res[1] - 1));
-						glVertex3f(gmin[0], f, gmin[2]); glVertex3f(gmax[0], f, gmin[2]);
-						glVertex3f(gmax[0], f, gmin[2]); glVertex3f(gmax[0], f, gmax[2]);
-						glVertex3f(gmax[0], f, gmax[2]); glVertex3f(gmin[0], f, gmax[2]);
-						glVertex3f(gmin[0], f, gmax[2]); glVertex3f(gmin[0], f, gmin[2]);
-					}
-					for (i = 1; i < res[2] - 1; ++i) {
-						float f = interpf(gmax[2], gmin[2], (float)i / (float)(res[2] - 1));
-						glVertex3f(gmin[0], gmin[1], f); glVertex3f(gmax[0], gmin[1], f);
-						glVertex3f(gmax[0], gmin[1], f); glVertex3f(gmax[0], gmax[1], f);
-						glVertex3f(gmax[0], gmax[1], f); glVertex3f(gmin[0], gmax[1], f);
-						glVertex3f(gmin[0], gmax[1], f); glVertex3f(gmin[0], gmin[1], f);
-					}
-					glEnd();
-					glDisable(GL_BLEND);
-					
-					glEnableClientState(GL_NORMAL_ARRAY);
-					if ((dflag & DRAW_CONSTCOLOR) == 0)
-						if (part->draw_col == PART_DRAW_COL_MAT)
-							glEnableClientState(GL_COLOR_ARRAY);
+
+					immUnbindProgram();
 				}
 			}
 		}
@@ -6386,27 +6434,17 @@ static void draw_new_particle_system(Scene *scene, View3D *v3d, RegionView3D *rv
 		cache = psys->childcache;
 		for (a = 0; a < totchild; a++) {
 			path = cache[a];
-			glVertexPointer(3, GL_FLOAT, sizeof(ParticleCacheKey), path->co);
 
-			if (1) { //ob_dt > OB_WIRE) {
-				glNormalPointer(GL_FLOAT, sizeof(ParticleCacheKey), path->vel);
-				if ((dflag & DRAW_CONSTCOLOR) == 0) {
-					if (part->draw_col == PART_DRAW_COL_MAT) {
-						glColorPointer(3, GL_FLOAT, sizeof(ParticleCacheKey), path->col);
-					}
-				}
+			if (((dflag & DRAW_CONSTCOLOR) == 0) && (part->draw_col == PART_DRAW_COL_MAT)) {
+				draw_vertex_array(GL_LINE_STRIP, path->co, path->vel, path->col, sizeof(ParticleCacheKey), path->segments + 1, NULL);
 			}
-
-			glDrawArrays(GL_LINE_STRIP, 0, path->segments + 1);
+			else {
+				float color[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+				draw_vertex_array(GL_LINE_STRIP, path->co, path->vel, NULL, sizeof(ParticleCacheKey), path->segments + 1, color);
+			}
 		}
 
 		/* restore & clean up */
-		if (1) { //ob_dt > OB_WIRE) {
-			if (part->draw_col == PART_DRAW_COL_MAT)
-				glDisableClientState(GL_COLOR_ARRAY);
-			GPU_basic_shader_bind(GPU_SHADER_USE_COLOR);
-		}
-
 		if (cdata2) {
 			MEM_freeN(cdata2);
 			cdata2 = NULL;
@@ -6426,19 +6464,11 @@ static void draw_new_particle_system(Scene *scene, View3D *v3d, RegionView3D *rv
 		}
 	}
 	else if (pdd && ELEM(draw_as, 0, PART_DRAW_CIRC) == 0) {
-		glDisableClientState(GL_COLOR_ARRAY);
 
-		/* enable point data array */
 		if (pdd->vdata) {
-			glEnableClientState(GL_VERTEX_ARRAY);
-			glVertexPointer(3, GL_FLOAT, 0, pdd->vdata);
-		}
-		else
-			glDisableClientState(GL_VERTEX_ARRAY);
-
-		if ((dflag & DRAW_CONSTCOLOR) == 0) {
 			if (select) {
-				UI_ThemeColor(TH_ACTIVE);
+				float color[4];
+				UI_GetThemeColor4fv(TH_ACTIVE, color);
 
 				if (part->draw_size)
 					glPointSize(part->draw_size + 2);
@@ -6447,48 +6477,39 @@ static void draw_new_particle_system(Scene *scene, View3D *v3d, RegionView3D *rv
 
 				glLineWidth(3.0);
 
-				draw_particle_arrays(draw_as, totpoint, ob_dt, 1);
+				draw_particle_arrays_new(draw_as, ob_dt, 1, pdd->vdata, NULL, NULL, totpoint, color);
 			}
 
-			/* restore from select */
-			glColor3fv(ma_col);
-		}
+			glPointSize(part->draw_size ? part->draw_size : 2.0);
+			glLineWidth(1.0);
 
-		glPointSize(part->draw_size ? part->draw_size : 2.0);
-		glLineWidth(1.0);
 
-		/* enable other data arrays */
-
-		/* billboards are drawn this way */
-		if (pdd->ndata && ob_dt > OB_WIRE) {
-			glEnableClientState(GL_NORMAL_ARRAY);
-			glNormalPointer(GL_FLOAT, 0, pdd->ndata);
-			GPU_basic_shader_colors(NULL, NULL, 0.0f, 1.0f);
-			GPU_basic_shader_bind(GPU_SHADER_LIGHTING | GPU_SHADER_USE_COLOR);
-		}
-
-		if ((dflag & DRAW_CONSTCOLOR) == 0) {
-			if (pdd->cdata) {
-				glEnableClientState(GL_COLOR_ARRAY);
-				glColorPointer(3, GL_FLOAT, 0, pdd->cdata);
+#if 0
+			/* enable other data arrays */
+			/* billboards are drawn this way */
+			if (pdd->ndata && ob_dt > OB_WIRE) {
+				GPU_basic_shader_colors(NULL, NULL, 0.0f, 1.0f);
+				GPU_basic_shader_bind(GPU_SHADER_LIGHTING | GPU_SHADER_USE_COLOR);
 			}
+			if ((dflag & DRAW_CONSTCOLOR) == 0) {
+				if (pdd->cdata) {
+					glEnableClientState(GL_COLOR_ARRAY);
+					glColorPointer(3, GL_FLOAT, 0, pdd->cdata);
+				}
+			}
+#endif
+
+			draw_particle_arrays_new(draw_as, ob_dt, 0, pdd->vdata, pdd->ndata, pdd->cdata, totpoint, NULL);
 		}
 
-		draw_particle_arrays(draw_as, totpoint, ob_dt, 0);
 
 		pdd->flag |= PARTICLE_DRAW_DATA_UPDATED;
 		pdd->totpoint = totpoint;
 	}
 
 	if (pdd && pdd->vedata) {
-		if ((dflag & DRAW_CONSTCOLOR) == 0) {
-			glDisableClientState(GL_COLOR_ARRAY);
-			cpack(0xC0C0C0);
-		}
-		
-		glVertexPointer(3, GL_FLOAT, 0, pdd->vedata);
-		
-		glDrawArrays(GL_LINES, 0, 2 * totve);
+		float color[4] = {0.75f, 0.75f, 0.75f, 1.0f};
+		draw_vertex_array(GL_LINES, pdd->vedata, NULL, NULL, 0, 2 * totve, color);
 	}
 
 	glPolygonMode(GL_FRONT, polygonmode[0]);
@@ -6497,9 +6518,6 @@ static void draw_new_particle_system(Scene *scene, View3D *v3d, RegionView3D *rv
 /* 7. */
 	
 	GPU_basic_shader_bind(GPU_SHADER_USE_COLOR);
-	glDisableClientState(GL_COLOR_ARRAY);
-	glDisableClientState(GL_VERTEX_ARRAY);
-	glDisableClientState(GL_NORMAL_ARRAY);
 
 	if (states)
 		MEM_freeN(states);
@@ -6568,16 +6586,25 @@ static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 	glEnable(GL_BLEND);
 	pathcol = MEM_callocN(totkeys * 4 * sizeof(float), "particle path color data");
 
-	glEnableClientState(GL_VERTEX_ARRAY);
-	glEnableClientState(GL_COLOR_ARRAY);
-
 	if (pset->brushtype == PE_BRUSH_WEIGHT)
 		glLineWidth(2.0f);
 
 	cache = edit->pathcache;
 	for (i = 0, point = edit->points; i < totpoint; i++, point++) {
+		VertexFormat format = {0};
+		unsigned int pos_id, col_id, col_comp;
+
+		col_comp = ((point->flag & PEP_HIDE) || timed) ? 4 : 3;
+
+		pos_id = add_attrib(&format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
+		col_id = add_attrib(&format, "color", GL_FLOAT, col_comp, KEEP_FLOAT);
+
+		VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
+		VertexBuffer_allocate_data(vbo, path->segments + 1);
+
 		path = cache[i];
-		glVertexPointer(3, GL_FLOAT, sizeof(ParticleCacheKey), path->co);
+
+		fillAttribStride(vbo, pos_id, sizeof(ParticleCacheKey), path->co);
 
 		if (point->flag & PEP_HIDE) {
 			for (k = 0, pcol = pathcol; k < totkeys; k++, pcol += 4) {
@@ -6585,7 +6612,7 @@ static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 				pcol[3] = 0.25f;
 			}
 
-			glColorPointer(4, GL_FLOAT, 4 * sizeof(float), pathcol);
+			fillAttrib(vbo, col_id, pathcol);
 		}
 		else if (timed) {
 			for (k = 0, pcol = pathcol, pkey = path; k < totkeys; k++, pkey++, pcol += 4) {
@@ -6593,12 +6620,18 @@ static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 				pcol[3] = 1.0f - fabsf((float)(CFRA) -pkey->time) / (float)pset->fade_frames;
 			}
 
-			glColorPointer(4, GL_FLOAT, 4 * sizeof(float), pathcol);
+			fillAttrib(vbo, col_id, pathcol);
 		}
-		else
-			glColorPointer(3, GL_FLOAT, sizeof(ParticleCacheKey), path->col);
+		else {
+			/* FIXME: shader wants 4 color components but the cache only contains ParticleCacheKey
+			 * So alpha is random */
+			fillAttribStride(vbo, col_id, sizeof(ParticleCacheKey), path->col);
+		}
 
-		glDrawArrays(GL_LINE_STRIP, 0, path->segments + 1);
+		Batch *batch = Batch_create(GL_LINE_STRIP, vbo, NULL);
+		Batch_set_builtin_program(batch, GPU_SHADER_3D_SMOOTH_COLOR);
+		Batch_draw(batch);
+		Batch_discard_all(batch);
 	}
 
 	if (pathcol) { MEM_freeN(pathcol); pathcol = pcol = NULL; }
@@ -6612,6 +6645,11 @@ static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 			float *pd = NULL, *pdata = NULL;
 			float *cd = NULL, *cdata = NULL;
 			int totkeys_visible = 0;
+
+			VertexFormat format = {0};
+			unsigned int pos_id, col_id;
+			pos_id = add_attrib(&format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
+			col_id = add_attrib(&format, "color", GL_FLOAT, (timed ? 4 : 3), KEEP_FLOAT);
 
 			for (i = 0, point = edit->points; i < totpoint; i++, point++)
 				if (!(point->flag & PEP_HIDE))
@@ -6652,14 +6690,20 @@ static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 				if (point->flag & PEP_HIDE || point->totkey == 0)
 					continue;
 
+				VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
+				VertexBuffer_allocate_data(vbo, point->totkey);
+
 				if (point->keys->flag & PEK_USE_WCO)
-					glVertexPointer(3, GL_FLOAT, sizeof(PTCacheEditKey), point->keys->world_co);
+					fillAttribStride(vbo, pos_id, sizeof(PTCacheEditKey), point->keys->world_co);
 				else
-					glVertexPointer(3, GL_FLOAT, 3 * sizeof(float), pd);
+					fillAttrib(vbo, pos_id, pd);
 
-				glColorPointer((timed ? 4 : 3), GL_FLOAT, (timed ? 4 : 3) * sizeof(float), cd);
+				fillAttrib(vbo, col_id, cd);
 
-				glDrawArrays(GL_POINTS, 0, point->totkey);
+				Batch *batch = Batch_create(GL_POINTS, vbo, NULL);
+				Batch_set_builtin_program(batch, GPU_SHADER_3D_SMOOTH_COLOR);
+				Batch_draw(batch);
+				Batch_discard_all(batch);
 
 				pd += pd ? 3 * point->totkey : 0;
 				cd += (timed ? 4 : 3) * point->totkey;
@@ -6668,23 +6712,30 @@ static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 			if (cdata) { MEM_freeN(cdata); cd = cdata = NULL; }
 		}
 		else if (pset->selectmode == SCE_SELECT_END) {
-			glBegin(GL_POINTS);
+			VertexFormat *format = immVertexFormat();
+			unsigned int pos_id = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
+			unsigned int col_id = add_attrib(format, "color", GL_FLOAT, 4, KEEP_FLOAT);
+			immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
+			immBeginAtMost(GL_POINTS, totpoint);
 			for (i = 0, point = edit->points; i < totpoint; i++, point++) {
 				if ((point->flag & PEP_HIDE) == 0 && point->totkey) {
 					key = point->keys + point->totkey - 1;
-					glColor3fv((key->flag & PEK_SELECT) ? sel_col : nosel_col);
+					if ((key->flag & PEK_SELECT) != 0) {
+						immAttrib4f(col_id, sel_col[0], sel_col[1], sel_col[2], 1.0f);
+					}
+					else {
+						immAttrib4f(col_id, nosel_col[0], nosel_col[1], nosel_col[2], 1.0f);
+					}
 					/* has to be like this.. otherwise selection won't work, have try glArrayElement later..*/
-					glVertex3fv((key->flag & PEK_USE_WCO) ? key->world_co : key->co);
+					immVertex3fv(pos_id, (key->flag & PEK_USE_WCO) ? key->world_co : key->co);
 				}
 			}
-			glEnd();
+			immEnd();
+			immUnbindProgram();
 		}
 	}
 
 	glDisable(GL_BLEND);
-	glDisableClientState(GL_COLOR_ARRAY);
-	glDisableClientState(GL_NORMAL_ARRAY);
-	glDisableClientState(GL_VERTEX_ARRAY);
 	if (v3d->zbuf) glEnable(GL_DEPTH_TEST);
 }
 
@@ -8159,8 +8210,9 @@ static void drawtexspace(Object *ob, const unsigned char ob_wire_col[3])
 }
 
 /* draws wire outline */
-static void drawObjectSelect(Scene *scene, SceneLayer *sl, View3D *v3d, ARegion *ar, Base *base,
-                             const unsigned char ob_wire_col[4])
+static void draw_object_selected_outline(
+        Scene *scene, SceneLayer *sl, View3D *v3d, ARegion *ar, Base *base,
+        const unsigned char ob_wire_col[4])
 {
 	RegionView3D *rv3d = ar->regiondata;
 	Object *ob = base->object;
@@ -8649,7 +8701,7 @@ void draw_object(Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d, Base *b
 		if ((v3d->flag & V3D_SELECT_OUTLINE) && !render_override && ob->type != OB_MESH) {
 			if (dt > OB_WIRE && (ob->mode & OB_MODE_EDIT) == 0 && (dflag & DRAW_SCENESET) == 0) {
 				if (!(ob->dtx & OB_DRAWWIRE) && (base->flag & BASE_SELECTED) && !(dflag & (DRAW_PICKING | DRAW_CONSTCOLOR))) {
-					drawObjectSelect(scene, sl, v3d, ar, base, ob_wire_col);
+					draw_object_selected_outline(scene, sl, v3d, ar, base, ob_wire_col);
 				}
 			}
 		}
