@@ -1461,7 +1461,7 @@ typedef struct ToolSettings {
 	/* SLIM uv unwrapping*/
 	float slim_weight_influence;
 	double slim_relative_scale;
-	char *slim_vertex_group;
+	char slim_vertex_group[64];
 	int slim_n_iterations;
 	int slim_reflection_mode;
 	int slim_skip_initialization;

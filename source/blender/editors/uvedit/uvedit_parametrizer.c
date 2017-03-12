@@ -4456,7 +4456,9 @@ static void convert_blender_slim(ParamHandle *handle)
 		}
 	}
 
-	MEM_freeN(phandle->weight_array);
+	if (phandle->weight_array) {
+		MEM_freeN(phandle->weight_array);
+	}
 };
 
 static void transfer_data_to_slim(ParamHandle *handle)

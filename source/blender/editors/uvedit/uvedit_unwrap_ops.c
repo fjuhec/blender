@@ -621,8 +621,6 @@ static bool minimize_stretch_init(bContext *C, wmOperator *op)
 	scene->toolsettings->slim_pack_islands = false;
 	scene->toolsettings->slim_fixed_boundary = true;
 
-	scene->toolsettings->slim_relative_scale = 1.0;
-
 	enrich_handle_slim(scene, obedit, em, handle, mss->mt, true);
 	param_slim_begin(handle);
 
@@ -1254,14 +1252,15 @@ void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 	ParamHandle *handle;
 
-	const bool fill_holes = (scene->toolsettings->uvcalc_flag & UVCALC_FILLHOLES) != 0;
+	bool use_slim_method = (scene->toolsettings->unwrapper == 2);
+
+	const bool fill_holes = use_slim_method ? true : (scene->toolsettings->uvcalc_flag & UVCALC_FILLHOLES) != 0;
 	const bool correct_aspect = (scene->toolsettings->uvcalc_flag & UVCALC_NO_ASPECT_CORRECT) == 0;
 	scene->toolsettings->slim_skip_initialization = false;
 	scene->toolsettings->slim_pack_islands = true;
 	scene->toolsettings->slim_fixed_boundary = false;
 	bool use_subsurf;
 
-	bool use_slim_method = (scene->toolsettings->unwrapper == 2);
 
 	modifier_unwrap_state(obedit, scene, &use_subsurf);
 
@@ -1295,8 +1294,8 @@ static int unwrap_exec(bContext *C, wmOperator *op)
 	Scene *scene = CTX_data_scene(C);
 	Object *obedit = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
-	int method = RNA_enum_get(op->ptr, "method");
 
+	int method = RNA_enum_get(op->ptr, "method");
 	int n_slim_iterations = RNA_int_get(op->ptr, "slim_iterations");
 	double slim_weight_influence = RNA_float_get(op->ptr, "slim_weight_influence");
 	double slim_relative_scale = RNA_float_get(op->ptr, "slim_relative_scale");
@@ -1340,7 +1339,7 @@ static int unwrap_exec(bContext *C, wmOperator *op)
 	scene->toolsettings->slim_weight_influence = slim_weight_influence;
 	scene->toolsettings->slim_reflection_mode = slim_reflection_mode;
 	scene->toolsettings->slim_relative_scale = slim_relative_scale;
-	scene->toolsettings->slim_vertex_group = slim_vertex_group;
+	strcpy(scene->toolsettings->slim_vertex_group, slim_vertex_group);
 
 	/* remember packing marging */
 	if (RNA_struct_property_is_set(op->ptr, "margin"))
@@ -1401,7 +1400,7 @@ void UV_OT_unwrap(wmOperatorType *ot)
 	RNA_def_enum(ot->srna, "method", method_items, 0, "Method",
 	             "Unwrapping method (Angle Based usually gives better results than Conformal, while being somewhat slower)");
 	RNA_def_boolean(ot->srna, "fill_holes", 1, "Fill Holes",
-	                "Virtual fill holes in mesh before unwrapping, to better avoid overlaps and preserve symmetry");
+	                "Virtual fill holes in mesh before unwrapping, to better avoid overlaps and preserve symmetry. Disabling this option has no effect on SLIM.");
 	RNA_def_boolean(ot->srna, "correct_aspect", 1, "Correct Aspect",
 	                "Map UVs taking image aspect ratio into account");
 	RNA_def_boolean(ot->srna, "use_subsurf_data", 0, "Use Subsurf Modifier",
@@ -1409,18 +1408,16 @@ void UV_OT_unwrap(wmOperatorType *ot)
 	RNA_def_float_factor(ot->srna, "margin", 0.001f, 0.0f, 1.0f, "Margin", "Space between islands", 0.0f, 1.0f);
 
 	RNA_def_enum(ot->srna, "slim_reflection_mode", reflection_items, 0, "SLIM Reflection Mode",
-				 "Allowing reflections means that depending on the position of pins, the map may be flipped. Lower distortion.");
+				 "Allowing reflections means that depending on the position of pins, the map may be flipped. Lower distortion");
 	RNA_def_int(ot->srna, "slim_iterations", 1, -10, 10000, "SLIM Iterations",
 				"Number of Iterations if the SLIM algorithm is used.", 1, 30);
 	RNA_def_float(ot->srna, "slim_relative_scale", 1.0, 0.001, 1000.0, "SLIM Relative Scale",
 				  "Relative Scale of UV Map with respect to pins.", 0.1, 10.0);
 
-	PropertyRNA *prop;
-	prop = RNA_def_property(ot->srna, "slim_vertex_group", PROP_STRING, PROP_NONE);
-	RNA_def_property_ui_text(prop, "Vertex Group", "Vertex group name for modulating the deform");
+	RNA_def_string(ot->srna, "slim_vertex_group", NULL, 64, "SLIM Vertex Group", "Vertex group name for modulating the deform");
 
 	RNA_def_float(ot->srna, "slim_weight_influence", 1.0, -10000.0, 10000.0, "SLIM Weight Map Influence",
-				"How much influence the weightmap has for weighted parameterization, 0 being no influence.", 0.0, 10.0);
+				"How much influence the weightmap has for weighted parameterization, 0 being no influence", 0.0, 10.0);
 }
 
 /**************** Project From View operator **************/
