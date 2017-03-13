@@ -1783,8 +1783,13 @@ int WM_window_screen_pixels_x(const wmWindow *win)
 }
 int WM_window_screen_pixels_y(const wmWindow *win)
 {
-	/* TODO calculate total global area size */
-	return WM_window_pixels_y(win) - (2 * HEADERY);
+	short screen_size_y = WM_window_pixels_y(win);
+
+	for (ScrArea *sa = win->global_areas.first; sa; sa = sa->next) {
+		screen_size_y -= sa->winy;
+	}
+
+	return screen_size_y;
 }
 
 bool WM_window_is_fullscreen(wmWindow *win)

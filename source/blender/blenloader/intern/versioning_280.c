@@ -236,6 +236,7 @@ void do_versions_after_linking_280(FileData *fd, Main *main)
 			for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
 				for (wmWindow *win = wm->windows.first; win; win = win->next) {
 					const bScreen *screen = BKE_workspace_active_screen_get(win->workspace);
+					const short size_y = 2 * HEADERY;
 
 					/* XXX duplicated from wm_window_global_areas_create */
 					if (screen->temp == 0) {
@@ -248,10 +249,11 @@ void do_versions_after_linking_280(FileData *fd, Main *main)
 
 						sa->v1->vec.x = sa->v2->vec.x = 0;
 						sa->v3->vec.x = sa->v4->vec.x = win->sizex;
-						sa->v1->vec.y = sa->v4->vec.y = win->sizey - (2 * HEADERY);
+						sa->v1->vec.y = sa->v4->vec.y = win->sizey - size_y;
 						sa->v2->vec.y = sa->v3->vec.y = win->sizey;
 						sa->headertype = HEADERTOP;
 						sa->spacetype = sa->butspacetype = SPACE_TOPBAR;
+						sa->winy = size_y;
 
 						BLI_addhead(&win->global_areas, sa);
 

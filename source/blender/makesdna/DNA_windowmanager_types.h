@@ -224,6 +224,8 @@ typedef struct wmWindow {
 	ListBase subwindows;          /* opengl stuff for sub windows, see notes in wm_subwindow.c */
 	ListBase gesture;             /* gesture stuff */
 
+	/** Global areas aren't part of the screen, but part of the window directly.
+	 * \note Code assumes global areas with fixed height, fixed width not supported yet */
 	ListBase global_areas;
 
 	struct Stereo3dFormat *stereo3d_format; /* properties for stereoscopic displays */
