@@ -78,6 +78,7 @@ _modules = [
     "space_sequencer",
     "space_text",
     "space_time",
+    "space_topbar",
     "space_userpref",
     "space_view3d",
     "space_view3d_toolbar",

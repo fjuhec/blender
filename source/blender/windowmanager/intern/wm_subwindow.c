@@ -243,8 +243,8 @@ void wm_subwindow_position(wmWindow *win, int swinid, const rcti *winrct, bool a
 	wmSubWindow *swin = swin_from_swinid(win, swinid);
 	
 	if (swin) {
-		const int screen_size_x = WM_window_screen_pixels_x(win);
-		const int screen_size_y = WM_window_screen_pixels_y(win);
+		const int screen_size_x = WM_window_pixels_x(win);
+		const int screen_size_y = WM_window_pixels_y(win);
 
 		int width, height;
 		

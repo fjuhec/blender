@@ -230,7 +230,6 @@ void do_versions_after_linking_280(FileData *fd, Main *main)
 		}
 	}
 
-#if 1
 	{
 		if (!DNA_struct_find(fd->filesdna, "SpaceTopBar")) {
 			for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
@@ -270,7 +269,6 @@ void do_versions_after_linking_280(FileData *fd, Main *main)
 			}
 		}
 	}
-#endif
 }
 
 static void blo_do_version_temporary(Main *main)

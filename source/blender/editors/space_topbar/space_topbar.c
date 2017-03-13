@@ -36,11 +36,18 @@
 #include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
 
+#include "BLO_readfile.h"
+#include "BLT_translation.h"
+
 #include "BKE_context.h"
+#include "BKE_global.h"
 #include "BKE_screen.h"
 
 #include "ED_screen.h"
 #include "ED_space_api.h"
+
+#include "UI_interface.h"
+#include "UI_resources.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -61,7 +68,7 @@ static SpaceLink *topbar_new(const bContext *UNUSED(C))
 
 	BLI_addtail(&stopbar->regionbase, ar);
 	ar->regiontype = RGN_TYPE_HEADER;
-	ar->alignment = RGN_ALIGN_BOTTOM;
+	ar->alignment = RGN_ALIGN_TOP;
 
 	/* main region */
 	ar = MEM_callocN(sizeof(ARegion), "main region for topbar");
@@ -148,6 +155,36 @@ static void topbar_header_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARe
 #endif
 }
 
+static void recent_files_menu_draw(const bContext *UNUSED(C), Menu *menu)
+{
+	struct RecentFile *recent;
+	uiLayout *layout = menu->layout;
+	uiLayoutSetOperatorContext(layout, WM_OP_EXEC_REGION_WIN);
+	if (!BLI_listbase_is_empty(&G.recent_files)) {
+		for (recent = G.recent_files.first; (recent); recent = recent->next) {
+			const char *file = BLI_path_basename(recent->filepath);
+			const int icon = BLO_has_bfile_extension(file) ? ICON_FILE_BLEND : ICON_FILE_BACKUP;
+			uiItemStringO(layout, file, icon, "WM_OT_open_mainfile", "filepath", recent->filepath);
+		}
+	}
+	else {
+		uiItemL(layout, IFACE_("No Recent Files"), ICON_NONE);
+	}
+}
+
+static void recent_files_menu_register(void)
+{
+	MenuType *mt;
+
+	mt = MEM_callocN(sizeof(MenuType), "spacetype info menu recent files");
+	strcpy(mt->idname, "TOPBAR_MT_file_open_recent");
+	strcpy(mt->label, N_("Open Recent..."));
+	strcpy(mt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
+	mt->draw = recent_files_menu_draw;
+	WM_menutype_add(mt);
+}
+
+
 /* only called once, from space/spacetypes.c */
 void ED_spacetype_topbar(void)
 {
@@ -185,6 +222,7 @@ void ED_spacetype_topbar(void)
 
 	BLI_addhead(&st->regiontypes, art);
 
+	recent_files_menu_register();
 
 	BKE_spacetype_register(st);
 }
