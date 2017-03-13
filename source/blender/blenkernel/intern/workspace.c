@@ -79,6 +79,14 @@ void BKE_workspace_remove(WorkSpace *workspace, Main *bmain)
 	BKE_libblock_free(bmain, workspace);
 }
 
+WorkSpaceInstanceHook *BKE_workspace_instance_hook_create(void)
+{
+	return MEM_callocN(sizeof(WorkSpaceInstanceHook), __func__);
+}
+void BKE_workspace_instance_hook_free(WorkSpaceInstanceHook *hook)
+{
+	MEM_freeN(hook);
+}
 
 /**
  * Add a new layout to \a workspace for \a screen.
@@ -191,6 +199,27 @@ WorkSpaceLayout *BKE_workspace_layout_iter_circular(const WorkSpace *workspace, 
 
 /* -------------------------------------------------------------------- */
 /* Getters/Setters */
+
+/**
+ * Needed because we can't switch workspaces during handlers, it would break context.
+ */
+WorkSpace *BKE_workspace_temp_store_get(WorkSpaceInstanceHook *hook)
+{
+	return hook->temp_store;
+}
+void BKE_workspace_temp_store_set(WorkSpaceInstanceHook *hook, WorkSpace *workspace)
+{
+	hook->temp_store = workspace;
+}
+
+WorkSpace *BKE_workspace_active_get(WorkSpaceInstanceHook *hook)
+{
+	return hook->active;
+}
+void BKE_workspace_active_set(WorkSpaceInstanceHook *hook, WorkSpace *workspace)
+{
+	hook->active = workspace;
+}
 
 ID *BKE_workspace_id_get(WorkSpace *workspace)
 {

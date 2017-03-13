@@ -35,6 +35,7 @@ struct TransformOrientation;
 struct WorkSpace;
 
 typedef struct WorkSpace WorkSpace;
+typedef struct WorkSpaceInstanceHook WorkSpaceInstanceHook;
 typedef struct WorkSpaceLayout WorkSpaceLayout;
 
 /**
@@ -54,6 +55,9 @@ typedef struct WorkSpaceLayout WorkSpaceLayout;
 WorkSpace *BKE_workspace_add(struct Main *bmain, const char *name);
 void BKE_workspace_free(WorkSpace *ws);
 void BKE_workspace_remove(WorkSpace *workspace, struct Main *bmain);
+
+WorkSpaceInstanceHook *BKE_workspace_instance_hook_create(void);
+void BKE_workspace_instance_hook_free(WorkSpaceInstanceHook *hook);
 
 struct WorkSpaceLayout *BKE_workspace_layout_add(WorkSpace *workspace, struct bScreen *screen) ATTR_NONNULL();
 void BKE_workspace_layout_remove(WorkSpace *workspace, WorkSpaceLayout *layout, struct Main *bmain) ATTR_NONNULL();
@@ -89,6 +93,10 @@ WorkSpaceLayout *BKE_workspace_layout_iter_circular(const WorkSpace *workspace, 
 /* -------------------------------------------------------------------- */
 /* Getters/Setters */
 
+WorkSpace *BKE_workspace_temp_store_get(WorkSpaceInstanceHook *hook) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
+void       BKE_workspace_temp_store_set(WorkSpaceInstanceHook *hook, WorkSpace *workspace) ATTR_NONNULL(1);
+WorkSpace *BKE_workspace_active_get(WorkSpaceInstanceHook *hook) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
+void       BKE_workspace_active_set(WorkSpaceInstanceHook *hook, WorkSpace *workspace) ATTR_NONNULL(1);
 struct ID *BKE_workspace_id_get(WorkSpace *workspace);
 const char *BKE_workspace_name_get(const WorkSpace *workspace);
 WorkSpaceLayout *BKE_workspace_active_layout_get(const struct WorkSpace *ws) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;

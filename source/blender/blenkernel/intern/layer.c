@@ -85,7 +85,7 @@ SceneLayer *BKE_scene_layer_context_active(const Scene *scene)
 	for (wmWindowManager *wm = G.main->wm.first; wm; wm = wm->id.next) {
 		for (wmWindow *win = wm->windows.first; win; win = win->next) {
 			if (win->scene == scene) {
-				return BKE_workspace_render_layer_get(win->workspace);
+				return BKE_workspace_render_layer_get(BKE_workspace_active_get(win->workspace_hook));
 			}
 		}
 	}

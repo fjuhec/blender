@@ -1110,7 +1110,7 @@ static void current_screen_compat(Main *mainvar, bScreen **r_screen, Scene **r_s
 		}
 	}
 
-	*r_screen = (window) ? BKE_workspace_active_screen_get(window->workspace) : NULL;
+	*r_screen = (window) ? BKE_workspace_active_screen_get(BKE_workspace_active_get(window->workspace_hook)) : NULL;
 	*r_scene = (window) ? window->scene : NULL;
 }
 

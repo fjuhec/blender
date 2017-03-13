@@ -59,4 +59,13 @@ typedef struct WorkSpace {
 	struct SceneLayer *render_layer;
 } WorkSpace;
 
+/**
+ * Little wrapper to store data that is going to be per window, but comming from the workspace.
+ * It allows us to keep workspace and window data completely separate.
+ */
+typedef struct WorkSpaceInstanceHook {
+	WorkSpace *active;
+	WorkSpace *temp_store;
+} WorkSpaceInstanceHook;
+
 #endif /* __DNA_WORKSPACE_TYPES_H__ */

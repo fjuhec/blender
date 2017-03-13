@@ -467,6 +467,7 @@ EnumPropertyItem rna_enum_wm_report_items[] = {
 
 #include "BKE_global.h"
 #include "BKE_idprop.h"
+#include "BKE_workspace.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -666,6 +667,12 @@ static void rna_Window_scene_update(bContext *C, PointerRNA *ptr)
 	}
 }
 
+static PointerRNA rna_Window_workspace_get(PointerRNA *ptr)
+{
+	wmWindow *win = ptr->data;
+	return rna_pointer_inherit_refine(ptr, &RNA_WorkSpace, BKE_workspace_active_get(win->workspace_hook));
+}
+
 static void rna_Window_workspace_set(PointerRNA *ptr, PointerRNA value)
 {
 	wmWindow *win = (wmWindow *)ptr->data;
@@ -679,18 +686,19 @@ static void rna_Window_workspace_set(PointerRNA *ptr, PointerRNA value)
 	}
 
 	/* exception: can't set workspaces inside of area/region handlers */
-	win->new_workspace = value.data;
+	BKE_workspace_temp_store_set(win->workspace_hook, value.data);
 }
 
 static void rna_Window_workspace_update(bContext *C, PointerRNA *ptr)
 {
 	wmWindow *win = ptr->data;
+	WorkSpace *new_workspace = BKE_workspace_temp_store_get(win->workspace_hook);
 
 	/* exception: can't set screens inside of area/region handlers,
 	 * and must use context so notifier gets to the right window */
-	if (win->new_workspace) {
-		WM_event_add_notifier(C, NC_WORKSPACE | ND_WORKSPACE_SET, win->new_workspace);
-		win->new_workspace = NULL;
+	if (new_workspace) {
+		WM_event_add_notifier(C, NC_WORKSPACE | ND_WORKSPACE_SET, new_workspace);
+		BKE_workspace_temp_store_set(win->workspace_hook, NULL);
 	}
 }
 
@@ -1957,7 +1965,7 @@ static void rna_def_window(BlenderRNA *brna)
 	RNA_def_property_flag(prop, PROP_NEVER_NULL);
 	RNA_def_property_struct_type(prop, "WorkSpace");
 	RNA_def_property_ui_text(prop, "Workspace", "Active workspace showing in the window");
-	RNA_def_property_pointer_funcs(prop, NULL, "rna_Window_workspace_set", NULL, NULL);
+	RNA_def_property_pointer_funcs(prop, "rna_Window_workspace_get", "rna_Window_workspace_set", NULL, NULL);
 	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, 0, "rna_Window_workspace_update");
 

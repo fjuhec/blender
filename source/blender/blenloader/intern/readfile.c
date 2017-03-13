@@ -2773,6 +2773,12 @@ static void lib_link_workspaces(FileData *fd, Main *bmain)
 	BKE_workspace_iter_end;
 }
 
+static void lib_link_workspace_instance_hook(FileData *fd, WorkSpaceInstanceHook *hook, ID *id)
+{
+	WorkSpace *workspace = BKE_workspace_active_get(hook);
+	BKE_workspace_active_set(hook, newlibadr(fd, id->lib, workspace));
+}
+
 static void direct_link_workspace(FileData *fd, WorkSpace *ws)
 {
 	WorkSpaceLayout *act_layout = BKE_workspace_active_layout_get(ws);
@@ -2781,6 +2787,11 @@ static void direct_link_workspace(FileData *fd, WorkSpace *ws)
 
 	act_layout = newdataadr(fd, act_layout);
 	BKE_workspace_active_layout_set(ws, act_layout);
+}
+
+static void direct_link_workspace_instance_hook(FileData *fd, WorkSpaceInstanceHook *hook)
+{
+	UNUSED_VARS(fd, hook);
 }
 
 /* ************ READ MOTION PATHS *************** */
@@ -6356,6 +6367,9 @@ static void direct_link_windowmanager(FileData *fd, wmWindowManager *wm)
 	link_list(fd, &wm->windows);
 	
 	for (win = wm->windows.first; win; win = win->next) {
+		win->workspace_hook = newdataadr(fd, win->workspace_hook);
+		direct_link_workspace_instance_hook(fd, win->workspace_hook);
+
 		win->ghostwin = NULL;
 		win->eventstate = NULL;
 		win->curswin = NULL;
@@ -6420,7 +6434,7 @@ static void lib_link_windowmanager(FileData *fd, Main *main)
 		if (wm->id.tag & LIB_TAG_NEED_LINK) {
 			for (win = wm->windows.first; win; win = win->next) {
 				win->scene = newlibadr(fd, wm->id.lib, win->scene);
-				win->workspace = newlibadr(fd, wm->id.lib, win->workspace);
+				lib_link_workspace_instance_hook(fd, win->workspace_hook, &wm->id);
 				/* deprecated, but needed for versioning (will be NULL'ed then) */
 				win->screen = newlibadr(fd, NULL, win->screen);
 			}
@@ -7077,14 +7091,17 @@ void blo_lib_link_restore(Main *newmain, wmWindowManager *curwm, Scene *curscene
 	BKE_workspace_iter_end;
 
 	for (wmWindow *win = curwm->windows.first; win; win = win->next) {
+		WorkSpace *workspace = BKE_workspace_active_get(win->workspace_hook);
+		ID *workspace_id = BKE_workspace_id_get(workspace);
 		Scene *oldscene = win->scene;
-		WorkSpace *workspace = restore_pointer_by_name(id_map, (ID *)win->workspace, USER_REAL);
 
+		workspace = restore_pointer_by_name(id_map, workspace_id, USER_REAL);
+		BKE_workspace_active_set(win->workspace_hook, workspace);
 		win->scene = restore_pointer_by_name(id_map, (ID *)win->scene, USER_REAL);
 		if (win->scene == NULL) {
 			win->scene = curscene;
 		}
-		win->workspace = workspace;
+		BKE_workspace_active_set(win->workspace_hook, workspace);
 
 		/* keep cursor location through undo */
 		copy_v3_v3(win->scene->cursor, oldscene->cursor);

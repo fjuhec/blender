@@ -220,6 +220,7 @@ void wm_window_free(bContext *C, wmWindowManager *wm, wmWindow *win)
 
 	wm_ghostwindow_destroy(win);
 
+	BKE_workspace_instance_hook_free(win->workspace_hook);
 	MEM_freeN(win->stereo3d_format);
 
 	MEM_freeN(win);
@@ -247,6 +248,7 @@ wmWindow *wm_window_new(bContext *C)
 	win->winid = find_free_winid(wm);
 
 	win->stereo3d_format = MEM_callocN(sizeof(Stereo3dFormat), "Stereo 3D Format (window)");
+	win->workspace_hook = BKE_workspace_instance_hook_create();
 
 	return win;
 }
@@ -1865,20 +1867,22 @@ void WM_window_change_active_scene(Main *bmain, bContext *C, wmWindow *win, Scen
 
 WorkSpace *WM_window_get_active_workspace(const wmWindow *win)
 {
-	return win->workspace;
+	return BKE_workspace_active_get(win->workspace_hook);
 }
 void WM_window_set_active_workspace(wmWindow *win, WorkSpace *workspace)
 {
-	win->workspace = workspace;
+	BKE_workspace_active_set(win->workspace_hook, workspace);
 }
 
 WorkSpaceLayout *WM_window_get_active_layout(const wmWindow *win)
 {
-	return (LIKELY(win->workspace != NULL) ? BKE_workspace_active_layout_get(win->workspace): NULL);
+	const WorkSpace *workspace = WM_window_get_active_workspace(win);
+	return (LIKELY(workspace != NULL) ? BKE_workspace_active_layout_get(workspace): NULL);
 }
 void WM_window_set_active_layout(wmWindow *win, WorkSpaceLayout *layout)
 {
-	BKE_workspace_active_layout_set(win->workspace, layout);
+	WorkSpace *workspace = WM_window_get_active_workspace(win);
+	BKE_workspace_active_layout_set(workspace, layout);
 }
 
 /**
@@ -1886,12 +1890,14 @@ void WM_window_set_active_layout(wmWindow *win, WorkSpaceLayout *layout)
  */
 bScreen *WM_window_get_active_screen(const wmWindow *win)
 {
+	const WorkSpace *workspace = WM_window_get_active_workspace(win);
 	/* May be NULL in rare cases like closing Blender */
-	return (LIKELY(win->workspace != NULL) ? BKE_workspace_active_screen_get(win->workspace) : NULL);
+	return (LIKELY(workspace != NULL) ? BKE_workspace_active_screen_get(workspace) : NULL);
 }
 void WM_window_set_active_screen(wmWindow *win, bScreen *screen)
 {
-	BKE_workspace_active_screen_set(win->workspace, screen);
+	WorkSpace *workspace = WM_window_get_active_workspace(win);
+	BKE_workspace_active_screen_set(workspace, screen);
 }
 
 bool WM_window_is_temp_screen(const wmWindow *win)

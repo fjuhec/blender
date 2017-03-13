@@ -913,13 +913,13 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 				wmWindowManager *wm = (wmWindowManager *)id;
 
 				for (wmWindow *win = wm->windows.first; win; win = win->next) {
-					ID *workspace = BKE_workspace_id_get(win->workspace);
+					ID *workspace = BKE_workspace_id_get(BKE_workspace_active_get(win->workspace_hook));
 
 					CALLBACK_INVOKE(win->scene, IDWALK_CB_USER_ONE);
 
 					CALLBACK_INVOKE_ID(workspace, IDWALK_CB_NOP);
 					/* allow callback to set a different workspace */
-					win->workspace = (WorkSpace *)workspace;
+					BKE_workspace_active_set(win->workspace_hook, (WorkSpace *)workspace);
 				}
 				break;
 			}
