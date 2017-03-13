@@ -2782,11 +2782,13 @@ static void lib_link_workspace_instance_hook(FileData *fd, WorkSpaceInstanceHook
 static void direct_link_workspace(FileData *fd, WorkSpace *ws)
 {
 	WorkSpaceLayout *act_layout = BKE_workspace_active_layout_get(ws);
+	SceneLayer *layer = BKE_workspace_render_layer_get(ws);
 
 	link_list(fd, BKE_workspace_layouts_get(ws));
 
 	act_layout = newdataadr(fd, act_layout);
 	BKE_workspace_active_layout_set(ws, act_layout);
+	BKE_workspace_render_layer_set(ws, newdataadr(fd, layer));
 }
 
 static void direct_link_workspace_instance_hook(FileData *fd, WorkSpaceInstanceHook *hook)
