@@ -369,7 +369,6 @@ void wm_event_do_notifiers(bContext *C)
 				/* pass */
 			}
 			else {
-				ScrArea *sa;
 				ARegion *ar;
 
 				/* XXX context in notifiers? */
@@ -381,8 +380,8 @@ void wm_event_do_notifiers(bContext *C)
 				for (ar = screen->regionbase.first; ar; ar = ar->next) {
 					ED_region_do_listen(screen, NULL, ar, note, scene);
 				}
-				
-				for (sa = screen->areabase.first; sa; sa = sa->next) {
+
+				ED_screen_areas_iter(win, screen, sa) {
 					ED_area_do_listen(screen, sa, note, scene);
 					for (ar = sa->regionbase.first; ar; ar = ar->next) {
 						ED_region_do_listen(screen, sa, ar, note, scene);
@@ -406,10 +405,9 @@ void wm_event_do_notifiers(bContext *C)
 	for (win = wm->windows.first; win; win = win->next) {
 		const bScreen *screen = WM_window_get_active_screen(win);
 		Scene *scene = WM_window_get_active_scene(win);
-		ScrArea *sa;
 		
 		CTX_wm_window_set(C, win);
-		for (sa = screen->areabase.first; sa; sa = sa->next) {
+		ED_screen_areas_iter(win, screen, sa) {
 			if (sa->do_refresh) {
 				CTX_wm_area_set(C, sa);
 				ED_area_do_refresh(C, sa);
@@ -1435,17 +1433,22 @@ void wm_event_free_handler(wmEventHandler *handler)
 /* only set context when area/region is part of screen */
 static void wm_handler_op_context(bContext *C, wmEventHandler *handler, const wmEvent *event)
 {
+	wmWindow *win = CTX_wm_window(C);
 	bScreen *screen = CTX_wm_screen(C);
 	
 	if (screen && handler->op) {
 		if (handler->op_area == NULL)
 			CTX_wm_area_set(C, NULL);
 		else {
-			ScrArea *sa;
-			
-			for (sa = screen->areabase.first; sa; sa = sa->next)
-				if (sa == handler->op_area)
+			ScrArea *sa = NULL;
+
+			ED_screen_areas_iter(win, screen, sa_iter) {
+				if (sa_iter == handler->op_area) {
+					sa = sa_iter;
 					break;
+				}
+			}
+
 			if (sa == NULL) {
 				/* when changing screen layouts with running modal handlers (like render display), this
 				 * is not an error to print */
@@ -2306,13 +2309,15 @@ static int wm_event_inside_i(wmEvent *event, rcti *rect)
 
 static ScrArea *area_event_inside(bContext *C, const int xy[2])
 {
+	wmWindow *win = CTX_wm_window(C);
 	bScreen *screen = CTX_wm_screen(C);
-	ScrArea *sa;
 	
-	if (screen)
-		for (sa = screen->areabase.first; sa; sa = sa->next)
+	if (screen) {
+		ED_screen_areas_iter(win, screen, sa) {
 			if (BLI_rcti_isect_pt_v(&sa->totrct, xy))
 				return sa;
+		}
+	}
 	return NULL;
 }
 
@@ -2536,7 +2541,6 @@ void wm_event_do_handlers(bContext *C)
 			wm_tweakevent_test(C, event, action);
 
 			if ((action & WM_HANDLER_BREAK) == 0) {
-				ScrArea *sa;
 				ARegion *ar;
 	
 				/* Note: setting subwin active should be done here, after modal handlers have been done */
@@ -2552,7 +2556,7 @@ void wm_event_do_handlers(bContext *C)
 				}
 #endif
 
-				for (sa = screen->areabase.first; sa; sa = sa->next) {
+				ED_screen_areas_iter(win, screen, sa) {
 					/* after restoring a screen from SCREENMAXIMIZED we have to wait
 					 * with the screen handling till the region coordinates are updated */
 					if (screen->skip_handling == true) {
@@ -2692,24 +2696,26 @@ void WM_event_add_fileselect(bContext *C, wmOperator *op)
 		
 		if (handler->type == WM_HANDLER_FILESELECT) {
 			bScreen *screen = CTX_wm_screen(C);
-			ScrArea *sa;
+			bool cancel_handler = true;
 
 			/* find the area with the file selector for this handler */
-			for (sa = screen->areabase.first; sa; sa = sa->next) {
+			ED_screen_areas_iter(win, screen, sa) {
 				if (sa->spacetype == SPACE_FILE) {
 					SpaceFile *sfile = sa->spacedata.first;
 
 					if (sfile->op == handler->op) {
 						CTX_wm_area_set(C, sa);
 						wm_handler_fileselect_do(C, &win->handlers, handler, EVT_FILESELECT_CANCEL);
+						cancel_handler = false;
 						break;
 					}
 				}
 			}
 
 			/* if not found we stop the handler without changing the screen */
-			if (!sa)
+			if (cancel_handler) {
 				wm_handler_fileselect_do(C, &win->handlers, handler, EVT_FILESELECT_EXTERNAL_CANCEL);
+			}
 		}
 	}
 	
