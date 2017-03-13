@@ -984,8 +984,13 @@ class GreasePencilDataPanel:
             self.draw_layer(context, layout, gpl)
 
     def draw_layer(self, context, layout, gpl):
+        ts = context.tool_settings
         row = layout.row(align=True)
         row.prop(gpl, "opacity", text="Opacity", slider=True)
+
+        if ts.grease_pencil_source == 'OBJECT' and context.space_data.type in ('VIEW_3D', 'PROPERTIES'):
+            row = layout.row(align=True)
+            row.prop(gpl, "use_stroke_location")
 
         # Layer options
         split = layout.split(percentage=0.5)

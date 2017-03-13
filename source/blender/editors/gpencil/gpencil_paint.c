@@ -251,6 +251,20 @@ static void gp_get_3d_reference(tGPsdata *p, float vec[3])
 		if (p->ownerPtr.type == &RNA_Object) {
 			Object *ob = (Object *)p->ownerPtr.data;
 			if (ob->type == OB_GPENCIL) {
+				/* use last stroke position for layer */
+				if (p->gpl && p->gpl->flag & GP_LAYER_USE_LOCATION) {
+					if (p->gpl->actframe) {
+						bGPDframe *gpf = p->gpl->actframe;
+						if (gpf->strokes.last) {
+							bGPDstroke *gps = gpf->strokes.last;
+							if (gps->totpoints > 0) {
+								copy_v3_v3(vec, &gps->points[gps->totpoints - 1].x);
+								return;
+							}
+						}
+					}
+				}
+				/* use cursor */
 				if (ts->gpencil_flags & GP_TOOL_FLAG_USE_3DCURSOR) {
 					/* use 3D-cursor */
 					copy_v3_v3(vec, fp);
