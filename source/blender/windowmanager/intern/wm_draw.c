@@ -522,7 +522,6 @@ static void wm_method_draw_triple(bContext *C, wmWindow *win)
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wmDrawData *dd, *dd_next, *drawdata = win->drawdata.first;
 	bScreen *screen = WM_window_get_active_screen(win);
-	ScrArea *sa;
 	ARegion *ar;
 	bool copytex = false;
 
@@ -563,22 +562,8 @@ static void wm_method_draw_triple(bContext *C, wmWindow *win)
 
 	wmDrawTriple *triple = drawdata->triple;
 
-	/* draw global area regions */
-	for (sa = win->global_areas.first; sa; sa = sa->next) {
-		CTX_wm_area_set(C, sa);
-
-		for (ar = sa->regionbase.first; ar; ar = ar->next) {
-			if (ar->swinid && ar->do_draw) {
-				wm_draw_region(C, ar);
-				copytex = true;
-			}
-		}
-		wm_area_mark_invalid_backbuf(sa);
-		CTX_wm_area_set(C, NULL);
-	}
-
-	/* draw marked area regions */
-	for (sa = screen->areabase.first; sa; sa = sa->next) {
+	/* draw marked area regions (also global ones) */
+	ED_screen_areas_iter(win, screen, sa) {
 		CTX_wm_area_set(C, sa);
 
 		for (ar = sa->regionbase.first; ar; ar = ar->next) {
@@ -601,7 +586,7 @@ static void wm_method_draw_triple(bContext *C, wmWindow *win)
 	}
 
 	if (wm->paintcursors.first) {
-		for (sa = screen->areabase.first; sa; sa = sa->next) {
+		for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
 			for (ar = sa->regionbase.first; ar; ar = ar->next) {
 				if (ar->swinid && ar->swinid == screen->subwinactive) {
 					CTX_wm_area_set(C, sa);
@@ -621,7 +606,7 @@ static void wm_method_draw_triple(bContext *C, wmWindow *win)
 	}
 
 	/* draw overlapping area regions (always like popups) */
-	for (sa = screen->areabase.first; sa; sa = sa->next) {
+	for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
 		CTX_wm_area_set(C, sa);
 
 		for (ar = sa->regionbase.first; ar; ar = ar->next) {

@@ -103,6 +103,12 @@ void    ED_area_prevspace(struct bContext *C, ScrArea *sa);
 void    ED_area_swapspace(struct bContext *C, ScrArea *sa1, ScrArea *sa2);
 int     ED_area_headersize(void);
 
+/** Iterate over all areas visible in the screen (screen as in everything visible in the window, not just bScreen) */
+#define ED_screen_areas_iter(win, screen, area_name)     \
+	for (ScrArea *area_name = (win)->global_areas.first ? (win)->global_areas.first : screen->areabase.first; \
+	     area_name != NULL;                              \
+	     area_name = (area_name == (win)->global_areas.last) ? (screen)->areabase.first : area_name->next)
+
 /* screens */
 void    ED_screens_initialize(struct wmWindowManager *wm);
 void    ED_screen_draw(struct wmWindow *win);
