@@ -94,7 +94,9 @@ typedef enum eDrawStrokeFlags {
 
 
 /* thickness above which we should use special drawing */
+#if 0
 #define GP_DRAWTHICKNESS_SPECIAL    3
+#endif
 
 /* conversion utility (float --> normalized unsigned byte) */
 #define F2UB(x) (unsigned char)(255.0f * x)
@@ -629,10 +631,10 @@ static void gp_draw_stroke_point(
 	unsigned pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
 
 	if (sflag & GP_STROKE_3DSPACE) {
-		immBindBuiltinProgram(GPU_SHADER_3D_POINT_UNIFORM_SIZE_UNIFORM_COLOR_SMOOTH);
+		immBindBuiltinProgram(GPU_SHADER_3D_POINT_UNIFORM_SIZE_UNIFORM_COLOR_AA);
 	}
 	else {
-		immBindBuiltinProgram(GPU_SHADER_2D_POINT_UNIFORM_SIZE_UNIFORM_COLOR_SMOOTH);
+		immBindBuiltinProgram(GPU_SHADER_2D_POINT_UNIFORM_SIZE_UNIFORM_COLOR_AA);
 
 		/* get 2D coordinates of point */
 		float co[3] = { 0.0f };

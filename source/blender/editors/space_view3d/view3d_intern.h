@@ -145,10 +145,12 @@ void draw_motion_paths_cleanup(View3D *v3d);
 
 /* drawobject.c */
 void draw_object(Scene *scene, struct SceneLayer *sl, struct ARegion *ar, View3D *v3d, BaseLegacy *base, const short dflag);
-void draw_mesh_object_outline(View3D *v3d, Object *ob, struct DerivedMesh *dm);
+void draw_object_select(Scene *scene, struct SceneLayer *sl, struct ARegion *ar, View3D *v3d, Base *base, const short dflag);
 
-bool draw_glsl_material(Scene *scene, struct Object *ob, View3D *v3d, const char dt);
-void draw_object_instance(Scene *scene, View3D *v3d, RegionView3D *rv3d, struct Object *ob, const char dt, int outline, float wire_col[4]);
+void draw_mesh_object_outline(View3D *v3d, Object *ob, struct DerivedMesh *dm, const unsigned char ob_wire_col[4]);
+
+bool draw_glsl_material(Scene *scene, struct SceneLayer *sl, struct Object *ob, View3D *v3d, const char dt);
+void draw_object_instance(Scene *scene, struct SceneLayer *sl, View3D *v3d, RegionView3D *rv3d, struct Object *ob, const char dt, int outline, const float wire_col[4]);
 void draw_object_backbufsel(Scene *scene, View3D *v3d, RegionView3D *rv3d, struct Object *ob);
 
 void draw_object_wire_color(Scene *scene, struct SceneLayer *, Base *base, unsigned char r_ob_wire_col[4]);
@@ -159,8 +161,8 @@ void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
 void drawcamera(Scene *scene, View3D *v3d, RegionView3D *rv3d, Base *base,
                 const short dflag, const unsigned char ob_wire_col[4]);
 void drawspeaker(const unsigned char ob_wire_col[3]);
-void draw_bounding_volume(struct Object *ob, char type);
-void draw_rigidbody_shape(struct Object *ob);
+void draw_bounding_volume(struct Object *ob, char type, const unsigned char ob_wire_col[4]);
+void draw_rigidbody_shape(struct Object *ob, const unsigned char ob_wire_col[4]);
 
 void view3d_cached_text_draw_begin(void);
 void view3d_cached_text_draw_add(const float co[3],
@@ -186,7 +188,7 @@ bool draw_armature(Scene *scene, struct SceneLayer *sl, View3D *v3d, ARegion *ar
                    const bool is_outline);
 
 /* drawmesh.c */
-void draw_mesh_textured(Scene *scene, View3D *v3d, RegionView3D *rv3d,
+void draw_mesh_textured(Scene *scene, struct SceneLayer *sl, View3D *v3d, RegionView3D *rv3d,
                         struct Object *ob, struct DerivedMesh *dm, const int draw_flags);
 void draw_mesh_face_select(
         struct RegionView3D *rv3d, struct Mesh *me, struct DerivedMesh *dm,
@@ -213,6 +215,10 @@ void view3d_draw_region_info(const struct bContext *C, struct ARegion *ar);
 void view3d_main_region_draw_legacy(const struct bContext *C, struct ARegion *ar);
 void ED_view3d_draw_depth(Scene *scene, struct ARegion *ar, View3D *v3d, bool alphaoverride);
 void ED_view3d_draw_depth_gpencil(Scene *scene, ARegion *ar, View3D *v3d);
+void ED_view3d_draw_select_loop(
+        ViewContext *vc, Scene *scene, struct SceneLayer *sl, View3D *v3d, ARegion *ar,
+        bool use_obedit_skip, bool use_nearest);
+
 void ED_view3d_after_add(ListBase *lb, BaseLegacy *base, const short dflag);
 
 void circ(float x, float y, float rad);
@@ -258,7 +264,7 @@ void ED_view3d_smooth_view_force_finish(
         struct bContext *C,
         struct View3D *v3d, struct ARegion *ar);
 
-void view3d_winmatrix_set(ARegion *ar, const View3D *v3d, const rctf *rect);
+void view3d_winmatrix_set(ARegion *ar, const View3D *v3d, const rcti *rect);
 void view3d_viewmatrix_set(Scene *scene, const View3D *v3d, RegionView3D *rv3d);
 
 void fly_modal_keymap(struct wmKeyConfig *keyconf);
@@ -330,7 +336,7 @@ extern bool view3d_camera_border_hack_test;
 #define IS_VIEWPORT_LEGACY(v3d) ((v3d->tmp_compat_flag & V3D_NEW_VIEWPORT) == 0)
 
 /* temporary for legacy viewport to work */
-void VP_legacy_drawcursor(Scene *scene, ARegion *ar, View3D *v3d);
+void VP_legacy_drawcursor(Scene *scene, struct SceneLayer *sl, ARegion *ar, View3D *v3d);
 void VP_legacy_draw_view_axis(RegionView3D *rv3d, rcti *rect);
 void VP_legacy_draw_viewport_name(ARegion *ar, View3D *v3d, rcti *rect);
 void VP_legacy_draw_selected_name(Scene *scene, Object *ob, rcti *rect);

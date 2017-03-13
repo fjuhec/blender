@@ -573,8 +573,8 @@ int ED_operator_mask(bContext *C)
 			case SPACE_IMAGE:
 			{
 				SpaceImage *sima = sa->spacedata.first;
-				Scene *scene = CTX_data_scene(C);
-				return ED_space_image_check_show_maskedit(scene, sima);
+				SceneLayer *sl = CTX_data_scene_layer(C);
+				return ED_space_image_check_show_maskedit(sl, sima);
 			}
 		}
 	}
@@ -1020,7 +1020,8 @@ static int area_dupli_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
 	newwin->scene = scene;
 
-	workspace_new = BKE_workspace_add(CTX_data_main(C), BKE_workspace_name_get(workspace_old));
+	workspace_new = ED_workspace_add(CTX_data_main(C), BKE_workspace_name_get(workspace_old),
+	                                 BKE_workspace_render_layer_get(workspace_old));
 	WM_window_set_active_workspace(newwin, workspace_new);
 
 	/* allocs new screen and adds to newly created window, using window size */

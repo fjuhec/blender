@@ -60,8 +60,12 @@
 #include "DNA_view3d_types.h"
 #include "DNA_windowmanager_types.h"
 
+#include "DRW_engine.h"
+
 #include "ED_keyframing.h"
 #include "ED_armature.h"
+#include "ED_keyframing.h"
+#include "ED_gpencil.h"
 #include "ED_screen.h"
 #include "ED_transform.h"
 #include "ED_gpencil.h"
@@ -1505,9 +1509,9 @@ static void view3d_draw_grid(const bContext *C, ARegion *ar)
 	glDisable(GL_DEPTH_TEST);
 }
 
-static bool is_cursor_visible(Scene *scene)
+static bool is_cursor_visible(Scene *scene, SceneLayer *sl)
 {
-	Object *ob = OBACT;
+	Object *ob = OBACT_NEW;
 
 	/* don't draw cursor in paint modes, but with a few exceptions */
 	if (ob && ob->mode & OB_MODE_ALL_PAINT) {
@@ -1659,8 +1663,6 @@ static void draw_view_axis(RegionView3D *rv3d, rcti *rect)
 		BLF_color4ubv(BLF_default(), axis_col[i]);
 		BLF_draw_default_ascii(axis_pos[i][0] + 2, axis_pos[i][1] + 2, 0.0f, axis_text, 1);
 	}
-
-	/* BLF_draw disabled blending for us */
 }
 
 #ifdef WITH_INPUT_NDOF
@@ -1676,8 +1678,6 @@ static void draw_rotation_guide(RegionView3D *rv3d)
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glPointSize(5.0f);
-	glEnable(GL_POINT_SMOOTH);
 	glDepthMask(GL_FALSE);  /* don't overwrite zbuf */
 
 	VertexFormat *format = immVertexFormat();
@@ -1756,7 +1756,11 @@ static void draw_rotation_guide(RegionView3D *rv3d)
 	else
 		color[3] = 127;  /* see-through dot */
 
+	immUnbindProgram();
+
 	/* -- draw rotation center -- */
+	immBindBuiltinProgram(GPU_SHADER_3D_POINT_FIXED_SIZE_VARYING_COLOR);
+	glPointSize(5.0f);
 	immBegin(GL_POINTS, 1);
 	immAttrib4ubv(col, color);
 	immVertex3fv(pos, o);
@@ -1771,7 +1775,6 @@ static void draw_rotation_guide(RegionView3D *rv3d)
 #endif
 
 	glDisable(GL_BLEND);
-	glDisable(GL_POINT_SMOOTH);
 	glDepthMask(GL_TRUE);
 }
 #endif /* WITH_INPUT_NDOF */
@@ -1798,7 +1801,7 @@ RegionView3D *rv3d, const bool is_boundingbox, const unsigned char color[4])
 		case OB_SURF:
 		case OB_MBALL:
 			if (is_boundingbox) {
-				draw_bounding_volume(ob, ob->boundtype);
+				draw_bounding_volume(ob, ob->boundtype, color);
 			}
 			break;
 		case OB_EMPTY:
@@ -1825,7 +1828,7 @@ RegionView3D *rv3d, const bool is_boundingbox, const unsigned char color[4])
 	}
 
 	if (ob->rigidbody_object) {
-		draw_rigidbody_shape(ob);
+		draw_rigidbody_shape(ob, color);
 	}
 
 	ED_view3d_clear_mats_rv3d(rv3d);
@@ -2329,34 +2332,18 @@ static void view3d_draw_view(const bContext *C, ARegion *ar, DrawData *draw_data
 #endif
 }
 
-static void view3d_render_pass(const bContext *C, ARegion *UNUSED(ar))
-{
-	Scene *scene = CTX_data_scene(C);
-	RenderEngineType *type = RE_engines_find(scene->r.engine); /* In the future we should get that from Layers */
-
-	if (type->flag & RE_USE_OGL_PIPELINE) {
-		type->view_draw(NULL, C);
-	}
-	else {
-		// Offline Render engine
-	}
-}
-
 static void view3d_draw_view_new(const bContext *C, ARegion *ar, DrawData *UNUSED(draw_data))
 {
-
 	view3d_draw_setup_view(C, ar);
 
 	/* Only 100% compliant on new spec goes bellow */
-	view3d_render_pass(C, ar);
+	DRW_draw_view(C);
 }
-
 
 void view3d_main_region_draw(const bContext *C, ARegion *ar)
 {
 	Scene *scene = CTX_data_scene(C);
 	View3D *v3d = CTX_wm_view3d(C);
-	int mode = CTX_data_mode_enum(C);
 	RegionView3D *rv3d = ar->regiondata;
 	/* TODO layers - In the future we should get RE from Layers */
 	RenderEngineType *type = RE_engines_find(scene->r.engine);
@@ -2369,20 +2356,18 @@ void view3d_main_region_draw(const bContext *C, ARegion *ar)
 	if (!rv3d->viewport)
 		rv3d->viewport = GPU_viewport_create();
 
-	GPU_viewport_bind(rv3d->viewport, &ar->winrct, scene->r.engine, mode);
-
 	/* TODO viewport - there is so much to be done, in fact a lot will need to happen in the space_view3d.c
 	 * before we even call the drawing routine, but let's move on for now (dfelinto)
 	 * but this is a provisory way to start seeing things in the viewport */
 	DrawData draw_data;
 	view3d_draw_data_init(C, ar, rv3d, &draw_data);
 
+	GPU_viewport_bind(rv3d->viewport, &ar->winrct);
+
 	if (type->flag & RE_USE_OGL_PIPELINE)
 		view3d_draw_view_new(C, ar, &draw_data);
 	else
 		view3d_draw_view(C, ar, &draw_data);
-
-	GPU_viewport_unbind(rv3d->viewport);
 
 	v3d->flag |= V3D_INVALID_BACKBUF;
 }
@@ -2393,9 +2378,9 @@ void view3d_main_region_draw(const bContext *C, ARegion *ar)
  * meanwhile it should keep the old viewport working.
  */
 
-void VP_legacy_drawcursor(Scene *scene, ARegion *ar, View3D *v3d)
+void VP_legacy_drawcursor(Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d)
 {
-	if (is_cursor_visible(scene)) {
+	if (is_cursor_visible(scene, sl)) {
 		drawcursor(scene, ar, v3d);
 	}
 }

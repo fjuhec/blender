@@ -33,13 +33,18 @@ struct Batch;
 struct Mesh;
 
 void BKE_mesh_batch_cache_dirty(struct Mesh *me);
+void BKE_mesh_batch_selection_dirty(struct Mesh *me);
 void BKE_mesh_batch_cache_clear(struct Mesh *me);
 void BKE_mesh_batch_cache_free(struct Mesh *me);
 struct Batch *BKE_mesh_batch_cache_get_all_edges(struct Mesh *me);
 struct Batch *BKE_mesh_batch_cache_get_all_triangles(struct Mesh *me);
 struct Batch *BKE_mesh_batch_cache_get_triangles_with_normals(struct Mesh *me);
+struct Batch *BKE_mesh_batch_cache_get_points_with_normals(struct Mesh *me);
 struct Batch *BKE_mesh_batch_cache_get_all_verts(struct Mesh *me);
 struct Batch *BKE_mesh_batch_cache_get_fancy_edges(struct Mesh *me);
-struct Batch *BKE_mesh_batch_cache_get_overlay_edges(struct Mesh *me);
+struct Batch *BKE_mesh_batch_cache_get_overlay_triangles(struct Mesh *me);
+struct Batch *BKE_mesh_batch_cache_get_overlay_loose_edges(struct Mesh *me);
+struct Batch *BKE_mesh_batch_cache_get_overlay_loose_verts(struct Mesh *me);
+struct Batch *BKE_mesh_batch_cache_get_overlay_facedots(struct Mesh *me);
 
 #endif /* __BKE_MESH_RENDER_H__ */

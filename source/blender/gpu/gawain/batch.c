@@ -30,7 +30,7 @@ void Batch_init(Batch* batch, PrimitiveType prim_type, VertexBuffer* verts, Elem
 	{
 #if TRUST_NO_ONE
 	assert(verts != NULL);
-	assert(prim_type == PRIM_POINTS || prim_type == PRIM_LINES || prim_type == PRIM_TRIANGLES);
+	// assert(prim_type == PRIM_POINTS || prim_type == PRIM_LINES || prim_type == PRIM_TRIANGLES);
 	// we will allow other primitive types in a future update
 #endif
 
@@ -164,6 +164,17 @@ void Batch_Uniform2f(Batch* batch, const char* name, float x, float y)
 #endif
 
 	glUniform2f(loc, x, y);
+	}
+
+void Batch_Uniform3f(Batch* batch, const char* name, float x, float y, float z)
+	{
+	int loc = glGetUniformLocation(batch->program, name);
+
+#if TRUST_NO_ONE
+	assert(loc != -1);
+#endif
+
+	glUniform3f(loc, x, y, z);
 	}
 
 void Batch_Uniform4f(Batch* batch, const char* name, float x, float y, float z, float w)

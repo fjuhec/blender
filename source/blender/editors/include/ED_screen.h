@@ -124,6 +124,7 @@ Scene   *ED_screen_scene_find(const struct bScreen *screen, const struct wmWindo
 void    ED_screen_preview_render(const struct bScreen *screen, int size_x, int size_y, unsigned int *r_rect) ATTR_NONNULL();
 
 /* workspaces */
+struct WorkSpace *ED_workspace_add(struct Main *bmain, const char *name, SceneLayer *act_render_layer) ATTR_NONNULL();
 bool ED_workspace_change(struct bContext *C, struct wmWindowManager *wm, struct wmWindow *win,
                          struct WorkSpace *ws_new) ATTR_NONNULL();
 struct WorkSpace *ED_workspace_duplicate(struct WorkSpace *workspace_old, struct Main *bmain, struct wmWindow *win);

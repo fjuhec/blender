@@ -47,6 +47,7 @@
 #include "BKE_icons.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
+#include "BKE_mesh_render.h"
 #include "BKE_object.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
@@ -887,6 +888,7 @@ static void view3d_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegio
 				case ND_CONSTRAINT:
 				case ND_KEYS:
 				case ND_PARTICLE:
+				case ND_POINTCACHE:
 				case ND_LOD:
 					ED_region_tag_redraw(ar);
 					break;
@@ -899,9 +901,18 @@ static void view3d_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegio
 			break;
 		case NC_GEOM:
 			switch (wmn->data) {
+				case ND_SELECT:
+				{
+					if (scene->obedit) {
+						Object *ob = scene->obedit;
+						if (ob->type == OB_MESH) {
+							struct Mesh *me = ob->data;
+							BKE_mesh_batch_selection_dirty(me);
+						}
+					}
+				}
 				case ND_DATA:
 				case ND_VERTEX_GROUP:
-				case ND_SELECT:
 					ED_region_tag_redraw(ar);
 					break;
 			}
@@ -1019,6 +1030,9 @@ static void view3d_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegio
 					if (wmn->reference) {
 						view3d_recalc_used_layers(ar, wmn, scene);
 					}
+					ED_region_tag_redraw(ar);
+					break;
+				case ND_LAYER:
 					ED_region_tag_redraw(ar);
 					break;
 			}

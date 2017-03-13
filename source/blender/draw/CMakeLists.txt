@@ -27,7 +27,7 @@ set(INC
 	.
 	intern
 	engines/clay
-	modes/
+	modes
 
 	../blenkernel
 	../blenlib
@@ -52,23 +52,32 @@ set(INC_SYS
 
 set(SRC
 	intern/draw_manager.c
-	intern/draw_mode_pass.c
+	intern/draw_common.c
 	intern/draw_cache.c
 	intern/draw_view.c
 	intern/draw_armature.c
 	engines/clay/clay.c
-	modes/edit_armature_mode.c
-	modes/edit_mesh_mode.c
 	modes/object_mode.c
+	modes/edit_armature_mode.c
+	modes/edit_curve_mode.c
+	modes/edit_lattice_mode.c
+	modes/edit_mesh_mode.c
+	modes/edit_metaball_mode.c
+	modes/edit_surface_mode.c
+	modes/edit_text_mode.c
+	modes/paint_texture_mode.c
+	modes/paint_vertex_mode.c
+	modes/paint_weight_mode.c
+	modes/particle_mode.c
+	modes/pose_mode.c
+	modes/sculpt_mode.c
 
 	intern/DRW_render.h
-	intern/draw_mode_pass.h
+	intern/draw_common.h
 	intern/draw_cache.h
 	intern/draw_view.h
 	engines/clay/clay.h
-	modes/edit_armature_mode.h
-	modes/edit_mesh_mode.h
-	modes/object_mode.h
+	modes/draw_mode_engines.h
 
 	./DRW_engine.h
 )
@@ -81,6 +90,20 @@ data_to_c_simple(engines/clay/shaders/clay_frag.glsl SRC)
 data_to_c_simple(engines/clay/shaders/clay_vert.glsl SRC)
 data_to_c_simple(engines/clay/shaders/ssao_alchemy.glsl SRC)
 data_to_c_simple(engines/clay/shaders/ssao_groundtruth.glsl SRC)
+
+data_to_c_simple(modes/shaders/edit_overlay_frag.glsl SRC)
+data_to_c_simple(modes/shaders/edit_overlay_vert.glsl SRC)
+data_to_c_simple(modes/shaders/edit_overlay_geom_tri.glsl SRC)
+data_to_c_simple(modes/shaders/edit_overlay_geom_edge.glsl SRC)
+data_to_c_simple(modes/shaders/edit_overlay_loosevert_vert.glsl SRC)
+data_to_c_simple(modes/shaders/edit_overlay_facedot_frag.glsl SRC)
+data_to_c_simple(modes/shaders/edit_overlay_facedot_vert.glsl SRC)
+data_to_c_simple(modes/shaders/edit_overlay_mix_frag.glsl SRC)
+data_to_c_simple(modes/shaders/edit_overlay_mix_vert.glsl SRC)
+data_to_c_simple(modes/shaders/edit_overlay_facefill_vert.glsl SRC)
+data_to_c_simple(modes/shaders/edit_overlay_facefill_frag.glsl SRC)
+data_to_c_simple(modes/shaders/edit_normals_vert.glsl SRC)
+data_to_c_simple(modes/shaders/edit_normals_geom.glsl SRC)
 
 list(APPEND INC
 )

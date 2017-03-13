@@ -67,9 +67,6 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
-#include "BIF_gl.h"
-#include "BIF_glutil.h"
-
 #include "GPU_immediate.h"
 
 #include "UI_interface.h"
@@ -421,6 +418,13 @@ static void namebutton_cb(bContext *C, void *tsep, char *oldname)
 				}
 				case TSE_R_LAYER:
 					break;
+				case TSE_SCENE_COLLECTION:
+				case TSE_LAYER_COLLECTION:
+				{
+					SceneCollection *sc = outliner_scene_collection_from_tree_element(te);
+					BKE_collection_rename(scene, sc, te->name);
+					break;
+				}
 			}
 		}
 		tselem->flag &= ~TSE_TEXTBUT;
@@ -664,18 +668,22 @@ static void outliner_draw_rnacols(ARegion *ar, int sizex)
 	if (miny < v2d->tot.ymin) miny = v2d->tot.ymin;
 
 	glLineWidth(1.0f);
-	UI_ThemeColorShadeAlpha(TH_BACK, -15, -200);
 
-	/* draw column separator lines */
-	fdrawline((float)sizex,
-	          v2d->cur.ymax,
-	          (float)sizex,
-	          miny);
+	unsigned int pos = add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
+	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+	immUniformThemeColorShadeAlpha(TH_BACK, -15, -200);
 
-	fdrawline((float)sizex + OL_RNA_COL_SIZEX,
-	          v2d->cur.ymax,
-	          (float)sizex + OL_RNA_COL_SIZEX,
-	          miny);
+	immBegin(PRIM_LINES, 4);
+
+	immVertex2f(pos, sizex, v2d->cur.ymax);
+	immVertex2f(pos, sizex, miny);
+
+	immVertex2f(pos, sizex + OL_RNA_COL_SIZEX, v2d->cur.ymax);
+	immVertex2f(pos, sizex + OL_RNA_COL_SIZEX, miny);
+
+	immEnd();
+
+	immUnbindProgram();
 }
 
 static void outliner_draw_rnabuts(uiBlock *block, ARegion *ar, SpaceOops *soops, int sizex, ListBase *lb)
@@ -1237,7 +1245,7 @@ static void outliner_draw_iconrow(bContext *C, uiBlock *block, Scene *scene, Sce
 				}
 			}
 			else {
-				active = tree_element_type_active(NULL, scene, sl, soops, te, tselem, OL_SETSEL_NONE, false);
+				active = tree_element_type_active(C, scene, sl, soops, te, tselem, OL_SETSEL_NONE, false);
 			}
 
 			if (active != OL_DRAWSEL_NONE) {
@@ -1366,9 +1374,7 @@ static void outliner_draw_tree_element(
 			}
 		}
 		else {
-			if (tree_element_type_active(NULL, scene, sl, soops, te, tselem, OL_SETSEL_NONE, false) != OL_DRAWSEL_NONE) {
-				active = OL_DRAWSEL_ACTIVE;
-			}
+			active = tree_element_type_active(C, scene, sl, soops, te, tselem, OL_SETSEL_NONE, false);
 			rgba_float_args_set(color, 0.85f, 0.85f, 1.0f, alpha);
 		}
 		
@@ -1514,34 +1520,15 @@ static void outliner_draw_tree_element(
 	}
 }
 
-/**
- * Count how many visible childs (and open grandchilds, great-grandchilds, ...) \a te has.
- */
-static int outliner_count_visible_childs(const SpaceOops *soops, const TreeElement *te)
+static void outliner_draw_tree_element_floating(
+        const ARegion *ar, const TreeElement *te_floating)
 {
-	TreeStoreElem *tselem = TREESTORE(te);
-	int current_count = 0;
-
-	if (TSELEM_OPEN(tselem, soops)) {
-		for (TreeElement *te_child = te->subtree.first; te_child; te_child = te_child->next) {
-			current_count += outliner_count_visible_childs(soops, te_child);
-			current_count++;
-		}
-	}
-
-	return current_count;
-}
-
-static void outliner_draw_tree_element_floating(const SpaceOops *soops, const ARegion *ar,
-                                                const TreeElement *te_floating)
-{
-	const TreeElement *te_insert = te_floating->drag_data->insert_te;
-	const ListBase *lb_parent = te_floating->parent ? &te_floating->parent->subtree : &soops->tree;
-	const TreeElement *te_insert_fallback = te_insert ? te_insert : lb_parent->first;
+	const TreeElement *te_insert = te_floating->drag_data->insert_handle;
 	const int line_width = 2;
 
 	unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
-	int coord_y = (te_insert ? te_insert->ys : (te_insert_fallback->ys + UI_UNIT_Y)) - (int)(line_width * 0.5f);
+	int coord_y = te_insert->ys;
+	int coord_x = te_insert->xs;
 	unsigned char col[4];
 
 	if (te_insert == te_floating) {
@@ -1549,20 +1536,35 @@ static void outliner_draw_tree_element_floating(const SpaceOops *soops, const AR
 		return;
 	}
 
-	if (te_insert) {
-		coord_y -= UI_UNIT_Y * outliner_count_visible_childs(soops, te_insert);
-	}
-
 	UI_GetThemeColorShade4ubv(TH_BACK, -40, col);
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
-	immUniformColor4ubv(col);
-	glLineWidth(line_width);
+	glEnable(GL_BLEND);
 
-	immBegin(PRIM_LINE_STRIP, 2);
-	immVertex2f(pos, 0, coord_y);
-	immVertex2f(pos, ar->v2d.cur.xmax, coord_y);
-	immEnd();
+	if (ELEM(te_floating->drag_data->insert_type, TE_INSERT_BEFORE, TE_INSERT_AFTER)) {
+		if (te_floating->drag_data->insert_type == TE_INSERT_BEFORE) {
+			coord_y += UI_UNIT_Y;
+		}
+		immUniformColor4ubv(col);
+		glLineWidth(line_width);
 
+		immBegin(PRIM_LINE_STRIP, 2);
+		immVertex2f(pos, coord_x, coord_y);
+		immVertex2f(pos, ar->v2d.cur.xmax, coord_y);
+		immEnd();
+	}
+	else {
+		BLI_assert(te_floating->drag_data->insert_type == TE_INSERT_INTO);
+		immUniformColor4ub(UNPACK3(col), col[3] * 0.5f);
+
+		immBegin(PRIM_QUADS, 4);
+		immVertex2f(pos, coord_x, coord_y);
+		immVertex2f(pos, coord_x, coord_y + UI_UNIT_Y);
+		immVertex2f(pos, ar->v2d.cur.xmax, coord_y + UI_UNIT_Y);
+		immVertex2f(pos, ar->v2d.cur.xmax, coord_y);
+		immEnd();
+	}
+
+	glDisable(GL_BLEND);
 	immUnbindProgram();
 }
 
@@ -1770,8 +1772,8 @@ static void outliner_draw_tree(
 		outliner_draw_tree_element(C, block, fstyle, scene, sl, ar, soops, te, te->drag_data != NULL,
 		                           startx, &starty, te_edit, &te_floating);
 	}
-	if (te_floating) {
-		outliner_draw_tree_element_floating(soops, ar, te_floating);
+	if (te_floating && te_floating->drag_data->insert_handle) {
+		outliner_draw_tree_element_floating(ar, te_floating);
 	}
 
 	if (has_restrict_icons) {
@@ -1816,25 +1818,26 @@ static void outliner_back(ARegion *ar)
 static void outliner_draw_restrictcols(ARegion *ar)
 {
 	glLineWidth(1.0f);
-	UI_ThemeColorShadeAlpha(TH_BACK, -15, -200);
+
+	unsigned int pos = add_attrib(immVertexFormat(), "pos", COMP_I32, 2, CONVERT_INT_TO_FLOAT);
+	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+	immUniformThemeColorShadeAlpha(TH_BACK, -15, -200);
+	immBegin(PRIM_LINES, 6);
 
 	/* view */
-	sdrawline((int)(ar->v2d.cur.xmax - OL_TOG_RESTRICT_VIEWX),
-	          (int)ar->v2d.cur.ymax,
-	          (int)(ar->v2d.cur.xmax - OL_TOG_RESTRICT_VIEWX),
-	          (int)ar->v2d.cur.ymin);
+	immVertex2i(pos, (int)(ar->v2d.cur.xmax - OL_TOG_RESTRICT_VIEWX), (int)ar->v2d.cur.ymax);
+	immVertex2i(pos, (int)(ar->v2d.cur.xmax - OL_TOG_RESTRICT_VIEWX), (int)ar->v2d.cur.ymin);
 
 	/* render */
-	sdrawline((int)(ar->v2d.cur.xmax - OL_TOG_RESTRICT_SELECTX),
-	          (int)ar->v2d.cur.ymax,
-	          (int)(ar->v2d.cur.xmax - OL_TOG_RESTRICT_SELECTX),
-	          (int)ar->v2d.cur.ymin);
+	immVertex2i(pos, (int)(ar->v2d.cur.xmax - OL_TOG_RESTRICT_SELECTX), (int)ar->v2d.cur.ymax);
+	immVertex2i(pos, (int)(ar->v2d.cur.xmax - OL_TOG_RESTRICT_SELECTX), (int)ar->v2d.cur.ymin);
 
 	/* render */
-	sdrawline((int)(ar->v2d.cur.xmax - OL_TOG_RESTRICT_RENDERX),
-	          (int)ar->v2d.cur.ymax,
-	          (int)(ar->v2d.cur.xmax - OL_TOG_RESTRICT_RENDERX),
-	          (int)ar->v2d.cur.ymin);
+	immVertex2i(pos, (int)(ar->v2d.cur.xmax - OL_TOG_RESTRICT_RENDERX), (int)ar->v2d.cur.ymax);
+	immVertex2i(pos, (int)(ar->v2d.cur.xmax - OL_TOG_RESTRICT_RENDERX), (int)ar->v2d.cur.ymin);
+
+	immEnd();
+	immUnbindProgram();
 }
 
 /* ****************************************************** */

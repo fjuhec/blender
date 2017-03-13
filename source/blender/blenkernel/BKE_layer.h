@@ -55,7 +55,7 @@ struct SceneCollection;
 struct SceneLayer;
 
 struct SceneLayer *BKE_scene_layer_render_active(const struct Scene *scene);
-struct SceneLayer *BKE_scene_layer_context_active(struct Scene *scene);
+struct SceneLayer *BKE_scene_layer_context_active(const struct Scene *scene);
 struct SceneLayer *BKE_scene_layer_add(struct Scene *scene, const char *name);
 
 bool BKE_scene_layer_remove(struct Main *bmain, struct Scene *scene, struct SceneLayer *sl);
@@ -66,7 +66,7 @@ void BKE_scene_layer_engine_set(struct SceneLayer *sl, const char *engine);
 
 void BKE_scene_layer_selected_objects_tag(struct SceneLayer *sl, const int tag);
 
-struct SceneLayer *BKE_scene_layer_find_from_collection(struct Scene *scene, struct LayerCollection *lc);
+struct SceneLayer *BKE_scene_layer_find_from_collection(const struct Scene *scene, struct LayerCollection *lc);
 struct Base *BKE_scene_layer_base_find(struct SceneLayer *sl, struct Object *ob);
 void BKE_scene_layer_base_deselect_all(struct SceneLayer *sl);
 void BKE_scene_layer_base_select(struct SceneLayer *sl, struct Base *selbase);
@@ -83,22 +83,26 @@ struct LayerCollection *BKE_layer_collection_active(struct SceneLayer *sl);
 
 int BKE_layer_collection_count(struct SceneLayer *sl);
 
-int BKE_layer_collection_findindex(struct SceneLayer *sl, struct LayerCollection *lc);
-void BKE_layer_collection_reinsert_after(const struct Scene *scene, struct SceneLayer *sl,
-                                         struct LayerCollection *lc_reinsert, struct LayerCollection *lc_after);
+int BKE_layer_collection_findindex(struct SceneLayer *sl, const struct LayerCollection *lc);
+
+bool BKE_layer_collection_move_above(const struct Scene *scene, struct LayerCollection *lc_dst, struct LayerCollection *lc_src);
+bool BKE_layer_collection_move_below(const struct Scene *scene, struct LayerCollection *lc_dst, struct LayerCollection *lc_src);
+bool BKE_layer_collection_move_into(const struct Scene *scene, struct LayerCollection *lc_dst, struct LayerCollection *lc_src);
+
+void BKE_layer_collection_resync(const struct Scene *scene, const struct SceneCollection *sc);
 
 struct LayerCollection *BKE_collection_link(struct SceneLayer *sl, struct SceneCollection *sc);
 
 void BKE_collection_unlink(struct SceneLayer *sl, struct LayerCollection *lc);
 
-bool BKE_scene_layer_has_collection(struct SceneLayer *sl, struct SceneCollection *sc);
+bool BKE_scene_layer_has_collection(struct SceneLayer *sl, const struct SceneCollection *sc);
 bool BKE_scene_has_object(struct Scene *scene, struct Object *ob);
 
 /* syncing */
 
 void BKE_layer_sync_new_scene_collection(struct Scene *scene, const struct SceneCollection *sc_parent, struct SceneCollection *sc);
-void BKE_layer_sync_object_link(struct Scene *scene, struct SceneCollection *sc, struct Object *ob);
-void BKE_layer_sync_object_unlink(struct Scene *scene, struct SceneCollection *sc, struct Object *ob);
+void BKE_layer_sync_object_link(const struct Scene *scene, struct SceneCollection *sc, struct Object *ob);
+void BKE_layer_sync_object_unlink(const struct Scene *scene, struct SceneCollection *sc, struct Object *ob);
 
 /* override */
 

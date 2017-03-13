@@ -712,7 +712,8 @@ wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
 	}
 
 	if (WM_window_get_active_workspace(win) == NULL) {
-		WM_window_set_active_workspace(win, BKE_workspace_add(bmain, "Temp"));
+		WorkSpace *workspace = ED_workspace_add(bmain, "Temp", scene->render_layers.first);
+		WM_window_set_active_workspace(win, workspace);
 	}
 
 	if (screen == NULL) {

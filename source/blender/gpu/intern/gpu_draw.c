@@ -219,11 +219,12 @@ void GPU_render_text(
 }
 
 /* Checking powers of two for images since OpenGL ES requires it */
-
+#ifdef WITH_DDS
 static bool is_power_of_2_resolution(int w, int h)
 {
 	return is_power_of_2_i(w) && is_power_of_2_i(h);
 }
+#endif
 
 static bool is_over_resolution_limit(GLenum textarget, int w, int h)
 {
@@ -1686,7 +1687,7 @@ void GPU_end_dupli_object(void)
 }
 
 void GPU_begin_object_materials(
-        View3D *v3d, RegionView3D *rv3d, Scene *scene, Object *ob,
+        View3D *v3d, RegionView3D *rv3d, Scene *scene, SceneLayer *sl, Object *ob,
         bool glsl, bool *do_alpha_after)
 {
 	Material *ma;
@@ -1725,8 +1726,10 @@ void GPU_begin_object_materials(
 
 #ifdef WITH_GAMEENGINE
 	if (rv3d->rflag & RV3D_IS_GAME_ENGINE) {
-		ob = BKE_object_lod_matob_get(ob, scene);
+		ob = BKE_object_lod_matob_get(ob, sl);
 	}
+#else
+	UNUSED_VARS(sl);
 #endif
 
 	/* initialize state */
