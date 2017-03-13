@@ -152,71 +152,73 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			}
 
 			/* diffuse */
-			if(subsurface < CLOSURE_WEIGHT_CUTOFF && diffuse_weight > CLOSURE_WEIGHT_CUTOFF && fabsf(average(base_color)) > CLOSURE_WEIGHT_CUTOFF) {
-				float3 diff_weight = weight * base_color * diffuse_weight;
+			if(fabsf(average(base_color)) > CLOSURE_WEIGHT_CUTOFF) {
+				if(subsurface < CLOSURE_WEIGHT_CUTOFF && diffuse_weight > CLOSURE_WEIGHT_CUTOFF) {
+					float3 diff_weight = weight * base_color * diffuse_weight;
 
-				PrincipledDiffuseBsdf *bsdf = (PrincipledDiffuseBsdf*)bsdf_alloc(sd, sizeof(PrincipledDiffuseBsdf), diff_weight);
+					PrincipledDiffuseBsdf *bsdf = (PrincipledDiffuseBsdf*)bsdf_alloc(sd, sizeof(PrincipledDiffuseBsdf), diff_weight);
 
-				if(bsdf) {
-					bsdf->N = N;
-					bsdf->roughness = roughness;
+					if(bsdf) {
+						bsdf->N = N;
+						bsdf->roughness = roughness;
 
-					/* setup bsdf */
-					ccl_fetch(sd, flag) |= bsdf_principled_diffuse_setup(bsdf);
+						/* setup bsdf */
+						ccl_fetch(sd, flag) |= bsdf_principled_diffuse_setup(bsdf);
+					}
 				}
-			}
-			else if(subsurf_sample_weight > CLOSURE_WEIGHT_CUTOFF) {
-				/* radius * scale */
-				float3 radius = subsurface_radius * subsurface;
-				/* sharpness */
-				float sharpness = 0.0f;
-				/* texture color blur */
-				float texture_blur = 0.0f;
+				else if(subsurface > CLOSURE_WEIGHT_CUTOFF && subsurf_sample_weight > CLOSURE_WEIGHT_CUTOFF) {
+					/* radius * scale */
+					float3 radius = subsurface_radius * subsurface;
+					/* sharpness */
+					float sharpness = 0.0f;
+					/* texture color blur */
+					float texture_blur = 0.0f;
 
-				/* create one closure per color channel */
-				Bssrdf *bssrdf = bssrdf_alloc(sd, make_float3(subsurf_weight.x, 0.0f, 0.0f));
-				if(bssrdf) {
-					bssrdf->sample_weight = subsurf_sample_weight;
-					bssrdf->radius = radius.x;
-					bssrdf->texture_blur = texture_blur;
-					bssrdf->albedo = albedo.x;
-					bssrdf->sharpness = sharpness;
-					bssrdf->N = N;
-					bssrdf->base_color = base_color;
-					bssrdf->roughness = roughness;
+					/* create one closure per color channel */
+					Bssrdf *bssrdf = bssrdf_alloc(sd, make_float3(subsurf_weight.x, 0.0f, 0.0f));
+					if(bssrdf) {
+						bssrdf->sample_weight = subsurf_sample_weight;
+						bssrdf->radius = radius.x;
+						bssrdf->texture_blur = texture_blur;
+						bssrdf->albedo = albedo.x;
+						bssrdf->sharpness = sharpness;
+						bssrdf->N = N;
+						bssrdf->base_color = base_color;
+						bssrdf->roughness = roughness;
 
-					/* setup bsdf */
-					ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)CLOSURE_BSSRDF_PRINCIPLED_ID);
-				}
+						/* setup bsdf */
+						ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)CLOSURE_BSSRDF_PRINCIPLED_ID);
+					}
 
-				bssrdf = bssrdf_alloc(sd, make_float3(0.0f, subsurf_weight.y, 0.0f));
-				if(bssrdf) {
-					bssrdf->sample_weight = subsurf_sample_weight;
-					bssrdf->radius = radius.y;
-					bssrdf->texture_blur = texture_blur;
-					bssrdf->albedo = albedo.y;
-					bssrdf->sharpness = sharpness;
-					bssrdf->N = N;
-					bssrdf->base_color = base_color;
-					bssrdf->roughness = roughness;
+					bssrdf = bssrdf_alloc(sd, make_float3(0.0f, subsurf_weight.y, 0.0f));
+					if(bssrdf) {
+						bssrdf->sample_weight = subsurf_sample_weight;
+						bssrdf->radius = radius.y;
+						bssrdf->texture_blur = texture_blur;
+						bssrdf->albedo = albedo.y;
+						bssrdf->sharpness = sharpness;
+						bssrdf->N = N;
+						bssrdf->base_color = base_color;
+						bssrdf->roughness = roughness;
 
-					/* setup bsdf */
-					ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)CLOSURE_BSSRDF_PRINCIPLED_ID);
-				}
+						/* setup bsdf */
+						ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)CLOSURE_BSSRDF_PRINCIPLED_ID);
+					}
 
-				bssrdf = bssrdf_alloc(sd, make_float3(0.0f, 0.0f, subsurf_weight.z));
-				if(bssrdf) {
-					bssrdf->sample_weight = subsurf_sample_weight;
-					bssrdf->radius = radius.z;
-					bssrdf->texture_blur = texture_blur;
-					bssrdf->albedo = albedo.z;
-					bssrdf->sharpness = sharpness;
-					bssrdf->N = N;
-					bssrdf->base_color = base_color;
-					bssrdf->roughness = roughness;
+					bssrdf = bssrdf_alloc(sd, make_float3(0.0f, 0.0f, subsurf_weight.z));
+					if(bssrdf) {
+						bssrdf->sample_weight = subsurf_sample_weight;
+						bssrdf->radius = radius.z;
+						bssrdf->texture_blur = texture_blur;
+						bssrdf->albedo = albedo.z;
+						bssrdf->sharpness = sharpness;
+						bssrdf->N = N;
+						bssrdf->base_color = base_color;
+						bssrdf->roughness = roughness;
 
-					/* setup bsdf */
-					ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)CLOSURE_BSSRDF_PRINCIPLED_ID);
+						/* setup bsdf */
+						ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)CLOSURE_BSSRDF_PRINCIPLED_ID);
+					}
 				}
 			}
 #else
