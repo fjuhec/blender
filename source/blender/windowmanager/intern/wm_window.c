@@ -355,6 +355,7 @@ void wm_window_close(bContext *C, wmWindowManager *wm, wmWindow *win)
 	else {
 		bScreen *screen = WM_window_get_active_screen(win);
 		WorkSpace *workspace = WM_window_get_active_workspace(win);
+		WorkSpaceLayout *layout = BKE_workspace_active_layout_get(win->workspace_hook);
 
 		BLI_remlink(&wm->windows, win);
 		
@@ -375,7 +376,6 @@ void wm_window_close(bContext *C, wmWindowManager *wm, wmWindow *win)
 		/* if temp screen, delete it after window free (it stops jobs that can access it) */
 		if (screen && screen->temp) {
 			Main *bmain = CTX_data_main(C);
-			WorkSpaceLayout *layout = BKE_workspace_active_layout_get(workspace);
 
 			BLI_assert(BKE_workspace_layout_screen_get(layout) == screen);
 			BKE_workspace_layout_remove(workspace, layout, bmain);
@@ -1832,7 +1832,7 @@ void WM_windows_scene_data_sync(const ListBase *win_lb, Scene *scene)
 {
 	for (wmWindow *win = win_lb->first; win; win = win->next) {
 		if (WM_window_get_active_scene(win) == scene) {
-			ED_workspace_scene_data_sync(WM_window_get_active_workspace(win), scene);
+			ED_workspace_scene_data_sync(win->workspace_hook, scene);
 		}
 	}
 }
@@ -1877,12 +1877,11 @@ void WM_window_set_active_workspace(wmWindow *win, WorkSpace *workspace)
 WorkSpaceLayout *WM_window_get_active_layout(const wmWindow *win)
 {
 	const WorkSpace *workspace = WM_window_get_active_workspace(win);
-	return (LIKELY(workspace != NULL) ? BKE_workspace_active_layout_get(workspace): NULL);
+	return (LIKELY(workspace != NULL) ? BKE_workspace_active_layout_get(win->workspace_hook): NULL);
 }
 void WM_window_set_active_layout(wmWindow *win, WorkSpaceLayout *layout)
 {
-	WorkSpace *workspace = WM_window_get_active_workspace(win);
-	BKE_workspace_active_layout_set(workspace, layout);
+	BKE_workspace_active_layout_set(win->workspace_hook, layout);
 }
 
 /**
@@ -1892,12 +1891,11 @@ bScreen *WM_window_get_active_screen(const wmWindow *win)
 {
 	const WorkSpace *workspace = WM_window_get_active_workspace(win);
 	/* May be NULL in rare cases like closing Blender */
-	return (LIKELY(workspace != NULL) ? BKE_workspace_active_screen_get(workspace) : NULL);
+	return (LIKELY(workspace != NULL) ? BKE_workspace_active_screen_get(win->workspace_hook) : NULL);
 }
 void WM_window_set_active_screen(wmWindow *win, bScreen *screen)
 {
-	WorkSpace *workspace = WM_window_get_active_workspace(win);
-	BKE_workspace_active_screen_set(workspace, screen);
+	BKE_workspace_active_screen_set(win->workspace_hook, screen);
 }
 
 bool WM_window_is_temp_screen(const wmWindow *win)

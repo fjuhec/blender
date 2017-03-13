@@ -44,6 +44,7 @@ struct wmNotifier;
 struct wmEvent;
 struct wmKeyConfig;
 struct WorkSpace;
+struct WorkSpaceInstanceHook;
 struct bContext;
 struct Scene;
 struct bScreen;
@@ -134,7 +135,7 @@ struct WorkSpaceLayout *ED_workspace_layout_duplicate(struct WorkSpace *workspac
 bool ED_workspace_delete(struct Main *bmain, struct bContext *C,
                          struct wmWindowManager *wm, struct wmWindow *win,
                          struct WorkSpace *ws);
-void ED_workspace_scene_data_sync(struct WorkSpace *workspace, Scene *scene);
+void ED_workspace_scene_data_sync(struct WorkSpaceInstanceHook *hook, Scene *scene);
 bool ED_workspace_layout_delete(struct bContext *C, struct WorkSpace *workspace, struct WorkSpaceLayout *layout_old) ATTR_NONNULL();
 bool ED_workspace_layout_cycle(struct bContext *C, struct WorkSpace *workspace, const short direction) ATTR_NONNULL();
 

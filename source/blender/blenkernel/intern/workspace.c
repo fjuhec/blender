@@ -231,32 +231,32 @@ const char *BKE_workspace_name_get(const WorkSpace *workspace)
 	return workspace->id.name + 2;
 }
 
-WorkSpaceLayout *BKE_workspace_active_layout_get(const WorkSpace *workspace)
+WorkSpaceLayout *BKE_workspace_active_layout_get(const WorkSpaceInstanceHook *hook)
 {
-	return workspace->act_layout;
+	return hook->act_layout;
 }
-void BKE_workspace_active_layout_set(WorkSpace *workspace, WorkSpaceLayout *layout)
+void BKE_workspace_active_layout_set(WorkSpaceInstanceHook *hook, WorkSpaceLayout *layout)
 {
-	workspace->act_layout = layout;
-}
-
-WorkSpaceLayout *BKE_workspace_new_layout_get(const WorkSpace *workspace)
-{
-	return workspace->new_layout;
-}
-void BKE_workspace_new_layout_set(WorkSpace *workspace, WorkSpaceLayout *layout)
-{
-	workspace->new_layout = layout;
+	hook->act_layout = layout;
 }
 
-bScreen *BKE_workspace_active_screen_get(const WorkSpace *ws)
+WorkSpaceLayout *BKE_workspace_temp_layout_store_get(const WorkSpaceInstanceHook *hook)
 {
-	return ws->act_layout->screen;
+	return hook->temp_layout_store;
 }
-void BKE_workspace_active_screen_set(WorkSpace *ws, bScreen *screen)
+void BKE_workspace_temp_layout_store_set(WorkSpaceInstanceHook *hook, WorkSpaceLayout *layout)
+{
+	hook->temp_layout_store = layout;
+}
+
+bScreen *BKE_workspace_active_screen_get(const WorkSpaceInstanceHook *hook)
+{
+	return hook->act_layout->screen;
+}
+void BKE_workspace_active_screen_set(WorkSpaceInstanceHook *hook, bScreen *screen)
 {
 	/* we need to find the WorkspaceLayout that wraps this screen */
-	ws->act_layout = BKE_workspace_layout_find(ws, screen);
+	hook->act_layout = BKE_workspace_layout_find(hook->active, screen);
 }
 
 #ifdef USE_WORKSPACE_MODE

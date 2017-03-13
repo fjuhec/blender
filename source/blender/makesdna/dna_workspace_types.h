@@ -50,8 +50,6 @@ typedef struct WorkSpace {
 	ID id;
 
 	ListBase layouts;
-	struct WorkSpaceLayout *act_layout;
-	struct WorkSpaceLayout *new_layout; /* temporary when switching screens */
 
 	int object_mode; /* enum ObjectMode */
 	int pad;
@@ -66,6 +64,9 @@ typedef struct WorkSpace {
 typedef struct WorkSpaceInstanceHook {
 	WorkSpace *active;
 	WorkSpace *temp_store;
+
+	struct WorkSpaceLayout *act_layout;
+	struct WorkSpaceLayout *temp_layout_store; /* temporary when switching screens */
 } WorkSpaceInstanceHook;
 
 #endif /* __DNA_WORKSPACE_TYPES_H__ */

@@ -2781,19 +2781,15 @@ static void lib_link_workspace_instance_hook(FileData *fd, WorkSpaceInstanceHook
 
 static void direct_link_workspace(FileData *fd, WorkSpace *ws)
 {
-	WorkSpaceLayout *act_layout = BKE_workspace_active_layout_get(ws);
 	SceneLayer *layer = BKE_workspace_render_layer_get(ws);
-
 	link_list(fd, BKE_workspace_layouts_get(ws));
-
-	act_layout = newdataadr(fd, act_layout);
-	BKE_workspace_active_layout_set(ws, act_layout);
 	BKE_workspace_render_layer_set(ws, newdataadr(fd, layer));
 }
 
 static void direct_link_workspace_instance_hook(FileData *fd, WorkSpaceInstanceHook *hook)
 {
-	UNUSED_VARS(fd, hook);
+	WorkSpaceLayout *act_layout = BKE_workspace_active_layout_get(hook);
+	BKE_workspace_active_layout_set(hook, newdataadr(fd, act_layout));
 }
 
 /* ************ READ MOTION PATHS *************** */
@@ -6370,7 +6366,9 @@ static void direct_link_windowmanager(FileData *fd, wmWindowManager *wm)
 	
 	for (win = wm->windows.first; win; win = win->next) {
 		win->workspace_hook = newdataadr(fd, win->workspace_hook);
-		direct_link_workspace_instance_hook(fd, win->workspace_hook);
+		if (win->workspace_hook) { /* NULL for old files */
+			direct_link_workspace_instance_hook(fd, win->workspace_hook);
+		}
 
 		win->ghostwin = NULL;
 		win->eventstate = NULL;
@@ -6809,9 +6807,9 @@ static void lib_link_clipboard_restore(struct IDNameLib_Map *id_map)
 	BKE_sequencer_base_recursive_apply(&seqbase_clipboard, lib_link_seq_clipboard_cb, id_map);
 }
 
-static void lib_link_workspace_scene_data_restore(WorkSpace *workspace, Scene *scene)
+static void lib_link_workspace_scene_data_restore(wmWindow *win, Scene *scene)
 {
-	bScreen *screen = BKE_workspace_active_screen_get(workspace);
+	bScreen *screen = BKE_workspace_active_screen_get(win->workspace_hook);
 
 	for (ScrArea *area = screen->areabase.first; area; area = area->next) {
 		for (SpaceLink *sl = area->spacedata.first; sl; sl = sl->next) {
@@ -7107,7 +7105,7 @@ void blo_lib_link_restore(Main *newmain, wmWindowManager *curwm, Scene *curscene
 
 		/* keep cursor location through undo */
 		copy_v3_v3(win->scene->cursor, oldscene->cursor);
-		lib_link_workspace_scene_data_restore(workspace, win->scene);
+		lib_link_workspace_scene_data_restore(win, win->scene);
 
 		BLI_assert(win->screen == NULL);
 	}

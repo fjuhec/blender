@@ -3887,8 +3887,8 @@ static void SCREEN_OT_userpref_show(struct wmOperatorType *ot)
 static int screen_new_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	wmWindow *win = CTX_wm_window(C);
-	WorkSpace *workspace = CTX_wm_workspace(C);
-	WorkSpaceLayout *layout_old = BKE_workspace_active_layout_get(workspace);
+	WorkSpace *workspace = BKE_workspace_active_get(win->workspace_hook);
+	WorkSpaceLayout *layout_old = BKE_workspace_active_layout_get(win->workspace_hook);
 	WorkSpaceLayout *layout_new;
 
 	layout_new = ED_workspace_layout_duplicate(workspace, layout_old, win);
