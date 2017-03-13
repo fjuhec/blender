@@ -278,6 +278,7 @@ wmWindow *wm_window_copy(bContext *C, wmWindow *win_src)
 	WM_window_set_active_workspace(win_dst, ED_workspace_duplicate(workspace_src, bmain, win_dst));
 	new_screen = WM_window_get_active_screen(win_dst);
 	BLI_strncpy(win_dst->screenname, new_screen->id.name + 2, sizeof(win_dst->screenname));
+	ED_screen_global_areas_create(C, win_dst);
 
 	win_dst->drawmethod = U.wmdrawmethod;
 
@@ -393,38 +394,6 @@ void wm_window_title(wmWindowManager *wm, wmWindow *win)
 		 * in case of OS application terminate request (e.g. OS Shortcut Alt+F4, Cmd+Q, (...), or session end) */
 		GHOST_SetWindowModifiedState(win->ghostwin, (GHOST_TUns8) !wm->file_saved);
 		
-	}
-}
-
-void wm_window_global_areas_create(const bContext *C, wmWindow *win)
-{
-	const bScreen *screen = BKE_workspace_active_screen_get(win->workspace);
-
-	if (screen->temp == 0) {
-		ScrArea *sa = MEM_callocN(sizeof(*sa), "top bar area");
-
-		sa->v1 = MEM_callocN(sizeof(*sa->v1), __func__);
-		sa->v2 = MEM_callocN(sizeof(*sa->v1), __func__);
-		sa->v3 = MEM_callocN(sizeof(*sa->v1), __func__);
-		sa->v4 = MEM_callocN(sizeof(*sa->v1), __func__);
-
-		sa->v1->vec.x = sa->v2->vec.x = 0;
-		sa->v3->vec.x = sa->v4->vec.x = win->sizex;
-		sa->v1->vec.y = sa->v4->vec.y = win->sizey - (2 * U.widget_unit);
-		sa->v2->vec.y = sa->v3->vec.y = win->sizey;
-		sa->headertype = HEADERTOP;
-		sa->spacetype = sa->butspacetype = SPACE_TOPBAR;
-
-		BLI_addhead(&win->global_areas, sa);
-
-		{
-			SpaceType *st = BKE_spacetype_from_id(SPACE_TOPBAR);
-			SpaceLink *sl = st->new(C);
-
-			BLI_addhead(&sa->spacedata, sl);
-			sa->regionbase = sl->regionbase;
-			BLI_listbase_clear(&sl->regionbase);
-		}
 	}
 }
 

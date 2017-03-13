@@ -238,7 +238,7 @@ void do_versions_after_linking_280(FileData *fd, Main *main)
 					const bScreen *screen = BKE_workspace_active_screen_get(win->workspace);
 					const short size_y = 2 * HEADERY;
 
-					/* XXX duplicated from wm_window_global_areas_create */
+					/* XXX duplicated from ED_screen_global_areas_create */
 					if (screen->temp == 0) {
 						ScrArea *sa = MEM_callocN(sizeof(*sa), "do version topbar area");
 

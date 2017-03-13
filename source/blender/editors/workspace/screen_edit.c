@@ -1196,6 +1196,38 @@ int ED_screen_area_active(const bContext *C)
 	return 0;
 }
 
+void ED_screen_global_areas_create(const bContext *C, wmWindow *win)
+{
+	const bScreen *screen = BKE_workspace_active_screen_get(win->workspace);
+
+	if (screen->temp == 0) {
+		ScrArea *sa = MEM_callocN(sizeof(*sa), "top bar area");
+
+		sa->v1 = MEM_callocN(sizeof(*sa->v1), __func__);
+		sa->v2 = MEM_callocN(sizeof(*sa->v1), __func__);
+		sa->v3 = MEM_callocN(sizeof(*sa->v1), __func__);
+		sa->v4 = MEM_callocN(sizeof(*sa->v1), __func__);
+
+		sa->v1->vec.x = sa->v2->vec.x = 0;
+		sa->v3->vec.x = sa->v4->vec.x = win->sizex;
+		sa->v1->vec.y = sa->v4->vec.y = win->sizey - (2 * U.widget_unit);
+		sa->v2->vec.y = sa->v3->vec.y = win->sizey;
+		sa->headertype = HEADERTOP;
+		sa->spacetype = sa->butspacetype = SPACE_TOPBAR;
+
+		BLI_addhead(&win->global_areas, sa);
+
+		{
+			SpaceType *st = BKE_spacetype_from_id(SPACE_TOPBAR);
+			SpaceLink *sl = st->new(C);
+
+			BLI_addhead(&sa->spacedata, sl);
+			sa->regionbase = sl->regionbase;
+			BLI_listbase_clear(&sl->regionbase);
+		}
+	}
+}
+
 
 /* -------------------------------------------------------------------- */
 /* Screen changing */

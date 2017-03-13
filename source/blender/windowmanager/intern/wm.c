@@ -417,15 +417,15 @@ void wm_add_default(bContext *C)
 	wmWindowManager *wm = BKE_libblock_alloc(CTX_data_main(C), ID_WM, "WinMan");
 	wmWindow *win;
 	bScreen *screen = CTX_wm_screen(C); /* XXX from file read hrmf */
-	
+
 	CTX_wm_manager_set(C, wm);
 	win = wm_window_new(C);
-	wm_window_global_areas_create(C, win);
 	WM_window_set_active_workspace(win, G.main->workspaces.last);
 	WM_window_set_active_screen(win, screen);
 	screen->winid = win->winid;
 	BLI_strncpy(win->screenname, screen->id.name + 2, sizeof(win->screenname));
-	
+	ED_screen_global_areas_create(C, win);
+
 	wm->winactive = win;
 	wm->file_saved = 1;
 	wm_window_make_drawable(wm, win); 
