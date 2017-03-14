@@ -51,7 +51,7 @@ WorkSpaceLayout *ED_workspace_layout_add(WorkSpace *workspace, wmWindow *win, co
 	const int winsize_y = WM_window_pixels_y(win);
 
 	bScreen *screen = screen_add(win, name, winsize_x, winsize_y);
-	WorkSpaceLayout *layout = BKE_workspace_layout_add(workspace, screen);
+	WorkSpaceLayout *layout = BKE_workspace_layout_add(workspace, screen, name);
 
 	return layout;
 }

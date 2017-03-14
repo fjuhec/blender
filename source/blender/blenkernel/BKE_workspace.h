@@ -59,7 +59,7 @@ void BKE_workspace_remove(WorkSpace *workspace, struct Main *bmain);
 WorkSpaceInstanceHook *BKE_workspace_instance_hook_create(void);
 void BKE_workspace_instance_hook_free(WorkSpaceInstanceHook *hook);
 
-struct WorkSpaceLayout *BKE_workspace_layout_add(WorkSpace *workspace, struct bScreen *screen) ATTR_NONNULL();
+struct WorkSpaceLayout *BKE_workspace_layout_add(WorkSpace *workspace, struct bScreen *screen, const char *name) ATTR_NONNULL();
 void BKE_workspace_layout_remove(WorkSpace *workspace, WorkSpaceLayout *layout, struct Main *bmain) ATTR_NONNULL();
 
 
@@ -116,9 +116,10 @@ void             BKE_workspace_temp_layout_store_set(WorkSpaceInstanceHook *hook
 WorkSpace *BKE_workspace_next_get(const WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
 WorkSpace *BKE_workspace_prev_get(const WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
 
+char *BKE_workspace_layout_name_get(WorkSpaceLayout *layout) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
+void  BKE_workspace_layout_name_set(WorkSpace *workspace, WorkSpaceLayout *layout, const char *new_name) ATTR_NONNULL();
 struct bScreen *BKE_workspace_layout_screen_get(const WorkSpaceLayout *layout) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
 void            BKE_workspace_layout_screen_set(WorkSpaceLayout *layout, struct bScreen *screen) ATTR_NONNULL(1);
-
 WorkSpaceLayout *BKE_workspace_layout_next_get(const WorkSpaceLayout *layout) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
 WorkSpaceLayout *BKE_workspace_layout_prev_get(const WorkSpaceLayout *layout) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
 

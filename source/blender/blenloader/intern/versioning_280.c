@@ -63,7 +63,7 @@ static void do_version_workspaces_before_lib_link(Main *main)
 
 	for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
 		WorkSpace *ws = BKE_workspace_add(main, screen->id.name + 2);
-		BKE_workspace_layout_add(ws, screen);
+		BKE_workspace_layout_add(ws, screen, screen->id.name + 2);
 
 		/* For compatibility, the workspace should be activated that represents the active
 		 * screen of the old file. This is done in blo_do_versions_after_linking_270. */

@@ -38,6 +38,7 @@
 extern "C" {
 #endif
 
+#include "BLI_utildefines.h"
 #include "BLI_compiler_attrs.h"
 
 char *BLI_strdupn(const char *str, const size_t len) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();

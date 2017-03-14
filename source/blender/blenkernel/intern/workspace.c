@@ -26,6 +26,8 @@
 
 #include <stdlib.h>
 
+#include "BLI_string.h"
+#include "BLI_string_utils.h"
 #include "BLI_utildefines.h"
 #include "BLI_listbase.h"
 
@@ -44,6 +46,15 @@
 
 
 bool workspaces_is_screen_used(const Main *bmain, bScreen *screen);
+
+/* -------------------------------------------------------------------- */
+/* Internal utils */
+
+static void workspace_name_set(WorkSpace *workspace, WorkSpaceLayout *layout, const char *new_name)
+{
+	BLI_strncpy(layout->name, new_name, sizeof(layout->name));
+	BLI_uniquename(&workspace->layouts, layout, "Layout", '.', offsetof(WorkSpaceLayout, name), sizeof(layout->name));
+}
 
 
 /* -------------------------------------------------------------------- */
@@ -91,12 +102,13 @@ void BKE_workspace_instance_hook_free(WorkSpaceInstanceHook *hook)
 /**
  * Add a new layout to \a workspace for \a screen.
  */
-WorkSpaceLayout *BKE_workspace_layout_add(WorkSpace *workspace, bScreen *screen)
+WorkSpaceLayout *BKE_workspace_layout_add(WorkSpace *workspace, bScreen *screen, const char *name)
 {
 	WorkSpaceLayout *layout = MEM_mallocN(sizeof(*layout), __func__);
 
 	BLI_assert(!workspaces_is_screen_used(G.main, screen));
 	layout->screen = screen;
+	workspace_name_set(workspace, layout, name);
 	BLI_addhead(&workspace->layouts, layout);
 
 	return layout;
@@ -293,6 +305,15 @@ WorkSpace *BKE_workspace_prev_get(const WorkSpace *workspace)
 	return workspace->id.prev;
 }
 
+
+char *BKE_workspace_layout_name_get(WorkSpaceLayout *layout)
+{
+	return layout->name;
+}
+void BKE_workspace_layout_name_set(WorkSpace *workspace, WorkSpaceLayout *layout, const char *new_name)
+{
+	workspace_name_set(workspace, layout, new_name);
+}
 
 bScreen *BKE_workspace_layout_screen_get(const WorkSpaceLayout *layout)
 {
