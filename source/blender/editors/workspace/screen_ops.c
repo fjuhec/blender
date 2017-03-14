@@ -981,8 +981,7 @@ static int area_dupli_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	wmWindow *newwin, *win = CTX_wm_window(C);
 	Scene *scene;
-	WorkSpace *workspace_old = WM_window_get_active_workspace(win);
-	WorkSpace *workspace_new;
+	WorkSpace *workspace = WM_window_get_active_workspace(win);
 	WorkSpaceLayout *layout_new;
 	bScreen *newsc, *sc;
 	ScrArea *sa;
@@ -1019,12 +1018,9 @@ static int area_dupli_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
 	newwin->scene = scene;
 
-	workspace_new = ED_workspace_add(CTX_data_main(C), BKE_workspace_name_get(workspace_old),
-	                                 BKE_workspace_render_layer_get(workspace_old));
-	WM_window_set_active_workspace(newwin, workspace_new);
-
+	WM_window_set_active_workspace(newwin, workspace);
 	/* allocs new screen and adds to newly created window, using window size */
-	layout_new = ED_workspace_layout_add(workspace_new, newwin, sc->id.name + 2);
+	layout_new = ED_workspace_layout_add(workspace, newwin, sc->id.name + 2);
 	newsc = BKE_workspace_layout_screen_get(layout_new);
 	WM_window_set_active_layout(newwin, layout_new);
 

@@ -274,12 +274,13 @@ static wmWindow *wm_window_new_test(bContext *C)
 }
 
 /* part of wm_window.c api */
-wmWindow *wm_window_copy(bContext *C, wmWindow *win_src)
+wmWindow *wm_window_copy(bContext *C, wmWindow *win_src, const bool duplicate_layout)
 {
-	Main *bmain = CTX_data_main(C);
 	wmWindow *win_dst = wm_window_new(C);
-	WorkSpace *workspace_src = WM_window_get_active_workspace(win_src);
+	WorkSpace *workspace = WM_window_get_active_workspace(win_src);
+	WorkSpaceLayout *layout_old = WM_window_get_active_layout(win_src);
 	Scene *scene = WM_window_get_active_scene(win_src);
+	WorkSpaceLayout *layout_new;
 	bScreen *new_screen;
 
 	win_dst->posx = win_src->posx + 10;
@@ -288,7 +289,9 @@ wmWindow *wm_window_copy(bContext *C, wmWindow *win_src)
 	win_dst->sizey = win_src->sizey;
 
 	win_dst->scene = scene;
-	WM_window_set_active_workspace(win_dst, ED_workspace_duplicate(workspace_src, bmain, win_dst));
+	WM_window_set_active_workspace(win_dst, workspace);
+	layout_new = duplicate_layout ? ED_workspace_layout_duplicate(workspace, layout_old, win_dst) : layout_old;
+	WM_window_set_active_layout(win_dst, layout_new);
 	new_screen = WM_window_get_active_screen(win_dst);
 	BLI_strncpy(win_dst->screenname, new_screen->id.name + 2, sizeof(win_dst->screenname));
 
@@ -305,12 +308,12 @@ wmWindow *wm_window_copy(bContext *C, wmWindow *win_src)
  * A higher level version of copy that tests the new window can be added.
  * (called from the operator directly)
  */
-wmWindow *wm_window_copy_test(bContext *C, wmWindow *win_src)
+wmWindow *wm_window_copy_test(bContext *C, wmWindow *win_src, const bool duplicate_layout)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *win_dst;
 
-	win_dst = wm_window_copy(C, win_src);
+	win_dst = wm_window_copy(C, win_src, duplicate_layout);
 
 	WM_check(C);
 
@@ -693,7 +696,7 @@ wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
 	}
 
 	if (WM_window_get_active_workspace(win) == NULL) {
-		WorkSpace *workspace = ED_workspace_add(bmain, "Temp", scene->render_layers.first);
+		WorkSpace *workspace = WM_window_get_active_workspace(win_prev);
 		WM_window_set_active_workspace(win, workspace);
 	}
 
@@ -768,22 +771,40 @@ int wm_window_close_exec(bContext *C, wmOperator *UNUSED(op))
 	return OPERATOR_FINISHED;
 }
 
+static bScreen *wm_window_new_find_screen(wmOperator *op, WorkSpace *workspace)
+{
+	ListBase *listbase = BKE_workspace_layouts_get(workspace);
+	const int layout_id = RNA_enum_get(op->ptr, "screen");
+	int i = 0;
+
+	BKE_workspace_layout_iter_begin(layout, listbase->first)
+	{
+		if (i++ == layout_id) {
+			return BKE_workspace_layout_screen_get(layout);
+		}
+	}
+	BKE_workspace_layout_iter_end;
+
+	BLI_assert(0);
+	return NULL;
+}
+
 /* new window operator callback */
 int wm_window_new_exec(bContext *C, wmOperator *op)
 {
-	Main *bmain = CTX_data_main(C);
 	wmWindow *win_src = CTX_wm_window(C);
-	const int screen_id = RNA_enum_get(op->ptr, "screen");
-	bScreen *screen = BLI_findlink(&bmain->screen, screen_id);
+	WorkSpace *workspace = WM_window_get_active_workspace(win_src);
+	bScreen *screen = wm_window_new_find_screen(op, workspace);
 	wmWindow *win_dst;
 
 	if (screen->winid) {
 		/* Screen is already used, duplicate window and screen */
-		win_dst = wm_window_copy_test(C, win_src);
+		win_dst = wm_window_copy_test(C, win_src, true);
 	}
 	else if ((win_dst = wm_window_new_test(C))) {
-		/* New window with a different screen */
-		win_dst->screen = screen;
+		/* New window with a different screen but same workspace */
+		WM_window_set_active_workspace(win_dst, workspace);
+		WM_window_set_active_screen(win_dst, screen);
 		screen->winid = win_dst->winid;
 		CTX_wm_window_set(C, win_dst);
 		ED_screen_refresh(CTX_wm_manager(C), win_dst);
@@ -794,9 +815,11 @@ int wm_window_new_exec(bContext *C, wmOperator *op)
 
 int wm_window_new_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
-	Main *bmain = CTX_data_main(C);
+	wmWindow *win = CTX_wm_window(C);
+	WorkSpace *workspace = WM_window_get_active_workspace(win);
+	ListBase *listbase = BKE_workspace_layouts_get(workspace);
 
-	if (BLI_listbase_count_ex(&bmain->screen, 2) == 1) {
+	if (BLI_listbase_count_ex(listbase, 2) == 1) {
 		RNA_enum_set(op->ptr, "screen", 0);
 		return wm_window_new_exec(C, op);
 	}
@@ -808,7 +831,9 @@ int wm_window_new_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(even
 struct EnumPropertyItem *wm_window_new_screen_itemf(
         bContext *C, struct PointerRNA *UNUSED(ptr), struct PropertyRNA *UNUSED(prop), bool *r_free)
 {
-	Main *bmain = CTX_data_main(C);
+	wmWindow *win = CTX_wm_window(C);
+	WorkSpace *workspace = WM_window_get_active_workspace(win);
+	ListBase *listbase = BKE_workspace_layouts_get(workspace);
 	EnumPropertyItem *item = NULL;
 	EnumPropertyItem tmp = {0, "", 0, "", ""};
 	int value = 0, totitem = 0;
@@ -817,7 +842,9 @@ struct EnumPropertyItem *wm_window_new_screen_itemf(
 	 * for dynamic strings in EnumPropertyItem.name to avoid this. */
 	static char active_screens[20][MAX_NAME + 12];
 
-	for (bScreen *screen = bmain->screen.first; screen; screen = screen->id.next) {
+	BKE_workspace_layout_iter_begin(layout, listbase->first)
+	{
+		bScreen *screen = BKE_workspace_layout_screen_get(layout);
 		if (screen->winid) {
 			BLI_snprintf(active_screens[count_act_screens], sizeof(*active_screens), "%s (Duplicate)",
 			             screen->id.name + 2);
@@ -835,6 +862,7 @@ struct EnumPropertyItem *wm_window_new_screen_itemf(
 		RNA_enum_item_add(&item, &totitem, &tmp);
 		value++;
 	}
+	BKE_workspace_layout_iter_end;
 
 	RNA_enum_item_end(&item, &totitem);
 	*r_free = true;
