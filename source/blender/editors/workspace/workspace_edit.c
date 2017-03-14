@@ -118,6 +118,11 @@ bool ED_workspace_change(bContext *C, wmWindowManager *wm, wmWindow *win, WorkSp
 	WorkSpaceLayout *layout_new = BKE_workspace_layouts_get(workspace_new)->first;
 	bScreen *screen_new = BKE_workspace_layout_screen_get(layout_new);
 
+	if (screen_new->winid) {
+		/* screen is already used */
+		layout_new = ED_workspace_layout_duplicate(workspace_new, layout_new, win);
+		screen_new = BKE_workspace_layout_screen_get(layout_new);
+	}
 	screen_new = screen_change_prepare(screen_old, screen_new, bmain, C, win);
 
 	if (screen_new) {
