@@ -37,7 +37,6 @@
 #include "igl/Timer.h"
 
 #include "igl/map_vertices_to_circle.h"
-#include "igl/harmonic.h"
 #include "doublearea.h"
 
 #include <string>
@@ -137,10 +136,6 @@ void initializeUvs(retrieval::GeometryData &gd, SLIMData *slimData){
 		slimData->V_o = uvPositionsOfBoundary;
 		return;
 	}
-
-
-	Eigen::MatrixXd CotMatrix;
-	igl::cotmatrix_entries(Eigen::MatrixXd(gd.vertexPositions3D), Eigen::MatrixXi(gd.facesByVertexindices), CotMatrix);
 
 	 UVInitializer::mvc(
 		gd.facesByVertexindices,

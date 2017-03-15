@@ -4270,7 +4270,6 @@ static void transfer_edges(const int chartNr, const PHandle *phandle, const SLIM
 	int *E = mt->e_matrices[chartNr];
 	double *EL = mt->el_vectors[chartNr];
 
-	int vid = 0;
 	int eid = 0;
 
 	PEdge *e, *e1;
@@ -4540,24 +4539,6 @@ bool transformIslands(ParamHandle *handle)
 	return phandle->mt->transform_islands;
 }
 
-
-static void find_bounding_vertices(PVert **minx, PVert **maxx, PVert **miny, PVert **maxy, PVert *vert)
-{
-	if ((*minx)->uv[0] > vert->uv[0]) *minx = vert;
-	if ((*miny)->uv[1] > vert->uv[1]) *miny = vert;
-
-	if ((*maxx)->uv[0] < vert->uv[0]) *maxx = vert;
-	if ((*maxy)->uv[0] < vert->uv[0]) *maxy = vert;
-
-}
-
-static double norm(PVert *min, PVert *max)
-{
-	double x = max->uv[0] - min->uv[0];
-	double y = max->uv[1] - min->uv[1];
-	return sqrt(x*x + y*y);
-}
-
 /*	Examines if any pins are present or not.
  */
 bool mark_pins(ParamHandle *param_handle)
@@ -4759,17 +4740,6 @@ void param_lscm_end(ParamHandle *handle)
 	}
 
 	phandle->state = PHANDLE_STATE_CONSTRUCTED;
-}
-
-void param_stretch_end(ParamHandle *handle)
-{
-	PHandle *phandle = (PHandle *)handle;
-
-	param_assert(phandle->state == PHANDLE_STATE_STRETCH);
-	phandle->state = PHANDLE_STATE_CONSTRUCTED;
-
-	BLI_rng_free(phandle->rng);
-	phandle->rng = NULL;
 }
 
 void param_smooth_area(ParamHandle *handle)

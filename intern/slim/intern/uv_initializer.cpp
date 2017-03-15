@@ -29,7 +29,6 @@
 #include<Eigen/SparseLU>
 
 #include "igl/Timer.h"
-#include "igl/harmonic.h"
 #include "cotmatrix.h"
 #include <iostream>
 
