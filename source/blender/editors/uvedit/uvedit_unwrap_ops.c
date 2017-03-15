@@ -814,10 +814,6 @@ void UV_OT_minimize_stretch(wmOperatorType *ot)
 	ot->modal = minimize_stretch_modal;
 	ot->cancel = minimize_stretch_cancel;
 	ot->poll = ED_operator_uvedit;
-
-	/* properties */
-	RNA_def_boolean(ot->srna, "fill_holes_slim", 1, "Fill Holes", "Virtual fill holes in mesh before unwrapping, to better avoid overlaps and preserve symmetry");
-	RNA_def_float_factor(ot->srna, "blend_slim", 0.0f, 0.0f, 1.0f, "Blend", "Blend factor between stretch minimized and original", 0.0f, 1.0f);
 }
 
 /* ******************** Pack Islands operator **************** */
@@ -1296,13 +1292,13 @@ static int unwrap_exec(bContext *C, wmOperator *op)
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 
 	int method = RNA_enum_get(op->ptr, "method");
-	int n_slim_iterations = RNA_int_get(op->ptr, "slim_iterations");
-	double slim_weight_influence = RNA_float_get(op->ptr, "slim_weight_influence");
-	double slim_relative_scale = RNA_float_get(op->ptr, "slim_relative_scale");
-	int slim_reflection_mode = RNA_enum_get(op->ptr, "slim_reflection_mode");
+	int n_slim_iterations = RNA_int_get(op->ptr, "iterations");
+	double slim_weight_influence = RNA_float_get(op->ptr, "vertex_group_factor");
+	double slim_relative_scale = RNA_float_get(op->ptr, "relative_scale");
+	int slim_reflection_mode = RNA_enum_get(op->ptr, "reflection_mode");
 
 	char slim_vertex_group[64];
-	RNA_string_get(op->ptr, "slim_vertex_group", slim_vertex_group);
+	RNA_string_get(op->ptr, "vertex_group", slim_vertex_group);
 
 	const bool fill_holes = RNA_boolean_get(op->ptr, "fill_holes");
 	const bool correct_aspect = RNA_boolean_get(op->ptr, "correct_aspect");
@@ -1371,6 +1367,40 @@ static int unwrap_exec(bContext *C, wmOperator *op)
 	return OPERATOR_FINISHED;
 }
 
+static bool unwrap_draw_check_prop_slim(PointerRNA *UNUSED(ptr), PropertyRNA *prop)
+{
+	const char *prop_id = RNA_property_identifier(prop);
+
+	return !(STREQ(prop_id, "fill_holes"));
+}
+
+static bool unwrap_draw_check_prop_abf(PointerRNA *UNUSED(ptr), PropertyRNA *prop)
+{
+	const char *prop_id = RNA_property_identifier(prop);
+
+	return !(STREQ(prop_id, "reflection_mode") ||
+			 STREQ(prop_id, "iterations") ||
+			 STREQ(prop_id, "relative_scale") ||
+			 STREQ(prop_id, "vertex_group") ||
+			 STREQ(prop_id, "vertex_group_factor")
+			 );
+}
+
+static void unwrap_draw(bContext *UNUSED(C), wmOperator *op)
+{
+	uiLayout *layout = op->layout;
+	PointerRNA ptr;
+
+	/* main draw call */
+	RNA_pointer_create(NULL, op->type->srna, op->properties, &ptr);
+
+	if(RNA_enum_get(op->ptr, "method") == 2) {
+		uiDefAutoButsRNA(layout, &ptr, unwrap_draw_check_prop_slim, '\0');
+	} else {
+		uiDefAutoButsRNA(layout, &ptr, unwrap_draw_check_prop_abf, '\0');
+	}
+}
+
 void UV_OT_unwrap(wmOperatorType *ot)
 {
 	static EnumPropertyItem method_items[] = {
@@ -1396,28 +1426,34 @@ void UV_OT_unwrap(wmOperatorType *ot)
 	ot->exec = unwrap_exec;
 	ot->poll = ED_operator_uvmap;
 
+	/* only draw relevant ui elements*/
+	ot->ui = unwrap_draw;
+
+
 	/* properties */
-	RNA_def_enum(ot->srna, "method", method_items, 0, "Method",
+	RNA_def_enum(ot->srna, "method", method_items, 2, "Method",
 	             "Unwrapping method (Angle Based usually gives better results than Conformal, while being somewhat slower)");
-	RNA_def_boolean(ot->srna, "fill_holes", 1, "Fill Holes",
-	                "Virtual fill holes in mesh before unwrapping, to better avoid overlaps and preserve symmetry. Disabling this option has no effect on SLIM.");
+
 	RNA_def_boolean(ot->srna, "correct_aspect", 1, "Correct Aspect",
 	                "Map UVs taking image aspect ratio into account");
 	RNA_def_boolean(ot->srna, "use_subsurf_data", 0, "Use Subsurf Modifier",
 	                "Map UVs taking vertex position after Subdivision Surface modifier has been applied");
 	RNA_def_float_factor(ot->srna, "margin", 0.001f, 0.0f, 1.0f, "Margin", "Space between islands", 0.0f, 1.0f);
 
-	RNA_def_enum(ot->srna, "slim_reflection_mode", reflection_items, 0, "SLIM Reflection Mode",
+	// ABF / LSCM only
+	RNA_def_boolean(ot->srna, "fill_holes", 1, "Fill Holes",
+					"Virtual fill holes in mesh before unwrapping, to better avoid overlaps and preserve symmetry.");
+
+	// SLIM only
+	RNA_def_enum(ot->srna, "reflection_mode", reflection_items, 0, "Reflection Mode",
 				 "Allowing reflections means that depending on the position of pins, the map may be flipped. Lower distortion");
-	RNA_def_int(ot->srna, "slim_iterations", 1, -10, 10000, "SLIM Iterations",
+	RNA_def_int(ot->srna, "iterations", 10, 0, 10000, "Iterations",
 				"Number of Iterations if the SLIM algorithm is used.", 1, 30);
-	RNA_def_float(ot->srna, "slim_relative_scale", 1.0, 0.001, 1000.0, "SLIM Relative Scale",
+	RNA_def_float(ot->srna, "relative_scale", 1.0, 0.001, 1000.0, "Relative Scale",
 				  "Relative Scale of UV Map with respect to pins.", 0.1, 10.0);
-
-	RNA_def_string(ot->srna, "slim_vertex_group", NULL, 64, "SLIM Vertex Group", "Vertex group name for modulating the deform");
-
-	RNA_def_float(ot->srna, "slim_weight_influence", 1.0, -10000.0, 10000.0, "SLIM Weight Map Influence",
-				"How much influence the weightmap has for weighted parameterization, 0 being no influence", 0.0, 10.0);
+	RNA_def_string(ot->srna, "vertex_group", NULL, 64, "Vertex Group", "Vertex group name for modulating the deform");
+	RNA_def_float(ot->srna, "vertex_group_factor", 1.0, -10000.0, 10000.0, "Factor",
+				"How much influence the weightmap has for weighted parameterization, 0 being no influence", -10.0, 10.0);
 }
 
 /**************** Project From View operator **************/
