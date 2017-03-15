@@ -306,7 +306,7 @@ WorkSpace *BKE_workspace_prev_get(const WorkSpace *workspace)
 }
 
 
-char *BKE_workspace_layout_name_get(WorkSpaceLayout *layout)
+const char *BKE_workspace_layout_name_get(const WorkSpaceLayout *layout)
 {
 	return layout->name;
 }

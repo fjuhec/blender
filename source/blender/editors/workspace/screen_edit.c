@@ -459,7 +459,7 @@ ScrArea *area_split(bScreen *sc, ScrArea *sa, char dir, float fac, int merge)
 /**
  * Empty screen, with 1 dummy area without spacedata. Uses window size.
  */
-bScreen *screen_add(wmWindow *win, const char *name, const int winsize_x, const int winsize_y)
+bScreen *screen_add(const char *name, const int winsize_x, const int winsize_y)
 {
 	bScreen *sc;
 	ScrVert *sv1, *sv2, *sv3, *sv4;
@@ -467,7 +467,6 @@ bScreen *screen_add(wmWindow *win, const char *name, const int winsize_x, const 
 	sc = BKE_libblock_alloc(G.main, ID_SCR, name);
 	sc->do_refresh = true;
 	sc->redraws_flag = TIME_ALL_3D_WIN | TIME_ALL_ANIM_WIN;
-	sc->winid = win->winid;
 
 	sv1 = screen_addvert(sc, 0, 0);
 	sv2 = screen_addvert(sc, 0, winsize_y - 1);

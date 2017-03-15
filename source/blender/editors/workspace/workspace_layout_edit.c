@@ -50,7 +50,7 @@ WorkSpaceLayout *ED_workspace_layout_add(WorkSpace *workspace, wmWindow *win, co
 	const int winsize_x = WM_window_pixels_x(win);
 	const int winsize_y = WM_window_pixels_y(win);
 
-	bScreen *screen = screen_add(win, name, winsize_x, winsize_y);
+	bScreen *screen = screen_add(name, winsize_x, winsize_y);
 	WorkSpaceLayout *layout = BKE_workspace_layout_add(workspace, screen, name);
 
 	return layout;
@@ -59,6 +59,7 @@ WorkSpaceLayout *ED_workspace_layout_add(WorkSpace *workspace, wmWindow *win, co
 WorkSpaceLayout *ED_workspace_layout_duplicate(WorkSpace *workspace, const WorkSpaceLayout *layout_old, wmWindow *win)
 {
 	bScreen *screen_old = BKE_workspace_layout_screen_get(layout_old);
+	const char *name = BKE_workspace_layout_name_get(layout_old);
 	bScreen *screen_new;
 	WorkSpaceLayout *layout_new;
 
@@ -66,7 +67,7 @@ WorkSpaceLayout *ED_workspace_layout_duplicate(WorkSpace *workspace, const WorkS
 		return NULL; /* XXX handle this case! */
 	}
 
-	layout_new = ED_workspace_layout_add(workspace, win, screen_old->id.name + 2);
+	layout_new = ED_workspace_layout_add(workspace, win, name);
 	screen_new = BKE_workspace_layout_screen_get(layout_new);
 	screen_data_copy(screen_new, screen_old);
 

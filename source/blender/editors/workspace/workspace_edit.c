@@ -113,15 +113,20 @@ bool ED_workspace_change(bContext *C, wmWindowManager *wm, wmWindow *win, WorkSp
 	Scene *scene = CTX_data_scene(C);
 	WorkSpace *workspace_old = WM_window_get_active_workspace(win);
 	bScreen *screen_old = BKE_workspace_active_screen_get(win->workspace_hook);
+	/* ED_workspace_duplicate may have stored a layout to activate once the workspace gets activated. */
+	WorkSpaceLayout *layout_temp_store = BKE_workspace_temp_layout_store_get(win->workspace_hook);
 	/* XXX just using first layout when activating workspace - could be smarter
 	 * (store last activated layout per workspace-window combination?) */
-	WorkSpaceLayout *layout_new = BKE_workspace_layouts_get(workspace_new)->first;
+	WorkSpaceLayout *layout_new = layout_temp_store ?
+	                                  layout_temp_store : BKE_workspace_layouts_get(workspace_new)->first;
 	bScreen *screen_new = BKE_workspace_layout_screen_get(layout_new);
 
 	if (workspace_old == workspace_new) {
 		/* Could also return true, everything that needs to be done was done (nothing :P), but nothing changed */
 		return false;
 	}
+
+	BKE_workspace_temp_layout_store_set(win->workspace_hook, NULL);
 
 	if (screen_new->winid) {
 		/* screen is already used */
@@ -148,7 +153,8 @@ bool ED_workspace_change(bContext *C, wmWindowManager *wm, wmWindow *win, WorkSp
 }
 
 /**
- * Duplicate a workspace including its layouts.
+ * Duplicate a workspace including its layouts. Does not activate the workspace, but
+ * it stores the screen-layout to be activated (BKE_workspace_temp_layout_store)
  */
 WorkSpace *ED_workspace_duplicate(WorkSpace *workspace_old, Main *bmain, wmWindow *win)
 {
@@ -157,7 +163,6 @@ WorkSpace *ED_workspace_duplicate(WorkSpace *workspace_old, Main *bmain, wmWindo
 	WorkSpace *workspace_new = ED_workspace_add(bmain, BKE_workspace_name_get(workspace_old),
 	                                            BKE_workspace_render_layer_get(workspace_old));
 
-	BKE_workspace_active_set(win->workspace_hook, workspace_new);
 	BKE_workspace_object_mode_set(workspace_new, BKE_workspace_object_mode_get(workspace_old));
 
 	BKE_workspace_layout_iter_begin(layout_old, layouts_old->first)
@@ -165,10 +170,7 @@ WorkSpace *ED_workspace_duplicate(WorkSpace *workspace_old, Main *bmain, wmWindo
 		WorkSpaceLayout *layout_new = ED_workspace_layout_duplicate(workspace_new, layout_old, win);
 
 		if (layout_active_old == layout_old) {
-			bScreen *screen_new = BKE_workspace_layout_screen_get(layout_new);
-
-			screen_new_activate_prepare(win, screen_new);
-			BKE_workspace_active_layout_set(win->workspace_hook, layout_new);
+			BKE_workspace_temp_layout_store_set(win->workspace_hook, layout_new);
 		}
 	}
 	BKE_workspace_layout_iter_end;

@@ -46,7 +46,7 @@ void        ED_area_data_swap(ScrArea *sa1, ScrArea *sa2);
 void        region_toggle_hidden(struct bContext *C, ARegion *ar, const bool do_fade);
 
 /* screen_edit.c */
-bScreen    *screen_add(wmWindow *win, const char *name, const int winsize_x, const int winsize_y);
+bScreen    *screen_add(const char *name, const int winsize_x, const int winsize_y);
 void        screen_data_copy(bScreen *to, bScreen *from);
 void        screen_new_activate_prepare(const wmWindow *win, bScreen *screen_new);
 void        screen_changed_update(struct bContext *C, wmWindow *win, bScreen *sc);
