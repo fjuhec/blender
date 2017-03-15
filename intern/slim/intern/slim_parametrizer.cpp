@@ -76,9 +76,31 @@ Eigen::MatrixXd getInteractiveResultBlendedWithOriginal(float blend, SLIMData *s
 	Executes a single iteration of SLIM, must follow a proper setup & initialisation.
  */
 void param_slim_single_iteration(SLIMData *slimData){
-	int numberOfIterations = 1;
+	int numberOfIterations = 5;
 	slim_solve(*slimData, numberOfIterations);
 }
+
+static void adjustPins(SLIMData *slimData, int n_pins, int* selectedPinnedVertexIndices, double *selectedPinnedVertexPositions2D){
+	slimData->b.resize(n_pins);
+	slimData->bc.resize(n_pins, 2);
+	for (int i = 0; i < n_pins; i++){
+		slimData->b(i) = selectedPinnedVertexIndices[i];
+		slimData->bc(i, 0) = selectedPinnedVertexPositions2D[2*i];
+		slimData->bc(i, 1) = selectedPinnedVertexPositions2D[2*i+1];
+	}
+}
+
+/*
+	Executes several iterations of SLIM when used with LiveUnwrap
+ */
+void param_slim_live_unwrap(SLIMData *slimData, int n_pins, int* selectedPinnedVertexIndices, double *selectedPinnedVertexPositions2D) {
+	int numberOfIterations = 5;
+	adjustPins(slimData, n_pins, selectedPinnedVertexIndices, selectedPinnedVertexPositions2D);
+	// recompute current energy
+	recompute_energy(*slimData);
+	slim_solve(*slimData, numberOfIterations);
+}
+
 
 void param_slim(SLIMMatrixTransfer *mt, int nIterations, bool borderVerticesArePinned, bool skipInitialization){
 

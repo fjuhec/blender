@@ -65,6 +65,20 @@ void SLIM_parametrize_single_iteration(void* slim_data_ptr){
 	param_slim_single_iteration(slim_data);
 }
 
+/*	Executes slim iterations during live unwrap. needs to provide new selected-pin positions
+ */
+void SLIM_parametrize_live(void* slim_data_ptr,
+						   int n_pins,
+						   int* pinned_vertex_indices,
+						   double *pinned_vertex_positions_2D){
+
+	SLIMData* slim_data = (SLIMData*) slim_data_ptr;
+	param_slim_live_unwrap(slim_data,
+						   n_pins,
+						   pinned_vertex_indices,
+						   pinned_vertex_positions_2D);
+}
+
 void SLIM_parametrize(SLIMMatrixTransfer *mt, int n_iterations, bool are_border_vertices_pinned, bool skip_initialization){
 	param_slim(mt, n_iterations, are_border_vertices_pinned, skip_initialization);
 }

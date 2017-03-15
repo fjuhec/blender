@@ -99,6 +99,9 @@ struct SLIMData
                                 Eigen::MatrixXd& bc,
                                 double soft_p);
 
+// Recompute the current energy if using liveunwrap
+	void recompute_energy(SLIMData &data);
+
 // Run iter_num iterations of SLIM
 // Outputs:
 //    V_o (in SLIMData): #V by dim list of mesh vertex positions

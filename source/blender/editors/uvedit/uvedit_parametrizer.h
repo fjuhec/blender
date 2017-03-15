@@ -86,7 +86,7 @@ void param_slim_enrich_handle(ParamHandle *handle,
 							  float *weight_array,
 							  int n_iterations,
 							  bool skip_initialization,
-							  bool is_interactive);
+							  bool is_minimize_stretch);
 /* unwrapping:
  * -----------------------------
  * - Either Conformal or SLIM
@@ -148,7 +148,16 @@ void set_uv_param_slim(ParamHandle *handle, SLIMMatrixTransfer *mt);
 void free_slim_matrix_transfer(SLIMMatrixTransfer *mt);
 bool mark_pins(ParamHandle *param_handle);
 bool transformIslands(ParamHandle *handle);
-	
+void* getRecurringSlimData(ParamHandle *handle);
+void setRecurringSlimData(ParamHandle *handle, void *rs);
+bool get_pinned_vertex_data(ParamHandle *liveHandle,
+							int chartNr,
+							int *n_pins,
+							int *selected_pinned_vertex_indices,
+							double *selected_pinned_vertex_positions_2D);
+void backup_current_uvs(ParamHandle *handle);
+
+
 #ifdef __cplusplus
 }
 #endif

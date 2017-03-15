@@ -244,7 +244,10 @@ typedef struct PHandle {
 	int n_iterations;
 	bool skip_initialization;
 	float *weight_array;
-	bool is_interactive;
+	bool is_minimize_stretch;
+
+	//for minimize_stretch and live unwrap
+	void* recurringSlim;
 } PHandle;
 
 /* PHash
@@ -4195,7 +4198,7 @@ void param_slim_enrich_handle(ParamHandle *handle,
 							  float *weight_array,
 							  int n_iterations,
 							  bool skip_initialization,
-							  bool is_interactive)
+							  bool is_minimize_stretch)
 {
 
 	PHandle *phandle = (PHandle *)handle;
@@ -4204,7 +4207,7 @@ void param_slim_enrich_handle(ParamHandle *handle,
 	phandle->n_iterations = n_iterations;
 	phandle->skip_initialization = skip_initialization;
 	phandle->weight_array = weight_array;
-	phandle->is_interactive = is_interactive;
+	phandle->is_minimize_stretch = is_minimize_stretch;
 }
 
 
@@ -4339,7 +4342,7 @@ static void transfer_vertices(const int chartNr, const PHandle *phandle, SLIMMat
 		UV[v->slimId] = v->uv[0];
 		UV[r + v->slimId] = v->uv[1];
 
-		if (v->flag & PVERT_PIN || (phandle->is_interactive && !(v->flag & PVERT_SELECT))) {
+		if (v->flag & PVERT_PIN || (phandle->is_minimize_stretch && !(v->flag & PVERT_SELECT))) {
 			mt->pinned_vertices = true;
 			mt->n_pinned_vertices[chartNr] += 1;
 
@@ -4548,7 +4551,6 @@ static void find_bounding_vertices(PVert **minx, PVert **maxx, PVert **miny, PVe
 
 }
 
-
 static double norm(PVert *min, PVert *max)
 {
 	double x = max->uv[0] - min->uv[0];
@@ -4577,6 +4579,81 @@ bool mark_pins(ParamHandle *param_handle)
 		chart->u.slim.pins_exist = (nPins > 0);
 	}
 	return noPins;
+}
+
+void* getRecurringSlimData(ParamHandle *handle)
+{
+	PHandle *phandle = (PHandle *) handle;
+	return phandle->recurringSlim;
+}
+
+void setRecurringSlimData(ParamHandle *handle, void *rs)
+{
+	PHandle *phandle = (PHandle *) handle;
+	phandle->recurringSlim = rs;
+}
+
+bool get_pinned_vertex_data(ParamHandle *liveHandle,
+							int chartNr,
+							int *n_pins,
+							int *pinned_vertex_indices,
+							double *pinned_vertex_positions_2D)
+{
+
+	PHandle *phandle = (PHandle *) liveHandle;
+	PChart *chart = phandle->charts[chartNr];
+
+	bool pinned_vertex_was_moved = false;
+	int i = 0; // index of selected-and-pinned vertex
+
+	//boundary vertices have lower slimIds, process them first
+	PEdge *outer;
+	p_chart_boundaries(chart, NULL, &outer);
+	PEdge *be = outer;
+	do {
+		if (be->vert->flag & PVERT_PIN) {
+			p_vert_load_pin_select_uvs(liveHandle, be->vert);  /* reload vertex position */
+
+			if (be->vert->flag & PVERT_SELECT){
+				pinned_vertex_was_moved = true;
+			}
+			pinned_vertex_indices[i] = be->vert->slimId;
+			pinned_vertex_positions_2D[2*i] = be->vert->uv[0];
+			pinned_vertex_positions_2D[2*i+1] = be->vert->uv[1];
+
+			++i;
+		}
+		be = p_boundary_edge_next(be);
+	} while (be != outer);
+
+	PVert *v;
+	for (v = chart->verts; v; v = v->nextlink) {
+		if ( !v->on_boundary_flag && (v->flag & PVERT_PIN)) {
+			p_vert_load_pin_select_uvs(liveHandle, v);  /* reload v */
+
+			if (v->flag & PVERT_SELECT){
+				pinned_vertex_was_moved = true;
+			}
+			pinned_vertex_indices[i] = v->slimId;
+			pinned_vertex_positions_2D[2*i] = v->uv[0];
+			pinned_vertex_positions_2D[2*i+1] = v->uv[1];
+			++i;
+		}
+	}
+
+	*n_pins = i;
+	phandle->mt->n_pinned_vertices[chartNr] = i;
+	return pinned_vertex_was_moved;
+}
+
+void backup_current_uvs(ParamHandle *handle)
+{
+	PHandle *phandle = (PHandle *) handle;
+	PFace *f;
+	for (int i = 0; i < phandle->ncharts; i++) {
+		for (f = phandle->charts[i]->faces; f; f = f->nextlink)
+			p_face_backup_uvs(f);
+	}
 }
 
 void param_begin(ParamHandle *handle, ParamBool abf, bool use_slim)
