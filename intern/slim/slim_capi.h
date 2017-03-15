@@ -37,6 +37,10 @@ extern "C" {
 void SLIM_parametrize(SLIMMatrixTransfer *mt, int n_iterations, bool are_border_vertices_pinned, bool skip_initialization);
 void SLIM_transfer_uvs_blended(SLIMMatrixTransfer *mt, void *slim, int uv_chart_index, float blend);
 void SLIM_parametrize_single_iteration(void *slim);
+void SLIM_parametrize_live(void* slim_data_ptr,
+						   int n_pins,
+						   int* selected_pinned_vertex_indices,
+						   double *selected_pinned_vertex_positions_2D);
 void* SLIM_setup(SLIMMatrixTransfer *mt, int uv_chart_index, bool are_border_vertices_pinned, bool skip_initialization);
 void SLIM_free_data(void* slim_data_ptr);
 

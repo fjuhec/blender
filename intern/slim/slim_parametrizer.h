@@ -47,6 +47,10 @@ SLIMData* setup_slim(SLIMMatrixTransfer *transferredData,
 						 bool skipInitialization);
 void transferUvsBackToNativePart(SLIMMatrixTransfer *mt, Eigen::MatrixXd &UV, int uvChartIndex);
 void param_slim_single_iteration(SLIMData *slimData);
+void param_slim_live_unwrap(SLIMData *slimData,
+							int n_pins,
+							int* selectedPinnedVertexIndices,
+							double *selectedPinnedVertexPositions2D);
 void param_slim(SLIMMatrixTransfer *mt, int n_iterations, bool fixBorder, bool skipInitialization);
 void free_slim_data(SLIMData *slimData);
 #endif // !slim_parametrizer_h
