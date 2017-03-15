@@ -86,6 +86,11 @@ static void do_version_workspaces_before_lib_link(Main *main)
  */
 static void do_version_workspaces_after_lib_link(Main *main)
 {
+	for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
+		WorkSpace *workspace = BLI_findstring(&main->workspaces, screen->id.name + 2, offsetof(ID, name) + 2);
+		BKE_workspace_render_layer_set(workspace, screen->scene->render_layers.first);
+	}
+
 	for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
 		for (wmWindow *win = wm->windows.first; win; win = win->next) {
 			bScreen *screen = win->screen;
@@ -96,7 +101,6 @@ static void do_version_workspaces_after_lib_link(Main *main)
 			BKE_workspace_active_set(win->workspace_hook, workspace);
 			BKE_workspace_active_layout_set(win->workspace_hook, layouts->first);
 			win->scene = screen->scene;
-			BKE_workspace_render_layer_set(workspace, win->scene->render_layers.first);
 
 			/* Deprecated from now on! */
 			win->screen = NULL;

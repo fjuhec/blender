@@ -2773,24 +2773,34 @@ static void lib_link_workspaces(FileData *fd, Main *bmain)
 	BKE_workspace_iter_end;
 }
 
+static void direct_link_workspace(FileData *fd, WorkSpace *workspace, const Main *main)
+{
+	link_list(fd, BKE_workspace_layouts_get(workspace));
+
+	/* Same issue/fix as in direct_link_scene_update_screen_data: Can't read workspace data
+	 * when reading windows, so have to update windows after/when reading workspaces. */
+	for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
+		for (wmWindow *win = wm->windows.first; win; win = win->next) {
+			WorkSpaceLayout *act_layout = newdataadr(fd, BKE_workspace_active_layout_get(win->workspace_hook));
+			if (act_layout) {
+				BKE_workspace_active_layout_set(win->workspace_hook, act_layout);
+			}
+		}
+	}
+}
+
 static void lib_link_workspace_instance_hook(FileData *fd, WorkSpaceInstanceHook *hook, ID *id)
 {
 	WorkSpace *workspace = BKE_workspace_active_get(hook);
-	BKE_workspace_active_set(hook, newlibadr(fd, id->lib, workspace));
-}
-
-static void direct_link_workspace(FileData *fd, WorkSpace *ws)
-{
-	SceneLayer *layer = BKE_workspace_render_layer_get(ws);
-	link_list(fd, BKE_workspace_layouts_get(ws));
-	BKE_workspace_render_layer_set(ws, newdataadr(fd, layer));
-}
-
-static void direct_link_workspace_instance_hook(FileData *fd, WorkSpaceInstanceHook *hook)
-{
 	WorkSpaceLayout *act_layout = BKE_workspace_active_layout_get(hook);
-	BKE_workspace_active_layout_set(hook, newdataadr(fd, act_layout));
+
+	BKE_workspace_active_set(hook, newlibadr(fd, id->lib, workspace));
+	if (act_layout) {
+		bScreen *screen = BKE_workspace_layout_screen_get(act_layout);
+		BKE_workspace_layout_screen_set(act_layout, newlibadr(fd, id->lib, screen));
+	}
 }
+
 
 /* ************ READ MOTION PATHS *************** */
 
@@ -6047,16 +6057,26 @@ static void direct_link_layer_collections(FileData *fd, ListBase *lb)
 }
 
 /**
- * bScreen data may use pointers to Scene data. bScreens are however read before Scenes, meaning
- * FileData.datamap doesn't contain the Scene data when reading bScreens. This function should
- * be called during Scene direct linking to update needed pointers within bScreen data.
+ * bScreen data may use pointers to Scene data. We can't read this when reading screens
+ * though, so we have to update screens when/after reading scenes. This function should
+ * be called during Scene direct linking to update needed pointers within screen data
+ * (as in everything visible in the window, not just bScreen).
  *
  * Maybe we could change read order so that screens are read after scene. But guess that
- * would be asking for trouble. Depending on the write/read order sounds ugly anyway...
+ * would be asking for trouble. Depending on the write/read order sounds ugly anyway,
+ * Workspaces already depend on it...
  * -- Julian
  */
-static void direct_link_scene_update_screens(FileData *fd, const ListBase *screens)
+static void direct_link_scene_update_screen_data(
+        FileData *fd, const ListBase *workspaces, const ListBase *screens)
 {
+	BKE_workspace_iter_begin(workspace, workspaces->first)
+	{
+		SceneLayer *layer = newdataadr(fd, BKE_workspace_render_layer_get(workspace));
+		BKE_workspace_render_layer_set(workspace, layer);
+	}
+	BKE_workspace_iter_end;
+
 	for (bScreen *screen = screens->first; screen; screen = screen->id.next) {
 		for (ScrArea *area = screen->areabase.first; area; area = area->next) {
 			for (SpaceLink *sl = area->spacedata.first; sl; sl = sl->next) {
@@ -6352,7 +6372,7 @@ static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
 		res->data = newdataadr(fd, res->data);
 	}
 
-	direct_link_scene_update_screens(fd, &bmain->screen);
+	direct_link_scene_update_screen_data(fd, &bmain->workspaces, &bmain->screen);
 }
 
 /* ************ READ WM ***************** */
@@ -6366,9 +6386,6 @@ static void direct_link_windowmanager(FileData *fd, wmWindowManager *wm)
 	
 	for (win = wm->windows.first; win; win = win->next) {
 		win->workspace_hook = newdataadr(fd, win->workspace_hook);
-		if (win->workspace_hook) { /* NULL for old files */
-			direct_link_workspace_instance_hook(fd, win->workspace_hook);
-		}
 
 		win->ghostwin = NULL;
 		win->eventstate = NULL;
@@ -8494,7 +8511,7 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 			direct_link_cachefile(fd, (CacheFile *)id);
 			break;
 		case ID_WS:
-			direct_link_workspace(fd, (WorkSpace *)id);
+			direct_link_workspace(fd, (WorkSpace *)id, main);
 			break;
 	}
 	
