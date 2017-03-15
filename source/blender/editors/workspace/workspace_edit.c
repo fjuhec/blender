@@ -118,6 +118,11 @@ bool ED_workspace_change(bContext *C, wmWindowManager *wm, wmWindow *win, WorkSp
 	WorkSpaceLayout *layout_new = BKE_workspace_layouts_get(workspace_new)->first;
 	bScreen *screen_new = BKE_workspace_layout_screen_get(layout_new);
 
+	if (workspace_old == workspace_new) {
+		/* Could also return true, everything that needs to be done was done (nothing :P), but nothing changed */
+		return false;
+	}
+
 	if (screen_new->winid) {
 		/* screen is already used */
 		layout_new = ED_workspace_layout_duplicate(workspace_new, layout_new, win);
