@@ -102,6 +102,18 @@ void BKE_blender_free(void)
 	free_nodesystem();
 }
 
+void BKE_blender_version_string(char *version_str, size_t maxncpy, short version, short subversion, bool v_prefix, bool include_subversion)
+{
+	const char *prefix = v_prefix ? "v" : "";
+
+	if (include_subversion && subversion > 0) {
+		BLI_snprintf(version_str, maxncpy, "%s%d.%02d.%d", prefix, version / 100, version % 100, subversion);
+	}
+	else {
+		BLI_snprintf(version_str, maxncpy, "%s%d.%02d", prefix, version / 100, version % 100);
+	}
+}
+
 void BKE_blender_globals_init(void)
 {
 	memset(&G, 0, sizeof(Global));
@@ -112,10 +124,7 @@ void BKE_blender_globals_init(void)
 
 	strcpy(G.ima, "//");
 
-	if (BLENDER_SUBVERSION)
-		BLI_snprintf(versionstr, sizeof(versionstr), "v%d.%02d.%d", BLENDER_VERSION / 100, BLENDER_VERSION % 100, BLENDER_SUBVERSION);
-	else
-		BLI_snprintf(versionstr, sizeof(versionstr), "v%d.%02d", BLENDER_VERSION / 100, BLENDER_VERSION % 100);
+	BKE_blender_version_string(versionstr, sizeof(versionstr), BLENDER_VERSION, BLENDER_SUBVERSION, true, true);
 
 #ifndef WITH_PYTHON_SECURITY /* default */
 	G.f |= G_SCRIPT_AUTOEXEC;
@@ -236,7 +245,7 @@ int BKE_blender_test_break(void)
  * \note Don't use MEM_mallocN so functions can be registered at any time.
  * \{ */
 
-struct AtExitData {
+static struct AtExitData {
 	struct AtExitData *next;
 
 	void (*func)(void *user_data);

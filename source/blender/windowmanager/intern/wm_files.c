@@ -554,7 +554,7 @@ bool WM_file_read(bContext *C, const char *filepath, ReportList *reports)
 		
 		/* confusing this global... */
 		G.relbase_valid = 1;
-        retval = BKE_blendfile_read(C, filepath, reports);
+		retval = BKE_blendfile_read(C, filepath, reports, 0);
 
 		printf("Updating assets for: %s\n", filepath);
 		WM_operator_name_call(C, "WM_OT_assets_update_check", WM_OP_EXEC_DEFAULT, NULL);
@@ -656,6 +656,7 @@ int wm_homefile_read(bContext *C, ReportList *reports, bool from_memory, const c
 	 * And in this case versioning code is to be run.
 	 */
 	bool read_userdef_from_memory = true;
+	eBLOReadSkip skip_flags = 0;
 
 	/* options exclude eachother */
 	BLI_assert((from_memory && custom_file) == 0);
@@ -695,9 +696,19 @@ int wm_homefile_read(bContext *C, ReportList *reports, bool from_memory, const c
 	/* put aside screens to match with persistent windows later */
 	wm_window_match_init(C, &wmbase);
 	
+	/* load preferences before startup.blend */
+	if (!from_memory && BLI_exists(prefstr)) {
+		int done = BKE_blendfile_read_userdef(prefstr, NULL);
+		if (done != BKE_BLENDFILE_READ_FAIL) {
+			read_userdef_from_memory = false;
+			skip_flags |= BLO_READ_SKIP_USERDEF;
+			printf("Read new prefs: %s\n", prefstr);
+		}
+	}
+
 	if (!from_memory) {
 		if (BLI_access(startstr, R_OK) == 0) {
-			success = (BKE_blendfile_read(C, startstr, NULL) != BKE_BLENDFILE_READ_FAIL);
+			success = (BKE_blendfile_read(C, startstr, NULL, skip_flags) != BKE_BLENDFILE_READ_FAIL);
 
 			printf("Updating assets for: %s\n", startstr);
 			WM_operator_name_call(C, "WM_OT_assets_update_check", WM_OP_EXEC_DEFAULT, NULL);
@@ -715,7 +726,9 @@ int wm_homefile_read(bContext *C, ReportList *reports, bool from_memory, const c
 	}
 
 	if (success == 0) {
-		success = BKE_blendfile_read_from_memory(C, datatoc_startup_blend, datatoc_startup_blend_size, NULL, true);
+		success = BKE_blendfile_read_from_memory(
+		        C, datatoc_startup_blend, datatoc_startup_blend_size,
+		        NULL, skip_flags, true);
 		if (BLI_listbase_is_empty(&wmbase)) {
 			wm_clear_default_size(C);
 		}
@@ -726,15 +739,6 @@ int wm_homefile_read(bContext *C, ReportList *reports, bool from_memory, const c
 		 * otherwise we'd need to patch the binary blob - startup.blend.c */
 		U.flag |= USER_SCRIPT_AUTOEXEC_DISABLE;
 #endif
-	}
-	
-	/* check new prefs only after startup.blend was finished */
-	if (!from_memory && BLI_exists(prefstr)) {
-		int done = BKE_blendfile_read_userdef(prefstr, NULL);
-		if (done != BKE_BLENDFILE_READ_FAIL) {
-			read_userdef_from_memory = false;
-			printf("Read new prefs: %s\n", prefstr);
-		}
 	}
 	
 	/* prevent buggy files that had G_FILE_RELATIVE_REMAP written out by mistake. Screws up autosaves otherwise
@@ -1433,7 +1437,16 @@ static int wm_homefile_read_exec(bContext *C, wmOperator *op)
 		G.fileflags &= ~G_FILE_NO_UI;
 	}
 
-	return wm_homefile_read(C, op->reports, from_memory, filepath) ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
+	if (wm_homefile_read(C, op->reports, from_memory, filepath)) {
+		/* Load a file but keep the splash open */
+		if (RNA_boolean_get(op->ptr, "use_splash")) {
+			WM_init_splash(C);
+		}
+		return OPERATOR_FINISHED;
+	}
+	else {
+		return OPERATOR_CANCELLED;
+	}
 }
 
 void WM_OT_read_homefile(wmOperatorType *ot)
@@ -1454,6 +1467,10 @@ void WM_OT_read_homefile(wmOperatorType *ot)
 	/* So scripts can use an alternative start-up file without the UI */
 	prop = RNA_def_boolean(ot->srna, "load_ui", true, "Load UI",
 	                       "Load user interface setup from the .blend file");
+	RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+
+	/* So the splash can be kept open after loading a file (for templates). */
+	prop = RNA_def_boolean(ot->srna, "use_splash", true, "Splash", "");
 	RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 
 	/* omit poll to run in background mode */
