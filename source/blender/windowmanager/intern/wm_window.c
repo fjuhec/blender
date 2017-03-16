@@ -806,6 +806,7 @@ int wm_window_new_exec(bContext *C, wmOperator *op)
 		/* New window with a different screen but same workspace */
 		WM_window_set_active_workspace(win_dst, workspace);
 		WM_window_set_active_screen(win_dst, workspace, screen);
+		win_dst->scene = win_src->scene;
 		screen->winid = win_dst->winid;
 		CTX_wm_window_set(C, win_dst);
 		ED_screen_refresh(CTX_wm_manager(C), win_dst);
