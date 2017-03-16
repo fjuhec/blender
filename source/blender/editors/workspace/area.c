@@ -1540,7 +1540,7 @@ static void area_global_calc_totrct(ScrArea *sa, int sizex, int sizey)
 {
 	short rt = (short)U.pixelsize;
 
-	sa->v1->vec.x = sa->v2->vec.x = rt;
+	sa->v1->vec.x = sa->v2->vec.x = 0;
 	sa->v3->vec.x = sa->v4->vec.x = sizex - rt;
 	sa->v1->vec.y = sa->v4->vec.y = sizey - (2 * HEADERY) + rt;
 	sa->v2->vec.y = sa->v3->vec.y = sizey - rt;
