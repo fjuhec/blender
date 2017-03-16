@@ -662,11 +662,7 @@ static void minimize_stretch_iteration(bContext *C, wmOperator *op, bool interac
 
 	//	Assign new UVs back to each vertex
 	set_uv_param_slim(mss->handle, rs->mt);
-	if (!(mss->fixBorder)) {
-		if (mss->noPins){
-			param_pack(mss->handle, 0, false);
-		}
-	}
+
 	param_flush(mss->handle);
 
 
@@ -701,12 +697,6 @@ static void minimize_stretch_exit(bContext *C, wmOperator *op, bool cancel)
 	}
 
 	set_uv_param_slim(mss->handle, rs->mt);
-
-	if (!(mss->fixBorder)) {
-		if (mss->noPins){
-			param_pack(mss->handle, 0, false);
-		}
-	}
 
 	param_flush(mss->handle);
 	param_delete(mss->handle);
@@ -999,6 +989,9 @@ void ED_uvedit_live_unwrap_re_solve(void)
 									  pinned_vertex_indices,
 									  pinned_vertex_positions_2D);
 				SLIM_transfer_uvs_blended(rs->mt, slimPtr, chartNr, 0);
+
+				MEM_freeN(pinned_vertex_indices);
+				MEM_freeN(pinned_vertex_positions_2D);
 			}
 
 			//	Assign new UVs back to each vertex

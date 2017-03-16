@@ -93,7 +93,7 @@ static void adjustPins(SLIMData *slimData, int n_pins, int* selectedPinnedVertex
 	Executes several iterations of SLIM when used with LiveUnwrap
  */
 void param_slim_live_unwrap(SLIMData *slimData, int n_pins, int* selectedPinnedVertexIndices, double *selectedPinnedVertexPositions2D) {
-	int numberOfIterations = 5;
+	int numberOfIterations = 3;
 	adjustPins(slimData, n_pins, selectedPinnedVertexIndices, selectedPinnedVertexPositions2D);
 	// recompute current energy
 	recompute_energy(*slimData);
