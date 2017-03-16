@@ -79,10 +79,10 @@ SceneLayer *BKE_scene_layer_render_active(const Scene *scene)
  * Returns the SceneLayer to be used for drawing, outliner, and
  * other context related areas.
  */
-SceneLayer *BKE_scene_layer_context_active(const Scene *scene)
+SceneLayer *BKE_scene_layer_context_active_ex(const Main *bmain, const Scene *scene)
 {
 	/* XXX iterating over windows here is not so nice, we could pass the workspace or the window as argument. */
-	for (wmWindowManager *wm = G.main->wm.first; wm; wm = wm->id.next) {
+	for (wmWindowManager *wm = bmain->wm.first; wm; wm = wm->id.next) {
 		for (wmWindow *win = wm->windows.first; win; win = win->next) {
 			if (win->scene == scene) {
 				return BKE_workspace_render_layer_get(BKE_workspace_active_get(win->workspace_hook));
@@ -91,6 +91,10 @@ SceneLayer *BKE_scene_layer_context_active(const Scene *scene)
 	}
 
 	return NULL;
+}
+SceneLayer *BKE_scene_layer_context_active(const Scene *scene)
+{
+	return BKE_scene_layer_context_active_ex(G.main, scene);
 }
 
 /**

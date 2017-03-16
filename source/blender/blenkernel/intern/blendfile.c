@@ -225,7 +225,7 @@ static void setup_app_data(
 	if (bfd->user) {
 
 		/* only here free userdef themes... */
-		BKE_blender_userdef_free();
+		BKE_blender_userdef_free(&U);
 
 		U = *bfd->user;
 
@@ -347,7 +347,9 @@ static int handle_subversion_warning(Main *main, ReportList *reports)
 	return 1;
 }
 
-int BKE_blendfile_read(bContext *C, const char *filepath, ReportList *reports)
+int BKE_blendfile_read(
+        bContext *C, const char *filepath,
+        ReportList *reports, int skip_flags)
 {
 	BlendFileData *bfd;
 	int retval = BKE_BLENDFILE_READ_OK;
@@ -355,9 +357,11 @@ int BKE_blendfile_read(bContext *C, const char *filepath, ReportList *reports)
 	if (strstr(filepath, BLENDER_STARTUP_FILE) == NULL) /* don't print user-pref loading */
 		printf("read blend: %s\n", filepath);
 
-	bfd = BLO_read_from_file(filepath, reports);
+	bfd = BLO_read_from_file(filepath, reports, skip_flags);
 	if (bfd) {
-		if (bfd->user) retval = BKE_BLENDFILE_READ_OK_USERPREFS;
+		if (bfd->user) {
+			retval = BKE_BLENDFILE_READ_OK_USERPREFS;
+		}
 
 		if (0 == handle_subversion_warning(bfd->main, reports)) {
 			BKE_main_free(bfd->main);
@@ -377,11 +381,11 @@ int BKE_blendfile_read(bContext *C, const char *filepath, ReportList *reports)
 
 bool BKE_blendfile_read_from_memory(
         bContext *C, const void *filebuf, int filelength,
-        ReportList *reports, bool update_defaults)
+        ReportList *reports, int skip_flags, bool update_defaults)
 {
 	BlendFileData *bfd;
 
-	bfd = BLO_read_from_memory(filebuf, filelength, reports);
+	bfd = BLO_read_from_memory(filebuf, filelength, reports, skip_flags);
 	if (bfd) {
 		if (update_defaults)
 			BLO_update_defaults_startup_blend(bfd->main);
@@ -397,11 +401,11 @@ bool BKE_blendfile_read_from_memory(
 /* memfile is the undo buffer */
 bool BKE_blendfile_read_from_memfile(
         bContext *C, struct MemFile *memfile,
-        ReportList *reports)
+        ReportList *reports, int skip_flags)
 {
 	BlendFileData *bfd;
 
-	bfd = BLO_read_from_memfile(CTX_data_main(C), G.main->name, memfile, reports);
+	bfd = BLO_read_from_memfile(CTX_data_main(C), G.main->name, memfile, reports, skip_flags);
 	if (bfd) {
 		/* remove the unused screens and wm */
 		while (bfd->main->wm.first)
@@ -424,13 +428,13 @@ int BKE_blendfile_read_userdef(const char *filepath, ReportList *reports)
 	BlendFileData *bfd;
 	int retval = BKE_BLENDFILE_READ_FAIL;
 
-	bfd = BLO_read_from_file(filepath, reports);
+	bfd = BLO_read_from_file(filepath, reports, BLO_READ_SKIP_NONE);
 	if (bfd) {
 		if (bfd->user) {
 			retval = BKE_BLENDFILE_READ_OK_USERPREFS;
 
 			/* only here free userdef themes... */
-			BKE_blender_userdef_free();
+			BKE_blender_userdef_free(&U);
 
 			U = *bfd->user;
 			MEM_freeN(bfd->user);
