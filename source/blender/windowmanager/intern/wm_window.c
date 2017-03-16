@@ -60,6 +60,7 @@
 
 
 #include "RNA_access.h"
+#include "RNA_define.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -74,6 +75,7 @@
 #include "ED_fileselect.h"
 
 #include "UI_interface.h"
+#include "UI_interface_icons.h"
 
 #include "PIL_time.h"
 
@@ -81,6 +83,8 @@
 #include "GPU_extensions.h"
 #include "GPU_init_exit.h"
 #include "GPU_immediate.h"
+
+#include "UI_resources.h"
 
 /* for assert */
 #ifndef NDEBUG
@@ -228,6 +232,7 @@ void wm_window_free(bContext *C, wmWindowManager *wm, wmWindow *win)
 
 	wm_ghostwindow_destroy(win);
 
+	BKE_workspace_instance_hook_free(win->workspace_hook, G.main);
 	MEM_freeN(win->stereo3d_format);
 
 	MEM_freeN(win);
@@ -248,25 +253,47 @@ static int find_free_winid(wmWindowManager *wm)
 /* don't change context itself */
 wmWindow *wm_window_new(bContext *C)
 {
+	Main *bmain = CTX_data_main(C);
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *win = MEM_callocN(sizeof(wmWindow), "window");
-	
+
 	BLI_addtail(&wm->windows, win);
 	win->winid = find_free_winid(wm);
 
 	win->stereo3d_format = MEM_callocN(sizeof(Stereo3dFormat), "Stereo 3D Format (window)");
+	win->workspace_hook = BKE_workspace_instance_hook_create(bmain);
 
 	return win;
 }
 
+/**
+ * A higher level version of copy that tests the new window can be added.
+ */
+static wmWindow *wm_window_new_test(bContext *C)
+{
+	wmWindow *win = wm_window_new(C);
+
+	WM_check(C);
+
+	if (win->ghostwin) {
+		WM_event_add_notifier(C, NC_WINDOW | NA_ADDED, NULL);
+		return win;
+	}
+	else {
+		wmWindowManager *wm = CTX_wm_manager(C);
+		wm_window_close(C, wm, win);
+		return NULL;
+	}
+}
 
 /* part of wm_window.c api */
-wmWindow *wm_window_copy(bContext *C, wmWindow *win_src)
+wmWindow *wm_window_copy(bContext *C, wmWindow *win_src, const bool duplicate_layout)
 {
-	Main *bmain = CTX_data_main(C);
 	wmWindow *win_dst = wm_window_new(C);
-	WorkSpace *workspace_src = WM_window_get_active_workspace(win_src);
+	WorkSpace *workspace = WM_window_get_active_workspace(win_src);
+	WorkSpaceLayout *layout_old = WM_window_get_active_layout(win_src);
 	Scene *scene = WM_window_get_active_scene(win_src);
+	WorkSpaceLayout *layout_new;
 	bScreen *new_screen;
 
 	win_dst->posx = win_src->posx + 10;
@@ -275,7 +302,9 @@ wmWindow *wm_window_copy(bContext *C, wmWindow *win_src)
 	win_dst->sizey = win_src->sizey;
 
 	win_dst->scene = scene;
-	WM_window_set_active_workspace(win_dst, ED_workspace_duplicate(workspace_src, bmain, win_dst));
+	WM_window_set_active_workspace(win_dst, workspace);
+	layout_new = duplicate_layout ? ED_workspace_layout_duplicate(workspace, layout_old, win_dst) : layout_old;
+	WM_window_set_active_layout(win_dst, workspace, layout_new);
 	new_screen = WM_window_get_active_screen(win_dst);
 	BLI_strncpy(win_dst->screenname, new_screen->id.name + 2, sizeof(win_dst->screenname));
 	ED_screen_global_areas_create(C, win_dst);
@@ -293,12 +322,12 @@ wmWindow *wm_window_copy(bContext *C, wmWindow *win_src)
  * A higher level version of copy that tests the new window can be added.
  * (called from the operator directly)
  */
-wmWindow *wm_window_copy_test(bContext *C, wmWindow *win_src)
+wmWindow *wm_window_copy_test(bContext *C, wmWindow *win_src, const bool duplicate_layout)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *win_dst;
 
-	win_dst = wm_window_copy(C, win_src);
+	win_dst = wm_window_copy(C, win_src, duplicate_layout);
 
 	WM_check(C);
 
@@ -343,6 +372,7 @@ void wm_window_close(bContext *C, wmWindowManager *wm, wmWindow *win)
 	else {
 		bScreen *screen = WM_window_get_active_screen(win);
 		WorkSpace *workspace = WM_window_get_active_workspace(win);
+		WorkSpaceLayout *layout = BKE_workspace_active_layout_get(win->workspace_hook);
 
 		BLI_remlink(&wm->windows, win);
 		
@@ -363,11 +393,9 @@ void wm_window_close(bContext *C, wmWindowManager *wm, wmWindow *win)
 		/* if temp screen, delete it after window free (it stops jobs that can access it) */
 		if (screen && screen->temp) {
 			Main *bmain = CTX_data_main(C);
-			WorkSpaceLayout *layout = BKE_workspace_active_layout_get(workspace);
 
 			BLI_assert(BKE_workspace_layout_screen_get(layout) == screen);
 			BKE_workspace_layout_remove(workspace, layout, bmain);
-			BKE_libblock_free(bmain, workspace);
 		}
 	}
 }
@@ -681,16 +709,17 @@ wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
 	}
 
 	if (WM_window_get_active_workspace(win) == NULL) {
-		WorkSpace *workspace = ED_workspace_add(bmain, "Temp", scene->render_layers.first);
+		WorkSpace *workspace = WM_window_get_active_workspace(win_prev);
 		WM_window_set_active_workspace(win, workspace);
 	}
 
 	if (screen == NULL) {
 		/* add new screen layout */
-		WorkSpaceLayout *layout = ED_workspace_layout_add(WM_window_get_active_workspace(win), win, "temp");
+		WorkSpace *workspace = WM_window_get_active_workspace(win);
+		WorkSpaceLayout *layout = ED_workspace_layout_add(workspace, win, "temp");
 
 		screen = BKE_workspace_layout_screen_get(layout);
-		WM_window_set_active_layout(win, layout);
+		WM_window_set_active_layout(win, workspace, layout);
 	}
 
 	if (WM_window_get_active_scene(win) != scene) {
@@ -756,17 +785,104 @@ int wm_window_close_exec(bContext *C, wmOperator *UNUSED(op))
 	return OPERATOR_FINISHED;
 }
 
-/* operator callback */
-int wm_window_duplicate_exec(bContext *C, wmOperator *UNUSED(op))
+static bScreen *wm_window_new_find_screen(wmOperator *op, WorkSpace *workspace)
 {
-	wmWindow *win_src = CTX_wm_window(C);
-	bool ok;
+	ListBase *listbase = BKE_workspace_layouts_get(workspace);
+	const int layout_id = RNA_enum_get(op->ptr, "screen");
+	int i = 0;
 
-	ok = (wm_window_copy_test(C, win_src) != NULL);
+	BKE_workspace_layout_iter_begin(layout, listbase->first)
+	{
+		if (i++ == layout_id) {
+			return BKE_workspace_layout_screen_get(layout);
+		}
+	}
+	BKE_workspace_layout_iter_end;
 
-	return ok ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
+	BLI_assert(0);
+	return NULL;
 }
 
+/* new window operator callback */
+int wm_window_new_exec(bContext *C, wmOperator *op)
+{
+	wmWindow *win_src = CTX_wm_window(C);
+	WorkSpace *workspace = WM_window_get_active_workspace(win_src);
+	bScreen *screen = wm_window_new_find_screen(op, workspace);
+	wmWindow *win_dst;
+
+	if (screen->winid) {
+		/* Screen is already used, duplicate window and screen */
+		win_dst = wm_window_copy_test(C, win_src, true);
+	}
+	else if ((win_dst = wm_window_new_test(C))) {
+		/* New window with a different screen but same workspace */
+		WM_window_set_active_workspace(win_dst, workspace);
+		WM_window_set_active_screen(win_dst, workspace, screen);
+		screen->winid = win_dst->winid;
+		CTX_wm_window_set(C, win_dst);
+		ED_screen_refresh(CTX_wm_manager(C), win_dst);
+	}
+
+	return (win_dst != NULL) ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
+}
+
+int wm_window_new_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+{
+	wmWindow *win = CTX_wm_window(C);
+	WorkSpace *workspace = WM_window_get_active_workspace(win);
+	ListBase *listbase = BKE_workspace_layouts_get(workspace);
+
+	if (BLI_listbase_count_ex(listbase, 2) == 1) {
+		RNA_enum_set(op->ptr, "screen", 0);
+		return wm_window_new_exec(C, op);
+	}
+	else {
+		return WM_enum_search_invoke_previews(C, op, 6, 2);
+	}
+}
+
+struct EnumPropertyItem *wm_window_new_screen_itemf(
+        bContext *C, struct PointerRNA *UNUSED(ptr), struct PropertyRNA *UNUSED(prop), bool *r_free)
+{
+	wmWindow *win = CTX_wm_window(C);
+	WorkSpace *workspace = WM_window_get_active_workspace(win);
+	ListBase *listbase = BKE_workspace_layouts_get(workspace);
+	EnumPropertyItem *item = NULL;
+	EnumPropertyItem tmp = {0, "", 0, "", ""};
+	int value = 0, totitem = 0;
+	int count_act_screens = 0;
+	/* XXX setting max number of windows to 20. We'd need support
+	 * for dynamic strings in EnumPropertyItem.name to avoid this. */
+	static char active_screens[20][MAX_NAME + 12];
+
+	BKE_workspace_layout_iter_begin(layout, listbase->first)
+	{
+		bScreen *screen = BKE_workspace_layout_screen_get(layout);
+		if (screen->winid) {
+			BLI_snprintf(active_screens[count_act_screens], sizeof(*active_screens), "%s (Duplicate)",
+			             screen->id.name + 2);
+			tmp.name = active_screens[count_act_screens++];
+		}
+		else {
+			tmp.name = screen->id.name + 2;
+		}
+
+		tmp.value = value;
+		tmp.identifier = screen->id.name;
+		UI_id_icon_render(C, CTX_data_scene(C), &screen->id, true, false);
+		tmp.icon = BKE_icon_id_ensure(&screen->id);
+
+		RNA_enum_item_add(&item, &totitem, &tmp);
+		value++;
+	}
+	BKE_workspace_layout_iter_end;
+
+	RNA_enum_item_end(&item, &totitem);
+	*r_free = true;
+
+	return item;
+}
 
 /* fullscreen operator callback */
 int wm_window_fullscreen_toggle_exec(bContext *C, wmOperator *UNUSED(op))
@@ -1774,7 +1890,7 @@ void WM_windows_scene_data_sync(const ListBase *win_lb, Scene *scene)
 {
 	for (wmWindow *win = win_lb->first; win; win = win->next) {
 		if (WM_window_get_active_scene(win) == scene) {
-			ED_workspace_scene_data_sync(WM_window_get_active_workspace(win), scene);
+			ED_workspace_scene_data_sync(win->workspace_hook, scene);
 		}
 	}
 }
@@ -1809,20 +1925,21 @@ void WM_window_change_active_scene(Main *bmain, bContext *C, wmWindow *win, Scen
 
 WorkSpace *WM_window_get_active_workspace(const wmWindow *win)
 {
-	return win->workspace;
+	return BKE_workspace_active_get(win->workspace_hook);
 }
 void WM_window_set_active_workspace(wmWindow *win, WorkSpace *workspace)
 {
-	win->workspace = workspace;
+	BKE_workspace_active_set(win->workspace_hook, workspace);
 }
 
 WorkSpaceLayout *WM_window_get_active_layout(const wmWindow *win)
 {
-	return (LIKELY(win->workspace != NULL) ? BKE_workspace_active_layout_get(win->workspace): NULL);
+	const WorkSpace *workspace = WM_window_get_active_workspace(win);
+	return (LIKELY(workspace != NULL) ? BKE_workspace_active_layout_get(win->workspace_hook): NULL);
 }
-void WM_window_set_active_layout(wmWindow *win, WorkSpaceLayout *layout)
+void WM_window_set_active_layout(wmWindow *win, WorkSpace *workspace, WorkSpaceLayout *layout)
 {
-	BKE_workspace_active_layout_set(win->workspace, layout);
+	BKE_workspace_active_layout_set_for_workspace(win->workspace_hook, workspace, layout);
 }
 
 /**
@@ -1830,12 +1947,13 @@ void WM_window_set_active_layout(wmWindow *win, WorkSpaceLayout *layout)
  */
 bScreen *WM_window_get_active_screen(const wmWindow *win)
 {
+	const WorkSpace *workspace = WM_window_get_active_workspace(win);
 	/* May be NULL in rare cases like closing Blender */
-	return (LIKELY(win->workspace != NULL) ? BKE_workspace_active_screen_get(win->workspace) : NULL);
+	return (LIKELY(workspace != NULL) ? BKE_workspace_active_screen_get(win->workspace_hook) : NULL);
 }
-void WM_window_set_active_screen(wmWindow *win, bScreen *screen)
+void WM_window_set_active_screen(wmWindow *win, WorkSpace *workspace, bScreen *screen)
 {
-	BKE_workspace_active_screen_set(win->workspace, screen);
+	BKE_workspace_active_screen_set(win->workspace_hook, workspace, screen);
 }
 
 bool WM_window_is_temp_screen(const wmWindow *win)

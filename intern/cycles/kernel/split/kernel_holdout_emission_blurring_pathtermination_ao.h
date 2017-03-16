@@ -16,67 +16,49 @@
 
 CCL_NAMESPACE_BEGIN
 
-/* Note on kernel_holdout_emission_blurring_pathtermination_ao kernel.
- * This is the sixth kernel in the ray tracing logic. This is the fifth
- * of the path iteration kernels. This kernel takes care of the logic to process
- * "material of type holdout", indirect primitive emission, bsdf blurring,
- * probabilistic path termination and AO.
+/* This kernel takes care of the logic to process "material of type holdout",
+ * indirect primitive emission, bsdf blurring, probabilistic path termination
+ * and AO.
  *
- * This kernels determines the rays for which a shadow_blocked() function associated with AO should be executed.
- * Those rays for which a shadow_blocked() function for AO must be executed are marked with flag RAY_SHADOW_RAY_CAST_ao and
- * enqueued into the queue QUEUE_SHADOW_RAY_CAST_AO_RAYS
+ * This kernels determines the rays for which a shadow_blocked() function
+ * associated with AO should be executed. Those rays for which a
+ * shadow_blocked() function for AO must be executed are marked with flag
+ * RAY_SHADOW_RAY_CAST_ao and enqueued into the queue
+ * QUEUE_SHADOW_RAY_CAST_AO_RAYS
  *
  * Ray state of rays that are terminated in this kernel are changed to RAY_UPDATE_BUFFER
  *
- * The input and output are as follows,
+ * Note on Queues:
+ * This kernel fetches rays from the queue QUEUE_ACTIVE_AND_REGENERATED_RAYS
+ * and processes only the rays of state RAY_ACTIVE.
+ * There are different points in this kernel where a ray may terminate and
+ * reach RAY_UPDATE_BUFFER state. These rays are enqueued into
+ * QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS queue. These rays will still be present
+ * in QUEUE_ACTIVE_AND_REGENERATED_RAYS queue, but since their ray-state has
+ * been changed to RAY_UPDATE_BUFFER, there is no problem.
  *
- * rng_coop ---------------------------------------------|--- kernel_holdout_emission_blurring_pathtermination_ao ---|--- Queue_index (QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS)
- * throughput_coop --------------------------------------|                                                           |--- PathState_coop
- * PathRadiance_coop ------------------------------------|                                                           |--- throughput_coop
- * Intersection_coop ------------------------------------|                                                           |--- L_transparent_coop
- * PathState_coop ---------------------------------------|                                                           |--- per_sample_output_buffers
- * L_transparent_coop -----------------------------------|                                                           |--- PathRadiance_coop
- * sd ---------------------------------------------------|                                                           |--- ShaderData
- * ray_state --------------------------------------------|                                                           |--- ray_state
- * Queue_data (QUEUE_ACTIVE_AND_REGENERATED_RAYS) -------|                                                           |--- Queue_data (QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS)
- * Queue_index (QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS) ---|                                                           |--- AOAlpha_coop
- * kg (globals) -----------------------------------------|                                                           |--- AOBSDF_coop
- * parallel_samples -------------------------------------|                                                           |--- AOLightRay_coop
- * per_sample_output_buffers ----------------------------|                                                           |
- * sw ---------------------------------------------------|                                                           |
- * sh ---------------------------------------------------|                                                           |
- * sx ---------------------------------------------------|                                                           |
- * sy ---------------------------------------------------|                                                           |
- * stride -----------------------------------------------|                                                           |
- * work_array -------------------------------------------|                                                           |
- * queuesize --------------------------------------------|                                                           |
- * start_sample -----------------------------------------|                                                           |
- *
- * Note on Queues :
- * This kernel fetches rays from the queue QUEUE_ACTIVE_AND_REGENERATED_RAYS and processes only
- * the rays of state RAY_ACTIVE.
- * There are different points in this kernel where a ray may terminate and reach RAY_UPDATE_BUFFER
- * state. These rays are enqueued into QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS queue. These rays will
- * still be present in QUEUE_ACTIVE_AND_REGENERATED_RAYS queue, but since their ray-state has been
- * changed to RAY_UPDATE_BUFFER, there is no problem.
- *
- * State of queues when this kernel is called :
+ * State of queues when this kernel is called:
  * At entry,
- * QUEUE_ACTIVE_AND_REGENERATED_RAYS will be filled with RAY_ACTIVE and RAY_REGENERATED rays
- * QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS will be filled with RAY_TO_REGENERATE rays.
- * QUEUE_SHADOW_RAY_CAST_AO_RAYS will be empty.
+ *   - QUEUE_ACTIVE_AND_REGENERATED_RAYS will be filled with RAY_ACTIVE and
+ *     RAY_REGENERATED rays
+ *   - QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS will be filled with
+ *     RAY_TO_REGENERATE rays.
+ *   - QUEUE_SHADOW_RAY_CAST_AO_RAYS will be empty.
  * At exit,
- * QUEUE_ACTIVE_AND_REGENERATED_RAYS will be filled with RAY_ACTIVE, RAY_REGENERATED and RAY_UPDATE_BUFFER rays
- * QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS will be filled with RAY_TO_REGENERATE and RAY_UPDATE_BUFFER rays
- * QUEUE_SHADOW_RAY_CAST_AO_RAYS will be filled with rays marked with flag RAY_SHADOW_RAY_CAST_AO
+ *   - QUEUE_ACTIVE_AND_REGENERATED_RAYS will be filled with RAY_ACTIVE,
+ *     RAY_REGENERATED and RAY_UPDATE_BUFFER rays.
+ *   - QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS will be filled with
+ *     RAY_TO_REGENERATE and RAY_UPDATE_BUFFER rays.
+ *   - QUEUE_SHADOW_RAY_CAST_AO_RAYS will be filled with rays marked with
+ *     flag RAY_SHADOW_RAY_CAST_AO
  */
-ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(KernelGlobals *kg)
+ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(
+        KernelGlobals *kg,
+        ccl_local_param BackgroundAOLocals *locals)
 {
-	ccl_local unsigned int local_queue_atomics_bg;
-	ccl_local unsigned int local_queue_atomics_ao;
 	if(ccl_local_id(0) == 0 && ccl_local_id(1) == 0) {
-		local_queue_atomics_bg = 0;
-		local_queue_atomics_ao = 0;
+		locals->queue_atomics_bg = 0;
+		locals->queue_atomics_ao = 0;
 	}
 	ccl_barrier(CCL_LOCAL_MEM_FENCE);
 
@@ -271,7 +253,7 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(KernelGlobal
 	                        QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS,
 	                        enqueue_flag,
 	                        kernel_split_params.queue_size,
-	                        &local_queue_atomics_bg,
+	                        &locals->queue_atomics_bg,
 	                        kernel_split_state.queue_data,
 	                        kernel_split_params.queue_index);
 
@@ -281,11 +263,10 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(KernelGlobal
 	                        QUEUE_SHADOW_RAY_CAST_AO_RAYS,
 	                        enqueue_flag_AO_SHADOW_RAY_CAST,
 	                        kernel_split_params.queue_size,
-	                        &local_queue_atomics_ao,
+	                        &locals->queue_atomics_bg,
 	                        kernel_split_state.queue_data,
 	                        kernel_split_params.queue_index);
 #endif
 }
 
 CCL_NAMESPACE_END
-

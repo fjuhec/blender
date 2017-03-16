@@ -55,6 +55,7 @@ struct SceneCollection;
 struct SceneLayer;
 
 struct SceneLayer *BKE_scene_layer_render_active(const struct Scene *scene);
+struct SceneLayer *BKE_scene_layer_context_active_ex(const struct Main *bmain, const struct Scene *scene);
 struct SceneLayer *BKE_scene_layer_context_active(const struct Scene *scene);
 struct SceneLayer *BKE_scene_layer_add(struct Scene *scene, const char *name);
 

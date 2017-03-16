@@ -151,12 +151,15 @@ static void id_search_listbase_cb(const bContext *C, void *arg_template, const c
 
 	/* ID listbase */
 	for (id = lb->first; id; id = id->next) {
+		PointerRNA ptr;
+
+		RNA_id_pointer_create(id, &ptr);
+
 		if (!((flag & PROP_ID_SELF_CHECK) && id == id_from)) {
+			char *name;
 
 			/* use filter */
 			if (RNA_property_type(template->prop) == PROP_POINTER) {
-				PointerRNA ptr;
-				RNA_id_pointer_create(id, &ptr);
 				if (RNA_property_pointer_poll(&template->ptr, template->prop, &ptr) == 0)
 					continue;
 			}
@@ -166,18 +169,25 @@ static void id_search_listbase_cb(const bContext *C, void *arg_template, const c
 				if ((id->name[2] == '.') && (str[0] != '.'))
 					continue;
 
-			if (*str == '\0' || BLI_strcasestr(id->name + 2, str)) {
+			name = RNA_struct_name_get_alloc(&ptr, NULL, 0, NULL);
+			if (*str == '\0' || BLI_strcasestr(name, str)) {
 				/* +1 is needed because BKE_id_ui_prefix used 3 letter prefix
 				 * followed by ID_NAME-2 characters from id->name
 				 */
 				char name_ui[MAX_ID_NAME + 1];
+
 				BKE_id_ui_prefix(name_ui, id);
+				/* override id name with the one we got from RNA (usually the same), but keep prefix */
+				BLI_strncpy(name_ui + 3, name, sizeof(name_ui) - 3);
 
 				iconid = ui_id_icon_get(C, id, template->preview);
 
-				if (false == UI_search_item_add(items, name_ui, id, iconid))
+				if (!UI_search_item_add(items, name_ui, id, iconid)) {
+					MEM_freeN(name);
 					break;
+				}
 			}
+			MEM_freeN(name);
 		}
 	}
 }
@@ -465,7 +475,8 @@ static void template_ID(
 		but = uiDefBlockButN(block, id_search_menu, MEM_dupallocN(template), "", 0, 0, width, height,
 		                     TIP_(template_id_browse_tip(type)));
 		if (use_preview_icon) {
-			ui_def_but_icon(but, ui_id_icon_get(C, id, use_big_size), UI_HAS_ICON | UI_BUT_ICON_PREVIEW);
+			int icon = id ? ui_id_icon_get(C, id, use_big_size) : RNA_struct_ui_icon(type);
+			ui_def_but_icon(but, icon, UI_HAS_ICON | UI_BUT_ICON_PREVIEW);
 		}
 		else {
 			ui_def_but_icon(but, RNA_struct_ui_icon(type), UI_HAS_ICON);
@@ -492,13 +503,14 @@ static void template_ID(
 
 	/* text button with name */
 	if (id) {
+		PropertyRNA *prop = RNA_struct_name_property(type);
 		char name[UI_MAX_NAME_STR];
 		const bool user_alert = (id->us <= 0);
 
 		//text_idbutton(id, name);
 		name[0] = '\0';
-		but = uiDefButR(block, UI_BTYPE_TEXT, 0, name, 0, 0, UI_UNIT_X * 6, UI_UNIT_Y,
-		                &idptr, "name", -1, 0, 0, -1, -1, RNA_struct_ui_description(type));
+		but = uiDefButR_prop(block, UI_BTYPE_TEXT, 0, name, 0, 0, UI_UNIT_X * 6, UI_UNIT_Y,
+		                     &idptr, prop, -1, 0, 0, -1, -1, RNA_struct_ui_description(type));
 		UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template), SET_INT_IN_POINTER(UI_ID_RENAME));
 		if (user_alert) UI_but_flag_enable(but, UI_BUT_REDALERT);
 

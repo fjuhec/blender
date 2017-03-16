@@ -35,6 +35,7 @@
 #include "DNA_screen_types.h"
 #include "DNA_genfile.h"
 
+#include "BKE_blender.h"
 #include "BKE_collection.h"
 #include "BKE_layer.h"
 #include "BKE_main.h"
@@ -43,6 +44,7 @@
 #include "BKE_workspace.h"
 
 #include "BLI_listbase.h"
+#include "BLI_mempool.h"
 #include "BLI_string.h"
 
 #include "BLO_readfile.h"
@@ -64,12 +66,16 @@ static void do_version_workspaces_before_lib_link(Main *main)
 
 	for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
 		WorkSpace *ws = BKE_workspace_add(main, screen->id.name + 2);
-		WorkSpaceLayout *layout = BKE_workspace_layout_add(ws, screen);
-
-		BKE_workspace_active_layout_set(ws, layout);
+		BKE_workspace_layout_add(ws, screen, screen->id.name + 2);
 
 		/* For compatibility, the workspace should be activated that represents the active
 		 * screen of the old file. This is done in blo_do_versions_after_linking_270. */
+	}
+
+	for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
+		for (wmWindow *win = wm->windows.first; win; win = win->next) {
+			win->workspace_hook = BKE_workspace_instance_hook_create(main);
+		}
 	}
 }
 
@@ -83,13 +89,21 @@ static void do_version_workspaces_before_lib_link(Main *main)
  */
 static void do_version_workspaces_after_lib_link(Main *main)
 {
+	for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
+		WorkSpace *workspace = BLI_findstring(&main->workspaces, screen->id.name + 2, offsetof(ID, name) + 2);
+
+		BKE_workspace_render_layer_set(workspace, screen->scene->render_layers.first);
+	}
+
 	for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
 		for (wmWindow *win = wm->windows.first; win; win = win->next) {
 			bScreen *screen = win->screen;
+			WorkSpace *workspace = BLI_findstring(&main->workspaces, screen->id.name + 2, offsetof(ID, name) + 2);
+			ListBase *layouts = BKE_workspace_layouts_get(workspace);
 
-			win->workspace = BLI_findstring(&main->workspaces, screen->id.name + 2, offsetof(ID, name) + 2);
+			BKE_workspace_active_set(win->workspace_hook, workspace);
 			win->scene = screen->scene;
-			BKE_workspace_render_layer_set(win->workspace, win->scene->render_layers.first);
+			BKE_workspace_active_layout_set(win->workspace_hook, layouts->first);
 
 			/* Deprecated from now on! */
 			win->screen = NULL;
@@ -101,6 +115,9 @@ static void do_version_workspaces_after_lib_link(Main *main)
 void do_versions_after_linking_280(FileData *fd, Main *main)
 {
 	if (!MAIN_VERSION_ATLEAST(main, 280, 0)) {
+		char version[48];
+		BKE_blender_version_string(version, sizeof(version), main->versionfile, main->subversionfile, false, false);
+
 		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
 			/* since we don't have access to FileData we check the (always valid) first render layer instead */
 			if (scene->render_layers.first == NULL) {
@@ -114,7 +131,7 @@ void do_versions_after_linking_280(FileData *fd, Main *main)
 				for (int i = 0; i < 20; i++) {
 					char name[MAX_NAME];
 
-					BLI_snprintf(name, sizeof(collections[i]->name), "%d", i + 1);
+					BLI_snprintf(name, sizeof(collections[i]->name), "Collection %d [converted from %s]", i + 1, version);
 					collections[i] = BKE_collection_add(scene, sc_master, name);
 
 					is_visible[i] = (scene->lay & (1 << i));
@@ -213,6 +230,11 @@ void do_versions_after_linking_280(FileData *fd, Main *main)
 					}
 				}
 
+				/* Fallback name if only one layer was found in the original file */
+				if (BLI_listbase_count_ex(&sc_master->scene_collections, 2) == 1) {
+					BKE_collection_rename(scene, sc_master->scene_collections.first, "Default Collection");
+				}
+
 				/* remove bases once and for all */
 				for (Base *base = scene->base.first; base; base = base->next) {
 					id_us_min(&base->object->id);
@@ -230,11 +252,48 @@ void do_versions_after_linking_280(FileData *fd, Main *main)
 		}
 	}
 
+	if (!MAIN_VERSION_ATLEAST(main, 280, 0)) {
+		BKE_workspace_iter_begin(workspace, main->workspaces.first)
+		{
+			SceneLayer *layer = BKE_workspace_render_layer_get(workspace);
+			const bool is_single_collection = BLI_listbase_count_ex(&layer->layer_collections, 2) == 1;
+			ListBase *layouts = BKE_workspace_layouts_get(workspace);
+
+			BKE_workspace_layout_iter_begin(layout, layouts->first)
+			{
+				bScreen *screen = BKE_workspace_layout_screen_get(layout);
+
+				for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
+					for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
+						if (sl->spacetype == SPACE_OUTLINER) {
+							SpaceOops *soutliner = (SpaceOops *)sl;
+
+							soutliner->outlinevis = SO_ACT_LAYER;
+
+							if (is_single_collection) {
+								/* Create a tree store element for the collection. This is normally
+								 * done in check_persistent (outliner_tree.c), but we need to access
+								 * it here :/ (expand element if it's the only one) */
+								TreeStoreElem *tselem = BLI_mempool_alloc(soutliner->treestore);
+								tselem->type = TSE_LAYER_COLLECTION;
+								tselem->id = layer->layer_collections.first;
+								tselem->nr = tselem->used = 0;
+								tselem->flag &= ~TSE_CLOSED;
+							}
+						}
+					}
+				}
+			}
+			BKE_workspace_layout_iter_end;
+		}
+		BKE_workspace_iter_end;
+	}
+
 	{
 		if (!DNA_struct_find(fd->filesdna, "SpaceTopBar")) {
 			for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
 				for (wmWindow *win = wm->windows.first; win; win = win->next) {
-					const bScreen *screen = BKE_workspace_active_screen_get(win->workspace);
+					const bScreen *screen = BKE_workspace_active_screen_get(win->workspace_hook);
 					const short size_y = 2 * HEADERY;
 
 					/* XXX duplicated from ED_screen_global_areas_create */

@@ -112,12 +112,31 @@ bool ED_workspace_change(bContext *C, wmWindowManager *wm, wmWindow *win, WorkSp
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
 	WorkSpace *workspace_old = WM_window_get_active_workspace(win);
-	bScreen *screen_old = BKE_workspace_active_screen_get(workspace_old);
-	bScreen *screen_new = BKE_workspace_active_screen_get(workspace_new);
+	bScreen *screen_old = BKE_workspace_active_screen_get(win->workspace_hook);
+	/* ED_workspace_duplicate may have stored a layout to activate once the workspace gets activated. */
+	WorkSpaceLayout *layout_temp_store = BKE_workspace_temp_layout_store_get(win->workspace_hook);
+	WorkSpaceLayout *layout_new = layout_temp_store ?
+	                                  layout_temp_store :
+	                                  BKE_workspace_active_layout_get_from_workspace(win->workspace_hook,
+	                                                                                 workspace_new);
+	bScreen *screen_new = BKE_workspace_layout_screen_get(layout_new);
 
+	if (workspace_old == workspace_new) {
+		/* Could also return true, everything that needs to be done was done (nothing :P), but nothing changed */
+		return false;
+	}
+
+	BKE_workspace_temp_layout_store_set(win->workspace_hook, NULL);
+
+	if (screen_new->winid) {
+		/* screen is already used */
+		layout_new = ED_workspace_layout_duplicate(workspace_new, layout_new, win);
+		screen_new = BKE_workspace_layout_screen_get(layout_new);
+	}
 	screen_new = screen_change_prepare(screen_old, screen_new, bmain, C, win);
 
 	if (screen_new) {
+		WM_window_set_active_layout(win, workspace_new, layout_new);
 		WM_window_set_active_workspace(win, workspace_new);
 
 		/* update screen *after* changing workspace - which also causes the actual screen change */
@@ -134,11 +153,12 @@ bool ED_workspace_change(bContext *C, wmWindowManager *wm, wmWindow *win, WorkSp
 }
 
 /**
- * Duplicate a workspace including its layouts.
+ * Duplicate a workspace including its layouts. Does not activate the workspace, but
+ * it stores the screen-layout to be activated (BKE_workspace_temp_layout_store)
  */
 WorkSpace *ED_workspace_duplicate(WorkSpace *workspace_old, Main *bmain, wmWindow *win)
 {
-	WorkSpaceLayout *layout_active_old = BKE_workspace_active_layout_get(workspace_old);
+	WorkSpaceLayout *layout_active_old = BKE_workspace_active_layout_get(win->workspace_hook);
 	ListBase *layouts_old = BKE_workspace_layouts_get(workspace_old);
 	WorkSpace *workspace_new = ED_workspace_add(bmain, BKE_workspace_name_get(workspace_old),
 	                                            BKE_workspace_render_layer_get(workspace_old));
@@ -150,10 +170,7 @@ WorkSpace *ED_workspace_duplicate(WorkSpace *workspace_old, Main *bmain, wmWindo
 		WorkSpaceLayout *layout_new = ED_workspace_layout_duplicate(workspace_new, layout_old, win);
 
 		if (layout_active_old == layout_old) {
-			bScreen *screen_new = BKE_workspace_layout_screen_get(layout_new);
-
-			screen_new_activate_prepare(win, screen_new);
-			BKE_workspace_active_layout_set(workspace_new, layout_new);
+			BKE_workspace_temp_layout_store_set(win->workspace_hook, layout_new);
 		}
 	}
 	BKE_workspace_layout_iter_end;
@@ -185,9 +202,9 @@ bool ED_workspace_delete(Main *bmain, bContext *C, wmWindowManager *wm, wmWindow
  * Some editor data may need to be synced with scene data (3D View camera and layers).
  * This function ensures data is synced for editors in active layout of \a workspace.
  */
-void ED_workspace_scene_data_sync(WorkSpace *workspace, Scene *scene)
+void ED_workspace_scene_data_sync(WorkSpaceInstanceHook *hook, Scene *scene)
 {
-	bScreen *screen = BKE_workspace_active_screen_get(workspace);
+	bScreen *screen = BKE_workspace_active_screen_get(hook);
 	BKE_screen_view3d_scene_sync(screen, scene);
 }
 

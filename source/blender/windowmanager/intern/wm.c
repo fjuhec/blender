@@ -107,6 +107,17 @@ void WM_operator_free(wmOperator *op)
 	MEM_freeN(op);
 }
 
+void WM_operator_free_all_after(wmWindowManager *wm, struct wmOperator *op)
+{
+	op = op->next;
+	while (op != NULL) {
+		wmOperator *op_next = op->next;
+		BLI_remlink(&wm->operators, op);
+		WM_operator_free(op);
+		op = op_next;
+	}
+}
+
 /**
  * Use with extreme care!,
  * properties, customdata etc - must be compatible.
@@ -149,18 +160,23 @@ static void wm_reports_free(wmWindowManager *wm)
 void wm_operator_register(bContext *C, wmOperator *op)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
-	int tot;
+	int tot = 0;
 
 	BLI_addtail(&wm->operators, op);
-	tot = BLI_listbase_count(&wm->operators);
-	
-	while (tot > MAX_OP_REGISTERED) {
-		wmOperator *opt = wm->operators.first;
-		BLI_remlink(&wm->operators, opt);
-		WM_operator_free(opt);
-		tot--;
+
+	/* only count registered operators */
+	while (op) {
+		wmOperator *op_prev = op->prev;
+		if (op->type->flag & OPTYPE_REGISTER) {
+			tot += 1;
+		}
+		if (tot > MAX_OP_REGISTERED) {
+			BLI_remlink(&wm->operators, op);
+			WM_operator_free(op);
+		}
+		op = op_prev;
 	}
-	
+
 	/* so the console is redrawn */
 	WM_event_add_notifier(C, NC_SPACE | ND_SPACE_INFO_REPORT, NULL);
 	WM_event_add_notifier(C, NC_WM | ND_HISTORY, NULL);
@@ -417,11 +433,12 @@ void wm_add_default(bContext *C)
 	wmWindowManager *wm = BKE_libblock_alloc(CTX_data_main(C), ID_WM, "WinMan");
 	wmWindow *win;
 	bScreen *screen = CTX_wm_screen(C); /* XXX from file read hrmf */
+	struct WorkSpace *workspace = G.main->workspaces.last;
 
 	CTX_wm_manager_set(C, wm);
 	win = wm_window_new(C);
-	WM_window_set_active_workspace(win, G.main->workspaces.last);
-	WM_window_set_active_screen(win, screen);
+	WM_window_set_active_workspace(win, workspace);
+	WM_window_set_active_screen(win, workspace, screen);
 	screen->winid = win->winid;
 	BLI_strncpy(win->screenname, screen->id.name + 2, sizeof(win->screenname));
 	ED_screen_global_areas_create(C, win);

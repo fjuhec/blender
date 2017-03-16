@@ -2773,15 +2773,42 @@ static void lib_link_workspaces(FileData *fd, Main *bmain)
 	BKE_workspace_iter_end;
 }
 
-static void direct_link_workspace(FileData *fd, WorkSpace *ws)
+static void direct_link_workspace(FileData *fd, WorkSpace *workspace, const Main *main)
 {
-	WorkSpaceLayout *act_layout = BKE_workspace_active_layout_get(ws);
+	ListBase *hook_layout_assignments = BKE_workspace_hook_layout_assignments_get(workspace);
 
-	link_list(fd, BKE_workspace_layouts_get(ws));
+	link_list(fd, BKE_workspace_layouts_get(workspace));
+	link_list(fd, hook_layout_assignments);
 
-	act_layout = newdataadr(fd, act_layout);
-	BKE_workspace_active_layout_set(ws, act_layout);
+	for (struct WorkSpaceDataAssignment *assignment = hook_layout_assignments->first;
+	     assignment;
+	     assignment = BKE_workspace_assignment_next_get(assignment))
+	{
+		void *parent, *data;
+		BKE_workspace_assignment_data_get(assignment, &parent, &data);
+		parent = newglobadr(fd, parent); /* data from window - need to access through global oldnew-map */
+		data = newdataadr(fd, data);
+		BKE_workspace_assignment_data_set(assignment, parent, data);
+	}
+
+	/* Same issue/fix as in direct_link_scene_update_screen_data: Can't read workspace data
+	 * when reading windows, so have to update windows after/when reading workspaces. */
+	for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
+		for (wmWindow *win = wm->windows.first; win; win = win->next) {
+			WorkSpaceLayout *act_layout = newdataadr(fd, BKE_workspace_active_layout_get(win->workspace_hook));
+			if (act_layout) {
+				BKE_workspace_active_layout_set(win->workspace_hook, act_layout);
+			}
+		}
+	}
 }
+
+static void lib_link_workspace_instance_hook(FileData *fd, WorkSpaceInstanceHook *hook, ID *id)
+{
+	WorkSpace *workspace = BKE_workspace_active_get(hook);
+	BKE_workspace_active_set(hook, newlibadr(fd, id->lib, workspace));
+}
+
 
 /* ************ READ MOTION PATHS *************** */
 
@@ -6038,16 +6065,26 @@ static void direct_link_layer_collections(FileData *fd, ListBase *lb)
 }
 
 /**
- * bScreen data may use pointers to Scene data. bScreens are however read before Scenes, meaning
- * FileData.datamap doesn't contain the Scene data when reading bScreens. This function should
- * be called during Scene direct linking to update needed pointers within bScreen data.
+ * bScreen data may use pointers to Scene data. We can't read this when reading screens
+ * though, so we have to update screens when/after reading scenes. This function should
+ * be called during Scene direct linking to update needed pointers within screen data
+ * (as in everything visible in the window, not just bScreen).
  *
  * Maybe we could change read order so that screens are read after scene. But guess that
- * would be asking for trouble. Depending on the write/read order sounds ugly anyway...
+ * would be asking for trouble. Depending on the write/read order sounds ugly anyway,
+ * Workspaces already depend on it...
  * -- Julian
  */
-static void direct_link_scene_update_screens(FileData *fd, const ListBase *screens)
+static void direct_link_scene_update_screen_data(
+        FileData *fd, const ListBase *workspaces, const ListBase *screens)
 {
+	BKE_workspace_iter_begin(workspace, workspaces->first)
+	{
+		SceneLayer *layer = newdataadr(fd, BKE_workspace_render_layer_get(workspace));
+		BKE_workspace_render_layer_set(workspace, layer);
+	}
+	BKE_workspace_iter_end;
+
 	for (bScreen *screen = screens->first; screen; screen = screen->id.next) {
 		for (ScrArea *area = screen->areabase.first; area; area = area->next) {
 			for (SpaceLink *sl = area->spacedata.first; sl; sl = sl->next) {
@@ -6343,7 +6380,7 @@ static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
 		res->data = newdataadr(fd, res->data);
 	}
 
-	direct_link_scene_update_screens(fd, &bmain->screen);
+	direct_link_scene_update_screen_data(fd, &bmain->workspaces, &bmain->screen);
 }
 
 /* ************ READ WM ***************** */
@@ -6356,6 +6393,12 @@ static void direct_link_windowmanager(FileData *fd, wmWindowManager *wm)
 	link_list(fd, &wm->windows);
 	
 	for (win = wm->windows.first; win; win = win->next) {
+		WorkSpaceInstanceHook *hook = win->workspace_hook;
+
+		win->workspace_hook = newdataadr(fd, hook);
+		/* we need to restore a pointer to this later when reading workspaces, so store in global oldnew-map */
+		oldnewmap_insert(fd->globmap, hook, win->workspace_hook, 0);
+
 		win->ghostwin = NULL;
 		win->eventstate = NULL;
 		win->curswin = NULL;
@@ -6420,7 +6463,7 @@ static void lib_link_windowmanager(FileData *fd, Main *main)
 		if (wm->id.tag & LIB_TAG_NEED_LINK) {
 			for (win = wm->windows.first; win; win = win->next) {
 				win->scene = newlibadr(fd, wm->id.lib, win->scene);
-				win->workspace = newlibadr(fd, wm->id.lib, win->workspace);
+				lib_link_workspace_instance_hook(fd, win->workspace_hook, &wm->id);
 				/* deprecated, but needed for versioning (will be NULL'ed then) */
 				win->screen = newlibadr(fd, NULL, win->screen);
 			}
@@ -6793,9 +6836,9 @@ static void lib_link_clipboard_restore(struct IDNameLib_Map *id_map)
 	BKE_sequencer_base_recursive_apply(&seqbase_clipboard, lib_link_seq_clipboard_cb, id_map);
 }
 
-static void lib_link_workspace_scene_data_restore(WorkSpace *workspace, Scene *scene)
+static void lib_link_workspace_scene_data_restore(wmWindow *win, Scene *scene)
 {
-	bScreen *screen = BKE_workspace_active_screen_get(workspace);
+	bScreen *screen = BKE_workspace_active_screen_get(win->workspace_hook);
 
 	for (ScrArea *area = screen->areabase.first; area; area = area->next) {
 		for (SpaceLink *sl = area->spacedata.first; sl; sl = sl->next) {
@@ -7077,18 +7120,21 @@ void blo_lib_link_restore(Main *newmain, wmWindowManager *curwm, Scene *curscene
 	BKE_workspace_iter_end;
 
 	for (wmWindow *win = curwm->windows.first; win; win = win->next) {
+		WorkSpace *workspace = BKE_workspace_active_get(win->workspace_hook);
+		ID *workspace_id = BKE_workspace_id_get(workspace);
 		Scene *oldscene = win->scene;
-		WorkSpace *workspace = restore_pointer_by_name(id_map, (ID *)win->workspace, USER_REAL);
 
+		workspace = restore_pointer_by_name(id_map, workspace_id, USER_REAL);
+		BKE_workspace_active_set(win->workspace_hook, workspace);
 		win->scene = restore_pointer_by_name(id_map, (ID *)win->scene, USER_REAL);
 		if (win->scene == NULL) {
 			win->scene = curscene;
 		}
-		win->workspace = workspace;
+		BKE_workspace_active_set(win->workspace_hook, workspace);
 
 		/* keep cursor location through undo */
 		copy_v3_v3(win->scene->cursor, oldscene->cursor);
-		lib_link_workspace_scene_data_restore(workspace, win->scene);
+		lib_link_workspace_scene_data_restore(win, win->scene);
 
 		BLI_assert(win->screen == NULL);
 	}
@@ -8477,7 +8523,7 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 			direct_link_cachefile(fd, (CacheFile *)id);
 			break;
 		case ID_WS:
-			direct_link_workspace(fd, (WorkSpace *)id);
+			direct_link_workspace(fd, (WorkSpace *)id, main);
 			break;
 	}
 	
@@ -8801,7 +8847,12 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
 			bhead = read_global(bfd, fd, bhead);
 			break;
 		case USER:
-			bhead = read_userdef(bfd, fd, bhead);
+			if (fd->skip_flags & BLO_READ_SKIP_USERDEF) {
+				bhead = blo_nextbhead(fd, bhead);
+			}
+			else {
+				bhead = read_userdef(bfd, fd, bhead);
+			}
 			break;
 		case ENDB:
 			bhead = NULL;

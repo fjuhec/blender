@@ -982,16 +982,15 @@ static int area_dupli_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	wmWindow *newwin, *win = CTX_wm_window(C);
 	Scene *scene;
-	WorkSpace *workspace_old = WM_window_get_active_workspace(win);
-	WorkSpace *workspace_new;
+	WorkSpace *workspace = WM_window_get_active_workspace(win);
+	WorkSpaceLayout *layout_old = WM_window_get_active_layout(win);
 	WorkSpaceLayout *layout_new;
-	bScreen *newsc, *sc;
+	bScreen *newsc;
 	ScrArea *sa;
 	rcti rect;
 	
 	win = CTX_wm_window(C);
 	scene = CTX_data_scene(C);
-	sc = CTX_wm_screen(C);
 	sa = CTX_wm_area(C);
 	
 	/* XXX hrmf! */
@@ -1020,14 +1019,11 @@ static int area_dupli_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
 	newwin->scene = scene;
 
-	workspace_new = ED_workspace_add(CTX_data_main(C), BKE_workspace_name_get(workspace_old),
-	                                 BKE_workspace_render_layer_get(workspace_old));
-	WM_window_set_active_workspace(newwin, workspace_new);
-
+	WM_window_set_active_workspace(newwin, workspace);
 	/* allocs new screen and adds to newly created window, using window size */
-	layout_new = ED_workspace_layout_add(workspace_new, newwin, sc->id.name + 2);
+	layout_new = ED_workspace_layout_add(workspace, newwin, BKE_workspace_layout_name_get(layout_old));
 	newsc = BKE_workspace_layout_screen_get(layout_new);
-	WM_window_set_active_layout(newwin, layout_new);
+	WM_window_set_active_layout(newwin, workspace, layout_new);
 	ED_screen_global_areas_create(C, newwin);
 
 	/* copy area to new screen */
@@ -2874,10 +2870,23 @@ static void SCREEN_OT_spacedata_cleanup(wmOperatorType *ot)
 
 static int repeat_last_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	wmOperator *lastop = CTX_wm_manager(C)->operators.last;
-	
-	if (lastop)
+	wmWindowManager *wm = CTX_wm_manager(C);
+	wmOperator *lastop = wm->operators.last;
+
+	/* Seek last registered operator */
+	while (lastop) {
+		if (lastop->type->flag & OPTYPE_REGISTER) {
+			break;
+		}
+		else {
+			lastop = lastop->prev;
+		}
+	}
+
+	if (lastop) {
+		WM_operator_free_all_after(wm, lastop);
 		WM_operator_repeat(C, lastop);
+	}
 	
 	return OPERATOR_CANCELLED;
 }
@@ -2912,8 +2921,9 @@ static int repeat_history_invoke(bContext *C, wmOperator *op, const wmEvent *UNU
 	layout = UI_popup_menu_layout(pup);
 	
 	for (i = items - 1, lastop = wm->operators.last; lastop; lastop = lastop->prev, i--)
-		if (WM_operator_repeat_check(C, lastop))
+		if ((lastop->type->flag & OPTYPE_REGISTER) && WM_operator_repeat_check(C, lastop)) {
 			uiItemIntO(layout, RNA_struct_ui_name(lastop->type->srna), ICON_NONE, op->type->idname, "index", i);
+		}
 	
 	UI_popup_menu_end(C, pup);
 	
@@ -3889,8 +3899,8 @@ static void SCREEN_OT_userpref_show(struct wmOperatorType *ot)
 static int screen_new_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	wmWindow *win = CTX_wm_window(C);
-	WorkSpace *workspace = CTX_wm_workspace(C);
-	WorkSpaceLayout *layout_old = BKE_workspace_active_layout_get(workspace);
+	WorkSpace *workspace = BKE_workspace_active_get(win->workspace_hook);
+	WorkSpaceLayout *layout_old = BKE_workspace_active_layout_get(win->workspace_hook);
 	WorkSpaceLayout *layout_new;
 
 	layout_new = ED_workspace_layout_duplicate(workspace, layout_old, win);

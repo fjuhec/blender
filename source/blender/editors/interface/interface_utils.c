@@ -262,23 +262,11 @@ void ui_rna_collection_search_cb(const struct bContext *C, void *arg, const char
 				continue;
 		}
 
+		name = RNA_struct_name_get_alloc(&itemptr, NULL, 0, NULL); /* could use the string length here */
+		iconid = 0;
 		if (itemptr.type && RNA_struct_is_ID(itemptr.type)) {
-			char name_ui[MAX_ID_NAME];
-
 			id = itemptr.data;
-
-#if 0       /* this name is used for a string comparison and can't be modified, TODO */
-			/* if ever enabled, make name_ui be MAX_ID_NAME+1 */
-			BKE_id_ui_prefix(name_ui, id);
-#else
-			BLI_strncpy(name_ui, id->name + 2, sizeof(name_ui));
-#endif
-			name = BLI_strdup(name_ui);
 			iconid = ui_id_icon_get(C, id, false);
-		}
-		else {
-			name = RNA_struct_name_get_alloc(&itemptr, NULL, 0, NULL); /* could use the string length here */
-			iconid = 0;
 		}
 
 		if (name) {

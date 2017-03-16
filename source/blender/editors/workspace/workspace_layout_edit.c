@@ -50,8 +50,8 @@ WorkSpaceLayout *ED_workspace_layout_add(WorkSpace *workspace, wmWindow *win, co
 	const int screen_size_x = WM_window_screen_pixels_x(win);
 	const int screen_size_y = WM_window_screen_pixels_y(win);
 
-	bScreen *screen = screen_add(win, name, screen_size_x, screen_size_y);
-	WorkSpaceLayout *layout = BKE_workspace_layout_add(workspace, screen);
+	bScreen *screen = screen_add(name, screen_size_x, screen_size_y);
+	WorkSpaceLayout *layout = BKE_workspace_layout_add(workspace, screen, name);
 
 	return layout;
 }
@@ -59,6 +59,7 @@ WorkSpaceLayout *ED_workspace_layout_add(WorkSpace *workspace, wmWindow *win, co
 WorkSpaceLayout *ED_workspace_layout_duplicate(WorkSpace *workspace, const WorkSpaceLayout *layout_old, wmWindow *win)
 {
 	bScreen *screen_old = BKE_workspace_layout_screen_get(layout_old);
+	const char *name = BKE_workspace_layout_name_get(layout_old);
 	bScreen *screen_new;
 	WorkSpaceLayout *layout_new;
 
@@ -66,7 +67,7 @@ WorkSpaceLayout *ED_workspace_layout_duplicate(WorkSpace *workspace, const WorkS
 		return NULL; /* XXX handle this case! */
 	}
 
-	layout_new = ED_workspace_layout_add(workspace, win, screen_old->id.name + 2);
+	layout_new = ED_workspace_layout_add(workspace, win, name);
 	screen_new = BKE_workspace_layout_screen_get(layout_new);
 	screen_data_copy(screen_new, screen_old);
 
@@ -77,11 +78,12 @@ static bool workspace_layout_delete_doit(bContext *C, WorkSpace *workspace,
                                          WorkSpaceLayout *layout_old, WorkSpaceLayout *layout_new)
 {
 	Main *bmain = CTX_data_main(C);
+	wmWindow *win = CTX_wm_window(C);
 	bScreen *screen_new = BKE_workspace_layout_screen_get(layout_new);
 
 	ED_screen_change(C, screen_new);
 
-	if (BKE_workspace_active_layout_get(workspace) != layout_old) {
+	if (BKE_workspace_active_layout_get(win->workspace_hook) != layout_old) {
 		BKE_workspace_layout_remove(workspace, layout_old, bmain);
 		return true;
 	}
@@ -160,7 +162,8 @@ static bool workspace_layout_cycle_iter_cb(const WorkSpaceLayout *layout, void *
 
 bool ED_workspace_layout_cycle(bContext *C, WorkSpace *workspace, const short direction)
 {
-	WorkSpaceLayout *old_layout = BKE_workspace_active_layout_get(workspace);
+	wmWindow *win = CTX_wm_window(C);
+	WorkSpaceLayout *old_layout = BKE_workspace_active_layout_get(win->workspace_hook);
 	WorkSpaceLayout *new_layout;
 	const bScreen *old_screen = BKE_workspace_layout_screen_get(old_layout);
 	ScrArea *sa = CTX_wm_area(C);

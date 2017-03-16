@@ -175,7 +175,6 @@ struct SpaceTopBar *CTX_wm_space_topbar(const bContext *C);
 
 void CTX_wm_manager_set(bContext *C, struct wmWindowManager *wm);
 void CTX_wm_window_set(bContext *C, struct wmWindow *win);
-void CTX_wm_workspace_set(bContext *C, struct WorkSpace *ws);
 void CTX_wm_screen_set(bContext *C, struct bScreen *screen); /* to be removed */
 void CTX_wm_area_set(bContext *C, struct ScrArea *sa);
 void CTX_wm_region_set(bContext *C, struct ARegion *region);

@@ -1110,7 +1110,7 @@ static void current_screen_compat(Main *mainvar, bScreen **r_screen, Scene **r_s
 		}
 	}
 
-	*r_screen = (window) ? BKE_workspace_active_screen_get(window->workspace) : NULL;
+	*r_screen = (window) ? BKE_workspace_active_screen_get(window->workspace_hook) : NULL;
 	*r_scene = (window) ? window->scene : NULL;
 }
 
@@ -2931,6 +2931,7 @@ static void write_windowmanagers(WriteData *wd, ListBase *lb)
 
 		for (wmWindow *win = wm->windows.first; win; win = win->next) {
 			writestruct(wd, DATA, wmWindow, 1, win);
+			writestruct(wd, DATA, WorkSpaceInstanceHook, 1, win->workspace_hook);
 			writestruct(wd, DATA, Stereo3dFormat, 1, win->stereo3d_format);
 		}
 	}
@@ -3876,8 +3877,11 @@ static void write_workspaces(WriteData *wd, ListBase *idbase)
 	BKE_workspace_iter_begin(workspace, idbase->first)
 	{
 		ListBase *layouts = BKE_workspace_layouts_get(workspace);
+		ListBase *assignment_list = BKE_workspace_hook_layout_assignments_get(workspace);
+
 		writestruct(wd, ID_WS, WorkSpace, 1, workspace);
 		writelist(wd, DATA, WorkSpaceLayout, layouts);
+		writelist(wd, DATA, WorkSpaceDataAssignment, assignment_list);
 	}
 	BKE_workspace_iter_end;
 }
@@ -4046,6 +4050,7 @@ static bool write_file_handle(
 	mywrite_flush(wd);
 
 	write_windowmanagers(wd, &mainvar->wm);
+	write_workspaces(wd, &mainvar->workspaces); /* order matters: after wm, before scene */
 	write_screens(wd, &mainvar->screen);
 	write_movieclips(wd, &mainvar->movieclip);
 	write_masks(wd, &mainvar->mask);
@@ -4077,7 +4082,6 @@ static bool write_file_handle(
 	write_gpencils(wd, &mainvar->gpencil);
 	write_linestyles(wd, &mainvar->linestyle);
 	write_cachefiles(wd, &mainvar->cachefiles);
-	write_workspaces(wd, &mainvar->workspaces);
 	write_libraries(wd,  mainvar->next);
 
 	/* So changes above don't cause a 'DNA1' to be detected as changed on undo. */
