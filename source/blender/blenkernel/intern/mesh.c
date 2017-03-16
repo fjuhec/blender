@@ -2145,6 +2145,8 @@ static int split_faces_prepare_new_verts(
 				/* If vert is already used by another smooth fan, we need a new vert for this one. */
 				const int new_vert_idx = vert_used ? num_verts++ : vert_idx;
 
+				BLI_assert(*lnor_space);
+
 				if ((*lnor_space)->loops) {
 					for (LinkNode *lnode = (*lnor_space)->loops; lnode; lnode = lnode->next) {
 						const int ml_fan_idx = GET_INT_FROM_POINTER(lnode->link);
@@ -2258,16 +2260,18 @@ static int split_faces_prepare_new_edges(
 		for (int loop_idx = 0; loop_idx < mp->totloop; loop_idx++, ml++) {
 			void **eval;
 			if (!BLI_edgehash_ensure_p(edges_hash, ml_prev->v, ml->v, &eval)) {
+				const int edge_idx = ml_prev->e;
+
 				/* That edge has not been encountered yet, define it. */
-				if (BLI_BITMAP_TEST(edges_used, ml_prev->e)) {
+				if (BLI_BITMAP_TEST(edges_used, edge_idx)) {
 					/* Original edge has already been used, we need to define a new one. */
-					const int edge_idx = num_edges++;
-					*eval = SET_INT_IN_POINTER(edge_idx);
-					ml_prev->e = edge_idx;
+					const int new_edge_idx = num_edges++;
+					*eval = SET_INT_IN_POINTER(new_edge_idx);
+					ml_prev->e = new_edge_idx;
 
 					SplitFaceNewEdge *new_edge = BLI_memarena_alloc(memarena, sizeof(*new_edge));
-					new_edge->orig_index = ml_prev->e;
-					new_edge->new_index = edge_idx;
+					new_edge->orig_index = edge_idx;
+					new_edge->new_index = new_edge_idx;
 					new_edge->v1 = ml_prev->v;
 					new_edge->v2 = ml->v;
 					new_edge->next = *new_edges;
@@ -2275,7 +2279,6 @@ static int split_faces_prepare_new_edges(
 				}
 				else {
 					/* We can re-use original edge. */
-					const int edge_idx = ml_prev->e;
 					medge[edge_idx].v1 = ml_prev->v;
 					medge[edge_idx].v2 = ml->v;
 					*eval = SET_INT_IN_POINTER(edge_idx);
@@ -2308,6 +2311,7 @@ static void split_faces_split_new_verts(
 	MVert *new_mv = &mvert[mesh->totvert - 1];
 	for (int i = mesh->totvert - 1; i >= num_verts ; i--, new_mv--, new_verts = new_verts->next) {
 		BLI_assert(new_verts->new_index == i);
+		BLI_assert(new_verts->new_index != new_verts->orig_index);
 		CustomData_copy_data(&mesh->vdata, &mesh->vdata, new_verts->orig_index, i, 1);
 		if (new_verts->vnor) {
 			normal_float_to_short_v3(new_mv->no, new_verts->vnor);
@@ -2326,6 +2330,7 @@ static void split_faces_split_new_edges(
 	MEdge *new_med = &medge[mesh->totedge - 1];
 	for (int i = mesh->totedge - 1; i >= num_edges ; i--, new_med--, new_edges = new_edges->next) {
 		BLI_assert(new_edges->new_index == i);
+		BLI_assert(new_edges->new_index != new_edges->orig_index);
 		CustomData_copy_data(&mesh->edata, &mesh->edata, new_edges->orig_index, i, 1);
 		new_med->v1 = new_edges->v1;
 		new_med->v2 = new_edges->v2;
@@ -2374,19 +2379,24 @@ void BKE_mesh_split_faces(Mesh *mesh, bool free_loop_normals)
 		 * loops' vertex and edge indices to new, to-be-created split ones). */
 
 		const int num_new_edges = split_faces_prepare_new_edges(mesh, &new_edges, memarena);
-		BLI_assert(num_new_edges > 0);
+		/* We can have to split a vertex without having to add a single new edge... */
+		const bool do_edges = (num_new_edges > 0);
 
 		/* Reallocate all vert and edge related data. */
 		mesh->totvert += num_new_verts;
 		mesh->totedge += num_new_edges;
 		CustomData_realloc(&mesh->vdata, mesh->totvert);
-		CustomData_realloc(&mesh->edata, mesh->totedge);
+		if (do_edges) {
+			CustomData_realloc(&mesh->edata, mesh->totedge);
+		}
 		/* Update pointers to a newly allocated memory. */
 		BKE_mesh_update_customdata_pointers(mesh, false);
 
 		/* Perform actual split of vertices and edges. */
 		split_faces_split_new_verts(mesh, new_verts, num_new_verts);
-		split_faces_split_new_edges(mesh, new_edges, num_new_edges);
+		if (do_edges) {
+			split_faces_split_new_edges(mesh, new_edges, num_new_edges);
+		}
 	}
 
 	/* Note: after this point mesh is expected to be valid again. */
