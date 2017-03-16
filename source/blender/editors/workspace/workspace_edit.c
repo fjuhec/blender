@@ -115,10 +115,10 @@ bool ED_workspace_change(bContext *C, wmWindowManager *wm, wmWindow *win, WorkSp
 	bScreen *screen_old = BKE_workspace_active_screen_get(win->workspace_hook);
 	/* ED_workspace_duplicate may have stored a layout to activate once the workspace gets activated. */
 	WorkSpaceLayout *layout_temp_store = BKE_workspace_temp_layout_store_get(win->workspace_hook);
-	/* XXX just using first layout when activating workspace - could be smarter
-	 * (store last activated layout per workspace-window combination?) */
 	WorkSpaceLayout *layout_new = layout_temp_store ?
-	                                  layout_temp_store : BKE_workspace_layouts_get(workspace_new)->first;
+	                                  layout_temp_store :
+	                                  BKE_workspace_active_layout_get_from_workspace(win->workspace_hook,
+	                                                                                 workspace_new);
 	bScreen *screen_new = BKE_workspace_layout_screen_get(layout_new);
 
 	if (workspace_old == workspace_new) {
@@ -136,7 +136,7 @@ bool ED_workspace_change(bContext *C, wmWindowManager *wm, wmWindow *win, WorkSp
 	screen_new = screen_change_prepare(screen_old, screen_new, bmain, C, win);
 
 	if (screen_new) {
-		WM_window_set_active_layout(win, layout_new);
+		WM_window_set_active_layout(win, workspace_new, layout_new);
 		WM_window_set_active_workspace(win, workspace_new);
 
 		/* update screen *after* changing workspace - which also causes the actual screen change */

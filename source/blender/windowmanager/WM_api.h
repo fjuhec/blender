@@ -110,9 +110,10 @@ void          WM_window_change_active_scene(struct Main *bmain, struct bContext 
 struct WorkSpace *WM_window_get_active_workspace(const struct wmWindow *win) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
 void              WM_window_set_active_workspace(struct wmWindow *win, struct WorkSpace *workspace) ATTR_NONNULL(1);
 struct WorkSpaceLayout *WM_window_get_active_layout(const struct wmWindow *win) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-void                    WM_window_set_active_layout(struct wmWindow *win, struct WorkSpaceLayout *layout) ATTR_NONNULL(1);
+void                    WM_window_set_active_layout(
+        struct wmWindow *win, struct WorkSpace *workspace, struct WorkSpaceLayout *layout) ATTR_NONNULL(1);
 struct bScreen *WM_window_get_active_screen(const struct wmWindow *win) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-void            WM_window_set_active_screen(struct wmWindow *win, struct bScreen *screen) ATTR_NONNULL(1);
+void            WM_window_set_active_screen(struct wmWindow *win, struct WorkSpace *workspace, struct bScreen *screen) ATTR_NONNULL(1);
 bool WM_window_is_temp_screen(const struct wmWindow *win) ATTR_WARN_UNUSED_RESULT;
 
 /* defines for 'type' WM_window_open_temp */

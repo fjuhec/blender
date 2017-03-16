@@ -1283,7 +1283,8 @@ bool ED_screen_change(bContext *C, bScreen *sc)
 	bScreen *screen_new = screen_change_prepare(screen_old, sc, bmain, C, win);
 
 	if (screen_new) {
-		WM_window_set_active_screen(win, sc);
+		WorkSpace *workspace = BKE_workspace_active_get(win->workspace_hook);
+		WM_window_set_active_screen(win, workspace, sc);
 		screen_changed_update(C, win, screen_new);
 
 		return true;

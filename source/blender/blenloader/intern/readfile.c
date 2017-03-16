@@ -2775,7 +2775,21 @@ static void lib_link_workspaces(FileData *fd, Main *bmain)
 
 static void direct_link_workspace(FileData *fd, WorkSpace *workspace, const Main *main)
 {
+	ListBase *hook_layout_assignments = BKE_workspace_hook_layout_assignments_get(workspace);
+
 	link_list(fd, BKE_workspace_layouts_get(workspace));
+	link_list(fd, hook_layout_assignments);
+
+	for (struct WorkSpaceDataAssignment *assignment = hook_layout_assignments->first;
+	     assignment;
+	     assignment = BKE_workspace_assignment_next_get(assignment))
+	{
+		void *parent, *data;
+		BKE_workspace_assignment_data_get(assignment, &parent, &data);
+		parent = newglobadr(fd, parent); /* data from window - need to access through global oldnew-map */
+		data = newdataadr(fd, data);
+		BKE_workspace_assignment_data_set(assignment, parent, data);
+	}
 
 	/* Same issue/fix as in direct_link_scene_update_screen_data: Can't read workspace data
 	 * when reading windows, so have to update windows after/when reading workspaces. */
@@ -2792,13 +2806,7 @@ static void direct_link_workspace(FileData *fd, WorkSpace *workspace, const Main
 static void lib_link_workspace_instance_hook(FileData *fd, WorkSpaceInstanceHook *hook, ID *id)
 {
 	WorkSpace *workspace = BKE_workspace_active_get(hook);
-	WorkSpaceLayout *act_layout = BKE_workspace_active_layout_get(hook);
-
 	BKE_workspace_active_set(hook, newlibadr(fd, id->lib, workspace));
-	if (act_layout) {
-		bScreen *screen = BKE_workspace_layout_screen_get(act_layout);
-		BKE_workspace_layout_screen_set(act_layout, newlibadr(fd, id->lib, screen));
-	}
 }
 
 
@@ -6385,7 +6393,11 @@ static void direct_link_windowmanager(FileData *fd, wmWindowManager *wm)
 	link_list(fd, &wm->windows);
 	
 	for (win = wm->windows.first; win; win = win->next) {
-		win->workspace_hook = newdataadr(fd, win->workspace_hook);
+		WorkSpaceInstanceHook *hook = win->workspace_hook;
+
+		win->workspace_hook = newdataadr(fd, hook);
+		/* we need to restore a pointer to this later when reading workspaces, so store in global oldnew-map */
+		oldnewmap_insert(fd->globmap, hook, win->workspace_hook, 0);
 
 		win->ghostwin = NULL;
 		win->eventstate = NULL;

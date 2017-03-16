@@ -840,9 +840,9 @@ int set_listbasepointers(Main *main, ListBase **lb)
 	lb[INDEX_ID_OB]  = &(main->object);
 	lb[INDEX_ID_LS]  = &(main->linestyle); /* referenced by scenes */
 	lb[INDEX_ID_SCE] = &(main->scene);
+	lb[INDEX_ID_WS]  = &(main->workspaces); /* before wm, so it's freed after it! */
 	lb[INDEX_ID_WM]  = &(main->wm);
 	lb[INDEX_ID_MSK] = &(main->mask);
-	lb[INDEX_ID_WS]  = &(main->workspaces);
 
 	lb[INDEX_ID_NULL] = NULL;
 

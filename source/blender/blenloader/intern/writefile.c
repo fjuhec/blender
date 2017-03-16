@@ -3874,8 +3874,11 @@ static void write_workspaces(WriteData *wd, ListBase *idbase)
 	BKE_workspace_iter_begin(workspace, idbase->first)
 	{
 		ListBase *layouts = BKE_workspace_layouts_get(workspace);
+		ListBase *assignment_list = BKE_workspace_hook_layout_assignments_get(workspace);
+
 		writestruct(wd, ID_WS, WorkSpace, 1, workspace);
 		writelist(wd, DATA, WorkSpaceLayout, layouts);
+		writelist(wd, DATA, WorkSpaceDataAssignment, assignment_list);
 	}
 	BKE_workspace_iter_end;
 }

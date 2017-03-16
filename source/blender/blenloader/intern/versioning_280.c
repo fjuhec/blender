@@ -71,7 +71,7 @@ static void do_version_workspaces_before_lib_link(Main *main)
 
 	for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
 		for (wmWindow *win = wm->windows.first; win; win = win->next) {
-			win->workspace_hook = BKE_workspace_instance_hook_create();
+			win->workspace_hook = BKE_workspace_instance_hook_create(main);
 		}
 	}
 }
@@ -88,6 +88,7 @@ static void do_version_workspaces_after_lib_link(Main *main)
 {
 	for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
 		WorkSpace *workspace = BLI_findstring(&main->workspaces, screen->id.name + 2, offsetof(ID, name) + 2);
+
 		BKE_workspace_render_layer_set(workspace, screen->scene->render_layers.first);
 	}
 
@@ -97,10 +98,9 @@ static void do_version_workspaces_after_lib_link(Main *main)
 			WorkSpace *workspace = BLI_findstring(&main->workspaces, screen->id.name + 2, offsetof(ID, name) + 2);
 			ListBase *layouts = BKE_workspace_layouts_get(workspace);
 
-			BLI_assert(BLI_listbase_count(layouts) == 1);
 			BKE_workspace_active_set(win->workspace_hook, workspace);
-			BKE_workspace_active_layout_set(win->workspace_hook, layouts->first);
 			win->scene = screen->scene;
+			BKE_workspace_active_layout_set(win->workspace_hook, layouts->first);
 
 			/* Deprecated from now on! */
 			win->screen = NULL;

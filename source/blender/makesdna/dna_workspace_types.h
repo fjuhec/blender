@@ -50,12 +50,33 @@ typedef struct WorkSpace {
 	ID id;
 
 	ListBase layouts;
+	/* Store for each hook (so for each window) which layout has
+	 * been activated the last time this workspace was visible. */
+	ListBase hook_layout_assignments; /* WorkSpaceDataAssignment */
 
 	int object_mode; /* enum ObjectMode */
 	int pad;
 
 	struct SceneLayer *render_layer;
 } WorkSpace;
+
+/**
+ * Generic (and simple/primitive) struct for storing a history of assignments/relations
+ * of workspace data to non-workspace data in a listbase inside the workspace.
+ *
+ * We use it to store:
+ * * Active layout of each workspace per hook (= per window) -- Workspace stores an active layout for each hook.
+ *
+ * Using this we can restore the old state of a workspace if the user switches back to it.
+ */
+typedef struct WorkSpaceDataAssignment {
+	struct WorkSpaceDataAssignment *next, *prev;
+
+	/* the data used to identify the assignment (e.g. to find layout-assignment for a hook) */
+	void *parent;
+	/* The value for this parent-data/workspace assignment */
+	void *value;
+} WorkSpaceDataAssignment;
 
 /**
  * Little wrapper to store data that is going to be per window, but comming from the workspace.

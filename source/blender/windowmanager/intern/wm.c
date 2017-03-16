@@ -433,11 +433,12 @@ void wm_add_default(bContext *C)
 	wmWindowManager *wm = BKE_libblock_alloc(CTX_data_main(C), ID_WM, "WinMan");
 	wmWindow *win;
 	bScreen *screen = CTX_wm_screen(C); /* XXX from file read hrmf */
-	
+	struct WorkSpace *workspace = G.main->workspaces.last;
+
 	CTX_wm_manager_set(C, wm);
 	win = wm_window_new(C);
-	WM_window_set_active_workspace(win, G.main->workspaces.last);
-	WM_window_set_active_screen(win, screen);
+	WM_window_set_active_workspace(win, workspace);
+	WM_window_set_active_screen(win, workspace, screen);
 	screen->winid = win->winid;
 	BLI_strncpy(win->screenname, screen->id.name + 2, sizeof(win->screenname));
 	

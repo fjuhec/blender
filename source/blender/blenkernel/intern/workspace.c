@@ -56,6 +56,47 @@ static void workspace_name_set(WorkSpace *workspace, WorkSpaceLayout *layout, co
 	BLI_uniquename(&workspace->layouts, layout, "Layout", '.', offsetof(WorkSpaceLayout, name), sizeof(layout->name));
 }
 
+static void workspace_assignment_add(ListBase *assignment_list, void *parent, void *data)
+{
+	WorkSpaceDataAssignment *assignment = MEM_mallocN(sizeof(*assignment), __func__);
+	assignment->parent = parent;
+	assignment->value = data;
+	/* add to head, if we switch back to it soon we find it faster. */
+	BLI_addhead(assignment_list, assignment);
+}
+static void workspace_assignment_remove(ListBase *assignment_list, WorkSpaceDataAssignment *assignment)
+{
+	BLI_remlink(assignment_list, assignment);
+	MEM_freeN(assignment);
+}
+
+static void workspace_ensure_updated_assignment(ListBase *assignment_list, void *parent, void *data)
+{
+	for (WorkSpaceDataAssignment *assignment = assignment_list->first; assignment; assignment = assignment->next) {
+		if (assignment->parent == parent) {
+			assignment->value = data;
+			/* reinsert at the head of the list, so that more commonly used assignments are found faster. */
+			BLI_remlink(assignment_list, assignment);
+			BLI_addhead(assignment_list, assignment);
+			return;
+		}
+	}
+
+	/* no matching assignment found, add new one */
+	workspace_assignment_add(assignment_list, parent, data);
+}
+
+static void *workspace_assignment_get_data_matching_parent(const ListBase *assignment_list, const void *parent)
+{
+	for (WorkSpaceDataAssignment *assignment = assignment_list->first; assignment; assignment = assignment->next) {
+		if (assignment->parent == parent) {
+			return assignment->value;
+		}
+	}
+
+	return NULL;
+}
+
 
 /* -------------------------------------------------------------------- */
 /* Create, delete, init */
@@ -74,9 +115,16 @@ WorkSpace *BKE_workspace_add(Main *bmain, const char *name)
 	return new_ws;
 }
 
-void BKE_workspace_free(WorkSpace *ws)
+void BKE_workspace_free(WorkSpace *workspace)
 {
-	BLI_freelistN(&ws->layouts);
+	for (WorkSpaceDataAssignment *assignment = workspace->hook_layout_assignments.first, *assignment_next;
+	     assignment;
+	     assignment = assignment_next)
+	{
+		assignment_next = assignment->next;
+		workspace_assignment_remove(&workspace->hook_layout_assignments, assignment);
+	}
+	BLI_freelistN(&workspace->layouts);
 }
 
 void BKE_workspace_remove(WorkSpace *workspace, Main *bmain)
@@ -90,12 +138,40 @@ void BKE_workspace_remove(WorkSpace *workspace, Main *bmain)
 	BKE_libblock_free(bmain, workspace);
 }
 
-WorkSpaceInstanceHook *BKE_workspace_instance_hook_create(void)
+WorkSpaceInstanceHook *BKE_workspace_instance_hook_create(const Main *bmain)
 {
-	return MEM_callocN(sizeof(WorkSpaceInstanceHook), __func__);
+	WorkSpaceInstanceHook *hook = MEM_callocN(sizeof(WorkSpaceInstanceHook), __func__);
+
+	/* set an active screen-layout for each possible window/workspace combination */
+	BKE_workspace_iter_begin(workspace_iter, bmain->workspaces.first)
+	{
+		BLI_assert(BLI_listbase_count(&workspace_iter->layouts) == 1);
+		BKE_workspace_active_layout_set_for_workspace(hook, workspace_iter, workspace_iter->layouts.first);
+	}
+	BKE_workspace_iter_end;
+
+	return hook;
 }
-void BKE_workspace_instance_hook_free(WorkSpaceInstanceHook *hook)
+void BKE_workspace_instance_hook_free(WorkSpaceInstanceHook *hook, const Main *bmain)
 {
+	/* workspaces should never be freed before wm (during which we call this function) */
+	BLI_assert(!BLI_listbase_is_empty(&bmain->workspaces));
+
+	/* Free assignments for this hook */
+	BKE_workspace_iter_begin(workspace, bmain->workspaces.first)
+	{
+		for (WorkSpaceDataAssignment *assignment = workspace->hook_layout_assignments.first, *assignment_next;
+		     assignment;
+		     assignment = assignment_next)
+		{
+			assignment_next = assignment->next;
+			if (assignment->parent == hook) {
+				workspace_assignment_remove(&workspace->hook_layout_assignments, assignment);
+			}
+		}
+	}
+	BKE_workspace_iter_end;
+
 	MEM_freeN(hook);
 }
 
@@ -231,6 +307,12 @@ WorkSpace *BKE_workspace_active_get(WorkSpaceInstanceHook *hook)
 void BKE_workspace_active_set(WorkSpaceInstanceHook *hook, WorkSpace *workspace)
 {
 	hook->active = workspace;
+	if (workspace) {
+		WorkSpaceLayout *layout;
+		if ((layout = workspace_assignment_get_data_matching_parent(&workspace->hook_layout_assignments, hook))) {
+			hook->act_layout = layout;
+		}
+	}
 }
 
 ID *BKE_workspace_id_get(WorkSpace *workspace)
@@ -243,6 +325,11 @@ const char *BKE_workspace_name_get(const WorkSpace *workspace)
 	return workspace->id.name + 2;
 }
 
+WorkSpaceLayout *BKE_workspace_active_layout_get_from_workspace(
+        const WorkSpaceInstanceHook *hook, const WorkSpace *workspace)
+{
+	return workspace_assignment_get_data_matching_parent(&workspace->hook_layout_assignments, hook);
+}
 WorkSpaceLayout *BKE_workspace_active_layout_get(const WorkSpaceInstanceHook *hook)
 {
 	return hook->act_layout;
@@ -250,6 +337,13 @@ WorkSpaceLayout *BKE_workspace_active_layout_get(const WorkSpaceInstanceHook *ho
 void BKE_workspace_active_layout_set(WorkSpaceInstanceHook *hook, WorkSpaceLayout *layout)
 {
 	hook->act_layout = layout;
+}
+
+void BKE_workspace_active_layout_set_for_workspace(
+        WorkSpaceInstanceHook *hook, WorkSpace *workspace, WorkSpaceLayout *layout)
+{
+	hook->act_layout = layout;
+	workspace_ensure_updated_assignment(&workspace->hook_layout_assignments, hook, layout);
 }
 
 WorkSpaceLayout *BKE_workspace_temp_layout_store_get(const WorkSpaceInstanceHook *hook)
@@ -265,10 +359,11 @@ bScreen *BKE_workspace_active_screen_get(const WorkSpaceInstanceHook *hook)
 {
 	return hook->act_layout->screen;
 }
-void BKE_workspace_active_screen_set(WorkSpaceInstanceHook *hook, bScreen *screen)
+void BKE_workspace_active_screen_set(WorkSpaceInstanceHook *hook, WorkSpace *workspace, bScreen *screen)
 {
 	/* we need to find the WorkspaceLayout that wraps this screen */
-	hook->act_layout = BKE_workspace_layout_find(hook->active, screen);
+	WorkSpaceLayout *layout = BKE_workspace_layout_find(hook->active, screen);
+	BKE_workspace_active_layout_set_for_workspace(hook, workspace, layout);
 }
 
 #ifdef USE_WORKSPACE_MODE
@@ -331,4 +426,25 @@ WorkSpaceLayout *BKE_workspace_layout_next_get(const WorkSpaceLayout *layout)
 WorkSpaceLayout *BKE_workspace_layout_prev_get(const WorkSpaceLayout *layout)
 {
 	return layout->prev;
+}
+
+ListBase *BKE_workspace_hook_layout_assignments_get(WorkSpace *workspace)
+{
+	return &workspace->hook_layout_assignments;
+}
+
+WorkSpaceDataAssignment *BKE_workspace_assignment_next_get(const WorkSpaceDataAssignment *assignment)
+{
+	return assignment->next;
+}
+
+void BKE_workspace_assignment_data_get(const WorkSpaceDataAssignment *assignment, void **parent, void **data)
+{
+	*parent = assignment->parent;
+	*data = assignment->value;
+}
+void BKE_workspace_assignment_data_set(WorkSpaceDataAssignment *assignment, void *parent, void *data)
+{
+	assignment->parent = parent;
+	assignment->value = data;
 }
