@@ -293,7 +293,7 @@ void do_versions_after_linking_280(FileData *fd, Main *main)
 		if (!DNA_struct_find(fd->filesdna, "SpaceTopBar")) {
 			for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
 				for (wmWindow *win = wm->windows.first; win; win = win->next) {
-					const bScreen *screen = BKE_workspace_active_screen_get(win->workspace_hook);
+					bScreen *screen = BKE_workspace_active_screen_get(win->workspace_hook);
 					const short size_y = 2 * HEADERY;
 
 					/* XXX duplicated from ED_screen_global_areas_create */
@@ -326,6 +326,33 @@ void do_versions_after_linking_280(FileData *fd, Main *main)
 					}
 				}
 			}
+			BKE_workspace_iter_begin(workspace, main->workspaces.first)
+			{
+				ListBase *layouts = BKE_workspace_layouts_get(workspace);
+
+				BKE_workspace_layout_iter_begin(layout, layouts->first)
+				{
+					bScreen *screen = BKE_workspace_layout_screen_get(layout);
+
+					for (ScrArea *area = screen->areabase.first, *area_next; area; area = area_next) {
+						area_next = area->next;
+
+						if (area->spacetype == SPACE_INFO) {
+							BKE_screen_area_free(area);
+
+							BLI_remlink(&screen->areabase, area);
+
+							BKE_screen_remove_double_scredges(screen);
+							BKE_screen_remove_unused_scredges(screen);
+							BKE_screen_remove_unused_scrverts(screen);
+
+							MEM_freeN(area);
+						}
+					}
+				}
+				BKE_workspace_layout_iter_end;
+			}
+			BKE_workspace_iter_end;
 		}
 	}
 }
