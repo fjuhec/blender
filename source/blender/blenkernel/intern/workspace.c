@@ -145,7 +145,6 @@ WorkSpaceInstanceHook *BKE_workspace_instance_hook_create(const Main *bmain)
 	/* set an active screen-layout for each possible window/workspace combination */
 	BKE_workspace_iter_begin(workspace_iter, bmain->workspaces.first)
 	{
-		BLI_assert(BLI_listbase_count(&workspace_iter->layouts) == 1);
 		BKE_workspace_active_layout_set_for_workspace(hook, workspace_iter, workspace_iter->layouts.first);
 	}
 	BKE_workspace_iter_end;
