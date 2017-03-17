@@ -847,17 +847,18 @@ struct EnumPropertyItem *wm_window_new_screen_itemf(
 	BKE_workspace_layout_iter_begin(layout, listbase->first)
 	{
 		bScreen *screen = BKE_workspace_layout_screen_get(layout);
+		const char *layout_name = BKE_workspace_layout_name_get(layout);
+
 		if (screen->winid) {
-			BLI_snprintf(active_screens[count_act_screens], sizeof(*active_screens), "%s (Duplicate)",
-			             screen->id.name + 2);
+			BLI_snprintf(active_screens[count_act_screens], sizeof(*active_screens), "%s (Duplicate)", layout_name);
 			tmp.name = active_screens[count_act_screens++];
 		}
 		else {
-			tmp.name = screen->id.name + 2;
+			tmp.name = layout_name;
 		}
 
 		tmp.value = value;
-		tmp.identifier = screen->id.name;
+		tmp.identifier = layout_name;
 		UI_id_icon_render(C, CTX_data_scene(C), &screen->id, true, false);
 		tmp.icon = BKE_icon_id_ensure(&screen->id);
 
