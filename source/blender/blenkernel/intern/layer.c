@@ -76,18 +76,16 @@ SceneLayer *BKE_scene_layer_render_active(const Scene *scene)
 }
 
 /**
- * Returns the SceneLayer to be used for drawing, outliner, and
- * other context related areas.
+ * Returns the SceneLayer to be used for drawing, outliner, and other context related areas.
  */
-SceneLayer *BKE_scene_layer_context_active_ex(const Main *bmain, const Scene *scene)
+SceneLayer *BKE_scene_layer_context_active_ex(const Main *bmain, const Scene *UNUSED(scene))
 {
-	/* XXX iterating over windows here is not so nice, we could pass the workspace or the window as argument. */
+	/* XXX We should really pass the workspace as argument, but would require
+	 * some bigger changes since it's often not available where we call this.
+	 * Just working around this by getting active window from WM for now */
 	for (wmWindowManager *wm = bmain->wm.first; wm; wm = wm->id.next) {
-		for (wmWindow *win = wm->windows.first; win; win = win->next) {
-			if (win->scene == scene) {
-				return BKE_workspace_render_layer_get(BKE_workspace_active_get(win->workspace_hook));
-			}
-		}
+		const WorkSpace *workspace = BKE_workspace_active_get(wm->winactive->workspace_hook);
+		return BKE_workspace_render_layer_get(workspace);
 	}
 
 	return NULL;
