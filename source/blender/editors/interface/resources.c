@@ -2877,7 +2877,22 @@ void init_userdef_do_versions(void)
 	 * (keep this block even if it becomes empty).
 	 */
 	{
+		/* interface_widgets.c */
+		struct uiWidgetColors wcol_tab = {
+			{255, 255, 255, 255},
+			{83, 83, 83, 255},
+			{114, 114, 114, 255},
+			{90, 90, 90, 255},
+
+			{0, 0, 0, 255},
+			{0, 0, 0, 255},
+
+			0,
+			0, 0
+		};
+
 		for (bTheme *btheme = U.themes.first; btheme; btheme = btheme->next) {
+			btheme->tui.wcol_tab = wcol_tab;
 			btheme->ttopbar = btheme->tv3d;
 		}
 	}
