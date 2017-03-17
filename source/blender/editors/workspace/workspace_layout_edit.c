@@ -91,7 +91,7 @@ static bool workspace_layout_delete_doit(bContext *C, WorkSpace *workspace,
 	return false;
 }
 
-static bool workspace_layout_set_poll(const WorkSpaceLayout *layout)
+bool workspace_layout_set_poll(const WorkSpaceLayout *layout)
 {
 	const bScreen *screen = BKE_workspace_layout_screen_get(layout);
 

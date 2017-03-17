@@ -80,5 +80,8 @@ void	SCREEN_OT_screencast(struct wmOperatorType *ot);
 /* screen_ops.c */
 void	region_blend_start(struct bContext *C, struct ScrArea *sa, struct ARegion *ar);
 
+/* workspace_layout_edit.c */
+bool workspace_layout_set_poll(const struct WorkSpaceLayout *layout);
+
 
 #endif /* __SCREEN_INTERN_H__ */
