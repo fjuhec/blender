@@ -1719,6 +1719,9 @@ Base *_setlooper_base_step(Scene **sce_iter, Base *base)
 
 		/* for the first loop we should get the layer from context */
 		SceneLayer *sl = BKE_scene_layer_context_active((*sce_iter));
+		/* TODO For first scene (non-background set), we should pass the render layer as argument.
+		 * In some cases we want it to be the workspace one, in other the scene one. */
+		TODO_LAYER;
 
 		if (sl->object_bases.first) {
 			return (Base *)sl->object_bases.first;
