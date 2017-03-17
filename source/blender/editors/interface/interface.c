@@ -4620,7 +4620,10 @@ void UI_but_string_info_get(bContext *C, uiBut *but, ...)
 			if (ptr && prop) {
 				if (!item) {
 					int i;
-					
+
+					/* so the context is passed to itemf functions */
+					WM_operator_properties_sanitize(ptr, false);
+
 					RNA_property_enum_items_gettexted(C, ptr, prop, &items, &totitems, &free_items);
 					for (i = 0, item = items; i < totitems; i++, item++) {
 						if (item->identifier[0] && item->value == value)
