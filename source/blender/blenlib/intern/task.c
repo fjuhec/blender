@@ -55,15 +55,20 @@
 #define LOCALQUEUE_SIZE 1
 
 #ifndef NDEBUG
-#  define ASSERT_THREAD_ID(scheduler, thread_id) \
-	do { \
-		if (!BLI_thread_is_main()) { \
-			TaskThread *thread = pthread_getspecific(scheduler->tls_id_key); \
-			BLI_assert(thread_id == thread->id); \
-		} \
-		else { \
-			BLI_assert(thread_id == 0); \
-		} \
+#  define ASSERT_THREAD_ID(scheduler, thread_id)                              \
+	do {                                                                      \
+		if (!BLI_thread_is_main()) {                                          \
+			TaskThread *thread = pthread_getspecific(scheduler->tls_id_key);  \
+			if (thread == NULL) {                                             \
+				BLI_assert(thread_id == 0);                                   \
+			}                                                                 \
+			else {                                                            \
+				BLI_assert(thread_id == thread->id);                          \
+			}                                                                 \
+		}                                                                     \
+		else {                                                                \
+			BLI_assert(thread_id == 0);                                       \
+		}                                                                     \
 	} while (false)
 #else
 #  define ASSERT_THREAD_ID(scheduler, thread_id)
@@ -579,7 +584,17 @@ static TaskPool *task_pool_create_ex(TaskScheduler *scheduler,
 	}
 	else {
 		TaskThread *thread = pthread_getspecific(scheduler->tls_id_key);
-		pool->thread_id = thread->id;
+		/* NOTE: It is possible that pool is created from non-main thread
+		 * which isn't a scheduler thread. In this case pthread's TLS will
+		 * be NULL and we can safely consider thread id 0 for the main
+		 * thread of this pool (the one which does wort_and_wait()).
+		 */
+		if (thread == NULL) {
+			pool->thread_id = 0;
+		}
+		else {
+			pool->thread_id = thread->id;
+		}
 	}
 
 #ifdef DEBUG_STATS
@@ -719,7 +734,7 @@ void BLI_task_pool_work_and_wait(TaskPool *pool)
 	TaskThreadLocalStorage *tls = get_task_tls(pool, pool->thread_id);
 	TaskScheduler *scheduler = pool->scheduler;
 
-	if (atomic_fetch_and_and_uint8((uint8_t*)&pool->is_suspended, 0)) {
+	if (atomic_fetch_and_and_uint8((uint8_t *)&pool->is_suspended, 0)) {
 		if (pool->num_suspended) {
 			task_pool_num_increase(pool, pool->num_suspended);
 			BLI_mutex_lock(&scheduler->queue_mutex);
@@ -854,7 +869,7 @@ BLI_INLINE bool parallel_range_next_iter_get(
         int * __restrict iter, int * __restrict count)
 {
 	uint32_t uval = atomic_fetch_and_add_uint32((uint32_t *)(&state->iter), state->chunk_size);
-	int previter = *(int32_t*)&uval;
+	int previter = *(int32_t *)&uval;
 
 	*iter = previter;
 	*count = max_ii(0, min_ii(state->chunk_size, state->stop - previter));
