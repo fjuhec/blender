@@ -1463,6 +1463,7 @@ int ui_but_is_pushed_ex(uiBut *but, double *value)
 				break;
 			case UI_BTYPE_ROW:
 			case UI_BTYPE_LISTROW:
+			case UI_BTYPE_TAB:
 				UI_GET_BUT_VALUE_INIT(but, *value);
 				/* support for rna enum buts */
 				if (but->rnaprop && (RNA_property_flag(but->rnaprop) & PROP_ENUM_FLAG)) {
@@ -3914,6 +3915,8 @@ uiBut *uiDefIconTextButO_ptr(uiBlock *block, int type, wmOperatorType *ot, int o
 uiBut *uiDefIconTextButO(uiBlock *block, int type, const char *opname, int opcontext, int icon, const char *str, int x, int y, short width, short height, const char *tip)
 {
 	wmOperatorType *ot = WM_operatortype_find(opname, 0);
+	if (str[0] == '\0') 
+		return uiDefIconButO_ptr(block, type, ot, opcontext, icon, x, y, width, height, tip);
 	return uiDefIconTextButO_ptr(block, type, ot, opcontext, icon, str, x, y, width, height, tip);
 }
 

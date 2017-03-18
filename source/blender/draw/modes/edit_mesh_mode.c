@@ -166,8 +166,7 @@ static void EDIT_MESH_engine_init(void)
 		                                       datatoc_edit_overlay_facedot_frag_glsl, NULL);
 	}
 	if (!overlay_mix_sh) {
-		overlay_mix_sh = DRW_shader_create(datatoc_edit_overlay_mix_vert_glsl, NULL,
-		                                   datatoc_edit_overlay_mix_frag_glsl, NULL);
+		overlay_mix_sh = DRW_shader_create_fullscreen(datatoc_edit_overlay_mix_frag_glsl, NULL);
 	}
 	if (!overlay_facefill_sh) {
 		overlay_facefill_sh = DRW_shader_create(datatoc_edit_overlay_facefill_vert_glsl, NULL,
@@ -397,7 +396,7 @@ static void EDIT_MESH_draw_scene(void)
 		
 		/* Render wires on a separate framebuffer */
 		DRW_framebuffer_bind(fbl->occlude_wire_fb);
-		DRW_framebuffer_clear(true, true, clearcol, 1.0f);
+		DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
 		DRW_draw_pass(psl->normals);
 		DRW_draw_pass(psl->edit_face_occluded);
 
