@@ -17,13 +17,12 @@
 CCL_NAMESPACE_BEGIN
 
 
-ccl_device void kernel_subsurface_scatter(KernelGlobals *kg)
+ccl_device void kernel_subsurface_scatter(KernelGlobals *kg,
+                                          ccl_local_param unsigned int* local_queue_atomics)
 {
 #ifdef __SUBSURFACE__
-
-	ccl_local unsigned int local_queue_atomics;
 	if(ccl_local_id(0) == 0 && ccl_local_id(1) == 0) {
-		local_queue_atomics = 0;
+		*local_queue_atomics = 0;
 	}
 	ccl_barrier(CCL_LOCAL_MEM_FENCE);
 
@@ -47,12 +46,12 @@ ccl_device void kernel_subsurface_scatter(KernelGlobals *kg)
 	}
 #endif
 
+	char enqueue_flag = 0;
+
 #ifndef __COMPUTE_DEVICE_GPU__
 	if(ray_index != QUEUE_EMPTY_SLOT) {
 #endif
 
-
-	char enqueue_flag = 0;
 	ccl_global char *ray_state = kernel_split_state.ray_state;
 	ccl_global PathState *state = &kernel_split_state.path_state[ray_index];
 	PathRadiance *L = &kernel_split_state.path_radiance[ray_index];
@@ -89,7 +88,7 @@ ccl_device void kernel_subsurface_scatter(KernelGlobals *kg)
 	                        QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS,
 	                        enqueue_flag,
 	                        kernel_split_params.queue_size,
-	                        &local_queue_atomics,
+	                        local_queue_atomics,
 	                        kernel_split_state.queue_data,
 	                        kernel_split_params.queue_index);
 

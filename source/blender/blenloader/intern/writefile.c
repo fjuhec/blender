@@ -3973,6 +3973,10 @@ static bool write_file_handle(
 					case ID_IP:
 						/* Do nothing, deprecated. */
 						break;
+					default:
+						/* Should never be reached. */
+						BLI_assert(0);
+						break;
 				}
 
 				if (!ELEM(override_storage, NULL, main) && id->override) {
