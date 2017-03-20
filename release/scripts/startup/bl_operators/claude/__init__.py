@@ -749,5 +749,12 @@ class CLAUDE_PT_messages(Panel, ClaudePanel):
         layout.label("Some stupid test info...", icon='INFO')
 
 
+classes = (
+    AssetEngineClaude,
+    CLAUDE_PT_messages,
+)
+
+
 if __name__ == "__main__":  # only for live edit.
-    bpy.utils.register_module(__name__)
+    for cls in classes:
+        bpy.utils.register_class(cls)

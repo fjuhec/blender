@@ -838,5 +838,15 @@ class AMBERAIO_PT_tags(Panel, AmberPanel):
         self.layout.template_list("AMBERAIO_UL_tags_filter", "", ae, "tags", ae, "active_tag_index")
 
 
+classes = (
+    AmberAIOTag,
+    AssetEngineAmberAIO,
+    AMBERAIO_UL_tags_filter,
+    AMBERAIO_PT_options,
+    AMBERAIO_PT_tags,
+)
+
+
 if __name__ == "__main__":  # only for live edit.
-    bpy.utils.register_module(__name__)
+    for cls in classes:
+        bpy.utils.register_class(cls)

@@ -787,5 +787,15 @@ class AMBER_PT_tags(Panel, AmberPanel):
         self.layout.template_list("AMBER_UL_tags_filter", "", ae, "tags", ae, "active_tag_index")
 
 
+classes = (
+    AmberTag,
+    AssetEngineAmber,
+    AMBER_UL_tags_filter,
+    AMBER_PT_options,
+    AMBER_PT_tags,
+)
+
+
 if __name__ == "__main__":  # only for live edit.
-    bpy.utils.register_module(__name__)
+    for cls in classes:
+        bpy.utils.register_class(cls)
