@@ -1672,6 +1672,7 @@ void id_clear_lib_data_ex(Main *bmain, ID *id, const bool id_in_mainlist)
 	id_fake_user_clear(id);
 
 	id->lib = NULL;
+	MEM_SAFE_FREE(id->uuid);
 	id->tag &= ~(LIB_TAG_INDIRECT | LIB_TAG_EXTERN);
 	if (id_in_mainlist)
 		new_id(which_libbase(bmain, GS(id->name)), id, NULL);
