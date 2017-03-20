@@ -641,7 +641,7 @@ int GPU_verify_image(
 		}
 
 		/* TODO unneeded when float images are correctly treated as linear always */
-		if (!is_data) {
+		if (!is_data && !(ibuf->colormanage_flag & IMB_COLORMANAGE_IS_DATA)) {
 			do_color_management = true;
 		}
 	}

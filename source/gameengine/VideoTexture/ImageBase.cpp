@@ -118,6 +118,26 @@ unsigned int * ImageBase::getImage (unsigned int texId, double ts)
 	return m_avail ? m_image : NULL;
 }
 
+unsigned int ImageBase::getPixelSize(unsigned int format)
+{
+	switch (format)
+	{
+	case GL_RGBA:
+	case GL_BGRA:
+	case GL_DEPTH_COMPONENT32F:
+		return 4;
+	case GL_RGBA32F:
+		return 4*4;
+	case GL_RGB32F:
+		return 3*4;
+	case GL_RG32F:
+		return 2*4;
+	default:
+		return 0;
+	}
+
+}
+
 bool ImageBase::loadImage(unsigned int *buffer, unsigned int size, unsigned int format, double ts)
 {
 	unsigned int *d, *s, v, len;
@@ -564,6 +584,14 @@ PyObject *Image_refresh (PyImage *self, PyObject *args)
 						format = GL_RGBA;
 					else if (!strcmp(mode, "BGRA"))
 						format = GL_BGRA;
+					else if (!strcmp(mode, "DEPTH"))
+						format = GL_DEPTH_COMPONENT32F;
+					else if (!strcmp(mode, "RGBA32F"))
+						format = GL_RGBA32F;
+					else if (!strcmp(mode, "RGB32F"))
+						format = GL_RGB32F;
+					else if (!strcmp(mode, "RG32F"))
+						format = GL_RG32F;
 					else
 						THRWEXCP(InvalidImageMode,S_OK);
 

@@ -52,6 +52,7 @@
 #include "RAS_IRasterizer.h"
 #include "RAS_ICanvas.h"
 #include "RAS_ILightObject.h"
+#include "RAS_IOffScreen.h"
 #include "MT_Vector3.h"
 #include "MT_Transform.h"
 #include "SCA_IInputDevice.h"
@@ -109,6 +110,7 @@ double KX_KetsjiEngine::m_average_framerate = 0.0;
 bool   KX_KetsjiEngine::m_restrict_anim_fps = false;
 short  KX_KetsjiEngine::m_exitkey = 130; // ESC Key
 bool   KX_KetsjiEngine::m_doRender = true;
+bool   KX_KetsjiEngine::m_doOffScreen = false;
 
 /**
  *	Constructor of the Ketsji Engine
@@ -116,6 +118,7 @@ bool   KX_KetsjiEngine::m_doRender = true;
 KX_KetsjiEngine::KX_KetsjiEngine(KX_ISystem* system)
 	:	m_canvas(NULL),
 	m_rasterizer(NULL),
+    m_offScreenRender(NULL),
 	m_kxsystem(system),
 	m_sceneconverter(NULL),
 	m_networkdevice(NULL),
@@ -778,6 +781,16 @@ bool KX_KetsjiEngine::NextFrame()
 	return doRender && m_doRender;
 }
 
+void KX_KetsjiEngine::BindOffScreen(bool bind)
+{
+	if (m_doOffScreen && m_offScreenRender)
+	{
+		if (bind)
+			m_offScreenRender->Bind(RAS_IOffScreen::RAS_OFS_BIND_READ);
+		else
+			m_offScreenRender->Unbind();
+	}
+}
 
 
 void KX_KetsjiEngine::Render()
@@ -797,9 +810,12 @@ void KX_KetsjiEngine::Render()
 	if (m_hideCursor)
 		m_canvas->SetMouseState(RAS_ICanvas::MOUSE_INVISIBLE);
 
+	m_canvas->BeginDraw();
+	// redirect render if requested
+	if (m_doOffScreen && m_offScreenRender)
+		m_offScreenRender->Bind(RAS_IOffScreen::RAS_OFS_BIND_RENDER);
 	// clear the entire game screen with the border color
 	// only once per frame
-	m_canvas->BeginDraw();
 	if (m_rasterizer->GetDrawingMode() == RAS_IRasterizer::KX_TEXTURED) {
 		m_canvas->SetViewPort(0, 0, m_canvas->GetWidth(), m_canvas->GetHeight());
 		if (m_overrideFrameColor)
@@ -845,7 +861,10 @@ void KX_KetsjiEngine::Render()
 		//scene->UpdateMeshTransformations();
 
 		// shadow buffers
-		RenderShadowBuffers(scene);
+		if (RenderShadowBuffers(scene) && m_doOffScreen && m_offScreenRender)
+			// shadow render restore the frame buffer, must restore it if we have a customer render buffer
+			m_offScreenRender->Bind(RAS_IOffScreen::RAS_OFS_BIND_RENDER);
+
 
 		// Avoid drawing the scene with the active camera twice when its viewport is enabled
 		if (cam && !cam->GetViewport())
@@ -929,6 +948,8 @@ void KX_KetsjiEngine::Render()
 			PostRenderScene(scene);
 		}
 	} // if (m_rasterizer->Stereo())
+	if (m_doOffScreen && m_offScreenRender)
+		m_offScreenRender->Unbind();
 
 	EndFrame();
 }
@@ -1085,10 +1106,11 @@ void KX_KetsjiEngine::UpdateAnimations(KX_Scene *scene)
 		scene->UpdateAnimations(m_frameTime);
 }
 
-void KX_KetsjiEngine::RenderShadowBuffers(KX_Scene *scene)
+bool KX_KetsjiEngine::RenderShadowBuffers(KX_Scene *scene)
 {
 	CListValue *lightlist = scene->GetLightList();
 	int i, drawmode;
+	bool hasShadow = false;
 
 	m_rasterizer->SetAuxilaryClientInfo(scene);
 
@@ -1135,10 +1157,12 @@ void KX_KetsjiEngine::RenderShadowBuffers(KX_Scene *scene)
 			raslight->UnbindShadowBuffer();
 			m_rasterizer->SetDrawingMode(drawmode);
 			cam->Release();
+			hasShadow = true;
 		}
 	}
 	/* remember that we have a valid shadow buffer for that scene */
 	scene->SetShadowDone(true);
+	return hasShadow;
 }
 	
 // update graphics
@@ -1335,6 +1359,11 @@ void KX_KetsjiEngine::StopEngine()
 		}
 		m_scenes.clear();
 
+		if (m_offScreenRender)
+		{
+			delete m_offScreenRender;
+			m_offScreenRender = NULL;
+		}
 		// cleanup all the stuff
 		m_rasterizer->Exit();
 	}
@@ -1940,6 +1969,17 @@ bool KX_KetsjiEngine::GetRender()
 {
 	return m_doRender;
 }
+
+void KX_KetsjiEngine::SetOffScreen(bool offScreen)
+{
+	m_doOffScreen = offScreen;
+	if (offScreen && !m_offScreenRender)
+	{
+		// offscreen render requested, create the offscreen render buffer
+		m_offScreenRender = m_rasterizer->CreateOffScreen(m_canvas->GetWidth(), m_canvas->GetHeight(), 0, RAS_IOffScreen::RAS_OFS_RENDER_BUFFER, RAS_IOffScreen::RAS_OFS_COLOR_FLOAT);
+	}
+}
+
 
 void KX_KetsjiEngine::SetShowFramerate(bool frameRate)
 {

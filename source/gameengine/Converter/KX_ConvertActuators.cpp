@@ -69,6 +69,7 @@
 #include "KX_SCA_DynamicActuator.h"
 #include "KX_SteeringActuator.h"
 #include "KX_MouseActuator.h"
+#include "KX_BlenderMaterial.h"
 
 #include "KX_Scene.h"
 #include "KX_KetsjiEngine.h"
@@ -911,6 +912,7 @@ void BL_ConvertActuators(const char* maggiename,
 		{
 			bTwoDFilterActuator *_2dfilter = (bTwoDFilterActuator*) bact->data;
 			SCA_2DFilterActuator *tmp = NULL;
+			BL_Material *mat = NULL;
 
 			RAS_2DFilterManager::RAS_2DFILTER_MODE filtermode;
 			switch (_2dfilter->type) {
@@ -949,6 +951,16 @@ void BL_ConvertActuators(const char* maggiename,
 					break;
 				case ACT_2DFILTER_CUSTOMFILTER:
 					filtermode = RAS_2DFilterManager::RAS_2DFILTER_CUSTOMFILTER;
+					if (gameobj->GetMeshCount() > 0) {
+						unsigned int matid = 0;
+						RAS_MeshMaterial *meshMat = gameobj->GetMesh(0)->GetMeshMaterial(matid);
+						if (meshMat != NULL && meshMat->m_bucket != NULL) {
+							RAS_IPolyMaterial *polymat = meshMat->m_bucket->GetPolyMaterial();
+							if (polymat->GetFlag() & RAS_BLENDERGLSL) {
+								mat = ((KX_BlenderMaterial *)polymat)->GetBLMaterial();
+							}
+						}
+					}
 					break;
 				case ACT_2DFILTER_NOFILTER:
 					filtermode = RAS_2DFilterManager::RAS_2DFILTER_NOFILTER;
@@ -964,7 +976,7 @@ void BL_ConvertActuators(const char* maggiename,
 					break;
 			}
 
-			tmp = new SCA_2DFilterActuator(gameobj, filtermode,  _2dfilter->flag,
+			tmp = new SCA_2DFilterActuator(gameobj, mat, filtermode,  _2dfilter->flag,
 			                               _2dfilter->float_arg, _2dfilter->int_arg,
 			                               ketsjiEngine->GetRasterizer(), scene);
 

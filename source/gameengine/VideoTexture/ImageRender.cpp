@@ -134,7 +134,7 @@ void ImageRender::setBackgroundFromScene (KX_Scene *scene)
 
 
 // capture image from viewport
-void ImageRender::calcViewport (unsigned int texId, double ts, unsigned int format)
+void ImageRender::calcImage (unsigned int texId, double ts)
 {
 	// render the scene from the camera
 	if (!m_done) {
@@ -148,10 +148,32 @@ void ImageRender::calcViewport (unsigned int texId, double ts, unsigned int form
 	// wait until all render operations are completed
 	WaitSync();
 	// get image from viewport (or FBO)
-	ImageViewport::calcViewport(texId, ts, format);
+	calcViewport(texId, ts);
 	if (m_offscreen) {
 		m_offscreen->ofs->Unbind();
 	}
+}
+
+bool ImageRender::loadImage(unsigned int *buffer, unsigned int size, unsigned int format, double ts)
+{
+	bool ret;
+	// render the scene from the camera
+	if (!m_done) {
+		if (!Render()) {
+			return false;
+		}
+	}
+	else if (m_offscreen) {
+		m_offscreen->ofs->Bind(RAS_IOffScreen::RAS_OFS_BIND_READ);
+	}
+	// wait until all render operations are completed
+	WaitSync();
+	// get image from viewport (or FBO)
+	ret = loadRender(buffer, size, format);
+	if (m_offscreen) {
+		m_offscreen->ofs->Unbind();
+	}
+	return ret;
 }
 
 bool ImageRender::Render()

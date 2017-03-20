@@ -47,7 +47,7 @@ RAS_OpenGLOffScreen::~RAS_OpenGLOffScreen()
 	Destroy();
 }
 
-bool RAS_OpenGLOffScreen::Create(int width, int height, int samples, RAS_OFS_RENDER_TARGET target)
+bool RAS_OpenGLOffScreen::Create(int width, int height, int samples, RAS_OFS_RENDER_TARGET target, RAS_OFS_COLOR_BITS bits)
 {
 	GLenum status;
 	GLuint glo[2], fbo;
@@ -111,7 +111,10 @@ bool RAS_OpenGLOffScreen::Create(int width, int height, int samples, RAS_OFS_REN
 			glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, m_depthtx);
 			glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, samples, GL_DEPTH_COMPONENT, width, height, true);
 			glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, m_colortx);
-			glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, samples, GL_RGBA8, width, height, true);
+			if (bits == RAS_OFS_COLOR_FLOAT && GLEW_ARB_texture_float)
+				glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, samples, GL_RGBA8, width, height, true);
+			else
+				glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, samples, GL_RGBA32F, width, height, true);
 			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -123,7 +126,10 @@ bool RAS_OpenGLOffScreen::Create(int width, int height, int samples, RAS_OFS_REN
 			glBindTexture(GL_TEXTURE_2D, m_depthtx);
 			glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, NULL);
 			glBindTexture(GL_TEXTURE_2D, m_colortx);
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+			if (bits == RAS_OFS_COLOR_FLOAT && GLEW_ARB_texture_float)
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+			else
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 			glBindTexture(GL_TEXTURE_2D, 0);
 		}
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_fbo);
@@ -141,7 +147,10 @@ bool RAS_OpenGLOffScreen::Create(int width, int height, int samples, RAS_OFS_REN
 		glBindRenderbufferEXT(GL_RENDERBUFFER, m_depthrb);
 		glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER, samples, GL_DEPTH_COMPONENT, width, height);
 		glBindRenderbufferEXT(GL_RENDERBUFFER, m_colorrb);
-		glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER, samples, GL_RGBA8, width, height);
+		if (bits == RAS_OFS_COLOR_FLOAT && GLEW_ARB_texture_float)
+			glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER, samples, GL_RGBA32F, width, height);
+		else
+			glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER, samples, GL_RGBA8, width, height);
 		glBindRenderbufferEXT(GL_RENDERBUFFER, 0);
 
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_fbo);
@@ -180,7 +189,10 @@ bool RAS_OpenGLOffScreen::Create(int width, int height, int samples, RAS_OFS_REN
 			// m_color is the texture where the final render goes, the blit texture in this case
 			m_color = m_blittex = blit_tex;
 			glBindTexture(GL_TEXTURE_2D, m_blittex);
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+			if (bits == RAS_OFS_COLOR_FLOAT && GLEW_ARB_texture_float)
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+			else
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -198,7 +210,10 @@ bool RAS_OpenGLOffScreen::Create(int width, int height, int samples, RAS_OFS_REN
 			}
 			m_blitrbo = blit_tex;
 			glBindRenderbufferEXT(GL_RENDERBUFFER, m_blitrbo);
-			glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER, 0, GL_RGBA8, width, height);
+			if (bits == RAS_OFS_COLOR_FLOAT && GLEW_ARB_texture_float)
+				glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER, 0, GL_RGBA32F, width, height);
+			else
+				glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER, 0, GL_RGBA8, width, height);
 			glBindRenderbufferEXT(GL_RENDERBUFFER, 0);
 			glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, m_blitfbo);
 			glFramebufferRenderbufferEXT(GL_DRAW_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_RENDERBUFFER, m_blitrbo);

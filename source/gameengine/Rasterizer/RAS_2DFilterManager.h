@@ -39,6 +39,7 @@
 #endif
 
 class RAS_ICanvas;
+struct Image;
 
 class RAS_2DFilterManager
 {
@@ -78,6 +79,10 @@ private:
 	// stores object properties to send to shaders in each pass
 	std::vector<STR_String>	m_properties[MAX_RENDER_PASS];
 	void* m_gameObjects[MAX_RENDER_PASS];
+	void *m_blmat[MAX_RENDER_PASS];
+	// stores the additional textures that should be mapped during render pass to GL_TEXTURE3..7
+	std::vector<struct Image *> m_textures[MAX_RENDER_PASS];
+
 public:
 	enum RAS_2DFILTER_MODE {
 		RAS_2DFILTER_ENABLED = -2,
@@ -104,7 +109,7 @@ public:
 
 	void RenderFilters(RAS_ICanvas* canvas);
 
-	void EnableFilter(std::vector<STR_String>& propNames, void* gameObj, RAS_2DFILTER_MODE mode, int pass, STR_String& text);
+	void EnableFilter(std::vector<STR_String>& propNames, void* gameObj, void *mat, RAS_2DFILTER_MODE mode, int pass, STR_String& text);
 
 
 #ifdef WITH_CXX_GUARDEDALLOC

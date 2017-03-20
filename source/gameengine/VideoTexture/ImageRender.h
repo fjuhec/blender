@@ -73,6 +73,8 @@ public:
 	void Unbind();
 	/// wait for render to complete
 	void WaitSync();
+	/// load render buffer directly into user image
+	virtual bool loadImage(unsigned int *buffer, unsigned int size, unsigned int format, double ts);
 
 protected:
 	/// true if ready to render
@@ -111,10 +113,7 @@ protected:
 
 
 	/// render 3d scene to image
-	virtual void calcImage (unsigned int texId, double ts) { calcViewport(texId, ts, GL_RGBA); }
-
-	/// render 3d scene to image
-	virtual void calcViewport (unsigned int texId, double ts, unsigned int format);
+	virtual void calcImage (unsigned int texId, double ts);
 
 	void setBackgroundFromScene(KX_Scene *scene);
 	void SetWorldSettings(KX_WorldInfo* wi);

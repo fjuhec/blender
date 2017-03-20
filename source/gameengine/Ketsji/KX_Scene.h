@@ -82,6 +82,7 @@ class RAS_MaterialBucket;
 class RAS_IPolyMaterial;
 class RAS_IRasterizer;
 class RAS_IRenderTools;
+class RAS_MeshObject;
 class SCA_JoystickManager;
 class btCollisionShape;
 class KX_BlenderSceneConverter;
@@ -607,7 +608,7 @@ public:
 	/**
 	 * 2D Filters
 	 */
-	void Update2DFilter(std::vector<STR_String>& propNames, void* gameObj, RAS_2DFilterManager::RAS_2DFILTER_MODE filtermode, int pass, STR_String& text);
+	void Update2DFilter(std::vector<STR_String>& propNames, void* gameObj, void *mat, RAS_2DFilterManager::RAS_2DFILTER_MODE filtermode, int pass, STR_String& text);
 	void Render2DFilters(RAS_ICanvas* canvas);
 
 	KX_ObstacleSimulation* GetObstacleSimulation() { return m_obstacleSimulation; }

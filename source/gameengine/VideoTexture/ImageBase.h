@@ -70,8 +70,9 @@ public:
 	/// get image size
 	short * getSize(void) { return m_size; }
 	/// get image buffer size
-	unsigned long getBuffSize(void)
+	unsigned long getBuffSize()
 	{ return m_size[0] * m_size[1] * sizeof(unsigned int); }
+	unsigned int getPixelSize(unsigned int format);
 	/// refresh image - invalidate its current content
 	virtual void refresh(void);
 

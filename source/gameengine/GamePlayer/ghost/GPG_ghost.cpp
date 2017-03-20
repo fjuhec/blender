@@ -562,6 +562,7 @@ int main(
 	U.anisotropic_filter = 2;
 	// enable fast mipmap generation
 	U.use_gpu_mipmap = 1;
+	U.use_16bit_textures = 1;
 
 	BKE_sound_init_once();
 

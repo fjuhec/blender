@@ -41,13 +41,26 @@
 #include "RAS_ICanvas.h"
 #include "RAS_Rect.h"
 #include "RAS_2DFilterManager.h"
+#include "RAS_MaterialBucket.h"
+#include "BL_Material.h"
 #include <iostream>
 
+#include "DNA_image_types.h"
+#include "DNA_meshdata_types.h"
 #include "glew-mx.h"
 
 #include <stdio.h>
 
 #include "EXP_Value.h"
+
+#define MAX_OBJ_TEXTURE 5
+static const char *objTextureName[MAX_OBJ_TEXTURE] = {
+    "bgl_ObjectTexture0",
+    "bgl_ObjectTexture1",
+    "bgl_ObjectTexture2",
+    "bgl_ObjectTexture3",
+    "bgl_ObjectTexture4"
+};
 
 RAS_2DFilterManager::RAS_2DFilterManager():
 texturewidth(-1), textureheight(-1),
@@ -67,6 +80,7 @@ texturewidth(-1), textureheight(-1),
 		m_enabled[passindex] = 0;
 		texflag[passindex] = 0;
 		m_gameObjects[passindex] = NULL;
+		m_blmat[passindex] = NULL;
 	}
 	texname[0] = texname[1] = texname[2] = -1;
 	errorprinted= false;
@@ -217,6 +231,19 @@ void RAS_2DFilterManager::AnalyseShader(int passindex, vector<STR_String>& propN
 			if (glGetUniformLocationARB(m_filters[passindex], propNames[i]) != -1)
 				m_properties[passindex].push_back(propNames[i]);
 	}
+	if (m_blmat[passindex])
+	{
+		BL_Material *mat = (BL_Material *)m_blmat[passindex];
+		m_textures[passindex].resize(MAX_OBJ_TEXTURE);
+		for (int i=0; i<MAX_OBJ_TEXTURE; i++)
+		{
+			m_textures[passindex][i] = NULL;
+			if (i < MAXTEX && glGetUniformLocationARB(m_filters[passindex], objTextureName[i]) != -1)
+			{
+				m_textures[passindex][i] = mat->img[i];
+			}
+		}
+	}
 }
 
 void RAS_2DFilterManager::StartShaderProgram(int passindex)
@@ -224,35 +251,35 @@ void RAS_2DFilterManager::StartShaderProgram(int passindex)
 	GLint uniformLoc;
 	glUseProgramObjectARB(m_filters[passindex]);
 	uniformLoc = glGetUniformLocationARB(m_filters[passindex], "bgl_RenderedTexture");
-	glActiveTextureARB(GL_TEXTURE0);
+	glActiveTextureARB(GL_TEXTURE5);
 	glBindTexture(GL_TEXTURE_2D, texname[0]);
 
 	if (uniformLoc != -1)
 	{
-		glUniform1iARB(uniformLoc, 0);
+		glUniform1iARB(uniformLoc, 5);
 	}
 
 	/* send depth texture to glsl program if it needs */
 	if (texflag[passindex] & 0x1) {
 		uniformLoc = glGetUniformLocationARB(m_filters[passindex], "bgl_DepthTexture");
-		glActiveTextureARB(GL_TEXTURE1);
+		glActiveTextureARB(GL_TEXTURE6);
 		glBindTexture(GL_TEXTURE_2D, texname[1]);
 
 		if (uniformLoc != -1)
 		{
-			glUniform1iARB(uniformLoc, 1);
+			glUniform1iARB(uniformLoc, 6);
 		}
 	}
 
 	/* send luminance texture to glsl program if it needs */
 	if (texflag[passindex] & 0x2) {
 		uniformLoc = glGetUniformLocationARB(m_filters[passindex], "bgl_LuminanceTexture");
-		glActiveTextureARB(GL_TEXTURE2);
+		glActiveTextureARB(GL_TEXTURE7);
 		glBindTexture(GL_TEXTURE_2D, texname[2]);
 
 		if (uniformLoc != -1)
 		{
-			glUniform1iARB(uniformLoc, 2);
+			glUniform1iARB(uniformLoc, 7);
 		}
 	}
 	
@@ -296,6 +323,23 @@ void RAS_2DFilterManager::StartShaderProgram(int passindex)
 				break;
 		}
 	}
+	int objTextures = m_textures[passindex].size();
+	for (i=0; i<objTextures; i++)
+	{
+		Image *img;
+		unsigned int bindcode;
+		if ((img = m_textures[passindex][i]) != NULL && (bindcode = img->bindcode[TEXTARGET_TEXTURE_2D]) != 0)
+		{
+			uniformLoc = glGetUniformLocationARB(m_filters[passindex], objTextureName[i]);
+			glActiveTextureARB(GL_TEXTURE0+i);
+			glBindTexture(GL_TEXTURE_2D, bindcode);
+
+			if (uniformLoc != -1)
+			{
+				glUniform1iARB(uniformLoc, i);
+			}
+		}
+	}
 }
 
 void RAS_2DFilterManager::EndShaderProgram()
@@ -315,6 +359,7 @@ void RAS_2DFilterManager::FreeTextures()
 
 void RAS_2DFilterManager::SetupTextures(bool depth, bool luminance)
 {
+	GLenum error;
 	FreeTextures();
 	
 	glGenTextures(1, (GLuint*)&texname[0]);
@@ -443,13 +488,13 @@ void RAS_2DFilterManager::RenderFilters(RAS_ICanvas* canvas)
 	}
 
 	if (need_depth) {
-		glActiveTextureARB(GL_TEXTURE1);
+		glActiveTextureARB(GL_TEXTURE6);
 		glBindTexture(GL_TEXTURE_2D, texname[1]);
 		glCopyTexImage2D(GL_TEXTURE_2D,0,GL_DEPTH_COMPONENT, viewport[0], viewport[1], viewport[2], viewport[3], 0);
 	}
 	
 	if (need_luminance) {
-		glActiveTextureARB(GL_TEXTURE2);
+		glActiveTextureARB(GL_TEXTURE7);
 		glBindTexture(GL_TEXTURE_2D, texname[2]);
 		glCopyTexImage2D(GL_TEXTURE_2D,0,GL_LUMINANCE16, viewport[0], viewport[1], viewport[2], viewport[3], 0);
 	}
@@ -488,9 +533,9 @@ void RAS_2DFilterManager::RenderFilters(RAS_ICanvas* canvas)
 		{
 			StartShaderProgram(passindex);
 
-			glActiveTextureARB(GL_TEXTURE0);
+			glActiveTextureARB(GL_TEXTURE5);
 			glBindTexture(GL_TEXTURE_2D, texname[0]);
-			glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, viewport[0], viewport[1], viewport[2], viewport[3], 0); // Don't use texturewidth and textureheight in case we don't have NPOT support
+			glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, viewport[0], viewport[1], viewport[2], viewport[3], 0); // Don't use texturewidth and textureheight in case we don't have NPOT support
 			glClear(GL_COLOR_BUFFER_BIT);
 
 			glBegin(GL_QUADS);
@@ -502,6 +547,7 @@ void RAS_2DFilterManager::RenderFilters(RAS_ICanvas* canvas)
 			glEnd();
 		}
 	}
+	glActiveTextureARB(GL_TEXTURE0);
 
 	glEnable(GL_DEPTH_TEST);
 	EndShaderProgram();
@@ -510,7 +556,7 @@ void RAS_2DFilterManager::RenderFilters(RAS_ICanvas* canvas)
 	glPopMatrix();
 }
 
-void RAS_2DFilterManager::EnableFilter(vector<STR_String>& propNames, void* gameObj, RAS_2DFILTER_MODE mode, int pass, STR_String& text)
+void RAS_2DFilterManager::EnableFilter(vector<STR_String>& propNames, void* gameObj, void *mat,  RAS_2DFILTER_MODE mode, int pass, STR_String& text)
 {
 	if (!isshadersupported)
 		return;
@@ -536,7 +582,9 @@ void RAS_2DFilterManager::EnableFilter(vector<STR_String>& propNames, void* game
 		m_enabled[pass] = 0;
 		m_filters[pass] = 0;
 		m_gameObjects[pass] = NULL;
+		m_blmat[pass] = NULL;
 		m_properties[pass].clear();
+		m_textures[pass].clear();
 		texflag[pass] = 0;
 		return;
 	}
@@ -547,6 +595,7 @@ void RAS_2DFilterManager::EnableFilter(vector<STR_String>& propNames, void* game
 			glDeleteObjectARB(m_filters[pass]);
 		m_filters[pass] = CreateShaderProgram(text.Ptr());
 		m_gameObjects[pass] = gameObj;
+		m_blmat[pass] = mat;
 		AnalyseShader(pass, propNames);
 		m_enabled[pass] = 1;
 		return;
@@ -557,6 +606,7 @@ void RAS_2DFilterManager::EnableFilter(vector<STR_String>& propNames, void* game
 		glDeleteObjectARB(m_filters[pass]);
 	m_filters[pass] = CreateShaderProgram(mode);
 	m_gameObjects[pass] = NULL;
+	m_blmat[pass] = NULL;
 	AnalyseShader(pass, propNames);
 	m_enabled[pass] = 1;
 }

@@ -74,6 +74,7 @@ class KX_KetsjiEngine
 private:
 	class RAS_ICanvas*					m_canvas; // 2D Canvas (2D Rendering Device Context)
 	class RAS_IRasterizer*				m_rasterizer;  // 3D Rasterizer (3D Rendering)
+	class RAS_IOffScreen*				m_offScreenRender;	// render in render buffer instead of frame buffer
 	class KX_ISystem*					m_kxsystem;
 	class KX_ISceneConverter*			m_sceneconverter;
 	class NG_NetworkDeviceInterface*	m_networkdevice;
@@ -130,6 +131,7 @@ private:
 	static short			m_exitkey; /* Key used to exit the BGE */
 
 	static bool				m_doRender;  /* whether or not the scene should be rendered after the logic frame */
+	static bool				m_doOffScreen; /* whether normal render should be sent to an offscreen render buffer or to the frame buffer */
 
 	int					m_exitcode;
 	STR_String			m_exitstring;
@@ -252,7 +254,8 @@ public:
 	///returns true if an update happened to indicate -> Render
 	bool			NextFrame();
 	void			Render();
-	void			RenderShadowBuffers(KX_Scene *scene);
+	bool			RenderShadowBuffers(KX_Scene *scene);
+	void			BindOffScreen(bool bind);
 	
 	void			StartEngine(bool clearIpo);
 	void			StopEngine();
@@ -413,6 +416,11 @@ public:
 	 * Get the current render flag value
 	 */
 	static bool GetRender();
+	/**
+	 * Activate or deactivates the offscreen render of the scene after the logic frame
+	 * \param offScreen	true (render to offScreen) or false (render to frame buffer)
+	 */
+	void SetOffScreen(bool offScreen);
 
 	/**
 	 * \Sets the display for frame rate on or off.

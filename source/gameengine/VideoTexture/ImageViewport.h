@@ -93,10 +93,13 @@ protected:
 	bool m_texInit;
 
 	/// capture image from viewport
-	virtual void calcImage (unsigned int texId, double ts) { calcViewport(texId, ts, GL_RGBA); }
+	virtual void calcImage (unsigned int texId, double ts);
 
 	/// capture image from viewport
-	virtual void calcViewport (unsigned int texId, double ts, unsigned int format);
+	virtual void calcViewport (unsigned int texId, double ts);
+
+	/// read render buffer to user buffer
+	virtual bool loadRender(unsigned int *buffer, unsigned int size, unsigned int format);
 
 	/// get viewport size
 	GLint * getViewportSize (void) { return m_viewport + 2; }

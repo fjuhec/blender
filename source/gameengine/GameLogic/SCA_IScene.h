@@ -74,7 +74,8 @@ public:
 	void			RemoveDebugProperty(class CValue *gameobj, const STR_String &name);
 	void			RemoveObjectDebugProperties(class CValue* gameobj);
 
-	virtual void	Update2DFilter(std::vector<STR_String>& propNames, void* gameObj, 
+	virtual void	Update2DFilter(std::vector<STR_String>& propNames, void* gameObj,
+	                               void *mat,
 									RAS_2DFilterManager::RAS_2DFILTER_MODE filtermode, 
 									int pass, STR_String& text) {}
 

@@ -484,6 +484,14 @@ static PyObject *gPyGetRender(PyObject *)
 	return PyBool_FromLong(KX_KetsjiEngine::GetRender());
 }
 
+static PyObject *gPySetOffScreen(PyObject *, PyObject *args)
+{
+	int offScreen;
+	if (!PyArg_ParseTuple(args, "i:setOffScreen", &offScreen))
+		return NULL;
+	gp_KetsjiEngine->SetOffScreen(offScreen);
+	Py_RETURN_NONE;
+}
 
 static PyObject *gPySetMaxLogicFrame(PyObject *, PyObject *args)
 {
@@ -927,6 +935,7 @@ static struct PyMethodDef game_methods[] = {
 	{"setExitKey", (PyCFunction) gPySetExitKey, METH_VARARGS, (const char *)"Sets the key used to exit the game engine"},
 	{"setRender", (PyCFunction) gPySetRender, METH_VARARGS, (const char *)"Set the global render flag"},
 	{"getRender", (PyCFunction) gPyGetRender, METH_NOARGS, (const char *)"get the global render flag value"},
+    {"setOffScreen", (PyCFunction) gPySetOffScreen, METH_VARARGS, (const char *)"Set the global offscreen flag"},
 	{"getUseExternalClock", (PyCFunction) gPyGetUseExternalClock, METH_NOARGS, (const char *)"Get if we use the time provided by an external clock"},
 	{"setUseExternalClock", (PyCFunction) gPySetUseExternalClock, METH_VARARGS, (const char *)"Set if we use the time provided by an external clock"},
 	{"getClockTime", (PyCFunction) gPyGetClockTime, METH_NOARGS, (const char *)"Get the last BGE render time. "
@@ -1520,12 +1529,13 @@ static PyGetSetDef RASOffScreen_getseters[] = {
 
 static int PyRASOffScreen__tp_init(PyRASOffScreen *self, PyObject *args, PyObject *kwargs)
 {
-	int width, height, samples, target;
-	const char *keywords[] = {"width", "height", "samples", "target", NULL};
+	int width, height, samples, target, bits;
+	const char *keywords[] = {"width", "height", "samples", "target", "bits", NULL};
 
 	samples = 0;
 	target = RAS_IOffScreen::RAS_OFS_RENDER_BUFFER;
-	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "ii|ii:RASOffscreen", (char **)keywords, &width, &height, &samples, &target)) {
+	bits = RAS_IOffScreen::RAS_OFS_COLOR_8BITS;
+	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "ii|ii:RASOffscreen", (char **)keywords, &width, &height, &samples, &target, &bits)) {
 		return -1;
 	}
 
@@ -1549,12 +1559,17 @@ static int PyRASOffScreen__tp_init(PyRASOffScreen *self, PyObject *args, PyObjec
 		PyErr_SetString(PyExc_ValueError, "invalid 'target' given, can only be RAS_OFS_RENDER_BUFFER or RAS_OFS_RENDER_TEXTURE");
 		return -1;
 	}
+	if (bits != RAS_IOffScreen::RAS_OFS_COLOR_8BITS && bits != RAS_IOffScreen::RAS_OFS_COLOR_FLOAT)
+	{
+		PyErr_SetString(PyExc_ValueError, "invalid 'bits' given, can only be RAS_OFS_COLOR_8BITS or RAS_OFS_COLOR_FLOAT");
+		return -1;
+	}
 	if (!gp_Rasterizer)
 	{
 		PyErr_SetString(PyExc_SystemError, "no rasterizer");
 		return -1;
 	}
-	self->ofs = gp_Rasterizer->CreateOffScreen(width, height, samples, target);
+	self->ofs = gp_Rasterizer->CreateOffScreen(width, height, samples, target, bits);
 	if (!self->ofs) {
 		PyErr_SetString(PyExc_SystemError, "creation failed");
 		return -1;

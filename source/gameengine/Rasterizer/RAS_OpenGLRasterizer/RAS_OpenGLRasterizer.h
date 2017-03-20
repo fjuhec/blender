@@ -181,7 +181,7 @@ public:
 	virtual float GetEyeSeparation();
 	virtual void SetFocalLength(const float focallength);
 	virtual float GetFocalLength();
-	virtual RAS_IOffScreen *CreateOffScreen(int width, int height, int samples, int target);
+	virtual RAS_IOffScreen *CreateOffScreen(int width, int height, int samples, int target, int bits);
 	virtual RAS_ISync *CreateSync(int type);
 	virtual void SwapBuffers();
 

@@ -53,7 +53,7 @@ public:
 	RAS_OpenGLOffScreen(RAS_ICanvas *canvas);
 	~RAS_OpenGLOffScreen();
 
-	bool Create(int width, int height, int samples, RAS_OFS_RENDER_TARGET target);
+	bool Create(int width, int height, int samples, RAS_OFS_RENDER_TARGET target, RAS_OFS_COLOR_BITS bits);
 	void Destroy();
 	void Bind(RAS_OFS_BIND_MODE mode);
 	void Blit();

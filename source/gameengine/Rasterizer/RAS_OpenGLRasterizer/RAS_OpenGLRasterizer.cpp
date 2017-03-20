@@ -601,13 +601,13 @@ float RAS_OpenGLRasterizer::GetFocalLength()
 	return m_focallength;
 }
 
-RAS_IOffScreen *RAS_OpenGLRasterizer::CreateOffScreen(int width, int height, int samples, int target)
+RAS_IOffScreen *RAS_OpenGLRasterizer::CreateOffScreen(int width, int height, int samples, int target, int bits)
 {
 	RAS_IOffScreen *ofs;
 
 	ofs = new RAS_OpenGLOffScreen(m_2DCanvas);
 
-	if (!ofs->Create(width, height, samples, (RAS_IOffScreen::RAS_OFS_RENDER_TARGET)target)) {
+	if (!ofs->Create(width, height, samples, (RAS_IOffScreen::RAS_OFS_RENDER_TARGET)target, (RAS_IOffScreen::RAS_OFS_COLOR_BITS)bits)) {
 		delete ofs;
 		return NULL;
 	}

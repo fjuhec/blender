@@ -51,6 +51,10 @@ public:
 		RAS_OFS_RENDER_BUFFER = 0,		// use render buffer as render target
 		RAS_OFS_RENDER_TEXTURE,			// use texture as render target
 	};
+	enum RAS_OFS_COLOR_BITS {
+		RAS_OFS_COLOR_8BITS = 0,		// color buffer will be 8bits unsigned per color
+		RAS_OFS_COLOR_FLOAT,			// color buffer will be 32bits float per color (if OpenGL supports it)
+	};
 
 	int	    m_width;
 	int     m_height;
@@ -59,7 +63,7 @@ public:
 
 	virtual ~RAS_IOffScreen() {}
 
-	virtual bool Create(int width, int height, int samples, RAS_OFS_RENDER_TARGET target) = 0;
+	virtual bool Create(int width, int height, int samples, RAS_OFS_RENDER_TARGET target, RAS_OFS_COLOR_BITS bits) = 0;
 	virtual void Destroy() = 0;
 	virtual void Bind(RAS_OFS_BIND_MODE mode) = 0;
 	virtual void Blit() = 0;

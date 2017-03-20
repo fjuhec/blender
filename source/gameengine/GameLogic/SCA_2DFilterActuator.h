@@ -35,6 +35,8 @@
 #include "SCA_IActuator.h"
 #include "SCA_IScene.h"
 
+class BL_Material;
+
 class SCA_2DFilterActuator : public SCA_IActuator
 {
 	Py_Header
@@ -48,11 +50,13 @@ private:
 	STR_String	m_shaderText;
 	RAS_IRasterizer* m_rasterizer;
 	SCA_IScene* m_scene;
+	BL_Material* m_mat;
 
 public:
 
 	SCA_2DFilterActuator(
 	        class SCA_IObject* gameobj,
+	        BL_Material *mat,
 	        RAS_2DFilterManager::RAS_2DFILTER_MODE type,
 	        short flag,
 	        float float_arg,

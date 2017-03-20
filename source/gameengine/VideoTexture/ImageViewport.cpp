@@ -132,9 +132,15 @@ void ImageViewport::setPosition (GLint pos[2])
 		m_upLeft[idx] = m_position[idx] + m_viewport[idx];
 }
 
+void ImageViewport::calcImage (unsigned int texId, double ts)
+{
+	KX_GetActiveEngine()->BindOffScreen(true);
+	calcViewport(texId, ts);
+	KX_GetActiveEngine()->BindOffScreen(false);
+}
 
 // capture image from viewport
-void ImageViewport::calcViewport (unsigned int texId, double ts, unsigned int format)
+void ImageViewport::calcViewport (unsigned int texId, double ts)
 {
 	// if scale was changed
 	if (m_scaleChange)
@@ -192,12 +198,12 @@ void ImageViewport::calcViewport (unsigned int texId, double ts, unsigned int fo
 					    !m_flip &&
 					    !m_pyfilter)
 					{
-						glReadPixels(m_upLeft[0], m_upLeft[1], (GLsizei)m_capSize[0], (GLsizei)m_capSize[1], format,
+						glReadPixels(m_upLeft[0], m_upLeft[1], (GLsizei)m_capSize[0], (GLsizei)m_capSize[1], GL_RGBA,
 						             GL_UNSIGNED_BYTE, m_image);
 						m_avail = true;
 					}
 					else if (!m_pyfilter) {
-						glReadPixels(m_upLeft[0], m_upLeft[1], (GLsizei)m_capSize[0], (GLsizei)m_capSize[1], format,
+						glReadPixels(m_upLeft[0], m_upLeft[1], (GLsizei)m_capSize[0], (GLsizei)m_capSize[1], GL_RGBA,
 						             GL_UNSIGNED_BYTE, m_viewportImage);
 						FilterRGBA32 filt;
 						filterImage(filt, m_viewportImage, m_capSize);
@@ -207,10 +213,6 @@ void ImageViewport::calcViewport (unsigned int texId, double ts, unsigned int fo
 						             GL_UNSIGNED_BYTE, m_viewportImage);
 						FilterRGBA32 filt;
 						filterImage(filt, m_viewportImage, m_capSize);
-						if (format == GL_BGRA) {
-							// in place byte swapping
-							swapImageBR();
-						}
 					}
 				}
 				else {
@@ -219,10 +221,6 @@ void ImageViewport::calcViewport (unsigned int texId, double ts, unsigned int fo
 					// filter loaded data
 					FilterRGB24 filt;
 					filterImage(filt, m_viewportImage, m_capSize);
-					if (format == GL_BGRA) {
-						// in place byte swapping
-						swapImageBR();
-					}
 				}
 			}
 		}
@@ -231,35 +229,55 @@ void ImageViewport::calcViewport (unsigned int texId, double ts, unsigned int fo
 
 bool ImageViewport::loadImage(unsigned int *buffer, unsigned int size, unsigned int format, double ts)
 {
-	unsigned int *tmp_image;
 	bool ret;
 
-	// if scale was changed
-	if (m_scaleChange) {
-		// reset image
-		init(m_capSize[0], m_capSize[1]);
-	}
-
-	// size must be identical
-	if (size < getBuffSize())
-		return false;
-
-	if (m_avail) {
-		// just copy
-		return ImageBase::loadImage(buffer, size, format, ts);
-	}
-	else {
-		tmp_image = m_image;
-		m_image = buffer;
-		calcViewport(0, ts, format);
-		ret = m_avail;
-		m_image = tmp_image;
-		// since the image was not loaded to our buffer, it's not valid
-		m_avail = false;
-	}
+	KX_GetActiveEngine()->BindOffScreen(true);
+	ret = loadRender(buffer, size, format);
+	KX_GetActiveEngine()->BindOffScreen(false);
 	return ret;
 }
 
+bool ImageViewport::loadRender(unsigned int *buffer, unsigned int size, unsigned int format)
+{
+	unsigned int renderSize;
+
+	renderSize = getPixelSize(format)*m_capSize[0]*m_capSize[1];
+	if (renderSize == 0)
+		return false;
+
+	// size must be identical
+	if (size < renderSize)
+		return false;
+
+	switch (format) {
+	case GL_DEPTH_COMPONENT32F:
+		// Use read pixels with the depth buffer
+		// See warning above about m_viewportImage.
+		glReadPixels(m_upLeft[0], m_upLeft[1], (GLsizei)m_capSize[0], (GLsizei)m_capSize[1],
+		        GL_DEPTH_COMPONENT, GL_FLOAT, buffer);
+		break;
+	case GL_RGBA:
+	case GL_BGRA:
+		glReadPixels(m_upLeft[0], m_upLeft[1], (GLsizei)m_capSize[0], (GLsizei)m_capSize[1],
+		        format, GL_UNSIGNED_BYTE, buffer);
+		break;
+	case GL_RGBA32F:
+		glReadPixels(m_upLeft[0], m_upLeft[1], (GLsizei)m_capSize[0], (GLsizei)m_capSize[1],
+		        GL_RGBA, GL_FLOAT, buffer);
+		break;
+	case GL_RGB32F:
+		glReadPixels(m_upLeft[0], m_upLeft[1], (GLsizei)m_capSize[0], (GLsizei)m_capSize[1],
+		        GL_RGB, GL_FLOAT, buffer);
+		break;
+	case GL_RG32F:
+		glReadPixels(m_upLeft[0], m_upLeft[1], (GLsizei)m_capSize[0], (GLsizei)m_capSize[1],
+		        GL_RG, GL_FLOAT, buffer);
+		break;
+	default:
+		return false;
+	}
+	return true;
+}
 
 // cast Image pointer to ImageViewport
 inline ImageViewport * getImageViewport (PyImage *self)
