@@ -152,10 +152,8 @@ OpenCLDeviceBase::~OpenCLDeviceBase()
 void CL_CALLBACK OpenCLDeviceBase::context_notify_callback(const char *err_info,
 	const void * /*private_info*/, size_t /*cb*/, void *user_data)
 {
-	char name[256];
-	clGetDeviceInfo((cl_device_id)user_data, CL_DEVICE_NAME, sizeof(name), &name, NULL);
-
-	fprintf(stderr, "OpenCL error (%s): %s\n", name, err_info);
+	string device_name = OpenCLInfo::get_device_name((cl_device_id)user_data);
+	fprintf(stderr, "OpenCL error (%s): %s\n", device_name.c_str(), err_info);
 }
 
 bool OpenCLDeviceBase::opencl_version_check()
@@ -334,11 +332,11 @@ void OpenCLDeviceBase::mem_zero(device_memory& mem)
 			size_t num_threads = global_size[0] * global_size[1];
 
 			cl_mem d_buffer = CL_MEM_PTR(mem.device_pointer);
-			unsigned long long d_offset = 0;
-			unsigned long long d_size = 0;
+			cl_ulong d_offset = 0;
+			cl_ulong d_size = 0;
 
 			while(d_offset < mem.memory_size()) {
-				d_size = std::min<unsigned long long>(num_threads*sizeof(float4), mem.memory_size() - d_offset);
+				d_size = std::min<cl_ulong>(num_threads*sizeof(float4), mem.memory_size() - d_offset);
 
 				kernel_set_args(ckZeroBuffer, 0, d_buffer, d_size, d_offset);
 

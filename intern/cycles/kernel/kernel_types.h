@@ -32,11 +32,6 @@
 #  define ccl_addr_space
 #endif
 
-#if defined(__SPLIT_KERNEL__) && !defined(__COMPUTE_DEVICE_GPU__)
-/* TODO(mai): need to investigate how this effects the kernel, as cpu kernel crashes without this right now */
-#define __COMPUTE_DEVICE_GPU__
-#endif
-
 CCL_NAMESPACE_BEGIN
 
 /* constants */
@@ -76,15 +71,13 @@ CCL_NAMESPACE_BEGIN
 #  ifdef WITH_OSL
 #    define __OSL__
 #  endif
-#  ifndef __SPLIT_KERNEL__
-#    define __SUBSURFACE__
-#  endif
+#  define __SUBSURFACE__
 #  define __CMJ__
+#  define __VOLUME__
+#  define __VOLUME_SCATTER__
+#  define __SHADOW_RECORD_ALL__
 #  ifndef __SPLIT_KERNEL__
-#    define __VOLUME__
 #    define __VOLUME_DECOUPLED__
-#    define __VOLUME_SCATTER__
-#    define __SHADOW_RECORD_ALL__
 #    define __VOLUME_RECORD_ALL__
 #  endif
 #endif  /* __KERNEL_CPU__ */
@@ -92,13 +85,13 @@ CCL_NAMESPACE_BEGIN
 #ifdef __KERNEL_CUDA__
 #  define __KERNEL_SHADING__
 #  define __KERNEL_ADV_SHADING__
+#  define __VOLUME__
+#  define __VOLUME_SCATTER__
+#  define __SUBSURFACE__
+#  define __SHADOW_RECORD_ALL__
 #  ifndef __SPLIT_KERNEL__
 #    define __BRANCHED_PATH__
-#    define __VOLUME__
-#    define __VOLUME_SCATTER__
-#    define __SUBSURFACE__
 #    define __CMJ__
-#    define __SHADOW_RECORD_ALL__
 #  endif
 #endif  /* __KERNEL_CUDA__ */
 
@@ -109,6 +102,10 @@ CCL_NAMESPACE_BEGIN
 #  ifdef __KERNEL_OPENCL_NVIDIA__
 #    define __KERNEL_SHADING__
 #    define __KERNEL_ADV_SHADING__
+#    define __SUBSURFACE__
+#    define __VOLUME__
+#    define __VOLUME_SCATTER__
+#    define __SHADOW_RECORD_ALL__
 #    ifdef __KERNEL_EXPERIMENTAL__
 #      define __CMJ__
 #    endif
@@ -130,6 +127,10 @@ CCL_NAMESPACE_BEGIN
 #    define __CL_USE_NATIVE__
 #    define __KERNEL_SHADING__
 #    define __KERNEL_ADV_SHADING__
+#    define __SUBSURFACE__
+#    define __VOLUME__
+#    define __VOLUME_SCATTER__
+#    define __SHADOW_RECORD_ALL__
 #  endif  /* __KERNEL_OPENCL_AMD__ */
 
 #  ifdef __KERNEL_OPENCL_INTEL_CPU__
@@ -552,7 +553,7 @@ typedef struct Ray {
 
 /* Intersection */
 
-typedef ccl_addr_space struct Intersection {
+typedef struct Intersection {
 	float t, u, v;
 	int prim;
 	int object;
@@ -934,7 +935,7 @@ typedef struct PathState {
 /* Subsurface */
 
 /* Struct to gather multiple SSS hits. */
-struct SubsurfaceIntersection
+typedef struct SubsurfaceIntersection
 {
 	Ray ray;
 	float3 weight[BSSRDF_MAX_HITS];
@@ -942,10 +943,10 @@ struct SubsurfaceIntersection
 	int num_hits;
 	struct Intersection hits[BSSRDF_MAX_HITS];
 	float3 Ng[BSSRDF_MAX_HITS];
-};
+} SubsurfaceIntersection;
 
 /* Struct to gather SSS indirect rays and delay tracing them. */
-struct SubsurfaceIndirectRays
+typedef struct SubsurfaceIndirectRays
 {
 	bool need_update_volume_stack;
 	bool tracing;
@@ -956,7 +957,7 @@ struct SubsurfaceIndirectRays
 	struct Ray rays[BSSRDF_MAX_HITS];
 	float3 throughputs[BSSRDF_MAX_HITS];
 	struct PathRadiance L[BSSRDF_MAX_HITS];
-};
+} SubsurfaceIndirectRays;
 
 /* Constant Kernel Data
  *
@@ -1291,20 +1292,19 @@ enum QueueNumber {
 #define RAY_STATE_MASK 0x007
 #define RAY_FLAG_MASK 0x0F8
 enum RayState {
+	RAY_INVALID = 0,
 	/* Denotes ray is actively involved in path-iteration. */
-	RAY_ACTIVE = 0,
+	RAY_ACTIVE,
 	/* Denotes ray has completed processing all samples and is inactive. */
-	RAY_INACTIVE = 1,
+	RAY_INACTIVE,
 	/* Denoted ray has exited path-iteration and needs to update output buffer. */
-	RAY_UPDATE_BUFFER = 2,
+	RAY_UPDATE_BUFFER,
 	/* Donotes ray has hit background */
-	RAY_HIT_BACKGROUND = 3,
+	RAY_HIT_BACKGROUND,
 	/* Denotes ray has to be regenerated */
-	RAY_TO_REGENERATE = 4,
+	RAY_TO_REGENERATE,
 	/* Denotes ray has been regenerated */
-	RAY_REGENERATED = 5,
-	/* Denotes ray should skip direct lighting */
-	RAY_SKIP_DL = 6,
+	RAY_REGENERATED,
 	/* Flag's ray has to execute shadow blocked function in AO part */
 	RAY_SHADOW_RAY_CAST_AO = 16,
 	/* Flag's ray has to execute shadow blocked function in direct lighting part. */

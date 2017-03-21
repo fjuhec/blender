@@ -41,11 +41,7 @@ static string get_build_options(OpenCLDeviceBase *device, const DeviceRequestedF
 
 	/* Set compute device build option. */
 	cl_device_type device_type;
-	device->ciErr = clGetDeviceInfo(device->cdDevice,
-	                        CL_DEVICE_TYPE,
-	                        sizeof(cl_device_type),
-	                        &device_type,
-	                        NULL);
+	OpenCLInfo::get_device_type(device->cdDevice, &device_type, &device->ciErr);
 	assert(device->ciErr == CL_SUCCESS);
 	if(device_type == CL_DEVICE_TYPE_GPU) {
 		build_options += " -D__COMPUTE_DEVICE_GPU__";
@@ -77,16 +73,18 @@ public:
 	virtual bool load_kernels(const DeviceRequestedFeatures& requested_features,
 	                          vector<OpenCLDeviceBase::OpenCLProgram*> &programs)
 	{
+		bool single_program = OpenCLInfo::use_single_program();
 		program_data_init = OpenCLDeviceBase::OpenCLProgram(this,
-		                                  "split_data_init",
-		                                  "kernel_data_init.cl",
+		                                  single_program ? "split" : "split_data_init",
+		                                  single_program ? "kernel_split.cl" : "kernel_data_init.cl",
 		                                  get_build_options(this, requested_features));
+
 		program_data_init.add_kernel(ustring("path_trace_data_init"));
 		programs.push_back(&program_data_init);
 
 		program_state_buffer_size = OpenCLDeviceBase::OpenCLProgram(this,
-		                                  "split_state_buffer_size",
-		                                  "kernel_state_buffer_size.cl",
+		                                  single_program ? "split" : "split_state_buffer_size",
+		                                  single_program ? "kernel_split.cl" : "kernel_state_buffer_size.cl",
 		                                  get_build_options(this, requested_features));
 		program_state_buffer_size.add_kernel(ustring("path_trace_state_buffer_size"));
 		programs.push_back(&program_state_buffer_size);
@@ -207,10 +205,13 @@ public:
 	{
 		OpenCLSplitKernelFunction* kernel = new OpenCLSplitKernelFunction(device);
 
-		kernel->program = OpenCLDeviceBase::OpenCLProgram(device,
-		                                "split_" + kernel_name,
-		                                "kernel_" + kernel_name + ".cl",
-		                                get_build_options(device, requested_features));
+		bool single_program = OpenCLInfo::use_single_program();
+		kernel->program =
+			OpenCLDeviceBase::OpenCLProgram(device,
+			                                single_program ? "split" : "split_" + kernel_name,
+			                                single_program ? "kernel_split.cl" : "kernel_" + kernel_name + ".cl",
+			                                get_build_options(device, requested_features));
+
 		kernel->program.add_kernel(ustring("path_trace_" + kernel_name));
 		kernel->program.load();
 
@@ -222,9 +223,9 @@ public:
 		return kernel;
 	}
 
-	virtual size_t state_buffer_size(device_memory& kg, device_memory& data, size_t num_threads)
+	virtual uint64_t state_buffer_size(device_memory& kg, device_memory& data, size_t num_threads)
 	{
-		device_vector<uint> size_buffer;
+		device_vector<uint64_t> size_buffer;
 		size_buffer.resize(1);
 		device->mem_alloc(NULL, size_buffer, MEM_READ_WRITE);
 
@@ -244,7 +245,7 @@ public:
 
 		device->opencl_assert_err(device->ciErr, "clEnqueueNDRangeKernel");
 
-		device->mem_copy_from(size_buffer, 0, 1, 1, sizeof(uint));
+		device->mem_copy_from(size_buffer, 0, 1, 1, sizeof(uint64_t));
 		device->mem_free(size_buffer);
 
 		if(device->ciErr != CL_SUCCESS) {
@@ -341,9 +342,16 @@ public:
 
 	virtual int2 split_kernel_global_size(device_memory& kg, device_memory& data, DeviceTask */*task*/)
 	{
-		size_t max_buffer_size;
-		clGetDeviceInfo(device->cdDevice, CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(size_t), &max_buffer_size, NULL);
-		VLOG(1) << "Maximum device allocation side: "
+		cl_device_type type = OpenCLInfo::get_device_type(device->cdDevice);
+		/* Use small global size on CPU devices as it seems to be much faster. */
+		if(type == CL_DEVICE_TYPE_CPU) {
+			VLOG(1) << "Global size: (64, 64).";
+			return make_int2(64, 64);
+		}
+
+		cl_ulong max_buffer_size;
+		clGetDeviceInfo(device->cdDevice, CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(cl_ulong), &max_buffer_size, NULL);
+		VLOG(1) << "Maximum device allocation size: "
 		        << string_human_readable_number(max_buffer_size) << " bytes. ("
 		        << string_human_readable_size(max_buffer_size) << ").";
 
