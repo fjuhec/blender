@@ -188,7 +188,7 @@ static uiBlock *id_search_menu(bContext *C, ARegion *ar, void *arg_litem)
 	idptr = RNA_property_pointer_get(&template.ptr, template.prop);
 
 	block = UI_block_begin(C, ar, "_popup", UI_EMBOSS);
-	UI_block_flag_enable(block, UI_BLOCK_LOOP | UI_BLOCK_SEARCH_MENU);
+	UI_block_flag_enable(block, UI_BLOCK_SEARCH_MENU);
 	
 	/* preview thumbnails */
 	if (template.prv_rows > 0 && template.prv_cols > 0) {
@@ -451,6 +451,11 @@ static void template_ID(
 		but = uiDefButR(block, UI_BTYPE_TEXT, 0, name, 0, 0, UI_UNIT_X * 6, UI_UNIT_Y,
 		                &idptr, "name", -1, 0, 0, -1, -1, RNA_struct_ui_description(type));
 		UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template), SET_INT_IN_POINTER(UI_ID_RENAME));
+
+		but->search_func = id_search_cb;
+		but->search_arg = template;
+		ui_but_search_refresh(but, true);
+
 		if (user_alert) UI_but_flag_enable(but, UI_BUT_REDALERT);
 
 		if (id->lib) {

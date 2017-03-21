@@ -666,6 +666,7 @@ static StructRNA *rna_AddonPref_register(Main *bmain, ReportList *reports, void 
 	apt->ext.call = call;
 	apt->ext.free = free;
 	RNA_struct_blender_type_set(apt->ext.srna, apt);
+	RNA_def_struct_flag(apt->ext.srna, STRUCT_NO_DATABLOCK_IDPROPERTIES);
 
 //	apt->draw = (have_function[0]) ? header_draw : NULL;
 

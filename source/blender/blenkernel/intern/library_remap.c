@@ -448,16 +448,13 @@ ATTR_NONNULL(1) static void libblock_remap_data(
 		 * objects actually using given old_id... sounds rather unlikely currently, though, so this will do for now. */
 
 		while (i--) {
-			ID *id_curr = lb_array[i]->first;
-
-			if (!id_curr || !BKE_library_idtype_can_use_idtype(GS(id_curr->name), GS(old_id->name))) {
-				continue;
-			}
-
-			for (; id_curr; id_curr = id_curr->next) {
+			for (ID *id_curr = lb_array[i]->first; id_curr; id_curr = id_curr->next) {
 				/* Note that we cannot skip indirect usages of old_id here (if requested), we still need to check it for
 				 * the user count handling...
 				 * XXX No more true (except for debug usage of those skipping counters). */
+				if (!BKE_library_id_can_use_idtype(id_curr, GS(old_id->name))) {
+					continue;
+				}
 				r_id_remap_data->id = id_curr;
 				libblock_remap_data_preprocess(r_id_remap_data);
 				BKE_library_foreach_ID_link(
@@ -750,6 +747,13 @@ void BKE_libblock_free_ex(Main *bmain, void *idv, const bool do_id_user, const b
 #ifdef WITH_PYTHON
 	BPY_id_release(id);
 #endif
+
+	/* Currently we should remap id to NULL regardless do_id_user,
+	   because when we will try to remove some other block,
+       which point to this one with idprop, the attempt
+	   to free will cause crash because of bad pointer on
+       freed id. Else we should pass do_id_user to IDP_FreeProperty */
+	libblock_remap_data(bmain, NULL, id, NULL, 0, NULL);
 
 	if (do_id_user) {
 		BKE_libblock_relink_ex(bmain, id, NULL, NULL, true);

@@ -72,6 +72,7 @@
 #include "BKE_global.h"
 #include "BKE_group.h"
 #include "BKE_fcurve.h"
+#include "BKE_idprop.h"
 #include "BKE_lamp.h"
 #include "BKE_lattice.h"
 #include "BKE_library.h"
@@ -89,6 +90,7 @@
 #include "BKE_speaker.h"
 #include "BKE_texture.h"
 #include "BKE_editmesh.h"
+#include "BKE_library_remap.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -2101,6 +2103,35 @@ void ED_object_single_users(Main *bmain, Scene *scene, const bool full, const bo
 		single_tex_users_expand(bmain);
 	}
 
+	/* Relink datablock pointer properties */
+	{
+		Base *base;
+		Object *ob;
+
+		IDP_RelinkProperty(scene->id.properties);
+
+		for (base = scene->base.first; base; base = base->next) {
+			ob = base->object;
+			if (!ID_IS_LINKED_DATABLOCK(ob)) {
+					IDP_RelinkProperty(ob->id.properties);
+			}
+		}
+
+		if (scene->nodetree) {
+			bNode *node;
+			IDP_RelinkProperty(scene->nodetree->id.properties);
+			for (node = scene->nodetree->nodes.first; node; node = node->next)
+				IDP_RelinkProperty(node->prop);
+		}
+
+		if (scene->gpd)
+			IDP_RelinkProperty(scene->gpd->id.properties);
+
+		IDP_RelinkProperty(scene->world->id.properties);
+
+		if (scene->clip)
+			IDP_RelinkProperty(scene->clip->id.properties);
+	}
 	BKE_main_id_clear_newpoins(bmain);
 	DAG_relations_tag_update(bmain);
 }

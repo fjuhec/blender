@@ -511,6 +511,8 @@ static StructRNA *rna_UIList_register(Main *bmain, ReportList *reports, void *da
 	/* update while blender is running */
 	WM_main_add_notifier(NC_WINDOW, NULL);
 
+	RNA_def_struct_flag(ult->ext.srna, STRUCT_NO_DATABLOCK_IDPROPERTIES);
+
 	return ult->ext.srna;
 }
 

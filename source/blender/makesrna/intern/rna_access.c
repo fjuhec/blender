@@ -50,6 +50,7 @@
 #include "BKE_idcode.h"
 #include "BKE_idprop.h"
 #include "BKE_fcurve.h"
+#include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_report.h"
 
@@ -380,6 +381,7 @@ static bool rna_idproperty_verify_valid(PointerRNA *ptr, PropertyRNA *prop, IDPr
 				return false;
 			break;
 		case IDP_GROUP:
+		case IDP_ID:
 			if (prop->type != PROP_POINTER)
 				return false;
 			break;
@@ -395,7 +397,8 @@ static PropertyRNA *typemap[IDP_NUMTYPES] = {
 	(PropertyRNA *)&rna_PropertyGroupItem_int,
 	(PropertyRNA *)&rna_PropertyGroupItem_float,
 	NULL, NULL, NULL,
-	(PropertyRNA *)&rna_PropertyGroupItem_group, NULL,
+	(PropertyRNA *)&rna_PropertyGroupItem_group,
+	(PropertyRNA *)&rna_PropertyGroupItem_id,
 	(PropertyRNA *)&rna_PropertyGroupItem_double,
 	(PropertyRNA *)&rna_PropertyGroupItem_idp_array
 };
@@ -585,6 +588,16 @@ bool RNA_struct_undo_check(const StructRNA *type)
 bool RNA_struct_idprops_register_check(const StructRNA *type)
 {
 	return (type->flag & STRUCT_NO_IDPROPERTIES) == 0;
+}
+
+bool RNA_struct_datablock_idprops_allowed(const StructRNA *type)
+{
+	return (type->flag & STRUCT_NO_DATABLOCK_IDPROPERTIES) == 0;
+}
+
+bool RNA_struct_contains_id(const StructRNA *type)
+{
+	return (type->flag & (STRUCT_CONTAINS_DATABLOCK_IDPROPERTIES | STRUCT_ID)) != 0;
 }
 
 /* remove an id-property */
@@ -1201,13 +1214,18 @@ int RNA_property_pointer_poll(PointerRNA *ptr, PropertyRNA *prop, PointerRNA *va
 
 	if (prop->type == PROP_POINTER) {
 		PointerPropertyRNA *pprop = (PointerPropertyRNA *)prop;
-		if (pprop->poll)
-			return pprop->poll(ptr, *value);
+
+		if (pprop->poll) {
+			if (rna_idproperty_check(&prop, ptr))
+				return ((PropPointerPollFuncPy) pprop->poll)(ptr, *value, prop);
+			else
+				return pprop->poll(ptr, *value);
+		}
 
 		return 1;
 	}
 
-	printf("%s %s: is not a pointer property.\n", __func__, prop->identifier);
+	printf("%s: %s is not a pointer property.\n", __func__, prop->identifier);
 	return 0;
 }
 
@@ -2967,8 +2985,10 @@ PointerRNA RNA_property_pointer_get(PointerRNA *ptr, PropertyRNA *prop)
 	if ((idprop = rna_idproperty_check(&prop, ptr))) {
 		pprop = (PointerPropertyRNA *)prop;
 
-		/* for groups, data is idprop itself */
+		if (RNA_struct_is_ID(pprop->type))
+			return rna_pointer_inherit_refine(ptr, pprop->type, IDP_Id(idprop));
 		if (pprop->typef)
+			/* for groups, data is idprop itself */
 			return rna_pointer_inherit_refine(ptr, pprop->typef(ptr), idprop);
 		else
 			return rna_pointer_inherit_refine(ptr, pprop->type, idprop);
@@ -2989,23 +3009,30 @@ PointerRNA RNA_property_pointer_get(PointerRNA *ptr, PropertyRNA *prop)
 
 void RNA_property_pointer_set(PointerRNA *ptr, PropertyRNA *prop, PointerRNA ptr_value)
 {
-	/*IDProperty *idprop;*/
-
+	PointerPropertyRNA *pprop = (PointerPropertyRNA *) prop;
 	BLI_assert(RNA_property_type(prop) == PROP_POINTER);
 
-	if ((/*idprop = */ rna_idproperty_check(&prop, ptr))) {
-		/* not supported */
-		/* rna_idproperty_touch(idprop); */
+	/* Check types */
+	if (ptr_value.type != NULL && !RNA_struct_is_a(ptr_value.type, pprop->type)) {
+		printf("%s: expected %s type, not %s.\n", __func__, pprop->type->identifier, ptr_value.type->identifier);
+		return;
 	}
-	else {
-		PointerPropertyRNA *pprop = (PointerPropertyRNA *)prop;
 
-		if (pprop->set &&
-		    !((prop->flag & PROP_NEVER_NULL) && ptr_value.data == NULL) &&
-		    !((prop->flag & PROP_ID_SELF_CHECK) && ptr->id.data == ptr_value.id.data))
-		{
-			pprop->set(ptr, ptr_value);
-		}
+	// RNA
+	if (pprop->set && !((prop->flag & PROP_NEVER_NULL) && ptr_value.data == NULL) &&
+		 !((prop->flag & PROP_ID_SELF_CHECK) && ptr->id.data == ptr_value.id.data)) {
+		pprop->set(ptr, ptr_value);
+	}
+	// IDProperty
+	else if (prop->flag & PROP_EDITABLE) {
+		IDPropertyTemplate val = { 0 };
+		IDProperty *group;
+
+		val.id = ptr_value.data;
+
+		group = RNA_struct_idprops(ptr, 1);
+		if (group)
+			IDP_ReplaceInGroup(group, IDP_New(IDP_ID, &val, prop->identifier));
 	}
 }
 
@@ -5830,6 +5857,9 @@ char *RNA_property_as_string(bContext *C, PointerRNA *ptr, PropertyRNA *prop, in
 		case PROP_POINTER:
 		{
 			PointerRNA tptr = RNA_property_pointer_get(ptr, prop);
+			if (!tptr.data)
+				break;
+
 			cstring = RNA_pointer_as_string(C, ptr, prop, &tptr);
 			BLI_dynstr_append(dynstr, cstring);
 			MEM_freeN(cstring);

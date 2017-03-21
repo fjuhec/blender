@@ -81,8 +81,11 @@ void IDP_ConcatString(struct IDProperty *str1, struct IDProperty *append) ATTR_N
 void IDP_FreeString(struct IDProperty *prop) ATTR_NONNULL();
 
 /*-------- ID Type -------*/
-void IDP_LinkID(struct IDProperty *prop, ID *id);
-void IDP_UnlinkID(struct IDProperty *prop);
+
+/* Registers the creation of a new ID Property */
+void IDP_id_register(struct IDProperty *prop);
+
+typedef void(*IDPWalkFunc)(void *userData, IDProperty *idp);
 
 /*-------- Group Functions -------*/
 
@@ -118,6 +121,8 @@ void IDP_ClearProperty(IDProperty *prop);
 
 void IDP_UnlinkProperty(struct IDProperty *prop);
 
+void IDP_RelinkProperty(struct IDProperty *prop);
+
 #define IDP_Int(prop)                     ((prop)->data.val)
 #define IDP_Array(prop)                   ((prop)->data.pointer)
 /* C11 const correctness for casts */
@@ -134,11 +139,15 @@ void IDP_UnlinkProperty(struct IDProperty *prop);
 #  define IDP_IDPArray(prop)  _Generic((prop), \
 	IDProperty *:             ((IDProperty *) (prop)->data.pointer), \
 	const IDProperty *: ((const IDProperty *) (prop)->data.pointer))
+#  define IDP_Id(prop)  _Generic((prop), \
+	IDProperty *:             ((ID *) (prop)->data.pointer), \
+	const IDProperty *: ((const ID *) (prop)->data.pointer))
 #else
 #  define IDP_Float(prop)        (*(float *)&(prop)->data.val)
 #  define IDP_Double(prop)      (*(double *)&(prop)->data.val)
 #  define IDP_String(prop)         ((char *) (prop)->data.pointer)
 #  define IDP_IDPArray(prop) ((IDProperty *) (prop)->data.pointer)
+#  define IDP_Id(prop)               ((ID *) (prop)->data.pointer)
 #endif
 
 #ifndef NDEBUG

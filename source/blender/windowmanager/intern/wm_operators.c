@@ -188,6 +188,7 @@ void WM_operatortype_append_ptr(void (*opfunc)(wmOperatorType *, void *), void *
 
 	ot = MEM_callocN(sizeof(wmOperatorType), "operatortype");
 	ot->srna = RNA_def_struct_ptr(&BLENDER_RNA, "", &RNA_OperatorProperties);
+	RNA_def_struct_flag(ot->srna, STRUCT_NO_DATABLOCK_IDPROPERTIES);
 	/* Set the default i18n context now, so that opfunc can redefine it if needed! */
 	RNA_def_struct_translation_context(ot->srna, BLT_I18NCONTEXT_OPERATOR_DEFAULT);
 	ot->translation_context = BLT_I18NCONTEXT_OPERATOR_DEFAULT;

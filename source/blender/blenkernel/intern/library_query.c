@@ -61,6 +61,7 @@
 #include "DNA_text_types.h"
 #include "DNA_vfont_types.h"
 #include "DNA_world_types.h"
+#include "DNA_armature_types.h"
 
 #include "BLI_utildefines.h"
 #include "BLI_listbase.h"
@@ -79,7 +80,8 @@
 #include "BKE_sca.h"
 #include "BKE_sequencer.h"
 #include "BKE_tracking.h"
-
+#include "BKE_idprop.h"
+#include "BKE_node.h"
 
 #define FOREACH_FINALIZE _finalize
 #define FOREACH_FINALIZE_VOID FOREACH_FINALIZE: (void)0
@@ -139,6 +141,8 @@ typedef struct LibraryForeachIDData {
 	GSet *ids_handled;  /* All IDs that are either already done, or still in ids_todo stack. */
 	BLI_LINKSTACK_DECLARE(ids_todo, ID *);
 } LibraryForeachIDData;
+
+static void library_foreach_idproperty_ID_link(LibraryForeachIDData *data, IDProperty *prop, int flag);
 
 static void library_foreach_rigidbodyworldSceneLooper(
         struct RigidBodyWorld *UNUSED(rbw), ID **id_pointer, void *user_data, int cb_flag)
@@ -288,6 +292,40 @@ static void library_foreach_ID_as_subdata_link(
 	FOREACH_FINALIZE_VOID;
 }
 
+static void library_foreach_idproperty_ID_link(LibraryForeachIDData *data, IDProperty *prop, int flag)
+{
+	IDProperty *loop;
+	IDProperty *idp_loop;
+
+	if (!prop) return;
+
+	BLI_assert(prop->type == IDP_GROUP);
+
+	loop = prop->data.group.first;
+	while (loop) {
+		switch (loop->type) {
+			case IDP_GROUP:
+				library_foreach_idproperty_ID_link(data, loop, flag);
+				break;
+			case IDP_IDPARRAY:
+				idp_loop = IDP_Array(loop);
+				for (int i = 0; i < loop->len; i++)
+					library_foreach_idproperty_ID_link(data, &idp_loop[i], flag);
+				break;
+			case IDP_ID:
+				if (IDP_Id(loop)) {
+					if (loop->data.pointer) {
+						FOREACH_CALLBACK_INVOKE_ID(data, loop->data.pointer, flag);
+					}
+				}
+				break;
+		}
+		loop = loop->next;
+	}
+	FOREACH_FINALIZE_VOID;
+}
+
+
 /**
  * Loop over all of the ID's this datablock links to.
  *
@@ -336,6 +374,8 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 			}
 			continue;
 		}
+
+		library_foreach_idproperty_ID_link(&data, id->properties, data.flag | IDWALK_CB_USER);
 
 		AnimData *adt = BKE_animdata_from_id(id);
 		if (adt) {
@@ -739,6 +779,12 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 				CALLBACK_INVOKE(ntree->gpd, IDWALK_CB_USER);
 				for (node = ntree->nodes.first; node; node = node->next) {
 					CALLBACK_INVOKE_ID(node->id, IDWALK_CB_USER);
+					library_foreach_idproperty_ID_link(&data, node->prop, IDWALK_CB_USER);
+					bNodeSocket *sock;
+					for (sock = node->inputs.first; sock; sock = sock->next)
+						library_foreach_idproperty_ID_link(&data, sock->prop, IDWALK_CB_USER);
+					for (sock = node->outputs.first; sock; sock = sock->next)
+						library_foreach_idproperty_ID_link(&data, sock->prop, IDWALK_CB_USER);
 				}
 				break;
 			}
@@ -893,12 +939,19 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 				break;
 			}
 
+			case ID_AR:
+			{
+				bArmature *arm = (bArmature *) id;
+				Bone *bone;
+				for (bone = arm->bonebase.first; bone; bone=bone->next)
+					library_foreach_idproperty_ID_link(&data, bone->prop, IDWALK_CB_USER);
+				break;
+			}
 			/* Nothing needed for those... */
 			case ID_IM:
 			case ID_VF:
 			case ID_TXT:
 			case ID_SO:
-			case ID_AR:
 			case ID_GD:
 			case ID_WM:
 			case ID_PAL:
@@ -948,19 +1001,30 @@ void BKE_library_update_ID_link_user(ID *id_dst, ID *id_src, const int cb_flag)
  */
 /* XXX This has to be fully rethink, basing check on ID type is not really working anymore (and even worth once
  *     IDProps will support ID pointers), we'll have to do some quick checks on IDs themselves... */
-bool BKE_library_idtype_can_use_idtype(const short id_type_owner, const short id_type_used)
+bool BKE_library_id_can_use_idtype(ID *id_owner, const short id_type_used)
 {
-	if (id_type_can_have_animdata(id_type_owner)) {
+	// any type of ID can be used in custom props
+	if (id_owner->properties)
+		return true;
+
+	const short id_type_owner = GS(id_owner->name);
+
+	// IDProps of bones for armatures and bNode->id can have virtually pointer to any type
+	if (ELEM(id_type_owner, ID_NT, ID_AR))
+		return true;
+
+	if (ntreeFromID(id_owner))
+		return true;
+
+	if (BKE_animdata_from_id(id_owner))
 		return true;  /* AnimationData can use virtually any kind of datablocks, through drivers especially. */
-	}
 
 	switch ((ID_Type)id_type_owner) {
 		case ID_LI:
 			return ELEM(id_type_used, ID_LI);
 		case ID_SCE:
 			return (ELEM(id_type_used, ID_OB, ID_WO, ID_SCE, ID_MC, ID_MA, ID_GR, ID_TXT,
-			                           ID_LS, ID_MSK, ID_SO, ID_GD, ID_BR, ID_PAL, ID_IM, ID_NT) ||
-			        BKE_library_idtype_can_use_idtype(ID_NT, id_type_used));
+			                           ID_LS, ID_MSK, ID_SO, ID_GD, ID_BR, ID_PAL, ID_IM, ID_NT));
 		case ID_OB:
 			/* Could be the following, but simpler to just always say 'yes' here. */
 #if 0
@@ -977,13 +1041,13 @@ bool BKE_library_idtype_can_use_idtype(const short id_type_owner, const short id
 		case ID_MB:
 			return ELEM(id_type_used, ID_MA);
 		case ID_MA:
-			return (ELEM(id_type_used, ID_TE, ID_GR) || BKE_library_idtype_can_use_idtype(ID_NT, id_type_used));
+			return (ELEM(id_type_used, ID_TE, ID_GR));
 		case ID_TE:
-			return (ELEM(id_type_used, ID_IM, ID_OB) || BKE_library_idtype_can_use_idtype(ID_NT, id_type_used));
+			return (ELEM(id_type_used, ID_IM, ID_OB));
 		case ID_LT:
 			return ELEM(id_type_used, ID_KE);
 		case ID_LA:
-			return (ELEM(id_type_used, ID_TE) || BKE_library_idtype_can_use_idtype(ID_NT, id_type_used));
+			return (ELEM(id_type_used, ID_TE));
 		case ID_CA:
 			return ELEM(id_type_used, ID_OB);
 		case ID_KE:
@@ -991,7 +1055,7 @@ bool BKE_library_idtype_can_use_idtype(const short id_type_owner, const short id
 		case ID_SCR:
 			return ELEM(id_type_used, ID_SCE);
 		case ID_WO:
-			return (ELEM(id_type_used, ID_TE) || BKE_library_idtype_can_use_idtype(ID_NT, id_type_used));
+			return (ELEM(id_type_used, ID_TE));
 		case ID_SPK:
 			return ELEM(id_type_used, ID_SO);
 		case ID_GR:
@@ -1012,7 +1076,7 @@ bool BKE_library_idtype_can_use_idtype(const short id_type_owner, const short id
 		case ID_MSK:
 			return ELEM(id_type_used, ID_MC);  /* WARNING! mask->parent.id, not typed. */
 		case ID_LS:
-			return (ELEM(id_type_used, ID_TE, ID_OB) || BKE_library_idtype_can_use_idtype(ID_NT, id_type_used));
+			return (ELEM(id_type_used, ID_TE, ID_OB));
 		case ID_IM:
 		case ID_VF:
 		case ID_TXT:
@@ -1118,7 +1182,7 @@ static bool library_ID_is_used(Main *bmain, void *idv, const bool check_linked)
 	while (i-- && !is_defined) {
 		ID *id_curr = lb_array[i]->first;
 
-		if (!id_curr || !BKE_library_idtype_can_use_idtype(GS(id_curr->name), GS(id->name))) {
+		if (!id_curr || !BKE_library_id_can_use_idtype(id_curr, GS(id->name))) {
 			continue;
 		}
 
@@ -1170,7 +1234,7 @@ void BKE_library_ID_test_usages(Main *bmain, void *idv, bool *is_used_local, boo
 	while (i-- && !is_defined) {
 		ID *id_curr = lb_array[i]->first;
 
-		if (!id_curr || !BKE_library_idtype_can_use_idtype(GS(id_curr->name), GS(id->name))) {
+		if (!id_curr || !BKE_library_id_can_use_idtype(id_curr, GS(id->name))) {
 			continue;
 		}
 
