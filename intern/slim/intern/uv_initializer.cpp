@@ -248,6 +248,21 @@ void UVInitializer::tutte(const Eigen::MatrixXi &F,
 
 	UVInitializer::convex_border_parameterization(F, V, E, EL, bnd, bnd_uv, UV, Method::TUTTE);
 }
+
+void UVInitializer::mapVerticesToConvexBorder(Eigen::MatrixXd &vertex_positions) {
+	double pi = atan(1)*4;
+	int n_boundary_vertices = vertex_positions.rows();
+	double x, y;
+	double angle = 2*pi / n_boundary_vertices;
+
+	for (int i = 0; i < n_boundary_vertices; i++) {
+		x = cos(angle*i);
+		y = sin(angle*i);
+		vertex_positions(i,0) = (x*0.5) + 0.5;
+		vertex_positions(i,1) = (y*0.5) + 0.5;
+	}
+}
+
 void get_flips(const Eigen::MatrixXd& V,
 							  const Eigen::MatrixXi& F,
 							  const Eigen::MatrixXd& uv,
@@ -279,7 +294,6 @@ int UVInitializer::count_flips(const Eigen::MatrixXd& V,
 
 	return flip_idx.size();
 }
-
 
 
 

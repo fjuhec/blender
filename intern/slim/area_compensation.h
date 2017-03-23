@@ -35,5 +35,5 @@ using namespace igl;
 
 namespace areacomp {
 	void correctMapSurfaceAreaIfNecessary(SLIMData *slimData);
-	void correctMeshSurfaceAreaIfNecessary(SLIMData *slimData, double relative_scale = 1.0);
+	void correctMeshSurfaceAreaIfNecessary(SLIMData *slimData);
 }

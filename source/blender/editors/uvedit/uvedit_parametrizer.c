@@ -4578,14 +4578,16 @@ bool get_pinned_vertex_data(ParamHandle *liveHandle,
 							int chartNr,
 							int *n_pins,
 							int *pinned_vertex_indices,
-							double *pinned_vertex_positions_2D)
+							double *pinned_vertex_positions_2D,
+							int *n_selected_pins,
+							int *selected_pins)
 {
 
 	PHandle *phandle = (PHandle *) liveHandle;
 	PChart *chart = phandle->charts[chartNr];
 
 	bool pinned_vertex_was_moved = false;
-	int i = 0; // index of selected-and-pinned vertex
+	int i = 0; // index of pinned vertex
 
 	//boundary vertices have lower slimIds, process them first
 	PEdge *outer;
@@ -4597,7 +4599,10 @@ bool get_pinned_vertex_data(ParamHandle *liveHandle,
 
 			if (be->vert->flag & PVERT_SELECT){
 				pinned_vertex_was_moved = true;
+				selected_pins[*n_selected_pins] = be->vert->slimId;
+				++(*n_selected_pins);
 			}
+			
 			pinned_vertex_indices[i] = be->vert->slimId;
 			pinned_vertex_positions_2D[2*i] = be->vert->uv[0];
 			pinned_vertex_positions_2D[2*i+1] = be->vert->uv[1];
@@ -4614,6 +4619,8 @@ bool get_pinned_vertex_data(ParamHandle *liveHandle,
 
 			if (v->flag & PVERT_SELECT){
 				pinned_vertex_was_moved = true;
+				selected_pins[*n_selected_pins] = v->slimId;
+				++(*n_selected_pins);
 			}
 			pinned_vertex_indices[i] = v->slimId;
 			pinned_vertex_positions_2D[2*i] = v->uv[0];

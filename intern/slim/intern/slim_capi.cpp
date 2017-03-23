@@ -38,6 +38,28 @@
 
 using namespace igl;
 
+void SLIM_transfer_uvs_blended_live(SLIMMatrixTransfer *mt,
+									void* slim_data_ptr,
+									int n_pins,
+									int n_selected_pins,
+									int *selected_pins,
+									int *pinned_vertex_indices,
+									double *pinned_vertex_positions,
+									int uv_chart_index){
+
+	SLIMData* slim_data = (SLIMData*) slim_data_ptr;
+	areacomp::correctMapSurfaceAreaIfNecessary(slim_data);
+	transferUvsBackToNativePartLive(mt,
+									slim_data->V_o,
+									n_pins,
+									n_selected_pins,
+									selected_pins,
+									pinned_vertex_indices,
+									pinned_vertex_positions,
+									uv_chart_index);
+}
+
+
 /*  Called from the native part during each iteration of interactive parametrisation.
 	The blend parameter decides the linear blending between the original UV map and the one
 	optained from the accumulated SLIM iterations so far.
@@ -70,13 +92,17 @@ void SLIM_parametrize_single_iteration(void* slim_data_ptr){
 void SLIM_parametrize_live(void* slim_data_ptr,
 						   int n_pins,
 						   int* pinned_vertex_indices,
-						   double *pinned_vertex_positions_2D){
+						   double *pinned_vertex_positions_2D,
+						   int n_selected_pins,
+						   int *selected_pins){
 
 	SLIMData* slim_data = (SLIMData*) slim_data_ptr;
 	param_slim_live_unwrap(slim_data,
 						   n_pins,
 						   pinned_vertex_indices,
-						   pinned_vertex_positions_2D);
+						   pinned_vertex_positions_2D,
+						   n_selected_pins,
+						   selected_pins);
 }
 
 void SLIM_parametrize(SLIMMatrixTransfer *mt, int n_iterations, bool are_border_vertices_pinned, bool skip_initialization){

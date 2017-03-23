@@ -82,6 +82,8 @@ namespace UVInitializer {
 				  int powerOfHarmonicOperaton,
 				  Eigen::MatrixXd &UV);
 
+	void mapVerticesToConvexBorder(Eigen::MatrixXd &vertex_positions);
+
 	int count_flips(const Eigen::MatrixXd& V,
 									const Eigen::MatrixXi& F,
 									const Eigen::MatrixXd& uv);

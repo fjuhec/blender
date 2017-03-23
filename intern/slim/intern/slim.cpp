@@ -34,15 +34,18 @@ namespace igl
     IGL_INLINE void buildA(igl::SLIMData& s, Eigen::SparseMatrix<double> &A);
     IGL_INLINE void buildRhs(igl::SLIMData& s, const Eigen::SparseMatrix<double> &At);
     IGL_INLINE void add_soft_constraints(igl::SLIMData& s, Eigen::SparseMatrix<double> &L);
-    IGL_INLINE double compute_energy(igl::SLIMData& s, Eigen::MatrixXd &V_new);
+	IGL_INLINE double compute_energy(igl::SLIMData& s, Eigen::MatrixXd &V_new, Eigen::VectorXd &singularValues);
+	IGL_INLINE double compute_energy(igl::SLIMData& s, Eigen::MatrixXd &V_new);
     IGL_INLINE double compute_soft_const_energy(igl::SLIMData& s,
                                                 const Eigen::MatrixXd &V,
                                                 const Eigen::MatrixXi &F,
                                                 Eigen::MatrixXd &V_o);
-    IGL_INLINE double compute_energy_with_jacobians(igl::SLIMData& s,
-                                                    const Eigen::MatrixXd &V,
-                                                    const Eigen::MatrixXi &F, const Eigen::MatrixXd &Ji,
-                                                    Eigen::MatrixXd &uv, Eigen::VectorXd &areas);
+	IGL_INLINE double compute_energy_with_jacobians(igl::SLIMData& s,
+													const Eigen::MatrixXd &V,
+													const Eigen::MatrixXi &F, const Eigen::MatrixXd &Ji,
+													Eigen::MatrixXd &uv, Eigen::VectorXd &areas,
+													Eigen::VectorXd &singularValues,
+													bool gatherSingularValues);
     IGL_INLINE void solve_weighted_arap(igl::SLIMData& s,
                                         const Eigen::MatrixXd &V,
                                         const Eigen::MatrixXi &F,
@@ -538,12 +541,27 @@ namespace igl
       }
     }
 
-    IGL_INLINE double compute_energy(igl::SLIMData& s, Eigen::MatrixXd &V_new)
-    {
-      compute_jacobians(s,V_new);
-      return compute_energy_with_jacobians(s, s.V, s.F, s.Ji, V_new, s.M) +
-             compute_soft_const_energy(s, s.V, s.F, V_new);
-    }
+	  IGL_INLINE double compute_energy(igl::SLIMData& s,
+									   Eigen::MatrixXd &V_new,
+									   Eigen::VectorXd &singularValues,
+									   bool gatherSingularValues)
+	  {
+		  compute_jacobians(s,V_new);
+		  return compute_energy_with_jacobians(s, s.V, s.F, s.Ji, V_new, s.M, singularValues, gatherSingularValues) +
+		  compute_soft_const_energy(s, s.V, s.F, V_new);
+	  }
+
+	  IGL_INLINE double compute_energy(igl::SLIMData& s, Eigen::MatrixXd &V_new)
+	  {
+		  Eigen::VectorXd temp;
+		  return compute_energy(s, V_new, temp, false);
+	  }
+
+	  IGL_INLINE double compute_energy(igl::SLIMData& s, Eigen::MatrixXd &V_new, Eigen::VectorXd &singularValues)
+	  {
+
+		  return compute_energy(s, V_new, singularValues, true);
+	  }
 
     IGL_INLINE double compute_soft_const_energy(igl::SLIMData& s,
                                                 const Eigen::MatrixXd &V,
@@ -561,9 +579,10 @@ namespace igl
     IGL_INLINE double compute_energy_with_jacobians(igl::SLIMData& s,
                                                     const Eigen::MatrixXd &V,
                                                     const Eigen::MatrixXi &F, const Eigen::MatrixXd &Ji,
-                                                    Eigen::MatrixXd &uv, Eigen::VectorXd &areas)
+													Eigen::MatrixXd &uv, Eigen::VectorXd &areas,
+													Eigen::VectorXd &singularValues,
+													bool gatherSingularValues)
     {
-
       double energy = 0;
       if (s.dim == 2)
       {
@@ -593,7 +612,12 @@ namespace igl
             case igl::SLIMData::SYMMETRIC_DIRICHLET:
             {
               energy += areas(i) * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2));
-              break;
+
+				if (gatherSingularValues){
+					singularValues(i) = s1;
+					singularValues(i + s.F.rows()) = s2;
+				}
+			  break;
             }
             case igl::SLIMData::EXP_SYMMETRIC_DIRICHLET:
             {
@@ -897,16 +921,75 @@ void igl::slim_precompute(Eigen::MatrixXd &V, Eigen::MatrixXi &F, Eigen::MatrixX
   assert (F.cols() == 3 || F.cols() == 4);
 
   igl::slim::pre_calc(data);
+
   data.energy = igl::slim::compute_energy(data,data.V_o) / data.mesh_area;
 }
 
-void igl::recompute_energy(SLIMData &data){
-	data.energy = igl::slim::compute_energy(data, data.V_o);
+IGL_INLINE double computeGlobalScaleInvarianceFactor(Eigen::VectorXd &singularValues,
+													 Eigen::VectorXd &areas,
+													 double relativeScaleFactor){
+
+	int nFaces = singularValues.rows()/2;
+
+	Eigen::VectorXd areasChained(2*nFaces);
+	areasChained << areas, areas;
+
+	/*
+	 per Face Energy for face i with singvals si1 and si2 and area ai when scaling geometry by x is
+	 
+ 	  ai*(si1*x)^2 + ai*(si2*x)^2 + ai/(si1*x)^2 + ai/(si2*x)^2)
+	 
+	 The combined Energy of all faces is therefore
+	 (s1 and s2 are the sums over all ai*(si1^2) and ai*(si2^2) respectively. t1 and t2
+	 are the sums over all ai/(si1^2) and ai/(si2^2) respectively)
+
+	   s1*(x^2) + s2*(x^2) + t1/(x^2) + t2/(x^2)
+	 
+	 with a = (s1 + s2) and b = (t1 + t2) we get
+	 
+	   ax^2 + b/x^2
+	 
+	 it's derivative is
+	 
+	   2ax - 2b/(x^3)
+	 
+	 and when we set it zero we get
+	 
+	  x^4 = b/a => x = sqrt(sqrt(b/a))
+
+	 */
+
+	Eigen::VectorXd squaredSingularValues = singularValues.cwiseProduct(singularValues);
+	Eigen::VectorXd inverseSquaredSingularValues = singularValues.cwiseProduct(singularValues).cwiseInverse();
+
+	Eigen::VectorXd weightedSquaredSingularValues = squaredSingularValues.cwiseProduct(areasChained);
+	Eigen::VectorXd weightedInverseSquaredSingularValues = inverseSquaredSingularValues.cwiseProduct(areasChained);
+
+	double s1 = weightedSquaredSingularValues.head(nFaces).sum();
+	double s2 = weightedSquaredSingularValues.tail(nFaces).sum();
+
+	double t1 = weightedInverseSquaredSingularValues.head(nFaces).sum();
+	double t2 = weightedInverseSquaredSingularValues.tail(nFaces).sum();
+
+	double a = s1 + s2;
+	double b = t1 + t2;
+
+	double x = sqrt(sqrt(b/a));
+
+	return 1/x;
 }
 
 Eigen::MatrixXd igl::slim_solve(SLIMData &data, int iter_num)
 {
-  for (int i = 0; i < iter_num; i++)
+	Eigen::VectorXd singularValues;
+	bool arePinsPresent = data.b.rows() > 0;
+
+	if (arePinsPresent) {
+		singularValues.resize(data.F.rows() * 2);
+		data.energy = igl::slim::compute_energy(data, data.V_o, singularValues)/data.mesh_area;
+	}
+
+	for (int i = 0; i < iter_num; i++)
   {
     Eigen::MatrixXd dest_res;
     dest_res = data.V_o;
@@ -915,12 +998,22 @@ Eigen::MatrixXd igl::slim_solve(SLIMData &data, int iter_num)
     igl::slim::update_weights_and_closest_rotations(data,data.V, data.F, dest_res);
     igl::slim::solve_weighted_arap(data,data.V, data.F, dest_res, data.b, data.bc);
 
+
 	  std::function<double(Eigen::MatrixXd &)> compute_energy = [&](
-        Eigen::MatrixXd &aaa) { return igl::slim::compute_energy(data,aaa); };
+        Eigen::MatrixXd &aaa) { return  arePinsPresent ?
+		  igl::slim::compute_energy(data,aaa, singularValues):
+		  igl::slim::compute_energy(data,aaa);
+		};
 
     data.energy = igl::flip_avoiding_line_search(data.F, data.V_o, dest_res, compute_energy,
                                                  data.energy * data.mesh_area) / data.mesh_area;
 
+	  if (arePinsPresent){
+	      data.globalScaleInvarianceFactor = computeGlobalScaleInvarianceFactor(singularValues, data.M, data.relativeScale);
+		  data.Dx /= data.globalScaleInvarianceFactor;
+		  data.Dy /= data.globalScaleInvarianceFactor;
+		  data.energy = igl::slim::compute_energy(data, data.V_o, singularValues)/data.mesh_area;
+	  }
   }
 
   return data.V_o;

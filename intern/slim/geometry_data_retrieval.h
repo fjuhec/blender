@@ -67,7 +67,7 @@ namespace retrieval {
 		double weightInfluence;
 	};
 
-	void constructSlimData(GeometryData &gd, SLIMData *slimData, bool skipInitialization, int slim_reflection_mode);
+	void constructSlimData(GeometryData &gd, SLIMData *slimData, bool skipInitialization, int slim_reflection_mode, double relativeScale);
 
 	void retrievePinnedVertices(GeometryData &gd, bool borderVerticesArePinned);
 

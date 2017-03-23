@@ -70,7 +70,7 @@ namespace areacomp {
 		correctGeometrySize(resultingAreaToExpectedAreaRatio, slimData->V_o, desiredRatio);
 	}
 
-	void correctMeshSurfaceAreaIfNecessary(SLIMData *slimData, double relative_scale){
+	void correctMeshSurfaceAreaIfNecessary(SLIMData *slimData){
 		int numberOfPinnedVertices = slimData->b.rows();
 		bool pinnedVerticesExist = numberOfPinnedVertices > 0;
 		bool needsAreaCorrection = 	slimData->skipInitialization || pinnedVerticesExist;
@@ -78,7 +78,7 @@ namespace areacomp {
 		if(!needsAreaCorrection){
 			return;
 		}
-		//TODO: should instead compare area of convex hull / size of convex hull of both major and minor axis
+
 		double areaOfPreinitializedMap = computeSurfaceArea(slimData->V_o, slimData->F);
 		if (!areaOfPreinitializedMap){
 			return;
@@ -92,7 +92,7 @@ namespace areacomp {
 		double surfaceAreaOf3DMesh = computeSurfaceArea(slimData->V, slimData->F);
 		double surfaceAreaToMapAreaRatio = surfaceAreaOf3DMesh / areaOfPreinitializedMap;
 
-		double desiredRatio = relative_scale;
+		double desiredRatio = 1.0;
 		correctGeometrySize(surfaceAreaToMapAreaRatio, slimData->V, desiredRatio);
 	}
 }

@@ -966,17 +966,24 @@ void ED_uvedit_live_unwrap_re_solve(void)
 
 				int *pinned_vertex_indices =
 					MEM_callocN(sizeof(*pinned_vertex_indices) * rs->mt->n_verts[chartNr],
-								"indices of pinned & selected verts");
+								"indices of pinned verts");
 				double *pinned_vertex_positions_2D =
 					MEM_callocN(sizeof(*pinned_vertex_positions_2D) * 2 * rs->mt->n_verts[chartNr],
-								"positions of pinned & selected verts: [u1, v1, u2, v2, ..., un, vn]");
+								"positions of pinned verts: [u1, v1, u2, v2, ..., un, vn]");
+				int *selected_pins =
+					MEM_callocN(sizeof(*pinned_vertex_indices) * rs->mt->n_verts[chartNr],
+								"indices of pinned & selected verts");
+
 				int n_pins = 0;
+				int n_selected_pins = 0;
 
 				bool pinned_vertex_was_moved = get_pinned_vertex_data(liveHandle,
-												   chartNr,
-												   &n_pins,
-												   pinned_vertex_indices,
-												   pinned_vertex_positions_2D);
+																	  chartNr,
+																	  &n_pins,
+																	  pinned_vertex_indices,
+																	  pinned_vertex_positions_2D,
+																	  &n_selected_pins,
+																	  selected_pins);
 				if (!pinned_vertex_was_moved){
 					rs->slimWasUsed = false;
 					return;
@@ -987,9 +994,12 @@ void ED_uvedit_live_unwrap_re_solve(void)
 				SLIM_parametrize_live(slimPtr,
 									  n_pins,
 									  pinned_vertex_indices,
-									  pinned_vertex_positions_2D);
-				SLIM_transfer_uvs_blended(rs->mt, slimPtr, chartNr, 0);
+									  pinned_vertex_positions_2D,
+									  n_selected_pins,
+									  selected_pins);
+				SLIM_transfer_uvs_blended_live(rs->mt, slimPtr, n_pins, n_selected_pins, selected_pins, pinned_vertex_indices, pinned_vertex_positions_2D, chartNr);
 
+				MEM_freeN(selected_pins);
 				MEM_freeN(pinned_vertex_indices);
 				MEM_freeN(pinned_vertex_positions_2D);
 			}
@@ -1022,14 +1032,14 @@ void ED_uvedit_live_unwrap_end(short cancel)
 				set_uv_param_slim(liveHandle, rs->mt);
 			}
 
+			if(rs->slimWasUsed && !cancel) {
+				param_flush(liveHandle);
+			}
+
 			free_slimPtrs(rs->slimPtrs, rs->mt->n_charts);
 			free_slim_matrix_transfer(rs->mt);
 			MEM_freeN(rs->slimPtrs);
 			MEM_freeN(rs);
-
-			if(rs->slimWasUsed && !cancel) {
-				param_flush(liveHandle);
-			}
 
 			if (cancel) {
 				param_flush_restore(liveHandle);

@@ -154,7 +154,9 @@ bool get_pinned_vertex_data(ParamHandle *liveHandle,
 							int chartNr,
 							int *n_pins,
 							int *selected_pinned_vertex_indices,
-							double *selected_pinned_vertex_positions_2D);
+							double *selected_pinned_vertex_positions_2D,
+							int *n_selected_pins,
+							int *selected_pins);
 void backup_current_uvs(ParamHandle *handle);
 
 
