@@ -3911,8 +3911,6 @@ classes = (
     VIEW3D_MT_edit_gpencil_transform,
     VIEW3D_MT_edit_gpencil_interpolate,
     VIEW3D_PT_viewport_debug,
-    VIEW3D_PT_grease_pencil,
-    VIEW3D_PT_grease_pencil_palettecolor,
     VIEW3D_PT_view3d_properties,
     VIEW3D_PT_view3d_cursor,
     VIEW3D_PT_view3d_name,

@@ -2073,6 +2073,7 @@ classes = (
     VIEW3D_PT_tools_grease_pencil_interpolate,
     VIEW3D_PT_tools_grease_pencil_sculpt,
     VIEW3D_PT_tools_grease_pencil_brush,
+    VIEW3D_PT_tools_grease_pencil_palettecolor,
     VIEW3D_PT_tools_grease_pencil_brushcurves,
     VIEW3D_PT_tools_history,
 )

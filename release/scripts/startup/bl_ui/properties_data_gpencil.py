@@ -51,5 +51,12 @@ class DATA_PT_gpencil_datapanel(GreasePencilDataPanel, Panel):
     # NOTE: this is just a wrapper around the generic GP Panel
 
 
+classes = (
+    DATA_PT_gpencil,
+    DATA_PT_gpencil_datapanel,
+)
+
 if __name__ == "__main__":  # only for live edit.
-    bpy.utils.register_module(__name__)
+    from bpy.utils import register_class
+    for cls in classes:
+        register_class(cls)
