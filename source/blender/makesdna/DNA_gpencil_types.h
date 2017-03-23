@@ -129,7 +129,7 @@ typedef enum eGPDpalettecolor_Flag {
 	PC_COLOR_LOCKED = (1 << 2),
 	/* do onion skinning */
 	PC_COLOR_ONIONSKIN = (1 << 3),
-	/* "volumetric" strokes (i.e. GLU Quadric discs in 3D) */
+	/* "volumetric" strokes */
 	PC_COLOR_VOLUMETRIC = (1 << 4)
 } eGPDpalettecolor_Flag;
 
@@ -273,7 +273,7 @@ typedef enum eGPDlayer_Flag {
 	GP_LAYER_GHOST_PREVCOL	= (1 << 8),
 	/* use custom color for ghosts after current frame */
 	GP_LAYER_GHOST_NEXTCOL	= (1 << 9),
-	/* "volumetric" strokes (i.e. GLU Quadric discs in 3D) */
+	/* "volumetric" strokes */
 	GP_LAYER_VOLUMETRIC		= (1 << 10),
 	/* Unlock color */
 	GP_LAYER_UNLOCK_COLOR 	= (1 << 12),

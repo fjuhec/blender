@@ -128,7 +128,6 @@ static void time_draw_cache(SpaceTime *stime, Object *ob, Scene *scene)
 
 	BKE_ptcache_ids_from_object(&pidlist, ob, scene, 0);
 
-	gpuMatrixBegin3D_legacy();
 	unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
@@ -163,8 +162,8 @@ static void time_draw_cache(SpaceTime *stime, Object *ob, Scene *scene)
 			continue;
 
 		gpuPushMatrix();
-		gpuTranslate3f(0.0, (float)V2D_SCROLL_HEIGHT + yoffs, 0.0);
-		gpuScale3f(1.0, cache_draw_height, 0.0);
+		gpuTranslate2f(0.0, (float)V2D_SCROLL_HEIGHT + yoffs);
+		gpuScale2f(1.0, cache_draw_height);
 		
 		switch (pid->type) {
 			case PTCACHE_TYPE_SOFTBODY:
@@ -241,7 +240,6 @@ static void time_draw_cache(SpaceTime *stime, Object *ob, Scene *scene)
 	}
 
 	immUnbindProgram();
-	gpuMatrixEnd();
 
 	BLI_freelistN(&pidlist);
 }

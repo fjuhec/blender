@@ -50,17 +50,9 @@
 
 #include "GPU_basic_shader.h"
 #include "GPU_immediate.h"
+#include "GPU_matrix.h"
 
 #include "UI_interface.h"
-
-/* DEPRECATED: use imm_draw_line instead */
-void fdrawline(float x1, float y1, float x2, float y2)
-{
-	glBegin(GL_LINES);
-	glVertex2f(x1, y1);
-	glVertex2f(x2, y2);
-	glEnd();
-}
 
 /* ******************************************** */
 
@@ -568,12 +560,12 @@ void glaDefine2DArea(rcti *screen_rect)
 	 */
 
 	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
+	gpuLoadIdentity();
 	glOrtho(0.0, sc_w, 0.0, sc_h, -1, 1);
-	glTranslatef(GLA_PIXEL_OFS, GLA_PIXEL_OFS, 0.0);
+	gpuTranslate2f(GLA_PIXEL_OFS, GLA_PIXEL_OFS);
 
 	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
+	gpuLoadIdentity();
 }
 
 /* TODO(merwin): put the following 2D code to use, or build new 2D code inspired & informd by it */
@@ -631,8 +623,8 @@ gla2DDrawInfo *glaBegin2DDraw(rcti *screen_rect, rctf *world_rect)
 
 	glGetIntegerv(GL_VIEWPORT, (GLint *)di->orig_vp);
 	glGetIntegerv(GL_SCISSOR_BOX, (GLint *)di->orig_sc);
-	glGetFloatv(GL_PROJECTION_MATRIX, (GLfloat *)di->orig_projmat);
-	glGetFloatv(GL_MODELVIEW_MATRIX, (GLfloat *)di->orig_viewmat);
+	gpuGetProjectionMatrix3D(di->orig_projmat);
+	gpuGetModelViewMatrix3D(di->orig_viewmat);
 
 	di->screen_rect = *screen_rect;
 	if (world_rect) {
@@ -683,10 +675,8 @@ void glaEnd2DDraw(gla2DDrawInfo *di)
 {
 	glViewport(di->orig_vp[0], di->orig_vp[1], di->orig_vp[2], di->orig_vp[3]);
 	glScissor(di->orig_vp[0], di->orig_vp[1], di->orig_vp[2], di->orig_vp[3]);
-	glMatrixMode(GL_PROJECTION);
-	glLoadMatrixf(di->orig_projmat);
-	glMatrixMode(GL_MODELVIEW);
-	glLoadMatrixf(di->orig_viewmat);
+	gpuLoadProjectionMatrix3D(di->orig_projmat);
+	gpuLoadMatrix3D(di->orig_viewmat);
 
 	MEM_freeN(di);
 }
@@ -710,8 +700,7 @@ void bglPolygonOffset(float viewdist, float dist)
 		// glPolygonOffset(-1.0, -1.0);
 
 		/* hack below is to mimic polygon offset */
-		glMatrixMode(GL_PROJECTION);
-		glGetFloatv(GL_PROJECTION_MATRIX, (float *)winmat);
+		gpuGetProjectionMatrix3D(winmat);
 		
 		/* dist is from camera to center point */
 		
@@ -742,17 +731,13 @@ void bglPolygonOffset(float viewdist, float dist)
 		
 		winmat[14] -= offs;
 		offset += offs;
-		
-		glLoadMatrixf(winmat);
-		glMatrixMode(GL_MODELVIEW);
 	}
 	else {
-		glMatrixMode(GL_PROJECTION);
 		winmat[14] += offset;
 		offset = 0.0;
-		glLoadMatrixf(winmat);
-		glMatrixMode(GL_MODELVIEW);
 	}
+
+	gpuLoadProjectionMatrix3D(winmat);
 }
 
 /* **** Color management helper functions for GLSL display/transform ***** */

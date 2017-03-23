@@ -980,7 +980,6 @@ static void draw_manipulator_rotate(
 
 	/* prepare for screen aligned draw */
 	size = len_v3(rv3d->twmat[0]);
-	gpuMatrixBegin3D_legacy();
 	gpuPushMatrix();
 	gpuTranslate3fv(rv3d->twmat[3]);
 
@@ -1106,9 +1105,10 @@ static void draw_manipulator_rotate(
 			preOrthoFront(ortho, matt, 0);
 			if (is_picksel) GPU_select_load_id(MAN_ROT_X);
 			else manipulator_setcolor(v3d, 'X', colcode, 255);
-			gpuRotate3f(90.0, 0.0, 1.0, 0.0);
+			gpuPushMatrix();
+			gpuRotateAxis(90.0, 'Y');
 			imm_drawcircball(unitmat[3], 1.0, unitmat, pos);
-			gpuRotate3f(-90.0, 0.0, 1.0, 0.0);
+			gpuPopMatrix();
 			postOrtho(ortho);
 		}
 		/* Y circle */
@@ -1116,9 +1116,10 @@ static void draw_manipulator_rotate(
 			preOrthoFront(ortho, matt, 1);
 			if (is_picksel) GPU_select_load_id(MAN_ROT_Y);
 			else manipulator_setcolor(v3d, 'Y', colcode, 255);
-			gpuRotate3f(-90.0, 1.0, 0.0, 0.0);
+			gpuPushMatrix();
+			gpuRotateAxis(-90.0, 'X');
 			imm_drawcircball(unitmat[3], 1.0, unitmat, pos);
-			gpuRotate3f(90.0, 1.0, 0.0, 0.0);
+			gpuPopMatrix();
 			postOrtho(ortho);
 		}
 	}
@@ -1139,9 +1140,10 @@ static void draw_manipulator_rotate(
 			preOrthoFront(ortho, rv3d->twmat, 0);
 			if (is_picksel) GPU_select_load_id(MAN_ROT_X);
 			else manipulator_setcolor(v3d, 'X', colcode, 255);
-			gpuRotate3f(90.0, 0.0, 1.0, 0.0);
+			gpuPushMatrix();
+			gpuRotateAxis(90.0, 'Y');
 			partial_doughnut(pos, cusize / 4.0f, 1.0f, 0, 48, 8, 48);
-			gpuRotate3f(-90.0, 0.0, 1.0, 0.0);
+			gpuPopMatrix();
 			postOrtho(ortho);
 		}
 		/* Y circle */
@@ -1149,9 +1151,10 @@ static void draw_manipulator_rotate(
 			preOrthoFront(ortho, rv3d->twmat, 1);
 			if (is_picksel) GPU_select_load_id(MAN_ROT_Y);
 			else manipulator_setcolor(v3d, 'Y', colcode, 255);
-			gpuRotate3f(-90.0, 1.0, 0.0, 0.0);
+			gpuPushMatrix();
+			gpuRotateAxis(-90.0, 'X');
 			partial_doughnut(pos, cusize / 4.0f, 1.0f, 0, 48, 8, 48);
-			gpuRotate3f(90.0, 1.0, 0.0, 0.0);
+			gpuPopMatrix();
 			postOrtho(ortho);
 		}
 
@@ -1180,8 +1183,8 @@ static void draw_manipulator_rotate(
 			if (is_picksel) GPU_select_load_id(MAN_ROT_Y);
 			else manipulator_setcolor(v3d, 'Y', colcode, 255);
 
-			gpuRotate3f(90.0, 1.0, 0.0, 0.0);
-			gpuRotate3f(90.0, 0.0, 0.0, 1.0);
+			gpuRotateAxis(90.0, 'X');
+			gpuRotateAxis(90.0, 'Z');
 			partial_doughnut(pos, 0.7f * cusize, 1.0f, 31, 33, 8, 64);
 
 			gpuPopMatrix();
@@ -1195,8 +1198,8 @@ static void draw_manipulator_rotate(
 			if (is_picksel) GPU_select_load_id(MAN_ROT_X);
 			else manipulator_setcolor(v3d, 'X', colcode, 255);
 
-			gpuRotate3f(-90.0, 0.0, 1.0, 0.0);
-			gpuRotate3f(90.0, 0.0, 0.0, 1.0);
+			gpuRotateAxis(-90.0, 'Y');
+			gpuRotateAxis(90.0, 'Z');
 			partial_doughnut(pos, 0.7f * cusize, 1.0f, 31, 33, 8, 64);
 
 			gpuPopMatrix();
@@ -1210,7 +1213,6 @@ static void draw_manipulator_rotate(
 	if (v3d->zbuf) glEnable(GL_DEPTH_TEST);
 
 	immUnbindProgram();
-	gpuMatrixEnd();
 }
 
 static void drawsolidcube(unsigned int pos, float size)
@@ -1268,7 +1270,6 @@ static void draw_manipulator_scale(
 
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
-	gpuMatrixBegin3D_legacy();
 	gpuPushMatrix();
 
 	/* not in combo mode */
@@ -1367,7 +1368,6 @@ static void draw_manipulator_scale(
 	if (v3d->zbuf) glEnable(GL_DEPTH_TEST);
 	glFrontFace(GL_CCW);
 
-	gpuMatrixEnd();
 	immUnbindProgram();
 }
 
@@ -1460,7 +1460,6 @@ static void draw_manipulator_translate(
 
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
-	gpuMatrixBegin3D_legacy();
 	gpuPushMatrix();
 
 	/* center circle, do not add to selection when shift is pressed (planar constraint) */
@@ -1509,7 +1508,7 @@ static void draw_manipulator_translate(
 					gpuTranslate3f(dz, 0.0, 0.0);
 					if (is_picksel) GPU_select_load_id(MAN_TRANS_X);
 					else manipulator_setcolor(v3d, 'X', colcode, axisBlendAngle(rv3d->tw_idot[0]));
-					gpuRotate3f(90.0, 0.0, 1.0, 0.0);
+					gpuRotateAxis(90.0, 'Y');
 					draw_cone(pos, cylen, cywid);
 					gpuPopMatrix();
 				}
@@ -1520,7 +1519,7 @@ static void draw_manipulator_translate(
 					gpuTranslate3f(0.0, dz, 0.0);
 					if (is_picksel) GPU_select_load_id(MAN_TRANS_Y);
 					else manipulator_setcolor(v3d, 'Y', colcode, axisBlendAngle(rv3d->tw_idot[1]));
-					gpuRotate3f(-90.0, 1.0, 0.0, 0.0);
+					gpuRotateAxis(-90.0, 'X');
 					draw_cone(pos, cylen, cywid);
 					gpuPopMatrix();
 				}
@@ -1533,7 +1532,6 @@ static void draw_manipulator_translate(
 	if (v3d->zbuf) glEnable(GL_DEPTH_TEST);
 
 	immUnbindProgram();
-	gpuMatrixEnd();
 }
 
 static void draw_manipulator_rotate_cyl(
@@ -1555,7 +1553,6 @@ static void draw_manipulator_rotate_cyl(
 
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
-	gpuMatrixBegin3D_legacy();
 	gpuPushMatrix();
 
 	/* prepare for screen aligned draw */
@@ -1621,7 +1618,7 @@ static void draw_manipulator_rotate_cyl(
 					gpuPushMatrix();
 					gpuTranslate3f(1.0, 0.0, 0.0);
 					if (is_picksel) GPU_select_load_id(MAN_ROT_X);
-					gpuRotate3f(90.0, 0.0, 1.0, 0.0);
+					gpuRotateAxis(90.0, 'Y');
 					manipulator_setcolor(v3d, 'X', colcode, 255);
 					draw_cylinder(pos, cylen, cywid);
 					gpuPopMatrix();
@@ -1632,7 +1629,7 @@ static void draw_manipulator_rotate_cyl(
 					gpuPushMatrix();
 					gpuTranslate3f(0.0, 1.0, 0.0);
 					if (is_picksel) GPU_select_load_id(MAN_ROT_Y);
-					gpuRotate3f(-90.0, 1.0, 0.0, 0.0);
+					gpuRotateAxis(-90.0, 'X');
 					manipulator_setcolor(v3d, 'Y', colcode, 255);
 					draw_cylinder(pos, cylen, cywid);
 					gpuPopMatrix();
@@ -1656,7 +1653,6 @@ static void draw_manipulator_rotate_cyl(
 
 	if (v3d->zbuf) glEnable(GL_DEPTH_TEST);
 
-	gpuMatrixEnd();
 	immUnbindProgram();
 }
 
