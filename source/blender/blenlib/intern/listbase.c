@@ -639,7 +639,7 @@ void *BLI_listbase_bytes_find(const ListBase *listbase, const void *bytes, const
 	const void *ptr_iter;
 
 	for (link = listbase->first; link; link = link->next) {
-		ptr_iter = *((const void **)(((const char *)link) + offset));
+		ptr_iter = (const void *)(((const char *)link) + offset);
 
 		if (memcmp(bytes, ptr_iter, bytes_size) == 0) {
 			return link;
@@ -659,7 +659,7 @@ void *BLI_listbase_bytes_rfind(const ListBase *listbase, const void *bytes, cons
 	const void *ptr_iter;
 
 	for (link = listbase->last; link; link = link->prev) {
-		ptr_iter = *((const void **)(((const char *)link) + offset));
+		ptr_iter = (const void *)(((const char *)link) + offset);
 
 		if (memcmp(bytes, ptr_iter, bytes_size) == 0) {
 			return link;
