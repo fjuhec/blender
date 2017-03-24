@@ -235,6 +235,8 @@ static ohmd_device* open_device(ohmd_driver* driver, ohmd_device_desc* desc)
 
 	priv->base.ctx = driver->ctx;
 
+	ohmd_toggle_ovr_service(0); //disable OVRService if running
+
 	// Open the HID device
 	priv->handle = hid_open_path(desc->path);
 
@@ -444,8 +446,6 @@ ohmd_driver* ohmd_create_oculus_rift_drv(ohmd_context* ctx)
 	ohmd_driver* drv = ohmd_alloc(ctx, sizeof(ohmd_driver));
 	if(drv == NULL)
 		return NULL;
-
-	ohmd_toggle_ovr_service(0); //disable OVRService if running
 
 	drv->get_device_list = get_device_list;
 	drv->open_device = open_device;
