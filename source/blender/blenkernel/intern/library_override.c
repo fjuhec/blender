@@ -52,6 +52,9 @@
 
 #define OVERRIDE_AUTO_CHECK_DELAY 0.2  /* 200ms between auto-override checks. */
 
+static void bke_override_property_clear(IDOverrideProperty *op);
+static void bke_override_property_operation_clear(IDOverridePropertyOperation *opop);
+
 /** Initialize empty overriding of \a reference_id by \a local_id. */
 IDOverride *BKE_override_init(struct ID *local_id, struct ID *reference_id)
 {
@@ -71,19 +74,7 @@ void BKE_override_clear(struct IDOverride *override)
 	BLI_assert(override != NULL);
 
 	for (IDOverrideProperty *op = override->properties.first; op; op = op->next) {
-		BLI_assert(op->rna_path != NULL);
-
-		MEM_freeN(op->rna_path);
-
-		for (IDOverridePropertyOperation *opop = op->operations.first; opop; opop = opop->next) {
-			if (opop->subitem_reference_name) {
-				MEM_freeN(opop->subitem_reference_name);
-			}
-			if (opop->subitem_local_name) {
-				MEM_freeN(opop->subitem_local_name);
-			}
-		}
-		BLI_freelistN(&op->operations);
+		bke_override_property_clear(op);
 	}
 	BLI_freelistN(&override->properties);
 }
@@ -129,6 +120,27 @@ IDOverrideProperty *BKE_override_property_get(IDOverride *override, const char *
 	}
 
 	return op;
+}
+
+void bke_override_property_clear(IDOverrideProperty *op)
+{
+	BLI_assert(op->rna_path != NULL);
+
+	MEM_freeN(op->rna_path);
+
+	for (IDOverridePropertyOperation *opop = op->operations.first; opop; opop = opop->next) {
+		bke_override_property_operation_clear(opop);
+	}
+	BLI_freelistN(&op->operations);
+}
+
+/**
+ * Remove and free given \a override_property from given ID \a override.
+ */
+void BKE_override_property_delete(IDOverride *override, IDOverrideProperty *override_property)
+{
+	bke_override_property_clear(override_property);
+	BLI_freelinkN(&override->properties, override_property);
 }
 
 /**
@@ -201,6 +213,26 @@ IDOverridePropertyOperation *BKE_override_property_operation_get(
 	}
 
 	return opop;
+}
+
+void bke_override_property_operation_clear(IDOverridePropertyOperation *opop)
+{
+	if (opop->subitem_reference_name) {
+		MEM_freeN(opop->subitem_reference_name);
+	}
+	if (opop->subitem_local_name) {
+		MEM_freeN(opop->subitem_local_name);
+	}
+}
+
+/**
+ * Remove and free given \a override_property_operation from given ID \a override_property.
+ */
+void BKE_override_property_operation_delete(
+        IDOverrideProperty *override_property, IDOverridePropertyOperation *override_property_operation)
+{
+	bke_override_property_operation_clear(override_property_operation);
+	BLI_freelinkN(&override_property->operations, override_property_operation);
 }
 
 /**

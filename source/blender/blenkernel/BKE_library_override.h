@@ -44,6 +44,7 @@ void BKE_override_free(struct IDOverride **override);
 
 struct IDOverrideProperty *BKE_override_property_find(struct IDOverride *override, const char *rna_path);
 struct IDOverrideProperty *BKE_override_property_get(struct IDOverride *override, const char *rna_path, bool *r_created);
+void BKE_override_property_delete(struct IDOverride *override, struct IDOverrideProperty *override_property);
 
 struct IDOverridePropertyOperation *BKE_override_property_operation_find(
         struct IDOverrideProperty *override_property,
@@ -53,6 +54,8 @@ struct IDOverridePropertyOperation *BKE_override_property_operation_get(
         struct IDOverrideProperty *override_property, const int operation,
         const char *subitem_refname, const char *subitem_locname,
         const int subitem_refindex, const int subitem_locindex, bool *r_created);
+void BKE_override_property_operation_delete(
+        struct IDOverrideProperty *override_property, struct IDOverridePropertyOperation *override_property_operation);
 
 bool BKE_override_status_check_local(struct ID *local);
 bool BKE_override_status_check_reference(struct ID *local);
