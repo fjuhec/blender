@@ -7345,7 +7345,7 @@ static bool rna_property_override_operation_apply(
 					if (array_a != fixed_a) MEM_freeN(array_a);
 				}
 				else {
-					const int storage_value = storageprop ? RNA_property_int_get_index(storage, storageprop, index) : 0;
+					const int storage_value = storage ? RNA_property_int_get_index(storage, storageprop, index) : 0;
 
 					switch (override_op) {
 						case IDOVERRIDE_REPLACE:
@@ -7367,7 +7367,7 @@ static bool rna_property_override_operation_apply(
 				}
 			}
 			else {
-				const int storage_value = storageprop ? RNA_property_int_get(storage, storageprop) : 0;
+				const int storage_value = storage ? RNA_property_int_get(storage, storageprop) : 0;
 
 				switch (override_op) {
 					case IDOVERRIDE_REPLACE:
@@ -7424,7 +7424,7 @@ static bool rna_property_override_operation_apply(
 					if (array_a != fixed_a) MEM_freeN(array_a);
 				}
 				else {
-					const float storage_value = storageprop ? RNA_property_float_get_index(storage, storageprop, index) : 0.0f;
+					const float storage_value = storage ? RNA_property_float_get_index(storage, storageprop, index) : 0.0f;
 
 					switch (override_op) {
 						case IDOVERRIDE_REPLACE:
@@ -7450,7 +7450,7 @@ static bool rna_property_override_operation_apply(
 				}
 			}
 			else {
-				const float storage_value = storageprop ? RNA_property_float_get(storage, storageprop) : 0.0f;
+				const float storage_value = storage ? RNA_property_float_get(storage, storageprop) : 0.0f;
 
 				switch (override_op) {
 					case IDOVERRIDE_REPLACE:
