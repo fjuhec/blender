@@ -44,6 +44,7 @@
 #include "BKE_context.h"
 #include "BKE_screen.h"
 #include "BKE_global.h"
+#include "BKE_library_override.h"
 #include "BKE_node.h"
 #include "BKE_text.h" /* for UI_OT_reports_to_text */
 #include "BKE_report.h"
@@ -335,7 +336,7 @@ static void UI_OT_unset_property_button(wmOperatorType *ot)
 /* Note that we use different values for UI/UX than 'real' override operations, user does not care
  * whether it's added or removed for the differential operation e.g. */
 enum {
-	UIOverride_Type_NOP = 0,
+	UIOverride_Type_NOOP = 0,
 	UIOverride_Type_Replace = 1,
 	UIOverride_Type_Difference = 2,  /* Add/subtract */
 	UIOverride_Type_Factor = 3,  /* Multiply */
@@ -343,7 +344,7 @@ enum {
 };
 
 static EnumPropertyItem override_type_items[] = {
-	{UIOverride_Type_NOP, "NOP", 0, "NOP",
+	{UIOverride_Type_NOOP, "NOOP", 0, "NoOp",
 	                      "'No-Operation', place holder preventing automatic override to ever affect the property"},
 	{UIOverride_Type_Replace, "REPLACE", 0, "Replace", "Completely replace value from linked data by local one"},
 	{UIOverride_Type_Difference, "DIFFERENCE", 0, "Difference", "Store difference to linked data value"},
@@ -415,12 +416,12 @@ static int override_remove_button_poll(bContext *C)
 
 	UI_context_active_but_prop_get(C, &ptr, &prop, &index);
 
-	return (ptr.data && prop && RNA_property_overridden(&ptr, prop, index));
+	return (ptr.data && ptr.id.data && prop && RNA_property_overridden(&ptr, prop, index));
 }
 
 static int override_remove_button_exec(bContext *C, wmOperator *op)
 {
-	PointerRNA ptr;
+	PointerRNA ptr, id_refptr, src;
 	PropertyRNA *prop;
 	int index;
 	const bool all = RNA_boolean_get(op->ptr, "all");
@@ -428,14 +429,43 @@ static int override_remove_button_exec(bContext *C, wmOperator *op)
 	/* try to reset the nominated setting to its default value */
 	UI_context_active_but_prop_get(C, &ptr, &prop, &index);
 
-	printf("We should remove, or remove generic-add per-index override operations...\n");
-//	/* if there is a valid property that is editable... */
-//	if (ptr.data && prop && RNA_property_editable(&ptr, prop)) {
-//		if (RNA_property_reset(&ptr, prop, (all) ? -1 : index))
-//			return operator_button_property_finish(C, &ptr, prop);
-//	}
+	ID *id = ptr.id.data;
+	IDOverrideProperty *oprop = RNA_property_override_property_get(&ptr, prop);
+	BLI_assert(oprop != NULL);
+	BLI_assert(id != NULL && id->override != NULL);
 
-	return OPERATOR_FINISHED;
+	/* We need source (i.e. linked data) to restore values of deleted overrides... */
+	RNA_id_pointer_create(id->override->reference, &id_refptr);
+	if (!RNA_path_resolve(&id_refptr, oprop->rna_path, &src, NULL)) {
+		BLI_assert(0 && "Failed to create matching source (linked data) RNA pointer");
+	}
+
+	if (!all && index != -1) {
+		/* Remove override operation for given item, add singular operations for the other items as needed. */
+		IDOverridePropertyOperation *opop = BKE_override_property_operation_find(oprop, NULL, NULL, index, index);
+		if (opop == NULL) {
+			/* No specific override operation, we have to get generic one, and... */
+			opop = BKE_override_property_operation_find(oprop, NULL, NULL, -1, -1);
+			BLI_assert(opop != NULL);
+			/* ... create item-specific override operations for all but given index, before removing generic one. */
+			for (int idx = RNA_property_array_length(&ptr, prop); idx--; ) {
+				if (idx != index) {
+					BKE_override_property_operation_get(oprop, opop->operation, NULL, NULL, idx, idx, NULL);
+				}
+			}
+		}
+		BKE_override_property_operation_delete(oprop, opop);
+		RNA_property_copy(&ptr, &src, prop, index);
+		if (BLI_listbase_is_empty(&oprop->operations)) {
+			BKE_override_property_delete(id->override, oprop);
+		}
+	}
+	else {
+		/* Just remove whole generic override operation of this property. */
+		BKE_override_property_delete(id->override, oprop);
+		RNA_property_copy(&ptr, &src, prop, -1);
+	}
+	return operator_button_property_finish(C, &ptr, prop);
 }
 
 static void UI_OT_override_remove_button(wmOperatorType *ot)
