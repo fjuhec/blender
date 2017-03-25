@@ -3957,6 +3957,7 @@ classes = (
     VIEW3D_PT_view3d_display,
     VIEW3D_PT_view3d_stereo,
     VIEW3D_PT_view3d_shading,
+    VIEW3D_PT_view3d_hmd_view,
     VIEW3D_PT_view3d_motion_tracking,
     VIEW3D_PT_view3d_meshdisplay,
     VIEW3D_PT_view3d_meshstatvis,
