@@ -82,9 +82,6 @@
 #include "uvedit_intern.h"
 #include "uvedit_parametrizer.h"
 
-#include "slim_matrix_transfer.h"
-#include "slim_capi.h"
-
 static bool ED_uvedit_ensure_uvs(bContext *C, Scene *scene, Object *obedit)
 {
 	Main *bmain = CTX_data_main(C);
@@ -577,48 +574,20 @@ static ParamHandle *construct_param_handle_subsurfed(Scene *scene, Object *ob, B
 	return handle;
 }
 
-static void fill_in_matrix_transfer(SLIMMatrixTransfer *mt,
-									bool with_weighted_parameterization,
-									double weight_influence,
-									bool transform_islands,
-									double relative_scale) {
-
-	mt->with_weighted_parameterization = with_weighted_parameterization;
-	mt->weight_influence = weight_influence;
-	mt->transform_islands = transform_islands;
-	mt->relative_scale = relative_scale;
-}
-
-static void enrich_handle_slim(ParamHandle *handle,
-							   SLIMMatrixTransfer *mt,
-							   bool is_minimize_stretch,
-							   const UnwrapProperties *unwrap,
-							   bool skip_initialization,
-							   bool pack_islands)
-{
-	fill_in_matrix_transfer(mt,
-							strlen(unwrap->vertex_group) > 0,
-							unwrap->vertex_group_factor,
-							pack_islands,
-							unwrap->relative_scale);
-
-	param_slim_enrich_handle(handle,
-							 mt,
-							 unwrap->iterations,
-							 skip_initialization,
-							 is_minimize_stretch);
-}
-
 /********************* Minimize Stretch operator **************** */
 
-/* Holds state needed for recurring slim iterations
- */
+/* Get SLIM parameters from scene */
+static SLIMMatrixTransfer *slim_matrix_transfer(const UnwrapProperties *unwrap)
+{
+	SLIMMatrixTransfer *mt = MEM_callocN(sizeof(SLIMMatrixTransfer), "Matrix Transfer to SLIM");
 
-typedef struct RecurringSlim {
-	SLIMMatrixTransfer *mt;
-	void **slimPtrs;
-	bool slimWasUsed;
-} RecurringSlim;
+	mt->with_weighted_parameterization = strlen(unwrap->vertex_group) > 0;
+	mt->weight_influence = unwrap->vertex_group_factor;
+	mt->relative_scale = unwrap->relative_scale;
+	mt->n_iterations =  unwrap->iterations;
+
+	return mt;
+}
 
 /* Holds all necessary state for one session of interactive parametrisation. */
 typedef struct MinStretch {
@@ -627,10 +596,7 @@ typedef struct MinStretch {
 
 	wmTimer *timer;
 	float blend;
-	bool firstIteration;
-	bool fixBorder;
-
-	bool noPins;
+	bool fix_boundary;
 } MinStretch;
 
 /* Initializes SLIM and transfars data matrices */
@@ -651,23 +617,17 @@ static bool minimize_stretch_init(bContext *C, wmOperator *op)
 	ParamHandle *handle = construct_param_handle(scene, obedit, em->bm, implicit, true, &unwrap);
 
 	MinStretch *ms = MEM_callocN(sizeof(MinStretch), "Data for minimizing stretch with SLIM");
-	RecurringSlim *rs = MEM_callocN(sizeof(RecurringSlim), "Data for recurring slim iterations");
-	setRecurringSlimData(handle, rs);
 
-	rs->mt = MEM_callocN(sizeof(SLIMMatrixTransfer), "Matrix Transfer to SLIM");
 	ms->handle = handle;
 	ms->obedit = obedit;
-	ms->firstIteration = true;
-	ms->fixBorder = RNA_boolean_get(op->ptr, "fix_boundary");
-	rs->mt->fixed_boundary = RNA_boolean_get(op->ptr, "fix_boundary");
+	ms->fix_boundary = RNA_boolean_get(op->ptr, "fix_boundary");
 
-	enrich_handle_slim(handle, rs->mt, true, &unwrap, true, false);
-	param_slim_begin(handle);
+	SLIMMatrixTransfer *mt = slim_matrix_transfer(&unwrap);
+	mt->is_minimize_stretch = true;
+	mt->skip_initialization = true;
+	mt->fixed_boundary = ms->fix_boundary;
 
-	rs->slimPtrs = MEM_callocN(sizeof(rs->slimPtrs)*rs->mt->n_charts, "pointers to per-chart-Data for Slim");
-	for (int chartNr = 0; chartNr <rs->mt->n_charts; chartNr++) {
-		rs->slimPtrs[chartNr] = SLIM_setup(rs->mt, chartNr, ms->fixBorder, true);
-	}
+	param_slim_begin(ms->handle, mt);
 
 	op->customdata = ms;
 	return true;
@@ -676,67 +636,31 @@ static bool minimize_stretch_init(bContext *C, wmOperator *op)
 /* After initialisation, these iterations are executed, until applied or canceled by the user. */
 static void minimize_stretch_iteration(bContext *C, wmOperator *op, bool interactive)
 {
-	// In first iteration, check if pins are present
 	MinStretch *ms = op->customdata;
-	if (ms->firstIteration) {
-		ms->firstIteration = false;
-		if (!(ms->fixBorder)) {
-			ms->noPins = mark_pins(ms->handle);
-		}
-	}
 
-	// Do one iteration and tranfer UVs
-	RecurringSlim *rs = getRecurringSlimData(ms->handle);
-	for (int chartNr = 0; chartNr < rs->mt->n_charts; chartNr++) {
-		void *slimPtr = rs->slimPtrs[chartNr];
-		SLIM_parametrize_single_iteration(slimPtr);
-		SLIM_transfer_uvs_blended(rs->mt, slimPtr, chartNr, ms->blend);
-	}
-
-	//	Assign new UVs back to each vertex
-	set_uv_param_slim(ms->handle, rs->mt);
-
+	param_slim_stretch_iteration(ms->handle, ms->blend);
 	param_flush(ms->handle);
-
 
 	DAG_id_tag_update(ms->obedit->data, 0);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, ms->obedit->data);
-}
-
-static void free_slimPtrs(void **slimPtrs, int n_charts) {
-	for (int i = 0; i<n_charts; i++) {
-		SLIM_free_data(slimPtrs[i]);
-	}
 }
 
 /* Exit interactive parametrisation. Clean up memory. */
 static void minimize_stretch_exit(bContext *C, wmOperator *op, bool cancel)
 {
 	MinStretch *ms = op->customdata;
-	/*
-	 if (!ms->fixBorder) {
-		remove_pins(ms->handle);
-	 }*/
+
+	param_slim_end(ms->handle);
 
 	if (cancel) {
-		ms->blend = 1.0f;
+		param_flush_restore(ms->handle);
 	}
 
-	RecurringSlim *rs = getRecurringSlimData(ms->handle);
-	for (int chartNr = 0; chartNr < rs->mt->n_charts; chartNr++) {
-		void *slimPtr = rs->slimPtrs[chartNr];
-		SLIM_transfer_uvs_blended(rs->mt, slimPtr, chartNr, ms->blend);
-	}
-
-	set_uv_param_slim(ms->handle, rs->mt);
-
-	param_flush(ms->handle);
 	param_delete(ms->handle);
 
-	free_slimPtrs(rs->slimPtrs, rs->mt->n_charts);
-	free_slim_matrix_transfer(rs->mt);
-	MEM_freeN(rs->slimPtrs);
-	MEM_freeN(rs);
+	DAG_id_tag_update(ms->obedit->data, 0);
+	WM_event_add_notifier(C, NC_GEOM | ND_DATA, ms->obedit->data);
+
 	MEM_freeN(ms);
 	op->customdata = NULL;
 }
@@ -960,19 +884,10 @@ void ED_uvedit_live_unwrap_begin(Scene *scene, Object *obedit)
 		liveHandle = construct_param_handle(scene, obedit, em->bm, false, false, &unwrap);
 
 	if (unwrap.use_slim) {
-		RecurringSlim *rs = MEM_callocN(sizeof(RecurringSlim), "Data for recurring slim iterations");
-		rs->mt = MEM_callocN(sizeof(SLIMMatrixTransfer), "Matrix Transfer to SLIM");
-		setRecurringSlimData(liveHandle, rs);
+		SLIMMatrixTransfer *mt = slim_matrix_transfer(&unwrap);
+		mt->skip_initialization = true;
 
-		backup_current_uvs(liveHandle);
-		enrich_handle_slim(liveHandle, rs->mt, false, &unwrap, true, false);
-		param_slim_begin(liveHandle);
-
-		rs->slimPtrs = MEM_callocN(sizeof(rs->slimPtrs)*rs->mt->n_charts, "pointers to per-chart-Data for Slim");
-		for (int chartNr = 0; chartNr < rs->mt->n_charts; chartNr++) {
-			rs->slimPtrs[chartNr] = SLIM_setup(rs->mt, chartNr, false, true);
-		}
-
+		param_slim_begin(liveHandle, mt);
 	}
 	else {
 		param_lscm_begin(liveHandle, PARAM_TRUE, unwrap.use_abf);
@@ -982,105 +897,32 @@ void ED_uvedit_live_unwrap_begin(Scene *scene, Object *obedit)
 void ED_uvedit_live_unwrap_re_solve(void)
 {
 	if (liveHandle) {
-		if (getRecurringSlimData(liveHandle) != NULL) {
-
-			// Do one iteration and tranfer UVs
-			RecurringSlim *rs = getRecurringSlimData(liveHandle);
-			for (int chartNr = 0; chartNr < rs->mt->n_charts; chartNr++) {
-				void *slimPtr = rs->slimPtrs[chartNr];
-
-				int *pinned_vertex_indices =
-					MEM_callocN(sizeof(*pinned_vertex_indices) * rs->mt->n_verts[chartNr],
-								"indices of pinned verts");
-				double *pinned_vertex_positions_2D =
-					MEM_callocN(sizeof(*pinned_vertex_positions_2D) * 2 * rs->mt->n_verts[chartNr],
-								"positions of pinned verts: [u1, v1, u2, v2, ..., un, vn]");
-				int *selected_pins =
-					MEM_callocN(sizeof(*pinned_vertex_indices) * rs->mt->n_verts[chartNr],
-								"indices of pinned & selected verts");
-
-				int n_pins = 0;
-				int n_selected_pins = 0;
-
-				bool pinned_vertex_was_moved = get_pinned_vertex_data(liveHandle,
-																	  chartNr,
-																	  &n_pins,
-																	  pinned_vertex_indices,
-																	  pinned_vertex_positions_2D,
-																	  &n_selected_pins,
-																	  selected_pins);
-				if (!pinned_vertex_was_moved) {
-					rs->slimWasUsed = false;
-					return;
-				}
-
-				rs->slimWasUsed = true;
-
-				SLIM_parametrize_live(slimPtr,
-									  n_pins,
-									  pinned_vertex_indices,
-									  pinned_vertex_positions_2D,
-									  n_selected_pins,
-									  selected_pins);
-				SLIM_transfer_uvs_blended_live(rs->mt, slimPtr, n_pins, n_selected_pins, selected_pins, pinned_vertex_indices, pinned_vertex_positions_2D, chartNr);
-
-				MEM_freeN(selected_pins);
-				MEM_freeN(pinned_vertex_indices);
-				MEM_freeN(pinned_vertex_positions_2D);
-			}
-
-			//	Assign new UVs back to each vertex
-			set_uv_param_slim(liveHandle, rs->mt);
-
-			param_flush(liveHandle);
-
+		if (param_is_slim(liveHandle)) {
+			param_slim_solve_iteration(liveHandle);
 		}
 		else {
 			param_lscm_solve(liveHandle);
-			param_flush(liveHandle);
 		}
+
+		param_flush(liveHandle);
 	}
 }
 	
 void ED_uvedit_live_unwrap_end(short cancel)
 {
 	if (liveHandle) {
-
-		if (getRecurringSlimData(liveHandle) != NULL) {
-			RecurringSlim *rs = getRecurringSlimData(liveHandle);
-
-			if (rs->slimWasUsed && !cancel) {
-				for (int chartNr = 0; chartNr < rs->mt->n_charts; chartNr++) {
-					void *slimPtr = rs->slimPtrs[chartNr];
-					SLIM_transfer_uvs_blended(rs->mt, slimPtr, chartNr, 0.0);
-				}
-				set_uv_param_slim(liveHandle, rs->mt);
-			}
-
-			if (rs->slimWasUsed && !cancel) {
-				param_flush(liveHandle);
-			}
-
-			free_slimPtrs(rs->slimPtrs, rs->mt->n_charts);
-			free_slim_matrix_transfer(rs->mt);
-			MEM_freeN(rs->slimPtrs);
-			MEM_freeN(rs);
-
-			if (cancel) {
-				param_flush_restore(liveHandle);
-			}
-
-			param_delete(liveHandle);
-			liveHandle = NULL;
-
+		if (param_is_slim(liveHandle)) {
+			param_slim_end(liveHandle);
 		}
 		else {
 			param_lscm_end(liveHandle);
-			if (cancel)
-				param_flush_restore(liveHandle);
-			param_delete(liveHandle);
-			liveHandle = NULL;
 		}
+
+		if (cancel)
+			param_flush_restore(liveHandle);
+
+		param_delete(liveHandle);
+		liveHandle = NULL;
 	}
 }
 
@@ -1387,20 +1229,20 @@ void ED_uvedit_unwrap(Scene *scene, Object *obedit, const short sel, wmOperator 
 		handle = construct_param_handle(scene, obedit, em->bm, false, sel, &unwrap);
 
 	if (unwrap.use_slim) {
-		SLIMMatrixTransfer *mt = MEM_callocN(sizeof(SLIMMatrixTransfer), "matrix transfer data");
+		SLIMMatrixTransfer *mt = slim_matrix_transfer(&unwrap);
 		mt->reflection_mode = unwrap.reflection_mode;
-		enrich_handle_slim(handle, mt, false, &unwrap, false, true);
+		mt->transform_islands = true;
+
+		param_slim_solve(handle, mt);
+	}
+	else {
+		param_lscm_begin(handle, PARAM_FALSE, unwrap.use_abf);
+		param_lscm_solve(handle);
+		param_lscm_end(handle);
 	}
 
-	param_begin(handle, unwrap.use_abf, unwrap.use_slim);
-	param_solve(handle, unwrap.use_slim);
-	bool transform = (!unwrap.use_slim || transformIslands(handle));
-	param_end(handle, unwrap.use_slim);
-
-	if (transform) {
-		param_average(handle);
-		param_pack(handle, scene->toolsettings->uvcalc_margin, false);
-	}
+	param_average(handle);
+	param_pack(handle, scene->toolsettings->uvcalc_margin, false);
 
 	param_flush(handle);
 	param_delete(handle);

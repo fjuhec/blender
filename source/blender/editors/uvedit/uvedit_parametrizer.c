@@ -206,6 +206,7 @@ typedef struct PChart {
 		} pack;
 		struct PChartSLIM {
 			bool pins_exist;
+			void *ptr;
 		} slim;
 	} u;
 
@@ -243,14 +244,7 @@ typedef struct PHandle {
 	char do_aspect;
 
 	// SLIM uv unwrapping
-	SLIMMatrixTransfer *mt;
-	int n_iterations;
-	bool skip_initialization;
-	float *weight_array;
-	bool is_minimize_stretch;
-
-	// For minimize_stretch and live unwrap
-	void* recurringSlim;
+	SLIMMatrixTransfer *slim_mt;
 } PHandle;
 
 /* PHash
@@ -4199,37 +4193,6 @@ void param_construct_end(ParamHandle *handle, ParamBool fill, ParamBool impl)
 	phandle->state = PHANDLE_STATE_CONSTRUCTED;
 }
 
-
-void param_begin(ParamHandle *handle, ParamBool abf, bool use_slim)
-{
-	if (use_slim) {
-		param_slim_begin(handle);
-	}
-	else {
-		param_lscm_begin(handle, PARAM_FALSE, abf);
-	}
-}
-
-void param_solve(ParamHandle *handle, bool use_slim)
-{
-	if (use_slim) {
-		param_slim_solve(handle);
-	}
-	else {
-		param_lscm_solve(handle);
-	}
-}
-
-void param_end(ParamHandle *handle, bool use_slim)
-{
-	if (use_slim) {
-		param_slim_end(handle);
-	}
-	else {
-		param_lscm_end(handle);
-	}
-}
-
 void param_lscm_begin(ParamHandle *handle, ParamBool live, ParamBool abf)
 {
 	PHandle *phandle = (PHandle *)handle;
@@ -4551,7 +4514,7 @@ void param_flush_restore(ParamHandle *handle)
 
 /* Allocate pointer arrays for each matrix-group. Meaning as many pointers per
  * array as there are charts. */
-static void allocate_memory_for_pointerarrays(SLIMMatrixTransfer *mt, PHandle *phandle)
+static void slim_allocate_pointerarrays(SLIMMatrixTransfer *mt, PHandle *phandle)
 {
 	mt->n_charts = phandle->ncharts;
 	mt->n_verts = MEM_mallocN(mt->n_charts * sizeof(*mt->n_verts), "Array of number of vertices per Chart");
@@ -4573,9 +4536,9 @@ static void allocate_memory_for_pointerarrays(SLIMMatrixTransfer *mt, PHandle *p
 	mt->w_vectors = MEM_mallocN(mt->n_charts * sizeof(*mt->w_vectors), "Array of pointers to weight-per-face vectors");
 }
 
-/* For one chart, allocate memory. If no accurate estimate (e.g. for number of pinned vertices) overestimate and
- * correct later. */
-static void allocate_memory_for_matrices(const int chartNr, const PHandle *phandle, const SLIMMatrixTransfer *mt)
+/* For one chart, allocate memory. If no accurate estimate (e.g. for number of
+ * pinned vertices) overestimate and correct later. */
+static void slim_allocate_matrices(const int chartNr, const PHandle *phandle, const SLIMMatrixTransfer *mt)
 {
 	mt->n_verts[chartNr] = phandle->charts[chartNr]->nverts;
 	mt->n_faces[chartNr] = phandle->charts[chartNr]->nfaces;
@@ -4596,19 +4559,18 @@ static void allocate_memory_for_matrices(const int chartNr, const PHandle *phand
 }
 
 /* Transfer edges and edge lengths */
-static void transfer_edges(const int chartNr, const PHandle *phandle, const SLIMMatrixTransfer *mt)
+static void slim_transfer_edges(const int chartNr, const PHandle *phandle, const SLIMMatrixTransfer *mt)
 {
 	PChart *chart = phandle->charts[chartNr];
 
 	int *E = mt->e_matrices[chartNr];
 	double *EL = mt->el_vectors[chartNr];
 
-	int eid = 0;
-
-	PEdge *e, *e1;
 	PEdge *outer;
 	p_chart_boundaries(chart, NULL, &outer);
+
 	PEdge *be = outer;
+	int eid = 0;
 
 	do {
 		E[eid] = be->vert->slim_id;
@@ -4620,8 +4582,8 @@ static void transfer_edges(const int chartNr, const PHandle *phandle, const SLIM
 
 	} while (be != outer);
 
-	for (e = chart->edges; e; e = e->nextlink) {
-		e1 = e->next;
+	for (PEdge *e = chart->edges; e; e = e->nextlink) {
+		PEdge *e1 = e->next;
 
 		E[eid] = e->vert->slim_id;
 		EL[eid] = p_edge_length(e);
@@ -4632,27 +4594,22 @@ static void transfer_edges(const int chartNr, const PHandle *phandle, const SLIM
 }
 
 /* Transfer vertices and pinned information */
-static void transfer_vertices(const int chartNr, const PHandle *phandle, SLIMMatrixTransfer *mt, float *temp_w)
+static void slim_transfer_vertices(const int chartNr, const PHandle *phandle, SLIMMatrixTransfer *mt)
 {
 	PChart *chart = phandle->charts[chartNr];
-	PVert *v;
-
-	double *V, *UV, *PP;
-	float *W;
-	int *P;
 
 	int r = mt->n_verts[chartNr];
-	V = mt->v_matrices[chartNr];
-	UV = mt->uv_matrices[chartNr];
-	P = mt->p_matrices[chartNr];
-	PP = mt->pp_matrices[chartNr];
-	W = mt->w_vectors[chartNr];
+	double *V = mt->v_matrices[chartNr];
+	double *UV = mt->uv_matrices[chartNr];
+	int *P = mt->p_matrices[chartNr];
+	double *PP = mt->pp_matrices[chartNr];
+	float *W = mt->w_vectors[chartNr];
 
 	int pVid = 0;
 	int vid = mt->n_boundary_vertices[chartNr];
-	//For every vertex, fill up V matrix and P matrix (pinned vertices)
-	for (v = chart->verts; v; v = v->nextlink) {
 
+	/* For every vertex, fill up V matrix and P matrix (pinned vertices) */
+	for (PVert *v = chart->verts; v; v = v->nextlink) {
 		if (!v->on_boundary_flag) {
 			if (mt->with_weighted_parameterization) {
 				W[vid] = v->weight;
@@ -4669,7 +4626,7 @@ static void transfer_vertices(const int chartNr, const PHandle *phandle, SLIMMat
 		UV[v->slim_id] = v->uv[0];
 		UV[r + v->slim_id] = v->uv[1];
 
-		if (v->flag & PVERT_PIN || (phandle->is_minimize_stretch && !(v->flag & PVERT_SELECT))) {
+		if (v->flag & PVERT_PIN || (mt->is_minimize_stretch && !(v->flag & PVERT_SELECT))) {
 			mt->pinned_vertices = true;
 			mt->n_pinned_vertices[chartNr] += 1;
 
@@ -4682,7 +4639,7 @@ static void transfer_vertices(const int chartNr, const PHandle *phandle, SLIMMat
 }
 
 /* Transfer boundary vertices */
-static void transfer_boundary_vertices(const int chartNr, const PHandle *phandle, const SLIMMatrixTransfer *mt, float *temp_w)
+static void slim_transfer_boundary_vertices(const int chartNr, const PHandle *phandle, const SLIMMatrixTransfer *mt)
 {
 	PChart *chart = phandle->charts[chartNr];
 
@@ -4702,7 +4659,6 @@ static void transfer_boundary_vertices(const int chartNr, const PHandle *phandle
 	int vid = 0;
 
 	do {
-
 		if (mt->with_weighted_parameterization) {
 			W[vid] = be->vert->weight;
 		}
@@ -4719,21 +4675,15 @@ static void transfer_boundary_vertices(const int chartNr, const PHandle *phandle
 }
 
 /* Transfer faces */
-static void transfer_faces(const int chartNr, const PHandle *phandle, const SLIMMatrixTransfer *mt)
+static void slim_transfer_faces(const int chartNr, const PHandle *phandle, const SLIMMatrixTransfer *mt)
 {
 	PChart *chart = phandle->charts[chartNr];
-
-	PFace *f;
-
-	PEdge *e;
-	PEdge *e1;
-	PEdge *e2;
-
 	int fid = 0;
-	for (f = chart->faces; f; f = f->nextlink) {
-		e = f->edge;
-		e1 = e->next;
-		e2 = e1->next;
+
+	for (PFace *f = chart->faces; f; f = f->nextlink) {
+		PEdge *e = f->edge;
+		PEdge *e1 = e->next;
+		PEdge *e2 = e1->next;
 
 		int r = mt->n_faces[chartNr];
 		int *F;
@@ -4748,70 +4698,58 @@ static void transfer_faces(const int chartNr, const PHandle *phandle, const SLIM
 }
 
 /* Conversion Function to build matrix for SLIM Parametrization */
-static void convert_blender_slim(ParamHandle *handle)
+static void slim_convert_blender(ParamHandle *handle)
 {
 	PHandle *phandle = (PHandle *)handle;
-	SLIMMatrixTransfer *mt = phandle->mt;
+	SLIMMatrixTransfer *mt = phandle->slim_mt;
 
 	// allocate memory for the arrays that hold the pointers to the matrices for each chart
 	// there are #charts pointers of each kind
-	allocate_memory_for_pointerarrays(mt, phandle);
-
-	int chartNr;
+	slim_allocate_pointerarrays(mt, phandle);
 
 	/* Allocate memory for matrices of Vertices,Faces etc. for each chart */
-	for (chartNr = 0; chartNr<phandle->ncharts; chartNr++) {
-		allocate_memory_for_matrices(chartNr, phandle, mt);
+	for (int i = 0; i < phandle->ncharts; i++) {
+		slim_allocate_matrices(i, phandle, mt);
 	}
 
 	/* For each chart, fill up matrices */
+	for (int i = 0; i < phandle->ncharts; i++) {
+		mt->n_pinned_vertices[i] = 0;
+		mt->n_boundary_vertices[i] = 0;
 
-	for (chartNr = 0; chartNr < phandle->ncharts; chartNr++) {
-		mt->n_pinned_vertices[chartNr] = 0;
-		mt->n_boundary_vertices[chartNr] = 0;
+		slim_transfer_boundary_vertices(i, phandle, mt);
+		slim_transfer_vertices(i, phandle, mt);
+		slim_transfer_edges(i, phandle, mt);
+		slim_transfer_faces(i, phandle, mt);
 
-		transfer_boundary_vertices(chartNr, phandle, mt, phandle->weight_array);
-		transfer_vertices(chartNr, phandle, mt, phandle->weight_array);
-		transfer_edges(chartNr, phandle, mt);
-		transfer_faces(chartNr, phandle, mt);
-
-		mt->pp_matrices[chartNr] = MEM_reallocN_id(mt->pp_matrices[chartNr], mt->n_pinned_vertices[chartNr] * 2 * sizeof(**mt->pp_matrices), "Pinned-Vertex-position Matrix");
-		mt->p_matrices[chartNr] = MEM_reallocN_id(mt->p_matrices[chartNr], mt->n_pinned_vertices[chartNr] * sizeof(**mt->p_matrices), " Pinned-Vertex Matrix");
-		mt->b_vectors[chartNr] = MEM_reallocN_id(mt->b_vectors[chartNr], mt->n_boundary_vertices[chartNr] * sizeof(**mt->b_vectors), " boundary-Vertex Matrix");
-		mt->e_matrices[chartNr] = MEM_reallocN_id(mt->e_matrices[chartNr], (mt->n_edges[chartNr] + mt->n_boundary_vertices[chartNr]) * 2 * sizeof(**mt->e_matrices), " boundarys-Vertex Matrix");
-
-		if (mt->n_pinned_vertices[chartNr] > 0) {
-			mt->transform_islands = false;
-		}
-	}
-
-	if (phandle->weight_array) {
-		MEM_freeN(phandle->weight_array);
+		mt->pp_matrices[i] = MEM_reallocN_id(mt->pp_matrices[i], mt->n_pinned_vertices[i] * 2 * sizeof(**mt->pp_matrices), "Pinned-Vertex-position Matrix");
+		mt->p_matrices[i] = MEM_reallocN_id(mt->p_matrices[i], mt->n_pinned_vertices[i] * sizeof(**mt->p_matrices), " Pinned-Vertex Matrix");
+		mt->b_vectors[i] = MEM_reallocN_id(mt->b_vectors[i], mt->n_boundary_vertices[i] * sizeof(**mt->b_vectors), " boundary-Vertex Matrix");
+		mt->e_matrices[i] = MEM_reallocN_id(mt->e_matrices[i], (mt->n_edges[i] + mt->n_boundary_vertices[i]) * 2 * sizeof(**mt->e_matrices), " boundarys-Vertex Matrix");
 	}
 }
 
-static void transfer_data_to_slim(ParamHandle *handle)
+static void slim_transfer_data_to_slim(ParamHandle *handle)
 {
-
 	PHandle *phandle = (PHandle *) handle;
-	SLIMMatrixTransfer *mt = phandle->mt;
+	SLIMMatrixTransfer *mt = phandle->slim_mt;
 
 	mt->pinned_vertices = false;
-	mt->transform_islands = true;
-	convert_blender_slim(handle);
+	slim_convert_blender(handle);
 }
 
 /* Set UV on each vertex after SLIM parametrization, for each chart. */
-void set_uv_param_slim(ParamHandle *handle, SLIMMatrixTransfer *mt)
+static void slim_flush_uvs(ParamHandle *handle, SLIMMatrixTransfer *mt)
 {
 	PHandle *phandle = (PHandle*) handle;
 	int vid;
 	PVert *v;
 
-	for (int chartNr = 0; chartNr<mt->n_charts; chartNr++) {
-		double *UV = mt->uv_matrices[chartNr];
+	for (int i = 0; i < phandle->ncharts; i++) {
+		PChart *chart = phandle->charts[i];
+		double *UV = mt->uv_matrices[i];
 
-		for (v = phandle->charts[chartNr]->verts; v; v = v->nextlink) {
+		for (v = chart->verts; v; v = v->nextlink) {
 			vid = v->slim_id;
 			v->uv[0] = UV[vid*2];
 			v->uv[1] = UV[vid*2 + 1];
@@ -4820,19 +4758,18 @@ void set_uv_param_slim(ParamHandle *handle, SLIMMatrixTransfer *mt)
 }
 
 /* Cleanup memory. */
-void free_slim_matrix_transfer(SLIMMatrixTransfer *mt)
+static void slim_free_matrix_transfer(SLIMMatrixTransfer *mt)
 {
-	for (int chartNr = 0; chartNr<mt->n_charts; chartNr++) {
-
-		MEM_freeN(mt->v_matrices[chartNr]);
-		MEM_freeN(mt->uv_matrices[chartNr]);
-		MEM_freeN(mt->f_matrices[chartNr]);
-		MEM_freeN(mt->pp_matrices[chartNr]);
-		MEM_freeN(mt->el_vectors[chartNr]);
-		MEM_freeN(mt->w_vectors[chartNr]);
-		MEM_freeN(mt->p_matrices[chartNr]);
-		MEM_freeN(mt->e_matrices[chartNr]);
-		MEM_freeN(mt->b_vectors[chartNr]);
+	for (int i = 0; i<mt->n_charts; i++) {
+		MEM_freeN(mt->v_matrices[i]);
+		MEM_freeN(mt->uv_matrices[i]);
+		MEM_freeN(mt->f_matrices[i]);
+		MEM_freeN(mt->pp_matrices[i]);
+		MEM_freeN(mt->el_vectors[i]);
+		MEM_freeN(mt->w_vectors[i]);
+		MEM_freeN(mt->p_matrices[i]);
+		MEM_freeN(mt->e_matrices[i]);
+		MEM_freeN(mt->b_vectors[i]);
 	}
 
 	MEM_freeN(mt->v_matrices);
@@ -4854,53 +4791,13 @@ void free_slim_matrix_transfer(SLIMMatrixTransfer *mt)
 	MEM_freeN(mt);
 }
 
-bool transformIslands(ParamHandle *handle)
-{
-	PHandle *phandle = (PHandle *) handle;
-	return phandle->mt->transform_islands;
-}
-
-/* Examines if any pins are present or not. */
-bool mark_pins(ParamHandle *param_handle)
-{
-	bool noPins = true;
-	PHandle *handle = (PHandle *)param_handle;
-
-	for (int chartNr = 0; chartNr < handle->ncharts; chartNr++) {
-		PChart *chart = handle->charts[chartNr];
-
-		int nPins = 0;
-		PVert *v;
-		for (v = chart->verts; v; v = v->nextlink) {
-			if (v->flag & PVERT_PIN) {
-				nPins++;
-				noPins = false;
-			}
-		}
-		chart->u.slim.pins_exist = (nPins > 0);
-	}
-	return noPins;
-}
-
-void* getRecurringSlimData(ParamHandle *handle)
-{
-	PHandle *phandle = (PHandle *) handle;
-	return phandle->recurringSlim;
-}
-
-void setRecurringSlimData(ParamHandle *handle, void *rs)
-{
-	PHandle *phandle = (PHandle *) handle;
-	phandle->recurringSlim = rs;
-}
-
-bool get_pinned_vertex_data(ParamHandle *liveHandle,
-							int chartNr,
-							int *n_pins,
-							int *pinned_vertex_indices,
-							double *pinned_vertex_positions_2D,
-							int *n_selected_pins,
-							int *selected_pins)
+static bool slim_get_pinned_vertex_data(ParamHandle *liveHandle,
+                                        int chartNr,
+                                        int *n_pins,
+                                        int *pinned_vertex_indices,
+							            double *pinned_vertex_positions_2D,
+							            int *n_selected_pins,
+							            int *selected_pins)
 {
 
 	PHandle *phandle = (PHandle *) liveHandle;
@@ -4909,7 +4806,7 @@ bool get_pinned_vertex_data(ParamHandle *liveHandle,
 	bool pinned_vertex_was_moved = false;
 	int i = 0; // index of pinned vertex
 
-	//boundary vertices have lower slim_ids, process them first
+	/* Boundary vertices have lower slim_ids, process them first */
 	PEdge *outer;
 	p_chart_boundaries(chart, NULL, &outer);
 	PEdge *be = outer;
@@ -4950,52 +4847,126 @@ bool get_pinned_vertex_data(ParamHandle *liveHandle,
 	}
 
 	*n_pins = i;
-	phandle->mt->n_pinned_vertices[chartNr] = i;
+	phandle->slim_mt->n_pinned_vertices[chartNr] = i;
 	return pinned_vertex_was_moved;
 }
 
-void backup_current_uvs(ParamHandle *handle)
+void param_slim_solve(ParamHandle *handle, SLIMMatrixTransfer *mt)
 {
 	PHandle *phandle = (PHandle *) handle;
-	PFace *f;
+
+	phandle->slim_mt = mt;
+	slim_transfer_data_to_slim(handle);
+
+	SLIM_parametrize(mt, mt->n_iterations, mt->fixed_boundary, mt->skip_initialization);
+
+	slim_flush_uvs(handle, mt);
+	slim_free_matrix_transfer(mt);
+}
+
+void param_slim_begin(ParamHandle *handle, SLIMMatrixTransfer *mt)
+{
+	PHandle *phandle = (PHandle *) handle;
+
+	phandle->slim_mt = mt;
+
 	for (int i = 0; i < phandle->ncharts; i++) {
-		for (f = phandle->charts[i]->faces; f; f = f->nextlink)
+		for (PFace *f = phandle->charts[i]->faces; f; f = f->nextlink) {
 			p_face_backup_uvs(f);
+		}
+	}
+
+	slim_transfer_data_to_slim(handle);
+
+	for (int i = 0; i < phandle->ncharts; i++) {
+		PChart *chart = phandle->charts[i];
+		chart->u.slim.ptr = SLIM_setup(mt, i, mt->fixed_boundary, mt->is_minimize_stretch);
 	}
 }
 
-void param_slim_begin(ParamHandle *handle)
-{
-	transfer_data_to_slim(handle);
-}
-
-void param_slim_solve(ParamHandle *handle)
+void param_slim_stretch_iteration(ParamHandle *handle, float blend)
 {
 	PHandle *phandle = (PHandle *) handle;
-	SLIMMatrixTransfer *mt = phandle->mt;
-	SLIM_parametrize(mt, phandle->n_iterations, mt->fixed_boundary, phandle->skip_initialization);
+	SLIMMatrixTransfer *mt = phandle->slim_mt;
+
+	// Do one iteration and tranfer UVs
+	for (int i = 0; i < phandle->ncharts; i++) {
+		PChart *chart = phandle->charts[i];
+		SLIM_parametrize_single_iteration(chart->u.slim.ptr);
+		SLIM_transfer_uvs_blended(mt, chart->u.slim.ptr, i, blend);
+	}
+
+	//	Assign new UVs back to each vertex
+	slim_flush_uvs(handle, mt);
+}
+
+void param_slim_solve_iteration(ParamHandle *handle)
+{
+	PHandle *phandle = (PHandle *) handle;
+	SLIMMatrixTransfer *mt = phandle->slim_mt;
+
+	/* Do one iteration and tranfer UVs */
+	for (int i = 0; i < phandle->ncharts; i++) {
+		PChart *chart = phandle->charts[i];
+
+		int *pinned_vertex_indices =
+			MEM_callocN(sizeof(*pinned_vertex_indices) * mt->n_verts[i],
+						"indices of pinned verts");
+		double *pinned_vertex_positions_2D =
+			MEM_callocN(sizeof(*pinned_vertex_positions_2D) * 2 * mt->n_verts[i],
+						"positions of pinned verts: [u1, v1, u2, v2, ..., un, vn]");
+		int *selected_pins =
+			MEM_callocN(sizeof(*pinned_vertex_indices) * mt->n_verts[i],
+			            "indices of pinned & selected verts");
+
+		int n_pins = 0;
+		int n_selected_pins = 0;
+
+		bool pinned_vertex_was_moved = slim_get_pinned_vertex_data(handle,
+										   i,
+										   &n_pins,
+										   pinned_vertex_indices,
+										   pinned_vertex_positions_2D,
+										   &n_selected_pins,
+										   selected_pins);
+
+		if (!pinned_vertex_was_moved) {
+			chart->flag |= PCHART_NOPACK;
+			return;
+		}
+
+		SLIM_parametrize_live(chart->u.slim.ptr,
+							  n_pins,
+							  pinned_vertex_indices,
+							  pinned_vertex_positions_2D,
+							  n_selected_pins,
+							  selected_pins);
+		SLIM_transfer_uvs_blended_live(mt, chart->u.slim.ptr, n_pins, n_selected_pins, selected_pins, pinned_vertex_indices, pinned_vertex_positions_2D, i);
+
+		MEM_freeN(selected_pins);
+		MEM_freeN(pinned_vertex_indices);
+		MEM_freeN(pinned_vertex_positions_2D);
+	}
+
+	//	Assign new UVs back to each vertex
+	slim_flush_uvs(handle, mt);
 }
 
 void param_slim_end(ParamHandle *handle)
 {
 	PHandle *phandle = (PHandle *) handle;
-	SLIMMatrixTransfer *mt = phandle->mt;
-	set_uv_param_slim(handle, mt);
-	free_slim_matrix_transfer(mt);
+	SLIMMatrixTransfer *mt = phandle->slim_mt;
+
+	for (int i = 0; i < phandle->ncharts; i++) {
+		PChart *chart = phandle->charts[i];
+		SLIM_free_data(chart->u.slim.ptr);
+	}
+
+	slim_free_matrix_transfer(mt);
 }
 
-void param_slim_enrich_handle(ParamHandle *handle,
-							  SLIMMatrixTransfer *mt,
-							  int n_iterations,
-							  bool skip_initialization,
-							  bool is_minimize_stretch)
+bool param_is_slim(ParamHandle *handle)
 {
-
 	PHandle *phandle = (PHandle *)handle;
-
-	phandle->mt = mt;
-	phandle->n_iterations = n_iterations;
-	phandle->skip_initialization = skip_initialization;
-	phandle->is_minimize_stretch = is_minimize_stretch;
+	return phandle->slim_mt != NULL;
 }
-

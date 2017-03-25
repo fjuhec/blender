@@ -69,6 +69,10 @@ typedef struct {
 	int reflection_mode;
 	double relative_scale;
 
+	/* external */
+	int n_iterations;
+	bool skip_initialization;
+	bool is_minimize_stretch;
 } SLIMMatrixTransfer;
 
 #ifdef __cplusplus

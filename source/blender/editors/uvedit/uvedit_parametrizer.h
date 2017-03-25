@@ -74,37 +74,21 @@ void param_edge_set_seam(ParamHandle *handle,
 void param_construct_end(ParamHandle *handle, ParamBool fill, ParamBool impl);
 void param_delete(ParamHandle *chart);
 
-
-
-/* SLIM handle enrichment/construction:
- * -----------------------------
- * - enrich handle
- */
-
-void param_slim_enrich_handle(ParamHandle *handle,
-							  SLIMMatrixTransfer *mt,
-							  int n_iterations,
-							  bool skip_initialization,
-							  bool is_minimize_stretch);
-/* unwrapping:
- * -----------------------------
- * - Either Conformal or SLIM
- */
-
-void param_begin(ParamHandle *handle, ParamBool abf, bool use_slim);
-void param_solve(ParamHandle *handle, bool use_slim);
-void param_end(ParamHandle *handle, bool use_slim);
-
 /* SLIM:
  * -----------------------------
- * - begin: Data is gathered into matrices and transferred to SLIM
+ * - begin: data is gathered into matrices and transferred to SLIM
  * - solve: compute cheap initialization (if necessary) and refine iteratively
  * - end: clean up
 */
 
-void param_slim_begin(ParamHandle *handle);
-void param_slim_solve(ParamHandle *handle);
+void param_slim_solve(ParamHandle *handle, SLIMMatrixTransfer *mt);
+
+void param_slim_begin(ParamHandle *handle, SLIMMatrixTransfer *mt);
+void param_slim_solve_iteration(ParamHandle *handle);
+void param_slim_stretch_iteration(ParamHandle *handle, float blend);
 void param_slim_end(ParamHandle *handle);
+
+bool param_is_slim(ParamHandle *handle);
 
 /* Least Squares Conformal Maps:
  * -----------------------------
@@ -141,23 +125,6 @@ void param_scale(ParamHandle *handle, float x, float y);
 
 void param_flush(ParamHandle *handle);
 void param_flush_restore(ParamHandle *handle);
-
-/*	SLIM UV unwrapping data transfer */
-void set_uv_param_slim(ParamHandle *handle, SLIMMatrixTransfer *mt);
-void free_slim_matrix_transfer(SLIMMatrixTransfer *mt);
-bool mark_pins(ParamHandle *param_handle);
-bool transformIslands(ParamHandle *handle);
-void* getRecurringSlimData(ParamHandle *handle);
-void setRecurringSlimData(ParamHandle *handle, void *rs);
-bool get_pinned_vertex_data(ParamHandle *liveHandle,
-							int chartNr,
-							int *n_pins,
-							int *selected_pinned_vertex_indices,
-							double *selected_pinned_vertex_positions_2D,
-							int *n_selected_pins,
-							int *selected_pins);
-void backup_current_uvs(ParamHandle *handle);
-
 
 #ifdef __cplusplus
 }
