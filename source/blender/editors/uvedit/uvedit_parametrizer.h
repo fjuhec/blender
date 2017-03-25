@@ -63,6 +63,7 @@ void param_face_add(ParamHandle *handle,
                     ParamKey *vkeys,
                     float *co[4],
                     float *uv[4],
+                    float weight[4],
                     ParamBool *pin,
                     ParamBool *select,
                     float face_normal[3]);
@@ -82,7 +83,6 @@ void param_delete(ParamHandle *chart);
 
 void param_slim_enrich_handle(ParamHandle *handle,
 							  SLIMMatrixTransfer *mt,
-							  float *weight_array,
 							  int n_iterations,
 							  bool skip_initialization,
 							  bool is_minimize_stretch);

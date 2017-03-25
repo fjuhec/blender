@@ -113,6 +113,7 @@ typedef struct PVert {
 	struct PEdge *edge;
 	float co[3];
 	float uv[2];
+	float weight;
 	unsigned char flag;
 
 	bool on_boundary_flag;
@@ -753,10 +754,11 @@ static void p_face_restore_uvs(PFace *f)
 
 /* Construction (use only during construction, relies on u.key being set */
 
-static PVert *p_vert_add(PHandle *handle, PHashKey key, const float co[3], PEdge *e)
+static PVert *p_vert_add(PHandle *handle, PHashKey key, const float co[3], const float weight, PEdge *e)
 {
 	PVert *v = (PVert *)BLI_memarena_alloc(handle->arena, sizeof(*v));
 	copy_v3_v3(v->co, co);
+	v->weight = weight;
 
 	/* Sanity check, a single nan/inf point causes the entire result to be invalid.
 	 * Note that values within the calculation may _become_ non-finite,
@@ -776,14 +778,14 @@ static PVert *p_vert_add(PHandle *handle, PHashKey key, const float co[3], PEdge
 	return v;
 }
 
-static PVert *p_vert_lookup(PHandle *handle, PHashKey key, const float co[3], PEdge *e)
+static PVert *p_vert_lookup(PHandle *handle, PHashKey key, const float co[3], const float weight, PEdge *e)
 {
 	PVert *v = (PVert *)phash_lookup(handle->hash_verts, key);
 
 	if (v)
 		return v;
 	else
-		return p_vert_add(handle, key, co, e);
+		return p_vert_add(handle, key, co, weight, e);
 }
 
 static PVert *p_vert_copy(PChart *chart, PVert *v)
@@ -1124,15 +1126,16 @@ static PFace *p_face_add(PHandle *handle)
 }
 
 static PFace *p_face_add_construct(PHandle *handle, ParamKey key, ParamKey *vkeys,
-                                   float *co[4], float *uv[4], int i1, int i2, int i3,
+                                   float *co[4], float *uv[4], float weight[4],
+								   int i1, int i2, int i3,
                                    ParamBool *pin, ParamBool *select)
 {
 	PFace *f = p_face_add(handle);
 	PEdge *e1 = f->edge, *e2 = e1->next, *e3 = e2->next;
 
-	e1->vert = p_vert_lookup(handle, vkeys[i1], co[i1], e1);
-	e2->vert = p_vert_lookup(handle, vkeys[i2], co[i2], e2);
-	e3->vert = p_vert_lookup(handle, vkeys[i3], co[i3], e3);
+	e1->vert = p_vert_lookup(handle, vkeys[i1], co[i1], weight[i1], e1);
+	e2->vert = p_vert_lookup(handle, vkeys[i2], co[i2], weight[i2], e2);
+	e3->vert = p_vert_lookup(handle, vkeys[i3], co[i3], weight[i3], e3);
 
 	e1->orig_uv = uv[i1];
 	e2->orig_uv = uv[i2];
@@ -4037,7 +4040,7 @@ void param_delete(ParamHandle *handle)
 }
 
 static void p_add_ngon(ParamHandle *handle, ParamKey key, int nverts,
-                       ParamKey *vkeys, float **co, float **uv,
+                       ParamKey *vkeys, float **co, float **uv, float *weight,
                        ParamBool *pin, ParamBool *select, const float normal[3])
 {
 	int *boundary = BLI_array_alloca(boundary, nverts);
@@ -4092,10 +4095,11 @@ static void p_add_ngon(ParamHandle *handle, ParamKey key, int nverts,
 			ParamKey tri_vkeys[3] = {vkeys[v0], vkeys[v1], vkeys[v2]};
 			float *tri_co[3] = {co[v0], co[v1], co[v2]};
 			float *tri_uv[3] = {uv[v0], uv[v1], uv[v2]};
+			float tri_weight[3] = {weight[v0], weight[v1], weight[v2]};
 			ParamBool tri_pin[3] = {pin[v0], pin[v1], pin[v2]};
 			ParamBool tri_select[3] = {select[v0], select[v1], select[v2]};
 
-			param_face_add(handle, key, 3, tri_vkeys, tri_co, tri_uv, tri_pin, tri_select, NULL);
+			param_face_add(handle, key, 3, tri_vkeys, tri_co, tri_uv, tri_weight, tri_pin, tri_select, NULL);
 		}
 
 		/* remove corner */
@@ -4107,7 +4111,7 @@ static void p_add_ngon(ParamHandle *handle, ParamKey key, int nverts,
 }
 
 void param_face_add(ParamHandle *handle, ParamKey key, int nverts,
-                    ParamKey *vkeys, float *co[4], float *uv[4],
+                    ParamKey *vkeys, float *co[4], float *uv[4], float weight[4],
                     ParamBool *pin, ParamBool *select, float normal[3])
 {
 	PHandle *phandle = (PHandle *)handle;
@@ -4118,22 +4122,22 @@ void param_face_add(ParamHandle *handle, ParamKey key, int nverts,
 
 	if (nverts > 4) {
 		/* ngon */
-		p_add_ngon(handle, key, nverts, vkeys, co, uv, pin, select, normal);
+		p_add_ngon(handle, key, nverts, vkeys, co, uv, weight, pin, select, normal);
 	}
 	else if (nverts == 4) {
 		/* quad */
 		if (p_quad_split_direction(phandle, co, vkeys)) {
-			p_face_add_construct(phandle, key, vkeys, co, uv, 0, 1, 2, pin, select);
-			p_face_add_construct(phandle, key, vkeys, co, uv, 0, 2, 3, pin, select);
+			p_face_add_construct(phandle, key, vkeys, co, uv, weight, 0, 1, 2, pin, select);
+			p_face_add_construct(phandle, key, vkeys, co, uv, weight, 0, 2, 3, pin, select);
 		}
 		else {
-			p_face_add_construct(phandle, key, vkeys, co, uv, 0, 1, 3, pin, select);
-			p_face_add_construct(phandle, key, vkeys, co, uv, 1, 2, 3, pin, select);
+			p_face_add_construct(phandle, key, vkeys, co, uv, weight, 0, 1, 3, pin, select);
+			p_face_add_construct(phandle, key, vkeys, co, uv, weight, 1, 2, 3, pin, select);
 		}
 	}
 	else if (!p_face_exists(phandle, vkeys, 0, 1, 2)) {
 		/* triangle */
-		p_face_add_construct(phandle, key, vkeys, co, uv, 0, 1, 2, pin, select);
+		p_face_add_construct(phandle, key, vkeys, co, uv, weight, 0, 1, 2, pin, select);
 	}
 }
 
@@ -4584,7 +4588,7 @@ static void allocate_memory_for_matrices(const int chartNr, const PHandle *phand
 	mt->f_matrices[chartNr] = MEM_mallocN(mt->n_faces[chartNr] * 3 * sizeof(**mt->f_matrices), "Face Matrix");
 	mt->p_matrices[chartNr] = MEM_mallocN(mt->n_verts[chartNr] * sizeof(**mt->p_matrices), " Pinned-Vertex Matrix");
 	mt->b_vectors[chartNr] = MEM_mallocN(mt->n_verts[chartNr] * sizeof(**mt->b_vectors), " Boundary-Vertex Vector");
-	//also clear memory for weight vectors, hence calloc
+	/* also clear memory for weight vectors, hence calloc */
 	mt->w_vectors[chartNr] = MEM_callocN(mt->n_verts[chartNr] * sizeof(**mt->w_vectors), " Weight-per-face Vector");
 
 	mt->e_matrices[chartNr] = MEM_mallocN(mt->n_edges[chartNr] * 2 * 2 * sizeof(**mt->e_matrices), " Edge matrix");
@@ -4636,7 +4640,6 @@ static void transfer_vertices(const int chartNr, const PHandle *phandle, SLIMMat
 	double *V, *UV, *PP;
 	float *W;
 	int *P;
-	float weight;
 
 	int r = mt->n_verts[chartNr];
 	V = mt->v_matrices[chartNr];
@@ -4652,8 +4655,7 @@ static void transfer_vertices(const int chartNr, const PHandle *phandle, SLIMMat
 
 		if (!v->on_boundary_flag) {
 			if (mt->with_weighted_parameterization) {
-				weight = temp_w[v->u.key];
-				W[vid] = weight;
+				W[vid] = v->weight;
 			}
 
 			v->slim_id = vid;
@@ -4683,28 +4685,26 @@ static void transfer_vertices(const int chartNr, const PHandle *phandle, SLIMMat
 static void transfer_boundary_vertices(const int chartNr, const PHandle *phandle, const SLIMMatrixTransfer *mt, float *temp_w)
 {
 	PChart *chart = phandle->charts[chartNr];
-	PVert *v;
 
 	int *B = mt->b_vectors[chartNr];
 	float *W = mt->w_vectors[chartNr];
-	int vid;
-	float weight;
 
-	//For every vertex, set slim_flag to 0
-	for (v = chart->verts; v; v = v->nextlink) {
+	/* For every vertex, set slim_flag to 0 */
+	for (PVert *v = chart->verts; v; v = v->nextlink) {
 		v->on_boundary_flag = false;
 	}
 
-	//find vertices on boundary and save into vector B
+	/* Find vertices on boundary and save into vector B */
 	PEdge *outer;
-	vid = 0;
 	p_chart_boundaries(chart, NULL, &outer);
+
 	PEdge *be = outer;
+	int vid = 0;
+
 	do {
 
 		if (mt->with_weighted_parameterization) {
-			weight = temp_w[be->vert->u.key];
-			W[vid] = weight;
+			W[vid] = be->vert->weight;
 		}
 
 		mt->n_boundary_vertices[chartNr] += 1;
@@ -4986,7 +4986,6 @@ void param_slim_end(ParamHandle *handle)
 
 void param_slim_enrich_handle(ParamHandle *handle,
 							  SLIMMatrixTransfer *mt,
-							  float *weight_array,
 							  int n_iterations,
 							  bool skip_initialization,
 							  bool is_minimize_stretch)
@@ -4997,7 +4996,6 @@ void param_slim_enrich_handle(ParamHandle *handle,
 	phandle->mt = mt;
 	phandle->n_iterations = n_iterations;
 	phandle->skip_initialization = skip_initialization;
-	phandle->weight_array = weight_array;
 	phandle->is_minimize_stretch = is_minimize_stretch;
 }
 

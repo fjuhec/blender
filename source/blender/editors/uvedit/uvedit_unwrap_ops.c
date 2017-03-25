@@ -267,7 +267,10 @@ void ED_uvedit_get_aspect(Scene *scene, Object *ob, BMesh *bm, float *aspx, floa
 }
 
 static void construct_param_handle_face_add(ParamHandle *handle, Scene *scene,
-                                            BMFace *efa, int face_index, const int cd_loop_uv_offset)
+                                            BMFace *efa, int face_index,
+											const int cd_loop_uv_offset,
+											const int cd_weight_offset,
+											const int cd_weight_index)
 {
 	ParamKey key;
 	ParamKey *vkeys = BLI_array_alloca(vkeys, efa->len);
@@ -275,6 +278,7 @@ static void construct_param_handle_face_add(ParamHandle *handle, Scene *scene,
 	ParamBool *select = BLI_array_alloca(select, efa->len);
 	float **co = BLI_array_alloca(co, efa->len);
 	float **uv = BLI_array_alloca(uv, efa->len);
+	float *weight = BLI_array_alloca(weight, efa->len);
 	int i;
 
 	BMIter liter;
@@ -292,14 +296,23 @@ static void construct_param_handle_face_add(ParamHandle *handle, Scene *scene,
 		uv[i] = luv->uv;
 		pin[i] = (luv->flag & MLOOPUV_PINNED) != 0;
 		select[i] = uvedit_uv_select_test(scene, l, cd_loop_uv_offset);
+
+		/* optional vertex group weighting */
+		if (cd_weight_offset >= 0 && cd_weight_index >= 0) {
+			MDeformVert *dv = BM_ELEM_CD_GET_VOID_P(l->v, cd_weight_offset);
+			weight[i] = defvert_find_weight(dv, cd_weight_index);
+		}
+		else {
+			weight[i] = 1.0f;
+		}
 	}
 
-	param_face_add(handle, key, i, vkeys, co, uv, pin, select, efa->no);
+	param_face_add(handle, key, i, vkeys, co, uv, weight, pin, select, efa->no);
 }
 
 static ParamHandle *construct_param_handle(Scene *scene, Object *ob, BMesh *bm,
-                                           const bool implicit, const bool fill, const bool sel,
-                                           const bool correct_aspect)
+                                           const bool implicit, const bool sel,
+										   const UnwrapProperties *unwrap)
 {
 	ParamHandle *handle;
 	BMFace *efa;
@@ -309,10 +322,12 @@ static ParamHandle *construct_param_handle(Scene *scene, Object *ob, BMesh *bm,
 	int i;
 	
 	const int cd_loop_uv_offset = CustomData_get_offset(&bm->ldata, CD_MLOOPUV);
+	const int cd_weight_offset = CustomData_get_offset(&bm->vdata, CD_MDEFORMVERT);
+	const int cd_weight_index = defgroup_name_index(ob, unwrap->vertex_group);
 
 	handle = param_construct_begin();
 
-	if (correct_aspect) {
+	if (unwrap->correct_aspect) {
 		float aspx, aspy;
 
 		ED_uvedit_get_aspect(scene, ob, bm, &aspx, &aspy);
@@ -344,7 +359,8 @@ static ParamHandle *construct_param_handle(Scene *scene, Object *ob, BMesh *bm,
 			}
 		}
 
-		construct_param_handle_face_add(handle, scene, efa, i, cd_loop_uv_offset);
+		construct_param_handle_face_add(handle, scene, efa, i,
+			cd_loop_uv_offset, cd_weight_offset, cd_weight_index);
 	}
 
 	if (!implicit) {
@@ -358,14 +374,14 @@ static ParamHandle *construct_param_handle(Scene *scene, Object *ob, BMesh *bm,
 		}
 	}
 
-	param_construct_end(handle, fill, implicit);
+	param_construct_end(handle, unwrap->fill_holes, implicit);
 
 	return handle;
 }
 
 
 static void texface_from_original_index(BMFace *efa, int index, float **uv, ParamBool *pin, ParamBool *select,
-										Scene *scene, const int cd_loop_uv_offset)
+                                        Scene *scene, const int cd_loop_uv_offset)
 {
 	BMLoop *l;
 	BMIter liter;
@@ -391,7 +407,8 @@ static void texface_from_original_index(BMFace *efa, int index, float **uv, Para
 
 /* unwrap handle initialization for subsurf aware-unwrapper. The many modifications required to make the original function(see above)
  * work justified the existence of a new function. */
-static ParamHandle *construct_param_handle_subsurfed(Scene *scene, Object *ob, BMEditMesh *em, short fill, short sel, short correct_aspect)
+static ParamHandle *construct_param_handle_subsurfed(Scene *scene, Object *ob, BMEditMesh *em,
+                                                     bool sel, const UnwrapProperties *unwrap)
 {
 	ParamHandle *handle;
 	/* index pointers */
@@ -414,6 +431,7 @@ static ParamHandle *construct_param_handle_subsurfed(Scene *scene, Object *ob, B
 	MEdge *subsurfedEdges;
 	MPoly *subsurfedPolys;
 	MLoop *subsurfedLoops;
+	MDeformVert *subsurfedDVerts = NULL;
 	/* number of vertices and faces for subsurfed mesh*/
 	int numOfEdges, numOfFaces;
 
@@ -422,11 +440,12 @@ static ParamHandle *construct_param_handle_subsurfed(Scene *scene, Object *ob, B
 	/* similar to the above, we need a way to map edges to their original ones */
 	BMEdge **edgeMap;
 
+	const int cd_weight_index = defgroup_name_index(ob, unwrap->vertex_group);
 	const int cd_loop_uv_offset = CustomData_get_offset(&em->bm->ldata, CD_MLOOPUV);
 
 	handle = param_construct_begin();
 
-	if (correct_aspect) {
+	if (unwrap->correct_aspect) {
 		float aspx, aspy;
 
 		ED_uvedit_get_aspect(scene, ob, em->bm, &aspx, &aspy);
@@ -453,6 +472,8 @@ static ParamHandle *construct_param_handle_subsurfed(Scene *scene, Object *ob, B
 	subsurfedEdges = derivedMesh->getEdgeArray(derivedMesh);
 	subsurfedPolys = derivedMesh->getPolyArray(derivedMesh);
 	subsurfedLoops = derivedMesh->getLoopArray(derivedMesh);
+	if (cd_weight_index >= 0)
+		subsurfedDVerts = derivedMesh->getVertDataArray(derivedMesh, CD_MDEFORMVERT);
 
 	origVertIndices = derivedMesh->getVertDataArray(derivedMesh, CD_ORIGINDEX);
 	origEdgeIndices = derivedMesh->getEdgeDataArray(derivedMesh, CD_ORIGINDEX);
@@ -485,6 +506,7 @@ static ParamHandle *construct_param_handle_subsurfed(Scene *scene, Object *ob, B
 		ParamBool pin[4], select[4];
 		float *co[4];
 		float *uv[4];
+		float weight[4];
 		BMFace *origFace = faceMap[i];
 
 		if (scene->toolsettings->uv_flag & UV_SYNC_SELECTION) {
@@ -510,6 +532,20 @@ static ParamHandle *construct_param_handle_subsurfed(Scene *scene, Object *ob, B
 		co[1] = subsurfedVerts[mloop[1].v].co;
 		co[2] = subsurfedVerts[mloop[2].v].co;
 		co[3] = subsurfedVerts[mloop[3].v].co;
+
+		/* Optional vertex group weights. */
+		if (subsurfedDVerts) {
+			weight[0] = defvert_find_weight(subsurfedDVerts + mloop[0].v, cd_weight_index);
+			weight[1] = defvert_find_weight(subsurfedDVerts + mloop[1].v, cd_weight_index);
+			weight[2] = defvert_find_weight(subsurfedDVerts + mloop[2].v, cd_weight_index);
+			weight[3] = defvert_find_weight(subsurfedDVerts + mloop[3].v, cd_weight_index);
+		}
+		else {
+			weight[0] = 1.0f;
+			weight[1] = 1.0f;
+			weight[2] = 1.0f;
+			weight[3] = 1.0f;
+		}
 		
 		/* This is where all the magic is done. If the vertex exists in the, we pass the original uv pointer to the solver, thus
 		 * flushing the solution to the edit mesh. */
@@ -518,7 +554,7 @@ static ParamHandle *construct_param_handle_subsurfed(Scene *scene, Object *ob, B
 		texface_from_original_index(origFace, origVertIndices[mloop[2].v], &uv[2], &pin[2], &select[2], scene, cd_loop_uv_offset);
 		texface_from_original_index(origFace, origVertIndices[mloop[3].v], &uv[3], &pin[3], &select[3], scene, cd_loop_uv_offset);
 
-		param_face_add(handle, key, 4, vkeys, co, uv, pin, select, NULL);
+		param_face_add(handle, key, 4, vkeys, co, uv, weight, pin, select, NULL);
 	}
 
 	/* these are calculated from original mesh too */
@@ -531,7 +567,7 @@ static ParamHandle *construct_param_handle_subsurfed(Scene *scene, Object *ob, B
 		}
 	}
 
-	param_construct_end(handle, fill, 0);
+	param_construct_end(handle, unwrap->fill_holes, 0);
 
 	/* cleanup */
 	MEM_freeN(faceMap);
@@ -539,29 +575,6 @@ static ParamHandle *construct_param_handle_subsurfed(Scene *scene, Object *ob, B
 	derivedMesh->release(derivedMesh);
 
 	return handle;
-}
-
-/* Get weights from the weight map for weighted parametrisation. */
-static void create_weight_matrix(BMesh *bm,
-								 MDeformVert *weight_map_data,
-								 float *weight_array,
-								 int weight_map_index)
-{
-	BMIter iter;
-	BMVert *vert;
-	int i;
-	double weight;
-
-
-	BM_ITER_MESH_INDEX(vert, &iter, bm, BM_VERTS_OF_MESH, i) {
-		weight = defvert_find_weight(weight_map_data + i, weight_map_index);
-		weight_array[i] = weight;
-	}
-}
-
-static int retrieve_weightmap_index(Object *obedit, const char *vertex_group)
-{
-	return defgroup_name_index(obedit, vertex_group);
 }
 
 static void fill_in_matrix_transfer(SLIMMatrixTransfer *mt,
@@ -576,36 +589,21 @@ static void fill_in_matrix_transfer(SLIMMatrixTransfer *mt,
 	mt->relative_scale = relative_scale;
 }
 
-static void enrich_handle_slim(Object *obedit,
-							   BMEditMesh *em,
-							   ParamHandle *handle,
+static void enrich_handle_slim(ParamHandle *handle,
 							   SLIMMatrixTransfer *mt,
 							   bool is_minimize_stretch,
 							   const UnwrapProperties *unwrap,
 							   bool skip_initialization,
 							   bool pack_islands)
 {
-	int weight_map_index = retrieve_weightmap_index(obedit, unwrap->vertex_group);
-	bool with_weighted_parameterization = (weight_map_index >=0);
-	float *weight_array = NULL;
-
-	if (with_weighted_parameterization) {
-		Mesh *me = obedit->data;
-		DerivedMesh *dm = mesh_create_derived(me, NULL);
-		MDeformVert *weight_map_data = dm->getVertDataArray(dm, CD_MDEFORMVERT);
-		weight_array = MEM_callocN(sizeof(double) * dm->numVertData, "SLIM Weights retrieved from the weightmap.");
-		create_weight_matrix(em->bm, weight_map_data, weight_array, weight_map_index);
-	}
-
 	fill_in_matrix_transfer(mt,
-							with_weighted_parameterization,
+							strlen(unwrap->vertex_group) > 0,
 							unwrap->vertex_group_factor,
 							pack_islands,
 							unwrap->relative_scale);
 
 	param_slim_enrich_handle(handle,
 							 mt,
-							 weight_array,
 							 unwrap->iterations,
 							 skip_initialization,
 							 is_minimize_stretch);
@@ -650,7 +648,7 @@ static bool minimize_stretch_init(bContext *C, wmOperator *op)
 	UnwrapProperties unwrap = unwrap_properties_get(NULL, obedit);
 	unwrap.fill_holes = true;
 
-	ParamHandle *handle = construct_param_handle(scene, obedit, em->bm, false, true, 1, 1);
+	ParamHandle *handle = construct_param_handle(scene, obedit, em->bm, implicit, true, &unwrap);
 
 	MinStretch *ms = MEM_callocN(sizeof(MinStretch), "Data for minimizing stretch with SLIM");
 	RecurringSlim *rs = MEM_callocN(sizeof(RecurringSlim), "Data for recurring slim iterations");
@@ -663,7 +661,7 @@ static bool minimize_stretch_init(bContext *C, wmOperator *op)
 	ms->fixBorder = RNA_boolean_get(op->ptr, "fix_boundary");
 	rs->mt->fixed_boundary = RNA_boolean_get(op->ptr, "fix_boundary");
 
-	enrich_handle_slim(obedit, em, handle, rs->mt, true, &unwrap, true, false);
+	enrich_handle_slim(handle, rs->mt, true, &unwrap, true, false);
 	param_slim_begin(handle);
 
 	rs->slimPtrs = MEM_callocN(sizeof(rs->slimPtrs)*rs->mt->n_charts, "pointers to per-chart-Data for Slim");
@@ -848,8 +846,11 @@ void UV_OT_minimize_stretch(wmOperatorType *ot)
 
 void ED_uvedit_pack_islands(Scene *scene, Object *ob, BMesh *bm, bool selected, bool correct_aspect, bool do_rotate)
 {
-	ParamHandle *handle;
-	handle = construct_param_handle(scene, ob, bm, true, false, selected, correct_aspect);
+	UnwrapProperties unwrap = unwrap_properties_get(NULL, ob);
+	unwrap.fill_holes = false;
+	unwrap.correct_aspect = correct_aspect;
+
+	ParamHandle *handle = construct_param_handle(scene, ob, bm, true, selected, &unwrap);
 	param_pack(handle, scene->toolsettings->uvcalc_margin, do_rotate);
 	param_flush(handle);
 	param_delete(handle);
@@ -904,14 +905,17 @@ static int average_islands_scale_exec(bContext *C, wmOperator *UNUSED(op))
 	Scene *scene = CTX_data_scene(C);
 	Object *obedit = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
-	ParamHandle *handle;
 	bool implicit = true;
 
 	if (!uvedit_have_selection(scene, em, implicit)) {
 		return OPERATOR_CANCELLED;
 	}
 
-	handle = construct_param_handle(scene, obedit, em->bm, implicit, 0, 1, 1);
+	UnwrapProperties unwrap = unwrap_properties_get(NULL, obedit);
+	unwrap.fill_holes = false;
+	unwrap.correct_aspect = true;
+
+	ParamHandle *handle = construct_param_handle(scene, obedit, em->bm, implicit, 1, &unwrap);
 	param_average(handle);
 	param_flush(handle);
 	param_delete(handle);
@@ -951,9 +955,9 @@ void ED_uvedit_live_unwrap_begin(Scene *scene, Object *obedit)
 	UnwrapProperties unwrap = unwrap_properties_get(NULL, obedit);
 
 	if (unwrap.use_subsurf)
-		liveHandle = construct_param_handle_subsurfed(scene, obedit, em, unwrap.fill_holes, false, true);
+		liveHandle = construct_param_handle_subsurfed(scene, obedit, em, false, &unwrap);
 	else
-		liveHandle = construct_param_handle(scene, obedit, em->bm, false, unwrap.fill_holes, false, true);
+		liveHandle = construct_param_handle(scene, obedit, em->bm, false, false, &unwrap);
 
 	if (unwrap.use_slim) {
 		RecurringSlim *rs = MEM_callocN(sizeof(RecurringSlim), "Data for recurring slim iterations");
@@ -961,7 +965,7 @@ void ED_uvedit_live_unwrap_begin(Scene *scene, Object *obedit)
 		setRecurringSlimData(liveHandle, rs);
 
 		backup_current_uvs(liveHandle);
-		enrich_handle_slim(obedit, em, liveHandle, rs->mt, false, &unwrap, true, false);
+		enrich_handle_slim(liveHandle, rs->mt, false, &unwrap, true, false);
 		param_slim_begin(liveHandle);
 
 		rs->slimPtrs = MEM_callocN(sizeof(rs->slimPtrs)*rs->mt->n_charts, "pointers to per-chart-Data for Slim");
@@ -1378,14 +1382,14 @@ void ED_uvedit_unwrap(Scene *scene, Object *obedit, const short sel, wmOperator 
 	ParamHandle *handle;
 
 	if (unwrap.use_subsurf)
-		handle = construct_param_handle_subsurfed(scene, obedit, em, unwrap.fill_holes, sel, unwrap.correct_aspect);
+		handle = construct_param_handle_subsurfed(scene, obedit, em, sel, &unwrap);
 	else
-		handle = construct_param_handle(scene, obedit, em->bm, false, unwrap.fill_holes, sel, unwrap.correct_aspect);
+		handle = construct_param_handle(scene, obedit, em->bm, false, sel, &unwrap);
 
 	if (unwrap.use_slim) {
 		SLIMMatrixTransfer *mt = MEM_callocN(sizeof(SLIMMatrixTransfer), "matrix transfer data");
 		mt->reflection_mode = unwrap.reflection_mode;
-		enrich_handle_slim(obedit, em, handle, mt, false, &unwrap, false, true);
+		enrich_handle_slim(handle, mt, false, &unwrap, false, true);
 	}
 
 	param_begin(handle, unwrap.use_abf, unwrap.use_slim);
