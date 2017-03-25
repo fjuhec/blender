@@ -42,8 +42,10 @@ struct Main;
 struct Object;
 struct Scene;
 struct SpaceImage;
+struct UnwrapProperties;
 struct bNode;
 struct wmKeyConfig;
+struct wmOperator;
 
 /* uvedit_ops.c */
 void ED_operatortypes_uvedit(void);
@@ -104,7 +106,7 @@ void ED_uvedit_pack_islands(struct Scene *scene, struct Object *ob, struct BMesh
 void ED_uvedit_unwrap_cube_project(struct Object *ob, struct BMesh *bm, float cube_size, bool use_select);
 
 /* single call up unwrap using scene settings, used for edge tag unwrapping */
-void ED_unwrap_lscm(struct Scene *scene, struct Object *obedit, const short sel);
+void ED_uvedit_unwrap(struct Scene *scene, struct Object *obedit, const short sel, struct wmOperator *op);
 
 
 /* uvedit_draw.c */

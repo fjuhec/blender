@@ -597,7 +597,6 @@ void BKE_scene_init(Scene *sce)
 	sce->toolsettings->doublimit = 0.001;
 	sce->toolsettings->vgroup_weight = 1.0f;
 	sce->toolsettings->uvcalc_margin = 0.001f;
-	sce->toolsettings->unwrapper = 1;
 	sce->toolsettings->select_thresh = 0.01f;
 
 	sce->toolsettings->selectmode = SCE_SELECT_VERTEX;

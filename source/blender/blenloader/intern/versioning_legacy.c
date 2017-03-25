@@ -2236,12 +2236,6 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *main)
 			if (sce->nodetree)
 				ntree_version_241(sce->nodetree);
 
-			/* uv calculation options moved to toolsettings */
-			if (sce->toolsettings->unwrapper == 0) {
-				sce->toolsettings->uvcalc_flag = UVCALC_FILLHOLES;
-				sce->toolsettings->unwrapper = 1;
-			}
-
 			if (sce->r.mode & R_PANORAMA) {
 				/* all these checks to ensure saved files between released versions keep working... */
 				if (sce->r.xsch < sce->r.ysch) {

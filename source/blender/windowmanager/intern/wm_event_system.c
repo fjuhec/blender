@@ -1063,6 +1063,32 @@ bool WM_operator_last_properties_store(wmOperator *UNUSED(op))
 
 #endif
 
+void WM_operator_last_properties_alloc(struct wmOperator *op, const char *idname, struct PointerRNA *ptr)
+{
+	/* returns a copy of the current, last or default properties depending
+	 * which ones are available. for operators that need to access another
+	 * operator's last properties. */
+	if (op) {
+		BLI_assert(op->type == WM_operatortype_find(idname, false));
+		*ptr = *(op->ptr);
+		ptr->data = IDP_CopyProperty(ptr->data);
+	}
+	else {
+		wmOperatorType *ot = WM_operatortype_find(idname, false);
+		IDProperty *properties;
+
+		if (ot->last_properties) {
+			properties = IDP_CopyProperty(ot->last_properties);
+		}
+		else {
+			IDPropertyTemplate val = {0};
+			properties = IDP_New(IDP_GROUP, &val, "wmOperatorProperties");
+		}
+
+		RNA_pointer_create(NULL, ot->srna, properties, ptr);
+	}
+}
+
 static int wm_operator_invoke(
         bContext *C, wmOperatorType *ot, wmEvent *event,
         PointerRNA *properties, ReportList *reports, const bool poll_only)

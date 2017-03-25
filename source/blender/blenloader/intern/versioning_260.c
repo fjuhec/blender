@@ -1707,13 +1707,12 @@ void blo_do_versions_260(FileData *fd, Library *UNUSED(lib), Main *main)
 	}
 
 	if (main->versionfile < 264 || (main->versionfile == 264 && main->subversionfile < 5)) {
-		/* set a unwrapping margin and ABF by default */
+		/* set a UV margin by default */
 		Scene *scene;
 
 		for (scene = main->scene.first; scene; scene = scene->id.next) {
 			if (scene->toolsettings->uvcalc_margin == 0.0f) {
 				scene->toolsettings->uvcalc_margin = 0.001f;
-				scene->toolsettings->unwrapper = 0;
 			}
 		}
 	}

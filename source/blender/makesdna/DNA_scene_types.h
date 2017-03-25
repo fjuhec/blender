@@ -1453,21 +1453,10 @@ typedef struct ToolSettings {
 	short selectmode;
 
 	/* UV Calculation */
-	char unwrapper;
 	char uvcalc_flag;
 	char uv_flag;
 	char uv_selectmode;
-
-	/* SLIM uv unwrapping*/
-	float slim_weight_influence;
-	double slim_relative_scale;
-	char slim_vertex_group[64];
-	int slim_n_iterations;
-	int slim_reflection_mode;
-	int slim_skip_initialization;
-	int slim_fixed_boundary;
-	int slim_pack_islands;
-
+	char uv_pad;
 	float uvcalc_margin;
 
 	/* Auto-IK */
@@ -2163,6 +2152,10 @@ typedef enum ImagePaintMode {
 #define IMAGEPAINT_MISSING_STENCIL   (1 << 3)
 
 /* toolsettings->uvcalc_flag */
+#define UVCALC_DEPRECATED1			1
+#define UVCALC_DEPRECATED2			2
+#define UVCALC_TRANSFORM_CORRECT	4	/* adjust UV's while transforming to avoid distortion */
+#define UVCALC_DEPRECATED3			8
 #define UVCALC_FILLHOLES			1
 #define UVCALC_NO_ASPECT_CORRECT	2	/* would call this UVCALC_ASPECT_CORRECT, except it should be default with old file */
 #define UVCALC_TRANSFORM_CORRECT	4	/* adjust UV's while transforming to avoid distortion */

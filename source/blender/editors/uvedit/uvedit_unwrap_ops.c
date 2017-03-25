@@ -76,7 +76,6 @@
 #include "RNA_access.h"
 #include "RNA_define.h"
 
-
 #include "WM_api.h"
 #include "WM_types.h"
 
@@ -85,24 +84,6 @@
 
 #include "slim_matrix_transfer.h"
 #include "slim_capi.h"
-
-static void modifier_unwrap_state(Object *obedit, Scene *scene, bool *r_use_subsurf)
-{
-	ModifierData *md;
-	bool subsurf = (scene->toolsettings->uvcalc_flag & UVCALC_USESUBSURF) != 0;
-
-	md = obedit->modifiers.first;
-
-	/* subsurf will take the modifier settings only if modifier is first or right after mirror */
-	if (subsurf) {
-		if (md && md->type == eModifierType_Subsurf)
-			subsurf = true;
-		else
-			subsurf = false;
-	}
-
-	*r_use_subsurf = subsurf;
-}
 
 static bool ED_uvedit_ensure_uvs(bContext *C, Scene *scene, Object *obedit)
 {
@@ -165,6 +146,61 @@ static bool ED_uvedit_ensure_uvs(bContext *C, Scene *scene, Object *obedit)
 	}
 
 	return 1;
+}
+
+/******************* Remembered Properties ******************/
+
+typedef struct UnwrapProperties {
+	bool use_slim;
+	bool use_abf;
+	bool correct_aspect;
+	bool fill_holes;
+	bool use_subsurf;
+	char vertex_group[MAX_ID_NAME];
+	float vertex_group_factor;
+	float relative_scale;
+	int reflection_mode;
+	int iterations;
+} UnwrapProperties;
+
+static UnwrapProperties unwrap_properties_get(wmOperator *op, Object *ob)
+{
+	/* We use the properties from the last unwrap operator for subsequent
+	 * live unwrap and minize stretch operators. */
+	PointerRNA ptr;
+	WM_operator_last_properties_alloc(op, "UV_OT_unwrap", &ptr);
+
+	UnwrapProperties unwrap;
+	unwrap.use_abf = RNA_enum_get(&ptr, "method") == 0;
+	unwrap.use_slim = RNA_enum_get(&ptr, "method") == 2;
+	unwrap.correct_aspect = RNA_boolean_get(&ptr, "correct_aspect");
+	unwrap.fill_holes = RNA_boolean_get(&ptr, "fill_holes");
+	unwrap.use_subsurf = RNA_boolean_get(&ptr, "use_subsurf_data");
+	RNA_string_get(&ptr, "vertex_group", unwrap.vertex_group);
+	unwrap.vertex_group_factor = RNA_float_get(&ptr, "vertex_group_factor");
+	unwrap.relative_scale = RNA_float_get(&ptr, "relative_scale");
+	unwrap.reflection_mode = RNA_enum_get(&ptr, "reflection_mode");
+	unwrap.iterations = RNA_int_get(&ptr, "iterations");
+
+	/* SLIM requires hole filling */
+	if (unwrap.use_slim) {
+		unwrap.fill_holes = true;
+	}
+
+	/* Subsurf will take the modifier settings only if modifier is first or right after mirror */
+	if (unwrap.use_subsurf) {
+		ModifierData *md = ob->modifiers.first;
+
+		if (!(md && md->type == eModifierType_Subsurf)) {
+			unwrap.use_subsurf = false;
+			if (op)
+				BKE_report(op->reports, RPT_INFO, "Subdivision Surface modifier needs to be first to work with unwrap");
+		}
+	}
+
+	WM_operator_properties_free(&ptr);
+
+	return unwrap;
 }
 
 /****************** Parametrizer Conversion ***************/
@@ -523,7 +559,7 @@ static void create_weight_matrix(BMesh *bm,
 	}
 }
 
-static int retrieve_weightmap_index(Object *obedit, char *vertex_group)
+static int retrieve_weightmap_index(Object *obedit, const char *vertex_group)
 {
 	return defgroup_name_index(obedit, vertex_group);
 }
@@ -540,14 +576,16 @@ static void fill_in_matrix_transfer(SLIMMatrixTransfer *mt,
 	mt->relative_scale = relative_scale;
 }
 
-static void enrich_handle_slim(Scene *scene,
-							   Object *obedit,
+static void enrich_handle_slim(Object *obedit,
 							   BMEditMesh *em,
 							   ParamHandle *handle,
 							   SLIMMatrixTransfer *mt,
-							   bool is_minimize_stretch)
+							   bool is_minimize_stretch,
+							   const UnwrapProperties *unwrap,
+							   bool skip_initialization,
+							   bool pack_islands)
 {
-	int weight_map_index = retrieve_weightmap_index(obedit, scene->toolsettings->slim_vertex_group);
+	int weight_map_index = retrieve_weightmap_index(obedit, unwrap->vertex_group);
 	bool with_weighted_parameterization = (weight_map_index >=0);
 	float *weight_array = NULL;
 
@@ -561,17 +599,14 @@ static void enrich_handle_slim(Scene *scene,
 
 	fill_in_matrix_transfer(mt,
 							with_weighted_parameterization,
-							scene->toolsettings->slim_weight_influence,
-							scene->toolsettings->slim_pack_islands,
-							scene->toolsettings->slim_relative_scale);
-
-	int n_iterations = scene->toolsettings->slim_n_iterations;
-	bool skip_initialization = scene->toolsettings->slim_skip_initialization;
+							unwrap->vertex_group_factor,
+							pack_islands,
+							unwrap->relative_scale);
 
 	param_slim_enrich_handle(handle,
 							 mt,
 							 weight_array,
-							 n_iterations,
+							 unwrap->iterations,
 							 skip_initialization,
 							 is_minimize_stretch);
 }
@@ -606,6 +641,14 @@ static bool minimize_stretch_init(bContext *C, wmOperator *op)
 	Scene *scene = CTX_data_scene(C);
 	Object *obedit = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
+	bool implicit = true;
+
+	if (!uvedit_have_selection(scene, em, implicit)) {
+		return false;
+	}
+
+	UnwrapProperties unwrap = unwrap_properties_get(NULL, obedit);
+	unwrap.fill_holes = true;
 
 	ParamHandle *handle = construct_param_handle(scene, obedit, em->bm, false, true, 1, 1);
 
@@ -620,11 +663,7 @@ static bool minimize_stretch_init(bContext *C, wmOperator *op)
 	ms->fixBorder = RNA_boolean_get(op->ptr, "fix_boundary");
 	rs->mt->fixed_boundary = RNA_boolean_get(op->ptr, "fix_boundary");
 
-	scene->toolsettings->slim_skip_initialization = true;
-	scene->toolsettings->slim_pack_islands = false;
-	scene->toolsettings->slim_fixed_boundary = RNA_boolean_get(op->ptr, "fix_boundary");
-
-	enrich_handle_slim(scene, obedit, em, handle, rs->mt, true);
+	enrich_handle_slim(obedit, em, handle, rs->mt, true, &unwrap, true, false);
 	param_slim_begin(handle);
 
 	rs->slimPtrs = MEM_callocN(sizeof(rs->slimPtrs)*rs->mt->n_charts, "pointers to per-chart-Data for Slim");
@@ -903,34 +942,26 @@ static ParamHandle *liveHandle = NULL;
 
 void ED_uvedit_live_unwrap_begin(Scene *scene, Object *obedit)
 {
-
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
-	const bool abf = (scene->toolsettings->unwrapper == 0);
-	const bool fillholes = (scene->toolsettings->uvcalc_flag & UVCALC_FILLHOLES) != 0;
-	bool use_subsurf;
-
-	modifier_unwrap_state(obedit, scene, &use_subsurf);
 
 	if (!ED_uvedit_test(obedit)) {
 		return;
 	}
 
-	if (use_subsurf)
-		liveHandle = construct_param_handle_subsurfed(scene, obedit, em, fillholes, false, true);
-	else
-		liveHandle = construct_param_handle(scene, obedit, em->bm, false, fillholes, false, true);
+	UnwrapProperties unwrap = unwrap_properties_get(NULL, obedit);
 
-	if (scene->toolsettings->unwrapper == 2) {
+	if (unwrap.use_subsurf)
+		liveHandle = construct_param_handle_subsurfed(scene, obedit, em, unwrap.fill_holes, false, true);
+	else
+		liveHandle = construct_param_handle(scene, obedit, em->bm, false, unwrap.fill_holes, false, true);
+
+	if (unwrap.use_slim) {
 		RecurringSlim *rs = MEM_callocN(sizeof(RecurringSlim), "Data for recurring slim iterations");
 		rs->mt = MEM_callocN(sizeof(SLIMMatrixTransfer), "Matrix Transfer to SLIM");
 		setRecurringSlimData(liveHandle, rs);
 
-		scene->toolsettings->slim_skip_initialization = true;
-		scene->toolsettings->slim_pack_islands = false;
-		scene->toolsettings->slim_fixed_boundary = true;
-
 		backup_current_uvs(liveHandle);
-		enrich_handle_slim(scene, obedit, em, liveHandle, rs->mt, false);
+		enrich_handle_slim(obedit, em, liveHandle, rs->mt, false, &unwrap, true, false);
 		param_slim_begin(liveHandle);
 
 		rs->slimPtrs = MEM_callocN(sizeof(rs->slimPtrs)*rs->mt->n_charts, "pointers to per-chart-Data for Slim");
@@ -940,7 +971,7 @@ void ED_uvedit_live_unwrap_begin(Scene *scene, Object *obedit)
 
 	}
 	else {
-		param_lscm_begin(liveHandle, PARAM_TRUE, abf);
+		param_lscm_begin(liveHandle, PARAM_TRUE, unwrap.use_abf);
 	}
 }
 
@@ -1056,7 +1087,7 @@ void ED_uvedit_live_unwrap(Scene *scene, Object *obedit)
 	if (scene->toolsettings->edge_mode_live_unwrap &&
 	    CustomData_has_layer(&em->bm->ldata, CD_MLOOPUV))
 	{
-		ED_unwrap_lscm(scene, obedit, false); /* unwrap all not just sel */
+		ED_uvedit_unwrap(scene, obedit, false, NULL); /* unwrap all not just sel */
 	}
 }
 
@@ -1340,38 +1371,27 @@ static void uv_map_clip_correct(Scene *scene, Object *ob, BMEditMesh *em, wmOper
 /* ******************** Unwrap operator **************** */
 
 /* assumes UV Map is checked, doesn't run update funcs */
-void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
+void ED_uvedit_unwrap(Scene *scene, Object *obedit, const short sel, wmOperator *op)
 {
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
+	UnwrapProperties unwrap = unwrap_properties_get(op, obedit);
 	ParamHandle *handle;
 
-	bool use_slim_method = (scene->toolsettings->unwrapper == 2);
-
-	const bool fill_holes = use_slim_method ? true : (scene->toolsettings->uvcalc_flag & UVCALC_FILLHOLES) != 0;
-	const bool correct_aspect = (scene->toolsettings->uvcalc_flag & UVCALC_NO_ASPECT_CORRECT) == 0;
-	scene->toolsettings->slim_skip_initialization = false;
-	scene->toolsettings->slim_pack_islands = true;
-	scene->toolsettings->slim_fixed_boundary = false;
-	bool use_subsurf;
-
-
-	modifier_unwrap_state(obedit, scene, &use_subsurf);
-
-	if (use_subsurf)
-		handle = construct_param_handle_subsurfed(scene, obedit, em, fill_holes, sel, correct_aspect);
+	if (unwrap.use_subsurf)
+		handle = construct_param_handle_subsurfed(scene, obedit, em, unwrap.fill_holes, sel, unwrap.correct_aspect);
 	else
-		handle = construct_param_handle(scene, obedit, em->bm, false, fill_holes, sel, correct_aspect);
+		handle = construct_param_handle(scene, obedit, em->bm, false, unwrap.fill_holes, sel, unwrap.correct_aspect);
 
-	if (use_slim_method) {
+	if (unwrap.use_slim) {
 		SLIMMatrixTransfer *mt = MEM_callocN(sizeof(SLIMMatrixTransfer), "matrix transfer data");
-		mt->reflection_mode = scene->toolsettings->slim_reflection_mode;
-		enrich_handle_slim(scene, obedit, em, handle, mt, false);
+		mt->reflection_mode = unwrap.reflection_mode;
+		enrich_handle_slim(obedit, em, handle, mt, false, &unwrap, false, true);
 	}
 
-	param_begin(handle, scene->toolsettings->unwrapper == 0, use_slim_method);
-	param_solve(handle, use_slim_method);
-	bool transform = (!use_slim_method || transformIslands(handle));
-	param_end(handle, use_slim_method);
+	param_begin(handle, unwrap.use_abf, unwrap.use_slim);
+	param_solve(handle, unwrap.use_slim);
+	bool transform = (!unwrap.use_slim || transformIslands(handle));
+	param_end(handle, unwrap.use_slim);
 
 	if (transform) {
 		param_average(handle);
@@ -1388,19 +1408,6 @@ static int unwrap_exec(bContext *C, wmOperator *op)
 	Object *obedit = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 
-	int method = RNA_enum_get(op->ptr, "method");
-	int n_slim_iterations = RNA_int_get(op->ptr, "iterations");
-	double slim_weight_influence = RNA_float_get(op->ptr, "vertex_group_factor");
-	double slim_relative_scale = RNA_float_get(op->ptr, "relative_scale");
-	int slim_reflection_mode = RNA_enum_get(op->ptr, "reflection_mode");
-
-	char slim_vertex_group[64];
-	RNA_string_get(op->ptr, "vertex_group", slim_vertex_group);
-
-	const bool fill_holes = RNA_boolean_get(op->ptr, "fill_holes");
-	const bool correct_aspect = RNA_boolean_get(op->ptr, "correct_aspect");
-	const bool use_subsurf = RNA_boolean_get(op->ptr, "use_subsurf_data");
-	bool use_subsurf_final;
 	float obsize[3];
 	bool implicit = false;
 
@@ -1421,42 +1428,14 @@ static int unwrap_exec(bContext *C, wmOperator *op)
 		BKE_report(op->reports, RPT_INFO,
 		           "Object has negative scale, unwrap will operate on a non-flipped version of the mesh");
 
-	/* remember last method for live unwrap */
-	if (RNA_struct_property_is_set(op->ptr, "method"))
-		scene->toolsettings->unwrapper = method;
-	else
-		RNA_enum_set(op->ptr, "method", scene->toolsettings->unwrapper);
-
-	/* get number of iterations and method in global phase for SLIM unwraping*/
-	scene->toolsettings->slim_n_iterations = n_slim_iterations;
-	scene->toolsettings->slim_weight_influence = slim_weight_influence;
-	scene->toolsettings->slim_reflection_mode = slim_reflection_mode;
-	scene->toolsettings->slim_relative_scale = slim_relative_scale;
-	strcpy(scene->toolsettings->slim_vertex_group, slim_vertex_group);
-
 	/* remember packing marging */
 	if (RNA_struct_property_is_set(op->ptr, "margin"))
 		scene->toolsettings->uvcalc_margin = RNA_float_get(op->ptr, "margin");
 	else
 		RNA_float_set(op->ptr, "margin", scene->toolsettings->uvcalc_margin);
 
-	if (fill_holes) scene->toolsettings->uvcalc_flag |=  UVCALC_FILLHOLES;
-	else scene->toolsettings->uvcalc_flag &= ~UVCALC_FILLHOLES;
-
-	if (correct_aspect) scene->toolsettings->uvcalc_flag &= ~UVCALC_NO_ASPECT_CORRECT;
-	else scene->toolsettings->uvcalc_flag |=  UVCALC_NO_ASPECT_CORRECT;
-
-	if (use_subsurf) scene->toolsettings->uvcalc_flag |= UVCALC_USESUBSURF;
-	else scene->toolsettings->uvcalc_flag &= ~UVCALC_USESUBSURF;
-
-	/* double up the check here but better keep ED_unwrap_lscm interface simple and not
-	 * pass operator for warning append */
-	modifier_unwrap_state(obedit, scene, &use_subsurf_final);
-	if (use_subsurf != use_subsurf_final)
-		BKE_report(op->reports, RPT_INFO, "Subdivision Surface modifier needs to be first to work with unwrap");
-
 	/* execute unwrap */
-	ED_unwrap_lscm(scene, obedit, true);
+	ED_uvedit_unwrap(scene, obedit, true, op);
 
 	DAG_id_tag_update(obedit->data, 0);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
