@@ -136,6 +136,10 @@ extern char datatoc_gpu_shader_fx_dof_hq_geo_glsl[];
 extern char datatoc_gpu_shader_fx_depth_resolve_glsl[];
 extern char datatoc_gpu_shader_fx_lib_glsl[];
 
+extern char datatoc_gpu_shader_gpencil_stroke_vert_glsl[];
+extern char datatoc_gpu_shader_gpencil_stroke_frag_glsl[];
+extern char datatoc_gpu_shader_gpencil_stroke_geom_glsl[];
+
 extern char datatoc_gpu_shader_gpencil_fill_vert_glsl[];
 extern char datatoc_gpu_shader_gpencil_fill_frag_glsl[];
 
@@ -782,6 +786,10 @@ GPUShader *GPU_shader_get_builtin_shader(GPUBuiltinShader shader)
 		[GPU_SHADER_INSTANCE_EDGES_VARIYING_COLOR] = { datatoc_gpu_shader_instance_edges_variying_color_vert_glsl,
 		                                               datatoc_gpu_shader_flat_color_frag_glsl,
 		                                               datatoc_gpu_shader_instance_edges_variying_color_geom_glsl},
+
+		[GPU_SHADER_GPENCIL_STROKE] = { datatoc_gpu_shader_gpencil_stroke_vert_glsl,
+									    datatoc_gpu_shader_gpencil_stroke_frag_glsl,
+			                            datatoc_gpu_shader_gpencil_stroke_geom_glsl },
 
 		[GPU_SHADER_GPENCIL_FILL] = { datatoc_gpu_shader_gpencil_fill_vert_glsl,
 		                              datatoc_gpu_shader_gpencil_fill_frag_glsl },

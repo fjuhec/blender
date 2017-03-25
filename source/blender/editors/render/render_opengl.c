@@ -338,7 +338,7 @@ static void screen_opengl_render_doit(OGLRender *oglrender, RenderResult *rr)
 			gpuTranslate2f(sizex / 2, sizey / 2);
 
 			G.f |= G_RENDER_OGL;
-			ED_gpencil_draw_ex(scene, gpd, sizex, sizey, scene->r.cfra, SPACE_SEQ);
+			ED_gpencil_draw_ex(scene, ar, gpd, sizex, sizey, scene->r.cfra, SPACE_SEQ);
 			G.f &= ~G_RENDER_OGL;
 
 			gp_rect = MEM_mallocN(sizex * sizey * sizeof(unsigned char) * 4, "offscreen rect");

@@ -158,7 +158,7 @@ void ED_gpencil_draw_2dimage(const struct bContext *C);
 void ED_gpencil_draw_view2d(const struct bContext *C, bool onlyv2d);
 void ED_gpencil_draw_view3d(struct wmWindowManager *wm, struct Scene *scene, struct View3D *v3d, struct ARegion *ar, bool only3d);
 void ED_gpencil_draw_view3d_object(struct wmWindowManager *wm, struct Scene *scene, struct Object *ob, struct View3D *v3d, struct ARegion *ar, bool only3d);
-void ED_gpencil_draw_ex(struct Scene *scene, struct bGPdata *gpd, int winx, int winy,
+void ED_gpencil_draw_ex(struct Scene *scene, struct ARegion *ar, struct bGPdata *gpd, int winx, int winy,
                         const int cfra, const char spacetype);
 void ED_gp_draw_interpolation(const struct bContext *C, struct tGPDinterpolate *tgpi, const int type);
 

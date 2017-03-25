@@ -212,6 +212,10 @@ data_to_c_simple(shaders/gpu_shader_fx_dof_hq_geo.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_fx_depth_resolve.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_fx_lib.glsl SRC)
 
+data_to_c_simple(shaders/gpu_shader_gpencil_stroke_vert.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_gpencil_stroke_frag.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_gpencil_stroke_geom.glsl SRC)
+
 data_to_c_simple(shaders/gpu_shader_gpencil_fill_vert.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_gpencil_fill_frag.glsl SRC)
 
