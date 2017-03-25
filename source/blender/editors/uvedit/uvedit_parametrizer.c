@@ -215,7 +215,8 @@ typedef struct PChart {
 } PChart;
 
 enum PChartFlag {
-	PCHART_NOPACK = 1
+	PCHART_NOPACK = 1,
+	PCHART_NOFLUSH = 2
 };
 
 enum PHandleState {
@@ -4747,12 +4748,15 @@ static void slim_flush_uvs(ParamHandle *handle, SLIMMatrixTransfer *mt)
 
 	for (int i = 0; i < phandle->ncharts; i++) {
 		PChart *chart = phandle->charts[i];
-		double *UV = mt->uv_matrices[i];
 
-		for (v = chart->verts; v; v = v->nextlink) {
-			vid = v->slim_id;
-			v->uv[0] = UV[vid*2];
-			v->uv[1] = UV[vid*2 + 1];
+		if (!(chart->flag & PCHART_NOFLUSH)) {
+			double *UV = mt->uv_matrices[i];
+
+			for (v = chart->verts; v; v = v->nextlink) {
+				vid = v->slim_id;
+				v->uv[0] = UV[vid*2];
+				v->uv[1] = UV[vid*2 + 1];
+			}
 		}
 	}
 }
@@ -4791,7 +4795,7 @@ static void slim_free_matrix_transfer(SLIMMatrixTransfer *mt)
 	MEM_freeN(mt);
 }
 
-static bool slim_get_pinned_vertex_data(ParamHandle *liveHandle,
+static void slim_get_pinned_vertex_data(ParamHandle *liveHandle,
                                         int chartNr,
                                         int *n_pins,
                                         int *pinned_vertex_indices,
@@ -4803,7 +4807,6 @@ static bool slim_get_pinned_vertex_data(ParamHandle *liveHandle,
 	PHandle *phandle = (PHandle *) liveHandle;
 	PChart *chart = phandle->charts[chartNr];
 
-	bool pinned_vertex_was_moved = false;
 	int i = 0; // index of pinned vertex
 
 	/* Boundary vertices have lower slim_ids, process them first */
@@ -4815,7 +4818,6 @@ static bool slim_get_pinned_vertex_data(ParamHandle *liveHandle,
 			p_vert_load_pin_select_uvs(liveHandle, be->vert);  /* reload vertex position */
 
 			if (be->vert->flag & PVERT_SELECT) {
-				pinned_vertex_was_moved = true;
 				selected_pins[*n_selected_pins] = be->vert->slim_id;
 				++(*n_selected_pins);
 			}
@@ -4835,7 +4837,6 @@ static bool slim_get_pinned_vertex_data(ParamHandle *liveHandle,
 			p_vert_load_pin_select_uvs(liveHandle, v);  /* reload v */
 
 			if (v->flag & PVERT_SELECT) {
-				pinned_vertex_was_moved = true;
 				selected_pins[*n_selected_pins] = v->slim_id;
 				++(*n_selected_pins);
 			}
@@ -4848,7 +4849,6 @@ static bool slim_get_pinned_vertex_data(ParamHandle *liveHandle,
 
 	*n_pins = i;
 	phandle->slim_mt->n_pinned_vertices[chartNr] = i;
-	return pinned_vertex_was_moved;
 }
 
 void param_slim_solve(ParamHandle *handle, SLIMMatrixTransfer *mt)
@@ -4880,7 +4880,30 @@ void param_slim_begin(ParamHandle *handle, SLIMMatrixTransfer *mt)
 
 	for (int i = 0; i < phandle->ncharts; i++) {
 		PChart *chart = phandle->charts[i];
-		chart->u.slim.ptr = SLIM_setup(mt, i, mt->fixed_boundary, mt->is_minimize_stretch);
+
+		PBool select = P_FALSE, deselect = P_FALSE;
+		int npins = 0;
+
+		/* give vertices matrix indices and count pins */
+		for (PVert *v = chart->verts; v; v = v->nextlink) {
+			if (v->flag & PVERT_PIN) {
+				npins++;
+				if (v->flag & PVERT_SELECT)
+					select = P_TRUE;
+			}
+
+			if (!(v->flag & PVERT_SELECT))
+				deselect = P_TRUE;
+		}
+
+		if ((!mt->is_minimize_stretch && (!select || !deselect)) || (npins == 1)) {
+			/* nothing to unwrap */
+			chart->u.slim.ptr = NULL;
+			chart->flag |= PCHART_NOFLUSH;
+		}
+		else {
+			chart->u.slim.ptr = SLIM_setup(mt, i, mt->fixed_boundary, mt->is_minimize_stretch);
+		}
 	}
 }
 
@@ -4909,6 +4932,9 @@ void param_slim_solve_iteration(ParamHandle *handle)
 	for (int i = 0; i < phandle->ncharts; i++) {
 		PChart *chart = phandle->charts[i];
 
+		if (!chart->u.slim.ptr)
+			continue;
+
 		int *pinned_vertex_indices =
 			MEM_callocN(sizeof(*pinned_vertex_indices) * mt->n_verts[i],
 						"indices of pinned verts");
@@ -4922,18 +4948,13 @@ void param_slim_solve_iteration(ParamHandle *handle)
 		int n_pins = 0;
 		int n_selected_pins = 0;
 
-		bool pinned_vertex_was_moved = slim_get_pinned_vertex_data(handle,
-										   i,
-										   &n_pins,
-										   pinned_vertex_indices,
-										   pinned_vertex_positions_2D,
-										   &n_selected_pins,
-										   selected_pins);
-
-		if (!pinned_vertex_was_moved) {
-			chart->flag |= PCHART_NOPACK;
-			return;
-		}
+		slim_get_pinned_vertex_data(handle,
+		                            i,
+		                            &n_pins,
+		                            pinned_vertex_indices,
+		                            pinned_vertex_positions_2D,
+		                            &n_selected_pins,
+		                            selected_pins);
 
 		SLIM_parametrize_live(chart->u.slim.ptr,
 							  n_pins,
@@ -4959,7 +4980,8 @@ void param_slim_end(ParamHandle *handle)
 
 	for (int i = 0; i < phandle->ncharts; i++) {
 		PChart *chart = phandle->charts[i];
-		SLIM_free_data(chart->u.slim.ptr);
+		if (chart->u.slim.ptr)
+			SLIM_free_data(chart->u.slim.ptr);
 	}
 
 	slim_free_matrix_transfer(mt);
