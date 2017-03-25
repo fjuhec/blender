@@ -95,8 +95,8 @@ ccl_device uint BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 	                       &near_x, &near_y, &near_z,
 	                       &far_x, &far_y, &far_z);
 
-	IsectPrecalc isect_precalc;
-	triangle_intersect_precalc(dir, &isect_precalc);
+	TriangleIsectPrecalc isect_precalc;
+	ray_triangle_intersect_precalc(dir, &isect_precalc);
 
 	/* Traversal loop. */
 	do {
@@ -309,7 +309,7 @@ ccl_device uint BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 									continue;
 								}
 								/* Intersect ray against primitive. */
-								hit = motion_triangle_intersect(kg, isect_array, P, dir, ray->time, visibility, object, prim_addr);
+								hit = motion_triangle_intersect(kg, &isect_precalc, isect_array, P, ray->time, visibility, object, prim_addr);
 								if(hit) {
 									/* Move on to next entry in intersections array. */
 									isect_array++;
@@ -346,9 +346,9 @@ ccl_device uint BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 					int object_flag = kernel_tex_fetch(__object_flag, object);
 					if(object_flag & SD_OBJECT_HAS_VOLUME) {
 #  if BVH_FEATURE(BVH_MOTION)
-						bvh_instance_motion_push(kg, object, ray, &P, &dir, &idir, &isect_t, &ob_itfm);
+						isect_t = bvh_instance_motion_push(kg, object, ray, &P, &dir, &idir, isect_t, &ob_itfm);
 #  else
-						bvh_instance_push(kg, object, ray, &P, &dir, &idir, &isect_t);
+						isect_t = bvh_instance_push(kg, object, ray, &P, &dir, &idir, isect_t);
 #  endif
 
 						qbvh_near_far_idx_calc(idir,
@@ -367,7 +367,7 @@ ccl_device uint BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 						org4 = sse3f(ssef(P.x), ssef(P.y), ssef(P.z));
 #  endif
 
-						triangle_intersect_precalc(dir, &isect_precalc);
+						ray_triangle_intersect_precalc(dir, &isect_precalc);
 						num_hits_in_instance = 0;
 						isect_array->t = isect_t;
 
@@ -406,11 +406,10 @@ ccl_device uint BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 				}
 			}
 			else {
-				float ignore_t = FLT_MAX;
 #  if BVH_FEATURE(BVH_MOTION)
-				bvh_instance_motion_pop(kg, object, ray, &P, &dir, &idir, &ignore_t, &ob_itfm);
+				bvh_instance_motion_pop(kg, object, ray, &P, &dir, &idir, FLT_MAX, &ob_itfm);
 #  else
-				bvh_instance_pop(kg, object, ray, &P, &dir, &idir, &ignore_t);
+				bvh_instance_pop(kg, object, ray, &P, &dir, &idir, FLT_MAX);
 #  endif
 			}
 
@@ -433,7 +432,7 @@ ccl_device uint BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 			org4 = sse3f(ssef(P.x), ssef(P.y), ssef(P.z));
 #  endif
 
-			triangle_intersect_precalc(dir, &isect_precalc);
+			ray_triangle_intersect_precalc(dir, &isect_precalc);
 
 			object = OBJECT_NONE;
 			node_addr = traversal_stack[stack_ptr].addr;

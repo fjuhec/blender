@@ -106,8 +106,8 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 	                       &near_x, &near_y, &near_z,
 	                       &far_x, &far_y, &far_z);
 
-	IsectPrecalc isect_precalc;
-	triangle_intersect_precalc(dir, &isect_precalc);
+	TriangleIsectPrecalc isect_precalc;
+	ray_triangle_intersect_precalc(dir, &isect_precalc);
 
 	/* Traversal loop. */
 	do {
@@ -354,9 +354,9 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 								BVH_DEBUG_NEXT_INTERSECTION();
 								kernel_assert(kernel_tex_fetch(__prim_type, prim_addr) == type);
 								if(motion_triangle_intersect(kg,
+								                             &isect_precalc,
 								                             isect,
 								                             P,
-								                             dir,
 								                             ray->time,
 								                             visibility,
 								                             object,
@@ -447,7 +447,7 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 					org4 = sse3f(ssef(P.x), ssef(P.y), ssef(P.z));
 #  endif
 
-					triangle_intersect_precalc(dir, &isect_precalc);
+					ray_triangle_intersect_precalc(dir, &isect_precalc);
 
 					++stack_ptr;
 					kernel_assert(stack_ptr < BVH_QSTACK_SIZE);
@@ -468,9 +468,9 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 
 			/* Instance pop. */
 #  if BVH_FEATURE(BVH_MOTION)
-			bvh_instance_motion_pop(kg, object, ray, &P, &dir, &idir, &isect->t, &ob_itfm);
+			isect->t = bvh_instance_motion_pop(kg, object, ray, &P, &dir, &idir, isect->t, &ob_itfm);
 #  else
-			bvh_instance_pop(kg, object, ray, &P, &dir, &idir, &isect->t);
+			isect->t = bvh_instance_pop(kg, object, ray, &P, &dir, &idir, isect->t);
 #  endif
 
 			qbvh_near_far_idx_calc(idir,
@@ -489,7 +489,7 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 			org4 = sse3f(ssef(P.x), ssef(P.y), ssef(P.z));
 #  endif
 
-			triangle_intersect_precalc(dir, &isect_precalc);
+			ray_triangle_intersect_precalc(dir, &isect_precalc);
 
 			object = OBJECT_NONE;
 			node_addr = traversal_stack[stack_ptr].addr;
