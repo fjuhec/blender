@@ -4195,27 +4195,358 @@ void param_construct_end(ParamHandle *handle, ParamBool fill, ParamBool impl)
 	phandle->state = PHANDLE_STATE_CONSTRUCTED;
 }
 
-void param_slim_enrich_handle(ParamHandle *handle,
-							  SLIMMatrixTransfer *mt,
-							  float *weight_array,
-							  int n_iterations,
-							  bool skip_initialization,
-							  bool is_minimize_stretch)
+
+void param_begin(ParamHandle *handle, ParamBool abf, bool use_slim)
 {
+	if (use_slim) {
+		param_slim_begin(handle);
+	}
+	else {
+		param_lscm_begin(handle, PARAM_FALSE, abf);
+	}
+}
+
+void param_solve(ParamHandle *handle, bool use_slim)
+{
+	if (use_slim) {
+		param_slim_solve(handle);
+	}
+	else {
+		param_lscm_solve(handle);
+	}
+}
+
+void param_end(ParamHandle *handle, bool use_slim)
+{
+	if (use_slim) {
+		param_slim_end(handle);
+	}
+	else {
+		param_lscm_end(handle);
+	}
+}
+
+void param_lscm_begin(ParamHandle *handle, ParamBool live, ParamBool abf)
+{
+	PHandle *phandle = (PHandle *)handle;
+	PFace *f;
+	int i;
+
+	param_assert(phandle->state == PHANDLE_STATE_CONSTRUCTED);
+	phandle->state = PHANDLE_STATE_LSCM;
+
+	for (i = 0; i < phandle->ncharts; i++) {
+		for (f = phandle->charts[i]->faces; f; f = f->nextlink)
+			p_face_backup_uvs(f);
+		p_chart_lscm_begin(phandle->charts[i], (PBool)live, (PBool)abf);
+	}
+}
+
+void param_lscm_solve(ParamHandle *handle)
+{
+	PHandle *phandle = (PHandle *)handle;
+	PChart *chart;
+	int i;
+	PBool result;
+
+	param_assert(phandle->state == PHANDLE_STATE_LSCM);
+
+	for (i = 0; i < phandle->ncharts; i++) {
+		chart = phandle->charts[i];
+
+		if (chart->u.lscm.context) {
+			result = p_chart_lscm_solve(phandle, chart);
+
+			if (result && !(chart->flag & PCHART_NOPACK))
+				p_chart_rotate_minimum_area(chart);
+
+			if (!result || (chart->u.lscm.pin1))
+				p_chart_lscm_end(chart);
+		}
+	}
+}
+
+void param_lscm_end(ParamHandle *handle)
+{
+	PHandle *phandle = (PHandle *)handle;
+	int i;
+
+	param_assert(phandle->state == PHANDLE_STATE_LSCM);
+
+	for (i = 0; i < phandle->ncharts; i++) {
+		p_chart_lscm_end(phandle->charts[i]);
+#if 0
+		p_chart_complexify(phandle->charts[i]);
+#endif
+	}
+
+	phandle->state = PHANDLE_STATE_CONSTRUCTED;
+}
+
+void param_smooth_area(ParamHandle *handle)
+{
+	PHandle *phandle = (PHandle *)handle;
+	int i;
+
+	param_assert(phandle->state == PHANDLE_STATE_CONSTRUCTED);
+
+	for (i = 0; i < phandle->ncharts; i++) {
+		PChart *chart = phandle->charts[i];
+		PVert *v;
+
+		for (v = chart->verts; v; v = v->nextlink)
+			v->flag &= ~PVERT_PIN;
+
+		p_smooth(chart);
+	}
+}
+
+/* don't pack, just rotate (used for better packing) */
+static void param_pack_rotate(ParamHandle *handle)
+{
+	PChart *chart;
+	int i;
 
 	PHandle *phandle = (PHandle *)handle;
 
-	phandle->mt = mt;
-	phandle->n_iterations = n_iterations;
-	phandle->skip_initialization = skip_initialization;
-	phandle->weight_array = weight_array;
-	phandle->is_minimize_stretch = is_minimize_stretch;
+	for (i = 0; i < phandle->ncharts; i++) {
+		float (*points)[2];
+		float angle;
+
+		chart = phandle->charts[i];
+
+		if (chart->flag & PCHART_NOPACK) {
+			continue;
+		}
+
+		points = MEM_mallocN(sizeof(*points) * chart->nverts, __func__);
+
+		p_chart_uv_to_array(chart, points);
+
+		angle = BLI_convexhull_aabb_fit_points_2d((const float (*)[2])points, chart->nverts);
+
+		MEM_freeN(points);
+
+		if (angle != 0.0f) {
+			float mat[2][2];
+			angle_to_mat2(mat, angle);
+			p_chart_uv_transform(chart, mat);
+		}
+	}
 }
 
+void param_pack(ParamHandle *handle, float margin, bool do_rotate)
+{	
+	/* box packing variables */
+	BoxPack *boxarray, *box;
+	float tot_width, tot_height, scale;
+	 
+	PChart *chart;
+	int i, unpacked = 0;
+	float trans[2];
+	double area = 0.0;
+	
+	PHandle *phandle = (PHandle *)handle;
+	
+	if (phandle->ncharts == 0)
+		return;
+	
+	if (phandle->aspx != phandle->aspy)
+		param_scale(handle, 1.0f / phandle->aspx, 1.0f / phandle->aspy);
+	
+	/* this could be its own function */
+	if (do_rotate) {
+		param_pack_rotate(handle);
+	}
 
-/* In the following are all functions necessary to transfer data from the native part to SLIM. */
+	/* we may not use all these boxes */
+	boxarray = MEM_mallocN(phandle->ncharts * sizeof(BoxPack), "BoxPack box");
+	
+	
+	for (i = 0; i < phandle->ncharts; i++) {
+		chart = phandle->charts[i];
+		
+		if (chart->flag & PCHART_NOPACK) {
+			unpacked++;
+			continue;
+		}
+		
+		box = boxarray + (i - unpacked);
+		
+		p_chart_uv_bbox(chart, trans, chart->u.pack.size);
+		
+		trans[0] = -trans[0];
+		trans[1] = -trans[1];
+		
+		p_chart_uv_translate(chart, trans);
+		
+		box->w =  chart->u.pack.size[0] + trans[0];
+		box->h =  chart->u.pack.size[1] + trans[1];
+		box->index = i; /* warning this index skips PCHART_NOPACK boxes */
+		
+		if (margin > 0.0f)
+			area += (double)sqrtf(box->w * box->h);
+	}
+	
+	if (margin > 0.0f) {
+		/* multiply the margin by the area to give predictable results not dependent on UV scale,
+		 * ...Without using the area running pack multiple times also gives a bad feedback loop.
+		 * multiply by 0.1 so the margin value from the UI can be from 0.0 to 1.0 but not give a massive margin */
+		margin = (margin * (float)area) * 0.1f;
+		unpacked = 0;
+		for (i = 0; i < phandle->ncharts; i++) {
+			chart = phandle->charts[i];
+			
+			if (chart->flag & PCHART_NOPACK) {
+				unpacked++;
+				continue;
+			}
+			
+			box = boxarray + (i - unpacked);
+			trans[0] = margin;
+			trans[1] = margin;
+			p_chart_uv_translate(chart, trans);
+			box->w += margin * 2;
+			box->h += margin * 2;
+		}
+	}
+	
+	BLI_box_pack_2d(boxarray, phandle->ncharts - unpacked, &tot_width, &tot_height);
+	
+	if (tot_height > tot_width)
+		scale = 1.0f / tot_height;
+	else
+		scale = 1.0f / tot_width;
+	
+	for (i = 0; i < phandle->ncharts - unpacked; i++) {
+		box = boxarray + i;
+		trans[0] = box->x;
+		trans[1] = box->y;
+		
+		chart = phandle->charts[box->index];
+		p_chart_uv_translate(chart, trans);
+		p_chart_uv_scale(chart, scale);
+	}
+	MEM_freeN(boxarray);
 
-/* Allocate pointer arrays for each matrix-group. Meaning as many pointers per array as there are charts. */
+	if (phandle->aspx != phandle->aspy)
+		param_scale(handle, phandle->aspx, phandle->aspy);
+}
+
+void param_average(ParamHandle *handle)
+{
+	PChart *chart;
+	int i;
+	float tot_uvarea = 0.0f, tot_facearea = 0.0f;
+	float tot_fac, fac;
+	float minv[2], maxv[2], trans[2];
+	PHandle *phandle = (PHandle *)handle;
+	
+	if (phandle->ncharts == 0)
+		return;
+	
+	for (i = 0; i < phandle->ncharts; i++) {
+		PFace *f;
+		chart = phandle->charts[i];
+
+		if (chart->flag & PCHART_NOPACK)
+			continue;
+		
+		chart->u.pack.area = 0.0f; /* 3d area */
+		chart->u.pack.rescale = 0.0f; /* UV area, abusing rescale for tmp storage, oh well :/ */
+		
+		for (f = chart->faces; f; f = f->nextlink) {
+			chart->u.pack.area += p_face_area(f);
+			chart->u.pack.rescale += fabsf(p_face_uv_area_signed(f));
+		}
+		
+		tot_facearea += chart->u.pack.area;
+		tot_uvarea += chart->u.pack.rescale;
+	}
+	
+	if (tot_facearea == tot_uvarea || tot_facearea == 0.0f || tot_uvarea == 0.0f) {
+		/* nothing to do */
+		return;
+	}
+	
+	tot_fac = tot_facearea / tot_uvarea;
+	
+	for (i = 0; i < phandle->ncharts; i++) {
+		chart = phandle->charts[i];
+
+		if (chart->flag & PCHART_NOPACK)
+			continue;
+	
+		if (chart->u.pack.area != 0.0f && chart->u.pack.rescale != 0.0f) {
+			fac = chart->u.pack.area / chart->u.pack.rescale;
+			
+			/* Get the island center */
+			p_chart_uv_bbox(chart, minv, maxv);
+			trans[0] = (minv[0] + maxv[0]) / -2.0f;
+			trans[1] = (minv[1] + maxv[1]) / -2.0f;
+			
+			/* Move center to 0,0 */
+			p_chart_uv_translate(chart, trans);
+			p_chart_uv_scale(chart, sqrtf(fac / tot_fac));
+			
+			/* Move to original center */
+			trans[0] = -trans[0];
+			trans[1] = -trans[1];
+			p_chart_uv_translate(chart, trans);
+		}
+	}
+}
+
+void param_scale(ParamHandle *handle, float x, float y)
+{
+	PHandle *phandle = (PHandle *)handle;
+	PChart *chart;
+	int i;
+
+	for (i = 0; i < phandle->ncharts; i++) {
+		chart = phandle->charts[i];
+		p_chart_uv_scale_xy(chart, x, y);
+	}
+}
+
+void param_flush(ParamHandle *handle)
+{
+	PHandle *phandle = (PHandle *)handle;
+	PChart *chart;
+	int i;
+
+	for (i = 0; i < phandle->ncharts; i++) {
+		chart = phandle->charts[i];
+
+		if ((phandle->state == PHANDLE_STATE_LSCM) && !chart->u.lscm.context)
+			continue;
+
+		if (phandle->blend == 0.0f)
+			p_flush_uvs(phandle, chart);
+		else
+			p_flush_uvs_blend(phandle, chart, phandle->blend);
+	}
+}
+
+void param_flush_restore(ParamHandle *handle)
+{
+	PHandle *phandle = (PHandle *)handle;
+	PChart *chart;
+	PFace *f;
+	int i;
+
+	for (i = 0; i < phandle->ncharts; i++) {
+		chart = phandle->charts[i];
+
+		for (f = chart->faces; f; f = f->nextlink)
+			p_face_restore_uvs(f);
+	}
+}
+
+/***************************** SLIM Integration *******************************/
+
+/* Allocate pointer arrays for each matrix-group. Meaning as many pointers per
+ * array as there are charts. */
 static void allocate_memory_for_pointerarrays(SLIMMatrixTransfer *mt, PHandle *phandle)
 {
 	mt->n_charts = phandle->ncharts;
@@ -4633,36 +4964,6 @@ void backup_current_uvs(ParamHandle *handle)
 	}
 }
 
-void param_begin(ParamHandle *handle, ParamBool abf, bool use_slim)
-{
-	if (use_slim) {
-		param_slim_begin(handle);
-	}
-	else {
-		param_lscm_begin(handle, PARAM_FALSE, abf);
-	}
-}
-
-void param_solve(ParamHandle *handle, bool use_slim)
-{
-	if (use_slim) {
-		param_slim_solve(handle);
-	}
-	else {
-		param_lscm_solve(handle);
-	}
-}
-
-void param_end(ParamHandle *handle, bool use_slim)
-{
-	if (use_slim) {
-		param_slim_end(handle);
-	}
-	else {
-		param_lscm_end(handle);
-	}
-}
-
 void param_slim_begin(ParamHandle *handle)
 {
 	transfer_data_to_slim(handle);
@@ -4683,320 +4984,20 @@ void param_slim_end(ParamHandle *handle)
 	free_slim_matrix_transfer(mt);
 }
 
-
-void param_lscm_begin(ParamHandle *handle, ParamBool live, ParamBool abf)
+void param_slim_enrich_handle(ParamHandle *handle,
+							  SLIMMatrixTransfer *mt,
+							  float *weight_array,
+							  int n_iterations,
+							  bool skip_initialization,
+							  bool is_minimize_stretch)
 {
-	PHandle *phandle = (PHandle *)handle;
-	PFace *f;
-	int i;
-
-	param_assert(phandle->state == PHANDLE_STATE_CONSTRUCTED);
-	phandle->state = PHANDLE_STATE_LSCM;
-
-	for (i = 0; i < phandle->ncharts; i++) {
-		for (f = phandle->charts[i]->faces; f; f = f->nextlink)
-			p_face_backup_uvs(f);
-		p_chart_lscm_begin(phandle->charts[i], (PBool)live, (PBool)abf);
-	}
-}
-
-void param_lscm_solve(ParamHandle *handle)
-{
-	PHandle *phandle = (PHandle *)handle;
-	PChart *chart;
-	int i;
-	PBool result;
-
-	param_assert(phandle->state == PHANDLE_STATE_LSCM);
-
-	for (i = 0; i < phandle->ncharts; i++) {
-		chart = phandle->charts[i];
-
-		if (chart->u.lscm.context) {
-			result = p_chart_lscm_solve(phandle, chart);
-
-			if (result && !(chart->flag & PCHART_NOPACK))
-				p_chart_rotate_minimum_area(chart);
-
-			if (!result || (chart->u.lscm.pin1))
-				p_chart_lscm_end(chart);
-		}
-	}
-}
-
-void param_lscm_end(ParamHandle *handle)
-{
-	PHandle *phandle = (PHandle *)handle;
-	int i;
-
-	param_assert(phandle->state == PHANDLE_STATE_LSCM);
-
-	for (i = 0; i < phandle->ncharts; i++) {
-		p_chart_lscm_end(phandle->charts[i]);
-#if 0
-		p_chart_complexify(phandle->charts[i]);
-#endif
-	}
-
-	phandle->state = PHANDLE_STATE_CONSTRUCTED;
-}
-
-void param_smooth_area(ParamHandle *handle)
-{
-	PHandle *phandle = (PHandle *)handle;
-	int i;
-
-	param_assert(phandle->state == PHANDLE_STATE_CONSTRUCTED);
-
-	for (i = 0; i < phandle->ncharts; i++) {
-		PChart *chart = phandle->charts[i];
-		PVert *v;
-
-		for (v = chart->verts; v; v = v->nextlink)
-			v->flag &= ~PVERT_PIN;
-
-		p_smooth(chart);
-	}
-}
-
-/* don't pack, just rotate (used for better packing) */
-static void param_pack_rotate(ParamHandle *handle)
-{
-	PChart *chart;
-	int i;
 
 	PHandle *phandle = (PHandle *)handle;
 
-	for (i = 0; i < phandle->ncharts; i++) {
-		float (*points)[2];
-		float angle;
-
-		chart = phandle->charts[i];
-
-		if (chart->flag & PCHART_NOPACK) {
-			continue;
-		}
-
-		points = MEM_mallocN(sizeof(*points) * chart->nverts, __func__);
-
-		p_chart_uv_to_array(chart, points);
-
-		angle = BLI_convexhull_aabb_fit_points_2d((const float (*)[2])points, chart->nverts);
-
-		MEM_freeN(points);
-
-		if (angle != 0.0f) {
-			float mat[2][2];
-			angle_to_mat2(mat, angle);
-			p_chart_uv_transform(chart, mat);
-		}
-	}
+	phandle->mt = mt;
+	phandle->n_iterations = n_iterations;
+	phandle->skip_initialization = skip_initialization;
+	phandle->weight_array = weight_array;
+	phandle->is_minimize_stretch = is_minimize_stretch;
 }
 
-void param_pack(ParamHandle *handle, float margin, bool do_rotate)
-{	
-	/* box packing variables */
-	BoxPack *boxarray, *box;
-	float tot_width, tot_height, scale;
-	 
-	PChart *chart;
-	int i, unpacked = 0;
-	float trans[2];
-	double area = 0.0;
-	
-	PHandle *phandle = (PHandle *)handle;
-	
-	if (phandle->ncharts == 0)
-		return;
-	
-	if (phandle->aspx != phandle->aspy)
-		param_scale(handle, 1.0f / phandle->aspx, 1.0f / phandle->aspy);
-	
-	/* this could be its own function */
-	if (do_rotate) {
-		param_pack_rotate(handle);
-	}
-
-	/* we may not use all these boxes */
-	boxarray = MEM_mallocN(phandle->ncharts * sizeof(BoxPack), "BoxPack box");
-	
-	
-	for (i = 0; i < phandle->ncharts; i++) {
-		chart = phandle->charts[i];
-		
-		if (chart->flag & PCHART_NOPACK) {
-			unpacked++;
-			continue;
-		}
-		
-		box = boxarray + (i - unpacked);
-		
-		p_chart_uv_bbox(chart, trans, chart->u.pack.size);
-		
-		trans[0] = -trans[0];
-		trans[1] = -trans[1];
-		
-		p_chart_uv_translate(chart, trans);
-		
-		box->w =  chart->u.pack.size[0] + trans[0];
-		box->h =  chart->u.pack.size[1] + trans[1];
-		box->index = i; /* warning this index skips PCHART_NOPACK boxes */
-		
-		if (margin > 0.0f)
-			area += (double)sqrtf(box->w * box->h);
-	}
-	
-	if (margin > 0.0f) {
-		/* multiply the margin by the area to give predictable results not dependent on UV scale,
-		 * ...Without using the area running pack multiple times also gives a bad feedback loop.
-		 * multiply by 0.1 so the margin value from the UI can be from 0.0 to 1.0 but not give a massive margin */
-		margin = (margin * (float)area) * 0.1f;
-		unpacked = 0;
-		for (i = 0; i < phandle->ncharts; i++) {
-			chart = phandle->charts[i];
-			
-			if (chart->flag & PCHART_NOPACK) {
-				unpacked++;
-				continue;
-			}
-			
-			box = boxarray + (i - unpacked);
-			trans[0] = margin;
-			trans[1] = margin;
-			p_chart_uv_translate(chart, trans);
-			box->w += margin * 2;
-			box->h += margin * 2;
-		}
-	}
-	
-	BLI_box_pack_2d(boxarray, phandle->ncharts - unpacked, &tot_width, &tot_height);
-	
-	if (tot_height > tot_width)
-		scale = 1.0f / tot_height;
-	else
-		scale = 1.0f / tot_width;
-	
-	for (i = 0; i < phandle->ncharts - unpacked; i++) {
-		box = boxarray + i;
-		trans[0] = box->x;
-		trans[1] = box->y;
-		
-		chart = phandle->charts[box->index];
-		p_chart_uv_translate(chart, trans);
-		p_chart_uv_scale(chart, scale);
-	}
-	MEM_freeN(boxarray);
-
-	if (phandle->aspx != phandle->aspy)
-		param_scale(handle, phandle->aspx, phandle->aspy);
-}
-
-void param_average(ParamHandle *handle)
-{
-	PChart *chart;
-	int i;
-	float tot_uvarea = 0.0f, tot_facearea = 0.0f;
-	float tot_fac, fac;
-	float minv[2], maxv[2], trans[2];
-	PHandle *phandle = (PHandle *)handle;
-	
-	if (phandle->ncharts == 0)
-		return;
-	
-	for (i = 0; i < phandle->ncharts; i++) {
-		PFace *f;
-		chart = phandle->charts[i];
-
-		if (chart->flag & PCHART_NOPACK)
-			continue;
-		
-		chart->u.pack.area = 0.0f; /* 3d area */
-		chart->u.pack.rescale = 0.0f; /* UV area, abusing rescale for tmp storage, oh well :/ */
-		
-		for (f = chart->faces; f; f = f->nextlink) {
-			chart->u.pack.area += p_face_area(f);
-			chart->u.pack.rescale += fabsf(p_face_uv_area_signed(f));
-		}
-		
-		tot_facearea += chart->u.pack.area;
-		tot_uvarea += chart->u.pack.rescale;
-	}
-	
-	if (tot_facearea == tot_uvarea || tot_facearea == 0.0f || tot_uvarea == 0.0f) {
-		/* nothing to do */
-		return;
-	}
-	
-	tot_fac = tot_facearea / tot_uvarea;
-	
-	for (i = 0; i < phandle->ncharts; i++) {
-		chart = phandle->charts[i];
-
-		if (chart->flag & PCHART_NOPACK)
-			continue;
-	
-		if (chart->u.pack.area != 0.0f && chart->u.pack.rescale != 0.0f) {
-			fac = chart->u.pack.area / chart->u.pack.rescale;
-			
-			/* Get the island center */
-			p_chart_uv_bbox(chart, minv, maxv);
-			trans[0] = (minv[0] + maxv[0]) / -2.0f;
-			trans[1] = (minv[1] + maxv[1]) / -2.0f;
-			
-			/* Move center to 0,0 */
-			p_chart_uv_translate(chart, trans);
-			p_chart_uv_scale(chart, sqrtf(fac / tot_fac));
-			
-			/* Move to original center */
-			trans[0] = -trans[0];
-			trans[1] = -trans[1];
-			p_chart_uv_translate(chart, trans);
-		}
-	}
-}
-
-void param_scale(ParamHandle *handle, float x, float y)
-{
-	PHandle *phandle = (PHandle *)handle;
-	PChart *chart;
-	int i;
-
-	for (i = 0; i < phandle->ncharts; i++) {
-		chart = phandle->charts[i];
-		p_chart_uv_scale_xy(chart, x, y);
-	}
-}
-
-void param_flush(ParamHandle *handle)
-{
-	PHandle *phandle = (PHandle *)handle;
-	PChart *chart;
-	int i;
-
-	for (i = 0; i < phandle->ncharts; i++) {
-		chart = phandle->charts[i];
-
-		if ((phandle->state == PHANDLE_STATE_LSCM) && !chart->u.lscm.context)
-			continue;
-
-		if (phandle->blend == 0.0f)
-			p_flush_uvs(phandle, chart);
-		else
-			p_flush_uvs_blend(phandle, chart, phandle->blend);
-	}
-}
-
-void param_flush_restore(ParamHandle *handle)
-{
-	PHandle *phandle = (PHandle *)handle;
-	PChart *chart;
-	PFace *f;
-	int i;
-
-	for (i = 0; i < phandle->ncharts; i++) {
-		chart = phandle->charts[i];
-
-		for (f = chart->faces; f; f = f->nextlink)
-			p_face_restore_uvs(f);
-	}
-}
