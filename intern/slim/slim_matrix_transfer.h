@@ -66,7 +66,7 @@ typedef struct {
 	bool with_weighted_parameterization;
 	double weight_influence;
 	bool transform_islands;
-	int slim_reflection_mode;
+	int reflection_mode;
 	double relative_scale;
 
 } SLIMMatrixTransfer;

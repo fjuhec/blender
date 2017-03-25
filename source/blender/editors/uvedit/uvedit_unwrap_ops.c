@@ -61,6 +61,7 @@
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_editmesh.h"
+#include "BKE_deform.h"
 
 #include "PIL_time.h"
 
@@ -75,7 +76,6 @@
 #include "RNA_access.h"
 #include "RNA_define.h"
 
-#include "BKE_deform.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -505,8 +505,7 @@ static ParamHandle *construct_param_handle_subsurfed(Scene *scene, Object *ob, B
 	return handle;
 }
 
-/*	Get weights from the weight map for weighted parametrisation.
- */
+/* Get weights from the weight map for weighted parametrisation. */
 static void create_weight_matrix(BMesh *bm,
 								 MDeformVert *weight_map_data,
 								 float *weight_array,
@@ -588,8 +587,7 @@ typedef struct RecurringSlim {
 	bool slimWasUsed;
 } RecurringSlim;
 
-/*	Holds all necessary state for one session of interactive parametrisation.
- */
+/* Holds all necessary state for one session of interactive parametrisation. */
 typedef struct MinStretch {
 	ParamHandle *handle;
 	Object *obedit;
@@ -602,8 +600,7 @@ typedef struct MinStretch {
 	bool noPins;
 } MinStretch;
 
-/*	Initialises SLIM and transfars data matrices
- */
+/* Initializes SLIM and transfars data matrices */
 static bool minimize_stretch_init(bContext *C, wmOperator *op)
 {
 	Scene *scene = CTX_data_scene(C);
@@ -612,15 +609,15 @@ static bool minimize_stretch_init(bContext *C, wmOperator *op)
 
 	ParamHandle *handle = construct_param_handle(scene, obedit, em->bm, false, true, 1, 1);
 
-	MinStretch *mss = MEM_callocN(sizeof(MinStretch), "Data for minimizing stretch with SLIM");
+	MinStretch *ms = MEM_callocN(sizeof(MinStretch), "Data for minimizing stretch with SLIM");
 	RecurringSlim *rs = MEM_callocN(sizeof(RecurringSlim), "Data for recurring slim iterations");
 	setRecurringSlimData(handle, rs);
 
 	rs->mt = MEM_callocN(sizeof(SLIMMatrixTransfer), "Matrix Transfer to SLIM");
-	mss->handle = handle;
-	mss->obedit = obedit;
-	mss->firstIteration = true;
-	mss->fixBorder = RNA_boolean_get(op->ptr, "fix_boundary");
+	ms->handle = handle;
+	ms->obedit = obedit;
+	ms->firstIteration = true;
+	ms->fixBorder = RNA_boolean_get(op->ptr, "fix_boundary");
 	rs->mt->fixed_boundary = RNA_boolean_get(op->ptr, "fix_boundary");
 
 	scene->toolsettings->slim_skip_initialization = true;
@@ -632,42 +629,41 @@ static bool minimize_stretch_init(bContext *C, wmOperator *op)
 
 	rs->slimPtrs = MEM_callocN(sizeof(rs->slimPtrs)*rs->mt->n_charts, "pointers to per-chart-Data for Slim");
 	for (int chartNr = 0; chartNr <rs->mt->n_charts; chartNr++) {
-		rs->slimPtrs[chartNr] = SLIM_setup(rs->mt, chartNr, mss->fixBorder, true);
+		rs->slimPtrs[chartNr] = SLIM_setup(rs->mt, chartNr, ms->fixBorder, true);
 	}
 
-	op->customdata = mss;
+	op->customdata = ms;
 	return true;
 }
 
-/*	After initialisation, these iterations are executed, until applied or canceled by the user.
- */
+/* After initialisation, these iterations are executed, until applied or canceled by the user. */
 static void minimize_stretch_iteration(bContext *C, wmOperator *op, bool interactive)
 {
 	// In first iteration, check if pins are present
-	MinStretch *mss = op->customdata;
-	if (mss->firstIteration) {
-		mss->firstIteration = false;
-		if (!(mss->fixBorder)) {
-			mss->noPins = mark_pins(mss->handle);
+	MinStretch *ms = op->customdata;
+	if (ms->firstIteration) {
+		ms->firstIteration = false;
+		if (!(ms->fixBorder)) {
+			ms->noPins = mark_pins(ms->handle);
 		}
 	}
 
 	// Do one iteration and tranfer UVs
-	RecurringSlim *rs = getRecurringSlimData(mss->handle);
+	RecurringSlim *rs = getRecurringSlimData(ms->handle);
 	for (int chartNr = 0; chartNr < rs->mt->n_charts; chartNr++) {
 		void *slimPtr = rs->slimPtrs[chartNr];
 		SLIM_parametrize_single_iteration(slimPtr);
-		SLIM_transfer_uvs_blended(rs->mt, slimPtr, chartNr, mss->blend);
+		SLIM_transfer_uvs_blended(rs->mt, slimPtr, chartNr, ms->blend);
 	}
 
 	//	Assign new UVs back to each vertex
-	set_uv_param_slim(mss->handle, rs->mt);
+	set_uv_param_slim(ms->handle, rs->mt);
 
-	param_flush(mss->handle);
+	param_flush(ms->handle);
 
 
-	DAG_id_tag_update(mss->obedit->data, 0);
-	WM_event_add_notifier(C, NC_GEOM | ND_DATA, mss->obedit->data);
+	DAG_id_tag_update(ms->obedit->data, 0);
+	WM_event_add_notifier(C, NC_GEOM | ND_DATA, ms->obedit->data);
 }
 
 static void free_slimPtrs(void **slimPtrs, int n_charts) {
@@ -676,71 +672,66 @@ static void free_slimPtrs(void **slimPtrs, int n_charts) {
 	}
 }
 
-/*	Exit interactive parametrisation. Clean up memory.
- */
+/* Exit interactive parametrisation. Clean up memory. */
 static void minimize_stretch_exit(bContext *C, wmOperator *op, bool cancel)
 {
-	MinStretch *mss = op->customdata;
+	MinStretch *ms = op->customdata;
 	/*
-	 if (!mss->fixBorder){
-		remove_pins(mss->handle);
+	 if (!ms->fixBorder) {
+		remove_pins(ms->handle);
 	 }*/
 
 	if (cancel) {
-		mss->blend = 1.0f;
+		ms->blend = 1.0f;
 	}
 
-	RecurringSlim *rs = getRecurringSlimData(mss->handle);
+	RecurringSlim *rs = getRecurringSlimData(ms->handle);
 	for (int chartNr = 0; chartNr < rs->mt->n_charts; chartNr++) {
 		void *slimPtr = rs->slimPtrs[chartNr];
-		SLIM_transfer_uvs_blended(rs->mt, slimPtr, chartNr, mss->blend);
+		SLIM_transfer_uvs_blended(rs->mt, slimPtr, chartNr, ms->blend);
 	}
 
-	set_uv_param_slim(mss->handle, rs->mt);
+	set_uv_param_slim(ms->handle, rs->mt);
 
-	param_flush(mss->handle);
-	param_delete(mss->handle);
+	param_flush(ms->handle);
+	param_delete(ms->handle);
 
 	free_slimPtrs(rs->slimPtrs, rs->mt->n_charts);
 	free_slim_matrix_transfer(rs->mt);
 	MEM_freeN(rs->slimPtrs);
 	MEM_freeN(rs);
-	MEM_freeN(mss);
+	MEM_freeN(ms);
 	op->customdata = NULL;
 }
 
-/*	Used Only to adjust parameters.
- */
+/* Used Only to adjust parameters. */
 static int minimize_stretch_exec(bContext *C, wmOperator *op)
 {
 
 	return OPERATOR_FINISHED;
 }
 
-/*	Entry point to interactive parametrisation. Already executes one iteration, allowing faster feedback.
- */
+/* Entry point to interactive parametrisation. Already executes one iteration, allowing faster feedback. */
 static int minimize_stretch_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
-	MinStretch *mss;
+	MinStretch *ms;
 
 	if (!minimize_stretch_init(C, op))
 		return OPERATOR_CANCELLED;
 
 	minimize_stretch_iteration(C, op, true);
 
-	mss = op->customdata;
+	ms = op->customdata;
 	WM_event_add_modal_handler(C, op);
-	mss->timer = WM_event_add_timer(CTX_wm_manager(C), CTX_wm_window(C), TIMER, 0.01f);
+	ms->timer = WM_event_add_timer(CTX_wm_manager(C), CTX_wm_window(C), TIMER, 0.01f);
 
 	return OPERATOR_RUNNING_MODAL;
 }
 
-/*	The control structure of the modal operator. a next iteration is either started due to a timer or
-	user input.
- */
+/* The control structure of the modal operator. a next iteration is either started due to a timer or user input. */
 static int minimize_stretch_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
-	MinStretch *mss = op->customdata;
+	MinStretch *ms = op->customdata;
 
 	switch (event->type) {
 		case ESCKEY:
@@ -755,8 +746,8 @@ static int minimize_stretch_modal(bContext *C, wmOperator *op, const wmEvent *ev
 		case PADPLUSKEY:
 		case WHEELUPMOUSE:
 			if (event->val == KM_PRESS) {
-				if (mss->blend < 1.0f) {
-					mss->blend += MIN2(0.1f, 1 - (mss->blend));
+				if (ms->blend < 1.0f) {
+					ms->blend += MIN2(0.1f, 1 - (ms->blend));
 					minimize_stretch_iteration(C, op, true);
 				}
 			}
@@ -764,14 +755,14 @@ static int minimize_stretch_modal(bContext *C, wmOperator *op, const wmEvent *ev
 		case PADMINUS:
 		case WHEELDOWNMOUSE:
 			if (event->val == KM_PRESS) {
-				if (mss->blend > 0.0f) {
-					mss->blend -= MIN2(0.1f, mss->blend);
+				if (ms->blend > 0.0f) {
+					ms->blend -= MIN2(0.1f, ms->blend);
 					minimize_stretch_iteration(C, op, true);
 				}
 			}
 			break;
 		case TIMER:
-			if (mss->timer == event->customdata) {
+			if (ms->timer == event->customdata) {
 				double start = PIL_check_seconds_timer();
 
 				do {
@@ -789,15 +780,13 @@ static int minimize_stretch_modal(bContext *C, wmOperator *op, const wmEvent *ev
 	return OPERATOR_RUNNING_MODAL;
 }
 
-/*	Cancels the interactive parametrisation and discards the obtained map.
- */
+/* Cancels the interactive parametrisation and discards the obtained map. */
 static void minimize_stretch_cancel(bContext *C, wmOperator *op)
 {
 	minimize_stretch_exit(C, op, true);
 }
 
-/*	Registration of the operator and integration into UI
- */
+/* Registration of the operator and integration into UI */
 void UV_OT_minimize_stretch(wmOperatorType *ot)
 {
 	/* identifiers */
@@ -949,7 +938,8 @@ void ED_uvedit_live_unwrap_begin(Scene *scene, Object *obedit)
 			rs->slimPtrs[chartNr] = SLIM_setup(rs->mt, chartNr, false, true);
 		}
 
-	} else {
+	}
+	else {
 		param_lscm_begin(liveHandle, PARAM_TRUE, abf);
 	}
 }
@@ -984,7 +974,7 @@ void ED_uvedit_live_unwrap_re_solve(void)
 																	  pinned_vertex_positions_2D,
 																	  &n_selected_pins,
 																	  selected_pins);
-				if (!pinned_vertex_was_moved){
+				if (!pinned_vertex_was_moved) {
 					rs->slimWasUsed = false;
 					return;
 				}
@@ -1009,10 +999,10 @@ void ED_uvedit_live_unwrap_re_solve(void)
 
 			param_flush(liveHandle);
 
-		} else {
+		}
+		else {
 			param_lscm_solve(liveHandle);
 			param_flush(liveHandle);
-
 		}
 	}
 }
@@ -1022,9 +1012,9 @@ void ED_uvedit_live_unwrap_end(short cancel)
 	if (liveHandle) {
 
 		if (getRecurringSlimData(liveHandle) != NULL) {
-
 			RecurringSlim *rs = getRecurringSlimData(liveHandle);
-			if(rs->slimWasUsed && !cancel) {
+
+			if (rs->slimWasUsed && !cancel) {
 				for (int chartNr = 0; chartNr < rs->mt->n_charts; chartNr++) {
 					void *slimPtr = rs->slimPtrs[chartNr];
 					SLIM_transfer_uvs_blended(rs->mt, slimPtr, chartNr, 0.0);
@@ -1032,7 +1022,7 @@ void ED_uvedit_live_unwrap_end(short cancel)
 				set_uv_param_slim(liveHandle, rs->mt);
 			}
 
-			if(rs->slimWasUsed && !cancel) {
+			if (rs->slimWasUsed && !cancel) {
 				param_flush(liveHandle);
 			}
 
@@ -1048,8 +1038,8 @@ void ED_uvedit_live_unwrap_end(short cancel)
 			param_delete(liveHandle);
 			liveHandle = NULL;
 
-		} else {
-
+		}
+		else {
 			param_lscm_end(liveHandle);
 			if (cancel)
 				param_flush_restore(liveHandle);
@@ -1374,7 +1364,7 @@ void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
 
 	if (use_slim_method) {
 		SLIMMatrixTransfer *mt = MEM_callocN(sizeof(SLIMMatrixTransfer), "matrix transfer data");
-		mt->slim_reflection_mode = scene->toolsettings->slim_reflection_mode;
+		mt->reflection_mode = scene->toolsettings->slim_reflection_mode;
 		enrich_handle_slim(scene, obedit, em, handle, mt, false);
 	}
 
@@ -1501,9 +1491,10 @@ static void unwrap_draw(bContext *UNUSED(C), wmOperator *op)
 	/* main draw call */
 	RNA_pointer_create(NULL, op->type->srna, op->properties, &ptr);
 
-	if(RNA_enum_get(op->ptr, "method") == 2) {
+	if (RNA_enum_get(op->ptr, "method") == 2) {
 		uiDefAutoButsRNA(layout, &ptr, unwrap_draw_check_prop_slim, '\0');
-	} else {
+	}
+	else {
 		uiDefAutoButsRNA(layout, &ptr, unwrap_draw_check_prop_abf, '\0');
 	}
 }
@@ -1547,18 +1538,18 @@ void UV_OT_unwrap(wmOperatorType *ot)
 	                "Map UVs taking vertex position after Subdivision Surface modifier has been applied");
 	RNA_def_float_factor(ot->srna, "margin", 0.001f, 0.0f, 1.0f, "Margin", "Space between islands", 0.0f, 1.0f);
 
-	// ABF / LSCM only
+	/* ABF / LSCM only */
 	RNA_def_boolean(ot->srna, "fill_holes", 1, "Fill Holes",
-					"Virtual fill holes in mesh before unwrapping, to better avoid overlaps and preserve symmetry.");
+					"Virtual fill holes in mesh before unwrapping, to better avoid overlaps and preserve symmetry");
 
-	// SLIM only
+	/* SLIM only */
 	RNA_def_enum(ot->srna, "reflection_mode", reflection_items, 0, "Reflection Mode",
 				 "Allowing reflections means that depending on the position of pins, the map may be flipped. Lower distortion");
 	RNA_def_int(ot->srna, "iterations", 10, 0, 10000, "Iterations",
-				"Number of Iterations if the SLIM algorithm is used.", 1, 30);
+				"Number of Iterations if the SLIM algorithm is used", 1, 30);
 	RNA_def_float(ot->srna, "relative_scale", 1.0, 0.001, 1000.0, "Relative Scale",
-				  "Relative Scale of UV Map with respect to pins.", 0.1, 10.0);
-	RNA_def_string(ot->srna, "vertex_group", NULL, 64, "Vertex Group", "Vertex group name for modulating the deform");
+				  "Relative Scale of UV Map with respect to pins", 0.1, 10.0);
+	RNA_def_string(ot->srna, "vertex_group", NULL, MAX_ID_NAME, "Vertex Group", "Vertex group name for modulating the deform");
 	RNA_def_float(ot->srna, "vertex_group_factor", 1.0, -10000.0, 10000.0, "Factor",
 				"How much influence the weightmap has for weighted parameterization, 0 being no influence", -10.0, 10.0);
 }

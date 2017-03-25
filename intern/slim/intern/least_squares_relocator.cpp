@@ -210,7 +210,7 @@ namespace relocator {
 				break;
 			default:
 
-				bool flipAllowed = slimData.slim_reflection_mode == 0;
+				bool flipAllowed = slimData.reflection_mode == 0;
 
 				computLeastSquaresRotationScaleOnly(slimData,
 													translationVector,

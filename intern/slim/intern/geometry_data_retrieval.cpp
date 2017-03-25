@@ -97,11 +97,11 @@ namespace retrieval {
 		return (skipInitialization && hasValidPreinitializedMap(gd));
 	}
 
-	void constructSlimData(GeometryData &gd, SLIMData *slimData, bool skipInitialization, int slim_reflection_mode, double relativeScale){
+	void constructSlimData(GeometryData &gd, SLIMData *slimData, bool skipInitialization, int reflection_mode, double relativeScale){
 		slimData->skipInitialization = canInitializationBeSkipped(gd, skipInitialization);
 		slimData->weightInfluence = gd.weightInfluence;
 		slimData->relativeScale = relativeScale;
-		slimData->slim_reflection_mode = slim_reflection_mode;
+		slimData->reflection_mode = reflection_mode;
 		slimData->withWeightedParameterization = gd.withWeightedParameteriztion;
 		setGeometryDataMatrices(gd, slimData);
 

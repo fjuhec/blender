@@ -240,7 +240,7 @@ SLIMData* setup_slim(SLIMMatrixTransfer *transferredData,
 	transferredData->n_pinned_vertices[uvChartIndex] = geometryData.numberOfPinnedVertices;
 
 	SLIMData *slimData = new SLIMData();
-	retrieval::constructSlimData(geometryData, slimData, skipInitialization, transferredData->slim_reflection_mode, transferredData->relative_scale);
+	retrieval::constructSlimData(geometryData, slimData, skipInitialization, transferredData->reflection_mode, transferredData->relative_scale);
 	slimData->nIterations = nIterations;
 
 	initializeIfNeeded(geometryData, slimData);

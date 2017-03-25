@@ -42,7 +42,7 @@ struct SLIMData
   double exp_factor; // used for exponential energies, ignored otherwise
   bool mesh_improvement_3d; // only supported for 3d
 
-  int slim_reflection_mode;
+  int reflection_mode;
   bool skipInitialization = false;
   bool validPreInitialization = false;
   double expectedSurfaceAreaOfResultingMap = 0;

@@ -44,6 +44,8 @@
 
 #include "BLI_sys_types.h"  /* for intptr_t support */
 
+#include "slim_capi.h"
+
 #include "eigen_capi.h"
 
 /* Utils */
@@ -114,7 +116,7 @@ typedef struct PVert {
 	unsigned char flag;
 
 	bool on_boundary_flag;
-	int slimId;
+	int slim_id;
 } PVert; 
 
 typedef struct PEdge {
@@ -246,7 +248,7 @@ typedef struct PHandle {
 	float *weight_array;
 	bool is_minimize_stretch;
 
-	//for minimize_stretch and live unwrap
+	// For minimize_stretch and live unwrap
 	void* recurringSlim;
 } PHandle;
 
@@ -4211,11 +4213,9 @@ void param_slim_enrich_handle(ParamHandle *handle,
 }
 
 
-/*	In the following are all functions necessary to transfer data from the native part to SLIM.
- */
+/* In the following are all functions necessary to transfer data from the native part to SLIM. */
 
-/*	Allocate pointer arrays for each matrix-group. Meaning as many pointers per array as there are charts.
- */
+/* Allocate pointer arrays for each matrix-group. Meaning as many pointers per array as there are charts. */
 static void allocate_memory_for_pointerarrays(SLIMMatrixTransfer *mt, PHandle *phandle)
 {
 	mt->n_charts = phandle->ncharts;
@@ -4238,10 +4238,8 @@ static void allocate_memory_for_pointerarrays(SLIMMatrixTransfer *mt, PHandle *p
 	mt->w_vectors = MEM_mallocN(mt->n_charts * sizeof(*mt->w_vectors), "Array of pointers to weight-per-face vectors");
 }
 
-/*	For one chart, allocate memory. If no accurate estimate (e.g. for number of pinned vertices) overestimate and
-	correct later.
- */
-
+/* For one chart, allocate memory. If no accurate estimate (e.g. for number of pinned vertices) overestimate and
+ * correct later. */
 static void allocate_memory_for_matrices(const int chartNr, const PHandle *phandle, const SLIMMatrixTransfer *mt)
 {
 	mt->n_verts[chartNr] = phandle->charts[chartNr]->nverts;
@@ -4262,7 +4260,7 @@ static void allocate_memory_for_matrices(const int chartNr, const PHandle *phand
 	mt->el_vectors[chartNr] = MEM_mallocN(mt->n_edges[chartNr] * 2 * sizeof(**mt->el_vectors), " Edge-Length Vector");
 }
 
-/*	Transfer edges and edge lengths */
+/* Transfer edges and edge lengths */
 static void transfer_edges(const int chartNr, const PHandle *phandle, const SLIMMatrixTransfer *mt)
 {
 	PChart *chart = phandle->charts[chartNr];
@@ -4277,13 +4275,12 @@ static void transfer_edges(const int chartNr, const PHandle *phandle, const SLIM
 	p_chart_boundaries(chart, NULL, &outer);
 	PEdge *be = outer;
 
-
 	do {
-		E[eid] = be->vert->slimId;
+		E[eid] = be->vert->slim_id;
 		EL[eid] = p_edge_length(be);
 
 		be = p_boundary_edge_next(be);
-		E[eid + mt->n_edges[chartNr] + mt->n_boundary_vertices[chartNr]] = be->vert->slimId;
+		E[eid + mt->n_edges[chartNr] + mt->n_boundary_vertices[chartNr]] = be->vert->slim_id;
 		eid++;
 
 	} while (be != outer);
@@ -4291,15 +4288,15 @@ static void transfer_edges(const int chartNr, const PHandle *phandle, const SLIM
 	for (e = chart->edges; e; e = e->nextlink) {
 		e1 = e->next;
 
-		E[eid] = e->vert->slimId;
+		E[eid] = e->vert->slim_id;
 		EL[eid] = p_edge_length(e);
 
-		E[eid + mt->n_edges[chartNr] + mt->n_boundary_vertices[chartNr]] = e1->vert->slimId;
+		E[eid + mt->n_edges[chartNr] + mt->n_boundary_vertices[chartNr]] = e1->vert->slim_id;
 		eid++;
 	}
 }
 
-/*	Transfer vertices and pinned information */
+/* Transfer vertices and pinned information */
 static void transfer_vertices(const int chartNr, const PHandle *phandle, SLIMMatrixTransfer *mt, float *temp_w)
 {
 	PChart *chart = phandle->charts[chartNr];
@@ -4323,29 +4320,27 @@ static void transfer_vertices(const int chartNr, const PHandle *phandle, SLIMMat
 	for (v = chart->verts; v; v = v->nextlink) {
 
 		if (!v->on_boundary_flag) {
-
 			if (mt->with_weighted_parameterization) {
 				weight = temp_w[v->u.key];
 				W[vid] = weight;
 			}
 
-			v->slimId = vid;
-
+			v->slim_id = vid;
 			vid++;
 		}
 
-		V[v->slimId] = v->co[0];
-		V[r + v->slimId] = v->co[1];
-		V[2 * r + v->slimId] = v->co[2];
+		V[v->slim_id] = v->co[0];
+		V[r + v->slim_id] = v->co[1];
+		V[2 * r + v->slim_id] = v->co[2];
 
-		UV[v->slimId] = v->uv[0];
-		UV[r + v->slimId] = v->uv[1];
+		UV[v->slim_id] = v->uv[0];
+		UV[r + v->slim_id] = v->uv[1];
 
 		if (v->flag & PVERT_PIN || (phandle->is_minimize_stretch && !(v->flag & PVERT_SELECT))) {
 			mt->pinned_vertices = true;
 			mt->n_pinned_vertices[chartNr] += 1;
 
-			P[pVid] = v->slimId;
+			P[pVid] = v->slim_id;
 			PP[2 * pVid] = (double)v->uv[0];
 			PP[2 * pVid + 1] = (double)v->uv[1];
 			pVid += 1;
@@ -4353,7 +4348,7 @@ static void transfer_vertices(const int chartNr, const PHandle *phandle, SLIMMat
 	}
 }
 
-/*	Transfer boundary vertices */
+/* Transfer boundary vertices */
 static void transfer_boundary_vertices(const int chartNr, const PHandle *phandle, const SLIMMatrixTransfer *mt, float *temp_w)
 {
 	PChart *chart = phandle->charts[chartNr];
@@ -4382,7 +4377,7 @@ static void transfer_boundary_vertices(const int chartNr, const PHandle *phandle
 		}
 
 		mt->n_boundary_vertices[chartNr] += 1;
-		be->vert->slimId = vid;
+		be->vert->slim_id = vid;
 		be->vert->on_boundary_flag = true;
 		B[vid] = vid;
 
@@ -4392,8 +4387,9 @@ static void transfer_boundary_vertices(const int chartNr, const PHandle *phandle
 	} while (be != outer);
 }
 
-/*	Transfer faces */
-static void transfer_faces(const int chartNr, const PHandle *phandle, const SLIMMatrixTransfer *mt){
+/* Transfer faces */
+static void transfer_faces(const int chartNr, const PHandle *phandle, const SLIMMatrixTransfer *mt)
+{
 	PChart *chart = phandle->charts[chartNr];
 
 	PFace *f;
@@ -4413,12 +4409,12 @@ static void transfer_faces(const int chartNr, const PHandle *phandle, const SLIM
 
 		F = mt->f_matrices[chartNr];
 
-		F[fid] = e->vert->slimId;
-		F[r + fid] = e1->vert->slimId;
-		F[2 * r + fid] = e2->vert->slimId;
+		F[fid] = e->vert->slim_id;
+		F[r + fid] = e1->vert->slim_id;
+		F[2 * r + fid] = e2->vert->slim_id;
 		fid++;
 	}
-};
+}
 
 /* Conversion Function to build matrix for SLIM Parametrization */
 static void convert_blender_slim(ParamHandle *handle)
@@ -4432,12 +4428,12 @@ static void convert_blender_slim(ParamHandle *handle)
 
 	int chartNr;
 
-	/*Allocate memory for matrices of Vertices,Faces etc. for each chart*/
+	/* Allocate memory for matrices of Vertices,Faces etc. for each chart */
 	for (chartNr = 0; chartNr<phandle->ncharts; chartNr++) {
 		allocate_memory_for_matrices(chartNr, phandle, mt);
 	}
 
-	/*For each chart, fill up matrices*/
+	/* For each chart, fill up matrices */
 
 	for (chartNr = 0; chartNr < phandle->ncharts; chartNr++) {
 		mt->n_pinned_vertices[chartNr] = 0;
@@ -4461,7 +4457,7 @@ static void convert_blender_slim(ParamHandle *handle)
 	if (phandle->weight_array) {
 		MEM_freeN(phandle->weight_array);
 	}
-};
+}
 
 static void transfer_data_to_slim(ParamHandle *handle)
 {
@@ -4474,8 +4470,7 @@ static void transfer_data_to_slim(ParamHandle *handle)
 	convert_blender_slim(handle);
 }
 
-/*	Set UV on each vertex after SLIM parametrization, for each chart.
- */
+/* Set UV on each vertex after SLIM parametrization, for each chart. */
 void set_uv_param_slim(ParamHandle *handle, SLIMMatrixTransfer *mt)
 {
 	PHandle *phandle = (PHandle*) handle;
@@ -4483,22 +4478,17 @@ void set_uv_param_slim(ParamHandle *handle, SLIMMatrixTransfer *mt)
 	PVert *v;
 
 	for (int chartNr = 0; chartNr<mt->n_charts; chartNr++) {
-
 		double *UV = mt->uv_matrices[chartNr];
 
-		for (v = phandle->charts[chartNr]->verts; v; v = v->nextlink){
-			vid = v->slimId;
+		for (v = phandle->charts[chartNr]->verts; v; v = v->nextlink) {
+			vid = v->slim_id;
 			v->uv[0] = UV[vid*2];
 			v->uv[1] = UV[vid*2 + 1];
 		}
-
 	}
-
 }
 
-
-/*	Cleanup memory.
- */
+/* Cleanup memory. */
 void free_slim_matrix_transfer(SLIMMatrixTransfer *mt)
 {
 	for (int chartNr = 0; chartNr<mt->n_charts; chartNr++) {
@@ -4539,8 +4529,7 @@ bool transformIslands(ParamHandle *handle)
 	return phandle->mt->transform_islands;
 }
 
-/*	Examines if any pins are present or not.
- */
+/* Examines if any pins are present or not. */
 bool mark_pins(ParamHandle *param_handle)
 {
 	bool noPins = true;
@@ -4589,7 +4578,7 @@ bool get_pinned_vertex_data(ParamHandle *liveHandle,
 	bool pinned_vertex_was_moved = false;
 	int i = 0; // index of pinned vertex
 
-	//boundary vertices have lower slimIds, process them first
+	//boundary vertices have lower slim_ids, process them first
 	PEdge *outer;
 	p_chart_boundaries(chart, NULL, &outer);
 	PEdge *be = outer;
@@ -4597,13 +4586,13 @@ bool get_pinned_vertex_data(ParamHandle *liveHandle,
 		if (be->vert->flag & PVERT_PIN) {
 			p_vert_load_pin_select_uvs(liveHandle, be->vert);  /* reload vertex position */
 
-			if (be->vert->flag & PVERT_SELECT){
+			if (be->vert->flag & PVERT_SELECT) {
 				pinned_vertex_was_moved = true;
-				selected_pins[*n_selected_pins] = be->vert->slimId;
+				selected_pins[*n_selected_pins] = be->vert->slim_id;
 				++(*n_selected_pins);
 			}
 			
-			pinned_vertex_indices[i] = be->vert->slimId;
+			pinned_vertex_indices[i] = be->vert->slim_id;
 			pinned_vertex_positions_2D[2*i] = be->vert->uv[0];
 			pinned_vertex_positions_2D[2*i+1] = be->vert->uv[1];
 
@@ -4617,12 +4606,12 @@ bool get_pinned_vertex_data(ParamHandle *liveHandle,
 		if ( !v->on_boundary_flag && (v->flag & PVERT_PIN)) {
 			p_vert_load_pin_select_uvs(liveHandle, v);  /* reload v */
 
-			if (v->flag & PVERT_SELECT){
+			if (v->flag & PVERT_SELECT) {
 				pinned_vertex_was_moved = true;
-				selected_pins[*n_selected_pins] = v->slimId;
+				selected_pins[*n_selected_pins] = v->slim_id;
 				++(*n_selected_pins);
 			}
-			pinned_vertex_indices[i] = v->slimId;
+			pinned_vertex_indices[i] = v->slim_id;
 			pinned_vertex_positions_2D[2*i] = v->uv[0];
 			pinned_vertex_positions_2D[2*i+1] = v->uv[1];
 			++i;
@@ -4648,7 +4637,8 @@ void param_begin(ParamHandle *handle, ParamBool abf, bool use_slim)
 {
 	if (use_slim) {
 		param_slim_begin(handle);
-	} else {
+	}
+	else {
 		param_lscm_begin(handle, PARAM_FALSE, abf);
 	}
 }
@@ -4657,7 +4647,8 @@ void param_solve(ParamHandle *handle, bool use_slim)
 {
 	if (use_slim) {
 		param_slim_solve(handle);
-	} else {
+	}
+	else {
 		param_lscm_solve(handle);
 	}
 }
@@ -4666,7 +4657,8 @@ void param_end(ParamHandle *handle, bool use_slim)
 {
 	if (use_slim) {
 		param_slim_end(handle);
-	} else {
+	}
+	else {
 		param_lscm_end(handle);
 	}
 }
