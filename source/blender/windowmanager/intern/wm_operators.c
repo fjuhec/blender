@@ -89,7 +89,9 @@
 #include "BLF_api.h"
 
 #include "BIF_glutil.h" /* for paint cursor */
+
 #include "GPU_immediate.h"
+#include "GPU_matrix.h"
 
 #include "IMB_imbuf_types.h"
 #include "IMB_imbuf.h"
@@ -903,7 +905,7 @@ void WM_operator_properties_create_ptr(PointerRNA *ptr, wmOperatorType *ot)
 
 void WM_operator_properties_create(PointerRNA *ptr, const char *opstring)
 {
-	wmOperatorType *ot = WM_operatortype_find(opstring, 0);
+	wmOperatorType *ot = WM_operatortype_find(opstring, false);
 
 	if (ot)
 		WM_operator_properties_create_ptr(ptr, ot);
@@ -1788,6 +1790,36 @@ static uiBlock *wm_block_create_splash(bContext *C, ARegion *ar, void *UNUSED(ar
 	else {
 		ibuf = IMB_ibImageFromMemory((unsigned char *)datatoc_splash_png,
 		                             datatoc_splash_png_size, IB_rect, NULL, "<splash screen>");
+	}
+
+	/* overwrite splash with template image */
+	if (U.app_template[0] != '\0') {
+		ImBuf *ibuf_template = NULL;
+		char splash_filepath[FILE_MAX];
+		char template_directory[FILE_MAX];
+
+		if (BKE_appdir_app_template_id_search(
+		        U.app_template,
+		        template_directory, sizeof(template_directory)))
+		{
+			BLI_join_dirfile(
+			        splash_filepath, sizeof(splash_filepath), template_directory,
+			        (U.pixelsize == 2) ? "splash_2x.png" : "splash.png");
+			ibuf_template = IMB_loadiffname(splash_filepath, IB_rect, NULL);
+			if (ibuf_template) {
+				const int x_expect = ibuf_template->x;
+				const int y_expect = 230 * (int)U.pixelsize;
+				/* don't cover the header text */
+				if (ibuf_template->x == x_expect && ibuf_template->y == y_expect) {
+					memcpy(ibuf->rect, ibuf_template->rect, ibuf_template->x * ibuf_template->y * sizeof(char[4]));
+				}
+				else {
+					printf("Splash expected %dx%d found %dx%d, ignoring: %s\n",
+					       x_expect, y_expect, ibuf_template->x, ibuf_template->y, splash_filepath);
+				}
+				IMB_freeImBuf(ibuf_template);
+			}
+		}
 	}
 #endif
 
@@ -3082,8 +3114,8 @@ static void radial_control_paint_tex(RadialControl *rc, float radius, float alph
 		/* set up rotation if available */
 		if (rc->rot_prop) {
 			rot = RNA_property_float_get(&rc->rot_ptr, rc->rot_prop);
-			glPushMatrix();
-			glRotatef(RAD2DEGF(rot), 0, 0, 1);
+			gpuPushMatrix();
+			gpuRotate2D(RAD2DEGF(rot));
 		}
 
 		/* draw textured quad */
@@ -3105,7 +3137,7 @@ static void radial_control_paint_tex(RadialControl *rc, float radius, float alph
 
 		/* undo rotation */
 		if (rc->rot_prop)
-			glPopMatrix();
+			gpuPopMatrix();
 	}
 	else {
 		/* flat color if no texture available */
@@ -3173,7 +3205,7 @@ static void radial_control_paint_cursor(bContext *C, int x, int y, void *customd
 	/* Keep cursor in the original place */
 	x = rc->initial_mouse[0] - ar->winrct.xmin;
 	y = rc->initial_mouse[1] - ar->winrct.ymin;
-	glTranslatef((float)x, (float)y, 0.0f);
+	gpuTranslate2f((float)x, (float)y);
 
 	glEnable(GL_BLEND);
 	glEnable(GL_LINE_SMOOTH);
@@ -3181,7 +3213,7 @@ static void radial_control_paint_cursor(bContext *C, int x, int y, void *customd
 	/* apply zoom if available */
 	if (rc->zoom_prop) {
 		RNA_property_float_get_array(&rc->zoom_ptr, rc->zoom_prop, zoom);
-		glScalef(zoom[0], zoom[1], 1);
+		gpuScale2fv(zoom);
 	}
 
 	/* draw rotated texture */
@@ -3198,23 +3230,23 @@ static void radial_control_paint_cursor(bContext *C, int x, int y, void *customd
 	immUniformColor3fvAlpha(col, 0.5); 
 
 	if (rc->subtype == PROP_ANGLE) {
-		glPushMatrix();
+		gpuPushMatrix();
 
 		/* draw original angle line */
-		glRotatef(RAD2DEGF(rc->initial_value), 0, 0, 1);
+		gpuRotate2D(RAD2DEGF(rc->initial_value));
 		immBegin(GL_LINES, 2);
 		immVertex2f(pos, (float)WM_RADIAL_CONTROL_DISPLAY_MIN_SIZE, 0.0f);
 		immVertex2f(pos, (float)WM_RADIAL_CONTROL_DISPLAY_SIZE, 0.0f);
 		immEnd();
 
 		/* draw new angle line */
-		glRotatef(RAD2DEGF(rc->current_value - rc->initial_value), 0, 0, 1);
+		gpuRotate2D(RAD2DEGF(rc->current_value - rc->initial_value));
 		immBegin(GL_LINES, 2);
 		immVertex2f(pos, (float)WM_RADIAL_CONTROL_DISPLAY_MIN_SIZE, 0.0f);
 		immVertex2f(pos, (float)WM_RADIAL_CONTROL_DISPLAY_SIZE, 0.0f);
 		immEnd();
 
-		glPopMatrix();
+		gpuPopMatrix();
 	}
 
 	/* draw circles on top */

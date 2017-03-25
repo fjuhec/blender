@@ -1,15 +1,13 @@
-# ./blender.bin --background -noaudio --python tests/python/render_layer/test_scene_write_read.py -- --testdir="/data/lib/tests/"
-
 # ############################################################
 # Importing - Same For All Render Layer Tests
 # ############################################################
 
-import unittest
-
-import os, sys
-sys.path.append(os.path.dirname(__file__))
-
 from render_layer_common import *
+import unittest
+import os
+import sys
+
+sys.path.append(os.path.dirname(__file__))
 
 
 # ############################################################
@@ -35,6 +33,7 @@ class UnitTesting(RenderLayerTesting):
 
             # doversion + write test
             bpy.ops.wm.open_mainfile('EXEC_DEFAULT', filepath=filepath_layers)
+            self.rename_collections()
             bpy.ops.wm.save_mainfile('EXEC_DEFAULT', filepath=filepath_doversion)
 
             datas = query_scene(filepath_doversion, 'Main', data_callbacks)
@@ -54,6 +53,7 @@ class UnitTesting(RenderLayerTesting):
             if do_read:
                 # read test, simply open and save the file
                 bpy.ops.wm.open_mainfile('EXEC_DEFAULT', filepath=filepath_doversion)
+                self.rename_collections()
                 bpy.ops.wm.save_mainfile('EXEC_DEFAULT', filepath=filepath_saved)
 
                 datas = query_scene(filepath_saved, 'Main', data_callbacks)

@@ -27,6 +27,7 @@ set(INC
 	.
 	intern
 	engines/clay
+	engines/eevee
 	modes
 
 	../blenkernel
@@ -56,7 +57,15 @@ set(SRC
 	intern/draw_cache.c
 	intern/draw_view.c
 	intern/draw_armature.c
+
 	engines/clay/clay.c
+	engines/clay/clay.h
+
+	engines/eevee/eevee.c
+	engines/eevee/eevee_lights.c
+	engines/eevee/eevee.h
+	engines/eevee/eevee_private.h
+
 	modes/object_mode.c
 	modes/edit_armature_mode.c
 	modes/edit_curve_mode.c
@@ -76,7 +85,6 @@ set(SRC
 	intern/draw_common.h
 	intern/draw_cache.h
 	intern/draw_view.h
-	engines/clay/clay.h
 	modes/draw_mode_engines.h
 
 	./DRW_engine.h
@@ -91,6 +99,11 @@ data_to_c_simple(engines/clay/shaders/clay_vert.glsl SRC)
 data_to_c_simple(engines/clay/shaders/ssao_alchemy.glsl SRC)
 data_to_c_simple(engines/clay/shaders/ssao_groundtruth.glsl SRC)
 
+data_to_c_simple(engines/eevee/shaders/lit_surface_frag.glsl SRC)
+data_to_c_simple(engines/eevee/shaders/lit_surface_vert.glsl SRC)
+data_to_c_simple(engines/eevee/shaders/tonemap_frag.glsl SRC)
+
+data_to_c_simple(modes/shaders/common_globals_lib.glsl SRC)
 data_to_c_simple(modes/shaders/edit_overlay_frag.glsl SRC)
 data_to_c_simple(modes/shaders/edit_overlay_vert.glsl SRC)
 data_to_c_simple(modes/shaders/edit_overlay_geom_tri.glsl SRC)
@@ -99,11 +112,15 @@ data_to_c_simple(modes/shaders/edit_overlay_loosevert_vert.glsl SRC)
 data_to_c_simple(modes/shaders/edit_overlay_facedot_frag.glsl SRC)
 data_to_c_simple(modes/shaders/edit_overlay_facedot_vert.glsl SRC)
 data_to_c_simple(modes/shaders/edit_overlay_mix_frag.glsl SRC)
-data_to_c_simple(modes/shaders/edit_overlay_mix_vert.glsl SRC)
 data_to_c_simple(modes/shaders/edit_overlay_facefill_vert.glsl SRC)
 data_to_c_simple(modes/shaders/edit_overlay_facefill_frag.glsl SRC)
 data_to_c_simple(modes/shaders/edit_normals_vert.glsl SRC)
 data_to_c_simple(modes/shaders/edit_normals_geom.glsl SRC)
+data_to_c_simple(modes/shaders/object_outline_resolve_frag.glsl SRC)
+data_to_c_simple(modes/shaders/object_outline_expand_frag.glsl SRC)
+data_to_c_simple(modes/shaders/object_outline_detect_frag.glsl SRC)
+data_to_c_simple(modes/shaders/object_grid_frag.glsl SRC)
+data_to_c_simple(modes/shaders/object_grid_vert.glsl SRC)
 
 list(APPEND INC
 )

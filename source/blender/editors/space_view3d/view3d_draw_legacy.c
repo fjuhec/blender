@@ -76,7 +76,6 @@
 #include "IMB_imbuf.h"
 #include "IMB_colormanagement.h"
 
-#include "BIF_gl.h"
 #include "BIF_glutil.h"
 
 #include "WM_api.h"
@@ -103,25 +102,13 @@
 #include "GPU_extensions.h"
 #include "GPU_immediate.h"
 #include "GPU_select.h"
+#include "GPU_matrix.h"
 
 #include "view3d_intern.h"  /* own include */
 
 /* prototypes */
 static void view3d_stereo3d_setup_offscreen(Scene *scene, View3D *v3d, ARegion *ar,
                                             float winmat[4][4], const char *viewname);
-
-void circ(float x, float y, float rad)
-{
-	glBegin(GL_LINE_LOOP);
-	const int segments = 32;
-	for (int i = 0; i < segments; ++i) {
-		float angle = 2 * M_PI * ((float)i / (float)segments);
-		glVertex2f(x + rad * cosf(angle),
-		           y + rad * sinf(angle));
-	}
-	glEnd();
-}
-
 
 /* ********* custom clipping *********** */
 
@@ -765,13 +752,13 @@ static void view3d_draw_bgpic(Scene *scene, ARegion *ar, View3D *v3d,
 			glBlendFunc(GL_SRC_ALPHA,  GL_ONE_MINUS_SRC_ALPHA);
 
 			glMatrixMode(GL_PROJECTION);
-			glPushMatrix();
+			gpuPushMatrix();
 			glMatrixMode(GL_MODELVIEW);
-			glPushMatrix();
+			gpuPushMatrix();
 			ED_region_pixelspace(ar);
 
-			glTranslatef(centx, centy, 0.0);
-			glRotatef(RAD2DEGF(-bgpic->rotation), 0.0f, 0.0f, 1.0f);
+			gpuTranslate2f(centx, centy);
+			gpuRotate2D(RAD2DEGF(-bgpic->rotation));
 
 			if (bgpic->flag & V3D_BGPIC_FLIP_X) {
 				zoomx *= -1.0f;
@@ -788,9 +775,9 @@ static void view3d_draw_bgpic(Scene *scene, ARegion *ar, View3D *v3d,
 			                 zoomx, zoomy, col);
 
 			glMatrixMode(GL_PROJECTION);
-			glPopMatrix();
+			gpuPopMatrix();
 			glMatrixMode(GL_MODELVIEW);
-			glPopMatrix();
+			gpuPopMatrix();
 
 			glDisable(GL_BLEND);
 
@@ -1191,7 +1178,7 @@ float view3d_depth_near(ViewDepths *d)
 
 void ED_view3d_draw_depth_gpencil(Scene *scene, ARegion *ar, View3D *v3d)
 {
-	short zbuf = v3d->zbuf;
+	bool zbuf = v3d->zbuf;
 	RegionView3D *rv3d = ar->regiondata;
 
 	view3d_winmatrix_set(ar, v3d, NULL);
@@ -1203,7 +1190,7 @@ void ED_view3d_draw_depth_gpencil(Scene *scene, ARegion *ar, View3D *v3d)
 
 	glClear(GL_DEPTH_BUFFER_BIT);
 
-	glLoadMatrixf(rv3d->viewmat);
+	gpuLoadMatrix3D(rv3d->viewmat);
 
 	v3d->zbuf = true;
 	glEnable(GL_DEPTH_TEST);
@@ -1211,8 +1198,9 @@ void ED_view3d_draw_depth_gpencil(Scene *scene, ARegion *ar, View3D *v3d)
 	if (v3d->flag2 & V3D_SHOW_GPENCIL) {
 		ED_gpencil_draw_view3d(NULL, scene, v3d, ar, true);
 	}
-	
+
 	v3d->zbuf = zbuf;
+	if (!zbuf) glDisable(GL_DEPTH_TEST);
 }
 
 void ED_view3d_draw_depth(Scene *scene, ARegion *ar, View3D *v3d, bool alphaoverride)
@@ -1241,7 +1229,7 @@ void ED_view3d_draw_depth(Scene *scene, ARegion *ar, View3D *v3d, bool alphaover
 	
 	glClear(GL_DEPTH_BUFFER_BIT);
 	
-	glLoadMatrixf(rv3d->viewmat);
+	gpuLoadMatrix3D(rv3d->viewmat);
 	
 	if (rv3d->rflag & RV3D_CLIPPING) {
 		ED_view3d_clipping_set(rv3d);
@@ -1596,11 +1584,8 @@ static void view3d_draw_objects(
 			ED_region_pixelspace(ar);
 			*grid_unit = NULL;  /* drawgrid need this to detect/affect smallest valid unit... */
 			VP_legacy_drawgrid(&scene->unit, ar, v3d, grid_unit);
-			/* XXX make function? replaces persp(1) */
-			glMatrixMode(GL_PROJECTION);
-			glLoadMatrixf(rv3d->winmat);
-			glMatrixMode(GL_MODELVIEW);
-			glLoadMatrixf(rv3d->viewmat);
+			gpuLoadProjectionMatrix3D(rv3d->winmat);
+			gpuLoadMatrix3D(rv3d->viewmat);
 		}
 		else if (!draw_grids_after) {
 			VP_legacy_drawfloor(scene, v3d, grid_unit, true);
@@ -1789,11 +1774,20 @@ void ED_view3d_draw_offscreen_init(Scene *scene, SceneLayer *sl, View3D *v3d)
  */
 static void view3d_main_region_clear(Scene *scene, View3D *v3d, ARegion *ar)
 {
+	glClear(GL_DEPTH_BUFFER_BIT);
+
+	glMatrixMode(GL_PROJECTION);
+	gpuLoadIdentity();
+	glMatrixMode(GL_MODELVIEW);
+	gpuLoadIdentity();
+
 	if (scene->world && (v3d->flag3 & V3D_SHOW_WORLD)) {
 		VP_view3d_draw_background_world(scene, v3d, ar->regiondata);
 	}
 	else {
 		VP_view3d_draw_background_none();
+
+	glEnable(GL_DEPTH_TEST);
 	}
 }
 
@@ -1810,7 +1804,7 @@ void ED_view3d_draw_offscreen(
 	bool do_compositing = false;
 	RegionView3D *rv3d = ar->regiondata;
 
-	glPushMatrix();
+	gpuPushMatrix();
 
 	/* set temporary new size */
 	int bwinx = ar->winx;
@@ -1896,7 +1890,7 @@ void ED_view3d_draw_offscreen(
 	ar->winy = bwiny;
 	ar->winrct = brect;
 
-	glPopMatrix();
+	gpuPopMatrix();
 
 	UI_Theme_Restore(&theme_state);
 
@@ -2425,9 +2419,6 @@ static void view3d_main_region_draw_objects(const bContext *C, Scene *scene, Sce
 		do_compositing = GPU_fx_compositor_initialize_passes(rv3d->compositor, &ar->winrct, &ar->drawrct, &fx_settings);
 	}
 	
-	/* clear the background */
-	view3d_main_region_clear(scene, v3d, ar);
-
 	/* enables anti-aliasing for 3D view drawing */
 	if (win->multisamples != USER_MULTISAMPLE_NONE) {
 		glEnable(GL_MULTISAMPLE);
@@ -2539,18 +2530,20 @@ void view3d_main_region_draw_legacy(const bContext *C, ARegion *ar)
 
 	/* draw viewport using opengl */
 	if (v3d->drawtype != OB_RENDER || !view3d_main_region_do_render_draw(scene) || clip_border) {
+		view3d_main_region_clear(scene, v3d, ar); /* background */
 		view3d_main_region_draw_objects(C, scene, sl, v3d, ar, &grid_unit);
 
 		if (G.debug & G_DEBUG_SIMDATA)
 			draw_sim_debug_data(scene, v3d, ar);
-		
+
+		glDisable(GL_DEPTH_TEST);
 		ED_region_pixelspace(ar);
 	}
 
 	/* draw viewport using external renderer */
 	if (v3d->drawtype == OB_RENDER)
 		view3d_main_region_draw_engine(C, scene, ar, v3d, clip_border, &border_rect);
-	
+
 	view3d_main_region_draw_info(C, scene, ar, v3d, grid_unit, render_border);
 
 	v3d->flag |= V3D_INVALID_BACKBUF;

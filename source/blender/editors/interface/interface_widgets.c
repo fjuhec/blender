@@ -47,7 +47,6 @@
 
 #include "RNA_access.h"
 
-#include "BIF_gl.h"
 #include "BIF_glutil.h"
 
 #include "BLF_api.h"
@@ -234,9 +233,9 @@ void ui_draw_anti_roundbox(int mode, float minx, float miny, float maxx, float m
 	draw_color[3] *= 0.125f;
 	
 	for (j = 0; j < WIDGET_AA_JITTER; j++) {
-		glTranslate2fv(jit[j]);
+		gpuTranslate2fv(jit[j]);
 		UI_draw_roundbox_gl_mode(mode, minx, miny, maxx, maxy, rad, draw_color);
-		glTranslatef(-jit[j][0], -jit[j][1], 0.0f);
+		gpuTranslate2f(-jit[j][0], -jit[j][1]);
 	}
 
 	glDisable(GL_BLEND);
@@ -766,11 +765,9 @@ static void widgetbase_draw(uiWidgetBase *wtb, uiWidgetColors *wcol)
 
 		unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
 
-		gpuMatrixBegin3D_legacy();
-
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 		for (j = 0; j < WIDGET_AA_JITTER; j++) {
-			gpuTranslate3f(jit[j][0], jit[j][1], 0.0f);
+			gpuTranslate2fv(jit[j]);
 			
 			/* outline */
 			immUniformColor4ubv(tcol);
@@ -785,11 +782,9 @@ static void widgetbase_draw(uiWidgetBase *wtb, uiWidgetColors *wcol)
 				}
 			}
 			
-			gpuTranslate3f(-jit[j][0], -jit[j][1], 0.0f);
+			gpuTranslate2f(-jit[j][0], -jit[j][1]);
 		}
 		immUnbindProgram();
-
-		gpuMatrixEnd();
 	}
 
 	/* decoration */
@@ -803,11 +798,9 @@ static void widgetbase_draw(uiWidgetBase *wtb, uiWidgetColors *wcol)
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 		immUniformColor4ubv(tcol);
 
-		gpuMatrixBegin3D_legacy();
-
 		/* for each AA step */
 		for (j = 0; j < WIDGET_AA_JITTER; j++) {
-			gpuTranslate3f(jit[j][0], jit[j][1], 0.0f);
+			gpuTranslate2fv(jit[j]);
 
 			if (wtb->tria1.tot)
 				widget_trias_draw(&wtb->tria1, pos);
@@ -815,10 +808,8 @@ static void widgetbase_draw(uiWidgetBase *wtb, uiWidgetColors *wcol)
 			if (wtb->tria2.tot)
 				widget_trias_draw(&wtb->tria2, pos);
 		
-			gpuTranslate3f(-jit[j][0], -jit[j][1], 0.0f);
+			gpuTranslate2f(-jit[j][0], -jit[j][1]);
 		}
-
-		gpuMatrixEnd();
 
 		immUnbindProgram();
 	}
@@ -1671,6 +1662,9 @@ static void widget_draw_text_icon(uiFontStyle *fstyle, uiWidgetColors *wcol, uiB
 	widget_draw_text(fstyle, wcol, but, rect);
 
 	ui_but_text_password_hide(password_str, but, true);
+
+	/* if a widget uses font shadow it has to be deactivated now */
+	BLF_disable(fstyle->uifont_id, BLF_SHADOW);
 }
 
 #undef UI_TEXT_CLIP_MARGIN
@@ -1929,6 +1923,19 @@ static struct uiWidgetColors wcol_list_item = {
 	0, 0
 };
 
+struct uiWidgetColors wcol_tab = {
+	{255, 255, 255, 255},
+	{83, 83, 83, 255},
+	{114, 114, 114, 255},
+	{90, 90, 90, 255},
+
+	{0, 0, 0, 255},
+	{0, 0, 0, 255},
+
+	0,
+	0, 0
+};
+
 /* free wcol struct to play with */
 static struct uiWidgetColors wcol_tmp = {
 	{0, 0, 0, 255},
@@ -1951,6 +1958,7 @@ void ui_widget_color_init(ThemeUI *tui)
 	tui->wcol_tool = wcol_tool;
 	tui->wcol_text = wcol_text;
 	tui->wcol_radio = wcol_radio;
+	tui->wcol_tab = wcol_tab;
 	tui->wcol_option = wcol_option;
 	tui->wcol_toggle = wcol_toggle;
 	tui->wcol_num = wcol_num;
@@ -3464,6 +3472,44 @@ static void widget_roundbut(uiWidgetColors *wcol, rcti *rect, int UNUSED(state),
 	widgetbase_draw(&wtb, wcol);
 }
 
+static void widget_tab(uiBut *but, uiWidgetColors *wcol, rcti *rect, int UNUSED(state), int roundboxalign)
+{
+	const uiStyle *style = UI_style_get();
+	const float rad = 0.15f * U.widget_unit;
+	const int fontid = style->widget.uifont_id;
+	const bool is_active = (but->flag & UI_SELECT);
+
+	uiWidgetBase wtb;
+	unsigned char theme_col_tab_highlight[3];
+
+	/* create outline highlight colors */
+	if (is_active) {
+		interp_v3_v3v3_uchar(theme_col_tab_highlight, (unsigned char *)wcol->inner_sel,
+		                     (unsigned char *)wcol->outline, 0.2f);
+	}
+	else {
+		interp_v3_v3v3_uchar(theme_col_tab_highlight, (unsigned char *)wcol->inner,
+		                     (unsigned char *)wcol->outline, 0.12f);
+	}
+
+	widget_init(&wtb);
+
+	/* half rounded */
+	round_box_edges(&wtb, roundboxalign, rect, rad);
+
+	/* draw inner */
+	wtb.draw_outline = 0;
+	widgetbase_draw(&wtb, wcol);
+
+	/* draw outline (3d look) */
+	ui_draw_but_TAB_outline(rect, rad, theme_col_tab_highlight, (unsigned char *)wcol->inner);
+
+	/* text shadow */
+	BLF_enable(fontid, BLF_SHADOW);
+	BLF_shadow(fontid, 3, (const float[4]){1.0f, 1.0f, 1.0f, 0.25f});
+	BLF_shadow_offset(fontid, 0, -1);
+}
+
 static void widget_draw_extra_mask(const bContext *C, uiBut *but, uiWidgetType *wt, rcti *rect)
 {
 	uiWidgetBase wtb;
@@ -3549,6 +3595,11 @@ static uiWidgetType *widget_type(uiWidgetTypeEnum type)
 		case UI_WTYPE_EXEC:
 			wt.wcol_theme = &btheme->tui.wcol_tool;
 			wt.draw = widget_roundbut;
+			break;
+
+		case UI_WTYPE_TAB:
+			wt.custom = widget_tab;
+			wt.wcol_theme = &btheme->tui.wcol_tab;
 			break;
 
 		case UI_WTYPE_TOOLTIP:
@@ -3805,7 +3856,11 @@ void ui_draw_but(const bContext *C, ARegion *ar, uiStyle *style, uiBut *but, rct
 				if (but->block->flag & UI_BLOCK_LOOP)
 					wt->wcol_theme = &btheme->tui.wcol_menu_back;
 				break;
-				
+
+			case UI_BTYPE_TAB:
+				wt = widget_type(UI_WTYPE_TAB);
+				break;
+
 			case UI_BTYPE_BUT_TOGGLE:
 			case UI_BTYPE_TOGGLE:
 			case UI_BTYPE_TOGGLE_N:
@@ -4088,9 +4143,8 @@ void ui_draw_pie_center(uiBlock *block)
 	float angle = atan2f(pie_dir[1], pie_dir[0]);
 	float range = (block->pie_data.flags & UI_PIE_DEGREES_RANGE_LARGE) ? M_PI_2 : M_PI_4;
 
-	gpuMatrixBegin3D_legacy();
 	gpuPushMatrix();
-	gpuTranslate3f(cx, cy, 0.0f);
+	gpuTranslate2f(cx, cy);
 
 	glEnable(GL_BLEND);
 	if (btheme->tui.wcol_pie_menu.shaded) {
@@ -4137,7 +4191,6 @@ void ui_draw_pie_center(uiBlock *block)
 
 	glDisable(GL_BLEND);
 	gpuPopMatrix();
-	gpuMatrixEnd();
 }
 
 

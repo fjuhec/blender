@@ -161,7 +161,7 @@ typedef struct ThemeUI {
 	/* Interface Elements (buttons, menus, icons) */
 	uiWidgetColors wcol_regular, wcol_tool, wcol_text;
 	uiWidgetColors wcol_radio, wcol_option, wcol_toggle;
-	uiWidgetColors wcol_num, wcol_numslider;
+	uiWidgetColors wcol_num, wcol_numslider, wcol_tab;
 	uiWidgetColors wcol_menu, wcol_pulldown, wcol_menu_back, wcol_menu_item, wcol_tooltip;
 	uiWidgetColors wcol_box, wcol_scroll, wcol_progress, wcol_list_item, wcol_pie_menu;
 	
@@ -473,7 +473,10 @@ typedef struct UserDef {
 	char pad2;
 	short transopts;
 	short menuthreshold1, menuthreshold2;
-	
+
+	/* startup template */
+	char app_template[64];
+
 	struct ListBase themes;
 	struct ListBase uifonts;
 	struct ListBase uistyles;
