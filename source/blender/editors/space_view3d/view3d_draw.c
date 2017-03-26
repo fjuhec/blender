@@ -3718,7 +3718,7 @@ static bool view3d_stereo3d_active(const bContext *C, Scene *scene, View3D *v3d,
 
 #ifdef WITH_INPUT_HMD
 
-static bool view3d_hmd_view_active(wmWindowManager *wm, wmWindow *win)
+static bool view3d_is_hmd_view(wmWindowManager *wm, wmWindow *win)
 {
 	return ((wm->hmd_view.hmd_win == win) && (wm->hmd_view.hmd_win->screen->is_hmd_running));
 }
@@ -3756,11 +3756,6 @@ static void view3d_hmd_view_calc_matrices_from_device(const View3D *v3d, const R
 	}
 	/* apply IPD offset */
 	add_v3_v3(r_modelviewmat[3], hmd_modelviewmat[3]);
-
-	if (rv3d->persp == RV3D_CAMOB) {
-		/* projection matrix contains camera zoom and camera view shift, needs to be applied */
-		add_m4_m4m4(r_projectionmat, r_projectionmat, (float (*)[4])rv3d->winmat);
-	}
 }
 
 static void view3d_hmd_view_get_matrices(
@@ -3946,7 +3941,7 @@ static void view3d_main_region_draw_objects(
 
 	/* setup the view matrix */
 #ifdef WITH_INPUT_HMD
-	if (view3d_hmd_view_active(wm, win)) {
+	if (view3d_is_hmd_view(wm, win)) {
 		view3d_hmd_view_setup(scene, v3d, ar);
 	}
 	else if (wm->hmd_view.hmd_win &&
@@ -4066,8 +4061,8 @@ static bool is_cursor_visible(Scene *scene)
 }
 
 static void view3d_main_region_draw_info(const bContext *C, Scene *scene,
-                                       ARegion *ar, View3D *v3d,
-                                       const char *grid_unit, bool render_border)
+                                         ARegion *ar, View3D *v3d,
+                                         const char *grid_unit, bool render_border)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
 	RegionView3D *rv3d = ar->regiondata;
@@ -4077,7 +4072,13 @@ static void view3d_main_region_draw_info(const bContext *C, Scene *scene,
 	ED_region_visible_rect(ar, &rect);
 
 	if (rv3d->persp == RV3D_CAMOB) {
-		drawviewborder(scene, ar, v3d);
+#ifdef WITH_INPUT_HMD
+		if (!view3d_is_hmd_view(wm, CTX_wm_window(C))) {
+#else
+		{
+#endif
+			drawviewborder(scene, ar, v3d);
+		}
 	}
 	else if (v3d->flag2 & V3D_RENDER_BORDER) {
 		glLineWidth(1.0f);
