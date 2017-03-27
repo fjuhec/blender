@@ -2135,35 +2135,38 @@ static void _IDP_DirectLinkGroup_OrFree(IDProperty **prop, int switch_endian, Fi
 
 static void IDP_LibLinkProperty(IDProperty *prop, FileData *fd)
 {
-	IDProperty *loop;
-	IDProperty *idp_loop;
-	void       *newaddr = NULL;
-	int i;
+	if (!prop)
+		return;
 
-	if (!prop) return;
-	BLI_assert(prop->type == IDP_GROUP);
-
-	for (loop = prop->data.group.first; loop; loop = loop->next) {
-		switch (loop->type) {
-			case IDP_ID: /* PointerProperty */
-				newaddr = newlibadr(fd, NULL, IDP_Id(loop));
-				if (IDP_Id(loop) && !newaddr) {
-					if (G.debug)
-						printf("Error while loading \"%s\". Data not found in file!\n", loop->name);
-				}
-				loop->data.pointer = newaddr;
-				IDP_id_register(loop);
-				break;
-			case IDP_IDPARRAY: /* CollectionProperty */
-				idp_loop = IDP_Array(loop);
-				for (i = 0; i < loop->len; i++) {
-					IDP_LibLinkProperty(&(idp_loop[i]), fd);
-				}
-				break;
-			case IDP_GROUP: /* PointerProperty */
-				IDP_LibLinkProperty(loop, fd);
-				break;
+	switch (prop->type) {
+		case IDP_ID: /* PointerProperty */
+		{
+			void *newaddr = newlibadr(fd, NULL, IDP_Id(prop));
+			if (IDP_Id(prop) && !newaddr) {
+				if (G.debug)
+					printf("Error while loading \"%s\". Data not found in file!\n", prop->name);
+			}
+			prop->data.pointer = newaddr;
+			IDP_id_register(prop);
+			break;
 		}
+		case IDP_IDPARRAY: /* CollectionProperty */
+		{
+			IDProperty *idp_array = IDP_Array(prop);
+			for (int i = 0; i < prop->len; i++) {
+				IDP_LibLinkProperty(&(idp_array[i]), fd);
+			}
+			break;
+		}
+		case IDP_GROUP: /* PointerProperty */
+		{
+			for (IDProperty *loop = prop->data.group.first; loop; loop = loop->next) {
+				IDP_LibLinkProperty(loop, fd);
+			}
+			break;
+		}
+		default:
+			break;  /* Nothing to do for other IDProps. */
 	}
 }
 

@@ -383,7 +383,7 @@ static IDProperty *IDP_CopyID(const IDProperty *prop)
 	newp = idp_generic_copy(prop);
 
 	if (IDP_Id(prop)) {
-		newp->data.pointer = IDP_Id(prop);
+		newp->data.pointer = (ID *)IDP_Id(prop);
 		IDP_id_register(newp);
 	}
 	return newp;
@@ -789,37 +789,40 @@ IDProperty *IDP_CopyProperty(const IDProperty *prop)
 }
 
 /* Updates ID pointers after an object has been copied */
+/* TODO Nuke this once its only user has been correctly converted to use generic ID management from BKE_library! */
 void IDP_RelinkProperty(struct IDProperty *prop)
 {
-	IDProperty *loop;
-	IDProperty *idp_loop;
-	int i;
-
 	if (!prop)
 		return;
 
-	BLI_assert(prop->type == IDP_GROUP);
-
-	loop = prop->data.group.first;
-	while (loop) {
-		switch (loop->type) {
-			case IDP_GROUP:
+	switch (prop->type) {
+		case IDP_GROUP:
+		{
+			for (IDProperty *loop = prop->data.group.first; loop; loop = loop->next) {
 				IDP_RelinkProperty(loop);
-				break;
-			case IDP_IDPARRAY:
-				idp_loop = IDP_Array(loop);
-				for (i = 0; i < loop->len; i++)
-					IDP_RelinkProperty(&idp_loop[i]);
-				break;
-			case IDP_ID:
-				if (IDP_Id(loop) && IDP_Id(loop)->newid) {
-					IDP_id_unregister(loop);
-					loop->data.pointer = (void*)(IDP_Id(loop)->newid);
-					IDP_id_register(loop);
-				}
-				break;
+			}
+			break;
 		}
-		loop = loop->next;
+		case IDP_IDPARRAY:
+		{
+			IDProperty *idp_array = IDP_Array(prop);
+			for (int i = 0; i < prop->len; i++) {
+				IDP_RelinkProperty(&idp_array[i]);
+			}
+			break;
+		}
+		case IDP_ID:
+		{
+			ID *id = IDP_Id(prop);
+			if (id && id->newid) {
+				IDP_id_unregister(prop);
+				prop->data.pointer = id->newid;
+				IDP_id_register(prop);
+			}
+			break;
+		}
+		default:
+			break;  /* Nothing to do for other IDProp types. */
 	}
 }
 
