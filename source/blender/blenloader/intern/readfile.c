@@ -3353,8 +3353,9 @@ static void lib_link_armature(FileData *fd, Main *main)
 	for (arm = main->armature.first; arm; arm = arm->id.next) {
 		if (arm->id.tag & LIB_TAG_NEED_LINK) {
 			lib_link_animdata(fd, &arm->id, arm->adt);
-			for (bone = arm->bonebase.first; bone; bone = bone->next)
+			for (bone = arm->bonebase.first; bone; bone = bone->next) {
 				IDP_LibLinkProperty(bone->prop, fd);
+			}
 			arm->id.tag &= ~LIB_TAG_NEED_LINK;
 		}
 	}
@@ -3725,12 +3726,14 @@ static void direct_link_text(FileData *fd, Text *text)
 
 /* ************ READ IMAGE ***************** */
 
-static void lib_link_image(FileData *UNUSED(fd), Main *main)
+static void lib_link_image(FileData *fd, Main *main)
 {
 	Image *ima;
 	
 	for (ima = main->image.first; ima; ima = ima->id.next) {
 		if (ima->id.tag & LIB_TAG_NEED_LINK) {
+			IDP_LibLinkProperty(ima->id.properties, fd);
+			
 			ima->id.tag &= ~LIB_TAG_NEED_LINK;
 		}
 	}
@@ -3976,6 +3979,7 @@ static void lib_link_material(FileData *fd, Main *main)
 			
 			/* Link ID Properties -- and copy this comment EXACTLY for easy finding
 			 * of library blocks that implement this.*/
+			IDP_LibLinkProperty(ma->id.properties, fd);
 			
 			ma->ipo = newlibadr_us(fd, ma->id.lib, ma->ipo);  // XXX deprecated - old animation system
 			ma->group = newlibadr_us(fd, ma->id.lib, ma->group);
@@ -4438,6 +4442,7 @@ static void lib_link_mesh(FileData *fd, Main *main)
 			
 			/* Link ID Properties -- and copy this comment EXACTLY for easy finding
 			 * of library blocks that implement this.*/
+			IDP_LibLinkProperty(me->id.properties, fd);
 			lib_link_animdata(fd, &me->id, me->adt);
 			
 			/* this check added for python created meshes */
@@ -4767,6 +4772,7 @@ static void lib_link_object(FileData *fd, Main *main)
 	
 	for (ob = main->object.first; ob; ob = ob->id.next) {
 		if (ob->id.tag & LIB_TAG_NEED_LINK) {
+			IDP_LibLinkProperty(ob->id.properties, fd);
 			lib_link_animdata(fd, &ob->id, ob->adt);
 			
 // XXX deprecated - old animation system <<<
@@ -5710,6 +5716,7 @@ static void lib_link_scene(FileData *fd, Main *main)
 		if (sce->id.tag & LIB_TAG_NEED_LINK) {
 			/* Link ID Properties -- and copy this comment EXACTLY for easy finding
 			 * of library blocks that implement this.*/
+			IDP_LibLinkProperty(sce->id.properties, fd);
 			lib_link_animdata(fd, &sce->id, sce->adt);
 			
 			lib_link_keyingsets(fd, &sce->id, &sce->keyingsets);
@@ -7382,22 +7389,6 @@ static void lib_link_library(FileData *UNUSED(fd), Main *main)
 	}
 }
 
-static void lib_link_id(FileData *fd, Main *main)
-{
-	ListBase *lbarray[MAX_LIBARRAY];
-	int i = set_listbasepointers(main, lbarray);
-	while (i--) {
-		ID *loop = lbarray[i]->first;
-		if (lbarray[i] == &main->nodetree)
-			continue; /* Since nodetrees aren't all in main, they do their own id-prop linking */
-		while (loop) {
-			if (loop->tag & LIB_TAG_NEED_LINK) /* Don't unset yet! */
-				IDP_LibLinkProperty(loop->properties, fd);
-			loop = loop->next;
-		}
-	}
-}
-
 /* Always call this once you have loaded new library data to set the relative paths correctly in relation to the blend file */
 static void fix_relpaths_library(const char *basepath, Main *main)
 {
@@ -7774,6 +7765,7 @@ static void lib_link_linestyle(FileData *fd, Main *main)
 		if (linestyle->id.tag & LIB_TAG_NEED_LINK) {
 			linestyle->id.tag &= ~LIB_TAG_NEED_LINK;
 
+			IDP_LibLinkProperty(linestyle->id.properties, fd);
 			lib_link_animdata(fd, &linestyle->id, linestyle->adt);
 			for (m = linestyle->color_modifiers.first; m; m = m->next) {
 				switch (m->type) {
@@ -8480,8 +8472,6 @@ static void lib_link_all(FileData *fd, Main *main)
 {
 	oldnewmap_sort(fd);
 	
-	lib_link_id(fd, main);
-
 	/* No load UI for undo memfiles */
 	if (fd->memfile == NULL) {
 		lib_link_windowmanager(fd, main);
