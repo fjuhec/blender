@@ -3273,7 +3273,7 @@ static int pyrna_struct_ass_subscript(BPy_StructRNA *self, PyObject *key, PyObje
 
 	BPy_StructRNA* val = (BPy_StructRNA*)value;
 	if (val && self->ptr.type && val->ptr.type) {
-		if (!RNA_struct_datablock_idprops_allowed(self->ptr.type) && RNA_struct_contains_id(val->ptr.type)) {
+		if (!RNA_struct_idprops_datablock_allowed(self->ptr.type) && RNA_struct_contains_id(val->ptr.type)) {
 			PyErr_SetString(PyExc_TypeError, "bpy_struct[key] = val: datablock id properties not supported for this type");
 			return -1;
 		}
@@ -7100,7 +7100,7 @@ static int deferred_register_prop(StructRNA *srna, PyObject *key, PyObject *item
 			StructRNA *type_srna = srna_from_self(type, "");
 			if (type_srna)
 			{
-				if (!RNA_struct_datablock_idprops_allowed(srna) &&
+				if (!RNA_struct_idprops_datablock_allowed(srna) &&
 						(*(PyCFunctionWithKeywords)PyCFunction_GET_FUNCTION(py_func) == BPy_PointerProperty ||
 						 *(PyCFunctionWithKeywords)PyCFunction_GET_FUNCTION(py_func) == BPy_CollectionProperty) &&
 						RNA_struct_contains_id(type_srna)) {

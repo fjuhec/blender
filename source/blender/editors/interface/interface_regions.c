@@ -47,7 +47,6 @@
 #include "BKE_screen.h"
 #include "BKE_report.h"
 #include "BKE_global.h"
-#include "BKE_library.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -812,7 +811,7 @@ int UI_searchbox_size_x(void)
 	return 12 * UI_UNIT_X;
 }
 
-int UI_search_items_find_index(uiSearchItems *items, const char *name, size_t offset)
+int UI_search_items_find_index(uiSearchItems *items, const char *name, const size_t offset)
 {
 	int i;
 	for (i = 0; i < items->totitem; i++) {
@@ -1421,12 +1420,12 @@ void ui_searchbox_free(bContext *C, ARegion *ar)
 
 /* sets red alert if button holds a string it can't find */
 /* XXX weak: search_func adds all partial matches... */
-void ui_but_search_refresh(uiBut *but, bool is_template_ID)
+void ui_but_search_refresh(uiBut *but, const bool is_template_ID)
 {
 	uiSearchItems *items;
 	int x1;
 
-	/* possibly very large lists (such as ID datablocks) only
+	/* possibly very large lists (such as ID datablocks),
 	 * only validate string and pointer RNA buts */
 	if (but->rnaprop && !ELEM(RNA_property_type(but->rnaprop), PROP_STRING, PROP_POINTER)) {
 		return;
@@ -1448,9 +1447,7 @@ void ui_but_search_refresh(uiBut *but, bool is_template_ID)
 		UI_but_flag_enable(but, UI_BUT_REDALERT);
 	}
 	else if (items->more == 0) {
-		int offset = 0;
-		if (is_template_ID)
-			offset = 3;
+		const size_t offset = is_template_ID ? 3 : 0;
 		if (UI_search_items_find_index(items, but->drawstr, offset) == -1) {
 			UI_but_flag_enable(but, UI_BUT_REDALERT);
 		}

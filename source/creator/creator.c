@@ -65,7 +65,6 @@
 #include "BKE_sound.h"
 #include "BKE_image.h"
 #include "BKE_particle.h"
-#include "BKE_idprop.h"
 
 
 #include "IMB_imbuf.h"  /* for IMB_init */

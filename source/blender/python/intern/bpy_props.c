@@ -2843,13 +2843,13 @@ StructRNA *pointer_type_from_py(PyObject *value, const char *error_prefix)
 			const char *msg_char = _PyUnicode_AsString(msg);
 			PyErr_Format(PyExc_TypeError,
 			             "%.200s expected an RNA type, failed with: %s",
-						 error_prefix,msg_char);
+			             error_prefix, msg_char);
 			Py_DECREF(msg);
 		}
 		else {
 			PyErr_Format(PyExc_TypeError,
 			             "%.200s expected an RNA type, failed with type '%s'",
-						 error_prefix, Py_TYPE(value)->tp_name);
+			             error_prefix, Py_TYPE(value)->tp_name);
 		}
 		return NULL;
 	}

@@ -449,16 +449,15 @@ ATTR_NONNULL(1) static void libblock_remap_data(
 
 		while (i--) {
 			for (ID *id_curr = lb_array[i]->first; id_curr; id_curr = id_curr->next) {
-				/* Note that we cannot skip indirect usages of old_id here (if requested), we still need to check it for
-				 * the user count handling...
-				 * XXX No more true (except for debug usage of those skipping counters). */
-				if (!BKE_library_id_can_use_idtype(id_curr, GS(old_id->name))) {
-					continue;
+				if (BKE_library_id_can_use_idtype(id_curr, GS(old_id->name))) {
+					/* Note that we cannot skip indirect usages of old_id here (if requested), we still need to check it for
+					 * the user count handling...
+					 * XXX No more true (except for debug usage of those skipping counters). */
+					r_id_remap_data->id = id_curr;
+					libblock_remap_data_preprocess(r_id_remap_data);
+					BKE_library_foreach_ID_link(
+					            NULL, id_curr, foreach_libblock_remap_callback, (void *)r_id_remap_data, IDWALK_NOP);
 				}
-				r_id_remap_data->id = id_curr;
-				libblock_remap_data_preprocess(r_id_remap_data);
-				BKE_library_foreach_ID_link(
-				            NULL, id_curr, foreach_libblock_remap_callback, (void *)r_id_remap_data, IDWALK_NOP);
 			}
 		}
 	}
@@ -748,6 +747,7 @@ void BKE_libblock_free_ex(Main *bmain, void *idv, const bool do_id_user, const b
 	BPY_id_release(id);
 #endif
 
+	/* XXX TODO this is a no-go, have to check how to remove that call!!! */
 	/* Currently we should remap id to NULL regardless do_id_user,
 	   because when we will try to remove some other block,
        which point to this one with idprop, the attempt

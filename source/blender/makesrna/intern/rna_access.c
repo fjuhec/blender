@@ -590,7 +590,7 @@ bool RNA_struct_idprops_register_check(const StructRNA *type)
 	return (type->flag & STRUCT_NO_IDPROPERTIES) == 0;
 }
 
-bool RNA_struct_datablock_idprops_allowed(const StructRNA *type)
+bool RNA_struct_idprops_datablock_allowed(const StructRNA *type)
 {
 	return (type->flag & STRUCT_NO_DATABLOCK_IDPROPERTIES) == 0;
 }

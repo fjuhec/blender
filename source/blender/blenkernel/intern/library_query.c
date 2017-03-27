@@ -33,6 +33,7 @@
 
 #include "DNA_actuator_types.h"
 #include "DNA_anim_types.h"
+#include "DNA_armature_types.h"
 #include "DNA_brush_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_constraint_types.h"
@@ -61,7 +62,6 @@
 #include "DNA_text_types.h"
 #include "DNA_vfont_types.h"
 #include "DNA_world_types.h"
-#include "DNA_armature_types.h"
 
 #include "BLI_utildefines.h"
 #include "BLI_listbase.h"
@@ -71,17 +71,18 @@
 #include "BKE_animsys.h"
 #include "BKE_constraint.h"
 #include "BKE_fcurve.h"
+#include "BKE_idprop.h"
 #include "BKE_library.h"
 #include "BKE_library_query.h"
 #include "BKE_main.h"
 #include "BKE_modifier.h"
+#include "BKE_node.h"
 #include "BKE_particle.h"
 #include "BKE_rigidbody.h"
 #include "BKE_sca.h"
 #include "BKE_sequencer.h"
 #include "BKE_tracking.h"
-#include "BKE_idprop.h"
-#include "BKE_node.h"
+
 
 #define FOREACH_FINALIZE _finalize
 #define FOREACH_FINALIZE_VOID FOREACH_FINALIZE: (void)0
@@ -141,8 +142,6 @@ typedef struct LibraryForeachIDData {
 	GSet *ids_handled;  /* All IDs that are either already done, or still in ids_todo stack. */
 	BLI_LINKSTACK_DECLARE(ids_todo, ID *);
 } LibraryForeachIDData;
-
-static void library_foreach_idproperty_ID_link(LibraryForeachIDData *data, IDProperty *prop, int flag);
 
 static void library_foreach_rigidbodyworldSceneLooper(
         struct RigidBodyWorld *UNUSED(rbw), ID **id_pointer, void *user_data, int cb_flag)
@@ -594,6 +593,15 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 				break;
 			}
 
+			case ID_AR:
+			{
+				bArmature *arm = (bArmature *) id;
+				Bone *bone;
+				for (bone = arm->bonebase.first; bone; bone=bone->next)
+					library_foreach_idproperty_ID_link(&data, bone->prop, IDWALK_CB_USER);
+				break;
+			}
+
 			case ID_ME:
 			{
 				Mesh *mesh = (Mesh *) id;
@@ -779,7 +787,9 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 				CALLBACK_INVOKE(ntree->gpd, IDWALK_CB_USER);
 				for (node = ntree->nodes.first; node; node = node->next) {
 					CALLBACK_INVOKE_ID(node->id, IDWALK_CB_USER);
+
 					library_foreach_idproperty_ID_link(&data, node->prop, IDWALK_CB_USER);
+
 					bNodeSocket *sock;
 					for (sock = node->inputs.first; sock; sock = sock->next)
 						library_foreach_idproperty_ID_link(&data, sock->prop, IDWALK_CB_USER);
@@ -939,14 +949,6 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 				break;
 			}
 
-			case ID_AR:
-			{
-				bArmature *arm = (bArmature *) id;
-				Bone *bone;
-				for (bone = arm->bonebase.first; bone; bone=bone->next)
-					library_foreach_idproperty_ID_link(&data, bone->prop, IDWALK_CB_USER);
-				break;
-			}
 			/* Nothing needed for those... */
 			case ID_IM:
 			case ID_VF:
@@ -1003,21 +1005,25 @@ void BKE_library_update_ID_link_user(ID *id_dst, ID *id_src, const int cb_flag)
  *     IDProps will support ID pointers), we'll have to do some quick checks on IDs themselves... */
 bool BKE_library_id_can_use_idtype(ID *id_owner, const short id_type_used)
 {
-	// any type of ID can be used in custom props
-	if (id_owner->properties)
+	/* any type of ID can be used in custom props. */
+	if (id_owner->properties) {
 		return true;
+	}
 
 	const short id_type_owner = GS(id_owner->name);
 
-	// IDProps of bones for armatures and bNode->id can have virtually pointer to any type
-	if (ELEM(id_type_owner, ID_NT, ID_AR))
+	/* IDProps of armature bones and nodes, and bNode->id can use virtually any type of ID. */
+	if (ELEM(id_type_owner, ID_NT, ID_AR)) {
 		return true;
+	}
 
-	if (ntreeFromID(id_owner))
+	if (ntreeFromID(id_owner)) {
 		return true;
+	}
 
-	if (BKE_animdata_from_id(id_owner))
+	if (BKE_animdata_from_id(id_owner)) {
 		return true;  /* AnimationData can use virtually any kind of datablocks, through drivers especially. */
+	}
 
 	switch ((ID_Type)id_type_owner) {
 		case ID_LI:

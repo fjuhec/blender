@@ -767,7 +767,7 @@ void RNA_struct_blender_type_set(StructRNA *srna, void *blender_type);
 struct IDProperty *RNA_struct_idprops(PointerRNA *ptr, bool create);
 bool RNA_struct_idprops_check(StructRNA *srna);
 bool RNA_struct_idprops_register_check(const StructRNA *type);
-bool RNA_struct_datablock_idprops_allowed(const StructRNA *type);
+bool RNA_struct_idprops_datablock_allowed(const StructRNA *type);
 bool RNA_struct_contains_id(const StructRNA *type);
 bool RNA_struct_idprops_unset(PointerRNA *ptr, const char *identifier);
 

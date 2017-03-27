@@ -90,7 +90,6 @@
 #include "BKE_speaker.h"
 #include "BKE_texture.h"
 #include "BKE_editmesh.h"
-#include "BKE_library_remap.h"
 
 #include "WM_api.h"
 #include "WM_types.h"

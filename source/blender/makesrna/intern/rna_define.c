@@ -2170,10 +2170,12 @@ void RNA_def_property_update_runtime(PropertyRNA *prop, const void *func)
 
 void RNA_def_property_poll_runtime(PropertyRNA *prop, const void *func)
 {
-	if (prop->type == PROP_POINTER)
+	if (prop->type == PROP_POINTER) {
 		((PointerPropertyRNA *)prop)->poll = func;
-	else
+	}
+	else {
 		fprintf(stderr, "%s: %s is not a Pointer Property.\n", __func__, prop->identifier);
+	}
 }
 
 void RNA_def_property_dynamic_array_funcs(PropertyRNA *prop, const char *getlength)
@@ -2990,8 +2992,9 @@ PropertyRNA *RNA_def_pointer_runtime(StructOrFunctionRNA *cont_, const char *ide
 	
 	prop = RNA_def_property(cont, identifier, PROP_POINTER, PROP_NONE);
 	RNA_def_property_struct_runtime(prop, type);
-	if ((type->flag & STRUCT_ID) != 0)
+	if ((type->flag & STRUCT_ID) != 0) {
 		prop->flag |= PROP_EDITABLE;
+	}
 	RNA_def_property_ui_text(prop, ui_name, ui_description);
 
 	return prop;

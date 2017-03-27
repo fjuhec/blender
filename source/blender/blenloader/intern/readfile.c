@@ -129,6 +129,7 @@
 #include "BKE_library_idmap.h"
 #include "BKE_library_query.h"
 #include "BKE_idcode.h"
+#include "BKE_idprop.h"
 #include "BKE_material.h"
 #include "BKE_main.h" // for Main
 #include "BKE_mesh.h" // for ME_ defines (patching)
@@ -147,7 +148,6 @@
 #include "BKE_outliner_treehash.h"
 #include "BKE_sound.h"
 #include "BKE_colortools.h"
-#include "BKE_idprop.h"
 
 #include "NOD_common.h"
 #include "NOD_socket.h"
@@ -4765,7 +4765,7 @@ static void lib_link_object(FileData *fd, Main *main)
 	for (ob = main->object.first; ob; ob = ob->id.next) {
 		if (ob->id.tag & LIB_TAG_NEED_LINK) {
 			lib_link_animdata(fd, &ob->id, ob->adt);
-
+			
 // XXX deprecated - old animation system <<<
 			ob->ipo = newlibadr_us(fd, ob->id.lib, ob->ipo);
 			ob->action = newlibadr_us(fd, ob->id.lib, ob->action);
