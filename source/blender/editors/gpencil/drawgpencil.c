@@ -231,7 +231,7 @@ static void gp_draw_stroke_buffer(const tGPspoint *points, int totpoints, short 
 
 		glLineWidth(max_ff(oldpressure * thickness, 1.0));
 		immBindBuiltinProgram(GPU_SHADER_2D_SMOOTH_COLOR);
-		immBeginAtMost(GL_LINE_STRIP, totpoints);
+		immBeginAtMost(PRIM_LINE_STRIP, totpoints);
 
 		/* TODO: implement this with a geometry shader to draw one continuous tapered stroke */
 
@@ -250,7 +250,7 @@ static void gp_draw_stroke_buffer(const tGPspoint *points, int totpoints, short 
 				draw_points = 0;
 
 				glLineWidth(max_ff(pt->pressure * thickness, 1.0f));
-				immBeginAtMost(GL_LINE_STRIP, totpoints - i + 1);
+				immBeginAtMost(PRIM_LINE_STRIP, totpoints - i + 1);
 
 				/* need to roll-back one point to ensure that there are no gaps in the stroke */
 				if (i != 0) { 
@@ -728,13 +728,13 @@ static void gp_draw_stroke_3d(ARegion *ar, const bGPDspoint *points, int totpoin
 {
 	RegionView3D *rv3d = ar->regiondata;
 	float viewmat[4][4];
-	float viewsize[2] = { ar->winx, ar->winy };
+	float viewport[2] = { ar->winx, ar->winy };
 	copy_m4_m4(viewmat, rv3d->viewmat);
 
 	float curpressure = points[0].pressure;
 	float fpt[3];
 	float cyclic_fpt[3];
-	int draw_points = 0;
+	float old_thickness = 1.0f;
 
 	/* if cyclic needs one vertex more */
 	int cyclic_add = 0;
@@ -746,68 +746,55 @@ static void gp_draw_stroke_3d(ARegion *ar, const bGPDspoint *points, int totpoin
 	VertexFormat *format = immVertexFormat();
 	unsigned pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
 	unsigned color = add_attrib(format, "color", GL_UNSIGNED_BYTE, 4, NORMALIZE_INT_TO_FLOAT);
+	unsigned thickattrib = add_attrib(format, "thickness", GL_FLOAT, 1, KEEP_FLOAT);
 
-	immBindBuiltinProgram(GPU_SHADER_3D_SMOOTH_COLOR);
-
-	/* TODO: implement this with a geometry shader to draw one continuous tapered stroke */
+	immBindBuiltinProgram(GPU_SHADER_GPENCIL_STROKE);
+	immUniform2fv("Viewport", viewport);
 
 	/* draw stroke curve */
 	glLineWidth(max_ff(curpressure * thickness, 1.0f));
-	immBeginAtMost(GL_LINE_STRIP, totpoints + cyclic_add);
+	immBeginAtMost(PRIM_LINE_STRIP_ADJACENCY, totpoints + cyclic_add + 2);
 	const bGPDspoint *pt = points;
+	const bGPDspoint *pta = &points[0];
+	const bGPDspoint *ptb = &points[totpoints - 1];
+
 	for (int i = 0; i < totpoints; i++, pt++) {
-		gp_set_point_varying_color(pt, ink, color);
-
-		/* if there was a significant pressure change, stop the curve, change the thickness of the stroke,
-		 * and continue drawing again (since line-width cannot change in middle of GL_LINE_STRIP)
-		 * Note: we want more visible levels of pressures when thickness is bigger.
-		 */
-		if (fabsf(pt->pressure - curpressure) > 0.2f / (float)thickness) {
-			/* if the pressure changes before get at least 2 vertices, need to repeat last point to avoid assert in immEnd() */
-			if (draw_points < 2) {
-				const bGPDspoint *pt2 = pt - 1;
-				mul_v3_m4v3(fpt, diff_mat, &pt2->x);
-				immVertex3fv(pos, fpt);
-			}
-			immEnd();
-			draw_points = 0;
-
-			curpressure = pt->pressure;
-			glLineWidth(max_ff(curpressure * thickness, 1.0f));
-			immBeginAtMost(GL_LINE_STRIP, totpoints - i + 1 + cyclic_add);
-
-			/* need to roll-back one point to ensure that there are no gaps in the stroke */
-			if (i != 0) { 
-				const bGPDspoint *pt2 = pt - 1;
-				mul_v3_m4v3(fpt, diff_mat, &pt2->x);
-				gp_set_point_varying_color(pt2, ink, color);
-				immVertex3fv(pos, fpt);
-				++draw_points;
-			}
+		/* first point for adjacency (scale first point) */
+		if (i == 0) {
+			mul_v3_fl(&pta->x, -1.5f); 
+			gp_set_point_varying_color(pta, ink, color);
+			immAttrib1f(thickattrib, max_ff(curpressure * thickness, 1.0f));
+			mul_v3_m4v3(fpt, diff_mat, &pta->x);
+			immVertex3fv(pos, fpt);
 		}
 
-		/* now the point we want */
+		/* set point */
+		gp_set_point_varying_color(pt, ink, color);
+		immAttrib1f(thickattrib, max_ff(curpressure * thickness, 1.0f));
 		mul_v3_m4v3(fpt, diff_mat, &pt->x);
 		immVertex3fv(pos, fpt);
-		++draw_points;
 
 		if (cyclic && i == 0) {
-			/* save first point to use in cyclic */
+			/* save first point to use later in cyclic */
 			copy_v3_v3(cyclic_fpt, fpt);
+			old_thickness = max_ff(curpressure * thickness, 1.0f);
 		}
+
+		curpressure = pt->pressure;
 	}
 
 	if (cyclic) {
 		/* draw line to first point to complete the cycle */
+		/* TODO add adjacency points */
+		immAttrib1f(thickattrib, old_thickness);
 		immVertex3fv(pos, cyclic_fpt);
-		++draw_points;
 	}
-
-	/* if less of two points, need to repeat last point to avoid assert in immEnd() */
-	if (draw_points < 2) {
-		const bGPDspoint *pt2 = pt - 1;
-		mul_v3_m4v3(fpt, diff_mat, &pt2->x);
-		gp_set_point_varying_color(pt2, ink, color);
+	/* last adjacency point (scale last point) */
+	else {
+		mul_v3_fl(&ptb->x, 1.5f);
+		gp_set_point_varying_color(ptb, ink, color);
+		immAttrib1f(thickattrib, max_ff(curpressure * thickness, 1.0f));
+		mul_v3_m4v3(fpt, diff_mat, &ptb->x);
 		immVertex3fv(pos, fpt);
 	}
 
