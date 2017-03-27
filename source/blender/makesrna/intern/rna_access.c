@@ -641,8 +641,11 @@ PropertyRNA *RNA_struct_find_property(PointerRNA *ptr, const char *identifier)
 		/* id prop lookup, not so common */
 		PropertyRNA *r_prop = NULL;
 		PointerRNA r_ptr; /* only support single level props */
-		if (RNA_path_resolve(ptr, identifier, &r_ptr, &r_prop) && (r_ptr.type == ptr->type) && (r_ptr.data == ptr->data))
+		if (RNA_path_resolve_property(ptr, identifier, &r_ptr, &r_prop) &&
+		    (r_ptr.type == ptr->type) && (r_ptr.data == ptr->data))
+		{
 			return r_prop;
+		}
 	}
 	else {
 		/* most common case */
