@@ -33,8 +33,6 @@
 #include "BKE_global.h"
 
 #include "GPU_batch.h"
-#include "GPU_debug.h"
-#include "GPU_glew.h"
 #include "GPU_framebuffer.h"
 #include "GPU_matrix.h"
 #include "GPU_shader.h"
@@ -220,14 +218,9 @@ void GPU_texture_bind_as_framebuffer(GPUTexture *tex)
 		glEnable(GL_MULTISAMPLE);
 	}
 
-	/* push matrices and set default viewport and matrix */
+	/* set default viewport */
 	glViewport(0, 0, GPU_texture_width(tex), GPU_texture_height(tex));
 	GG.currentfb = fb->object;
-
-	glMatrixMode(GL_PROJECTION);
-	gpuPushMatrix();
-	glMatrixMode(GL_MODELVIEW);
-	gpuPushMatrix();
 }
 
 void GPU_framebuffer_slots_bind(GPUFrameBuffer *fb, int slot)
@@ -258,14 +251,9 @@ void GPU_framebuffer_slots_bind(GPUFrameBuffer *fb, int slot)
 	glDrawBuffers(numslots, attachments);
 	glReadBuffer(GL_COLOR_ATTACHMENT0 + slot);
 
-	/* push matrices and set default viewport and matrix */
+	/* set default viewport */
 	glViewport(0, 0, GPU_texture_width(fb->colortex[slot]), GPU_texture_height(fb->colortex[slot]));
 	GG.currentfb = fb->object;
-
-	glMatrixMode(GL_PROJECTION);
-	gpuPushMatrix();
-	glMatrixMode(GL_MODELVIEW);
-	gpuPushMatrix();
 }
 
 void GPU_framebuffer_bind(GPUFrameBuffer *fb)
@@ -308,12 +296,6 @@ void GPU_framebuffer_bind(GPUFrameBuffer *fb)
 
 void GPU_framebuffer_texture_unbind(GPUFrameBuffer *UNUSED(fb), GPUTexture *UNUSED(tex))
 {
-	/* restore matrix */
-	glMatrixMode(GL_PROJECTION);
-	gpuPopMatrix();
-	glMatrixMode(GL_MODELVIEW);
-	gpuPopMatrix();
-
 	/* restore attributes */
 	glPopAttrib();
 }
