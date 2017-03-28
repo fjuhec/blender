@@ -753,7 +753,7 @@ static void gp_draw_stroke_3d(ARegion *ar, const bGPDspoint *points, int totpoin
 
 	/* draw stroke curve */
 	glLineWidth(max_ff(curpressure * thickness, 1.0f));
-	immBeginAtMost(PRIM_LINE_STRIP_ADJACENCY, totpoints + cyclic_add + 2);
+	immBeginAtMost(GL_LINE_STRIP_ADJACENCY, totpoints + cyclic_add + 2);
 	const bGPDspoint *pt = points;
 	const bGPDspoint *pta = &points[0];
 	const bGPDspoint *ptb = &points[totpoints - 1];
