@@ -774,6 +774,7 @@ template<size_t index_0, size_t index_1, size_t index_2, size_t index_3> __force
 	return _mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(b), _MM_SHUFFLE(index_3, index_2, index_1, index_0)));
 }
 
+#if defined(__KERNEL_SSE3__)
 template<> __forceinline const float4 shuffle<0, 0, 2, 2>(const float4& b)
 {
 	return _mm_moveldup_ps(b);
@@ -783,6 +784,7 @@ template<> __forceinline const float4 shuffle<1, 1, 3, 3>(const float4& b)
 {
 	return _mm_movehdup_ps(b);
 }
+#endif
 
 template<> __forceinline const float4 shuffle<0, 1, 0, 1>(const float4& b)
 {
@@ -1241,19 +1243,6 @@ ccl_device_inline float __uint_as_float(uint i)
 	return u.f;
 }
 
-/* Versions of functions which are safe for fast math. */
-ccl_device_inline bool isnan_safe(float f)
-{
-	unsigned int x = __float_as_uint(f);
-	return (x << 1) > 0xff000000u;
-}
-
-ccl_device_inline bool isfinite_safe(float f)
-{
-	/* By IEEE 754 rule, 2*Inf equals Inf */
-	unsigned int x = __float_as_uint(f);
-	return (f == f) && (x == 0 || (f != 2.0f*f));
-}
 
 /* Interpolation */
 
@@ -1270,6 +1259,20 @@ ccl_device_inline float triangle_area(const float3& v1, const float3& v2, const 
 }
 
 #endif
+
+/* Versions of functions which are safe for fast math. */
+ccl_device_inline bool isnan_safe(float f)
+{
+	unsigned int x = __float_as_uint(f);
+	return (x << 1) > 0xff000000u;
+}
+
+ccl_device_inline bool isfinite_safe(float f)
+{
+	/* By IEEE 754 rule, 2*Inf equals Inf */
+	unsigned int x = __float_as_uint(f);
+	return (f == f) && (x == 0 || (f != 2.0f*f)) && !((x << 1) > 0xff000000u);
+}
 
 /* Orthonormal vectors */
 
