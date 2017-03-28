@@ -34,11 +34,11 @@
 #include "BKE_global.h"
 
 #include "GPU_compositing.h"
-#include "GPU_debug.h"
 #include "GPU_extensions.h"
 #include "GPU_shader.h"
 #include "GPU_uniformbuffer.h"
 #include "GPU_texture.h"
+#include "GPU_matrix.h"
 
 #include "gpu_shader_private.h"
 
@@ -512,6 +512,7 @@ void GPU_shader_bind(GPUShader *shader)
 	BLI_assert(shader && shader->program);
 
 	glUseProgram(shader->program);
+	gpuBindMatrices(shader->program);
 }
 
 void GPU_shader_unbind(void)

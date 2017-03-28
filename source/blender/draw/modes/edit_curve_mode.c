@@ -76,6 +76,7 @@ typedef struct EDIT_CURVE_StorageList {
 	 * free with MEM_freeN() when viewport is freed.
 	 * (not per object) */
 	struct CustomStruct *block;
+	struct g_data *g_data;
 } EDIT_CURVE_StorageList;
 
 typedef struct EDIT_CURVE_Data {
@@ -99,28 +100,24 @@ static struct {
 	struct GPUShader *custom_shader;
 } e_data = {NULL}; /* Engine data */
 
-static struct {
-	/* This keeps the reference of the viewport engine data because
-	 * DRW_viewport_engine_data_get is slow and we don't want to
-	 * call it for every object */
-	EDIT_CURVE_Data *vedata;
+typedef struct g_data {
+
 
 	/* This keeps the references of the shading groups for
 	 * easy access in EDIT_CURVE_cache_populate() */
 	DRWShadingGroup *group;
-} g_data = {NULL}; /* Transient data */
+} g_data; /* Transient data */
 
 /* *********** FUNCTIONS *********** */
 
 /* Init Textures, Framebuffers, Storage and Shaders.
  * It is called for every frames.
  * (Optional) */
-static void EDIT_CURVE_engine_init(void)
+static void EDIT_CURVE_engine_init(void *vedata)
 {
-	g_data.vedata = DRW_viewport_engine_data_get("EditCurveMode");
-	EDIT_CURVE_TextureList *txl = g_data.vedata->txl;
-	EDIT_CURVE_FramebufferList *fbl = g_data.vedata->fbl;
-	EDIT_CURVE_StorageList *stl = g_data.vedata->stl;
+	EDIT_CURVE_TextureList *txl = ((EDIT_CURVE_Data *)vedata)->txl;
+	EDIT_CURVE_FramebufferList *fbl = ((EDIT_CURVE_Data *)vedata)->fbl;
+	EDIT_CURVE_StorageList *stl = ((EDIT_CURVE_Data *)vedata)->stl;
 
 	UNUSED_VARS(txl, fbl, stl);
 
@@ -146,13 +143,15 @@ static void EDIT_CURVE_engine_init(void)
 
 /* Here init all passes and shading groups
  * Assume that all Passes are NULL */
-static void EDIT_CURVE_cache_init(void)
+static void EDIT_CURVE_cache_init(void *vedata)
 {
-	g_data.vedata = DRW_viewport_engine_data_get("EditCurveMode");
-	EDIT_CURVE_PassList *psl = g_data.vedata->psl;
-	EDIT_CURVE_StorageList *stl = g_data.vedata->stl;
+	EDIT_CURVE_PassList *psl = ((EDIT_CURVE_Data *)vedata)->psl;
+	EDIT_CURVE_StorageList *stl = ((EDIT_CURVE_Data *)vedata)->stl;
 
-	UNUSED_VARS(stl);
+	if (!stl->g_data) {
+		/* Alloc transient pointers */
+		stl->g_data = MEM_mallocN(sizeof(g_data), "g_data");
+	}
 
 	{
 		/* Create a pass */
@@ -161,25 +160,25 @@ static void EDIT_CURVE_cache_init(void)
 
 		/* Create a shadingGroup using a function in draw_common.c or custom one */
 		/*
-		 * g_data.group = shgroup_dynlines_uniform_color(psl->pass, ts.colorWire);
+		 * stl->g_data->group = shgroup_dynlines_uniform_color(psl->pass, ts.colorWire);
 		 * -- or --
-		 * g_data.group = DRW_shgroup_create(e_data.custom_shader, psl->pass);
+		 * stl->g_data->group = DRW_shgroup_create(e_data.custom_shader, psl->pass);
 		 */
-		g_data.group = DRW_shgroup_create(e_data.custom_shader, psl->pass);
+		stl->g_data->group = DRW_shgroup_create(e_data.custom_shader, psl->pass);
 
 		/* Uniforms need a pointer to it's value so be sure it's accessible at
 		 * any given time (i.e. use static vars) */
 		static float color[4] = {0.2f, 0.5f, 0.3f, 1.0};
-		DRW_shgroup_uniform_vec4(g_data.group, "color", color, 1);
+		DRW_shgroup_uniform_vec4(stl->g_data->group, "color", color, 1);
 	}
 
 }
 
 /* Add geometry to shadingGroups. Execute for each objects */
-static void EDIT_CURVE_cache_populate(Object *ob)
+static void EDIT_CURVE_cache_populate(void *vedata, Object *ob)
 {
-	EDIT_CURVE_PassList *psl = g_data.vedata->psl;
-	EDIT_CURVE_StorageList *stl = g_data.vedata->stl;
+	EDIT_CURVE_PassList *psl = ((EDIT_CURVE_Data *)vedata)->psl;
+	EDIT_CURVE_StorageList *stl = ((EDIT_CURVE_Data *)vedata)->stl;
 
 	UNUSED_VARS(psl, stl);
 
@@ -188,26 +187,25 @@ static void EDIT_CURVE_cache_populate(Object *ob)
 		struct Batch *geom = DRW_cache_surface_get(ob);
 
 		/* Add geom to a shading group */
-		DRW_shgroup_call_add(g_data.group, geom, ob->obmat);
+		DRW_shgroup_call_add(stl->g_data->group, geom, ob->obmat);
 	}
 }
 
 /* Optional: Post-cache_populate callback */
-static void EDIT_CURVE_cache_finish(void)
+static void EDIT_CURVE_cache_finish(void *vedata)
 {
-	EDIT_CURVE_PassList *psl = g_data.vedata->psl;
-	EDIT_CURVE_StorageList *stl = g_data.vedata->stl;
+	EDIT_CURVE_PassList *psl = ((EDIT_CURVE_Data *)vedata)->psl;
+	EDIT_CURVE_StorageList *stl = ((EDIT_CURVE_Data *)vedata)->stl;
 
 	/* Do something here! dependant on the objects gathered */
 	UNUSED_VARS(psl, stl);
 }
 
 /* Draw time ! Control rendering pipeline from here */
-static void EDIT_CURVE_draw_scene(void)
+static void EDIT_CURVE_draw_scene(void *vedata)
 {
-	EDIT_CURVE_Data *ved = DRW_viewport_engine_data_get("EditCurveMode");
-	EDIT_CURVE_PassList *psl = ved->psl;
-	EDIT_CURVE_FramebufferList *fbl = ved->fbl;
+	EDIT_CURVE_PassList *psl = ((EDIT_CURVE_Data *)vedata)->psl;
+	EDIT_CURVE_FramebufferList *fbl = ((EDIT_CURVE_Data *)vedata)->fbl;
 
 	/* Default framebuffer and texture */
 	DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
