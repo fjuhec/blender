@@ -65,6 +65,7 @@
 
 #include "GPU_immediate.h"
 #include "GPU_draw.h"
+#include "GPU_matrix.h"
 
 #include "ED_gpencil.h"
 #include "ED_screen.h"
@@ -728,7 +729,7 @@ static void gp_draw_stroke_3d(ARegion *ar, const bGPDspoint *points, int totpoin
 {
 	RegionView3D *rv3d = ar->regiondata;
 	float viewport[2] = { ar->winx, ar->winy };
-
+	float viewmat[4][4];
 	float curpressure = points[0].pressure;
 	float fpt[3];
 	float cyclic_fpt[3];
@@ -748,6 +749,7 @@ static void gp_draw_stroke_3d(ARegion *ar, const bGPDspoint *points, int totpoin
 
 	immBindBuiltinProgram(GPU_SHADER_GPENCIL_STROKE);
 	immUniform2fv("Viewport", viewport);
+	gpuGetModelViewProjectionMatrix3D(viewmat);
 
 	/* draw stroke curve */
 	glLineWidth(max_ff(curpressure * thickness, 1.0f));
@@ -755,26 +757,46 @@ static void gp_draw_stroke_3d(ARegion *ar, const bGPDspoint *points, int totpoin
 	const bGPDspoint *pt = points;
 	const bGPDspoint *pta = &points[0];
 	const bGPDspoint *ptb = &points[totpoints - 1];
+	float scale = 1.0f;
+	float b = 0.0f;
+
+	/* take first segment and create a normalize vector */
+	sub_v3_v3v3(fpt, &points->x, &(points + 1)->x);
+	mul_v3_m4v3(fpt, diff_mat, fpt);
+	normalize_v3(fpt);
+
+	/* get the length after apply matrix to get real size */
+	mul_v3_m4v3(fpt, viewmat, fpt);
+	b = len_v3(fpt);
+	
+	/* get thickness scale */
+	if (rv3d->is_persp) {
+		scale = 5.0f / b; /* not use 1.0 to avoid too small values */
+	}
+	else {
+		scale = b;
+	}
 
 	for (int i = 0; i < totpoints; i++, pt++) {
-		/* first point for adjacency */
+		/* first point for adjacency (not drawn) */
 		if (i == 0) {
 			gp_set_point_varying_color(pta, ink, color);
-			immAttrib1f(thickattrib, max_ff(curpressure * thickness, 1.0f));
-			mul_v3_m4v3(fpt, diff_mat, &pta->x);
+			immAttrib1f(thickattrib, max_ff(curpressure * thickness * scale, 1.0f));
+			mul_v3_m4v3(fpt, diff_mat, &(points + 1)->x);
+			mul_v3_fl(fpt, -1.0f);
 			immVertex3fv(pos, fpt);
 		}
 
 		/* set point */
 		gp_set_point_varying_color(pt, ink, color);
-		immAttrib1f(thickattrib, max_ff(curpressure * thickness, 1.0f));
+		immAttrib1f(thickattrib, max_ff(curpressure * thickness * scale, 1.0f));
 		mul_v3_m4v3(fpt, diff_mat, &pt->x);
 		immVertex3fv(pos, fpt);
 
 		if (cyclic && i == 0) {
 			/* save first point to use later in cyclic */
 			copy_v3_v3(cyclic_fpt, fpt);
-			old_thickness = max_ff(curpressure * thickness, 1.0f);
+			old_thickness = max_ff(curpressure * thickness * scale, 1.0f);
 		}
 
 		curpressure = pt->pressure;
@@ -786,11 +808,12 @@ static void gp_draw_stroke_3d(ARegion *ar, const bGPDspoint *points, int totpoin
 		immAttrib1f(thickattrib, old_thickness);
 		immVertex3fv(pos, cyclic_fpt);
 	}
-	/* last adjacency point */
+	/* last adjacency point (not drawn) */
 	else {
 		gp_set_point_varying_color(ptb, ink, color);
-		immAttrib1f(thickattrib, max_ff(curpressure * thickness, 1.0f));
-		mul_v3_m4v3(fpt, diff_mat, &ptb->x);
+		immAttrib1f(thickattrib, max_ff(curpressure * thickness * scale, 1.0f));
+		mul_v3_m4v3(fpt, diff_mat, &(points + totpoints - 2)->x);
+		mul_v3_fl(fpt, -1.0f);
 		immVertex3fv(pos, fpt);
 	}
 

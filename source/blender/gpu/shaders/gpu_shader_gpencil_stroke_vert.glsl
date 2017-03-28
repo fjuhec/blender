@@ -19,6 +19,5 @@ void main(void)
 {
 	gl_Position = ModelViewProjectionMatrix * vec4( pos, 1.0 );
 	finalColor = color;
-	//float tmp = (ViewMatrix * vec4(0.0, thickness, 0.0, 1.0)).y;
-	finalThickness = (ModelViewProjectionMatrix * vec4(0.0, thickness, 0.0, 1.0)).y;
+	finalThickness = thickness;
 } 
