@@ -8671,12 +8671,12 @@ static void do_versions(FileData *fd, Library *lib, Main *main)
 	/* don't forget to set version number in BKE_blender_version.h! */
 }
 
-static void do_versions_after_linking(FileData *fd, Main *main)
+static void do_versions_after_linking(Main *main)
 {
 //	printf("%s for %s (%s), %d.%d\n", __func__, main->curlib ? main->curlib->name : main->name,
 //	       main->curlib ? "LIB" : "MAIN", main->versionfile, main->subversionfile);
 	do_versions_after_linking_270(main);
-	do_versions_after_linking_280(fd, main);
+	do_versions_after_linking_280(main);
 }
 
 static void lib_link_all(FileData *fd, Main *main)
@@ -8900,7 +8900,7 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
 		blo_split_main(&mainlist, bfd->main);
 		for (Main *mainvar = mainlist.first; mainvar; mainvar = mainvar->next) {
 			BLI_assert(mainvar->versionfile != 0);
-			do_versions_after_linking(fd, mainvar);
+			do_versions_after_linking(mainvar);
 		}
 		blo_join_main(&mainlist);
 	}
@@ -9977,6 +9977,9 @@ static void expand_workspace(FileData *fd, Main *mainvar, WorkSpace *workspace)
 		expand_doit(fd, mainvar, BKE_workspace_layout_screen_get(layout));
 	}
 	BKE_workspace_layout_iter_end;
+
+	/* unset render-layer, when changing workspace we'll assign one from the active scene then. */
+	BKE_workspace_render_layer_set(workspace, NULL);
 }
 
 /**
@@ -10548,7 +10551,7 @@ static void library_link_end(Main *mainl, FileData **fd, const short flag, Scene
 		/* We need to split out IDs already existing, or they will go again through do_versions - bad, very bad! */
 		split_main_newid(mainvar, &main_newid);
 
-		do_versions_after_linking(*fd, &main_newid);
+		do_versions_after_linking(&main_newid);
 
 		add_main_to_main(mainvar, &main_newid);
 	}
