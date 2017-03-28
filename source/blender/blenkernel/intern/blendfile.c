@@ -481,6 +481,29 @@ int BKE_blendfile_userdef_write(const char *filepath, ReportList *reports)
 	return retval;
 }
 
+WorkflowFileData *BKE_blendfile_workflow_read(const char *filepath, ReportList *reports)
+{
+	BlendFileData *bfd;
+	WorkflowFileData *workflow_file = NULL;
+
+	bfd = BLO_read_from_file(filepath, reports, BLO_READ_SKIP_USERDEF); /* TODO only read workspaces */
+	if (bfd) {
+		workflow_file = MEM_mallocN(sizeof(*workflow_file), __func__);
+		workflow_file->main = bfd->main;
+		workflow_file->workspaces = bfd->main->workspaces;
+
+		MEM_freeN(bfd);
+	}
+
+	return workflow_file;
+}
+
+void BKE_blendfile_workflow_data_free(WorkflowFileData *workflow_file)
+{
+	BKE_main_free(workflow_file->main);
+	MEM_freeN(workflow_file);
+}
+
 /** \} */
 
 

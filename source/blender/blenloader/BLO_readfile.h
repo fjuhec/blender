@@ -72,6 +72,12 @@ typedef struct BlendFileData {
 	BlenFileType type;
 } BlendFileData;
 
+typedef struct WorkflowFileData {
+	struct Main *main; /* has to be freed when done reading file data */
+
+	ListBase workspaces;
+} WorkflowFileData;
+
 
 /* skip reading some data-block types (may want to skip screen data too). */
 typedef enum eBLOReadSkip {

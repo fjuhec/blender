@@ -435,6 +435,7 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 		wm_link_append_data_library_add(lapp_data, libname);
 		item = wm_link_append_data_item_add(lapp_data, name, BKE_idcode_from_name(group), NULL);
 		BLI_BITMAP_ENABLE(item->libraries, 0);
+		has_item = true;
 	}
 
 	if (!has_item) {
