@@ -727,9 +727,7 @@ static void gp_draw_stroke_3d(ARegion *ar, const bGPDspoint *points, int totpoin
                               short UNUSED(sflag), const float diff_mat[4][4], const float ink[4], bool cyclic)
 {
 	RegionView3D *rv3d = ar->regiondata;
-	float viewmat[4][4];
 	float viewport[2] = { ar->winx, ar->winy };
-	copy_m4_m4(viewmat, rv3d->viewmat);
 
 	float curpressure = points[0].pressure;
 	float fpt[3];
@@ -753,15 +751,14 @@ static void gp_draw_stroke_3d(ARegion *ar, const bGPDspoint *points, int totpoin
 
 	/* draw stroke curve */
 	glLineWidth(max_ff(curpressure * thickness, 1.0f));
-	immBeginAtMost(GL_LINE_STRIP_ADJACENCY, totpoints + cyclic_add + 2);
+	immBeginAtMost(PRIM_LINE_STRIP_ADJACENCY, totpoints + cyclic_add + 2);
 	const bGPDspoint *pt = points;
 	const bGPDspoint *pta = &points[0];
 	const bGPDspoint *ptb = &points[totpoints - 1];
 
 	for (int i = 0; i < totpoints; i++, pt++) {
-		/* first point for adjacency (scale first point) */
+		/* first point for adjacency */
 		if (i == 0) {
-			mul_v3_fl(&pta->x, -1.5f); 
 			gp_set_point_varying_color(pta, ink, color);
 			immAttrib1f(thickattrib, max_ff(curpressure * thickness, 1.0f));
 			mul_v3_m4v3(fpt, diff_mat, &pta->x);
@@ -789,9 +786,8 @@ static void gp_draw_stroke_3d(ARegion *ar, const bGPDspoint *points, int totpoin
 		immAttrib1f(thickattrib, old_thickness);
 		immVertex3fv(pos, cyclic_fpt);
 	}
-	/* last adjacency point (scale last point) */
+	/* last adjacency point */
 	else {
-		mul_v3_fl(&ptb->x, 1.5f);
 		gp_set_point_varying_color(ptb, ink, color);
 		immAttrib1f(thickattrib, max_ff(curpressure * thickness, 1.0f));
 		mul_v3_m4v3(fpt, diff_mat, &ptb->x);

@@ -1,5 +1,4 @@
 uniform mat4 ModelViewProjectionMatrix;
-uniform mat4 ViewMatrix;
 
 #if __VERSION__ == 120
 	attribute vec3 pos;
@@ -20,6 +19,6 @@ void main(void)
 {
 	gl_Position = ModelViewProjectionMatrix * vec4( pos, 1.0 );
 	finalColor = color;
-	float tmp = (ViewMatrix  * vec4(0.0, 0.0, thickness, 1.0)).z;
-	finalThickness = thickness;
+	//float tmp = (ViewMatrix * vec4(0.0, thickness, 0.0, 1.0)).y;
+	finalThickness = (ModelViewProjectionMatrix * vec4(0.0, thickness, 0.0, 1.0)).y;
 } 
