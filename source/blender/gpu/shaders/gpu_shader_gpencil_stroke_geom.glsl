@@ -30,13 +30,6 @@ void main(void)
 	vec2 p2 = toScreenSpace(P2);	// end of current segment, start of next segment
 	vec2 p3 = toScreenSpace(P3); // end of next segment
 
-	/* perform naive culling */
-	vec2 area = Viewport * 1.8;
-	if (p1.x < -area.x || p1.x > area.x) return;
-	if (p1.y < -area.y || p1.y > area.y) return;
-	if (p2.x < -area.x || p2.x > area.x) return;
-	if (p2.y < -area.y || p2.y > area.y) return;
-
 	/* determine the direction of each of the 3 segments (previous, current, next) */
 	vec2 v0 = normalize(p1 - p0);
 	vec2 v1 = normalize(p2 - p1);
