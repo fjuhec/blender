@@ -2804,11 +2804,11 @@ static void lib_link_ntree(FileData *fd, ID *id, bNodeTree *ntree)
 		node->id = newlibadr_us(fd, id->lib, node->id);
 
 		for (sock = node->inputs.first; sock; sock = sock->next) {
-			IDP_LibLinkProperty(sock->prop, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
+			IDP_LibLinkProperty(sock->prop, fd);
 			lib_link_node_socket(fd, id, sock);
 		}
 		for (sock = node->outputs.first; sock; sock = sock->next) {
-			IDP_LibLinkProperty(sock->prop, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
+			IDP_LibLinkProperty(sock->prop, fd);
 			lib_link_node_socket(fd, id, sock);
 		}
 	}
