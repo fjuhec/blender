@@ -784,18 +784,24 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 			{
 				bNodeTree *ntree = (bNodeTree *) id;
 				bNode *node;
+				bNodeSocket *sock;
+
 				CALLBACK_INVOKE(ntree->gpd, IDWALK_CB_USER);
+
 				for (node = ntree->nodes.first; node; node = node->next) {
 					CALLBACK_INVOKE_ID(node->id, IDWALK_CB_USER);
 
 					library_foreach_idproperty_ID_link(&data, node->prop, IDWALK_CB_USER);
-
-					bNodeSocket *sock;
 					for (sock = node->inputs.first; sock; sock = sock->next)
 						library_foreach_idproperty_ID_link(&data, sock->prop, IDWALK_CB_USER);
 					for (sock = node->outputs.first; sock; sock = sock->next)
 						library_foreach_idproperty_ID_link(&data, sock->prop, IDWALK_CB_USER);
 				}
+
+				for (sock = ntree->inputs.first; sock; sock = sock->next)
+					library_foreach_idproperty_ID_link(&data, sock->prop, IDWALK_CB_USER);
+				for (sock = ntree->outputs.first; sock; sock = sock->next)
+					library_foreach_idproperty_ID_link(&data, sock->prop, IDWALK_CB_USER);
 				break;
 			}
 
