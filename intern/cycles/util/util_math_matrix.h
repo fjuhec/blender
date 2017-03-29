@@ -41,13 +41,7 @@ ccl_device_inline void math_vector_zero(float *v, int n)
 ccl_device_inline void math_local_vector_zero(float ccl_local_param *v, int n)
 {
 	for(int i = 0; i < n; i++)
-		v[i] = 0.0f;
-}
-
-ccl_device_inline void math_vec3_zero(float3 *v, int n)
-{
-	for(int i = 0; i < n; i++)
-		v[i] = make_float3(0.0f, 0.0f, 0.0f);
+		v[i] = 0;
 }
 
 ccl_device_inline void math_trimatrix_zero(float *A, int n)
@@ -89,22 +83,6 @@ ccl_device_inline void math_vector_max(float *a, ccl_local_param float ccl_reado
 		a[i] = max(a[i], b[i]);
 }
 
-ccl_device_inline float math_vector_dot(float ccl_readonly_ptr a, float ccl_readonly_ptr b, int n)
-{
-	float d = 0.0f;
-	for(int i = 0; i < n; i++)
-		d += a[i]*b[i];
-	return d;
-}
-
-ccl_device_inline float math_vector_dot_strided(ccl_local_param float ccl_readonly_ptr a, ccl_global float ccl_readonly_ptr b, int bstride, int n)
-{
-	float d = 0.0f;
-	for(int i = 0; i < n; i++)
-		d += a[i]*b[i*bstride];
-	return d;
-}
-
 ccl_device_inline void math_vec3_add(float3 *v, int n, float *x, float3 w)
 {
 	for(int i = 0; i < n; i++)
@@ -115,14 +93,6 @@ ccl_device_inline void math_vec3_add_strided(ccl_global float3 *v, int n, float 
 {
 	for(int i = 0; i < n; i++)
 		v[i*stride] += w*x[i];
-}
-
-ccl_device_inline float3 math_vector_vec3_dot(float ccl_readonly_ptr a, float3 ccl_readonly_ptr b, int n)
-{
-	float3 d = make_float3(0.0f, 0.0f, 0.0f);
-	for(int i = 0; i < n; i++)
-		d += a[i]*b[i];
-	return d;
 }
 
 /* Elementary matrix operations.
@@ -137,7 +107,10 @@ ccl_device_inline void math_matrix_add_diagonal(ccl_global float *A, int n, floa
 /* Add Gramian matrix of v to A.
  * The Gramian matrix of v is vt*v, so element (i,j) is v[i]*v[j].
  * Obviously, the resulting matrix is symmetric, so only the lower triangluar part is stored. */
-ccl_device_inline void math_trimatrix_add_gramian(float *A, int n, ccl_local_param float ccl_readonly_ptr v, float weight)
+ccl_device_inline void math_trimatrix_add_gramian(float *A,
+                                                  int n,
+                                                  ccl_local_param float ccl_readonly_ptr v,
+                                                  float weight)
 {
 	for(int row = 0; row < n; row++)
 		for(int col = 0; col <= row; col++)
@@ -147,7 +120,11 @@ ccl_device_inline void math_trimatrix_add_gramian(float *A, int n, ccl_local_par
 /* Add Gramian matrix of v to A.
  * The Gramian matrix of v is vt*v, so element (i,j) is v[i]*v[j].
  * Obviously, the resulting matrix is symmetric, so only the lower triangluar part is stored. */
-ccl_device_inline void math_trimatrix_add_gramian_strided(ccl_global float *A, int n, float ccl_local_param *v, float weight, int stride)
+ccl_device_inline void math_trimatrix_add_gramian_strided(ccl_global float *A,
+                                                          int n,
+                                                          ccl_local_param float ccl_readonly_ptr v,
+                                                          float weight,
+                                                          int stride)
 {
 	for(int row = 0; row < n; row++)
 		for(int col = 0; col <= row; col++)
@@ -228,48 +205,7 @@ ccl_device_inline void math_trimatrix_vec3_solve(ccl_global float *A, ccl_global
 
 
 
-/* Matrix Eigenvalue algoritms */
-
-/* Find the largest eigenvalue and -vector of the matrix A. */
-ccl_device float math_trimatrix_largest_eigenvalue(float *A, int n, float *vec, float *tmp)
-{
-	/* Matrix-Vector-Multiplication that only accesses the lower triangular part of A. */
-	float fac = 0.0f;
-	float eigval = 1.0f;
-
-	for(int r = 0; r < n; r++)
-		fac += vec[r]*vec[r];
-	fac = 1.0f / sqrtf(fac);
-	for(int r = 0; r < n; r++)
-		vec[r] *= fac;
-
-	for(int i = 0; i < 100; i++) {
-		fac = 0.0f;
-		for(int r = 0; r < n; r++) {
-			tmp[r] = 0.0f;
-			int c;
-			for(c = 0; c <= r; c++)
-				tmp[r] += MAT(A, n, r, c)*vec[c];
-			for(; c < n; c++)
-				tmp[r] += MAT(A, n, c, r)*vec[c];
-			fac += tmp[r]*tmp[r];
-		}
-
-		if(fac < 1e-10f) return 0.0f;
-		float new_eigval = sqrtf(fac);
-
-		fac = 1.0f / sqrtf(fac);
-		for(int r = 0; r < n; r++) {
-			vec[r] = tmp[r]*fac;
-		}
-
-		if(fabsf(new_eigval - eigval)/max(new_eigval, 1e-7f) < 1e-6f)
-			return new_eigval;
-		eigval = new_eigval;
-	}
-
-	return 0.0f;
-}
+/* Matrix Eigenvalue algorithms */
 
 /* Perform the Jacobi Eigenvalue Methon on matrix A.
  * A is assumed to be a symmetrical matrix, therefore only the lower-triangular part is ever accessed.
@@ -438,31 +374,6 @@ ccl_device_inline void math_vector_mul_sse(__m128 *V, int n, __m128 ccl_readonly
 {
 	for(int i = 0; i < n; i++)
 		V[i] = _mm_mul_ps(V[i], a[i]);
-}
-
-ccl_device_inline void math_vector_scale_sse(__m128 *V, int n, __m128 a)
-{
-	for(int i = 0; i < n; i++)
-		V[i] = _mm_mul_ps(V[i], a);
-}
-
-ccl_device_inline void math_vector_mask_sse(__m128 *V, int n, __m128 mask)
-{
-	for(int i = 0; i < n; i++)
-		V[i] = _mm_mask_ps(V[i], mask);
-}
-
-ccl_device_inline __m128 math_vector_dot_sse(__m128 ccl_readonly_ptr a, __m128 ccl_readonly_ptr b, int n)
-{
-	__m128 d = _mm_setzero_ps();
-	for(int i = 0; i < n; i++)
-		d = _mm_add_ps(d, _mm_mul_ps(a[i], b[i]));
-	return d;
-}
-
-ccl_device_inline float3 math_sum_float3(__m128 ccl_readonly_ptr a)
-{
-	return make_float3(_mm_hsum_ss(a[0]), _mm_hsum_ss(a[1]), _mm_hsum_ss(a[2]));
 }
 
 ccl_device_inline void math_trimatrix_hsum(float *A, int n, __m128 ccl_readonly_ptr B)
