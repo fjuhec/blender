@@ -1,4 +1,5 @@
 uniform vec2 Viewport;
+//uniform vec2 Offset;
 
 layout(lines_adjacency) in;
 layout(triangle_strip, max_vertices = 7) out;

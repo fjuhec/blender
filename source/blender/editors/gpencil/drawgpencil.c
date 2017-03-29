@@ -725,10 +725,11 @@ static void gp_draw_stroke_point(
 /* draw a given stroke in 3d (i.e. in 3d-space) */
 static void gp_draw_stroke_3d(ARegion *ar, const bGPDspoint *points, int totpoints, short thickness, bool UNUSED(debug),
                               short UNUSED(sflag), const float diff_mat[4][4], const float ink[4], bool cyclic,
-	                          int winx, int winy)
+	                          int winx, int winy, int offsx, int offsy)
 {
 	RegionView3D *rv3d = ar->regiondata;
 	float viewport[2] = { winx, winy };
+	float offset[2] = { offsx, offsy };
 	float viewmat[4][4];
 	float curpressure = points[0].pressure;
 	float fpt[3];
@@ -749,6 +750,7 @@ static void gp_draw_stroke_3d(ARegion *ar, const bGPDspoint *points, int totpoin
 
 	immBindBuiltinProgram(GPU_SHADER_GPENCIL_STROKE);
 	immUniform2fv("Viewport", viewport);
+	//immUniform2fv("Offset", offset);
 	copy_m4_m4(viewmat, rv3d->persmat);
 
 	/* draw stroke curve */
@@ -1136,7 +1138,7 @@ static void gp_draw_strokes(
 				else {
 					gp_draw_stroke_3d(ar, gps->points, gps->totpoints, sthickness, debug, gps->flag,
 					                  diff_mat, ink, gps->flag & GP_STROKE_CYCLIC, 
-									  winx - offsx, winy - offsy);
+									  winx , winy, offsx, offsy);
 				}
 			}
 			if (no_xray) {
