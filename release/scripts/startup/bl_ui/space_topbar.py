@@ -41,7 +41,7 @@ class TOPBAR_HT_header(Header):
             layout.operator("screen.back_to_previous", icon='SCREEN_BACK', text="Back to Previous")
             layout.separator()
         else:
-            layout.template_ID(window, "workspace", new="workspace.workspace_new", unlink="workspace.workspace_delete")
+            layout.template_ID(window, "workspace", new="workspace.workspace_add_menu", unlink="workspace.workspace_delete")
             layout.template_ID_preview(window, "screen", workspace, "screens", new="screen.new", unlink="screen.delete", rows=2, cols=6)
 
         if hasattr(workspace, 'object_mode'):
@@ -362,5 +362,23 @@ class TOPBAR_PT_subbar(Panel):
         layout.prop(workspace, "object_mode", text="")
 
 
+classes = (
+    TOPBAR_HT_header,
+    TOPBAR_MT_editor_menus,
+    TOPBAR_MT_file,
+    TOPBAR_MT_file_import,
+    TOPBAR_MT_file_export,
+    TOPBAR_MT_file_external_data,
+    TOPBAR_MT_file_previews,
+    TOPBAR_MT_game,
+    TOPBAR_MT_render,
+    TOPBAR_MT_opengl_render,
+    TOPBAR_MT_window,
+    TOPBAR_MT_help,
+    TOPBAR_PT_subbar,
+)
+
 if __name__ == "__main__":  # only for live edit.
-    bpy.utils.register_module(__name__)
+    from bpy.utils import register_class
+    for cls in classes:
+        register_class(cls)

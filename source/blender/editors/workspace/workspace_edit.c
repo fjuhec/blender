@@ -385,7 +385,7 @@ static void WORKSPACE_OT_workspace_add_menu(wmOperatorType *ot)
 	ot->name = "Add Workspace";
 	ot->description = "Add a new workspace by duplicating the current one or appending one "
 	                  "from the workflow configuration";
-	ot->idname = "WORKSPACE_OT_workspace_add";
+	ot->idname = "WORKSPACE_OT_workspace_add_menu";
 
 	/* api callbacks */
 	ot->invoke = workspace_add_invoke;
