@@ -65,7 +65,6 @@
 
 #include "GPU_immediate.h"
 #include "GPU_draw.h"
-#include "GPU_matrix.h"
 
 #include "ED_gpencil.h"
 #include "ED_screen.h"
@@ -749,7 +748,7 @@ static void gp_draw_stroke_3d(ARegion *ar, const bGPDspoint *points, int totpoin
 
 	immBindBuiltinProgram(GPU_SHADER_GPENCIL_STROKE);
 	immUniform2fv("Viewport", viewport);
-	gpuGetModelViewProjectionMatrix3D(viewmat);
+	copy_m4_m4(viewmat, rv3d->persmat);
 
 	/* draw stroke curve */
 	glLineWidth(max_ff(curpressure * thickness, 1.0f));
