@@ -22,8 +22,8 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/workspace/screen_context.c
- *  \ingroup edworkspace
+/** \file blender/editors/screen/screen_context.c
+ *  \ingroup edscreen
  */
 
 #include <stdio.h>

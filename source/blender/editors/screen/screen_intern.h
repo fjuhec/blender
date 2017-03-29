@@ -24,8 +24,8 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/workspace/screen_intern.h
- *  \ingroup edworkspace
+/** \file blender/editors/screen/screen_intern.h
+ *  \ingroup edscreen
  */
 
 #ifndef __SCREEN_INTERN_H__

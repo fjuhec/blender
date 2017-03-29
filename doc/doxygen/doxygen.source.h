@@ -219,6 +219,10 @@
  *  \ingroup editors
  */
 
+/** \defgroup edscreen screen
+ *  \ingroup editors
+ */
+
 /** \defgroup edscene scene
  *  \ingroup editors
  */
@@ -228,10 +232,6 @@
  */
 
 /** \defgroup edsnd sound
- *  \ingroup editors
- */
-
-/** \defgroup edworkspace workspace
  *  \ingroup editors
  */
 

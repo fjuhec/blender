@@ -24,8 +24,8 @@
  * Making screendumps.
  */
 
-/** \file blender/editors/workspace/screendump.c
- *  \ingroup edworkspace
+/** \file blender/editors/screen/screendump.c
+ *  \ingroup edscreen
  */
 
 

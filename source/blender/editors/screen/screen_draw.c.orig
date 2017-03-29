@@ -26,7 +26,6 @@
 
 #include "GPU_framebuffer.h"
 #include "GPU_immediate.h"
-#include "GPU_matrix.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -242,10 +241,6 @@ static void drawscredge_area_draw(int sizex, int sizey, short x1, short y1, shor
 	if (y2 < sizey - 1) count += 2;
 	if (y1 > 0) count += 2;
 
-	if (count == 0) {
-		return;
-	}
-
 	immBegin(GL_LINES, count);
 
 	/* right border area */
@@ -311,9 +306,23 @@ void ED_screen_draw(wmWindow *win)
 	if (U.pixelsize > 1.0f) {
 		/* FIXME: doesn't our glLineWidth already scale by U.pixelsize? */
 		glLineWidth((2.0f * U.pixelsize) - 1);
+<<<<<<< HEAD:source/blender/editors/workspace/screen_draw.c
+		glColor3ub(0x50, 0x50, 0x50);
+		glBegin(GL_LINES);
+		for (sa = screen->areabase.first; sa; sa = sa->next)
+			drawscredge_area(sa, winsize_x, winsize_y);
+		glEnd();
+	}
+
+	glLineWidth(1);
+	glColor3ub(0, 0, 0);
+	glBegin(GL_LINES);
+	for (sa = screen->areabase.first; sa; sa = sa->next) {
+		drawscredge_area(sa, winsize_x, winsize_y);
+=======
 		immUniformColor3ub(0x50, 0x50, 0x50);
 
-		for (sa = screen->areabase.first; sa; sa = sa->next) {
+		for (sa = win->screen->areabase.first; sa; sa = sa->next) {
 			drawscredge_area(sa, winsize_x, winsize_y, pos);
 		}
 	}
@@ -321,8 +330,9 @@ void ED_screen_draw(wmWindow *win)
 	glLineWidth(1);
 	immUniformColor3ub(0, 0, 0);
 
-	for (sa = screen->areabase.first; sa; sa = sa->next) {
+	for (sa = win->screen->areabase.first; sa; sa = sa->next) {
 		drawscredge_area(sa, winsize_x, winsize_y, pos);
+>>>>>>> blender2.8:source/blender/editors/screen/screen_draw.c
 
 		/* gather area split/join info */
 		if (sa->flag & AREA_FLAG_DRAWJOINFROM) sa1 = sa;
@@ -402,9 +412,13 @@ void ED_screen_draw(wmWindow *win)
 		glDisable(GL_BLEND);
 	}
 
+<<<<<<< HEAD:source/blender/editors/workspace/screen_draw.c
+	screen->do_draw = false;
+=======
 	immUnbindProgram();
 
-	screen->do_draw = false;
+	win->screen->do_draw = false;
+>>>>>>> blender2.8:source/blender/editors/screen/screen_draw.c
 }
 
 
@@ -465,7 +479,7 @@ static void screen_preview_draw(const bScreen *screen, int size_x, int size_y)
 
 	wmOrtho2(0.0f, size_x, 0.0f, size_y);
 	/* center */
-	gpuTranslate2f(size_x * (1.0f - asp[0]) * 0.5f, size_y * (1.0f - asp[1]) * 0.5f);
+	glTranslatef(size_x * (1.0f - asp[0]) * 0.5f, size_y * (1.0f - asp[1]) * 0.5f, 0.0f);
 
 	screen_preview_scale_get(screen, size_x, size_y, asp, scale);
 	screen_preview_draw_areas(screen, scale, col, 1.5f);

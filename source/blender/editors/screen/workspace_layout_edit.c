@@ -18,8 +18,8 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/workspace/workspace_layout_edit.c
- *  \ingroup edworkspace
+/** \file blender/editors/screen/workspace_layout_edit.c
+ *  \ingroup edscreen
  */
 
 #include <stdlib.h>
