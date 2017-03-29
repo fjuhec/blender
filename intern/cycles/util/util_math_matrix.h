@@ -38,6 +38,12 @@ ccl_device_inline void math_vector_zero(float *v, int n)
 		v[i] = 0.0f;
 }
 
+ccl_device_inline void math_local_vector_zero(float ccl_local_param *v, int n)
+{
+	for(int i = 0; i < n; i++)
+		v[i] = 0.0f;
+}
+
 ccl_device_inline void math_vec3_zero(float3 *v, int n)
 {
 	for(int i = 0; i < n; i++)
@@ -105,7 +111,7 @@ ccl_device_inline void math_vec3_add(float3 *v, int n, float *x, float3 w)
 		v[i] += w*x[i];
 }
 
-ccl_device_inline void math_vec3_add_strided(ccl_global float3 *v, int n, float *x, float3 w, int stride)
+ccl_device_inline void math_vec3_add_strided(ccl_global float3 *v, int n, float ccl_local_param *x, float3 w, int stride)
 {
 	for(int i = 0; i < n; i++)
 		v[i*stride] += w*x[i];
@@ -141,13 +147,24 @@ ccl_device_inline void math_trimatrix_add_gramian(float *A, int n, ccl_local_par
 /* Add Gramian matrix of v to A.
  * The Gramian matrix of v is vt*v, so element (i,j) is v[i]*v[j].
  * Obviously, the resulting matrix is symmetric, so only the lower triangluar part is stored. */
-ccl_device_inline void math_trimatrix_add_gramian_strided(ccl_global float *A, int n, float *v, float weight, int stride)
+ccl_device_inline void math_trimatrix_add_gramian_strided(ccl_global float *A, int n, float ccl_local_param *v, float weight, int stride)
 {
 	for(int row = 0; row < n; row++)
 		for(int col = 0; col <= row; col++)
 			MATS(A, n, row, col, stride) += v[row]*v[col]*weight;
 }
 
+/* Transpose matrix A inplace. */
+ccl_device_inline void math_matrix_transpose(ccl_global float *A, int n, int stride)
+{
+	for(int i = 0; i < n; i++) {
+		for(int j = 0; j < i; j++) {
+			float temp = MATS(A, n, i, j, stride);
+			MATS(A, n, i, j, stride) = MATS(A, n, j, i, stride);
+			MATS(A, n, j, i, stride) = temp;
+		}
+	}
+}
 
 
 

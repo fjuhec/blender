@@ -104,6 +104,7 @@ ccl_device void kernel_filter_construct_transform(int sample,
 			math_vector_mul_strided(transform + i*DENOISE_FEATURES*transform_stride, feature_scale, transform_stride, DENOISE_FEATURES);
 		}
 	}
+	math_matrix_transpose(transform, DENOISE_FEATURES, transform_stride);
 }
 
 CCL_NAMESPACE_END

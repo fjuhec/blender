@@ -38,11 +38,11 @@ ccl_device_inline void kernel_filter_construct_gramian(int x, int y,
 	const int stride = 1;
 	(void)storage_stride;
 	(void)localIdx;
-	float features[DENOISE_FEATURES];
+	float design_row[DENOISE_FEATURES+1];
 #else
 	const int stride = storage_stride;
-	ccl_local float shared_features[DENOISE_FEATURES*CCL_MAX_LOCAL_SIZE];
-	ccl_local_param float *features = shared_features + localIdx*DENOISE_FEATURES;
+	ccl_local float shared_design_row[(DENOISE_FEATURES+1)*CCL_MAX_LOCAL_SIZE];
+	ccl_local_param float *design_row = shared_design_row + localIdx*(DENOISE_FEATURES+1);
 #endif
 
 	float3 p_color = filter_get_pixel_color(color_pass + p_offset, pass_stride);
@@ -55,11 +55,9 @@ ccl_device_inline void kernel_filter_construct_gramian(int x, int y,
 		return;
 	}
 
-	float feature_means[DENOISE_FEATURES];
-	filter_get_feature_mean(make_int2(x, y), buffer + p_offset, feature_means, pass_stride);
-
-	float design_row[DENOISE_FEATURES+1];
-	filter_get_design_row_transform(make_int2(x+dx, y+dy), buffer + q_offset, feature_means, pass_stride, features, *rank, design_row, transform, stride);
+	filter_get_design_row_transform(make_int2(x, y),       buffer + p_offset,
+	                                make_int2(x+dx, y+dy), buffer + q_offset,
+	                                pass_stride, *rank, design_row, transform, stride);
 
 	math_trimatrix_add_gramian_strided(XtWX, (*rank)+1, design_row, weight, stride);
 	math_vec3_add_strided(XtWY, (*rank)+1, design_row, weight * q_color, stride);

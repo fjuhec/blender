@@ -16,7 +16,7 @@
 
  CCL_NAMESPACE_BEGIN
 
-#define ccl_get_feature(pass) buffer[(pass)*pass_stride]
+#define ccl_get_feature(buffer, pass) buffer[(pass)*pass_stride]
 
 /* Loop over the pixels in the range [low.x, high.x) x [low.y, high.y).
  * pixel_buffer always points to the current pixel in the first pass. */
@@ -28,32 +28,18 @@
                                  pixel_buffer += buffer_w - (high.x - low.x); \
                              }
 
-ccl_device_inline void filter_get_feature_mean(int2 pixel, ccl_global float ccl_readonly_ptr buffer, float *features, int pass_stride)
-{
-	features[0] = pixel.x;
-	features[1] = pixel.y;
-	features[2] = ccl_get_feature(0);
-	features[3] = ccl_get_feature(1);
-	features[4] = ccl_get_feature(2);
-	features[5] = ccl_get_feature(3);
-	features[6] = ccl_get_feature(4);
-	features[7] = ccl_get_feature(5);
-	features[8] = ccl_get_feature(6);
-	features[9] = ccl_get_feature(7);
-}
-
 ccl_device_inline void filter_get_features(int2 pixel, ccl_global float ccl_readonly_ptr buffer, ccl_local_param float *features, float ccl_readonly_ptr mean, int pass_stride)
 {
 	features[0] = pixel.x;
 	features[1] = pixel.y;
-	features[2] = ccl_get_feature(0);
-	features[3] = ccl_get_feature(1);
-	features[4] = ccl_get_feature(2);
-	features[5] = ccl_get_feature(3);
-	features[6] = ccl_get_feature(4);
-	features[7] = ccl_get_feature(5);
-	features[8] = ccl_get_feature(6);
-	features[9] = ccl_get_feature(7);
+	features[2] = ccl_get_feature(buffer, 0);
+	features[3] = ccl_get_feature(buffer, 1);
+	features[4] = ccl_get_feature(buffer, 2);
+	features[5] = ccl_get_feature(buffer, 3);
+	features[6] = ccl_get_feature(buffer, 4);
+	features[7] = ccl_get_feature(buffer, 5);
+	features[8] = ccl_get_feature(buffer, 6);
+	features[9] = ccl_get_feature(buffer, 7);
 	if(mean) {
 		for(int i = 0; i < DENOISE_FEATURES; i++)
 			features[i] -= mean[i];
@@ -64,14 +50,14 @@ ccl_device_inline void filter_get_feature_scales(int2 pixel, ccl_global float cc
 {
 	scales[0] = fabsf(pixel.x - mean[0]);
 	scales[1] = fabsf(pixel.y - mean[1]);
-	scales[2] = fabsf(ccl_get_feature(0) - mean[2]);
-	scales[3] = len_squared(make_float3(ccl_get_feature(1) - mean[3],
-	                                    ccl_get_feature(2) - mean[4],
-	                                    ccl_get_feature(3) - mean[5]));
-	scales[4] = fabsf(ccl_get_feature(4) - mean[6]);
-	scales[5] = len_squared(make_float3(ccl_get_feature(5) - mean[7],
-	                                    ccl_get_feature(6) - mean[8],
-	                                    ccl_get_feature(7) - mean[9]));
+	scales[2] = fabsf(ccl_get_feature(buffer, 0) - mean[2]);
+	scales[3] = len_squared(make_float3(ccl_get_feature(buffer, 1) - mean[3],
+	                                    ccl_get_feature(buffer, 2) - mean[4],
+	                                    ccl_get_feature(buffer, 3) - mean[5]));
+	scales[4] = fabsf(ccl_get_feature(buffer, 4) - mean[6]);
+	scales[5] = len_squared(make_float3(ccl_get_feature(buffer, 5) - mean[7],
+	                                    ccl_get_feature(buffer, 6) - mean[8],
+	                                    ccl_get_feature(buffer, 7) - mean[9]));
 }
 
 ccl_device_inline void filter_calculate_scale(float *scale)
@@ -86,12 +72,12 @@ ccl_device_inline void filter_calculate_scale(float *scale)
 
 ccl_device_inline float3 filter_get_pixel_color(ccl_global float ccl_readonly_ptr buffer, int pass_stride)
 {
-	return make_float3(ccl_get_feature(0), ccl_get_feature(1), ccl_get_feature(2));
+	return make_float3(ccl_get_feature(buffer, 0), ccl_get_feature(buffer, 1), ccl_get_feature(buffer, 2));
 }
 
 ccl_device_inline float filter_get_pixel_variance(ccl_global float ccl_readonly_ptr buffer, int pass_stride)
 {
-	return average(make_float3(ccl_get_feature(0), ccl_get_feature(1), ccl_get_feature(2)));
+	return average(make_float3(ccl_get_feature(buffer, 0), ccl_get_feature(buffer, 1), ccl_get_feature(buffer, 2)));
 }
 
 ccl_device_inline bool filter_firefly_rejection(float3 pixel_color, float pixel_variance, float3 center_color, float sqrt_center_variance)
@@ -101,27 +87,41 @@ ccl_device_inline bool filter_firefly_rejection(float3 pixel_color, float pixel_
 	return (color_diff > 3.0f*variance);
 }
 
-/* Fill the design row without computing the weight. */
-ccl_device_inline void filter_get_design_row_transform(int2 pixel,
-                                                       ccl_global float ccl_readonly_ptr buffer,
-                                                       float ccl_readonly_ptr feature_means,
-                                                       int pass_stride,
-                                                       ccl_local_param float *features,
-                                                       int rank,
-                                                       float *design_row,
-                                                       ccl_global float ccl_readonly_ptr feature_transform,
-                                                       int transform_stride)
+ccl_device_inline void design_row_add(float ccl_local_param *design_row,
+                                      int rank,
+                                      ccl_global float ccl_readonly_ptr transform,
+                                      int stride,
+                                      int row,
+                                      float feature)
 {
-	filter_get_features(pixel, buffer, features, feature_means, pass_stride);
-	design_row[0] = 1.0f;
-	for(int d = 0; d < rank; d++) {
-#ifdef __KERNEL_GPU__
-		float x = math_vector_dot_strided(features, feature_transform + d*DENOISE_FEATURES*transform_stride, transform_stride, DENOISE_FEATURES);
-#else
-		float x = math_vector_dot(features, feature_transform + d*DENOISE_FEATURES, DENOISE_FEATURES);
-#endif
-		design_row[1+d] = x;
+	for(int i = 0; i < rank; i++) {
+		design_row[1+i] += transform[(row*DENOISE_FEATURES + i)*stride]*feature;
 	}
+}
+
+/* Fill the design row without computing the weight. */
+ccl_device_inline void filter_get_design_row_transform(int2 p_pixel,
+                                                       ccl_global float ccl_readonly_ptr p_buffer,
+                                                       int2 q_pixel,
+                                                       ccl_global float ccl_readonly_ptr q_buffer,
+                                                       int pass_stride,
+                                                       int rank,
+                                                       float ccl_local_param *design_row,
+                                                       ccl_global float ccl_readonly_ptr transform,
+                                                       int stride)
+{
+	design_row[0] = 1.0f;
+	math_local_vector_zero(design_row+1, rank);
+	design_row_add(design_row, rank, transform, stride, 0, q_pixel.x - p_pixel.x);
+	design_row_add(design_row, rank, transform, stride, 1, q_pixel.y - p_pixel.y);
+	design_row_add(design_row, rank, transform, stride, 2, ccl_get_feature(q_buffer, 0) - ccl_get_feature(p_buffer, 0));
+	design_row_add(design_row, rank, transform, stride, 3, ccl_get_feature(q_buffer, 1) - ccl_get_feature(p_buffer, 1));
+	design_row_add(design_row, rank, transform, stride, 4, ccl_get_feature(q_buffer, 2) - ccl_get_feature(p_buffer, 2));
+	design_row_add(design_row, rank, transform, stride, 5, ccl_get_feature(q_buffer, 3) - ccl_get_feature(p_buffer, 3));
+	design_row_add(design_row, rank, transform, stride, 6, ccl_get_feature(q_buffer, 4) - ccl_get_feature(p_buffer, 4));
+	design_row_add(design_row, rank, transform, stride, 7, ccl_get_feature(q_buffer, 5) - ccl_get_feature(p_buffer, 5));
+	design_row_add(design_row, rank, transform, stride, 8, ccl_get_feature(q_buffer, 6) - ccl_get_feature(p_buffer, 6));
+	design_row_add(design_row, rank, transform, stride, 9, ccl_get_feature(q_buffer, 7) - ccl_get_feature(p_buffer, 7));
 }
 
 CCL_NAMESPACE_END
