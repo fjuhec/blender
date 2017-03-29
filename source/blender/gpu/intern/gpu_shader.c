@@ -34,11 +34,11 @@
 #include "BKE_global.h"
 
 #include "GPU_compositing.h"
-#include "GPU_debug.h"
 #include "GPU_extensions.h"
 #include "GPU_shader.h"
 #include "GPU_uniformbuffer.h"
 #include "GPU_texture.h"
+#include "GPU_matrix.h"
 
 #include "gpu_shader_private.h"
 
@@ -126,7 +126,7 @@ extern char datatoc_gpu_shader_vsm_store_vert_glsl[];
 extern char datatoc_gpu_shader_vsm_store_frag_glsl[];
 extern char datatoc_gpu_shader_sep_gaussian_blur_vert_glsl[];
 extern char datatoc_gpu_shader_sep_gaussian_blur_frag_glsl[];
-extern char datatoc_gpu_shader_fx_vert_glsl[];
+extern char datatoc_gpu_shader_fullscreen_vert_glsl[];
 extern char datatoc_gpu_shader_fx_ssao_frag_glsl[];
 extern char datatoc_gpu_shader_fx_dof_frag_glsl[];
 extern char datatoc_gpu_shader_fx_dof_vert_glsl[];
@@ -505,6 +505,7 @@ void GPU_shader_bind(GPUShader *shader)
 	BLI_assert(shader && shader->program);
 
 	glUseProgram(shader->program);
+	gpuBindMatrices(shader->program);
 }
 
 void GPU_shader_unbind(void)
@@ -827,7 +828,7 @@ GPUShader *GPU_shader_get_builtin_fx_shader(int effect, bool persp)
 
 		switch (effect) {
 			case GPU_SHADER_FX_SSAO:
-				shader = GPU_shader_create(datatoc_gpu_shader_fx_vert_glsl, datatoc_gpu_shader_fx_ssao_frag_glsl, NULL, datatoc_gpu_shader_fx_lib_glsl, defines, 0, 0, 0);
+				shader = GPU_shader_create(datatoc_gpu_shader_fullscreen_vert_glsl, datatoc_gpu_shader_fx_ssao_frag_glsl, NULL, datatoc_gpu_shader_fx_lib_glsl, defines, 0, 0, 0);
 				break;
 
 			case GPU_SHADER_FX_DEPTH_OF_FIELD_PASS_ONE:
@@ -872,7 +873,7 @@ GPUShader *GPU_shader_get_builtin_fx_shader(int effect, bool persp)
 				break;
 
 			case GPU_SHADER_FX_DEPTH_RESOLVE:
-				shader = GPU_shader_create(datatoc_gpu_shader_fx_vert_glsl, datatoc_gpu_shader_fx_depth_resolve_glsl, NULL, NULL, defines, 0, 0, 0);
+				shader = GPU_shader_create(datatoc_gpu_shader_fullscreen_vert_glsl, datatoc_gpu_shader_fx_depth_resolve_glsl, NULL, NULL, defines, 0, 0, 0);
 				break;
 		}
 

@@ -24,14 +24,23 @@
 
 #include <stdlib.h>
 
+#include "BLI_utildefines.h"
+#include "BLI_fileops.h"
+#include "BLI_listbase.h"
+#include "BLI_path_util.h"
+#include "BLI_string.h"
+
+#include "BKE_appdir.h"
+#include "BKE_blendfile.h"
 #include "BKE_context.h"
+#include "BKE_idcode.h"
 #include "BKE_main.h"
 #include "BKE_library.h"
+#include "BKE_report.h"
 #include "BKE_screen.h"
 #include "BKE_workspace.h"
 
-#include "BLI_utildefines.h"
-#include "BLI_listbase.h"
+#include "BLO_readfile.h"
 
 #include "DNA_object_types.h"
 #include "DNA_screen_types.h"
@@ -39,6 +48,11 @@
 
 #include "ED_object.h"
 #include "ED_screen.h"
+
+#include "RNA_access.h"
+
+#include "UI_interface.h"
+#include "UI_resources.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -66,8 +80,9 @@ WorkSpace *ED_workspace_add(Main *bmain, const char *name, SceneLayer *act_rende
  * Changes the object mode (if needed) to the one set in \a workspace_new.
  * Object mode is still stored on object level. In future it should all be workspace level instead.
  */
-static void workspace_change_update_mode(const WorkSpace *workspace_old, const WorkSpace *workspace_new,
-                                         bContext *C, Object *ob_act, ReportList *reports)
+static void workspace_change_update_mode(
+        const WorkSpace *workspace_old, const WorkSpace *workspace_new,
+        bContext *C, Object *ob_act, ReportList *reports)
 {
 	ObjectMode mode_old = BKE_workspace_object_mode_get(workspace_old);
 	ObjectMode mode_new = BKE_workspace_object_mode_get(workspace_new);
@@ -79,18 +94,20 @@ static void workspace_change_update_mode(const WorkSpace *workspace_old, const W
 }
 #endif
 
-static void workspace_change_update_render_layer(WorkSpace *workspace_new, const Scene *scene)
+static void workspace_change_update_render_layer(
+        WorkSpace *workspace_new, const WorkSpace *workspace_old)
 {
 	if (!BKE_workspace_render_layer_get(workspace_new)) {
-		BKE_workspace_render_layer_set(workspace_new, scene->render_layers.first);
+		BKE_workspace_render_layer_set(workspace_new, BKE_workspace_render_layer_get(workspace_old));
 	}
 }
 
-static void workspace_change_update(WorkSpace *workspace_new, const WorkSpace *workspace_old,
-                                    bContext *C, wmWindowManager *wm, Scene *scene)
+static void workspace_change_update(
+        WorkSpace *workspace_new, const WorkSpace *workspace_old,
+        bContext *C, wmWindowManager *wm)
 {
 	/* needs to be done before changing mode! (to ensure right context) */
-	workspace_change_update_render_layer(workspace_new, scene);
+	workspace_change_update_render_layer(workspace_new, workspace_old);
 #ifdef USE_WORKSPACE_MODE
 	workspace_change_update_mode(workspace_old, workspace_new, C, CTX_data_active_object(C), &wm->reports);
 #else
@@ -109,11 +126,19 @@ static WorkSpaceLayout *workspace_change_get_new_layout(
 {
 	/* ED_workspace_duplicate may have stored a layout to activate once the workspace gets activated. */
 	WorkSpaceLayout *layout_temp_store = BKE_workspace_temp_layout_store_get(win->workspace_hook);
-	WorkSpaceLayout *layout_new = layout_temp_store ?
-	                                  layout_temp_store :
-	                                  BKE_workspace_active_layout_get_from_workspace(win->workspace_hook,
-	                                                                                 workspace_new);
-	bScreen *screen_new = BKE_workspace_layout_screen_get(layout_new);
+	WorkSpaceLayout *layout_new;
+	bScreen *screen_new;
+
+	if (layout_temp_store) {
+		layout_new = layout_temp_store;
+	}
+	else {
+		layout_new = BKE_workspace_active_layout_get_from_workspace(win->workspace_hook, workspace_new);
+		if (!layout_new) {
+			layout_new = BKE_workspace_layouts_get(workspace_new)->first;
+		}
+	}
+	screen_new = BKE_workspace_layout_screen_get(layout_new);
 
 	if (screen_new->winid) {
 		/* screen is already used, try to find a free one */
@@ -143,7 +168,6 @@ bool ED_workspace_change(
         bContext *C, wmWindowManager *wm, wmWindow *win, WorkSpace *workspace_new)
 {
 	Main *bmain = CTX_data_main(C);
-	Scene *scene = CTX_data_scene(C);
 	WorkSpace *workspace_old = WM_window_get_active_workspace(win);
 	WorkSpaceLayout *layout_new = workspace_change_get_new_layout(workspace_new, win);
 	bScreen *screen_new = BKE_workspace_layout_screen_get(layout_new);
@@ -163,7 +187,7 @@ bool ED_workspace_change(
 
 		/* update screen *after* changing workspace - which also causes the actual screen change */
 		screen_changed_update(C, win, screen_new);
-		workspace_change_update(workspace_new, workspace_old, C, wm, scene);
+		workspace_change_update(workspace_new, workspace_old, C, wm);
 
 		BLI_assert(BKE_workspace_render_layer_get(workspace_new) != NULL);
 		BLI_assert(CTX_wm_workspace(C) == workspace_new);
@@ -248,12 +272,12 @@ static int workspace_new_exec(bContext *C, wmOperator *UNUSED(op))
 	return OPERATOR_FINISHED;
 }
 
-static void WORKSPACE_OT_workspace_new(wmOperatorType *ot)
+static void WORKSPACE_OT_workspace_duplicate(wmOperatorType *ot)
 {
 	/* identifiers */
 	ot->name = "New Workspace";
 	ot->description = "Add a new workspace";
-	ot->idname = "WORKSPACE_OT_workspace_new";
+	ot->idname = "WORKSPACE_OT_workspace_duplicate";
 
 	/* api callbacks */
 	ot->exec = workspace_new_exec;
@@ -282,10 +306,96 @@ static void WORKSPACE_OT_workspace_delete(wmOperatorType *ot)
 	ot->exec = workspace_delete_exec;
 }
 
+ATTR_NONNULL(1)
+static WorkflowFileData *workspace_workflow_file_read(const Main *bmain, ReportList *reports)
+{
+	char filepath_workflow[FILE_MAX];
+	const char * const cfgdir = BKE_appdir_folder_id(BLENDER_USER_CONFIG, NULL);
+
+	if (cfgdir) {
+		BLI_make_file_string(bmain->name, filepath_workflow, cfgdir, BLENDER_WORKFLOW_FILE);
+	}
+	else {
+		filepath_workflow[0] = '\0';
+	}
+
+	if (BLI_exists(filepath_workflow)) {
+		/* may still return NULL */
+		return BKE_blendfile_workflow_read(filepath_workflow, reports);
+	}
+	else if (reports) {
+		BKE_reportf(reports, RPT_WARNING, "Couldn't find workflow file in %s", filepath_workflow);
+	}
+
+	return NULL;
+}
+
+ATTR_NONNULL(1, 2)
+static void workspace_workflow_file_append_buttons(
+        uiLayout *layout, const Main *bmain, ReportList *reports)
+{
+	WorkflowFileData *workflow_file = workspace_workflow_file_read(bmain, reports);
+
+	if (workflow_file) {
+		wmOperatorType *ot_append = WM_operatortype_find("WM_OT_append", true);
+		PointerRNA opptr;
+		char lib_path[FILE_MAX_LIBEXTRA];
+
+		BKE_workspace_iter_begin(workspace, workflow_file->workspaces.first)
+		{
+			ID *id = BKE_workspace_id_get(workspace);
+
+			BLI_snprintf(
+			            lib_path, sizeof(lib_path), "%s%c%s", workflow_file->main->name,
+			            SEP, BKE_idcode_to_name(GS(id->name)));
+
+			opptr = uiItemFullO_ptr(
+			            layout, ot_append, BKE_workspace_name_get(workspace), ICON_NONE, NULL,
+			            WM_OP_EXEC_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+			RNA_string_set(&opptr, "directory", lib_path);
+			RNA_string_set(&opptr, "filename", id->name + 2);
+		}
+		BKE_workspace_iter_end;
+
+		BKE_blendfile_workflow_data_free(workflow_file);
+	}
+}
+
+static int workspace_add_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+{
+	const Main *bmain = CTX_data_main(C);
+	uiPopupMenu *pup;
+	uiLayout *layout;
+
+	pup = UI_popup_menu_begin(C, op->type->name, ICON_NONE);
+	layout = UI_popup_menu_layout(pup);
+
+	uiItemO(layout, "Duplicate Current", ICON_NONE, "WORKSPACE_OT_workspace_duplicate");
+	uiItemS(layout);
+	workspace_workflow_file_append_buttons(layout, bmain, op->reports);
+
+	UI_popup_menu_end(C, pup);
+
+	return OPERATOR_INTERFACE;
+}
+
+static void WORKSPACE_OT_workspace_add_menu(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Add Workspace";
+	ot->description = "Add a new workspace by duplicating the current one or appending one "
+	                  "from the workflow configuration";
+	ot->idname = "WORKSPACE_OT_workspace_add";
+
+	/* api callbacks */
+	ot->invoke = workspace_add_invoke;
+}
+
 void ED_operatortypes_workspace(void)
 {
-	WM_operatortype_append(WORKSPACE_OT_workspace_new);
+	WM_operatortype_append(WORKSPACE_OT_workspace_duplicate);
 	WM_operatortype_append(WORKSPACE_OT_workspace_delete);
+	WM_operatortype_append(WORKSPACE_OT_workspace_add_menu);
 }
 
 /** \} Workspace Operators */

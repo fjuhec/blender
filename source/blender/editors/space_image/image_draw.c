@@ -63,6 +63,7 @@
 #include "BIF_glutil.h"
 
 #include "GPU_immediate.h"
+#include "GPU_matrix.h"
 
 #include "BLF_api.h"
 
@@ -114,15 +115,14 @@ static void draw_render_info(const bContext *C,
 			int x, y;
 			UI_view2d_view_to_region(&ar->v2d, 0.0f, 0.0f, &x, &y);
 
-			glPushMatrix();
-			glTranslatef(x, y, 0.0f);
-			glScalef(zoomx, zoomy, 1.0f);
+			gpuPushMatrix();
+			gpuTranslate2f(x, y);
+			gpuScale2f(zoomx, zoomy);
 
 			if (rd->mode & R_BORDER) {
 				/* TODO: round or floor instead of casting to int */
-				glTranslatef((int)(-rd->border.xmin * rd->xsch * rd->size * 0.01f),
-				             (int)(-rd->border.ymin * rd->ysch * rd->size * 0.01f),
-				             0.0f);
+				gpuTranslate2f((int)(-rd->border.xmin * rd->xsch * rd->size * 0.01f),
+				               (int)(-rd->border.ymin * rd->ysch * rd->size * 0.01f));
 			}
 
 			unsigned int pos = add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
@@ -142,7 +142,7 @@ static void draw_render_info(const bContext *C,
 				MEM_freeN(tiles);
 			}
 
-			glPopMatrix();
+			gpuPopMatrix();
 		}
 	}
 }
@@ -481,7 +481,6 @@ static void draw_image_buffer(const bContext *C, SpaceImage *sima, ARegion *ar, 
 {
 	int x, y;
 
-	/* set zoom */
 	glaDefine2DArea(&ar->winrct);
 	
 	/* find window pixel coordinates of origin */
@@ -548,9 +547,6 @@ static void draw_image_buffer(const bContext *C, SpaceImage *sima, ARegion *ar, 
 		if (sima->flag & SI_USE_ALPHA)
 			glDisable(GL_BLEND);
 	}
-
-	/* reset zoom */
-	glPixelZoom(1.0f, 1.0f);
 }
 
 static unsigned int *get_part_from_buffer(unsigned int *buffer, int width, short startx, short starty, short endx, short endy)
@@ -852,7 +848,7 @@ void draw_image_main(const bContext *C, ARegion *ar)
 			calc_image_view(sima, 'f');
 			myortho2(G.v2d->cur.xmin, G.v2d->cur.xmax, G.v2d->cur.ymin, G.v2d->cur.ymax);
 			glRectf(0.0f, 0.0f, 1.0f, 1.0f);
-			glLoadIdentity();
+			gpuLoadIdentity();
 		}
 	}
 #endif
@@ -918,8 +914,12 @@ void draw_image_cache(const bContext *C, ARegion *ar)
 	/* Draw current frame. */
 	x = (cfra - sfra) / (efra - sfra + 1) * ar->winx;
 
-	UI_ThemeColor(TH_CFRAME);
-	glRecti(x, 0, x + ceilf(framelen), 8 * UI_DPI_FAC);
+	unsigned pos = add_attrib(immVertexFormat(), "pos", COMP_I32, 2, CONVERT_INT_TO_FLOAT);
+	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+	immUniformThemeColor(TH_CFRAME);
+	immRecti(pos, x, 0, x + ceilf(framelen), 8 * UI_DPI_FAC);
+	immUnbindProgram();
+
 	ED_region_cache_draw_curfra_label(cfra, x, 8.0f * UI_DPI_FAC);
 
 	if (mask != NULL) {

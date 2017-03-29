@@ -48,6 +48,7 @@
 #include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_ipo.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_report.h"
@@ -164,6 +165,7 @@ static void setup_app_data(
 		 */
 		wmWindow *win;
 		bScreen *curscreen = NULL;
+		SceneLayer *cur_render_layer;
 		bool track_undo_scene;
 
 		/* comes from readfile.c */
@@ -176,6 +178,7 @@ static void setup_app_data(
 		curscreen = CTX_wm_screen(C);
 		/* but use Scene pointer from new file */
 		curscene = bfd->curscene;
+		cur_render_layer = bfd->cur_render_layer;
 
 		track_undo_scene = (mode == LOAD_UNDO && curscreen && curscene && bfd->main->wm.first);
 
@@ -185,6 +188,10 @@ static void setup_app_data(
 		/* empty file, we add a scene to make Blender work */
 		if (curscene == NULL) {
 			curscene = BKE_scene_add(bfd->main, "Empty");
+		}
+		if (cur_render_layer == NULL) {
+			/* fallback to scene layer */
+			cur_render_layer = BKE_scene_layer_render_active(curscene);
 		}
 
 		if (track_undo_scene) {
@@ -197,7 +204,7 @@ static void setup_app_data(
 		}
 
 		/* BKE_blender_globals_clear will free G.main, here we can still restore pointers */
-		blo_lib_link_restore(bfd->main, CTX_wm_manager(C), curscene);
+		blo_lib_link_restore(bfd->main, CTX_wm_manager(C), curscene, cur_render_layer);
 		if (win) {
 			curscene = win->scene;
 		}
@@ -354,8 +361,10 @@ int BKE_blendfile_read(
 	BlendFileData *bfd;
 	int retval = BKE_BLENDFILE_READ_OK;
 
-	if (strstr(filepath, BLENDER_STARTUP_FILE) == NULL) /* don't print user-pref loading */
-		printf("read blend: %s\n", filepath);
+	/* don't print user-pref loading */
+	if (strstr(filepath, BLENDER_STARTUP_FILE) == NULL) {
+		printf("Read blend: %s\n", filepath);
+	}
 
 	bfd = BLO_read_from_file(filepath, reports, skip_flags);
 	if (bfd) {
@@ -422,6 +431,32 @@ bool BKE_blendfile_read_from_memfile(
 	return (bfd != NULL);
 }
 
+/**
+ * Utility to make a file 'empty' used for startup to optionally give an empty file.
+ * Handy for tests.
+ */
+void BKE_blendfile_read_make_empty(bContext *C)
+{
+	Main *bmain = CTX_data_main(C);
+
+	ListBase *lbarray[MAX_LIBARRAY];
+	ID *id;
+	int a;
+
+	a = set_listbasepointers(bmain, lbarray);
+	while (a--) {
+		id = lbarray[a]->first;
+		if (id != NULL) {
+			if (ELEM(GS(id->name), ID_SCE, ID_SCR, ID_WM)) {
+				continue;
+			}
+			while ((id = lbarray[a]->first)) {
+				BKE_libblock_delete(bmain, id);
+			}
+		}
+	}
+}
+
 /* only read the userdef from a .blend */
 UserDef *BKE_blendfile_userdef_read(const char *filepath, ReportList *reports)
 {
@@ -477,6 +512,29 @@ int BKE_blendfile_userdef_write(const char *filepath, ReportList *reports)
 	MEM_freeN(mainb);
 
 	return retval;
+}
+
+WorkflowFileData *BKE_blendfile_workflow_read(const char *filepath, ReportList *reports)
+{
+	BlendFileData *bfd;
+	WorkflowFileData *workflow_file = NULL;
+
+	bfd = BLO_read_from_file(filepath, reports, BLO_READ_SKIP_USERDEF); /* TODO only read workspaces */
+	if (bfd) {
+		workflow_file = MEM_mallocN(sizeof(*workflow_file), __func__);
+		workflow_file->main = bfd->main;
+		workflow_file->workspaces = bfd->main->workspaces;
+
+		MEM_freeN(bfd);
+	}
+
+	return workflow_file;
+}
+
+void BKE_blendfile_workflow_data_free(WorkflowFileData *workflow_file)
+{
+	BKE_main_free(workflow_file->main);
+	MEM_freeN(workflow_file);
 }
 
 /** \} */

@@ -934,12 +934,12 @@ void view3d_cached_text_draw_end(View3D *v3d, ARegion *ar, bool depth_write, flo
 			ED_view3d_clipping_disable();
 		}
 
-		glMatrixMode(GL_PROJECTION);
-		glPushMatrix();
-		glMatrixMode(GL_MODELVIEW);
-		glPushMatrix();
+		float original_proj[4][4];
+		gpuGetProjectionMatrix3D(original_proj);
 		wmOrtho2_region_pixelspace(ar);
-		glLoadIdentity();
+
+		gpuPushMatrix();
+		gpuLoadIdentity();
 		
 		if (depth_write) {
 			if (v3d->zbuf) glDisable(GL_DEPTH_TEST);
@@ -973,10 +973,8 @@ void view3d_cached_text_draw_end(View3D *v3d, ARegion *ar, bool depth_write, flo
 			glDepthMask(GL_TRUE);
 		}
 		
-		glMatrixMode(GL_PROJECTION);
-		glPopMatrix();
-		glMatrixMode(GL_MODELVIEW);
-		glPopMatrix();
+		gpuPopMatrix();
+		gpuLoadProjectionMatrix3D(original_proj); /* TODO: make this more 2D friendly */
 
 		if (rv3d->rflag & RV3D_CLIPPING) {
 			ED_view3d_clipping_enable();
@@ -1255,7 +1253,6 @@ void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
 	}
 
 	/* we first draw only the screen aligned & fixed scale stuff */
-	gpuMatrixBegin3D_legacy();
 	gpuPushMatrix();
 	gpuLoadMatrix3D(rv3d->viewmat);
 
@@ -1610,7 +1607,7 @@ void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
 	glDisable(GL_BLEND);
 
 	immUnbindProgram();
-	gpuMatrixEnd();
+	gpuPopMatrix();
 }
 
 static void draw_limit_line(float sta, float end, const short dflag, const unsigned char col[3], unsigned pos)
@@ -1679,7 +1676,7 @@ static void draw_viewport_object_reconstruction(
 	if ((tracking_object->flag & TRACKING_OBJECT_CAMERA) == 0)
 		mul_v3_fl(camera_size, tracking_object->scale);
 
-	glPushMatrix();
+	gpuPushMatrix();
 
 	if (tracking_object->flag & TRACKING_OBJECT_CAMERA) {
 		/* current ogl matrix is translated in camera space, bundles should
@@ -1687,8 +1684,8 @@ static void draw_viewport_object_reconstruction(
 		 * from current ogl matrix */
 		invert_m4_m4(imat, base->object->obmat);
 
-		glMultMatrixf(imat);
-		glMultMatrixf(mat);
+		gpuMultMatrix3D(imat);
+		gpuMultMatrix3D(mat);
 	}
 	else {
 		float obmat[4][4];
@@ -1697,7 +1694,7 @@ static void draw_viewport_object_reconstruction(
 		BKE_tracking_camera_get_reconstructed_interpolate(tracking, tracking_object, framenr, obmat);
 
 		invert_m4_m4(imat, obmat);
-		glMultMatrixf(imat);
+		gpuMultMatrix3D(imat);
 	}
 
 	for (track = tracksbase->first; track; track = track->next) {
@@ -1712,11 +1709,11 @@ static void draw_viewport_object_reconstruction(
 		if (dflag & DRAW_PICKING)
 			GPU_select_load_id(base->selcol + (tracknr << 16));
 
-		glPushMatrix();
-		glTranslate3fv(track->bundle_pos);
-		glScalef(v3d->bundle_size / 0.05f / camera_size[0],
-		         v3d->bundle_size / 0.05f / camera_size[1],
-		         v3d->bundle_size / 0.05f / camera_size[2]);
+		gpuPushMatrix();
+		gpuTranslate3fv(track->bundle_pos);
+		gpuScale3f(v3d->bundle_size / 0.05f / camera_size[0],
+		           v3d->bundle_size / 0.05f / camera_size[1],
+		           v3d->bundle_size / 0.05f / camera_size[2]);
 
 		const int v3d_drawtype = view3d_effective_drawtype(v3d);
 		if (v3d_drawtype == OB_WIRE) {
@@ -1738,7 +1735,7 @@ static void draw_viewport_object_reconstruction(
 			if (v3d->bundle_drawtype == OB_EMPTY_SPHERE) {
 				Batch *batch;
 
-				glScalef(0.05f, 0.05f, 0.05f);
+				gpuScaleUniform(0.05f);
 
 				/* selection outline */
 				if (selected) {
@@ -1796,7 +1793,7 @@ static void draw_viewport_object_reconstruction(
 			}
 		}
 
-		glPopMatrix();
+		gpuPopMatrix();
 
 		if ((dflag & DRAW_PICKING) == 0 && (v3d->flag2 & V3D_SHOW_BUNDLENAME)) {
 			float pos[3];
@@ -1836,7 +1833,7 @@ static void draw_viewport_object_reconstruction(
 		}
 	}
 
-	glPopMatrix();
+	gpuPopMatrix();
 
 	*global_track_index = tracknr;
 }
@@ -2171,8 +2168,6 @@ void drawcamera(Scene *scene, View3D *v3d, RegionView3D *rv3d, Base *base,
 	BKE_camera_view_frame_ex(scene, cam, cam->drawsize, is_view, scale,
 	                         asp, shift, &drawsize, vec);
 
-	gpuMatrixBegin3D_legacy();
-
 	unsigned pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 	if (ob_wire_col) {
@@ -2202,7 +2197,6 @@ void drawcamera(Scene *scene, View3D *v3d, RegionView3D *rv3d, Base *base,
 
 	if (is_view) {
 		immUnbindProgram();
-		gpuMatrixEnd();
 		return;
 	}
 
@@ -2277,7 +2271,6 @@ void drawcamera(Scene *scene, View3D *v3d, RegionView3D *rv3d, Base *base,
 	}
 
 	immUnbindProgram();
-	gpuMatrixEnd();
 }
 
 /* flag similar to draw_object() */
@@ -5946,7 +5939,7 @@ static void draw_new_particle_system(Scene *scene, View3D *v3d, RegionView3D *rv
 	if ((ob->flag & OB_FROMGROUP) != 0) {
 		float mat[4][4];
 		mul_m4_m4m4(mat, ob->obmat, psys->imat);
-		glMultMatrixf(mat);
+		gpuMultMatrix3D(mat);
 	}
 
 	/* needed for text display */
@@ -6536,7 +6529,7 @@ static void draw_new_particle_system(Scene *scene, View3D *v3d, RegionView3D *rv
 	}
 
 	if ((ob->flag & OB_FROMGROUP) != 0) {
-		glLoadMatrixf(rv3d->viewmat);
+		gpuLoadMatrix3D(rv3d->viewmat);
 	}
 }
 
@@ -6552,15 +6545,9 @@ static void draw_update_ptcache_edit(Scene *scene, SceneLayer *sl, Object *ob, P
 
 static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 {
-	ParticleCacheKey **cache, *path, *pkey;
-	PTCacheEditPoint *point;
-	PTCacheEditKey *key;
 	ParticleEditSettings *pset = PE_settings(scene);
-	int i, k, totpoint = edit->totpoint, timed = (pset->flag & PE_FADE_TIME) ? pset->fade_frames : 0;
-	int totkeys = 1;
-	float sel_col[3];
-	float nosel_col[3];
-	float *pathcol = NULL, *pcol;
+	const int totpoint = edit->totpoint;
+	const bool timed = (pset->flag & PE_FADE_TIME) ? pset->fade_frames : false;
 
 	if (edit->pathcache == NULL)
 		return;
@@ -6572,20 +6559,26 @@ static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 		glDisable(GL_DEPTH_TEST);
 
 	/* get selection theme colors */
+	float sel_col[3], nosel_col[3];
 	UI_GetThemeColor3fv(TH_VERTEX_SELECT, sel_col);
 	UI_GetThemeColor3fv(TH_VERTEX, nosel_col);
 
 	/* draw paths */
-	totkeys = (*edit->pathcache)->segments + 1;
+	const int totkeys = (*edit->pathcache)->segments + 1;
 
 	glEnable(GL_BLEND);
-	pathcol = MEM_callocN(totkeys * 4 * sizeof(float), "particle path color data");
+	float *pathcol = MEM_callocN(totkeys * 4 * sizeof(float), "particle path color data");
 
 	if (pset->brushtype == PE_BRUSH_WEIGHT)
 		glLineWidth(2.0f);
 
-	cache = edit->pathcache;
+	ParticleCacheKey **cache = edit->pathcache;
+	PTCacheEditPoint *point;
+	int i;
+
 	for (i = 0, point = edit->points; i < totpoint; i++, point++) {
+		ParticleCacheKey *path = cache[i];
+
 		VertexFormat format = {0};
 		unsigned int pos_id, col_id, col_comp;
 
@@ -6597,12 +6590,12 @@ static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 		VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
 		VertexBuffer_allocate_data(vbo, path->segments + 1);
 
-		path = cache[i];
-
 		fillAttribStride(vbo, pos_id, sizeof(ParticleCacheKey), path->co);
 
+		float *pcol = pathcol;
+
 		if (point->flag & PEP_HIDE) {
-			for (k = 0, pcol = pathcol; k < totkeys; k++, pcol += 4) {
+			for (int k = 0; k < totkeys; k++, pcol += 4) {
 				copy_v3_v3(pcol, path->col);
 				pcol[3] = 0.25f;
 			}
@@ -6610,7 +6603,8 @@ static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 			fillAttrib(vbo, col_id, pathcol);
 		}
 		else if (timed) {
-			for (k = 0, pcol = pathcol, pkey = path; k < totkeys; k++, pkey++, pcol += 4) {
+			ParticleCacheKey *pkey = path;
+			for (int k = 0; k < totkeys; k++, pkey++, pcol += 4) {
 				copy_v3_v3(pcol, pkey->col);
 				pcol[3] = 1.0f - fabsf((float)(CFRA) -pkey->time) / (float)pset->fade_frames;
 			}
@@ -6629,8 +6623,7 @@ static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 		Batch_discard_all(batch);
 	}
 
-	if (pathcol) { MEM_freeN(pathcol); pathcol = pcol = NULL; }
-
+	if (pathcol) { MEM_freeN(pathcol); pathcol = NULL; }
 
 	/* draw edit vertices */
 	if (pset->selectmode != SCE_SELECT_PATH) {
@@ -6660,7 +6653,8 @@ static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 				if (point->flag & PEP_HIDE)
 					continue;
 
-				for (k = 0, key = point->keys; k < point->totkey; k++, key++) {
+				PTCacheEditKey *key = point->keys;
+				for (int k = 0; k < point->totkey; k++, key++) {
 					if (pd) {
 						copy_v3_v3(pd, key->co);
 						pd += 3;
@@ -6709,17 +6703,17 @@ static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 		else if (pset->selectmode == SCE_SELECT_END) {
 			VertexFormat *format = immVertexFormat();
 			unsigned int pos_id = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
-			unsigned int col_id = add_attrib(format, "color", GL_FLOAT, 4, KEEP_FLOAT);
+			unsigned int col_id = add_attrib(format, "color", GL_FLOAT, 3, KEEP_FLOAT);
 			immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
 			immBeginAtMost(GL_POINTS, totpoint);
 			for (i = 0, point = edit->points; i < totpoint; i++, point++) {
 				if ((point->flag & PEP_HIDE) == 0 && point->totkey) {
-					key = point->keys + point->totkey - 1;
+					PTCacheEditKey *key = point->keys + point->totkey - 1;
 					if ((key->flag & PEK_SELECT) != 0) {
-						immAttrib4f(col_id, sel_col[0], sel_col[1], sel_col[2], 1.0f);
+						immAttrib3fv(col_id, sel_col);
 					}
 					else {
-						immAttrib4f(col_id, nosel_col[0], nosel_col[1], nosel_col[2], 1.0f);
+						immAttrib3fv(col_id, nosel_col);
 					}
 					/* has to be like this.. otherwise selection won't work, have try glArrayElement later..*/
 					immVertex3fv(pos_id, (key->flag & PEK_USE_WCO) ? key->world_co : key->co);
@@ -8037,7 +8031,6 @@ static void imm_draw_bb(BoundBox *bb, char type, bool around_origin, const unsig
 		BKE_boundbox_calc_center_aabb(bb, cent);
 	}
 	
-	gpuMatrixBegin3D_legacy();
 	gpuPushMatrix();
 
 	unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
@@ -8077,9 +8070,8 @@ static void imm_draw_bb(BoundBox *bb, char type, bool around_origin, const unsig
 		gpuTranslate3f(0.0f, length / radius, 0.0f);
 		Batch_draw(sphere);
 	}
-	gpuPopMatrix();
-	gpuMatrixEnd();
 
+	gpuPopMatrix();
 	immUnbindProgram();
 }
 
@@ -8856,12 +8848,12 @@ afterdraw:
 				if ((sb = ob->soft)) {
 					if (sb->solverflags & SBSO_ESTIMATEIPO) {
 
-						glLoadMatrixf(rv3d->viewmat);
+						gpuLoadMatrix3D(rv3d->viewmat);
 						copy_m3_m3(msc, sb->lscale);
 						copy_m3_m3(mrt, sb->lrot);
 						mul_m3_m3m3(mtr, mrt, msc);
 						ob_draw_RE_motion(sb->lcom, mtr, tipw, tiph, drawsize);
-						glMultMatrixf(ob->obmat);
+						gpuMultMatrix3D(ob->obmat);
 					}
 				}
 			}
@@ -8886,7 +8878,7 @@ afterdraw:
 		}
 		//glDepthMask(GL_FALSE);
 
-		glLoadMatrixf(rv3d->viewmat);
+		gpuLoadMatrix3D(rv3d->viewmat);
 		
 		view3d_cached_text_draw_begin();
 
@@ -8903,7 +8895,7 @@ afterdraw:
 		invert_m4_m4(ob->imat, ob->obmat);
 		view3d_cached_text_draw_end(v3d, ar, 0, NULL);
 
-		glMultMatrixf(ob->obmat);
+		gpuMultMatrix3D(ob->obmat);
 		
 		//glDepthMask(GL_TRUE);
 		if (col) cpack(col);
@@ -8917,10 +8909,10 @@ afterdraw:
 		if (ob->mode & OB_MODE_PARTICLE_EDIT && is_obact) {
 			PTCacheEdit *edit = PE_create_current(scene, ob);
 			if (edit) {
-				glLoadMatrixf(rv3d->viewmat);
+				gpuLoadMatrix3D(rv3d->viewmat);
 				draw_update_ptcache_edit(scene, sl, ob, edit);
 				draw_ptcache_edit(scene, v3d, edit);
-				glMultMatrixf(ob->obmat);
+				gpuMultMatrix3D(ob->obmat);
 			}
 		}
 	}
@@ -8931,8 +8923,8 @@ afterdraw:
 		const bool show_smoke = (CFRA >= sds->point_cache[0]->startframe);
 		float viewnormal[3];
 
-		glLoadMatrixf(rv3d->viewmat);
-		glMultMatrixf(ob->obmat);
+		gpuLoadMatrix3D(rv3d->viewmat);
+		gpuMultMatrix3D(ob->obmat);
 
 		if (!render_override) {
 			BoundBox bb;
@@ -9099,7 +9091,7 @@ afterdraw:
 	/* return warning, clear temp flag */
 	v3d->flag2 &= ~V3D_SHOW_SOLID_MATCAP;
 	
-	glLoadMatrixf(rv3d->viewmat);
+	gpuLoadMatrix3D(rv3d->viewmat);
 
 	if (zbufoff) {
 		glDisable(GL_DEPTH_TEST);
@@ -9554,7 +9546,7 @@ void draw_object_backbufsel(Scene *scene, View3D *v3d, RegionView3D *rv3d, Objec
 {
 	ToolSettings *ts = scene->toolsettings;
 
-	glMultMatrixf(ob->obmat);
+	gpuMultMatrix3D(ob->obmat);
 
 	glClearDepth(1.0); glClear(GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
@@ -9614,7 +9606,7 @@ void draw_object_backbufsel(Scene *scene, View3D *v3d, RegionView3D *rv3d, Objec
 			break;
 	}
 
-	glLoadMatrixf(rv3d->viewmat);
+	gpuLoadMatrix3D(rv3d->viewmat);
 }
 
 

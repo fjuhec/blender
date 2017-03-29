@@ -78,6 +78,7 @@
 #include "GPU_draw.h"
 #include "GPU_extensions.h"
 #include "GPU_material.h"
+#include "GPU_matrix.h"
 #include "GPU_shader.h"
 #include "GPU_texture.h"
 
@@ -137,7 +138,7 @@ void GPU_render_text(
 		else if (!col)
 			glColor3f(1.0f, 1.0f, 1.0f);
 
-		glPushMatrix();
+		gpuPushMatrix();
 		
 		/* get the tab width */
 		ImBuf *first_ibuf = BKE_image_get_first_ibuf(ima);
@@ -155,12 +156,12 @@ void GPU_render_text(
 			character = BLI_str_utf8_as_unicode_and_size_safe(textstr + index, &index);
 			
 			if (character == '\n') {
-				glTranslatef(line_start, -line_height, 0.0f);
+				gpuTranslate2f(line_start, -line_height);
 				line_start = 0.0f;
 				continue;
 			}
 			else if (character == '\t') {
-				glTranslatef(advance_tab, 0.0f, 0.0f);
+				gpuTranslate2f(advance_tab, 0.0f);
 				line_start -= advance_tab; /* so we can go back to the start of the line */
 				continue;
 				
@@ -209,10 +210,10 @@ void GPU_render_text(
 			}
 			glEnd();
 
-			glTranslatef(advance, 0.0f, 0.0f);
+			gpuTranslate2f(advance, 0.0f);
 			line_start -= advance; /* so we can go back to the start of the line */
 		}
-		glPopMatrix();
+		gpuPopMatrix();
 
 		BKE_image_release_ibuf(ima, first_ibuf, NULL);
 	}
@@ -419,7 +420,7 @@ void GPU_clear_tpage(bool force)
 	GTS.curima = NULL;
 	if (GTS.curtilemode != 0) {
 		glMatrixMode(GL_TEXTURE);
-		glLoadIdentity();
+		glLoadIdentity(); /* TEXTURE */
 		glMatrixMode(GL_MODELVIEW);
 	}
 	GTS.curtilemode = 0;
@@ -603,10 +604,10 @@ int GPU_verify_image(
 	    GTS.curtileYRep != GTS.tileYRep)
 	{
 		glMatrixMode(GL_TEXTURE);
-		glLoadIdentity();
+		glLoadIdentity(); /* TEXTURE */
 
 		if (ima && (ima->tpageflag & IMA_TILES))
-			glScalef(ima->xrep, ima->yrep, 1.0f);
+			glScalef(ima->xrep, ima->yrep, 0); /* TEXTURE */
 
 		glMatrixMode(GL_MODELVIEW);
 	}
@@ -2095,7 +2096,7 @@ void GPU_end_object_materials(void)
 	/* resetting the texture matrix after the scaling needed for tiled textures */
 	if (GTS.tilemode) {
 		glMatrixMode(GL_TEXTURE);
-		glLoadIdentity();
+		glLoadIdentity(); /* TEXTURE */
 		glMatrixMode(GL_MODELVIEW);
 	}
 }
@@ -2172,8 +2173,8 @@ int GPU_scene_object_lights(Scene *scene, Object *ob, int lay, float viewmat[4][
 		Lamp *la = base->object->data;
 		
 		/* setup lamp transform */
-		glPushMatrix();
-		glLoadMatrixf((float *)viewmat);
+		gpuPushMatrix();
+		gpuLoadMatrix3D(viewmat);
 		
 		/* setup light */
 		GPULightData light = {0};
@@ -2207,7 +2208,7 @@ int GPU_scene_object_lights(Scene *scene, Object *ob, int lay, float viewmat[4][
 		
 		GPU_basic_shader_light_set(count, &light);
 		
-		glPopMatrix();
+		gpuPopMatrix();
 		
 		count++;
 		if (count == 8)
@@ -2276,16 +2277,10 @@ void GPU_state_init(void)
 	glDisable(GL_TEXTURE_2D);
 	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
-	/* default disabled, enable should be local per function */
-	glDisableClientState(GL_VERTEX_ARRAY);
-	glDisableClientState(GL_NORMAL_ARRAY);
-	glDisableClientState(GL_COLOR_ARRAY);
-	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-
 	glDepthRange(0.0, 1.0);
 
 	glMatrixMode(GL_TEXTURE);
-	glLoadIdentity();
+	glLoadIdentity(); /* TEXTURE */
 	glMatrixMode(GL_MODELVIEW);
 
 	glFrontFace(GL_CCW);
@@ -2293,8 +2288,6 @@ void GPU_state_init(void)
 	glDisable(GL_CULL_FACE);
 
 	gpu_multisample(false);
-
-	GPU_basic_shader_bind(GPU_SHADER_USE_COLOR);
 }
 
 void GPU_enable_program_point_size(void)

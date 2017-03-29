@@ -50,6 +50,7 @@ bool BKE_blendfile_read_from_memory(
 bool BKE_blendfile_read_from_memfile(
         struct bContext *C, struct MemFile *memfile,
         struct ReportList *reports, int skip_flag);
+void BKE_blendfile_read_make_empty(struct bContext *C);
 
 struct UserDef *BKE_blendfile_userdef_read(
         const char *filepath, struct ReportList *reports);
@@ -58,6 +59,9 @@ struct UserDef *BKE_blendfile_userdef_read_from_memory(
         struct ReportList *reports);
 
 int BKE_blendfile_userdef_write(const char *filepath, struct ReportList *reports);
+
+struct WorkflowFileData *BKE_blendfile_workflow_read(const char *filepath, struct ReportList *reports);
+void BKE_blendfile_workflow_data_free(struct WorkflowFileData *workflow_file);
 
 
 /* partial blend file writing */

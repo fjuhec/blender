@@ -33,8 +33,6 @@
 #include "BKE_global.h"
 
 #include "GPU_batch.h"
-#include "GPU_debug.h"
-#include "GPU_glew.h"
 #include "GPU_framebuffer.h"
 #include "GPU_matrix.h"
 #include "GPU_shader.h"
@@ -133,13 +131,15 @@ bool GPU_framebuffer_texture_attach(GPUFrameBuffer *fb, GPUTexture *tex, int slo
 		}
 	}
 
-	if (GPU_texture_depth(tex))
+	glBindFramebuffer(GL_FRAMEBUFFER, fb->object);
+	GG.currentfb = fb->object;
+
+	if (GPU_texture_stencil(tex) && GPU_texture_depth(tex))
+		attachment = GL_DEPTH_STENCIL_ATTACHMENT;
+	else if (GPU_texture_depth(tex))
 		attachment = GL_DEPTH_ATTACHMENT;
 	else
 		attachment = GL_COLOR_ATTACHMENT0 + slot;
-
-	glBindFramebuffer(GL_FRAMEBUFFER, fb->object);
-	GG.currentfb = fb->object;
 
 	glFramebufferTexture2D(GL_FRAMEBUFFER, attachment,
 		GPU_texture_target(tex), GPU_texture_opengl_bindcode(tex), 0);
@@ -168,7 +168,11 @@ void GPU_framebuffer_texture_detach(GPUTexture *tex)
 		GG.currentfb = fb->object;
 	}
 
-	if (GPU_texture_depth(tex)) {
+	if (GPU_texture_stencil(tex) && GPU_texture_depth(tex)) {
+		fb->depthtex = NULL;
+		attachment = GL_DEPTH_STENCIL_ATTACHMENT;
+	}
+	else if (GPU_texture_depth(tex)) {
 		fb->depthtex = NULL;
 		attachment = GL_DEPTH_ATTACHMENT;
 	}
@@ -214,14 +218,9 @@ void GPU_texture_bind_as_framebuffer(GPUTexture *tex)
 		glEnable(GL_MULTISAMPLE);
 	}
 
-	/* push matrices and set default viewport and matrix */
+	/* set default viewport */
 	glViewport(0, 0, GPU_texture_width(tex), GPU_texture_height(tex));
 	GG.currentfb = fb->object;
-
-	glMatrixMode(GL_PROJECTION);
-	glPushMatrix();
-	glMatrixMode(GL_MODELVIEW);
-	glPushMatrix();
 }
 
 void GPU_framebuffer_slots_bind(GPUFrameBuffer *fb, int slot)
@@ -252,14 +251,9 @@ void GPU_framebuffer_slots_bind(GPUFrameBuffer *fb, int slot)
 	glDrawBuffers(numslots, attachments);
 	glReadBuffer(GL_COLOR_ATTACHMENT0 + slot);
 
-	/* push matrices and set default viewport and matrix */
+	/* set default viewport */
 	glViewport(0, 0, GPU_texture_width(fb->colortex[slot]), GPU_texture_height(fb->colortex[slot]));
 	GG.currentfb = fb->object;
-
-	glMatrixMode(GL_PROJECTION);
-	glPushMatrix();
-	glMatrixMode(GL_MODELVIEW);
-	glPushMatrix();
 }
 
 void GPU_framebuffer_bind(GPUFrameBuffer *fb)
@@ -302,12 +296,6 @@ void GPU_framebuffer_bind(GPUFrameBuffer *fb)
 
 void GPU_framebuffer_texture_unbind(GPUFrameBuffer *UNUSED(fb), GPUTexture *UNUSED(tex))
 {
-	/* restore matrix */
-	glMatrixMode(GL_PROJECTION);
-	glPopMatrix();
-	glMatrixMode(GL_MODELVIEW);
-	glPopMatrix();
-
 	/* restore attributes */
 	glPopAttrib();
 }

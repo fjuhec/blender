@@ -42,9 +42,8 @@
 extern char datatoc_clay_frag_glsl[];
 extern char datatoc_clay_vert_glsl[];
 extern char datatoc_ssao_alchemy_glsl[];
-extern char datatoc_ssao_groundtruth_glsl[];
 
-/* Storage */
+/* *********** LISTS *********** */
 
 /* UBOs data needs to be 16 byte aligned (size of vec4) */
 /* Reminder : float, int, bool are 4 bytes */
@@ -64,24 +63,6 @@ typedef struct CLAY_UBO_Storage {
 	CLAY_UBO_Material materials[MAX_CLAY_MAT];
 } CLAY_UBO_Storage;
 
-static struct CLAY_data {
-	/* Depth Pre Pass */
-	struct GPUShader *depth_sh;
-	/* Shading Pass */
-	struct GPUShader *clay_sh;
-
-	/* Matcap textures */
-	struct GPUTexture *matcap_array;
-	float matcap_colors[24][3];
-
-	/* Ssao */
-	float winmat[4][4];
-	float viewvecs[3][4];
-	float ssao_params[4];
-	struct GPUTexture *jitter_tx;
-	struct GPUTexture *sampling_tx;
-} data = {NULL};
-
 /* GPUViewport.storage
  * Is freed everytime the viewport engine changes */
 typedef struct CLAY_Storage {
@@ -91,13 +72,11 @@ typedef struct CLAY_Storage {
 	DRWShadingGroup *shgrps[MAX_CLAY_MAT];
 } CLAY_Storage;
 
-/* Just a serie of int from 0 to MAX_CLAY_MAT-1 */
-static int ubo_mat_idxs[MAX_CLAY_MAT] = {0};
-
 /* keep it under MAX_STORAGE */
 typedef struct CLAY_StorageList {
 	struct CLAY_Storage *storage;
 	struct GPUUniformBuffer *mat_ubo;
+	struct g_data *g_data;
 } CLAY_StorageList;
 
 /* keep it under MAX_BUFFERS */
@@ -122,6 +101,7 @@ typedef struct CLAY_PassList {
 	struct DRWPass *depth_pass;
 	struct DRWPass *depth_pass_cull;
 	struct DRWPass *clay_pass;
+	struct g_data *g_data;
 } CLAY_PassList;
 
 typedef struct CLAY_Data {
@@ -132,8 +112,38 @@ typedef struct CLAY_Data {
 	CLAY_StorageList *stl;
 } CLAY_Data;
 
+/* *********** STATIC *********** */
 
-//#define GTAO
+static struct {
+	/* Depth Pre Pass */
+	struct GPUShader *depth_sh;
+	/* Shading Pass */
+	struct GPUShader *clay_sh;
+
+	/* Matcap textures */
+	struct GPUTexture *matcap_array;
+	float matcap_colors[24][3];
+
+	/* Ssao */
+	float winmat[4][4];
+	float viewvecs[3][4];
+	float ssao_params[4];
+	int cached_sample_num;
+	struct GPUTexture *jitter_tx;
+	struct GPUTexture *sampling_tx;
+
+	/* Just a serie of int from 0 to MAX_CLAY_MAT-1 */
+	int ubo_mat_idxs[MAX_CLAY_MAT];
+} e_data = {NULL}; /* Engine data */
+
+typedef struct g_data {
+	DRWShadingGroup *depth_shgrp;
+	DRWShadingGroup *depth_shgrp_select;
+	DRWShadingGroup *depth_shgrp_active;
+	DRWShadingGroup *depth_shgrp_cull;
+	DRWShadingGroup *depth_shgrp_cull_select;
+	DRWShadingGroup *depth_shgrp_cull_active;
+} g_data; /* Transient data */
 
 /* Functions */
 
@@ -148,15 +158,15 @@ static void add_icon_to_rect(PreviewImage *prv, float *final_rect, int layer)
 	/* Find overall color */
 	for (int y = 0; y < 4; ++y)	{
 		for (int x = 0; x < 4; ++x) {
-			data.matcap_colors[layer][0] += new_rect[y * 512 * 128 * 4 + x * 128 * 4 + 0];
-			data.matcap_colors[layer][1] += new_rect[y * 512 * 128 * 4 + x * 128 * 4 + 1];
-			data.matcap_colors[layer][2] += new_rect[y * 512 * 128 * 4 + x * 128 * 4 + 2];
+			e_data.matcap_colors[layer][0] += new_rect[y * 512 * 128 * 4 + x * 128 * 4 + 0];
+			e_data.matcap_colors[layer][1] += new_rect[y * 512 * 128 * 4 + x * 128 * 4 + 1];
+			e_data.matcap_colors[layer][2] += new_rect[y * 512 * 128 * 4 + x * 128 * 4 + 2];
 		}
 	}
 
-	data.matcap_colors[layer][0] /= 16.0f * 2.0f; /* the * 2 is to darken for shadows */
-	data.matcap_colors[layer][1] /= 16.0f * 2.0f;
-	data.matcap_colors[layer][2] /= 16.0f * 2.0f;
+	e_data.matcap_colors[layer][0] /= 16.0f * 2.0f; /* the * 2 is to darken for shadows */
+	e_data.matcap_colors[layer][1] /= 16.0f * 2.0f;
+	e_data.matcap_colors[layer][2] /= 16.0f * 2.0f;
 }
 
 static struct GPUTexture *load_matcaps(PreviewImage *prv[24], int nbr)
@@ -234,14 +244,9 @@ static struct GPUTexture *create_jitter_texture(void)
 
 	/* TODO replace by something more evenly distributed like blue noise */
 	for (i = 0; i < 64 * 64; i++) {
-#ifdef GTAO
-		jitter[i][0] = BLI_frand();
-		jitter[i][1] = BLI_frand();
-#else
 		jitter[i][0] = 2.0f * BLI_frand() - 1.0f;
 		jitter[i][1] = 2.0f * BLI_frand() - 1.0f;
 		normalize_v2(jitter[i]);
-#endif
 	}
 
 	return DRW_texture_create_2D(64, 64, DRW_TEX_RG_16, DRW_TEX_FILTER | DRW_TEX_WRAP, &jitter[0][0]);
@@ -271,15 +276,14 @@ RenderEngineSettings *CLAY_render_settings_create(void)
 	return (RenderEngineSettings *)settings;
 }
 
-static void CLAY_engine_init(void)
+static void CLAY_engine_init(void *vedata)
 {
-	CLAY_Data *vedata = DRW_viewport_engine_data_get("Clay");
-	CLAY_StorageList *stl = vedata->stl;
-	CLAY_TextureList *txl = vedata->txl;
-	CLAY_FramebufferList *fbl = vedata->fbl;
+	CLAY_StorageList *stl = ((CLAY_Data *)vedata)->stl;
+	CLAY_TextureList *txl = ((CLAY_Data *)vedata)->txl;
+	CLAY_FramebufferList *fbl = ((CLAY_Data *)vedata)->fbl;
 
 	/* Create Texture Array */
-	if (!data.matcap_array) {
+	if (!e_data.matcap_array) {
 		PreviewImage *prv[24]; /* For now use all of the 24 internal matcaps */
 
 		/* TODO only load used matcaps */
@@ -308,27 +312,22 @@ static void CLAY_engine_init(void)
 		prv[22] = UI_icon_to_preview(ICON_MATCAP_23);
 		prv[23] = UI_icon_to_preview(ICON_MATCAP_24);
 
-		data.matcap_array = load_matcaps(prv, 24);
+		e_data.matcap_array = load_matcaps(prv, 24);
 	}
 
 	/* AO Jitter */
-	if (!data.jitter_tx) {
-		data.jitter_tx = create_jitter_texture();
+	if (!e_data.jitter_tx) {
+		e_data.jitter_tx = create_jitter_texture();
 	}
 
-	/* AO Samples */
-	/* TODO use hammersley sequence */
-	if (!data.sampling_tx) {
-		data.sampling_tx = create_spiral_sample_texture(500);
-	}
 
 	/* Depth prepass */
-	if (!data.depth_sh) {
-		data.depth_sh = DRW_shader_create_3D_depth_only();
+	if (!e_data.depth_sh) {
+		e_data.depth_sh = DRW_shader_create_3D_depth_only();
 	}
 
 	/* Shading pass */
-	if (!data.clay_sh) {
+	if (!e_data.clay_sh) {
 		DynStr *ds = BLI_dynstr_new();
 		const char *max_mat =
 			"#define MAX_MATERIAL 512\n"
@@ -338,15 +337,11 @@ static void CLAY_engine_init(void)
 		char *matcap_with_ao;
 
 		BLI_dynstr_append(ds, datatoc_clay_frag_glsl);
-#ifdef GTAO
-		BLI_dynstr_append(ds, datatoc_ssao_groundtruth_glsl);
-#else
 		BLI_dynstr_append(ds, datatoc_ssao_alchemy_glsl);
-#endif
 
 		matcap_with_ao = BLI_dynstr_get_cstring(ds);
 
-		data.clay_sh = DRW_shader_create(datatoc_clay_vert_glsl, NULL, matcap_with_ao, max_mat);
+		e_data.clay_sh = DRW_shader_create(datatoc_clay_vert_glsl, NULL, matcap_with_ao, max_mat);
 
 		BLI_dynstr_free(ds);
 		MEM_freeN(matcap_with_ao);
@@ -360,10 +355,10 @@ static void CLAY_engine_init(void)
 		stl->mat_ubo = DRW_uniformbuffer_create(sizeof(CLAY_UBO_Storage), NULL);
 	}
 
-	if (ubo_mat_idxs[1] == 0) {
+	if (e_data.ubo_mat_idxs[1] == 0) {
 		/* Just int to have pointers to them */
 		for (int i = 0; i < MAX_CLAY_MAT; ++i) {
-			ubo_mat_idxs[i] = i;
+			e_data.ubo_mat_idxs[i] = i;
 		}
 	}
 
@@ -392,14 +387,14 @@ static void CLAY_engine_init(void)
 
 		DRW_get_dfdy_factors(dfdyfacs);
 
-		data.ssao_params[0] = settings->ssao_samples;
-		data.ssao_params[1] = size[0] / 64.0;
-		data.ssao_params[2] = size[1] / 64.0;
-		data.ssao_params[3] = dfdyfacs[1]; /* dfdy sign for offscreen */
+		e_data.ssao_params[0] = settings->ssao_samples;
+		e_data.ssao_params[1] = size[0] / 64.0;
+		e_data.ssao_params[2] = size[1] / 64.0;
+		e_data.ssao_params[3] = dfdyfacs[1]; /* dfdy sign for offscreen */
 
 		/* invert the view matrix */
-		DRW_viewport_matrix_get(data.winmat, DRW_MAT_WIN);
-		invert_m4_m4(invproj, data.winmat);
+		DRW_viewport_matrix_get(e_data.winmat, DRW_MAT_WIN);
+		invert_m4_m4(invproj, e_data.winmat);
 
 		/* convert the view vectors to view space */
 		for (i = 0; i < 3; i++) {
@@ -410,45 +405,53 @@ static void CLAY_engine_init(void)
 				mul_v3_fl(viewvecs[i], 1.0f / viewvecs[i][2]);
 			viewvecs[i][3] = 1.0;
 
-			copy_v4_v4(data.viewvecs[i], viewvecs[i]);
+			copy_v4_v4(e_data.viewvecs[i], viewvecs[i]);
 		}
 
 		/* we need to store the differences */
-		data.viewvecs[1][0] -= data.viewvecs[0][0];
-		data.viewvecs[1][1] = data.viewvecs[2][1] - data.viewvecs[0][1];
+		e_data.viewvecs[1][0] -= e_data.viewvecs[0][0];
+		e_data.viewvecs[1][1] = e_data.viewvecs[2][1] - e_data.viewvecs[0][1];
 
 		/* calculate a depth offset as well */
 		if (!is_persp) {
 			float vec_far[] = {-1.0f, -1.0f, 1.0f, 1.0f};
 			mul_m4_v4(invproj, vec_far);
 			mul_v3_fl(vec_far, 1.0f / vec_far[3]);
-			data.viewvecs[1][2] = vec_far[2] - data.viewvecs[0][2];
+			e_data.viewvecs[1][2] = vec_far[2] - e_data.viewvecs[0][2];
+		}
+
+		/* AO Samples Tex */
+		if (e_data.sampling_tx && (e_data.cached_sample_num != settings->ssao_samples)) {
+			DRW_texture_free(e_data.sampling_tx);
+			e_data.sampling_tx = NULL;
+		}
+
+		if (!e_data.sampling_tx) {
+			e_data.sampling_tx = create_spiral_sample_texture(settings->ssao_samples);
+			e_data.cached_sample_num = settings->ssao_samples;
 		}
 	}
 }
 
-static DRWShadingGroup *CLAY_shgroup_create(DRWPass *pass, int *material_id)
+static DRWShadingGroup *CLAY_shgroup_create(CLAY_Data *vedata, DRWPass *pass, int *material_id)
 {
-	CLAY_Data *vedata = DRW_viewport_engine_data_get("Clay");
-	CLAY_TextureList *txl = vedata->txl;
+	CLAY_TextureList *txl = ((CLAY_Data *)vedata)->txl;
 	const int depthloc = 0, matcaploc = 1, jitterloc = 2, sampleloc = 3;
 
-	DRWShadingGroup *grp = DRW_shgroup_create(data.clay_sh, pass);
+	DRWShadingGroup *grp = DRW_shgroup_create(e_data.clay_sh, pass);
 
 	DRW_shgroup_uniform_vec2(grp, "screenres", DRW_viewport_size_get(), 1);
 	DRW_shgroup_uniform_buffer(grp, "depthtex", &txl->depth_dup, depthloc);
-	DRW_shgroup_uniform_texture(grp, "matcaps", data.matcap_array, matcaploc);
-	DRW_shgroup_uniform_mat4(grp, "WinMatrix", (float *)data.winmat);
-	DRW_shgroup_uniform_vec4(grp, "viewvecs", (float *)data.viewvecs, 3);
-	DRW_shgroup_uniform_vec4(grp, "ssao_params", data.ssao_params, 1);
-	DRW_shgroup_uniform_vec3(grp, "matcaps_color", (float *)data.matcap_colors, 24);
+	DRW_shgroup_uniform_texture(grp, "matcaps", e_data.matcap_array, matcaploc);
+	DRW_shgroup_uniform_mat4(grp, "WinMatrix", (float *)e_data.winmat);
+	DRW_shgroup_uniform_vec4(grp, "viewvecs", (float *)e_data.viewvecs, 3);
+	DRW_shgroup_uniform_vec4(grp, "ssao_params", e_data.ssao_params, 1);
+	DRW_shgroup_uniform_vec3(grp, "matcaps_color", (float *)e_data.matcap_colors, 24);
 
 	DRW_shgroup_uniform_int(grp, "mat_id", material_id, 1);
 
-#ifndef GTAO
-	DRW_shgroup_uniform_texture(grp, "ssao_jitter", data.jitter_tx, jitterloc);
-	DRW_shgroup_uniform_texture(grp, "ssao_samples", data.sampling_tx, sampleloc);
-#endif
+	DRW_shgroup_uniform_texture(grp, "ssao_jitter", e_data.jitter_tx, jitterloc);
+	DRW_shgroup_uniform_texture(grp, "ssao_samples", e_data.sampling_tx, sampleloc);
 
 	return grp;
 }
@@ -493,7 +496,8 @@ static int push_mat_to_ubo(CLAY_Storage *storage, float matcap_rot, float matcap
 	ubo->matcap_hsv[1] = matcap_sat * 2.0f;
 	ubo->matcap_hsv[2] = matcap_val * 2.0f;
 
-	ubo->ssao_params_var[0] = ssao_distance;
+	/* small optimisation : make samples not spread if we don't need ssao */
+	ubo->ssao_params_var[0] = (ssao_factor_cavity + ssao_factor_edge > 0.0f) ? ssao_distance : 0.0f;
 	ubo->ssao_params_var[1] = ssao_factor_cavity;
 	ubo->ssao_params_var[2] = ssao_factor_edge;
 	ubo->ssao_params_var[3] = ssao_attenuation;
@@ -551,7 +555,7 @@ static void override_setting(CollectionEngineSettings *ces, const char *name, vo
 	}
 }
 
-static DRWShadingGroup *CLAY_object_shgrp_get(Object *ob, CLAY_StorageList *stl, CLAY_PassList *psl)
+static DRWShadingGroup *CLAY_object_shgrp_get(CLAY_Data *vedata, Object *ob, CLAY_StorageList *stl, CLAY_PassList *psl)
 {
 	DRWShadingGroup **shgrps = stl->storage->shgrps;
 	MaterialEngineSettingsClay *settings = DRW_render_settings_get(NULL, RE_engine_id_BLENDER_CLAY);
@@ -586,7 +590,7 @@ static DRWShadingGroup *CLAY_object_shgrp_get(Object *ob, CLAY_StorageList *stl,
 	                    ssao_attenuation, matcap_icon);
 
 	if (shgrps[id] == NULL) {
-		shgrps[id] = CLAY_shgroup_create(psl->clay_pass, &ubo_mat_idxs[id]);
+		shgrps[id] = CLAY_shgroup_create(vedata, psl->clay_pass, &e_data.ubo_mat_idxs[id]);
 		/* if it's the first shgrp, pass bind the material UBO */
 		if (stl->storage->ubo_current_id == 1) {
 			DRW_shgroup_uniform_block(shgrps[0], "material_block", stl->mat_ubo, 0);
@@ -596,22 +600,23 @@ static DRWShadingGroup *CLAY_object_shgrp_get(Object *ob, CLAY_StorageList *stl,
 	return shgrps[id];
 }
 
-static DRWShadingGroup *depth_shgrp;
-static DRWShadingGroup *depth_shgrp_cull;
-
-static void CLAY_cache_init(void)
+static void CLAY_cache_init(void *vedata)
 {
-	CLAY_Data *vedata = DRW_viewport_engine_data_get("Clay");
-	CLAY_PassList *psl = vedata->psl;
-	CLAY_StorageList *stl = vedata->stl;
+	CLAY_PassList *psl = ((CLAY_Data *)vedata)->psl;
+	CLAY_StorageList *stl = ((CLAY_Data *)vedata)->stl;
+
+	if (!stl->g_data) {
+		/* Alloc transient pointers */
+		stl->g_data = MEM_mallocN(sizeof(g_data), "g_data");
+	}
 
 	/* Depth Pass */
 	{
-		psl->depth_pass_cull = DRW_pass_create("Depth Pass Cull", DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS | DRW_STATE_CULL_BACK);
 		psl->depth_pass = DRW_pass_create("Depth Pass", DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+		stl->g_data->depth_shgrp = DRW_shgroup_create(e_data.depth_sh, psl->depth_pass);
 
-		depth_shgrp_cull = DRW_shgroup_create(data.depth_sh, psl->depth_pass_cull);
-		depth_shgrp = DRW_shgroup_create(data.depth_sh, psl->depth_pass);
+		psl->depth_pass_cull = DRW_pass_create("Depth Pass Cull", DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS | DRW_STATE_CULL_BACK);
+		stl->g_data->depth_shgrp_cull = DRW_shgroup_create(e_data.depth_sh, psl->depth_pass_cull);
 	}
 
 	/* Clay Pass */
@@ -622,11 +627,10 @@ static void CLAY_cache_init(void)
 	}
 }
 
-static void CLAY_cache_populate(Object *ob)
+static void CLAY_cache_populate(void *vedata, Object *ob)
 {
-	CLAY_Data *vedata = DRW_viewport_engine_data_get("Clay");
-	CLAY_PassList *psl = vedata->psl;
-	CLAY_StorageList *stl = vedata->stl;
+	CLAY_PassList *psl = ((CLAY_Data *)vedata)->psl;
+	CLAY_StorageList *stl = ((CLAY_Data *)vedata)->stl;
 
 	struct Batch *geom;
 	DRWShadingGroup *clay_shgrp;
@@ -642,27 +646,26 @@ static void CLAY_cache_populate(Object *ob)
 		geom = DRW_cache_surface_get(ob);
 
 		/* Depth Prepass */
-		DRW_shgroup_call_add((do_cull) ? depth_shgrp_cull : depth_shgrp, geom, ob->obmat);
+		DRW_shgroup_call_add((do_cull) ? stl->g_data->depth_shgrp_cull : stl->g_data->depth_shgrp, geom, ob->obmat);
 
 		/* Shading */
-		clay_shgrp = CLAY_object_shgrp_get(ob, stl, psl);
+		clay_shgrp = CLAY_object_shgrp_get(vedata, ob, stl, psl);
 		DRW_shgroup_call_add(clay_shgrp, geom, ob->obmat);
 	}
 }
 
-static void CLAY_cache_finish(void)
+static void CLAY_cache_finish(void *vedata)
 {
-	CLAY_Data *vedata = DRW_viewport_engine_data_get("Clay");
-	CLAY_StorageList *stl = vedata->stl;
+	CLAY_StorageList *stl = ((CLAY_Data *)vedata)->stl;
 
 	DRW_uniformbuffer_update(stl->mat_ubo, &stl->storage->mat_storage);
 }
 
-static void CLAY_draw_scene(void)
+static void CLAY_draw_scene(void *vedata)
 {
-	CLAY_Data *vedata = DRW_viewport_engine_data_get("Clay");
-	CLAY_PassList *psl = vedata->psl;
-	CLAY_FramebufferList *fbl = vedata->fbl;
+
+	CLAY_PassList *psl = ((CLAY_Data *)vedata)->psl;
+	CLAY_FramebufferList *fbl = ((CLAY_Data *)vedata)->fbl;
 	DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
 
 	/* Pass 1 : Depth pre-pass */
@@ -694,17 +697,17 @@ static void CLAY_collection_settings_create(RenderEngine *UNUSED(engine), Collec
 
 static void CLAY_engine_free(void)
 {
-	if (data.clay_sh) {
-		DRW_shader_free(data.clay_sh);
+	if (e_data.clay_sh) {
+		DRW_shader_free(e_data.clay_sh);
 	}
-	if (data.matcap_array) {
-		DRW_texture_free(data.matcap_array);
+	if (e_data.matcap_array) {
+		DRW_texture_free(e_data.matcap_array);
 	}
-	if (data.jitter_tx) {
-		DRW_texture_free(data.jitter_tx);
+	if (e_data.jitter_tx) {
+		DRW_texture_free(e_data.jitter_tx);
 	}
-	if (data.sampling_tx) {
-		DRW_texture_free(data.sampling_tx);
+	if (e_data.sampling_tx) {
+		DRW_texture_free(e_data.sampling_tx);
 	}
 }
 

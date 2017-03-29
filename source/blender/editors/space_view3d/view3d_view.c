@@ -51,10 +51,10 @@
 #include "BKE_scene.h"
 #include "BKE_screen.h"
 
-#include "BIF_gl.h"
 #include "BIF_glutil.h"
 
 #include "GPU_select.h"
+#include "GPU_matrix.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -96,10 +96,8 @@ void view3d_region_operator_needs_opengl(wmWindow *win, ARegion *ar)
 		RegionView3D *rv3d = ar->regiondata;
 		
 		wmSubWindowSet(win, ar->swinid);
-		glMatrixMode(GL_PROJECTION);
-		glLoadMatrixf(rv3d->winmat);
-		glMatrixMode(GL_MODELVIEW);
-		glLoadMatrixf(rv3d->viewmat);
+		gpuLoadProjectionMatrix3D(rv3d->winmat);
+		gpuLoadMatrix3D(rv3d->viewmat);
 	}
 }
 
@@ -539,6 +537,7 @@ void VIEW3D_OT_camera_to_view(wmOperatorType *ot)
 static int view3d_camera_to_view_selected_exec(bContext *C, wmOperator *op)
 {
 	Scene *scene = CTX_data_scene(C);
+	SceneLayer *sl = CTX_data_scene_layer(C);
 	View3D *v3d = CTX_wm_view3d(C);  /* can be NULL */
 	Object *camera_ob = v3d ? v3d->camera : scene->camera;
 
@@ -551,7 +550,7 @@ static int view3d_camera_to_view_selected_exec(bContext *C, wmOperator *op)
 	}
 
 	/* this function does all the important stuff */
-	if (BKE_camera_view_frame_fit_to_scene(scene, v3d, camera_ob, r_co, &r_scale)) {
+	if (BKE_camera_view_frame_fit_to_scene(scene, sl, camera_ob, r_co, &r_scale)) {
 		ObjectTfmProtectedChannels obtfm;
 		float obmat_new[4][4];
 
@@ -929,14 +928,14 @@ void view3d_winmatrix_set(ARegion *ar, const View3D *v3d, const rcti *rect)
 	}
 
 	if (is_ortho) {
-		wmOrtho(viewplane.xmin, viewplane.xmax, viewplane.ymin, viewplane.ymax, clipsta, clipend);
+		gpuOrtho(viewplane.xmin, viewplane.xmax, viewplane.ymin, viewplane.ymax, clipsta, clipend);
 	}
 	else {
-		wmFrustum(viewplane.xmin, viewplane.xmax, viewplane.ymin, viewplane.ymax, clipsta, clipend);
+		gpuFrustum(viewplane.xmin, viewplane.xmax, viewplane.ymin, viewplane.ymax, clipsta, clipend);
 	}
 
 	/* update matrix in 3d view region */
-	glGetFloatv(GL_PROJECTION_MATRIX, (float *)rv3d->winmat);
+	gpuGetProjectionMatrix3D(rv3d->winmat);
 }
 
 static void obmat_to_viewmat(RegionView3D *rv3d, Object *ob)
@@ -1288,11 +1287,11 @@ int ED_view3d_scene_layer_set(int lay, const int *values, int *active)
 
 static bool view3d_localview_init(
         wmWindowManager *wm, wmWindow *win,
-        Main *bmain, Scene *scene, ScrArea *sa, const int smooth_viewtx,
+        Main *bmain, Scene *scene, SceneLayer *sl, ScrArea *sa, const int smooth_viewtx,
         ReportList *reports)
 {
 	View3D *v3d = sa->spacedata.first;
-	BaseLegacy *base;
+	Base *base;
 	float min[3], max[3], box[3], mid[3];
 	float size = 0.0f;
 	unsigned int locallay;
@@ -1316,12 +1315,12 @@ static bool view3d_localview_init(
 			
 			ok = true;
 		
-			BASACT->lay |= locallay;
-			scene->obedit->lay = BASACT->lay;
+			BASACT_NEW->lay |= locallay;
+			scene->obedit->lay = BASACT_NEW->lay;
 		}
 		else {
-			for (base = FIRSTBASE; base; base = base->next) {
-				if (TESTBASE(v3d, base)) {
+			for (base = FIRSTBASE_NEW; base; base = base->next) {
+				if (TESTBASE_NEW(base)) {
 					BKE_object_minmax(base->object, min, max, false);
 					base->lay |= locallay;
 					base->object->lay = base->lay;
@@ -1391,11 +1390,11 @@ static bool view3d_localview_init(
 	}
 	else {
 		/* clear flags */ 
-		for (base = FIRSTBASE; base; base = base->next) {
+		for (base = FIRSTBASE_NEW; base; base = base->next) {
 			if (base->lay & locallay) {
 				base->lay -= locallay;
 				if (base->lay == 0) base->lay = v3d->layact;
-				if (base->object != scene->obedit) base->flag_legacy |= SELECT;
+				if (base->object != scene->obedit) base->flag |= BASE_SELECTED;
 				base->object->lay = base->lay;
 			}
 		}
@@ -1506,6 +1505,7 @@ static int localview_exec(bContext *C, wmOperator *op)
 	wmWindow *win = CTX_wm_window(C);
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
+	SceneLayer *sl = CTX_data_scene_layer(C);
 	ScrArea *sa = CTX_wm_area(C);
 	View3D *v3d = CTX_wm_view3d(C);
 	bool changed;
@@ -1514,7 +1514,7 @@ static int localview_exec(bContext *C, wmOperator *op)
 		changed = view3d_localview_exit(wm, win, bmain, scene, sa, smooth_viewtx);
 	}
 	else {
-		changed = view3d_localview_init(wm, win, bmain, scene, sa, smooth_viewtx, op->reports);
+		changed = view3d_localview_init(wm, win, bmain, scene, sl, sa, smooth_viewtx, op->reports);
 	}
 
 	if (changed) {

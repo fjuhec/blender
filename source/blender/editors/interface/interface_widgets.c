@@ -47,7 +47,6 @@
 
 #include "RNA_access.h"
 
-#include "BIF_gl.h"
 #include "BIF_glutil.h"
 
 #include "BLF_api.h"
@@ -234,9 +233,9 @@ void ui_draw_anti_roundbox(int mode, float minx, float miny, float maxx, float m
 	draw_color[3] *= 0.125f;
 	
 	for (j = 0; j < WIDGET_AA_JITTER; j++) {
-		glTranslate2fv(jit[j]);
+		gpuTranslate2fv(jit[j]);
 		UI_draw_roundbox_gl_mode(mode, minx, miny, maxx, maxy, rad, draw_color);
-		glTranslatef(-jit[j][0], -jit[j][1], 0.0f);
+		gpuTranslate2f(-jit[j][0], -jit[j][1]);
 	}
 
 	glDisable(GL_BLEND);
@@ -766,11 +765,9 @@ static void widgetbase_draw(uiWidgetBase *wtb, uiWidgetColors *wcol)
 
 		unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
 
-		gpuMatrixBegin3D_legacy();
-
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 		for (j = 0; j < WIDGET_AA_JITTER; j++) {
-			gpuTranslate3f(jit[j][0], jit[j][1], 0.0f);
+			gpuTranslate2fv(jit[j]);
 			
 			/* outline */
 			immUniformColor4ubv(tcol);
@@ -785,11 +782,9 @@ static void widgetbase_draw(uiWidgetBase *wtb, uiWidgetColors *wcol)
 				}
 			}
 			
-			gpuTranslate3f(-jit[j][0], -jit[j][1], 0.0f);
+			gpuTranslate2f(-jit[j][0], -jit[j][1]);
 		}
 		immUnbindProgram();
-
-		gpuMatrixEnd();
 	}
 
 	/* decoration */
@@ -803,11 +798,9 @@ static void widgetbase_draw(uiWidgetBase *wtb, uiWidgetColors *wcol)
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 		immUniformColor4ubv(tcol);
 
-		gpuMatrixBegin3D_legacy();
-
 		/* for each AA step */
 		for (j = 0; j < WIDGET_AA_JITTER; j++) {
-			gpuTranslate3f(jit[j][0], jit[j][1], 0.0f);
+			gpuTranslate2fv(jit[j]);
 
 			if (wtb->tria1.tot)
 				widget_trias_draw(&wtb->tria1, pos);
@@ -815,10 +808,8 @@ static void widgetbase_draw(uiWidgetBase *wtb, uiWidgetColors *wcol)
 			if (wtb->tria2.tot)
 				widget_trias_draw(&wtb->tria2, pos);
 		
-			gpuTranslate3f(-jit[j][0], -jit[j][1], 0.0f);
+			gpuTranslate2f(-jit[j][0], -jit[j][1]);
 		}
-
-		gpuMatrixEnd();
 
 		immUnbindProgram();
 	}
@@ -904,24 +895,18 @@ static void widget_draw_icon(
 		float ofs = 1.0f / aspect;
 		
 		if (but->drawflag & UI_BUT_ICON_LEFT) {
-			if (but->block->flag & UI_BLOCK_LOOP) {
-				if (but->type == UI_BTYPE_SEARCH_MENU)
-					xs = rect->xmin + 4.0f * ofs;
-				else
-					xs = rect->xmin + ofs;
-			}
-			else {
-				if (but->dt == UI_EMBOSS_NONE || but->type == UI_BTYPE_LABEL)
-					xs = rect->xmin + 2.0f * ofs;
-				else
-					xs = rect->xmin + 4.0f * ofs;
-			}
-			ys = (rect->ymin + rect->ymax - height) / 2.0f;
+			/* special case - icon_only pie buttons */
+			if (ui_block_is_pie_menu(but->block) && but->type != UI_BTYPE_MENU && but->str && but->str[0] == '\0')
+				xs = rect->xmin + 2.0f * ofs;
+			else if (but->dt == UI_EMBOSS_NONE || but->type == UI_BTYPE_LABEL)
+				xs = rect->xmin + 2.0f * ofs;
+			else
+				xs = rect->xmin + 4.0f * ofs;
 		}
 		else {
 			xs = (rect->xmin + rect->xmax - height) / 2.0f;
-			ys = (rect->ymin + rect->ymax - height) / 2.0f;
 		}
+		ys = (rect->ymin + rect->ymax - height) / 2.0f;
 
 		/* force positions to integers, for zoom levels near 1. draws icons crisp. */
 		if (aspect > 0.95f && aspect < 1.05f) {
@@ -4152,9 +4137,8 @@ void ui_draw_pie_center(uiBlock *block)
 	float angle = atan2f(pie_dir[1], pie_dir[0]);
 	float range = (block->pie_data.flags & UI_PIE_DEGREES_RANGE_LARGE) ? M_PI_2 : M_PI_4;
 
-	gpuMatrixBegin3D_legacy();
 	gpuPushMatrix();
-	gpuTranslate3f(cx, cy, 0.0f);
+	gpuTranslate2f(cx, cy);
 
 	glEnable(GL_BLEND);
 	if (btheme->tui.wcol_pie_menu.shaded) {
@@ -4201,7 +4185,6 @@ void ui_draw_pie_center(uiBlock *block)
 
 	glDisable(GL_BLEND);
 	gpuPopMatrix();
-	gpuMatrixEnd();
 }
 
 

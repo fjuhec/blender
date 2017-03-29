@@ -44,7 +44,7 @@ class INFO_HT_header(Header):
             layout.operator("screen.back_to_previous", icon='SCREEN_BACK', text="Back to Previous")
             layout.separator()
         else:
-            layout.template_ID(window, "workspace", new="workspace.workspace_new", unlink="workspace.workspace_delete")
+            layout.template_ID(window, "workspace", new="workspace.workspace_add", unlink="workspace.workspace_delete")
             layout.template_ID_preview(window, "screen", workspace, "screens", new="screen.new", unlink="screen.delete", rows=2, cols=6)
 
         if hasattr(workspace, 'object_mode'):
@@ -137,6 +137,18 @@ class INFO_MT_file(Menu):
         layout.operator_context = 'INVOKE_AREA'
         layout.operator("wm.save_homefile", icon='SAVE_PREFS')
         layout.operator("wm.read_factory_settings", icon='LOAD_FACTORY')
+
+        if any(bpy.utils.app_template_paths()):
+            app_template = context.user_preferences.app_template
+            if app_template:
+                layout.operator(
+                    "wm.read_factory_settings",
+                    text="Load Factory Template Settings",
+                    icon='LOAD_FACTORY',
+                ).app_template = app_template
+            del app_template
+
+        layout.menu("USERPREF_MT_app_templates", icon='FILE_BLEND')
 
         layout.separator()
 
@@ -351,5 +363,23 @@ class INFO_MT_help(Menu):
 
         layout.operator("wm.splash", icon='BLENDER')
 
+
+classes = (
+    INFO_HT_header,
+    INFO_MT_editor_menus,
+    INFO_MT_file,
+    INFO_MT_file_import,
+    INFO_MT_file_export,
+    INFO_MT_file_external_data,
+    INFO_MT_file_previews,
+    INFO_MT_game,
+    INFO_MT_render,
+    INFO_MT_opengl_render,
+    INFO_MT_window,
+    INFO_MT_help,
+)
+
 if __name__ == "__main__":  # only for live edit.
-    bpy.utils.register_module(__name__)
+    from bpy.utils import register_class
+    for cls in classes:
+        register_class(cls)

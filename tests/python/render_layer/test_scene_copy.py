@@ -1,15 +1,13 @@
-# ./blender.bin --background -noaudio --python tests/python/render_layer/test_scene_copy.py -- --testdir="/data/lib/tests/"
-
 # ############################################################
 # Importing - Same For All Render Layer Tests
 # ############################################################
 
-import unittest
-
-import os, sys
-sys.path.append(os.path.dirname(__file__))
-
 from render_layer_common import *
+import unittest
+import os
+import sys
+
+sys.path.append(os.path.dirname(__file__))
 
 
 # ############################################################
@@ -36,6 +34,7 @@ class UnitTesting(RenderLayerTesting):
             filepath_json = os.path.join(dirpath, "{0}.json".format(copy_mode))
 
             bpy.ops.wm.open_mainfile('EXEC_DEFAULT', filepath=filepath_layers)
+            self.rename_collections()
             bpy.ops.scene.new(type=copy_mode)
             bpy.ops.wm.save_mainfile('EXEC_DEFAULT', filepath=filepath_saved)
 

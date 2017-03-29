@@ -59,7 +59,7 @@ struct GPUViewport {
 	int size[2];
 
 	ListBase data;  /* ViewportEngineData wrapped in LinkData */
-	int data_hash;  /* If hash mismatch we free all ViewportEngineData in this viewport */
+	unsigned int data_hash;  /* If hash mismatch we free all ViewportEngineData in this viewport */
 
 	FramebufferList *fbl;
 	TextureList *txl;
@@ -146,7 +146,7 @@ void GPU_viewport_size_get(GPUViewport *viewport, int *size)
 	size[1] = viewport->size[1];
 }
 
-bool GPU_viewport_cache_validate(GPUViewport *viewport, int hash)
+bool GPU_viewport_cache_validate(GPUViewport *viewport, unsigned int hash)
 {
 	bool dirty = false;
 
@@ -214,7 +214,7 @@ void GPU_viewport_bind(GPUViewport *viewport, const rcti *rect)
 		}
 
 		/* Depth */
-		dtxl->depth = GPU_texture_create_depth(rect_w, rect_h, NULL);
+		dtxl->depth = GPU_texture_create_depth_with_stencil(rect_w, rect_h, NULL);
 		if (!dtxl->depth) {
 			ok = false;
 			goto cleanup;
@@ -289,6 +289,7 @@ void GPU_viewport_unbind(GPUViewport *viewport)
 		GPU_framebuffer_restore();
 
 		glEnable(GL_SCISSOR_TEST);
+		glDisable(GL_DEPTH_TEST);
 
 		/* This might be bandwidth limiting */
 		draw_ofs_to_screen(viewport);

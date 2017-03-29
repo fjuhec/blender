@@ -32,12 +32,20 @@
 
 #include "draw_mode_engines.h"
 
+extern GlobalsUboStorage ts;
+
+/* *********** LISTS *********** */
 /* keep it under MAX_PASSES */
 typedef struct EDIT_ARMATURE_PassList {
 	struct DRWPass *bone_solid;
 	struct DRWPass *bone_wire;
 	struct DRWPass *relationship;
 } EDIT_ARMATURE_PassList;
+
+/* keep it under MAX_STORAGE */
+typedef struct EDIT_ARMATURE_StorageList {
+	struct g_data *g_data;
+} EDIT_ARMATURE_StorageList;
 
 typedef struct EDIT_ARMATURE_Data {
 	char engine_name[32];
@@ -47,16 +55,23 @@ typedef struct EDIT_ARMATURE_Data {
 	void *stl;
 } EDIT_ARMATURE_Data;
 
-static DRWShadingGroup *relationship_lines;
+/* *********** STATIC *********** */
 
-extern GlobalsUboStorage ts;
+typedef struct g_data {
+	DRWShadingGroup *relationship_lines;
+} g_data; /* Transient data */
 
-static EDIT_ARMATURE_Data *vedata;
+/* *********** FUNCTIONS *********** */
 
-static void EDIT_ARMATURE_cache_init(void)
+static void EDIT_ARMATURE_cache_init(void *vedata)
 {
-	vedata = DRW_viewport_engine_data_get("EditArmatureMode");
-	EDIT_ARMATURE_PassList *psl = vedata->psl;
+	EDIT_ARMATURE_PassList *psl = ((EDIT_ARMATURE_Data *)vedata)->psl;
+	EDIT_ARMATURE_StorageList *stl = ((EDIT_ARMATURE_Data *)vedata)->stl;
+
+	if (!stl->g_data) {
+		/* Alloc transient pointers */
+		stl->g_data = MEM_mallocN(sizeof(g_data), "g_data");
+	}
 
 	{
 		/* Solid bones */
@@ -76,28 +91,27 @@ static void EDIT_ARMATURE_cache_init(void)
 		psl->relationship = DRW_pass_create("Bone Relationship Pass", state);
 
 		/* Relationship Lines */
-		relationship_lines = shgroup_dynlines_uniform_color(psl->relationship, ts.colorWire);
-		DRW_shgroup_state_set(relationship_lines, DRW_STATE_STIPPLE_3);
+		stl->g_data->relationship_lines = shgroup_dynlines_uniform_color(psl->relationship, ts.colorWire);
+		DRW_shgroup_state_set(stl->g_data->relationship_lines, DRW_STATE_STIPPLE_3);
 	}
-
 }
 
-static void EDIT_ARMATURE_cache_populate(Object *ob)
+static void EDIT_ARMATURE_cache_populate(void *vedata, Object *ob)
 {
 	bArmature *arm = ob->data;
-	EDIT_ARMATURE_PassList *psl = vedata->psl;
+	EDIT_ARMATURE_PassList *psl = ((EDIT_ARMATURE_Data *)vedata)->psl;
+	EDIT_ARMATURE_StorageList *stl = ((EDIT_ARMATURE_Data *)vedata)->stl;
 
 	if (ob->type == OB_ARMATURE) {
 		if (arm->edbo) {
-			DRW_shgroup_armature_edit(ob, psl->bone_solid, psl->bone_wire, relationship_lines);
+			DRW_shgroup_armature_edit(ob, psl->bone_solid, psl->bone_wire, stl->g_data->relationship_lines);
 		}
 	}
 }
 
-static void EDIT_ARMATURE_draw_scene(void)
+static void EDIT_ARMATURE_draw_scene(void *vedata)
 {
-	EDIT_ARMATURE_Data *ved = DRW_viewport_engine_data_get("EditArmatureMode");
-	EDIT_ARMATURE_PassList *psl = ved->psl;
+	EDIT_ARMATURE_PassList *psl = ((EDIT_ARMATURE_Data *)vedata)->psl;
 
 	DRW_draw_pass(psl->bone_solid);
 	DRW_draw_pass(psl->bone_wire);

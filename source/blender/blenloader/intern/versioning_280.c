@@ -112,7 +112,7 @@ static void do_version_workspaces_after_lib_link(Main *main)
 	}
 }
 
-void do_versions_after_linking_280(FileData *fd, Main *main)
+void do_versions_after_linking_280(Main *main)
 {
 	if (!MAIN_VERSION_ATLEAST(main, 280, 0)) {
 		char version[48];
@@ -219,6 +219,9 @@ void do_versions_after_linking_280(FileData *fd, Main *main)
 					else {
 						ob_base->flag &= ~BASE_SELECTED;
 					}
+
+					/* keep lay around for forward compatibility (open those files in 2.79) */
+					ob_base->lay = base->lay;
 				}
 
 				/* TODO: copy scene render data to layer */
@@ -247,50 +250,50 @@ void do_versions_after_linking_280(FileData *fd, Main *main)
 
 	{
 		/* New workspace design */
-		if (!DNA_struct_find(fd->filesdna, "WorkSpace")) {
+		if (!MAIN_VERSION_ATLEAST(main, 278, 5)) {
 			do_version_workspaces_after_lib_link(main);
 		}
-	}
 
-	if (!MAIN_VERSION_ATLEAST(main, 280, 0)) {
-		BKE_workspace_iter_begin(workspace, main->workspaces.first)
-		{
-			SceneLayer *layer = BKE_workspace_render_layer_get(workspace);
-			const bool is_single_collection = BLI_listbase_count_ex(&layer->layer_collections, 2) == 1;
-			ListBase *layouts = BKE_workspace_layouts_get(workspace);
-
-			BKE_workspace_layout_iter_begin(layout, layouts->first)
+		if (!MAIN_VERSION_ATLEAST(main, 278, 5)) {
+			BKE_workspace_iter_begin(workspace, main->workspaces.first)
 			{
-				bScreen *screen = BKE_workspace_layout_screen_get(layout);
+				SceneLayer *layer = BKE_workspace_render_layer_get(workspace);
+				const bool is_single_collection = BLI_listbase_count_ex(&layer->layer_collections, 2) == 1;
+				ListBase *layouts = BKE_workspace_layouts_get(workspace);
 
-				for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
-					for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
-						if (sl->spacetype == SPACE_OUTLINER) {
-							SpaceOops *soutliner = (SpaceOops *)sl;
+				BKE_workspace_layout_iter_begin(layout, layouts->first)
+				{
+					bScreen *screen = BKE_workspace_layout_screen_get(layout);
 
-							soutliner->outlinevis = SO_ACT_LAYER;
+					for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
+						for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
+							if (sl->spacetype == SPACE_OUTLINER) {
+								SpaceOops *soutliner = (SpaceOops *)sl;
 
-							if (is_single_collection) {
-								/* Create a tree store element for the collection. This is normally
-								 * done in check_persistent (outliner_tree.c), but we need to access
-								 * it here :/ (expand element if it's the only one) */
-								TreeStoreElem *tselem = BLI_mempool_alloc(soutliner->treestore);
-								tselem->type = TSE_LAYER_COLLECTION;
-								tselem->id = layer->layer_collections.first;
-								tselem->nr = tselem->used = 0;
-								tselem->flag &= ~TSE_CLOSED;
+								soutliner->outlinevis = SO_ACT_LAYER;
+
+								if (is_single_collection) {
+									/* Create a tree store element for the collection. This is normally
+									 * done in check_persistent (outliner_tree.c), but we need to access
+									 * it here :/ (expand element if it's the only one) */
+									TreeStoreElem *tselem = BLI_mempool_calloc(soutliner->treestore);
+									tselem->type = TSE_LAYER_COLLECTION;
+									tselem->id = layer->layer_collections.first;
+									tselem->nr = tselem->used = 0;
+									tselem->flag &= ~TSE_CLOSED;
+								}
 							}
 						}
 					}
 				}
+				BKE_workspace_layout_iter_end;
 			}
-			BKE_workspace_layout_iter_end;
+			BKE_workspace_iter_end;
 		}
-		BKE_workspace_iter_end;
 	}
 
 	{
-		if (!DNA_struct_find(fd->filesdna, "SpaceTopBar")) {
+		if (!MAIN_VERSION_ATLEAST(main, 278, 5)) {
 			for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
 				for (wmWindow *win = wm->windows.first; win; win = win->next) {
 					bScreen *screen = BKE_workspace_active_screen_get(win->workspace_hook);

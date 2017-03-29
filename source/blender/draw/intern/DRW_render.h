@@ -72,15 +72,15 @@ typedef struct DrawEngineType {
 
 	char idname[32];
 
-	void (*engine_init)(void);
+	void (*engine_init)(void *vedata);
 	void (*engine_free)(void);
 
-	void (*cache_init)(void);
-	void (*cache_populate)(struct Object *ob);
-	void (*cache_finish)(void);
+	void (*cache_init)(void *vedata);
+	void (*cache_populate)(void *vedata, struct Object *ob);
+	void (*cache_finish)(void *vedata);
 
-	void (*draw_background)(void);
-	void (*draw_scene)(void);
+	void (*draw_background)(void *vedata);
+	void (*draw_scene)(void *vedata);
 } DrawEngineType;
 
 #ifndef __DRW_ENGINE_H__
@@ -161,14 +161,16 @@ typedef struct DRWFboTexture {
 
 void DRW_framebuffer_init(struct GPUFrameBuffer **fb, int width, int height, DRWFboTexture textures[MAX_FBO_TEX], int texnbr);
 void DRW_framebuffer_bind(struct GPUFrameBuffer *fb);
-void DRW_framebuffer_clear(bool color, bool depth, float clear_col[4], float clear_depth);
+void DRW_framebuffer_clear(bool color, bool depth, bool stencil, float clear_col[4], float clear_depth);
 void DRW_framebuffer_texture_attach(struct GPUFrameBuffer *fb, struct GPUTexture *tex, int slot);
 void DRW_framebuffer_texture_detach(struct GPUTexture *tex);
 void DRW_framebuffer_blit(struct GPUFrameBuffer *fb_read, struct GPUFrameBuffer *fb_write, bool depth);
 /* Shaders */
 struct GPUShader *DRW_shader_create(const char *vert, const char *geom, const char *frag, const char *defines);
+struct GPUShader *DRW_shader_create_with_lib(const char *vert, const char *geom, const char *frag, const char *lib, const char *defines);
 struct GPUShader *DRW_shader_create_2D(const char *frag, const char *defines);
 struct GPUShader *DRW_shader_create_3D(const char *frag, const char *defines);
+struct GPUShader *DRW_shader_create_fullscreen(const char *frag, const char *defines);
 struct GPUShader *DRW_shader_create_3D_depth_only(void);
 void DRW_shader_free(struct GPUShader *shader);
 
@@ -189,6 +191,11 @@ typedef enum {
 	DRW_STATE_STIPPLE_3     = (1 << 11),
 	DRW_STATE_STIPPLE_4     = (1 << 12),
 	DRW_STATE_BLEND         = (1 << 13),
+
+	DRW_STATE_WRITE_STENCIL_SELECT = (1 << 14),
+	DRW_STATE_WRITE_STENCIL_ACTIVE = (1 << 15),
+	DRW_STATE_TEST_STENCIL_SELECT  = (1 << 16),
+	DRW_STATE_TEST_STENCIL_ACTIVE  = (1 << 17),
 } DRWState;
 
 DRWShadingGroup *DRW_shgroup_create(struct GPUShader *shader, DRWPass *pass);
@@ -223,13 +230,13 @@ DRWPass *DRW_pass_create(const char *name, DRWState state);
 /* Viewport */
 typedef enum {
 	DRW_MAT_PERS,
-	DRW_MAT_WIEW,
+	DRW_MAT_VIEW,
+	DRW_MAT_VIEWINV,
 	DRW_MAT_WIN,
 } DRWViewportMatrixType;
 
 void DRW_viewport_init(const bContext *C);
 void DRW_viewport_matrix_get(float mat[4][4], DRWViewportMatrixType type);
-void DRW_viewport_engine_data_set(const char *engine_name, void *fbl, void *txl, void *psl,	void *stl);
 void *DRW_viewport_engine_data_get(const char *engine_name);
 float *DRW_viewport_size_get(void);
 float *DRW_viewport_screenvecs_get(void);

@@ -207,11 +207,8 @@ static void view3d_main_region_setup_view(Scene *scene, View3D *v3d, ARegion *ar
 	ED_view3d_update_viewmat(scene, v3d, ar, viewmat, winmat);
 
 	/* set for opengl */
-	/* TODO(merwin): transition to GPU_matrix API */
-	glMatrixMode(GL_PROJECTION);
-	glLoadMatrixf(rv3d->winmat);
-	glMatrixMode(GL_MODELVIEW);
-	glLoadMatrixf(rv3d->viewmat);
+	gpuLoadProjectionMatrix3D(rv3d->winmat);
+	gpuLoadMatrix3D(rv3d->viewmat);
 }
 
 static bool view3d_stereo3d_active(const bContext *C, Scene *scene, View3D *v3d, RegionView3D *rv3d)
@@ -771,11 +768,10 @@ static bool view3d_draw_render_draw(const bContext *C, Scene *scene,
 		rv3d->render_engine = engine;
 	}
 
-	/* background draw */
-	glMatrixMode(GL_PROJECTION);
-	glPushMatrix();
-	glMatrixMode(GL_MODELVIEW);
-	glPushMatrix();
+	/* rendered draw */
+	gpuPushMatrix();
+	float original_proj[4][4];
+	gpuGetProjectionMatrix3D(original_proj);
 	ED_region_pixelspace(ar);
 
 	if (clip_border) {
@@ -790,8 +786,8 @@ static bool view3d_draw_render_draw(const bContext *C, Scene *scene,
 		}
 	}
 
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	/* don't change depth buffer */
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT); /* is this necessary? -- merwin */
 
 	/* render result draw */
@@ -803,10 +799,8 @@ static bool view3d_draw_render_draw(const bContext *C, Scene *scene,
 		glScissor(scissor[0], scissor[1], scissor[2], scissor[3]);
 	}
 
-	glMatrixMode(GL_PROJECTION);
-	glPopMatrix();
-	glMatrixMode(GL_MODELVIEW);
-	glPopMatrix();
+	gpuLoadProjectionMatrix3D(original_proj);
+	gpuPopMatrix();
 
 	return true;
 }
@@ -815,9 +809,7 @@ static bool view3d_draw_render_draw(const bContext *C, Scene *scene,
 
 static void view3d_draw_background_gradient(void)
 {
-	gpuMatrixBegin3D(); /* TODO: finish 2D API */
-
-	glClear(GL_DEPTH_BUFFER_BIT);
+	/* TODO: finish 2D API & draw background with that */
 
 	VertexFormat *format = immVertexFormat();
 	unsigned pos = add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
@@ -829,7 +821,7 @@ static void view3d_draw_background_gradient(void)
 	UI_GetThemeColor3ubv(TH_LOW_GRAD, col_lo);
 	UI_GetThemeColor3ubv(TH_HIGH_GRAD, col_hi);
 
-	immBegin(GL_QUADS, 4);
+	immBegin(PRIM_TRIANGLE_FAN, 4);
 	immAttrib3ubv(color, col_lo);
 	immVertex2f(pos, -1.0f, -1.0f);
 	immVertex2f(pos, 1.0f, -1.0f);
@@ -840,19 +832,12 @@ static void view3d_draw_background_gradient(void)
 	immEnd();
 
 	immUnbindProgram();
-
-	gpuMatrixEnd();
 }
 
 static void view3d_draw_background_none(void)
 {
-	if (UI_GetThemeValue(TH_SHOW_BACK_GRAD)) {
-		view3d_draw_background_gradient();
-	}
-	else {
-		UI_ThemeClearColorAlpha(TH_HIGH_GRAD, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	}
+	UI_ThemeClearColorAlpha(TH_HIGH_GRAD, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT);
 }
 
 static void view3d_draw_background_world(Scene *scene, View3D *v3d, RegionView3D *rv3d)
@@ -864,9 +849,6 @@ static void view3d_draw_background_world(Scene *scene, View3D *v3d, RegionView3D
 		GPU_material_bind(gpumat, 1, 1, 1.0f, false, rv3d->viewmat, rv3d->viewinv, rv3d->viewcamtexcofac, (v3d->scenelock != 0));
 
 		if (GPU_material_bound(gpumat)) {
-
-			glClear(GL_DEPTH_BUFFER_BIT);
-
 			/* TODO viewport (dfelinto): GPU_material_bind relies on immediate mode,
 			* we can't get rid of the following code without a bigger refactor
 			* or we dropping this functionality. */
@@ -879,14 +861,12 @@ static void view3d_draw_background_world(Scene *scene, View3D *v3d, RegionView3D
 			glEnd();
 
 			GPU_material_unbind(gpumat);
-		}
-		else {
-			view3d_draw_background_none();
+			return;
 		}
 	}
-	else {
-		view3d_draw_background_none();
-	}
+
+	/* if any of the above fails */
+	view3d_draw_background_none();
 }
 
 /* ******************** solid plates ***************** */
@@ -900,11 +880,8 @@ static void view3d_draw_background(const bContext *C)
 	View3D *v3d = CTX_wm_view3d(C);
 	RegionView3D *rv3d = CTX_wm_region_view3d(C);
 
-	glDisable(GL_DEPTH_TEST);
-	glDepthMask(GL_TRUE);
 	/* Background functions do not read or write depth, but they do clear or completely
-	 * overwrite color buffer. It's more efficient to clear color & depth in once call, so
-	 * background functions do this even though they don't use depth.
+	 * overwrite color buffer.
 	 */
 
 	switch (v3d->debug.background) {
@@ -917,7 +894,6 @@ static void view3d_draw_background(const bContext *C)
 		case V3D_DEBUG_BACKGROUND_NONE:
 		default:
 			view3d_draw_background_none();
-			break;
 	}
 }
 
@@ -1497,10 +1473,8 @@ static void view3d_draw_grid(const bContext *C, ARegion *ar)
 		*(&grid_unit) = NULL;  /* drawgrid need this to detect/affect smallest valid unit... */
 		drawgrid(&scene->unit, ar, v3d, &grid_unit);
 
-		glMatrixMode(GL_PROJECTION);
-		glLoadMatrixf(rv3d->winmat);
-		glMatrixMode(GL_MODELVIEW);
-		glLoadMatrixf(rv3d->viewmat);
+		gpuLoadProjectionMatrix3D(rv3d->winmat);
+		gpuLoadMatrix3D(rv3d->viewmat);
 	}
 	else {
 		drawfloor(scene, v3d, &grid_unit, false);
@@ -1785,10 +1759,7 @@ static void view3d_draw_non_mesh(
 Scene *scene, SceneLayer *sl, Object *ob, Base *base, View3D *v3d,
 RegionView3D *rv3d, const bool is_boundingbox, const unsigned char color[4])
 {
-	glMatrixMode(GL_PROJECTION);
-	glPushMatrix();
-	glMatrixMode(GL_MODELVIEW);
-	glPushMatrix();
+	gpuPushMatrix(); /* necessary? --merwin */
 
 	/* multiply view with object matrix.
 	* local viewmat and persmat, to calculate projections */
@@ -1831,12 +1802,9 @@ RegionView3D *rv3d, const bool is_boundingbox, const unsigned char color[4])
 		draw_rigidbody_shape(ob, color);
 	}
 
-	ED_view3d_clear_mats_rv3d(rv3d);
+	ED_view3d_clear_mats_rv3d(rv3d); /* no effect in release builds */
 
-	glMatrixMode(GL_PROJECTION);
-	glPopMatrix();
-	glMatrixMode(GL_MODELVIEW);
-	glPopMatrix();
+	gpuPopMatrix(); /* see above */
 }
 
 /* ******************** info ***************** */
@@ -2146,17 +2114,17 @@ static void view3d_draw_solid_plates(const bContext *C, ARegion *ar, DrawData *d
 {
 	/* realtime plates */
 	if ((!draw_data->is_render) || draw_data->clip_border) {
-		view3d_draw_background(C);
 		view3d_draw_render_solid_surfaces(C, ar, true);
 		view3d_draw_render_transparent_surfaces(C);
 		view3d_draw_post_draw(C);
 	}
 
-	/* offline plates*/
+	/* offline plates */
 	if (draw_data->is_render) {
 		Scene *scene = CTX_data_scene(C);
 		View3D *v3d = CTX_wm_view3d(C);
 
+		/* TODO: move this outside of solid plates, after solid & before other 3D elements */
 		view3d_draw_render_draw(C, scene, ar, v3d, draw_data->clip_border, &draw_data->border_rect);
 	}
 
@@ -2190,7 +2158,6 @@ static void view3d_draw_non_meshes(const bContext *C, ARegion *ar)
 	                        ((v3d->drawtype == OB_RENDER) && (v3d->prev_drawtype == OB_BOUNDBOX)));
 
 	glEnable(GL_DEPTH_TEST);
-	glDepthMask(GL_TRUE);
 	/* TODO Viewport
 	 * we are already temporarily writing to zbuffer in draw_object()
 	 * for now let's avoid writing again to zbuffer to prevent glitches
@@ -2206,7 +2173,6 @@ static void view3d_draw_non_meshes(const bContext *C, ARegion *ar)
 		}
 	}
 
-	glDepthMask(GL_FALSE);
 	glDisable(GL_DEPTH_TEST);
 }
 
@@ -2316,15 +2282,38 @@ static void view3d_draw_view(const bContext *C, ARegion *ar, DrawData *draw_data
 	/* TODO - Technically this should be drawn to a few FBO, so we can handle
 	 * compositing better, but for now this will get the ball rolling (dfelinto) */
 
+	glDepthMask(GL_TRUE); /* should be set by default */
+	glClear(GL_DEPTH_BUFFER_BIT);
+//	glDisable(GL_DEPTH_TEST); /* should be set by default */
+
+	gpuMatrixBegin3D();
+
+	view3d_draw_background(C); /* clears/overwrites entire color buffer */
+
 	view3d_draw_setup_view(C, ar);
-	view3d_draw_prerender_buffers(C, ar, draw_data);
+
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LEQUAL);
+	view3d_draw_prerender_buffers(C, ar, draw_data); /* depth pre-pass */
+
+//	glDepthFunc(GL_EQUAL); /* TODO: do this after separating surfaces from wires */
+//	glDepthMask(GL_FALSE); /* same TODO as above */
 	view3d_draw_solid_plates(C, ar, draw_data);
+
+//	glDepthFunc(GL_LEQUAL); /* same TODO as above */
+//	glDepthMask(GL_TRUE); /* same TODO as above */
+
 	view3d_draw_geometry_overlay(C);
 	view3d_draw_non_meshes(C, ar);
 	view3d_draw_other_elements(C, ar);
 	view3d_draw_tool_ui(C);
 	view3d_draw_reference_images(C);
 	view3d_draw_manipulator(C);
+
+	gpuMatrixEnd();
+
+	glDisable(GL_DEPTH_TEST);
+
 	view3d_draw_region_info(C, ar);
 
 #if VIEW3D_DRAW_DEBUG
@@ -2444,7 +2433,12 @@ void VP_drawrenderborder(ARegion *ar, View3D *v3d)
 
 void VP_view3d_draw_background_none(void)
 {
-	view3d_draw_background_none();
+	if (UI_GetThemeValue(TH_SHOW_BACK_GRAD)) {
+		view3d_draw_background_gradient();
+	}
+	else {
+		view3d_draw_background_none();
+	}
 }
 
 void VP_view3d_draw_background_world(Scene *scene, View3D *v3d, RegionView3D *rv3d)
