@@ -65,10 +65,11 @@ typedef struct BlendFileData {
 	int fileflags;
 	int globalf;
 	char filename[1024];    /* 1024 = FILE_MAX */
-	
-	struct bScreen *curscreen;
+
+	struct bScreen *curscreen; /* TODO think this isn't needed anymore? */
 	struct Scene *curscene;
-	
+	struct SceneLayer *cur_render_layer; /* layer to activate in workspaces when reading without UI */
+
 	BlenFileType type;
 } BlendFileData;
 
@@ -133,7 +134,9 @@ void *BLO_library_read_struct(struct FileData *fd, struct BHead *bh, const char 
 BlendFileData *blo_read_blendafterruntime(int file, const char *name, int actualsize, struct ReportList *reports);
 
 /* internal function but we need to expose it */
-void blo_lib_link_restore(struct Main *newmain, struct wmWindowManager *curwm, struct Scene *curscene);
+void blo_lib_link_restore(
+        struct Main *newmain, struct wmWindowManager *curwm,
+        struct Scene *curscene, struct SceneLayer *cur_render_layer);
 
 typedef void (*BLOExpandDoitCallback) (void *fdhandle, struct Main *mainvar, void *idv);
 

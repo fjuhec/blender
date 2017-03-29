@@ -6363,7 +6363,8 @@ static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
 		direct_link_scene_collection(fd, sce->collection);
 	}
 
-	link_list(fd, &sce->render_layers);
+	/* insert into global old-new map for reading without UI (link_global accesses it again) */
+	link_glob_list(fd, &sce->render_layers);
 	for (sl = sce->render_layers.first; sl; sl = sl->next) {
 		link_list(fd, &sl->object_bases);
 		sl->basact = newdataadr(fd, sl->basact);
@@ -7125,7 +7126,7 @@ static void lib_link_workspace_layout_restore(struct IDNameLib_Map *id_map, Main
  * Used to link a file (without UI) to the current UI.
  * Note that it assumes the old pointers in UI are still valid, so old Main is not freed.
  */
-void blo_lib_link_restore(Main *newmain, wmWindowManager *curwm, Scene *curscene)
+void blo_lib_link_restore(Main *newmain, wmWindowManager *curwm, Scene *curscene, SceneLayer *cur_render_layer)
 {
 	struct IDNameLib_Map *id_map = BKE_main_idmap_create(newmain);
 
@@ -7138,6 +7139,7 @@ void blo_lib_link_restore(Main *newmain, wmWindowManager *curwm, Scene *curscene
 			lib_link_workspace_layout_restore(id_map, newmain, layout);
 		}
 		BKE_workspace_layout_iter_end;
+		BKE_workspace_render_layer_set(workspace, cur_render_layer);
 	}
 	BKE_workspace_iter_end;
 
@@ -8580,7 +8582,8 @@ static BHead *read_global(BlendFileData *bfd, FileData *fd, BHead *bhead)
 	
 	bfd->curscreen = fg->curscreen;
 	bfd->curscene = fg->curscene;
-	
+	bfd->cur_render_layer = fg->cur_render_layer;
+
 	MEM_freeN(fg);
 	
 	fd->globalf = bfd->globalf;
@@ -8592,6 +8595,7 @@ static BHead *read_global(BlendFileData *bfd, FileData *fd, BHead *bhead)
 /* note, this has to be kept for reading older files... */
 static void link_global(FileData *fd, BlendFileData *bfd)
 {
+	bfd->cur_render_layer = newglobadr(fd, bfd->cur_render_layer);
 	bfd->curscreen = newlibadr(fd, NULL, bfd->curscreen);
 	bfd->curscene = newlibadr(fd, NULL, bfd->curscene);
 	// this happens in files older than 2.35
@@ -9117,6 +9121,11 @@ static void expand_doit_library(void *fdhandle, Main *mainvar, void *old)
 			}
 		}
 		else {
+			/* in 2.50+ file identifier for screens is patched, forward compatibility */
+			if (bhead->code == ID_SCRN) {
+				bhead->code = ID_SCR;
+			}
+
 			id = is_yet_read(fd, mainvar, bhead);
 			if (id == NULL) {
 				read_libblock(fd, mainvar, bhead, LIB_TAG_TESTIND, NULL);
