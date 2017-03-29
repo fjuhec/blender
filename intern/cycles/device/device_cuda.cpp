@@ -1056,7 +1056,7 @@ public:
 		cuda_assert(cuFuncSetCacheConfig(cuNLMCalcDifference,   CU_FUNC_CACHE_PREFER_L1));
 		cuda_assert(cuFuncSetCacheConfig(cuNLMBlur,             CU_FUNC_CACHE_PREFER_L1));
 		cuda_assert(cuFuncSetCacheConfig(cuNLMCalcWeight,       CU_FUNC_CACHE_PREFER_L1));
-		cuda_assert(cuFuncSetCacheConfig(cuNLMConstructGramian, CU_FUNC_CACHE_PREFER_L1));
+		cuda_assert(cuFuncSetCacheConfig(cuNLMConstructGramian, CU_FUNC_CACHE_PREFER_SHARED));
 		cuda_assert(cuFuncSetCacheConfig(cuFinalize,            CU_FUNC_CACHE_PREFER_L1));
 
 		CUDA_GET_BLOCKSIZE(cuNLMCalcDifference,
