@@ -47,7 +47,6 @@
 using mv::Tracks;
 using mv::Marker;
 using mv::Reconstruction;
-using mv::Correspondences;
 
 using libmv::CameraIntrinsics;
 using libmv::ProgressUpdateCallback;
@@ -254,7 +253,7 @@ Marker libmv_projectMarker(const mv::Point& point,
   reprojected_marker.track = point.track;
   return reprojected_marker;
 }
-}	// end of anonymous namespace
+}  // namespace
 
 void libmv_reconstructionNDestroy(libmv_ReconstructionN* libmv_reconstructionN)
 {
@@ -266,7 +265,6 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
         const int clip_num,
         const libmv_TracksN **all_libmv_tracks,
         const libmv_CameraIntrinsicsOptions *all_libmv_camera_intrinsics_options,
-        const libmv_CorrespondencesN *libmv_correspondences,
         libmv_MultiviewReconstructionOptions *libmv_reconstruction_options,
         multiview_reconstruct_progress_update_cb progress_update_callback,
         void* callback_customdata)

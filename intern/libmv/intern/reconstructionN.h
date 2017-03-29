@@ -15,7 +15,7 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * The Original Code is Copyright (C) 2011 Blender Foundation.
+ * The Original Code is Copyright (C) 2017 Blender Foundation.
  * All rights reserved.
  *
  * Contributor(s): Blender Foundation,
@@ -34,7 +34,6 @@ extern "C" {
 #endif
 
 typedef struct libmv_ReconstructionN libmv_ReconstructionN;
-typedef struct libmv_CorrespondencesN libmv_CorrespondencesN;
 
 typedef struct libmv_MultiviewReconstructionOptions {
   int select_keyframes;
@@ -51,7 +50,6 @@ void libmv_reconstructionNDestroy(libmv_ReconstructionN *libmv_reconstructionN);
 libmv_ReconstructionN** libmv_solveMultiviewReconstruction(const int clip_num,
         const struct libmv_TracksN **all_libmv_tracks,
         const libmv_CameraIntrinsicsOptions *all_libmv_camera_intrinsics_options,
-        const libmv_CorrespondencesN *libmv_correspondences,
         libmv_MultiviewReconstructionOptions *libmv_reconstruction_options,
         multiview_reconstruct_progress_update_cb progress_update_callback,
         void *callback_customdata);

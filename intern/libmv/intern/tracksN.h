@@ -36,7 +36,6 @@ extern "C" {
 #endif
 
 typedef struct libmv_TracksN libmv_TracksN;
-typedef struct libmv_CorrespondencesN libmv_CorrespondencesN;
 
 // Keep order in this enums exactly the same as in mv::Marker.
 // Otherwise API wouldn't convert the values properly.
@@ -117,12 +116,6 @@ int libmv_tracksMaxClipN(libmv_TracksN* libmv_tracks);
 int libmv_tracksMaxFrameN(libmv_TracksN* libmv_tracks, int clip);
 int libmv_tracksMaxTrackN(libmv_TracksN* libmv_tracks);
 int libmv_tracksNumMarkersN(libmv_TracksN* libmv_tracks);
-
-/* --------  	libmv_CorrespondencesN 	------------------- */
-libmv_CorrespondencesN* libmv_correspondencesNewN(void);
-void libmv_CorrespondencesDestroyN(libmv_CorrespondencesN* libmv_correspondences);
-void libmv_AddCorrespondenceN(libmv_CorrespondencesN* libmv_correspondences,
-                              int clip1, int clip2, int track1, int track2);
 
 #ifdef __cplusplus
 }

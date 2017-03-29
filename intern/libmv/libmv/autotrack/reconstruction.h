@@ -39,7 +39,8 @@ class Model;
 struct Marker;
 class Tracks;
 
-struct CameraPose {
+class CameraPose {
+public:
   CameraPose(): clip(-1), frame(-1) {}	// uninitilized CameraPose is (-1, -1)
   CameraPose(int clip_, int frame_, int intrinsics_, Mat3 R_, Vec3 t_):
 	    clip(clip_), frame(frame_), intrinsics(intrinsics_), R(R_), t(t_) {}
@@ -51,7 +52,8 @@ struct CameraPose {
   Vec3 t;
 };
 
-struct Point {
+class Point {
+public:
   Point(int track_ = -1, Vec3 X_ = Vec3(0, 0, 0))
       : track(track_), X(X_){}
   Point(const Point &p) : track(p.track), X(p.X) {}
