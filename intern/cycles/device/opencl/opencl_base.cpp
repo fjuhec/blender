@@ -667,6 +667,7 @@ bool OpenCLDeviceBase::denoising_construct_transform(DenoisingTask *task)
 
 	cl_kernel ckFilterConstructTransform = denoising_program(ustring("filter_construct_transform"));
 
+	int relative_pca = task->relative_pca;
 	kernel_set_args(ckFilterConstructTransform, 0,
 	                task->render_buffer.samples,
 	                buffer_mem,
@@ -676,7 +677,7 @@ bool OpenCLDeviceBase::denoising_construct_transform(DenoisingTask *task)
 	                task->rect,
 	                task->buffer.pass_stride,
 	                task->radius,
-	                task->pca_threshold);
+	                relative_pca);
 
 	enqueue_kernel(ckFilterConstructTransform,
 	               task->storage.w,
@@ -866,7 +867,6 @@ bool OpenCLDeviceBase::denoising_divide_shadow(device_ptr a_ptr,
 	                task->rect,
 	                task->render_buffer.pass_stride,
 	                task->render_buffer.denoising_data_offset,
-	                task->use_gradients,
 	                split_kernel);
 	enqueue_kernel(ckFilterDivideShadow,
 	               task->rect.z-task->rect.x,
@@ -899,7 +899,6 @@ bool OpenCLDeviceBase::denoising_get_feature(int mean_offset,
 	                task->rect,
 	                task->render_buffer.pass_stride,
 	                task->render_buffer.denoising_data_offset,
-	                task->use_cross_denoising,
 	                split_kernel);
 	enqueue_kernel(ckFilterGetFeature,
 	               task->rect.z-task->rect.x,

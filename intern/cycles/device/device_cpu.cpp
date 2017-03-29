@@ -174,10 +174,10 @@ public:
 	KernelFunctions<void(*)(KernelGlobals *, uchar4 *, float *, float, int, int, int, int)>       convert_to_byte_kernel;
 	KernelFunctions<void(*)(KernelGlobals *, uint4 *, float4 *, float*, int, int, int, int, int)> shader_kernel;
 
-	KernelFunctions<void(*)(int, TilesInfo*, int, int, float*, float*, float*, float*, float*, int*, int, int, bool, bool)> filter_divide_shadow_kernel;
-	KernelFunctions<void(*)(int, TilesInfo*, int, int, int, int, float*, float*, int*, int, int, bool, bool)>               filter_get_feature_kernel;
-	KernelFunctions<void(*)(int, int, float*, float*, float*, float*, int*, int)>                                           filter_combine_halves_kernel;
-	KernelFunctions<void(*)(int, int, int, float*, int, int, int, int)>                                                     filter_divide_combined_kernel;
+	KernelFunctions<void(*)(int, TilesInfo*, int, int, float*, float*, float*, float*, float*, int*, int, int, bool)> filter_divide_shadow_kernel;
+	KernelFunctions<void(*)(int, TilesInfo*, int, int, int, int, float*, float*, int*, int, int, bool)>               filter_get_feature_kernel;
+	KernelFunctions<void(*)(int, int, float*, float*, float*, float*, int*, int)>                                     filter_combine_halves_kernel;
+	KernelFunctions<void(*)(int, int, int, float*, int, int, int, int)>                                               filter_divide_combined_kernel;
 
 	KernelFunctions<void(*)(int, int, float*, float*, float*, int*, int, int, float, float)> filter_nlm_calc_difference_kernel;
 	KernelFunctions<void(*)(float*, float*, int*, int, int)>                                 filter_nlm_blur_kernel;
@@ -185,7 +185,7 @@ public:
 	KernelFunctions<void(*)(int, int, float*, float*, float*, float*, int*, int, int)>       filter_nlm_update_output_kernel;
 	KernelFunctions<void(*)(float*, float*, int*, int)>                                      filter_nlm_normalize_kernel;
 
-	KernelFunctions<void(*)(int, float*, int, int, int, float*, int*, int*, int, int, float)>                                         filter_construct_transform_kernel;
+	KernelFunctions<void(*)(int, float*, int, int, int, float*, int*, int*, int, int, bool)>                                          filter_construct_transform_kernel;
 	KernelFunctions<void(*)(int, int, float*, float*, float*, float*, float*, int*, float*, float3*, int*, int*, int, int, int, int)> filter_nlm_construct_gramian_kernel;
 	KernelFunctions<void(*)(int, int, int, int, int, float*, int*, float*, float3*, int*, int)>                                       filter_finalize_kernel;
 
@@ -456,7 +456,7 @@ public:
 				                                    &task->rect.x,
 				                                    task->buffer.pass_stride,
 				                                    task->radius,
-				                                    task->pca_threshold);
+				                                    task->relative_pca);
 			}
 		}
 		return true;
@@ -565,7 +565,6 @@ public:
 				                              &task->rect.x,
 				                              task->render_buffer.pass_stride,
 				                              task->render_buffer.denoising_data_offset,
-				                              task->use_gradients,
 				                              task->use_split_variance);
 			}
 		}
@@ -590,7 +589,6 @@ public:
 				                            &task->rect.x,
 				                            task->render_buffer.pass_stride,
 				                            task->render_buffer.denoising_data_offset,
-				                            task->use_cross_denoising,
 				                            task->use_split_variance);
 			}
 		}

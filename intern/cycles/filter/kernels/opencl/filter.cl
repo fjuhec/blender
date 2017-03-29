@@ -32,7 +32,6 @@ __kernel void kernel_ocl_filter_divide_shadow(int sample,
                                               int4 prefilter_rect,
                                               int buffer_pass_stride,
                                               int buffer_denoising_offset,
-                                              char use_gradients,
                                               char use_split_variance)
 {
 	int x = prefilter_rect.x + get_global_id(0);
@@ -49,7 +48,6 @@ __kernel void kernel_ocl_filter_divide_shadow(int sample,
 		                            prefilter_rect,
 		                            buffer_pass_stride,
 		                            buffer_denoising_offset,
-		                            use_gradients,
 		                            use_split_variance);
 	}
 }
@@ -63,7 +61,6 @@ __kernel void kernel_ocl_filter_get_feature(int sample,
                                             int4 prefilter_rect,
                                             int buffer_pass_stride,
                                             int buffer_denoising_offset,
-                                            char use_cross_denoising,
                                             char use_split_variance)
 {
 	int x = prefilter_rect.x + get_global_id(0);
@@ -77,7 +74,6 @@ __kernel void kernel_ocl_filter_get_feature(int sample,
 		                          prefilter_rect,
 		                          buffer_pass_stride,
 		                          buffer_denoising_offset,
-		                          use_cross_denoising,
 		                          use_split_variance);
 	}
 }
@@ -104,7 +100,7 @@ __kernel void kernel_ocl_filter_construct_transform(int sample,
                                                     int4 rect,
                                                     int pass_stride,
                                                     int radius,
-                                                    float pca_threshold)
+                                                    int relative_pca)
 {
 	int x = get_global_id(0);
 	int y = get_global_id(1);
@@ -115,7 +111,7 @@ __kernel void kernel_ocl_filter_construct_transform(int sample,
 		                                  x + filter_area.x, y + filter_area.y,
 		                                  rect, pass_stride,
 		                                  l_transform, l_rank,
-		                                  radius, pca_threshold,
+		                                  radius, relative_pca,
 		                                  filter_area.z*filter_area.w,
 		                                  get_local_id(1)*get_local_size(0) + get_local_id(0));
 	}

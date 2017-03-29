@@ -2044,7 +2044,6 @@ SceneRenderLayer *BKE_scene_add_render_layer(Scene *sce, const char *name)
 	srl->denoising_flag = SCE_DENOISING_PASS_DIFFDIR|SCE_DENOISING_PASS_GLOSSDIR|SCE_DENOISING_PASS_TRANSDIR|SCE_DENOISING_PASS_SUBDIR|
                            SCE_DENOISING_PASS_DIFFIND|SCE_DENOISING_PASS_GLOSSIND|SCE_DENOISING_PASS_TRANSIND|SCE_DENOISING_PASS_SUBIND;
 	srl->denoising_radius = 8;
-	srl->denoising_strength = 0.0f;
 	BKE_freestyle_config_init(&srl->freestyleConfig);
 
 	return srl;

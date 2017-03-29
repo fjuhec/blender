@@ -281,7 +281,6 @@ NODE_DEFINE(Film)
 
 	SOCKET_BOOLEAN(denoising_data_pass,  "Generate Denoising Data Pass",  false);
 	SOCKET_BOOLEAN(denoising_clean_pass, "Generate Denoising Clean Pass", false);
-	SOCKET_BOOLEAN(denoising_split_pass, "Generate Denoising Split Pass", false);
 	SOCKET_INT(denoising_flags, "Denoising Flags", 0);
 
 	return type;
@@ -449,10 +448,6 @@ void Film::device_update(Device *device, DeviceScene *dscene, Scene *scene)
 		kfilm->pass_denoising_data = kfilm->pass_stride;
 		kfilm->pass_stride += 26;
 		kfilm->denoising_flags = denoising_flags;
-		if(denoising_split_pass) {
-			kfilm->pass_stride += 6;
-			kfilm->denoising_flags |= DENOISING_USE_SPLIT_PASSES;
-		}
 		if(denoising_clean_pass) {
 			kfilm->pass_denoising_clean = kfilm->pass_stride;
 			kfilm->pass_stride += 3;

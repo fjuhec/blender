@@ -44,7 +44,6 @@ BufferParams::BufferParams()
 
 	denoising_data_pass = false;
 	denoising_clean_pass = false;
-	denoising_split_pass = false;
 
 	Pass::add(PASS_COMBINED, passes);
 }
@@ -78,7 +77,6 @@ int BufferParams::get_passes_size()
 		 * Color passes: 3 Noisy (RGB) + 3 Variance [+ 3 Skip (RGB)] */
 		size += 26;
 		if(denoising_clean_pass) size += 3;
-		if(denoising_split_pass) size += 6;
 	}
 
 	return align_up(size, 4);

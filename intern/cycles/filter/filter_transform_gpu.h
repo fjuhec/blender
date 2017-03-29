@@ -22,7 +22,7 @@ ccl_device void kernel_filter_construct_transform(int sample,
                                                   int pass_stride,
                                                   ccl_global float *transform,
                                                   ccl_global int *rank,
-                                                  int radius, float pca_threshold,
+                                                  int radius, bool relative_pca,
                                                   int transform_stride, int localIdx)
 {
 	int buffer_w = align_up(rect.z - rect.x, 4);
@@ -78,18 +78,18 @@ ccl_device void kernel_filter_construct_transform(int sample,
 
 	math_trimatrix_jacobi_eigendecomposition(feature_matrix, transform, DENOISE_FEATURES, transform_stride);
 	*rank = 0;
-	if(pca_threshold > 0.0f) {
+	if(relative_pca) {
 		float threshold_energy = 0.0f;
 		for(int i = 0; i < DENOISE_FEATURES; i++) {
 			threshold_energy += feature_matrix[i*DENOISE_FEATURES+i];
 		}
-		threshold_energy *= 1.0f-pca_threshold;
+		threshold_energy *= 0.999f;
 
 		float reduced_energy = 0.0f;
 		for(int i = 0; i < DENOISE_FEATURES; i++, (*rank)++) {
-			float s = feature_matrix[i*DENOISE_FEATURES+i];
 			if(i >= 2 && reduced_energy >= threshold_energy)
 				break;
+			float s = feature_matrix[i*DENOISE_FEATURES+i];
 			reduced_energy += s;
 			/* Bake the feature scaling into the transformation matrix. */
 			math_vector_mul_strided(transform + i*DENOISE_FEATURES*transform_stride, feature_scale, transform_stride, DENOISE_FEATURES);
@@ -98,7 +98,7 @@ ccl_device void kernel_filter_construct_transform(int sample,
 	else {
 		for(int i = 0; i < DENOISE_FEATURES; i++, (*rank)++) {
 			float s = feature_matrix[i*DENOISE_FEATURES+i];
-			if(i >= 2 && sqrtf(s) < -pca_threshold)
+			if(i >= 2 && sqrtf(s) < 1.0f)
 				break;
 			/* Bake the feature scaling into the transformation matrix. */
 			math_vector_mul_strided(transform + i*DENOISE_FEATURES*transform_stride, feature_scale, transform_stride, DENOISE_FEATURES);

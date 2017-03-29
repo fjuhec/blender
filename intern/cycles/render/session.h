@@ -59,10 +59,8 @@ public:
 
 	bool use_denoising;
 	int denoising_radius;
-	float denoising_pca_threshold;
-	float denoising_weight_adjust;
-	bool denoising_use_gradients;
-	bool denoising_use_cross;
+	float denoising_k2;
+	bool denoising_relative_pca;
 
 	double cancel_timeout;
 	double reset_timeout;
@@ -90,10 +88,8 @@ public:
 		display_buffer_linear = false;
 
 		denoising_radius = 8;
-		denoising_pca_threshold = 1e-3f;
-		denoising_weight_adjust = 0.5f;
-		denoising_use_gradients = false;
-		denoising_use_cross = false;
+		denoising_k2 = 0.5f;
+		denoising_relative_pca = false;
 
 		cancel_timeout = 0.1;
 		reset_timeout = 0.1;
@@ -117,10 +113,8 @@ public:
 		&& threads == params.threads
 		&& use_denoising == params.use_denoising
 		&& denoising_radius == params.denoising_radius
-		&& denoising_pca_threshold == params.denoising_pca_threshold
-		&& denoising_weight_adjust == params.denoising_weight_adjust
-		&& denoising_use_gradients == params.denoising_use_gradients
-		&& denoising_use_cross == params.denoising_use_cross
+		&& denoising_k2 == params.denoising_k2
+		&& denoising_relative_pca == params.denoising_relative_pca
 		&& display_buffer_linear == params.display_buffer_linear
 		&& cancel_timeout == params.cancel_timeout
 		&& reset_timeout == params.reset_timeout

@@ -28,10 +28,8 @@ class DenoisingTask {
 public:
 	/* Parameters of the denoising algorithm. */
 	int radius;
-	float pca_threshold;
 	float nlm_k_2;
-	bool use_cross_denoising;
-	bool use_gradients;
+	bool relative_pca;
 	bool use_split_variance;
 
 	/* Pointer and parameters of the RenderBuffers. */

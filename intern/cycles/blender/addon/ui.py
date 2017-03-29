@@ -597,9 +597,7 @@ class CyclesRender_PT_denoising(CyclesButtonsPanel, Panel):
         sub = col.column(align=True)
         sub.prop(rl, "denoising_radius")
         sub.prop(rl, "denoising_strength", slider=True)
-        sub.prop(rl, "denoising_weighting_adjust", slider=True)
-        sub.prop(rl, "denoising_gradients")
-        sub.prop(rl, "denoising_cross")
+        sub.prop(rl, "denoising_relative_pca")
 
         sub = col.column(align=True)
         row = sub.row(align=True)

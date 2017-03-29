@@ -54,8 +54,6 @@ public:
 	bool denoising_data_pass;
 	/* If only some light path types should be denoised, an additional pass is needed. */
 	bool denoising_clean_pass;
-	/* Generate an additional pass containing only every second sample. */
-	bool denoising_split_pass;
 
 	/* functions */
 	BufferParams();

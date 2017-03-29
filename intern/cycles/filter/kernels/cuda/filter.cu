@@ -38,7 +38,6 @@ kernel_cuda_filter_divide_shadow(int sample,
                                  int4 prefilter_rect,
                                  int buffer_pass_stride,
                                  int buffer_denoising_offset,
-                                 bool use_gradients,
                                  bool use_split_variance)
 {
 	int x = prefilter_rect.x + blockDim.x*blockIdx.x + threadIdx.x;
@@ -55,7 +54,6 @@ kernel_cuda_filter_divide_shadow(int sample,
 		                            prefilter_rect,
 		                            buffer_pass_stride,
 		                            buffer_denoising_offset,
-		                            use_gradients,
 		                            use_split_variance);
 	}
 }
@@ -71,7 +69,6 @@ kernel_cuda_filter_get_feature(int sample,
                                int4 prefilter_rect,
                                int buffer_pass_stride,
                                int buffer_denoising_offset,
-                               bool use_cross_denoising,
                                bool use_split_variance)
 {
 	int x = prefilter_rect.x + blockDim.x*blockIdx.x + threadIdx.x;
@@ -85,7 +82,6 @@ kernel_cuda_filter_get_feature(int sample,
 		                          prefilter_rect,
 		                          buffer_pass_stride,
 		                          buffer_denoising_offset,
-		                          use_cross_denoising,
 		                          use_split_variance);
 	}
 }
@@ -106,7 +102,7 @@ CUDA_LAUNCH_BOUNDS(CUDA_THREADS_BLOCK_WIDTH, CUDA_KERNEL_MAX_REGISTERS)
 kernel_cuda_filter_construct_transform(int sample, float const* __restrict__ buffer,
                                        float *transform, int *rank,
                                        int4 filter_area, int4 rect,
-                                       int radius, float pca_threshold,
+                                       int radius, bool relative_pca,
                                        int pass_stride)
 {
 	int x = blockDim.x*blockIdx.x + threadIdx.x;
@@ -118,7 +114,7 @@ kernel_cuda_filter_construct_transform(int sample, float const* __restrict__ buf
 		                                  x + filter_area.x, y + filter_area.y,
 		                                  rect, pass_stride,
 		                                  l_transform, l_rank,
-		                                  radius, pca_threshold,
+		                                  radius, relative_pca,
 		                                  filter_area.z*filter_area.w,
 		                                  threadIdx.y*blockDim.x + threadIdx.x);
 	}

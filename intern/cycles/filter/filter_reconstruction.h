@@ -84,24 +84,17 @@ ccl_device_inline void kernel_filter_finalize(int x, int y, int w, int h,
 	math_trimatrix_vec3_solve(XtWX, XtWY, (*rank)+1, stride);
 
 	float3 final_color = XtWY[0];
-	if(buffer_params.z) {
-		ccl_global float *combined_buffer = buffer + (y*buffer_params.y + x + buffer_params.x)*buffer_params.z;
-		final_color *= sample;
-		if(buffer_params.w) {
-			final_color.x += combined_buffer[buffer_params.w+0];
-			final_color.y += combined_buffer[buffer_params.w+1];
-			final_color.z += combined_buffer[buffer_params.w+2];
-		}
-		combined_buffer[0] = final_color.x;
-		combined_buffer[1] = final_color.y;
-		combined_buffer[2] = final_color.z;
+
+	ccl_global float *combined_buffer = buffer + (y*buffer_params.y + x + buffer_params.x)*buffer_params.z;
+	final_color *= sample;
+	if(buffer_params.w) {
+		final_color.x += combined_buffer[buffer_params.w+0];
+		final_color.y += combined_buffer[buffer_params.w+1];
+		final_color.z += combined_buffer[buffer_params.w+2];
 	}
-	else {
-		int idx = y*w+x;
-		buffer[idx] = final_color.x;
-		buffer[buffer_params.w + idx] = final_color.y;
-		buffer[2*buffer_params.w + idx] = final_color.z;
-	}
+	combined_buffer[0] = final_color.x;
+	combined_buffer[1] = final_color.y;
+	combined_buffer[2] = final_color.z;
 }
 
 #undef STORAGE_TYPE

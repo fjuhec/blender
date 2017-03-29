@@ -229,12 +229,12 @@ typedef struct SceneRenderLayer {
 
 	int denoising_flag;
 	int denoising_radius;
-	float denoising_strength;
 	float denoising_weighting;
 
 	int samples;
 	float pass_alpha_threshold;
 	
+	int pad;
 	struct FreestyleConfig freestyleConfig;
 } SceneRenderLayer;
 
@@ -256,7 +256,7 @@ typedef struct SceneRenderLayer {
 #define SCE_LAY_NEG_ZMASK	0x80000
 
 typedef enum SceneDenoisingFlag {
-	SCE_DENOISING_USE                = (1 << 0),
+	SCE_DENOISING_USE                   = (1 << 0),
 	SCE_DENOISING_PASS_DIFFDIR          = (1 << 2),
 	SCE_DENOISING_PASS_DIFFIND          = (1 << 3),
 	SCE_DENOISING_PASS_GLOSSDIR         = (1 << 4),
@@ -265,8 +265,7 @@ typedef enum SceneDenoisingFlag {
 	SCE_DENOISING_PASS_TRANSIND         = (1 << 7),
 	SCE_DENOISING_PASS_SUBDIR           = (1 << 8),
 	SCE_DENOISING_PASS_SUBIND           = (1 << 9),
-	SCE_DENOISING_GRADIENTS             = (1 << 11),
-	SCE_DENOISING_CROSS                 = (1 << 12),
+	SCE_DENOISING_RELATIVE_PCA          = (1 << 13),
 } SceneDenoisingFlag;
 
 /* srl->passflag */

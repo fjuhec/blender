@@ -23,10 +23,8 @@ CCL_NAMESPACE_BEGIN
 void DenoisingTask::init_from_devicetask(const DeviceTask &task)
 {
 	radius = task.denoising_radius;
-	pca_threshold = task.denoising_pca_threshold;
-	nlm_k_2 = task.denoising_weight_adjust;
-	use_cross_denoising = task.denoising_use_cross;
-	use_gradients = task.denoising_use_gradients;
+	nlm_k_2 = task.denoising_k2;
+	relative_pca = task.denoising_relative_pca;
 
 	render_buffer.pass_stride = task.pass_stride;
 	render_buffer.denoising_data_offset  = task.pass_denoising_data;
@@ -68,7 +66,7 @@ void DenoisingTask::tiles_from_rendertiles(RenderTile *rtiles)
 bool DenoisingTask::run_denoising()
 {
 	/* Allocate denoising buffer. */
-	buffer.passes = use_cross_denoising? 20 : 14;
+	buffer.passes = 14;
 	buffer.w = align_up(rect.z - rect.x, 4);
 	buffer.h = rect.w - rect.y;
 	buffer.pass_stride = align_up(buffer.w * buffer.h, device->mem_get_offset_alignment());
@@ -145,11 +143,11 @@ bool DenoisingTask::run_denoising()
 	/* Copy color passes. */
 	{
 		device_ptr color_pass, color_var_pass;
-		int mean_from[]     = {20, 21, 22, 26, 27, 28};
-		int variance_from[] = {23, 24, 25, 29, 30, 31};
-		int mean_to[]       = { 8,  9, 10, 14, 15, 16};
-		int variance_to[]   = {11, 12, 13, 17, 18, 19};
-		int num_color_passes = use_cross_denoising? 6 : 3;
+		int mean_from[]     = {20, 21, 22};
+		int variance_from[] = {23, 24, 25};
+		int mean_to[]       = { 8,  9, 10};
+		int variance_to[]   = {11, 12, 13};
+		int num_color_passes = 3;
 		for(int pass = 0; pass < num_color_passes; pass++) {
 			color_pass     = device->mem_get_offset_ptr(buffer.mem,     mean_to[pass]*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
 			color_var_pass = device->mem_get_offset_ptr(buffer.mem, variance_to[pass]*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
@@ -180,72 +178,19 @@ bool DenoisingTask::run_denoising()
 	device->mem_alloc("Denoising XtWX", storage.XtWX, MEM_READ_WRITE);
 	device->mem_alloc("Denoising XtWY", storage.XtWY, MEM_READ_WRITE);
 
-	if(use_cross_denoising) {
-		device_only_memory<float> output_a;
-		device_only_memory<float> output_b;
-		output_a.resize(buffer.w*buffer.h*3);
-		output_b.resize(buffer.w*buffer.h*3);
-		device->mem_alloc("Denoising Split Output A", output_a, MEM_READ_WRITE);
-		device->mem_alloc("Denoising Split Output B", output_b, MEM_READ_WRITE);
+	reconstruction_state.filter_rect = make_int4(filter_area.x-rect.x, filter_area.y-rect.y, storage.w, storage.h);
+	int tile_coordinate_offset = filter_area.y*render_buffer.stride + filter_area.x;
+	reconstruction_state.buffer_params = make_int4(render_buffer.offset + tile_coordinate_offset,
+	                                               render_buffer.stride,
+	                                               render_buffer.pass_stride,
+	                                               render_buffer.denoising_clean_offset);
+	reconstruction_state.source_w = rect.z-rect.x;
+	reconstruction_state.source_h = rect.w-rect.y;
 
-
-		reconstruction_state.filter_rect   = make_int4(filter_area.x-rect.x, filter_area.y-rect.y, storage.w, storage.h);
-		reconstruction_state.buffer_params = make_int4(-rect.x, -rect.y, 0, buffer.pass_stride);
-		reconstruction_state.source_w = rect.z-rect.x;
-		reconstruction_state.source_h = rect.w-rect.y;
-
-		device_ptr color_a_ptr, color_a_var_ptr, color_b_ptr, color_b_var_ptr;
-		color_a_ptr     = device->mem_get_offset_ptr(buffer.mem,  8*buffer.pass_stride, 3*buffer.pass_stride, MEM_READ_WRITE);
-		color_a_var_ptr = device->mem_get_offset_ptr(buffer.mem, 11*buffer.pass_stride, 3*buffer.pass_stride, MEM_READ_WRITE);
-		color_b_ptr     = device->mem_get_offset_ptr(buffer.mem, 14*buffer.pass_stride, 3*buffer.pass_stride, MEM_READ_WRITE);
-		color_b_var_ptr = device->mem_get_offset_ptr(buffer.mem, 17*buffer.pass_stride, 3*buffer.pass_stride, MEM_READ_WRITE);
-
-		functions.reconstruct(color_a_ptr, color_a_var_ptr, color_b_ptr, color_b_var_ptr, output_a.device_pointer);
-		functions.reconstruct(color_b_ptr, color_b_var_ptr, color_a_ptr, color_a_var_ptr, output_b.device_pointer);
-
-
-		int4 combine_rect = make_int4(0, 0, buffer.w, buffer.h);
-		for(int channel = 0; channel < 3; channel++) {
-			device_ptr color_ptr, color_var_ptr, output_a_ptr, output_b_ptr;
-			/* Reuse the previously used memory since its contents aren't needed anymore. */
-			color_ptr     = device->mem_get_offset_ptr(buffer.mem, ( 8 + channel)*buffer.pass_stride, 3*buffer.pass_stride, MEM_READ_WRITE);
-			color_var_ptr = device->mem_get_offset_ptr(buffer.mem, (11 + channel)*buffer.pass_stride, 3*buffer.pass_stride, MEM_READ_WRITE);
-			output_a_ptr  = device->mem_get_offset_ptr(output_a, channel*buffer.pass_stride, 3*buffer.pass_stride, MEM_READ_WRITE);
-			output_b_ptr  = device->mem_get_offset_ptr(output_b, channel*buffer.pass_stride, 3*buffer.pass_stride, MEM_READ_WRITE);
-			functions.combine_halves(output_a_ptr, output_b_ptr, color_ptr, color_var_ptr, 0, combine_rect);
-		}
-		device->mem_free(output_a);
-		device->mem_free(output_b);
-
-
-		reconstruction_state.filter_rect   = make_int4(0, 0, storage.w, storage.h);
-		int tile_coordinate_offset = filter_area.y*render_buffer.stride + filter_area.x;
-		reconstruction_state.buffer_params = make_int4(render_buffer.offset + tile_coordinate_offset,
-		                                               render_buffer.stride,
-		                                               render_buffer.pass_stride,
-		                                               render_buffer.denoising_clean_offset);
-		reconstruction_state.source_w = storage.w;
-		reconstruction_state.source_h = storage.h;
-
-		device_ptr color_ptr = color_a_ptr,
-		           color_var_ptr = color_a_var_ptr;
-		functions.reconstruct(color_ptr, color_var_ptr, color_ptr, color_var_ptr, render_buffer.ptr);
-	}
-	else {
-		reconstruction_state.filter_rect = make_int4(filter_area.x-rect.x, filter_area.y-rect.y, storage.w, storage.h);
-		int tile_coordinate_offset = filter_area.y*render_buffer.stride + filter_area.x;
-		reconstruction_state.buffer_params = make_int4(render_buffer.offset + tile_coordinate_offset,
-		                                               render_buffer.stride,
-		                                               render_buffer.pass_stride,
-		                                               render_buffer.denoising_clean_offset);
-		reconstruction_state.source_w = rect.z-rect.x;
-		reconstruction_state.source_h = rect.w-rect.y;
-
-		device_ptr color_ptr, color_var_ptr;
-		color_ptr     = device->mem_get_offset_ptr(buffer.mem,  8*buffer.pass_stride, 3*buffer.pass_stride, MEM_READ_WRITE);
-		color_var_ptr = device->mem_get_offset_ptr(buffer.mem, 11*buffer.pass_stride, 3*buffer.pass_stride, MEM_READ_WRITE);
-		functions.reconstruct(color_ptr, color_var_ptr, color_ptr, color_var_ptr, render_buffer.ptr);
-	}
+	device_ptr color_ptr, color_var_ptr;
+	color_ptr     = device->mem_get_offset_ptr(buffer.mem,  8*buffer.pass_stride, 3*buffer.pass_stride, MEM_READ_WRITE);
+	color_var_ptr = device->mem_get_offset_ptr(buffer.mem, 11*buffer.pass_stride, 3*buffer.pass_stride, MEM_READ_WRITE);
+	functions.reconstruct(color_ptr, color_var_ptr, color_ptr, color_var_ptr, render_buffer.ptr);
 
 	device->mem_free(storage.XtWX);
 	device->mem_free(storage.XtWY);

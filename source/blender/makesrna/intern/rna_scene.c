@@ -5136,15 +5136,9 @@ static void rna_def_scene_render_layer(BlenderRNA *brna)
 	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
 
 	prop = RNA_def_property(srna, "denoising_strength", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_sdna(prop, NULL, "denoising_strength");
-	RNA_def_property_range(prop, -4.0f, 4.0f);
-	RNA_def_property_ui_text(prop, "Denoising strength", "Controls feature variance weight for the denoising filter (lower values preserve more detail, but aren't as smooth)");
-	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
-
-	prop = RNA_def_property(srna, "denoising_weighting_adjust", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_float_sdna(prop, NULL, "denoising_weighting");
 	RNA_def_property_range(prop, -4.0f, 4.0f);
-	RNA_def_property_ui_text(prop, "Denoising weighting adjust", "Controls neighbor pixel weighting for the denoising filter (lower values preserve more detail, but aren't as smooth)");
+	RNA_def_property_ui_text(prop, "Denoising Strength Adjust", "Controls neighbor pixel weighting for the denoising filter (lower values preserve more detail, but aren't as smooth)");
 	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
 
 	prop = RNA_def_property(srna, "denoising_radius", PROP_INT, PROP_NONE);
@@ -5153,14 +5147,10 @@ static void rna_def_scene_render_layer(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Denoising Radius", "Size of the image area that's used to denoise a pixel. Higher values get rid of more noise, but might lose detail and are slower");
 	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
 
-	prop = RNA_def_property(srna, "denoising_gradients", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "denoising_flag", SCE_DENOISING_GRADIENTS);
-	RNA_def_property_ui_text(prop, "Use gradients for denoising", "Use aditional predictions of neighboring pixels using the fitted gradients to get a cleaner result. Might cause visible tile borders.");
-	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
-
-	prop = RNA_def_property(srna, "denoising_cross", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "denoising_flag", SCE_DENOISING_CROSS);
-	RNA_def_property_ui_text(prop, "Use cross-denoising", "Use cross-pass denoising. Improves quality, but increases denoise time and memory requirements");
+	prop = RNA_def_property(srna, "denoising_relative_pca", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "denoising_flag", SCE_DENOISING_RELATIVE_PCA);
+	RNA_def_property_ui_text(prop, "Relative filter",
+		"When removing features that don't carry information, use a relative threshold instead of an absolute one. Can help to reduce artifacts, but might cause detail loss around edges");
 	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
 }
 

@@ -46,24 +46,22 @@ void KERNEL_FUNCTION_FULL_NAME(filter_divide_shadow)(int sample,
                                                      int* prefilter_rect,
                                                      int buffer_pass_stride,
                                                      int buffer_denoising_offset,
-                                                     bool use_gradients,
                                                      bool use_split_variance)
 {
 #ifdef KERNEL_STUB
 	STUB_ASSERT(KERNEL_ARCH, filter_divide_shadow);
 #else
 	kernel_filter_divide_shadow(sample, tiles,
-                              x, y,
-                              unfilteredA,
-                              unfilteredB,
-                              sampleVariance,
-                              sampleVarianceV,
-                              bufferVariance,
-                              load_int4(prefilter_rect),
-                              buffer_pass_stride,
-                              buffer_denoising_offset,
-                              use_gradients,
-                              use_split_variance);
+	                            x, y,
+	                            unfilteredA,
+	                            unfilteredB,
+	                            sampleVariance,
+	                            sampleVarianceV,
+	                            bufferVariance,
+	                            load_int4(prefilter_rect),
+	                            buffer_pass_stride,
+	                            buffer_denoising_offset,
+	                            use_split_variance);
 #endif
 }
 
@@ -77,19 +75,19 @@ void KERNEL_FUNCTION_FULL_NAME(filter_get_feature)(int sample,
                                                    int* prefilter_rect,
                                                    int buffer_pass_stride,
                                                    int buffer_denoising_offset,
-                                                   bool use_cross_denoising,
                                                    bool use_split_variance)
 {
 #ifdef KERNEL_STUB
 	STUB_ASSERT(KERNEL_ARCH, filter_get_feature);
 #else
 	kernel_filter_get_feature(sample, tiles,
-                            m_offset, v_offset,
-                            x, y,
-                            mean, variance,
-                            load_int4(prefilter_rect), buffer_pass_stride,
-                            buffer_denoising_offset, use_cross_denoising,
-                            use_split_variance);
+	                        m_offset, v_offset,
+	                        x, y,
+	                        mean, variance,
+	                        load_int4(prefilter_rect),
+	                        buffer_pass_stride,
+	                        buffer_denoising_offset,
+	                        use_split_variance);
 #endif
 }
 
@@ -118,7 +116,7 @@ void KERNEL_FUNCTION_FULL_NAME(filter_construct_transform)(int sample,
                                                            int* prefilter_rect,
                                                            int pass_stride,
                                                            int radius,
-                                                           float pca_threshold)
+                                                           bool relative_pca)
 {
 #ifdef KERNEL_STUB
 	STUB_ASSERT(KERNEL_ARCH, filter_construct_transform);
@@ -126,10 +124,13 @@ void KERNEL_FUNCTION_FULL_NAME(filter_construct_transform)(int sample,
   rank += storage_ofs;
   transform += storage_ofs*TRANSFORM_SIZE;
 	kernel_filter_construct_transform(sample, buffer,
-                                    x, y, load_int4(prefilter_rect),
-                                    pass_stride,
-                                    transform, rank,
-                                    radius, pca_threshold);
+	                                  x, y,
+	                                  load_int4(prefilter_rect),
+	                                  pass_stride,
+	                                  transform,
+	                                  rank,
+	                                  radius,
+	                                  relative_pca);
 #endif
 }
 
@@ -260,10 +261,10 @@ void KERNEL_FUNCTION_FULL_NAME(filter_finalize)(int x,
 #ifdef KERNEL_STUB
 	STUB_ASSERT(KERNEL_ARCH, filter_finalize);
 #else
-    XtWX += storage_ofs*XTWX_SIZE;
-    XtWY += storage_ofs*XTWY_SIZE;
-    rank += storage_ofs;
-    kernel_filter_finalize(x, y, w, h, buffer, rank, 1, XtWX, XtWY, load_int4(buffer_params), sample);
+	XtWX += storage_ofs*XTWX_SIZE;
+	XtWY += storage_ofs*XTWY_SIZE;
+	rank += storage_ofs;
+	kernel_filter_finalize(x, y, w, h, buffer, rank, 1, XtWX, XtWY, load_int4(buffer_params), sample);
 #endif
 }
 

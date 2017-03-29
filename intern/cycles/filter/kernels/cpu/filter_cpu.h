@@ -28,7 +28,6 @@ void KERNEL_FUNCTION_FULL_NAME(filter_divide_shadow)(int sample,
                                                      int* prefilter_rect,
                                                      int buffer_pass_stride,
                                                      int buffer_denoising_offset,
-                                                     bool use_gradients,
                                                      bool use_split_variance);
 
 void KERNEL_FUNCTION_FULL_NAME(filter_get_feature)(int sample,
@@ -42,7 +41,6 @@ void KERNEL_FUNCTION_FULL_NAME(filter_get_feature)(int sample,
                                                    int* prefilter_rect,
                                                    int buffer_pass_stride,
                                                    int buffer_denoising_offset,
-                                                   bool use_cross_denoising,
                                                    bool use_split_variance);
 
 void KERNEL_FUNCTION_FULL_NAME(filter_combine_halves)(int x, int y,
@@ -63,7 +61,7 @@ void KERNEL_FUNCTION_FULL_NAME(filter_construct_transform)(int sample,
                                                            int* rect,
                                                            int pass_stride,
                                                            int radius,
-                                                           float pca_threshold);
+                                                           bool relative_pca);
 
 void KERNEL_FUNCTION_FULL_NAME(filter_divide_combined)(int x, int y,
                                                        int sample,

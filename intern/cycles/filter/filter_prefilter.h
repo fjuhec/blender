@@ -36,18 +36,16 @@ ccl_device void kernel_filter_divide_shadow(int sample,
                                             int4 rect,
                                             int buffer_pass_stride,
                                             int buffer_denoising_offset,
-                                            bool use_gradients,
                                             bool use_split_variance)
 {
 	int xtile = (x < tiles->x[1])? 0: ((x < tiles->x[2])? 1: 2);
 	int ytile = (y < tiles->y[1])? 0: ((y < tiles->y[2])? 1: 2);
 	int tile = ytile*3+xtile;
-	float *center_buffer = ((float*) tiles->buffers[tile]) + (tiles->offsets[tile] + y*tiles->strides[tile] + x)*buffer_pass_stride;
 
-	if(use_gradients && tile == 4) {
-		center_buffer[0] = center_buffer[1] = center_buffer[2] = center_buffer[3] = 0.0f;
-	}
-	center_buffer += buffer_denoising_offset;
+	float ccl_readonly_ptr buffer = (float*) tiles->buffers[tile];
+	int offset = tiles->offsets[tile];
+	int stride = tiles->strides[tile];
+	float ccl_readonly_ptr center_buffer = buffer + (y*stride + x + offset)*buffer_pass_stride + buffer_denoising_offset;
 
 	int buffer_w = align_up(rect.z - rect.x, 4);
 	int idx = (y-rect.y)*buffer_w + (x - rect.x);
@@ -86,7 +84,7 @@ ccl_device void kernel_filter_get_feature(int sample,
                                           ccl_global float *mean,
                                           ccl_global float *variance,
                                           int4 rect, int buffer_pass_stride,
-                                          int buffer_denoising_offset, bool use_cross_denoising,
+                                          int buffer_denoising_offset,
                                           bool use_split_variance)
 {
 	int xtile = (x < tiles->x[1])? 0: ((x < tiles->x[2])? 1: 2);
@@ -97,35 +95,12 @@ ccl_device void kernel_filter_get_feature(int sample,
 	int buffer_w = align_up(rect.z - rect.x, 4);
 	int idx = (y-rect.y)*buffer_w + (x - rect.x);
 
-	/* TODO: This is an ugly hack! */
-	if(m_offset >= 20 && m_offset <= 22 && use_cross_denoising) {
-		int odd_sample = sample/2;
-		mean[idx] = (center_buffer[m_offset] - center_buffer[m_offset+6]) / odd_sample;
-		if(use_split_variance) {
-			variance[idx] = max(0.0f, (center_buffer[v_offset] - center_buffer[v_offset+6] - mean[idx]*mean[idx]*odd_sample) / (odd_sample * (sample-1)));
-		}
-		else {
-			variance[idx] = (center_buffer[v_offset] - center_buffer[v_offset+6]) / (odd_sample * (sample-1));
-		}
-	}
-	else if(m_offset >= 26) {
-		int even_sample = (sample+1)/2;
-		mean[idx] = center_buffer[m_offset] / even_sample;
-		if(use_split_variance) {
-			variance[idx] = max(0.0f, (center_buffer[v_offset] - mean[idx]*mean[idx]*even_sample) / (even_sample * (sample-1)));
-		}
-		else {
-			variance[idx] = center_buffer[v_offset] / (even_sample * (sample-1));
-		}
+	mean[idx] = center_buffer[m_offset] / sample;
+	if(use_split_variance) {
+		variance[idx] = max(0.0f, (center_buffer[v_offset] - mean[idx]*mean[idx]*sample) / (sample * (sample-1)));
 	}
 	else {
-		mean[idx] = center_buffer[m_offset] / sample;
-		if(use_split_variance) {
-			variance[idx] = max(0.0f, (center_buffer[v_offset] - mean[idx]*mean[idx]*sample) / (sample * (sample-1)));
-		}
-		else {
-			variance[idx] = center_buffer[v_offset] / (sample * (sample-1));
-		}
+		variance[idx] = center_buffer[v_offset] / (sample * (sample-1));
 	}
 }
 

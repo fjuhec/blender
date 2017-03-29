@@ -517,14 +517,10 @@ void BlenderSession::render()
 		if(!b_layer_iter->denoising_subsurface_direct()) scene->film->denoising_flags |= DENOISING_CLEAN_SUBSURFACE_DIR;
 		if(!b_layer_iter->denoising_subsurface_indirect()) scene->film->denoising_flags |= DENOISING_CLEAN_SUBSURFACE_IND;
 		scene->film->denoising_clean_pass = (scene->film->denoising_flags & DENOISING_CLEAN_ALL_PASSES);
-		scene->film->denoising_split_pass = b_layer_iter->denoising_cross();
 		buffer_params.denoising_clean_pass = scene->film->denoising_clean_pass;
-		buffer_params.denoising_split_pass = scene->film->denoising_split_pass;
 		session->params.denoising_radius = b_layer_iter->denoising_radius();
-		session->params.denoising_pca_threshold = (b_layer_iter->denoising_strength() == 0.0f)? 1e-3f : copysignf(powf(10.0f, -fabsf(b_layer_iter->denoising_strength())*2.0f), b_layer_iter->denoising_strength());
-		session->params.denoising_weight_adjust = powf(2.0f, b_layer_iter->denoising_weighting_adjust() - 1.0f);
-		session->params.denoising_use_gradients = b_layer_iter->denoising_gradients();
-		session->params.denoising_use_cross = b_layer_iter->denoising_cross();
+		session->params.denoising_k2 = powf(2.0f, b_layer_iter->denoising_strength() - 1.0f);
+		session->params.denoising_relative_pca = b_layer_iter->denoising_relative_pca();
 
 		scene->film->pass_alpha_threshold = b_layer_iter->pass_alpha_threshold();
 		scene->film->tag_passes_update(scene, passes);

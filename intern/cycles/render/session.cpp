@@ -977,10 +977,8 @@ void Session::render()
 
 	if(params.use_denoising) {
 		task.denoising_radius = params.denoising_radius;
-		task.denoising_pca_threshold = params.denoising_pca_threshold;
-		task.denoising_weight_adjust = params.denoising_weight_adjust;
-		task.denoising_use_cross = params.denoising_use_cross;
-		task.denoising_use_gradients = params.denoising_use_gradients;
+		task.denoising_k2 = params.denoising_k2;
+		task.denoising_relative_pca = params.denoising_relative_pca;
 
 		assert(!scene->film->need_update);
 		task.pass_stride = scene->film->pass_stride;

@@ -69,10 +69,8 @@ public:
 	function<void(RenderTile*, Device*)> release_neighbor_tiles;
 
 	int denoising_radius;
-	float denoising_pca_threshold;
-	float denoising_weight_adjust;
-	bool denoising_use_cross;
-	bool denoising_use_gradients;
+	float denoising_k2;
+	bool denoising_relative_pca;
 	int pass_stride;
 	int pass_denoising_data;
 	int pass_denoising_clean;

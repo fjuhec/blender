@@ -1415,7 +1415,6 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 					rl->denoising_flag = SCE_DENOISING_PASS_DIFFDIR|SCE_DENOISING_PASS_GLOSSDIR|SCE_DENOISING_PASS_TRANSDIR|SCE_DENOISING_PASS_SUBDIR|
 					                  SCE_DENOISING_PASS_DIFFIND|SCE_DENOISING_PASS_GLOSSIND|SCE_DENOISING_PASS_TRANSIND|SCE_DENOISING_PASS_SUBIND;
 					rl->denoising_radius = 8;
-					rl->denoising_strength = 0.0f;
 				}
 			}
 		}
