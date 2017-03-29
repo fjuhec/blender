@@ -2141,13 +2141,11 @@ static void IDP_LibLinkProperty(IDProperty *prop, FileData *fd)
 	switch (prop->type) {
 		case IDP_ID: /* PointerProperty */
 		{
-			void *newaddr = newlibadr(fd, NULL, IDP_Id(prop));
-			if (IDP_Id(prop) && !newaddr) {
-				if (G.debug)
-					printf("Error while loading \"%s\". Data not found in file!\n", prop->name);
+			void *newaddr = newlibadr_us(fd, NULL, IDP_Id(prop));
+			if (IDP_Id(prop) && !newaddr && G.debug) {
+				printf("Error while loading \"%s\". Data not found in file!\n", prop->name);
 			}
 			prop->data.pointer = newaddr;
-			IDP_id_register(prop);
 			break;
 		}
 		case IDP_IDPARRAY: /* CollectionProperty */

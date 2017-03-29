@@ -82,9 +82,6 @@ void IDP_FreeString(struct IDProperty *prop) ATTR_NONNULL();
 
 /*-------- ID Type -------*/
 
-/* Registers the creation of a new ID Property */
-void IDP_id_register(struct IDProperty *prop);
-
 typedef void(*IDPWalkFunc)(void *userData, IDProperty *idp);
 
 /*-------- Group Functions -------*/
@@ -118,8 +115,6 @@ struct IDProperty *IDP_New(const char type, const IDPropertyTemplate *val, const
 void IDP_FreeProperty(struct IDProperty *prop);
 
 void IDP_ClearProperty(IDProperty *prop);
-
-void IDP_UnlinkProperty(struct IDProperty *prop);
 
 void IDP_RelinkProperty(struct IDProperty *prop);
 

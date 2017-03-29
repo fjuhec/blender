@@ -3021,12 +3021,14 @@ void RNA_property_pointer_set(PointerRNA *ptr, PropertyRNA *prop, PointerRNA ptr
 		return;
 	}
 
-	// RNA
-	if (pprop->set && !((prop->flag & PROP_NEVER_NULL) && ptr_value.data == NULL) &&
-		 !((prop->flag & PROP_ID_SELF_CHECK) && ptr->id.data == ptr_value.id.data)) {
+	/* RNA */
+	if (pprop->set &&
+	    !((prop->flag & PROP_NEVER_NULL) && ptr_value.data == NULL) &&
+	    !((prop->flag & PROP_ID_SELF_CHECK) && ptr->id.data == ptr_value.id.data))
+	{
 		pprop->set(ptr, ptr_value);
 	}
-	// IDProperty
+	/* IDProperty */
 	else if (prop->flag & PROP_EDITABLE) {
 		IDPropertyTemplate val = { 0 };
 		IDProperty *group;

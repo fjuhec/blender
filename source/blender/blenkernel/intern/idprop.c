@@ -129,19 +129,26 @@ void IDP_FreeIDPArray(IDProperty *prop)
 		MEM_freeN(prop->data.pointer);
 }
 
-/*shallow copies item*/
+/* shallow copies item */
 void IDP_SetIndexArray(IDProperty *prop, int index, IDProperty *item)
 {
 	IDProperty *old;
 
 	BLI_assert(prop->type == IDP_IDPARRAY);
 
+	if (index >= prop->len || index < 0)
+		return;
+
 	old = GETPROP(prop, index);
-	if (index >= prop->len || index < 0) return;
-	if (item != old) IDP_FreeProperty(old);
-	
-	memcpy(GETPROP(prop, index), item, sizeof(IDProperty));
-	IDP_id_register(prop);
+	if (item != old) {
+		IDP_FreeProperty(old);
+
+		memcpy(old, item, sizeof(IDProperty));
+
+		if (old->type == IDP_ID) {
+			id_us_plus(IDP_Id(old));
+		}
+	}
 }
 
 IDProperty *IDP_GetIndexArray(IDProperty *prop, int index)
@@ -375,20 +382,6 @@ static IDProperty *IDP_CopyString(const IDProperty *prop)
 	return newp;
 }
 
-static IDProperty *IDP_CopyID(const IDProperty *prop)
-{
-	IDProperty *newp;
-
-	BLI_assert(prop->type == IDP_ID);
-	newp = idp_generic_copy(prop);
-
-	if (IDP_Id(prop)) {
-		newp->data.pointer = (ID *)IDP_Id(prop);
-		IDP_id_register(newp);
-	}
-	return newp;
-}
-
 void IDP_AssignString(IDProperty *prop, const char *st, int maxlen)
 {
 	int stlen;
@@ -451,41 +444,17 @@ void IDP_FreeString(IDProperty *prop)
 /** \name IDProperty ID API
  * \{ */
 
-void IDP_id_register(IDProperty *prop)
+static IDProperty *IDP_CopyID(const IDProperty *prop)
 {
-	switch (prop->type)
-	{
-		case IDP_ID:
-			IDP_Id(prop);
-			if (!IDP_Id(prop))
-				break;
-			id_us_plus(IDP_Id(prop));
-			break;
-		case IDP_IDPARRAY:
-			for (int i = 0; i < prop->len; i++) {
-				IDProperty *inner = GETPROP(prop, i);
-				if (inner->type != IDP_ID) continue;
-				id_us_plus(IDP_Id(inner));
-			}
-			break;
-	}
-}
+	IDProperty *newp;
 
-static void IDP_id_unregister(IDProperty *prop)
-{
-	switch(prop->type) {
-		case IDP_ID:
-			if (IDP_Id(prop)) {
-				id_us_min(IDP_Id(prop));
-			}
-			break;
-		case IDP_IDPARRAY:
-			for (int i = 0; i < prop->len; i++) {
-				IDProperty *inner = GETPROP(prop, i);
-				if (inner->type == IDP_ID)
-					id_us_min(IDP_Id(inner));
-			}
-	}
+	BLI_assert(prop->type == IDP_ID);
+	newp = idp_generic_copy(prop);
+
+	newp->data.pointer = prop->data.pointer;
+	id_us_plus(IDP_Id(newp));
+
+	return newp;
 }
 
 /** \} */
@@ -815,9 +784,9 @@ void IDP_RelinkProperty(struct IDProperty *prop)
 		{
 			ID *id = IDP_Id(prop);
 			if (id && id->newid) {
-				IDP_id_unregister(prop);
+				id_us_min(IDP_Id(prop));
 				prop->data.pointer = id->newid;
-				IDP_id_register(prop);
+				id_us_plus(IDP_Id(prop));
 			}
 			break;
 		}
@@ -923,7 +892,7 @@ bool IDP_EqualsProperties_ex(IDProperty *prop1, IDProperty *prop2, const bool is
 			return true;
 		}
 		case IDP_ID:
-			return IDP_Id(prop1) == IDP_Id(prop2) ? true : false;
+			return (IDP_Id(prop1) == IDP_Id(prop2));
 		default:
 			/* should never get here */
 			BLI_assert(0);
@@ -1047,9 +1016,9 @@ IDProperty *IDP_New(const char type, const IDPropertyTemplate *val, const char *
 		case IDP_ID:
 		{
 			prop = MEM_callocN(sizeof(IDProperty), "IDProperty datablock");
-			prop->data.pointer = (void*)val->id;
+			prop->data.pointer = (void *)val->id;
 			prop->type = IDP_ID;
-			IDP_id_register(prop);
+			id_us_plus(IDP_Id(prop));
 			break;
 		}
 		default:
@@ -1066,9 +1035,8 @@ IDProperty *IDP_New(const char type, const IDPropertyTemplate *val, const char *
 }
 
 /**
- * \note this will free all child properties of list arrays and groups!
- * Also, note that this does NOT unlink anything!  Plus it doesn't free
- * the actual struct IDProperty struct either.
+ * \note This will free allocated data, all child properties of arrays and groups, and unlink IDs!
+ * But it does not free the actual IDProperty struct itself.
  */
 void IDP_FreeProperty(IDProperty *prop)
 {
@@ -1086,46 +1054,16 @@ void IDP_FreeProperty(IDProperty *prop)
 			IDP_FreeIDPArray(prop);
 			break;
 		case IDP_ID:
-			IDP_id_unregister(prop);
+			id_us_min(IDP_Id(prop));
 			break;
 	}
 }
 
 void IDP_ClearProperty(IDProperty *prop)
 {
-	IDP_UnlinkProperty(prop);
 	IDP_FreeProperty(prop);
 	prop->data.pointer = NULL;
 	prop->len = prop->totallen = 0;
-}
-
-/**
- * Unlinks any struct IDProperty<->ID linkage that might be going on.
- */
-void IDP_UnlinkProperty(IDProperty *prop)
-{
-	int i;
-	IDProperty *idp_loop;
-
-	if (!prop) return;
-
-	switch (prop->type) {
-		case IDP_ID:
-			IDP_id_unregister(prop);
-			prop->data.pointer = NULL;
-			break;
-		case IDP_IDPARRAY:
-			idp_loop = IDP_Array(prop);
-			for (i = 0; i < prop->len; i++) {
-				IDP_UnlinkProperty(&(idp_loop[i]));
-			}
-			break;
-		case IDP_GROUP:
-			for (idp_loop = prop->data.group.first; idp_loop; idp_loop = idp_loop->next) {
-				IDP_UnlinkProperty(idp_loop);
-			}
-			break;
-	}
 }
 
 /** \} */
