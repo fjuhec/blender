@@ -296,7 +296,7 @@ static void library_foreach_idproperty_ID_link(LibraryForeachIDData *data, IDPro
 	if (!prop)
 		return;
 
-	switch (loop->type) {
+	switch (prop->type) {
 		case IDP_GROUP:
 		{
 			for (IDProperty *loop = prop->data.group.first; loop; loop = loop->next) {
