@@ -26,22 +26,22 @@ void main(void)
 	vec4 P3 = gl_in[3].gl_Position;
 
 	/* get the four vertices passed to the shader */
-	vec2 p0 = toScreenSpace(P0);	// start of previous segment
-	vec2 p1 = toScreenSpace(P1);	// end of previous segment, start of current segment
-	vec2 p2 = toScreenSpace(P2);	// end of current segment, start of next segment
-	vec2 p3 = toScreenSpace(P3); // end of next segment
+	vec2 sp0 = toScreenSpace(P0);	// start of previous segment
+	vec2 sp1 = toScreenSpace(P1);	// end of previous segment, start of current segment
+	vec2 sp2 = toScreenSpace(P2);	// end of current segment, start of next segment
+	vec2 sp3 = toScreenSpace(P3); // end of next segment
 	
 	/* culling outside viewport */
-	vec2 area = Viewport * 2.5;
-	if (p1.x < -area.x || p1.x > area.x) return;
-	if (p1.y < -area.y || p1.y > area.y) return;
-	if (p2.x < -area.x || p2.x > area.x) return;
-	if (p2.y < -area.y || p2.y > area.y) return;
+	vec2 area = Viewport * 4.0;
+	if (sp1.x < -area.x || sp1.x > area.x) return;
+	if (sp1.y < -area.y || sp1.y > area.y) return;
+	if (sp2.x < -area.x || sp2.x > area.x) return;
+	if (sp2.y < -area.y || sp2.y > area.y) return;
 
 	/* determine the direction of each of the 3 segments (previous, current, next) */
-	vec2 v0 = normalize(p1 - p0);
-	vec2 v1 = normalize(p2 - p1);
-	vec2 v2 = normalize(p3 - p2);
+	vec2 v0 = normalize(sp1 - sp0);
+	vec2 v1 = normalize(sp2 - sp1);
+	vec2 v2 = normalize(sp3 - sp2);
 
 	/* determine the normal of each of the 3 segments (previous, current, next) */
 	vec2 n0 = vec2(-v0.y, v0.x);
@@ -71,17 +71,17 @@ void main(void)
 		if (dot(v0, n1) > 0) {
 			mTexCoord = vec2(0, 0);
 			mColor = finalColor[1];
-			gl_Position = vec4((p1 + finalThickness[1] * n0) / Viewport, 0.0, 1.0);
+			gl_Position = vec4((sp1 + finalThickness[1] * n0) / Viewport, 0.0, 1.0);
 			EmitVertex();
 
 			mTexCoord = vec2(0, 0);
 			mColor = finalColor[1];
-			gl_Position = vec4((p1 + finalThickness[1] * n1) / Viewport, 0.0, 1.0);
+			gl_Position = vec4((sp1 + finalThickness[1] * n1) / Viewport, 0.0, 1.0);
 			EmitVertex();
 
 			mTexCoord = vec2(0, 0.5);
 			mColor = finalColor[1];
-			gl_Position = vec4(p1 / Viewport, 0.0, 1.0);
+			gl_Position = vec4(sp1 / Viewport, 0.0, 1.0);
 			EmitVertex();
 
 			EndPrimitive();
@@ -89,17 +89,17 @@ void main(void)
 		else {
 			mTexCoord = vec2(0, 1);
 			mColor = finalColor[1];
-			gl_Position = vec4((p1 - finalThickness[1] * n1) / Viewport, 0.0, 1.0);
+			gl_Position = vec4((sp1 - finalThickness[1] * n1) / Viewport, 0.0, 1.0);
 			EmitVertex();
 
 			mTexCoord = vec2(0, 1);
 			mColor = finalColor[1];
-			gl_Position = vec4((p1 - finalThickness[1] * n0) / Viewport, 0.0, 1.0);
+			gl_Position = vec4((sp1 - finalThickness[1] * n0) / Viewport, 0.0, 1.0);
 			EmitVertex();
 
 			mTexCoord = vec2(0, 0.5);
 			mColor = finalColor[1];
-			gl_Position = vec4(p1 / Viewport, 0.0, 1.0);
+			gl_Position = vec4(sp1 / Viewport, 0.0, 1.0);
 			EmitVertex();
 
 			EndPrimitive();
@@ -114,22 +114,22 @@ void main(void)
 	/* generate the triangle strip */
 	mTexCoord = vec2(0, 0);
 	mColor = finalColor[1];
-	gl_Position = vec4((p1 + length_a * miter_a) / Viewport, 0.0, 1.0);
+	gl_Position = vec4((sp1 + length_a * miter_a) / Viewport, 0.0, 1.0);
 	EmitVertex();
 
 	mTexCoord = vec2(0, 1);
 	mColor = finalColor[1];
-	gl_Position = vec4((p1 - length_a * miter_a) / Viewport, 0.0, 1.0);
+	gl_Position = vec4((sp1 - length_a * miter_a) / Viewport, 0.0, 1.0);
 	EmitVertex();
 
 	mTexCoord = vec2(0, 0);
 	mColor = finalColor[2];
-	gl_Position = vec4((p2 + length_b * miter_b) / Viewport, 0.0, 1.0);
+	gl_Position = vec4((sp2 + length_b * miter_b) / Viewport, 0.0, 1.0);
 	EmitVertex();
 
 	mTexCoord = vec2(0, 1);
 	mColor = finalColor[2];
-	gl_Position = vec4((p2 - length_b * miter_b) / Viewport, 0.0, 1.0);
+	gl_Position = vec4((sp2 - length_b * miter_b) / Viewport, 0.0, 1.0);
 	EmitVertex();
 
 	EndPrimitive();
