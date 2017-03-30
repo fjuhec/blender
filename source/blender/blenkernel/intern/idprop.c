@@ -44,6 +44,7 @@
 
 #include "BLI_strict_flags.h"
 
+/* IDPropertyTemplate is a union in DNA_ID.h */
 
 /**
  * if the new is 'IDP_ARRAY_REALLOC_LIMIT' items less,
@@ -129,26 +130,18 @@ static void IDP_FreeIDPArray(IDProperty *prop, const bool do_id_user)
 		MEM_freeN(prop->data.pointer);
 }
 
-/* shallow copies item */
+/*shallow copies item*/
 void IDP_SetIndexArray(IDProperty *prop, int index, IDProperty *item)
 {
 	IDProperty *old;
 
 	BLI_assert(prop->type == IDP_IDPARRAY);
 
-	if (index >= prop->len || index < 0)
-		return;
-
 	old = GETPROP(prop, index);
-	if (item != old) {
-		IDP_FreeProperty(old);
-
-		memcpy(old, item, sizeof(IDProperty));
-
-		if (old->type == IDP_ID) {
-			id_us_plus(IDP_Id(old));
-		}
-	}
+	if (index >= prop->len || index < 0) return;
+	if (item != old) IDP_FreeProperty(old);
+	
+	memcpy(GETPROP(prop, index), item, sizeof(IDProperty));
 }
 
 IDProperty *IDP_GetIndexArray(IDProperty *prop, int index)
@@ -381,6 +374,7 @@ static IDProperty *IDP_CopyString(const IDProperty *prop)
 
 	return newp;
 }
+
 
 void IDP_AssignString(IDProperty *prop, const char *st, int maxlen)
 {
