@@ -293,37 +293,34 @@ static void library_foreach_ID_as_subdata_link(
 
 static void library_foreach_idproperty_ID_link(LibraryForeachIDData *data, IDProperty *prop, int flag)
 {
-	IDProperty *loop;
-	IDProperty *idp_loop;
+	if (!prop)
+		return;
 
-	if (!prop) return;
-
-	BLI_assert(prop->type == IDP_GROUP);
-
-	loop = prop->data.group.first;
-	while (loop) {
-		switch (loop->type) {
-			case IDP_GROUP:
+	switch (loop->type) {
+		case IDP_GROUP:
+		{
+			for (IDProperty *loop = prop->data.group.first; loop; loop = loop->next) {
 				library_foreach_idproperty_ID_link(data, loop, flag);
-				break;
-			case IDP_IDPARRAY:
-				idp_loop = IDP_Array(loop);
-				for (int i = 0; i < loop->len; i++)
-					library_foreach_idproperty_ID_link(data, &idp_loop[i], flag);
-				break;
-			case IDP_ID:
-				if (IDP_Id(loop)) {
-					if (loop->data.pointer) {
-						FOREACH_CALLBACK_INVOKE_ID(data, loop->data.pointer, flag);
-					}
-				}
-				break;
+			}
+			break;
 		}
-		loop = loop->next;
+		case IDP_IDPARRAY:
+		{
+			IDProperty *loop = IDP_Array(prop);
+			for (int i = 0; i < prop->len; i++) {
+				library_foreach_idproperty_ID_link(data, &loop[i], flag);
+			}
+			break;
+		}
+		case IDP_ID:
+			FOREACH_CALLBACK_INVOKE_ID(data, prop->data.pointer, flag);
+			break;
+		default:
+			break;  /* Nothing to do here with other types of IDProperties... */
 	}
+
 	FOREACH_FINALIZE_VOID;
 }
-
 
 /**
  * Loop over all of the ID's this datablock links to.
@@ -595,10 +592,11 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 
 			case ID_AR:
 			{
-				bArmature *arm = (bArmature *) id;
-				Bone *bone;
-				for (bone = arm->bonebase.first; bone; bone=bone->next)
+				bArmature *arm = (bArmature *)id;
+
+				for (Bone *bone = arm->bonebase.first; bone; bone = bone->next) {
 					library_foreach_idproperty_ID_link(&data, bone->prop, IDWALK_CB_USER);
+				}
 				break;
 			}
 
@@ -792,16 +790,20 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 					CALLBACK_INVOKE_ID(node->id, IDWALK_CB_USER);
 
 					library_foreach_idproperty_ID_link(&data, node->prop, IDWALK_CB_USER);
-					for (sock = node->inputs.first; sock; sock = sock->next)
+					for (sock = node->inputs.first; sock; sock = sock->next) {
 						library_foreach_idproperty_ID_link(&data, sock->prop, IDWALK_CB_USER);
-					for (sock = node->outputs.first; sock; sock = sock->next)
+					}
+					for (sock = node->outputs.first; sock; sock = sock->next) {
 						library_foreach_idproperty_ID_link(&data, sock->prop, IDWALK_CB_USER);
+					}
 				}
 
-				for (sock = ntree->inputs.first; sock; sock = sock->next)
+				for (sock = ntree->inputs.first; sock; sock = sock->next) {
 					library_foreach_idproperty_ID_link(&data, sock->prop, IDWALK_CB_USER);
-				for (sock = ntree->outputs.first; sock; sock = sock->next)
+				}
+				for (sock = ntree->outputs.first; sock; sock = sock->next) {
 					library_foreach_idproperty_ID_link(&data, sock->prop, IDWALK_CB_USER);
+				}
 				break;
 			}
 
