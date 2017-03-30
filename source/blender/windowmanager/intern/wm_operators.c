@@ -4203,6 +4203,36 @@ static void WM_OT_hmd_view_toggle(wmOperatorType *ot)
 	ot->invoke = wm_hmd_view_toggle_invoke;
 }
 
+static void hmd_session_cursor_draw(bContext *C, int mx, int my, void *UNUSED(customdata))
+{
+	wmWindowManager *wm = CTX_wm_manager(C);
+	wmWindow *win = CTX_wm_window(C);
+	GLUquadricObj *qobj;
+
+	if (wm->hmd_view.hmd_win != win || !win->screen->is_hmd_running) {
+		/* only hmd window */
+		return;
+	}
+	WM_cursor_modal_set(win, CURSOR_NONE);
+
+	if (mx > (win->sizex / 2)) {
+		mx -= win->sizex / 2;
+	}
+
+	qobj = gluNewQuadric();
+
+	UI_ThemeColor(TH_TEXT_HI);
+
+	glPushMatrix();
+	glTranslatef(mx, my, 0.0f);
+
+	gluQuadricDrawStyle(qobj, GLU_FILL);
+	gluDisk(qobj, 0.0f, 4.0f, 16, 1);
+
+	glPopMatrix();
+	gluDeleteQuadric(qobj);
+}
+
 static int hmd_session_toggle_poll(bContext *C)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
@@ -4279,6 +4309,7 @@ static int hmd_session_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 		WM_window_fullscreen_toggle(hmd_win, false, true);
 		WM_device_HMD_state_set(U.hmd_settings.device, false);
 		hmd_session_disable_viewlocks(wm);
+		WM_cursor_modal_restore(hmd_win);
 	}
 	else {
 		/* start session */
@@ -4289,6 +4320,8 @@ static int hmd_session_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 			WM_device_HMD_IPD_set(U.hmd_settings.custom_ipd);
 		}
 		hmd_session_prepare_screen(hmd_win);
+
+		WM_paint_cursor_activate(wm, NULL, hmd_session_cursor_draw, NULL);
 	}
 
 	return OPERATOR_FINISHED;
