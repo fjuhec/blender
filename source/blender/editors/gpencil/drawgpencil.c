@@ -739,7 +739,7 @@ static void gp_draw_stroke_3d(ARegion *ar, const bGPDspoint *points, int totpoin
 	/* if cyclic needs one vertex more */
 	int cyclic_add = 0;
 	if (cyclic) {
-		++cyclic_add;
+		cyclic_add += 2;
 	}
 
 
@@ -804,11 +804,19 @@ static void gp_draw_stroke_3d(ARegion *ar, const bGPDspoint *points, int totpoin
 		curpressure = pt->pressure;
 	}
 
-	if (cyclic) {
+	if (cyclic && totpoints > 2) {
 		/* draw line to first point to complete the cycle */
-		/* TODO add adjacency points */
 		immAttrib1f(thickattrib, old_thickness);
 		immVertex3fv(pos, cyclic_fpt);
+
+		/* now add adjacency points using 2nd & 3rd point to get smooth transition */
+		immAttrib1f(thickattrib, max_ff((points + 1)->pressure * thickness * scale, 1.0f));
+		mul_v3_m4v3(fpt, diff_mat, &(points + 1)->x);
+		immVertex3fv(pos, fpt);
+
+		immAttrib1f(thickattrib, max_ff((points + 2)->pressure * thickness * scale, 1.0f));
+		mul_v3_m4v3(fpt, diff_mat, &(points + 2)->x);
+		immVertex3fv(pos, fpt);
 	}
 	/* last adjacency point (not drawn) */
 	else {
