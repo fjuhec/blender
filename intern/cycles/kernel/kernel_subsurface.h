@@ -150,7 +150,7 @@ ccl_device void subsurface_scatter_setup_diffuse_bsdf(ShaderData *sd, ShaderClos
 	if(hit) {
 		Bssrdf *bssrdf = (Bssrdf *)sc;
 		if(bssrdf->type == CLOSURE_BSSRDF_PRINCIPLED_ID) {
-			PrincipledDiffuseBsdf *bsdf = (PrincipledDiffuseBsdf*)bsdf_alloc(sd, sizeof(PrincipledDiffuseBsdf), weight * bssrdf->base_color);
+			PrincipledDiffuseBsdf *bsdf = (PrincipledDiffuseBsdf*)bsdf_alloc(sd, sizeof(PrincipledDiffuseBsdf), weight);
 
 			if(bsdf) {
 				bsdf->N = N;

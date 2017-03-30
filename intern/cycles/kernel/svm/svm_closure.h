@@ -140,8 +140,8 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			float3 weight = ccl_fetch(sd, svm_closure_weight) * mix_weight;
 
 #ifdef __SUBSURFACE__
-			float3 albedo = subsurface_color;
-			float3 subsurf_weight = weight * diffuse_weight;
+			float3 albedo = subsurface_color * subsurface + base_color * (1.0f - subsurface);
+			float3 subsurf_weight = weight * albedo * diffuse_weight;
 			float subsurf_sample_weight = fabsf(average(subsurf_weight));
 
 			/* disable in case of diffuse ancestor, can't see it well then and
@@ -183,7 +183,6 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 						bssrdf->albedo = albedo.x;
 						bssrdf->sharpness = sharpness;
 						bssrdf->N = N;
-						bssrdf->base_color = base_color;
 						bssrdf->roughness = roughness;
 
 						/* setup bsdf */
@@ -198,7 +197,6 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 						bssrdf->albedo = albedo.y;
 						bssrdf->sharpness = sharpness;
 						bssrdf->N = N;
-						bssrdf->base_color = base_color;
 						bssrdf->roughness = roughness;
 
 						/* setup bsdf */
@@ -213,7 +211,6 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 						bssrdf->albedo = albedo.z;
 						bssrdf->sharpness = sharpness;
 						bssrdf->N = N;
-						bssrdf->base_color = base_color;
 						bssrdf->roughness = roughness;
 
 						/* setup bsdf */

@@ -57,7 +57,8 @@ shader node_principled_bsdf(
 
 	if (diffuse_weight > 1e-5) {
 		if (Subsurface > 1e-5) {
-			BSDF = bssrdf_principled(Normal, Subsurface * SubsurfaceRadius, 0.0, BaseColor, SubsurfaceColor, Roughness);
+			color Albedo = SubsurfaceColor * Subsurface + BaseColor * (1.0 - Subsurface);
+			BSDF = bssrdf_principled(Normal, Subsurface * SubsurfaceRadius, 0.0, Albedo, Roughness);
 		} else {
 			BSDF = BaseColor * principled_diffuse(Normal, Roughness);
 		}

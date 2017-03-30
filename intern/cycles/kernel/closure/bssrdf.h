@@ -29,7 +29,6 @@ typedef ccl_addr_space struct Bssrdf {
 	float albedo;
 	float roughness;
 	float3 N;
-	float3 base_color;
 } Bssrdf;
 
 /* Planar Truncated Gaussian
@@ -366,7 +365,7 @@ ccl_device int bssrdf_setup(Bssrdf *bssrdf, ClosureType type)
 		if(type == CLOSURE_BSSRDF_PRINCIPLED_ID) {
 			float roughness = bssrdf->roughness;
 			float3 N = bssrdf->N;
-			float3 weight = bssrdf->weight * bssrdf->base_color;
+			float3 weight = bssrdf->weight;
 			float sample_weight = bssrdf->sample_weight;
 
 			PrincipledDiffuseBsdf *bsdf = (PrincipledDiffuseBsdf*)bssrdf;

@@ -80,7 +80,6 @@ public:
 				bssrdf->albedo = albedo.x;
 				bssrdf->sharpness = sharpness;
 				bssrdf->N = params.N;
-				bssrdf->base_color = params.base_color;
 				bssrdf->roughness = params.roughness;
 				ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)type);
 			}
@@ -93,7 +92,6 @@ public:
 				bssrdf->albedo = albedo.y;
 				bssrdf->sharpness = sharpness;
 				bssrdf->N = params.N;
-				bssrdf->base_color = params.base_color;
 				bssrdf->roughness = params.roughness;
 				ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)type);
 			}
@@ -106,7 +104,6 @@ public:
 				bssrdf->albedo = albedo.z;
 				bssrdf->sharpness = sharpness;
 				bssrdf->N = params.N;
-				bssrdf->base_color = params.base_color;
 				bssrdf->roughness = params.roughness;
 				ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)type);
 			}
@@ -194,7 +191,7 @@ class PrincipledBSSRDFClosure : public CBSSRDFClosure {
 public:
 	void setup(ShaderData *sd, int path_flag, float3 weight)
 	{
-		alloc(sd, path_flag, weight, CLOSURE_BSSRDF_PRINCIPLED_ID);
+		alloc(sd, path_flag, weight * albedo, CLOSURE_BSSRDF_PRINCIPLED_ID);
 	}
 };
 
@@ -204,7 +201,6 @@ ClosureParam *closure_bssrdf_principled_params()
 		CLOSURE_FLOAT3_PARAM(PrincipledBSSRDFClosure, params.N),
 		CLOSURE_FLOAT3_PARAM(PrincipledBSSRDFClosure, radius),
 		CLOSURE_FLOAT_PARAM(PrincipledBSSRDFClosure, params.texture_blur),
-		CLOSURE_FLOAT3_PARAM(PrincipledBSSRDFClosure, params.base_color),
 		CLOSURE_FLOAT3_PARAM(PrincipledBSSRDFClosure, albedo),
 		CLOSURE_FLOAT_PARAM(PrincipledBSSRDFClosure, params.roughness),
 		CLOSURE_STRING_KEYPARAM(PrincipledBSSRDFClosure, label, "label"),
