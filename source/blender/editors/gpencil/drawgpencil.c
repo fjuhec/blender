@@ -773,7 +773,7 @@ static void gp_draw_stroke_3d(ARegion *ar, const bGPDspoint *points, int totpoin
 	
 	/* get thickness scale */
 	if (rv3d->is_persp) {
-		scale = 5.0f / b; /* not use 1.0 to avoid too small values */
+		scale = 12.0f / b; /* not use 1.0 to avoid too small values */
 	}
 	else {
 		scale = b;
