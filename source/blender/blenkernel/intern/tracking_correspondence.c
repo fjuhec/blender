@@ -67,7 +67,6 @@ typedef struct MovieMultiviewReconstructContext {
 	int *all_sfra, *all_efra;				/* start and end frame of each clip */
 	int *all_refine_flags;					/* refine flags of each clip */
 	int **track_global_index;				/* track global index */
-	struct libmv_CorrespondencesN *correspondences;			/* libmv correspondence api*/
 
 	bool select_keyframes;
 	int keyframe1, keyframe2;		/* the key frames selected from the primary camera */
@@ -249,14 +248,12 @@ static struct libmv_TracksN *libmv_multiview_tracks_new(MovieClip *clip, int cli
 static int libmv_CorrespondencesFromTracking(ListBase *tracking_correspondences,
                                              MovieClip **clips,
                                              const int clip_num,
-                                             struct libmv_CorrespondencesN *libmv_correspondences,
                                              int **global_track_index)
 {
 	int num_valid_corrs = 0;
 	MovieTrackingCorrespondence *corr;
 	corr = tracking_correspondences->first;
 	while (corr) {
-		printf("enter corr\n");
 		int clip1 = -1, clip2 = -1, track1 = -1, track2 = -1;
 		MovieClip *self_clip = corr->self_clip;
 		MovieClip *other_clip = corr->other_clip;
@@ -292,7 +289,6 @@ static int libmv_CorrespondencesFromTracking(ListBase *tracking_correspondences,
 			}
 		}
 		if (clip1 != -1 && clip2 != -1 && track1 != -1 && track2 != -1 && clip1 != clip2) {
-			libmv_AddCorrespondenceN(libmv_correspondences, clip1, clip2, track1, track2);
 			num_valid_corrs++;
 		}
 		/* change the global index of clip2-track2 to clip1-track1 */
@@ -319,7 +315,6 @@ BKE_tracking_multiview_reconstruction_context_new(MovieClip **clips,
 	// alloc memory for the field members
 	context->all_tracks = MEM_callocN(num_clips * sizeof(libmv_TracksN*), "MRC libmv_Tracks");
 	context->all_reconstruction = MEM_callocN(num_clips * sizeof(struct libmv_ReconstructionN*), "MRC libmv reconstructions");
-	context->correspondences = libmv_correspondencesNewN();
 	context->all_tracks_map = MEM_callocN(num_clips * sizeof(TracksMap*), "MRC TracksMap");
 	context->all_camera_intrinsics_options = MEM_callocN(num_clips * sizeof(libmv_CameraIntrinsicsOptions), "MRC camera intrinsics");
 	context->all_sfra = MEM_callocN(num_clips * sizeof(int), "MRC start frames");
@@ -357,10 +352,9 @@ BKE_tracking_multiview_reconstruction_context_new(MovieClip **clips,
 		MovieTrackingTrack *track;
 
 		// setting context only from information in the primary clip
-		if(i == 0) {
+		if (i == 0) {
 			// correspondences are recorded in the primary clip (0), convert local track id to global track id
-			int num_valid_corrs = libmv_CorrespondencesFromTracking(&tracking->correspondences, clips,
-			                                                        num_clips, context->correspondences,
+			int num_valid_corrs = libmv_CorrespondencesFromTracking(&tracking->correspondences, clips, num_clips,
 			                                                        context->track_global_index);
 			printf("num valid corrs: %d\n", num_valid_corrs);
 			BLI_assert(num_valid_corrs == BLI_listbase_count(&tracking->correspondences));
@@ -427,8 +421,6 @@ void BKE_tracking_multiview_reconstruction_context_free(MovieMultiviewReconstruc
 			MEM_freeN(context->track_global_index[i]);
 		tracks_map_free(context->all_tracks_map[i], NULL);
 	}
-	printf("free per clip context");
-	libmv_CorrespondencesDestroyN(context->correspondences);
 	MEM_freeN(context->all_tracks);
 	MEM_freeN(context->all_reconstruction);
 	MEM_freeN(context->all_camera_intrinsics_options);
@@ -502,7 +494,6 @@ void BKE_tracking_multiview_reconstruction_solve(MovieMultiviewReconstructContex
 		                                  context->clip_num,
 		                                  (const libmv_TracksN **) context->all_tracks,
 		                                  (const libmv_CameraIntrinsicsOptions *) context->all_camera_intrinsics_options,
-		                                  (const libmv_CorrespondencesN *) context->correspondences,
 		                                  &reconstruction_options,
 		                                  multiview_reconstruct_update_solve_cb, &progressdata);
 
