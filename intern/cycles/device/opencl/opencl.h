@@ -16,12 +16,12 @@
 
 #ifdef WITH_OPENCL
 
-#include "device.h"
-#include "device_denoising.h"
+#include "device/device.h"
+#include "device/device_denoising.h"
 
-#include "util_map.h"
-#include "util_param.h"
-#include "util_string.h"
+#include "util/util_map.h"
+#include "util/util_param.h"
+#include "util/util_string.h"
 
 #include "clew.h"
 

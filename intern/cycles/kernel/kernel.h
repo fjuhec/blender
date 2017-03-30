@@ -19,8 +19,8 @@
 
 /* CPU Kernel Interface */
 
-#include "util_types.h"
-#include "kernel_types.h"
+#include "util/util_types.h"
+#include "kernel/kernel_types.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -48,22 +48,22 @@ void kernel_tex_copy(KernelGlobals *kg,
                      ExtensionType extension = EXTENSION_REPEAT);
 
 #define KERNEL_ARCH cpu
-#include "kernels/cpu/kernel_cpu.h"
+#include "kernel/kernels/cpu/kernel_cpu.h"
 
 #define KERNEL_ARCH cpu_sse2
-#include "kernels/cpu/kernel_cpu.h"
+#include "kernel/kernels/cpu/kernel_cpu.h"
 
 #define KERNEL_ARCH cpu_sse3
-#include "kernels/cpu/kernel_cpu.h"
+#include "kernel/kernels/cpu/kernel_cpu.h"
 
 #define KERNEL_ARCH cpu_sse41
-#include "kernels/cpu/kernel_cpu.h"
+#include "kernel/kernels/cpu/kernel_cpu.h"
 
 #define KERNEL_ARCH cpu_avx
-#include "kernels/cpu/kernel_cpu.h"
+#include "kernel/kernels/cpu/kernel_cpu.h"
 
 #define KERNEL_ARCH cpu_avx2
-#include "kernels/cpu/kernel_cpu.h"
+#include "kernel/kernels/cpu/kernel_cpu.h"
 
 CCL_NAMESPACE_END
 

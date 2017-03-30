@@ -1,8 +1,7 @@
 remove_extra_strict_flags()
 
 set(INC
-	.
-	../util
+	..
 )
 
 set(INC_SYS
@@ -115,7 +114,7 @@ if(WITH_CYCLES_CUDA_BINARIES)
 					${cuda_version_flags}
 					${cuda_math_flags}
 					${cuda_extra_flags}
-					-I${CMAKE_CURRENT_SOURCE_DIR}/../util
+					-I${CMAKE_CURRENT_SOURCE_DIR}/..
 					-DCCL_NAMESPACE_BEGIN=
 					-DCCL_NAMESPACE_END=
 					-DNVCC

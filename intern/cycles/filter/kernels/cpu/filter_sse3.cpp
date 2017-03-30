@@ -18,7 +18,7 @@
  * optimization flags and nearly all functions inlined, while kernel.cpp
  * is compiled without for other CPU's. */
 
-#include "util_optimization.h"
+#include "util/util_optimization.h"
 
 #ifndef WITH_CYCLES_OPTIMIZED_KERNEL_SSE3
 #  define KERNEL_STUB
@@ -31,6 +31,6 @@
 #  endif
 #endif  /* WITH_CYCLES_OPTIMIZED_KERNEL_SSE3 */
 
-#include "../filter/filter.h"
+#include "filter/filter.h"
 #define KERNEL_ARCH cpu_sse3
-#include "filter_cpu_impl.h"
+#include "filter/kernels/cpu/filter_cpu_impl.h"

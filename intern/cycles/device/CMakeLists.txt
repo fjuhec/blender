@@ -1,14 +1,6 @@
 
 set(INC
-	.
-	../graph
-	../kernel
-	../filter
-	../kernel/split
-	../kernel/svm
-	../kernel/osl
-	../util
-	../render
+	..
 	../../glew-mx
 )
 

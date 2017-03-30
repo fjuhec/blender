@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include "device_denoising.h"
+#include "device/device_denoising.h"
 
-#include "filter_defines.h"
+#include "filter/filter_defines.h"
 
 CCL_NAMESPACE_BEGIN
 

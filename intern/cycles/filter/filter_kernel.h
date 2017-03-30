@@ -14,39 +14,39 @@
  * limitations under the License.
  */
 
-#include "util_color.h"
-#include "util_math.h"
-#include "util_math_fast.h"
-#include "util_texture.h"
+#include "util/util_color.h"
+#include "util/util_math.h"
+#include "util/util_math_fast.h"
+#include "util/util_texture.h"
 
-#include "util_atomic.h"
-#include "util_math_matrix.h"
+#include "util/util_atomic.h"
+#include "util/util_math_matrix.h"
 
-#include "filter_defines.h"
+#include "filter/filter_defines.h"
 
-#include "filter_features.h"
+#include "filter/filter_features.h"
 #ifdef __KERNEL_SSE3__
-#  include "filter_features_sse.h"
+#  include "filter/filter_features_sse.h"
 #endif
 
-#include "filter_prefilter.h"
+#include "filter/filter_prefilter.h"
 
 #ifdef __KERNEL_GPU__
-#  include "filter_transform_gpu.h"
+#  include "filter/filter_transform_gpu.h"
 #else
 #  ifdef __KERNEL_SSE3__
-#    include "filter_transform_sse.h"
+#    include "filter/filter_transform_sse.h"
 #  else
-#    include "filter_transform.h"
+#    include "filter/filter_transform.h"
 #  endif
 #endif
 
-#include "filter_reconstruction.h"
+#include "filter/filter_reconstruction.h"
 
 #ifdef __KERNEL_CPU__
-#include "filter_nlm_cpu.h"
+#  include "filter/filter_nlm_cpu.h"
 #else
-#include "filter_nlm_gpu.h"
+#  include "filter/filter_nlm_gpu.h"
 #endif
 
 CCL_NAMESPACE_BEGIN

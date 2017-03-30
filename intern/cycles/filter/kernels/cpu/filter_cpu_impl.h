@@ -20,12 +20,12 @@
  * simply includes this file without worry of copying actual implementation over.
  */
 
-#include "filter_compat_cpu.h"
+#include "filter/filter_compat_cpu.h"
 
-#include "filter_kernel.h"
+#include "filter/filter_kernel.h"
 
 #ifdef KERNEL_STUB
-#  include "util_debug.h"
+#  include "util/util_debug.h"
 #  define STUB_ASSERT(arch, name) assert(!(#name " kernel stub for architecture " #arch " was called!"))
 #endif
 

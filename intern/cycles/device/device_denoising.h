@@ -17,10 +17,11 @@
 #ifndef __DEVICE_DENOISING_H__
 #define __DEVICE_DENOISING_H__
 
-#include "device.h"
-#include "buffers.h"
+#include "device/device.h"
 
-#include "filter_defines.h"
+#include "render/buffers.h"
+
+#include "filter/filter_defines.h"
 
 CCL_NAMESPACE_BEGIN
 

@@ -20,9 +20,9 @@
 
 #include "kernel_config.h"
 
-#include "../../filter_compat_cuda.h"
+#include "filter/filter_compat_cuda.h"
 
-#include "../../filter_kernel.h"
+#include "filter/filter_kernel.h"
 
 /* kernels */
 

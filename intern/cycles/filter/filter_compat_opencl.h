@@ -120,8 +120,8 @@
 /* define NULL */
 #define NULL 0
 
-#include "util_half.h"
-#include "util_types.h"
+#include "util/util_half.h"
+#include "util/util_types.h"
 
 #endif /* __FILTER_COMPAT_OPENCL_H__ */
 

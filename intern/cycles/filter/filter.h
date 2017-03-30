@@ -19,9 +19,9 @@
 
 /* CPU Filter Kernel Interface */
 
-#include "util_types.h"
+#include "util/util_types.h"
 
-#include "filter_defines.h"
+#include "filter/filter_defines.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -30,22 +30,22 @@ CCL_NAMESPACE_BEGIN
 #define KERNEL_FUNCTION_FULL_NAME(name) KERNEL_NAME_EVAL(KERNEL_ARCH, name)
 
 #define KERNEL_ARCH cpu
-#include "kernels/cpu/filter_cpu.h"
+#include "filter/kernels/cpu/filter_cpu.h"
 
 #define KERNEL_ARCH cpu_sse2
-#include "kernels/cpu/filter_cpu.h"
+#include "filter/kernels/cpu/filter_cpu.h"
 
 #define KERNEL_ARCH cpu_sse3
-#include "kernels/cpu/filter_cpu.h"
+#include "filter/kernels/cpu/filter_cpu.h"
 
 #define KERNEL_ARCH cpu_sse41
-#include "kernels/cpu/filter_cpu.h"
+#include "filter/kernels/cpu/filter_cpu.h"
 
 #define KERNEL_ARCH cpu_avx
-#include "kernels/cpu/filter_cpu.h"
+#include "filter/kernels/cpu/filter_cpu.h"
 
 #define KERNEL_ARCH cpu_avx2
-#include "kernels/cpu/filter_cpu.h"
+#include "filter/kernels/cpu/filter_cpu.h"
 
 CCL_NAMESPACE_END
 
