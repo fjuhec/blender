@@ -2612,6 +2612,8 @@ static void write_layer_collections(WriteData *wd, ListBase *lb)
 
 		write_collection_engine_settings(wd, &lc->engine_settings);
 
+		write_collection_engine_settings(wd, &lc->mode_settings);
+
 		write_layer_collections(wd, &lc->layer_collections);
 	}
 }
