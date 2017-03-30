@@ -116,14 +116,14 @@ IDProperty *IDP_CopyIDPArray(const IDProperty *array)
 	return narray;
 }
 
-void IDP_FreeIDPArray(IDProperty *prop)
+static void IDP_FreeIDPArray(IDProperty *prop, const bool do_id_user)
 {
 	int i;
 	
 	BLI_assert(prop->type == IDP_IDPARRAY);
 
 	for (i = 0; i < prop->len; i++)
-		IDP_FreeProperty(GETPROP(prop, i));
+		IDP_FreeProperty_ex(GETPROP(prop, i), do_id_user);
 
 	if (prop->data.pointer)
 		MEM_freeN(prop->data.pointer);
@@ -727,13 +727,13 @@ IDProperty *IDP_GetPropertyTypeFromGroup(IDProperty *prop, const char *name, con
  * This is because all ID Property freeing functions free only direct data (not the ID Property
  * struct itself), but for Groups the child properties *are* considered
  * direct data. */
-static void IDP_FreeGroup(IDProperty *prop)
+static void IDP_FreeGroup(IDProperty *prop, const bool do_id_user)
 {
 	IDProperty *loop;
 
 	BLI_assert(prop->type == IDP_GROUP);
 	for (loop = prop->data.group.first; loop; loop = loop->next) {
-		IDP_FreeProperty(loop);
+		IDP_FreeProperty_ex(loop, do_id_user);
 	}
 	BLI_freelistN(&prop->data.group);
 }
@@ -1038,7 +1038,7 @@ IDProperty *IDP_New(const char type, const IDPropertyTemplate *val, const char *
  * \note This will free allocated data, all child properties of arrays and groups, and unlink IDs!
  * But it does not free the actual IDProperty struct itself.
  */
-void IDP_FreeProperty(IDProperty *prop)
+void IDP_FreeProperty_ex(IDProperty *prop, const bool do_id_user)
 {
 	switch (prop->type) {
 		case IDP_ARRAY:
@@ -1048,15 +1048,22 @@ void IDP_FreeProperty(IDProperty *prop)
 			IDP_FreeString(prop);
 			break;
 		case IDP_GROUP:
-			IDP_FreeGroup(prop);
+			IDP_FreeGroup(prop, do_id_user);
 			break;
 		case IDP_IDPARRAY:
-			IDP_FreeIDPArray(prop);
+			IDP_FreeIDPArray(prop, do_id_user);
 			break;
 		case IDP_ID:
-			id_us_min(IDP_Id(prop));
+			if (do_id_user) {
+				id_us_min(IDP_Id(prop));
+			}
 			break;
 	}
+}
+
+void IDP_FreeProperty(IDProperty *prop)
+{
+	IDP_FreeProperty_ex(prop, true);
 }
 
 void IDP_ClearProperty(IDProperty *prop)

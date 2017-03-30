@@ -60,8 +60,6 @@ typedef union IDPropertyTemplate {
 IDProperty *IDP_NewIDPArray(const char *name) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 IDProperty *IDP_CopyIDPArray(const IDProperty *array) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 
-void IDP_FreeIDPArray(IDProperty *prop);
-
 /* shallow copies item */
 void IDP_SetIndexArray(struct IDProperty *prop, int index, struct IDProperty *item) ATTR_NONNULL();
 struct IDProperty *IDP_GetIndexArray(struct IDProperty *prop, int index) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
@@ -112,6 +110,7 @@ bool IDP_EqualsProperties(struct IDProperty *prop1, struct IDProperty *prop2) AT
 
 struct IDProperty *IDP_New(const char type, const IDPropertyTemplate *val, const char *name) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 
+void IDP_FreeProperty_ex(struct IDProperty *prop, const bool do_id_user);
 void IDP_FreeProperty(struct IDProperty *prop);
 
 void IDP_ClearProperty(IDProperty *prop);

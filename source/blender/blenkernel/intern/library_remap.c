@@ -719,10 +719,10 @@ void BKE_libblock_relink_to_newid(ID *id)
 	BKE_library_foreach_ID_link(NULL, id, id_relink_to_newid_looper, NULL, 0);
 }
 
-void BKE_libblock_free_data(Main *UNUSED(bmain), ID *id)
+void BKE_libblock_free_data(Main *UNUSED(bmain), ID *id, const bool do_id_user)
 {
 	if (id->properties) {
-		IDP_FreeProperty(id->properties);
+		IDP_FreeProperty_ex(id->properties, do_id_user);
 		MEM_freeN(id->properties);
 	}
 }
@@ -746,14 +746,6 @@ void BKE_libblock_free_ex(Main *bmain, void *idv, const bool do_id_user, const b
 #ifdef WITH_PYTHON
 	BPY_id_release(id);
 #endif
-
-	/* XXX TODO this is a no-go, have to check how to remove that call!!! */
-	/* Currently we should remap id to NULL regardless do_id_user,
-	   because when we will try to remove some other block,
-       which point to this one with idprop, the attempt
-	   to free will cause crash because of bad pointer on
-       freed id. Else we should pass do_id_user to IDP_FreeProperty */
-	libblock_remap_data(bmain, NULL, id, NULL, 0, NULL);
 
 	if (do_id_user) {
 		BKE_libblock_relink_ex(bmain, id, NULL, NULL, true);
@@ -880,7 +872,7 @@ void BKE_libblock_free_ex(Main *bmain, void *idv, const bool do_id_user, const b
 
 	BLI_remlink(lb, id);
 
-	BKE_libblock_free_data(bmain, id);
+	BKE_libblock_free_data(bmain, id, do_id_user);
 	BKE_main_unlock(bmain);
 
 	MEM_freeN(id);
