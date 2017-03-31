@@ -850,8 +850,7 @@ static int calc_manipulator_stats(const bContext *C)
 		int mode = TFM_ROTATION; /* mislead counting bones... bah. We don't know the manipulator mode, could be mixed */
 		bool ok = false;
 
-		if ((ob->lay & v3d->lay) == 0)
-			return 0;
+		if ((ob->lay & v3d->lay) == 0) return 0;
 
 		if ((v3d->around == V3D_AROUND_ACTIVE) && (pchan = BKE_pose_channel_active(ob))) {
 			/* doesn't check selection or visibility intentionally */
@@ -888,6 +887,7 @@ static int calc_manipulator_stats(const bContext *C)
 		/* pass */
 	}
 	else {
+
 		/* we need the one selected object, if its not active */
 		base = BASACT_NEW;
 		ob = OBACT_NEW;
