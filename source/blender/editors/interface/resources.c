@@ -864,9 +864,9 @@ void ui_theme_init_default(void)
 	rgba_char_args_set(btheme->tui.wcol_tooltip.text, 255, 255, 255, 255);
 	rgba_char_args_set_fl(btheme->tui.widget_emboss, 1.0f, 1.0f, 1.0f, 0.02f);
 
-	rgba_char_args_set_fl(btheme->tui.xaxis, 1.0f, 0.27f, 0.27f, 1.0f); /* red */
-	rgba_char_args_set_fl(btheme->tui.yaxis, 0.27f, 1.0f, 0.27f, 1.0f); /* green */
-	rgba_char_args_set_fl(btheme->tui.zaxis, 0.27f, 0.27f, 1.0f, 1.0f); /* blue */
+	rgba_char_args_set(btheme->tui.xaxis, 220,   0,   0, 255);
+	rgba_char_args_set(btheme->tui.yaxis,   0, 220,   0, 255);
+	rgba_char_args_set(btheme->tui.zaxis,   0,   0, 220, 255);
 
 	btheme->tui.menu_shadow_fac = 0.5f;
 	btheme->tui.menu_shadow_width = 12;
@@ -2873,10 +2873,22 @@ void init_userdef_do_versions(void)
 	 * (keep this block even if it becomes empty).
 	 */
 	{
+		/* interface_widgets.c */
+		struct uiWidgetColors wcol_tab = {
+			{255, 255, 255, 255},
+			{83, 83, 83, 255},
+			{114, 114, 114, 255},
+			{90, 90, 90, 255},
+
+			{0, 0, 0, 255},
+			{0, 0, 0, 255},
+
+			0,
+			0, 0
+		};
+
 		for (bTheme *btheme = U.themes.first; btheme; btheme = btheme->next) {
-			rgba_char_args_set_fl(btheme->tui.xaxis, 1.0f, 0.27f, 0.27f, 1.0f); /* red */
-			rgba_char_args_set_fl(btheme->tui.yaxis, 0.27f, 1.0f, 0.27f, 1.0f); /* green */
-			rgba_char_args_set_fl(btheme->tui.zaxis, 0.27f, 0.27f, 1.0f, 1.0f); /* blue */
+			btheme->tui.wcol_tab = wcol_tab;
 		}
 	}
 
