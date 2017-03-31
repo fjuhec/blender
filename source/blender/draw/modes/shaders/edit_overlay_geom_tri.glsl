@@ -5,7 +5,48 @@
 /* This shader follows the principles of
  * http://developer.download.nvidia.com/SDK/10/direct3d/Source/SolidWireframe/Doc/SolidWireframe.pdf */
 
-#define EDGE_FIX
+/* keep in sync with GlobalsUboStorage */
+layout(std140) uniform globalsBlock {
+	vec4 colorWire;
+	vec4 colorWireEdit;
+	vec4 colorActive;
+	vec4 colorSelect;
+	vec4 colorTransform;
+	vec4 colorGroupActive;
+	vec4 colorGroup;
+	vec4 colorLamp;
+	vec4 colorSpeaker;
+	vec4 colorCamera;
+	vec4 colorEmpty;
+	vec4 colorVertex;
+	vec4 colorVertexSelect;
+	vec4 colorEditMeshActive;
+	vec4 colorEdgeSelect;
+	vec4 colorEdgeSeam;
+	vec4 colorEdgeSharp;
+	vec4 colorEdgeCrease;
+	vec4 colorEdgeBWeight;
+	vec4 colorEdgeFaceSelect;
+	vec4 colorFace;
+	vec4 colorFaceSelect;
+	vec4 colorNormal;
+	vec4 colorVNormal;
+	vec4 colorLNormal;
+	vec4 colorFaceDot;
+
+	vec4 colorDeselect;
+	vec4 colorOutline;
+	vec4 colorLampNoAlpha;
+
+	float sizeLampCenter;
+	float sizeLampCircle;
+	float sizeLampCircleShadow;
+	float sizeVertex;
+	float sizeEdge;
+	float sizeEdgeFix;
+	float sizeNormal;
+	float sizeFaceDot;
+};
 
 layout(triangles) in;
 
@@ -14,16 +55,12 @@ layout(triangles) in;
  * an outline strip around the screenspace
  * triangle. Order is important.
  * TODO diagram
- * fixupsize should be equal to this formula with a small offset
- * 2 * max(max_vert_radius, max_edge_width) / sqrt(2)
  */
 
 layout(triangle_strip, max_vertices=23) out;
 #else
 layout(triangle_strip, max_vertices=3) out;
 #endif
-
-const float fixupSize = 9.5; /* in pixels */
 
 uniform mat4 ProjectionMatrix;
 uniform vec2 viewportSize;
@@ -39,9 +76,9 @@ flat out vec3 edgesSharp;
 flat out ivec3 flag;
 flat out vec4 faceColor;
 flat out int clipCase;
-// #ifdef VERTEX_SELECTION
+#ifdef VERTEX_SELECTION
 smooth out vec3 vertexColor;
-// #endif
+#endif
 
 /* See fragment shader */
 noperspective out vec4 eData1;
@@ -50,10 +87,9 @@ flat out vec4 eData2;
 
 #define VERTEX_ACTIVE   (1 << 0)
 #define VERTEX_SELECTED (1 << 1)
-#define VERTEX_LOOSE    (1 << 2)
 
-#define FACE_ACTIVE     (1 << 3)
-#define FACE_SELECTED   (1 << 4)
+#define FACE_ACTIVE     (1 << 2)
+#define FACE_SELECTED   (1 << 3)
 
 /* Table 1. Triangle Projection Cases */
 const ivec4 clipPointsIdx[6] = ivec4[6](
@@ -86,12 +122,10 @@ float dist(vec2 pos[3], vec2 vpos, int v)
 
 vec3 getVertexColor(int v)
 {
-	if ((vData[v].x & VERTEX_ACTIVE) != 0)
-		return vec3(0.0, 1.0, 0.0);
-	else if ((vData[v].x & VERTEX_SELECTED) != 0)
-		return vec3(1.0, 0.0, 0.0);
+	if ((vData[v].x & (VERTEX_ACTIVE | VERTEX_SELECTED)) != 0)
+		return colorEdgeSelect.rgb;
 	else
-		return vec3(0.0, 0.0, 0.0);
+		return colorWireEdit.rgb;
 }
 
 vec4 getClipData(vec2 pos[3], ivec2 vidx)
@@ -111,19 +145,6 @@ void doVertex(int v, vec4 pos)
 	gl_Position = pos;
 
 	EmitVertex();
-}
-
-void doLooseVertex(int v, vec4 pos, vec2 fixvec)
-{
-	doVertex(v, pos + vec4( fixvec.x,  fixvec.y, 0.0, 0.0));
-
-	/* Quad */
-	doVertex(v, pos + vec4( fixvec.x,  fixvec.y, 0.0, 0.0));
-	doVertex(v, pos + vec4(-fixvec.x,  fixvec.y, 0.0, 0.0));
-	doVertex(v, pos + vec4( fixvec.x, -fixvec.y, 0.0, 0.0));
-	doVertex(v, pos + vec4(-fixvec.x, -fixvec.y, 0.0, 0.0));
-
-	doVertex(v, pos + vec4(-fixvec.x, -fixvec.y, 0.0, 0.0));
 }
 
 void main()
@@ -152,51 +173,18 @@ void main()
 	}
 
 	/* Face */
-	if ((vData[0].x & FACE_ACTIVE) != 0) {
-		faceColor = vec4(0.1, 1.0, 0.0, 0.2);
-	}
-	else if ((vData[0].x & FACE_SELECTED) != 0) {
-		faceColor = vec4(1.0, 0.2, 0.0, 0.2);
-	}
-	else {
-		faceColor = vec4(0.0, 0.0, 0.0, 0.2);
-	}
+	if ((vData[0].x & FACE_ACTIVE) != 0)
+		faceColor = colorEditMeshActive;
+	else if ((vData[0].x & FACE_SELECTED) != 0)
+		faceColor = colorFaceSelect;
+	else
+		faceColor = colorFace;
 
 	/* Vertex */
 	vec2 pos[3] = vec2[3](proj(pPos[0]), proj(pPos[1]), proj(pPos[2]));
 
-	/* Loose Vertex : emit quads linked by degenerate triangles */
-	if ((vData[0].x & VERTEX_LOOSE) != 0) {
-		vec2 fixvec[3];
-
-		/* there is no face */
-		faceColor = vec4(0.0);
-
-		/* and don't forget to overide clipCase */
-		clipCase = 0;
-
-		/* only verterx position 0 is used */
-		eData1 = eData2 = vec4(1e10);
-
-		vec2 dir = vec2(1.0) * fixupSize;
-		/* Make it view independant */
-		dir /= viewportSize;
-
-		for (int v = 0; v < 3; ++v) {
-			fixvec[v] = dir;
-			if (ProjectionMatrix[3][3] == 0.0) {
-				fixvec[v] *= -vPos[v].z;
-			}
-		}
-
-		for (int v = 0; v < 3; ++v) {
-			eData2.zw = pos[v];
-			flag[0] = (vData[v].x << 8);
-			doLooseVertex(v, pPos[v], fixvec[v]);
-		}
-	}
 	/* Simple case : compute edge distances in geometry shader */
-	else if (clipCase == 0) {
+	if (clipCase == 0) {
 
 		/* Packing screen positions and 2 distances */
 		eData1 = vec4(0.0, 0.0, pos[2]);
@@ -250,8 +238,8 @@ void main()
 			}
 
 			/* Make it view independant */
-			perp *= fixupSize / viewportSize;
-			cornervec[i] *= fixupSize / viewportSize;
+			perp *= sizeEdgeFix / viewportSize;
+			cornervec[i] *= sizeEdgeFix / viewportSize;
 			fixvec[i] = fixvecaf[i] = perp;
 
 			/* Perspective */
@@ -278,12 +266,11 @@ void main()
 			int vaf = (i + 1) % 3;
 			int v = i % 3;
 
-			/* Position of the "hidden" thrid vertex
-			 * we set it early because it has*/
+			/* Position of the "hidden" thrid vertex */
 			eData1.zw = pos[vbe];
 
-			doVertex(vaf, pPos[v]);
-			doVertex(vaf, pPos[v] + vec4(fixvec[v], 0.0, 0.0));
+			doVertex(v, pPos[v]);
+			doVertex(v, pPos[v] + vec4(fixvec[v], 0.0, 0.0));
 
 			/* Now one triangle only shade one edge
 			 * so we use the edge distance calculated
@@ -298,18 +285,18 @@ void main()
 			edgesCrease[2] = ecrease[vbe];
 			edgesSharp[2] = esharp[vbe];
 
-			doVertex(v, pPos[vaf]);
-			doVertex(v, pPos[vaf] + vec4(fixvecaf[v], 0.0, 0.0));
+			doVertex(vaf, pPos[vaf]);
+			doVertex(vaf, pPos[vaf] + vec4(fixvecaf[v], 0.0, 0.0));
 
 			/* corner vertices should not drax edges but draw point only */
 			flag[2] = (vData[vbe].x << 8);
-			doVertex(v, pPos[vaf]);
-			doVertex(v, pPos[vaf] + vec4(cornervec[vaf], 0.0, 0.0));
+			doVertex(vaf, pPos[vaf]);
+			doVertex(vaf, pPos[vaf] + vec4(cornervec[vaf], 0.0, 0.0));
 		}
 
 		/* finish the loop strip */
-		doVertex(0, pPos[2]);
-		doVertex(0, pPos[2] + vec4(fixvec[2], 0.0, 0.0));
+		doVertex(2, pPos[2]);
+		doVertex(2, pPos[2] + vec4(fixvec[2], 0.0, 0.0));
 #endif
 	}
 	/* Harder case : compute visible edges vectors */

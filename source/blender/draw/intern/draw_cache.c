@@ -866,19 +866,24 @@ Batch *DRW_cache_single_vert_get(void)
 }
 
 /* Meshes */
-Batch *DRW_cache_wire_overlay_get(Object *ob)
+void DRW_cache_wire_overlay_get(Object *ob, Batch **tris, Batch **ledges, Batch **lverts)
 {
-	Batch *overlay_wire = NULL;
-
 	BLI_assert(ob->type == OB_MESH);
 
 	Mesh *me = ob->data;
-#if 1 /* new version not working */
-	overlay_wire = BKE_mesh_batch_cache_get_overlay_edges(me);
-#else
-	overlay_wire = BKE_mesh_batch_cache_get_all_edges(me);
-#endif
-	return overlay_wire;
+
+	*tris = BKE_mesh_batch_cache_get_overlay_triangles(me);
+	*ledges = BKE_mesh_batch_cache_get_overlay_loose_edges(me);
+	*lverts = BKE_mesh_batch_cache_get_overlay_loose_verts(me);
+}
+
+Batch *DRW_cache_face_centers_get(Object *ob)
+{
+	BLI_assert(ob->type == OB_MESH);
+
+	Mesh *me = ob->data;
+
+	return BKE_mesh_batch_cache_get_overlay_facedots(me);
 }
 
 Batch *DRW_cache_wire_outline_get(Object *ob)

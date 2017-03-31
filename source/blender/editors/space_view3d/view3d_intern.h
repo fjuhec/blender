@@ -146,8 +146,8 @@ void draw_motion_paths_cleanup(View3D *v3d);
 void draw_object(Scene *scene, struct SceneLayer *sl, struct ARegion *ar, View3D *v3d, BaseLegacy *base, const short dflag);
 void draw_mesh_object_outline(View3D *v3d, Object *ob, struct DerivedMesh *dm);
 
-bool draw_glsl_material(Scene *scene, struct Object *ob, View3D *v3d, const char dt);
-void draw_object_instance(Scene *scene, View3D *v3d, RegionView3D *rv3d, struct Object *ob, const char dt, int outline, float wire_col[4]);
+bool draw_glsl_material(Scene *scene, struct SceneLayer *sl, struct Object *ob, View3D *v3d, const char dt);
+void draw_object_instance(Scene *scene, struct SceneLayer *sl, View3D *v3d, RegionView3D *rv3d, struct Object *ob, const char dt, int outline, float wire_col[4]);
 void draw_object_backbufsel(Scene *scene, View3D *v3d, RegionView3D *rv3d, struct Object *ob);
 
 void draw_object_wire_color(Scene *scene, struct SceneLayer *, Base *base, unsigned char r_ob_wire_col[4]);
@@ -185,7 +185,7 @@ bool draw_armature(Scene *scene, struct SceneLayer *sl, View3D *v3d, ARegion *ar
                    const bool is_outline);
 
 /* drawmesh.c */
-void draw_mesh_textured(Scene *scene, View3D *v3d, RegionView3D *rv3d,
+void draw_mesh_textured(Scene *scene, struct SceneLayer *sl, View3D *v3d, RegionView3D *rv3d,
                         struct Object *ob, struct DerivedMesh *dm, const int draw_flags);
 void draw_mesh_face_select(
         struct RegionView3D *rv3d, struct Mesh *me, struct DerivedMesh *dm,
@@ -335,7 +335,7 @@ extern bool view3d_camera_border_hack_test;
 #define IS_VIEWPORT_LEGACY(v3d) ((v3d->tmp_compat_flag & V3D_NEW_VIEWPORT) == 0)
 
 /* temporary for legacy viewport to work */
-void VP_legacy_drawcursor(Scene *scene, ARegion *ar, View3D *v3d);
+void VP_legacy_drawcursor(Scene *scene, struct SceneLayer *sl, ARegion *ar, View3D *v3d);
 void VP_legacy_draw_view_axis(RegionView3D *rv3d, rcti *rect);
 void VP_legacy_draw_viewport_name(ARegion *ar, View3D *v3d, rcti *rect);
 void VP_legacy_draw_selected_name(Scene *scene, Object *ob, rcti *rect);

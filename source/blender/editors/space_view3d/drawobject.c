@@ -305,13 +305,13 @@ static bool check_ob_drawface_dot(Scene *sce, View3D *vd, char dt)
 
 /* check for glsl drawing */
 
-bool draw_glsl_material(Scene *scene, Object *ob, View3D *v3d, const char dt)
+bool draw_glsl_material(Scene *scene, SceneLayer *sl, Object *ob, View3D *v3d, const char dt)
 {
 	if (G.f & G_PICKSEL)
 		return false;
 	if (!check_object_draw_texture(scene, v3d, dt))
 		return false;
-	if (ob == OBACT && (ob && ob->mode & OB_MODE_WEIGHT_PAINT))
+	if (ob == OBACT_NEW && (ob && ob->mode & OB_MODE_WEIGHT_PAINT))
 		return false;
 	
 	if (v3d->flag2 & V3D_SHOW_SOLID_MATCAP)
@@ -325,7 +325,7 @@ bool draw_glsl_material(Scene *scene, Object *ob, View3D *v3d, const char dt)
 		return false;
 }
 
-static bool check_alpha_pass(BaseLegacy *base)
+static bool check_alpha_pass(Base *base)
 {
 	if (base->flag_legacy & OB_FROMDUPLI)
 		return false;
@@ -3798,7 +3798,7 @@ static DMDrawOption draw_em_fancy__setGLSLFaceOpts(void *userData, int index)
 	}
 }
 
-static void draw_em_fancy(Scene *scene, ARegion *ar, View3D *v3d,
+static void draw_em_fancy(Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d,
                           Object *ob, BMEditMesh *em, DerivedMesh *cageDM, DerivedMesh *finalDM, const char dt)
 
 {
@@ -3836,7 +3836,7 @@ static void draw_em_fancy(Scene *scene, ARegion *ar, View3D *v3d,
 			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		}
 		else if (check_object_draw_texture(scene, v3d, dt)) {
-			if (draw_glsl_material(scene, ob, v3d, dt)) {
+			if (draw_glsl_material(scene, sl, ob, v3d, dt)) {
 				glFrontFace((ob->transflag & OB_NEG_SCALE) ? GL_CW : GL_CCW);
 
 				finalDM->drawMappedFacesGLSL(finalDM, GPU_object_material_bind,
@@ -3846,7 +3846,7 @@ static void draw_em_fancy(Scene *scene, ARegion *ar, View3D *v3d,
 				glFrontFace(GL_CCW);
 			}
 			else {
-				draw_mesh_textured(scene, v3d, rv3d, ob, finalDM, 0);
+				draw_mesh_textured(scene, sl, v3d, rv3d, ob, finalDM, 0);
 			}
 		}
 		else {
@@ -4050,7 +4050,7 @@ static void draw_em_fancy(Scene *scene, ARegion *ar, View3D *v3d,
 #endif
 }
 
-static void draw_em_fancy_new(Scene *UNUSED(scene), ARegion *ar, View3D *UNUSED(v3d),
+static void draw_em_fancy_new(Scene *UNUSED(scene), ARegion *UNUSED(ar), View3D *UNUSED(v3d),
                               Object *UNUSED(ob), Mesh *me, BMEditMesh *UNUSED(em), DerivedMesh *UNUSED(cageDM), DerivedMesh *UNUSED(finalDM), const char UNUSED(dt))
 {
 	/* for now... something simple! */
@@ -4088,10 +4088,12 @@ static void draw_em_fancy_new(Scene *UNUSED(scene), ARegion *ar, View3D *UNUSED(
 	Batch_draw(surface);
 
 	if (GLEW_VERSION_3_2) {
+#if 0
 		Batch *overlay = BKE_mesh_batch_cache_get_overlay_edges(me);
 		Batch_set_builtin_program(overlay, GPU_SHADER_EDGES_OVERLAY);
 		Batch_Uniform2f(overlay, "viewportSize", ar->winx, ar->winy);
 		Batch_draw(overlay);
+#endif
 
 #if 0 /* TODO: use this SIMPLE variant for pure triangle meshes */
 		Batch_set_builtin_program(surface, GPU_SHADER_EDGES_OVERLAY_SIMPLE);
@@ -4202,11 +4204,11 @@ static bool object_is_halo(Scene *scene, Object *ob)
 	return (ma && (ma->material_type == MA_TYPE_HALO) && !BKE_scene_use_new_shading_nodes(scene));
 }
 
-static void draw_mesh_fancy(Scene *scene, ARegion *ar, View3D *v3d, RegionView3D *rv3d, BaseLegacy *base,
+static void draw_mesh_fancy(Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d, RegionView3D *rv3d, Base *base,
                             const char dt, const unsigned char ob_wire_col[4], const short dflag)
 {
 #ifdef WITH_GAMEENGINE
-	Object *ob = (rv3d->rflag & RV3D_IS_GAME_ENGINE) ? BKE_object_lod_meshob_get(base->object, scene) : base->object;
+	Object *ob = (rv3d->rflag & RV3D_IS_GAME_ENGINE) ? BKE_object_lod_meshob_get(base->object, sl) : base->object;
 #else
 	Object *ob = base->object;
 #endif
@@ -4214,7 +4216,7 @@ static void draw_mesh_fancy(Scene *scene, ARegion *ar, View3D *v3d, RegionView3D
 	eWireDrawMode draw_wire = OBDRAW_WIRE_OFF;
 	bool /* no_verts,*/ no_edges, no_faces;
 	DerivedMesh *dm = mesh_get_derived_final(scene, ob, scene->customdata_mask);
-	const bool is_obact = (ob == OBACT);
+	const bool is_obact = (ob == OBACT_NEW);
 	int draw_flags = (is_obact && BKE_paint_select_face_test(ob)) ? DRAW_FACE_SELECT : 0;
 
 	if (!dm)
@@ -4275,7 +4277,7 @@ static void draw_mesh_fancy(Scene *scene, ARegion *ar, View3D *v3d, RegionView3D
 			draw_mesh_object_outline(v3d, ob, dm);
 		}
 
-		if (draw_glsl_material(scene, ob, v3d, dt) && !(draw_flags & DRAW_MODIFIERS_PREVIEW)) {
+		if (draw_glsl_material(scene, sl, ob, v3d, dt) && !(draw_flags & DRAW_MODIFIERS_PREVIEW)) {
 			Paint *p;
 
 			glFrontFace((ob->transflag & OB_NEG_SCALE) ? GL_CW : GL_CCW);
@@ -4313,7 +4315,7 @@ static void draw_mesh_fancy(Scene *scene, ARegion *ar, View3D *v3d, RegionView3D
 				draw_mesh_face_select(rv3d, me, dm, false);
 		}
 		else {
-			draw_mesh_textured(scene, v3d, rv3d, ob, dm, draw_flags);
+			draw_mesh_textured(scene, sl, v3d, rv3d, ob, dm, draw_flags);
 		}
 
 		if (draw_loose && !(draw_flags & DRAW_FACE_SELECT)) {
@@ -4467,7 +4469,7 @@ static void draw_mesh_fancy(Scene *scene, ARegion *ar, View3D *v3d, RegionView3D
 }
 
 /* returns true if nothing was drawn, for detecting to draw an object center */
-static bool draw_mesh_object(Scene *scene, ARegion *ar, View3D *v3d, RegionView3D *rv3d, BaseLegacy *base,
+static bool draw_mesh_object(Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d, RegionView3D *rv3d, BaseLegacy *base,
                              const char dt, const unsigned char ob_wire_col[4], const short dflag)
 {
 	Object *ob = base->object;
@@ -4521,13 +4523,13 @@ static bool draw_mesh_object(Scene *scene, ARegion *ar, View3D *v3d, RegionView3
 
 		if (use_material) {
 			if (dt > OB_WIRE) {
-				const bool glsl = draw_glsl_material(scene, ob, v3d, dt);
+				const bool glsl = draw_glsl_material(scene, sl, ob, v3d, dt);
 
-				GPU_begin_object_materials(v3d, rv3d, scene, ob, glsl, NULL);
+				GPU_begin_object_materials(v3d, rv3d, scene, sl, ob, glsl, NULL);
 			}
 		}
 
-		draw_em_fancy(scene, ar, v3d, ob, em, cageDM, finalDM, dt);
+		draw_em_fancy(scene, sl, ar, v3d, ob, em, cageDM, finalDM, dt);
 
 		if (use_material) {
 			GPU_end_object_materials();
@@ -4540,16 +4542,16 @@ static bool draw_mesh_object(Scene *scene, ARegion *ar, View3D *v3d, RegionView3
 		/* ob->bb was set by derived mesh system, do NULL check just to be sure */
 		if (me->totpoly <= 4 || (!ob->bb || ED_view3d_boundbox_clip(rv3d, ob->bb))) {
 			if (dt > OB_WIRE) {
-				const bool glsl = draw_glsl_material(scene, ob, v3d, dt);
+				const bool glsl = draw_glsl_material(scene, sl, ob, v3d, dt);
 
 				if (dt == OB_SOLID || glsl) {
 					const bool check_alpha = check_alpha_pass(base);
-					GPU_begin_object_materials(v3d, rv3d, scene, ob, glsl,
+					GPU_begin_object_materials(v3d, rv3d, scene, sl, ob, glsl,
 					                           (check_alpha) ? &do_alpha_after : NULL);
 				}
 			}
 
-			draw_mesh_fancy(scene, ar, v3d, rv3d, base, dt, ob_wire_col, dflag);
+			draw_mesh_fancy(scene, sl, ar, v3d, rv3d, base, dt, ob_wire_col, dflag);
 
 			GPU_end_object_materials();
 			
@@ -4611,18 +4613,18 @@ static void make_color_variations(const unsigned char base_ubyte[4], float low[4
 	high[3] = base[3];
 }
 
-static void draw_mesh_fancy_new(Scene *scene, ARegion *ar, View3D *v3d, RegionView3D *rv3d, BaseLegacy *base,
+static void draw_mesh_fancy_new(Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d, RegionView3D *rv3d, Base *base,
                                 const char dt, const unsigned char ob_wire_col[4], const short dflag, const bool other_obedit)
 {
 	if (dflag & (DRAW_PICKING | DRAW_CONSTCOLOR)) {
 		/* too complicated! use existing methods */
 		/* TODO: move this into a separate depth pre-pass */
-		draw_mesh_fancy(scene, ar, v3d, rv3d, base, dt, ob_wire_col, dflag);
+		draw_mesh_fancy(scene, sl, ar, v3d, rv3d, base, dt, ob_wire_col, dflag);
 		return;
 	}
 
 #ifdef WITH_GAMEENGINE
-	Object *ob = (rv3d->rflag & RV3D_IS_GAME_ENGINE) ? BKE_object_lod_meshob_get(base->object, scene) : base->object;
+	Object *ob = (rv3d->rflag & RV3D_IS_GAME_ENGINE) ? BKE_object_lod_meshob_get(base->object, sl) : base->object;
 #else
 	Object *ob = base->object;
 #endif
@@ -4630,7 +4632,7 @@ static void draw_mesh_fancy_new(Scene *scene, ARegion *ar, View3D *v3d, RegionVi
 	eWireDrawMode draw_wire = OBDRAW_WIRE_OFF; /* could be bool draw_wire_overlay */
 	bool no_edges, no_faces;
 	DerivedMesh *dm = mesh_get_derived_final(scene, ob, scene->customdata_mask);
-	const bool is_obact = (ob == OBACT);
+	const bool is_obact = (ob == OBACT_NEW);
 	int draw_flags = (is_obact && BKE_paint_select_face_test(ob)) ? DRAW_FACE_SELECT : 0;
 
 	if (!dm)
@@ -4751,10 +4753,10 @@ static void draw_mesh_fancy_new(Scene *scene, ARegion *ar, View3D *v3d, RegionVi
 		    !(G.f & G_PICKSEL || (draw_flags & DRAW_FACE_SELECT)) &&
 		    (draw_wire == OBDRAW_WIRE_OFF))
 		{
-			draw_mesh_object_outline_new(v3d, rv3d, ob, me, (ob == OBACT));
+			draw_mesh_object_outline_new(v3d, rv3d, ob, me, (ob == OBACT_NEW));
 		}
 
-		if (draw_glsl_material(scene, ob, v3d, dt) && !(draw_flags & DRAW_MODIFIERS_PREVIEW)) {
+		if (draw_glsl_material(scene, sl, ob, v3d, dt) && !(draw_flags & DRAW_MODIFIERS_PREVIEW)) {
 			Paint *p;
 
 			glFrontFace((ob->transflag & OB_NEG_SCALE) ? GL_CW : GL_CCW);
@@ -4788,7 +4790,7 @@ static void draw_mesh_fancy_new(Scene *scene, ARegion *ar, View3D *v3d, RegionVi
 				draw_mesh_face_select(rv3d, me, dm, false);
 		}
 		else {
-			draw_mesh_textured(scene, v3d, rv3d, ob, dm, draw_flags);
+			draw_mesh_textured(scene, sl, v3d, rv3d, ob, dm, draw_flags);
 		}
 
 		if (draw_loose && !(draw_flags & DRAW_FACE_SELECT)) {
@@ -4818,7 +4820,7 @@ static void draw_mesh_fancy_new(Scene *scene, ARegion *ar, View3D *v3d, RegionVi
 				    (draw_wire == OBDRAW_WIRE_OFF) &&
 				    (ob->sculpt == NULL))
 				{
-					draw_mesh_object_outline_new(v3d, rv3d, ob, me, (ob == OBACT));
+					draw_mesh_object_outline_new(v3d, rv3d, ob, me, (ob == OBACT_NEW));
 				}
 
 				/* materials arent compatible with vertex colors */
@@ -4843,7 +4845,7 @@ static void draw_mesh_fancy_new(Scene *scene, ARegion *ar, View3D *v3d, RegionVi
 			    (ob->sculpt == NULL))
 			{
 				/* TODO: move this into a separate pass */
-				draw_mesh_object_outline_new(v3d, rv3d, ob, me, (ob == OBACT));
+				draw_mesh_object_outline_new(v3d, rv3d, ob, me, (ob == OBACT_NEW));
 			}
 
 			glFrontFace((ob->transflag & OB_NEG_SCALE) ? GL_CW : GL_CCW);
@@ -4930,7 +4932,7 @@ static void draw_mesh_fancy_new(Scene *scene, ARegion *ar, View3D *v3d, RegionVi
 	dm->release(dm);
 }
 
-static bool draw_mesh_object_new(Scene *scene, ARegion *ar, View3D *v3d, RegionView3D *rv3d, BaseLegacy *base,
+static bool draw_mesh_object_new(Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d, RegionView3D *rv3d, BaseLegacy *base,
                                  const char dt, const unsigned char ob_wire_col[4], const short dflag)
 {
 	Object *ob = base->object;
@@ -4987,9 +4989,9 @@ static bool draw_mesh_object_new(Scene *scene, ARegion *ar, View3D *v3d, RegionV
 				DM_update_materials(cageDM, ob);
 			}
 
-			const bool glsl = draw_glsl_material(scene, ob, v3d, dt);
+			const bool glsl = draw_glsl_material(scene, sl, ob, v3d, dt);
 
-			GPU_begin_object_materials(v3d, rv3d, scene, ob, glsl, NULL);
+			GPU_begin_object_materials(v3d, rv3d, scene, sl, ob, glsl, NULL);
 		}
 
 		draw_em_fancy_new(scene, ar, v3d, ob, me, em, cageDM, finalDM, dt);
@@ -5005,18 +5007,18 @@ static bool draw_mesh_object_new(Scene *scene, ARegion *ar, View3D *v3d, RegionV
 		/* ob->bb was set by derived mesh system, do NULL check just to be sure */
 		if (me->totpoly <= 4 || (!ob->bb || ED_view3d_boundbox_clip(rv3d, ob->bb))) {
 			if (solid) {
-				const bool glsl = draw_glsl_material(scene, ob, v3d, dt);
+				const bool glsl = draw_glsl_material(scene, sl, ob, v3d, dt);
 
 				if (dt == OB_SOLID || glsl) {
 					const bool check_alpha = check_alpha_pass(base);
-					GPU_begin_object_materials(v3d, rv3d, scene, ob, glsl,
+					GPU_begin_object_materials(v3d, rv3d, scene, sl, ob, glsl,
 					                           (check_alpha) ? &do_alpha_after : NULL);
 				}
 			}
 
 			const bool other_obedit = obedit && (obedit != ob);
 
-			draw_mesh_fancy_new(scene, ar, v3d, rv3d, base, dt, ob_wire_col, dflag, other_obedit);
+			draw_mesh_fancy_new(scene, sl, ar, v3d, rv3d, base, dt, ob_wire_col, dflag, other_obedit);
 
 			GPU_end_object_materials();
 
@@ -5269,7 +5271,7 @@ static void drawCurveDMWired(Object *ob)
 }
 
 /* return true when nothing was drawn */
-static bool drawCurveDerivedMesh(Scene *scene, View3D *v3d, RegionView3D *rv3d, BaseLegacy *base, const char dt)
+static bool drawCurveDerivedMesh(Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3D *rv3d, BaseLegacy *base, const char dt)
 {
 	Object *ob = base->object;
 	DerivedMesh *dm = ob->derivedFinal;
@@ -5283,8 +5285,8 @@ static bool drawCurveDerivedMesh(Scene *scene, View3D *v3d, RegionView3D *rv3d, 
 	glFrontFace((ob->transflag & OB_NEG_SCALE) ? GL_CW : GL_CCW);
 
 	if (dt > OB_WIRE && dm->getNumPolys(dm)) {
-		bool glsl = draw_glsl_material(scene, ob, v3d, dt);
-		GPU_begin_object_materials(v3d, rv3d, scene, ob, glsl, NULL);
+		bool glsl = draw_glsl_material(scene, sl, ob, v3d, dt);
+		GPU_begin_object_materials(v3d, rv3d, scene, sl, ob, glsl, NULL);
 
 		if (!glsl)
 			dm->drawFacesSolid(dm, NULL, 0, GPU_object_material_bind);
@@ -5305,7 +5307,7 @@ static bool drawCurveDerivedMesh(Scene *scene, View3D *v3d, RegionView3D *rv3d, 
  * Only called by #drawDispList
  * \return true when nothing was drawn
  */
-static bool drawDispList_nobackface(Scene *scene, View3D *v3d, RegionView3D *rv3d, BaseLegacy *base,
+static bool drawDispList_nobackface(Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3D *rv3d, Base *base,
                                     const char dt, const short dflag, const unsigned char ob_wire_col[4])
 {
 	Object *ob = base->object;
@@ -5346,13 +5348,13 @@ static bool drawDispList_nobackface(Scene *scene, View3D *v3d, RegionView3D *rv3
 					/* pass */
 				}
 				else {
-					if (draw_glsl_material(scene, ob, v3d, dt)) {
-						GPU_begin_object_materials(v3d, rv3d, scene, ob, 1, NULL);
+					if (draw_glsl_material(scene, sl, ob, v3d, dt)) {
+						GPU_begin_object_materials(v3d, rv3d, scene, sl, ob, 1, NULL);
 						drawDispListsolid(lb, ob, dflag, ob_wire_col, true);
 						GPU_end_object_materials();
 					}
 					else {
-						GPU_begin_object_materials(v3d, rv3d, scene, ob, 0, NULL);
+						GPU_begin_object_materials(v3d, rv3d, scene, sl, ob, 0, NULL);
 						drawDispListsolid(lb, ob, dflag, ob_wire_col, false);
 						GPU_end_object_materials();
 					}
@@ -5381,13 +5383,13 @@ static bool drawDispList_nobackface(Scene *scene, View3D *v3d, RegionView3D *rv3
 
 				if (dl->nors == NULL) BKE_displist_normals_add(lb);
 
-				if (draw_glsl_material(scene, ob, v3d, dt)) {
-					GPU_begin_object_materials(v3d, rv3d, scene, ob, 1, NULL);
+				if (draw_glsl_material(scene, sl, ob, v3d, dt)) {
+					GPU_begin_object_materials(v3d, rv3d, scene, sl, ob, 1, NULL);
 					drawDispListsolid(lb, ob, dflag, ob_wire_col, true);
 					GPU_end_object_materials();
 				}
 				else {
-					GPU_begin_object_materials(v3d, rv3d, scene, ob, 0, NULL);
+					GPU_begin_object_materials(v3d, rv3d, scene, sl, ob, 0, NULL);
 					drawDispListsolid(lb, ob, dflag, ob_wire_col, false);
 					GPU_end_object_materials();
 				}
@@ -5406,13 +5408,13 @@ static bool drawDispList_nobackface(Scene *scene, View3D *v3d, RegionView3D *rv3
 
 				if (solid) {
 
-					if (draw_glsl_material(scene, ob, v3d, dt)) {
-						GPU_begin_object_materials(v3d, rv3d, scene, ob, 1, NULL);
+					if (draw_glsl_material(scene, sl, ob, v3d, dt)) {
+						GPU_begin_object_materials(v3d, rv3d, scene, sl, ob, 1, NULL);
 						drawDispListsolid(lb, ob, dflag, ob_wire_col, true);
 						GPU_end_object_materials();
 					}
 					else {
-						GPU_begin_object_materials(v3d, rv3d, scene, ob, 0, NULL);
+						GPU_begin_object_materials(v3d, rv3d, scene, sl, ob, 0, NULL);
 						drawDispListsolid(lb, ob, dflag, ob_wire_col, false);
 						GPU_end_object_materials();
 					}
@@ -5426,7 +5428,7 @@ static bool drawDispList_nobackface(Scene *scene, View3D *v3d, RegionView3D *rv3
 
 	return false;
 }
-static bool drawDispList(Scene *scene, View3D *v3d, RegionView3D *rv3d, BaseLegacy *base,
+static bool drawDispList(Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3D *rv3d, Base *base,
                          const char dt, const short dflag, const unsigned char ob_wire_col[4])
 {
 	bool retval;
@@ -5442,7 +5444,7 @@ static bool drawDispList(Scene *scene, View3D *v3d, RegionView3D *rv3d, BaseLega
 	ensure_curve_cache(scene, base->object);
 #endif
 
-	if (drawCurveDerivedMesh(scene, v3d, rv3d, base, dt) == false) {
+	if (drawCurveDerivedMesh(scene, sl, v3d, rv3d, base, dt) == false) {
 		retval = false;
 	}
 	else {
@@ -5458,7 +5460,7 @@ static bool drawDispList(Scene *scene, View3D *v3d, RegionView3D *rv3d, BaseLega
 
 		glFrontFace(mode);
 
-		retval = drawDispList_nobackface(scene, v3d, rv3d, base, dt, dflag, ob_wire_col);
+		retval = drawDispList_nobackface(scene, sl, v3d, rv3d, base, dt, dflag, ob_wire_col);
 
 		if (mode != GL_CCW) {
 			glFrontFace(GL_CCW);
@@ -6420,10 +6422,10 @@ static void draw_new_particle_system(Scene *scene, View3D *v3d, RegionView3D *rv
 	}
 }
 
-static void draw_update_ptcache_edit(Scene *scene, Object *ob, PTCacheEdit *edit)
+static void draw_update_ptcache_edit(Scene *scene, SceneLayer *sl, Object *ob, PTCacheEdit *edit)
 {
 	if (edit->psys && edit->psys->flag & PSYS_HAIR_UPDATED)
-		PE_update_object(scene, ob, 0);
+		PE_update_object(scene, sl, ob, 0);
 
 	/* create path and child path cache if it doesn't exist already */
 	if (edit->pathcache == NULL)
@@ -7075,7 +7077,7 @@ static void draw_editnurb_splines(Object *ob, Nurb *nurb, const bool sel)
 }
 
 static void draw_editnurb(
-        Scene *scene, View3D *v3d, RegionView3D *rv3d, BaseLegacy *base, Nurb *nurb,
+        Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3D *rv3d, Base *base, Nurb *nurb,
         const char dt, const short dflag, const unsigned char ob_wire_col[4])
 {
 	ToolSettings *ts = scene->toolsettings;
@@ -7090,7 +7092,7 @@ static void draw_editnurb(
 	UI_GetThemeColor3ubv(TH_WIRE_EDIT, wire_col);
 	glColor3ubv(wire_col);
 
-	drawDispList(scene, v3d, rv3d, base, dt, dflag, ob_wire_col);
+	drawDispList(scene, sl, v3d, rv3d, base, dt, dflag, ob_wire_col);
 
 	/* for shadows only show solid faces */
 	if (v3d->flag2 & V3D_RENDER_SHADOW)
@@ -7185,7 +7187,7 @@ static void draw_editfont_textcurs(RegionView3D *rv3d, float textcurs[4][2])
 	ED_view3d_polygon_offset(rv3d, 0.0);
 }
 
-static void draw_editfont(Scene *scene, View3D *v3d, RegionView3D *rv3d, BaseLegacy *base,
+static void draw_editfont(Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3D *rv3d, Base *base,
                           const char dt, const short dflag, const unsigned char ob_wire_col[4])
 {
 	Object *ob = base->object;
@@ -7199,11 +7201,11 @@ static void draw_editfont(Scene *scene, View3D *v3d, RegionView3D *rv3d, BaseLeg
 	if (cu->flag & CU_FAST) {
 		cpack(0xFFFFFF);
 		set_inverted_drawing(1);
-		drawDispList(scene, v3d, rv3d, base, OB_WIRE, dflag, ob_wire_col);
+		drawDispList(scene, sl, v3d, rv3d, base, OB_WIRE, dflag, ob_wire_col);
 		set_inverted_drawing(0);
 	}
 	else {
-		drawDispList(scene, v3d, rv3d, base, dt, dflag, ob_wire_col);
+		drawDispList(scene, sl, v3d, rv3d, base, dt, dflag, ob_wire_col);
 	}
 
 	if (cu->linewidth != 0.0f) {
@@ -7497,7 +7499,7 @@ static void imm_drawcone(const float vec[3], float radius, float height, float t
 }
 
 /* return true if nothing was drawn */
-static bool drawmball(Scene *scene, View3D *v3d, RegionView3D *rv3d, BaseLegacy *base,
+static bool drawmball(Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3D *rv3d, Base *base,
                       const char dt, const short dflag, const unsigned char ob_wire_col[4])
 {
 	Object *ob = base->object;
@@ -7513,13 +7515,13 @@ static bool drawmball(Scene *scene, View3D *v3d, RegionView3D *rv3d, BaseLegacy 
 			UI_GetThemeColor4ubv(TH_WIRE_EDIT, wire_col);
 			glColor3ubv(wire_col);
 
-			drawDispList(scene, v3d, rv3d, base, dt, dflag, wire_col);
+			drawDispList(scene, sl, v3d, rv3d, base, dt, dflag, wire_col);
 		}
 		ml = mb->editelems->first;
 	}
 	else {
 		if ((base->flag_legacy & OB_FROMDUPLI) == 0) {
-			drawDispList(scene, v3d, rv3d, base, dt, dflag, ob_wire_col);
+			drawDispList(scene, sl, v3d, rv3d, base, dt, dflag, ob_wire_col);
 		}
 		ml = mb->elems.first;
 	}
@@ -8433,10 +8435,10 @@ void draw_object(Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d, Base *b
 		switch (ob->type) {
 			case OB_MESH:
 				if (IS_VIEWPORT_LEGACY(v3d)) {
-					empty_object = draw_mesh_object(scene, ar, v3d, rv3d, base, dt, ob_wire_col, dflag);
+					empty_object = draw_mesh_object(scene, sl, ar, v3d, rv3d, base, dt, ob_wire_col, dflag);
 				}
 				else {
-					empty_object = draw_mesh_object_new(scene, ar, v3d, rv3d, base, dt, ob_wire_col, dflag);
+					empty_object = draw_mesh_object_new(scene, sl, ar, v3d, rv3d, base, dt, ob_wire_col, dflag);
 				}
 				if ((dflag & DRAW_CONSTCOLOR) == 0) {
 					/* mesh draws wire itself */
@@ -8447,7 +8449,7 @@ void draw_object(Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d, Base *b
 			case OB_FONT:
 				cu = ob->data;
 				if (cu->editfont) {
-					draw_editfont(scene, v3d, rv3d, base, dt, dflag, ob_wire_col);
+					draw_editfont(scene, sl, v3d, rv3d, base, dt, dflag, ob_wire_col);
 				}
 				else if (dt == OB_BOUNDBOX) {
 					if ((render_override && v3d->drawtype >= OB_WIRE) == 0) {
@@ -8458,7 +8460,7 @@ void draw_object(Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d, Base *b
 					}
 				}
 				else if (ED_view3d_boundbox_clip(rv3d, ob->bb)) {
-					empty_object = drawDispList(scene, v3d, rv3d, base, dt, dflag, ob_wire_col);
+					empty_object = drawDispList(scene, sl, v3d, rv3d, base, dt, dflag, ob_wire_col);
 				}
 
 				break;
@@ -8468,7 +8470,7 @@ void draw_object(Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d, Base *b
 
 				if (cu->editnurb) {
 					ListBase *nurbs = BKE_curve_editNurbs_get(cu);
-					draw_editnurb(scene, v3d, rv3d, base, nurbs->first, dt, dflag, ob_wire_col);
+					draw_editnurb(scene, sl, v3d, rv3d, base, nurbs->first, dt, dflag, ob_wire_col);
 				}
 				else if (dt == OB_BOUNDBOX) {
 					if ((render_override && (v3d->drawtype >= OB_WIRE)) == 0) {
@@ -8479,7 +8481,7 @@ void draw_object(Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d, Base *b
 					}
 				}
 				else if (ED_view3d_boundbox_clip(rv3d, ob->bb)) {
-					empty_object = drawDispList(scene, v3d, rv3d, base, dt, dflag, ob_wire_col);
+					empty_object = drawDispList(scene, sl, v3d, rv3d, base, dt, dflag, ob_wire_col);
 				}
 				break;
 			case OB_MBALL:
@@ -8487,7 +8489,7 @@ void draw_object(Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d, Base *b
 				MetaBall *mb = ob->data;
 				
 				if (mb->editelems)
-					drawmball(scene, v3d, rv3d, base, dt, dflag, ob_wire_col);
+					drawmball(scene, sl, v3d, rv3d, base, dt, dflag, ob_wire_col);
 				else if (dt == OB_BOUNDBOX) {
 					if ((render_override && (v3d->drawtype >= OB_WIRE)) == 0) {
 #ifdef SEQUENCER_DAG_WORKAROUND
@@ -8497,7 +8499,7 @@ void draw_object(Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d, Base *b
 					}
 				}
 				else
-					empty_object = drawmball(scene, v3d, rv3d, base, dt, dflag, ob_wire_col);
+					empty_object = drawmball(scene, sl, v3d, rv3d, base, dt, dflag, ob_wire_col);
 				break;
 			}
 			case OB_EMPTY:
@@ -8623,7 +8625,7 @@ afterdraw:
 			if (ob->mode & OB_MODE_PARTICLE_EDIT && is_obact) {
 				PTCacheEdit *edit = PE_create_current(scene, ob);
 				if (edit && edit->psys == psys)
-					draw_update_ptcache_edit(scene, ob, edit);
+					draw_update_ptcache_edit(scene, sl, ob, edit);
 			}
 
 			draw_new_particle_system(scene, v3d, rv3d, base, psys, dt, dflag);
@@ -8646,7 +8648,7 @@ afterdraw:
 			PTCacheEdit *edit = PE_create_current(scene, ob);
 			if (edit) {
 				glLoadMatrixf(rv3d->viewmat);
-				draw_update_ptcache_edit(scene, ob, edit);
+				draw_update_ptcache_edit(scene, sl, ob, edit);
 				draw_ptcache_edit(scene, v3d, edit);
 				glMultMatrixf(ob->obmat);
 			}
@@ -9250,7 +9252,7 @@ void draw_object_backbufsel(Scene *scene, View3D *v3d, RegionView3D *rv3d, Objec
 /*               assumes all matrices/etc set OK */
 
 /* helper function for drawing object instances - meshes */
-static void draw_object_mesh_instance(Scene *scene, View3D *v3d, RegionView3D *rv3d,
+static void draw_object_mesh_instance(Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3D *rv3d,
                                       Object *ob, const short dt, int outline)
 {
 	Mesh *me = ob->data;
@@ -9276,8 +9278,8 @@ static void draw_object_mesh_instance(Scene *scene, View3D *v3d, RegionView3D *r
 			draw_mesh_object_outline(v3d, ob, dm ? dm : edm);
 
 		if (dm) {
-			bool glsl = draw_glsl_material(scene, ob, v3d, dt);
-			GPU_begin_object_materials(v3d, rv3d, scene, ob, glsl, NULL);
+			bool glsl = draw_glsl_material(scene, sl, ob, v3d, dt);
+			GPU_begin_object_materials(v3d, rv3d, scene, sl, ob, glsl, NULL);
 		}
 		
 		glFrontFace((ob->transflag & OB_NEG_SCALE) ? GL_CW : GL_CCW);
@@ -9295,6 +9297,7 @@ static void draw_object_mesh_instance(Scene *scene, View3D *v3d, RegionView3D *r
 	if (edm) edm->release(edm);
 	if (dm) dm->release(dm);
 }
+
 
 void ED_draw_object_facemap(Scene *scene, Object *ob, const float col[4], const int facemap)
 {
@@ -9341,7 +9344,7 @@ void ED_draw_object_facemap(Scene *scene, Object *ob, const float col[4], const 
 	dm->release(dm);
 }
 
-void draw_object_instance(Scene *scene, View3D *v3d, RegionView3D *rv3d, Object *ob, const char dt, int outline, float wire_col[4])
+void draw_object_instance(Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3D *rv3d, Object *ob, const char dt, int outline, float wire_col[4])
 {
 	if (ob == NULL)
 		return;
@@ -9350,7 +9353,7 @@ void draw_object_instance(Scene *scene, View3D *v3d, RegionView3D *rv3d, Object 
 
 	switch (ob->type) {
 		case OB_MESH:
-			draw_object_mesh_instance(scene, v3d, rv3d, ob, dt, outline);
+			draw_object_mesh_instance(scene, sl, v3d, rv3d, ob, dt, outline);
 			break;
 		case OB_EMPTY:
 			if (ob->empty_drawtype == OB_EMPTY_IMAGE) {
