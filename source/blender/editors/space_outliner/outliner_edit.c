@@ -149,55 +149,6 @@ TreeElement *outliner_dropzone_find(const SpaceOops *soops, const float fmval[2]
 	return NULL;
 }
 
-/**
- * Try to find an item under y-coordinate \a view_co_y (view-space).
- * \note Recursive
- */
-TreeElement *outliner_find_item_at_y(const SpaceOops *soops, const ListBase *tree, float view_co_y)
-{
-	for (TreeElement *te_iter = tree->first; te_iter; te_iter = te_iter->next) {
-		if (view_co_y < (te_iter->ys + UI_UNIT_Y)) {
-			if (view_co_y > te_iter->ys) {
-				/* co_y is inside this element */
-				return te_iter;
-			}
-			else if (TSELEM_OPEN(te_iter->store_elem, soops)) {
-				/* co_y is lower than current element, possibly inside children */
-				TreeElement *te_sub = outliner_find_item_at_y(soops, &te_iter->subtree, view_co_y);
-				if (te_sub) {
-					return te_sub;
-				}
-			}
-		}
-	}
-
-	return NULL;
-}
-
-/**
- * Collapsed items can show their children as click-able icons. This function tries to find
- * such an icon that represents the child item at x-coordinate \a view_co_x (view-space).
- *
- * \return a hovered child item or \a parent_te (if no hovered child found).
- */
-TreeElement *outliner_find_item_at_x_in_row(const SpaceOops *soops, const TreeElement *parent_te, float view_co_x)
-{
-	if (!TSELEM_OPEN(TREESTORE(parent_te), soops)) { /* if parent_te is opened, it doesn't show childs in row */
-		/* no recursion, items can only display their direct children in the row */
-		for (TreeElement *child_te = parent_te->subtree.first;
-		     child_te && view_co_x >= child_te->xs; /* don't look further if co_x is smaller than child position*/
-		     child_te = child_te->next)
-		{
-			if ((child_te->flag & TE_ICONROW) && (view_co_x > child_te->xs) && (view_co_x < child_te->xend)) {
-				return child_te;
-			}
-		}
-	}
-
-	/* return parent if no child is hovered */
-	return (TreeElement *)parent_te;
-}
-
 
 /* ************************************************************** */
 
@@ -307,6 +258,8 @@ void OUTLINER_OT_item_openclose(wmOperatorType *ot)
 static void do_item_rename(const Scene *scene, ARegion *ar, TreeElement *te, TreeStoreElem *tselem,
                            ReportList *reports)
 {
+	bool add_textbut = false;
+
 	/* can't rename rna datablocks entries or listbases */
 	if (ELEM(tselem->type, TSE_RNA_STRUCT, TSE_RNA_PROPERTY, TSE_RNA_ARRAY_ELEM, TSE_ID_BASE)) {
 		/* do nothing */;
@@ -319,10 +272,17 @@ static void do_item_rename(const Scene *scene, ARegion *ar, TreeElement *te, Tre
 	else if (ELEM(tselem->type, TSE_SEQUENCE, TSE_SEQ_STRIP, TSE_SEQUENCE_DUP)) {
 		BKE_report(reports, RPT_WARNING, "Cannot edit sequence name");
 	}
-	else if ((tselem->type == TSE_COLLECTION) &&
-	         (((LayerCollection *)te->directdata)->scene_collection == BKE_collection_master(scene)))
-	{
-		BKE_report(reports, RPT_WARNING, "Cannot edit name of master collection");
+	else if (ELEM(tselem->type, TSE_LAYER_COLLECTION, TSE_SCENE_COLLECTION)) {
+		SceneCollection *master = BKE_collection_master(scene);
+
+		if ((tselem->type == TSE_SCENE_COLLECTION && te->directdata == master) ||
+		    (((LayerCollection *)te->directdata)->scene_collection == master))
+		{
+			BKE_report(reports, RPT_WARNING, "Cannot edit name of master collection");
+		}
+		else {
+			add_textbut = true;
+		}
 	}
 	else if (ID_IS_LINKED_DATABLOCK(tselem->id)) {
 		BKE_report(reports, RPT_WARNING, "Cannot edit external libdata");
@@ -331,6 +291,10 @@ static void do_item_rename(const Scene *scene, ARegion *ar, TreeElement *te, Tre
 		BKE_report(reports, RPT_WARNING, "Cannot edit the path of an indirectly linked library");
 	}
 	else {
+		add_textbut = true;
+	}
+
+	if (add_textbut) {
 		tselem->flag |= TSE_TEXTBUT;
 		ED_region_tag_redraw(ar);
 	}

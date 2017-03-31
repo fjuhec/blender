@@ -61,8 +61,8 @@ static int outliner_item_drag_drop_poll(bContext *C)
 {
 	SpaceOops *soops = CTX_wm_space_outliner(C);
 	return ED_operator_outliner_active(C) &&
-	       /* Only collection display mode supported for now. Others need more design work */
-	       ELEM(soops->outlinevis, SO_COLLECTIONS);
+	       /* Only collection display modes supported for now. Others need more design work */
+	       ELEM(soops->outlinevis, SO_ACT_LAYER, SO_COLLECTIONS);
 }
 
 static TreeElement *outliner_item_drag_element_find(SpaceOops *soops, ARegion *ar, const wmEvent *event)
@@ -268,7 +268,7 @@ void outliner_operatortypes(void)
 	WM_operatortype_append(OUTLINER_OT_group_link);
 
 	/* collections */
-	WM_operatortype_append(OUTLINER_OT_collection_delete);
+	WM_operatortype_append(OUTLINER_OT_collections_delete);
 	WM_operatortype_append(OUTLINER_OT_collection_select);
 	WM_operatortype_append(OUTLINER_OT_collection_link);
 	WM_operatortype_append(OUTLINER_OT_collection_unlink);

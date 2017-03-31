@@ -186,7 +186,7 @@ static eOLDrawState tree_element_set_active_object(
 			do_outliner_object_select_recursive(scene, ob, (ob->flag & SELECT) != 0);
 		}
 
-		if (C) {
+		if (set != OL_SETSEL_NONE) {
 			ED_object_base_activate(C, base); /* adds notifier */
 			WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
 		}
@@ -755,9 +755,20 @@ static eOLDrawState tree_element_active_keymap_item(
 }
 
 static eOLDrawState tree_element_active_collection(
-        bContext *C, TreeElement *te, TreeStoreElem *UNUSED(tselem), const eOLSetState set)
+        bContext *C, TreeElement *te, TreeStoreElem *tselem, const eOLSetState set)
 {
-	if (set != OL_SETSEL_NONE) {
+	if (set == OL_SETSEL_NONE) {
+		LayerCollection *active = CTX_data_layer_collection(C);
+
+		if ((tselem->type == TSE_SCENE_COLLECTION && active->scene_collection == te->directdata) ||
+		    (tselem->type == TSE_LAYER_COLLECTION && active == te->directdata))
+		{
+			return OL_DRAWSEL_NORMAL;
+		}
+	}
+	/* don't allow selecting a scene collection, it can have multiple layer collection
+	 * instances (which one would the user want to be selected then?) */
+	else if (tselem->type == TSE_LAYER_COLLECTION) {
 		SceneLayer *sl = CTX_data_scene_layer(C);
 		LayerCollection *lc = te->directdata;
 		const int collection_index = BKE_layer_collection_findindex(sl, lc);
@@ -765,7 +776,6 @@ static eOLDrawState tree_element_active_collection(
 		BLI_assert(collection_index >= 0);
 		sl->active_collection = collection_index;
 		WM_main_add_notifier(NC_SCENE | ND_LAYER, NULL);
-		return OL_DRAWSEL_ACTIVE;
 	}
 
 	return OL_DRAWSEL_NONE;
@@ -803,8 +813,6 @@ eOLDrawState tree_element_active(bContext *C, Scene *scene, SceneLayer *sl, Spac
 
 /**
  * Generic call for non-id data to make/check active in UI
- *
- * \note Context can be NULL when ``(set == OL_SETSEL_NONE)``
  */
 eOLDrawState tree_element_type_active(
         bContext *C, Scene *scene, SceneLayer *sl, SpaceOops *soops,
@@ -848,7 +856,8 @@ eOLDrawState tree_element_type_active(
 		case TSE_GP_LAYER:
 			//return tree_element_active_gplayer(C, scene, s, te, tselem, set);
 			break;
-		case TSE_COLLECTION:
+		case TSE_SCENE_COLLECTION:
+		case TSE_LAYER_COLLECTION:
 			return tree_element_active_collection(C, te, tselem, set);
 	}
 	return OL_DRAWSEL_NONE;
@@ -867,7 +876,7 @@ static void outliner_item_activate(
 	/* always makes active object, except for some specific types.
 	 * Note about TSE_EBONE: In case of a same ID_AR datablock shared among several objects, we do not want
 	 * to switch out of edit mode (see T48328 for details). */
-	if (!ELEM(tselem->type, TSE_SEQUENCE, TSE_SEQ_STRIP, TSE_SEQUENCE_DUP, TSE_EBONE, TSE_COLLECTION)) {
+	if (!ELEM(tselem->type, TSE_SEQUENCE, TSE_SEQ_STRIP, TSE_SEQUENCE_DUP, TSE_EBONE, TSE_LAYER_COLLECTION)) {
 		tree_element_set_active_object(C, scene, sl, soops, te,
 		                               (extend && tselem->type == 0) ? OL_SETSEL_EXTEND : OL_SETSEL_NORMAL,
 		                               recursive && tselem->type == 0);
