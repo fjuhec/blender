@@ -2990,8 +2990,9 @@ PointerRNA RNA_property_pointer_get(PointerRNA *ptr, PropertyRNA *prop)
 
 		if (RNA_struct_is_ID(pprop->type))
 			return rna_pointer_inherit_refine(ptr, pprop->type, IDP_Id(idprop));
+
+		/* for groups, data is idprop itself */
 		if (pprop->typef)
-			/* for groups, data is idprop itself */
 			return rna_pointer_inherit_refine(ptr, pprop->typef(ptr), idprop);
 		else
 			return rna_pointer_inherit_refine(ptr, pprop->type, idprop);
@@ -3012,7 +3013,7 @@ PointerRNA RNA_property_pointer_get(PointerRNA *ptr, PropertyRNA *prop)
 
 void RNA_property_pointer_set(PointerRNA *ptr, PropertyRNA *prop, PointerRNA ptr_value)
 {
-	PointerPropertyRNA *pprop = (PointerPropertyRNA *) prop;
+	PointerPropertyRNA *pprop = (PointerPropertyRNA *)prop;
 	BLI_assert(RNA_property_type(prop) == PROP_POINTER);
 
 	/* Check types */
@@ -3035,9 +3036,10 @@ void RNA_property_pointer_set(PointerRNA *ptr, PropertyRNA *prop, PointerRNA ptr
 
 		val.id = ptr_value.data;
 
-		group = RNA_struct_idprops(ptr, 1);
-		if (group)
+		group = RNA_struct_idprops(ptr, true);
+		if (group) {
 			IDP_ReplaceInGroup(group, IDP_New(IDP_ID, &val, prop->identifier));
+		}
 	}
 }
 
