@@ -60,7 +60,7 @@
 
 
 typedef struct FacemapManipulator {
-	wmManipulator widget;
+	struct wmManipulator widget;
 	Object *ob;
 	int facemap;
 	int style;
@@ -69,7 +69,7 @@ typedef struct FacemapManipulator {
 
 /* -------------------------------------------------------------------- */
 
-static void widget_facemap_draw(const bContext *C, wmManipulator *widget)
+static void widget_facemap_draw(const bContext *C, struct wmManipulator *widget)
 {
 	FacemapManipulator *fmap_widget = (FacemapManipulator *)widget;
 	const float *col = (widget->state & WM_MANIPULATOR_SELECTED) ? widget->col_hi : widget->col;
@@ -81,19 +81,19 @@ static void widget_facemap_draw(const bContext *C, wmManipulator *widget)
 	glPopMatrix();
 }
 
-static void widget_facemap_render_3d_intersect(const bContext *C, wmManipulator *widget, int selectionbase)
+static void widget_facemap_render_3d_intersect(const bContext *C, struct wmManipulator *widget, int selectionbase)
 {
 	GPU_select_load_id(selectionbase);
 	widget_facemap_draw(C, widget);
 }
 
 #if 0
-static int widget_facemap_invoke(bContext *UNUSED(C), const wmEvent *event, wmManipulator *widget)
+static int widget_facemap_invoke(bContext *UNUSED(C), const wmEvent *event, struct wmManipulator *widget)
 {
 	return OPERATOR_PASS_THROUGH;
 }
 
-static int widget_facemap_handler(bContext *C, const wmEvent *event, wmManipulator *widget)
+static int widget_facemap_handler(bContext *C, const wmEvent *event, struct wmManipulator *widget)
 {
 	return OPERATOR_PASS_THROUGH;
 }
@@ -104,7 +104,7 @@ static int widget_facemap_handler(bContext *C, const wmEvent *event, wmManipulat
  *
  * \{ */
 
-wmManipulator *MANIPULATOR_facemap_new(
+struct wmManipulator *MANIPULATOR_facemap_new(
         wmManipulatorGroup *wgroup, const char *name, const int style,
         Object *ob, const int facemap)
 {
@@ -123,10 +123,10 @@ wmManipulator *MANIPULATOR_facemap_new(
 
 	wm_manipulator_register(wgroup, &fmap_widget->widget, name);
 
-	return (wmManipulator *)fmap_widget;
+	return (struct wmManipulator *)fmap_widget;
 }
 
-bFaceMap *MANIPULATOR_facemap_get_fmap(wmManipulator *widget)
+bFaceMap *MANIPULATOR_facemap_get_fmap(struct wmManipulator *widget)
 {
 	FacemapManipulator *fmap_widget = (FacemapManipulator *)widget;
 	return BLI_findlink(&fmap_widget->ob->fmaps, fmap_widget->facemap);

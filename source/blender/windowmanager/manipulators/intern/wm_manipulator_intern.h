@@ -35,7 +35,7 @@ struct wmManipulatorMap;
 /* wmManipulator */
 
 /* manipulators are set per region by registering them on manipulator-maps */
-typedef struct wmManipulator {
+struct wmManipulator {
 	struct wmManipulator *next, *prev;
 
 	char idname[MAX_NAME + 4]; /* + 4 for unique '.001', '.002', etc suffix */
@@ -106,7 +106,7 @@ typedef struct wmManipulator {
 	 * the manipulator is interacted with, those properties get updated */
 	PointerRNA *ptr;
 	PropertyRNA **props;
-} wmManipulator;
+};
 
 /* wmManipulator.state */
 enum {
@@ -154,8 +154,8 @@ enum {
 
 struct wmManipulatorGroup *wm_manipulatorgroup_new_from_type(struct wmManipulatorGroupType *mgrouptype);
 void wm_manipulatorgroup_free(bContext *C, struct wmManipulatorMap *mmap, struct wmManipulatorGroup *mgroup);
-void wm_manipulatorgroup_manipulator_register(struct wmManipulatorGroup *mgroup, wmManipulator *manipulator);
-wmManipulator *wm_manipulatorgroup_find_intersected_mainpulator(
+void wm_manipulatorgroup_manipulator_register(struct wmManipulatorGroup *mgroup, struct wmManipulator *manipulator);
+struct wmManipulator *wm_manipulatorgroup_find_intersected_mainpulator(
         const struct wmManipulatorGroup *mgroup, struct bContext *C, const struct wmEvent *event,
         unsigned char *part);
 void wm_manipulatorgroup_intersectable_manipulators_to_list(
@@ -170,7 +170,7 @@ void wm_manipulatorgrouptype_keymap_init(struct wmManipulatorGroupType *mgroupty
 /* -------------------------------------------------------------------- */
 /* wmManipulatorMap */
 
-typedef struct wmManipulatorMap {
+struct wmManipulatorMap {
 	struct wmManipulatorMap *next, *prev;
 
 	struct wmManipulatorMapType *type;
@@ -194,7 +194,7 @@ typedef struct wmManipulatorMap {
 		struct wmManipulator **selected_manipulator;
 		int tot_selected;
 	} mmap_context;
-} wmManipulatorMap;
+};
 
 /**
  * This is a container for all manipulator types that can be instantiated in a region.
@@ -202,16 +202,16 @@ typedef struct wmManipulatorMap {
  *
  * \note There is only ever one of these for every (area, region) combination.
  */
-typedef struct wmManipulatorMapType {
+struct wmManipulatorMapType {
 	struct wmManipulatorMapType *next, *prev;
 	char idname[64];
 	short spaceid, regionid;
 	/* types of manipulator-groups for this manipulator-map type */
 	ListBase manipulator_grouptypes;
-} wmManipulatorMapType;
+};
 
-void wm_manipulatormap_selected_delete(wmManipulatorMap *mmap);
-bool wm_manipulatormap_deselect_all(struct wmManipulatorMap *mmap, wmManipulator ***sel);
+void wm_manipulatormap_selected_delete(struct wmManipulatorMap *mmap);
+bool wm_manipulatormap_deselect_all(struct wmManipulatorMap *mmap, struct wmManipulator ***sel);
 
 
 /* -------------------------------------------------------------------- */

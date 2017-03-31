@@ -59,7 +59,7 @@
 
 
 typedef struct ArrowManipulator2D {
-	wmManipulator manipulator;
+	struct wmManipulator manipulator;
 
 	float angle;
 	float line_len;
@@ -94,7 +94,7 @@ static void arrow2d_draw_geom(ArrowManipulator2D *arrow, const float origin[2])
 	glPopMatrix();
 }
 
-static void manipulator_arrow2d_draw(const bContext *UNUSED(C), wmManipulator *manipulator)
+static void manipulator_arrow2d_draw(const bContext *UNUSED(C), struct wmManipulator *manipulator)
 {
 	ArrowManipulator2D *arrow = (ArrowManipulator2D *)manipulator;
 	float col[4];
@@ -117,7 +117,7 @@ static void manipulator_arrow2d_draw(const bContext *UNUSED(C), wmManipulator *m
 	}
 }
 
-static int manipulator_arrow2d_invoke(bContext *UNUSED(C), const wmEvent *UNUSED(event), wmManipulator *manipulator)
+static int manipulator_arrow2d_invoke(bContext *UNUSED(C), const wmEvent *UNUSED(event), struct wmManipulator *manipulator)
 {
 	ManipulatorInteraction *inter = MEM_callocN(sizeof(ManipulatorInteraction), __func__);
 
@@ -127,7 +127,7 @@ static int manipulator_arrow2d_invoke(bContext *UNUSED(C), const wmEvent *UNUSED
 	return OPERATOR_RUNNING_MODAL;
 }
 
-static int manipulator_arrow2d_intersect(bContext *UNUSED(C), const wmEvent *event, wmManipulator *manipulator)
+static int manipulator_arrow2d_intersect(bContext *UNUSED(C), const wmEvent *event, struct wmManipulator *manipulator)
 {
 	ArrowManipulator2D *arrow = (ArrowManipulator2D *)manipulator;
 	const float mval[2] = {event->mval[0], event->mval[1]};
@@ -179,7 +179,7 @@ static int manipulator_arrow2d_intersect(bContext *UNUSED(C), const wmEvent *eve
  *
  * \{ */
 
-wmManipulator *MANIPULATOR_arrow2d_new(wmManipulatorGroup *mgroup, const char *name)
+struct wmManipulator *MANIPULATOR_arrow2d_new(wmManipulatorGroup *mgroup, const char *name)
 {
 	ArrowManipulator2D *arrow = MEM_callocN(sizeof(ArrowManipulator2D), __func__);
 
@@ -195,16 +195,16 @@ wmManipulator *MANIPULATOR_arrow2d_new(wmManipulatorGroup *mgroup, const char *n
 
 	wm_manipulator_register(mgroup, &arrow->manipulator, name);
 
-	return (wmManipulator *)arrow;
+	return (struct wmManipulator *)arrow;
 }
 
-void MANIPULATOR_arrow2d_set_angle(wmManipulator *manipulator, const float angle)
+void MANIPULATOR_arrow2d_set_angle(struct wmManipulator *manipulator, const float angle)
 {
 	ArrowManipulator2D *arrow = (ArrowManipulator2D *)manipulator;
 	arrow->angle = angle;
 }
 
-void MANIPULATOR_arrow2d_set_line_len(wmManipulator *manipulator, const float len)
+void MANIPULATOR_arrow2d_set_line_len(struct wmManipulator *manipulator, const float len)
 {
 	ArrowManipulator2D *arrow = (ArrowManipulator2D *)manipulator;
 	arrow->line_len = len;
