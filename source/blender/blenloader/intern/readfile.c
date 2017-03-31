@@ -2786,7 +2786,7 @@ static void lib_link_ntree(FileData *fd, ID *id, bNodeTree *ntree)
 	lib_link_animdata(fd, &ntree->id, ntree->adt);
 	
 	ntree->gpd = newlibadr_us(fd, id->lib, ntree->gpd);
-
+	
 	for (node = ntree->nodes.first; node; node = node->next) {
 		/* Link ID Properties -- and copy this comment EXACTLY for easy finding
 		 * of library blocks that implement this.*/
@@ -3310,7 +3310,7 @@ static void lib_link_pose(FileData *fd, Main *bmain, Object *ob, bPose *pose)
 		lib_link_constraints(fd, (ID *)ob, &pchan->constraints);
 
 		pchan->bone = BLI_ghash_lookup(bone_hash, pchan->name);
-
+		
 		IDP_LibLinkProperty(pchan->prop, fd);
 
 		pchan->custom = newlibadr_us(fd, arm->id.lib, pchan->custom);
@@ -9160,14 +9160,14 @@ static void expand_nodetree(FileData *fd, Main *mainvar, bNodeTree *ntree)
 	for (node = ntree->nodes.first; node; node = node->next) {
 		if (node->id && node->type != CMP_NODE_R_LAYERS) {
 			expand_doit(fd, mainvar, node->id);
-
-			expand_idprops(fd, mainvar, node->prop);
-
-			for (sock = node->inputs.first; sock; sock = sock->next)
-				expand_doit(fd, mainvar, sock->prop);
-			for (sock = node->outputs.first; sock; sock = sock->next)
-				expand_doit(fd, mainvar, sock->prop);
 		}
+
+		expand_idprops(fd, mainvar, node->prop);
+
+		for (sock = node->inputs.first; sock; sock = sock->next)
+			expand_doit(fd, mainvar, sock->prop);
+		for (sock = node->outputs.first; sock; sock = sock->next)
+			expand_doit(fd, mainvar, sock->prop);
 	}
 
 	for (sock = ntree->inputs.first; sock; sock = sock->next)
@@ -9806,6 +9806,8 @@ void BLO_expand_main(void *fdhandle, Main *mainvar)
 			id = lbarray[a]->first;
 			while (id) {
 				if (id->tag & LIB_TAG_NEED_EXPAND) {
+					expand_idprops(fd, mainvar, id->properties);
+
 					switch (GS(id->name)) {
 					case ID_OB:
 						expand_object(fd, mainvar, (Object *)id);
@@ -9886,8 +9888,6 @@ void BLO_expand_main(void *fdhandle, Main *mainvar)
 						expand_cachefile(fd, mainvar, (CacheFile *)id);
 						break;
 					}
-
-					expand_idprops(fd, mainvar, id->properties);
 					
 					do_it = true;
 					id->tag &= ~LIB_TAG_NEED_EXPAND;
