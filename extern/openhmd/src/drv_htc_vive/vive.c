@@ -330,10 +330,18 @@ static ohmd_device* open_device(ohmd_driver* driver, ohmd_device_desc* desc)
 	priv->base.properties.vsize = 0.068234f;
 	priv->base.properties.hres = 2160;
 	priv->base.properties.vres = 1200;
-	priv->base.properties.lens_sep = 0.063500;
+	priv->base.properties.lens_sep = 0.057000;
 	priv->base.properties.lens_vpos = 0.049694;
 	priv->base.properties.fov = DEG_TO_RAD(111.435f); //TODO: Confirm exact mesurements
 	priv->base.properties.ratio = (2160.0f / 1200.0f) / 2.0f;
+
+	priv->base.properties.universal_distortion_k[0] = 0.495f;
+	priv->base.properties.universal_distortion_k[1] = -0.712f;
+	priv->base.properties.universal_distortion_k[2] = 0.463f;
+	priv->base.properties.universal_distortion_k[3] = 0.754f;
+	priv->base.properties.universal_aberration_k[0] = 1.00070502898f;
+	priv->base.properties.universal_aberration_k[1] = 1.000f;
+	priv->base.properties.universal_aberration_k[2] = 0.997172274009f;
 
 	// calculate projection eye projection matrices from the device properties
 	ohmd_calc_default_proj_matrices(&priv->base.properties);
