@@ -905,6 +905,15 @@ static PyObject *gPyNextFrame(PyObject *)
 	}
 }
 
+static PyObject *gPyRender(PyObject *)
+{
+	if (pynextframestate.render == NULL) Py_RETURN_NONE;
+	if (pynextframestate.state == NULL) Py_RETURN_NONE; //should never happen; raise exception instead?
+
+	pynextframestate.render(pynextframestate.state);
+	Py_RETURN_NONE;
+}
+
 
 static struct PyMethodDef game_methods[] = {
 	{"expandPath", (PyCFunction)gPyExpandPath, METH_VARARGS, (const char *)gPyExpandPath_doc},
@@ -953,6 +962,7 @@ static struct PyMethodDef game_methods[] = {
 	{"PrintGLInfo", (PyCFunction)pyPrintExt, METH_NOARGS, (const char *)"Prints GL Extension Info"},
 	{"PrintMemInfo", (PyCFunction)pyPrintStats, METH_NOARGS, (const char *)"Print engine statistics"},
 	{"NextFrame", (PyCFunction)gPyNextFrame, METH_NOARGS, (const char *)"Render next frame (if Python has control)"},
+    {"Render", (PyCFunction)gPyRender, METH_NOARGS, (const char *)"Do only render (skip logic), if Python has control"},
 	{"getProfileInfo", (PyCFunction)gPyGetProfileInfo, METH_NOARGS, gPyGetProfileInfo_doc},
 	/* library functions */
 	{"LibLoad", (PyCFunction)gLibLoad, METH_VARARGS|METH_KEYWORDS, (const char *)""},

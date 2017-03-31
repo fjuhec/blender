@@ -78,12 +78,15 @@ KX_Scene *KX_GetActiveScene();
 KX_KetsjiEngine *KX_GetActiveEngine();
 
 typedef int (*PyNextFrameFunc)(void *);
+typedef void (*PyRenderFunc)(void *);
 
 struct PyNextFrameState {
 	/** can be either a GPG_NextFrameState or a BL_KetsjiNextFrameState */
 	void *state;
 	/** can be either GPG_PyNextFrame or BL_KetsjiPyNextFrame */
 	PyNextFrameFunc func;
+	/** can be either GPG_PyRender or BL_KetsjiPyRender */
+	PyRenderFunc render;
 };
 extern struct PyNextFrameState pynextframestate;
 

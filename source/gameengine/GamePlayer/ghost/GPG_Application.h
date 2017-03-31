@@ -93,6 +93,7 @@ public:
 	bool StartGameEngine(int stereoMode);
 	void StopGameEngine();
 	void EngineNextFrame();
+	void EngineRender();
 
 protected:
 	bool	handleWheel(GHOST_IEvent* event);

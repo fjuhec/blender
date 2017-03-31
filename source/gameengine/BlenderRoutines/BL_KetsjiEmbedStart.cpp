@@ -122,6 +122,23 @@ static BlendFileData *load_game_data(const char *filename)
 	return bfd;
 }
 
+static void BL_KetsjiRender(KX_KetsjiEngine *ketsjiengine, ARegion *ar, Scene *scene, int draw_letterbox)
+{
+	if (draw_letterbox) {
+		// Clear screen to border color
+		// We do this here since we set the canvas to be within the frames. This means the engine
+		// itself is unaware of the extra space, so we clear the whole region for it.
+		glClearColor(scene->gm.framing.col[0], scene->gm.framing.col[1], scene->gm.framing.col[2], 1.0f);
+		glViewport(ar->winrct.xmin, ar->winrct.ymin,
+		           BLI_rcti_size_x(&ar->winrct), BLI_rcti_size_y(&ar->winrct));
+		glClear(GL_COLOR_BUFFER_BIT);
+	}
+
+	// render the frame
+	ketsjiengine->Render();
+
+}
+
 static int BL_KetsjiNextFrame(KX_KetsjiEngine *ketsjiengine, bContext *C, wmWindow *win, Scene *scene, ARegion *ar,
                               KX_BlenderKeyboardDevice* keyboarddevice, KX_BlenderMouseDevice* mousedevice, int draw_letterbox)
 {
@@ -134,18 +151,7 @@ static int BL_KetsjiNextFrame(KX_KetsjiEngine *ketsjiengine, bContext *C, wmWind
 	bool render = ketsjiengine->NextFrame();
 
 	if (render) {
-		if (draw_letterbox) {
-			// Clear screen to border color
-			// We do this here since we set the canvas to be within the frames. This means the engine
-			// itself is unaware of the extra space, so we clear the whole region for it.
-			glClearColor(scene->gm.framing.col[0], scene->gm.framing.col[1], scene->gm.framing.col[2], 1.0f);
-			glViewport(ar->winrct.xmin, ar->winrct.ymin,
-			           BLI_rcti_size_x(&ar->winrct), BLI_rcti_size_y(&ar->winrct));
-			glClear(GL_COLOR_BUFFER_BIT);
-		}
-
-		// render the frame
-		ketsjiengine->Render();
+		BL_KetsjiRender(ketsjiengine, ar, scene, draw_letterbox);
 	}
 
 	wm_window_process_events_nosleep();
@@ -211,6 +217,13 @@ static int BL_KetsjiPyNextFrame(void *state0)
 		state->mousedevice, 
 		state->draw_letterbox);
 }
+
+static void BL_KetsjiPyRender(void *state0)
+{
+	BL_KetsjiNextFrameState *state = (BL_KetsjiNextFrameState *) state0;
+	BL_KetsjiRender(state->ketsjiengine, state->ar, state->scene, state->draw_letterbox);
+}
+
 #endif
 
 
@@ -526,6 +539,7 @@ extern "C" void StartKetsjiShell(struct bContext *C, struct ARegion *ar, rcti *c
 				char *python_main = NULL;
 				pynextframestate.state = NULL;
 				pynextframestate.func = NULL;
+				pynextframestate.render = NULL;
 				python_main = KX_GetPythonMain(scene);
 
 				// the mainloop
@@ -548,6 +562,7 @@ extern "C" void StartKetsjiShell(struct bContext *C, struct ARegion *ar, rcti *c
 			
 						pynextframestate.state = &ketsjinextframestate;
 						pynextframestate.func = &BL_KetsjiPyNextFrame;
+						pynextframestate.render = &BL_KetsjiPyRender;
 						printf("Yielding control to Python script '%s'...\n", python_main);
 						PyRun_SimpleString(python_code);
 						printf("Exit Python script '%s'\n", python_main);

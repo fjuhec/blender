@@ -385,6 +385,11 @@ static bool GPG_NextFrame(GHOST_ISystem* system, GPG_Application *app, int &exit
 	return run;
 }
 
+static void GPG_Render(GPG_Application *app)
+{
+	app->EngineRender();
+}
+
 struct GPG_NextFrameState {
 	GHOST_ISystem* system;
 	GPG_Application *app;
@@ -403,6 +408,12 @@ static int GPG_PyNextFrame(void *state0)
 			fprintf(stderr, "Exit code %d: %s\n", exitcode, exitstring.ReadPtr());
 		return 1;
 	}
+}
+
+static void GPG_PyRender(void *state0)
+{
+	GPG_NextFrameState *state = (GPG_NextFrameState *) state0;
+	GPG_Render(state->app);
 }
 
 int main(
@@ -1124,6 +1135,7 @@ int main(
 						char *python_main = NULL;
 						pynextframestate.state = NULL;
 						pynextframestate.func = NULL;
+						pynextframestate.render = NULL;
 #ifdef WITH_PYTHON
 						python_main = KX_GetPythonMain(scene);
 #endif // WITH_PYTHON
@@ -1141,6 +1153,7 @@ int main(
 								gpg_nextframestate.gs = &gs;
 								pynextframestate.state = &gpg_nextframestate;
 								pynextframestate.func = &GPG_PyNextFrame;
+								pynextframestate.render = &GPG_PyRender;
 
 								printf("Yielding control to Python script '%s'...\n", python_main);
 								PyRun_SimpleString(python_code);

@@ -848,6 +848,12 @@ void GPG_Application::EngineNextFrame()
 	m_exitString = m_ketsjiengine->GetExitString();
 }
 
+void GPG_Application::EngineRender()
+{
+	// render the frame
+	m_ketsjiengine->Render();
+}
+
 void GPG_Application::exitEngine()
 {
 	// We only want to kill the engine if it has been initialized
