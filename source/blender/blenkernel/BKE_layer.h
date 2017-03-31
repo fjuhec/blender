@@ -54,7 +54,8 @@ struct Scene;
 struct SceneCollection;
 struct SceneLayer;
 
-struct SceneLayer *BKE_scene_layer_active(struct Scene *scene);
+struct SceneLayer *BKE_scene_layer_render_active(struct Scene *scene);
+struct SceneLayer *BKE_scene_layer_context_active(struct Scene *scene);
 struct SceneLayer *BKE_scene_layer_add(struct Scene *scene, const char *name);
 
 bool BKE_scene_layer_remove(struct Main *bmain, struct Scene *scene, struct SceneLayer *sl);
@@ -114,11 +115,14 @@ void BKE_layer_collection_engine_settings_list_free(struct ListBase *lb);
 
 void BKE_collection_engine_property_add_float(struct CollectionEngineSettings *ces, const char *name, float value);
 void BKE_collection_engine_property_add_int(struct CollectionEngineSettings *ces, const char *name, int value);
+void BKE_collection_engine_property_add_bool(struct CollectionEngineSettings *ces, const char *name, bool value);
 struct CollectionEngineProperty *BKE_collection_engine_property_get(struct CollectionEngineSettings *ces, const char *name);
 int BKE_collection_engine_property_value_get_int(struct CollectionEngineSettings *ces, const char *name);
 float BKE_collection_engine_property_value_get_float(struct CollectionEngineSettings *ces, const char *name);
+bool BKE_collection_engine_property_value_get_bool(struct CollectionEngineSettings *ces, const char *name);
 void BKE_collection_engine_property_value_set_int(struct CollectionEngineSettings *ces, const char *name, int value);
 void BKE_collection_engine_property_value_set_float(struct CollectionEngineSettings *ces, const char *name, float value);
+void BKE_collection_engine_property_value_set_bool(struct CollectionEngineSettings *ces, const char *name, bool value);
 bool BKE_collection_engine_property_use_get(struct CollectionEngineSettings *ces, const char *name);
 void BKE_collection_engine_property_use_set(struct CollectionEngineSettings *ces, const char *name, bool value);
 
@@ -206,7 +210,7 @@ void BKE_visible_bases_Iterator_end(Iterator *iter);
 {                                                                             \
 	Object *instance_;                                                        \
 	/* temporary solution, waiting for depsgraph update */                    \
-	BKE_scene_layer_engine_settings_update(sl);                               \
+	BKE_scene_layer_engine_settings_update(sl_);                              \
 	                                                                          \
 	/* flush all the data to objects*/                                        \
 	Base *base_;                                                              \
@@ -217,6 +221,9 @@ void BKE_visible_bases_Iterator_end(Iterator *iter);
 #define DEG_OBJECT_ITER_END                                                   \
     }                                                                         \
 }
+
+/* temporary doversion functions */
+void BKE_scene_layer_doversion_update(struct Main *bmain);
 
 #ifdef __cplusplus
 }

@@ -24,6 +24,8 @@
  *  \ingroup bke
  */
 
+#include <string.h>
+
 #include "BLI_listbase.h"
 #include "BLI_string.h"
 #include "BLI_string_utf8.h"
@@ -41,6 +43,8 @@
 #include "DNA_object_types.h"
 #include "DNA_node_types.h"
 #include "DNA_scene_types.h"
+
+#include "DRW_engine.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -60,12 +64,24 @@ static void object_bases_Iterator_next(Iterator *iter, const int flag);
 
 /**
  * Returns the SceneLayer to be used for rendering
+ * Most of the time BKE_scene_layer_context_active should be used instead
  */
-SceneLayer *BKE_scene_layer_active(struct Scene *scene)
+SceneLayer *BKE_scene_layer_render_active(Scene *scene)
 {
 	SceneLayer *sl = BLI_findlink(&scene->render_layers, scene->active_layer);
 	BLI_assert(sl);
 	return sl;
+}
+
+/**
+ * Returns the SceneLayer to be used for drawing, outliner, and
+ * other context related areas.
+ */
+SceneLayer *BKE_scene_layer_context_active(Scene *scene)
+{
+	/* waiting for workspace to get the layer from context*/
+	TODO_LAYER_CONTEXT;
+	return BKE_scene_layer_render_active(scene);
 }
 
 /**
@@ -238,15 +254,9 @@ static void layer_collection_base_flag_recalculate(LayerCollection *lc, const bo
 		if (is_visible) {
 			base->flag |= BASE_VISIBLED;
 		}
-		else {
-			base->flag &= ~BASE_VISIBLED;
-		}
 
 		if (is_selectable) {
 			base->flag |= BASE_SELECTABLED;
-		}
-		else {
-			base->flag &= ~BASE_SELECTABLED;
 		}
 	}
 
@@ -260,6 +270,10 @@ static void layer_collection_base_flag_recalculate(LayerCollection *lc, const bo
  */
 void BKE_scene_layer_base_flag_recalculate(SceneLayer *sl)
 {
+	for (Base *base = sl->object_bases.first; base; base = base->next) {
+		base->flag &= ~(BASE_VISIBLED | BASE_SELECTABLED);
+	}
+
 	for (LayerCollection *lc = sl->layer_collections.first; lc; lc = lc->next) {
 		layer_collection_base_flag_recalculate(lc, true, true);
 	}
@@ -804,11 +818,13 @@ static void layer_collection_create_mode_settings_object(ListBase *lb)
 	CollectionEngineSettings *ces;
 
 	ces = MEM_callocN(sizeof(CollectionEngineSettings), "Object Mode Settings");
-	BLI_addtail(lb, ces);
+	BLI_strncpy_utf8(ces->name, "Object Mode", sizeof(ces->name));
 	ces->type = COLLECTION_MODE_OBJECT;
 
 	/* properties */
-	BKE_collection_engine_property_add_int(ces, "foo", 2);
+	OBJECT_collection_settings_create(ces);
+
+	BLI_addtail(lb, ces);
 }
 
 static void layer_collection_create_mode_settings_edit(ListBase *lb)
@@ -816,11 +832,13 @@ static void layer_collection_create_mode_settings_edit(ListBase *lb)
 	CollectionEngineSettings *ces;
 
 	ces = MEM_callocN(sizeof(CollectionEngineSettings), "Edit Mode Settings");
-	BLI_addtail(lb, ces);
+	BLI_strncpy_utf8(ces->name, "Edit Mode", sizeof(ces->name));
 	ces->type = COLLECTION_MODE_EDIT;
 
 	/* properties */
-	BKE_collection_engine_property_add_float(ces, "bar", 0.5);
+	EDIT_collection_settings_create(ces);
+
+	BLI_addtail(lb, ces);
 }
 
 static void collection_create_mode_settings(ListBase *lb)
@@ -892,6 +910,16 @@ void BKE_collection_engine_property_add_int(CollectionEngineSettings *ces, const
 	BLI_addtail(&ces->properties, prop);
 }
 
+void BKE_collection_engine_property_add_bool(CollectionEngineSettings *ces, const char *name, bool value)
+{
+	CollectionEnginePropertyBool *prop;
+	prop = MEM_callocN(sizeof(CollectionEnginePropertyBool), "collection engine settings bool");
+	prop->data.type = COLLECTION_PROP_TYPE_BOOL;
+	BLI_strncpy_utf8(prop->data.name, name, sizeof(prop->data.name));
+	prop->value = value;
+	BLI_addtail(&ces->properties, prop);
+}
+
 CollectionEngineProperty *BKE_collection_engine_property_get(CollectionEngineSettings *ces, const char *name)
 {
 	return BLI_findstring(&ces->properties, name, offsetof(CollectionEngineProperty, name));
@@ -911,6 +939,13 @@ float BKE_collection_engine_property_value_get_float(CollectionEngineSettings *c
 	return prop->value;
 }
 
+bool BKE_collection_engine_property_value_get_bool(CollectionEngineSettings *ces, const char *name)
+{
+	CollectionEnginePropertyBool *prop;
+	prop = (CollectionEnginePropertyBool *)BLI_findstring(&ces->properties, name, offsetof(CollectionEngineProperty, name));
+	return prop->value;
+}
+
 void BKE_collection_engine_property_value_set_int(CollectionEngineSettings *ces, const char *name, int value)
 {
 	CollectionEnginePropertyInt *prop;
@@ -923,6 +958,14 @@ void BKE_collection_engine_property_value_set_float(CollectionEngineSettings *ce
 {
 	CollectionEnginePropertyFloat *prop;
 	prop = (CollectionEnginePropertyFloat *)BLI_findstring(&ces->properties, name, offsetof(CollectionEngineProperty, name));
+	prop->value = value;
+	prop->data.flag |= COLLECTION_PROP_USE;
+}
+
+void BKE_collection_engine_property_value_set_bool(CollectionEngineSettings *ces, const char *name, bool value)
+{
+	CollectionEnginePropertyBool *prop;
+	prop = (CollectionEnginePropertyBool *)BLI_findstring(&ces->properties, name, offsetof(CollectionEngineProperty, name));
 	prop->value = value;
 	prop->data.flag |= COLLECTION_PROP_USE;
 }
@@ -995,6 +1038,9 @@ static void collection_engine_property_set (CollectionEngineProperty *prop_dst, 
 		    case COLLECTION_PROP_TYPE_INT:
 			    ((CollectionEnginePropertyInt *)prop_dst)->value = ((CollectionEnginePropertyInt *)prop_src)->value;
 			    break;
+		    case COLLECTION_PROP_TYPE_BOOL:
+			    ((CollectionEnginePropertyBool *)prop_dst)->value = ((CollectionEnginePropertyBool *)prop_src)->value;
+			    break;
 		    default:
 			    BLI_assert(false);
 			    break;
@@ -1008,10 +1054,10 @@ static void collection_engine_settings_merge(ListBase *lb_dst, ListBase *lb_src)
 		CollectionEngineSettings *ces_dst = collection_engine_get(lb_dst, lb_dst, ces_src->type, ces_src->name);
 		BLI_assert(ces_dst);
 
-		CollectionEngineProperty *prop_src, *prop_dst;
-
-		prop_dst = ces_dst->properties.first;
-		for (prop_src = ces_src->properties.first; prop_src; prop_src = prop_src->next, prop_dst = prop_dst->next) {
+		CollectionEngineProperty *prop_dst, *prop_src;
+		for (prop_dst = ces_dst->properties.first; prop_dst; prop_dst = prop_dst->next) {
+			prop_src = BLI_findstring(&ces_src->properties, prop_dst->name, offsetof(CollectionEngineProperty, name));
+			BLI_assert(prop_src);
 			collection_engine_property_set(prop_dst, prop_src);
 		}
 	}
@@ -1179,4 +1225,202 @@ void BKE_visible_bases_Iterator_next(Iterator *iter)
 void BKE_visible_bases_Iterator_end(Iterator *UNUSED(iter))
 {
 	/* do nothing */
+}
+
+
+/* ---------------------------------------------------------------------- */
+/* Doversion routine */
+
+/**
+ * Merge CollectionEngineSettings
+ *
+ * \param ces_ref CollectionEngineSettings to use as reference
+ * \param ces CollectionEngineSettings to merge into
+ */
+static void scene_layer_doversion_merge_setings(const CollectionEngineSettings *ces_ref, CollectionEngineSettings *ces)
+{
+	CollectionEngineProperty *cep = ces->properties.first, *cep_ref;
+
+	for (cep_ref = ces_ref->properties.first; cep_ref; cep_ref = cep_ref->next) {
+		cep = BLI_findstring(&ces->properties, cep_ref->name, offsetof(CollectionEngineProperty, name));
+
+		if (cep == NULL) {
+			cep = MEM_dupallocN(cep_ref);
+			BLI_addtail(&ces->properties, cep);
+		}
+		else if (cep->type != cep_ref->type) {
+			CollectionEngineProperty *prev = cep->prev, *next = cep->next;
+			MEM_freeN(cep);
+			cep = MEM_dupallocN(cep_ref);
+
+			cep->prev = prev;
+			cep->next = next;
+		}
+		else {
+			/* keep the property as it is */
+		}
+	}
+}
+
+/**
+ * Merge ListBases of LayerCollections
+ *
+ * \param lb_ref ListBase of CollectionEngineSettings to use as reference
+ * \param lb ListBase of CollectionEngineSettings
+ */
+static void scene_layer_doversion_merge_layer_collection(const ListBase *lb_ref, ListBase *lb)
+{
+	CollectionEngineSettings *ces = lb->first, *ces_ref;
+
+	for (ces_ref = lb_ref->first; ces_ref; ces_ref = ces_ref->next) {
+		ces = BLI_findstring(lb, ces_ref->name, offsetof(CollectionEngineSettings, name));
+
+		if (ces == NULL) {
+			ces = MEM_dupallocN(ces_ref);
+			BLI_duplicatelist(&ces->properties, &ces_ref->properties);
+			BLI_addtail(lb, ces);
+		}
+		else {
+			scene_layer_doversion_merge_setings(ces_ref, ces);
+		}
+	}
+}
+
+/**
+ * Create or remove CollectionEngineSettings and CollectionEngineProperty
+ * based on reference LayerCollection
+ *
+ * \param lc_ref reference LayerCollection to merge missing settings from
+ * \param lb ListBase of LayerCollection
+ */
+static void scene_layer_doversion_update_collections(const LayerCollection *lc_ref, ListBase *lb)
+{
+	for (LayerCollection *lc = lb->first; lc; lc = lc->next) {
+
+		scene_layer_doversion_merge_layer_collection(&lc_ref->engine_settings, &lc->engine_settings);
+		scene_layer_doversion_merge_layer_collection(&lc_ref->mode_settings, &lc->mode_settings);
+
+		/* continue recursively */
+		scene_layer_doversion_update_collections(lc_ref, &lc->layer_collections);
+	}
+}
+
+/**
+ * Updates all the CollectionEngineSettings of all
+ * LayerCollection elements in Scene
+ *
+ * \param lc_ref reference LayerCollection to merge missing settings from
+ */
+static void scene_layer_doversion_update(const LayerCollection *lc_ref, Scene *scene)
+{
+	for (SceneLayer *sl = scene->render_layers.first; sl; sl = sl->next) {
+		scene_layer_doversion_update_collections(lc_ref, &sl->layer_collections);
+	}
+}
+
+/**
+ * Return true at the first indicative that the listbases don't match
+ *
+ * It's fine if the individual properties values are different, as long
+ * as we have the same properties across them
+ *
+ * \param lb_ces ListBase of CollectionEngineSettings
+ * \param lb_ces_ref ListBase of CollectionEngineSettings
+ */
+static bool scene_layer_doversion_is_outdated_engines(ListBase *lb_ces, ListBase *lb_ces_ref)
+{
+	if (BLI_listbase_count(lb_ces) != BLI_listbase_count(lb_ces_ref)) {
+		return true;
+	}
+
+	CollectionEngineSettings *ces, *ces_ref;
+	for (ces = lb_ces->first, ces_ref = lb_ces_ref->first; ces; ces = ces->next, ces_ref = ces_ref->next) {
+		if (BLI_listbase_count(&ces->properties) != BLI_listbase_count(&ces_ref->properties)) {
+			return true;
+		}
+
+		CollectionEngineProperty *cep, *cep_ref;
+		for (cep = ces->properties.first, cep_ref = ces_ref->properties.first; cep; cep = cep->next, cep_ref = cep_ref->next) {
+			if (cep->type != cep_ref->type) {
+				return true;
+			}
+
+			if (STREQ(cep->name, cep_ref->name) == false) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+/**
+ * Get the first available LayerCollection
+ */
+static LayerCollection *scene_layer_doversion_collection_get(Main *bmain)
+{
+	for (Scene *scene = bmain->scene.first; scene; scene = scene->id.next) {
+		for (SceneLayer *sl = scene->render_layers.first; sl; sl = sl->next) {
+			for (LayerCollection *lc = sl->layer_collections.first; lc; lc = lc->next) {
+				return lc;
+			}
+		}
+	}
+	return NULL;
+}
+
+/**
+ * See if a new LayerCollection have the same CollectionEngineSettings
+ * and properties of the saved LayerCollection
+ */
+static bool scene_layer_doversion_is_outdated(Main *bmain)
+{
+	LayerCollection *lc, lc_ref = {NULL};
+	bool is_outdated = false;
+
+	lc = scene_layer_doversion_collection_get(bmain);
+
+	if (lc == NULL) {
+		return false;
+	}
+
+	layer_collection_create_engine_settings(&lc_ref);
+	layer_collection_create_mode_settings(&lc_ref);
+
+	if (scene_layer_doversion_is_outdated_engines(&lc->engine_settings, &lc_ref.engine_settings)) {
+		is_outdated = true;
+	}
+
+	if (scene_layer_doversion_is_outdated_engines(&lc->mode_settings, &lc_ref.mode_settings)) {
+		is_outdated = true;
+	}
+
+	layer_collection_engine_settings_free(&lc_ref);
+	return is_outdated;
+}
+
+/**
+ * Handle doversion of files during the viewport development
+ *
+ * This is intended to prevent subversion bumping every time a new property
+ * is added to an engine, but it may be relevant in the future as a generic doversion
+ */
+void BKE_scene_layer_doversion_update(Main *bmain)
+{
+	/* if file not outdated, don't bother with the slow merging */
+	if (scene_layer_doversion_is_outdated(bmain) == false) {
+		return;
+	}
+
+	/* create a reference LayerCollection to merge missing settings from */
+	LayerCollection lc_ref = {NULL};
+	layer_collection_create_engine_settings(&lc_ref);
+	layer_collection_create_mode_settings(&lc_ref);
+
+	/* bring all the missing properties for the LayerCollections */
+	for (Scene *scene = bmain->scene.first; scene; scene = scene->id.next) {
+		scene_layer_doversion_update(&lc_ref, scene);
+	}
+
+	layer_collection_engine_settings_free(&lc_ref);
 }
