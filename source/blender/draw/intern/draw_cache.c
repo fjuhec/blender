@@ -48,8 +48,10 @@ static struct DRWShapeCache{
 	Batch *drw_empty_sphere;
 	Batch *drw_empty_cone;
 	Batch *drw_arrows;
+	Batch *drw_axis_names;
 	Batch *drw_lamp;
 	Batch *drw_lamp_sunrays;
+	Batch *drw_speaker;
 } SHC = {NULL};
 
 void DRW_shape_cache_free(void)
@@ -74,10 +76,14 @@ void DRW_shape_cache_free(void)
 		Batch_discard_all(SHC.drw_empty_cone);
 	if (SHC.drw_arrows)
 		Batch_discard_all(SHC.drw_arrows);
+	if (SHC.drw_axis_names)
+		Batch_discard_all(SHC.drw_axis_names);
 	if (SHC.drw_lamp)
 		Batch_discard_all(SHC.drw_lamp);
 	if (SHC.drw_lamp_sunrays)
 		Batch_discard_all(SHC.drw_lamp_sunrays);
+	if (SHC.drw_speaker)
+		Batch_discard_all(SHC.drw_speaker);
 }
 
 /* Quads */
@@ -167,13 +173,13 @@ Batch *DRW_cache_circle_get(void)
 
 		for (int a = 0; a < CIRCLE_RESOL; a++) {
 			v[0] = sinf((2.0f * M_PI * a) / ((float)CIRCLE_RESOL));
-			v[1] = cosf((2.0f * M_PI * a) / ((float)CIRCLE_RESOL));
-			v[2] = 0.0f;
+			v[2] = cosf((2.0f * M_PI * a) / ((float)CIRCLE_RESOL));
+			v[1] = 0.0f;
 			setAttrib(vbo, pos_id, a * 2, v);
 
 			v[0] = sinf((2.0f * M_PI * (a + 1)) / ((float)CIRCLE_RESOL));
-			v[1] = cosf((2.0f * M_PI * (a + 1)) / ((float)CIRCLE_RESOL));
-			v[2] = 0.0f;
+			v[2] = cosf((2.0f * M_PI * (a + 1)) / ((float)CIRCLE_RESOL));
+			v[1] = 0.0f;
 			setAttrib(vbo, pos_id, a * 2 + 1, v);
 		}
 
@@ -245,7 +251,7 @@ Batch *DRW_cache_plain_axes_get(void)
 Batch *DRW_cache_single_arrow_get(void)
 {
 	if (!SHC.drw_single_arrow) {
-		float v1[3] = {0.0f, 0.0f, 0.0f}, v2[3], v3[3];
+		float v1[3] = {0.0f, 0.0f, 1.0f}, v2[3], v3[3];
 
 		/* Position Only 3D format */
 		static VertexFormat format = { 0 };
@@ -420,6 +426,67 @@ Batch *DRW_cache_arrows_get(void)
 	return SHC.drw_arrows;
 }
 
+Batch *DRW_cache_axis_names_get(void)
+{
+	if (!SHC.drw_axis_names) {
+		const float size = 0.1f;
+		float v1[3], v2[3];
+
+		/* Position Only 3D format */
+		static VertexFormat format = { 0 };
+		static unsigned pos_id;
+		if (format.attrib_ct == 0) {
+			/* Using 3rd component as axis indicator */
+			pos_id = add_attrib(&format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
+		}
+
+		/* Line */
+		VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
+		VertexBuffer_allocate_data(vbo, 14);
+
+		/* X */
+		copy_v3_fl3(v1, -size,  size, 0.0f);
+		copy_v3_fl3(v2,  size, -size, 0.0f);
+		setAttrib(vbo, pos_id, 0, v1);
+		setAttrib(vbo, pos_id, 1, v2);
+
+		copy_v3_fl3(v1,  size,  size, 0.0f);
+		copy_v3_fl3(v2, -size, -size, 0.0f);
+		setAttrib(vbo, pos_id, 2, v1);
+		setAttrib(vbo, pos_id, 3, v2);
+
+		/* Y */
+		copy_v3_fl3(v1, -size + 0.25f * size,  size, 1.0f);
+		copy_v3_fl3(v2,  0.0f,  0.0f, 1.0f);
+		setAttrib(vbo, pos_id, 4, v1);
+		setAttrib(vbo, pos_id, 5, v2);
+
+		copy_v3_fl3(v1,  size - 0.25f * size,  size, 1.0f);
+		copy_v3_fl3(v2, -size + 0.25f * size, -size, 1.0f);
+		setAttrib(vbo, pos_id, 6, v1);
+		setAttrib(vbo, pos_id, 7, v2);
+
+		/* Z */
+		copy_v3_fl3(v1, -size,  size, 2.0f);
+		copy_v3_fl3(v2,  size,  size, 2.0f);
+		setAttrib(vbo, pos_id, 8, v1);
+		setAttrib(vbo, pos_id, 9, v2);
+
+		copy_v3_fl3(v1,  size,  size, 2.0f);
+		copy_v3_fl3(v2, -size, -size, 2.0f);
+		setAttrib(vbo, pos_id, 10, v1);
+		setAttrib(vbo, pos_id, 11, v2);
+
+		copy_v3_fl3(v1, -size, -size, 2.0f);
+		copy_v3_fl3(v2,  size, -size, 2.0f);
+		setAttrib(vbo, pos_id, 12, v1);
+		setAttrib(vbo, pos_id, 13, v2);
+
+		SHC.drw_axis_names = Batch_create(GL_LINES, vbo, NULL);
+	}
+	return SHC.drw_axis_names;
+}
+
 /* Lamps */
 Batch *DRW_cache_lamp_get(void)
 {
@@ -484,6 +551,64 @@ Batch *DRW_cache_lamp_sunrays_get(void)
 	return SHC.drw_lamp_sunrays;
 }
 
+/* Speaker */
+Batch *DRW_cache_speaker_get(void)
+{
+	if (!SHC.drw_speaker) {
+		float v[3];
+		const int segments = 16;
+		int vidx = 0;
+
+		/* Position Only 3D format */
+		static VertexFormat format = { 0 };
+		static unsigned pos_id;
+		if (format.attrib_ct == 0) {
+			pos_id = add_attrib(&format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
+		}
+
+		VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
+		VertexBuffer_allocate_data(vbo, 3 * segments * 2 + 4 * 4);
+
+		for (int j = 0; j < 3; j++) {
+			float z = 0.25f * j - 0.125f;
+			float r = (j == 0 ? 0.5f : 0.25f);
+
+			copy_v3_fl3(v, r, 0.0f, z);
+			setAttrib(vbo, pos_id, vidx++, v);
+			for (int i = 1; i < segments; i++) {
+				float x = cosf(2.f * (float)M_PI * i / segments) * r;
+				float y = sinf(2.f * (float)M_PI * i / segments) * r;
+				copy_v3_fl3(v, x, y, z);
+				setAttrib(vbo, pos_id, vidx++, v);
+				setAttrib(vbo, pos_id, vidx++, v);
+			}
+			copy_v3_fl3(v, r, 0.0f, z);
+			setAttrib(vbo, pos_id, vidx++, v);
+		}
+
+		for (int j = 0; j < 4; j++) {
+			float x = (((j + 1) % 2) * (j - 1)) * 0.5f;
+			float y = ((j % 2) * (j - 2)) * 0.5f;
+			for (int i = 0; i < 3; i++) {
+				if (i == 1) {
+					x *= 0.5f;
+					y *= 0.5f;
+				}
+
+				float z = 0.25f * i - 0.125f;
+				copy_v3_fl3(v, x, y, z);
+				setAttrib(vbo, pos_id, vidx++, v);
+				if (i == 1) {
+					setAttrib(vbo, pos_id, vidx++, v);
+				}
+			}
+		}
+
+		SHC.drw_speaker = Batch_create(GL_LINES, vbo, NULL);
+	}
+	return SHC.drw_speaker;
+}
+
 
 /* Object Center */
 Batch *DRW_cache_single_vert_get(void)
@@ -543,7 +668,7 @@ Batch *DRW_cache_surface_get(Object *ob)
 	BLI_assert(ob->type == OB_MESH);
 
 	Mesh *me = ob->data;
-	surface = BKE_mesh_batch_cache_get_all_triangles(me);
+	surface = BKE_mesh_batch_cache_get_triangles_with_normals(me);
 
 	return surface;
 }

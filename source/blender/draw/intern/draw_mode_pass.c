@@ -48,6 +48,10 @@ static DRWShadingGroup *cone;
 static DRWShadingGroup *single_arrow;
 static DRWShadingGroup *single_arrow_line;
 static DRWShadingGroup *arrows;
+static DRWShadingGroup *axis_names;
+
+/* Speaker */
+static DRWShadingGroup *speaker;
 
 /* Lamps */
 static DRWShadingGroup *lamp_center;
@@ -130,6 +134,19 @@ static DRWShadingGroup *shgroup_instance_screenspace(DRWPass *pass, struct Batch
 	return grp;
 }
 
+static DRWShadingGroup *shgroup_instance_axis_names(DRWPass *pass, struct Batch *geom)
+{
+	GPUShader *sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_SCREENSPACE_AXIS);
+
+	DRWShadingGroup *grp = DRW_shgroup_instance_create(sh, pass, geom);
+	DRW_shgroup_attrib_float(grp, "color", 3);
+	DRW_shgroup_attrib_float(grp, "size", 1);
+	DRW_shgroup_attrib_float(grp, "InstanceModelMatrix", 16);
+	DRW_shgroup_uniform_vec3(grp, "screen_vecs", DRW_viewport_screenvecs_get(), 2);
+
+	return grp;
+}
+
 static DRWShadingGroup *shgroup_instance(DRWPass *pass, struct Batch *geom)
 {
 	GPUShader *sh_inst = GPU_shader_get_builtin_shader(GPU_SHADER_INSTANCE_VARIYING_COLOR_VARIYING_SIZE);
@@ -208,8 +225,15 @@ void DRW_pass_setup_common(DRWPass **wire_overlay, DRWPass **wire_outline, DRWPa
 		geom = DRW_cache_single_line_get();
 		single_arrow_line = shgroup_instance(*non_meshes, geom);
 
-		geom = DRW_cache_single_arrow_get();
+		geom = DRW_cache_arrows_get();
 		arrows = shgroup_instance(*non_meshes, geom);
+
+		geom = DRW_cache_axis_names_get();
+		axis_names = shgroup_instance_axis_names(*non_meshes, geom);
+
+		/* Speaker */
+		geom = DRW_cache_speaker_get();
+		speaker = shgroup_instance(*non_meshes, geom);
 
 		/* Lamps */
 		lampCenterSize = (U.obcenter_dia + 1.5f) * U.pixelsize;
@@ -230,16 +254,6 @@ void DRW_pass_setup_common(DRWPass **wire_overlay, DRWPass **wire_outline, DRWPa
 
 		lamp_groundline = shgroup_groundlines_uniform_color(*non_meshes, colorLamp);
 		lamp_groundpoint = shgroup_groundpoints_uniform_color(*non_meshes, colorLamp);
-
-		/* Stipple Wires */
-		grp = DRW_shgroup_create(sh, *non_meshes);
-		DRW_shgroup_state_set(grp, DRW_STATE_STIPPLE_2);
-
-		grp = DRW_shgroup_create(sh, *non_meshes);
-		DRW_shgroup_state_set(grp, DRW_STATE_STIPPLE_3);
-
-		grp = DRW_shgroup_create(sh, *non_meshes);
-		DRW_shgroup_state_set(grp, DRW_STATE_STIPPLE_4);
 
 		/* Relationship Lines */
 		relationship_lines = shgroup_dynlines_uniform_color(*non_meshes, colorWire);
@@ -502,9 +516,19 @@ static void DRW_draw_empty(Object *ob)
 			break;
 		case OB_ARROWS:
 			DRW_shgroup_dynamic_call_add(arrows, color, &ob->empty_drawsize, ob->obmat);
+			DRW_shgroup_dynamic_call_add(axis_names, color, &ob->empty_drawsize, ob->obmat);
 			/* TODO Missing axes names */
 			break;
 	}
+}
+
+static void DRW_draw_speaker(Object *ob)
+{
+	float *color;
+	static float one = 1.0f;
+	draw_object_wire_theme(ob, &color);
+
+	DRW_shgroup_dynamic_call_add(speaker, color, &one, ob->obmat);
 }
 
 void DRW_shgroup_non_meshes(DRWPass *UNUSED(non_meshes), Object *ob)
@@ -516,6 +540,10 @@ void DRW_shgroup_non_meshes(DRWPass *UNUSED(non_meshes), Object *ob)
 		case OB_CAMERA:
 		case OB_EMPTY:
 			DRW_draw_empty(ob);
+			break;
+		case OB_SPEAKER:
+			DRW_draw_speaker(ob);
+			break;
 		default:
 			break;
 	}

@@ -44,10 +44,14 @@ struct Batch *DRW_cache_circle_get(void);
 struct Batch *DRW_cache_empty_sphere_get(void);
 struct Batch *DRW_cache_empty_cone_get(void);
 struct Batch *DRW_cache_arrows_get(void);
+struct Batch *DRW_cache_axis_names_get(void);
 
 /* Lamps */
 struct Batch *DRW_cache_lamp_get(void);
 struct Batch *DRW_cache_lamp_sunrays_get(void);
+
+/* Speaker */
+struct Batch *DRW_cache_speaker_get(void);
 
 /* Meshes */
 struct Batch *DRW_cache_wire_overlay_get(struct Object *ob);
