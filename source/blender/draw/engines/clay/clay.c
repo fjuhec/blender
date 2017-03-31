@@ -117,13 +117,6 @@ typedef struct CLAY_TextureList {
 	struct GPUTexture *depth_dup;
 } CLAY_TextureList;
 
-/* for clarity follow the same layout as CLAY_TextureList */
-enum {
-	SCENE_COLOR,
-	SCENE_DEPTH,
-	SCENE_DEPTH_DUP,
-};
-
 /* keep it under MAX_PASSES */
 typedef struct CLAY_PassList {
 	struct DRWPass *depth_pass;
@@ -438,9 +431,10 @@ static DRWShadingGroup *CLAY_shgroup_create(DRWPass *pass, int *material_id)
 	const int depthloc = 0, matcaploc = 1, jitterloc = 2, sampleloc = 3;
 
 	DRWShadingGroup *grp = DRW_shgroup_create(data.clay_sh, pass);
+	CLAY_TextureList *txl = DRW_engine_texture_list_get();
 
 	DRW_shgroup_uniform_vec2(grp, "screenres", DRW_viewport_size_get(), 1);
-	DRW_shgroup_uniform_buffer(grp, "depthtex", SCENE_DEPTH_DUP, depthloc);
+	DRW_shgroup_uniform_buffer(grp, "depthtex", &txl->depth_dup, depthloc);
 	DRW_shgroup_uniform_texture(grp, "matcaps", data.matcap_array, matcaploc);
 	DRW_shgroup_uniform_mat4(grp, "WinMatrix", (float *)data.winmat);
 	DRW_shgroup_uniform_vec4(grp, "viewvecs", (float *)data.viewvecs, 3);
@@ -695,6 +689,7 @@ static void CLAY_view_draw(RenderEngine *UNUSED(engine), const bContext *context
 	CLAY_FramebufferList *fbl = DRW_engine_framebuffer_list_get();
 
 	CLAY_engine_init();
+	DRW_mode_init();
 
 	/* TODO : tag to refresh by the deps graph */
 	/* ideally only refresh when objects are added/removed */
