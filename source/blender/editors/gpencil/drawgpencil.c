@@ -742,7 +742,6 @@ static void gp_draw_stroke_3d(ARegion *ar, const bGPDspoint *points, int totpoin
 		cyclic_add += 2;
 	}
 
-
 	VertexFormat *format = immVertexFormat();
 	unsigned pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
 	unsigned color = add_attrib(format, "color", GL_UNSIGNED_BYTE, 4, NORMALIZE_INT_TO_FLOAT);
@@ -788,7 +787,6 @@ static void gp_draw_stroke_3d(ARegion *ar, const bGPDspoint *points, int totpoin
 			mul_v3_fl(fpt, -1.0f);
 			immVertex3fv(pos, fpt);
 		}
-
 		/* set point */
 		gp_set_point_varying_color(pt, ink, color);
 		immAttrib1f(thickattrib, max_ff(curpressure * thickness * scale, 1.0f));
@@ -800,7 +798,6 @@ static void gp_draw_stroke_3d(ARegion *ar, const bGPDspoint *points, int totpoin
 			copy_v3_v3(cyclic_fpt, fpt);
 			old_thickness = max_ff(curpressure * thickness * scale, 1.0f);
 		}
-
 		curpressure = pt->pressure;
 	}
 
