@@ -85,6 +85,8 @@
 #include "MEM_guardedalloc.h"
 
 #include "GPU_select.h"
+#include "GPU_immediate.h"
+#include "GPU_matrix.h"
 
 
 /* drawing flags */
@@ -595,8 +597,8 @@ bool gimbal_axis(Object *ob, float gmat[3][3])
 /* returns total items selected */
 static int calc_manipulator_stats(const bContext *C)
 {
-	const ScrArea *sa = CTX_wm_area(C);
-	const ARegion *ar = CTX_wm_region(C);
+	ScrArea *sa = CTX_wm_area(C);
+	ARegion *ar = CTX_wm_region(C);
 	Scene *scene = CTX_data_scene(C);
 	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *obedit = CTX_data_edit_object(C);
@@ -610,6 +612,8 @@ static int calc_manipulator_stats(const bContext *C)
 
 	/* transform widget matrix */
 	unit_m4(rv3d->twmat);
+
+	rv3d->twdrawflag = 0xFFFF;
 
 	/* transform widget centroid/center */
 	INIT_MINMAX(scene->twmin, scene->twmax);
@@ -696,7 +700,7 @@ static int calc_manipulator_stats(const bContext *C)
 			}
 		} /* end editmesh */
 		else if (obedit->type == OB_ARMATURE) {
-			const bArmature *arm = obedit->data;
+			bArmature *arm = obedit->data;
 			EditBone *ebo;
 
 			if ((v3d->around == V3D_AROUND_ACTIVE) && (ebo = arm->act_edbone)) {
@@ -745,7 +749,7 @@ static int calc_manipulator_stats(const bContext *C)
 				Nurb *nu;
 				BezTriple *bezt;
 				BPoint *bp;
-				const ListBase *nurbs = BKE_curve_editNurbs_get(cu);
+				ListBase *nurbs = BKE_curve_editNurbs_get(cu);
 
 				nu = nurbs->first;
 				while (nu) {
@@ -907,7 +911,6 @@ static int calc_manipulator_stats(const bContext *C)
 
 	/* global, local or normal orientation? */
 	if (ob && totsel && !is_gp_edit) {
-		float mat[3][3];
 
 		switch (v3d->twmode) {
 		
@@ -917,6 +920,7 @@ static int calc_manipulator_stats(const bContext *C)
 			}
 			case V3D_MANIP_GIMBAL:
 			{
+				float mat[3][3];
 				if (gimbal_axis(ob, mat)) {
 					copy_m4_m3(rv3d->twmat, mat);
 					break;
@@ -927,6 +931,7 @@ static int calc_manipulator_stats(const bContext *C)
 			case V3D_MANIP_NORMAL:
 			{
 				if (obedit || ob->mode & OB_MODE_POSE) {
+					float mat[3][3];
 					ED_getTransformOrientationMatrix(C, mat, v3d->around);
 					copy_m4_m3(rv3d->twmat, mat);
 					break;
@@ -941,6 +946,7 @@ static int calc_manipulator_stats(const bContext *C)
 					 * use the active pones axis for display [#33575], this works as expected on a single bone
 					 * and users who select many bones will understand whats going on and what local means
 					 * when they start transforming */
+					float mat[3][3];
 					ED_getTransformOrientationMatrix(C, mat, v3d->around);
 					copy_m4_m3(rv3d->twmat, mat);
 					break;
@@ -951,6 +957,7 @@ static int calc_manipulator_stats(const bContext *C)
 			}
 			case V3D_MANIP_VIEW:
 			{
+				float mat[3][3];
 				copy_m3_m4(mat, rv3d->viewinv);
 				normalize_m3(mat);
 				copy_m4_m3(rv3d->twmat, mat);
@@ -958,6 +965,7 @@ static int calc_manipulator_stats(const bContext *C)
 			}
 			default: /* V3D_MANIP_CUSTOM */
 			{
+				float mat[3][3];
 				if (applyTransformOrientation(C, mat, NULL, v3d->twmode - V3D_MANIP_CUSTOM)) {
 					copy_m4_m3(rv3d->twmat, mat);
 				}
