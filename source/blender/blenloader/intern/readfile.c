@@ -6459,7 +6459,6 @@ static void lib_link_screen(FileData *fd, Main *main)
 							ads->source = newlibadr(fd, sc->id.lib, ads->source);
 							ads->filter_grp = newlibadr(fd, sc->id.lib, ads->filter_grp);
 						}
-						sipo->backdrop_camera = newlibadr(fd, sc->id.lib, sipo->backdrop_camera);
 					}
 					else if (sl->spacetype == SPACE_BUTS) {
 						SpaceButs *sbuts = (SpaceButs *)sl;
@@ -6806,7 +6805,6 @@ void blo_lib_link_screen_restore(Main *newmain, bScreen *curscreen, Scene *cursc
 						if (ads->filter_grp)
 							ads->filter_grp = restore_pointer_by_name(id_map, (ID *)ads->filter_grp, USER_IGNORE);
 					}
-					sipo->backdrop_camera = restore_pointer_by_name(id_map, (ID *)sipo->backdrop_camera, USER_IGNORE);
 					
 					/* force recalc of list of channels (i.e. includes calculating F-Curve colors)
 					 * thus preventing the "black curves" problem post-undo

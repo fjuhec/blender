@@ -306,7 +306,7 @@ static SpaceLink *node_new(const bContext *UNUSED(C))
 	snode->flag = SNODE_SHOW_GPENCIL | SNODE_USE_ALPHA;
 
 	/* backdrop */
-	snode->backdrop_zoom = 1.0f;
+	snode->zoom = 1.0f;
 
 	/* select the first tree type for valid type */
 	NODE_TREE_TYPES_BEGIN (treetype)

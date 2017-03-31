@@ -705,10 +705,9 @@ static void node_draw_preview(bNodePreview *preview, rctf *prv)
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);  /* premul graphics */
 	
-	glColor4f(1.0, 1.0, 1.0, 1.0);
-	glPixelZoom(scale, scale);
-	glaDrawPixelsTex(draw_rect.xmin, draw_rect.ymin, preview->xsize, preview->ysize, GL_RGBA, GL_UNSIGNED_BYTE, GL_LINEAR, preview->rect);
-	glPixelZoom(1.0f, 1.0f);
+	immDrawPixelsTexSetup(GPU_SHADER_2D_IMAGE_COLOR);
+	immDrawPixelsTex(draw_rect.xmin, draw_rect.ymin, preview->xsize, preview->ysize, GL_RGBA, GL_UNSIGNED_BYTE, GL_LINEAR, preview->rect,
+	                 scale, scale, NULL);
 	
 	glDisable(GL_BLEND);
 

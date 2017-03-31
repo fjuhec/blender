@@ -3092,10 +3092,6 @@ static void write_screens(WriteData *wd, ListBase *scrbase)
 						writestruct(wd, DATA, bDopeSheet, 1, sipo->ads);
 					}
 
-					if (sipo->backdrop_camera) {
-						writestruct(wd, DATA, Object, 1, sipo->backdrop_camera);
-					}
-
 					/* reenable ghost curves */
 					sipo->ghostCurves = tmpGhosts;
 				}
