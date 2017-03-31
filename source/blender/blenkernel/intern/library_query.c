@@ -143,6 +143,37 @@ typedef struct LibraryForeachIDData {
 	BLI_LINKSTACK_DECLARE(ids_todo, ID *);
 } LibraryForeachIDData;
 
+static void library_foreach_idproperty_ID_link(LibraryForeachIDData *data, IDProperty *prop, int flag)
+{
+	if (!prop)
+		return;
+
+	switch (prop->type) {
+		case IDP_GROUP:
+		{
+			for (IDProperty *loop = prop->data.group.first; loop; loop = loop->next) {
+				library_foreach_idproperty_ID_link(data, loop, flag);
+			}
+			break;
+		}
+		case IDP_IDPARRAY:
+		{
+			IDProperty *loop = IDP_Array(prop);
+			for (int i = 0; i < prop->len; i++) {
+				library_foreach_idproperty_ID_link(data, &loop[i], flag);
+			}
+			break;
+		}
+		case IDP_ID:
+			FOREACH_CALLBACK_INVOKE_ID(data, prop->data.pointer, flag);
+			break;
+		default:
+			break;  /* Nothing to do here with other types of IDProperties... */
+	}
+
+	FOREACH_FINALIZE_VOID;
+}
+
 static void library_foreach_rigidbodyworldSceneLooper(
         struct RigidBodyWorld *UNUSED(rbw), ID **id_pointer, void *user_data, int cb_flag)
 {
@@ -268,6 +299,17 @@ static void library_foreach_paint(LibraryForeachIDData *data, Paint *paint)
 	FOREACH_FINALIZE_VOID;
 }
 
+static void library_foreach_bone(LibraryForeachIDData *data, Bone *bone)
+{
+	library_foreach_idproperty_ID_link(data, bone->prop, IDWALK_CB_USER);
+
+	for (Bone *curbone = bone->childbase.first; curbone; curbone = curbone->next) {
+		library_foreach_bone(data, curbone);
+	}
+
+	FOREACH_FINALIZE_VOID;
+}
+
 static void library_foreach_ID_as_subdata_link(
         ID **id_pp, LibraryIDLinkCallback callback, void *user_data, int flag, LibraryForeachIDData *data)
 {
@@ -286,37 +328,6 @@ static void library_foreach_ID_as_subdata_link(
 	}
 	else {
 		BKE_library_foreach_ID_link(NULL, id, callback, user_data, flag);
-	}
-
-	FOREACH_FINALIZE_VOID;
-}
-
-static void library_foreach_idproperty_ID_link(LibraryForeachIDData *data, IDProperty *prop, int flag)
-{
-	if (!prop)
-		return;
-
-	switch (prop->type) {
-		case IDP_GROUP:
-		{
-			for (IDProperty *loop = prop->data.group.first; loop; loop = loop->next) {
-				library_foreach_idproperty_ID_link(data, loop, flag);
-			}
-			break;
-		}
-		case IDP_IDPARRAY:
-		{
-			IDProperty *loop = IDP_Array(prop);
-			for (int i = 0; i < prop->len; i++) {
-				library_foreach_idproperty_ID_link(data, &loop[i], flag);
-			}
-			break;
-		}
-		case IDP_ID:
-			FOREACH_CALLBACK_INVOKE_ID(data, prop->data.pointer, flag);
-			break;
-		default:
-			break;  /* Nothing to do here with other types of IDProperties... */
 	}
 
 	FOREACH_FINALIZE_VOID;
@@ -371,7 +382,7 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 			continue;
 		}
 
-		library_foreach_idproperty_ID_link(&data, id->properties, data.flag | IDWALK_CB_USER);
+		library_foreach_idproperty_ID_link(&data, id->properties, IDWALK_CB_USER);
 
 		AnimData *adt = BKE_animdata_from_id(id);
 		if (adt) {
@@ -551,6 +562,7 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 
 					data.cb_flag |= proxy_cb_flag;
 					for (pchan = object->pose->chanbase.first; pchan; pchan = pchan->next) {
+						library_foreach_idproperty_ID_link(&data, pchan->prop, IDWALK_CB_USER);
 						CALLBACK_INVOKE(pchan->custom, IDWALK_CB_USER);
 						BKE_constraints_id_loop(&pchan->constraints, library_foreach_constraintObjectLooper, &data);
 					}
@@ -595,7 +607,7 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 				bArmature *arm = (bArmature *)id;
 
 				for (Bone *bone = arm->bonebase.first; bone; bone = bone->next) {
-					library_foreach_idproperty_ID_link(&data, bone->prop, IDWALK_CB_USER);
+					library_foreach_bone(&data, bone);
 				}
 				break;
 			}

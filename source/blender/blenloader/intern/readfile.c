@@ -2150,7 +2150,7 @@ static void IDP_LibLinkProperty(IDProperty *prop, FileData *fd)
 		}
 		case IDP_IDPARRAY: /* CollectionProperty */
 		{
-			IDProperty *idp_array = IDP_Array(prop);
+			IDProperty *idp_array = IDP_IDPArray(prop);
 			for (int i = 0; i < prop->len; i++) {
 				IDP_LibLinkProperty(&(idp_array[i]), fd);
 			}
@@ -2776,13 +2776,6 @@ static void direct_link_motionpath(FileData *fd, bMotionPath *mpath)
 
 /* ************ READ NODE TREE *************** */
 
-static void lib_link_node_socket(FileData *fd, ID *UNUSED(id), bNodeSocket *sock)
-{
-	/* Link ID Properties -- and copy this comment EXACTLY for easy finding
-	 * of library blocks that implement this.*/
-	IDP_LibLinkProperty(sock->prop, fd);
-}
-
 /* Single node tree (also used for material/scene trees), ntree is not NULL */
 static void lib_link_ntree(FileData *fd, ID *id, bNodeTree *ntree)
 {
@@ -2803,21 +2796,17 @@ static void lib_link_ntree(FileData *fd, ID *id, bNodeTree *ntree)
 
 		for (sock = node->inputs.first; sock; sock = sock->next) {
 			IDP_LibLinkProperty(sock->prop, fd);
-			lib_link_node_socket(fd, id, sock);
 		}
 		for (sock = node->outputs.first; sock; sock = sock->next) {
 			IDP_LibLinkProperty(sock->prop, fd);
-			lib_link_node_socket(fd, id, sock);
 		}
 	}
 	
 	for (sock = ntree->inputs.first; sock; sock = sock->next) {
 		IDP_LibLinkProperty(sock->prop, fd);
-		lib_link_node_socket(fd, id, sock);
 	}
 	for (sock = ntree->outputs.first; sock; sock = sock->next) {
 		IDP_LibLinkProperty(sock->prop, fd);
-		lib_link_node_socket(fd, id, sock);
 	}
 }
 
@@ -3321,7 +3310,9 @@ static void lib_link_pose(FileData *fd, Main *bmain, Object *ob, bPose *pose)
 		lib_link_constraints(fd, (ID *)ob, &pchan->constraints);
 
 		pchan->bone = BLI_ghash_lookup(bone_hash, pchan->name);
-		
+
+		IDP_LibLinkProperty(pchan->prop, fd);
+
 		pchan->custom = newlibadr_us(fd, arm->id.lib, pchan->custom);
 		if (UNLIKELY(pchan->bone == NULL)) {
 			rebuild = true;
@@ -3342,6 +3333,15 @@ static void lib_link_pose(FileData *fd, Main *bmain, Object *ob, bPose *pose)
 	}
 }
 
+static void lib_link_bones(FileData *fd, Bone *bone)
+{
+	IDP_LibLinkProperty(bone->prop, fd);
+
+	for (Bone *curbone = bone->childbase.first; curbone; curbone = curbone->next) {
+		lib_link_bones(fd, curbone);
+	}
+}
+
 static void lib_link_armature(FileData *fd, Main *main)
 {
 	for (bArmature *arm = main->armature.first; arm; arm = arm->id.next) {
@@ -3349,8 +3349,8 @@ static void lib_link_armature(FileData *fd, Main *main)
 			IDP_LibLinkProperty(arm->id.properties, fd);
 			lib_link_animdata(fd, &arm->id, arm->adt);
 
-			for (Bone *bone = arm->bonebase.first; bone; bone = bone->next) {
-				IDP_LibLinkProperty(bone->prop, fd);
+			for (Bone *curbone = arm->bonebase.first; curbone; curbone = curbone->next) {
+				lib_link_bones(fd, curbone);
 			}
 
 			arm->id.tag &= ~LIB_TAG_NEED_LINK;
@@ -8939,29 +8939,28 @@ static void expand_constraint_channels(FileData *fd, Main *mainvar, ListBase *ch
 	}
 }
 
-static void expand_idprops(FileData *fd, Main *mainvar, IDProperty *idprop)
+static void expand_idprops(FileData *fd, Main *mainvar, IDProperty *prop)
 {
-	IDProperty *loop;
-	IDProperty *idp_loop;
+	if (!prop)
+		return;
 
-	if (!idprop) return;
-	BLI_assert(idprop->type == IDP_GROUP);
-
-	for (loop = idprop->data.group.first; loop; loop = loop->next) {
-		switch (loop->type)
+	switch (prop->type) {
+		case IDP_ID:
+			expand_doit(fd, mainvar, IDP_Id(prop));
+			break;
+		case IDP_IDPARRAY:
 		{
-			case IDP_ID:
-				expand_doit(fd, mainvar, IDP_Id(loop));
-				break;
-			case IDP_IDPARRAY:
-				idp_loop = IDP_Array(loop);
-				for (int i = 0; i < loop->len; i++)
-					expand_idprops(fd, mainvar, &idp_loop[i]);
-				break;
-			case IDP_GROUP:
-				expand_idprops(fd, mainvar, loop);
-				break;
+			IDProperty *idp_array = IDP_IDPArray(prop);
+			for (int i = 0; i < prop->len; i++) {
+				expand_idprops(fd, mainvar, &idp_array[i]);
+			}
+			break;
 		}
+		case IDP_GROUP:
+			for (IDProperty *loop = prop->data.group.first; loop; loop = loop->next) {
+				expand_idprops(fd, mainvar, loop);
+			}
+			break;
 	}
 }
 
@@ -9171,6 +9170,10 @@ static void expand_nodetree(FileData *fd, Main *mainvar, bNodeTree *ntree)
 		}
 	}
 
+	for (sock = ntree->inputs.first; sock; sock = sock->next)
+		expand_doit(fd, mainvar, sock->prop);
+	for (sock = ntree->outputs.first; sock; sock = sock->next)
+		expand_doit(fd, mainvar, sock->prop);
 }
 
 static void expand_texture(FileData *fd, Main *mainvar, Tex *tex)
@@ -9388,17 +9391,6 @@ static void expand_constraints(FileData *fd, Main *mainvar, ListBase *lb)
 	}
 }
 
-#if 0 /* Disabled as it doesn't actually do anything except recurse... */
-static void expand_bones(FileData *fd, Main *mainvar, Bone *bone)
-{
-	Bone *curBone;
-	
-	for (curBone = bone->childbase.first; curBone; curBone=curBone->next) {
-		expand_bones(fd, mainvar, curBone);
-	}
-}
-#endif
-
 static void expand_pose(FileData *fd, Main *mainvar, bPose *pose)
 {
 	bPoseChannel *chan;
@@ -9413,20 +9405,23 @@ static void expand_pose(FileData *fd, Main *mainvar, bPose *pose)
 	}
 }
 
+static void expand_bones(FileData *fd, Main *mainvar, Bone *bone)
+{
+	expand_idprops(fd, mainvar, bone->prop);
+
+	for (Bone *curBone = bone->childbase.first; curBone; curBone = curBone->next) {
+		expand_bones(fd, mainvar, curBone);
+	}
+}
+
 static void expand_armature(FileData *fd, Main *mainvar, bArmature *arm)
-{	
+{
 	if (arm->adt)
 		expand_animdata(fd, mainvar, arm->adt);
-	
-#if 0 /* Disabled as this currently only recurses down the chain doing nothing */
-	{
-		Bone *curBone;
-		
-		for (curBone = arm->bonebase.first; curBone; curBone=curBone->next) {
-			expand_bones(fd, mainvar, curBone);
-		}
+
+	for (Bone *curBone = arm->bonebase.first; curBone; curBone = curBone->next) {
+		expand_bones(fd, mainvar, curBone);
 	}
-#endif
 }
 
 static void expand_object_expandModifiers(
