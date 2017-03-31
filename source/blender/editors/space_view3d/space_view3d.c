@@ -55,6 +55,7 @@
 #include "BKE_key.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
+#include "BKE_mesh_render.h"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
 #include "BKE_scene.h"
@@ -918,6 +919,7 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 				case ND_CONSTRAINT:
 				case ND_KEYS:
 				case ND_PARTICLE:
+				case ND_POINTCACHE:
 				case ND_LOD:
 					ED_region_tag_redraw(ar);
 					WM_manipulatormap_tag_refresh(mmap);
