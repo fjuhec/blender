@@ -654,7 +654,6 @@ static StructRNA *rna_AddonPref_register(Main *bmain, ReportList *reports, void 
 	apt->ext.call = call;
 	apt->ext.free = free;
 	RNA_struct_blender_type_set(apt->ext.srna, apt);
-	RNA_def_struct_flag(apt->ext.srna, STRUCT_NO_DATABLOCK_IDPROPERTIES);
 
 //	apt->draw = (have_function[0]) ? header_draw : NULL;
 
@@ -3157,6 +3156,7 @@ static void rna_def_userdef_addon_pref(BlenderRNA *brna)
 	RNA_def_struct_refine_func(srna, "rna_AddonPref_refine");
 	RNA_def_struct_register_funcs(srna, "rna_AddonPref_register", "rna_AddonPref_unregister", NULL);
 	RNA_def_struct_idprops_func(srna, "rna_AddonPref_idprops");
+	RNA_def_struct_flag(srna, STRUCT_NO_DATABLOCK_IDPROPERTIES);  /* Mandatory! */
 
 	/* registration */
 	RNA_define_verify_sdna(0);
