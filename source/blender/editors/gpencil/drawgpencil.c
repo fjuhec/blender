@@ -753,10 +753,7 @@ static void gp_draw_stroke_3d(ARegion *ar, const bGPDspoint *points, int totpoin
 	glLineWidth(max_ff(curpressure * thickness, 1.0f));
 	immBeginAtMost(PRIM_LINE_STRIP_ADJACENCY, totpoints + cyclic_add + 2);
 	const bGPDspoint *pt = points;
-	const bGPDspoint *pta = &points[0];
-	const bGPDspoint *ptb = &points[totpoints - 1];
 	float scale = 1.0f;
-	float b = 0.0f;
 
 	/* take first segment and create a normalize vector */
 	sub_v3_v3v3(fpt, &points->x, &(points + 1)->x);
@@ -765,7 +762,7 @@ static void gp_draw_stroke_3d(ARegion *ar, const bGPDspoint *points, int totpoin
 
 	/* get the length after apply matrix to get real size */
 	mul_v3_m4v3(fpt, viewmat, fpt);
-	b = len_v3(fpt);
+	float b = len_v3(fpt);
 	
 	/* get thickness scale */
 	if (rv3d->is_persp) {
@@ -778,7 +775,7 @@ static void gp_draw_stroke_3d(ARegion *ar, const bGPDspoint *points, int totpoin
 	for (int i = 0; i < totpoints; i++, pt++) {
 		/* first point for adjacency (not drawn) */
 		if (i == 0) {
-			gp_set_point_varying_color(pta, ink, color);
+			gp_set_point_varying_color(points, ink, color);
 			immAttrib1f(thickattrib, max_ff(curpressure * thickness * scale, 1.0f));
 			mul_v3_m4v3(fpt, diff_mat, &(points + 1)->x);
 			mul_v3_fl(fpt, -1.0f);
@@ -814,7 +811,7 @@ static void gp_draw_stroke_3d(ARegion *ar, const bGPDspoint *points, int totpoin
 	}
 	/* last adjacency point (not drawn) */
 	else {
-		gp_set_point_varying_color(ptb, ink, color);
+		gp_set_point_varying_color(points + totpoints - 1, ink, color);
 		immAttrib1f(thickattrib, max_ff(curpressure * thickness * scale, 1.0f));
 		mul_v3_m4v3(fpt, diff_mat, &(points + totpoints - 2)->x);
 		mul_v3_fl(fpt, -1.0f);
