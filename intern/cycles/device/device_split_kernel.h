@@ -58,13 +58,18 @@ private:
 	SplitKernelFunction *kernel_path_init;
 	SplitKernelFunction *kernel_scene_intersect;
 	SplitKernelFunction *kernel_lamp_emission;
+	SplitKernelFunction *kernel_do_volume;
 	SplitKernelFunction *kernel_queue_enqueue;
-	SplitKernelFunction *kernel_background_buffer_update;
+	SplitKernelFunction *kernel_indirect_background;
 	SplitKernelFunction *kernel_shader_eval;
 	SplitKernelFunction *kernel_holdout_emission_blurring_pathtermination_ao;
+	SplitKernelFunction *kernel_subsurface_scatter;
 	SplitKernelFunction *kernel_direct_lighting;
-	SplitKernelFunction *kernel_shadow_blocked;
+	SplitKernelFunction *kernel_shadow_blocked_ao;
+	SplitKernelFunction *kernel_shadow_blocked_dl;
 	SplitKernelFunction *kernel_next_iteration_setup;
+	SplitKernelFunction *kernel_indirect_subsurface;
+	SplitKernelFunction *kernel_buffer_update;
 
 	/* Global memory variables [porting]; These memory is used for
 	 * co-operation between different kernels; Data written by one
@@ -100,8 +105,8 @@ public:
 	                device_memory& kgbuffer,
 	                device_memory& kernel_data);
 
-	virtual size_t state_buffer_size(device_memory& kg, device_memory& data, size_t num_threads) = 0;
-	size_t max_elements_for_max_buffer_size(device_memory& kg, device_memory& data, size_t max_buffer_size);
+	virtual uint64_t state_buffer_size(device_memory& kg, device_memory& data, size_t num_threads) = 0;
+	size_t max_elements_for_max_buffer_size(device_memory& kg, device_memory& data, uint64_t max_buffer_size);
 
 	virtual bool enqueue_split_kernel_data_init(const KernelDimensions& dim,
 	                                            RenderTile& rtile,

@@ -664,7 +664,8 @@ bool BKE_layer_collection_move_above(const Scene *scene, LayerCollection *lc_dst
 	else if (is_directly_linked_dst) {
 		/* Both directly linked to the SceneLayer, just need to swap */
 		if (is_directly_linked_src) {
-			BLI_listbase_swaplinks(&sl->layer_collections, lc_src, lc_dst);
+			BLI_remlink(&sl->layer_collections, lc_src);
+			BLI_insertlinkbefore(&sl->layer_collections, lc_dst, lc_src);
 			return true;
 		}
 		else {
@@ -738,7 +739,8 @@ bool BKE_layer_collection_move_below(const Scene *scene, LayerCollection *lc_dst
 	else if (is_directly_linked_dst) {
 		/* Both directly linked to the SceneLayer, just need to swap */
 		if (is_directly_linked_src) {
-			BLI_listbase_swaplinks(&sl->layer_collections, lc_src, lc_dst);
+			BLI_remlink(&sl->layer_collections, lc_src);
+			BLI_insertlinkafter(&sl->layer_collections, lc_dst, lc_src);
 			return true;
 		}
 		else {
@@ -982,7 +984,7 @@ void BKE_layer_sync_new_scene_collection(Scene *scene, const SceneCollection *sc
 /**
  * Add a corresponding ObjectBase to all the equivalent LayerCollection
  */
-void BKE_layer_sync_object_link(Scene *scene, SceneCollection *sc, Object *ob)
+void BKE_layer_sync_object_link(const Scene *scene, SceneCollection *sc, Object *ob)
 {
 	for (SceneLayer *sl = scene->render_layers.first; sl; sl = sl->next) {
 		for (LayerCollection *lc = sl->layer_collections.first; lc; lc = lc->next) {
@@ -998,7 +1000,7 @@ void BKE_layer_sync_object_link(Scene *scene, SceneCollection *sc, Object *ob)
  * Remove the equivalent object base to all layers that have this collection
  * also remove all reference to ob in the filter_objects
  */
-void BKE_layer_sync_object_unlink(Scene *scene, SceneCollection *sc, Object *ob)
+void BKE_layer_sync_object_unlink(const Scene *scene, SceneCollection *sc, Object *ob)
 {
 	for (SceneLayer *sl = scene->render_layers.first; sl; sl = sl->next) {
 		for (LayerCollection *lc = sl->layer_collections.first; lc; lc = lc->next) {

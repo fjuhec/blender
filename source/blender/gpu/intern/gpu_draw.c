@@ -1728,6 +1728,8 @@ void GPU_begin_object_materials(
 	if (rv3d->rflag & RV3D_IS_GAME_ENGINE) {
 		ob = BKE_object_lod_matob_get(ob, sl);
 	}
+#else
+	UNUSED_VARS(sl);
 #endif
 
 	/* initialize state */
