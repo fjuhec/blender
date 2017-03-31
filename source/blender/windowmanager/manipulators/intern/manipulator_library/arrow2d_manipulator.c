@@ -74,7 +74,7 @@ static void arrow2d_draw_geom(ArrowManipulator2D *arrow, const float origin[2])
 	const float draw_line_ofs = (arrow->manipulator.line_width * 0.5f) / arrow->manipulator.scale;
 
 	glPushMatrix();
-	glTranslate2fv(origin);
+	glTranslatef(UNPACK2(origin), 0.0f);
 	glScalef(arrow->manipulator.scale, arrow->manipulator.scale, 0.0f);
 	glRotatef(RAD2DEGF(arrow->angle), 0.0f, 0.0f, 1.0f);
 	/* local offset */

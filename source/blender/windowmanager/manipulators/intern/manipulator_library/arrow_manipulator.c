@@ -222,7 +222,7 @@ static void arrow_draw_intern(ArrowManipulator *arrow, const bool select, const 
 
 	glColor4fv(col);
 	glEnable(GL_BLEND);
-	glTranslate3fv(arrow->manipulator.offset);
+	glTranslatef(UNPACK3(arrow->manipulator.offset));
 	arrow_draw_geom(arrow, select);
 	glDisable(GL_BLEND);
 
@@ -240,7 +240,7 @@ static void arrow_draw_intern(ArrowManipulator *arrow, const bool select, const 
 
 		glEnable(GL_BLEND);
 		glColor4f(0.5f, 0.5f, 0.5f, 0.5f);
-		glTranslate3fv(arrow->manipulator.offset);
+		glTranslatef(UNPACK3(arrow->manipulator.offset));
 		arrow_draw_geom(arrow, select);
 		glDisable(GL_BLEND);
 

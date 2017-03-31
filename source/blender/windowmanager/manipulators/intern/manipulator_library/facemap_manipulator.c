@@ -76,7 +76,7 @@ static void widget_facemap_draw(const bContext *C, struct wmManipulator *widget)
 
 	glPushMatrix();
 	glMultMatrixf(fmap_widget->ob->obmat);
-	glTranslate3fv(widget->offset);
+	glTranslatef(UNPACK3(widget->offset));
 	ED_draw_object_facemap(CTX_data_scene(C), fmap_widget->ob, col, fmap_widget->facemap);
 	glPopMatrix();
 }

@@ -130,7 +130,7 @@ static void manipulator_primitive_draw_intern(
 	col_inner[3] *= 0.5f;
 
 	glEnable(GL_BLEND);
-	glTranslate3fv(prim->manipulator.offset);
+	glTranslatef(UNPACK3(prim->manipulator.offset));
 	manipulator_primitive_draw_geom(col_inner, col_outer, prim->style);
 	glDisable(GL_BLEND);
 
@@ -151,7 +151,7 @@ static void manipulator_primitive_draw_intern(
 		glMultMatrixf(mat);
 
 		glEnable(GL_BLEND);
-		glTranslate3fv(prim->manipulator.offset);
+		glTranslatef(UNPACK3(prim->manipulator.offset));
 		manipulator_primitive_draw_geom(col_inner, col_outer, prim->style);
 		glDisable(GL_BLEND);
 

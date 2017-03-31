@@ -205,7 +205,7 @@ static void dial_draw_intern(const bContext *C, DialManipulator *dial, const boo
 
 	glPushMatrix();
 	glMultMatrixf(mat);
-	glTranslate3fv(dial->manipulator.offset);
+	glTranslatef(UNPACK3(dial->manipulator.offset));
 
 	/* draw rotation indicator arc first */
 	if ((dial->manipulator.flag & WM_MANIPULATOR_DRAW_VALUE) && (dial->manipulator.state & WM_MANIPULATOR_ACTIVE)) {
