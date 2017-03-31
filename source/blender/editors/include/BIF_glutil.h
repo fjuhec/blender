@@ -48,44 +48,6 @@ struct ColorManagedDisplaySettings;
  */
 
 void fdrawline(float x1, float y1, float x2, float y2); /* DEPRECATED */
-void fdrawbox(float x1, float y1, float x2, float y2); /* DEPRECATED */
-void sdrawline(int x1, int y1, int x2, int y2); /* DEPRECATED */
-void sdrawbox(int x1, int y1, int x2, int y2); /* DEPRECATED */
-
-void fdrawcheckerboard(float x1, float y1, float x2, float y2); /* DEPRECATED */
-
-/* OpenGL stipple defines */
-extern const unsigned char stipple_halftone[128];
-extern const unsigned char stipple_quarttone[128];
-extern const unsigned char stipple_diag_stripes_pos[128];
-extern const unsigned char stipple_diag_stripes_neg[128];
-extern const unsigned char stipple_checker_8px[128];
-
-/**
- * Draw a lined (non-looping) arc with the given
- * \a radius, starting at angle \a start and arcing
- * through \a angle. The arc is centered at the origin
- * and drawn in the XY plane.
- *
- * \param start The initial angle (in radians).
- * \param angle The length of the arc (in radians).
- * \param radius The arc radius.
- * \param nsegments The number of segments to use in drawing the arc.
- */
-void glutil_draw_lined_arc(float start, float angle, float radius, int nsegments); /* DEPRECATED */
-
-/**
- * Draw a filled arc with the given \a radius,
- * starting at angle \a start and arcing through
- * \a angle. The arc is centered at the origin
- * and drawn in the XY plane.
- *
- * \param start The initial angle (in radians).
- * \param angle The length of the arc (in radians).
- * \param radius The arc radius.
- * \param nsegments The number of segments to use in drawing the arc.
- */
-void glutil_draw_filled_arc(float start, float angle, float radius, int nsegments); /* DEPRECATED */
 
 /**
  * Draw a circle outline with the given \a radius.
@@ -172,45 +134,6 @@ int glaGetOneInt(int param);
  */
 void glaRasterPosSafe2f(float x, float y, float known_good_x, float known_good_y);
 
-#if 0 /* Obsolete / unused */
-/**
- * Functions like a limited glDrawPixels, except ensures that
- * the image is displayed onscreen even if the \a x and \a y
- * coordinates for would be clipped. The routine respects the
- * glPixelZoom values, pixel unpacking parameters are _not_
- * respected.
- *
- * \attention This routine makes many assumptions: the rect data
- * is expected to be in RGBA unsigned byte format, the coordinate
- * (GLA_PIXEL_OFS, GLA_PIXEL_OFS) is assumed to be within the view frustum,
- * and the modelview and projection matrices are assumed to define a
- * 1-to-1 mapping to screen space.
- * \attention Furthermore, in the case of zoomed or unpixel aligned
- * images extending outside the view frustum, but still within the
- * window, some portion of the image may be visible left and/or
- * below of the given \a x and \a y coordinates. It is recommended
- * to use the glScissor functionality if images are to be drawn
- * with an inset view matrix.
- */
-void glaDrawPixelsSafe(float x, float y, int img_w, int img_h, int row_w, int format, int type, void *rect);
-
-/**
- * glaDrawPixelsTex - Functions like a limited glDrawPixels, but actually draws the
- * image using textures, which can be tremendously faster on low-end
- * cards, and also avoids problems with the raster position being
- * clipped when offscreen. The routine respects the glPixelZoom values,
- * pixel unpacking parameters are _not_ respected.
- *
- * \attention This routine makes many assumptions: the rect data
- * is expected to be in RGBA byte or float format, and the
- * modelview and projection matrices are assumed to define a
- * 1-to-1 mapping to screen space.
- */
-void glaDrawPixelsTex(float x, float y, int img_w, int img_h, int format, int type, int zoomfilter, void *rect);
-void glaDrawPixelsTex_clipping(float x, float y, int img_w, int img_h, int format, int type, int zoomfilter, void *rect,
-                               float clip_min_x, float clip_min_y, float clip_max_x, float clip_max_y);
-#endif
-
 /* To be used before calling immDrawPixelsTex
  * Default shader is GPU_SHADER_2D_IMAGE_COLOR
  * Returns a shader to be able to set uniforms */
@@ -235,22 +158,6 @@ void immDrawPixelsTex(float x, float y, int img_w, int img_h, int format, int ty
 void immDrawPixelsTex_clipping(float x, float y, int img_w, int img_h, int format, int type, int zoomfilter, void *rect,
                                float clip_min_x, float clip_min_y, float clip_max_x, float clip_max_y,
                                float xzoom, float yzoom, float color[4]);
-#if 0 /* Obsolete / unused */
-/**
- * glaDrawPixelsAuto - Switches between texture or pixel drawing using UserDef.
- * only RGBA
- * needs glaDefine2DArea to be set.
- */
-void glaDrawPixelsAuto(float x, float y, int img_w, int img_h, int format, int type, int zoomfilter, void *rect);
-void glaDrawPixelsAuto_clipping(float x, float y, int img_w, int img_h, int format, int type, int zoomfilter, void *rect,
-                                float clip_min_x, float clip_min_y, float clip_max_x, float clip_max_y);
-
-
-void glaDrawPixelsTexScaled(float x, float y, int img_w, int img_h, int format, int type, int zoomfilter, void *rect, float scaleX, float scaleY);
-void glaDrawPixelsTexScaled_clipping(float x, float y, int img_w, int img_h, int format, int type, int zoomfilter, void *rect, float scaleX, float scaleY,
-                                     float clip_min_x, float clip_min_y, float clip_max_x, float clip_max_y);
-#endif
-
 void immDrawPixelsTexScaled(float x, float y, int img_w, int img_h, int format, int type, int zoomfilter, void *rect, float scaleX, float scaleY,
                            float xzoom, float yzoom, float color[4]);
 void immDrawPixelsTexScaled_clipping(float x, float y, int img_w, int img_h, int format, int type, int zoomfilter, void *rect, float scaleX, float scaleY,
@@ -270,6 +177,9 @@ void immDrawPixelsTexScaled_clipping(float x, float y, int img_w, int img_h, int
  * \param screen_rect The screen rectangle to be defined for 2D drawing.
  */
 void glaDefine2DArea(struct rcti *screen_rect);
+
+/* TODO(merwin): put the following 2D code to use, or build new 2D code inspired & informd by it */
+
 #if 0  /* UNUSED */
 
 typedef struct gla2DDrawInfo gla2DDrawInfo;
@@ -317,8 +227,6 @@ void glaDrawImBuf_glsl_ctx_clipping(const struct bContext *C,
                                     float clip_min_x, float clip_min_y,
                                     float clip_max_x, float clip_max_y,
                                     float zoom_x, float zoom_y);
-
-void glaDrawBorderCorners(const struct rcti *border, float zoomx, float zoomy);
 
 void immDrawBorderCorners(unsigned int pos, const struct rcti *border, float zoomx, float zoomy);
 

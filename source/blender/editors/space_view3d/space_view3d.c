@@ -931,10 +931,20 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 			break;
 		case NC_GEOM:
 			switch (wmn->data) {
+				case ND_SELECT:
+				{
+					WM_manipulatormap_tag_refresh(mmap);
+
+					if (scene->obedit) {
+						Object *ob = scene->obedit;
+						if (ob->type == OB_MESH) {
+							struct Mesh *me = ob->data;
+							BKE_mesh_batch_selection_dirty(me);
+						}
+					}
+				}
 				case ND_DATA:
 				case ND_VERTEX_GROUP:
-				case ND_SELECT:
-					WM_manipulatormap_tag_refresh(mmap);
 					ED_region_tag_redraw(ar);
 					break;
 			}

@@ -60,8 +60,9 @@
 #include "BKE_image.h"
 #include "BKE_paint.h"
 
-#include "BIF_gl.h"
 #include "BIF_glutil.h"
+
+#include "GPU_immediate.h"
 
 #include "BLF_api.h"
 
@@ -70,8 +71,6 @@
 #include "ED_mask.h"
 #include "ED_render.h"
 #include "ED_screen.h"
-
-#include "GPU_shader.h"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -89,7 +88,6 @@ static void draw_render_info(const bContext *C,
                              float zoomx,
                              float zoomy)
 {
-	RenderResult *rr;
 	Render *re = RE_GetRender(scene->id.name);
 	RenderData *rd = RE_engine_get_render_data(re);
 	Scene *stats_scene = ED_render_job_get_scene(C);
@@ -97,7 +95,7 @@ static void draw_render_info(const bContext *C,
 		stats_scene = CTX_data_scene(C);
 	}
 
-	rr = BKE_image_acquire_renderresult(stats_scene, ima);
+	RenderResult *rr = BKE_image_acquire_renderresult(stats_scene, ima);
 
 	if (rr && rr->text) {
 		float fill_color[4] = {0.0f, 0.0f, 0.0f, 0.25f};
@@ -109,15 +107,11 @@ static void draw_render_info(const bContext *C,
 	if (re) {
 		int total_tiles;
 		bool need_free_tiles;
-		rcti *tiles;
-
-		tiles = RE_engine_get_current_tiles(re, &total_tiles, &need_free_tiles);
+		rcti *tiles = RE_engine_get_current_tiles(re, &total_tiles, &need_free_tiles);
 
 		if (total_tiles) {
-			int i, x, y;
-			rcti *tile;
-
 			/* find window pixel coordinates of origin */
+			int x, y;
 			UI_view2d_view_to_region(&ar->v2d, 0.0f, 0.0f, &x, &y);
 
 			glPushMatrix();
@@ -125,17 +119,24 @@ static void draw_render_info(const bContext *C,
 			glScalef(zoomx, zoomy, 1.0f);
 
 			if (rd->mode & R_BORDER) {
-				glTranslatef((int)(-rd->border.xmin * rd->xsch * rd->size / 100.0f),
-				             (int)(-rd->border.ymin * rd->ysch * rd->size / 100.0f),
+				/* TODO: round or floor instead of casting to int */
+				glTranslatef((int)(-rd->border.xmin * rd->xsch * rd->size * 0.01f),
+				             (int)(-rd->border.ymin * rd->ysch * rd->size * 0.01f),
 				             0.0f);
 			}
 
-			UI_ThemeColor(TH_FACE_SELECT);
+			unsigned int pos = add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
+			immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+			immUniformThemeColor(TH_FACE_SELECT);
 
 			glLineWidth(1.0f);
-			for (i = 0, tile = tiles; i < total_tiles; i++, tile++) {
-				glaDrawBorderCorners(tile, zoomx, zoomy);
+
+			rcti *tile = tiles;
+			for (int i = 0; i < total_tiles; i++, tile++) {
+				immDrawBorderCorners(pos, tile, zoomx, zoomy);
 			}
+
+			immUnbindProgram();
 
 			if (need_free_tiles) {
 				MEM_freeN(tiles);
@@ -353,8 +354,11 @@ void ED_image_draw_info(Scene *scene, ARegion *ar, bool color_manage, bool use_d
 	}
 
 	/* draw outline */
-	glColor3ub(128, 128, 128);
-	sdrawbox(color_rect.xmin, color_rect.ymin, color_rect.xmax, color_rect.ymax);
+	unsigned int pos = add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
+	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+	immUniformColor3ub(128, 128, 128);
+	imm_draw_line_box(pos, color_rect.xmin, color_rect.ymin, color_rect.xmax, color_rect.ymax);
+	immUnbindProgram();
 
 	dx += 1.75f * UI_UNIT_X;
 
