@@ -7460,7 +7460,7 @@ static void drawtube(const float vec[3], float radius, float height, float tmat[
 }
 
 /* needs fixing if non-identity matrix used */
-static void imm_drawtube(const float vec[3], float radius, float height, float tmat[4][4], unsigned pos)
+static void UNUSED_FUNCTION(imm_drawtube)(const float vec[3], float radius, float height, float tmat[4][4], unsigned pos)
 {
 	float cur[3];
 	imm_drawcircball(vec, radius, tmat, pos);
@@ -7506,7 +7506,7 @@ static void drawcone(const float vec[3], float radius, float height, float tmat[
 }
 
 /* needs fixing if non-identity matrix used */
-static void imm_drawcone(const float vec[3], float radius, float height, float tmat[4][4], unsigned pos)
+static void UNUSED_FUNCTION(imm_drawcone)(const float vec[3], float radius, float height, float tmat[4][4], unsigned pos)
 {
 	float cur[3];
 
@@ -8754,7 +8754,13 @@ afterdraw:
 		if (dtx && (G.f & G_RENDER_OGL) == 0) {
 
 			if (dtx & OB_AXIS) {
-				drawaxes(rv3d->viewmatob, 1.0f, OB_ARROWS, NULL);
+				if ((dflag & DRAW_CONSTCOLOR) == 0) {
+					/* prevent random colors being used */
+					drawaxes(rv3d->viewmatob, 1.0f, OB_ARROWS, ob_wire_col);
+				}
+				else {
+					drawaxes(rv3d->viewmatob, 1.0f, OB_ARROWS, NULL);
+				}
 			}
 			if (dtx & OB_DRAWBOUNDOX) {
 				draw_bounding_volume(ob, ob->boundtype);

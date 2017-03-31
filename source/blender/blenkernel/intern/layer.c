@@ -32,7 +32,6 @@
 #include "BLI_string_utils.h"
 #include "BLT_translation.h"
 
-#include "BKE_layer.h"
 #include "BKE_collection.h"
 #include "BKE_layer.h"
 #include "BKE_main.h"
@@ -66,7 +65,7 @@ static void object_bases_Iterator_next(Iterator *iter, const int flag);
  * Returns the SceneLayer to be used for rendering
  * Most of the time BKE_scene_layer_context_active should be used instead
  */
-SceneLayer *BKE_scene_layer_render_active(Scene *scene)
+SceneLayer *BKE_scene_layer_render_active(const Scene *scene)
 {
 	SceneLayer *sl = BLI_findlink(&scene->render_layers, scene->active_layer);
 	BLI_assert(sl);
@@ -227,7 +226,7 @@ void BKE_scene_layer_base_select(struct SceneLayer *sl, Base *selbase)
 	}
 }
 
-static void scene_layer_object_base_unref(SceneLayer* sl, Base *base)
+static void scene_layer_object_base_unref(SceneLayer *sl, Base *base)
 {
 	base->refcount--;
 
@@ -242,7 +241,8 @@ static void scene_layer_object_base_unref(SceneLayer* sl, Base *base)
 	}
 }
 
-static void layer_collection_base_flag_recalculate(LayerCollection *lc, const bool tree_is_visible, const bool tree_is_selectable)
+static void layer_collection_base_flag_recalculate(
+        LayerCollection *lc, const bool tree_is_visible, const bool tree_is_selectable)
 {
 	bool is_visible = tree_is_visible && ((lc->flag & COLLECTION_VISIBLE) != 0);
 	/* an object can only be selected if it's visible */
@@ -492,6 +492,79 @@ int BKE_layer_collection_findindex(SceneLayer *sl, LayerCollection *lc)
 }
 
 /**
+ * Lookup the listbase that contains \a lc.
+ */
+static ListBase *layer_collection_listbase_find(ListBase *lb, LayerCollection *lc)
+{
+	for (LayerCollection *lc_iter = lb->first; lc_iter; lc_iter = lc_iter->next) {
+		if (lc_iter == lc) {
+			return lb;
+		}
+
+		ListBase *lb_child_result;
+		if ((lb_child_result = layer_collection_listbase_find(&lc_iter->layer_collections, lc))) {
+			return lb_child_result;
+		}
+	}
+
+	return NULL;
+}
+
+/**
+ * Lookup the listbase that contains \a sc.
+ */
+static ListBase *scene_collection_listbase_find(ListBase *lb, SceneCollection *sc)
+{
+	for (SceneCollection *sc_iter = lb->first; sc_iter; sc_iter = sc_iter->next) {
+		if (sc_iter == sc) {
+			return lb;
+		}
+
+		ListBase *lb_child_result;
+		if ((lb_child_result = scene_collection_listbase_find(&sc_iter->scene_collections, sc))) {
+			return lb_child_result;
+		}
+	}
+
+	return NULL;
+}
+
+/**
+ * Move \a lc_reinsert so that it follows \a lc_after. Both have to be stored in \a sl.
+ * \param lc_after: Can be NULL to reinsert \a lc_after as first collection of its own list.
+ */
+void BKE_layer_collection_reinsert_after(
+        const Scene *scene, SceneLayer *sl, LayerCollection *lc_reinsert, LayerCollection *lc_after)
+{
+	SceneCollection *sc_master = BKE_collection_master(scene);
+	SceneCollection *sc_reinsert = lc_reinsert->scene_collection;
+	ListBase *lc_reinsert_lb = layer_collection_listbase_find(&sl->layer_collections, lc_reinsert);
+	ListBase *sc_reinsert_lb = scene_collection_listbase_find(&sc_master->scene_collections, sc_reinsert);
+
+	BLI_assert(BLI_findindex(lc_reinsert_lb, lc_reinsert) > -1);
+	BLI_assert(BLI_findindex(sc_reinsert_lb, sc_reinsert) > -1);
+	BLI_remlink(lc_reinsert_lb, lc_reinsert);
+	BLI_remlink(sc_reinsert_lb, sc_reinsert);
+
+	/* insert after lc_after or */
+	if (lc_after == NULL) {
+		BLI_addhead(lc_reinsert_lb, lc_reinsert);
+		BLI_addhead(sc_reinsert_lb, sc_reinsert);
+	}
+	else {
+		SceneCollection *sc_after = lc_after->scene_collection;
+		ListBase *lc_after_lb = layer_collection_listbase_find(&sl->layer_collections, lc_after);
+		ListBase *sc_after_lb = scene_collection_listbase_find(&sc_master->scene_collections, sc_after);
+
+		BLI_insertlinkafter(lc_after_lb, lc_after, lc_reinsert);
+		BLI_insertlinkafter(sc_after_lb, sc_after, sc_reinsert);
+	}
+
+	BKE_scene_layer_base_flag_recalculate(sl);
+	BKE_scene_layer_engine_settings_collection_recalculate(sl, lc_reinsert);
+}
+
+/**
  * Link a collection to a renderlayer
  * The collection needs to be created separately
  */
@@ -728,7 +801,8 @@ void BKE_layer_collection_engine_settings_callback_register(
 	CollectionEngineSettingsCB_Type	*ces_type;
 
 	/* cleanup in case it existed */
-	ces_type = BLI_findstring(&R_engines_settings_callbacks, engine_name, offsetof(CollectionEngineSettingsCB_Type, name));
+	ces_type = BLI_findstring(&R_engines_settings_callbacks, engine_name,
+	                          offsetof(CollectionEngineSettingsCB_Type, name));
 
 	if (ces_type) {
 		BLI_remlink(&R_engines_settings_callbacks, ces_type);
@@ -774,7 +848,8 @@ static CollectionEngineSettings *collection_engine_settings_create(CollectionEng
 CollectionEngineSettings *BKE_layer_collection_engine_settings_create(const char *engine_name)
 {
 	CollectionEngineSettingsCB_Type *ces_type;
-	ces_type = BLI_findstring(&R_engines_settings_callbacks, engine_name, offsetof(CollectionEngineSettingsCB_Type, name));
+	ces_type = BLI_findstring(&R_engines_settings_callbacks, engine_name,
+	                          offsetof(CollectionEngineSettingsCB_Type, name));
 	BLI_assert(ces_type);
 
 	CollectionEngineSettings *ces = collection_engine_settings_create(ces_type);
@@ -836,7 +911,7 @@ static void layer_collection_create_mode_settings_edit(ListBase *lb)
 	ces->type = COLLECTION_MODE_EDIT;
 
 	/* properties */
-	EDIT_collection_settings_create(ces);
+	EDIT_MESH_collection_settings_create(ces);
 
 	BLI_addtail(lb, ces);
 }
@@ -855,7 +930,8 @@ static void layer_collection_create_mode_settings(LayerCollection *lc)
 /**
  * Return collection enginne settings for either Object s of LayerCollection s
  */
-static CollectionEngineSettings *collection_engine_get(ListBase *lb_render, ListBase *lb_mode, const int type, const char *engine_name)
+static CollectionEngineSettings *collection_engine_get(
+        ListBase *lb_render, ListBase *lb_mode, const int type, const char *engine_name)
 {
 	if (type == COLLECTION_MODE_NONE) {
 		return BLI_findstring(lb_render, engine_name, offsetof(CollectionEngineSettings, name));
@@ -928,28 +1004,32 @@ CollectionEngineProperty *BKE_collection_engine_property_get(CollectionEngineSet
 int BKE_collection_engine_property_value_get_int(CollectionEngineSettings *ces, const char *name)
 {
 	CollectionEnginePropertyInt *prop;
-	prop = (CollectionEnginePropertyInt *)BLI_findstring(&ces->properties, name, offsetof(CollectionEngineProperty, name));
+	prop = (CollectionEnginePropertyInt *)BLI_findstring(&ces->properties, name,
+	                                                     offsetof(CollectionEngineProperty, name));
 	return prop->value;
 }
 
 float BKE_collection_engine_property_value_get_float(CollectionEngineSettings *ces, const char *name)
 {
 	CollectionEnginePropertyFloat *prop;
-	prop = (CollectionEnginePropertyFloat *)BLI_findstring(&ces->properties, name, offsetof(CollectionEngineProperty, name));
+	prop = (CollectionEnginePropertyFloat *)BLI_findstring(&ces->properties, name,
+	                                                       offsetof(CollectionEngineProperty, name));
 	return prop->value;
 }
 
 bool BKE_collection_engine_property_value_get_bool(CollectionEngineSettings *ces, const char *name)
 {
 	CollectionEnginePropertyBool *prop;
-	prop = (CollectionEnginePropertyBool *)BLI_findstring(&ces->properties, name, offsetof(CollectionEngineProperty, name));
+	prop = (CollectionEnginePropertyBool *)BLI_findstring(&ces->properties, name,
+	                                                      offsetof(CollectionEngineProperty, name));
 	return prop->value;
 }
 
 void BKE_collection_engine_property_value_set_int(CollectionEngineSettings *ces, const char *name, int value)
 {
 	CollectionEnginePropertyInt *prop;
-	prop = (CollectionEnginePropertyInt *)BLI_findstring(&ces->properties, name, offsetof(CollectionEngineProperty, name));
+	prop = (CollectionEnginePropertyInt *)BLI_findstring(&ces->properties, name,
+	                                                     offsetof(CollectionEngineProperty, name));
 	prop->value = value;
 	prop->data.flag |= COLLECTION_PROP_USE;
 }
@@ -957,7 +1037,8 @@ void BKE_collection_engine_property_value_set_int(CollectionEngineSettings *ces,
 void BKE_collection_engine_property_value_set_float(CollectionEngineSettings *ces, const char *name, float value)
 {
 	CollectionEnginePropertyFloat *prop;
-	prop = (CollectionEnginePropertyFloat *)BLI_findstring(&ces->properties, name, offsetof(CollectionEngineProperty, name));
+	prop = (CollectionEnginePropertyFloat *)BLI_findstring(&ces->properties, name,
+	                                                       offsetof(CollectionEngineProperty, name));
 	prop->value = value;
 	prop->data.flag |= COLLECTION_PROP_USE;
 }
@@ -965,7 +1046,8 @@ void BKE_collection_engine_property_value_set_float(CollectionEngineSettings *ce
 void BKE_collection_engine_property_value_set_bool(CollectionEngineSettings *ces, const char *name, bool value)
 {
 	CollectionEnginePropertyBool *prop;
-	prop = (CollectionEnginePropertyBool *)BLI_findstring(&ces->properties, name, offsetof(CollectionEngineProperty, name));
+	prop = (CollectionEnginePropertyBool *)BLI_findstring(&ces->properties, name,
+	                                                      offsetof(CollectionEngineProperty, name));
 	prop->value = value;
 	prop->data.flag |= COLLECTION_PROP_USE;
 }
@@ -1011,7 +1093,7 @@ static void collection_engine_settings_init(ListBase *lb)
 static void collection_engine_settings_copy(ListBase *lb_dst, ListBase *lb_src)
 {
 	for (CollectionEngineSettings *ces_src = lb_src->first; ces_src; ces_src = ces_src->next) {
-		CollectionEngineSettings *ces_dst = MEM_callocN(sizeof(CollectionEngineSettings), "CollectionEngineSettings copy");
+		CollectionEngineSettings *ces_dst = MEM_callocN(sizeof(*ces_dst), "CollectionEngineSettings copy");
 
 		BLI_strncpy_utf8(ces_dst->name, ces_src->name, sizeof(ces_dst->name));
 		ces_dst->type = ces_src->type;
@@ -1027,23 +1109,24 @@ static void collection_engine_settings_copy(ListBase *lb_dst, ListBase *lb_src)
 /**
  * Set a value from a CollectionProperty to another
  */
-static void collection_engine_property_set (CollectionEngineProperty *prop_dst, CollectionEngineProperty *prop_src){
+static void collection_engine_property_set (CollectionEngineProperty *prop_dst, CollectionEngineProperty *prop_src)
+{
 	if ((prop_src->flag & COLLECTION_PROP_USE) != 0) {
 		/* mark the property as used, so the engine knows if the value was ever set*/
 		prop_dst->flag |= COLLECTION_PROP_USE;
 		switch (prop_src->type) {
-		    case COLLECTION_PROP_TYPE_FLOAT:
-			    ((CollectionEnginePropertyFloat *)prop_dst)->value = ((CollectionEnginePropertyFloat *)prop_src)->value;
-			    break;
-		    case COLLECTION_PROP_TYPE_INT:
-			    ((CollectionEnginePropertyInt *)prop_dst)->value = ((CollectionEnginePropertyInt *)prop_src)->value;
-			    break;
-		    case COLLECTION_PROP_TYPE_BOOL:
-			    ((CollectionEnginePropertyBool *)prop_dst)->value = ((CollectionEnginePropertyBool *)prop_src)->value;
-			    break;
-		    default:
-			    BLI_assert(false);
-			    break;
+			case COLLECTION_PROP_TYPE_FLOAT:
+				((CollectionEnginePropertyFloat *)prop_dst)->value = ((CollectionEnginePropertyFloat *)prop_src)->value;
+				break;
+			case COLLECTION_PROP_TYPE_INT:
+				((CollectionEnginePropertyInt *)prop_dst)->value = ((CollectionEnginePropertyInt *)prop_src)->value;
+				break;
+			case COLLECTION_PROP_TYPE_BOOL:
+				((CollectionEnginePropertyBool *)prop_dst)->value = ((CollectionEnginePropertyBool *)prop_src)->value;
+				break;
+			default:
+				BLI_assert(false);
+				break;
 		}
 	}
 }
@@ -1340,7 +1423,10 @@ static bool scene_layer_doversion_is_outdated_engines(ListBase *lb_ces, ListBase
 		}
 
 		CollectionEngineProperty *cep, *cep_ref;
-		for (cep = ces->properties.first, cep_ref = ces_ref->properties.first; cep; cep = cep->next, cep_ref = cep_ref->next) {
+		for (cep = ces->properties.first, cep_ref = ces_ref->properties.first;
+		     cep != NULL;
+		     cep = cep->next, cep_ref = cep_ref->next)
+		{
 			if (cep->type != cep_ref->type) {
 				return true;
 			}

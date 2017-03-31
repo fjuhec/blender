@@ -19,7 +19,7 @@
  *
  */
 
-/** \file blender/draw/modes/EDIT_mode.c
+/** \file blender/draw/modes/edit_mesh_mode.c
  *  \ingroup draw
  */
 
@@ -28,21 +28,21 @@
 
 #include "draw_mode_pass.h"
 
-#include "edit_mode.h"
+#include "edit_mesh_mode.h"
 
 /* keep it under MAX_PASSES */
-typedef struct EDIT_PassList{
+typedef struct EDIT_MESH_PassList {
 	struct DRWPass *non_meshes_pass;
 	struct DRWPass *ob_center_pass;
 	struct DRWPass *wire_outline_pass;
 	struct DRWPass *depth_pass_hidden_wire;
-} EDIT_PassList;
+} EDIT_MESH_PassList;
 
 static DRWShadingGroup *depth_shgrp_hidden_wire;
 
-void EDIT_cache_init(void)
+void EDIT_MESH_cache_init(void)
 {
-	EDIT_PassList *psl = DRW_mode_pass_list_get();
+	EDIT_MESH_PassList *psl = DRW_mode_pass_list_get();
 	static struct GPUShader *depth_sh;
 
 	if (!depth_sh) {
@@ -56,10 +56,12 @@ void EDIT_cache_init(void)
 	                      NULL,
 	                      &psl->wire_outline_pass,
 	                      &psl->non_meshes_pass,
-	                      &psl->ob_center_pass);
+	                      &psl->ob_center_pass,
+	                      NULL,
+	                      NULL);
 }
 
-void EDIT_cache_populate(Object *ob)
+void EDIT_MESH_cache_populate(Object *ob)
 {
 	struct Batch *geom;
 
@@ -84,6 +86,9 @@ void EDIT_cache_populate(Object *ob)
 		case OB_SPEAKER:
 			DRW_shgroup_speaker(ob);
 			break;
+		case OB_ARMATURE:
+			DRW_shgroup_armature_object(ob);
+			break;
 		default:
 			break;
 	}
@@ -92,14 +97,14 @@ void EDIT_cache_populate(Object *ob)
 	DRW_shgroup_relationship_lines(ob);
 }
 
-void EDIT_cache_finish(void)
+void EDIT_MESH_cache_finish(void)
 {
 	/* Do nothing */
 }
 
-void EDIT_draw(void)
+void EDIT_MESH_draw(void)
 {
-	EDIT_PassList *psl = DRW_mode_pass_list_get();
+	EDIT_MESH_PassList *psl = DRW_mode_pass_list_get();
 
 	DRW_draw_pass(psl->depth_pass_hidden_wire);
 	DRW_draw_pass(psl->wire_outline_pass);
@@ -107,7 +112,7 @@ void EDIT_draw(void)
 	DRW_draw_pass(psl->ob_center_pass);
 }
 
-void EDIT_collection_settings_create(CollectionEngineSettings *ces)
+void EDIT_MESH_collection_settings_create(CollectionEngineSettings *ces)
 {
 	BLI_assert(ces);
 	BKE_collection_engine_property_add_int(ces, "show_occlude_wire", false);
