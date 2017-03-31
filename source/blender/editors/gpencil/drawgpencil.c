@@ -736,11 +736,8 @@ static void gp_draw_stroke_3d(ARegion *ar, const bGPDspoint *points, int totpoin
 	float cyclic_fpt[3];
 	float old_thickness = 1.0f;
 
-	/* if cyclic needs one vertex more */
-	int cyclic_add = 0;
-	if (cyclic) {
-		cyclic_add += 2;
-	}
+	/* if cyclic needs more vertex */
+	int cyclic_add = (cyclic) ? 2 : 0;
 
 	VertexFormat *format = immVertexFormat();
 	unsigned pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
