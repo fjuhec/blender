@@ -3966,7 +3966,6 @@ static void lib_link_material(FileData *fd, Main *main)
 static void direct_link_material(FileData *fd, Material *ma)
 {
 	int a;
-	MaterialEngineSettings *mes;
 	
 	ma->adt = newdataadr(fd, ma->adt);
 	direct_link_animdata(fd, ma->adt);
@@ -3987,11 +3986,6 @@ static void direct_link_material(FileData *fd, Material *ma)
 	
 	ma->preview = direct_link_preview_image(fd, ma->preview);
 	BLI_listbase_clear(&ma->gpumaterial);
-
-	link_list(fd, &ma->engines_settings);
-	for (mes = ma->engines_settings.first; mes; mes = mes->next) {
-		mes->data = newdataadr(fd, mes->data);
-	}
 }
 
 /* ************ READ PARTICLE SETTINGS ***************** */
@@ -5609,7 +5603,6 @@ static void direct_link_object(FileData *fd, Object *ob)
 	ob->bb = NULL;
 	ob->derivedDeform = NULL;
 	ob->derivedFinal = NULL;
-	BLI_listbase_clear(&ob->collection_settings);
 	BLI_listbase_clear(&ob->gpulamp);
 	link_list(fd, &ob->pc_ids);
 
@@ -5627,6 +5620,9 @@ static void direct_link_object(FileData *fd, Object *ob)
 	ob->currentlod = ob->lodlevels.first;
 
 	ob->preview = direct_link_preview_image(fd, ob->preview);
+
+	ob->collection_properties = newdataadr(fd, ob->collection_properties);
+	IDP_DirectLinkGroup_OrFree(&ob->collection_properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
 }
 
 /* ************ READ SCENE ***************** */
@@ -5978,14 +5974,6 @@ static void direct_link_scene_collection(FileData *fd, SceneCollection *sc)
 	}
 }
 
-static void direct_link_engine_settings(FileData *fd, ListBase *lb)
-{
-	link_list(fd, lb);
-	for (CollectionEngineSettings *ces = lb->first; ces; ces = ces->next) {
-		link_list(fd, &ces->properties);
-	}
-}
-
 static void direct_link_layer_collections(FileData *fd, ListBase *lb)
 {
 	link_list(fd, lb);
@@ -6000,9 +5988,10 @@ static void direct_link_layer_collections(FileData *fd, ListBase *lb)
 
 		link_list(fd, &lc->overrides);
 
-		direct_link_engine_settings(fd, &lc->engine_settings);
-
-		direct_link_engine_settings(fd, &lc->mode_settings);
+		if (lc->properties) {
+			lc->properties = newdataadr(fd, lc->properties);
+			IDP_DirectLinkGroup_OrFree(&lc->properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
+		}
 
 		direct_link_layer_collections(fd, &lc->layer_collections);
 	}
@@ -6016,7 +6005,6 @@ static void direct_link_scene(FileData *fd, Scene *sce)
 	RigidBodyWorld *rbw;
 	SceneLayer *sl;
 	SceneRenderLayer *srl;
-	RenderEngineSettings *res;
 	
 	sce->theDag = NULL;
 	sce->depsgraph = NULL;
@@ -6283,10 +6271,8 @@ static void direct_link_scene(FileData *fd, Scene *sce)
 		BKE_scene_layer_base_flag_recalculate(sl);
 	}
 
-	link_list(fd, &sce->engines_settings);
-	for (res = sce->engines_settings.first; res; res = res->next) {
-		res->data = newdataadr(fd, res->data);
-	}
+	sce->collection_properties = newdataadr(fd, sce->collection_properties);
+	IDP_DirectLinkGroup_OrFree(&sce->collection_properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
 }
 
 /* ************ READ WM ***************** */
