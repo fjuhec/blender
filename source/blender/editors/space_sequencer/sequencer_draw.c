@@ -58,6 +58,7 @@
 #include "BIF_glutil.h"
 
 #include "GPU_immediate.h"
+#include "GPU_matrix.h"
 
 #include "ED_anim_api.h"
 #include "ED_gpencil.h"
@@ -72,7 +73,6 @@
 #include "UI_view2d.h"
 
 #include "WM_api.h"
-#include "WM_types.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -983,7 +983,7 @@ static ImBuf *sequencer_make_scope(Scene *scene, ImBuf *ibuf, ImBuf *(*make_scop
 	return scope;
 }
 
-void sequencer_display_size(Scene *scene, SpaceSeq *sseq, float r_viewrect[2])
+static void sequencer_display_size(Scene *scene, SpaceSeq *sseq, float r_viewrect[2])
 {
 	float render_size, proxy_size;
 
@@ -1078,7 +1078,7 @@ static void sequencer_draw_background(
 	}
 }
 
-void draw_image_seq(const bContext *C, Scene *scene, ARegion *ar, SpaceSeq *sseq, int cfra, int frame_ofs, bool draw_overlay, bool draw_overdrop)
+void draw_image_seq(const bContext *C, Scene *scene, ARegion *ar, SpaceSeq *sseq, int cfra, int frame_ofs, bool draw_overlay, bool draw_backdrop)
 {
 	struct Main *bmain = CTX_data_main(C);
 	struct ImBuf *ibuf = NULL;
@@ -1111,7 +1111,7 @@ void draw_image_seq(const bContext *C, Scene *scene, ARegion *ar, SpaceSeq *sseq
 		}
 	}
 
-	if ((!draw_overlay || sseq->overlay_type == SEQ_DRAW_OVERLAY_REFERENCE) && !draw_overdrop) {
+	if ((!draw_overlay || sseq->overlay_type == SEQ_DRAW_OVERLAY_REFERENCE) && !draw_backdrop) {
 		UI_GetThemeColor3fv(TH_SEQ_PREVIEW, col);
 		glClearColor(col[0], col[1], col[2], 0.0);
 		glClear(GL_COLOR_BUFFER_BIT);
@@ -1146,7 +1146,7 @@ void draw_image_seq(const bContext *C, Scene *scene, ARegion *ar, SpaceSeq *sseq
 
 	sequencer_display_size(scene, sseq, viewrect);
 
-	if (!draw_overdrop && (sseq->mainb != SEQ_DRAW_IMG_IMBUF || sseq->zebra != 0)) {
+	if (!draw_backdrop && (sseq->mainb != SEQ_DRAW_IMG_IMBUF || sseq->zebra != 0)) {
 		SequencerScopes *scopes = &sseq->scopes;
 
 		sequencer_check_scopes(scopes, ibuf);
@@ -1205,7 +1205,7 @@ void draw_image_seq(const bContext *C, Scene *scene, ARegion *ar, SpaceSeq *sseq
 		}
 	}
 
-	if (!draw_overdrop) {
+	if (!draw_backdrop) {
 		sequencer_draw_background(sseq, v2d, viewrect, draw_overlay);
 	}
 
@@ -1286,14 +1286,14 @@ void draw_image_seq(const bContext *C, Scene *scene, ARegion *ar, SpaceSeq *sseq
 		}
 	}
 
-//	if (draw_backdrop) {
-//		glMatrixMode(GL_PROJECTION);
-//		glPushMatrix();
-//		glLoadIdentity();
-//		glMatrixMode(GL_MODELVIEW);
-//		glPushMatrix();
-//		glLoadIdentity();
-//	}
+	if (draw_backdrop) {
+		glMatrixMode(GL_PROJECTION);
+		gpuPushMatrix();
+		gpuLoadIdentity();
+		glMatrixMode(GL_MODELVIEW);
+		gpuPushMatrix();
+		gpuLoadIdentity();
+	}
 
 	glGenTextures(1, (GLuint *)&texid);
 
@@ -1306,10 +1306,6 @@ void draw_image_seq(const bContext *C, Scene *scene, ARegion *ar, SpaceSeq *sseq
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F_ARB, ibuf->x, ibuf->y, 0, format, type, display_buffer);
 	else
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, ibuf->x, ibuf->y, 0, format, type, display_buffer);
-
-	if (draw_overdrop) {
-		UI_view2d_view_restore(C);
-	}
 
 	VertexFormat *imm_format = immVertexFormat();
 	unsigned int pos = add_attrib(imm_format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
@@ -1355,7 +1351,7 @@ void draw_image_seq(const bContext *C, Scene *scene, ARegion *ar, SpaceSeq *sseq
 			immVertex2f(pos, v2d->tot.xmax, v2d->tot.ymin);
 		}
 	}
-	else if (draw_overdrop) {
+	else if (draw_backdrop) {
 		float aspect;
 		float image_aspect = viewrect[0] / viewrect[1];
 		float imagex, imagey;
@@ -1424,10 +1420,10 @@ void draw_image_seq(const bContext *C, Scene *scene, ARegion *ar, SpaceSeq *sseq
 		ED_region_image_metadata_draw(0.0, 0.0, ibuf, &v2d->tot, 1.0, 1.0);
 	}
 
-	if (draw_overdrop) {
-		glPopMatrix();
+	if (draw_backdrop) {
+		gpuPopMatrix();
 		glMatrixMode(GL_PROJECTION);
-		glPopMatrix();
+		gpuPopMatrix();
 		glMatrixMode(GL_MODELVIEW);
 		return;
 	}
@@ -1553,7 +1549,7 @@ static void draw_seq_strips(const bContext *C, Editing *ed, ARegion *ar)
 	/* loop through twice, first unselected, then selected */
 	for (j = 0; j < 2; j++) {
 		Sequence *seq;
-		int outline_tint = (j) ? -60 : -150; /* highlighting around strip edges indicating selection */
+		int outline_tint = (j) ? 40 : -40; /* highlighting around strip edges indicating selection */
 		
 		/* loop through strips, checking for those that are visible */
 		for (seq = ed->seqbasep->first; seq; seq = seq->next) {
@@ -1689,13 +1685,11 @@ void draw_timeline_seq(const bContext *C, ARegion *ar)
 	// NOTE: the gridlines are currently spaced every 25 frames, which is only fine for 25 fps, but maybe not for 30...
 	UI_view2d_constant_grid_draw(v2d);
 
-#if 0
 	/* Only draw backdrop in pure sequence view. */
 	if (sseq->view == SEQ_VIEW_SEQUENCE && sseq->draw_flag & SEQ_DRAW_BACKDROP) {
 		draw_image_seq(C, scene, ar, sseq, scene->r.cfra, 0, false, true);
 		UI_view2d_view_ortho(v2d);
 	}
-#endif
 		
 	ED_region_draw_cb_draw(C, ar, REGION_DRAW_PRE_VIEW);
 	
@@ -1741,20 +1735,11 @@ void draw_timeline_seq(const bContext *C, ARegion *ar)
 		immUnbindProgram();
 	}
 
-	if (sseq->draw_flag & SEQ_DRAW_OVERDROP) {
-		draw_image_seq(C, scene, ar, sseq, scene->r.cfra, 0, false, true);
-		UI_SetTheme(SPACE_SEQ, RGN_TYPE_WINDOW);
-		UI_view2d_view_ortho(v2d);
-	}
-	
 	/* callback */
 	ED_region_draw_cb_draw(C, ar, REGION_DRAW_POST_VIEW);
 
 	/* reset view matrix */
 	UI_view2d_view_restore(C);
-
-	/* finally draw any widgets here */
-	WM_manipulatormap_draw(ar->manipulator_map, C, WM_MANIPULATORMAP_DRAWSTEP_2D);
 
 	/* scrollers */
 	unit = (sseq->flag & SEQ_DRAWFRAMES) ? V2D_UNIT_FRAMES : V2D_UNIT_SECONDS;

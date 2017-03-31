@@ -51,6 +51,7 @@
 #include "GPU_texture.h"
 #include "GPU_uniformbuffer.h"
 #include "GPU_viewport.h"
+#include "GPU_matrix.h"
 
 #include "RE_engine.h"
 
@@ -313,6 +314,11 @@ void DRW_uniformbuffer_free(GPUUniformBuffer *ubo)
 GPUShader *DRW_shader_create(const char *vert, const char *geom, const char *frag, const char *defines)
 {
 	return GPU_shader_create(vert, frag, geom, NULL, defines, 0, 0, 0);
+}
+
+GPUShader *DRW_shader_create_with_lib(const char *vert, const char *geom, const char *frag, const char *lib, const char *defines)
+{
+	return GPU_shader_create(vert, frag, geom, lib, defines, 0, 0, 0);
 }
 
 GPUShader *DRW_shader_create_2D(const char *frag, const char *defines)
@@ -1064,12 +1070,8 @@ void DRW_draw_callbacks_pre_scene(void)
 	struct ARegion *ar = CTX_wm_region(DST.context);
 	RegionView3D *rv3d = CTX_wm_region_view3d(DST.context);
 
-	/* This is temporary
-	 * waiting for the full matrix switch */
-	glMatrixMode(GL_PROJECTION);
-	glLoadMatrixf((float *)rv3d->winmat);
-	glMatrixMode(GL_MODELVIEW);
-	glLoadMatrixf((float *)rv3d->viewmat);
+	gpuLoadProjectionMatrix3D(rv3d->winmat);
+	gpuLoadMatrix3D(rv3d->viewmat);
 
 	ED_region_draw_cb_draw(DST.context, ar, REGION_DRAW_PRE_VIEW);
 }
@@ -1079,12 +1081,8 @@ void DRW_draw_callbacks_post_scene(void)
 	struct ARegion *ar = CTX_wm_region(DST.context);
 	RegionView3D *rv3d = CTX_wm_region_view3d(DST.context);
 
-	/* This is temporary
-	 * waiting for the full matrix switch */
-	glMatrixMode(GL_PROJECTION);
-	glLoadMatrixf((float *)rv3d->winmat);
-	glMatrixMode(GL_MODELVIEW);
-	glLoadMatrixf((float *)rv3d->viewmat);
+	gpuLoadProjectionMatrix3D(rv3d->winmat);
+	gpuLoadMatrix3D(rv3d->viewmat);
 
 	ED_region_draw_cb_draw(DST.context, ar, REGION_DRAW_POST_VIEW);
 }
@@ -1332,8 +1330,10 @@ void DRW_viewport_matrix_get(float mat[4][4], DRWViewportMatrixType type)
 
 	if (type == DRW_MAT_PERS)
 		copy_m4_m4(mat, rv3d->persmat);
-	else if (type == DRW_MAT_WIEW)
+	else if (type == DRW_MAT_VIEW)
 		copy_m4_m4(mat, rv3d->viewmat);
+	else if (type == DRW_MAT_VIEWINV)
+		copy_m4_m4(mat, rv3d->viewinv);
 	else if (type == DRW_MAT_WIN)
 		copy_m4_m4(mat, rv3d->winmat);
 }
@@ -1548,7 +1548,7 @@ void DRW_draw_view(const bContext *C)
 	DRW_engines_draw_background();
 
 	DRW_draw_callbacks_pre_scene();
-	DRW_draw_grid();
+	// DRW_draw_grid();
 	DRW_engines_draw_scene();
 	DRW_draw_callbacks_post_scene();
 

@@ -29,6 +29,7 @@
  *  \ingroup gpu
  */
 
+#define SUPPRESS_GENERIC_MATRIX_API
 #include "GPU_matrix.h"
 
 #include "BLI_math_matrix.h"
@@ -181,6 +182,33 @@ void gpuLoadMatrix3D(const float m[4][4])
 	BLI_assert(state.mode == MATRIX_MODE_3D);
 	copy_m4_m4(ModelView3D, m);
 	CHECKMAT(ModelView3D);
+	state.dirty = true;
+}
+
+void gpuLoadProjectionMatrix3D(const float m[4][4])
+{
+#if SUPPORT_LEGACY_MATRIX
+	if (state.mode == MATRIX_MODE_INACTIVE) {
+		GLenum mode;
+		glGetIntegerv(GL_MATRIX_MODE, (GLint*)&mode);
+		if (mode != GL_PROJECTION) {
+			glMatrixMode(GL_PROJECTION);
+		}
+
+		glLoadMatrixf((const float*) m);
+
+		if (mode != GL_PROJECTION_MATRIX) {
+			glMatrixMode(mode); /* restore */
+		}
+
+		state.dirty = true;
+		return;
+	}
+#endif
+
+	BLI_assert(state.mode == MATRIX_MODE_3D);
+	copy_m4_m4(Projection3D, m);
+	CHECKMAT(Projection3D);
 	state.dirty = true;
 }
 
@@ -550,6 +578,26 @@ static void mat4_look_from_origin(float m[4][4], float lookdir[3], float camup[3
 
 void gpuOrtho(float left, float right, float bottom, float top, float near, float far)
 {
+#if SUPPORT_LEGACY_MATRIX
+	if (state.mode == MATRIX_MODE_INACTIVE) {
+		GLenum mode;
+		glGetIntegerv(GL_MATRIX_MODE, (GLint*)&mode);
+		if (mode != GL_PROJECTION) {
+			glMatrixMode(GL_PROJECTION);
+		}
+
+		glLoadIdentity();
+		glOrtho(left, right, bottom, top, near, far);
+
+		if (mode != GL_PROJECTION_MATRIX) {
+			glMatrixMode(mode); /* restore */
+		}
+
+		state.dirty = true;
+		return;
+	}
+#endif
+
 	BLI_assert(state.mode == MATRIX_MODE_3D);
 	mat4_ortho_set(Projection3D, left, right, bottom, top, near, far);
 	CHECKMAT(Projection3D);
@@ -558,6 +606,26 @@ void gpuOrtho(float left, float right, float bottom, float top, float near, floa
 
 void gpuOrtho2D(float left, float right, float bottom, float top)
 {
+#if SUPPORT_LEGACY_MATRIX
+	if (state.mode == MATRIX_MODE_INACTIVE) {
+		GLenum mode;
+		glGetIntegerv(GL_MATRIX_MODE, (GLint*)&mode);
+		if (mode != GL_PROJECTION) {
+			glMatrixMode(GL_PROJECTION);
+		}
+
+		glLoadIdentity();
+		glOrtho(left, right, bottom, top, -1.0f, 1.0f);
+
+		if (mode != GL_PROJECTION_MATRIX) {
+			glMatrixMode(mode); /* restore */
+		}
+
+		state.dirty = true;
+		return;
+	}
+#endif
+
 	/* TODO: this function, but correct */
 	BLI_assert(state.mode == MATRIX_MODE_2D);
 	Mat4 m;
@@ -569,6 +637,26 @@ void gpuOrtho2D(float left, float right, float bottom, float top)
 
 void gpuFrustum(float left, float right, float bottom, float top, float near, float far)
 {
+#if SUPPORT_LEGACY_MATRIX
+	if (state.mode == MATRIX_MODE_INACTIVE) {
+		GLenum mode;
+		glGetIntegerv(GL_MATRIX_MODE, (GLint*)&mode);
+		if (mode != GL_PROJECTION) {
+			glMatrixMode(GL_PROJECTION);
+		}
+
+		glLoadIdentity();
+		glFrustum(left, right, bottom, top, near, far);
+
+		if (mode != GL_PROJECTION_MATRIX) {
+			glMatrixMode(mode); /* restore */
+		}
+
+		state.dirty = true;
+		return;
+	}
+#endif
+
 	BLI_assert(state.mode == MATRIX_MODE_3D);
 	mat4_frustum_set(Projection3D, left, right, bottom, top, near, far);
 	CHECKMAT(Projection3D);

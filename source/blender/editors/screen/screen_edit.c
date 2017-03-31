@@ -1950,7 +1950,7 @@ bool ED_screen_stereo3d_required(bScreen *screen)
 					return true;
 				}
 
-				if (sseq->draw_flag & SEQ_DRAW_OVERDROP) {
+				if (sseq->draw_flag & SEQ_DRAW_BACKDROP) {
 					return true;
 				}
 

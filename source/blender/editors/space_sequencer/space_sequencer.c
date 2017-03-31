@@ -123,9 +123,6 @@ static SpaceLink *sequencer_new(const bContext *C)
 	sseq->mainb = SEQ_DRAW_IMG_IMBUF;
 	sseq->flag = SEQ_SHOW_GPENCIL | SEQ_USE_ALPHA;
 
-	/* backdrop */
-	sseq->overdrop_zoom = 1.0f;
-	
 	/* header */
 	ar = MEM_callocN(sizeof(ARegion), "header for sequencer");
 	
@@ -485,12 +482,6 @@ static void sequencer_main_region_init(wmWindowManager *wm, ARegion *ar)
 	lb = WM_dropboxmap_find("Sequencer", SPACE_SEQ, RGN_TYPE_WINDOW);
 
 	WM_event_add_dropbox_handler(&ar->handlers, lb);
-	
-	/* no modal keymap here, only operators use this currently */
-	if (!ar->manipulator_map) {
-		ar->manipulator_map = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
-		        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_WINDOW});
-	}
 }
 
 static void sequencer_main_region_draw(const bContext *C, ARegion *ar)
@@ -567,11 +558,6 @@ static void sequencer_preview_region_init(wmWindowManager *wm, ARegion *ar)
 	/* own keymap */
 	keymap = WM_keymap_find(wm->defaultconf, "SequencerPreview", SPACE_SEQ, 0);
 	WM_event_add_keymap_handler_bb(&ar->handlers, keymap, &ar->v2d.mask, &ar->winrct);
-
-	if (!ar->manipulator_map) {
-		ar->manipulator_map = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
-		        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_PREVIEW});
-	}
 }
 
 static void sequencer_preview_region_draw(const bContext *C, ARegion *ar)
@@ -608,8 +594,6 @@ static void sequencer_preview_region_draw(const bContext *C, ARegion *ar)
 		ED_region_visible_rect(ar, &rect);
 		ED_scene_draw_fps(scene, &rect);
 	}
-
-	WM_manipulatormap_draw(ar->manipulator_map, C, WM_MANIPULATORMAP_DRAWSTEP_2D);
 }
 
 static void sequencer_preview_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar, wmNotifier *wmn)
@@ -721,15 +705,6 @@ static void sequencer_id_remap(ScrArea *UNUSED(sa), SpaceLink *slink, ID *old_id
 	}
 }
 
-static void sequencer_widgets(void)
-{
-	/* create the widgetmap for the area here */
-	WM_manipulatormaptype_ensure(&(const struct wmManipulatorMapType_Params) {
-	        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_WINDOW});
-	WM_manipulatormaptype_ensure(&(const struct wmManipulatorMapType_Params) {
-	        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_PREVIEW});
-}
-
 /* ************************************* */
 
 /* only called once, from space/spacetypes.c */
@@ -751,7 +726,6 @@ void ED_spacetype_sequencer(void)
 	st->dropboxes = sequencer_dropboxes;
 	st->refresh = sequencer_refresh;
 	st->listener = sequencer_listener;
-	st->manipulators = sequencer_widgets;
 	st->id_remap = sequencer_id_remap;
 
 	/* regions: main window */

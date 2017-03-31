@@ -1633,24 +1633,6 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 			}
 		}
 	}
-
-	{
-		if (!DNA_struct_elem_find(fd->filesdna, "SpaceSeq", "float", "overdrop_zoom")) {
-			bScreen *sc;
-			for (sc = main->screen.first; sc; sc = sc->id.next) {
-				ScrArea *sa;
-				for (sa = sc->areabase.first; sa; sa = sa->next) {
-					SpaceLink *sl;
-					for (sl = sa->spacedata.first; sl; sl = sl->next) {
-						if (sl->spacetype == SPACE_SEQ) {
-							SpaceSeq *sseq = (SpaceSeq *)sl;
-							sseq->overdrop_zoom = 1.0;
-						}
-					}
-				}
-			}
-		}
-	}
 }
 
 void do_versions_after_linking_270(Main *main)
