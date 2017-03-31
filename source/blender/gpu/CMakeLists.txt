@@ -136,6 +136,7 @@ set(SRC
 	intern/gpu_codegen.h
 	intern/gpu_private.h
 	intern/gpu_select_private.h
+	intern/gpu_shader_private.h
 )
 
 data_to_c_simple(shaders/gpu_shader_depth_only_frag.glsl SRC)
@@ -143,6 +144,7 @@ data_to_c_simple(shaders/gpu_shader_uniform_color_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_checker_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_diag_stripes_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_simple_lighting_frag.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_simple_lighting_smooth_color_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_flat_color_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_flat_color_alpha_test_0_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_2D_vert.glsl SRC)
