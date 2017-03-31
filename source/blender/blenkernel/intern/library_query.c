@@ -449,6 +449,7 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 						CALLBACK_INVOKE(seq->clip, IDWALK_CB_USER);
 						CALLBACK_INVOKE(seq->mask, IDWALK_CB_USER);
 						CALLBACK_INVOKE(seq->sound, IDWALK_CB_USER);
+						library_foreach_idproperty_ID_link(&data, seq->prop, IDWALK_CB_USER);
 						for (SequenceModifierData *smd = seq->modifiers.first; smd; smd = smd->next) {
 							CALLBACK_INVOKE(smd->mask_id, IDWALK_CB_USER);
 						}

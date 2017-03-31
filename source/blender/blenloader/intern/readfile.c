@@ -5762,6 +5762,8 @@ static void lib_link_scene(FileData *fd, Main *main)
 			Sequence *seq;
 			SEQ_BEGIN (sce->ed, seq)
 			{
+				IDP_LibLinkProperty(seq->prop, fd);
+
 				if (seq->ipo) seq->ipo = newlibadr_us(fd, sce->id.lib, seq->ipo);  // XXX deprecated - old animation system
 				seq->scene_sound = NULL;
 				if (seq->scene) {
@@ -9649,6 +9651,8 @@ static void expand_scene(FileData *fd, Main *mainvar, Scene *sce)
 		
 		SEQ_BEGIN (sce->ed, seq)
 		{
+			expand_idprops(fd, mainvar, seq->prop);
+
 			if (seq->scene) expand_doit(fd, mainvar, seq->scene);
 			if (seq->scene_camera) expand_doit(fd, mainvar, seq->scene_camera);
 			if (seq->clip) expand_doit(fd, mainvar, seq->clip);
