@@ -34,6 +34,8 @@
  * Currently no own handling, use with operator only.
  */
 
+#include <stdlib.h>
+
 #include "BIF_gl.h"
 
 #include "BKE_context.h"
