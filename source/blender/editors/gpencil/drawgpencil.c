@@ -751,37 +751,19 @@ static void gp_draw_stroke_3d(ARegion *ar, const bGPDspoint *points, int totpoin
 	glLineWidth(max_ff(curpressure * thickness, 1.0f));
 	immBeginAtMost(PRIM_LINE_STRIP_ADJACENCY, totpoints + cyclic_add + 2);
 	const bGPDspoint *pt = points;
-	float scale = 1.0f;
-
-	/* take first segment and create a normalize vector */
-	sub_v3_v3v3(fpt, &points->x, &(points + 1)->x);
-	mul_v3_m4v3(fpt, diff_mat, fpt);
-	normalize_v3(fpt);
-
-	/* get the length after apply matrix to get real size */
-	mul_v3_m4v3(fpt, viewmat, fpt);
-	float b = len_v3(fpt);
-	
-	/* get thickness scale */
-	if (rv3d->is_persp) {
-		scale = 12.0f / b; /* not use 1.0 to avoid too small values */
-	}
-	else {
-		scale = b;
-	}
 
 	for (int i = 0; i < totpoints; i++, pt++) {
 		/* first point for adjacency (not drawn) */
 		if (i == 0) {
 			gp_set_point_varying_color(points, ink, color);
-			immAttrib1f(thickattrib, max_ff(curpressure * thickness * scale, 1.0f));
+			immAttrib1f(thickattrib, max_ff(curpressure * thickness, 1.0f));
 			mul_v3_m4v3(fpt, diff_mat, &(points + 1)->x);
 			mul_v3_fl(fpt, -1.0f);
 			immVertex3fv(pos, fpt);
 		}
 		/* set point */
 		gp_set_point_varying_color(pt, ink, color);
-		immAttrib1f(thickattrib, max_ff(curpressure * thickness * scale, 1.0f));
+		immAttrib1f(thickattrib, max_ff(curpressure * thickness , 1.0f));
 		mul_v3_m4v3(fpt, diff_mat, &pt->x);
 		immVertex3fv(pos, fpt);
 
@@ -790,23 +772,23 @@ static void gp_draw_stroke_3d(ARegion *ar, const bGPDspoint *points, int totpoin
 
 	if (cyclic && totpoints > 2) {
 		/* draw line to first point to complete the cycle */
-		immAttrib1f(thickattrib, max_ff(points->pressure * thickness * scale, 1.0f));
+		immAttrib1f(thickattrib, max_ff(points->pressure * thickness, 1.0f));
 		mul_v3_m4v3(fpt, diff_mat, &points->x);
 		immVertex3fv(pos, fpt);
 
 		/* now add adjacency points using 2nd & 3rd point to get smooth transition */
-		immAttrib1f(thickattrib, max_ff((points + 1)->pressure * thickness * scale, 1.0f));
+		immAttrib1f(thickattrib, max_ff((points + 1)->pressure * thickness, 1.0f));
 		mul_v3_m4v3(fpt, diff_mat, &(points + 1)->x);
 		immVertex3fv(pos, fpt);
 
-		immAttrib1f(thickattrib, max_ff((points + 2)->pressure * thickness * scale, 1.0f));
+		immAttrib1f(thickattrib, max_ff((points + 2)->pressure * thickness, 1.0f));
 		mul_v3_m4v3(fpt, diff_mat, &(points + 2)->x);
 		immVertex3fv(pos, fpt);
 	}
 	/* last adjacency point (not drawn) */
 	else {
 		gp_set_point_varying_color(points + totpoints - 1, ink, color);
-		immAttrib1f(thickattrib, max_ff(curpressure * thickness * scale, 1.0f));
+		immAttrib1f(thickattrib, max_ff(curpressure * thickness, 1.0f));
 		mul_v3_m4v3(fpt, diff_mat, &(points + totpoints - 2)->x);
 		mul_v3_fl(fpt, -1.0f);
 		immVertex3fv(pos, fpt);
