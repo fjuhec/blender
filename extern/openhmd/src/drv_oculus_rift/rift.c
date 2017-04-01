@@ -210,6 +210,7 @@ static void close_device(ohmd_device* device)
 	free(priv);
 }
 
+#ifndef _MSC_VER
 static char* _hid_to_unix_path(char* path)
 {
 	char bus [4];
@@ -224,6 +225,12 @@ static char* _hid_to_unix_path(char* path)
 		(int)strtol(dev, NULL, 16));
 	return result;
 }
+#else
+static char* _hid_to_unix_path(char* path)
+{
+	return path;
+}
+#endif
 
 static ohmd_device* open_device(ohmd_driver* driver, ohmd_device_desc* desc)
 {
@@ -244,7 +251,9 @@ static ohmd_device* open_device(ohmd_driver* driver, ohmd_device_desc* desc)
 		char* path = _hid_to_unix_path(desc->path);
 		ohmd_set_error(driver->ctx, "Could not open %s. "
 		                            "Check your rights.", path);
+		#ifndef _MSC_VER
 		free(path);
+		#endif
 		goto cleanup;
 	}
 

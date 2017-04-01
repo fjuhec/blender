@@ -179,6 +179,11 @@ bool GHOST_OpenHMDManager::openDevice(int index)
 	m_device = ohmd_list_open_device_s(m_context, index, settings);
 	ohmd_device_settings_destroy(settings); //cleanup settings
 
+	if (!m_device) {
+		printf("Could not open device, please check your rights\n");
+		return false;
+	}
+
 	m_projection_params = new OpenHMDDistortionParameters;
 	// Set the thing for the stuff
 	ohmd_device_getf(m_device, OHMD_SCREEN_HORIZONTAL_SIZE, &(m_projection_params->viewport_scale[0]));
