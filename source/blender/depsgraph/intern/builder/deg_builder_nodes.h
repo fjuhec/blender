@@ -42,6 +42,7 @@ struct Image;
 struct FCurve;
 struct Group;
 struct Key;
+struct LayerCollection;
 struct Main;
 struct Material;
 struct Mask;
@@ -163,6 +164,17 @@ struct DepsgraphNodeBuilder {
 	void build_mask(Mask *mask);
 	void build_movieclip(MovieClip *clip);
 
+	struct LayerCollectionState {
+		int index;
+		LayerCollection *parent;
+	};
+	void build_layer_collection(Scene *scene,
+	                            LayerCollection *layer_collection,
+	                            LayerCollectionState *state);
+	void build_layer_collections(Scene *scene,
+	                             ListBase *layer_collections,
+	                             LayerCollectionState *state);
+	void build_scene_layer_collections(Scene *scene);
 protected:
 	Main *m_bmain;
 	Depsgraph *m_graph;
