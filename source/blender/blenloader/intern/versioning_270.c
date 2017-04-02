@@ -1560,13 +1560,11 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 	}
 
 	{
-#ifdef WITH_INPUT_HMD
 		if (!DNA_struct_elem_find(fd->filesdna, "wmWindowManager", "HMDViewInfo", "hmd_view")) {
 			for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
 				wm->hmd_view.view_shade = OB_SOLID;
 			}
 		}
-#endif
 	}
 	/* To be added to next subversion bump! */
 	{
