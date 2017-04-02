@@ -42,8 +42,6 @@
 #include "BKE_object.h"
 #include "BKE_depsgraph.h"
 
-#include "WM_api.h"
-
 static float rna_Camera_angle_get(PointerRNA *ptr)
 {
 	Camera *cam = ptr->id.data;

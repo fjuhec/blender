@@ -727,6 +727,7 @@ void GPU_fx_compositor_XRay_resolve(GPUFX *fx)
 	glPopAttrib();
 }
 
+
 bool GPU_fx_do_composite_pass(
         GPUFX *fx, float projmat[4][4], bool is_persp,
         struct Scene *scene, struct GPUOffScreen *ofs,

@@ -2926,6 +2926,7 @@ static void write_screen(WriteData *wd, bScreen *sc)
 				if (v3d->localvd) {
 					writestruct(wd, DATA, View3D, 1, v3d->localvd);
 				}
+
 				if (v3d->fx_settings.ssao) {
 					writestruct(wd, DATA, GPUSSAOSettings, 1, v3d->fx_settings.ssao);
 				}

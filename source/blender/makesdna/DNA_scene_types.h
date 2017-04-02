@@ -1712,11 +1712,11 @@ typedef struct Scene {
 
 /* flag */
 	/* use preview range */
-#define SCER_PRV_RANGE            (1 << 0)
-#define SCER_LOCK_FRAME_SELECTION (1 << 1)
+#define SCER_PRV_RANGE	(1<<0)
+#define SCER_LOCK_FRAME_SELECTION	(1<<1)
 	/* timeline/keyframe jumping - only selected items (on by default) */
-#define SCE_KEYS_NO_SELONLY       (1 << 2)
-#define SCER_SHOW_SUBFRAME        (1 << 3)
+#define SCE_KEYS_NO_SELONLY	(1<<2)
+#define SCER_SHOW_SUBFRAME	(1<<3)
 
 /* mode (int now) */
 #define R_OSA			0x0001

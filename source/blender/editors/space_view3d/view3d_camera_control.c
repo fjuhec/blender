@@ -305,7 +305,7 @@ void ED_view3d_cameracontrol_release(
 			/* Non Camera we need to reset the view back to the original location bacause the user canceled*/
 			copy_qt_qt(rv3d->viewquat, vctrl->rot_backup);
 			rv3d->persp = ((rv3d->viewlock & RV3D_LOCK_PERSP_VIEW) && vctrl != RV3D_ORTHO) ?
-			                  vctrl->persp_backup : RV3D_PERSP;
+			        vctrl->persp_backup : RV3D_PERSP;
 		}
 		/* always, is set to zero otherwise */
 		copy_v3_v3(rv3d->ofs, vctrl->ofs_backup);

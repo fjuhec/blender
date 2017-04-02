@@ -288,7 +288,6 @@ static void wm_method_draw_stereo3d_topbottom(wmWindow *win)
 
 void wm_method_draw_stereo3d(wmWindow *win)
 {
-
 	switch (win->stereo3d_format->display_mode) {
 		case S3D_DISPLAY_ANAGLYPH:
 			wm_method_draw_stereo3d_anaglyph(win);

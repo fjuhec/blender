@@ -687,7 +687,7 @@ static void camera_stereo3d_model_matrix(
 	float fac_signed;
 
 	const float interocular_distance = interocular_distance_override == -1.0f ?
-	                                       data->stereo.interocular_distance : interocular_distance_override;
+	        data->stereo.interocular_distance : interocular_distance_override;
 	const short convergence_mode = data->stereo.convergence_mode;
 	const short pivot = data->stereo.pivot;
 
@@ -779,8 +779,9 @@ void BKE_camera_multiview_view_matrix(
         RenderData *rd, Object *camera, const bool is_left, const float interocular_distance_override,
         float r_viewmat[4][4])
 {
-	BKE_camera_multiview_model_matrix_ex(rd, camera, is_left ? STEREO_LEFT_NAME : STEREO_RIGHT_NAME,
-	                                     interocular_distance_override, r_viewmat);
+	BKE_camera_multiview_model_matrix_ex(
+	        rd, camera, is_left ? STEREO_LEFT_NAME : STEREO_RIGHT_NAME,
+	        interocular_distance_override, r_viewmat);
 	invert_m4(r_viewmat);
 }
 
@@ -938,7 +939,7 @@ float BKE_camera_multiview_shift_x(RenderData *rd, Object *camera, const char *v
 	if (!is_multiview) {
 		return data->shiftx;
 	}
-	else if (ELEM(rd->views_format, SCE_VIEWS_FORMAT_MULTIVIEW)) {
+	else if (rd->views_format == SCE_VIEWS_FORMAT_MULTIVIEW) {
 		return data->shiftx;
 	}
 	else { /* SCE_VIEWS_SETUP_BASIC */
