@@ -156,7 +156,7 @@ static hid_device* open_device_idx(int manufacturer, int product, int iface, int
 	hid_device* ret = NULL;
 
 	while (cur_dev) {
-		printf("%04x:%04x %s\n", manufacturer, product, cur_dev->path);
+		printf("%04x:%04x %s\n", (unsigned int)manufacturer, (unsigned int)product, cur_dev->path);
 
 		if(idx == device_index && iface == iface_cur){
 			ret = hid_open_path(cur_dev->path);

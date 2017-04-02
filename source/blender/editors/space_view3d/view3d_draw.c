@@ -3231,7 +3231,7 @@ void ED_view3d_draw_offscreen(
 		}
 		const bool is_left = v3d->multiview_eye == STEREO_LEFT_ID;
 #ifdef WITH_INPUT_HMD
-		void *hmd_distortion_params = WM_device_HMD_distortion_parameters_get()
+		void *hmd_distortion_params = WM_device_HMD_distortion_parameters_get();
 #else
 		void *hmd_distortion_params = NULL;
 #endif
