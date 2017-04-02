@@ -1313,7 +1313,7 @@ bool GPU_fx_do_composite_pass(
 			distparams->left_lens_center[0] = distparams->viewport_scale[0] - distparams->sep/2.0f;
 			distparams->right_lens_center[0] = distparams->sep/2.0f;
 			//asume calibration was for lens view to which ever edge of screen is further away from lens center
-			float warp_scale = (distparams->left_lens_center[0] > distparams->right_lens_center[0]) ? distparams->left_lens_center[0] : distparams->right_lens_center[0];
+			const float warp_scale = max_ff(distparams->left_lens_center[0], distparams->right_lens_center[0]);
 
 			const int color_uniform = GPU_shader_get_uniform(lensdist_shader, "warpTexture");
 			const int viewport_scale = GPU_shader_get_uniform(lensdist_shader, "ViewportScale");
