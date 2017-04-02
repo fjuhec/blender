@@ -47,7 +47,7 @@ def ui_draw_filter_register(
     ui_ignore_operator=None,
     ui_ignore_property=None,
     ui_ignore_menu=None,
-    ui_ignore_label=None,
+    ui_ignore_label=None
 ):
     import bpy
 
@@ -147,10 +147,12 @@ def ui_draw_filter_register(
             return super().operator(*args, **kw)
 
     def draw_override(func_orig, self_real, context):
-        # simple, no wrapping
-        # return func_orig(self_wrap, context)
+        cls_real = self_real.__class__
+        if cls_real is super:
+            # simple, no wrapping
+            return func_orig(self_real, context)
 
-        class Wrapper(self_real.__class__):
+        class Wrapper(cls_real):
             __slots__ = ()
             def __getattribute__(self, attr):
                 if attr == "layout":
