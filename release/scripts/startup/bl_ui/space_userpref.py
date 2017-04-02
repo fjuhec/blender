@@ -507,10 +507,10 @@ class USERPREF_PT_system(Panel):
 
             col.label(text="Head Mounted Displays:")
             col.prop(system, "hmd_device", text="Device")
-            col.prop(system, "hmd_use_device_rotation")
-            col.prop(system, "hmd_use_device_ipd")
+            col.prop(system, "use_hmd_device_rotation")
+            col.prop(system, "use_hmd_device_ipd")
             subcol = col.column()
-            subcol.active = not system.hmd_use_device_ipd or system.hmd_device == 'NONE'
+            subcol.active = (not system.use_hmd_device_ipd) or (system.hmd_device == 'NONE')
             subcol.prop(system, "hmd_custom_ipd")
 
         # 2. Column
