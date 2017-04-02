@@ -541,7 +541,7 @@ float       WM_device_HMD_lens_horizontal_separation_get(void) ATTR_WARN_UNUSED_
 void WM_device_HMD_state_set(const int device, const bool enable);
 void WM_device_HMD_modelview_matrix_get(const bool is_left, float r_modelviewmat[4][4]) ATTR_NONNULL();
 void WM_device_HMD_projection_matrix_get(const bool is_left, float r_projmat[4][4]) ATTR_NONNULL();
-void* WM_device_HMD_distortion_parameters_get(void);
+void *WM_device_HMD_distortion_parameters_get(void);
 
 #endif /* WITH_INPUT_HMD */
 

@@ -1308,7 +1308,7 @@ bool GPU_fx_do_composite_pass(
 				float right_lens_center[2];
 			};
 
-			struct OpenHMDDistortionParameters* distparams = (struct OpenHMDDistortionParameters*)hmd_distortion_params;
+			struct OpenHMDDistortionParameters *distparams = hmd_distortion_params;
 
 			distparams->left_lens_center[0] = distparams->viewport_scale[0] - distparams->sep/2.0f;
 			distparams->right_lens_center[0] = distparams->sep/2.0f;

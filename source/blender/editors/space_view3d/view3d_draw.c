@@ -3226,10 +3226,15 @@ void ED_view3d_draw_offscreen(
 
 	/* post process */
 	if (do_compositing) {
-		if (!winmat)
+		if (!winmat) {
 			is_persp = rv3d->is_persp;
+		}
 		const bool is_left = v3d->multiview_eye == STEREO_LEFT_ID;
-		void* hmd_distortion_params = WM_device_HMD_distortion_parameters_get();
+#ifdef WITH_INPUT_HMD
+		void *hmd_distortion_params = WM_device_HMD_distortion_parameters_get()
+#else
+		void *hmd_distortion_params = NULL;
+#endif
 		GPU_fx_do_composite_pass(fx, winmat, is_persp, scene, ofs, is_left, hmd_distortion_params);
 	}
 
@@ -4003,8 +4008,15 @@ static void view3d_main_region_draw_objects(
 	/* post process */
 	if (do_compositing) {
 		const bool is_left = v3d->multiview_eye == STEREO_LEFT_ID;
-		void *hmd_distortion_params = (wm->hmd_view.hmd_win == win && win->screen->is_hmd_running) ? WM_device_HMD_distortion_parameters_get() : NULL;
-		GPU_fx_do_composite_pass(rv3d->compositor, rv3d->winmat, rv3d->is_persp, scene, NULL, is_left, hmd_distortion_params);
+#ifdef WITH_INPUT_HMD
+		void *hmd_distortion_params =
+		        (wm->hmd_view.hmd_win == win && win->screen->is_hmd_running) ?
+		        WM_device_HMD_distortion_parameters_get() : NULL;
+#else
+		void *hmd_distortion_params = NULL;
+#endif
+		GPU_fx_do_composite_pass(
+		        rv3d->compositor, rv3d->winmat, rv3d->is_persp, scene, NULL, is_left, hmd_distortion_params);
 	}
 
 	/* Disable back anti-aliasing */
