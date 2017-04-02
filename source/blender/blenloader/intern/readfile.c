@@ -6179,8 +6179,10 @@ static void direct_link_windowmanager(FileData *fd, wmWindowManager *wm)
 	link_list(fd, &wm->windows);
 #ifdef WITH_INPUT_HMD
 	wm->hmd_view.hmd_win = newdataadr(fd, wm->hmd_view.hmd_win);
+#else
+	wm->hmd_view.hmd_win = NULL;
 #endif
-	
+
 	for (win = wm->windows.first; win; win = win->next) {
 		win->ghostwin = NULL;
 		win->eventstate = NULL;
