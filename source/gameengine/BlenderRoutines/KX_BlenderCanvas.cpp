@@ -210,8 +210,8 @@ SetViewPort(
 	 * the width,height is calculated including both pixels
 	 * therefore: max - min + 1
 	 */
-	int vp_width = (x2 - x1) + 1;
-	int vp_height = (y2 - y1) + 1;
+	int vp_width = (x2 - x1);
+	int vp_height = (y2 - y1);
 	int minx = m_frame_rect.GetLeft();
 	int miny = m_frame_rect.GetBottom();
 

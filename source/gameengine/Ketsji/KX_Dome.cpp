@@ -2018,7 +2018,7 @@ void KX_Dome::RenderDomeFrame(KX_Scene* scene, KX_Camera* cam, int i)
 	if (!cam)
 		return;
 
-	m_canvas->SetViewPort(0,0,m_buffersize-1,m_buffersize-1);
+	m_canvas->SetViewPort(0,0,m_buffersize,m_buffersize);
 
 //	m_rasterizer->SetAmbient();
 	m_rasterizer->DisplayFog();

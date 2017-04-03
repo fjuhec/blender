@@ -399,8 +399,8 @@ void RAS_2DFilterManager::SetupTextures(bool depth, bool luminance)
 void RAS_2DFilterManager::UpdateOffsetMatrix(RAS_ICanvas* canvas)
 {
 	/* RAS_Rect canvas_rect = canvas->GetWindowArea(); */ /* UNUSED */
-	texturewidth = canvas->GetWidth()+1;
-	textureheight = canvas->GetHeight()+1;
+	texturewidth = canvas->GetWidth();
+	textureheight = canvas->GetHeight();
 	GLint i,j;
 
 	if (!GL_ARB_texture_non_power_of_two)
@@ -508,8 +508,8 @@ void RAS_2DFilterManager::RenderFilters(RAS_ICanvas* canvas)
 
 	glScissor(scissor_rect.GetLeft() + viewport[0],
 	          scissor_rect.GetBottom() + viewport[1],
-	          scissor_rect.GetWidth() + 1,
-	          scissor_rect.GetHeight() + 1);
+	          scissor_rect.GetWidth(),
+	          scissor_rect.GetHeight());
 
 	glDisable(GL_DEPTH_TEST);
 	// in case the previous material was wire

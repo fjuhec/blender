@@ -268,7 +268,7 @@ bool ImageRender::Render()
 		m_canvas->UpdateViewPort(0, 0, m_offscreen->ofs->GetWidth(), m_offscreen->ofs->GetHeight());
 	}
 	else {
-		m_canvas->SetViewPort(m_position[0], m_position[1], m_position[0]+m_capSize[0]-1, m_position[1]+m_capSize[1]-1);
+		m_canvas->SetViewPort(m_position[0], m_position[1], m_position[0]+m_capSize[0], m_position[1]+m_capSize[1]);
 	}
 	m_canvas->ClearColor(m_background[0], m_background[1], m_background[2], m_background[3]);
 	m_canvas->ClearBuffer(RAS_ICanvas::COLOR_BUFFER|RAS_ICanvas::DEPTH_BUFFER);
