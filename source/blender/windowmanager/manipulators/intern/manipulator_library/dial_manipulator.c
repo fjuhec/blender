@@ -35,9 +35,7 @@
  */
 
 #include "BIF_gl.h"
-
-// IMM-FIXME
-#include <GL/glu.h>
+#include "BIF_glutil.h"
 
 #include "BKE_context.h"
 
@@ -49,6 +47,10 @@
 #include "ED_view3d.h"
 
 #include "GPU_select.h"
+
+#include "GPU_matrix.h"
+
+#include "GPU_immediate.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -63,6 +65,11 @@
 #include "manipulator_geometry.h"
 #include "manipulator_library_intern.h"
 
+#define USE_IMM
+
+#ifndef USE_IMM
+#include <GL/glu.h>
+#endif
 
 /* to use custom dials exported to geom_dial_manipulator.c */
 //#define MANIPULATOR_USE_CUSTOM_DIAS
@@ -100,13 +107,36 @@ static void dial_geom_draw(const DialManipulator *dial, const float col[4], cons
 	const bool filled = (dial->style == MANIPULATOR_DIAL_STYLE_RING_FILLED);
 
 	glLineWidth(dial->manipulator.line_width);
-	glColor4fv(col);
 
-	GLUquadricObj *qobj = gluNewQuadric();
-	gluQuadricDrawStyle(qobj, filled ? GLU_FILL : GLU_SILHOUETTE);
-	/* inner at 0.0 with silhouette drawing confuses OGL selection, so draw it at width */
-	gluDisk(qobj, filled ? 0.0 : DIAL_WIDTH, DIAL_WIDTH, DIAL_RESOLUTION, 1);
-	gluDeleteQuadric(qobj);
+#ifdef USE_IMM
+	{
+		VertexFormat *format = immVertexFormat();
+		unsigned int pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+
+		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+
+		immUniformColor4fv(col);
+
+		if (filled) {
+			imm_draw_filled_circle(pos, 0, 0, 1.0, DIAL_RESOLUTION);
+		}
+		else {
+			imm_draw_lined_circle(pos, 0, 0, 1.0, DIAL_RESOLUTION);
+		}
+
+		immUnbindProgram();
+	}
+#else
+	{
+		glColor4fv(col);
+
+		GLUquadricObj *qobj = gluNewQuadric();
+		gluQuadricDrawStyle(qobj, filled ? GLU_FILL : GLU_SILHOUETTE);
+		/* inner at 0.0 with silhouette drawing confuses OGL selection, so draw it at width */
+		gluDisk(qobj, filled ? 0.0 : DIAL_WIDTH, DIAL_WIDTH, DIAL_RESOLUTION, 1);
+		gluDeleteQuadric(qobj);
+	}
+#endif
 
 	UNUSED_VARS(select);
 #endif
@@ -115,10 +145,30 @@ static void dial_geom_draw(const DialManipulator *dial, const float col[4], cons
 /**
  * Draws a line from (0, 0, 0) to \a co_outer, at \a angle.
  */
-static void dial_ghostarc_draw_helpline(const float angle, const float co_outer[3])
+static void dial_ghostarc_draw_helpline(const float angle, const float co_outer[3], const float col[4])
 {
 	glLineWidth(1.0f);
 
+#ifdef USE_IMM
+	gpuPushMatrix();
+	gpuRotate3f(RAD2DEGF(angle), 0.0f, 0.0f, -1.0f);
+
+	unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+
+	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+
+	immUniformColor4fv(col);
+
+	immBegin(PRIM_LINE_STRIP, 2);
+	immVertex3f(pos, 0.0f, 0.0f, 0.0f);
+	immVertex3fv(pos, co_outer);
+	immEnd();
+
+	immUnbindProgram();
+
+	gpuPopMatrix();
+#else
+	glColor4fv(col);
 	glPushMatrix();
 	glRotatef(RAD2DEGF(angle), 0.0f, 0.0f, -1.0f);
 //	glScalef(0.0f, DIAL_WIDTH - dial->manipulator.line_width * 0.5f / U.widget_scale, 0.0f);
@@ -127,16 +177,29 @@ static void dial_ghostarc_draw_helpline(const float angle, const float co_outer[
 	glVertex3fv(co_outer);
 	glEnd();
 	glPopMatrix();
+#endif
 }
 
-static void dial_ghostarc_draw(const DialManipulator *dial, const float angle_ofs, const float angle_delta)
+static void dial_ghostarc_draw(
+        const DialManipulator *dial, const float angle_ofs, const float angle_delta, const float color[4])
 {
-	GLUquadricObj *qobj = gluNewQuadric();
 	const float width_inner = DIAL_WIDTH - dial->manipulator.line_width * 0.5f / U.manipulator_scale;
 
+#ifdef USE_IMM
+	VertexFormat *format = immVertexFormat();
+	unsigned int pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+	immUniformColor4fv(color);
+	imm_draw_filled_circle_partial(
+	        pos, 0, 0, 0.0, width_inner, DIAL_RESOLUTION, RAD2DEGF(angle_ofs), RAD2DEGF(angle_delta));
+	immUnbindProgram();
+#else
+	GLUquadricObj *qobj = gluNewQuadric();
+	glColor4fv(color);
 	gluQuadricDrawStyle(qobj, GLU_FILL);
 	gluPartialDisk(qobj, 0.0, width_inner, DIAL_RESOLUTION, 1, RAD2DEGF(angle_ofs), RAD2DEGF(angle_delta));
 	gluDeleteQuadric(qobj);
+#endif
 }
 
 static void dial_ghostarc_get_angles(
@@ -206,9 +269,15 @@ static void dial_draw_intern(const bContext *C, DialManipulator *dial, const boo
 	copy_v3_v3(mat[3], dial->manipulator.origin);
 	mul_mat3_m4_fl(mat, dial->manipulator.scale);
 
+#ifdef USE_IMM
+	gpuPushMatrix();
+	gpuMultMatrix3D(mat);
+	gpuTranslate3fv(dial->manipulator.offset);
+#else
 	glPushMatrix();
 	glMultMatrixf(mat);
 	glTranslatef(UNPACK3(dial->manipulator.offset));
+#endif
 
 	/* draw rotation indicator arc first */
 	if ((dial->manipulator.flag & WM_MANIPULATOR_DRAW_VALUE) && (dial->manipulator.state & WM_MANIPULATOR_ACTIVE)) {
@@ -218,18 +287,20 @@ static void dial_draw_intern(const bContext *C, DialManipulator *dial, const boo
 
 		dial_ghostarc_get_angles(dial, win->eventstate, CTX_wm_region(C), mat, co_outer, &angle_ofs, &angle_delta);
 		/* draw! */
-		glColor4f(0.8f, 0.8f, 0.8f, 0.4f);
-		dial_ghostarc_draw(dial, angle_ofs, angle_delta);
+		dial_ghostarc_draw(dial, angle_ofs, angle_delta, (const float [4]){0.8f, 0.8f, 0.8f, 0.4f});
 
-		glColor4fv(col);
-		dial_ghostarc_draw_helpline(angle_ofs, co_outer); /* starting position */
-		dial_ghostarc_draw_helpline(angle_ofs + angle_delta, co_outer); /* starting position + current value */
+		dial_ghostarc_draw_helpline(angle_ofs, co_outer, col); /* starting position */
+		dial_ghostarc_draw_helpline(angle_ofs + angle_delta, co_outer, col); /* starting position + current value */
 	}
 
 	/* draw actual dial manipulator */
 	dial_geom_draw(dial, col, select);
 
+#ifdef USE_IMM
+	gpuPopMatrix();
+#else
 	glPopMatrix();
+#endif
 
 }
 
