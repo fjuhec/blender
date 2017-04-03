@@ -462,7 +462,8 @@ void BKE_object_free(Object *ob)
 
 	BKE_previewimg_free(&ob->preview);
 
-	BKE_layer_collection_engine_settings_list_free(&ob->collection_settings);
+	/* don't free, let the base free it */
+	ob->base_collection_properties = NULL;
 }
 
 /* actual check for internal data, not context or flags */
@@ -1179,7 +1180,6 @@ Object *BKE_object_copy_ex(Main *bmain, Object *ob, bool copy_caches)
 
 	BLI_listbase_clear(&obn->gpulamp);
 	BLI_listbase_clear(&obn->pc_ids);
-	BLI_listbase_clear(&obn->collection_settings);
 
 	obn->mpath = NULL;
 
@@ -2497,14 +2497,14 @@ void BKE_object_foreach_display_point(
 }
 
 void BKE_scene_foreach_display_point(
-        Scene *scene, View3D *v3d, const short flag,
+        Scene *scene, SceneLayer *sl,
         void (*func_cb)(const float[3], void *), void *user_data)
 {
-	BaseLegacy *base;
+	Base *base;
 	Object *ob;
 
-	for (base = FIRSTBASE; base; base = base->next) {
-		if (BASE_VISIBLE_BGMODE(v3d, scene, base) && (base->flag_legacy & flag) == flag) {
+	for (base = FIRSTBASE_NEW; base; base = base->next) {
+		if (((base->flag & BASE_VISIBLED) != 0) && ((base->flag & BASE_SELECTED) != 0)) {
 			ob = base->object;
 
 			if ((ob->transflag & OB_DUPLI) == 0) {

@@ -1774,18 +1774,11 @@ static void view3d_main_region_clear(Scene *scene, View3D *v3d, ARegion *ar)
 {
 	glClear(GL_DEPTH_BUFFER_BIT);
 
-	glMatrixMode(GL_PROJECTION);
-	gpuLoadIdentity();
-	glMatrixMode(GL_MODELVIEW);
-	gpuLoadIdentity();
-
 	if (scene->world && (v3d->flag3 & V3D_SHOW_WORLD)) {
 		VP_view3d_draw_background_world(scene, v3d, ar->regiondata);
 	}
 	else {
 		VP_view3d_draw_background_none();
-
-	glEnable(GL_DEPTH_TEST);
 	}
 }
 
@@ -1801,8 +1794,6 @@ void ED_view3d_draw_offscreen(
 {
 	bool do_compositing = false;
 	RegionView3D *rv3d = ar->regiondata;
-
-	gpuPushMatrix();
 
 	/* set temporary new size */
 	int bwinx = ar->winx;
@@ -1829,7 +1820,22 @@ void ED_view3d_draw_offscreen(
 		GPU_free_images_anim();
 	}
 
-	/* setup view matrices before fx or unbinding the offscreen buffers will cause issues */
+	glMatrixMode(GL_PROJECTION);
+	gpuPushMatrix();
+	gpuLoadIdentity();
+	glMatrixMode(GL_MODELVIEW);
+	gpuPushMatrix();
+	gpuLoadIdentity();
+
+	/* clear opengl buffers */
+	if (do_sky) {
+		view3d_main_region_clear(scene, v3d, ar);
+	}
+	else {
+		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	}
+
 	if ((viewname != NULL && viewname[0] != '\0') && (viewmat == NULL) && rv3d->persp == RV3D_CAMOB && v3d->camera)
 		view3d_stereo3d_setup_offscreen(scene, v3d, ar, winmat, viewname);
 	else
@@ -1850,15 +1856,6 @@ void ED_view3d_draw_offscreen(
 			v3d->fx_settings.ssao = ssao;
 	}
 
-	/* clear opengl buffers */
-	if (do_sky) {
-		view3d_main_region_clear(scene, v3d, ar);
-	}
-	else {
-		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	}
-
 	/* main drawing call */
 	view3d_draw_objects(NULL, scene, v3d, ar, NULL, do_bgpic, true, do_compositing ? fx : NULL);
 
@@ -1872,7 +1869,6 @@ void ED_view3d_draw_offscreen(
 	if ((v3d->flag2 & V3D_RENDER_SHADOW) == 0) {
 		/* draw grease-pencil stuff */
 		ED_region_pixelspace(ar);
-
 
 		if (v3d->flag2 & V3D_SHOW_GPENCIL) {
 			/* draw grease-pencil stuff - needed to get paint-buffer shown too (since it's 2D) */
@@ -1888,6 +1884,9 @@ void ED_view3d_draw_offscreen(
 	ar->winy = bwiny;
 	ar->winrct = brect;
 
+	glMatrixMode(GL_PROJECTION);
+	gpuPopMatrix();
+	glMatrixMode(GL_MODELVIEW);
 	gpuPopMatrix();
 
 	UI_Theme_Restore(&theme_state);
@@ -2531,6 +2530,13 @@ void view3d_main_region_draw_legacy(const bContext *C, ARegion *ar)
 	bool render_border = ED_view3d_calc_render_border(scene, v3d, ar, &border_rect);
 	bool clip_border = (render_border && !BLI_rcti_compare(&ar->drawrct, &border_rect));
 
+	glMatrixMode(GL_PROJECTION);
+	gpuPushMatrix();
+	gpuLoadIdentity();
+	glMatrixMode(GL_MODELVIEW);
+	gpuPushMatrix();
+	gpuLoadIdentity();
+
 	/* draw viewport using opengl */
 	if (v3d->drawtype != OB_RENDER || !view3d_main_region_do_render_draw(scene) || clip_border) {
 		view3d_main_region_clear(scene, v3d, ar); /* background */
@@ -2555,6 +2561,11 @@ void view3d_main_region_draw_legacy(const bContext *C, ARegion *ar)
 	ED_region_pixelspace(ar);
 
 	view3d_main_region_draw_info(C, scene, ar, v3d, grid_unit, render_border);
+
+	glMatrixMode(GL_PROJECTION);
+	gpuPopMatrix();
+	glMatrixMode(GL_MODELVIEW);
+	gpuPopMatrix();
 
 	v3d->flag |= V3D_INVALID_BACKBUF;
 

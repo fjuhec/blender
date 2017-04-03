@@ -37,6 +37,7 @@ static struct {
 	struct GPUShader *default_lit;
 	struct GPUShader *depth_sh;
 	struct GPUShader *tonemap;
+	float camera_pos[3];
 } e_data = {NULL}; /* Engine data */
 
 extern char datatoc_bsdf_common_lib_glsl[];
@@ -53,7 +54,7 @@ static void EEVEE_engine_init(void *vedata)
 	EEVEE_FramebufferList *fbl = ((EEVEE_Data *)vedata)->fbl;
 	EEVEE_StorageList *stl = ((EEVEE_Data *)vedata)->stl;
 
-	DRWFboTexture tex = {&txl->color, DRW_BUF_RGBA_32};
+	DRWFboTexture tex = {&txl->color, DRW_BUF_RGBA_16};
 
 	float *viewport_size = DRW_viewport_size_get();
 	DRW_framebuffer_init(&fbl->main,
@@ -86,6 +87,12 @@ static void EEVEE_engine_init(void *vedata)
 		EEVEE_lights_init(stl);
 
 	// EEVEE_lights_update(stl);
+	{
+		float viewinvmat[4][4];
+		DRW_viewport_matrix_get(viewinvmat, DRW_MAT_VIEWINV);
+
+		copy_v3_v3(e_data.camera_pos, viewinvmat[3]);
+	}
 }
 
 static void EEVEE_cache_init(void *vedata)
@@ -126,6 +133,7 @@ static void EEVEE_cache_init(void *vedata)
 		stl->g_data->default_lit_grp = DRW_shgroup_create(e_data.default_lit, psl->pass);
 		DRW_shgroup_uniform_block(stl->g_data->default_lit_grp, "light_block", stl->lights_ubo, 0);
 		DRW_shgroup_uniform_int(stl->g_data->default_lit_grp, "light_count", &stl->lights_info->light_count, 1);
+		DRW_shgroup_uniform_vec3(stl->g_data->default_lit_grp, "cameraPos", e_data.camera_pos, 1);
 	}
 
 	{
@@ -148,7 +156,7 @@ static void EEVEE_cache_populate(void *vedata, Object *ob)
 	EEVEE_StorageList *stl = ((EEVEE_Data *)vedata)->stl;
 
 	if (ob->type == OB_MESH) {
-		CollectionEngineSettings *ces_mode_ob = BKE_object_collection_engine_get(ob, COLLECTION_MODE_OBJECT, "");
+		IDProperty *ces_mode_ob = BKE_object_collection_engine_get(ob, COLLECTION_MODE_OBJECT, "");
 		bool do_cull = BKE_collection_engine_property_value_get_bool(ces_mode_ob, "show_backface_culling");
 		struct Batch *geom = DRW_cache_surface_get(ob);
 
@@ -214,10 +222,12 @@ static void EEVEE_engine_free(void)
 		DRW_shader_free(e_data.tonemap);
 }
 
-static void EEVEE_collection_settings_create(RenderEngine *UNUSED(engine), CollectionEngineSettings *ces)
+static void EEVEE_collection_settings_create(RenderEngine *UNUSED(engine), IDProperty *props)
 {
-	BLI_assert(ces);
-	// BKE_collection_engine_property_add_int(ces, "high_quality_sphere_lamps", false);
+	BLI_assert(props &&
+	           props->type == IDP_GROUP &&
+	           props->subtype == IDP_GROUP_SUB_ENGINE_RENDER);
+	// BKE_collection_engine_property_add_int(props, "high_quality_sphere_lamps", false);
 }
 
 DrawEngineType draw_engine_eevee_type = {

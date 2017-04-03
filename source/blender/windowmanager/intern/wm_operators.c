@@ -1436,20 +1436,6 @@ static void dialog_exec_cb(bContext *C, void *arg1, void *arg2)
 	}
 }
 
-static void popup_check_cb(bContext *C, void *op_ptr, void *UNUSED(arg))
-{
-	wmOperator *op = op_ptr;
-	if (op->type->check) {
-		if (op->type->check(C, op)) {
-			/* check for popup and re-layout buttons */
-			ARegion *ar_menu = CTX_wm_menu(C);
-			if (ar_menu) {
-				ED_region_tag_refresh_ui(ar_menu);
-			}
-		}
-	}
-}
-
 /* Dialogs are popups that require user verification (click OK) before exec */
 static uiBlock *wm_block_dialog_create(bContext *C, ARegion *ar, void *userData)
 {
@@ -1468,8 +1454,6 @@ static uiBlock *wm_block_dialog_create(bContext *C, ARegion *ar, void *userData)
 
 	layout = UI_block_layout(block, UI_LAYOUT_VERTICAL, UI_LAYOUT_PANEL, 0, 0, data->width, data->height, 0, style);
 	
-	UI_block_func_set(block, popup_check_cb, op, NULL);
-
 	uiLayoutOperatorButs(C, layout, op, NULL, 'H', UI_LAYOUT_OP_SHOW_TITLE);
 	
 	/* clear so the OK button is left alone */
@@ -1507,8 +1491,6 @@ static uiBlock *wm_operator_ui_create(bContext *C, ARegion *ar, void *userData)
 	UI_block_flag_enable(block, UI_BLOCK_KEEP_OPEN | UI_BLOCK_MOVEMOUSE_QUIT);
 
 	layout = UI_block_layout(block, UI_LAYOUT_VERTICAL, UI_LAYOUT_PANEL, 0, 0, data->width, data->height, 0, style);
-
-	UI_block_func_set(block, popup_check_cb, op, NULL);
 
 	/* since ui is defined the auto-layout args are not used */
 	uiLayoutOperatorButs(C, layout, op, NULL, 'V', 0);
@@ -1556,7 +1538,7 @@ int WM_operator_ui_popup(bContext *C, wmOperator *op, int width, int height)
 	data->width = width;
 	data->height = height;
 	data->free_op = true; /* if this runs and gets registered we may want not to free it */
-	UI_popup_block_ex(C, wm_operator_ui_create, NULL, wm_operator_ui_popup_cancel, data);
+	UI_popup_block_ex(C, wm_operator_ui_create, NULL, wm_operator_ui_popup_cancel, data, op);
 	return OPERATOR_RUNNING_MODAL;
 }
 
@@ -1586,7 +1568,7 @@ static int wm_operator_props_popup_ex(bContext *C, wmOperator *op,
 	if (!do_redo || !(U.uiflag & USER_GLOBALUNDO))
 		return WM_operator_props_dialog_popup(C, op, 15 * UI_UNIT_X, UI_UNIT_Y);
 
-	UI_popup_block_ex(C, wm_block_create_redo, NULL, wm_block_redo_cancel_cb, op);
+	UI_popup_block_ex(C, wm_block_create_redo, NULL, wm_block_redo_cancel_cb, op, op);
 
 	if (do_call)
 		wm_block_redo_cb(C, op, 0);
@@ -1628,7 +1610,7 @@ int WM_operator_props_dialog_popup(bContext *C, wmOperator *op, int width, int h
 	data->free_op = true; /* if this runs and gets registered we may want not to free it */
 
 	/* op is not executed until popup OK but is clicked */
-	UI_popup_block_ex(C, wm_block_dialog_create, wm_operator_ui_popup_ok, wm_operator_ui_popup_cancel, data);
+	UI_popup_block_ex(C, wm_block_dialog_create, wm_operator_ui_popup_ok, wm_operator_ui_popup_cancel, data, op);
 
 	return OPERATOR_RUNNING_MODAL;
 }
@@ -3255,6 +3237,7 @@ static void radial_control_paint_cursor(bContext *C, int x, int y, void *customd
 	imm_draw_lined_circle(pos, 0.0f, 0.0f, r2, 40);
 	if (rmin > 0.0f)
 		imm_draw_lined_circle(pos, 0.0, 0.0f, rmin, 40);
+	immUnbindProgram();
 
 	BLF_size(fontid, 1.5 * fstyle_points * U.pixelsize, U.dpi);
 	BLF_enable(fontid, BLF_SHADOW);
@@ -3271,7 +3254,6 @@ static void radial_control_paint_cursor(bContext *C, int x, int y, void *customd
 	glDisable(GL_BLEND);
 	glDisable(GL_LINE_SMOOTH);
 
-	immUnbindProgram();
 }
 
 typedef enum {

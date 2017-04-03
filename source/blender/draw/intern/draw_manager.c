@@ -923,7 +923,7 @@ static void draw_geometry(DRWShadingGroup *shgroup, Batch *geom, const float (*o
 {
 	RegionView3D *rv3d = CTX_wm_region_view3d(DST.context);
 	DRWInterface *interface = shgroup->interface;
-	
+
 	float mvp[4][4], mv[4][4], n[3][3], wn[3][3];
 	float eye[3] = { 0.0f, 0.0f, 1.0f }; /* looking into the screen */
 
@@ -1050,7 +1050,7 @@ static void draw_shgroup(DRWShadingGroup *shgroup)
 				GPU_texture_bind(tex, uni->bindloc);
 				GPU_texture_compare_mode(tex, false);
 				GPU_texture_filter_mode(tex, false);
-				
+
 				bound_tex = MEM_callocN(sizeof(DRWBoundTexture), "DRWBoundTexture");
 				bound_tex->tex = tex;
 				BLI_addtail(&DST.bound_texs, bound_tex);
@@ -1186,8 +1186,8 @@ bool DRW_is_object_renderable(Object *ob)
 
 	if (ob->type == OB_MESH) {
 		if (ob == obedit) {
-			CollectionEngineSettings *ces_mode_ed = BKE_object_collection_engine_get(ob, COLLECTION_MODE_EDIT, "");
-			bool do_occlude_wire = BKE_collection_engine_property_value_get_bool(ces_mode_ed, "show_occlude_wire");
+			IDProperty *props = BKE_object_collection_engine_get(ob, COLLECTION_MODE_EDIT, "");
+			bool do_occlude_wire = BKE_collection_engine_property_value_get_bool(props, "show_occlude_wire");
 
 			if (do_occlude_wire)
 				return false;
@@ -1197,73 +1197,20 @@ bool DRW_is_object_renderable(Object *ob)
 	return true;
 }
 
-void *DRW_material_settings_get(Material *ma, const char *engine_name)
-{
-	MaterialEngineSettings *ms = NULL;
-
-	ms = BLI_findstring(&ma->engines_settings, engine_name, offsetof(MaterialEngineSettings, name));
-
-#ifdef WITH_CLAY_ENGINE
-	/* If the settings does not exists yet, create it */
-	if (ms == NULL) {
-		ms = MEM_callocN(sizeof(RenderEngineSettings), "RenderEngineSettings");
-
-		BLI_strncpy(ms->name, engine_name, 32);
-
-		/* TODO make render_settings_create a polymorphic function */
-		if (STREQ(engine_name, RE_engine_id_BLENDER_CLAY)) {
-			/* No material support */
-			BLI_assert(false);
-		}
-		else {
-			/* No engine matched */
-			BLI_assert(false);
-		}
-
-		BLI_addtail(&ma->engines_settings, ms);
-	}
-#else
-	return NULL;
-#endif
-
-	return ms->data;
-}
-
-/* If scene is NULL, use context scene */
-void *DRW_render_settings_get(Scene *scene, const char *engine_name)
-{
-	RenderEngineSettings *rs = NULL;
-
-	if (scene == NULL)
-		scene = CTX_data_scene(DST.context);
-
-	rs = BLI_findstring(&scene->engines_settings, engine_name, offsetof(RenderEngineSettings, name));
-
-#ifdef WITH_CLAY_ENGINE
-	/* If the settings does not exists yet, create it */
-	if (rs == NULL) {
-		rs = MEM_callocN(sizeof(RenderEngineSettings), "RenderEngineSettings");
-
-		BLI_strncpy(rs->name, engine_name, 32);
-
-		/* TODO make render_settings_create a polymorphic function */
-		if (STREQ(engine_name, RE_engine_id_BLENDER_CLAY)) {
-			rs->data = CLAY_render_settings_create();
-		}
-		else {
-			/* No engine matched */
-			BLI_assert(false);
-		}
-
-		BLI_addtail(&scene->engines_settings, rs);
-	}
-#else
-	return NULL;
-#endif
-
-	return rs->data;
-}
 /* ****************************************** Framebuffers ******************************************/
+
+static GPUTextureFormat convert_tex_format(int fbo_format, int *channels)
+{
+	switch (fbo_format) {
+		case DRW_BUF_RGBA_8:   *channels = 4; return GPU_RGBA8;
+		case DRW_BUF_RGBA_16:  *channels = 4; return GPU_RGBA16F;
+		case DRW_BUF_DEPTH_24: *channels = 1; return GPU_DEPTH_COMPONENT24;
+		default:
+			BLI_assert(false);
+			*channels = 4; return GPU_RGBA8;
+	}
+}
+
 
 void DRW_framebuffer_init(struct GPUFrameBuffer **fb, int width, int height, DRWFboTexture textures[MAX_FBO_TEX],
                           int texnbr)
@@ -1276,8 +1223,11 @@ void DRW_framebuffer_init(struct GPUFrameBuffer **fb, int width, int height, DRW
 
 		for (int i = 0; i < texnbr; ++i) {
 			DRWFboTexture fbotex = textures[i];
-			
+
 			if (!*fbotex.tex) {
+				int channels;
+				GPUTextureFormat gpu_format = convert_tex_format(fbotex.format, &channels);
+
 				/* TODO refine to opengl formats */
 				if (fbotex.format == DRW_BUF_DEPTH_16 ||
 				    fbotex.format == DRW_BUF_DEPTH_24)
@@ -1287,11 +1237,11 @@ void DRW_framebuffer_init(struct GPUFrameBuffer **fb, int width, int height, DRW
 					GPU_texture_filter_mode(*fbotex.tex, false);
 				}
 				else {
-					*fbotex.tex = GPU_texture_create_2D(width, height, NULL, NULL);
+					*fbotex.tex = GPU_texture_create_2D_custom(width, height, channels, gpu_format, NULL, NULL);
 					++color_attachment;
 				}
 			}
-			
+
 			GPU_framebuffer_texture_attach(*fb, *fbotex.tex, color_attachment);
 		}
 

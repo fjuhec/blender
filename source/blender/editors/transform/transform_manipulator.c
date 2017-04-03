@@ -1035,8 +1035,8 @@ static void drawflags_editmode(Object *obedit, View3D *v3d, RegionView3D *rv3d)
  */
 static void manipulator_drawflags_refresh(const bContext *C, View3D *v3d, RegionView3D *rv3d)
 {
-	Scene *scene = CTX_data_scene(C);
-	Object *ob = OBACT, *obedit = CTX_data_edit_object(C);
+	SceneLayer *sl = CTX_data_scene_layer(C);
+	Object *ob = OBACT_NEW, *obedit = CTX_data_edit_object(C);
 	bGPdata *gpd = CTX_data_gpencil_data(C);
 	const bool is_gp_edit = ((gpd) && (gpd->flag & GP_DATA_STROKE_EDITMODE));
 
@@ -1056,8 +1056,8 @@ static void manipulator_drawflags_refresh(const bContext *C, View3D *v3d, Region
 		/* pass */
 	}
 	else {
-		for (Base *base = scene->base.first; base; base = base->next) {
-			if (TESTBASELIB(v3d, base)) {
+		for (Base *base = sl->object_bases.first; base; base = base->next) {
+			if (TESTBASELIB_NEW(base)) {
 				protectflag_to_drawflags(base->object->protectflag, &rv3d->twdrawflag);
 			}
 		}
@@ -1077,13 +1077,14 @@ static void manipulator_get_idot(RegionView3D *rv3d, float r_idot[3])
 static void manipulator_prepare_mat(const bContext *C, View3D *v3d, RegionView3D *rv3d)
 {
 	Scene *scene = CTX_data_scene(C);
+	SceneLayer *sl = CTX_data_scene_layer(C);
 
 	switch (v3d->around) {
 		case V3D_AROUND_CENTER_BOUNDS:
 		case V3D_AROUND_ACTIVE:
 		{
 				bGPdata *gpd = CTX_data_gpencil_data(C);
-				Object *ob = OBACT;
+				Object *ob = OBACT_NEW;
 
 				if (((v3d->around == V3D_AROUND_ACTIVE) && (scene->obedit == NULL)) &&
 				    ((gpd == NULL) || !(gpd->flag & GP_DATA_STROKE_EDITMODE)) &&

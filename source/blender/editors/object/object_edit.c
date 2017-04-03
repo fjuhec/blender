@@ -232,6 +232,7 @@ void ED_object_editmode_exit(bContext *C, int flag)
 	/* Note! only in exceptional cases should 'EM_DO_UNDO' NOT be in the flag */
 	/* Note! if 'EM_FREEDATA' isn't in the flag, use ED_object_editmode_load directly */
 	Scene *scene = CTX_data_scene(C);
+	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *obedit = CTX_data_edit_object(C);
 	const bool freedata = (flag & EM_FREEDATA) != 0;
 
@@ -240,8 +241,8 @@ void ED_object_editmode_exit(bContext *C, int flag)
 	if (ED_object_editmode_load_ex(CTX_data_main(C), obedit, freedata) == false) {
 		/* in rare cases (background mode) its possible active object
 		 * is flagged for editmode, without 'obedit' being set [#35489] */
-		if (UNLIKELY(scene->basact && (scene->basact->object->mode & OB_MODE_EDIT))) {
-			scene->basact->object->mode &= ~OB_MODE_EDIT;
+		if (UNLIKELY(sl->basact && (sl->basact->object->mode & OB_MODE_EDIT))) {
+			sl->basact->object->mode &= ~OB_MODE_EDIT;
 		}
 		if (flag & EM_WAITCURSOR) waitcursor(0);
 		return;
@@ -503,11 +504,11 @@ void OBJECT_OT_posemode_toggle(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-static void copymenu_properties(Scene *scene, View3D *v3d, Object *ob)
+static void copymenu_properties(SceneLayer *sl, Object *ob)
 {	
 //XXX no longer used - to be removed - replaced by game_properties_copy_exec
 	bProperty *prop;
-	BaseLegacy *base;
+	Base *base;
 	int nr, tot = 0;
 	char *str;
 	
@@ -536,8 +537,8 @@ static void copymenu_properties(Scene *scene, View3D *v3d, Object *ob)
 	nr = pupmenu(str);
 	
 	if (nr == 1 || nr == 2) {
-		for (base = FIRSTBASE; base; base = base->next) {
-			if ((base != BASACT) && (TESTBASELIB(v3d, base))) {
+		for (base = FIRSTBASE_NEW; base; base = base->next) {
+			if ((base != BASACT_NEW) && (TESTBASELIB_NEW(base))) {
 				if (nr == 1) { /* replace */
 					BKE_bproperty_copy_list(&base->object->prop, &ob->prop);
 				}
@@ -553,8 +554,8 @@ static void copymenu_properties(Scene *scene, View3D *v3d, Object *ob)
 		prop = BLI_findlink(&ob->prop, nr - 4); /* account for first 3 menu items & menu index starting at 1*/
 		
 		if (prop) {
-			for (base = FIRSTBASE; base; base = base->next) {
-				if ((base != BASACT) && (TESTBASELIB(v3d, base))) {
+			for (base = FIRSTBASE_NEW; base; base = base->next) {
+				if ((base != BASACT_NEW) && (TESTBASELIB_NEW(base))) {
 					BKE_bproperty_object_set(base->object, prop);
 				}
 			}
@@ -564,14 +565,14 @@ static void copymenu_properties(Scene *scene, View3D *v3d, Object *ob)
 	
 }
 
-static void copymenu_logicbricks(Scene *scene, View3D *v3d, Object *ob)
+static void copymenu_logicbricks(SceneLayer *sl, Object *ob)
 {
 //XXX no longer used - to be removed - replaced by logicbricks_copy_exec
-	BaseLegacy *base;
+	Base *base;
 	
-	for (base = FIRSTBASE; base; base = base->next) {
+	for (base = FIRSTBASE_NEW; base; base = base->next) {
 		if (base->object != ob) {
-			if (TESTBASELIB(v3d, base)) {
+			if (TESTBASELIB_NEW(base)) {
 				
 				/* first: free all logic */
 				free_sensors(&base->object->sensors);
@@ -650,7 +651,7 @@ static void copy_texture_space(Object *to, Object *ob)
 }
 
 /* UNUSED, keep in case we want to copy functionality for use elsewhere */
-static void copy_attr(Main *bmain, Scene *scene, SceneLayer *sl, View3D *v3d, short event)
+static void copy_attr(Main *bmain, Scene *scene, SceneLayer *sl, short event)
 {
 	Object *ob;
 	Base *base;
@@ -667,11 +668,11 @@ static void copy_attr(Main *bmain, Scene *scene, SceneLayer *sl, View3D *v3d, sh
 		return;
 	}
 	if (event == 9) {
-		copymenu_properties(scene, v3d, ob);
+		copymenu_properties(sl, ob);
 		return;
 	}
 	else if (event == 10) {
-		copymenu_logicbricks(scene, v3d, ob);
+		copymenu_logicbricks(sl, ob);
 		return;
 	}
 	else if (event == 24) {
@@ -901,7 +902,7 @@ static void copy_attr(Main *bmain, Scene *scene, SceneLayer *sl, View3D *v3d, sh
 		DAG_relations_tag_update(bmain);
 }
 
-static void UNUSED_FUNCTION(copy_attr_menu) (Main *bmain, Scene *scene, SceneLayer *sl, View3D *v3d)
+static void UNUSED_FUNCTION(copy_attr_menu) (Main *bmain, Scene *scene, SceneLayer *sl)
 {
 	Object *ob;
 	short event;
@@ -955,7 +956,7 @@ static void UNUSED_FUNCTION(copy_attr_menu) (Main *bmain, Scene *scene, SceneLay
 	event = pupmenu(str);
 	if (event <= 0) return;
 	
-	copy_attr(bmain, scene, sl, v3d, event);
+	copy_attr(bmain, scene, sl, event);
 }
 
 /* ******************* force field toggle operator ***************** */
@@ -1318,10 +1319,10 @@ void OBJECT_OT_shade_smooth(wmOperatorType *ot)
 
 /* ********************** */
 
-static void UNUSED_FUNCTION(image_aspect) (Scene *scene, View3D *v3d)
+static void UNUSED_FUNCTION(image_aspect) (Scene *scene, SceneLayer *sl)
 {
 	/* all selected objects with an image map: scale in image aspect */
-	BaseLegacy *base;
+	Base *base;
 	Object *ob;
 	Material *ma;
 	Tex *tex;
@@ -1331,8 +1332,8 @@ static void UNUSED_FUNCTION(image_aspect) (Scene *scene, View3D *v3d)
 	if (scene->obedit) return;  // XXX get from context
 	if (ID_IS_LINKED_DATABLOCK(scene)) return;
 	
-	for (base = FIRSTBASE; base; base = base->next) {
-		if (TESTBASELIB(v3d, base)) {
+	for (base = FIRSTBASE_NEW; base; base = base->next) {
+		if (TESTBASELIB_NEW(base)) {
 			ob = base->object;
 			done = false;
 			
