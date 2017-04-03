@@ -83,9 +83,12 @@ add_test(script_pyapi_bpy_utils_units ${TEST_BLENDER_EXE}
 	--python ${CMAKE_CURRENT_LIST_DIR}/bl_pyapi_bpy_utils_units.py
 )
 
-# test running mathutils testing script
 add_test(script_pyapi_mathutils ${TEST_BLENDER_EXE}
 	--python ${CMAKE_CURRENT_LIST_DIR}/bl_pyapi_mathutils.py
+)
+
+add_test(script_pyapi_idprop ${TEST_BLENDER_EXE}
+	--python ${CMAKE_CURRENT_LIST_DIR}/bl_pyapi_idprop.py
 )
 
 # ------------------------------------------------------------------------------
@@ -93,6 +96,11 @@ add_test(script_pyapi_mathutils ${TEST_BLENDER_EXE}
 add_test(bevel ${TEST_BLENDER_EXE}
 	${TEST_SRC_DIR}/modeling/bevel_regression.blend
 	--python-text run_tests
+)
+
+add_test(split_faces ${TEST_BLENDER_EXE}
+    ${TEST_SRC_DIR}/modeling/split_faces_test.blend
+    --python-text run_tests
 )
 
 # ------------------------------------------------------------------------------
@@ -417,7 +425,12 @@ if(WITH_CYCLES)
 					-idiff "${OPENIMAGEIO_IDIFF}"
 				)
 			endif()
-		endmacro()	
+		endmacro()
+		if(WITH_OPENGL_TESTS)
+			add_cycles_render_test(opengl)
+		endif()
+		add_cycles_render_test(image)
+		add_cycles_render_test(mblur)
 		add_cycles_render_test(reports)
 		add_cycles_render_test(render)
 		add_cycles_render_test(shader)

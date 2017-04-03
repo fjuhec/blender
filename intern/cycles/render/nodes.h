@@ -17,10 +17,10 @@
 #ifndef __NODES_H__
 #define __NODES_H__
 
-#include "graph.h"
-#include "node.h"
+#include "render/graph.h"
+#include "graph/node.h"
 
-#include "util_string.h"
+#include "util/util_string.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -324,7 +324,7 @@ private:
 class BsdfNode : public ShaderNode {
 public:
 	explicit BsdfNode(const NodeType *node_type);
-	SHADER_NODE_BASE_CLASS(BsdfNode);
+	SHADER_NODE_BASE_CLASS(BsdfNode)
 
 	bool has_spatial_varying() { return true; }
 	void compile(SVMCompiler& compiler, ShaderInput *param1, ShaderInput *param2, ShaderInput *param3 = NULL, ShaderInput *param4 = NULL);
@@ -421,7 +421,7 @@ public:
 	bool has_integrator_dependency();
 	ClosureType get_closure_type() { return distribution; }
 
-	float roughness;
+	float roughness, roughness_orig;
 	ClosureType distribution, distribution_orig;
 };
 
@@ -433,7 +433,7 @@ public:
 	bool has_integrator_dependency();
 	ClosureType get_closure_type() { return distribution; }
 
-	float roughness, IOR;
+	float roughness, roughness_orig, IOR;
 	ClosureType distribution, distribution_orig;
 };
 
@@ -445,7 +445,7 @@ public:
 	bool has_integrator_dependency();
 	ClosureType get_closure_type() { return distribution; }
 
-	float roughness, IOR;
+	float roughness, roughness_orig, IOR;
 	ClosureType distribution, distribution_orig;
 };
 
@@ -674,7 +674,7 @@ public:
 
 class MixClosureWeightNode : public ShaderNode {
 public:
-	SHADER_NODE_CLASS(MixClosureWeightNode);
+	SHADER_NODE_CLASS(MixClosureWeightNode)
 
 	float weight;
 	float fac;
@@ -920,7 +920,7 @@ public:
 class CurvesNode : public ShaderNode {
 public:
 	explicit CurvesNode(const NodeType *node_type);
-	SHADER_NODE_BASE_CLASS(CurvesNode);
+	SHADER_NODE_BASE_CLASS(CurvesNode)
 
 	virtual int get_group() { return NODE_GROUP_LEVEL_3; }
 

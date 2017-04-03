@@ -32,17 +32,17 @@
 
 #include <OSL/genclosure.h>
 
-#include "kernel_compat_cpu.h"
-#include "osl_closures.h"
+#include "kernel/kernel_compat_cpu.h"
+#include "kernel/osl/osl_closures.h"
 
-#include "kernel_types.h"
-#include "kernel_montecarlo.h"
+#include "kernel/kernel_types.h"
+#include "kernel/kernel_montecarlo.h"
 
-#include "closure/alloc.h"
-#include "closure/bsdf_util.h"
-#include "closure/bsdf_diffuse.h"
-#include "closure/bsdf_principled_diffuse.h"
-#include "closure/bssrdf.h"
+#include "kernel/closure/alloc.h"
+#include "kernel/closure/bsdf_util.h"
+#include "kernel/closure/bsdf_diffuse.h"
+#include "kernel/closure/bsdf_principled_diffuse.h"
+#include "kernel/closure/bssrdf.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -81,7 +81,7 @@ public:
 				bssrdf->sharpness = sharpness;
 				bssrdf->N = params.N;
 				bssrdf->roughness = params.roughness;
-				ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)type);
+				sd->flag |= bssrdf_setup(bssrdf, (ClosureType)type);
 			}
 
 			bssrdf = bssrdf_alloc(sd, make_float3(0.0f, weight.y, 0.0f));
@@ -93,7 +93,7 @@ public:
 				bssrdf->sharpness = sharpness;
 				bssrdf->N = params.N;
 				bssrdf->roughness = params.roughness;
-				ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)type);
+				sd->flag |= bssrdf_setup(bssrdf, (ClosureType)type);
 			}
 
 			bssrdf = bssrdf_alloc(sd, make_float3(0.0f, 0.0f, weight.z));
@@ -105,7 +105,7 @@ public:
 				bssrdf->sharpness = sharpness;
 				bssrdf->N = params.N;
 				bssrdf->roughness = params.roughness;
-				ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)type);
+				sd->flag |= bssrdf_setup(bssrdf, (ClosureType)type);
 			}
 		}
 	}
