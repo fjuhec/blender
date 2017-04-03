@@ -559,6 +559,10 @@ void glaDefine2DArea(rcti *screen_rect)
 	 * Programming Guide, Appendix H, Correctness Tips.
 	 */
 
+#if 1 /* new style */
+	gpuOrtho2D(GLA_PIXEL_OFS, sc_w + GLA_PIXEL_OFS, GLA_PIXEL_OFS, sc_h + GLA_PIXEL_OFS);
+	gpuLoadIdentity();
+#else /* original */
 	glMatrixMode(GL_PROJECTION);
 	gpuLoadIdentity();
 	glOrtho(0.0, sc_w, 0.0, sc_h, -1, 1);
@@ -566,6 +570,7 @@ void glaDefine2DArea(rcti *screen_rect)
 
 	glMatrixMode(GL_MODELVIEW);
 	gpuLoadIdentity();
+#endif
 }
 
 /* TODO(merwin): put the following 2D code to use, or build new 2D code inspired & informd by it */
@@ -700,7 +705,7 @@ void bglPolygonOffset(float viewdist, float dist)
 		// glPolygonOffset(-1.0, -1.0);
 
 		/* hack below is to mimic polygon offset */
-		gpuGetProjectionMatrix3D(winmat);
+		gpuGetProjectionMatrix3D((float (*)[4])winmat);
 		
 		/* dist is from camera to center point */
 		
@@ -737,7 +742,7 @@ void bglPolygonOffset(float viewdist, float dist)
 		offset = 0.0;
 	}
 
-	gpuLoadProjectionMatrix3D(winmat);
+	gpuLoadProjectionMatrix3D((const float (*)[4])winmat);
 }
 
 /* **** Color management helper functions for GLSL display/transform ***** */
