@@ -36,6 +36,9 @@
 
 #include "BIF_gl.h"
 
+// IMM-FIXME
+#include <GL/glu.h>
+
 #include "BKE_context.h"
 
 #include "BLI_math.h"
