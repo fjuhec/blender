@@ -93,8 +93,9 @@ static void clean_paths(Main *main)
 
 static bool wm_scene_is_visible(wmWindowManager *wm, Scene *scene)
 {
-	for (wmWindow *win = wm->windows.first; win; win = win->next) {
-		if (win->scene == scene) {
+	wmWindow *win;
+	for (win = wm->windows.first; win; win = win->next) {
+		if (win->screen->scene == scene) {
 			return true;
 		}
 	}

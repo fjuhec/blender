@@ -86,7 +86,9 @@ SceneLayer *BKE_scene_layer_context_active_ex(const Main *bmain, const Scene *UN
 	 * some bigger changes since it's often not available where we call this.
 	 * Just working around this by getting active window from WM for now */
 	for (wmWindowManager *wm = bmain->wm.first; wm; wm = wm->id.next) {
-		const WorkSpace *workspace = BKE_workspace_active_get(wm->winactive->workspace_hook);
+		/* Called on startup, so 'winactive' may not be set, in that case fall back to first window. */
+		wmWindow *win = wm->winactive ? wm->winactive : wm->windows.first;
+		const WorkSpace *workspace = BKE_workspace_active_get(win->workspace_hook);
 		return BKE_workspace_render_layer_get(workspace);
 	}
 
