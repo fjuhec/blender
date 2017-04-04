@@ -15,13 +15,18 @@ from render_layer_common import *
 # ############################################################
 
 class UnitTesting(RenderLayerTesting):
-    def test_object_link_scene(self):
+    def test_scene_layers_link(self):
         """
-        See if we can link objects
+        See if scene copying 'FULL_COPY' is working for scene layers
         """
-        import bpy
-        master_collection = bpy.context.scene.master_collection
-        self.do_object_link(master_collection)
+        import os
+        ROOT = self.get_root()
+
+        filepath_layers_json_copy = os.path.join(ROOT, 'layers_copy_link.json')
+        self.do_scene_copy(
+                filepath_layers_json_copy,
+                'LINK_OBJECTS',
+                (get_scene_collections, get_layers))
 
 
 # ############################################################
