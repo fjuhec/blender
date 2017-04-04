@@ -2907,8 +2907,8 @@ PyObject *BPy_PointerProperty(PyObject *self, PyObject *args, PyObject *kw)
 			return NULL;
 		if (!RNA_struct_is_a(ptype, &RNA_PropertyGroup) && !RNA_struct_is_ID(ptype)) {
 			PyErr_Format(PyExc_TypeError,
-			"PointerProperty(...) expected an RNA type derived from %.200s or %.200s",
-			RNA_struct_ui_name(&RNA_ID), RNA_struct_ui_name(&RNA_PropertyGroup));
+			             "PointerProperty(...) expected an RNA type derived from %.200s or %.200s",
+			             RNA_struct_ui_name(&RNA_ID), RNA_struct_ui_name(&RNA_PropertyGroup));
 			return NULL;
 		}
 		if (bpy_prop_callback_check(update_cb, "update", 2) == -1) {
