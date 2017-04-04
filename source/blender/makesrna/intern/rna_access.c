@@ -592,10 +592,15 @@ bool RNA_struct_idprops_register_check(const StructRNA *type)
 
 bool RNA_struct_idprops_datablock_allowed(const StructRNA *type)
 {
-	return (type->flag & STRUCT_NO_DATABLOCK_IDPROPERTIES) == 0;
+	return (type->flag & (STRUCT_NO_DATABLOCK_IDPROPERTIES | STRUCT_NO_IDPROPERTIES)) == 0;
 }
 
-bool RNA_struct_contains_id(const StructRNA *type)
+/**
+ * Whether given type implies datablock usage by IDProperties.
+ * This is used to prevent classes allowed to have IDProperties, but not datablock ones, to indirectly use some
+ * (e.g. by assigning an IDP_GROUP containing some IDP_ID pointers...).
+ */
+bool RNA_struct_idprops_contains_datablock(const StructRNA *type)
 {
 	return (type->flag & (STRUCT_CONTAINS_DATABLOCK_IDPROPERTIES | STRUCT_ID)) != 0;
 }

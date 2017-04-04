@@ -2922,9 +2922,10 @@ PyObject *BPy_PointerProperty(PyObject *self, PyObject *args, PyObject *kw)
 			bpy_prop_assign_flag(prop, opts);
 		}
 
-		if (RNA_struct_contains_id(ptype)) {
-			if (RNA_struct_is_a(srna, &RNA_PropertyGroup))
+		if (RNA_struct_idprops_contains_datablock(ptype)) {
+			if (RNA_struct_is_a(srna, &RNA_PropertyGroup)) {
 				RNA_def_struct_flag(srna, STRUCT_CONTAINS_DATABLOCK_IDPROPERTIES);
+			}
 		}
 		bpy_prop_callback_assign_update(prop, update_cb);
 		bpy_prop_callback_assign_pointer(prop, poll_cb);
@@ -2989,9 +2990,10 @@ PyObject *BPy_CollectionProperty(PyObject *self, PyObject *args, PyObject *kw)
 			bpy_prop_assign_flag(prop, opts);
 		}
 
-		if (RNA_struct_contains_id(ptype)) {
-			if (RNA_struct_is_a(srna, &RNA_PropertyGroup))
+		if (RNA_struct_idprops_contains_datablock(ptype)) {
+			if (RNA_struct_is_a(srna, &RNA_PropertyGroup)) {
 				RNA_def_struct_flag(srna, STRUCT_CONTAINS_DATABLOCK_IDPROPERTIES);
+			}
 		}
 		RNA_def_property_duplicate_pointers(srna, prop);
 	}
