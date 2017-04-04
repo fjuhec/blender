@@ -95,7 +95,7 @@ static bool wm_scene_is_visible(wmWindowManager *wm, Scene *scene)
 {
 	wmWindow *win;
 	for (win = wm->windows.first; win; win = win->next) {
-		if (win->screen->scene == scene) {
+		if (win->scene == scene) {
 			return true;
 		}
 	}
