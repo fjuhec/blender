@@ -357,7 +357,7 @@ void BKE_scene_layer_engine_settings_update(struct Scene *scene, struct SceneLay
 
 	/* do the complete settings update */
 	for (Base *base = sl->object_bases.first; base; base = base->next) {
-		if (((base->flag & BASE_DIRTY_ENGINE_SETTINGS) != 0) && \
+		if (((base->flag & BASE_DIRTY_ENGINE_SETTINGS) != 0) &&
 		    (base->flag & BASE_VISIBLED) != 0)
 		{
 			scene_layer_engine_settings_update(scene, sl, base->object);
@@ -931,7 +931,7 @@ static LayerCollection *layer_collection_add(SceneLayer *sl, ListBase *lb, Scene
 	BLI_addtail(lb, lc);
 
 	lc->scene_collection = sc;
-	lc->flag = COLLECTION_VISIBLE + COLLECTION_SELECTABLE + COLLECTION_FOLDED;
+	lc->flag = COLLECTION_VISIBLE + COLLECTION_SELECTABLE;
 
 	lc->properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
 	collection_engine_settings_init(lc->properties, false);
