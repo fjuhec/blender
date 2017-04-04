@@ -1,3 +1,4 @@
+uniform mat4 ModelViewProjectionMatrix;
 uniform vec2 Viewport;
 //uniform vec2 Offset;
 
