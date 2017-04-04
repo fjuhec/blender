@@ -1224,10 +1224,12 @@ int RNA_property_pointer_poll(PointerRNA *ptr, PropertyRNA *prop, PointerRNA *va
 		PointerPropertyRNA *pprop = (PointerPropertyRNA *)prop;
 
 		if (pprop->poll) {
-			if (rna_idproperty_check(&prop, ptr))
+			if (rna_idproperty_check(&prop, ptr)) {
 				return ((PropPointerPollFuncPy) pprop->poll)(ptr, *value, prop);
-			else
+			}
+			else {
 				return pprop->poll(ptr, *value);
+			}
 		}
 
 		return 1;
@@ -2993,8 +2995,9 @@ PointerRNA RNA_property_pointer_get(PointerRNA *ptr, PropertyRNA *prop)
 	if ((idprop = rna_idproperty_check(&prop, ptr))) {
 		pprop = (PointerPropertyRNA *)prop;
 
-		if (RNA_struct_is_ID(pprop->type))
+		if (RNA_struct_is_ID(pprop->type)) {
 			return rna_pointer_inherit_refine(ptr, pprop->type, IDP_Id(idprop));
+		}
 
 		/* for groups, data is idprop itself */
 		if (pprop->typef)
