@@ -467,6 +467,7 @@ classes = (
     SCENE_PT_rigid_body_cache,
     SCENE_PT_rigid_body_field_weights,
     SCENE_PT_simplify,
+    SCENE_PT_gpencil_datapanel,
     SCENE_PT_custom_props,
 )
 
