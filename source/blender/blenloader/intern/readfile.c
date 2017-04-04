@@ -6888,221 +6888,225 @@ static void lib_link_workspace_layout_restore(struct IDNameLib_Map *id_map, Main
 {
 	bScreen *screen = BKE_workspace_layout_screen_get(layout);
 
-	for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
-		for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
-			if (sl->spacetype == SPACE_VIEW3D) {
-				View3D *v3d = (View3D *)sl;
-				BGpic *bgpic;
-				ARegion *ar;
-
-				v3d->camera = restore_pointer_by_name(id_map, (ID *)v3d->camera, USER_REAL);
-				v3d->ob_centre = restore_pointer_by_name(id_map, (ID *)v3d->ob_centre, USER_REAL);
-
-				for (bgpic= v3d->bgpicbase.first; bgpic; bgpic= bgpic->next) {
-					if ((bgpic->ima = restore_pointer_by_name(id_map, (ID *)bgpic->ima, USER_IGNORE))) {
-						id_us_plus((ID *)bgpic->ima);
-					}
-					if ((bgpic->clip = restore_pointer_by_name(id_map, (ID *)bgpic->clip, USER_IGNORE))) {
-						id_us_plus((ID *)bgpic->clip);
-					}
-				}
-
-				/* not very nice, but could help */
-				if ((v3d->layact & v3d->lay) == 0) v3d->layact = v3d->lay;
-
-				/* free render engines for now */
-				for (ar = sa->regionbase.first; ar; ar = ar->next) {
-					RegionView3D *rv3d= ar->regiondata;
+	/* avoid conflicts with 2.8x branch */
+	{
+		for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
+			for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
+				if (sl->spacetype == SPACE_VIEW3D) {
+					View3D *v3d = (View3D *)sl;
+					BGpic *bgpic;
+					ARegion *ar;
 					
-					if (rv3d && rv3d->render_engine) {
-						RE_engine_free(rv3d->render_engine);
-						rv3d->render_engine = NULL;
+					v3d->camera = restore_pointer_by_name(id_map, (ID *)v3d->camera, USER_REAL);
+					v3d->ob_centre = restore_pointer_by_name(id_map, (ID *)v3d->ob_centre, USER_REAL);
+					
+					for (bgpic= v3d->bgpicbase.first; bgpic; bgpic= bgpic->next) {
+						if ((bgpic->ima = restore_pointer_by_name(id_map, (ID *)bgpic->ima, USER_IGNORE))) {
+							id_us_plus((ID *)bgpic->ima);
+						}
+						if ((bgpic->clip = restore_pointer_by_name(id_map, (ID *)bgpic->clip, USER_IGNORE))) {
+							id_us_plus((ID *)bgpic->clip);
+						}
+					}
+					
+					/* not very nice, but could help */
+					if ((v3d->layact & v3d->lay) == 0) v3d->layact = v3d->lay;
+
+					/* free render engines for now */
+					for (ar = sa->regionbase.first; ar; ar = ar->next) {
+						RegionView3D *rv3d= ar->regiondata;
+						
+						if (rv3d && rv3d->render_engine) {
+							RE_engine_free(rv3d->render_engine);
+							rv3d->render_engine = NULL;
+						}
 					}
 				}
-			}
-			else if (sl->spacetype == SPACE_IPO) {
-				SpaceIpo *sipo = (SpaceIpo *)sl;
-				bDopeSheet *ads = sipo->ads;
-
-				if (ads) {
-					ads->source = restore_pointer_by_name(id_map, (ID *)ads->source, USER_REAL);
-
-					if (ads->filter_grp)
-						ads->filter_grp = restore_pointer_by_name(id_map, (ID *)ads->filter_grp, USER_IGNORE);
+				else if (sl->spacetype == SPACE_IPO) {
+					SpaceIpo *sipo = (SpaceIpo *)sl;
+					bDopeSheet *ads = sipo->ads;
+					
+					if (ads) {
+						ads->source = restore_pointer_by_name(id_map, (ID *)ads->source, USER_REAL);
+						
+						if (ads->filter_grp)
+							ads->filter_grp = restore_pointer_by_name(id_map, (ID *)ads->filter_grp, USER_IGNORE);
+					}
+					
+					/* force recalc of list of channels (i.e. includes calculating F-Curve colors)
+					 * thus preventing the "black curves" problem post-undo
+					 */
+					sipo->flag |= SIPO_TEMP_NEEDCHANSYNC;
 				}
+				else if (sl->spacetype == SPACE_BUTS) {
+					SpaceButs *sbuts = (SpaceButs *)sl;
+					sbuts->pinid = restore_pointer_by_name(id_map, sbuts->pinid, USER_IGNORE);
+					if (sbuts->pinid == NULL) {
+						sbuts->flag &= ~SB_PIN_CONTEXT;
+					}
 
-				/* force recalc of list of channels (i.e. includes calculating F-Curve colors)
-				 * thus preventing the "black curves" problem post-undo
-				 */
-				sipo->flag |= SIPO_TEMP_NEEDCHANSYNC;
-			}
-			else if (sl->spacetype == SPACE_BUTS) {
-				SpaceButs *sbuts = (SpaceButs *)sl;
-				sbuts->pinid = restore_pointer_by_name(id_map, sbuts->pinid, USER_IGNORE);
-				if (sbuts->pinid == NULL) {
-					sbuts->flag &= ~SB_PIN_CONTEXT;
+					/* TODO: restore path pointers: T40046
+					 * (complicated because this contains data pointers too, not just ID)*/
+					MEM_SAFE_FREE(sbuts->path);
 				}
-
-				/* TODO: restore path pointers: T40046
-				 * (complicated because this contains data pointers too, not just ID)*/
-				MEM_SAFE_FREE(sbuts->path);
-			}
-			else if (sl->spacetype == SPACE_FILE) {
-				SpaceFile *sfile = (SpaceFile *)sl;
-				sfile->op = NULL;
-				sfile->previews_timer = NULL;
-			}
-			else if (sl->spacetype == SPACE_ACTION) {
-				SpaceAction *saction = (SpaceAction *)sl;
-
-				saction->action = restore_pointer_by_name(id_map, (ID *)saction->action, USER_REAL);
-				saction->ads.source = restore_pointer_by_name(id_map, (ID *)saction->ads.source, USER_REAL);
-
-				if (saction->ads.filter_grp)
-					saction->ads.filter_grp = restore_pointer_by_name(id_map, (ID *)saction->ads.filter_grp, USER_IGNORE);
-
-				/* force recalc of list of channels, potentially updating the active action
-				 * while we're at it (as it can only be updated that way) [#28962]
-				 */
-				saction->flag |= SACTION_TEMP_NEEDCHANSYNC;
-			}
-			else if (sl->spacetype == SPACE_IMAGE) {
-				SpaceImage *sima = (SpaceImage *)sl;
-
-				sima->image = restore_pointer_by_name(id_map, (ID *)sima->image, USER_REAL);
-
-				/* this will be freed, not worth attempting to find same scene,
-				 * since it gets initialized later */
-				sima->iuser.scene = NULL;
-
+				else if (sl->spacetype == SPACE_FILE) {
+					SpaceFile *sfile = (SpaceFile *)sl;
+					sfile->op = NULL;
+					sfile->previews_timer = NULL;
+				}
+				else if (sl->spacetype == SPACE_ACTION) {
+					SpaceAction *saction = (SpaceAction *)sl;
+					
+					saction->action = restore_pointer_by_name(id_map, (ID *)saction->action, USER_REAL);
+					saction->ads.source = restore_pointer_by_name(id_map, (ID *)saction->ads.source, USER_REAL);
+					
+					if (saction->ads.filter_grp)
+						saction->ads.filter_grp = restore_pointer_by_name(id_map, (ID *)saction->ads.filter_grp, USER_IGNORE);
+						
+					
+					/* force recalc of list of channels, potentially updating the active action 
+					 * while we're at it (as it can only be updated that way) [#28962] 
+					 */
+					saction->flag |= SACTION_TEMP_NEEDCHANSYNC;
+				}
+				else if (sl->spacetype == SPACE_IMAGE) {
+					SpaceImage *sima = (SpaceImage *)sl;
+					
+					sima->image = restore_pointer_by_name(id_map, (ID *)sima->image, USER_REAL);
+					
+					/* this will be freed, not worth attempting to find same scene,
+					 * since it gets initialized later */
+					sima->iuser.scene = NULL;
+					
 #if 0
-				/* Those are allocated and freed by space code, no need to handle them here. */
-				MEM_SAFE_FREE(sima->scopes.waveform_1);
-				MEM_SAFE_FREE(sima->scopes.waveform_2);
-				MEM_SAFE_FREE(sima->scopes.waveform_3);
-				MEM_SAFE_FREE(sima->scopes.vecscope);
+					/* Those are allocated and freed by space code, no need to handle them here. */
+					MEM_SAFE_FREE(sima->scopes.waveform_1);
+					MEM_SAFE_FREE(sima->scopes.waveform_2);
+					MEM_SAFE_FREE(sima->scopes.waveform_3);
+					MEM_SAFE_FREE(sima->scopes.vecscope);
 #endif
-				sima->scopes.ok = 0;
-
-				/* NOTE: pre-2.5, this was local data not lib data, but now we need this as lib data
-				 * so assume that here we're doing for undo only...
-				 */
-				sima->gpd = restore_pointer_by_name(id_map, (ID *)sima->gpd, USER_REAL);
-				sima->mask_info.mask = restore_pointer_by_name(id_map, (ID *)sima->mask_info.mask, USER_REAL);
-			}
-			else if (sl->spacetype == SPACE_SEQ) {
-				SpaceSeq *sseq = (SpaceSeq *)sl;
-
-				/* NOTE: pre-2.5, this was local data not lib data, but now we need this as lib data
-				 * so assume that here we're doing for undo only...
-				 */
-				sseq->gpd = restore_pointer_by_name(id_map, (ID *)sseq->gpd, USER_REAL);
-			}
-			else if (sl->spacetype == SPACE_NLA) {
-				SpaceNla *snla = (SpaceNla *)sl;
-				bDopeSheet *ads = snla->ads;
-
-				if (ads) {
-					ads->source = restore_pointer_by_name(id_map, (ID *)ads->source, USER_REAL);
-
-					if (ads->filter_grp)
-						ads->filter_grp = restore_pointer_by_name(id_map, (ID *)ads->filter_grp, USER_IGNORE);
+					sima->scopes.ok = 0;
+					
+					/* NOTE: pre-2.5, this was local data not lib data, but now we need this as lib data
+					 * so assume that here we're doing for undo only...
+					 */
+					sima->gpd = restore_pointer_by_name(id_map, (ID *)sima->gpd, USER_REAL);
+					sima->mask_info.mask = restore_pointer_by_name(id_map, (ID *)sima->mask_info.mask, USER_REAL);
 				}
-			}
-			else if (sl->spacetype == SPACE_TEXT) {
-				SpaceText *st = (SpaceText *)sl;
-
-				st->text = restore_pointer_by_name(id_map, (ID *)st->text, USER_REAL);
-				if (st->text == NULL) st->text = newmain->text.first;
-			}
-			else if (sl->spacetype == SPACE_SCRIPT) {
-				SpaceScript *scpt = (SpaceScript *)sl;
-
-				scpt->script = restore_pointer_by_name(id_map, (ID *)scpt->script, USER_REAL);
-
-				/*sc->script = NULL; - 2.45 set to null, better re-run the script */
-				if (scpt->script) {
-					SCRIPT_SET_NULL(scpt->script);
+				else if (sl->spacetype == SPACE_SEQ) {
+					SpaceSeq *sseq = (SpaceSeq *)sl;
+					
+					/* NOTE: pre-2.5, this was local data not lib data, but now we need this as lib data
+					 * so assume that here we're doing for undo only...
+					 */
+					sseq->gpd = restore_pointer_by_name(id_map, (ID *)sseq->gpd, USER_REAL);
 				}
-			}
-			else if (sl->spacetype == SPACE_OUTLINER) {
-				SpaceOops *so= (SpaceOops *)sl;
-
-				so->search_tse.id = restore_pointer_by_name(id_map, so->search_tse.id, USER_IGNORE);
-
-				if (so->treestore) {
-					TreeStoreElem *tselem;
-					BLI_mempool_iter iter;
-
-					BLI_mempool_iternew(so->treestore, &iter);
-					while ((tselem = BLI_mempool_iterstep(&iter))) {
-						/* Do not try to restore pointers to drivers/sequence/etc., can crash in undo case! */
-						if (TSE_IS_REAL_ID(tselem)) {
-							tselem->id = restore_pointer_by_name(id_map, tselem->id, USER_IGNORE);
-						}
-						else {
-							tselem->id = NULL;
-						}
-					}
-					if (so->treehash) {
-						/* rebuild hash table, because it depends on ids too */
-						so->storeflag |= SO_TREESTORE_REBUILD;
+				else if (sl->spacetype == SPACE_NLA) {
+					SpaceNla *snla = (SpaceNla *)sl;
+					bDopeSheet *ads = snla->ads;
+					
+					if (ads) {
+						ads->source = restore_pointer_by_name(id_map, (ID *)ads->source, USER_REAL);
+						
+						if (ads->filter_grp)
+							ads->filter_grp = restore_pointer_by_name(id_map, (ID *)ads->filter_grp, USER_IGNORE);
 					}
 				}
-			}
-			else if (sl->spacetype == SPACE_NODE) {
-				SpaceNode *snode= (SpaceNode *)sl;
-				bNodeTreePath *path, *path_next;
-				bNodeTree *ntree;
+				else if (sl->spacetype == SPACE_TEXT) {
+					SpaceText *st = (SpaceText *)sl;
+					
+					st->text = restore_pointer_by_name(id_map, (ID *)st->text, USER_REAL);
+					if (st->text == NULL) st->text = newmain->text.first;
+				}
+				else if (sl->spacetype == SPACE_SCRIPT) {
+					SpaceScript *scpt = (SpaceScript *)sl;
+					
+					scpt->script = restore_pointer_by_name(id_map, (ID *)scpt->script, USER_REAL);
+					
+					/*sc->script = NULL; - 2.45 set to null, better re-run the script */
+					if (scpt->script) {
+						SCRIPT_SET_NULL(scpt->script);
+					}
+				}
+				else if (sl->spacetype == SPACE_OUTLINER) {
+					SpaceOops *so= (SpaceOops *)sl;
+					
+					so->search_tse.id = restore_pointer_by_name(id_map, so->search_tse.id, USER_IGNORE);
+					
+					if (so->treestore) {
+						TreeStoreElem *tselem;
+						BLI_mempool_iter iter;
 
-				/* node tree can be stored locally in id too, link this first */
-				snode->id = restore_pointer_by_name(id_map, snode->id, USER_REAL);
-				snode->from = restore_pointer_by_name(id_map, snode->from, USER_IGNORE);
-
-				ntree = snode->id ? ntreeFromID(snode->id) : NULL;
-				snode->nodetree = ntree ? ntree : restore_pointer_by_name(id_map, (ID *)snode->nodetree, USER_REAL);
-
-				for (path = snode->treepath.first; path; path = path->next) {
-					if (path == snode->treepath.first) {
-						/* first nodetree in path is same as snode->nodetree */
-						path->nodetree = snode->nodetree;
+						BLI_mempool_iternew(so->treestore, &iter);
+						while ((tselem = BLI_mempool_iterstep(&iter))) {
+							/* Do not try to restore pointers to drivers/sequence/etc., can crash in undo case! */
+							if (TSE_IS_REAL_ID(tselem)) {
+								tselem->id = restore_pointer_by_name(id_map, tselem->id, USER_IGNORE);
+							}
+							else {
+								tselem->id = NULL;
+							}
+						}
+						if (so->treehash) {
+							/* rebuild hash table, because it depends on ids too */
+							so->storeflag |= SO_TREESTORE_REBUILD;
+						}
+					}
+				}
+				else if (sl->spacetype == SPACE_NODE) {
+					SpaceNode *snode= (SpaceNode *)sl;
+					bNodeTreePath *path, *path_next;
+					bNodeTree *ntree;
+					
+					/* node tree can be stored locally in id too, link this first */
+					snode->id = restore_pointer_by_name(id_map, snode->id, USER_REAL);
+					snode->from = restore_pointer_by_name(id_map, snode->from, USER_IGNORE);
+					
+					ntree = snode->id ? ntreeFromID(snode->id) : NULL;
+					snode->nodetree = ntree ? ntree : restore_pointer_by_name(id_map, (ID *)snode->nodetree, USER_REAL);
+					
+					for (path = snode->treepath.first; path; path = path->next) {
+						if (path == snode->treepath.first) {
+							/* first nodetree in path is same as snode->nodetree */
+							path->nodetree = snode->nodetree;
+						}
+						else
+							path->nodetree= restore_pointer_by_name(id_map, (ID*)path->nodetree, USER_REAL);
+						
+						if (!path->nodetree)
+							break;
+					}
+					
+					/* remaining path entries are invalid, remove */
+					for (; path; path = path_next) {
+						path_next = path->next;
+						
+						BLI_remlink(&snode->treepath, path);
+						MEM_freeN(path);
+					}
+					
+					/* edittree is just the last in the path,
+					 * set this directly since the path may have been shortened above */
+					if (snode->treepath.last) {
+						path = snode->treepath.last;
+						snode->edittree = path->nodetree;
 					}
 					else
-						path->nodetree= restore_pointer_by_name(id_map, (ID*)path->nodetree, USER_REAL);
-
-					if (!path->nodetree)
-						break;
+						snode->edittree = NULL;
 				}
-
-				/* remaining path entries are invalid, remove */
-				for (; path; path = path_next) {
-					path_next = path->next;
-
-					BLI_remlink(&snode->treepath, path);
-					MEM_freeN(path);
+				else if (sl->spacetype == SPACE_CLIP) {
+					SpaceClip *sclip = (SpaceClip *)sl;
+					
+					sclip->clip = restore_pointer_by_name(id_map, (ID *)sclip->clip, USER_REAL);
+					sclip->mask_info.mask = restore_pointer_by_name(id_map, (ID *)sclip->mask_info.mask, USER_REAL);
+					
+					sclip->scopes.ok = 0;
 				}
-
-				/* edittree is just the last in the path,
-				 * set this directly since the path may have been shortened above */
-				if (snode->treepath.last) {
-					path = snode->treepath.last;
-					snode->edittree = path->nodetree;
+				else if (sl->spacetype == SPACE_LOGIC) {
+					SpaceLogic *slogic = (SpaceLogic *)sl;
+					
+					slogic->gpd = restore_pointer_by_name(id_map, (ID *)slogic->gpd, USER_REAL);
 				}
-				else
-					snode->edittree = NULL;
-			}
-			else if (sl->spacetype == SPACE_CLIP) {
-				SpaceClip *sclip = (SpaceClip *)sl;
-
-				sclip->clip = restore_pointer_by_name(id_map, (ID *)sclip->clip, USER_REAL);
-				sclip->mask_info.mask = restore_pointer_by_name(id_map, (ID *)sclip->mask_info.mask, USER_REAL);
-
-				sclip->scopes.ok = 0;
-			}
-			else if (sl->spacetype == SPACE_LOGIC) {
-				SpaceLogic *slogic = (SpaceLogic *)sl;
-
-				slogic->gpd = restore_pointer_by_name(id_map, (ID *)slogic->gpd, USER_REAL);
 			}
 		}
 	}
