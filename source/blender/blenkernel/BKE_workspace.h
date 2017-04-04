@@ -26,7 +26,6 @@
 #define __BKE_WORKSPACE_H__
 
 #include "BLI_compiler_attrs.h"
-#include "BLI_utildefines.h"
 
 struct bScreen;
 struct ListBase;
@@ -59,8 +58,10 @@ void BKE_workspace_remove(WorkSpace *workspace, struct Main *bmain);
 WorkSpaceInstanceHook *BKE_workspace_instance_hook_create(const struct Main *bmain);
 void BKE_workspace_instance_hook_free(WorkSpaceInstanceHook *hook, const struct Main *bmain);
 
-struct WorkSpaceLayout *BKE_workspace_layout_add(WorkSpace *workspace, struct bScreen *screen, const char *name) ATTR_NONNULL();
-void BKE_workspace_layout_remove(WorkSpace *workspace, WorkSpaceLayout *layout, struct Main *bmain) ATTR_NONNULL();
+struct WorkSpaceLayout *BKE_workspace_layout_add(
+        WorkSpace *workspace, struct bScreen *screen, const char *name) ATTR_NONNULL();
+void BKE_workspace_layout_remove(
+        WorkSpace *workspace, WorkSpaceLayout *layout, struct Main *bmain) ATTR_NONNULL();
 
 
 /* -------------------------------------------------------------------- */
@@ -71,11 +72,14 @@ void BKE_workspace_layout_remove(WorkSpace *workspace, WorkSpaceLayout *layout, 
 		_workspace##_next = BKE_workspace_next_get(_workspace); /* support removing workspace from list */
 #define BKE_workspace_iter_end } (void)0
 
-void BKE_workspaces_transform_orientation_remove(const struct ListBase *workspaces,
-                                                 const struct TransformOrientation *orientation) ATTR_NONNULL();
+void BKE_workspaces_transform_orientation_remove(
+        const struct ListBase *workspaces,
+        const struct TransformOrientation *orientation) ATTR_NONNULL();
 
-WorkSpaceLayout *BKE_workspace_layout_find(const WorkSpace *ws, const struct bScreen *screen) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-WorkSpaceLayout *BKE_workspace_layout_find_exec(const WorkSpace *ws, const struct bScreen *screen) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
+WorkSpaceLayout *BKE_workspace_layout_find(
+        const WorkSpace *ws, const struct bScreen *screen) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
+WorkSpaceLayout *BKE_workspace_layout_find_exec(
+        const WorkSpace *ws, const struct bScreen *screen) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
 
 #define BKE_workspace_layout_iter_begin(_layout, _start_layout) \
 	for (WorkSpaceLayout *_layout = _start_layout, *_layout##_next; _layout; _layout = _layout##_next) { \
@@ -85,9 +89,10 @@ WorkSpaceLayout *BKE_workspace_layout_find_exec(const WorkSpace *ws, const struc
 		_layout##_prev = BKE_workspace_layout_prev_get(_layout); /* support removing layout from list */
 #define BKE_workspace_layout_iter_end } (void)0
 
-WorkSpaceLayout *BKE_workspace_layout_iter_circular(const WorkSpace *workspace, WorkSpaceLayout *start,
-                                                    bool (*callback)(const WorkSpaceLayout *layout, void *arg),
-                                                    void *arg, const bool iter_backward);
+WorkSpaceLayout *BKE_workspace_layout_iter_circular(
+        const WorkSpace *workspace, WorkSpaceLayout *start,
+        bool (*callback)(const WorkSpaceLayout *layout, void *arg),
+        void *arg, const bool iter_backward);
 
 
 /* -------------------------------------------------------------------- */

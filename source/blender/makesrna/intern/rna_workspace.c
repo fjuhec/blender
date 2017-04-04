@@ -22,11 +22,11 @@
  *  \ingroup RNA
  */
 
-#include "BKE_workspace.h"
-
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
 #include "RNA_types.h"
+
+#include "BKE_workspace.h"
 
 #include "WM_api.h"
 #include "WM_types.h"

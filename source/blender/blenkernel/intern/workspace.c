@@ -255,9 +255,10 @@ WorkSpaceLayout *BKE_workspace_layout_find(const WorkSpace *ws, const bScreen *s
 	return NULL;
 }
 
-WorkSpaceLayout *BKE_workspace_layout_iter_circular(const WorkSpace *workspace, WorkSpaceLayout *start,
-                                                    bool (*callback)(const WorkSpaceLayout *layout, void *arg),
-                                                    void *arg, const bool iter_backward)
+WorkSpaceLayout *BKE_workspace_layout_iter_circular(
+        const WorkSpace *workspace, WorkSpaceLayout *start,
+        bool (*callback)(const WorkSpaceLayout *layout, void *arg),
+        void *arg, const bool iter_backward)
 {
 	WorkSpaceLayout *iter_layout;
 
