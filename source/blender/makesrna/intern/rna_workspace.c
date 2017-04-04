@@ -92,7 +92,8 @@ static void rna_def_workspace(BlenderRNA *brna)
 	srna = RNA_def_struct(brna, "WorkSpace", "ID");
 	RNA_def_struct_sdna(srna, "WorkSpace");
 	RNA_def_struct_ui_text(srna, "Workspace", "Workspace data-block, defining the working environment for the user");
-	RNA_def_struct_ui_icon(srna, ICON_NONE);
+	/* TODO: real icon, just to show something */
+	RNA_def_struct_ui_icon(srna, ICON_RENDER_RESULT);
 
 	prop = RNA_def_property(srna, "screens", PROP_COLLECTION, PROP_NONE);
 	RNA_def_property_collection_sdna(prop, NULL, "layouts", NULL);
