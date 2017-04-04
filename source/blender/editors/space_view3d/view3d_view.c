@@ -51,10 +51,10 @@
 #include "BKE_scene.h"
 #include "BKE_screen.h"
 
-#include "BIF_gl.h"
 #include "BIF_glutil.h"
 
 #include "GPU_select.h"
+#include "GPU_matrix.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -96,10 +96,8 @@ void view3d_region_operator_needs_opengl(wmWindow *win, ARegion *ar)
 		RegionView3D *rv3d = ar->regiondata;
 		
 		wmSubWindowSet(win, ar->swinid);
-		glMatrixMode(GL_PROJECTION);
-		glLoadMatrixf(rv3d->winmat);
-		glMatrixMode(GL_MODELVIEW);
-		glLoadMatrixf(rv3d->viewmat);
+		gpuLoadProjectionMatrix3D(rv3d->winmat);
+		gpuLoadMatrix3D(rv3d->viewmat);
 	}
 }
 
@@ -539,6 +537,7 @@ void VIEW3D_OT_camera_to_view(wmOperatorType *ot)
 static int view3d_camera_to_view_selected_exec(bContext *C, wmOperator *op)
 {
 	Scene *scene = CTX_data_scene(C);
+	SceneLayer *sl = CTX_data_scene_layer(C);
 	View3D *v3d = CTX_wm_view3d(C);  /* can be NULL */
 	Object *camera_ob = v3d ? v3d->camera : scene->camera;
 
@@ -551,7 +550,7 @@ static int view3d_camera_to_view_selected_exec(bContext *C, wmOperator *op)
 	}
 
 	/* this function does all the important stuff */
-	if (BKE_camera_view_frame_fit_to_scene(scene, v3d, camera_ob, r_co, &r_scale)) {
+	if (BKE_camera_view_frame_fit_to_scene(scene, sl, camera_ob, r_co, &r_scale)) {
 		ObjectTfmProtectedChannels obtfm;
 		float obmat_new[4][4];
 
@@ -725,40 +724,35 @@ void ED_view3d_clipping_calc_from_boundbox(float clip[4][4], const BoundBox *bb,
 	}
 }
 
-void ED_view3d_clipping_calc(BoundBox *bb, float planes[4][4], bglMats *mats, const rcti *rect)
+void ED_view3d_clipping_calc(BoundBox *bb, float planes[4][4], const ARegion *ar, const Object *ob, const rcti *rect)
 {
-	float modelview[4][4];
-	double xs, ys, p[3];
-	int val, flip_sign, a;
-
-	/* near zero floating point values can give issues with gluUnProject
-	 * in side view on some implementations */
-	if (fabs(mats->modelview[0]) < 1e-6) mats->modelview[0] = 0.0;
-	if (fabs(mats->modelview[5]) < 1e-6) mats->modelview[5] = 0.0;
-
-	/* Set up viewport so that gluUnProject will give correct values */
-	mats->viewport[0] = 0;
-	mats->viewport[1] = 0;
+	/* init in case unproject fails */
+	memset(bb->vec, 0, sizeof(bb->vec));
 
 	/* four clipping planes and bounding volume */
 	/* first do the bounding volume */
-	for (val = 0; val < 4; val++) {
-		xs = (val == 0 || val == 3) ? rect->xmin : rect->xmax;
-		ys = (val == 0 || val == 1) ? rect->ymin : rect->ymax;
+	for (int val = 0; val < 4; val++) {
+		float xs = (val == 0 || val == 3) ? rect->xmin : rect->xmax;
+		float ys = (val == 0 || val == 1) ? rect->ymin : rect->ymax;
 
-		gluUnProject(xs, ys, 0.0, mats->modelview, mats->projection, mats->viewport, &p[0], &p[1], &p[2]);
-		copy_v3fl_v3db(bb->vec[val], p);
+		ED_view3d_unproject(ar, xs, ys, 0.0, bb->vec[val]);
+		ED_view3d_unproject(ar, xs, ys, 1.0, bb->vec[4 + val]);
+	}
 
-		gluUnProject(xs, ys, 1.0, mats->modelview, mats->projection, mats->viewport, &p[0], &p[1], &p[2]);
-		copy_v3fl_v3db(bb->vec[4 + val], p);
+	/* optionally transform to object space */
+	if (ob) {
+		float imat[4][4];
+		invert_m4_m4(imat, ob->obmat);
+
+		for (int val = 0; val < 8; val++) {
+			mul_m4_v3(imat, bb->vec[val]);
+		}
 	}
 
 	/* verify if we have negative scale. doing the transform before cross
 	 * product flips the sign of the vector compared to doing cross product
 	 * before transform then, so we correct for that. */
-	for (a = 0; a < 16; a++)
-		((float *)modelview)[a] = mats->modelview[a];
-	flip_sign = is_negative_m4(modelview);
+	int flip_sign = (ob) ? is_negative_m4(ob->obmat) : false;
 
 	ED_view3d_clipping_calc_from_boundbox(planes, bb, flip_sign);
 }
@@ -908,7 +902,7 @@ void ED_view3d_polygon_offset(const RegionView3D *rv3d, const float dist)
 /**
  * \param rect optional for picking (can be NULL).
  */
-void view3d_winmatrix_set(ARegion *ar, const View3D *v3d, const rctf *rect)
+void view3d_winmatrix_set(ARegion *ar, const View3D *v3d, const rcti *rect)
 {
 	RegionView3D *rv3d = ar->regiondata;
 	rctf viewplane;
@@ -934,14 +928,14 @@ void view3d_winmatrix_set(ARegion *ar, const View3D *v3d, const rctf *rect)
 	}
 
 	if (is_ortho) {
-		wmOrtho(viewplane.xmin, viewplane.xmax, viewplane.ymin, viewplane.ymax, clipsta, clipend);
+		gpuOrtho(viewplane.xmin, viewplane.xmax, viewplane.ymin, viewplane.ymax, clipsta, clipend);
 	}
 	else {
-		wmFrustum(viewplane.xmin, viewplane.xmax, viewplane.ymin, viewplane.ymax, clipsta, clipend);
+		gpuFrustum(viewplane.xmin, viewplane.xmax, viewplane.ymin, viewplane.ymax, clipsta, clipend);
 	}
 
 	/* update matrix in 3d view region */
-	glGetFloatv(GL_PROJECTION_MATRIX, (float *)rv3d->winmat);
+	gpuGetProjectionMatrix3D(rv3d->winmat);
 }
 
 static void obmat_to_viewmat(RegionView3D *rv3d, Object *ob)
@@ -1091,75 +1085,19 @@ void view3d_viewmatrix_set(Scene *scene, const View3D *v3d, RegionView3D *rv3d)
 	}
 }
 
-static void view3d_select_loop(ViewContext *vc, Scene *scene, SceneLayer *sl, View3D *v3d, ARegion *ar, bool use_obedit_skip)
+/**
+ * Optionally cache data for multiple calls to #view3d_opengl_select
+ *
+ * just avoid GPU_select headers outside this file
+ */
+void view3d_opengl_select_cache_begin(void)
 {
-	short code = 1;
-	char dt;
-	short dtx;
+	GPU_select_cache_begin();
+}
 
-	if (vc->obedit && vc->obedit->type == OB_MBALL) {
-		draw_object(scene, sl, ar, v3d, BASACT_NEW, DRAW_PICKING | DRAW_CONSTCOLOR);
-	}
-	else if ((vc->obedit && vc->obedit->type == OB_ARMATURE)) {
-		/* if not drawing sketch, draw bones */
-		if (!BDR_drawSketchNames(vc)) {
-			draw_object(scene, sl, ar, v3d, BASACT_NEW, DRAW_PICKING | DRAW_CONSTCOLOR);
-		}
-	}
-	else {
-		Base *base;
-
-		v3d->xray = true;  /* otherwise it postpones drawing */
-		for (base = sl->object_bases.first; base; base = base->next) {
-			if ((base->flag & BASE_VISIBLED) != 0) {
-				if ((base->object->restrictflag & OB_RESTRICT_SELECT) ||
-				    (use_obedit_skip && (scene->obedit->data == base->object->data)))
-				{
-					base->selcol = 0;
-				}
-				else {
-					base->selcol = code;
-
-					if (GPU_select_load_id(code)) {
-						draw_object(scene, sl, ar, v3d, base, DRAW_PICKING | DRAW_CONSTCOLOR);
-
-						/* we draw duplicators for selection too */
-						if ((base->object->transflag & OB_DUPLI)) {
-							ListBase *lb;
-							DupliObject *dob;
-							Base tbase;
-
-							tbase.flag_legacy = OB_FROMDUPLI;
-							lb = object_duplilist(G.main->eval_ctx, scene, base->object);
-
-							for (dob = lb->first; dob; dob = dob->next) {
-								float omat[4][4];
-
-								tbase.object = dob->ob;
-								copy_m4_m4(omat, dob->ob->obmat);
-								copy_m4_m4(dob->ob->obmat, dob->mat);
-
-								/* extra service: draw the duplicator in drawtype of parent */
-								/* MIN2 for the drawtype to allow bounding box objects in groups for lods */
-								dt = tbase.object->dt;   tbase.object->dt = MIN2(tbase.object->dt, base->object->dt);
-								dtx = tbase.object->dtx; tbase.object->dtx = base->object->dtx;
-
-								draw_object(scene, sl, ar, v3d, &tbase, DRAW_PICKING | DRAW_CONSTCOLOR);
-
-								tbase.object->dt = dt;
-								tbase.object->dtx = dtx;
-
-								copy_m4_m4(dob->ob->obmat, omat);
-							}
-							free_object_duplilist(lb);
-						}
-					}
-					code++;
-				}
-			}
-		}
-		v3d->xray = false;  /* restore */
-	}
+void view3d_opengl_select_cache_end(void)
+{
+	GPU_select_cache_end();
 }
 
 /**
@@ -1169,30 +1107,66 @@ static void view3d_select_loop(ViewContext *vc, Scene *scene, SceneLayer *sl, Vi
  *
  * \note (vc->obedit == NULL) can be set to explicitly skip edit-object selection.
  */
-short view3d_opengl_select(ViewContext *vc, unsigned int *buffer, unsigned int bufsize, const rcti *input, bool do_nearest)
+int view3d_opengl_select(
+        ViewContext *vc, unsigned int *buffer, unsigned int bufsize, const rcti *input,
+        eV3DSelectMode select_mode)
 {
 	Scene *scene = vc->scene;
 	SceneLayer *sl = vc->sl;
 	View3D *v3d = vc->v3d;
 	ARegion *ar = vc->ar;
-	rctf rect;
-	short hits;
+	rcti rect;
+	int hits;
 	const bool use_obedit_skip = (scene->obedit != NULL) && (vc->obedit == NULL);
-	const bool do_passes = do_nearest && GPU_select_query_check_active();
+	const bool is_pick_select = (U.gpu_select_pick_deph != 0);
+	const bool do_passes = (
+	        (is_pick_select == false) &&
+	        (select_mode == VIEW3D_SELECT_PICK_NEAREST) &&
+	        GPU_select_query_check_active());
+	const bool use_nearest = (is_pick_select && select_mode == VIEW3D_SELECT_PICK_NEAREST);
 
-	G.f |= G_PICKSEL;
-	
+	char gpu_select_mode;
+
 	/* case not a border select */
 	if (input->xmin == input->xmax) {
-		rect.xmin = input->xmin - 12;  /* seems to be default value for bones only now */
-		rect.xmax = input->xmin + 12;
-		rect.ymin = input->ymin - 12;
-		rect.ymax = input->ymin + 12;
+		/* seems to be default value for bones only now */
+		BLI_rcti_init_pt_radius(&rect, (const int[2]){input->xmin, input->ymin}, 12);
 	}
 	else {
-		BLI_rctf_rcti_copy(&rect, input);
+		rect = *input;
 	}
-	
+
+	if (is_pick_select) {
+		if (is_pick_select && select_mode == VIEW3D_SELECT_PICK_NEAREST) {
+			gpu_select_mode = GPU_SELECT_PICK_NEAREST;
+		}
+		else if (is_pick_select && select_mode == VIEW3D_SELECT_PICK_ALL) {
+			gpu_select_mode = GPU_SELECT_PICK_ALL;
+		}
+		else {
+			gpu_select_mode = GPU_SELECT_ALL;
+		}
+	}
+	else {
+		if (do_passes) {
+			gpu_select_mode = GPU_SELECT_NEAREST_FIRST_PASS;
+		}
+		else {
+			gpu_select_mode = GPU_SELECT_ALL;
+		}
+	}
+
+	/* Re-use cache (rect must be smaller then the cached)
+	 * other context is assumed to be unchanged */
+	if (GPU_select_is_cached()) {
+		GPU_select_begin(buffer, bufsize, &rect, gpu_select_mode, 0);
+		GPU_select_cache_load_id();
+		hits = GPU_select_end();
+		goto finally;
+	}
+
+	G.f |= G_PICKSEL;
+
 	view3d_winmatrix_set(ar, v3d, &rect);
 	mul_m4_m4m4(vc->rv3d->persmat, vc->rv3d->winmat, vc->rv3d->viewmat);
 	
@@ -1204,12 +1178,9 @@ short view3d_opengl_select(ViewContext *vc, unsigned int *buffer, unsigned int b
 	if (vc->rv3d->rflag & RV3D_CLIPPING)
 		ED_view3d_clipping_set(vc->rv3d);
 	
-	if (do_passes)
-		GPU_select_begin(buffer, bufsize, &rect, GPU_SELECT_NEAREST_FIRST_PASS, 0);
-	else
-		GPU_select_begin(buffer, bufsize, &rect, GPU_SELECT_ALL, 0);
+	GPU_select_begin(buffer, bufsize, &rect, gpu_select_mode, 0);
 
-	view3d_select_loop(vc, scene, sl, v3d, ar, use_obedit_skip);
+	ED_view3d_draw_select_loop(vc, scene, sl, v3d, ar, use_obedit_skip, use_nearest);
 
 	hits = GPU_select_end();
 	
@@ -1217,7 +1188,7 @@ short view3d_opengl_select(ViewContext *vc, unsigned int *buffer, unsigned int b
 	if (do_passes) {
 		GPU_select_begin(buffer, bufsize, &rect, GPU_SELECT_NEAREST_SECOND_PASS, hits);
 
-		view3d_select_loop(vc, scene, sl, v3d, ar, use_obedit_skip);
+		ED_view3d_draw_select_loop(vc, scene, sl, v3d, ar, use_obedit_skip, use_nearest);
 
 		GPU_select_end();
 	}
@@ -1233,7 +1204,8 @@ short view3d_opengl_select(ViewContext *vc, unsigned int *buffer, unsigned int b
 	
 	if (vc->rv3d->rflag & RV3D_CLIPPING)
 		ED_view3d_clipping_disable();
-	
+
+finally:
 	if (hits < 0) printf("Too many objects in select buffer\n");  /* XXX make error message */
 
 	return hits;
@@ -1315,11 +1287,11 @@ int ED_view3d_scene_layer_set(int lay, const int *values, int *active)
 
 static bool view3d_localview_init(
         wmWindowManager *wm, wmWindow *win,
-        Main *bmain, Scene *scene, ScrArea *sa, const int smooth_viewtx,
+        Main *bmain, Scene *scene, SceneLayer *sl, ScrArea *sa, const int smooth_viewtx,
         ReportList *reports)
 {
 	View3D *v3d = sa->spacedata.first;
-	BaseLegacy *base;
+	Base *base;
 	float min[3], max[3], box[3], mid[3];
 	float size = 0.0f;
 	unsigned int locallay;
@@ -1343,12 +1315,12 @@ static bool view3d_localview_init(
 			
 			ok = true;
 		
-			BASACT->lay |= locallay;
-			scene->obedit->lay = BASACT->lay;
+			BASACT_NEW->lay |= locallay;
+			scene->obedit->lay = BASACT_NEW->lay;
 		}
 		else {
-			for (base = FIRSTBASE; base; base = base->next) {
-				if (TESTBASE(v3d, base)) {
+			for (base = FIRSTBASE_NEW; base; base = base->next) {
+				if (TESTBASE_NEW(base)) {
 					BKE_object_minmax(base->object, min, max, false);
 					base->lay |= locallay;
 					base->object->lay = base->lay;
@@ -1418,15 +1390,17 @@ static bool view3d_localview_init(
 	}
 	else {
 		/* clear flags */ 
-		for (base = FIRSTBASE; base; base = base->next) {
+		for (base = FIRSTBASE_NEW; base; base = base->next) {
 			if (base->lay & locallay) {
 				base->lay -= locallay;
 				if (base->lay == 0) base->lay = v3d->layact;
-				if (base->object != scene->obedit) base->flag_legacy |= SELECT;
+				if (base->object != scene->obedit) base->flag |= BASE_SELECTED;
 				base->object->lay = base->lay;
 			}
 		}
 	}
+
+	DAG_on_visible_update(bmain, false);
 
 	return ok;
 }
@@ -1533,6 +1507,7 @@ static int localview_exec(bContext *C, wmOperator *op)
 	wmWindow *win = CTX_wm_window(C);
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
+	SceneLayer *sl = CTX_data_scene_layer(C);
 	ScrArea *sa = CTX_wm_area(C);
 	View3D *v3d = CTX_wm_view3d(C);
 	bool changed;
@@ -1541,7 +1516,7 @@ static int localview_exec(bContext *C, wmOperator *op)
 		changed = view3d_localview_exit(wm, win, bmain, scene, sa, smooth_viewtx);
 	}
 	else {
-		changed = view3d_localview_init(wm, win, bmain, scene, sa, smooth_viewtx, op->reports);
+		changed = view3d_localview_init(wm, win, bmain, scene, sl, sa, smooth_viewtx, op->reports);
 	}
 
 	if (changed) {

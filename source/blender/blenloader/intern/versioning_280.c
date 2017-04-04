@@ -32,14 +32,18 @@
 #include "DNA_layer_types.h"
 #include "DNA_material_types.h"
 #include "DNA_scene_types.h"
+#include "DNA_screen_types.h"
 #include "DNA_genfile.h"
 
+#include "BKE_blender.h"
 #include "BKE_collection.h"
+#include "BKE_idprop.h"
 #include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_scene.h"
 
 #include "BLI_listbase.h"
+#include "BLI_mempool.h"
 #include "BLI_string.h"
 
 #include "BLO_readfile.h"
@@ -50,6 +54,9 @@
 void do_versions_after_linking_280(Main *main)
 {
 	if (!MAIN_VERSION_ATLEAST(main, 280, 0)) {
+		char version[48];
+		BKE_blender_version_string(version, sizeof(version), main->versionfile, main->subversionfile, false, false);
+
 		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
 			/* since we don't have access to FileData we check the (always valid) first render layer instead */
 			if (scene->render_layers.first == NULL) {
@@ -63,7 +70,7 @@ void do_versions_after_linking_280(Main *main)
 				for (int i = 0; i < 20; i++) {
 					char name[MAX_NAME];
 
-					BLI_snprintf(name, sizeof(collections[i]->name), "%d", i + 1);
+					BLI_snprintf(name, sizeof(collections[i]->name), "Collection %d [converted from %s]", i + 1, version);
 					collections[i] = BKE_collection_add(scene, sc_master, name);
 
 					is_visible[i] = (scene->lay & (1 << i));
@@ -121,7 +128,7 @@ void do_versions_after_linking_280(Main *main)
 					}
 				}
 
-				SceneLayer *sl = BKE_scene_layer_add(scene, "Render Layer");
+				SceneLayer *sl = BKE_scene_layer_add(scene, "Viewport");
 
 				/* In this particular case we can safely assume the data struct */
 				LayerCollection *lc = ((LayerCollection *)sl->layer_collections.first)->layer_collections.first;
@@ -131,9 +138,6 @@ void do_versions_after_linking_280(Main *main)
 					}
 					lc = lc->next;
 				}
-
-				/* but we still need to make the flags synced */
-				BKE_scene_layer_base_flag_recalculate(sl);
 
 				/* convert active base */
 				if (scene->basact) {
@@ -151,6 +155,9 @@ void do_versions_after_linking_280(Main *main)
 					else {
 						ob_base->flag &= ~BASE_SELECTED;
 					}
+
+					/* keep lay around for forward compatibility (open those files in 2.79) */
+					ob_base->lay = base->lay;
 				}
 
 				/* TODO: copy scene render data to layer */
@@ -162,6 +169,11 @@ void do_versions_after_linking_280(Main *main)
 					}
 				}
 
+				/* Fallback name if only one layer was found in the original file */
+				if (BLI_listbase_count_ex(&sc_master->scene_collections, 2) == 1) {
+					BKE_collection_rename(scene, sc_master->scene_collections.first, "Default Collection");
+				}
+
 				/* remove bases once and for all */
 				for (Base *base = scene->base.first; base; base = base->next) {
 					id_us_min(&base->object->id);
@@ -170,6 +182,57 @@ void do_versions_after_linking_280(Main *main)
 				scene->basact = NULL;
 			}
 		}
+
+		for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
+			for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
+				for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
+					if (sl->spacetype == SPACE_OUTLINER) {
+						SpaceOops *soutliner = (SpaceOops *)sl;
+						SceneLayer *layer = BKE_scene_layer_context_active(screen->scene);
+
+						soutliner->outlinevis = SO_ACT_LAYER;
+
+						if (BLI_listbase_count_ex(&layer->layer_collections, 2) == 1) {
+							/* Create a tree store element for the collection. This is normally
+							 * done in check_persistent (outliner_tree.c), but we need to access
+							 * it here :/ (expand element if it's the only one) */
+							TreeStoreElem *tselem = BLI_mempool_calloc(soutliner->treestore);
+							tselem->type = TSE_LAYER_COLLECTION;
+							tselem->id = layer->layer_collections.first;
+							tselem->nr = tselem->used = 0;
+							tselem->flag &= ~TSE_CLOSED;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if (!MAIN_VERSION_ATLEAST(main, 280, 0)) {
+		IDPropertyTemplate val = {0};
+		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+			scene->collection_properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
+			BKE_layer_collection_engine_settings_create(scene->collection_properties);
+		}
+	}
+}
+
+static void do_version_layer_collections_idproperties(ListBase *lb)
+{
+	IDPropertyTemplate val = {0};
+	for (LayerCollection *lc = lb->first; lc; lc = lc->next) {
+		lc->properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
+		BKE_layer_collection_engine_settings_create(lc->properties);
+
+		/* No overrides at first */
+		for (IDProperty *prop = lc->properties->data.group.first; prop; prop = prop->next) {
+			while (prop->data.group.first) {
+				IDP_FreeFromGroup(prop, prop->data.group.first);
+			}
+		}
+
+		/* Do it recursively */
+		do_version_layer_collections_idproperties(&lc->layer_collections);
 	}
 }
 
@@ -181,6 +244,16 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 				/* Master Collection */
 				scene->collection = MEM_callocN(sizeof(SceneCollection), "Master Collection");
 				BLI_strncpy(scene->collection->name, "Master Collection", sizeof(scene->collection->name));
+			}
+		}
+
+		if (DNA_struct_elem_find(fd->filesdna, "LayerCollection", "ListBase", "engine_settings") &&
+		    !DNA_struct_elem_find(fd->filesdna, "LayerCollection", "IDProperty", "properties"))
+		{
+			for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+				for (SceneLayer *sl = scene->render_layers.first; sl; sl = sl->next) {
+					do_version_layer_collections_idproperties(&sl->layer_collections);
+				}
 			}
 		}
 	}

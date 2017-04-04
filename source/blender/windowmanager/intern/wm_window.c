@@ -58,6 +58,7 @@
 
 
 #include "RNA_access.h"
+#include "RNA_define.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -71,6 +72,7 @@
 #include "ED_fileselect.h"
 
 #include "UI_interface.h"
+#include "UI_interface_icons.h"
 
 #include "PIL_time.h"
 
@@ -78,6 +80,9 @@
 #include "GPU_extensions.h"
 #include "GPU_init_exit.h"
 #include "GPU_immediate.h"
+#include "BLF_api.h"
+
+#include "UI_resources.h"
 
 /* for assert */
 #ifndef NDEBUG
@@ -244,6 +249,25 @@ wmWindow *wm_window_new(bContext *C)
 	return win;
 }
 
+/**
+ * A higher level version of copy that tests the new window can be added.
+ */
+static wmWindow *wm_window_new_test(bContext *C)
+{
+	wmWindow *win = wm_window_new(C);
+
+	WM_check(C);
+
+	if (win->ghostwin) {
+		WM_event_add_notifier(C, NC_WINDOW | NA_ADDED, NULL);
+		return win;
+	}
+	else {
+		wmWindowManager *wm = CTX_wm_manager(C);
+		wm_window_close(C, wm, win);
+		return NULL;
+	}
+}
 
 /* part of wm_window.c api */
 wmWindow *wm_window_copy(bContext *C, wmWindow *win_src)
@@ -312,7 +336,7 @@ void wm_window_close(bContext *C, wmWindowManager *wm, wmWindow *win)
 	if (tmpwin == NULL)
 		do_exit = 1;
 	
-	if ((U.uiflag & USER_QUIT_PROMPT) && !wm->file_saved) {
+	if ((U.uiflag & USER_QUIT_PROMPT) && !wm->file_saved && !G.background) {
 		if (do_exit) {
 			if (!GHOST_confirmQuit(win->ghostwin))
 				return;
@@ -375,14 +399,39 @@ void wm_window_title(wmWindowManager *wm, wmWindow *win)
 	}
 }
 
-static float wm_window_get_virtual_pixelsize(void)
+static void wm_window_set_dpi(wmWindow *win)
 {
-	return ((U.virtual_pixel == VIRTUAL_PIXEL_NATIVE) ? 1.0f : 2.0f);
-}
+	int auto_dpi = GHOST_GetDPIHint(win->ghostwin);
 
-float wm_window_pixelsize(wmWindow *win)
-{
-	return (GHOST_GetNativePixelSize(win->ghostwin) * wm_window_get_virtual_pixelsize());
+	/* Lazily init UI scale size, preserving backwards compatibility by
+	 * computing UI scale from ratio of previous DPI and auto DPI */
+	if (U.ui_scale == 0) {
+		int virtual_pixel = (U.virtual_pixel == VIRTUAL_PIXEL_NATIVE) ? 1 : 2;
+
+		if (U.dpi == 0) {
+			U.ui_scale = virtual_pixel;
+		}
+		else {
+			U.ui_scale = (virtual_pixel * U.dpi * 96.0f) / (auto_dpi * 72.0f);
+		}
+
+		CLAMP(U.ui_scale, 0.25f, 4.0f);
+	}
+
+	/* Blender's UI drawing assumes DPI 72 as a good default following macOS
+	 * while Windows and Linux use DPI 96. GHOST assumes a default 96 so we
+	 * remap the DPI to Blender's convention. */
+	int dpi = auto_dpi * U.ui_scale * (72.0 / 96.0f);
+
+	/* Automatically set larger pixel size for high DPI. */
+	int pixelsize = MAX2(1, dpi / 54);
+
+	/* Set user preferences globals for drawing, and for forward compatibility. */
+	U.pixelsize = GHOST_GetNativePixelSize(win->ghostwin) * pixelsize;
+	U.dpi = dpi / pixelsize;
+	U.virtual_pixel = (pixelsize == 1) ? VIRTUAL_PIXEL_NATIVE : VIRTUAL_PIXEL_DOUBLE;
+
+	BKE_blender_userdef_refresh();
 }
 
 /* belongs to below */
@@ -457,10 +506,8 @@ static void wm_window_ghostwindow_add(wmWindowManager *wm, const char *title, wm
 			glClear(GL_COLOR_BUFFER_BIT);
 		}
 		
-		/* displays with larger native pixels, like Macbook. Used to scale dpi with */
 		/* needed here, because it's used before it reads userdef */
-		U.pixelsize = wm_window_pixelsize(win);
-		BKE_blender_userdef_refresh();
+		wm_window_set_dpi(win);
 		
 		wm_window_swap_buffers(win);
 		
@@ -627,7 +674,6 @@ wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
 	Scene *scene = CTX_data_scene(C);
 	const char *title;
 	rcti rect = *rect_init;
-	const short px_virtual = (short)wm_window_get_virtual_pixelsize();
 
 	/* changes rect to fit within desktop */
 	wm_window_check_position(&rect);
@@ -645,9 +691,8 @@ wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
 		win->posy = rect.ymin;
 	}
 
-	/* multiply with virtual pixelsize, ghost handles native one (e.g. for retina) */
-	win->sizex = BLI_rcti_size_x(&rect) * px_virtual;
-	win->sizey = BLI_rcti_size_y(&rect) * px_virtual;
+	win->sizex = BLI_rcti_size_x(&rect);
+	win->sizey = BLI_rcti_size_y(&rect);
 
 	if (win->ghostwin) {
 		wm_window_set_size(win, win->sizex, win->sizey);
@@ -723,17 +768,79 @@ int wm_window_close_exec(bContext *C, wmOperator *UNUSED(op))
 	return OPERATOR_FINISHED;
 }
 
-/* operator callback */
-int wm_window_duplicate_exec(bContext *C, wmOperator *UNUSED(op))
+/* new window operator callback */
+int wm_window_new_exec(bContext *C, wmOperator *op)
 {
+	Main *bmain = CTX_data_main(C);
 	wmWindow *win_src = CTX_wm_window(C);
-	bool ok;
+	const int screen_id = RNA_enum_get(op->ptr, "screen");
+	bScreen *screen = BLI_findlink(&bmain->screen, screen_id);
+	wmWindow *win_dst;
 
-	ok = (wm_window_copy_test(C, win_src) != NULL);
+	if (screen->winid) {
+		/* Screen is already used, duplicate window and screen */
+		win_dst = wm_window_copy_test(C, win_src);
+	}
+	else if ((win_dst = wm_window_new_test(C))) {
+		/* New window with a different screen */
+		win_dst->screen = screen;
+		screen->winid = win_dst->winid;
+		CTX_wm_window_set(C, win_dst);
+		ED_screen_refresh(CTX_wm_manager(C), win_dst);
+	}
 
-	return ok ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
+	return (win_dst != NULL) ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
 }
 
+int wm_window_new_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+{
+	Main *bmain = CTX_data_main(C);
+
+	if (BLI_listbase_count_ex(&bmain->screen, 2) == 1) {
+		RNA_enum_set(op->ptr, "screen", 0);
+		return wm_window_new_exec(C, op);
+	}
+	else {
+		return WM_enum_search_invoke_previews(C, op, 6, 2);
+	}
+}
+
+struct EnumPropertyItem *wm_window_new_screen_itemf(
+        bContext *C, struct PointerRNA *UNUSED(ptr), struct PropertyRNA *UNUSED(prop), bool *r_free)
+{
+	Main *bmain = CTX_data_main(C);
+	EnumPropertyItem *item = NULL;
+	EnumPropertyItem tmp = {0, "", 0, "", ""};
+	int value = 0, totitem = 0;
+	int count_act_screens = 0;
+	/* XXX setting max number of windows to 20. We'd need support
+	 * for dynamic strings in EnumPropertyItem.name to avoid this. */
+	static char active_screens[20][MAX_NAME + 12];
+
+	for (bScreen *screen = bmain->screen.first; screen; screen = screen->id.next) {
+		if (screen->winid) {
+			BLI_snprintf(active_screens[count_act_screens], sizeof(*active_screens), "%s (Duplicate)",
+			             screen->id.name + 2);
+			tmp.name = active_screens[count_act_screens++];
+		}
+		else {
+			tmp.name = screen->id.name + 2;
+		}
+
+		tmp.value = value;
+		tmp.identifier = screen->id.name;
+		UI_id_icon_render(C, CTX_data_scene(C), &screen->id, true, false);
+		tmp.icon = BKE_icon_id_ensure(&screen->id);
+
+		RNA_enum_item_add(&item, &totitem, &tmp);
+		value++;
+	}
+
+	RNA_enum_item_end(&item, &totitem);
+	*r_free = true;
+
+	return item;
+}
 
 /* fullscreen operator callback */
 int wm_window_fullscreen_toggle_exec(bContext *C, wmOperator *UNUSED(op))
@@ -828,7 +935,7 @@ void wm_window_make_drawable(wmWindowManager *wm, wmWindow *win)
 {
 	if (win != wm->windrawable && win->ghostwin) {
 //		win->lmbut = 0;	/* keeps hanging when mousepressed while other window opened */
-
+		
 		wm->windrawable = win;
 		if (G.debug & G_DEBUG_EVENTS) {
 			printf("%s: set drawable %d\n", __func__, win->winid);
@@ -839,8 +946,7 @@ void wm_window_make_drawable(wmWindowManager *wm, wmWindow *win)
 		immActivate();
 
 		/* this can change per window */
-		U.pixelsize = wm_window_pixelsize(win);
-		BKE_blender_userdef_refresh();
+		wm_window_set_dpi(win);
 	}
 }
 
@@ -1039,6 +1145,8 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 				if (type == GHOST_kEventWindowSize) {
 					WM_jobs_stop(wm, win->screen, NULL);
 				}
+
+				wm_window_set_dpi(win);
 				
 				/* win32: gives undefined window size when minimized */
 				if (state != GHOST_kWindowStateMinimized) {
@@ -1123,7 +1231,19 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 				}
 				break;
 			}
-				
+
+			case GHOST_kEventWindowDPIHintChanged:
+			{
+				wm_window_set_dpi(win);
+				/* font's are stored at each DPI level, without this we can easy load 100's of fonts */
+				BLF_cache_clear();
+
+				BKE_blender_userdef_refresh();
+				WM_main_add_notifier(NC_WINDOW, NULL);      /* full redraw */
+				WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);    /* refresh region sizes */
+				break;
+			}
+
 			case GHOST_kEventOpenMainFile:
 			{
 				PointerRNA props_ptr;
@@ -1204,10 +1324,9 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 			{
 				// only update if the actual pixel size changes
 				float prev_pixelsize = U.pixelsize;
-				U.pixelsize = wm_window_pixelsize(win);
+				wm_window_set_dpi(win);
 
 				if (U.pixelsize != prev_pixelsize) {
-					BKE_blender_userdef_refresh();
 					BKE_icon_changed(win->screen->id.icon_id);
 
 					// close all popups since they are positioned with the pixel

@@ -59,14 +59,16 @@ class OUTLINER_HT_header(Header):
                 row.label(text="No Keying Set active")
         elif space.display_mode == 'ORPHAN_DATA':
             layout.operator("outliner.orphans_purge")
-        elif space.display_mode == 'COLLECTIONS':
+
+        elif space.display_mode in {'ACT_LAYER', 'MASTER_COLLECTION'}:
             row = layout.row(align=True)
 
-            row.operator("collections.collection_new", text="", icon='NEW')
-            row.operator("collections.override_new", text="", icon='LINK_AREA')
-            row.operator("collections.collection_link", text="", icon='LINKED')
-            row.operator("collections.collection_unlink", text="", icon='UNLINKED')
-            row.operator("collections.delete", text="", icon='X')
+            row.operator("outliner.collection_new", text="", icon='NEW')
+            if space.display_mode == 'ACT_LAYER':
+                row.operator("outliner.collection_override_new", text="", icon='LINK_AREA')
+                row.operator("outliner.collection_link", text="", icon='LINKED')
+                row.operator("outliner.collection_unlink", text="", icon='UNLINKED')
+            row.operator("outliner.collections_delete", text="", icon='X')
 
 
 class OUTLINER_MT_editor_menus(Menu):
@@ -96,7 +98,8 @@ class OUTLINER_MT_view(Menu):
         space = context.space_data
 
         if space.display_mode not in {'DATABLOCKS', 'USER_PREFERENCES', 'KEYMAPS'}:
-            layout.prop(space, "use_sort_alpha")
+            if space.display_mode not in {'ACT_LAYER', 'MASTER_COLLECTION'}:
+                layout.prop(space, "use_sort_alpha")
             layout.prop(space, "show_restrict_columns")
             layout.separator()
             layout.operator("outliner.show_active")
@@ -138,5 +141,16 @@ class OUTLINER_MT_edit_datablocks(Menu):
         layout.operator("outliner.drivers_add_selected")
         layout.operator("outliner.drivers_delete_selected")
 
+
+classes = (
+    OUTLINER_HT_header,
+    OUTLINER_MT_editor_menus,
+    OUTLINER_MT_view,
+    OUTLINER_MT_search,
+    OUTLINER_MT_edit_datablocks,
+)
+
 if __name__ == "__main__":  # only for live edit.
-    bpy.utils.register_module(__name__)
+    from bpy.utils import register_class
+    for cls in classes:
+        register_class(cls)

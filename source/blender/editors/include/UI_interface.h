@@ -212,9 +212,6 @@ enum {
 	UI_BUT_ALIGN_STITCH_TOP  = (1 << 18),
 	UI_BUT_ALIGN_STITCH_LEFT = (1 << 19),
 	UI_BUT_ALIGN_ALL         = (UI_BUT_ALIGN | UI_BUT_ALIGN_STITCH_TOP | UI_BUT_ALIGN_STITCH_LEFT),
-
-	/* Another hack, in some rare cases we don't want any text margin */
-	UI_BUT_TEXT_NO_MARGIN    = (1 << 20),
 };
 
 /* scale fixed button widths by this to account for DPI */
@@ -259,6 +256,7 @@ typedef enum {
 	UI_BTYPE_CHECKBOX               = (13 << 9),  /* similar to toggle, display a 'tick' */
 	UI_BTYPE_CHECKBOX_N             = (14 << 9),
 	UI_BTYPE_COLOR                  = (15 << 9),
+	UI_BTYPE_TAB                    = (16 << 9),
 	UI_BTYPE_SCROLL                 = (18 << 9),
 	UI_BTYPE_BLOCK                  = (19 << 9),
 	UI_BTYPE_LABEL                  = (20 << 9),
@@ -426,7 +424,7 @@ typedef void (*uiBlockCancelFunc)(struct bContext *C, void *arg1);
 
 void UI_popup_block_invoke(struct bContext *C, uiBlockCreateFunc func, void *arg);
 void UI_popup_block_invoke_ex(struct bContext *C, uiBlockCreateFunc func, void *arg, const char *opname, int opcontext);
-void UI_popup_block_ex(struct bContext *C, uiBlockCreateFunc func, uiBlockHandleFunc popup_func, uiBlockCancelFunc cancel_func, void *arg);
+void UI_popup_block_ex(struct bContext *C, uiBlockCreateFunc func, uiBlockHandleFunc popup_func, uiBlockCancelFunc cancel_func, void *arg, struct wmOperator *op);
 /* void uiPupBlockOperator(struct bContext *C, uiBlockCreateFunc func, struct wmOperator *op, int opcontext); */ /* UNUSED */
 
 void UI_popup_block_close(struct bContext *C, struct wmWindow *win, uiBlock *block);
@@ -950,6 +948,7 @@ void uiTemplateHeader3D(uiLayout *layout, struct bContext *C);
 void uiTemplateEditModeSelection(uiLayout *layout, struct bContext *C);
 void uiTemplateReportsBanner(uiLayout *layout, struct bContext *C);
 void uiTemplateKeymapItemProperties(uiLayout *layout, struct PointerRNA *ptr);
+void uiTemplateOverrideProperty(uiLayout *layout, struct PointerRNA *collection_props_ptr, struct PointerRNA *scene_props_ptr, const char *name, const char *custom_template);
 void uiTemplateComponentMenu(uiLayout *layout, struct PointerRNA *ptr, const char *propname, const char *name);
 void uiTemplateNodeSocket(uiLayout *layout, struct bContext *C, float *color);
 void uiTemplateCacheFile(uiLayout *layout, struct bContext *C, struct PointerRNA *ptr, const char *propname);
@@ -1062,7 +1061,7 @@ void UI_fontstyle_draw_simple_backdrop(
 int UI_fontstyle_string_width(const struct uiFontStyle *fs, const char *str);
 int UI_fontstyle_height_max(const struct uiFontStyle *fs);
 
-void UI_draw_icon_tri(float x, float y, char dir);
+void UI_draw_icon_tri(float x, float y, char dir, const float[4]);
 
 struct uiStyle *UI_style_get(void);		/* use for fonts etc */
 struct uiStyle *UI_style_get_dpi(void);	/* DPI scaled settings for drawing */

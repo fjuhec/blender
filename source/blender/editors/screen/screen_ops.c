@@ -321,10 +321,6 @@ int ED_operator_info_active(bContext *C)
 	return ed_spacetype_test(C, SPACE_INFO);
 }
 
-int ED_operator_collections_active(bContext *C)
-{
-	return ed_spacetype_test(C, SPACE_COLLECTIONS);
-}
 
 int ED_operator_console_active(bContext *C)
 {
@@ -576,8 +572,8 @@ int ED_operator_mask(bContext *C)
 			case SPACE_IMAGE:
 			{
 				SpaceImage *sima = sa->spacedata.first;
-				Scene *scene = CTX_data_scene(C);
-				return ED_space_image_check_show_maskedit(scene, sima);
+				SceneLayer *sl = CTX_data_scene_layer(C);
+				return ED_space_image_check_show_maskedit(sl, sima);
 			}
 		}
 	}
@@ -2817,7 +2813,7 @@ static int screen_area_options_invoke(bContext *C, wmOperator *op, const wmEvent
 	bScreen *sc = CTX_wm_screen(C);
 	uiPopupMenu *pup;
 	uiLayout *layout;
-	PointerRNA ptr1, ptr2;
+	PointerRNA ptr;
 	ScrEdge *actedge;
 	const int winsize_x = WM_window_pixels_x(win);
 	const int winsize_y = WM_window_pixels_y(win);
@@ -2829,22 +2825,17 @@ static int screen_area_options_invoke(bContext *C, wmOperator *op, const wmEvent
 	pup = UI_popup_menu_begin(C, RNA_struct_ui_name(op->type->srna), ICON_NONE);
 	layout = UI_popup_menu_layout(pup);
 	
-	WM_operator_properties_create(&ptr1, "SCREEN_OT_area_join");
-	
-	/* mouse cursor on edge, '4' can fail on wide edges... */
-	RNA_int_set(&ptr1, "min_x", event->x + 4);
-	RNA_int_set(&ptr1, "min_y", event->y + 4);
-	RNA_int_set(&ptr1, "max_x", event->x - 4);
-	RNA_int_set(&ptr1, "max_y", event->y - 4);
-	
-	WM_operator_properties_create(&ptr2, "SCREEN_OT_area_split");
-	
+	ptr = uiItemFullO(layout, "SCREEN_OT_area_split", NULL, ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, UI_ITEM_O_RETURN_PROPS);
 	/* store initial mouse cursor position */
-	RNA_int_set(&ptr2, "mouse_x", event->x);
-	RNA_int_set(&ptr2, "mouse_y", event->y);
-	
-	uiItemFullO(layout, "SCREEN_OT_area_split", NULL, ICON_NONE, ptr2.data, WM_OP_INVOKE_DEFAULT, 0);
-	uiItemFullO(layout, "SCREEN_OT_area_join", NULL, ICON_NONE, ptr1.data, WM_OP_INVOKE_DEFAULT, 0);
+	RNA_int_set(&ptr, "mouse_x", event->x);
+	RNA_int_set(&ptr, "mouse_y", event->y);
+
+	ptr = uiItemFullO(layout, "SCREEN_OT_area_join", NULL, ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+	/* mouse cursor on edge, '4' can fail on wide edges... */
+	RNA_int_set(&ptr, "min_x", event->x + 4);
+	RNA_int_set(&ptr, "min_y", event->y + 4);
+	RNA_int_set(&ptr, "max_x", event->x - 4);
+	RNA_int_set(&ptr, "max_y", event->y - 4);
 	
 	UI_popup_menu_end(C, pup);
 	
@@ -2912,10 +2903,23 @@ static void SCREEN_OT_spacedata_cleanup(wmOperatorType *ot)
 
 static int repeat_last_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	wmOperator *lastop = CTX_wm_manager(C)->operators.last;
-	
-	if (lastop)
+	wmWindowManager *wm = CTX_wm_manager(C);
+	wmOperator *lastop = wm->operators.last;
+
+	/* Seek last registered operator */
+	while (lastop) {
+		if (lastop->type->flag & OPTYPE_REGISTER) {
+			break;
+		}
+		else {
+			lastop = lastop->prev;
+		}
+	}
+
+	if (lastop) {
+		WM_operator_free_all_after(wm, lastop);
 		WM_operator_repeat(C, lastop);
+	}
 	
 	return OPERATOR_CANCELLED;
 }
@@ -2950,8 +2954,9 @@ static int repeat_history_invoke(bContext *C, wmOperator *op, const wmEvent *UNU
 	layout = UI_popup_menu_layout(pup);
 	
 	for (i = items - 1, lastop = wm->operators.last; lastop; lastop = lastop->prev, i--)
-		if (WM_operator_repeat_check(C, lastop))
+		if ((lastop->type->flag & OPTYPE_REGISTER) && WM_operator_repeat_check(C, lastop)) {
 			uiItemIntO(layout, RNA_struct_ui_name(lastop->type->srna), ICON_NONE, op->type->idname, "index", i);
+		}
 	
 	UI_popup_menu_end(C, pup);
 	

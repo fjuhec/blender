@@ -330,6 +330,9 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 			}
 			new_sl = new_sl->next;
 		}
+
+		IDPropertyTemplate val = {0};
+		scen->collection_properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
 	}
 
 	/* copy color management settings */
@@ -442,6 +445,12 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 	}
 
 	BKE_previewimg_id_copy(&scen->id, &sce->id);
+
+	if (type != SCE_COPY_NEW) {
+		if (sce->collection_properties) {
+			IDP_MergeGroup(scen->collection_properties, sce->collection_properties, true);
+		}
+	}
 
 	return scen;
 }
@@ -569,11 +578,11 @@ void BKE_scene_free(Scene *sce)
 	sce->collection = NULL;
 
 	/* Runtime Engine Data */
-	for (RenderEngineSettings *res = sce->engines_settings.first; res; res = res->next) {
-		if (res->data)
-			MEM_freeN(res->data);
+	if (sce->collection_properties) {
+		IDP_FreeProperty(sce->collection_properties);
+		MEM_freeN(sce->collection_properties);
+		sce->collection_properties = NULL;
 	}
-	BLI_freelistN(&sce->engines_settings);
 }
 
 void BKE_scene_init(Scene *sce)
@@ -928,6 +937,10 @@ void BKE_scene_init(Scene *sce)
 	sce->collection = MEM_callocN(sizeof(SceneCollection), "Master Collection");
 	BLI_strncpy(sce->collection->name, "Master Collection", sizeof(sce->collection->name));
 
+	IDPropertyTemplate val = {0};
+	sce->collection_properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
+	BKE_layer_collection_engine_settings_create(sce->collection_properties);
+
 	BKE_scene_layer_add(sce, "Render Layer");
 }
 
@@ -1150,6 +1163,19 @@ int BKE_scene_base_iter_next(EvaluationContext *eval_ctx, SceneBaseIter *iter,
 #endif
 
 	return iter->phase;
+}
+
+Scene *BKE_scene_find_from_collection(const Main *bmain, const SceneCollection *scene_collection)
+{
+	for (Scene *scene = bmain->scene.first; scene; scene = scene->id.next) {
+		for (SceneLayer *layer = scene->render_layers.first; layer; layer = layer->next) {
+			if (BKE_scene_layer_has_collection(layer, scene_collection)) {
+				return scene;
+			}
+		}
+	}
+
+	return NULL;
 }
 
 Object *BKE_scene_camera_find(Scene *sc)
@@ -1688,21 +1714,37 @@ float get_render_aosss_error(const RenderData *r, float error)
 		return error;
 }
 
-/* helper function for the SETLOOPER macro */
-BaseLegacy *_setlooper_base_step(Scene **sce_iter, BaseLegacy *base)
+/**
+  * Helper function for the SETLOOPER macro
+  *
+  * It iterates over the bases of the active layer and then the bases
+  * of the active layer of the background (set) scenes recursively.
+  */
+Base *_setlooper_base_step(Scene **sce_iter, Base *base)
 {
 	if (base && base->next) {
 		/* common case, step to the next */
 		return base->next;
 	}
-	else if (base == NULL && (*sce_iter)->base.first) {
+	else if (base == NULL) {
 		/* first time looping, return the scenes first base */
-		return (BaseLegacy *)(*sce_iter)->base.first;
+
+		/* for the first loop we should get the layer from context */
+		SceneLayer *sl = BKE_scene_layer_context_active((*sce_iter));
+
+		if (sl->object_bases.first) {
+			return (Base *)sl->object_bases.first;
+		}
+		/* no base on this scene layer */
+		goto next_set;
 	}
 	else {
+next_set:
 		/* reached the end, get the next base in the set */
 		while ((*sce_iter = (*sce_iter)->set)) {
-			base = (BaseLegacy *)(*sce_iter)->base.first;
+			SceneLayer *sl = BKE_scene_layer_render_active((*sce_iter));
+			base = (Base *)sl->object_bases.first;
+
 			if (base) {
 				return base;
 			}

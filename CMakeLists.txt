@@ -447,6 +447,7 @@ option(WITH_BOOST					"Enable features depending on boost" ON)
 
 # Unit testsing
 option(WITH_GTESTS "Enable GTest unit testing" OFF)
+option(WITH_OPENGL_TESTS "Enable OpenGL related unit testing (Experimental)" OFF)
 
 
 # Documentation
@@ -472,12 +473,6 @@ mark_as_advanced(
 	WITH_GL_PROFILE_CORE
 	WITH_GL_PROFILE_ES20
 )
-
-if(WITH_GL_PROFILE_COMPAT)
-	set(WITH_GLU ON)
-else()
-	set(WITH_GLU OFF)
-endif()
 
 if(WIN32)
 	option(WITH_GL_ANGLE "Link with the ANGLE library, an OpenGL ES 2.0 implementation based on Direct3D, instead of the system OpenGL library." OFF)
@@ -519,18 +514,20 @@ endif()
 option(WITH_LEGACY_DEPSGRAPH "Build Blender with legacy dependency graph" ON)
 mark_as_advanced(WITH_LEGACY_DEPSGRAPH)
 
-# Use hardcoded paths or find_package to find externals
-option(WITH_WINDOWS_FIND_MODULES "Use find_package to locate libraries" OFF)
-mark_as_advanced(WITH_WINDOWS_FIND_MODULES)
+if(WIN32)
+	# Use hardcoded paths or find_package to find externals
+	option(WITH_WINDOWS_FIND_MODULES "Use find_package to locate libraries" OFF)
+	mark_as_advanced(WITH_WINDOWS_FIND_MODULES)
 
-option(WITH_WINDOWS_CODESIGN "Use signtool to sign the final binary." OFF)
-mark_as_advanced(WITH_WINDOWS_CODESIGN)
+	option(WITH_WINDOWS_CODESIGN "Use signtool to sign the final binary." OFF)
+	mark_as_advanced(WITH_WINDOWS_CODESIGN)
 
-set(WINDOWS_CODESIGN_PFX CACHE FILEPATH  "Path to pfx file to use for codesigning.")
-mark_as_advanced(WINDOWS_CODESIGN_PFX)
+	set(WINDOWS_CODESIGN_PFX CACHE FILEPATH  "Path to pfx file to use for codesigning.")
+	mark_as_advanced(WINDOWS_CODESIGN_PFX)
 
-set(WINDOWS_CODESIGN_PFX_PASSWORD CACHE STRING  "password for pfx file used for codesigning.")
-mark_as_advanced(WINDOWS_CODESIGN_PFX_PASSWORD)
+	set(WINDOWS_CODESIGN_PFX_PASSWORD CACHE STRING  "password for pfx file used for codesigning.")
+	mark_as_advanced(WINDOWS_CODESIGN_PFX_PASSWORD)
+endif()
 
 # avoid using again
 option_defaults_clear()
@@ -925,7 +922,7 @@ if(WITH_X11)
 	if(WITH_X11_ALPHA)
 		find_library(X11_Xrender_LIB Xrender  ${X11_LIB_SEARCH_PATH})
 		mark_as_advanced(X11_Xrender_LIB)
-		if (X11_Xrender_LIB)
+		if(X11_Xrender_LIB)
 			list(APPEND PLATFORM_LINKLIBS ${X11_Xrender_LIB})
 		else()
 			set(WITH_X11_ALPHA OFF)
@@ -1054,11 +1051,6 @@ endif()
 
 find_package(OpenGL)
 blender_include_dirs_sys("${OPENGL_INCLUDE_DIR}")
-
-if(WITH_GLU)
-	list(APPEND BLENDER_GL_LIBRARIES "${OPENGL_glu_LIBRARY}")
-	list(APPEND GL_DEFINITIONS -DWITH_GLU)
-endif()
 
 if(WITH_SYSTEM_GLES)
 	find_package_wrapper(OpenGLES)
@@ -1287,9 +1279,7 @@ else()
 
 endif()
 
-if(NOT WITH_GLU)
-	list(APPEND GL_DEFINITIONS -DGLEW_NO_GLU)
-endif()
+list(APPEND GL_DEFINITIONS -DGLEW_NO_GLU)
 
 #-----------------------------------------------------------------------------
 # Configure Bullet
@@ -1797,7 +1787,6 @@ if(FIRST_RUN)
 
 	info_cfg_text("OpenGL:")
 	info_cfg_option(WITH_GLEW_ES)
-	info_cfg_option(WITH_GLU)
 	info_cfg_option(WITH_GL_EGL)
 	info_cfg_option(WITH_GL_PROFILE_COMPAT)
 	info_cfg_option(WITH_GL_PROFILE_CORE)

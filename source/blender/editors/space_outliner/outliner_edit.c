@@ -149,55 +149,6 @@ TreeElement *outliner_dropzone_find(const SpaceOops *soops, const float fmval[2]
 	return NULL;
 }
 
-/**
- * Try to find an item under y-coordinate \a view_co_y (view-space).
- * \note Recursive
- */
-TreeElement *outliner_find_item_at_y(const SpaceOops *soops, const ListBase *tree, float view_co_y)
-{
-	for (TreeElement *te_iter = tree->first; te_iter; te_iter = te_iter->next) {
-		if (view_co_y < (te_iter->ys + UI_UNIT_Y)) {
-			if (view_co_y > te_iter->ys) {
-				/* co_y is inside this element */
-				return te_iter;
-			}
-			else if (TSELEM_OPEN(te_iter->store_elem, soops)) {
-				/* co_y is lower than current element, possibly inside children */
-				TreeElement *te_sub = outliner_find_item_at_y(soops, &te_iter->subtree, view_co_y);
-				if (te_sub) {
-					return te_sub;
-				}
-			}
-		}
-	}
-
-	return NULL;
-}
-
-/**
- * Collapsed items can show their children as click-able icons. This function tries to find
- * such an icon that represents the child item at x-coordinate \a view_co_x (view-space).
- *
- * \return a hovered child item or \a parent_te (if no hovered child found).
- */
-TreeElement *outliner_find_item_at_x_in_row(const SpaceOops *soops, const TreeElement *parent_te, float view_co_x)
-{
-	if (!TSELEM_OPEN(TREESTORE(parent_te), soops)) { /* if parent_te is opened, it doesn't show childs in row */
-		/* no recursion, items can only display their direct children in the row */
-		for (TreeElement *child_te = parent_te->subtree.first;
-		     child_te && view_co_x >= child_te->xs; /* don't look further if co_x is smaller than child position*/
-		     child_te = child_te->next)
-		{
-			if ((child_te->flag & TE_ICONROW) && (view_co_x > child_te->xs) && (view_co_x < child_te->xend)) {
-				return child_te;
-			}
-		}
-	}
-
-	/* return parent if no child is hovered */
-	return (TreeElement *)parent_te;
-}
-
 
 /* ************************************************************** */
 
@@ -304,8 +255,11 @@ void OUTLINER_OT_item_openclose(wmOperatorType *ot)
 
 /* Rename --------------------------------------------------- */
 
-static void do_item_rename(ARegion *ar, TreeElement *te, TreeStoreElem *tselem, ReportList *reports)
+static void do_item_rename(const Scene *scene, ARegion *ar, TreeElement *te, TreeStoreElem *tselem,
+                           ReportList *reports)
 {
+	bool add_textbut = false;
+
 	/* can't rename rna datablocks entries or listbases */
 	if (ELEM(tselem->type, TSE_RNA_STRUCT, TSE_RNA_PROPERTY, TSE_RNA_ARRAY_ELEM, TSE_ID_BASE)) {
 		/* do nothing */;
@@ -318,6 +272,18 @@ static void do_item_rename(ARegion *ar, TreeElement *te, TreeStoreElem *tselem, 
 	else if (ELEM(tselem->type, TSE_SEQUENCE, TSE_SEQ_STRIP, TSE_SEQUENCE_DUP)) {
 		BKE_report(reports, RPT_WARNING, "Cannot edit sequence name");
 	}
+	else if (ELEM(tselem->type, TSE_LAYER_COLLECTION, TSE_SCENE_COLLECTION)) {
+		SceneCollection *master = BKE_collection_master(scene);
+
+		if ((tselem->type == TSE_SCENE_COLLECTION && te->directdata == master) ||
+		    (((LayerCollection *)te->directdata)->scene_collection == master))
+		{
+			BKE_report(reports, RPT_WARNING, "Cannot edit name of master collection");
+		}
+		else {
+			add_textbut = true;
+		}
+	}
 	else if (ID_IS_LINKED_DATABLOCK(tselem->id)) {
 		BKE_report(reports, RPT_WARNING, "Cannot edit external libdata");
 	}
@@ -325,34 +291,39 @@ static void do_item_rename(ARegion *ar, TreeElement *te, TreeStoreElem *tselem, 
 		BKE_report(reports, RPT_WARNING, "Cannot edit the path of an indirectly linked library");
 	}
 	else {
+		add_textbut = true;
+	}
+
+	if (add_textbut) {
 		tselem->flag |= TSE_TEXTBUT;
 		ED_region_tag_redraw(ar);
 	}
 }
 
 void item_rename_cb(
-        bContext *C, ReportList *reports, Scene *UNUSED(scene), TreeElement *te,
+        bContext *C, ReportList *reports, Scene *scene, TreeElement *te,
         TreeStoreElem *UNUSED(tsep), TreeStoreElem *tselem, void *UNUSED(user_data))
 {
 	ARegion *ar = CTX_wm_region(C);
-	do_item_rename(ar, te, tselem, reports);
+	do_item_rename(scene, ar, te, tselem, reports);
 }
 
-static int do_outliner_item_rename(ReportList *reports, ARegion *ar, TreeElement *te, const float mval[2])
+static int do_outliner_item_rename(const Scene *scene, ReportList *reports, ARegion *ar, TreeElement *te,
+                                   const float mval[2])
 {
 	if (mval[1] > te->ys && mval[1] < te->ys + UI_UNIT_Y) {
 		TreeStoreElem *tselem = TREESTORE(te);
 		
 		/* click on name */
 		if (mval[0] > te->xs + UI_UNIT_X * 2 && mval[0] < te->xend) {
-			do_item_rename(ar, te, tselem, reports);
+			do_item_rename(scene, ar, te, tselem, reports);
 			return 1;
 		}
 		return 0;
 	}
 	
 	for (te = te->subtree.first; te; te = te->next) {
-		if (do_outliner_item_rename(reports, ar, te, mval)) return 1;
+		if (do_outliner_item_rename(scene, reports, ar, te, mval)) return 1;
 	}
 	return 0;
 }
@@ -368,7 +339,7 @@ static int outliner_item_rename(bContext *C, wmOperator *op, const wmEvent *even
 	UI_view2d_region_to_view(&ar->v2d, event->mval[0], event->mval[1], &fmval[0], &fmval[1]);
 	
 	for (te = soops->tree.first; te; te = te->next) {
-		if (do_outliner_item_rename(op->reports, ar, te, fmval)) {
+		if (do_outliner_item_rename(CTX_data_scene(C), op->reports, ar, te, fmval)) {
 			changed = true;
 			break;
 		}
@@ -397,9 +368,12 @@ static void id_delete(bContext *C, ReportList *reports, TreeElement *te, TreeSto
 	ID *id = tselem->id;
 
 	BLI_assert(te->idcode != 0 && id != NULL);
-	BLI_assert(te->idcode != ID_LI || ((Library *)id)->parent == NULL);
 	UNUSED_VARS_NDEBUG(te);
 
+	if (te->idcode == ID_LI && ((Library *)id)->parent != NULL) {
+		BKE_reportf(reports, RPT_WARNING, "Cannot delete indirectly linked library '%s'", id->name);
+		return;
+	}
 	if (id->tag & LIB_TAG_INDIRECT) {
 		BKE_reportf(reports, RPT_WARNING, "Cannot delete indirectly linked id '%s'", id->name);
 		return;
@@ -604,7 +578,8 @@ void OUTLINER_OT_id_remap(wmOperatorType *ot)
 
 	ot->flag = 0;
 
-	RNA_def_enum(ot->srna, "id_type", rna_enum_id_type_items, ID_OB, "ID Type", "");
+	prop = RNA_def_enum(ot->srna, "id_type", rna_enum_id_type_items, ID_OB, "ID Type", "");
+	RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_ID);
 
 	prop = RNA_def_enum(ot->srna, "old_id", DummyRNA_NULL_items, 0, "Old ID", "Old ID to replace");
 	RNA_def_property_enum_funcs_runtime(prop, NULL, NULL, outliner_id_itemf);
@@ -848,7 +823,7 @@ bool outliner_set_flag(ListBase *lb, short flag, short set)
 				changed = true;
 			}
 		}
-		else if (!has_flag){
+		else if (!has_flag) {
 			tselem->flag |= flag;
 			changed = true;
 		}
@@ -1945,6 +1920,7 @@ static int parent_drop_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = NULL;
 	TreeElement *te = NULL;
+	TreeStoreElem *tselem;
 	char childname[MAX_ID_NAME];
 	char parname[MAX_ID_NAME];
 	int partype = 0;
@@ -1954,8 +1930,21 @@ static int parent_drop_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
 	/* Find object hovered over */
 	te = outliner_dropzone_find(soops, fmval, true);
+	tselem = te ? TREESTORE(te) : NULL;
 
-	if (te) {
+	if (tselem && ELEM(tselem->type, TSE_LAYER_COLLECTION, TSE_SCENE_COLLECTION)) {
+		SceneCollection *sc = outliner_scene_collection_from_tree_element(te);
+
+		scene = BKE_scene_find_from_collection(bmain, sc);
+		BLI_assert(scene);
+		RNA_string_get(op->ptr, "child", childname);
+		ob = (Object *)BKE_libblock_find_name(ID_OB, childname);
+		BKE_collection_object_add(scene, sc, ob);
+
+		DAG_relations_tag_update(bmain);
+		WM_event_add_notifier(C, NC_SCENE | ND_LAYER, scene);
+	}
+	else if (te) {
 		RNA_string_set(op->ptr, "parent", te->name);
 		/* Identify parent and child */
 		RNA_string_get(op->ptr, "child", childname);
@@ -1998,74 +1987,62 @@ static int parent_drop_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 			wmOperatorType *ot = WM_operatortype_find("OUTLINER_OT_parent_drop", false);
 			uiPopupMenu *pup = UI_popup_menu_begin(C, IFACE_("Set Parent To"), ICON_NONE);
 			uiLayout *layout = UI_popup_menu_layout(pup);
-			
 			PointerRNA ptr;
 			
-			WM_operator_properties_create_ptr(&ptr, ot);
+			/* Cannot use uiItemEnumO()... have multiple properties to set. */
+			ptr = uiItemFullO_ptr(layout, ot, IFACE_("Object"), 0, NULL, WM_OP_EXEC_DEFAULT, UI_ITEM_O_RETURN_PROPS);
 			RNA_string_set(&ptr, "parent", parname);
 			RNA_string_set(&ptr, "child", childname);
 			RNA_enum_set(&ptr, "type", PAR_OBJECT);
-			/* Cannot use uiItemEnumO()... have multiple properties to set. */
-			uiItemFullO_ptr(layout, ot, IFACE_("Object"), 0, ptr.data, WM_OP_EXEC_DEFAULT, 0);
-			
+
 			/* par becomes parent, make the associated menus */
 			if (par->type == OB_ARMATURE) {
-				WM_operator_properties_create_ptr(&ptr, ot);
+				ptr = uiItemFullO_ptr(layout, ot, IFACE_("Armature Deform"), 0, NULL, WM_OP_EXEC_DEFAULT, UI_ITEM_O_RETURN_PROPS);
 				RNA_string_set(&ptr, "parent", parname);
 				RNA_string_set(&ptr, "child", childname);
 				RNA_enum_set(&ptr, "type", PAR_ARMATURE);
-				uiItemFullO_ptr(layout, ot, IFACE_("Armature Deform"), 0, ptr.data, WM_OP_EXEC_DEFAULT, 0);
-				
-				WM_operator_properties_create_ptr(&ptr, ot);
+
+				ptr = uiItemFullO_ptr(layout, ot, IFACE_("   With Empty Groups"), 0, NULL, WM_OP_EXEC_DEFAULT, UI_ITEM_O_RETURN_PROPS);
 				RNA_string_set(&ptr, "parent", parname);
 				RNA_string_set(&ptr, "child", childname);
 				RNA_enum_set(&ptr, "type", PAR_ARMATURE_NAME);
-				uiItemFullO_ptr(layout, ot, IFACE_("   With Empty Groups"), 0, ptr.data, WM_OP_EXEC_DEFAULT, 0);
-				
-				WM_operator_properties_create_ptr(&ptr, ot);
+
+				ptr = uiItemFullO_ptr(layout, ot, IFACE_("   With Envelope Weights"), 0, NULL, WM_OP_EXEC_DEFAULT, UI_ITEM_O_RETURN_PROPS);
 				RNA_string_set(&ptr, "parent", parname);
 				RNA_string_set(&ptr, "child", childname);
 				RNA_enum_set(&ptr, "type", PAR_ARMATURE_ENVELOPE);
-				uiItemFullO_ptr(layout, ot, IFACE_("   With Envelope Weights"), 0, ptr.data, WM_OP_EXEC_DEFAULT, 0);
-				
-				WM_operator_properties_create_ptr(&ptr, ot);
+
+				ptr = uiItemFullO_ptr(layout, ot, IFACE_("   With Automatic Weights"), 0, NULL, WM_OP_EXEC_DEFAULT, UI_ITEM_O_RETURN_PROPS);
 				RNA_string_set(&ptr, "parent", parname);
 				RNA_string_set(&ptr, "child", childname);
 				RNA_enum_set(&ptr, "type", PAR_ARMATURE_AUTO);
-				uiItemFullO_ptr(layout, ot, IFACE_("   With Automatic Weights"), 0, ptr.data, WM_OP_EXEC_DEFAULT, 0);
-				
-				WM_operator_properties_create_ptr(&ptr, ot);
+
+				ptr = uiItemFullO_ptr(layout, ot, IFACE_("Bone"), 0, NULL, WM_OP_EXEC_DEFAULT, UI_ITEM_O_RETURN_PROPS);
 				RNA_string_set(&ptr, "parent", parname);
 				RNA_string_set(&ptr, "child", childname);
 				RNA_enum_set(&ptr, "type", PAR_BONE);
-				uiItemFullO_ptr(layout, ot, IFACE_("Bone"),
-				            0, ptr.data, WM_OP_EXEC_DEFAULT, 0);
 			}
 			else if (par->type == OB_CURVE) {
-				WM_operator_properties_create_ptr(&ptr, ot);
+				ptr = uiItemFullO_ptr(layout, ot, IFACE_("Curve Deform"), 0, NULL, WM_OP_EXEC_DEFAULT, UI_ITEM_O_RETURN_PROPS);
 				RNA_string_set(&ptr, "parent", parname);
 				RNA_string_set(&ptr, "child", childname);
 				RNA_enum_set(&ptr, "type", PAR_CURVE);
-				uiItemFullO_ptr(layout, ot, IFACE_("Curve Deform"), 0, ptr.data, WM_OP_EXEC_DEFAULT, 0);
-				
-				WM_operator_properties_create_ptr(&ptr, ot);
+
+				ptr = uiItemFullO_ptr(layout, ot, IFACE_("Follow Path"), 0, NULL, WM_OP_EXEC_DEFAULT, UI_ITEM_O_RETURN_PROPS);
 				RNA_string_set(&ptr, "parent", parname);
 				RNA_string_set(&ptr, "child", childname);
 				RNA_enum_set(&ptr, "type", PAR_FOLLOW);
-				uiItemFullO_ptr(layout, ot, IFACE_("Follow Path"), 0, ptr.data, WM_OP_EXEC_DEFAULT, 0);
-				
-				WM_operator_properties_create_ptr(&ptr, ot);
+
+				ptr = uiItemFullO_ptr(layout, ot, IFACE_("Path Constraint"), 0, NULL, WM_OP_EXEC_DEFAULT, UI_ITEM_O_RETURN_PROPS);
 				RNA_string_set(&ptr, "parent", parname);
 				RNA_string_set(&ptr, "child", childname);
 				RNA_enum_set(&ptr, "type", PAR_PATH_CONST);
-				uiItemFullO_ptr(layout, ot, IFACE_("Path Constraint"), 0, ptr.data, WM_OP_EXEC_DEFAULT, 0);
 			}
 			else if (par->type == OB_LATTICE) {
-				WM_operator_properties_create_ptr(&ptr, ot);
+				ptr = uiItemFullO_ptr(layout, ot, IFACE_("Lattice Deform"), 0, NULL, WM_OP_EXEC_DEFAULT, UI_ITEM_O_RETURN_PROPS);
 				RNA_string_set(&ptr, "parent", parname);
 				RNA_string_set(&ptr, "child", childname);
 				RNA_enum_set(&ptr, "type", PAR_LATTICE);
-				uiItemFullO_ptr(layout, ot, IFACE_("Lattice Deform"), 0, ptr.data, WM_OP_EXEC_DEFAULT, 0);
 			}
 			
 			UI_popup_menu_end(C, pup);

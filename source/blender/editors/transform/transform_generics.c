@@ -63,6 +63,7 @@
 #include "RNA_access.h"
 
 #include "GPU_immediate.h"
+#include "GPU_matrix.h"
 
 #include "BIK_api.h"
 
@@ -325,6 +326,7 @@ static void recalcData_actedit(TransInfo *t)
 	/* initialize relevant anim-context 'context' data from TransInfo data */
 	/* NOTE: sync this with the code in ANIM_animdata_get_context() */
 	ac.scene = t->scene;
+	ac.scene_layer = t->sl;
 	ac.obact = OBACT_NEW;
 	ac.sa = t->sa;
 	ac.ar = t->ar;
@@ -374,6 +376,7 @@ static void recalcData_graphedit(TransInfo *t)
 	/* initialize relevant anim-context 'context' data from TransInfo data */
 	/* NOTE: sync this with the code in ANIM_animdata_get_context() */
 	ac.scene = t->scene;
+	ac.scene_layer = t->sl;
 	ac.obact = OBACT_NEW;
 	ac.sa = t->sa;
 	ac.ar = t->ar;
@@ -708,7 +711,7 @@ static void recalcData_spaceclip(TransInfo *t)
 /* helper for recalcData() - for object transforms, typically in the 3D view */
 static void recalcData_objects(TransInfo *t)
 {
-	BaseLegacy *base = t->scene->basact;
+	Base *base = t->sl->basact;
 
 	if (t->obedit) {
 		if (ELEM(t->obedit->type, OB_CURVE, OB_SURF)) {
@@ -895,7 +898,7 @@ static void recalcData_objects(TransInfo *t)
 		else
 			BKE_pose_where_is(t->scene, ob);
 	}
-	else if (base && (base->object->mode & OB_MODE_PARTICLE_EDIT) && PE_get_current(t->scene, base->object)) {
+	else if (base && (base->object->mode & OB_MODE_PARTICLE_EDIT) && PE_get_current(t->scene, t->sl, base->object)) {
 		if (t->state != TRANS_CANCEL) {
 			applyProject(t);
 		}
@@ -925,7 +928,7 @@ static void recalcData_objects(TransInfo *t)
 			// TODO: autokeyframe calls need some setting to specify to add samples (FPoints) instead of keyframes?
 			if ((t->animtimer) && IS_AUTOKEY_ON(t->scene)) {
 				animrecord_check_state(t->scene, &ob->id, t->animtimer);
-				autokeyframe_ob_cb_func(t->context, t->scene, (View3D *)t->view, ob, t->mode);
+				autokeyframe_ob_cb_func(t->context, t->scene, t->sl, (View3D *)t->view, ob, t->mode);
 			}
 			
 			/* sets recalc flags fully, instead of flushing existing ones 
@@ -1031,11 +1034,10 @@ void drawLine(TransInfo *t, const float center[3], const float dir[3], char axis
 	if (t->spacetype == SPACE_VIEW3D) {
 		View3D *v3d = t->view;
 		
-		glPushMatrix();
-		
-		//if (t->obedit) glLoadMatrixf(t->obedit->obmat);	// sets opengl viewing
-		
-		
+		gpuPushMatrix();
+
+		// if (t->obedit) gpuLoadMatrix3D(t->obedit->obmat); // sets opengl viewing
+
 		copy_v3_v3(v3, dir);
 		mul_v3_fl(v3, v3d->far);
 		
@@ -1062,7 +1064,7 @@ void drawLine(TransInfo *t, const float center[3], const float dir[3], char axis
 
 		immUnbindProgram();
 
-		glPopMatrix();
+		gpuPopMatrix();
 	}
 }
 
@@ -1785,7 +1787,7 @@ bool calculateCenterActive(TransInfo *t, bool select_only, float r_center[3])
 		}
 	}
 	else if (t->options & CTX_PAINT_CURVE) {
-		Paint *p = BKE_paint_get_active(t->scene);
+		Paint *p = BKE_paint_get_active(t->scene, t->sl);
 		Brush *br = p->brush;
 		PaintCurve *pc = br->paint_curve;
 		copy_v3_v3(r_center, pc->points[pc->add_index - 1].bez.vec[1]);

@@ -161,7 +161,7 @@ typedef struct ThemeUI {
 	/* Interface Elements (buttons, menus, icons) */
 	uiWidgetColors wcol_regular, wcol_tool, wcol_text;
 	uiWidgetColors wcol_radio, wcol_option, wcol_toggle;
-	uiWidgetColors wcol_num, wcol_numslider;
+	uiWidgetColors wcol_num, wcol_numslider, wcol_tab;
 	uiWidgetColors wcol_menu, wcol_pulldown, wcol_menu_back, wcol_menu_item, wcol_tooltip;
 	uiWidgetColors wcol_box, wcol_scroll, wcol_progress, wcol_list_item, wcol_pie_menu;
 	
@@ -390,8 +390,7 @@ typedef struct bTheme {
 	ThemeSpace tuserpref;
 	ThemeSpace tconsole;
 	ThemeSpace tclip;
-	ThemeSpace tcollections;
-
+	
 	/* 20 sets of bone colors for this theme */
 	ThemeWireColor tarm[20];
 	/*ThemeWireColor tobj[20];*/
@@ -468,13 +467,18 @@ typedef struct UserDef {
 	int audioformat;
 	int audiochannels;
 
-	int scrollback; /* console scrollback limit */
-	int dpi;		/* range 48-128? */
-	char node_margin; /* node insert offset (aka auto-offset) margin, but might be useful for later stuff as well */
+	int scrollback;     /* console scrollback limit */
+	int dpi;            /* range 48-128? */
+	float ui_scale;     /* interface scale */
+	int pad1;
+	char node_margin;   /* node insert offset (aka auto-offset) margin, but might be useful for later stuff as well */
 	char pad2;
 	short transopts;
 	short menuthreshold1, menuthreshold2;
-	
+
+	/* startup template */
+	char app_template[64];
+
 	struct ListBase themes;
 	struct ListBase uifonts;
 	struct ListBase uistyles;
@@ -499,7 +503,6 @@ typedef struct UserDef {
 	int prefetchframes;
 	float pad_rot_angle; /* control the rotation step of the view when PAD2, PAD4, PAD6&PAD8 is use */
 	short frameserverport;
-	short pad4;
 	short obcenter_dia;
 	short rvisize;			/* rotating view icon size */
 	short rvibright;		/* rotating view icon brightness */
@@ -511,6 +514,8 @@ typedef struct UserDef {
 	char  ipo_new;			/* interpolation mode for newly added F-Curves */
 	char  keyhandles_new;	/* handle types for newly added keyframes */
 	char  gpu_select_method;
+	char  gpu_select_pick_deph;
+	char  pad4;
 	char  view_frame_type;
 
 	int view_frame_keyframes; /* number of keyframes to zoom around current frame */

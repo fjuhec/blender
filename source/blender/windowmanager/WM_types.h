@@ -364,7 +364,6 @@ typedef struct wmNotifier {
 #define ND_SPACE_CHANGED		(18<<16) /*sent to a new editor type after it's replaced an old one*/
 #define ND_SPACE_CLIP			(19<<16)
 #define ND_SPACE_FILE_PREVIEW   (20<<16)
-#define ND_SPACE_COLLECTIONS         (21<<16)
 
 /* subtype, 256 entries too */
 #define NOTE_SUBTYPE		0x0000FF00
@@ -544,7 +543,15 @@ typedef struct wmOperatorType {
 	 * canceled due to some external reason, cancel is called
 	 * - see defines below for return values */
 	int (*invoke)(struct bContext *, struct wmOperator *, const struct wmEvent *) ATTR_WARN_UNUSED_RESULT;
+
+	/* Called when a modal operator is canceled (not used often).
+	 * Internal cleanup can be done here if needed. */
 	void (*cancel)(struct bContext *, struct wmOperator *);
+
+	/* Modal is used for operators which continuously run, eg:
+	 * fly mode, knife tool, circle select are all examples of modal operators.
+	 * Modal operators can handle events which would normally access other operators,
+	 * they keep running until they don't return `OPERATOR_RUNNING_MODAL`. */
 	int (*modal)(struct bContext *, struct wmOperator *, const struct wmEvent *) ATTR_WARN_UNUSED_RESULT;
 
 	/* verify if the operator can be executed in the current context, note

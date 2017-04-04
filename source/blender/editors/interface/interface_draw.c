@@ -50,13 +50,10 @@
 #include "IMB_imbuf_types.h"
 #include "IMB_colormanagement.h"
 
-#include "BIF_gl.h"
 #include "BIF_glutil.h"
 
 #include "BLF_api.h"
 
-#include "GPU_draw.h"
-#include "GPU_basic_shader.h"
 #include "GPU_batch.h"
 #include "GPU_immediate.h"
 #include "GPU_matrix.h"
@@ -467,6 +464,93 @@ void UI_draw_text_underline(int pos_x, int pos_y, int len, int height, const flo
 
 /* ************** SPECIAL BUTTON DRAWING FUNCTIONS ************* */
 
+/* based on UI_draw_roundbox_gl_mode, check on making a version which allows us to skip some sides */
+void ui_draw_but_TAB_outline(const rcti *rect, float rad, unsigned char highlight[3], unsigned char highlight_fade[3])
+{
+	VertexFormat *format = immVertexFormat();
+	unsigned int pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+	unsigned int col = add_attrib(format, "color", GL_UNSIGNED_BYTE, 3, NORMALIZE_INT_TO_FLOAT);
+	/* add a 1px offset, looks nicer */
+	const int minx = rect->xmin + U.pixelsize, maxx = rect->xmax - U.pixelsize;
+	const int miny = rect->ymin + U.pixelsize, maxy = rect->ymax - U.pixelsize;
+	int a;
+	float vec[4][2] = {
+	    {0.195, 0.02},
+	    {0.55, 0.169},
+	    {0.831, 0.45},
+	    {0.98, 0.805},
+	};
+
+
+	/* mult */
+	for (a = 0; a < 4; a++) {
+		mul_v2_fl(vec[a], rad);
+	}
+
+	immBindBuiltinProgram(GPU_SHADER_2D_SMOOTH_COLOR);
+	immBeginAtMost(PRIM_LINE_STRIP, 25);
+
+	immAttrib3ubv(col, highlight);
+
+	/* start with corner left-top */
+	if (roundboxtype & UI_CNR_TOP_LEFT) {
+		immVertex2f(pos, minx, maxy - rad);
+		for (a = 0; a < 4; a++) {
+			immVertex2f(pos, minx + vec[a][1], maxy - rad + vec[a][0]);
+		}
+		immVertex2f(pos, minx + rad, maxy);
+	}
+	else {
+		immVertex2f(pos, minx, maxy);
+	}
+
+	/* corner right-top */
+	if (roundboxtype & UI_CNR_TOP_RIGHT) {
+		immVertex2f(pos, maxx - rad, maxy);
+		for (a = 0; a < 4; a++) {
+			immVertex2f(pos, maxx - rad + vec[a][0], maxy - vec[a][1]);
+		}
+		immVertex2f(pos, maxx, maxy - rad);
+	}
+	else {
+		immVertex2f(pos, maxx, maxy);
+	}
+
+	immAttrib3ubv(col, highlight_fade);
+
+	/* corner right-bottom */
+	if (roundboxtype & UI_CNR_BOTTOM_RIGHT) {
+		immVertex2f(pos, maxx, miny + rad);
+		for (a = 0; a < 4; a++) {
+			immVertex2f(pos, maxx - vec[a][1], miny + rad - vec[a][0]);
+		}
+		immVertex2f(pos, maxx - rad, miny);
+	}
+	else {
+		immVertex2f(pos, maxx, miny);
+	}
+
+	/* corner left-bottom */
+	if (roundboxtype & UI_CNR_BOTTOM_LEFT) {
+		immVertex2f(pos, minx + rad, miny);
+		for (a = 0; a < 4; a++) {
+			immVertex2f(pos, minx + rad - vec[a][0], miny + vec[a][1]);
+		}
+		immVertex2f(pos, minx, miny + rad);
+	}
+	else {
+		immVertex2f(pos, minx, miny);
+	}
+
+	immAttrib3ubv(col, highlight);
+
+	/* back to corner left-top */
+	immVertex2f(pos, minx, roundboxtype & UI_CNR_TOP_LEFT ? maxy - rad : maxy);
+
+	immEnd();
+	immUnbindProgram();
+}
+
 void ui_draw_but_IMAGE(ARegion *UNUSED(ar), uiBut *but, uiWidgetColors *UNUSED(wcol), const rcti *rect)
 {
 #ifdef WITH_HEADLESS
@@ -476,15 +560,15 @@ void ui_draw_but_IMAGE(ARegion *UNUSED(ar), uiBut *but, uiWidgetColors *UNUSED(w
 	ImBuf *ibuf = (ImBuf *)but->poin;
 
 	if (!ibuf) return;
+
+	float facx = 1.0f;
+	float facy = 1.0f;
 	
 	int w = BLI_rcti_size_x(rect);
 	int h = BLI_rcti_size_y(rect);
 	
 	/* scissor doesn't seem to be doing the right thing...? */
 #if 0
-	//glColor4f(1.0, 0.f, 0.f, 1.f);
-	//fdrawbox(rect->xmin, rect->ymin, rect->xmax, rect->ymax)
-
 	/* prevent drawing outside widget area */
 	GLint scissor[4];
 	glGetIntegerv(GL_SCISSOR_BOX, scissor);
@@ -492,16 +576,15 @@ void ui_draw_but_IMAGE(ARegion *UNUSED(ar), uiBut *but, uiWidgetColors *UNUSED(w
 #endif
 	
 	glEnable(GL_BLEND);
-	glColor4f(0.0f, 0.0f, 0.0f, 0.0f);
 	
 	if (w != ibuf->x || h != ibuf->y) {
-		float facx = (float)w / (float)ibuf->x;
-		float facy = (float)h / (float)ibuf->y;
-		glPixelZoom(facx, facy);
+		facx = (float)w / (float)ibuf->x;
+		facy = (float)h / (float)ibuf->y;
 	}
-	glaDrawPixelsAuto((float)rect->xmin, (float)rect->ymin, ibuf->x, ibuf->y, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST, ibuf->rect);
-	
-	glPixelZoom(1.0f, 1.0f);
+
+	immDrawPixelsTexSetup(GPU_SHADER_2D_IMAGE_COLOR);
+	immDrawPixelsTex((float)rect->xmin, (float)rect->ymin, ibuf->x, ibuf->y, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST, ibuf->rect,
+	                 facx, facy, NULL);
 	
 	glDisable(GL_BLEND);
 	
@@ -667,8 +750,15 @@ void ui_draw_but_HISTOGRAM(ARegion *ar, uiBut *but, uiWidgetColors *UNUSED(wcol)
 			immUniformColor4f(1.0f, 1.0f, 1.0f, 0.5f);
 		}
 
-		imm_draw_line(pos, rect.xmin, rect.ymin + fac * h, rect.xmax, rect.ymin + fac * h);
-		imm_draw_line(pos, rect.xmin + fac * w, rect.ymin, rect.xmin + fac * w, rect.ymax);
+		immBegin(GL_LINES, 4);
+
+		immVertex2f(pos, rect.xmin, rect.ymin + fac * h);
+		immVertex2f(pos, rect.xmax, rect.ymin + fac * h);
+
+		immVertex2f(pos, rect.xmin + fac * w, rect.ymin);
+		immVertex2f(pos, rect.xmin + fac * w, rect.ymax);
+
+		immEnd();
 	}
 
 	if (hist->mode == HISTO_MODE_LUMA) {
@@ -783,33 +873,63 @@ void ui_draw_but_WAVEFORM(ARegion *ar, uiBut *but, uiWidgetColors *UNUSED(wcol),
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
 	immUniformColor4f(1.0f, 1.0f, 1.0f, 0.08f);
+
 	/* draw grid lines here */
+	immBegin(GL_LINES, 12);
+
 	for (int i = 0; i < 6; i++) {
-		imm_draw_line(pos, rect.xmin + 22, yofs + (i * 0.2f) * h, rect.xmax + 1, yofs + (i * 0.2f) * h);
+		immVertex2f(pos, rect.xmin + 22, yofs + (i * 0.2f) * h);
+		immVertex2f(pos, rect.xmax + 1, yofs + (i * 0.2f) * h);
 	}
+
+	immEnd();
+
 	/* 3 vertical separation */
 	if (scopes->wavefrm_mode != SCOPES_WAVEFRM_LUMA) {
+		immBegin(GL_LINES, 4);
+
 		for (int i = 1; i < 3; i++) {
-			imm_draw_line(pos, rect.xmin + i * w3, rect.ymin, rect.xmin + i * w3, rect.ymax);
+			immVertex2f(pos, rect.xmin + i * w3, rect.ymin);
+			immVertex2f(pos, rect.xmin + i * w3, rect.ymax);
 		}
+
+		immEnd();
 	}
 	
 	/* separate min max zone on the right */
-	imm_draw_line(pos, rect.xmin + w, rect.ymin, rect.xmin + w, rect.ymax);
+	immBegin(GL_LINES, 2);
+	immVertex2f(pos, rect.xmin + w, rect.ymin);
+	immVertex2f(pos, rect.xmin + w, rect.ymax);
+	immEnd();
+
 	/* 16-235-240 level in case of ITU-R BT601/709 */
 	immUniformColor4f(1.0f, 0.4f, 0.0f, 0.2f);
 	if (ELEM(scopes->wavefrm_mode, SCOPES_WAVEFRM_YCC_601, SCOPES_WAVEFRM_YCC_709)) {
-		imm_draw_line(pos, rect.xmin + 22, yofs + h * 16.0f / 255.0f, rect.xmax + 1, yofs + h * 16.0f / 255.0f);
-		imm_draw_line(pos, rect.xmin + 22, yofs + h * 235.0f / 255.0f, rect.xmin + w3, yofs + h * 235.0f / 255.0f);
-		imm_draw_line(pos, rect.xmin + 3 * w3, yofs + h * 235.0f / 255.0f, rect.xmax + 1, yofs + h * 235.0f / 255.0f);
-		imm_draw_line(pos, rect.xmin + w3, yofs + h * 240.0f / 255.0f, rect.xmax + 1, yofs + h * 240.0f / 255.0f);
+		immBegin(GL_LINES, 8);
+
+		immVertex2f(pos, rect.xmin + 22, yofs + h * 16.0f / 255.0f);
+		immVertex2f(pos, rect.xmax + 1, yofs + h * 16.0f / 255.0f);
+
+		immVertex2f(pos, rect.xmin + 22, yofs + h * 235.0f / 255.0f);
+		immVertex2f(pos, rect.xmin + w3, yofs + h * 235.0f / 255.0f);
+
+		immVertex2f(pos, rect.xmin + 3 * w3, yofs + h * 235.0f / 255.0f);
+		immVertex2f(pos, rect.xmax + 1, yofs + h * 235.0f / 255.0f);
+
+		immVertex2f(pos, rect.xmin + w3, yofs + h * 240.0f / 255.0f);
+		immVertex2f(pos, rect.xmax + 1, yofs + h * 240.0f / 255.0f);
+
+		immEnd();
 	}
 	/* 7.5 IRE black point level for NTSC */
-	if (scopes->wavefrm_mode == SCOPES_WAVEFRM_LUMA)
-		imm_draw_line(pos, rect.xmin, yofs + h * 0.075f, rect.xmax + 1, yofs + h * 0.075f);
+	if (scopes->wavefrm_mode == SCOPES_WAVEFRM_LUMA) {
+		immBegin(GL_LINES, 2);
+		immVertex2f(pos, rect.xmin, yofs + h * 0.075f);
+		immVertex2f(pos, rect.xmax + 1, yofs + h * 0.075f);
+		immEnd();
+	}
 
 	if (scopes->ok && scopes->waveform_1 != NULL) {
-		gpuMatrixBegin3D_legacy();
 		glBlendFunc(GL_ONE, GL_ONE);
 		glPointSize(1.0);
 
@@ -818,8 +938,8 @@ void ui_draw_but_WAVEFORM(ARegion *ar, uiBut *but, uiWidgetColors *UNUSED(wcol),
 			float col[3] = {alpha, alpha, alpha};
 
 			gpuPushMatrix();
-			gpuTranslate3f(rect.xmin, yofs, 0.0f);
-			gpuScale3f(w, h, 0.0f);
+			gpuTranslate2f(rect.xmin, yofs);
+			gpuScale2f(w, h);
 
 			waveform_draw_one(scopes->waveform_1, scopes->waveform_tot, col);
 
@@ -831,13 +951,17 @@ void ui_draw_but_WAVEFORM(ARegion *ar, uiBut *but, uiWidgetColors *UNUSED(wcol),
 			max = yofs + scopes->minmax[0][1] * h;
 			CLAMP(min, rect.ymin, rect.ymax);
 			CLAMP(max, rect.ymin, rect.ymax);
-			imm_draw_line(pos, rect.xmax - 3, min, rect.xmax - 3, max);
+
+			immBegin(GL_LINES, 2);
+			immVertex2f(pos, rect.xmax - 3, min);
+			immVertex2f(pos, rect.xmax - 3, max);
+			immEnd();
 		}
 		/* RGB (3 channel) */
 		else if (scopes->wavefrm_mode == SCOPES_WAVEFRM_RGB) {
 			gpuPushMatrix();
-			gpuTranslate3f(rect.xmin, yofs, 0.0f);
-			gpuScale3f(w, h, 0.0f);
+			gpuTranslate2f(rect.xmin, yofs);
+			gpuScale2f(w, h);
 
 			waveform_draw_one(scopes->waveform_1, scopes->waveform_tot, colors_alpha[0]);
 			waveform_draw_one(scopes->waveform_2, scopes->waveform_tot, colors_alpha[1]);
@@ -856,15 +980,15 @@ void ui_draw_but_WAVEFORM(ARegion *ar, uiBut *but, uiWidgetColors *UNUSED(wcol),
 			int rgb = (scopes->wavefrm_mode == SCOPES_WAVEFRM_RGB_PARADE);
 
 			gpuPushMatrix();
-			gpuTranslate3f(rect.xmin, yofs, 0.0f);
-			gpuScale3f(w3, h, 0.0f);
+			gpuTranslate2f(rect.xmin, yofs);
+			gpuScale2f(w3, h);
 
 			waveform_draw_one(scopes->waveform_1, scopes->waveform_tot, (rgb) ? colors_alpha[0] : colorsycc_alpha[0]);
 
-			gpuTranslate3f(1.0f, 0.0f, 0.0f);
+			gpuTranslate2f(1.0f, 0.0f);
 			waveform_draw_one(scopes->waveform_2, scopes->waveform_tot, (rgb) ? colors_alpha[1] : colorsycc_alpha[1]);
 
-			gpuTranslate3f(1.0f, 0.0f, 0.0f);
+			gpuTranslate2f(1.0f, 0.0f);
 			waveform_draw_one(scopes->waveform_3, scopes->waveform_tot, (rgb) ? colors_alpha[2] : colorsycc_alpha[2]);
 
 			gpuPopMatrix();
@@ -881,10 +1005,13 @@ void ui_draw_but_WAVEFORM(ARegion *ar, uiBut *but, uiWidgetColors *UNUSED(wcol),
 				max = yofs + scopes->minmax[c][1] * h;
 				CLAMP(min, rect.ymin, rect.ymax);
 				CLAMP(max, rect.ymin, rect.ymax);
-				imm_draw_line(pos, rect.xmin + w + 2 + c * 2, min, rect.xmin + w + 2 + c * 2, max);
+
+				immBegin(GL_LINES, 2);
+				immVertex2f(pos, rect.xmin + w + 2 + c * 2, min);
+				immVertex2f(pos, rect.xmin + w + 2 + c * 2, max);
+				immEnd();
 			}
 		}
-		gpuMatrixEnd();
 	}
 
 	immUnbindProgram();
@@ -1005,8 +1132,16 @@ void ui_draw_but_VECTORSCOPE(ARegion *ar, uiBut *but, uiWidgetColors *UNUSED(wco
 	immUniformColor4f(1.0f, 1.0f, 1.0f, 0.08f);
 	/* draw grid elements */
 	/* cross */
-	imm_draw_line(pos, centerx - (diam * 0.5f) - 5, centery, centerx + (diam * 0.5f) + 5, centery);
-	imm_draw_line(pos, centerx, centery - (diam * 0.5f) - 5, centerx, centery + (diam * 0.5f) + 5);
+	immBegin(GL_LINES, 4);
+
+	immVertex2f(pos, centerx - (diam * 0.5f) - 5, centery);
+	immVertex2f(pos, centerx + (diam * 0.5f) + 5, centery);
+
+	immVertex2f(pos, centerx, centery - (diam * 0.5f) - 5);
+	immVertex2f(pos, centerx, centery + (diam * 0.5f) + 5);
+
+	immEnd();
+
 	/* circles */
 	for (int j = 0; j < 5; j++) {
 		const int increment = 15;
@@ -1020,8 +1155,12 @@ void ui_draw_but_VECTORSCOPE(ARegion *ar, uiBut *but, uiWidgetColors *UNUSED(wco
 	}
 	/* skin tone line */
 	immUniformColor4f(1.0f, 0.4f, 0.0f, 0.2f);
-	imm_draw_line(pos, polar_to_x(centerx, diam, 0.5f, skin_rad), polar_to_y(centery, diam, 0.5f, skin_rad),
-	                   polar_to_x(centerx, diam, 0.1f, skin_rad), polar_to_y(centery, diam, 0.1f, skin_rad));
+
+	immBegin(GL_LINES, 2);
+	immVertex2f(pos, polar_to_x(centerx, diam, 0.5f, skin_rad), polar_to_y(centery, diam, 0.5f, skin_rad));
+	immVertex2f(pos, polar_to_x(centerx, diam, 0.1f, skin_rad), polar_to_y(centery, diam, 0.1f, skin_rad));
+	immEnd();
+
 	/* saturation points */
 	for (int i = 0; i < 6; i++)
 		vectorscope_draw_target(pos, centerx, centery, diam, colors[i]);
@@ -1033,15 +1172,13 @@ void ui_draw_but_VECTORSCOPE(ARegion *ar, uiBut *but, uiWidgetColors *UNUSED(wco
 		glBlendFunc(GL_ONE, GL_ONE);
 		glPointSize(1.0);
 
-		gpuMatrixBegin3D_legacy();
 		gpuPushMatrix();
-		gpuTranslate3f(centerx, centery, 0.0f);
-		gpuScale3f(diam, diam, 0.0f);
+		gpuTranslate2f(centerx, centery);
+		gpuScaleUniform(diam);
 
 		waveform_draw_one(scopes->vecscope, scopes->waveform_tot, col);
 
 		gpuPopMatrix();
-		gpuMatrixEnd();
 	}
 
 	immUnbindProgram();
@@ -1262,9 +1399,19 @@ void ui_draw_but_COLORBAND(uiBut *but, uiWidgetColors *UNUSED(wcol), const rcti 
 	/* layer: box outline */
 	glEnable(GL_BLEND);
 	immUniformColor4f(0.0f, 0.0f, 0.0f, 0.5f);
-	imm_draw_line(position, x1, y1, x1 + sizex, y1);
+
+	immBegin(GL_LINES, 2);
+	immVertex2f(position, x1, y1);
+	immVertex2f(position, x1 + sizex, y1);
+	immEnd();
+
 	immUniformColor4f(1.0f, 1.0f, 1.0f, 0.25f);
-	imm_draw_line(position, x1, y1 - 1, x1 + sizex, y1 - 1);
+
+	immBegin(GL_LINES, 2);
+	immVertex2f(position, x1, y1 - 1);
+	immVertex2f(position, x1 + sizex, y1 - 1);
+	immEnd();
+
 	glDisable(GL_BLEND);
 	
 	/* layer: draw handles */
@@ -1301,10 +1448,8 @@ void ui_draw_but_UNITVEC(uiBut *but, uiWidgetColors *wcol, const rcti *rect)
 	
 	/* setup lights */
 	ui_but_v3_get(but, light);
-	light[2] = -light[2];
 
 	/* transform to button */
-	gpuMatrixBegin3D_legacy();
 	gpuPushMatrix();
 	
 	if (BLI_rcti_size_x(rect) < BLI_rcti_size_y(rect))
@@ -1312,8 +1457,8 @@ void ui_draw_but_UNITVEC(uiBut *but, uiWidgetColors *wcol, const rcti *rect)
 	else
 		size = 0.5f * BLI_rcti_size_y(rect);
 
-	gpuTranslate3f(rect->xmin + 0.5f * BLI_rcti_size_x(rect), rect->ymin + 0.5f * BLI_rcti_size_y(rect), 0.0f);
-	gpuScale3f(size, size, size);
+	gpuTranslate2f(rect->xmin + 0.5f * BLI_rcti_size_x(rect), rect->ymin + 0.5f * BLI_rcti_size_y(rect));
+	gpuScaleUniform(size);
 
 	Batch *sphere = Batch_get_sphere(2);
 	Batch_set_builtin_program(sphere, GPU_SHADER_SIMPLE_LIGHTING);
@@ -1338,7 +1483,6 @@ void ui_draw_but_UNITVEC(uiBut *but, uiWidgetColors *wcol, const rcti *rect)
 
 	/* matrix after circle */
 	gpuPopMatrix();
-	gpuMatrixEnd();
 
 	immUnbindProgram();
 }
@@ -1651,7 +1795,6 @@ void ui_draw_but_TRACKPREVIEW(ARegion *ar, uiBut *but, uiWidgetColors *UNUSED(wc
 	}
 
 	if (!ok && scopes->track_preview) {
-		gpuMatrixBegin3D_legacy();
 		gpuPushMatrix();
 
 		/* draw content of pattern area */
@@ -1659,7 +1802,6 @@ void ui_draw_but_TRACKPREVIEW(ARegion *ar, uiBut *but, uiWidgetColors *UNUSED(wc
 
 		if (width > 0 && height > 0) {
 			ImBuf *drawibuf = scopes->track_preview;
-			float img_col[4] = {1.0f, 1.0f, 1.0f, 1.0f};
 			float col_sel[4], col_outline[4];
 
 			if (scopes->use_track_mask) {
@@ -1668,10 +1810,11 @@ void ui_draw_but_TRACKPREVIEW(ARegion *ar, uiBut *but, uiWidgetColors *UNUSED(wc
 				UI_draw_roundbox_gl_mode(GL_TRIANGLE_FAN, rect.xmin - 1, rect.ymin, rect.xmax + 1, rect.ymax + 1, 3.0f, color);
 			}
 
-			immDrawPixelsTex(rect.xmin, rect.ymin + 1, drawibuf->x, drawibuf->y, GL_RGBA, GL_UNSIGNED_BYTE, GL_LINEAR, drawibuf->rect, 1.0f, 1.0f, img_col);
+			immDrawPixelsTexSetup(GPU_SHADER_2D_IMAGE_COLOR);
+			immDrawPixelsTex(rect.xmin, rect.ymin + 1, drawibuf->x, drawibuf->y, GL_RGBA, GL_UNSIGNED_BYTE, GL_LINEAR, drawibuf->rect, 1.0f, 1.0f, NULL);
 
 			/* draw cross for pixel position */
-			gpuTranslate3f(rect.xmin + scopes->track_pos[0], rect.ymin + scopes->track_pos[1], 0.0f);
+			gpuTranslate2f(rect.xmin + scopes->track_pos[0], rect.ymin + scopes->track_pos[1]);
 			glScissor(ar->winrct.xmin + rect.xmin,
 			          ar->winrct.ymin + rect.ymin,
 			          BLI_rctf_size_x(&rect),
@@ -1710,7 +1853,6 @@ void ui_draw_but_TRACKPREVIEW(ARegion *ar, uiBut *but, uiWidgetColors *UNUSED(wc
 		}
 
 		gpuPopMatrix();
-		gpuMatrixEnd();
 
 		ok = true;
 	}

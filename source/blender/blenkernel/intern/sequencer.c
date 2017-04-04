@@ -66,6 +66,7 @@
 #include "BKE_depsgraph.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_sequencer.h"
 #include "BKE_movieclip.h"
@@ -514,7 +515,7 @@ void BKE_sequencer_imbuf_to_sequencer_space(Scene *scene, ImBuf *ibuf, bool make
 			 * artifacts which will then not happen in final render.
 			 */
 			IMB_colormanagement_transform_byte_threaded(
-			        (unsigned char*)ibuf->rect, ibuf->x, ibuf->y, ibuf->channels,
+			        (unsigned char *)ibuf->rect, ibuf->x, ibuf->y, ibuf->channels,
 			        from_colorspace, to_colorspace);
 		}
 		else {
@@ -523,7 +524,7 @@ void BKE_sequencer_imbuf_to_sequencer_space(Scene *scene, ImBuf *ibuf, bool make
 			 */
 			imb_addrectfloatImBuf(ibuf);
 			IMB_colormanagement_transform_from_byte_threaded(
-			        ibuf->rect_float, (unsigned char*)ibuf->rect,
+			        ibuf->rect_float, (unsigned char *)ibuf->rect,
 			        ibuf->x, ibuf->y, ibuf->channels,
 			        from_colorspace, to_colorspace);
 			/* We don't need byte buffer anymore. */
@@ -3304,7 +3305,7 @@ static ImBuf *seq_render_scene_strip(const SeqRenderData *context, Sequence *seq
 		BKE_scene_update_for_newframe(context->eval_ctx, context->bmain, scene, scene->lay);
 		ibuf = sequencer_view3d_cb(
 		        /* set for OpenGL render (NULL when scrubbing) */
-		        scene, camera, width, height, IB_rect,
+		        scene, BKE_scene_layer_render_active(scene), camera, width, height, IB_rect,
 		        context->scene->r.seq_prev_type,
 		        (context->scene->r.seq_flag & R_SEQ_SOLID_TEX) != 0,
 		        use_gpencil, use_background, scene->r.alphamode,

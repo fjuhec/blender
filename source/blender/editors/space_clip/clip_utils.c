@@ -44,6 +44,7 @@
 #include "BKE_depsgraph.h"
 
 #include "GPU_immediate.h"
+#include "GPU_matrix.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -61,7 +62,7 @@ void clip_graph_tracking_values_iterate_track(
         SpaceClip *sc, MovieTrackingTrack *track, void *userdata,
         void (*func)(void *userdata, MovieTrackingTrack *track, MovieTrackingMarker *marker, int coord,
                      int scene_framenr, float val),
-        void (*segment_start)(void *userdata, MovieTrackingTrack *track, int coord),
+        void (*segment_start)(void *userdata, MovieTrackingTrack *track, int coord, bool is_point),
         void (*segment_end)(void *userdata, int coord))
 {
 	MovieClip *clip = ED_space_clip_get_clip(sc);
@@ -90,8 +91,14 @@ void clip_graph_tracking_values_iterate_track(
 			}
 
 			if (!open) {
-				if (segment_start)
-					segment_start(userdata, track, coord);
+				if (segment_start) {
+					if ((i + 1) == track->markersnr) {
+						segment_start(userdata, track, coord, true);
+					}
+					else {
+						segment_start(userdata, track, coord, (track->markers[i + 1].flag & MARKER_DISABLED));
+					}
+				}
 
 				open = true;
 				prevval = marker->pos[coord];
@@ -122,7 +129,7 @@ void clip_graph_tracking_values_iterate(
         SpaceClip *sc, bool selected_only, bool include_hidden, void *userdata,
         void (*func)(void *userdata, MovieTrackingTrack *track, MovieTrackingMarker *marker,
                      int coord, int scene_framenr, float val),
-        void (*segment_start)(void *userdata, MovieTrackingTrack *track, int coord),
+        void (*segment_start)(void *userdata, MovieTrackingTrack *track, int coord, bool is_point),
         void (*segment_end)(void *userdata, int coord))
 {
 	MovieClip *clip = ED_space_clip_get_clip(sc);
@@ -257,13 +264,13 @@ void clip_draw_cfra(SpaceClip *sc, ARegion *ar, Scene *scene)
 	/* because the frame number text is subject to the same scaling as the contents of the view */
 	float xscale, yscale;
 	UI_view2d_scale_get(v2d, &xscale, &yscale);
-	glPushMatrix();
-	glScalef(1.0f / xscale, 1.0f, 1.0f);
+	gpuPushMatrix();
+	gpuScale2f(1.0f / xscale, 1.0f);
 
 	ED_region_cache_draw_curfra_label(sc->user.framenr, (float)sc->user.framenr * xscale, 18);
 
 	/* restore view transform */
-	glPopMatrix();
+	gpuPopMatrix();
 }
 
 void clip_draw_sfra_efra(View2D *v2d, Scene *scene)

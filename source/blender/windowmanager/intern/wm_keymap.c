@@ -121,6 +121,13 @@ static void wm_keymap_item_properties_update_ot(wmKeyMapItem *kmi)
 			if (ot->srna != kmi->ptr->type) {
 				/* matches wm_keymap_item_properties_set but doesnt alloc new ptr */
 				WM_operator_properties_create_ptr(kmi->ptr, ot);
+				/* 'kmi->ptr->data' NULL'd above, keep using existing properties.
+				 * Note: the operators property types may have changed,
+				 * we will need a more comprehensive sanitize function to support this properly.
+				 */
+				if (kmi->properties) {
+					kmi->ptr->data = kmi->properties;
+				}
 				WM_operator_properties_sanitize(kmi->ptr, 1);
 			}
 		}
@@ -1860,10 +1867,6 @@ wmKeyMap *WM_keymap_guess_opname(const bContext *C, const char *opname)
 	/* Outliner */
 	else if (STRPREFIX(opname, "OUTLINER_OT")) {
 		km = WM_keymap_find_all(C, "Outliner", sl->spacetype, 0);
-	}
-	/* Layer Manager */
-	else if (STRPREFIX(opname, "COLLECTIONS_OT")) {
-		km = WM_keymap_find_all(C, "Collection Manager", sl->spacetype, 0);
 	}
 	/* Transform */
 	else if (STRPREFIX(opname, "TRANSFORM_OT")) {

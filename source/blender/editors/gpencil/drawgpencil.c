@@ -94,7 +94,9 @@ typedef enum eDrawStrokeFlags {
 
 
 /* thickness above which we should use special drawing */
+#if 0
 #define GP_DRAWTHICKNESS_SPECIAL    3
+#endif
 
 /* conversion utility (float --> normalized unsigned byte) */
 #define F2UB(x) (unsigned char)(255.0f * x)
@@ -578,38 +580,6 @@ static void gp_draw_stroke_fill(
 		immEnd();
 		immUnbindProgram();
 	}
-
-#if 0 /* convert to modern GL only if needed */
-	else {
-		/* As an initial implementation, we use the OpenGL filled polygon drawing
-		* here since it's the easiest option to implement for this case. It does
-		* come with limitations (notably for concave shapes), though it shouldn't
-		* be much of an issue in most cases.
-		*
-		* We keep this legacy implementation around despite now having the high quality
-		* fills, as this is necessary for keeping everything working nicely for files
-		* created using old versions of Blender which may have depended on the artifacts
-		* the old fills created.
-		*/
-		bGPDspoint *pt = gps->points;
-
-		glBegin(GL_POLYGON);
-		for (int i = 0; i < gps->totpoints; i++, pt++) {
-			if (gps->flag & GP_STROKE_3DSPACE) {
-				mul_v3_m4v3(fpt, diff_mat, &pt->x);
-				glVertex3fv(fpt);
-			}
-			else {
-				float co[2];
-				mul_v3_m4v3(fpt, diff_mat, &pt->x);
-				gp_calc_2d_stroke_fxy(fpt, gps->flag, offsx, offsy, winx, winy, co);
-				glVertex2fv(co);
-			}
-		}
-
-		glEnd();
-	}
-#endif
 }
 
 /* ----- Existing Strokes Drawing (3D and Point) ------ */
@@ -629,10 +599,10 @@ static void gp_draw_stroke_point(
 	unsigned pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
 
 	if (sflag & GP_STROKE_3DSPACE) {
-		immBindBuiltinProgram(GPU_SHADER_3D_POINT_UNIFORM_SIZE_UNIFORM_COLOR_SMOOTH);
+		immBindBuiltinProgram(GPU_SHADER_3D_POINT_UNIFORM_SIZE_UNIFORM_COLOR_AA);
 	}
 	else {
-		immBindBuiltinProgram(GPU_SHADER_2D_POINT_UNIFORM_SIZE_UNIFORM_COLOR_SMOOTH);
+		immBindBuiltinProgram(GPU_SHADER_2D_POINT_UNIFORM_SIZE_UNIFORM_COLOR_AA);
 
 		/* get 2D coordinates of point */
 		float co[3] = { 0.0f };
@@ -737,29 +707,13 @@ static void gp_draw_stroke_3d(const bGPDspoint *points, int totpoints, short thi
 
 	immEnd();
 	immUnbindProgram();
-
-#if 0 /* convert to modern GL only if needed */
-	/* draw debug points of curve on top? */
-	/* XXX: for now, we represent "selected" strokes in the same way as debug, which isn't used anymore */
-	if (debug) {
-		glPointSize((float)(thickness + 2));
-
-		glBegin(GL_POINTS);
-		const bGPDspoint *pt = points;
-		for (int i = 0; i < totpoints; i++, pt++) {
-			mul_v3_m4v3(fpt, diff_mat, &pt->x);
-			glVertex3fv(fpt);
-		}
-		glEnd();
-	}
-#endif
 }
 
 /* ----- Fancy 2D-Stroke Drawing ------ */
 
 /* draw a given stroke in 2d */
 static void gp_draw_stroke_2d(const bGPDspoint *points, int totpoints, short thickness_s, short dflag, short sflag,
-                              bool debug, int offsx, int offsy, int winx, int winy, const float diff_mat[4][4], const float ink[4])
+                              bool UNUSED(debug), int offsx, int offsy, int winx, int winy, const float diff_mat[4][4], const float ink[4])
 {
 	/* otherwise thickness is twice that of the 3D view */
 	float thickness = (float)thickness_s * 0.5f;
@@ -785,7 +739,6 @@ static void gp_draw_stroke_2d(const bGPDspoint *points, int totpoints, short thi
 		unsigned pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
 		unsigned color = add_attrib(format, "color", GL_UNSIGNED_BYTE, 4, NORMALIZE_INT_TO_FLOAT);
 
-		/* this code previously used glShadeModel(GL_FLAT) */
 		immBindBuiltinProgram(GPU_SHADER_2D_FLAT_COLOR);
 		immBegin(GL_QUADS, (totpoints - 2) * 4 + 12);
 
@@ -933,26 +886,6 @@ static void gp_draw_stroke_2d(const bGPDspoint *points, int totpoints, short thi
 		immEnd();
 		immUnbindProgram();
 	}
-
-#if 0 /* convert to modern GL only if needed */
-	/* draw debug points of curve on top? (original stroke points) */
-	if (debug) {
-		glPointSize((float)(thickness_s + 2));
-
-		glBegin(GL_POINTS);
-		const bGPDspoint *pt = points;
-		for (int i = 0; i < totpoints && pt; i++, pt++) {
-			float fpt[3];
-			float co[2];
-			mul_v3_m4v3(fpt, diff_mat, &pt->x);
-			gp_calc_2d_stroke_fxy(fpt, sflag, offsx, offsy, winx, winy, co);
-			glVertex2fv(co);
-		}
-		glEnd();
-	}
-#else
-	UNUSED_VARS(debug);
-#endif
 }
 
 /* ----- Strokes Drawing ------ */
@@ -1035,10 +968,6 @@ static void gp_draw_strokes(
 				/* first arg is normally rv3d->dist, but this isn't
 				 * available here and seems to work quite well without */
 				bglPolygonOffset(1.0f, 1.0f);
-#if 0
-				glEnable(GL_POLYGON_OFFSET_LINE);
-				glPolygonOffset(-1.0f, -1.0f);
-#endif
 			}
 
 			/* 3D Fill */
@@ -1101,10 +1030,6 @@ static void gp_draw_strokes(
 				glDisable(GL_DEPTH_TEST);
 
 				bglPolygonOffset(0.0, 0.0);
-#if 0
-				glDisable(GL_POLYGON_OFFSET_LINE);
-				glPolygonOffset(0, 0);
-#endif
 			}
 		}
 		else {
@@ -1192,10 +1117,6 @@ static void gp_draw_strokes_edit(
 			/* first arg is normally rv3d->dist, but this isn't
 			 * available here and seems to work quite well without */
 			bglPolygonOffset(1.0f, 1.0f);
-#if 0
-			glEnable(GL_POLYGON_OFFSET_LINE); /* do we want LINE or POINT here? (merwin) */
-			glPolygonOffset(-1.0f, -1.0f);
-#endif
 		}
 	}
 
@@ -1597,11 +1518,6 @@ static void gp_draw_data(
         const bGPDbrush *brush, float alpha, bGPdata *gpd,
         int offsx, int offsy, int winx, int winy, int cfra, int dflag)
 {
-#if 0 /* disable to see if really needed. re-enable or delete by Dec 2016 */
-	/* reset line drawing style (in case previous user didn't reset) */
-	setlinestyle(0);
-#endif
-
 	/* turn on smooth lines (i.e. anti-aliasing) */
 	glEnable(GL_LINE_SMOOTH);
 
@@ -1620,11 +1536,6 @@ static void gp_draw_data(
 	/* turn off alpha blending, then smooth lines */
 	glDisable(GL_BLEND); // alpha blending
 	glDisable(GL_LINE_SMOOTH); // smooth lines
-
-#if 0 /* disable to see if really needed. re-enable or delete by Dec 2016 */
-	/* restore initial gl conditions */
-	glColor4f(0, 0, 0, 1);
-#endif
 }
 
 /* if we have strokes for scenes (3d view)/clips (movie clip editor)

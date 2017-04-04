@@ -51,11 +51,11 @@
 
 #include "BLF_api.h"
 
-#include "BIF_gl.h"
 #include "BIF_glutil.h"
 
 #include "GPU_draw.h"
 #include "GPU_immediate.h"
+#include "GPU_matrix.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -705,15 +705,17 @@ static void node_draw_preview(bNodePreview *preview, rctf *prv)
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);  /* premul graphics */
 	
-	glColor4f(1.0, 1.0, 1.0, 1.0);
-	glPixelZoom(scale, scale);
-	glaDrawPixelsTex(draw_rect.xmin, draw_rect.ymin, preview->xsize, preview->ysize, GL_RGBA, GL_UNSIGNED_BYTE, GL_LINEAR, preview->rect);
-	glPixelZoom(1.0f, 1.0f);
+	immDrawPixelsTexSetup(GPU_SHADER_2D_IMAGE_COLOR);
+	immDrawPixelsTex(draw_rect.xmin, draw_rect.ymin, preview->xsize, preview->ysize, GL_RGBA, GL_UNSIGNED_BYTE, GL_LINEAR, preview->rect,
+	                 scale, scale, NULL);
 	
 	glDisable(GL_BLEND);
 
-	UI_ThemeColorShadeAlpha(TH_BACK, -15, +100);
-	fdrawbox(draw_rect.xmin, draw_rect.ymin, draw_rect.xmax, draw_rect.ymax);
+	unsigned int pos = add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
+	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+	immUniformThemeColorShadeAlpha(TH_BACK, -15, +100);
+	imm_draw_line_box(pos, draw_rect.xmin, draw_rect.ymin, draw_rect.xmax, draw_rect.ymax);
+	immUnbindProgram();
 }
 
 /* common handle function for operator buttons that need to select the node first */
@@ -748,11 +750,18 @@ void node_draw_shadow(SpaceNode *snode, bNode *node, float radius, float alpha)
 
 void node_draw_sockets(View2D *v2d, const bContext *C, bNodeTree *ntree, bNode *node, bool draw_outputs, bool select_all)
 {
+	const unsigned int total_input_ct = BLI_listbase_count(&node->inputs);
+	const unsigned int total_output_ct = BLI_listbase_count(&node->outputs);
+
+	if (total_input_ct + total_output_ct == 0) {
+		return;
+	}
+
 	PointerRNA node_ptr;
 	RNA_pointer_create((ID *)ntree, &RNA_Node, node, &node_ptr);
 
-	float xscale, yscale;
-	UI_view2d_scale_get(v2d, &xscale, &yscale);
+	float scale;
+	UI_view2d_scale_get(v2d, &scale, NULL);
 
 	VertexFormat *format = immVertexFormat();
 	unsigned pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
@@ -761,17 +770,17 @@ void node_draw_sockets(View2D *v2d, const bContext *C, bNodeTree *ntree, bNode *
 	glEnable(GL_BLEND);
 	GPU_enable_program_point_size();
 
-	immBindBuiltinProgram(GPU_SHADER_2D_POINT_UNIFORM_SIZE_VARYING_COLOR_OUTLINE_SMOOTH);
+	immBindBuiltinProgram(GPU_SHADER_2D_POINT_UNIFORM_SIZE_VARYING_COLOR_OUTLINE_AA);
 
 	/* set handle size */
-	immUniform1f("size", 2.0f * NODE_SOCKSIZE * xscale); // 2 * size to have diameter
+	immUniform1f("size", 2.0f * NODE_SOCKSIZE * scale); /* 2 * size to have diameter */
 
 	if (!select_all) {
 		/* outline for unselected sockets */
 		immUniform1f("outlineWidth", 1.0f);
 		immUniform4f("outlineColor", 0.0f, 0.0f, 0.0f, 0.6f);
 
-		immBeginAtMost(GL_POINTS, BLI_listbase_count(&node->inputs) + BLI_listbase_count(&node->outputs));
+		immBeginAtMost(GL_POINTS, total_input_ct + total_output_ct);
 	}
 
 	/* socket inputs */
@@ -878,17 +887,19 @@ static void node_draw_basis(const bContext *C, ARegion *ar, SpaceNode *snode, bN
 	/* shadow */
 	node_draw_shadow(snode, node, BASIS_RAD, 1.0f);
 	
-	/* header uses color from backdrop, but we make it opaqie */
-	if (color_id == TH_NODE) {
-		UI_GetThemeColorShade3fv(color_id, -20, color);
-	}
-	else
-		UI_GetThemeColor4fv(color_id, color);
-	
-	if (node->flag & NODE_MUTED)
+	if (node->flag & NODE_MUTED) {
 		UI_GetThemeColorBlendShade4fv(color_id, TH_REDALERT, 0.5f, 0, color);
-
-	
+	}
+	else {
+		/* header uses color from backdrop, but we make it opaque */
+		if (color_id == TH_NODE) {
+			UI_GetThemeColorShade3fv(color_id, -20, color);
+			color[3] = 1.0f;
+		}
+		else {
+			UI_GetThemeColor4fv(color_id, color);
+		}
+	}
 
 #ifdef WITH_COMPOSITOR
 	if (ntree->type == NTREE_COMPOSIT && (snode->flag & SNODE_SHOW_HIGHLIGHT)) {
@@ -934,10 +945,12 @@ static void node_draw_basis(const bContext *C, ARegion *ar, SpaceNode *snode, bN
 	}
 	
 	/* title */
-	if (node->flag & SELECT) 
-		UI_ThemeColor(TH_SELECT);
-	else
-		UI_ThemeColorBlendShade(TH_TEXT, color_id, 0.4f, 10);
+	if (node->flag & SELECT) {
+		UI_GetThemeColor4fv(TH_SELECT, color);
+	}
+	else {
+		UI_GetThemeColorBlendShade4fv(TH_SELECT, color_id, 0.4f, 10, color);
+	}
 	
 	/* open/close entirely? */
 	{
@@ -952,12 +965,8 @@ static void node_draw_basis(const bContext *C, ARegion *ar, SpaceNode *snode, bN
 		UI_block_emboss_set(node->block, UI_EMBOSS);
 		
 		/* custom draw function for this button */
-		UI_draw_icon_tri(rct->xmin + 0.5f * U.widget_unit, rct->ymax - NODE_DY / 2.0f, 'v');
+		UI_draw_icon_tri(rct->xmin + 0.5f * U.widget_unit, rct->ymax - NODE_DY / 2.0f, 'v', color);
 	}
-	
-#if 0 /* this isn't doing anything for the label, so commenting out */
-	UI_ThemeColor((node->flag & SELECT) ? TH_TEXT_HI : TH_TEXT);
-#endif
 	
 	nodeLabel(ntree, node, showname, sizeof(showname));
 	
@@ -973,10 +982,11 @@ static void node_draw_basis(const bContext *C, ARegion *ar, SpaceNode *snode, bN
 	if (!nodeIsRegistered(node))
 		UI_GetThemeColor4fv(TH_REDALERT, color);	/* use warning color to indicate undefined types */
 	else if (node->flag & NODE_CUSTOM_COLOR) {
-		rgba_float_args_set(color,  node->color[0],  node->color[1],  node->color[2], 1.0f);
+		rgba_float_args_set(color, node->color[0], node->color[1], node->color[2], 1.0f);
 	}
 	else
 		UI_GetThemeColor4fv(TH_NODE, color);
+
 	glEnable(GL_BLEND);
 	UI_draw_roundbox_corner_set(UI_CNR_BOTTOM_LEFT | UI_CNR_BOTTOM_RIGHT);
 	UI_draw_roundbox(rct->xmin, rct->ymin, rct->xmax, rct->ymax - NODE_DY, BASIS_RAD, color);
@@ -1028,17 +1038,18 @@ static void node_draw_hidden(const bContext *C, ARegion *ar, SpaceNode *snode, b
 	float color[4];
 	char showname[128]; /* 128 is used below */
 	View2D *v2d = &ar->v2d;
-	float xscale, yscale;
+	float scale;
 
-	UI_view2d_scale_get(v2d, &xscale, &yscale);
+	UI_view2d_scale_get(v2d, &scale, NULL);
 	
 	/* shadow */
 	node_draw_shadow(snode, node, hiddenrad, 1.0f);
 
 	/* body */
-	UI_ThemeColor(color_id);
 	if (node->flag & NODE_MUTED)
 		UI_GetThemeColorBlendShade4fv(color_id, TH_REDALERT, 0.5f, 0, color);
+	else
+		UI_GetThemeColor4fv(color_id, color);
 
 #ifdef WITH_COMPOSITOR
 	if (ntree->type == NTREE_COMPOSIT && (snode->flag & SNODE_SHOW_HIGHLIGHT)) {
@@ -1077,10 +1088,12 @@ static void node_draw_hidden(const bContext *C, ARegion *ar, SpaceNode *snode, b
 	}
 
 	/* title */
-	if (node->flag & SELECT) 
-		UI_ThemeColor(TH_SELECT);
-	else
-		UI_ThemeColorBlendShade(TH_TEXT, color_id, 0.4f, 10);
+	if (node->flag & SELECT) {
+		UI_GetThemeColor4fv(TH_SELECT, color);
+	}
+	else {
+		UI_GetThemeColorBlendShade4fv(TH_SELECT, color_id, 0.4f, 10, color);
+	}
 	
 	/* open entirely icon */
 	{
@@ -1095,14 +1108,12 @@ static void node_draw_hidden(const bContext *C, ARegion *ar, SpaceNode *snode, b
 		UI_block_emboss_set(node->block, UI_EMBOSS);
 		
 		/* custom draw function for this button */
-		UI_draw_icon_tri(rct->xmin + 10.0f, centy, 'h');
+		UI_draw_icon_tri(rct->xmin + 10.0f, centy, 'h', color);
 	}
 	
 	/* disable lines */
 	if (node->flag & NODE_MUTED)
 		node_draw_mute_line(&ar->v2d, snode, node);
-
-	UI_ThemeColor((node->flag & SELECT) ? TH_SELECT : TH_TEXT);
 
 	if (node->miniwidth > 0.0f) {
 		nodeLabel(ntree, node, showname, sizeof(showname));
@@ -1117,15 +1128,32 @@ static void node_draw_hidden(const bContext *C, ARegion *ar, SpaceNode *snode, b
 	}
 
 	/* scale widget thing */
-	UI_ThemeColorShade(color_id, -10);
+	unsigned int pos = add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
+	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+
+	immUniformThemeColorShade(color_id, -10);
 	dx = 10.0f;
-	fdrawline(rct->xmax - dx, centy - 4.0f, rct->xmax - dx, centy + 4.0f);
-	fdrawline(rct->xmax - dx - 3.0f * snode->aspect, centy - 4.0f, rct->xmax - dx - 3.0f * snode->aspect, centy + 4.0f);
-	
-	UI_ThemeColorShade(color_id, +30);
+
+	immBegin(PRIM_LINES, 4);
+	immVertex2f(pos, rct->xmax - dx, centy - 4.0f);
+	immVertex2f(pos, rct->xmax - dx, centy + 4.0f);
+
+	immVertex2f(pos, rct->xmax - dx - 3.0f * snode->aspect, centy - 4.0f);
+	immVertex2f(pos, rct->xmax - dx - 3.0f * snode->aspect, centy + 4.0f);
+	immEnd();
+
+	immUniformThemeColorShade(color_id, 30);
 	dx -= snode->aspect;
-	fdrawline(rct->xmax - dx, centy - 4.0f, rct->xmax - dx, centy + 4.0f);
-	fdrawline(rct->xmax - dx - 3.0f * snode->aspect, centy - 4.0f, rct->xmax - dx - 3.0f * snode->aspect, centy + 4.0f);
+
+	immBegin(PRIM_LINES, 4);
+	immVertex2f(pos, rct->xmax - dx, centy - 4.0f);
+	immVertex2f(pos, rct->xmax - dx, centy + 4.0f);
+
+	immVertex2f(pos, rct->xmax - dx - 3.0f * snode->aspect, centy - 4.0f);
+	immVertex2f(pos, rct->xmax - dx - 3.0f * snode->aspect, centy + 4.0f);
+	immEnd();
+
+	immUnbindProgram();
 
 	node_draw_sockets(v2d, C, ntree, node, true, false);
 
@@ -1175,10 +1203,20 @@ void node_set_cursor(wmWindow *win, SpaceNode *snode, float cursor[2])
 
 void node_draw_default(const bContext *C, ARegion *ar, SpaceNode *snode, bNodeTree *ntree, bNode *node, bNodeInstanceKey key)
 {
+	glMatrixMode(GL_PROJECTION);
+	gpuPushMatrix();
+	glMatrixMode(GL_MODELVIEW);
+	gpuPushMatrix();
+
 	if (node->flag & NODE_HIDDEN)
 		node_draw_hidden(C, ar, snode, ntree, node, key);
 	else
 		node_draw_basis(C, ar, snode, ntree, node, key);
+
+	glMatrixMode(GL_PROJECTION);
+	gpuPopMatrix();
+	glMatrixMode(GL_MODELVIEW);
+	gpuPopMatrix();
 }
 
 static void node_update(const bContext *C, bNodeTree *ntree, bNode *node)

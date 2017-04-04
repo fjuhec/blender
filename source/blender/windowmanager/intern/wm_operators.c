@@ -86,8 +86,12 @@
 
 #include "BKE_idcode.h"
 
-#include "BIF_glutil.h" /* for paint cursor */
 #include "BLF_api.h"
+
+#include "BIF_glutil.h" /* for paint cursor */
+
+#include "GPU_immediate.h"
+#include "GPU_matrix.h"
 
 #include "IMB_imbuf_types.h"
 #include "IMB_imbuf.h"
@@ -96,9 +100,6 @@
 #include "ED_screen.h"
 #include "ED_util.h"
 #include "ED_view3d.h"
-
-#include "GPU_basic_shader.h"
-#include "GPU_immediate.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -904,7 +905,7 @@ void WM_operator_properties_create_ptr(PointerRNA *ptr, wmOperatorType *ot)
 
 void WM_operator_properties_create(PointerRNA *ptr, const char *opstring)
 {
-	wmOperatorType *ot = WM_operatortype_find(opstring, 0);
+	wmOperatorType *ot = WM_operatortype_find(opstring, false);
 
 	if (ot)
 		WM_operator_properties_create_ptr(ptr, ot);
@@ -1108,45 +1109,70 @@ int WM_menu_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 	return WM_menu_invoke_ex(C, op, WM_OP_INVOKE_REGION_WIN);
 }
 
+struct EnumSearchMenu {
+	wmOperator *op; /* the operator that will be executed when selecting an item */
+
+	bool use_previews;
+	short prv_cols, prv_rows;
+};
 
 /* generic enum search invoke popup */
-static uiBlock *wm_enum_search_menu(bContext *C, ARegion *ar, void *arg_op)
+static uiBlock *wm_enum_search_menu(bContext *C, ARegion *ar, void *arg)
 {
-	static char search[256] = "";
-	wmEvent event;
+	struct EnumSearchMenu *search_menu = arg;
 	wmWindow *win = CTX_wm_window(C);
+	wmOperator *op = search_menu->op;
+	/* template_ID uses 4 * widget_unit for width, we use a bit more, some items may have a suffix to show */
+	const int width = search_menu->use_previews ? 5 * U.widget_unit * search_menu->prv_cols : UI_searchbox_size_x();
+	const int height = search_menu->use_previews ? 5 * U.widget_unit * search_menu->prv_rows : UI_searchbox_size_y();
+	static char search[256] = "";
 	uiBlock *block;
 	uiBut *but;
-	wmOperator *op = (wmOperator *)arg_op;
 
 	block = UI_block_begin(C, ar, "_popup", UI_EMBOSS);
 	UI_block_flag_enable(block, UI_BLOCK_LOOP | UI_BLOCK_MOVEMOUSE_QUIT | UI_BLOCK_SEARCH_MENU);
 
+	search[0] = '\0';
+	BLI_assert(search_menu->use_previews || (search_menu->prv_cols == 0 && search_menu->prv_rows == 0));
 #if 0 /* ok, this isn't so easy... */
 	uiDefBut(block, UI_BTYPE_LABEL, 0, RNA_struct_ui_name(op->type->srna), 10, 10, UI_searchbox_size_x(), UI_UNIT_Y, NULL, 0.0, 0.0, 0, 0, "");
 #endif
 	but = uiDefSearchButO_ptr(block, op->type, op->ptr->data, search, 0, ICON_VIEWZOOM, sizeof(search),
-	                          10, 10, UI_searchbox_size_x(), UI_UNIT_Y, 0, 0, "");
+	                          10, 10, width, UI_UNIT_Y, search_menu->prv_rows, search_menu->prv_cols, "");
 
 	/* fake button, it holds space for search items */
-	uiDefBut(block, UI_BTYPE_LABEL, 0, "", 10, 10 - UI_searchbox_size_y(), UI_searchbox_size_x(), UI_searchbox_size_y(), NULL, 0, 0, 0, 0, NULL);
+	uiDefBut(block, UI_BTYPE_LABEL, 0, "", 10, 10 - UI_searchbox_size_y(), width, height, NULL, 0, 0, 0, 0, NULL);
 
 	UI_block_bounds_set_popup(block, 6, 0, -UI_UNIT_Y); /* move it downwards, mouse over button */
-
-	wm_event_init_from_window(win, &event);
-	event.type = EVT_BUT_OPEN;
-	event.val = KM_PRESS;
-	event.customdata = but;
-	event.customdatafree = false;
-	wm_event_add(win, &event);
+	UI_but_focus_on_enter_event(win, but);
 
 	return block;
 }
 
+/**
+ * Similar to #WM_enum_search_invoke, but draws previews. Also, this can't
+ * be used as invoke callback directly since it needs additional info.
+ */
+int WM_enum_search_invoke_previews(
+        bContext *C, wmOperator *op, short prv_cols, short prv_rows)
+{
+	static struct EnumSearchMenu search_menu;
+
+	search_menu.op = op;
+	search_menu.use_previews = true;
+	search_menu.prv_cols = prv_cols;
+	search_menu.prv_rows = prv_rows;
+
+	UI_popup_block_invoke(C, wm_enum_search_menu, &search_menu);
+
+	return OPERATOR_INTERFACE;
+}
 
 int WM_enum_search_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
-	UI_popup_block_invoke(C, wm_enum_search_menu, op);
+	static struct EnumSearchMenu search_menu;
+	search_menu.op = op;
+	UI_popup_block_invoke(C, wm_enum_search_menu, &search_menu);
 	return OPERATOR_INTERFACE;
 }
 
@@ -1406,20 +1432,6 @@ static void dialog_exec_cb(bContext *C, void *arg1, void *arg2)
 	}
 }
 
-static void popup_check_cb(bContext *C, void *op_ptr, void *UNUSED(arg))
-{
-	wmOperator *op = op_ptr;
-	if (op->type->check) {
-		if (op->type->check(C, op)) {
-			/* check for popup and re-layout buttons */
-			ARegion *ar_menu = CTX_wm_menu(C);
-			if (ar_menu) {
-				ED_region_tag_refresh_ui(ar_menu);
-			}
-		}
-	}
-}
-
 /* Dialogs are popups that require user verification (click OK) before exec */
 static uiBlock *wm_block_dialog_create(bContext *C, ARegion *ar, void *userData)
 {
@@ -1438,8 +1450,6 @@ static uiBlock *wm_block_dialog_create(bContext *C, ARegion *ar, void *userData)
 
 	layout = UI_block_layout(block, UI_LAYOUT_VERTICAL, UI_LAYOUT_PANEL, 0, 0, data->width, data->height, 0, style);
 	
-	UI_block_func_set(block, popup_check_cb, op, NULL);
-
 	uiLayoutOperatorButs(C, layout, op, NULL, 'H', UI_LAYOUT_OP_SHOW_TITLE);
 	
 	/* clear so the OK button is left alone */
@@ -1477,8 +1487,6 @@ static uiBlock *wm_operator_ui_create(bContext *C, ARegion *ar, void *userData)
 	UI_block_flag_enable(block, UI_BLOCK_KEEP_OPEN | UI_BLOCK_MOVEMOUSE_QUIT);
 
 	layout = UI_block_layout(block, UI_LAYOUT_VERTICAL, UI_LAYOUT_PANEL, 0, 0, data->width, data->height, 0, style);
-
-	UI_block_func_set(block, popup_check_cb, op, NULL);
 
 	/* since ui is defined the auto-layout args are not used */
 	uiLayoutOperatorButs(C, layout, op, NULL, 'V', 0);
@@ -1526,7 +1534,7 @@ int WM_operator_ui_popup(bContext *C, wmOperator *op, int width, int height)
 	data->width = width;
 	data->height = height;
 	data->free_op = true; /* if this runs and gets registered we may want not to free it */
-	UI_popup_block_ex(C, wm_operator_ui_create, NULL, wm_operator_ui_popup_cancel, data);
+	UI_popup_block_ex(C, wm_operator_ui_create, NULL, wm_operator_ui_popup_cancel, data, op);
 	return OPERATOR_RUNNING_MODAL;
 }
 
@@ -1556,7 +1564,7 @@ static int wm_operator_props_popup_ex(bContext *C, wmOperator *op,
 	if (!do_redo || !(U.uiflag & USER_GLOBALUNDO))
 		return WM_operator_props_dialog_popup(C, op, 15 * UI_UNIT_X, UI_UNIT_Y);
 
-	UI_popup_block_ex(C, wm_block_create_redo, NULL, wm_block_redo_cancel_cb, op);
+	UI_popup_block_ex(C, wm_block_create_redo, NULL, wm_block_redo_cancel_cb, op, op);
 
 	if (do_call)
 		wm_block_redo_cb(C, op, 0);
@@ -1598,7 +1606,7 @@ int WM_operator_props_dialog_popup(bContext *C, wmOperator *op, int width, int h
 	data->free_op = true; /* if this runs and gets registered we may want not to free it */
 
 	/* op is not executed until popup OK but is clicked */
-	UI_popup_block_ex(C, wm_block_dialog_create, wm_operator_ui_popup_ok, wm_operator_ui_popup_cancel, data);
+	UI_popup_block_ex(C, wm_block_dialog_create, wm_operator_ui_popup_ok, wm_operator_ui_popup_cancel, data, op);
 
 	return OPERATOR_RUNNING_MODAL;
 }
@@ -1764,6 +1772,36 @@ static uiBlock *wm_block_create_splash(bContext *C, ARegion *ar, void *UNUSED(ar
 	else {
 		ibuf = IMB_ibImageFromMemory((unsigned char *)datatoc_splash_png,
 		                             datatoc_splash_png_size, IB_rect, NULL, "<splash screen>");
+	}
+
+	/* overwrite splash with template image */
+	if (U.app_template[0] != '\0') {
+		ImBuf *ibuf_template = NULL;
+		char splash_filepath[FILE_MAX];
+		char template_directory[FILE_MAX];
+
+		if (BKE_appdir_app_template_id_search(
+		        U.app_template,
+		        template_directory, sizeof(template_directory)))
+		{
+			BLI_join_dirfile(
+			        splash_filepath, sizeof(splash_filepath), template_directory,
+			        (U.pixelsize == 2) ? "splash_2x.png" : "splash.png");
+			ibuf_template = IMB_loadiffname(splash_filepath, IB_rect, NULL);
+			if (ibuf_template) {
+				const int x_expect = ibuf->x;
+				const int y_expect = 230 * (int)U.pixelsize;
+				/* don't cover the header text */
+				if (ibuf_template->x == x_expect && ibuf_template->y == y_expect) {
+					memcpy(ibuf->rect, ibuf_template->rect, ibuf_template->x * ibuf_template->y * sizeof(char[4]));
+				}
+				else {
+					printf("Splash expected %dx%d found %dx%d, ignoring: %s\n",
+					       x_expect, y_expect, ibuf_template->x, ibuf_template->y, splash_filepath);
+				}
+				IMB_freeImBuf(ibuf_template);
+			}
+		}
 	}
 #endif
 
@@ -2079,14 +2117,22 @@ static void WM_OT_window_close(wmOperatorType *ot)
 	ot->poll = WM_operator_winactive;
 }
 
-static void WM_OT_window_duplicate(wmOperatorType *ot)
+static void WM_OT_window_new(wmOperatorType *ot)
 {
-	ot->name = "Duplicate Window";
-	ot->idname = "WM_OT_window_duplicate";
-	ot->description = "Duplicate the current Blender window";
-		
-	ot->exec = wm_window_duplicate_exec;
+	PropertyRNA *prop;
+
+	ot->name = "New Window";
+	ot->idname = "WM_OT_window_new";
+	ot->description = "Create a new Blender window";
+
+	ot->exec = wm_window_new_exec;
+	ot->invoke = wm_window_new_invoke;
 	ot->poll = wm_operator_winactive_normal;
+
+	prop = RNA_def_enum(ot->srna, "screen", DummyRNA_NULL_items, 0, "Screen", "");
+	RNA_def_enum_funcs(prop, wm_window_new_screen_itemf);
+	RNA_def_property_flag(prop, PROP_ENUM_NO_TRANSLATE);
+	ot->prop = prop;
 }
 
 static void WM_OT_window_fullscreen_toggle(wmOperatorType *ot)
@@ -3047,8 +3093,8 @@ static void radial_control_paint_tex(RadialControl *rc, float radius, float alph
 		/* set up rotation if available */
 		if (rc->rot_prop) {
 			rot = RNA_property_float_get(&rc->rot_ptr, rc->rot_prop);
-			glPushMatrix();
-			glRotatef(RAD2DEGF(rot), 0, 0, 1);
+			gpuPushMatrix();
+			gpuRotate2D(RAD2DEGF(rot));
 		}
 
 		/* draw textured quad */
@@ -3070,7 +3116,7 @@ static void radial_control_paint_tex(RadialControl *rc, float radius, float alph
 
 		/* undo rotation */
 		if (rc->rot_prop)
-			glPopMatrix();
+			gpuPopMatrix();
 	}
 	else {
 		/* flat color if no texture available */
@@ -3138,7 +3184,7 @@ static void radial_control_paint_cursor(bContext *C, int x, int y, void *customd
 	/* Keep cursor in the original place */
 	x = rc->initial_mouse[0] - ar->winrct.xmin;
 	y = rc->initial_mouse[1] - ar->winrct.ymin;
-	glTranslatef((float)x, (float)y, 0.0f);
+	gpuTranslate2f((float)x, (float)y);
 
 	glEnable(GL_BLEND);
 	glEnable(GL_LINE_SMOOTH);
@@ -3146,7 +3192,7 @@ static void radial_control_paint_cursor(bContext *C, int x, int y, void *customd
 	/* apply zoom if available */
 	if (rc->zoom_prop) {
 		RNA_property_float_get_array(&rc->zoom_ptr, rc->zoom_prop, zoom);
-		glScalef(zoom[0], zoom[1], 1);
+		gpuScale2fv(zoom);
 	}
 
 	/* draw rotated texture */
@@ -3163,23 +3209,23 @@ static void radial_control_paint_cursor(bContext *C, int x, int y, void *customd
 	immUniformColor3fvAlpha(col, 0.5); 
 
 	if (rc->subtype == PROP_ANGLE) {
-		glPushMatrix();
+		gpuPushMatrix();
 
 		/* draw original angle line */
-		glRotatef(RAD2DEGF(rc->initial_value), 0, 0, 1);
+		gpuRotate2D(RAD2DEGF(rc->initial_value));
 		immBegin(GL_LINES, 2);
 		immVertex2f(pos, (float)WM_RADIAL_CONTROL_DISPLAY_MIN_SIZE, 0.0f);
 		immVertex2f(pos, (float)WM_RADIAL_CONTROL_DISPLAY_SIZE, 0.0f);
 		immEnd();
 
 		/* draw new angle line */
-		glRotatef(RAD2DEGF(rc->current_value - rc->initial_value), 0, 0, 1);
+		gpuRotate2D(RAD2DEGF(rc->current_value - rc->initial_value));
 		immBegin(GL_LINES, 2);
 		immVertex2f(pos, (float)WM_RADIAL_CONTROL_DISPLAY_MIN_SIZE, 0.0f);
 		immVertex2f(pos, (float)WM_RADIAL_CONTROL_DISPLAY_SIZE, 0.0f);
 		immEnd();
 
-		glPopMatrix();
+		gpuPopMatrix();
 	}
 
 	/* draw circles on top */
@@ -3187,6 +3233,7 @@ static void radial_control_paint_cursor(bContext *C, int x, int y, void *customd
 	imm_draw_lined_circle(pos, 0.0f, 0.0f, r2, 40);
 	if (rmin > 0.0f)
 		imm_draw_lined_circle(pos, 0.0, 0.0f, rmin, 40);
+	immUnbindProgram();
 
 	BLF_size(fontid, 1.5 * fstyle_points * U.pixelsize, U.dpi);
 	BLF_enable(fontid, BLF_SHADOW);
@@ -3203,7 +3250,6 @@ static void radial_control_paint_cursor(bContext *C, int x, int y, void *customd
 	glDisable(GL_BLEND);
 	glDisable(GL_LINE_SMOOTH);
 
-	immUnbindProgram();
 }
 
 typedef enum {
@@ -4177,7 +4223,7 @@ void wm_operatortype_init(void)
 	global_ops_hash = BLI_ghash_str_new_ex("wm_operatortype_init gh", 2048);
 
 	WM_operatortype_append(WM_OT_window_close);
-	WM_operatortype_append(WM_OT_window_duplicate);
+	WM_operatortype_append(WM_OT_window_new);
 	WM_operatortype_append(WM_OT_read_history);
 	WM_operatortype_append(WM_OT_read_homefile);
 	WM_operatortype_append(WM_OT_read_factory_settings);
@@ -4419,7 +4465,7 @@ void wm_window_keymap(wmKeyConfig *keyconf)
 	wmKeyMapItem *kmi;
 	
 	/* note, this doesn't replace existing keymap items */
-	WM_keymap_verify_item(keymap, "WM_OT_window_duplicate", WKEY, KM_PRESS, KM_CTRL | KM_ALT, 0);
+	WM_keymap_verify_item(keymap, "WM_OT_window_new", WKEY, KM_PRESS, KM_CTRL | KM_ALT, 0);
 #ifdef __APPLE__
 	WM_keymap_add_item(keymap, "WM_OT_read_homefile", NKEY, KM_PRESS, KM_OSKEY, 0);
 	WM_keymap_add_menu(keymap, "INFO_MT_file_open_recent", OKEY, KM_PRESS, KM_SHIFT | KM_OSKEY, 0);

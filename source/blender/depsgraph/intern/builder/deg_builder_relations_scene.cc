@@ -75,28 +75,9 @@ void DepsgraphRelationBuilder::build_scene(Main *bmain, Scene *scene)
 	}
 
 	/* scene objects */
-	Object *ob;
 	FOREACH_SCENE_OBJECT(scene, ob)
 	{
-		/* object itself */
 		build_object(bmain, scene, ob);
-
-		/* object that this is a proxy for */
-		if (ob->proxy) {
-			ob->proxy->proxy_from = ob;
-			build_object(bmain, scene, ob->proxy);
-			/* TODO(sergey): This is an inverted relation, matches old depsgraph
-			 * behavior and need to be investigated if it still need to be inverted.
-			 */
-			ComponentKey ob_pose_key(&ob->id, DEPSNODE_TYPE_EVAL_POSE);
-			ComponentKey proxy_pose_key(&ob->proxy->id, DEPSNODE_TYPE_EVAL_POSE);
-			add_relation(ob_pose_key, proxy_pose_key, DEPSREL_TYPE_TRANSFORM, "Proxy");
-		}
-
-		/* Object dupligroup. */
-		if (ob->dup_group) {
-			build_group(bmain, scene, ob, ob->dup_group);
-		}
 	}
 	FOREACH_SCENE_OBJECT_END
 
@@ -134,6 +115,9 @@ void DepsgraphRelationBuilder::build_scene(Main *bmain, Scene *scene)
 	LINKLIST_FOREACH (MovieClip *, clip, &bmain->movieclip) {
 		build_movieclip(clip);
 	}
+
+	/* Collections. */
+	build_scene_layer_collections(scene);
 
 	for (Depsgraph::OperationNodes::const_iterator it_op = m_graph->operations.begin();
 	     it_op != m_graph->operations.end();

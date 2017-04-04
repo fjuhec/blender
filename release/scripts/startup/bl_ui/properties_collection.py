@@ -18,7 +18,7 @@
 
 # <pep8 compliant>
 import bpy
-from bpy.types import Panel, UIList
+from bpy.types import Panel
 
 
 class CollectionButtonsPanel:
@@ -43,59 +43,6 @@ class COLLECTION_PT_context_collection(CollectionButtonsPanel, Panel):
             layout.prop(collection, "name", text="", icon='COLLAPSEMENU')
 
 
-class COLLECTION_UL_objects(UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        # assert(isinstance(item, bpy.types.Object)
-        ob = item
-        if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            layout.label(ob.name, icon_value=icon)
-
-        elif self.layout_type == 'GRID':
-            layout.alignment = 'CENTER'
-            layout.label("", icon_value=icon)
-
-
-class COLLECTION_PT_objects(CollectionButtonsPanel, Panel):
-    bl_label = "Objects"
-
-    def draw(self, context):
-        layout = self.layout
-        scene = context.scene
-        collection = context.scene_collection
-
-        row = layout.row()
-        row.template_list("COLLECTION_UL_objects", "name", collection, "objects", collection.objects, "active_index", rows=2)
-
-        col = row.column(align=True)
-        col.operator("collections.objects_add", icon='ZOOMIN', text="")
-        col.operator("collections.objects_remove", icon='ZOOMOUT', text="")
-
-        row = layout.row(align=True)
-        row.operator("collections.objects_select", text="Select")
-        row.operator("collections.objects_deselect", text="Deselect")
-
-
-def template_engine_settings(col, settings, name, use_icon_view=False):
-    icons = {
-            False: 'ZOOMIN',
-            True: 'X',
-            }
-
-    use_name = "{0}_use".format(name)
-    use = getattr(settings, use_name)
-
-    row = col.row()
-    col = row.column()
-    col.active = use
-
-    if use_icon_view:
-        col.template_icon_view(settings, name)
-    else:
-        col.prop(settings, name)
-
-    row.prop(settings, "{}_use".format(name), text="", icon=icons[use], emboss=False)
-
-
 class COLLECTION_PT_clay_settings(CollectionButtonsPanel, Panel):
     bl_label = "Render Settings"
     COMPAT_ENGINES = {'BLENDER_CLAY'}
@@ -107,22 +54,72 @@ class COLLECTION_PT_clay_settings(CollectionButtonsPanel, Panel):
 
     def draw(self, context):
         layout = self.layout
-
+        scene_props = context.scene.collection_properties['BLENDER_CLAY']
         collection = context.layer_collection
-        settings = collection.get_engine_settings()
+        collection_props = collection.engine_overrides['BLENDER_CLAY']
 
         col = layout.column()
-        template_engine_settings(col, settings, "type")
-        template_engine_settings(col, settings, "matcap_icon", use_icon_view=True)
-        template_engine_settings(col, settings, "matcap_rotation")
-        template_engine_settings(col, settings, "matcap_hue")
-        template_engine_settings(col, settings, "matcap_saturation")
-        template_engine_settings(col, settings, "matcap_value")
-        template_engine_settings(col, settings, "ssao_factor_cavity")
-        template_engine_settings(col, settings, "ssao_factor_edge")
-        template_engine_settings(col, settings, "ssao_distance")
-        template_engine_settings(col, settings, "ssao_attenuation")
+        col.template_override_property(collection_props, scene_props, "matcap_icon", custom_template="icon_view")
+        col.template_override_property(collection_props, scene_props, "matcap_rotation")
+        col.template_override_property(collection_props, scene_props, "matcap_hue")
+        col.template_override_property(collection_props, scene_props, "matcap_saturation")
+        col.template_override_property(collection_props, scene_props, "matcap_value")
+        col.template_override_property(collection_props, scene_props, "ssao_factor_cavity")
+        col.template_override_property(collection_props, scene_props, "ssao_factor_edge")
+        col.template_override_property(collection_props, scene_props, "ssao_distance")
+        col.template_override_property(collection_props, scene_props, "ssao_attenuation")
 
+
+class COLLECTION_PT_object_mode_settings(CollectionButtonsPanel, Panel):
+    bl_label = "Object Mode Settings"
+
+    @classmethod
+    def poll(cls, context):
+        ob = context.object
+        return ob and (ob.mode == 'OBJECT')
+
+    def draw(self, context):
+        layout = self.layout
+        scene_props = context.scene.collection_properties['ObjectMode']
+        collection = context.layer_collection
+        collection_props = collection.engine_overrides['ObjectMode']
+
+        col = layout.column()
+        col.template_override_property(collection_props, scene_props, "show_wire")
+        col.template_override_property(collection_props, scene_props, "show_backface_culling")
+
+
+class COLLECTION_PT_edit_mode_settings(CollectionButtonsPanel, Panel):
+    bl_label = "Edit Mode Settings"
+
+    @classmethod
+    def poll(cls, context):
+        ob = context.object
+        return ob and (ob.mode == 'EDIT')
+
+    def draw(self, context):
+        layout = self.layout
+        scene_props = context.scene.collection_properties['EditMode']
+        collection = context.layer_collection
+        collection_props = collection.engine_overrides['EditMode']
+
+        col = layout.column()
+        col.template_override_property(collection_props, scene_props, "show_occlude_wire")
+        col.template_override_property(collection_props, scene_props, "backwire_opacity")
+        col.template_override_property(collection_props, scene_props, "face_normals_show")
+        col.template_override_property(collection_props, scene_props, "vert_normals_show")
+        col.template_override_property(collection_props, scene_props, "loop_normals_show")
+        col.template_override_property(collection_props, scene_props, "normals_length")
+
+
+classes = (
+    COLLECTION_PT_context_collection,
+    COLLECTION_PT_clay_settings,
+    COLLECTION_PT_object_mode_settings,
+    COLLECTION_PT_edit_mode_settings,
+)
 
 if __name__ == "__main__":  # only for live edit.
-    bpy.utils.register_module(__name__)
+    from bpy.utils import register_class
+    for cls in classes:
+        register_class(cls)

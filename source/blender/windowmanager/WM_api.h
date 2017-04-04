@@ -239,6 +239,7 @@ void		WM_operator_view3d_unit_defaults(struct bContext *C, struct wmOperator *op
 int			WM_operator_smooth_viewtx_get(const struct wmOperator *op);
 int			WM_menu_invoke_ex(struct bContext *C, struct wmOperator *op, int opcontext);
 int			WM_menu_invoke			(struct bContext *C, struct wmOperator *op, const struct wmEvent *event);
+int         WM_enum_search_invoke_previews(struct bContext *C, struct wmOperator *op, short prv_cols, short prv_rows);
 int			WM_enum_search_invoke(struct bContext *C, struct wmOperator *op, const struct wmEvent *event);
 			/* invoke callback, confirm menu + exec */
 int			WM_operator_confirm		(struct bContext *C, struct wmOperator *op, const struct wmEvent *event);
@@ -263,6 +264,7 @@ int         WM_operator_confirm_message(struct bContext *C, struct wmOperator *o
 
 		/* operator api */
 void		WM_operator_free		(struct wmOperator *op);
+void		WM_operator_free_all_after(wmWindowManager *wm, struct wmOperator *op);
 void		WM_operator_type_set(struct wmOperator *op, struct wmOperatorType *ot);
 void		WM_operator_stack_clear(struct wmWindowManager *wm);
 void		WM_operator_handlers_clear(wmWindowManager *wm, struct wmOperatorType *ot);
@@ -287,6 +289,7 @@ int			WM_operator_call		(struct bContext *C, struct wmOperator *op);
 int			WM_operator_call_notest(struct bContext *C, struct wmOperator *op);
 int			WM_operator_repeat		(struct bContext *C, struct wmOperator *op);
 bool        WM_operator_repeat_check(const struct bContext *C, struct wmOperator *op);
+bool        WM_operator_is_repeat(const struct bContext *C, const struct wmOperator *op);
 int         WM_operator_name_call_ptr(struct bContext *C, struct wmOperatorType *ot, short context, struct PointerRNA *properties);
 int			WM_operator_name_call(struct bContext *C, const char *opstring, short context, struct PointerRNA *properties);
 int			WM_operator_call_py(struct bContext *C, struct wmOperatorType *ot, short context, struct PointerRNA *properties, struct ReportList *reports, const bool is_undo);
@@ -420,9 +423,7 @@ ListBase	*WM_dropboxmap_find(const char *idname, int spaceid, int regionid);
 void		wmSubWindowSet			(struct wmWindow *win, int swinid);
 void		wmSubWindowScissorSet	(struct wmWindow *win, int swinid, const struct rcti *srct, bool srct_pad);
 
-			/* OpenGL utilities with safety check + working in modelview matrix mode */
-void		wmFrustum			(float x1, float x2, float y1, float y2, float n, float f);
-void		wmOrtho				(float x1, float x2, float y1, float y2, float n, float f);
+			/* OpenGL utilities with safety check */
 void		wmOrtho2			(float x1, float x2, float y1, float y2);
 			/* use for conventions (avoid hard-coded offsets all over) */
 void		wmOrtho2_region_pixelspace(const struct ARegion *ar);

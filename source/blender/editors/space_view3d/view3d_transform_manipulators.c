@@ -555,12 +555,12 @@ static int transform_manipulators_protectflag_editmode_get(Object *obedit, View3
 	return protectflag;
 }
 
-static int transform_manipulators_protectflag_objectmode_get(const Scene *scene, const View3D *v3d)
+static int transform_manipulators_protectflag_objectmode_get(const Scene *scene)
 {
 	int protectflag = 0;
 
 	for (Base *base = scene->base.first; base; base = base->next) {
-		if (TESTBASELIB(v3d, base)) {
+		if (TESTBASELIB_NEW(base)) {
 			protectflag |= base->object->protectflag;
 		}
 	}
@@ -589,7 +589,7 @@ static int transform_manipulators_protectflag_get(const bContext *C, View3D *v3d
 		/* pass */
 	}
 	else {
-		protectflag = transform_manipulators_protectflag_objectmode_get(scene, v3d);
+		protectflag = transform_manipulators_protectflag_objectmode_get(scene);
 	}
 
 	return protectflag;

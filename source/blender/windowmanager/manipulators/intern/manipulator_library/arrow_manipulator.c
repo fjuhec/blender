@@ -42,6 +42,7 @@
 #include "RNA_types.h"
 
 #include "WM_types.h"
+#include "WM_api.h"
 
 #include "manipulator_geometry.h"
 #include "manipulator_library_intern.h"
@@ -130,7 +131,7 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const float col[4], c
 	const float len = arrow->length;
 	const bool use_lighting = /*select == false && ((U.manipulator_flag & V3D_SHADED_MANIPULATORS) != 0)*/ false;
 
-	glTranslate3fv(arrow->manipulator.offset);
+	glTranslatef(UNPACK3(arrow->manipulator.offset));
 
 	arrow_draw_line(arrow, col, len);
 
@@ -173,7 +174,7 @@ static void arrow_draw_intern(const ArrowManipulator *arrow, const bool select, 
 	arrow_get_matrix(arrow, rot, mat);
 
 	glPushMatrix();
-	glMultMatrixf(mat);
+	glMultMatrixf((float *)mat);
 
 	glEnable(GL_BLEND);
 	arrow_draw_geom(arrow, col, select);
@@ -190,7 +191,7 @@ static void arrow_draw_intern(const ArrowManipulator *arrow, const bool select, 
 		mul_mat3_m4_fl(mat, inter->init_scale);
 
 		glPushMatrix();
-		glMultMatrixf(mat);
+		glMultMatrixf((float *)mat);
 
 		glEnable(GL_BLEND);
 		arrow_draw_geom(arrow, ghost_col, select);

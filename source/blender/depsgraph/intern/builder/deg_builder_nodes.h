@@ -41,6 +41,7 @@ struct Image;
 struct FCurve;
 struct Group;
 struct Key;
+struct LayerCollection;
 struct Main;
 struct Material;
 struct Mask;
@@ -132,6 +133,7 @@ struct DepsgraphNodeBuilder {
 	void build_pose_constraints(Object *ob, bPoseChannel *pchan);
 	void build_rigidbody(Scene *scene);
 	void build_particles(Scene *scene, Object *ob);
+	void build_cloth(Scene *scene, Object *object);
 	void build_animdata(ID *id);
 	OperationDepsNode *build_driver(ID *id, FCurve *fcurve);
 	void build_ik_pose(Scene *scene,
@@ -160,6 +162,17 @@ struct DepsgraphNodeBuilder {
 	void build_mask(Mask *mask);
 	void build_movieclip(MovieClip *clip);
 
+	struct LayerCollectionState {
+		int index;
+		LayerCollection *parent;
+	};
+	void build_layer_collection(Scene *scene,
+	                            LayerCollection *layer_collection,
+	                            LayerCollectionState *state);
+	void build_layer_collections(Scene *scene,
+	                             ListBase *layer_collections,
+	                             LayerCollectionState *state);
+	void build_scene_layer_collections(Scene *scene);
 protected:
 	Main *m_bmain;
 	Depsgraph *m_graph;

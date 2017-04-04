@@ -47,6 +47,7 @@
 #include "BKE_icons.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
+#include "BKE_mesh_render.h"
 #include "BKE_object.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
@@ -58,8 +59,7 @@
 #include "GPU_framebuffer.h"
 #include "GPU_material.h"
 #include "GPU_viewport.h"
-
-#include "BIF_gl.h"
+#include "GPU_matrix.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -181,8 +181,8 @@ bool ED_view3d_context_user_region(bContext *C, View3D **r_v3d, ARegion **r_ar)
 		View3D *v3d = (View3D *)sa->spacedata.first;
 
 		if (ar) {
-			RegionView3D *rv3d = ar->regiondata;
-			if (rv3d && (rv3d->viewlock & RV3D_LOCKED) == 0) {
+			RegionView3D *rv3d;
+			if ((ar->regiontype == RGN_TYPE_WINDOW) && (rv3d = ar->regiondata) && (rv3d->viewlock & RV3D_LOCKED) == 0) {
 				*r_v3d = v3d;
 				*r_ar = ar;
 				return true;
@@ -251,7 +251,7 @@ void ED_view3d_init_mats_rv3d_gl(struct Object *ob, struct RegionView3D *rv3d)
 	/* we have to multiply instead of loading viewmatob to make
 	 * it work with duplis using displists, otherwise it will
 	 * override the dupli-matrix */
-	glMultMatrixf(ob->obmat);
+	gpuMultMatrix3D(ob->obmat);
 }
 
 #ifdef DEBUG
@@ -890,6 +890,7 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 				case ND_CONSTRAINT:
 				case ND_KEYS:
 				case ND_PARTICLE:
+				case ND_POINTCACHE:
 				case ND_LOD:
 					ED_region_tag_redraw(ar);
 					WM_manipulatormap_tag_refresh(mmap);
@@ -903,9 +904,18 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 			break;
 		case NC_GEOM:
 			switch (wmn->data) {
+				case ND_SELECT:
+				{
+					if (scene->obedit) {
+						Object *ob = scene->obedit;
+						if (ob->type == OB_MESH) {
+							struct Mesh *me = ob->data;
+							BKE_mesh_batch_selection_dirty(me);
+						}
+					}
+				}
 				case ND_DATA:
 				case ND_VERTEX_GROUP:
-				case ND_SELECT:
 					WM_manipulatormap_tag_refresh(mmap);
 					ED_region_tag_redraw(ar);
 					break;
@@ -1271,21 +1281,6 @@ static void space_view3d_listener(bScreen *UNUSED(sc), ScrArea *sa, struct wmNot
 			}
 			break;
 	}
-
-	/* removed since BKE_image_user_frame_calc is now called in view3d_draw_bgpic because screen_ops doesnt call the notifier. */
-#if 0
-	if (wmn->category == NC_SCENE && wmn->data == ND_FRAME) {
-		View3D *v3d = area->spacedata.first;
-		BGpic *bgpic = v3d->bgpicbase.first;
-
-		for (; bgpic; bgpic = bgpic->next) {
-			if (bgpic->ima) {
-				Scene *scene = wmn->reference;
-				BKE_image_user_frame_calc(&bgpic->iuser, scene->r.cfra, 0);
-			}
-		}
-	}
-#endif
 }
 
 const char *view3d_context_dir[] = {

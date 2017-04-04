@@ -87,6 +87,7 @@
 
 #include "WM_api.h"
 #include "WM_types.h"
+#include "wm_event_system.h"
 
 #ifdef WITH_INPUT_IME
 #  include "wm_window.h"
@@ -200,7 +201,9 @@ static void ui_selectcontext_apply(
         bContext *C, uiBut *but, struct uiSelectContextStore *selctx_data,
         const double value, const double value_orig);
 
+#if 0
 #define IS_ALLSELECT_EVENT(event) ((event)->alt != 0)
+#endif
 
 /** just show a tinted color so users know its activated */
 #define UI_BUT_IS_SELECT_CONTEXT UI_BUT_NODE_ACTIVE
@@ -379,6 +382,7 @@ typedef struct uiAfterFunc {
 	void *butm_func_arg;
 	int a2;
 
+	wmOperator *popup_op;
 	wmOperatorType *optype;
 	int opcontext;
 	PointerRNA *opptr;
@@ -634,13 +638,24 @@ PointerRNA *ui_handle_afterfunc_add_operator(wmOperatorType *ot, int opcontext, 
 	return ptr;
 }
 
+static void popup_check(bContext *C, wmOperator *op)
+{
+	if (op && op->type->check && op->type->check(C, op)) {
+		/* check for popup and re-layout buttons */
+		ARegion *ar_menu = CTX_wm_menu(C);
+		if (ar_menu)
+			ED_region_tag_refresh_ui(ar_menu);
+	}
+}
+
 /**
  * Check if a #uiAfterFunc is needed for this button.
  */
 static bool ui_afterfunc_check(const uiBlock *block, const uiBut *but)
 {
 	return (but->func || but->funcN || but->rename_func || but->optype || but->rnaprop || block->handle_func ||
-	        (but->type == UI_BTYPE_BUT_MENU && block->butm_func));
+	        (but->type == UI_BTYPE_BUT_MENU && block->butm_func) ||
+	        (block->handle && block->handle->popup_op));
 }
 
 static void ui_apply_but_func(bContext *C, uiBut *but)
@@ -681,6 +696,9 @@ static void ui_apply_but_func(bContext *C, uiBut *but)
 			after->butm_func_arg = block->butm_func_arg;
 			after->a2 = but->a2;
 		}
+		
+		if (block->handle)
+			after->popup_op = block->handle->popup_op;
 
 		after->optype = but->optype;
 		after->opcontext = but->opcontext;
@@ -765,6 +783,9 @@ static void ui_apply_but_funcs_after(bContext *C)
 		if (after.context)
 			CTX_store_set(C, after.context);
 
+		if (after.popup_op)
+			popup_check(C, after.popup_op);
+		
 		if (after.opptr) {
 			/* free in advance to avoid leak on exit */
 			opptr = *after.opptr;
@@ -2092,6 +2113,7 @@ static void ui_apply_but(bContext *C, uiBlock *block, uiBut *but, uiHandleButton
 			break;
 		case UI_BTYPE_ROW:
 		case UI_BTYPE_LISTROW:
+		case UI_BTYPE_TAB:
 			ui_apply_but_ROW(C, block, but, data);
 			break;
 		case UI_BTYPE_SCROLL:
@@ -3833,6 +3855,18 @@ static int ui_do_but_KEYEVT(
 	return WM_UI_HANDLER_CONTINUE;
 }
 
+static int ui_do_but_TAB(bContext *C, uiBut *but, uiHandleButtonData *data, const wmEvent *event)
+{
+	if (data->state == BUTTON_STATE_HIGHLIGHT) {
+		if (ELEM(event->type, LEFTMOUSE, PADENTER, RETKEY) && event->val == KM_RELEASE) {
+			button_activate_state(C, but, BUTTON_STATE_EXIT);
+			return WM_UI_HANDLER_CONTINUE;
+		}
+	}
+
+	return WM_UI_HANDLER_CONTINUE;
+}
+
 static bool ui_but_is_mouse_over_icon_extra(const ARegion *region, uiBut *but, const int mouse_xy[2])
 {
 	int x = mouse_xy[0], y = mouse_xy[1];
@@ -5177,7 +5211,8 @@ static int ui_do_but_COLOR(
 				if (!event->ctrl) {
 					float color[3];
 					Scene *scene = CTX_data_scene(C);
-					Paint *paint = BKE_paint_get_active(scene);
+					SceneLayer *sl = CTX_data_scene_layer(C);
+					Paint *paint = BKE_paint_get_active(scene, sl);
 					Brush *brush = BKE_paint_brush(paint);
 
 					if (brush->flag & BRUSH_USE_GRADIENT) {
@@ -6085,6 +6120,7 @@ static int ui_do_but_CURVE(
 	int mx, my, a;
 	bool changed = false;
 	Scene *scene = CTX_data_scene(C);
+	SceneLayer *sl = CTX_data_scene_layer(C);
 
 	mx = event->x;
 	my = event->y;
@@ -6213,7 +6249,7 @@ static int ui_do_but_CURVE(
 				}
 				else {
 					curvemapping_changed(cumap, true);  /* remove doubles */
-					BKE_paint_invalidate_cursor_overlay(scene, cumap);
+					BKE_paint_invalidate_cursor_overlay(scene, sl, cumap);
 				}
 			}
 
@@ -6643,7 +6679,7 @@ static void remove_shortcut_func(bContext *C, void *arg1, void *UNUSED(arg2))
 static void popup_add_shortcut_func(bContext *C, void *arg1, void *UNUSED(arg2))
 {
 	uiBut *but = (uiBut *)arg1;
-	UI_popup_block_ex(C, menu_add_shortcut, NULL, menu_add_shortcut_cancel, but);
+	UI_popup_block_ex(C, menu_add_shortcut, NULL, menu_add_shortcut_cancel, but, NULL);
 }
 
 /**
@@ -6983,20 +7019,17 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 			uiItemO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Online Manual"),
 			        ICON_URL, "WM_OT_doc_view_manual_ui_context");
 
-			WM_operator_properties_create(&ptr_props, "WM_OT_doc_view");
+			ptr_props = uiItemFullO(layout, "WM_OT_doc_view",
+			                            CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Online Python Reference"),
+			                            ICON_NONE, NULL, WM_OP_EXEC_DEFAULT, UI_ITEM_O_RETURN_PROPS);
 			RNA_string_set(&ptr_props, "doc_id", buf);
-			uiItemFullO(layout, "WM_OT_doc_view",
-			            CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Online Python Reference"),
-			            ICON_NONE, ptr_props.data, WM_OP_EXEC_DEFAULT, 0);
 
 			/* XXX inactive option, not for public! */
 #if 0
-			WM_operator_properties_create(&ptr_props, "WM_OT_doc_edit");
+			ptr_props = uiItemFullO(layout, "WM_OT_doc_edit",
+			                            "Submit Description", ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, UI_ITEM_O_RETURN_PROPS);
 			RNA_string_set(&ptr_props, "doc_id", buf);
 			RNA_string_set(&ptr_props, "doc_new", RNA_property_description(but->rnaprop));
-
-			uiItemFullO(layout, "WM_OT_doc_edit",
-			            "Submit Description", ICON_NONE, ptr_props.data, WM_OP_INVOKE_DEFAULT, 0);
 #endif
 		}
 	}
@@ -7075,6 +7108,9 @@ static int ui_do_button(bContext *C, uiBlock *block, uiBut *but, const wmEvent *
 			break;
 		case UI_BTYPE_HOTKEY_EVENT:
 			retval = ui_do_but_HOTKEYEVT(C, but, data, event);
+			break;
+		case UI_BTYPE_TAB:
+			retval = ui_do_but_TAB(C, but, data, event);
 			break;
 		case UI_BTYPE_BUT_TOGGLE:
 		case UI_BTYPE_TOGGLE:
@@ -7719,7 +7755,8 @@ static void button_activate_state(bContext *C, uiBut *but, uiHandleButtonState s
 		if (ui_but_is_cursor_warp(but)) {
 
 #ifdef USE_CONT_MOUSE_CORRECT
-			if (data->ungrab_mval[0] != FLT_MAX) {
+			/* stereo3d has issues with changing cursor location so rather avoid */
+			if (data->ungrab_mval[0] != FLT_MAX && !WM_stereo3d_enabled(data->window, false)) {
 				int mouse_ungrab_xy[2];
 				ui_block_to_window_fl(data->region, but->block, &data->ungrab_mval[0], &data->ungrab_mval[1]);
 				mouse_ungrab_xy[0] = data->ungrab_mval[0];
@@ -10159,6 +10196,25 @@ void UI_popup_handlers_add(bContext *C, ListBase *handlers, uiPopupBlockHandle *
 
 void UI_popup_handlers_remove(ListBase *handlers, uiPopupBlockHandle *popup)
 {
+	wmEventHandler *handler;
+
+	for (handler = handlers->first; handler; handler = handler->next) {
+		if (handler->ui_handle == ui_popup_handler &&
+		    handler->ui_remove == ui_popup_handler_remove &&
+		    handler->ui_userdata == popup)
+		{
+			/* tag refresh parent popup */
+			if (handler->next && 
+				handler->next->ui_handle == ui_popup_handler && 
+				handler->next->ui_remove == ui_popup_handler_remove) 
+			{
+				uiPopupBlockHandle *parent_popup = handler->next->ui_userdata;
+				ED_region_tag_refresh_ui(parent_popup->region);
+			}
+			break;
+		}
+	}
+
 	WM_event_remove_ui_handler(handlers, ui_popup_handler, ui_popup_handler_remove, popup, false);
 }
 

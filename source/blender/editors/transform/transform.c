@@ -1717,9 +1717,10 @@ static void drawHelpline(bContext *UNUSED(C), int x, int y, void *customdata)
 
 		projectFloatViewEx(t, vecrot, cent, V3D_PROJ_TEST_CLIP_ZERO);
 
-		gpuMatrixBegin3D_legacy(); /* TODO(merwin): finish the 2D matrix API & use here */
+		gpuPushMatrix();
 
 		unsigned pos = add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
+		UNUSED_VARS(pos); /* silence warning */
 		BLI_assert(pos == POS_INDEX);
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
@@ -1824,7 +1825,7 @@ static void drawHelpline(bContext *UNUSED(C), int x, int y, void *customdata)
 		}
 
 		immUnbindProgram();
-		gpuMatrixEnd();
+		gpuPopMatrix();
 	}
 }
 
@@ -2191,7 +2192,14 @@ bool initTransform(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 	calculateCenter(t);
 
 	if (event) {
-		initMouseInput(t, &t->mouse, t->center2d, event->mval, event->shift);
+		/* Initialize accurate transform to settings requested by keymap. */
+		bool use_accurate = false;
+		if ((prop = RNA_struct_find_property(op->ptr, "use_accurate")) && RNA_property_is_set(op->ptr, prop)) {
+			if (RNA_property_boolean_get(op->ptr, prop)) {
+				use_accurate = true;
+			}
+		}
+		initMouseInput(t, &t->mouse, t->center2d, event->mval, use_accurate);
 	}
 
 	switch (mode) {
@@ -6841,8 +6849,7 @@ static void drawEdgeSlide(TransInfo *t)
 			glEnable(GL_BLEND);
 			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-			gpuMatrixBegin3D_legacy();
-
+			gpuPushMatrix();
 			gpuMultMatrix3D(t->obedit->obmat);
 
 			unsigned pos = add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
@@ -6930,7 +6937,7 @@ static void drawEdgeSlide(TransInfo *t)
 
 			immUnbindProgram();
 
-			gpuMatrixEnd();
+			gpuPopMatrix();
 
 			glDisable(GL_BLEND);
 
@@ -7454,8 +7461,7 @@ static void drawVertSlide(TransInfo *t)
 			glEnable(GL_BLEND);
 			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-			gpuMatrixBegin3D_legacy();
-
+			gpuPushMatrix();
 			gpuMultMatrix3D(t->obedit->obmat);
 
 			glLineWidth(line_size);
@@ -7534,7 +7540,7 @@ static void drawVertSlide(TransInfo *t)
 
 			immUnbindProgram();
 
-			gpuMatrixEnd();
+			gpuPopMatrix();
 
 			if (v3d && v3d->zbuf)
 				glEnable(GL_DEPTH_TEST);

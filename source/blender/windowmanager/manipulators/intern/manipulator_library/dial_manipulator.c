@@ -96,7 +96,7 @@ static void dial_geom_draw(
 	if (use_clipping) {
 		glEnable(GL_CLIP_DISTANCE0);
 		immUniform4fv("ClipPlane", clipping_plane);
-		immUniformMat4("ModelMatrix", mat);
+		immUniformMatrix4fv("ModelMatrix", mat);
 	}
 
 	if (filled) {
@@ -117,7 +117,6 @@ static void dial_ghostarc_draw_helpline(const float angle, const float co_outer[
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 	immUniformColor4fv(col);
 
-	gpuMatrixBegin3D_legacy();
 	gpuPushMatrix();
 	gpuRotateAxis(-RAD2DEGF(angle), 'Z');
 
@@ -127,7 +126,6 @@ static void dial_ghostarc_draw_helpline(const float angle, const float co_outer[
 	immEnd();
 
 	gpuPopMatrix();
-	gpuMatrixEnd();
 
 	immUnbindProgram();
 }
@@ -197,7 +195,7 @@ static void dial_draw_intern(const bContext *C, DialManipulator *dial, const boo
 	}
 
 	glPushMatrix();
-	glMultMatrixf(mat);
+	glMultMatrixf((float *)mat);
 
 	if (use_value_indicator) {
 		const float col_inner[] = {0.8f, 0.8f, 0.8f, 0.4f};

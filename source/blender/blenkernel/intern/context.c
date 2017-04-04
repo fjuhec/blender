@@ -39,6 +39,8 @@
 #include "DNA_linestyle_types.h"
 #include "DNA_gpencil_types.h"
 
+#include "DEG_depsgraph.h"
+
 #include "BLI_listbase.h"
 #include "BLI_string.h"
 #include "BLI_threads.h"
@@ -815,14 +817,6 @@ struct SpaceClip *CTX_wm_space_clip(const bContext *C)
 	return NULL;
 }
 
-struct SpaceCollections *CTX_wm_space_collections(const bContext *C)
-{
-	ScrArea *sa = CTX_wm_area(C);
-	if (sa && sa->spacetype == SPACE_COLLECTIONS)
-		return sa->spacedata.first;
-	return NULL;
-}
-
 void CTX_wm_manager_set(bContext *C, wmWindowManager *wm)
 {
 	C->wm.manager = wm;
@@ -914,7 +908,7 @@ SceneLayer *CTX_data_scene_layer(const bContext *C)
 		return sl;
 	}
 	else {
-		return BKE_scene_layer_active(CTX_data_scene(C));
+		return BKE_scene_layer_context_active(CTX_data_scene(C));
 	}
 }
 
@@ -1217,3 +1211,8 @@ int CTX_data_editable_gpencil_strokes(const bContext *C, ListBase *list)
 	return ctx_data_collection_get(C, "editable_gpencil_strokes", list);
 }
 
+Depsgraph *CTX_data_depsgraph(const bContext *C)
+{
+	Scene *scene = CTX_data_scene(C);
+	return scene->depsgraph;
+}

@@ -79,7 +79,6 @@ EnumPropertyItem rna_enum_space_type_items[] = {
 	{0, "", ICON_NONE, NULL, NULL},
 	{SPACE_BUTS, "PROPERTIES", ICON_BUTS, "Properties", "Edit properties of active object and related data-blocks"},
 	{SPACE_OUTLINER, "OUTLINER", ICON_OOPS, "Outliner", "Overview of scene graph and all available data-blocks"},
-	{SPACE_COLLECTIONS, "COLLECTION_MANAGER", ICON_COLLAPSEMENU, "Collections", "Edit collections of active render layer"},
 	{SPACE_USERPREF, "USER_PREFERENCES", ICON_PREFERENCES, "User Preferences", "Edit persistent configuration settings"},
 	{SPACE_INFO, "INFO", ICON_INFO, "Info", "Main menu bar and list of error messages (drag down to expand and display)"},
 	{0, "", ICON_NONE, NULL, NULL},
@@ -258,6 +257,7 @@ EnumPropertyItem rna_enum_file_sort_items[] = {
 #include "BKE_colortools.h"
 #include "BKE_context.h"
 #include "BKE_depsgraph.h"
+#include "BKE_layer.h"
 #include "BKE_nla.h"
 #include "BKE_paint.h"
 #include "BKE_scene.h"
@@ -319,8 +319,6 @@ static StructRNA *rna_Space_refine(struct PointerRNA *ptr)
 			return &RNA_SpaceUserPreferences;
 		case SPACE_CLIP:
 			return &RNA_SpaceClipEditor;
-		case SPACE_COLLECTIONS:
-			return &RNA_SpaceCollectionManager;
 		default:
 			return &RNA_Space;
 	}
@@ -824,7 +822,11 @@ static int rna_SpaceImageEditor_show_maskedit_get(PointerRNA *ptr)
 {
 	SpaceImage *sima = (SpaceImage *)(ptr->data);
 	bScreen *sc = (bScreen *)ptr->id.data;
-	return ED_space_image_check_show_maskedit(sc->scene, sima);
+
+	TODO_LAYER_CONTEXT; /* get SceneLayer from context/window/workspace instead */
+	SceneLayer *sl = BKE_scene_layer_context_active(sc->scene);
+
+	return ED_space_image_check_show_maskedit(sl, sima);
 }
 
 static void rna_SpaceImageEditor_image_set(PointerRNA *ptr, PointerRNA value)
@@ -2112,7 +2114,9 @@ static void rna_def_space_outliner(BlenderRNA *brna)
 		{SO_USERDEF, "USER_PREFERENCES", 0, "User Preferences", "Display user preference data"},
 		{SO_ID_ORPHANS, "ORPHAN_DATA", 0, "Orphan Data",
 		                "Display data-blocks which are unused and/or will be lost when the file is reloaded"},
-		{SO_COLLECTIONS, "COLLECTIONS", 0, "Collections", "Display the collections of the active render layer"},
+		{SO_ACT_LAYER, "ACT_LAYER", 0, "Active Render Layer", "Display the collections of the active render layer"},
+		{SO_COLLECTIONS, "MASTER_COLLECTION", 0, "Master Collection Tree", "Display all collections based on the "
+		                 "master collection hierarchy"},
 		{0, NULL, 0, NULL, NULL}
 	};
 	
@@ -4824,15 +4828,6 @@ static void rna_def_space_clip(BlenderRNA *brna)
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_CLIP, NULL);
 }
 
-static void rna_def_space_collections(BlenderRNA *brna)
-{
-	StructRNA *srna;
-
-	srna = RNA_def_struct(brna, "SpaceCollectionManager", "Space");
-	RNA_def_struct_sdna(srna, "SpaceCollections");
-	RNA_def_struct_ui_text(srna, "Space Collection Manager", "Layer Collection space data");
-}
-
 
 void RNA_def_space(BlenderRNA *brna)
 {
@@ -4859,7 +4854,6 @@ void RNA_def_space(BlenderRNA *brna)
 	rna_def_space_node(brna);
 	rna_def_space_logic(brna);
 	rna_def_space_clip(brna);
-	rna_def_space_collections(brna);
 }
 
 #endif

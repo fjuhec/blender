@@ -54,10 +54,12 @@ struct ID;
 struct FCurve;
 struct Group;
 struct Key;
+struct LayerCollection;
 struct Main;
 struct Mask;
 struct Material;
 struct MTex;
+struct ModifierData;
 struct MovieClip;
 struct bNodeTree;
 struct Object;
@@ -205,6 +207,7 @@ struct DepsgraphRelationBuilder
 	void build_world(World *world);
 	void build_rigidbody(Scene *scene);
 	void build_particles(Scene *scene, Object *ob);
+	void build_cloth(Scene *scene, Object *object, ModifierData *md);
 	void build_ik_pose(Object *ob,
 	                   bPoseChannel *pchan,
 	                   bConstraint *con,
@@ -231,6 +234,20 @@ struct DepsgraphRelationBuilder
 
 	void add_collision_relations(const OperationKey &key, Scene *scene, Object *ob, Group *group, int layer, bool dupli, const char *name);
 	void add_forcefield_relations(const OperationKey &key, Scene *scene, Object *ob, ParticleSystem *psys, EffectorWeights *eff, bool add_absorption, const char *name);
+
+	struct LayerCollectionState {
+		int index;
+		OperationKey init_key;
+		OperationKey done_key;
+		OperationKey prev_key;
+	};
+	void build_layer_collection(Scene *scene,
+	                            LayerCollection *layer_collection,
+	                            LayerCollectionState *state);
+	void build_layer_collections(Scene *scene,
+	                             ListBase *layer_collections,
+	                             LayerCollectionState *state);
+	void build_scene_layer_collections(Scene *scene);
 
 	template <typename KeyType>
 	OperationDepsNode *find_operation_node(const KeyType &key);

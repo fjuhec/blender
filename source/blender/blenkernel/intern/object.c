@@ -119,6 +119,8 @@
 #include "BKE_camera.h"
 #include "BKE_image.h"
 
+#include "DRW_engine.h"
+
 #ifdef WITH_MOD_FLUID
 #include "LBM_fluidsim.h"
 #endif
@@ -129,7 +131,7 @@
 
 #include "CCGSubSurf.h"
 
-#include "GPU_material.h"
+#include "GPU_lamp.h"
 
 /* Vertex parent modifies original BMesh which is not safe for threading.
  * Ideally such a modification should be handled as a separate DAG update
@@ -443,6 +445,8 @@ void BKE_object_free(Object *ob)
 	}
 	GPU_lamp_free(ob);
 
+	DRW_object_engine_data_free(ob);
+
 	BKE_sculptsession_free(ob);
 
 	BLI_freelistN(&ob->pc_ids);
@@ -460,10 +464,8 @@ void BKE_object_free(Object *ob)
 
 	BKE_previewimg_free(&ob->preview);
 
-	if (ob->collection_settings) {
-		BKE_layer_collection_engine_settings_free(ob->collection_settings);
-		MEM_freeN(ob->collection_settings);
-	}
+	/* don't free, let the base free it */
+	ob->base_collection_properties = NULL;
 }
 
 /* actual check for internal data, not context or flags */
@@ -695,6 +697,14 @@ Object *BKE_object_add(
 	ob->data = BKE_object_obdata_add_from_type(bmain, type, name);
 
 	lc = BKE_layer_collection_active(sl);
+
+	if (lc == NULL) {
+		BLI_assert(BLI_listbase_count_ex(&sl->layer_collections, 1) == 0);
+		/* when there is no collection linked to this SceneLayer, create one */
+		SceneCollection *sc = BKE_collection_add(scene, NULL, NULL);
+		lc = BKE_collection_link(sl, sc);
+	}
+
 	BKE_collection_object_add(scene, lc->scene_collection, ob);
 
 	base = BKE_scene_layer_base_find(sl, ob);
@@ -796,9 +806,9 @@ static LodLevel *lod_level_select(Object *ob, const float camera_position[3])
 	return current;
 }
 
-bool BKE_object_lod_is_usable(Object *ob, Scene *scene)
+bool BKE_object_lod_is_usable(Object *ob, SceneLayer *sl)
 {
-	bool active = (scene) ? ob == OBACT : false;
+	bool active = (sl) ? ob == OBACT_NEW : false;
 	return (ob->mode == OB_MODE_OBJECT || !active);
 }
 
@@ -812,11 +822,11 @@ void BKE_object_lod_update(Object *ob, const float camera_position[3])
 	}
 }
 
-static Object *lod_ob_get(Object *ob, Scene *scene, int flag)
+static Object *lod_ob_get(Object *ob, SceneLayer *sl, int flag)
 {
 	LodLevel *current = ob->currentlod;
 
-	if (!current || !BKE_object_lod_is_usable(ob, scene))
+	if (!current || !BKE_object_lod_is_usable(ob, sl))
 		return ob;
 
 	while (current->prev && (!(current->flags & flag) || !current->source || current->source->type != OB_MESH)) {
@@ -826,14 +836,14 @@ static Object *lod_ob_get(Object *ob, Scene *scene, int flag)
 	return current->source;
 }
 
-struct Object *BKE_object_lod_meshob_get(Object *ob, Scene *scene)
+struct Object *BKE_object_lod_meshob_get(Object *ob, SceneLayer *sl)
 {
-	return lod_ob_get(ob, scene, OB_LOD_USE_MESH);
+	return lod_ob_get(ob, sl, OB_LOD_USE_MESH);
 }
 
-struct Object *BKE_object_lod_matob_get(Object *ob, Scene *scene)
+struct Object *BKE_object_lod_matob_get(Object *ob, SceneLayer *sl)
 {
-	return lod_ob_get(ob, scene, OB_LOD_USE_MAT);
+	return lod_ob_get(ob, sl, OB_LOD_USE_MAT);
 }
 
 #endif  /* WITH_GAMEENGINE */
@@ -1171,6 +1181,7 @@ Object *BKE_object_copy_ex(Main *bmain, Object *ob, bool copy_caches)
 
 	BLI_listbase_clear(&obn->gpulamp);
 	BLI_listbase_clear(&obn->pc_ids);
+	BLI_listbase_clear(&obn->drawdata);
 
 	obn->mpath = NULL;
 
@@ -2244,66 +2255,6 @@ void BKE_boundbox_minmax(const BoundBox *bb, float obmat[4][4], float r_min[3], 
 	}
 }
 
-/**
- * Returns a BBox which each dimensions are at least epsilon.
- * \note In case a given dimension needs to be enlarged, its final value will be in [epsilon, 3 * epsilon] range.
- *
- * \param bb the input bbox to check.
- * \param bb_temp the temp bbox to modify (\a bb content is never changed).
- * \param epsilon the minimum dimension to ensure.
- * \return either bb (if nothing needed to be changed) or bb_temp.
- */
-BoundBox *BKE_boundbox_ensure_minimum_dimensions(BoundBox *bb, BoundBox *bb_temp, const float epsilon)
-{
-	if (fabsf(bb->vec[0][0] - bb->vec[4][0]) < epsilon) {
-		/* Flat along X axis... */
-		*bb_temp = *bb;
-		bb = bb_temp;
-		bb->vec[0][0] -= epsilon;
-		bb->vec[1][0] -= epsilon;
-		bb->vec[2][0] -= epsilon;
-		bb->vec[3][0] -= epsilon;
-		bb->vec[4][0] += epsilon;
-		bb->vec[5][0] += epsilon;
-		bb->vec[6][0] += epsilon;
-		bb->vec[7][0] += epsilon;
-	}
-
-	if (fabsf(bb->vec[0][1] - bb->vec[3][1]) < epsilon) {
-		/* Flat along Y axis... */
-		if (bb != bb_temp) {
-			*bb_temp = *bb;
-			bb = bb_temp;
-		}
-		bb->vec[0][1] -= epsilon;
-		bb->vec[1][1] -= epsilon;
-		bb->vec[4][1] -= epsilon;
-		bb->vec[5][1] -= epsilon;
-		bb->vec[2][1] += epsilon;
-		bb->vec[3][1] += epsilon;
-		bb->vec[6][1] += epsilon;
-		bb->vec[7][1] += epsilon;
-	}
-
-	if (fabsf(bb->vec[0][2] - bb->vec[1][2]) < epsilon) {
-		/* Flat along Z axis... */
-		if (bb != bb_temp) {
-			*bb_temp = *bb;
-			bb = bb_temp;
-		}
-		bb->vec[0][2] -= epsilon;
-		bb->vec[3][2] -= epsilon;
-		bb->vec[4][2] -= epsilon;
-		bb->vec[7][2] -= epsilon;
-		bb->vec[1][2] += epsilon;
-		bb->vec[2][2] += epsilon;
-		bb->vec[5][2] += epsilon;
-		bb->vec[6][2] += epsilon;
-	}
-
-	return bb;
-}
-
 BoundBox *BKE_object_boundbox_get(Object *ob)
 {
 	BoundBox *bb = NULL;
@@ -2547,14 +2498,14 @@ void BKE_object_foreach_display_point(
 }
 
 void BKE_scene_foreach_display_point(
-        Scene *scene, View3D *v3d, const short flag,
+        Scene *scene, SceneLayer *sl,
         void (*func_cb)(const float[3], void *), void *user_data)
 {
-	BaseLegacy *base;
+	Base *base;
 	Object *ob;
 
-	for (base = FIRSTBASE; base; base = base->next) {
-		if (BASE_VISIBLE_BGMODE(v3d, scene, base) && (base->flag_legacy & flag) == flag) {
+	for (base = FIRSTBASE_NEW; base; base = base->next) {
+		if (((base->flag & BASE_VISIBLED) != 0) && ((base->flag & BASE_SELECTED) != 0)) {
 			ob = base->object;
 
 			if ((ob->transflag & OB_DUPLI) == 0) {
@@ -3349,33 +3300,33 @@ static void obrel_list_add(LinkNode **links, Object *ob)
 }
 
 /*
- * Iterates over all objects of the given scene.
+ * Iterates over all objects of the given scene layer.
  * Depending on the eObjectSet flag:
  * collect either OB_SET_ALL, OB_SET_VISIBLE or OB_SET_SELECTED objects.
  * If OB_SET_VISIBLE or OB_SET_SELECTED are collected, 
  * then also add related objects according to the given includeFilters.
  */
-LinkNode *BKE_object_relational_superset(struct Scene *scene, eObjectSet objectSet, eObRelationTypes includeFilter)
+LinkNode *BKE_object_relational_superset(struct SceneLayer *scene_layer, eObjectSet objectSet, eObRelationTypes includeFilter)
 {
 	LinkNode *links = NULL;
 
-	BaseLegacy *base;
+	Base *base;
 
 	/* Remove markers from all objects */
-	for (base = scene->base.first; base; base = base->next) {
+	for (base = scene_layer->object_bases.first; base; base = base->next) {
 		base->object->id.tag &= ~LIB_TAG_DOIT;
 	}
 
 	/* iterate over all selected and visible objects */
-	for (base = scene->base.first; base; base = base->next) {
+	for (base = scene_layer->object_bases.first; base; base = base->next) {
 		if (objectSet == OB_SET_ALL) {
 			/* as we get all anyways just add it */
 			Object *ob = base->object;
 			obrel_list_add(&links, ob);
 		}
 		else {
-			if ((objectSet == OB_SET_SELECTED && TESTBASELIB_BGMODE(((View3D *)NULL), scene, base)) ||
-			    (objectSet == OB_SET_VISIBLE  && BASE_EDITABLE_BGMODE(((View3D *)NULL), scene, base)))
+			if ((objectSet == OB_SET_SELECTED && TESTBASELIB_BGMODE_NEW(base)) ||
+			    (objectSet == OB_SET_VISIBLE  && BASE_EDITABLE_BGMODE_NEW(base)))
 			{
 				Object *ob = base->object;
 
@@ -3403,9 +3354,9 @@ LinkNode *BKE_object_relational_superset(struct Scene *scene, eObjectSet objectS
 
 				/* child relationship */
 				if (includeFilter & (OB_REL_CHILDREN | OB_REL_CHILDREN_RECURSIVE)) {
-					BaseLegacy *local_base;
-					for (local_base = scene->base.first; local_base; local_base = local_base->next) {
-						if (BASE_EDITABLE_BGMODE(((View3D *)NULL), scene, local_base)) {
+					Base *local_base;
+					for (local_base = scene_layer->object_bases.first; local_base; local_base = local_base->next) {
+						if (BASE_EDITABLE_BGMODE_NEW(local_base)) {
 
 							Object *child = local_base->object;
 							if (obrel_list_test(child)) {

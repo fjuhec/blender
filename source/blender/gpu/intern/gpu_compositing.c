@@ -47,6 +47,7 @@
 #include "GPU_glew.h"
 #include "GPU_shader.h"
 #include "GPU_texture.h"
+#include "GPU_batch.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -193,7 +194,8 @@ struct GPUFX {
 	/* we have a stencil, restore the previous state */
 	bool restore_stencil;
 
-	unsigned int vbuffer;
+	Batch *quad_batch;
+	Batch *point_batch;
 };
 
 #if 0
@@ -269,12 +271,32 @@ GPUFX *GPU_fx_compositor_create(void)
 {
 	GPUFX *fx = MEM_callocN(sizeof(GPUFX), "GPUFX compositor");
 
-	glGenBuffers(1, &fx->vbuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, fx->vbuffer);
-	glBufferData(GL_ARRAY_BUFFER, 16 * sizeof(float), NULL, GL_STATIC_DRAW);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, 8 * sizeof(float), fullscreencos);
-	glBufferSubData(GL_ARRAY_BUFFER, 8 * sizeof(float), 8 * sizeof(float), fullscreenuvs);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	/* Quad buffer */
+	static VertexFormat format = {0};
+	static unsigned int pos, uvs;
+	if (format.attrib_ct == 0) {
+		pos = add_attrib(&format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+		uvs = add_attrib(&format, "uvs", GL_FLOAT, 2, KEEP_FLOAT);
+	}
+	VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
+	VertexBuffer_allocate_data(vbo, 4);
+	for (int i = 0; i < 4; ++i)	{
+		setAttrib(vbo, pos, i, fullscreencos[i]);
+		setAttrib(vbo, uvs, i, fullscreenuvs[i]);
+	}
+	fx->quad_batch = Batch_create(GL_TRIANGLE_STRIP, vbo, NULL);
+
+	/* Point Buffer */
+	static VertexFormat format_point = {0};
+	static unsigned int dummy_attrib;
+	if (format_point.attrib_ct == 0) {
+		dummy_attrib = add_attrib(&format_point, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+	}
+	float dummy[2] = {0.0f, 0.0f};
+	VertexBuffer *vbo_point = VertexBuffer_create_with_format(&format_point);
+	VertexBuffer_allocate_data(vbo_point, 1);
+	setAttrib(vbo_point, dummy_attrib, 0, &dummy);
+	fx->point_batch = Batch_create(GL_POINTS, vbo_point, NULL);
 
 	return fx;
 }
@@ -364,7 +386,8 @@ static void cleanup_fx_gl_data(GPUFX *fx, bool do_fbo)
 void GPU_fx_compositor_destroy(GPUFX *fx)
 {
 	cleanup_fx_gl_data(fx, true);
-	glDeleteBuffers(1, &fx->vbuffer);
+	Batch_discard_all(fx->quad_batch);
+	Batch_discard_all(fx->point_batch);
 	MEM_freeN(fx);
 }
 
@@ -702,19 +725,13 @@ void GPU_fx_compositor_XRay_resolve(GPUFX *fx)
 	/* disable writing to color buffer, it's depth only pass */
 	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
-	/* set up quad buffer */
-	glBindBuffer(GL_ARRAY_BUFFER, fx->vbuffer);
-	glVertexPointer(2, GL_FLOAT, 0, NULL);
-	glTexCoordPointer(2, GL_FLOAT, 0, ((GLubyte *)NULL + 8 * sizeof(float)));
-	glEnableClientState(GL_VERTEX_ARRAY);
-	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-
 	depth_resolve_shader = GPU_shader_get_builtin_fx_shader(GPU_SHADER_FX_DEPTH_RESOLVE, false);
 
 	if (depth_resolve_shader) {
-		GPUDepthResolveInterface *interface = GPU_shader_get_interface(depth_resolve_shader);
+		GPUDepthResolveInterface *interface = GPU_fx_shader_get_interface(depth_resolve_shader);
 
-		GPU_shader_bind(depth_resolve_shader);
+		/* set up quad buffer */
+		Batch_set_program(fx->quad_batch, GPU_shader_get_program(depth_resolve_shader));
 
 		GPU_texture_bind(fx->depth_buffer_xray, 0);
 		GPU_texture_compare_mode(fx->depth_buffer_xray, false);
@@ -722,7 +739,7 @@ void GPU_fx_compositor_XRay_resolve(GPUFX *fx)
 		GPU_shader_uniform_texture(depth_resolve_shader, interface->depth_uniform, fx->depth_buffer_xray);
 
 		/* draw */
-		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+		Batch_draw(fx->quad_batch);
 
 		/* disable bindings */
 		GPU_texture_compare_mode(fx->depth_buffer_xray, true);
@@ -733,10 +750,6 @@ void GPU_fx_compositor_XRay_resolve(GPUFX *fx)
 	}
 
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glDisableClientState(GL_VERTEX_ARRAY);
-	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 
 	glPopAttrib();
 }
@@ -774,13 +787,6 @@ bool GPU_fx_do_composite_pass(
 	src = fx->color_buffer;
 	target = fx->color_buffer_sec;
 
-	/* set up quad buffer */
-	glBindBuffer(GL_ARRAY_BUFFER, fx->vbuffer);
-	glVertexPointer(2, GL_FLOAT, 0, NULL);
-	glTexCoordPointer(2, GL_FLOAT, 0, ((GLubyte *)NULL + 8 * sizeof(float)));
-	glEnableClientState(GL_VERTEX_ARRAY);
-	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-
 	/* full screen FX pass */
 
 	/* invert the view matrix */
@@ -808,8 +814,6 @@ bool GPU_fx_do_composite_pass(
 		viewvecs[1][2] = vec_far[2] - viewvecs[0][2];
 	}
 
-	/* set invalid color in case shader fails */
-	glColor3f(1.0, 0.0, 1.0);
 	glDisable(GL_DEPTH_TEST);
 
 	/* ssao pass */
@@ -828,9 +832,9 @@ bool GPU_fx_do_composite_pass(
 
 			ssao_params[3] = (passes_left == 1 && !ofs) ? dfdyfac[0] : dfdyfac[1];
 
-			GPUSSAOShaderInterface *interface = GPU_shader_get_interface(ssao_shader);
+			GPUSSAOShaderInterface *interface = GPU_fx_shader_get_interface(ssao_shader);
 
-			GPU_shader_bind(ssao_shader);
+			Batch_set_program(fx->quad_batch, GPU_shader_get_program(ssao_shader));
 
 			GPU_shader_uniform_vector(ssao_shader, interface->ssao_uniform, 4, 1, ssao_params);
 			GPU_shader_uniform_vector(ssao_shader, interface->ssao_color_uniform, 4, 1, fx_ssao->color);
@@ -854,7 +858,7 @@ bool GPU_fx_do_composite_pass(
 			/* draw */
 			gpu_fx_bind_render_target(&passes_left, fx, ofs, target);
 
-			glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+			Batch_draw(fx->quad_batch);
 
 			/* disable bindings */
 			GPU_texture_unbind(src);
@@ -912,11 +916,8 @@ bool GPU_fx_do_composite_pass(
 			if (!(dof_shader_pass1 && dof_shader_pass2 && dof_shader_pass3)) {
 				GPU_framebuffer_texture_unbind(fx->gbuffer, NULL);
 				GPU_framebuffer_restore();
-				glDisableClientState(GL_VERTEX_ARRAY);
-				glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 
 				GPU_shader_unbind();
-				glBindBuffer(GL_ARRAY_BUFFER, 0);
 				return false;
 			}
 
@@ -924,9 +925,9 @@ bool GPU_fx_do_composite_pass(
 			{
 				float invrendertargetdim[2] = {1.0f / fx->dof_downsampled_w, 1.0f / fx->dof_downsampled_h};
 
-				GPUDOFHQPassOneInterface *interface = GPU_shader_get_interface(dof_shader_pass1);
+				GPUDOFHQPassOneInterface *interface = GPU_fx_shader_get_interface(dof_shader_pass1);
 
-				GPU_shader_bind(dof_shader_pass1);
+				Batch_set_program(fx->quad_batch, GPU_shader_get_program(dof_shader_pass1));
 
 				GPU_shader_uniform_vector(dof_shader_pass1, interface->dof_uniform, 4, 1, dof_params);
 				GPU_shader_uniform_vector(dof_shader_pass1, interface->invrendertargetdim_uniform, 2, 1, invrendertargetdim);
@@ -953,7 +954,8 @@ bool GPU_fx_do_composite_pass(
 
 				GPU_framebuffer_check_valid(fx->gbuffer, NULL);
 
-				glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+				Batch_draw(fx->quad_batch);
+
 				/* disable bindings */
 				GPU_texture_filter_mode(src, true);
 				GPU_texture_unbind(src);
@@ -975,19 +977,18 @@ bool GPU_fx_do_composite_pass(
 				int rendertargetdim[2] = {fx->dof_downsampled_w, fx->dof_downsampled_h};
 				float selection[2] = {0.0f, 1.0f};
 
-				GPUDOFHQPassTwoInterface *interface = GPU_shader_get_interface(dof_shader_pass2);
+				GPUDOFHQPassTwoInterface *interface = GPU_fx_shader_get_interface(dof_shader_pass2);
 
-				GPU_shader_bind(dof_shader_pass2);
+				Batch_set_program(fx->point_batch, GPU_shader_get_program(dof_shader_pass2));
+
+				GPU_texture_bind(fx->dof_nearfar_coc, numslots++);
+				GPU_texture_bind(fx->dof_half_downsampled_far, numslots++);
+				GPU_texture_bind(fx->dof_half_downsampled_near, numslots++);
 
 				GPU_shader_uniform_vector(dof_shader_pass2, interface->dof_uniform, 4, 1, dof_params);
 				GPU_shader_uniform_vector_int(dof_shader_pass2, interface->rendertargetdim_uniform, 2, 1, rendertargetdim);
 				GPU_shader_uniform_vector(dof_shader_pass2, interface->select_uniform, 2, 1, selection);
-
-				GPU_texture_bind(fx->dof_nearfar_coc, numslots++);
 				GPU_shader_uniform_texture(dof_shader_pass2, interface->coc_uniform, fx->dof_nearfar_coc);
-
-				GPU_texture_bind(fx->dof_half_downsampled_far, numslots++);
-				GPU_texture_bind(fx->dof_half_downsampled_near, numslots++);
 				GPU_shader_uniform_texture(dof_shader_pass2, interface->color_uniform, fx->dof_half_downsampled_far);
 				GPU_texture_filter_mode(fx->dof_half_downsampled_far, false);
 
@@ -1003,24 +1004,24 @@ bool GPU_fx_do_composite_pass(
 				glClearColor(0.0, 0.0, 0.0, 0.0);
 				glClear(GL_COLOR_BUFFER_BIT);
 				/* the draw call we all waited for, draw a point per pixel, scaled per circle of confusion */
-				glDrawArraysInstancedARB(GL_POINTS, 0, 1, fx->dof_downsampled_w * fx->dof_downsampled_h);
+				Batch_draw_stupid_instanced(fx->point_batch, 0, fx->dof_downsampled_w * fx->dof_downsampled_h, 0, 0, NULL, NULL);
 
 				GPU_texture_unbind(fx->dof_half_downsampled_far);
 				GPU_framebuffer_texture_detach(fx->dof_far_blur);
-
-				GPU_shader_uniform_texture(dof_shader_pass2, interface->color_uniform, fx->dof_half_downsampled_near);
-				GPU_texture_filter_mode(fx->dof_half_downsampled_near, false);
 
 				selection[0] = 1.0f;
 				selection[1] = 0.0f;
 
 				GPU_shader_uniform_vector(dof_shader_pass2, interface->select_uniform, 2, 1, selection);
+				GPU_shader_uniform_texture(dof_shader_pass2, interface->color_uniform, fx->dof_half_downsampled_near);
+				GPU_texture_filter_mode(fx->dof_half_downsampled_near, false);
 
 				GPU_framebuffer_texture_attach(fx->gbuffer, fx->dof_near_blur, 0);
 				/* have to clear the buffer unfortunately */
 				glClear(GL_COLOR_BUFFER_BIT);
 				/* the draw call we all waited for, draw a point per pixel, scaled per circle of confusion */
-				glDrawArraysInstancedARB(GL_POINTS, 0, 1, fx->dof_downsampled_w * fx->dof_downsampled_h);
+				Batch_draw_stupid_instanced(fx->point_batch, 0, fx->dof_downsampled_w * fx->dof_downsampled_h, 0, 0, NULL, NULL);
+				Batch_done_using_program(fx->point_batch);
 
 				/* disable bindings */
 				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -1032,15 +1033,16 @@ bool GPU_fx_do_composite_pass(
 				GPU_texture_unbind(fx->dof_nearfar_coc);
 
 				GPU_framebuffer_texture_unbind(fx->gbuffer, fx->dof_far_blur);
+				numslots = 0;
 			}
 
 			/* third pass, accumulate the near/far blur fields */
 			{
 				float invrendertargetdim[2] = {1.0f / fx->dof_downsampled_w, 1.0f / fx->dof_downsampled_h};
 
-				GPUDOFHQPassThreeInterface *interface = GPU_shader_get_interface(dof_shader_pass3);
+				GPUDOFHQPassThreeInterface *interface = GPU_fx_shader_get_interface(dof_shader_pass3);
 
-				GPU_shader_bind(dof_shader_pass3);
+				Batch_set_program(fx->quad_batch, GPU_shader_get_program(dof_shader_pass3));
 
 				GPU_shader_uniform_vector(dof_shader_pass3, interface->dof_uniform, 4, 1, dof_params);
 
@@ -1066,7 +1068,7 @@ bool GPU_fx_do_composite_pass(
 				/* if this is the last pass, prepare for rendering on the frambuffer */
 				gpu_fx_bind_render_target(&passes_left, fx, ofs, target);
 
-				glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+				Batch_draw(fx->quad_batch);
 
 				/* disable bindings */
 				GPU_texture_unbind(fx->dof_near_blur);
@@ -1108,11 +1110,8 @@ bool GPU_fx_do_composite_pass(
 			if (!(dof_shader_pass1 && dof_shader_pass2 && dof_shader_pass3 && dof_shader_pass4 && dof_shader_pass5)) {
 				GPU_framebuffer_texture_unbind(fx->gbuffer, NULL);
 				GPU_framebuffer_restore();
-				glDisableClientState(GL_VERTEX_ARRAY);
-				glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 
 				GPU_shader_unbind();
-				glBindBuffer(GL_ARRAY_BUFFER, 0);
 				return false;
 			}
 
@@ -1120,9 +1119,9 @@ bool GPU_fx_do_composite_pass(
 			{
 				float invrendertargetdim[2] = {1.0f / fx->gbuffer_dim[0], 1.0f / fx->gbuffer_dim[1]};
 
-				GPUDOFPassOneInterface *interface = GPU_shader_get_interface(dof_shader_pass1);
+				GPUDOFPassOneInterface *interface = GPU_fx_shader_get_interface(dof_shader_pass1);
 
-				GPU_shader_bind(dof_shader_pass1);
+				Batch_set_program(fx->quad_batch, GPU_shader_get_program(dof_shader_pass1));
 
 				GPU_shader_uniform_vector(dof_shader_pass1, interface->dof_uniform, 4, 1, dof_params);
 				GPU_shader_uniform_vector(dof_shader_pass1, interface->invrendertargetdim_uniform, 2, 1, invrendertargetdim);
@@ -1141,7 +1140,7 @@ bool GPU_fx_do_composite_pass(
 				/* binding takes care of setting the viewport to the downsampled size */
 				GPU_texture_bind_as_framebuffer(fx->dof_near_coc_buffer);
 
-				glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+				Batch_draw(fx->quad_batch);
 				/* disable bindings */
 				GPU_texture_unbind(src);
 				GPU_texture_compare_mode(fx->depth_buffer, true);
@@ -1159,12 +1158,12 @@ bool GPU_fx_do_composite_pass(
 				float tmp = invrendertargetdim[0];
 				invrendertargetdim[0] = 0.0f;
 
-				GPUDOFPassTwoInterface *interface = GPU_shader_get_interface(dof_shader_pass2);
+				GPUDOFPassTwoInterface *interface = GPU_fx_shader_get_interface(dof_shader_pass2);
 
 				dof_params[2] = GPU_texture_width(fx->dof_near_coc_blurred_buffer) / (scale_camera * fx_dof->sensor);
 
 				/* Blurring vertically */
-				GPU_shader_bind(dof_shader_pass2);
+				Batch_set_program(fx->quad_batch, GPU_shader_get_program(dof_shader_pass2));
 
 				GPU_shader_uniform_vector(dof_shader_pass2, interface->dof_uniform, 4, 1, dof_params);
 				GPU_shader_uniform_vector(dof_shader_pass2, interface->invrendertargetdim_uniform, 2, 1, invrendertargetdim);
@@ -1182,10 +1181,14 @@ bool GPU_fx_do_composite_pass(
 				GPU_framebuffer_texture_attach(fx->gbuffer, fx->dof_near_coc_final_buffer, 0);
 
 				/* Drawing quad */
-				glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+				Batch_draw(fx->quad_batch);
+
+				/* Rebind Shader */
+				Batch_set_program(fx->quad_batch, GPU_shader_get_program(dof_shader_pass2));
 
 				/* *unbind/detach */
 				GPU_texture_unbind(fx->dof_near_coc_buffer);
+
 				GPU_framebuffer_texture_detach(fx->dof_near_coc_final_buffer);
 
 				/* Blurring horizontally */
@@ -1197,7 +1200,8 @@ bool GPU_fx_do_composite_pass(
 				GPU_shader_uniform_texture(dof_shader_pass2, interface->color_uniform, fx->dof_near_coc_final_buffer);
 
 				GPU_framebuffer_texture_attach(fx->gbuffer, fx->dof_near_coc_blurred_buffer, 0);
-				glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+				Batch_draw(fx->quad_batch);
 
 				/* *unbind/detach */
 				GPU_texture_compare_mode(fx->depth_buffer, true);
@@ -1214,9 +1218,9 @@ bool GPU_fx_do_composite_pass(
 
 			/* third pass, calculate near coc */
 			{
-				GPUDOFPassThreeInterface *interface = GPU_shader_get_interface(dof_shader_pass3);
+				GPUDOFPassThreeInterface *interface = GPU_fx_shader_get_interface(dof_shader_pass3);
 
-				GPU_shader_bind(dof_shader_pass3);
+				Batch_set_program(fx->quad_batch, GPU_shader_get_program(dof_shader_pass3));
 
 				GPU_texture_bind(fx->dof_near_coc_buffer, numslots++);
 				GPU_shader_uniform_texture(dof_shader_pass3, interface->near_coc_downsampled, fx->dof_near_coc_buffer);
@@ -1226,7 +1230,7 @@ bool GPU_fx_do_composite_pass(
 
 				GPU_framebuffer_texture_attach(fx->gbuffer, fx->dof_near_coc_final_buffer, 0);
 
-				glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+				Batch_draw(fx->quad_batch);
 				/* disable bindings */
 				GPU_texture_unbind(fx->dof_near_coc_buffer);
 				GPU_texture_unbind(fx->dof_near_coc_blurred_buffer);
@@ -1242,9 +1246,9 @@ bool GPU_fx_do_composite_pass(
 				float invrendertargetdim[2] = {1.0f / GPU_texture_width(fx->dof_near_coc_blurred_buffer),
 				                               1.0f / GPU_texture_height(fx->dof_near_coc_blurred_buffer)};
 
-				GPUDOFPassFourInterface *interface = GPU_shader_get_interface(dof_shader_pass4);
+				GPUDOFPassFourInterface *interface = GPU_fx_shader_get_interface(dof_shader_pass4);
 
-				GPU_shader_bind(dof_shader_pass4);
+				Batch_set_program(fx->quad_batch, GPU_shader_get_program(dof_shader_pass4));
 
 				GPU_texture_bind(fx->dof_near_coc_final_buffer, numslots++);
 				GPU_shader_uniform_texture(dof_shader_pass4, interface->near_coc_downsampled, fx->dof_near_coc_final_buffer);
@@ -1252,7 +1256,7 @@ bool GPU_fx_do_composite_pass(
 
 				GPU_framebuffer_texture_attach(fx->gbuffer, fx->dof_near_coc_buffer, 0);
 
-				glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+				Batch_draw(fx->quad_batch);
 				/* disable bindings */
 				GPU_texture_unbind(fx->dof_near_coc_final_buffer);
 
@@ -1267,9 +1271,9 @@ bool GPU_fx_do_composite_pass(
 			{
 				float invrendertargetdim[2] = {1.0f / fx->gbuffer_dim[0], 1.0f / fx->gbuffer_dim[1]};
 
-				GPUDOFPassFiveInterface *interface = GPU_shader_get_interface(dof_shader_pass5);
+				GPUDOFPassFiveInterface *interface = GPU_fx_shader_get_interface(dof_shader_pass5);
 
-				GPU_shader_bind(dof_shader_pass5);
+				Batch_set_program(fx->quad_batch, GPU_shader_get_program(dof_shader_pass5));
 
 				GPU_shader_uniform_vector(dof_shader_pass5, interface->dof_uniform, 4, 1, dof_params);
 				GPU_shader_uniform_vector(dof_shader_pass5, interface->invrendertargetdim_uniform, 2, 1, invrendertargetdim);
@@ -1292,7 +1296,7 @@ bool GPU_fx_do_composite_pass(
 				/* if this is the last pass, prepare for rendering on the frambuffer */
 				gpu_fx_bind_render_target(&passes_left, fx, ofs, target);
 
-				glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+				Batch_draw(fx->quad_batch);
 				/* disable bindings */
 				GPU_texture_unbind(fx->dof_near_coc_buffer);
 				GPU_texture_unbind(fx->dof_near_coc_blurred_buffer);
@@ -1317,10 +1321,6 @@ bool GPU_fx_do_composite_pass(
 			}
 		}
 	}
-
-	glDisableClientState(GL_VERTEX_ARRAY);
-	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	GPU_shader_unbind();
 
@@ -1363,7 +1363,7 @@ void GPU_fx_shader_init_interface(struct GPUShader *shader, GPUFXShaderEffect ef
 			interface->ssao_concentric_tex = GPU_shader_get_uniform(shader, "ssao_concentric_tex");
 			interface->ssao_jitter_uniform = GPU_shader_get_uniform(shader, "jitter_tex");
 
-			GPU_shader_set_interface(shader, interface);
+			GPU_fx_shader_set_interface(shader, interface);
 			break;
 		}
 
@@ -1377,7 +1377,7 @@ void GPU_fx_shader_init_interface(struct GPUShader *shader, GPUFXShaderEffect ef
 			interface->depth_uniform = GPU_shader_get_uniform(shader, "depthbuffer");
 			interface->viewvecs_uniform = GPU_shader_get_uniform(shader, "viewvecs");
 
-			GPU_shader_set_interface(shader, interface);
+			GPU_fx_shader_set_interface(shader, interface);
 			break;
 		}
 
@@ -1391,7 +1391,7 @@ void GPU_fx_shader_init_interface(struct GPUShader *shader, GPUFXShaderEffect ef
 			interface->select_uniform = GPU_shader_get_uniform(shader, "layerselection");
 			interface->dof_uniform = GPU_shader_get_uniform(shader, "dof_params");
 
-			GPU_shader_set_interface(shader, interface);
+			GPU_fx_shader_set_interface(shader, interface);
 			break;
 		}
 
@@ -1407,7 +1407,7 @@ void GPU_fx_shader_init_interface(struct GPUShader *shader, GPUFXShaderEffect ef
 			interface->viewvecs_uniform = GPU_shader_get_uniform(shader, "viewvecs");
 			interface->depth_uniform = GPU_shader_get_uniform(shader, "depthbuffer");
 
-			GPU_shader_set_interface(shader, interface);
+			GPU_fx_shader_set_interface(shader, interface);
 			break;
 		}
 
@@ -1421,7 +1421,7 @@ void GPU_fx_shader_init_interface(struct GPUShader *shader, GPUFXShaderEffect ef
 			interface->depth_uniform = GPU_shader_get_uniform(shader, "depthbuffer");
 			interface->viewvecs_uniform = GPU_shader_get_uniform(shader, "viewvecs");
 
-			GPU_shader_set_interface(shader, interface);
+			GPU_fx_shader_set_interface(shader, interface);
 			break;
 		}
 		case GPU_SHADER_FX_DEPTH_OF_FIELD_PASS_TWO:
@@ -1434,7 +1434,7 @@ void GPU_fx_shader_init_interface(struct GPUShader *shader, GPUFXShaderEffect ef
 			interface->depth_uniform = GPU_shader_get_uniform(shader, "depthbuffer");
 			interface->viewvecs_uniform = GPU_shader_get_uniform(shader, "viewvecs");
 
-			GPU_shader_set_interface(shader, interface);
+			GPU_fx_shader_set_interface(shader, interface);
 			break;
 		}
 		case GPU_SHADER_FX_DEPTH_OF_FIELD_PASS_THREE:
@@ -1444,7 +1444,7 @@ void GPU_fx_shader_init_interface(struct GPUShader *shader, GPUFXShaderEffect ef
 			interface->near_coc_downsampled = GPU_shader_get_uniform(shader, "colorbuffer");
 			interface->near_coc_blurred = GPU_shader_get_uniform(shader, "blurredcolorbuffer");
 
-			GPU_shader_set_interface(shader, interface);
+			GPU_fx_shader_set_interface(shader, interface);
 			break;
 		}
 		case GPU_SHADER_FX_DEPTH_OF_FIELD_PASS_FOUR:
@@ -1454,7 +1454,7 @@ void GPU_fx_shader_init_interface(struct GPUShader *shader, GPUFXShaderEffect ef
 			interface->near_coc_downsampled = GPU_shader_get_uniform(shader, "colorbuffer");
 			interface->invrendertargetdim_uniform = GPU_shader_get_uniform(shader, "invrendertargetdim");
 
-			GPU_shader_set_interface(shader, interface);
+			GPU_fx_shader_set_interface(shader, interface);
 			break;
 		}
 		case GPU_SHADER_FX_DEPTH_OF_FIELD_PASS_FIVE:
@@ -1469,7 +1469,7 @@ void GPU_fx_shader_init_interface(struct GPUShader *shader, GPUFXShaderEffect ef
 			interface->depth_uniform = GPU_shader_get_uniform(shader, "depthbuffer");
 			interface->viewvecs_uniform = GPU_shader_get_uniform(shader, "viewvecs");
 
-			GPU_shader_set_interface(shader, interface);
+			GPU_fx_shader_set_interface(shader, interface);
 			break;
 		}
 
@@ -1479,7 +1479,7 @@ void GPU_fx_shader_init_interface(struct GPUShader *shader, GPUFXShaderEffect ef
 
 			interface->depth_uniform = GPU_shader_get_uniform(shader, "depthbuffer");
 
-			GPU_shader_set_interface(shader, interface);
+			GPU_fx_shader_set_interface(shader, interface);
 			break;
 		}
 

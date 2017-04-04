@@ -64,6 +64,8 @@
 #include "BIF_gl.h"
 #include "BIF_glutil.h"
 
+#include "GPU_matrix.h"
+
 #include "DNA_scene_types.h"
 #include "ED_datafiles.h" /* for fonts */
 #include "GHOST_C-api.h"
@@ -190,10 +192,7 @@ static void playanim_window_get_size(int *r_width, int *r_height)
 static void playanim_gl_matrix(void)
 {
 	/* unified matrix, note it affects offset for drawing */
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glOrtho(0.0f, 1.0f, 0.0f, 1.0f, -1.0f, 1.0f);
-	glMatrixMode(GL_MODELVIEW);
+	gpuOrtho2D(0.0f, 1.0f, 0.0f, 1.0f);
 }
 
 /* implementation */
@@ -318,7 +317,7 @@ static void playanim_toscreen(PlayState *ps, PlayAnimPict *picture, struct ImBuf
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-		fdrawcheckerboard(offs_x, offs_y, offs_x + span_x, offs_y + span_y);
+		imm_draw_checker_box(offs_x, offs_y, offs_x + span_x, offs_y + span_y);
 	}
 
 	glRasterPos2f(offs_x + (ps->draw_flip[0] ? span_x : 0.0f),
@@ -354,12 +353,12 @@ static void playanim_toscreen(PlayState *ps, PlayAnimPict *picture, struct ImBuf
 		float fac = ps->picture->frame / (double)(((PlayAnimPict *)picsbase.last)->frame - ((PlayAnimPict *)picsbase.first)->frame);
 
 		fac = 2.0f * fac - 1.0f;
-		glMatrixMode(GL_PROJECTION);
-		glPushMatrix();
-		glLoadIdentity();
+		glMatrixMode(GL_PROJECTION); /* TODO: convert this nasty code */
+		gpuPushMatrix();
+		gpuLoadIdentity();
 		glMatrixMode(GL_MODELVIEW);
-		glPushMatrix();
-		glLoadIdentity();
+		gpuPushMatrix();
+		gpuLoadIdentity();
 
 		glColor4f(0.0f, 1.0f, 0.0f, 1.0f);
 
@@ -368,9 +367,9 @@ static void playanim_toscreen(PlayState *ps, PlayAnimPict *picture, struct ImBuf
 		glVertex2f(fac, 1.0f);
 		glEnd();
 
-		glPopMatrix();
+		gpuPopMatrix();
 		glMatrixMode(GL_PROJECTION);
-		glPopMatrix();
+		gpuPopMatrix();
 		glMatrixMode(GL_MODELVIEW);
 	}
 

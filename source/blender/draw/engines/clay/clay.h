@@ -23,14 +23,13 @@
  *  \ingroup DNA
  */
 
-#ifndef __ENGINE_CLAY_H__
-#define __ENGINE_CLAY_H__
+#ifndef __CLAY_H__
+#define __CLAY_H__
 
 extern RenderEngineType viewport_clay_type;
 
-struct RenderEngineSettings *CLAY_render_settings_create(void);
-struct MaterialEngineSettings *CLAY_material_settings_create(void);
+struct IDProperty;
 
-void clay_engine_free(void);
+struct IDProperty *CLAY_render_settings_create(void);
 
-#endif /* __ENGINE_CLAY_H__ */
+#endif /* __CLAY_H__ */

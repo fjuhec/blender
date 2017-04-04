@@ -56,8 +56,10 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
-#include "BIF_gl.h"
 #include "BIF_glutil.h"
+
+#include "GPU_immediate.h"
+#include "GPU_matrix.h"
 
 #include "UI_interface.h"
 #include "UI_interface_icons.h"
@@ -348,19 +350,24 @@ static void draw_marker(
 	if (flag & DRAW_MARKERS_LINES)
 #endif
 	{
+		unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
+		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 		setlinestyle(3);
 		
-		if (marker->flag & SELECT)
-			glColor4ub(255, 255, 255, 96);
-		else
-			glColor4ub(0, 0, 0, 96);
-		
-		glBegin(GL_LINES);
-		glVertex2f(xpos + 0.5f, 12.0f);
-		glVertex2f(xpos + 0.5f, (v2d->cur.ymax + 12.0f) * yscale);
-		glEnd();
-		
+		if (marker->flag & SELECT) {
+			immUniformColor4ub(255, 255, 255, 96);
+		}
+		else {
+			immUniformColor4ub(0, 0, 0, 96);
+		}
+
+		immBegin(GL_LINES, 2);
+		immVertex2f(pos, xpos + 0.5f, 12.0f);
+		immVertex2f(pos, xpos + 0.5f, (v2d->cur.ymax + 12.0f) * yscale);
+		immEnd();
 		setlinestyle(0);
+
+		immUnbindProgram();
 	}
 	
 	/* 5 px to offset icon to align properly, space / pixels corrects for zoom */
@@ -438,21 +445,27 @@ void ED_markers_draw(const bContext *C, int flag)
 	v2d = UI_view2d_fromcontext(C);
 
 	if (flag & DRAW_MARKERS_MARGIN) {
+		unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
+		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+
 		const unsigned char shade[4] = {0, 0, 0, 16};
-		glColor4ubv(shade);
+		immUniformColor4ubv(shade);
 
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-		glRectf(v2d->cur.xmin, 0, v2d->cur.xmax, UI_MARKER_MARGIN_Y);
+		immRectf(pos, v2d->cur.xmin, 0, v2d->cur.xmax, UI_MARKER_MARGIN_Y);
 
 		glDisable(GL_BLEND);
+
+		immUnbindProgram();
 	}
 
 	/* no time correction for framelen! space is drawn with old values */
 	ypixels = BLI_rcti_size_y(&v2d->mask);
 	UI_view2d_scale_get(v2d, &xscale, &yscale);
-	glScalef(1.0f / xscale, 1.0f, 1.0f);
+	gpuPushMatrix();
+	gpuScale2f(1.0f / xscale, 1.0f);
 
 	/* x-bounds with offset for text (adjust for long string, avoid checking string width) */
 	font_width_max = (10 * UI_DPI_FAC) / xscale;
@@ -475,7 +488,7 @@ void ED_markers_draw(const bContext *C, int flag)
 		}
 	}
 
-	glScalef(xscale, 1.0f, 1.0f);
+	gpuPopMatrix();
 }
 
 /* ************************ Marker Wrappers API ********************* */

@@ -38,10 +38,10 @@ extern "C" {
 struct BaseLegacy;
 struct EvaluationContext;
 struct Scene;
+struct SceneLayer;
 struct Object;
 struct BoundBox;
 struct View3D;
-struct SceneLayer;
 struct SoftBody;
 struct BulletSoftBody;
 struct MovieClip;
@@ -102,9 +102,9 @@ void BKE_object_lod_add(struct Object *ob);
 void BKE_object_lod_sort(struct Object *ob);
 bool BKE_object_lod_remove(struct Object *ob, int level);
 void BKE_object_lod_update(struct Object *ob, const float camera_position[3]);
-bool BKE_object_lod_is_usable(struct Object *ob, struct Scene *scene);
-struct Object *BKE_object_lod_meshob_get(struct Object *ob, struct Scene *scene);
-struct Object *BKE_object_lod_matob_get(struct Object *ob, struct Scene *scene);
+bool BKE_object_lod_is_usable(struct Object *ob, struct SceneLayer *sl);
+struct Object *BKE_object_lod_meshob_get(struct Object *ob, struct SceneLayer *sl);
+struct Object *BKE_object_lod_matob_get(struct Object *ob, struct SceneLayer *sl);
 
 struct Object *BKE_object_copy_ex(struct Main *bmain, struct Object *ob, bool copy_caches);
 struct Object *BKE_object_copy(struct Main *bmain, struct Object *ob);
@@ -140,8 +140,6 @@ void BKE_boundbox_init_from_minmax(struct BoundBox *bb, const float min[3], cons
 void BKE_boundbox_calc_center_aabb(const struct BoundBox *bb, float r_cent[3]);
 void BKE_boundbox_calc_size_aabb(const struct BoundBox *bb, float r_size[3]);
 void BKE_boundbox_minmax(const struct BoundBox *bb, float obmat[4][4], float r_min[3], float r_max[3]);
-struct BoundBox *BKE_boundbox_ensure_minimum_dimensions(
-        struct BoundBox *bb, struct BoundBox *bb_temp, const float epsilon);
 
 struct BoundBox *BKE_object_boundbox_get(struct Object *ob);
 void BKE_object_dimensions_get(struct Object *ob, float vec[3]);
@@ -155,8 +153,7 @@ bool BKE_object_minmax_dupli(struct Scene *scene, struct Object *ob, float r_min
 void BKE_object_foreach_display_point(struct Object *ob, float obmat[4][4],
                                       void (*func_cb)(const float[3], void *), void *user_data);
 void BKE_scene_foreach_display_point(struct Scene *scene,
-                                     struct View3D *v3d,
-                                     const short flag,
+                                     struct SceneLayer *sl,
                                      void (*func_cb)(const float[3], void *), void *user_data);
 
 bool BKE_object_parent_loop_check(const struct Object *parent, const struct Object *ob);
@@ -202,7 +199,11 @@ void BKE_object_eval_uber_transform(struct EvaluationContext *eval_ctx,
 void BKE_object_eval_uber_data(struct EvaluationContext *eval_ctx,
                                struct Scene *scene,
                                struct Object *ob);
-void BKE_object_eval_shading(struct EvaluationContext *eval_ctx, struct Object *ob);
+
+void BKE_object_eval_cloth(struct EvaluationContext *eval_ctx,
+                           struct Scene *scene,
+                           struct Object *object);
+
 
 void BKE_object_handle_data_update(struct EvaluationContext *eval_ctx,
                                    struct Scene *scene,
@@ -254,7 +255,7 @@ typedef enum eObjectSet {
 	OB_SET_ALL       /* All Objects      */
 } eObjectSet;
 
-struct LinkNode *BKE_object_relational_superset(struct Scene *scene, eObjectSet objectSet, eObRelationTypes includeFilter);
+struct LinkNode *BKE_object_relational_superset(struct SceneLayer *scene_layer, eObjectSet objectSet, eObRelationTypes includeFilter);
 struct LinkNode *BKE_object_groups(struct Object *ob);
 void             BKE_object_groups_clear(struct Object *object);
 

@@ -168,9 +168,6 @@ const unsigned char *UI_ThemeGetColorPtr(bTheme *btheme, int spacetype, int colo
 				case SPACE_CLIP:
 					ts = &btheme->tclip;
 					break;
-				case SPACE_COLLECTIONS:
-					ts = &btheme->tcollections;
-					break;
 				default:
 					ts = &btheme->tv3d;
 					break;
@@ -1212,11 +1209,6 @@ void ui_theme_init_default(void)
 	rgba_char_args_set(btheme->tclip.strip_select, 0xff, 0x8c, 0x00, 0xff);
 	btheme->tclip.handle_vertex_size = 5;
 	ui_theme_space_init_handles_color(&btheme->tclip);
-
-	/* space collection manager */
-	btheme->tcollections = btheme->tv3d;
-	rgba_char_args_set_fl(btheme->tcollections.back,    0.42, 0.42, 0.42, 1.0);
-	rgba_char_args_set(btheme->tcollections.hilite, 255, 140, 25, 255);  /* selected files */
 }
 
 void ui_style_init_default(void)
@@ -1509,13 +1501,13 @@ void UI_GetThemeColorBlendShade3ubv(int colorid1, int colorid2, float fac, int o
 	cp2 = UI_ThemeGetColorPtr(theme_active, theme_spacetype, colorid2);
 
 	CLAMP(fac, 0.0f, 1.0f);
-	col[0] = offset + floorf((1.0f - fac) * cp1[0] + fac * cp2[0]);
-	col[1] = offset + floorf((1.0f - fac) * cp1[1] + fac * cp2[1]);
-	col[2] = offset + floorf((1.0f - fac) * cp1[2] + fac * cp2[2]);
 
-	CLAMP(col[0], 0, 255);
-	CLAMP(col[1], 0, 255);
-	CLAMP(col[2], 0, 255);
+	float blend[3];
+	blend[0] = offset + floorf((1.0f - fac) * cp1[0] + fac * cp2[0]);
+	blend[1] = offset + floorf((1.0f - fac) * cp1[1] + fac * cp2[1]);
+	blend[2] = offset + floorf((1.0f - fac) * cp1[2] + fac * cp2[2]);
+
+	F3TOCHAR3(blend, col);
 }
 
 void UI_GetThemeColorShade4ubv(int colorid, int offset, unsigned char col[4])
@@ -2862,10 +2854,22 @@ void init_userdef_do_versions(void)
 	 * (keep this block even if it becomes empty).
 	 */
 	{
+		/* interface_widgets.c */
+		struct uiWidgetColors wcol_tab = {
+			{255, 255, 255, 255},
+			{83, 83, 83, 255},
+			{114, 114, 114, 255},
+			{90, 90, 90, 255},
+
+			{0, 0, 0, 255},
+			{0, 0, 0, 255},
+
+			0,
+			0, 0
+		};
+
 		for (bTheme *btheme = U.themes.first; btheme; btheme = btheme->next) {
-			btheme->tcollections = btheme->tv3d;
-			rgba_char_args_set_fl(btheme->tcollections.back,    0.42, 0.42, 0.42, 1.0);
-			rgba_char_args_set(btheme->tcollections.hilite, 255, 140, 25, 255);  /* selected files */
+			btheme->tui.wcol_tab = wcol_tab;
 		}
 
 		for (bTheme *btheme = U.themes.first; btheme; btheme = btheme->next) {

@@ -631,6 +631,7 @@ static int render_layer_add_exec(bContext *C, wmOperator *UNUSED(op))
 	scene->active_layer = BLI_listbase_count(&scene->render_layers) - 1;
 
 	DAG_id_tag_update(&scene->id, 0);
+	DAG_relations_tag_update(CTX_data_main(C));
 	WM_event_add_notifier(C, NC_SCENE | ND_LAYER, scene);
 	
 	return OPERATOR_FINISHED;
@@ -653,13 +654,14 @@ void SCENE_OT_render_layer_add(wmOperatorType *ot)
 static int render_layer_remove_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Scene *scene = CTX_data_scene(C);
-	SceneLayer *sl = BKE_scene_layer_active(scene);
+	SceneLayer *sl = BKE_scene_layer_context_active(scene);
 
 	if (!BKE_scene_layer_remove(CTX_data_main(C), scene, sl)) {
 		return OPERATOR_CANCELLED;
 	}
 
 	DAG_id_tag_update(&scene->id, 0);
+	DAG_relations_tag_update(CTX_data_main(C));
 	WM_event_add_notifier(C, NC_SCENE | ND_RENDER_OPTIONS, scene);
 	
 	return OPERATOR_FINISHED;

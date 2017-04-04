@@ -65,6 +65,7 @@
 #include "BKE_camera.h"
 #include "BKE_collection.h"
 #include "BKE_context.h"
+#include "BKE_constraint.h"
 #include "BKE_curve.h"
 #include "BKE_depsgraph.h"
 #include "BKE_DerivedMesh.h"
@@ -114,7 +115,7 @@
 
 #include "UI_resources.h"
 
-#include "GPU_material.h"
+#include "GPU_lamp.h"
 
 #include "object_intern.h"
 
@@ -442,6 +443,9 @@ Object *ED_object_add_type(
 		ED_object_editmode_enter(C, EM_IGNORE_LAYER);
 
 	WM_event_add_notifier(C, NC_SCENE | ND_LAYER_CONTENT, scene);
+
+	/* TODO(sergey): Use proper flag for tagging here. */
+	DAG_id_tag_update(&scene->id, 0);
 
 	return ob;
 }
@@ -1366,7 +1370,7 @@ static void make_object_duplilist_real(bContext *C, Scene *scene, Base *base,
 		ob->proxy = NULL;
 
 		ob->parent = NULL;
-		BLI_listbase_clear(&ob->constraints);
+		BKE_constraints_free(&ob->constraints);
 		ob->curve_cache = NULL;
 		ob->transflag &= ~OB_DUPLI;
 
@@ -1639,8 +1643,25 @@ static int convert_exec(bContext *C, wmOperator *op)
 		}
 	}
 
-	CTX_DATA_BEGIN (C, Base *, base, selected_editable_bases)
+	ListBase selected_editable_bases = CTX_data_collection_get(C, "selected_editable_bases");
+
+	/* Ensure we get all meshes calculated with a sufficient data-mask,
+	 * needed since re-evaluating single modifiers causes bugs if they depend
+	 * on other objects data masks too, see: T50950. */
 	{
+		for (CollectionPointerLink *link = selected_editable_bases.first; link; link = link->next) {
+			Base *base = link->ptr.data;
+			DAG_id_tag_update(&base->object->id, OB_RECALC_DATA);
+		}
+
+		uint64_t customdata_mask_prev = scene->customdata_mask;
+		scene->customdata_mask |= CD_MASK_MESH;
+		BKE_scene_update_tagged(bmain->eval_ctx, bmain, scene);
+		scene->customdata_mask = customdata_mask_prev;
+	}
+
+	for (CollectionPointerLink *link = selected_editable_bases.first; link; link = link->next) {
+		Base *base = link->ptr.data;
 		ob = base->object;
 
 		if (ob->flag & OB_DONE || !IS_TAGGED(ob->data)) {
@@ -1683,7 +1704,7 @@ static int convert_exec(bContext *C, wmOperator *op)
 				ED_rigidbody_object_remove(bmain, scene, newob);
 			}
 		}
-		else if (ob->type == OB_MESH && ob->modifiers.first) { /* converting a mesh with no modifiers causes a segfault */
+		else if (ob->type == OB_MESH) {
 			ob->flag |= OB_DONE;
 
 			if (keep_original) {
@@ -1707,7 +1728,6 @@ static int convert_exec(bContext *C, wmOperator *op)
 			 * cases this doesnt give correct results (when MDEF is used for eg)
 			 */
 			dm = mesh_get_derived_final(scene, newob, CD_MASK_MESH);
-			// dm = mesh_create_derived_no_deform(ob1, NULL);  /* this was called original (instead of get_derived). man o man why! (ton) */
 
 			DM_to_mesh(dm, newob->data, newob, CD_MASK_MESH, true);
 
@@ -1872,11 +1892,10 @@ static int convert_exec(bContext *C, wmOperator *op)
 			((ID *)ob->data)->tag &= ~LIB_TAG_DOIT; /* flag not to convert this datablock again */
 		}
 	}
-	CTX_DATA_END;
+	BLI_freelistN(&selected_editable_bases);
 
 	if (!keep_original) {
 		if (mballConverted) {
-			Object *ob_mball;
 			FOREACH_SCENE_OBJECT(scene, ob_mball)
 			{
 				if (ob->type == OB_MBALL) {

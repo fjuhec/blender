@@ -47,6 +47,7 @@ struct Object;
 struct Base;
 struct ReportList;
 struct Scene;
+struct SceneLayer;
 struct ViewContext;
 struct wmKeyConfig;
 struct wmOperator;
@@ -82,6 +83,12 @@ typedef struct EditBone {
 	float oldlength;        /* for envelope scaling */
 	
 	short segments;
+
+	/* Used for display */
+	float disp_mat[4][4];  /*  in Armature space, rest pos matrix */
+	float disp_tail_mat[4][4];  /*  in Armature space, rest pos matrix */
+	/* 32 == MAX_BBONE_SUBDIV */
+	float disp_bbone_mat[32][4][4]; /*  in Armature space, rest pos matrix */
 
 	/* Used to store temporary data */
 	union {
@@ -131,8 +138,9 @@ void ED_armature_ebone_listbase_temp_clear(struct ListBase *lb);
 void ED_armature_deselect_all(struct Object *obedit);
 void ED_armature_deselect_all_visible(struct Object *obedit);
 
-int ED_do_pose_selectbuffer(struct Scene *scene, struct BaseLegacy *base, unsigned int *buffer,
-                            short hits, bool extend, bool deselect, bool toggle, bool do_nearest);
+bool ED_do_pose_selectbuffer(
+        struct Scene *scene, struct SceneLayer *sl, struct Base *base, const unsigned int *buffer, short hits,
+        bool extend, bool deselect, bool toggle, bool do_nearest);
 bool ED_armature_select_pick(struct bContext *C, const int mval[2], bool extend, bool deselect, bool toggle);
 int join_armature_exec(struct bContext *C, struct wmOperator *op);
 struct Bone *get_indexed_bone(struct Object *ob, int index);

@@ -47,6 +47,7 @@ struct QuicktimeCodecData;
 struct RenderData;
 struct SceneRenderLayer;
 struct Scene;
+struct SceneCollection;
 struct SceneLayer;
 struct UnitSettings;
 struct Main;
@@ -63,7 +64,7 @@ struct Main;
 	_base;                                                                    \
 	_base = _setlooper_base_step(&_sce_iter, _base)
 
-struct BaseLegacy *_setlooper_base_step(struct Scene **sce_iter, struct BaseLegacy *base);
+struct Base *_setlooper_base_step(struct Scene **sce_iter, struct Base *base);
 
 void free_avicodecdata(struct AviCodecData *acd);
 void free_qtcodecdata(struct QuicktimeCodecData *acd);
@@ -110,6 +111,8 @@ struct Scene *BKE_scene_copy(struct Main *bmain, struct Scene *sce, int type);
 void BKE_scene_groups_relink(struct Scene *sce);
 
 void BKE_scene_make_local(struct Main *bmain, struct Scene *sce, const bool lib_local);
+
+struct Scene *BKE_scene_find_from_collection(const struct Main *bmain, const struct SceneCollection *scene_collection);
 
 struct Object *BKE_scene_camera_find(struct Scene *sc);
 #ifdef DURIAN_CAMERA_SWITCH

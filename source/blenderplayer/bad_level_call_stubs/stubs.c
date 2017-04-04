@@ -310,6 +310,7 @@ int WM_operator_confirm(struct bContext *C, struct wmOperator *op, const struct 
 struct MenuType *WM_menutype_find(const char *idname, bool quiet) RET_NULL
 void WM_operator_stack_clear(struct wmWindowManager *wm) RET_NONE
 void WM_operator_handlers_clear(wmWindowManager *wm, struct wmOperatorType *ot) RET_NONE
+bool WM_operator_is_repeat(const struct bContext *C, const struct wmOperator *op) RET_ZERO;
 
 void WM_autosave_init(wmWindowManager *wm) RET_NONE
 void WM_jobs_kill_all_except(struct wmWindowManager *wm, void *owner) RET_NONE
@@ -413,7 +414,7 @@ void ED_fsmenu_entry_set_path(struct FSMenuEntry *fsentry, const char *name) RET
 char *ED_fsmenu_entry_get_name(struct FSMenuEntry *fsentry) RET_NULL
 void ED_fsmenu_entry_set_name(struct FSMenuEntry *fsentry, const char *name) RET_NONE
 
-struct PTCacheEdit *PE_get_current(struct Scene *scene, struct Object *ob) RET_NULL
+struct PTCacheEdit *PE_get_current(struct Scene *scene, struct SceneLayer *sl, struct Object *ob) RET_NULL
 void PE_current_changed(struct Scene *scene, struct Object *ob) RET_NONE
 
 /* rna keymap */
@@ -535,7 +536,7 @@ int ED_mesh_mirror_spatial_table(struct Object *ob, struct BMEditMesh *em, struc
 
 float ED_rollBoneToVector(EditBone *bone, const float new_up_axis[3], const bool axis_only) RET_ZERO
 void ED_space_image_get_size(struct SpaceImage *sima, int *width, int *height) RET_NONE
-bool ED_space_image_check_show_maskedit(struct Scene *scene, struct SpaceImage *sima) RET_ZERO
+bool ED_space_image_check_show_maskedit(struct SceneLayer *sl, struct SpaceImage *sima) RET_ZERO
 
 bool ED_texture_context_check_world(const struct bContext *C) RET_ZERO
 bool ED_texture_context_check_material(const struct bContext *C) RET_ZERO
@@ -599,6 +600,12 @@ const char *uiLayoutIntrospect(uiLayout *layout) RET_NULL
 void UI_reinit_font(void) RET_NONE
 int UI_rnaptr_icon_get(struct bContext *C, struct PointerRNA *ptr, int rnaicon, const bool big) RET_ZERO
 struct bTheme *UI_GetTheme(void) RET_NULL
+void UI_GetThemeColor4fv(int colorid, float col[4]) RET_NONE
+void UI_GetThemeColorShade4fv(int colorid, int offset, float col[4]) RET_NONE
+void UI_GetThemeColorShadeAlpha4fv(int colorid, int coloffset, int alphaoffset, float col[4]) RET_NONE
+void UI_GetThemeColorBlendShade4fv(int colorid1, int colorid2, float fac, int offset, float col[4]) RET_NONE
+void UI_GetThemeColorBlend3ubv(int colorid1, int colorid2, float fac, unsigned char col[3]) RET_NONE
+void UI_GetThemeColorShadeAlpha4ubv(int colorid, int coloffset, int alphaoffset, unsigned char col[4]) RET_NONE
 
 /* rna template */
 void uiTemplateAnyID(uiLayout *layout, struct PointerRNA *ptr, const char *propname, const char *proptypename, const char *text) RET_NONE
@@ -632,6 +639,7 @@ void uiTemplateNodeView(struct uiLayout *layout, struct bContext *C, struct bNod
 void uiTemplateTextureUser(struct uiLayout *layout, struct bContext *C) RET_NONE
 void uiTemplateTextureShow(struct uiLayout *layout, struct bContext *C, struct PointerRNA *ptr, struct PropertyRNA *prop) RET_NONE
 void uiTemplateKeymapItemProperties(struct uiLayout *layout, struct PointerRNA *ptr) RET_NONE
+void uiTemplateOverrideProperty(struct uiLayout *layout, struct PointerRNA *collection_props_ptr, struct PointerRNA *scene_props_ptr, const char *name, const char *custom_template) RET_NONE
 void uiTemplateMovieClip(struct uiLayout *layout, struct bContext *C, struct PointerRNA *ptr, const char *propname, int compact) RET_NONE
 void uiTemplateMovieclipInformation(struct uiLayout *layout, struct PointerRNA *ptr, const char *propname, struct PointerRNA *userptr) RET_NONE
 void uiTemplateTrack(struct uiLayout *layout, struct PointerRNA *ptr, const char *propname) RET_NONE
@@ -682,7 +690,10 @@ void RE_FreeAllPersistentData(void) RET_NONE
 float RE_fresnel_dielectric(float incoming[3], float normal[3], float eta) RET_ZERO
 
 /* Draw */
-void *DRW_render_settings_get(struct Scene *scene, const char *engine_name) RET_NULL
+void OBJECT_collection_settings_create(struct IDProperty *properties) RET_NONE
+void EDIT_MESH_collection_settings_create(struct IDProperty *properties) RET_NONE
+void EDIT_ARMATURE_collection_settings_create(struct IDProperty *properties) RET_NONE
+void DRW_object_engine_data_free(struct Object *ob) RET_NONE
 
 /* python */
 struct wmOperatorType *WM_operatortype_find(const char *idname, bool quiet) RET_NULL
@@ -725,6 +736,7 @@ int UI_pie_menu_invoke_from_operator_enum(struct bContext *C, const char *title,
 
 /* RNA COLLADA dependency */
 int collada_export(struct Scene *sce,
+                   struct SceneLayer *scene_layer,
                    const char *filepath,
                    int apply_modifiers,
                    BC_export_mesh_type export_mesh_type,
@@ -745,7 +757,9 @@ int collada_export(struct Scene *sce,
                    int use_blender_profile,
                    int sort_by_name,
                    BC_export_transformation_type export_transformation_type,
-                   int open_sim) RET_ZERO
+                   int open_sim,
+                   int limit_precision,
+                   int keep_bind_info) RET_ZERO
 
 void ED_mesh_calc_tessface(struct Mesh *mesh, bool free_mpoly) RET_NONE
 
@@ -787,8 +801,5 @@ void COM_execute(RenderData *rd, Scene *scene, bNodeTree *editingtree, int rende
 /*multiview*/
 bool RE_RenderResult_is_stereo(RenderResult *res) RET_ZERO
 void uiTemplateImageViews(uiLayout *layout, struct PointerRNA *imfptr) RET_NONE
-
-/* GPU */
-void immBindBuiltinProgram(GPUBuiltinShader shader_id) RET_NONE
 
 #endif // WITH_GAMEENGINE

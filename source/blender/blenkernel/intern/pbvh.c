@@ -40,6 +40,7 @@
 #include "BKE_paint.h"
 
 #include "GPU_buffers.h"
+#include "GPU_immediate.h"
 
 #include "bmesh.h"
 
@@ -1156,15 +1157,16 @@ static void pbvh_update_draw_buffers(PBVH *bvh, PBVHNode **nodes, int totnode)
 
 static void pbvh_draw_BB(PBVH *bvh)
 {
-	GPU_init_draw_pbvh_BB();
+	unsigned int pos = add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
+	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
 	for (int a = 0; a < bvh->totnode; a++) {
 		PBVHNode *node = &bvh->nodes[a];
 
-		GPU_draw_pbvh_BB(node->vb.bmin, node->vb.bmax, ((node->flag & PBVH_Leaf) != 0));
+		GPU_draw_pbvh_BB(node->vb.bmin, node->vb.bmax, ((node->flag & PBVH_Leaf) != 0), pos);
 	}
 
-	GPU_end_draw_pbvh_BB();
+	immUnbindProgram();
 }
 
 static int pbvh_flush_bb(PBVH *bvh, PBVHNode *node, int flag)
@@ -1736,24 +1738,6 @@ typedef struct {
 void BKE_pbvh_node_draw(PBVHNode *node, void *data_v)
 {
 	PBVHNodeDrawData *data = data_v;
-
-#if 0
-	/* XXX: Just some quick code to show leaf nodes in different colors */
-	float col[3];
-	float spec[3] = {0.0f, 0.0f, 0.0f};
-
-	if (0) { //is_partial) {
-		col[0] = (rand() / (float)RAND_MAX); col[1] = col[2] = 0.6;
-	}
-	else {
-		srand((long long)node);
-		for (int i = 0; i < 3; ++i)
-			col[i] = (rand() / (float)RAND_MAX) * 0.3 + 0.7;
-	}
-
-	GPU_basic_shader_colors(col, spec, 0, 1.0f);
-	glColor3f(1, 0, 0);
-#endif
 
 	if (!(node->flag & PBVH_FullyHidden)) {
 		GPU_draw_pbvh_buffers(node->draw_buffers,

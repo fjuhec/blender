@@ -186,7 +186,7 @@ static eOLDrawState tree_element_set_active_object(
 			do_outliner_object_select_recursive(scene, ob, (ob->flag & SELECT) != 0);
 		}
 
-		if (C) {
+		if (set != OL_SETSEL_NONE) {
 			ED_object_base_activate(C, base); /* adds notifier */
 			WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
 		}
@@ -199,7 +199,7 @@ static eOLDrawState tree_element_set_active_object(
 }
 
 static eOLDrawState tree_element_active_material(
-        bContext *C, Scene* UNUSED(scene), SceneLayer *sl, SpaceOops *soops,
+        bContext *C, Scene *UNUSED(scene), SceneLayer *sl, SpaceOops *soops,
         TreeElement *te, const eOLSetState set)
 {
 	TreeElement *tes;
@@ -755,18 +755,32 @@ static eOLDrawState tree_element_active_keymap_item(
 }
 
 static eOLDrawState tree_element_active_collection(
-        bContext *C, TreeElement *te, TreeStoreElem *UNUSED(tselem), const eOLSetState set)
+        bContext *C, TreeElement *te, TreeStoreElem *tselem, const eOLSetState set)
 {
-	if (set != OL_SETSEL_NONE) {
-		Scene *scene = CTX_data_scene(C);
-		SceneLayer *slayer = BLI_findlink(&scene->render_layers, scene->active_layer);
-		LayerCollection *collection = te->directdata;
-		const int collection_index = BKE_layer_collection_findindex(slayer, collection);
+	if (set == OL_SETSEL_NONE) {
+		LayerCollection *active = CTX_data_layer_collection(C);
+
+		/* sometimes the renderlayer has no LayerCollection at all */
+		if (active == NULL) {
+			return OL_DRAWSEL_NONE;
+		}
+
+		if ((tselem->type == TSE_SCENE_COLLECTION && active->scene_collection == te->directdata) ||
+		    (tselem->type == TSE_LAYER_COLLECTION && active == te->directdata))
+		{
+			return OL_DRAWSEL_NORMAL;
+		}
+	}
+	/* don't allow selecting a scene collection, it can have multiple layer collection
+	 * instances (which one would the user want to be selected then?) */
+	else if (tselem->type == TSE_LAYER_COLLECTION) {
+		SceneLayer *sl = CTX_data_scene_layer(C);
+		LayerCollection *lc = te->directdata;
+		const int collection_index = BKE_layer_collection_findindex(sl, lc);
 
 		BLI_assert(collection_index >= 0);
-		slayer->active_collection = collection_index;
+		sl->active_collection = collection_index;
 		WM_main_add_notifier(NC_SCENE | ND_LAYER, NULL);
-		return OL_DRAWSEL_ACTIVE;
 	}
 
 	return OL_DRAWSEL_NONE;
@@ -787,25 +801,23 @@ eOLDrawState tree_element_active(bContext *C, Scene *scene, SceneLayer *sl, Spac
 			}
 			break;
 		case ID_MA:
-		    return tree_element_active_material(C, scene, sl, soops, te, set);
+			return tree_element_active_material(C, scene, sl, soops, te, set);
 		case ID_WO:
-		    return tree_element_active_world(C, scene, sl, soops, te, set);
+			return tree_element_active_world(C, scene, sl, soops, te, set);
 		case ID_LA:
-		    return tree_element_active_lamp(C, scene, sl, soops, te, set);
+			return tree_element_active_lamp(C, scene, sl, soops, te, set);
 		case ID_TE:
-		    return tree_element_active_texture(C, scene, sl, soops, te, set);
+			return tree_element_active_texture(C, scene, sl, soops, te, set);
 		case ID_TXT:
-		    return tree_element_active_text(C, scene, sl, soops, te, set);
+			return tree_element_active_text(C, scene, sl, soops, te, set);
 		case ID_CA:
-		    return tree_element_active_camera(C, scene, sl, soops, te, set);
+			return tree_element_active_camera(C, scene, sl, soops, te, set);
 	}
 	return OL_DRAWSEL_NONE;
 }
 
 /**
  * Generic call for non-id data to make/check active in UI
- *
- * \note Context can be NULL when ``(set == OL_SETSEL_NONE)``
  */
 eOLDrawState tree_element_type_active(
         bContext *C, Scene *scene, SceneLayer *sl, SpaceOops *soops,
@@ -819,7 +831,7 @@ eOLDrawState tree_element_type_active(
 		case TSE_EBONE:
 			return tree_element_active_ebone(C, scene, te, tselem, set, recursive);
 		case TSE_MODIFIER:
-		    return tree_element_active_modifier(C, scene, sl, te, tselem, set);
+			return tree_element_active_modifier(C, scene, sl, te, tselem, set);
 		case TSE_LINKED_OB:
 			if (set != OL_SETSEL_NONE) {
 				tree_element_set_active_object(C, scene, sl, soops, te, set, false);
@@ -833,23 +845,24 @@ eOLDrawState tree_element_type_active(
 		case TSE_POSE_BASE:
 			return tree_element_active_pose(C, scene, sl, te, tselem, set);
 		case TSE_POSE_CHANNEL:
-		    return tree_element_active_posechannel(C, scene, sl, te, tselem, set, recursive);
+			return tree_element_active_posechannel(C, scene, sl, te, tselem, set, recursive);
 		case TSE_CONSTRAINT:
-		    return tree_element_active_constraint(C, scene, sl, te, tselem, set);
+			return tree_element_active_constraint(C, scene, sl, te, tselem, set);
 		case TSE_R_LAYER:
-		    return tree_element_active_renderlayer(C, scene, sl, te, tselem, set);
+			return tree_element_active_renderlayer(C, scene, sl, te, tselem, set);
 		case TSE_POSEGRP:
-		    return tree_element_active_posegroup(C, scene, sl, te, tselem, set);
+			return tree_element_active_posegroup(C, scene, sl, te, tselem, set);
 		case TSE_SEQUENCE:
 			return tree_element_active_sequence(C, scene, te, tselem, set);
 		case TSE_SEQUENCE_DUP:
 			return tree_element_active_sequence_dup(scene, te, tselem, set);
 		case TSE_KEYMAP_ITEM:
-		    return tree_element_active_keymap_item(C, scene, sl, te, tselem, set);
+			return tree_element_active_keymap_item(C, scene, sl, te, tselem, set);
 		case TSE_GP_LAYER:
-		    //return tree_element_active_gplayer(C, scene, s, te, tselem, set);
+			//return tree_element_active_gplayer(C, scene, s, te, tselem, set);
 			break;
-		case TSE_COLLECTION:
+		case TSE_SCENE_COLLECTION:
+		case TSE_LAYER_COLLECTION:
 			return tree_element_active_collection(C, te, tselem, set);
 	}
 	return OL_DRAWSEL_NONE;
@@ -868,7 +881,7 @@ static void outliner_item_activate(
 	/* always makes active object, except for some specific types.
 	 * Note about TSE_EBONE: In case of a same ID_AR datablock shared among several objects, we do not want
 	 * to switch out of edit mode (see T48328 for details). */
-	if (!ELEM(tselem->type, TSE_SEQUENCE, TSE_SEQ_STRIP, TSE_SEQUENCE_DUP, TSE_EBONE, TSE_COLLECTION)) {
+	if (!ELEM(tselem->type, TSE_SEQUENCE, TSE_SEQ_STRIP, TSE_SEQUENCE_DUP, TSE_EBONE, TSE_LAYER_COLLECTION)) {
 		tree_element_set_active_object(C, scene, sl, soops, te,
 		                               (extend && tselem->type == 0) ? OL_SETSEL_EXTEND : OL_SETSEL_NORMAL,
 		                               recursive && tselem->type == 0);

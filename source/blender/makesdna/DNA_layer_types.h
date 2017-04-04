@@ -43,6 +43,7 @@ typedef struct Base {
 	unsigned int lay;
 	int flag_legacy;
 	int pad;
+	struct IDProperty *collection_properties; /* used by depsgraph, flushed from collection-tree */
 } Base;
 
 typedef struct CollectionOverride {
@@ -55,11 +56,14 @@ typedef struct LayerCollection {
 	struct LayerCollection *next, *prev;
 	struct SceneCollection *scene_collection;
 	short flag;
-	short pad[3];
+	/* TODO(sergey): Get rid of this once we've got CoW in DEG, */
+	short flag_evaluated;
+	short pad[2];
 	ListBase object_bases;      /* (ObjectBase *)LinkData->data - synced with collection->objects and collection->filter_objects */
 	ListBase overrides;
 	ListBase layer_collections; /* synced with collection->collections */
-	ListBase engine_settings; /* CollectionEngineSettings */
+	struct IDProperty *properties;  /* overrides */
+	struct IDProperty *properties_evaluated;
 } LayerCollection;
 
 typedef struct SceneLayer {
@@ -98,7 +102,6 @@ enum {
 enum {
 	COLLECTION_VISIBLE    = (1 << 0),
 	COLLECTION_SELECTABLE = (1 << 1),
-	COLLECTION_FOLDED     = (1 << 2),
 };
 
 /* SceneLayer->flag */
@@ -111,43 +114,12 @@ enum {
 /* *************************************************************** */
 /* Engine Settings */
 
-typedef struct CollectionEngineProperty {
-	struct CollectionEngineProperty *next, *prev;
-	char name[64]; /* MAX_NAME */
-	short type;
-	short pad;
-	char flag;
-	char pad2[3];
-} CollectionEngineProperty;
-
-typedef struct CollectionEnginePropertyInt {
-  struct CollectionEngineProperty data;
-  int value;
-  int pad;
-} CollectionEnginePropertyInt;
-
-typedef struct CollectionEnginePropertyFloat {
-  struct CollectionEngineProperty data;
-  float value;
-  float pad;
-} CollectionEnginePropertyFloat;
-
-typedef struct CollectionEngineSettings {
-	struct CollectionEngineSettings *next, *prev;
-	char name[32]; /* engine name - MAX_NAME */
-	ListBase properties; /* CollectionProperty */
-} CollectionEngineSettings;
-
-/* CollectionEngineProperty->flag */
-enum {
-	COLLECTION_PROP_USE = (1 << 0),
-};
-
-/* CollectionEntineProperty.type */
-typedef enum CollectionEnginePropertyType {
-	COLLECTION_PROP_TYPE_FLOAT = 0,
-	COLLECTION_PROP_TYPE_INT = 1,
-} CollectionEnginePropertyType;
+/* CollectionEngineSettings->type */
+typedef enum CollectionEngineSettingsType {
+	COLLECTION_MODE_NONE = 0,
+	COLLECTION_MODE_OBJECT = 1,
+	COLLECTION_MODE_EDIT = 2,
+} CollectionModeSettingsType;
 
 /* *************************************************************** */
 

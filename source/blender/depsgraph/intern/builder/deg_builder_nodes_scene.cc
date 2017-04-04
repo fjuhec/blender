@@ -80,23 +80,10 @@ void DepsgraphNodeBuilder::build_scene(Main *bmain, Scene *scene)
 	}
 
 	/* scene objects */
-	Object *ob;
 	FOREACH_SCENE_OBJECT(scene, ob)
 	{
 		/* object itself */
 		build_object(scene, ob);
-
-		/* object that this is a proxy for */
-		// XXX: the way that proxies work needs to be completely reviewed!
-		if (ob->proxy) {
-			ob->proxy->proxy_from = ob;
-			build_object(scene, ob->proxy);
-		}
-
-		/* Object dupligroup. */
-		if (ob->dup_group) {
-			build_group(scene, ob->dup_group);
-		}
 	}
 	FOREACH_SCENE_OBJECT_END
 
@@ -142,6 +129,9 @@ void DepsgraphNodeBuilder::build_scene(Main *bmain, Scene *scene)
 	LINKLIST_FOREACH (MovieClip *, clip, &bmain->movieclip) {
 		build_movieclip(clip);
 	}
+
+	/* Collections. */
+	build_scene_layer_collections(scene);
 }
 
 }  // namespace DEG
