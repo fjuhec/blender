@@ -56,41 +56,41 @@ static void workspace_name_set(WorkSpace *workspace, WorkSpaceLayout *layout, co
 	BLI_uniquename(&workspace->layouts, layout, "Layout", '.', offsetof(WorkSpaceLayout, name), sizeof(layout->name));
 }
 
-static void workspace_assignment_add(ListBase *assignment_list, void *parent, void *data)
+static void workspace_relation_add(ListBase *relation_list, void *parent, void *data)
 {
-	WorkSpaceDataAssignment *assignment = MEM_mallocN(sizeof(*assignment), __func__);
-	assignment->parent = parent;
-	assignment->value = data;
+	WorkSpaceDataRelation *relation = MEM_mallocN(sizeof(*relation), __func__);
+	relation->parent = parent;
+	relation->value = data;
 	/* add to head, if we switch back to it soon we find it faster. */
-	BLI_addhead(assignment_list, assignment);
+	BLI_addhead(relation_list, relation);
 }
-static void workspace_assignment_remove(ListBase *assignment_list, WorkSpaceDataAssignment *assignment)
+static void workspace_relation_remove(ListBase *relation_list, WorkSpaceDataRelation *relation)
 {
-	BLI_remlink(assignment_list, assignment);
-	MEM_freeN(assignment);
+	BLI_remlink(relation_list, relation);
+	MEM_freeN(relation);
 }
 
-static void workspace_ensure_updated_assignment(ListBase *assignment_list, void *parent, void *data)
+static void workspace_ensure_updated_relation(ListBase *relation_list, void *parent, void *data)
 {
-	for (WorkSpaceDataAssignment *assignment = assignment_list->first; assignment; assignment = assignment->next) {
-		if (assignment->parent == parent) {
-			assignment->value = data;
-			/* reinsert at the head of the list, so that more commonly used assignments are found faster. */
-			BLI_remlink(assignment_list, assignment);
-			BLI_addhead(assignment_list, assignment);
+	for (WorkSpaceDataRelation *relation = relation_list->first; relation; relation = relation->next) {
+		if (relation->parent == parent) {
+			relation->value = data;
+			/* reinsert at the head of the list, so that more commonly used relations are found faster. */
+			BLI_remlink(relation_list, relation);
+			BLI_addhead(relation_list, relation);
 			return;
 		}
 	}
 
-	/* no matching assignment found, add new one */
-	workspace_assignment_add(assignment_list, parent, data);
+	/* no matching relation found, add new one */
+	workspace_relation_add(relation_list, parent, data);
 }
 
-static void *workspace_assignment_get_data_matching_parent(const ListBase *assignment_list, const void *parent)
+static void *workspace_relation_get_data_matching_parent(const ListBase *relation_list, const void *parent)
 {
-	for (WorkSpaceDataAssignment *assignment = assignment_list->first; assignment; assignment = assignment->next) {
-		if (assignment->parent == parent) {
-			return assignment->value;
+	for (WorkSpaceDataRelation *relation = relation_list->first; relation; relation = relation->next) {
+		if (relation->parent == parent) {
+			return relation->value;
 		}
 	}
 
@@ -117,12 +117,12 @@ WorkSpace *BKE_workspace_add(Main *bmain, const char *name)
 
 void BKE_workspace_free(WorkSpace *workspace)
 {
-	for (WorkSpaceDataAssignment *assignment = workspace->hook_layout_assignments.first, *assignment_next;
-	     assignment;
-	     assignment = assignment_next)
+	for (WorkSpaceDataRelation *relation = workspace->hook_layout_relations.first, *relation_next;
+	     relation;
+	     relation = relation_next)
 	{
-		assignment_next = assignment->next;
-		workspace_assignment_remove(&workspace->hook_layout_assignments, assignment);
+		relation_next = relation->next;
+		workspace_relation_remove(&workspace->hook_layout_relations, relation);
 	}
 	BLI_freelistN(&workspace->layouts);
 }
@@ -156,16 +156,16 @@ void BKE_workspace_instance_hook_free(WorkSpaceInstanceHook *hook, const Main *b
 	/* workspaces should never be freed before wm (during which we call this function) */
 	BLI_assert(!BLI_listbase_is_empty(&bmain->workspaces));
 
-	/* Free assignments for this hook */
+	/* Free relations for this hook */
 	BKE_workspace_iter_begin(workspace, bmain->workspaces.first)
 	{
-		for (WorkSpaceDataAssignment *assignment = workspace->hook_layout_assignments.first, *assignment_next;
-		     assignment;
-		     assignment = assignment_next)
+		for (WorkSpaceDataRelation *relation = workspace->hook_layout_relations.first, *relation_next;
+		     relation;
+		     relation = relation_next)
 		{
-			assignment_next = assignment->next;
-			if (assignment->parent == hook) {
-				workspace_assignment_remove(&workspace->hook_layout_assignments, assignment);
+			relation_next = relation->next;
+			if (relation->parent == hook) {
+				workspace_relation_remove(&workspace->hook_layout_relations, relation);
 			}
 		}
 	}
@@ -308,7 +308,7 @@ void BKE_workspace_active_set(WorkSpaceInstanceHook *hook, WorkSpace *workspace)
 	hook->active = workspace;
 	if (workspace) {
 		WorkSpaceLayout *layout;
-		if ((layout = workspace_assignment_get_data_matching_parent(&workspace->hook_layout_assignments, hook))) {
+		if ((layout = workspace_relation_get_data_matching_parent(&workspace->hook_layout_relations, hook))) {
 			hook->act_layout = layout;
 		}
 	}
@@ -327,7 +327,7 @@ const char *BKE_workspace_name_get(const WorkSpace *workspace)
 WorkSpaceLayout *BKE_workspace_active_layout_get_from_workspace(
         const WorkSpaceInstanceHook *hook, const WorkSpace *workspace)
 {
-	return workspace_assignment_get_data_matching_parent(&workspace->hook_layout_assignments, hook);
+	return workspace_relation_get_data_matching_parent(&workspace->hook_layout_relations, hook);
 }
 WorkSpaceLayout *BKE_workspace_active_layout_get(const WorkSpaceInstanceHook *hook)
 {
@@ -342,7 +342,7 @@ void BKE_workspace_active_layout_set_for_workspace(
         WorkSpaceInstanceHook *hook, WorkSpace *workspace, WorkSpaceLayout *layout)
 {
 	hook->act_layout = layout;
-	workspace_ensure_updated_assignment(&workspace->hook_layout_assignments, hook, layout);
+	workspace_ensure_updated_relation(&workspace->hook_layout_relations, hook, layout);
 }
 
 WorkSpaceLayout *BKE_workspace_temp_layout_store_get(const WorkSpaceInstanceHook *hook)
@@ -427,23 +427,23 @@ WorkSpaceLayout *BKE_workspace_layout_prev_get(const WorkSpaceLayout *layout)
 	return layout->prev;
 }
 
-ListBase *BKE_workspace_hook_layout_assignments_get(WorkSpace *workspace)
+ListBase *BKE_workspace_hook_layout_relations_get(WorkSpace *workspace)
 {
-	return &workspace->hook_layout_assignments;
+	return &workspace->hook_layout_relations;
 }
 
-WorkSpaceDataAssignment *BKE_workspace_assignment_next_get(const WorkSpaceDataAssignment *assignment)
+WorkSpaceDataRelation *BKE_workspace_relation_next_get(const WorkSpaceDataRelation *relation)
 {
-	return assignment->next;
+	return relation->next;
 }
 
-void BKE_workspace_assignment_data_get(const WorkSpaceDataAssignment *assignment, void **parent, void **data)
+void BKE_workspace_relation_data_get(const WorkSpaceDataRelation *relation, void **parent, void **data)
 {
-	*parent = assignment->parent;
-	*data = assignment->value;
+	*parent = relation->parent;
+	*data = relation->value;
 }
-void BKE_workspace_assignment_data_set(WorkSpaceDataAssignment *assignment, void *parent, void *data)
+void BKE_workspace_relation_data_set(WorkSpaceDataRelation *relation, void *parent, void *data)
 {
-	assignment->parent = parent;
-	assignment->value = data;
+	relation->parent = parent;
+	relation->value = data;
 }

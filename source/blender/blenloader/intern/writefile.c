@@ -3719,11 +3719,11 @@ static void write_cachefile(WriteData *wd, CacheFile *cache_file)
 static void write_workspace(WriteData *wd, WorkSpace *workspace)
 {
 	ListBase *layouts = BKE_workspace_layouts_get(workspace);
-	ListBase *assignment_list = BKE_workspace_hook_layout_assignments_get(workspace);
+	ListBase *relation_list = BKE_workspace_hook_layout_relations_get(workspace);
 
 	writestruct(wd, ID_WS, WorkSpace, 1, workspace);
 	writelist(wd, DATA, WorkSpaceLayout, layouts);
-	writelist(wd, DATA, WorkSpaceDataAssignment, assignment_list);
+	writelist(wd, DATA, WorkSpaceDataRelation, relation_list);
 }
 
 /* Keep it last of write_foodata functions. */

@@ -129,10 +129,10 @@ void            BKE_workspace_layout_screen_set(WorkSpaceLayout *layout, struct 
 WorkSpaceLayout *BKE_workspace_layout_next_get(const WorkSpaceLayout *layout) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
 WorkSpaceLayout *BKE_workspace_layout_prev_get(const WorkSpaceLayout *layout) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
 
-struct ListBase *BKE_workspace_hook_layout_assignments_get(WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-struct WorkSpaceDataAssignment *BKE_workspace_assignment_next_get(const struct WorkSpaceDataAssignment *assignment) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-void BKE_workspace_assignment_data_get(const struct WorkSpaceDataAssignment *assignment, void **parent, void **data) ATTR_NONNULL();
-void BKE_workspace_assignment_data_set(struct WorkSpaceDataAssignment *assignment, void *parent, void *data) ATTR_NONNULL();
+struct ListBase *BKE_workspace_hook_layout_relations_get(WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
+struct WorkSpaceDataRelation *BKE_workspace_relation_next_get(const struct WorkSpaceDataRelation *relation) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
+void BKE_workspace_relation_data_get(const struct WorkSpaceDataRelation *relation, void **parent, void **data) ATTR_NONNULL();
+void BKE_workspace_relation_data_set(struct WorkSpaceDataRelation *relation, void *parent, void *data) ATTR_NONNULL();
 
 /* -------------------------------------------------------------------- */
 /* Don't use outside of BKE! */

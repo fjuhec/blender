@@ -2768,20 +2768,20 @@ static void lib_link_workspaces(FileData *fd, Main *bmain)
 
 static void direct_link_workspace(FileData *fd, WorkSpace *workspace, const Main *main)
 {
-	ListBase *hook_layout_assignments = BKE_workspace_hook_layout_assignments_get(workspace);
+	ListBase *hook_layout_relations = BKE_workspace_hook_layout_relations_get(workspace);
 
 	link_list(fd, BKE_workspace_layouts_get(workspace));
-	link_list(fd, hook_layout_assignments);
+	link_list(fd, hook_layout_relations);
 
-	for (struct WorkSpaceDataAssignment *assignment = hook_layout_assignments->first;
-	     assignment;
-	     assignment = BKE_workspace_assignment_next_get(assignment))
+	for (struct WorkSpaceDataRelation *relation = hook_layout_relations->first;
+	     relation;
+	     relation = BKE_workspace_relation_next_get(relation))
 	{
 		void *parent, *data;
-		BKE_workspace_assignment_data_get(assignment, &parent, &data);
+		BKE_workspace_relation_data_get(relation, &parent, &data);
 		parent = newglobadr(fd, parent); /* data from window - need to access through global oldnew-map */
 		data = newdataadr(fd, data);
-		BKE_workspace_assignment_data_set(assignment, parent, data);
+		BKE_workspace_relation_data_set(relation, parent, data);
 	}
 
 	/* Same issue/fix as in direct_link_scene_update_screen_data: Can't read workspace data

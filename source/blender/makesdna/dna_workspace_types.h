@@ -52,7 +52,7 @@ typedef struct WorkSpace {
 	ListBase layouts;
 	/* Store for each hook (so for each window) which layout has
 	 * been activated the last time this workspace was visible. */
-	ListBase hook_layout_assignments; /* WorkSpaceDataAssignment */
+	ListBase hook_layout_relations; /* WorkSpaceDataRelation */
 
 	int object_mode; /* enum ObjectMode */
 	int pad;
@@ -79,16 +79,16 @@ typedef struct WorkSpace {
  *          relation. This struct is used to store an active screen-layout for each window within the
  *          workspace.
  *          To find the screen-layout to activate for this window-workspace combination, simply lookup
- *          the WorkSpaceDataAssignment with the workspace-hook of the window set as parent.
+ *          the WorkSpaceDataRelation with the workspace-hook of the window set as parent.
  */
-typedef struct WorkSpaceDataAssignment {
-	struct WorkSpaceDataAssignment *next, *prev;
+typedef struct WorkSpaceDataRelation {
+	struct WorkSpaceDataRelation *next, *prev;
 
-	/* the data used to identify the assignment (e.g. to find layout-assignment for a hook) */
+	/* the data used to identify the relation (e.g. to find screen-layout (= value) from/for a hook) */
 	void *parent;
-	/* The value for this parent-data/workspace assignment */
+	/* The value for this parent-data/workspace relation */
 	void *value;
-} WorkSpaceDataAssignment;
+} WorkSpaceDataRelation;
 
 /**
  * Little wrapper to store data that is going to be per window, but comming from the workspace.
