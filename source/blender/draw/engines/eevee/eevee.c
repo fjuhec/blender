@@ -29,6 +29,7 @@
 
 #include "eevee.h"
 #include "eevee_private.h"
+#include "eevee_lut.h"
 
 #define EEVEE_ENGINE "BLENDER_EEVEE"
 
@@ -37,9 +38,12 @@ static struct {
 	struct GPUShader *default_lit;
 	struct GPUShader *depth_sh;
 	struct GPUShader *tonemap;
+	struct GPUTexture *ltc_mat;
+	struct GPUTexture *ltc_mag;
 	float camera_pos[3];
 } e_data = {NULL}; /* Engine data */
 
+extern char datatoc_ltc_lib_glsl[];
 extern char datatoc_bsdf_common_lib_glsl[];
 extern char datatoc_bsdf_direct_lib_glsl[];
 extern char datatoc_lit_surface_frag_glsl[];
@@ -70,6 +74,7 @@ static void EEVEE_engine_init(void *vedata)
 
 		DynStr *ds_vert = BLI_dynstr_new();
 		BLI_dynstr_append(ds_vert, datatoc_bsdf_common_lib_glsl);
+		BLI_dynstr_append(ds_vert, datatoc_ltc_lib_glsl);
 		BLI_dynstr_append(ds_vert, datatoc_bsdf_direct_lib_glsl);
 		lib_str = BLI_dynstr_get_cstring(ds_vert);
 		BLI_dynstr_free(ds_vert);
@@ -81,6 +86,14 @@ static void EEVEE_engine_init(void *vedata)
 
 	if (!e_data.tonemap) {
 		e_data.tonemap = DRW_shader_create_fullscreen(datatoc_tonemap_frag_glsl, NULL);
+	}
+
+	if (!e_data.ltc_mat) {
+		e_data.ltc_mat = DRW_texture_create_2D(64, 64, DRW_TEX_RGBA_16, DRW_TEX_FILTER, ltc_mat_ggx);
+	}
+
+	if (!e_data.ltc_mag) {
+		e_data.ltc_mag = DRW_texture_create_2D(64, 64, DRW_TEX_R_16, DRW_TEX_FILTER, ltc_mag_ggx);
 	}
 
 	if (stl->lights_info == NULL)
@@ -110,20 +123,8 @@ static void EEVEE_cache_init(void *vedata)
 		psl->depth_pass = DRW_pass_create("Depth Pass", DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 		stl->g_data->depth_shgrp = DRW_shgroup_create(e_data.depth_sh, psl->depth_pass);
 
-		stl->g_data->depth_shgrp_select = DRW_shgroup_create(e_data.depth_sh, psl->depth_pass);
-		DRW_shgroup_state_set(stl->g_data->depth_shgrp_select, DRW_STATE_WRITE_STENCIL_SELECT);
-
-		stl->g_data->depth_shgrp_active = DRW_shgroup_create(e_data.depth_sh, psl->depth_pass);
-		DRW_shgroup_state_set(stl->g_data->depth_shgrp_active, DRW_STATE_WRITE_STENCIL_ACTIVE);
-
 		psl->depth_pass_cull = DRW_pass_create("Depth Pass Cull", DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS | DRW_STATE_CULL_BACK);
 		stl->g_data->depth_shgrp_cull = DRW_shgroup_create(e_data.depth_sh, psl->depth_pass_cull);
-
-		stl->g_data->depth_shgrp_cull_select = DRW_shgroup_create(e_data.depth_sh, psl->depth_pass_cull);
-		DRW_shgroup_state_set(stl->g_data->depth_shgrp_cull_select, DRW_STATE_WRITE_STENCIL_SELECT);
-
-		stl->g_data->depth_shgrp_cull_active = DRW_shgroup_create(e_data.depth_sh, psl->depth_pass_cull);
-		DRW_shgroup_state_set(stl->g_data->depth_shgrp_cull_active, DRW_STATE_WRITE_STENCIL_ACTIVE);
 	}
 
 	{
@@ -134,6 +135,8 @@ static void EEVEE_cache_init(void *vedata)
 		DRW_shgroup_uniform_block(stl->g_data->default_lit_grp, "light_block", stl->lights_ubo, 0);
 		DRW_shgroup_uniform_int(stl->g_data->default_lit_grp, "light_count", &stl->lights_info->light_count, 1);
 		DRW_shgroup_uniform_vec3(stl->g_data->default_lit_grp, "cameraPos", e_data.camera_pos, 1);
+		DRW_shgroup_uniform_texture(stl->g_data->default_lit_grp, "ltcMat", e_data.ltc_mat, 0);
+		DRW_shgroup_uniform_texture(stl->g_data->default_lit_grp, "ltcMag", e_data.ltc_mag, 1);
 	}
 
 	{
@@ -161,13 +164,7 @@ static void EEVEE_cache_populate(void *vedata, Object *ob)
 		struct Batch *geom = DRW_cache_surface_get(ob);
 
 		/* Depth Prepass */
-		/* waiting for proper flag */
-		// if ((ob->base_flag & BASE_ACTIVE) != 0)
-			// DRW_shgroup_call_add((do_cull) ? depth_shgrp_cull_active : depth_shgrp_active, geom, ob->obmat);
-		if ((ob->base_flag & BASE_SELECTED) != 0)
-			DRW_shgroup_call_add((do_cull) ? stl->g_data->depth_shgrp_cull_select : stl->g_data->depth_shgrp_select, geom, ob->obmat);
-		else
-			DRW_shgroup_call_add((do_cull) ? stl->g_data->depth_shgrp_cull : stl->g_data->depth_shgrp, geom, ob->obmat);
+		DRW_shgroup_call_add((do_cull) ? stl->g_data->depth_shgrp_cull : stl->g_data->depth_shgrp, geom, ob->obmat);
 
 		DRW_shgroup_call_add(stl->g_data->default_lit_grp, geom, ob->obmat);
 	}
@@ -220,6 +217,10 @@ static void EEVEE_engine_free(void)
 		DRW_shader_free(e_data.default_lit);
 	if (e_data.tonemap)
 		DRW_shader_free(e_data.tonemap);
+	if (e_data.ltc_mat)
+		DRW_texture_free(e_data.ltc_mat);
+	if (e_data.ltc_mag)
+		DRW_texture_free(e_data.ltc_mag);
 }
 
 static void EEVEE_collection_settings_create(RenderEngine *UNUSED(engine), IDProperty *props)

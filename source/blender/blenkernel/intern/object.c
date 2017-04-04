@@ -119,6 +119,8 @@
 #include "BKE_camera.h"
 #include "BKE_image.h"
 
+#include "DRW_engine.h"
+
 #ifdef WITH_MOD_FLUID
 #include "LBM_fluidsim.h"
 #endif
@@ -129,7 +131,7 @@
 
 #include "CCGSubSurf.h"
 
-#include "GPU_material.h"
+#include "GPU_lamp.h"
 
 /* Vertex parent modifies original BMesh which is not safe for threading.
  * Ideally such a modification should be handled as a separate DAG update
@@ -442,6 +444,8 @@ void BKE_object_free(Object *ob)
 		ob->bsoft = NULL;
 	}
 	GPU_lamp_free(ob);
+
+	DRW_object_engine_data_free(ob);
 
 	BKE_sculptsession_free(ob);
 
@@ -1177,6 +1181,7 @@ Object *BKE_object_copy_ex(Main *bmain, Object *ob, bool copy_caches)
 
 	BLI_listbase_clear(&obn->gpulamp);
 	BLI_listbase_clear(&obn->pc_ids);
+	BLI_listbase_clear(&obn->drawdata);
 
 	obn->mpath = NULL;
 

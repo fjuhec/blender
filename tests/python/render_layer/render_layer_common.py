@@ -382,6 +382,103 @@ class RenderLayerTesting(unittest.TestCase):
                 ),
                 "Scene copy \"{0}\" test failed".format(copy_mode.title()))
 
+    def do_object_delete(self, del_mode):
+        import bpy
+        import os
+        import tempfile
+        import filecmp
+
+        ROOT = self.get_root()
+        with tempfile.TemporaryDirectory() as dirpath:
+            filepath_layers = os.path.join(ROOT, 'layers.blend')
+            filepath_reference_json = os.path.join(ROOT, 'layers_object_delete.json')
+
+            # open file
+            bpy.ops.wm.open_mainfile('EXEC_DEFAULT', filepath=filepath_layers)
+            self.rename_collections()
+
+            # create sub-collections
+            three_b = bpy.data.objects.get('T.3b')
+            three_d = bpy.data.objects.get('T.3d')
+
+            scene = bpy.context.scene
+
+            # mangle the file a bit with some objects linked across collections
+            subzero = scene.master_collection.collections['1'].collections.new('sub-zero')
+            scorpion = subzero.collections.new('scorpion')
+            subzero.objects.link(three_d)
+            scorpion.objects.link(three_b)
+            scorpion.objects.link(three_d)
+
+            # object to delete
+            ob = three_d
+
+            # delete object
+            if del_mode == 'DATA':
+                bpy.data.objects.remove(ob, do_unlink=True)
+
+            elif del_mode == 'OPERATOR':
+                bpy.context.scene.update()  # update depsgraph
+                bpy.ops.object.select_all(action='DESELECT')
+                ob.select_set(action='SELECT')
+                self.assertTrue(ob.select_get())
+                bpy.ops.object.delete()
+
+            # save file
+            filepath_generated = os.path.join(dirpath, 'generated.blend')
+            bpy.ops.wm.save_mainfile('EXEC_DEFAULT', filepath=filepath_generated)
+
+            # get the generated json
+            datas = query_scene(filepath_generated, 'Main', (get_scene_collections, get_layers))
+            self.assertTrue(datas, "Data is not valid")
+
+            filepath_generated_json = os.path.join(dirpath, "generated.json")
+            with open(filepath_generated_json, "w") as f:
+                for data in datas:
+                    f.write(dump(data))
+
+            self.assertTrue(compare_files(
+                filepath_generated_json,
+                filepath_reference_json,
+                ),
+                "Scene dump files differ")
+
+    def do_visibility_object_add(self, add_mode):
+        import bpy
+
+        scene = bpy.context.scene
+
+        # delete all objects of the file
+        for ob in bpy.data.objects:
+            bpy.data.objects.remove(ob, do_unlink=True)
+
+        # real test
+        layer = scene.render_layers.new('Visibility Test')
+        layer.collections.unlink(layer.collections[0])
+        scene.render_layers.active = layer
+
+        scene_collection = scene.master_collection.collections.new("Collection")
+        layer.collections.link(scene_collection)
+
+        bpy.context.scene.update()  # update depsgraph
+
+        self.assertEqual(len(bpy.data.objects), 0)
+
+        # add new objects
+        if add_mode == 'EMPTY':
+            bpy.ops.object.add()  # 'Empty'
+
+        elif add_mode == 'CYLINDER':
+            bpy.ops.mesh.primitive_cylinder_add()  # 'Cylinder'
+
+        elif add_mode == 'TORUS':
+            bpy.ops.mesh.primitive_torus_add()  # 'Torus'
+
+        self.assertEqual(len(bpy.data.objects), 1)
+
+        new_ob = bpy.data.objects[0]
+        self.assertTrue(new_ob.visible_get(), "Object should be visible")
+
     def cleanup_tree(self):
         """
         Remove any existent layer and collections,
