@@ -237,7 +237,6 @@ typedef enum {
 
 void DRW_viewport_init(const bContext *C);
 void DRW_viewport_matrix_get(float mat[4][4], DRWViewportMatrixType type);
-void *DRW_viewport_engine_data_get(const char *engine_name);
 float *DRW_viewport_size_get(void);
 float *DRW_viewport_screenvecs_get(void);
 float *DRW_viewport_pixelsize_get(void);
@@ -246,6 +245,9 @@ bool DRW_viewport_cache_is_dirty(void);
 
 struct DefaultFramebufferList *DRW_viewport_framebuffer_list_get(void);
 struct DefaultTextureList     *DRW_viewport_texture_list_get(void);
+
+/* Objects */
+void **DRW_object_engine_data_get(Object *ob, DrawEngineType *det);
 
 /* Settings */
 bool DRW_is_object_renderable(struct Object *ob);

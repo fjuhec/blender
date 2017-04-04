@@ -212,13 +212,13 @@ static void drw_texture_get_format(DRWTextureFormat format, GPUTextureFormat *da
 		case DRW_TEX_RG_16: *data_type = GPU_RG16F; break;
 		case DRW_TEX_RG_32: *data_type = GPU_RG32F; break;
 		case DRW_TEX_R_8: *data_type = GPU_R8; break;
+		case DRW_TEX_R_16: *data_type = GPU_R16F; break;
 #if 0
 		case DRW_TEX_RGBA_32: *data_type = GPU_RGBA32F; break;
 		case DRW_TEX_RGB_8: *data_type = GPU_RGB8; break;
 		case DRW_TEX_RGB_16: *data_type = GPU_RGB16F; break;
 		case DRW_TEX_RGB_32: *data_type = GPU_RGB32F; break;
 		case DRW_TEX_RG_8: *data_type = GPU_RG8; break;
-		case DRW_TEX_R_16: *data_type = GPU_R16F; break;
 		case DRW_TEX_R_32: *data_type = GPU_R32F; break;
 #endif
 		case DRW_TEX_DEPTH_16: *data_type = GPU_DEPTH_COMPONENT16; break;
@@ -1292,12 +1292,12 @@ void DRW_framebuffer_blit(struct GPUFrameBuffer *fb_read, struct GPUFrameBuffer 
 }
 
 /* ****************************************** Viewport ******************************************/
-void *DRW_viewport_engine_data_get(const char *engine_name)
+static void *DRW_viewport_engine_data_get(void *engine_type)
 {
-	void *data = GPU_viewport_engine_data_get(DST.viewport, engine_name);
+	void *data = GPU_viewport_engine_data_get(DST.viewport, engine_type);
 
 	if (data == NULL) {
-		data = GPU_viewport_engine_data_create(DST.viewport, engine_name);
+		data = GPU_viewport_engine_data_create(DST.viewport, engine_type);
 	}
 	return data;
 }
@@ -1377,13 +1377,51 @@ DefaultTextureList *DRW_viewport_texture_list_get(void)
 	return GPU_viewport_texture_list_get(DST.viewport);
 }
 
+/* **************************************** OBJECTS *************************************** */
+
+typedef struct ObjectEngineData {
+	struct ObjectEngineData *next, *prev;
+	DrawEngineType *engine_type;
+	void *storage;
+} ObjectEngineData;
+
+void **DRW_object_engine_data_get(Object *ob, DrawEngineType *engine_type)
+{
+	ObjectEngineData *oed;
+
+	for (oed = ob->drawdata.first; oed; oed = oed->next) {
+		if (oed->engine_type == engine_type) {
+			return &oed->storage;
+		}
+	}
+
+	oed = MEM_callocN(sizeof(ObjectEngineData), "ObjectEngineData");
+	oed->engine_type = engine_type;
+	BLI_addtail(&ob->drawdata, oed);
+
+	return &oed->storage;
+}
+
+void DRW_object_engine_data_free(Object *ob)
+{
+	for (ObjectEngineData *oed = ob->drawdata.first; oed; oed = oed->next) {
+		if (oed->storage) {
+			MEM_freeN(oed->storage);
+		}
+	}
+
+	BLI_freelistN(&ob->drawdata);
+}
+
 /* **************************************** RENDERING ************************************** */
+
+#define TIMER_FALLOFF 0.1f
 
 static void DRW_engines_init(void)
 {
 	for (LinkData *link = DST.enabled_engines.first; link; link = link->next) {
 		DrawEngineType *engine = link->data;
-		ViewportEngineData *data = DRW_viewport_engine_data_get(engine->idname);
+		ViewportEngineData *data = DRW_viewport_engine_data_get(engine);
 		double stime = PIL_check_seconds_timer();
 
 		if (engine->engine_init) {
@@ -1391,7 +1429,7 @@ static void DRW_engines_init(void)
 		}
 
 		double ftime = (PIL_check_seconds_timer() - stime) * 1e3;
-		data->init_time = data->init_time * 0.75 + ftime * 0.25; /* exp average */
+		data->init_time = data->init_time * (1.0f - TIMER_FALLOFF) + ftime * TIMER_FALLOFF; /* exp average */
 	}
 }
 
@@ -1399,12 +1437,15 @@ static void DRW_engines_cache_init(void)
 {
 	for (LinkData *link = DST.enabled_engines.first; link; link = link->next) {
 		DrawEngineType *engine = link->data;
-		ViewportEngineData *data = DRW_viewport_engine_data_get(engine->idname);
-		data->cache_time = PIL_check_seconds_timer();
+		ViewportEngineData *data = DRW_viewport_engine_data_get(engine);
+		double stime = PIL_check_seconds_timer();
+		data->cache_time = 0.0;
 
 		if (engine->cache_init) {
 			engine->cache_init(data);
 		}
+
+		data->cache_time += (PIL_check_seconds_timer() - stime) * 1e3;
 	}
 }
 
@@ -1412,11 +1453,14 @@ static void DRW_engines_cache_populate(Object *ob)
 {
 	for (LinkData *link = DST.enabled_engines.first; link; link = link->next) {
 		DrawEngineType *engine = link->data;
-		ViewportEngineData *data = DRW_viewport_engine_data_get(engine->idname);
+		ViewportEngineData *data = DRW_viewport_engine_data_get(engine);
+		double stime = PIL_check_seconds_timer();
 
 		if (engine->cache_populate) {
 			engine->cache_populate(data, ob);
 		}
+
+		data->cache_time += (PIL_check_seconds_timer() - stime) * 1e3;
 	}
 }
 
@@ -1424,13 +1468,14 @@ static void DRW_engines_cache_finish(void)
 {
 	for (LinkData *link = DST.enabled_engines.first; link; link = link->next) {
 		DrawEngineType *engine = link->data;
-		ViewportEngineData *data = DRW_viewport_engine_data_get(engine->idname);
+		ViewportEngineData *data = DRW_viewport_engine_data_get(engine);
+		double stime = PIL_check_seconds_timer();
 
 		if (engine->cache_finish) {
 			engine->cache_finish(data);
 		}
 
-		data->cache_time = (PIL_check_seconds_timer() - data->cache_time) * 1e3;
+		data->cache_time += (PIL_check_seconds_timer() - stime) * 1e3;
 	}
 }
 
@@ -1438,7 +1483,7 @@ static void DRW_engines_draw_background(void)
 {
 	for (LinkData *link = DST.enabled_engines.first; link; link = link->next) {
 		DrawEngineType *engine = link->data;
-		ViewportEngineData *data = DRW_viewport_engine_data_get(engine->idname);
+		ViewportEngineData *data = DRW_viewport_engine_data_get(engine);
 		double stime = PIL_check_seconds_timer();
 
 		if (engine->draw_background) {
@@ -1447,7 +1492,7 @@ static void DRW_engines_draw_background(void)
 		}
 
 		double ftime = (PIL_check_seconds_timer() - stime) * 1e3;
-		data->background_time = data->background_time * 0.75 + ftime * 0.25; /* exp average */
+		data->background_time = data->background_time * (1.0f - TIMER_FALLOFF) + ftime * TIMER_FALLOFF; /* exp average */
 	}
 
 	/* No draw_background found, doing default background */
@@ -1458,7 +1503,7 @@ static void DRW_engines_draw_scene(void)
 {
 	for (LinkData *link = DST.enabled_engines.first; link; link = link->next) {
 		DrawEngineType *engine = link->data;
-		ViewportEngineData *data = DRW_viewport_engine_data_get(engine->idname);
+		ViewportEngineData *data = DRW_viewport_engine_data_get(engine);
 		double stime = PIL_check_seconds_timer();
 
 		if (engine->draw_scene) {
@@ -1466,7 +1511,7 @@ static void DRW_engines_draw_scene(void)
 		}
 
 		double ftime = (PIL_check_seconds_timer() - stime) * 1e3;
-		data->render_time = data->render_time * 0.75 + ftime * 0.25; /* exp average */
+		data->render_time = data->render_time * (1.0f - TIMER_FALLOFF) + ftime * TIMER_FALLOFF; /* exp average */
 	}
 }
 
@@ -1597,7 +1642,7 @@ static void DRW_debug_cpu_stats(void)
 	for (LinkData *link = DST.enabled_engines.first; link; link = link->next) {
 		u = 0;
 		DrawEngineType *engine = link->data;
-		ViewportEngineData *data = DRW_viewport_engine_data_get(engine->idname);
+		ViewportEngineData *data = DRW_viewport_engine_data_get(engine);
 
 		draw_stat(&rect, u++, v, engine->idname, sizeof(engine->idname));
 
@@ -1657,7 +1702,7 @@ static void DRW_debug_gpu_stats(void)
 	for (LinkData *link = DST.enabled_engines.first; link; link = link->next) {
 		GLuint64 engine_time = 0;
 		DrawEngineType *engine = link->data;
-		ViewportEngineData *data = DRW_viewport_engine_data_get(engine->idname);
+		ViewportEngineData *data = DRW_viewport_engine_data_get(engine);
 		int vsta = v;
 
 		draw_stat(&rect, 0, v, engine->idname, sizeof(engine->idname));
