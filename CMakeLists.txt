@@ -1052,11 +1052,6 @@ endif()
 find_package(OpenGL)
 blender_include_dirs_sys("${OPENGL_INCLUDE_DIR}")
 
-# IMM-FIXME
-if(TRUE)
-	list(APPEND BLENDER_GL_LIBRARIES "${OPENGL_glu_LIBRARY}")
-endif()
-
 if(WITH_SYSTEM_GLES)
 	find_package_wrapper(OpenGLES)
 endif()

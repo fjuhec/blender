@@ -46,8 +46,11 @@
 #include "ED_view3d.h"
 #include "ED_screen.h"
 
-#include "GPU_select.h"
+#include "GPU_draw.h"
+#include "GPU_immediate.h"
+#include "GPU_immediate_util.h"
 #include "GPU_matrix.h"
+#include "GPU_select.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -62,7 +65,7 @@
 #include "manipulator_geometry.h"
 #include "manipulator_library_intern.h"
 
-// #define USE_IMM
+#define USE_IMM
 
 #ifndef USE_IMM
 #  include <GL/glu.h>
@@ -109,11 +112,8 @@ static void manipulator_arrow_get_final_pos(wmManipulator *manipulator, float r_
 
 static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select, const float color[4])
 {
-
-#ifdef USE_IMM
-#else
+	/* USE_IMM for other arrow types */
 	glColor4fv(color);
-#endif
 
 	if (arrow->style & MANIPULATOR_ARROW_STYLE_CROSS) {
 		glPushAttrib(GL_ENABLE_BIT);
@@ -193,16 +193,22 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select, co
 
 			/* translate to line end */
 #ifdef USE_IMM
+			UNUSED_VARS(use_lighting);
+			unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
 			gpuTranslate3f(0.0f, 0.0f, arrow->len);
+
+			immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+			immUniformColor4fv(color);
 #else
 			glTranslatef(0.0f, 0.0f, arrow->len);
-#endif
 			if (use_lighting) {
 				glShadeModel(GL_SMOOTH);
 			}
+#endif
 
 #ifdef USE_IMM
-			// IMM-FIXME
+			imm_draw_circle_fill_3d(pos, 0.0, 0.0, width, 8);
+			imm_draw_cylinder_fill_3d(pos, width, 0.0, len, 8, 1);
 #else
 			GLUquadricObj *qobj = gluNewQuadric();
 			gluQuadricDrawStyle(qobj, GLU_FILL);
@@ -213,9 +219,13 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select, co
 			gluDeleteQuadric(qobj);
 #endif
 
+#ifdef USE_IMM
+			immUnbindProgram();
+#else
 			if (use_lighting) {
 				glShadeModel(GL_FLAT);
 			}
+#endif
 		}
 
 #ifdef USE_IMM
