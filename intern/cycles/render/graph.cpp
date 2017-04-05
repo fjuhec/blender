@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
-#include "attribute.h"
-#include "graph.h"
-#include "nodes.h"
-#include "scene.h"
-#include "shader.h"
-#include "constant_fold.h"
+#include "render/attribute.h"
+#include "render/graph.h"
+#include "render/nodes.h"
+#include "render/scene.h"
+#include "render/shader.h"
+#include "render/constant_fold.h"
 
-#include "util_algorithm.h"
-#include "util_debug.h"
-#include "util_foreach.h"
-#include "util_queue.h"
-#include "util_logging.h"
+#include "util/util_algorithm.h"
+#include "util/util_debug.h"
+#include "util/util_foreach.h"
+#include "util/util_queue.h"
+#include "util/util_logging.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -238,6 +238,8 @@ ShaderGraph *ShaderGraph::copy()
 	foreach(ShaderNode *node, nodes)
 		newgraph->add(nodes_copy[node]);
 
+	newgraph->simplified = simplified;
+
 	return newgraph;
 }
 
@@ -245,7 +247,6 @@ void ShaderGraph::connect(ShaderOutput *from, ShaderInput *to)
 {
 	assert(!finalized);
 	assert(from && to);
-	simplified = false;
 
 	if(to->link) {
 		fprintf(stderr, "Cycles shader graph connect: input already connected.\n");
