@@ -1241,9 +1241,10 @@ struct IDOverrideProperty *RNA_property_override_property_find(PointerRNA *ptr, 
 struct IDOverrideProperty *RNA_property_override_property_get(PointerRNA *ptr, PropertyRNA *prop, bool *r_created);
 
 struct IDOverridePropertyOperation *RNA_property_override_property_operation_find(
-        PointerRNA *ptr, PropertyRNA *prop, const int index);
+        PointerRNA *ptr, PropertyRNA *prop, const int index, const bool strict, bool *r_strict);
 struct IDOverridePropertyOperation *RNA_property_override_property_operation_get(
-        PointerRNA *ptr, PropertyRNA *prop, const short operation, const int index, bool *r_created);
+        PointerRNA *ptr, PropertyRNA *prop, const short operation, const int index,
+        const bool strict, bool *r_strict, bool *r_created);
 
 bool RNA_property_overridable(PointerRNA *ptr, PropertyRNA *prop);
 bool RNA_property_overridden(PointerRNA *ptr, PropertyRNA *prop, const int index);

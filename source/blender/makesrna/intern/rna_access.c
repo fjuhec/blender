@@ -6853,7 +6853,7 @@ static bool rna_property_override_equals_propptr(
 			IDOverrideProperty *op = BKE_override_property_get(override, rna_path, &created);
 
 			if (op != NULL && created) {  /* If not yet overridden... */
-				BKE_override_property_operation_get(op, IDOVERRIDE_REPLACE, NULL, NULL, -1, -1, NULL);
+				BKE_override_property_operation_get(op, IDOVERRIDE_REPLACE, NULL, NULL, -1, -1, true, NULL, NULL);
 				if (r_override_changed) {
 					*r_override_changed = *r_override_changed || created;
 				}
@@ -6930,7 +6930,7 @@ static bool rna_property_override_equals(
 					IDOverrideProperty *op = BKE_override_property_get(override, rna_path, &created);
 
 					if (op != NULL && created) {
-						BKE_override_property_operation_get(op, IDOVERRIDE_REPLACE, NULL, NULL, -1, -1, NULL);
+						BKE_override_property_operation_get(op, IDOVERRIDE_REPLACE, NULL, NULL, -1, -1, true, NULL, NULL);
 						if (r_override_changed) {
 							*r_override_changed = created;
 						}
@@ -6954,7 +6954,7 @@ static bool rna_property_override_equals(
 					IDOverrideProperty *op = BKE_override_property_get(override, rna_path, &created);
 
 					if (op != NULL && created) {  /* If not yet overridden... */
-						BKE_override_property_operation_get(op, IDOVERRIDE_REPLACE, NULL, NULL, -1, -1, NULL);
+						BKE_override_property_operation_get(op, IDOVERRIDE_REPLACE, NULL, NULL, -1, -1, true, NULL, NULL);
 						if (r_override_changed) {
 							*r_override_changed = created;
 						}
@@ -6985,7 +6985,7 @@ static bool rna_property_override_equals(
 					IDOverrideProperty *op = BKE_override_property_get(override, rna_path, &created);
 
 					if (op != NULL && created) {
-						BKE_override_property_operation_get(op, IDOVERRIDE_REPLACE, NULL, NULL, -1, -1, NULL);
+						BKE_override_property_operation_get(op, IDOVERRIDE_REPLACE, NULL, NULL, -1, -1, true, NULL, NULL);
 						if (r_override_changed) {
 							*r_override_changed = created;
 						}
@@ -7009,7 +7009,7 @@ static bool rna_property_override_equals(
 					IDOverrideProperty *op = BKE_override_property_get(override, rna_path, &created);
 
 					if (op != NULL && created) {  /* If not yet overridden... */
-						BKE_override_property_operation_get(op, IDOVERRIDE_REPLACE, NULL, NULL, -1, -1, NULL);
+						BKE_override_property_operation_get(op, IDOVERRIDE_REPLACE, NULL, NULL, -1, -1, true, NULL, NULL);
 						if (r_override_changed) {
 							*r_override_changed = created;
 						}
@@ -7041,7 +7041,8 @@ static bool rna_property_override_equals(
 					IDOverrideProperty *op = BKE_override_property_get(override, rna_path, &created);
 
 					if (op != NULL && created) {
-						BKE_override_property_operation_get(op, is_proportional ? IDOVERRIDE_MULTIPLY : IDOVERRIDE_REPLACE, NULL, NULL, -1, -1, NULL);
+						BKE_override_property_operation_get(op, is_proportional ? IDOVERRIDE_MULTIPLY : IDOVERRIDE_REPLACE,
+						                                    NULL, NULL, -1, -1, true, NULL, NULL);
 						if (r_override_changed) {
 							*r_override_changed = created;
 						}
@@ -7065,7 +7066,8 @@ static bool rna_property_override_equals(
 					IDOverrideProperty *op = BKE_override_property_get(override, rna_path, &created);
 
 					if (op != NULL && created) {  /* If not yet overridden... */
-						BKE_override_property_operation_get(op, is_proportional ? IDOVERRIDE_MULTIPLY : IDOVERRIDE_REPLACE, NULL, NULL, -1, -1, NULL);
+						BKE_override_property_operation_get(op, is_proportional ? IDOVERRIDE_MULTIPLY : IDOVERRIDE_REPLACE,
+						                                    NULL, NULL, -1, -1, true, NULL, NULL);
 						if (r_override_changed) {
 							*r_override_changed = created;
 						}
@@ -7086,7 +7088,7 @@ static bool rna_property_override_equals(
 				IDOverrideProperty *op = BKE_override_property_get(override, rna_path, &created);
 
 				if (op != NULL && created) {  /* If not yet overridden... */
-					BKE_override_property_operation_get(op, IDOVERRIDE_REPLACE, NULL, NULL, -1, -1, NULL);
+					BKE_override_property_operation_get(op, IDOVERRIDE_REPLACE, NULL, NULL, -1, -1, true, NULL, NULL);
 					if (r_override_changed) {
 						*r_override_changed = created;
 					}
@@ -7109,7 +7111,7 @@ static bool rna_property_override_equals(
 				IDOverrideProperty *op = BKE_override_property_get(override, rna_path, &created);
 
 				if (op != NULL && created) {  /* If not yet overridden... */
-					BKE_override_property_operation_get(op, IDOVERRIDE_REPLACE, NULL, NULL, -1, -1, NULL);
+					BKE_override_property_operation_get(op, IDOVERRIDE_REPLACE, NULL, NULL, -1, -1, true, NULL, NULL);
 					if (r_override_changed) {
 						*r_override_changed = created;
 					}
@@ -8087,7 +8089,7 @@ IDOverrideProperty *RNA_property_override_property_get(PointerRNA *ptr, Property
 }
 
 IDOverridePropertyOperation *RNA_property_override_property_operation_find(
-        PointerRNA *ptr, PropertyRNA *prop, const int index)
+        PointerRNA *ptr, PropertyRNA *prop, const int index, const bool strict, bool *r_strict)
 {
 	IDOverrideProperty *op = RNA_property_override_property_find(ptr, prop);
 
@@ -8095,11 +8097,12 @@ IDOverridePropertyOperation *RNA_property_override_property_operation_find(
 		return NULL;
 	}
 
-	return BKE_override_property_operation_find(op, NULL, NULL, index, index);
+	return BKE_override_property_operation_find(op, NULL, NULL, index, index, strict, r_strict);
 }
 
 IDOverridePropertyOperation *RNA_property_override_property_operation_get(
-        PointerRNA *ptr, PropertyRNA *prop, const short operation, const int index, bool *r_created)
+        PointerRNA *ptr, PropertyRNA *prop, const short operation, const int index,
+        const bool strict, bool *r_strict, bool *r_created)
 {
 	IDOverrideProperty *op = RNA_property_override_property_get(ptr, prop, NULL);
 
@@ -8107,7 +8110,7 @@ IDOverridePropertyOperation *RNA_property_override_property_operation_get(
 		return NULL;
 	}
 
-	return BKE_override_property_operation_get(op, operation, NULL, NULL, index, index, r_created);
+	return BKE_override_property_operation_get(op, operation, NULL, NULL, index, index, strict, r_strict, r_created);
 }
 
 bool RNA_property_overridable(PointerRNA *ptr, PropertyRNA *prop)
@@ -8131,7 +8134,7 @@ bool RNA_property_overridden(PointerRNA *ptr, PropertyRNA *prop, const int index
 		return false;
 	}
 
-	if (RNA_property_override_property_operation_find(ptr, prop, index)) {
+	if (RNA_property_override_property_operation_find(ptr, prop, index, false, NULL)) {
 		return true;
 	}
 

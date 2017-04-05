@@ -49,11 +49,12 @@ void BKE_override_property_delete(struct IDOverride *override, struct IDOverride
 struct IDOverridePropertyOperation *BKE_override_property_operation_find(
         struct IDOverrideProperty *override_property,
         const char *subitem_refname, const char *subitem_locname,
-        const int subitem_refindex, const int subitem_locindex);
+        const int subitem_refindex, const int subitem_locindex, const bool strict, bool *r_strict);
 struct IDOverridePropertyOperation *BKE_override_property_operation_get(
         struct IDOverrideProperty *override_property, const short operation,
         const char *subitem_refname, const char *subitem_locname,
-        const int subitem_refindex, const int subitem_locindex, bool *r_created);
+        const int subitem_refindex, const int subitem_locindex,
+        const bool strict, bool *r_strict, bool *r_created);
 void BKE_override_property_operation_delete(
         struct IDOverrideProperty *override_property, struct IDOverridePropertyOperation *override_property_operation);
 

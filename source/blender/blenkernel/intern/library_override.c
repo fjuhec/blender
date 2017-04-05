@@ -149,10 +149,14 @@ void BKE_override_property_delete(IDOverride *override, IDOverrideProperty *over
 IDOverridePropertyOperation *BKE_override_property_operation_find(
         IDOverrideProperty *override_property,
         const char *subitem_refname, const char *subitem_locname,
-        const int subitem_refindex, const int subitem_locindex)
+        const int subitem_refindex, const int subitem_locindex, const bool strict, bool *r_strict)
 {
 	IDOverridePropertyOperation *opop;
 	const int subitem_defindex = -1;
+
+	if (r_strict) {
+		*r_strict = true;
+	}
 
 	if (subitem_locname &&
 	    (opop = BLI_findstring_ptr(&override_property->operations, subitem_locname,
@@ -181,10 +185,13 @@ IDOverridePropertyOperation *BKE_override_property_operation_find(
 	}
 
 	/* index == -1 means all indices, that is valid fallback in case we requested specific index. */
-	if ((subitem_locindex != subitem_defindex) &&
+	if (!strict && (subitem_locindex != subitem_defindex) &&
 	    (opop = BLI_listbase_bytes_find(&override_property->operations, &subitem_defindex, sizeof(subitem_defindex),
 	                                    offsetof(IDOverridePropertyOperation, subitem_local_index))))
 	{
+		if (r_strict) {
+			*r_strict = false;
+		}
 		return opop;
 	}
 
@@ -197,11 +204,13 @@ IDOverridePropertyOperation *BKE_override_property_operation_find(
 IDOverridePropertyOperation *BKE_override_property_operation_get(
         IDOverrideProperty *override_property, const short operation,
         const char *subitem_refname, const char *subitem_locname,
-        const int subitem_refindex, const int subitem_locindex, bool *r_created)
+        const int subitem_refindex, const int subitem_locindex,
+        const bool strict, bool *r_strict, bool *r_created)
 {
 	IDOverridePropertyOperation *opop = BKE_override_property_operation_find(override_property,
 	                                                                         subitem_refname, subitem_locname,
-	                                                                         subitem_refindex, subitem_locindex);
+	                                                                         subitem_refindex, subitem_locindex,
+	                                                                         strict, r_strict);
 
 	if (opop == NULL) {
 		opop = MEM_callocN(sizeof(IDOverridePropertyOperation), __func__);
