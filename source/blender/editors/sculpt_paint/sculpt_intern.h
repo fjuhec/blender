@@ -59,6 +59,7 @@
 struct bContext;
 struct KeyBlock;
 struct Object;
+struct SculptUndoNode;
 
 int sculpt_mode_poll(struct bContext *C);
 int sculpt_mode_poll_view3d(struct bContext *C);
