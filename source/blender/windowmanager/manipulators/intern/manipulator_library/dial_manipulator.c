@@ -96,10 +96,11 @@ typedef struct DialInteraction {
 #define DIAL_WIDTH       1.0f
 #define DIAL_RESOLUTION 32
 
-
 /* -------------------------------------------------------------------- */
 
-static void dial_geom_draw(const DialManipulator *dial, const float col[4], const bool select)
+static void dial_geom_draw(
+        const DialManipulator *dial, const float col[4], const bool select,
+        float axis_modal_mat[4][4], float clip_plane[4])
 {
 #ifdef MANIPULATOR_USE_CUSTOM_DIAS
 	wm_manipulator_geometryinfo_draw(&dial_draw_info, select);
@@ -113,7 +114,16 @@ static void dial_geom_draw(const DialManipulator *dial, const float col[4], cons
 		VertexFormat *format = immVertexFormat();
 		unsigned int pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
 
-		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+		if (clip_plane) {
+			immBindBuiltinProgram(GPU_SHADER_3D_CLIPPED_UNIFORM_COLOR);
+			float clip_plane_f[4] = {clip_plane[0], clip_plane[1], clip_plane[2], clip_plane[3]};
+			immUniform4fv("ClipPlane", clip_plane_f);
+			immUniformMatrix4fv("ModelMatrix", axis_modal_mat);
+			glEnable(GL_CLIP_DISTANCE0);
+		}
+		else {
+			immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+		}
 
 		immUniformColor4fv(col);
 
@@ -124,10 +134,16 @@ static void dial_geom_draw(const DialManipulator *dial, const float col[4], cons
 			imm_draw_lined_circle(pos, 0, 0, 1.0, DIAL_RESOLUTION);
 		}
 
+		if (clip_plane) {
+			glEnable(GL_CLIP_DISTANCE0);
+		}
+
 		immUnbindProgram();
 	}
 #else
 	{
+		UNUSED_VARS(axis_modal_mat, clip_plane);
+
 		glColor4fv(col);
 
 		GLUquadricObj *qobj = gluNewQuadric();
@@ -190,7 +206,7 @@ static void dial_ghostarc_draw(
 	unsigned int pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 	immUniformColor4fv(color);
-	imm_draw_filled_circle_partial(
+	imm_draw_filled_disk_partial(
 	        pos, 0, 0, 0.0, width_inner, DIAL_RESOLUTION, RAD2DEGF(angle_ofs), RAD2DEGF(angle_delta));
 	immUnbindProgram();
 #else
@@ -253,7 +269,9 @@ static void dial_ghostarc_get_angles(
 	*r_delta = fmod(delta + 2.0f * (float)M_PI * inter->rotations, 2 * (float)M_PI);
 }
 
-static void dial_draw_intern(const bContext *C, DialManipulator *dial, const bool select, const bool highlight)
+static void dial_draw_intern(
+        const bContext *C, DialManipulator *dial,
+        const bool select, const bool highlight, float clip_plane[4])
 {
 	float rot[3][3];
 	float mat[4][4];
@@ -274,6 +292,7 @@ static void dial_draw_intern(const bContext *C, DialManipulator *dial, const boo
 	gpuMultMatrix3D(mat);
 	gpuTranslate3fv(dial->manipulator.offset);
 #else
+	UNUSED_VARS(clip_plane);
 	glPushMatrix();
 	glMultMatrixf(mat);
 	glTranslatef(UNPACK3(dial->manipulator.offset));
@@ -294,7 +313,7 @@ static void dial_draw_intern(const bContext *C, DialManipulator *dial, const boo
 	}
 
 	/* draw actual dial manipulator */
-	dial_geom_draw(dial, col, select);
+	dial_geom_draw(dial, col, select, mat, clip_plane);
 
 #ifdef USE_IMM
 	gpuPopMatrix();
@@ -307,24 +326,33 @@ static void dial_draw_intern(const bContext *C, DialManipulator *dial, const boo
 static void manipulator_dial_render_3d_intersect(const bContext *C, wmManipulator *manipulator, int selectionbase)
 {
 	DialManipulator *dial = (DialManipulator *)manipulator;
+	float clip_plane_buf[4];
+	float *clip_plane = (dial->style == MANIPULATOR_DIAL_STYLE_RING_CLIPPED) ? clip_plane_buf : NULL;
 
 	/* enable clipping if needed */
-	if (dial->style == MANIPULATOR_DIAL_STYLE_RING_CLIPPED) {
+	if (clip_plane) {
 		ARegion *ar = CTX_wm_region(C);
 		RegionView3D *rv3d = ar->regiondata;
-		double plane[4];
 
-		copy_v3db_v3fl(plane, rv3d->viewinv[2]);
-		plane[3] = -dot_v3v3(rv3d->viewinv[2], manipulator->origin);
-		glClipPlane(GL_CLIP_PLANE0, plane);
+		copy_v3_v3(clip_plane, rv3d->viewinv[2]);
+		clip_plane[3] = -dot_v3v3(rv3d->viewinv[2], manipulator->origin);
+#ifdef USE_IMM
+		/* nested */
+#else
+		glClipPlane(GL_CLIP_PLANE0, (const double[4]){UNPACK4(clip_plane)});
 		glEnable(GL_CLIP_PLANE0);
+#endif
 	}
 
 	GPU_select_load_id(selectionbase);
-	dial_draw_intern(C, dial, true, false);
+	dial_draw_intern(C, dial, true, false, clip_plane);
 
-	if (dial->style == MANIPULATOR_DIAL_STYLE_RING_CLIPPED) {
+	if (clip_plane) {
+#ifdef USE_IMM
+		/* nested */
+#else
 		glDisable(GL_CLIP_PLANE0);
+#endif
 	}
 }
 
@@ -332,25 +360,37 @@ static void manipulator_dial_draw(const bContext *C, wmManipulator *manipulator)
 {
 	DialManipulator *dial = (DialManipulator *)manipulator;
 	const bool active = manipulator->state & WM_MANIPULATOR_ACTIVE;
+	const bool highlight = (manipulator->state & WM_MANIPULATOR_HIGHLIGHT) != 0;
+	float clip_plane_buf[4];
+	float *clip_plane = (!active && dial->style == MANIPULATOR_DIAL_STYLE_RING_CLIPPED) ? clip_plane_buf : NULL;
 
 	/* enable clipping if needed */
-	if (!active && dial->style == MANIPULATOR_DIAL_STYLE_RING_CLIPPED) {
-		double plane[4];
+	if (clip_plane) {
 		ARegion *ar = CTX_wm_region(C);
 		RegionView3D *rv3d = ar->regiondata;
 
-		copy_v3db_v3fl(plane, rv3d->viewinv[2]);
-		plane[3] = -dot_v3v3(rv3d->viewinv[2], manipulator->origin);
-		glClipPlane(GL_CLIP_PLANE0, plane);
+		copy_v3_v3(clip_plane, rv3d->viewinv[2]);
+		clip_plane[3] = -dot_v3v3(rv3d->viewinv[2], manipulator->origin);
+		clip_plane[3] -= 0.02 * dial->manipulator.scale;
+
+#ifdef USE_IMM
+		/* nested */
+#else
+		glClipPlane(GL_CLIP_PLANE0, (const double[4]){UNPACK4(clip_plane)});
 		glEnable(GL_CLIP_PLANE0);
+#endif
 	}
 
 	glEnable(GL_BLEND);
-	dial_draw_intern(C, dial, false, (manipulator->state & WM_MANIPULATOR_HIGHLIGHT) != 0);
+	dial_draw_intern(C, dial, false, highlight, clip_plane);
 	glDisable(GL_BLEND);
 
-	if (!active && dial->style == MANIPULATOR_DIAL_STYLE_RING_CLIPPED) {
+	if (clip_plane) {
+#ifdef USE_IMM
+		/* nested */
+#else
 		glDisable(GL_CLIP_PLANE0);
+#endif
 	}
 }
 
