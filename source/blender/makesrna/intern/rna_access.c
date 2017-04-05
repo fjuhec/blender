@@ -8062,13 +8062,26 @@ IDOverrideProperty *RNA_property_override_property_find(PointerRNA *ptr, Propert
 
 	char *rna_path = RNA_path_from_ID_to_property(ptr, prop);
 	if (rna_path) {
-		for (IDOverrideProperty *op = id->override->properties.first; op; op = op->next) {
-			if (STREQ(rna_path, op->rna_path)) {
-				MEM_freeN(rna_path);
-				return op;
-			}
-		}
+		IDOverrideProperty *op = BKE_override_property_find(id->override, rna_path);
 		MEM_freeN(rna_path);
+		return op;
+	}
+	return NULL;
+}
+
+IDOverrideProperty *RNA_property_override_property_get(PointerRNA *ptr, PropertyRNA *prop, bool *r_created)
+{
+	ID *id = ptr->id.data;
+
+	if (!id || !id->override) {
+		return NULL;
+	}
+
+	char *rna_path = RNA_path_from_ID_to_property(ptr, prop);
+	if (rna_path) {
+		IDOverrideProperty *op = BKE_override_property_get(id->override, rna_path, r_created);
+		MEM_freeN(rna_path);
+		return op;
 	}
 	return NULL;
 }
@@ -8082,17 +8095,19 @@ IDOverridePropertyOperation *RNA_property_override_property_operation_find(
 		return NULL;
 	}
 
-	IDOverridePropertyOperation *opop_generic = NULL;
-	for (IDOverridePropertyOperation *opop = op->operations.first; opop; opop = opop->next) {
-		if (opop->subitem_local_index == index) {
-			return opop;
-		}
-		else if (opop->subitem_local_index == -1 && !opop_generic) {
-			/* index == -1 means all indices, that is valid fallback in case we requested specific index. */
-			opop_generic = opop;
-		}
+	return BKE_override_property_operation_find(op, NULL, NULL, index, index);
+}
+
+IDOverridePropertyOperation *RNA_property_override_property_operation_get(
+        PointerRNA *ptr, PropertyRNA *prop, const short operation, const int index, bool *r_created)
+{
+	IDOverrideProperty *op = RNA_property_override_property_get(ptr, prop, NULL);
+
+	if (!op) {
+		return NULL;
 	}
-	return opop_generic;
+
+	return BKE_override_property_operation_get(op, operation, NULL, NULL, index, index, r_created);
 }
 
 bool RNA_property_overridable(PointerRNA *ptr, PropertyRNA *prop)

@@ -51,7 +51,7 @@ struct IDOverridePropertyOperation *BKE_override_property_operation_find(
         const char *subitem_refname, const char *subitem_locname,
         const int subitem_refindex, const int subitem_locindex);
 struct IDOverridePropertyOperation *BKE_override_property_operation_get(
-        struct IDOverrideProperty *override_property, const int operation,
+        struct IDOverrideProperty *override_property, const short operation,
         const char *subitem_refname, const char *subitem_locname,
         const int subitem_refindex, const int subitem_locindex, bool *r_created);
 void BKE_override_property_operation_delete(

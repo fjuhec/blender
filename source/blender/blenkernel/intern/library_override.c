@@ -152,6 +152,14 @@ IDOverridePropertyOperation *BKE_override_property_operation_find(
         const int subitem_refindex, const int subitem_locindex)
 {
 	IDOverridePropertyOperation *opop;
+	const int subitem_defindex = -1;
+
+	if (subitem_locname &&
+	    (opop = BLI_findstring_ptr(&override_property->operations, subitem_locname,
+	                               offsetof(IDOverridePropertyOperation, subitem_local_name))))
+	{
+		return opop;
+	}
 
 	if (subitem_refname &&
 	    (opop = BLI_findstring_ptr(&override_property->operations, subitem_refname,
@@ -160,9 +168,8 @@ IDOverridePropertyOperation *BKE_override_property_operation_find(
 		return opop;
 	}
 
-	if (subitem_locname &&
-	    (opop = BLI_findstring_ptr(&override_property->operations, subitem_locname,
-	                               offsetof(IDOverridePropertyOperation, subitem_local_name))))
+	if ((opop = BLI_listbase_bytes_find(&override_property->operations, &subitem_locindex, sizeof(subitem_locindex),
+	                                    offsetof(IDOverridePropertyOperation, subitem_local_index))))
 	{
 		return opop;
 	}
@@ -173,7 +180,9 @@ IDOverridePropertyOperation *BKE_override_property_operation_find(
 		return opop;
 	}
 
-	if ((opop = BLI_listbase_bytes_find(&override_property->operations, &subitem_locindex, sizeof(subitem_locindex),
+	/* index == -1 means all indices, that is valid fallback in case we requested specific index. */
+	if ((subitem_locindex != subitem_defindex) &&
+	    (opop = BLI_listbase_bytes_find(&override_property->operations, &subitem_defindex, sizeof(subitem_defindex),
 	                                    offsetof(IDOverridePropertyOperation, subitem_local_index))))
 	{
 		return opop;
@@ -186,7 +195,7 @@ IDOverridePropertyOperation *BKE_override_property_operation_find(
  * Find override property operation from given sub-item(s), or create it if it does not exist.
  */
 IDOverridePropertyOperation *BKE_override_property_operation_get(
-        IDOverrideProperty *override_property, const int operation,
+        IDOverrideProperty *override_property, const short operation,
         const char *subitem_refname, const char *subitem_locname,
         const int subitem_refindex, const int subitem_locindex, bool *r_created)
 {
@@ -207,6 +216,10 @@ IDOverridePropertyOperation *BKE_override_property_operation_get(
 		opop->subitem_reference_index = subitem_refindex;
 
 		BLI_addtail(&override_property->operations, opop);
+
+		if (r_created) {
+			*r_created = true;
+		}
 	}
 	else if (r_created) {
 		*r_created = false;

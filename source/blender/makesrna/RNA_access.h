@@ -1238,8 +1238,12 @@ bool RNA_struct_auto_override(
         struct PointerRNA *local, struct PointerRNA *reference, struct IDOverride *override, const char *root_path);
 
 struct IDOverrideProperty *RNA_property_override_property_find(PointerRNA *ptr, PropertyRNA *prop);
+struct IDOverrideProperty *RNA_property_override_property_get(PointerRNA *ptr, PropertyRNA *prop, bool *r_created);
+
 struct IDOverridePropertyOperation *RNA_property_override_property_operation_find(
         PointerRNA *ptr, PropertyRNA *prop, const int index);
+struct IDOverridePropertyOperation *RNA_property_override_property_operation_get(
+        PointerRNA *ptr, PropertyRNA *prop, const short operation, const int index, bool *r_created);
 
 bool RNA_property_overridable(PointerRNA *ptr, PropertyRNA *prop);
 bool RNA_property_overridden(PointerRNA *ptr, PropertyRNA *prop, const int index);
