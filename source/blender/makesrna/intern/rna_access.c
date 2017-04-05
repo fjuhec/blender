@@ -8052,7 +8052,7 @@ bool RNA_struct_auto_override(PointerRNA *local, PointerRNA *reference, IDOverri
 	return changed;
 }
 
-IDOverrideProperty *RNA_property_override_property_get(PointerRNA *ptr, PropertyRNA *prop)
+IDOverrideProperty *RNA_property_override_property_find(PointerRNA *ptr, PropertyRNA *prop)
 {
 	ID *id = ptr->id.data;
 
@@ -8073,10 +8073,10 @@ IDOverrideProperty *RNA_property_override_property_get(PointerRNA *ptr, Property
 	return NULL;
 }
 
-IDOverridePropertyOperation *RNA_property_override_property_operation_get(
+IDOverridePropertyOperation *RNA_property_override_property_operation_find(
         PointerRNA *ptr, PropertyRNA *prop, const int index)
 {
-	IDOverrideProperty *op = RNA_property_override_property_get(ptr, prop);
+	IDOverrideProperty *op = RNA_property_override_property_find(ptr, prop);
 
 	if (!op) {
 		return NULL;
@@ -8116,7 +8116,7 @@ bool RNA_property_overridden(PointerRNA *ptr, PropertyRNA *prop, const int index
 		return false;
 	}
 
-	if (RNA_property_override_property_operation_get(ptr, prop, index)) {
+	if (RNA_property_override_property_operation_find(ptr, prop, index)) {
 		return true;
 	}
 
