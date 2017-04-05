@@ -4419,7 +4419,8 @@ static struct PBVH *ccgDM_getPBVH(Object *ob, DerivedMesh *dm)
 	if (!ob->sculpt)
 		return NULL;
 
-	grid_pbvh = ccgDM_use_grid_pbvh(ccgdm);
+	/* In vwpaint, we always use a grid_pbvh for multires/subsurf */
+	grid_pbvh = (!(ob->mode & OB_MODE_SCULPT)) || ccgDM_use_grid_pbvh(ccgdm);
 
 	if (ob->sculpt->pbvh) {
 		if (grid_pbvh) {
@@ -4441,8 +4442,8 @@ static struct PBVH *ccgDM_getPBVH(Object *ob, DerivedMesh *dm)
 	/* no pbvh exists yet, we need to create one. only in case of multires
 	 * we build a pbvh over the modified mesh, in other cases the base mesh
 	 * is being sculpted, so we build a pbvh from that. */
-	/* Note: VWPaint do not support PBVH_GRIDS at the moment. */
-	if (grid_pbvh && ob->mode & OB_MODE_SCULPT) {
+	/* Note: vwpaint always builds a pbvh over the modified mesh. */
+	if (grid_pbvh) {
 		ccgdm_create_grids(dm);
 
 		numGrids = ccgDM_getNumGrids(dm);

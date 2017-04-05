@@ -53,10 +53,12 @@
 
 #include "paint_intern.h"
 
+#include "bmesh.h"
+#include "bmesh_tools.h"
+
 struct bContext;
 struct KeyBlock;
 struct Object;
-struct SculptUndoNode;
 
 int sculpt_mode_poll(struct bContext *C);
 int sculpt_mode_poll_view3d(struct bContext *C);
@@ -127,6 +129,32 @@ typedef struct SculptUndoNode {
 	/* shape keys */
 	char shapeName[sizeof(((KeyBlock *)0))->name];
 } SculptUndoNode;
+
+/************** Access to original unmodified vertex data *************/
+
+typedef struct SculptOrigVertData {
+	BMLog *bm_log;
+
+	SculptUndoNode *unode;
+	float(*coords)[3];
+	short(*normals)[3];
+	const float *vmasks;
+
+	/* Original coordinate, normal, and mask */
+	const float *co;
+	const short *no;
+	float mask;
+} SculptOrigVertData;
+
+
+void sculpt_orig_vert_data_unode_init(SculptOrigVertData *data,
+	Object *ob,
+	SculptUndoNode *unode);
+void sculpt_orig_vert_data_init(SculptOrigVertData *data,
+	Object *ob,
+	PBVHNode *node);
+void sculpt_orig_vert_data_update(SculptOrigVertData *orig_data,
+	PBVHVertexIter *iter);
 
 /* Factor of brush to have rake point following behind
 * (could be configurable but this is reasonable default). */

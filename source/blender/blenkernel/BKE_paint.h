@@ -214,6 +214,7 @@ typedef struct SculptSession {
 	unsigned int *tot_loops_hit;
 	float *max_weight;
 	unsigned int *previous_color;
+	bool building_vp_handle;
 } SculptSession;
 
 void BKE_sculptsession_free(struct Object *ob);

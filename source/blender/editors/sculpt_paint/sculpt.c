@@ -88,9 +88,6 @@
 #include "UI_interface.h"
 #include "UI_resources.h"
 
-#include "bmesh.h"
-#include "bmesh_tools.h"
-
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -169,24 +166,9 @@ typedef enum StrokeFlags {
 
 /************** Access to original unmodified vertex data *************/
 
-typedef struct {
-	BMLog *bm_log;
-
-	SculptUndoNode *unode;
-	float (*coords)[3];
-	short (*normals)[3];
-	const float *vmasks;
-
-	/* Original coordinate, normal, and mask */
-	const float *co;
-	const short *no;
-	float mask;
-} SculptOrigVertData;
-
-
 /* Initialize a SculptOrigVertData for accessing original vertex data;
  * handles BMesh, mesh, and multires */
-static void sculpt_orig_vert_data_unode_init(SculptOrigVertData *data,
+void sculpt_orig_vert_data_unode_init(SculptOrigVertData *data,
                                              Object *ob,
                                              SculptUndoNode *unode)
 {
@@ -208,7 +190,7 @@ static void sculpt_orig_vert_data_unode_init(SculptOrigVertData *data,
 
 /* Initialize a SculptOrigVertData for accessing original vertex data;
  * handles BMesh, mesh, and multires */
-static void sculpt_orig_vert_data_init(SculptOrigVertData *data,
+void sculpt_orig_vert_data_init(SculptOrigVertData *data,
                                        Object *ob,
                                        PBVHNode *node)
 {
@@ -219,7 +201,7 @@ static void sculpt_orig_vert_data_init(SculptOrigVertData *data,
 
 /* Update a SculptOrigVertData for a particular vertex from the PBVH
  * iterator */
-static void sculpt_orig_vert_data_update(SculptOrigVertData *orig_data,
+void sculpt_orig_vert_data_update(SculptOrigVertData *orig_data,
                                          PBVHVertexIter *iter)
 {
 	if (orig_data->unode->type == SCULPT_UNDO_COORDS) {
