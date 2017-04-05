@@ -65,12 +65,6 @@
 #include "manipulator_geometry.h"
 #include "manipulator_library_intern.h"
 
-#define USE_IMM
-
-#ifndef USE_IMM
-#  include <GL/glu.h>
-#endif
-
 /* to use custom arrows exported to geom_arrow_manipulator.c */
 //#define MANIPULATOR_USE_CUSTOM_ARROWS
 
@@ -163,26 +157,16 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select, co
 
 		/* *** draw arrow head *** */
 
-#ifdef USE_IMM
 		gpuPushMatrix();
-#else
-		glPushMatrix();
-#endif
 
 		if (arrow->style & MANIPULATOR_ARROW_STYLE_BOX) {
 			const float size = 0.05f;
 
-#ifdef USE_IMM
 			/* translate to line end with some extra offset so box starts exactly where line ends */
 			gpuTranslate3f(0.0f, 0.0f, arrow->len + size);
 			/* scale down to box size */
 			gpuScale3f(size, size, size);
-#else
-			/* translate to line end with some extra offset so box starts exactly where line ends */
-			glTranslatef(0.0f, 0.0f, arrow->len + size);
-			/* scale down to box size */
-			glScalef(size, size, size);
-#endif
+
 			/* draw cube */
 			wm_manipulator_geometryinfo_draw(&cube_draw_info, select);
 		}
@@ -192,47 +176,27 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select, co
 			const bool use_lighting = select == false && ((U.manipulator_flag & V3D_SHADED_MANIPULATORS) != 0);
 
 			/* translate to line end */
-#ifdef USE_IMM
-			UNUSED_VARS(use_lighting);
 			unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
 			gpuTranslate3f(0.0f, 0.0f, arrow->len);
 
 			immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 			immUniformColor4fv(color);
-#else
-			glTranslatef(0.0f, 0.0f, arrow->len);
+
 			if (use_lighting) {
 				glShadeModel(GL_SMOOTH);
 			}
-#endif
 
-#ifdef USE_IMM
 			imm_draw_circle_fill_3d(pos, 0.0, 0.0, width, 8);
 			imm_draw_cylinder_fill_3d(pos, width, 0.0, len, 8, 1);
-#else
-			GLUquadricObj *qobj = gluNewQuadric();
-			gluQuadricDrawStyle(qobj, GLU_FILL);
-			gluQuadricOrientation(qobj, GLU_INSIDE);
-			gluDisk(qobj, 0.0, width, 8, 1);
-			gluQuadricOrientation(qobj, GLU_OUTSIDE);
-			gluCylinder(qobj, width, 0.0, len, 8, 1);
-			gluDeleteQuadric(qobj);
-#endif
 
-#ifdef USE_IMM
 			immUnbindProgram();
-#else
+
 			if (use_lighting) {
 				glShadeModel(GL_FLAT);
 			}
-#endif
 		}
 
-#ifdef USE_IMM
 		gpuPopMatrix();
-#else
-		glPopMatrix();
-#endif
 
 #endif  /* MANIPULATOR_USE_CUSTOM_ARROWS */
 	}
@@ -261,29 +225,16 @@ static void arrow_draw_intern(ArrowManipulator *arrow, const bool select, const 
 	copy_v3_v3(mat[3], final_pos);
 	mul_mat3_m4_fl(mat, arrow->manipulator.scale);
 
-#ifdef USE_IMM
 	gpuPushMatrix();
 	gpuMultMatrix3D(mat);
-#else
-	glPushMatrix();
-	glMultMatrixf(mat);
-#endif
 
-#ifdef USE_IMM
 	gpuTranslate3fv(arrow->manipulator.offset);
-#else
-	glTranslatef(UNPACK3(arrow->manipulator.offset));
-#endif
 
 	glEnable(GL_BLEND);
 	arrow_draw_geom(arrow, select, col);
 	glDisable(GL_BLEND);
 
-#ifdef USE_IMM
 	gpuPopMatrix();
-#else
-	glPopMatrix();
-#endif
 
 	if (arrow->manipulator.interaction_data) {
 		ManipulatorInteraction *inter = arrow->manipulator.interaction_data;
@@ -292,25 +243,15 @@ static void arrow_draw_intern(ArrowManipulator *arrow, const bool select, const 
 		copy_v3_v3(mat[3], inter->init_origin);
 		mul_mat3_m4_fl(mat, inter->init_scale);
 
-#ifdef USE_IMM
 		gpuPushMatrix();
 		gpuMultMatrix3D(mat);
 		gpuTranslate3fv(arrow->manipulator.offset);
-#else
-		glPushMatrix();
-		glMultMatrixf(mat);
-		glTranslatef(UNPACK3(arrow->manipulator.offset));
-#endif
 
 		glEnable(GL_BLEND);
 		arrow_draw_geom(arrow, select, (const float [4]){0.5f, 0.5f, 0.5f, 0.5f});
 		glDisable(GL_BLEND);
 
-#ifdef USE_IMM
 		gpuPopMatrix();
-#else
-		glPopMatrix();
-#endif
 	}
 }
 

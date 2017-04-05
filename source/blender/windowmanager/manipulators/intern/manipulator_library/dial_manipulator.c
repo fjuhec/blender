@@ -110,50 +110,29 @@ static void dial_geom_draw(
 
 	glLineWidth(dial->manipulator.line_width);
 
-#ifdef USE_IMM
-	{
-		VertexFormat *format = immVertexFormat();
-		unsigned int pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+	VertexFormat *format = immVertexFormat();
+	unsigned int pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
 
-		if (clip_plane) {
-			immBindBuiltinProgram(GPU_SHADER_3D_CLIPPED_UNIFORM_COLOR);
-			float clip_plane_f[4] = {clip_plane[0], clip_plane[1], clip_plane[2], clip_plane[3]};
-			immUniform4fv("ClipPlane", clip_plane_f);
-			immUniformMatrix4fv("ModelMatrix", axis_modal_mat);
-			glEnable(GL_CLIP_DISTANCE0);
-		}
-		else {
-			immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
-		}
-
-		immUniformColor4fv(col);
-
-		if (filled) {
-			imm_draw_circle_fill(pos, 0, 0, 1.0, DIAL_RESOLUTION);
-		}
-		else {
-			imm_draw_circle_wire(pos, 0, 0, 1.0, DIAL_RESOLUTION);
-		}
-
-		if (clip_plane) {
-			glEnable(GL_CLIP_DISTANCE0);
-		}
-
-		immUnbindProgram();
+	if (clip_plane) {
+		immBindBuiltinProgram(GPU_SHADER_3D_CLIPPED_UNIFORM_COLOR);
+		float clip_plane_f[4] = {clip_plane[0], clip_plane[1], clip_plane[2], clip_plane[3]};
+		immUniform4fv("ClipPlane", clip_plane_f);
+		immUniformMatrix4fv("ModelMatrix", axis_modal_mat);
 	}
-#else
-	{
-		UNUSED_VARS(axis_modal_mat, clip_plane);
-
-		glColor4fv(col);
-
-		GLUquadricObj *qobj = gluNewQuadric();
-		gluQuadricDrawStyle(qobj, filled ? GLU_FILL : GLU_SILHOUETTE);
-		/* inner at 0.0 with silhouette drawing confuses OGL selection, so draw it at width */
-		gluDisk(qobj, filled ? 0.0 : DIAL_WIDTH, DIAL_WIDTH, DIAL_RESOLUTION, 1);
-		gluDeleteQuadric(qobj);
+	else {
+		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 	}
-#endif
+
+	immUniformColor4fv(col);
+
+	if (filled) {
+		imm_draw_circle_fill(pos, 0, 0, 1.0, DIAL_RESOLUTION);
+	}
+	else {
+		imm_draw_circle_wire(pos, 0, 0, 1.0, DIAL_RESOLUTION);
+	}
+
+	immUnbindProgram();
 
 	UNUSED_VARS(select);
 #endif
@@ -166,7 +145,6 @@ static void dial_ghostarc_draw_helpline(const float angle, const float co_outer[
 {
 	glLineWidth(1.0f);
 
-#ifdef USE_IMM
 	gpuPushMatrix();
 	gpuRotate3f(RAD2DEGF(angle), 0.0f, 0.0f, -1.0f);
 
@@ -184,17 +162,6 @@ static void dial_ghostarc_draw_helpline(const float angle, const float co_outer[
 	immUnbindProgram();
 
 	gpuPopMatrix();
-#else
-	glColor4fv(col);
-	glPushMatrix();
-	glRotatef(RAD2DEGF(angle), 0.0f, 0.0f, -1.0f);
-//	glScalef(0.0f, DIAL_WIDTH - dial->manipulator.line_width * 0.5f / U.widget_scale, 0.0f);
-	glBegin(GL_LINE_STRIP);
-	glVertex3f(0.0f, 0.0f, 0.0f);
-	glVertex3fv(co_outer);
-	glEnd();
-	glPopMatrix();
-#endif
 }
 
 static void dial_ghostarc_draw(
@@ -202,7 +169,6 @@ static void dial_ghostarc_draw(
 {
 	const float width_inner = DIAL_WIDTH - dial->manipulator.line_width * 0.5f / U.manipulator_scale;
 
-#ifdef USE_IMM
 	VertexFormat *format = immVertexFormat();
 	unsigned int pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
@@ -210,13 +176,6 @@ static void dial_ghostarc_draw(
 	imm_draw_disk_partial_fill(
 	        pos, 0, 0, 0.0, width_inner, DIAL_RESOLUTION, RAD2DEGF(angle_ofs), RAD2DEGF(angle_delta));
 	immUnbindProgram();
-#else
-	GLUquadricObj *qobj = gluNewQuadric();
-	glColor4fv(color);
-	gluQuadricDrawStyle(qobj, GLU_FILL);
-	gluPartialDisk(qobj, 0.0, width_inner, DIAL_RESOLUTION, 1, RAD2DEGF(angle_ofs), RAD2DEGF(angle_delta));
-	gluDeleteQuadric(qobj);
-#endif
 }
 
 static void dial_ghostarc_get_angles(
@@ -288,16 +247,9 @@ static void dial_draw_intern(
 	copy_v3_v3(mat[3], dial->manipulator.origin);
 	mul_mat3_m4_fl(mat, dial->manipulator.scale);
 
-#ifdef USE_IMM
 	gpuPushMatrix();
 	gpuMultMatrix3D(mat);
 	gpuTranslate3fv(dial->manipulator.offset);
-#else
-	UNUSED_VARS(clip_plane);
-	glPushMatrix();
-	glMultMatrixf(mat);
-	glTranslatef(UNPACK3(dial->manipulator.offset));
-#endif
 
 	/* draw rotation indicator arc first */
 	if ((dial->manipulator.flag & WM_MANIPULATOR_DRAW_VALUE) && (dial->manipulator.state & WM_MANIPULATOR_ACTIVE)) {
@@ -316,12 +268,7 @@ static void dial_draw_intern(
 	/* draw actual dial manipulator */
 	dial_geom_draw(dial, col, select, mat, clip_plane);
 
-#ifdef USE_IMM
 	gpuPopMatrix();
-#else
-	glPopMatrix();
-#endif
-
 }
 
 static void manipulator_dial_render_3d_intersect(const bContext *C, wmManipulator *manipulator, int selectionbase)
@@ -337,23 +284,14 @@ static void manipulator_dial_render_3d_intersect(const bContext *C, wmManipulato
 
 		copy_v3_v3(clip_plane, rv3d->viewinv[2]);
 		clip_plane[3] = -dot_v3v3(rv3d->viewinv[2], manipulator->origin);
-#ifdef USE_IMM
-		/* nested */
-#else
-		glClipPlane(GL_CLIP_PLANE0, (const double[4]){UNPACK4(clip_plane)});
-		glEnable(GL_CLIP_PLANE0);
-#endif
+		glEnable(GL_CLIP_DISTANCE0);
 	}
 
 	GPU_select_load_id(selectionbase);
 	dial_draw_intern(C, dial, true, false, clip_plane);
 
 	if (clip_plane) {
-#ifdef USE_IMM
-		/* nested */
-#else
-		glDisable(GL_CLIP_PLANE0);
-#endif
+		glDisable(GL_CLIP_DISTANCE0);
 	}
 }
 
@@ -374,12 +312,7 @@ static void manipulator_dial_draw(const bContext *C, wmManipulator *manipulator)
 		clip_plane[3] = -dot_v3v3(rv3d->viewinv[2], manipulator->origin);
 		clip_plane[3] -= 0.02 * dial->manipulator.scale;
 
-#ifdef USE_IMM
-		/* nested */
-#else
-		glClipPlane(GL_CLIP_PLANE0, (const double[4]){UNPACK4(clip_plane)});
-		glEnable(GL_CLIP_PLANE0);
-#endif
+		glEnable(GL_CLIP_DISTANCE0);
 	}
 
 	glEnable(GL_BLEND);
@@ -387,11 +320,7 @@ static void manipulator_dial_draw(const bContext *C, wmManipulator *manipulator)
 	glDisable(GL_BLEND);
 
 	if (clip_plane) {
-#ifdef USE_IMM
-		/* nested */
-#else
-		glDisable(GL_CLIP_PLANE0);
-#endif
+		glDisable(GL_CLIP_DISTANCE0);
 	}
 }
 
