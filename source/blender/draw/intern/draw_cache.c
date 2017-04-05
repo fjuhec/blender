@@ -66,6 +66,7 @@ static struct DRWShapeCache {
 	Batch *drw_camera;
 	Batch *drw_camera_tria;
 	Batch *drw_camera_focus;
+	Batch *drw_gpencil_axes;
 } SHC = {NULL};
 
 void DRW_shape_cache_free(void)
@@ -423,6 +424,60 @@ Batch *DRW_cache_single_line_endpoints_get(void)
 		SHC.drw_line_endpoints = Batch_create(GL_POINTS, vbo, NULL);
 	}
 	return SHC.drw_line_endpoints;
+}
+
+/* Grease Pencil object */
+Batch *DRW_cache_gpencil_axes_get(void)
+{
+	if (!SHC.drw_gpencil_axes) {
+		int axis;
+		float v1[3] = { 0.0f, 0.0f, 0.0f };
+		float v2[3] = { 0.0f, 0.0f, 0.0f };
+		
+		/* cube data */
+		const GLfloat verts[8][3] = {
+			{ -0.25f, -0.25f, -0.25f },
+			{ -0.25f, -0.25f,  0.25f },
+			{ -0.25f,  0.25f, -0.25f },
+			{ -0.25f,  0.25f,  0.25f },
+			{ 0.25f, -0.25f, -0.25f },
+			{ 0.25f, -0.25f,  0.25f },
+			{ 0.25f,  0.25f, -0.25f },
+			{ 0.25f,  0.25f,  0.25f }
+		};
+
+		const GLubyte indices[24] = { 0, 1, 1, 3, 3, 2, 2, 0, 0, 4, 4, 5, 5, 7, 7, 6, 6, 4, 1, 5, 3, 7, 2, 6 };
+
+		/* Position Only 3D format */
+		static VertexFormat format = { 0 };
+		static unsigned pos_id;
+		if (format.attrib_ct == 0) {
+			pos_id = add_attrib(&format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
+		}
+
+		VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
+		VertexBuffer_allocate_data(vbo, 30);
+
+		/* draw axis */
+		for (axis = 0; axis < 3; axis++) {
+			v1[axis] = 1.0f;
+			v2[axis] = -1.0f;
+
+			setAttrib(vbo, pos_id, axis * 2, v1);
+			setAttrib(vbo, pos_id, axis * 2 + 1, v2);
+
+			/* reset v1 & v2 to zero for next axis */
+			v1[axis] = v2[axis] = 0.0f;
+		}
+
+		/* draw cube */
+		for (int i = 0; i < 24; ++i) {
+			setAttrib(vbo, pos_id, i + 6, verts[indices[i]]);
+		}
+
+		SHC.drw_gpencil_axes = Batch_create(GL_LINES, vbo, NULL);
+	}
+	return SHC.drw_gpencil_axes;
 }
 
 /* Empties */

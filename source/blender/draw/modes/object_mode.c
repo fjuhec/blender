@@ -114,6 +114,9 @@ typedef struct g_data{
 	DRWShadingGroup *arrows;
 	DRWShadingGroup *axis_names;
 
+	/* Grease Pencil */
+	DRWShadingGroup *gpencil_axes;
+
 	/* Speaker */
 	DRWShadingGroup *speaker;
 
@@ -570,6 +573,10 @@ static void OBJECT_cache_init(void *vedata)
 		geom = DRW_cache_axis_names_get();
 		stl->g_data->axis_names = shgroup_instance_axis_names(psl->non_meshes, geom);
 
+		/* Grease Pencil */
+		geom = DRW_cache_gpencil_axes_get();
+		stl->g_data->gpencil_axes = shgroup_instance(psl->non_meshes, geom);
+
 		/* Speaker */
 		geom = DRW_cache_speaker_get();
 		stl->g_data->speaker = shgroup_instance(psl->non_meshes, geom);
@@ -878,6 +885,14 @@ static void DRW_shgroup_empty(OBJECT_StorageList *stl, Object *ob, SceneLayer *s
 	}
 }
 
+static void DRW_shgroup_gpencil(OBJECT_StorageList *stl, Object *ob, SceneLayer *sl)
+{
+	float *color;
+	DRW_object_wire_theme_get(ob, sl, &color);
+
+	DRW_shgroup_dynamic_call_add(stl->g_data->gpencil_axes, color, &ob->empty_drawsize, ob->obmat);
+}
+
 static void DRW_shgroup_speaker(OBJECT_StorageList *stl, Object *ob, SceneLayer *sl)
 {
 	float *color;
@@ -951,6 +966,9 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 			break;
 		case OB_EMPTY:
 			DRW_shgroup_empty(stl, ob, sl);
+			break;
+		case OB_GPENCIL:
+			DRW_shgroup_gpencil(stl, ob, sl);
 			break;
 		case OB_SPEAKER:
 			DRW_shgroup_speaker(stl, ob, sl);
