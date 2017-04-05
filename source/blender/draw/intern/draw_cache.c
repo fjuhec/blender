@@ -127,6 +127,8 @@ void DRW_shape_cache_free(void)
 		Batch_discard_all(SHC.drw_camera_tria);
 	if (SHC.drw_camera_focus)
 		Batch_discard_all(SHC.drw_camera_focus);
+	if (SHC.drw_gpencil_axes)
+		Batch_discard_all(SHC.drw_gpencil_axes);
 }
 
 /* Helper functions */
