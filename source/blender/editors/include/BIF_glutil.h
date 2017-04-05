@@ -48,73 +48,6 @@ struct ColorManagedDisplaySettings;
  */
 
 /**
- * Draw a circle outline with the given \a radius.
- * The circle is centered at \a x, \a y and drawn in the XY plane.
- *
- * \param pos The vertex attribute number for position.
- * \param x Horizontal center.
- * \param y Vertical center.
- * \param radius The circle's radius.
- * \param nsegments The number of segments to use in drawing (more = smoother).
- */
-void imm_draw_lined_circle(unsigned pos, float x, float y, float radius, int nsegments);
-
-/* use this version when VertexFormat has a vec3 position */
-void imm_draw_lined_circle_3D(unsigned pos, float x, float y, float radius, int nsegments);
-
-/**
- * Draw a filled circle with the given \a radius.
- * The circle is centered at \a x, \a y and drawn in the XY plane.
- *
- * \param pos The vertex attribute number for position.
- * \param x Horizontal center.
- * \param y Vertical center.
- * \param radius The circle's radius.
- * \param nsegments The number of segments to use in drawing (more = smoother).
- */
-void imm_draw_filled_circle(unsigned pos, float x, float y, float radius, int nsegments);
-
-/**
-* Draw a lined box.
-*
-* \param pos The vertex attribute number for position.
-* \param x1 left.
-* \param y1 bottom.
-* \param x2 right.
-* \param y2 top.
-*/
-void imm_draw_line_box(unsigned pos, float x1, float y1, float x2, float y2);
-
-/* use this version when VertexFormat has a vec3 position */
-void imm_draw_line_box_3D(unsigned pos, float x1, float y1, float x2, float y2);
-
-/* Draw a standard checkerboard to indicate transparent backgrounds */
-void imm_draw_checker_box(float x1, float y1, float x2, float y2);
-
-/**
-* Pack color into 3 bytes
-*
-* \param x color.
-*/
-void imm_cpack(unsigned int x);
-
-/**
-* Draw a cylinder. Replacement for gluCylinder.
-* _warning_ : Slow, better use it only if you no other choices.
-*
-* \param pos The vertex attribute number for position.
-* \param nor The vertex attribute number for normal.
-* \param base Specifies the radius of the cylinder at z = 0.
-* \param top Specifies the radius of the cylinder at z = height.
-* \param height Specifies the height of the cylinder.
-* \param slices Specifies the number of subdivisions around the z axis.
-* \param stacks Specifies the number of subdivisions along the z axis.
-*/
-void imm_cylinder_nor(unsigned int pos, unsigned int nor, float base, float top, float height, int slices, int stacks);
-void imm_cylinder_wire(unsigned int pos, float base, float top, float height, int slices, int stacks);
-void imm_cylinder(unsigned int pos, float base, float top, float height, int slices, int stacks);
-
-/**
  * Returns a float value as obtained by glGetFloatv.
  * The param must cause only one value to be gotten from GL.
  */
@@ -231,4 +164,3 @@ void glaDrawImBuf_glsl_ctx_clipping(const struct bContext *C,
 void immDrawBorderCorners(unsigned int pos, const struct rcti *border, float zoomx, float zoomy);
 
 #endif /* __BIF_GLUTIL_H__ */
-

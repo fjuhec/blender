@@ -88,9 +88,8 @@
 
 #include "BLF_api.h"
 
-#include "BIF_glutil.h" /* for paint cursor */
-
 #include "GPU_immediate.h"
+#include "GPU_immediate_util.h"
 #include "GPU_matrix.h"
 
 #include "IMB_imbuf_types.h"
@@ -3122,7 +3121,7 @@ static void radial_control_paint_tex(RadialControl *rc, float radius, float alph
 		/* flat color if no texture available */
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 		immUniformColor3fvAlpha(col, alpha);
-		imm_draw_filled_circle(pos, 0.0f, 0.0f, radius, 40);
+		imm_draw_circle_fill(pos, 0.0f, 0.0f, radius, 40);
 	}
 	
 	immUnbindProgram();
@@ -3229,10 +3228,10 @@ static void radial_control_paint_cursor(bContext *C, int x, int y, void *customd
 	}
 
 	/* draw circles on top */
-	imm_draw_lined_circle(pos, 0.0f, 0.0f, r1, 40);
-	imm_draw_lined_circle(pos, 0.0f, 0.0f, r2, 40);
+	imm_draw_circle_wire(pos, 0.0f, 0.0f, r1, 40);
+	imm_draw_circle_wire(pos, 0.0f, 0.0f, r2, 40);
 	if (rmin > 0.0f)
-		imm_draw_lined_circle(pos, 0.0, 0.0f, rmin, 40);
+		imm_draw_circle_wire(pos, 0.0, 0.0f, rmin, 40);
 	immUnbindProgram();
 
 	BLF_size(fontid, 1.5 * fstyle_points * U.pixelsize, U.dpi);
@@ -3855,7 +3854,7 @@ static void redraw_timer_step(
 	}
 	else if (type == eRTAnimationStep) {
 		scene->r.cfra += (cfra == scene->r.cfra) ? 1 : -1;
-		BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, scene, scene->lay);
+		BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, scene);
 	}
 	else if (type == eRTAnimationPlay) {
 		/* play anim, return on same frame as started with */
@@ -3867,7 +3866,7 @@ static void redraw_timer_step(
 			if (scene->r.cfra > scene->r.efra)
 				scene->r.cfra = scene->r.sfra;
 
-			BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, scene, scene->lay);
+			BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, scene);
 			redraw_timer_window_swap(C);
 		}
 	}

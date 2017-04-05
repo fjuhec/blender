@@ -40,6 +40,7 @@ extern "C" {
 struct ARegion;
 struct bScreen;
 struct CacheFile;
+struct Depsgraph;
 struct LayerCollection;
 struct ListBase;
 struct Main;
@@ -306,6 +307,8 @@ struct PaletteColor *CTX_data_active_palettecolor(const bContext *C);
 int CTX_data_active_palettecolors(const bContext *C, ListBase *list);
 int CTX_data_available_palettes(const bContext *C, ListBase *list);
 int CTX_data_available_palettecolors(const bContext *C, ListBase *list);
+
+struct Depsgraph *CTX_data_depsgraph(const bContext *C);
 
 #ifdef __cplusplus
 }

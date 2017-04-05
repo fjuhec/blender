@@ -42,9 +42,8 @@
 #include "ED_screen.h"
 #include "ED_clip.h"
 
-#include "BIF_glutil.h"
-
 #include "GPU_immediate.h"
+#include "GPU_immediate_util.h"
 #include "GPU_matrix.h"
 
 #include "WM_types.h"
@@ -123,7 +122,7 @@ static void tracking_segment_knot_cb(void *userdata, MovieTrackingTrack *track,
 		gpuTranslate2f(scene_framenr, val);
 		gpuScale2f(1.0f / data->xscale * data->hsize, 1.0f / data->yscale * data->hsize);
 
-		imm_draw_lined_circle(data->pos, 0, 0, 0.7, 8);
+		imm_draw_circle_wire(data->pos, 0, 0, 0.7, 8);
 
 		gpuPopMatrix();
 	}

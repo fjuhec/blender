@@ -117,7 +117,7 @@
 
 #include "UI_resources.h"
 
-#include "GPU_material.h"
+#include "GPU_lamp.h"
 
 #include "object_intern.h"
 
@@ -445,6 +445,9 @@ Object *ED_object_add_type(
 		ED_object_editmode_enter(C, EM_IGNORE_LAYER);
 
 	WM_event_add_notifier(C, NC_SCENE | ND_LAYER_CONTENT, scene);
+
+	/* TODO(sergey): Use proper flag for tagging here. */
+	DAG_id_tag_update(&scene->id, 0);
 
 	return ob;
 }

@@ -40,10 +40,13 @@ struct Depsgraph;
 
 /* ------------------------------------------------ */
 
-struct Main;
-struct Scene;
-struct Group;
+struct CacheFile;
 struct EffectorWeights;
+struct Group;
+struct Main;
+struct ModifierData;
+struct Object;
+struct Scene;
 
 #ifdef __cplusplus
 extern "C" {
@@ -84,9 +87,6 @@ void DEG_scene_graph_free(struct Scene *scene);
  * All relations will be defined in reference to that node.
  */
 struct DepsNodeHandle;
-
-struct CacheFile;
-struct Object;
 
 typedef enum eDepsSceneComponentType {
 	/* Parameters Component - Default when nothing else fits
@@ -163,7 +163,6 @@ void DEG_add_collision_relations(struct DepsNodeHandle *handle,
                                  struct Scene *scene,
                                  Object *ob,
                                  struct Group *group,
-                                 int layer,
                                  unsigned int modifier_type,
                                  DEG_CollobjFilterFunction fn,
                                  bool dupli,

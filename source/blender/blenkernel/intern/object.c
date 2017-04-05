@@ -119,6 +119,8 @@
 #include "BKE_camera.h"
 #include "BKE_image.h"
 
+#include "DRW_engine.h"
+
 #ifdef WITH_MOD_FLUID
 #include "LBM_fluidsim.h"
 #endif
@@ -129,7 +131,7 @@
 
 #include "CCGSubSurf.h"
 
-#include "GPU_material.h"
+#include "GPU_lamp.h"
 
 /* Vertex parent modifies original BMesh which is not safe for threading.
  * Ideally such a modification should be handled as a separate DAG update
@@ -442,6 +444,8 @@ void BKE_object_free(Object *ob)
 		ob->bsoft = NULL;
 	}
 	GPU_lamp_free(ob);
+
+	DRW_object_engine_data_free(ob);
 
 	BKE_sculptsession_free(ob);
 
@@ -1179,6 +1183,7 @@ Object *BKE_object_copy_ex(Main *bmain, Object *ob, bool copy_caches)
 
 	BLI_listbase_clear(&obn->gpulamp);
 	BLI_listbase_clear(&obn->pc_ids);
+	BLI_listbase_clear(&obn->drawdata);
 
 	obn->mpath = NULL;
 
@@ -3302,33 +3307,33 @@ static void obrel_list_add(LinkNode **links, Object *ob)
 }
 
 /*
- * Iterates over all objects of the given scene.
+ * Iterates over all objects of the given scene layer.
  * Depending on the eObjectSet flag:
  * collect either OB_SET_ALL, OB_SET_VISIBLE or OB_SET_SELECTED objects.
  * If OB_SET_VISIBLE or OB_SET_SELECTED are collected, 
  * then also add related objects according to the given includeFilters.
  */
-LinkNode *BKE_object_relational_superset(struct Scene *scene, eObjectSet objectSet, eObRelationTypes includeFilter)
+LinkNode *BKE_object_relational_superset(struct SceneLayer *scene_layer, eObjectSet objectSet, eObRelationTypes includeFilter)
 {
 	LinkNode *links = NULL;
 
-	BaseLegacy *base;
+	Base *base;
 
 	/* Remove markers from all objects */
-	for (base = scene->base.first; base; base = base->next) {
+	for (base = scene_layer->object_bases.first; base; base = base->next) {
 		base->object->id.tag &= ~LIB_TAG_DOIT;
 	}
 
 	/* iterate over all selected and visible objects */
-	for (base = scene->base.first; base; base = base->next) {
+	for (base = scene_layer->object_bases.first; base; base = base->next) {
 		if (objectSet == OB_SET_ALL) {
 			/* as we get all anyways just add it */
 			Object *ob = base->object;
 			obrel_list_add(&links, ob);
 		}
 		else {
-			if ((objectSet == OB_SET_SELECTED && TESTBASELIB_BGMODE(((View3D *)NULL), scene, base)) ||
-			    (objectSet == OB_SET_VISIBLE  && BASE_EDITABLE_BGMODE(((View3D *)NULL), scene, base)))
+			if ((objectSet == OB_SET_SELECTED && TESTBASELIB_BGMODE_NEW(base)) ||
+			    (objectSet == OB_SET_VISIBLE  && BASE_EDITABLE_BGMODE_NEW(base)))
 			{
 				Object *ob = base->object;
 
@@ -3356,9 +3361,9 @@ LinkNode *BKE_object_relational_superset(struct Scene *scene, eObjectSet objectS
 
 				/* child relationship */
 				if (includeFilter & (OB_REL_CHILDREN | OB_REL_CHILDREN_RECURSIVE)) {
-					BaseLegacy *local_base;
-					for (local_base = scene->base.first; local_base; local_base = local_base->next) {
-						if (BASE_EDITABLE_BGMODE(((View3D *)NULL), scene, local_base)) {
+					Base *local_base;
+					for (local_base = scene_layer->object_bases.first; local_base; local_base = local_base->next) {
+						if (BASE_EDITABLE_BGMODE_NEW(local_base)) {
 
 							Object *child = local_base->object;
 							if (obrel_list_test(child)) {

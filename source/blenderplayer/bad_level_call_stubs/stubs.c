@@ -600,6 +600,7 @@ const char *uiLayoutIntrospect(uiLayout *layout) RET_NULL
 void UI_reinit_font(void) RET_NONE
 int UI_rnaptr_icon_get(struct bContext *C, struct PointerRNA *ptr, int rnaicon, const bool big) RET_ZERO
 struct bTheme *UI_GetTheme(void) RET_NULL
+void UI_GetThemeColor3fv(int colorid, float col[4]) RET_NONE
 void UI_GetThemeColor4fv(int colorid, float col[4]) RET_NONE
 void UI_GetThemeColorShade4fv(int colorid, int offset, float col[4]) RET_NONE
 void UI_GetThemeColorShadeAlpha4fv(int colorid, int coloffset, int alphaoffset, float col[4]) RET_NONE
@@ -693,6 +694,7 @@ float RE_fresnel_dielectric(float incoming[3], float normal[3], float eta) RET_Z
 void OBJECT_collection_settings_create(struct IDProperty *properties) RET_NONE
 void EDIT_MESH_collection_settings_create(struct IDProperty *properties) RET_NONE
 void EDIT_ARMATURE_collection_settings_create(struct IDProperty *properties) RET_NONE
+void DRW_object_engine_data_free(struct Object *ob) RET_NONE
 
 /* python */
 struct wmOperatorType *WM_operatortype_find(const char *idname, bool quiet) RET_NULL
@@ -735,6 +737,7 @@ int UI_pie_menu_invoke_from_operator_enum(struct bContext *C, const char *title,
 
 /* RNA COLLADA dependency */
 int collada_export(struct Scene *sce,
+                   struct SceneLayer *scene_layer,
                    const char *filepath,
                    int apply_modifiers,
                    BC_export_mesh_type export_mesh_type,
@@ -756,6 +759,7 @@ int collada_export(struct Scene *sce,
                    int sort_by_name,
                    BC_export_transformation_type export_transformation_type,
                    int open_sim,
+                   int limit_precision,
                    int keep_bind_info) RET_ZERO
 
 void ED_mesh_calc_tessface(struct Mesh *mesh, bool free_mpoly) RET_NONE

@@ -46,6 +46,7 @@
 #include "BIF_gl.h"
 
 #include "GPU_immediate.h"
+#include "GPU_immediate_util.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -715,7 +716,7 @@ static void ruler_info_draw_pixel(const struct bContext *C, ARegion *ar, void *a
 			immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 			imm_cpack(color_act);
 
-			imm_draw_lined_circle(pos, co_ss[0], co_ss[1], size * U.pixelsize, 32);
+			imm_draw_circle_wire(pos, co_ss[0], co_ss[1], size * U.pixelsize, 32);
 
 			immUnbindProgram();
 		}

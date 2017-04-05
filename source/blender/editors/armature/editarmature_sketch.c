@@ -41,7 +41,6 @@
 #include "ED_screen.h"
 
 #include "BIF_gl.h"
-#include "BIF_glutil.h"
 #include "ED_armature.h"
 #include "armature_intern.h"
 #include "BIF_retarget.h"
@@ -57,6 +56,7 @@
 #include "GPU_matrix.h"
 #include "GPU_batch.h"
 #include "GPU_immediate.h"
+#include "GPU_immediate_util.h"
 
 typedef int (*GestureDetectFct)(bContext *, SK_Gesture *, SK_Sketch *);
 typedef void (*GestureApplyFct)(bContext *, SK_Gesture *, SK_Sketch *);
@@ -478,7 +478,7 @@ static void sk_drawEdge(SK_Point *pt0, SK_Point *pt1, float size, float color[4]
 
 	angle = angle_normalized_v3v3(vec2, vec1);
 	gpuRotate3fv(angle * (float)(180.0 / M_PI) + 180.0f, axis);
-	imm_cylinder(pos, sk_clampPointSize(pt1, size), sk_clampPointSize(pt0, size), length, 8, 8);
+	imm_draw_cylinder_fill_3d(pos, sk_clampPointSize(pt1, size), sk_clampPointSize(pt0, size), length, 8, 8);
 
 	immUnbindProgram();
 }
@@ -506,7 +506,7 @@ static void sk_drawNormal(SK_Point *pt, float size, float height)
 	angle = angle_normalized_v3v3(vec2, pt->no);
 	gpuRotate3fv(angle * (float)(180.0 / M_PI), axis);
 
-	imm_cylinder(pos, sk_clampPointSize(pt, size), 0, sk_clampPointSize(pt, height), 10, 2);
+	imm_draw_cylinder_fill_3d(pos, sk_clampPointSize(pt, size), 0, sk_clampPointSize(pt, height), 10, 2);
 
 	immUnbindProgram();
 

@@ -66,6 +66,7 @@ using Alembic::Abc::OBox3dProperty;
 
 ExportSettings::ExportSettings()
     : scene(NULL)
+	, logger()
     , selected_only(false)
     , visible_layers_only(false)
     , renderable_only(false)
@@ -412,8 +413,8 @@ void AbcExporter::createTransformWriter(Object *ob, Object *parent, Object *dupl
 	BLI_assert(ob != dupliObParent);
 
 	/* check if we have already created a transform writer for this object */
-	if (getXForm(name) != NULL){
-		std::cerr << "xform " << name << " already exists\n";
+	if (getXForm(name) != NULL) {
+		ABC_LOG(m_settings.logger) << "xform " << name << " already exists!\n";
 		return;
 	}
 
@@ -505,7 +506,7 @@ void AbcExporter::createShapeWriter(Base *ob_base, Object *dupliObParent)
 	AbcTransformWriter *xform = getXForm(name);
 
 	if (!xform) {
-		std::cerr << __func__ << ": xform " << name << " is NULL\n";
+		ABC_LOG(m_settings.logger) << __func__ << ": xform " << name << " is NULL\n";
 		return;
 	}
 
@@ -587,5 +588,5 @@ void AbcExporter::setCurrentFrame(Main *bmain, double t)
 {
 	m_scene->r.cfra = static_cast<int>(t);
 	m_scene->r.subframe = static_cast<float>(t) - m_scene->r.cfra;
-	BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, m_scene, m_scene->lay);
+	BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, m_scene);
 }

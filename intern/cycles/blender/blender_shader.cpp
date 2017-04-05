@@ -27,7 +27,9 @@
 #include "blender/blender_util.h"
 
 #include "util/util_debug.h"
+#include "util/util_foreach.h"
 #include "util/util_string.h"
+#include "util/util_set.h"
 #include "util/util_task.h"
 
 CCL_NAMESPACE_BEGIN
@@ -1166,6 +1168,7 @@ void BlenderSync::sync_materials(bool update_all)
 	BL::BlendData::materials_iterator b_mat;
 
 	TaskPool pool;
+	set<Shader*> updated_shaders;
 
 	for(b_data.materials.begin(b_mat); b_mat != b_data.materials.end(); ++b_mat) {
 		Shader *shader;
@@ -1203,21 +1206,36 @@ void BlenderSync::sync_materials(bool update_all)
 
 			shader->set_graph(graph);
 
-			/* By simplifying the shader graph as soon as possible, some redundant shader nodes
-			 * might be removed which prevents loading unneccessary attributes later.
+			/* By simplifying the shader graph as soon as possible, some
+			 * redundant shader nodes might be removed which prevents loading
+			 * unnecessary attributes later.
 			 *
-			 * However, since graph simplification also accounts for e.g. mix weight, this would
-			 * cause frequent expensive resyncs in interactive sessions, so for those sessions
-			 * optimization is only performed right before compiling. */
+			 * However, since graph simplification also accounts for e.g. mix
+			 * weight, this would cause frequent expensive resyncs in interactive
+			 * sessions, so for those sessions optimization is only performed
+			 * right before compiling.
+			 */
 			if(!preview) {
-				pool.push(function_bind(&ShaderGraph::simplify, shader->graph, scene));
+				pool.push(function_bind(&ShaderGraph::simplify, graph, scene));
+				/* NOTE: Update shaders out of the threads since those routines
+				 * are accessing and writing to a global context.
+				 */
+				updated_shaders.insert(shader);
 			}
-
-			shader->tag_update(scene);
+			else {
+				/* NOTE: Update tagging can access links which are being
+				 * optimized out.
+				 */
+				shader->tag_update(scene);
+			}
 		}
 	}
 
 	pool.wait_work();
+
+	foreach(Shader *shader, updated_shaders) {
+		shader->tag_update(scene);
+	}
 }
 
 /* Sync World */
