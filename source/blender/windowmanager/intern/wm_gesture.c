@@ -53,6 +53,7 @@
 #include "wm_draw.h"
 
 #include "GPU_immediate.h"
+#include "GPU_immediate_util.h"
 
 #include "BIF_glutil.h"
 
@@ -296,7 +297,7 @@ static void wm_gesture_draw_circle(wmGesture *gt)
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
 	immUniformColor4f(1.0, 1.0, 1.0, 0.05);
-	imm_draw_filled_circle(pos, (float)rect->xmin, (float)rect->ymin, (float)rect->xmax, 40);
+	imm_draw_circle_fill(pos, (float)rect->xmin, (float)rect->ymin, (float)rect->xmax, 40);
 
 	immUnbindProgram();
 

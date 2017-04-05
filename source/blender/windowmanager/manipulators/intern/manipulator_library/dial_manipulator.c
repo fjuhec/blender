@@ -51,6 +51,7 @@
 #include "GPU_matrix.h"
 
 #include "GPU_immediate.h"
+#include "GPU_immediate_util.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -128,10 +129,10 @@ static void dial_geom_draw(
 		immUniformColor4fv(col);
 
 		if (filled) {
-			imm_draw_filled_circle(pos, 0, 0, 1.0, DIAL_RESOLUTION);
+			imm_draw_circle_fill(pos, 0, 0, 1.0, DIAL_RESOLUTION);
 		}
 		else {
-			imm_draw_lined_circle(pos, 0, 0, 1.0, DIAL_RESOLUTION);
+			imm_draw_circle_wire(pos, 0, 0, 1.0, DIAL_RESOLUTION);
 		}
 
 		if (clip_plane) {
@@ -206,7 +207,7 @@ static void dial_ghostarc_draw(
 	unsigned int pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 	immUniformColor4fv(color);
-	imm_draw_filled_disk_partial(
+	imm_draw_disk_partial_fill(
 	        pos, 0, 0, 0.0, width_inner, DIAL_RESOLUTION, RAD2DEGF(angle_ofs), RAD2DEGF(angle_delta));
 	immUnbindProgram();
 #else

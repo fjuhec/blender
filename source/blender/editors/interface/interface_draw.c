@@ -56,6 +56,7 @@
 
 #include "GPU_batch.h"
 #include "GPU_immediate.h"
+#include "GPU_immediate_util.h"
 #include "GPU_matrix.h"
 
 #include "UI_interface.h"
@@ -1477,7 +1478,7 @@ void ui_draw_but_UNITVEC(uiBut *but, uiWidgetColors *wcol, const rcti *rect)
 
 	glEnable(GL_BLEND);
 	glEnable(GL_LINE_SMOOTH);
-	imm_draw_lined_circle(pos, 0.0f, 0.0f, 1.0f, 32);
+	imm_draw_circle_wire(pos, 0.0f, 0.0f, 1.0f, 32);
 	glDisable(GL_BLEND);
 	glDisable(GL_LINE_SMOOTH);
 

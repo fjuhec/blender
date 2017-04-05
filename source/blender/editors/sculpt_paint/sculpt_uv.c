@@ -56,6 +56,7 @@
 #include "ED_mesh.h"
 
 #include "GPU_immediate.h"
+#include "GPU_immediate_util.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -65,8 +66,6 @@
 
 #include "paint_intern.h"
 #include "uvedit_intern.h"
-
-#include "BIF_glutil.h"
 
 #include "UI_view2d.h"
 
@@ -219,7 +218,7 @@ static void brush_drawcursor_uvsculpt(bContext *C, int x, int y, void *UNUSED(cu
 
 		glEnable(GL_LINE_SMOOTH);
 		glEnable(GL_BLEND);
-		imm_draw_lined_circle(pos, (float)x, (float)y, size, 40);
+		imm_draw_circle_wire(pos, (float)x, (float)y, size, 40);
 		glDisable(GL_BLEND);
 		glDisable(GL_LINE_SMOOTH);
 

@@ -72,6 +72,7 @@
 #include "BIF_glutil.h"
 
 #include "GPU_immediate.h"
+#include "GPU_immediate_util.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -1852,12 +1853,12 @@ static void gpencil_draw_eraser(bContext *UNUSED(C), int x, int y, void *p_ptr)
 		glEnable(GL_BLEND);
 
 		immUniformColor4ub(255, 100, 100, 20);
-		imm_draw_filled_circle(pos, x, y, p->radius, 40);
+		imm_draw_circle_fill(pos, x, y, p->radius, 40);
 
 		setlinestyle(6); /* TODO: handle line stipple in shader */
 
 		immUniformColor4ub(255, 100, 100, 200);
-		imm_draw_lined_circle(pos, x, y, p->radius, 40);
+		imm_draw_circle_wire(pos, x, y, p->radius, 40);
 
 		immUnbindProgram();
 

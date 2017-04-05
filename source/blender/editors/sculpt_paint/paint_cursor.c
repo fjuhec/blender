@@ -53,13 +53,12 @@
 
 #include "WM_api.h"
 
-#include "BIF_glutil.h"
-
 #include "IMB_imbuf_types.h"
 
 #include "ED_view3d.h"
 
 #include "GPU_immediate.h"
+#include "GPU_immediate_util.h"
 #include "GPU_matrix.h"
 #include "GPU_basic_shader.h"
 
@@ -1134,11 +1133,11 @@ static void paint_draw_cursor(bContext *C, int x, int y, void *UNUSED(unused))
 	/* draw brush outline */
 	if (ups->stroke_active && BKE_brush_use_size_pressure(scene, brush)) {
 		/* inner at full alpha */
-		imm_draw_lined_circle(pos, translation[0], translation[1], final_radius * ups->size_pressure_value, 40);
+		imm_draw_circle_wire(pos, translation[0], translation[1], final_radius * ups->size_pressure_value, 40);
 		/* outer at half alpha */
 		immUniformColor3fvAlpha(outline_col, outline_alpha * 0.5f);
 	}
-	imm_draw_lined_circle(pos, translation[0], translation[1], final_radius, 40);
+	imm_draw_circle_wire(pos, translation[0], translation[1], final_radius, 40);
 
 	immUnbindProgram();
 
