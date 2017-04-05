@@ -84,12 +84,12 @@ void wm_manipulator_geometryinfo_draw(ManipulatorGeometryInfo *info, const bool 
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned short) * (3 * info->ntris), info->indices, GL_STATIC_DRAW);
 
 	glEnable(GL_CULL_FACE);
-	glEnable(GL_DEPTH_TEST);
+	// glEnable(GL_DEPTH_TEST);
 
 	glDrawElements(GL_TRIANGLES, info->ntris * 3, GL_UNSIGNED_SHORT, NULL);
 
 	glDisable(GL_DEPTH_TEST);
-	glDisable(GL_CULL_FACE);
+	// glDisable(GL_CULL_FACE);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
