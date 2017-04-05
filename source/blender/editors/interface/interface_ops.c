@@ -369,20 +369,52 @@ static int override_type_set_button_exec(bContext *C, wmOperator *op)
 	PointerRNA ptr;
 	PropertyRNA *prop;
 	int index;
+	bool created;
 	const bool all = RNA_boolean_get(op->ptr, "all");
-	const int type = RNA_enum_get(op->ptr, "type");
+	const int op_type = RNA_enum_get(op->ptr, "type");
+
+	short operation;
+
+	switch(op_type) {
+		case UIOverride_Type_NOOP:
+			operation = IDOVERRIDE_NOOP;
+			break;
+		case UIOverride_Type_Replace:
+			operation = IDOVERRIDE_REPLACE;
+			break;
+		case UIOverride_Type_Difference:
+			operation = IDOVERRIDE_ADD;  /* override code will automatically switch to subtract if needed. */
+			break;
+		case UIOverride_Type_Factor:
+			operation = IDOVERRIDE_MULTIPLY;
+			break;
+		default:
+			operation = IDOVERRIDE_REPLACE;
+			BLI_assert(0);
+			break;
+	}
 
 	/* try to reset the nominated setting to its default value */
 	UI_context_active_but_prop_get(C, &ptr, &prop, &index);
 
-	printf("We should define, change, or remove generic-add per-index override operations...\n");
-//	/* if there is a valid property that is editable... */
-//	if (ptr.data && prop && RNA_property_editable(&ptr, prop)) {
-//		if (RNA_property_reset(&ptr, prop, (all) ? -1 : index))
-//			return operator_button_property_finish(C, &ptr, prop);
-//	}
+	BLI_assert(ptr.id.data != NULL);
 
-	return OPERATOR_FINISHED;
+	if (all) {
+		index = -1;
+	}
+
+	IDOverridePropertyOperation *opop = RNA_property_override_property_operation_get(
+	                                        &ptr, prop, operation, index, true, NULL, &created);
+	if (!created) {
+		opop->operation = operation;
+	}
+
+	return operator_button_property_finish(C, &ptr, prop);
+}
+
+static int override_type_set_button_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+{
+	return WM_menu_invoke_ex(C, op, WM_OP_INVOKE_DEFAULT);
 }
 
 static void UI_OT_override_type_set_button(wmOperatorType *ot)
@@ -395,7 +427,7 @@ static void UI_OT_override_type_set_button(wmOperatorType *ot)
 	/* callbacks */
 	ot->poll = override_type_set_button_poll;
 	ot->exec = override_type_set_button_exec;
-	ot->invoke = WM_menu_invoke;
+	ot->invoke = override_type_set_button_invoke;
 
 	/* flags */
 	ot->flag = OPTYPE_UNDO;
@@ -447,8 +479,8 @@ static int override_remove_button_exec(bContext *C, wmOperator *op)
 		                                        oprop, NULL, NULL, index, index, false, &is_strict_find);
 		BLI_assert(opop != NULL);
 		if (!is_strict_find) {
-			/* No specific override operation, we have to get generic one, and... */
-			/* ... create item-specific override operations for all but given index, before removing generic one. */
+			/* No specific override operation, we have to get generic one,
+			 * and create item-specific override operations for all but given index, before removing generic one. */
 			for (int idx = RNA_property_array_length(&ptr, prop); idx--; ) {
 				if (idx != index) {
 					BKE_override_property_operation_get(oprop, opop->operation, NULL, NULL, idx, idx, true, NULL, NULL);
@@ -466,6 +498,7 @@ static int override_remove_button_exec(bContext *C, wmOperator *op)
 		BKE_override_property_delete(id->override, oprop);
 		RNA_property_copy(&ptr, &src, prop, -1);
 	}
+
 	return operator_button_property_finish(C, &ptr, prop);
 }
 
