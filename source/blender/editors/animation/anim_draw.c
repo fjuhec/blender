@@ -75,13 +75,13 @@ static void draw_cfra_number(Scene *scene, View2D *v2d, const float cfra, const 
 	VertexFormat *format = immVertexFormat();
 	unsigned int pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
 	unsigned char col[4];
-	float xscale, yscale, x, y;
+	float xscale, x, y;
 	char numstr[32] = "    t";  /* t is the character to start replacing from */
 	int slen;
 	
 	/* because the frame number text is subject to the same scaling as the contents of the view */
+	UI_view2d_scale_get(v2d, &xscale, NULL);
 	gpuPushMatrix();
-	UI_view2d_scale_get(v2d, &xscale, &yscale);
 	gpuScale2f(1.0f / xscale, 1.0f);
 	
 	/* get timecode string 
@@ -110,7 +110,7 @@ static void draw_cfra_number(Scene *scene, View2D *v2d, const float cfra, const 
 	immRectf(pos, x, y,  x + slen,  y + 0.75f * U.widget_unit);
 	immUnbindProgram();
 
-	/* draw current frame number - black text */
+	/* draw current frame number */
 	UI_GetThemeColor4ubv(TH_TEXT, col);
 	UI_fontstyle_draw_simple(fstyle, x - 0.25f * U.widget_unit, y + 0.15f * U.widget_unit, numstr, col);
 
