@@ -1626,10 +1626,15 @@ void ED_object_toggle_modes(bContext *C, int mode)
 		if (opstring) {
 #ifdef USE_WORKSPACE_MODE
 			WorkSpace *workspace = CTX_wm_workspace(C);
-
-			BKE_workspace_object_mode_set(workspace, mode);
 #endif
 			WM_operator_name_call(C, opstring, WM_OP_EXEC_REGION_WIN, NULL);
+
+#ifdef USE_WORKSPACE_MODE
+			Object *ob = CTX_data_active_object(C);
+			if (ob) {
+				BKE_workspace_object_mode_set(workspace, ob->mode);
+			}
+#endif
 		}
 	}
 }
