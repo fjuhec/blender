@@ -658,44 +658,17 @@ void BKE_sculptsession_free_deformMats(SculptSession *ss)
 
 void BKE_sculptsession_free_vwpaint_data(struct SculptSession *ss) {
 	/* Free maps */
-	if (ss->vert_to_loop) {
-		MEM_freeN(ss->vert_to_loop);
-		ss->vert_to_loop = NULL;
-	}
-	if (ss->vert_map_mem) {
-		MEM_freeN(ss->vert_map_mem);
-		ss->vert_map_mem = NULL;
-	}
-	if (ss->vert_to_poly) {
-		MEM_freeN(ss->vert_to_poly);
-		ss->vert_to_poly = NULL;
-	}
-	if (ss->poly_map_mem) {
-		MEM_freeN(ss->poly_map_mem);
-		ss->poly_map_mem = NULL;
-	}
+	MEM_SAFE_FREE(ss->modes.vwpaint.vert_to_loop);
+	MEM_SAFE_FREE(ss->modes.vwpaint.vert_map_mem);
+	MEM_SAFE_FREE(ss->modes.vwpaint.vert_to_poly);
+	MEM_SAFE_FREE(ss->modes.vwpaint.poly_map_mem);
 
 	/* Free average, blur, and spray brush arrays */
-	if (ss->tot_loops_hit) {
-		MEM_freeN(ss->tot_loops_hit);
-		ss->tot_loops_hit = NULL;
-	}
-	if (ss->total_color) {
-		MEM_freeN(ss->total_color);
-		ss->total_color = NULL;
-	}
-	if (ss->total_weight) {
-		MEM_freeN(ss->total_weight);
-		ss->total_weight = NULL;
-	}
-	if (ss->max_weight) {
-		MEM_freeN(ss->max_weight);
-		ss->max_weight = NULL;
-	}
-	if (ss->previous_color) {
-		MEM_freeN(ss->previous_color);
-		ss->previous_color = NULL;
-	}
+	MEM_SAFE_FREE(ss->modes.vwpaint.tot_loops_hit);
+	MEM_SAFE_FREE(ss->modes.vwpaint.total_color);
+	MEM_SAFE_FREE(ss->modes.vwpaint.total_weight);
+	MEM_SAFE_FREE(ss->modes.vwpaint.max_weight);
+	MEM_SAFE_FREE(ss->modes.vwpaint.previous_color);
 }
 
 /* Write out the sculpt dynamic-topology BMesh to the Mesh */
@@ -739,10 +712,7 @@ void BKE_sculptsession_bm_to_me_for_render(Object *object)
 			 */
 			BKE_object_free_derived_caches(object);
 
-			if (object->sculpt->pbvh) {
-				BKE_pbvh_free(object->sculpt->pbvh);
-				object->sculpt->pbvh = NULL;
-			}
+			MEM_SAFE_FREE(object->sculpt->pbvh);
 
 			sculptsession_bm_to_me_update_data_only(object, false);
 
@@ -876,7 +846,7 @@ void BKE_sculpt_update_mesh_elements(Scene *scene, Sculpt *sd, Object *ob,
 	ss->show_diffuse_color = (sd->flags & SCULPT_SHOW_DIFFUSE) != 0;
 
 	/* This flag prevents PBVH from being freed when creating the vp_handle for texture paint */
-	ss->building_vp_handle = false;
+	ss->modes.vwpaint.building_vp_handle = false;
 
 	if (need_mask) {
 		if (mmd == NULL) {
