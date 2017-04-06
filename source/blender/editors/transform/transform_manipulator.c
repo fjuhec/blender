@@ -478,7 +478,7 @@ static void protectflag_to_drawflags(short protectflag, short *drawflags)
 }
 
 /* for pose mode */
-static void stats_pchan(Scene *scene, Object *ob, RegionView3D *rv3d, bPoseChannel *pchan)
+static void protectflag_to_drawflags_pchan(Scene *scene, Object *ob, RegionView3D *rv3d, bPoseChannel *pchan)
 {
 	Bone *bone = pchan->bone;
 	if (bone) {
@@ -490,7 +490,7 @@ static void stats_pchan(Scene *scene, Object *ob, RegionView3D *rv3d, bPoseChann
 }
 
 /* for editmode*/
-static void stats_editbone(RegionView3D *rv3d, EditBone *ebo)
+static void protectflag_to_drawflags_ebone(RegionView3D *rv3d, EditBone *ebo)
 {
 	if (ebo->flag & BONE_EDITMODE_LOCKED) {
 		protectflag_to_drawflags(OB_LOCK_LOC | OB_LOCK_ROT | OB_LOCK_SCALE, &rv3d->twdrawflag);
@@ -721,7 +721,7 @@ static int calc_manipulator_stats(const bContext *C)
 					calc_tw_center(scene, ebo->head);
 					totsel++;
 				}
-				stats_editbone(rv3d, ebo);
+				protectflag_to_drawflags_ebone(rv3d, ebo);
 			}
 			else {
 				for (ebo = arm->edbo->first; ebo; ebo = ebo->next) {
@@ -741,7 +741,7 @@ static int calc_manipulator_stats(const bContext *C)
 							totsel++;
 						}
 						if (ebo->flag & BONE_SELECTED) {
-							stats_editbone(rv3d, ebo);
+							protectflag_to_drawflags_ebone(rv3d, ebo);
 						}
 					}
 				}
@@ -867,7 +867,7 @@ static int calc_manipulator_stats(const bContext *C)
 			Bone *bone = pchan->bone;
 			if (bone) {
 				calc_tw_center(scene, pchan->pose_head);
-				stats_pchan(scene, ob, rv3d, pchan);
+				protectflag_to_drawflags_pchan(scene, ob, rv3d, pchan);
 				totsel = 1;
 				ok = true;
 			}
@@ -881,7 +881,7 @@ static int calc_manipulator_stats(const bContext *C)
 					Bone *bone = pchan->bone;
 					if (bone && (bone->flag & BONE_TRANSFORM)) {
 						calc_tw_center(scene, pchan->pose_head);
-						stats_pchan(scene, ob, rv3d, pchan);
+						protectflag_to_drawflags_pchan(scene, ob, rv3d, pchan);
 					}
 				}
 				ok = true;
@@ -1050,13 +1050,13 @@ static void drawflags_editmode(Object *obedit, View3D *v3d, RegionView3D *rv3d)
 		const bArmature *arm = obedit->data;
 		EditBone *ebo;
 		if ((v3d->around == V3D_AROUND_ACTIVE) && (ebo = arm->act_edbone)) {
-			stats_editbone(rv3d, ebo);
+			protectflag_to_drawflags_ebone(rv3d, ebo);
 		}
 		else {
 			for (ebo = arm->edbo->first; ebo; ebo = ebo->next) {
 				if (EBONE_VISIBLE(arm, ebo)) {
 					if (ebo->flag & BONE_SELECTED) {
-						stats_editbone(rv3d, ebo);
+						protectflag_to_drawflags_ebone(rv3d, ebo);
 					}
 				}
 			}
