@@ -32,14 +32,9 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "DNA_armature_types.h"
 #include "DNA_material_types.h"
-#include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
-#include "DNA_object_force.h"
 #include "DNA_scene_types.h"
-#include "DNA_camera_types.h"
-#include "DNA_key_types.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -47,25 +42,19 @@
 #include "BLI_math.h"
 #include "BLI_utildefines.h"
 
-#include "BKE_action.h"
-#include "BKE_camera.h"
 #include "BKE_context.h"
 #include "BKE_depsgraph.h"
 #include "BKE_icons.h"
-#include "BKE_key.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_mesh_render.h"
-#include "BKE_modifier.h"
 #include "BKE_object.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
 
-#include "ED_armature.h"
 #include "ED_space_api.h"
 #include "ED_screen.h"
 #include "ED_transform.h"
-#include "ED_view3d.h"
 
 #include "GPU_compositing.h"
 #include "GPU_framebuffer.h"
@@ -82,7 +71,6 @@
 #include "RNA_access.h"
 
 #include "UI_resources.h"
-#include "UI_interface.h"
 
 #ifdef WITH_PYTHON
 #  include "BPY_extern.h"
