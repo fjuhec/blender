@@ -108,8 +108,6 @@ extern "C" {
 
 struct bContext;
 struct wmEvent;
-struct wmKeyMap;
-struct wmKeyConfig;
 struct wmWindowManager;
 struct wmOperator;
 struct ImBuf;
@@ -687,7 +685,6 @@ typedef struct wmDropBox {
 	short opcontext;				/* default invoke */
 
 } wmDropBox;
-
 
 /* *************** migrated stuff, clean later? ************** */
 
