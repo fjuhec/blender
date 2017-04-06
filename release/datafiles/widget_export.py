@@ -1,3 +1,4 @@
+# Apache License, Version 2.0
 import bpy
 from bpy.types import Operator
 from bpy.props import StringProperty
@@ -10,7 +11,7 @@ def mesh_triangulate(me):
     bmesh.ops.triangulate(bm, faces=bm.faces)
     bm.to_mesh(me)
     bm.free()
-    
+
 
 class ExportWidget(Operator, ExportHelper):
     """Export a widget mesh as a C file"""
@@ -42,30 +43,39 @@ class ExportWidget(Operator, ExportHelper):
 
         mesh_triangulate(me)
 
-        name = ob.name
         f = open(self.filepath, 'w')
-        f.write("int _WIDGET_nverts_%s = %d;\n" % (name, len(me.vertices)))
-        f.write("int _WIDGET_ntris_%s = %d;\n\n" % (name, len(me.polygons)))
-        f.write("float _WIDGET_verts_%s[][3] = {\n" % name)
+
+        f.write("static const float verts[][3] = {\n")
         for v in me.vertices:
-            f.write("    {%.6f, %.6f, %.6f},\n" % v.co[:])            
+            f.write("\t{%.6f, %.6f, %.6f},\n" % v.co[:])
         f.write("};\n\n")
-        f.write("float _WIDGET_normals_%s[][3] = {\n" % name)
+        f.write("static const float normals[][3] = {\n")
         for v in me.vertices:
-            f.write("    {%.6f, %.6f, %.6f},\n" % v.normal[:])            
+            f.write("\t{%.6f, %.6f, %.6f},\n" % v.normal[:])
         f.write("};\n\n")
-        f.write("unsigned short _WIDGET_indices_%s[] = {\n" % name)
+        f.write("static const unsigned short indices[] = {\n")
         for p in me.polygons:
-            f.write("    %d, %d, %d,\n" % p.vertices[:])            
+            f.write("\t%d, %d, %d,\n" % p.vertices[:])
         f.write("};\n")
+
+        f.write("\n")
+
+        f.write("ManipulatorGeomInfo wm_manipulator_geom_data_%s = {\n" % ob.name)
+        f.write("\t.nverts  = %d,\n" % len(me.vertices))
+        f.write("\t.ntris   = %d,\n" % len(me.polygons))
+        f.write("\t.verts   = verts,\n")
+        f.write("\t.normals = normals,\n")
+        f.write("\t.indices = indices,\n")
+        f.write("};\n")
+
         f.close()
-        
+
         return {'FINISHED'}
 
 def menu_func_export(self, context):
     self.layout.operator(ExportWidget.bl_idname, text="Widget (.c)")
 
-        
+
 def register():
    bpy.utils.register_module(__name__)
    bpy.types.INFO_MT_file_export.append(menu_func_export)
