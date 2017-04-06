@@ -108,7 +108,7 @@ static void dial_geom_draw(
 	glLineWidth(dial->manipulator.line_width);
 
 	VertexFormat *format = immVertexFormat();
-	unsigned int pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
 
 	if (clip_plane) {
 		immBindBuiltinProgram(GPU_SHADER_3D_CLIPPED_UNIFORM_COLOR);
@@ -145,7 +145,7 @@ static void dial_ghostarc_draw_helpline(const float angle, const float co_outer[
 	gpuPushMatrix();
 	gpuRotate3f(RAD2DEGF(angle), 0.0f, 0.0f, -1.0f);
 
-	unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
@@ -167,7 +167,7 @@ static void dial_ghostarc_draw(
 	const float width_inner = DIAL_WIDTH - dial->manipulator.line_width * 0.5f / U.manipulator_scale;
 
 	VertexFormat *format = immVertexFormat();
-	unsigned int pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 	immUniformColor4fv(color);
 	imm_draw_disk_partial_fill(

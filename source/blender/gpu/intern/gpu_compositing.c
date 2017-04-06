@@ -278,14 +278,14 @@ GPUFX *GPU_fx_compositor_create(void)
 	static VertexFormat format = {0};
 	static unsigned int pos, uvs;
 	if (format.attrib_ct == 0) {
-		pos = add_attrib(&format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
-		uvs = add_attrib(&format, "uvs", GL_FLOAT, 2, KEEP_FLOAT);
+		pos = VertexFormat_add_attrib(&format, "pos", COMP_F32, 2, KEEP_FLOAT);
+		uvs = VertexFormat_add_attrib(&format, "uvs", COMP_F32, 2, KEEP_FLOAT);
 	}
 	VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
 	VertexBuffer_allocate_data(vbo, 4);
 	for (int i = 0; i < 4; ++i)	{
-		setAttrib(vbo, pos, i, fullscreencos[i]);
-		setAttrib(vbo, uvs, i, fullscreenuvs[i]);
+		VertexBuffer_set_attrib(vbo, pos, i, fullscreencos[i]);
+		VertexBuffer_set_attrib(vbo, uvs, i, fullscreenuvs[i]);
 	}
 	fx->quad_batch = Batch_create(GL_TRIANGLE_STRIP, vbo, NULL);
 
@@ -293,12 +293,12 @@ GPUFX *GPU_fx_compositor_create(void)
 	static VertexFormat format_point = {0};
 	static unsigned int dummy_attrib;
 	if (format_point.attrib_ct == 0) {
-		dummy_attrib = add_attrib(&format_point, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+		dummy_attrib = VertexFormat_add_attrib(&format_point, "pos", COMP_F32, 2, KEEP_FLOAT);
 	}
 	float dummy[2] = {0.0f, 0.0f};
 	VertexBuffer *vbo_point = VertexBuffer_create_with_format(&format_point);
 	VertexBuffer_allocate_data(vbo_point, 1);
-	setAttrib(vbo_point, dummy_attrib, 0, &dummy);
+	VertexBuffer_set_attrib(vbo_point, dummy_attrib, 0, &dummy);
 	fx->point_batch = Batch_create(GL_POINTS, vbo_point, NULL);
 
 	return fx;

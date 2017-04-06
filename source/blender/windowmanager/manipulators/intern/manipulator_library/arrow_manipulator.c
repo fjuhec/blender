@@ -171,7 +171,7 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select, co
 			const bool use_lighting = select == false && ((U.manipulator_flag & V3D_SHADED_MANIPULATORS) != 0);
 
 			/* translate to line end */
-			unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+			unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
 			gpuTranslate3f(0.0f, 0.0f, arrow->len);
 
 			immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
