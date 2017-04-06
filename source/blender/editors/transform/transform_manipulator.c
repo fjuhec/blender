@@ -52,7 +52,6 @@
 #include "RNA_access.h"
 
 #include "BKE_action.h"
-#include "BKE_armature.h"
 #include "BKE_context.h"
 #include "BKE_curve.h"
 #include "BKE_global.h"
@@ -66,7 +65,6 @@
 
 #include "WM_api.h"
 #include "WM_types.h"
-#include "wm.h" /* XXX */
 
 #include "ED_armature.h"
 #include "ED_curve.h"
@@ -77,7 +75,6 @@
 #include "ED_screen.h"
 
 #include "UI_resources.h"
-#include "UI_interface.h"
 
 /* local module include */
 #include "transform.h"
