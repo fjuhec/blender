@@ -364,11 +364,9 @@ static void workspace_workflow_file_append_buttons(
 static int workspace_add_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
 	const Main *bmain = CTX_data_main(C);
-	uiPopupMenu *pup;
-	uiLayout *layout;
 
-	pup = UI_popup_menu_begin(C, op->type->name, ICON_NONE);
-	layout = UI_popup_menu_layout(pup);
+	uiPopupMenu *pup = UI_popup_menu_begin(C, op->type->name, ICON_NONE);
+	uiLayout *layout = UI_popup_menu_layout(pup);
 
 	uiItemO(layout, "Duplicate Current", ICON_NONE, "WORKSPACE_OT_workspace_duplicate");
 	uiItemS(layout);

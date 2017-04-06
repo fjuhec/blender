@@ -834,9 +834,7 @@ void CTX_wm_manager_set(bContext *C, wmWindowManager *wm)
 void CTX_wm_window_set(bContext *C, wmWindow *win)
 {
 	C->wm.window = win;
-	if (C->wm.window) {
-		C->data.scene = C->wm.window->scene;
-	}
+	C->data.scene = (win) ? win->scene : NULL;
 	C->wm.workspace = (win) ? BKE_workspace_active_get(win->workspace_hook) : NULL;
 	C->wm.screen = (win) ? BKE_workspace_active_screen_get(win->workspace_hook) : NULL;
 	C->wm.area = NULL;
