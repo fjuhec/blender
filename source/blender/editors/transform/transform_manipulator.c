@@ -1007,90 +1007,6 @@ static int calc_manipulator_stats(const bContext *C)
 	return totsel;
 }
 
-static void drawflags_posemode(Object *ob, View3D *v3d, RegionView3D *rv3d)
-{
-	bPoseChannel *pchan;
-
-	if ((ob->lay & v3d->lay) == 0)
-		return;
-
-	if ((v3d->around == V3D_AROUND_ACTIVE) && (pchan = BKE_pose_channel_active(ob))) {
-		if (pchan->bone)
-			protectflag_to_drawflags(pchan->protectflag, &rv3d->twdrawflag);
-	}
-	else {
-		int mode = TFM_ROTATION;
-		int totsel = count_set_pose_transflags(&mode, 0, ob);
-
-		if (totsel) {
-			/* use channels to get stats */
-			for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
-				Bone *bone = pchan->bone;
-				if (bone && (bone->flag & BONE_TRANSFORM)) {
-					protectflag_to_drawflags(pchan->protectflag, &rv3d->twdrawflag);
-				}
-			}
-		}
-	}
-}
-
-static void drawflags_editmode(Object *obedit, View3D *v3d, RegionView3D *rv3d)
-{
-	if ((obedit->lay & v3d->lay) == 0)
-		return;
-
-	if (obedit->type == OB_ARMATURE) {
-		const bArmature *arm = obedit->data;
-		EditBone *ebo;
-		if ((v3d->around == V3D_AROUND_ACTIVE) && (ebo = arm->act_edbone)) {
-			protectflag_to_drawflags_ebone(rv3d, ebo);
-		}
-		else {
-			for (ebo = arm->edbo->first; ebo; ebo = ebo->next) {
-				if (EBONE_VISIBLE(arm, ebo)) {
-					if (ebo->flag & BONE_SELECTED) {
-						protectflag_to_drawflags_ebone(rv3d, ebo);
-					}
-				}
-			}
-		}
-	}
-}
-
-/**
- * Refresh RegionView3D.twdrawflag based on protect-flags.
- */
-static void manipulator_drawflags_refresh(const bContext *C, View3D *v3d, RegionView3D *rv3d)
-{
-	SceneLayer *sl = CTX_data_scene_layer(C);
-	Object *ob = OBACT_NEW, *obedit = CTX_data_edit_object(C);
-	bGPdata *gpd = CTX_data_gpencil_data(C);
-	const bool is_gp_edit = ((gpd) && (gpd->flag & GP_DATA_STROKE_EDITMODE));
-
-	/* all enabled */
-	rv3d->twdrawflag = 0xFFFF;
-
-	if (is_gp_edit) {
-		/* pass */
-	}
-	else if (obedit) {
-		drawflags_editmode(obedit, v3d, rv3d);
-	}
-	else if (ob && (ob->mode & OB_MODE_POSE)) {
-		drawflags_posemode(ob, v3d, rv3d);
-	}
-	else if (ob && (ob->mode & OB_MODE_ALL_PAINT)) {
-		/* pass */
-	}
-	else {
-		for (Base *base = sl->object_bases.first; base; base = base->next) {
-			if (TESTBASELIB_NEW(base)) {
-				protectflag_to_drawflags(base->object->protectflag, &rv3d->twdrawflag);
-			}
-		}
-	}
-}
-
 static void manipulator_get_idot(RegionView3D *rv3d, float r_idot[3])
 {
 	float view_vec[3], axis_vec[3];
@@ -1317,8 +1233,6 @@ static void WIDGETGROUP_manipulator_refresh(const bContext *C, wmManipulatorGrou
 		return;
 
 	manipulator_prepare_mat(C, v3d, rv3d);
-	manipulator_drawflags_refresh(C, v3d, rv3d);
-
 
 	/* *** set properties for axes *** */
 
