@@ -66,7 +66,7 @@
 #include "manipulator_library_intern.h"
 
 /* to use custom arrows exported to geom_arrow_manipulator.c */
-#define USE_MANIPULATOR_CUSTOM_ARROWS
+//#define USE_MANIPULATOR_CUSTOM_ARROWS
 
 /* ArrowManipulator->flag */
 enum {
