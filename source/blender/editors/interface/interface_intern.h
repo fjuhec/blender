@@ -259,6 +259,7 @@ struct uiBut {
 	
 	uiButSearchCreateFunc search_create_func;
 	uiButSearchFunc search_func;
+	bool free_search_arg;
 	void *search_arg;
 
 	uiButHandleRenameFunc rename_func;

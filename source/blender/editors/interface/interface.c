@@ -2625,6 +2625,10 @@ static void ui_but_free(const bContext *C, uiBut *but)
 		MEM_freeN(but->tip_argN);
 	}
 
+	if (!but->editstr && but->free_search_arg) {
+		MEM_SAFE_FREE(but->search_arg);
+	}
+
 	if (but->active) {
 		/* XXX solve later, buttons should be free-able without context ideally,
 		 * however they may have open tooltips or popup windows, which need to
