@@ -478,13 +478,13 @@ static void protectflag_to_drawflags(short protectflag, short *drawflags)
 }
 
 /* for pose mode */
-static void protectflag_to_drawflags_pchan(RegionView3D *rv3d, bPoseChannel *pchan)
+static void protectflag_to_drawflags_pchan(RegionView3D *rv3d, const bPoseChannel *pchan)
 {
 	protectflag_to_drawflags(pchan->protectflag, &rv3d->twdrawflag);
 }
 
 /* for editmode*/
-static void protectflag_to_drawflags_ebone(RegionView3D *rv3d, EditBone *ebo)
+static void protectflag_to_drawflags_ebone(RegionView3D *rv3d, const EditBone *ebo)
 {
 	if (ebo->flag & BONE_EDITMODE_LOCKED) {
 		protectflag_to_drawflags(OB_LOCK_LOC | OB_LOCK_ROT | OB_LOCK_SCALE, &rv3d->twdrawflag);
@@ -523,7 +523,7 @@ static void axis_angle_to_gimbal_axis(float gmat[3][3], const float axis[3], con
 }
 
 
-static int test_rotmode_euler(short rotmode)
+static bool test_rotmode_euler(short rotmode)
 {
 	return (ELEM(rotmode, ROT_MODE_AXISANGLE, ROT_MODE_QUAT)) ? 0 : 1;
 }
@@ -927,8 +927,7 @@ static int calc_manipulator_stats(const bContext *C)
 			if (TESTBASELIB_NEW(base)) {
 				if (ob == NULL)
 					ob = base->object;
-
-				calc_tw_center(scene, base->object->loc);
+				calc_tw_center(scene, base->object->obmat[3]);
 				totsel++;
 			}
 		}
