@@ -23,6 +23,7 @@
  */
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "BLI_utildefines.h"
 #include "BLI_fileops.h"
@@ -180,6 +181,7 @@ bool ED_workspace_change(
 	}
 
 	screen_new = screen_change_prepare(screen_old, screen_new, bmain, C, win);
+	BLI_assert(BKE_workspace_layout_screen_get(layout_new) == screen_new);
 
 	if (screen_new) {
 		WM_window_set_active_layout(win, workspace_new, layout_new);
@@ -306,28 +308,54 @@ static void WORKSPACE_OT_workspace_delete(wmOperatorType *ot)
 	ot->exec = workspace_delete_exec;
 }
 
+static void workspace_config_file_path_from_folder_id(const Main *bmain, int folder_id, char *r_path)
+{
+	const char *cfgdir = BKE_appdir_folder_id(folder_id, NULL);
+
+	if (cfgdir) {
+		BLI_make_file_string(bmain->name, r_path, cfgdir, BLENDER_WORKSPACES_FILE);
+	}
+	else {
+		r_path[0] = '\0';
+	}
+}
+
 ATTR_NONNULL(1)
 static WorkspaceConfigFileData *workspace_config_file_read(const Main *bmain, ReportList *reports)
 {
 	char workspace_config_path[FILE_MAX];
-	const char * const cfgdir = BKE_appdir_folder_id(BLENDER_USER_CONFIG, NULL);
+	bool has_path = false;
 
-	if (cfgdir) {
-		BLI_make_file_string(bmain->name, workspace_config_path, cfgdir, BLENDER_WORKSPACES_FILE);
+	workspace_config_file_path_from_folder_id(bmain, BLENDER_USER_CONFIG, workspace_config_path);
+	if (BLI_exists(workspace_config_path)) {
+		has_path = true;
 	}
 	else {
-		workspace_config_path[0] = '\0';
+		workspace_config_file_path_from_folder_id(bmain, BLENDER_DATAFILES, workspace_config_path);
+		if (BLI_exists(workspace_config_path)) {
+			has_path = true;
+		}
 	}
 
-	if (BLI_exists(workspace_config_path)) {
-		/* may still return NULL */
-		return BKE_blendfile_workspace_config_read(workspace_config_path, reports);
-	}
-	else if (reports) {
-		BKE_reportf(reports, RPT_WARNING, "Couldn't find workspace configuration file in %s", workspace_config_path);
-	}
+	return has_path ? BKE_blendfile_workspace_config_read(workspace_config_path, reports) : NULL;
+}
 
-	return NULL;
+static void workspace_append_button(
+        uiLayout *layout, wmOperatorType *ot_append, const WorkSpace *workspace, const Main *from_main)
+{
+	const ID *id = BKE_workspace_id_get((WorkSpace *)workspace); /* non-const cast, but we really don't modify it... */
+	PointerRNA opptr;
+	char lib_path[FILE_MAX_LIBEXTRA];
+
+	BLI_path_join(
+	        lib_path, sizeof(lib_path), from_main->name, BKE_idcode_to_name(GS(id->name)), NULL);
+
+	BLI_assert(STREQ(ot_append->idname, "WM_OT_append"));
+	opptr = uiItemFullO_ptr(
+	            layout, ot_append, BKE_workspace_name_get(workspace), ICON_NONE, NULL,
+	            WM_OP_EXEC_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+	RNA_string_set(&opptr, "directory", lib_path);
+	RNA_string_set(&opptr, "filename", id->name + 2);
 }
 
 ATTR_NONNULL(1, 2)
@@ -338,21 +366,10 @@ static void workspace_config_file_append_buttons(
 
 	if (workspace_config) {
 		wmOperatorType *ot_append = WM_operatortype_find("WM_OT_append", true);
-		PointerRNA opptr;
-		char lib_path[FILE_MAX_LIBEXTRA];
 
 		BKE_workspace_iter_begin(workspace, workspace_config->workspaces.first)
 		{
-			ID *id = BKE_workspace_id_get(workspace);
-
-			BLI_path_join(
-			        lib_path, sizeof(lib_path), workspace_config->main->name, BKE_idcode_to_name(GS(id->name)), NULL);
-
-			opptr = uiItemFullO_ptr(
-			            layout, ot_append, BKE_workspace_name_get(workspace), ICON_NONE, NULL,
-			            WM_OP_EXEC_DEFAULT, UI_ITEM_O_RETURN_PROPS);
-			RNA_string_set(&opptr, "directory", lib_path);
-			RNA_string_set(&opptr, "filename", id->name + 2);
+			workspace_append_button(layout, ot_append, workspace, workspace_config->main);
 		}
 		BKE_workspace_iter_end;
 
