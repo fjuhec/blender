@@ -88,23 +88,22 @@
 #include "GPU_immediate.h"
 #include "GPU_matrix.h"
 
+/* return codes for select, and drawing flags */
 
-/* drawing flags */
+#define MAN_TRANS_X		(1 << 0)
+#define MAN_TRANS_Y		(1 << 1)
+#define MAN_TRANS_Z		(1 << 2)
+#define MAN_TRANS_C		(MAN_TRANS_X | MAN_TRANS_Y | MAN_TRANS_Z)
 
-#define MAN_TRANS_X  (1 << 0)
-#define MAN_TRANS_Y  (1 << 1)
-#define MAN_TRANS_Z  (1 << 2)
-#define MAN_TRANS_C  (MAN_TRANS_X | MAN_TRANS_Y | MAN_TRANS_Z)
+#define MAN_ROT_X		(1 << 3)
+#define MAN_ROT_Y		(1 << 4)
+#define MAN_ROT_Z		(1 << 5)
+#define MAN_ROT_C		(MAN_ROT_X | MAN_ROT_Y | MAN_ROT_Z)
 
-#define MAN_ROT_X    (1 << 3)
-#define MAN_ROT_Y    (1 << 4)
-#define MAN_ROT_Z    (1 << 5)
-#define MAN_ROT_C    (MAN_ROT_X | MAN_ROT_Y | MAN_ROT_Z)
-
-#define MAN_SCALE_X  (1 << 8)
-#define MAN_SCALE_Y  (1 << 9)
-#define MAN_SCALE_Z  (1 << 10)
-#define MAN_SCALE_C  (MAN_SCALE_X | MAN_SCALE_Y | MAN_SCALE_Z)
+#define MAN_SCALE_X		(1 << 8)
+#define MAN_SCALE_Y		(1 << 9)
+#define MAN_SCALE_Z		(1 << 10)
+#define MAN_SCALE_C		(MAN_SCALE_X | MAN_SCALE_Y | MAN_SCALE_Z)
 
 /* threshold for testing view aligned manipulator axis */
 #define TW_AXIS_DOT_MIN 0.02f
@@ -489,6 +488,13 @@ static void stats_pose(Scene *scene, Object *ob, bPoseChannel *pchan)
 
 		calc_tw_center(scene, pchan->pose_head);
 	}
+}
+
+/* for editmode*/
+static void stats_editbone(RegionView3D *rv3d, EditBone *ebo)
+{
+	if (ebo->flag & BONE_EDITMODE_LOCKED)
+		protectflag_to_drawflags(OB_LOCK_LOC | OB_LOCK_ROT | OB_LOCK_SCALE, &rv3d->twdrawflag);
 }
 
 /* could move into BLI_math however this is only useful for display/editing purposes */
@@ -1016,15 +1022,13 @@ static void drawflags_editmode(Object *obedit, View3D *v3d, RegionView3D *rv3d)
 		const bArmature *arm = obedit->data;
 		EditBone *ebo;
 		if ((v3d->around == V3D_AROUND_ACTIVE) && (ebo = arm->act_edbone)) {
-			if (ebo->flag & BONE_EDITMODE_LOCKED)
-				protectflag_to_drawflags(OB_LOCK_LOC | OB_LOCK_ROT | OB_LOCK_SCALE, &rv3d->twdrawflag);
+			stats_editbone(rv3d, ebo);
 		}
 		else {
 			for (ebo = arm->edbo->first; ebo; ebo = ebo->next) {
 				if (EBONE_VISIBLE(arm, ebo)) {
 					if (ebo->flag & BONE_SELECTED) {
-						if (ebo->flag & BONE_EDITMODE_LOCKED)
-							protectflag_to_drawflags(OB_LOCK_LOC | OB_LOCK_ROT | OB_LOCK_SCALE, &rv3d->twdrawflag);
+						stats_editbone(rv3d, ebo);
 					}
 				}
 			}
