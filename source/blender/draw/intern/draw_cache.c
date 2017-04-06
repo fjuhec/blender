@@ -454,7 +454,7 @@ Batch *DRW_cache_gpencil_axes_get(void)
 		static VertexFormat format = { 0 };
 		static unsigned pos_id;
 		if (format.attrib_ct == 0) {
-			pos_id = add_attrib(&format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
+			pos_id = VertexFormat_add_attrib(&format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
 		}
 
 		VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
@@ -465,8 +465,8 @@ Batch *DRW_cache_gpencil_axes_get(void)
 			v1[axis] = 1.0f;
 			v2[axis] = -1.0f;
 
-			setAttrib(vbo, pos_id, axis * 2, v1);
-			setAttrib(vbo, pos_id, axis * 2 + 1, v2);
+			VertexBuffer_set_attrib(vbo, pos_id, axis * 2, v1);
+			VertexBuffer_set_attrib(vbo, pos_id, axis * 2 + 1, v2);
 
 			/* reset v1 & v2 to zero for next axis */
 			v1[axis] = v2[axis] = 0.0f;
@@ -474,7 +474,7 @@ Batch *DRW_cache_gpencil_axes_get(void)
 
 		/* draw cube */
 		for (int i = 0; i < 24; ++i) {
-			setAttrib(vbo, pos_id, i + 6, verts[indices[i]]);
+			VertexBuffer_set_attrib(vbo, pos_id, i + 6, verts[indices[i]]);
 		}
 
 		SHC.drw_gpencil_axes = Batch_create(GL_LINES, vbo, NULL);
