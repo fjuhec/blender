@@ -469,7 +469,8 @@ bool id_make_local(Main *bmain, ID *id, const bool test, const bool lib_local)
 			return true;
 		case ID_WS:
 		case ID_SCR:
-			/* A bit special: can be appended but not linked. Thus, supporting make-local doesn't make much sense. */
+			/* A bit special: can be appended but not linked. Return false
+			 * since supporting make-local doesn't make much sense. */
 			return false;
 		case ID_LI:
 		case ID_KE:

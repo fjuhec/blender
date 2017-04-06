@@ -2768,6 +2768,7 @@ static void lib_link_workspaces(FileData *fd, Main *bmain)
 
 static void direct_link_workspace(FileData *fd, WorkSpace *workspace, const Main *main)
 {
+	ID *workspace_id = BKE_workspace_id_get(workspace);
 	ListBase *hook_layout_relations = BKE_workspace_hook_layout_relations_get(workspace);
 
 	link_list(fd, BKE_workspace_layouts_get(workspace));
@@ -2782,6 +2783,12 @@ static void direct_link_workspace(FileData *fd, WorkSpace *workspace, const Main
 		parent = newglobadr(fd, parent); /* data from window - need to access through global oldnew-map */
 		data = newdataadr(fd, data);
 		BKE_workspace_relation_data_set(relation, parent, data);
+	}
+
+	if (ID_IS_LINKED_DATABLOCK(workspace_id)) {
+		/* Appending workspace so render layer is likely from a different scene. Unset
+		 * now, when activating workspace later we set a valid one from current scene. */
+		BKE_workspace_render_layer_set(workspace, NULL);
 	}
 
 	/* Same issue/fix as in direct_link_scene_update_screen_data: Can't read workspace data
@@ -9981,9 +9988,6 @@ static void expand_workspace(FileData *fd, Main *mainvar, WorkSpace *workspace)
 		expand_doit(fd, mainvar, BKE_workspace_layout_screen_get(layout));
 	}
 	BKE_workspace_layout_iter_end;
-
-	/* unset render-layer, when changing workspace we'll assign one from the active scene then. */
-	BKE_workspace_render_layer_set(workspace, NULL);
 }
 
 /**

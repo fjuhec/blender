@@ -4233,6 +4233,7 @@ void wm_operatortype_init(void)
 	WM_operatortype_append(WM_OT_read_factory_settings);
 	WM_operatortype_append(WM_OT_save_homefile);
 	WM_operatortype_append(WM_OT_save_userpref);
+	WM_operatortype_append(WM_OT_save_workflow_file);
 	WM_operatortype_append(WM_OT_userpref_autoexec_path_add);
 	WM_operatortype_append(WM_OT_userpref_autoexec_path_remove);
 	WM_operatortype_append(WM_OT_window_fullscreen_toggle);

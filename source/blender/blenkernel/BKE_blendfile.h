@@ -61,6 +61,7 @@ struct UserDef *BKE_blendfile_userdef_read_from_memory(
 int BKE_blendfile_userdef_write(const char *filepath, struct ReportList *reports);
 
 struct WorkflowFileData *BKE_blendfile_workflow_read(const char *filepath, struct ReportList *reports);
+bool BKE_blendfile_workflow_write(struct Main *bmain, const char *filepath, struct ReportList *reports);
 void BKE_blendfile_workflow_data_free(struct WorkflowFileData *workflow_file);
 
 

@@ -532,6 +532,29 @@ WorkflowFileData *BKE_blendfile_workflow_read(const char *filepath, ReportList *
 	return workflow_file;
 }
 
+bool BKE_blendfile_workflow_write(Main *bmain, const char *filepath, ReportList *reports)
+{
+	int fileflags = G.fileflags & ~(G_FILE_NO_UI | G_FILE_AUTOPLAY | G_FILE_HISTORY);
+	bool retval = false;
+
+	BKE_blendfile_write_partial_begin(bmain);
+
+	BKE_workspace_iter_begin(workspace, bmain->workspaces.first)
+	{
+		ID *workspace_id = BKE_workspace_id_get(workspace);
+		BKE_blendfile_write_partial_tag_ID(workspace_id, true);
+	}
+	BKE_workspace_iter_end;
+
+	if (BKE_blendfile_write_partial(bmain, filepath, fileflags, reports)) {
+		retval = true;
+	}
+
+	BKE_blendfile_write_partial_end(bmain);
+
+	return retval;
+}
+
 void BKE_blendfile_workflow_data_free(WorkflowFileData *workflow_file)
 {
 	BKE_main_free(workflow_file->main);

@@ -57,7 +57,9 @@ class USERPREF_HT_header(Header):
 
         layout.operator_context = 'INVOKE_DEFAULT'
 
-        if userpref.active_section == 'INPUT':
+        if userpref.active_section == 'INTERFACE':
+            layout.operator("wm.save_workflow_file")
+        elif userpref.active_section == 'INPUT':
             layout.operator("wm.keyconfig_import")
             layout.operator("wm.keyconfig_export")
         elif userpref.active_section == 'ADDONS':
