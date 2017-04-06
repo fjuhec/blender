@@ -520,7 +520,7 @@ WorkspaceConfigFileData *BKE_blendfile_workspace_config_read(const char *filepat
 	BlendFileData *bfd;
 	WorkspaceConfigFileData *workspace_config = NULL;
 
-	bfd = BLO_read_from_file(filepath, reports, BLO_READ_SKIP_USERDEF); /* TODO only read workspaces */
+	bfd = BLO_read_from_file(filepath, reports, BLO_READ_SKIP_USERDEF);
 	if (bfd) {
 		workspace_config = MEM_mallocN(sizeof(*workspace_config), __func__);
 		workspace_config->main = bfd->main;
