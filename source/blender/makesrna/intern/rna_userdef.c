@@ -3477,7 +3477,7 @@ static void rna_def_userdef_view(BlenderRNA *brna)
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
 
 	prop = RNA_def_property(srna, "widget_world_space", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "manipulator_flag", V3D_3D_MANIPULATORS);
+	RNA_def_property_boolean_sdna(prop, NULL, "manipulator_flag", V3D_DRAW_MANIPULATOR);
 	RNA_def_property_ui_text(prop, "Zoom Like Geometry", "Make widgets zoom dependent as if they were geometry");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
 

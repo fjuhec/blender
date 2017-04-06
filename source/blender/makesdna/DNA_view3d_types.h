@@ -146,13 +146,13 @@ typedef struct RegionView3D {
 	short lpersp, lview; /* lpersp can never be set to 'RV3D_CAMOB' */
 
 	float gridview;
+	float tw_idot[3];  /* manipulator runtime: (1 - dot) product with view vector (used to check view alignment) */
 
 
 	/* active rotation from NDOF or elsewhere */
 	float rot_angle;
 	float rot_axis[3];
 
-	int pad2;
 	struct GPUFX *compositor;
 	struct GPUViewport *viewport;
 } RegionView3D;
@@ -389,10 +389,10 @@ enum {
 #define V3D_MANIP_GIMBAL		4
 #define V3D_MANIP_CUSTOM		5 /* anything of value 5 or higher is custom */
 
-/* View3d->manipulator_flag */
+/* View3d->twflag */
    /* USE = user setting, DRAW = based on selection */
 #define V3D_USE_MANIPULATOR		1
-#define V3D_3D_MANIPULATORS          (1 << 1)
+#define V3D_DRAW_MANIPULATOR        (1 << 1)
 #define V3D_SHADED_MANIPULATORS      (1 << 2)
 
 typedef enum ManipulatorType{
@@ -401,7 +401,6 @@ typedef enum ManipulatorType{
 	WT_SCALE     = 2,
 	WT_CUSTOM    = 3,
 } ManipulatorType;
-
 
 /* BGPic->flag */
 /* may want to use 1 for select ? */

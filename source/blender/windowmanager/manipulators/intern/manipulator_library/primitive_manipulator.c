@@ -15,8 +15,6 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor(s): none yet.
- *
  * ***** END GPL LICENSE BLOCK *****
  */
 
@@ -220,8 +218,7 @@ void MANIPULATOR_primitive_set_direction(wmManipulator *manipulator, const float
 {
 	PrimitiveManipulator *prim = (PrimitiveManipulator *)manipulator;
 
-	copy_v3_v3(prim->direction, direction);
-	normalize_v3(prim->direction);
+	normalize_v3_v3(prim->direction, direction);
 }
 
 /**
@@ -232,8 +229,7 @@ void MANIPULATOR_primitive_set_up_vector(wmManipulator *manipulator, const float
 	PrimitiveManipulator *prim = (PrimitiveManipulator *)manipulator;
 
 	if (direction) {
-		copy_v3_v3(prim->up, direction);
-		normalize_v3(prim->up);
+		normalize_v3_v3(prim->up, direction);
 		prim->flag |= PRIM_UP_VECTOR_SET;
 	}
 	else {

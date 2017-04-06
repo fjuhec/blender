@@ -18,8 +18,6 @@
  * The Original Code is Copyright (C) 2016 Blender Foundation.
  * All rights reserved.
  *
- * Contributor(s): none yet.
- *
  * ***** END GPL LICENSE BLOCK *****
  */
 
@@ -54,4 +52,3 @@ extern ManipulatorGeomInfo wm_manipulator_geom_data_cube;
 extern ManipulatorGeomInfo wm_manipulator_geom_data_dial;
 
 #endif  /* __MANIPULATOR_GEOMETRY_H__ */
-

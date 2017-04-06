@@ -60,7 +60,6 @@
 void wm_manipulator_geometryinfo_draw(const ManipulatorGeomInfo *info, const bool select)
 {
 	GLuint buf[3];
-
 	const bool use_lighting = !select && ((U.manipulator_flag & V3D_SHADED_MANIPULATORS) != 0);
 
 	if (use_lighting)
@@ -405,7 +404,7 @@ void wm_manipulator_calculate_scale(wmManipulator *manipulator, const bContext *
 	float scale = 1.0f;
 
 	if (manipulator->mgroup->type->flag & WM_MANIPULATORGROUPTYPE_SCALE_3D) {
-		if (rv3d /*&& (U.manipulator_flag & V3D_3D_MANIPULATORS) == 0*/) { /* UserPref flag might be useful for later */
+		if (rv3d /*&& (U.manipulator_flag & V3D_DRAW_MANIPULATOR) == 0*/) { /* UserPref flag might be useful for later */
 			if (manipulator->get_final_position) {
 				float position[3];
 
