@@ -55,8 +55,8 @@ static void batch_sphere_lat_lon_vert(float lat, float lon)
 	pos[1] = cosf(lat);
 	pos[2] = sinf(lat) * sinf(lon);
 
-	setAttrib(vbo, nor_id, vert, pos);
-	setAttrib(vbo, pos_id, vert++, pos);
+	VertexBuffer_set_attrib(vbo, nor_id, vert, pos);
+	VertexBuffer_set_attrib(vbo, pos_id, vert++, pos);
 }
 
 /* Replacement for gluSphere */
@@ -67,8 +67,8 @@ static Batch *batch_sphere(int lat_res, int lon_res)
 	float lon, lat;
 
 	if (format.attrib_ct == 0) {
-		pos_id = add_attrib(&format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
-		nor_id = add_attrib(&format, "nor", GL_FLOAT, 3, KEEP_FLOAT);
+		pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
+		nor_id = VertexFormat_add_attrib(&format, "nor", COMP_F32, 3, KEEP_FLOAT);
 	}
 
 	vbo = VertexBuffer_create_with_format(&format);
@@ -103,8 +103,8 @@ static Batch *batch_sphere_wire(int lat_res, int lon_res)
 	float lon, lat;
 
 	if (format.attrib_ct == 0) {
-		pos_id = add_attrib(&format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
-		nor_id = add_attrib(&format, "nor", GL_FLOAT, 3, KEEP_FLOAT);
+		pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
+		nor_id = VertexFormat_add_attrib(&format, "nor", COMP_F32, 3, KEEP_FLOAT);
 	}
 
 	vbo = VertexBuffer_create_with_format(&format);

@@ -145,21 +145,17 @@ static void protectflag_to_drawflags(short protectflag, short *drawflags)
 }
 
 /* for pose mode */
-static void stats_pose(Scene *scene, RegionView3D *rv3d, bPoseChannel *pchan)
+static void protectflag_to_drawflags_pchan(RegionView3D *rv3d, const bPoseChannel *pchan)
 {
-	Bone *bone = pchan->bone;
-
-	if (bone) {
-		calc_tw_center(scene, pchan->pose_head);
-		protectflag_to_drawflags(pchan->protectflag, &rv3d->twdrawflag);
-	}
+	protectflag_to_drawflags(pchan->protectflag, &rv3d->twdrawflag);
 }
 
 /* for editmode*/
-static void stats_editbone(RegionView3D *rv3d, EditBone *ebo)
+static void protectflag_to_drawflags_ebone(RegionView3D *rv3d, const EditBone *ebo)
 {
-	if (ebo->flag & BONE_EDITMODE_LOCKED)
+	if (ebo->flag & BONE_EDITMODE_LOCKED) {
 		protectflag_to_drawflags(OB_LOCK_LOC | OB_LOCK_ROT | OB_LOCK_SCALE, &rv3d->twdrawflag);
+	}
 }
 
 /* could move into BLI_math however this is only useful for display/editing purposes */
@@ -194,72 +190,70 @@ static void axis_angle_to_gimbal_axis(float gmat[3][3], const float axis[3], con
 }
 
 
-static int test_rotmode_euler(short rotmode)
+static bool test_rotmode_euler(short rotmode)
 {
 	return (ELEM(rotmode, ROT_MODE_AXISANGLE, ROT_MODE_QUAT)) ? 0 : 1;
 }
 
 bool gimbal_axis(Object *ob, float gmat[3][3])
 {
-	if (ob) {
-		if (ob->mode & OB_MODE_POSE) {
-			bPoseChannel *pchan = BKE_pose_channel_active(ob);
+	if (ob->mode & OB_MODE_POSE) {
+		bPoseChannel *pchan = BKE_pose_channel_active(ob);
 
-			if (pchan) {
-				float mat[3][3], tmat[3][3], obmat[3][3];
-				if (test_rotmode_euler(pchan->rotmode)) {
-					eulO_to_gimbal_axis(mat, pchan->eul, pchan->rotmode);
-				}
-				else if (pchan->rotmode == ROT_MODE_AXISANGLE) {
-					axis_angle_to_gimbal_axis(mat, pchan->rotAxis, pchan->rotAngle);
-				}
-				else { /* quat */
-					return 0;
-				}
-
-
-				/* apply bone transformation */
-				mul_m3_m3m3(tmat, pchan->bone->bone_mat, mat);
-
-				if (pchan->parent) {
-					float parent_mat[3][3];
-
-					copy_m3_m4(parent_mat, pchan->parent->pose_mat);
-					mul_m3_m3m3(mat, parent_mat, tmat);
-
-					/* needed if object transformation isn't identity */
-					copy_m3_m4(obmat, ob->obmat);
-					mul_m3_m3m3(gmat, obmat, mat);
-				}
-				else {
-					/* needed if object transformation isn't identity */
-					copy_m3_m4(obmat, ob->obmat);
-					mul_m3_m3m3(gmat, obmat, tmat);
-				}
-
-				normalize_m3(gmat);
-				return 1;
+		if (pchan) {
+			float mat[3][3], tmat[3][3], obmat[3][3];
+			if (test_rotmode_euler(pchan->rotmode)) {
+				eulO_to_gimbal_axis(mat, pchan->eul, pchan->rotmode);
 			}
-		}
-		else {
-			if (test_rotmode_euler(ob->rotmode)) {
-				eulO_to_gimbal_axis(gmat, ob->rot, ob->rotmode);
-			}
-			else if (ob->rotmode == ROT_MODE_AXISANGLE) {
-				axis_angle_to_gimbal_axis(gmat, ob->rotAxis, ob->rotAngle);
+			else if (pchan->rotmode == ROT_MODE_AXISANGLE) {
+				axis_angle_to_gimbal_axis(mat, pchan->rotAxis, pchan->rotAngle);
 			}
 			else { /* quat */
 				return 0;
 			}
 
-			if (ob->parent) {
+
+			/* apply bone transformation */
+			mul_m3_m3m3(tmat, pchan->bone->bone_mat, mat);
+
+			if (pchan->parent) {
 				float parent_mat[3][3];
-				copy_m3_m4(parent_mat, ob->parent->obmat);
-				normalize_m3(parent_mat);
-				mul_m3_m3m3(gmat, parent_mat, gmat);
+
+				copy_m3_m4(parent_mat, pchan->parent->pose_mat);
+				mul_m3_m3m3(mat, parent_mat, tmat);
+
+				/* needed if object transformation isn't identity */
+				copy_m3_m4(obmat, ob->obmat);
+				mul_m3_m3m3(gmat, obmat, mat);
 			}
+			else {
+				/* needed if object transformation isn't identity */
+				copy_m3_m4(obmat, ob->obmat);
+				mul_m3_m3m3(gmat, obmat, tmat);
+			}
+
+			normalize_m3(gmat);
 			return 1;
 		}
+	}
+	else {
+		if (test_rotmode_euler(ob->rotmode)) {
+			eulO_to_gimbal_axis(gmat, ob->rot, ob->rotmode);
+		}
+		else if (ob->rotmode == ROT_MODE_AXISANGLE) {
+			axis_angle_to_gimbal_axis(gmat, ob->rotAxis, ob->rotAngle);
+		}
+		else { /* quat */
+			return 0;
+		}
+
+		if (ob->parent) {
+			float parent_mat[3][3];
+			copy_m3_m4(parent_mat, ob->parent->obmat);
+			normalize_m3(parent_mat);
+			mul_m3_m3m3(gmat, parent_mat, gmat);
+		}
+		return 1;
 	}
 
 	return 0;
@@ -335,8 +329,6 @@ static int calc_manipulator_stats(const bContext *C)
 	}
 	else if (obedit) {
 		ob = obedit;
-		if ((ob->lay & v3d->lay) == 0) return 0;
-
 		if (obedit->type == OB_MESH) {
 			BMEditMesh *em = BKE_editmesh_from_object(obedit);
 			BMEditSelection ese;
@@ -380,7 +372,7 @@ static int calc_manipulator_stats(const bContext *C)
 					calc_tw_center(scene, ebo->head);
 					totsel++;
 				}
-				stats_editbone(rv3d, ebo);
+				protectflag_to_drawflags_ebone(rv3d, ebo);
 			}
 			else {
 				for (ebo = arm->edbo->first; ebo; ebo = ebo->next) {
@@ -400,7 +392,7 @@ static int calc_manipulator_stats(const bContext *C)
 							totsel++;
 						}
 						if (ebo->flag & BONE_SELECTED) {
-							stats_editbone(rv3d, ebo);
+							protectflag_to_drawflags_ebone(rv3d, ebo);
 						}
 					}
 				}
@@ -519,13 +511,12 @@ static int calc_manipulator_stats(const bContext *C)
 		int mode = TFM_ROTATION; // mislead counting bones... bah. We don't know the manipulator mode, could be mixed
 		bool ok = false;
 
-		if ((ob->lay & v3d->lay) == 0) return 0;
-
 		if ((v3d->around == V3D_AROUND_ACTIVE) && (pchan = BKE_pose_channel_active(ob))) {
 			/* doesn't check selection or visibility intentionally */
 			Bone *bone = pchan->bone;
 			if (bone) {
-				stats_pose(scene, rv3d, pchan);
+				calc_tw_center(scene, pchan->pose_head);
+				protectflag_to_drawflags_pchan(rv3d, pchan);
 				totsel = 1;
 				ok = true;
 			}
@@ -538,7 +529,8 @@ static int calc_manipulator_stats(const bContext *C)
 				for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
 					Bone *bone = pchan->bone;
 					if (bone && (bone->flag & BONE_TRANSFORM)) {
-						stats_pose(scene, rv3d, pchan);
+						calc_tw_center(scene, pchan->pose_head);
+						protectflag_to_drawflags_pchan(rv3d, pchan);
 					}
 				}
 				ok = true;
@@ -999,7 +991,7 @@ static void draw_manipulator_rotate(
 	gpuTranslate3fv(rv3d->twmat[3]);
 
 
-	const unsigned pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	const unsigned pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 
 	/* sets view screen aligned */
 	gpuRotate3f(-360.0f * saacos(rv3d->viewquat[0]) / (float)M_PI, rv3d->viewquat[1], rv3d->viewquat[2], rv3d->viewquat[3]);
@@ -1293,7 +1285,7 @@ static void draw_manipulator_scale(
 
 	glDisable(GL_DEPTH_TEST);
 
-	const unsigned pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	const unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
@@ -1483,7 +1475,7 @@ static void draw_manipulator_translate(
 	// XXX if (moving) gpuTranslate3fv(t->vec);
 	glDisable(GL_DEPTH_TEST);
 
-	const unsigned pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	const unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
@@ -1576,7 +1568,7 @@ static void draw_manipulator_rotate_cyl(
 
 	manipulator_axis_order(rv3d, axis_order);
 
-	const unsigned pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	const unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
