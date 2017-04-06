@@ -2757,8 +2757,17 @@ static void lib_link_workspaces(FileData *fd, Main *bmain)
 		BKE_workspace_layout_iter_begin(layout, layouts->first)
 		{
 			bScreen *screen = newlibadr(fd, id->lib, BKE_workspace_layout_screen_get(layout));
+
 			if (screen) {
 				BKE_workspace_layout_screen_set(layout, screen);
+
+				if (ID_IS_LINKED_DATABLOCK(id)) {
+					screen->winid = 0;
+					if (screen->temp) {
+						/* delete temp layouts when appending */
+						BKE_workspace_layout_remove(workspace, layout, bmain);
+					}
+				}
 			}
 		}
 		BKE_workspace_layout_iter_end;
