@@ -478,23 +478,23 @@ static void protectflag_to_drawflags(short protectflag, short *drawflags)
 }
 
 /* for pose mode */
-static void stats_pose(Scene *scene, Object *ob, bPoseChannel *pchan)
+static void stats_pchan(Scene *scene, Object *ob, RegionView3D *rv3d, bPoseChannel *pchan)
 {
 	Bone *bone = pchan->bone;
-
 	if (bone) {
 		/* update pose matrix after transform */
 		BKE_pose_where_is(scene, ob);
 
-		calc_tw_center(scene, pchan->pose_head);
+		protectflag_to_drawflags(pchan->protectflag, &rv3d->twdrawflag);
 	}
 }
 
 /* for editmode*/
 static void stats_editbone(RegionView3D *rv3d, EditBone *ebo)
 {
-	if (ebo->flag & BONE_EDITMODE_LOCKED)
+	if (ebo->flag & BONE_EDITMODE_LOCKED) {
 		protectflag_to_drawflags(OB_LOCK_LOC | OB_LOCK_ROT | OB_LOCK_SCALE, &rv3d->twdrawflag);
+	}
 }
 
 /* could move into BLI_math however this is only useful for display/editing purposes */
@@ -536,65 +536,63 @@ static int test_rotmode_euler(short rotmode)
 
 bool gimbal_axis(Object *ob, float gmat[3][3])
 {
-	if (ob) {
-		if (ob->mode & OB_MODE_POSE) {
-			bPoseChannel *pchan = BKE_pose_channel_active(ob);
+	if (ob->mode & OB_MODE_POSE) {
+		bPoseChannel *pchan = BKE_pose_channel_active(ob);
 
-			if (pchan) {
-				float mat[3][3], tmat[3][3], obmat[3][3];
-				if (test_rotmode_euler(pchan->rotmode)) {
-					eulO_to_gimbal_axis(mat, pchan->eul, pchan->rotmode);
-				}
-				else if (pchan->rotmode == ROT_MODE_AXISANGLE) {
-					axis_angle_to_gimbal_axis(mat, pchan->rotAxis, pchan->rotAngle);
-				}
-				else { /* quat */
-					return 0;
-				}
-
-
-				/* apply bone transformation */
-				mul_m3_m3m3(tmat, pchan->bone->bone_mat, mat);
-
-				if (pchan->parent) {
-					float parent_mat[3][3];
-
-					copy_m3_m4(parent_mat, pchan->parent->pose_mat);
-					mul_m3_m3m3(mat, parent_mat, tmat);
-
-					/* needed if object transformation isn't identity */
-					copy_m3_m4(obmat, ob->obmat);
-					mul_m3_m3m3(gmat, obmat, mat);
-				}
-				else {
-					/* needed if object transformation isn't identity */
-					copy_m3_m4(obmat, ob->obmat);
-					mul_m3_m3m3(gmat, obmat, tmat);
-				}
-
-				normalize_m3(gmat);
-				return 1;
+		if (pchan) {
+			float mat[3][3], tmat[3][3], obmat[3][3];
+			if (test_rotmode_euler(pchan->rotmode)) {
+				eulO_to_gimbal_axis(mat, pchan->eul, pchan->rotmode);
 			}
-		}
-		else {
-			if (test_rotmode_euler(ob->rotmode)) {
-				eulO_to_gimbal_axis(gmat, ob->rot, ob->rotmode);
-			}
-			else if (ob->rotmode == ROT_MODE_AXISANGLE) {
-				axis_angle_to_gimbal_axis(gmat, ob->rotAxis, ob->rotAngle);
+			else if (pchan->rotmode == ROT_MODE_AXISANGLE) {
+				axis_angle_to_gimbal_axis(mat, pchan->rotAxis, pchan->rotAngle);
 			}
 			else { /* quat */
 				return 0;
 			}
 
-			if (ob->parent) {
+
+			/* apply bone transformation */
+			mul_m3_m3m3(tmat, pchan->bone->bone_mat, mat);
+
+			if (pchan->parent) {
 				float parent_mat[3][3];
-				copy_m3_m4(parent_mat, ob->parent->obmat);
-				normalize_m3(parent_mat);
-				mul_m3_m3m3(gmat, parent_mat, gmat);
+
+				copy_m3_m4(parent_mat, pchan->parent->pose_mat);
+				mul_m3_m3m3(mat, parent_mat, tmat);
+
+				/* needed if object transformation isn't identity */
+				copy_m3_m4(obmat, ob->obmat);
+				mul_m3_m3m3(gmat, obmat, mat);
 			}
+			else {
+				/* needed if object transformation isn't identity */
+				copy_m3_m4(obmat, ob->obmat);
+				mul_m3_m3m3(gmat, obmat, tmat);
+			}
+
+			normalize_m3(gmat);
 			return 1;
 		}
+	}
+	else {
+		if (test_rotmode_euler(ob->rotmode)) {
+			eulO_to_gimbal_axis(gmat, ob->rot, ob->rotmode);
+		}
+		else if (ob->rotmode == ROT_MODE_AXISANGLE) {
+			axis_angle_to_gimbal_axis(gmat, ob->rotAxis, ob->rotAngle);
+		}
+		else { /* quat */
+			return 0;
+		}
+
+		if (ob->parent) {
+			float parent_mat[3][3];
+			copy_m3_m4(parent_mat, ob->parent->obmat);
+			normalize_m3(parent_mat);
+			mul_m3_m3m3(gmat, parent_mat, gmat);
+		}
+		return 1;
 	}
 
 	return 0;
@@ -723,6 +721,7 @@ static int calc_manipulator_stats(const bContext *C)
 					calc_tw_center(scene, ebo->head);
 					totsel++;
 				}
+				stats_editbone(rv3d, ebo);
 			}
 			else {
 				for (ebo = arm->edbo->first; ebo; ebo = ebo->next) {
@@ -740,6 +739,9 @@ static int calc_manipulator_stats(const bContext *C)
 						{
 							calc_tw_center(scene, ebo->head);
 							totsel++;
+						}
+						if (ebo->flag & BONE_SELECTED) {
+							stats_editbone(rv3d, ebo);
 						}
 					}
 				}
@@ -855,7 +857,7 @@ static int calc_manipulator_stats(const bContext *C)
 	}
 	else if (ob && (ob->mode & OB_MODE_POSE)) {
 		bPoseChannel *pchan;
-		int mode = TFM_ROTATION; /* mislead counting bones... bah. We don't know the manipulator mode, could be mixed */
+		int mode = TFM_ROTATION; // mislead counting bones... bah. We don't know the manipulator mode, could be mixed
 		bool ok = false;
 
 		if ((ob->lay & v3d->lay) == 0) return 0;
@@ -864,7 +866,8 @@ static int calc_manipulator_stats(const bContext *C)
 			/* doesn't check selection or visibility intentionally */
 			Bone *bone = pchan->bone;
 			if (bone) {
-				stats_pose(scene, ob, pchan);
+				calc_tw_center(scene, pchan->pose_head);
+				stats_pchan(scene, ob, rv3d, pchan);
 				totsel = 1;
 				ok = true;
 			}
@@ -877,7 +880,8 @@ static int calc_manipulator_stats(const bContext *C)
 				for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
 					Bone *bone = pchan->bone;
 					if (bone && (bone->flag & BONE_TRANSFORM)) {
-						stats_pose(scene, ob, pchan);
+						calc_tw_center(scene, pchan->pose_head);
+						stats_pchan(scene, ob, rv3d, pchan);
 					}
 				}
 				ok = true;
@@ -893,6 +897,30 @@ static int calc_manipulator_stats(const bContext *C)
 	}
 	else if (ob && (ob->mode & OB_MODE_ALL_PAINT)) {
 		/* pass */
+	}
+	else if (ob && ob->mode & OB_MODE_PARTICLE_EDIT) {
+		PTCacheEdit *edit = PE_get_current(scene, sl, ob);
+		PTCacheEditPoint *point;
+		PTCacheEditKey *ek;
+		int k;
+
+		if (edit) {
+			point = edit->points;
+			for (a = 0; a < edit->totpoint; a++, point++) {
+				if (point->flag & PEP_HIDE) continue;
+
+				for (k = 0, ek = point->keys; k < point->totkey; k++, ek++) {
+					if (ek->flag & PEK_SELECT) {
+						calc_tw_center(scene, (ek->flag & PEK_USE_WCO) ? ek->world_co : ek->co);
+						totsel++;
+					}
+				}
+			}
+
+			/* selection center */
+			if (totsel)
+				mul_v3_fl(scene->twcent, 1.0f / (float)totsel);  // centroid!
+		}
 	}
 	else {
 
