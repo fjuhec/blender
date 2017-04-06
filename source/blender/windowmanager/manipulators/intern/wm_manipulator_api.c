@@ -52,11 +52,12 @@
 #include "wm_manipulator_wmapi.h"
 #include "wm_manipulator_intern.h"
 
+#include "manipulator_library/manipulator_geometry.h"
 
 /**
- * Main draw call for ManipulatorGeometryInfo data
+ * Main draw call for ManipulatorGeomInfo data
  */
-void wm_manipulator_geometryinfo_draw(ManipulatorGeometryInfo *info, const bool select)
+void wm_manipulator_geometryinfo_draw(const ManipulatorGeomInfo *info, const bool select)
 {
 	GLuint buf[3];
 

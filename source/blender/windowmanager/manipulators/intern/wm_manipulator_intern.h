@@ -30,6 +30,7 @@
 
 struct wmKeyConfig;
 struct wmManipulatorMap;
+struct ManipulatorGeomInfo;
 
 /* -------------------------------------------------------------------- */
 /* wmManipulator */
@@ -217,16 +218,7 @@ bool wm_manipulatormap_deselect_all(struct wmManipulatorMap *mmap, struct wmMani
 /* -------------------------------------------------------------------- */
 /* Manipulator drawing */
 
-typedef struct ManipulatorGeometryInfo {
-	int nverts;
-	int ntris;
-	float (*verts)[3];
-	float (*normals)[3];
-	unsigned short *indices;
-	bool init;
-} ManipulatorGeometryInfo;
-
-void wm_manipulator_geometryinfo_draw(ManipulatorGeometryInfo *info, const bool select);
+void wm_manipulator_geometryinfo_draw(const struct ManipulatorGeomInfo *info, const bool select);
 
 #endif  /* __WM_MANIPULATOR_INTERN_H__ */
 

@@ -66,12 +66,7 @@
 #include "manipulator_library_intern.h"
 
 /* to use custom arrows exported to geom_arrow_manipulator.c */
-//#define MANIPULATOR_USE_CUSTOM_ARROWS
-
-#ifdef MANIPULATOR_USE_CUSTOM_ARROWS
-ManipulatorGeometryInfo arrow_head_draw_info = {0};
-#endif
-ManipulatorGeometryInfo cube_draw_info = {0};
+#define USE_MANIPULATOR_CUSTOM_ARROWS
 
 /* ArrowManipulator->flag */
 enum {
@@ -139,8 +134,8 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select, co
 		glLineWidth(1.0);
 	}
 	else {
-#ifdef MANIPULATOR_USE_CUSTOM_ARROWS
-		wm_manipulator_geometryinfo_draw(&arrow_head_draw_info, select);
+#ifdef USE_MANIPULATOR_CUSTOM_ARROWS
+		wm_manipulator_geometryinfo_draw(&wm_manipulator_geom_data_arrow, select);
 #else
 		const float vec[2][3] = {
 			{0.0f, 0.0f, 0.0f},
@@ -168,7 +163,7 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select, co
 			gpuScale3f(size, size, size);
 
 			/* draw cube */
-			wm_manipulator_geometryinfo_draw(&cube_draw_info, select);
+			wm_manipulator_geometryinfo_draw(&wm_manipulator_geom_data_cube, select);
 		}
 		else {
 			const float len = 0.25f;
@@ -198,7 +193,7 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select, co
 
 		gpuPopMatrix();
 
-#endif  /* MANIPULATOR_USE_CUSTOM_ARROWS */
+#endif  /* USE_MANIPULATOR_CUSTOM_ARROWS */
 	}
 }
 
@@ -445,25 +440,6 @@ static void manipulator_arrow_exit(bContext *C, wmManipulator *manipulator, cons
 wmManipulator *MANIPULATOR_arrow_new(wmManipulatorGroup *mgroup, const char *name, const int style)
 {
 	int real_style = style;
-
-#ifdef MANIPULATOR_USE_CUSTOM_ARROWS
-	if (!arrow_head_draw_info.init) {
-		arrow_head_draw_info.nverts = _MANIPULATOR_nverts_arrow,
-		arrow_head_draw_info.ntris = _MANIPULATOR_ntris_arrow,
-		arrow_head_draw_info.verts = _MANIPULATOR_verts_arrow,
-		arrow_head_draw_info.normals = _MANIPULATOR_normals_arrow,
-		arrow_head_draw_info.indices = _MANIPULATOR_indices_arrow,
-		arrow_head_draw_info.init = true;
-	}
-#endif
-	if (!cube_draw_info.init) {
-		cube_draw_info.nverts = _MANIPULATOR_nverts_cube,
-		cube_draw_info.ntris = _MANIPULATOR_ntris_cube,
-		cube_draw_info.verts = _MANIPULATOR_verts_cube,
-		cube_draw_info.normals = _MANIPULATOR_normals_cube,
-		cube_draw_info.indices = _MANIPULATOR_indices_cube,
-		cube_draw_info.init = true;
-	}
 
 	/* inverted only makes sense in a constrained arrow */
 	if (real_style & MANIPULATOR_ARROW_STYLE_INVERTED) {

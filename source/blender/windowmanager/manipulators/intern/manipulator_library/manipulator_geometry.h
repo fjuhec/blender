@@ -36,32 +36,22 @@
 #ifndef __MANIPULATOR_GEOMETRY_H__
 #define __MANIPULATOR_GEOMETRY_H__
 
+typedef struct ManipulatorGeomInfo {
+	int nverts;
+	int ntris;
+	const float (*verts)[3];
+	const float (*normals)[3];
+	const unsigned short *indices;
+} ManipulatorGeomInfo;
 
 /* arrow manipulator */
-extern int _MANIPULATOR_nverts_arrow;
-extern int _MANIPULATOR_ntris_arrow;
-
-extern float _MANIPULATOR_verts_arrow[][3];
-extern float _MANIPULATOR_normals_arrow[][3];
-extern unsigned short _MANIPULATOR_indices_arrow[];
-
+extern ManipulatorGeomInfo wm_manipulator_geom_data_arrow;
 
 /* cube manipulator */
-extern int _MANIPULATOR_nverts_cube;
-extern int _MANIPULATOR_ntris_cube;
-
-extern float _MANIPULATOR_verts_cube[][3];
-extern float _MANIPULATOR_normals_cube[][3];
-extern unsigned short _MANIPULATOR_indices_cube[];
-
+extern ManipulatorGeomInfo wm_manipulator_geom_data_cube;
 
 /* dial manipulator */
-extern int _MANIPULATOR_nverts_dial;
-extern int _MANIPULATOR_ntris_dial;
-
-extern float _MANIPULATOR_verts_dial[][3];
-extern float _MANIPULATOR_normals_dial[][3];
-extern unsigned short _MANIPULATOR_indices_dial[];
+extern ManipulatorGeomInfo wm_manipulator_geom_data_dial;
 
 #endif  /* __MANIPULATOR_GEOMETRY_H__ */
 

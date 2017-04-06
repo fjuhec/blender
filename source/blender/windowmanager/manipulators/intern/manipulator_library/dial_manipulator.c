@@ -73,11 +73,7 @@
 #endif
 
 /* to use custom dials exported to geom_dial_manipulator.c */
-//#define MANIPULATOR_USE_CUSTOM_DIAS
-
-#ifdef MANIPULATOR_USE_CUSTOM_DIAS
-ManipulatorGeometryInfo dial_draw_info = {0};
-#endif
+// #define USE_MANIPULATOR_CUSTOM_DIAL
 
 typedef struct DialManipulator {
 	wmManipulator manipulator;
@@ -103,8 +99,9 @@ static void dial_geom_draw(
         const DialManipulator *dial, const float col[4], const bool select,
         float axis_modal_mat[4][4], float clip_plane[4])
 {
-#ifdef MANIPULATOR_USE_CUSTOM_DIAS
-	wm_manipulator_geometryinfo_draw(&dial_draw_info, select);
+#ifdef USE_MANIPULATOR_CUSTOM_DIAL
+	UNUSED_VARS(dial, col, axis_modal_mat, clip_plane);
+	wm_manipulator_geometryinfo_draw(&wm_manipulator_geom_data_dial, select);
 #else
 	const bool filled = (dial->style == MANIPULATOR_DIAL_STYLE_RING_FILLED);
 
@@ -346,17 +343,6 @@ wmManipulator *MANIPULATOR_dial_new(wmManipulatorGroup *mgroup, const char *name
 {
 	DialManipulator *dial = MEM_callocN(sizeof(DialManipulator), name);
 	const float dir_default[3] = {0.0f, 0.0f, 1.0f};
-
-#ifdef MANIPULATOR_USE_CUSTOM_DIAS
-	if (!dial_draw_info.init) {
-		dial_draw_info.nverts = _MANIPULATOR_nverts_dial,
-		dial_draw_info.ntris = _MANIPULATOR_ntris_dial,
-		dial_draw_info.verts = _MANIPULATOR_verts_dial,
-		dial_draw_info.normals = _MANIPULATOR_normals_dial,
-		dial_draw_info.indices = _MANIPULATOR_indices_dial,
-		dial_draw_info.init = true;
-	}
-#endif
 
 	dial->manipulator.draw = manipulator_dial_draw;
 	dial->manipulator.intersect = NULL;
