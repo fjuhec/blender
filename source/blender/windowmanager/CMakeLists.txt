@@ -70,9 +70,9 @@ set(SRC
 	intern/wm_subwindow.c
 	intern/wm_window.c
 	intern/wm_stereo.c
-	manipulators/intern/wm_manipulator.c
-	manipulators/intern/wm_manipulatorgroup.c
-	manipulators/intern/wm_manipulatormap.c
+	manipulators/intern/wm_manipulator_api.c
+	manipulators/intern/wm_manipulator_group.c
+	manipulators/intern/wm_manipulator_map.c
 	manipulators/intern/manipulator_library/arrow_manipulator.c
 	manipulators/intern/manipulator_library/arrow2d_manipulator.c
 	manipulators/intern/manipulator_library/cage_manipulator.c
