@@ -478,15 +478,9 @@ static void protectflag_to_drawflags(short protectflag, short *drawflags)
 }
 
 /* for pose mode */
-static void protectflag_to_drawflags_pchan(Scene *scene, Object *ob, RegionView3D *rv3d, bPoseChannel *pchan)
+static void protectflag_to_drawflags_pchan(RegionView3D *rv3d, bPoseChannel *pchan)
 {
-	Bone *bone = pchan->bone;
-	if (bone) {
-		/* update pose matrix after transform */
-		BKE_pose_where_is(scene, ob);
-
-		protectflag_to_drawflags(pchan->protectflag, &rv3d->twdrawflag);
-	}
+	protectflag_to_drawflags(pchan->protectflag, &rv3d->twdrawflag);
 }
 
 /* for editmode*/
@@ -867,7 +861,7 @@ static int calc_manipulator_stats(const bContext *C)
 			Bone *bone = pchan->bone;
 			if (bone) {
 				calc_tw_center(scene, pchan->pose_head);
-				protectflag_to_drawflags_pchan(scene, ob, rv3d, pchan);
+				protectflag_to_drawflags_pchan(rv3d, pchan);
 				totsel = 1;
 				ok = true;
 			}
@@ -881,7 +875,7 @@ static int calc_manipulator_stats(const bContext *C)
 					Bone *bone = pchan->bone;
 					if (bone && (bone->flag & BONE_TRANSFORM)) {
 						calc_tw_center(scene, pchan->pose_head);
-						protectflag_to_drawflags_pchan(scene, ob, rv3d, pchan);
+						protectflag_to_drawflags_pchan(rv3d, pchan);
 					}
 				}
 				ok = true;
