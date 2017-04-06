@@ -1511,17 +1511,17 @@ void WM_OT_save_userpref(wmOperatorType *ot)
 	ot->exec = wm_userpref_write_exec;
 }
 
-static int wm_workflow_file_write_exec(bContext *C, wmOperator *op)
+static int wm_workspace_configuration_file_write_exec(bContext *C, wmOperator *op)
 {
 	Main *bmain = CTX_data_main(C);
 	char filepath[FILE_MAX];
-	const char *cfgdir = BKE_appdir_folder_id_create(BLENDER_USER_CONFIG, NULL);
+	const char *configdir = BKE_appdir_folder_id_create(BLENDER_USER_CONFIG, NULL);
 
-	if (cfgdir) {
-		BLI_path_join(filepath, sizeof(filepath), cfgdir, BLENDER_WORKFLOW_FILE, NULL);
-		printf("trying to save workflow file at %s ", filepath);
+	if (configdir) {
+		BLI_path_join(filepath, sizeof(filepath), configdir, BLENDER_WORKSPACES_FILE, NULL);
+		printf("trying to save workspace configuration file at %s ", filepath);
 
-		if (BKE_blendfile_workflow_write(bmain, filepath, op->reports) != 0) {
+		if (BKE_blendfile_workspace_config_write(bmain, filepath, op->reports) != 0) {
 			printf("ok\n");
 			return OPERATOR_FINISHED;
 		}
@@ -1530,20 +1530,20 @@ static int wm_workflow_file_write_exec(bContext *C, wmOperator *op)
 		}
 	}
 	else {
-		BKE_report(op->reports, RPT_ERROR, "Unable to create workflow file path");
+		BKE_report(op->reports, RPT_ERROR, "Unable to create workspace configuration file path");
 	}
 
 	return OPERATOR_CANCELLED;
 }
 
-void WM_OT_save_workflow_file(wmOperatorType *ot)
+void WM_OT_save_workspace_file(wmOperatorType *ot)
 {
-	ot->name = "Save Workspaces";
-	ot->idname = "WM_OT_save_workflow_file";
+	ot->name = "Save Workspace Configuration";
+	ot->idname = "WM_OT_save_workspace_file";
 	ot->description = "Save workspaces of the current file as part of the user configuration";
 
 	ot->invoke = WM_operator_confirm;
-	ot->exec = wm_workflow_file_write_exec;
+	ot->exec = wm_workspace_configuration_file_write_exec;
 }
 
 static int wm_history_file_read_exec(bContext *UNUSED(C), wmOperator *UNUSED(op))

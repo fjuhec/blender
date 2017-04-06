@@ -215,7 +215,7 @@ void BKE_workspaces_transform_orientation_remove(const ListBase *workspaces, con
 /**
  * Checks if \a screen is already used within any workspace. A screen should never be assigned to multiple
  * WorkSpaceLayouts, but that should be ensured outside of the BKE_workspace module and without such checks.
- * Hence, this should only be used as assert check before assigining a screen to a workflow.
+ * Hence, this should only be used as assert check before assigining a screen to a workspace.
  */
 bool workspaces_is_screen_used(const Main *bmain, bScreen *screen)
 {

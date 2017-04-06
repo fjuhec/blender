@@ -307,47 +307,46 @@ static void WORKSPACE_OT_workspace_delete(wmOperatorType *ot)
 }
 
 ATTR_NONNULL(1)
-static WorkflowFileData *workspace_workflow_file_read(const Main *bmain, ReportList *reports)
+static WorkspaceConfigFileData *workspace_config_file_read(const Main *bmain, ReportList *reports)
 {
-	char filepath_workflow[FILE_MAX];
+	char workspace_config_path[FILE_MAX];
 	const char * const cfgdir = BKE_appdir_folder_id(BLENDER_USER_CONFIG, NULL);
 
 	if (cfgdir) {
-		BLI_make_file_string(bmain->name, filepath_workflow, cfgdir, BLENDER_WORKFLOW_FILE);
+		BLI_make_file_string(bmain->name, workspace_config_path, cfgdir, BLENDER_WORKSPACES_FILE);
 	}
 	else {
-		filepath_workflow[0] = '\0';
+		workspace_config_path[0] = '\0';
 	}
 
-	if (BLI_exists(filepath_workflow)) {
+	if (BLI_exists(workspace_config_path)) {
 		/* may still return NULL */
-		return BKE_blendfile_workflow_read(filepath_workflow, reports);
+		return BKE_blendfile_workspace_config_read(workspace_config_path, reports);
 	}
 	else if (reports) {
-		BKE_reportf(reports, RPT_WARNING, "Couldn't find workflow file in %s", filepath_workflow);
+		BKE_reportf(reports, RPT_WARNING, "Couldn't find workspace configuration file in %s", workspace_config_path);
 	}
 
 	return NULL;
 }
 
 ATTR_NONNULL(1, 2)
-static void workspace_workflow_file_append_buttons(
+static void workspace_config_file_append_buttons(
         uiLayout *layout, const Main *bmain, ReportList *reports)
 {
-	WorkflowFileData *workflow_file = workspace_workflow_file_read(bmain, reports);
+	WorkspaceConfigFileData *workspace_config = workspace_config_file_read(bmain, reports);
 
-	if (workflow_file) {
+	if (workspace_config) {
 		wmOperatorType *ot_append = WM_operatortype_find("WM_OT_append", true);
 		PointerRNA opptr;
 		char lib_path[FILE_MAX_LIBEXTRA];
 
-		BKE_workspace_iter_begin(workspace, workflow_file->workspaces.first)
+		BKE_workspace_iter_begin(workspace, workspace_config->workspaces.first)
 		{
 			ID *id = BKE_workspace_id_get(workspace);
 
-			BLI_snprintf(
-			            lib_path, sizeof(lib_path), "%s%c%s", workflow_file->main->name,
-			            SEP, BKE_idcode_to_name(GS(id->name)));
+			BLI_path_join(
+			        lib_path, sizeof(lib_path), workspace_config->main->name, BKE_idcode_to_name(GS(id->name)), NULL);
 
 			opptr = uiItemFullO_ptr(
 			            layout, ot_append, BKE_workspace_name_get(workspace), ICON_NONE, NULL,
@@ -357,7 +356,7 @@ static void workspace_workflow_file_append_buttons(
 		}
 		BKE_workspace_iter_end;
 
-		BKE_blendfile_workflow_data_free(workflow_file);
+		BKE_blendfile_workspace_config_data_free(workspace_config);
 	}
 }
 
@@ -370,7 +369,7 @@ static int workspace_add_invoke(bContext *C, wmOperator *op, const wmEvent *UNUS
 
 	uiItemO(layout, "Duplicate Current", ICON_NONE, "WORKSPACE_OT_workspace_duplicate");
 	uiItemS(layout);
-	workspace_workflow_file_append_buttons(layout, bmain, op->reports);
+	workspace_config_file_append_buttons(layout, bmain, op->reports);
 
 	UI_popup_menu_end(C, pup);
 
@@ -382,7 +381,7 @@ static void WORKSPACE_OT_workspace_add_menu(wmOperatorType *ot)
 	/* identifiers */
 	ot->name = "Add Workspace";
 	ot->description = "Add a new workspace by duplicating the current one or appending one "
-	                  "from the workflow configuration";
+	                  "from the user configuration";
 	ot->idname = "WORKSPACE_OT_workspace_add_menu";
 
 	/* api callbacks */
