@@ -53,6 +53,7 @@
 #include "wm_draw.h"
 
 #include "GPU_immediate.h"
+#include "GPU_immediate_util.h"
 
 #include "BIF_glutil.h"
 
@@ -172,8 +173,8 @@ static void wm_gesture_draw_line(wmGesture *gt)
 	rcti *rect = (rcti *)gt->customdata;
 	
 	VertexFormat *format = immVertexFormat();
-	unsigned pos = add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
-	unsigned line_origin = add_attrib(format, "line_origin", COMP_F32, 2, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
+	unsigned int line_origin = VertexFormat_add_attrib(format, "line_origin", COMP_F32, 2, KEEP_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_COLOR);
 
@@ -220,7 +221,7 @@ static void wm_gesture_draw_rect(wmGesture *gt)
 	rcti *rect = (rcti *)gt->customdata;
 
 	VertexFormat *format = immVertexFormat();
-	unsigned pos = add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 	
@@ -242,8 +243,8 @@ static void wm_gesture_draw_rect(wmGesture *gt)
 	glDisable(GL_BLEND);
 
 	format = immVertexFormat();
-	pos = add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
-	unsigned line_origin = add_attrib(format, "line_origin", COMP_F32, 2, KEEP_FLOAT);
+	pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
+	unsigned line_origin = VertexFormat_add_attrib(format, "line_origin", COMP_F32, 2, KEEP_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_COLOR);
 
@@ -291,20 +292,20 @@ static void wm_gesture_draw_circle(wmGesture *gt)
 	glEnable(GL_BLEND);
 
 	VertexFormat *format = immVertexFormat();
-	unsigned pos = add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
 	immUniformColor4f(1.0, 1.0, 1.0, 0.05);
-	imm_draw_filled_circle(pos, (float)rect->xmin, (float)rect->ymin, (float)rect->xmax, 40);
+	imm_draw_circle_fill(pos, (float)rect->xmin, (float)rect->ymin, (float)rect->xmax, 40);
 
 	immUnbindProgram();
 
 	glDisable(GL_BLEND);
 	
 	format = immVertexFormat();
-	pos = add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
-	unsigned line_origin = add_attrib(format, "line_origin", COMP_F32, 2, KEEP_FLOAT);
+	pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
+	unsigned int line_origin = VertexFormat_add_attrib(format, "line_origin", COMP_F32, 2, KEEP_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_COLOR);
 
@@ -369,6 +370,9 @@ static void draw_filled_lasso(wmWindow *win, wmGesture *gt)
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_ONE, GL_ONE);
 
+		GLint unpack_alignment;
+		glGetIntegerv(GL_UNPACK_ALIGNMENT, &unpack_alignment);
+
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
 		GPUShader *shader = immDrawPixelsTexSetup(GPU_SHADER_2D_IMAGE_SHUFFLE_COLOR);
@@ -379,7 +383,7 @@ static void draw_filled_lasso(wmWindow *win, wmGesture *gt)
 
 		GPU_shader_unbind();
 
-		glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+		glPixelStorei(GL_UNPACK_ALIGNMENT, unpack_alignment);
 
 		MEM_freeN(pixel_buf);
 
@@ -411,8 +415,8 @@ static void wm_gesture_draw_lasso(wmWindow *win, wmGesture *gt, bool filled)
 	}
 
 	VertexFormat *format = immVertexFormat();
-	unsigned pos = add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
-	unsigned line_origin = add_attrib(format, "line_origin", COMP_F32, 2, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
+	unsigned int line_origin = VertexFormat_add_attrib(format, "line_origin", COMP_F32, 2, KEEP_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_COLOR);
 
@@ -455,8 +459,8 @@ static void wm_gesture_draw_cross(wmWindow *win, wmGesture *gt)
 	float x1, x2, y1, y2;
 
 	VertexFormat *format = immVertexFormat();
-	unsigned pos = add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
-	unsigned line_origin = add_attrib(format, "line_origin", COMP_F32, 2, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
+	unsigned int line_origin = VertexFormat_add_attrib(format, "line_origin", COMP_F32, 2, KEEP_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_COLOR);
 

@@ -1052,7 +1052,7 @@ void drawLine(TransInfo *t, const float center[3], const float dir[3], char axis
 		}
 		UI_make_axis_color(col, col2, axis);
 
-		unsigned pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+		unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 
 		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 		immUniformColor3ubv(col2);
@@ -1228,7 +1228,6 @@ void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 		t->animtimer = (animscreen) ? animscreen->animtimer : NULL;
 		
 		/* turn manipulator off during transform */
-		// FIXME: but don't do this when USING the manipulator...
 		if (t->flag & T_MODAL) {
 			t->twtype = v3d->twtype;
 			v3d->twtype = 0;

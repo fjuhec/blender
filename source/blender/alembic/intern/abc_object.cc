@@ -32,7 +32,6 @@ extern "C" {
 #include "DNA_space_types.h"  /* for FILE_MAX */
 
 #include "BKE_constraint.h"
-#include "BKE_depsgraph.h"
 #include "BKE_idprop.h"
 #include "BKE_library.h"
 #include "BKE_modifier.h"
@@ -91,7 +90,7 @@ Imath::Box3d AbcObjectWriter::bounds()
 
 	if (!bb) {
 		if (this->m_object->type != OB_CAMERA) {
-			std::cerr << "Boundbox is null!\n";
+			ABC_LOG(m_settings.logger) << "Bounding box is null!\n";
 		}
 
 		return Imath::Box3d();

@@ -42,9 +42,8 @@
 #include "ED_screen.h"
 #include "ED_clip.h"
 
-#include "BIF_glutil.h"
-
 #include "GPU_immediate.h"
+#include "GPU_immediate_util.h"
 #include "GPU_matrix.h"
 
 #include "WM_types.h"
@@ -123,7 +122,7 @@ static void tracking_segment_knot_cb(void *userdata, MovieTrackingTrack *track,
 		gpuTranslate2f(scene_framenr, val);
 		gpuScale2f(1.0f / data->xscale * data->hsize, 1.0f / data->yscale * data->hsize);
 
-		imm_draw_lined_circle(data->pos, 0, 0, 0.7, 8);
+		imm_draw_circle_wire(data->pos, 0, 0, 0.7, 8);
 
 		gpuPopMatrix();
 	}
@@ -328,7 +327,7 @@ void clip_draw_graph(SpaceClip *sc, ARegion *ar, Scene *scene)
 	UI_view2d_grid_free(grid);
 
 	if (clip) {
-		unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
+		unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
 		glPointSize(3.0f);

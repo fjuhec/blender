@@ -53,13 +53,13 @@
 
 #include "WM_api.h"
 
-#include "BIF_glutil.h"
-
 #include "IMB_imbuf_types.h"
 
 #include "ED_view3d.h"
 
+#include "GPU_draw.h"
 #include "GPU_immediate.h"
+#include "GPU_immediate_util.h"
 #include "GPU_matrix.h"
 #include "GPU_basic_shader.h"
 
@@ -669,8 +669,8 @@ static void paint_draw_tex_overlay(UnifiedPaintSettings *ups, Brush *brush,
 
 		/* set quad color. Colored overlay does not get blending */
 		VertexFormat *format = immVertexFormat();
-		unsigned int pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
-		unsigned int texCoord = add_attrib(format, "texCoord", GL_FLOAT, 2, KEEP_FLOAT);
+		unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
+		unsigned int texCoord = VertexFormat_add_attrib(format, "texCoord", COMP_F32, 2, KEEP_FLOAT);
 
 		immBindBuiltinProgram(GPU_SHADER_2D_IMAGE_COLOR);
 
@@ -698,9 +698,9 @@ static void paint_draw_tex_overlay(UnifiedPaintSettings *ups, Brush *brush,
 		immUnbindProgram();
 
 		glPopMatrix(); /* TEXTURE */
+		glMatrixMode(GL_MODELVIEW);
 
 		if (mtex->brush_map_mode == MTEX_MAP_MODE_STENCIL) {
-			glMatrixMode(GL_MODELVIEW);
 			gpuPopMatrix();
 		}
 	}
@@ -757,8 +757,8 @@ static void paint_draw_cursor_overlay(UnifiedPaintSettings *ups, Brush *brush,
 		}
 
 		VertexFormat *format = immVertexFormat();
-		unsigned int pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
-		unsigned int texCoord = add_attrib(format, "texCoord", GL_FLOAT, 2, KEEP_FLOAT);
+		unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
+		unsigned int texCoord = VertexFormat_add_attrib(format, "texCoord", COMP_F32, 2, KEEP_FLOAT);
 
 		immBindBuiltinProgram(GPU_SHADER_2D_IMAGE_COLOR);
 
@@ -797,19 +797,8 @@ static void paint_draw_alpha_overlay(UnifiedPaintSettings *ups, Brush *brush,
 	/* color means that primary brush texture is colured and secondary is used for alpha/mask control */
 	bool col = ELEM(mode, ePaintTextureProjective, ePaintTexture2D, ePaintVertex) ? true : false;
 	OverlayControlFlags flags = BKE_paint_get_overlay_flags();
-	/* save lots of GL state
-	 * TODO: check on whether all of these are needed? */
-	glPushAttrib(GL_COLOR_BUFFER_BIT |
-	             GL_CURRENT_BIT |
-	             GL_DEPTH_BUFFER_BIT |
-	             GL_ENABLE_BIT |
-	             GL_LINE_BIT |
-	             GL_POLYGON_BIT |
-	             GL_STENCIL_BUFFER_BIT |
-	             GL_TRANSFORM_BIT |
-	             GL_VIEWPORT_BIT |
-	             GL_TEXTURE_BIT);
-
+	GPUStateValues attribs;
+	gpuSaveState(&attribs, GPU_DEPTH_BUFFER_BIT | GPU_BLEND_BIT);
 
 	/* coloured overlay should be drawn separately */
 	if (col) {
@@ -827,7 +816,7 @@ static void paint_draw_alpha_overlay(UnifiedPaintSettings *ups, Brush *brush,
 			paint_draw_cursor_overlay(ups, brush, vc, x, y, zoom);
 	}
 
-	glPopAttrib();
+	gpuRestoreState(&attribs);
 	GPU_basic_shader_bind(GPU_SHADER_USE_COLOR);
 }
 
@@ -941,7 +930,7 @@ static void paint_draw_curve_cursor(Brush *brush)
 		glEnable(GL_BLEND);
 
 		/* draw the bezier handles and the curve segment between the current and next point */
-		unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
+		unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
@@ -1125,7 +1114,7 @@ static void paint_draw_cursor(bContext *C, int x, int y, void *UNUSED(unused))
 	glEnable(GL_BLEND); /* TODO: also set blend mode? */
 	glEnable(GL_LINE_SMOOTH);
 
-	unsigned int pos = add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
 	/* set brush color */
@@ -1134,11 +1123,11 @@ static void paint_draw_cursor(bContext *C, int x, int y, void *UNUSED(unused))
 	/* draw brush outline */
 	if (ups->stroke_active && BKE_brush_use_size_pressure(scene, brush)) {
 		/* inner at full alpha */
-		imm_draw_lined_circle(pos, translation[0], translation[1], final_radius * ups->size_pressure_value, 40);
+		imm_draw_circle_wire(pos, translation[0], translation[1], final_radius * ups->size_pressure_value, 40);
 		/* outer at half alpha */
 		immUniformColor3fvAlpha(outline_col, outline_alpha * 0.5f);
 	}
-	imm_draw_lined_circle(pos, translation[0], translation[1], final_radius, 40);
+	imm_draw_circle_wire(pos, translation[0], translation[1], final_radius, 40);
 
 	immUnbindProgram();
 

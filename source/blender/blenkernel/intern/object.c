@@ -78,7 +78,6 @@
 #include "BKE_action.h"
 #include "BKE_bullet.h"
 #include "BKE_deform.h"
-#include "BKE_depsgraph.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_animsys.h"
 #include "BKE_anim.h"
@@ -118,6 +117,8 @@
 #include "BKE_material.h"
 #include "BKE_camera.h"
 #include "BKE_image.h"
+
+#include "DEG_depsgraph.h"
 
 #include "DRW_engine.h"
 
@@ -398,7 +399,7 @@ void BKE_object_free_caches(Object *object)
 	 * guaranteed to be in a known state.
 	 */
 	if (update_flag != 0) {
-		DAG_id_tag_update(&object->id, update_flag);
+		DEG_id_tag_update(&object->id, update_flag);
 	}
 }
 
@@ -711,7 +712,7 @@ Object *BKE_object_add(
 	BKE_scene_layer_base_deselect_all(sl);
 	BKE_scene_layer_base_select(sl, base);
 
-	DAG_id_tag_update_ex(bmain, &ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
+	DEG_id_tag_update_ex(bmain, &ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 	return ob;
 }
 
@@ -1338,8 +1339,8 @@ void BKE_object_make_proxy(Object *ob, Object *target, Object *gob)
 	ob->proxy_group = gob;
 	id_lib_extern(&target->id);
 	
-	DAG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
-	DAG_id_tag_update(&target->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
+	DEG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
+	DEG_id_tag_update(&target->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 	
 	/* copy transform
 	 * - gob means this proxy comes from a group, just apply the matrix
@@ -3300,33 +3301,33 @@ static void obrel_list_add(LinkNode **links, Object *ob)
 }
 
 /*
- * Iterates over all objects of the given scene.
+ * Iterates over all objects of the given scene layer.
  * Depending on the eObjectSet flag:
  * collect either OB_SET_ALL, OB_SET_VISIBLE or OB_SET_SELECTED objects.
  * If OB_SET_VISIBLE or OB_SET_SELECTED are collected, 
  * then also add related objects according to the given includeFilters.
  */
-LinkNode *BKE_object_relational_superset(struct Scene *scene, eObjectSet objectSet, eObRelationTypes includeFilter)
+LinkNode *BKE_object_relational_superset(struct SceneLayer *scene_layer, eObjectSet objectSet, eObRelationTypes includeFilter)
 {
 	LinkNode *links = NULL;
 
-	BaseLegacy *base;
+	Base *base;
 
 	/* Remove markers from all objects */
-	for (base = scene->base.first; base; base = base->next) {
+	for (base = scene_layer->object_bases.first; base; base = base->next) {
 		base->object->id.tag &= ~LIB_TAG_DOIT;
 	}
 
 	/* iterate over all selected and visible objects */
-	for (base = scene->base.first; base; base = base->next) {
+	for (base = scene_layer->object_bases.first; base; base = base->next) {
 		if (objectSet == OB_SET_ALL) {
 			/* as we get all anyways just add it */
 			Object *ob = base->object;
 			obrel_list_add(&links, ob);
 		}
 		else {
-			if ((objectSet == OB_SET_SELECTED && TESTBASELIB_BGMODE(((View3D *)NULL), scene, base)) ||
-			    (objectSet == OB_SET_VISIBLE  && BASE_EDITABLE_BGMODE(((View3D *)NULL), scene, base)))
+			if ((objectSet == OB_SET_SELECTED && TESTBASELIB_BGMODE_NEW(base)) ||
+			    (objectSet == OB_SET_VISIBLE  && BASE_EDITABLE_BGMODE_NEW(base)))
 			{
 				Object *ob = base->object;
 
@@ -3354,9 +3355,9 @@ LinkNode *BKE_object_relational_superset(struct Scene *scene, eObjectSet objectS
 
 				/* child relationship */
 				if (includeFilter & (OB_REL_CHILDREN | OB_REL_CHILDREN_RECURSIVE)) {
-					BaseLegacy *local_base;
-					for (local_base = scene->base.first; local_base; local_base = local_base->next) {
-						if (BASE_EDITABLE_BGMODE(((View3D *)NULL), scene, local_base)) {
+					Base *local_base;
+					for (local_base = scene_layer->object_bases.first; local_base; local_base = local_base->next) {
+						if (BASE_EDITABLE_BGMODE_NEW(local_base)) {
 
 							Object *child = local_base->object;
 							if (obrel_list_test(child)) {

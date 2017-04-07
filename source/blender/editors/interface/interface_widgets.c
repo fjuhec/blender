@@ -47,8 +47,6 @@
 
 #include "RNA_access.h"
 
-#include "BIF_glutil.h"
-
 #include "BLF_api.h"
 
 #include "UI_interface.h"
@@ -58,6 +56,7 @@
 
 #include "GPU_basic_shader.h"
 #include "GPU_immediate.h"
+#include "GPU_immediate_util.h"
 #include "GPU_matrix.h"
 
 #ifdef WITH_INPUT_IME
@@ -198,7 +197,7 @@ void ui_draw_anti_tria(float x1, float y1, float x2, float y2, float x3, float y
 
 	glEnable(GL_BLEND);
 
-	unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
 	immUniformColor4fv(draw_color);
@@ -218,24 +217,27 @@ void ui_draw_anti_tria(float x1, float y1, float x2, float y2, float x3, float y
 	glDisable(GL_BLEND);
 }
 
-void ui_draw_anti_roundbox(int mode, float minx, float miny, float maxx, float maxy,
-                           float rad, bool use_alpha, const float color[4])
+/* belongs in interface_draw.c, but needs WIDGET_AA_JITTER from this file */
+void UI_draw_roundbox_aa(bool filled, float minx, float miny, float maxx, float maxy, float rad, const float color[4])
 {
-	float draw_color[4];
-	int j;
-
-	copy_v4_v4(draw_color, color);
-
 	glEnable(GL_BLEND);
-	if (use_alpha) {
-		draw_color[3] = 0.5f;
+
+	if (filled) {
+		/* plain antialiased filled box */
+		const float alpha = color[3] * 0.125f;
+		
+		for (int j = 0; j < WIDGET_AA_JITTER; j++) {
+			gpuPushMatrix();
+			gpuTranslate2fv(jit[j]);
+			UI_draw_roundbox_3fvAlpha(true, minx, miny, maxx, maxy, rad, color, alpha);
+			gpuPopMatrix();
+		}
 	}
-	draw_color[3] *= 0.125f;
-	
-	for (j = 0; j < WIDGET_AA_JITTER; j++) {
-		gpuTranslate2fv(jit[j]);
-		UI_draw_roundbox_gl_mode(mode, minx, miny, maxx, maxy, rad, draw_color);
-		gpuTranslate2f(-jit[j][0], -jit[j][1]);
+	else {
+		/* plain antialiased unfilled box */
+		glEnable(GL_LINE_SMOOTH);
+		UI_draw_roundbox_4fv(false, minx, miny, maxx, maxy, rad, color);
+		glDisable(GL_LINE_SMOOTH);
 	}
 
 	glDisable(GL_BLEND);
@@ -675,7 +677,7 @@ static void widgetbase_draw(uiWidgetBase *wtb, uiWidgetColors *wcol)
 				float inner_v_half[WIDGET_SIZE_MAX][2];
 				float x_mid = 0.0f; /* used for dumb clamping of values */
 
-				unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
+				unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 				immBindBuiltinProgram(GPU_SHADER_2D_CHECKER);
 
 				/* checkers */
@@ -714,7 +716,7 @@ static void widgetbase_draw(uiWidgetBase *wtb, uiWidgetColors *wcol)
 			}
 			else {
 				/* simple fill */
-				unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
+				unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 				immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 				immUniformColor4ubv((unsigned char *)wcol->inner);
 
@@ -729,8 +731,8 @@ static void widgetbase_draw(uiWidgetBase *wtb, uiWidgetColors *wcol)
 			unsigned char *col_pt = &col_array[0][0];
 
 			VertexFormat *format = immVertexFormat();
-			unsigned int pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
-			unsigned int col = add_attrib(format, "color", GL_UNSIGNED_BYTE, 4, NORMALIZE_INT_TO_FLOAT);
+			unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
+			unsigned int col = VertexFormat_add_attrib(format, "color", COMP_U8, 4, NORMALIZE_INT_TO_FLOAT);
 
 			immBindBuiltinProgram(GPU_SHADER_2D_SMOOTH_COLOR);
 
@@ -763,7 +765,7 @@ static void widgetbase_draw(uiWidgetBase *wtb, uiWidgetColors *wcol)
 			UI_GetThemeColor4ubv(TH_WIDGET_EMBOSS, emboss);
 		}
 
-		unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
+		unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 		for (j = 0; j < WIDGET_AA_JITTER; j++) {
@@ -794,7 +796,7 @@ static void widgetbase_draw(uiWidgetBase *wtb, uiWidgetColors *wcol)
 		                               wcol->item[2],
 		                               (unsigned char)((float)wcol->item[3] / WIDGET_AA_JITTER)};
 
-		unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
+		unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 		immUniformColor4ubv(tcol);
 
@@ -1382,7 +1384,7 @@ static void widget_draw_text(uiFontStyle *fstyle, uiWidgetColors *wcol, uiBut *b
 
 				selwidth_draw = BLF_width(fstyle->uifont_id, drawstr + but->ofs, but->selend - but->ofs);
 
-				unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_INT, 2, CONVERT_INT_TO_FLOAT);
+				unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_I32, 2, CONVERT_INT_TO_FLOAT);
 				immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
 				immUniformColor4ubv((unsigned char *)wcol->item);
@@ -1414,7 +1416,7 @@ static void widget_draw_text(uiFontStyle *fstyle, uiWidgetColors *wcol, uiBut *b
 				t = 0;
 			}
 
-			unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_INT, 2, CONVERT_INT_TO_FLOAT);
+			unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_I32, 2, CONVERT_INT_TO_FLOAT);
 			immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
 			immUniformColor3f(0.2f, 0.6f, 0.9f);
@@ -2212,7 +2214,7 @@ static void widget_softshadow(const rcti *rect, int roundboxalign, const float r
 	/* we draw a number of increasing size alpha quad strips */
 	alphastep = 3.0f * btheme->tui.menu_shadow_fac / radout;
 
-	unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
@@ -2265,17 +2267,17 @@ static void widget_menu_back(uiWidgetColors *wcol, rcti *rect, int flag, int dir
 
 static void ui_hsv_cursor(float x, float y)
 {
-	unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
 	immUniformColor3f(1.0f, 1.0f, 1.0f);
-	imm_draw_filled_circle(pos, x, y, 3.0f * U.pixelsize, 8);
+	imm_draw_circle_fill(pos, x, y, 3.0f * U.pixelsize, 8);
 	
 	glEnable(GL_BLEND);
 	glEnable(GL_LINE_SMOOTH);
 	immUniformColor3f(0.0f, 0.0f, 0.0f);
-	imm_draw_lined_circle(pos, x, y, 3.0f * U.pixelsize, 12);
+	imm_draw_circle_wire(pos, x, y, 3.0f * U.pixelsize, 12);
 	glDisable(GL_BLEND);
 	glDisable(GL_LINE_SMOOTH);
 
@@ -2361,8 +2363,8 @@ static void ui_draw_but_HSVCIRCLE(uiBut *but, uiWidgetColors *wcol, const rcti *
 	ui_color_picker_to_rgb(0.0f, 0.0f, hsv[2], colcent, colcent + 1, colcent + 2);
 
 	VertexFormat *format = immVertexFormat();
-	unsigned int pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
-	unsigned int color = add_attrib(format, "color", GL_FLOAT, 3, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
+	unsigned int color = VertexFormat_add_attrib(format, "color", COMP_F32, 3, KEEP_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_2D_SMOOTH_COLOR);
 
@@ -2387,7 +2389,7 @@ static void ui_draw_but_HSVCIRCLE(uiBut *but, uiWidgetColors *wcol, const rcti *
 
 	/* fully rounded outline */
 	format = immVertexFormat();
-	pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+	pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
@@ -2395,7 +2397,7 @@ static void ui_draw_but_HSVCIRCLE(uiBut *but, uiWidgetColors *wcol, const rcti *
 	glEnable(GL_LINE_SMOOTH);
 
 	immUniformColor3ubv((unsigned char *)wcol->outline);
-	imm_draw_lined_circle(pos, centx, centy, radius, tot);
+	imm_draw_circle_wire(pos, centx, centy, radius, tot);
 
 	immUnbindProgram();
 
@@ -2472,8 +2474,8 @@ void ui_draw_gradient(const rcti *rect, const float hsv[3], const int type, cons
 
 	/* old below */
 	VertexFormat *format = immVertexFormat();
-	unsigned int pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
-	unsigned int col = add_attrib(format, "color", GL_FLOAT, 4, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
+	unsigned int col = VertexFormat_add_attrib(format, "color", COMP_F32, 4, KEEP_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_2D_SMOOTH_COLOR);
 	
 	immBegin(GL_TRIANGLES, steps * 3 * 6);
@@ -2632,7 +2634,7 @@ static void ui_draw_but_HSVCUBE(uiBut *but, const rcti *rect)
 	ui_hsv_cursor(x, y);
 	
 	/* outline */
-	unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 	immUniformColor3ub(0, 0, 0);
 	imm_draw_line_box(pos, (rect->xmin), (rect->ymin), (rect->xmax), (rect->ymax));
@@ -2705,7 +2707,7 @@ static void ui_draw_separator(const rcti *rect,  uiWidgetColors *wcol)
 		30
 	};
 
-	unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
 	glEnable(GL_BLEND);
@@ -2796,7 +2798,7 @@ void ui_draw_link_bezier(const rcti *rect, const float color[4])
 	float coord_array[LINK_RESOL + 1][2];
 
 	if (ui_link_bezier_points(rect, coord_array, LINK_RESOL)) {
-		unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
+		unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
 #if 0 /* unused */
@@ -3160,7 +3162,7 @@ static void widget_swatch(uiBut *but, uiWidgetColors *wcol, rcti *rect, int stat
 
 		bw += (bw < 0.5f) ? 0.5f : -0.5f;
 
-		unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
+		unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
 		immUniformColor4f(bw, bw, bw, 1.0f);
@@ -3519,7 +3521,7 @@ static void widget_draw_extra_mask(const bContext *C, uiBut *but, uiWidgetType *
 		/* note: drawextra can change rect +1 or -1, to match round errors of existing previews */
 		but->block->drawextra(C, but->poin, but->block->drawextra_arg1, but->block->drawextra_arg2, rect);
 		
-		unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
+		unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
 		/* make mask to draw over image */
@@ -4082,9 +4084,9 @@ static void draw_disk_shaded(
 	unsigned int pos, col;
 
 	VertexFormat *format = immVertexFormat();
-	pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+	pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
 	if (shaded) {
-		col = add_attrib(format, "color", GL_UNSIGNED_BYTE, 4, NORMALIZE_INT_TO_FLOAT);
+		col = VertexFormat_add_attrib(format, "color", COMP_U8, 4, NORMALIZE_INT_TO_FLOAT);
 		immBindBuiltinProgram(GPU_SHADER_2D_SMOOTH_COLOR);
 	}
 	else {
@@ -4162,12 +4164,12 @@ void ui_draw_pie_center(uiBlock *block)
 	}
 
 	VertexFormat *format = immVertexFormat();
-	unsigned int pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 	immUniformColor4ubv((unsigned char *)btheme->tui.wcol_pie_menu.outline);
 
-	imm_draw_lined_circle(pos, 0.0f, 0.0f, pie_radius_internal, subd);
-	imm_draw_lined_circle(pos, 0.0f, 0.0f, pie_radius_external, subd);
+	imm_draw_circle_wire(pos, 0.0f, 0.0f, pie_radius_internal, subd);
+	imm_draw_circle_wire(pos, 0.0f, 0.0f, pie_radius_external, subd);
 
 	immUnbindProgram();
 

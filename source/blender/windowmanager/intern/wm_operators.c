@@ -70,7 +70,6 @@
 #include "BKE_blender_version.h"
 #include "BKE_brush.h"
 #include "BKE_context.h"
-#include "BKE_depsgraph.h"
 #include "BKE_icons.h"
 #include "BKE_idprop.h"
 #include "BKE_image.h"
@@ -88,9 +87,8 @@
 
 #include "BLF_api.h"
 
-#include "BIF_glutil.h" /* for paint cursor */
-
 #include "GPU_immediate.h"
+#include "GPU_immediate_util.h"
 #include "GPU_matrix.h"
 
 #include "IMB_imbuf_types.h"
@@ -175,6 +173,10 @@ void WM_operatortype_append(void (*opfunc)(wmOperatorType *))
 	if (ot->name == NULL) {
 		fprintf(stderr, "ERROR: Operator %s has no name property!\n", ot->idname);
 		ot->name = N_("Dummy Name");
+	}
+
+	if (ot->mgrouptype) {
+		ot->mgrouptype->flag |= WM_MANIPULATORGROUPTYPE_OP;
 	}
 
 	/* XXX All ops should have a description but for now allow them not to. */
@@ -3074,11 +3076,11 @@ static void radial_control_paint_tex(RadialControl *rc, float radius, float alph
 	}
 		
 	VertexFormat *format = immVertexFormat();
-	unsigned pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
 
 	if (rc->gltex) {
 
-		unsigned texCoord = add_attrib(format, "texCoord", GL_FLOAT, 2, KEEP_FLOAT);
+		unsigned int texCoord = VertexFormat_add_attrib(format, "texCoord", COMP_F32, 2, KEEP_FLOAT);
 
 		glBindTexture(GL_TEXTURE_2D, rc->gltex);
 
@@ -3125,7 +3127,7 @@ static void radial_control_paint_tex(RadialControl *rc, float radius, float alph
 		/* flat color if no texture available */
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 		immUniformColor3fvAlpha(col, alpha);
-		imm_draw_filled_circle(pos, 0.0f, 0.0f, radius, 40);
+		imm_draw_circle_fill(pos, 0.0f, 0.0f, radius, 40);
 	}
 	
 	immUnbindProgram();
@@ -3206,7 +3208,7 @@ static void radial_control_paint_cursor(bContext *C, int x, int y, void *customd
 		RNA_property_float_get_array(&rc->col_ptr, rc->col_prop, col);
 
 	VertexFormat *format = immVertexFormat();
-	unsigned pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 	immUniformColor3fvAlpha(col, 0.5); 
@@ -3232,10 +3234,10 @@ static void radial_control_paint_cursor(bContext *C, int x, int y, void *customd
 	}
 
 	/* draw circles on top */
-	imm_draw_lined_circle(pos, 0.0f, 0.0f, r1, 40);
-	imm_draw_lined_circle(pos, 0.0f, 0.0f, r2, 40);
+	imm_draw_circle_wire(pos, 0.0f, 0.0f, r1, 40);
+	imm_draw_circle_wire(pos, 0.0f, 0.0f, r2, 40);
 	if (rmin > 0.0f)
-		imm_draw_lined_circle(pos, 0.0, 0.0f, rmin, 40);
+		imm_draw_circle_wire(pos, 0.0, 0.0f, rmin, 40);
 	immUnbindProgram();
 
 	BLF_size(fontid, 1.5 * fstyle_points * U.pixelsize, U.dpi);
@@ -3859,7 +3861,7 @@ static void redraw_timer_step(
 	}
 	else if (type == eRTAnimationStep) {
 		scene->r.cfra += (cfra == scene->r.cfra) ? 1 : -1;
-		BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, scene, scene->lay);
+		BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, scene);
 	}
 	else if (type == eRTAnimationPlay) {
 		/* play anim, return on same frame as started with */
@@ -3871,7 +3873,7 @@ static void redraw_timer_step(
 			if (scene->r.cfra > scene->r.efra)
 				scene->r.cfra = scene->r.sfra;
 
-			BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, scene, scene->lay);
+			BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, scene);
 			redraw_timer_window_swap(C);
 		}
 	}
@@ -3957,28 +3959,6 @@ static void WM_OT_memory_statistics(wmOperatorType *ot)
 	ot->description = "Print memory statistics to the console";
 	
 	ot->exec = memory_statistics_exec;
-}
-
-/* ************************** memory statistics for testing ***************** */
-
-static int dependency_relations_exec(bContext *C, wmOperator *UNUSED(op))
-{
-	Main *bmain = CTX_data_main(C);
-	Scene *scene = CTX_data_scene(C);
-	Object *ob = CTX_data_active_object(C);
-
-	DAG_print_dependencies(bmain, scene, ob);
-
-	return OPERATOR_FINISHED;
-}
-
-static void WM_OT_dependency_relations(wmOperatorType *ot)
-{
-	ot->name = "Dependency Relations";
-	ot->idname = "WM_OT_dependency_relations";
-	ot->description = "Print dependency graph relations to the console";
-	
-	ot->exec = dependency_relations_exec;
 }
 
 /* *************************** Mat/tex/etc. previews generation ************* */
@@ -4250,7 +4230,6 @@ void wm_operatortype_init(void)
 	WM_operatortype_append(WM_OT_save_mainfile);
 	WM_operatortype_append(WM_OT_redraw_timer);
 	WM_operatortype_append(WM_OT_memory_statistics);
-	WM_operatortype_append(WM_OT_dependency_relations);
 	WM_operatortype_append(WM_OT_debug_menu);
 	WM_operatortype_append(WM_OT_operator_defaults);
 	WM_operatortype_append(WM_OT_splash);

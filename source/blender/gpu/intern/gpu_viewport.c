@@ -251,8 +251,8 @@ static void draw_ofs_to_screen(GPUViewport *viewport)
 	const float h = (float)GPU_texture_height(color);
 
 	VertexFormat *format = immVertexFormat();
-	unsigned texcoord = add_attrib(format, "texCoord", GL_FLOAT, 2, KEEP_FLOAT);
-	unsigned pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+	unsigned int texcoord = VertexFormat_add_attrib(format, "texCoord", COMP_F32, 2, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_3D_IMAGE_MODULATE_ALPHA);
 	GPU_texture_bind(color, 0);
@@ -285,7 +285,7 @@ void GPU_viewport_unbind(GPUViewport *viewport)
 	DefaultFramebufferList *dfbl = (DefaultFramebufferList *)viewport->fbl;
 
 	if (dfbl->default_fb) {
-		GPU_framebuffer_texture_unbind(NULL, NULL);
+		GPU_framebuffer_texture_unbind(dfbl->default_fb, NULL);
 		GPU_framebuffer_restore();
 
 		glEnable(GL_SCISSOR_TEST);
@@ -381,8 +381,8 @@ void GPU_viewport_debug_depth_draw(GPUViewport *viewport, const float znear, con
 	const float h = (float)GPU_texture_height(viewport->debug_depth);
 
 	VertexFormat *format = immVertexFormat();
-	unsigned texcoord = add_attrib(format, "texCoord", GL_FLOAT, 2, KEEP_FLOAT);
-	unsigned pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+	unsigned int texcoord = VertexFormat_add_attrib(format, "texCoord", COMP_F32, 2, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_3D_IMAGE_DEPTH);
 

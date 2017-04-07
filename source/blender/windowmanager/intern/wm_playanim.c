@@ -58,18 +58,20 @@
 #include "IMB_imbuf_types.h"
 #include "IMB_imbuf.h"
 
-#include "BKE_depsgraph.h"
 #include "BKE_image.h"
 
 #include "BIF_gl.h"
-#include "BIF_glutil.h"
 
 #include "GPU_matrix.h"
+#include "GPU_immediate.h"
+#include "GPU_immediate_util.h"
 
 #include "DNA_scene_types.h"
 #include "ED_datafiles.h" /* for fonts */
 #include "GHOST_C-api.h"
 #include "BLF_api.h"
+
+#include "DEG_depsgraph.h"
 
 #include "WM_api.h"  /* only for WM_main_playanim */
 
@@ -1254,6 +1256,9 @@ static char *wm_main_playanim_intern(int argc, const char **argv)
 
 	//GHOST_ActivateWindowDrawingContext(g_WS.ghost_window);
 
+	/* initialize OpenGL immediate mode */
+	immInit();
+
 	/* initialize the font */
 	BLF_init(11, 72);
 	ps.fontid = BLF_load_mem("monospace", (unsigned char *)datatoc_bmonofont_ttf, datatoc_bmonofont_ttf_size);
@@ -1524,7 +1529,11 @@ static char *wm_main_playanim_intern(int argc, const char **argv)
 #endif
 	/* we still miss freeing a lot!,
 	 * but many areas could skip initialization too for anim play */
-	
+
+	GPU_shader_free_builtin_shaders();
+
+	immDestroy();
+
 	BLF_exit();
 
 	GHOST_DisposeWindow(g_WS.ghost_system, g_WS.ghost_window);
@@ -1537,7 +1546,7 @@ static char *wm_main_playanim_intern(int argc, const char **argv)
 	
 	IMB_exit();
 	BKE_images_exit();
-	DAG_exit();
+	DEG_free_node_types();
 
 	totblock = MEM_get_memory_blocks_in_use();
 	if (totblock != 0) {

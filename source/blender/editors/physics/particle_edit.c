@@ -65,7 +65,6 @@
 #include "BKE_pointcache.h"
 
 #include "BIF_gl.h"
-#include "BIF_glutil.h"
 
 #include "ED_object.h"
 #include "ED_physics.h"
@@ -74,6 +73,7 @@
 #include "ED_view3d.h"
 
 #include "GPU_immediate.h"
+#include "GPU_immediate_util.h"
 
 #include "UI_resources.h"
 
@@ -2711,7 +2711,7 @@ static void brush_drawcursor(bContext *C, int x, int y, void *UNUSED(customdata)
 	brush = &pset->brush[pset->brushtype];
 
 	if (brush) {
-		unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
+		unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
 		immUniformColor4ub(255, 255, 255, 128);
@@ -2719,7 +2719,7 @@ static void brush_drawcursor(bContext *C, int x, int y, void *UNUSED(customdata)
 		glEnable(GL_LINE_SMOOTH);
 		glEnable(GL_BLEND);
 
-		imm_draw_lined_circle(pos, (float)x, (float)y, pe_brush_size_get(scene, brush), 40);
+		imm_draw_circle_wire(pos, (float)x, (float)y, pe_brush_size_get(scene, brush), 40);
 
 		glDisable(GL_BLEND);
 		glDisable(GL_LINE_SMOOTH);

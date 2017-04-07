@@ -42,6 +42,7 @@
 #include "DNA_gpu_types.h"
 
 #include "GPU_compositing.h"
+#include "GPU_draw.h"
 #include "GPU_extensions.h"
 #include "GPU_framebuffer.h"
 #include "GPU_glew.h"
@@ -196,6 +197,8 @@ struct GPUFX {
 
 	Batch *quad_batch;
 	Batch *point_batch;
+
+	struct GPUStateValues attribs;
 };
 
 #if 0
@@ -275,14 +278,14 @@ GPUFX *GPU_fx_compositor_create(void)
 	static VertexFormat format = {0};
 	static unsigned int pos, uvs;
 	if (format.attrib_ct == 0) {
-		pos = add_attrib(&format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
-		uvs = add_attrib(&format, "uvs", GL_FLOAT, 2, KEEP_FLOAT);
+		pos = VertexFormat_add_attrib(&format, "pos", COMP_F32, 2, KEEP_FLOAT);
+		uvs = VertexFormat_add_attrib(&format, "uvs", COMP_F32, 2, KEEP_FLOAT);
 	}
 	VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
 	VertexBuffer_allocate_data(vbo, 4);
 	for (int i = 0; i < 4; ++i)	{
-		setAttrib(vbo, pos, i, fullscreencos[i]);
-		setAttrib(vbo, uvs, i, fullscreenuvs[i]);
+		VertexBuffer_set_attrib(vbo, pos, i, fullscreencos[i]);
+		VertexBuffer_set_attrib(vbo, uvs, i, fullscreenuvs[i]);
 	}
 	fx->quad_batch = Batch_create(GL_TRIANGLE_STRIP, vbo, NULL);
 
@@ -290,12 +293,12 @@ GPUFX *GPU_fx_compositor_create(void)
 	static VertexFormat format_point = {0};
 	static unsigned int dummy_attrib;
 	if (format_point.attrib_ct == 0) {
-		dummy_attrib = add_attrib(&format_point, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+		dummy_attrib = VertexFormat_add_attrib(&format_point, "pos", COMP_F32, 2, KEEP_FLOAT);
 	}
 	float dummy[2] = {0.0f, 0.0f};
 	VertexBuffer *vbo_point = VertexBuffer_create_with_format(&format_point);
 	VertexBuffer_allocate_data(vbo_point, 1);
-	setAttrib(vbo_point, dummy_attrib, 0, &dummy);
+	VertexBuffer_set_attrib(vbo_point, dummy_attrib, 0, &dummy);
 	fx->point_batch = Batch_create(GL_POINTS, vbo_point, NULL);
 
 	return fx;
@@ -642,7 +645,7 @@ bool GPU_fx_compositor_initialize_passes(
 	if (scissor_rect) {
 		int w_sc = BLI_rcti_size_x(scissor_rect) + 1;
 		int h_sc = BLI_rcti_size_y(scissor_rect) + 1;
-		glPushAttrib(GL_SCISSOR_BIT);
+		gpuSaveState(&fx->attribs, GPU_SCISSOR_BIT);
 		glEnable(GL_SCISSOR_TEST);
 		glScissor(scissor_rect->xmin - rect->xmin, scissor_rect->ymin - rect->ymin,
 		          w_sc, h_sc);
@@ -718,7 +721,7 @@ void GPU_fx_compositor_XRay_resolve(GPUFX *fx)
 	GPU_framebuffer_texture_attach(fx->gbuffer, fx->depth_buffer, 0);
 
 	/* full screen quad where we will always write to depth buffer */
-	glPushAttrib(GL_DEPTH_BUFFER_BIT | GL_SCISSOR_BIT);
+	gpuSaveState(&fx->attribs, GPU_DEPTH_BUFFER_BIT | GPU_SCISSOR_BIT);
 	glDepthFunc(GL_ALWAYS);
 	/* disable scissor from sculpt if any */
 	glDisable(GL_SCISSOR_TEST);
@@ -751,7 +754,7 @@ void GPU_fx_compositor_XRay_resolve(GPUFX *fx)
 
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
-	glPopAttrib();
+	gpuRestoreState(&fx->attribs);
 }
 
 
@@ -781,8 +784,9 @@ bool GPU_fx_do_composite_pass(
 	GPU_framebuffer_texture_detach(fx->color_buffer);
 	GPU_framebuffer_texture_detach(fx->depth_buffer);
 
-	if (fx->restore_stencil)
-		glPopAttrib();
+	if (fx->restore_stencil) {
+		gpuRestoreState(&fx->attribs);
+	}
 
 	src = fx->color_buffer;
 	target = fx->color_buffer_sec;

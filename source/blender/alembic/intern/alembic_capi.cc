@@ -47,11 +47,13 @@ extern "C" {
 #include "BKE_cdderivedmesh.h"
 #include "BKE_context.h"
 #include "BKE_curve.h"
-#include "BKE_depsgraph.h"
 #include "BKE_global.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_scene.h"
+
+#include "DEG_depsgraph.h"
+#include "DEG_depsgraph_build.h"
 
 /* SpaceType struct has a member called 'new' which obviously conflicts with C++
  * so temporarily redefining the new keyword to make it compile. */
@@ -296,15 +298,14 @@ static void export_startjob(void *customdata, short *stop, short *do_update, flo
 		if (CFRA != orig_frame) {
 			CFRA = orig_frame;
 
-			BKE_scene_update_for_newframe(data->bmain->eval_ctx, data->bmain,
-			                              scene, scene->lay);
+			BKE_scene_update_for_newframe(data->bmain->eval_ctx, data->bmain, scene);
 		}
 	}
 	catch (const std::exception &e) {
-		std::cerr << "Abc Export error: " << e.what() << '\n';
+		ABC_LOG(data->settings.logger) << "Abc Export error: " << e.what() << '\n';
 	}
 	catch (...) {
-		std::cerr << "Abc Export error\n";
+		ABC_LOG(data->settings.logger) << "Abc Export: unknown error...\n";
 	}
 }
 
@@ -314,6 +315,11 @@ static void export_endjob(void *customdata)
 
 	if (data->was_canceled && BLI_exists(data->filename)) {
 		BLI_delete(data->filename, false, false);
+	}
+
+	if (!data->settings.logger.empty()) {
+		std::cerr << data->settings.logger;
+		WM_report(RPT_ERROR, "Errors occured during the export, look in the console to know more...");
 	}
 
 	G.is_rendering = false;
@@ -331,6 +337,22 @@ void ABC_export(
 	job->bmain = CTX_data_main(C);
 	BLI_strncpy(job->filename, filepath, 1024);
 
+	/* Alright, alright, alright....
+	 *
+	 * ExportJobData contains an ExportSettings containing a SimpleLogger.
+	 *
+	 * Since ExportJobData is a C-style struct dynamically allocated with
+	 * MEM_mallocN (see above), its construtor is never called, therefore the
+	 * ExportSettings constructor is not called which implies that the
+	 * SimpleLogger one is not called either. SimpleLogger in turn does not call
+	 * the constructor of its data members which ultimately means that its
+	 * std::ostringstream member has a NULL pointer. To be able to properly use
+	 * the stream's operator<<, the pointer needs to be set, therefore we have
+	 * to properly construct everything. And this is done using the placement
+	 * new operator as here below. It seems hackish, but I'm too lazy to
+	 * do bigger refactor and maybe there is a better way which does not involve
+	 * hardcore refactoring. */
+	new (&job->settings) ExportSettings();
 	job->settings.scene = job->scene;
 
 	/* Sybren: for now we only export the active scene layer.
@@ -724,10 +746,10 @@ static void import_endjob(void *user_data)
 
 			BKE_scene_base_add(data->scene, ob);
 
-			DAG_id_tag_update_ex(data->bmain, &ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
+			DEG_id_tag_update_ex(data->bmain, &ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 		}
 
-		DAG_relations_tag_update(data->bmain);
+		DEG_relations_tag_update(data->bmain);
 	}
 
 	for (iter = data->readers.begin(); iter != data->readers.end(); ++iter) {

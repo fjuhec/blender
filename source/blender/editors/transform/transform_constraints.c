@@ -706,8 +706,6 @@ void drawConstraint(TransInfo *t)
 		return;
 	if (!(tc->mode & CON_APPLY))
 		return;
-	if (t->flag & T_USES_MANIPULATOR)
-		return;
 	if (t->flag & T_NO_CONSTRAINT)
 		return;
 
@@ -730,7 +728,7 @@ void drawConstraint(TransInfo *t)
 			if (depth_test_enabled)
 				glDisable(GL_DEPTH_TEST);
 
-			unsigned pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+			unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 
 			immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 			immUniformColor3ub(255, 255, 255);
@@ -802,7 +800,7 @@ void drawPropCircle(const struct bContext *C, TransInfo *t)
 		if (depth_test_enabled)
 			glDisable(GL_DEPTH_TEST);
 
-		unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+		unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 
 		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 		immUniformThemeColor(TH_GRID);

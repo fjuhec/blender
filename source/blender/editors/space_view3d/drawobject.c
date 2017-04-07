@@ -92,6 +92,7 @@
 #include "GPU_basic_shader.h"
 #include "GPU_shader.h"
 #include "GPU_immediate.h"
+#include "GPU_immediate_util.h"
 #include "GPU_batch.h"
 #include "GPU_matrix.h"
 
@@ -538,7 +539,7 @@ void drawaxes(const float viewmat_local[4][4], float size, char drawtype, const 
 
 	glLineWidth(1.0f);
 
-	unsigned pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 	if (color) {
 		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 		immUniformColor4ubv(color);
@@ -705,8 +706,8 @@ static void draw_empty_image(Object *ob, const short dflag, const unsigned char 
 		}
 
 		VertexFormat *format = immVertexFormat();
-		unsigned pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
-		unsigned texCoord = add_attrib(format, "texCoord", GL_FLOAT, 2, KEEP_FLOAT);
+		unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
+		unsigned int texCoord = VertexFormat_add_attrib(format, "texCoord", COMP_F32, 2, KEEP_FLOAT);
 		immBindBuiltinProgram(GPU_SHADER_3D_IMAGE_MODULATE_ALPHA);
 		immUniform1f("alpha", ob_alpha);
 		immUniform1i("image", 0); /* default GL_TEXTURE0 unit */
@@ -732,7 +733,7 @@ static void draw_empty_image(Object *ob, const short dflag, const unsigned char 
 
 	/* Draw the image outline */
 	glLineWidth(1.5f);
-	unsigned pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 
 	const bool picking = dflag & DRAW_CONSTCOLOR;
 	if (picking) {
@@ -805,7 +806,7 @@ static void drawcentercircle(View3D *v3d, RegionView3D *UNUSED(rv3d), const floa
 	glEnable(GL_BLEND);
 	GPU_enable_program_point_size();
 
-	unsigned pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_3D_POINT_UNIFORM_SIZE_UNIFORM_COLOR_OUTLINE_AA);
 	immUniform1f("size", size);
 
@@ -1265,7 +1266,7 @@ void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
 	normalize_v3(imat[0]);
 	normalize_v3(imat[1]);
 
-	const unsigned pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	const unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 
 	/* lamp center */
 	copy_v3_v3(vec, ob->obmat[3]);
@@ -1453,7 +1454,7 @@ void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
 				 * previously it adjusted to always to show it but that seems
 				 * confusing because it doesn't show the actual blend size */
 				if (blend != 0.0f && blend != z_abs) {
-					imm_draw_line_box_3D(pos, blend, -blend, -blend, blend);
+					imm_draw_line_box_3d(pos, blend, -blend, -blend, blend);
 				}
 			}
 		}
@@ -1467,7 +1468,7 @@ void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
 
 			/* draw the circle at the end of the cone */
 			gpuTranslate3f(0.0f, 0.0f, x);
-			imm_draw_lined_circle_3D(pos, 0.0f, 0.0f, z_abs, 32);
+			imm_draw_circle_wire_3d(pos, 0.0f, 0.0f, z_abs, 32);
 
 			/* draw the circle representing spotbl */
 			if (la->type == LA_SPOT) {
@@ -1477,7 +1478,7 @@ void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
 				 * previously it adjusted to always to show it but that seems
 				 * confusing because it doesn't show the actual blend size */
 				if (blend != 0.0f && blend != z_abs) {
-					imm_draw_lined_circle_3D(pos, 0.0f, 0.0f, blend, 32);
+					imm_draw_circle_wire_3d(pos, 0.0f, 0.0f, blend, 32);
 				}
 			}
 		}
@@ -1563,9 +1564,9 @@ void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
 	else if (la->type == LA_AREA) {
 		setlinestyle(3);
 		if (la->area_shape == LA_AREA_SQUARE)
-			imm_draw_line_box_3D(pos, -la->area_size * 0.5f, -la->area_size * 0.5f, la->area_size * 0.5f, la->area_size * 0.5f);
+			imm_draw_line_box_3d(pos, -la->area_size * 0.5f, -la->area_size * 0.5f, la->area_size * 0.5f, la->area_size * 0.5f);
 		else if (la->area_shape == LA_AREA_RECT)
-			imm_draw_line_box_3D(pos, -la->area_size * 0.5f, -la->area_sizey * 0.5f, la->area_size * 0.5f, la->area_sizey * 0.5f);
+			imm_draw_line_box_3d(pos, -la->area_size * 0.5f, -la->area_sizey * 0.5f, la->area_size * 0.5f, la->area_sizey * 0.5f);
 
 		immBegin(GL_LINES, 2);
 		immVertex3f(pos, 0.0f, 0.0f, -circrad);
@@ -1815,7 +1816,7 @@ static void draw_viewport_object_reconstruction(
 
 			if (reconstruction->camnr >= 2) {
 				MovieReconstructedCamera *camera = reconstruction->cameras;
-				unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+				unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 
 				immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 				immUniformThemeColor(TH_CAMERA_PATH);
@@ -2008,7 +2009,6 @@ static void drawcamera_stereo3d(
 
 	if (is_stereo3d_cameras) {
 		/* draw connecting lines */
-		glPushAttrib(GL_ENABLE_BIT); /* TODO(merwin): new state tracking! */
 		glLineStipple(2, 0xAAAA);
 		glEnable(GL_LINE_STIPPLE);
 
@@ -2017,7 +2017,7 @@ static void drawcamera_stereo3d(
 		immVertex3fv(pos, origin[1]);
 		immEnd();
 
-		glPopAttrib();
+		glDisable(GL_LINE_STIPPLE);
 	}
 
 	/* draw convergence plane */
@@ -2168,7 +2168,7 @@ void drawcamera(Scene *scene, View3D *v3d, RegionView3D *rv3d, Base *base,
 	BKE_camera_view_frame_ex(scene, cam, cam->drawsize, is_view, scale,
 	                         asp, shift, &drawsize, vec);
 
-	unsigned pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 	if (ob_wire_col) {
 		immUniformColor3ubv(ob_wire_col);
@@ -2277,7 +2277,7 @@ void drawcamera(Scene *scene, View3D *v3d, RegionView3D *rv3d, Base *base,
 void drawspeaker(const unsigned char ob_wire_col[3])
 {
 	VertexFormat *format = immVertexFormat();
-	unsigned int pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
@@ -2442,10 +2442,10 @@ static void drawlattice(View3D *v3d, Object *ob, const short dflag, const unsign
 	}
 
 	VertexFormat *format = immVertexFormat();
-	unsigned int color, pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	unsigned int color, pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
 
 	if (actdef_wcol) {
-		color = add_attrib(format, "color", GL_FLOAT, 3, KEEP_FLOAT);
+		color = VertexFormat_add_attrib(format, "color", COMP_F32, 3, KEEP_FLOAT);
 		immBindBuiltinProgram(GPU_SHADER_3D_SMOOTH_COLOR);
 	}
 	else {
@@ -2499,8 +2499,8 @@ static void drawlattice(View3D *v3d, Object *ob, const short dflag, const unsign
 		if (v3d->zbuf) glDisable(GL_DEPTH_TEST);
 
 		VertexFormat *v_format = immVertexFormat();
-		unsigned int v_pos = add_attrib(v_format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
-		unsigned int v_color = add_attrib(v_format, "color", GL_FLOAT, 4, KEEP_FLOAT);
+		unsigned int v_pos = VertexFormat_add_attrib(v_format, "pos", COMP_F32, 3, KEEP_FLOAT);
+		unsigned int v_color = VertexFormat_add_attrib(v_format, "color", COMP_F32, 4, KEEP_FLOAT);
 
 		immBindBuiltinProgram(GPU_SHADER_3D_POINT_FIXED_SIZE_VARYING_COLOR);
 
@@ -2560,8 +2560,8 @@ static void drawSelectedVertices(DerivedMesh *dm, Mesh *me)
 	data.col[1] = sel_col;
 	data.col[2] = act_col;
 
-	data.color = add_attrib(format, "color", GL_UNSIGNED_BYTE, 3, NORMALIZE_INT_TO_FLOAT);
-	data.pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	data.color = VertexFormat_add_attrib(format, "color", COMP_U8, 3, NORMALIZE_INT_TO_FLOAT);
+	data.pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
 
 	if (dm->getNumVerts(dm) == 0) return;
 
@@ -2632,7 +2632,7 @@ static void draw_dm_face_normals(BMEditMesh *em, Scene *scene, Object *ob, Deriv
 
 	data.bm = em->bm;
 	data.normalsize = scene->toolsettings->normalsize;
-	data.pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	data.pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
 
 	calcDrawDMNormalScale(ob, &data);
 
@@ -2666,7 +2666,7 @@ static void draw_dm_face_centers(BMEditMesh *em, DerivedMesh *dm, bool select, c
 	drawBMSelect_userData data;
 	data.bm = em->bm;
 	data.select = select;
-	data.pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	data.pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
 
 	if (dm->getNumPolys(dm) == 0) return;
 
@@ -2718,7 +2718,7 @@ static void draw_dm_vert_normals(BMEditMesh *em, Scene *scene, Object *ob, Deriv
 
 	data.bm = em->bm;
 	data.normalsize = scene->toolsettings->normalsize;
-	data.pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	data.pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
 
 	calcDrawDMNormalScale(ob, &data);
 
@@ -2779,8 +2779,8 @@ static void draw_dm_verts(BMEditMesh *em, DerivedMesh *dm, const char sel, BMVer
 	data.sel = sel;
 	data.eve_act = eve_act;
 	data.bm = em->bm;
-	data.pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
-	data.color = add_attrib(format, "color", GL_UNSIGNED_BYTE, 4, NORMALIZE_INT_TO_FLOAT);
+	data.pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
+	data.color = VertexFormat_add_attrib(format, "color", COMP_U8, 4, NORMALIZE_INT_TO_FLOAT);
 
 	/* Cache theme values */
 	UI_GetThemeColor4ubv(TH_EDITMESH_ACTIVE, data.th_editmesh_active);
@@ -2811,7 +2811,7 @@ static void draw_dm_verts(BMEditMesh *em, DerivedMesh *dm, const char sel, BMVer
 	data.cd_vskin_offset = CustomData_get_offset(&em->bm->vdata, CD_MVERT_SKIN);
 
 	if (data.cd_vskin_offset != -1) {
-		data.pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+		data.pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 		immUniformColor4ubv(data.th_skin_root);
 
@@ -3136,7 +3136,7 @@ static void draw_dm_loop_normals(BMEditMesh *em, Scene *scene, Object *ob, Deriv
 
 	data.bm = em->bm;
 	data.normalsize = scene->toolsettings->normalsize;
-	data.pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	data.pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 
 	if (dm->getNumLoops(dm) == 0) return;
 
@@ -3316,8 +3316,8 @@ static void draw_dm_bweights(BMEditMesh *em, Scene *scene, DerivedMesh *dm)
 		/* is that ever true? */
 		if (data.cd_layer_offset != -1) {
 			VertexFormat *format = immVertexFormat();
-			data.pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
-			data.col = add_attrib(format, "color", GL_UNSIGNED_BYTE, 4, NORMALIZE_INT_TO_FLOAT);
+			data.pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
+			data.col = VertexFormat_add_attrib(format, "color", COMP_U8, 4, NORMALIZE_INT_TO_FLOAT);
 
 			immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
 
@@ -5114,12 +5114,12 @@ static bool draw_mesh_object_new(Scene *scene, SceneLayer *sl, ARegion *ar, View
 static void drawDispListVerts(int dt, const void *data, unsigned int vert_ct, const unsigned char wire_col[3])
 {
 	VertexFormat format = {0};
-	unsigned int pos_id = add_attrib(&format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	unsigned int pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
 
 	VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
 	VertexBuffer_allocate_data(vbo, vert_ct);
 
-	fillAttrib(vbo, pos_id, data);
+	VertexBuffer_fill_attrib(vbo, pos_id, data);
 
 	Batch *batch = Batch_create(dt, vbo, NULL);
 	Batch_set_builtin_program(batch, GPU_SHADER_3D_UNIFORM_COLOR);
@@ -5142,9 +5142,9 @@ static void drawDispListElem(bool quads, bool UNUSED(smooth), const float *data,
 	const int *idx = elem;
 	unsigned int pos_id, nor_id;
 
-	pos_id = add_attrib(&format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
 	if (ndata) {
-		nor_id = add_attrib(&format, "nor", GL_FLOAT, 3, KEEP_FLOAT);
+		nor_id = VertexFormat_add_attrib(&format, "nor", COMP_F32, 3, KEEP_FLOAT);
 	}
 
 	ElementListBuilder elb;
@@ -5165,10 +5165,10 @@ static void drawDispListElem(bool quads, bool UNUSED(smooth), const float *data,
 	VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
 	VertexBuffer_allocate_data(vbo, vert_ct);
 
-	fillAttrib(vbo, pos_id, data);
+	VertexBuffer_fill_attrib(vbo, pos_id, data);
 
 	if (ndata) {
-		fillAttrib(vbo, nor_id, ndata);
+		VertexBuffer_fill_attrib(vbo, nor_id, ndata);
 	}
 
 	Batch *batch = Batch_create(GL_TRIANGLES, vbo, ElementList_build(&elb));
@@ -5586,22 +5586,22 @@ static void draw_vertex_array(int dt, const float *vert, const float *nor, const
 {
 	VertexFormat format = {0};
 	unsigned int pos_id, nor_id, col_id;
-	pos_id = add_attrib(&format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
-	if (nor) nor_id = add_attrib(&format, "nor", GL_FLOAT, 3, KEEP_FLOAT);
-	if (color) col_id = add_attrib(&format, "color", GL_FLOAT, 3, KEEP_FLOAT);
+	pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
+	if (nor) nor_id = VertexFormat_add_attrib(&format, "nor", COMP_F32, 3, KEEP_FLOAT);
+	if (color) col_id = VertexFormat_add_attrib(&format, "color", COMP_F32, 3, KEEP_FLOAT);
 
 	VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
 	VertexBuffer_allocate_data(vbo, vert_ct);
 
 	if (stride == 0) {
-		fillAttrib(vbo, pos_id, vert);
-		if (nor) fillAttrib(vbo, nor_id, nor);
-		if (color) fillAttrib(vbo, col_id, color);
+		VertexBuffer_fill_attrib(vbo, pos_id, vert);
+		if (nor) VertexBuffer_fill_attrib(vbo, nor_id, nor);
+		if (color) VertexBuffer_fill_attrib(vbo, col_id, color);
 	}
 	else {
-		fillAttribStride(vbo, pos_id, stride, vert);
-		if (nor) fillAttribStride(vbo, nor_id, stride, nor);
-		if (color) fillAttribStride(vbo, col_id, stride, color);
+		VertexBuffer_fill_attrib_stride(vbo, pos_id, stride, vert);
+		if (nor) VertexBuffer_fill_attrib_stride(vbo, nor_id, stride, nor);
+		if (color) VertexBuffer_fill_attrib_stride(vbo, col_id, stride, color);
 	}
 
 	Batch *batch = Batch_create(dt, vbo, NULL);
@@ -6114,7 +6114,7 @@ static void draw_new_particle_system(Scene *scene, View3D *v3d, RegionView3D *rv
 		}
 		else {
 			if ((draw_as == PART_DRAW_CIRC) || (part->draw & PART_DRAW_SIZE)) {
-				pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+				pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 				immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 				imm_cpack(0xFFFFFF);
 			}
@@ -6311,7 +6311,7 @@ static void draw_new_particle_system(Scene *scene, View3D *v3d, RegionView3D *rv
 					MVert *mvert = hair_dm->getVertArray(hair_dm);
 					int i;
 					
-					unsigned int pos_id = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+					unsigned int pos_id = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 					immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 					immUniformColor3f(0.9f, 0.4f, 0.4f);
 
@@ -6351,7 +6351,7 @@ static void draw_new_particle_system(Scene *scene, View3D *v3d, RegionView3D *rv
 					int *res = clmd->hair_grid_res;
 					int i;
 					
-					unsigned int pos_id = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+					unsigned int pos_id = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 					immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 					if (select)
 						immUniformThemeColor(TH_ACTIVE);
@@ -6584,13 +6584,13 @@ static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 
 		col_comp = ((point->flag & PEP_HIDE) || timed) ? 4 : 3;
 
-		pos_id = add_attrib(&format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
-		col_id = add_attrib(&format, "color", GL_FLOAT, col_comp, KEEP_FLOAT);
+		pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
+		col_id = VertexFormat_add_attrib(&format, "color", COMP_F32, col_comp, KEEP_FLOAT);
 
 		VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
 		VertexBuffer_allocate_data(vbo, path->segments + 1);
 
-		fillAttribStride(vbo, pos_id, sizeof(ParticleCacheKey), path->co);
+		VertexBuffer_fill_attrib_stride(vbo, pos_id, sizeof(ParticleCacheKey), path->co);
 
 		float *pcol = pathcol;
 
@@ -6600,7 +6600,7 @@ static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 				pcol[3] = 0.25f;
 			}
 
-			fillAttrib(vbo, col_id, pathcol);
+			VertexBuffer_fill_attrib(vbo, col_id, pathcol);
 		}
 		else if (timed) {
 			ParticleCacheKey *pkey = path;
@@ -6609,12 +6609,12 @@ static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 				pcol[3] = 1.0f - fabsf((float)(CFRA) -pkey->time) / (float)pset->fade_frames;
 			}
 
-			fillAttrib(vbo, col_id, pathcol);
+			VertexBuffer_fill_attrib(vbo, col_id, pathcol);
 		}
 		else {
 			/* FIXME: shader wants 4 color components but the cache only contains ParticleCacheKey
 			 * So alpha is random */
-			fillAttribStride(vbo, col_id, sizeof(ParticleCacheKey), path->col);
+			VertexBuffer_fill_attrib_stride(vbo, col_id, sizeof(ParticleCacheKey), path->col);
 		}
 
 		Batch *batch = Batch_create(GL_LINE_STRIP, vbo, NULL);
@@ -6635,9 +6635,8 @@ static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 			int totkeys_visible = 0;
 
 			VertexFormat format = {0};
-			unsigned int pos_id, col_id;
-			pos_id = add_attrib(&format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
-			col_id = add_attrib(&format, "color", GL_FLOAT, (timed ? 4 : 3), KEEP_FLOAT);
+			unsigned int pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
+			unsigned int col_id = VertexFormat_add_attrib(&format, "color", COMP_F32, (timed ? 4 : 3), KEEP_FLOAT);
 
 			for (i = 0, point = edit->points; i < totpoint; i++, point++)
 				if (!(point->flag & PEP_HIDE))
@@ -6683,11 +6682,11 @@ static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 				VertexBuffer_allocate_data(vbo, point->totkey);
 
 				if (point->keys->flag & PEK_USE_WCO)
-					fillAttribStride(vbo, pos_id, sizeof(PTCacheEditKey), point->keys->world_co);
+					VertexBuffer_fill_attrib_stride(vbo, pos_id, sizeof(PTCacheEditKey), point->keys->world_co);
 				else
-					fillAttrib(vbo, pos_id, pd);
+					VertexBuffer_fill_attrib(vbo, pos_id, pd);
 
-				fillAttrib(vbo, col_id, cd);
+				VertexBuffer_fill_attrib(vbo, col_id, cd);
 
 				Batch *batch = Batch_create(GL_POINTS, vbo, NULL);
 				Batch_set_builtin_program(batch, GPU_SHADER_3D_SMOOTH_COLOR);
@@ -6702,8 +6701,8 @@ static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 		}
 		else if (pset->selectmode == SCE_SELECT_END) {
 			VertexFormat *format = immVertexFormat();
-			unsigned int pos_id = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
-			unsigned int col_id = add_attrib(format, "color", GL_FLOAT, 3, KEEP_FLOAT);
+			unsigned int pos_id = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
+			unsigned int col_id = VertexFormat_add_attrib(format, "color", COMP_F32, 3, KEEP_FLOAT);
 			immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
 			immBeginAtMost(GL_POINTS, totpoint);
 			for (i = 0, point = edit->points; i < totpoint; i++, point++) {
@@ -6738,8 +6737,8 @@ static void ob_draw_RE_motion(float com[3], float rotscale[3][3], float itw, flo
 	float th = ith * drw_size;
 
 	VertexFormat *format = immVertexFormat();
-	unsigned int pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
-	unsigned int col = add_attrib(format, "color", GL_UNSIGNED_BYTE, 4, NORMALIZE_INT_TO_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
+	unsigned int col = VertexFormat_add_attrib(format, "color", COMP_U8, 4, NORMALIZE_INT_TO_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
 
 	immBegin(GL_LINES, 30);
@@ -6890,8 +6889,8 @@ static void drawhandlesN(Nurb *nu, const char sel, const bool hide_handles)
 		}
 
 		VertexFormat *format = immVertexFormat();
-		unsigned int pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
-		unsigned int col = add_attrib(format, "color", GL_UNSIGNED_BYTE, 3, NORMALIZE_INT_TO_FLOAT);
+		unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
+		unsigned int col = VertexFormat_add_attrib(format, "color", COMP_U8, 3, NORMALIZE_INT_TO_FLOAT);
 		immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
 
 		glLineWidth(1.0f);
@@ -6945,7 +6944,7 @@ static void drawhandlesN_active(Nurb *nu)
 	if (nu->hide) return;
 
 	if (nu->type == CU_BEZIER && nu->pntsu > 0) {
-		unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+		unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 		immUniformThemeColor(TH_ACTIVE_SPLINE);
 		glLineWidth(2.0f);
@@ -6989,8 +6988,8 @@ static void drawvertsN(const Nurb *nurb, const bool hide_handles, const void *ve
 	if (count == 0) return;
 
 	VertexFormat *format = immVertexFormat();
-	unsigned pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
-	unsigned color = add_attrib(format, "color", GL_UNSIGNED_BYTE, 3, NORMALIZE_INT_TO_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
+	unsigned int color = VertexFormat_add_attrib(format, "color", COMP_U8, 3, NORMALIZE_INT_TO_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
 
 	unsigned char vert_color[3];
@@ -7063,7 +7062,7 @@ static void drawvertsN(const Nurb *nurb, const bool hide_handles, const void *ve
 static void editnurb_draw_active_poly(Nurb *nu)
 {
 	VertexFormat *format = immVertexFormat();
-	unsigned pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 	immUniformThemeColor(TH_ACTIVE_SPLINE);
 
@@ -7090,7 +7089,7 @@ static void editnurb_draw_active_nurbs(Nurb *nu)
 {
 	if (nu->pntsv > 0) {
 		VertexFormat *format = immVertexFormat();
-		unsigned pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
+		unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
 		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 		immUniformThemeColor(TH_ACTIVE_SPLINE);
 
@@ -7158,7 +7157,7 @@ static void draw_editnurb_splines(Object *ob, Nurb *nurb, const bool sel)
 					}
 
 					format = immVertexFormat();
-					pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
+					pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
 					immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
 					glLineWidth(1.0f);
@@ -7188,8 +7187,8 @@ static void draw_editnurb_splines(Object *ob, Nurb *nurb, const bool sel)
 					}
 
 					format = immVertexFormat();
-					pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
-					col = add_attrib(format, "color", GL_UNSIGNED_BYTE, 3, NORMALIZE_INT_TO_FLOAT);
+					pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
+					col = VertexFormat_add_attrib(format, "color", COMP_U8, 3, NORMALIZE_INT_TO_FLOAT);
 					immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
 
 					// just quick guesstimate of how many verts to draw
@@ -7323,7 +7322,7 @@ static void draw_editnurb(
 		BevList *bl;
 
 		VertexFormat *format = immVertexFormat();
-		unsigned pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
+		unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
 		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 		immUniformThemeColor(TH_WIRE_EDIT);
 
@@ -7391,7 +7390,7 @@ static void draw_editnurb(
 
 static void draw_editfont_textcurs(RegionView3D *rv3d, float textcurs[4][2])
 {
-	unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 	ED_view3d_polygon_offset(rv3d, -1.0);
 	set_inverted_drawing(1);
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
@@ -7429,7 +7428,7 @@ static void draw_editfont(Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3
 	}
 
 	if (cu->linewidth != 0.0f) {
-		unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
+		unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 		immUniformThemeColor(TH_WIRE_EDIT);
 		copy_v3_v3(vec1, ob->orig);
@@ -7450,7 +7449,7 @@ static void draw_editfont(Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3
 	setlinestyle(3);
 	for (int i = 0; i < cu->totbox; i++) {
 		if (cu->tb[i].w != 0.0f) {
-			unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+			unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 			immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 			immUniformThemeColor(i == (cu->actbox - 1) ? TH_ACTIVE : TH_WIRE);
 			vec1[0] = cu->xof + cu->tb[i].x;
@@ -7477,7 +7476,7 @@ static void draw_editfont(Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3
 		const int seltot = selend - selstart;
 		float selboxw;
 
-		unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+		unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 		imm_cpack(0xffffff);
 		set_inverted_drawing(1);
@@ -7775,7 +7774,7 @@ static bool drawmball(Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3D *r
 
 	glLineWidth(1.0f);
 
-	const int unsigned pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	const unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
 	while (ml) {
@@ -7831,7 +7830,7 @@ static void draw_forcefield(Object *ob, RegionView3D *rv3d,
 	normalize_v3(imat[1]);
 #endif
 
-	const int unsigned pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	const unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 	immUniformColor3fv(draw_color);
 	
@@ -8033,7 +8032,7 @@ static void imm_draw_bb(BoundBox *bb, char type, bool around_origin, const unsig
 	
 	gpuPushMatrix();
 
-	unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 	if (ob_wire_col) immUniformColor3ubv(ob_wire_col);
 
@@ -8048,20 +8047,20 @@ static void imm_draw_bb(BoundBox *bb, char type, bool around_origin, const unsig
 		float radius = size[0] > size[1] ? size[0] : size[1];
 		gpuTranslate3f(cent[0], cent[1], cent[2] - size[2]);
 		gpuScale3f(radius, radius, 2.0f * size[2]);
-		imm_cylinder_wire(pos, 1.0f, 1.0f, 1.0f, 8, 1);
+		imm_draw_cylinder_wire_3d(pos, 1.0f, 1.0f, 1.0f, 8, 1);
 	}
 	else if (type == OB_BOUND_CONE) {
 		float radius = size[0] > size[1] ? size[0] : size[1];
 		gpuTranslate3f(cent[0], cent[1], cent[2] - size[2]);
 		gpuScale3f(radius, radius, 2.0f * size[2]);
-		imm_cylinder_wire(pos, 1.0f, 0.0f, 1.0f, 8, 1);
+		imm_draw_cylinder_wire_3d(pos, 1.0f, 0.0f, 1.0f, 8, 1);
 
 	}
 	else if (type == OB_BOUND_CAPSULE) {
 		float radius = size[0] > size[1] ? size[0] : size[1];
 		float length = size[2] > radius ? 2.0f * (size[2] - radius) : 0.0f;
 		gpuTranslate3f(cent[0], cent[1], cent[2] - length * 0.5f);
-		imm_cylinder_wire(pos, radius, radius, length, 8, 1);
+		imm_draw_cylinder_wire_3d(pos, radius, radius, length, 8, 1);
 
 		gpuRotateAxis(90, 'X');
 		gpuScaleUniform(radius);
@@ -8111,7 +8110,7 @@ void draw_bounding_volume(Object *ob, char type, const unsigned char ob_wire_col
 		if (type == OB_BOUND_BOX) {
 			float vec[8][3], size[3];
 
-			unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+			unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 			immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 			if (ob_wire_col) immUniformColor3ubv(ob_wire_col);
 
@@ -8134,7 +8133,7 @@ void draw_bounding_volume(Object *ob, char type, const unsigned char ob_wire_col
 	}
 	else {
 		if (type == OB_BOUND_BOX) {
-			unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+			unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 			immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 			if (ob_wire_col) immUniformColor3ubv(ob_wire_col);
 
@@ -8178,7 +8177,7 @@ static void drawtexspace(Object *ob, const unsigned char ob_wire_col[3])
 	
 	setlinestyle(2);
 
-	unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 
 	if (ob_wire_col) {
 		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
@@ -8318,7 +8317,7 @@ static void draw_rigid_body_pivot(bRigidBodyJointConstraint *data,
 	const char *axis_str[3] = {"px", "py", "pz"};
 	float mat[4][4];
 
-	unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
 	if (ob_wire_col) immUniformColor3ubv(ob_wire_col);
@@ -8465,7 +8464,7 @@ void draw_rigidbody_shape(Object *ob, const unsigned char ob_wire_col[4])
 		case RB_SHAPE_BOX:
 			BKE_boundbox_calc_size_aabb(bb, size);
 			
-			pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+			pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 			immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 			if (ob_wire_col) immUniformColor3ubv(ob_wire_col);
 
@@ -8929,7 +8928,7 @@ afterdraw:
 		if (!render_override) {
 			BoundBox bb;
 			float p0[3], p1[3];
-			unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+			unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 			immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 			if (ob_wire_col) immUniformColor3ubv(ob_wire_col);
 
@@ -9067,7 +9066,7 @@ afterdraw:
 		{
 			float imat[4][4], vec[3] = {0.0f, 0.0f, 0.0f};
 
-			unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+			unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 			immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
 			invert_m4_m4(imat, rv3d->viewmatob);
@@ -9122,7 +9121,7 @@ afterdraw:
 				if ((base->sx != IS_CLIPPED) &&
 				    (U.obcenter_dia != 0.0))
 				{
-					unsigned pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+					unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 					immBindBuiltinProgram(GPU_SHADER_3D_POINT_FIXED_SIZE_UNIFORM_COLOR);
 					/* TODO: short term, use DEPTH_ONLY shader or set appropriate color */
 					/* TODO: long term, solve picking & selection problem better */
@@ -9151,7 +9150,7 @@ afterdraw:
 		ListBase *list;
 		RigidBodyCon *rbc = ob->rigidbody_constraint;
 		
-		unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+		unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 		immUniformColor3ubv(ob_wire_col);
 
@@ -9337,8 +9336,8 @@ static void bbs_obmode_mesh_verts(Object *ob, DerivedMesh *dm, int offset)
 
 	if (dm->getNumVerts(dm) == 0) return;
 
-	data.pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
-	data.col = add_attrib(format, "color", GL_UNSIGNED_BYTE, 3, NORMALIZE_INT_TO_FLOAT);
+	data.pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
+	data.col = VertexFormat_add_attrib(format, "color", COMP_U8, 3, NORMALIZE_INT_TO_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
 
@@ -9370,8 +9369,8 @@ static void bbs_mesh_verts(BMEditMesh *em, DerivedMesh *dm, int offset)
 	data.bm = em->bm;
 	data.offset = offset;
 	VertexFormat *format = immVertexFormat();
-	data.pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
-	data.col = add_attrib(format, "color", GL_UNSIGNED_BYTE, 3, NORMALIZE_INT_TO_FLOAT);
+	data.pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
+	data.col = VertexFormat_add_attrib(format, "color", COMP_U8, 3, NORMALIZE_INT_TO_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
 
@@ -9460,8 +9459,8 @@ static void bbs_mesh_solid_EM(BMEditMesh *em, Scene *scene, View3D *v3d,
 			drawBMOffset_userData data; /* don't use offset */
 			data.bm = em->bm;
 			VertexFormat *format = immVertexFormat();
-			data.pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
-			data.col = add_attrib(format, "color", GL_UNSIGNED_BYTE, 3, NORMALIZE_INT_TO_FLOAT);
+			data.pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
+			data.col = VertexFormat_add_attrib(format, "color", COMP_U8, 3, NORMALIZE_INT_TO_FLOAT);
 
 			immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
 
