@@ -39,7 +39,7 @@
 #include "ED_screen.h"
 #include "ED_view3d.h"
 
-#include "GL/glew.h"
+#include "GPU_glew.h"
 
 #include "MEM_guardedalloc.h"
 
