@@ -115,7 +115,7 @@ static void rna_def_workspace(BlenderRNA *brna)
 	                               NULL, NULL);
 	RNA_def_property_ui_text(prop, "Active Render Layer", "The active render layer used in this workspace");
 	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_NEVER_NULL);
-	RNA_def_property_update(prop, NC_WORKSPACE | ND_LAYER, NULL);
+	RNA_def_property_update(prop, NC_SCREEN | ND_LAYER, NULL);
 }
 
 void RNA_def_workspace(BlenderRNA *brna)

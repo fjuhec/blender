@@ -23,7 +23,7 @@
  */
 
 /** \file blender/editors/screen/screen_edit.c
- *  \ingroup edscreen
+ *  \ingroup edscr
  */
 
 
@@ -877,7 +877,7 @@ void ED_screen_do_listen(bContext *C, wmNotifier *note)
 		case NC_WINDOW:
 			screen->do_draw = true;
 			break;
-		case NC_WORKSPACE:
+		case NC_SCREEN:
 			if (note->action == NA_EDITED)
 				screen->do_draw = screen->do_refresh = true;
 			break;
@@ -1192,7 +1192,7 @@ int ED_screen_area_active(const bContext *C)
 /* -------------------------------------------------------------------- */
 /* Screen changing */
 
-static bScreen *screen_find_associated_fullscreen(const Main *bmain, bScreen *screen)
+static bScreen *screen_fullscreen_find_associated_normal_screen(const Main *bmain, bScreen *screen)
 {
 	for (bScreen *screen_iter = bmain->screen.first; screen_iter; screen_iter = screen_iter->id.next) {
 		ScrArea *sa = screen_iter->areabase.first;
@@ -1216,7 +1216,7 @@ bScreen *screen_change_prepare(bScreen *screen_old, bScreen *screen_new, Main *b
 	}
 
 	if (ELEM(screen_new->state, SCREENMAXIMIZED, SCREENFULL)) {
-		screen_new = screen_find_associated_fullscreen(bmain, screen_new);
+		screen_new = screen_fullscreen_find_associated_normal_screen(bmain, screen_new);
 	}
 
 	/* check for valid winid */
@@ -1260,7 +1260,7 @@ void screen_changed_update(bContext *C, wmWindow *win, bScreen *sc)
 
 	BKE_screen_view3d_scene_sync(sc, scene); /* sync new screen with scene data */
 	WM_event_add_notifier(C, NC_WINDOW, NULL);
-	WM_event_add_notifier(C, NC_WORKSPACE | ND_SCREENSET, sc);
+	WM_event_add_notifier(C, NC_SCREEN | ND_SCREENSET, sc);
 
 	/* makes button hilites work */
 	WM_event_add_mousemove(C);
@@ -1666,7 +1666,7 @@ void ED_screen_animation_timer(bContext *C, int redraws, int refresh, int sync, 
 	}
 
 	/* notifier catched by top header, for button */
-	WM_event_add_notifier(C, NC_WORKSPACE | ND_ANIMPLAY, NULL);
+	WM_event_add_notifier(C, NC_SCREEN | ND_ANIMPLAY, NULL);
 }
 
 /* helper for screen_animation_play() - only to be used for TimeLine */

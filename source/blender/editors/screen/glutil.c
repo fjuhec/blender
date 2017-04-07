@@ -24,7 +24,7 @@
  */
 
 /** \file blender/editors/screen/glutil.c
- *  \ingroup edscreen
+ *  \ingroup edscr
  */
 
 

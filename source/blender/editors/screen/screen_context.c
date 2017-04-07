@@ -23,7 +23,7 @@
  */
 
 /** \file blender/editors/screen/screen_context.c
- *  \ingroup edscreen
+ *  \ingroup edscr
  */
 
 #include <stdio.h>

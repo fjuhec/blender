@@ -1272,7 +1272,7 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 						wm_window_make_drawable(wm, win);
 						wm_draw_window_clear(win);
 						BKE_icon_changed(screen->id.icon_id);
-						WM_event_add_notifier(C, NC_WORKSPACE | NA_EDITED, NULL);
+						WM_event_add_notifier(C, NC_SCREEN | NA_EDITED, NULL);
 						WM_event_add_notifier(C, NC_WINDOW | NA_EDITED, NULL);
 						
 #if defined(__APPLE__) || defined(WIN32)
@@ -1297,7 +1297,7 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 
 				BKE_blender_userdef_refresh();
 				WM_main_add_notifier(NC_WINDOW, NULL);      /* full redraw */
-				WM_main_add_notifier(NC_WORKSPACE | NA_EDITED, NULL);    /* refresh region sizes */
+				WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);    /* refresh region sizes */
 				break;
 			}
 
@@ -1396,7 +1396,7 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 					wm_window_make_drawable(wm, win);
 					wm_draw_window_clear(win);
 
-					WM_event_add_notifier(C, NC_WORKSPACE | NA_EDITED, NULL);
+					WM_event_add_notifier(C, NC_SCREEN | NA_EDITED, NULL);
 					WM_event_add_notifier(C, NC_WINDOW | NA_EDITED, NULL);
 				}
 

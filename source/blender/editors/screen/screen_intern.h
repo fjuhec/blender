@@ -25,7 +25,7 @@
  */
 
 /** \file blender/editors/screen/screen_intern.h
- *  \ingroup edscreen
+ *  \ingroup edscr
  */
 
 #ifndef __SCREEN_INTERN_H__

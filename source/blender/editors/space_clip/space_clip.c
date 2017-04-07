@@ -389,7 +389,7 @@ static void clip_listener(bScreen *UNUSED(sc), ScrArea *sa, wmNotifier *wmn, con
 					break;
 			}
 			break;
-		case NC_WORKSPACE:
+		case NC_SCREEN:
 			switch (wmn->data) {
 				case ND_ANIMPLAY:
 					ED_area_tag_redraw(sa);

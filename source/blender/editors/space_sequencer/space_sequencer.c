@@ -522,7 +522,7 @@ static void sequencer_main_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(
 			if (wmn->action == NA_RENAME)
 				ED_region_tag_redraw(ar);
 			break;
-		case NC_WORKSPACE:
+		case NC_SCREEN:
 			if (ELEM(wmn->data, ND_SCREENCAST, ND_ANIMPLAY))
 				ED_region_tag_redraw(ar);
 			break;

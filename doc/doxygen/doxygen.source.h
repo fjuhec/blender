@@ -219,7 +219,7 @@
  *  \ingroup editors
  */
 
-/** \defgroup edscreen screen
+/** \defgroup edscr screen
  *  \ingroup editors
  */
 

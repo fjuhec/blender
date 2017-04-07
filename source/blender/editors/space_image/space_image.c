@@ -830,7 +830,7 @@ static void image_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegion
 					ED_region_tag_redraw(ar);
 			}
 			break;
-		case NC_WORKSPACE:
+		case NC_SCREEN:
 			if (ELEM(wmn->data, ND_LAYER)) {
 				ED_region_tag_redraw(ar);
 			}

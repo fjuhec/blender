@@ -636,7 +636,7 @@ static void time_main_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), 
 			if (wmn->data == ND_DATA)
 				ED_region_tag_redraw(ar);
 			break;
-		case NC_WORKSPACE:
+		case NC_SCREEN:
 			if (ELEM(wmn->data, ND_LAYER)) {
 				ED_region_tag_redraw(ar);
 			}
@@ -662,7 +662,7 @@ static void time_header_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa)
 {
 	/* context changes */
 	switch (wmn->category) {
-		case NC_WORKSPACE:
+		case NC_SCREEN:
 		{
 			if (wmn->data == ND_ANIMPLAY)
 				ED_region_tag_redraw(ar);

@@ -25,7 +25,7 @@
  */
 
 /** \file blender/editors/screen/area.c
- *  \ingroup edscreen
+ *  \ingroup edscr
  */
 
 

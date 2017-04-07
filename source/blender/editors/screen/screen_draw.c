@@ -19,7 +19,7 @@
  */
 
 /** \file blender/editors/screen/screen_draw.c
- *  \ingroup edscreen
+ *  \ingroup edscr
  */
 
 #include "ED_screen.h"

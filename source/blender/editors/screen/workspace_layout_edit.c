@@ -19,7 +19,7 @@
  */
 
 /** \file blender/editors/screen/workspace_layout_edit.c
- *  \ingroup edscreen
+ *  \ingroup edscr
  */
 
 #include <stdlib.h>
