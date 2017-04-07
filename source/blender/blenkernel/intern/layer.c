@@ -33,7 +33,6 @@
 #include "BLT_translation.h"
 
 #include "BKE_collection.h"
-#include "BKE_depsgraph.h"
 #include "BKE_global.h"
 #include "BKE_idprop.h"
 #include "BKE_layer.h"
@@ -1362,7 +1361,7 @@ static void idproperty_reset(IDProperty **props, IDProperty *props_ref)
 	}
 }
 
-void BKE_layer_eval_layer_collection_pre(EvaluationContext *UNUSED(eval_ctx),
+void BKE_layer_eval_layer_collection_pre(struct EvaluationContext *UNUSED(eval_ctx),
                                          Scene *scene, SceneLayer *scene_layer)
 {
 	DEBUG_PRINT("%s on %s\n", __func__, scene_layer->name);
@@ -1375,7 +1374,7 @@ void BKE_layer_eval_layer_collection_pre(EvaluationContext *UNUSED(eval_ctx),
 	scene_layer->flag |= SCENE_LAYER_ENGINE_DIRTY;
 }
 
-void BKE_layer_eval_layer_collection(EvaluationContext *UNUSED(eval_ctx),
+void BKE_layer_eval_layer_collection(struct EvaluationContext *UNUSED(eval_ctx),
                                      Scene *scene,
                                      LayerCollection *layer_collection,
                                      LayerCollection *parent_layer_collection)
@@ -1425,7 +1424,7 @@ void BKE_layer_eval_layer_collection(EvaluationContext *UNUSED(eval_ctx),
 	}
 }
 
-void BKE_layer_eval_layer_collection_post(EvaluationContext *UNUSED(eval_ctx),
+void BKE_layer_eval_layer_collection_post(struct EvaluationContext *UNUSED(eval_ctx),
                                           SceneLayer *scene_layer)
 {
 	DEBUG_PRINT("%s on %s\n", __func__, scene_layer->name);

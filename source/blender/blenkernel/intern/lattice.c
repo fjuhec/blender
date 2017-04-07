@@ -53,7 +53,6 @@
 #include "BKE_anim.h"
 #include "BKE_cdderivedmesh.h"
 #include "BKE_curve.h"
-#include "BKE_depsgraph.h"
 #include "BKE_displist.h"
 #include "BKE_global.h"
 #include "BKE_key.h"
@@ -1227,7 +1226,7 @@ void BKE_lattice_translate(Lattice *lt, float offset[3], bool do_keys)
 
 /* **** Depsgraph evaluation **** */
 
-void BKE_lattice_eval_geometry(EvaluationContext *UNUSED(eval_ctx),
+void BKE_lattice_eval_geometry(struct EvaluationContext *UNUSED(eval_ctx),
                                Lattice *UNUSED(latt))
 {
 }
