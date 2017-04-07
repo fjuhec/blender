@@ -259,7 +259,9 @@ void ED_operatortypes_object(void)
 	WM_operatortype_append(OBJECT_OT_datalayout_transfer);
 	WM_operatortype_append(OBJECT_OT_surfacedeform_bind);
 
+#if 0
 	WM_operatortype_append(OBJECT_OT_widget_add);
+#endif
 }
 
 void ED_operatormacros_object(void)

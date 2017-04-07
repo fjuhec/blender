@@ -51,6 +51,7 @@ struct SceneLayer;
 struct wmOperatorType;
 struct wmWindowManager;
 struct wmKeyConfig;
+struct wmManipulatorGroupType;
 
 /* drawing flags: */
 enum {

@@ -921,6 +921,7 @@ static int calc_manipulator_stats(const bContext *C)
 				if (ob == NULL)
 					ob = base->object;
 				calc_tw_center(scene, base->object->obmat[3]);
+				protectflag_to_drawflags(base->object->protectflag, &rv3d->twdrawflag);
 				totsel++;
 			}
 		}
@@ -1349,7 +1350,7 @@ void TRANSFORM_WGT_manipulator(wmManipulatorGroupType *wgt)
 
 /* -------------------------------------------------------------------- */
 /* Custom Object Manipulator (unfinished - unsure if this will stay) */
-
+#if 0
 static void WIDGETGROUP_object_manipulator_init(const bContext *C, wmManipulatorGroup *wgroup)
 {
 	Object *ob = ED_object_active_context((bContext *)C);
@@ -1385,3 +1386,4 @@ void TRANSFORM_WGT_object(wmManipulatorGroupType *wgt)
 
 	wgt->flag |= (WM_MANIPULATORGROUPTYPE_IS_3D | WM_MANIPULATORGROUPTYPE_SCALE_3D);
 }
+#endif

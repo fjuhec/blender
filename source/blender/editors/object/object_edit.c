@@ -2009,6 +2009,7 @@ void OBJECT_OT_game_physics_copy(struct wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
+#if 0
 static int object_widget_add_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Object *ob = ED_object_active_context((bContext *)C);
@@ -2044,6 +2045,7 @@ void OBJECT_OT_widget_add(wmOperatorType *ot)
 	prop = RNA_def_enum(ot->srna, "type", rna_enum_wm_widget_type_items, 0, "Type", "Select the type of widget to add");
 	ot->prop = prop;
 }
+#endif
 
 /* generic utility function */
 
