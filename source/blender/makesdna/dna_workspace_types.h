@@ -18,7 +18,7 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file DNA_workspace_types.h
+/** \file dna_workspace_types.h
  *  \ingroup DNA
  *
  * Only use with API in BKE_workspace.h!
