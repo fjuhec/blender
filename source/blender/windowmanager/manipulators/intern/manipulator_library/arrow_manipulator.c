@@ -145,7 +145,7 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select, co
 	}
 	else {
 #ifdef USE_MANIPULATOR_CUSTOM_ARROWS
-		wm_manipulator_geometryinfo_draw(&wm_manipulator_geom_data_arrow, select);
+		wm_manipulator_geometryinfo_draw(&wm_manipulator_geom_data_arrow, select, color);
 #else
 		unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 
@@ -182,7 +182,7 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select, co
 
 			/* draw cube */
 			immUnbindProgram();
-			wm_manipulator_geometryinfo_draw(&wm_manipulator_geom_data_cube, select);
+			wm_manipulator_geometryinfo_draw(&wm_manipulator_geom_data_cube, select, color);
 		}
 		else {
 			const float len = 0.25f;
