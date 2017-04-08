@@ -3103,7 +3103,7 @@ static void radial_control_paint_tex(RadialControl *rc, float radius, float alph
 		}
 
 		/* draw textured quad */
-		immBegin(GL_QUADS, 4);
+		immBegin(PRIM_TRIANGLE_FAN, 4);
 
 		immAttrib2f(texCoord, 0, 0);
 		immVertex2f(pos, -radius, -radius);
@@ -3218,14 +3218,14 @@ static void radial_control_paint_cursor(bContext *C, int x, int y, void *customd
 
 		/* draw original angle line */
 		gpuRotate2D(RAD2DEGF(rc->initial_value));
-		immBegin(GL_LINES, 2);
+		immBegin(PRIM_LINES, 2);
 		immVertex2f(pos, (float)WM_RADIAL_CONTROL_DISPLAY_MIN_SIZE, 0.0f);
 		immVertex2f(pos, (float)WM_RADIAL_CONTROL_DISPLAY_SIZE, 0.0f);
 		immEnd();
 
 		/* draw new angle line */
 		gpuRotate2D(RAD2DEGF(rc->current_value - rc->initial_value));
-		immBegin(GL_LINES, 2);
+		immBegin(PRIM_LINES, 2);
 		immVertex2f(pos, (float)WM_RADIAL_CONTROL_DISPLAY_MIN_SIZE, 0.0f);
 		immVertex2f(pos, (float)WM_RADIAL_CONTROL_DISPLAY_SIZE, 0.0f);
 		immEnd();

@@ -14,22 +14,38 @@
 # along with this program; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
-# The Original Code is Copyright (C) 2006, Blender Foundation
+# The Original Code is Copyright (C) 2014, Blender Foundation
 # All rights reserved.
 #
-# The Original Code is: all of this file.
-#
-# Contributor(s): Jacques Beaurain.
+# Contributor(s): Sybren A. Stüvel
 #
 # ***** END GPL LICENSE BLOCK *****
 
-if(WITH_LEGACY_OPENGL)
-	add_definitions(-DWITH_LEGACY_OPENGL)
+set(INC
+	.
+	..
+	../../../source/blender/blenlib
+	../../../source/blender/alembic
+	${ALEMBIC_INCLUDE_DIRS}
+	${BOOST_INCLUDE_DIR}
+	${HDF5_INCLUDE_DIRS}
+	${OPENEXR_INCLUDE_DIRS}
+)
+
+include_directories(${INC})
+
+setup_libdirs()
+get_property(BLENDER_SORTED_LIBS GLOBAL PROPERTY BLENDER_SORTED_LIBS_PROP)
+
+if(WITH_BUILDINFO)
+	set(_buildinfo_src "$<TARGET_OBJECTS:buildinfoobj>")
+else()
+	set(_buildinfo_src "")
 endif()
 
-add_subdirectory(blender)
+# For motivation on doubling BLENDER_SORTED_LIBS, see ../bmesh/CMakeLists.txt
+BLENDER_SRC_GTEST(abc_matrix "abc_matrix_test.cc;${_buildinfo_src}" "${BLENDER_SORTED_LIBS};${BLENDER_SORTED_LIBS}")
 
-if(WITH_GAMEENGINE)
-	add_subdirectory(gameengine)
-endif()
+unset(_buildinfo_src)
 
+setup_liblinks(abc_matrix_test)
