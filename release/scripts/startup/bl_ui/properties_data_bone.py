@@ -486,6 +486,7 @@ classes = (
     BONE_PT_transform_locks,
     BONE_PT_curved,
     BONE_PT_relations,
+    BONE_PT_facemaps,
     BONE_PT_display,
     BONE_PT_inverse_kinematics,
     BONE_PT_deform,
