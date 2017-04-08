@@ -66,7 +66,8 @@
  * \brief API for managing workspaces and their data.
  * \{ */
 
-WorkSpace *ED_workspace_add(Main *bmain, const char *name, SceneLayer *act_render_layer)
+WorkSpace *ED_workspace_add(
+        Main *bmain, const char *name, SceneLayer *act_render_layer)
 {
 	WorkSpace *workspace = BKE_workspace_add(bmain, name);
 
@@ -134,7 +135,7 @@ static WorkSpaceLayout *workspace_change_get_new_layout(
 		layout_new = layout_temp_store;
 	}
 	else {
-		layout_new = BKE_workspace_active_layout_get_from_workspace(win->workspace_hook, workspace_new);
+		layout_new = BKE_workspace_hook_layout_for_workspace_get(win->workspace_hook, workspace_new);
 		if (!layout_new) {
 			layout_new = BKE_workspace_layouts_get(workspace_new)->first;
 		}
@@ -166,7 +167,7 @@ static WorkSpaceLayout *workspace_change_get_new_layout(
  * \returns if workspace changing was successful.
  */
 bool ED_workspace_change(
-        bContext *C, wmWindowManager *wm, wmWindow *win, WorkSpace *workspace_new)
+        WorkSpace *workspace_new, bContext *C, wmWindowManager *wm, wmWindow *win)
 {
 	Main *bmain = CTX_data_main(C);
 	WorkSpace *workspace_old = WM_window_get_active_workspace(win);
@@ -204,7 +205,8 @@ bool ED_workspace_change(
  * Duplicate a workspace including its layouts. Does not activate the workspace, but
  * it stores the screen-layout to be activated (BKE_workspace_temp_layout_store)
  */
-WorkSpace *ED_workspace_duplicate(WorkSpace *workspace_old, Main *bmain, wmWindow *win)
+WorkSpace *ED_workspace_duplicate(
+        WorkSpace *workspace_old, Main *bmain, wmWindow *win)
 {
 	WorkSpaceLayout *layout_active_old = BKE_workspace_active_layout_get(win->workspace_hook);
 	ListBase *layouts_old = BKE_workspace_layouts_get(workspace_old);
@@ -229,19 +231,20 @@ WorkSpace *ED_workspace_duplicate(WorkSpace *workspace_old, Main *bmain, wmWindo
 /**
  * \return if succeeded.
  */
-bool ED_workspace_delete(Main *bmain, bContext *C, wmWindowManager *wm, wmWindow *win, WorkSpace *ws)
+bool ED_workspace_delete(
+        WorkSpace *workspace, Main *bmain, bContext *C, wmWindowManager *wm, wmWindow *win)
 {
 	if (BLI_listbase_is_single(&bmain->workspaces)) {
 		return false;
 	}
 
-	if (WM_window_get_active_workspace(win) == ws) {
-		WorkSpace *prev = BKE_workspace_prev_get(ws);
-		WorkSpace *next = BKE_workspace_next_get(ws);
+	if (WM_window_get_active_workspace(win) == workspace) {
+		WorkSpace *prev = BKE_workspace_prev_get(workspace);
+		WorkSpace *next = BKE_workspace_next_get(workspace);
 
-		ED_workspace_change(C, wm, win, (prev != NULL) ? prev : next);
+		ED_workspace_change((prev != NULL) ? prev : next, C, wm, win);
 	}
-	BKE_libblock_free(bmain, BKE_workspace_id_get(ws));
+	BKE_libblock_free(bmain, BKE_workspace_id_get(workspace));
 
 	return true;
 }
@@ -250,7 +253,8 @@ bool ED_workspace_delete(Main *bmain, bContext *C, wmWindowManager *wm, wmWindow
  * Some editor data may need to be synced with scene data (3D View camera and layers).
  * This function ensures data is synced for editors in active layout of \a workspace.
  */
-void ED_workspace_scene_data_sync(WorkSpaceInstanceHook *hook, Scene *scene)
+void ED_workspace_scene_data_sync(
+        WorkSpaceInstanceHook *hook, Scene *scene)
 {
 	bScreen *screen = BKE_workspace_active_screen_get(hook);
 	BKE_screen_view3d_scene_sync(screen, scene);
@@ -292,7 +296,7 @@ static int workspace_delete_exec(bContext *C, wmOperator *UNUSED(op))
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *win = CTX_wm_window(C);
 
-	ED_workspace_delete(bmain, C, wm, win, WM_window_get_active_workspace(win));
+	ED_workspace_delete(WM_window_get_active_workspace(win), bmain, C, wm, win);
 
 	return OPERATOR_FINISHED;
 }
@@ -308,7 +312,8 @@ static void WORKSPACE_OT_workspace_delete(wmOperatorType *ot)
 	ot->exec = workspace_delete_exec;
 }
 
-static void workspace_config_file_path_from_folder_id(const Main *bmain, int folder_id, char *r_path)
+static void workspace_config_file_path_from_folder_id(
+        const Main *bmain, int folder_id, char *r_path)
 {
 	const char *cfgdir = BKE_appdir_folder_id(folder_id, NULL);
 
@@ -321,7 +326,8 @@ static void workspace_config_file_path_from_folder_id(const Main *bmain, int fol
 }
 
 ATTR_NONNULL(1)
-static WorkspaceConfigFileData *workspace_config_file_read(const Main *bmain, ReportList *reports)
+static WorkspaceConfigFileData *workspace_config_file_read(
+        const Main *bmain, ReportList *reports)
 {
 	char workspace_config_path[FILE_MAX];
 	bool has_path = false;

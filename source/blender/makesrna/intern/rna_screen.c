@@ -87,7 +87,7 @@ static void rna_Screen_layout_name_get(PointerRNA *ptr, char *value)
 
 	BKE_workspace_iter_begin(workspace, G.main->workspaces.first)
 	{
-		WorkSpaceLayout *layout = BKE_workspace_layout_find_exec(workspace, screen);
+		WorkSpaceLayout *layout = BKE_workspace_layout_find(workspace, screen);
 		if (layout) {
 			const char *name = BKE_workspace_layout_name_get(layout);
 			BLI_strncpy(value, name, strlen(name) + 1);
@@ -105,7 +105,7 @@ static int rna_Screen_layout_name_length(PointerRNA *ptr)
 
 	BKE_workspace_iter_begin(workspace, G.main->workspaces.first)
 	{
-		WorkSpaceLayout *layout = BKE_workspace_layout_find_exec(workspace, screen);
+		WorkSpaceLayout *layout = BKE_workspace_layout_find(workspace, screen);
 		if (layout) {
 			const char *name = BKE_workspace_layout_name_get(layout);
 			return strlen(name);
@@ -122,7 +122,7 @@ static void rna_Screen_layout_name_set(PointerRNA *ptr, const char *value)
 
 	BKE_workspace_iter_begin(workspace, G.main->workspaces.first)
 	{
-		WorkSpaceLayout *layout = BKE_workspace_layout_find_exec(workspace, screen);
+		WorkSpaceLayout *layout = BKE_workspace_layout_find(workspace, screen);
 		if (layout) {
 			BKE_workspace_layout_name_set(workspace, layout, value);
 			break;

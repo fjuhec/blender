@@ -45,7 +45,10 @@
 /**
  * Empty screen, with 1 dummy area without spacedata. Uses window size.
  */
-WorkSpaceLayout *ED_workspace_layout_add(WorkSpace *workspace, wmWindow *win, const char *name)
+WorkSpaceLayout *ED_workspace_layout_add(
+        WorkSpace *workspace,
+        wmWindow *win,
+        const char *name)
 {
 	const int winsize_x = WM_window_pixels_x(win);
 	const int winsize_y = WM_window_pixels_y(win);
@@ -56,7 +59,9 @@ WorkSpaceLayout *ED_workspace_layout_add(WorkSpace *workspace, wmWindow *win, co
 	return layout;
 }
 
-WorkSpaceLayout *ED_workspace_layout_duplicate(WorkSpace *workspace, const WorkSpaceLayout *layout_old, wmWindow *win)
+WorkSpaceLayout *ED_workspace_layout_duplicate(
+        WorkSpace *workspace, const WorkSpaceLayout *layout_old,
+        wmWindow *win)
 {
 	bScreen *screen_old = BKE_workspace_layout_screen_get(layout_old);
 	const char *name = BKE_workspace_layout_name_get(layout_old);
@@ -74,8 +79,9 @@ WorkSpaceLayout *ED_workspace_layout_duplicate(WorkSpace *workspace, const WorkS
 	return layout_new;
 }
 
-static bool workspace_layout_delete_doit(bContext *C, WorkSpace *workspace,
-                                         WorkSpaceLayout *layout_old, WorkSpaceLayout *layout_new)
+static bool workspace_layout_delete_doit(
+        WorkSpace *workspace, WorkSpaceLayout *layout_old, WorkSpaceLayout *layout_new,
+        bContext *C)
 {
 	Main *bmain = CTX_data_main(C);
 	wmWindow *win = CTX_wm_window(C);
@@ -130,7 +136,9 @@ static WorkSpaceLayout *workspace_layout_delete_find_new(const WorkSpaceLayout *
  * \warning Only call outside of area/region loops!
  * \return true if succeeded.
  */
-bool ED_workspace_layout_delete(bContext *C, WorkSpace *workspace, WorkSpaceLayout *layout_old)
+bool ED_workspace_layout_delete(
+        WorkSpace *workspace, WorkSpaceLayout *layout_old,
+        bContext *C)
 {
 	const bScreen *screen_old = BKE_workspace_layout_screen_get(layout_old);
 	WorkSpaceLayout *layout_new;
@@ -149,7 +157,7 @@ bool ED_workspace_layout_delete(bContext *C, WorkSpace *workspace, WorkSpaceLayo
 	layout_new = workspace_layout_delete_find_new(layout_old);
 
 	if (layout_new) {
-		return workspace_layout_delete_doit(C, workspace, layout_old, layout_new);
+		return workspace_layout_delete_doit(workspace, layout_old, layout_new, C);
 	}
 
 	return false;
@@ -160,7 +168,8 @@ static bool workspace_layout_cycle_iter_cb(const WorkSpaceLayout *layout, void *
 	return workspace_layout_set_poll(layout);
 }
 
-bool ED_workspace_layout_cycle(bContext *C, WorkSpace *workspace, const short direction)
+bool ED_workspace_layout_cycle(
+        WorkSpace *workspace, const short direction, bContext *C)
 {
 	wmWindow *win = CTX_wm_window(C);
 	WorkSpaceLayout *old_layout = BKE_workspace_active_layout_get(win->workspace_hook);

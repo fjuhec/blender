@@ -1948,7 +1948,7 @@ WorkSpaceLayout *WM_window_get_active_layout(const wmWindow *win)
 }
 void WM_window_set_active_layout(wmWindow *win, WorkSpace *workspace, WorkSpaceLayout *layout)
 {
-	BKE_workspace_active_layout_set_for_workspace(win->workspace_hook, workspace, layout);
+	BKE_workspace_hook_layout_for_workspace_set(win->workspace_hook, workspace, layout);
 }
 
 /**

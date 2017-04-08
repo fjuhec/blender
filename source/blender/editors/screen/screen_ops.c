@@ -2399,7 +2399,7 @@ static int screen_set_exec(bContext *C, wmOperator *op)
 	WorkSpace *workspace = CTX_wm_workspace(C);
 	int delta = RNA_int_get(op->ptr, "delta");
 
-	if (ED_workspace_layout_cycle(C, workspace, delta)) {
+	if (ED_workspace_layout_cycle(workspace, delta, C)) {
 		return OPERATOR_FINISHED;
 	}
 
