@@ -427,7 +427,7 @@ static const float cosval[CIRCLE_RESOL] = {
  */
 static void draw_xyz_wire(const float viewmat_local_unit[3][3], const float c[3], float size, int axis, unsigned pos)
 {
-	int line_type;
+	PrimitiveType line_type = PRIM_LINES;
 	float buffer[4][3];
 	int n = 0;
 
@@ -440,8 +440,6 @@ static void draw_xyz_wire(const float viewmat_local_unit[3][3], const float c[3]
 
 	switch (axis) {
 		case 0:     /* x axis */
-			line_type = GL_LINES;
-
 			/* bottom left to top right */
 			negate_v3_v3(v1, dx);
 			sub_v3_v3(v1, dy);
@@ -461,8 +459,6 @@ static void draw_xyz_wire(const float viewmat_local_unit[3][3], const float c[3]
 
 			break;
 		case 1:     /* y axis */
-			line_type = GL_LINES;
-			
 			/* bottom left to top right */
 			mul_v3_fl(dx, 0.75f);
 			negate_v3_v3(v1, dx);
@@ -483,7 +479,7 @@ static void draw_xyz_wire(const float viewmat_local_unit[3][3], const float c[3]
 			
 			break;
 		case 2:     /* z axis */
-			line_type = GL_LINE_STRIP;
+			line_type = PRIM_LINE_STRIP;
 			
 			/* start at top left */
 			negate_v3_v3(v1, dx);
@@ -521,13 +517,6 @@ static void draw_xyz_wire(const float viewmat_local_unit[3][3], const float c[3]
 	immEnd();
 
 	/* TODO: recode this function for clarity once we're not in a hurry to modernize GL usage */
-
-#if 0
-	glEnableClientState(GL_VERTEX_ARRAY);
-	glVertexPointer(3, GL_FLOAT, 0, buffer);
-	glDrawArrays(line_type, 0, n);
-	glDisableClientState(GL_VERTEX_ARRAY);
-#endif
 }
 
 void drawaxes(const float viewmat_local[4][4], float size, char drawtype, const unsigned char color[4])
@@ -550,7 +539,7 @@ void drawaxes(const float viewmat_local[4][4], float size, char drawtype, const 
 
 	switch (drawtype) {
 		case OB_PLAINAXES:
-			immBegin(GL_LINES, 6);
+			immBegin(PRIM_LINES, 6);
 			for (axis = 0; axis < 3; axis++) {
 				v1[axis] = size;
 				v2[axis] = -size;
@@ -564,7 +553,7 @@ void drawaxes(const float viewmat_local[4][4], float size, char drawtype, const 
 			break;
 
 		case OB_SINGLE_ARROW:
-			immBegin(GL_LINES, 2);
+			immBegin(PRIM_LINES, 2);
 			/* in positive z direction only */
 			v1[2] = size;
 			immVertex3fv(pos, v1);
@@ -572,7 +561,7 @@ void drawaxes(const float viewmat_local[4][4], float size, char drawtype, const 
 			immEnd();
 
 			/* square pyramid */
-			immBegin(GL_TRIANGLES, 12);
+			immBegin(PRIM_TRIANGLES, 12);
 
 			v2[0] = size * 0.035f; v2[1] = size * 0.035f;
 			v3[0] = size * -0.035f; v3[1] = size * 0.035f;
@@ -622,7 +611,7 @@ void drawaxes(const float viewmat_local[4][4], float size, char drawtype, const 
 			for (axis = 0; axis < 3; axis++) {
 				const int arrow_axis = (axis == 0) ? 1 : 0;
 
-				immBegin(GL_LINES, 6);
+				immBegin(PRIM_LINES, 6);
 
 				v2[axis] = size;
 				immVertex3fv(pos, v1);
@@ -712,7 +701,7 @@ static void draw_empty_image(Object *ob, const short dflag, const unsigned char 
 		immUniform1f("alpha", ob_alpha);
 		immUniform1i("image", 0); /* default GL_TEXTURE0 unit */
 
-		immBegin(GL_TRIANGLE_FAN, 4);
+		immBegin(PRIM_TRIANGLE_FAN, 4);
 		immAttrib2f(texCoord, 0.0f, 0.0f);
 		immVertex2f(pos, left, bottom);
 
@@ -785,7 +774,7 @@ void imm_drawcircball(const float cent[3], float rad, const float tmat[4][4], un
 
 	circball_array_fill(verts, cent, rad, tmat);
 
-	immBegin(GL_LINE_LOOP, CIRCLE_RESOL);
+	immBegin(PRIM_LINE_LOOP, CIRCLE_RESOL);
 	for (int i = 0; i < CIRCLE_RESOL; ++i) {
 		immVertex3fv(pos, verts[i]);
 	}
@@ -826,7 +815,7 @@ static void drawcentercircle(View3D *v3d, RegionView3D *UNUSED(rv3d), const floa
 	immUniform4fv("outlineColor", outlineColor);
 	immUniform1f("outlineWidth", outlineWidth);
 
-	immBegin(GL_POINTS, 1);
+	immBegin(PRIM_POINTS, 1);
 	immVertex3fv(pos, co);
 	immEnd();
 
@@ -1001,7 +990,7 @@ void view3d_cached_text_draw_end(View3D *v3d, ARegion *ar, bool depth_write, flo
  */
 static void drawcube_size(float size, unsigned pos)
 {
-	const GLfloat verts[8][3] = {
+	const float verts[8][3] = {
 		{-size, -size, -size},
 		{-size, -size,  size},
 		{-size,  size, -size},
@@ -1020,7 +1009,7 @@ static void drawcube_size(float size, unsigned pos)
 	glDrawRangeElements(GL_LINES, 0, 7, 24, GL_UNSIGNED_BYTE, indices);
 	glDisableClientState(GL_VERTEX_ARRAY);
 #else
-	immBegin(GL_LINES, 24);
+	immBegin(PRIM_LINES, 24);
 	for (int i = 0; i < 24; ++i) {
 		immVertex3fv(pos, verts[indices[i]]);
 	}
@@ -1038,13 +1027,13 @@ static void drawshadbuflimits(const Lamp *la, const float mat[4][4], unsigned po
 	madd_v3_v3v3fl(sta, mat[3], lavec, la->clipsta);
 	madd_v3_v3v3fl(end, mat[3], lavec, la->clipend);
 
-	immBegin(GL_LINES, 2);
+	immBegin(PRIM_LINES, 2);
 	immVertex3fv(pos, sta);
 	immVertex3fv(pos, end);
 	immEnd();
 
 	glPointSize(3.0f);
-	immBegin(GL_POINTS, 2);
+	immBegin(PRIM_POINTS, 2);
 	immVertex3fv(pos, sta);
 	immVertex3fv(pos, end);
 	immEnd();
@@ -1119,7 +1108,7 @@ static void draw_spot_cone(Lamp *la, float x, float z, unsigned pos)
 
 	const bool square = (la->mode & LA_SQUARE);
 
-	immBegin(GL_TRIANGLE_FAN, square ? 6 : 34);
+	immBegin(PRIM_TRIANGLE_FAN, square ? 6 : 34);
 	immVertex3f(pos, 0.0f, 0.0f, -x);
 
 	if (square) {
@@ -1310,7 +1299,7 @@ void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
 			immUniformColor3fvAlpha(color, 0.3f);
 			immUniform4fv("outlineColor", color);
 
-			immBegin(GL_POINTS, 1);
+			immBegin(PRIM_POINTS, 1);
 			immVertex3fv(pos, vec);
 			immEnd();
 
@@ -1326,7 +1315,7 @@ void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
 			/* color doesn't matter, so don't set */
 			glPointSize(lampdot_size);
 
-			immBegin(GL_POINTS, 1);
+			immBegin(PRIM_POINTS, 1);
 			immVertex3fv(pos, vec);
 			immEnd();
 
@@ -1381,7 +1370,7 @@ void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
 
 		setlinestyle(3);
 
-		immBegin(GL_LINES, 16);
+		immBegin(PRIM_LINES, 16);
 		for (axis = 0; axis < 8; axis++) {
 			immVertex3fv(pos, v1);
 			immVertex3fv(pos, v2);
@@ -1434,7 +1423,7 @@ void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
 			    {-z_abs, z_abs, x},
 			};
 
-			immBegin(GL_LINES, 16);
+			immBegin(PRIM_LINES, 16);
 			for (int i = 1; i <= 4; ++i) {
 				immVertex3fv(pos, vertices[0]); /* apex to corner */
 				immVertex3fv(pos, vertices[i]);
@@ -1460,7 +1449,7 @@ void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
 		}
 		else {
 			/* draw the angled sides of the cone */
-			immBegin(GL_LINE_STRIP, 3);
+			immBegin(PRIM_LINE_STRIP, 3);
 			immVertex3fv(pos, vvec);
 			immVertex3fv(pos, vec);
 			immVertex3fv(pos, lvec);
@@ -1488,7 +1477,7 @@ void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
 
 		/* draw clip start, useful for wide cones where its not obvious where the start is */
 		gpuTranslate3f(0.0f, 0.0f, -x);  /* reverse translation above */
-		immBegin(GL_LINES, 2);
+		immBegin(PRIM_LINES, 2);
 		if (la->type == LA_SPOT && (la->mode & LA_SHAD_BUF)) {
 			float lvec_clip[3];
 			float vvec_clip[3];
@@ -1509,7 +1498,7 @@ void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
 	}
 	else if (ELEM(la->type, LA_HEMI, LA_SUN)) {
 		/* draw the line from the circle along the dist */
-		immBegin(GL_LINES, 2);
+		immBegin(PRIM_LINES, 2);
 		vec[2] = -circrad;
 		immVertex3fv(pos, vec);
 		vec[2] = -la->dist;
@@ -1529,7 +1518,7 @@ void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
 				float v[3] = {0.0f, 0.0f, 0.0f};
 				zdist = 0.02f;
 
-				immBegin(GL_LINE_STRIP, 6);
+				immBegin(PRIM_LINE_STRIP, 6);
 
 				for (steps = 0; steps < 6; steps++) {
 					if (axis == 0 || axis == 1) {       /* x axis up, x axis down */
@@ -1568,7 +1557,7 @@ void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
 		else if (la->area_shape == LA_AREA_RECT)
 			imm_draw_line_box_3d(pos, -la->area_size * 0.5f, -la->area_sizey * 0.5f, la->area_size * 0.5f, la->area_sizey * 0.5f);
 
-		immBegin(GL_LINES, 2);
+		immBegin(PRIM_LINES, 2);
 		immVertex3f(pos, 0.0f, 0.0f, -circrad);
 		immVertex3f(pos, 0.0f, 0.0f, -la->dist);
 		immEnd();
@@ -1594,14 +1583,14 @@ void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
 	if (vec[2] > 0) vec[2] -= circrad;
 	else vec[2] += circrad;
 
-	immBegin(GL_LINES, 2);
+	immBegin(PRIM_LINES, 2);
 	immVertex3fv(pos, vec);
 	vec[2] = 0;
 	immVertex3fv(pos, vec);
 	immEnd();
 
 	glPointSize(2.0f);
-	immBegin(GL_POINTS, 1);
+	immBegin(PRIM_POINTS, 1);
 	immVertex3fv(pos, vec);
 	immEnd();
 
@@ -1613,7 +1602,7 @@ void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
 
 static void draw_limit_line(float sta, float end, const short dflag, const unsigned char col[3], unsigned pos)
 {
-	immBegin(GL_LINES, 2);
+	immBegin(PRIM_LINES, 2);
 	immVertex3f(pos, 0.0f, 0.0f, -sta);
 	immVertex3f(pos, 0.0f, 0.0f, -end);
 	immEnd();
@@ -1622,7 +1611,7 @@ static void draw_limit_line(float sta, float end, const short dflag, const unsig
 		glPointSize(3.0f);
 		/* would like smooth round points here, but that means binding another shader...
 		 * if it's really desired, pull these points into their own function to be called after */
-		immBegin(GL_POINTS, 2);
+		immBegin(PRIM_POINTS, 2);
 		if ((dflag & DRAW_CONSTCOLOR) == 0) {
 			immUniformColor3ubv(col);
 		}
@@ -1637,7 +1626,7 @@ static void draw_limit_line(float sta, float end, const short dflag, const unsig
 /* qdn: now also enabled for Blender to set focus point for defocus composite node */
 static void draw_focus_cross(float dist, float size, unsigned pos)
 {
-	immBegin(GL_LINES, 4);
+	immBegin(PRIM_LINES, 4);
 	immVertex3f(pos, -size, 0.0f, -dist);
 	immVertex3f(pos, size, 0.0f, -dist);
 	immVertex3f(pos, 0.0f, -size, -dist);
@@ -1823,7 +1812,7 @@ static void draw_viewport_object_reconstruction(
 
 				glLineWidth(2.0f);
 
-				immBegin(GL_LINE_STRIP, reconstruction->camnr);
+				immBegin(PRIM_LINE_STRIP, reconstruction->camnr);
 				for (int a = 0; a < reconstruction->camnr; a++, camera++) {
 					immVertex3fv(pos, camera->mat[3]);
 				}
@@ -1876,7 +1865,7 @@ static void draw_viewport_reconstruction(
 /* camera frame */
 static void drawcamera_frame(float vec[4][3], bool filled, unsigned pos)
 {
-	immBegin(filled ? GL_QUADS : GL_LINE_LOOP, 4);
+	immBegin(filled ? PRIM_TRIANGLE_FAN : PRIM_LINE_LOOP, 4);
 	immVertex3fv(pos, vec[0]);
 	immVertex3fv(pos, vec[1]);
 	immVertex3fv(pos, vec[2]);
@@ -1887,7 +1876,7 @@ static void drawcamera_frame(float vec[4][3], bool filled, unsigned pos)
 /* center point to camera frame */
 static void drawcamera_framelines(float vec[4][3], float origin[3], unsigned pos)
 {
-	immBegin(GL_LINES, 8);
+	immBegin(PRIM_LINES, 8);
 	immVertex3fv(pos, origin);
 	immVertex3fv(pos, vec[0]);
 	immVertex3fv(pos, origin);
@@ -1905,7 +1894,7 @@ static void drawcamera_volume(float near_plane[4][3], float far_plane[4][3], boo
 	drawcamera_frame(far_plane, filled, pos);
 
 	if (filled) {
-		immBegin(GL_QUADS, 16); /* TODO(merwin): use GL_TRIANGLE_STRIP here */
+		immBegin(PRIM_QUADS_XXX, 16); /* TODO(merwin): use PRIM_TRIANGLE_STRIP here */
 		immVertex3fv(pos, near_plane[0]);
 		immVertex3fv(pos, far_plane[0]);
 		immVertex3fv(pos, far_plane[1]);
@@ -1928,7 +1917,7 @@ static void drawcamera_volume(float near_plane[4][3], float far_plane[4][3], boo
 		immEnd();
 	}
 	else {
-		immBegin(GL_LINES, 8);
+		immBegin(PRIM_LINES, 8);
 		for (int i = 0; i < 4; ++i) {
 			immVertex3fv(pos, near_plane[i]);
 			immVertex3fv(pos, far_plane[i]);
@@ -2012,7 +2001,7 @@ static void drawcamera_stereo3d(
 		glLineStipple(2, 0xAAAA);
 		glEnable(GL_LINE_STIPPLE);
 
-		immBegin(GL_LINES, 2);
+		immBegin(PRIM_LINES, 2);
 		immVertex3fv(pos, origin[0]);
 		immVertex3fv(pos, origin[1]);
 		immEnd();
@@ -2213,10 +2202,10 @@ void drawcamera(Scene *scene, View3D *v3d, RegionView3D *rv3d, Base *base,
 	 * for active cameras. We actually draw both outline+filled
 	 * for active cameras so the wire can be seen side-on */
 	for (int i = 0; i < 2; i++) {
-		if (i == 0) immBegin(GL_LINE_LOOP, 3);
+		if (i == 0) immBegin(PRIM_LINE_LOOP, 3);
 		else if (i == 1 && is_active) {
 			glDisable(GL_CULL_FACE); /* TODO: declarative state tracking */
-			immBegin(GL_TRIANGLES, 3);
+			immBegin(PRIM_TRIANGLES, 3);
 		}
 		else break;
 
@@ -2292,7 +2281,7 @@ void drawspeaker(const unsigned char ob_wire_col[3])
 	for (int j = 0; j < 3; j++) {
 		float z = 0.25f * j - 0.125f;
 
-		immBegin(GL_LINE_LOOP, segments);
+		immBegin(PRIM_LINE_LOOP, segments);
 		for (int i = 0; i < segments; i++) {
 			float x = cosf((float)M_PI * i / 8.0f) * (j == 0 ? 0.5f : 0.25f);
 			float y = sinf((float)M_PI * i / 8.0f) * (j == 0 ? 0.5f : 0.25f);
@@ -2304,7 +2293,7 @@ void drawspeaker(const unsigned char ob_wire_col[3])
 	for (int j = 0; j < 4; j++) {
 		float x = (((j + 1) % 2) * (j - 1)) * 0.5f;
 		float y = ((j % 2) * (j - 2)) * 0.5f;
-		immBegin(GL_LINE_STRIP, 3);
+		immBegin(PRIM_LINE_STRIP, 3);
 		for (int i = 0; i < 3; i++) {
 			if (i == 1) {
 				x *= 0.5f;
@@ -2331,7 +2320,7 @@ static void lattice_draw_verts(Lattice *lt, DispList *dl, BPoint *actbp, short s
 	UI_GetThemeColor4fv(TH_ACTIVE_VERT, active_color);
 
 	glPointSize(UI_GetThemeValuef(TH_VERTEX_SIZE));
-	immBeginAtMost(GL_POINTS, lt->pntsw * lt->pntsv * lt->pntsu);
+	immBeginAtMost(PRIM_POINTS, lt->pntsw * lt->pntsv * lt->pntsu);
 
 	for (int w = 0; w < lt->pntsw; w++) {
 		int wxt = (w == 0 || w == lt->pntsw - 1);
@@ -2465,7 +2454,7 @@ static void drawlattice(View3D *v3d, Object *ob, const short dflag, const unsign
 	}
 
 	glLineWidth(1.0f);
-	immBeginAtMost(GL_LINES, lt->pntsw * lt->pntsv * lt->pntsu * 6);
+	immBeginAtMost(PRIM_LINES, lt->pntsw * lt->pntsv * lt->pntsu * 6);
 
 	for (w = 0; w < lt->pntsw; w++) {
 		int wxt = (w == 0 || w == lt->pntsw - 1);
@@ -2567,7 +2556,7 @@ static void drawSelectedVertices(DerivedMesh *dm, Mesh *me)
 
 	immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
 
-	immBeginAtMost(GL_POINTS, dm->getNumVerts(dm));
+	immBeginAtMost(PRIM_POINTS, dm->getNumVerts(dm));
 	dm->foreachMappedVert(dm, drawSelectedVertices__mapFunc, &data, DM_FOREACH_NOP);
 	immEnd();
 
@@ -2641,7 +2630,7 @@ static void draw_dm_face_normals(BMEditMesh *em, Scene *scene, Object *ob, Deriv
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 	immUniformThemeColor(theme_id);
 
-	immBeginAtMost(GL_LINES, dm->getNumPolys(dm) * 2);
+	immBeginAtMost(PRIM_LINES, dm->getNumPolys(dm) * 2);
 	dm->foreachMappedFaceCenter(dm, draw_dm_face_normals__mapFunc, &data, DM_FOREACH_USE_NORMAL);
 	immEnd();
 
@@ -2673,7 +2662,7 @@ static void draw_dm_face_centers(BMEditMesh *em, DerivedMesh *dm, bool select, c
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 	immUniformColor3ubv(fcol);
 
-	immBeginAtMost(GL_POINTS, dm->getNumPolys(dm));
+	immBeginAtMost(PRIM_POINTS, dm->getNumPolys(dm));
 	dm->foreachMappedFaceCenter(dm, draw_dm_face_centers__mapFunc, &data, DM_FOREACH_NOP);
 	immEnd();
 
@@ -2727,7 +2716,7 @@ static void draw_dm_vert_normals(BMEditMesh *em, Scene *scene, Object *ob, Deriv
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 	immUniformThemeColor(theme_id);
 
-	immBeginAtMost(GL_LINES, dm->getNumVerts(dm) * 2);
+	immBeginAtMost(PRIM_LINES, dm->getNumVerts(dm) * 2);
 	dm->foreachMappedVert(dm, draw_dm_vert_normals__mapFunc, &data, DM_FOREACH_USE_NORMAL);
 	immEnd();
 
@@ -2801,7 +2790,7 @@ static void draw_dm_verts(BMEditMesh *em, DerivedMesh *dm, const char sel, BMVer
 
 	glPointSize(UI_GetThemeValuef(TH_VERTEX_SIZE));
 
-	immBeginAtMost(GL_POINTS, dm->getNumVerts(dm));
+	immBeginAtMost(PRIM_POINTS, dm->getNumVerts(dm));
 	dm->foreachMappedVert(dm, draw_dm_verts__mapFunc, &data, DM_FOREACH_NOP);
 	immEnd();
 
@@ -3145,7 +3134,7 @@ static void draw_dm_loop_normals(BMEditMesh *em, Scene *scene, Object *ob, Deriv
 
 	calcDrawDMNormalScale(ob, &data);
 
-	immBeginAtMost(GL_LINES, dm->getNumLoops(dm) * 2);
+	immBeginAtMost(PRIM_LINES, dm->getNumLoops(dm) * 2);
 	dm->foreachMappedLoop(dm, draw_dm_loop_normals__mapFunc, &data, DM_FOREACH_USE_NORMAL);
 	immEnd();
 
@@ -3323,7 +3312,7 @@ static void draw_dm_bweights(BMEditMesh *em, Scene *scene, DerivedMesh *dm)
 
 			glPointSize(UI_GetThemeValuef(TH_VERTEX_SIZE) + 2.0f);
 
-			immBeginAtMost(GL_POINTS, dm->getNumVerts(dm));
+			immBeginAtMost(PRIM_POINTS, dm->getNumVerts(dm));
 			dm->foreachMappedVert(dm, draw_dm_bweights__mapFunc, &data, DM_FOREACH_NOP);
 			immEnd();
 
@@ -5111,7 +5100,7 @@ static bool draw_mesh_object_new(Scene *scene, SceneLayer *sl, ARegion *ar, View
 
 /* ************** DRAW DISPLIST ****************** */
 
-static void drawDispListVerts(int dt, const void *data, unsigned int vert_ct, const unsigned char wire_col[3])
+static void drawDispListVerts(PrimitiveType prim_type, const void *data, unsigned int vert_ct, const unsigned char wire_col[3])
 {
 	VertexFormat format = {0};
 	unsigned int pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
@@ -5121,7 +5110,7 @@ static void drawDispListVerts(int dt, const void *data, unsigned int vert_ct, co
 
 	VertexBuffer_fill_attrib(vbo, pos_id, data);
 
-	Batch *batch = Batch_create(dt, vbo, NULL);
+	Batch *batch = Batch_create(prim_type, vbo, NULL);
 	Batch_set_builtin_program(batch, GPU_SHADER_3D_UNIFORM_COLOR);
 	if (wire_col) {
 		Batch_Uniform4f(batch, "color", wire_col[0]/255.0f, wire_col[1]/255.0f, wire_col[2]/255.0f, 1.0f);
@@ -5148,7 +5137,7 @@ static void drawDispListElem(bool quads, bool UNUSED(smooth), const float *data,
 	}
 
 	ElementListBuilder elb;
-	ElementListBuilder_init(&elb, GL_TRIANGLES, (quads) ? elem_ct * 2 : elem_ct, 0xffffffff);
+	ElementListBuilder_init(&elb, PRIM_TRIANGLES, (quads) ? elem_ct * 2 : elem_ct, 0xffffffff);
 
 	if (quads) {
 		for (i = elem_ct; i; --i, idx += 4) {
@@ -5171,7 +5160,7 @@ static void drawDispListElem(bool quads, bool UNUSED(smooth), const float *data,
 		VertexBuffer_fill_attrib(vbo, nor_id, ndata);
 	}
 
-	Batch *batch = Batch_create(GL_TRIANGLES, vbo, ElementList_build(&elb));
+	Batch *batch = Batch_create(PRIM_TRIANGLES, vbo, ElementList_build(&elb));
 	Batch_set_builtin_program(batch, GPU_SHADER_SIMPLE_LIGHTING);
 	if (wire_col) {
 		Batch_Uniform4f(batch, "color", wire_col[0]/255.0f, wire_col[1]/255.0f, wire_col[2]/255.0f, 1.0f);
@@ -5207,20 +5196,20 @@ static bool drawDispListwire_ex(ListBase *dlbase, unsigned int dl_type_mask, con
 		switch (dl->type) {
 			case DL_SEGM:
 				for (parts = 0; parts < dl->parts; parts++)
-					drawDispListVerts(GL_LINE_STRIP, data + (parts * dl->nr * 3), dl->nr, wire_col);
+					drawDispListVerts(PRIM_LINE_STRIP, data + (parts * dl->nr * 3), dl->nr, wire_col);
 				break;
 
 			case DL_POLY:
 				for (parts = 0; parts < dl->parts; parts++)
-					drawDispListVerts(GL_LINE_LOOP, data + (parts * dl->nr * 3), dl->nr, wire_col);
+					drawDispListVerts(PRIM_LINE_LOOP, data + (parts * dl->nr * 3), dl->nr, wire_col);
 				break;
 
 			case DL_SURF:
 				for (parts = 0; parts < dl->parts; parts++) {
 					if (dl->flag & DL_CYCL_U)
-						drawDispListVerts(GL_LINE_LOOP, data + (parts * dl->nr * 3), dl->nr, wire_col);
+						drawDispListVerts(PRIM_LINE_LOOP, data + (parts * dl->nr * 3), dl->nr, wire_col);
 					else
-						drawDispListVerts(GL_LINE_STRIP, data + (parts * dl->nr * 3), dl->nr, wire_col);
+						drawDispListVerts(PRIM_LINE_STRIP, data + (parts * dl->nr * 3), dl->nr, wire_col);
 				}
 
 				float *data_aligned = MEM_mallocN(sizeof(float) * 3 * dl->parts, "aligned data");
@@ -5238,9 +5227,9 @@ static bool drawDispListwire_ex(ListBase *dlbase, unsigned int dl_type_mask, con
 					}
 
 					if (dl->flag & DL_CYCL_V)
-						drawDispListVerts(GL_LINE_LOOP, data_aligned, dl->parts, wire_col);
+						drawDispListVerts(PRIM_LINE_LOOP, data_aligned, dl->parts, wire_col);
 					else
-						drawDispListVerts(GL_LINE_STRIP, data_aligned, dl->parts, wire_col);
+						drawDispListVerts(PRIM_LINE_STRIP, data_aligned, dl->parts, wire_col);
 				}
 
 				if (data_aligned)
@@ -5300,7 +5289,7 @@ static void drawDispListsolid(ListBase *lb, Object *ob, const short UNUSED(dflag
 						col = -1;
 					}
 
-					drawDispListVerts(GL_LINE_STRIP, data, dl->nr, ob_wire_col);
+					drawDispListVerts(PRIM_LINE_STRIP, data, dl->nr, ob_wire_col);
 				}
 				break;
 			case DL_POLY:
@@ -5310,7 +5299,7 @@ static void drawDispListsolid(ListBase *lb, Object *ob, const short UNUSED(dflag
 						col = -1;
 					}
 
-					drawDispListVerts(GL_LINE_LOOP, data, dl->nr, ob_wire_col);
+					drawDispListVerts(PRIM_LINE_LOOP, data, dl->nr, ob_wire_col);
 				}
 				break;
 			case DL_SURF:
@@ -5582,7 +5571,7 @@ static bool drawDispList(Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3D
 /* *********** drawing for particles ************* */
 /* stride :   offset size in bytes
  * col[4] :   the color to use when *color is NULL, can be also NULL */
-static void draw_vertex_array(int dt, const float *vert, const float *nor, const float *color, int stride, int vert_ct, float col[4])
+static void draw_vertex_array(PrimitiveType prim_type, const float *vert, const float *nor, const float *color, int stride, int vert_ct, float col[4])
 {
 	VertexFormat format = {0};
 	unsigned int pos_id, nor_id, col_id;
@@ -5604,7 +5593,7 @@ static void draw_vertex_array(int dt, const float *vert, const float *nor, const
 		if (color) VertexBuffer_fill_attrib_stride(vbo, col_id, stride, color);
 	}
 
-	Batch *batch = Batch_create(dt, vbo, NULL);
+	Batch *batch = Batch_create(prim_type, vbo, NULL);
 	if (nor && color) {
 		Batch_set_builtin_program(batch, GPU_SHADER_SIMPLE_LIGHTING_SMOOTH_COLOR);
 		Batch_Uniform3f(batch, "light", 0.0f, 0.0f, 1.0f);
@@ -5624,6 +5613,7 @@ static void draw_vertex_array(int dt, const float *vert, const float *nor, const
 	Batch_draw(batch);
 	Batch_discard_all(batch);
 }
+
 static void draw_particle_arrays_new(int draw_as, int ob_dt, int select,
                                      const float *vert, const float *nor, const float *color,
                                      int totpoint, float col[4])
@@ -5632,10 +5622,10 @@ static void draw_particle_arrays_new(int draw_as, int ob_dt, int select,
 	switch (draw_as) {
 		case PART_DRAW_AXIS:
 		case PART_DRAW_CROSS:
-			draw_vertex_array(GL_LINES, vert, nor, color, 0, 6 * totpoint, col);
+			draw_vertex_array(PRIM_LINES, vert, nor, color, 0, 6 * totpoint, col);
 			break;
 		case PART_DRAW_LINE:
-			draw_vertex_array(GL_LINES, vert, nor, color, 0, 2 * totpoint, col);
+			draw_vertex_array(PRIM_LINES, vert, nor, color, 0, 2 * totpoint, col);
 			break;
 		case PART_DRAW_BB:
 			if (ob_dt <= OB_WIRE || select)
@@ -5643,10 +5633,10 @@ static void draw_particle_arrays_new(int draw_as, int ob_dt, int select,
 			else
 				glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-			draw_vertex_array(GL_QUADS, vert, nor, color, 0, 4 * totpoint, col);
+			draw_vertex_array(PRIM_QUADS_XXX, vert, nor, color, 0, 4 * totpoint, col);
 			break;
 		default:
-			draw_vertex_array(GL_POINTS, vert, nor, color, 0, totpoint, col);
+			draw_vertex_array(PRIM_POINTS, vert, nor, color, 0, totpoint, col);
 			break;
 	}
 }
@@ -6283,12 +6273,12 @@ static void draw_new_particle_system(Scene *scene, View3D *v3d, RegionView3D *rv
 			path = cache[a];
 			if (path->segments > 0) {
 				if (((dflag & DRAW_CONSTCOLOR) == 0) && (part->draw_col == PART_DRAW_COL_MAT)) {
-					draw_vertex_array(GL_LINE_STRIP, path->co, path->vel, path->col, sizeof(ParticleCacheKey), path->segments + 1, NULL);
+					draw_vertex_array(PRIM_LINE_STRIP, path->co, path->vel, path->col, sizeof(ParticleCacheKey), path->segments + 1, NULL);
 				}
 				else {
 					float color[4];
 					rgba_uchar_to_float(color, tcol);
-					draw_vertex_array(GL_LINE_STRIP, path->co, path->vel, NULL, sizeof(ParticleCacheKey), path->segments + 1, color);
+					draw_vertex_array(PRIM_LINE_STRIP, path->co, path->vel, NULL, sizeof(ParticleCacheKey), path->segments + 1, color);
 				}
 			}
 		}
@@ -6303,7 +6293,7 @@ static void draw_new_particle_system(Scene *scene, View3D *v3d, RegionView3D *rv
 						
 						/* XXX use proper theme color here */
 						float color[4] = {0.58f, 0.67f, 1.0f, 1.0f};
-						draw_vertex_array(GL_LINE_STRIP, hkey->world_co, NULL, NULL, sizeof(HairKey), pa->totkey, color);
+						draw_vertex_array(PRIM_LINE_STRIP, hkey->world_co, NULL, NULL, sizeof(HairKey), pa->totkey, color);
 					}
 				}
 				
@@ -6321,7 +6311,7 @@ static void draw_new_particle_system(Scene *scene, View3D *v3d, RegionView3D *rv
 					}
 
 					if (count > 0) {
-						immBegin(GL_LINES, count * 2);
+						immBegin(PRIM_LINES, count * 2);
 						for (a = 0, pa = psys->particles; a < totpart; a++, pa++) {
 							for (i = 1; i < pa->totkey; ++i) {
 								float v1[3], v2[3];
@@ -6358,7 +6348,7 @@ static void draw_new_particle_system(Scene *scene, View3D *v3d, RegionView3D *rv
 					else
 						immUniformThemeColor(TH_WIRE);
 
-					immBegin(GL_LINES, 24);
+					immBegin(PRIM_LINES, 24);
 					immVertex3f(pos_id, gmin[0], gmin[1], gmin[2]); immVertex3f(pos_id, gmax[0], gmin[1], gmin[2]);
 					immVertex3f(pos_id, gmax[0], gmin[1], gmin[2]); immVertex3f(pos_id, gmax[0], gmax[1], gmin[2]);
 					immVertex3f(pos_id, gmax[0], gmax[1], gmin[2]); immVertex3f(pos_id, gmin[0], gmax[1], gmin[2]);
@@ -6387,7 +6377,7 @@ static void draw_new_particle_system(Scene *scene, View3D *v3d, RegionView3D *rv
 
 					if (count >= 2) {
 						glEnable(GL_BLEND);
-						immBegin(GL_LINES, count);
+						immBegin(PRIM_LINES, count);
 						for (i = 1; i < res[0] - 1; ++i) {
 							float f = interpf(gmax[0], gmin[0], (float)i / (float)(res[0] - 1));
 							immVertex3f(pos_id, f, gmin[1], gmin[2]); immVertex3f(pos_id, f, gmax[1], gmin[2]);
@@ -6424,11 +6414,11 @@ static void draw_new_particle_system(Scene *scene, View3D *v3d, RegionView3D *rv
 			path = cache[a];
 
 			if (((dflag & DRAW_CONSTCOLOR) == 0) && (part->draw_col == PART_DRAW_COL_MAT)) {
-				draw_vertex_array(GL_LINE_STRIP, path->co, path->vel, path->col, sizeof(ParticleCacheKey), path->segments + 1, NULL);
+				draw_vertex_array(PRIM_LINE_STRIP, path->co, path->vel, path->col, sizeof(ParticleCacheKey), path->segments + 1, NULL);
 			}
 			else {
 				float color[4] = {0.0f, 0.0f, 0.0f, 1.0f};
-				draw_vertex_array(GL_LINE_STRIP, path->co, path->vel, NULL, sizeof(ParticleCacheKey), path->segments + 1, color);
+				draw_vertex_array(PRIM_LINE_STRIP, path->co, path->vel, NULL, sizeof(ParticleCacheKey), path->segments + 1, color);
 			}
 		}
 
@@ -6497,7 +6487,7 @@ static void draw_new_particle_system(Scene *scene, View3D *v3d, RegionView3D *rv
 
 	if (pdd && pdd->vedata) {
 		float color[4] = {0.75f, 0.75f, 0.75f, 1.0f};
-		draw_vertex_array(GL_LINES, pdd->vedata, NULL, NULL, 0, 2 * totve, color);
+		draw_vertex_array(PRIM_LINES, pdd->vedata, NULL, NULL, 0, 2 * totve, color);
 	}
 
 	glPolygonMode(GL_FRONT, polygonmode[0]);
@@ -6617,7 +6607,7 @@ static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 			VertexBuffer_fill_attrib_stride(vbo, col_id, sizeof(ParticleCacheKey), path->col);
 		}
 
-		Batch *batch = Batch_create(GL_LINE_STRIP, vbo, NULL);
+		Batch *batch = Batch_create(PRIM_LINE_STRIP, vbo, NULL);
 		Batch_set_builtin_program(batch, GPU_SHADER_3D_SMOOTH_COLOR);
 		Batch_draw(batch);
 		Batch_discard_all(batch);
@@ -6688,7 +6678,7 @@ static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 
 				VertexBuffer_fill_attrib(vbo, col_id, cd);
 
-				Batch *batch = Batch_create(GL_POINTS, vbo, NULL);
+				Batch *batch = Batch_create(PRIM_POINTS, vbo, NULL);
 				Batch_set_builtin_program(batch, GPU_SHADER_3D_SMOOTH_COLOR);
 				Batch_draw(batch);
 				Batch_discard_all(batch);
@@ -6704,7 +6694,7 @@ static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 			unsigned int pos_id = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
 			unsigned int col_id = VertexFormat_add_attrib(format, "color", COMP_F32, 3, KEEP_FLOAT);
 			immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
-			immBeginAtMost(GL_POINTS, totpoint);
+			immBeginAtMost(PRIM_POINTS, totpoint);
 			for (i = 0, point = edit->points; i < totpoint; i++, point++) {
 				if ((point->flag & PEP_HIDE) == 0 && point->totkey) {
 					PTCacheEditKey *key = point->keys + point->totkey - 1;
@@ -6741,7 +6731,7 @@ static void ob_draw_RE_motion(float com[3], float rotscale[3][3], float itw, flo
 	unsigned int col = VertexFormat_add_attrib(format, "color", COMP_U8, 4, NORMALIZE_INT_TO_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
 
-	immBegin(GL_LINES, 30);
+	immBegin(PRIM_LINES, 30);
 
 	immAttrib4ub(col, 0x7F, 0x00, 0x00, 155);
 	root[1] = root[2] = 0.0f;
@@ -6895,7 +6885,7 @@ static void drawhandlesN(Nurb *nu, const char sel, const bool hide_handles)
 
 		glLineWidth(1.0f);
 
-		immBeginAtMost(GL_LINES, nu->pntsu * 4);
+		immBeginAtMost(PRIM_LINES, nu->pntsu * 4);
 
 		BezTriple *bezt = nu->bezt;
 		int a = nu->pntsu;
@@ -6949,7 +6939,7 @@ static void drawhandlesN_active(Nurb *nu)
 		immUniformThemeColor(TH_ACTIVE_SPLINE);
 		glLineWidth(2.0f);
 
-		immBeginAtMost(GL_LINES, nu->pntsu * 4);
+		immBeginAtMost(PRIM_LINES, nu->pntsu * 4);
 		BezTriple *bezt = nu->bezt;
 		int a = nu->pntsu;
 		while (a--) {
@@ -7001,7 +6991,7 @@ static void drawvertsN(const Nurb *nurb, const bool hide_handles, const void *ve
 
 	glPointSize(UI_GetThemeValuef(TH_VERTEX_SIZE));
 
-	immBeginAtMost(GL_POINTS, count);
+	immBeginAtMost(PRIM_POINTS, count);
 	
 	for (nu = nurb; nu; nu = nu->next) {
 
@@ -7071,8 +7061,8 @@ static void editnurb_draw_active_poly(Nurb *nu)
 	BPoint *bp = nu->bp;
 	for (int b = 0; b < nu->pntsv; b++) {
 		if (nu->pntsu >= 2) {
-			if (nu->flagu & 1) immBegin(GL_LINE_LOOP, nu->pntsu);
-			else immBegin(GL_LINE_STRIP, nu->pntsu);
+			if (nu->flagu & 1) immBegin(PRIM_LINE_LOOP, nu->pntsu);
+			else immBegin(PRIM_LINE_STRIP, nu->pntsu);
 
 			for (int a = 0; a < nu->pntsu; a++, bp++) {
 				immVertex3fv(pos, bp->vec);
@@ -7099,7 +7089,7 @@ static void editnurb_draw_active_nurbs(Nurb *nu)
 		if (nu->pntsv > 1) count += (nu->pntsv - 1) * nu->pntsu * 2;
 		if (count < 2) return;
 
-		immBeginAtMost(GL_LINES, count);
+		immBeginAtMost(PRIM_LINES, count);
 		BPoint *bp = nu->bp;
 		for (int b = 0; b < nu->pntsv; b++) {
 			BPoint *bp1 = bp;
@@ -7166,8 +7156,8 @@ static void draw_editnurb_splines(Object *ob, Nurb *nurb, const bool sel)
 					bp = nu->bp;
 					for (b = 0; b < nu->pntsv; b++) {
 						if (nu->pntsu >= 2) {
-							if (nu->flagu & 1) immBegin(GL_LINE_LOOP, nu->pntsu);
-							else immBegin(GL_LINE_STRIP, nu->pntsu);
+							if (nu->flagu & 1) immBegin(PRIM_LINE_LOOP, nu->pntsu);
+							else immBegin(PRIM_LINE_STRIP, nu->pntsu);
 
 							for (a = 0; a < nu->pntsu; a++, bp++) {
 								immVertex3fv(pos, bp->vec);
@@ -7198,7 +7188,7 @@ static void draw_editnurb_splines(Object *ob, Nurb *nurb, const bool sel)
 
 					glLineWidth(1.0f);
 
-					immBeginAtMost(GL_LINES, count);
+					immBeginAtMost(PRIM_LINES, count);
 
 					bp = nu->bp;
 					for (b = 0; b < nu->pntsv; b++) {
@@ -7340,7 +7330,7 @@ static void draw_editnurb(
 		}
 
 		if (count > 2) {
-			immBegin(GL_LINES, count);
+			immBegin(PRIM_LINES, count);
 			for (bl = ob->curve_cache->bev.first, nu = nurb; nu && bl; bl = bl->next, nu = nu->next) {
 				BevPoint *bevp = bl->bevpoints;
 				int nr = bl->nr;
@@ -7395,7 +7385,7 @@ static void draw_editfont_textcurs(RegionView3D *rv3d, float textcurs[4][2])
 	set_inverted_drawing(1);
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 	imm_cpack(0);
-	immBegin(GL_TRIANGLE_FAN, 4);
+	immBegin(PRIM_TRIANGLE_FAN, 4);
 	immVertex2fv(pos, textcurs[0]);
 	immVertex2fv(pos, textcurs[1]);
 	immVertex2fv(pos, textcurs[2]);
@@ -7438,7 +7428,7 @@ static void draw_editfont(Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3
 		vec1[1] += cu->linedist * cu->fsize;
 		vec2[1] -= cu->lines * cu->linedist * cu->fsize;
 		setlinestyle(3);
-		immBegin(GL_LINES, 2);
+		immBegin(PRIM_LINES, 2);
 		immVertex2fv(pos, vec1);
 		immVertex2fv(pos, vec2);
 		immEnd();
@@ -7455,7 +7445,7 @@ static void draw_editfont(Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3
 			vec1[0] = cu->xof + cu->tb[i].x;
 			vec1[1] = cu->yof + cu->tb[i].y + cu->fsize;
 			vec1[2] = 0.001;
-			immBegin(GL_LINE_STRIP, 5);
+			immBegin(PRIM_LINE_STRIP, 5);
 			immVertex3fv(pos, vec1);
 			vec1[0] += cu->tb[i].w;
 			immVertex3fv(pos, vec1);
@@ -7497,7 +7487,7 @@ static void draw_editfont(Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3
 			/* fill in xy below */
 			tvec[2] = 0.001;
 
-			immBegin(GL_TRIANGLE_FAN, 4);
+			immBegin(PRIM_TRIANGLE_FAN, 4);
 
 			if (sb->rot == 0.0f) {
 				copy_v2_fl2(tvec, sb->x, sb->y);
@@ -7555,15 +7545,15 @@ static void draw_empty_sphere(float size, unsigned pos)
 		p[i][1] = size * sinf(angle);
 	}
 
-	immBegin(GL_LINE_LOOP, NSEGMENTS);
+	immBegin(PRIM_LINE_LOOP, NSEGMENTS);
 	for (int i = 0; i < NSEGMENTS; ++i)
 		immVertex3f(pos, p[i][0], p[i][1], 0.0f);
 	immEnd();
-	immBegin(GL_LINE_LOOP, NSEGMENTS);
+	immBegin(PRIM_LINE_LOOP, NSEGMENTS);
 	for (int i = 0; i < NSEGMENTS; ++i)
 		immVertex3f(pos, p[i][0], 0.0f, p[i][1]);
 	immEnd();
-	immBegin(GL_LINE_LOOP, NSEGMENTS);
+	immBegin(PRIM_LINE_LOOP, NSEGMENTS);
 	for (int i = 0; i < NSEGMENTS; ++i)
 		immVertex3f(pos, 0.0f, p[i][0], p[i][1]);
 	immEnd();
@@ -7583,7 +7573,7 @@ static void draw_empty_cone(float size, unsigned pos)
 	}
 
 	/* cone sides */
-	immBegin(GL_LINES, NSEGMENTS * 2);
+	immBegin(PRIM_LINES, NSEGMENTS * 2);
 	for (int i = 0; i < NSEGMENTS; ++i) {
 		immVertex3f(pos, 0.0f, 2.0f * size, 0.0f);
 		immVertex3f(pos, p[i][0], 0.0f, p[i][1]);
@@ -7591,7 +7581,7 @@ static void draw_empty_cone(float size, unsigned pos)
 	immEnd();
 
 	/* end ring */
-	immBegin(GL_LINE_LOOP, NSEGMENTS);
+	immBegin(PRIM_LINE_LOOP, NSEGMENTS);
 	for (int i = 0; i < NSEGMENTS; ++i)
 		immVertex3f(pos, p[i][0], 0.0f, p[i][1]);
 	immEnd();
@@ -7614,7 +7604,7 @@ static void drawspiral(unsigned int pos, const float cent[3], float rad, float t
 	mul_v3_v3fl(vx, tmat[0], rad);
 	mul_v3_v3fl(vy, tmat[1], rad);
 
-	immBegin(GL_LINE_STRIP, CIRCLE_RESOL + 1);
+	immBegin(PRIM_LINE_STRIP, CIRCLE_RESOL + 1);
 
 	if (inverse == 0) {
 		copy_v3_v3(vec, cent);
@@ -7668,7 +7658,7 @@ static void drawspiral(unsigned int pos, const float cent[3], float rad, float t
  * all required matrices have been set (used for drawing empties) */
 static void drawcircle_size(float size, unsigned pos)
 {
-	immBegin(GL_LINE_LOOP, CIRCLE_RESOL);
+	immBegin(PRIM_LINE_LOOP, CIRCLE_RESOL);
 
 	/* coordinates are: cos(degrees * 11.25) = x, sin(degrees * 11.25) = y, 0.0f = z */
 	for (short degrees = 0; degrees < CIRCLE_RESOL; degrees++) {
@@ -7692,7 +7682,7 @@ static void imm_drawtube(const float vec[3], float radius, float height, float t
 
 	imm_drawcircball(cur, radius, tmat, pos);
 
-	immBegin(GL_LINES, 8);
+	immBegin(PRIM_LINES, 8);
 	immVertex3f(pos, vec[0] + radius, vec[1], vec[2]);
 	immVertex3f(pos, cur[0] + radius, cur[1], cur[2]);
 	immVertex3f(pos, vec[0] - radius, vec[1], vec[2]);
@@ -7714,7 +7704,7 @@ static void imm_drawcone(const float vec[3], float radius, float height, float t
 
 	imm_drawcircball(cur, radius, tmat, pos);
 
-	immBegin(GL_LINES, 8);
+	immBegin(PRIM_LINES, 8);
 	immVertex3f(pos, vec[0], vec[1], vec[2]);
 	immVertex3f(pos, cur[0] + radius, cur[1], cur[2]);
 	immVertex3f(pos, vec[0], vec[1], vec[2]);
@@ -8000,11 +7990,11 @@ static void imm_draw_box(const float vec[8][3], bool solid, unsigned pos)
 
 	if (solid) {
 		indices = quad_indices;
-		prim_type = GL_QUADS;
+		prim_type = PRIM_QUADS_XXX;
 	}
 	else {
 		indices = line_indices;
-		prim_type = GL_LINES;
+		prim_type = PRIM_LINES;
 	}
 
 	immBegin(prim_type, 24);
@@ -8296,7 +8286,7 @@ static void draw_hooks(Object *ob, unsigned int pos)
 
 			if (hmd->object) {
 				setlinestyle(3);
-				immBegin(GL_LINES, 2);
+				immBegin(PRIM_LINES, 2);
 				immVertex3fv(pos, hmd->object->obmat[3]);
 				immVertex3fv(pos, vec);
 				immEnd();
@@ -8304,7 +8294,7 @@ static void draw_hooks(Object *ob, unsigned int pos)
 			}
 
 			glPointSize(3.0f);
-			immBegin(GL_POINTS, 1);
+			immBegin(PRIM_POINTS, 1);
 			immVertex3fv(pos, vec);
 			immEnd();
 		}
@@ -8326,7 +8316,7 @@ static void draw_rigid_body_pivot(bRigidBodyJointConstraint *data,
 	glLineWidth(4.0f);
 	setlinestyle(2);
 
-	immBegin(GL_LINES, 6);
+	immBegin(PRIM_LINES, 6);
 	for (int axis = 0; axis < 3; axis++) {
 		float dir[3] = {0, 0, 0};
 		float v[3];
@@ -9134,7 +9124,7 @@ afterdraw:
 					/* TODO: short term, use DEPTH_ONLY shader or set appropriate color */
 					/* TODO: long term, solve picking & selection problem better */
 					glPointSize(U.obcenter_dia);
-					immBegin(GL_POINTS, 1);
+					immBegin(PRIM_POINTS, 1);
 					immVertex3fv(pos, ob->obmat[3]);
 					immEnd();
 					immUnbindProgram();
@@ -9169,7 +9159,7 @@ afterdraw:
 		/* help lines and so */
 		if (ob != scene->obedit && ob->parent && (ob->parent->lay & v3d->lay)) {
 			setlinestyle(3);
-			immBegin(GL_LINES, 2);
+			immBegin(PRIM_LINES, 2);
 			immVertex3fv(pos, ob->obmat[3]);
 			immVertex3fv(pos, ob->orig);
 			immEnd();
@@ -9211,7 +9201,7 @@ afterdraw:
 
 					if (camob) {
 						setlinestyle(3);
-						immBegin(GL_LINES, 2);
+						immBegin(PRIM_LINES, 2);
 						immVertex3fv(pos, camob->obmat[3]);
 						immVertex3fv(pos, ob->obmat[3]);
 						immEnd();
@@ -9235,7 +9225,7 @@ afterdraw:
 								unit_m4(ct->matrix);
 
 							setlinestyle(3);
-							immBegin(GL_LINES, 2);
+							immBegin(PRIM_LINES, 2);
 							immVertex3fv(pos, ct->matrix[3]);
 							immVertex3fv(pos, ob->obmat[3]);
 							immEnd();
@@ -9255,7 +9245,7 @@ afterdraw:
 			immUniformThemeColor(TH_WIRE);
 
 			setlinestyle(3);
-			immBegin(GL_LINES, ((int)((bool)rbc->ob1) + (int)((bool)rbc->ob2)) * 2);
+			immBegin(PRIM_LINES, ((int)((bool)rbc->ob1) + (int)((bool)rbc->ob2)) * 2);
 			if (rbc->ob1) {
 				immVertex3fv(pos, ob->obmat[3]);
 				immVertex3fv(pos, rbc->ob1->obmat[3]);
@@ -9351,7 +9341,7 @@ static void bbs_obmode_mesh_verts(Object *ob, DerivedMesh *dm, int offset)
 
 	glPointSize(UI_GetThemeValuef(TH_VERTEX_SIZE));
 
-	immBeginAtMost(GL_POINTS, dm->getNumVerts(dm));
+	immBeginAtMost(PRIM_POINTS, dm->getNumVerts(dm));
 	dm->foreachMappedVert(dm, bbs_obmode_mesh_verts__mapFunc, &data, DM_FOREACH_NOP);
 	immEnd();
 
@@ -9384,7 +9374,7 @@ static void bbs_mesh_verts(BMEditMesh *em, DerivedMesh *dm, int offset)
 
 	glPointSize(UI_GetThemeValuef(TH_VERTEX_SIZE));
 
-	immBeginAtMost(GL_POINTS, em->bm->totvert);
+	immBeginAtMost(PRIM_POINTS, em->bm->totvert);
 	dm->foreachMappedVert(dm, bbs_mesh_verts__mapFunc, &data, DM_FOREACH_NOP);
 	immEnd();
 
@@ -9474,7 +9464,7 @@ static void bbs_mesh_solid_EM(BMEditMesh *em, Scene *scene, View3D *v3d,
 
 			glPointSize(UI_GetThemeValuef(TH_FACEDOT_SIZE));
 
-			immBeginAtMost(GL_POINTS, em->bm->totface);
+			immBeginAtMost(PRIM_POINTS, em->bm->totface);
 			dm->foreachMappedFaceCenter(dm, bbs_mesh_solid__drawCenter, &data, DM_FOREACH_NOP);
 			immEnd();
 

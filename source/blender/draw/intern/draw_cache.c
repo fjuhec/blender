@@ -273,7 +273,7 @@ Batch *DRW_cache_fullscreen_quad_get(void)
 			VertexBuffer_set_attrib(vbo, uvs_id, i, uvs[i]);
 		}
 
-		SHC.drw_fullscreen_quad = Batch_create(GL_TRIANGLE_STRIP, vbo, NULL);
+		SHC.drw_fullscreen_quad = Batch_create(PRIM_TRIANGLE_STRIP, vbo, NULL);
 	}
 	return SHC.drw_fullscreen_quad;
 }
@@ -310,7 +310,7 @@ Batch *DRW_cache_cube_get(void)
 			VertexBuffer_set_attrib(vbo, pos_id, i, verts[indices[i]]);
 		}
 
-		SHC.drw_cube = Batch_create(GL_LINES, vbo, NULL);
+		SHC.drw_cube = Batch_create(PRIM_LINES, vbo, NULL);
 	}
 	return SHC.drw_cube;
 }
@@ -343,7 +343,7 @@ Batch *DRW_cache_circle_get(void)
 			VertexBuffer_set_attrib(vbo, pos_id, a * 2 + 1, v);
 		}
 
-		SHC.drw_circle = Batch_create(GL_LINES, vbo, NULL);
+		SHC.drw_circle = Batch_create(PRIM_LINES, vbo, NULL);
 	}
 	return SHC.drw_circle;
 #undef CIRCLE_RESOL
@@ -372,7 +372,7 @@ Batch *DRW_cache_square_get(void)
 			VertexBuffer_set_attrib(vbo, pos_id, i * 2 + 1, p[(i+1) % 4]);
 		}
 
-		SHC.drw_square = Batch_create(GL_LINES, vbo, NULL);
+		SHC.drw_square = Batch_create(PRIM_LINES, vbo, NULL);
 	}
 	return SHC.drw_square;
 }
@@ -397,7 +397,7 @@ Batch *DRW_cache_single_line_get(void)
 		VertexBuffer_set_attrib(vbo, pos_id, 0, v1);
 		VertexBuffer_set_attrib(vbo, pos_id, 1, v2);
 
-		SHC.drw_line = Batch_create(GL_LINES, vbo, NULL);
+		SHC.drw_line = Batch_create(PRIM_LINES, vbo, NULL);
 	}
 	return SHC.drw_line;
 }
@@ -423,7 +423,7 @@ Batch *DRW_cache_single_line_endpoints_get(void)
 		VertexBuffer_set_attrib(vbo, pos_id, 0, v1);
 		VertexBuffer_set_attrib(vbo, pos_id, 1, v2);
 
-		SHC.drw_line_endpoints = Batch_create(GL_POINTS, vbo, NULL);
+		SHC.drw_line_endpoints = Batch_create(PRIM_POINTS, vbo, NULL);
 	}
 	return SHC.drw_line_endpoints;
 }
@@ -511,7 +511,7 @@ Batch *DRW_cache_plain_axes_get(void)
 			v1[axis] = v2[axis] = 0.0f;
 		}
 
-		SHC.drw_plain_axes = Batch_create(GL_LINES, vbo, NULL);
+		SHC.drw_plain_axes = Batch_create(PRIM_LINES, vbo, NULL);
 	}
 	return SHC.drw_plain_axes;
 }
@@ -551,7 +551,7 @@ Batch *DRW_cache_single_arrow_get(void)
 			VertexBuffer_set_attrib(vbo, pos_id, sides * 3 + 2, v3);
 		}
 
-		SHC.drw_single_arrow = Batch_create(GL_TRIANGLES, vbo, NULL);
+		SHC.drw_single_arrow = Batch_create(PRIM_TRIANGLES, vbo, NULL);
 	}
 	return SHC.drw_single_arrow;
 }
@@ -560,7 +560,7 @@ Batch *DRW_cache_empty_sphere_get(void)
 {
 	if (!SHC.drw_empty_sphere) {
 		VertexBuffer *vbo = sphere_wire_vbo(1.0f);
-		SHC.drw_empty_sphere = Batch_create(GL_LINES, vbo, NULL);
+		SHC.drw_empty_sphere = Batch_create(PRIM_LINES, vbo, NULL);
 	}
 	return SHC.drw_empty_sphere;
 }
@@ -607,7 +607,7 @@ Batch *DRW_cache_empty_cone_get(void)
 			VertexBuffer_set_attrib(vbo, pos_id, i * 4 + 3, v);
 		}
 
-		SHC.drw_empty_cone = Batch_create(GL_LINES, vbo, NULL);
+		SHC.drw_empty_cone = Batch_create(PRIM_LINES, vbo, NULL);
 	}
 	return SHC.drw_empty_cone;
 #undef NSEGMENTS
@@ -618,7 +618,7 @@ Batch *DRW_cache_arrows_get(void)
 	if (!SHC.drw_arrows) {
 		VertexBuffer *vbo = fill_arrows_vbo(1.0f);
 
-		SHC.drw_arrows = Batch_create(GL_LINES, vbo, NULL);
+		SHC.drw_arrows = Batch_create(PRIM_LINES, vbo, NULL);
 	}
 	return SHC.drw_arrows;
 }
@@ -679,7 +679,7 @@ Batch *DRW_cache_axis_names_get(void)
 		VertexBuffer_set_attrib(vbo, pos_id, 12, v1);
 		VertexBuffer_set_attrib(vbo, pos_id, 13, v2);
 
-		SHC.drw_axis_names = Batch_create(GL_LINES, vbo, NULL);
+		SHC.drw_axis_names = Batch_create(PRIM_LINES, vbo, NULL);
 	}
 	return SHC.drw_axis_names;
 }
@@ -711,7 +711,7 @@ Batch *DRW_cache_lamp_get(void)
 			VertexBuffer_set_attrib(vbo, pos_id, a * 2 + 1, v);
 		}
 
-		SHC.drw_lamp = Batch_create(GL_LINES, vbo, NULL);
+		SHC.drw_lamp = Batch_create(PRIM_LINES, vbo, NULL);
 	}
 	return SHC.drw_lamp;
 #undef NSEGMENTS
@@ -743,7 +743,7 @@ Batch *DRW_cache_lamp_sunrays_get(void)
 			VertexBuffer_set_attrib(vbo, pos_id, a * 2 + 1, v2);
 		}
 
-		SHC.drw_lamp_sunrays = Batch_create(GL_LINES, vbo, NULL);
+		SHC.drw_lamp_sunrays = Batch_create(PRIM_LINES, vbo, NULL);
 	}
 	return SHC.drw_lamp_sunrays;
 }
@@ -777,7 +777,7 @@ Batch *DRW_cache_lamp_area_get(void)
 		v1[1] = 0.5f;
 		VertexBuffer_set_attrib(vbo, pos_id, 7, v1);
 
-		SHC.drw_lamp_area = Batch_create(GL_LINES, vbo, NULL);
+		SHC.drw_lamp_area = Batch_create(PRIM_LINES, vbo, NULL);
 	}
 	return SHC.drw_lamp_area;
 }
@@ -839,7 +839,7 @@ Batch *DRW_cache_lamp_hemi_get(void)
 		}
 
 
-		SHC.drw_lamp_hemi = Batch_create(GL_LINES, vbo, NULL);
+		SHC.drw_lamp_hemi = Batch_create(PRIM_LINES, vbo, NULL);
 	}
 	return SHC.drw_lamp_hemi;
 #undef CIRCLE_RESOL
@@ -909,7 +909,7 @@ Batch *DRW_cache_lamp_spot_get(void)
 			VertexBuffer_set_attrib(vbo, n2_id, i * 4 + 3, neg[(i) % NSEGMENTS]);
 		}
 
-		SHC.drw_lamp_spot = Batch_create(GL_LINES, vbo, NULL);
+		SHC.drw_lamp_spot = Batch_create(PRIM_LINES, vbo, NULL);
 	}
 	return SHC.drw_lamp_spot;
 #undef NSEGMENTS
@@ -945,7 +945,7 @@ Batch *DRW_cache_lamp_spot_square_get(void)
 			VertexBuffer_set_attrib(vbo, pos_id, v_idx++, p[((i+1) % 4)+1]);
 		}
 
-		SHC.drw_lamp_spot_square = Batch_create(GL_LINES, vbo, NULL);
+		SHC.drw_lamp_spot_square = Batch_create(PRIM_LINES, vbo, NULL);
 	}
 	return SHC.drw_lamp_spot_square;
 }
@@ -1003,7 +1003,7 @@ Batch *DRW_cache_speaker_get(void)
 			}
 		}
 
-		SHC.drw_speaker = Batch_create(GL_LINES, vbo, NULL);
+		SHC.drw_speaker = Batch_create(PRIM_LINES, vbo, NULL);
 	}
 	return SHC.drw_speaker;
 }
@@ -1081,7 +1081,7 @@ Batch *DRW_cache_bone_octahedral_get(void)
 			VertexBuffer_set_attrib(vbo, pos_id, v_idx++, bone_octahedral_verts[bone_octahedral_solid_tris[i][2]]);
 		}
 
-		SHC.drw_bone_octahedral = Batch_create(GL_TRIANGLES, vbo, NULL);
+		SHC.drw_bone_octahedral = Batch_create(PRIM_TRIANGLES, vbo, NULL);
 	}
 	return SHC.drw_bone_octahedral;
 }
@@ -1111,7 +1111,7 @@ Batch *DRW_cache_bone_octahedral_wire_outline_get(void)
 			add_fancy_edge(vbo, pos_id, n1_id, n2_id, &v_idx, co1, co2, n1, n2);
 		}
 
-		SHC.drw_bone_octahedral_wire = Batch_create(GL_LINES, vbo, NULL);
+		SHC.drw_bone_octahedral_wire = Batch_create(PRIM_LINES, vbo, NULL);
 	}
 	return SHC.drw_bone_octahedral_wire;
 }
@@ -1155,7 +1155,7 @@ Batch *DRW_cache_bone_point_get(void)
 			}
 		}
 
-		SHC.drw_bone_point = Batch_create(GL_TRIANGLES, vbo, NULL);
+		SHC.drw_bone_point = Batch_create(PRIM_TRIANGLES, vbo, NULL);
 	}
 	return SHC.drw_bone_point;
 }
@@ -1164,7 +1164,7 @@ Batch *DRW_cache_bone_point_wire_outline_get(void)
 {
 	if (!SHC.drw_bone_point_wire) {
 		VertexBuffer *vbo = sphere_wire_vbo(0.05f);
-		SHC.drw_bone_point_wire = Batch_create(GL_LINES, vbo, NULL);
+		SHC.drw_bone_point_wire = Batch_create(PRIM_LINES, vbo, NULL);
 	}
 	return SHC.drw_bone_point_wire;
 }
@@ -1173,7 +1173,7 @@ Batch *DRW_cache_bone_arrows_get(void)
 {
 	if (!SHC.drw_bone_arrows) {
 		VertexBuffer *vbo = fill_arrows_vbo(0.25f);
-		SHC.drw_bone_arrows = Batch_create(GL_LINES, vbo, NULL);
+		SHC.drw_bone_arrows = Batch_create(PRIM_LINES, vbo, NULL);
 	}
 	return SHC.drw_bone_arrows;
 }
@@ -1240,7 +1240,7 @@ Batch *DRW_cache_camera_get(void)
 		VertexBuffer_set_attrib(vbo, pos_id, v_idx++, &v7);
 		VertexBuffer_set_attrib(vbo, pos_id, v_idx++, &v5);
 
-		SHC.drw_camera = Batch_create(GL_LINES, vbo, NULL);
+		SHC.drw_camera = Batch_create(PRIM_LINES, vbo, NULL);
 	}
 	return SHC.drw_camera;
 }
@@ -1271,7 +1271,7 @@ Batch *DRW_cache_camera_tria_get(void)
 		VertexBuffer_set_attrib(vbo, pos_id, v_idx++, &v6);
 		VertexBuffer_set_attrib(vbo, pos_id, v_idx++, &v7);
 
-		SHC.drw_camera_tria = Batch_create(GL_TRIANGLES, vbo, NULL);
+		SHC.drw_camera_tria = Batch_create(PRIM_TRIANGLES, vbo, NULL);
 	}
 	return SHC.drw_camera_tria;
 }
@@ -1294,7 +1294,7 @@ Batch *DRW_cache_single_vert_get(void)
 
 		VertexBuffer_set_attrib(vbo, pos_id, 0, v1);
 
-		SHC.drw_single_vertice = Batch_create(GL_POINTS, vbo, NULL);
+		SHC.drw_single_vertice = Batch_create(PRIM_POINTS, vbo, NULL);
 	}
 	return SHC.drw_single_vertice;
 }

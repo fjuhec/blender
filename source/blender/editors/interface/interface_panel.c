@@ -436,7 +436,7 @@ static void ui_draw_anti_x(unsigned int pos, float x1, float y1, float x2, float
 
 	glLineWidth(2.0);
 
-	immBegin(GL_LINES, 4);
+	immBegin(PRIM_LINES, 4);
 
 	immVertex2f(pos, x1, y1);
 	immVertex2f(pos, x2, y2);
@@ -477,7 +477,7 @@ static void ui_draw_panel_scalewidget(unsigned int pos, const rcti *rect)
 	glEnable(GL_BLEND);
 	immUniformColor4ub(255, 255, 255, 50);
 
-	immBegin(GL_LINES, 4);
+	immBegin(PRIM_LINES, 4);
 
 	immVertex2f(pos, xmin, ymin);
 	immVertex2f(pos, xmax, ymax);
@@ -489,7 +489,7 @@ static void ui_draw_panel_scalewidget(unsigned int pos, const rcti *rect)
 	
 	immUniformColor4ub(0, 0, 0, 50);
 
-	immBegin(GL_LINES, 4);
+	immBegin(PRIM_LINES, 4);
 
 	immVertex2f(pos, xmin, ymin + 1);
 	immVertex2f(pos, xmax, ymax + 1);
@@ -606,7 +606,7 @@ void ui_draw_aligned_panel(uiStyle *style, uiBlock *block, const rcti *rect, con
 			immUniformThemeColor(TH_PANEL_HEADER);
 			immRectf(pos, minx, headrect.ymin + 1, maxx, y);
 
-			immBegin(GL_LINES, 4);
+			immBegin(PRIM_LINES, 4);
 
 			immVertex2f(pos, minx, y);
 			immVertex2f(pos, maxx, y);
@@ -626,14 +626,14 @@ void ui_draw_aligned_panel(uiStyle *style, uiBlock *block, const rcti *rect, con
 
 			immUniformColor4f(0.0f, 0.0f, 0.0f, 0.5f);
 
-			immBegin(GL_LINES, 2);
+			immBegin(PRIM_LINES, 2);
 			immVertex2f(pos, minx, y);
 			immVertex2f(pos, maxx, y);
 			immEnd();
 
 			immUniformColor4f(1.0f, 1.0f, 1.0f, 0.25f);
 
-			immBegin(GL_LINES, 2);
+			immBegin(PRIM_LINES, 2);
 			immVertex2f(pos, minx, y - 1);
 			immVertex2f(pos, maxx, y - 1);
 			immEnd();
@@ -696,7 +696,7 @@ void ui_draw_aligned_panel(uiStyle *style, uiBlock *block, const rcti *rect, con
 			else UI_draw_roundbox_corner_set(UI_CNR_NONE);
 
 			UI_GetThemeColorShade4fv(TH_BACK, -120, color);
-			UI_draw_roundbox_unfilled(0.5f + rect->xmin, 0.5f + rect->ymin, 0.5f + rect->xmax, 0.5f + headrect.ymax + 1, 8, color);
+			UI_draw_roundbox_aa(false, 0.5f + rect->xmin, 0.5f + rect->ymin, 0.5f + rect->xmax, 0.5f + headrect.ymax + 1, 8, color);
 		}
 
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
@@ -1553,13 +1553,13 @@ void UI_panel_category_clear_all(ARegion *ar)
 	BLI_freelistN(&ar->panels_category);
 }
 
-/* based on UI_draw_roundbox_gl_mode, check on making a version which allows us to skip some sides */
+/* based on UI_draw_roundbox, check on making a version which allows us to skip some sides */
 static void ui_panel_category_draw_tab(
-        int mode, float minx, float miny, float maxx, float maxy, float rad,
+        bool filled, float minx, float miny, float maxx, float maxy, float rad,
         int roundboxtype,
-        const bool use_highlight, const bool use_shadow,
+        bool use_highlight, bool use_shadow,
         const unsigned char highlight_fade[3],
-		const unsigned char col[3])
+        const unsigned char col[3])
 {
 	float vec[4][2] = {
 	    {0.195, 0.02},
@@ -1577,9 +1577,22 @@ static void ui_panel_category_draw_tab(
 		mul_v2_fl(vec[a], rad);
 	}
 
+	unsigned int vert_ct = 0;
+	if (use_highlight) {
+		vert_ct += (roundboxtype & UI_CNR_TOP_RIGHT) ? 6 : 1;
+		vert_ct += (roundboxtype & UI_CNR_TOP_LEFT) ? 6 : 1;
+	}
+	if (use_highlight && !use_shadow) {
+		vert_ct++;
+	}
+	else {
+		vert_ct += (roundboxtype & UI_CNR_BOTTOM_RIGHT) ? 6 : 1;
+		vert_ct += (roundboxtype & UI_CNR_BOTTOM_LEFT) ? 6 : 1;
+	}
+
 	immBindBuiltinProgram(GPU_SHADER_2D_SMOOTH_COLOR);
 
-	immBeginAtMost(mode, 24);
+	immBegin(filled ? PRIM_TRIANGLE_FAN : PRIM_LINE_STRIP, vert_ct);
 
 	immAttrib3ubv(color, col);
 
@@ -1632,7 +1645,6 @@ static void ui_panel_category_draw_tab(
 	}
 
 	/* corner right-bottom */
-
 	if (roundboxtype & UI_CNR_BOTTOM_RIGHT) {
 		immVertex2f(pos, maxx - rad, miny);
 		for (a = 0; a < 4; a++) {
@@ -1810,16 +1822,16 @@ void UI_panel_category_draw_all(ARegion *ar, const char *category_id_active)
 		if (is_active)
 #endif
 		{
-			ui_panel_category_draw_tab(GL_TRIANGLE_FAN, rct->xmin, rct->ymin, rct->xmax, rct->ymax,
+			ui_panel_category_draw_tab(true, rct->xmin, rct->ymin, rct->xmax, rct->ymax,
 			                           tab_curve_radius - px, roundboxtype, true, true, NULL,
 			                           is_active ? theme_col_tab_active : theme_col_tab_inactive);
 
 			/* tab outline */
-			ui_panel_category_draw_tab(GL_LINE_STRIP, rct->xmin - px, rct->ymin - px, rct->xmax - px, rct->ymax + px,
+			ui_panel_category_draw_tab(false, rct->xmin - px, rct->ymin - px, rct->xmax - px, rct->ymax + px,
 			                           tab_curve_radius, roundboxtype, true, true, NULL, theme_col_tab_outline);
 
 			/* tab highlight (3d look) */
-			ui_panel_category_draw_tab(GL_LINE_STRIP, rct->xmin, rct->ymin, rct->xmax, rct->ymax,
+			ui_panel_category_draw_tab(false, rct->xmin, rct->ymin, rct->xmax, rct->ymax,
 			                           tab_curve_radius, roundboxtype, true, false,
 			                           is_active ? theme_col_back : theme_col_tab_inactive,
 			                           is_active ? theme_col_tab_highlight : theme_col_tab_highlight_inactive);

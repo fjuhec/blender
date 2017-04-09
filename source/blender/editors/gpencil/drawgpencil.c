@@ -158,7 +158,7 @@ static void gp_draw_stroke_buffer_fill(const tGPspoint *points, int totpoints, f
 		immBindBuiltinProgram(GPU_SHADER_2D_SMOOTH_COLOR);
 
 		/* Draw all triangles for filling the polygon */
-		immBegin(GL_TRIANGLES, tot_triangles * 3);
+		immBegin(PRIM_TRIANGLES, tot_triangles * 3);
 		/* TODO: use batch instead of immediate mode, to share vertices */
 
 		const tGPspoint *pt;
@@ -219,7 +219,7 @@ static void gp_draw_stroke_buffer(const tGPspoint *points, int totpoints, short 
 		/* if drawing a single point, draw it larger */
 		glPointSize((float)(thickness + 2) * points->pressure);
 		immBindBuiltinProgram(GPU_SHADER_3D_POINT_FIXED_SIZE_VARYING_COLOR);
-		immBegin(GL_POINTS, 1);
+		immBegin(PRIM_POINTS, 1);
 		gp_set_tpoint_varying_color(pt, ink, color);
 		immVertex2iv(pos, &pt->x);
 	}
@@ -331,7 +331,7 @@ static void gp_draw_stroke_volumetric_buffer(const tGPspoint *points, int totpoi
 
 	immBindBuiltinProgram(GPU_SHADER_3D_POINT_VARYING_SIZE_VARYING_COLOR);
 	GPU_enable_program_point_size();
-	immBegin(GL_POINTS, totpoints);
+	immBegin(PRIM_POINTS, totpoints);
 
 	const tGPspoint *pt = points;
 	for (int i = 0; i < totpoints; i++, pt++) {
@@ -358,7 +358,7 @@ static void gp_draw_stroke_volumetric_2d(const bGPDspoint *points, int totpoints
 
 	immBindBuiltinProgram(GPU_SHADER_3D_POINT_VARYING_SIZE_VARYING_COLOR);
 	GPU_enable_program_point_size();
-	immBegin(GL_POINTS, totpoints);
+	immBegin(PRIM_POINTS, totpoints);
 
 	const bGPDspoint *pt = points;
 	for (int i = 0; i < totpoints; i++, pt++) {
@@ -391,7 +391,7 @@ static void gp_draw_stroke_volumetric_3d(
 
 	immBindBuiltinProgram(GPU_SHADER_3D_POINT_VARYING_SIZE_VARYING_COLOR);
 	GPU_enable_program_point_size();
-	immBegin(GL_POINTS, totpoints);
+	immBegin(PRIM_POINTS, totpoints);
 
 	const bGPDspoint *pt = points;
 	for (int i = 0; i < totpoints && pt; i++, pt++) {
@@ -663,7 +663,7 @@ static void gp_draw_stroke_fill(
 	}
 
 	/* Draw all triangles for filling the polygon (cache must be calculated before) */
-	immBegin(GL_TRIANGLES, gps->tot_triangles * 3);
+	immBegin(PRIM_TRIANGLES, gps->tot_triangles * 3);
 	/* TODO: use batch instead of immediate mode, to share vertices */
 
 	bGPDtriangle *stroke_triangle = gps->triangles;
@@ -715,7 +715,7 @@ static void gp_draw_stroke_point(
 	/* set point thickness (since there's only one of these) */
 	immUniform1f("size", (float)(thickness + 2) * pt->pressure);
 
-	immBegin(GL_POINTS, 1);
+	immBegin(PRIM_POINTS, 1);
 	immVertex3fv(pos, fpt);
 	immEnd();
 
@@ -826,7 +826,7 @@ static void gp_draw_stroke_2d(const bGPDspoint *points, int totpoints, short thi
 		unsigned int color = VertexFormat_add_attrib(format, "color", COMP_U8, 4, NORMALIZE_INT_TO_FLOAT);
 
 		immBindBuiltinProgram(GPU_SHADER_2D_FLAT_COLOR);
-		immBegin(GL_QUADS, (totpoints - 2) * 4 + 12);
+		immBegin(PRIM_QUADS_XXX, (totpoints - 2) * 4 + 12);
 
 		for (i = 0, pt1 = points, pt2 = points + 1; i < (totpoints - 1); i++, pt1++, pt2++) {
 			float s0[2], s1[2];     /* segment 'center' points */
@@ -1272,7 +1272,7 @@ static void gp_draw_strokes_edit(
 			immBindBuiltinProgram(GPU_SHADER_2D_POINT_VARYING_SIZE_VARYING_COLOR);
 		}
 
-		immBegin(GL_POINTS, gps->totpoints);
+		immBegin(PRIM_POINTS, gps->totpoints);
 
 		/* Draw start and end point differently if enabled stroke direction hint */
 		bool show_direction_hint = (gpd->flag & GP_DATA_SHOW_DIRECTION) && (gps->totpoints > 1);

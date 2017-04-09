@@ -168,7 +168,7 @@ static bool vertex_count_makes_sense_for_primitive(unsigned vertex_ct, Primitive
 		case PRIM_TRIANGLE_FAN:
 			return vertex_ct >= 3;
   #ifdef WITH_GL_PROFILE_COMPAT
-		case PRIM_QUADS:
+		case PRIM_QUADS_XXX:
 			return vertex_ct % 4 == 0;
   #endif
 		default:
@@ -329,13 +329,13 @@ static void immDrawSetup(void)
 			{
 			case KEEP_FLOAT:
 			case CONVERT_INT_TO_FLOAT:
-				glVertexAttribPointer(loc, a->comp_ct, a->comp_type, GL_FALSE, stride, pointer);
+				glVertexAttribPointer(loc, a->comp_ct, a->gl_comp_type, GL_FALSE, stride, pointer);
 				break;
 			case NORMALIZE_INT_TO_FLOAT:
-				glVertexAttribPointer(loc, a->comp_ct, a->comp_type, GL_TRUE, stride, pointer);
+				glVertexAttribPointer(loc, a->comp_ct, a->gl_comp_type, GL_TRUE, stride, pointer);
 				break;
 			case KEEP_INT:
-				glVertexAttribIPointer(loc, a->comp_ct, a->comp_type, stride, pointer);
+				glVertexAttribIPointer(loc, a->comp_ct, a->gl_comp_type, stride, pointer);
 			}
 		}
 
@@ -409,7 +409,7 @@ void immEnd(void)
 		if (imm.vertex_ct > 0)
 			{
 			immDrawSetup();
-			glDrawArrays(imm.prim_type, 0, imm.vertex_ct);
+			glDrawArrays(convert_prim_type_to_gl(imm.prim_type), 0, imm.vertex_ct);
 			}
 
 		glBindBuffer(GL_ARRAY_BUFFER, 0);

@@ -41,6 +41,9 @@
 
 #include "UI_resources.h"
 
+#include "WM_api.h"
+#include "WM_types.h"
+
 #include "BKE_global.h"
 #include "BKE_object.h"
 #include "BKE_paint.h"
@@ -237,7 +240,7 @@ static void drawgrid(UnitSettings *unit, ARegion *ar, View3D *v3d, const char **
 					if (gridline_ct == 0)
 						goto drawgrid_cleanup; /* nothing to draw */
 
-					immBegin(GL_LINES, gridline_ct * 2);
+					immBegin(PRIM_LINES, gridline_ct * 2);
 				}
 
 				float blend_fac = 1.0f - ((GRID_MIN_PX_F * 2.0f) / (float)dx_scalar);
@@ -290,7 +293,7 @@ static void drawgrid(UnitSettings *unit, ARegion *ar, View3D *v3d, const char **
 		if (gridline_ct == 0)
 			goto drawgrid_cleanup; /* nothing to draw */
 
-		immBegin(GL_LINES, gridline_ct * 2);
+		immBegin(PRIM_LINES, gridline_ct * 2);
 
 		if (grids_to_draw == 2) {
 			UI_GetThemeColorBlend3ubv(TH_HIGH_GRAD, TH_GRID, dx / (GRID_MIN_PX_D * 6.0), col2);
@@ -370,7 +373,7 @@ static void drawfloor(Scene *scene, View3D *v3d, const char **grid_unit)
 
 			immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
 
-			immBegin(GL_LINES, vertex_ct);
+			immBegin(PRIM_LINES, vertex_ct);
 
 			/* draw normal grid lines */
 			UI_GetColorPtrShade3ubv(col_grid, col_grid_light, 10);
@@ -457,7 +460,7 @@ static void drawfloor(Scene *scene, View3D *v3d, const char **grid_unit)
 			unsigned int color = VertexFormat_add_attrib(format, "color", COMP_U8, 3, NORMALIZE_INT_TO_FLOAT);
 
 			immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
-			immBegin(GL_LINES, (show_axis_x + show_axis_y + show_axis_z) * 2);
+			immBegin(PRIM_LINES, (show_axis_x + show_axis_y + show_axis_z) * 2);
 
 			if (show_axis_x) {
 				UI_make_axis_color(col_grid, col_axis, 'X');
@@ -565,7 +568,7 @@ void DRW_draw_background(void)
 		UI_GetThemeColor3ubv(TH_LOW_GRAD, col_lo);
 		UI_GetThemeColor3ubv(TH_HIGH_GRAD, col_hi);
 
-		immBegin(GL_QUADS, 4);
+		immBegin(PRIM_TRIANGLE_FAN, 4);
 		immAttrib3ubv(color, col_lo);
 		immVertex2f(pos, -1.0f, -1.0f);
 		immVertex2f(pos, 1.0f, -1.0f);
@@ -655,7 +658,7 @@ void DRW_draw_cursor(void)
 
 		const int segments = 16;
 
-		immBegin(GL_LINE_LOOP, segments);
+		immBegin(PRIM_LINE_LOOP, segments);
 		immAttrib3fv(wpos, co);
 
 		for (int i = 0; i < segments; ++i) {
@@ -674,7 +677,7 @@ void DRW_draw_cursor(void)
 
 		UI_GetThemeColor3ubv(TH_VIEW_OVERLAY, crosshair_color);
 
-		immBegin(GL_LINES, 8);
+		immBegin(PRIM_LINES, 8);
 		immAttrib3ubv(color, crosshair_color);
 		immAttrib3fv(wpos, co);
 
@@ -699,5 +702,13 @@ void DRW_draw_manipulator(void)
 	const bContext *C = DRW_get_context();
 	View3D *v3d = CTX_wm_view3d(C);
 	v3d->zbuf = false;
-	BIF_draw_manipulator(C);
+	ARegion *ar = CTX_wm_region(C);
+
+
+	/* TODO, only draws 3D manipulators right now, need to see how 2D drawing will work in new viewport */
+
+	/* draw depth culled manipulators - manipulators need to be updated *after* view matrix was set up */
+	/* TODO depth culling manipulators is not yet supported, just drawing _3D here, should
+	 * later become _IN_SCENE (and draw _3D separate) */
+	WM_manipulatormap_draw(ar->manipulator_map, C, WM_MANIPULATORMAP_DRAWSTEP_3D);
 }

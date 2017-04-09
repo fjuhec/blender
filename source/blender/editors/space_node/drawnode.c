@@ -450,29 +450,20 @@ static void node_draw_frame(const bContext *C, ARegion *ar, SpaceNode *snode,
 	}
 	else
 		UI_GetThemeColor4fv(TH_NODE_FRAME, color);
-	glEnable(GL_BLEND);
+
 	UI_draw_roundbox_corner_set(UI_CNR_ALL);
-	UI_draw_roundbox(rct->xmin, rct->ymin, rct->xmax, rct->ymax, BASIS_RAD, color);
-	glDisable(GL_BLEND);
+	UI_draw_roundbox_aa(true, rct->xmin, rct->ymin, rct->xmax, rct->ymax, BASIS_RAD, color);
 
 	/* outline active and selected emphasis */
 	if (node->flag & SELECT) {
-		glEnable(GL_BLEND);
-		glEnable(GL_LINE_SMOOTH);
-				
 		if (node->flag & NODE_ACTIVE)
 			UI_GetThemeColorShadeAlpha4fv(TH_ACTIVE, 0, -40, color);
 		else
 			UI_GetThemeColorShadeAlpha4fv(TH_SELECT, 0, -40, color);
 
-		UI_draw_roundbox_corner_set(UI_CNR_ALL);
-		UI_draw_roundbox_gl_mode(GL_LINE_LOOP, rct->xmin, rct->ymin, rct->xmax, rct->ymax, BASIS_RAD, color);
-
-
-		glDisable(GL_LINE_SMOOTH);
-		glDisable(GL_BLEND);
+		UI_draw_roundbox_aa(false, rct->xmin, rct->ymin, rct->xmax, rct->ymax, BASIS_RAD, color);
 	}
-	
+
 	/* label */
 	node_draw_frame_label(ntree, node, snode->aspect);
 	
@@ -566,9 +557,7 @@ static void node_draw_reroute(const bContext *C, ARegion *ar, SpaceNode *UNUSED(
 	float debug_color[4];
 	UI_draw_roundbox_corner_set(UI_CNR_ALL);
 	UI_GetThemeColor4fv(TH_NODE, debug_color);
-	glEnable(GL_BLEND);
-	UI_draw_roundbox(rct->xmin, rct->ymin, rct->xmax, rct->ymax, size, debug_color);
-	glDisable(GL_BLEND);
+	UI_draw_roundbox_aa(true, rct->xmin, rct->ymin, rct->xmax, rct->ymax, size, debug_color);
 
 	/* outline active and selected emphasis */
 	if (node->flag & SELECT) {
@@ -581,7 +570,7 @@ static void node_draw_reroute(const bContext *C, ARegion *ar, SpaceNode *UNUSED(
 		else {
 			UI_GetThemeColorShadeAlpha4fv(TH_TEXT_HI, -20, -120, debug_color);
 		}
-		UI_draw_roundbox_gl_mode(GL_LINE_LOOP, rct->xmin, rct->ymin, rct->xmax, rct->ymax, size, debug_color);
+		UI_draw_roundbox_4fv(false, rct->xmin, rct->ymin, rct->xmax, rct->ymax, size, debug_color);
 
 		glDisable(GL_LINE_SMOOTH);
 		glDisable(GL_BLEND);
@@ -2174,7 +2163,7 @@ static void node_composit_backdrop_viewer(SpaceNode *snode, ImBuf *backdrop, bNo
 
 		immUniformColor3f(1.0f, 1.0f, 1.0f);
 
-		immBegin(GL_LINES, 4);
+		immBegin(PRIM_LINES, 4);
 		immVertex2f(pos, cx - 25, cy - 25);
 		immVertex2f(pos, cx + 25, cy + 25);
 		immVertex2f(pos, cx + 25, cy - 25);
@@ -2219,7 +2208,7 @@ static void node_composit_backdrop_boxmask(SpaceNode *snode, ImBuf *backdrop, bN
 
 	immUniformColor3f(1.0f, 1.0f, 1.0f);
 
-	immBegin(GL_LINE_LOOP, 4);
+	immBegin(PRIM_LINE_LOOP, 4);
 	immVertex2f(pos, x1, y1);
 	immVertex2f(pos, x2, y2);
 	immVertex2f(pos, x3, y3);
@@ -2263,7 +2252,7 @@ static void node_composit_backdrop_ellipsemask(SpaceNode *snode, ImBuf *backdrop
 
 	immUniformColor3f(1.0f, 1.0f, 1.0f);
 
-	immBegin(GL_LINE_LOOP, 4);
+	immBegin(PRIM_LINE_LOOP, 4);
 	immVertex2f(pos, x1, y1);
 	immVertex2f(pos, x2, y2);
 	immVertex2f(pos, x3, y3);
@@ -3423,7 +3412,7 @@ void node_draw_link_bezier(View2D *v2d, SpaceNode *snode, bNodeLink *link,
 			immUniformThemeColorShadeAlpha(th_col3, -80, -120);
 			glLineWidth(4.0f * px_fac);
 
-			immBegin(GL_LINE_STRIP, (LINK_RESOL + 1));
+			immBegin(PRIM_LINE_STRIP, (LINK_RESOL + 1));
 
 			for (i = 0; i <= LINK_RESOL; i++) {
 				immVertex2fv(pos, coord_array[i]);
@@ -3432,7 +3421,7 @@ void node_draw_link_bezier(View2D *v2d, SpaceNode *snode, bNodeLink *link,
 			immEnd();
 
 			if (drawarrow) {
-				immBegin(GL_LINE_STRIP, 3);
+				immBegin(PRIM_LINE_STRIP, 3);
 				immVertex2fv(pos, arrow1);
 				immVertex2fv(pos, arrow);
 				immVertex2fv(pos, arrow2);
@@ -3445,7 +3434,7 @@ void node_draw_link_bezier(View2D *v2d, SpaceNode *snode, bNodeLink *link,
 		if (drawarrow) {
 			immUniformThemeColorBlend(th_col1, th_col2, 0.5f);
 
-			immBegin(GL_LINE_STRIP, 3);
+			immBegin(PRIM_LINE_STRIP, 3);
 			immVertex2fv(pos, arrow1);
 			immVertex2fv(pos, arrow);
 			immVertex2fv(pos, arrow2);
@@ -3455,7 +3444,7 @@ void node_draw_link_bezier(View2D *v2d, SpaceNode *snode, bNodeLink *link,
 		if (!do_shaded) {
 			immUniformThemeColor(th_col1);
 
-			immBegin(GL_LINE_STRIP, (LINK_RESOL + 1));
+			immBegin(PRIM_LINE_STRIP, (LINK_RESOL + 1));
 
 			for (i = 0; i <= LINK_RESOL; i++) {
 				immVertex2fv(pos, coord_array[i]);
@@ -3477,7 +3466,7 @@ void node_draw_link_bezier(View2D *v2d, SpaceNode *snode, bNodeLink *link,
 
 			immBindBuiltinProgram(GPU_SHADER_2D_SMOOTH_COLOR);
 
-			immBegin(GL_LINE_STRIP, (LINK_RESOL + 1));
+			immBegin(PRIM_LINE_STRIP, (LINK_RESOL + 1));
 
 			for (i = 0; i <= LINK_RESOL; i++) {
 				UI_GetThemeColorBlend3ubv(th_col1, th_col2, spline_step, col);
@@ -3545,7 +3534,7 @@ void node_draw_link(View2D *v2d, SpaceNode *snode, bNodeLink *link)
 
 void ED_node_draw_snap(View2D *v2d, const float cent[2], float size, NodeBorder border, unsigned pos)
 {
-	immBegin(GL_LINES, 4);
+	immBegin(PRIM_LINES, 4);
 	
 	if (border & (NODE_LEFT | NODE_RIGHT)) {
 		immVertex2f(pos, cent[0], v2d->cur.ymin);

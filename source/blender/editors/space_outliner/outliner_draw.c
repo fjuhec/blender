@@ -1253,13 +1253,14 @@ static void outliner_draw_iconrow(bContext *C, uiBlock *block, Scene *scene, Sce
 				UI_draw_roundbox_corner_set(UI_CNR_ALL);
 				color[3] *= alpha_fac;
 
-				UI_draw_roundbox(
+				UI_draw_roundbox_aa(
+				        true,
 				        (float) *offsx + 1.0f * ufac,
 				        (float)ys + 1.0f * ufac,
 				        (float)*offsx + UI_UNIT_X - 1.0f * ufac,
 				        (float)ys + UI_UNIT_Y - ufac,
 				        (float)UI_UNIT_Y / 2.0f - ufac,
-				         color);
+				        color);
 				glEnable(GL_BLEND); /* roundbox disables */
 			}
 			
@@ -1379,7 +1380,8 @@ static void outliner_draw_tree_element(
 		/* active circle */
 		if (active != OL_DRAWSEL_NONE) {
 			UI_draw_roundbox_corner_set(UI_CNR_ALL);
-			UI_draw_roundbox(
+			UI_draw_roundbox_aa(
+			        true,
 			        (float)startx + UI_UNIT_X + 1.0f * ufac,
 			        (float)*starty + 1.0f * ufac,
 			        (float)startx + 2.0f * UI_UNIT_X - 1.0f * ufac,
@@ -1554,9 +1556,9 @@ static void outliner_draw_tree_element_floating(
 		BLI_assert(te_floating->drag_data->insert_type == TE_INSERT_INTO);
 		immUniformColor4ub(UNPACK3(col), col[3] * 0.5f);
 
-		immBegin(PRIM_QUADS, 4);
-		immVertex2f(pos, coord_x, coord_y);
+		immBegin(PRIM_TRIANGLE_STRIP, 4);
 		immVertex2f(pos, coord_x, coord_y + UI_UNIT_Y);
+		immVertex2f(pos, coord_x, coord_y);
 		immVertex2f(pos, ar->v2d.cur.xmax, coord_y + UI_UNIT_Y);
 		immVertex2f(pos, ar->v2d.cur.xmax, coord_y);
 		immEnd();
@@ -1653,7 +1655,7 @@ static void outliner_draw_struct_marks(ARegion *ar, SpaceOops *soops, ListBase *
 				immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 				immThemeColorShadeAlpha(TH_BACK, -15, -200);
 
-				immBegin(GL_LINES, 2);
+				immBegin(PRIM_LINES, 2);
 				immVertex2f(pos, 0, (float)*starty + UI_UNIT_Y);
 				immVertex2f(pos, ar->v2d.cur.xmax, (float)*starty + UI_UNIT_Y);
 				immEnd();
@@ -1799,7 +1801,7 @@ static void outliner_back(ARegion *ar)
 	int tot = (int)floor(ystart - ar->v2d.cur.ymin + 2 * UI_UNIT_Y) / (2 * UI_UNIT_Y);
 
 	if (tot > 0) {
-		immBegin(GL_QUADS, 4 * tot);
+		immBegin(PRIM_QUADS_XXX, 4 * tot);
 		while (tot--) {
 			y1 -= 2 * UI_UNIT_Y;
 			y2 = y1 + UI_UNIT_Y;

@@ -101,20 +101,20 @@ static void manipulator_arrow_get_final_pos(wmManipulator *manipulator, float r_
 
 static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select, const float color[4])
 {
-	/* USE_IMM for other arrow types */
-	glColor4fv(color);
+	unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
+	bool unbind_shader = true;
+
+	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
 	if (arrow->style & MANIPULATOR_ARROW_STYLE_CROSS) {
-		glPushAttrib(GL_ENABLE_BIT);
-		glDisable(GL_LIGHTING);
-		glBegin(GL_LINES);
-		glVertex2f(-1.0, 0.f);
-		glVertex2f(1.0, 0.f);
-		glVertex2f(0.f, -1.0);
-		glVertex2f(0.f, 1.0);
-		glEnd();
+		immUniformColor4fv(color);
 
-		glPopAttrib();
+		immBegin(PRIM_LINES, 4);
+		immVertex2f(pos, -1.0, 0.f);
+		immVertex2f(pos, 1.0, 0.f);
+		immVertex2f(pos, 0.f, -1.0);
+		immVertex2f(pos, 0.f, 1.0);
+		immEnd();
 	}
 	else if (arrow->style & MANIPULATOR_ARROW_STYLE_CONE) {
 		const float unitx = arrow->aspect[0];
@@ -127,27 +127,20 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select, co
 		};
 
 		glLineWidth(arrow->manipulator.line_width);
-		glEnableClientState(GL_VERTEX_ARRAY);
-		glVertexPointer(3, GL_FLOAT, 0, vec);
-		glDrawArrays(GL_LINE_LOOP, 0, ARRAY_SIZE(vec));
-		glDisableClientState(GL_VERTEX_ARRAY);
-		glLineWidth(1.0);
+		wm_manipulator_vec_draw(color, vec, ARRAY_SIZE(vec), pos, PRIM_LINE_STRIP);
 	}
 	else {
 #ifdef USE_MANIPULATOR_CUSTOM_ARROWS
-		wm_manipulator_geometryinfo_draw(&wm_manipulator_geom_data_arrow, select);
+		wm_manipulator_geometryinfo_draw(&wm_manipulator_geom_data_arrow, select, color);
 #else
+
 		const float vec[2][3] = {
 			{0.0f, 0.0f, 0.0f},
 			{0.0f, 0.0f, arrow->len},
 		};
 
 		glLineWidth(arrow->manipulator.line_width);
-		glEnableClientState(GL_VERTEX_ARRAY);
-		glVertexPointer(3, GL_FLOAT, 0, vec);
-		glDrawArrays(GL_LINE_STRIP, 0, ARRAY_SIZE(vec));
-		glDisableClientState(GL_VERTEX_ARRAY);
-		glLineWidth(1.0);
+		wm_manipulator_vec_draw(color, vec, ARRAY_SIZE(vec), pos, PRIM_LINE_STRIP);
 
 
 		/* *** draw arrow head *** */
@@ -163,7 +156,9 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select, co
 			gpuScale3f(size, size, size);
 
 			/* draw cube */
-			wm_manipulator_geometryinfo_draw(&wm_manipulator_geom_data_cube, select);
+			immUnbindProgram();
+			unbind_shader = false;
+			wm_manipulator_geometryinfo_draw(&wm_manipulator_geom_data_cube, select, color);
 		}
 		else {
 			const float len = 0.25f;
@@ -171,11 +166,7 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select, co
 			const bool use_lighting = select == false && ((U.manipulator_flag & V3D_SHADED_MANIPULATORS) != 0);
 
 			/* translate to line end */
-			unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
 			gpuTranslate3f(0.0f, 0.0f, arrow->len);
-
-			immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
-			immUniformColor4fv(color);
 
 			if (use_lighting) {
 				glShadeModel(GL_SMOOTH);
@@ -184,16 +175,17 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select, co
 			imm_draw_circle_fill_3d(pos, 0.0, 0.0, width, 8);
 			imm_draw_cylinder_fill_3d(pos, width, 0.0, len, 8, 1);
 
-			immUnbindProgram();
-
 			if (use_lighting) {
 				glShadeModel(GL_FLAT);
 			}
 		}
 
 		gpuPopMatrix();
-
 #endif  /* USE_MANIPULATOR_CUSTOM_ARROWS */
+	}
+
+	if (unbind_shader) {
+		immUnbindProgram();
 	}
 }
 

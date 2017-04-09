@@ -103,7 +103,7 @@ static void time_draw_sfra_efra(Scene *scene, View2D *v2d)
 	/* thin lines where the actual frames are */
 	immUniformThemeColorShade(TH_BACK, -60);
 
-	immBegin(GL_LINES, 4);
+	immBegin(PRIM_LINES, 4);
 
 	immVertex2f(pos, (float)PSFRA, v2d->cur.ymin);
 	immVertex2f(pos, (float)PSFRA, v2d->cur.ymax);
@@ -216,7 +216,7 @@ static void time_draw_cache(SpaceTime *stime, Object *ob, Scene *scene)
 		immUniformColor4fv(col);
 
 		if (len > 0) {
-			immBeginAtMost(GL_QUADS, len);
+			immBeginAtMost(PRIM_QUADS_XXX, len);
 
 			/* draw a quad for each cached frame */
 			for (int i = sta; i <= end; i++) {
@@ -342,7 +342,7 @@ static void time_draw_idblock_keyframes(View2D *v2d, ID *id, short onlysel, cons
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 		immUniformColor3ubv(color);
 
-		immBeginAtMost(GL_LINES, max_len * 2);
+		immBeginAtMost(PRIM_LINES, max_len * 2);
 
 		for (; (ak) && (ak->cfra <= v2d->cur.xmax);
 			ak = ak->next)

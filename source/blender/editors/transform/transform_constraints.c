@@ -706,8 +706,6 @@ void drawConstraint(TransInfo *t)
 		return;
 	if (!(tc->mode & CON_APPLY))
 		return;
-	if (t->flag & T_USES_MANIPULATOR)
-		return;
 	if (t->flag & T_NO_CONSTRAINT)
 		return;
 
@@ -737,7 +735,7 @@ void drawConstraint(TransInfo *t)
 
 			setlinestyle(1);
 
-			immBegin(GL_LINES, 2);
+			immBegin(PRIM_LINES, 2);
 			immVertex3fv(pos, t->center_global);
 			immVertex3fv(pos, vec);
 			immEnd();
