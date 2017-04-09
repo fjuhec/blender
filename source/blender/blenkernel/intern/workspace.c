@@ -77,7 +77,7 @@ static WorkSpaceLayout *workspace_layout_find_exec(
 static void workspace_relation_add(
         ListBase *relation_list, void *parent, void *data)
 {
-	WorkSpaceDataRelation *relation = MEM_mallocN(sizeof(*relation), __func__);
+	WorkSpaceDataRelation *relation = MEM_callocN(sizeof(*relation), __func__);
 	relation->parent = parent;
 	relation->value = data;
 	/* add to head, if we switch back to it soon we find it faster. */
@@ -215,7 +215,7 @@ WorkSpaceLayout *BKE_workspace_layout_add(
         bScreen *screen,
         const char *name)
 {
-	WorkSpaceLayout *layout = MEM_mallocN(sizeof(*layout), __func__);
+	WorkSpaceLayout *layout = MEM_callocN(sizeof(*layout), __func__);
 
 	BLI_assert(!workspaces_is_screen_used(G.main, screen));
 	layout->screen = screen;
