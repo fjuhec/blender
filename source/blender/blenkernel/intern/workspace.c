@@ -71,13 +71,7 @@ static void workspace_layout_name_set(
 static WorkSpaceLayout *workspace_layout_find_exec(
         const WorkSpace *workspace, const bScreen *screen)
 {
-	for (WorkSpaceLayout *layout = workspace->layouts.first; layout; layout = layout->next) {
-		if (layout->screen == screen) {
-			return layout;
-		}
-	}
-
-	return NULL;
+	return BLI_findptr(&workspace->layouts, screen, offsetof(WorkSpaceLayout, screen));
 }
 
 static void workspace_relation_add(
@@ -99,30 +93,29 @@ static void workspace_relation_remove(
 static void workspace_relation_ensure_updated(
         ListBase *relation_list, void *parent, void *data)
 {
-	for (WorkSpaceDataRelation *relation = relation_list->first; relation; relation = relation->next) {
-		if (relation->parent == parent) {
-			relation->value = data;
-			/* reinsert at the head of the list, so that more commonly used relations are found faster. */
-			BLI_remlink(relation_list, relation);
-			BLI_addhead(relation_list, relation);
-			return;
-		}
+	WorkSpaceDataRelation *relation = BLI_findptr(relation_list, parent, offsetof(WorkSpaceDataRelation, parent));
+	if (relation != NULL) {
+		relation->value = data;
+		/* reinsert at the head of the list, so that more commonly used relations are found faster. */
+		BLI_remlink(relation_list, relation);
+		BLI_addhead(relation_list, relation);
 	}
-
-	/* no matching relation found, add new one */
-	workspace_relation_add(relation_list, parent, data);
+	else {
+		/* no matching relation found, add new one */
+		workspace_relation_add(relation_list, parent, data);
+	}
 }
 
 static void *workspace_relation_get_data_matching_parent(
         const ListBase *relation_list, const void *parent)
 {
-	for (WorkSpaceDataRelation *relation = relation_list->first; relation; relation = relation->next) {
-		if (relation->parent == parent) {
-			return relation->value;
-		}
+	WorkSpaceDataRelation *relation = BLI_findptr(relation_list, parent, offsetof(WorkSpaceDataRelation, parent));
+	if (relation != NULL) {
+		return relation->value;
 	}
-
-	return NULL;
+	else {
+		return NULL;
+	}
 }
 
 /**
