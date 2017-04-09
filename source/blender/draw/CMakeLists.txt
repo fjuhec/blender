@@ -67,6 +67,9 @@ set(SRC
 	engines/eevee/eevee.h
 	engines/eevee/eevee_private.h
 
+	engines/gpencil/gpencil_mode.h
+	engines/gpencil/gpencil_mode.c
+
 	modes/object_mode.c
 	modes/edit_armature_mode.c
 	modes/edit_curve_mode.c
@@ -125,6 +128,12 @@ data_to_c_simple(modes/shaders/object_outline_expand_frag.glsl SRC)
 data_to_c_simple(modes/shaders/object_outline_detect_frag.glsl SRC)
 data_to_c_simple(modes/shaders/object_grid_frag.glsl SRC)
 data_to_c_simple(modes/shaders/object_grid_vert.glsl SRC)
+
+data_to_c_simple(engines/gpencil/shaders/gpencil_fill_vert.glsl SRC)
+data_to_c_simple(engines/gpencil/shaders/gpencil_fill_frag.glsl SRC)
+data_to_c_simple(engines/gpencil/shaders/gpencil_stroke_vert.glsl SRC)
+data_to_c_simple(engines/gpencil/shaders/gpencil_stroke_geom.glsl SRC)
+data_to_c_simple(engines/gpencil/shaders/gpencil_stroke_frag.glsl SRC)
 
 list(APPEND INC
 )
