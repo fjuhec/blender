@@ -636,8 +636,8 @@ static void gp_draw_stroke_fill(
 	BLI_assert(gps->tot_triangles >= 1);
 
 	VertexFormat *format = immVertexFormat();
-	unsigned pos = VertexFormat_add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
-	unsigned texcoord = VertexFormat_add_attrib(format, "texCoord", GL_FLOAT, 2, KEEP_FLOAT);
+	unsigned pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
+	unsigned texcoord = VertexFormat_add_attrib(format, "texCoord", COMP_F32, 2, KEEP_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_GPENCIL_FILL);
 
 	immUniformColor4fv(color);
@@ -736,9 +736,9 @@ static void gp_draw_stroke_3d(const bGPDspoint *points, int totpoints, short thi
 	int cyclic_add = (cyclic) ? 2 : 0;
 
 	VertexFormat *format = immVertexFormat();
-	unsigned pos = VertexFormat_add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
-	unsigned color = VertexFormat_add_attrib(format, "color", GL_UNSIGNED_BYTE, 4, NORMALIZE_INT_TO_FLOAT);
-	unsigned thickattrib = VertexFormat_add_attrib(format, "thickness", GL_FLOAT, 1, KEEP_FLOAT);
+	unsigned pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
+	unsigned color = VertexFormat_add_attrib(format, "color", COMP_U8, 4, NORMALIZE_INT_TO_FLOAT);
+	unsigned thickattrib = VertexFormat_add_attrib(format, "thickness", COMP_F32, 1, KEEP_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_GPENCIL_STROKE);
 	immUniform2fv("Viewport", viewport);
