@@ -742,7 +742,7 @@ static void rna_workspace_screen_update(bContext *C, PointerRNA *ptr)
 	/* exception: can't set screens inside of area/region handlers,
 	 * and must use context so notifier gets to the right window */
 	if (layout_new) {
-		WM_event_add_notifier(C, NC_SCREEN | ND_SCREENBROWSE, layout_new);
+		WM_event_add_notifier(C, NC_SCREEN | ND_LAYOUTBROWSE, layout_new);
 		BKE_workspace_temp_layout_store_set(win->workspace_hook, NULL);
 	}
 }

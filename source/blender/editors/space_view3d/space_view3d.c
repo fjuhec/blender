@@ -858,6 +858,7 @@ static void view3d_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegio
 			break;
 		case NC_SCENE:
 			switch (wmn->data) {
+				case ND_SCENEBROWSE:
 				case ND_LAYER_CONTENT:
 					if (wmn->reference)
 						view3d_recalc_used_layers(ar, wmn, wmn->reference);
@@ -1044,15 +1045,9 @@ static void view3d_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegio
 				case ND_SKETCH:
 					ED_region_tag_redraw(ar);
 					break;
-				/* XXX */
-//				case ND_SCREENBROWSE:
-//				case ND_SCREENDELETE:
-				case ND_SCREENSET:
-					/* screen was changed, need to update used layers due to NC_SCENE|ND_LAYER_CONTENT */
-					/* updates used layers only for View3D in active screen */
-					if (wmn->reference) {
-						view3d_recalc_used_layers(ar, wmn, scene);
-					}
+				case ND_LAYOUTBROWSE:
+				case ND_LAYOUTDELETE:
+				case ND_LAYOUTSET:
 					WM_manipulatormap_tag_refresh(mmap);
 					ED_region_tag_redraw(ar);
 					break;

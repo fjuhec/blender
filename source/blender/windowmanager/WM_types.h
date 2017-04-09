@@ -259,13 +259,13 @@ typedef struct wmNotifier {
 #define ND_UNDO				(6<<16)
 
 	/* NC_SCREEN */
-#define ND_SCREENBROWSE		(1<<16)
-#define ND_SCREENDELETE		(2<<16)
+#define ND_LAYOUTBROWSE		(1<<16)
+#define ND_LAYOUTDELETE		(2<<16)
 #define ND_SCREENCAST		(3<<16)
 #define ND_ANIMPLAY			(4<<16)
 #define ND_GPENCIL			(5<<16)
 #define ND_EDITOR_CHANGED	(6<<16) /*sent to new editors after switching to them*/
-#define ND_SCREENSET		(7<<16)
+#define ND_LAYOUTSET		(7<<16)
 #define ND_SKETCH			(8<<16)
 #define ND_WORKSPACE_SET	(9<<16)
 

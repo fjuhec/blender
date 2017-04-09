@@ -3897,7 +3897,7 @@ static int screen_new_exec(bContext *C, wmOperator *UNUSED(op))
 	WorkSpaceLayout *layout_new;
 
 	layout_new = ED_workspace_layout_duplicate(workspace, layout_old, win);
-	WM_event_add_notifier(C, NC_SCREEN | ND_SCREENBROWSE, layout_new);
+	WM_event_add_notifier(C, NC_SCREEN | ND_LAYOUTBROWSE, layout_new);
 
 	return OPERATOR_FINISHED;
 }
@@ -3922,7 +3922,7 @@ static int screen_delete_exec(bContext *C, wmOperator *UNUSED(op))
 	WorkSpace *workspace = CTX_wm_workspace(C);
 	WorkSpaceLayout *layout = BKE_workspace_layout_find(workspace, sc);
 
-	WM_event_add_notifier(C, NC_SCREEN | ND_SCREENDELETE, layout);
+	WM_event_add_notifier(C, NC_SCREEN | ND_LAYOUTDELETE, layout);
 
 	return OPERATOR_FINISHED;
 }

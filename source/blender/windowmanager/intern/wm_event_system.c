@@ -303,7 +303,7 @@ void wm_event_do_notifiers(bContext *C)
 						if (G.debug & G_DEBUG_EVENTS)
 							printf("%s: Workspace set %p\n", __func__, note->reference);
 					}
-					else if (note->data == ND_SCREENBROWSE) {
+					else if (note->data == ND_LAYOUTBROWSE) {
 						bScreen *ref_screen = BKE_workspace_layout_screen_get(note->reference);
 
 						/* free popup handlers only [#35434] */
@@ -314,7 +314,7 @@ void wm_event_do_notifiers(bContext *C)
 						if (G.debug & G_DEBUG_EVENTS)
 							printf("%s: screen set %p\n", __func__, note->reference);
 					}
-					else if (note->data == ND_SCREENDELETE) {
+					else if (note->data == ND_LAYOUTDELETE) {
 						WorkSpace *workspace = WM_window_get_active_workspace(win);
 						WorkSpaceLayout *layout = note->reference;
 

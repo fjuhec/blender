@@ -1253,6 +1253,8 @@ bScreen *screen_change_prepare(bScreen *screen_old, bScreen *screen_new, Main *b
 void screen_changed_update(bContext *C, wmWindow *win, bScreen *sc)
 {
 	Scene *scene = WM_window_get_active_scene(win);
+	WorkSpace *workspace = BKE_workspace_active_get(win->workspace_hook);
+	WorkSpaceLayout *layout = BKE_workspace_layout_find(workspace, sc);
 
 	CTX_wm_window_set(C, win);  /* stores C->wm.screen... hrmf */
 
@@ -1260,7 +1262,7 @@ void screen_changed_update(bContext *C, wmWindow *win, bScreen *sc)
 
 	BKE_screen_view3d_scene_sync(sc, scene); /* sync new screen with scene data */
 	WM_event_add_notifier(C, NC_WINDOW, NULL);
-	WM_event_add_notifier(C, NC_SCREEN | ND_SCREENSET, sc);
+	WM_event_add_notifier(C, NC_SCREEN | ND_LAYOUTSET, layout);
 
 	/* makes button hilites work */
 	WM_event_add_mousemove(C);
