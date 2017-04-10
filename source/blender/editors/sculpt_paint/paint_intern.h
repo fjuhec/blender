@@ -54,7 +54,6 @@ struct wmOperator;
 struct wmOperatorType;
 struct wmWindowManager;
 struct DMCoNo;
-struct BLI_Stack;
 struct MeshElemMap;
 enum PaintMode;
 
@@ -144,7 +143,6 @@ typedef struct WeightPaintInfo {
 typedef struct VPaintData {
 	struct ViewContext *vc;
 	unsigned int paintcol;
-	int *indexar;
 
 	struct VertProjHandle *vp_handle;
 	struct DMCoNo *vertexcosnos;
@@ -164,7 +162,6 @@ typedef struct VPaintData {
 
 typedef struct WPaintData {
 	struct ViewContext *vc;
-	int *indexar;
 
 	struct WeightPaintGroupData active, mirror;
 
@@ -187,8 +184,6 @@ typedef struct WPaintData {
 		struct MeshElemMap *vmap;
 		int *vmap_mem;
 	} blur_data;
-
-	struct BLI_Stack *accumulate_stack;  /* for reuse (WPaintDefer) */
 
 	int defbase_tot;
 } WPaintData;

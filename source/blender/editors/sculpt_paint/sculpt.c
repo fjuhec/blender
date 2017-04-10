@@ -37,6 +37,8 @@
 
 #include "BLI_math.h"
 #include "BLI_blenlib.h"
+#include "BLI_dial.h"
+#include "BLI_task.h"
 #include "BLI_utildefines.h"
 #include "BLI_ghash.h"
 
@@ -47,6 +49,8 @@
 #include "DNA_meshdata_types.h"
 #include "DNA_node_types.h"
 #include "DNA_object_types.h"
+#include "DNA_scene_types.h"
+#include "DNA_brush_types.h"
 
 #include "BKE_pbvh.h"
 #include "BKE_brush.h"
@@ -74,7 +78,7 @@
 #include "ED_sculpt.h"
 #include "ED_object.h"
 #include "ED_screen.h"
-
+#include "ED_view3d.h"
 #include "paint_intern.h"
 #include "sculpt_intern.h"
 
@@ -86,6 +90,9 @@
 
 #include "UI_interface.h"
 #include "UI_resources.h"
+
+#include "bmesh.h"
+#include "bmesh_tools.h"
 
 #include <math.h>
 #include <stdlib.h>

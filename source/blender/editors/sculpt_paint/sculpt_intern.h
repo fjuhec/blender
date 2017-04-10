@@ -36,25 +36,11 @@
 #include "DNA_listBase.h"
 #include "DNA_vec_types.h"
 #include "DNA_key_types.h"
-#include "DNA_brush_types.h"
-#include "DNA_view3d_types.h"
-#include "DNA_screen_types.h"
-#include "DNA_scene_types.h"
-#include "DNA_mesh_types.h"
 
 #include "BLI_bitmap.h"
-#include "BLI_dial.h"
-#include "BLI_task.h"
 #include "BLI_threads.h"
 
 #include "BKE_pbvh.h"
-
-#include "ED_view3d.h"
-
-#include "paint_intern.h"
-
-#include "bmesh.h"
-#include "bmesh_tools.h"
 
 struct bContext;
 struct KeyBlock;
@@ -134,7 +120,7 @@ typedef struct SculptUndoNode {
 /************** Access to original unmodified vertex data *************/
 
 typedef struct SculptOrigVertData {
-	BMLog *bm_log;
+	struct BMLog *bm_log;
 
 	SculptUndoNode *unode;
 	float(*coords)[3];
@@ -183,19 +169,19 @@ typedef struct SculptProjectVector {
 /* Single struct used by all BLI_task threaded callbacks, let's avoid adding 10's of those... */
 typedef struct SculptThreadedTaskData {
 	bContext *C;
-	Sculpt *sd;
-	Object *ob;
-	Brush *brush;
-	PBVHNode **nodes;
+	struct Sculpt *sd;
+	struct Object *ob;
+	struct Brush *brush;
+	struct PBVHNode **nodes;
 	int totnode;
 
-	VPaint *vp;
-	VPaintData *vpd;
-	WPaintData *wpd;
-	WeightPaintInfo *wpi;
-	unsigned int* lcol;
+	struct VPaint *vp;
+	struct VPaintData *vpd;
+	struct WPaintData *wpd;
+	struct WeightPaintInfo *wpi;
+	unsigned int *lcol;
 	struct MeshElemMap **vertToLoopMaps;
-	Mesh *me;
+	struct Mesh *me;
 
 
 	/* Data specific to some callbacks. */
@@ -234,12 +220,12 @@ typedef struct SculptBrushTest {
 	int mirror_symmetry_pass;
 
 	/* View3d clipping - only set rv3d for clipping */
-	RegionView3D *clip_rv3d;
+	struct RegionView3D *clip_rv3d;
 } SculptBrushTest;
 
 typedef struct {
-	Sculpt *sd;
-	SculptSession *ss;
+	struct Sculpt *sd;
+	struct SculptSession *ss;
 	float radius_squared;
 	bool original;
 } SculptSearchSphereData;
@@ -250,13 +236,14 @@ bool sculpt_brush_test_sq(SculptBrushTest *test, const float co[3]);
 bool sculpt_brush_test_fast(const SculptBrushTest *test, const float co[3]);
 bool sculpt_brush_test_cube(SculptBrushTest *test, const float co[3], float local[4][4]);
 bool sculpt_search_sphere_cb(PBVHNode *node, void *data_v);
-float tex_strength(SculptSession *ss, Brush *br,
-	const float point[3],
-	const float len,
-	const short vno[3],
-	const float fno[3],
-	const float mask,
-	const int thread_id);
+float tex_strength(
+        SculptSession *ss, struct Brush *br,
+        const float point[3],
+        const float len,
+        const short vno[3],
+        const float fno[3],
+        const float mask,
+        const int thread_id);
 
 
 /* Cache stroke properties. Used because
@@ -297,8 +284,8 @@ typedef struct StrokeCache {
 	float projection_mat[4][4];
 
 	/* Clean this up! */
-	ViewContext *vc;
-	Brush *brush;
+	struct ViewContext *vc;
+	struct Brush *brush;
 
 	float special_rotation;
 	float grab_delta[3], grab_delta_symmetry[3];
@@ -309,8 +296,9 @@ typedef struct StrokeCache {
 	bool is_rake_rotation_valid;
 	struct SculptRakeData rake_data;
 
-	int symmetry; /* Symmetry index between 0 and 7 bit combo 0 is Brush only;
-				  * 1 is X mirror; 2 is Y mirror; 3 is XY; 4 is Z; 5 is XZ; 6 is YZ; 7 is XYZ */
+	/* Symmetry index between 0 and 7 bit combo 0 is Brush only;
+	 * 1 is X mirror; 2 is Y mirror; 3 is XY; 4 is Z; 5 is XZ; 6 is YZ; 7 is XYZ */
+	int symmetry;
 	int mirror_symmetry_pass; /* the symmetry pass we are currently on between 0 and 7*/
 	float true_view_normal[3];
 	float view_normal[3];
@@ -336,7 +324,7 @@ typedef struct StrokeCache {
 	float anchored_location[3];
 
 	float vertex_rotation; /* amount to rotate the vertices when using rotate brush */
-	Dial *dial;
+	struct Dial *dial;
 
 	char saved_active_brush_name[MAX_ID_NAME];
 	char saved_mask_brush_tool;
@@ -365,7 +353,7 @@ void sculpt_vertcos_to_key(Object *ob, KeyBlock *kb, float (*vertCos)[3]);
 
 void sculpt_update_object_bounding_box(struct Object *ob);
 
-bool sculpt_get_redraw_rect(ARegion *ar, RegionView3D *rv3d, Object *ob, rcti *rect);
+bool sculpt_get_redraw_rect(struct ARegion *ar, struct RegionView3D *rv3d, Object *ob, rcti *rect);
 
 #define SCULPT_THREADED_LIMIT 4
 
