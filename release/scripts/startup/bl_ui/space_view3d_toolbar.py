@@ -51,6 +51,19 @@ def draw_keyframing_tools(context, layout):
     row.operator("anim.keyframe_delete_v3d", text="Remove")
 
 
+# Used by vertex & weight paint
+def draw_vpaint_symmetry(layout, vpaint):
+    col = layout.column(align=True)
+    col.label(text="Mirror:")
+    row = col.row(align=True)
+
+    row.prop(vpaint, "use_symmetry_x", text="X", toggle=True)
+    row.prop(vpaint, "use_symmetry_y", text="Y", toggle=True)
+    row.prop(vpaint, "use_symmetry_z", text="Z", toggle=True)
+
+    col = layout.column()
+    col.prop(vpaint, "radial_symmetry", text="Radial")
+
 # ********** default tools for object-mode ****************
 
 
@@ -1716,7 +1729,8 @@ class VIEW3D_PT_tools_weightpaint(View3DPanel, Panel):
         props.use_reverse_transfer = True
         props.data_type = 'VGROUP_WEIGHTS'
 
-class VIEW3D_PT_weightpaint_symmetry(Panel, View3DPaintPanel):
+
+class VIEW3D_PT_tools_weightpaint_symmetry(Panel, View3DPaintPanel):
     bl_category = "Tools"
     bl_context = "weightpaint"
     bl_options = {'DEFAULT_CLOSED'}
@@ -1726,13 +1740,8 @@ class VIEW3D_PT_weightpaint_symmetry(Panel, View3DPaintPanel):
         layout = self.layout
         toolsettings = context.tool_settings
         wpaint = toolsettings.weight_paint
-        col = layout.column(align=True)
-        col.label(text="Mirror:")
-        row = col.row(align=True)
-        row.prop(wpaint, "use_symmetry_x", text="X", toggle=True)
-        row.prop(wpaint, "use_symmetry_y", text="Y", toggle=True)
-        row.prop(wpaint, "use_symmetry_z", text="Z", toggle=True)
-        layout.column().prop(wpaint, "radial_symmetry", text="Radial")
+        draw_vpaint_symmetry(layout, wpaint)
+
 
 class VIEW3D_PT_tools_weightpaint_options(Panel, View3DPaintPanel):
     bl_category = "Options"
@@ -1797,26 +1806,18 @@ class VIEW3D_PT_tools_vertexpaint(Panel, View3DPaintPanel):
 #~         col.prop(vpaint, "mul", text="")
 
 
-class VIEW3D_PT_vertexpaint_symmetry(Panel, View3DPaintPanel):
+class VIEW3D_PT_tools_vertexpaint_symmetry(Panel, View3DPaintPanel):
     bl_category = "Tools"
     bl_context = "vertexpaint"
     bl_options = {'DEFAULT_CLOSED'}
     bl_label = "Symmetry"
-    
+
     def draw(self, context):
         layout = self.layout
         toolsettings = context.tool_settings
         vpaint = toolsettings.vertex_paint
+        draw_vpaint_symmetry(layout, vpaint)
 
-        col = layout.column(align=True)
-        col.label(text="Mirror:")
-        row = col.row(align=True)
-        
-        row.prop(vpaint, "use_symmetry_x", text="X", toggle=True)
-        row.prop(vpaint, "use_symmetry_y", text="Y", toggle=True)
-        row.prop(vpaint, "use_symmetry_z", text="Z", toggle=True)
-        
-        layout.column().prop(vpaint, "radial_symmetry", text="Radial")
 
 # ********** default tools for texture-paint ****************
 
@@ -2097,8 +2098,10 @@ classes = (
     VIEW3D_PT_sculpt_symmetry,
     VIEW3D_PT_tools_brush_appearance,
     VIEW3D_PT_tools_weightpaint,
+    VIEW3D_PT_tools_weightpaint_symmetry,
     VIEW3D_PT_tools_weightpaint_options,
     VIEW3D_PT_tools_vertexpaint,
+    VIEW3D_PT_tools_vertexpaint_symmetry,
     VIEW3D_PT_tools_imagepaint_external,
     VIEW3D_PT_tools_imagepaint_symmetry,
     VIEW3D_PT_tools_projectpaint,
