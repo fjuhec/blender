@@ -2563,7 +2563,7 @@ static void view3d_main_region_draw_info(const bContext *C, Scene *scene,
 		/* draw grease-pencil stuff - needed to get paint-buffer shown too (since it's 2D) */
 		ED_gpencil_draw_view3d(wm, scene, v3d, ar, false);
 		Object *obact = CTX_data_active_object(C);
-		if (obact) {
+		if (obact && obact->type == OB_GPENCIL) {
 			ED_gpencil_draw_view3d_object(wm, scene, obact, v3d, ar, false);
 		}
 	}
