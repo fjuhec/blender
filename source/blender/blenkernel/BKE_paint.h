@@ -209,7 +209,7 @@ typedef struct SculptSession {
 			int *poly_map_mem;
 			struct MeshElemMap *vert_to_poly;
 
-			unsigned int *total_color;
+			unsigned int (*total_color)[3];
 			double *total_weight;
 			unsigned int *tot_loops_hit;
 			float *max_weight;
