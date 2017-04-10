@@ -50,6 +50,7 @@
 #include "GPU_draw.h"
 #include "GPU_extensions.h"
 #include "GPU_framebuffer.h"
+#include "GPU_lamp.h"
 #include "GPU_shader.h"
 #include "GPU_texture.h"
 #include "GPU_uniformbuffer.h"
@@ -287,12 +288,27 @@ GPUTexture *DRW_texture_create_2D(int w, int h, DRWTextureFormat format, DRWText
 	return tex;
 }
 
-/* TODO make use of format */
-GPUTexture *DRW_texture_create_2D_array(int w, int h, int d, DRWTextureFormat UNUSED(format), DRWTextureFlag flags, const float *fpixels)
+GPUTexture *DRW_texture_create_2D_array(int w, int h, int d, DRWTextureFormat format, DRWTextureFlag flags, const float *fpixels)
 {
 	GPUTexture *tex;
+	GPUTextureFormat data_type;
+	int channels;
 
-	tex = GPU_texture_create_2D_array(w, h, d, fpixels, NULL);
+	drw_texture_get_format(format, &data_type, &channels);
+	tex = GPU_texture_create_2D_array_custom(w, h, d, channels, data_type, fpixels, NULL);
+	drw_texture_set_parameters(tex, flags);
+
+	return tex;
+}
+
+GPUTexture *DRW_texture_create_cube(int w, DRWTextureFormat format, DRWTextureFlag flags, const float *fpixels)
+{
+	GPUTexture *tex;
+	GPUTextureFormat data_type;
+	int channels;
+
+	drw_texture_get_format(format, &data_type, &channels);
+	tex = GPU_texture_create_cube_custom(w, channels, data_type, fpixels, NULL);
 	drw_texture_set_parameters(tex, flags);
 
 	return tex;
@@ -1182,6 +1198,7 @@ void DRW_state_reset(void) {}
 
 #endif  /* WITH_CLAY_ENGINE */
 
+
 /* ****************************************** Settings ******************************************/
 
 bool DRW_is_object_renderable(Object *ob)
@@ -1204,8 +1221,11 @@ bool DRW_is_object_renderable(Object *ob)
 
 /* ****************************************** Framebuffers ******************************************/
 
-static GPUTextureFormat convert_tex_format(int fbo_format, int *channels)
+static GPUTextureFormat convert_tex_format(int fbo_format, int *channels, bool *is_depth)
 {
+	*is_depth = ((fbo_format == DRW_BUF_DEPTH_16) ||
+	             (fbo_format == DRW_BUF_DEPTH_24));
+
 	switch (fbo_format) {
 		case DRW_BUF_RGBA_8:   *channels = 4; return GPU_RGBA8;
 		case DRW_BUF_RGBA_16:  *channels = 4; return GPU_RGBA16F;
@@ -1215,7 +1235,6 @@ static GPUTextureFormat convert_tex_format(int fbo_format, int *channels)
 			*channels = 4; return GPU_RGBA8;
 	}
 }
-
 
 void DRW_framebuffer_init(struct GPUFrameBuffer **fb, int width, int height, DRWFboTexture textures[MAX_FBO_TEX],
                           int texnbr)
@@ -1231,18 +1250,13 @@ void DRW_framebuffer_init(struct GPUFrameBuffer **fb, int width, int height, DRW
 
 			if (!*fbotex.tex) {
 				int channels;
-				GPUTextureFormat gpu_format = convert_tex_format(fbotex.format, &channels);
+				bool is_depth;
+				GPUTextureFormat gpu_format = convert_tex_format(fbotex.format, &channels, &is_depth);
 
-				/* TODO refine to opengl formats */
-				if (fbotex.format == DRW_BUF_DEPTH_16 ||
-				    fbotex.format == DRW_BUF_DEPTH_24)
-				{
-					*fbotex.tex = GPU_texture_create_depth(width, height, NULL);
-					GPU_texture_compare_mode(*fbotex.tex, false);
-					GPU_texture_filter_mode(*fbotex.tex, false);
-				}
-				else {
-					*fbotex.tex = GPU_texture_create_2D_custom(width, height, channels, gpu_format, NULL, NULL);
+				*fbotex.tex = GPU_texture_create_2D_custom(width, height, channels, gpu_format, NULL, NULL);
+				drw_texture_set_parameters(*fbotex.tex, fbotex.flag);
+
+				if (!is_depth) {
 					++color_attachment;
 				}
 			}
@@ -1416,6 +1430,21 @@ void DRW_object_engine_data_free(Object *ob)
 	}
 
 	BLI_freelistN(&ob->drawdata);
+}
+
+LampEngineData *DRW_lamp_engine_data_get(Object *ob, RenderEngineType *engine_type)
+{
+	BLI_assert(ob->type == OB_LAMP);
+
+	Scene *scene = CTX_data_scene(DST.context);
+
+	/* TODO Dupliobjects */
+	return GPU_lamp_engine_data_get(scene, ob, NULL, engine_type);
+}
+
+void DRW_lamp_engine_data_free(LampEngineData *led)
+{
+	return GPU_lamp_engine_data_free(led);
 }
 
 /* **************************************** RENDERING ************************************** */
@@ -1789,6 +1818,8 @@ void DRW_draw_view(const bContext *C)
 	// DRW_draw_grid();
 	DRW_engines_draw_scene();
 	DRW_draw_callbacks_post_scene();
+
+	DRW_draw_manipulator();
 
 	DRW_draw_region_info();
 

@@ -61,6 +61,8 @@ struct Object;
 struct Batch;
 struct DefaultFramebufferList;
 struct DefaultTextureList;
+struct LampEngineData;
+struct RenderEngineType;
 
 typedef struct DRWUniform DRWUniform;
 typedef struct DRWInterface DRWInterface;
@@ -126,7 +128,9 @@ struct GPUTexture *DRW_texture_create_1D(
 struct GPUTexture *DRW_texture_create_2D(
         int w, int h, DRWTextureFormat format, DRWTextureFlag flags, const float *fpixels);
 struct GPUTexture *DRW_texture_create_2D_array(
-        int w, int h, int d, DRWTextureFormat UNUSED(format), DRWTextureFlag flags, const float *fpixels);
+        int w, int h, int d, DRWTextureFormat format, DRWTextureFlag flags, const float *fpixels);
+struct GPUTexture *DRW_texture_create_cube(
+        int w, DRWTextureFormat format, DRWTextureFlag flags, const float *fpixels);
 void DRW_texture_free(struct GPUTexture *tex);
 
 /* UBOs */
@@ -157,6 +161,7 @@ void DRW_uniformbuffer_free(struct GPUUniformBuffer *ubo);
 typedef struct DRWFboTexture {
 	struct GPUTexture **tex;
 	int format;
+	DRWTextureFlag flag;
 } DRWFboTexture;
 
 void DRW_framebuffer_init(struct GPUFrameBuffer **fb, int width, int height, DRWFboTexture textures[MAX_FBO_TEX], int texnbr);
@@ -165,6 +170,7 @@ void DRW_framebuffer_clear(bool color, bool depth, bool stencil, float clear_col
 void DRW_framebuffer_texture_attach(struct GPUFrameBuffer *fb, struct GPUTexture *tex, int slot);
 void DRW_framebuffer_texture_detach(struct GPUTexture *tex);
 void DRW_framebuffer_blit(struct GPUFrameBuffer *fb_read, struct GPUFrameBuffer *fb_write, bool depth);
+
 /* Shaders */
 struct GPUShader *DRW_shader_create(const char *vert, const char *geom, const char *frag, const char *defines);
 struct GPUShader *DRW_shader_create_with_lib(const char *vert, const char *geom, const char *frag, const char *lib, const char *defines);
@@ -248,6 +254,8 @@ struct DefaultTextureList     *DRW_viewport_texture_list_get(void);
 
 /* Objects */
 void **DRW_object_engine_data_get(Object *ob, DrawEngineType *det);
+struct LampEngineData *DRW_lamp_engine_data_get(Object *ob, struct RenderEngineType *engine_type);
+void DRW_lamp_engine_data_free(struct LampEngineData *led);
 
 /* Settings */
 bool DRW_is_object_renderable(struct Object *ob);
