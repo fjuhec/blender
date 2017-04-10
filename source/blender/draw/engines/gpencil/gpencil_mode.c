@@ -37,13 +37,11 @@
 
 #include "draw_mode_engines.h"
 
-extern struct GPUUniformBuffer *globals_ubo; /* draw_common.c */
-
-extern char datatoc_gpencil_fill_vert[];
-extern char datatoc_gpencil_fill_frag[];
-extern char datatoc_gpencil_stroke_vert[];
-extern char datatoc_gpencil_stroke_geom[];
-extern char datatoc_gpencil_stroke_frag[];
+extern char datatoc_gpencil_fill_vert_glsl[];
+extern char datatoc_gpencil_fill_frag_glsl[];
+extern char datatoc_gpencil_stroke_vert_glsl[];
+extern char datatoc_gpencil_stroke_geom_glsl[];
+extern char datatoc_gpencil_stroke_frag_glsl[];
 
 /* *********** LISTS *********** */
 #define MAX_GPENCIL_MAT 512 
@@ -97,7 +95,6 @@ static struct {
 	struct GPUShader *gpencil_point_sh;
 } e_data = {NULL}; /* Engine data */
 
-
 /* *********** FUNCTIONS *********** */
 
 static void GPENCIL_engine_init(void *vedata)
@@ -106,13 +103,13 @@ static void GPENCIL_engine_init(void *vedata)
 	GPENCIL_FramebufferList *fbl = ((GPENCIL_Data *)vedata)->fbl;
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 
-	e_data.gpencil_fill_sh = DRW_shader_create_with_lib(datatoc_gpencil_fill_vert, NULL,
-														datatoc_gpencil_fill_frag,
-														NULL, NULL);
-	e_data.gpencil_stroke_sh = DRW_shader_create_with_lib(datatoc_gpencil_stroke_vert, 
-														  datatoc_gpencil_stroke_geom,
-														  datatoc_gpencil_stroke_frag,
-														  NULL, NULL);
+	e_data.gpencil_fill_sh = DRW_shader_create(datatoc_gpencil_fill_vert_glsl, NULL,
+											   datatoc_gpencil_fill_frag_glsl,
+											   NULL);
+	e_data.gpencil_stroke_sh = DRW_shader_create(datatoc_gpencil_stroke_vert_glsl, 
+												 datatoc_gpencil_stroke_geom_glsl,
+												 datatoc_gpencil_stroke_frag_glsl,
+												 NULL);
 	e_data.gpencil_point_sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_POINT_UNIFORM_SIZE_UNIFORM_COLOR_AA);
 }
 
