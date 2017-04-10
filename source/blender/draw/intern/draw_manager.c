@@ -1835,6 +1835,7 @@ void DRW_engines_register(void)
 	DRW_engine_register(&draw_engine_particle_type);
 	DRW_engine_register(&draw_engine_pose_type);
 	DRW_engine_register(&draw_engine_sculpt_type);
+	DRW_engine_register(&draw_engine_gpencil_type);
 #endif
 }
 

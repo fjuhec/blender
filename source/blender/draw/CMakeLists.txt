@@ -28,6 +28,7 @@ set(INC
 	intern
 	engines/clay
 	engines/eevee
+	engines/gpencil
 	modes
 
 	../blenfont
