@@ -1614,6 +1614,8 @@ static void DRW_engines_enable(const bContext *C)
 		case CTX_MODE_OBJECT:
 			break;
 	}
+	/* grease pencil */
+	use_drw_engine(&draw_engine_gpencil_type);
 }
 
 static void DRW_engines_disable(void)
