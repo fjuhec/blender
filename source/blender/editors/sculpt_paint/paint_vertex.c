@@ -2405,10 +2405,13 @@ static void do_wpaint_brush_blur_task_cb_ex(
 				}
 			}
 		}
-		BKE_pbvh_vertex_iter_end;
 	}
+	BKE_pbvh_vertex_iter_end;
 }
 
+/**
+ * See do_vpaint_brush_smudge_task_cb_ex (same functionality)
+ */
 static void do_wpaint_brush_smudge_task_cb_ex(
         void *userdata, void *UNUSED(userdata_chunk), const int n, const int UNUSED(thread_id))
 {
@@ -2458,7 +2461,7 @@ static void do_wpaint_brush_smudge_task_cb_ex(
 						sub_v3_v3v3(other_dir, mv_curr->co, mv_other->co);
 						normalize_v3(other_dir);
 
-						float stroke_dot = dot_v3v3(other_dir, brush_dir);
+						const float stroke_dot = dot_v3v3(other_dir, brush_dir);
 
 						if (stroke_dot > stroke_dot_max) {
 							stroke_dot_max = stroke_dot;
@@ -2475,8 +2478,8 @@ static void do_wpaint_brush_smudge_task_cb_ex(
 					        data->vp, data->ob, data->wpi, v_index, view_dot * fade * bstrength, (float)weight_final);
 				}
 			}
-		BKE_pbvh_vertex_iter_end;
 		}
+		BKE_pbvh_vertex_iter_end;
 	}
 }
 
@@ -2491,7 +2494,7 @@ static void do_wpaint_brush_draw_task_cb_ex(
 	Brush *brush = data->brush;
 	StrokeCache *cache = ss->cache;
 	const float bstrength = cache->bstrength;
-	float paintweight = BKE_brush_weight_get(scene, brush);
+	const float paintweight = BKE_brush_weight_get(scene, brush);
 	const float brush_alpha_value = BKE_brush_alpha_get(scene, brush);
 	const float brush_alpha_pressure =
 	        brush_alpha_value * (BKE_brush_use_alpha_pressure(scene, brush) ? ss->cache->pressure : 1.0f);
@@ -2545,8 +2548,8 @@ static void do_wpaint_brush_draw_task_cb_ex(
 				}
 			}
 		}
-		BKE_pbvh_vertex_iter_end;
 	}
+	BKE_pbvh_vertex_iter_end;
 }
 
 static void do_wpaint_brush_calc_ave_weight_cb_ex(
@@ -2590,8 +2593,8 @@ static void do_wpaint_brush_calc_ave_weight_cb_ex(
 				}
 			}
 		}
-		BKE_pbvh_vertex_iter_end;
 	}
+	BKE_pbvh_vertex_iter_end;
 	data->ob->sculpt->modes.vwpaint.total_weight[n] = weight;
 }
 
@@ -3236,8 +3239,9 @@ static void do_vpaint_brush_calc_ave_color_cb_ex(
 				}
 			}
 		}
-		BKE_pbvh_vertex_iter_end;
 	}
+	BKE_pbvh_vertex_iter_end;
+
 	data->ob->sculpt->modes.vwpaint.total_color[n * 3 + 0] = blend[0];
 	data->ob->sculpt->modes.vwpaint.total_color[n * 3 + 1] = blend[1];
 	data->ob->sculpt->modes.vwpaint.total_color[n * 3 + 2] = blend[2];
@@ -3319,8 +3323,8 @@ static void do_vpaint_brush_draw_task_cb_ex(
 				}
 			}
 		}
-		BKE_pbvh_vertex_iter_end;
 	}
+	BKE_pbvh_vertex_iter_end;
 }
 
 static void do_vpaint_brush_blur_task_cb_ex(
@@ -3400,10 +3404,13 @@ static void do_vpaint_brush_blur_task_cb_ex(
 				}
 			}
 		}
-		BKE_pbvh_vertex_iter_end;
 	}
+	BKE_pbvh_vertex_iter_end;
 }
 
+/**
+ * See do_wpaint_brush_smudge_task_cb_ex (same functionality)
+ */
 static void do_vpaint_brush_smudge_task_cb_ex(
         void *userdata, void *UNUSED(userdata_chunk), const int n, const int UNUSED(thread_id))
 {
@@ -3457,7 +3464,7 @@ static void do_vpaint_brush_smudge_task_cb_ex(
 								sub_v3_v3v3(other_dir, mv_curr->co, mv_other->co);
 								normalize_v3(other_dir);
 
-								float stroke_dot = dot_v3v3(other_dir, brush_dir);
+								const float stroke_dot = dot_v3v3(other_dir, brush_dir);
 
 								if (stroke_dot > stroke_dot_max) {
 									stroke_dot_max = stroke_dot;
@@ -3466,6 +3473,7 @@ static void do_vpaint_brush_smudge_task_cb_ex(
 								}
 							}
 						}
+
 						if (do_color) {
 							/* if a vertex is within the brush region, then paint each loop that vertex owns. */
 							for (int j = 0; j < ss->modes.vwpaint.vert_to_loop[v_index].count; ++j) {
@@ -3486,8 +3494,8 @@ static void do_vpaint_brush_smudge_task_cb_ex(
 					}
 				}
 			}
-			BKE_pbvh_vertex_iter_end;
 		}
+		BKE_pbvh_vertex_iter_end;
 	}
 }
 
