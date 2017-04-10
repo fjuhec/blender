@@ -454,7 +454,7 @@ Batch *DRW_cache_gpencil_axes_get(void)
 		static VertexFormat format = { 0 };
 		static unsigned pos_id;
 		if (format.attrib_ct == 0) {
-			pos_id = VertexFormat_add_attrib(&format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
+			pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
 		}
 
 		VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
@@ -477,7 +477,7 @@ Batch *DRW_cache_gpencil_axes_get(void)
 			VertexBuffer_set_attrib(vbo, pos_id, i + 6, verts[indices[i]]);
 		}
 
-		SHC.drw_gpencil_axes = Batch_create(GL_LINES, vbo, NULL);
+		SHC.drw_gpencil_axes = Batch_create(PRIM_LINES, vbo, NULL);
 	}
 	return SHC.drw_gpencil_axes;
 }
