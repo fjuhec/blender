@@ -18,10 +18,10 @@
 #ifndef __BVH_H__
 #define __BVH_H__
 
-#include "bvh_params.h"
+#include "bvh/bvh_params.h"
 
-#include "util_types.h"
-#include "util_vector.h"
+#include "util/util_types.h"
+#include "util/util_vector.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -68,6 +68,8 @@ struct PackedBVH {
 	array<int> prim_index;
 	/* mapping from BVH primitive index, to the object id of that primitive. */
 	array<int> prim_object;
+	/* Time range of BVH primitive. */
+	array<float2> prim_time;
 
 	/* index of the root node. */
 	int root_index;
@@ -108,15 +110,15 @@ protected:
 	virtual void refit_nodes() = 0;
 };
 
-/* Regular BVH
+/* Binary BVH
  *
  * Typical BVH with each node having two children. */
 
-class RegularBVH : public BVH {
+class BinaryBVH : public BVH {
 protected:
 	/* constructor */
 	friend class BVH;
-	RegularBVH(const BVHParams& params, const vector<Object*>& objects);
+	BinaryBVH(const BVHParams& params, const vector<Object*>& objects);
 
 	/* pack */
 	void pack_nodes(const BVHNode *root);
@@ -175,6 +177,8 @@ protected:
 	                       const BoundBox *bounds,
 	                       const int *child,
 	                       const uint visibility,
+	                       const float time_from,
+	                       const float time_to,
 	                       const int num);
 
 	void pack_unaligned_inner(const BVHStackEntry& e,
@@ -185,6 +189,8 @@ protected:
 	                         const BoundBox *bounds,
 	                         const int *child,
 	                         const uint visibility,
+	                         const float time_from,
+	                         const float time_to,
 	                         const int num);
 
 	/* refit */

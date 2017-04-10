@@ -22,6 +22,11 @@
  * Basic math functions on scalar and vector types. This header is used by
  * both the kernel code when compiled as C++, and other C++ non-kernel code. */
 
+#ifndef __KERNEL_GPU__
+#  include <cmath>
+#endif
+
+
 #ifndef __KERNEL_OPENCL__
 
 #include <float.h>
@@ -30,7 +35,7 @@
 
 #endif
 
-#include "util_types.h"
+#include "util/util_types.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -38,41 +43,41 @@ CCL_NAMESPACE_BEGIN
 
 /* Division */
 #ifndef M_PI_F
-#define M_PI_F		((float)3.14159265358979323846264338327950288) 		/* pi */
+#define M_PI_F    (3.1415926535897932f)  /* pi */
 #endif
 #ifndef M_PI_2_F
-#define M_PI_2_F	((float)1.57079632679489661923132169163975144) 		/* pi/2 */
+#define M_PI_2_F  (1.5707963267948966f)  /* pi/2 */
 #endif
 #ifndef M_PI_4_F
-#define M_PI_4_F	((float)0.785398163397448309615660845819875721) 	/* pi/4 */
+#define M_PI_4_F  (0.7853981633974830f)  /* pi/4 */
 #endif
 #ifndef M_1_PI_F
-#define M_1_PI_F	((float)0.318309886183790671537767526745028724) 	/* 1/pi */
+#define M_1_PI_F  (0.3183098861837067f)  /* 1/pi */
 #endif
 #ifndef M_2_PI_F
-#define M_2_PI_F	((float)0.636619772367581343075535053490057448) 	/* 2/pi */
+#define M_2_PI_F  (0.6366197723675813f)  /* 2/pi */
 #endif
 
 /* Multiplication */
 #ifndef M_2PI_F
-#define M_2PI_F		((float)6.283185307179586476925286766559005768)		/* 2*pi */
+#define M_2PI_F   (6.2831853071795864f)  /* 2*pi */
 #endif
 #ifndef M_4PI_F
-#define M_4PI_F		((float)12.56637061435917295385057353311801153)		/* 4*pi */
+#define M_4PI_F   (12.566370614359172f)  /* 4*pi */
 #endif
 
 /* Float sqrt variations */
 
 #ifndef M_SQRT2_F
-#define M_SQRT2_F	((float)1.41421356237309504880) 					/* sqrt(2) */
+#define M_SQRT2_F (1.4142135623730950f)  /* sqrt(2) */
 #endif
 
 #ifndef M_LN2_F
-#define M_LN2_F      ((float)0.6931471805599453)        /* ln(2) */
+#define M_LN2_F   (0.6931471805599453f)  /* ln(2) */
 #endif
 
 #ifndef M_LN10_F
-#define M_LN10_F     ((float)2.3025850929940457)        /* ln(10) */
+#define M_LN10_F  (2.3025850929940457f)  /* ln(10) */
 #endif
 
 /* Scalar */
@@ -96,6 +101,9 @@ ccl_device_inline float fminf(float a, float b)
 #endif
 
 #ifndef __KERNEL_GPU__
+
+using std::isfinite;
+using std::isnan;
 
 ccl_device_inline int abs(int x)
 {
@@ -766,6 +774,7 @@ template<size_t index_0, size_t index_1, size_t index_2, size_t index_3> __force
 	return _mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(b), _MM_SHUFFLE(index_3, index_2, index_1, index_0)));
 }
 
+#if defined(__KERNEL_SSE3__)
 template<> __forceinline const float4 shuffle<0, 0, 2, 2>(const float4& b)
 {
 	return _mm_moveldup_ps(b);
@@ -775,6 +784,7 @@ template<> __forceinline const float4 shuffle<1, 1, 3, 3>(const float4& b)
 {
 	return _mm_movehdup_ps(b);
 }
+#endif
 
 template<> __forceinline const float4 shuffle<0, 1, 0, 1>(const float4& b)
 {
@@ -1233,6 +1243,7 @@ ccl_device_inline float __uint_as_float(uint i)
 	return u.f;
 }
 
+
 /* Interpolation */
 
 template<class A, class B> A lerp(const A& a, const A& b, const B& t)
@@ -1248,6 +1259,20 @@ ccl_device_inline float triangle_area(const float3& v1, const float3& v2, const 
 }
 
 #endif
+
+/* Versions of functions which are safe for fast math. */
+ccl_device_inline bool isnan_safe(float f)
+{
+	unsigned int x = __float_as_uint(f);
+	return (x << 1) > 0xff000000u;
+}
+
+ccl_device_inline bool isfinite_safe(float f)
+{
+	/* By IEEE 754 rule, 2*Inf equals Inf */
+	unsigned int x = __float_as_uint(f);
+	return (f == f) && (x == 0 || (f != 2.0f*f)) && !((x << 1) > 0xff000000u);
+}
 
 /* Orthonormal vectors */
 
@@ -1307,7 +1332,7 @@ ccl_device_inline float3 safe_divide_even_color(float3 a, float3 b)
 	y = (b.y != 0.0f)? a.y/b.y: 0.0f;
 	z = (b.z != 0.0f)? a.z/b.z: 0.0f;
 
-	/* try to get grey even if b is zero */
+	/* try to get gray even if b is zero */
 	if(b.x == 0.0f) {
 		if(b.y == 0.0f) {
 			x = z;
@@ -1429,181 +1454,9 @@ ccl_device_inline float beta(float x, float y)
 #endif
 }
 
-/* Ray Intersection */
-
-ccl_device bool ray_sphere_intersect(
-	float3 ray_P, float3 ray_D, float ray_t,
-	float3 sphere_P, float sphere_radius,
-	float3 *isect_P, float *isect_t)
+ccl_device_inline float xor_signmask(float x, int y)
 {
-	float3 d = sphere_P - ray_P;
-	float radiussq = sphere_radius*sphere_radius;
-	float tsq = dot(d, d);
-
-	if(tsq > radiussq) { /* ray origin outside sphere */
-		float tp = dot(d, ray_D);
-
-		if(tp < 0.0f) /* dir points away from sphere */
-			return false;
-
-		float dsq = tsq - tp*tp; /* pythagoras */
-
-		if(dsq > radiussq) /* closest point on ray outside sphere */
-			return false;
-
-		float t = tp - sqrtf(radiussq - dsq); /* pythagoras */
-
-		if(t < ray_t) {
-			*isect_t = t;
-			*isect_P = ray_P + ray_D*t;
-			return true;
-		}
-	}
-
-	return false;
-}
-
-ccl_device bool ray_aligned_disk_intersect(
-	float3 ray_P, float3 ray_D, float ray_t,
-	float3 disk_P, float disk_radius,
-	float3 *isect_P, float *isect_t)
-{
-	/* aligned disk normal */
-	float disk_t;
-	float3 disk_N = normalize_len(ray_P - disk_P, &disk_t);
-	float div = dot(ray_D, disk_N);
-
-	if(UNLIKELY(div == 0.0f))
-		return false;
-
-	/* compute t to intersection point */
-	float t = -disk_t/div;
-	if(t < 0.0f || t > ray_t)
-		return false;
-	
-	/* test if within radius */
-	float3 P = ray_P + ray_D*t;
-	if(len_squared(P - disk_P) > disk_radius*disk_radius)
-		return false;
-
-	*isect_P = P;
-	*isect_t = t;
-
-	return true;
-}
-
-ccl_device bool ray_triangle_intersect(
-	float3 ray_P, float3 ray_D, float ray_t,
-	float3 v0, float3 v1, float3 v2,
-	float3 *isect_P, float *isect_t)
-{
-	/* Calculate intersection */
-	float3 e1 = v1 - v0;
-	float3 e2 = v2 - v0;
-	float3 s1 = cross(ray_D, e2);
-
-	const float divisor = dot(s1, e1);
-	if(UNLIKELY(divisor == 0.0f))
-		return false;
-
-	const float invdivisor = 1.0f/divisor;
-
-	/* compute first barycentric coordinate */
-	const float3 d = ray_P - v0;
-	const float u = dot(d, s1)*invdivisor;
-	if(u < 0.0f)
-		return false;
-
-	/* Compute second barycentric coordinate */
-	const float3 s2 = cross(d, e1);
-	const float v = dot(ray_D, s2)*invdivisor;
-	if(v < 0.0f)
-		return false;
-
-	const float b0 = 1.0f - u - v;
-	if(b0 < 0.0f)
-		return false;
-
-	/* compute t to intersection point */
-	const float t = dot(e2, s2)*invdivisor;
-	if(t < 0.0f || t > ray_t)
-		return false;
-
-	*isect_t = t;
-	*isect_P = ray_P + ray_D*t;
-
-	return true;
-}
-
-ccl_device_inline bool ray_triangle_intersect_uv(
-        float3 ray_P, float3 ray_D, float ray_t,
-        float3 v0, float3 v1, float3 v2,
-        float *isect_u, float *isect_v, float *isect_t)
-{
-	/* Calculate intersection */
-	float3 e1 = v1 - v0;
-	float3 e2 = v2 - v0;
-	float3 s1 = cross(ray_D, e2);
-
-	const float divisor = dot(s1, e1);
-	if(UNLIKELY(divisor == 0.0f))
-		return false;
-
-	const float invdivisor = 1.0f/divisor;
-
-	/* compute first barycentric coordinate */
-	const float3 d = ray_P - v0;
-	const float u = dot(d, s1)*invdivisor;
-	if(u < 0.0f)
-		return false;
-
-	/* Compute second barycentric coordinate */
-	const float3 s2 = cross(d, e1);
-	const float v = dot(ray_D, s2)*invdivisor;
-	if(v < 0.0f)
-		return false;
-
-	const float b0 = 1.0f - u - v;
-	if(b0 < 0.0f)
-		return false;
-
-	/* compute t to intersection point */
-	const float t = dot(e2, s2)*invdivisor;
-	if(t < 0.0f || t > ray_t)
-		return false;
-
-	*isect_u = u;
-	*isect_v = v;
-	*isect_t = t;
-
-	return true;
-}
-
-ccl_device bool ray_quad_intersect(float3 ray_P, float3 ray_D, float ray_mint, float ray_maxt,
-                                   float3 quad_P, float3 quad_u, float3 quad_v, float3 quad_n,
-                                   float3 *isect_P, float *isect_t, float *isect_u, float *isect_v)
-{
-	float t = -(dot(ray_P, quad_n) - dot(quad_P, quad_n)) / dot(ray_D, quad_n);
-	if(t < ray_mint || t > ray_maxt)
-		return false;
-
-	float3 hit = ray_P + t*ray_D;
-	float3 inplane = hit - quad_P;
-
-	float u = dot(inplane, quad_u) / dot(quad_u, quad_u) + 0.5f;
-	if(u < 0.0f || u > 1.0f)
-		return false;
-
-	float v = dot(inplane, quad_v) / dot(quad_v, quad_v) + 0.5f;
-	if(v < 0.0f || v > 1.0f)
-		return false;
-
-	if(isect_P) *isect_P = hit;
-	if(isect_t) *isect_t = t;
-	if(isect_u) *isect_u = u;
-	if(isect_v) *isect_v = v;
-
-	return true;
+	return __int_as_float(__float_as_int(x) ^ y);
 }
 
 /* projections */
@@ -1668,4 +1521,3 @@ ccl_device_inline int util_max_axis(float3 vec)
 CCL_NAMESPACE_END
 
 #endif /* __UTIL_MATH_H__ */
-

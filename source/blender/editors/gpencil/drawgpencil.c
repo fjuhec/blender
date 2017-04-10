@@ -1419,8 +1419,16 @@ static void gp_draw_data_layers(
 
 #undef GP_DRAWFLAG_APPLY
 		
-		/* draw 'onionskins' (frame left + right) */
-		if ((gpl->flag & GP_LAYER_ONIONSKIN) && !(dflag & GP_DRAWDATA_NO_ONIONS)) {
+		/* Draw 'onionskins' (frame left + right)
+		 *   - It is only possible to show these if the option is enabled
+		 *   - The "no onions" flag prevents ghosts from appearing during animation playback/scrubbing
+		 *     and in renders
+		 *   - The per-layer "always show" flag however overrides the playback/render restriction,
+		 *     allowing artists to selectively turn onionskins on/off during playback
+		 */
+		if ((gpl->flag & GP_LAYER_ONIONSKIN) && 
+		    ((dflag & GP_DRAWDATA_NO_ONIONS) == 0 || (gpl->flag & GP_LAYER_GHOST_ALWAYS))) 
+		{
 			/* Drawing method - only immediately surrounding (gstep = 0),
 			 * or within a frame range on either side (gstep > 0)
 			 */
@@ -1555,7 +1563,7 @@ static void gp_draw_data_all(Scene *scene, bGPdata *gpd, int offsx, int offsy, i
 {
 	bGPdata *gpd_source = NULL;
 	ToolSettings *ts;
-	bGPDbrush *brush;
+	bGPDbrush *brush = NULL;
 	if (scene) {
 		ts = scene->toolsettings;
 		brush = BKE_gpencil_brush_getactive(ts);
@@ -1564,8 +1572,7 @@ static void gp_draw_data_all(Scene *scene, bGPdata *gpd, int offsx, int offsy, i
 			BKE_gpencil_brush_init_presets(ts);
 			brush = BKE_gpencil_brush_getactive(ts);
 		}
-	}
-	if (scene) {
+
 		if (spacetype == SPACE_VIEW3D) {
 			gpd_source = (scene->gpd ? scene->gpd : NULL);
 		}
@@ -1573,13 +1580,12 @@ static void gp_draw_data_all(Scene *scene, bGPdata *gpd, int offsx, int offsy, i
 			/* currently drawing only gpencil data from either clip or track, but not both - XXX fix logic behind */
 			gpd_source = (scene->clip->gpd ? scene->clip->gpd : NULL);
 		}
-		
+
 		if (gpd_source) {
 			if (brush != NULL) {
 				gp_draw_data(brush, ts->gp_sculpt.alpha, gpd_source,
 				             offsx, offsy, winx, winy, cfra, dflag);
 			}
-			
 		}
 	}
 	

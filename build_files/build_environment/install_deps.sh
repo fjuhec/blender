@@ -322,8 +322,8 @@ OPENEXR_FORCE_REBUILD=false
 OPENEXR_SKIP=false
 _with_built_openexr=false
 
-OIIO_VERSION="1.7.8"
-OIIO_VERSION_MIN="1.6.0"
+OIIO_VERSION="1.7.13"
+OIIO_VERSION_MIN="1.7.13"
 OIIO_VERSION_MAX="1.9.0"  # UNKNOWN currently # Not supported by current OSL...
 OIIO_FORCE_BUILD=false
 OIIO_FORCE_REBUILD=false
@@ -344,7 +344,7 @@ OSL_FORCE_REBUILD=false
 OSL_SKIP=false
 
 # OpenSubdiv needs to be compiled for now
-OSD_VERSION="3.1.0"
+OSD_VERSION="3.1.1"
 OSD_VERSION_MIN=$OSD_VERSION
 OSD_FORCE_BUILD=false
 OSD_FORCE_REBUILD=false
@@ -360,7 +360,7 @@ OPENVDB_FORCE_REBUILD=false
 OPENVDB_SKIP=false
 
 # Alembic needs to be compiled for now
-ALEMBIC_VERSION="1.6.0"
+ALEMBIC_VERSION="1.7.1"
 ALEMBIC_VERSION_MIN=$ALEMBIC_VERSION
 ALEMBIC_FORCE_BUILD=false
 ALEMBIC_FORCE_REBUILD=false
@@ -795,7 +795,7 @@ CXXFLAGS_BACK=$CXXFLAGS
 if [ "$USE_CXX11" = true ]; then
   WARNING "You are trying to use c++11, this *should* go smoothely with any very recent distribution
 However, if you are experiencing linking errors (also when building Blender itself), please try the following:
-    * Re-run this script with `--build-all --force-all` options.
+    * Re-run this script with '--build-all --force-all' options.
     * Ensure your gcc version is at the very least 4.8, if possible you should really rather use gcc-5.1 or above.
 
 Please note that until the transition to C++11-built libraries if completed in your distribution, situation will
@@ -2236,9 +2236,6 @@ compile_ALEMBIC() {
     return
   fi
 
-  compile_HDF5
-  PRINT ""
-
   # To be changed each time we make edits that would modify the compiled result!
   alembic_magic=2
   _init_alembic
@@ -2266,6 +2263,12 @@ compile_ALEMBIC() {
 
     cmake_d="-D CMAKE_INSTALL_PREFIX=$_inst"
 
+    # Without Boost or TR1, Alembic requires C++11.
+    if [ "$USE_CXX11" != true ]; then
+      cmake_d="$cmake_d -D ALEMBIC_LIB_USES_BOOST=ON"
+      cmake_d="$cmake_d -D ALEMBIC_LIB_USES_TR1=OFF"
+    fi
+
     if [ -d $INST/boost ]; then
       cmake_d="$cmake_d -D BOOST_ROOT=$INST/boost"
       cmake_d="$cmake_d -D USE_STATIC_BOOST=ON"
@@ -2285,8 +2288,6 @@ compile_ALEMBIC() {
       cmake_d="$cmake_d -D USE_STATIC_HDF5=OFF"
       cmake_d="$cmake_d -D ALEMBIC_ILMBASE_LINK_STATIC=OFF"
       cmake_d="$cmake_d -D ALEMBIC_SHARED_LIBS=OFF"
-      cmake_d="$cmake_d -D ALEMBIC_LIB_USES_BOOST=ON"
-      cmake_d="$cmake_d -D ALEMBIC_LIB_USES_TR1=OFF"
       INFO "ILMBASE_ROOT=$INST/openexr"
     fi
 
@@ -4252,7 +4253,7 @@ print_info() {
     PRINT "  $_3"
     _buildargs="$_buildargs $_1 $_2 $_3"
     if [ -d $INST/osl ]; then
-      _1="-D CYCLES_OSL=$INST/osl"
+      _1="-D OSL_ROOT_DIR=$INST/osl"
       PRINT "  $_1"
       _buildargs="$_buildargs $_1"
     fi
