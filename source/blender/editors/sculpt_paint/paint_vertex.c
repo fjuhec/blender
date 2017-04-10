@@ -2387,9 +2387,9 @@ static void do_wpaint_brush_blur_task_cb_ex(
 				total_hit_loops += mp->totloop;
 				for (int k = 0; k < mp->totloop; k++) {
 					const int l_index = mp->loopstart + k;
-					MLoop loop = data->me->mloop[l_index];
-					MDeformVert *dv = &data->me->dvert[loop.v];
-					MDeformWeight *dw = defvert_verify_index(dv, data->wpi->active.index);
+					const MLoop *ml = &data->me->mloop[l_index];
+					MDeformVert *dv = &data->me->dvert[ml->v];
+					const MDeformWeight *dw = defvert_verify_index(dv, data->wpi->active.index);
 					weight_final += dw->weight;
 				}
 			}
@@ -2466,7 +2466,7 @@ static void do_wpaint_brush_smudge_task_cb_ex(
 						if (stroke_dot > stroke_dot_max) {
 							stroke_dot_max = stroke_dot;
 							MDeformVert *dv = &data->me->dvert[v_other_index];
-							MDeformWeight *dw = defvert_verify_index(dv, data->wpi->active.index);
+							const MDeformWeight *dw = defvert_verify_index(dv, data->wpi->active.index);
 							weight_final = dw->weight;
 							do_color = true;
 						}
@@ -2519,7 +2519,7 @@ static void do_wpaint_brush_draw_task_cb_ex(
 				/* Spray logic */
 				if (!(data->vp->flag & VP_SPRAY)) {
 					MDeformVert *dv = &data->me->dvert[v_index];
-					MDeformWeight *dw;
+					const MDeformWeight *dw;
 					dw = (data->vp->flag & VP_ONLYVGROUP) ?
 					        defvert_find_index(dv, data->wpi->active.index) :
 					        defvert_verify_index(dv, data->wpi->active.index);
@@ -2587,7 +2587,7 @@ static void do_wpaint_brush_calc_ave_weight_cb_ex(
 
 						const MLoop *ml = &data->me->mloop[l_index];
 						MDeformVert *dv = &data->me->dvert[ml->v];
-						MDeformWeight *dw = defvert_verify_index(dv, data->wpi->active.index);
+						const MDeformWeight *dw = defvert_verify_index(dv, data->wpi->active.index);
 						weight += dw->weight;
 					}
 				}
@@ -3224,8 +3224,8 @@ static void do_vpaint_brush_calc_ave_color_cb_ex(
 			if (BKE_brush_curve_strength(data->brush, test.dist, cache->radius) > 0.0) {
 				const int v_index = vd.vert_indices[vd.i];
 				/* If the vertex is selected for painting. */
-				MVert v = data->me->mvert[v_index];
-				if (v.flag & SELECT) {
+				const MVert *mv = &data->me->mvert[v_index];
+				if (mv->flag & SELECT) {
 					ss->modes.vwpaint.tot_loops_hit[n] += ss->modes.vwpaint.vert_to_loop[v_index].count;
 					/* if a vertex is within the brush region, then add it's color to the blend. */
 					for (int j = 0; j < ss->modes.vwpaint.vert_to_loop[v_index].count; j++) {
@@ -3292,9 +3292,9 @@ static void do_vpaint_brush_draw_task_cb_ex(
 		if (sculpt_brush_test(&test, vd.co)) {
 			const int v_index = vd.vert_indices[vd.i];
 			/* If the vertex is selected for painting. */
-			MVert v = data->me->mvert[v_index];
+			const MVert *mv = &data->me->mvert[v_index];
 
-			if (!use_face_sel || v.flag & SELECT) {
+			if (!use_face_sel || mv->flag & SELECT) {
 				const float view_dot = dot_vf3vs3(cache->sculpt_normal_symm, vd.no);
 				const float fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
 				unsigned int color_final = data->vpd->paintcol;
@@ -3355,8 +3355,8 @@ static void do_vpaint_brush_blur_task_cb_ex(
 				const float fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
 				const int v_index = vd.vert_indices[vd.i];
 				/* If the vertex is selected for painting. */
-				MVert v = data->me->mvert[v_index];
-				if (!use_face_sel || v.flag & SELECT) {
+				MVert *mv = &data->me->mvert[v_index];
+				if (!use_face_sel || mv->flag & SELECT) {
 					/* Get the average poly color */
 					unsigned int color_final = 0;
 					total_hit_loops = 0;
@@ -3366,10 +3366,10 @@ static void do_vpaint_brush_blur_task_cb_ex(
 					blend[3] = 0;
 					for (int j = 0; j < ss->modes.vwpaint.vert_to_poly[v_index].count; j++) {
 						int p_index = ss->modes.vwpaint.vert_to_poly[v_index].indices[j];
-						MPoly mp = data->me->mpoly[p_index];
-						total_hit_loops += mp.totloop;
-						for (int k = 0; k < mp.totloop; k++) {
-							const unsigned int l_index = mp.loopstart + k;
+						const MPoly *mp = &data->me->mpoly[p_index];
+						total_hit_loops += mp->totloop;
+						for (int k = 0; k < mp->totloop; k++) {
+							const unsigned int l_index = mp->loopstart + k;
 							col = (char *)(&lcol[l_index]);
 							/* Color is squared to compensate the sqrt color encoding. */
 							blend[0] += (unsigned int)col[0] * (unsigned int)col[0];
@@ -3939,7 +3939,7 @@ static void gradientVertInit__mapFunc(
 			{
 				/* ok */
 				MDeformVert *dv = &me->dvert[index];
-				MDeformWeight *dw;
+				const MDeformWeight *dw;
 				dw = defvert_find_index(dv, grad_data->def_nr);
 				if (dw) {
 					vs->weight_orig = dw->weight;
