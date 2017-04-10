@@ -656,7 +656,8 @@ void BKE_sculptsession_free_deformMats(SculptSession *ss)
 	MEM_SAFE_FREE(ss->deform_imats);
 }
 
-void BKE_sculptsession_free_vwpaint_data(struct SculptSession *ss) {
+void BKE_sculptsession_free_vwpaint_data(struct SculptSession *ss)
+{
 	/* Free maps */
 	MEM_SAFE_FREE(ss->modes.vwpaint.vert_to_loop);
 	MEM_SAFE_FREE(ss->modes.vwpaint.vert_map_mem);

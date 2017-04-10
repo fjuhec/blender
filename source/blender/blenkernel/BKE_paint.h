@@ -28,8 +28,6 @@
 #ifndef __BKE_PAINT_H__
 #define __BKE_PAINT_H__
 
-#include "BKE_mesh_mapping.h"
-
 /** \file BKE_paint.h
  *  \ingroup bke
  */
@@ -207,9 +205,9 @@ typedef struct SculptSession {
 	union {
 		struct {
 			int *vert_map_mem;
-			MeshElemMap *vert_to_loop;
+			struct MeshElemMap *vert_to_loop;
 			int *poly_map_mem;
-			MeshElemMap *vert_to_poly;
+			struct MeshElemMap *vert_to_poly;
 
 			unsigned int *total_color;
 			double *total_weight;

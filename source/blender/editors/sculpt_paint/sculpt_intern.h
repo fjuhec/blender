@@ -194,7 +194,7 @@ typedef struct SculptThreadedTaskData {
 	WPaintData *wpd;
 	WeightPaintInfo *wpi;
 	unsigned int* lcol;
-	MeshElemMap **vertToLoopMaps;
+	struct MeshElemMap **vertToLoopMaps;
 	Mesh *me;
 
 
