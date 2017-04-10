@@ -1482,8 +1482,9 @@ static int brush_colors_flip_poll(bContext *C)
 	}
 	else {
 		Object *ob = CTX_data_active_object(C);
-		if (ob && (ob->mode & OB_MODE_VERTEX_PAINT))
+		if (ob && (ob->mode & OB_MODE_VERTEX_PAINT)) {
 			return 1;
+		}
 	}
 	return 0;
 }

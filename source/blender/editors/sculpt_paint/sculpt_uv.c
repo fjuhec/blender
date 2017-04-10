@@ -54,7 +54,6 @@
 #include "ED_screen.h"
 #include "ED_image.h"
 #include "ED_mesh.h"
-#include "ED_view3d.h"  /* For paint_intern.h */
 
 #include "WM_api.h"
 #include "WM_types.h"

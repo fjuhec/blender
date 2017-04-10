@@ -2078,9 +2078,10 @@ static bool wpaint_stroke_test_start(bContext *C, wmOperator *op, const float mo
 
 	/* ALLOCATIONS! no return after this line */
 	/* make mode data storage */
-	wpd = MEM_callocN(sizeof(struct WPaintData), "WPaintData");
+	wpd = MEM_callocN(sizeof(WPaintData), "WPaintData");
+	wpd->vc = MEM_callocN(sizeof(*wpd->vc), __func__);
 	paint_stroke_set_mode_data(stroke, wpd);
-	view3d_set_viewcontext(C, &wpd->vc);
+	view3d_set_viewcontext(C, wpd->vc);
 
 	wpd->active.index = vgroup_index.active;
 	wpd->mirror.index = vgroup_index.mirror;
@@ -2131,7 +2132,7 @@ static bool wpaint_stroke_test_start(bContext *C, wmOperator *op, const float mo
 	ob->sculpt->modes.vwpaint.building_vp_handle = false;
 
 	/* imat for normals */
-	mul_m4_m4m4(mat, wpd->vc.rv3d->viewmat, ob->obmat);
+	mul_m4_m4m4(mat, wpd->vc->rv3d->viewmat, ob->obmat);
 	invert_m4_m4(imat, mat);
 	copy_m3_m4(wpd->wpimat, imat);
 
@@ -2693,7 +2694,7 @@ static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 		return;
 	}
 
-	vc = &wpd->vc;
+	vc = wpd->vc;
 	ob = vc->obact;
 	
 	view3d_operator_needs_opengl(C);
@@ -2729,7 +2730,7 @@ static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 
 	DAG_id_tag_update(ob->data, 0);
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
-	swap_m4m4(wpd->vc.rv3d->persmat, mat);
+	swap_m4m4(wpd->vc->rv3d->persmat, mat);
 
 	rcti r;
 	if (sculpt_get_redraw_rect(vc->ar, CTX_wm_region_view3d(C), ob, &r)) {
@@ -2761,7 +2762,9 @@ static void wpaint_stroke_done(const bContext *C, struct PaintStroke *stroke)
 	
 	if (wpd) {
 		ED_vpaint_proj_handle_free(wpd->vp_handle);
-		
+
+		MEM_freeN(wpd->vc);
+
 		if (wpd->defbase_sel)
 			MEM_freeN((void *)wpd->defbase_sel);
 		if (wpd->vgroup_validmap)
@@ -3043,9 +3046,10 @@ static bool vpaint_stroke_test_start(bContext *C, struct wmOperator *op, const f
 		return false;
 
 	/* make mode data storage */
-	vpd = MEM_callocN(sizeof(struct VPaintData), "VPaintData");
+	vpd = MEM_callocN(sizeof(VPaintData), "VPaintData");
+	vpd->vc = MEM_callocN(sizeof(*vpd->vc), __func__);
 	paint_stroke_set_mode_data(stroke, vpd);
-	view3d_set_viewcontext(C, &vpd->vc);
+	view3d_set_viewcontext(C, vpd->vc);
 	
 	vpd->paintcol = vpaint_get_current_col(scene, vp);
 
@@ -3075,7 +3079,7 @@ static bool vpaint_stroke_test_start(bContext *C, struct wmOperator *op, const f
 
 
 	/* some old cruft to sort out later */
-	mul_m4_m4m4(mat, vpd->vc.rv3d->viewmat, ob->obmat);
+	mul_m4_m4m4(mat, vpd->vc->rv3d->viewmat, ob->obmat);
 	invert_m4_m4(imat, mat);
 	copy_m3_m4(vpd->vpimat, imat);
 
@@ -3146,7 +3150,7 @@ static void handle_texture_brush(SculptThreadedTaskData *data, PBVHVertexIter vd
 	float rgba[4];
 	float rgba_br[3];
 
-	*alpha = calc_vp_alpha_col_dl(data->vp, &data->vpd->vc, data->vpd->vpimat,
+	*alpha = calc_vp_alpha_col_dl(data->vp, data->vpd->vc, data->vpd->vpimat,
 	                              &data->vpd->vertexcosnos[vertexIndex], ss->cache->mouse, size_pressure, alpha_pressure, rgba);
 	rgb_uchar_to_float(rgba_br, (const unsigned char *)&data->vpd->paintcol);
 	mul_v3_v3(rgba_br, rgba);
@@ -3524,7 +3528,7 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	ToolSettings *ts = CTX_data_tool_settings(C);
 	VPaintData *vpd = paint_stroke_mode_data(stroke);
 	VPaint *vp = ts->vpaint;
-	ViewContext *vc = &vpd->vc;
+	ViewContext *vc = vpd->vc;
 	Object *ob = vc->obact;
 	Sculpt *sd = CTX_data_tool_settings(C)->sculpt;
 
@@ -3564,9 +3568,11 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 static void vpaint_stroke_done(const bContext *C, struct PaintStroke *stroke)
 {
 	struct VPaintData *vpd = paint_stroke_mode_data(stroke);
-	ViewContext *vc = &vpd->vc;
+	ViewContext *vc = vpd->vc;
 	Object *ob = vc->obact;
-	
+
+	MEM_freeN(vpd->vc);
+
 	if (vpd->mlooptag)
 		MEM_freeN(vpd->mlooptag);
 

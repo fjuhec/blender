@@ -142,7 +142,7 @@ typedef struct WeightPaintInfo {
 
 /* paint_vertex.c */
 typedef struct VPaintData {
-	struct ViewContext vc;
+	struct ViewContext *vc;
 	unsigned int paintcol;
 	int *indexar;
 
@@ -163,7 +163,7 @@ typedef struct VPaintData {
 } VPaintData;
 
 typedef struct WPaintData {
-	struct ViewContext vc;
+	struct ViewContext *vc;
 	int *indexar;
 
 	struct WeightPaintGroupData active, mirror;

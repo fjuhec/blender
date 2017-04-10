@@ -39,7 +39,6 @@
 #include "BKE_global.h"
 
 #include "ED_paint.h"
-#include "ED_view3d.h"  /* For paint_intern.h */
 
 #include "paint_intern.h"
 
