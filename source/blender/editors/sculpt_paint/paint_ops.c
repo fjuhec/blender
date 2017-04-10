@@ -43,7 +43,6 @@
 #include "ED_paint.h"
 #include "ED_screen.h"
 #include "ED_image.h"
-
 #include "UI_resources.h"
 
 #include "WM_api.h"

@@ -53,7 +53,6 @@
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
 
-#include "BKE_global.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_action.h"
 #include "BKE_brush.h"
@@ -67,8 +66,6 @@
 #include "BKE_paint.h"
 #include "BKE_report.h"
 #include "BKE_colortools.h"
-#include "BKE_pbvh.h"
-#include "BKE_ccg.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -79,13 +76,11 @@
 #include "ED_screen.h"
 #include "ED_view3d.h"
 
+#include "bmesh.h"
+#include "BKE_ccg.h"
+
 #include "sculpt_intern.h"
 #include "paint_intern.h"  /* own include */
-
-#include "bmesh.h"
-#include "bmesh_tools.h"
-#include "BKE_subsurf.h"
-#include "BKE_ccg.h"
 
 /* small structure to defer applying weight-paint results */
 struct WPaintDefer {
