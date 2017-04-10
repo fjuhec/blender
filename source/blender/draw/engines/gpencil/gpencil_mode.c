@@ -111,6 +111,11 @@ static void GPENCIL_engine_init(void *vedata)
 												 datatoc_gpencil_stroke_frag_glsl,
 												 NULL);
 	e_data.gpencil_point_sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_POINT_UNIFORM_SIZE_UNIFORM_COLOR_AA);
+
+	if (!stl->storage) {
+		stl->storage = MEM_callocN(sizeof(GPENCIL_Storage), "GPENCIL_Storage");
+	}
+
 }
 
 static void GPENCIL_engine_free(void)
@@ -219,16 +224,11 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 	DRWShadingGroup *strokegrp;
 	const bContext *C = DRW_get_context();
 	Scene *scene = CTX_data_scene(C);
-	bGPdata *gpd = ob->gpd;
 
 	UNUSED_VARS(psl, stl);
 
-	if (ob->type == OB_GPENCIL) {
-		if (!gpd) {
-			return;
-		}
-
-		for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+	if (ob->type == OB_GPENCIL && ob->gpd)  {
+		for (bGPDlayer *gpl = ob->gpd->layers.first; gpl; gpl = gpl->next) {
 			bGPDframe *gpf = BKE_gpencil_layer_getframe(gpl, CFRA, 0);
 			// TODO: need to replace this code with full drawing checks
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
@@ -244,7 +244,7 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 
 				fillgrp = stl->storage->shgrps_fill[id];
 				strokegrp = stl->storage->shgrps_stroke[id];
-
+#if 0
 				/* fill */
 				struct Batch *fill_geom = DRW_cache_surface_get(ob); // TODO: replace with real funct
 				/* Add fill geom to a shading group */
@@ -254,6 +254,7 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 				struct Batch *stroke_geom = DRW_cache_surface_get(ob); // TODO: replace with real funct
 				/* Add stroke geom to a shading group */
 				DRW_shgroup_call_add(strokegrp, stroke_geom, ob->obmat);
+#endif
 			}
 		}
 	}
