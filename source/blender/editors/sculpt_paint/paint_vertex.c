@@ -1668,21 +1668,20 @@ static void vertex_paint_init_session(Scene *scene, Object *ob)
 
 static void vertex_paint_init_session_maps(Object *ob) {
 	/* Create maps */
-	if (!ob->sculpt->modes.vwpaint.vert_to_loop)
-	{
+	if (ob->sculpt->modes.vwpaint.vert_to_loop == NULL) {
 		Mesh *me = ob->data;
 		ob->sculpt->modes.vwpaint.vert_map_mem = NULL;
 		ob->sculpt->modes.vwpaint.vert_to_loop = NULL;
 		ob->sculpt->modes.vwpaint.poly_map_mem = NULL;
 		ob->sculpt->modes.vwpaint.vert_to_poly = NULL;
 		BKE_mesh_vert_loop_map_create(
-			&ob->sculpt->modes.vwpaint.vert_to_loop, 
-			&ob->sculpt->modes.vwpaint.vert_map_mem, 
-			me->mpoly, me->mloop, me->totvert, me->totpoly, me->totloop);
+		        &ob->sculpt->modes.vwpaint.vert_to_loop,
+		        &ob->sculpt->modes.vwpaint.vert_map_mem,
+		        me->mpoly, me->mloop, me->totvert, me->totpoly, me->totloop);
 		BKE_mesh_vert_poly_map_create(
-			&ob->sculpt->modes.vwpaint.vert_to_poly, 
-			&ob->sculpt->modes.vwpaint.poly_map_mem, 
-			me->mpoly, me->mloop, me->totvert, me->totpoly, me->totloop);
+		        &ob->sculpt->modes.vwpaint.vert_to_poly,
+		        &ob->sculpt->modes.vwpaint.poly_map_mem,
+		        me->mpoly, me->mloop, me->totvert, me->totpoly, me->totloop);
 	}
 }
 
@@ -2672,8 +2671,7 @@ static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	struct WPaintData *wpd = paint_stroke_mode_data(stroke);
 	ViewContext *vc;
 	Object *ob = CTX_data_active_object(C);
-	Mesh *me;
-	
+
 	SculptSession *ss = ob->sculpt;
 	Sculpt *sd = CTX_data_tool_settings(C)->sculpt;
 
@@ -2697,8 +2695,6 @@ static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 
 	vc = &wpd->vc;
 	ob = vc->obact;
-	me = ob->data;
-	UNUSED_VARS(me);
 	
 	view3d_operator_needs_opengl(C);
 	ED_view3d_init_mats_rv3d(ob, vc->rv3d);
@@ -2808,9 +2804,10 @@ static int wpaint_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	int retval;
 
-	op->customdata = paint_stroke_new(C, op, sculpt_stroke_get_location, wpaint_stroke_test_start,
-			wpaint_stroke_update_step, NULL,
-			wpaint_stroke_done, event->type);
+	op->customdata = paint_stroke_new(
+	        C, op, sculpt_stroke_get_location, wpaint_stroke_test_start,
+	        wpaint_stroke_update_step, NULL,
+	        wpaint_stroke_done, event->type);
 	
 	if ((retval = op->type->modal(C, op, event)) == OPERATOR_FINISHED) {
 		paint_stroke_data_free(op);
@@ -2827,9 +2824,10 @@ static int wpaint_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
 static int wpaint_exec(bContext *C, wmOperator *op)
 {
-	op->customdata = paint_stroke_new(C, op, sculpt_stroke_get_location, wpaint_stroke_test_start,
-			wpaint_stroke_update_step, NULL,
-			wpaint_stroke_done, 0);
+	op->customdata = paint_stroke_new(
+	        C, op, sculpt_stroke_get_location, wpaint_stroke_test_start,
+	        wpaint_stroke_update_step, NULL,
+	        wpaint_stroke_done, 0);
 
 	/* frees op->customdata */
 	paint_stroke_exec(C, op);
@@ -3087,8 +3085,9 @@ static bool vpaint_stroke_test_start(bContext *C, struct wmOperator *op, const f
 	vertex_paint_init_session_maps(ob);
 	vertex_paint_init_session_average_arrays(ob);
 
-	for (int i = 0; i < me->totloop; ++i)
+	for (int i = 0; i < me->totloop; i++) {
 		ob->sculpt->modes.vwpaint.previous_color[i] = 0;
+	}
 
 	return 1;
 }
