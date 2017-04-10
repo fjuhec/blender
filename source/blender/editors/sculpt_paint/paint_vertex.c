@@ -802,8 +802,9 @@ static unsigned int vpaint_blend(VPaint *vp, unsigned int col, unsigned int colo
 
 
 /* whats _dl mean? */
-static float calc_vp_strength_col_dl(VPaint *vp, ViewContext *vc, const float co[3],
-                                 const float mval[2], const float brush_size_pressure, float rgba[4])
+static float calc_vp_strength_col_dl(
+        VPaint *vp, const ViewContext *vc, const float co[3],
+        const float mval[2], const float brush_size_pressure, float rgba[4])
 {
 	float co_ss[2];  /* screenspace */
 
@@ -839,10 +840,11 @@ static float calc_vp_strength_col_dl(VPaint *vp, ViewContext *vc, const float co
 	return 0.0f;
 }
 
-static float calc_vp_alpha_col_dl(VPaint *vp, ViewContext *vc,
-                              float vpimat[3][3], const DMCoNo *v_co_no,
-                              const float mval[2],
-                              const float brush_size_pressure, const float brush_alpha_pressure, float rgba[4])
+static float calc_vp_alpha_col_dl(
+        VPaint *vp, const ViewContext *vc,
+        float vpimat[3][3], const DMCoNo *v_co_no,
+        const float mval[2],
+        const float brush_size_pressure, const float brush_alpha_pressure, float rgba[4])
 {
 	float strength = calc_vp_strength_col_dl(vp, vc, v_co_no->co, mval, brush_size_pressure, rgba);
 
@@ -1407,6 +1409,54 @@ static void multipaint_apply_change(MDeformVert *dvert, const int defbase_tot, f
 	}
 }
 
+/**
+ * Variables stored both for 'active' and 'mirror' sides.
+ */
+struct WeightPaintGroupData {
+	/** index of active group or its mirror
+	 *
+	 * - 'active' is always `ob->actdef`.
+	 * - 'mirror' is -1 when 'ME_EDIT_MIRROR_X' flag id disabled,
+	 *   otherwise this will be set to the mirror or the active group (if the group isn't mirrored).
+	 */
+	int index;
+	/** lock that includes the 'index' as locked too
+	 *
+	 * - 'active' is set of locked or active/selected groups
+	 * - 'mirror' is set of locked or mirror groups
+	 */
+	const bool *lock;
+};
+
+/* struct to avoid passing many args each call to do_weight_paint_vertex()
+ * this _could_ be made a part of the operators 'WPaintData' struct, or at
+ * least a member, but for now keep its own struct, initialized on every
+ * paint stroke update - campbell */
+typedef struct WeightPaintInfo {
+
+	int defbase_tot;
+
+	/* both must add up to 'defbase_tot' */
+	int defbase_tot_sel;
+	int defbase_tot_unsel;
+
+	struct WeightPaintGroupData active, mirror;
+
+	const bool *lock_flags;  /* boolean array for locked bones,
+	                          * length of defbase_tot */
+	const bool *defbase_sel; /* boolean array for selected bones,
+	                          * length of defbase_tot, cant be const because of how its passed */
+
+	const bool *vgroup_validmap; /* same as WeightPaintData.vgroup_validmap,
+	                              * only added here for convenience */
+
+	bool do_flip;
+	bool do_multipaint;
+	bool do_auto_normalize;
+
+	float brush_alpha_value;  /* result of BKE_brush_alpha_get() */
+} WeightPaintInfo;
+
 static void do_weight_paint_vertex_single(
         /* vars which remain the same for every vert */
         VPaint *wp, Object *ob, const WeightPaintInfo *wpi,
@@ -1822,6 +1872,34 @@ struct WPaintVGroupIndex {
 	int mirror;
 };
 
+struct WPaintData {
+	ViewContext vc;
+
+	struct WeightPaintGroupData active, mirror;
+
+	void *vp_handle;
+	struct DMCoNo *vertexcosnos;
+
+	float wpimat[3][3];
+
+	/* variables for auto normalize */
+	const bool *vgroup_validmap; /* stores if vgroups tie to deforming bones or not */
+	const bool *lock_flags;
+
+	/* variables for multipaint */
+	const bool *defbase_sel;      /* set of selected groups */
+	int defbase_tot_sel;          /* number of selected groups */
+	bool do_multipaint;           /* true if multipaint enabled and multiple groups selected */
+
+	/* variables for blur */
+	struct {
+		struct MeshElemMap *vmap;
+		int *vmap_mem;
+	} blur_data;
+
+	int defbase_tot;
+};
+
 /* ensure we have data on wpaint start, add if needed */
 static bool wpaint_ensure_data(
         bContext *C, wmOperator *op,
@@ -2074,10 +2152,9 @@ static bool wpaint_stroke_test_start(bContext *C, wmOperator *op, const float mo
 
 	/* ALLOCATIONS! no return after this line */
 	/* make mode data storage */
-	wpd = MEM_callocN(sizeof(WPaintData), "WPaintData");
-	wpd->vc = MEM_callocN(sizeof(*wpd->vc), __func__);
+	wpd = MEM_callocN(sizeof(struct WPaintData), "WPaintData");
 	paint_stroke_set_mode_data(stroke, wpd);
-	view3d_set_viewcontext(C, wpd->vc);
+	view3d_set_viewcontext(C, &wpd->vc);
 
 	wpd->active.index = vgroup_index.active;
 	wpd->mirror.index = vgroup_index.mirror;
@@ -2128,7 +2205,7 @@ static bool wpaint_stroke_test_start(bContext *C, wmOperator *op, const float mo
 	ob->sculpt->modes.vwpaint.building_vp_handle = false;
 
 	/* imat for normals */
-	mul_m4_m4m4(mat, wpd->vc->rv3d->viewmat, ob->obmat);
+	mul_m4_m4m4(mat, wpd->vc.rv3d->viewmat, ob->obmat);
 	invert_m4_m4(imat, mat);
 	copy_m3_m4(wpd->wpimat, imat);
 
@@ -2400,7 +2477,8 @@ static void do_wpaint_brush_smudge_task_cb_ex(
 				}
 				if (shouldColor && dot > 0.0) {
 					const float fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
-					do_weight_paint_vertex(data->vp, data->ob, data->wpi, vertexIndex, dot * fade * bstrength, (float)finalWeight);
+					do_weight_paint_vertex(
+					        data->vp, data->ob, data->wpi, vertexIndex, dot * fade * bstrength, (float)finalWeight);
 				}
 			}
 		BKE_pbvh_vertex_iter_end;
@@ -2445,8 +2523,9 @@ static void do_wpaint_brush_draw_task_cb_ex(
 				if (!(data->vp->flag & VP_SPRAY)) {
 					MDeformVert *dv = &data->me->dvert[vertexIndex];
 					MDeformWeight *dw;
-					dw = (data->vp->flag & VP_ONLYVGROUP) ? defvert_find_index(dv, data->wpi->active.index) :
-																									defvert_verify_index(dv, data->wpi->active.index);
+					dw = (data->vp->flag & VP_ONLYVGROUP) ?
+					        defvert_find_index(dv, data->wpi->active.index) :
+					        defvert_verify_index(dv, data->wpi->active.index);
 					currentWeight = dw->weight;
 					if (ss->modes.vwpaint.max_weight[vertexIndex] < 0) {
 						ss->modes.vwpaint.max_weight[vertexIndex] = min_ff(bstrength + dw->weight, 1.0f);
@@ -2473,7 +2552,7 @@ static void do_wpaint_brush_draw_task_cb_ex(
 }
 
 static void do_wpaint_brush_calc_ave_weight_cb_ex(
-		void *userdata, void *UNUSED(userdata_chunk), const int n, const int UNUSED(thread_id))
+        void *userdata, void *UNUSED(userdata_chunk), const int n, const int UNUSED(thread_id))
 {
 	SculptThreadedTaskData *data = userdata;
 	SculptSession *ss = data->ob->sculpt;
@@ -2542,8 +2621,8 @@ static void calculate_average_weight(SculptThreadedTaskData *data, PBVHNode **UN
 
 
 static void wpaint_paint_leaves(
-		bContext *C, Object *ob, Sculpt *sd, VPaint *vp, WPaintData *wpd, WeightPaintInfo *wpi,
-		Mesh *me, PBVHNode **nodes, int totnode)
+        bContext *C, Object *ob, Sculpt *sd, VPaint *vp, struct WPaintData *wpd, WeightPaintInfo *wpi,
+        Mesh *me, PBVHNode **nodes, int totnode)
 {
 	Brush *brush = ob->sculpt->cache->brush;
 
@@ -2582,8 +2661,8 @@ static void wpaint_paint_leaves(
 }
 
 static void wpaint_do_paint(
-		bContext *C, Object *ob, VPaint *wp, Sculpt *sd, WPaintData *wpd, WeightPaintInfo *wpi, Mesh *me,
-		Brush *UNUSED(brush), const char symm, const int axis, const int i, const float angle)
+        bContext *C, Object *ob, VPaint *wp, Sculpt *sd, struct WPaintData *wpd, WeightPaintInfo *wpi,
+        Mesh *me, Brush *UNUSED(brush), const char symm, const int axis, const int i, const float angle)
 {
 	SculptSession *ss = ob->sculpt;
 	ss->cache->radial_symmetry_pass = i;
@@ -2608,8 +2687,9 @@ static void wpaint_do_paint(
 		MEM_freeN(nodes);
 }
 
-static void wpaint_do_radial_symmetry(bContext *C, Object *ob, VPaint *wp, Sculpt *sd, WPaintData *wpd, WeightPaintInfo *wpi, Mesh *me, 
-		Brush *brush, const char symm, const int axis)
+static void wpaint_do_radial_symmetry(
+        bContext *C, Object *ob, VPaint *wp, Sculpt *sd, struct WPaintData *wpd, WeightPaintInfo *wpi,
+        Mesh *me, Brush *brush, const char symm, const int axis)
 {
 	for (int i = 1; i < wp->radial_symm[axis - 'X']; ++i) {
 		const float angle = (2.0 * M_PI) * i / wp->radial_symm[axis - 'X'];
@@ -2617,7 +2697,8 @@ static void wpaint_do_radial_symmetry(bContext *C, Object *ob, VPaint *wp, Sculp
 	}
 }
 
-static void wpaint_do_symmetrical_brush_actions(bContext *C, Object *ob, VPaint *wp, Sculpt *sd, WPaintData *wpd, WeightPaintInfo *wpi)
+static void wpaint_do_symmetrical_brush_actions(
+        bContext *C, Object *ob, VPaint *wp, Sculpt *sd, struct WPaintData *wpd, WeightPaintInfo *wpi)
 {
 	Brush *brush = BKE_paint_brush(&wp->paint);
 	Mesh *me = ob->data;
@@ -2690,7 +2771,7 @@ static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 		return;
 	}
 
-	vc = wpd->vc;
+	vc = &wpd->vc;
 	ob = vc->obact;
 	
 	view3d_operator_needs_opengl(C);
@@ -2726,7 +2807,7 @@ static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 
 	DAG_id_tag_update(ob->data, 0);
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
-	swap_m4m4(wpd->vc->rv3d->persmat, mat);
+	swap_m4m4(wpd->vc.rv3d->persmat, mat);
 
 	rcti r;
 	if (sculpt_get_redraw_rect(vc->ar, CTX_wm_region_view3d(C), ob, &r)) {
@@ -2758,8 +2839,6 @@ static void wpaint_stroke_done(const bContext *C, struct PaintStroke *stroke)
 	
 	if (wpd) {
 		ED_vpaint_proj_handle_free(wpd->vp_handle);
-
-		MEM_freeN(wpd->vc);
 
 		if (wpd->defbase_sel)
 			MEM_freeN((void *)wpd->defbase_sel);
@@ -3018,6 +3097,26 @@ typedef struct PolyFaceMap {
 	int facenr;
 } PolyFaceMap;
 
+struct VPaintData {
+	ViewContext vc;
+	unsigned int paintcol;
+
+	struct VertProjHandle *vp_handle;
+	struct DMCoNo *vertexcosnos;
+
+	float vpimat[3][3];
+
+	/* modify 'me->mcol' directly, since the derived mesh is drawing from this
+	 * array, otherwise we need to refresh the modifier stack */
+	bool use_fast_update;
+
+	/* loops tagged as having been painted, to apply shared vertex color
+	 * blending only to modified loops */
+	bool *mlooptag;
+
+	bool is_texbrush;
+};
+
 static bool vpaint_stroke_test_start(bContext *C, struct wmOperator *op, const float mouse[2])
 {
 	Scene *scene = CTX_data_scene(C);
@@ -3042,10 +3141,9 @@ static bool vpaint_stroke_test_start(bContext *C, struct wmOperator *op, const f
 		return false;
 
 	/* make mode data storage */
-	vpd = MEM_callocN(sizeof(VPaintData), "VPaintData");
-	vpd->vc = MEM_callocN(sizeof(*vpd->vc), __func__);
+	vpd = MEM_callocN(sizeof(*vpd), "VPaintData");
 	paint_stroke_set_mode_data(stroke, vpd);
-	view3d_set_viewcontext(C, vpd->vc);
+	view3d_set_viewcontext(C, &vpd->vc);
 	
 	vpd->paintcol = vpaint_get_current_col(scene, vp);
 
@@ -3075,7 +3173,7 @@ static bool vpaint_stroke_test_start(bContext *C, struct wmOperator *op, const f
 
 
 	/* some old cruft to sort out later */
-	mul_m4_m4m4(mat, vpd->vc->rv3d->viewmat, ob->obmat);
+	mul_m4_m4m4(mat, vpd->vc.rv3d->viewmat, ob->obmat);
 	invert_m4_m4(imat, mat);
 	copy_m3_m4(vpd->vpimat, imat);
 
@@ -3146,7 +3244,7 @@ static void handle_texture_brush(SculptThreadedTaskData *data, PBVHVertexIter vd
 	float rgba[4];
 	float rgba_br[3];
 
-	*alpha = calc_vp_alpha_col_dl(data->vp, data->vpd->vc, data->vpd->vpimat,
+	*alpha = calc_vp_alpha_col_dl(data->vp, &data->vpd->vc, data->vpd->vpimat,
 	                              &data->vpd->vertexcosnos[vertexIndex], ss->cache->mouse, size_pressure, alpha_pressure, rgba);
 	rgb_uchar_to_float(rgba_br, (const unsigned char *)&data->vpd->paintcol);
 	mul_v3_v3(rgba_br, rgba);
@@ -3401,7 +3499,9 @@ static void calculate_average_color(SculptThreadedTaskData *data, PBVHNode **UNU
 	}
 }
 
-static void vpaint_paint_leaves(bContext *C, Sculpt *sd, VPaint *vp, VPaintData *vpd, Object *ob, Mesh *me, PBVHNode **nodes, int totnode)
+static void vpaint_paint_leaves(
+        bContext *C, Sculpt *sd, VPaint *vp, struct VPaintData *vpd,
+        Object *ob, Mesh *me, PBVHNode **nodes, int totnode)
 {
 	Brush *brush = ob->sculpt->cache->brush;
 
@@ -3439,8 +3539,8 @@ static void vpaint_paint_leaves(bContext *C, Sculpt *sd, VPaint *vp, VPaintData 
 }
 
 static void vpaint_do_paint(
-        bContext *C, Sculpt *sd, VPaint *vd, VPaintData *vpd, Object *ob, Mesh *me,
-        Brush *UNUSED(brush), const char symm, const int axis, const int i, const float angle)
+        bContext *C, Sculpt *sd, VPaint *vd, struct VPaintData *vpd,
+        Object *ob, Mesh *me, Brush *UNUSED(brush), const char symm, const int axis, const int i, const float angle)
 {
 	SculptSession *ss = ob->sculpt;
 	ss->cache->radial_symmetry_pass = i;
@@ -3466,7 +3566,7 @@ static void vpaint_do_paint(
 }
 
 static void vpaint_do_radial_symmetry(
-        bContext *C, Sculpt *sd, VPaint *vd, VPaintData *vpd, Object *ob, Mesh *me,
+        bContext *C, Sculpt *sd, VPaint *vd, struct VPaintData *vpd, Object *ob, Mesh *me,
         Brush *brush, const char symm, const int axis)
 {
 	for (int i = 1; i < vd->radial_symm[axis - 'X']; ++i) {
@@ -3475,7 +3575,8 @@ static void vpaint_do_radial_symmetry(
 	}
 }
 
-static void vpaint_do_symmetrical_brush_actions(bContext *C, Sculpt *sd, VPaint *vd, VPaintData *vpd, Object *ob)
+static void vpaint_do_symmetrical_brush_actions(
+        bContext *C, Sculpt *sd, VPaint *vd, struct VPaintData *vpd, Object *ob)
 {
 	Brush *brush = BKE_paint_brush(&vd->paint);
 	Mesh *me = ob->data;
@@ -3522,9 +3623,9 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 {
 	Scene *scene = CTX_data_scene(C);
 	ToolSettings *ts = CTX_data_tool_settings(C);
-	VPaintData *vpd = paint_stroke_mode_data(stroke);
+	struct VPaintData *vpd = paint_stroke_mode_data(stroke);
 	VPaint *vp = ts->vpaint;
-	ViewContext *vc = vpd->vc;
+	ViewContext *vc = &vpd->vc;
 	Object *ob = vc->obact;
 	Sculpt *sd = CTX_data_tool_settings(C)->sculpt;
 
@@ -3564,10 +3665,8 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 static void vpaint_stroke_done(const bContext *C, struct PaintStroke *stroke)
 {
 	struct VPaintData *vpd = paint_stroke_mode_data(stroke);
-	ViewContext *vc = vpd->vc;
+	ViewContext *vc = &vpd->vc;
 	Object *ob = vc->obact;
-
-	MEM_freeN(vpd->vc);
 
 	if (vpd->mlooptag)
 		MEM_freeN(vpd->mlooptag);
