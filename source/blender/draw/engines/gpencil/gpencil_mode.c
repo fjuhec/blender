@@ -259,12 +259,12 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 				struct Batch *fill_geom = DRW_cache_surface_get(ob); // TODO: replace with real funct
 				/* Add fill geom to a shading group */
 				DRW_shgroup_call_add(fillgrp, fill_geom, ob->obmat);
-#endif
 
 				/* stroke */
 				struct Batch *stroke_geom = DRW_cache_surface_get(ob); // TODO: replace with real funct
 				/* Add stroke geom to a shading group */
 				DRW_shgroup_call_add(strokegrp, stroke_geom, ob->obmat);
+#endif
 			}
 		}
 	}
