@@ -312,6 +312,7 @@ public:
 			if(tiles[i].buffers->device != sub_device) {
 				device_vector<float> &mem = tiles[i].buffers->buffer;
 
+				tiles[i].buffers->copy_from_device();
 				device_ptr original_ptr = mem.device_pointer;
 				mem.device_pointer = 0;
 				sub_device->mem_alloc("Temporary memory for neighboring tile", mem, MEM_READ_WRITE);
@@ -339,12 +340,14 @@ public:
 					tiles[i].buffers->copy_from_device(sub_device);
 				}
 
+				size_t mem_size = mem.device_size;
 				sub_device->mem_free(mem);
 				mem.device_pointer = original_ptr;
+				mem.device_size = mem_size;
 
 				/* Copy denoised tile to the original device. */
 				if(i == 4) {
-					sub_device->mem_copy_to(mem);
+					tiles[i].buffers->device->mem_copy_to(mem);
 				}
 			}
 		}
