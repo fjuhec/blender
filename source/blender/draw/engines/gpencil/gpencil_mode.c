@@ -232,7 +232,14 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 
 	if (ob->type == OB_GPENCIL && ob->gpd)  {
 		for (bGPDlayer *gpl = ob->gpd->layers.first; gpl; gpl = gpl->next) {
+			/* don't draw layer if hidden */
+			if (gpl->flag & GP_LAYER_HIDE)
+				continue;
+
 			bGPDframe *gpf = BKE_gpencil_layer_getframe(gpl, CFRA, 0);
+			if (gpf == NULL)
+				continue;
+
 			// TODO: need to replace this code with full drawing checks
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 				/* try to find shader group or create a new one */
@@ -252,12 +259,12 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 				struct Batch *fill_geom = DRW_cache_surface_get(ob); // TODO: replace with real funct
 				/* Add fill geom to a shading group */
 				DRW_shgroup_call_add(fillgrp, fill_geom, ob->obmat);
+#endif
 
 				/* stroke */
 				struct Batch *stroke_geom = DRW_cache_surface_get(ob); // TODO: replace with real funct
 				/* Add stroke geom to a shading group */
 				DRW_shgroup_call_add(strokegrp, stroke_geom, ob->obmat);
-#endif
 			}
 		}
 	}
