@@ -3261,12 +3261,7 @@ void ED_view3d_draw_offscreen(
 			is_persp = rv3d->is_persp;
 		}
 		const bool is_left = v3d->multiview_eye == STEREO_LEFT_ID;
-#ifdef WITH_INPUT_HMD
-		void *hmd_distortion_params = WM_device_HMD_distortion_parameters_get();
-#else
-		void *hmd_distortion_params = NULL;
-#endif
-		GPU_fx_do_composite_pass(fx, winmat, is_persp, scene, ofs, is_left, hmd_distortion_params);
+		GPU_fx_do_composite_pass(fx, winmat, is_persp, scene, ofs, is_left, NULL);
 	}
 
 	if ((v3d->flag2 & V3D_RENDER_SHADOW) == 0) {
@@ -4026,9 +4021,15 @@ static void view3d_main_region_draw_objects(
 	wmWindow *win = CTX_wm_window(C);
 	RegionView3D *rv3d = ar->regiondata;
 	unsigned int lay_used = v3d->lay_used;
-	
+
 	/* post processing */
 	bool do_compositing = false;
+	void *hmd_distortion_params =
+#ifdef WITH_INPUT_HMD
+	        WM_window_is_running_hmd_view(win) ? WM_device_HMD_distortion_parameters_get() : NULL;
+#else
+	        NULL;
+#endif
 	
 	/* shadow buffers, before we setup matrices */
 	if (draw_glsl_material(scene, NULL, v3d, v3d->drawtype))
@@ -4083,6 +4084,10 @@ static void view3d_main_region_draw_objects(
 			fx_settings.dof = NULL;
 		}
 
+		if (!hmd_distortion_params) {
+			fx_settings.fx_flag &= ~GPU_FX_FLAG_LensDist;
+		}
+
 		do_compositing = GPU_fx_compositor_initialize_passes(rv3d->compositor, &ar->winrct, &ar->drawrct, &fx_settings);
 	}
 	
@@ -4100,12 +4105,6 @@ static void view3d_main_region_draw_objects(
 	/* post process */
 	if (do_compositing) {
 		const bool is_left = v3d->multiview_eye == STEREO_LEFT_ID;
-		void *hmd_distortion_params =
-#ifdef WITH_INPUT_HMD
-		        WM_window_is_running_hmd_view(win) ? WM_device_HMD_distortion_parameters_get() : NULL;
-#else
-		        NULL;
-#endif
 
 		GPU_fx_do_composite_pass(
 		        rv3d->compositor, rv3d->winmat, rv3d->is_persp, scene, NULL, is_left, hmd_distortion_params);
