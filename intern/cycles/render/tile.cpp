@@ -191,12 +191,9 @@ int TileManager::gen_tiles(bool sliced)
 	int num_logical_devices = preserve_tile_device? num_devices: 1;
 	int num = min(image_h, num_logical_devices);
 	int slice_num = sliced? num: 1;
-
-	int tile_w = (tile_size.x >= image_w)? 1: (image_w + tile_size.x - 1)/tile_size.x;
-	int tile_h = (tile_size.y >= image_h)? 1: (image_h + tile_size.y - 1)/tile_size.y;
+	int tile_w = (tile_size.x >= image_w) ? 1 : (image_w + tile_size.x - 1) / tile_size.x;
 
 	state.tiles.clear();
-	state.tiles.resize(tile_w*tile_h);
 	state.render_tiles.clear();
 	state.denoising_tiles.clear();
 	state.render_tiles.resize(num);
@@ -207,6 +204,9 @@ int TileManager::gen_tiles(bool sliced)
 
 	if(tile_order == TILE_HILBERT_SPIRAL) {
 		assert(!sliced);
+
+		int tile_h = (tile_size.y >= image_h) ? 1 : (image_h + tile_size.y - 1) / tile_size.y;
+		state.tiles.resize(tile_w*tile_h);
 
 		/* Size of blocks in tiles, must be a power of 2 */
 		const int hilbert_size = (max(tile_size.x, tile_size.y) <= 12)? 8: 4;
@@ -299,24 +299,24 @@ int TileManager::gen_tiles(bool sliced)
 		return tile_w*tile_h;
 	}
 
+	int idx = 0;
 	for(int slice = 0; slice < slice_num; slice++) {
 		int slice_y = (image_h/slice_num)*slice;
 		int slice_h = (slice == slice_num-1)? image_h - slice*(image_h/slice_num): image_h/slice_num;
 
-		int tile_slice_h = (tile_size.y >= slice_h)? 1: (slice_h + tile_size.y - 1)/tile_size.y;
+		int tile_h = (tile_size.y >= slice_h)? 1: (slice_h + tile_size.y - 1)/tile_size.y;
 
-		int tiles_per_device = (tile_w * tile_slice_h + num - 1) / num;
+		int tiles_per_device = (tile_w * tile_h + num - 1) / num;
 		int cur_device = 0, cur_tiles = 0;
 
-		for(int tile_y = 0; tile_y < tile_slice_h; tile_y++) {
-			for(int tile_x = 0; tile_x < tile_w; tile_x++) {
+		for(int tile_y = 0; tile_y < tile_h; tile_y++) {
+			for(int tile_x = 0; tile_x < tile_w; tile_x++, idx++) {
 				int x = tile_x * tile_size.x;
 				int y = tile_y * tile_size.y;
 				int w = (tile_x == tile_w-1)? image_w - x: tile_size.x;
-				int h = (tile_y == tile_slice_h-1)? slice_h - y: tile_size.y;
+				int h = (tile_y == tile_h-1)? slice_h - y: tile_size.y;
 
-				int idx = tile_y*tile_w + tile_x;
-				state.tiles[idx] = Tile(idx, x, y + slice_y, w, h, sliced? slice: cur_device, Tile::RENDER, state.global_buffers);
+				state.tiles.push_back(Tile(idx, x, y + slice_y, w, h, sliced? slice: cur_device, Tile::RENDER, state.global_buffers));
 				tile_list->push_back(idx);
 
 				if(!sliced) {
@@ -339,7 +339,7 @@ int TileManager::gen_tiles(bool sliced)
 		}
 	}
 
-	return tile_w*tile_h;
+	return idx;
 }
 
 void TileManager::set_tiles()
