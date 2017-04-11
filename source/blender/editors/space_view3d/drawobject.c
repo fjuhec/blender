@@ -1894,29 +1894,20 @@ static void drawcamera_volume(float near_plane[4][3], float far_plane[4][3], boo
 	drawcamera_frame(far_plane, filled, pos);
 
 	if (filled) {
-#ifdef WITH_GL_PROFILE_COMPAT
-		immBegin(PRIM_QUADS_XXX, 16); /* TODO(merwin): use PRIM_TRIANGLE_STRIP here */
+		immBegin(PRIM_TRIANGLE_STRIP, 10);
+
 		immVertex3fv(pos, near_plane[0]);
 		immVertex3fv(pos, far_plane[0]);
-		immVertex3fv(pos, far_plane[1]);
-		immVertex3fv(pos, near_plane[1]);
-
 		immVertex3fv(pos, near_plane[1]);
 		immVertex3fv(pos, far_plane[1]);
-		immVertex3fv(pos, far_plane[2]);
-		immVertex3fv(pos, near_plane[2]);
-
 		immVertex3fv(pos, near_plane[2]);
 		immVertex3fv(pos, far_plane[2]);
-		immVertex3fv(pos, far_plane[3]);
 		immVertex3fv(pos, near_plane[3]);
-
 		immVertex3fv(pos, far_plane[3]);
-		immVertex3fv(pos, near_plane[3]);
 		immVertex3fv(pos, near_plane[0]);
 		immVertex3fv(pos, far_plane[0]);
+
 		immEnd();
-#endif
 	}
 	else {
 		immBegin(PRIM_LINES, 8);
@@ -4524,7 +4515,6 @@ static void draw_mesh_fancy(Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v
 	
 	if (is_obact && BKE_paint_select_vert_test(ob)) {
 		const bool use_depth = (v3d->flag & V3D_ZBUF_SELECT) != 0;
-		glColor3f(0.0f, 0.0f, 0.0f);
 		glPointSize(UI_GetThemeValuef(TH_VERTEX_SIZE));
 
 		if (!use_depth) glDisable(GL_DEPTH_TEST);
@@ -4986,7 +4976,6 @@ static void draw_mesh_fancy_new(Scene *scene, SceneLayer *sl, ARegion *ar, View3
 #if 0 // (merwin) what is this for?
 	if (is_obact && BKE_paint_select_vert_test(ob)) {
 		const bool use_depth = (v3d->flag & V3D_ZBUF_SELECT) != 0;
-		glColor3f(0.0f, 0.0f, 0.0f);
 		glPointSize(UI_GetThemeValuef(TH_VERTEX_SIZE));
 
 		if (!use_depth) glDisable(GL_DEPTH_TEST);
@@ -5125,8 +5114,10 @@ static void drawDispListVerts(PrimitiveType prim_type, const void *data, unsigne
  * XXX : This is a huge perf issue. We should cache the resulting batches inside the object instead.
  *       But new viewport will do it anyway
  * TODO implement flat drawing */
-static void drawDispListElem(bool quads, bool UNUSED(smooth), const float *data, const float *ndata, unsigned int vert_ct,
-                             const int *elem, unsigned int elem_ct, const unsigned char wire_col[3])
+static void drawDispListElem(
+        bool quads, bool UNUSED(smooth), bool ndata_is_single,
+        const float *data, const float *ndata, unsigned int data_len,
+        const int *elem, unsigned int elem_len, const unsigned char wire_col[3])
 {
 	VertexFormat format = {0};
 	int i;
@@ -5135,31 +5126,41 @@ static void drawDispListElem(bool quads, bool UNUSED(smooth), const float *data,
 
 	pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
 	if (ndata) {
-		nor_id = VertexFormat_add_attrib(&format, "nor", COMP_F32, 3, KEEP_FLOAT);
+		if (ndata_is_single) {
+			/* pass */
+		}
+		else {
+			nor_id = VertexFormat_add_attrib(&format, "nor", COMP_F32, 3, KEEP_FLOAT);
+		}
 	}
 
 	ElementListBuilder elb;
-	ElementListBuilder_init(&elb, PRIM_TRIANGLES, (quads) ? elem_ct * 2 : elem_ct, 0xffffffff);
+	ElementListBuilder_init(&elb, PRIM_TRIANGLES, (quads) ? elem_len * 2 : elem_len, 0xffffffff);
 
 	if (quads) {
-		for (i = elem_ct; i; --i, idx += 4) {
+		for (i = elem_len; i; --i, idx += 4) {
 			add_triangle_vertices(&elb, idx[0], idx[1], idx[2]);
 			add_triangle_vertices(&elb, idx[0], idx[2], idx[3]);
 		}
 	}
 	else {
-		for (i = elem_ct; i; --i, idx += 3) {
+		for (i = elem_len; i; --i, idx += 3) {
 			add_triangle_vertices(&elb, idx[0], idx[1], idx[2]);
 		}
 	}
 
 	VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
-	VertexBuffer_allocate_data(vbo, vert_ct);
+	VertexBuffer_allocate_data(vbo, data_len);
 
 	VertexBuffer_fill_attrib(vbo, pos_id, data);
 
 	if (ndata) {
-		VertexBuffer_fill_attrib(vbo, nor_id, ndata);
+		if (ndata_is_single) {
+			/* TODO: something like glNormal for a single value */
+		}
+		else {
+			VertexBuffer_fill_attrib(vbo, nor_id, ndata);
+		}
 	}
 
 	Batch *batch = Batch_create(PRIM_TRIANGLES, vbo, ElementList_build(&elb));
@@ -5240,11 +5241,17 @@ static bool drawDispListwire_ex(ListBase *dlbase, unsigned int dl_type_mask, con
 				break;
 
 			case DL_INDEX3:
-				drawDispListElem(false, true, dl->verts, NULL, dl->nr, dl->index, dl->parts, wire_col);
+				drawDispListElem(
+				        false, true, false,
+				        dl->verts, NULL, dl->nr,
+				        dl->index, dl->parts, wire_col);
 				break;
 
 			case DL_INDEX4:
-				drawDispListElem(true, true, dl->verts, NULL, dl->nr, dl->index, dl->parts, wire_col);
+				drawDispListElem(
+				        true, true, false,
+				        dl->verts, NULL, dl->nr,
+				        dl->index, dl->parts, wire_col);
 				break;
 		}
 	}
@@ -5311,8 +5318,12 @@ static void drawDispListsolid(ListBase *lb, Object *ob, const short UNUSED(dflag
 						GPU_object_material_bind(dl->col + 1, use_glsl ? &gattribs : NULL);
 						col = dl->col;
 					}
+					const unsigned int verts_len = dl->nr * dl->parts;
 
-					drawDispListElem(true, (dl->rt & CU_SMOOTH), dl->verts, dl->nors, dl->nr * dl->parts, dl->index, dl->totindex, ob_wire_col);
+					drawDispListElem(
+					        true, (dl->rt & CU_SMOOTH) != 0, false,
+					        dl->verts, dl->nors, verts_len,
+					        dl->index, dl->totindex, ob_wire_col);
 				}
 				break;
 
@@ -5331,7 +5342,11 @@ static void drawDispListsolid(ListBase *lb, Object *ob, const short UNUSED(dflag
 				else
 					glNormal3fv(ndata);
 #endif
-				drawDispListElem(false, (dl->rt & CU_SMOOTH), dl->verts, dl->nors, dl->nr, dl->index, dl->parts, ob_wire_col);
+				/* special case, 'nors' is a single value */
+				drawDispListElem(
+				        false, (dl->rt & CU_SMOOTH) != 0, true,
+				        dl->verts, dl->nors, dl->nr,
+				        dl->index, dl->parts, ob_wire_col);
 
 #if 0
 				if (index3_nors_incr)
@@ -5346,7 +5361,10 @@ static void drawDispListsolid(ListBase *lb, Object *ob, const short UNUSED(dflag
 					col = dl->col;
 				}
 
-				drawDispListElem(true, true, dl->verts, dl->nors, dl->nr, dl->index, dl->parts, ob_wire_col);
+				drawDispListElem(
+				        true, true, false,
+				        dl->verts, dl->nors, dl->nr,
+				        dl->index, dl->parts, ob_wire_col);
 
 				break;
 		}
@@ -5635,9 +5653,7 @@ static void draw_particle_arrays_new(int draw_as, int ob_dt, int select,
 			else
 				glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-#ifdef WITH_GL_PROFILE_COMPAT
-			draw_vertex_array(PRIM_QUADS_XXX, vert, nor, color, 0, 4 * totpoint, col);
-#endif
+			draw_vertex_array(PRIM_TRIANGLES, vert, nor, color, 0, 6 * totpoint, col);
 			break;
 		default:
 			draw_vertex_array(PRIM_POINTS, vert, nor, color, 0, totpoint, col);
@@ -5762,18 +5778,13 @@ static void draw_particle(ParticleKey *state, int draw_as, short draw, float pix
 		case PART_DRAW_BB:
 		{
 			float xvec[3], yvec[3], zvec[3], bb_center[3];
-			if (cd) {
-				cd[0] = cd[3] = cd[6] = cd[9] = ma_col[0];
-				cd[1] = cd[4] = cd[7] = cd[10] = ma_col[1];
-				cd[2] = cd[5] = cd[8] = cd[11] = ma_col[2];
-				pdd->cd += 12;
-			}
 
 			copy_v3_v3(bb->vec, state->co);
 			copy_v3_v3(bb->vel, state->vel);
 
 			psys_make_billboard(bb, xvec, yvec, zvec, bb_center);
-			
+
+			/* First tri */
 			add_v3_v3v3(pdd->vd, bb_center, xvec);
 			add_v3_v3(pdd->vd, yvec); pdd->vd += 3;
 
@@ -5783,13 +5794,24 @@ static void draw_particle(ParticleKey *state, int draw_as, short draw, float pix
 			sub_v3_v3v3(pdd->vd, bb_center, xvec);
 			sub_v3_v3v3(pdd->vd, pdd->vd, yvec); pdd->vd += 3;
 
+			/* Second tri */
+			add_v3_v3v3(pdd->vd, bb_center, xvec);
+			add_v3_v3(pdd->vd, yvec); pdd->vd += 3;
+
+			sub_v3_v3v3(pdd->vd, bb_center, xvec);
+			sub_v3_v3v3(pdd->vd, pdd->vd, yvec); pdd->vd += 3;
+
 			add_v3_v3v3(pdd->vd, bb_center, xvec);
 			sub_v3_v3v3(pdd->vd, pdd->vd, yvec); pdd->vd += 3;
 
-			copy_v3_v3(pdd->nd, zvec); pdd->nd += 3;
-			copy_v3_v3(pdd->nd, zvec); pdd->nd += 3;
-			copy_v3_v3(pdd->nd, zvec); pdd->nd += 3;
-			copy_v3_v3(pdd->nd, zvec); pdd->nd += 3;
+			if (cd) {
+				for (int i = 0; i < 6; i++, cd += 3, pdd->cd += 3) {
+					copy_v3_v3(cd, ma_col);
+				}
+			}
+			for (int i = 0; i < 6; i++, pdd->nd += 3) {
+				copy_v3_v3(pdd->nd, zvec);
+			}
 			break;
 		}
 	}
@@ -6053,7 +6075,7 @@ static void draw_new_particle_system(Scene *scene, View3D *v3d, RegionView3D *rv
 				tot_vec_size *= 2;
 				break;
 			case PART_DRAW_BB:
-				tot_vec_size *= 4;
+				tot_vec_size *= 6;  /* New OGL only understands tris, no choice here. */
 				create_ndata = 1;
 				break;
 		}
@@ -7986,30 +8008,25 @@ static void draw_forcefield(Object *ob, RegionView3D *rv3d,
 
 static void imm_draw_box(const float vec[8][3], bool solid, unsigned pos)
 {
-	static const GLubyte quad_indices[24] = {0,1,2,3,7,6,5,4,4,5,1,0,3,2,6,7,3,7,4,0,1,5,6,2};
-	static const GLubyte line_indices[24] = {0,1,1,2,2,3,3,0,0,4,4,5,5,6,6,7,7,4,1,5,2,6,3,7};
-
-	const GLubyte *indices;
-	GLenum prim_type;
-
 	if (solid) {
-		indices = quad_indices;
-#ifdef WITH_GL_PROFILE_COMPAT
-		prim_type = PRIM_QUADS_XXX;
-#else
-		return;
-#endif
+		/* Adpated from "Optimizing Triangle Strips for Fast Rendering" by F. Evans, S. Skiena and A. Varshney
+		 *              (http://www.cs.umd.edu/gvil/papers/av_ts.pdf). */
+		static const GLubyte tris_strip_indices[14] = {0,1,3,2,6,1,5,0,4,3,7,6,4,5};
+		immBegin(PRIM_TRIANGLE_STRIP, 14);
+		for (int i = 0; i < 14; ++i) {
+			immVertex3fv(pos, vec[tris_strip_indices[i]]);
+		}
+		immEnd();
 	}
 	else {
-		indices = line_indices;
-		prim_type = PRIM_LINES;
+		static const GLubyte line_indices[24] = {0,1,1,2,2,3,3,0,0,4,4,5,5,6,6,7,7,4,1,5,2,6,3,7};
+		immBegin(PRIM_LINES, 24);
+		for (int i = 0; i < 24; ++i) {
+			immVertex3fv(pos, vec[line_indices[i]]);
+		}
+		immEnd();
 	}
 
-	immBegin(prim_type, 24);
-	for (int i = 0; i < 24; ++i) {
-		immVertex3fv(pos, vec[indices[i]]);
-	}
-	immEnd();
 }
 
 static void imm_draw_bb(BoundBox *bb, char type, bool around_origin, const unsigned char ob_wire_col[4])
