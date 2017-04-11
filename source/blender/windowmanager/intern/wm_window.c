@@ -1870,10 +1870,10 @@ void wm_window_IME_end(wmWindow *win)
 }
 #endif  /* WITH_INPUT_IME */
 
-bool WM_window_is_hmd_view(wmWindowManager *wm, wmWindow *win)
+bool WM_window_is_hmd_view(wmWindow *win)
 {
 #ifdef WITH_INPUT_HMD
-	return (wm->hmd_view.hmd_win == win && win->screen->is_hmd_running);
+	return win->screen->is_hmd_running;
 #else
 	return false;
 #endif  /* WITH_INPUT_HMD */

@@ -473,13 +473,13 @@ void ED_region_set(const bContext *C, ARegion *ar)
 	ED_region_pixelspace(ar);
 }
 
-static void region_draw_view_setup(wmWindowManager *wm, wmWindow *win, ARegion *ar)
+static void region_draw_view_setup(wmWindow *win, ARegion *ar)
 {
 #ifdef WITH_INPUT_HMD
 	if (ar->regiontype == RGN_TYPE_TEMPORARY) {
 		/* pass */
 	}
-	else if (!WM_window_is_hmd_view(wm, win)) {
+	else if (!WM_window_is_hmd_view(win)) {
 		/* pass */
 	}
 	else {
@@ -488,16 +488,16 @@ static void region_draw_view_setup(wmWindowManager *wm, wmWindow *win, ARegion *
 		wm_subwindow_rect_set(win, ar->swinid, &ar->winrct);
 	}
 #else
-	UNUSED_VARS(wm, win, ar);
+	UNUSED_VARS(win, ar);
 #endif
 }
-static void region_draw_view_reset(wmWindowManager *wm, wmWindow *win, ARegion *ar)
+static void region_draw_view_reset(wmWindow *win, ARegion *ar)
 {
 #ifdef WITH_INPUT_HMD
 	if (ar->regiontype == RGN_TYPE_TEMPORARY) {
 		/* pass */
 	}
-	else if (!WM_window_is_hmd_view(wm, win)) {
+	else if (!WM_window_is_hmd_view(win)) {
 		/* pass */
 	}
 	else {
@@ -506,14 +506,13 @@ static void region_draw_view_reset(wmWindowManager *wm, wmWindow *win, ARegion *
 		wm_subwindow_rect_set(win, ar->swinid, &ar->winrct);
 	}
 #else
-	UNUSED_VARS(wm, win, ar);
+	UNUSED_VARS(win, ar);
 #endif
 }
 
 /* only exported for WM */
 void ED_region_do_draw(bContext *C, ARegion *ar)
 {
-	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *win = CTX_wm_window(C);
 	ScrArea *sa = CTX_wm_area(C);
 	ARegionType *at = ar->type;
@@ -523,7 +522,7 @@ void ED_region_do_draw(bContext *C, ARegion *ar)
 	if (at->do_lock)
 		return;
 
-	region_draw_view_setup(wm, win, ar);
+	region_draw_view_setup(win, ar);
 
 	/* if no partial draw rect set, full rect */
 	if (ar->drawrct.xmin == ar->drawrct.xmax) {
@@ -585,7 +584,7 @@ void ED_region_do_draw(bContext *C, ARegion *ar)
 		}
 	}
 
-	region_draw_view_reset(wm, win, ar);
+	region_draw_view_reset(win, ar);
 }
 
 /* **********************************

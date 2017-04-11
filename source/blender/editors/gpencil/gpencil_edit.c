@@ -2010,7 +2010,7 @@ static int gp_strokes_reproject_exec(bContext *C, wmOperator *op)
 	
 	/* init autodist for geometry projection */
 	if (mode == GP_REPROJECT_SURFACE) {
-		const bool is_hmd_view = WM_window_is_hmd_view(CTX_wm_manager(C), CTX_wm_window(C));
+		const bool is_hmd_view = WM_window_is_hmd_view(CTX_wm_window(C));
 
 		view3d_region_operator_needs_opengl(CTX_wm_window(C), gsc.ar);
 		ED_view3d_autodist_init(scene, gsc.ar, CTX_wm_view3d(C), 0, is_hmd_view);

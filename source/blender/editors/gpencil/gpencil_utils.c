@@ -523,7 +523,7 @@ void gp_point_conversion_init(bContext *C, GP_SpaceConversion *r_gsc)
 		Scene *scene = CTX_data_scene(C);
 		View3D *v3d = (View3D *)CTX_wm_space_data(C);
 		RegionView3D *rv3d = ar->regiondata;
-		const bool is_hmd_view = WM_window_is_hmd_view(CTX_wm_manager(C), CTX_wm_window(C));
+		const bool is_hmd_view = WM_window_is_hmd_view(CTX_wm_window(C));
 		
 		/* init 3d depth buffers */
 		view3d_operator_needs_opengl(C);

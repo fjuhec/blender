@@ -843,10 +843,9 @@ static void wm_method_draw_triple_hmd_view(wmWindow *win)
 
 static void wm_method_draw_triple_all(bContext *C, wmWindow *win)
 {
-	wmWindowManager *wm = CTX_wm_manager(C);
 	const bool is_stereo3d_enabled = WM_stereo3d_enabled(win, false);
 #ifdef WITH_INPUT_HMD
-	const bool is_hmd_view = WM_window_is_hmd_view(wm, win);
+	const bool is_hmd_view = WM_window_is_hmd_view(win);
 #endif
 	const bool draw_multiview_lr = is_stereo3d_enabled || is_hmd_view;
 
@@ -868,8 +867,6 @@ static void wm_method_draw_triple_all(bContext *C, wmWindow *win)
 	else {
 		wm_method_draw_triple(C, win);
 	}
-
-	UNUSED_VARS(wm);
 }
 
 /****************** main update call **********************/

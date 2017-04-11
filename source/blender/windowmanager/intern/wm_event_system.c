@@ -1003,7 +1003,7 @@ static void wm_handler_screens_setup(wmWindowManager *wm)
 #ifdef WITH_INPUT_HMD
 	wmWindow *hmd_win = wm->hmd_view.hmd_win;
 
-	if (hmd_win && WM_window_is_hmd_view(wm, hmd_win)) {
+	if (hmd_win && WM_window_is_hmd_view(hmd_win)) {
 		ScrArea *area = hmd_win->screen->areabase.first;
 		ARegion *region = BKE_area_find_region_type(area, RGN_TYPE_WINDOW);
 
@@ -1023,7 +1023,7 @@ static void wm_handler_screens_reset(wmWindowManager *wm)
 #ifdef WITH_INPUT_HMD
 	wmWindow *hmd_win = wm->hmd_view.hmd_win;
 
-	if (hmd_win && WM_window_is_hmd_view(wm, hmd_win)) {
+	if (hmd_win && WM_window_is_hmd_view(hmd_win)) {
 		ScrArea *area = hmd_win->screen->areabase.first;
 		ARegion *region = BKE_area_find_region_type(area, RGN_TYPE_WINDOW);
 
@@ -3229,8 +3229,7 @@ static void wm_event_add_mousemove(wmWindow *win, const wmEvent *event)
 */
 void wm_event_mouse_offset_apply(wmWindow *win, int *r_mouse_xy)
 {
-	/* XXX G.main */
-	if (WM_window_is_hmd_view(G.main->wm.first, win)) {
+	if (WM_window_is_hmd_view(win)) {
 		const int half_x = win->sizex / 2;
 		/* right half of the screen */
 		if (r_mouse_xy[0] > half_x) {
