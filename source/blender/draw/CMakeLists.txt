@@ -71,6 +71,7 @@ set(SRC
 
 	engines/gpencil/gpencil_mode.h
 	engines/gpencil/gpencil_mode.c
+	engines/gpencil/gpencil_draw.c
 
 	modes/object_mode.c
 	modes/edit_armature_mode.c

@@ -27,6 +27,7 @@
 #include "DRW_render.h"
 
 #include "BKE_gpencil.h"
+#include "ED_gpencil.h"
 
 #include "DNA_gpencil_types.h"
 
@@ -36,6 +37,7 @@
 #include "draw_common.h"
 
 #include "draw_mode_engines.h"
+#include "gpencil_mode.h"
 
 extern char datatoc_gpencil_fill_vert_glsl[];
 extern char datatoc_gpencil_fill_frag_glsl[];
@@ -172,9 +174,8 @@ static DRWShadingGroup *GPENCIL_shgroup_stroke_create(GPENCIL_Data *vedata, DRWP
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 
-	float *viewport_size = DRW_viewport_size_get();
 	DRWShadingGroup *grp = DRW_shgroup_create(e_data.gpencil_stroke_sh, pass);
-	DRW_shgroup_uniform_vec2(grp, "Viewport", viewport_size, 1);
+	DRW_shgroup_uniform_vec2(grp, "Viewport", DRW_viewport_size_get(), 1);
 
 	return grp;
 }
@@ -207,6 +208,7 @@ static void GPENCIL_cache_init(void *vedata)
 	}
 }
 
+/* find shader group */
 static int GPENCIL_shgroup_find(GPENCIL_Storage *storage, PaletteColor *palcolor)
 {
 	for (int i = 0; i < storage->pal_id; ++i) {
@@ -227,6 +229,9 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 	DRWShadingGroup *strokegrp;
 	const bContext *C = DRW_get_context();
 	Scene *scene = CTX_data_scene(C);
+	float diff_mat[4][4];
+	float ink[4];
+	float tcolor[4];
 
 	UNUSED_VARS(psl, stl);
 
@@ -240,8 +245,13 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 			if (gpf == NULL)
 				continue;
 
-			// TODO: need to replace this code with full drawing checks
+			/* calculate parent position */
+			ED_gpencil_parent_location(ob, ob->gpd, gpl, diff_mat);
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+				/* check if stroke can be drawn */
+				if (gpencil_can_draw_stroke(gps) == false) {
+					continue;
+				}
 				/* try to find shader group or create a new one */
 				int id = GPENCIL_shgroup_find(stl->storage, gps->palcolor);
 				if (id == -1) {
@@ -259,12 +269,17 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 				struct Batch *fill_geom = DRW_cache_surface_get(ob); // TODO: replace with real funct
 				/* Add fill geom to a shading group */
 				DRW_shgroup_call_add(fillgrp, fill_geom, ob->obmat);
-
-				/* stroke */
-				struct Batch *stroke_geom = DRW_cache_surface_get(ob); // TODO: replace with real funct
-				/* Add stroke geom to a shading group */
-				DRW_shgroup_call_add(strokegrp, stroke_geom, ob->obmat);
 #endif
+				/* stroke */
+				interp_v3_v3v3(tcolor, gps->palcolor->rgb, gpl->tintcolor, gpl->tintcolor[3]);
+				tcolor[3] = gps->palcolor->rgb[3] * gpl->opacity;
+				copy_v4_v4(ink, tcolor);
+
+				short sthickness = gps->thickness + gpl->thickness;
+				if (sthickness > 0) {
+					struct Batch *stroke_geom = gpencil_get_stroke_geom(gps, sthickness, diff_mat, ink);
+					DRW_shgroup_call_add(strokegrp, stroke_geom, ob->obmat);
+				}
 			}
 		}
 	}

@@ -26,6 +26,9 @@
 #ifndef __GPENCIL_MODE_H__
 #define __GPENCIL_MODE_H__
 
+struct Batch;
 
+struct Batch *gpencil_get_stroke_geom(struct bGPDstroke *gps, short thickness, const float diff_mat[4][4], const float ink[4]);
+bool gpencil_can_draw_stroke(const struct bGPDstroke *gps);
 
 #endif /* __GPENCIL_MODE_H__ */
