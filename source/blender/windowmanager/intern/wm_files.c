@@ -809,7 +809,7 @@ int wm_homefile_read(
 		if (userdef_template == NULL) {
 			/* we need to have preferences load to overwrite preferences from previous template */
 			userdef_template = BKE_blendfile_userdef_read_from_memory(
-					datatoc_startup_blend, datatoc_startup_blend_size, NULL);
+			        datatoc_startup_blend, datatoc_startup_blend_size, NULL);
 		}
 		if (userdef_template) {
 			BKE_blender_userdef_set_app_template(userdef_template);
@@ -1560,6 +1560,11 @@ static int wm_homefile_read_exec(bContext *C, wmOperator *op)
 
 	if (prop_app_template && RNA_property_is_set(op->ptr, prop_app_template)) {
 		RNA_property_string_get(op->ptr, prop_app_template, app_template_buf);
+		app_template = app_template_buf;
+	}
+	else if (!use_factory_settings) {
+		/* TODO: dont reset prefs on 'New File' */
+		BLI_strncpy(app_template_buf, U.app_template, sizeof(app_template_buf));
 		app_template = app_template_buf;
 	}
 	else {
