@@ -443,7 +443,34 @@ Batch *DRW_cache_single_line_endpoints_get(void)
 	return SHC.drw_line_endpoints;
 }
 
-<<<<<<< HEAD
+Batch *DRW_cache_screenspace_circle_get(void)
+{
+#define CIRCLE_RESOL 32
+	if (!SHC.drw_screenspace_circle) {
+		float v[3] = {0.0f, 0.0f, 0.0f};
+
+		/* Position Only 3D format */
+		static VertexFormat format = { 0 };
+		static unsigned int pos_id;
+		if (format.attrib_ct == 0) {
+			pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
+		}
+
+		VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
+		VertexBuffer_allocate_data(vbo, CIRCLE_RESOL + 1);
+
+		for (int a = 0; a <= CIRCLE_RESOL; a++) {
+			v[0] = sinf((2.0f * M_PI * a) / ((float)CIRCLE_RESOL));
+			v[1] = cosf((2.0f * M_PI * a) / ((float)CIRCLE_RESOL));
+			VertexBuffer_set_attrib(vbo, pos_id, a, v);
+		}
+
+		SHC.drw_screenspace_circle = Batch_create(PRIM_LINE_STRIP, vbo, NULL);
+	}
+	return SHC.drw_screenspace_circle;
+#undef CIRCLE_RESOL
+}
+
 /* Grease Pencil object */
 Batch *DRW_cache_gpencil_axes_get(void)
 {
@@ -451,7 +478,7 @@ Batch *DRW_cache_gpencil_axes_get(void)
 		int axis;
 		float v1[3] = { 0.0f, 0.0f, 0.0f };
 		float v2[3] = { 0.0f, 0.0f, 0.0f };
-		
+
 		/* cube data */
 		const GLfloat verts[8][3] = {
 			{ -0.25f, -0.25f, -0.25f },
@@ -469,23 +496,11 @@ Batch *DRW_cache_gpencil_axes_get(void)
 		/* Position Only 3D format */
 		static VertexFormat format = { 0 };
 		static unsigned pos_id;
-=======
-Batch *DRW_cache_screenspace_circle_get(void)
-{
-#define CIRCLE_RESOL 32
-	if (!SHC.drw_screenspace_circle) {
-		float v[3] = {0.0f, 0.0f, 0.0f};
-
-		/* Position Only 3D format */
-		static VertexFormat format = { 0 };
-		static unsigned int pos_id;
->>>>>>> blender2.8
 		if (format.attrib_ct == 0) {
 			pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
 		}
 
 		VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
-<<<<<<< HEAD
 		VertexBuffer_allocate_data(vbo, 30);
 
 		/* draw axis */
@@ -508,20 +523,6 @@ Batch *DRW_cache_screenspace_circle_get(void)
 		SHC.drw_gpencil_axes = Batch_create(PRIM_LINES, vbo, NULL);
 	}
 	return SHC.drw_gpencil_axes;
-=======
-		VertexBuffer_allocate_data(vbo, CIRCLE_RESOL + 1);
-
-		for (int a = 0; a <= CIRCLE_RESOL; a++) {
-			v[0] = sinf((2.0f * M_PI * a) / ((float)CIRCLE_RESOL));
-			v[1] = cosf((2.0f * M_PI * a) / ((float)CIRCLE_RESOL));
-			VertexBuffer_set_attrib(vbo, pos_id, a, v);
-		}
-
-		SHC.drw_screenspace_circle = Batch_create(PRIM_LINE_STRIP, vbo, NULL);
-	}
-	return SHC.drw_screenspace_circle;
-#undef CIRCLE_RESOL
->>>>>>> blender2.8
 }
 
 /* Empties */
