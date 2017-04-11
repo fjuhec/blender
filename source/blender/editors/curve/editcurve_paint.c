@@ -1162,7 +1162,7 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 			if ((cps->depth_mode == CURVE_PAINT_PROJECT_SURFACE) &&
 			    (v3d->drawtype > OB_WIRE))
 			{
-				const bool is_hmd_view = WM_window_is_hmd_view(CTX_wm_window(C));
+				const bool is_hmd_view = WM_window_is_running_hmd_view(CTX_wm_window(C));
 
 				view3d_get_transformation(cdd->vc.ar, cdd->vc.rv3d, NULL, &cdd->mats);
 

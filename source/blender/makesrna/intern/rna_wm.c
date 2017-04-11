@@ -953,7 +953,7 @@ static int rna_has_hmd_window_get(PointerRNA *ptr)
 static int rna_is_hmd_session_running_get(PointerRNA *ptr)
 {
 	wmWindowManager *wm = ptr->data;
-	return (wm->hmd_view.hmd_win && wm->hmd_view.hmd_win->screen->is_hmd_running == true);
+	return (wm->hmd_view.hmd_win && WM_window_is_running_hmd_view(wm->hmd_view.hmd_win));
 }
 
 static void rna_hmd_view_shade_set(PointerRNA *ptr, int value)

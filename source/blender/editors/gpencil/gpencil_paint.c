@@ -634,7 +634,7 @@ static short gp_stroke_addpoint(tGPsdata *p, const int mval[2], float pressure, 
 			 */
 			if (gpencil_project_check(p)) {
 				View3D *v3d = p->sa->spacedata.first;
-				const bool is_hmd_view = WM_window_is_hmd_view(p->win);
+				const bool is_hmd_view = WM_window_is_running_hmd_view(p->win);
 				
 				view3d_region_operator_needs_opengl(p->win, p->ar);
 				ED_view3d_autodist_init(p->scene, p->ar, v3d,
@@ -1239,7 +1239,7 @@ static void gp_stroke_doeraser(tGPsdata *p)
 	if (p->sa->spacetype == SPACE_VIEW3D) {
 		if (p->flags & GP_PAINTFLAG_V3D_ERASER_DEPTH) {
 			View3D *v3d = p->sa->spacedata.first;
-			const bool is_hmd_view = WM_window_is_hmd_view(p->win);
+			const bool is_hmd_view = WM_window_is_running_hmd_view(p->win);
 			
 			view3d_region_operator_needs_opengl(p->win, p->ar);
 			ED_view3d_autodist_init(p->scene, p->ar, v3d, 0, is_hmd_view);
@@ -1803,7 +1803,7 @@ static void gp_paint_strokeend(tGPsdata *p)
 	 */
 	if (gpencil_project_check(p)) {
 		View3D *v3d = p->sa->spacedata.first;
-		const bool is_hmd_view = WM_window_is_hmd_view(p->win);
+		const bool is_hmd_view = WM_window_is_running_hmd_view(p->win);
 		
 		/* need to restore the original projection settings before packing up */
 		view3d_region_operator_needs_opengl(p->win, p->ar);

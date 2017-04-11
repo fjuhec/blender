@@ -3762,15 +3762,10 @@ enum HMDViewMatrixType {
 	HMD_MATRIX_CENTER,
 };
 
-static bool view3d_is_hmd_view(wmWindowManager *wm, wmWindow *win)
-{
-	return ((wm->hmd_view.hmd_win == win) && (wm->hmd_view.hmd_win->screen->is_hmd_running));
-}
-
 bool view3d_is_hmd_view_mirror(const wmWindowManager *wm, const View3D *v3d, const RegionView3D *rv3d)
 {
 	return wm->hmd_view.hmd_win &&
-	       wm->hmd_view.hmd_win->screen->is_hmd_running &&
+	       WM_window_is_running_hmd_view(wm->hmd_view.hmd_win) &&
 	       (v3d->flag3 & V3D_SHOW_HMD_MIRROR) &&
 	       RV3D_IS_LOCKED_SHARED(rv3d);
 }
@@ -4047,7 +4042,7 @@ static void view3d_main_region_draw_objects(
 
 	/* setup the view matrix */
 #ifdef WITH_INPUT_HMD
-	if (view3d_is_hmd_view(wm, win)) {
+	if (WM_window_is_running_hmd_view(win)) {
 		view3d_hmd_view_setup(scene, v3d, ar);
 	}
 	else if (view3d_is_hmd_view_mirror(wm, v3d, rv3d)) {
@@ -4105,13 +4100,13 @@ static void view3d_main_region_draw_objects(
 	/* post process */
 	if (do_compositing) {
 		const bool is_left = v3d->multiview_eye == STEREO_LEFT_ID;
-#ifdef WITH_INPUT_HMD
 		void *hmd_distortion_params =
-		        (wm->hmd_view.hmd_win == win && win->screen->is_hmd_running) ?
-		        WM_device_HMD_distortion_parameters_get() : NULL;
+#ifdef WITH_INPUT_HMD
+		        WM_window_is_running_hmd_view(win) ? WM_device_HMD_distortion_parameters_get() : NULL;
 #else
-		void *hmd_distortion_params = NULL;
+		        NULL;
 #endif
+
 		GPU_fx_do_composite_pass(
 		        rv3d->compositor, rv3d->winmat, rv3d->is_persp, scene, NULL, is_left, hmd_distortion_params);
 	}
@@ -4182,10 +4177,9 @@ static void view3d_main_region_draw_info(const bContext *C, Scene *scene,
 
 	if (rv3d->persp == RV3D_CAMOB) {
 #ifdef WITH_INPUT_HMD
-		if (!view3d_is_hmd_view(wm, CTX_wm_window(C))) {
-#else
-		{
+		if (!WM_window_is_running_hmd_view(CTX_wm_window(C)))
 #endif
+		{
 			drawviewborder(scene, ar, v3d);
 		}
 	}

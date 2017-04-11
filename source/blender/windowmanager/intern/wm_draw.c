@@ -845,7 +845,7 @@ static void wm_method_draw_triple_all(bContext *C, wmWindow *win)
 {
 	const bool is_stereo3d_enabled = WM_stereo3d_enabled(win, false);
 #ifdef WITH_INPUT_HMD
-	const bool is_hmd_view = WM_window_is_hmd_view(win);
+	const bool is_hmd_view = WM_window_is_running_hmd_view(win);
 #endif
 	const bool draw_multiview_lr = is_stereo3d_enabled || is_hmd_view;
 

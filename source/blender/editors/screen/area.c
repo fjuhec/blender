@@ -479,7 +479,7 @@ static void region_draw_view_setup(wmWindow *win, ARegion *ar)
 	if (ar->regiontype == RGN_TYPE_TEMPORARY) {
 		/* pass */
 	}
-	else if (!WM_window_is_hmd_view(win)) {
+	else if (!WM_window_is_running_hmd_view(win)) {
 		/* pass */
 	}
 	else {
@@ -497,7 +497,7 @@ static void region_draw_view_reset(wmWindow *win, ARegion *ar)
 	if (ar->regiontype == RGN_TYPE_TEMPORARY) {
 		/* pass */
 	}
-	else if (!WM_window_is_hmd_view(win)) {
+	else if (!WM_window_is_running_hmd_view(win)) {
 		/* pass */
 	}
 	else {

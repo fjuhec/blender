@@ -581,7 +581,7 @@ void wm_window_ghostwindows_ensure(wmWindowManager *wm)
 
 #ifdef WITH_INPUT_HMD
 		/* Try to open an HMD device when reading a file that has a running HMD session stored. */
-		if (win == wm->hmd_view.hmd_win && win->screen->is_hmd_running) {
+		if (WM_window_is_running_hmd_view(win)) {
 			WM_device_HMD_state_set(U.hmd_settings.device, true);
 		}
 #endif
@@ -1870,7 +1870,10 @@ void wm_window_IME_end(wmWindow *win)
 }
 #endif  /* WITH_INPUT_IME */
 
-bool WM_window_is_hmd_view(wmWindow *win)
+/**
+ * \return true if \a win is an HMD view in a running HMD session.
+ */
+bool WM_window_is_running_hmd_view(wmWindow *win)
 {
 #ifdef WITH_INPUT_HMD
 	return win->screen->is_hmd_running;

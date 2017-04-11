@@ -5021,7 +5021,7 @@ void paint_proj_stroke(
 		ARegion *ar = CTX_wm_region(C);
 		float *cursor = ED_view3d_cursor3d_get(scene, v3d);
 		int mval_i[2] = {(int)pos[0], (int)pos[1]};
-		const bool is_hmd_view = WM_window_is_hmd_view(CTX_wm_window(C));
+		const bool is_hmd_view = WM_window_is_running_hmd_view(CTX_wm_window(C));
 
 		view3d_operator_needs_opengl(C);
 

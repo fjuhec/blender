@@ -1197,7 +1197,7 @@ int view3d_opengl_select(
 
 #ifdef WITH_INPUT_HMD
 	wmWindowManager *wm = G.main->wm.first;
-	if (WM_window_is_hmd_view(vc->win)) {
+	if (WM_window_is_running_hmd_view(vc->win)) {
 		view3d_hmd_view_setup_interaction(scene, v3d, ar, &rect);
 	}
 	else if (view3d_is_hmd_view_mirror(wm, v3d, vc->rv3d)) {

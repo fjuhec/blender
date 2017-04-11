@@ -733,7 +733,7 @@ static void viewops_data_create_ex(bContext *C, wmOperator *op, const wmEvent *e
 	else if (use_orbit_zbuf) {
 		Scene *scene = CTX_data_scene(C);
 		float fallback_depth_pt[3];
-		const bool is_hmd_view = WM_window_is_hmd_view(CTX_wm_window(C));
+		const bool is_hmd_view = WM_window_is_running_hmd_view(CTX_wm_window(C));
 
 		view3d_operator_needs_opengl(C); /* needed for zbuf drawing */
 
@@ -3279,7 +3279,7 @@ static int viewcenter_pick_invoke(bContext *C, wmOperator *op, const wmEvent *ev
 	if (rv3d) {
 		float new_ofs[3];
 		const int smooth_viewtx = WM_operator_smooth_viewtx_get(op);
-		const bool is_hmd_view = WM_window_is_hmd_view(CTX_wm_window(C));
+		const bool is_hmd_view = WM_window_is_running_hmd_view(CTX_wm_window(C));
 
 		ED_view3d_smooth_view_force_finish(C, v3d, ar);
 
@@ -3546,7 +3546,7 @@ static int view3d_zoom_border_exec(bContext *C, wmOperator *op)
 	Scene *scene = CTX_data_scene(C);
 	int gesture_mode;
 	const int smooth_viewtx = WM_operator_smooth_viewtx_get(op);
-	const bool is_hmd_view = WM_window_is_hmd_view(CTX_wm_window(C));
+	const bool is_hmd_view = WM_window_is_running_hmd_view(CTX_wm_window(C));
 
 	/* Zooms in on a border drawn by the user */
 	rcti rect;
@@ -4701,7 +4701,7 @@ void ED_view3d_cursor3d_position(bContext *C, float fp[3], const int mval[2])
 	}
 
 	if (U.uiflag & USER_ZBUF_CURSOR) {  /* maybe this should be accessed some other way */
-		const bool is_hmd_view = WM_window_is_hmd_view(CTX_wm_window(C));
+		const bool is_hmd_view = WM_window_is_running_hmd_view(CTX_wm_window(C));
 
 		view3d_operator_needs_opengl(C);
 		if (ED_view3d_autodist(scene, ar, v3d, mval, fp, true, is_hmd_view, NULL)) {

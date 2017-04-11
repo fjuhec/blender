@@ -4205,11 +4205,10 @@ static void WM_OT_hmd_view_toggle(wmOperatorType *ot)
 
 static void hmd_session_cursor_draw(bContext *C, int mx, int my, void *UNUSED(customdata))
 {
-	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *win = CTX_wm_window(C);
 	GLUquadricObj *qobj;
 
-	if (wm->hmd_view.hmd_win != win || !win->screen->is_hmd_running) {
+	if (!WM_window_is_running_hmd_view(win)) {
 		/* only hmd window */
 		return;
 	}
@@ -4293,7 +4292,7 @@ static int hmd_session_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
 	}
 
-	if (hmd_win->screen->is_hmd_running) {
+	if (WM_window_is_running_hmd_view(hmd_win)) {
 		ScrArea *sa = hmd_win->screen->areabase.first;
 		View3D *v3d = sa->spacedata.first;
 		BLI_assert(sa->spacetype == SPACE_VIEW3D);
@@ -4342,7 +4341,7 @@ static int hmd_session_refresh_invoke(bContext *C, wmOperator *UNUSED(op), const
 	ScrArea *sa;
 	View3D *v3d;
 
-	if (!hmd_win || !hmd_win->screen->is_hmd_running) {
+	if (!(WM_window_is_running_hmd_view(hmd_win))) {
 		return OPERATOR_CANCELLED;
 	}
 
