@@ -863,12 +863,18 @@ int wm_window_fullscreen_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 void wm_cursor_position_from_ghost(wmWindow *win, int *x, int *y)
 {
 	float fac = GHOST_GetNativePixelSize(win->ghostwin);
+	int xy[2] = {*x, *y};
 	
-	GHOST_ScreenToClient(win->ghostwin, *x, *y, x, y);
-	*x *= fac;
+	GHOST_ScreenToClient(win->ghostwin, xy[0], xy[1], &xy[0], &xy[1]);
+	xy[0] *= fac;
 	
-	*y = (win->sizey - 1) - *y;
-	*y *= fac;
+	xy[1] = (win->sizey - 1) - xy[1];
+	xy[1] *= fac;
+
+	wm_event_mouse_offset_apply(win, xy);
+
+	*x = xy[0];
+	*y = xy[1];
 }
 
 void wm_cursor_position_to_ghost(wmWindow *win, int *x, int *y)

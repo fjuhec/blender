@@ -2366,17 +2366,29 @@ float view3d_depth_near(ViewDepths *d)
 	return far == far_real ? FLT_MAX : far;
 }
 
-void ED_view3d_draw_depth_gpencil(Scene *scene, ARegion *ar, View3D *v3d)
+void ED_view3d_draw_depth_gpencil(Scene *scene, ARegion *ar, View3D *v3d, bool is_hmd_view)
 {
 	short zbuf = v3d->zbuf;
 	RegionView3D *rv3d = ar->regiondata;
 
-	view3d_winmatrix_set(ar, v3d, NULL);
-	view3d_viewmatrix_set(scene, v3d, rv3d);  /* note: calls BKE_object_where_is_calc for camera... */
+#ifdef WITH_INPUT_HMD
+	wmWindowManager *wm = G.main->wm.first;
+	if (is_hmd_view) {
+		view3d_hmd_view_setup(scene, v3d, ar);
+	}
+	else if (view3d_is_hmd_view_mirror(wm, v3d, rv3d)) {
+		view3d_hmd_view_setup_mirrored(wm, scene, ar, NULL);
+	}
+	else
+#endif
+	{
+		view3d_winmatrix_set(ar, v3d, NULL);
+		view3d_viewmatrix_set(scene, v3d, rv3d);  /* note: calls BKE_object_where_is_calc for camera... */
 
-	mul_m4_m4m4(rv3d->persmat, rv3d->winmat, rv3d->viewmat);
-	invert_m4_m4(rv3d->persinv, rv3d->persmat);
-	invert_m4_m4(rv3d->viewinv, rv3d->viewmat);
+		mul_m4_m4m4(rv3d->persmat, rv3d->winmat, rv3d->viewmat);
+		invert_m4_m4(rv3d->persinv, rv3d->persmat);
+		invert_m4_m4(rv3d->viewinv, rv3d->viewmat);
+	}
 
 	glClear(GL_DEPTH_BUFFER_BIT);
 
@@ -2391,9 +2403,12 @@ void ED_view3d_draw_depth_gpencil(Scene *scene, ARegion *ar, View3D *v3d)
 	
 	v3d->zbuf = zbuf;
 
+#ifdef WITH_INPUT_HMD
+	UNUSED_VARS(is_hmd_view);
+#endif
 }
 
-void ED_view3d_draw_depth(Scene *scene, ARegion *ar, View3D *v3d, bool alphaoverride)
+void ED_view3d_draw_depth(Scene *scene, ARegion *ar, View3D *v3d, bool alphaoverride, bool is_hmd_view)
 {
 	RegionView3D *rv3d = ar->regiondata;
 	Base *base;
@@ -2409,14 +2424,26 @@ void ED_view3d_draw_depth(Scene *scene, ARegion *ar, View3D *v3d, bool alphaover
 	v3d->flag &= ~V3D_SELECT_OUTLINE;
 	U.glalphaclip = alphaoverride ? 0.5f : glalphaclip; /* not that nice but means we wont zoom into billboards */
 	U.obcenter_dia = 0;
-	
-	view3d_winmatrix_set(ar, v3d, NULL);
-	view3d_viewmatrix_set(scene, v3d, rv3d);  /* note: calls BKE_object_where_is_calc for camera... */
-	
-	mul_m4_m4m4(rv3d->persmat, rv3d->winmat, rv3d->viewmat);
-	invert_m4_m4(rv3d->persinv, rv3d->persmat);
-	invert_m4_m4(rv3d->viewinv, rv3d->viewmat);
-	
+
+#ifdef WITH_INPUT_HMD
+	wmWindowManager *wm = G.main->wm.first;
+	if (is_hmd_view) {
+		view3d_hmd_view_setup(scene, v3d, ar);
+	}
+	else if (view3d_is_hmd_view_mirror(wm, v3d, rv3d)) {
+		view3d_hmd_view_setup_mirrored(wm, scene, ar, NULL);
+	}
+	else
+#endif
+	{
+		view3d_winmatrix_set(ar, v3d, NULL);
+		view3d_viewmatrix_set(scene, v3d, rv3d);  /* note: calls BKE_object_where_is_calc for camera... */
+
+		mul_m4_m4m4(rv3d->persmat, rv3d->winmat, rv3d->viewmat);
+		invert_m4_m4(rv3d->persinv, rv3d->persmat);
+		invert_m4_m4(rv3d->viewinv, rv3d->viewmat);
+	}
+
 	glClear(GL_DEPTH_BUFFER_BIT);
 	
 	glLoadMatrixf(rv3d->viewmat);
@@ -2515,6 +2542,10 @@ void ED_view3d_draw_depth(Scene *scene, ARegion *ar, View3D *v3d, bool alphaover
 	U.glalphaclip = glalphaclip;
 	v3d->flag = flag;
 	U.obcenter_dia = obcenter_dia;
+
+#ifndef WITH_INPUT_HMD
+	UNUSED_VARS(is_hmd_view);
+#endif
 }
 
 void ED_view3d_draw_select_loop(
@@ -3723,18 +3754,71 @@ static bool view3d_stereo3d_active(const bContext *C, Scene *scene, View3D *v3d,
 
 #ifdef WITH_INPUT_HMD
 
+enum HMDViewMatrixType {
+	HMD_MATRIX_LEFT_EYE,
+	HMD_MATRIX_RIGHT_EYE,
+	/* Calculate matrix for the center of both eyes. It's used for
+	 * interactions like selecting and drawing mirrored view. */
+	HMD_MATRIX_CENTER,
+};
+
 static bool view3d_is_hmd_view(wmWindowManager *wm, wmWindow *win)
 {
 	return ((wm->hmd_view.hmd_win == win) && (wm->hmd_view.hmd_win->screen->is_hmd_running));
 }
 
-static void view3d_hmd_view_calc_matrices_from_device(const View3D *v3d, const RegionView3D *rv3d, const bool is_left,
-                                                      float r_modelviewmat[4][4], float r_projectionmat[4][4])
+bool view3d_is_hmd_view_mirror(const wmWindowManager *wm, const View3D *v3d, const RegionView3D *rv3d)
+{
+	return wm->hmd_view.hmd_win &&
+	       wm->hmd_view.hmd_win->screen->is_hmd_running &&
+	       (v3d->flag3 & V3D_SHOW_HMD_MIRROR) &&
+	       RV3D_IS_LOCKED_SHARED(rv3d);
+}
+
+static void view3d_hmd_calc_projection_matrix_from_device(
+        ARegion *region, View3D *v3d,
+        const rcti *viewplane_rect, enum HMDViewMatrixType mat_type,
+        float r_projectionmat[4][4])
+{
+	/* Usually we could/should get projection matrix directly from HMD driver, but we caculate
+	 * them ourselves for two reasons:
+	 * * For selecting, viewplane_rect has to be used for view-plane clipping.
+	 * * OpenHMD doesn't allow us to set custom screen dimensions, it always uses device ones. */
+
+	const float v3d_znear = v3d->near;
+	const float v3d_zfar = v3d->far;
+	const float hmd_znear = WM_device_HMD_projection_z_near_get();
+	const float hmd_zfar = WM_device_HMD_projection_z_far_get();
+
+	v3d->near = hmd_znear;
+	v3d->far = hmd_zfar;
+
+	view3d_winmatrix_set(region, v3d, viewplane_rect);
+	glGetFloatv(GL_PROJECTION_MATRIX, (float *)r_projectionmat);
+
+	if (mat_type != HMD_MATRIX_CENTER) {
+		/* calculate lens offset in [-1, 1] range to apply onto projection matrix.
+		 * This follows logic of OpenHMD */
+		const float lens_sep = WM_device_HMD_lens_horizontal_separation_get();
+		const float hsize = WM_device_HMD_screen_horizontal_size_get();
+		const float proj_offset = 1 - ((2 * lens_sep) / hsize);
+
+		/* apply lens separation (IPD is applied onto modelview matrix) */
+		BLI_assert(IN_RANGE_INCL(proj_offset, -1.0f, 1.0f));
+		translate_m4(r_projectionmat, (mat_type == HMD_MATRIX_LEFT_EYE) ? proj_offset : -proj_offset, 0, 0);
+	}
+
+	v3d->near = v3d_znear;
+	v3d->far = v3d_zfar;
+}
+
+static void view3d_hmd_calc_modelview_matrix_from_device(
+        const View3D *v3d, const RegionView3D *rv3d, enum HMDViewMatrixType mat_type,
+        float r_modelviewmat[4][4])
 {
 	float hmd_modelviewmat[4][4];
 
-	WM_device_HMD_modelview_matrix_get(is_left, hmd_modelviewmat);
-	WM_device_HMD_projection_matrix_get(is_left, r_projectionmat);
+	WM_device_HMD_modelview_matrix_get(mat_type == HMD_MATRIX_LEFT_EYE, hmd_modelviewmat);
 
 	if (rv3d->persp == RV3D_CAMOB && v3d->camera) {
 		float v3d_modelviewmat[4][4], hmd_modelviewmat_tmp[4][4];
@@ -3759,12 +3843,16 @@ static void view3d_hmd_view_calc_matrices_from_device(const View3D *v3d, const R
 		mul_m4_m4m4(r_modelviewmat, r_modelviewmat, v3d_rotmat); /* now, apply viewrotation after scaling */
 		translate_m4(r_modelviewmat, rv3d->ofs[0], rv3d->ofs[1], rv3d->ofs[2]);
 	}
-	/* apply IPD offset */
-	add_v3_v3(r_modelviewmat[3], hmd_modelviewmat[3]);
+
+	if (mat_type != HMD_MATRIX_CENTER) {
+		/* apply IPD offset (lens separation is applied onto projection matrix) */
+		add_v3_v3(r_modelviewmat[3], hmd_modelviewmat[3]);
+	}
 }
 
-static void view3d_hmd_view_get_matrices(
-        View3D *v3d, RegionView3D *rv3d, const bool is_left,
+static void view3d_hmd_get_matrices(
+        ARegion *region, View3D *v3d, RegionView3D *rv3d,
+        const rcti *viewplane_rect, enum HMDViewMatrixType mat_type,
         float r_modelviewmat[4][4], float r_projectionmat[4][4])
 {
 	const bool has_device = U.hmd_settings.device > -1;
@@ -3775,59 +3863,72 @@ static void view3d_hmd_view_get_matrices(
 		copy_m4_m4(r_projectionmat, rv3d->winmat);
 	}
 	else if (use_device_rot) {
-		view3d_hmd_view_calc_matrices_from_device(v3d, rv3d, is_left, r_modelviewmat, r_projectionmat);
+		view3d_hmd_calc_modelview_matrix_from_device(v3d, rv3d, mat_type, r_modelviewmat);
+		view3d_hmd_calc_projection_matrix_from_device(region, v3d, viewplane_rect, mat_type, r_projectionmat);
 	}
 	else {
-		const float shiftx = WM_device_HMD_lens_horizontal_separation_get();
-
-		WM_device_HMD_projection_matrix_get(is_left, r_projectionmat);
+		view3d_hmd_calc_projection_matrix_from_device(region, v3d, viewplane_rect, mat_type, r_projectionmat);
 
 		copy_m4_m4(r_modelviewmat, rv3d->viewmat);
-		/* apply ipd and lens shift */
-		r_modelviewmat[3][0]  += (shiftx * 0.5f) * (is_left ? 1.0f : -1.0f);
+
+		if (mat_type != HMD_MATRIX_CENTER) {
+			const float ipd = WM_device_HMD_IPD_get();
+			/* apply IPD */
+			r_modelviewmat[3][0]  += (ipd * 0.5f) * ((mat_type == HMD_MATRIX_LEFT_EYE) ? 1.0f : -1.0f);
+		}
 	}
 }
 
-static void view3d_hmd_view_setup(Scene *scene, View3D *v3d, ARegion *ar)
+static void view3d_hmd_view_setup_ex(
+        Scene *scene, View3D *v3d, RegionView3D *rv3d, ARegion *region,
+        const rcti *viewplane_rect, enum HMDViewMatrixType mat_type)
 {
-	RegionView3D *rv3d = ar->regiondata;
-	const bool is_left = v3d->multiview_eye == STEREO_LEFT_ID;
 	float projmat[4][4];
 	float modelviewmat[4][4];
 
+	/* note that rv3d might not equal region->regiondata! */
+
 	/* update 3d view matrices before applying matrices from HMD */
 	view3d_viewmatrix_set(scene, v3d, rv3d);
-	view3d_winmatrix_set(ar, v3d, NULL);
+	view3d_winmatrix_set(region, v3d, NULL);
 
-	view3d_hmd_view_get_matrices(v3d, rv3d, is_left, modelviewmat, projmat);
+	view3d_hmd_get_matrices(region, v3d, rv3d, viewplane_rect, mat_type, modelviewmat, projmat);
 
 	/* setup view with adjusted matrices */
-	view3d_main_region_setup_view(scene, v3d, ar, modelviewmat, projmat);
+	view3d_main_region_setup_view(scene, v3d, region, modelviewmat, projmat);
 }
 
-static void view3d_hmd_view_mirrored_setup(wmWindowManager *wm, Scene *scene, View3D *v3d, ARegion *ar)
+void view3d_hmd_view_setup(Scene *scene, View3D *v3d, ARegion *region)
+{
+	enum HMDViewMatrixType mat_type = (v3d->multiview_eye == STEREO_LEFT_ID) ?
+	                                      HMD_MATRIX_LEFT_EYE : HMD_MATRIX_RIGHT_EYE;
+
+	BLI_assert(ELEM(v3d->multiview_eye, STEREO_LEFT_ID, STEREO_RIGHT_ID));
+	view3d_hmd_view_setup_ex(scene, v3d, region->regiondata, region, NULL, mat_type);
+}
+
+/**
+ * Version of #view3d_hmd_view_setup for setting up an HMD view for interaction, not drawing. Basically
+ * this means we ignore HMD lens separation and IPD, we calculate a matrix for the eye center.
+ *
+ * \param viewplane: Optional for picking (can be NULL).
+ */
+void view3d_hmd_view_setup_interaction(Scene *scene, View3D *v3d, ARegion *region, const rcti *viewplane_rect)
+{
+	view3d_hmd_view_setup_ex(scene, v3d, region->regiondata, region, viewplane_rect, HMD_MATRIX_CENTER);
+}
+
+/*
+ * \param viewplane: Optional for picking (can be NULL).
+ */
+void view3d_hmd_view_setup_mirrored(wmWindowManager *wm, Scene *scene, ARegion *region, const rcti *viewplane_rect)
 {
 	wmWindow *hmd_win = wm->hmd_view.hmd_win;
 	ScrArea *sa = hmd_win->screen->areabase.first;
 	View3D *v3d_hmd = sa->spacedata.first;
-	ARegion *ar_hmd = BKE_area_find_region_type(sa, RGN_TYPE_WINDOW);
-	RegionView3D *rv3d_hmd = ar_hmd->regiondata;
-	const bool is_left = v3d->multiview_eye == STEREO_LEFT_ID;
-	float projmat[4][4];
-	float modelviewmat[4][4];
+	ARegion *region_hmd = BKE_area_find_region_type(sa, RGN_TYPE_WINDOW);
 
-	/* we calculate a modelviewmatrix (viewmatrix) based on HMD device and
-	 * HMD view, but use the projection matrix (winmatrix) from this v3d */
-
-	BLI_assert(sa->spacetype == SPACE_VIEW3D);
-	/* update 3d view matrices before applying matrices from HMD */
-	view3d_viewmatrix_set(scene, v3d_hmd, rv3d_hmd);
-	view3d_winmatrix_set(ar, v3d, NULL);
-
-	view3d_hmd_view_get_matrices(v3d_hmd, rv3d_hmd, is_left, modelviewmat, projmat);
-
-	/* setup view with adjusted matrices */
-	view3d_main_region_setup_view(scene, v3d, ar, modelviewmat, NULL);
+	view3d_hmd_view_setup_ex(scene, v3d_hmd, region_hmd->regiondata, region, viewplane_rect, HMD_MATRIX_CENTER);
 }
 
 #endif /* WITH_INPUT_HMD */
@@ -3949,12 +4050,8 @@ static void view3d_main_region_draw_objects(
 	if (view3d_is_hmd_view(wm, win)) {
 		view3d_hmd_view_setup(scene, v3d, ar);
 	}
-	else if (wm->hmd_view.hmd_win &&
-	         wm->hmd_view.hmd_win->screen->is_hmd_running &&
-	         (v3d->flag3 & V3D_SHOW_HMD_MIRROR) &&
-	         RV3D_IS_LOCKED_SHARED(rv3d))
-	{
-		view3d_hmd_view_mirrored_setup(wm, scene, v3d, ar);
+	else if (view3d_is_hmd_view_mirror(wm, v3d, rv3d)) {
+		view3d_hmd_view_setup_mirrored(wm, scene, ar, NULL);
 	}
 	else
 #else

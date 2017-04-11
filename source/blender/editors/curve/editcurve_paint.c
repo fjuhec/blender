@@ -1162,12 +1162,14 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 			if ((cps->depth_mode == CURVE_PAINT_PROJECT_SURFACE) &&
 			    (v3d->drawtype > OB_WIRE))
 			{
+				const bool is_hmd_view = WM_window_is_hmd_view(CTX_wm_manager(C), CTX_wm_window(C));
+
 				view3d_get_transformation(cdd->vc.ar, cdd->vc.rv3d, NULL, &cdd->mats);
 
 				/* needed or else the draw matrix can be incorrect */
 				view3d_operator_needs_opengl(C);
 
-				ED_view3d_autodist_init(cdd->vc.scene, cdd->vc.ar, cdd->vc.v3d, 0);
+				ED_view3d_autodist_init(cdd->vc.scene, cdd->vc.ar, cdd->vc.v3d, 0, is_hmd_view);
 
 				if (cdd->vc.rv3d->depths) {
 					cdd->vc.rv3d->depths->damaged = true;

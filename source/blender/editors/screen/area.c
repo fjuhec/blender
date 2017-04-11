@@ -473,34 +473,40 @@ void ED_region_set(const bContext *C, ARegion *ar)
 	ED_region_pixelspace(ar);
 }
 
-static void region_draw_view_setup(wmWindowManager *wm, wmWindow *win, ARegion *ar, bool is_popup)
+static void region_draw_view_setup(wmWindowManager *wm, wmWindow *win, ARegion *ar)
 {
 #ifdef WITH_INPUT_HMD
-	if (!(wm->hmd_view.hmd_win == win && win->screen->is_hmd_running) || is_popup) {
+	if (ar->regiontype == RGN_TYPE_TEMPORARY) {
 		/* pass */
 	}
-	else if ((wm->hmd_view.hmd_win == win) && win->screen->is_hmd_running) {
+	else if (!WM_window_is_hmd_view(wm, win)) {
+		/* pass */
+	}
+	else {
 		ar->winx /= 2;
 		ar->winrct.xmax -= ar->winx;
 		wm_subwindow_rect_set(win, ar->swinid, &ar->winrct);
 	}
 #else
-	UNUSED_VARS(wm, win, ar, is_popup);
+	UNUSED_VARS(wm, win, ar);
 #endif
 }
-static void region_draw_view_reset(wmWindowManager *wm, wmWindow *win, ARegion *ar, bool is_popup)
+static void region_draw_view_reset(wmWindowManager *wm, wmWindow *win, ARegion *ar)
 {
 #ifdef WITH_INPUT_HMD
-	if (!(wm->hmd_view.hmd_win == win && win->screen->is_hmd_running) || is_popup) {
+	if (ar->regiontype == RGN_TYPE_TEMPORARY) {
 		/* pass */
 	}
-	else if ((wm->hmd_view.hmd_win == win) && win->screen->is_hmd_running) {
+	else if (!WM_window_is_hmd_view(wm, win)) {
+		/* pass */
+	}
+	else {
 		ar->winrct.xmax += ar->winx;
 		ar->winx *= 2;
 		wm_subwindow_rect_set(win, ar->swinid, &ar->winrct);
 	}
 #else
-	UNUSED_VARS(wm, win, ar, is_popup);
+	UNUSED_VARS(wm, win, ar);
 #endif
 }
 
@@ -511,14 +517,13 @@ void ED_region_do_draw(bContext *C, ARegion *ar)
 	wmWindow *win = CTX_wm_window(C);
 	ScrArea *sa = CTX_wm_area(C);
 	ARegionType *at = ar->type;
-	const bool is_popup = ar == CTX_wm_menu(C);
 	bool scissor_pad;
 
 	/* see BKE_spacedata_draw_locks() */
 	if (at->do_lock)
 		return;
 
-	region_draw_view_setup(wm, win, ar, is_popup);
+	region_draw_view_setup(wm, win, ar);
 
 	/* if no partial draw rect set, full rect */
 	if (ar->drawrct.xmin == ar->drawrct.xmax) {
@@ -580,7 +585,7 @@ void ED_region_do_draw(bContext *C, ARegion *ar)
 		}
 	}
 
-	region_draw_view_reset(wm, win, ar, is_popup);
+	region_draw_view_reset(wm, win, ar);
 }
 
 /* **********************************

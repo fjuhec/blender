@@ -1041,6 +1041,39 @@ float GHOST_HMDgetLensHorizontalSeparation()
 #endif
 }
 
+float GHOST_HMDgetProjectionZNear()
+{
+#ifdef WITH_OPENHMD
+	GHOST_ISystem *system = GHOST_ISystem::getSystem();
+	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
+	return ohmd->getProjectionZNear();
+#else
+	return -1.0f;
+#endif
+}
+
+float GHOST_HMDgetProjectionZFar()
+{
+#ifdef WITH_OPENHMD
+	GHOST_ISystem *system = GHOST_ISystem::getSystem();
+	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
+	return ohmd->getProjectionZFar();
+#else
+	return -1.0f;
+#endif
+}
+
+float GHOST_HMDgetScreenHorizontalSize()
+{
+#ifdef WITH_OPENHMD
+	GHOST_ISystem *system = GHOST_ISystem::getSystem();
+	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
+	return ohmd->getScreenHorizontalSize();
+#else
+	return -1.0f;
+#endif
+}
+
 #ifndef WITH_OPENHMD
 static void ghost_UnitMat(float r_mat[4][4])
 {
@@ -1069,28 +1102,6 @@ void GHOST_HMDgetRightModelviewMatrix(float r_mat[4][4])
 	GHOST_ISystem *system = GHOST_ISystem::getSystem();
 	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
 	ohmd->getRightEyeGLModelviewMatrix(r_mat);
-#else
-	ghost_UnitMat(r_mat);
-#endif
-}
-
-void GHOST_HMDgetLeftProjectionMatrix(float r_mat[4][4])
-{
-#ifdef WITH_OPENHMD
-	GHOST_ISystem *system = GHOST_ISystem::getSystem();
-	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
-	ohmd->getLeftEyeGLProjectionMatrix(r_mat);
-#else
-	ghost_UnitMat(r_mat);
-#endif
-}
-
-void GHOST_HMDgetRightProjectionMatrix(float r_mat[4][4])
-{
-#ifdef WITH_OPENHMD
-	GHOST_ISystem *system = GHOST_ISystem::getSystem();
-	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
-	ohmd->getRightEyeGLProjectionMatrix(r_mat);
 #else
 	ghost_UnitMat(r_mat);
 #endif

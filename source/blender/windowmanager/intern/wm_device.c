@@ -98,6 +98,21 @@ float WM_device_HMD_lens_horizontal_separation_get(void)
 	return GHOST_HMDgetLensHorizontalSeparation();
 }
 
+float WM_device_HMD_projection_z_near_get(void)
+{
+	return GHOST_HMDgetProjectionZNear();
+}
+
+float WM_device_HMD_projection_z_far_get(void)
+{
+	return GHOST_HMDgetProjectionZFar();
+}
+
+float WM_device_HMD_screen_horizontal_size_get(void)
+{
+	return GHOST_HMDgetScreenHorizontalSize();
+}
+
 /* ------ Utilities ------ */
 
 /**
@@ -125,19 +140,6 @@ void WM_device_HMD_modelview_matrix_get(const bool is_left, float r_modelviewmat
 	}
 	else {
 		GHOST_HMDgetRightModelviewMatrix(r_modelviewmat);
-	}
-}
-
-void WM_device_HMD_projection_matrix_get(const bool is_left, float r_projmat[4][4])
-{
-	if (U.hmd_settings.device == -1) {
-		unit_m4(r_projmat);
-	}
-	else if (is_left) {
-		GHOST_HMDgetLeftProjectionMatrix(r_projmat);
-	}
-	else {
-		GHOST_HMDgetRightProjectionMatrix(r_projmat);
 	}
 }
 

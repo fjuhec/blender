@@ -5021,10 +5021,11 @@ void paint_proj_stroke(
 		ARegion *ar = CTX_wm_region(C);
 		float *cursor = ED_view3d_cursor3d_get(scene, v3d);
 		int mval_i[2] = {(int)pos[0], (int)pos[1]};
+		const bool is_hmd_view = WM_window_is_hmd_view(CTX_wm_manager(C), CTX_wm_window(C));
 
 		view3d_operator_needs_opengl(C);
 
-		if (!ED_view3d_autodist(scene, ar, v3d, mval_i, cursor, false, NULL))
+		if (!ED_view3d_autodist(scene, ar, v3d, mval_i, cursor, false, is_hmd_view, NULL))
 			return;
 
 		ED_region_tag_redraw(ar);

@@ -195,18 +195,30 @@ void draw_sim_debug_data(Scene *scene, View3D *v3d, ARegion *ar);
 
 /* view3d_draw.c */
 void view3d_main_region_draw(const struct bContext *C, struct ARegion *ar);
-void ED_view3d_draw_depth(Scene *scene, struct ARegion *ar, View3D *v3d, bool alphaoverride);
-void ED_view3d_draw_depth_gpencil(Scene *scene, ARegion *ar, View3D *v3d);
+void ED_view3d_draw_depth(Scene *scene, struct ARegion *ar, View3D *v3d, bool alphaoverride, bool is_hmd_view);
+void ED_view3d_draw_depth_gpencil(Scene *scene, ARegion *ar, View3D *v3d, bool is_hmd_view);
 void ED_view3d_draw_select_loop(
         ViewContext *vc, Scene *scene, View3D *v3d, ARegion *ar,
         bool use_obedit_skip, bool use_nearest);
 
-void ED_view3d_after_add(ListBase *lb, Base *base, const short dflag);\
+void ED_view3d_after_add(ListBase *lb, Base *base, const short dflag);
 
 void circf(float x, float y, float rad);
 void circ(float x, float y, float rad);
 void view3d_update_depths_rect(struct ARegion *ar, struct ViewDepths *d, struct rcti *rect);
 float view3d_depth_near(struct ViewDepths *d);
+
+void view3d_hmd_view_setup(
+        Scene *scene, View3D *v3d, ARegion *ar);
+void view3d_hmd_view_setup_interaction(
+        Scene *scene, View3D *v3d, ARegion *region,
+        const struct rcti *viewplane_rect);
+void view3d_hmd_view_setup_mirrored(
+        struct wmWindowManager *wm, Scene *scene, ARegion *region,
+        const struct rcti *viewplane_rect);
+bool view3d_is_hmd_view_mirror(
+        const struct wmWindowManager *wm, const View3D *v3d,
+        const RegionView3D *rv3d);
 
 /* view3d_select.c */
 void VIEW3D_OT_select(struct wmOperatorType *ot);

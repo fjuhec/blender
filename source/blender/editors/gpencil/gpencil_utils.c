@@ -523,12 +523,13 @@ void gp_point_conversion_init(bContext *C, GP_SpaceConversion *r_gsc)
 		Scene *scene = CTX_data_scene(C);
 		View3D *v3d = (View3D *)CTX_wm_space_data(C);
 		RegionView3D *rv3d = ar->regiondata;
+		const bool is_hmd_view = WM_window_is_hmd_view(CTX_wm_manager(C), CTX_wm_window(C));
 		
 		/* init 3d depth buffers */
 		view3d_operator_needs_opengl(C);
 		
 		view3d_region_operator_needs_opengl(win, ar);
-		ED_view3d_autodist_init(scene, ar, v3d, 0);
+		ED_view3d_autodist_init(scene, ar, v3d, 0, is_hmd_view);
 		
 		/* for camera view set the subrect */
 		if (rv3d->persp == RV3D_CAMOB) {

@@ -4215,10 +4215,6 @@ static void hmd_session_cursor_draw(bContext *C, int mx, int my, void *UNUSED(cu
 	}
 	WM_cursor_modal_set(win, CURSOR_NONE);
 
-	if (mx > (win->sizex / 2)) {
-		mx -= win->sizex / 2;
-	}
-
 	qobj = gluNewQuadric();
 
 	UI_ThemeColor(TH_TEXT_HI);
@@ -4356,6 +4352,9 @@ static int hmd_session_refresh_invoke(bContext *C, wmOperator *UNUSED(op), const
 	/* Actually the only thing we have to do is ensuring a redraw, we'll then
 	 * get the modelview/projection matrices from HMD device when drawing */
 	ED_area_tag_redraw(sa);
+	/* Make sure running modal operators can update their drawing for changed
+	 * view (without having to listen to HMD transform event themselves) */
+	WM_event_add_mousemove(C);
 
 	/* Tag mirrored 3D views for redraw too */
 	for (wmWindow *win = wm->windows.first; win; win = win->next) {

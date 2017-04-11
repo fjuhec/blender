@@ -89,6 +89,8 @@ void        wm_event_add_ghostevent (wmWindowManager *wm, wmWindow *win, int typ
 
 void        wm_event_do_notifiers   (bContext *C);
 
+void        wm_event_mouse_offset_apply(wmWindow *win, int *r_mouse_xy);
+
 /* wm_keymap.c */
 
 /* wm_dropbox.c */

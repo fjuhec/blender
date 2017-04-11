@@ -946,10 +946,11 @@ extern const char *GHOST_HMDgetVendorName(int index);
 extern float       GHOST_HMDgetDeviceIPD(void);
 extern void        GHOST_HMDsetDeviceIPD(float value);
 extern float       GHOST_HMDgetLensHorizontalSeparation(void);
+extern float       GHOST_HMDgetProjectionZNear(void);
+extern float       GHOST_HMDgetProjectionZFar(void);
+extern float       GHOST_HMDgetScreenHorizontalSize(void);
 extern void        GHOST_HMDgetLeftModelviewMatrix(float r_mat[4][4]);
 extern void        GHOST_HMDgetRightModelviewMatrix(float r_mat[4][4]);
-extern void        GHOST_HMDgetLeftProjectionMatrix(float r_mat[4][4]);
-extern void        GHOST_HMDgetRightProjectionMatrix(float r_mat[4][4]);
 extern void*       GHOST_HMDgetDistortionParameters(void);
 
 #ifdef __cplusplus

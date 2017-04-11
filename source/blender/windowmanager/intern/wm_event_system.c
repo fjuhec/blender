@@ -78,6 +78,7 @@
 #include "WM_types.h"
 #include "wm.h"
 #include "wm_window.h"
+#include "wm_subwindow.h"
 #include "wm_event_system.h"
 #include "wm_event_types.h"
 
@@ -997,6 +998,47 @@ static void wm_region_mouse_co(bContext *C, wmEvent *event)
 	}
 }
 
+static void wm_handler_screens_setup(wmWindowManager *wm)
+{
+#ifdef WITH_INPUT_HMD
+	wmWindow *hmd_win = wm->hmd_view.hmd_win;
+
+	if (hmd_win && WM_window_is_hmd_view(wm, hmd_win)) {
+		ScrArea *area = hmd_win->screen->areabase.first;
+		ARegion *region = BKE_area_find_region_type(area, RGN_TYPE_WINDOW);
+
+		BLI_assert(BLI_listbase_count_ex(&hmd_win->screen->areabase, 2) == 1);
+
+		region->winx /= 2;
+		region->winrct.xmax -= region->winx;
+		/* for operators using GL */
+		wm_subwindow_rect_set(hmd_win, region->swinid, &region->winrct);
+	}
+#else
+	UNUSED_VARS(wm);
+#endif
+}
+static void wm_handler_screens_reset(wmWindowManager *wm)
+{
+#ifdef WITH_INPUT_HMD
+	wmWindow *hmd_win = wm->hmd_view.hmd_win;
+
+	if (hmd_win && WM_window_is_hmd_view(wm, hmd_win)) {
+		ScrArea *area = hmd_win->screen->areabase.first;
+		ARegion *region = BKE_area_find_region_type(area, RGN_TYPE_WINDOW);
+
+		BLI_assert(BLI_listbase_count_ex(&hmd_win->screen->areabase, 2) == 1);
+
+		region->winrct.xmax += region->winx;
+		region->winx *= 2;
+		/* for operators using GL */
+		wm_subwindow_rect_set(hmd_win, region->swinid, &region->winrct);
+	}
+#else
+	UNUSED_VARS(wm);
+#endif
+}
+
 #if 1 /* may want to disable operator remembering previous state for testing */
 bool WM_operator_last_properties_init(wmOperator *op)
 {
@@ -1083,6 +1125,8 @@ static int wm_operator_invoke(
         bContext *C, wmOperatorType *ot, wmEvent *event,
         PointerRNA *properties, ReportList *reports, const bool poll_only)
 {
+	wmWindowManager *wm = CTX_wm_manager(C);
+	wmWindow *win = CTX_wm_window(C);
 	int retval = OPERATOR_PASS_THROUGH;
 
 	/* this is done because complicated setup is done to call this function that is better not duplicated */
@@ -1090,7 +1134,6 @@ static int wm_operator_invoke(
 		return WM_operator_poll(C, ot);
 
 	if (WM_operator_poll(C, ot)) {
-		wmWindowManager *wm = CTX_wm_manager(C);
 		wmOperator *op = wm_operator_create(wm, ot, properties, reports); /* if reports == NULL, they'll be initialized */
 		const bool is_nested_call = (wm->op_undo_depth != 0);
 		
@@ -1100,6 +1143,9 @@ static int wm_operator_invoke(
 		if (!is_nested_call) { /* not called by py script */
 			WM_operator_last_properties_init(op);
 		}
+
+		/* this is only done for op execution right now, maybe should do for poll calls too. */
+		wm_handler_screens_setup(wm);
 
 		if ((G.debug & G_DEBUG_HANDLERS) && ((event == NULL) || (event->type != MOUSEMOVE))) {
 			printf("%s: handle evt %d win %d op %s\n",
@@ -1202,7 +1248,7 @@ static int wm_operator_invoke(
 					}
 				}
 
-				WM_cursor_grab_enable(CTX_wm_window(C), wrap, false, bounds);
+				WM_cursor_grab_enable(win, wrap, false, bounds);
 			}
 
 			/* cancel UI handlers, typically tooltips that can hang around
@@ -1214,6 +1260,7 @@ static int wm_operator_invoke(
 		else {
 			WM_operator_free(op);
 		}
+		wm_handler_screens_reset(wm);
 	}
 
 	return retval;
@@ -1691,9 +1738,10 @@ static int wm_handler_operator_call(bContext *C, ListBase *handlers, wmEventHand
 			bool dbl_click_disabled = false;
 
 			wm_handler_op_context(C, handler, event);
+			wm_handler_screens_setup(wm);
 			wm_region_mouse_co(C, event);
 			wm_event_modalkeymap(C, op, event, &dbl_click_disabled);
-			
+
 			if (ot->flag & OPTYPE_UNDO)
 				wm->op_undo_depth++;
 
@@ -1730,6 +1778,7 @@ static int wm_handler_operator_call(bContext *C, ListBase *handlers, wmEventHand
 					WM_operator_free(op);
 					handler->op = NULL;
 				}
+				wm_handler_screens_reset(wm);
 
 				/* putting back screen context, reval can pass trough after modal failures! */
 				if ((retval & OPERATOR_PASS_THROUGH) || wm_event_always_pass(event)) {
@@ -3175,6 +3224,40 @@ static void wm_event_add_mousemove(wmWindow *win, const wmEvent *event)
 	}
 }
 
+/**
+ * If needed, this adjusts \a r_mouse_xy so that drawn cursor and handled mouse position are matching visually.
+*/
+void wm_event_mouse_offset_apply(wmWindow *win, int *r_mouse_xy)
+{
+	/* XXX G.main */
+	if (WM_window_is_hmd_view(G.main->wm.first, win)) {
+		const int half_x = win->sizex / 2;
+		/* right half of the screen */
+		if (r_mouse_xy[0] > half_x) {
+			r_mouse_xy[0] -= half_x;
+		}
+	}
+	else if (!WM_stereo3d_enabled(win, false)) {
+		/* pass */
+	}
+	else if ((win->stereo3d_format->display_mode == S3D_DISPLAY_SIDEBYSIDE)) {
+		const int half_x = win->sizex / 2;
+		/* right half of the screen */
+		if (r_mouse_xy[0] > half_x) {
+			r_mouse_xy[0] -= half_x;
+		}
+		r_mouse_xy[0] *= 2;
+	}
+	else if (win->stereo3d_format->display_mode == S3D_DISPLAY_TOPBOTTOM) {
+		const int half_y = win->sizey / 2;
+		/* upper half of the screen */
+		if (r_mouse_xy[1] > half_y) {
+			r_mouse_xy[1] -= half_y;
+		}
+		r_mouse_xy[1] *= 2;
+	}
+}
+
 /* windows store own event queues, no bContext here */
 /* time is in 1000s of seconds, from ghost */
 void wm_event_add_ghostevent(wmWindowManager *wm, wmWindow *win, int type, int UNUSED(time), void *customdata)
@@ -3199,7 +3282,6 @@ void wm_event_add_ghostevent(wmWindowManager *wm, wmWindow *win, int type, int U
 			GHOST_TEventCursorData *cd = customdata;
 
 			copy_v2_v2_int(&event.x, &cd->x);
-			wm_stereo3d_mouse_offset_apply(win, &event.x);
 
 			event.type = MOUSEMOVE;
 			wm_event_add_mousemove(win, &event);

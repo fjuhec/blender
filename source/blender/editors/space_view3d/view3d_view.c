@@ -1195,9 +1195,21 @@ int view3d_opengl_select(
 
 	G.f |= G_PICKSEL;
 
-	view3d_winmatrix_set(ar, v3d, &rect);
-	mul_m4_m4m4(vc->rv3d->persmat, vc->rv3d->winmat, vc->rv3d->viewmat);
-	
+#ifdef WITH_INPUT_HMD
+	wmWindowManager *wm = G.main->wm.first;
+	if (WM_window_is_hmd_view(wm, vc->win)) {
+		view3d_hmd_view_setup_interaction(scene, v3d, ar, &rect);
+	}
+	else if (view3d_is_hmd_view_mirror(wm, v3d, vc->rv3d)) {
+		view3d_hmd_view_setup_mirrored(wm, scene, ar, &rect);
+	}
+	else
+#endif
+	{
+		view3d_winmatrix_set(ar, v3d, &rect);
+		mul_m4_m4m4(vc->rv3d->persmat, vc->rv3d->winmat, vc->rv3d->viewmat);
+	}
+
 	if (v3d->drawtype > OB_WIRE) {
 		v3d->zbuf = true;
 		glEnable(GL_DEPTH_TEST);
