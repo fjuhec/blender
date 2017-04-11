@@ -15,7 +15,7 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor(s): Blender Institute
+ * Contributor(s): Antonio Vazquez
  *
  */
 
@@ -93,6 +93,7 @@ static struct {
 	struct GPUShader *gpencil_fill_sh;
 	struct GPUShader *gpencil_stroke_sh;
 	struct GPUShader *gpencil_point_sh;
+	struct GPUShader *gpencil_volumetric_sh;
 } e_data = {NULL}; /* Engine data */
 
 /* *********** FUNCTIONS *********** */
@@ -111,6 +112,8 @@ static void GPENCIL_engine_init(void *vedata)
 												 datatoc_gpencil_stroke_frag_glsl,
 												 NULL);
 	e_data.gpencil_point_sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_POINT_UNIFORM_SIZE_UNIFORM_COLOR_AA);
+
+	e_data.gpencil_volumetric_sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_POINT_VARYING_SIZE_VARYING_COLOR);
 
 	if (!stl->storage) {
 		stl->storage = MEM_callocN(sizeof(GPENCIL_Storage), "GPENCIL_Storage");
