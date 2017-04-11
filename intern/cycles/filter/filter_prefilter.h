@@ -42,10 +42,10 @@ ccl_device void kernel_filter_divide_shadow(int sample,
 	int ytile = (y < tiles->y[1])? 0: ((y < tiles->y[2])? 1: 2);
 	int tile = ytile*3+xtile;
 
-	float ccl_readonly_ptr buffer = (float*) tiles->buffers[tile];
+	ccl_global float ccl_readonly_ptr buffer = (ccl_global float*) tiles->buffers[tile];
 	int offset = tiles->offsets[tile];
 	int stride = tiles->strides[tile];
-	float ccl_readonly_ptr center_buffer = buffer + (y*stride + x + offset)*buffer_pass_stride + buffer_denoising_offset;
+	ccl_global float ccl_readonly_ptr center_buffer = buffer + (y*stride + x + offset)*buffer_pass_stride + buffer_denoising_offset;
 
 	int buffer_w = align_up(rect.z - rect.x, 4);
 	int idx = (y-rect.y)*buffer_w + (x - rect.x);
@@ -90,7 +90,7 @@ ccl_device void kernel_filter_get_feature(int sample,
 	int xtile = (x < tiles->x[1])? 0: ((x < tiles->x[2])? 1: 2);
 	int ytile = (y < tiles->y[1])? 0: ((y < tiles->y[2])? 1: 2);
 	int tile = ytile*3+xtile;
-	float *center_buffer = ((float*) tiles->buffers[tile]) + (tiles->offsets[tile] + y*tiles->strides[tile] + x)*buffer_pass_stride + buffer_denoising_offset;
+	ccl_global float *center_buffer = ((ccl_global float*) tiles->buffers[tile]) + (tiles->offsets[tile] + y*tiles->strides[tile] + x)*buffer_pass_stride + buffer_denoising_offset;
 
 	int buffer_w = align_up(rect.z - rect.x, 4);
 	int idx = (y-rect.y)*buffer_w + (x - rect.x);

@@ -170,6 +170,6 @@ endif()
 
 # OpenCL kernel
 
-delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "kernels/opencl/filter.cl" ${CYCLES_INSTALL_PATH}/kernel/kernels/opencl)
-delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "kernels/cuda/filter.cu" ${CYCLES_INSTALL_PATH}/kernel/kernels/cuda)
-delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_HEADERS}" ${CYCLES_INSTALL_PATH}/kernel)
+delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "kernels/opencl/filter.cl" ${CYCLES_INSTALL_PATH}/source/kernel/kernels/opencl)
+delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "kernels/cuda/filter.cu" ${CYCLES_INSTALL_PATH}/source/kernel/kernels/cuda)
+delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_HEADERS}" ${CYCLES_INSTALL_PATH}/source/filter)

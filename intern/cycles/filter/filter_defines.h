@@ -29,7 +29,11 @@ typedef struct TilesInfo {
 	int x[4];
 	int y[4];
 	/* TODO(lukas): CUDA doesn't have uint64_t... */
+#ifdef __SPLIT_KERNEL__
+	ccl_global float *buffers[9];
+#else
 	long long int buffers[9];
+#endif
 } TilesInfo;
 
 #endif /* __FILTER_DEFINES_H__*/
