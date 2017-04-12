@@ -3312,9 +3312,9 @@ static void do_vpaint_brush_calc_ave_color_cb_ex(
 	}
 	BKE_pbvh_vertex_iter_end;
 
-	data->ob->sculpt->modes.vwpaint.total_color[n * 3 + 0] = blend[0];
-	data->ob->sculpt->modes.vwpaint.total_color[n * 3 + 1] = blend[1];
-	data->ob->sculpt->modes.vwpaint.total_color[n * 3 + 2] = blend[2];
+	data->ob->sculpt->modes.vwpaint.total_color[n][0] = blend[0];
+	data->ob->sculpt->modes.vwpaint.total_color[n][1] = blend[1];
+	data->ob->sculpt->modes.vwpaint.total_color[n][2] = blend[2];
 }
 
 static void handle_texture_brush(
@@ -3657,9 +3657,9 @@ static void calculate_average_color(SculptThreadedTaskData *data, PBVHNode **UNU
 	unsigned char blend[4] = {0};
 	for (int i = 0; i < totnode; i++) {
 		total_hit_loops += data->ob->sculpt->modes.vwpaint.tot_loops_hit[i];
-		total_color[0] += data->ob->sculpt->modes.vwpaint.total_color[i * 3 + 0];
-		total_color[1] += data->ob->sculpt->modes.vwpaint.total_color[i * 3 + 1];
-		total_color[2] += data->ob->sculpt->modes.vwpaint.total_color[i * 3 + 2];
+		total_color[0] += data->ob->sculpt->modes.vwpaint.total_color[i][0];
+		total_color[1] += data->ob->sculpt->modes.vwpaint.total_color[i][1];
+		total_color[2] += data->ob->sculpt->modes.vwpaint.total_color[i][2];
 	}
 	if (total_hit_loops != 0) {
 		blend[0] = (unsigned char)round(sqrtl(divide_round_i(total_color[0], total_hit_loops)));
