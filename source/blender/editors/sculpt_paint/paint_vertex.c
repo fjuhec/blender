@@ -3405,26 +3405,22 @@ static void do_vpaint_brush_draw_task_cb_ex(
 					/* For each poly owning this vert, paint each loop belonging to this vert. */
 					for (int j = 0; j < ss->modes.vwpaint.vert_to_poly[v_index].count; j++) {
 						const int p_index = ss->modes.vwpaint.vert_to_poly[v_index].indices[j];
-						const MPoly * mp = &data->me->mpoly[p_index];
+						const int l_index = ss->modes.vwpaint.vert_to_loop[v_index].indices[j];
+						BLI_assert(data->me->mloop[l_index].v == v_index);
+						const MPoly *mp = &data->me->mpoly[p_index];
 						if (!use_face_sel || mp->flag & ME_FACE_SEL) {
-							for (int k = 0; k < mp->totloop; ++k) {
-								const int l_index = mp->loopstart + k;
-								const MLoop *l = &data->me->mloop[l_index];
-								if (l->v == v_index) {
-									/* Get the previous loop color */
-									if (ss->modes.vwpaint.previous_color[l_index] == 0) {
-										ss->modes.vwpaint.previous_color[l_index] = lcol[l_index];
-									}
-									const float final_alpha =
-									        255 * brush_fade * brush_strength * view_dot *
-									        tex_alpha * brush_alpha_pressure * grid_alpha;
-									/* Mix the new color with the original based on final_alpha. */
-									lcol[l_index] = vpaint_blend(
-									        data->vp, lcol[l_index],
-									        ss->modes.vwpaint.previous_color[l_index], color_final,
-									        final_alpha, 255 * brush_strength);
-								}
+							/* Get the previous loop color */
+							if (ss->modes.vwpaint.previous_color[l_index] == 0) {
+								ss->modes.vwpaint.previous_color[l_index] = lcol[l_index];
 							}
+							const float final_alpha =
+							        255 * brush_fade * brush_strength * view_dot *
+							        tex_alpha * brush_alpha_pressure * grid_alpha;
+							/* Mix the new color with the original based on final_alpha. */
+							lcol[l_index] = vpaint_blend(
+							        data->vp, lcol[l_index],
+							        ss->modes.vwpaint.previous_color[l_index], color_final,
+							        final_alpha, 255 * brush_strength);
 						}
 					}
 				}
@@ -3509,27 +3505,23 @@ static void do_vpaint_brush_blur_task_cb_ex(
 						/* For each poly owning this vert, paint each loop belonging to this vert. */
 						for (int j = 0; j < ss->modes.vwpaint.vert_to_poly[v_index].count; j++) {
 							const int p_index = ss->modes.vwpaint.vert_to_poly[v_index].indices[j];
+							const int l_index = ss->modes.vwpaint.vert_to_loop[v_index].indices[j];
+							BLI_assert(data->me->mloop[l_index].v == v_index);
 							const MPoly *mp = &data->me->mpoly[p_index];
 							if (!use_face_sel || mp->flag & ME_FACE_SEL) {
-								for (int k = 0; k < mp->totloop; ++k) {
-									const int l_index = mp->loopstart + k;
-									const MLoop *l = &data->me->mloop[l_index];
-									if (l->v == v_index) {
-										/* Get the previous loop color */
-										if (ss->modes.vwpaint.previous_color[l_index] == 0) {
-											ss->modes.vwpaint.previous_color[l_index] = lcol[l_index];
-										}
-										const float final_alpha =
-										        255 * brush_fade * brush_strength * view_dot *
-										        brush_alpha_pressure * grid_alpha;
-										/* Mix the new color with the original
-										 * based on the brush strength and the curve. */
-										lcol[l_index] = vpaint_blend(
-										        data->vp, lcol[l_index],
-										        ss->modes.vwpaint.previous_color[l_index],
-										        *((unsigned int *)col), final_alpha, 255 * brush_strength);
-									}
+								/* Get the previous loop color */
+								if (ss->modes.vwpaint.previous_color[l_index] == 0) {
+									ss->modes.vwpaint.previous_color[l_index] = lcol[l_index];
 								}
+								const float final_alpha =
+								        255 * brush_fade * brush_strength * view_dot *
+								        brush_alpha_pressure * grid_alpha;
+								/* Mix the new color with the original
+								 * based on the brush strength and the curve. */
+								lcol[l_index] = vpaint_blend(
+								        data->vp, lcol[l_index],
+								        ss->modes.vwpaint.previous_color[l_index],
+								        *((unsigned int *)col), final_alpha, 255 * brush_strength);
 							}
 						}
 					}
@@ -3598,10 +3590,11 @@ static void do_vpaint_brush_smudge_task_cb_ex(
 						unsigned int color_final = 0;
 						for (int j = 0; j < ss->modes.vwpaint.vert_to_poly[v_index].count; j++) {
 							const int p_index = ss->modes.vwpaint.vert_to_poly[v_index].indices[j];
+							const int l_index = ss->modes.vwpaint.vert_to_loop[v_index].indices[j];
+							BLI_assert(data->me->mloop[l_index].v == v_index);
 							const MPoly *mp = &data->me->mpoly[p_index];
 							if (!use_face_sel || mp->flag & ME_FACE_SEL) {
 								for (int k = 0; k < mp->totloop; k++) {
-									const unsigned int l_index = mp->loopstart + k;
 									const MLoop *ml = &data->me->mloop[l_index];
 									const unsigned int v_other_index = ml->v;
 									const MVert *mv_other = &data->me->mvert[v_other_index];
@@ -3625,28 +3618,24 @@ static void do_vpaint_brush_smudge_task_cb_ex(
 						if (do_color) {
 							/* For each poly owning this vert, paint each loop belonging to this vert. */
 							for (int j = 0; j < ss->modes.vwpaint.vert_to_poly[v_index].count; j++) {
-								int p_index = ss->modes.vwpaint.vert_to_poly[v_index].indices[j];
+								const int p_index = ss->modes.vwpaint.vert_to_poly[v_index].indices[j];
+								const int l_index = ss->modes.vwpaint.vert_to_loop[v_index].indices[j];
+								BLI_assert(data->me->mloop[l_index].v == v_index);
 								const MPoly *mp = &data->me->mpoly[p_index];
 								if (!use_face_sel || mp->flag & ME_FACE_SEL) {
-									for (int k = 0; k < mp->totloop; ++k) {
-										int l_index = mp->loopstart + k;
-										const MLoop *ml = &data->me->mloop[l_index];
-										if (ml->v == v_index) {
-											/* Get the previous loop color */
-											if (ss->modes.vwpaint.previous_color[l_index] == 0) {
-												ss->modes.vwpaint.previous_color[l_index] = lcol[l_index];
-											}
-											const float final_alpha =
-											        255 * brush_fade * brush_strength *
-											        view_dot * brush_alpha_pressure * grid_alpha;
-											/* Mix the new color with the original
-											 * based on the brush strength and the curve. */
-											lcol[l_index] = vpaint_blend(
-											        data->vp, lcol[l_index],
-											        ss->modes.vwpaint.previous_color[l_index], color_final,
-											        final_alpha, 255 * brush_strength);
-										}
+									/* Get the previous loop color */
+									if (ss->modes.vwpaint.previous_color[l_index] == 0) {
+										ss->modes.vwpaint.previous_color[l_index] = lcol[l_index];
 									}
+									const float final_alpha =
+									        255 * brush_fade * brush_strength *
+									        view_dot * brush_alpha_pressure * grid_alpha;
+									/* Mix the new color with the original
+									 * based on the brush strength and the curve. */
+									lcol[l_index] = vpaint_blend(
+									        data->vp, lcol[l_index],
+									        ss->modes.vwpaint.previous_color[l_index], color_final,
+									        final_alpha, 255 * brush_strength);
 								}
 							}
 						}
