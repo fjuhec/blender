@@ -46,7 +46,6 @@ extern struct GlobalsUboStorage ts; /* draw_common.c */
  * initialize most of them and EDIT_TEXT_cache_init()
  * for EDIT_TEXT_PassList */
 
-/* keep it under MAX_PASSES */
 typedef struct EDIT_TEXT_PassList {
 	/* Declare all passes here and init them in
 	 * EDIT_TEXT_cache_init().
@@ -54,14 +53,12 @@ typedef struct EDIT_TEXT_PassList {
 	struct DRWPass *pass;
 } EDIT_TEXT_PassList;
 
-/* keep it under MAX_BUFFERS */
 typedef struct EDIT_TEXT_FramebufferList {
 	/* Contains all framebuffer objects needed by this engine.
 	 * Only contains (GPUFrameBuffer *) */
 	struct GPUFrameBuffer *fb;
 } EDIT_TEXT_FramebufferList;
 
-/* keep it under MAX_TEXTURES */
 typedef struct EDIT_TEXT_TextureList {
 	/* Contains all framebuffer textures / utility textures
 	 * needed by this engine. Only viewport specific textures
@@ -69,7 +66,6 @@ typedef struct EDIT_TEXT_TextureList {
 	struct GPUTexture *texture;
 } EDIT_TEXT_TextureList;
 
-/* keep it under MAX_STORAGE */
 typedef struct EDIT_TEXT_StorageList {
 	/* Contains any other memory block that the engine needs.
 	 * Only directly MEM_(m/c)allocN'ed blocks because they are
@@ -121,8 +117,8 @@ static void EDIT_TEXT_engine_init(void *vedata)
 
 	/* Init Framebuffers like this: order is attachment order (for color texs) */
 	/*
-	 * DRWFboTexture tex[2] = {{&txl->depth, DRW_BUF_DEPTH_24},
-	 *                         {&txl->color, DRW_BUF_RGBA_8}};
+	 * DRWFboTexture tex[2] = {{&txl->depth, DRW_BUF_DEPTH_24, 0},
+	 *                         {&txl->color, DRW_BUF_RGBA_8, DRW_TEX_FILTER}};
 	 */
 
 	/* DRW_framebuffer_init takes care of checking if
@@ -182,7 +178,7 @@ static void EDIT_TEXT_cache_populate(void *vedata, Object *ob)
 
 	if (ob->type == OB_MESH) {
 		/* Get geometry cache */
-		struct Batch *geom = DRW_cache_surface_get(ob);
+		struct Batch *geom = DRW_cache_mesh_surface_get(ob);
 
 		/* Add geom to a shading group */
 		DRW_shgroup_call_add(stl->g_data->group, geom, ob->obmat);
@@ -257,9 +253,12 @@ void EDIT_TEXT_collection_settings_create(CollectionEngineSettings *ces)
 }
 #endif
 
+static const DrawEngineDataSize EDIT_TEXT_data_size = DRW_VIEWPORT_DATA_SIZE(EDIT_TEXT_Data);
+
 DrawEngineType draw_engine_edit_text_type = {
 	NULL, NULL,
 	N_("EditTextMode"),
+	&EDIT_TEXT_data_size,
 	&EDIT_TEXT_engine_init,
 	&EDIT_TEXT_engine_free,
 	&EDIT_TEXT_cache_init,

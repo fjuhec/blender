@@ -61,16 +61,39 @@ struct Object;
 struct Batch;
 struct DefaultFramebufferList;
 struct DefaultTextureList;
+struct LampEngineData;
+struct RenderEngineType;
+struct ViewportEngineData;
+struct ViewportEngineData_Info;
 
 typedef struct DRWUniform DRWUniform;
 typedef struct DRWInterface DRWInterface;
 typedef struct DRWPass DRWPass;
 typedef struct DRWShadingGroup DRWShadingGroup;
 
+#define DRW_VIEWPORT_LIST_SIZE(list) (sizeof(list) == sizeof(char) ? 0 : ((sizeof(list)) / sizeof(void *)))
+
+/* Unused members must be either pass list or 'char *' when not usd. */
+#define DRW_VIEWPORT_DATA_SIZE(ty) { \
+	DRW_VIEWPORT_LIST_SIZE(*(((ty *)NULL)->fbl)), \
+	DRW_VIEWPORT_LIST_SIZE(*(((ty *)NULL)->txl)), \
+	DRW_VIEWPORT_LIST_SIZE(*(((ty *)NULL)->psl)), \
+	DRW_VIEWPORT_LIST_SIZE(*(((ty *)NULL)->stl)) \
+}
+
+typedef struct DrawEngineDataSize {
+	int fbl_len;
+	int txl_len;
+	int psl_len;
+	int stl_len;
+} DrawEngineDataSize;
+
 typedef struct DrawEngineType {
 	struct DrawEngineType *next, *prev;
 
 	char idname[32];
+
+	const DrawEngineDataSize *vedata_size;
 
 	void (*engine_init)(void *vedata);
 	void (*engine_free)(void);
@@ -126,7 +149,9 @@ struct GPUTexture *DRW_texture_create_1D(
 struct GPUTexture *DRW_texture_create_2D(
         int w, int h, DRWTextureFormat format, DRWTextureFlag flags, const float *fpixels);
 struct GPUTexture *DRW_texture_create_2D_array(
-        int w, int h, int d, DRWTextureFormat UNUSED(format), DRWTextureFlag flags, const float *fpixels);
+        int w, int h, int d, DRWTextureFormat format, DRWTextureFlag flags, const float *fpixels);
+struct GPUTexture *DRW_texture_create_cube(
+        int w, DRWTextureFormat format, DRWTextureFlag flags, const float *fpixels);
 void DRW_texture_free(struct GPUTexture *tex);
 
 /* UBOs */
@@ -157,6 +182,7 @@ void DRW_uniformbuffer_free(struct GPUUniformBuffer *ubo);
 typedef struct DRWFboTexture {
 	struct GPUTexture **tex;
 	int format;
+	DRWTextureFlag flag;
 } DRWFboTexture;
 
 void DRW_framebuffer_init(struct GPUFrameBuffer **fb, int width, int height, DRWFboTexture textures[MAX_FBO_TEX], int texnbr);
@@ -165,6 +191,7 @@ void DRW_framebuffer_clear(bool color, bool depth, bool stencil, float clear_col
 void DRW_framebuffer_texture_attach(struct GPUFrameBuffer *fb, struct GPUTexture *tex, int slot);
 void DRW_framebuffer_texture_detach(struct GPUTexture *tex);
 void DRW_framebuffer_blit(struct GPUFrameBuffer *fb_read, struct GPUFrameBuffer *fb_write, bool depth);
+
 /* Shaders */
 struct GPUShader *DRW_shader_create(const char *vert, const char *geom, const char *frag, const char *defines);
 struct GPUShader *DRW_shader_create_with_lib(const char *vert, const char *geom, const char *frag, const char *lib, const char *defines);
@@ -205,7 +232,12 @@ DRWShadingGroup *DRW_shgroup_line_batch_create(struct GPUShader *shader, DRWPass
 
 void DRW_shgroup_free(struct DRWShadingGroup *shgroup);
 void DRW_shgroup_call_add(DRWShadingGroup *shgroup, struct Batch *geom, float (*obmat)[4]);
-void DRW_shgroup_dynamic_call_add(DRWShadingGroup *shgroup, ...);
+void DRW_shgroup_dynamic_call_add_array(DRWShadingGroup *shgroup, const void **attr, unsigned int attr_len);
+#define DRW_shgroup_dynamic_call_add(shgroup, ...) do { \
+	const void *array[] = {__VA_ARGS__}; \
+	DRW_shgroup_dynamic_call_add_array(shgroup, array, (sizeof(array) / sizeof(*array))); \
+} while (0)
+
 void DRW_shgroup_state_set(DRWShadingGroup *shgroup, DRWState state);
 void DRW_shgroup_attrib_int(DRWShadingGroup *shgroup, const char *name, int size);
 void DRW_shgroup_attrib_float(DRWShadingGroup *shgroup, const char *name, int size);
@@ -237,9 +269,9 @@ typedef enum {
 
 void DRW_viewport_init(const bContext *C);
 void DRW_viewport_matrix_get(float mat[4][4], DRWViewportMatrixType type);
-float *DRW_viewport_size_get(void);
-float *DRW_viewport_screenvecs_get(void);
-float *DRW_viewport_pixelsize_get(void);
+const float *DRW_viewport_size_get(void);
+const float *DRW_viewport_screenvecs_get(void);
+const float *DRW_viewport_pixelsize_get(void);
 bool DRW_viewport_is_persp_get(void);
 bool DRW_viewport_cache_is_dirty(void);
 
@@ -248,6 +280,8 @@ struct DefaultTextureList     *DRW_viewport_texture_list_get(void);
 
 /* Objects */
 void **DRW_object_engine_data_get(Object *ob, DrawEngineType *det);
+struct LampEngineData *DRW_lamp_engine_data_get(Object *ob, struct RenderEngineType *engine_type);
+void DRW_lamp_engine_data_free(struct LampEngineData *led);
 
 /* Settings */
 bool DRW_is_object_renderable(struct Object *ob);

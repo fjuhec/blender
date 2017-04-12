@@ -726,12 +726,13 @@ static void gp_draw_stroke_2d(const bGPDspoint *points, int totpoints, short thi
 
 	/* TODO: fancy++ with the magic of shaders */
 
-	/* tessellation code - draw stroke as series of connected quads with connection
+	/* tessellation code - draw stroke as series of connected quads (triangle strips in fact) with connection
 	 * edges rotated to minimize shrinking artifacts, and rounded endcaps
 	 */
 	{
 		const bGPDspoint *pt1, *pt2;
-		float pm[2];
+		float s0[2], s1[2];     /* segment 'center' points */
+		float pm[2];  /* normal from previous segment. */
 		int i;
 		float fpt[3];
 
@@ -740,19 +741,19 @@ static void gp_draw_stroke_2d(const bGPDspoint *points, int totpoints, short thi
 		unsigned int color = VertexFormat_add_attrib(format, "color", COMP_U8, 4, NORMALIZE_INT_TO_FLOAT);
 
 		immBindBuiltinProgram(GPU_SHADER_2D_FLAT_COLOR);
-		immBegin(PRIM_QUADS_XXX, (totpoints - 2) * 4 + 12);
+		immBegin(PRIM_TRIANGLE_STRIP, totpoints * 2 + 4);
+
+		/* get x and y coordinates from first point */
+		mul_v3_m4v3(fpt, diff_mat, &points->x);
+		gp_calc_2d_stroke_fxy(fpt, sflag, offsx, offsy, winx, winy, s0);
 
 		for (i = 0, pt1 = points, pt2 = points + 1; i < (totpoints - 1); i++, pt1++, pt2++) {
-			float s0[2], s1[2];     /* segment 'center' points */
 			float t0[2], t1[2];     /* tessellated coordinates */
 			float m1[2], m2[2];     /* gradient and normal */
 			float mt[2], sc[2];     /* gradient for thickness, point for end-cap */
 			float pthick;           /* thickness at segment point */
 
-			/* get x and y coordinates from points */
-			mul_v3_m4v3(fpt, diff_mat, &pt1->x);
-			gp_calc_2d_stroke_fxy(fpt, sflag, offsx, offsy, winx, winy, s0);
-
+			/* get x and y coordinates from point2 (point1 has already been computed in previous iteration). */
 			mul_v3_m4v3(fpt, diff_mat, &pt2->x);
 			gp_calc_2d_stroke_fxy(fpt, sflag, offsx, offsy, winx, winy, s1);
 
@@ -784,6 +785,7 @@ static void gp_draw_stroke_2d(const bGPDspoint *points, int totpoints, short thi
 				t1[0] = sc[0] + mt[0];
 				t1[1] = sc[1] + mt[1];
 
+				/* First two points of cap. */
 				immVertex2fv(pos, t0);
 				immVertex2fv(pos, t1);
 
@@ -796,9 +798,7 @@ static void gp_draw_stroke_2d(const bGPDspoint *points, int totpoints, short thi
 				t1[0] = s0[0] + mt[0];
 				t1[1] = s0[1] + mt[1];
 
-				/* draw this line twice (first to finish off start cap, then for stroke) */
-				immVertex2fv(pos, t1);
-				immVertex2fv(pos, t0);
+				/* Last two points of start cap (and first two points of first segment). */
 				immVertex2fv(pos, t0);
 				immVertex2fv(pos, t1);
 			}
@@ -832,9 +832,7 @@ static void gp_draw_stroke_2d(const bGPDspoint *points, int totpoints, short thi
 				t1[0] = s0[0] + mt[0];
 				t1[1] = s0[1] + mt[1];
 
-				/* draw this line twice (once for end of current segment, and once for start of next) */
-				immVertex2fv(pos, t1);
-				immVertex2fv(pos, t0);
+				/* Last two points of previous segment, and first two points of current segment. */
 				immVertex2fv(pos, t0);
 				immVertex2fv(pos, t1);
 			}
@@ -856,9 +854,7 @@ static void gp_draw_stroke_2d(const bGPDspoint *points, int totpoints, short thi
 				t1[0] = s1[0] + mt[0];
 				t1[1] = s1[1] + mt[1];
 
-				/* draw this line twice (once for end of stroke, and once for endcap)*/
-				immVertex2fv(pos, t1);
-				immVertex2fv(pos, t0);
+				/* Last two points of last segment (and first two points of end cap). */
 				immVertex2fv(pos, t0);
 				immVertex2fv(pos, t1);
 
@@ -875,10 +871,13 @@ static void gp_draw_stroke_2d(const bGPDspoint *points, int totpoints, short thi
 				t1[0] = sc[0] + mt[0];
 				t1[1] = sc[1] + mt[1];
 
-				immVertex2fv(pos, t1);
+				/* Last two points of end cap. */
 				immVertex2fv(pos, t0);
+				immVertex2fv(pos, t1);
 			}
 
+			/* store computed point2 coordinates as point1 ones of next segment. */
+			copy_v2_v2(s0, s1);
 			/* store stroke's 'natural' normal for next stroke to use */
 			copy_v2_v2(pm, m2);
 		}
