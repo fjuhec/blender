@@ -46,6 +46,8 @@
 #include "ED_screen.h"
 
 #include "GPU_matrix.h"
+#include "GPU_shader.h"
+#include "GPU_immediate.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -82,29 +84,39 @@ typedef struct RectTransformManipulator {
 
 /* -------------------------------------------------------------------- */
 
-static void rect_transform_draw_corners(rctf *r, const float offsetx, const float offsety)
+static void rect_transform_draw_corners(
+        const rctf *r, const float offsetx, const float offsety, const float color[3])
 {
-	glBegin(GL_LINES);
-	glVertex2f(r->xmin, r->ymin + offsety);
-	glVertex2f(r->xmin, r->ymin);
-	glVertex2f(r->xmin, r->ymin);
-	glVertex2f(r->xmin + offsetx, r->ymin);
+	unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 
-	glVertex2f(r->xmax, r->ymin + offsety);
-	glVertex2f(r->xmax, r->ymin);
-	glVertex2f(r->xmax, r->ymin);
-	glVertex2f(r->xmax - offsetx, r->ymin);
+	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+	immUniformColor3fv(color);
 
-	glVertex2f(r->xmax, r->ymax - offsety);
-	glVertex2f(r->xmax, r->ymax);
-	glVertex2f(r->xmax, r->ymax);
-	glVertex2f(r->xmax - offsetx, r->ymax);
+	immBegin(PRIM_LINES, 16);
 
-	glVertex2f(r->xmin, r->ymax - offsety);
-	glVertex2f(r->xmin, r->ymax);
-	glVertex2f(r->xmin, r->ymax);
-	glVertex2f(r->xmin + offsetx, r->ymax);
-	glEnd();
+	immVertex2f(pos, r->xmin, r->ymin + offsety);
+	immVertex2f(pos, r->xmin, r->ymin);
+	immVertex2f(pos, r->xmin, r->ymin);
+	immVertex2f(pos, r->xmin + offsetx, r->ymin);
+
+	immVertex2f(pos, r->xmax, r->ymin + offsety);
+	immVertex2f(pos, r->xmax, r->ymin);
+	immVertex2f(pos, r->xmax, r->ymin);
+	immVertex2f(pos, r->xmax - offsetx, r->ymin);
+
+	immVertex2f(pos, r->xmax, r->ymax - offsety);
+	immVertex2f(pos, r->xmax, r->ymax);
+	immVertex2f(pos, r->xmax, r->ymax);
+	immVertex2f(pos, r->xmax - offsetx, r->ymax);
+
+	immVertex2f(pos, r->xmin, r->ymax - offsety);
+	immVertex2f(pos, r->xmin, r->ymax);
+	immVertex2f(pos, r->xmin, r->ymax);
+	immVertex2f(pos, r->xmin + offsetx, r->ymax);
+
+	immEnd();
+
+	immUnbindProgram();
 }
 
 static void rect_transform_draw_interaction(
@@ -112,6 +124,7 @@ static void rect_transform_draw_interaction(
         const float half_w, const float half_h,
         const float w, const float h, const float line_width)
 {
+	/* Why generate coordinates for 4 vertices, when we only use three? */
 	float verts[4][2];
 
 	switch (highlighted) {
@@ -163,15 +176,28 @@ static void rect_transform_draw_interaction(
 			return;
 	}
 
-	glEnableClientState(GL_VERTEX_ARRAY);
-	glVertexPointer(2, GL_FLOAT, 0, verts);
+	VertexFormat *format = immVertexFormat();
+	unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
+	unsigned int color = VertexFormat_add_attrib(format, "color", COMP_F32, 3, KEEP_FLOAT);
+	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+
 	glLineWidth(line_width + 3.0);
-	glColor3f(0.0, 0.0, 0.0);
-	glDrawArrays(GL_LINE_STRIP, 0, 3);
+
+	immBegin(PRIM_LINE_STRIP, 3);
+	immAttrib3f(color, 0.0f, 0.0f, 0.0f);
+	immVertex2fv(pos, verts[0]);
+	immVertex2fv(pos, verts[1]);
+	immVertex2fv(pos, verts[2]);
+	immEnd();
+
 	glLineWidth(line_width);
-	glColor3fv(col);
-	glDrawArrays(GL_LINE_STRIP, 0, 3);
-	glLineWidth(1.0);
+
+	immBegin(PRIM_LINE_STRIP, 3);
+	immAttrib3fv(color, col);
+	immVertex2fv(pos, verts[0]);
+	immVertex2fv(pos, verts[1]);
+	immVertex2fv(pos, verts[2]);
+	immEnd();
 }
 
 static void manipulator_rect_transform_draw(const bContext *UNUSED(C), wmManipulator *manipulator)
@@ -206,15 +232,13 @@ static void manipulator_rect_transform_draw(const bContext *UNUSED(C), wmManipul
 	           ((cage->style & MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM) ? cage->scale[0] : cage->scale[1]));
 
 	/* corner manipulators */
-	glColor3f(0.0, 0.0, 0.0);
 	glLineWidth(cage->manipulator.line_width + 3.0f);
 
-	rect_transform_draw_corners(&r, w, h);
+	rect_transform_draw_corners(&r, w, h, (const float[3]){0, 0, 0});
 
 	/* corner manipulators */
-	glColor3fv(manipulator->col);
 	glLineWidth(cage->manipulator.line_width);
-	rect_transform_draw_corners(&r, w, h);
+	rect_transform_draw_corners(&r, w, h, manipulator->col);
 
 	rect_transform_draw_interaction(manipulator->col, manipulator->highlighted_part, half_w, half_h,
 	                                w, h, cage->manipulator.line_width);

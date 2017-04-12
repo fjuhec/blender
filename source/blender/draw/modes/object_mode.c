@@ -29,10 +29,14 @@
 #include "DNA_userdef_types.h"
 #include "DNA_armature_types.h"
 #include "DNA_camera_types.h"
+#include "DNA_curve_types.h"
+#include "DNA_object_force.h"
 #include "DNA_view3d_types.h"
 #include "DNA_world_types.h"
 
+#include "BKE_anim.h"
 #include "BKE_camera.h"
+#include "BKE_curve.h"
 #include "BKE_global.h"
 
 #include "ED_view3d.h"
@@ -56,7 +60,6 @@ extern char datatoc_object_grid_vert_glsl[];
 extern char datatoc_common_globals_lib_glsl[];
 
 /* *********** LISTS *********** */
-/* keep it under MAX_PASSES */
 typedef struct OBJECT_PassList {
 	struct DRWPass *non_meshes;
 	struct DRWPass *ob_center;
@@ -74,30 +77,27 @@ typedef struct OBJECT_PassList {
 	struct DRWPass *bone_wire;
 } OBJECT_PassList;
 
-/* keep it under MAX_BUFFERS */
 typedef struct OBJECT_FramebufferList {
 	struct GPUFrameBuffer *outlines;
 	struct GPUFrameBuffer *blur;
 } OBJECT_FramebufferList;
 
-/* keep it under MAX_TEXTURES */
 typedef struct OBJECT_TextureList {
 	struct GPUTexture *outlines_depth_tx;
 	struct GPUTexture *outlines_color_tx;
 	struct GPUTexture *outlines_blur_tx;
 } OBJECT_TextureList;
 
-/* keep it under MAX_STORAGE */
 typedef struct OBJECT_StorageList {
 	struct g_data *g_data;
 } OBJECT_StorageList;
 
 typedef struct OBJECT_Data {
 	void *engine_type;
-	void *fbl;
-	void *txl;
+	OBJECT_FramebufferList *fbl;
+	OBJECT_TextureList *txl;
 	OBJECT_PassList *psl;
-	void *stl;
+	OBJECT_StorageList *stl;
 } OBJECT_Data;
 
 /* *********** STATIC *********** */
@@ -113,6 +113,15 @@ typedef struct g_data{
 	DRWShadingGroup *single_arrow_line;
 	DRWShadingGroup *arrows;
 	DRWShadingGroup *axis_names;
+
+	/* Force Field */
+	DRWShadingGroup *field_wind;
+	DRWShadingGroup *field_force;
+	DRWShadingGroup *field_vortex;
+	DRWShadingGroup *field_curve_sta;
+	DRWShadingGroup *field_curve_end;
+	DRWShadingGroup *field_tube_limit;
+	DRWShadingGroup *field_cone_limit;
 
 	/* Speaker */
 	DRWShadingGroup *speaker;
@@ -142,6 +151,8 @@ typedef struct g_data{
 	DRWShadingGroup *center_active;
 	DRWShadingGroup *center_selected;
 	DRWShadingGroup *center_deselected;
+	DRWShadingGroup *center_selected_lib;
+	DRWShadingGroup *center_deselected_lib;
 
 	/* Camera */
 	DRWShadingGroup *camera;
@@ -194,15 +205,15 @@ static void OBJECT_engine_init(void *vedata)
 	OBJECT_TextureList *txl = ((OBJECT_Data *)vedata)->txl;
 	OBJECT_FramebufferList *fbl = ((OBJECT_Data *)vedata)->fbl;
 
-	float *viewport_size = DRW_viewport_size_get();
+	const float *viewport_size = DRW_viewport_size_get();
 
-	DRWFboTexture tex[2] = {{&txl->outlines_depth_tx, DRW_BUF_DEPTH_24},
-	                        {&txl->outlines_color_tx, DRW_BUF_RGBA_8}};
+	DRWFboTexture tex[2] = {{&txl->outlines_depth_tx, DRW_BUF_DEPTH_24, 0},
+	                        {&txl->outlines_color_tx, DRW_BUF_RGBA_8, DRW_TEX_FILTER}};
 	DRW_framebuffer_init(&fbl->outlines,
 	                     (int)viewport_size[0], (int)viewport_size[1],
 	                     tex, 2);
 
-	DRWFboTexture blur_tex = {&txl->outlines_blur_tx, DRW_BUF_RGBA_8};
+	DRWFboTexture blur_tex = {&txl->outlines_blur_tx, DRW_BUF_RGBA_8, DRW_TEX_FILTER};
 	DRW_framebuffer_init(&fbl->blur,
 	                     (int)viewport_size[0], (int)viewport_size[1],
 	                     &blur_tex, 1);
@@ -572,6 +583,19 @@ static void OBJECT_cache_init(void *vedata)
 		geom = DRW_cache_axis_names_get();
 		stl->g_data->axis_names = shgroup_instance_axis_names(psl->non_meshes, geom);
 
+		/* Force Field */
+		geom = DRW_cache_field_wind_get();
+		stl->g_data->field_wind = shgroup_instance_scaled(psl->non_meshes, geom);
+
+		geom = DRW_cache_field_force_get();
+		stl->g_data->field_force = shgroup_instance_screen_aligned(psl->non_meshes, geom);
+
+		geom = DRW_cache_field_vortex_get();
+		stl->g_data->field_vortex = shgroup_instance_scaled(psl->non_meshes, geom);
+
+		geom = DRW_cache_screenspace_circle_get();
+		stl->g_data->field_curve_sta = shgroup_instance_screen_aligned(psl->non_meshes, geom);
+
 		/* Speaker */
 		geom = DRW_cache_speaker_get();
 		stl->g_data->speaker = shgroup_instance(psl->non_meshes, geom);
@@ -640,9 +664,23 @@ static void OBJECT_cache_init(void *vedata)
 		geom = DRW_cache_square_get();
 		stl->g_data->lamp_spot_blend_rect = shgroup_instance(psl->non_meshes, geom);
 
+		/* -------- STIPPLES ------- */
+		/* TODO port to shader stipple */
+
 		/* Relationship Lines */
 		stl->g_data->relationship_lines = shgroup_dynlines_uniform_color(psl->non_meshes, ts.colorWire);
 		DRW_shgroup_state_set(stl->g_data->relationship_lines, DRW_STATE_STIPPLE_3);
+
+		/* Force Field Curve Guide End (here because of stipple) */
+		geom = DRW_cache_screenspace_circle_get();
+		stl->g_data->field_curve_end = shgroup_instance_screen_aligned(psl->non_meshes, geom);
+
+		/* Force Field Limits */
+		geom = DRW_cache_field_tube_limit_get();
+		stl->g_data->field_tube_limit = shgroup_instance_scaled(psl->non_meshes, geom);
+
+		geom = DRW_cache_field_cone_limit_get();
+		stl->g_data->field_cone_limit = shgroup_instance_scaled(psl->non_meshes, geom);
 	}
 
 	{
@@ -675,6 +713,16 @@ static void OBJECT_cache_init(void *vedata)
 		grp = DRW_shgroup_point_batch_create(sh, psl->ob_center);
 		DRW_shgroup_uniform_vec4(grp, "color", ts.colorDeselect, 1);
 		stl->g_data->center_deselected = grp;
+
+		/* Select (library) */
+		grp = DRW_shgroup_point_batch_create(sh, psl->ob_center);
+		DRW_shgroup_uniform_vec4(grp, "color", ts.colorLibrarySelect, 1);
+		stl->g_data->center_selected_lib = grp;
+
+		/* Deselect (library) */
+		grp = DRW_shgroup_point_batch_create(sh, psl->ob_center);
+		DRW_shgroup_uniform_vec4(grp, "color", ts.colorLibrary, 1);
+		stl->g_data->center_deselected_lib = grp;
 	}
 }
 
@@ -889,6 +937,105 @@ static void DRW_shgroup_empty(OBJECT_StorageList *stl, Object *ob, SceneLayer *s
 	}
 }
 
+static void DRW_shgroup_forcefield(OBJECT_StorageList *stl, Object *ob, SceneLayer *sl)
+{
+	int theme_id = DRW_object_wire_theme_get(ob, sl, NULL);
+	float *color = DRW_color_background_blend_get(theme_id);
+	PartDeflect *pd = ob->pd;
+	Curve *cu = (ob->type == OB_CURVE) ? ob->data : NULL;
+
+	/* TODO Move this to depsgraph */
+	float tmp[3];
+	copy_v3_fl(pd->drawvec1, ob->empty_drawsize);
+
+	switch (pd->forcefield) {
+		case PFIELD_WIND:
+			pd->drawvec1[2] = pd->f_strength;
+			break;
+		case PFIELD_VORTEX:
+			if (pd->f_strength < 0.0f) {
+				pd->drawvec1[1] = -pd->drawvec1[1];
+			}
+			break;
+		case PFIELD_GUIDE:
+			if (cu && (cu->flag & CU_PATH) && ob->curve_cache->path && ob->curve_cache->path->data) {
+				where_on_path(ob, 0.0f, pd->drawvec1, tmp, NULL, NULL, NULL);
+				where_on_path(ob, 1.0f, pd->drawvec2, tmp, NULL, NULL, NULL);
+			}
+			break;
+	}
+
+	if (pd->falloff == PFIELD_FALL_TUBE) {
+		pd->drawvec_falloff_max[0] = pd->drawvec_falloff_max[1] = (pd->flag & PFIELD_USEMAXR) ? pd->maxrad : 1.0f;
+		pd->drawvec_falloff_max[2] = (pd->flag & PFIELD_USEMAX) ? pd->maxdist : 0.0f;
+
+		pd->drawvec_falloff_min[0] = pd->drawvec_falloff_min[1] = (pd->flag & PFIELD_USEMINR) ? pd->minrad : 1.0f;
+		pd->drawvec_falloff_min[2] = (pd->flag & PFIELD_USEMIN) ? pd->mindist : 0.0f;
+	}
+	else if (pd->falloff == PFIELD_FALL_CONE) {
+		float radius, distance;
+
+		radius = DEG2RADF((pd->flag & PFIELD_USEMAXR) ? pd->maxrad : 1.0f);
+		distance = (pd->flag & PFIELD_USEMAX) ? pd->maxdist : 0.0f;
+		pd->drawvec_falloff_max[0] = pd->drawvec_falloff_max[1] = distance * sinf(radius);
+		pd->drawvec_falloff_max[2] = distance * cosf(radius);
+
+		radius = DEG2RADF((pd->flag & PFIELD_USEMINR) ? pd->minrad : 1.0f);
+		distance = (pd->flag & PFIELD_USEMIN) ? pd->mindist : 0.0f;
+
+		pd->drawvec_falloff_min[0] = pd->drawvec_falloff_min[1] = distance * sinf(radius);
+		pd->drawvec_falloff_min[2] = distance * cosf(radius);
+	}
+	/* End of things that should go to depthgraph */
+
+	switch (pd->forcefield) {
+		case PFIELD_WIND:
+			DRW_shgroup_dynamic_call_add(stl->g_data->field_wind, color, &pd->drawvec1, ob->obmat);
+			break;
+		case PFIELD_FORCE:
+			DRW_shgroup_dynamic_call_add(stl->g_data->field_force, color, &pd->drawvec1, ob->obmat);
+			break;
+		case PFIELD_VORTEX:
+			DRW_shgroup_dynamic_call_add(stl->g_data->field_vortex, color, &pd->drawvec1, ob->obmat);
+			break;
+		case PFIELD_GUIDE:
+			if (cu && (cu->flag & CU_PATH) && ob->curve_cache->path && ob->curve_cache->path->data) {
+				DRW_shgroup_dynamic_call_add(stl->g_data->field_curve_sta, color, &pd->f_strength, ob->obmat);
+				DRW_shgroup_dynamic_call_add(stl->g_data->field_curve_end, color, &pd->f_strength, ob->obmat);
+			}
+			break;
+	}
+
+	if (pd->falloff == PFIELD_FALL_SPHERE) {
+		/* as last, guide curve alters it */
+		if ((pd->flag & PFIELD_USEMAX) != 0) {
+			DRW_shgroup_dynamic_call_add(stl->g_data->field_curve_end, color, &pd->maxdist, ob->obmat);
+		}
+
+		if ((pd->flag & PFIELD_USEMIN) != 0) {
+			DRW_shgroup_dynamic_call_add(stl->g_data->field_curve_end, color, &pd->mindist, ob->obmat);
+		}
+	}
+	else if (pd->falloff == PFIELD_FALL_TUBE) {
+		if (pd->flag & (PFIELD_USEMAX | PFIELD_USEMAXR)) {
+			DRW_shgroup_dynamic_call_add(stl->g_data->field_tube_limit, color, &pd->drawvec_falloff_max, ob->obmat);
+		}
+
+		if (pd->flag & (PFIELD_USEMIN | PFIELD_USEMINR)) {
+			DRW_shgroup_dynamic_call_add(stl->g_data->field_tube_limit, color, &pd->drawvec_falloff_min, ob->obmat);
+		}
+	}
+	else if (pd->falloff == PFIELD_FALL_CONE) {
+		if (pd->flag & (PFIELD_USEMAX | PFIELD_USEMAXR)) {
+			DRW_shgroup_dynamic_call_add(stl->g_data->field_cone_limit, color, &pd->drawvec_falloff_max, ob->obmat);
+		}
+
+		if (pd->flag & (PFIELD_USEMIN | PFIELD_USEMINR)) {
+			DRW_shgroup_dynamic_call_add(stl->g_data->field_cone_limit, color, &pd->drawvec_falloff_min, ob->obmat);
+		}
+	}
+}
+
 static void DRW_shgroup_speaker(OBJECT_StorageList *stl, Object *ob, SceneLayer *sl)
 {
 	float *color;
@@ -908,12 +1055,27 @@ static void DRW_shgroup_relationship_lines(OBJECT_StorageList *stl, Object *ob)
 
 static void DRW_shgroup_object_center(OBJECT_StorageList *stl, Object *ob)
 {
+	const bool is_library = ob->id.us > 1 || ID_IS_LINKED_DATABLOCK(ob);
+	DRWShadingGroup *shgroup;
+
 	if ((ob->base_flag & BASE_SELECTED) != 0) {
-		DRW_shgroup_dynamic_call_add(stl->g_data->center_selected, ob->obmat[3]);
+		if (is_library) {
+			shgroup = stl->g_data->center_selected_lib;
+		}
+		else {
+			shgroup = stl->g_data->center_selected;
+		}
 	}
-	else if (0) {
-		DRW_shgroup_dynamic_call_add(stl->g_data->center_deselected, ob->obmat[3]);
+	else {
+		if (is_library) {
+			shgroup = stl->g_data->center_deselected_lib;
+		}
+		else {
+			shgroup = stl->g_data->center_deselected;
+		}
 	}
+
+	DRW_shgroup_dynamic_call_add(shgroup, ob->obmat[3]);
 }
 
 static void OBJECT_cache_populate(void *vedata, Object *ob)
@@ -935,7 +1097,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 				int theme_id = DRW_object_wire_theme_get(ob, sl, NULL);
 				if (ob != obedit) {
 					if (do_outlines) {
-						struct Batch *geom = DRW_cache_surface_get(ob);
+						struct Batch *geom = DRW_cache_mesh_surface_get(ob);
 						switch (theme_id) {
 							case TH_ACTIVE:
 								DRW_shgroup_call_add(stl->g_data->outlines_active, geom, ob->obmat);
@@ -978,6 +1140,10 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 			break;
 		default:
 			break;
+	}
+
+	if (ob->pd && ob->pd->forcefield) {
+		DRW_shgroup_forcefield(stl, ob, sl);
 	}
 
 	DRW_shgroup_object_center(stl, ob);
@@ -1048,9 +1214,12 @@ void OBJECT_collection_settings_create(IDProperty *props)
 	BKE_collection_engine_property_add_int(props, "show_backface_culling", false);
 }
 
+static const DrawEngineDataSize OBJECT_data_size = DRW_VIEWPORT_DATA_SIZE(OBJECT_Data);
+
 DrawEngineType draw_engine_object_type = {
 	NULL, NULL,
 	N_("ObjectMode"),
+	&OBJECT_data_size,
 	&OBJECT_engine_init,
 	&OBJECT_engine_free,
 	&OBJECT_cache_init,

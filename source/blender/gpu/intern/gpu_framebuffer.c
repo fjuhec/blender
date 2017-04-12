@@ -54,7 +54,7 @@ struct GPUFrameBuffer {
 	struct GPUStateValues attribs;
 };
 
-static void GPU_print_framebuffer_error(GLenum status, char err_out[256])
+static void gpu_print_framebuffer_error(GLenum status, char err_out[256])
 {
 	const char *format = "GPUFrameBuffer: framebuffer status %s\n";
 	const char *err = "unknown";
@@ -143,8 +143,7 @@ bool GPU_framebuffer_texture_attach(GPUFrameBuffer *fb, GPUTexture *tex, int slo
 	else
 		attachment = GL_COLOR_ATTACHMENT0 + slot;
 
-	glFramebufferTexture2D(GL_FRAMEBUFFER, attachment,
-		GPU_texture_target(tex), GPU_texture_opengl_bindcode(tex), 0);
+	glFramebufferTexture(GL_FRAMEBUFFER, attachment, GPU_texture_opengl_bindcode(tex), 0);
 
 	if (GPU_texture_depth(tex))
 		fb->depthtex = tex;
@@ -328,7 +327,7 @@ bool GPU_framebuffer_check_valid(GPUFrameBuffer *fb, char err_out[256])
 
 	if (status != GL_FRAMEBUFFER_COMPLETE) {
 		GPU_framebuffer_restore();
-		GPU_print_framebuffer_error(status, err_out);
+		gpu_print_framebuffer_error(status, err_out);
 		return false;
 	}
 
@@ -469,14 +468,14 @@ void GPU_framebuffer_blit(GPUFrameBuffer *fb_read, int read_slot, GPUFrameBuffer
 	glFramebufferTexture2D(
 	        GL_READ_FRAMEBUFFER, read_attach,
 	        GL_TEXTURE_2D, read_bind, 0);
-	BLI_assert(glCheckFramebufferStatusEXT(GL_READ_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+	BLI_assert(glCheckFramebufferStatus(GL_READ_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 
 	/* write into new single-sample buffer */
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb_write->object);
 	glFramebufferTexture2D(
 	        GL_DRAW_FRAMEBUFFER, write_attach,
 	        GL_TEXTURE_2D, write_bind, 0);
-	BLI_assert(glCheckFramebufferStatusEXT(GL_DRAW_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+	BLI_assert(glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 
 	glBlitFramebuffer(0, 0, read_w, read_h, 0, 0, write_w, write_h, (use_depth) ? GL_DEPTH_BUFFER_BIT : GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
@@ -610,7 +609,7 @@ void GPU_offscreen_read_pixels(GPUOffScreen *ofs, int type, void *pixels)
 		glFramebufferTexture2D(
 		        GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + ofs->color->fb_attachment,
 		        GL_TEXTURE_2D_MULTISAMPLE, ofs->color->bindcode, 0);
-		status = glCheckFramebufferStatusEXT(GL_READ_FRAMEBUFFER);
+		status = glCheckFramebufferStatus(GL_READ_FRAMEBUFFER);
 		if (status != GL_FRAMEBUFFER_COMPLETE) {
 			goto finally;
 		}

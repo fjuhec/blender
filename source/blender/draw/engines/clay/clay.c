@@ -73,14 +73,12 @@ typedef struct CLAY_Storage {
 	DRWShadingGroup *shgrps[MAX_CLAY_MAT];
 } CLAY_Storage;
 
-/* keep it under MAX_STORAGE */
 typedef struct CLAY_StorageList {
 	struct CLAY_Storage *storage;
 	struct GPUUniformBuffer *mat_ubo;
 	struct g_data *g_data;
 } CLAY_StorageList;
 
-/* keep it under MAX_BUFFERS */
 typedef struct CLAY_FramebufferList {
 	/* default */
 	struct GPUFrameBuffer *default_fb;
@@ -88,7 +86,6 @@ typedef struct CLAY_FramebufferList {
 	struct GPUFrameBuffer *dupli_depth;
 } CLAY_FramebufferList;
 
-/* keep it under MAX_TEXTURES */
 typedef struct CLAY_TextureList {
 	/* default */
 	struct GPUTexture *color;
@@ -97,7 +94,6 @@ typedef struct CLAY_TextureList {
 	struct GPUTexture *depth_dup;
 } CLAY_TextureList;
 
-/* keep it under MAX_PASSES */
 typedef struct CLAY_PassList {
 	struct DRWPass *depth_pass;
 	struct DRWPass *depth_pass_cull;
@@ -340,8 +336,8 @@ static void CLAY_engine_init(void *vedata)
 	}
 
 	{
-		float *viewport_size = DRW_viewport_size_get();
-		DRWFboTexture tex = {&txl->depth_dup, DRW_BUF_DEPTH_24};
+		const float *viewport_size = DRW_viewport_size_get();
+		DRWFboTexture tex = {&txl->depth_dup, DRW_BUF_DEPTH_24, 0};
 		DRW_framebuffer_init(&fbl->dupli_depth,
 		                     (int)viewport_size[0], (int)viewport_size[1],
 		                     &tex, 1);
@@ -360,7 +356,7 @@ static void CLAY_engine_init(void *vedata)
 		    {-1.0f, 1.0f, -1.0f, 1.0f}
 		};
 		int i;
-		float *size = DRW_viewport_size_get();
+		const float *size = DRW_viewport_size_get();
 
 		DRW_get_dfdy_factors(dfdyfacs);
 
@@ -579,7 +575,7 @@ static void CLAY_cache_populate(void *vedata, Object *ob)
 
 	/* TODO all renderable */
 	if (ob->type == OB_MESH) {
-		geom = DRW_cache_surface_get(ob);
+		geom = DRW_cache_mesh_surface_get(ob);
 
 		/* Depth Prepass */
 		DRW_shgroup_call_add((do_cull) ? stl->g_data->depth_shgrp_cull : stl->g_data->depth_shgrp, geom, ob->obmat);
@@ -650,9 +646,12 @@ static void CLAY_engine_free(void)
 	}
 }
 
+static const DrawEngineDataSize CLAY_data_size = DRW_VIEWPORT_DATA_SIZE(CLAY_Data);
+
 DrawEngineType draw_engine_clay_type = {
 	NULL, NULL,
 	N_("Clay"),
+	&CLAY_data_size,
 	&CLAY_engine_init,
 	&CLAY_engine_free,
 	&CLAY_cache_init,

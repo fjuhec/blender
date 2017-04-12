@@ -50,6 +50,7 @@
 #include "GPU_draw.h"
 #include "GPU_extensions.h"
 #include "GPU_framebuffer.h"
+#include "GPU_lamp.h"
 #include "GPU_shader.h"
 #include "GPU_texture.h"
 #include "GPU_uniformbuffer.h"
@@ -287,12 +288,27 @@ GPUTexture *DRW_texture_create_2D(int w, int h, DRWTextureFormat format, DRWText
 	return tex;
 }
 
-/* TODO make use of format */
-GPUTexture *DRW_texture_create_2D_array(int w, int h, int d, DRWTextureFormat UNUSED(format), DRWTextureFlag flags, const float *fpixels)
+GPUTexture *DRW_texture_create_2D_array(int w, int h, int d, DRWTextureFormat format, DRWTextureFlag flags, const float *fpixels)
 {
 	GPUTexture *tex;
+	GPUTextureFormat data_type;
+	int channels;
 
-	tex = GPU_texture_create_2D_array(w, h, d, fpixels, NULL);
+	drw_texture_get_format(format, &data_type, &channels);
+	tex = GPU_texture_create_2D_array_custom(w, h, d, channels, data_type, fpixels, NULL);
+	drw_texture_set_parameters(tex, flags);
+
+	return tex;
+}
+
+GPUTexture *DRW_texture_create_cube(int w, DRWTextureFormat format, DRWTextureFlag flags, const float *fpixels)
+{
+	GPUTexture *tex;
+	GPUTextureFormat data_type;
+	int channels;
+
+	drw_texture_get_format(format, &data_type, &channels);
+	tex = GPU_texture_create_cube_custom(w, channels, data_type, fpixels, NULL);
 	drw_texture_set_parameters(tex, flags);
 
 	return tex;
@@ -556,20 +572,17 @@ void DRW_shgroup_call_add(DRWShadingGroup *shgroup, Batch *geom, float (*obmat)[
 	BLI_addtail(&shgroup->calls, call);
 }
 
-void DRW_shgroup_dynamic_call_add(DRWShadingGroup *shgroup, ...)
+void DRW_shgroup_dynamic_call_add_array(DRWShadingGroup *shgroup, const void *attr[], unsigned int attr_len)
 {
-	va_list params;
-	int i;
 	DRWInterface *interface = shgroup->interface;
-	int size = sizeof(ListBase) + sizeof(void *) * interface->attribs_count;
+	unsigned int data_size = sizeof(void *) * interface->attribs_count;
+	int size = sizeof(ListBase) + data_size;
 
 	DRWDynamicCall *call = MEM_callocN(size, "DRWDynamicCall");
 
-	va_start(params, shgroup);
-	for (i = 0; i < interface->attribs_count; ++i) {
-		call->data[i] = va_arg(params, void *);
-	}
-	va_end(params);
+	BLI_assert(attr_len == interface->attribs_count);
+
+	memcpy((void *) call->data, attr, data_size);
 
 	interface->instance_count += 1;
 
@@ -1182,6 +1195,7 @@ void DRW_state_reset(void) {}
 
 #endif  /* WITH_CLAY_ENGINE */
 
+
 /* ****************************************** Settings ******************************************/
 
 bool DRW_is_object_renderable(Object *ob)
@@ -1204,8 +1218,11 @@ bool DRW_is_object_renderable(Object *ob)
 
 /* ****************************************** Framebuffers ******************************************/
 
-static GPUTextureFormat convert_tex_format(int fbo_format, int *channels)
+static GPUTextureFormat convert_tex_format(int fbo_format, int *channels, bool *is_depth)
 {
+	*is_depth = ((fbo_format == DRW_BUF_DEPTH_16) ||
+	             (fbo_format == DRW_BUF_DEPTH_24));
+
 	switch (fbo_format) {
 		case DRW_BUF_RGBA_8:   *channels = 4; return GPU_RGBA8;
 		case DRW_BUF_RGBA_16:  *channels = 4; return GPU_RGBA16F;
@@ -1215,7 +1232,6 @@ static GPUTextureFormat convert_tex_format(int fbo_format, int *channels)
 			*channels = 4; return GPU_RGBA8;
 	}
 }
-
 
 void DRW_framebuffer_init(struct GPUFrameBuffer **fb, int width, int height, DRWFboTexture textures[MAX_FBO_TEX],
                           int texnbr)
@@ -1231,18 +1247,13 @@ void DRW_framebuffer_init(struct GPUFrameBuffer **fb, int width, int height, DRW
 
 			if (!*fbotex.tex) {
 				int channels;
-				GPUTextureFormat gpu_format = convert_tex_format(fbotex.format, &channels);
+				bool is_depth;
+				GPUTextureFormat gpu_format = convert_tex_format(fbotex.format, &channels, &is_depth);
 
-				/* TODO refine to opengl formats */
-				if (fbotex.format == DRW_BUF_DEPTH_16 ||
-				    fbotex.format == DRW_BUF_DEPTH_24)
-				{
-					*fbotex.tex = GPU_texture_create_depth(width, height, NULL);
-					GPU_texture_compare_mode(*fbotex.tex, false);
-					GPU_texture_filter_mode(*fbotex.tex, false);
-				}
-				else {
-					*fbotex.tex = GPU_texture_create_2D_custom(width, height, channels, gpu_format, NULL, NULL);
+				*fbotex.tex = GPU_texture_create_2D_custom(width, height, channels, gpu_format, NULL, NULL);
+				drw_texture_set_parameters(*fbotex.tex, fbotex.flag);
+
+				if (!is_depth) {
 					++color_attachment;
 				}
 			}
@@ -1297,6 +1308,7 @@ void DRW_framebuffer_blit(struct GPUFrameBuffer *fb_read, struct GPUFrameBuffer 
 }
 
 /* ****************************************** Viewport ******************************************/
+
 static void *DRW_viewport_engine_data_get(void *engine_type)
 {
 	void *data = GPU_viewport_engine_data_get(DST.viewport, engine_type);
@@ -1307,17 +1319,37 @@ static void *DRW_viewport_engine_data_get(void *engine_type)
 	return data;
 }
 
-float *DRW_viewport_size_get(void)
+void DRW_engine_viewport_data_size_get(
+        const void *engine_type_v,
+        int *r_fbl_len, int *r_txl_len, int *r_psl_len, int *r_stl_len)
+{
+	const DrawEngineType *engine_type = engine_type_v;
+
+	if (r_fbl_len) {
+		*r_fbl_len = engine_type->vedata_size->fbl_len;
+	}
+	if (r_txl_len) {
+		*r_txl_len = engine_type->vedata_size->txl_len;
+	}
+	if (r_psl_len) {
+		*r_psl_len = engine_type->vedata_size->psl_len;
+	}
+	if (r_stl_len) {
+		*r_stl_len = engine_type->vedata_size->stl_len;
+	}
+}
+
+const float *DRW_viewport_size_get(void)
 {
 	return &DST.size[0];
 }
 
-float *DRW_viewport_screenvecs_get(void)
+const float *DRW_viewport_screenvecs_get(void)
 {
 	return &DST.screenvecs[0][0];
 }
 
-float *DRW_viewport_pixelsize_get(void)
+const float *DRW_viewport_pixelsize_get(void)
 {
 	return &DST.pixsize;
 }
@@ -1416,6 +1448,21 @@ void DRW_object_engine_data_free(Object *ob)
 	}
 
 	BLI_freelistN(&ob->drawdata);
+}
+
+LampEngineData *DRW_lamp_engine_data_get(Object *ob, RenderEngineType *engine_type)
+{
+	BLI_assert(ob->type == OB_LAMP);
+
+	Scene *scene = CTX_data_scene(DST.context);
+
+	/* TODO Dupliobjects */
+	return GPU_lamp_engine_data_get(scene, ob, NULL, engine_type);
+}
+
+void DRW_lamp_engine_data_free(LampEngineData *led)
+{
+	GPU_lamp_engine_data_free(led);
 }
 
 /* **************************************** RENDERING ************************************** */
@@ -1713,7 +1760,7 @@ static void DRW_debug_gpu_stats(void)
 		draw_stat(&rect, 0, v, engine->idname, sizeof(engine->idname));
 		v++;
 
-		for (int i = 0; i < MAX_PASSES; ++i) {
+		for (int i = 0; i < engine->vedata_size->psl_len; ++i) {
 			DRWPass *pass = data->psl->passes[i];
 			if (pass != NULL) {
 				GLuint64 time;
@@ -1771,14 +1818,29 @@ void DRW_draw_view(const bContext *C)
 	/* ideally only refresh when objects are added/removed */
 	/* or render properties / materials change */
 	if (cache_is_dirty) {
-		SceneLayer *sl = CTX_data_scene_layer(C);
+		SceneLayer *sl;
+		Scene *scene = CTX_data_scene(C);
 
 		DRW_engines_cache_init();
+
+		/* draw set first */
+		if (scene->set) {
+			sl = BKE_scene_layer_render_active(scene->set);
+			DEG_OBJECT_ITER(sl, ob);
+			{
+				ob->base_flag &= ~BASE_SELECTED;
+				DRW_engines_cache_populate(ob);
+			}
+			DEG_OBJECT_ITER_END
+		}
+
+		sl = CTX_data_scene_layer(C);
 		DEG_OBJECT_ITER(sl, ob);
 		{
 			DRW_engines_cache_populate(ob);
 		}
 		DEG_OBJECT_ITER_END
+
 		DRW_engines_cache_finish();
 	}
 
@@ -1789,6 +1851,8 @@ void DRW_draw_view(const bContext *C)
 	// DRW_draw_grid();
 	DRW_engines_draw_scene();
 	DRW_draw_callbacks_post_scene();
+
+	DRW_draw_manipulator();
 
 	DRW_draw_region_info();
 
