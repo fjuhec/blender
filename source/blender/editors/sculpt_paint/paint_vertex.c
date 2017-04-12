@@ -2222,15 +2222,14 @@ static void calc_area_normal_and_center_task_cb(void *userdata, const int n)
 	float(*area_nos)[3] = data->area_nos;
 	float(*area_cos)[3] = data->area_cos;
 
-	PBVHVertexIter vd;
-	SculptBrushTest test;
-
 	float private_co[2][3] = {{0.0f}};
 	float private_no[2][3] = {{0.0f}};
 	int   private_count[2] = {0};
 
+	SculptBrushTest test;
 	sculpt_brush_test_init(ss, &test);
 
+	PBVHVertexIter vd;
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
 		const float *co;
@@ -2384,14 +2383,14 @@ static void do_wpaint_brush_blur_task_cb_ex(
 	const bool use_face_sel = (data->me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
 	const bool use_vert_sel = (data->me->editflag & ME_EDIT_PAINT_VERT_SEL) != 0;
 
+	SculptBrushTest test;
+	sculpt_brush_test_init(ss, &test);
+
 	/* For each vertex */
 	PBVHVertexIter vd;
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
 		/* Test to see if the vertex coordinates are within the spherical brush region. */
-		SculptBrushTest test;
-		sculpt_brush_test_init(ss, &test);
-
 		if (sculpt_brush_test_sq(&test, vd.co)) {
 			/* For grid based pbvh, take the vert whose loop coopresponds to the current grid.
 			 * Otherwise, take the current vert. */
@@ -2457,14 +2456,15 @@ static void do_wpaint_brush_smudge_task_cb_ex(
 
 	sub_v3_v3v3(brush_dir, cache->location, cache->last_location);
 	if (normalize_v3(brush_dir) != 0.0f) {
+
+		SculptBrushTest test;
+		sculpt_brush_test_init(ss, &test);
+
 		/* For each vertex */
 		PBVHVertexIter vd;
 		BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 		{
 			/* Test to see if the vertex coordinates are within the spherical brush region. */
-			SculptBrushTest test;
-			sculpt_brush_test_init(ss, &test);
-
 			if (sculpt_brush_test_fast(&test, vd.co)) {
 				const float view_dot = (vd.no) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
 				if (view_dot > 0.0f) {
@@ -2546,13 +2546,14 @@ static void do_wpaint_brush_draw_task_cb_ex(
 	const bool use_face_sel = (data->me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
 	const bool use_vert_sel = (data->me->editflag & ME_EDIT_PAINT_VERT_SEL) != 0;
 
+	SculptBrushTest test;
+	sculpt_brush_test_init(ss, &test);
+
 	/* For each vertex */
 	PBVHVertexIter vd;
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
 		/* Test to see if the vertex coordinates are within the spherical brush region. */
-		SculptBrushTest test;
-		sculpt_brush_test_init(ss, &test);
 		if (sculpt_brush_test_sq(&test, vd.co)) {
 			/* Note: grids are 1:1 with corners (aka loops).
 			 * For multires, take the vert whose loop cooresponds to the current grid.
@@ -2620,12 +2621,13 @@ static void do_wpaint_brush_calc_ave_weight_cb_ex(
 	const bool use_face_sel = (data->me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
 	const bool use_vert_sel = (data->me->editflag & ME_EDIT_PAINT_VERT_SEL) != 0;
 
+	SculptBrushTest test;
+	sculpt_brush_test_init(ss, &test);
+
 	/* For each vertex */
 	PBVHVertexIter vd;
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
-		SculptBrushTest test;
-		sculpt_brush_test_init(ss, &test);
 		/* Test to see if the vertex coordinates are within the spherical brush region. */
 		if (sculpt_brush_test_sq(&test, vd.co)) {
 			const float view_dot = (vd.no) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
@@ -3257,11 +3259,11 @@ static void do_vpaint_brush_calc_ave_color_cb_ex(
 	data->ob->sculpt->modes.vwpaint.tot_loops_hit[n] = 0;
 	const bool use_face_sel = (data->me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
 
-	PBVHVertexIter vd;
 	SculptBrushTest test;
 	sculpt_brush_test_init(ss, &test);
 
 	/* For each vertex */
+	PBVHVertexIter vd;
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
 		/* Test to see if the vertex coordinates are within the spherical brush region. */
@@ -3327,14 +3329,14 @@ static void do_vpaint_brush_draw_task_cb_ex(
 	get_brush_alpha_data(scene, ss, brush, &brush_size_pressure, &brush_alpha_value, &brush_alpha_pressure);
 	const bool use_face_sel = (data->me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
 
+	SculptBrushTest test;
+	sculpt_brush_test_init(ss, &test);
+
 	/* For each vertex*/
 	PBVHVertexIter vd;
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
 		/* Test to see if the vertex coordinates are within the spherical brush region. */
-		SculptBrushTest test;
-		sculpt_brush_test_init(ss, &test);
-
 		if (sculpt_brush_test(&test, vd.co)) {
 			/* Note: Grids are 1:1 with corners (aka loops).
 			 * For grid based pbvh, take the vert whose loop cooresponds to the current grid.
@@ -3403,14 +3405,14 @@ static void do_vpaint_brush_blur_task_cb_ex(
 	get_brush_alpha_data(scene, ss, brush, &brush_size_pressure, &brush_alpha_value, &brush_alpha_pressure);
 	const bool use_face_sel = (data->me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
 
+	SculptBrushTest test;
+	sculpt_brush_test_init(ss, &test);
+
 	/* For each vertex */
 	PBVHVertexIter vd;
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
 		/* Test to see if the vertex coordinates are within the spherical brush region. */
-		SculptBrushTest test;
-		sculpt_brush_test_init(ss, &test);
-
 		if (sculpt_brush_test(&test, vd.co)) {
 			/* For grid based pbvh, take the vert whose loop cooresponds to the current grid. 
 			Otherwise, take the current vert. */
@@ -3501,14 +3503,15 @@ static void do_vpaint_brush_smudge_task_cb_ex(
 
 	sub_v3_v3v3(brush_dir, cache->location, cache->last_location);
 	if (normalize_v3(brush_dir) != 0.0f) {
+
+		SculptBrushTest test;
+		sculpt_brush_test_init(ss, &test);
+
 		/* For each vertex */
 		PBVHVertexIter vd;
 		BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 		{
 			/* Test to see if the vertex coordinates are within the spherical brush region. */
-			SculptBrushTest test;
-			sculpt_brush_test_init(ss, &test);
-
 			if (sculpt_brush_test(&test, vd.co)) {
 				/* For grid based pbvh, take the vert whose loop cooresponds to the current grid.
 				Otherwise, take the current vert. */
