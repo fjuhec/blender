@@ -2568,37 +2568,28 @@ static void do_wpaint_brush_draw_task_cb_ex(
 				if (view_dot > 0.0f) {
 					const float brush_fade = BKE_brush_curve_strength(brush, sqrtf(test.dist), cache->radius);
 					float final_alpha = view_dot * brush_fade * brush_strength * grid_alpha * brush_alpha_pressure;
-					float weight_curr;
 
 					/* Spray logic */
-					if (!(data->vp->flag & VP_SPRAY)) {
+					if ((data->vp->flag & VP_SPRAY) == 0) {
 						MDeformVert *dv = &data->me->dvert[v_index];
 						const MDeformWeight *dw;
 						dw = (data->vp->flag & VP_ONLYVGROUP) ?
 						        defvert_find_index(dv, data->wpi->active.index) :
 						        defvert_verify_index(dv, data->wpi->active.index);
-						weight_curr = dw->weight;
+						const float weight_curr = dw->weight;
 						if (ss->modes.vwpaint.max_weight[v_index] < 0) {
-							ss->modes.vwpaint.max_weight[v_index] = min_ff(brush_strength + dw->weight, 1.0f);
+							ss->modes.vwpaint.max_weight[v_index] = min_ff(brush_strength + weight_curr, 1.0f);
 						}
-						CLAMP(final_alpha, 0.0, ss->modes.vwpaint.max_weight[v_index] - dw->weight);
+						CLAMP(final_alpha, 0.0, ss->modes.vwpaint.max_weight[v_index] - weight_curr);
+
+						if (weight_curr >= ss->modes.vwpaint.max_weight[v_index]) {
+							continue;
+						}
 					}
 
-					/* Splash Prevention */
-					switch (data->vp->flag) {
-						case VP_SPRAY:
-							if (weight_curr < ss->modes.vwpaint.max_weight[v_index]) {
-								do_weight_paint_vertex(
-								        data->vp, data->ob, data->wpi,
-								        v_index, final_alpha, paintweight);
-							}
-							break;
-						default:
-							do_weight_paint_vertex(
-							        data->vp, data->ob, data->wpi,
-							        v_index, final_alpha, paintweight);
-							break;
-					}
+					do_weight_paint_vertex(
+					        data->vp, data->ob, data->wpi,
+					        v_index, final_alpha, paintweight);
 				}
 			}
 		}
@@ -2633,7 +2624,7 @@ static void do_wpaint_brush_calc_ave_weight_cb_ex(
 			const float view_dot = (vd.no) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
 			if (view_dot > 0.0 && BKE_brush_curve_strength(data->brush, sqrtf(test.dist), cache->radius) > 0.0) {
 				const int v_index = ccgdm ? data->me->mloop[vd.grid_indices[vd.g]].v : vd.vert_indices[vd.i];
-				const float grid_alpha = ccgdm ? 1.0f / vd.gridsize : 1.0f;
+				// const float grid_alpha = ccgdm ? 1.0f / vd.gridsize : 1.0f;
 				const char v_flag = data->me->mvert[v_index].flag;
 
 				/* If the vertex is selected. */
