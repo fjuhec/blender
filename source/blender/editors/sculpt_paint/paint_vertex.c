@@ -744,7 +744,7 @@ static unsigned int vpaint_blend_tool(const int tool, const unsigned int col,
 		case PAINT_BLEND_MIX:
 		case PAINT_BLEND_BLUR:     return mcol_blend(col, paintcol, alpha_i);
 		case PAINT_BLEND_AVERAGE:  return mcol_blend(col, paintcol, alpha_i);
-		case PAINT_BLEND_SMUDGE:   return mcol_blend(col, paintcol, alpha_i);
+		case PAINT_BLEND_SMEAR:    return mcol_blend(col, paintcol, alpha_i);
 		case PAINT_BLEND_ADD:      return mcol_add(col, paintcol, alpha_i);
 		case PAINT_BLEND_SUB:      return mcol_sub(col, paintcol, alpha_i);
 		case PAINT_BLEND_MUL:      return mcol_mul(col, paintcol, alpha_i);
@@ -905,7 +905,7 @@ static float wpaint_blend_tool(const int tool,
 	switch (tool) {
 		case PAINT_BLEND_MIX:
 		case PAINT_BLEND_AVERAGE:
-		case PAINT_BLEND_SMUDGE:
+		case PAINT_BLEND_SMEAR:
 		case PAINT_BLEND_BLUR:     return wval_blend(weight, paintval, alpha);
 		case PAINT_BLEND_ADD:      return wval_add(weight, paintval, alpha);
 		case PAINT_BLEND_SUB:      return wval_sub(weight, paintval, alpha);
@@ -2437,7 +2437,7 @@ static void do_wpaint_brush_blur_task_cb_ex(
 	BKE_pbvh_vertex_iter_end;
 }
 
-static void do_wpaint_brush_smudge_task_cb_ex(
+static void do_wpaint_brush_smear_task_cb_ex(
         void *userdata, void *UNUSED(userdata_chunk), const int n, const int UNUSED(thread_id))
 {
 	SculptThreadedTaskData *data = userdata;
@@ -2484,7 +2484,7 @@ static void do_wpaint_brush_smudge_task_cb_ex(
 						float stroke_dot_max = 0.0f;
 
 						/* Get the color of the loop in the opposite direction of the brush movement
-						 * (this callback is specifically for smudge.) */
+						 * (this callback is specifically for smear.) */
 						float weight_final = 0.0;
 						for (int j = 0; j < ss->modes.vwpaint.vert_to_poly[v_index].count; j++) {
 							const int p_index = ss->modes.vwpaint.vert_to_poly[v_index].indices[j];
@@ -2688,10 +2688,10 @@ static void wpaint_paint_leaves(
 			        0, totnode, &data, NULL, 0,
 			        do_wpaint_brush_draw_task_cb_ex, true, false);
 			break;
-		case PAINT_BLEND_SMUDGE:
+		case PAINT_BLEND_SMEAR:
 			BLI_task_parallel_range_ex(
 			        0, totnode, &data, NULL, 0,
-			        do_wpaint_brush_smudge_task_cb_ex, true, false);
+			        do_wpaint_brush_smear_task_cb_ex, true, false);
 			break;
 		case PAINT_BLEND_BLUR:
 			BLI_task_parallel_range_ex(
@@ -3475,7 +3475,7 @@ static void do_vpaint_brush_blur_task_cb_ex(
 	BKE_pbvh_vertex_iter_end;
 }
 
-static void do_vpaint_brush_smudge_task_cb_ex(
+static void do_vpaint_brush_smear_task_cb_ex(
         void *userdata, void *UNUSED(userdata_chunk), const int n, const int UNUSED(thread_id))
 {
 	SculptThreadedTaskData *data = userdata;
@@ -3630,10 +3630,10 @@ static void vpaint_paint_leaves(
 			    0, totnode, &data, NULL, 0,
 			    do_vpaint_brush_blur_task_cb_ex, true, false);
 			break;
-		case PAINT_BLEND_SMUDGE:
+		case PAINT_BLEND_SMEAR:
 			BLI_task_parallel_range_ex(
 			    0, totnode, &data, NULL, 0,
-			    do_vpaint_brush_smudge_task_cb_ex, true, false);
+			    do_vpaint_brush_smear_task_cb_ex, true, false);
 			break;
 		default:
 			BLI_task_parallel_range_ex(

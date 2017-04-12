@@ -95,7 +95,7 @@ EnumPropertyItem rna_enum_brush_vertex_tool_items[] = {
 	{PAINT_BLEND_LIGHTEN, "LIGHTEN", ICON_BRUSH_LIGHTEN, "Lighten", "Use lighten blending mode while painting"},
 	{PAINT_BLEND_DARKEN, "DARKEN", ICON_BRUSH_DARKEN, "Darken", "Use darken blending mode while painting"},
 	{PAINT_BLEND_AVERAGE, "AVERAGE", ICON_BRUSH_BLUR, "Average", "Use average blending mode while painting" },
-	{PAINT_BLEND_SMUDGE, "SMUDGE", ICON_BRUSH_BLUR, "Smudge", "Use smudge blending mode while painting" },
+	{PAINT_BLEND_SMEAR, "SMEAR", ICON_BRUSH_BLUR, "Smear", "Use smear blending mode while painting" },
 	{0, NULL, 0, NULL, NULL}
 };
 	

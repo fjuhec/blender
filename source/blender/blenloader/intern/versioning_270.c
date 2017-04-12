@@ -1620,10 +1620,10 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 				br->ob_mode = OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT;
 			}
 
-			br = (Brush *)BKE_libblock_find_name_ex(main, ID_BR, "Smudge");
+			br = (Brush *)BKE_libblock_find_name_ex(main, ID_BR, "Smear");
 			if (!br) {
-				br = BKE_brush_add(main, "Smudge", OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT);
-				br->vertexpaint_tool = PAINT_BLEND_SMUDGE;
+				br = BKE_brush_add(main, "Smear", OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT);
+				br->vertexpaint_tool = PAINT_BLEND_SMEAR;
 				br->ob_mode = OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT;
 			}
 		}
