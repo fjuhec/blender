@@ -2395,15 +2395,8 @@ static void do_wpaint_brush_blur_task_cb_ex(
 		if (sculpt_brush_test_sq(&test, vd.co)) {
 			/* For grid based pbvh, take the vert whose loop coopresponds to the current grid.
 			 * Otherwise, take the current vert. */
-			float grid_alpha = 1.0;
-			int v_index;
-			if (ccgdm) {
-				v_index = data->me->mloop[vd.grid_indices[vd.g]].v;
-				grid_alpha = 1.0 / vd.gridsize;
-			}
-			else {
-				v_index = vd.vert_indices[vd.i];
-			}
+			const int v_index = ccgdm ? data->me->mloop[vd.grid_indices[vd.g]].v : vd.vert_indices[vd.i];
+			const float grid_alpha = ccgdm ? 1.0f / vd.gridsize : 1.0f;
 			const char v_flag = data->me->mvert[v_index].flag;
 			/* If the vertex is selected */
 			if (!(use_face_sel || use_vert_sel) || v_flag & SELECT) {
@@ -2426,7 +2419,7 @@ static void do_wpaint_brush_blur_task_cb_ex(
 				/* Apply the weight to the vertex. */
 				if (total_hit_loops != 0) {
 					const float view_dot = (vd.no) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
-					if (view_dot > 0.0) {
+					if (view_dot > 0.0f) {
 						const float brush_fade = BKE_brush_curve_strength(brush, sqrtf(test.dist), cache->radius);
 						const float final_alpha =
 						        view_dot * brush_fade * brush_strength *
@@ -2474,22 +2467,16 @@ static void do_wpaint_brush_smudge_task_cb_ex(
 
 			if (sculpt_brush_test_fast(&test, vd.co)) {
 				const float view_dot = (vd.no) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
-				if (view_dot > 0.0) {
+				if (view_dot > 0.0f) {
 					bool do_color = false;
 
 					/* For grid based pbvh, take the vert whose loop cooresponds to the current grid.
 					 * Otherwise, take the current vert. */
-					int v_index;
-					float grid_alpha = 1.0;
-					if (ccgdm) {
-						v_index = data->me->mloop[vd.grid_indices[vd.g]].v;
-						grid_alpha = 1.0 / vd.gridsize;
-					}
-					else {
-						v_index = vd.vert_indices[vd.i];
-					}
+					const int v_index = ccgdm ? data->me->mloop[vd.grid_indices[vd.g]].v : vd.vert_indices[vd.i];
+					const float grid_alpha = ccgdm ? 1.0f / vd.gridsize : 1.0f;
 					const MVert *mv_curr = &data->me->mvert[v_index];
 					const char v_flag = data->me->mvert[v_index].flag;
+
 					/* If the vertex is selected */
 					if (!(use_face_sel || use_vert_sel) || v_flag & SELECT) {
 						/* Minimum dot product between brush direction and current
@@ -2570,40 +2557,33 @@ static void do_wpaint_brush_draw_task_cb_ex(
 			/* Note: grids are 1:1 with corners (aka loops).
 			 * For multires, take the vert whose loop cooresponds to the current grid.
 			 * Otherwise, take the current vert. */
-			int v_index;
-			float grid_alpha = 1.0;
-			if (ccgdm) {
-				v_index = data->me->mloop[vd.grid_indices[vd.g]].v;
-				grid_alpha = 1.0 / vd.gridsize;
-			}
-			else {
-				v_index = vd.vert_indices[vd.i];
-			}
+			const int v_index = ccgdm ? data->me->mloop[vd.grid_indices[vd.g]].v : vd.vert_indices[vd.i];
+			const float grid_alpha = ccgdm ? 1.0f / vd.gridsize : 1.0f;
 
 			const char v_flag = data->me->mvert[v_index].flag;
 			/* If the vertex is selected */
 			if (!(use_face_sel || use_vert_sel) || v_flag & SELECT) {
 				const float view_dot = (vd.no) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
-				const float brush_fade = BKE_brush_curve_strength(brush, sqrtf(test.dist), cache->radius);
-				float final_alpha = view_dot * brush_fade * brush_strength * grid_alpha * brush_alpha_pressure;
-				float weight_curr;
+				if (view_dot > 0.0f) {
+					const float brush_fade = BKE_brush_curve_strength(brush, sqrtf(test.dist), cache->radius);
+					float final_alpha = view_dot * brush_fade * brush_strength * grid_alpha * brush_alpha_pressure;
+					float weight_curr;
 
-				/* Spray logic */
-				if (!(data->vp->flag & VP_SPRAY)) {
-					MDeformVert *dv = &data->me->dvert[v_index];
-					const MDeformWeight *dw;
-					dw = (data->vp->flag & VP_ONLYVGROUP) ?
-					        defvert_find_index(dv, data->wpi->active.index) :
-					        defvert_verify_index(dv, data->wpi->active.index);
-					weight_curr = dw->weight;
-					if (ss->modes.vwpaint.max_weight[v_index] < 0) {
-						ss->modes.vwpaint.max_weight[v_index] = min_ff(brush_strength + dw->weight, 1.0f);
+					/* Spray logic */
+					if (!(data->vp->flag & VP_SPRAY)) {
+						MDeformVert *dv = &data->me->dvert[v_index];
+						const MDeformWeight *dw;
+						dw = (data->vp->flag & VP_ONLYVGROUP) ?
+						        defvert_find_index(dv, data->wpi->active.index) :
+						        defvert_verify_index(dv, data->wpi->active.index);
+						weight_curr = dw->weight;
+						if (ss->modes.vwpaint.max_weight[v_index] < 0) {
+							ss->modes.vwpaint.max_weight[v_index] = min_ff(brush_strength + dw->weight, 1.0f);
+						}
+						CLAMP(final_alpha, 0.0, ss->modes.vwpaint.max_weight[v_index] - dw->weight);
 					}
-					CLAMP(final_alpha, 0.0, ss->modes.vwpaint.max_weight[v_index] - dw->weight);
-				}
 
-				/* Splash Prevention */
-				if (view_dot > 0.0) {
+					/* Splash Prevention */
 					switch (data->vp->flag) {
 						case VP_SPRAY:
 							if (weight_curr < ss->modes.vwpaint.max_weight[v_index]) {
@@ -2648,18 +2628,12 @@ static void do_wpaint_brush_calc_ave_weight_cb_ex(
 		sculpt_brush_test_init(ss, &test);
 		/* Test to see if the vertex coordinates are within the spherical brush region. */
 		if (sculpt_brush_test_sq(&test, vd.co)) {
-			float view_dot = (vd.no) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
+			const float view_dot = (vd.no) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
 			if (view_dot > 0.0 && BKE_brush_curve_strength(data->brush, sqrtf(test.dist), cache->radius) > 0.0) {
-				int v_index;
-				float grid_alpha = 1.0;
-				if (ccgdm) {
-					v_index = data->me->mloop[vd.grid_indices[vd.g]].v;
-					grid_alpha = 1.0 / vd.gridsize;
-				}
-				else {
-					v_index = vd.vert_indices[vd.i];
-				}
+				const int v_index = ccgdm ? data->me->mloop[vd.grid_indices[vd.g]].v : vd.vert_indices[vd.i];
+				const float grid_alpha = ccgdm ? 1.0f / vd.gridsize : 1.0f;
 				const char v_flag = data->me->mvert[v_index].flag;
+
 				/* If the vertex is selected. */
 				if (!(use_face_sel || use_vert_sel) || v_flag & SELECT) {
 					ss->modes.vwpaint.tot_loops_hit[n] += ss->modes.vwpaint.vert_to_loop[v_index].count;
@@ -3292,11 +3266,7 @@ static void do_vpaint_brush_calc_ave_color_cb_ex(
 	{
 		/* Test to see if the vertex coordinates are within the spherical brush region. */
 		if (sculpt_brush_test_fast(&test, vd.co)) {
-			int v_index;
-			if (ccgdm)
-				v_index = data->me->mloop[vd.grid_indices[vd.g]].v;
-			else
-				v_index = vd.vert_indices[vd.i];
+			const int v_index = ccgdm ? data->me->mloop[vd.grid_indices[vd.g]].v : vd.vert_indices[vd.i];
 			if (BKE_brush_curve_strength(data->brush, test.dist, cache->radius) > 0.0) {
 				/* If the vertex is selected for painting. */
 				const MVert *mv = &data->me->mvert[v_index];
@@ -3328,12 +3298,7 @@ static void handle_texture_brush(
 {
 	SculptSession *ss = data->ob->sculpt;
 	CCGDerivedMesh *ccgdm = BKE_pbvh_get_ccgdm(ss->pbvh);
-
-	int v_index;
-	if (ccgdm)
-		v_index = data->me->mloop[vd.grid_indices[vd.g]].v;
-	else
-		v_index = vd.vert_indices[vd.i];
+	const int v_index = ccgdm ? data->me->mloop[vd.grid_indices[vd.g]].v : vd.vert_indices[vd.i];
 
 	float rgba[4];
 	float rgba_br[3];
@@ -3374,15 +3339,8 @@ static void do_vpaint_brush_draw_task_cb_ex(
 			/* Note: Grids are 1:1 with corners (aka loops).
 			 * For grid based pbvh, take the vert whose loop cooresponds to the current grid.
 			 * Otherwise, take the current vert. */
-			float grid_alpha = 1.0;
-			int v_index;
-			if (ccgdm) {
-				v_index = data->me->mloop[vd.grid_indices[vd.g]].v;
-				grid_alpha = 1.0 / vd.gridsize;
-			}
-			else {
-				v_index = vd.vert_indices[vd.i];
-			}
+			const int v_index = ccgdm ? data->me->mloop[vd.grid_indices[vd.g]].v : vd.vert_indices[vd.i];
+			const float grid_alpha = ccgdm ? 1.0f / vd.gridsize : 1.0f;
 			const MVert *mv = &data->me->mvert[v_index];
 
 			/* If the vertex is selected for painting. */
@@ -3390,7 +3348,7 @@ static void do_vpaint_brush_draw_task_cb_ex(
 				/* Calc the dot prod. between ray norm on surf and current vert
 				 * (ie splash prevention factor), and only paint front facing verts. */
 				const float view_dot = (vd.no) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
-				if (view_dot > 0.0) {
+				if (view_dot > 0.0f) {
 					const float brush_fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
 					unsigned int color_final = data->vpd->paintcol;
 
@@ -3456,19 +3414,12 @@ static void do_vpaint_brush_blur_task_cb_ex(
 		if (sculpt_brush_test(&test, vd.co)) {
 			/* For grid based pbvh, take the vert whose loop cooresponds to the current grid. 
 			Otherwise, take the current vert. */
-			float grid_alpha = 1.0;
-			int v_index;
-			if (ccgdm) {
-				v_index = data->me->mloop[vd.grid_indices[vd.g]].v;
-				grid_alpha = 1.0 / vd.gridsize;
-			}
-			else {
-				v_index = vd.vert_indices[vd.i];
-			}
+			const int v_index = ccgdm ? data->me->mloop[vd.grid_indices[vd.g]].v : vd.vert_indices[vd.i];
+			const float grid_alpha = ccgdm ? 1.0f / vd.gridsize : 1.0f;
 			const MVert *mv = &data->me->mvert[v_index];
 
-			float view_dot = (vd.no) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
-			if (view_dot > 0.0) {
+			const float view_dot = (vd.no) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
+			if (view_dot > 0.0f) {
 				const float brush_fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
 
 				/* If the vertex is selected for painting. */
@@ -3561,23 +3512,16 @@ static void do_vpaint_brush_smudge_task_cb_ex(
 			if (sculpt_brush_test(&test, vd.co)) {
 				/* For grid based pbvh, take the vert whose loop cooresponds to the current grid.
 				Otherwise, take the current vert. */
-				float grid_alpha = 1.0;
-				int v_index;
-				if (ccgdm) {
-					v_index = data->me->mloop[vd.grid_indices[vd.g]].v;
-					grid_alpha = 1.0 / vd.gridsize;
-				}
-				else {
-					v_index = vd.vert_indices[vd.i];
-				}
+				const int v_index = ccgdm ? data->me->mloop[vd.grid_indices[vd.g]].v : vd.vert_indices[vd.i];
+				const float grid_alpha = ccgdm ? 1.0f / vd.gridsize : 1.0f;
 				const MVert *mv_curr = &data->me->mvert[v_index];
 
 				/* if the vertex is selected for painting. */
 				if (!use_face_sel || mv_curr->flag & SELECT) {
 					/* Calc the dot prod. between ray norm on surf and current vert
 					(ie splash prevention factor), and only paint front facing verts. */
-					float view_dot = (vd.no) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
-					if (view_dot > 0.0) {
+					const float view_dot = (vd.no) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
+					if (view_dot > 0.0f) {
 						const float brush_fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
 
 						bool do_color = false;
