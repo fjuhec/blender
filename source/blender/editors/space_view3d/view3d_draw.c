@@ -3766,7 +3766,7 @@ bool view3d_is_hmd_view_mirror(const wmWindowManager *wm, const View3D *v3d, con
 }
 
 static void view3d_hmd_calc_projection_matrix_from_device(
-        ARegion *region, View3D *v3d, const RegionView3D *rv3d,
+        ARegion *region, View3D *v3d, RegionView3D *rv3d,
         const rcti *viewplane_rect, enum HMDViewMatrixType mat_type,
         float r_projectionmat[4][4])
 {
@@ -3785,24 +3785,24 @@ static void view3d_hmd_calc_projection_matrix_from_device(
 	const float hmd_znear = WM_device_HMD_projection_z_near_get();
 	const float hmd_zfar = WM_device_HMD_projection_z_far_get();
 	const float hmd_fov = WM_device_HMD_FOV_get(is_left);
-	const int winx = region->winx;
-	const int winy = region->winy;
+	const char rv3d_persp = rv3d->persp;
 
 
 	v3d->near = hmd_znear;
 	v3d->far = hmd_zfar;
 	v3d->lens = fov_to_focallength(hmd_fov, DEFAULT_SENSOR_WIDTH);
+	rv3d->persp = RV3D_PERSP;
 
 	/* from ED_view3d_viewplane_get, but we override zoom */
 	BKE_camera_params_init(&params);
 	BKE_camera_params_from_view3d(&params, v3d, rv3d);
 	params.zoom = 1.0f;
-	BKE_camera_params_compute_viewplane(&params, winx, winy, 1.0f, 1.0f);
+	BKE_camera_params_compute_viewplane(&params, region->winx, region->winy, 1.0f, 1.0f);
 	viewplane = params.viewplane;
 
 	if (viewplane_rect) {
 		/* picking/selecting */
-		view3d_winmatrix_viewplane_adjust_for_rect(&viewplane, viewplane_rect, winx, winy, &viewplane);
+		view3d_winmatrix_viewplane_adjust_for_rect(&viewplane, viewplane_rect, region->winx, region->winy, &viewplane);
 	}
 
 	BLI_assert(params.clipsta == hmd_znear && params.clipend == hmd_zfar);
@@ -3827,6 +3827,7 @@ static void view3d_hmd_calc_projection_matrix_from_device(
 	v3d->near = v3d_znear;
 	v3d->far = v3d_zfar;
 	v3d->lens = v3d_lens;
+	rv3d->persp = rv3d_persp;
 }
 
 static void view3d_hmd_calc_modelview_matrix_from_device(
