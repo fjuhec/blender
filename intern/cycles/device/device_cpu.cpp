@@ -185,7 +185,7 @@ public:
 	KernelFunctions<void(*)(int, int, float*, float*, float*, float*, int*, int, int)>       filter_nlm_update_output_kernel;
 	KernelFunctions<void(*)(float*, float*, int*, int)>                                      filter_nlm_normalize_kernel;
 
-	KernelFunctions<void(*)(int, float*, int, int, int, float*, int*, int*, int, int, bool)>                                          filter_construct_transform_kernel;
+	KernelFunctions<void(*)(int, float*, int, int, int, float*, int*, int*, int, int, float)>                                         filter_construct_transform_kernel;
 	KernelFunctions<void(*)(int, int, float*, float*, float*, float*, float*, int*, float*, float3*, int*, int*, int, int, int, int)> filter_nlm_construct_gramian_kernel;
 	KernelFunctions<void(*)(int, int, int, int, int, float*, int*, float*, float3*, int*, int)>                                       filter_finalize_kernel;
 
@@ -456,7 +456,7 @@ public:
 				                                    &task->rect.x,
 				                                    task->buffer.pass_stride,
 				                                    task->radius,
-				                                    task->relative_pca);
+				                                    task->pca_threshold);
 			}
 		}
 		return true;

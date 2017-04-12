@@ -520,7 +520,12 @@ void BlenderSession::render()
 		buffer_params.denoising_clean_pass = scene->film->denoising_clean_pass;
 		session->params.denoising_radius = b_layer_iter->denoising_radius();
 		session->params.denoising_k2 = powf(2.0f, b_layer_iter->denoising_strength() - 1.0f);
-		session->params.denoising_relative_pca = b_layer_iter->denoising_relative_pca();
+		if(b_layer_iter->denoising_relative_pca()) {
+			session->params.denoising_pca = -powf(10.0f, b_layer_iter->denoising_feature_strength() - 4.0f);
+		}
+		else {
+			session->params.denoising_pca = powf(10.0f, b_layer_iter->denoising_feature_strength() - 1.0f);
+		}
 
 		scene->film->pass_alpha_threshold = b_layer_iter->pass_alpha_threshold();
 		scene->film->tag_passes_update(scene, passes);

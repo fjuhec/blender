@@ -60,7 +60,7 @@ public:
 	bool use_denoising;
 	int denoising_radius;
 	float denoising_k2;
-	bool denoising_relative_pca;
+	float denoising_pca;
 
 	double cancel_timeout;
 	double reset_timeout;
@@ -89,7 +89,7 @@ public:
 
 		denoising_radius = 8;
 		denoising_k2 = 0.5f;
-		denoising_relative_pca = false;
+		denoising_pca = false;
 
 		cancel_timeout = 0.1;
 		reset_timeout = 0.1;
@@ -114,7 +114,7 @@ public:
 		&& use_denoising == params.use_denoising
 		&& denoising_radius == params.denoising_radius
 		&& denoising_k2 == params.denoising_k2
-		&& denoising_relative_pca == params.denoising_relative_pca
+		&& denoising_pca == params.denoising_pca
 		&& display_buffer_linear == params.display_buffer_linear
 		&& cancel_timeout == params.cancel_timeout
 		&& reset_timeout == params.reset_timeout

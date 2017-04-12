@@ -24,7 +24,7 @@ void DenoisingTask::init_from_devicetask(const DeviceTask &task)
 {
 	radius = task.denoising_radius;
 	nlm_k_2 = task.denoising_k2;
-	relative_pca = task.denoising_relative_pca;
+	pca_threshold = task.denoising_pca;
 
 	render_buffer.pass_stride = task.pass_stride;
 	render_buffer.denoising_data_offset  = task.pass_denoising_data;

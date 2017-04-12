@@ -5141,6 +5141,12 @@ static void rna_def_scene_render_layer(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Denoising Strength Adjust", "Controls neighbor pixel weighting for the denoising filter (lower values preserve more detail, but aren't as smooth)");
 	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
 
+	prop = RNA_def_property(srna, "denoising_feature_strength", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "denoising_feature_strength");
+	RNA_def_property_range(prop, -4.0f, 4.0f);
+	RNA_def_property_ui_text(prop, "Denoising Feature Strength Adjust", "Controls removal of noisy image feature passes (lower values preserve more detail, but aren't as smooth)");
+	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
+
 	prop = RNA_def_property(srna, "denoising_radius", PROP_INT, PROP_NONE);
 	RNA_def_property_int_sdna(prop, NULL, "denoising_radius");
 	RNA_def_property_range(prop, 1, 50);

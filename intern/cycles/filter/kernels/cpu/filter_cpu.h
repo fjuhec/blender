@@ -61,7 +61,7 @@ void KERNEL_FUNCTION_FULL_NAME(filter_construct_transform)(int sample,
                                                            int* rect,
                                                            int pass_stride,
                                                            int radius,
-                                                           bool relative_pca);
+                                                           float pca_threshold);
 
 void KERNEL_FUNCTION_FULL_NAME(filter_divide_combined)(int x, int y,
                                                        int sample,

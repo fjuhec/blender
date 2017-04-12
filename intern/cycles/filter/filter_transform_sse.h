@@ -20,7 +20,7 @@ ccl_device void kernel_filter_construct_transform(int sample, float ccl_readonly
                                                   int x, int y, int4 rect,
                                                   int pass_stride,
                                                   float *transform, int *rank,
-                                                  int radius, bool relative_pca)
+                                                  int radius, float pca_threshold)
 {
 	int buffer_w = align_up(rect.z - rect.x, 4);
 
@@ -69,12 +69,12 @@ ccl_device void kernel_filter_construct_transform(int sample, float ccl_readonly
 	math_trimatrix_jacobi_eigendecomposition(feature_matrix, transform, DENOISE_FEATURES, 1);
 
 	*rank = 0;
-	if(relative_pca) {
+	if(pca_threshold < 0.0f) {
 		float threshold_energy = 0.0f;
 		for(int i = 0; i < DENOISE_FEATURES; i++) {
 			threshold_energy += feature_matrix[i*DENOISE_FEATURES+i];
 		}
-		threshold_energy *= 0.999f;
+		threshold_energy *= 1.0f - (-pca_threshold);
 
 		float reduced_energy = 0.0f;
 		for(int i = 0; i < DENOISE_FEATURES; i++, (*rank)++) {
@@ -91,7 +91,7 @@ ccl_device void kernel_filter_construct_transform(int sample, float ccl_readonly
 	else {
 		for(int i = 0; i < DENOISE_FEATURES; i++, (*rank)++) {
 			float s = feature_matrix[i*DENOISE_FEATURES+i];
-			if(i >= 2 && sqrtf(s) < 1.0f)
+			if(i >= 2 && sqrtf(s) < pca_threshold)
 				break;
 			/* Bake the feature scaling into the transformation matrix. */
 			for(int j = 0; j < DENOISE_FEATURES; j++) {

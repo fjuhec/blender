@@ -30,7 +30,7 @@ public:
 	/* Parameters of the denoising algorithm. */
 	int radius;
 	float nlm_k_2;
-	bool relative_pca;
+	float pca_threshold;
 	bool use_split_variance;
 
 	/* Pointer and parameters of the RenderBuffers. */

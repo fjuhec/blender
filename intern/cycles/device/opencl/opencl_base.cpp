@@ -667,7 +667,6 @@ bool OpenCLDeviceBase::denoising_construct_transform(DenoisingTask *task)
 
 	cl_kernel ckFilterConstructTransform = denoising_program(ustring("filter_construct_transform"));
 
-	int relative_pca = task->relative_pca;
 	kernel_set_args(ckFilterConstructTransform, 0,
 	                task->render_buffer.samples,
 	                buffer_mem,
@@ -677,7 +676,7 @@ bool OpenCLDeviceBase::denoising_construct_transform(DenoisingTask *task)
 	                task->rect,
 	                task->buffer.pass_stride,
 	                task->radius,
-	                relative_pca);
+	                task->pca_threshold);
 
 	enqueue_kernel(ckFilterConstructTransform,
 	               task->storage.w,

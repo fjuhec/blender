@@ -116,7 +116,7 @@ void KERNEL_FUNCTION_FULL_NAME(filter_construct_transform)(int sample,
                                                            int* prefilter_rect,
                                                            int pass_stride,
                                                            int radius,
-                                                           bool relative_pca)
+                                                           float pca_threshold)
 {
 #ifdef KERNEL_STUB
 	STUB_ASSERT(KERNEL_ARCH, filter_construct_transform);
@@ -130,7 +130,7 @@ void KERNEL_FUNCTION_FULL_NAME(filter_construct_transform)(int sample,
 	                                  transform,
 	                                  rank,
 	                                  radius,
-	                                  relative_pca);
+	                                  pca_threshold);
 #endif
 }
 

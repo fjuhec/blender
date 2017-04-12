@@ -100,7 +100,7 @@ __kernel void kernel_ocl_filter_construct_transform(int sample,
                                                     int4 rect,
                                                     int pass_stride,
                                                     int radius,
-                                                    int relative_pca)
+                                                    float pca_threshold)
 {
 	int x = get_global_id(0);
 	int y = get_global_id(1);
@@ -111,7 +111,7 @@ __kernel void kernel_ocl_filter_construct_transform(int sample,
 		                                  x + filter_area.x, y + filter_area.y,
 		                                  rect, pass_stride,
 		                                  l_transform, l_rank,
-		                                  radius, relative_pca,
+		                                  radius, pca_threshold,
 		                                  filter_area.z*filter_area.w,
 		                                  get_local_id(1)*get_local_size(0) + get_local_id(0));
 	}

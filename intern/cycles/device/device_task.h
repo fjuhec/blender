@@ -70,7 +70,7 @@ public:
 
 	int denoising_radius;
 	float denoising_k2;
-	bool denoising_relative_pca;
+	float denoising_pca;
 	int pass_stride;
 	int pass_denoising_data;
 	int pass_denoising_clean;

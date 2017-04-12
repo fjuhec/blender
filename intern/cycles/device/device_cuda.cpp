@@ -1023,7 +1023,7 @@ public:
 		                &task->filter_area,
 		                &task->rect,
 		                &task->radius,
-		                &task->relative_pca,
+		                &task->pca_threshold,
 		                &task->buffer.pass_stride};
 		CUDA_LAUNCH_KERNEL(cuFilterConstructTransform, args);
 		cuda_assert(cuCtxSynchronize());

@@ -230,11 +230,11 @@ typedef struct SceneRenderLayer {
 	int denoising_flag;
 	int denoising_radius;
 	float denoising_weighting;
+	float denoising_feature_strength;
 
 	int samples;
 	float pass_alpha_threshold;
-	
-	int pad;
+
 	struct FreestyleConfig freestyleConfig;
 } SceneRenderLayer;
 
