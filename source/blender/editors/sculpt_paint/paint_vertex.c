@@ -2425,15 +2425,15 @@ static void do_wpaint_brush_blur_task_cb_ex(
 
 				/* Apply the weight to the vertex. */
 				if (total_hit_loops != 0) {
-					const float brush_fade = BKE_brush_curve_strength(brush, sqrtf(test.dist), cache->radius);
 					const float view_dot = (vd.no) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
-					const float final_alpha =
-					        view_dot * brush_fade * brush_strength *
-					        grid_alpha * brush_alpha_pressure;
-					weight_final /= total_hit_loops;
-
-					/* Only paint visable verts */
 					if (view_dot > 0.0) {
+						const float brush_fade = BKE_brush_curve_strength(brush, sqrtf(test.dist), cache->radius);
+						const float final_alpha =
+						        view_dot * brush_fade * brush_strength *
+						        grid_alpha * brush_alpha_pressure;
+						weight_final /= total_hit_loops;
+
+						/* Only paint visable verts */
 						do_weight_paint_vertex(
 						        data->vp, data->ob, data->wpi,
 						        v_index, final_alpha, weight_final);
@@ -2473,64 +2473,66 @@ static void do_wpaint_brush_smudge_task_cb_ex(
 			sculpt_brush_test_init(ss, &test);
 
 			if (sculpt_brush_test_fast(&test, vd.co)) {
-				bool do_color = false;
 				const float view_dot = (vd.no) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
+				if (view_dot > 0.0) {
+					bool do_color = false;
 
-				/* For grid based pbvh, take the vert whose loop cooresponds to the current grid.
-				 * Otherwise, take the current vert. */
-				int v_index;
-				float grid_alpha = 1.0;
-				if (ccgdm) {
-					v_index = data->me->mloop[vd.grid_indices[vd.g]].v;
-					grid_alpha = 1.0 / vd.gridsize;
-				}
-				else {
-					v_index = vd.vert_indices[vd.i];
-				}
-				const MVert *mv_curr = &data->me->mvert[v_index];
-				const char v_flag = data->me->mvert[v_index].flag;
-				/* If the vertex is selected */
-				if (!(use_face_sel || use_vert_sel) || v_flag & SELECT) {
-					/* Minimum dot product between brush direction and current
-					 * to neighbor direction is 0.0, meaning orthogonal. */
-					float stroke_dot_max = 0.0f;
+					/* For grid based pbvh, take the vert whose loop cooresponds to the current grid.
+					 * Otherwise, take the current vert. */
+					int v_index;
+					float grid_alpha = 1.0;
+					if (ccgdm) {
+						v_index = data->me->mloop[vd.grid_indices[vd.g]].v;
+						grid_alpha = 1.0 / vd.gridsize;
+					}
+					else {
+						v_index = vd.vert_indices[vd.i];
+					}
+					const MVert *mv_curr = &data->me->mvert[v_index];
+					const char v_flag = data->me->mvert[v_index].flag;
+					/* If the vertex is selected */
+					if (!(use_face_sel || use_vert_sel) || v_flag & SELECT) {
+						/* Minimum dot product between brush direction and current
+						 * to neighbor direction is 0.0, meaning orthogonal. */
+						float stroke_dot_max = 0.0f;
 
-					/* Get the color of the loop in the opposite direction of the brush movement
-					 * (this callback is specifically for smudge.) */
-					float weight_final = 0.0;
-					for (int j = 0; j < ss->modes.vwpaint.vert_to_poly[v_index].count; j++) {
-						const int p_index = ss->modes.vwpaint.vert_to_poly[v_index].indices[j];
-						const MPoly *mp = &data->me->mpoly[p_index];
-						for (int k = 0; k < mp->totloop; k++) {
-							const unsigned int l_index = mp->loopstart + k;
-							const MLoop *ml = &data->me->mloop[l_index];
-							const unsigned int v_other_index = ml->v;
-							const MVert *mv_other = &data->me->mvert[v_other_index];
+						/* Get the color of the loop in the opposite direction of the brush movement
+						 * (this callback is specifically for smudge.) */
+						float weight_final = 0.0;
+						for (int j = 0; j < ss->modes.vwpaint.vert_to_poly[v_index].count; j++) {
+							const int p_index = ss->modes.vwpaint.vert_to_poly[v_index].indices[j];
+							const MPoly *mp = &data->me->mpoly[p_index];
+							for (int k = 0; k < mp->totloop; k++) {
+								const unsigned int l_index = mp->loopstart + k;
+								const MLoop *ml = &data->me->mloop[l_index];
+								const unsigned int v_other_index = ml->v;
+								const MVert *mv_other = &data->me->mvert[v_other_index];
 
-							/* Get the direction from the selected vert to the neighbor. */
-							float other_dir[3];
-							sub_v3_v3v3(other_dir, mv_curr->co, mv_other->co);
-							normalize_v3(other_dir);
+								/* Get the direction from the selected vert to the neighbor. */
+								float other_dir[3];
+								sub_v3_v3v3(other_dir, mv_curr->co, mv_other->co);
+								normalize_v3(other_dir);
 
-							const float stroke_dot = dot_v3v3(other_dir, brush_dir);
+								const float stroke_dot = dot_v3v3(other_dir, brush_dir);
 
-							if (stroke_dot > stroke_dot_max) {
-								stroke_dot_max = stroke_dot;
-								MDeformVert *dv = &data->me->dvert[v_other_index];
-								weight_final = defvert_find_weight(dv, data->wpi->active.index);
-								do_color = true;
+								if (stroke_dot > stroke_dot_max) {
+									stroke_dot_max = stroke_dot;
+									MDeformVert *dv = &data->me->dvert[v_other_index];
+									weight_final = defvert_find_weight(dv, data->wpi->active.index);
+									do_color = true;
+								}
 							}
 						}
-					}
-					/* Apply weight to vertex */
-					if (do_color && view_dot > 0.0) {
-						const float brush_fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
-						const float final_alpha =
-						        view_dot * brush_fade * brush_strength *
-						        grid_alpha * brush_alpha_pressure;
-						do_weight_paint_vertex(
-						        data->vp, data->ob, data->wpi,
-						        v_index, final_alpha, (float)weight_final);
+						/* Apply weight to vertex */
+						if (do_color) {
+							const float brush_fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
+							const float final_alpha =
+							        view_dot * brush_fade * brush_strength *
+							        grid_alpha * brush_alpha_pressure;
+							do_weight_paint_vertex(
+							        data->vp, data->ob, data->wpi,
+							        v_index, final_alpha, (float)weight_final);
+						}
 					}
 				}
 			}
@@ -3580,7 +3582,7 @@ static void do_vpaint_brush_smudge_task_cb_ex(
 
 						bool do_color = false;
 						/* Minimum dot product between brush direction and current
-							* to neighbor direction is 0.0, meaning orthogonal. */
+						 * to neighbor direction is 0.0, meaning orthogonal. */
 						float stroke_dot_max = 0.0f;
 
 						/* Get the color of the loop in the opposite direction of the brush movement */
