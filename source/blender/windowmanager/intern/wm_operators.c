@@ -4341,7 +4341,7 @@ static int hmd_session_refresh_invoke(bContext *C, wmOperator *UNUSED(op), const
 	ScrArea *sa;
 	View3D *v3d;
 
-	if (!(WM_window_is_running_hmd_view(hmd_win))) {
+	if (!(hmd_win && WM_window_is_running_hmd_view(hmd_win))) {
 		return OPERATOR_CANCELLED;
 	}
 
