@@ -2796,15 +2796,15 @@ static void wpaint_do_symmetrical_brush_actions(
 			cache->radial_symmetry_pass = 0;
 			calc_brushdata_symm(wp, cache, i, 0, 0);
 
-			if (i & 1 << 0) {
+			if (i & (1 << 0)) {
 				wpaint_do_paint(C, ob, wp, sd, wpd, wpi, me, brush, i, 'X', 0, 0);
 				wpaint_do_radial_symmetry(C, ob, wp, sd, wpd, wpi, me, brush, i, 'X');
 			}
-			if (i & 1 << 1) {
+			if (i & (1 << 1)) {
 				wpaint_do_paint(C, ob, wp, sd, wpd, wpi, me, brush, i, 'Y', 0, 0);
 				wpaint_do_radial_symmetry(C, ob, wp, sd, wpd, wpi, me, brush, i, 'Y');
 			}
-			if (i & 1 << 2) {
+			if (i & (1 << 2)) {
 				wpaint_do_paint(C, ob, wp, sd, wpd, wpi, me, brush, i, 'Z', 0, 0);
 				wpaint_do_radial_symmetry(C, ob, wp, sd, wpd, wpi, me, brush, i, 'Z');
 			}
@@ -3768,15 +3768,15 @@ static void vpaint_do_symmetrical_brush_actions(
 			cache->radial_symmetry_pass = 0;
 			calc_brushdata_symm(vd, cache, i, 0, 0);
 
-			if (i & 1 << 0) {
+			if (i & (1 << 0)) {
 				vpaint_do_paint(C, sd, vd, vpd, ob, me, brush, i, 'X', 0, 0);
 				vpaint_do_radial_symmetry(C, sd, vd, vpd, ob, me, brush, i, 'X');
 			}
-			if (i & 1 << 1) {
+			if (i & (1 << 1)) {
 				vpaint_do_paint(C, sd, vd, vpd, ob, me, brush, i, 'Y', 0, 0);
 				vpaint_do_radial_symmetry(C, sd, vd, vpd, ob, me, brush, i, 'Y');
 			}
-			if (i & 1 << 2) {
+			if (i & (1 << 2)) {
 				vpaint_do_paint(C, sd, vd, vpd, ob, me, brush, i, 'Z', 0, 0);
 				vpaint_do_radial_symmetry(C, sd, vd, vpd, ob, me, brush, i, 'Z');
 			}
