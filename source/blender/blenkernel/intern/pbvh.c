@@ -34,6 +34,7 @@
 
 #include "BKE_pbvh.h"
 #include "BKE_ccg.h"
+#include "BKE_subsurf.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_global.h"
 #include "BKE_mesh.h" /* for BKE_mesh_calc_normals */
@@ -604,6 +605,10 @@ void BKE_pbvh_build_grids(PBVH *bvh, CCGElem **grids,
 		pbvh_build(bvh, &cb, prim_bbc, totgrid);
 
 	MEM_freeN(prim_bbc);
+}
+
+void BKE_pbvh_add_ccgdm(PBVH *bvh, CCGDerivedMesh *ccgdm) {
+	bvh->ccgdm = ccgdm;
 }
 
 PBVH *BKE_pbvh_new(void)
@@ -1326,6 +1331,11 @@ void BKE_pbvh_get_grid_key(const PBVH *bvh, CCGKey *key)
 	BLI_assert(bvh->type == PBVH_GRIDS);
 	*key = bvh->gridkey;
 }
+
+void BKE_pbvh_get_ccgdm(const PBVH *bvh, struct CCGDerivedMesh **ccgdm) {
+	*ccgdm = bvh->ccgdm;
+}
+
 
 BMesh *BKE_pbvh_get_bmesh(PBVH *bvh)
 {

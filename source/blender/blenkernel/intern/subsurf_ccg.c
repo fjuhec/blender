@@ -4420,7 +4420,7 @@ static struct PBVH *ccgDM_getPBVH(Object *ob, DerivedMesh *dm)
 		return NULL;
 
 	/* In vwpaint, we always use a grid_pbvh for multires/subsurf */
-	grid_pbvh = (!(ob->mode & OB_MODE_SCULPT)) || ccgDM_use_grid_pbvh(ccgdm);
+	grid_pbvh = (!(ob->mode & OB_MODE_SCULPT) || ccgDM_use_grid_pbvh(ccgdm));
 
 	if (ob->sculpt->pbvh) {
 		if (grid_pbvh) {
@@ -4436,8 +4436,12 @@ static struct PBVH *ccgDM_getPBVH(Object *ob, DerivedMesh *dm)
 		ccgdm->pbvh = ob->sculpt->pbvh;
 	}
 
-	if (ccgdm->pbvh)
+	if (ccgdm->pbvh) {
+		/* For vertex paint, keep track of ccgdm */
+		if (!(ob->mode & OB_MODE_SCULPT))
+			BKE_pbvh_add_ccgdm(ccgdm->pbvh, ccgdm);
 		return ccgdm->pbvh;
+	}
 
 	/* no pbvh exists yet, we need to create one. only in case of multires
 	 * we build a pbvh over the modified mesh, in other cases the base mesh
@@ -4472,6 +4476,10 @@ static struct PBVH *ccgDM_getPBVH(Object *ob, DerivedMesh *dm)
 
 	if (ccgdm->pbvh)
 		pbvh_show_diffuse_color_set(ccgdm->pbvh, ob->sculpt->show_diffuse_color);
+
+	/* For vertex paint, keep track of ccgdm */
+	if (!(ob->mode & OB_MODE_SCULPT) && ccgdm->pbvh)
+		BKE_pbvh_add_ccgdm(ccgdm->pbvh, ccgdm);
 
 	return ccgdm->pbvh;
 }
