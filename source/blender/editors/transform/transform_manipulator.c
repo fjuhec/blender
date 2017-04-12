@@ -1720,7 +1720,10 @@ void BIF_draw_manipulator(const bContext *C)
 	}
 }
 
-static int manipulator_selectbuf(ScrArea *sa, ARegion *ar, const int mval[2], float hotspot)
+static int manipulator_selectbuf(
+        wmWindowManager *wm, wmWindow *win,
+        ScrArea *sa, ARegion *ar, Scene *scene,
+        const int mval[2], float hotspot)
 {
 	View3D *v3d = sa->spacedata.first;
 	RegionView3D *rv3d = ar->regiondata;
@@ -1729,9 +1732,6 @@ static int manipulator_selectbuf(ScrArea *sa, ARegion *ar, const int mval[2], fl
 	short hits;
 	const bool is_picksel = true;
 	const bool do_passes = GPU_select_query_check_active();
-
-	/* XXX check a bit later on this... (ton) */
-	extern void view3d_winmatrix_set(ARegion *ar, View3D *v3d, const rcti *rect);
 
 	/* when looking through a selected camera, the manipulator can be at the
 	 * exact same position as the view, skip so we don't break selection */
@@ -1743,8 +1743,7 @@ static int manipulator_selectbuf(ScrArea *sa, ARegion *ar, const int mval[2], fl
 	rect.ymin = mval[1] - hotspot;
 	rect.ymax = mval[1] + hotspot;
 
-	view3d_winmatrix_set(ar, v3d, &rect);
-	mul_m4_m4m4(rv3d->persmat, rv3d->winmat, rv3d->viewmat);
+	ED_view3d_setup_interaction(wm, win, ar, v3d, rv3d, scene, &rect);
 
 	if (do_passes)
 		GPU_select_begin(buffer, 64, &rect, GPU_SELECT_NEAREST_FIRST_PASS, 0);
@@ -1779,8 +1778,8 @@ static int manipulator_selectbuf(ScrArea *sa, ARegion *ar, const int mval[2], fl
 		GPU_select_end();
 	}
 
-	view3d_winmatrix_set(ar, v3d, NULL);
-	mul_m4_m4m4(rv3d->persmat, rv3d->winmat, rv3d->viewmat);
+	/* unset picking rectangle */
+	ED_view3d_setup_interaction(wm, win, ar, v3d, rv3d, scene, NULL);
 
 	if (hits == 1) return buffer[3];
 	else if (hits > 1) {
@@ -1845,9 +1844,12 @@ static const char *manipulator_get_operator_name(int man_val)
 /* return 0; nothing happened */
 int BIF_do_manipulator(bContext *C, const struct wmEvent *event, wmOperator *op)
 {
+	wmWindowManager *wm = CTX_wm_manager(C);
+	wmWindow *win = CTX_wm_window(C);
 	ScrArea *sa = CTX_wm_area(C);
 	View3D *v3d = sa->spacedata.first;
 	ARegion *ar = CTX_wm_region(C);
+	Scene *scene = CTX_data_scene(C);
 	int constraint_axis[3] = {0, 0, 0};
 	int val;
 	const bool use_planar = RNA_boolean_get(op->ptr, "use_planar_constraint");
@@ -1859,7 +1861,7 @@ int BIF_do_manipulator(bContext *C, const struct wmEvent *event, wmOperator *op)
 	RNA_enum_set(op->ptr, "constraint_orientation", v3d->twmode);
 
 	// find the hotspots first test narrow hotspot
-	val = manipulator_selectbuf(sa, ar, event->mval, 0.5f * (float)U.tw_hotspot);
+	val = manipulator_selectbuf(wm, win, sa, ar, scene, event->mval, 0.5f * (float)U.tw_hotspot);
 	if (val) {
 		wmOperatorType *ot;
 		PointerRNA props_ptr;
@@ -1867,7 +1869,7 @@ int BIF_do_manipulator(bContext *C, const struct wmEvent *event, wmOperator *op)
 		const char *opname;
 
 		// drawflags still global, for drawing call above
-		drawflags = manipulator_selectbuf(sa, ar, event->mval, 0.2f * (float)U.tw_hotspot);
+		drawflags = manipulator_selectbuf(wm, win, sa, ar, scene, event->mval, 0.2f * (float)U.tw_hotspot);
 		if (drawflags == 0) drawflags = val;
 
 		/* Planar constraint doesn't make sense for rotation, give other keymaps a chance */

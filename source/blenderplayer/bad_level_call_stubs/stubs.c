@@ -298,7 +298,7 @@ bool RE_WriteEnvmapResult(struct ReportList *reports, struct Scene *scene, struc
 
 /* rna */
 float *ED_view3d_cursor3d_get(struct Scene *scene, struct View3D *v3d) RET_NULL
-bool WM_window_is_running_hmd_view(wmWindow *win) RET_ZERO
+bool WM_window_is_running_hmd_view(const wmWindow *win) RET_ZERO
 void WM_menutype_free(void) RET_NONE
 void WM_menutype_freelink(struct MenuType *mt) RET_NONE
 bool WM_menutype_add(struct MenuType *mt) RET_ZERO

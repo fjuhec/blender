@@ -208,18 +208,6 @@ void circ(float x, float y, float rad);
 void view3d_update_depths_rect(struct ARegion *ar, struct ViewDepths *d, struct rcti *rect);
 float view3d_depth_near(struct ViewDepths *d);
 
-void view3d_hmd_view_setup(
-        Scene *scene, View3D *v3d, ARegion *ar);
-void view3d_hmd_view_setup_interaction(
-        Scene *scene, View3D *v3d, ARegion *region,
-        const struct rcti *viewplane_rect);
-void view3d_hmd_view_setup_mirrored(
-        struct wmWindowManager *wm, Scene *scene, ARegion *region,
-        const struct rcti *viewplane_rect);
-bool view3d_is_hmd_view_mirror(
-        const struct wmWindowManager *wm, const View3D *v3d,
-        const RegionView3D *rv3d);
-
 /* view3d_select.c */
 void VIEW3D_OT_select(struct wmOperatorType *ot);
 void VIEW3D_OT_select_circle(struct wmOperatorType *ot);

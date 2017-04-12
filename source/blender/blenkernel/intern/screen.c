@@ -404,7 +404,7 @@ unsigned int BKE_screen_visible_layers(bScreen *screen, Scene *scene)
 /* ***************** Utilities ********************** */
 
 /* Find a region of the specified type from the given area */
-ARegion *BKE_area_find_region_type(ScrArea *sa, int type)
+ARegion *BKE_area_find_region_type(const ScrArea *sa, int type)
 {
 	if (sa) {
 		ARegion *ar;

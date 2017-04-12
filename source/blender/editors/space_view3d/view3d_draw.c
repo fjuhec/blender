@@ -105,6 +105,15 @@
 #include "view3d_intern.h"  /* own include */
 
 /* prototypes */
+static void view3d_hmd_view_setup(
+        Scene *scene, View3D *v3d, ARegion *region);
+static bool view3d_is_hmd_view_mirror(
+        const wmWindowManager *wm, const View3D *v3d, const RegionView3D *rv3d);
+static void view3d_hmd_view_setup_mirrored(
+        const wmWindowManager *wm, Scene *scene, ARegion *region,
+        const rcti *viewplane_rect);
+static void view3d_hmd_view_setup_interaction(
+        Scene *scene, View3D *v3d, ARegion *region, const rcti *viewplane_rect);
 static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar);
 static void view3d_stereo3d_setup_offscreen(Scene *scene, View3D *v3d, ARegion *ar,
                                             float winmat[4][4], const char *viewname);
@@ -2838,6 +2847,30 @@ void ED_view3d_update_viewmat(Scene *scene, View3D *v3d, ARegion *ar, float view
 }
 
 /**
+ * \param viewplane_rect optional for picking (can be NULL).
+ */
+void ED_view3d_setup_interaction(
+        const wmWindowManager *wm, const wmWindow *win,
+        ARegion *region, View3D *v3d, RegionView3D *rv3d,
+        Scene *scene, const rcti *viewplane_rect)
+{
+#ifdef WITH_INPUT_HMD
+	if (WM_window_is_running_hmd_view(win)) {
+		view3d_hmd_view_setup_interaction(scene, v3d, region, viewplane_rect);
+	}
+	else if (view3d_is_hmd_view_mirror(wm, v3d, rv3d)) {
+		view3d_hmd_view_setup_mirrored(wm, scene, region, viewplane_rect);
+	}
+	else
+#endif
+	{
+		/* assume updated viewmat here, calculating it may not be cheap. */
+		view3d_winmatrix_set(region, v3d, viewplane_rect);
+		mul_m4_m4m4(rv3d->persmat, rv3d->winmat, rv3d->viewmat);
+	}
+}
+
+/**
  * Shared by #ED_view3d_draw_offscreen and #view3d_main_region_draw_objects
  *
  * \note \a C and \a grid_unit will be NULL when \a draw_offscreen is set.
@@ -3757,7 +3790,7 @@ enum HMDViewMatrixType {
 	HMD_MATRIX_CENTER,
 };
 
-bool view3d_is_hmd_view_mirror(const wmWindowManager *wm, const View3D *v3d, const RegionView3D *rv3d)
+static bool view3d_is_hmd_view_mirror(const wmWindowManager *wm, const View3D *v3d, const RegionView3D *rv3d)
 {
 	return wm->hmd_view.hmd_win &&
 	       WM_window_is_running_hmd_view(wm->hmd_view.hmd_win) &&
@@ -3785,6 +3818,7 @@ static void view3d_hmd_calc_projection_matrix_from_device(
 	const float hmd_znear = WM_device_HMD_projection_z_near_get();
 	const float hmd_zfar = WM_device_HMD_projection_z_far_get();
 	const float hmd_fov = WM_device_HMD_FOV_get(is_left);
+	/* force using View3D settings which were overriden by HMD ones, using camera settings would mess up projection */
 	const char rv3d_persp = rv3d->persp;
 
 
@@ -3916,7 +3950,7 @@ static void view3d_hmd_view_setup_ex(
 	view3d_main_region_setup_view(scene, v3d, region, modelviewmat, projmat);
 }
 
-void view3d_hmd_view_setup(Scene *scene, View3D *v3d, ARegion *region)
+static void view3d_hmd_view_setup(Scene *scene, View3D *v3d, ARegion *region)
 {
 	enum HMDViewMatrixType mat_type = (v3d->multiview_eye == STEREO_LEFT_ID) ?
 	                                      HMD_MATRIX_LEFT_EYE : HMD_MATRIX_RIGHT_EYE;
@@ -3931,7 +3965,7 @@ void view3d_hmd_view_setup(Scene *scene, View3D *v3d, ARegion *region)
  *
  * \param viewplane: Optional for picking (can be NULL).
  */
-void view3d_hmd_view_setup_interaction(Scene *scene, View3D *v3d, ARegion *region, const rcti *viewplane_rect)
+static void view3d_hmd_view_setup_interaction(Scene *scene, View3D *v3d, ARegion *region, const rcti *viewplane_rect)
 {
 	view3d_hmd_view_setup_ex(scene, v3d, region->regiondata, region, viewplane_rect, HMD_MATRIX_CENTER);
 }
@@ -3939,10 +3973,12 @@ void view3d_hmd_view_setup_interaction(Scene *scene, View3D *v3d, ARegion *regio
 /*
  * \param viewplane: Optional for picking (can be NULL).
  */
-void view3d_hmd_view_setup_mirrored(wmWindowManager *wm, Scene *scene, ARegion *region, const rcti *viewplane_rect)
+static void view3d_hmd_view_setup_mirrored(
+        const wmWindowManager *wm, Scene *scene, ARegion *region,
+        const rcti *viewplane_rect)
 {
-	wmWindow *hmd_win = wm->hmd_view.hmd_win;
-	ScrArea *sa = hmd_win->screen->areabase.first;
+	const wmWindow *hmd_win = wm->hmd_view.hmd_win;
+	const ScrArea *sa = hmd_win->screen->areabase.first;
 	View3D *v3d_hmd = sa->spacedata.first;
 	ARegion *region_hmd = BKE_area_find_region_type(sa, RGN_TYPE_WINDOW);
 

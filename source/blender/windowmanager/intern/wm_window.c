@@ -1873,7 +1873,7 @@ void wm_window_IME_end(wmWindow *win)
 /**
  * \return true if \a win is an HMD view in a running HMD session.
  */
-bool WM_window_is_running_hmd_view(wmWindow *win)
+bool WM_window_is_running_hmd_view(const wmWindow *win)
 {
 #ifdef WITH_INPUT_HMD
 	return win->screen->is_hmd_running;

@@ -93,7 +93,7 @@ void		WM_check			(struct bContext *C);
 int			WM_window_pixels_x		(struct wmWindow *win);
 int			WM_window_pixels_y		(struct wmWindow *win);
 bool		WM_window_is_fullscreen	(struct wmWindow *win);
-bool        WM_window_is_running_hmd_view   (struct wmWindow *win);
+bool        WM_window_is_running_hmd_view(const struct wmWindow *win);
 
 /* defines for 'type' WM_window_open_temp/WM_window_open_restricted */
 enum {
