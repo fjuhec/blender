@@ -264,12 +264,18 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 
 				fillgrp = stl->storage->shgrps_fill[id];
 				strokegrp = stl->storage->shgrps_stroke[id];
-#if 0
+
 				/* fill */
-				struct Batch *fill_geom = DRW_cache_surface_get(ob); // TODO: replace with real funct
-				/* Add fill geom to a shading group */
-				DRW_shgroup_call_add(fillgrp, fill_geom, ob->obmat);
-#endif
+				if (gps->totpoints >= 3) {
+					float tfill[4];
+					interp_v3_v3v3(tfill, gps->palcolor->fill, gpl->tintcolor, gpl->tintcolor[3]);
+					tfill[3] = gps->palcolor->fill[3] * gpl->opacity;
+					if ((tfill[3] > GPENCIL_ALPHA_OPACITY_THRESH) || (gps->palcolor->fill_style > 0)) {
+						struct Batch *fill_geom = gpencil_get_fill_geom(gps, diff_mat, tfill);
+						DRW_shgroup_call_add(fillgrp, fill_geom, ob->obmat);
+					}
+				}
+
 				/* stroke */
 				interp_v3_v3v3(tcolor, gps->palcolor->rgb, gpl->tintcolor, gpl->tintcolor[3]);
 				tcolor[3] = gps->palcolor->rgb[3] * gpl->opacity;
