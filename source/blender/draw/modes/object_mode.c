@@ -212,7 +212,7 @@ static void OBJECT_engine_init(void *vedata)
 	OBJECT_TextureList *txl = ((OBJECT_Data *)vedata)->txl;
 	OBJECT_FramebufferList *fbl = ((OBJECT_Data *)vedata)->fbl;
 
-	float *viewport_size = DRW_viewport_size_get();
+	const float *viewport_size = DRW_viewport_size_get();
 
 	DRWFboTexture tex[2] = {{&txl->outlines_depth_tx, DRW_BUF_DEPTH_24, 0},
 	                        {&txl->outlines_color_tx, DRW_BUF_RGBA_8, DRW_TEX_FILTER}};
@@ -1116,7 +1116,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 				int theme_id = DRW_object_wire_theme_get(ob, sl, NULL);
 				if (ob != obedit) {
 					if (do_outlines) {
-						struct Batch *geom = DRW_cache_surface_get(ob);
+						struct Batch *geom = DRW_cache_mesh_surface_get(ob);
 						switch (theme_id) {
 							case TH_ACTIVE:
 								DRW_shgroup_call_add(stl->g_data->outlines_active, geom, ob->obmat);

@@ -582,7 +582,7 @@ void DRW_shgroup_dynamic_call_add_array(DRWShadingGroup *shgroup, const void *at
 
 	BLI_assert(attr_len == interface->attribs_count);
 
-	memcpy(call->data, attr, data_size);
+	memcpy((void *) call->data, attr, data_size);
 
 	interface->instance_count += 1;
 
@@ -1318,17 +1318,17 @@ static void *DRW_viewport_engine_data_get(void *engine_type)
 	return data;
 }
 
-float *DRW_viewport_size_get(void)
+const float *DRW_viewport_size_get(void)
 {
 	return &DST.size[0];
 }
 
-float *DRW_viewport_screenvecs_get(void)
+const float *DRW_viewport_screenvecs_get(void)
 {
 	return &DST.screenvecs[0][0];
 }
 
-float *DRW_viewport_pixelsize_get(void)
+const float *DRW_viewport_pixelsize_get(void)
 {
 	return &DST.pixsize;
 }
@@ -1441,7 +1441,7 @@ LampEngineData *DRW_lamp_engine_data_get(Object *ob, RenderEngineType *engine_ty
 
 void DRW_lamp_engine_data_free(LampEngineData *led)
 {
-	return GPU_lamp_engine_data_free(led);
+	GPU_lamp_engine_data_free(led);
 }
 
 /* **************************************** RENDERING ************************************** */

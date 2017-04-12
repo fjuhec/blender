@@ -65,7 +65,7 @@ static void EEVEE_engine_init(void *vedata)
 
 	DRWFboTexture tex = {&txl->color, DRW_BUF_RGBA_16, DRW_TEX_FILTER};
 
-	float *viewport_size = DRW_viewport_size_get();
+	const float *viewport_size = DRW_viewport_size_get();
 	DRW_framebuffer_init(&fbl->main,
 	                    (int)viewport_size[0], (int)viewport_size[1],
 	                    &tex, 1);
@@ -186,7 +186,7 @@ static void EEVEE_cache_populate(void *vedata, Object *ob)
 	if (ob->type == OB_MESH) {
 		IDProperty *ces_mode_ob = BKE_object_collection_engine_get(ob, COLLECTION_MODE_OBJECT, "");
 		bool do_cull = BKE_collection_engine_property_value_get_bool(ces_mode_ob, "show_backface_culling");
-		struct Batch *geom = DRW_cache_surface_get(ob);
+		struct Batch *geom = DRW_cache_mesh_surface_get(ob);
 
 		/* Depth Prepass */
 		DRW_shgroup_call_add((do_cull) ? stl->g_data->depth_shgrp_cull : stl->g_data->depth_shgrp, geom, ob->obmat);

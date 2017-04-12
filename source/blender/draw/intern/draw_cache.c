@@ -1553,7 +1553,7 @@ Batch *DRW_cache_single_vert_get(void)
 }
 
 /* Meshes */
-void DRW_cache_wire_overlay_get(Object *ob, Batch **tris, Batch **ledges, Batch **lverts)
+void DRW_cache_mesh_wire_overlay_get(Object *ob, Batch **tris, Batch **ledges, Batch **lverts)
 {
 	BLI_assert(ob->type == OB_MESH);
 
@@ -1573,7 +1573,7 @@ Batch *DRW_cache_face_centers_get(Object *ob)
 	return BKE_mesh_batch_cache_get_overlay_facedots(me);
 }
 
-Batch *DRW_cache_wire_outline_get(Object *ob)
+Batch *DRW_cache_mesh_wire_outline_get(Object *ob)
 {
 	Batch *fancy_wire = NULL;
 
@@ -1585,7 +1585,7 @@ Batch *DRW_cache_wire_outline_get(Object *ob)
 	return fancy_wire;
 }
 
-Batch *DRW_cache_surface_get(Object *ob)
+Batch *DRW_cache_mesh_surface_get(Object *ob)
 {
 	Batch *surface = NULL;
 
@@ -1597,7 +1597,7 @@ Batch *DRW_cache_surface_get(Object *ob)
 	return surface;
 }
 
-Batch *DRW_cache_surface_verts_get(Object *ob)
+Batch *DRW_cache_mesh_surface_verts_get(Object *ob)
 {
 	Batch *surface = NULL;
 
@@ -1609,7 +1609,7 @@ Batch *DRW_cache_surface_verts_get(Object *ob)
 	return surface;
 }
 
-Batch *DRW_cache_verts_get(Object *ob)
+Batch *DRW_cache_mesh_verts_get(Object *ob)
 {
 	Batch *surface = NULL;
 
