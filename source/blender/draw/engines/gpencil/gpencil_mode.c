@@ -89,6 +89,7 @@ typedef struct GPENCIL_Data {
 typedef struct g_data{
 	int t_flip;
 	int t_mix;
+	int fill_style;
 } g_data; /* Transient data */
 
 static struct {
@@ -140,7 +141,8 @@ static DRWShadingGroup *GPENCIL_shgroup_fill_create(GPENCIL_Data *vedata, DRWPas
 	DRWShadingGroup *grp = DRW_shgroup_create(e_data.gpencil_fill_sh, pass);
 	DRW_shgroup_uniform_vec4(grp, "color", palcolor->fill, 1);
 	DRW_shgroup_uniform_vec4(grp, "color2", palcolor->scolor, 1);
-	DRW_shgroup_uniform_int(grp, "fill_type", &palcolor->fill_style, 1);
+	stl->g_data->fill_style = palcolor->fill_style;
+	DRW_shgroup_uniform_int(grp, "fill_type", &stl->g_data->fill_style, 1);
 	DRW_shgroup_uniform_float(grp, "mix_factor", &palcolor->mix_factor, 1);
 
 	DRW_shgroup_uniform_float(grp, "g_angle", &palcolor->g_angle, 1);
