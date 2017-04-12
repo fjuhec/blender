@@ -3766,7 +3766,7 @@ bool view3d_is_hmd_view_mirror(const wmWindowManager *wm, const View3D *v3d, con
 }
 
 static void view3d_hmd_calc_projection_matrix_from_device(
-        ARegion *region, View3D *v3d,
+        ARegion *region, View3D *v3d, const RegionView3D *rv3d,
         const rcti *viewplane_rect, enum HMDViewMatrixType mat_type,
         float r_projectionmat[4][4])
 {
@@ -3775,16 +3775,39 @@ static void view3d_hmd_calc_projection_matrix_from_device(
 	 * * For selecting, viewplane_rect has to be used for view-plane clipping.
 	 * * OpenHMD doesn't allow us to set custom screen dimensions, it always uses device ones. */
 
+	rctf viewplane;
+	CameraParams params;
+
+	const bool is_left = mat_type == HMD_MATRIX_LEFT_EYE;
 	const float v3d_znear = v3d->near;
 	const float v3d_zfar = v3d->far;
+	const float v3d_lens = v3d->lens;
 	const float hmd_znear = WM_device_HMD_projection_z_near_get();
 	const float hmd_zfar = WM_device_HMD_projection_z_far_get();
+	const float hmd_fov = WM_device_HMD_FOV_get(is_left);
+	const int winx = region->winx;
+	const int winy = region->winy;
+
 
 	v3d->near = hmd_znear;
 	v3d->far = hmd_zfar;
+	v3d->lens = fov_to_focallength(hmd_fov, DEFAULT_SENSOR_WIDTH);
 
-	view3d_winmatrix_set(region, v3d, viewplane_rect);
-	glGetFloatv(GL_PROJECTION_MATRIX, (float *)r_projectionmat);
+	/* from ED_view3d_viewplane_get, but we override zoom */
+	BKE_camera_params_init(&params);
+	BKE_camera_params_from_view3d(&params, v3d, rv3d);
+	params.zoom = 1.0f;
+	BKE_camera_params_compute_viewplane(&params, winx, winy, 1.0f, 1.0f);
+	viewplane = params.viewplane;
+
+	if (viewplane_rect) {
+		/* picking/selecting */
+		view3d_winmatrix_viewplane_adjust_for_rect(&viewplane, viewplane_rect, winx, winy, &viewplane);
+	}
+
+	BLI_assert(params.clipsta == hmd_znear && params.clipend == hmd_zfar);
+	perspective_m4(r_projectionmat, viewplane.xmin, viewplane.xmax, viewplane.ymin, viewplane.ymax,
+	               params.clipsta, params.clipend);
 
 	if (mat_type != HMD_MATRIX_CENTER) {
 		/* calculate lens offset in [-1, 1] range to apply onto projection matrix.
@@ -3795,11 +3818,12 @@ static void view3d_hmd_calc_projection_matrix_from_device(
 
 		/* apply lens separation (IPD is applied onto modelview matrix) */
 		BLI_assert(IN_RANGE_INCL(proj_offset, -1.0f, 1.0f));
-		translate_m4(r_projectionmat, (mat_type == HMD_MATRIX_LEFT_EYE) ? proj_offset : -proj_offset, 0, 0);
+		translate_m4(r_projectionmat, is_left ? proj_offset : -proj_offset, 0, 0);
 	}
 
 	v3d->near = v3d_znear;
 	v3d->far = v3d_zfar;
+	v3d->lens = v3d_lens;
 }
 
 static void view3d_hmd_calc_modelview_matrix_from_device(
@@ -3854,10 +3878,10 @@ static void view3d_hmd_get_matrices(
 	}
 	else if (use_device_rot) {
 		view3d_hmd_calc_modelview_matrix_from_device(v3d, rv3d, mat_type, r_modelviewmat);
-		view3d_hmd_calc_projection_matrix_from_device(region, v3d, viewplane_rect, mat_type, r_projectionmat);
+		view3d_hmd_calc_projection_matrix_from_device(region, v3d, rv3d, viewplane_rect, mat_type, r_projectionmat);
 	}
 	else {
-		view3d_hmd_calc_projection_matrix_from_device(region, v3d, viewplane_rect, mat_type, r_projectionmat);
+		view3d_hmd_calc_projection_matrix_from_device(region, v3d, rv3d, viewplane_rect, mat_type, r_projectionmat);
 
 		copy_m4_m4(r_modelviewmat, rv3d->viewmat);
 

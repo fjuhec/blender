@@ -949,6 +949,8 @@ extern float       GHOST_HMDgetLensHorizontalSeparation(void);
 extern float       GHOST_HMDgetProjectionZNear(void);
 extern float       GHOST_HMDgetProjectionZFar(void);
 extern float       GHOST_HMDgetScreenHorizontalSize(void);
+extern float       GHOST_HMDgetLeftEyeFOV(void);
+extern float       GHOST_HMDgetRightEyeFOV(void);
 extern void        GHOST_HMDgetLeftModelviewMatrix(float r_mat[4][4]);
 extern void        GHOST_HMDgetRightModelviewMatrix(float r_mat[4][4]);
 extern void*       GHOST_HMDgetDistortionParameters(void);

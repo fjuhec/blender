@@ -1074,6 +1074,28 @@ float GHOST_HMDgetScreenHorizontalSize()
 #endif
 }
 
+float GHOST_HMDgetLeftEyeFOV()
+{
+#ifdef WITH_OPENHMD
+	GHOST_ISystem *system = GHOST_ISystem::getSystem();
+	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
+	return ohmd->getLeftEyeFOV();
+#else
+	return -1.0f;
+#endif
+}
+
+float GHOST_HMDgetRightEyeFOV()
+{
+#ifdef WITH_OPENHMD
+	GHOST_ISystem *system = GHOST_ISystem::getSystem();
+	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
+	return ohmd->getRightEyeFOV();
+#else
+	return -1.0f;
+#endif
+}
+
 #ifndef WITH_OPENHMD
 static void ghost_UnitMat(float r_mat[4][4])
 {

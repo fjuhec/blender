@@ -928,12 +928,7 @@ void view3d_winmatrix_set(ARegion *ar, const View3D *v3d, const rcti *rect)
 #endif
 
 	if (rect) {  /* picking */
-		rctf r;
-		r.xmin = viewplane.xmin + (BLI_rctf_size_x(&viewplane) * (rect->xmin / (float)ar->winx));
-		r.ymin = viewplane.ymin + (BLI_rctf_size_y(&viewplane) * (rect->ymin / (float)ar->winy));
-		r.xmax = viewplane.xmin + (BLI_rctf_size_x(&viewplane) * (rect->xmax / (float)ar->winx));
-		r.ymax = viewplane.ymin + (BLI_rctf_size_y(&viewplane) * (rect->ymax / (float)ar->winy));
-		viewplane = r;
+		view3d_winmatrix_viewplane_adjust_for_rect(&viewplane, rect, ar->winx, ar->winy, &viewplane);
 	}
 
 	if (is_ortho) {
@@ -945,6 +940,20 @@ void view3d_winmatrix_set(ARegion *ar, const View3D *v3d, const rcti *rect)
 
 	/* update matrix in 3d view region */
 	glGetFloatv(GL_PROJECTION_MATRIX, (float *)rv3d->winmat);
+}
+
+void view3d_winmatrix_viewplane_adjust_for_rect(
+        const rctf *viewplane, const rcti *rect,
+        float winx, float winy,
+        rctf *r_viewplane)
+{
+	/* allow passing same pointer for viewplane and r_viewplane */
+	rctf viewplane_local = *viewplane;
+
+	r_viewplane->xmin = viewplane_local.xmin + (BLI_rctf_size_x(&viewplane_local) * (rect->xmin / winx));
+	r_viewplane->ymin = viewplane_local.ymin + (BLI_rctf_size_y(&viewplane_local) * (rect->ymin / winy));
+	r_viewplane->xmax = viewplane_local.xmin + (BLI_rctf_size_x(&viewplane_local) * (rect->xmax / winx));
+	r_viewplane->ymax = viewplane_local.ymin + (BLI_rctf_size_y(&viewplane_local) * (rect->ymax / winy));
 }
 
 static void obmat_to_viewmat(RegionView3D *rv3d, Object *ob)

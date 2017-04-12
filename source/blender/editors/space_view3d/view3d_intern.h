@@ -261,6 +261,10 @@ void ED_view3d_smooth_view_force_finish(
 
 void view3d_winmatrix_set(ARegion *ar, const View3D *v3d, const rcti *rect);
 void view3d_viewmatrix_set(Scene *scene, const View3D *v3d, RegionView3D *rv3d);
+void view3d_winmatrix_viewplane_adjust_for_rect(
+        const rctf *viewplane, const rcti *rect,
+        float winx, float winy,
+        rctf *r_viewplane);
 
 void fly_modal_keymap(struct wmKeyConfig *keyconf);
 void walk_modal_keymap(struct wmKeyConfig *keyconf);

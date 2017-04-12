@@ -544,6 +544,7 @@ float       WM_device_HMD_screen_horizontal_size_get(void);
 /* Utils */
 void WM_device_HMD_state_set(const int device, const bool enable);
 void WM_device_HMD_modelview_matrix_get(const bool is_left, float r_modelviewmat[4][4]) ATTR_NONNULL();
+float WM_device_HMD_FOV_get(const bool is_left);
 void *WM_device_HMD_distortion_parameters_get(void);
 
 #endif /* WITH_INPUT_HMD */

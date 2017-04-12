@@ -143,6 +143,19 @@ void WM_device_HMD_modelview_matrix_get(const bool is_left, float r_modelviewmat
 	}
 }
 
+float WM_device_HMD_FOV_get(const bool is_left)
+{
+	if (U.hmd_settings.device == -1) {
+		return -1.0f;
+	}
+	else if (is_left) {
+		return GHOST_HMDgetLeftEyeFOV();
+	}
+	else {
+		return GHOST_HMDgetRightEyeFOV();
+	}
+}
+
 void* WM_device_HMD_distortion_parameters_get(void)
 {
 	return GHOST_HMDgetDistortionParameters();
