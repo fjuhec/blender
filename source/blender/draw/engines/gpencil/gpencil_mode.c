@@ -297,18 +297,23 @@ static void GPENCIL_draw_scene(void *vedata)
 {
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	GPENCIL_FramebufferList *fbl = ((GPENCIL_Data *)vedata)->fbl;
+	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	/* Default framebuffer and texture */
 	DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
 	DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
 
 	UNUSED_VARS(fbl, dfbl, dtxl);
-
-	DRW_draw_pass(psl->pass);
+	if (stl->storage->pal_id > 0) {
+		DRW_draw_pass(psl->pass);
+	}
 }
+
+static const DrawEngineDataSize GPENCIL_data_size = DRW_VIEWPORT_DATA_SIZE(GPENCIL_Data);
 
 DrawEngineType draw_engine_gpencil_type = {
 	NULL, NULL,
 	N_("GpencilMode"),
+	&GPENCIL_data_size,
 	&GPENCIL_engine_init,
 	&GPENCIL_engine_free,
 	&GPENCIL_cache_init,
