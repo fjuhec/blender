@@ -2418,9 +2418,8 @@ static void do_wpaint_brush_blur_task_cb_ex(
 					for (int k = 0; k < mp->totloop; k++) {
 						const int l_index = mp->loopstart + k;
 						const MLoop *ml = &data->me->mloop[l_index];
-						MDeformVert *dv = &data->me->dvert[ml->v];
-						const MDeformWeight *dw = defvert_verify_index(dv, data->wpi->active.index);
-						weight_final += dw->weight;
+						const MDeformVert *dv = &data->me->dvert[ml->v];
+						weight_final += defvert_find_weight(dv, data->wpi->active.index);
 					}
 				}
 
@@ -2497,7 +2496,7 @@ static void do_wpaint_brush_smudge_task_cb_ex(
 					float stroke_dot_max = 0.0f;
 
 					/* Get the color of the loop in the opposite direction of the brush movement
-						(this callback is specifically for smudge.) */
+					 * (this callback is specifically for smudge.) */
 					float weight_final = 0.0;
 					for (int j = 0; j < ss->modes.vwpaint.vert_to_poly[v_index].count; j++) {
 						const int p_index = ss->modes.vwpaint.vert_to_poly[v_index].indices[j];
@@ -2518,8 +2517,7 @@ static void do_wpaint_brush_smudge_task_cb_ex(
 							if (stroke_dot > stroke_dot_max) {
 								stroke_dot_max = stroke_dot;
 								MDeformVert *dv = &data->me->dvert[v_other_index];
-								const MDeformWeight *dw = defvert_verify_index(dv, data->wpi->active.index);
-								weight_final = dw->weight;
+								weight_final = defvert_find_weight(dv, data->wpi->active.index);
 								do_color = true;
 							}
 						}
@@ -2668,9 +2666,8 @@ static void do_wpaint_brush_calc_ave_weight_cb_ex(
 						const int l_index = ss->modes.vwpaint.vert_to_loop[v_index].indices[j];
 
 						const MLoop *ml = &data->me->mloop[l_index];
-						MDeformVert *dv = &data->me->dvert[ml->v];
-						const MDeformWeight *dw = defvert_verify_index(dv, data->wpi->active.index);
-						weight += dw->weight;
+						const MDeformVert *dv = &data->me->dvert[ml->v];
+						weight += defvert_find_weight(dv, data->wpi->active.index);
 					}
 				}
 			}
