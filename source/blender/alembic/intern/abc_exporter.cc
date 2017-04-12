@@ -349,18 +349,16 @@ void AbcExporter::createTransformWritersHierarchy(EvaluationContext *eval_ctx)
 	while (base) {
 		Object *ob = base->object;
 
-		if (export_object(&m_settings, ob)) {
-			switch (ob->type) {
-				case OB_LAMP:
-				case OB_LATTICE:
-				case OB_MBALL:
-				case OB_SPEAKER:
-					/* We do not export transforms for objects of these classes. */
-					break;
+		switch (ob->type) {
+			case OB_LAMP:
+			case OB_LATTICE:
+			case OB_MBALL:
+			case OB_SPEAKER:
+				/* We do not export transforms for objects of these classes. */
+				break;
 
-				default:
-					exploreTransform(eval_ctx, ob, ob->parent, NULL);
-			}
+			default:
+				exploreTransform(eval_ctx, ob, ob->parent);
 		}
 
 		base = base->next;
@@ -376,7 +374,9 @@ void AbcExporter::createTransformWritersFlat()
 
 		if (export_object(&m_settings, ob) && object_is_shape(ob)) {
 			std::string name = get_id_name(ob);
-			m_xforms[name] = new AbcTransformWriter(ob, m_writer->archive().getTop(), 0, m_trans_sampling_index, m_settings);
+			m_xforms[name] = new AbcTransformWriter(
+			                     ob, m_writer->archive().getTop(), NULL,
+			                     m_trans_sampling_index, m_settings);
 		}
 
 		base = base->next;
