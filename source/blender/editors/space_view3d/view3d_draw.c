@@ -3815,10 +3815,13 @@ static void view3d_hmd_calc_projection_matrix_from_device(
 		const float lens_sep = WM_device_HMD_lens_horizontal_separation_get();
 		const float hsize = WM_device_HMD_screen_horizontal_size_get();
 		const float proj_offset = 1 - ((2 * lens_sep) / hsize);
+		float ofs_mat[4][4];
 
 		/* apply lens separation (IPD is applied onto modelview matrix) */
 		BLI_assert(IN_RANGE_INCL(proj_offset, -1.0f, 1.0f));
-		translate_m4(r_projectionmat, is_left ? proj_offset : -proj_offset, 0, 0);
+		unit_m4(ofs_mat);
+		translate_m4(ofs_mat, is_left ? proj_offset : -proj_offset, 0, 0);
+		mul_m4_m4m4(r_projectionmat, ofs_mat, r_projectionmat);
 	}
 
 	v3d->near = v3d_znear;
