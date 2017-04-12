@@ -201,7 +201,7 @@ static void GPENCIL_cache_init(void *vedata)
 
 	{
 		/* Create a pass */
-		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS | DRW_STATE_BLEND | DRW_STATE_WIRE;
+		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH; 
 		psl->pass = DRW_pass_create("Gpencil Pass", state);
 		stl->storage->pal_id = 0;
 		memset(stl->storage->shgrps_fill, 0, sizeof(DRWShadingGroup *) * MAX_GPENCIL_MAT);
