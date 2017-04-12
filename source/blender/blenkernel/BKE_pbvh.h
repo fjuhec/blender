@@ -32,6 +32,7 @@
 
 struct CCGElem;
 struct CCGKey;
+struct CCGDerivedMesh;
 struct CustomData;
 struct DMFlagMat;
 struct MPoly;
@@ -142,7 +143,7 @@ int BKE_pbvh_count_grid_quads(BLI_bitmap **grid_hidden,
 
 /* multires level, only valid for type == PBVH_GRIDS */
 void BKE_pbvh_get_grid_key(const PBVH *pbvh, struct CCGKey *key);
-void BKE_pbvh_get_ccgdm(const PBVH *bvh, struct CCGDerivedMesh *ccgdm);
+struct CCGDerivedMesh *BKE_pbvh_get_ccgdm(const PBVH *bvh);
 
 /* Only valid for type == PBVH_BMESH */
 struct BMesh *BKE_pbvh_get_bmesh(PBVH *pbvh);

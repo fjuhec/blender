@@ -1332,8 +1332,8 @@ void BKE_pbvh_get_grid_key(const PBVH *bvh, CCGKey *key)
 	*key = bvh->gridkey;
 }
 
-void BKE_pbvh_get_ccgdm(const PBVH *bvh, struct CCGDerivedMesh **ccgdm) {
-	*ccgdm = bvh->ccgdm;
+CCGDerivedMesh *BKE_pbvh_get_ccgdm(const PBVH *bvh) {
+	return bvh->ccgdm;
 }
 
 
