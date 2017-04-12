@@ -2464,10 +2464,7 @@ static void do_wpaint_brush_smudge_task_cb_ex(
 	float brush_dir[3];
 
 	sub_v3_v3v3(brush_dir, cache->location, cache->last_location);
-	normalize_v3(brush_dir);
-
-	/* If the position from the last update is initialized... (smudge requires a direction) */
-	if (cache->is_last_valid) {
+	if (normalize_v3(brush_dir) != 0.0f) {
 		/* For each vertex */
 		PBVHVertexIter vd;
 		BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
@@ -2480,7 +2477,7 @@ static void do_wpaint_brush_smudge_task_cb_ex(
 				bool do_color = false;
 				const float view_dot = (vd.no) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
 
-				/* For grid based pbvh, take the vert whose loop cooresponds to the current grid. 
+				/* For grid based pbvh, take the vert whose loop cooresponds to the current grid.
 				 * Otherwise, take the current vert. */
 				int v_index;
 				float grid_alpha = 1.0;
@@ -3561,10 +3558,7 @@ static void do_vpaint_brush_smudge_task_cb_ex(
 	const bool use_face_sel = (data->me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
 
 	sub_v3_v3v3(brush_dir, cache->location, cache->last_location);
-	normalize_v3(brush_dir);
-
-	/* If the position from the last update is initialized... (can't smudge without a direction) */
-	if (cache->is_last_valid) {
+	if (normalize_v3(brush_dir) != 0.0f) {
 		/* For each vertex */
 		PBVHVertexIter vd;
 		BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
