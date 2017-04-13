@@ -364,14 +364,14 @@ ccl_device void kernel_path_indirect(KernelGlobals *kg,
 			throughput /= probability;
 		}
 
+		kernel_update_denoising_features(kg, sd, state, L);
+
 #ifdef __AO__
 		/* ambient occlusion */
 		if(kernel_data.integrator.use_ambient_occlusion || (sd->flag & SD_AO)) {
 			kernel_path_ao(kg, sd, emission_sd, L, state, rng, throughput, make_float3(0.0f, 0.0f, 0.0f));
 		}
 #endif  /* __AO__ */
-
-		kernel_update_denoising_features(kg, sd, state, L);
 
 #ifdef __SUBSURFACE__
 		/* bssrdf scatter to a different location on the same object, replacing
@@ -716,14 +716,14 @@ ccl_device_inline float kernel_path_integrate(KernelGlobals *kg,
 			throughput /= probability;
 		}
 
+		kernel_update_denoising_features(kg, &sd, &state, L);
+
 #ifdef __AO__
 		/* ambient occlusion */
 		if(kernel_data.integrator.use_ambient_occlusion || (sd.flag & SD_AO)) {
 			kernel_path_ao(kg, &sd, &emission_sd, L, &state, rng, throughput, shader_bsdf_alpha(kg, &sd));
 		}
 #endif  /* __AO__ */
-
-		kernel_update_denoising_features(kg, &sd, &state, L);
 
 #ifdef __SUBSURFACE__
 		/* bssrdf scatter to a different location on the same object, replacing

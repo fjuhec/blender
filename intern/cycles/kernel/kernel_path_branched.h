@@ -73,27 +73,30 @@ ccl_device_noinline void kernel_branched_path_surface_indirect_light(KernelGloba
 {
 	float sum_sample_weight = 0.0f;
 #ifdef __DENOISING_FEATURES__
-	for(int i = 0; i < sd->num_closure; i++) {
-		const ShaderClosure *sc = &sd->closure[i];
+	if(state->denoising_feature_weight > 0.0f) {
+		for(int i = 0; i < sd->num_closure; i++) {
+			const ShaderClosure *sc = &sd->closure[i];
 
-		if(!CLOSURE_IS_BSDF(sc->type))
-			continue;
-		/* transparency is not handled here, but in outer loop */
-		if(sc->type == CLOSURE_BSDF_TRANSPARENT_ID)
-			continue;
+			/* transparency is not handled here, but in outer loop */
+			if(!CLOSURE_IS_BSDF(sc->type) || CLOSURE_IS_BSDF_TRANSPARENT(sc->type)) {
+				continue;
+			}
 
-		sum_sample_weight += sc->sample_weight;
+			sum_sample_weight += sc->sample_weight;
+		}
+	}
+	else {
+		sum_sample_weight = 1.0f;
 	}
 #endif  /* __DENOISING_FEATURES__ */
 
 	for(int i = 0; i < sd->num_closure; i++) {
 		const ShaderClosure *sc = &sd->closure[i];
 
-		if(!CLOSURE_IS_BSDF(sc->type))
-			continue;
 		/* transparency is not handled here, but in outer loop */
-		if(sc->type == CLOSURE_BSDF_TRANSPARENT_ID)
+		if(!CLOSURE_IS_BSDF(sc->type) || CLOSURE_IS_BSDF_TRANSPARENT(sc->type)) {
 			continue;
+		}
 
 		int num_samples;
 
@@ -558,14 +561,14 @@ ccl_device float kernel_branched_path_integrate(KernelGlobals *kg, RNG *rng, int
 			}
 		}
 
+		kernel_update_denoising_features(kg, &sd, &state, L);
+
 #ifdef __AO__
 		/* ambient occlusion */
 		if(kernel_data.integrator.use_ambient_occlusion || (sd.flag & SD_AO)) {
 			kernel_branched_path_ao(kg, &sd, &emission_sd, L, &state, rng, throughput);
 		}
 #endif  /* __AO__ */
-
-		kernel_update_denoising_features(kg, &sd, &state, L);
 
 #ifdef __SUBSURFACE__
 		/* bssrdf scatter to a different location on the same object */

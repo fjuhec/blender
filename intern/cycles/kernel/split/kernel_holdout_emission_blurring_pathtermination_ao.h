@@ -219,6 +219,8 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(
 					kernel_split_state.throughput[ray_index] = throughput/probability;
 				}
 			}
+
+			kernel_update_denoising_features(kg, sd, state, L);
 		}
 	}
 

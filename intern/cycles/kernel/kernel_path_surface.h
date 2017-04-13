@@ -177,7 +177,7 @@ ccl_device bool kernel_branched_path_surface_bounce(
 	path_radiance_bsdf_bounce(L, throughput, &bsdf_eval, bsdf_pdf, state->bounce, label);
 
 #ifdef __DENOISING_FEATURES__
-	state->denoising_feature_weight *= (sc->sample_weight / sum_sample_weight) * (1.0f / num_samples);
+	state->denoising_feature_weight *= sc->sample_weight / (sum_sample_weight * num_samples);
 #endif
 
 	/* modify path state */

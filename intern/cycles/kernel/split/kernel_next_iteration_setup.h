@@ -153,8 +153,6 @@ ccl_device void kernel_next_iteration_setup(KernelGlobals *kg,
 		L = &kernel_split_state.path_radiance[ray_index];
 		ShaderData *sd = &kernel_split_state.sd[ray_index];
 
-		kernel_update_denoising_features(kg, sd, state, L);
-
 		/* Compute direct lighting and next bounce. */
 		if(!kernel_path_surface_bounce(kg, &rng, sd, throughput, state, L, ray)) {
 			ASSIGN_RAY_STATE(ray_state, ray_index, RAY_UPDATE_BUFFER);
