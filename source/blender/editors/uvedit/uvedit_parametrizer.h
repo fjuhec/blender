@@ -80,7 +80,7 @@ void param_delete(ParamHandle *chart);
  * - solve: compute cheap initialization (if necessary) and refine iteratively
  * - end: clean up
 */
-
+void slim_reload_all_uvs(ParamHandle *handle);
 void param_slim_solve(ParamHandle *handle, SLIMMatrixTransfer *mt);
 
 void param_slim_begin(ParamHandle *handle, SLIMMatrixTransfer *mt);

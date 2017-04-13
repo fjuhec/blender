@@ -898,6 +898,7 @@ void ED_uvedit_live_unwrap_re_solve(void)
 {
 	if (liveHandle) {
 		if (param_is_slim(liveHandle)) {
+			slim_reload_all_uvs(liveHandle);
 			param_slim_solve_iteration(liveHandle);
 		}
 		else {

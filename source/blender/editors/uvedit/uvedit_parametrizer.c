@@ -4821,7 +4821,7 @@ static void slim_get_pinned_vertex_data(ParamHandle *liveHandle,
 				selected_pins[*n_selected_pins] = be->vert->slim_id;
 				++(*n_selected_pins);
 			}
-			
+
 			pinned_vertex_indices[i] = be->vert->slim_id;
 			pinned_vertex_positions_2D[2*i] = be->vert->uv[0];
 			pinned_vertex_positions_2D[2*i+1] = be->vert->uv[1];
@@ -4849,6 +4849,21 @@ static void slim_get_pinned_vertex_data(ParamHandle *liveHandle,
 
 	*n_pins = i;
 	phandle->slim_mt->n_pinned_vertices[chartNr] = i;
+}
+
+void slim_reload_all_uvs(ParamHandle *liveHandle)
+{
+
+	PHandle *phandle = (PHandle *) liveHandle;
+
+	PVert *v;
+	for (int i = 0; i < phandle->ncharts; i++) {
+		PChart *chart = phandle->charts[i];
+
+		for (v = chart->verts; v; v = v->nextlink) {
+			p_vert_load_pin_select_uvs(liveHandle, v);  /* reload v */
+		}
+	}
 }
 
 void param_slim_solve(ParamHandle *handle, SLIMMatrixTransfer *mt)
@@ -4896,7 +4911,7 @@ void param_slim_begin(ParamHandle *handle, SLIMMatrixTransfer *mt)
 				deselect = P_TRUE;
 		}
 
-		if ((!mt->is_minimize_stretch && (!select || !deselect)) || (npins == 1)) {
+		if ((!mt->is_minimize_stretch && (!select || !deselect)) || (npins == 0)) {
 			/* nothing to unwrap */
 			chart->u.slim.ptr = NULL;
 			chart->flag |= PCHART_NOFLUSH;
@@ -4936,25 +4951,25 @@ void param_slim_solve_iteration(ParamHandle *handle)
 			continue;
 
 		int *pinned_vertex_indices =
-			MEM_callocN(sizeof(*pinned_vertex_indices) * mt->n_verts[i],
-						"indices of pinned verts");
+		MEM_callocN(sizeof(*pinned_vertex_indices) * mt->n_verts[i],
+					"indices of pinned verts");
 		double *pinned_vertex_positions_2D =
-			MEM_callocN(sizeof(*pinned_vertex_positions_2D) * 2 * mt->n_verts[i],
-						"positions of pinned verts: [u1, v1, u2, v2, ..., un, vn]");
+		MEM_callocN(sizeof(*pinned_vertex_positions_2D) * 2 * mt->n_verts[i],
+					"positions of pinned verts: [u1, v1, u2, v2, ..., un, vn]");
 		int *selected_pins =
-			MEM_callocN(sizeof(*pinned_vertex_indices) * mt->n_verts[i],
-			            "indices of pinned & selected verts");
+		MEM_callocN(sizeof(*pinned_vertex_indices) * mt->n_verts[i],
+					"indices of pinned & selected verts");
 
 		int n_pins = 0;
 		int n_selected_pins = 0;
 
 		slim_get_pinned_vertex_data(handle,
-		                            i,
-		                            &n_pins,
-		                            pinned_vertex_indices,
-		                            pinned_vertex_positions_2D,
-		                            &n_selected_pins,
-		                            selected_pins);
+									i,
+									&n_pins,
+									pinned_vertex_indices,
+									pinned_vertex_positions_2D,
+									&n_selected_pins,
+									selected_pins);
 
 		SLIM_parametrize_live(chart->u.slim.ptr,
 							  n_pins,
