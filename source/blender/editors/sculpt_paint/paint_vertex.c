@@ -1730,9 +1730,9 @@ static void vertex_paint_init_session_average_arrays(Object *ob)
 {
 	/* Create average brush arrays */
 	if (!ob->sculpt->modes.vwpaint.tot_loops_hit) {
-		int totNode = 0;
 		/* I think the totNodes might include internal nodes, and we really only need the tot leaves. */
-		BKE_pbvh_get_num_nodes(ob->sculpt->pbvh, &totNode);
+		int totNode = BKE_pbvh_get_num_nodes(ob->sculpt->pbvh);
+
 		Mesh *me = BKE_mesh_from_object(ob);
 
 		ob->sculpt->modes.vwpaint.total_color =

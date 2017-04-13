@@ -1343,6 +1343,12 @@ BMesh *BKE_pbvh_get_bmesh(PBVH *bvh)
 	return bvh->bm;
 }
 
+
+int BKE_pbvh_get_num_nodes(const PBVH *bvh)
+{
+	return bvh->totnode;
+}
+
 /***************************** Node Access ***********************************/
 
 void BKE_pbvh_node_mark_update(PBVHNode *node)
@@ -1411,11 +1417,6 @@ void BKE_pbvh_node_num_verts(
 			if (r_uniquevert) *r_uniquevert = tot;
 			break;
 	}
-}
-
-void BKE_pbvh_get_num_nodes(const PBVH *bvh, int *r_totnode)
-{
-	*r_totnode = bvh->totnode;
 }
 
 void BKE_pbvh_node_get_grids(
