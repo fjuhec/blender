@@ -186,7 +186,6 @@ static void set_parent(bGPDlayer *gpl, Object *par, const int type, const char *
 /* set parent object and inverse matrix */
 static void rna_GPencilLayer_parent_set(PointerRNA *ptr, PointerRNA value)
 {
-	bGPdata *gpd = (bGPdata *)ptr->id.data;
 	bGPDlayer *gpl = (bGPDlayer *)ptr->data;
 	Object *par = (Object *)value.data; 
 
@@ -194,21 +193,6 @@ static void rna_GPencilLayer_parent_set(PointerRNA *ptr, PointerRNA value)
 		set_parent(gpl, par, gpl->partype, gpl->parsubstr);
 	}
 	else {
-		/* keep strokes in the same place, so apply current transformation */
-		if (gpl->parent != NULL) {
-			bGPDspoint *pt;
-			int i;
-			float diff_mat[4][4];
-			/* calculate difference matrix */
-			ED_gpencil_parent_location(NULL, gpd, gpl, diff_mat);
-			for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
-				for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-					for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
-						mul_m4_v3(diff_mat, &pt->x);
-					}
-				}
-			}
-		}
 		/* clear parent */
 		gpl->parent = NULL;
 	}
