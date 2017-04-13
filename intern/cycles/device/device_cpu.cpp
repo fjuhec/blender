@@ -57,7 +57,7 @@ CCL_NAMESPACE_BEGIN
 class CPUDevice;
 
 /* Has to be outside of the class to be shared across template instantiations. */
-static bool logged_architecture = false;
+static const char *logged_architecture = "";
 
 template<typename F>
 class KernelFunctions {
@@ -74,7 +74,7 @@ public:
 	                F kernel_avx,
 	                F kernel_avx2)
 	{
-		string architecture_name = "default";
+		const char *architecture_name = "default";
 		kernel = kernel_default;
 
 		/* Silence potential warnings about unused variables
@@ -119,9 +119,9 @@ public:
 		}
 #endif
 
-		if(!logged_architecture) {
+		if(strstr(architecture_name, logged_architecture) != 0) {
 			VLOG(1) << "Will be using " << architecture_name << " kernels.";
-			logged_architecture = true;
+			logged_architecture = architecture_name;
 		}
 	}
 
@@ -676,6 +676,7 @@ public:
 				thread_kernel_globals_free((KernelGlobals*)kgbuffer.device_pointer);
 				mem_free(kgbuffer);
 
+				delete split_kernel;
 				return;
 			}
 		}
