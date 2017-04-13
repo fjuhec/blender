@@ -30,6 +30,8 @@ struct Batch;
 
 struct Batch *gpencil_get_stroke_geom(struct bGPDstroke *gps, short thickness, const float diff_mat[4][4], const float ink[4]);
 struct Batch *gpencil_get_fill_geom(struct bGPDstroke *gps, const float diff_mat[4][4], const float color[4]);
+struct Batch *gpencil_get_edit_geom(struct bGPDstroke *gps, const float diff_mat[4][4], float alpha, short dflag);
+
 bool gpencil_can_draw_stroke(const struct bGPDstroke *gps);
 
 #endif /* __GPENCIL_MODE_H__ */

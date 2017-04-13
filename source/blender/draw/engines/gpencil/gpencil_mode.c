@@ -90,6 +90,7 @@ typedef struct g_data{
 	int t_flip;
 	int t_mix;
 	int fill_style;
+	DRWShadingGroup *shgrps_volumetric;
 } g_data; /* Transient data */
 
 static struct {
@@ -182,6 +183,16 @@ static DRWShadingGroup *GPENCIL_shgroup_stroke_create(GPENCIL_Data *vedata, DRWP
 	return grp;
 }
 
+/* create shading group for volumetric */
+static DRWShadingGroup *GPENCIL_shgroup_volumetric_create(GPENCIL_Data *vedata, DRWPass *pass)
+{
+	GPENCIL_TextureList *txl = ((GPENCIL_Data *)vedata)->txl;
+	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
+
+	DRWShadingGroup *grp = DRW_shgroup_create(e_data.gpencil_volumetric_sh, pass);
+
+	return grp;
+}
 
 static void GPENCIL_cache_init(void *vedata)
 {
@@ -207,6 +218,9 @@ static void GPENCIL_cache_init(void *vedata)
 		memset(stl->storage->shgrps_fill, 0, sizeof(DRWShadingGroup *) * MAX_GPENCIL_MAT);
 		memset(stl->storage->shgrps_stroke, 0, sizeof(DRWShadingGroup *) * MAX_GPENCIL_MAT);
 		memset(stl->storage->materials, 0, sizeof(PaletteColor *) * MAX_GPENCIL_MAT);
+
+		/* create static shading groups */
+		stl->g_data->shgrps_volumetric = GPENCIL_shgroup_volumetric_create(vedata, psl->pass);
 	}
 }
 
@@ -231,6 +245,7 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 	DRWShadingGroup *strokegrp;
 	const bContext *C = DRW_get_context();
 	Scene *scene = CTX_data_scene(C);
+	ToolSettings *ts = CTX_data_tool_settings(C);
 	float diff_mat[4][4];
 	float ink[4];
 	float tcolor[4];
@@ -288,9 +303,27 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 					struct Batch *stroke_geom = gpencil_get_stroke_geom(gps, sthickness, diff_mat, ink);
 					DRW_shgroup_call_add(strokegrp, stroke_geom, ob->obmat);
 				}
+
+				/* edit points (only in edit mode) */
+				if ((gpl->flag & GP_LAYER_LOCKED) == 0 && (ob->gpd->flag & GP_DATA_STROKE_EDITMODE))
+				{
+					if (gps->flag & GP_STROKE_SELECT) {
+						if ((gpl->flag & GP_LAYER_UNLOCK_COLOR) || ((gps->palcolor->flag & PC_COLOR_LOCKED) == 0)) {
+							struct Batch *edit_geom = gpencil_get_edit_geom(gps, diff_mat, ts->gp_sculpt.alpha, ob->gpd->flag);
+							DRW_shgroup_call_add(stl->g_data->shgrps_volumetric, edit_geom,ob->obmat);
+
+						}
+					}
+				}
+
 			}
 		}
 	}
+}
+
+static void GPENCIL_cache_finish(void *vedata)
+{
+	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 }
 
 static void GPENCIL_draw_scene(void *vedata)
@@ -318,7 +351,7 @@ DrawEngineType draw_engine_gpencil_type = {
 	&GPENCIL_engine_free,
 	&GPENCIL_cache_init,
 	&GPENCIL_cache_populate,
-	NULL,
+	&GPENCIL_cache_finish,
 	NULL,
 	&GPENCIL_draw_scene
 };

@@ -41,6 +41,8 @@
 
 #include "ED_gpencil.h"
 
+#include "UI_resources.h"
+
 /* set stroke point to vbo */
 static void gpencil_set_stroke_point(VertexBuffer *vbo, const bGPDspoint *pt, int idx,
 						    unsigned int pos_id, unsigned int color_id,
@@ -361,4 +363,82 @@ Batch *gpencil_get_fill_geom(bGPDstroke *gps, const float diff_mat[4][4], const 
 	}
 
 	return Batch_create(PRIM_TRIANGLES, vbo, NULL);
+}
+
+/* Draw selected verts for strokes being edited */
+Batch *gpencil_get_edit_geom(bGPDstroke *gps, const float diff_mat[4][4], float alpha, short dflag)
+{
+	/* Get size of verts:
+	* - The selected state needs to be larger than the unselected state so that
+	*   they stand out more.
+	* - We use the theme setting for size of the unselected verts
+	*/
+	float bsize = UI_GetThemeValuef(TH_GP_VERTEX_SIZE);
+	float vsize;
+	if ((int)bsize > 8) {
+		vsize = 10.0f;
+		bsize = 8.0f;
+	}
+	else {
+		vsize = bsize + 2;
+	}
+
+	/* for now, we assume that the base color of the points is not too close to the real color */
+	/* set color using palette */
+	PaletteColor *palcolor = gps->palcolor;
+
+	float selectColor[4];
+	UI_GetThemeColor3fv(TH_GP_VERTEX_SELECT, selectColor);
+	selectColor[3] = alpha;
+
+	static VertexFormat format = { 0 };
+	static unsigned int pos_id, color_id, size_id;
+	if (format.attrib_ct == 0) {
+		pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
+		color_id = VertexFormat_add_attrib(&format, "color", COMP_F32, 4, KEEP_FLOAT);
+		size_id = VertexFormat_add_attrib(&format, "size", COMP_F32, 1, KEEP_FLOAT);
+	}
+
+	VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
+	VertexBuffer_allocate_data(vbo, gps->totpoints);
+
+	/* Draw start and end point differently if enabled stroke direction hint */
+	bool show_direction_hint = (dflag & GP_DATA_SHOW_DIRECTION) && (gps->totpoints > 1);
+
+	/* Draw all the stroke points (selected or not) */
+	bGPDspoint *pt = gps->points;
+	float fpt[3];
+	int idx = 0;
+	float fcolor[4];
+	float fsize = 0;
+
+	for (int i = 0; i < gps->totpoints; i++, pt++) {
+		if (show_direction_hint && i == 0) {
+			/* start point in green bigger */
+			ARRAY_SET_ITEMS(fcolor, 0.0f, 1.0f, 0.0f, 1.0f);
+			fsize = vsize + 4;
+		}
+		else if (show_direction_hint && (i == gps->totpoints - 1)) {
+			/* end point in red smaller */
+			ARRAY_SET_ITEMS(fcolor, 1.0f, 0.0f, 0.0f, 1.0f);
+			fsize = vsize + 1;
+		}
+		else if (pt->flag & GP_SPOINT_SELECT) {
+			copy_v4_v4(fcolor, selectColor);
+			fsize = vsize;
+		}
+		else {
+			copy_v4_v4(fcolor, palcolor->rgb);
+			fsize = bsize;
+		}
+
+		VertexBuffer_set_attrib(vbo, color_id, idx, fcolor);
+		VertexBuffer_set_attrib(vbo, size_id, idx, &fsize);
+
+		mul_v3_m4v3(fpt, diff_mat, &pt->x);
+		VertexBuffer_set_attrib(vbo, pos_id, idx, fpt);
+		++idx;
+	}
+
+	return Batch_create(PRIM_POINTS, vbo, NULL);
 }
