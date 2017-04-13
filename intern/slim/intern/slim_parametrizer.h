@@ -47,11 +47,6 @@ SLIMData* setup_slim(SLIMMatrixTransfer *transferredData,
 						 bool skipInitialization);
 void transferUvsBackToNativePartLive(SLIMMatrixTransfer *mt,
 									 Eigen::MatrixXd &UV,
-									 int n_pins,
-									 int n_selected_pins,
-									 int *selected_pins,
-									 int *pinned_vertex_indices,
-									 double *pinned_vertex_positions,
 									 int uvChartIndex);
 void transferUvsBackToNativePart(SLIMMatrixTransfer *mt, Eigen::MatrixXd &UV, int uvChartIndex);
 void param_slim_single_iteration(SLIMData *slimData);

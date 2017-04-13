@@ -40,22 +40,12 @@ using namespace igl;
 
 void SLIM_transfer_uvs_blended_live(SLIMMatrixTransfer *mt,
 									void* slim_data_ptr,
-									int n_pins,
-									int n_selected_pins,
-									int *selected_pins,
-									int *pinned_vertex_indices,
-									double *pinned_vertex_positions,
 									int uv_chart_index){
 
 	SLIMData* slim_data = (SLIMData*) slim_data_ptr;
 	areacomp::correctMapSurfaceAreaIfNecessary(slim_data);
 	transferUvsBackToNativePartLive(mt,
 									slim_data->V_o,
-									n_pins,
-									n_selected_pins,
-									selected_pins,
-									pinned_vertex_indices,
-									pinned_vertex_positions,
 									uv_chart_index);
 }
 

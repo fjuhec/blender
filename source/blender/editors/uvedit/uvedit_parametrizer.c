@@ -4977,7 +4977,7 @@ void param_slim_solve_iteration(ParamHandle *handle)
 							  pinned_vertex_positions_2D,
 							  n_selected_pins,
 							  selected_pins);
-		SLIM_transfer_uvs_blended_live(mt, chart->u.slim.ptr, n_pins, n_selected_pins, selected_pins, pinned_vertex_indices, pinned_vertex_positions_2D, i);
+		SLIM_transfer_uvs_blended_live(mt, chart->u.slim.ptr, i);
 
 		MEM_freeN(selected_pins);
 		MEM_freeN(pinned_vertex_indices);

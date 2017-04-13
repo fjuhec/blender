@@ -54,40 +54,13 @@ using namespace Eigen;
 
 void transferUvsBackToNativePartLive(SLIMMatrixTransfer *mt,
 									 Eigen::MatrixXd &UV,
-									 int n_pins,
-									 int n_selected_pins,
-									 int *selected_pins_indices,
-									 int *pin_indices,
-									 double *pin_positions,
 									 int uvChartIndex){
-
 	double *uvCoordinateArray = mt->uv_matrices[uvChartIndex];
 	int numberOfVertices = mt->n_verts[uvChartIndex];
 
-	double u, v;
-
 	for (int i = 0; i < numberOfVertices; i++) {
-
-		while (*selected_pins_indices < i) {
-			++selected_pins_indices;
-		}
-
-		while (*pin_indices < i) {
-			++pin_indices;
-			pin_positions += 2;
-		}
-
-		if (*selected_pins_indices == i && *pin_indices == i) {
-			u = *(pin_positions++);
-			v = *(pin_positions++);
-			++pin_indices;
-		} else {
-			u = UV(i,0);
-			v = UV(i,1);
-		}
-
-		*(uvCoordinateArray++) = u;
-		*(uvCoordinateArray++) = v;
+		*(uvCoordinateArray++) = UV(i,0);
+		*(uvCoordinateArray++) = UV(i,1);
 	}
 }
 
