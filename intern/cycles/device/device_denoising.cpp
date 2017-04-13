@@ -77,81 +77,87 @@ bool DenoisingTask::run_denoising()
 
 	/* Prefilter shadow feature. */
 	{
-		device_ptr unfiltered_a, unfiltered_b, sample_var, sample_var_var, buffer_var, filtered_var;
-		unfiltered_a              = device->mem_get_offset_ptr(buffer.mem, 0,                    buffer.pass_stride, MEM_READ_WRITE);
-		unfiltered_b              = device->mem_get_offset_ptr(buffer.mem, 1*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
-		sample_var                = device->mem_get_offset_ptr(buffer.mem, 2*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
-		sample_var_var            = device->mem_get_offset_ptr(buffer.mem, 3*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
-		buffer_var                = device->mem_get_offset_ptr(buffer.mem, 5*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
-		filtered_var              = device->mem_get_offset_ptr(buffer.mem, 6*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
-		nlm_state.temporary_1_ptr = device->mem_get_offset_ptr(buffer.mem, 7*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
-		nlm_state.temporary_2_ptr = device->mem_get_offset_ptr(buffer.mem, 8*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
-		nlm_state.temporary_3_ptr = device->mem_get_offset_ptr(buffer.mem, 9*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		offset_ptr unfiltered_a   (device, buffer.mem, 0,                    buffer.pass_stride, MEM_READ_WRITE);
+		offset_ptr unfiltered_b   (device, buffer.mem, 1*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		offset_ptr sample_var     (device, buffer.mem, 2*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		offset_ptr sample_var_var (device, buffer.mem, 3*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		offset_ptr buffer_var     (device, buffer.mem, 5*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		offset_ptr filtered_var   (device, buffer.mem, 6*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		offset_ptr nlm_temporary_1(device, buffer.mem, 7*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		offset_ptr nlm_temporary_2(device, buffer.mem, 8*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		offset_ptr nlm_temporary_3(device, buffer.mem, 9*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+
+		nlm_state.temporary_1_ptr = *nlm_temporary_1;
+		nlm_state.temporary_2_ptr = *nlm_temporary_2;
+		nlm_state.temporary_3_ptr = *nlm_temporary_3;
 
 		/* Get the A/B unfiltered passes, the combined sample variance, the estimated variance of the sample variance and the buffer variance. */
-		functions.divide_shadow(unfiltered_a, unfiltered_b, sample_var, sample_var_var, buffer_var);
+		functions.divide_shadow(*unfiltered_a, *unfiltered_b, *sample_var, *sample_var_var, *buffer_var);
 
 		/* Smooth the (generally pretty noisy) buffer variance using the spatial information from the sample variance. */
 		nlm_state.set_parameters(6, 3, 4.0f, 1.0f);
-		functions.non_local_means(buffer_var, sample_var, sample_var_var, filtered_var);
+		functions.non_local_means(*buffer_var, *sample_var, *sample_var_var, *filtered_var);
 
 		/* Reuse memory, the previous data isn't needed anymore. */
-		device_ptr filtered_a = buffer_var,
-		           filtered_b = sample_var;
+		device_ptr filtered_a = *buffer_var,
+		           filtered_b = *sample_var;
 		/* Use the smoothed variance to filter the two shadow half images using each other for weight calculation. */
 		nlm_state.set_parameters(5, 3, 1.0f, 0.25f);
-		functions.non_local_means(unfiltered_a, unfiltered_b, filtered_var, filtered_a);
-		functions.non_local_means(unfiltered_b, unfiltered_a, filtered_var, filtered_b);
+		functions.non_local_means(*unfiltered_a, *unfiltered_b, *filtered_var, filtered_a);
+		functions.non_local_means(*unfiltered_b, *unfiltered_a, *filtered_var, filtered_b);
 
-		device_ptr residual_var = sample_var_var;
+		device_ptr residual_var = *sample_var_var;
 		/* Estimate the residual variance between the two filtered halves. */
 		functions.combine_halves(filtered_a, filtered_b, null_ptr, residual_var, 2, rect);
 
-		device_ptr final_a = unfiltered_a,
-		           final_b = unfiltered_b;
+		device_ptr final_a = *unfiltered_a,
+		           final_b = *unfiltered_b;
 		/* Use the residual variance for a second filter pass. */
 		nlm_state.set_parameters(4, 2, 1.0f, 0.5f);
 		functions.non_local_means(filtered_a, filtered_b, residual_var, final_a);
 		functions.non_local_means(filtered_b, filtered_a, residual_var, final_b);
 
 		/* Combine the two double-filtered halves to a final shadow feature. */
-		device_ptr shadow_pass = device->mem_get_offset_ptr(buffer.mem, 4*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
-		functions.combine_halves(final_a, final_b, shadow_pass, null_ptr, 0, rect);
+		offset_ptr shadow_pass(device, buffer.mem, 4*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		functions.combine_halves(final_a, final_b, *shadow_pass, null_ptr, 0, rect);
 	}
 
 	/* Prefilter general features. */
 	{
-		device_ptr unfiltered, variance, feature_pass;
-		unfiltered                = device->mem_get_offset_ptr(buffer.mem,  8*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
-		variance                  = device->mem_get_offset_ptr(buffer.mem,  9*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
-		nlm_state.temporary_1_ptr = device->mem_get_offset_ptr(buffer.mem, 10*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
-		nlm_state.temporary_2_ptr = device->mem_get_offset_ptr(buffer.mem, 11*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
-		nlm_state.temporary_3_ptr = device->mem_get_offset_ptr(buffer.mem, 12*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		offset_ptr unfiltered     (device, buffer.mem,  8*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		offset_ptr variance       (device, buffer.mem,  9*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		offset_ptr nlm_temporary_1(device, buffer.mem, 10*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		offset_ptr nlm_temporary_2(device, buffer.mem, 11*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		offset_ptr nlm_temporary_3(device, buffer.mem, 12*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+
+		nlm_state.temporary_1_ptr = *nlm_temporary_1;
+		nlm_state.temporary_2_ptr = *nlm_temporary_2;
+		nlm_state.temporary_3_ptr = *nlm_temporary_3;
+
 		int mean_from[]     = { 0, 1, 2, 6,  7,  8, 12 };
 		int variance_from[] = { 3, 4, 5, 9, 10, 11, 13 };
 		int pass_to[]       = { 1, 2, 3, 0,  5,  6,  7 };
 		for(int pass = 0; pass < 7; pass++) {
-			feature_pass = device->mem_get_offset_ptr(buffer.mem, pass_to[pass]*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+			offset_ptr feature_pass(device, buffer.mem, pass_to[pass]*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
 			/* Get the unfiltered pass and its variance from the RenderBuffers. */
-			functions.get_feature(mean_from[pass], variance_from[pass], unfiltered, variance);
+			functions.get_feature(mean_from[pass], variance_from[pass], *unfiltered, *variance);
 			/* Smooth the pass and store the result in the denoising buffers. */
 			nlm_state.set_parameters(2, 2, 1.0f, 0.25f);
-			functions.non_local_means(unfiltered, unfiltered, variance, feature_pass);
+			functions.non_local_means(*unfiltered, *unfiltered, *variance, *feature_pass);
 		}
 	}
 
 	/* Copy color passes. */
 	{
-		device_ptr color_pass, color_var_pass;
 		int mean_from[]     = {20, 21, 22};
 		int variance_from[] = {23, 24, 25};
 		int mean_to[]       = { 8,  9, 10};
 		int variance_to[]   = {11, 12, 13};
 		int num_color_passes = 3;
 		for(int pass = 0; pass < num_color_passes; pass++) {
-			color_pass     = device->mem_get_offset_ptr(buffer.mem,     mean_to[pass]*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
-			color_var_pass = device->mem_get_offset_ptr(buffer.mem, variance_to[pass]*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
-			functions.get_feature(mean_from[pass], variance_from[pass], color_pass, color_var_pass);
+			offset_ptr color_pass    (device, buffer.mem,     mean_to[pass]*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+			offset_ptr color_var_pass(device, buffer.mem, variance_to[pass]*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+			functions.get_feature(mean_from[pass], variance_from[pass], *color_pass, *color_var_pass);
 		}
 	}
 
@@ -187,10 +193,11 @@ bool DenoisingTask::run_denoising()
 	reconstruction_state.source_w = rect.z-rect.x;
 	reconstruction_state.source_h = rect.w-rect.y;
 
-	device_ptr color_ptr, color_var_ptr;
-	color_ptr     = device->mem_get_offset_ptr(buffer.mem,  8*buffer.pass_stride, 3*buffer.pass_stride, MEM_READ_WRITE);
-	color_var_ptr = device->mem_get_offset_ptr(buffer.mem, 11*buffer.pass_stride, 3*buffer.pass_stride, MEM_READ_WRITE);
-	functions.reconstruct(color_ptr, color_var_ptr, color_ptr, color_var_ptr, render_buffer.ptr);
+	{
+		offset_ptr color_ptr    (device, buffer.mem,  8*buffer.pass_stride, 3*buffer.pass_stride, MEM_READ_WRITE);
+		offset_ptr color_var_ptr(device, buffer.mem, 11*buffer.pass_stride, 3*buffer.pass_stride, MEM_READ_WRITE);
+		functions.reconstruct(*color_ptr, *color_var_ptr, *color_ptr, *color_var_ptr, render_buffer.ptr);
+	}
 
 	device->mem_free(storage.XtWX);
 	device->mem_free(storage.XtWY);

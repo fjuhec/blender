@@ -400,4 +400,16 @@ void Device::free_memory()
 	devices.free_memory();
 }
 
+
+offset_ptr::offset_ptr(Device *device, device_memory& mem, int offset, int size, MemoryType type)
+ : device(device)
+{
+	ptr = device->mem_get_offset_ptr(mem, offset, size, type);
+}
+
+offset_ptr::~offset_ptr()
+{
+	device->mem_free_offset_ptr(ptr);
+}
+
 CCL_NAMESPACE_END

@@ -326,8 +326,11 @@ public:
 	void mem_copy_from(device_memory& mem, int y, int w, int h, int elem);
 	void mem_zero(device_memory& mem);
 	void mem_free(device_memory& mem);
+
 	int mem_get_offset_alignment();
 	device_ptr mem_get_offset_ptr(device_memory& mem, int offset, int size, MemoryType type);
+	void mem_free_offset_ptr(device_ptr ptr);
+
 	void const_copy_to(const char *name, void *host, size_t size);
 	void tex_alloc(const char *name,
 	               device_memory& mem,

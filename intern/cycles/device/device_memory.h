@@ -35,6 +35,8 @@
 
 CCL_NAMESPACE_BEGIN
 
+class Device;
+
 enum MemoryType {
 	MEM_READ_ONLY,
 	MEM_WRITE_ONLY,
@@ -316,6 +318,23 @@ public:
 
 private:
 	array<T> data;
+};
+
+class offset_ptr
+{
+public:
+	offset_ptr(Device *device, device_memory& mem, int offset, int size, MemoryType type);
+	~offset_ptr();
+	/* No copying. */
+	offset_ptr& operator = (const offset_ptr&);
+
+	device_ptr operator*() const
+	{
+		return ptr;
+	}
+protected:
+	Device *device;
+	device_ptr ptr;
 };
 
 CCL_NAMESPACE_END

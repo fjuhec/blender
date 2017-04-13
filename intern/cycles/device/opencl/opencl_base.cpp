@@ -445,6 +445,13 @@ device_ptr OpenCLDeviceBase::mem_get_offset_ptr(device_memory& mem, int offset, 
 	return sub_buf;
 }
 
+void OpenCLDeviceBase::mem_free_offset_ptr(device_ptr device_pointer)
+{
+	if(device_pointer && device_pointer != null_mem) {
+		opencl_assert(clReleaseMemObject(CL_MEM_PTR(device_pointer)));
+	}
+}
+
 void OpenCLDeviceBase::const_copy_to(const char *name, void *host, size_t size)
 {
 	ConstMemMap::iterator i = const_mem_map.find(name);
