@@ -29,6 +29,6 @@
 #  endif
 #endif  /* WITH_CYCLES_OPTIMIZED_KERNEL_SSE2 */
 
-#include "filter/filter.h"
+#include "kernel/filter/filter.h"
 #define KERNEL_ARCH cpu_sse2
-#include "filter/kernels/cpu/filter_cpu_impl.h"
+#include "kernel/kernels/cpu/filter_cpu_impl.h"

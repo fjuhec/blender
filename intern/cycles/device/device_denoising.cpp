@@ -16,7 +16,7 @@
 
 #include "device/device_denoising.h"
 
-#include "filter/filter_defines.h"
+#include "kernel/filter/filter_defines.h"
 
 CCL_NAMESPACE_BEGIN
 

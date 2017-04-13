@@ -50,6 +50,9 @@
 #  define ccl_addr_space
 #endif
 
+#define ccl_readonly_ptr const * __restrict__
+#define CCL_MAX_LOCAL_SIZE 256
+
 #define ccl_local_id(d) get_local_id(d)
 #define ccl_global_id(d) get_global_id(d)
 

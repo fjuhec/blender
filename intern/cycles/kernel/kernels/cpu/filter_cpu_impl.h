@@ -20,9 +20,9 @@
  * simply includes this file without worry of copying actual implementation over.
  */
 
-#include "filter/filter_compat_cpu.h"
+#include "kernel/kernel_compat_cpu.h"
 
-#include "filter/filter_kernel.h"
+#include "kernel/filter/filter_kernel.h"
 
 #ifdef KERNEL_STUB
 #  include "util/util_debug.h"

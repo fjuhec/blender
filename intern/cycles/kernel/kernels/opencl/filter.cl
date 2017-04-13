@@ -16,9 +16,9 @@
 
 /* OpenCL kernel entry points */
 
-#include "filter/filter_compat_opencl.h"
+#include "kernel/kernel_compat_opencl.h"
 
-#include "filter/filter_kernel.h"
+#include "kernel/filter/filter_kernel.h"
 
 /* kernels */
 

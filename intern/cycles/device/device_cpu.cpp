@@ -35,7 +35,7 @@
 #include "kernel/split/kernel_split_data.h"
 #include "kernel/kernel_globals.h"
 
-#include "filter/filter.h"
+#include "kernel/filter/filter.h"
 
 #include "kernel/osl/osl_shader.h"
 #include "kernel/osl/osl_globals.h"

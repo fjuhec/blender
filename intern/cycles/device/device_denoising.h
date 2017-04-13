@@ -21,7 +21,7 @@
 
 #include "render/buffers.h"
 
-#include "filter/filter_defines.h"
+#include "kernel/filter/filter_defines.h"
 
 CCL_NAMESPACE_BEGIN
 

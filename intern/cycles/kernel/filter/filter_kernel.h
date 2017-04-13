@@ -22,31 +22,31 @@
 #include "util/util_atomic.h"
 #include "util/util_math_matrix.h"
 
-#include "filter/filter_defines.h"
+#include "kernel/filter/filter_defines.h"
 
-#include "filter/filter_features.h"
+#include "kernel/filter/filter_features.h"
 #ifdef __KERNEL_SSE3__
-#  include "filter/filter_features_sse.h"
+#  include "kernel/filter/filter_features_sse.h"
 #endif
 
-#include "filter/filter_prefilter.h"
+#include "kernel/filter/filter_prefilter.h"
 
 #ifdef __KERNEL_GPU__
-#  include "filter/filter_transform_gpu.h"
+#  include "kernel/filter/filter_transform_gpu.h"
 #else
 #  ifdef __KERNEL_SSE3__
-#    include "filter/filter_transform_sse.h"
+#    include "kernel/filter/filter_transform_sse.h"
 #  else
-#    include "filter/filter_transform.h"
+#    include "kernel/filter/filter_transform.h"
 #  endif
 #endif
 
-#include "filter/filter_reconstruction.h"
+#include "kernel/filter/filter_reconstruction.h"
 
 #ifdef __KERNEL_CPU__
-#  include "filter/filter_nlm_cpu.h"
+#  include "kernel/filter/filter_nlm_cpu.h"
 #else
-#  include "filter/filter_nlm_gpu.h"
+#  include "kernel/filter/filter_nlm_gpu.h"
 #endif
 
 CCL_NAMESPACE_BEGIN

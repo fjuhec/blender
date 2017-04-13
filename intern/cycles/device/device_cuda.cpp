@@ -27,7 +27,7 @@
 
 #include "render/buffers.h"
 
-#include "filter/filter_defines.h"
+#include "kernel/filter/filter_defines.h"
 
 #ifdef WITH_CUDA_DYNLOAD
 #  include "cuew.h"
