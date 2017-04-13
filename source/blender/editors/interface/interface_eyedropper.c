@@ -888,7 +888,6 @@ static void depthdropper_depth_sample_pt(bContext *C, DepthDropper *ddr, int mx,
 	Scene *scene = win->screen->scene;
 	UnitSettings *unit = &scene->unit;
 	const bool do_split = (unit->flag & USER_UNIT_OPT_SPLIT) != 0;
-	const bool is_hmd_view = WM_window_is_running_hmd_view(win);
 
 	ScrArea *area_prev = CTX_wm_area(C);
 	ARegion *ar_prev = CTX_wm_region(C);
@@ -916,7 +915,7 @@ static void depthdropper_depth_sample_pt(bContext *C, DepthDropper *ddr, int mx,
 
 				view3d_operator_needs_opengl(C);
 
-				if (ED_view3d_autodist(scene, ar, v3d, mval, co, true, is_hmd_view, NULL)) {
+				if (ED_view3d_autodist(scene, CTX_wm_manager(C), win, ar, v3d, mval, co, true, NULL)) {
 					const float mval_center_fl[2] = {
 					    (float)ar->winx / 2,
 					    (float)ar->winy / 2};

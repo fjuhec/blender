@@ -323,7 +323,7 @@ static bool wm_stereo3d_is_fullscreen_required(eStereoDisplayMode stereo_display
 	            S3D_DISPLAY_TOPBOTTOM);
 }
 
-bool WM_stereo3d_enabled(wmWindow *win, bool skip_stereo3d_check)
+bool WM_stereo3d_enabled(const wmWindow *win, bool skip_stereo3d_check)
 {
 	bScreen *screen = win->screen;
 

@@ -195,8 +195,15 @@ void draw_sim_debug_data(Scene *scene, View3D *v3d, ARegion *ar);
 
 /* view3d_draw.c */
 void view3d_main_region_draw(const struct bContext *C, struct ARegion *ar);
-void ED_view3d_draw_depth(Scene *scene, struct ARegion *ar, View3D *v3d, bool alphaoverride, bool is_hmd_view);
-void ED_view3d_draw_depth_gpencil(Scene *scene, ARegion *ar, View3D *v3d, bool is_hmd_view);
+void ED_view3d_draw_depth(
+        Scene *scene,
+        const struct wmWindowManager *wm, const struct wmWindow *win,
+        struct ARegion *ar, View3D *v3d,
+        bool alphaoverride);
+void ED_view3d_draw_depth_gpencil(
+        Scene *scene,
+        const struct wmWindowManager *wm, const struct wmWindow *win,
+        ARegion *ar, View3D *v3d);
 void ED_view3d_draw_select_loop(
         ViewContext *vc, Scene *scene, View3D *v3d, ARegion *ar,
         bool use_obedit_skip, bool use_nearest);

@@ -105,6 +105,10 @@
 #include "view3d_intern.h"  /* own include */
 
 /* prototypes */
+static void view3d_setup_drawing(
+        const wmWindowManager *wm, const wmWindow *win,
+        ARegion *region, View3D *v3d, RegionView3D *rv3d,
+        Scene *scene, bool skip_stereo3d);
 static void view3d_hmd_view_setup(
         Scene *scene, View3D *v3d, ARegion *region);
 static bool view3d_is_hmd_view_mirror(
@@ -117,6 +121,8 @@ static void view3d_hmd_view_setup_interaction(
 static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar);
 static void view3d_stereo3d_setup_offscreen(Scene *scene, View3D *v3d, ARegion *ar,
                                             float winmat[4][4], const char *viewname);
+static bool view3d_stereo3d_active(const wmWindow *win, Scene *scene, View3D *v3d, RegionView3D *rv3d);
+static void view3d_main_region_setup_view(Scene *scene, View3D *v3d, ARegion *ar, float viewmat[4][4], float winmat[4][4]);
 
 /* handy utility for drawing shapes in the viewport for arbitrary code.
  * could add lines and points too */
@@ -2375,29 +2381,15 @@ float view3d_depth_near(ViewDepths *d)
 	return far == far_real ? FLT_MAX : far;
 }
 
-void ED_view3d_draw_depth_gpencil(Scene *scene, ARegion *ar, View3D *v3d, bool is_hmd_view)
+void ED_view3d_draw_depth_gpencil(
+        Scene *scene,
+        const wmWindowManager *wm, const wmWindow *win,
+        ARegion *ar, View3D *v3d)
 {
 	short zbuf = v3d->zbuf;
 	RegionView3D *rv3d = ar->regiondata;
 
-#ifdef WITH_INPUT_HMD
-	wmWindowManager *wm = G.main->wm.first;
-	if (is_hmd_view) {
-		view3d_hmd_view_setup(scene, v3d, ar);
-	}
-	else if (view3d_is_hmd_view_mirror(wm, v3d, rv3d)) {
-		view3d_hmd_view_setup_mirrored(wm, scene, ar, NULL);
-	}
-	else
-#endif
-	{
-		view3d_winmatrix_set(ar, v3d, NULL);
-		view3d_viewmatrix_set(scene, v3d, rv3d);  /* note: calls BKE_object_where_is_calc for camera... */
-
-		mul_m4_m4m4(rv3d->persmat, rv3d->winmat, rv3d->viewmat);
-		invert_m4_m4(rv3d->persinv, rv3d->persmat);
-		invert_m4_m4(rv3d->viewinv, rv3d->viewmat);
-	}
+	view3d_setup_drawing(wm, win, ar, v3d, rv3d, scene, true);
 
 	glClear(GL_DEPTH_BUFFER_BIT);
 
@@ -2411,13 +2403,13 @@ void ED_view3d_draw_depth_gpencil(Scene *scene, ARegion *ar, View3D *v3d, bool i
 	}
 	
 	v3d->zbuf = zbuf;
-
-#ifdef WITH_INPUT_HMD
-	UNUSED_VARS(is_hmd_view);
-#endif
 }
 
-void ED_view3d_draw_depth(Scene *scene, ARegion *ar, View3D *v3d, bool alphaoverride, bool is_hmd_view)
+void ED_view3d_draw_depth(
+        Scene *scene,
+        const wmWindowManager *wm, const wmWindow *win,
+        ARegion *ar, View3D *v3d,
+        bool alphaoverride)
 {
 	RegionView3D *rv3d = ar->regiondata;
 	Base *base;
@@ -2434,24 +2426,7 @@ void ED_view3d_draw_depth(Scene *scene, ARegion *ar, View3D *v3d, bool alphaover
 	U.glalphaclip = alphaoverride ? 0.5f : glalphaclip; /* not that nice but means we wont zoom into billboards */
 	U.obcenter_dia = 0;
 
-#ifdef WITH_INPUT_HMD
-	wmWindowManager *wm = G.main->wm.first;
-	if (is_hmd_view) {
-		view3d_hmd_view_setup(scene, v3d, ar);
-	}
-	else if (view3d_is_hmd_view_mirror(wm, v3d, rv3d)) {
-		view3d_hmd_view_setup_mirrored(wm, scene, ar, NULL);
-	}
-	else
-#endif
-	{
-		view3d_winmatrix_set(ar, v3d, NULL);
-		view3d_viewmatrix_set(scene, v3d, rv3d);  /* note: calls BKE_object_where_is_calc for camera... */
-
-		mul_m4_m4m4(rv3d->persmat, rv3d->winmat, rv3d->viewmat);
-		invert_m4_m4(rv3d->persinv, rv3d->persmat);
-		invert_m4_m4(rv3d->viewinv, rv3d->viewmat);
-	}
+	view3d_setup_drawing(wm, win, ar, v3d, rv3d, scene, true);
 
 	glClear(GL_DEPTH_BUFFER_BIT);
 	
@@ -2868,6 +2843,33 @@ void ED_view3d_setup_interaction(
 		view3d_winmatrix_set(region, v3d, viewplane_rect);
 		mul_m4_m4m4(rv3d->persmat, rv3d->winmat, rv3d->viewmat);
 	}
+
+	UNUSED_VARS(wm, win, scene);
+}
+
+static void view3d_setup_drawing(
+        const wmWindowManager *wm, const wmWindow *win,
+        ARegion *region, View3D *v3d, RegionView3D *rv3d,
+        Scene *scene, const bool skip_stereo3d)
+{
+	/* setup the view matrix */
+#ifdef WITH_INPUT_HMD
+	if (WM_window_is_running_hmd_view(win)) {
+		view3d_hmd_view_setup(scene, v3d, region);
+	}
+	else if (view3d_is_hmd_view_mirror(wm, v3d, rv3d)) {
+		view3d_hmd_view_setup_mirrored(wm, scene, region, NULL);
+	}
+	else
+#endif
+	if (!skip_stereo3d && view3d_stereo3d_active(win, scene, v3d, rv3d)) {
+		view3d_stereo3d_setup(scene, v3d, region);
+	}
+	else {
+		view3d_main_region_setup_view(scene, v3d, region, NULL, NULL);
+	}
+
+	UNUSED_VARS(wm);
 }
 
 /**
@@ -3757,10 +3759,8 @@ static void view3d_main_region_draw_engine_info(View3D *v3d, RegionView3D *rv3d,
 	ED_region_info_draw(ar, rv3d->render_engine->text, fill_color, true);
 }
 
-static bool view3d_stereo3d_active(const bContext *C, Scene *scene, View3D *v3d, RegionView3D *rv3d)
+static bool view3d_stereo3d_active(const wmWindow *win, Scene *scene, View3D *v3d, RegionView3D *rv3d)
 {
-	wmWindow *win = CTX_wm_window(C);
-
 	if ((scene->r.scemode & R_MULTIVIEW) == 0)
 		return false;
 
@@ -4105,24 +4105,7 @@ static void view3d_main_region_draw_objects(
 		GPU_default_lights();
 	}
 
-	/* setup the view matrix */
-#ifdef WITH_INPUT_HMD
-	if (WM_window_is_running_hmd_view(win)) {
-		view3d_hmd_view_setup(scene, v3d, ar);
-	}
-	else if (view3d_is_hmd_view_mirror(wm, v3d, rv3d)) {
-		view3d_hmd_view_setup_mirrored(wm, scene, ar, NULL);
-	}
-	else
-#else
-	UNUSED_VARS(wm);
-#endif
-	if (view3d_stereo3d_active(C, scene, v3d, rv3d)) {
-		view3d_stereo3d_setup(scene, v3d, ar);
-	}
-	else {
-		view3d_main_region_setup_view(scene, v3d, ar, NULL, NULL);
-	}
+	view3d_setup_drawing(wm, win, ar, v3d, rv3d, scene, false);
 
 	rv3d->rflag &= ~RV3D_IS_GAME_ENGINE;
 #ifdef WITH_GAMEENGINE

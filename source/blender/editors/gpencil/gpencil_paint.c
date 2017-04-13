@@ -114,6 +114,7 @@ typedef enum eGPencil_PaintFlags {
 typedef struct tGPsdata {
 	Scene *scene;       /* current scene from context */
 
+	wmWindowManager *wm; /* window-manager where painting originated */
 	wmWindow *win;      /* window where painting originated */
 	ScrArea *sa;        /* area where painting originated */
 	ARegion *ar;        /* region where painting originated */
@@ -634,12 +635,10 @@ static short gp_stroke_addpoint(tGPsdata *p, const int mval[2], float pressure, 
 			 */
 			if (gpencil_project_check(p)) {
 				View3D *v3d = p->sa->spacedata.first;
-				const bool is_hmd_view = WM_window_is_running_hmd_view(p->win);
 				
 				view3d_region_operator_needs_opengl(p->win, p->ar);
-				ED_view3d_autodist_init(p->scene, p->ar, v3d,
-				                        (p->gpd->flag & GP_DATA_DEPTH_STROKE) ? 1 : 0,
-				                        is_hmd_view);
+				ED_view3d_autodist_init(p->scene, p->wm, p->win, p->ar, v3d,
+				                        (p->gpd->flag & GP_DATA_DEPTH_STROKE) ? 1 : 0);
 			}
 			
 			/* convert screen-coordinates to appropriate coordinates (and store them) */
@@ -1239,10 +1238,9 @@ static void gp_stroke_doeraser(tGPsdata *p)
 	if (p->sa->spacetype == SPACE_VIEW3D) {
 		if (p->flags & GP_PAINTFLAG_V3D_ERASER_DEPTH) {
 			View3D *v3d = p->sa->spacedata.first;
-			const bool is_hmd_view = WM_window_is_running_hmd_view(p->win);
 			
 			view3d_region_operator_needs_opengl(p->win, p->ar);
-			ED_view3d_autodist_init(p->scene, p->ar, v3d, 0, is_hmd_view);
+			ED_view3d_autodist_init(p->scene, p->wm, p->win, p->ar, v3d, 0);
 		}
 	}
 	
@@ -1396,6 +1394,7 @@ static bool gp_session_initdata(bContext *C, tGPsdata *p)
 	
 	/* pass on context info */
 	p->scene = CTX_data_scene(C);
+	p->wm = CTX_wm_manager(C);
 	p->win = CTX_wm_window(C);
 	
 	unit_m4(p->imat);
@@ -1803,11 +1802,11 @@ static void gp_paint_strokeend(tGPsdata *p)
 	 */
 	if (gpencil_project_check(p)) {
 		View3D *v3d = p->sa->spacedata.first;
-		const bool is_hmd_view = WM_window_is_running_hmd_view(p->win);
 		
 		/* need to restore the original projection settings before packing up */
 		view3d_region_operator_needs_opengl(p->win, p->ar);
-		ED_view3d_autodist_init(p->scene, p->ar, v3d, (p->gpd->flag & GP_DATA_DEPTH_STROKE) ? 1 : 0, is_hmd_view);
+		ED_view3d_autodist_init(p->scene, p->wm, p->win, p->ar, v3d,
+		                        (p->gpd->flag & GP_DATA_DEPTH_STROKE) ? 1 : 0);
 	}
 	
 	/* check if doing eraser or not */
