@@ -371,6 +371,8 @@ ccl_device void kernel_path_indirect(KernelGlobals *kg,
 		}
 #endif  /* __AO__ */
 
+		kernel_update_denoising_features(kg, sd, state, L);
+
 #ifdef __SUBSURFACE__
 		/* bssrdf scatter to a different location on the same object, replacing
 		 * the closures with a diffuse BSDF */
@@ -418,8 +420,6 @@ ccl_device void kernel_path_indirect(KernelGlobals *kg,
 			                                           all);
 		}
 #endif  /* defined(__EMISSION__) && defined(__BRANCHED_PATH__) */
-
-		kernel_update_denoising_features(kg, sd, state, L);
 
 		if(!kernel_path_surface_bounce(kg, rng, sd, &throughput, state, L, ray))
 			break;
@@ -723,6 +723,8 @@ ccl_device_inline float kernel_path_integrate(KernelGlobals *kg,
 		}
 #endif  /* __AO__ */
 
+		kernel_update_denoising_features(kg, &sd, &state, L);
+
 #ifdef __SUBSURFACE__
 		/* bssrdf scatter to a different location on the same object, replacing
 		 * the closures with a diffuse BSDF */
@@ -744,8 +746,6 @@ ccl_device_inline float kernel_path_integrate(KernelGlobals *kg,
 
 		/* direct lighting */
 		kernel_path_surface_connect_light(kg, rng, &sd, &emission_sd, throughput, &state, L);
-
-		kernel_update_denoising_features(kg, &sd, &state, L);
 
 		/* compute direct lighting and next bounce */
 		if(!kernel_path_surface_bounce(kg, rng, &sd, &throughput, &state, L, &ray))

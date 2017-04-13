@@ -565,6 +565,8 @@ ccl_device float kernel_branched_path_integrate(KernelGlobals *kg, RNG *rng, int
 		}
 #endif  /* __AO__ */
 
+		kernel_update_denoising_features(kg, &sd, &state, L);
+
 #ifdef __SUBSURFACE__
 		/* bssrdf scatter to a different location on the same object */
 		if(sd.flag & SD_BSSRDF) {
@@ -585,8 +587,6 @@ ccl_device float kernel_branched_path_integrate(KernelGlobals *kg, RNG *rng, int
 					&sd, &emission_sd, &hit_state, throughput, 1.0f, L, all);
 			}
 #endif  /* __EMISSION__ */
-
-			kernel_update_denoising_features(kg, &sd, &state, L);
 
 			/* indirect light */
 			kernel_branched_path_surface_indirect_light(kg, rng,
