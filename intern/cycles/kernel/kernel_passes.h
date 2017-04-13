@@ -163,20 +163,10 @@ ccl_device_inline void kernel_update_denoising_features(KernelGlobals *kg,
 		if(!CLOSURE_IS_BSDF_OR_BSSRDF(sc->type))
 			continue;
 
-		/* Classify closures into diffuse-like and specular-like closures.
-		 * This is pretty arbitrary, but some distinction has to be made. */
-		bool is_specular = (sc->type == CLOSURE_BSDF_TRANSPARENT_ID);
-		if(CLOSURE_IS_BSDF_MICROFACET(sc->type)) {
-			MicrofacetBsdf *bsdf = (MicrofacetBsdf*) sc;
-			if(bsdf->alpha_x*bsdf->alpha_y <= 0.075f*0.075f) {
-				is_specular = true;
-			}
-		}
-
 		/* All closures contribute to the normal feature, but only diffuse-like ones to the albedo. */
 		normal += sc->N * sc->sample_weight;
 		sum_weight += sc->sample_weight;
-		if(!is_specular) {
+		if(!bsdf_is_specular_like(sc)) {
 			albedo += sc->weight;
 			sum_nonspecular_weight += sc->sample_weight;
 		}
