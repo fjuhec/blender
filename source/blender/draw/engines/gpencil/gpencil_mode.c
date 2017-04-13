@@ -127,10 +127,8 @@ static void GPENCIL_engine_init(void *vedata)
 
 static void GPENCIL_engine_free(void)
 {
-	if (e_data.gpencil_fill_sh)
-		DRW_shader_free(e_data.gpencil_fill_sh);
-	if (e_data.gpencil_stroke_sh)
-		DRW_shader_free(e_data.gpencil_stroke_sh);
+	DRW_SHADER_FREE_SAFE(e_data.gpencil_fill_sh);
+	DRW_SHADER_FREE_SAFE(e_data.gpencil_stroke_sh);
 }
 
 /* create shading group for filling */
