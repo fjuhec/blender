@@ -246,7 +246,6 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 	const bContext *C = DRW_get_context();
 	Scene *scene = CTX_data_scene(C);
 	ToolSettings *ts = CTX_data_tool_settings(C);
-	float diff_mat[4][4];
 	float ink[4];
 	float tcolor[4];
 
@@ -262,8 +261,6 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 			if (gpf == NULL)
 				continue;
 
-			/* calculate parent position */
-			ED_gpencil_parent_location(ob, ob->gpd, gpl, diff_mat);
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 				/* check if stroke can be drawn */
 				if (gpencil_can_draw_stroke(gps) == false) {
@@ -288,7 +285,7 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 					interp_v3_v3v3(tfill, gps->palcolor->fill, gpl->tintcolor, gpl->tintcolor[3]);
 					tfill[3] = gps->palcolor->fill[3] * gpl->opacity;
 					if ((tfill[3] > GPENCIL_ALPHA_OPACITY_THRESH) || (gps->palcolor->fill_style > 0)) {
-						struct Batch *fill_geom = gpencil_get_fill_geom(gps, diff_mat, tfill);
+						struct Batch *fill_geom = gpencil_get_fill_geom(gps, tfill);
 						DRW_shgroup_call_add(fillgrp, fill_geom, ob->obmat);
 					}
 				}
@@ -300,7 +297,7 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 
 				short sthickness = gps->thickness + gpl->thickness;
 				if (sthickness > 0) {
-					struct Batch *stroke_geom = gpencil_get_stroke_geom(gps, sthickness, diff_mat, ink);
+					struct Batch *stroke_geom = gpencil_get_stroke_geom(gps, sthickness, ink);
 					DRW_shgroup_call_add(strokegrp, stroke_geom, ob->obmat);
 				}
 
@@ -309,7 +306,7 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 				{
 					if (gps->flag & GP_STROKE_SELECT) {
 						if ((gpl->flag & GP_LAYER_UNLOCK_COLOR) || ((gps->palcolor->flag & PC_COLOR_LOCKED) == 0)) {
-							struct Batch *edit_geom = gpencil_get_edit_geom(gps, diff_mat, ts->gp_sculpt.alpha, ob->gpd->flag);
+							struct Batch *edit_geom = gpencil_get_edit_geom(gps, ts->gp_sculpt.alpha, ob->gpd->flag);
 							DRW_shgroup_call_add(stl->g_data->shgrps_volumetric, edit_geom,ob->obmat);
 
 						}

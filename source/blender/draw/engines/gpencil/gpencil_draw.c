@@ -47,7 +47,7 @@
 static void gpencil_set_stroke_point(VertexBuffer *vbo, const bGPDspoint *pt, int idx,
 						    unsigned int pos_id, unsigned int color_id,
 							unsigned int thickness_id, short thickness,
-	                        const float diff_mat[4][4], const float ink[4], bool inverse)
+	                        const float ink[4], bool inverse)
 {
 	float fpt[3];
 
@@ -59,7 +59,7 @@ static void gpencil_set_stroke_point(VertexBuffer *vbo, const bGPDspoint *pt, in
 	float thick = max_ff(pt->pressure * thickness, 1.0f);
 	VertexBuffer_set_attrib(vbo, thickness_id, idx, &thick);
 
-	mul_v3_m4v3(fpt, diff_mat, &pt->x);
+	copy_v3_v3(fpt, &pt->x);
 	if (inverse) {
 		mul_v3_fl(fpt, -1.0f);
 	}
@@ -67,7 +67,7 @@ static void gpencil_set_stroke_point(VertexBuffer *vbo, const bGPDspoint *pt, in
 }
 
 /* create batch geometry data for stroke shader */
-Batch *gpencil_get_stroke_geom(bGPDstroke *gps, short thickness, const float diff_mat[4][4], const float ink[4])
+Batch *gpencil_get_stroke_geom(bGPDstroke *gps, short thickness, const float ink[4])
 {
 	bGPDspoint *points = gps->points;
 	int totpoints = gps->totpoints;
@@ -91,27 +91,27 @@ Batch *gpencil_get_stroke_geom(bGPDstroke *gps, short thickness, const float dif
 	for (int i = 0; i < totpoints; i++, pt++) {
 		/* first point for adjacency (not drawn) */
 		if (i == 0) {
-			gpencil_set_stroke_point(vbo, pt, idx, pos_id, color_id, thickness_id, thickness, diff_mat, ink, true);
+			gpencil_set_stroke_point(vbo, pt, idx, pos_id, color_id, thickness_id, thickness, ink, true);
 			++idx;
 		}
 		/* set point */
-		gpencil_set_stroke_point(vbo, pt, idx, pos_id, color_id, thickness_id, thickness, diff_mat, ink, false);
+		gpencil_set_stroke_point(vbo, pt, idx, pos_id, color_id, thickness_id, thickness, ink, false);
 		++idx;
 	}
 
 	if (gps->flag & GP_STROKE_CYCLIC && totpoints > 2) {
 		/* draw line to first point to complete the cycle */
-		gpencil_set_stroke_point(vbo, &points[0], idx, pos_id, color_id, thickness_id, thickness, diff_mat, ink, false);
+		gpencil_set_stroke_point(vbo, &points[0], idx, pos_id, color_id, thickness_id, thickness, ink, false);
 		++idx;
 		/* now add adjacency points using 2nd & 3rd point to get smooth transition */
-		gpencil_set_stroke_point(vbo, &points[1], idx, pos_id, color_id, thickness_id, thickness, diff_mat, ink, false);
+		gpencil_set_stroke_point(vbo, &points[1], idx, pos_id, color_id, thickness_id, thickness, ink, false);
 		++idx;
-		gpencil_set_stroke_point(vbo, &points[2], idx, pos_id, color_id, thickness_id, thickness, diff_mat, ink, false);
+		gpencil_set_stroke_point(vbo, &points[2], idx, pos_id, color_id, thickness_id, thickness, ink, false);
 		++idx;
 	}
 	/* last adjacency point (not drawn) */
 	else {
-		gpencil_set_stroke_point(vbo, &points[totpoints - 1], idx, pos_id, color_id, thickness_id, thickness, diff_mat, ink, true);
+		gpencil_set_stroke_point(vbo, &points[totpoints - 1], idx, pos_id, color_id, thickness_id, thickness, ink, true);
 	}
 
 	return Batch_create(PRIM_LINE_STRIP_ADJACENCY, vbo, NULL);
@@ -298,12 +298,8 @@ static void gp_triangulate_stroke_fill(bGPDstroke *gps)
 /* add a new fill point and texture coordinates to vertex buffer */
 static void gpencil_set_fill_point(VertexBuffer *vbo, int idx, bGPDspoint *pt, float uv[2],
 	unsigned int pos_id, unsigned int text_id,
-	short UNUSED(flag),	int UNUSED(offsx), int UNUSED(offsy), int UNUSED(winx), int UNUSED(winy),
-	const float diff_mat[4][4])
+	short UNUSED(flag),	int UNUSED(offsx), int UNUSED(offsy), int UNUSED(winx), int UNUSED(winy))
 {
-	float fpt[3];
-
-	mul_v3_m4v3(fpt, diff_mat, &pt->x);
 #if 0
 	/* if 2d, need conversion */
 	if (!flag & GP_STROKE_3DSPACE) {
@@ -313,12 +309,13 @@ static void gpencil_set_fill_point(VertexBuffer *vbo, int idx, bGPDspoint *pt, f
 		fpt[2] = 0.0f; /* 2d always is z=0.0f */
 	}
 #endif
-	VertexBuffer_set_attrib(vbo, pos_id, idx, fpt);
+
+	VertexBuffer_set_attrib(vbo, pos_id, idx, &pt->x);
 	VertexBuffer_set_attrib(vbo, text_id, idx, uv);
 }
 
 /* create batch geometry data for stroke shader */
-Batch *gpencil_get_fill_geom(bGPDstroke *gps, const float diff_mat[4][4], const float color[4])
+Batch *gpencil_get_fill_geom(bGPDstroke *gps, const float color[4])
 {
 	BLI_assert(gps->totpoints >= 3);
 	PaletteColor *palcolor = gps->palcolor;
@@ -350,15 +347,15 @@ Batch *gpencil_get_fill_geom(bGPDstroke *gps, const float diff_mat[4][4], const 
 	for (int i = 0; i < gps->tot_triangles; i++, stroke_triangle++) {
 		gpencil_set_fill_point(vbo, idx, &gps->points[stroke_triangle->v1], stroke_triangle->uv1,
 			pos_id, text_id, gps->flag,
-			offsx, offsy, winx, winy, diff_mat);
+			offsx, offsy, winx, winy);
 		++idx;
 		gpencil_set_fill_point(vbo, idx, &gps->points[stroke_triangle->v2], stroke_triangle->uv2,
 			pos_id, text_id, gps->flag,
-			offsx, offsy, winx, winy, diff_mat);
+			offsx, offsy, winx, winy);
 		++idx;
 		gpencil_set_fill_point(vbo, idx, &gps->points[stroke_triangle->v3], stroke_triangle->uv3,
 			pos_id, text_id, gps->flag,
-			offsx, offsy, winx, winy, diff_mat);
+			offsx, offsy, winx, winy);
 		++idx;
 	}
 
@@ -366,7 +363,7 @@ Batch *gpencil_get_fill_geom(bGPDstroke *gps, const float diff_mat[4][4], const 
 }
 
 /* Draw selected verts for strokes being edited */
-Batch *gpencil_get_edit_geom(bGPDstroke *gps, const float diff_mat[4][4], float alpha, short dflag)
+Batch *gpencil_get_edit_geom(bGPDstroke *gps, float alpha, short dflag)
 {
 	/* Get size of verts:
 	* - The selected state needs to be larger than the unselected state so that
@@ -407,7 +404,6 @@ Batch *gpencil_get_edit_geom(bGPDstroke *gps, const float diff_mat[4][4], float 
 
 	/* Draw all the stroke points (selected or not) */
 	bGPDspoint *pt = gps->points;
-	float fpt[3];
 	int idx = 0;
 	float fcolor[4];
 	float fsize = 0;
@@ -434,9 +430,7 @@ Batch *gpencil_get_edit_geom(bGPDstroke *gps, const float diff_mat[4][4], float 
 
 		VertexBuffer_set_attrib(vbo, color_id, idx, fcolor);
 		VertexBuffer_set_attrib(vbo, size_id, idx, &fsize);
-
-		mul_v3_m4v3(fpt, diff_mat, &pt->x);
-		VertexBuffer_set_attrib(vbo, pos_id, idx, fpt);
+		VertexBuffer_set_attrib(vbo, pos_id, idx, &pt->x);
 		++idx;
 	}
 
