@@ -258,6 +258,19 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 			bGPDframe *gpf = BKE_gpencil_layer_getframe(gpl, CFRA, 0);
 			if (gpf == NULL)
 				continue;
+#if 0 // TODO convert xray function
+			const int no_xray = (dflag & GP_DRAWDATA_NO_XRAY);
+			int mask_orig = 0;
+
+			if (no_xray) {
+				glGetIntegerv(GL_DEPTH_WRITEMASK, &mask_orig);
+				glDepthMask(0);
+				glEnable(GL_DEPTH_TEST);
+				/* first arg is normally rv3d->dist, but this isn't
+				* available here and seems to work quite well without */
+				bglPolygonOffset(1.0f, 1.0f);
+			}
+#endif
 
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 				/* check if stroke can be drawn */
@@ -310,7 +323,14 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 						}
 					}
 				}
+#if 0 // TODO convert xray function
+				if (no_xray) {
+					glDepthMask(mask_orig);
+					glDisable(GL_DEPTH_TEST);
 
+					bglPolygonOffset(0.0, 0.0);
+				}
+#endif
 			}
 		}
 	}
