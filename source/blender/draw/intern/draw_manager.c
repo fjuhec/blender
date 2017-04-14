@@ -555,9 +555,7 @@ void DRW_shgroup_free(struct DRWShadingGroup *shgroup)
 
 	MEM_freeN(shgroup->interface);
 
-	if (shgroup->batch_geom) {
-		Batch_discard_all(shgroup->batch_geom);
-	}
+	BATCH_DISCARD_ALL_SAFE(shgroup->batch_geom);
 }
 
 void DRW_shgroup_call_add(DRWShadingGroup *shgroup, Batch *geom, float (*obmat)[4])
@@ -1004,7 +1002,7 @@ static void draw_geometry(DRWShadingGroup *shgroup, Batch *geom, const float (*o
 	}
 
 	/* step 2 : bind vertex array & draw */
-	Batch_set_program(geom, GPU_shader_get_program(shgroup->shader));
+	Batch_set_program(geom, GPU_shader_get_program(shgroup->shader), GPU_shader_get_interface(shgroup->shader));
 	if (interface->instance_vbo) {
 		Batch_draw_stupid_instanced(geom, interface->instance_vbo, interface->instance_count, interface->attribs_count,
 		                            interface->attribs_stride, interface->attribs_size, interface->attribs_loc);
@@ -1790,6 +1788,23 @@ static void DRW_debug_gpu_stats(void)
 	draw_stat(&rect, 0, v, pass_name, sizeof(pass_name));
 }
 
+static void drw_draw_view_set_recursive(Scene *scene)
+{
+	if (scene->set) {
+		drw_draw_view_set_recursive(scene->set);
+	}
+
+	SceneLayer *sl = BKE_scene_layer_render_active(scene);
+	DEG_OBJECT_ITER(sl, ob);
+	{
+		/* XXX FIXME!!! - dont de-select users data!
+		 * (set drawing should use a fixed color - ignoring select and other theme colors) */
+		ob->base_flag &= ~BASE_SELECTED;
+		DRW_engines_cache_populate(ob);
+	}
+	DEG_OBJECT_ITER_END
+}
+
 /* Everything starts here.
  * This function takes care of calling all cache and rendering functions
  * for each relevant engine / mode engine. */
@@ -1825,13 +1840,7 @@ void DRW_draw_view(const bContext *C)
 
 		/* draw set first */
 		if (scene->set) {
-			sl = BKE_scene_layer_render_active(scene->set);
-			DEG_OBJECT_ITER(sl, ob);
-			{
-				ob->base_flag &= ~BASE_SELECTED;
-				DRW_engines_cache_populate(ob);
-			}
-			DEG_OBJECT_ITER_END
+			drw_draw_view_set_recursive(scene->set);
 		}
 
 		sl = CTX_data_scene_layer(C);
@@ -1847,12 +1856,16 @@ void DRW_draw_view(const bContext *C)
 	/* Start Drawing */
 	DRW_engines_draw_background();
 
+	gpuMatrixBegin3D();
+
 	DRW_draw_callbacks_pre_scene();
 	// DRW_draw_grid();
 	DRW_engines_draw_scene();
 	DRW_draw_callbacks_post_scene();
 
 	DRW_draw_manipulator();
+
+	gpuMatrixEnd();
 
 	DRW_draw_region_info();
 

@@ -13,6 +13,7 @@
 
 #include "vertex_buffer.h"
 #include "element.h"
+#include "shader_interface.h"
 
 typedef enum {
 	READY_TO_FORMAT,
@@ -38,6 +39,7 @@ typedef struct Batch {
 
 	// state
 	GLuint program;
+	const ShaderInterface* interface;
 } Batch;
 
 Batch* Batch_create(PrimitiveType, VertexBuffer*, ElementList*);
@@ -48,7 +50,7 @@ void Batch_discard_all(Batch*); // including verts & elem
 
 int Batch_add_VertexBuffer(Batch*, VertexBuffer*);
 
-void Batch_set_program(Batch*, GLuint program);
+void Batch_set_program(Batch*, GLuint program, const ShaderInterface*);
 // Entire batch draws with one shader program, but can be redrawn later with another program.
 // Vertex shader's inputs must be compatible with the batch's vertex format.
 
@@ -109,3 +111,19 @@ Batch* create_BatchWithOwnVertexBufferAndElementList(PrimitiveType, VertexFormat
 Batch* create_BatchInGeneral(PrimitiveType, VertexBufferStuff, ElementListStuff);
 
 #endif // future plans
+
+
+/* Macros */
+
+#define BATCH_DISCARD_SAFE(batch) do { \
+	if (batch != NULL) { \
+		Batch_discard(batch); \
+		batch = NULL; \
+	} \
+} while (0)
+#define BATCH_DISCARD_ALL_SAFE(batch) do { \
+	if (batch != NULL) { \
+		Batch_discard_all(batch); \
+		batch = NULL; \
+	} \
+} while (0)
