@@ -210,6 +210,7 @@ typedef struct bGPDframe {
 	
 	short flag;			/* temp settings */
 	short key_type;		/* keyframe type (eBezTriple_KeyframeType) */
+	float matrix[4][4];     /* parent matrix for drawing */
 } bGPDframe;
 
 /* bGPDframe->flag */
@@ -249,7 +250,6 @@ typedef struct bGPDlayer {
 	
 	float tintcolor[4];     /* Color used to tint layer, alpha value is used as factor */
 	float opacity;          /* Opacity of the layer */
-	float matrix[4][4];     /* parent matrix for drawing */
 } bGPDlayer;
 
 /* bGPDlayer->flag */

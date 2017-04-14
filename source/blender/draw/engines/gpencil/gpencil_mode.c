@@ -234,18 +234,129 @@ static int GPENCIL_shgroup_find(GPENCIL_Storage *storage, PaletteColor *palcolor
 	return -1;
 }
 
-static void GPENCIL_cache_populate(void *vedata, Object *ob)
+static void gpencil_draw_strokes(void *vedata, ToolSettings *ts, Object *ob, bGPDlayer *gpl, bGPDframe *gpf,
+	const float opacity, const float tintcolor[4], const bool onion, const bool custonion)
 {
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	DRWShadingGroup *fillgrp;
 	DRWShadingGroup *strokegrp;
+	float tcolor[4];
+	float matrix[4][4];
+	float ink[4];
+
+#if 0 // TODO convert xray function
+	const int no_xray = (dflag & GP_DRAWDATA_NO_XRAY);
+	int mask_orig = 0;
+
+	if (no_xray) {
+		glGetIntegerv(GL_DEPTH_WRITEMASK, &mask_orig);
+		glDepthMask(0);
+		glEnable(GL_DEPTH_TEST);
+		/* first arg is normally rv3d->dist, but this isn't
+		* available here and seems to work quite well without */
+		bglPolygonOffset(1.0f, 1.0f);
+	}
+#endif
+
+	/* get parent matrix and save as static data */
+	ED_gpencil_parent_location(ob, ob->gpd, gpl, matrix);
+	copy_m4_m4(gpf->matrix, matrix);
+
+	for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+		/* check if stroke can be drawn */
+		if (gpencil_can_draw_stroke(gps) == false) {
+			continue;
+		}
+		/* try to find shader group or create a new one */
+		int id = GPENCIL_shgroup_find(stl->storage, gps->palcolor);
+		if (id == -1) {
+			id = stl->storage->pal_id;
+			stl->storage->materials[id] = gps->palcolor;
+			stl->storage->shgrps_fill[id] = GPENCIL_shgroup_fill_create(vedata, psl->pass, gps->palcolor);
+			stl->storage->shgrps_stroke[id] = GPENCIL_shgroup_stroke_create(vedata, psl->pass, gps->palcolor);
+			++stl->storage->pal_id;
+		}
+
+		fillgrp = stl->storage->shgrps_fill[id];
+		strokegrp = stl->storage->shgrps_stroke[id];
+
+		/* fill */
+		if (gps->totpoints >= 3) {
+			float tfill[4];
+			/* set color using palette, tint color and opacity */
+			interp_v3_v3v3(tfill, gps->palcolor->fill, tintcolor, tintcolor[3]);
+			tfill[3] = gps->palcolor->fill[3] * opacity;
+			if ((tfill[3] > GPENCIL_ALPHA_OPACITY_THRESH) || (gps->palcolor->fill_style > 0)) {
+				const float *color;
+				if (!onion) {
+					color = tfill;
+				}
+				else {
+					if (custonion) {
+						color = tintcolor;
+					}
+					else {
+						ARRAY_SET_ITEMS(tfill, UNPACK3(gps->palcolor->fill), tintcolor[3]);
+						color = tfill;
+					}
+				}
+				struct Batch *fill_geom = gpencil_get_fill_geom(gps, color);
+				DRW_shgroup_call_add(fillgrp, fill_geom, gpf->matrix);
+			}
+		}
+
+		/* stroke */
+		/* set color using palette, tint color and opacity */
+		if (!onion) {
+			interp_v3_v3v3(tcolor, gps->palcolor->rgb, tintcolor, tintcolor[3]);
+			tcolor[3] = gps->palcolor->rgb[3] * opacity;
+			copy_v4_v4(ink, tcolor);
+		}
+		else {
+			if (custonion) {
+				copy_v4_v4(ink, tintcolor);
+			}
+			else {
+				ARRAY_SET_ITEMS(tcolor, gps->palcolor->rgb[0], gps->palcolor->rgb[1], gps->palcolor->rgb[2], opacity);
+				copy_v4_v4(ink, tcolor);
+			}
+		}
+		short sthickness = gps->thickness + gpl->thickness;
+		if (sthickness > 0) {
+			struct Batch *stroke_geom = gpencil_get_stroke_geom(gps, sthickness, ink);
+			DRW_shgroup_call_add(strokegrp, stroke_geom, gpf->matrix);
+		}
+
+		/* edit points (only in edit mode) */
+		if ((gpl->flag & GP_LAYER_LOCKED) == 0 && (ob->gpd->flag & GP_DATA_STROKE_EDITMODE))
+		{
+			if (gps->flag & GP_STROKE_SELECT) {
+				if ((gpl->flag & GP_LAYER_UNLOCK_COLOR) || ((gps->palcolor->flag & PC_COLOR_LOCKED) == 0)) {
+					struct Batch *edit_geom = gpencil_get_edit_geom(gps, ts->gp_sculpt.alpha, ob->gpd->flag);
+					DRW_shgroup_call_add(stl->g_data->shgrps_volumetric, edit_geom, gpf->matrix);
+
+				}
+			}
+		}
+#if 0 // TODO convert xray function
+		if (no_xray) {
+			glDepthMask(mask_orig);
+			glDisable(GL_DEPTH_TEST);
+
+			bglPolygonOffset(0.0, 0.0);
+		}
+#endif
+	}
+}
+
+static void GPENCIL_cache_populate(void *vedata, Object *ob)
+{
+	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
+	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	const bContext *C = DRW_get_context();
 	Scene *scene = CTX_data_scene(C);
 	ToolSettings *ts = CTX_data_tool_settings(C);
-	float ink[4];
-	float tcolor[4];
-	float matrix[4][4];
 
 	UNUSED_VARS(psl, stl);
 
@@ -258,84 +369,9 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 			bGPDframe *gpf = BKE_gpencil_layer_getframe(gpl, CFRA, 0);
 			if (gpf == NULL)
 				continue;
-#if 0 // TODO convert xray function
-			const int no_xray = (dflag & GP_DRAWDATA_NO_XRAY);
-			int mask_orig = 0;
 
-			if (no_xray) {
-				glGetIntegerv(GL_DEPTH_WRITEMASK, &mask_orig);
-				glDepthMask(0);
-				glEnable(GL_DEPTH_TEST);
-				/* first arg is normally rv3d->dist, but this isn't
-				* available here and seems to work quite well without */
-				bglPolygonOffset(1.0f, 1.0f);
-			}
-#endif
-
-			/* get parent matrix and save as static data */
-			ED_gpencil_parent_location(ob, ob->gpd, gpl, matrix);
-			copy_m4_m4(gpl->matrix, matrix);
-
-			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-				/* check if stroke can be drawn */
-				if (gpencil_can_draw_stroke(gps) == false) {
-					continue;
-				}
-				/* try to find shader group or create a new one */
-				int id = GPENCIL_shgroup_find(stl->storage, gps->palcolor);
-				if (id == -1) {
-					id = stl->storage->pal_id;
-					stl->storage->materials[id] = gps->palcolor;
-					stl->storage->shgrps_fill[id] = GPENCIL_shgroup_fill_create(vedata, psl->pass, gps->palcolor);
-					stl->storage->shgrps_stroke[id] = GPENCIL_shgroup_stroke_create(vedata, psl->pass, gps->palcolor);
-					++stl->storage->pal_id;
-				}
-
-				fillgrp = stl->storage->shgrps_fill[id];
-				strokegrp = stl->storage->shgrps_stroke[id];
-
-				/* fill */
-				if (gps->totpoints >= 3) {
-					float tfill[4];
-					interp_v3_v3v3(tfill, gps->palcolor->fill, gpl->tintcolor, gpl->tintcolor[3]);
-					tfill[3] = gps->palcolor->fill[3] * gpl->opacity;
-					if ((tfill[3] > GPENCIL_ALPHA_OPACITY_THRESH) || (gps->palcolor->fill_style > 0)) {
-						struct Batch *fill_geom = gpencil_get_fill_geom(gps, tfill);
-						DRW_shgroup_call_add(fillgrp, fill_geom, gpl->matrix);
-					}
-				}
-
-				/* stroke */
-				interp_v3_v3v3(tcolor, gps->palcolor->rgb, gpl->tintcolor, gpl->tintcolor[3]);
-				tcolor[3] = gps->palcolor->rgb[3] * gpl->opacity;
-				copy_v4_v4(ink, tcolor);
-
-				short sthickness = gps->thickness + gpl->thickness;
-				if (sthickness > 0) {
-					struct Batch *stroke_geom = gpencil_get_stroke_geom(gps, sthickness, ink);
-					DRW_shgroup_call_add(strokegrp, stroke_geom, gpl->matrix);
-				}
-
-				/* edit points (only in edit mode) */
-				if ((gpl->flag & GP_LAYER_LOCKED) == 0 && (ob->gpd->flag & GP_DATA_STROKE_EDITMODE))
-				{
-					if (gps->flag & GP_STROKE_SELECT) {
-						if ((gpl->flag & GP_LAYER_UNLOCK_COLOR) || ((gps->palcolor->flag & PC_COLOR_LOCKED) == 0)) {
-							struct Batch *edit_geom = gpencil_get_edit_geom(gps, ts->gp_sculpt.alpha, ob->gpd->flag);
-							DRW_shgroup_call_add(stl->g_data->shgrps_volumetric, edit_geom, gpl->matrix);
-
-						}
-					}
-				}
-#if 0 // TODO convert xray function
-				if (no_xray) {
-					glDepthMask(mask_orig);
-					glDisable(GL_DEPTH_TEST);
-
-					bglPolygonOffset(0.0, 0.0);
-				}
-#endif
-			}
+			/* draw normal strokes */
+			gpencil_draw_strokes(vedata, ts, ob, gpl, gpf, gpl->opacity, gpl->tintcolor, false, false);
 		}
 	}
 }

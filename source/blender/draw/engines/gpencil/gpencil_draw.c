@@ -319,7 +319,6 @@ static void gpencil_set_fill_point(VertexBuffer *vbo, int idx, bGPDspoint *pt, f
 Batch *gpencil_get_fill_geom(bGPDstroke *gps, const float color[4])
 {
 	BLI_assert(gps->totpoints >= 3);
-	PaletteColor *palcolor = gps->palcolor;
 	int offsx = 0;
 	int offsy = 0;
 	const float *viewport = DRW_viewport_size_get();
