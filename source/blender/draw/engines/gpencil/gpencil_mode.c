@@ -284,7 +284,7 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 #endif
 
 			/* get parent matrix and set as static data */
-			gpencil_get_parent_matrix(ob, ob->gpd, gpl, matrix);
+			ED_gpencil_parent_location(ob, ob->gpd, gpl, matrix);
 			copy_m4_m4(stl->g_data->parents[i].matrix, matrix);
 
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {

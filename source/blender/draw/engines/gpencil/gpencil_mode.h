@@ -33,6 +33,5 @@ struct Batch *gpencil_get_fill_geom(struct bGPDstroke *gps, const float color[4]
 struct Batch *gpencil_get_edit_geom(struct bGPDstroke *gps, float alpha, short dflag);
 
 bool gpencil_can_draw_stroke(const struct bGPDstroke *gps);
-void gpencil_get_parent_matrix(struct Object *obact, struct bGPdata *gpd, struct bGPDlayer *gpl, float diff_mat[4][4]);
 
 #endif /* __GPENCIL_MODE_H__ */
