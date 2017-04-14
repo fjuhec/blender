@@ -85,16 +85,11 @@ typedef struct GPENCIL_Data {
 } GPENCIL_Data;
 
 /* *********** STATIC *********** */
-typedef struct GPENCIL_parent {
-	float matrix[4][4];
-} GPENCIL_parent;
-
 typedef struct g_data{
 	int t_flip;
 	int t_mix;
 	int fill_style;
 	DRWShadingGroup *shgrps_volumetric;
-	GPENCIL_parent *parents;
 } g_data; /* Transient data */
 
 static struct {
@@ -210,7 +205,6 @@ static void GPENCIL_cache_init(void *vedata)
 	if (!stl->g_data) {
 		/* Alloc transient pointers */
 		stl->g_data = MEM_mallocN(sizeof(g_data), "g_data");
-		stl->g_data->parents = MEM_mallocN(sizeof(GPENCIL_parent), "GPENCIL_parents");
 	}
 
 	{
@@ -256,12 +250,7 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 	UNUSED_VARS(psl, stl);
 
 	if (ob->type == OB_GPENCIL && ob->gpd) {
-		/* prepare to save parent matrix */
-		int totlayers = BLI_listbase_count(&ob->gpd->layers);
-		stl->g_data->parents = MEM_recallocN(stl->g_data->parents, sizeof(GPENCIL_parent) * totlayers);
-		
-		int i = 0;
-		for (bGPDlayer *gpl = ob->gpd->layers.first; gpl; gpl = gpl->next, i++) {
+		for (bGPDlayer *gpl = ob->gpd->layers.first; gpl; gpl = gpl->next) {
 			/* don't draw layer if hidden */
 			if (gpl->flag & GP_LAYER_HIDE)
 				continue;
@@ -283,9 +272,9 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 			}
 #endif
 
-			/* get parent matrix and set as static data */
+			/* get parent matrix and save as static data */
 			ED_gpencil_parent_location(ob, ob->gpd, gpl, matrix);
-			copy_m4_m4(stl->g_data->parents[i].matrix, matrix);
+			copy_m4_m4(gpl->matrix, matrix);
 
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 				/* check if stroke can be drawn */
@@ -312,7 +301,7 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 					tfill[3] = gps->palcolor->fill[3] * gpl->opacity;
 					if ((tfill[3] > GPENCIL_ALPHA_OPACITY_THRESH) || (gps->palcolor->fill_style > 0)) {
 						struct Batch *fill_geom = gpencil_get_fill_geom(gps, tfill);
-						DRW_shgroup_call_add(fillgrp, fill_geom, stl->g_data->parents[i].matrix);
+						DRW_shgroup_call_add(fillgrp, fill_geom, gpl->matrix);
 					}
 				}
 
@@ -324,7 +313,7 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 				short sthickness = gps->thickness + gpl->thickness;
 				if (sthickness > 0) {
 					struct Batch *stroke_geom = gpencil_get_stroke_geom(gps, sthickness, ink);
-					DRW_shgroup_call_add(strokegrp, stroke_geom, stl->g_data->parents[i].matrix);
+					DRW_shgroup_call_add(strokegrp, stroke_geom, gpl->matrix);
 				}
 
 				/* edit points (only in edit mode) */
@@ -333,7 +322,7 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 					if (gps->flag & GP_STROKE_SELECT) {
 						if ((gpl->flag & GP_LAYER_UNLOCK_COLOR) || ((gps->palcolor->flag & PC_COLOR_LOCKED) == 0)) {
 							struct Batch *edit_geom = gpencil_get_edit_geom(gps, ts->gp_sculpt.alpha, ob->gpd->flag);
-							DRW_shgroup_call_add(stl->g_data->shgrps_volumetric, edit_geom, stl->g_data->parents[i].matrix);
+							DRW_shgroup_call_add(stl->g_data->shgrps_volumetric, edit_geom, gpl->matrix);
 
 						}
 					}
@@ -354,11 +343,6 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 static void GPENCIL_cache_finish(void *vedata)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
-	/* TODO: Need to free parents memory (here is not the right place)
-	if (stl->g_data->parents) {
-		MEM_freeN(stl->g_data->parents);
-	}
-	*/
 }
 
 static void GPENCIL_draw_scene(void *vedata)
