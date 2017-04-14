@@ -66,7 +66,9 @@ typedef struct GPENCIL_StorageList {
 
 /* keep it under MAX_PASSES */
 typedef struct GPENCIL_PassList {
-	struct DRWPass *pass;
+	struct DRWPass *stroke_pass;
+	struct DRWPass *fill_pass;
+	struct DRWPass *edit_pass;
 } GPENCIL_PassList;
 
 /* keep it under MAX_BUFFERS */
@@ -89,7 +91,7 @@ typedef struct GPENCIL_Data {
 
 /* *********** STATIC *********** */
 typedef struct g_data{
-	DRWShadingGroup *shgrps_volumetric;
+	DRWShadingGroup *shgrps_edit_volumetric;
 } g_data; /* Transient data */
 
 static struct {
@@ -180,7 +182,7 @@ static DRWShadingGroup *GPENCIL_shgroup_stroke_create(GPENCIL_Data *vedata, DRWP
 }
 
 /* create shading group for volumetric */
-static DRWShadingGroup *GPENCIL_shgroup_volumetric_create(GPENCIL_Data *vedata, DRWPass *pass)
+static DRWShadingGroup *GPENCIL_shgroup_edit_volumetric_create(GPENCIL_Data *vedata, DRWPass *pass)
 {
 	GPENCIL_TextureList *txl = ((GPENCIL_Data *)vedata)->txl;
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
@@ -207,16 +209,18 @@ static void GPENCIL_cache_init(void *vedata)
 	}
 
 	{
-		/* Create a pass */
+		/* Stroke pass */
 		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND ;
-		psl->pass = DRW_pass_create("Gpencil Pass", state);
+		psl->stroke_pass = DRW_pass_create("Gpencil Stroke Pass", state);
+		psl->fill_pass = DRW_pass_create("Gpencil Fill Pass", state);
 		stl->storage->pal_id = 0;
 		memset(stl->storage->shgrps_fill, 0, sizeof(DRWShadingGroup *) * MAX_GPENCIL_MAT);
 		memset(stl->storage->shgrps_stroke, 0, sizeof(DRWShadingGroup *) * MAX_GPENCIL_MAT);
 		memset(stl->storage->materials, 0, sizeof(PaletteColor *) * MAX_GPENCIL_MAT);
 
-		/* create static shading groups */
-		stl->g_data->shgrps_volumetric = GPENCIL_shgroup_volumetric_create(vedata, psl->pass);
+		/* edit pass */
+		psl->edit_pass = DRW_pass_create("Gpencil Edit Pass", state);
+		stl->g_data->shgrps_edit_volumetric = GPENCIL_shgroup_edit_volumetric_create(vedata, psl->edit_pass);
 	}
 }
 
@@ -273,8 +277,8 @@ static void gpencil_draw_strokes(void *vedata, ToolSettings *ts, Object *ob,
 		if (id == -1) {
 			id = stl->storage->pal_id;
 			stl->storage->materials[id] = gps->palcolor;
-			stl->storage->shgrps_fill[id] = GPENCIL_shgroup_fill_create(vedata, psl->pass, gps->palcolor, id);
-			stl->storage->shgrps_stroke[id] = GPENCIL_shgroup_stroke_create(vedata, psl->pass, gps->palcolor);
+			stl->storage->shgrps_fill[id] = GPENCIL_shgroup_fill_create(vedata, psl->fill_pass, gps->palcolor, id);
+			stl->storage->shgrps_stroke[id] = GPENCIL_shgroup_stroke_create(vedata, psl->stroke_pass, gps->palcolor);
 			++stl->storage->pal_id;
 		}
 
@@ -334,7 +338,7 @@ static void gpencil_draw_strokes(void *vedata, ToolSettings *ts, Object *ob,
 			if (gps->flag & GP_STROKE_SELECT) {
 				if ((gpl->flag & GP_LAYER_UNLOCK_COLOR) || ((gps->palcolor->flag & PC_COLOR_LOCKED) == 0)) {
 					struct Batch *edit_geom = gpencil_get_edit_geom(gps, ts->gp_sculpt.alpha, ob->gpd->flag);
-					DRW_shgroup_call_add(stl->g_data->shgrps_volumetric, edit_geom, gpf->matrix);
+					DRW_shgroup_call_add(stl->g_data->shgrps_edit_volumetric, edit_geom, gpf->matrix);
 
 				}
 			}
@@ -392,7 +396,9 @@ static void GPENCIL_draw_scene(void *vedata)
 
 	UNUSED_VARS(fbl, dfbl, dtxl);
 	if (stl->storage->pal_id > 0) {
-		DRW_draw_pass(psl->pass);
+		DRW_draw_pass(psl->fill_pass);
+		DRW_draw_pass(psl->stroke_pass);
+		DRW_draw_pass(psl->edit_pass);
 	}
 }
 
