@@ -297,8 +297,8 @@ static void gp_triangulate_stroke_fill(bGPDstroke *gps)
 }
 
 /* add a new fill point and texture coordinates to vertex buffer */
-static void gpencil_set_fill_point(VertexBuffer *vbo, int idx, bGPDspoint *pt, float uv[2],
-	unsigned int pos_id, unsigned int text_id,
+static void gpencil_set_fill_point(VertexBuffer *vbo, int idx, bGPDspoint *pt, float fcolor[4], float uv[2],
+	unsigned int pos_id, unsigned int color_id, unsigned int text_id,
 	short UNUSED(flag),	int UNUSED(offsx), int UNUSED(offsy), int UNUSED(winx), int UNUSED(winy))
 {
 #if 0
@@ -312,6 +312,7 @@ static void gpencil_set_fill_point(VertexBuffer *vbo, int idx, bGPDspoint *pt, f
 #endif
 
 	VertexBuffer_set_attrib(vbo, pos_id, idx, &pt->x);
+	VertexBuffer_set_attrib(vbo, color_id, idx, fcolor);
 	VertexBuffer_set_attrib(vbo, text_id, idx, uv);
 }
 
@@ -332,9 +333,10 @@ Batch *gpencil_get_fill_geom(bGPDstroke *gps, const float color[4])
 	BLI_assert(gps->tot_triangles >= 1);
 
 	static VertexFormat format = { 0 };
-	static unsigned int pos_id, text_id;
+	static unsigned int pos_id, color_id, text_id;
 	if (format.attrib_ct == 0) {
 		pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
+		color_id = VertexFormat_add_attrib(&format, "color", COMP_F32, 4, KEEP_FLOAT);
 		text_id = VertexFormat_add_attrib(&format, "texCoord", COMP_F32, 2, KEEP_FLOAT);
 	}
 
@@ -345,16 +347,16 @@ Batch *gpencil_get_fill_geom(bGPDstroke *gps, const float color[4])
 	bGPDtriangle *stroke_triangle = gps->triangles;
 	int idx = 0;
 	for (int i = 0; i < gps->tot_triangles; i++, stroke_triangle++) {
-		gpencil_set_fill_point(vbo, idx, &gps->points[stroke_triangle->v1], stroke_triangle->uv1,
-			pos_id, text_id, gps->flag,
+		gpencil_set_fill_point(vbo, idx, &gps->points[stroke_triangle->v1], gps->palcolor->fill, stroke_triangle->uv1,
+			pos_id, color_id, text_id, gps->flag,
 			offsx, offsy, winx, winy);
 		++idx;
-		gpencil_set_fill_point(vbo, idx, &gps->points[stroke_triangle->v2], stroke_triangle->uv2,
-			pos_id, text_id, gps->flag,
+		gpencil_set_fill_point(vbo, idx, &gps->points[stroke_triangle->v2], gps->palcolor->fill, stroke_triangle->uv2,
+			pos_id, color_id, text_id, gps->flag,
 			offsx, offsy, winx, winy);
 		++idx;
-		gpencil_set_fill_point(vbo, idx, &gps->points[stroke_triangle->v3], stroke_triangle->uv3,
-			pos_id, text_id, gps->flag,
+		gpencil_set_fill_point(vbo, idx, &gps->points[stroke_triangle->v3], gps->palcolor->fill, stroke_triangle->uv3,
+			pos_id, color_id, text_id, gps->flag,
 			offsx, offsy, winx, winy);
 		++idx;
 	}

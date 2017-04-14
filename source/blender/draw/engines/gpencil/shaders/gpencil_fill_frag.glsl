@@ -1,4 +1,3 @@
-uniform vec4 color;  
 uniform vec4 color2;
 uniform int fill_type;
 uniform float mix_factor;
@@ -26,9 +25,11 @@ uniform sampler2D myTexture;
 #define TEXTURE 4
 
 #if __VERSION__ == 120
+	varying vec4 finalColor;
 	varying vec2 texCoord_interp;
 	#define fragColor gl_FragColor
 #else
+	in vec4 finalColor;
 	in vec2 texCoord_interp;
 	out vec4 fragColor;
 	#define texture2D texture
@@ -108,10 +109,10 @@ void main()
 	/* solid fill */
 	if (fill_type == SOLID) {
 		if (t_mix == 1) {
-			fragColor = mix(color, text_color, mix_factor);
+			fragColor = mix(finalColor, text_color, mix_factor);
 		}
 		else {
-			fragColor = color;
+			fragColor = finalColor;
 		}
 	}
 	else {
@@ -120,7 +121,7 @@ void main()
 		vec2 rot = (((matrot * (texCoord_interp - center)) + center) * g_scale) + g_shift;
 		/* gradient */
 		if (fill_type == GRADIENT) {
-			set_color(color, color2, text_color, mix_factor, rot.x - mix_factor + 0.5, t_mix, t_flip, fragColor);
+			set_color(finalColor, color2, text_color, mix_factor, rot.x - mix_factor + 0.5, t_mix, t_flip, fragColor);
 		}
 		/* radial gradient */
 		if (fill_type == RADIAL) {
@@ -134,14 +135,14 @@ void main()
 			if (distance > in_rad) {
 				intensity = clamp(((distance - in_rad) / ex_rad), 0.0, 1.0);
 			}
-			set_color(color, color2, text_color, mix_factor, intensity, t_mix, t_flip, fragColor);
+			set_color(finalColor, color2, text_color, mix_factor, intensity, t_mix, t_flip, fragColor);
 		}
 		/* chessboard */
 		if (fill_type == CHESS) {
 			vec2 pos = rot / g_boxsize;
 			if ((fract(pos.x) < 0.5 && fract(pos.y) < 0.5) || (fract(pos.x) > 0.5 && fract(pos.y) > 0.5)) {
 				if (t_flip == 0) {
-					chesscolor = color;
+					chesscolor = finalColor;
 				}
 				else {
 					chesscolor = color2;
@@ -152,7 +153,7 @@ void main()
 					chesscolor = color2;
 				}
 				else {
-					chesscolor = color;
+					chesscolor = finalColor;
 				}
 			}
 			/* mix with texture */

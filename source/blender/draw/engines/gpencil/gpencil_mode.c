@@ -50,6 +50,9 @@ extern char datatoc_gpencil_stroke_frag_glsl[];
 
 typedef struct GPENCIL_Storage {
 	int pal_id;
+	int t_mix[MAX_GPENCIL_MAT];
+	int t_flip[MAX_GPENCIL_MAT];
+	int fill_style[MAX_GPENCIL_MAT];
 	PaletteColor *materials[MAX_GPENCIL_MAT];
 	DRWShadingGroup *shgrps_fill[MAX_GPENCIL_MAT];
 	DRWShadingGroup *shgrps_stroke[MAX_GPENCIL_MAT];
@@ -86,9 +89,6 @@ typedef struct GPENCIL_Data {
 
 /* *********** STATIC *********** */
 typedef struct g_data{
-	int t_flip;
-	int t_mix;
-	int fill_style;
 	DRWShadingGroup *shgrps_volumetric;
 } g_data; /* Transient data */
 
@@ -131,16 +131,15 @@ static void GPENCIL_engine_free(void)
 }
 
 /* create shading group for filling */
-static DRWShadingGroup *GPENCIL_shgroup_fill_create(GPENCIL_Data *vedata, DRWPass *pass, PaletteColor *palcolor)
+static DRWShadingGroup *GPENCIL_shgroup_fill_create(GPENCIL_Data *vedata, DRWPass *pass, PaletteColor *palcolor, int id)
 {
 	GPENCIL_TextureList *txl = ((GPENCIL_Data *)vedata)->txl;
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 
 	DRWShadingGroup *grp = DRW_shgroup_create(e_data.gpencil_fill_sh, pass);
-	DRW_shgroup_uniform_vec4(grp, "color", palcolor->fill, 1);
 	DRW_shgroup_uniform_vec4(grp, "color2", palcolor->scolor, 1);
-	stl->g_data->fill_style = palcolor->fill_style;
-	DRW_shgroup_uniform_int(grp, "fill_type", &stl->g_data->fill_style, 1);
+	stl->storage->fill_style[id] = palcolor->fill_style;
+	DRW_shgroup_uniform_int(grp, "fill_type", &stl->storage->fill_style[id], 1);
 	DRW_shgroup_uniform_float(grp, "mix_factor", &palcolor->mix_factor, 1);
 
 	DRW_shgroup_uniform_float(grp, "g_angle", &palcolor->g_angle, 1);
@@ -154,11 +153,11 @@ static DRWShadingGroup *GPENCIL_shgroup_fill_create(GPENCIL_Data *vedata, DRWPas
 	DRW_shgroup_uniform_vec2(grp, "t_shift", palcolor->t_shift, 1);
 	DRW_shgroup_uniform_float(grp, "t_opacity", &palcolor->t_opacity, 1);
 
-	stl->g_data->t_mix = palcolor->flag & PAC_COLOR_TEX_MIX ? 1 : 0;
-	DRW_shgroup_uniform_int(grp, "t_mix", &stl->g_data->t_mix, 1);
+	stl->storage->t_mix[id] = palcolor->flag & PAC_COLOR_TEX_MIX ? 1 : 0;
+	DRW_shgroup_uniform_int(grp, "t_mix", &stl->storage->t_mix[id], 1);
 
-	stl->g_data->t_flip = palcolor->flag & PAC_COLOR_FLIP_FILL ? 1 : 0;
-	DRW_shgroup_uniform_int(grp, "t_flip", &stl->g_data->t_flip, 1);
+	stl->storage->t_flip[id] = palcolor->flag & PAC_COLOR_FLIP_FILL ? 1 : 0;
+	DRW_shgroup_uniform_int(grp, "t_flip", &stl->storage->t_flip[id], 1);
 
 	/* TODO: image texture */
 	if ((palcolor->fill_style == FILL_STYLE_TEXTURE) || (palcolor->flag & PAC_COLOR_TEX_MIX)) {
@@ -209,7 +208,7 @@ static void GPENCIL_cache_init(void *vedata)
 
 	{
 		/* Create a pass */
-		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH; 
+		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND ;
 		psl->pass = DRW_pass_create("Gpencil Pass", state);
 		stl->storage->pal_id = 0;
 		memset(stl->storage->shgrps_fill, 0, sizeof(DRWShadingGroup *) * MAX_GPENCIL_MAT);
@@ -234,7 +233,8 @@ static int GPENCIL_shgroup_find(GPENCIL_Storage *storage, PaletteColor *palcolor
 	return -1;
 }
 
-static void gpencil_draw_strokes(void *vedata, ToolSettings *ts, Object *ob, bGPDlayer *gpl, bGPDframe *gpf,
+static void gpencil_draw_strokes(void *vedata, ToolSettings *ts, Object *ob,
+	bGPDlayer *gpl, bGPDframe *gpf,
 	const float opacity, const float tintcolor[4], const bool onion, const bool custonion)
 {
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
@@ -273,7 +273,7 @@ static void gpencil_draw_strokes(void *vedata, ToolSettings *ts, Object *ob, bGP
 		if (id == -1) {
 			id = stl->storage->pal_id;
 			stl->storage->materials[id] = gps->palcolor;
-			stl->storage->shgrps_fill[id] = GPENCIL_shgroup_fill_create(vedata, psl->pass, gps->palcolor);
+			stl->storage->shgrps_fill[id] = GPENCIL_shgroup_fill_create(vedata, psl->pass, gps->palcolor, id);
 			stl->storage->shgrps_stroke[id] = GPENCIL_shgroup_stroke_create(vedata, psl->pass, gps->palcolor);
 			++stl->storage->pal_id;
 		}
@@ -286,7 +286,7 @@ static void gpencil_draw_strokes(void *vedata, ToolSettings *ts, Object *ob, bGP
 			float tfill[4];
 			/* set color using palette, tint color and opacity */
 			interp_v3_v3v3(tfill, gps->palcolor->fill, tintcolor, tintcolor[3]);
-			tfill[3] = gps->palcolor->fill[3] * opacity;
+			tfill[3] = gps->palcolor->fill[3] * gpl->opacity;
 			if ((tfill[3] > GPENCIL_ALPHA_OPACITY_THRESH) || (gps->palcolor->fill_style > 0)) {
 				const float *color;
 				if (!onion) {
