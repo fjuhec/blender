@@ -12,14 +12,14 @@
 #include "shader_interface.h"
 #include <stdlib.h>
 #include <stddef.h>
+#include <string.h>
 
+#define SUPPORT_LEGACY_GLSL 1
 #define DEBUG_SHADER_INTERFACE 0
 
 #if DEBUG_SHADER_INTERFACE
  #include <stdio.h>
 #endif
-
-#if 0
 
 static const char* BuiltinUniform_name(BuiltinUniform u)
 	{
@@ -31,7 +31,9 @@ static const char* BuiltinUniform_name(BuiltinUniform u)
 		[UNIFORM_PROJECTION_3D] = "ProjectionMatrix",
 		[UNIFORM_MVP_3D] = "ModelViewProjectionMatrix",
 		[UNIFORM_NORMAL_3D] = "NormalMatrix",
-		[UNIFORM_INV_NORMAL_3D] = "InverseNormalMatrix",
+
+		[UNIFORM_MODELVIEW_INV_3D] = "ModelViewInverseMatrix",
+		[UNIFORM_PROJECTION_INV_3D] = "ProjectionInverseMatrix",
 
 		[UNIFORM_MODELVIEW_2D] = "ModelViewMatrix",
 		[UNIFORM_PROJECTION_2D] = "ProjectionMatrix",
@@ -44,8 +46,6 @@ static const char* BuiltinUniform_name(BuiltinUniform u)
 
 	return names[u];
 	}
-
-#endif
 
 static bool setup_builtin_uniform(ShaderInput* input, const char* name)
 	{
@@ -76,6 +76,8 @@ ShaderInterface* ShaderInterface_create(GLint program)
 
 	// allocate enough space for input counts, details for each input, and a buffer for name strings
 	ShaderInterface* shaderface = calloc(1, offsetof(ShaderInterface, inputs) + input_ct * sizeof(ShaderInput) + name_buffer_len);
+	shaderface->uniform_ct = uniform_ct;
+	shaderface->attrib_ct = attrib_ct;
 
 	char* name_buffer = (char*)shaderface + offsetof(ShaderInterface, inputs) + input_ct * sizeof(ShaderInput);
 	uint32_t name_buffer_offset = 0;
@@ -89,12 +91,25 @@ ShaderInterface* ShaderInterface_create(GLint program)
 
 		glGetActiveUniform(program, i, remaining_buffer, &name_len, &input->size, &input->gl_type, name);
 
-		if (setup_builtin_uniform(input, name))
-			; // reclaim space from name buffer (don't advance offset)
-		else
-			name_buffer_offset += name_len + 1; // include NULL terminator
-
 		input->location = glGetUniformLocation(program, name);
+
+#if SUPPORT_LEGACY_GLSL
+		if (input->location != -1)
+			{
+#elif TRUST_NO_ONE
+			assert(input->location != -1);
+#endif
+
+			if (setup_builtin_uniform(input, name))
+				; // reclaim space from name buffer (don't advance offset)
+			else
+				{
+				input->name = name;
+				name_buffer_offset += name_len + 1; // include NULL terminator
+				}
+#if SUPPORT_LEGACY_GLSL
+			}
+#endif
 
 #if DEBUG_SHADER_INTERFACE
 		printf("uniform[%u] '%s' at location %d\n", i, name, input->location);
@@ -112,10 +127,20 @@ ShaderInterface* ShaderInterface_create(GLint program)
 
 		// TODO: reject DOUBLE gl_types
 
-		input->name = name;
-		name_buffer_offset += name_len + 1; // include NULL terminator
-
 		input->location = glGetAttribLocation(program, name);
+
+#if SUPPORT_LEGACY_GLSL
+		if (input->location != -1)
+			{
+#elif TRUST_NO_ONE
+			assert(input->location != -1);
+#endif
+
+			input->name = name;
+			name_buffer_offset += name_len + 1; // include NULL terminator
+#if SUPPORT_LEGACY_GLSL
+			}
+#endif
 
 #if DEBUG_SHADER_INTERFACE
 		printf("attrib[%u] '%s' at location %d\n", i, name, input->location);
@@ -137,4 +162,26 @@ void ShaderInterface_discard(ShaderInterface* shaderface)
 	{
 	// allocated as one chunk, so discard is simple
 	free(shaderface);
+	}
+
+const ShaderInput* ShaderInterface_uniform(const ShaderInterface* shaderface, const char* name)
+	{
+	for (uint32_t i = 0; i < shaderface->uniform_ct; ++i)
+		{
+		const ShaderInput* uniform = shaderface->inputs + i;
+
+#if SUPPORT_LEGACY_GLSL
+		if (uniform->name == NULL) continue;
+#endif
+
+		if (strcmp(uniform->name, name) == 0)
+			return uniform;
+		}
+	return NULL; // not found
+	}
+
+const ShaderInput* ShaderInterface_builtin_uniform(const ShaderInterface* shaderface, BuiltinUniform builtin)
+	{
+	// TODO: look up by enum, not name (fix setup_builtin_uniform first)
+	return ShaderInterface_uniform(shaderface, BuiltinUniform_name(builtin));
 	}

@@ -170,6 +170,14 @@ typedef struct g_data{
 	DRWShadingGroup *outlines_select_group;
 	DRWShadingGroup *outlines_transform;
 
+	/* Wire */
+	DRWShadingGroup *wire;
+	DRWShadingGroup *wire_active;
+	DRWShadingGroup *wire_active_group;
+	DRWShadingGroup *wire_select;
+	DRWShadingGroup *wire_select_group;
+	DRWShadingGroup *wire_transform;
+
 } g_data; /* Transient data */
 
 static struct {
@@ -371,17 +379,22 @@ static void OBJECT_engine_init(void *vedata)
 
 static void OBJECT_engine_free(void)
 {
-	if (e_data.outline_resolve_sh)
-		DRW_shader_free(e_data.outline_resolve_sh);
-	if (e_data.outline_detect_sh)
-		DRW_shader_free(e_data.outline_detect_sh);
-	if (e_data.outline_fade_sh)
-		DRW_shader_free(e_data.outline_fade_sh);
-	if (e_data.grid_sh)
-		DRW_shader_free(e_data.grid_sh);
+	DRW_SHADER_FREE_SAFE(e_data.outline_resolve_sh);
+	DRW_SHADER_FREE_SAFE(e_data.outline_detect_sh);
+	DRW_SHADER_FREE_SAFE(e_data.outline_fade_sh);
+	DRW_SHADER_FREE_SAFE(e_data.grid_sh);
 }
 
 static DRWShadingGroup *shgroup_outline(DRWPass *pass, const float col[4], struct GPUShader *sh)
+{
+	DRWShadingGroup *grp = DRW_shgroup_create(sh, pass);
+	DRW_shgroup_uniform_vec4(grp, "color", col, 1);
+
+	return grp;
+}
+
+/* currently same as 'shgroup_outline', new function to avoid confustion */
+static DRWShadingGroup *shgroup_wire(DRWPass *pass, const float col[4], struct GPUShader *sh)
 {
 	DRWShadingGroup *grp = DRW_shgroup_create(sh, pass);
 	DRW_shgroup_uniform_vec4(grp, "color", col, 1);
@@ -618,10 +631,32 @@ static void OBJECT_cache_init(void *vedata)
 		stl->g_data->camera_clip_points = shgroup_distance_lines_instance(psl->non_meshes, geom);
 		stl->g_data->camera_mist_points = shgroup_distance_lines_instance(psl->non_meshes, geom);
 
+	}
+
+	{
+		struct GPUShader *sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_UNIFORM_COLOR);
+
+		/* Unselected */
+		stl->g_data->wire = shgroup_wire(psl->non_meshes, ts.colorWire, sh);
+
+		/* Select */
+		stl->g_data->wire_select = shgroup_wire(psl->non_meshes, ts.colorSelect, sh);
+		stl->g_data->wire_select_group = shgroup_wire(psl->non_meshes, ts.colorGroupActive, sh);
+
+		/* Transform */
+		stl->g_data->wire_transform = shgroup_wire(psl->non_meshes, ts.colorTransform, sh);
+
+		/* Active */
+		stl->g_data->wire_active = shgroup_wire(psl->non_meshes, ts.colorActive, sh);
+		stl->g_data->wire_active_group = shgroup_wire(psl->non_meshes, ts.colorGroupActive, sh);
+	}
+
+	{
 		/* Lamps */
 		/* TODO
 		 * for now we create multiple times the same VBO with only lamp center coordinates
 		 * but ideally we would only create it once */
+		struct Batch *geom;
 
 		/* start with buflimit because we don't want stipples */
 		geom = DRW_cache_single_line_get();
@@ -663,9 +698,12 @@ static void OBJECT_cache_init(void *vedata)
 
 		geom = DRW_cache_square_get();
 		stl->g_data->lamp_spot_blend_rect = shgroup_instance(psl->non_meshes, geom);
+	}
 
+	{
 		/* -------- STIPPLES ------- */
 		/* TODO port to shader stipple */
+		struct Batch *geom;
 
 		/* Relationship Lines */
 		stl->g_data->relationship_lines = shgroup_dynlines_uniform_color(psl->non_meshes, ts.colorWire);
@@ -1092,30 +1130,64 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 
 	switch (ob->type) {
 		case OB_MESH:
-			{
-				Object *obedit = scene->obedit;
-				int theme_id = DRW_object_wire_theme_get(ob, sl, NULL);
-				if (ob != obedit) {
-					if (do_outlines) {
-						struct Batch *geom = DRW_cache_mesh_surface_get(ob);
-						switch (theme_id) {
-							case TH_ACTIVE:
-								DRW_shgroup_call_add(stl->g_data->outlines_active, geom, ob->obmat);
-								break;
-							case TH_SELECT:
-								DRW_shgroup_call_add(stl->g_data->outlines_select, geom, ob->obmat);
-								break;
-							case TH_GROUP_ACTIVE:
-								DRW_shgroup_call_add(stl->g_data->outlines_select_group, geom, ob->obmat);
-								break;
-							case TH_TRANSFORM:
-								DRW_shgroup_call_add(stl->g_data->outlines_transform, geom, ob->obmat);
-								break;
-						}
+		{
+			Object *obedit = scene->obedit;
+			if (ob != obedit) {
+				if (do_outlines) {
+					struct Batch *geom = DRW_cache_mesh_surface_get(ob);
+					int theme_id = DRW_object_wire_theme_get(ob, sl, NULL);
+					DRWShadingGroup *shgroup = NULL;
+					switch (theme_id) {
+						case TH_ACTIVE:
+							shgroup = stl->g_data->outlines_active;
+							break;
+						case TH_SELECT:
+							shgroup = stl->g_data->outlines_select;
+							break;
+						case TH_GROUP_ACTIVE:
+							shgroup = stl->g_data->outlines_select_group;
+							break;
+						case TH_TRANSFORM:
+							shgroup = stl->g_data->outlines_transform;
+							break;
+					}
+					if (shgroup != NULL) {
+						DRW_shgroup_call_add(shgroup, geom, ob->obmat);
 					}
 				}
 			}
 			break;
+		}
+		case OB_LATTICE:
+		{
+			Object *obedit = scene->obedit;
+			if (ob != obedit) {
+				struct Batch *geom = DRW_cache_lattice_wire_get(ob);
+				int theme_id = DRW_object_wire_theme_get(ob, sl, NULL);
+
+				DRWShadingGroup *shgroup;
+				switch (theme_id) {
+					case TH_ACTIVE:
+						shgroup = stl->g_data->wire_active;
+						break;
+					case TH_SELECT:
+						shgroup = stl->g_data->wire_select;
+						break;
+					case TH_GROUP_ACTIVE:
+						shgroup = stl->g_data->wire_select_group;
+						break;
+					case TH_TRANSFORM:
+						shgroup = stl->g_data->wire_transform;
+						break;
+					default:
+						shgroup = stl->g_data->wire;
+						break;
+				}
+
+				DRW_shgroup_call_add(shgroup, geom, ob->obmat);
+			}
+			break;
+		}
 		case OB_LAMP:
 			DRW_shgroup_lamp(stl, ob, sl);
 			break;
@@ -1129,15 +1201,17 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 			DRW_shgroup_speaker(stl, ob, sl);
 			break;
 		case OB_ARMATURE:
-			{
-				bArmature *arm = ob->data;
-				if (arm->edbo == NULL) {
-					DRW_shgroup_armature_object(ob, sl, ((OBJECT_Data *)vedata)->psl->bone_solid,
-					                                    ((OBJECT_Data *)vedata)->psl->bone_wire,
-					                                    stl->g_data->relationship_lines);
-				}
+		{
+			bArmature *arm = ob->data;
+			if (arm->edbo == NULL) {
+				DRW_shgroup_armature_object(
+				        ob, sl,
+				        ((OBJECT_Data *)vedata)->psl->bone_solid,
+				        ((OBJECT_Data *)vedata)->psl->bone_wire,
+				        stl->g_data->relationship_lines);
 			}
 			break;
+		}
 		default:
 			break;
 	}

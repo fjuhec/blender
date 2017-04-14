@@ -34,6 +34,7 @@
 
 #include "BLI_sys_types.h"
 #include "GPU_glew.h"
+#include "../../../intern/gawain/gawain/shader_interface.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,7 +43,17 @@ extern "C" {
 /* For now we support the legacy matrix stack in gpuGetMatrix functions.
  * Will remove this after switching to core profile, which can happen after
  * we convert all code to use the API in this file. */
-#define SUPPORT_LEGACY_MATRIX 1
+#ifdef WITH_GL_PROFILE_CORE
+	#define SUPPORT_LEGACY_MATRIX 0
+#else
+	#define SUPPORT_LEGACY_MATRIX 1
+#endif
+
+/* implement 2D parts with 4x4 matrices, even though 3x3 feels better
+ * this is a compromise to get core profile up & running sooner
+ * external API stays (almost) the same
+ */
+#define MATRIX_2D_4x4 1
 
 
 void gpuMatrixInit(void); /* called by system -- make private? */
@@ -94,8 +105,12 @@ void gpuLookAt(float eyeX, float eyeY, float eyeZ, float centerX, float centerY,
 
 /* 2D ModelView Matrix */
 
+#if MATRIX_2D_4x4
+void gpuMultMatrix2D(const float m[4][4]);
+#else
 void gpuLoadMatrix2D(const float m[3][3]);
 void gpuMultMatrix2D(const float m[3][3]);
+#endif
 
 void gpuTranslate2f(float x, float y);
 void gpuTranslate2fv(const float vec[2]);
@@ -132,7 +147,7 @@ const float *gpuGetNormalMatrixInverse(float m[3][3]);
 
 
 /* set uniform values for currently bound shader */
-void gpuBindMatrices(GLuint program);
+void gpuBindMatrices(const ShaderInterface*);
 bool gpuMatricesDirty(void); /* since last bind */
 
 #ifdef __cplusplus
@@ -172,8 +187,12 @@ bool gpuMatricesDirty(void); /* since last bind */
 
 #  define gpuLoadProjectionMatrix3D(x)  gpuLoadProjectionMatrix3D((const float (*)[4])(x))
 
+# if MATRIX_2D_4x4
+#  define gpuMultMatrix2D(x)  gpuMultMatrix2D((const float (*)[4])(x))
+# else
 #  define gpuMultMatrix2D(x)  gpuMultMatrix2D((const float (*)[3])(x))
 #  define gpuLoadMatrix2D(x)  gpuLoadMatrix2D((const float (*)[3])(x))
+# endif
 
 #  define gpuGetModelViewMatrix3D(x)  gpuGetModelViewMatrix3D((float (*)[4])(x))
 #  define gpuGetProjectionMatrix3D(x)  gpuGetProjectionMatrix3D((float (*)[4])(x))
