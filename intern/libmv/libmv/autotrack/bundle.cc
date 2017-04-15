@@ -245,7 +245,7 @@ vector<Vec6> PackMultiCamerasRotationAndTranslation(
         const Reconstruction &reconstruction,
         vector<vector<int> > &camera_pose_map)  {
   vector<Vec6> all_cameras_R_t;
-  int clip_num = tracks.GetClipNum();
+  int clip_num = tracks.MaxClip() + 1;
   camera_pose_map.resize(clip_num);
   int total_frame = 0;
   for(int i = 0; i < clip_num; i++) {
@@ -278,7 +278,7 @@ void UnpackMultiCamerasRotationAndTranslation(
     const Tracks &tracks,
     const vector<Vec6> &all_cameras_R_t,
     Reconstruction *reconstruction) {
-  int clip_num = tracks.GetClipNum();
+  int clip_num = tracks.MaxClip() + 1;
   int frame_count = 0;
   for(int i = 0; i < clip_num; i++) {
     int max_frame = tracks.MaxFrame(i);
@@ -361,7 +361,7 @@ void MultiviewBundlerPerformEvaluation(const Tracks &tracks,
 
       // Cameras goes first in the ordering.
     int frame_count = 0;
-    int clip_num = tracks.GetClipNum();
+    int clip_num = tracks.MaxClip() + 1;
     for(int i = 0; i < clip_num; i++) {
       int max_frame = tracks.MaxFrame(i);
       for(int j = 0; j < max_frame; j++) {

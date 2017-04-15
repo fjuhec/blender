@@ -105,7 +105,7 @@ bool ReconstructionUpdateFixedIntrinsics(libmv_ReconstructionN **all_libmv_recon
                                          Tracks *tracks,
                                          Reconstruction *reconstruction)
 {
-  int clip_num = tracks->GetClipNum();
+  int clip_num = tracks->MaxClip() + 1;
   for (int i = 0; i < clip_num; i++) {
     CameraIntrinsics *camera_intrinsics = all_libmv_reconstruction[i]->intrinsics;
     int cam_intrinsic_index = reconstruction->AddCameraIntrinsics(camera_intrinsics);
@@ -274,8 +274,6 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
   int keyframe1, keyframe2;
 
   Tracks all_tracks, all_normalized_tracks;	// normalized tracks of all clips
-  all_tracks.SetClipNum(clip_num);
-  all_normalized_tracks.SetClipNum(clip_num);
   for (int i = 0; i < clip_num; i++) {
     all_libmv_reconstruction[i] = LIBMV_OBJECT_NEW(libmv_ReconstructionN);
     Tracks &tracks = *((Tracks *) all_libmv_tracks[i]);		// Tracks are just a bunch of markers

@@ -215,14 +215,6 @@ int Tracks::NumMarkers() const {
   return markers_.size();
 }
 
-void Tracks::SetClipNum(int clip_num) {
-  clip_num_ = clip_num;
-}
-
-int Tracks::GetClipNum() const {
-  return clip_num_;
-}
-
 void CoordinatesForMarkersInFrame(const vector<Marker> &markers,
                                   int clip, int frame,
                                   libmv::Mat *coordinates) {

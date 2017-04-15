@@ -206,7 +206,7 @@ int Reconstruction::GetReconstructedCameraNum() const {
 }
 
 void Reconstruction::InitIntrinsicsMap(Tracks &tracks) {
-  int clip_num = tracks.GetClipNum();
+  int clip_num = tracks.MaxClip() + 1;
   intrinsics_map.resize(clip_num);
   for (int i = 0; i < clip_num; i++) {
     intrinsics_map.resize(tracks.MaxFrame(i)+1);
@@ -217,7 +217,7 @@ void Reconstruction::InitIntrinsicsMap(Tracks &tracks) {
 }
 
 void Reconstruction::InitIntrinsicsMapFixed(Tracks &tracks) {
-  int clip_num = tracks.GetClipNum();
+  int clip_num = tracks.MaxClip() + 1;
   intrinsics_map.resize(clip_num);
   for (int i = 0; i < clip_num; i++) {
     intrinsics_map[i].resize(tracks.MaxFrame(i)+1);

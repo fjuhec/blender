@@ -110,7 +110,7 @@ bool InternalCompleteReconstruction(
     const Tracks &tracks,
     typename PipelineRoutines::Reconstruction *reconstruction,
     libmv::ProgressUpdateCallback *update_callback = NULL) {
-  int clip_num = tracks.GetClipNum();
+  int clip_num = tracks.MaxClip() + 1;
   int num_frames = 0;
   for(int i = 0; i < clip_num; i++) {
     num_frames += tracks.MaxFrame(i) + 1;
