@@ -4143,6 +4143,54 @@ static void WM_OT_stereo3d_set(wmOperatorType *ot)
 /* ******************************************************* */
 /* Head Mounted Display */
 
+#define HMD_ITER_MIRRORED_3D_VIEW_REGIONS_START(wm, name_suffix) \
+	for (wmWindow *win##name_suffix = wm->windows.first; \
+	     win##name_suffix; \
+	     win##name_suffix = win##name_suffix->next) \
+	{ \
+		for (ScrArea *sa##name_suffix = win##name_suffix->screen->areabase.first; \
+		     sa##name_suffix; \
+		     sa##name_suffix = sa##name_suffix->next) \
+		{ \
+			if (sa##name_suffix->spacetype == SPACE_VIEW3D) { \
+				View3D *v3d##name_suffix = sa##name_suffix->spacedata.first; \
+				if (v3d##name_suffix->flag3 & V3D_SHOW_HMD_MIRROR) { \
+					for (ARegion *ar##name_suffix = sa##name_suffix->regionbase.first; \
+					     ar##name_suffix; \
+					     ar##name_suffix = ar##name_suffix->next) \
+					{ \
+						if (ar##name_suffix->regiontype == RGN_TYPE_WINDOW) { \
+							RegionView3D *rv3d##name_suffix = ar##name_suffix->regiondata;
+#define HMD_ITER_MIRRORED_3D_VIEW_REGIONS_END \
+						} \
+					} \
+				} \
+			} \
+		} \
+	} (void)0
+
+
+static void hmd_session_enable_mirrored_viewlocks(const wmWindowManager *wm)
+{
+	HMD_ITER_MIRRORED_3D_VIEW_REGIONS_START(wm, )
+	{
+		rv3d->viewlock |= RV3D_LOCKED_SHARED;
+		ED_region_tag_redraw(ar);
+	}
+	HMD_ITER_MIRRORED_3D_VIEW_REGIONS_END;
+}
+static void hmd_session_disable_mirrored_viewlocks(const wmWindowManager *wm)
+{
+	HMD_ITER_MIRRORED_3D_VIEW_REGIONS_START(wm, )
+	{
+		if (RV3D_IS_LOCKED_SHARED(rv3d)) {
+			rv3d->viewlock &= ~RV3D_LOCKED_SHARED;
+			ED_region_tag_redraw(ar);
+		}
+	}
+	HMD_ITER_MIRRORED_3D_VIEW_REGIONS_END;
+}
+
 static void hmd_view_prepare_screen(wmWindowManager *wm, wmWindow *win, const RegionView3D *rv3d_current)
 {
 	ScrArea *sa_hmd = win->screen->areabase.first;
@@ -4157,50 +4205,25 @@ static void hmd_view_prepare_screen(wmWindowManager *wm, wmWindow *win, const Re
 	ED_view3d_copy_region_view_data(rv3d_current, rv3d_hmd);
 }
 
-static int wm_hmd_view_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
+static void hmd_session_prepare_screen(const wmWindowManager *wm, wmWindow *hmd_win)
 {
-	wmWindow *prevwin = CTX_wm_window(C);
-	wmWindowManager *wm = CTX_wm_manager(C);
-	wmWindow *win;
+	ScrArea *sa = hmd_win->screen->areabase.first;
+	View3D *v3d = sa->spacedata.first;
+	ARegion *ar = BKE_area_find_region_type(sa, RGN_TYPE_WINDOW);
+	RegionView3D *rv3d = ar->regiondata;
+	BLI_assert(ar && sa->spacetype == SPACE_VIEW3D);
 
-	/* close */
-	if ((win = wm->hmd_view.hmd_win)) {
-		wm->hmd_view.hmd_win->screen->is_hmd_running = false;
-		wm_window_close(C, wm, win);
-		wm->hmd_view.hmd_win = NULL;
-		/* close HMD */
-		WM_device_HMD_state_set(U.hmd_settings.device, false);
+	v3d->fx_settings.fx_flag |= GPU_FX_FLAG_LensDist;
+	/* Set distortion type for 3D View but first we need to validate fx settings. */
+	BKE_screen_gpu_fx_validate(&v3d->fx_settings);
+
+	if (rv3d->persp == RV3D_ORTHO) {
+		rv3d->persp = RV3D_PERSP;
 	}
-	/* open */
-	else {
-		ARegion *ar_current;
-		View3D *v3d_current;
-		RegionView3D *rv3d_current;
+	rv3d->viewlock |= RV3D_LOCK_PERSP_VIEW;
+	hmd_session_enable_mirrored_viewlocks(wm);
 
-		rcti rect = {prevwin->posx, prevwin->posx + (int)(prevwin->sizex * 0.9f),
-		             prevwin->posy, prevwin->posy + (int)(prevwin->sizey * 0.9f)};
-
-		/* WM_window_open_restricted changes context, so get current context data first */
-		ED_view3d_context_user_region(C, &v3d_current, &ar_current);
-		rv3d_current = ar_current->regiondata;
-		BLI_assert(v3d_current && ar_current && rv3d_current);
-
-		win = WM_window_open_restricted(C, &rect, WM_WINDOW_HMD);
-		wm->hmd_view.hmd_win = win;
-
-		hmd_view_prepare_screen(wm, win, rv3d_current);
-	}
-
-	return OPERATOR_FINISHED;
-}
-
-static void WM_OT_hmd_view_toggle(wmOperatorType *ot)
-{
-	ot->name = "Open/Close HMD View Window";
-	ot->idname = "WM_OT_hmd_view_toggle";
-	ot->description = "Open/Close a separate window for a head mounted display";
-
-	ot->invoke = wm_hmd_view_toggle_invoke;
+	hmd_win->screen->is_hmd_running = true;
 }
 
 static void hmd_session_cursor_draw(bContext *C, int mx, int my, void *UNUSED(customdata))
@@ -4228,6 +4251,95 @@ static void hmd_session_cursor_draw(bContext *C, int mx, int my, void *UNUSED(cu
 	gluDeleteQuadric(qobj);
 }
 
+static void hmd_session_start(wmWindowManager *wm)
+{
+	wmWindow *hmd_win = wm->hmd_view.hmd_win;
+
+	/* device setup */
+	WM_device_HMD_state_set(U.hmd_settings.device, true);
+	if ((U.hmd_settings.flag & USER_HMD_USE_DEVICE_IPD) == 0) {
+		U.hmd_settings.init_ipd = WM_device_HMD_IPD_get();
+		WM_device_HMD_IPD_set(U.hmd_settings.custom_ipd);
+	}
+
+	hmd_session_prepare_screen(wm, hmd_win);
+	WM_window_fullscreen_toggle(hmd_win, true, false);
+
+	wm->hmd_view.cursor = WM_paint_cursor_activate(wm, NULL, hmd_session_cursor_draw, NULL);
+}
+static void hmd_session_exit(wmWindowManager *wm, const bool skip_window_unset)
+{
+	wmWindow *hmd_win = wm->hmd_view.hmd_win;
+	ScrArea *sa = hmd_win->screen->areabase.first;
+	View3D *v3d = sa->spacedata.first;
+	BLI_assert(sa->spacetype == SPACE_VIEW3D);
+
+	/* screen */
+	hmd_win->screen->is_hmd_running = false;
+	if (!skip_window_unset) {
+		v3d->fx_settings.fx_flag &= ~GPU_FX_FLAG_LensDist;
+		MEM_SAFE_FREE(v3d->fx_settings.lensdist);
+		WM_window_fullscreen_toggle(hmd_win, false, true);
+	}
+	hmd_session_disable_mirrored_viewlocks(wm);
+
+	/* cursor */
+	WM_cursor_modal_restore(hmd_win);
+	WM_paint_cursor_end(wm, wm->hmd_view.cursor);
+
+	/* deactivate HMD */
+	WM_device_HMD_state_set(U.hmd_settings.device, false);
+}
+
+void wm_hmd_view_close(wmWindowManager *wm)
+{
+	hmd_session_exit(wm, true);
+	wm->hmd_view.hmd_win = NULL;
+}
+
+static int wm_hmd_view_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
+{
+	wmWindow *prevwin = CTX_wm_window(C);
+	wmWindowManager *wm = CTX_wm_manager(C);
+	wmWindow *hmd_win = wm->hmd_view.hmd_win;
+
+	/* close */
+	if (hmd_win) {
+		/* calls wm_hmd_view_close */
+		wm_window_close(C, wm, hmd_win);
+	}
+	/* open */
+	else {
+		ARegion *ar_current;
+		View3D *v3d_current;
+		RegionView3D *rv3d_current;
+
+		rcti rect = {prevwin->posx, prevwin->posx + (int)(prevwin->sizex * 0.9f),
+		             prevwin->posy, prevwin->posy + (int)(prevwin->sizey * 0.9f)};
+
+		/* WM_window_open_restricted changes context, so get current context data first */
+		ED_view3d_context_user_region(C, &v3d_current, &ar_current);
+		rv3d_current = ar_current->regiondata;
+		BLI_assert(v3d_current && ar_current && rv3d_current);
+
+		hmd_win = WM_window_open_restricted(C, &rect, WM_WINDOW_HMD);
+		wm->hmd_view.hmd_win = hmd_win;
+
+		hmd_view_prepare_screen(wm, hmd_win, rv3d_current);
+	}
+
+	return OPERATOR_FINISHED;
+}
+
+static void WM_OT_hmd_view_toggle(wmOperatorType *ot)
+{
+	ot->name = "Open/Close HMD View Window";
+	ot->idname = "WM_OT_hmd_view_toggle";
+	ot->description = "Open/Close a separate window for a head mounted display";
+
+	ot->invoke = wm_hmd_view_toggle_invoke;
+}
+
 static int hmd_session_toggle_poll(bContext *C)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
@@ -4240,49 +4352,6 @@ static int hmd_session_toggle_poll(bContext *C)
 	return true;
 }
 
-static void hmd_session_disable_viewlocks(wmWindowManager *wm)
-{
-	for (wmWindow *win = wm->windows.first; win; win = win->next) {
-		for (ScrArea *sa = win->screen->areabase.first; sa; sa = sa->next) {
-			if (sa->spacetype == SPACE_VIEW3D) {
-				View3D *v3d = sa->spacedata.first;
-
-				if (v3d->flag3 & V3D_SHOW_HMD_MIRROR) {
-					for (ARegion *ar = sa->regionbase.first; ar; ar = ar->next) {
-						if (ar->regiontype == RGN_TYPE_WINDOW) {
-							RegionView3D *rv3d = ar->regiondata;
-							if (RV3D_IS_LOCKED_SHARED(rv3d)) {
-								rv3d->viewlock &= ~RV3D_LOCKED_SHARED;
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-}
-
-static void hmd_session_prepare_screen(wmWindow *hmd_win)
-{
-	ScrArea *sa = hmd_win->screen->areabase.first;
-	View3D *v3d = sa->spacedata.first;
-	ARegion *ar = BKE_area_find_region_type(sa, RGN_TYPE_WINDOW);
-	RegionView3D *rv3d = ar->regiondata;
-	BLI_assert(ar && sa->spacetype == SPACE_VIEW3D);
-
-	v3d->fx_settings.fx_flag |= GPU_FX_FLAG_LensDist;
-	/* Set distortion type for 3D View but first we need to validate fx settings. */
-	BKE_screen_gpu_fx_validate(&v3d->fx_settings);
-
-	if (rv3d->persp == RV3D_ORTHO) {
-		rv3d->persp = RV3D_PERSP;
-	}
-	rv3d->viewlock |= RV3D_LOCK_PERSP_VIEW;
-
-	hmd_win->screen->is_hmd_running = true;
-	WM_window_fullscreen_toggle(hmd_win, true, false);
-}
-
 static int hmd_session_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
@@ -4293,31 +4362,10 @@ static int hmd_session_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 	}
 
 	if (WM_window_is_running_hmd_view(hmd_win)) {
-		ScrArea *sa = hmd_win->screen->areabase.first;
-		View3D *v3d = sa->spacedata.first;
-		BLI_assert(sa->spacetype == SPACE_VIEW3D);
-
-		/* exit session */
-		v3d->fx_settings.fx_flag &= ~GPU_FX_FLAG_LensDist;
-		MEM_SAFE_FREE(v3d->fx_settings.lensdist);
-		hmd_win->screen->is_hmd_running = false;
-		WM_window_fullscreen_toggle(hmd_win, false, true);
-		WM_device_HMD_state_set(U.hmd_settings.device, false);
-		hmd_session_disable_viewlocks(wm);
-		WM_cursor_modal_restore(hmd_win);
-		WM_paint_cursor_end(wm, wm->hmd_view.cursor);
+		hmd_session_exit(wm, false);
 	}
 	else {
-		/* start session */
-
-		WM_device_HMD_state_set(U.hmd_settings.device, true);
-		if ((U.hmd_settings.flag & USER_HMD_USE_DEVICE_IPD) == 0) {
-			U.hmd_settings.init_ipd = WM_device_HMD_IPD_get();
-			WM_device_HMD_IPD_set(U.hmd_settings.custom_ipd);
-		}
-		hmd_session_prepare_screen(hmd_win);
-
-		wm->hmd_view.cursor = WM_paint_cursor_activate(wm, NULL, hmd_session_cursor_draw, NULL);
+		hmd_session_start(wm);
 	}
 
 	return OPERATOR_FINISHED;
@@ -4340,14 +4388,12 @@ static int hmd_session_refresh_invoke(bContext *C, wmOperator *UNUSED(op), const
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *hmd_win = wm->hmd_view.hmd_win;
 	ScrArea *sa;
-	View3D *v3d;
 
 	if (!(hmd_win && WM_window_is_running_hmd_view(hmd_win))) {
 		return OPERATOR_CANCELLED;
 	}
 
 	sa = hmd_win->screen->areabase.first;
-	v3d = sa->spacedata.first;
 	BLI_assert(sa->spacetype == SPACE_VIEW3D);
 	/* Actually the only thing we have to do is ensuring a redraw, we'll then
 	 * get the modelview/projection matrices from HMD device when drawing */
@@ -4357,24 +4403,14 @@ static int hmd_session_refresh_invoke(bContext *C, wmOperator *UNUSED(op), const
 	WM_event_add_mousemove(C);
 
 	/* Tag mirrored 3D views for redraw too */
-	for (wmWindow *win = wm->windows.first; win; win = win->next) {
-		for (sa = win->screen->areabase.first; sa; sa = sa->next) {
-			if (sa->spacetype == SPACE_VIEW3D) {
-				v3d = sa->spacedata.first;
-				if (v3d->flag3 & V3D_SHOW_HMD_MIRROR) {
-					for (ARegion *ar = sa->regionbase.first; ar; ar = ar->next) {
-						if (ar->regiontype == RGN_TYPE_WINDOW) {
-							RegionView3D *rv3d = ar->regiondata;
-							if (RV3D_IS_LOCKED_SHARED(rv3d)) {
-								/* this rv3d shares data with the HMD view */
-								ED_region_tag_redraw(ar);
-							}
-						}
-					}
-				}
-			}
+	HMD_ITER_MIRRORED_3D_VIEW_REGIONS_START(wm, _iter)
+	{
+		if (RV3D_IS_LOCKED_SHARED(rv3d_iter)) {
+			/* this rv3d shares data with the HMD view */
+			ED_region_tag_redraw(ar_iter);
 		}
 	}
+	HMD_ITER_MIRRORED_3D_VIEW_REGIONS_END;
 
 	return OPERATOR_FINISHED;
 }
@@ -4392,6 +4428,9 @@ static void WM_OT_hmd_session_refresh(wmOperatorType *ot)
 	/* flags */
 	ot->flag = OPTYPE_INTERNAL;
 }
+
+#undef HMD_ITER_MIRRORED_3D_VIEW_REGIONS_START
+#undef HMD_ITER_MIRRORED_3D_VIEW_REGIONS_END
 
 #endif /* WITH_INPUT_HMD */
 

@@ -341,7 +341,7 @@ void wm_window_close(bContext *C, wmWindowManager *wm, wmWindow *win)
 		}
 #ifdef WITH_INPUT_HMD
 		if (wm->hmd_view.hmd_win == win) {
-			wm->hmd_view.hmd_win = NULL;
+			wm_hmd_view_close(wm);
 		}
 #endif
 
