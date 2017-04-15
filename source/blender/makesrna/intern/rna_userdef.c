@@ -586,10 +586,10 @@ static EnumPropertyItem *rna_userdef_hmd_device_itemf(
 	RNA_enum_item_add(&item, &totitem, &hmd_device_items[0]);
 
 	/* add devices */
-	for (int i = 0; i < WM_device_HMD_num_devices_get() && i < MAX_HMD_DEVICES; i++) {
+	for (int i = 0; i < WM_HMD_num_devices_get() && i < MAX_HMD_DEVICES; i++) {
 		EnumPropertyItem tmp = {i, "", 0, "", ""};
 
-		BLI_snprintf(names[i], sizeof(names[i]), "%s %s", WM_device_HMD_vendor_get(i), WM_device_HMD_name_get(i));
+		BLI_snprintf(names[i], sizeof(names[i]), "%s %s", WM_HMD_device_vendor_get(i), WM_HMD_device_name_get(i));
 		tmp.identifier = tmp.name = names[i];
 		RNA_enum_item_add(&item, &totitem, &tmp);
 	}
@@ -602,15 +602,15 @@ static EnumPropertyItem *rna_userdef_hmd_device_itemf(
 
 static void rna_userdef_hmd_device_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *UNUSED(ptr))
 {
-	const int act_device = WM_device_HMD_current_get();
+	const int act_device = WM_HMD_device_active_get();
 
 	if (U.hmd_settings.device < 0) {
 		/* disabled device ('None' entry) */
-		WM_device_HMD_state_set(act_device, false);
+		WM_HMD_device_state_set(act_device, false);
 	}
 	else if (act_device != U.hmd_settings.device) {
 		/* change device */
-		WM_device_HMD_state_set(U.hmd_settings.device, true);
+		WM_HMD_device_state_set(U.hmd_settings.device, true);
 	}
 }
 
@@ -618,12 +618,12 @@ void rna_userdef_use_hmd_device_ipd_set(PointerRNA *UNUSED(ptr), int value)
 {
 	if (value) {
 		U.hmd_settings.flag |= USER_HMD_USE_DEVICE_IPD;
-		WM_device_HMD_IPD_set(U.hmd_settings.init_ipd);
+		WM_HMD_device_IPD_set(U.hmd_settings.init_ipd);
 	}
 	else {
 		U.hmd_settings.flag &= ~USER_HMD_USE_DEVICE_IPD;
-		U.hmd_settings.init_ipd = WM_device_HMD_IPD_get();
-		WM_device_HMD_IPD_set(U.hmd_settings.custom_ipd);
+		U.hmd_settings.init_ipd = WM_HMD_device_IPD_get();
+		WM_HMD_device_IPD_set(U.hmd_settings.custom_ipd);
 	}
 }
 
@@ -640,7 +640,7 @@ void rna_userdef_hmd_custom_ipd_set(PointerRNA *UNUSED(ptr), float value)
 {
 	U.hmd_settings.custom_ipd = value;
 	if ((U.hmd_settings.flag & USER_HMD_USE_DEVICE_IPD) == 0) {
-		WM_device_HMD_IPD_set(value);
+		WM_HMD_device_IPD_set(value);
 	}
 }
 

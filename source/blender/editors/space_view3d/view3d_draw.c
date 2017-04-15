@@ -338,9 +338,9 @@ static void view3d_hmd_calc_projection_matrix_from_device(
 	const float v3d_znear = v3d->near;
 	const float v3d_zfar = v3d->far;
 	const float v3d_lens = v3d->lens;
-	const float hmd_znear = WM_device_HMD_projection_z_near_get();
-	const float hmd_zfar = WM_device_HMD_projection_z_far_get();
-	const float hmd_fov = WM_device_HMD_FOV_get(is_left);
+	const float hmd_znear = WM_HMD_device_projection_z_near_get();
+	const float hmd_zfar = WM_HMD_device_projection_z_far_get();
+	const float hmd_fov = WM_HMD_device_FOV_get(is_left);
 	/* force using View3D settings which were overriden by HMD ones, using camera settings would mess up projection */
 	const char rv3d_persp = rv3d->persp;
 
@@ -369,8 +369,8 @@ static void view3d_hmd_calc_projection_matrix_from_device(
 	if (mat_type != HMD_MATRIX_CENTER) {
 		/* calculate lens offset in [-1, 1] range to apply onto projection matrix.
 		 * This follows logic of OpenHMD */
-		const float lens_sep = WM_device_HMD_lens_horizontal_separation_get();
-		const float hsize = WM_device_HMD_screen_horizontal_size_get();
+		const float lens_sep = WM_HMD_device_lens_horizontal_separation_get();
+		const float hsize = WM_HMD_device_screen_horizontal_size_get();
 		const float proj_offset = 1 - ((2 * lens_sep) / hsize);
 		float ofs_mat[4][4];
 
@@ -393,7 +393,7 @@ static void view3d_hmd_calc_modelview_matrix_from_device(
 {
 	float hmd_modelviewmat[4][4];
 
-	WM_device_HMD_modelview_matrix_get(mat_type == HMD_MATRIX_LEFT_EYE, hmd_modelviewmat);
+	WM_HMD_device_modelview_matrix_get(mat_type == HMD_MATRIX_LEFT_EYE, hmd_modelviewmat);
 
 	if (rv3d->persp == RV3D_CAMOB && v3d->camera) {
 		float v3d_modelviewmat[4][4], hmd_modelviewmat_tmp[4][4];
@@ -447,7 +447,7 @@ static void view3d_hmd_get_matrices(
 		copy_m4_m4(r_modelviewmat, rv3d->viewmat);
 
 		if (mat_type != HMD_MATRIX_CENTER) {
-			const float ipd = WM_device_HMD_IPD_get();
+			const float ipd = WM_HMD_device_IPD_get();
 			/* apply IPD */
 			r_modelviewmat[3][0]  += (ipd * 0.5f) * ((mat_type == HMD_MATRIX_LEFT_EYE) ? 1.0f : -1.0f);
 		}
@@ -4077,7 +4077,7 @@ static void view3d_main_region_draw_objects(
 	bool do_compositing = false;
 	void *hmd_distortion_params =
 #ifdef WITH_INPUT_HMD
-	        WM_window_is_running_hmd_view(win) ? WM_device_HMD_distortion_parameters_get() : NULL;
+	        WM_window_is_running_hmd_view(win) ? WM_HMD_device_distortion_parameters_get() : NULL;
 #else
 	        NULL;
 #endif

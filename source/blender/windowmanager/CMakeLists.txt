@@ -68,7 +68,6 @@ set(SRC
 	intern/wm_subwindow.c
 	intern/wm_window.c
 	intern/wm_stereo.c
-	intern/wm_device.c
 
 	WM_api.h
 	WM_keymap.h
@@ -148,6 +147,9 @@ if(WITH_INPUT_NDOF)
 endif()
 
 if(WITH_INPUT_HMD)
+	list(APPEND SRC
+		intern/wm_hmd.c
+	)
 	add_definitions(-DWITH_INPUT_HMD)
 endif()
 

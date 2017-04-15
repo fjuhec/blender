@@ -4256,10 +4256,10 @@ static void hmd_session_start(wmWindowManager *wm)
 	wmWindow *hmd_win = wm->hmd_view.hmd_win;
 
 	/* device setup */
-	WM_device_HMD_state_set(U.hmd_settings.device, true);
+	WM_HMD_device_state_set(U.hmd_settings.device, true);
 	if ((U.hmd_settings.flag & USER_HMD_USE_DEVICE_IPD) == 0) {
-		U.hmd_settings.init_ipd = WM_device_HMD_IPD_get();
-		WM_device_HMD_IPD_set(U.hmd_settings.custom_ipd);
+		U.hmd_settings.init_ipd = WM_HMD_device_IPD_get();
+		WM_HMD_device_IPD_set(U.hmd_settings.custom_ipd);
 	}
 
 	hmd_session_prepare_screen(wm, hmd_win);
@@ -4288,7 +4288,7 @@ static void hmd_session_exit(wmWindowManager *wm, const bool skip_window_unset)
 	WM_paint_cursor_end(wm, wm->hmd_view.cursor);
 
 	/* deactivate HMD */
-	WM_device_HMD_state_set(U.hmd_settings.device, false);
+	WM_HMD_device_state_set(U.hmd_settings.device, false);
 }
 
 void wm_hmd_view_close(wmWindowManager *wm)

@@ -524,28 +524,28 @@ bool        WM_event_is_ime_switch(const struct wmEvent *event);
 #endif
 
 
-/* wm_device.c */
+/* wm_hmd.c */
 
 #ifdef WITH_INPUT_HMD
 
 #define MAX_HMD_DEVICES 12
 
 /* Get/Set Wrappers */
-int         WM_device_HMD_num_devices_get(void) ATTR_WARN_UNUSED_RESULT;
-int         WM_device_HMD_current_get(void) ATTR_WARN_UNUSED_RESULT;
-const char *WM_device_HMD_name_get(int index) ATTR_WARN_UNUSED_RESULT;
-const char *WM_device_HMD_vendor_get(int index) ATTR_WARN_UNUSED_RESULT;
-float       WM_device_HMD_IPD_get(void) ATTR_WARN_UNUSED_RESULT;
-void        WM_device_HMD_IPD_set(float value);
-float       WM_device_HMD_lens_horizontal_separation_get(void) ATTR_WARN_UNUSED_RESULT;
-float       WM_device_HMD_projection_z_near_get(void);
-float       WM_device_HMD_projection_z_far_get(void);
-float       WM_device_HMD_screen_horizontal_size_get(void);
+int         WM_HMD_num_devices_get(void) ATTR_WARN_UNUSED_RESULT;
+int         WM_HMD_device_active_get(void) ATTR_WARN_UNUSED_RESULT;
+const char *WM_HMD_device_name_get(int index) ATTR_WARN_UNUSED_RESULT;
+const char *WM_HMD_device_vendor_get(int index) ATTR_WARN_UNUSED_RESULT;
+float       WM_HMD_device_IPD_get(void) ATTR_WARN_UNUSED_RESULT;
+void        WM_HMD_device_IPD_set(float value);
+float       WM_HMD_device_lens_horizontal_separation_get(void) ATTR_WARN_UNUSED_RESULT;
+float       WM_HMD_device_projection_z_near_get(void) ATTR_WARN_UNUSED_RESULT;
+float       WM_HMD_device_projection_z_far_get(void) ATTR_WARN_UNUSED_RESULT;
+float       WM_HMD_device_screen_horizontal_size_get(void) ATTR_WARN_UNUSED_RESULT;
 /* Utils */
-void WM_device_HMD_state_set(const int device, const bool enable);
-void WM_device_HMD_modelview_matrix_get(const bool is_left, float r_modelviewmat[4][4]) ATTR_NONNULL();
-float WM_device_HMD_FOV_get(const bool is_left);
-void *WM_device_HMD_distortion_parameters_get(void);
+void WM_HMD_device_state_set(const int device, const bool enable);
+void WM_HMD_device_modelview_matrix_get(const bool is_left, float r_modelviewmat[4][4]) ATTR_NONNULL();
+float WM_HMD_device_FOV_get(const bool is_left) ATTR_WARN_UNUSED_RESULT;
+void *WM_HMD_device_distortion_parameters_get(void) ATTR_WARN_UNUSED_RESULT;
 
 #endif /* WITH_INPUT_HMD */
 

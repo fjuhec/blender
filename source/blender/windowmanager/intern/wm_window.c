@@ -582,7 +582,7 @@ void wm_window_ghostwindows_ensure(wmWindowManager *wm)
 #ifdef WITH_INPUT_HMD
 		/* Try to open an HMD device when reading a file that has a running HMD session stored. */
 		if (WM_window_is_running_hmd_view(win)) {
-			WM_device_HMD_state_set(U.hmd_settings.device, true);
+			WM_HMD_device_state_set(U.hmd_settings.device, true);
 		}
 #endif
 
@@ -1347,7 +1347,7 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 				GHOST_TEventOpenHMDData *hmd_data = data;
 
 				if (hmd_data->subtype == GHOST_kDeviceNumChanged) {
-					if (WM_device_HMD_num_devices_get() > 0) {
+					if (WM_HMD_num_devices_get() > 0) {
 						if (U.hmd_settings.device == -1) { /* Only if 'None' item is selected */
 							U.hmd_settings.device = 0; /* last device plugged in */
 						}

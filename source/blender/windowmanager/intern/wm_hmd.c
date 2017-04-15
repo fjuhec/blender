@@ -20,13 +20,10 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/intern/wm_device.c
+/** \file blender/windowmanager/intern/wm_hmd.c
  *  \ingroup wm
- *
- * Get/set functions and utilities for physical devices (GHOST wrappers).
+ *  \name Head Mounted Displays
  */
-
-#ifdef WITH_INPUT_HMD
 
 #include "BKE_context.h"
 
@@ -41,15 +38,9 @@
 #include "wm.h"
 
 
-/* -------------------------------------------------------------------- */
-/* HMDs */
-
-/** \name Head Mounted Displays
- * \{ */
-
 /* ------ Get/Set Wrappers ------ */
 
-int WM_device_HMD_num_devices_get(void)
+int WM_HMD_num_devices_get(void)
 {
 	const int tot_devices = GHOST_HMDgetNumDevices();
 
@@ -64,18 +55,18 @@ int WM_device_HMD_num_devices_get(void)
 /**
  * Get index of currently open device.
  */
-int WM_device_HMD_current_get(void)
+int WM_HMD_device_active_get(void)
 {
 	return GHOST_HMDgetOpenDeviceIndex();
 }
 
-const char *WM_device_HMD_name_get(int index)
+const char *WM_HMD_device_name_get(int index)
 {
 	BLI_assert(index < MAX_HMD_DEVICES);
 	return GHOST_HMDgetDeviceName(index);
 }
 
-const char *WM_device_HMD_vendor_get(int index)
+const char *WM_HMD_device_vendor_get(int index)
 {
 	BLI_assert(index < MAX_HMD_DEVICES);
 	return GHOST_HMDgetVendorName(index);
@@ -84,31 +75,31 @@ const char *WM_device_HMD_vendor_get(int index)
 /**
  * Get IPD from currently opened HMD.
  */
-float WM_device_HMD_IPD_get(void)
+float WM_HMD_device_IPD_get(void)
 {
 	return GHOST_HMDgetDeviceIPD();
 }
-void WM_device_HMD_IPD_set(float value)
+void WM_HMD_device_IPD_set(float value)
 {
 	GHOST_HMDsetDeviceIPD(value);
 }
 
-float WM_device_HMD_lens_horizontal_separation_get(void)
+float WM_HMD_device_lens_horizontal_separation_get(void)
 {
 	return GHOST_HMDgetLensHorizontalSeparation();
 }
 
-float WM_device_HMD_projection_z_near_get(void)
+float WM_HMD_device_projection_z_near_get(void)
 {
 	return GHOST_HMDgetProjectionZNear();
 }
 
-float WM_device_HMD_projection_z_far_get(void)
+float WM_HMD_device_projection_z_far_get(void)
 {
 	return GHOST_HMDgetProjectionZFar();
 }
 
-float WM_device_HMD_screen_horizontal_size_get(void)
+float WM_HMD_device_screen_horizontal_size_get(void)
 {
 	return GHOST_HMDgetScreenHorizontalSize();
 }
@@ -118,7 +109,7 @@ float WM_device_HMD_screen_horizontal_size_get(void)
 /**
  * Enable or disable an HMD.
  */
-void WM_device_HMD_state_set(const int device, const bool enable)
+void WM_HMD_device_state_set(const int device, const bool enable)
 {
 	BLI_assert(device < MAX_HMD_DEVICES);
 	if (enable && (device >= 0)) {
@@ -130,7 +121,7 @@ void WM_device_HMD_state_set(const int device, const bool enable)
 	}
 }
 
-void WM_device_HMD_modelview_matrix_get(const bool is_left, float r_modelviewmat[4][4])
+void WM_HMD_device_modelview_matrix_get(const bool is_left, float r_modelviewmat[4][4])
 {
 	if (U.hmd_settings.device == -1) {
 		unit_m4(r_modelviewmat);
@@ -143,7 +134,7 @@ void WM_device_HMD_modelview_matrix_get(const bool is_left, float r_modelviewmat
 	}
 }
 
-float WM_device_HMD_FOV_get(const bool is_left)
+float WM_HMD_device_FOV_get(const bool is_left)
 {
 	if (U.hmd_settings.device == -1) {
 		return -1.0f;
@@ -156,10 +147,7 @@ float WM_device_HMD_FOV_get(const bool is_left)
 	}
 }
 
-void* WM_device_HMD_distortion_parameters_get(void)
+void *WM_HMD_device_distortion_parameters_get(void)
 {
 	return GHOST_HMDgetDistortionParameters();
 }
-/** \} */
-
-#endif
