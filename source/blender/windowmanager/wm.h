@@ -90,6 +90,11 @@ void wm_stereo3d_set_cancel(bContext *C, wmOperator *op);
 void wm_open_init_load_ui(wmOperator *op, bool use_prefs);
 void wm_open_init_use_scripts(wmOperator *op, bool use_prefs);
 
+/* operators */
+void WM_OT_hmd_view_toggle(wmOperatorType *ot);
+void WM_OT_hmd_session_toggle(wmOperatorType *ot);
+void WM_OT_hmd_session_refresh(wmOperatorType *ot);
+
 /* hack to store circle select size - campbell, must replace with nice operator memory */
 #define GESTURE_MEMORY
 
