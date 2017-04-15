@@ -131,6 +131,7 @@ typedef struct ReportTimerInfo {
 
 struct HMDViewInfo {
 	struct wmWindow *hmd_win;         /* HMD (virtual reality) window. Stored to avoid lookups. */
+	void *cursor;                     /* Handle to deactivate the cursor drawing */
 
 	char view_shade; /* rna_enum_viewport_shade_items */
 	char flag;

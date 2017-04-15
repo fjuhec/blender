@@ -4305,6 +4305,7 @@ static int hmd_session_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 		WM_device_HMD_state_set(U.hmd_settings.device, false);
 		hmd_session_disable_viewlocks(wm);
 		WM_cursor_modal_restore(hmd_win);
+		WM_paint_cursor_end(wm, wm->hmd_view.cursor);
 	}
 	else {
 		/* start session */
@@ -4316,7 +4317,7 @@ static int hmd_session_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 		}
 		hmd_session_prepare_screen(hmd_win);
 
-		WM_paint_cursor_activate(wm, NULL, hmd_session_cursor_draw, NULL);
+		wm->hmd_view.cursor = WM_paint_cursor_activate(wm, NULL, hmd_session_cursor_draw, NULL);
 	}
 
 	return OPERATOR_FINISHED;
