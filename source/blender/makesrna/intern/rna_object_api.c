@@ -321,12 +321,29 @@ static void rna_Object_ray_cast(
         float origin[3], float direction[3], float distance,
         int *r_success, float r_location[3], float r_normal[3], int *r_index)
 {
-	BVHTreeFromMesh treeData = {NULL};
-	
 	if (ob->derivedFinal == NULL) {
 		BKE_reportf(reports, RPT_ERROR, "Object '%s' has no mesh data to be used for ray casting", ob->id.name + 2);
 		return;
 	}
+
+	*r_success = false;
+
+	/* Test BoundBox first (efficiency) */
+	BoundBox *bb = BKE_object_boundbox_get(ob);
+	if (bb) {
+		float distmin, distmax;
+		if (isect_ray_aabb_v3_simple(origin, direction, bb->vec[0], bb->vec[6], &distmin, &distmax)) {
+			float dist = distmin >= 0 ? distmin : distmax;
+			if (dist > distance) {
+				goto finally;
+			}
+		}
+		else {
+			goto finally;
+		}
+	}
+
+	BVHTreeFromMesh treeData = {NULL};
 
 	/* no need to managing allocation or freeing of the BVH data. this is generated and freed as needed */
 	bvhtree_from_mesh_looptri(&treeData, ob->derivedFinal, 0.0f, 4, 6);
@@ -350,20 +367,18 @@ static void rna_Object_ray_cast(
 				copy_v3_v3(r_location, hit.co);
 				copy_v3_v3(r_normal, hit.no);
 				*r_index = dm_looptri_to_poly_index(ob->derivedFinal, &treeData.looptri[hit.index]);
-
-				goto finally;
 			}
 		}
+
+		free_bvhtree_from_mesh(&treeData);
 	}
 
-	*r_success = false;
-
-	zero_v3(r_location);
-	zero_v3(r_normal);
-	*r_index = -1;
-
+	if (*r_success == false) {
 finally:
-	free_bvhtree_from_mesh(&treeData);
+		zero_v3(r_location);
+		zero_v3(r_normal);
+		*r_index = -1;
+	}
 }
 
 static void rna_Object_closest_point_on_mesh(
