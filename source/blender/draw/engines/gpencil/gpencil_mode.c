@@ -333,13 +333,15 @@ static void gpencil_draw_strokes(void *vedata, ToolSettings *ts, Object *ob,
 		}
 
 		/* edit points (only in edit mode) */
-		if ((gpl->flag & GP_LAYER_LOCKED) == 0 && (ob->gpd->flag & GP_DATA_STROKE_EDITMODE))
-		{
-			if (gps->flag & GP_STROKE_SELECT) {
-				if ((gpl->flag & GP_LAYER_UNLOCK_COLOR) || ((gps->palcolor->flag & PC_COLOR_LOCKED) == 0)) {
-					struct Batch *edit_geom = gpencil_get_edit_geom(gps, ts->gp_sculpt.alpha, ob->gpd->flag);
-					DRW_shgroup_call_add(stl->g_data->shgrps_edit_volumetric, edit_geom, gpf->matrix);
+		if (!onion) {
+			if ((gpl->flag & GP_LAYER_LOCKED) == 0 && (ob->gpd->flag & GP_DATA_STROKE_EDITMODE))
+			{
+				if (gps->flag & GP_STROKE_SELECT) {
+					if ((gpl->flag & GP_LAYER_UNLOCK_COLOR) || ((gps->palcolor->flag & PC_COLOR_LOCKED) == 0)) {
+						struct Batch *edit_geom = gpencil_get_edit_geom(gps, ts->gp_sculpt.alpha, ob->gpd->flag);
+						DRW_shgroup_call_add(stl->g_data->shgrps_edit_volumetric, edit_geom, gpf->matrix);
 
+					}
 				}
 			}
 		}
@@ -351,6 +353,80 @@ static void gpencil_draw_strokes(void *vedata, ToolSettings *ts, Object *ob,
 			bglPolygonOffset(0.0, 0.0);
 		}
 #endif
+	}
+}
+
+/* draw onion-skinning for a layer */
+static void gpencil_draw_onionskins(void *vedata, ToolSettings *ts, Object *ob,bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf)
+{
+	const float default_color[3] = { UNPACK3(U.gpencil_new_layer_col) };
+	const float alpha = 1.0f;
+	float color[4];
+
+	/* 1) Draw Previous Frames First */
+	if (gpl->flag & GP_LAYER_GHOST_PREVCOL) {
+		copy_v3_v3(color, gpl->gcolor_prev);
+	}
+	else {
+		copy_v3_v3(color, default_color);
+	}
+
+	if (gpl->gstep > 0) {
+		/* draw previous frames first */
+		for (bGPDframe *gf = gpf->prev; gf; gf = gf->prev) {
+			/* check if frame is drawable */
+			if ((gpf->framenum - gf->framenum) <= gpl->gstep) {
+				/* alpha decreases with distance from curframe index */
+				float fac = 1.0f - ((float)(gpf->framenum - gf->framenum) / (float)(gpl->gstep + 1));
+				color[3] = alpha * fac * 0.66f;
+				gpencil_draw_strokes(vedata, ts, ob, gpl, gf, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_PREVCOL);
+			}
+			else
+				break;
+		}
+	}
+	else if (gpl->gstep == 0) {
+		/* draw the strokes for the ghost frames (at half of the alpha set by user) */
+		if (gpf->prev) {
+			color[3] = (alpha / 7);
+			gpencil_draw_strokes(vedata, ts, ob, gpl, gpf->prev, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_PREVCOL);
+		}
+	}
+	else {
+		/* don't draw - disabled */
+	}
+
+	/* 2) Now draw next frames */
+	if (gpl->flag & GP_LAYER_GHOST_NEXTCOL) {
+		copy_v3_v3(color, gpl->gcolor_next);
+	}
+	else {
+		copy_v3_v3(color, default_color);
+	}
+
+	if (gpl->gstep_next > 0) {
+		/* now draw next frames */
+		for (bGPDframe *gf = gpf->next; gf; gf = gf->next) {
+			/* check if frame is drawable */
+			if ((gf->framenum - gpf->framenum) <= gpl->gstep_next) {
+				/* alpha decreases with distance from curframe index */
+				float fac = 1.0f - ((float)(gf->framenum - gpf->framenum) / (float)(gpl->gstep_next + 1));
+				color[3] = alpha * fac * 0.66f;
+				gpencil_draw_strokes(vedata, ts, ob, gpl, gf, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_NEXTCOL);
+			}
+			else
+				break;
+		}
+	}
+	else if (gpl->gstep_next == 0) {
+		/* draw the strokes for the ghost frames (at half of the alpha set by user) */
+		if (gpf->next) {
+			color[3] = (alpha / 4);
+			gpencil_draw_strokes(vedata, ts, ob, gpl, gpf->next, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_NEXTCOL);
+		}
+	}
+	else {
+		/* don't draw - disabled */
 	}
 }
 
@@ -374,6 +450,11 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 			if (gpf == NULL)
 				continue;
 
+			/* draw onion skins */
+			if ((gpl->flag & GP_LAYER_ONIONSKIN) || (gpl->flag & GP_LAYER_GHOST_ALWAYS))
+			{
+				gpencil_draw_onionskins(vedata, ts, ob, ob->gpd, gpl, gpf);
+			}
 			/* draw normal strokes */
 			gpencil_draw_strokes(vedata, ts, ob, gpl, gpf, gpl->opacity, gpl->tintcolor, false, false);
 		}

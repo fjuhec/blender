@@ -317,7 +317,7 @@ static void gpencil_set_fill_point(VertexBuffer *vbo, int idx, bGPDspoint *pt, f
 }
 
 /* create batch geometry data for stroke shader */
-Batch *gpencil_get_fill_geom(bGPDstroke *gps, const float color[4])
+Batch *gpencil_get_fill_geom(bGPDstroke *gps, float color[4])
 {
 	BLI_assert(gps->totpoints >= 3);
 	int offsx = 0;
@@ -347,15 +347,15 @@ Batch *gpencil_get_fill_geom(bGPDstroke *gps, const float color[4])
 	bGPDtriangle *stroke_triangle = gps->triangles;
 	int idx = 0;
 	for (int i = 0; i < gps->tot_triangles; i++, stroke_triangle++) {
-		gpencil_set_fill_point(vbo, idx, &gps->points[stroke_triangle->v1], gps->palcolor->fill, stroke_triangle->uv1,
+		gpencil_set_fill_point(vbo, idx, &gps->points[stroke_triangle->v1], color, stroke_triangle->uv1,
 			pos_id, color_id, text_id, gps->flag,
 			offsx, offsy, winx, winy);
 		++idx;
-		gpencil_set_fill_point(vbo, idx, &gps->points[stroke_triangle->v2], gps->palcolor->fill, stroke_triangle->uv2,
+		gpencil_set_fill_point(vbo, idx, &gps->points[stroke_triangle->v2], color, stroke_triangle->uv2,
 			pos_id, color_id, text_id, gps->flag,
 			offsx, offsy, winx, winy);
 		++idx;
-		gpencil_set_fill_point(vbo, idx, &gps->points[stroke_triangle->v3], gps->palcolor->fill, stroke_triangle->uv3,
+		gpencil_set_fill_point(vbo, idx, &gps->points[stroke_triangle->v3], color, stroke_triangle->uv3,
 			pos_id, color_id, text_id, gps->flag,
 			offsx, offsy, winx, winy);
 		++idx;
