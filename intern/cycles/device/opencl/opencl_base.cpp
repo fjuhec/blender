@@ -218,7 +218,6 @@ bool OpenCLDeviceBase::load_kernels(const DeviceRequestedFeatures& requested_fea
 	denoising_program.add_kernel(ustring("filter_get_feature"));
 	denoising_program.add_kernel(ustring("filter_combine_halves"));
 	denoising_program.add_kernel(ustring("filter_construct_transform"));
-	denoising_program.add_kernel(ustring("filter_divide_combined"));
 	denoising_program.add_kernel(ustring("filter_nlm_calc_difference"));
 	denoising_program.add_kernel(ustring("filter_nlm_blur"));
 	denoising_program.add_kernel(ustring("filter_nlm_calc_weight"));
@@ -675,7 +674,6 @@ bool OpenCLDeviceBase::denoising_construct_transform(DenoisingTask *task)
 	cl_kernel ckFilterConstructTransform = denoising_program(ustring("filter_construct_transform"));
 
 	kernel_set_args(ckFilterConstructTransform, 0,
-	                task->render_buffer.samples,
 	                buffer_mem,
 	                transform_mem,
 	                rank_mem,

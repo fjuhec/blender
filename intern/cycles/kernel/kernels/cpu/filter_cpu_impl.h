@@ -81,13 +81,13 @@ void KERNEL_FUNCTION_FULL_NAME(filter_get_feature)(int sample,
 	STUB_ASSERT(KERNEL_ARCH, filter_get_feature);
 #else
 	kernel_filter_get_feature(sample, tiles,
-	                        m_offset, v_offset,
-	                        x, y,
-	                        mean, variance,
-	                        load_int4(prefilter_rect),
-	                        buffer_pass_stride,
-	                        buffer_denoising_offset,
-	                        use_split_variance);
+	                          m_offset, v_offset,
+	                          x, y,
+	                          mean, variance,
+	                          load_int4(prefilter_rect),
+	                          buffer_pass_stride,
+	                          buffer_denoising_offset,
+	                          use_split_variance);
 #endif
 }
 
@@ -106,8 +106,7 @@ void KERNEL_FUNCTION_FULL_NAME(filter_combine_halves)(int x, int y,
 #endif
 }
 
-void KERNEL_FUNCTION_FULL_NAME(filter_construct_transform)(int sample,
-                                                           float* buffer,
+void KERNEL_FUNCTION_FULL_NAME(filter_construct_transform)(float* buffer,
                                                            int x,
                                                            int y,
                                                            int storage_ofs,
@@ -123,7 +122,7 @@ void KERNEL_FUNCTION_FULL_NAME(filter_construct_transform)(int sample,
 #else
   rank += storage_ofs;
   transform += storage_ofs*TRANSFORM_SIZE;
-	kernel_filter_construct_transform(sample, buffer,
+	kernel_filter_construct_transform(buffer,
 	                                  x, y,
 	                                  load_int4(prefilter_rect),
 	                                  pass_stride,
@@ -131,21 +130,6 @@ void KERNEL_FUNCTION_FULL_NAME(filter_construct_transform)(int sample,
 	                                  rank,
 	                                  radius,
 	                                  pca_threshold);
-#endif
-}
-
-void KERNEL_FUNCTION_FULL_NAME(filter_divide_combined)(int x, int y,
-                                                       int sample,
-                                                       float *buffers,
-                                                       int offset,
-                                                       int stride,
-                                                       int pass_stride,
-                                                       int no_denoising_offset)
-{
-#ifdef KERNEL_STUB
-	STUB_ASSERT(KERNEL_ARCH, filter_divide_combined);
-#else
-	kernel_filter_divide_combined(x, y, sample, buffers, offset, stride, pass_stride, no_denoising_offset);
 #endif
 }
 

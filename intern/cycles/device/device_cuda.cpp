@@ -1016,8 +1016,7 @@ public:
 		                   task->storage.w,
 		                   task->storage.h);
 
-		void *args[] = {&task->render_buffer.samples,
-		                &task->buffer.mem.device_pointer,
+		void *args[] = {&task->buffer.mem.device_pointer,
 		                &task->storage.transform.device_pointer,
 		                &task->storage.rank.device_pointer,
 		                &task->filter_area,

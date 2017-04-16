@@ -51,8 +51,7 @@ void KERNEL_FUNCTION_FULL_NAME(filter_combine_halves)(int x, int y,
                                                       int* prefilter_rect,
                                                       int r);
 
-void KERNEL_FUNCTION_FULL_NAME(filter_construct_transform)(int sample,
-                                                           float* buffer,
+void KERNEL_FUNCTION_FULL_NAME(filter_construct_transform)(float* buffer,
                                                            int x,
                                                            int y,
                                                            int storage_ofs,
@@ -62,16 +61,6 @@ void KERNEL_FUNCTION_FULL_NAME(filter_construct_transform)(int sample,
                                                            int pass_stride,
                                                            int radius,
                                                            float pca_threshold);
-
-void KERNEL_FUNCTION_FULL_NAME(filter_divide_combined)(int x, int y,
-                                                       int sample,
-                                                       float *buffers,
-                                                       int offset,
-                                                       int stride,
-                                                       int pass_stride,
-                                                       int no_denoising_offset);
-
-
 
 void KERNEL_FUNCTION_FULL_NAME(filter_nlm_calc_difference)(int dx,
                                                            int dy,

@@ -92,8 +92,7 @@ __kernel void kernel_ocl_filter_combine_halves(ccl_global float *mean,
 	}
 }
 
-__kernel void kernel_ocl_filter_construct_transform(int sample,
-                                                    ccl_global float ccl_readonly_ptr buffer,
+__kernel void kernel_ocl_filter_construct_transform(ccl_global float ccl_readonly_ptr buffer,
                                                     ccl_global float *transform,
                                                     ccl_global int *rank,
                                                     int4 filter_area,
@@ -107,7 +106,7 @@ __kernel void kernel_ocl_filter_construct_transform(int sample,
 	if(x < filter_area.z && y < filter_area.w) {
 		ccl_global int *l_rank = rank + y*filter_area.z + x;
 		ccl_global float *l_transform = transform + y*filter_area.z + x;
-		kernel_filter_construct_transform(sample, buffer,
+		kernel_filter_construct_transform(buffer,
 		                                  x + filter_area.x, y + filter_area.y,
 		                                  rect, pass_stride,
 		                                  l_transform, l_rank,
@@ -116,22 +115,6 @@ __kernel void kernel_ocl_filter_construct_transform(int sample,
 		                                  get_local_id(1)*get_local_size(0) + get_local_id(0));
 	}
 }
-
-__kernel void kernel_ocl_filter_divide_combined(ccl_global float *buffers,
-                                                int sample,
-                                                int offset,
-                                                int stride,
-                                                int4 filter_area,
-                                                int pass_stride,
-                                                int no_denoising_offset)
-{
-	int x = get_global_id(0);
-	int y = get_global_id(1);
-	if(x < filter_area.z && y < filter_area.w) {
-		kernel_filter_divide_combined(x + filter_area.x, y + filter_area.y, sample, buffers, offset, stride, pass_stride, no_denoising_offset);
-	}
-}
-
 
 __kernel void kernel_ocl_filter_nlm_calc_difference(int dx,
                                                     int dy,

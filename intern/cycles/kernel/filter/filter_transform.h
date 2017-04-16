@@ -16,7 +16,7 @@
 
 CCL_NAMESPACE_BEGIN
 
-ccl_device void kernel_filter_construct_transform(int sample, float ccl_readonly_ptr buffer,
+ccl_device void kernel_filter_construct_transform(float ccl_readonly_ptr buffer,
                                                   int x, int y, int4 rect,
                                                   int pass_stride,
                                                   float *transform, int *rank,

@@ -99,7 +99,7 @@ kernel_cuda_filter_combine_halves(float *mean, float *variance, float *a, float 
 
 extern "C" __global__ void
 CUDA_LAUNCH_BOUNDS(CUDA_THREADS_BLOCK_WIDTH, CUDA_KERNEL_MAX_REGISTERS)
-kernel_cuda_filter_construct_transform(int sample, float const* __restrict__ buffer,
+kernel_cuda_filter_construct_transform(float const* __restrict__ buffer,
                                        float *transform, int *rank,
                                        int4 filter_area, int4 rect,
                                        int radius, float pca_threshold,
@@ -110,7 +110,7 @@ kernel_cuda_filter_construct_transform(int sample, float const* __restrict__ buf
 	if(x < filter_area.z && y < filter_area.w) {
 		int *l_rank = rank + y*filter_area.z + x;
 		float *l_transform = transform + y*filter_area.z + x;
-		kernel_filter_construct_transform(sample, buffer,
+		kernel_filter_construct_transform(buffer,
 		                                  x + filter_area.x, y + filter_area.y,
 		                                  rect, pass_stride,
 		                                  l_transform, l_rank,
@@ -119,21 +119,6 @@ kernel_cuda_filter_construct_transform(int sample, float const* __restrict__ buf
 		                                  threadIdx.y*blockDim.x + threadIdx.x);
 	}
 }
-
-extern "C" __global__ void
-CUDA_LAUNCH_BOUNDS(CUDA_THREADS_BLOCK_WIDTH, CUDA_KERNEL_MAX_REGISTERS)
-kernel_cuda_filter_divide_combined(float *buffers, int sample,
-                                   int offset, int stride,
-                                   int4 filter_area, int pass_stride,
-                                   int no_denoising_offset)
-{
-	int x = blockDim.x*blockIdx.x + threadIdx.x;
-	int y = blockDim.y*blockIdx.y + threadIdx.y;
-	if(x < filter_area.z && y < filter_area.w) {
-		kernel_filter_divide_combined(x + filter_area.x, y + filter_area.y, sample, buffers, offset, stride, pass_stride, no_denoising_offset);
-	}
-}
-
 
 extern "C" __global__ void
 CUDA_LAUNCH_BOUNDS(CUDA_THREADS_BLOCK_WIDTH, CUDA_KERNEL_MAX_REGISTERS)

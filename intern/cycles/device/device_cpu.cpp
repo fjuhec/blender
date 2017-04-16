@@ -177,7 +177,6 @@ public:
 	KernelFunctions<void(*)(int, TilesInfo*, int, int, float*, float*, float*, float*, float*, int*, int, int, bool)> filter_divide_shadow_kernel;
 	KernelFunctions<void(*)(int, TilesInfo*, int, int, int, int, float*, float*, int*, int, int, bool)>               filter_get_feature_kernel;
 	KernelFunctions<void(*)(int, int, float*, float*, float*, float*, int*, int)>                                     filter_combine_halves_kernel;
-	KernelFunctions<void(*)(int, int, int, float*, int, int, int, int)>                                               filter_divide_combined_kernel;
 
 	KernelFunctions<void(*)(int, int, float*, float*, float*, int*, int, int, float, float)> filter_nlm_calc_difference_kernel;
 	KernelFunctions<void(*)(float*, float*, int*, int, int)>                                 filter_nlm_blur_kernel;
@@ -185,7 +184,7 @@ public:
 	KernelFunctions<void(*)(int, int, float*, float*, float*, float*, int*, int, int)>       filter_nlm_update_output_kernel;
 	KernelFunctions<void(*)(float*, float*, int*, int)>                                      filter_nlm_normalize_kernel;
 
-	KernelFunctions<void(*)(int, float*, int, int, int, float*, int*, int*, int, int, float)>                                         filter_construct_transform_kernel;
+	KernelFunctions<void(*)(float*, int, int, int, float*, int*, int*, int, int, float)>                                              filter_construct_transform_kernel;
 	KernelFunctions<void(*)(int, int, float*, float*, float*, float*, float*, int*, float*, float3*, int*, int*, int, int, int, int)> filter_nlm_construct_gramian_kernel;
 	KernelFunctions<void(*)(int, int, int, int, int, float*, int*, float*, float3*, int*, int)>                                       filter_finalize_kernel;
 
@@ -212,7 +211,6 @@ public:
 	  REGISTER_KERNEL(filter_divide_shadow),
 	  REGISTER_KERNEL(filter_get_feature),
 	  REGISTER_KERNEL(filter_combine_halves),
-	  REGISTER_KERNEL(filter_divide_combined),
 	  REGISTER_KERNEL(filter_nlm_calc_difference),
 	  REGISTER_KERNEL(filter_nlm_blur),
 	  REGISTER_KERNEL(filter_nlm_calc_weight),
@@ -446,8 +444,7 @@ public:
 	{
 		for(int y = 0; y < task->filter_area.w; y++) {
 			for(int x = 0; x < task->filter_area.z; x++) {
-				filter_construct_transform_kernel()(task->render_buffer.samples,
-				                                    (float*) task->buffer.mem.device_pointer,
+				filter_construct_transform_kernel()((float*) task->buffer.mem.device_pointer,
 				                                    x + task->filter_area.x,
 				                                    y + task->filter_area.y,
 				                                    y*task->filter_area.z + x,
