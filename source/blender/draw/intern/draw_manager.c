@@ -580,7 +580,7 @@ void DRW_shgroup_dynamic_call_add_array(DRWShadingGroup *shgroup, const void *at
 
 	BLI_assert(attr_len == interface->attribs_count);
 
-	memcpy((void *) call->data, attr, data_size);
+	memcpy((void *)call->data, attr, data_size);
 
 	interface->instance_count += 1;
 
@@ -1157,8 +1157,8 @@ void DRW_draw_callbacks_pre_scene(void)
 	struct ARegion *ar = CTX_wm_region(DST.context);
 	RegionView3D *rv3d = CTX_wm_region_view3d(DST.context);
 
-	gpuLoadProjectionMatrix3D(rv3d->winmat);
-	gpuLoadMatrix3D(rv3d->viewmat);
+	gpuLoadProjectionMatrix(rv3d->winmat);
+	gpuLoadMatrix(rv3d->viewmat);
 
 	ED_region_draw_cb_draw(DST.context, ar, REGION_DRAW_PRE_VIEW);
 }
@@ -1168,8 +1168,8 @@ void DRW_draw_callbacks_post_scene(void)
 	struct ARegion *ar = CTX_wm_region(DST.context);
 	RegionView3D *rv3d = CTX_wm_region_view3d(DST.context);
 
-	gpuLoadProjectionMatrix3D(rv3d->winmat);
-	gpuLoadMatrix3D(rv3d->viewmat);
+	gpuLoadProjectionMatrix(rv3d->winmat);
+	gpuLoadMatrix(rv3d->viewmat);
 
 	ED_region_draw_cb_draw(DST.context, ar, REGION_DRAW_POST_VIEW);
 }
@@ -1858,16 +1858,12 @@ void DRW_draw_view(const bContext *C)
 	/* Start Drawing */
 	DRW_engines_draw_background();
 
-	gpuMatrixBegin3D();
-
 	DRW_draw_callbacks_pre_scene();
 	// DRW_draw_grid();
 	DRW_engines_draw_scene();
 	DRW_draw_callbacks_post_scene();
 
 	DRW_draw_manipulator();
-
-	gpuMatrixEnd();
 
 	DRW_draw_region_info();
 

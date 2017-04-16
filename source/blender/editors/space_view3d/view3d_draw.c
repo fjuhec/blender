@@ -209,8 +209,8 @@ static void view3d_main_region_setup_view(Scene *scene, View3D *v3d, ARegion *ar
 	ED_view3d_update_viewmat(scene, v3d, ar, viewmat, winmat);
 
 	/* set for opengl */
-	gpuLoadProjectionMatrix3D(rv3d->winmat);
-	gpuLoadMatrix3D(rv3d->viewmat);
+	gpuLoadProjectionMatrix(rv3d->winmat);
+	gpuLoadMatrix(rv3d->viewmat);
 }
 
 static bool view3d_stereo3d_active(const bContext *C, Scene *scene, View3D *v3d, RegionView3D *rv3d)
@@ -773,7 +773,7 @@ static bool view3d_draw_render_draw(const bContext *C, Scene *scene,
 	/* rendered draw */
 	gpuPushMatrix();
 	float original_proj[4][4];
-	gpuGetProjectionMatrix3D(original_proj);
+	gpuGetProjectionMatrix(original_proj);
 	ED_region_pixelspace(ar);
 
 	if (clip_border) {
@@ -801,7 +801,7 @@ static bool view3d_draw_render_draw(const bContext *C, Scene *scene,
 		glScissor(scissor[0], scissor[1], scissor[2], scissor[3]);
 	}
 
-	gpuLoadProjectionMatrix3D(original_proj);
+	gpuLoadProjectionMatrix(original_proj);
 	gpuPopMatrix();
 
 	return true;
@@ -1475,8 +1475,8 @@ static void view3d_draw_grid(const bContext *C, ARegion *ar)
 		*(&grid_unit) = NULL;  /* drawgrid need this to detect/affect smallest valid unit... */
 		drawgrid(&scene->unit, ar, v3d, &grid_unit);
 
-		gpuLoadProjectionMatrix3D(rv3d->winmat);
-		gpuLoadMatrix3D(rv3d->viewmat);
+		gpuLoadProjectionMatrix(rv3d->winmat);
+		gpuLoadMatrix(rv3d->viewmat);
 	}
 	else {
 		drawfloor(scene, v3d, &grid_unit, false);
@@ -2299,8 +2299,6 @@ static void view3d_draw_view(const bContext *C, ARegion *ar, DrawData *draw_data
 	glClear(GL_DEPTH_BUFFER_BIT);
 //	glDisable(GL_DEPTH_TEST); /* should be set by default */
 
-	gpuMatrixBegin3D();
-
 	view3d_draw_background(C); /* clears/overwrites entire color buffer */
 
 	view3d_draw_setup_view(C, ar);
@@ -2322,8 +2320,6 @@ static void view3d_draw_view(const bContext *C, ARegion *ar, DrawData *draw_data
 	view3d_draw_tool_ui(C);
 	view3d_draw_reference_images(C);
 	view3d_draw_manipulators(C, ar);
-
-	gpuMatrixEnd();
 
 	glDisable(GL_DEPTH_TEST);
 

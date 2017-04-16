@@ -143,7 +143,12 @@ bool GPU_framebuffer_texture_attach(GPUFrameBuffer *fb, GPUTexture *tex, int slo
 	else
 		attachment = GL_COLOR_ATTACHMENT0 + slot;
 
+#if defined(__APPLE__) && defined(WITH_GL_PROFILE_COMPAT)
+	/* Mac workaround, remove after we switch to core profile */
+	glFramebufferTextureEXT(GL_FRAMEBUFFER, attachment, GPU_texture_opengl_bindcode(tex), 0);
+#else
 	glFramebufferTexture(GL_FRAMEBUFFER, attachment, GPU_texture_opengl_bindcode(tex), 0);
+#endif
 
 	if (GPU_texture_depth(tex))
 		fb->depthtex = tex;
@@ -410,9 +415,6 @@ void GPU_framebuffer_blur(
 		
 	glDisable(GL_DEPTH_TEST);
 	
-	/* Load fresh matrices */
-	gpuMatrixBegin3D(); /* TODO: finish 2D API */
-
 	/* Blurring horizontally */
 	/* We do the bind ourselves rather than using GPU_framebuffer_texture_bind() to avoid
 	 * pushing unnecessary matrices onto the OpenGL stack. */
@@ -446,8 +448,6 @@ void GPU_framebuffer_blur(
 	Batch_Uniform2f(&batch, "ScaleU", scalev[0], scalev[1]);
 	Batch_Uniform1i(&batch, "textureSource", GL_TEXTURE0);
 	Batch_draw(&batch);
-
-	gpuMatrixEnd();
 }
 
 void GPU_framebuffer_blit(GPUFrameBuffer *fb_read, int read_slot, GPUFrameBuffer *fb_write, int write_slot, bool use_depth)

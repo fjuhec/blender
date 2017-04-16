@@ -534,8 +534,8 @@ void DRW_draw_grid(void)
 		*(&grid_unit) = NULL;  /* drawgrid need this to detect/affect smallest valid unit... */
 		drawgrid(&scene->unit, ar, v3d, &grid_unit);
 
-		gpuLoadProjectionMatrix3D(rv3d->winmat);
-		gpuLoadMatrix3D(rv3d->viewmat);
+		gpuLoadProjectionMatrix(rv3d->winmat);
+		gpuLoadMatrix(rv3d->viewmat);
 	}
 	else {
 		glDepthMask(GL_TRUE);
@@ -554,8 +554,6 @@ void DRW_draw_background(void)
 
 	if (UI_GetThemeValue(TH_SHOW_BACK_GRAD)) {
 		/* Gradient background Color */
-		gpuMatrixBegin3D(); /* TODO: finish 2D API */
-
 		glDisable(GL_DEPTH_TEST);
 
 		VertexFormat *format = immVertexFormat();
@@ -579,8 +577,6 @@ void DRW_draw_background(void)
 		immEnd();
 
 		immUnbindProgram();
-
-		gpuMatrixEnd();
 
 		glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	}
