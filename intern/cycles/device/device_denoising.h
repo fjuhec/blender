@@ -31,7 +31,6 @@ public:
 	int radius;
 	float nlm_k_2;
 	float pca_threshold;
-	bool use_split_variance;
 
 	/* Pointer and parameters of the RenderBuffers. */
 	struct RenderBuffers {

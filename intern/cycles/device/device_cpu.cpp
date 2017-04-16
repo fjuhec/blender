@@ -562,7 +562,7 @@ public:
 				                              &task->rect.x,
 				                              task->render_buffer.pass_stride,
 				                              task->render_buffer.denoising_data_offset,
-				                              task->use_split_variance);
+				                              use_split_kernel);
 			}
 		}
 		return true;
@@ -586,7 +586,7 @@ public:
 				                            &task->rect.x,
 				                            task->render_buffer.pass_stride,
 				                            task->render_buffer.denoising_data_offset,
-				                            task->use_split_variance);
+				                            use_split_kernel);
 			}
 		}
 		return true;
@@ -634,7 +634,6 @@ public:
 
 		denoising.filter_area = make_int4(tile.x, tile.y, tile.w, tile.h);
 		denoising.render_buffer.samples = tile.sample;
-		denoising.use_split_variance = use_split_kernel;
 
 		RenderTile rtiles[9];
 		rtiles[4] = tile;

@@ -1188,6 +1188,7 @@ public:
 		                   task->rect.z-task->rect.x,
 		                   task->rect.w-task->rect.y);
 
+		bool use_split_variance = use_split_kernel();
 		void *args[] = {&task->render_buffer.samples,
 		                &task->tiles_mem.device_pointer,
 		                &a_ptr,
@@ -1198,7 +1199,7 @@ public:
 		                &task->rect,
 		                &task->render_buffer.pass_stride,
 		                &task->render_buffer.denoising_data_offset,
-		                &task->use_split_variance};
+		                &use_split_variance};
 		CUDA_LAUNCH_KERNEL(cuFilterDivideShadow, args);
 		cuda_assert(cuCtxSynchronize());
 
@@ -1224,6 +1225,7 @@ public:
 		                   task->rect.z-task->rect.x,
 		                   task->rect.w-task->rect.y);
 
+		bool use_split_variance = use_split_kernel();
 		void *args[] = {&task->render_buffer.samples,
 		                &task->tiles_mem.device_pointer,
 				        &mean_offset,
@@ -1233,7 +1235,7 @@ public:
 		                &task->rect,
 		                &task->render_buffer.pass_stride,
 		                &task->render_buffer.denoising_data_offset,
-		                &task->use_split_variance};
+		                &use_split_variance};
 		CUDA_LAUNCH_KERNEL(cuFilterGetFeature, args);
 		cuda_assert(cuCtxSynchronize());
 
