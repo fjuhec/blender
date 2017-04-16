@@ -335,8 +335,6 @@ ccl_device_inline void kernel_write_light_passes(KernelGlobals *kg, ccl_global f
 ccl_device_inline void kernel_write_result(KernelGlobals *kg, ccl_global float *buffer,
 	int sample, PathRadiance *L, float alpha, bool is_shadow_catcher)
 {
-	int split_passes = (kernel_data.film.denoising_flags & DENOISING_USE_SPLIT_PASSES);
-
 	if(L) {
 		float3 L_sum;
 #ifdef __SHADOW_TRICKS__
@@ -364,16 +362,10 @@ ccl_device_inline void kernel_write_result(KernelGlobals *kg, ccl_global float *
 				float3 noisy, clean;
 				path_radiance_split_denoising(kg, L, &noisy, &clean);
 				kernel_write_pass_float3_variance(buffer + kernel_data.film.pass_denoising_data + 20, sample, noisy);
-				if(split_passes && !(sample & 1)) {
-					kernel_write_pass_float3_variance(buffer + kernel_data.film.pass_denoising_data + 26, sample, noisy);
-				}
 				kernel_write_pass_float3_unaligned(buffer + kernel_data.film.pass_denoising_clean, sample, clean);
 			}
 			else {
 				kernel_write_pass_float3_variance(buffer + kernel_data.film.pass_denoising_data + 20, sample, L_sum);
-				if(split_passes && !(sample & 1)) {
-					kernel_write_pass_float3_variance(buffer + kernel_data.film.pass_denoising_data + 26, sample, L_sum);
-				}
 			}
 
 			kernel_write_pass_float3_variance(buffer + kernel_data.film.pass_denoising_data, sample, L->denoising_normal);
@@ -390,9 +382,6 @@ ccl_device_inline void kernel_write_result(KernelGlobals *kg, ccl_global float *
 			kernel_write_denoising_shadow(kg, buffer, sample, 0.0f, 0.0f);
 
 			kernel_write_pass_float3_variance(buffer + kernel_data.film.pass_denoising_data + 20, sample, make_float3(0.0f, 0.0f, 0.0f));
-			if(split_passes && !(sample & 1)) {
-				kernel_write_pass_float3_variance(buffer + kernel_data.film.pass_denoising_data + 26, sample, make_float3(0.0f, 0.0f, 0.0f));
-			}
 
 			kernel_write_pass_float3_variance(buffer + kernel_data.film.pass_denoising_data, sample, make_float3(0.0f, 0.0f, 0.0f));
 			kernel_write_pass_float3_variance(buffer + kernel_data.film.pass_denoising_data + 6, sample, make_float3(0.0f, 0.0f, 0.0f));

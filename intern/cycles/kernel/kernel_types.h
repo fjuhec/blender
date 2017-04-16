@@ -429,8 +429,6 @@ typedef enum DenoiseFlag {
 	DENOISING_CLEAN_SUBSURFACE_DIR   = (1 << 6),
 	DENOISING_CLEAN_SUBSURFACE_IND   = (1 << 7),
 	DENOISING_CLEAN_ALL_PASSES       = (1 << 8)-1,
-
-	DENOISING_USE_SPLIT_PASSES       = (1 << 8),
 } DenoiseFlag;
 
 typedef ccl_addr_space struct PathRadiance {
