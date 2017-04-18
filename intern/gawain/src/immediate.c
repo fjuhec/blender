@@ -10,8 +10,9 @@
 // the MPL was not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "immediate.h"
-#include "attrib_binding.h"
 #include "buffer_id.h"
+#include "attrib_binding.h"
+#include "attrib_binding_private.h"
 #include "vertex_format_private.h"
 #include <string.h>
 
@@ -856,6 +857,11 @@ void immUniformColor4ub(unsigned char r, unsigned char g, unsigned char b, unsig
 void immUniformColor3ubv(const unsigned char rgb[3])
 	{
 	immUniformColor3ub(rgb[0], rgb[1], rgb[2]);
+	}
+
+void immUniformColor3ubvAlpha(const unsigned char rgb[3], unsigned char alpha)
+	{
+	immUniformColor4ub(rgb[0], rgb[1], rgb[2], alpha);
 	}
 
 void immUniformColor4ubv(const unsigned char rgba[4])

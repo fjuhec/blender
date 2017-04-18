@@ -192,13 +192,35 @@ ShaderInterface* ShaderInterface_create(GLint program)
 #endif
 		}
 
-	// TODO: realloc shaderface to shrink name buffer
-	//       each input->name will need adjustment (except static built-in names)
+	const uint32_t name_buffer_used = name_buffer_offset;
 
 #if DEBUG_SHADER_INTERFACE
-	printf("using %u of %u bytes from name buffer\n", name_buffer_offset, name_buffer_len);
+	printf("using %u of %u bytes from name buffer\n", name_buffer_used, name_buffer_len);
 	printf("}\n"); // exit function
 #endif
+
+	if (name_buffer_used < name_buffer_len)
+		{
+		// realloc shaderface to shrink name buffer
+		const size_t shaderface_alloc =
+		        offsetof(ShaderInterface, inputs) + (input_ct * sizeof(ShaderInput)) + name_buffer_used;
+		const char* shaderface_orig_start = (const char*)shaderface;
+		const char* shaderface_orig_end = &shaderface_orig_start[shaderface_alloc];
+		shaderface = realloc(shaderface, shaderface_alloc);
+		const ptrdiff_t delta = (char*)shaderface - shaderface_orig_start;
+
+		if (delta)
+			{
+			// each input->name will need adjustment (except static built-in names)
+			for (uint32_t i = 0; i < input_ct; ++i)
+				{
+				ShaderInput* input = shaderface->inputs + i;
+
+				if (input->name >= shaderface_orig_start && input->name < shaderface_orig_end)
+					input->name += delta;
+				}
+			}
+		}
 
 	return shaderface;
 	}
@@ -211,6 +233,23 @@ void ShaderInterface_discard(ShaderInterface* shaderface)
 
 const ShaderInput* ShaderInterface_uniform(const ShaderInterface* shaderface, const char* name)
 	{
+	// search through custom uniforms first
+	for (uint32_t i = 0; i < shaderface->uniform_ct; ++i)
+		{
+		const ShaderInput* uniform = shaderface->inputs + i;
+
+		if (uniform->builtin_type == UNIFORM_CUSTOM)
+			{
+#if SUPPORT_LEGACY_GLSL
+			if (uniform->name == NULL) continue;
+#endif
+
+			if (match(uniform->name, name))
+				return uniform;
+			}
+		}
+
+	// search through builtin uniforms next
 	for (uint32_t i = 0; i < shaderface->uniform_ct; ++i)
 		{
 		const ShaderInput* uniform = shaderface->inputs + i;
@@ -218,10 +257,13 @@ const ShaderInput* ShaderInterface_uniform(const ShaderInterface* shaderface, co
 #if SUPPORT_LEGACY_GLSL
 		if (uniform->name == NULL) continue;
 #endif
+		if (uniform->builtin_type != UNIFORM_CUSTOM)
+			if (match(uniform->name, name))
+				return uniform;
 
-		if (match(uniform->name, name))
-			return uniform;
+		// TODO: warn if we find a matching builtin, since these can be looked up much quicker --v
 		}
+
 	return NULL; // not found
 	}
 

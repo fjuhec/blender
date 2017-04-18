@@ -524,6 +524,7 @@ static short gp_stroke_addpoint(tGPsdata *p, const int mval[2], float pressure, 
 	bGPdata *gpd = p->gpd;
 	bGPDbrush *brush = p->brush;
 	tGPspoint *pt;
+	ToolSettings *ts = p->scene->toolsettings;
 	Object *obact = (Object *)p->ownerPtr.data;
 
 	/* check painting mode */
@@ -677,7 +678,7 @@ static short gp_stroke_addpoint(tGPsdata *p, const int mval[2], float pressure, 
 				View3D *v3d = p->sa->spacedata.first;
 				
 				view3d_region_operator_needs_opengl(p->win, p->ar);
-				ED_view3d_autodist_init(p->scene, p->ar, v3d, (p->gpd->flag & GP_DATA_DEPTH_STROKE) ? 1 : 0);
+				ED_view3d_autodist_init(p->scene, p->ar, v3d, (ts->gpencil_v3d_align & GP_PROJECT_DEPTH_STROKE) ? 1 : 0);
 			}
 			
 			/* convert screen-coordinates to appropriate coordinates (and store them) */
@@ -796,7 +797,7 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 	
 	int i, totelem;
 	/* since strokes are so fine, when using their depth we need a margin otherwise they might get missed */
-	int depth_margin = (p->gpd->flag & GP_DATA_DEPTH_STROKE) ? 4 : 0;
+	int depth_margin = (ts->gpencil_v3d_align & GP_PROJECT_DEPTH_STROKE) ? 4 : 0;
 	
 	/* get total number of points to allocate space for
 	 *	- drawing straight-lines only requires the endpoints
@@ -944,7 +945,7 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 					depth_arr[i] = 0.9999f;
 			}
 			else {
-				if (p->gpd->flag & GP_DATA_DEPTH_STROKE_ENDPOINTS) {
+				if (ts->gpencil_v3d_align & GP_PROJECT_DEPTH_STROKE_ENDPOINTS) {
 					/* remove all info between the valid endpoints */
 					int first_valid = 0;
 					int last_valid = 0;
@@ -1818,6 +1819,7 @@ static void gp_paint_initstroke(tGPsdata *p, eGPencil_PaintModes paintmode)
 /* finish off a stroke (clears buffer, but doesn't finish the paint operation) */
 static void gp_paint_strokeend(tGPsdata *p)
 {
+	ToolSettings *ts = p->scene->toolsettings;
 	/* for surface sketching, need to set the right OpenGL context stuff so that
 	 * the conversions will project the values correctly...
 	 */
@@ -1826,7 +1828,7 @@ static void gp_paint_strokeend(tGPsdata *p)
 		
 		/* need to restore the original projection settings before packing up */
 		view3d_region_operator_needs_opengl(p->win, p->ar);
-		ED_view3d_autodist_init(p->scene, p->ar, v3d, (p->gpd->flag & GP_DATA_DEPTH_STROKE) ? 1 : 0);
+		ED_view3d_autodist_init(p->scene, p->ar, v3d, (ts->gpencil_v3d_align & GP_PROJECT_DEPTH_STROKE) ? 1 : 0);
 	}
 	
 	/* check if doing eraser or not */
