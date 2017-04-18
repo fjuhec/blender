@@ -281,13 +281,6 @@ static void hmd_session_start(wmWindowManager *wm)
 {
 	wmWindow *hmd_win = wm->hmd_view.hmd_win;
 
-	/* device setup */
-	WM_HMD_device_state_set(U.hmd_settings.device, true);
-	if ((U.hmd_settings.flag & USER_HMD_USE_DEVICE_IPD) == 0) {
-		U.hmd_settings.init_ipd = WM_HMD_device_IPD_get();
-		WM_HMD_device_IPD_set(U.hmd_settings.custom_ipd);
-	}
-
 	hmd_session_prepare_screen(wm, hmd_win);
 	WM_window_fullscreen_toggle(hmd_win, true, false);
 
@@ -312,9 +305,6 @@ static void hmd_session_exit(wmWindowManager *wm, const bool skip_window_unset)
 	/* cursor */
 	WM_cursor_modal_restore(hmd_win);
 	WM_paint_cursor_end(wm, wm->hmd_view.cursor);
-
-	/* deactivate HMD */
-	WM_HMD_device_state_set(U.hmd_settings.device, false);
 }
 
 void wm_hmd_view_close(wmWindowManager *wm)
@@ -333,6 +323,8 @@ static int wm_hmd_view_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 	if (hmd_win) {
 		/* calls wm_hmd_view_close */
 		wm_window_close(C, wm, hmd_win);
+		/* deactivate HMD */
+		WM_HMD_device_state_set(U.hmd_settings.device, false);
 	}
 	/* open */
 	else {
@@ -352,6 +344,13 @@ static int wm_hmd_view_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 		wm->hmd_view.hmd_win = hmd_win;
 
 		hmd_view_prepare_screen(wm, hmd_win, rv3d_current);
+
+		/* device setup */
+		WM_HMD_device_state_set(U.hmd_settings.device, true);
+		if ((U.hmd_settings.flag & USER_HMD_USE_DEVICE_IPD) == 0) {
+			U.hmd_settings.init_ipd = WM_HMD_device_IPD_get();
+			WM_HMD_device_IPD_set(U.hmd_settings.custom_ipd);
+		}
 	}
 
 	return OPERATOR_FINISHED;
