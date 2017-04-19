@@ -38,12 +38,6 @@ ccl_device_inline void math_vector_zero(float *v, int n)
 		v[i] = 0.0f;
 }
 
-ccl_device_inline void math_local_vector_zero(float ccl_local_param *v, int n)
-{
-	for(int i = 0; i < n; i++)
-		v[i] = 0;
-}
-
 ccl_device_inline void math_trimatrix_zero(float *A, int n)
 {
 	for(int row = 0; row < n; row++)
@@ -53,13 +47,13 @@ ccl_device_inline void math_trimatrix_zero(float *A, int n)
 
 /* Elementary vector operations. */
 
-ccl_device_inline void math_vector_add(float *a, ccl_local_param float ccl_readonly_ptr b, int n)
+ccl_device_inline void math_vector_add(float *a, float ccl_readonly_ptr b, int n)
 {
 	for(int i = 0; i < n; i++)
 		a[i] += b[i];
 }
 
-ccl_device_inline void math_vector_mul(ccl_local_param float *a, float ccl_readonly_ptr b, int n)
+ccl_device_inline void math_vector_mul(float *a, float ccl_readonly_ptr b, int n)
 {
 	for(int i = 0; i < n; i++)
 		a[i] *= b[i];
@@ -77,7 +71,7 @@ ccl_device_inline void math_vector_scale(float *a, float b, int n)
 		a[i] *= b;
 }
 
-ccl_device_inline void math_vector_max(float *a, ccl_local_param float ccl_readonly_ptr b, int n)
+ccl_device_inline void math_vector_max(float *a, float ccl_readonly_ptr b, int n)
 {
 	for(int i = 0; i < n; i++)
 		a[i] = max(a[i], b[i]);
@@ -89,7 +83,7 @@ ccl_device_inline void math_vec3_add(float3 *v, int n, float *x, float3 w)
 		v[i] += w*x[i];
 }
 
-ccl_device_inline void math_vec3_add_strided(ccl_global float3 *v, int n, float ccl_local_param *x, float3 w, int stride)
+ccl_device_inline void math_vec3_add_strided(ccl_global float3 *v, int n, float *x, float3 w, int stride)
 {
 	for(int i = 0; i < n; i++)
 		v[i*stride] += w*x[i];
@@ -109,7 +103,7 @@ ccl_device_inline void math_matrix_add_diagonal(ccl_global float *A, int n, floa
  * Obviously, the resulting matrix is symmetric, so only the lower triangluar part is stored. */
 ccl_device_inline void math_trimatrix_add_gramian(float *A,
                                                   int n,
-                                                  ccl_local_param float ccl_readonly_ptr v,
+                                                  float ccl_readonly_ptr v,
                                                   float weight)
 {
 	for(int row = 0; row < n; row++)
@@ -122,7 +116,7 @@ ccl_device_inline void math_trimatrix_add_gramian(float *A,
  * Obviously, the resulting matrix is symmetric, so only the lower triangluar part is stored. */
 ccl_device_inline void math_trimatrix_add_gramian_strided(ccl_global float *A,
                                                           int n,
-                                                          ccl_local_param float ccl_readonly_ptr v,
+                                                          float ccl_readonly_ptr v,
                                                           float weight,
                                                           int stride)
 {

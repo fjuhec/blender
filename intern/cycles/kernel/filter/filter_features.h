@@ -28,7 +28,7 @@
                                  pixel_buffer += buffer_w - (high.x - low.x); \
                              }
 
-ccl_device_inline void filter_get_features(int2 pixel, ccl_global float ccl_readonly_ptr buffer, ccl_local_param float *features, float ccl_readonly_ptr mean, int pass_stride)
+ccl_device_inline void filter_get_features(int2 pixel, ccl_global float ccl_readonly_ptr buffer, float *features, float ccl_readonly_ptr mean, int pass_stride)
 {
 	features[0] = pixel.x;
 	features[1] = pixel.y;
@@ -46,7 +46,7 @@ ccl_device_inline void filter_get_features(int2 pixel, ccl_global float ccl_read
 	}
 }
 
-ccl_device_inline void filter_get_feature_scales(int2 pixel, ccl_global float ccl_readonly_ptr buffer, ccl_local_param float *scales, float ccl_readonly_ptr mean, int pass_stride)
+ccl_device_inline void filter_get_feature_scales(int2 pixel, ccl_global float ccl_readonly_ptr buffer, float *scales, float ccl_readonly_ptr mean, int pass_stride)
 {
 	scales[0] = fabsf(pixel.x - mean[0]);
 	scales[1] = fabsf(pixel.y - mean[1]);
@@ -87,7 +87,7 @@ ccl_device_inline bool filter_firefly_rejection(float3 pixel_color, float pixel_
 	return (color_diff > 3.0f*variance);
 }
 
-ccl_device_inline void design_row_add(float ccl_local_param *design_row,
+ccl_device_inline void design_row_add(float *design_row,
                                       int rank,
                                       ccl_global float ccl_readonly_ptr transform,
                                       int stride,
@@ -106,12 +106,12 @@ ccl_device_inline void filter_get_design_row_transform(int2 p_pixel,
                                                        ccl_global float ccl_readonly_ptr q_buffer,
                                                        int pass_stride,
                                                        int rank,
-                                                       float ccl_local_param *design_row,
+                                                       float *design_row,
                                                        ccl_global float ccl_readonly_ptr transform,
                                                        int stride)
 {
 	design_row[0] = 1.0f;
-	math_local_vector_zero(design_row+1, rank);
+	math_vector_zero(design_row+1, rank);
 	design_row_add(design_row, rank, transform, stride, 0, q_pixel.x - p_pixel.x);
 	design_row_add(design_row, rank, transform, stride, 1, q_pixel.y - p_pixel.y);
 	design_row_add(design_row, rank, transform, stride, 2, ccl_get_feature(q_buffer, 0) - ccl_get_feature(p_buffer, 0));

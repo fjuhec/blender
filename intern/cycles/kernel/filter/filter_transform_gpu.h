@@ -26,8 +26,12 @@ ccl_device void kernel_filter_construct_transform(ccl_global float ccl_readonly_
 {
 	int buffer_w = align_up(rect.z - rect.x, 4);
 
+#ifdef __KERNEL_CUDA__
 	ccl_local float shared_features[DENOISE_FEATURES*CCL_MAX_LOCAL_SIZE];
 	ccl_local_param float *features = shared_features + localIdx*DENOISE_FEATURES;
+#else
+	float features[DENOISE_FEATURES];
+#endif
 
 	/* === Calculate denoising window. === */
 	int2 low  = make_int2(max(rect.x, x - radius),

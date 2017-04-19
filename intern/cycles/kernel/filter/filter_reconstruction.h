@@ -39,10 +39,13 @@ ccl_device_inline void kernel_filter_construct_gramian(int x, int y,
 	(void)storage_stride;
 	(void)localIdx;
 	float design_row[DENOISE_FEATURES+1];
-#else
+#elif defined(__KERNEL_CUDA__)
 	const int stride = storage_stride;
 	ccl_local float shared_design_row[(DENOISE_FEATURES+1)*CCL_MAX_LOCAL_SIZE];
 	ccl_local_param float *design_row = shared_design_row + localIdx*(DENOISE_FEATURES+1);
+#else
+	const int stride = storage_stride;
+	float design_row[DENOISE_FEATURES+1];
 #endif
 
 	float3 p_color = filter_get_pixel_color(color_pass + p_offset, pass_stride);
