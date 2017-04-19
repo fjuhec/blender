@@ -368,7 +368,7 @@ public:
 	{
 		const char *name, *source;
 		if(filter) {
-			name = "kernel_filter";
+			name = "filter";
 			source = "filter.cu";
 		}
 		else if(split) {

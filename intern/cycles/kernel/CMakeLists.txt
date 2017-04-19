@@ -357,8 +357,8 @@ if(WITH_CYCLES_CUDA_BINARIES)
 
 	foreach(arch ${CYCLES_CUDA_BINARIES_ARCH})
 		# Compile regular kernel
-		CYCLES_CUDA_KERNEL_ADD(${arch} kernel "" ${cuda_sources} FALSE)
-		CYCLES_CUDA_KERNEL_ADD(${arch} filter "" ${cuda_filter_sources} FALSE)
+		CYCLES_CUDA_KERNEL_ADD(${arch} kernel "" "${cuda_sources}" FALSE)
+		CYCLES_CUDA_KERNEL_ADD(${arch} filter "" "${cuda_filter_sources}" FALSE)
 
 		if(WITH_CYCLES_CUDA_SPLIT_KERNEL_BINARIES)
 			# Compile split kernel
@@ -455,8 +455,10 @@ delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "kernels/opencl/kernel_shadow_blocke
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "kernels/opencl/kernel_next_iteration_setup.cl" ${CYCLES_INSTALL_PATH}/source/kernel/kernels/opencl)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "kernels/opencl/kernel_indirect_subsurface.cl" ${CYCLES_INSTALL_PATH}/source/kernel/kernels/opencl)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "kernels/opencl/kernel_buffer_update.cl" ${CYCLES_INSTALL_PATH}/source/kernel/kernels/opencl)
+delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "kernels/opencl/filter.cl" ${CYCLES_INSTALL_PATH}/source/kernel/kernels/opencl)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "kernels/cuda/kernel.cu" ${CYCLES_INSTALL_PATH}/source/kernel/kernels/cuda)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "kernels/cuda/kernel_split.cu" ${CYCLES_INSTALL_PATH}/source/kernel/kernels/cuda)
+delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "kernels/cuda/filter.cu" ${CYCLES_INSTALL_PATH}/source/kernel/kernels/cuda)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_HEADERS}" ${CYCLES_INSTALL_PATH}/source/kernel)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_KERNELS_CUDA_HEADERS}" ${CYCLES_INSTALL_PATH}/source/kernel/kernels/cuda)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_BVH_HEADERS}" ${CYCLES_INSTALL_PATH}/source/kernel/bvh)
