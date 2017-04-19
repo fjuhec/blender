@@ -208,9 +208,6 @@ set(SRC_GEOM_HEADERS
 
 set(SRC_FILTER_HEADERS
 	filter/filter.h
-	filter/filter_compat_cpu.h
-	filter/filter_compat_cuda.h
-	filter/filter_compat_opencl.h
 	filter/filter_defines.h
 	filter/filter_features.h
 	filter/filter_features_sse.h
