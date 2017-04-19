@@ -193,6 +193,7 @@ typedef struct DRWFboTexture {
 void DRW_framebuffer_init(struct GPUFrameBuffer **fb, int width, int height, DRWFboTexture textures[MAX_FBO_TEX], int texnbr);
 void DRW_framebuffer_bind(struct GPUFrameBuffer *fb);
 void DRW_framebuffer_clear(bool color, bool depth, bool stencil, float clear_col[4], float clear_depth);
+void DRW_framebuffer_read_data(int x, int y, int w, int h, int channels, int slot, float *data);
 void DRW_framebuffer_texture_attach(struct GPUFrameBuffer *fb, struct GPUTexture *tex, int slot, int mip);
 void DRW_framebuffer_texture_detach(struct GPUTexture *tex);
 void DRW_framebuffer_blit(struct GPUFrameBuffer *fb_read, struct GPUFrameBuffer *fb_write, bool depth);
@@ -248,6 +249,9 @@ void DRW_shgroup_dynamic_call_add_array(DRWShadingGroup *shgroup, const void *at
 #define DRW_shgroup_dynamic_call_add(shgroup, ...) do { \
 	const void *array[] = {__VA_ARGS__}; \
 	DRW_shgroup_dynamic_call_add_array(shgroup, array, (sizeof(array) / sizeof(*array))); \
+} while (0)
+#define DRW_shgroup_dynamic_call_add_empty(shgroup) do { \
+	DRW_shgroup_dynamic_call_add_array(shgroup, NULL, 0); \
 } while (0)
 
 void DRW_shgroup_state_set(DRWShadingGroup *shgroup, DRWState state);

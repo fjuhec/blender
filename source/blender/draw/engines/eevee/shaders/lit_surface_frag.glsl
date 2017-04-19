@@ -6,6 +6,7 @@ uniform mat4 ProjectionMatrix;
 
 uniform samplerCube probeFiltered;
 uniform float lodMax;
+uniform vec3 shCoefs[9];
 
 #ifndef USE_LTC
 uniform sampler2D brdfLut;
@@ -153,7 +154,8 @@ float light_visibility(LightData ld, ShadingData sd)
 		/* Depth in lightspace to compare against shadow map */
 		float w = dot(maj_axis, sd.l_vector);
 		w -= scd.sh_map_bias * w;
-		float shdepth = buffer_depth(w, scd.sh_cube_far, scd.sh_cube_near);
+		bool is_persp = (ProjectionMatrix[3][3] == 0.0);
+		float shdepth = buffer_depth(is_persp, w, scd.sh_cube_far, scd.sh_cube_near);
 
 		vis *= texture(shadowCubes, vec4(uvs, shid * 6.0 + face, shdepth));
 	}
@@ -197,7 +199,7 @@ void main()
 	sd.R = reflect(-sd.V, sd.N);
 
 	/* hardcoded test vars */
-	vec3 albedo = vec3(0.0);
+	vec3 albedo = mix(vec3(0.0, 0.0, 0.0), vec3(0.8, 0.8, 0.8), saturate(worldPosition.y/2));
 	vec3 f0 = mix(vec3(0.83, 0.5, 0.1), vec3(0.03, 0.03, 0.03), saturate(worldPosition.y/2));
 	vec3 specular = mix(f0, vec3(1.0), pow(max(0.0, 1.0 - dot(sd.N, sd.V)), 5.0));
 	float roughness = saturate(worldPosition.x/lodMax);
@@ -227,6 +229,8 @@ void main()
 	vec2 brdf_lut = texture(brdfLut, uv).rg;
 	vec3 Li = textureLod(probeFiltered, sd.spec_dominant_dir, roughness * lodMax).rgb;
 	radiance += Li * brdf_lut.y + f0 * Li * brdf_lut.x;
+
+	radiance += spherical_harmonics(sd.N, shCoefs) * albedo;
 
 	fragColor = vec4(radiance, 1.0);
 }

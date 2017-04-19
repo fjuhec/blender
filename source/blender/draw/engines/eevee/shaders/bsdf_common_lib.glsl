@@ -153,9 +153,9 @@ void make_orthonormal_basis(vec3 N, out vec3 T, out vec3 B)
 }
 
 /* ---- Opengl Depth conversion ---- */
-float linear_depth(float z, float zf, float zn)
+float linear_depth(bool is_persp, float z, float zf, float zn)
 {
-	if (gl_ProjectionMatrix[3][3] == 0.0) {
+	if (is_persp) {
 		return (zn  * zf) / (z * (zn - zf) + zf);
 	}
 	else {
@@ -163,14 +163,49 @@ float linear_depth(float z, float zf, float zn)
 	}
 }
 
-float buffer_depth(float z, float zf, float zn)
+float buffer_depth(bool is_persp, float z, float zf, float zn)
 {
-	if (gl_ProjectionMatrix[3][3] == 0.0) {
+	if (is_persp) {
 		return (zf * (zn - z)) / (z * (zn - zf));
 	}
 	else {
 		return (z / (zf * 2.0)) + 0.5;
 	}
+}
+
+#define spherical_harmonics spherical_harmonics_L2
+
+/* http://seblagarde.wordpress.com/2012/01/08/pi-or-not-to-pi-in-game-lighting-equation/ */
+vec3 spherical_harmonics_L1(vec3 N, vec3 shcoefs[9])
+{
+	vec3 sh = vec3(0.0);
+
+	sh += 0.282095 * shcoefs[0];
+
+	sh += -0.488603 * N.z * shcoefs[1];
+	sh += 0.488603 * N.y * shcoefs[2];
+	sh += -0.488603 * N.x * shcoefs[3];
+
+	return sh;
+}
+
+vec3 spherical_harmonics_L2(vec3 N, vec3 shcoefs[9])
+{
+	vec3 sh = vec3(0.0);
+
+	sh += 0.282095 * shcoefs[0];
+
+	sh += -0.488603 * N.z * shcoefs[1];
+	sh += 0.488603 * N.y * shcoefs[2];
+	sh += -0.488603 * N.x * shcoefs[3];
+
+	sh += 1.092548 * N.x * N.z * shcoefs[4];
+	sh += -1.092548 * N.z * N.y * shcoefs[5];
+	sh += 0.315392 * (3.0 * N.y * N.y - 1.0) * shcoefs[6];
+	sh += -1.092548 * N.x * N.y * shcoefs[7];
+	sh += 0.546274 * (N.x * N.x - N.z * N.z) * shcoefs[8];
+
+	return sh;
 }
 
 float rectangle_solid_angle(AreaData ad)
