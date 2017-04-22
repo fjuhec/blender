@@ -557,8 +557,9 @@ static void GPENCIL_draw_scene(void *vedata)
 		DRW_draw_pass(psl->fill_pass);
 		DRW_draw_pass(psl->stroke_pass);
 		DRW_draw_pass(psl->edit_pass);
-		DRW_draw_pass(psl->drawing_pass);
 	}
+	/* current buffer */
+	DRW_draw_pass(psl->drawing_pass);
 }
 
 static const DrawEngineDataSize GPENCIL_data_size = DRW_VIEWPORT_DATA_SIZE(GPENCIL_Data);
