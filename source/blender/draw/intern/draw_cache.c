@@ -26,17 +26,16 @@
 
 #include "DNA_scene_types.h"
 #include "DNA_mesh_types.h"
+#include "DNA_curve_types.h"
 #include "DNA_object_types.h"
 
 #include "BLI_utildefines.h"
 #include "BLI_math.h"
 
-#include "BKE_mesh_render.h"
-#include "BKE_lattice_render.h"
-
 #include "GPU_batch.h"
 
 #include "draw_cache.h"
+#include "draw_cache_impl.h"
 
 static struct DRWShapeCache {
 	Batch *drw_single_vertice;
@@ -498,10 +497,32 @@ Batch *DRW_cache_gpencil_axes_get(void)
 			VertexBuffer_set_attrib(vbo, pos_id, i + 6, verts[indices[i]]);
 		}
 
-		SHC.drw_gpencil_axes = Batch_create(PRIM_LINES, vbo, NULL);
+/** \name Common Object API
+ * \{ */
+
+Batch *DRW_cache_object_surface_get(Object *ob)
+{
+	switch (ob->type) {
+		case OB_MESH:
+			return DRW_cache_mesh_surface_get(ob);
+		case OB_CURVE:
+			return DRW_cache_curve_surface_get(ob);
+		case OB_SURF:
+			return DRW_cache_surf_surface_get(ob);
+		case OB_FONT:
+			return DRW_cache_text_surface_get(ob);
+		default:
+			return NULL;
 	}
-	return SHC.drw_gpencil_axes;
 }
+
+/** \} */
+
+
+/* -------------------------------------------------------------------- */
+
+/** \name Empties
+ * \{ */
 
 /* Empties */
 Batch *DRW_cache_plain_axes_get(void)
@@ -1568,6 +1589,13 @@ Batch *DRW_cache_single_vert_get(void)
 /** \name Meshes
  * \{ */
 
+Batch *DRW_cache_mesh_surface_overlay_get(Object *ob)
+{
+	BLI_assert(ob->type == OB_MESH);
+	Mesh *me = ob->data;
+	return DRW_mesh_batch_cache_get_all_triangles(me);
+}
+
 void DRW_cache_mesh_wire_overlay_get(
         Object *ob,
         Batch **r_tris, Batch **r_ledges, Batch **r_lverts)
@@ -1576,9 +1604,9 @@ void DRW_cache_mesh_wire_overlay_get(
 
 	Mesh *me = ob->data;
 
-	*r_tris = BKE_mesh_batch_cache_get_overlay_triangles(me);
-	*r_ledges = BKE_mesh_batch_cache_get_overlay_loose_edges(me);
-	*r_lverts = BKE_mesh_batch_cache_get_overlay_loose_verts(me);
+	*r_tris = DRW_mesh_batch_cache_get_overlay_triangles(me);
+	*r_ledges = DRW_mesh_batch_cache_get_overlay_loose_edges(me);
+	*r_lverts = DRW_mesh_batch_cache_get_overlay_loose_verts(me);
 }
 
 Batch *DRW_cache_face_centers_get(Object *ob)
@@ -1587,55 +1615,140 @@ Batch *DRW_cache_face_centers_get(Object *ob)
 
 	Mesh *me = ob->data;
 
-	return BKE_mesh_batch_cache_get_overlay_facedots(me);
+	return DRW_mesh_batch_cache_get_overlay_facedots(me);
 }
 
 Batch *DRW_cache_mesh_wire_outline_get(Object *ob)
 {
-	Batch *fancy_wire = NULL;
-
 	BLI_assert(ob->type == OB_MESH);
 
 	Mesh *me = ob->data;
-	fancy_wire = BKE_mesh_batch_cache_get_fancy_edges(me);
-
-	return fancy_wire;
+	return DRW_mesh_batch_cache_get_fancy_edges(me);
 }
 
 Batch *DRW_cache_mesh_surface_get(Object *ob)
 {
-	Batch *surface = NULL;
-
 	BLI_assert(ob->type == OB_MESH);
 
 	Mesh *me = ob->data;
-	surface = BKE_mesh_batch_cache_get_triangles_with_normals(me);
-
-	return surface;
+	return DRW_mesh_batch_cache_get_triangles_with_normals(me);
 }
 
 Batch *DRW_cache_mesh_surface_verts_get(Object *ob)
 {
-	Batch *surface = NULL;
-
 	BLI_assert(ob->type == OB_MESH);
 
 	Mesh *me = ob->data;
-	surface = BKE_mesh_batch_cache_get_points_with_normals(me);
-
-	return surface;
+	return DRW_mesh_batch_cache_get_points_with_normals(me);
 }
 
 Batch *DRW_cache_mesh_verts_get(Object *ob)
 {
-	Batch *surface = NULL;
-
 	BLI_assert(ob->type == OB_MESH);
 
 	Mesh *me = ob->data;
-	surface = BKE_mesh_batch_cache_get_all_verts(me);
+	return DRW_mesh_batch_cache_get_all_verts(me);
+}
 
-	return surface;
+/** \} */
+
+/* -------------------------------------------------------------------- */
+
+/** \name Curve
+ * \{ */
+
+Batch *DRW_cache_curve_edge_wire_get(Object *ob)
+{
+	BLI_assert(ob->type == OB_CURVE);
+
+	struct Curve *cu = ob->data;
+	return DRW_curve_batch_cache_get_wire_edge(cu, ob->curve_cache);
+}
+
+Batch *DRW_cache_curve_edge_normal_get(Object *ob, float normal_size)
+{
+	BLI_assert(ob->type == OB_CURVE);
+
+	struct Curve *cu = ob->data;
+	return DRW_curve_batch_cache_get_normal_edge(cu, ob->curve_cache, normal_size);
+}
+
+Batch *DRW_cache_curve_edge_overlay_get(Object *ob)
+{
+	BLI_assert(ob->type == OB_CURVE);
+
+	struct Curve *cu = ob->data;
+	return DRW_curve_batch_cache_get_overlay_edges(cu);
+}
+
+Batch *DRW_cache_curve_vert_overlay_get(Object *ob)
+{
+	BLI_assert(ob->type == OB_CURVE);
+
+	struct Curve *cu = ob->data;
+	return DRW_curve_batch_cache_get_overlay_verts(cu);
+}
+
+Batch *DRW_cache_curve_surface_get(Object *ob)
+{
+	BLI_assert(ob->type == OB_CURVE);
+
+	struct Curve *cu = ob->data;
+	return DRW_curve_batch_cache_get_triangles_with_normals(cu, ob->curve_cache);
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+
+/** \name Font
+ * \{ */
+
+Batch *DRW_cache_text_edge_wire_get(Object *ob)
+{
+	BLI_assert(ob->type == OB_FONT);
+
+	struct Curve *cu = ob->data;
+	return DRW_curve_batch_cache_get_wire_edge(cu, ob->curve_cache);
+}
+
+Batch *DRW_cache_text_surface_get(Object *ob)
+{
+	BLI_assert(ob->type == OB_FONT);
+	struct Curve *cu = ob->data;
+	if (cu->editfont && (cu->flag & CU_FAST)) {
+		return NULL;
+	}
+	return DRW_curve_batch_cache_get_triangles_with_normals(cu, ob->curve_cache);
+}
+
+Batch *DRW_cache_text_cursor_overlay_get(Object *ob)
+{
+	BLI_assert(ob->type == OB_FONT);
+	struct Curve *cu = ob->data;
+	return DRW_curve_batch_cache_get_overlay_cursor(cu);
+}
+
+Batch *DRW_cache_text_select_overlay_get(Object *ob)
+{
+	BLI_assert(ob->type == OB_FONT);
+	struct Curve *cu = ob->data;
+	return DRW_curve_batch_cache_get_overlay_select(cu);
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+
+/** \name Surface
+ * \{ */
+
+Batch *DRW_cache_surf_surface_get(Object *ob)
+{
+	BLI_assert(ob->type == OB_SURF);
+
+	struct Curve *cu = ob->data;
+	return DRW_curve_batch_cache_get_triangles_with_normals(cu, ob->curve_cache);
 }
 
 /** \} */
@@ -1647,38 +1760,26 @@ Batch *DRW_cache_mesh_verts_get(Object *ob)
 
 Batch *DRW_cache_lattice_verts_get(Object *ob)
 {
-	Batch *surface = NULL;
-
 	BLI_assert(ob->type == OB_LATTICE);
 
 	struct Lattice *lt = ob->data;
-	surface = BKE_lattice_batch_cache_get_all_verts(lt);
-
-	return surface;
+	return DRW_lattice_batch_cache_get_all_verts(lt);
 }
 
 Batch *DRW_cache_lattice_wire_get(Object *ob)
 {
-	Batch *surface = NULL;
-
 	BLI_assert(ob->type == OB_LATTICE);
 
 	struct Lattice *lt = ob->data;
-	surface = BKE_lattice_batch_cache_get_all_edges(lt);
-
-	return surface;
+	return DRW_lattice_batch_cache_get_all_edges(lt);
 }
 
 Batch *DRW_cache_lattice_vert_overlay_get(Object *ob)
 {
-	Batch *surface = NULL;
-
 	BLI_assert(ob->type == OB_LATTICE);
 
 	struct Lattice *lt = ob->data;
-	surface = BKE_lattice_batch_cache_get_overlay_verts(lt);
-
-	return surface;
+	return DRW_lattice_batch_cache_get_overlay_verts(lt);
 }
 
 /** \} */

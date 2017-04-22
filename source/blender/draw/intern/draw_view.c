@@ -103,7 +103,9 @@ static int gridline_count(ARegion *ar, double x0, double y0, double dx)
 	return total_ct;
 }
 
-static bool drawgrid_draw(ARegion *ar, double x0, double y0, double dx, int skip_mod, unsigned pos, unsigned col, GLubyte col_value[3])
+static bool drawgrid_draw(
+        ARegion *ar, double x0, double y0, double dx, int skip_mod,
+        unsigned pos, unsigned col, GLubyte col_value[3])
 {
 	/* skip every skip_mod lines relative to each axis; they will be overlaid by another drawgrid_draw
 	* always skip exact x0 & y0 axes; they will be drawn later in color
@@ -297,8 +299,9 @@ static void drawgrid(UnitSettings *unit, ARegion *ar, View3D *v3d, const char **
 
 		if (grids_to_draw == 2) {
 			UI_GetThemeColorBlend3ubv(TH_HIGH_GRAD, TH_GRID, dx / (GRID_MIN_PX_D * 6.0), col2);
-			if (drawgrid_draw(ar, x, y, dx, v3d->gridsubdiv, pos, color, col2))
+			if (drawgrid_draw(ar, x, y, dx, v3d->gridsubdiv, pos, color, col2)) {
 				drawgrid_draw(ar, x, y, dx * sublines, 0, pos, color, col);
+			}
 		}
 		else if (grids_to_draw == 1) {
 			drawgrid_draw(ar, x, y, dx, 0, pos, color, col);
@@ -351,9 +354,9 @@ static void drawfloor(Scene *scene, View3D *v3d, const char **grid_unit)
 
 		const bool show_floor = (v3d->gridflag & V3D_SHOW_FLOOR) && gridlines >= 1;
 
-		bool show_axis_x = v3d->gridflag & V3D_SHOW_X;
-		bool show_axis_y = v3d->gridflag & V3D_SHOW_Y;
-		bool show_axis_z = v3d->gridflag & V3D_SHOW_Z;
+		bool show_axis_x = (v3d->gridflag & V3D_SHOW_X) != 0;
+		bool show_axis_y = (v3d->gridflag & V3D_SHOW_Y) != 0;
+		bool show_axis_z = (v3d->gridflag & V3D_SHOW_Z) != 0;
 
 		unsigned char col_grid[3], col_axis[3];
 
@@ -553,6 +556,9 @@ void DRW_draw_background(void)
 	glStencilMask(0xFF);
 
 	if (UI_GetThemeValue(TH_SHOW_BACK_GRAD)) {
+		float m[4][4];
+		unit_m4(m);
+
 		/* Gradient background Color */
 		glDisable(GL_DEPTH_TEST);
 
@@ -560,6 +566,10 @@ void DRW_draw_background(void)
 		unsigned pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
 		unsigned color = VertexFormat_add_attrib(format, "color", COMP_U8, 3, NORMALIZE_INT_TO_FLOAT);
 		unsigned char col_hi[3], col_lo[3];
+
+		gpuPushMatrix();
+		gpuLoadIdentity();
+		gpuLoadProjectionMatrix(m);
 
 		immBindBuiltinProgram(GPU_SHADER_2D_SMOOTH_COLOR);
 
@@ -577,6 +587,8 @@ void DRW_draw_background(void)
 		immEnd();
 
 		immUnbindProgram();
+
+		gpuPopMatrix();
 
 		glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	}

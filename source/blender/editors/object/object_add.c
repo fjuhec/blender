@@ -1203,7 +1203,21 @@ static int object_delete_exec(bContext *C, wmOperator *op)
 			        ob->id.name + 2, scene->id.name + 2);
 			continue;
 		}
+
+		/* This is sort of a quick hack to address T51243 - Proper thing to do here would be to nuke most of all this
+		 * custom scene/object/base handling, and use generic lib remap/query for that.
+		 * But this is for later (aka 2.8, once layers & co are settled and working).
+		 */
+		if (use_global && ob->id.lib == NULL) {
+			/* We want to nuke the object, let's nuke it the easy way (not for linked data though)... */
+			BKE_libblock_delete(bmain, &ob->id);
+			changed = true;
+			continue;
+		}
+
 		/* remove from Grease Pencil parent */
+		/* XXX This is likely not correct? Will also remove parent from grease pencil from other scenes,
+		 *     even when use_global is false... */
 		for (bGPdata *gpd = bmain->gpencil.first; gpd; gpd = gpd->id.next) {
 			for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 				if (gpl->parent != NULL) {
@@ -2322,6 +2336,8 @@ static int duplicate_exec(bContext *C, wmOperator *op)
 	BKE_main_id_clear_newpoins(bmain);
 
 	DAG_relations_tag_update(bmain);
+	/* TODO(sergey): Use proper flag for tagging here. */
+	DAG_id_tag_update(&CTX_data_scene(C)->id, 0);
 
 	WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
 

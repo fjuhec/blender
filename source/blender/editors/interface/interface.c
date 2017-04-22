@@ -1377,6 +1377,7 @@ void UI_block_draw(const bContext *C, uiBlock *block)
 	ui_but_to_pixelrect(&rect, ar, block, NULL);
 	
 	/* pixel space for AA widgets */
+	gpuPushProjectionMatrix();
 	gpuPushMatrix();
 	gpuLoadIdentity();
 
@@ -1402,7 +1403,8 @@ void UI_block_draw(const bContext *C, uiBlock *block)
 		}
 	}
 	
-	/* restore model-view matrix */
+	/* restore matrix */
+	gpuPopProjectionMatrix();
 	gpuPopMatrix();
 
 	if (multisample_enabled)

@@ -348,7 +348,7 @@ static void CLAY_engine_init(void *vedata)
 		int ssao_samples = 32; /* XXX get from render settings */
 		float invproj[4][4];
 		float dfdyfacs[2];
-		bool is_persp = DRW_viewport_is_persp_get();
+		const bool is_persp = DRW_viewport_is_persp_get();
 		/* view vectors for the corners of the view frustum. Can be used to recreate the world space position easily */
 		float viewvecs[3][4] = {
 		    {-1.0f, -1.0f, -1.0f, 1.0f},
@@ -372,7 +372,8 @@ static void CLAY_engine_init(void *vedata)
 		/* convert the view vectors to view space */
 		for (i = 0; i < 3; i++) {
 			mul_m4_v4(invproj, viewvecs[i]);
-			/* normalized trick see http://www.derschmale.com/2014/01/26/reconstructing-positions-from-the-depth-buffer */
+			/* normalized trick see:
+			 * http://www.derschmale.com/2014/01/26/reconstructing-positions-from-the-depth-buffer */
 			mul_v3_fl(viewvecs[i], 1.0f / viewvecs[i][3]);
 			if (is_persp)
 				mul_v3_fl(viewvecs[i], 1.0f / viewvecs[i][2]);
@@ -429,9 +430,10 @@ static DRWShadingGroup *CLAY_shgroup_create(CLAY_Data *vedata, DRWPass *pass, in
 	return grp;
 }
 
-static int search_mat_to_ubo(CLAY_Storage *storage, float matcap_rot, float matcap_hue, float matcap_sat,
-                             float matcap_val, float ssao_distance, float ssao_factor_cavity,
-                             float ssao_factor_edge, float ssao_attenuation, int matcap_icon)
+static int search_mat_to_ubo(
+        CLAY_Storage *storage, float matcap_rot, float matcap_hue, float matcap_sat,
+        float matcap_val, float ssao_distance, float ssao_factor_cavity,
+        float ssao_factor_edge, float ssao_attenuation, int matcap_icon)
 {
 	/* For now just use a linear search and test all parameters */
 	/* TODO make a hash table */
@@ -547,7 +549,9 @@ static void CLAY_cache_init(void *vedata)
 		psl->depth_pass = DRW_pass_create("Depth Pass", DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 		stl->g_data->depth_shgrp = DRW_shgroup_create(e_data.depth_sh, psl->depth_pass);
 
-		psl->depth_pass_cull = DRW_pass_create("Depth Pass Cull", DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS | DRW_STATE_CULL_BACK);
+		psl->depth_pass_cull = DRW_pass_create(
+		        "Depth Pass Cull",
+		        DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS | DRW_STATE_CULL_BACK);
 		stl->g_data->depth_shgrp_cull = DRW_shgroup_create(e_data.depth_sh, psl->depth_pass_cull);
 	}
 
@@ -564,18 +568,15 @@ static void CLAY_cache_populate(void *vedata, Object *ob)
 	CLAY_PassList *psl = ((CLAY_Data *)vedata)->psl;
 	CLAY_StorageList *stl = ((CLAY_Data *)vedata)->stl;
 
-	struct Batch *geom;
 	DRWShadingGroup *clay_shgrp;
 
 	if (!DRW_is_object_renderable(ob))
 		return;
 
-	IDProperty *ces_mode_ob = BKE_object_collection_engine_get(ob, COLLECTION_MODE_OBJECT, "");
-	bool do_cull = BKE_collection_engine_property_value_get_bool(ces_mode_ob, "show_backface_culling");
-
-	/* TODO all renderable */
-	if (ob->type == OB_MESH) {
-		geom = DRW_cache_mesh_surface_get(ob);
+	struct Batch *geom = DRW_cache_object_surface_get(ob);
+	if (geom) {
+		IDProperty *ces_mode_ob = BKE_object_collection_engine_get(ob, COLLECTION_MODE_OBJECT, "");
+		bool do_cull = BKE_collection_engine_property_value_get_bool(ces_mode_ob, "show_backface_culling");
 
 		/* Depth Prepass */
 		DRW_shgroup_call_add((do_cull) ? stl->g_data->depth_shgrp_cull : stl->g_data->depth_shgrp, geom, ob->obmat);

@@ -44,11 +44,14 @@
 typedef float Mat4[4][4];
 typedef float Mat3[3][3];
 
-typedef struct {
-	Mat4 ModelViewStack[MATRIX_STACK_DEPTH];
-	Mat4 ProjectionMatrix;
+typedef struct MatrixStack {
+	Mat4 stack[MATRIX_STACK_DEPTH];
+	unsigned int top;
+} MatrixStack;
 
-	unsigned top; /* of ModelView stack */
+typedef struct {
+	MatrixStack model_view_stack;
+	MatrixStack projection_stack;
 
 	bool dirty;
 
@@ -66,20 +69,23 @@ typedef struct {
                              {0.0f, 0.0f, 0.0f, 1.0f}}
 
 static MatrixState state = {
-	.ModelViewStack = {MATRIX_4X4_IDENTITY},
-	.ProjectionMatrix = MATRIX_4X4_IDENTITY,
-	.top = 0,
+	.model_view_stack = {{MATRIX_4X4_IDENTITY}, 0},
+	.projection_stack = {{MATRIX_4X4_IDENTITY}, 0},
 	.dirty = true
 };
 
 #undef MATRIX_4X4_IDENTITY
 
-#define ModelView state.ModelViewStack[state.top]
-#define Projection state.ProjectionMatrix
+#define ModelViewStack state.model_view_stack
+#define ModelView ModelViewStack.stack[ModelViewStack.top]
+
+#define ProjectionStack state.projection_stack
+#define Projection ProjectionStack.stack[ProjectionStack.top]
 
 void gpuMatrixReset(void)
 {
-	state.top = 0;
+	state.model_view_stack.top = 0;
+	state.projection_stack.top = 0;
 	unit_m4(ModelView);
 	unit_m4(Projection);
 	state.dirty = true;
@@ -113,29 +119,103 @@ void gpuPushMatrix(void)
 {
 #if SUPPORT_LEGACY_MATRIX
 	{
+		GLenum mode;
+		glGetIntegerv(GL_MATRIX_MODE, (GLint*)&mode);
+		if (mode != GL_MODELVIEW) {
+			glMatrixMode(GL_MODELVIEW);
+		}
+
 		glPushMatrix();
+
+		if (mode != GL_MODELVIEW) {
+			glMatrixMode(mode); /* restore */
+		}
+
 		state.dirty = true;
 		return;
 	}
 #endif
 
-	BLI_assert(state.top < MATRIX_STACK_DEPTH);
-	state.top++;
-	copy_m4_m4(ModelView, state.ModelViewStack[state.top - 1]);
+	BLI_assert(ModelViewStack.top < MATRIX_STACK_DEPTH);
+	ModelViewStack.top++;
+	copy_m4_m4(ModelView, ModelViewStack.stack[ModelViewStack.top - 1]);
 }
 
 void gpuPopMatrix(void)
 {
 #if SUPPORT_LEGACY_MATRIX
 	{
+		GLenum mode;
+		glGetIntegerv(GL_MATRIX_MODE, (GLint*)&mode);
+		if (mode != GL_MODELVIEW) {
+			glMatrixMode(GL_MODELVIEW);
+		}
+
 		glPopMatrix();
+
+		if (mode != GL_MODELVIEW) {
+			glMatrixMode(mode); /* restore */
+		}
+
 		state.dirty = true;
 		return;
 	}
 #endif
 
-	BLI_assert(state.top > 0);
-	state.top--;
+	BLI_assert(ModelViewStack.top > 0);
+	ModelViewStack.top--;
+	state.dirty = true;
+}
+
+void gpuPushProjectionMatrix(void)
+{
+#if SUPPORT_LEGACY_MATRIX
+	{
+		GLenum mode;
+		glGetIntegerv(GL_MATRIX_MODE, (GLint*)&mode);
+		if (mode != GL_PROJECTION) {
+			glMatrixMode(GL_PROJECTION);
+		}
+
+		glPushMatrix();
+
+		if (mode != GL_PROJECTION) {
+			glMatrixMode(mode); /* restore */
+		}
+
+		state.dirty = true;
+		return;
+	}
+#endif
+
+	BLI_assert(ProjectionStack.top < MATRIX_STACK_DEPTH);
+	ProjectionStack.top++;
+	copy_m4_m4(Projection, ProjectionStack.stack[ProjectionStack.top - 1]);
+}
+
+void gpuPopProjectionMatrix(void)
+{
+#if SUPPORT_LEGACY_MATRIX
+	{
+		GLenum mode;
+		glGetIntegerv(GL_MATRIX_MODE, (GLint*)&mode);
+		if (mode != GL_PROJECTION) {
+			glMatrixMode(GL_PROJECTION);
+		}
+
+		glPopMatrix();
+
+		if (mode != GL_PROJECTION) {
+			glMatrixMode(mode); /* restore */
+		}
+
+		state.dirty = true;
+		return;
+	}
+#endif
+
+	BLI_assert(ProjectionStack.top > 0);
+	ProjectionStack.top--;
 	state.dirty = true;
 }
 
@@ -151,6 +231,32 @@ void gpuLoadMatrix(const float m[4][4])
 
 	copy_m4_m4(ModelView, m);
 	CHECKMAT(ModelView3D);
+	state.dirty = true;
+}
+
+void gpuLoadIdentityProjectionMatrix(void)
+{
+#if SUPPORT_LEGACY_MATRIX
+	{
+		GLenum mode;
+		glGetIntegerv(GL_MATRIX_MODE, (GLint*)&mode);
+		if (mode != GL_PROJECTION) {
+			glMatrixMode(GL_PROJECTION);
+		}
+
+		glLoadIdentity();
+
+		if (mode != GL_PROJECTION_MATRIX) {
+			glMatrixMode(mode); /* restore */
+		}
+
+		state.dirty = true;
+		return;
+	}
+#endif
+
+	unit_m4(Projection);
+	CHECKMAT(Projection3D);
 	state.dirty = true;
 }
 
@@ -242,14 +348,17 @@ void gpuTranslate3fv(const float vec[3])
 
 void gpuScaleUniform(float factor)
 {
+#if SUPPORT_LEGACY_MATRIX
+	{
+		glScalef(factor, factor, factor); /* always scale Z since we can't distinguish 2D from 3D */
+		state.dirty = true;
+		return;
+	}
+#endif
 	Mat4 m;
 	scale_m4_fl(m, factor);
+	m[2][2] = 1.0;
 	gpuMultMatrix(m);
-
-#if SUPPORT_LEGACY_MATRIX
-	glScalef(factor, factor, factor); /* always scale Z since we can't distinguish 2D from 3D */
-	state.dirty = true;
-#endif
 }
 
 void gpuScale2f(float x, float y)

@@ -134,10 +134,11 @@ static struct GPUTexture *create_ggx_lut_texture(int UNUSED(w), int UNUSED(h))
 	lib_str = BLI_dynstr_get_cstring(ds_vert);
 	BLI_dynstr_free(ds_vert);
 
-	struct GPUShader *sh = DRW_shader_create_with_lib(datatoc_probe_vert_glsl, datatoc_probe_geom_glsl, datatoc_bsdf_lut_frag_glsl, lib_str,
-	                                                    "#define HAMMERSLEY_SIZE 8192\n"
-	                                                    "#define BRDF_LUT_SIZE 64\n"
-	                                                    "#define NOISE_SIZE 64\n");
+	struct GPUShader *sh = DRW_shader_create_with_lib(
+	        datatoc_probe_vert_glsl, datatoc_probe_geom_glsl, datatoc_bsdf_lut_frag_glsl, lib_str,
+	        "#define HAMMERSLEY_SIZE 8192\n"
+	        "#define BRDF_LUT_SIZE 64\n"
+	        "#define NOISE_SIZE 64\n");
 
 	DRWPass *pass = DRW_pass_create("Probe Filtering", DRW_STATE_WRITE_COLOR);
 	DRWShadingGroup *grp = DRW_shgroup_create(sh, pass);
@@ -221,22 +222,25 @@ static void EEVEE_engine_init(void *ved)
 		lib_str = BLI_dynstr_get_cstring(ds_vert);
 		BLI_dynstr_free(ds_vert);
 
-		e_data.default_lit = DRW_shader_create_with_lib(datatoc_lit_surface_vert_glsl, NULL, datatoc_lit_surface_frag_glsl, lib_str,
-		                                                "#define MAX_LIGHT 128\n"
-		                                                "#define MAX_SHADOW_CUBE 42\n"
-		                                                "#define MAX_SHADOW_MAP 64\n"
-		                                                "#define MAX_SHADOW_CASCADE 8\n"
-		                                                "#define MAX_CASCADE_NUM 4\n");
+		e_data.default_lit = DRW_shader_create_with_lib(
+		        datatoc_lit_surface_vert_glsl, NULL, datatoc_lit_surface_frag_glsl, lib_str,
+		        "#define MAX_LIGHT 128\n"
+		        "#define MAX_SHADOW_CUBE 42\n"
+		        "#define MAX_SHADOW_MAP 64\n"
+		        "#define MAX_SHADOW_CASCADE 8\n"
+		        "#define MAX_CASCADE_NUM 4\n");
 
 		MEM_freeN(lib_str);
 	}
 
 	if (!e_data.shadow_sh) {
-		e_data.shadow_sh = DRW_shader_create(datatoc_shadow_vert_glsl, datatoc_shadow_geom_glsl, datatoc_shadow_frag_glsl, NULL);
+		e_data.shadow_sh = DRW_shader_create(
+		        datatoc_shadow_vert_glsl, datatoc_shadow_geom_glsl, datatoc_shadow_frag_glsl, NULL);
 	}
 
 	if (!e_data.probe_sh) {
-		e_data.probe_sh = DRW_shader_create(datatoc_probe_vert_glsl, datatoc_probe_geom_glsl, datatoc_probe_frag_glsl, NULL);
+		e_data.probe_sh = DRW_shader_create(
+		        datatoc_probe_vert_glsl, datatoc_probe_geom_glsl, datatoc_probe_frag_glsl, NULL);
 	}
 
 	if (!e_data.probe_filter_sh) {
@@ -249,9 +253,10 @@ static void EEVEE_engine_init(void *ved)
 		shader_str = BLI_dynstr_get_cstring(ds_frag);
 		BLI_dynstr_free(ds_frag);
 
-		e_data.probe_filter_sh = DRW_shader_create(datatoc_probe_vert_glsl, datatoc_probe_geom_glsl, shader_str,
-		                                           "#define HAMMERSLEY_SIZE 8192\n"
-		                                           "#define NOISE_SIZE 64\n");
+		e_data.probe_filter_sh = DRW_shader_create(
+		        datatoc_probe_vert_glsl, datatoc_probe_geom_glsl, shader_str,
+		        "#define HAMMERSLEY_SIZE 8192\n"
+		        "#define NOISE_SIZE 64\n");
 
 		MEM_freeN(shader_str);
 	}
@@ -299,7 +304,33 @@ static DRWShadingGroup *eevee_cube_shgroup(struct GPUShader *sh, DRWPass *pass, 
 	DRWShadingGroup *grp = DRW_shgroup_instance_create(sh, pass, geom);
 
 	for (int i = 0; i < 6; ++i)
-		DRW_shgroup_dynamic_call_add_empty(grp);
+		DRW_shgroup_call_dynamic_add_empty(grp);
+
+	return grp;
+}
+
+static DRWShadingGroup *eevee_cube_shadow_shgroup(
+        EEVEE_PassList *psl, EEVEE_StorageList *stl, struct Batch *geom, float (*obmat)[4])
+{
+	DRWShadingGroup *grp = DRW_shgroup_instance_create(e_data.shadow_sh, psl->shadow_cube_pass, geom);
+	DRW_shgroup_uniform_block(grp, "shadow_render_block", stl->shadow_render_ubo, 0);
+	DRW_shgroup_uniform_mat4(grp, "ShadowModelMatrix", (float *)obmat);
+
+	for (int i = 0; i < 6; ++i)
+		DRW_shgroup_call_dynamic_add_empty(grp);
+
+	return grp;
+}
+
+static DRWShadingGroup *eevee_cascade_shadow_shgroup(
+        EEVEE_PassList *psl, EEVEE_StorageList *stl, struct Batch *geom, float (*obmat)[4])
+{
+	DRWShadingGroup *grp = DRW_shgroup_instance_create(e_data.shadow_sh, psl->shadow_cascade_pass, geom);
+	DRW_shgroup_uniform_block(grp, "shadow_render_block", stl->shadow_render_ubo, 0);
+	DRW_shgroup_uniform_mat4(grp, "ShadowModelMatrix", (float *)obmat);
+
+	for (int i = 0; i < MAX_CASCADE_NUM; ++i)
+		DRW_shgroup_call_dynamic_add_empty(grp);
 
 	return grp;
 }
@@ -316,10 +347,18 @@ static void EEVEE_cache_init(void *vedata)
 	}
 
 	{
-		psl->shadow_pass = DRW_pass_create("Shadow Pass", DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
-		stl->g_data->shadow_shgrp = DRW_shgroup_create(e_data.shadow_sh, psl->shadow_pass);
-		DRW_shgroup_uniform_mat4(stl->g_data->shadow_shgrp, "ShadowMatrix", (float *)stl->lamps->shadowmat);
-		DRW_shgroup_uniform_int(stl->g_data->shadow_shgrp, "Layer", &stl->lamps->layer, 1);
+		psl->shadow_cube_pass = DRW_pass_create("Shadow Cube Pass", DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+	}
+
+	{
+		psl->shadow_cascade_pass = DRW_pass_create("Shadow Cascade Pass", DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+	}
+
+	{
+		// psl->shadow_pass = DRW_pass_create("Shadow Pass", DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+		// stl->g_data->shadow_shgrp = DRW_shgroup_create(e_data.shadow_sh, psl->shadow_pass);
+		// DRW_shgroup_uniform_mat4(stl->g_data->shadow_shgrp, "ShadowMatrix", (float *)stl->lamps->shadowmat);
+		// DRW_shgroup_uniform_int(stl->g_data->shadow_shgrp, "Layer", &stl->lamps->layer, 1);
 	}
 
 	{
@@ -363,7 +402,9 @@ static void EEVEE_cache_init(void *vedata)
 		psl->depth_pass = DRW_pass_create("Depth Pass", DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 		stl->g_data->depth_shgrp = DRW_shgroup_create(e_data.depth_sh, psl->depth_pass);
 
-		psl->depth_pass_cull = DRW_pass_create("Depth Pass Cull", DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS | DRW_STATE_CULL_BACK);
+		psl->depth_pass_cull = DRW_pass_create(
+		        "Depth Pass Cull",
+		        DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS | DRW_STATE_CULL_BACK);
 		stl->g_data->depth_shgrp_cull = DRW_shgroup_create(e_data.depth_sh, psl->depth_pass_cull);
 	}
 
@@ -402,17 +443,20 @@ static void EEVEE_cache_init(void *vedata)
 static void EEVEE_cache_populate(void *vedata, Object *ob)
 {
 	EEVEE_StorageList *stl = ((EEVEE_Data *)vedata)->stl;
+	EEVEE_PassList *psl = ((EEVEE_Data *)vedata)->psl;
 
-	if (ob->type == OB_MESH) {
+	struct Batch *geom = DRW_cache_object_surface_get(ob);
+	if (geom) {
 		IDProperty *ces_mode_ob = BKE_object_collection_engine_get(ob, COLLECTION_MODE_OBJECT, "");
-		bool do_cull = BKE_collection_engine_property_value_get_bool(ces_mode_ob, "show_backface_culling");
-		struct Batch *geom = DRW_cache_mesh_surface_get(ob);
+		const bool do_cull = BKE_collection_engine_property_value_get_bool(ces_mode_ob, "show_backface_culling");
 
 		/* Depth Prepass */
 		DRW_shgroup_call_add((do_cull) ? stl->g_data->depth_shgrp_cull : stl->g_data->depth_shgrp, geom, ob->obmat);
 
 		DRW_shgroup_call_add(stl->g_data->default_lit_grp, geom, ob->obmat);
-		DRW_shgroup_call_add(stl->g_data->shadow_shgrp, geom, ob->obmat);
+		// DRW_shgroup_call_add(stl->g_data->shadow_shgrp, geom, ob->obmat);
+		eevee_cascade_shadow_shgroup(psl, stl, geom, ob->obmat);
+		eevee_cube_shadow_shgroup(psl, stl, geom, ob->obmat);
 	}
 	else if (ob->type == OB_LAMP) {
 		EEVEE_lights_cache_add(stl, ob);
@@ -430,6 +474,7 @@ static void EEVEE_cache_finish(void *vedata)
 	/* Shadows binding */
 	DRW_shgroup_uniform_texture(stl->g_data->default_lit_grp, "shadowMaps", txl->shadow_depth_map_pool, 4);
 	DRW_shgroup_uniform_texture(stl->g_data->default_lit_grp, "shadowCubes", txl->shadow_depth_cube_pool, 5);
+	DRW_shgroup_uniform_texture(stl->g_data->default_lit_grp, "shadowCascades", txl->shadow_depth_cascade_pool, 6);
 }
 
 static void EEVEE_draw_scene(void *vedata)
@@ -454,8 +499,9 @@ static void EEVEE_draw_scene(void *vedata)
 
 	/* Clear Depth */
 	/* TODO do background */
-	float clearcol[4] = {0.0f, 0.0f, 0.0f, 1.0f};
-	DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
+	// float clearcol[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+	// DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
+	DRW_draw_background();
 
 	DRW_draw_pass(psl->depth_pass);
 	DRW_draw_pass(psl->depth_pass_cull);

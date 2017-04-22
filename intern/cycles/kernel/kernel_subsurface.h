@@ -149,6 +149,7 @@ ccl_device void subsurface_scatter_setup_diffuse_bsdf(ShaderData *sd, ShaderClos
 
 	if(hit) {
 		Bssrdf *bssrdf = (Bssrdf *)sc;
+#ifdef __PRINCIPLED__
 		if(bssrdf->type == CLOSURE_BSSRDF_PRINCIPLED_ID) {
 			PrincipledDiffuseBsdf *bsdf = (PrincipledDiffuseBsdf*)bsdf_alloc(sd, sizeof(PrincipledDiffuseBsdf), weight);
 
@@ -158,11 +159,14 @@ ccl_device void subsurface_scatter_setup_diffuse_bsdf(ShaderData *sd, ShaderClos
 				sd->flag |= bsdf_principled_diffuse_setup(bsdf);
 
 				/* replace CLOSURE_BSDF_PRINCIPLED_DIFFUSE_ID with this special ID so render passes
-				* can recognize it as not being a regular Disney principled diffuse closure */
+				 * can recognize it as not being a regular Disney principled diffuse closure */
 				bsdf->type = CLOSURE_BSDF_BSSRDF_PRINCIPLED_ID;
 			}
 		}
-		else if(CLOSURE_IS_BSSRDF(bssrdf->type)) {
+		else if(CLOSURE_IS_BSDF_BSSRDF(bssrdf->type) ||
+		        CLOSURE_IS_BSSRDF(bssrdf->type))
+#endif  /* __PRINCIPLED__ */
+		{
 			DiffuseBsdf *bsdf = (DiffuseBsdf*)bsdf_alloc(sd, sizeof(DiffuseBsdf), weight);
 
 			if(bsdf) {
@@ -170,7 +174,7 @@ ccl_device void subsurface_scatter_setup_diffuse_bsdf(ShaderData *sd, ShaderClos
 				sd->flag |= bsdf_diffuse_setup(bsdf);
 
 				/* replace CLOSURE_BSDF_DIFFUSE_ID with this special ID so render passes
-				* can recognize it as not being a regular diffuse closure */
+				 * can recognize it as not being a regular diffuse closure */
 				bsdf->type = CLOSURE_BSDF_BSSRDF_ID;
 			}
 		}

@@ -190,7 +190,9 @@ typedef struct DRWFboTexture {
 	DRWTextureFlag flag;
 } DRWFboTexture;
 
-void DRW_framebuffer_init(struct GPUFrameBuffer **fb, int width, int height, DRWFboTexture textures[MAX_FBO_TEX], int texnbr);
+void DRW_framebuffer_init(
+        struct GPUFrameBuffer **fb, int width, int height,
+        DRWFboTexture textures[MAX_FBO_TEX], int textures_len);
 void DRW_framebuffer_bind(struct GPUFrameBuffer *fb);
 void DRW_framebuffer_clear(bool color, bool depth, bool stencil, float clear_col[4], float clear_depth);
 void DRW_framebuffer_read_data(int x, int y, int w, int h, int channels, int slot, float *data);
@@ -200,8 +202,10 @@ void DRW_framebuffer_blit(struct GPUFrameBuffer *fb_read, struct GPUFrameBuffer 
 void DRW_framebuffer_viewport_size(struct GPUFrameBuffer *UNUSED(fb_read), int w, int h);
 
 /* Shaders */
-struct GPUShader *DRW_shader_create(const char *vert, const char *geom, const char *frag, const char *defines);
-struct GPUShader *DRW_shader_create_with_lib(const char *vert, const char *geom, const char *frag, const char *lib, const char *defines);
+struct GPUShader *DRW_shader_create(
+        const char *vert, const char *geom, const char *frag, const char *defines);
+struct GPUShader *DRW_shader_create_with_lib(
+        const char *vert, const char *geom, const char *frag, const char *lib, const char *defines);
 struct GPUShader *DRW_shader_create_2D(const char *frag, const char *defines);
 struct GPUShader *DRW_shader_create_3D(const char *frag, const char *defines);
 struct GPUShader *DRW_shader_create_fullscreen(const char *frag, const char *defines);
@@ -245,13 +249,13 @@ DRWShadingGroup *DRW_shgroup_line_batch_create(struct GPUShader *shader, DRWPass
 
 void DRW_shgroup_free(struct DRWShadingGroup *shgroup);
 void DRW_shgroup_call_add(DRWShadingGroup *shgroup, struct Batch *geom, float (*obmat)[4]);
-void DRW_shgroup_dynamic_call_add_array(DRWShadingGroup *shgroup, const void *attr[], unsigned int attr_len);
-#define DRW_shgroup_dynamic_call_add(shgroup, ...) do { \
+void DRW_shgroup_call_dynamic_add_array(DRWShadingGroup *shgroup, const void *attr[], unsigned int attr_len);
+#define DRW_shgroup_call_dynamic_add(shgroup, ...) do { \
 	const void *array[] = {__VA_ARGS__}; \
-	DRW_shgroup_dynamic_call_add_array(shgroup, array, (sizeof(array) / sizeof(*array))); \
+	DRW_shgroup_call_dynamic_add_array(shgroup, array, (sizeof(array) / sizeof(*array))); \
 } while (0)
-#define DRW_shgroup_dynamic_call_add_empty(shgroup) do { \
-	DRW_shgroup_dynamic_call_add_array(shgroup, NULL, 0); \
+#define DRW_shgroup_call_dynamic_add_empty(shgroup) do { \
+	DRW_shgroup_call_dynamic_add_array(shgroup, NULL, 0); \
 } while (0)
 
 void DRW_shgroup_state_set(DRWShadingGroup *shgroup, DRWState state);

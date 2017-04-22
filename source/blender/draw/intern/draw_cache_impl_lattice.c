@@ -23,8 +23,8 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/lattice_render.c
- *  \ingroup bke
+/** \file draw_cache_impl_lattice.c
+ *  \ingroup draw
  *
  * \brief Lattice API for render engines
  */
@@ -37,9 +37,11 @@
 #include "DNA_curve_types.h"
 #include "DNA_lattice_types.h"
 
-#include "BKE_lattice_render.h"
+#include "BKE_lattice.h"
 
 #include "GPU_batch.h"
+
+#include "draw_cache_impl.h"  /* own include */
 
 #define SELECT   1
 
@@ -48,6 +50,8 @@
  * - 'DispList' is currently not used
  *   (we could avoid using since it will be removed)
  */
+
+static void lattice_batch_cache_clear(Lattice *lt);
 
 /* ---------------------------------------------------------------------- */
 /* Lattice Interface, direct access to basic data. */
@@ -136,73 +140,73 @@ enum {
 
 static LatticeRenderData *lattice_render_data_create(Lattice *lt, const int types)
 {
-	LatticeRenderData *lrdata = MEM_callocN(sizeof(*lrdata), __func__);
-	lrdata->types = types;
+	LatticeRenderData *rdata = MEM_callocN(sizeof(*rdata), __func__);
+	rdata->types = types;
 
 	if (lt->editlatt) {
 		EditLatt *editlatt = lt->editlatt;
 		lt = editlatt->latt;
 
-		lrdata->edit_latt = editlatt;
+		rdata->edit_latt = editlatt;
 
 		if (types & (LR_DATATYPE_VERT)) {
-			lrdata->vert_len = lattice_render_verts_len_get(lt);
+			rdata->vert_len = lattice_render_verts_len_get(lt);
 		}
 		if (types & (LR_DATATYPE_EDGE)) {
-			lrdata->edge_len = lattice_render_edges_len_get(lt);
+			rdata->edge_len = lattice_render_edges_len_get(lt);
 		}
 		if (types & LR_DATATYPE_OVERLAY) {
-			lrdata->actbp = lt->actbp;
+			rdata->actbp = lt->actbp;
 		}
 	}
 	else {
 		if (types & (LR_DATATYPE_VERT)) {
-			lrdata->vert_len = lattice_render_verts_len_get(lt);
+			rdata->vert_len = lattice_render_verts_len_get(lt);
 		}
 		if (types & (LR_DATATYPE_EDGE)) {
-			lrdata->edge_len = lattice_render_edges_len_get(lt);
+			rdata->edge_len = lattice_render_edges_len_get(lt);
 			/*no edge data */
 		}
 	}
 
-	lrdata->bp = lt->def;
+	rdata->bp = lt->def;
 
-	lrdata->dims.u_len = lt->pntsu;
-	lrdata->dims.v_len = lt->pntsv;
-	lrdata->dims.w_len = lt->pntsw;
+	rdata->dims.u_len = lt->pntsu;
+	rdata->dims.v_len = lt->pntsv;
+	rdata->dims.w_len = lt->pntsw;
 
-	lrdata->show_only_outside = (lt->flag & LT_OUTSIDE) != 0;
-	lrdata->actbp = lt->actbp;
+	rdata->show_only_outside = (lt->flag & LT_OUTSIDE) != 0;
+	rdata->actbp = lt->actbp;
 
-	return lrdata;
+	return rdata;
 }
 
-static void lattice_render_data_free(LatticeRenderData *lrdata)
+static void lattice_render_data_free(LatticeRenderData *rdata)
 {
 #if 0
-	if (lrdata->loose_verts) {
-		MEM_freeN(lrdata->loose_verts);
+	if (rdata->loose_verts) {
+		MEM_freeN(rdata->loose_verts);
 	}
 #endif
-	MEM_freeN(lrdata);
+	MEM_freeN(rdata);
 }
 
-static int lattice_render_data_verts_len_get(const LatticeRenderData *lrdata)
+static int lattice_render_data_verts_len_get(const LatticeRenderData *rdata)
 {
-	BLI_assert(lrdata->types & LR_DATATYPE_VERT);
-	return lrdata->vert_len;
+	BLI_assert(rdata->types & LR_DATATYPE_VERT);
+	return rdata->vert_len;
 }
 
-static int lattice_render_data_edges_len_get(const LatticeRenderData *lrdata)
+static int lattice_render_data_edges_len_get(const LatticeRenderData *rdata)
 {
-	BLI_assert(lrdata->types & LR_DATATYPE_EDGE);
-	return lrdata->edge_len;
+	BLI_assert(rdata->types & LR_DATATYPE_EDGE);
+	return rdata->edge_len;
 }
 
-static const BPoint *lattice_render_data_vert_bpoint(const LatticeRenderData *lrdata, const int vert_idx)
+static const BPoint *lattice_render_data_vert_bpoint(const LatticeRenderData *rdata, const int vert_idx)
 {
-	BLI_assert(lrdata->types & LR_DATATYPE_VERT);
-	return &lrdata->bp[vert_idx];
+	BLI_assert(rdata->types & LR_DATATYPE_VERT);
+	return &rdata->bp[vert_idx];
 }
 
 enum {
@@ -290,30 +294,32 @@ static void lattice_batch_cache_init(Lattice *lt)
 static LatticeBatchCache *lattice_batch_cache_get(Lattice *lt)
 {
 	if (!lattice_batch_cache_valid(lt)) {
-		BKE_lattice_batch_cache_clear(lt);
+		lattice_batch_cache_clear(lt);
 		lattice_batch_cache_init(lt);
 	}
 	return lt->batch_cache;
 }
 
-void BKE_lattice_batch_cache_dirty(Lattice *lt)
+void DRW_lattice_batch_cache_dirty(Lattice *lt, int mode)
 {
 	LatticeBatchCache *cache = lt->batch_cache;
-	if (cache) {
-		cache->is_dirty = true;
+	if (cache == NULL) {
+		return;
+	}
+	switch (mode) {
+		case BKE_LATTICE_BATCH_DIRTY_ALL:
+			cache->is_dirty = true;
+			break;
+		case BKE_LATTICE_BATCH_DIRTY_SELECT:
+			/* TODO Separate Flag vbo */
+			BATCH_DISCARD_ALL_SAFE(cache->overlay_verts);
+			break;
+		default:
+			BLI_assert(0);
 	}
 }
 
-void BKE_lattice_batch_selection_dirty(Lattice *lt)
-{
-	LatticeBatchCache *cache = lt->batch_cache;
-	if (cache) {
-		/* TODO Separate Flag vbo */
-		BATCH_DISCARD_ALL_SAFE(cache->overlay_verts);
-	}
-}
-
-void BKE_lattice_batch_cache_clear(Lattice *lt)
+static void lattice_batch_cache_clear(Lattice *lt)
 {
 	LatticeBatchCache *cache = lt->batch_cache;
 	if (!cache) {
@@ -328,16 +334,16 @@ void BKE_lattice_batch_cache_clear(Lattice *lt)
 	ELEMENTLIST_DISCARD_SAFE(cache->edges);
 }
 
-void BKE_lattice_batch_cache_free(Lattice *lt)
+void DRW_lattice_batch_cache_free(Lattice *lt)
 {
-	BKE_lattice_batch_cache_clear(lt);
+	lattice_batch_cache_clear(lt);
 	MEM_SAFE_FREE(lt->batch_cache);
 }
 
 /* Batch cache usage. */
-static VertexBuffer *lattice_batch_cache_get_pos(LatticeRenderData *lrdata, LatticeBatchCache *cache)
+static VertexBuffer *lattice_batch_cache_get_pos(LatticeRenderData *rdata, LatticeBatchCache *cache)
 {
-	BLI_assert(lrdata->types & LR_DATATYPE_VERT);
+	BLI_assert(rdata->types & LR_DATATYPE_VERT);
 
 	if (cache->pos == NULL) {
 		static VertexFormat format = { 0 };
@@ -347,12 +353,12 @@ static VertexBuffer *lattice_batch_cache_get_pos(LatticeRenderData *lrdata, Latt
 			pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
 		}
 
-		const int vert_len = lattice_render_data_verts_len_get(lrdata);
+		const int vert_len = lattice_render_data_verts_len_get(rdata);
 
 		cache->pos = VertexBuffer_create_with_format(&format);
 		VertexBuffer_allocate_data(cache->pos, vert_len);
 		for (int i = 0; i < vert_len; ++i) {
-			const BPoint *bp = lattice_render_data_vert_bpoint(lrdata, i);
+			const BPoint *bp = lattice_render_data_vert_bpoint(rdata, i);
 			VertexBuffer_set_attrib(cache->pos, pos_id, i, bp->vec);
 		}
 	}
@@ -360,39 +366,39 @@ static VertexBuffer *lattice_batch_cache_get_pos(LatticeRenderData *lrdata, Latt
 	return cache->pos;
 }
 
-static ElementList *lattice_batch_cache_get_edges(LatticeRenderData *lrdata, LatticeBatchCache *cache)
+static ElementList *lattice_batch_cache_get_edges(LatticeRenderData *rdata, LatticeBatchCache *cache)
 {
-	BLI_assert(lrdata->types & (LR_DATATYPE_VERT | LR_DATATYPE_EDGE));
+	BLI_assert(rdata->types & (LR_DATATYPE_VERT | LR_DATATYPE_EDGE));
 
 	if (cache->edges == NULL) {
-		const int vert_len = lattice_render_data_verts_len_get(lrdata);
-		const int edge_len = lattice_render_data_edges_len_get(lrdata);
+		const int vert_len = lattice_render_data_verts_len_get(rdata);
+		const int edge_len = lattice_render_data_edges_len_get(rdata);
 		int edge_len_real = 0;
 
 		ElementListBuilder elb;
 		ElementListBuilder_init(&elb, PRIM_LINES, edge_len, vert_len);
 
 #define LATT_INDEX(u, v, w) \
-	((((w) * lrdata->dims.v_len + (v)) * lrdata->dims.u_len) + (u))
+	((((w) * rdata->dims.v_len + (v)) * rdata->dims.u_len) + (u))
 
-		for (int w = 0; w < lrdata->dims.w_len; w++) {
-			int wxt = (w == 0 || w == lrdata->dims.w_len - 1);
-			for (int v = 0; v < lrdata->dims.v_len; v++) {
-				int vxt = (v == 0 || v == lrdata->dims.v_len - 1);
-				for (int u = 0; u < lrdata->dims.u_len; u++) {
-					int uxt = (u == 0 || u == lrdata->dims.u_len - 1);
+		for (int w = 0; w < rdata->dims.w_len; w++) {
+			int wxt = (w == 0 || w == rdata->dims.w_len - 1);
+			for (int v = 0; v < rdata->dims.v_len; v++) {
+				int vxt = (v == 0 || v == rdata->dims.v_len - 1);
+				for (int u = 0; u < rdata->dims.u_len; u++) {
+					int uxt = (u == 0 || u == rdata->dims.u_len - 1);
 
-					if (w && ((uxt || vxt) || !lrdata->show_only_outside)) {
+					if (w && ((uxt || vxt) || !rdata->show_only_outside)) {
 						add_line_vertices(&elb, LATT_INDEX(u, v, w - 1), LATT_INDEX(u, v, w));
 						BLI_assert(edge_len_real <= edge_len);
 						edge_len_real++;
 					}
-					if (v && ((uxt || wxt) || !lrdata->show_only_outside)) {
+					if (v && ((uxt || wxt) || !rdata->show_only_outside)) {
 						add_line_vertices(&elb, LATT_INDEX(u, v - 1, w), LATT_INDEX(u, v, w));
 						BLI_assert(edge_len_real <= edge_len);
 						edge_len_real++;
 					}
-					if (u && ((vxt || wxt) || !lrdata->show_only_outside)) {
+					if (u && ((vxt || wxt) || !rdata->show_only_outside)) {
 						add_line_vertices(&elb, LATT_INDEX(u - 1, v, w), LATT_INDEX(u, v, w));
 						BLI_assert(edge_len_real <= edge_len);
 						edge_len_real++;
@@ -403,7 +409,7 @@ static ElementList *lattice_batch_cache_get_edges(LatticeRenderData *lrdata, Lat
 
 #undef LATT_INDEX
 
-		if (lrdata->show_only_outside) {
+		if (rdata->show_only_outside) {
 			BLI_assert(edge_len_real <= edge_len);
 		}
 		else {
@@ -422,7 +428,7 @@ static void lattice_batch_cache_create_overlay_batches(Lattice *lt)
 	int options = LR_DATATYPE_VERT | LR_DATATYPE_OVERLAY;
 
 	LatticeBatchCache *cache = lattice_batch_cache_get(lt);
-	LatticeRenderData *lrdata = lattice_render_data_create(lt, options);
+	LatticeRenderData *rdata = lattice_render_data_create(lt, options);
 
 	if (cache->overlay_verts == NULL) {
 		static VertexFormat format = { 0 };
@@ -433,16 +439,16 @@ static void lattice_batch_cache_create_overlay_batches(Lattice *lt)
 			data_id = VertexFormat_add_attrib(&format, "data", COMP_U8, 1, KEEP_INT);
 		}
 
-		const int vert_len = lattice_render_data_verts_len_get(lrdata);
+		const int vert_len = lattice_render_data_verts_len_get(rdata);
 
 		VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
 		VertexBuffer_allocate_data(vbo, vert_len);
 		for (int i = 0; i < vert_len; ++i) {
-			const BPoint *bp = lattice_render_data_vert_bpoint(lrdata, i);
+			const BPoint *bp = lattice_render_data_vert_bpoint(rdata, i);
 
 			char vflag = 0;
 			if (bp->f1 & SELECT) {
-				if (i == lrdata->actbp) {
+				if (i == rdata->actbp) {
 					vflag |= VFLAG_VERTEX_ACTIVE;
 				}
 				else {
@@ -457,42 +463,42 @@ static void lattice_batch_cache_create_overlay_batches(Lattice *lt)
 		cache->overlay_verts = Batch_create(PRIM_POINTS, vbo, NULL);
 	}	
 
-	lattice_render_data_free(lrdata);
+	lattice_render_data_free(rdata);
 }
 
-Batch *BKE_lattice_batch_cache_get_all_edges(Lattice *lt)
+Batch *DRW_lattice_batch_cache_get_all_edges(Lattice *lt)
 {
 	LatticeBatchCache *cache = lattice_batch_cache_get(lt);
 
 	if (cache->all_edges == NULL) {
 		/* create batch from Lattice */
-		LatticeRenderData *lrdata = lattice_render_data_create(lt, LR_DATATYPE_VERT | LR_DATATYPE_EDGE);
+		LatticeRenderData *rdata = lattice_render_data_create(lt, LR_DATATYPE_VERT | LR_DATATYPE_EDGE);
 
-		cache->all_edges = Batch_create(PRIM_LINES, lattice_batch_cache_get_pos(lrdata, cache),
-		                                lattice_batch_cache_get_edges(lrdata, cache));
+		cache->all_edges = Batch_create(PRIM_LINES, lattice_batch_cache_get_pos(rdata, cache),
+		                                lattice_batch_cache_get_edges(rdata, cache));
 
-		lattice_render_data_free(lrdata);
+		lattice_render_data_free(rdata);
 	}
 
 	return cache->all_edges;
 }
 
-Batch *BKE_lattice_batch_cache_get_all_verts(Lattice *lt)
+Batch *DRW_lattice_batch_cache_get_all_verts(Lattice *lt)
 {
 	LatticeBatchCache *cache = lattice_batch_cache_get(lt);
 
 	if (cache->all_verts == NULL) {
-		LatticeRenderData *lrdata = lattice_render_data_create(lt, LR_DATATYPE_VERT);
+		LatticeRenderData *rdata = lattice_render_data_create(lt, LR_DATATYPE_VERT);
 
-		cache->all_verts = Batch_create(PRIM_POINTS, lattice_batch_cache_get_pos(lrdata, cache), NULL);
+		cache->all_verts = Batch_create(PRIM_POINTS, lattice_batch_cache_get_pos(rdata, cache), NULL);
 
-		lattice_render_data_free(lrdata);
+		lattice_render_data_free(rdata);
 	}
 
 	return cache->all_verts;
 }
 
-Batch *BKE_lattice_batch_cache_get_overlay_verts(Lattice *lt)
+Batch *DRW_lattice_batch_cache_get_overlay_verts(Lattice *lt)
 {
 	LatticeBatchCache *cache = lattice_batch_cache_get(lt);
 

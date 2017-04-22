@@ -44,9 +44,9 @@ extern "C" {
  * Will remove this after switching to core profile, which can happen after
  * we convert all code to use the API in this file. */
 #ifdef WITH_GL_PROFILE_CORE
-	#define SUPPORT_LEGACY_MATRIX 0
+#  define SUPPORT_LEGACY_MATRIX 0
 #else
-	#define SUPPORT_LEGACY_MATRIX 1
+#  define SUPPORT_LEGACY_MATRIX 1
 #endif
 
 
@@ -87,9 +87,14 @@ void gpuScale2f(float x, float y);
 void gpuScale2fv(const float vec[2]);
 void gpuRotate2D(float deg);
 
+/* Projection Matrix (2D or 3D) */
+
+void gpuPushProjectionMatrix(void);
+void gpuPopProjectionMatrix(void);
 
 /* 3D Projection Matrix */
 
+void gpuLoadIdentityProjectionMatrix(void);
 void gpuLoadProjectionMatrix(const float m[4][4]);
 
 void gpuOrtho(float left, float right, float bottom, float top, float near, float far);

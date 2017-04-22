@@ -120,7 +120,6 @@ set(SRC
 	intern/key.c
 	intern/lamp.c
 	intern/lattice.c
-	intern/lattice_render.c
 	intern/library.c
 	intern/library_idmap.c
 	intern/library_query.c
@@ -136,7 +135,6 @@ set(SRC
 	intern/mesh_evaluate.c
 	intern/mesh_mapping.c
 	intern/mesh_remap.c
-	intern/mesh_render.c
 	intern/mesh_validate.c
 	intern/modifier.c
 	intern/modifiers_bmesh.c
@@ -250,7 +248,6 @@ set(SRC
 	BKE_key.h
 	BKE_lamp.h
 	BKE_lattice.h
-	BKE_lattice_render.h
 	BKE_library.h
 	BKE_library_idmap.h
 	BKE_library_query.h
@@ -264,7 +261,6 @@ set(SRC
 	BKE_mesh.h
 	BKE_mesh_mapping.h
 	BKE_mesh_remap.h
-	BKE_mesh_render.h
 	BKE_modifier.h
 	BKE_movieclip.h
 	BKE_multires.h

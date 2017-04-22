@@ -367,6 +367,12 @@ option(WITH_LIBMV         "Enable Libmv structure from motion library" ON)
 option(WITH_LIBMV_SCHUR_SPECIALIZATIONS "Enable fixed-size schur specializations." OFF)
 mark_as_advanced(WITH_LIBMV_SCHUR_SPECIALIZATIONS)
 
+# Logging/unbit test libraries.
+option(WITH_SYSTEM_GFLAGS   "Use system-wide Gflags instead of a bundled one" OFF)
+option(WITH_SYSTEM_GFLOG    "Use system-wide Glog instead of a bundled one" OFF)
+mark_as_advanced(WITH_SYSTEM_GFLAGS)
+mark_as_advanced(WITH_SYSTEM_GLOG)
+
 # Freestyle
 option(WITH_FREESTYLE     "Enable Freestyle (advanced edges rendering)" ON)
 
@@ -460,7 +466,6 @@ endif()
 
 # OpenGL
 
-option(WITH_GLEW_MX             "Support multiple GLEW contexts (experimental)"                                                                     OFF )
 option(WITH_GLEW_ES             "Switches to experimental copy of GLEW that has support for OpenGL ES. (temporary option for development purposes)" OFF)
 option(WITH_GL_EGL              "Use the EGL OpenGL system library instead of the platform specific OpenGL system library (CGL, glX, or WGL)"       OFF)
 option(WITH_GL_PROFILE_COMPAT   "Support using the OpenGL 'compatibility' profile. (deprecated)"                                                    ON )
@@ -468,7 +473,6 @@ option(WITH_GL_PROFILE_CORE     "Support using the OpenGL 3.3+ 'core' profile." 
 option(WITH_GL_PROFILE_ES20     "Support using OpenGL ES 2.0. (thru either EGL or the AGL/WGL/XGL 'es20' profile)"                                  OFF)
 
 mark_as_advanced(
-	WITH_GLEW_MX
 	WITH_GLEW_ES
 	WITH_GL_EGL
 	WITH_GL_PROFILE_COMPAT
@@ -1218,10 +1222,6 @@ endif()
 #-----------------------------------------------------------------------------
 # Configure GLEW
 
-if(WITH_GLEW_MX)
-	list(APPEND GL_DEFINITIONS -DWITH_GLEW_MX)
-endif()
-
 if(WITH_SYSTEM_GLEW)
 	find_package(GLEW)
 
@@ -1231,11 +1231,7 @@ if(WITH_SYSTEM_GLEW)
 		message(FATAL_ERROR "GLEW is required to build Blender. Install it or disable WITH_SYSTEM_GLEW.")
 	endif()
 
-	if(WITH_GLEW_MX)
-		set(BLENDER_GLEW_LIBRARIES ${GLEW_MX_LIBRARY})
-	else()
-		set(BLENDER_GLEW_LIBRARIES ${GLEW_LIBRARY})
-	endif()
+	set(BLENDER_GLEW_LIBRARIES ${GLEW_LIBRARY})
 else()
 	if(WITH_GLEW_ES)
 		set(GLEW_INCLUDE_PATH "${CMAKE_SOURCE_DIR}/extern/glew-es/include")
@@ -1311,15 +1307,42 @@ endif()
 # Configure GLog/GFlags
 
 if(WITH_LIBMV OR WITH_GTESTS OR (WITH_CYCLES AND WITH_CYCLES_LOGGING))
-	set(GLOG_DEFINES
-		-DGOOGLE_GLOG_DLL_DECL=
-	)
+	if(WITH_SYSTEM_GFLAGS)
+		find_package(Gflags)
+		if(NOT GFLAGS_FOUND)
+			message(FATAL_ERROR "System wide Gflags is requested but was not found")
+		endif()
+		# FindGflags does not define this, and we are not even sure what to use here.
+		set(GFLAGS_DEFINES)
+	else()
+		set(GFLAGS_DEFINES
+			-DGFLAGS_DLL_DEFINE_FLAG=
+			-DGFLAGS_DLL_DECLARE_FLAG=
+			-DGFLAGS_DLL_DECL=
+		)
+		set(GFLAGS_NAMESPACE "gflags")
+		set(GFLAGS_LIBRARIES extern_gflags)
+		set(GFLAGS_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/extern/gflags/src")
+	endif()
 
-	set(GFLAGS_DEFINES
-		-DGFLAGS_DLL_DEFINE_FLAG=
-		-DGFLAGS_DLL_DECLARE_FLAG=
-		-DGFLAGS_DLL_DECL=
-	)
+	if(WITH_SYSTEM_GLOG)
+		find_package(Glog)
+		if(NOT GLOG_FOUND)
+			message(FATAL_ERROR "System wide Glog is requested but was not found")
+		endif()
+		# FindGlog does not define this, and we are not even sure what to use here.
+		set(GLOG_DEFINES)
+	else()
+		set(GLOG_DEFINES
+			-DGOOGLE_GLOG_DLL_DECL=
+		)
+		set(GLOG_LIBRARIES extern_glog)
+		if(WIN32)
+			set(GLOG_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/extern/glog/src/windows)
+		else()
+			set(GLOG_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/extern/glog/src)
+		endif()
+	endif()
 endif()
 
 #-----------------------------------------------------------------------------

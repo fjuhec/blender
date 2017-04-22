@@ -211,22 +211,21 @@ bool AbcCurveReader::valid() const
 	return m_curves_schema.valid();
 }
 
-void AbcCurveReader::readObjectData(Main *bmain, float time)
+void AbcCurveReader::readObjectData(Main *bmain, const Alembic::Abc::ISampleSelector &sample_sel)
 {
 	Curve *cu = BKE_curve_add(bmain, m_data_name.c_str(), OB_CURVE);
 
 	cu->flag |= CU_DEFORM_FILL | CU_3D;
 	cu->actvert = CU_ACT_NONE;
+	cu->resolu = 1;
 
-	const ISampleSelector sample_sel(time);
 	ICompoundProperty user_props = m_curves_schema.getUserProperties();
-	const PropertyHeader *header = user_props.getPropertyHeader(ABC_CURVE_RESOLUTION_U_PROPNAME);
-	if (header != NULL && header->isScalar() && IInt16Property::matches(*header)) {
-		IInt16Property resolu(user_props, header->getName());
-		cu->resolu = resolu.getValue(sample_sel);
-	}
-	else {
-		cu->resolu = 1;
+	if (user_props) {
+		const PropertyHeader *header = user_props.getPropertyHeader(ABC_CURVE_RESOLUTION_U_PROPNAME);
+		if (header != NULL && header->isScalar() && IInt16Property::matches(*header)) {
+			IInt16Property resolu(user_props, header->getName());
+			cu->resolu = resolu.getValue(sample_sel);
+		}
 	}
 
 	m_object = BKE_object_add_only_object(bmain, OB_CURVE, m_object_name.c_str());
@@ -388,9 +387,11 @@ void read_curve_sample(Curve *cu, const ICurvesSchema &schema, const ISampleSele
  * object directly and create a new DerivedMesh from that. Also we might need to
  * create new or delete existing NURBS in the curve.
  */
-DerivedMesh *AbcCurveReader::read_derivedmesh(DerivedMesh * /*dm*/, const float time, int /*read_flag*/, const char ** /*err_str*/)
+DerivedMesh *AbcCurveReader::read_derivedmesh(DerivedMesh * /*dm*/,
+                                              const ISampleSelector &sample_sel,
+                                              int /*read_flag*/,
+                                              const char ** /*err_str*/)
 {
-	ISampleSelector sample_sel(time);
 	const ICurvesSchema::Sample sample = m_curves_schema.getValue(sample_sel);
 
 	const P3fArraySamplePtr &positions = sample.getPositions();

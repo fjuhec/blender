@@ -65,7 +65,6 @@
 #include "BKE_lattice.h"
 #include "BKE_main.h"
 #include "BKE_mesh.h"
-#include "BKE_mesh_render.h"
 #include "BKE_material.h"
 #include "BKE_mball.h"
 #include "BKE_modifier.h"
@@ -109,6 +108,8 @@
 #include "BLF_api.h"
 
 #include "view3d_intern.h"  /* bad level include */
+
+#include "../../draw/intern/draw_cache_impl.h"  /* bad level include (temporary) */
 
 /* prototypes */
 static void imm_draw_box(const float vec[8][3], bool solid, unsigned pos);
@@ -4111,7 +4112,7 @@ static void draw_em_fancy_new(Scene *UNUSED(scene), ARegion *UNUSED(ar), View3D 
                               Object *UNUSED(ob), Mesh *me, BMEditMesh *UNUSED(em), DerivedMesh *UNUSED(cageDM), DerivedMesh *UNUSED(finalDM), const char UNUSED(dt))
 {
 	/* for now... something simple! */
-	Batch *surface = BKE_mesh_batch_cache_get_all_triangles(me);
+	Batch *surface = DRW_mesh_batch_cache_get_all_triangles(me);
 
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LEQUAL);
@@ -4146,7 +4147,7 @@ static void draw_em_fancy_new(Scene *UNUSED(scene), ARegion *UNUSED(ar), View3D 
 
 	if (GLEW_VERSION_3_2) {
 #if 0
-		Batch *overlay = BKE_mesh_batch_cache_get_overlay_edges(me);
+		Batch *overlay = DRW_mesh_batch_cache_get_overlay_edges(me);
 		Batch_set_builtin_program(overlay, GPU_SHADER_EDGES_OVERLAY);
 		Batch_Uniform2f(overlay, "viewportSize", ar->winx, ar->winy);
 		Batch_draw(overlay);
@@ -4165,7 +4166,7 @@ static void draw_em_fancy_new(Scene *UNUSED(scene), ARegion *UNUSED(ar), View3D 
 #endif
 	}
 	else {
-		Batch *edges = BKE_mesh_batch_cache_get_all_edges(me);
+		Batch *edges = DRW_mesh_batch_cache_get_all_edges(me);
 		Batch_set_builtin_program(edges, GPU_SHADER_3D_UNIFORM_COLOR);
 		Batch_Uniform4f(edges, "color", 0.0f, 0.0f, 0.0f, 1.0f);
 		glEnable(GL_LINE_SMOOTH);
@@ -4227,7 +4228,7 @@ static void draw_mesh_object_outline_new(View3D *v3d, RegionView3D *rv3d, Object
 		UI_GetThemeColor4fv((is_active ? TH_ACTIVE : TH_SELECT), outline_color);
 
 #if 1 /* new version that draws only silhouette edges */
-		Batch *fancy_edges = BKE_mesh_batch_cache_get_fancy_edges(me);
+		Batch *fancy_edges = DRW_mesh_batch_cache_get_fancy_edges(me);
 
 		if (rv3d->persp == RV3D_ORTHO) {
 			Batch_set_builtin_program(fancy_edges, GPU_SHADER_EDGES_FRONT_BACK_ORTHO);
@@ -4751,7 +4752,7 @@ static void draw_mesh_fancy_new(Scene *scene, SceneLayer *sl, ARegion *ar, View3
 
 #if 1 /* fancy wireframes */
 
-		Batch *fancy_edges = BKE_mesh_batch_cache_get_fancy_edges(me);
+		Batch *fancy_edges = DRW_mesh_batch_cache_get_fancy_edges(me);
 
 		if (rv3d->persp == RV3D_ORTHO) {
 			Batch_set_builtin_program(fancy_edges, GPU_SHADER_EDGES_FRONT_BACK_ORTHO);
@@ -7345,14 +7346,20 @@ static void draw_editnurb(
 		glLineWidth(1.0f);
 
 		int count = 0;
+		int count_used = 0;
 		for (bl = ob->curve_cache->bev.first, nu = nurb; nu && bl; bl = bl->next, nu = nu->next) {
 			int nr = bl->nr;
 			int skip = nu->resolu / 16;
-			
+
+#if 0
 			while (nr-- > 0) { /* accounts for empty bevel lists */
 				count += 4;
 				nr -= skip;
 			}
+#else
+			/* Same as loop above */
+			count += 4 * max_ii((nr + max_ii(skip - 1, 0)) / (skip + 1), 0);
+#endif
 		}
 
 		if (count > 2) {
@@ -7361,7 +7368,7 @@ static void draw_editnurb(
 				BevPoint *bevp = bl->bevpoints;
 				int nr = bl->nr;
 				int skip = nu->resolu / 16;
-				
+
 				while (nr-- > 0) { /* accounts for empty bevel lists */
 					const float fac = bevp->radius * ts->normalsize;
 					float vec_a[3]; /* Offset perpendicular to the curve */
@@ -7370,18 +7377,15 @@ static void draw_editnurb(
 					vec_a[0] = fac;
 					vec_a[1] = 0.0f;
 					vec_a[2] = 0.0f;
-
-					vec_b[0] = -fac;
-					vec_b[1] = 0.0f;
-					vec_b[2] = 0.0f;
-
+			
 					mul_qt_v3(bevp->quat, vec_a);
-					mul_qt_v3(bevp->quat, vec_b);
+					madd_v3_v3fl(vec_a, bevp->dir, -fac);
+
+					reflect_v3_v3v3(vec_b, vec_a, bevp->dir);
+					negate_v3(vec_b);
+
 					add_v3_v3(vec_a, bevp->vec);
 					add_v3_v3(vec_b, bevp->vec);
-
-					madd_v3_v3fl(vec_a, bevp->dir, -fac);
-					madd_v3_v3fl(vec_b, bevp->dir, -fac);
 
 					immVertex3fv(pos, vec_a);
 					immVertex3fv(pos, bevp->vec);
@@ -7390,8 +7394,12 @@ static void draw_editnurb(
 
 					bevp += skip + 1;
 					nr -= skip;
+					count_used += 4;
 				}
 			}
+			BLI_assert(count == count_used);
+			UNUSED_VARS_NDEBUG(count_used);
+
 			immEnd();
 		}
 		immUnbindProgram();
@@ -7429,7 +7437,6 @@ static void draw_editfont(Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3
 	Curve *cu = ob->data;
 	EditFont *ef = cu->editfont;
 	float vec1[3], vec2[3];
-	int selstart, selend;
 
 	draw_editfont_textcurs(rv3d, ef->textcurs);
 
@@ -7488,19 +7495,18 @@ static void draw_editfont(Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3
 	setlinestyle(0);
 
 
-	if (BKE_vfont_select_get(ob, &selstart, &selend) && ef->selboxes) {
-		const int seltot = selend - selstart;
+	if (ef->selboxes && ef->selboxes_len) {
 		float selboxw;
 
 		unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 		imm_cpack(0xffffff);
 		set_inverted_drawing(1);
-		for (int i = 0; i <= seltot; i++) {
+		for (int i = 0; i < ef->selboxes_len; i++) {
 			EditFontSelBox *sb = &ef->selboxes[i];
 			float tvec[3];
 
-			if (i != seltot) {
+			if (i + 1 != ef->selboxes_len) {
 				if (ef->selboxes[i + 1].y == sb->y)
 					selboxw = ef->selboxes[i + 1].x - sb->x;
 				else

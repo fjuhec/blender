@@ -485,6 +485,9 @@ EnumPropertyItem rna_enum_layer_collection_mode_settings_type_items[] = {
 #include "ED_keyframing.h"
 #include "ED_image.h"
 
+#include "DEG_depsgraph.h"
+#include "DEG_depsgraph_query.h"
+
 #ifdef WITH_FREESTYLE
 #include "FRS_freestyle.h"
 #endif
@@ -1985,8 +1988,9 @@ static KeyingSet *rna_Scene_keying_set_new(Scene *sce, ReportList *reports, cons
 	}
 }
 
-static void rna_UnifiedPaintSettings_update(Main *UNUSED(bmain), bContext *C, Scene *scene, PointerRNA *UNUSED(ptr))
+static void rna_UnifiedPaintSettings_update(bContext *C, PointerRNA *UNUSED(ptr))
 {
+	Scene *scene = CTX_data_scene(C);
 	SceneLayer *sl = CTX_data_scene_layer(C);
 	Brush *br = BKE_paint_brush(BKE_paint_get_active(scene, sl));
 	WM_main_add_notifier(NC_BRUSH | NA_EDITED, br);
@@ -2011,11 +2015,11 @@ static void rna_UnifiedPaintSettings_unprojected_radius_set(PointerRNA *ptr, flo
 	ups->unprojected_radius = value;
 }
 
-static void rna_UnifiedPaintSettings_radius_update(Main *bmain, bContext *C, Scene *scene, PointerRNA *ptr)
+static void rna_UnifiedPaintSettings_radius_update(bContext *C, PointerRNA *ptr)
 {
 	/* changing the unified size should invalidate the overlay but also update the brush */
 	BKE_paint_invalidate_overlay_all();
-	rna_UnifiedPaintSettings_update(bmain, C, scene, ptr);
+	rna_UnifiedPaintSettings_update(C, ptr);
 }
 
 static char *rna_UnifiedPaintSettings_path(PointerRNA *UNUSED(ptr))
@@ -2055,9 +2059,11 @@ static char *rna_MeshStatVis_path(PointerRNA *UNUSED(ptr))
  * is not for general use and only for the few cases where changing scene
  * settings and NOT for general purpose updates, possibly this should be
  * given its own notifier. */
-static void rna_Scene_update_active_object_data(Main *UNUSED(bmain), Scene *scene, PointerRNA *UNUSED(ptr))
+static void rna_Scene_update_active_object_data(bContext *C, PointerRNA *UNUSED(ptr))
 {
-	Object *ob = OBACT;
+	SceneLayer *sl = CTX_data_scene_layer(C);
+	Object *ob = OBACT_NEW;
+
 	if (ob) {
 		DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 		WM_main_add_notifier(NC_OBJECT | ND_DRAW, &ob->id);
@@ -2628,28 +2634,12 @@ static int rna_LayerCollection_move_into(ID *id, LayerCollection *lc_src, Main *
 	return 1;
 }
 
-static void rna_LayerCollection_hide_update(bContext *C, PointerRNA *UNUSED(ptr))
+static void rna_LayerCollection_flag_update(bContext *C, PointerRNA *UNUSED(ptr))
 {
 	Scene *scene = CTX_data_scene(C);
-
-	/* hide and deselect bases that are directly influenced by this LayerCollection */
 	/* TODO(sergey): Use proper flag for tagging here. */
 	DAG_id_tag_update(&scene->id, 0);
 	WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
-}
-
-static void rna_LayerCollection_hide_select_update(bContext *C, PointerRNA *ptr)
-{
-	LayerCollection *lc = ptr->data;
-
-	if ((lc->flag & COLLECTION_SELECTABLE) == 0) {
-		Scene *scene = CTX_data_scene(C);
-
-		/* deselect bases that are directly influenced by this LayerCollection */
-		/* TODO(sergey): Use proper flag for tagging here. */
-		DAG_id_tag_update(&scene->id, 0);
-		WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, CTX_data_scene(C));
-	}
 }
 
 static int rna_LayerCollections_active_collection_index_get(PointerRNA *ptr)
@@ -2839,12 +2829,14 @@ static int rna_SceneLayer_multiple_engines_get(PointerRNA *UNUSED(ptr))
 	return (BLI_listbase_count(&R_engines) > 1);
 }
 
-static void rna_SceneLayer_update_tagged(SceneLayer *sl)
+static void rna_SceneLayer_update_tagged(SceneLayer *UNUSED(sl), bContext *C)
 {
-	DEG_OBJECT_ITER(sl, ob)
+	Depsgraph *graph = CTX_data_depsgraph(C);
+	DEG_OBJECT_ITER(graph, ob)
 	{
 		/* Don't do anything, we just need to run the iterator to flush
 		 * the base info to the objects. */
+		UNUSED_VARS(ob);
 	}
 	DEG_OBJECT_ITER_END
 }
@@ -3302,6 +3294,7 @@ static void rna_def_tool_settings(BlenderRNA  *brna)
 	RNA_def_property_ui_text(prop, "Sculpt", "");
 	
 	prop = RNA_def_property(srna, "use_auto_normalize", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_boolean_sdna(prop, NULL, "auto_normalize", 1);
 	RNA_def_property_ui_text(prop, "WPaint Auto-Normalize",
 	                         "Ensure all bone-deforming vertex groups add up "
@@ -3309,6 +3302,7 @@ static void rna_def_tool_settings(BlenderRNA  *brna)
 	RNA_def_property_update(prop, 0, "rna_Scene_update_active_object_data");
 
 	prop = RNA_def_property(srna, "use_multipaint", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_boolean_sdna(prop, NULL, "multipaint", 1);
 	RNA_def_property_ui_text(prop, "WPaint Multi-Paint",
 	                         "Paint across the weights of all selected bones, "
@@ -3316,12 +3310,14 @@ static void rna_def_tool_settings(BlenderRNA  *brna)
 	RNA_def_property_update(prop, 0, "rna_Scene_update_active_object_data");
 
 	prop = RNA_def_property(srna, "vertex_group_user", PROP_ENUM, PROP_NONE);
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_enum_sdna(prop, NULL, "weightuser");
 	RNA_def_property_enum_items(prop, draw_groupuser_items);
 	RNA_def_property_ui_text(prop, "Mask Non-Group Vertices", "Display unweighted vertices");
 	RNA_def_property_update(prop, 0, "rna_Scene_update_active_object_data");
 
 	prop = RNA_def_property(srna, "vertex_group_subset", PROP_ENUM, PROP_NONE);
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_enum_sdna(prop, NULL, "vgroupsubset");
 	RNA_def_property_enum_items(prop, vertex_group_select_items);
 	RNA_def_property_ui_text(prop, "Subset", "Filter Vertex groups for Display");
@@ -6242,14 +6238,14 @@ static void rna_def_layer_collection(BlenderRNA *brna)
 	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_ui_icon(prop, ICON_RESTRICT_VIEW_OFF, 1);
 	RNA_def_property_ui_text(prop, "Hide", "Restrict visiblity");
-	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_LayerCollection_hide_update");
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_LayerCollection_flag_update");
 
 	prop = RNA_def_property(srna, "hide_select", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_negative_sdna(prop, NULL, "flag", COLLECTION_SELECTABLE);
 	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_ui_icon(prop, ICON_RESTRICT_SELECT_OFF, 1);
 	RNA_def_property_ui_text(prop, "Hide Selectable", "Restrict selection");
-	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_LayerCollection_hide_select_update");
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_LayerCollection_flag_update");
 
 	/* TODO_LAYER_OVERRIDE */
 }
@@ -6381,6 +6377,7 @@ static void rna_def_scene_layer(BlenderRNA *brna)
 
 	/* debug update routine */
 	func = RNA_def_function(srna, "update", "rna_SceneLayer_update_tagged");
+	RNA_def_function_flag(func, FUNC_USE_CONTEXT);
 	RNA_def_function_ui_description(func,
 	                                "Update data tagged to be updated from previous access to data or operators");
 }

@@ -3871,6 +3871,7 @@ static void direct_link_curve(FileData *fd, Curve *cu)
 
 	cu->editnurb = NULL;
 	cu->editfont = NULL;
+	cu->batch_cache = NULL;
 	
 	for (nu = cu->nurb.first; nu; nu = nu->next) {
 		nu->bezt = newdataadr(fd, nu->bezt);

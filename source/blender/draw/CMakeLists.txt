@@ -35,13 +35,14 @@ set(INC
 	../blenkernel
 	../blenlib
 	../blentranslation
-	../imbuf
+	../bmesh
 	../depsgraph
-	../makesdna
-	../makesrna
-	../gpu
 	../editors/include
 	../editors/space_view3d
+	../gpu
+	../imbuf
+	../makesdna
+	../makesrna
 	../render/extern/include
 	../render/intern/include
 	../windowmanager
@@ -60,6 +61,11 @@ set(SRC
 	intern/draw_cache.c
 	intern/draw_view.c
 	intern/draw_armature.c
+
+	intern/draw_cache_impl_curve.c
+	intern/draw_cache_impl_displist.c
+	intern/draw_cache_impl_lattice.c
+	intern/draw_cache_impl_mesh.c
 
 	engines/clay/clay.c
 	engines/clay/clay.h
@@ -92,6 +98,7 @@ set(SRC
 	intern/DRW_render.h
 	intern/draw_common.h
 	intern/draw_cache.h
+	intern/draw_cache_impl.h
 	intern/draw_view.h
 	modes/draw_mode_engines.h
 
@@ -135,6 +142,8 @@ data_to_c_simple(modes/shaders/edit_mesh_overlay_facedot_vert.glsl SRC)
 data_to_c_simple(modes/shaders/edit_mesh_overlay_mix_frag.glsl SRC)
 data_to_c_simple(modes/shaders/edit_mesh_overlay_facefill_vert.glsl SRC)
 data_to_c_simple(modes/shaders/edit_mesh_overlay_facefill_frag.glsl SRC)
+data_to_c_simple(modes/shaders/edit_curve_overlay_frag.glsl SRC)
+data_to_c_simple(modes/shaders/edit_curve_overlay_loosevert_vert.glsl SRC)
 data_to_c_simple(modes/shaders/edit_lattice_overlay_frag.glsl SRC)
 data_to_c_simple(modes/shaders/edit_lattice_overlay_loosevert_vert.glsl SRC)
 data_to_c_simple(modes/shaders/edit_normals_vert.glsl SRC)

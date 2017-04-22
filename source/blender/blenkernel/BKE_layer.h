@@ -131,7 +131,6 @@ void BKE_layer_eval_layer_collection_pre(struct EvaluationContext *eval_ctx,
                                          struct Scene *scene,
                                          struct SceneLayer *scene_layer);
 void BKE_layer_eval_layer_collection(struct EvaluationContext *eval_ctx,
-                                     struct Scene *scene,
                                      struct LayerCollection *layer_collection,
                                      struct LayerCollection *parent_layer_collection);
 void BKE_layer_eval_layer_collection_post(struct EvaluationContext *eval_ctx,
@@ -214,23 +213,6 @@ void BKE_visible_bases_Iterator_end(Iterator *iter);
 
 #define FOREACH_OBJECT_FLAG_END                                               \
 	ITER_END                                                                  \
-}
-
-/* temporary hacky solution waiting for CoW depsgraph implementation */
-#define DEG_OBJECT_ITER(sl_, instance_)                                       \
-{                                                                             \
-	/* flush all the depsgraph data to objects */                             \
-	Object *instance_;                                                        \
-	Base *base_;                                                              \
-	for (base_ = (sl_)->object_bases.first; base_; base_ = base_->next) {     \
-	    if ((base_->flag & BASE_VISIBLED) != 0) {                             \
-	        instance_ = base_->object;                                        \
-	        instance_->base_flag = base_->flag;                               \
-	        instance_->base_collection_properties = base_->collection_properties;
-
-#define DEG_OBJECT_ITER_END                                                   \
-        }                                                                     \
-    }                                                                         \
 }
 
 #ifdef __cplusplus
