@@ -497,8 +497,16 @@ Batch *DRW_cache_gpencil_axes_get(void)
 			VertexBuffer_set_attrib(vbo, pos_id, i + 6, verts[indices[i]]);
 		}
 
+		SHC.drw_gpencil_axes = Batch_create(PRIM_LINES, vbo, NULL);
+	}
+	return SHC.drw_gpencil_axes;
+}
+
+
+/* -------------------------------------------------------------------- */
+
 /** \name Common Object API
- * \{ */
+* \{ */
 
 Batch *DRW_cache_object_surface_get(Object *ob)
 {

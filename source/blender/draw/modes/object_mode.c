@@ -1139,7 +1139,7 @@ static void DRW_shgroup_gpencil(OBJECT_StorageList *stl, Object *ob, SceneLayer 
 	float *color;
 	DRW_object_wire_theme_get(ob, sl, &color);
 
-	DRW_shgroup_dynamic_call_add(stl->g_data->gpencil_axes, color, &ob->empty_drawsize, ob->obmat);
+	DRW_shgroup_call_dynamic_add(stl->g_data->gpencil_axes, color, &ob->empty_drawsize, ob->obmat);
 }
 
 static void DRW_shgroup_speaker(OBJECT_StorageList *stl, Object *ob, SceneLayer *sl)
