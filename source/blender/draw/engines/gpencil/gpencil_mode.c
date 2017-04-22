@@ -27,17 +27,22 @@
 #include "DRW_render.h"
 
 #include "BKE_gpencil.h"
+#include "BKE_image.h"
 #include "ED_gpencil.h"
 
 #include "DNA_gpencil_types.h"
 
  /* If builtin shaders are needed */
 #include "GPU_shader.h"
+#include "GPU_texture.h"
+#include "GPU_glew.h"
 
 #include "draw_common.h"
 
 #include "draw_mode_engines.h"
 #include "gpencil_mode.h"
+
+#include "IMB_imbuf_types.h"
 
 extern char datatoc_gpencil_fill_vert_glsl[];
 extern char datatoc_gpencil_fill_frag_glsl[];
@@ -170,8 +175,34 @@ static DRWShadingGroup *GPENCIL_shgroup_fill_create(GPENCIL_Data *vedata, DRWPas
 
 	/* TODO: image texture */
 	if ((palcolor->fill_style == FILL_STYLE_TEXTURE) || (palcolor->flag & PAC_COLOR_TEX_MIX)) {
-		//gp_set_filling_texture(palcolor->ima, palcolor->flag);
-		DRW_shgroup_uniform_buffer(grp, "myTexture", &txl->texture, 0);
+		ImBuf *ibuf;
+		Image *image = palcolor->ima;
+		unsigned int *bind = &image->bindcode[TEXTARGET_TEXTURE_2D];
+		ImageUser iuser = { NULL };
+		void *lock;
+
+		iuser.ok = true;
+
+		ibuf = BKE_image_acquire_ibuf(image, &iuser, &lock);
+
+		if (ibuf == NULL || ibuf->rect == NULL) {
+			BKE_image_release_ibuf(image, ibuf, NULL);
+		}
+		else {
+			txl->texture = GPU_texture_from_blender(palcolor->ima, &iuser, GL_TEXTURE_2D, true, 0.0, 0);
+			DRW_shgroup_uniform_texture(grp, "myTexture", txl->texture, 0);
+
+			//if (flag & PAC_COLOR_TEX_CLAMP) {
+			//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+			//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+			//}
+			//else {
+			//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+			//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+			//}
+
+			BKE_image_release_ibuf(image, ibuf, NULL);
+		}
 	}
 
 	return grp;
