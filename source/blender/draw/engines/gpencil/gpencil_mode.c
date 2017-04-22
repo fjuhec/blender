@@ -100,7 +100,6 @@ typedef struct g_data{
 static struct {
 	struct GPUShader *gpencil_fill_sh;
 	struct GPUShader *gpencil_stroke_sh;
-	struct GPUShader *gpencil_stroke_2D_sh;
 	struct GPUShader *gpencil_volumetric_sh;
 	struct GPUShader *gpencil_drawing_point_sh;
 	struct GPUShader *gpencil_drawing_fill_sh;
@@ -138,7 +137,6 @@ static void GPENCIL_engine_free(void)
 {
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_fill_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_stroke_sh);
-	DRW_SHADER_FREE_SAFE(e_data.gpencil_stroke_2D_sh);
 }
 
 /* create shading group for filling */
