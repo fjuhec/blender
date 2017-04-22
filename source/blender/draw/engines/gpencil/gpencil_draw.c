@@ -31,6 +31,8 @@
 #include "BLI_polyfill2d.h"
 
 #include "DNA_gpencil_types.h"
+#include "DNA_screen_types.h"
+#include "DNA_view3d_types.h"
 
 #include "BKE_gpencil.h"
 #include "BKE_action.h"
@@ -41,6 +43,7 @@
 #include "GPU_draw.h"
 
 #include "ED_gpencil.h"
+#include "ED_view3d.h"
 
 #include "UI_resources.h"
 
@@ -59,7 +62,7 @@ static void gpencil_set_stroke_point(VertexBuffer *vbo, const bGPDspoint *pt, in
 
 	float thick = max_ff(pt->pressure * thickness, 1.0f);
 	VertexBuffer_set_attrib(vbo, thickness_id, idx, &thick);
-
+	
 	copy_v3_v3(fpt, &pt->x);
 	if (inverse) {
 		mul_v3_fl(fpt, -1.0f);
@@ -117,6 +120,182 @@ Batch *gpencil_get_stroke_geom(bGPDstroke *gps, short thickness, const float ink
 
 	return Batch_create(PRIM_LINE_STRIP_ADJACENCY, vbo, NULL);
 }
+
+/* helper to convert 2d to 3d for simple drawing buffer */
+static void gpencil_stroke_convertcoords(Scene *scene, ARegion *ar, ScrArea *sa, tGPspoint *point2D, float out[3], float *depth)
+{
+	float mval_f[2] = { point2D->x, point2D->y };
+	float mval_prj[2];
+	float rvec[3], dvec[3];
+	float zfac;
+
+	/* Current method just converts each point in screen-coordinates to
+	* 3D-coordinates using the 3D-cursor as reference.
+	*/
+	View3D *v3d = sa->spacedata.first;
+	const float *cursor = ED_view3d_cursor3d_get(scene, v3d);
+	copy_v3_v3(rvec, cursor);
+
+	zfac = ED_view3d_calc_zfac(ar->regiondata, rvec, NULL);
+
+	if (ED_view3d_project_float_global(ar, rvec, mval_prj, V3D_PROJ_TEST_NOP) == V3D_PROJ_RET_OK) {
+		sub_v2_v2v2(mval_f, mval_prj, mval_f);
+		ED_view3d_win_to_delta(ar, mval_f, dvec, zfac);
+		sub_v3_v3v3(out, rvec, dvec);
+	}
+	else {
+		zero_v3(out);
+	}
+}
+
+/* create batch geometry data for current buffer stroke shader */
+Batch *gpencil_get_buffer_stroke_geom(bGPdata *gpd, short thickness)
+{
+	const struct bContext *C = DRW_get_context();
+	Scene *scene = CTX_data_scene(C);
+	ScrArea *sa = CTX_wm_area(C);
+	ARegion *ar = CTX_wm_region(C);
+
+	tGPspoint *points = gpd->sbuffer;
+	int totpoints = gpd->sbuffer_size;
+
+	static VertexFormat format = { 0 };
+	static unsigned int pos_id, color_id, thickness_id;
+	if (format.attrib_ct == 0) {
+		pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
+		color_id = VertexFormat_add_attrib(&format, "color", COMP_F32, 4, KEEP_FLOAT);
+		thickness_id = VertexFormat_add_attrib(&format, "thickness", COMP_F32, 1, KEEP_FLOAT);
+	}
+
+	VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
+	VertexBuffer_allocate_data(vbo, totpoints + 2);
+
+	/* draw stroke curve */
+	const tGPspoint *tpt = points;
+	bGPDspoint pt;
+	int idx = 0;
+	float p3d[3];
+
+	float viewinvmat[4][4];
+	DRW_viewport_matrix_get(viewinvmat, DRW_MAT_VIEWINV);
+
+	for (int i = 0; i < totpoints; i++, tpt++) {
+		/* need conversion to 3d format */
+		gpencil_stroke_convertcoords(scene, ar, sa, tpt, p3d, NULL);
+		copy_v3_v3(&pt.x, p3d);
+		pt.pressure = tpt->pressure;
+		pt.strength = tpt->strength;
+
+		/* first point for adjacency (not drawn) */
+		if (i == 0) {
+			gpencil_set_stroke_point(vbo, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor, true);
+			++idx;
+		}
+		/* set point */
+		gpencil_set_stroke_point(vbo, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor, false);
+		++idx;
+	}
+
+	/* last adjacency point (not drawn) */
+	gpencil_set_stroke_point(vbo, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor, true);
+
+	return Batch_create(PRIM_LINE_STRIP_ADJACENCY, vbo, NULL);
+}
+
+/* create batch geometry data for current buffer fill shader */
+Batch *gpencil_get_buffer_fill_geom(const tGPspoint *points, int totpoints, float ink[4])
+{
+	if (totpoints < 3) {
+		return NULL;
+	}
+
+	const struct bContext *C = DRW_get_context();
+	Scene *scene = CTX_data_scene(C);
+	ScrArea *sa = CTX_wm_area(C);
+	ARegion *ar = CTX_wm_region(C);
+
+	int tot_triangles = totpoints - 2;
+	/* allocate memory for temporary areas */
+	unsigned int(*tmp_triangles)[3] = MEM_mallocN(sizeof(*tmp_triangles) * tot_triangles, "GP Stroke buffer temp triangulation");
+	float(*points2d)[2] = MEM_mallocN(sizeof(*points2d) * totpoints, "GP Stroke buffer temp 2d points");
+
+	/* Convert points to array and triangulate
+	* Here a cache is not used because while drawing the information changes all the time, so the cache
+	* would be recalculated constantly, so it is better to do direct calculation for each function call
+	*/
+	for (int i = 0; i < totpoints; i++) {
+		const tGPspoint *pt = &points[i];
+		points2d[i][0] = pt->x;
+		points2d[i][1] = pt->y;
+	}
+	BLI_polyfill_calc((const float(*)[2])points2d, (unsigned int)totpoints, 0, (unsigned int(*)[3])tmp_triangles);
+
+	static VertexFormat format = { 0 };
+	static unsigned int pos_id, color_id;
+	if (format.attrib_ct == 0) {
+		pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
+		color_id = VertexFormat_add_attrib(&format, "color", COMP_F32, 4, KEEP_FLOAT);
+	}
+
+	VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
+
+	/* draw triangulation data */
+	if (tot_triangles > 0) {
+		VertexBuffer_allocate_data(vbo, tot_triangles * 3);
+
+		const tGPspoint *tpt;
+		bGPDspoint pt;
+
+		int idx = 0;
+		float p3d[3];
+		for (int i = 0; i < tot_triangles; i++) {
+			/* vertex 1 */
+			tpt = &points[tmp_triangles[i][0]];
+			/* need conversion to 3d format */
+			gpencil_stroke_convertcoords(scene, ar, sa, tpt, p3d, NULL);
+			copy_v3_v3(&pt.x, p3d);
+			pt.pressure = tpt->pressure;
+			pt.strength = tpt->strength;
+
+			VertexBuffer_set_attrib(vbo, pos_id, idx, &pt.x);
+			VertexBuffer_set_attrib(vbo, color_id, idx, ink);
+			++idx;
+			/* vertex 2 */
+			tpt = &points[tmp_triangles[i][1]];
+			/* need conversion to 3d format */
+			gpencil_stroke_convertcoords(scene, ar, sa, tpt, p3d, NULL);
+			copy_v3_v3(&pt.x, p3d);
+			pt.pressure = tpt->pressure;
+			pt.strength = tpt->strength;
+
+			VertexBuffer_set_attrib(vbo, pos_id, idx, &pt.x);
+			VertexBuffer_set_attrib(vbo, color_id, idx, ink);
+			++idx;
+			/* vertex 3 */
+			tpt = &points[tmp_triangles[i][2]];
+			/* need conversion to 3d format */
+			gpencil_stroke_convertcoords(scene, ar, sa, tpt, p3d, NULL);
+			copy_v3_v3(&pt.x, p3d);
+			pt.pressure = tpt->pressure;
+			pt.strength = tpt->strength;
+
+			VertexBuffer_set_attrib(vbo, pos_id, idx, &pt.x);
+			VertexBuffer_set_attrib(vbo, color_id, idx, ink);
+			++idx;
+		}
+	}
+
+	/* clear memory */
+	if (tmp_triangles) {
+		MEM_freeN(tmp_triangles);
+	}
+	if (points2d) {
+		MEM_freeN(points2d);
+	}
+
+	return Batch_create(PRIM_TRIANGLES, vbo, NULL);
+}
+
 
 /* Helper for doing all the checks on whether a stroke can be drawn */
 bool gpencil_can_draw_stroke(const bGPDstroke *gps)

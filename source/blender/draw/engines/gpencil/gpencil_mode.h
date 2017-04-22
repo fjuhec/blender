@@ -31,6 +31,8 @@ struct Batch;
 struct Batch *gpencil_get_stroke_geom(struct bGPDstroke *gps, short thickness, const float ink[4]);
 struct Batch *gpencil_get_fill_geom(struct bGPDstroke *gps, const float color[4]);
 struct Batch *gpencil_get_edit_geom(struct bGPDstroke *gps, float alpha, short dflag);
+struct Batch *gpencil_get_buffer_stroke_geom(struct bGPdata *gpd, short thickness);
+struct Batch *gpencil_get_buffer_fill_geom(const struct tGPspoint *points, int totpoints, float ink[4]);
 
 bool gpencil_can_draw_stroke(const struct bGPDstroke *gps);
 
