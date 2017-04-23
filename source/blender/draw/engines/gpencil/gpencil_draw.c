@@ -18,7 +18,7 @@
  * The Original Code is Copyright (C) 2008, Blender Foundation
  * This is a new part of Blender
  *
- * Contributor(s): Joshua Leung, Antonio Vazquez
+ * Contributor(s): Antonio Vazquez
  *
  * ***** END GPL LICENSE BLOCK *****
  */
@@ -68,6 +68,33 @@ static void gpencil_set_stroke_point(VertexBuffer *vbo, const bGPDspoint *pt, in
 		mul_v3_fl(fpt, -1.0f);
 	}
 	VertexBuffer_set_attrib(vbo, pos_id, idx, fpt);
+}
+
+/* create batch geometry data for one point stroke shader */
+Batch *gpencil_get_point_geom(bGPDspoint *pt, short thickness, const float ink[4])
+{
+	static VertexFormat format = { 0 };
+	static unsigned int pos_id, color_id, size_id;
+	if (format.attrib_ct == 0) {
+		pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
+		color_id = VertexFormat_add_attrib(&format, "color", COMP_F32, 4, KEEP_FLOAT);
+		size_id = VertexFormat_add_attrib(&format, "size", COMP_F32, 1, KEEP_FLOAT);
+	}
+
+	VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
+	VertexBuffer_allocate_data(vbo, 1);
+
+	float alpha = ink[3] * pt->strength;
+	CLAMP(alpha, GPENCIL_STRENGTH_MIN, 1.0f);
+	float col[4] = { ink[0], ink[1], ink[2], alpha };
+	VertexBuffer_set_attrib(vbo, color_id, 0, col);
+
+	float thick = max_ff(pt->pressure * thickness, 1.0f);
+	VertexBuffer_set_attrib(vbo, size_id, 0, &thick);
+
+	VertexBuffer_set_attrib(vbo, pos_id, 0, &pt->x);
+
+	return Batch_create(PRIM_POINTS, vbo, NULL);
 }
 
 /* create batch geometry data for stroke shader */
@@ -147,6 +174,8 @@ static void gpencil_stroke_convertcoords(Scene *scene, ARegion *ar, ScrArea *sa,
 		zero_v3(out);
 	}
 }
+
+/* convert 2d tGPspoint to 3d bGPDspoint */
 void gpencil_tpoint_to_point(Scene *scene, ARegion *ar, ScrArea *sa, const tGPspoint *tpt, bGPDspoint *pt)
 {
 	float p3d[3];
@@ -156,6 +185,46 @@ void gpencil_tpoint_to_point(Scene *scene, ARegion *ar, ScrArea *sa, const tGPsp
 
 	pt->pressure = tpt->pressure;
 	pt->strength = tpt->strength;
+}
+
+/* create batch geometry data for current buffer for one point stroke shader */
+Batch *gpencil_get_buffer_point_geom(bGPdata *gpd, short thickness)
+{
+	const struct bContext *C = DRW_get_context();
+	Scene *scene = CTX_data_scene(C);
+	ScrArea *sa = CTX_wm_area(C);
+	ARegion *ar = CTX_wm_region(C);
+
+	const tGPspoint *tpt = gpd->sbuffer;
+	bGPDspoint pt;
+	float ink[4];
+	copy_v4_v4(ink, gpd->scolor);
+
+	static VertexFormat format = { 0 };
+	static unsigned int pos_id, color_id, size_id;
+	if (format.attrib_ct == 0) {
+		pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
+		color_id = VertexFormat_add_attrib(&format, "color", COMP_F32, 4, KEEP_FLOAT);
+		size_id = VertexFormat_add_attrib(&format, "size", COMP_F32, 1, KEEP_FLOAT);
+	}
+
+	VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
+	VertexBuffer_allocate_data(vbo, 1);
+	
+	/* convert to 3D */
+	gpencil_tpoint_to_point(scene, ar, sa, tpt, &pt);
+
+	float alpha = ink[3] * pt.strength;
+	CLAMP(alpha, GPENCIL_STRENGTH_MIN, 1.0f);
+	float col[4] = { ink[0], ink[1], ink[2], alpha };
+	VertexBuffer_set_attrib(vbo, color_id, 0, col);
+
+	float thick = max_ff(pt.pressure * thickness, 1.0f);
+	VertexBuffer_set_attrib(vbo, size_id, 0, &thick);
+
+	VertexBuffer_set_attrib(vbo, pos_id, 0, &pt.x);
+
+	return Batch_create(PRIM_POINTS, vbo, NULL);
 }
 
 /* create batch geometry data for current buffer stroke shader */

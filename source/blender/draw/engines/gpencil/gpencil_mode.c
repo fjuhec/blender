@@ -98,6 +98,7 @@ typedef struct GPENCIL_Data {
 /* *********** STATIC *********** */
 typedef struct g_data{
 	DRWShadingGroup *shgrps_edit_volumetric;
+	DRWShadingGroup *shgrps_point_volumetric;
 	DRWShadingGroup *shgrps_drawing_stroke;
 	DRWShadingGroup *shgrps_drawing_fill;
 } g_data; /* Transient data */
@@ -106,7 +107,6 @@ static struct {
 	struct GPUShader *gpencil_fill_sh;
 	struct GPUShader *gpencil_stroke_sh;
 	struct GPUShader *gpencil_volumetric_sh;
-	struct GPUShader *gpencil_drawing_point_sh;
 	struct GPUShader *gpencil_drawing_fill_sh;
 } e_data = {NULL}; /* Engine data */
 
@@ -118,18 +118,21 @@ static void GPENCIL_engine_init(void *vedata)
 	GPENCIL_FramebufferList *fbl = ((GPENCIL_Data *)vedata)->fbl;
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 
+	/* normal fill shader */
 	e_data.gpencil_fill_sh = DRW_shader_create(datatoc_gpencil_fill_vert_glsl, NULL,
 											   datatoc_gpencil_fill_frag_glsl,
 											   NULL);
+
+	/* normal stroke shader using geometry to display lines */
 	e_data.gpencil_stroke_sh = DRW_shader_create(datatoc_gpencil_stroke_vert_glsl, 
 												 datatoc_gpencil_stroke_geom_glsl,
 												 datatoc_gpencil_stroke_frag_glsl,
 												 NULL);
 
+	/* used for edit points or strokes with one point only */
 	e_data.gpencil_volumetric_sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_POINT_VARYING_SIZE_VARYING_COLOR);
 
-	e_data.gpencil_drawing_point_sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_POINT_FIXED_SIZE_VARYING_COLOR);
-
+	/* used to filling during drawing */
 	e_data.gpencil_drawing_fill_sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_SMOOTH_COLOR);
 
 	if (!stl->storage) {
@@ -173,7 +176,7 @@ static DRWShadingGroup *GPENCIL_shgroup_fill_create(GPENCIL_Data *vedata, DRWPas
 	stl->storage->t_flip[id] = palcolor->flag & PAC_COLOR_FLIP_FILL ? 1 : 0;
 	DRW_shgroup_uniform_int(grp, "t_flip", &stl->storage->t_flip[id], 1);
 
-	/* TODO: image texture */
+	/* image texture */
 	if ((palcolor->fill_style == FILL_STYLE_TEXTURE) || (palcolor->flag & PAC_COLOR_TEX_MIX)) {
 		ImBuf *ibuf;
 		Image *image = palcolor->ima;
@@ -192,6 +195,7 @@ static DRWShadingGroup *GPENCIL_shgroup_fill_create(GPENCIL_Data *vedata, DRWPas
 			txl->texture = GPU_texture_from_blender(palcolor->ima, &iuser, GL_TEXTURE_2D, true, 0.0, 0);
 			DRW_shgroup_uniform_texture(grp, "myTexture", txl->texture, 0);
 
+			// TODO: How apply these parameters
 			//if (flag & PAC_COLOR_TEX_CLAMP) {
 			//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
 			//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
@@ -208,6 +212,17 @@ static DRWShadingGroup *GPENCIL_shgroup_fill_create(GPENCIL_Data *vedata, DRWPas
 	return grp;
 }
 
+/* create shading group for volumetric points */
+static DRWShadingGroup *GPENCIL_shgroup_point_volumetric_create(GPENCIL_Data *vedata, DRWPass *pass)
+{
+	GPENCIL_TextureList *txl = ((GPENCIL_Data *)vedata)->txl;
+	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
+
+	DRWShadingGroup *grp = DRW_shgroup_create(e_data.gpencil_volumetric_sh, pass);
+
+	return grp;
+}
+
 /* create shading group for strokes */
 static DRWShadingGroup *GPENCIL_shgroup_stroke_create(GPENCIL_Data *vedata, DRWPass *pass, PaletteColor *palcolor)
 {
@@ -219,7 +234,7 @@ static DRWShadingGroup *GPENCIL_shgroup_stroke_create(GPENCIL_Data *vedata, DRWP
 	return grp;
 }
 
-/* create shading group for volumetric */
+/* create shading group for edit points using volumetric */
 static DRWShadingGroup *GPENCIL_shgroup_edit_volumetric_create(GPENCIL_Data *vedata, DRWPass *pass)
 {
 	GPENCIL_TextureList *txl = ((GPENCIL_Data *)vedata)->txl;
@@ -230,7 +245,7 @@ static DRWShadingGroup *GPENCIL_shgroup_edit_volumetric_create(GPENCIL_Data *ved
 	return grp;
 }
 
-/* create shading group for drawing strokes */
+/* create shading group for drawing strokes in buffer */
 static DRWShadingGroup *GPENCIL_shgroup_drawing_stroke_create(GPENCIL_Data *vedata, DRWPass *pass, PaletteColor *palcolor)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
@@ -240,7 +255,7 @@ static DRWShadingGroup *GPENCIL_shgroup_drawing_stroke_create(GPENCIL_Data *veda
 	return grp;
 }
 
-/* create shading group for drawing fill */
+/* create shading group for drawing fill in buffer */
 static DRWShadingGroup *GPENCIL_shgroup_drawing_fill_create(GPENCIL_Data *vedata, DRWPass *pass, PaletteColor *palcolor)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
@@ -275,6 +290,7 @@ static void GPENCIL_cache_init(void *vedata)
 		memset(stl->storage->shgrps_fill, 0, sizeof(DRWShadingGroup *) * MAX_GPENCIL_MAT);
 		memset(stl->storage->shgrps_stroke, 0, sizeof(DRWShadingGroup *) * MAX_GPENCIL_MAT);
 		memset(stl->storage->materials, 0, sizeof(PaletteColor *) * MAX_GPENCIL_MAT);
+		stl->g_data->shgrps_point_volumetric = GPENCIL_shgroup_point_volumetric_create(vedata, psl->stroke_pass);
 
 		/* edit pass */
 		psl->edit_pass = DRW_pass_create("Gpencil Edit Pass", state);
@@ -300,6 +316,7 @@ static int GPENCIL_shgroup_find(GPENCIL_Storage *storage, PaletteColor *palcolor
 	return -1;
 }
 
+/* main function to draw strokes */
 static void gpencil_draw_strokes(void *vedata, ToolSettings *ts, Object *ob,
 	bGPDlayer *gpl, bGPDframe *gpf,
 	const float opacity, const float tintcolor[4], const bool onion, const bool custonion)
@@ -338,18 +355,19 @@ static void gpencil_draw_strokes(void *vedata, ToolSettings *ts, Object *ob,
 			continue;
 		}
 		/* try to find shader group or create a new one */
-		int id = GPENCIL_shgroup_find(stl->storage, gps->palcolor);
-		if (id == -1) {
-			id = stl->storage->pal_id;
-			stl->storage->materials[id] = gps->palcolor;
-			stl->storage->shgrps_fill[id] = GPENCIL_shgroup_fill_create(vedata, psl->fill_pass, gps->palcolor, id);
-			stl->storage->shgrps_stroke[id] = GPENCIL_shgroup_stroke_create(vedata, psl->stroke_pass, gps->palcolor);
-			++stl->storage->pal_id;
+		if (gps->totpoints > 1) {
+			int id = GPENCIL_shgroup_find(stl->storage, gps->palcolor);
+			if (id == -1) {
+				id = stl->storage->pal_id;
+				stl->storage->materials[id] = gps->palcolor;
+				stl->storage->shgrps_fill[id] = GPENCIL_shgroup_fill_create(vedata, psl->fill_pass, gps->palcolor, id);
+				stl->storage->shgrps_stroke[id] = GPENCIL_shgroup_stroke_create(vedata, psl->stroke_pass, gps->palcolor);
+				++stl->storage->pal_id;
+			}
+
+			fillgrp = stl->storage->shgrps_fill[id];
+			strokegrp = stl->storage->shgrps_stroke[id];
 		}
-
-		fillgrp = stl->storage->shgrps_fill[id];
-		strokegrp = stl->storage->shgrps_stroke[id];
-
 		/* fill */
 		if (gps->totpoints >= 3) {
 			float tfill[4];
@@ -393,10 +411,15 @@ static void gpencil_draw_strokes(void *vedata, ToolSettings *ts, Object *ob,
 		}
 		short sthickness = gps->thickness + gpl->thickness;
 		if (sthickness > 0) {
-			struct Batch *stroke_geom = gpencil_get_stroke_geom(gps, sthickness, ink);
-			DRW_shgroup_call_add(strokegrp, stroke_geom, gpf->matrix);
+			if (gps->totpoints > 1) {
+				struct Batch *stroke_geom = gpencil_get_stroke_geom(gps, sthickness, ink);
+				DRW_shgroup_call_add(strokegrp, stroke_geom, gpf->matrix);
+			}
+			else if (gps->totpoints == 1) {
+				struct Batch *point_geom = gpencil_get_point_geom(gps->points, sthickness, ink);
+				DRW_shgroup_call_add(stl->g_data->shgrps_point_volumetric, point_geom, gpf->matrix);
+			}
 		}
-
 		/* edit points (only in edit mode) */
 		if (!onion) {
 			if ((gpl->flag & GP_LAYER_LOCKED) == 0 && (gpd->flag & GP_DATA_STROKE_EDITMODE))
@@ -421,6 +444,7 @@ static void gpencil_draw_strokes(void *vedata, ToolSettings *ts, Object *ob,
 	}
 }
 
+/* draw stroke in drawing buffer */
 static void gpencil_draw_buffer_strokes(void *vedata, ToolSettings *ts, Object *ob)
 {
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
@@ -441,13 +465,15 @@ static void gpencil_draw_buffer_strokes(void *vedata, ToolSettings *ts, Object *
 			* i.e. tGPspoints NOT bGPDspoints
 			*/
 			short lthick = brush->thickness;
+			static float matrix[4][4];
+			unit_m4(matrix);
+
 			if (gpd->sbuffer_size == 1) {
-				return;
+				struct Batch *point_geom = gpencil_get_buffer_point_geom(gpd, lthick);
+				DRW_shgroup_call_add(stl->g_data->shgrps_point_volumetric, point_geom, matrix);
 			}
 			else {
 				/* use unit matrix because the buffer is in screen space and does not need conversion */
-				static float matrix[4][4];
-				unit_m4(matrix);
 				struct Batch *drawing_stroke_geom = gpencil_get_buffer_stroke_geom(gpd, lthick);
 				DRW_shgroup_call_add(stl->g_data->shgrps_drawing_stroke, drawing_stroke_geom, matrix);
 
@@ -458,7 +484,6 @@ static void gpencil_draw_buffer_strokes(void *vedata, ToolSettings *ts, Object *
 			}
 		}
 	}
-
 }
 
 /* draw onion-skinning for a layer */
@@ -582,11 +607,10 @@ static void GPENCIL_draw_scene(void *vedata)
 	DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
 
 	UNUSED_VARS(fbl, dfbl, dtxl);
-	if (stl->storage->pal_id > 0) {
-		DRW_draw_pass(psl->fill_pass);
-		DRW_draw_pass(psl->stroke_pass);
-		DRW_draw_pass(psl->edit_pass);
-	}
+
+	DRW_draw_pass(psl->fill_pass);
+	DRW_draw_pass(psl->stroke_pass);
+	DRW_draw_pass(psl->edit_pass);
 	/* current buffer */
 	DRW_draw_pass(psl->drawing_pass);
 }
