@@ -72,7 +72,6 @@ typedef struct GPENCIL_StorageList {
 /* keep it under MAX_PASSES */
 typedef struct GPENCIL_PassList {
 	struct DRWPass *stroke_pass;
-	struct DRWPass *fill_pass;
 	struct DRWPass *edit_pass;
 	struct DRWPass *drawing_pass;
 } GPENCIL_PassList;
@@ -283,9 +282,8 @@ static void GPENCIL_cache_init(void *vedata)
 
 	{
 		/* Stroke pass */
-		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND ;
+		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH;
 		psl->stroke_pass = DRW_pass_create("Gpencil Stroke Pass", state);
-		psl->fill_pass = DRW_pass_create("Gpencil Fill Pass", state);
 		stl->storage->pal_id = 0;
 		memset(stl->storage->shgrps_fill, 0, sizeof(DRWShadingGroup *) * MAX_GPENCIL_MAT);
 		memset(stl->storage->shgrps_stroke, 0, sizeof(DRWShadingGroup *) * MAX_GPENCIL_MAT);
@@ -360,7 +358,7 @@ static void gpencil_draw_strokes(void *vedata, ToolSettings *ts, Object *ob,
 			if (id == -1) {
 				id = stl->storage->pal_id;
 				stl->storage->materials[id] = gps->palcolor;
-				stl->storage->shgrps_fill[id] = GPENCIL_shgroup_fill_create(vedata, psl->fill_pass, gps->palcolor, id);
+				stl->storage->shgrps_fill[id] = GPENCIL_shgroup_fill_create(vedata, psl->stroke_pass, gps->palcolor, id);
 				stl->storage->shgrps_stroke[id] = GPENCIL_shgroup_stroke_create(vedata, psl->stroke_pass, gps->palcolor);
 				++stl->storage->pal_id;
 			}
@@ -608,7 +606,6 @@ static void GPENCIL_draw_scene(void *vedata)
 
 	UNUSED_VARS(fbl, dfbl, dtxl);
 
-	DRW_draw_pass(psl->fill_pass);
 	DRW_draw_pass(psl->stroke_pass);
 	DRW_draw_pass(psl->edit_pass);
 	/* current buffer */
