@@ -299,16 +299,16 @@ public:
 		return -1;
 	}
 
-	void map_neighbor_tiles(Device * sub_device, RenderTile * tiles)
+	void map_neighbor_tiles(Device *sub_device, RenderTile *tiles)
 	{
 		for(int i = 0; i < 9; i++) {
 			if(!tiles[i].buffers) {
 				continue;
 			}
-			/* If the tile isn't already allocated on the current device,
-			 * allocate and copy it now.
-			 * Note that this temporarily modifies the RenderBuffers,
-			 * so this function is not threadsafe. */
+			/* If the tile was rendered on another device, copy its memory to
+			 * to the current device now, for the duration of the denoising task.
+			 * Note that this temporarily modifies the RenderBuffers and calls
+			 * the device, so this function is not thread safe. */
 			if(tiles[i].buffers->device != sub_device) {
 				device_vector<float> &mem = tiles[i].buffers->buffer;
 

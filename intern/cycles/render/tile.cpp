@@ -142,7 +142,6 @@ void TileManager::reset(BufferParams& params_, int num_samples_)
 	set_samples(num_samples_);
 
 	state.buffer = BufferParams();
-	state.global_buffers = NULL;
 	state.sample = range_start_sample - 1;
 	state.num_tiles = 0;
 	state.num_samples = 0;
@@ -250,7 +249,7 @@ int TileManager::gen_tiles(bool sliced)
 					int h = min(tile_size.y, image_h - pos.y);
 					int2 ipos = pos / tile_size;
 					int idx = ipos.y*tile_w + ipos.x;
-					state.tiles[idx] = Tile(idx, pos.x, pos.y, w, h, cur_device, Tile::RENDER, state.global_buffers);
+					state.tiles[idx] = Tile(idx, pos.x, pos.y, w, h, cur_device, Tile::RENDER);
 					tile_list->push_front(idx);
 					cur_tiles++;
 
@@ -316,7 +315,7 @@ int TileManager::gen_tiles(bool sliced)
 				int w = (tile_x == tile_w-1)? image_w - x: tile_size.x;
 				int h = (tile_y == tile_h-1)? slice_h - y: tile_size.y;
 
-				state.tiles.push_back(Tile(idx, x, y + slice_y, w, h, sliced? slice: cur_device, Tile::RENDER, state.global_buffers));
+				state.tiles.push_back(Tile(idx, x, y + slice_y, w, h, sliced? slice: cur_device, Tile::RENDER));
 				tile_list->push_back(idx);
 
 				if(!sliced) {
@@ -359,16 +358,43 @@ void TileManager::set_tiles()
 	state.buffer.full_height = max(1, params.full_height/resolution);
 }
 
-/* Returns whether the tile should be written (and freed if no denoising is used) instead of updating. */
-bool TileManager::return_tile(int index, bool &delete_tile)
+int TileManager::get_neighbor_index(int index, int neighbor)
 {
+	static const int dx[] = {-1, 0, 1, -1, 1, -1, 0, 1, 0}, dy[] = {-1, -1, -1, 0, 0, 1, 1, 1, 0};
+
 	int resolution = state.resolution_divider;
 	int image_w = max(1, params.width/resolution);
 	int image_h = max(1, params.height/resolution);
 	int tile_w = (tile_size.x >= image_w)? 1: (image_w + tile_size.x - 1)/tile_size.x;
 	int tile_h = (tile_size.y >= image_h)? 1: (image_h + tile_size.y - 1)/tile_size.y;
-	int dx[] = {-1, 0, 1, -1, 1, -1, 0, 1, 0}, dy[] = {-1, -1, -1, 0, 0, 1, 1, 1, 0};
 
+	int nx = state.tiles[index].x/tile_size.x + dx[neighbor], ny = state.tiles[index].y/tile_size.y + dy[neighbor];
+	if(nx < 0 || ny < 0 || nx >= tile_w || ny >= tile_h)
+		return -1;
+
+	return ny*state.tile_stride + nx;
+}
+
+/* Checks whether all neighbors of a tile (as well as the tile itself) are at least at state min_state. */
+bool TileManager::check_neighbor_state(int index, Tile::State min_state)
+{
+	if(index < 0 || state.tiles[index].state < min_state) {
+		return false;
+	}
+	for(int neighbor = 0; neighbor < 9; neighbor++) {
+		int nindex = get_neighbor_index(index, neighbor);
+		/* Out-of-bounds tiles don't matter. */
+		if(nindex >= 0 && state.tiles[nindex].state < min_state) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+/* Returns whether the tile should be written (and freed if no denoising is used) instead of updating. */
+bool TileManager::finish_tile(int index, bool &delete_tile)
+{
 	delete_tile = false;
 
 	switch(state.tiles[index].state) {
@@ -381,25 +407,9 @@ bool TileManager::return_tile(int index, bool &delete_tile)
 			}
 			state.tiles[index].state = Tile::RENDERED;
 			/* For each neighbor and the tile itself, check whether all of its neighbors have been rendered. If yes, it can be denoised. */
-			for(int n = 0; n < 9; n++) {
-				int nx = state.tiles[index].x/tile_size.x + dx[n], ny = state.tiles[index].y/tile_size.y + dy[n];
-				if(nx < 0 || ny < 0 || nx >= tile_w || ny >= tile_h)
-					continue;
-				int nindex = ny*state.tile_stride + nx;
-				if(state.tiles[nindex].state != Tile::RENDERED)
-					continue;
-				bool can_be_denoised = true;
-				for(int nn = 0; nn < 8; nn++) {
-					int nnx = state.tiles[nindex].x/tile_size.x + dx[nn], nny = state.tiles[nindex].y/tile_size.y + dy[nn];
-					if(nnx < 0 || nny < 0 || nnx >= tile_w || nny >= tile_h)
-						continue;
-					int nnindex = nny*state.tile_stride + nnx;
-					if(state.tiles[nnindex].state < Tile::RENDERED) {
-						can_be_denoised = false;
-						break;
-					}
-				}
-				if(can_be_denoised) {
+			for(int neighbor = 0; neighbor < 9; neighbor++) {
+				int nindex = get_neighbor_index(index, neighbor);
+				if(check_neighbor_state(nindex, Tile::RENDERED)) {
 					state.tiles[nindex].state = Tile::DENOISE;
 					state.denoising_tiles[state.tiles[nindex].device].push_back(nindex);
 				}
@@ -410,29 +420,13 @@ bool TileManager::return_tile(int index, bool &delete_tile)
 		{
 			state.tiles[index].state = Tile::DENOISED;
 			/* For each neighbor and the tile itself, check whether all of its neighbors have been denoised. If yes, it can be freed. */
-			for(int n = 0; n < 9; n++) {
-				int nx = state.tiles[index].x/tile_size.x + dx[n], ny = state.tiles[index].y/tile_size.y + dy[n];
-				if(nx < 0 || ny < 0 || nx >= tile_w || ny >= tile_h)
-					continue;
-				int nindex = ny*state.tile_stride + nx;
-				if(state.tiles[nindex].state != Tile::DENOISED)
-					continue;
-				bool can_be_freed = true;
-				for(int nn = 0; nn < 8; nn++) {
-					int nnx = state.tiles[nindex].x/tile_size.x + dx[nn], nny = state.tiles[nindex].y/tile_size.y + dy[nn];
-					if(nnx < 0 || nny < 0 || nnx >= tile_w || nny >= tile_h)
-						continue;
-					int nnindex = nny*state.tile_stride + nnx;
-					if(state.tiles[nnindex].state < Tile::DENOISED) {
-						can_be_freed = false;
-						break;
-					}
-				}
-				if(can_be_freed) {
+			for(int neighbor = 0; neighbor < 9; neighbor++) {
+				int nindex = get_neighbor_index(index, neighbor);
+				if(check_neighbor_state(nindex, Tile::DENOISED)) {
 					state.tiles[nindex].state = Tile::DONE;
 					/* It can happen that the tile just finished denoising and already can be freed here.
-					 * However, in that case it still has to be written before deleting, so we can't delete it here. */
-					if(n == 8) {
+					 * However, in that case it still has to be written before deleting, so we can't delete it yet. */
+					if(neighbor == 8) {
 						delete_tile = true;
 					}
 					else {

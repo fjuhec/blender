@@ -59,8 +59,9 @@ public:
 
 	bool use_denoising;
 	int denoising_radius;
-	float denoising_k2;
-	float denoising_pca;
+	float denoising_strength;
+	float denoising_feature_strength;
+	bool denoising_relative_pca;
 
 	double cancel_timeout;
 	double reset_timeout;
@@ -73,7 +74,6 @@ public:
 	{
 		background = false;
 		progressive_refine = false;
-
 		output_path = "";
 
 		progressive = false;
@@ -84,12 +84,12 @@ public:
 		threads = 0;
 
 		use_denoising = false;
+		denoising_radius = 8;
+		denoising_strength = 0.0f;
+		denoising_feature_strength = 0.0f;
+		denoising_relative_pca = false;
 
 		display_buffer_linear = false;
-
-		denoising_radius = 8;
-		denoising_k2 = 0.5f;
-		denoising_pca = false;
 
 		cancel_timeout = 0.1;
 		reset_timeout = 0.1;
@@ -113,8 +113,9 @@ public:
 		&& threads == params.threads
 		&& use_denoising == params.use_denoising
 		&& denoising_radius == params.denoising_radius
-		&& denoising_k2 == params.denoising_k2
-		&& denoising_pca == params.denoising_pca
+		&& denoising_strength == params.denoising_strength
+		&& denoising_feature_strength == params.denoising_feature_strength
+		&& denoising_relative_pca == params.denoising_relative_pca
 		&& display_buffer_linear == params.display_buffer_linear
 		&& cancel_timeout == params.cancel_timeout
 		&& reset_timeout == params.reset_timeout
@@ -193,8 +194,8 @@ protected:
 	void update_tile_sample(RenderTile& tile);
 	void release_tile(RenderTile& tile);
 
-	void get_neighbor_tiles(RenderTile *tiles, Device *tile_device);
-	void release_neighbor_tiles(RenderTile *tiles, Device *tile_device);
+	void map_neighbor_tiles(RenderTile *tiles, Device *tile_device);
+	void unmap_neighbor_tiles(RenderTile *tiles, Device *tile_device);
 
 	bool device_use_gl;
 
@@ -221,7 +222,7 @@ protected:
 	double last_update_time;
 	bool update_progressive_refine(bool cancel);
 
-	vector<RenderTile> tile_buffers;
+	vector<RenderTile> render_tiles;
 
 	DeviceRequestedFeatures get_requested_device_features();
 

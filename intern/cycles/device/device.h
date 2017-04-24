@@ -220,6 +220,7 @@ struct DeviceDrawParams {
 };
 
 class Device {
+	friend class device_sub_ptr;
 protected:
 	Device(DeviceInfo& info_, Stats &stats_, bool background) : background(background), vertex_buffer(0), info(info_), stats(stats_) {}
 
@@ -228,6 +229,14 @@ protected:
 
 	/* used for real time display */
 	unsigned int vertex_buffer;
+
+	virtual device_ptr mem_alloc_sub_ptr(device_memory& /*mem*/, int /*offset*/, int /*size*/, MemoryType /*type*/)
+	{
+		/* Only required for devices that implement denoising. */
+		assert(false);
+		return (device_ptr) 0;
+	}
+	virtual void mem_free_sub_ptr(device_ptr /*ptr*/) {};
 
 public:
 	virtual ~Device();
@@ -257,14 +266,7 @@ public:
 	virtual void mem_zero(device_memory& mem) = 0;
 	virtual void mem_free(device_memory& mem) = 0;
 
-	virtual int mem_get_offset_alignment() { return 1; }
-	virtual device_ptr mem_get_offset_ptr(device_memory& /*mem*/, int /*offset*/, int /*size*/, MemoryType /*type*/)
-	{
-		/* Only required for devices that implement denoising. */
-		assert(false);
-		return (device_ptr) 0;
-	}
-	virtual void mem_free_offset_ptr(device_ptr /*ptr*/) {};
+	virtual int mem_address_alignment() { return 16; }
 
 	/* constant memory */
 	virtual void const_copy_to(const char *name, void *host, size_t size) = 0;

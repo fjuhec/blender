@@ -23,8 +23,13 @@ CCL_NAMESPACE_BEGIN
 void DenoisingTask::init_from_devicetask(const DeviceTask &task)
 {
 	radius = task.denoising_radius;
-	nlm_k_2 = task.denoising_k2;
-	pca_threshold = task.denoising_pca;
+	nlm_k_2 = powf(2.0f, task.denoising_strength - 1.0f);
+	if(task.denoising_relative_pca) {
+		pca_threshold = -powf(10.0f, task.denoising_feature_strength - 4.0f);
+	}
+	else {
+		pca_threshold = powf(10.0f, task.denoising_feature_strength - 1.0f);
+	}
 
 	render_buffer.pass_stride = task.pass_stride;
 	render_buffer.denoising_data_offset  = task.pass_denoising_data;
@@ -69,7 +74,7 @@ bool DenoisingTask::run_denoising()
 	buffer.passes = 14;
 	buffer.w = align_up(rect.z - rect.x, 4);
 	buffer.h = rect.w - rect.y;
-	buffer.pass_stride = align_up(buffer.w * buffer.h, device->mem_get_offset_alignment());
+	buffer.pass_stride = align_up(buffer.w * buffer.h, divide_up(device->mem_address_alignment(), sizeof(float)));
 	buffer.mem.resize(buffer.pass_stride * buffer.passes);
 	device->mem_alloc("Denoising Pixel Buffer", buffer.mem, MEM_READ_WRITE);
 
@@ -77,15 +82,15 @@ bool DenoisingTask::run_denoising()
 
 	/* Prefilter shadow feature. */
 	{
-		offset_ptr unfiltered_a   (device, buffer.mem, 0,                    buffer.pass_stride, MEM_READ_WRITE);
-		offset_ptr unfiltered_b   (device, buffer.mem, 1*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
-		offset_ptr sample_var     (device, buffer.mem, 2*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
-		offset_ptr sample_var_var (device, buffer.mem, 3*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
-		offset_ptr buffer_var     (device, buffer.mem, 5*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
-		offset_ptr filtered_var   (device, buffer.mem, 6*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
-		offset_ptr nlm_temporary_1(device, buffer.mem, 7*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
-		offset_ptr nlm_temporary_2(device, buffer.mem, 8*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
-		offset_ptr nlm_temporary_3(device, buffer.mem, 9*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		device_sub_ptr unfiltered_a   (device, buffer.mem, 0,                    buffer.pass_stride, MEM_READ_WRITE);
+		device_sub_ptr unfiltered_b   (device, buffer.mem, 1*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		device_sub_ptr sample_var     (device, buffer.mem, 2*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		device_sub_ptr sample_var_var (device, buffer.mem, 3*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		device_sub_ptr buffer_var     (device, buffer.mem, 5*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		device_sub_ptr filtered_var   (device, buffer.mem, 6*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		device_sub_ptr nlm_temporary_1(device, buffer.mem, 7*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		device_sub_ptr nlm_temporary_2(device, buffer.mem, 8*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		device_sub_ptr nlm_temporary_3(device, buffer.mem, 9*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
 
 		nlm_state.temporary_1_ptr = *nlm_temporary_1;
 		nlm_state.temporary_2_ptr = *nlm_temporary_2;
@@ -118,17 +123,17 @@ bool DenoisingTask::run_denoising()
 		functions.non_local_means(filtered_b, filtered_a, residual_var, final_b);
 
 		/* Combine the two double-filtered halves to a final shadow feature. */
-		offset_ptr shadow_pass(device, buffer.mem, 4*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		device_sub_ptr shadow_pass(device, buffer.mem, 4*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
 		functions.combine_halves(final_a, final_b, *shadow_pass, null_ptr, 0, rect);
 	}
 
 	/* Prefilter general features. */
 	{
-		offset_ptr unfiltered     (device, buffer.mem,  8*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
-		offset_ptr variance       (device, buffer.mem,  9*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
-		offset_ptr nlm_temporary_1(device, buffer.mem, 10*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
-		offset_ptr nlm_temporary_2(device, buffer.mem, 11*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
-		offset_ptr nlm_temporary_3(device, buffer.mem, 12*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		device_sub_ptr unfiltered     (device, buffer.mem,  8*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		device_sub_ptr variance       (device, buffer.mem,  9*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		device_sub_ptr nlm_temporary_1(device, buffer.mem, 10*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		device_sub_ptr nlm_temporary_2(device, buffer.mem, 11*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+		device_sub_ptr nlm_temporary_3(device, buffer.mem, 12*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
 
 		nlm_state.temporary_1_ptr = *nlm_temporary_1;
 		nlm_state.temporary_2_ptr = *nlm_temporary_2;
@@ -138,7 +143,7 @@ bool DenoisingTask::run_denoising()
 		int variance_from[] = { 3, 4, 5, 9, 10, 11, 13 };
 		int pass_to[]       = { 1, 2, 3, 0,  5,  6,  7 };
 		for(int pass = 0; pass < 7; pass++) {
-			offset_ptr feature_pass(device, buffer.mem, pass_to[pass]*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+			device_sub_ptr feature_pass(device, buffer.mem, pass_to[pass]*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
 			/* Get the unfiltered pass and its variance from the RenderBuffers. */
 			functions.get_feature(mean_from[pass], variance_from[pass], *unfiltered, *variance);
 			/* Smooth the pass and store the result in the denoising buffers. */
@@ -155,8 +160,8 @@ bool DenoisingTask::run_denoising()
 		int variance_to[]   = {11, 12, 13};
 		int num_color_passes = 3;
 		for(int pass = 0; pass < num_color_passes; pass++) {
-			offset_ptr color_pass    (device, buffer.mem,     mean_to[pass]*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
-			offset_ptr color_var_pass(device, buffer.mem, variance_to[pass]*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+			device_sub_ptr color_pass    (device, buffer.mem,     mean_to[pass]*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
+			device_sub_ptr color_var_pass(device, buffer.mem, variance_to[pass]*buffer.pass_stride, buffer.pass_stride, MEM_READ_WRITE);
 			functions.get_feature(mean_from[pass], variance_from[pass], *color_pass, *color_var_pass);
 		}
 	}
@@ -194,8 +199,8 @@ bool DenoisingTask::run_denoising()
 	reconstruction_state.source_h = rect.w-rect.y;
 
 	{
-		offset_ptr color_ptr    (device, buffer.mem,  8*buffer.pass_stride, 3*buffer.pass_stride, MEM_READ_WRITE);
-		offset_ptr color_var_ptr(device, buffer.mem, 11*buffer.pass_stride, 3*buffer.pass_stride, MEM_READ_WRITE);
+		device_sub_ptr color_ptr    (device, buffer.mem,  8*buffer.pass_stride, 3*buffer.pass_stride, MEM_READ_WRITE);
+		device_sub_ptr color_var_ptr(device, buffer.mem, 11*buffer.pass_stride, 3*buffer.pass_stride, MEM_READ_WRITE);
 		functions.reconstruct(*color_ptr, *color_var_ptr, *color_ptr, *color_var_ptr, render_buffer.ptr);
 	}
 

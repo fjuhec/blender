@@ -42,10 +42,10 @@ ccl_device void kernel_filter_divide_shadow(int sample,
 	int ytile = (y < tiles->y[1])? 0: ((y < tiles->y[2])? 1: 2);
 	int tile = ytile*3+xtile;
 
-	ccl_global float ccl_readonly_ptr buffer = (ccl_global float*) tiles->buffers[tile];
+	ccl_global float ccl_restrict_ptr buffer = (ccl_global float*) tiles->buffers[tile];
 	int offset = tiles->offsets[tile];
 	int stride = tiles->strides[tile];
-	ccl_global float ccl_readonly_ptr center_buffer = buffer + (y*stride + x + offset)*buffer_pass_stride + buffer_denoising_offset;
+	ccl_global float ccl_restrict_ptr center_buffer = buffer + (y*stride + x + offset)*buffer_pass_stride + buffer_denoising_offset;
 
 	int buffer_w = align_up(rect.z - rect.x, 4);
 	int idx = (y-rect.y)*buffer_w + (x - rect.x);

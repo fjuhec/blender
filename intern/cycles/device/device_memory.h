@@ -175,7 +175,7 @@ class device_memory
 {
 public:
 	size_t memory_size() { return data_size*data_elements*datatype_size(data_type); }
-	size_t memory_num_to_bytes(int elements) {
+	size_t memory_elements_size(int elements) {
 		return elements*data_elements*datatype_size(data_type);
 	}
 
@@ -320,13 +320,17 @@ private:
 	array<T> data;
 };
 
-class offset_ptr
+/* A device_sub_ptr is a pointer into another existing memory.
+ * Therefore, it is not allocated separately, but just created from the already allocated base memory.
+ * It is freed automatically when it goes out of scope, which should happen before the base memory is freed.
+ * Note that some devices require the offset and size of the sub_ptr to be properly aligned. */
+class device_sub_ptr
 {
 public:
-	offset_ptr(Device *device, device_memory& mem, int offset, int size, MemoryType type);
-	~offset_ptr();
+	device_sub_ptr(Device *device, device_memory& mem, int offset, int size, MemoryType type);
+	~device_sub_ptr();
 	/* No copying. */
-	offset_ptr& operator = (const offset_ptr&);
+	device_sub_ptr& operator = (const device_sub_ptr&);
 
 	device_ptr operator*() const
 	{

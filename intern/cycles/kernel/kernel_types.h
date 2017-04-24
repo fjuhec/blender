@@ -386,6 +386,18 @@ typedef enum PassType {
 
 #define PASS_ALL (~0)
 
+typedef enum DenoisingPassOffsets {
+	DENOISING_PASS_NORMAL             = 0,
+	DENOISING_PASS_ALBEDO             = 6,
+	DENOISING_PASS_DEPTH              = 12,
+	DENOISING_PASS_SHADOW_A           = 14,
+	DENOISING_PASS_SHADOW_B           = 17,
+	DENOISING_PASS_COLOR              = 20,
+
+	DENOISING_PASS_SIZE_BASE          = 26,
+	DENOISING_PASS_SIZE_CLEAN         = 3,
+} DenoisingPassOffsets;
+
 typedef enum BakePassFilter {
 	BAKE_FILTER_NONE = 0,
 	BAKE_FILTER_DIRECT = (1 << 0),
@@ -471,7 +483,6 @@ typedef ccl_addr_space struct PathRadiance {
 
 	float4 shadow;
 	float mist;
-	float transparent;
 #endif
 
 #ifdef __SHADOW_TRICKS__
@@ -1191,7 +1202,6 @@ typedef struct KernelIntegrator {
 	float pdf_lights;
 	float inv_pdf_lights;
 	int pdf_background_res;
-	float light_inv_rr_threshold;
 
 	/* light portals */
 	float portal_pdf;
@@ -1249,6 +1259,8 @@ typedef struct KernelIntegrator {
 	int volume_max_steps;
 	float volume_step_size;
 	int volume_samples;
+
+	float light_inv_rr_threshold;
 
 	int start_sample;
 	int pad1, pad2, pad3;

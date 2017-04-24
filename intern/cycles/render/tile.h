@@ -36,15 +36,15 @@ public:
 	 * DENOISE: The tile can be denoised now.
 	 * DENOISED: The tile has been denoised, but can't be freed yet (waiting for neighbors).
 	 * DONE: The tile is finished and has been freed. */
-	typedef enum { RENDER = 0, RENDERED, DENOISE, DENOISED, DONE } TileState;
-	TileState state;
+	typedef enum { RENDER = 0, RENDERED, DENOISE, DENOISED, DONE } State;
+	State state;
 	RenderBuffers *buffers;
 
 	Tile()
 	{}
 
-	Tile(int index_, int x_, int y_, int w_, int h_, int device_, TileState state_ = RENDER, RenderBuffers *buffers_ = NULL)
-	: index(index_), x(x_), y(y_), w(w_), h(h_), device(device_), state(state_), buffers(buffers_) {}
+	Tile(int index_, int x_, int y_, int w_, int h_, int device_, State state_ = RENDER)
+	: index(index_), x(x_), y(y_), w(w_), h(h_), device(device_), state(state_), buffers(NULL) {}
 };
 
 /* Tile order */
@@ -69,7 +69,6 @@ public:
 		vector<Tile> tiles;
 		int tile_stride;
 		BufferParams buffer;
-		RenderBuffers *global_buffers;
 		int sample;
 		int num_samples;
 		int resolution_divider;
@@ -97,7 +96,7 @@ public:
 	void set_samples(int num_samples);
 	bool next();
 	bool next_tile(Tile* &tile, int device = 0);
-	bool return_tile(int index, bool& delete_tile);
+	bool finish_tile(int index, bool& delete_tile);
 	bool done();
 
 	void set_tile_order(TileOrder tile_order_) { tile_order = tile_order_; }
@@ -146,6 +145,9 @@ protected:
 
 	/* Generate tile list, return number of tiles. */
 	int gen_tiles(bool sliced);
+
+	int get_neighbor_index(int index, int neighbor);
+	bool check_neighbor_state(int index, Tile::State state);
 };
 
 CCL_NAMESPACE_END

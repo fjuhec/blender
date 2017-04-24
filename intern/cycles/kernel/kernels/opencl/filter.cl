@@ -92,7 +92,7 @@ __kernel void kernel_ocl_filter_combine_halves(ccl_global float *mean,
 	}
 }
 
-__kernel void kernel_ocl_filter_construct_transform(ccl_global float ccl_readonly_ptr buffer,
+__kernel void kernel_ocl_filter_construct_transform(ccl_global float ccl_restrict_ptr buffer,
                                                     ccl_global float *transform,
                                                     ccl_global int *rank,
                                                     int4 filter_area,
@@ -118,8 +118,8 @@ __kernel void kernel_ocl_filter_construct_transform(ccl_global float ccl_readonl
 
 __kernel void kernel_ocl_filter_nlm_calc_difference(int dx,
                                                     int dy,
-                                                    ccl_global float ccl_readonly_ptr weightImage,
-                                                    ccl_global float ccl_readonly_ptr varianceImage,
+                                                    ccl_global float ccl_restrict_ptr weightImage,
+                                                    ccl_global float ccl_restrict_ptr varianceImage,
                                                     ccl_global float *differenceImage,
                                                     int4 rect,
                                                     int w,
@@ -133,7 +133,7 @@ __kernel void kernel_ocl_filter_nlm_calc_difference(int dx,
 	}
 }
 
-__kernel void kernel_ocl_filter_nlm_blur(ccl_global float ccl_readonly_ptr differenceImage,
+__kernel void kernel_ocl_filter_nlm_blur(ccl_global float ccl_restrict_ptr differenceImage,
                                          ccl_global float *outImage,
                                          int4 rect,
                                          int w,
@@ -145,7 +145,7 @@ __kernel void kernel_ocl_filter_nlm_blur(ccl_global float ccl_readonly_ptr diffe
 	}
 }
 
-__kernel void kernel_ocl_filter_nlm_calc_weight(ccl_global float ccl_readonly_ptr differenceImage,
+__kernel void kernel_ocl_filter_nlm_calc_weight(ccl_global float ccl_restrict_ptr differenceImage,
                                                 ccl_global float *outImage,
                                                 int4 rect,
                                                 int w,
@@ -159,8 +159,8 @@ __kernel void kernel_ocl_filter_nlm_calc_weight(ccl_global float ccl_readonly_pt
 
 __kernel void kernel_ocl_filter_nlm_update_output(int dx,
                                                   int dy,
-                                                  ccl_global float ccl_readonly_ptr differenceImage,
-                                                  ccl_global float ccl_readonly_ptr image,
+                                                  ccl_global float ccl_restrict_ptr differenceImage,
+                                                  ccl_global float ccl_restrict_ptr image,
                                                   ccl_global float *outImage,
                                                   ccl_global float *accumImage,
                                                   int4 rect,
@@ -174,7 +174,7 @@ __kernel void kernel_ocl_filter_nlm_update_output(int dx,
 }
 
 __kernel void kernel_ocl_filter_nlm_normalize(ccl_global float *outImage,
-                                              ccl_global float ccl_readonly_ptr accumImage,
+                                              ccl_global float ccl_restrict_ptr accumImage,
                                               int4 rect,
                                               int w) {
 	int x = get_global_id(0) + rect.x;
@@ -186,11 +186,11 @@ __kernel void kernel_ocl_filter_nlm_normalize(ccl_global float *outImage,
 
 __kernel void kernel_ocl_filter_nlm_construct_gramian(int dx,
                                                       int dy,
-                                                      ccl_global float ccl_readonly_ptr differenceImage,
-                                                      ccl_global float ccl_readonly_ptr buffer,
+                                                      ccl_global float ccl_restrict_ptr differenceImage,
+                                                      ccl_global float ccl_restrict_ptr buffer,
                                                       ccl_global float *color_pass,
                                                       ccl_global float *variance_pass,
-                                                      ccl_global float ccl_readonly_ptr transform,
+                                                      ccl_global float ccl_restrict_ptr transform,
                                                       ccl_global int *rank,
                                                       ccl_global float *XtWX,
                                                       ccl_global float3 *XtWY,

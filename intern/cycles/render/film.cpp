@@ -446,11 +446,11 @@ void Film::device_update(Device *device, DeviceScene *dscene, Scene *scene)
 	kfilm->denoising_flags = 0;
 	if(denoising_data_pass) {
 		kfilm->pass_denoising_data = kfilm->pass_stride;
-		kfilm->pass_stride += 26;
+		kfilm->pass_stride += DENOISING_PASS_SIZE_BASE;
 		kfilm->denoising_flags = denoising_flags;
 		if(denoising_clean_pass) {
 			kfilm->pass_denoising_clean = kfilm->pass_stride;
-			kfilm->pass_stride += 3;
+			kfilm->pass_stride += DENOISING_PASS_SIZE_CLEAN;
 			kfilm->use_light_pass = 1;
 		}
 	}

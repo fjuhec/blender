@@ -261,7 +261,13 @@ ccl_device void kernel_branched_path_subsurface_scatter(KernelGlobals *kg,
 }
 #endif  /* __SUBSURFACE__ */
 
-ccl_device float kernel_branched_path_integrate(KernelGlobals *kg, RNG *rng, int sample, Ray ray, ccl_global float *buffer, PathRadiance *L, bool *is_shadow_catcher)
+ccl_device float kernel_branched_path_integrate(KernelGlobals *kg,
+                                                RNG *rng,
+                                                int sample,
+                                                Ray ray,
+                                                ccl_global float *buffer,
+                                                PathRadiance *L,
+                                                bool *is_shadow_catcher)
 {
 	/* initialize */
 	float3 throughput = make_float3(1.0f, 1.0f, 1.0f);

@@ -116,8 +116,7 @@ ccl_device_inline void kernel_write_denoising_shadow(KernelGlobals *kg, ccl_glob
 	if(kernel_data.film.pass_denoising_data == 0)
 		return;
 
-	if(sample & 1) buffer += 3;
-	buffer += kernel_data.film.pass_denoising_data + 14;
+	buffer += (sample & 1)? DENOISING_PASS_SHADOW_B : DENOISING_PASS_SHADOW_A;
 
 	path_total = ensure_finite(path_total);
 	path_total_shaded = ensure_finite(path_total_shaded);
@@ -361,16 +360,22 @@ ccl_device_inline void kernel_write_result(KernelGlobals *kg, ccl_global float *
 			if(kernel_data.film.pass_denoising_clean) {
 				float3 noisy, clean;
 				path_radiance_split_denoising(kg, L, &noisy, &clean);
-				kernel_write_pass_float3_variance(buffer + kernel_data.film.pass_denoising_data + 20, sample, noisy);
-				kernel_write_pass_float3_unaligned(buffer + kernel_data.film.pass_denoising_clean, sample, clean);
+				kernel_write_pass_float3_variance(buffer + kernel_data.film.pass_denoising_data + DENOISING_PASS_COLOR,
+				                                  sample, noisy);
+				kernel_write_pass_float3_unaligned(buffer + kernel_data.film.pass_denoising_clean,
+				                                   sample, clean);
 			}
 			else {
-				kernel_write_pass_float3_variance(buffer + kernel_data.film.pass_denoising_data + 20, sample, L_sum);
+				kernel_write_pass_float3_variance(buffer + kernel_data.film.pass_denoising_data + DENOISING_PASS_COLOR,
+				                                  sample, L_sum);
 			}
 
-			kernel_write_pass_float3_variance(buffer + kernel_data.film.pass_denoising_data, sample, L->denoising_normal);
-			kernel_write_pass_float3_variance(buffer + kernel_data.film.pass_denoising_data + 6, sample, L->denoising_albedo);
-			kernel_write_pass_float_variance(buffer + kernel_data.film.pass_denoising_data + 12, sample, L->denoising_depth);
+			kernel_write_pass_float3_variance(buffer + kernel_data.film.pass_denoising_data + DENOISING_PASS_NORMAL,
+			                                  sample, L->denoising_normal);
+			kernel_write_pass_float3_variance(buffer + kernel_data.film.pass_denoising_data + DENOISING_PASS_ALBEDO,
+			                                  sample, L->denoising_albedo);
+			kernel_write_pass_float_variance(buffer + kernel_data.film.pass_denoising_data + DENOISING_PASS_DEPTH,
+			                                 sample, L->denoising_depth);
 		}
 #endif  /* __DENOISING_FEATURES__ */
 	}
@@ -381,14 +386,19 @@ ccl_device_inline void kernel_write_result(KernelGlobals *kg, ccl_global float *
 		if(kernel_data.film.pass_denoising_data) {
 			kernel_write_denoising_shadow(kg, buffer, sample, 0.0f, 0.0f);
 
-			kernel_write_pass_float3_variance(buffer + kernel_data.film.pass_denoising_data + 20, sample, make_float3(0.0f, 0.0f, 0.0f));
+			kernel_write_pass_float3_variance(buffer + kernel_data.film.pass_denoising_data + DENOISING_PASS_COLOR,
+			                                  sample, make_float3(0.0f, 0.0f, 0.0f));
 
-			kernel_write_pass_float3_variance(buffer + kernel_data.film.pass_denoising_data, sample, make_float3(0.0f, 0.0f, 0.0f));
-			kernel_write_pass_float3_variance(buffer + kernel_data.film.pass_denoising_data + 6, sample, make_float3(0.0f, 0.0f, 0.0f));
-			kernel_write_pass_float_variance(buffer + kernel_data.film.pass_denoising_data + 12, sample, 0.0f);
+			kernel_write_pass_float3_variance(buffer + kernel_data.film.pass_denoising_data + DENOISING_PASS_NORMAL,
+			                                  sample, make_float3(0.0f, 0.0f, 0.0f));
+			kernel_write_pass_float3_variance(buffer + kernel_data.film.pass_denoising_data + DENOISING_PASS_ALBEDO,
+			                                  sample, make_float3(0.0f, 0.0f, 0.0f));
+			kernel_write_pass_float_variance(buffer + kernel_data.film.pass_denoising_data + DENOISING_PASS_DEPTH,
+			                                 sample, 0.0f);
 
 			if(kernel_data.film.pass_denoising_clean) {
-				kernel_write_pass_float3_unaligned(buffer + kernel_data.film.pass_denoising_clean, sample, make_float3(0.0f, 0.0f, 0.0f));
+				kernel_write_pass_float3_unaligned(buffer + kernel_data.film.pass_denoising_clean,
+				                                   sample, make_float3(0.0f, 0.0f, 0.0f));
 			}
 		}
 #endif  /* __DENOISING_FEATURES__ */

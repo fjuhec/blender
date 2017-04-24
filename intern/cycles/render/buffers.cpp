@@ -73,10 +73,8 @@ int BufferParams::get_passes_size()
 		size += passes[i].components;
 
 	if(denoising_data_pass) {
-		/* Feature passes: 11 Channels (3 Color, 3 Normal, 1 Depth, 4 Shadow) + 9 Variance
-		 * Color passes: 3 Noisy (RGB) + 3 Variance [+ 3 Skip (RGB)] */
-		size += 26;
-		if(denoising_clean_pass) size += 3;
+		size += DENOISING_PASS_SIZE_BASE;
+		if(denoising_clean_pass) size += DENOISING_PASS_SIZE_CLEAN;
 	}
 
 	return align_up(size, 4);
@@ -160,12 +158,12 @@ void RenderBuffers::reset(Device *device, BufferParams& params_)
 
 bool RenderBuffers::copy_from_device(Device *from_device)
 {
+	if(!buffer.device_pointer)
+		return false;
+
 	if(!from_device) {
 		from_device = device;
 	}
-
-	if(!buffer.device_pointer)
-		return false;
 
 	from_device->mem_copy_from(buffer, 0, params.width, params.height, params.get_passes_size()*sizeof(float));
 

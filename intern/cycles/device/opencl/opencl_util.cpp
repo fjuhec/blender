@@ -1073,7 +1073,7 @@ string OpenCLInfo::get_readable_device_name(cl_device_id device_id)
 	return get_device_name(device_id);
 }
 
-int OpenCLInfo::get_base_align_bytes(cl_device_id device_id)
+int OpenCLInfo::mem_address_alignment(cl_device_id device_id)
 {
 	int base_align_bits;
 	if(clGetDeviceInfo(device_id,

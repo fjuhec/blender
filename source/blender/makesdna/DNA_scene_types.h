@@ -234,7 +234,7 @@ typedef struct SceneRenderLayer {
 
 	int samples;
 	float pass_alpha_threshold;
-
+	
 	struct FreestyleConfig freestyleConfig;
 } SceneRenderLayer;
 

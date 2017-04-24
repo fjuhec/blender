@@ -428,12 +428,12 @@ ccl_device void kernel_path_indirect(KernelGlobals *kg,
 
 
 ccl_device_inline float kernel_path_integrate(KernelGlobals *kg,
-                                               RNG *rng,
-                                               int sample,
-                                               Ray ray,
-                                               ccl_global float *buffer,
-                                               PathRadiance *L,
-                                               bool *is_shadow_catcher)
+                                              RNG *rng,
+                                              int sample,
+                                              Ray ray,
+                                              ccl_global float *buffer,
+                                              PathRadiance *L,
+                                              bool *is_shadow_catcher)
 {
 	/* initialize */
 	float3 throughput = make_float3(1.0f, 1.0f, 1.0f);
@@ -682,7 +682,7 @@ ccl_device_inline float kernel_path_integrate(KernelGlobals *kg,
 
 		/* blurring of bsdf after bounces, for rays that have a small likelihood
 		 * of following this particular path (diffuse, rough glossy) */
-		if(kernel_data.integrator.filter_glossy != FLT_MAX && state.min_ray_pdf < 1e10f) {
+		if(kernel_data.integrator.filter_glossy != FLT_MAX) {
 			float blur_pdf = kernel_data.integrator.filter_glossy*state.min_ray_pdf;
 
 			if(blur_pdf < 1.0f) {

@@ -603,9 +603,9 @@ public:
 		}
 	}
 
-	virtual device_ptr mem_get_offset_ptr(device_memory& mem, int offset, int /*size*/, MemoryType /*type*/)
+	virtual device_ptr mem_alloc_sub_ptr(device_memory& mem, int offset, int /*size*/, MemoryType /*type*/)
 	{
-		return (device_ptr) (((char*) mem.device_pointer) + mem.memory_num_to_bytes(offset));
+		return (device_ptr) (((char*) mem.device_pointer) + mem.memory_elements_size(offset));
 	}
 
 	void const_copy_to(const char *name, void *host, size_t size)
@@ -944,7 +944,7 @@ public:
 		cuda_push_context();
 
 		int4 rect = task->rect;
-		int w = align_up(rect.z-rect.x, 4);
+		int w = rect.z-rect.x;
 		int h = rect.w-rect.y;
 		int r = task->nlm_state.r;
 		int f = task->nlm_state.f;
@@ -1260,14 +1260,14 @@ public:
 
 		RenderTile rtiles[9];
 		rtiles[4] = rtile;
-		task.get_neighbor_tiles(rtiles, this);
+		task.map_neighbor_tiles(rtiles, this);
 		denoising.tiles_from_rendertiles(rtiles);
 
 		denoising.init_from_devicetask(task);
 
 		denoising.run_denoising();
 
-		task.release_neighbor_tiles(rtiles, this);
+		task.unmap_neighbor_tiles(rtiles, this);
 	}
 
 	void path_trace(RenderTile& rtile, int sample, bool branched)

@@ -156,7 +156,7 @@ ccl_device bool kernel_branched_path_surface_bounce(
         ccl_addr_space PathState *state,
         PathRadiance *L,
         Ray *ray,
-	float sum_sample_weight)
+        float sum_sample_weight)
 {
 	/* sample BSDF */
 	float bsdf_pdf;

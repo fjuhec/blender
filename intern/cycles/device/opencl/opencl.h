@@ -133,7 +133,7 @@ public:
 	                            cl_int* error = NULL);
 	static cl_device_type get_device_type(cl_device_id device_id);
 
-	static int get_base_align_bytes(cl_device_id device_id);
+	static int mem_address_alignment(cl_device_id device_id);
 
 	/* Get somewhat more readable device name.
 	 * Main difference is AMD OpenCL here which only gives code name
@@ -327,9 +327,7 @@ public:
 	void mem_zero(device_memory& mem);
 	void mem_free(device_memory& mem);
 
-	int mem_get_offset_alignment();
-	device_ptr mem_get_offset_ptr(device_memory& mem, int offset, int size, MemoryType type);
-	void mem_free_offset_ptr(device_ptr ptr);
+	int mem_address_alignment();
 
 	void const_copy_to(const char *name, void *host, size_t size);
 	void tex_alloc(const char *name,
@@ -418,6 +416,9 @@ protected:
 	                           DenoisingTask *task);
 	bool denoising_set_tiles(device_ptr *buffers,
 	                         DenoisingTask *task);
+
+	device_ptr mem_alloc_sub_ptr(device_memory& mem, int offset, int size, MemoryType type);
+	void mem_free_sub_ptr(device_ptr ptr);
 
 	class ArgumentWrapper {
 	public:

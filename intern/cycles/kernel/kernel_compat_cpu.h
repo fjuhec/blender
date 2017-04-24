@@ -42,7 +42,7 @@
 #include "util/util_types.h"
 #include "util/util_texture.h"
 
-#define ccl_readonly_ptr const * __restrict
+#define ccl_restrict_ptr const * __restrict
 
 #define ccl_addr_space
 

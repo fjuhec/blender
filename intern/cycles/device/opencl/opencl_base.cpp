@@ -416,12 +416,12 @@ void OpenCLDeviceBase::mem_free(device_memory& mem)
 	}
 }
 
-int OpenCLDeviceBase::mem_get_offset_alignment()
+int OpenCLDeviceBase::mem_address_alignment()
 {
-	return OpenCLInfo::get_base_align_bytes(cdDevice);
+	return OpenCLInfo::mem_address_alignment(cdDevice);
 }
 
-device_ptr OpenCLDeviceBase::mem_get_offset_ptr(device_memory& mem, int offset, int size, MemoryType type)
+device_ptr OpenCLDeviceBase::mem_alloc_sub_ptr(device_memory& mem, int offset, int size, MemoryType type)
 {
 	cl_mem_flags mem_flag;
 	if(type == MEM_READ_ONLY)
@@ -432,8 +432,8 @@ device_ptr OpenCLDeviceBase::mem_get_offset_ptr(device_memory& mem, int offset, 
 		mem_flag = CL_MEM_READ_WRITE;
 
 	cl_buffer_region info;
-	info.origin = mem.memory_num_to_bytes(offset);
-	info.size = mem.memory_num_to_bytes(size);
+	info.origin = mem.memory_elements_size(offset);
+	info.size = mem.memory_elements_size(size);
 
 	device_ptr sub_buf = (device_ptr) clCreateSubBuffer(CL_MEM_PTR(mem.device_pointer),
 	                                                    mem_flag,
@@ -444,7 +444,7 @@ device_ptr OpenCLDeviceBase::mem_get_offset_ptr(device_memory& mem, int offset, 
 	return sub_buf;
 }
 
-void OpenCLDeviceBase::mem_free_offset_ptr(device_ptr device_pointer)
+void OpenCLDeviceBase::mem_free_sub_ptr(device_ptr device_pointer)
 {
 	if(device_pointer && device_pointer != null_mem) {
 		opencl_assert(clReleaseMemObject(CL_MEM_PTR(device_pointer)));
@@ -609,8 +609,7 @@ bool OpenCLDeviceBase::denoising_non_local_means(device_ptr image_ptr,
                                                  DenoisingTask *task)
 {
 	int4 rect = task->rect;
-	int d_w = rect.z-rect.x;
-	int w = align_up(d_w, 4);
+	int w = rect.z-rect.x;
 	int h = rect.w-rect.y;
 	int r = task->nlm_state.r;
 	int f = task->nlm_state.f;
@@ -650,17 +649,17 @@ bool OpenCLDeviceBase::denoising_non_local_means(device_ptr image_ptr,
 		                dx, dy, blurDifference, image_mem,
 		                out_mem, weightAccum, local_rect, w, f);
 
-		enqueue_kernel(ckNLMCalcDifference, d_w, h);
-		enqueue_kernel(ckNLMBlur,           d_w, h);
-		enqueue_kernel(ckNLMCalcWeight,     d_w, h);
-		enqueue_kernel(ckNLMBlur,           d_w, h);
-		enqueue_kernel(ckNLMUpdateOutput,   d_w, h);
+		enqueue_kernel(ckNLMCalcDifference, w, h);
+		enqueue_kernel(ckNLMBlur,           w, h);
+		enqueue_kernel(ckNLMCalcWeight,     w, h);
+		enqueue_kernel(ckNLMBlur,           w, h);
+		enqueue_kernel(ckNLMUpdateOutput,   w, h);
 	}
 
-	int4 local_rect = make_int4(0, 0, d_w, h);
+	int4 local_rect = make_int4(0, 0, w, h);
 	kernel_set_args(ckNLMNormalize, 0,
 	                out_mem, weightAccum, local_rect, w);
-	enqueue_kernel(ckNLMNormalize,   d_w, h);
+	enqueue_kernel(ckNLMNormalize, w, h);
 
 	return true;
 }
@@ -949,14 +948,14 @@ void OpenCLDeviceBase::denoise(RenderTile &rtile, const DeviceTask &task)
 
 	RenderTile rtiles[9];
 	rtiles[4] = rtile;
-	task.get_neighbor_tiles(rtiles, this);
+	task.map_neighbor_tiles(rtiles, this);
 	denoising.tiles_from_rendertiles(rtiles);
 
 	denoising.init_from_devicetask(task);
 
 	denoising.run_denoising();
 
-	task.release_neighbor_tiles(rtiles, this);
+	task.unmap_neighbor_tiles(rtiles, this);
 }
 
 void OpenCLDeviceBase::shader(DeviceTask& task)

@@ -401,15 +401,15 @@ void Device::free_memory()
 }
 
 
-offset_ptr::offset_ptr(Device *device, device_memory& mem, int offset, int size, MemoryType type)
+device_sub_ptr::device_sub_ptr(Device *device, device_memory& mem, int offset, int size, MemoryType type)
  : device(device)
 {
-	ptr = device->mem_get_offset_ptr(mem, offset, size, type);
+	ptr = device->mem_alloc_sub_ptr(mem, offset, size, type);
 }
 
-offset_ptr::~offset_ptr()
+device_sub_ptr::~device_sub_ptr()
 {
-	device->mem_free_offset_ptr(ptr);
+	device->mem_free_sub_ptr(ptr);
 }
 
 CCL_NAMESPACE_END

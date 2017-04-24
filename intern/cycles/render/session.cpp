@@ -114,7 +114,7 @@ Session::~Session()
 	}
 
 	/* clean up */
-	foreach(RenderTile &rtile, tile_buffers)
+	foreach(RenderTile &rtile, render_tiles)
 		delete rtile.buffers;
 	tile_manager.free_device();
 
@@ -406,18 +406,18 @@ bool Session::acquire_tile(Device *tile_device, RenderTile& rtile)
 		if(params.progressive_refine) {
 			tile_lock.lock();
 
-			if(tile_buffers.size() == 0) {
+			if(render_tiles.size() == 0) {
 				RenderTile nulltile;
 				nulltile.buffers = NULL;
-				tile_buffers.resize(tile_manager.state.num_tiles, nulltile);
+				render_tiles.resize(tile_manager.state.num_tiles, nulltile);
 			}
 
 			/* In certain circumstances number of tiles in the tile manager could
 			 * be changed. This is not supported by the progressive refine feature.
 			 */
-			assert(tile_buffers.size() == tile_manager.state.num_tiles);
+			assert(render_tiles.size() == tile_manager.state.num_tiles);
 
-			RenderTile &stored_rtile = tile_buffers[tile->index];
+			RenderTile &stored_rtile = render_tiles[tile->index];
 			if(stored_rtile.buffers == NULL) {
 				tile->buffers = new RenderBuffers(tile_device);
 				tile->buffers->reset(tile_device, buffer_params);
@@ -447,7 +447,7 @@ bool Session::acquire_tile(Device *tile_device, RenderTile& rtile)
 	rtile.sample = 0;
 
 	if(store_rtile) {
-		tile_buffers[tile->index] = rtile;
+		render_tiles[tile->index] = rtile;
 		tile_lock.unlock();
 	}
 
@@ -483,7 +483,7 @@ void Session::release_tile(RenderTile& rtile)
 
 	bool delete_tile;
 
-	if(tile_manager.return_tile(rtile.tile_index, delete_tile)) {
+	if(tile_manager.finish_tile(rtile.tile_index, delete_tile)) {
 		if(write_render_tile_cb && params.progressive_refine == false) {
 			write_render_tile_cb(rtile);
 			if(delete_tile) {
@@ -501,7 +501,7 @@ void Session::release_tile(RenderTile& rtile)
 	update_status_time();
 }
 
-void Session::get_neighbor_tiles(RenderTile *tiles, Device *tile_device)
+void Session::map_neighbor_tiles(RenderTile *tiles, Device *tile_device)
 {
 	thread_scoped_lock tile_lock(tile_mutex);
 
@@ -544,7 +544,7 @@ void Session::get_neighbor_tiles(RenderTile *tiles, Device *tile_device)
 	device->map_neighbor_tiles(tile_device, tiles);
 }
 
-void Session::release_neighbor_tiles(RenderTile *tiles, Device *tile_device)
+void Session::unmap_neighbor_tiles(RenderTile *tiles, Device *tile_device)
 {
 	thread_scoped_lock tile_lock(tile_mutex);
 	device->unmap_neighbor_tiles(tile_device, tiles);
@@ -820,10 +820,10 @@ void Session::reset(BufferParams& buffer_params, int samples)
 	if(params.progressive_refine) {
 		thread_scoped_lock buffers_lock(buffers_mutex);
 
-		foreach(RenderTile &rtile, tile_buffers)
+		foreach(RenderTile &rtile, render_tiles)
 			delete rtile.buffers;
 
-		tile_buffers.clear();
+		render_tiles.clear();
 	}
 }
 
@@ -965,8 +965,8 @@ void Session::render()
 	
 	task.acquire_tile = function_bind(&Session::acquire_tile, this, _1, _2);
 	task.release_tile = function_bind(&Session::release_tile, this, _1);
-	task.get_neighbor_tiles = function_bind(&Session::get_neighbor_tiles, this, _1, _2);
-	task.release_neighbor_tiles = function_bind(&Session::release_neighbor_tiles, this, _1, _2);
+	task.map_neighbor_tiles = function_bind(&Session::map_neighbor_tiles, this, _1, _2);
+	task.unmap_neighbor_tiles = function_bind(&Session::unmap_neighbor_tiles, this, _1, _2);
 	task.get_cancel = function_bind(&Progress::get_cancel, &this->progress);
 	task.update_tile_sample = function_bind(&Session::update_tile_sample, this, _1);
 	task.update_progress_sample = function_bind(&Progress::add_samples, &this->progress, _1, _2);
@@ -977,8 +977,9 @@ void Session::render()
 
 	if(params.use_denoising) {
 		task.denoising_radius = params.denoising_radius;
-		task.denoising_k2 = params.denoising_k2;
-		task.denoising_pca = params.denoising_pca;
+		task.denoising_strength = params.denoising_strength;
+		task.denoising_feature_strength = params.denoising_feature_strength;
+		task.denoising_relative_pca = params.denoising_relative_pca;
 
 		assert(!scene->film->need_update);
 		task.pass_stride = scene->film->pass_stride;
@@ -1029,7 +1030,7 @@ bool Session::update_progressive_refine(bool cancel)
 	}
 
 	if(params.progressive_refine) {
-		foreach(RenderTile &rtile, tile_buffers) {
+		foreach(RenderTile &rtile, render_tiles) {
 			rtile.sample = sample;
 
 			if(write) {
@@ -1052,11 +1053,11 @@ void Session::device_free()
 {
 	scene->device_free();
 
-	foreach(RenderTile &tile, tile_buffers)
+	foreach(RenderTile &tile, render_tiles)
 		delete tile.buffers;
 	tile_manager.free_device();
 
-	tile_buffers.clear();
+	render_tiles.clear();
 
 	/* used from background render only, so no need to
 	 * re-create render/display buffers here

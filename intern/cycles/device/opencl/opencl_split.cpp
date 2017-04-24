@@ -154,7 +154,8 @@ public:
 		}
 	}
 
-	bool is_split_kernel() {
+	bool is_split_kernel()
+	{
 		return true;
 	}
 

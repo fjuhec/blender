@@ -65,12 +65,13 @@ public:
 	function<void(RenderTile&)> update_tile_sample;
 	function<void(RenderTile&)> release_tile;
 	function<bool(void)> get_cancel;
-	function<void(RenderTile*, Device*)> get_neighbor_tiles;
-	function<void(RenderTile*, Device*)> release_neighbor_tiles;
+	function<void(RenderTile*, Device*)> map_neighbor_tiles;
+	function<void(RenderTile*, Device*)> unmap_neighbor_tiles;
 
 	int denoising_radius;
-	float denoising_k2;
-	float denoising_pca;
+	float denoising_strength;
+	float denoising_feature_strength;
+	bool denoising_relative_pca;
 	int pass_stride;
 	int pass_denoising_data;
 	int pass_denoising_clean;

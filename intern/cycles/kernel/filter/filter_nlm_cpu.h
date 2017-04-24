@@ -14,11 +14,9 @@
  * limitations under the License.
  */
 
-#define REFERENCE_NLM
-
 CCL_NAMESPACE_BEGIN
 
-ccl_device_inline void kernel_filter_nlm_calc_difference(int dx, int dy, float ccl_readonly_ptr weightImage, float ccl_readonly_ptr varianceImage, float *differenceImage, int4 rect, int w, int channel_offset, float a, float k_2)
+ccl_device_inline void kernel_filter_nlm_calc_difference(int dx, int dy, float ccl_restrict_ptr weightImage, float ccl_restrict_ptr varianceImage, float *differenceImage, int4 rect, int w, int channel_offset, float a, float k_2)
 {
 	for(int y = rect.y; y < rect.w; y++) {
 		for(int x = rect.x; x < rect.z; x++) {
@@ -38,7 +36,7 @@ ccl_device_inline void kernel_filter_nlm_calc_difference(int dx, int dy, float c
 	}
 }
 
-ccl_device_inline void kernel_filter_nlm_blur(float ccl_readonly_ptr differenceImage, float *outImage, int4 rect, int w, int f)
+ccl_device_inline void kernel_filter_nlm_blur(float ccl_restrict_ptr differenceImage, float *outImage, int4 rect, int w, int f)
 {
 #ifdef __KERNEL_SSE3__
 	int aligned_lowx = (rect.x & ~(3));
@@ -67,7 +65,7 @@ ccl_device_inline void kernel_filter_nlm_blur(float ccl_readonly_ptr differenceI
 	}
 }
 
-ccl_device_inline void kernel_filter_nlm_calc_weight(float ccl_readonly_ptr differenceImage, float *outImage, int4 rect, int w, int f)
+ccl_device_inline void kernel_filter_nlm_calc_weight(float ccl_restrict_ptr differenceImage, float *outImage, int4 rect, int w, int f)
 {
 	for(int y = rect.y; y < rect.w; y++) {
 		for(int x = rect.x; x < rect.z; x++) {
@@ -92,7 +90,7 @@ ccl_device_inline void kernel_filter_nlm_calc_weight(float ccl_readonly_ptr diff
 	}
 }
 
-ccl_device_inline void kernel_filter_nlm_update_output(int dx, int dy, float ccl_readonly_ptr differenceImage, float ccl_readonly_ptr image, float *outImage, float *accumImage, int4 rect, int w, int f)
+ccl_device_inline void kernel_filter_nlm_update_output(int dx, int dy, float ccl_restrict_ptr differenceImage, float ccl_restrict_ptr image, float *outImage, float *accumImage, int4 rect, int w, int f)
 {
 	for(int y = rect.y; y < rect.w; y++) {
 		for(int x = rect.x; x < rect.z; x++) {
@@ -110,8 +108,8 @@ ccl_device_inline void kernel_filter_nlm_update_output(int dx, int dy, float ccl
 }
 
 ccl_device_inline void kernel_filter_nlm_construct_gramian(int dx, int dy,
-                                                           float ccl_readonly_ptr differenceImage,
-                                                           float ccl_readonly_ptr buffer,
+                                                           float ccl_restrict_ptr differenceImage,
+                                                           float ccl_restrict_ptr buffer,
                                                            float *color_pass,
                                                            float *variance_pass,
                                                            float *transform,
@@ -153,7 +151,7 @@ ccl_device_inline void kernel_filter_nlm_construct_gramian(int dx, int dy,
 	}
 }
 
-ccl_device_inline void kernel_filter_nlm_normalize(float *outImage, float ccl_readonly_ptr accumImage, int4 rect, int w)
+ccl_device_inline void kernel_filter_nlm_normalize(float *outImage, float ccl_restrict_ptr accumImage, int4 rect, int w)
 {
 	for(int y = rect.y; y < rect.w; y++) {
 		for(int x = rect.x; x < rect.z; x++) {
