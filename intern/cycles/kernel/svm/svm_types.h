@@ -470,7 +470,7 @@ typedef enum ClosureType {
 #define CLOSURE_IS_BSDF_ANISOTROPIC(type) (type >= CLOSURE_BSDF_MICROFACET_GGX_ANISO_ID && type <= CLOSURE_BSDF_ASHIKHMIN_SHIRLEY_ANISO_ID)
 #define CLOSURE_IS_BSDF_MULTISCATTER(type) (type == CLOSURE_BSDF_MICROFACET_MULTI_GGX_ID ||\
                                             type == CLOSURE_BSDF_MICROFACET_MULTI_GGX_ANISO_ID || \
-											type == CLOSURE_BSDF_MICROFACET_MULTI_GGX_GLASS_ID)
+                                            type == CLOSURE_BSDF_MICROFACET_MULTI_GGX_GLASS_ID)
 #define CLOSURE_IS_BSDF_MICROFACET(type) ((type >= CLOSURE_BSDF_REFLECTION_ID && type <= CLOSURE_BSDF_ASHIKHMIN_SHIRLEY_ANISO_ID) ||\
                                           (type >= CLOSURE_BSDF_REFRACTION_ID && type <= CLOSURE_BSDF_MICROFACET_MULTI_GGX_GLASS_ID))
 #define CLOSURE_IS_BSDF_OR_BSSRDF(type) (type <= CLOSURE_BSSRDF_BURLEY_ID)

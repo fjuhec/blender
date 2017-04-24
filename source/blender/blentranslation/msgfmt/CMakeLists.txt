@@ -14,28 +14,37 @@
 # along with this program; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
-# The Original Code is Copyright (C) 2014, Blender Foundation
+# The Original Code is Copyright (C) 2017, Blender Foundation
 # All rights reserved.
 #
-# Contributor(s): Sergey Sharybin
+# The Original Code is: all of this file.
+#
+# Contributor(s): Bastien Montagne.
 #
 # ***** END GPL LICENSE BLOCK *****
 
-set(INC
-	.
-	..
-	${GLOG_INCLUDE_DIRS}
-	${GFLAGS_INCLUDE_DIRS}
-	../../../extern/gtest/include
-)
+# -----------------------------------------------------------------------------
+# Build msgfmt executable
 
-set(INC_SYS
+blender_include_dirs(
+	../../../../intern/guardedalloc
+	../../blenlib
 )
 
 set(SRC
-	testing_main.cc
-
-	testing.h
+	msgfmt.c
 )
 
-blender_add_lib(bf_testing_main "${SRC}" "${INC}" "${INC_SYS}")
+add_cc_flags_custom_test(msgfmt)
+
+add_executable(msgfmt ${SRC})
+
+target_link_libraries(msgfmt bf_blenlib)
+target_link_libraries(msgfmt bf_intern_guardedalloc)
+
+if(WIN32)
+	target_link_libraries(msgfmt bf_intern_utfconv)
+endif()
+
+target_link_libraries(msgfmt ${ZLIB_LIBRARIES})
+target_link_libraries(msgfmt ${PLATFORM_LINKLIBS})
