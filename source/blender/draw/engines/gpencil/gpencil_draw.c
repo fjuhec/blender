@@ -149,7 +149,7 @@ Batch *gpencil_get_stroke_geom(bGPDstroke *gps, short thickness, const float ink
 }
 
 /* helper to convert 2d to 3d for simple drawing buffer */
-static void gpencil_stroke_convertcoords(Scene *scene, ARegion *ar, ScrArea *sa, const tGPspoint *point2D, float out[3], float *depth)
+static void gpencil_stroke_convertcoords(Scene *scene, ARegion *ar, View3D *v3d, const tGPspoint *point2D, float out[3], float *depth)
 {
 	float mval_f[2] = { point2D->x, point2D->y };
 	float mval_prj[2];
@@ -159,7 +159,6 @@ static void gpencil_stroke_convertcoords(Scene *scene, ARegion *ar, ScrArea *sa,
 	/* Current method just converts each point in screen-coordinates to
 	* 3D-coordinates using the 3D-cursor as reference.
 	*/
-	View3D *v3d = sa->spacedata.first;
 	const float *cursor = ED_view3d_cursor3d_get(scene, v3d);
 	copy_v3_v3(rvec, cursor);
 
@@ -176,11 +175,11 @@ static void gpencil_stroke_convertcoords(Scene *scene, ARegion *ar, ScrArea *sa,
 }
 
 /* convert 2d tGPspoint to 3d bGPDspoint */
-void gpencil_tpoint_to_point(Scene *scene, ARegion *ar, ScrArea *sa, const tGPspoint *tpt, bGPDspoint *pt)
+void gpencil_tpoint_to_point(Scene *scene, ARegion *ar, View3D *v3d, const tGPspoint *tpt, bGPDspoint *pt)
 {
 	float p3d[3];
 	/* conversion to 3d format */
-	gpencil_stroke_convertcoords(scene, ar, sa, tpt, p3d, NULL);
+	gpencil_stroke_convertcoords(scene, ar, v3d, tpt, p3d, NULL);
 	copy_v3_v3(&pt->x, p3d);
 
 	pt->pressure = tpt->pressure;
@@ -192,7 +191,7 @@ Batch *gpencil_get_buffer_point_geom(bGPdata *gpd, short thickness)
 {
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
-	ScrArea *sa = CTX_wm_area(draw_ctx->evil_C);
+	View3D *v3d = draw_ctx->v3d;
 	ARegion *ar = draw_ctx->ar;
 
 	const tGPspoint *tpt = gpd->sbuffer;
@@ -212,7 +211,7 @@ Batch *gpencil_get_buffer_point_geom(bGPdata *gpd, short thickness)
 	VertexBuffer_allocate_data(vbo, 1);
 	
 	/* convert to 3D */
-	gpencil_tpoint_to_point(scene, ar, sa, tpt, &pt);
+	gpencil_tpoint_to_point(scene, ar, v3d, tpt, &pt);
 
 	float alpha = ink[3] * pt.strength;
 	CLAMP(alpha, GPENCIL_STRENGTH_MIN, 1.0f);
@@ -232,7 +231,7 @@ Batch *gpencil_get_buffer_stroke_geom(bGPdata *gpd, short thickness)
 {
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
-	ScrArea *sa = CTX_wm_area(draw_ctx->evil_C);
+	View3D *v3d = draw_ctx->v3d;
 	ARegion *ar = draw_ctx->ar;
 
 	tGPspoint *points = gpd->sbuffer;
@@ -255,7 +254,7 @@ Batch *gpencil_get_buffer_stroke_geom(bGPdata *gpd, short thickness)
 	int idx = 0;
 
 	for (int i = 0; i < totpoints; i++, tpt++) {
-		gpencil_tpoint_to_point(scene, ar, sa, tpt, &pt);
+		gpencil_tpoint_to_point(scene, ar, v3d, tpt, &pt);
 
 		/* first point for adjacency (not drawn) */
 		if (i == 0) {
@@ -282,7 +281,7 @@ Batch *gpencil_get_buffer_fill_geom(const tGPspoint *points, int totpoints, floa
 
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
-	ScrArea *sa = CTX_wm_area(draw_ctx->evil_C);
+	View3D *v3d = draw_ctx->v3d;
 	ARegion *ar = draw_ctx->ar;
 
 	int tot_triangles = totpoints - 2;
@@ -321,19 +320,19 @@ Batch *gpencil_get_buffer_fill_geom(const tGPspoint *points, int totpoints, floa
 		for (int i = 0; i < tot_triangles; i++) {
 			/* vertex 1 */
 			tpt = &points[tmp_triangles[i][0]];
-			gpencil_tpoint_to_point(scene, ar, sa, tpt, &pt);
+			gpencil_tpoint_to_point(scene, ar, v3d, tpt, &pt);
 			VertexBuffer_set_attrib(vbo, pos_id, idx, &pt.x);
 			VertexBuffer_set_attrib(vbo, color_id, idx, ink);
 			++idx;
 			/* vertex 2 */
 			tpt = &points[tmp_triangles[i][1]];
-			gpencil_tpoint_to_point(scene, ar, sa, tpt, &pt);
+			gpencil_tpoint_to_point(scene, ar, v3d, tpt, &pt);
 			VertexBuffer_set_attrib(vbo, pos_id, idx, &pt.x);
 			VertexBuffer_set_attrib(vbo, color_id, idx, ink);
 			++idx;
 			/* vertex 3 */
 			tpt = &points[tmp_triangles[i][2]];
-			gpencil_tpoint_to_point(scene, ar, sa, tpt, &pt);
+			gpencil_tpoint_to_point(scene, ar, v3d, tpt, &pt);
 			VertexBuffer_set_attrib(vbo, pos_id, idx, &pt.x);
 			VertexBuffer_set_attrib(vbo, color_id, idx, ink);
 			++idx;
