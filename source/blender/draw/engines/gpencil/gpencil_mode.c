@@ -558,6 +558,29 @@ static void gpencil_draw_onionskins(void *vedata, ToolSettings *ts, Object *ob,b
 	}
 }
 
+/* helper for complete grease pencil datablock */
+static void gpencil_draw_datablock(void *vedata, Scene *scene, Object *ob, ToolSettings *ts, bGPdata *gpd)
+{
+	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+		/* don't draw layer if hidden */
+		if (gpl->flag & GP_LAYER_HIDE)
+			continue;
+
+		bGPDframe *gpf = BKE_gpencil_layer_getframe(gpl, CFRA, 0);
+		if (gpf == NULL)
+			continue;
+		/* draw onion skins */
+		if ((gpl->flag & GP_LAYER_ONIONSKIN) || (gpl->flag & GP_LAYER_GHOST_ALWAYS))
+		{
+			gpencil_draw_onionskins(vedata, ts, ob, ob->gpd, gpl, gpf);
+		}
+		/* draw normal strokes */
+		gpencil_draw_strokes(vedata, ts, ob, gpl, gpf, gpl->opacity, gpl->tintcolor, false, false);
+	}
+	/* draw current painting strokes */
+	gpencil_draw_buffer_strokes(vedata, ts, ob);
+}
+
 static void GPENCIL_cache_populate(void *vedata, Object *ob)
 {
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
@@ -569,24 +592,7 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 	UNUSED_VARS(psl, stl);
 
 	if (ob->type == OB_GPENCIL && ob->gpd) {
-		for (bGPDlayer *gpl = ob->gpd->layers.first; gpl; gpl = gpl->next) {
-			/* don't draw layer if hidden */
-			if (gpl->flag & GP_LAYER_HIDE)
-				continue;
-
-			bGPDframe *gpf = BKE_gpencil_layer_getframe(gpl, CFRA, 0);
-			if (gpf == NULL)
-				continue;
-			/* draw onion skins */
-			if ((gpl->flag & GP_LAYER_ONIONSKIN) || (gpl->flag & GP_LAYER_GHOST_ALWAYS))
-			{
-				gpencil_draw_onionskins(vedata, ts, ob, ob->gpd, gpl, gpf);
-			}
-			/* draw normal strokes */
-			gpencil_draw_strokes(vedata, ts, ob, gpl, gpf, gpl->opacity, gpl->tintcolor, false, false);
-		}
-		/* draw current painting strokes */
-		gpencil_draw_buffer_strokes(vedata, ts, ob);
+		gpencil_draw_datablock(vedata, scene, ob, ts, ob->gpd);
 	}
 }
 
