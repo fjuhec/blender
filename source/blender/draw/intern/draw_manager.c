@@ -84,6 +84,7 @@ extern char datatoc_gpu_shader_fullscreen_vert_glsl[];
 /* Structures */
 typedef enum {
 	DRW_UNIFORM_BOOL,
+	DRW_UNIFORM_SHORT,
 	DRW_UNIFORM_INT,
 	DRW_UNIFORM_FLOAT,
 	DRW_UNIFORM_TEXTURE,
@@ -205,7 +206,8 @@ static struct DRWGlobalState {
 	float pixsize;
 
 	/* Current rendering context */
-	const struct bContext *context;
+	DRWContextState draw_ctx;
+
 	ListBase enabled_engines; /* RenderEngineType */
 } DST = {NULL};
 
@@ -659,6 +661,11 @@ void DRW_shgroup_uniform_vec4(DRWShadingGroup *shgroup, const char *name, const 
 	DRW_interface_uniform(shgroup, name, DRW_UNIFORM_FLOAT, value, 4, arraysize, 0);
 }
 
+void DRW_shgroup_uniform_short(DRWShadingGroup *shgroup, const char *name, const short *value, int arraysize)
+{
+	DRW_interface_uniform(shgroup, name, DRW_UNIFORM_SHORT, value, 1, arraysize, 0);
+}
+
 void DRW_shgroup_uniform_int(DRWShadingGroup *shgroup, const char *name, const int *value, int arraysize)
 {
 	DRW_interface_uniform(shgroup, name, DRW_UNIFORM_INT, value, 1, arraysize, 0);
@@ -957,7 +964,7 @@ typedef struct DRWBoundTexture {
 
 static void draw_geometry(DRWShadingGroup *shgroup, Batch *geom, const float (*obmat)[4])
 {
-	RegionView3D *rv3d = CTX_wm_region_view3d(DST.context);
+	RegionView3D *rv3d = DST.draw_ctx.rv3d;
 	DRWInterface *interface = shgroup->interface;
 
 	float mvp[4][4], mv[4][4], n[3][3], wn[3][3];
@@ -1041,6 +1048,7 @@ static void draw_shgroup(DRWShadingGroup *shgroup)
 
 	DRWInterface *interface = shgroup->interface;
 	GPUTexture *tex;
+	int val;
 
 	if (DST.shader != shgroup->shader) {
 		if (DST.shader) GPU_shader_unbind();
@@ -1062,6 +1070,11 @@ static void draw_shgroup(DRWShadingGroup *shgroup)
 		DRWBoundTexture *bound_tex;
 
 		switch (uni->type) {
+			case DRW_UNIFORM_SHORT:
+				val = (int)*((short *)uni->value);
+				GPU_shader_uniform_vector_int(
+				        shgroup->shader, uni->location, uni->length, uni->arraysize, (int *)&val);
+				break;
 			case DRW_UNIFORM_BOOL:
 			case DRW_UNIFORM_INT:
 				GPU_shader_uniform_vector_int(
@@ -1178,24 +1191,18 @@ void DRW_draw_pass(DRWPass *pass)
 
 void DRW_draw_callbacks_pre_scene(void)
 {
-	struct ARegion *ar = CTX_wm_region(DST.context);
-	RegionView3D *rv3d = CTX_wm_region_view3d(DST.context);
+	RegionView3D *rv3d = DST.draw_ctx.rv3d;
 
 	gpuLoadProjectionMatrix(rv3d->winmat);
 	gpuLoadMatrix(rv3d->viewmat);
-
-	ED_region_draw_cb_draw(DST.context, ar, REGION_DRAW_PRE_VIEW);
 }
 
 void DRW_draw_callbacks_post_scene(void)
 {
-	struct ARegion *ar = CTX_wm_region(DST.context);
-	RegionView3D *rv3d = CTX_wm_region_view3d(DST.context);
+	RegionView3D *rv3d = DST.draw_ctx.rv3d;
 
 	gpuLoadProjectionMatrix(rv3d->winmat);
 	gpuLoadMatrix(rv3d->viewmat);
-
-	ED_region_draw_cb_draw(DST.context, ar, REGION_DRAW_POST_VIEW);
 }
 
 /* Reset state to not interfer with other UI drawcall */
@@ -1222,7 +1229,7 @@ void DRW_state_reset(void) {}
 
 bool DRW_is_object_renderable(Object *ob)
 {
-	Scene *scene = CTX_data_scene(DST.context);
+	Scene *scene = DST.draw_ctx.scene;
 	Object *obedit = scene->obedit;
 
 	if (ob->type == OB_MESH) {
@@ -1405,7 +1412,10 @@ const float *DRW_viewport_pixelsize_get(void)
  * if this value change per viewport */
 static void DRW_viewport_var_init(const bContext *C)
 {
-	RegionView3D *rv3d = CTX_wm_region_view3d(C);
+	/* Save context for all later needs */
+	DRW_context_state_init(C, &DST.draw_ctx);
+
+	RegionView3D *rv3d = DST.draw_ctx.rv3d;
 
 	/* Refresh DST.size */
 	int size[2];
@@ -1424,14 +1434,11 @@ static void DRW_viewport_var_init(const bContext *C)
 
 	/* Refresh DST.pixelsize */
 	DST.pixsize = rv3d->pixsize;
-
-	/* Save context for all later needs */
-	DST.context = C;
 }
 
 void DRW_viewport_matrix_get(float mat[4][4], DRWViewportMatrixType type)
 {
-	RegionView3D *rv3d = CTX_wm_region_view3d(DST.context);
+	RegionView3D *rv3d = DST.draw_ctx.rv3d;
 
 	if (type == DRW_MAT_PERS)
 		copy_m4_m4(mat, rv3d->persmat);
@@ -1445,7 +1452,7 @@ void DRW_viewport_matrix_get(float mat[4][4], DRWViewportMatrixType type)
 
 bool DRW_viewport_is_persp_get(void)
 {
-	RegionView3D *rv3d = CTX_wm_region_view3d(DST.context);
+	RegionView3D *rv3d = DST.draw_ctx.rv3d;
 	return rv3d->is_persp;
 }
 
@@ -1499,7 +1506,7 @@ LampEngineData *DRW_lamp_engine_data_get(Object *ob, RenderEngineType *engine_ty
 {
 	BLI_assert(ob->type == OB_LAMP);
 
-	Scene *scene = CTX_data_scene(DST.context);
+	Scene *scene = DST.draw_ctx.scene;
 
 	/* TODO Dupliobjects */
 	return GPU_lamp_engine_data_get(scene, ob, NULL, engine_type);
@@ -1713,7 +1720,7 @@ static void DRW_debug_cpu_stats(void)
 	double cache_tot_time = 0.0, init_tot_time = 0.0, background_tot_time = 0.0, render_tot_time = 0.0, tot_time = 0.0;
 	/* local coordinate visible rect inside region, to accomodate overlapping ui */
 	rcti rect;
-	struct ARegion *ar = CTX_wm_region(DST.context);
+	struct ARegion *ar = DST.draw_ctx.ar;
 	ED_region_visible_rect(ar, &rect);
 
 	UI_FontThemeColor(BLF_default(), TH_TEXT_HI);
@@ -1788,7 +1795,7 @@ static void DRW_debug_gpu_stats(void)
 {
 	/* local coordinate visible rect inside region, to accomodate overlapping ui */
 	rcti rect;
-	struct ARegion *ar = CTX_wm_region(DST.context);
+	struct ARegion *ar = DST.draw_ctx.ar;
 	ED_region_visible_rect(ar, &rect);
 
 	UI_FontThemeColor(BLF_default(), TH_TEXT_HI);
@@ -1881,8 +1888,12 @@ void DRW_draw_view(const bContext *C)
 	DRW_engines_draw_background();
 
 	DRW_draw_callbacks_pre_scene();
+	ED_region_draw_cb_draw(C, DST.draw_ctx.ar, REGION_DRAW_PRE_VIEW);
+
 	DRW_engines_draw_scene();
+
 	DRW_draw_callbacks_post_scene();
+	ED_region_draw_cb_draw(C, DST.draw_ctx.ar, REGION_DRAW_POST_VIEW);
 
 	DRW_draw_manipulator();
 
@@ -1895,13 +1906,29 @@ void DRW_draw_view(const bContext *C)
 
 	DRW_state_reset();
 	DRW_engines_disable();
+
+	/* avoid accidental reuse */
+	memset(&DST, 0x0, sizeof(DST));
 }
 
 /* ****************************************** OTHER ***************************************** */
 
-const bContext *DRW_get_context(void)
+void DRW_context_state_init(const bContext *C, DRWContextState *r_draw_ctx)
 {
-	return DST.context;
+	r_draw_ctx->ar = CTX_wm_region(C);
+	r_draw_ctx->rv3d = CTX_wm_region_view3d(C);
+	r_draw_ctx->v3d = CTX_wm_view3d(C);
+
+	r_draw_ctx->scene = CTX_data_scene(C);
+	r_draw_ctx->sl = CTX_data_scene_layer(C);
+
+	/* grr, cant avoid! */
+	r_draw_ctx->evil_C = C;
+}
+
+const DRWContextState *DRW_context_state_get(void)
+{
+	return &DST.draw_ctx;
 }
 
 /* ****************************************** INIT ***************************************** */

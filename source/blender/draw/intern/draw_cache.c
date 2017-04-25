@@ -524,6 +524,16 @@ Batch *DRW_cache_object_surface_get(Object *ob)
 	}
 }
 
+Batch **DRW_cache_object_surface_material_get(struct Object *ob)
+{
+	switch (ob->type) {
+		case OB_MESH:
+			return DRW_cache_mesh_surface_shaded_get(ob);
+		default:
+			return NULL;
+	}
+}
+
 /** \} */
 
 
@@ -1642,6 +1652,15 @@ Batch *DRW_cache_mesh_surface_get(Object *ob)
 	return DRW_mesh_batch_cache_get_triangles_with_normals(me);
 }
 
+/* Return list of batches */
+Batch **DRW_cache_mesh_surface_shaded_get(Object *ob)
+{
+	BLI_assert(ob->type == OB_MESH);
+
+	Mesh *me = ob->data;
+	return DRW_mesh_batch_cache_get_surface_shaded(me);
+}
+
 Batch *DRW_cache_mesh_surface_verts_get(Object *ob)
 {
 	BLI_assert(ob->type == OB_MESH);
@@ -1791,11 +1810,3 @@ Batch *DRW_cache_lattice_vert_overlay_get(Object *ob)
 }
 
 /** \} */
-
-
-#if 0 /* TODO */
-struct Batch *DRW_cache_surface_material_get(Object *ob, int nr) {
-	/* TODO */
-	return NULL;
-}
-#endif
