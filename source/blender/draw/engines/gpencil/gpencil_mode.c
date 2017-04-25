@@ -270,10 +270,10 @@ static void GPENCIL_cache_init(void *vedata)
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
 
-	const struct bContext *C = DRW_get_context();
-	Scene *scene = CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
-	PaletteColor *palcolor = CTX_data_active_palettecolor(C);
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	Scene *scene = draw_ctx->scene;
+	SceneLayer *sl = draw_ctx->sl;
+	PaletteColor *palcolor = CTX_data_active_palettecolor(draw_ctx->evil_C);
 
 	if (!stl->g_data) {
 		/* Alloc transient pointers */
@@ -562,9 +562,9 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 {
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
-	const bContext *C = DRW_get_context();
-	Scene *scene = CTX_data_scene(C);
-	ToolSettings *ts = CTX_data_tool_settings(C);
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	Scene *scene = draw_ctx->scene;
+	ToolSettings *ts = CTX_data_tool_settings(draw_ctx->evil_C);
 
 	UNUSED_VARS(psl, stl);
 

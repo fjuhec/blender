@@ -190,10 +190,10 @@ void gpencil_tpoint_to_point(Scene *scene, ARegion *ar, ScrArea *sa, const tGPsp
 /* create batch geometry data for current buffer for one point stroke shader */
 Batch *gpencil_get_buffer_point_geom(bGPdata *gpd, short thickness)
 {
-	const struct bContext *C = DRW_get_context();
-	Scene *scene = CTX_data_scene(C);
-	ScrArea *sa = CTX_wm_area(C);
-	ARegion *ar = CTX_wm_region(C);
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	Scene *scene = draw_ctx->scene;
+	ScrArea *sa = CTX_wm_area(draw_ctx->evil_C);
+	ARegion *ar = draw_ctx->ar;
 
 	const tGPspoint *tpt = gpd->sbuffer;
 	bGPDspoint pt;
@@ -230,10 +230,10 @@ Batch *gpencil_get_buffer_point_geom(bGPdata *gpd, short thickness)
 /* create batch geometry data for current buffer stroke shader */
 Batch *gpencil_get_buffer_stroke_geom(bGPdata *gpd, short thickness)
 {
-	const struct bContext *C = DRW_get_context();
-	Scene *scene = CTX_data_scene(C);
-	ScrArea *sa = CTX_wm_area(C);
-	ARegion *ar = CTX_wm_region(C);
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	Scene *scene = draw_ctx->scene;
+	ScrArea *sa = CTX_wm_area(draw_ctx->evil_C);
+	ARegion *ar = draw_ctx->ar;
 
 	tGPspoint *points = gpd->sbuffer;
 	int totpoints = gpd->sbuffer_size;
@@ -280,10 +280,10 @@ Batch *gpencil_get_buffer_fill_geom(const tGPspoint *points, int totpoints, floa
 		return NULL;
 	}
 
-	const struct bContext *C = DRW_get_context();
-	Scene *scene = CTX_data_scene(C);
-	ScrArea *sa = CTX_wm_area(C);
-	ARegion *ar = CTX_wm_region(C);
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	Scene *scene = draw_ctx->scene;
+	ScrArea *sa = CTX_wm_area(draw_ctx->evil_C);
+	ARegion *ar = draw_ctx->ar;
 
 	int tot_triangles = totpoints - 2;
 	/* allocate memory for temporary areas */
