@@ -1517,22 +1517,23 @@ static int wm_workspace_configuration_file_write_exec(bContext *C, wmOperator *o
 {
 	Main *bmain = CTX_data_main(C);
 	char filepath[FILE_MAX];
-	const char *configdir = BKE_appdir_folder_id_create(BLENDER_USER_CONFIG, NULL);
 
-	if (configdir) {
-		BLI_path_join(filepath, sizeof(filepath), configdir, BLENDER_WORKSPACES_FILE, NULL);
-		printf("trying to save workspace configuration file at %s ", filepath);
+	const char *app_template = U.app_template[0] ? U.app_template : NULL;
+	const char * const cfgdir = BKE_appdir_folder_id_create(BLENDER_USER_CONFIG, app_template);
+	if (cfgdir == NULL) {
+		BKE_report(op->reports, RPT_ERROR, "Unable to create workspace configuration file path");
+		return OPERATOR_CANCELLED;
+	}
 
-		if (BKE_blendfile_workspace_config_write(bmain, filepath, op->reports) != 0) {
-			printf("ok\n");
-			return OPERATOR_FINISHED;
-		}
-		else {
-			printf("fail\n");
-		}
+	BLI_path_join(filepath, sizeof(filepath), cfgdir, BLENDER_WORKSPACES_FILE, NULL);
+	printf("trying to save workspace configuration file at %s ", filepath);
+
+	if (BKE_blendfile_workspace_config_write(bmain, filepath, op->reports) != 0) {
+		printf("ok\n");
+		return OPERATOR_FINISHED;
 	}
 	else {
-		BKE_report(op->reports, RPT_ERROR, "Unable to create workspace configuration file path");
+		printf("fail\n");
 	}
 
 	return OPERATOR_CANCELLED;

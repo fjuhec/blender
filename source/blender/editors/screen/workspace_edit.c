@@ -315,7 +315,8 @@ static void WORKSPACE_OT_workspace_delete(wmOperatorType *ot)
 static void workspace_config_file_path_from_folder_id(
         const Main *bmain, int folder_id, char *r_path)
 {
-	const char *cfgdir = BKE_appdir_folder_id(folder_id, NULL);
+	const char *app_template = U.app_template[0] ? U.app_template : NULL;
+	const char * const cfgdir = BKE_appdir_folder_id(folder_id, app_template);
 
 	if (cfgdir) {
 		BLI_make_file_string(bmain->name, r_path, cfgdir, BLENDER_WORKSPACES_FILE);
