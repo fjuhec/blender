@@ -587,7 +587,7 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
-	ToolSettings *ts = scene->toolsettings;;
+	ToolSettings *ts = scene->toolsettings;
 
 	UNUSED_VARS(psl, stl);
 
