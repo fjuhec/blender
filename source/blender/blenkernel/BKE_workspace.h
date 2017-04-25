@@ -150,6 +150,6 @@ void BKE_workspace_relation_data_set(struct WorkSpaceDataRelation *relation, voi
 /* -------------------------------------------------------------------- */
 /* Don't use outside of BKE! */
 
-WorkSpace *workspace_alloc(void) ATTR_WARN_UNUSED_RESULT;
+WorkSpace *BKE_workspace_alloc(void) ATTR_WARN_UNUSED_RESULT;
 
 #endif /* __BKE_WORKSPACE_H__ */

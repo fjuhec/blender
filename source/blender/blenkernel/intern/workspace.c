@@ -26,9 +26,9 @@
 
 #include <stdlib.h>
 
+#include "BLI_utildefines.h"
 #include "BLI_string.h"
 #include "BLI_string_utils.h"
-#include "BLI_utildefines.h"
 #include "BLI_listbase.h"
 
 #include "BKE_global.h"
@@ -51,7 +51,7 @@
 /**
  * Only to be called by #BKE_libblock_alloc_notest! Always use BKE_workspace_add to add a new workspace.
  */
-WorkSpace *workspace_alloc(void)
+WorkSpace *BKE_workspace_alloc(void)
 {
 	return MEM_callocN(sizeof(WorkSpace), __func__);
 }

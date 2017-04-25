@@ -971,7 +971,7 @@ void *BKE_libblock_alloc_notest(short type)
 			id = MEM_callocN(sizeof(CacheFile), "Cache File");
 			break;
 		case ID_WS:
-			id = (ID *)workspace_alloc();
+			id = (ID *)BKE_workspace_alloc();
 			break;
 	}
 	return id;
