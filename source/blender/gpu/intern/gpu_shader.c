@@ -35,10 +35,10 @@
 
 #include "GPU_compositing.h"
 #include "GPU_extensions.h"
-#include "GPU_shader.h"
-#include "GPU_uniformbuffer.h"
-#include "GPU_texture.h"
 #include "GPU_matrix.h"
+#include "GPU_shader.h"
+#include "GPU_texture.h"
+#include "GPU_uniformbuffer.h"
 
 #include "gpu_shader_private.h"
 
@@ -63,6 +63,7 @@ extern char datatoc_gpu_shader_2D_image_vert_glsl[];
 
 extern char datatoc_gpu_shader_3D_image_vert_glsl[];
 extern char datatoc_gpu_shader_image_color_frag_glsl[];
+extern char datatoc_gpu_shader_image_alpha_color_frag_glsl[];
 extern char datatoc_gpu_shader_image_shuffle_color_frag_glsl[];
 extern char datatoc_gpu_shader_image_interlace_frag_glsl[];
 extern char datatoc_gpu_shader_image_mask_uniform_color_frag_glsl[];
@@ -70,8 +71,10 @@ extern char datatoc_gpu_shader_image_modulate_alpha_frag_glsl[];
 extern char datatoc_gpu_shader_image_rect_modulate_alpha_frag_glsl[];
 extern char datatoc_gpu_shader_image_depth_linear_frag_glsl[];
 extern char datatoc_gpu_shader_3D_vert_glsl[];
+extern char datatoc_gpu_shader_3D_normal_vert_glsl[];
 extern char datatoc_gpu_shader_3D_flat_color_vert_glsl[];
 extern char datatoc_gpu_shader_3D_smooth_color_vert_glsl[];
+extern char datatoc_gpu_shader_3D_normal_smooth_color_vert_glsl[];
 extern char datatoc_gpu_shader_3D_smooth_color_frag_glsl[];
 extern char datatoc_gpu_shader_3D_passthrough_vert_glsl[];
 extern char datatoc_gpu_shader_3D_clipped_uniform_color_vert_glsl[];
@@ -106,6 +109,8 @@ extern char datatoc_gpu_shader_2D_point_uniform_size_varying_color_outline_aa_ve
 
 extern char datatoc_gpu_shader_2D_line_dashed_vert_glsl[];
 extern char datatoc_gpu_shader_2D_line_dashed_frag_glsl[];
+extern char datatoc_gpu_shader_3D_line_dashed_vert_glsl[];
+extern char datatoc_gpu_shader_3D_line_dashed_frag_glsl[];
 
 extern char datatoc_gpu_shader_edges_front_back_persp_vert_glsl[];
 extern char datatoc_gpu_shader_edges_front_back_persp_geom_glsl[];
@@ -467,20 +472,20 @@ GPUShader *GPU_shader_create_ex(const char *vertexcode,
 		return NULL;
 	}
 
+	shader->interface = ShaderInterface_create(shader->program);
+
 #ifdef WITH_OPENSUBDIV
 	/* TODO(sergey): Find a better place for this. */
 	if (use_opensubdiv && GLEW_VERSION_4_1) {
 		glProgramUniform1i(shader->program,
-		                   glGetUniformLocation(shader->program, "FVarDataOffsetBuffer"),
+		                   ShaderInterface_uniform(shader->interface, "FVarDataOffsetBuffer")->location,
 		                   30);  /* GL_TEXTURE30 */
 
 		glProgramUniform1i(shader->program,
-		                   glGetUniformLocation(shader->program, "FVarDataBuffer"),
+		                   ShaderInterface_uniform(shader->interface, "FVarDataBuffer")->location,
 		                   31);  /* GL_TEXTURE31 */
 	}
 #endif
-
-	shader->interface = ShaderInterface_create(shader->program);
 
 	return shader;
 }
@@ -523,8 +528,8 @@ void GPU_shader_free(GPUShader *shader)
 int GPU_shader_get_uniform(GPUShader *shader, const char *name)
 {
 	BLI_assert(shader && shader->program);
-
-	return glGetUniformLocation(shader->program, name);
+	const ShaderInput *uniform = ShaderInterface_uniform(shader->interface, name);
+	return uniform ? uniform->location : -1;
 }
 
 int GPU_shader_get_uniform_block(GPUShader *shader, const char *name)
@@ -632,8 +637,8 @@ void GPU_shader_uniform_texture(GPUShader *UNUSED(shader), int location, GPUText
 int GPU_shader_get_attribute(GPUShader *shader, const char *name)
 {
 	BLI_assert(shader && shader->program);
-
-	return glGetAttribLocation(shader->program, name);
+	const ShaderInput *attrib = ShaderInterface_attrib(shader->interface, name);
+	return attrib ? attrib->location : -1;
 }
 
 GPUShader *GPU_shader_get_builtin_shader(GPUBuiltinShader shader)
@@ -661,8 +666,8 @@ GPUShader *GPU_shader_get_builtin_shader(GPUBuiltinShader shader)
 		[GPU_SHADER_EDGES_OVERLAY] = { datatoc_gpu_shader_edges_overlay_vert_glsl,
 		                               datatoc_gpu_shader_edges_overlay_frag_glsl,
 		                               datatoc_gpu_shader_edges_overlay_geom_glsl },
-		[GPU_SHADER_SIMPLE_LIGHTING] = { datatoc_gpu_shader_3D_vert_glsl, datatoc_gpu_shader_simple_lighting_frag_glsl },
-		[GPU_SHADER_SIMPLE_LIGHTING_SMOOTH_COLOR] = { datatoc_gpu_shader_3D_smooth_color_vert_glsl, datatoc_gpu_shader_simple_lighting_smooth_color_frag_glsl },
+		[GPU_SHADER_SIMPLE_LIGHTING] = { datatoc_gpu_shader_3D_normal_vert_glsl, datatoc_gpu_shader_simple_lighting_frag_glsl },
+		[GPU_SHADER_SIMPLE_LIGHTING_SMOOTH_COLOR] = { datatoc_gpu_shader_3D_normal_smooth_color_vert_glsl, datatoc_gpu_shader_simple_lighting_smooth_color_frag_glsl },
 
 		[GPU_SHADER_2D_IMAGE_MASK_UNIFORM_COLOR] = { datatoc_gpu_shader_3D_image_vert_glsl,
 		                                             datatoc_gpu_shader_image_mask_uniform_color_frag_glsl },
@@ -686,6 +691,8 @@ GPUShader *GPU_shader_get_builtin_shader(GPUBuiltinShader shader)
 		                                 datatoc_gpu_shader_2D_smooth_color_frag_glsl },
 		[GPU_SHADER_2D_IMAGE_COLOR] = { datatoc_gpu_shader_2D_image_vert_glsl,
 		                                datatoc_gpu_shader_image_color_frag_glsl },
+		[GPU_SHADER_2D_IMAGE_ALPHA_COLOR] = { datatoc_gpu_shader_2D_image_vert_glsl,
+		                                      datatoc_gpu_shader_image_alpha_color_frag_glsl },
 		[GPU_SHADER_2D_IMAGE_SHUFFLE_COLOR] = { datatoc_gpu_shader_2D_image_vert_glsl,
 		                                        datatoc_gpu_shader_image_shuffle_color_frag_glsl },
 		[GPU_SHADER_3D_UNIFORM_COLOR] = { datatoc_gpu_shader_3D_vert_glsl, datatoc_gpu_shader_uniform_color_frag_glsl },
@@ -704,6 +711,8 @@ GPUShader *GPU_shader_get_builtin_shader(GPUBuiltinShader shader)
 
 		[GPU_SHADER_2D_LINE_DASHED_COLOR] = { datatoc_gpu_shader_2D_line_dashed_vert_glsl,
 		                                      datatoc_gpu_shader_2D_line_dashed_frag_glsl },
+	    [GPU_SHADER_3D_LINE_DASHED_COLOR] = { datatoc_gpu_shader_3D_line_dashed_vert_glsl,
+		                                      datatoc_gpu_shader_3D_line_dashed_frag_glsl },
 
 		[GPU_SHADER_3D_OBJECTSPACE_SIMPLE_LIGHTING_VARIYING_COLOR] =
 		    { datatoc_gpu_shader_instance_objectspace_variying_color_vert_glsl,
@@ -767,7 +776,6 @@ GPUShader *GPU_shader_get_builtin_shader(GPUBuiltinShader shader)
 	if (builtin_shaders[shader] == NULL) {
 		/* just a few special cases */
 		const char *defines = (shader == GPU_SHADER_SMOKE_COBA) ? "#define USE_COBA;\n" :
-		                      (shader == GPU_SHADER_SIMPLE_LIGHTING) ? "#define USE_NORMALS;\n" :
 		                      (shader == GPU_SHADER_INSTANCE_VARIYING_COLOR_VARIYING_SIZE) ? "#define UNIFORM_SCALE;\n" :
 		                      (shader == GPU_SHADER_3D_INSTANCE_SCREEN_ALIGNED_AXIS) ? "#define AXIS_NAME;\n" :
 		                      (shader == GPU_SHADER_3D_OBJECTSPACE_SIMPLE_LIGHTING_VARIYING_COLOR) ? "#define USE_INSTANCE_COLOR;\n" : NULL;

@@ -33,25 +33,48 @@ struct Object;
 #define MAX_CASCADE_NUM 4
 
 typedef struct EEVEE_PassList {
+	/* Shadows */
 	struct DRWPass *shadow_pass;
+	struct DRWPass *shadow_cube_pass;
+	struct DRWPass *shadow_cascade_pass;
+
+	/* Probes */
+	struct DRWPass *probe_background;
+	struct DRWPass *probe_prefilter;
+	struct DRWPass *probe_sh_compute;
+
 	struct DRWPass *depth_pass;
 	struct DRWPass *depth_pass_cull;
-	struct DRWPass *pass;
+	struct DRWPass *default_pass;
+	struct DRWPass *material_pass;
 	struct DRWPass *tonemap;
 } EEVEE_PassList;
 
 typedef struct EEVEE_FramebufferList {
-	struct GPUFrameBuffer *main; /* HDR */
+	/* Shadows */
 	struct GPUFrameBuffer *shadow_cube_fb;
 	struct GPUFrameBuffer *shadow_map_fb;
 	struct GPUFrameBuffer *shadow_cascade_fb;
+	/* Probes */
+	struct GPUFrameBuffer *probe_fb;
+	struct GPUFrameBuffer *probe_filter_fb;
+	struct GPUFrameBuffer *probe_sh_fb;
+
+	struct GPUFrameBuffer *main; /* HDR */
 } EEVEE_FramebufferList;
 
 typedef struct EEVEE_TextureList {
-	struct GPUTexture *color; /* R11_G11_B10 */
+	/* Shadows */
 	struct GPUTexture *shadow_depth_cube_pool;
 	struct GPUTexture *shadow_depth_map_pool;
 	struct GPUTexture *shadow_depth_cascade_pool;
+	/* Probes */
+	struct GPUTexture *probe_rt; /* R16_G16_B16 */
+	struct GPUTexture *probe_depth_rt;
+	struct GPUTexture *probe_pool; /* R11_G11_B10 */
+	struct GPUTexture *probe_sh; /* R16_G16_B16 */
+
+	struct GPUTexture *color; /* R16_G16_B16 */
 } EEVEE_TextureList;
 
 typedef struct EEVEE_StorageList {
@@ -60,6 +83,11 @@ typedef struct EEVEE_StorageList {
 	struct EEVEE_LampsInfo *lamps;
 	struct GPUUniformBuffer *light_ubo;
 	struct GPUUniformBuffer *shadow_ubo;
+	struct GPUUniformBuffer *shadow_render_ubo;
+
+	/* Probes */
+	struct EEVEE_ProbesInfo *probes;
+	struct GPUUniformBuffer *probe_ubo;
 
 	struct g_data *g_data;
 } EEVEE_StorageList;
@@ -85,17 +113,17 @@ typedef struct EEVEE_ShadowMap {
 
 typedef struct EEVEE_ShadowCascade {
 	float shadowmat[MAX_CASCADE_NUM][4][4]; /* World->Lamp->NDC->Tex : used for sampling the shadow map. */
-	float bias, count, pad[2];
-	float near[MAX_CASCADE_NUM];
-	float far[MAX_CASCADE_NUM];
+	float split[4];
+	float bias[4];
 } EEVEE_ShadowCascade;
+
+typedef struct EEVEE_ShadowRender {
+	float shadowmat[6][4][4]; /* World->Lamp->NDC : used to render the shadow map. 6 frustrum for cubemap shadow */
+	int layer;
+} EEVEE_ShadowRender;
 
 /* ************ LIGHT DATA ************* */
 typedef struct EEVEE_LampsInfo {
-	/* For rendering shadows */
-	float shadowmat[4][4];
-	int layer;
-
 	int num_light, cache_num_light;
 	int num_cube, cache_num_cube;
 	int num_map, cache_num_map;
@@ -107,10 +135,28 @@ typedef struct EEVEE_LampsInfo {
 	struct Object *shadow_cascade_ref[MAX_SHADOW_CASCADE];
 	/* UBO Storage : data used by UBO */
 	struct EEVEE_Light         light_data[MAX_LIGHT];
+	struct EEVEE_ShadowRender  shadow_render_data;
 	struct EEVEE_ShadowCube    shadow_cube_data[MAX_SHADOW_CUBE];
 	struct EEVEE_ShadowMap     shadow_map_data[MAX_SHADOW_MAP];
 	struct EEVEE_ShadowCascade shadow_cascade_data[MAX_SHADOW_CASCADE];
 } EEVEE_LampsInfo;
+
+/* ************ PROBE DATA ************* */
+typedef struct EEVEE_ProbesInfo {
+	/* For rendering probes */
+	float probemat[6][4][4];
+	int layer;
+	float samples_ct;
+	float invsamples_ct;
+	float roughness;
+	float lodfactor;
+	float lodmax;
+	int shres;
+	int shnbr;
+	float shcoefs[9][3]; /* Temp */
+	struct GPUTexture *backgroundtex;
+} EEVEE_ProbesInfo;
+
 /* *********************************** */
 
 typedef struct EEVEE_Data {
@@ -129,13 +175,10 @@ typedef struct EEVEE_LampEngineData {
 
 typedef struct g_data{
 	struct DRWShadingGroup *default_lit_grp;
+	struct DRWShadingGroup *material_lit_grp;
 	struct DRWShadingGroup *shadow_shgrp;
 	struct DRWShadingGroup *depth_shgrp;
-	struct DRWShadingGroup *depth_shgrp_select;
-	struct DRWShadingGroup *depth_shgrp_active;
 	struct DRWShadingGroup *depth_shgrp_cull;
-	struct DRWShadingGroup *depth_shgrp_cull_select;
-	struct DRWShadingGroup *depth_shgrp_cull_active;
 
 	struct ListBase lamps; /* Lamps gathered during cache iteration */
 } g_data; /* Transient data */
@@ -147,3 +190,53 @@ void EEVEE_lights_cache_add(EEVEE_StorageList *stl, struct Object *ob);
 void EEVEE_lights_cache_finish(EEVEE_StorageList *stl, EEVEE_TextureList *txl, EEVEE_FramebufferList *fbl);
 void EEVEE_lights_update(EEVEE_StorageList *stl);
 void EEVEE_draw_shadows(EEVEE_Data *vedata);
+
+/* eevee_probes.c */
+void EEVEE_probes_init(EEVEE_Data *vedata);
+void EEVEE_probes_cache_init(EEVEE_Data *vedata);
+void EEVEE_probes_cache_add(EEVEE_Data *vedata, Object *ob);
+void EEVEE_probes_cache_finish(EEVEE_Data *vedata);
+void EEVEE_probes_update(EEVEE_Data *vedata);
+void EEVEE_refresh_probe(EEVEE_Data *vedata);
+
+/* Shadow Matrix */
+static const float texcomat[4][4] = { /* From NDC to TexCo */
+	{0.5, 0.0, 0.0, 0.0},
+	{0.0, 0.5, 0.0, 0.0},
+	{0.0, 0.0, 0.5, 0.0},
+	{0.5, 0.5, 0.5, 1.0}
+};
+
+/* Cubemap Matrices */
+static const float cubefacemat[6][4][4] = {
+	/* Pos X */
+	{{0.0, 0.0, -1.0, 0.0},
+	 {0.0, -1.0, 0.0, 0.0},
+	 {-1.0, 0.0, 0.0, 0.0},
+	 {0.0, 0.0, 0.0, 1.0}},
+	/* Neg X */
+	{{0.0, 0.0, 1.0, 0.0},
+	 {0.0, -1.0, 0.0, 0.0},
+	 {1.0, 0.0, 0.0, 0.0},
+	 {0.0, 0.0, 0.0, 1.0}},
+	/* Pos Y */
+	{{1.0, 0.0, 0.0, 0.0},
+	 {0.0, 0.0, 1.0, 0.0},
+	 {0.0, -1.0, 0.0, 0.0},
+	 {0.0, 0.0, 0.0, 1.0}},
+	/* Neg Y */
+	{{1.0, 0.0, 0.0, 0.0},
+	 {0.0, 0.0, -1.0, 0.0},
+	 {0.0, 1.0, 0.0, 0.0},
+	 {0.0, 0.0, 0.0, 1.0}},
+	/* Pos Z */
+	{{1.0, 0.0, 0.0, 0.0},
+	 {0.0, -1.0, 0.0, 0.0},
+	 {0.0, 0.0, -1.0, 0.0},
+	 {0.0, 0.0, 0.0, 1.0}},
+	/* Neg Z */
+	{{-1.0, 0.0, 0.0, 0.0},
+	 {0.0, -1.0, 0.0, 0.0},
+	 {0.0, 0.0, 1.0, 0.0},
+	 {0.0, 0.0, 0.0, 1.0}},
+};

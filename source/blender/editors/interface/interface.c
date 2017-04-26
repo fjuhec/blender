@@ -1377,6 +1377,7 @@ void UI_block_draw(const bContext *C, uiBlock *block)
 	ui_but_to_pixelrect(&rect, ar, block, NULL);
 	
 	/* pixel space for AA widgets */
+	gpuPushProjectionMatrix();
 	gpuPushMatrix();
 	gpuLoadIdentity();
 
@@ -1402,7 +1403,8 @@ void UI_block_draw(const bContext *C, uiBlock *block)
 		}
 	}
 	
-	/* restore model-view matrix */
+	/* restore matrix */
+	gpuPopProjectionMatrix();
 	gpuPopMatrix();
 
 	if (multisample_enabled)
@@ -4374,7 +4376,7 @@ void UI_but_func_search_set(
 	if (0 == (but->block->flag & UI_BLOCK_LOOP)) {
 		/* skip empty buttons, not all buttons need input, we only show invalid */
 		if (but->drawstr[0])
-			ui_but_search_refresh(but);
+			ui_but_search_refresh(but, false);
 	}
 }
 

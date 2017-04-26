@@ -34,7 +34,7 @@
 #include "UI_resources.h"
 #include "UI_interface_icons.h"
 
-#include "clay.h"
+#include "clay_engine.h"
 #ifdef WITH_CLAY_ENGINE
 /* Shaders */
 
@@ -335,7 +335,7 @@ static void CLAY_engine_init(void *vedata)
 		}
 	}
 
-	{
+	if (DRW_state_is_fbo()) {
 		const float *viewport_size = DRW_viewport_size_get();
 		DRWFboTexture tex = {&txl->depth_dup, DRW_BUF_DEPTH_24, 0};
 		DRW_framebuffer_init(&fbl->dupli_depth,
@@ -348,7 +348,7 @@ static void CLAY_engine_init(void *vedata)
 		int ssao_samples = 32; /* XXX get from render settings */
 		float invproj[4][4];
 		float dfdyfacs[2];
-		bool is_persp = DRW_viewport_is_persp_get();
+		const bool is_persp = DRW_viewport_is_persp_get();
 		/* view vectors for the corners of the view frustum. Can be used to recreate the world space position easily */
 		float viewvecs[3][4] = {
 		    {-1.0f, -1.0f, -1.0f, 1.0f},
@@ -358,7 +358,7 @@ static void CLAY_engine_init(void *vedata)
 		int i;
 		const float *size = DRW_viewport_size_get();
 
-		DRW_get_dfdy_factors(dfdyfacs);
+		DRW_state_dfdy_factors_get(dfdyfacs);
 
 		e_data.ssao_params[0] = ssao_samples;
 		e_data.ssao_params[1] = size[0] / 64.0;
@@ -372,7 +372,8 @@ static void CLAY_engine_init(void *vedata)
 		/* convert the view vectors to view space */
 		for (i = 0; i < 3; i++) {
 			mul_m4_v4(invproj, viewvecs[i]);
-			/* normalized trick see http://www.derschmale.com/2014/01/26/reconstructing-positions-from-the-depth-buffer */
+			/* normalized trick see:
+			 * http://www.derschmale.com/2014/01/26/reconstructing-positions-from-the-depth-buffer */
 			mul_v3_fl(viewvecs[i], 1.0f / viewvecs[i][3]);
 			if (is_persp)
 				mul_v3_fl(viewvecs[i], 1.0f / viewvecs[i][2]);
@@ -417,9 +418,9 @@ static DRWShadingGroup *CLAY_shgroup_create(CLAY_Data *vedata, DRWPass *pass, in
 	DRW_shgroup_uniform_buffer(grp, "depthtex", &txl->depth_dup, depthloc);
 	DRW_shgroup_uniform_texture(grp, "matcaps", e_data.matcap_array, matcaploc);
 	DRW_shgroup_uniform_mat4(grp, "WinMatrix", (float *)e_data.winmat);
-	DRW_shgroup_uniform_vec4(grp, "viewvecs", (float *)e_data.viewvecs, 3);
+	DRW_shgroup_uniform_vec4(grp, "viewvecs[0]", (float *)e_data.viewvecs, 3);
 	DRW_shgroup_uniform_vec4(grp, "ssao_params", e_data.ssao_params, 1);
-	DRW_shgroup_uniform_vec3(grp, "matcaps_color", (float *)e_data.matcap_colors, 24);
+	DRW_shgroup_uniform_vec3(grp, "matcaps_color[0]", (float *)e_data.matcap_colors, 24);
 
 	DRW_shgroup_uniform_int(grp, "mat_id", material_id, 1);
 
@@ -429,9 +430,10 @@ static DRWShadingGroup *CLAY_shgroup_create(CLAY_Data *vedata, DRWPass *pass, in
 	return grp;
 }
 
-static int search_mat_to_ubo(CLAY_Storage *storage, float matcap_rot, float matcap_hue, float matcap_sat,
-                             float matcap_val, float ssao_distance, float ssao_factor_cavity,
-                             float ssao_factor_edge, float ssao_attenuation, int matcap_icon)
+static int search_mat_to_ubo(
+        CLAY_Storage *storage, float matcap_rot, float matcap_hue, float matcap_sat,
+        float matcap_val, float ssao_distance, float ssao_factor_cavity,
+        float ssao_factor_edge, float ssao_attenuation, int matcap_icon)
 {
 	/* For now just use a linear search and test all parameters */
 	/* TODO make a hash table */
@@ -547,7 +549,9 @@ static void CLAY_cache_init(void *vedata)
 		psl->depth_pass = DRW_pass_create("Depth Pass", DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 		stl->g_data->depth_shgrp = DRW_shgroup_create(e_data.depth_sh, psl->depth_pass);
 
-		psl->depth_pass_cull = DRW_pass_create("Depth Pass Cull", DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS | DRW_STATE_CULL_BACK);
+		psl->depth_pass_cull = DRW_pass_create(
+		        "Depth Pass Cull",
+		        DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS | DRW_STATE_CULL_BACK);
 		stl->g_data->depth_shgrp_cull = DRW_shgroup_create(e_data.depth_sh, psl->depth_pass_cull);
 	}
 
@@ -564,18 +568,15 @@ static void CLAY_cache_populate(void *vedata, Object *ob)
 	CLAY_PassList *psl = ((CLAY_Data *)vedata)->psl;
 	CLAY_StorageList *stl = ((CLAY_Data *)vedata)->stl;
 
-	struct Batch *geom;
 	DRWShadingGroup *clay_shgrp;
 
 	if (!DRW_is_object_renderable(ob))
 		return;
 
-	IDProperty *ces_mode_ob = BKE_object_collection_engine_get(ob, COLLECTION_MODE_OBJECT, "");
-	bool do_cull = BKE_collection_engine_property_value_get_bool(ces_mode_ob, "show_backface_culling");
-
-	/* TODO all renderable */
-	if (ob->type == OB_MESH) {
-		geom = DRW_cache_mesh_surface_get(ob);
+	struct Batch *geom = DRW_cache_object_surface_get(ob);
+	if (geom) {
+		IDProperty *ces_mode_ob = BKE_object_collection_engine_get(ob, COLLECTION_MODE_OBJECT, "");
+		bool do_cull = BKE_collection_engine_property_value_get_bool(ces_mode_ob, "show_backface_culling");
 
 		/* Depth Prepass */
 		DRW_shgroup_call_add((do_cull) ? stl->g_data->depth_shgrp_cull : stl->g_data->depth_shgrp, geom, ob->obmat);
@@ -606,7 +607,9 @@ static void CLAY_draw_scene(void *vedata)
 
 	/* Pass 2 : Duplicate depth */
 	/* Unless we go for deferred shading we need this to avoid manual depth test and artifacts */
-	DRW_framebuffer_blit(dfbl->default_fb, fbl->dupli_depth, true);
+	if (DRW_state_is_fbo()) {
+		DRW_framebuffer_blit(dfbl->default_fb, fbl->dupli_depth, true);
+	}
 
 	/* Pass 3 : Shading */
 	DRW_draw_pass(psl->clay_pass);
@@ -653,7 +656,7 @@ DrawEngineType draw_engine_clay_type = {
 	&CLAY_draw_scene
 };
 
-RenderEngineType viewport_clay_type = {
+RenderEngineType DRW_engine_viewport_clay_type = {
 	NULL, NULL,
 	CLAY_ENGINE, N_("Clay"), RE_INTERNAL | RE_USE_OGL_PIPELINE,
 	NULL, NULL, NULL, NULL, NULL, NULL, &CLAY_collection_settings_create,

@@ -43,6 +43,7 @@
 #include "BLI_math.h"
 #include "BLI_threads.h"
 #include "BLI_utildefines.h"
+#include "BLI_hash.h"
 
 #include "DNA_lamp_types.h"
 #include "DNA_material_types.h"
@@ -419,9 +420,11 @@ void GPU_clear_tpage(bool force)
 	GTS.curtile = 0;
 	GTS.curima = NULL;
 	if (GTS.curtilemode != 0) {
+#if SUPPORT_LEGACY_MATRIX
 		glMatrixMode(GL_TEXTURE);
 		glLoadIdentity(); /* TEXTURE */
 		glMatrixMode(GL_MODELVIEW);
+#endif
 	}
 	GTS.curtilemode = 0;
 	GTS.curtileXRep = 0;
@@ -603,6 +606,7 @@ int GPU_verify_image(
 	if (GTS.tilemode != GTS.curtilemode || GTS.curtileXRep != GTS.tileXRep ||
 	    GTS.curtileYRep != GTS.tileYRep)
 	{
+#if SUPPORT_LEGACY_MATRIX
 		glMatrixMode(GL_TEXTURE);
 		glLoadIdentity(); /* TEXTURE */
 
@@ -610,6 +614,7 @@ int GPU_verify_image(
 			glScalef(ima->xrep, ima->yrep, 0); /* TEXTURE */
 
 		glMatrixMode(GL_MODELVIEW);
+#endif
 	}
 
 	/* check if we have a valid image */
@@ -1880,6 +1885,21 @@ static int gpu_get_particle_info(GPUParticleInfo *pi)
 		return 0;
 }
 
+static void GPU_get_object_info(float oi[3], Material *mat)
+{
+	Object *ob = GMS.gob;
+	oi[0] = ob->index;
+	oi[1] = mat->index;
+	unsigned int random;
+	if (GMS.dob) {
+		random = GMS.dob->random_id;
+	}
+	else {
+		random = BLI_hash_int_2d(BLI_hash_string(GMS.gob->id.name + 2), 0);
+	}
+	oi[2] = random * (1.0f / (float)0xFFFFFFFF);
+}
+
 int GPU_object_material_bind(int nr, void *attribs)
 {
 	GPUVertexAttribs *gattribs = attribs;
@@ -1939,21 +1959,27 @@ int GPU_object_material_bind(int nr, void *attribs)
 			/* bind glsl material and get attributes */
 			Material *mat = GMS.gmatbuf[nr];
 			GPUParticleInfo partile_info;
+			float object_info[3] = {0};
 
 			float auto_bump_scale;
 
 			GPUMaterial *gpumat = GPU_material_from_blender(GMS.gscene, mat, GMS.is_opensubdiv);
 			GPU_material_vertex_attributes(gpumat, gattribs);
 
-			if (GMS.dob)
+			if (GMS.dob) {
 				gpu_get_particle_info(&partile_info);
+			}
+			
+			if ((GPU_get_material_builtins(gpumat) & GPU_OBJECT_INFO) != 0) {
+				GPU_get_object_info(object_info, mat);
+			}
 
 			GPU_material_bind(
 			        gpumat, GMS.gob->lay, GMS.glay, 1.0, !(GMS.gob->mode & OB_MODE_TEXTURE_PAINT),
 			        GMS.gviewmat, GMS.gviewinv, GMS.gviewcamtexcofac, GMS.gscenelock);
 
 			auto_bump_scale = GMS.gob->derivedFinal != NULL ? GMS.gob->derivedFinal->auto_bump_scale : 1.0f;
-			GPU_material_bind_uniforms(gpumat, GMS.gob->obmat, GMS.gviewmat, GMS.gob->col, auto_bump_scale, &partile_info);
+			GPU_material_bind_uniforms(gpumat, GMS.gob->obmat, GMS.gviewmat, GMS.gob->col, auto_bump_scale, &partile_info, object_info);
 			GMS.gboundmat = mat;
 
 			/* for glsl use alpha blend mode, unless it's set to solid and
@@ -2095,9 +2121,11 @@ void GPU_end_object_materials(void)
 
 	/* resetting the texture matrix after the scaling needed for tiled textures */
 	if (GTS.tilemode) {
+#if SUPPORT_LEGACY_MATRIX
 		glMatrixMode(GL_TEXTURE);
 		glLoadIdentity(); /* TEXTURE */
 		glMatrixMode(GL_MODELVIEW);
+#endif
 	}
 }
 
@@ -2151,7 +2179,7 @@ int GPU_default_lights(void)
 	return count;
 }
 
-int GPU_scene_object_lights(Scene *scene, Object *ob, int lay, float viewmat[4][4], int ortho)
+int GPU_scene_object_lights(SceneLayer *sl, float viewmat[4][4], int ortho)
 {
 	/* disable all lights */
 	for (int count = 0; count < 8; count++)
@@ -2163,18 +2191,15 @@ int GPU_scene_object_lights(Scene *scene, Object *ob, int lay, float viewmat[4][
 
 	int count = 0;
 
-	for (BaseLegacy *base = scene->base.first; base; base = base->next) {
+	for (Base *base = FIRSTBASE_NEW; base; base = base->next) {
 		if (base->object->type != OB_LAMP)
-			continue;
-
-		if (!(base->lay & lay) || !(base->lay & ob->lay))
 			continue;
 
 		Lamp *la = base->object->data;
 
 		/* setup lamp transform */
 		gpuPushMatrix();
-		gpuLoadMatrix3D(viewmat);
+		gpuLoadMatrix(viewmat);
 
 		/* setup light */
 		GPULightData light = {0};
@@ -2263,6 +2288,7 @@ void GPU_state_init(void)
 	/* TODO: remove this when we switch to core profile */
 	glEnable(GL_POINT_SPRITE);
 
+	glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 
 	glDepthFunc(GL_LEQUAL);
 	/* scaling matrices */
@@ -2279,9 +2305,11 @@ void GPU_state_init(void)
 
 	glDepthRange(0.0, 1.0);
 
+#if SUPPORT_LEGACY_MATRIX
 	glMatrixMode(GL_TEXTURE);
 	glLoadIdentity(); /* TEXTURE */
 	glMatrixMode(GL_MODELVIEW);
+#endif
 
 	glFrontFace(GL_CCW);
 	glCullFace(GL_BACK);

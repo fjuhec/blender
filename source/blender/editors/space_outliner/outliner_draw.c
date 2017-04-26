@@ -245,28 +245,13 @@ static void restrictbutton_gp_layer_flag_cb(bContext *C, void *UNUSED(poin), voi
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 }
 
-static void restrictbutton_collection_hide_cb(bContext *C, void *poin, void *UNUSED(poin2))
+static void restrictbutton_collection_flag_cb(bContext *C, void *poin, void *UNUSED(poin2))
 {
 	Scene *scene = poin;
-
 	/* hide and deselect bases that are directly influenced by this LayerCollection */
 	/* TODO(sergey): Use proper flag for tagging here. */
 	DAG_id_tag_update(&scene->id, 0);
 	WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
-	WM_event_add_notifier(C, NC_SCENE | ND_LAYER_CONTENT, NULL);
-}
-
-static void restrictbutton_collection_hide_select_cb(bContext *C, void *poin, void *poin2)
-{
-	Scene *scene = poin;
-	LayerCollection *collection = poin2;
-
-	if ((collection->flag & COLLECTION_SELECTABLE) == 0) {
-		/* deselect bases that are directly influenced by this LayerCollection */
-		/* TODO(sergey): Use proper flag for tagging here. */
-		DAG_id_tag_update(&scene->id, 0);
-		WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, CTX_data_scene(C));
-	}
 	WM_event_add_notifier(C, NC_SCENE | ND_LAYER_CONTENT, NULL);
 }
 
@@ -579,14 +564,14 @@ static void outliner_draw_restrictbuts(uiBlock *block, Scene *scene, ARegion *ar
 				                      (int)(ar->v2d.cur.xmax - OL_TOG_RESTRICT_VIEWX), te->ys, UI_UNIT_X,
 				                      UI_UNIT_Y, &collection->flag, 0, 0, 0, 0,
 				                      TIP_("Restrict/Allow 3D View visibility of objects in the collection"));
-				UI_but_func_set(bt, restrictbutton_collection_hide_cb, scene, collection);
+				UI_but_func_set(bt, restrictbutton_collection_flag_cb, scene, collection);
 				UI_but_flag_enable(bt, UI_BUT_DRAG_LOCK);
 
 				bt = uiDefIconButBitS(block, UI_BTYPE_ICON_TOGGLE_N, COLLECTION_SELECTABLE, 0, ICON_RESTRICT_SELECT_OFF,
 				                      (int)(ar->v2d.cur.xmax - OL_TOG_RESTRICT_SELECTX), te->ys, UI_UNIT_X,
 				                      UI_UNIT_Y, &collection->flag, 0, 0, 0, 0,
 				                      TIP_("Restrict/Allow 3D View selection of objects in the collection"));
-				UI_but_func_set(bt, restrictbutton_collection_hide_select_cb, scene, collection);
+				UI_but_func_set(bt, restrictbutton_collection_flag_cb, scene, collection);
 				UI_but_flag_enable(bt, UI_BUT_DRAG_LOCK);
 
 				UI_block_emboss_set(block, UI_EMBOSS);
@@ -1527,14 +1512,14 @@ static void outliner_draw_tree_element_floating(
 	unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 	int coord_y = te_insert->ys;
 	int coord_x = te_insert->xs;
-	unsigned char col[4];
+	float col[4];
 
 	if (te_insert == te_floating) {
 		/* don't draw anything */
 		return;
 	}
 
-	UI_GetThemeColorShade4ubv(TH_BACK, -40, col);
+	UI_GetThemeColorShade4fv(TH_BACK, -40, col);
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 	glEnable(GL_BLEND);
 
@@ -1542,7 +1527,7 @@ static void outliner_draw_tree_element_floating(
 		if (te_floating->drag_data->insert_type == TE_INSERT_BEFORE) {
 			coord_y += UI_UNIT_Y;
 		}
-		immUniformColor4ubv(col);
+		immUniformColor4fv(col);
 		glLineWidth(line_width);
 
 		immBegin(PRIM_LINE_STRIP, 2);
@@ -1552,7 +1537,7 @@ static void outliner_draw_tree_element_floating(
 	}
 	else {
 		BLI_assert(te_floating->drag_data->insert_type == TE_INSERT_INTO);
-		immUniformColor4ub(UNPACK3(col), col[3] * 0.5f);
+		immUniformColor3fvAlpha(col, col[3] * 0.5f);
 
 		immBegin(PRIM_TRIANGLE_STRIP, 4);
 		immVertex2f(pos, coord_x, coord_y + UI_UNIT_Y);
@@ -1578,13 +1563,20 @@ static void outliner_draw_hierarchy_lines_recursive(unsigned pos, SpaceOops *soo
 		return;
 	}
 
+	const unsigned char grayed_alpha = col[3] / 2;
+
 	y1 = y2 = *starty; /* for vertical lines between objects */
 	for (te = lb->first; te; te = te->next) {
 		bool draw_childs_grayed_out = draw_grayed_out || (te->drag_data != NULL);
 		y2 = *starty;
 		tselem = TREESTORE(te);
 
-		immUniformColor4ub(UNPACK3(col), col[3] * (draw_childs_grayed_out ? 0.5f : 1.0f));
+		if (draw_childs_grayed_out) {
+			immUniformColor3ubvAlpha(col, grayed_alpha);
+		}
+		else {
+			immUniformColor4ubv(col);
+		}
 
 		/* horizontal line? */
 		if (tselem->type == 0 && (te->idcode == ID_OB || te->idcode == ID_SCE))
@@ -1597,7 +1589,12 @@ static void outliner_draw_hierarchy_lines_recursive(unsigned pos, SpaceOops *soo
 			                                        col, draw_childs_grayed_out, starty);
 	}
 
-	immUniformColor4ub(UNPACK3(col), col[3] * (draw_grayed_out ? 0.5f : 1.0f));
+	if (draw_grayed_out) {
+		immUniformColor3ubvAlpha(col, grayed_alpha);
+	}
+	else {
+		immUniformColor4ubv(col);
+	}
 
 	/* vertical line */
 	te = lb->last;

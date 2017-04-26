@@ -14,7 +14,7 @@
 #include <stdlib.h>
 
 // necessary functions from matrix API
-extern void gpuBindMatrices(GLuint program);
+extern void gpuBindMatrices(const ShaderInterface* shaderface);
 extern bool gpuMatricesDirty(void); // how best to use this here?
 
 Batch* Batch_create(PrimitiveType prim_type, VertexBuffer* verts, ElementList* elem)
@@ -127,23 +127,23 @@ static void Batch_update_program_bindings(Batch* batch)
 
 			const GLvoid* pointer = (const GLubyte*)0 + a->offset;
 
-			const GLint loc = glGetAttribLocation(batch->program, a->name);
+			const ShaderInput* input = ShaderInterface_attrib(batch->interface, a->name);
 
-			if (loc == -1) continue;
+			if (input == NULL) continue;
 
-			glEnableVertexAttribArray(loc);
+			glEnableVertexAttribArray(input->location);
 
 			switch (a->fetch_mode)
 				{
 				case KEEP_FLOAT:
 				case CONVERT_INT_TO_FLOAT:
-					glVertexAttribPointer(loc, a->comp_ct, a->gl_comp_type, GL_FALSE, stride, pointer);
+					glVertexAttribPointer(input->location, a->comp_ct, a->gl_comp_type, GL_FALSE, stride, pointer);
 					break;
 				case NORMALIZE_INT_TO_FLOAT:
-					glVertexAttribPointer(loc, a->comp_ct, a->gl_comp_type, GL_TRUE, stride, pointer);
+					glVertexAttribPointer(input->location, a->comp_ct, a->gl_comp_type, GL_TRUE, stride, pointer);
 					break;
 				case KEEP_INT:
-					glVertexAttribIPointer(loc, a->comp_ct, a->gl_comp_type, stride, pointer);
+					glVertexAttribIPointer(input->location, a->comp_ct, a->gl_comp_type, stride, pointer);
 				}
 			}
 		}
@@ -262,7 +262,7 @@ void Batch_draw(Batch* batch)
 
 	Batch_use_program(batch);
 
-	gpuBindMatrices(batch->program);
+	gpuBindMatrices(batch->interface);
 
 	if (batch->elem)
 		{

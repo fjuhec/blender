@@ -87,19 +87,19 @@ typedef struct EDIT_MESH_Data {
 /* *********** STATIC *********** */
 
 static struct {
-	struct GPUShader *overlay_tri_sh;
-	struct GPUShader *overlay_tri_fast_sh;
-	struct GPUShader *overlay_tri_vcol_sh;
-	struct GPUShader *overlay_tri_vcol_fast_sh;
-	struct GPUShader *overlay_edge_sh;
-	struct GPUShader *overlay_edge_vcol_sh;
-	struct GPUShader *overlay_vert_sh;
-	struct GPUShader *overlay_facedot_sh;
-	struct GPUShader *overlay_mix_sh;
-	struct GPUShader *overlay_facefill_sh;
-	struct GPUShader *normals_face_sh;
-	struct GPUShader *normals_sh;
-	struct GPUShader *depth_sh;
+	GPUShader *overlay_tri_sh;
+	GPUShader *overlay_tri_fast_sh;
+	GPUShader *overlay_tri_vcol_sh;
+	GPUShader *overlay_tri_vcol_fast_sh;
+	GPUShader *overlay_edge_sh;
+	GPUShader *overlay_edge_vcol_sh;
+	GPUShader *overlay_vert_sh;
+	GPUShader *overlay_facedot_sh;
+	GPUShader *overlay_mix_sh;
+	GPUShader *overlay_facefill_sh;
+	GPUShader *normals_face_sh;
+	GPUShader *normals_sh;
+	GPUShader *depth_sh;
 } e_data = {NULL}; /* Engine data */
 
 typedef struct g_data {
@@ -227,14 +227,14 @@ static void EDIT_MESH_engine_init(void *vedata)
 }
 
 static DRWPass *edit_mesh_create_overlay_pass(
-        DRWShadingGroup **face_shgrp, DRWShadingGroup **ledges_shgrp,
-        DRWShadingGroup **lverts_shgrp, DRWShadingGroup **facedot_shgrp,
-        float *faceAlpha, DRWState statemod)
+        float *faceAlpha, DRWState statemod,
+        DRWShadingGroup **r_face_shgrp, DRWShadingGroup **r_ledges_shgrp,
+        DRWShadingGroup **r_lverts_shgrp, DRWShadingGroup **r_facedot_shgrp)
 {
-	static struct GPUShader *tri_sh, *ledge_sh;
-	const struct bContext *C = DRW_get_context();
-	RegionView3D *rv3d = CTX_wm_region_view3d(C);
-	Scene *scene = CTX_data_scene(C);
+	GPUShader *tri_sh, *ledge_sh;
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	RegionView3D *rv3d = draw_ctx->rv3d;
+	Scene *scene = draw_ctx->scene;
 	ToolSettings *tsettings = scene->toolsettings;
 
 	if ((tsettings->selectmode & SCE_SELECT_VERTEX) != 0) {
@@ -258,21 +258,21 @@ static DRWPass *edit_mesh_create_overlay_pass(
 	        "Edit Mesh Face Overlay Pass",
 	        DRW_STATE_WRITE_COLOR | DRW_STATE_POINT | statemod);
 
-	*face_shgrp = DRW_shgroup_create(tri_sh, pass);
-	DRW_shgroup_uniform_block(*face_shgrp, "globalsBlock", globals_ubo, 0);
-	DRW_shgroup_uniform_vec2(*face_shgrp, "viewportSize", DRW_viewport_size_get(), 1);
-	DRW_shgroup_uniform_float(*face_shgrp, "faceAlphaMod", faceAlpha, 1);
+	*r_face_shgrp = DRW_shgroup_create(tri_sh, pass);
+	DRW_shgroup_uniform_block(*r_face_shgrp, "globalsBlock", globals_ubo, 0);
+	DRW_shgroup_uniform_vec2(*r_face_shgrp, "viewportSize", DRW_viewport_size_get(), 1);
+	DRW_shgroup_uniform_float(*r_face_shgrp, "faceAlphaMod", faceAlpha, 1);
 
-	*ledges_shgrp = DRW_shgroup_create(ledge_sh, pass);
-	DRW_shgroup_uniform_vec2(*ledges_shgrp, "viewportSize", DRW_viewport_size_get(), 1);
+	*r_ledges_shgrp = DRW_shgroup_create(ledge_sh, pass);
+	DRW_shgroup_uniform_vec2(*r_ledges_shgrp, "viewportSize", DRW_viewport_size_get(), 1);
 
 	if ((tsettings->selectmode & (SCE_SELECT_VERTEX)) != 0) {
-		*lverts_shgrp = DRW_shgroup_create(e_data.overlay_vert_sh, pass);
-		DRW_shgroup_uniform_vec2(*lverts_shgrp, "viewportSize", DRW_viewport_size_get(), 1);
+		*r_lverts_shgrp = DRW_shgroup_create(e_data.overlay_vert_sh, pass);
+		DRW_shgroup_uniform_vec2(*r_lverts_shgrp, "viewportSize", DRW_viewport_size_get(), 1);
 	}
 
 	if ((tsettings->selectmode & (SCE_SELECT_FACE)) != 0) {
-		*facedot_shgrp = DRW_shgroup_create(e_data.overlay_facedot_sh, pass);
+		*r_facedot_shgrp = DRW_shgroup_create(e_data.overlay_facedot_sh, pass);
 	}
 
 	return pass;
@@ -289,8 +289,8 @@ static void EDIT_MESH_cache_init(void *vedata)
 	EDIT_MESH_StorageList *stl = ((EDIT_MESH_Data *)vedata)->stl;
 	DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
 
-	const struct bContext *C = DRW_get_context();
-	View3D *v3d = CTX_wm_view3d(C);
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	View3D *v3d = draw_ctx->v3d;
 
 	bool do_zbufclip = ((v3d->flag & V3D_ZBUF_SELECT) == 0);
 
@@ -330,16 +330,16 @@ static void EDIT_MESH_cache_init(void *vedata)
 
 	if (!do_zbufclip) {
 		psl->edit_face_overlay = edit_mesh_create_overlay_pass(
+		        &face_mod, DRW_STATE_DEPTH_LESS | DRW_STATE_WRITE_DEPTH | DRW_STATE_BLEND,
 		        &stl->g_data->face_overlay_shgrp, &stl->g_data->ledges_overlay_shgrp,
-		        &stl->g_data->lverts_overlay_shgrp, &stl->g_data->facedot_overlay_shgrp, &face_mod,
-		        DRW_STATE_DEPTH_LESS | DRW_STATE_WRITE_DEPTH | DRW_STATE_BLEND);
+		        &stl->g_data->lverts_overlay_shgrp, &stl->g_data->facedot_overlay_shgrp);
 	}
 	else {
 		/* We render all wires with depth and opaque to a new fbo and blend the result based on depth values */
 		psl->edit_face_occluded = edit_mesh_create_overlay_pass(
+		        &zero, DRW_STATE_DEPTH_LESS | DRW_STATE_WRITE_DEPTH,
 		        &stl->g_data->face_occluded_shgrp, &stl->g_data->ledges_occluded_shgrp,
-		        &stl->g_data->lverts_occluded_shgrp, &stl->g_data->facedot_occluded_shgrp, &zero,
-		        DRW_STATE_DEPTH_LESS | DRW_STATE_WRITE_DEPTH);
+		        &stl->g_data->lverts_occluded_shgrp, &stl->g_data->facedot_occluded_shgrp);
 
 		/* however we loose the front faces value (because we need the depth of occluded wires and
 		 * faces are alpha blended ) so we recover them in a new pass. */
@@ -392,9 +392,9 @@ static void edit_mesh_add_ob_to_pass(
 static void EDIT_MESH_cache_populate(void *vedata, Object *ob)
 {
 	EDIT_MESH_StorageList *stl = ((EDIT_MESH_Data *)vedata)->stl;
-	const struct bContext *C = DRW_get_context();
-	View3D *v3d = CTX_wm_view3d(C);
-	Scene *scene = CTX_data_scene(C);
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	View3D *v3d = draw_ctx->v3d;
+	Scene *scene = draw_ctx->scene;
 	Object *obedit = scene->obedit;
 	struct Batch *geom;
 
@@ -476,7 +476,7 @@ static void EDIT_MESH_draw_scene(void *vedata)
 		DRW_draw_pass(psl->mix_occlude);
 
 		/* reattach */
-		DRW_framebuffer_texture_attach(dfbl->default_fb, dtxl->depth, 0);
+		DRW_framebuffer_texture_attach(dfbl->default_fb, dtxl->depth, 0, 0);
 	}
 	else {
 		DRW_draw_pass(psl->normals);

@@ -29,8 +29,8 @@
  *  \ingroup gpu
  */
 
-#ifndef _GPU_MATRIX_H_
-#define _GPU_MATRIX_H_
+#ifndef __GPU_MATRIX_H__
+#define __GPU_MATRIX_H__
 
 #include "BLI_sys_types.h"
 #include "GPU_glew.h"
@@ -43,33 +43,14 @@ extern "C" {
 /* For now we support the legacy matrix stack in gpuGetMatrix functions.
  * Will remove this after switching to core profile, which can happen after
  * we convert all code to use the API in this file. */
-#define SUPPORT_LEGACY_MATRIX 1
-
-/* implement 2D parts with 4x4 matrices, even though 3x3 feels better
- * this is a compromise to get core profile up & running sooner
- * external API stays (almost) the same
- */
-#define MATRIX_2D_4x4 1
+#ifdef WITH_GL_PROFILE_CORE
+#  define SUPPORT_LEGACY_MATRIX 0
+#else
+#  define SUPPORT_LEGACY_MATRIX 1
+#endif
 
 
-void gpuMatrixInit(void); /* called by system -- make private? */
-
-
-/* MatrixMode is conceptually different from GL_MATRIX_MODE */
-
-typedef enum {
-	MATRIX_MODE_INACTIVE,
-	MATRIX_MODE_2D,
-	MATRIX_MODE_3D
-} MatrixMode;
-
-MatrixMode gpuMatrixMode(void);
-
-void gpuMatrixBegin2D(void);
-void gpuMatrixBegin3D(void);
-void gpuMatrixEnd(void);
-/* TODO: gpuMatrixResume2D & gpuMatrixResume3D to switch modes but not reset stack */
-
+void gpuMatrixReset(void); /* to Identity transform & empty stack */
 
 /* ModelView Matrix (2D or 3D) */
 
@@ -83,9 +64,8 @@ void gpuScaleUniform(float factor);
 
 /* 3D ModelView Matrix */
 
-void gpuLoadMatrix3D(const float m[4][4]);
-void gpuMultMatrix3D(const float m[4][4]);
-//const float *gpuGetMatrix3D(float m[4][4]);
+void gpuLoadMatrix(const float m[4][4]);
+void gpuMultMatrix(const float m[4][4]);
 
 void gpuTranslate3f(float x, float y, float z);
 void gpuTranslate3fv(const float vec[3]);
@@ -101,23 +81,21 @@ void gpuLookAt(float eyeX, float eyeY, float eyeZ, float centerX, float centerY,
 
 /* 2D ModelView Matrix */
 
-#if MATRIX_2D_4x4
-void gpuMultMatrix2D(const float m[4][4]);
-#else
-void gpuLoadMatrix2D(const float m[3][3]);
-void gpuMultMatrix2D(const float m[3][3]);
-#endif
-
 void gpuTranslate2f(float x, float y);
 void gpuTranslate2fv(const float vec[2]);
 void gpuScale2f(float x, float y);
 void gpuScale2fv(const float vec[2]);
 void gpuRotate2D(float deg);
 
+/* Projection Matrix (2D or 3D) */
+
+void gpuPushProjectionMatrix(void);
+void gpuPopProjectionMatrix(void);
 
 /* 3D Projection Matrix */
 
-void gpuLoadProjectionMatrix3D(const float m[4][4]);
+void gpuLoadIdentityProjectionMatrix(void);
+void gpuLoadProjectionMatrix(const float m[4][4]);
 
 void gpuOrtho(float left, float right, float bottom, float top, float near, float far);
 void gpuFrustum(float left, float right, float bottom, float top, float near, float far);
@@ -134,12 +112,12 @@ void gpuOrtho2D(float left, float right, float bottom, float top);
 
 
 /* functions to get matrix values */
-const float *gpuGetModelViewMatrix3D(float m[4][4]);
-const float *gpuGetProjectionMatrix3D(float m[4][4]);
-const float *gpuGetModelViewProjectionMatrix3D(float m[4][4]);
+const float (*gpuGetModelViewMatrix(float m[4][4]))[4];
+const float (*gpuGetProjectionMatrix(float m[4][4]))[4];
+const float (*gpuGetModelViewProjectionMatrix(float m[4][4]))[4];
 
-const float *gpuGetNormalMatrix(float m[3][3]);
-const float *gpuGetNormalMatrixInverse(float m[3][3]);
+const float (*gpuGetNormalMatrix(float m[3][3]))[3];
+const float (*gpuGetNormalMatrixInverse(float m[3][3]))[3];
 
 
 /* set uniform values for currently bound shader */
@@ -150,51 +128,63 @@ bool gpuMatricesDirty(void); /* since last bind */
 }
 #endif
 
-
 #ifndef SUPPRESS_GENERIC_MATRIX_API
-/* make matrix inputs generic, to avoid warnings */
+
 #if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)
-#  define gpuMultMatrix3D(x)  \
-	gpuMultMatrix3D(_Generic((x), \
-	        float *:      (const float (*)[4])(x), \
-	        float [16]:   (const float (*)[4])(x), \
-	        float (*)[4]: (const float (*)[4])(x), \
-	        float [4][4]: (const float (*)[4])(x), \
-	        const float *:      (const float (*)[4])(x), \
-	        const float [16]:   (const float (*)[4])(x), \
-	        const float (*)[4]: (const float (*)[4])(x), \
-	        const float [4][4]: (const float (*)[4])(x)) \
+#define _GPU_MAT3_CONST_CAST(x) (_Generic((x), \
+	void *:       (const float (*)[3])(x), \
+	float *:      (const float (*)[3])(x), \
+	float [9]:    (const float (*)[3])(x), \
+	float (*)[4]: (const float (*)[3])(x), \
+	float [4][4]: (const float (*)[3])(x), \
+	const void *:       (const float (*)[3])(x), \
+	const float *:      (const float (*)[3])(x), \
+	const float [9]:    (const float (*)[3])(x), \
+	const float (*)[3]: (const float (*)[3])(x), \
+	const float [3][3]: (const float (*)[3])(x)) \
 )
-#  define gpuLoadMatrix3D(x)  \
-	gpuLoadMatrix3D(_Generic((x), \
-	        float *:      (const float (*)[4])(x), \
-	        float [16]:   (const float (*)[4])(x), \
-	        float (*)[4]: (const float (*)[4])(x), \
-	        float [4][4]: (const float (*)[4])(x), \
-	        const float *:      (const float (*)[4])(x), \
-	        const float [16]:   (const float (*)[4])(x), \
-	        const float (*)[4]: (const float (*)[4])(x), \
-	        const float [4][4]: (const float (*)[4])(x)) \
+#define _GPU_MAT3_CAST(x) (_Generic((x), \
+	void *:       (float (*)[3])(x), \
+	float *:      (float (*)[3])(x), \
+	float [9]:    (float (*)[3])(x), \
+	float (*)[3]: (float (*)[3])(x), \
+	float [3][3]: (float (*)[3])(x)) \
 )
-/* TODO: finish this in a simpler way --^ */
+#define _GPU_MAT4_CONST_CAST(x) (_Generic((x), \
+	void *:       (const float (*)[4])(x), \
+	float *:      (const float (*)[4])(x), \
+	float [16]:   (const float (*)[4])(x), \
+	float (*)[4]: (const float (*)[4])(x), \
+	float [4][4]: (const float (*)[4])(x), \
+	const void *:       (const float (*)[4])(x), \
+	const float *:      (const float (*)[4])(x), \
+	const float [16]:   (const float (*)[4])(x), \
+	const float (*)[4]: (const float (*)[4])(x), \
+	const float [4][4]: (const float (*)[4])(x)) \
+)
+#define _GPU_MAT4_CAST(x) (_Generic((x), \
+	void *:       (float (*)[4])(x), \
+	float *:      (float (*)[4])(x), \
+	float [16]:   (float (*)[4])(x), \
+	float (*)[4]: (float (*)[4])(x), \
+	float [4][4]: (float (*)[4])(x)) \
+)
 #else
-#  define gpuMultMatrix3D(x)  gpuMultMatrix3D((const float (*)[4])(x))
-#  define gpuLoadMatrix3D(x)  gpuLoadMatrix3D((const float (*)[4])(x))
+#  define _GPU_MAT3_CONST_CAST(x) (const float (*)[3])(x)
+#  define _GPU_MAT3_CAST(x)             (float (*)[3])(x)
+#  define _GPU_MAT4_CONST_CAST(x) (const float (*)[4])(x)
+#  define _GPU_MAT4_CAST(x)             (float (*)[4])(x)
+#endif  /* C11 */
 
-#  define gpuLoadProjectionMatrix3D(x)  gpuLoadProjectionMatrix3D((const float (*)[4])(x))
-
-# if MATRIX_2D_4x4
-#  define gpuMultMatrix2D(x)  gpuMultMatrix2D((const float (*)[4])(x))
-# else
-#  define gpuMultMatrix2D(x)  gpuMultMatrix2D((const float (*)[3])(x))
-#  define gpuLoadMatrix2D(x)  gpuLoadMatrix2D((const float (*)[3])(x))
-# endif
-
-#  define gpuGetModelViewMatrix3D(x)  gpuGetModelViewMatrix3D((float (*)[4])(x))
-#  define gpuGetProjectionMatrix3D(x)  gpuGetProjectionMatrix3D((float (*)[4])(x))
-#  define gpuGetModelViewProjectionMatrix3D(x)  gpuGetModelViewProjectionMatrix3D((float (*)[4])(x))
-#  define gpuGetNormalMatrix(x)  gpuGetNormalMatrix((float (*)[3])(x))
-#  define gpuGetNormalMatrixInverse(x)  gpuGetNormalMatrixInverse((float (*)[3])(x))
-#endif /* C11 */
+/* make matrix inputs generic, to avoid warnings */
+#  define gpuMultMatrix(x)  gpuMultMatrix(_GPU_MAT4_CONST_CAST(x))
+#  define gpuLoadMatrix(x)  gpuLoadMatrix(_GPU_MAT4_CONST_CAST(x))
+#  define gpuLoadProjectionMatrix(x)  gpuLoadProjectionMatrix(_GPU_MAT4_CONST_CAST(x))
+#  define gpuGetModelViewMatrix(x)  gpuGetModelViewMatrix(_GPU_MAT4_CAST(x))
+#  define gpuGetProjectionMatrix(x)  gpuGetProjectionMatrix(_GPU_MAT4_CAST(x))
+#  define gpuGetModelViewProjectionMatrix(x)  gpuGetModelViewProjectionMatrix(_GPU_MAT4_CAST(x))
+#  define gpuGetNormalMatrix(x)  gpuGetNormalMatrix(_GPU_MAT3_CAST(x))
+#  define gpuGetNormalMatrixInverse(x)  gpuGetNormalMatrixInverse(_GPU_MAT3_CAST(x))
 #endif /* SUPPRESS_GENERIC_MATRIX_API */
-#endif /* GPU_MATRIX_H */
+
+#endif /* __GPU_MATRIX_H__ */

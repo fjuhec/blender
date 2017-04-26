@@ -26,7 +26,9 @@
 #ifndef __DRW_ENGINE_H__
 #define __DRW_ENGINE_H__
 
+struct ARegion;
 struct CollectionEngineSettings;
+struct Depsgraph;
 struct DRWPass;
 struct Material;
 struct Scene;
@@ -34,6 +36,12 @@ struct DrawEngineType;
 struct IDProperty;
 struct bContext;
 struct Object;
+struct SceneLayer;
+struct ViewContext;
+struct View3D;
+struct rcti;
+
+#include "BLI_sys_types.h"  /* for bool */
 
 /* Buffer and textures used by the viewport by default */
 typedef struct DefaultFramebufferList {
@@ -54,6 +62,13 @@ void DRW_engine_viewport_data_size_get(
         int *r_fbl_len, int *r_txl_len, int *r_psl_len, int *r_stl_len);
 
 void DRW_draw_view(const struct bContext *C);
+void DRW_draw_select_loop(
+        struct ViewContext *vc, struct Depsgraph *graph,
+        struct Scene *scene, struct SceneLayer *sl, struct View3D *v3d, struct ARegion *ar,
+        bool use_obedit_skip, bool use_nearest, const struct rcti *rect);
+void DRW_draw_depth_loop(
+        struct Depsgraph *graph,
+        struct Scene *scene, struct ARegion *ar, struct View3D *v3d);
 
 void DRW_object_engine_data_free(struct Object *ob);
 

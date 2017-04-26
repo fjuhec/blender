@@ -306,6 +306,8 @@ void BKE_lattice_free(Lattice *lt)
 {
 	BKE_animdata_free(&lt->id, false);
 
+	BKE_lattice_batch_cache_free(lt);
+
 	MEM_SAFE_FREE(lt->def);
 	if (lt->dvert) {
 		BKE_defvert_array_free(lt->dvert, lt->pntsu * lt->pntsv * lt->pntsw);
@@ -1231,3 +1233,19 @@ void BKE_lattice_eval_geometry(struct EvaluationContext *UNUSED(eval_ctx),
 {
 }
 
+/* Draw Engine */
+void (*BKE_lattice_batch_cache_dirty_cb)(Lattice *lt, int mode) = NULL;
+void (*BKE_lattice_batch_cache_free_cb)(Lattice *lt) = NULL;
+
+void BKE_lattice_batch_cache_dirty(Lattice *lt, int mode)
+{
+	if (lt->batch_cache) {
+		BKE_lattice_batch_cache_dirty_cb(lt, mode);
+	}
+}
+void BKE_lattice_batch_cache_free(Lattice *lt)
+{
+	if (lt->batch_cache) {
+		BKE_lattice_batch_cache_free_cb(lt);
+	}
+}

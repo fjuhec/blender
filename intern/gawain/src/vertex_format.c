@@ -10,7 +10,8 @@
 // the MPL was not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "vertex_format.h"
-#include <stdlib.h>
+#include "vertex_format_private.h"
+#include <stddef.h>
 #include <string.h>
 
 #define PACK_DEBUG 0
@@ -120,6 +121,8 @@ static const char* copy_attrib_name(VertexFormat* format, const char* name)
 #if TRUST_NO_ONE
 	assert(terminated);
 	assert(format->name_offset <= VERTEX_ATTRIB_NAMES_BUFFER_LEN);
+#else
+	(void)terminated;
 #endif
 
 	return name_copy;

@@ -280,7 +280,7 @@ static Base *object_base_add(SceneLayer *sl, Object *ob)
 	if (base == NULL) {
 		base = MEM_callocN(sizeof(Base), "Object Base");
 
-		/* do not bump user count, leave it for SceneCollections */
+		/* Do not bump user count, leave it for SceneCollections. */
 		base->object = ob;
 		BLI_addtail(&sl->object_bases, base);
 
@@ -788,11 +788,22 @@ static void layer_collection_object_add(SceneLayer *sl, LayerCollection *lc, Obj
 {
 	Base *base = object_base_add(sl, ob);
 
-	/* only add an object once - prevent SceneCollection->objects and
-	 * SceneCollection->filter_objects to add the same object */
+	/* Only add an object once - prevent SceneCollection->objects and
+	 * SceneCollection->filter_objects to add the same object. */
 
 	if (BLI_findptr(&lc->object_bases, base, offsetof(LinkData, data))) {
 		return;
+	}
+
+	bool is_visible = (lc->flag & COLLECTION_VISIBLE) != 0;
+	bool is_selectable = is_visible && ((lc->flag & COLLECTION_SELECTABLE) != 0);
+
+	if (is_visible) {
+		base->flag |= BASE_VISIBLED;
+	}
+
+	if (is_selectable) {
+		base->flag |= BASE_SELECTABLED;
 	}
 
 	BLI_addtail(&lc->object_bases, BLI_genericNodeN(base));
@@ -1166,6 +1177,14 @@ IDProperty *BKE_layer_collection_engine_get(LayerCollection *lc, const int type,
 	return collection_engine_get(lc->properties, type, engine_name);
 }
 
+/**
+ * Return scene engine settings for specified engine
+ */
+IDProperty *BKE_scene_collection_engine_get(Scene *scene, const int type, const char *engine_name)
+{
+	return collection_engine_get(scene->collection_properties, type, engine_name);
+}
+
 /* ---------------------------------------------------------------------- */
 /* Engine Settings Properties */
 
@@ -1193,37 +1212,37 @@ void BKE_collection_engine_property_add_bool(IDProperty *props, const char *name
 int BKE_collection_engine_property_value_get_int(IDProperty *props, const char *name)
 {
 	IDProperty *idprop = IDP_GetPropertyFromGroup(props, name);
-	return idprop ? idprop->data.val : 0;
+	return idprop ? IDP_Int(idprop) : 0;
 }
 
 float BKE_collection_engine_property_value_get_float(IDProperty *props, const char *name)
 {
 	IDProperty *idprop = IDP_GetPropertyFromGroup(props, name);
-	return idprop ? *((float *)&idprop->data.val) : 0.0f;
+	return idprop ? IDP_Float(idprop) : 0.0f;
 }
 
 bool BKE_collection_engine_property_value_get_bool(IDProperty *props, const char *name)
 {
 	IDProperty *idprop = IDP_GetPropertyFromGroup(props, name);
-	return idprop ? idprop->data.val : 0;
+	return idprop ? IDP_Int(idprop) : 0;
 }
 
 void BKE_collection_engine_property_value_set_int(IDProperty *props, const char *name, int value)
 {
 	IDProperty *idprop = IDP_GetPropertyFromGroup(props, name);
-	idprop->data.val = value;
+	IDP_Int(idprop) = value;
 }
 
 void BKE_collection_engine_property_value_set_float(IDProperty *props, const char *name, float value)
 {
 	IDProperty *idprop = IDP_GetPropertyFromGroup(props, name);
-	*(float *)&idprop->data.val = value;
+	IDP_Float(idprop) = value;
 }
 
 void BKE_collection_engine_property_value_set_bool(IDProperty *props, const char *name, bool value)
 {
 	IDProperty *idprop = IDP_GetPropertyFromGroup(props, name);
-	idprop->data.val = value;
+	IDP_Int(idprop) = value;
 }
 
 /* Engine Settings recalculate  */
@@ -1307,47 +1326,62 @@ static void objects_Iterator_next(Iterator *iter, const int flag)
 	}
 }
 
-void BKE_selected_objects_Iterator_begin(Iterator *iter, void *data_in)
+void BKE_selected_objects_iterator_begin(Iterator *iter, void *data_in)
 {
 	objects_Iterator_begin(iter, data_in, BASE_SELECTED);
 }
 
-void BKE_selected_objects_Iterator_next(Iterator *iter)
+void BKE_selected_objects_iterator_next(Iterator *iter)
 {
 	objects_Iterator_next(iter, BASE_SELECTED);
 }
 
-void BKE_selected_objects_Iterator_end(Iterator *UNUSED(iter))
+void BKE_selected_objects_iterator_end(Iterator *UNUSED(iter))
 {
 	/* do nothing */
 }
 
-void BKE_visible_objects_Iterator_begin(Iterator *iter, void *data_in)
+void BKE_visible_objects_iterator_begin(Iterator *iter, void *data_in)
 {
 	objects_Iterator_begin(iter, data_in, BASE_VISIBLED);
 }
 
-void BKE_visible_objects_Iterator_next(Iterator *iter)
+void BKE_visible_objects_iterator_next(Iterator *iter)
 {
 	objects_Iterator_next(iter, BASE_VISIBLED);
 }
 
-void BKE_visible_objects_Iterator_end(Iterator *UNUSED(iter))
+void BKE_visible_objects_iterator_end(Iterator *UNUSED(iter))
 {
 	/* do nothing */
 }
 
-void BKE_visible_bases_Iterator_begin(Iterator *iter, void *data_in)
+void BKE_selected_bases_iterator_begin(Iterator *iter, void *data_in)
+{
+	object_bases_Iterator_begin(iter, data_in, BASE_SELECTED);
+}
+
+void BKE_selected_bases_iterator_next(Iterator *iter)
+{
+	object_bases_Iterator_next(iter, BASE_SELECTED);
+}
+
+void BKE_selected_bases_iterator_end(Iterator *UNUSED(iter))
+{
+	/* do nothing */
+}
+
+void BKE_visible_bases_iterator_begin(Iterator *iter, void *data_in)
 {
 	object_bases_Iterator_begin(iter, data_in, BASE_VISIBLED);
 }
 
-void BKE_visible_bases_Iterator_next(Iterator *iter)
+void BKE_visible_bases_iterator_next(Iterator *iter)
 {
 	object_bases_Iterator_next(iter, BASE_VISIBLED);
 }
 
-void BKE_visible_bases_Iterator_end(Iterator *UNUSED(iter))
+void BKE_visible_bases_iterator_end(Iterator *UNUSED(iter))
 {
 	/* do nothing */
 }
@@ -1370,7 +1404,7 @@ static void idproperty_reset(IDProperty **props, IDProperty *props_ref)
 	*props = IDP_New(IDP_GROUP, &val, ROOT_PROP);
 
 	if (props_ref) {
-		IDP_MergeGroup(*props, props_ref, true);
+		IDP_MergeGroupValues(*props, props_ref);
 	}
 }
 
@@ -1388,7 +1422,6 @@ void BKE_layer_eval_layer_collection_pre(struct EvaluationContext *UNUSED(eval_c
 }
 
 void BKE_layer_eval_layer_collection(struct EvaluationContext *UNUSED(eval_ctx),
-                                     Scene *scene,
                                      LayerCollection *layer_collection,
                                      LayerCollection *parent_layer_collection)
 {
@@ -1409,25 +1442,21 @@ void BKE_layer_eval_layer_collection(struct EvaluationContext *UNUSED(eval_ctx),
 	}
 
 	/* overrides */
-	if (parent_layer_collection != NULL) {
-		idproperty_reset(&layer_collection->properties_evaluated, parent_layer_collection->properties_evaluated);
-	}
-	else if (layer_collection->prev != NULL) {
-		    idproperty_reset(&layer_collection->properties_evaluated, NULL);
-	}
-	else {
-		idproperty_reset(&layer_collection->properties_evaluated, scene->collection_properties);
-	}
-
 	if (is_visible) {
-		IDP_MergeGroup(layer_collection->properties_evaluated, layer_collection->properties, true);
+		if (parent_layer_collection == NULL) {
+			idproperty_reset(&layer_collection->properties_evaluated, layer_collection->properties);
+		}
+		else {
+			idproperty_reset(&layer_collection->properties_evaluated, parent_layer_collection->properties_evaluated);
+			IDP_MergeGroupValues(layer_collection->properties_evaluated, layer_collection->properties);
+		}
 	}
 
 	for (LinkData *link = layer_collection->object_bases.first; link != NULL; link = link->next) {
 		Base *base = link->data;
 
 		if (is_visible) {
-			IDP_SyncGroupValues(base->collection_properties, layer_collection->properties_evaluated);
+			IDP_MergeGroupValues(base->collection_properties, layer_collection->properties_evaluated);
 			base->flag |= BASE_VISIBLED;
 		}
 

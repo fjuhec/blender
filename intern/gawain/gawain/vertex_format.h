@@ -17,9 +17,13 @@
 #define AVG_VERTEX_ATTRIB_NAME_LEN 5
 #define VERTEX_ATTRIB_NAMES_BUFFER_LEN ((AVG_VERTEX_ATTRIB_NAME_LEN + 1) * MAX_VERTEX_ATTRIBS)
 
-#define USE_10_10_10 defined(_WIN32)
-// (GLEW_VERSION_3_3 || GLEW_ARB_vertex_type_2_10_10_10_rev)
-//   ^-- this is only guaranteed on Windows right now, will be true on all platforms soon
+#if defined(WITH_GL_PROFILE_CORE) || defined(_WIN32)
+  // (GLEW_VERSION_3_3 || GLEW_ARB_vertex_type_2_10_10_10_rev)
+  //   ^-- this is only guaranteed on Windows right now, will be true on all platforms soon
+  #define USE_10_10_10 1
+#else
+  #define USE_10_10_10 0
+#endif
 
 typedef enum {
 	COMP_I8,
@@ -81,8 +85,3 @@ typedef struct {
 PackedNormal convert_i10_v3(const float data[3]);
 
 #endif // USE_10_10_10
-
-// for internal use
-void VertexFormat_pack(VertexFormat*);
-unsigned padding(unsigned offset, unsigned alignment);
-unsigned vertex_buffer_size(const VertexFormat*, unsigned vertex_ct);

@@ -65,7 +65,6 @@
 #include "BKE_lattice.h"
 #include "BKE_main.h"
 #include "BKE_mesh.h"
-#include "BKE_mesh_render.h"
 #include "BKE_material.h"
 #include "BKE_mball.h"
 #include "BKE_modifier.h"
@@ -109,6 +108,8 @@
 #include "BLF_api.h"
 
 #include "view3d_intern.h"  /* bad level include */
+
+#include "../../draw/intern/draw_cache_impl.h"  /* bad level include (temporary) */
 
 /* prototypes */
 static void imm_draw_box(const float vec[8][3], bool solid, unsigned pos);
@@ -925,7 +926,7 @@ void view3d_cached_text_draw_end(View3D *v3d, ARegion *ar, bool depth_write, flo
 		}
 
 		float original_proj[4][4];
-		gpuGetProjectionMatrix3D(original_proj);
+		gpuGetProjectionMatrix(original_proj);
 		wmOrtho2_region_pixelspace(ar);
 
 		gpuPushMatrix();
@@ -964,7 +965,7 @@ void view3d_cached_text_draw_end(View3D *v3d, ARegion *ar, bool depth_write, flo
 		}
 		
 		gpuPopMatrix();
-		gpuLoadProjectionMatrix3D(original_proj); /* TODO: make this more 2D friendly */
+		gpuLoadProjectionMatrix(original_proj);
 
 		if (rv3d->rflag & RV3D_CLIPPING) {
 			ED_view3d_clipping_enable();
@@ -1146,7 +1147,7 @@ static void draw_transp_spot_volume(Lamp *la, float x, float z, unsigned pos)
 	glCullFace(GL_BACK);
 
 	glBlendFunc(GL_ONE, GL_ONE);
-	immUniformColor4f(0.2f, 0.2f, 0.2f, 1.0f);
+	immUniformColor3f(0.2f, 0.2f, 0.2f);
 
 	draw_spot_cone(la, x, z, pos);
 
@@ -1190,7 +1191,7 @@ static void draw_transp_sun_volume(Lamp *la, unsigned pos)
 	glCullFace(GL_BACK);
 
 	glBlendFunc(GL_ONE, GL_ONE);
-	immUniformColor4f(0.2f, 0.2f, 0.2f, 1.0f);
+	immUniformColor3f(0.2f, 0.2f, 0.2f);
 
 	imm_draw_box(box, true, pos);
 
@@ -1244,7 +1245,7 @@ void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
 
 	/* we first draw only the screen aligned & fixed scale stuff */
 	gpuPushMatrix();
-	gpuLoadMatrix3D(rv3d->viewmat);
+	gpuLoadMatrix(rv3d->viewmat);
 
 	/* lets calculate the scale: */
 	const float lampsize_px = U.obcenter_dia;
@@ -1565,7 +1566,7 @@ void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
 
 	/* and back to viewspace */
 	gpuPushMatrix();
-	gpuLoadMatrix3D(rv3d->viewmat);
+	gpuLoadMatrix(rv3d->viewmat);
 	copy_v3_v3(vec, ob->obmat[3]);
 
 	setlinestyle(0);
@@ -1674,8 +1675,8 @@ static void draw_viewport_object_reconstruction(
 		 * from current ogl matrix */
 		invert_m4_m4(imat, base->object->obmat);
 
-		gpuMultMatrix3D(imat);
-		gpuMultMatrix3D(mat);
+		gpuMultMatrix(imat);
+		gpuMultMatrix(mat);
 	}
 	else {
 		float obmat[4][4];
@@ -1684,7 +1685,7 @@ static void draw_viewport_object_reconstruction(
 		BKE_tracking_camera_get_reconstructed_interpolate(tracking, tracking_object, framenr, obmat);
 
 		invert_m4_m4(imat, obmat);
-		gpuMultMatrix3D(imat);
+		gpuMultMatrix(imat);
 	}
 
 	for (track = tracksbase->first; track; track = track->next) {
@@ -1950,9 +1951,9 @@ static void drawcamera_stereo3d(
 		ob = BKE_camera_multiview_render(scene, ob, names[i]);
 		cam_lr[i] = ob->data;
 
-		gpuLoadMatrix3D(rv3d->viewmat);
+		gpuLoadMatrix(rv3d->viewmat);
 		BKE_camera_multiview_model_matrix(&scene->r, ob, names[i], obmat);
-		gpuMultMatrix3D(obmat);
+		gpuMultMatrix(obmat);
 
 		copy_m3_m3(vec_lr[i], vec);
 		copy_v3_v3(vec_lr[i][3], vec[3]);
@@ -1987,7 +1988,7 @@ static void drawcamera_stereo3d(
 	}
 
 	/* the remaining drawing takes place in the view space */
-	gpuLoadMatrix3D(rv3d->viewmat);
+	gpuLoadMatrix(rv3d->viewmat);
 
 	if (is_stereo3d_cameras) {
 		/* draw connecting lines */
@@ -2165,9 +2166,9 @@ void drawcamera(Scene *scene, View3D *v3d, RegionView3D *rv3d, Base *base,
 			bool is_left = v3d->multiview_eye == STEREO_LEFT_ID;
 
 			gpuPushMatrix();
-			gpuLoadMatrix3D(rv3d->viewmat);
+			gpuLoadMatrix(rv3d->viewmat);
 			BKE_camera_multiview_model_matrix(&scene->r, ob, is_left ? STEREO_LEFT_NAME : STEREO_RIGHT_NAME, obmat);
-			gpuMultMatrix3D(obmat);
+			gpuMultMatrix(obmat);
 
 			drawcamera_frame(vec, false, pos);
 			gpuPopMatrix();
@@ -2224,8 +2225,8 @@ void drawcamera(Scene *scene, View3D *v3d, RegionView3D *rv3d, Base *base,
 			copy_m4_m4(nobmat, ob->obmat);
 			normalize_m4(nobmat);
 
-			gpuLoadMatrix3D(rv3d->viewmat);
-			gpuMultMatrix3D(nobmat);
+			gpuLoadMatrix(rv3d->viewmat);
+			gpuMultMatrix(nobmat);
 
 			if (cam->flag & CAM_SHOWLIMITS) {
 				const unsigned char col[3] = {128, 128, 60}, col_hi[3] = {255, 255, 120};
@@ -4111,7 +4112,7 @@ static void draw_em_fancy_new(Scene *UNUSED(scene), ARegion *UNUSED(ar), View3D 
                               Object *UNUSED(ob), Mesh *me, BMEditMesh *UNUSED(em), DerivedMesh *UNUSED(cageDM), DerivedMesh *UNUSED(finalDM), const char UNUSED(dt))
 {
 	/* for now... something simple! */
-	Batch *surface = BKE_mesh_batch_cache_get_all_triangles(me);
+	Batch *surface = DRW_mesh_batch_cache_get_all_triangles(me);
 
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LEQUAL);
@@ -4146,7 +4147,7 @@ static void draw_em_fancy_new(Scene *UNUSED(scene), ARegion *UNUSED(ar), View3D 
 
 	if (GLEW_VERSION_3_2) {
 #if 0
-		Batch *overlay = BKE_mesh_batch_cache_get_overlay_edges(me);
+		Batch *overlay = DRW_mesh_batch_cache_get_overlay_edges(me);
 		Batch_set_builtin_program(overlay, GPU_SHADER_EDGES_OVERLAY);
 		Batch_Uniform2f(overlay, "viewportSize", ar->winx, ar->winy);
 		Batch_draw(overlay);
@@ -4165,7 +4166,7 @@ static void draw_em_fancy_new(Scene *UNUSED(scene), ARegion *UNUSED(ar), View3D 
 #endif
 	}
 	else {
-		Batch *edges = BKE_mesh_batch_cache_get_all_edges(me);
+		Batch *edges = DRW_mesh_batch_cache_get_all_edges(me);
 		Batch_set_builtin_program(edges, GPU_SHADER_3D_UNIFORM_COLOR);
 		Batch_Uniform4f(edges, "color", 0.0f, 0.0f, 0.0f, 1.0f);
 		glEnable(GL_LINE_SMOOTH);
@@ -4227,13 +4228,13 @@ static void draw_mesh_object_outline_new(View3D *v3d, RegionView3D *rv3d, Object
 		UI_GetThemeColor4fv((is_active ? TH_ACTIVE : TH_SELECT), outline_color);
 
 #if 1 /* new version that draws only silhouette edges */
-		Batch *fancy_edges = BKE_mesh_batch_cache_get_fancy_edges(me);
+		Batch *fancy_edges = DRW_mesh_batch_cache_get_fancy_edges(me);
 
 		if (rv3d->persp == RV3D_ORTHO) {
 			Batch_set_builtin_program(fancy_edges, GPU_SHADER_EDGES_FRONT_BACK_ORTHO);
 			/* set eye vector, transformed to object coords */
 			float eye[3] = { 0.0f, 0.0f, 1.0f }; /* looking into the screen */
-			mul_m3_v3((float (*)[3])gpuGetNormalMatrixInverse(NULL), eye);
+			mul_m3_v3(gpuGetNormalMatrixInverse(NULL), eye);
 			Batch_Uniform3fv(fancy_edges, "eye", eye);
 		}
 		else {
@@ -4751,13 +4752,13 @@ static void draw_mesh_fancy_new(Scene *scene, SceneLayer *sl, ARegion *ar, View3
 
 #if 1 /* fancy wireframes */
 
-		Batch *fancy_edges = BKE_mesh_batch_cache_get_fancy_edges(me);
+		Batch *fancy_edges = DRW_mesh_batch_cache_get_fancy_edges(me);
 
 		if (rv3d->persp == RV3D_ORTHO) {
 			Batch_set_builtin_program(fancy_edges, GPU_SHADER_EDGES_FRONT_BACK_ORTHO);
 			/* set eye vector, transformed to object coords */
 			float eye[3] = { 0.0f, 0.0f, 1.0f }; /* looking into the screen */
-			mul_m3_v3((float (*)[3])gpuGetNormalMatrixInverse(NULL), eye);
+			mul_m3_v3(gpuGetNormalMatrixInverse(NULL), eye);
 			Batch_Uniform3fv(fancy_edges, "eye", eye);
 		}
 		else {
@@ -5955,7 +5956,7 @@ static void draw_new_particle_system(Scene *scene, View3D *v3d, RegionView3D *rv
 	if ((ob->flag & OB_FROMGROUP) != 0) {
 		float mat[4][4];
 		mul_m4_m4m4(mat, ob->obmat, psys->imat);
-		gpuMultMatrix3D(mat);
+		gpuMultMatrix(mat);
 	}
 
 	/* needed for text display */
@@ -6545,7 +6546,7 @@ static void draw_new_particle_system(Scene *scene, View3D *v3d, RegionView3D *rv
 	}
 
 	if ((ob->flag & OB_FROMGROUP) != 0) {
-		gpuLoadMatrix3D(rv3d->viewmat);
+		gpuLoadMatrix(rv3d->viewmat);
 	}
 }
 
@@ -7345,14 +7346,20 @@ static void draw_editnurb(
 		glLineWidth(1.0f);
 
 		int count = 0;
+		int count_used = 0;
 		for (bl = ob->curve_cache->bev.first, nu = nurb; nu && bl; bl = bl->next, nu = nu->next) {
 			int nr = bl->nr;
 			int skip = nu->resolu / 16;
-			
+
+#if 0
 			while (nr-- > 0) { /* accounts for empty bevel lists */
 				count += 4;
 				nr -= skip;
 			}
+#else
+			/* Same as loop above */
+			count += 4 * max_ii((nr + max_ii(skip - 1, 0)) / (skip + 1), 0);
+#endif
 		}
 
 		if (count > 2) {
@@ -7361,7 +7368,7 @@ static void draw_editnurb(
 				BevPoint *bevp = bl->bevpoints;
 				int nr = bl->nr;
 				int skip = nu->resolu / 16;
-				
+
 				while (nr-- > 0) { /* accounts for empty bevel lists */
 					const float fac = bevp->radius * ts->normalsize;
 					float vec_a[3]; /* Offset perpendicular to the curve */
@@ -7370,18 +7377,15 @@ static void draw_editnurb(
 					vec_a[0] = fac;
 					vec_a[1] = 0.0f;
 					vec_a[2] = 0.0f;
-
-					vec_b[0] = -fac;
-					vec_b[1] = 0.0f;
-					vec_b[2] = 0.0f;
-
+			
 					mul_qt_v3(bevp->quat, vec_a);
-					mul_qt_v3(bevp->quat, vec_b);
+					madd_v3_v3fl(vec_a, bevp->dir, -fac);
+
+					reflect_v3_v3v3(vec_b, vec_a, bevp->dir);
+					negate_v3(vec_b);
+
 					add_v3_v3(vec_a, bevp->vec);
 					add_v3_v3(vec_b, bevp->vec);
-
-					madd_v3_v3fl(vec_a, bevp->dir, -fac);
-					madd_v3_v3fl(vec_b, bevp->dir, -fac);
 
 					immVertex3fv(pos, vec_a);
 					immVertex3fv(pos, bevp->vec);
@@ -7390,8 +7394,12 @@ static void draw_editnurb(
 
 					bevp += skip + 1;
 					nr -= skip;
+					count_used += 4;
 				}
 			}
+			BLI_assert(count == count_used);
+			UNUSED_VARS_NDEBUG(count_used);
+
 			immEnd();
 		}
 		immUnbindProgram();
@@ -7429,7 +7437,6 @@ static void draw_editfont(Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3
 	Curve *cu = ob->data;
 	EditFont *ef = cu->editfont;
 	float vec1[3], vec2[3];
-	int selstart, selend;
 
 	draw_editfont_textcurs(rv3d, ef->textcurs);
 
@@ -7488,19 +7495,18 @@ static void draw_editfont(Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3
 	setlinestyle(0);
 
 
-	if (BKE_vfont_select_get(ob, &selstart, &selend) && ef->selboxes) {
-		const int seltot = selend - selstart;
+	if (ef->selboxes && ef->selboxes_len) {
 		float selboxw;
 
 		unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 		imm_cpack(0xffffff);
 		set_inverted_drawing(1);
-		for (int i = 0; i <= seltot; i++) {
+		for (int i = 0; i < ef->selboxes_len; i++) {
 			EditFontSelBox *sb = &ef->selboxes[i];
 			float tvec[3];
 
-			if (i != seltot) {
+			if (i + 1 != ef->selboxes_len) {
 				if (ef->selboxes[i + 1].y == sb->y)
 					selboxw = ef->selboxes[i + 1].x - sb->x;
 				else
@@ -8862,12 +8868,12 @@ afterdraw:
 				if ((sb = ob->soft)) {
 					if (sb->solverflags & SBSO_ESTIMATEIPO) {
 
-						gpuLoadMatrix3D(rv3d->viewmat);
+						gpuLoadMatrix(rv3d->viewmat);
 						copy_m3_m3(msc, sb->lscale);
 						copy_m3_m3(mrt, sb->lrot);
 						mul_m3_m3m3(mtr, mrt, msc);
 						ob_draw_RE_motion(sb->lcom, mtr, tipw, tiph, drawsize);
-						gpuMultMatrix3D(ob->obmat);
+						gpuMultMatrix(ob->obmat);
 					}
 				}
 			}
@@ -8892,7 +8898,7 @@ afterdraw:
 		}
 		//glDepthMask(GL_FALSE);
 
-		gpuLoadMatrix3D(rv3d->viewmat);
+		gpuLoadMatrix(rv3d->viewmat);
 		
 		view3d_cached_text_draw_begin();
 
@@ -8909,7 +8915,7 @@ afterdraw:
 		invert_m4_m4(ob->imat, ob->obmat);
 		view3d_cached_text_draw_end(v3d, ar, 0, NULL);
 
-		gpuMultMatrix3D(ob->obmat);
+		gpuMultMatrix(ob->obmat);
 		
 		//glDepthMask(GL_TRUE);
 		if (col) cpack(col);
@@ -8923,10 +8929,10 @@ afterdraw:
 		if (ob->mode & OB_MODE_PARTICLE_EDIT && is_obact) {
 			PTCacheEdit *edit = PE_create_current(scene, ob);
 			if (edit) {
-				gpuLoadMatrix3D(rv3d->viewmat);
+				gpuLoadMatrix(rv3d->viewmat);
 				draw_update_ptcache_edit(scene, sl, ob, edit);
 				draw_ptcache_edit(scene, v3d, edit);
-				gpuMultMatrix3D(ob->obmat);
+				gpuMultMatrix(ob->obmat);
 			}
 		}
 	}
@@ -8937,8 +8943,8 @@ afterdraw:
 		const bool show_smoke = (CFRA >= sds->point_cache[0]->startframe);
 		float viewnormal[3];
 
-		gpuLoadMatrix3D(rv3d->viewmat);
-		gpuMultMatrix3D(ob->obmat);
+		gpuLoadMatrix(rv3d->viewmat);
+		gpuMultMatrix(ob->obmat);
 
 		if (!render_override) {
 			BoundBox bb;
@@ -9105,7 +9111,7 @@ afterdraw:
 	/* return warning, clear temp flag */
 	v3d->flag2 &= ~V3D_SHOW_SOLID_MATCAP;
 	
-	gpuLoadMatrix3D(rv3d->viewmat);
+	gpuLoadMatrix(rv3d->viewmat);
 
 	if (zbufoff) {
 		glDisable(GL_DEPTH_TEST);
@@ -9560,7 +9566,7 @@ void draw_object_backbufsel(Scene *scene, View3D *v3d, RegionView3D *rv3d, Objec
 {
 	ToolSettings *ts = scene->toolsettings;
 
-	gpuMultMatrix3D(ob->obmat);
+	gpuMultMatrix(ob->obmat);
 
 	glClearDepth(1.0); glClear(GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
@@ -9620,7 +9626,7 @@ void draw_object_backbufsel(Scene *scene, View3D *v3d, RegionView3D *rv3d, Objec
 			break;
 	}
 
-	gpuLoadMatrix3D(rv3d->viewmat);
+	gpuLoadMatrix(rv3d->viewmat);
 }
 
 

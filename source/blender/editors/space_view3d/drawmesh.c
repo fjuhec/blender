@@ -403,7 +403,7 @@ static bool set_draw_settings_cached(
 	return c_badtex;
 }
 
-static void draw_textured_begin(Scene *scene, View3D *v3d, RegionView3D *rv3d, Object *ob)
+static void draw_textured_begin(Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3D *rv3d, Object *ob)
 {
 	unsigned char obcol[4];
 	bool is_tex, solidtex;
@@ -439,9 +439,7 @@ static void draw_textured_begin(Scene *scene, View3D *v3d, RegionView3D *rv3d, O
 			Gtexdraw.is_lit = 0;
 		}
 		else {
-			Gtexdraw.is_lit = GPU_scene_object_lights(
-			                      scene, ob, v3d->localvd ? v3d->localvd->lay : v3d->lay,
-			                      rv3d->viewmat, !rv3d->is_persp);
+			Gtexdraw.is_lit = GPU_scene_object_lights(sl, rv3d->viewmat, !rv3d->is_persp);
 		}
 	}
 
@@ -957,7 +955,7 @@ static void draw_mesh_textured_old(Scene *scene, SceneLayer *sl, View3D *v3d, Re
 	else glFrontFace(GL_CCW);
 	
 	/* draw the textured mesh */
-	draw_textured_begin(scene, v3d, rv3d, ob);
+	draw_textured_begin(scene, sl, v3d, rv3d, ob);
 
 	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 
@@ -1103,9 +1101,13 @@ static void tex_mat_set_texture_cb(void *userData, int mat_nr, void *attribs)
 			/* bind texture */
 			glBindTexture(GL_TEXTURE_2D, ima->bindcode[TEXTARGET_TEXTURE_2D]);
 
+#if SUPPORT_LEGACY_MATRIX
 			glMatrixMode(GL_TEXTURE);
 			glLoadMatrixf((float*) texbase->tex_mapping.mat); /* TEXTURE */
 			glMatrixMode(GL_MODELVIEW);
+#else
+			(void)texbase;
+#endif
 
 			/* use active UV texture layer */
 			memset(gattribs, 0, sizeof(*gattribs));

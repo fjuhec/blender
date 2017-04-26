@@ -143,7 +143,7 @@ void gpu_extensions_init(void)
 	 * final 2.8 release will be unified on OpenGL 3.3 core profile, no required extensions
 	 * see developer.blender.org/T49012 for details
 	 */
-#ifdef _WIN32
+#if defined(WITH_GL_PROFILE_CORE) || defined(_WIN32)
 	BLI_assert(GLEW_VERSION_3_3);
 #elif defined(__APPLE__)
 	BLI_assert(GLEW_VERSION_2_1 && GLEW_EXT_gpu_shader4
@@ -225,10 +225,6 @@ void gpu_extensions_init(void)
 		GG.device = GPU_DEVICE_ANY;
 		GG.driver = GPU_DRIVER_ANY;
 	}
-
-	/* make sure double side isn't used by default and only getting enabled in places where it's
-	 * really needed to prevent different unexpected behaviors like with intel gme965 card (sergey) */
-	glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_FALSE);
 
 #ifdef _WIN32
 	GG.os = GPU_OS_WIN;
@@ -362,12 +358,14 @@ int GPU_color_depth(void)
 
 bool GPU_mem_stats_supported(void)
 {
-	return (GLEW_NVX_gpu_memory_info || (GLEW_ATI_meminfo)) && (G.debug & G_DEBUG_GPU_MEM);
+	return (GLEW_NVX_gpu_memory_info || GLEW_ATI_meminfo) && (G.debug & G_DEBUG_GPU_MEM);
 }
 
 
 void GPU_mem_stats_get(int *totalmem, int *freemem)
 {
+	/* TODO(merwin): use Apple's platform API to get this info */
+
 	if (GLEW_NVX_gpu_memory_info) {
 		/* returned value in Kb */
 		glGetIntegerv(GL_GPU_MEMORY_INFO_TOTAL_AVAILABLE_MEMORY_NVX, totalmem);

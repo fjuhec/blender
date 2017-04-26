@@ -43,11 +43,13 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_context.h"
+#include "BKE_curve.h"
 #include "BKE_depsgraph.h"
 #include "BKE_icons.h"
+#include "BKE_lattice.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
-#include "BKE_mesh_render.h"
+#include "BKE_mesh.h"
 #include "BKE_object.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
@@ -253,7 +255,7 @@ void ED_view3d_init_mats_rv3d_gl(struct Object *ob, struct RegionView3D *rv3d)
 	/* we have to multiply instead of loading viewmatob to make
 	 * it work with duplis using displists, otherwise it will
 	 * override the dupli-matrix */
-	gpuMultMatrix3D(ob->obmat);
+	gpuMultMatrix(ob->obmat);
 }
 
 #ifdef DEBUG
@@ -839,6 +841,11 @@ static void view3d_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegio
 
 	/* context changes */
 	switch (wmn->category) {
+		case NC_WM:
+			if (ELEM(wmn->data, ND_UNDO)) {
+				WM_manipulatormap_tag_refresh(mmap);
+			}
+			break;
 		case NC_ANIMATION:
 			switch (wmn->data) {
 				case ND_KEYFRAME_PROP:
@@ -929,9 +936,18 @@ static void view3d_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegio
 
 					if (scene->obedit) {
 						Object *ob = scene->obedit;
-						if (ob->type == OB_MESH) {
-							struct Mesh *me = ob->data;
-							BKE_mesh_batch_selection_dirty(me);
+						switch (ob->type) {
+							case OB_MESH:
+								BKE_mesh_batch_cache_dirty(ob->data, BKE_CURVE_BATCH_DIRTY_SELECT);
+								break;
+							// case OB_FONT:  /* handled by text_update_edited */
+							case OB_CURVE:
+							case OB_SURF:
+								BKE_curve_batch_cache_dirty(ob->data, BKE_CURVE_BATCH_DIRTY_SELECT);
+								break;
+							case OB_LATTICE:
+								BKE_lattice_batch_cache_dirty(ob->data, BKE_CURVE_BATCH_DIRTY_SELECT);
+								break;
 						}
 					}
 				}

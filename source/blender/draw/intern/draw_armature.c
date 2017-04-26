@@ -55,6 +55,8 @@
 #include "ED_armature.h"
 #include "ED_keyframes_draw.h"
 
+#include "GPU_select.h"
+
 #include "UI_resources.h"
 
 #include "draw_common.h"
@@ -82,7 +84,7 @@ static void DRW_shgroup_bone_octahedral_solid(const float (*bone_mat)[4], const 
 		bone_octahedral_solid = shgroup_instance_objspace_solid(bone_solid, geom, current_armature->obmat);
 	}
 
-	DRW_shgroup_dynamic_call_add(bone_octahedral_solid, bone_mat, color);
+	DRW_shgroup_call_dynamic_add(bone_octahedral_solid, bone_mat, color);
 }
 
 static void DRW_shgroup_bone_octahedral_wire(const float (*bone_mat)[4], const float color[4])
@@ -92,7 +94,7 @@ static void DRW_shgroup_bone_octahedral_wire(const float (*bone_mat)[4], const f
 		bone_octahedral_wire = shgroup_instance_objspace_wire(bone_wire, geom, current_armature->obmat);
 	}
 
-	DRW_shgroup_dynamic_call_add(bone_octahedral_wire, bone_mat, color);
+	DRW_shgroup_call_dynamic_add(bone_octahedral_wire, bone_mat, color);
 }
 
 /* Head and tail sphere */
@@ -103,7 +105,7 @@ static void DRW_shgroup_bone_point_solid(const float (*bone_mat)[4], const float
 		bone_point_solid = shgroup_instance_objspace_solid(bone_solid, geom, current_armature->obmat);
 	}
 
-	DRW_shgroup_dynamic_call_add(bone_point_solid, bone_mat, color);
+	DRW_shgroup_call_dynamic_add(bone_point_solid, bone_mat, color);
 }
 
 static void DRW_shgroup_bone_point_wire(const float (*bone_mat)[4], const float color[4])
@@ -113,7 +115,7 @@ static void DRW_shgroup_bone_point_wire(const float (*bone_mat)[4], const float 
 		bone_point_wire = shgroup_instance_objspace_wire(bone_wire, geom, current_armature->obmat);
 	}
 
-	DRW_shgroup_dynamic_call_add(bone_point_wire, bone_mat, color);
+	DRW_shgroup_call_dynamic_add(bone_point_wire, bone_mat, color);
 }
 
 /* Axes */
@@ -124,14 +126,14 @@ static void DRW_shgroup_bone_axes(const float (*bone_mat)[4], const float color[
 		bone_axes = shgroup_instance_objspace_wire(bone_wire, geom, current_armature->obmat);
 	}
 
-	DRW_shgroup_dynamic_call_add(bone_axes, bone_mat, color);
+	DRW_shgroup_call_dynamic_add(bone_axes, bone_mat, color);
 }
 
 /* Relationship lines */
 static void UNUSED_FUNCTION(DRW_shgroup_bone_relationship_lines)(const float head[3], const float tail[3])
 {
-	DRW_shgroup_dynamic_call_add(relationship_lines, head);
-	DRW_shgroup_dynamic_call_add(relationship_lines, tail);
+	DRW_shgroup_call_dynamic_add(relationship_lines, head);
+	DRW_shgroup_call_dynamic_add(relationship_lines, tail);
 }
 
 /* *************** Armature Drawing - Coloring API ***************************** */
@@ -242,7 +244,9 @@ static void draw_axes(EditBone *eBone, bPoseChannel *pchan)
 	DRW_shgroup_bone_axes(BONE_VAR(eBone, pchan, disp_tail_mat), col);
 }
 
-static void draw_points(EditBone *eBone, bPoseChannel *pchan, bArmature *arm)
+static void draw_points(
+        const EditBone *eBone, const bPoseChannel *pchan, const bArmature *arm,
+        const int select_id)
 {
 	const float *col_solid_root = colorBoneSolid;
 	const float *col_solid_tail = colorBoneSolid;
@@ -263,6 +267,10 @@ static void draw_points(EditBone *eBone, bPoseChannel *pchan, bArmature *arm)
 
 	/*	Draw root point if we are not connected and parent are not hidden */
 	if ((BONE_FLAG(eBone, pchan) & BONE_CONNECTED) == 0) {
+		if (select_id != -1) {
+			DRW_select_load_id(select_id | BONESEL_ROOT);
+		}
+
 		if (eBone) {
 			if (!((eBone->parent) && !EBONE_VISIBLE(arm, eBone->parent))) {
 				DRW_shgroup_bone_point_solid(eBone->disp_mat, col_solid_root);
@@ -279,74 +287,109 @@ static void draw_points(EditBone *eBone, bPoseChannel *pchan, bArmature *arm)
 	}
 
 	/*	Draw tip point */
+	if (select_id != -1) {
+		DRW_select_load_id(select_id | BONESEL_TIP);
+	}
 	DRW_shgroup_bone_point_solid(BONE_VAR(eBone, pchan, disp_tail_mat), col_solid_tail);
 	DRW_shgroup_bone_point_wire(BONE_VAR(eBone, pchan, disp_tail_mat), col_wire_tail);
+
+	if (select_id != -1) {
+		DRW_select_load_id(-1);
+	}
 }
 
-static void draw_bone_custom_shape(EditBone *UNUSED(eBone), bPoseChannel *UNUSED(pchan), bArmature *UNUSED(arm))
+static void draw_bone_custom_shape(
+        EditBone *UNUSED(eBone), bPoseChannel *UNUSED(pchan), bArmature *UNUSED(arm),
+        const int UNUSED(select_id))
 {
 	/* work in progress  -- fclem */
 }
 
-static void draw_bone_envelope(EditBone *UNUSED(eBone), bPoseChannel *UNUSED(pchan), bArmature *UNUSED(arm))
+static void draw_bone_envelope(
+        EditBone *UNUSED(eBone), bPoseChannel *UNUSED(pchan), bArmature *UNUSED(arm),
+        const int UNUSED(select_id))
 {
 	/* work in progress  -- fclem */
 }
 
-static void draw_bone_line(EditBone *UNUSED(eBone), bPoseChannel *UNUSED(pchan), bArmature *UNUSED(arm))
+static void draw_bone_line(
+        EditBone *UNUSED(eBone), bPoseChannel *UNUSED(pchan), bArmature *UNUSED(arm),
+        const int UNUSED(select_id))
 {
 	/* work in progress  -- fclem */
 }
 
-static void draw_bone_wire(EditBone *UNUSED(eBone), bPoseChannel *UNUSED(pchan), bArmature *UNUSED(arm))
+static void draw_bone_wire(
+        EditBone *UNUSED(eBone), bPoseChannel *UNUSED(pchan), bArmature *UNUSED(arm),
+        const int UNUSED(select_id))
 {
 	/* work in progress  -- fclem */
 }
 
-static void draw_bone_box(EditBone *UNUSED(eBone), bPoseChannel *UNUSED(pchan), bArmature *UNUSED(arm))
+static void draw_bone_box(
+        EditBone *UNUSED(eBone), bPoseChannel *UNUSED(pchan), bArmature *UNUSED(arm),
+        const int UNUSED(select_id))
 {
 	/* work in progress  -- fclem */
 }
 
-static void draw_bone_octahedral(EditBone *eBone, bPoseChannel *pchan, bArmature *arm)
+static void draw_bone_octahedral(
+        EditBone *eBone, bPoseChannel *pchan, bArmature *arm,
+        const int select_id)
 {
 	const float *col_solid = get_bone_solid_color(eBone, pchan, arm);
 	const float *col_wire = get_bone_wire_color(eBone, pchan, arm);
 
+	if (select_id != -1) {
+		DRW_select_load_id(select_id | BONESEL_BONE);
+	}
+
 	DRW_shgroup_bone_octahedral_solid(BONE_VAR(eBone, pchan, disp_mat), col_solid);
 	DRW_shgroup_bone_octahedral_wire(BONE_VAR(eBone, pchan, disp_mat), col_wire);
 
-	draw_points(eBone, pchan, arm);
+	if (select_id != -1) {
+		DRW_select_load_id(-1);
+	}
+
+	draw_points(eBone, pchan, arm, select_id);
 }
 
 static void draw_armature_edit(Object *ob)
 {
 	EditBone *eBone;
 	bArmature *arm = ob->data;
-	unsigned int index;
+	int index;
+	const bool is_select = DRW_state_is_select();
 
 	update_color(NULL);
 
 	for (eBone = arm->edbo->first, index = 0; eBone; eBone = eBone->next, index++) {
 		if (eBone->layer & arm->layer) {
 			if ((eBone->flag & BONE_HIDDEN_A) == 0) {
+				const int select_id = is_select ? index : (unsigned int)-1;
 
 				draw_bone_update_disp_matrix(eBone, NULL, arm->drawtype);
 
-				if (arm->drawtype == ARM_ENVELOPE)
-					draw_bone_envelope(eBone, NULL, arm);
-				else if (arm->drawtype == ARM_LINE)
-					draw_bone_line(eBone, NULL, arm);
-				else if (arm->drawtype == ARM_WIRE)
-					draw_bone_wire(eBone, NULL, arm);
-				else if (arm->drawtype == ARM_B_BONE)
-					draw_bone_box(eBone, NULL, arm);
-				else
-					draw_bone_octahedral(eBone, NULL, arm);
+				if (arm->drawtype == ARM_ENVELOPE) {
+					draw_bone_envelope(eBone, NULL, arm, select_id);
+				}
+				else if (arm->drawtype == ARM_LINE) {
+					draw_bone_line(eBone, NULL, arm, select_id);
+				}
+				else if (arm->drawtype == ARM_WIRE) {
+					draw_bone_wire(eBone, NULL, arm, select_id);
+				}
+				else if (arm->drawtype == ARM_B_BONE) {
+					draw_bone_box(eBone, NULL, arm, select_id);
+				}
+				else {
+					draw_bone_octahedral(eBone, NULL, arm, select_id);
+				}
 
 				/*	Draw additional axes */
-				if (arm->flag & ARM_DRAWAXES)
+				if (arm->flag & ARM_DRAWAXES) {
 					draw_axes(eBone, NULL);
+				}
 			}
 		}
 	}
@@ -357,6 +400,7 @@ static void draw_armature_pose(Object *ob, const float const_color[4])
 {
 	bArmature *arm = ob->data;
 	bPoseChannel *pchan;
+	int index = -1;
 	Bone *bone;
 
 	update_color(const_color);
@@ -365,6 +409,19 @@ static void draw_armature_pose(Object *ob, const float const_color[4])
 	if (ob->pose->flag & POSE_RECALC) {
 		BKE_pose_rebuild(ob, arm);
 	}
+
+	// if (!(base->flag & OB_FROMDUPLI)) // TODO
+	{
+		if (ob->mode & OB_MODE_POSE) {
+			arm->flag |= ARM_POSEMODE;
+		}
+
+		if (arm->flag & ARM_POSEMODE) {
+			index = ob->base_selection_color;
+		}
+	}
+
+	bool is_pose_select = (arm->flag & ARM_POSEMODE) && DRW_state_is_select();
 
 	/* being set below */
 	arm->layer_used = 0;
@@ -376,34 +433,48 @@ static void draw_armature_pose(Object *ob, const float const_color[4])
 		/* bone must be visible */
 		if ((bone->flag & (BONE_HIDDEN_P | BONE_HIDDEN_PG)) == 0) {
 			if (bone->layer & arm->layer) {
+				const int select_id = is_pose_select ? index : (unsigned int)-1;
 
 				draw_bone_update_disp_matrix(NULL, pchan, arm->drawtype);
 
-				if ((pchan->custom) && !(arm->flag & ARM_NO_CUSTOM))
-					draw_bone_custom_shape(NULL, pchan, arm);
-				else if (arm->drawtype == ARM_ENVELOPE)
-					draw_bone_envelope(NULL, pchan, arm);
-				else if (arm->drawtype == ARM_LINE)
-					draw_bone_line(NULL, pchan, arm);
-				else if (arm->drawtype == ARM_WIRE)
-					draw_bone_wire(NULL, pchan, arm);
-				else if (arm->drawtype == ARM_B_BONE)
-					draw_bone_box(NULL, pchan, arm);
-				else
-					draw_bone_octahedral(NULL, pchan, arm);
+				if ((pchan->custom) && !(arm->flag & ARM_NO_CUSTOM)) {
+					draw_bone_custom_shape(NULL, pchan, arm, select_id);
+				}
+				else if (arm->drawtype == ARM_ENVELOPE) {
+					draw_bone_envelope(NULL, pchan, arm, select_id);
+				}
+				else if (arm->drawtype == ARM_LINE) {
+					draw_bone_line(NULL, pchan, arm, select_id);
+				}
+				else if (arm->drawtype == ARM_WIRE) {
+					draw_bone_wire(NULL, pchan, arm, select_id);
+				}
+				else if (arm->drawtype == ARM_B_BONE) {
+					draw_bone_box(NULL, pchan, arm, select_id);
+				}
+				else {
+					draw_bone_octahedral(NULL, pchan, arm, select_id);
+				}
 
 				/*	Draw additional axes */
 				if (arm->flag & ARM_DRAWAXES)
 					draw_axes(NULL, pchan);
+
+				if (is_pose_select) {
+					index += 0x10000;
+				}
 			}
 		}
 	}
+
+	arm->flag &= ~ARM_POSEMODE;
 }
 
 /* this function set the object space to use
  * for all subsequent DRW_shgroup_bone_*** calls */
 static void DRW_shgroup_armature(
-    Object *ob, DRWPass *pass_bone_solid, DRWPass *pass_bone_wire, DRWShadingGroup *shgrp_relationship_lines)
+        Object *ob, DRWPass *pass_bone_solid, DRWPass *pass_bone_wire,
+        DRWShadingGroup *shgrp_relationship_lines)
 {
 	current_armature = ob;
 	bone_octahedral_solid = NULL;
@@ -418,7 +489,8 @@ static void DRW_shgroup_armature(
 }
 
 void DRW_shgroup_armature_object(
-    Object *ob, SceneLayer *sl, DRWPass *pass_bone_solid, DRWPass *pass_bone_wire, DRWShadingGroup *shgrp_relationship_lines)
+        Object *ob, SceneLayer *sl, DRWPass *pass_bone_solid, DRWPass *pass_bone_wire,
+        DRWShadingGroup *shgrp_relationship_lines)
 {
 	float *color;
 	DRW_object_wire_theme_get(ob, sl, &color);
@@ -428,14 +500,16 @@ void DRW_shgroup_armature_object(
 }
 
 void DRW_shgroup_armature_pose(
-    Object *ob, DRWPass *pass_bone_solid, DRWPass *pass_bone_wire, DRWShadingGroup *shgrp_relationship_lines)
+        Object *ob, DRWPass *pass_bone_solid, DRWPass *pass_bone_wire,
+        DRWShadingGroup *shgrp_relationship_lines)
 {
 	DRW_shgroup_armature(ob, pass_bone_solid, pass_bone_wire, shgrp_relationship_lines);
 	draw_armature_pose(ob, NULL);
 }
 
 void DRW_shgroup_armature_edit(
-    Object *ob, DRWPass *pass_bone_solid, DRWPass *pass_bone_wire, DRWShadingGroup *shgrp_relationship_lines)
+        Object *ob, DRWPass *pass_bone_solid, DRWPass *pass_bone_wire,
+        DRWShadingGroup *shgrp_relationship_lines)
 {
 	DRW_shgroup_armature(ob, pass_bone_solid, pass_bone_wire, shgrp_relationship_lines);
 	draw_armature_edit(ob);

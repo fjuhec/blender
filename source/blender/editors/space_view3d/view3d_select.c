@@ -109,6 +109,7 @@ void view3d_set_viewcontext(bContext *C, ViewContext *vc)
 {
 	memset(vc, 0, sizeof(ViewContext));
 	vc->ar = CTX_wm_region(C);
+	vc->depsgraph = CTX_data_depsgraph(C);
 	vc->scene = CTX_data_scene(C);
 	vc->scene_layer = CTX_data_scene_layer(C);
 	vc->v3d = CTX_wm_view3d(C);
@@ -474,7 +475,7 @@ static void do_lasso_select_mesh(ViewContext *vc, const int mcords[][2], short m
 	/* for non zbuf projections, don't change the GL state */
 	ED_view3d_init_mats_rv3d(vc->obedit, vc->rv3d);
 
-	gpuLoadMatrix3D(vc->rv3d->viewmat);
+	gpuLoadMatrix(vc->rv3d->viewmat);
 	bbsel = EDBM_backbuf_border_mask_init(vc, mcords, moves, rect.xmin, rect.ymin, rect.xmax, rect.ymax);
 	
 	if (ts->selectmode & SCE_SELECT_VERTEX) {
@@ -1846,7 +1847,7 @@ static int do_mesh_box_select(ViewContext *vc, rcti *rect, bool select, bool ext
 	/* for non zbuf projections, don't change the GL state */
 	ED_view3d_init_mats_rv3d(vc->obedit, vc->rv3d);
 
-	gpuLoadMatrix3D(vc->rv3d->viewmat);
+	gpuLoadMatrix(vc->rv3d->viewmat);
 	bbsel = EDBM_backbuf_border_init(vc, rect->xmin, rect->ymin, rect->xmax, rect->ymax);
 
 	if (ts->selectmode & SCE_SELECT_VERTEX) {
