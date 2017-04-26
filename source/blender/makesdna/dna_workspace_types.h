@@ -18,7 +18,7 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file DNA_workspace_types.h
+/** \file dna_workspace_types.h
  *  \ingroup DNA
  *
  * Only use with API in BKE_workspace.h!
@@ -49,10 +49,10 @@ typedef struct WorkSpaceLayout {
 typedef struct WorkSpace {
 	ID id;
 
-	ListBase layouts;
+	ListBase layouts; /* WorkSpaceLayout */
 	/* Store for each hook (so for each window) which layout has
 	 * been activated the last time this workspace was visible. */
-	ListBase hook_layout_assignments; /* WorkSpaceDataAssignment */
+	ListBase hook_layout_relations; /* WorkSpaceDataRelation */
 
 	int object_mode; /* enum ObjectMode */
 	int pad;
@@ -64,19 +64,33 @@ typedef struct WorkSpace {
  * Generic (and simple/primitive) struct for storing a history of assignments/relations
  * of workspace data to non-workspace data in a listbase inside the workspace.
  *
- * We use it to store:
- * * Active layout of each workspace per hook (= per window) -- Workspace stores an active layout for each hook.
- *
  * Using this we can restore the old state of a workspace if the user switches back to it.
+ *
+ * Usage
+ * =====
+ * When activating a workspace, it should activate the screen-layout that was active in that
+ * workspace before *in this window*.
+ * More concretely:
+ * * There are two windows, win1 and win2.
+ * * Both show workspace ws1, but both also had workspace ws2 activated at some point before.
+ * * Last time ws2 was active in win1, screen-layout sl1 was activated.
+ * * Last time ws2 was active in win2, screen-layout sl2 was activated.
+ * * When changing from ws1 to ws2 in win1, screen-layout sl1 should be activated again.
+ * * When changing from ws1 to ws2 in win2, screen-layout sl2 should be activated again.
+ * So that means we have to store the active screen-layout in a per workspace, per window
+ * relation. This struct is used to store an active screen-layout for each window within the
+ * workspace.
+ * To find the screen-layout to activate for this window-workspace combination, simply lookup
+ * the WorkSpaceDataRelation with the workspace-hook of the window set as parent.
  */
-typedef struct WorkSpaceDataAssignment {
-	struct WorkSpaceDataAssignment *next, *prev;
+typedef struct WorkSpaceDataRelation {
+	struct WorkSpaceDataRelation *next, *prev;
 
-	/* the data used to identify the assignment (e.g. to find layout-assignment for a hook) */
+	/* the data used to identify the relation (e.g. to find screen-layout (= value) from/for a hook) */
 	void *parent;
-	/* The value for this parent-data/workspace assignment */
+	/* The value for this parent-data/workspace relation */
 	void *value;
-} WorkSpaceDataAssignment;
+} WorkSpaceDataRelation;
 
 /**
  * Little wrapper to store data that is going to be per window, but comming from the workspace.

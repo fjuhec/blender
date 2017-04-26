@@ -60,7 +60,6 @@
 #include "WM_types.h"
 
 #include "BIF_gl.h"
-#include "BIF_glutil.h"
 
 #include "UI_resources.h"
 #include "UI_view2d.h"
@@ -85,7 +84,7 @@ static void time_draw_sfra_efra(Scene *scene, View2D *v2d)
 	glEnable(GL_BLEND);
 
 	VertexFormat *format = immVertexFormat();
-	unsigned pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 	immUniformColor4f(0.0f, 0.0f, 0.0f, 0.4f);
@@ -103,7 +102,7 @@ static void time_draw_sfra_efra(Scene *scene, View2D *v2d)
 	/* thin lines where the actual frames are */
 	immUniformThemeColorShade(TH_BACK, -60);
 
-	immBegin(GL_LINES, 4);
+	immBegin(PRIM_LINES, 4);
 
 	immVertex2f(pos, (float)PSFRA, v2d->cur.ymin);
 	immVertex2f(pos, (float)PSFRA, v2d->cur.ymax);
@@ -127,7 +126,7 @@ static void time_draw_cache(SpaceTime *stime, Object *ob, Scene *scene)
 
 	BKE_ptcache_ids_from_object(&pidlist, ob, scene, 0);
 
-	unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
 	/* iterate over pointcaches on the active object, 
@@ -197,8 +196,8 @@ static void time_draw_cache(SpaceTime *stime, Object *ob, Scene *scene)
 				break;
 		}
 
-		int sta = pid->cache->startframe, end = pid->cache->endframe;
-		int len = (end - sta + 1) * 4;
+		const int sta = pid->cache->startframe, end = pid->cache->endframe;
+		const int len = (end - sta + 1) * 6;
 
 		glEnable(GL_BLEND);
 
@@ -216,13 +215,16 @@ static void time_draw_cache(SpaceTime *stime, Object *ob, Scene *scene)
 		immUniformColor4fv(col);
 
 		if (len > 0) {
-			immBeginAtMost(GL_QUADS, len);
+			immBeginAtMost(PRIM_TRIANGLES, len);
 
 			/* draw a quad for each cached frame */
 			for (int i = sta; i <= end; i++) {
 				if (pid->cache->cached_frames[i - sta]) {
 					immVertex2f(pos, (float)i - 0.5f, 0.0f);
 					immVertex2f(pos, (float)i - 0.5f, 1.0f);
+					immVertex2f(pos, (float)i + 0.5f, 1.0f);
+
+					immVertex2f(pos, (float)i - 0.5f, 0.0f);
 					immVertex2f(pos, (float)i + 0.5f, 1.0f);
 					immVertex2f(pos, (float)i + 0.5f, 0.0f);
 				}
@@ -322,12 +324,12 @@ static void time_draw_idblock_keyframes(View2D *v2d, ID *id, short onlysel, cons
 	if (max_len > 0) {
 
 		VertexFormat *format = immVertexFormat();
-		unsigned pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+		unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
 
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 		immUniformColor3ubv(color);
 
-		immBeginAtMost(GL_LINES, max_len * 2);
+		immBeginAtMost(PRIM_LINES, max_len * 2);
 
 		for (; (ak) && (ak->cfra <= v2d->cur.xmax);
 			ak = ak->next)
@@ -637,7 +639,7 @@ static void time_main_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), 
 			if (wmn->data == ND_DATA)
 				ED_region_tag_redraw(ar);
 			break;
-		case NC_WORKSPACE:
+		case NC_SCREEN:
 			if (ELEM(wmn->data, ND_LAYER)) {
 				ED_region_tag_redraw(ar);
 			}
@@ -663,7 +665,7 @@ static void time_header_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa)
 {
 	/* context changes */
 	switch (wmn->category) {
-		case NC_WORKSPACE:
+		case NC_SCREEN:
 		{
 			if (wmn->data == ND_ANIMPLAY)
 				ED_region_tag_redraw(ar);

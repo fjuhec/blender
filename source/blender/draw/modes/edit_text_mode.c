@@ -26,8 +26,13 @@
 #include "DRW_engine.h"
 #include "DRW_render.h"
 
+#include "DNA_curve_types.h"
+
+#include "BIF_glutil.h"
+
 /* If builtin shaders are needed */
 #include "GPU_shader.h"
+#include "GPU_batch.h"
 
 #include "draw_common.h"
 
@@ -46,22 +51,21 @@ extern struct GlobalsUboStorage ts; /* draw_common.c */
  * initialize most of them and EDIT_TEXT_cache_init()
  * for EDIT_TEXT_PassList */
 
-/* keep it under MAX_PASSES */
 typedef struct EDIT_TEXT_PassList {
 	/* Declare all passes here and init them in
 	 * EDIT_TEXT_cache_init().
 	 * Only contains (DRWPass *) */
-	struct DRWPass *pass;
+	struct DRWPass *wire_pass;
+	struct DRWPass *overlay_select_pass;
+	struct DRWPass *overlay_cursor_pass;
 } EDIT_TEXT_PassList;
 
-/* keep it under MAX_BUFFERS */
 typedef struct EDIT_TEXT_FramebufferList {
 	/* Contains all framebuffer objects needed by this engine.
 	 * Only contains (GPUFrameBuffer *) */
 	struct GPUFrameBuffer *fb;
 } EDIT_TEXT_FramebufferList;
 
-/* keep it under MAX_TEXTURES */
 typedef struct EDIT_TEXT_TextureList {
 	/* Contains all framebuffer textures / utility textures
 	 * needed by this engine. Only viewport specific textures
@@ -69,7 +73,6 @@ typedef struct EDIT_TEXT_TextureList {
 	struct GPUTexture *texture;
 } EDIT_TEXT_TextureList;
 
-/* keep it under MAX_STORAGE */
 typedef struct EDIT_TEXT_StorageList {
 	/* Contains any other memory block that the engine needs.
 	 * Only directly MEM_(m/c)allocN'ed blocks because they are
@@ -83,7 +86,7 @@ typedef struct EDIT_TEXT_Data {
 	/* Struct returned by DRW_viewport_engine_data_get.
 	 * If you don't use one of these, just make it a (void *) */
 	// void *fbl;
-	char engine_name[32]; /* Required */
+	void *engine_type; /* Required */
 	EDIT_TEXT_FramebufferList *fbl;
 	EDIT_TEXT_TextureList *txl;
 	EDIT_TEXT_PassList *psl;
@@ -97,13 +100,16 @@ static struct {
 	 * Add sources to source/blender/draw/modes/shaders
 	 * init in EDIT_TEXT_engine_init();
 	 * free in EDIT_TEXT_engine_free(); */
-	struct GPUShader *custom_shader;
+	GPUShader *wire_sh;
+	GPUShader *overlay_select_sh;
+	GPUShader *overlay_cursor_sh;
 } e_data = {NULL}; /* Engine data */
 
 typedef struct g_data {
-	/* This keeps the references of the shading groups for
-	 * easy access in EDIT_TEXT_cache_populate() */
-	DRWShadingGroup *group;
+	/* resulting curve as 'wire' for fast editmode drawing */
+	DRWShadingGroup *wire_shgrp;
+	DRWShadingGroup *overlay_select_shgrp;
+	DRWShadingGroup *overlay_cursor_shgrp;
 } g_data; /* Transient data */
 
 /* *********** FUNCTIONS *********** */
@@ -121,8 +127,8 @@ static void EDIT_TEXT_engine_init(void *vedata)
 
 	/* Init Framebuffers like this: order is attachment order (for color texs) */
 	/*
-	 * DRWFboTexture tex[2] = {{&txl->depth, DRW_BUF_DEPTH_24},
-	 *                         {&txl->color, DRW_BUF_RGBA_8}};
+	 * DRWFboTexture tex[2] = {{&txl->depth, DRW_BUF_DEPTH_24, 0},
+	 *                         {&txl->color, DRW_BUF_RGBA_8, DRW_TEX_FILTER}};
 	 */
 
 	/* DRW_framebuffer_init takes care of checking if
@@ -134,8 +140,16 @@ static void EDIT_TEXT_engine_init(void *vedata)
 	 *                     tex, 2);
 	 */
 
-	if (!e_data.custom_shader) {
-		e_data.custom_shader = GPU_shader_get_builtin_shader(GPU_SHADER_3D_UNIFORM_COLOR);
+	if (!e_data.wire_sh) {
+		e_data.wire_sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_UNIFORM_COLOR);
+	}
+
+	if (!e_data.overlay_select_sh) {
+		e_data.overlay_select_sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_UNIFORM_COLOR);
+	}
+
+	if (!e_data.overlay_cursor_sh) {
+		e_data.overlay_cursor_sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_UNIFORM_COLOR);
 	}
 }
 
@@ -152,24 +166,22 @@ static void EDIT_TEXT_cache_init(void *vedata)
 	}
 
 	{
-		/* Create a pass */
-		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS | DRW_STATE_BLEND | DRW_STATE_WIRE;
-		psl->pass = DRW_pass_create("My Pass", state);
+		/* Text outline (fast drawing!) */
+		psl->wire_pass = DRW_pass_create(
+		        "Font Wire",
+		        DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS | DRW_STATE_WIRE);
+		stl->g_data->wire_shgrp = DRW_shgroup_create(e_data.wire_sh, psl->wire_pass);
 
-		/* Create a shadingGroup using a function in draw_common.c or custom one */
-		/*
-		 * stl->g_data->group = shgroup_dynlines_uniform_color(psl->pass, ts.colorWire);
-		 * -- or --
-		 * stl->g_data->group = DRW_shgroup_create(e_data.custom_shader, psl->pass);
-		 */
-		stl->g_data->group = DRW_shgroup_create(e_data.custom_shader, psl->pass);
+		psl->overlay_select_pass = DRW_pass_create(
+		        "Font Select",
+		        DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH);
+		stl->g_data->overlay_select_shgrp = DRW_shgroup_create(e_data.overlay_select_sh, psl->overlay_select_pass);
 
-		/* Uniforms need a pointer to it's value so be sure it's accessible at
-		 * any given time (i.e. use static vars) */
-		static float color[4] = {1.0f, 0.0f, 0.0f, 1.0};
-		DRW_shgroup_uniform_vec4(stl->g_data->group, "color", color, 1);
+		psl->overlay_cursor_pass = DRW_pass_create(
+		        "Font Cursor",
+		        DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH);
+		stl->g_data->overlay_cursor_shgrp = DRW_shgroup_create(e_data.overlay_cursor_sh, psl->overlay_cursor_pass);
 	}
-
 }
 
 /* Add geometry to shadingGroups. Execute for each objects */
@@ -177,15 +189,38 @@ static void EDIT_TEXT_cache_populate(void *vedata, Object *ob)
 {
 	EDIT_TEXT_PassList *psl = ((EDIT_TEXT_Data *)vedata)->psl;
 	EDIT_TEXT_StorageList *stl = ((EDIT_TEXT_Data *)vedata)->stl;
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	Scene *scene = draw_ctx->scene;
+	Object *obedit = scene->obedit;
 
 	UNUSED_VARS(psl, stl);
 
-	if (ob->type == OB_MESH) {
-		/* Get geometry cache */
-		struct Batch *geom = DRW_cache_surface_get(ob);
+	if (ob->type == OB_FONT) {
+		if (ob == obedit) {
+			const Curve *cu = ob->data;
+			/* Get geometry cache */
+			struct Batch *geom;
 
-		/* Add geom to a shading group */
-		DRW_shgroup_call_add(stl->g_data->group, geom, ob->obmat);
+			if (cu->flag & CU_FAST) {
+				geom = DRW_cache_text_edge_wire_get(ob);
+				if (geom) {
+					DRW_shgroup_call_add(stl->g_data->wire_shgrp, geom, ob->obmat);
+				}
+			}
+			else {
+				/* object mode draws */
+			}
+
+			geom = DRW_cache_text_select_overlay_get(ob);
+			if (geom) {
+				DRW_shgroup_call_add(stl->g_data->overlay_select_shgrp, geom, ob->obmat);
+			}
+
+			geom = DRW_cache_text_cursor_overlay_get(ob);
+			if (geom) {
+				DRW_shgroup_call_add(stl->g_data->overlay_cursor_shgrp, geom, ob->obmat);
+			}
+		}
 	}
 }
 
@@ -216,12 +251,16 @@ static void EDIT_TEXT_draw_scene(void *vedata)
 	 * DRW_framebuffer_texture_detach(dtxl->depth);
 	 * DRW_framebuffer_bind(fbl->custom_fb);
 	 * DRW_draw_pass(psl->pass);
-	 * DRW_framebuffer_texture_attach(dfbl->default_fb, dtxl->depth, 0);
+	 * DRW_framebuffer_texture_attach(dfbl->default_fb, dtxl->depth, 0, 0);
 	 * DRW_framebuffer_bind(dfbl->default_fb);
 	 */
 
-	/* ... or just render passes on default framebuffer. */
-	DRW_draw_pass(psl->pass);
+	DRW_draw_pass(psl->wire_pass);
+
+	set_inverted_drawing(1);
+	DRW_draw_pass(psl->overlay_select_pass);
+	DRW_draw_pass(psl->overlay_cursor_pass);
+	set_inverted_drawing(0);
 
 	/* If you changed framebuffer, double check you rebind
 	 * the default one with its textures attached before finishing */
@@ -232,8 +271,7 @@ static void EDIT_TEXT_draw_scene(void *vedata)
  * Mostly used for freeing shaders */
 static void EDIT_TEXT_engine_free(void)
 {
-	// if (custom_shader)
-	// 	DRW_shader_free(custom_shader);
+	// DRW_SHADER_FREE_SAFE(custom_shader);
 }
 
 /* Create collection settings here.
@@ -257,9 +295,12 @@ void EDIT_TEXT_collection_settings_create(CollectionEngineSettings *ces)
 }
 #endif
 
+static const DrawEngineDataSize EDIT_TEXT_data_size = DRW_VIEWPORT_DATA_SIZE(EDIT_TEXT_Data);
+
 DrawEngineType draw_engine_edit_text_type = {
 	NULL, NULL,
 	N_("EditTextMode"),
+	&EDIT_TEXT_data_size,
 	&EDIT_TEXT_engine_init,
 	&EDIT_TEXT_engine_free,
 	&EDIT_TEXT_cache_init,

@@ -73,11 +73,11 @@ typedef struct BlendFileData {
 	BlenFileType type;
 } BlendFileData;
 
-typedef struct WorkflowFileData {
+typedef struct WorkspaceConfigFileData {
 	struct Main *main; /* has to be freed when done reading file data */
 
 	ListBase workspaces;
-} WorkflowFileData;
+} WorkspaceConfigFileData;
 
 
 /* skip reading some data-block types (may want to skip screen data too). */

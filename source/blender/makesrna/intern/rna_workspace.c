@@ -22,11 +22,11 @@
  *  \ingroup RNA
  */
 
-#include "BKE_workspace.h"
-
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
 #include "RNA_types.h"
+
+#include "BKE_workspace.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -92,7 +92,8 @@ static void rna_def_workspace(BlenderRNA *brna)
 	srna = RNA_def_struct(brna, "WorkSpace", "ID");
 	RNA_def_struct_sdna(srna, "WorkSpace");
 	RNA_def_struct_ui_text(srna, "Workspace", "Workspace data-block, defining the working environment for the user");
-	RNA_def_struct_ui_icon(srna, ICON_NONE);
+	/* TODO: real icon, just to show something */
+	RNA_def_struct_ui_icon(srna, ICON_RENDER_RESULT);
 
 	prop = RNA_def_property(srna, "screens", PROP_COLLECTION, PROP_NONE);
 	RNA_def_property_collection_sdna(prop, NULL, "layouts", NULL);
@@ -114,7 +115,7 @@ static void rna_def_workspace(BlenderRNA *brna)
 	                               NULL, NULL);
 	RNA_def_property_ui_text(prop, "Active Render Layer", "The active render layer used in this workspace");
 	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_NEVER_NULL);
-	RNA_def_property_update(prop, NC_WORKSPACE | ND_LAYER, NULL);
+	RNA_def_property_update(prop, NC_SCREEN | ND_LAYER, NULL);
 }
 
 void RNA_def_workspace(BlenderRNA *brna)

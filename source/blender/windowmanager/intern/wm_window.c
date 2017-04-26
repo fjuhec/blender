@@ -448,7 +448,7 @@ static void wm_window_set_dpi(wmWindow *win)
 	/* Blender's UI drawing assumes DPI 72 as a good default following macOS
 	 * while Windows and Linux use DPI 96. GHOST assumes a default 96 so we
 	 * remap the DPI to Blender's convention. */
-	int dpi = auto_dpi * U.ui_scale * (72.0/96.0f);
+	int dpi = auto_dpi * U.ui_scale * (72.0 / 96.0f);
 
 	/* Automatically set larger pixel size for high DPI. */
 	int pixelsize = MAX2(1, dpi / 54);
@@ -693,7 +693,7 @@ wmWindow *WM_window_open(bContext *C, const rcti *rect)
  * \param type: WM_WINDOW_RENDER, WM_WINDOW_USERPREFS...
  * \return the window or NULL.
  */
-wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
+wmWindow *WM_window_open_temp(bContext *C, int x, int y, int sizex, int sizey, int type)
 {
 	Main *bmain = CTX_data_main(C);
 	wmWindow *win_prev = CTX_wm_window(C);
@@ -702,7 +702,20 @@ wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
 	ScrArea *sa;
 	Scene *scene = CTX_data_scene(C);
 	const char *title;
-	rcti rect = *rect_init;
+
+	/* convert to native OS window coordinates */
+	const float native_pixel_size = GHOST_GetNativePixelSize(win_prev->ghostwin);
+	x /= native_pixel_size;
+	y /= native_pixel_size;
+	sizex /= native_pixel_size;
+	sizey /= native_pixel_size;
+
+	/* calculate postition */
+	rcti rect;
+	rect.xmin = x + win_prev->posx - sizex / 2;
+	rect.ymin = y + win_prev->posy - sizey / 2;
+	rect.xmax = rect.xmin + sizex;
+	rect.ymax = rect.ymin + sizey;
 
 	/* changes rect to fit within desktop */
 	wm_window_check_position(&rect);
@@ -1285,7 +1298,7 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 						wm_window_make_drawable(wm, win);
 						wm_draw_window_clear(win);
 						BKE_icon_changed(screen->id.icon_id);
-						WM_event_add_notifier(C, NC_WORKSPACE | NA_EDITED, NULL);
+						WM_event_add_notifier(C, NC_SCREEN | NA_EDITED, NULL);
 						WM_event_add_notifier(C, NC_WINDOW | NA_EDITED, NULL);
 						
 #if defined(__APPLE__) || defined(WIN32)
@@ -1310,7 +1323,7 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 
 				BKE_blender_userdef_refresh();
 				WM_main_add_notifier(NC_WINDOW, NULL);      /* full redraw */
-				WM_main_add_notifier(NC_WORKSPACE | NA_EDITED, NULL);    /* refresh region sizes */
+				WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);    /* refresh region sizes */
 				break;
 			}
 
@@ -1409,7 +1422,7 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 					wm_window_make_drawable(wm, win);
 					wm_draw_window_clear(win);
 
-					WM_event_add_notifier(C, NC_WORKSPACE | NA_EDITED, NULL);
+					WM_event_add_notifier(C, NC_SCREEN | NA_EDITED, NULL);
 					WM_event_add_notifier(C, NC_WINDOW | NA_EDITED, NULL);
 				}
 
@@ -1977,7 +1990,7 @@ WorkSpaceLayout *WM_window_get_active_layout(const wmWindow *win)
 }
 void WM_window_set_active_layout(wmWindow *win, WorkSpace *workspace, WorkSpaceLayout *layout)
 {
-	BKE_workspace_active_layout_set_for_workspace(win->workspace_hook, workspace, layout);
+	BKE_workspace_hook_layout_for_workspace_set(win->workspace_hook, workspace, layout);
 }
 
 /**

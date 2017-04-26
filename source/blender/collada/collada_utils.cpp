@@ -32,9 +32,6 @@
 #include "COLLADAFWMeshPrimitive.h"
 #include "COLLADAFWMeshVertexData.h"
 
-#include "collada_utils.h"
-#include "ExportSettings.h"
-
 extern "C" {
 #include "DNA_modifier_types.h"
 #include "DNA_customdata_types.h"
@@ -48,7 +45,6 @@ extern "C" {
 
 #include "BKE_context.h"
 #include "BKE_customdata.h"
-#include "BKE_depsgraph.h"
 #include "BKE_object.h"
 #include "BKE_global.h"
 #include "BKE_mesh.h"
@@ -63,6 +59,11 @@ extern "C" {
 #include "bmesh.h"
 #include "bmesh_tools.h"
 }
+
+#include "DEG_depsgraph.h"
+
+#include "collada_utils.h"
+#include "ExportSettings.h"
 
 float bc_get_float_value(const COLLADAFW::FloatOrDoubleArray& array, unsigned int index)
 {
@@ -118,8 +119,8 @@ int bc_set_parent(Object *ob, Object *par, bContext *C, bool is_parent_space)
 	BKE_object_workob_calc_parent(sce, ob, &workob);
 	invert_m4_m4(ob->parentinv, workob.obmat);
 
-	DAG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA);
-	DAG_id_tag_update(&par->id, OB_RECALC_OB);
+	DEG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA);
+	DEG_id_tag_update(&par->id, OB_RECALC_OB);
 
 	/** done once after import */
 #if 0
@@ -136,7 +137,7 @@ Object *bc_add_object(Scene *scene, int type, const char *name)
 
 	ob->data = BKE_object_obdata_add_from_type(G.main, type, name);
 	ob->lay = scene->lay;
-	DAG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
+	DEG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 
 	BKE_scene_base_select(scene, BKE_scene_base_add(scene, ob));
 
@@ -824,23 +825,11 @@ void bc_create_restpose_mat(const ExportSettings *export_settings, Bone *bone, f
 }
 
 /*
-    To get rid of those lengthy float values which make the numbers unreadable.
-*/
-float bc_sanitize_float(float value, float precision)
-{
-	float result = floor((value * pow(10, precision) + 0.5)) / pow(10, precision);
-	if (abs(result) < 1 / pow(10, precision)) {
-		result = 0;
-	}
-	return result;
-}
-
-/*
     Make 4*4 matrices better readable
 */
-void bc_sanitize_mat(float mat[4][4], float precision)
+void bc_sanitize_mat(float mat[4][4], int precision)
 {
 	for (int i = 0; i < 4; i++)
 		for (int j = 0; j < 4; j++)
-			mat[i][j] = bc_sanitize_float(mat[i][j], precision);
+			mat[i][j] = double_round(mat[i][j], precision);
 }

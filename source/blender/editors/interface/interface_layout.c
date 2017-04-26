@@ -1274,7 +1274,8 @@ static void ui_item_rna_size(
 	if (!w) {
 		if (type == PROP_ENUM && icon_only) {
 			w = ui_text_icon_width(layout, "", ICON_BLANK1, 0);
-			w += 0.6f * UI_UNIT_X;
+			if (index != RNA_ENUM_VALUE)
+				w += 0.6f * UI_UNIT_X;
 		}
 		else {
 			w = ui_text_icon_width(layout, name, icon, 0);
@@ -1614,7 +1615,7 @@ void ui_but_add_search(uiBut *but, PointerRNA *ptr, PropertyRNA *prop, PointerRN
 
 	/* turn button into search button */
 	if (searchprop) {
-		static struct uiRNACollectionSearch coll_search;
+		struct uiRNACollectionSearch *coll_search = MEM_mallocN(sizeof(*coll_search), __func__);
 
 		but->type = UI_BTYPE_SEARCH_MENU;
 		but->hardmax = MAX2(but->hardmax, 256.0f);
@@ -1625,11 +1626,11 @@ void ui_but_add_search(uiBut *but, PointerRNA *ptr, PropertyRNA *prop, PointerRN
 			but->flag |= UI_BUT_VALUE_CLEAR;
 		}
 
-		coll_search.target_ptr = *ptr;
-		coll_search.target_prop = prop;
-		coll_search.search_ptr = *searchptr;
-		coll_search.search_prop = searchprop;
-		coll_search.but_changed = SET_INT_IN_POINTER(but->changed);
+		coll_search->target_ptr = *ptr;
+		coll_search->target_prop = prop;
+		coll_search->search_ptr = *searchptr;
+		coll_search->search_prop = searchprop;
+		coll_search->but_changed = SET_INT_IN_POINTER(but->changed);
 
 		if (RNA_property_type(prop) == PROP_ENUM) {
 			/* XXX, this will have a menu string,
@@ -1638,7 +1639,8 @@ void ui_but_add_search(uiBut *but, PointerRNA *ptr, PropertyRNA *prop, PointerRN
 		}
 
 		UI_but_func_search_set(but, ui_searchbox_create_generic, ui_rna_collection_search_cb,
-		                       &coll_search, NULL, NULL);
+		                       coll_search, NULL, NULL);
+		but->free_search_arg = true;
 	}
 }
 
@@ -2095,12 +2097,13 @@ static void ui_litem_layout_row(uiLayout *litem)
 			bool min_flag = item->flag & UI_ITEM_MIN;
 			/* ignore min flag for rows with right or center alignment */
 			if (item->type != ITEM_BUTTON &&
-					ELEM(((uiLayout *)item)->alignment, UI_LAYOUT_ALIGN_RIGHT, UI_LAYOUT_ALIGN_CENTER) &&
-					litem->alignment == UI_LAYOUT_ALIGN_EXPAND && 
-					((uiItem *)litem)->flag & UI_ITEM_MIN) {
+			    ELEM(((uiLayout *)item)->alignment, UI_LAYOUT_ALIGN_RIGHT, UI_LAYOUT_ALIGN_CENTER) &&
+			    litem->alignment == UI_LAYOUT_ALIGN_EXPAND && 
+			    ((uiItem *)litem)->flag & UI_ITEM_MIN)
+			{
 				min_flag = false;
 			}
-			
+
 			if ((neww < minw || min_flag) && w != 0) {
 				/* fixed size */
 				item->flag |= UI_ITEM_FIXED;

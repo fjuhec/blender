@@ -36,10 +36,10 @@
 
 #include "BKE_cdderivedmesh.h"
 #include "BKE_dynamicpaint.h"
+#include "BKE_layer.h"
 #include "BKE_library_query.h"
 #include "BKE_modifier.h"
 
-#include "depsgraph_private.h"
 #include "DEG_depsgraph_build.h"
 
 
@@ -109,7 +109,7 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 
 	/* dont apply dynamic paint on orco dm stack */
 	if (!(flag & MOD_APPLY_ORCO)) {
-		return dynamicPaint_Modifier_do(pmd, md->scene, ob, dm);
+		return dynamicPaint_Modifier_do(pmd, md->scene, BKE_scene_layer_context_active(md->scene), ob, dm);
 	}
 	return dm;
 }
@@ -134,7 +134,7 @@ static void updateDepsgraph(ModifierData *md,
 			}
 
 			/* Actual code uses custom loop over group/scene without layer checks in dynamicPaint_doStep */
-			DEG_add_collision_relations(node, scene, ob, surface->brush_group, -1, eModifierType_DynamicPaint, is_brush_cb, false, "Dynamic Paint Brush");
+			DEG_add_collision_relations(node, scene, ob, surface->brush_group,  eModifierType_DynamicPaint, is_brush_cb, false, "Dynamic Paint Brush");
 		}
 	}
 }

@@ -26,9 +26,9 @@
 
 #include <stdlib.h>
 
+#include "BLI_utildefines.h"
 #include "BLI_string.h"
 #include "BLI_string_utils.h"
-#include "BLI_utildefines.h"
 #include "BLI_listbase.h"
 
 #include "BKE_global.h"
@@ -45,84 +45,117 @@
 #include "MEM_guardedalloc.h"
 
 
-bool workspaces_is_screen_used(const Main *bmain, bScreen *screen);
-
 /* -------------------------------------------------------------------- */
 /* Internal utils */
 
-static void workspace_name_set(WorkSpace *workspace, WorkSpaceLayout *layout, const char *new_name)
+/**
+ * Only to be called by #BKE_libblock_alloc_notest! Always use BKE_workspace_add to add a new workspace.
+ */
+WorkSpace *BKE_workspace_alloc(void)
+{
+	return MEM_callocN(sizeof(WorkSpace), __func__);
+}
+
+static void workspace_layout_name_set(
+        WorkSpace *workspace, WorkSpaceLayout *layout, const char *new_name)
 {
 	BLI_strncpy(layout->name, new_name, sizeof(layout->name));
 	BLI_uniquename(&workspace->layouts, layout, "Layout", '.', offsetof(WorkSpaceLayout, name), sizeof(layout->name));
 }
 
-static void workspace_assignment_add(ListBase *assignment_list, void *parent, void *data)
+/**
+ * This should only be used directly when it is to be expected that there isn't
+ * a layout within \a workspace that wraps \a screen. Usually - especially outside
+ * of BKE_workspace - #BKE_workspace_layout_find should be used!
+ */
+static WorkSpaceLayout *workspace_layout_find_exec(
+        const WorkSpace *workspace, const bScreen *screen)
 {
-	WorkSpaceDataAssignment *assignment = MEM_mallocN(sizeof(*assignment), __func__);
-	assignment->parent = parent;
-	assignment->value = data;
+	return BLI_findptr(&workspace->layouts, screen, offsetof(WorkSpaceLayout, screen));
+}
+
+static void workspace_relation_add(
+        ListBase *relation_list, void *parent, void *data)
+{
+	WorkSpaceDataRelation *relation = MEM_callocN(sizeof(*relation), __func__);
+	relation->parent = parent;
+	relation->value = data;
 	/* add to head, if we switch back to it soon we find it faster. */
-	BLI_addhead(assignment_list, assignment);
+	BLI_addhead(relation_list, relation);
 }
-static void workspace_assignment_remove(ListBase *assignment_list, WorkSpaceDataAssignment *assignment)
+static void workspace_relation_remove(
+        ListBase *relation_list, WorkSpaceDataRelation *relation)
 {
-	BLI_remlink(assignment_list, assignment);
-	MEM_freeN(assignment);
+	BLI_remlink(relation_list, relation);
+	MEM_freeN(relation);
 }
 
-static void workspace_ensure_updated_assignment(ListBase *assignment_list, void *parent, void *data)
+static void workspace_relation_ensure_updated(
+        ListBase *relation_list, void *parent, void *data)
 {
-	for (WorkSpaceDataAssignment *assignment = assignment_list->first; assignment; assignment = assignment->next) {
-		if (assignment->parent == parent) {
-			assignment->value = data;
-			/* reinsert at the head of the list, so that more commonly used assignments are found faster. */
-			BLI_remlink(assignment_list, assignment);
-			BLI_addhead(assignment_list, assignment);
-			return;
+	WorkSpaceDataRelation *relation = BLI_findptr(relation_list, parent, offsetof(WorkSpaceDataRelation, parent));
+	if (relation != NULL) {
+		relation->value = data;
+		/* reinsert at the head of the list, so that more commonly used relations are found faster. */
+		BLI_remlink(relation_list, relation);
+		BLI_addhead(relation_list, relation);
+	}
+	else {
+		/* no matching relation found, add new one */
+		workspace_relation_add(relation_list, parent, data);
+	}
+}
+
+static void *workspace_relation_get_data_matching_parent(
+        const ListBase *relation_list, const void *parent)
+{
+	WorkSpaceDataRelation *relation = BLI_findptr(relation_list, parent, offsetof(WorkSpaceDataRelation, parent));
+	if (relation != NULL) {
+		return relation->value;
+	}
+	else {
+		return NULL;
+	}
+}
+
+/**
+ * Checks if \a screen is already used within any workspace. A screen should never be assigned to multiple
+ * WorkSpaceLayouts, but that should be ensured outside of the BKE_workspace module and without such checks.
+ * Hence, this should only be used as assert check before assigining a screen to a workspace.
+ */
+#ifndef NDEBUG
+static bool workspaces_is_screen_used(
+#else
+static bool UNUSED_FUNCTION(workspaces_is_screen_used)(
+#endif
+        const Main *bmain, bScreen *screen)
+{
+	for (WorkSpace *workspace = bmain->workspaces.first; workspace; workspace = workspace->id.next) {
+		if (workspace_layout_find_exec(workspace, screen)) {
+			return true;
 		}
 	}
 
-	/* no matching assignment found, add new one */
-	workspace_assignment_add(assignment_list, parent, data);
+	return false;
 }
-
-static void *workspace_assignment_get_data_matching_parent(const ListBase *assignment_list, const void *parent)
-{
-	for (WorkSpaceDataAssignment *assignment = assignment_list->first; assignment; assignment = assignment->next) {
-		if (assignment->parent == parent) {
-			return assignment->value;
-		}
-	}
-
-	return NULL;
-}
-
 
 /* -------------------------------------------------------------------- */
 /* Create, delete, init */
 
-/**
- * Only to be called by #BKE_libblock_alloc_notest! Always use BKE_workspace_add to add a new workspace.
- */
-WorkSpace *workspace_alloc(void)
-{
-	return MEM_callocN(sizeof(WorkSpace), __func__);
-}
-
 WorkSpace *BKE_workspace_add(Main *bmain, const char *name)
 {
-	WorkSpace *new_ws = BKE_libblock_alloc(bmain, ID_WS, name);
-	return new_ws;
+	WorkSpace *new_workspace = BKE_libblock_alloc(bmain, ID_WS, name);
+	return new_workspace;
 }
 
 void BKE_workspace_free(WorkSpace *workspace)
 {
-	for (WorkSpaceDataAssignment *assignment = workspace->hook_layout_assignments.first, *assignment_next;
-	     assignment;
-	     assignment = assignment_next)
+	for (WorkSpaceDataRelation *relation = workspace->hook_layout_relations.first, *relation_next;
+	     relation;
+	     relation = relation_next)
 	{
-		assignment_next = assignment->next;
-		workspace_assignment_remove(&workspace->hook_layout_assignments, assignment);
+		relation_next = relation->next;
+		workspace_relation_remove(&workspace->hook_layout_relations, relation);
 	}
 	BLI_freelistN(&workspace->layouts);
 }
@@ -145,7 +178,7 @@ WorkSpaceInstanceHook *BKE_workspace_instance_hook_create(const Main *bmain)
 	/* set an active screen-layout for each possible window/workspace combination */
 	BKE_workspace_iter_begin(workspace_iter, bmain->workspaces.first)
 	{
-		BKE_workspace_active_layout_set_for_workspace(hook, workspace_iter, workspace_iter->layouts.first);
+		BKE_workspace_hook_layout_for_workspace_set(hook, workspace_iter, workspace_iter->layouts.first);
 	}
 	BKE_workspace_iter_end;
 
@@ -156,16 +189,16 @@ void BKE_workspace_instance_hook_free(WorkSpaceInstanceHook *hook, const Main *b
 	/* workspaces should never be freed before wm (during which we call this function) */
 	BLI_assert(!BLI_listbase_is_empty(&bmain->workspaces));
 
-	/* Free assignments for this hook */
+	/* Free relations for this hook */
 	BKE_workspace_iter_begin(workspace, bmain->workspaces.first)
 	{
-		for (WorkSpaceDataAssignment *assignment = workspace->hook_layout_assignments.first, *assignment_next;
-		     assignment;
-		     assignment = assignment_next)
+		for (WorkSpaceDataRelation *relation = workspace->hook_layout_relations.first, *relation_next;
+		     relation;
+		     relation = relation_next)
 		{
-			assignment_next = assignment->next;
-			if (assignment->parent == hook) {
-				workspace_assignment_remove(&workspace->hook_layout_assignments, assignment);
+			relation_next = relation->next;
+			if (relation->parent == hook) {
+				workspace_relation_remove(&workspace->hook_layout_relations, relation);
 			}
 		}
 	}
@@ -177,19 +210,24 @@ void BKE_workspace_instance_hook_free(WorkSpaceInstanceHook *hook, const Main *b
 /**
  * Add a new layout to \a workspace for \a screen.
  */
-WorkSpaceLayout *BKE_workspace_layout_add(WorkSpace *workspace, bScreen *screen, const char *name)
+WorkSpaceLayout *BKE_workspace_layout_add(
+        WorkSpace *workspace,
+        bScreen *screen,
+        const char *name)
 {
-	WorkSpaceLayout *layout = MEM_mallocN(sizeof(*layout), __func__);
+	WorkSpaceLayout *layout = MEM_callocN(sizeof(*layout), __func__);
 
 	BLI_assert(!workspaces_is_screen_used(G.main, screen));
 	layout->screen = screen;
-	workspace_name_set(workspace, layout, name);
+	workspace_layout_name_set(workspace, layout, name);
 	BLI_addhead(&workspace->layouts, layout);
 
 	return layout;
 }
 
-void BKE_workspace_layout_remove(WorkSpace *workspace, WorkSpaceLayout *layout, Main *bmain)
+void BKE_workspace_layout_remove(
+        WorkSpace *workspace, WorkSpaceLayout *layout,
+        Main *bmain)
 {
 	BKE_libblock_free(bmain, BKE_workspace_layout_screen_get(layout));
 	BLI_freelinkN(&workspace->layouts, layout);
@@ -199,7 +237,8 @@ void BKE_workspace_layout_remove(WorkSpace *workspace, WorkSpaceLayout *layout, 
 /* -------------------------------------------------------------------- */
 /* General Utils */
 
-void BKE_workspaces_transform_orientation_remove(const ListBase *workspaces, const TransformOrientation *orientation)
+void BKE_workspaces_transform_orientation_remove(
+        const ListBase *workspaces, const TransformOrientation *orientation)
 {
 	BKE_workspace_iter_begin(workspace, workspaces->first)
 	{
@@ -212,41 +251,10 @@ void BKE_workspaces_transform_orientation_remove(const ListBase *workspaces, con
 	BKE_workspace_iter_end;
 }
 
-/**
- * Checks if \a screen is already used within any workspace. A screen should never be assigned to multiple
- * WorkSpaceLayouts, but that should be ensured outside of the BKE_workspace module and without such checks.
- * Hence, this should only be used as assert check before assigining a screen to a workflow.
- */
-bool workspaces_is_screen_used(const Main *bmain, bScreen *screen)
+WorkSpaceLayout *BKE_workspace_layout_find(
+        const WorkSpace *workspace, const bScreen *screen)
 {
-	for (WorkSpace *workspace = bmain->workspaces.first; workspace; workspace = workspace->id.next) {
-		if (BKE_workspace_layout_find_exec(workspace, screen)) {
-			return true;
-		}
-	}
-
-	return false;
-}
-
-/**
- * This should only be used directly when it is to be expected that there isn't
- * a layout within \a workspace that wraps \a screen. Usually - especially outside
- * of BKE_workspace - #BKE_workspace_layout_find should be used!
- */
-WorkSpaceLayout *BKE_workspace_layout_find_exec(const WorkSpace *ws, const bScreen *screen)
-{
-	for (WorkSpaceLayout *layout = ws->layouts.first; layout; layout = layout->next) {
-		if (layout->screen == screen) {
-			return layout;
-		}
-	}
-
-	return NULL;
-}
-
-WorkSpaceLayout *BKE_workspace_layout_find(const WorkSpace *ws, const bScreen *screen)
-{
-	WorkSpaceLayout *layout = BKE_workspace_layout_find_exec(ws, screen);
+	WorkSpaceLayout *layout = workspace_layout_find_exec(workspace, screen);
 	if (layout) {
 		return layout;
 	}
@@ -255,9 +263,10 @@ WorkSpaceLayout *BKE_workspace_layout_find(const WorkSpace *ws, const bScreen *s
 	return NULL;
 }
 
-WorkSpaceLayout *BKE_workspace_layout_iter_circular(const WorkSpace *workspace, WorkSpaceLayout *start,
-                                                    bool (*callback)(const WorkSpaceLayout *layout, void *arg),
-                                                    void *arg, const bool iter_backward)
+WorkSpaceLayout *BKE_workspace_layout_iter_circular(
+        const WorkSpace *workspace, WorkSpaceLayout *start,
+        bool (*callback)(const WorkSpaceLayout *layout, void *arg),
+        void *arg, const bool iter_backward)
 {
 	WorkSpaceLayout *iter_layout;
 
@@ -287,18 +296,6 @@ WorkSpaceLayout *BKE_workspace_layout_iter_circular(const WorkSpace *workspace, 
 /* -------------------------------------------------------------------- */
 /* Getters/Setters */
 
-/**
- * Needed because we can't switch workspaces during handlers, it would break context.
- */
-WorkSpace *BKE_workspace_temp_store_get(WorkSpaceInstanceHook *hook)
-{
-	return hook->temp_store;
-}
-void BKE_workspace_temp_store_set(WorkSpaceInstanceHook *hook, WorkSpace *workspace)
-{
-	hook->temp_store = workspace;
-}
-
 WorkSpace *BKE_workspace_active_get(WorkSpaceInstanceHook *hook)
 {
 	return hook->active;
@@ -307,8 +304,8 @@ void BKE_workspace_active_set(WorkSpaceInstanceHook *hook, WorkSpace *workspace)
 {
 	hook->active = workspace;
 	if (workspace) {
-		WorkSpaceLayout *layout;
-		if ((layout = workspace_assignment_get_data_matching_parent(&workspace->hook_layout_assignments, hook))) {
+		WorkSpaceLayout *layout = workspace_relation_get_data_matching_parent(&workspace->hook_layout_relations, hook);
+		if (layout) {
 			hook->act_layout = layout;
 		}
 	}
@@ -324,11 +321,27 @@ const char *BKE_workspace_name_get(const WorkSpace *workspace)
 	return workspace->id.name + 2;
 }
 
-WorkSpaceLayout *BKE_workspace_active_layout_get_from_workspace(
-        const WorkSpaceInstanceHook *hook, const WorkSpace *workspace)
+WorkSpace *BKE_workspace_next_get(const WorkSpace *workspace)
 {
-	return workspace_assignment_get_data_matching_parent(&workspace->hook_layout_assignments, hook);
+	return workspace->id.next;
 }
+WorkSpace *BKE_workspace_prev_get(const WorkSpace *workspace)
+{
+	return workspace->id.prev;
+}
+
+/**
+ * Needed because we can't switch workspaces during handlers, it would break context.
+ */
+WorkSpace *BKE_workspace_temp_store_get(WorkSpaceInstanceHook *hook)
+{
+	return hook->temp_store;
+}
+void BKE_workspace_temp_store_set(WorkSpaceInstanceHook *hook, WorkSpace *workspace)
+{
+	hook->temp_store = workspace;
+}
+
 WorkSpaceLayout *BKE_workspace_active_layout_get(const WorkSpaceInstanceHook *hook)
 {
 	return hook->act_layout;
@@ -336,13 +349,6 @@ WorkSpaceLayout *BKE_workspace_active_layout_get(const WorkSpaceInstanceHook *ho
 void BKE_workspace_active_layout_set(WorkSpaceInstanceHook *hook, WorkSpaceLayout *layout)
 {
 	hook->act_layout = layout;
-}
-
-void BKE_workspace_active_layout_set_for_workspace(
-        WorkSpaceInstanceHook *hook, WorkSpace *workspace, WorkSpaceLayout *layout)
-{
-	hook->act_layout = layout;
-	workspace_ensure_updated_assignment(&workspace->hook_layout_assignments, hook, layout);
 }
 
 WorkSpaceLayout *BKE_workspace_temp_layout_store_get(const WorkSpaceInstanceHook *hook)
@@ -362,7 +368,7 @@ void BKE_workspace_active_screen_set(WorkSpaceInstanceHook *hook, WorkSpace *wor
 {
 	/* we need to find the WorkspaceLayout that wraps this screen */
 	WorkSpaceLayout *layout = BKE_workspace_layout_find(hook->active, screen);
-	BKE_workspace_active_layout_set_for_workspace(hook, workspace, layout);
+	BKE_workspace_hook_layout_for_workspace_set(hook, workspace, layout);
 }
 
 #ifdef USE_WORKSPACE_MODE
@@ -390,15 +396,6 @@ ListBase *BKE_workspace_layouts_get(WorkSpace *workspace)
 	return &workspace->layouts;
 }
 
-WorkSpace *BKE_workspace_next_get(const WorkSpace *workspace)
-{
-	return workspace->id.next;
-}
-WorkSpace *BKE_workspace_prev_get(const WorkSpace *workspace)
-{
-	return workspace->id.prev;
-}
-
 
 const char *BKE_workspace_layout_name_get(const WorkSpaceLayout *layout)
 {
@@ -406,7 +403,7 @@ const char *BKE_workspace_layout_name_get(const WorkSpaceLayout *layout)
 }
 void BKE_workspace_layout_name_set(WorkSpace *workspace, WorkSpaceLayout *layout, const char *new_name)
 {
-	workspace_name_set(workspace, layout, new_name);
+	workspace_layout_name_set(workspace, layout, new_name);
 }
 
 bScreen *BKE_workspace_layout_screen_get(const WorkSpaceLayout *layout)
@@ -427,23 +424,37 @@ WorkSpaceLayout *BKE_workspace_layout_prev_get(const WorkSpaceLayout *layout)
 	return layout->prev;
 }
 
-ListBase *BKE_workspace_hook_layout_assignments_get(WorkSpace *workspace)
+WorkSpaceLayout *BKE_workspace_hook_layout_for_workspace_get(
+        const WorkSpaceInstanceHook *hook, const WorkSpace *workspace)
 {
-	return &workspace->hook_layout_assignments;
+	return workspace_relation_get_data_matching_parent(&workspace->hook_layout_relations, hook);
+}
+void BKE_workspace_hook_layout_for_workspace_set(
+        WorkSpaceInstanceHook *hook, WorkSpace *workspace, WorkSpaceLayout *layout)
+{
+	hook->act_layout = layout;
+	workspace_relation_ensure_updated(&workspace->hook_layout_relations, hook, layout);
 }
 
-WorkSpaceDataAssignment *BKE_workspace_assignment_next_get(const WorkSpaceDataAssignment *assignment)
+ListBase *BKE_workspace_hook_layout_relations_get(WorkSpace *workspace)
 {
-	return assignment->next;
+	return &workspace->hook_layout_relations;
 }
 
-void BKE_workspace_assignment_data_get(const WorkSpaceDataAssignment *assignment, void **parent, void **data)
+WorkSpaceDataRelation *BKE_workspace_relation_next_get(const WorkSpaceDataRelation *relation)
 {
-	*parent = assignment->parent;
-	*data = assignment->value;
+	return relation->next;
 }
-void BKE_workspace_assignment_data_set(WorkSpaceDataAssignment *assignment, void *parent, void *data)
+
+void BKE_workspace_relation_data_get(
+        const WorkSpaceDataRelation *relation,
+        void **parent, void **data)
 {
-	assignment->parent = parent;
-	assignment->value = data;
+	*parent = relation->parent;
+	*data = relation->value;
+}
+void BKE_workspace_relation_data_set(WorkSpaceDataRelation *relation, void *parent, void *data)
+{
+	relation->parent = parent;
+	relation->value = data;
 }

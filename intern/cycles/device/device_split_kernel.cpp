@@ -128,30 +128,32 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 		local_size[1] = lsize[1];
 	}
 
-	/* Set gloabl size */
-	size_t global_size[2];
-	{
-		int2 gsize = split_kernel_global_size(kgbuffer, kernel_data, task);
-
-		/* Make sure that set work size is a multiple of local
-		 * work size dimensions.
-		 */
-		global_size[0] = round_up(gsize[0], local_size[0]);
-		global_size[1] = round_up(gsize[1], local_size[1]);
-	}
-
 	/* Number of elements in the global state buffer */
 	int num_global_elements = global_size[0] * global_size[1];
-	assert(num_global_elements % WORK_POOL_SIZE == 0);
 
 	/* Allocate all required global memory once. */
 	if(first_tile) {
 		first_tile = false;
 
+		/* Set gloabl size */
+		{
+			int2 gsize = split_kernel_global_size(kgbuffer, kernel_data, task);
+
+			/* Make sure that set work size is a multiple of local
+			 * work size dimensions.
+			 */
+			global_size[0] = round_up(gsize[0], local_size[0]);
+			global_size[1] = round_up(gsize[1], local_size[1]);
+		}
+
+		num_global_elements = global_size[0] * global_size[1];
+		assert(num_global_elements % WORK_POOL_SIZE == 0);
+
 		/* Calculate max groups */
 
 		/* Denotes the maximum work groups possible w.r.t. current requested tile size. */
-		unsigned int max_work_groups = num_global_elements / WORK_POOL_SIZE + 1;
+		unsigned int work_pool_size = (device->info.type == DEVICE_CPU) ? WORK_POOL_SIZE_CPU : WORK_POOL_SIZE_GPU;
+		unsigned int max_work_groups = num_global_elements / work_pool_size + 1;
 
 		/* Allocate work_pool_wgs memory. */
 		work_pool_wgs.resize(max_work_groups * sizeof(unsigned int));
@@ -225,6 +227,7 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 		ENQUEUE_SPLIT_KERNEL(path_init, global_size, local_size);
 
 		bool activeRaysAvailable = true;
+		double cancel_time = DBL_MAX;
 
 		while(activeRaysAvailable) {
 			/* Do path-iteration in host [Enqueue Path-iteration kernels. */
@@ -245,7 +248,14 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 				ENQUEUE_SPLIT_KERNEL(queue_enqueue, global_size, local_size);
 				ENQUEUE_SPLIT_KERNEL(buffer_update, global_size, local_size);
 
-				if(task->get_cancel()) {
+				if(task->get_cancel() && cancel_time == DBL_MAX) {
+					/* Wait up to twice as many seconds for current samples to finish 
+					 * to avoid artifacts in render result from ending too soon.
+					 */
+					cancel_time = time_dt() + 2.0 * time_multiplier;
+				}
+
+				if(time_dt() > cancel_time) {
 					return true;
 				}
 			}
@@ -256,10 +266,8 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 			activeRaysAvailable = false;
 
 			for(int rayStateIter = 0; rayStateIter < global_size[0] * global_size[1]; ++rayStateIter) {
-				int8_t state = ray_state.get_data()[rayStateIter];
-
-				if(state != RAY_INACTIVE) {
-					if(state == RAY_INVALID) {
+				if(!IS_STATE(ray_state.get_data(), rayStateIter, RAY_INACTIVE)) {
+					if(IS_STATE(ray_state.get_data(), rayStateIter, RAY_INVALID)) {
 						/* Something went wrong, abort to avoid looping endlessly. */
 						device->set_error("Split kernel error: invalid ray state");
 						return false;
@@ -271,7 +279,7 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 				}
 			}
 
-			if(task->get_cancel()) {
+			if(time_dt() > cancel_time) {
 				return true;
 			}
 		}

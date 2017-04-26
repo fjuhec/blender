@@ -1323,8 +1323,8 @@ static void write_particlesettings(WriteData *wd, ParticleSettings *part)
 				dw->index = 0;
 				if (part->dup_group) { /* can be NULL if lining fails or set to None */
 					for (GroupObject *go = part->dup_group->gobject.first;
-						 go && go->ob != dw->ob;
-						 go = go->next, dw->index++);
+					     go && go->ob != dw->ob;
+					     go = go->next, dw->index++);
 				}
 			}
 			writestruct(wd, DATA, ParticleDupliWeight, 1, dw);
@@ -2407,21 +2407,6 @@ static void write_texture(WriteData *wd, Tex *tex)
 	}
 }
 
-static void write_material_engines_settings(WriteData *wd, ListBase *lb)
-{
-	for (MaterialEngineSettings *res = lb->first; res; res = res->next) {
-		writestruct(wd, DATA, MaterialEngineSettings, 1, res);
-
-		if (STREQ(res->name, RE_engine_id_BLENDER_CLAY)) {
-			writestruct(wd, DATA, MaterialEngineSettingsClay, 1, res->data);
-		}
-		else {
-			/* No engine matched */
-			/* error: don't know how to write this file */
-		}
-	}
-}
-
 static void write_material(WriteData *wd, Material *ma)
 {
 	if (ma->id.us > 0 || wd->current) {
@@ -2453,8 +2438,6 @@ static void write_material(WriteData *wd, Material *ma)
 		}
 
 		write_previews(wd, ma->preview);
-
-		write_material_engines_settings(wd, &ma->engines_settings);
 	}
 }
 
@@ -2570,29 +2553,6 @@ static void write_scene_collection(WriteData *wd, SceneCollection *sc)
 	}
 }
 
-static void write_collection_engine_settings(WriteData *wd, ListBase *lb)
-{
-	for (CollectionEngineSettings *ces = lb->first; ces; ces = ces->next) {
-		writestruct(wd, DATA, CollectionEngineSettings, 1, ces);
-
-		for (CollectionEngineProperty *prop = ces->properties.first; prop; prop = prop->next) {
-			switch (prop->type) {
-			    case COLLECTION_PROP_TYPE_FLOAT:
-				    writestruct(wd, DATA, CollectionEnginePropertyFloat, 1, prop);
-				    break;
-			    case COLLECTION_PROP_TYPE_INT:
-				    writestruct(wd, DATA, CollectionEnginePropertyInt, 1, prop);
-				    break;
-			    case COLLECTION_PROP_TYPE_BOOL:
-				    writestruct(wd, DATA, CollectionEnginePropertyBool, 1, prop);
-				    break;
-			    default:
-				    ; /* error: don't know how to write this file */
-			}
-		}
-	}
-}
-
 static void write_layer_collections(WriteData *wd, ListBase *lb)
 {
 	for (LayerCollection *lc = lb->first; lc; lc = lc->next) {
@@ -2601,26 +2561,11 @@ static void write_layer_collections(WriteData *wd, ListBase *lb)
 		writelist(wd, DATA, LinkData, &lc->object_bases);
 		writelist(wd, DATA, CollectionOverride, &lc->overrides);
 
-		write_collection_engine_settings(wd, &lc->engine_settings);
-
-		write_collection_engine_settings(wd, &lc->mode_settings);
+		if (lc->properties) {
+			IDP_WriteProperty(lc->properties, wd);
+		}
 
 		write_layer_collections(wd, &lc->layer_collections);
-	}
-}
-
-static void write_render_engines_settings(WriteData *wd, ListBase *lb)
-{
-	for (RenderEngineSettings *res = lb->first; res; res = res->next) {
-		writestruct(wd, DATA, RenderEngineSettings, 1, res);
-
-		if (STREQ(res->name, RE_engine_id_BLENDER_CLAY)) {
-			writestruct(wd, DATA, RenderEngineSettingsClay, 1, res->data);
-		}
-		else {
-			/* No engine matched */
-			/* error: don't know how to write this file */
-		}
 	}
 }
 
@@ -2742,8 +2687,8 @@ static void write_scene(WriteData *wd, Scene *sce)
 				}
 				if (seq->type == SEQ_TYPE_IMAGE) {
 					writestruct(wd, DATA, StripElem,
-								MEM_allocN_len(strip->stripdata) / sizeof(struct StripElem),
-								strip->stripdata);
+					            MEM_allocN_len(strip->stripdata) / sizeof(struct StripElem),
+					            strip->stripdata);
 				}
 				else if (ELEM(seq->type, SEQ_TYPE_MOVIE, SEQ_TYPE_SOUND_RAM, SEQ_TYPE_SOUND_HD)) {
 					writestruct(wd, DATA, StripElem, 1, strip->stripdata);
@@ -2835,7 +2780,9 @@ static void write_scene(WriteData *wd, Scene *sce)
 		write_layer_collections(wd, &sl->layer_collections);
 	}
 
-	write_render_engines_settings(wd, &sce->engines_settings);
+	if (sce->collection_properties) {
+		IDP_WriteProperty(sce->collection_properties, wd);
+	}
 }
 
 static void write_gpencil(WriteData *wd, bGPdata *gpd)
@@ -2877,6 +2824,13 @@ static void write_windowmanager(WriteData *wd, wmWindowManager *wm)
 	write_iddata(wd, &wm->id);
 
 	for (wmWindow *win = wm->windows.first; win; win = win->next) {
+
+		/* update deprecated screen member (for so loading in 2.7x uses the correct screen) */
+		win->screen = BKE_workspace_active_screen_get(win->workspace_hook);
+		if (win->screen) {
+			BLI_strncpy(win->screenname, win->screen->id.name + 2, sizeof(win->screenname));
+		}
+
 		writestruct(wd, DATA, wmWindow, 1, win);
 		writestruct(wd, DATA, WorkSpaceInstanceHook, 1, win->workspace_hook);
 		writestruct(wd, DATA, Stereo3dFormat, 1, win->stereo3d_format);
@@ -3468,13 +3422,13 @@ static void write_mask(WriteData *wd, Mask *mask)
 			}
 
 			for (masklay_shape = masklay->splines_shapes.first;
-				 masklay_shape;
-				 masklay_shape = masklay_shape->next)
+			     masklay_shape;
+			     masklay_shape = masklay_shape->next)
 			{
 				writestruct(wd, DATA, MaskLayerShape, 1, masklay_shape);
 				writedata(wd, DATA,
-						  masklay_shape->tot_vert * sizeof(float) * MASK_OBJECT_SHAPE_ELEM_SIZE,
-						  masklay_shape->data);
+				          masklay_shape->tot_vert * sizeof(float) * MASK_OBJECT_SHAPE_ELEM_SIZE,
+				          masklay_shape->data);
 			}
 		}
 	}
@@ -3774,11 +3728,11 @@ static void write_cachefile(WriteData *wd, CacheFile *cache_file)
 static void write_workspace(WriteData *wd, WorkSpace *workspace)
 {
 	ListBase *layouts = BKE_workspace_layouts_get(workspace);
-	ListBase *assignment_list = BKE_workspace_hook_layout_assignments_get(workspace);
+	ListBase *relation_list = BKE_workspace_hook_layout_relations_get(workspace);
 
 	writestruct(wd, ID_WS, WorkSpace, 1, workspace);
 	writelist(wd, DATA, WorkSpaceLayout, layouts);
-	writelist(wd, DATA, WorkSpaceDataAssignment, assignment_list);
+	writelist(wd, DATA, WorkSpaceDataRelation, relation_list);
 }
 
 /* Keep it last of write_foodata functions. */
@@ -3976,7 +3930,7 @@ static bool write_file_handle(
 					write_scene(wd, (Scene *)id);
 					break;
 				case ID_CU:
-					write_curve(wd,(Curve *)id);
+					write_curve(wd, (Curve *)id);
 					break;
 				case ID_MB:
 					write_mball(wd, (MetaBall *)id);

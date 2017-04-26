@@ -26,7 +26,6 @@
 #define __BKE_WORKSPACE_H__
 
 #include "BLI_compiler_attrs.h"
-#include "BLI_utildefines.h"
 
 struct bScreen;
 struct ListBase;
@@ -53,14 +52,19 @@ typedef struct WorkSpaceLayout WorkSpaceLayout;
 /* Create, delete, init */
 
 WorkSpace *BKE_workspace_add(struct Main *bmain, const char *name);
-void BKE_workspace_free(WorkSpace *ws);
+void BKE_workspace_free(WorkSpace *workspace);
 void BKE_workspace_remove(WorkSpace *workspace, struct Main *bmain);
 
 WorkSpaceInstanceHook *BKE_workspace_instance_hook_create(const struct Main *bmain);
 void BKE_workspace_instance_hook_free(WorkSpaceInstanceHook *hook, const struct Main *bmain);
 
-struct WorkSpaceLayout *BKE_workspace_layout_add(WorkSpace *workspace, struct bScreen *screen, const char *name) ATTR_NONNULL();
-void BKE_workspace_layout_remove(WorkSpace *workspace, WorkSpaceLayout *layout, struct Main *bmain) ATTR_NONNULL();
+struct WorkSpaceLayout *BKE_workspace_layout_add(
+        WorkSpace *workspace,
+        struct bScreen *screen,
+        const char *name) ATTR_NONNULL();
+void BKE_workspace_layout_remove(
+        WorkSpace *workspace, WorkSpaceLayout *layout,
+        struct Main *bmain) ATTR_NONNULL();
 
 
 /* -------------------------------------------------------------------- */
@@ -71,11 +75,12 @@ void BKE_workspace_layout_remove(WorkSpace *workspace, WorkSpaceLayout *layout, 
 		_workspace##_next = BKE_workspace_next_get(_workspace); /* support removing workspace from list */
 #define BKE_workspace_iter_end } (void)0
 
-void BKE_workspaces_transform_orientation_remove(const struct ListBase *workspaces,
-                                                 const struct TransformOrientation *orientation) ATTR_NONNULL();
+void BKE_workspaces_transform_orientation_remove(
+        const struct ListBase *workspaces,
+        const struct TransformOrientation *orientation) ATTR_NONNULL();
 
-WorkSpaceLayout *BKE_workspace_layout_find(const WorkSpace *ws, const struct bScreen *screen) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-WorkSpaceLayout *BKE_workspace_layout_find_exec(const WorkSpace *ws, const struct bScreen *screen) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
+WorkSpaceLayout *BKE_workspace_layout_find(
+        const WorkSpace *workspace, const struct bScreen *screen) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
 
 #define BKE_workspace_layout_iter_begin(_layout, _start_layout) \
 	for (WorkSpaceLayout *_layout = _start_layout, *_layout##_next; _layout; _layout = _layout##_next) { \
@@ -85,58 +90,66 @@ WorkSpaceLayout *BKE_workspace_layout_find_exec(const WorkSpace *ws, const struc
 		_layout##_prev = BKE_workspace_layout_prev_get(_layout); /* support removing layout from list */
 #define BKE_workspace_layout_iter_end } (void)0
 
-WorkSpaceLayout *BKE_workspace_layout_iter_circular(const WorkSpace *workspace, WorkSpaceLayout *start,
-                                                    bool (*callback)(const WorkSpaceLayout *layout, void *arg),
-                                                    void *arg, const bool iter_backward);
+WorkSpaceLayout *BKE_workspace_layout_iter_circular(
+        const WorkSpace *workspace, WorkSpaceLayout *start,
+        bool (*callback)(const WorkSpaceLayout *layout, void *arg),
+        void *arg, const bool iter_backward);
 
 
 /* -------------------------------------------------------------------- */
 /* Getters/Setters */
 
-WorkSpace *BKE_workspace_temp_store_get(WorkSpaceInstanceHook *hook) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-void       BKE_workspace_temp_store_set(WorkSpaceInstanceHook *hook, WorkSpace *workspace) ATTR_NONNULL(1);
-WorkSpace *BKE_workspace_active_get(WorkSpaceInstanceHook *hook) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-void       BKE_workspace_active_set(WorkSpaceInstanceHook *hook, WorkSpace *workspace) ATTR_NONNULL(1);
-struct ID *BKE_workspace_id_get(WorkSpace *workspace);
-const char *BKE_workspace_name_get(const WorkSpace *workspace);
-WorkSpaceLayout *BKE_workspace_active_layout_get_from_workspace(
-        const WorkSpaceInstanceHook *hook, const WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-WorkSpaceLayout *BKE_workspace_active_layout_get(const WorkSpaceInstanceHook *hook) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-void             BKE_workspace_active_layout_set(
-        WorkSpaceInstanceHook *hook, WorkSpaceLayout *layout) ATTR_NONNULL(1);
-void BKE_workspace_active_layout_set_for_workspace(
-        WorkSpaceInstanceHook *hook, WorkSpace *workspace, WorkSpaceLayout *layout) ATTR_NONNULL(1);
-struct bScreen *BKE_workspace_active_screen_get(const WorkSpaceInstanceHook *hook) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
+#define GETTER_ATTRS ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT
+#define SETTER_ATTRS ATTR_NONNULL(1)
+
+WorkSpace *BKE_workspace_active_get(WorkSpaceInstanceHook *hook) GETTER_ATTRS;
+void       BKE_workspace_active_set(WorkSpaceInstanceHook *hook, WorkSpace *workspace) SETTER_ATTRS;
+struct ID *BKE_workspace_id_get(WorkSpace *workspace) GETTER_ATTRS;
+const char *BKE_workspace_name_get(const WorkSpace *workspace) GETTER_ATTRS;
+WorkSpace *BKE_workspace_next_get(const WorkSpace *workspace) GETTER_ATTRS;
+WorkSpace *BKE_workspace_prev_get(const WorkSpace *workspace) GETTER_ATTRS;
+WorkSpace *BKE_workspace_temp_store_get(WorkSpaceInstanceHook *hook) GETTER_ATTRS;
+void       BKE_workspace_temp_store_set(WorkSpaceInstanceHook *hook, WorkSpace *workspace) SETTER_ATTRS;
+WorkSpaceLayout *BKE_workspace_active_layout_get(const WorkSpaceInstanceHook *hook) GETTER_ATTRS;
+void             BKE_workspace_active_layout_set(WorkSpaceInstanceHook *hook, WorkSpaceLayout *layout) SETTER_ATTRS;
+WorkSpaceLayout *BKE_workspace_temp_layout_store_get(const WorkSpaceInstanceHook *hook) GETTER_ATTRS;
+void             BKE_workspace_temp_layout_store_set(WorkSpaceInstanceHook *hook, WorkSpaceLayout *layout) SETTER_ATTRS;
+struct bScreen *BKE_workspace_active_screen_get(const WorkSpaceInstanceHook *hook) GETTER_ATTRS;
 void            BKE_workspace_active_screen_set(
-        WorkSpaceInstanceHook *hook, struct WorkSpace *workspace, struct bScreen *screen) ATTR_NONNULL(1);
-enum ObjectMode BKE_workspace_object_mode_get(const WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
+        WorkSpaceInstanceHook *hook, struct WorkSpace *workspace, struct bScreen *screen) SETTER_ATTRS;
+enum ObjectMode BKE_workspace_object_mode_get(const WorkSpace *workspace) GETTER_ATTRS;
 #ifdef USE_WORKSPACE_MODE
-void            BKE_workspace_object_mode_set(WorkSpace *workspace, const enum ObjectMode mode) ATTR_NONNULL();
+void            BKE_workspace_object_mode_set(WorkSpace *workspace, const enum ObjectMode mode) SETTER_ATTRS;
 #endif
-struct SceneLayer *BKE_workspace_render_layer_get(const WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-void               BKE_workspace_render_layer_set(WorkSpace *workspace, struct SceneLayer *layer) ATTR_NONNULL(1);
-struct ListBase *BKE_workspace_layouts_get(WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-WorkSpaceLayout *BKE_workspace_temp_layout_store_get(const WorkSpaceInstanceHook *hook) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-void             BKE_workspace_temp_layout_store_set(WorkSpaceInstanceHook *hook, WorkSpaceLayout *layout) ATTR_NONNULL(1);
+struct SceneLayer *BKE_workspace_render_layer_get(const WorkSpace *workspace) GETTER_ATTRS;
+void               BKE_workspace_render_layer_set(WorkSpace *workspace, struct SceneLayer *layer) SETTER_ATTRS;
+struct ListBase *BKE_workspace_layouts_get(WorkSpace *workspace) GETTER_ATTRS;
 
-WorkSpace *BKE_workspace_next_get(const WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-WorkSpace *BKE_workspace_prev_get(const WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-
-const char *BKE_workspace_layout_name_get(const WorkSpaceLayout *layout) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
+const char *BKE_workspace_layout_name_get(const WorkSpaceLayout *layout) GETTER_ATTRS;
 void        BKE_workspace_layout_name_set(WorkSpace *workspace, WorkSpaceLayout *layout, const char *new_name) ATTR_NONNULL();
-struct bScreen *BKE_workspace_layout_screen_get(const WorkSpaceLayout *layout) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-void            BKE_workspace_layout_screen_set(WorkSpaceLayout *layout, struct bScreen *screen) ATTR_NONNULL(1);
-WorkSpaceLayout *BKE_workspace_layout_next_get(const WorkSpaceLayout *layout) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-WorkSpaceLayout *BKE_workspace_layout_prev_get(const WorkSpaceLayout *layout) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
+struct bScreen *BKE_workspace_layout_screen_get(const WorkSpaceLayout *layout) GETTER_ATTRS;
+void            BKE_workspace_layout_screen_set(WorkSpaceLayout *layout, struct bScreen *screen) SETTER_ATTRS;
+WorkSpaceLayout *BKE_workspace_layout_next_get(const WorkSpaceLayout *layout) GETTER_ATTRS;
+WorkSpaceLayout *BKE_workspace_layout_prev_get(const WorkSpaceLayout *layout) GETTER_ATTRS;
 
-struct ListBase *BKE_workspace_hook_layout_assignments_get(WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-struct WorkSpaceDataAssignment *BKE_workspace_assignment_next_get(const struct WorkSpaceDataAssignment *assignment) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-void BKE_workspace_assignment_data_get(const struct WorkSpaceDataAssignment *assignment, void **parent, void **data) ATTR_NONNULL();
-void BKE_workspace_assignment_data_set(struct WorkSpaceDataAssignment *assignment, void *parent, void *data) ATTR_NONNULL();
+WorkSpaceLayout *BKE_workspace_hook_layout_for_workspace_get(
+        const WorkSpaceInstanceHook *hook, const WorkSpace *workspace) GETTER_ATTRS;
+void             BKE_workspace_hook_layout_for_workspace_set(
+        WorkSpaceInstanceHook *hook, WorkSpace *workspace, WorkSpaceLayout *layout) ATTR_NONNULL();
+struct ListBase *BKE_workspace_hook_layout_relations_get(WorkSpace *workspace) GETTER_ATTRS;
+
+struct WorkSpaceDataRelation *BKE_workspace_relation_next_get(const struct WorkSpaceDataRelation *relation) GETTER_ATTRS;
+void BKE_workspace_relation_data_get(
+        const struct WorkSpaceDataRelation *relation,
+        void **parent, void **data) ATTR_NONNULL();
+void BKE_workspace_relation_data_set(struct WorkSpaceDataRelation *relation, void *parent, void *data) ATTR_NONNULL();
+
+#undef GETTER_ATTRS
+#undef SETTER_ATTRS
 
 /* -------------------------------------------------------------------- */
 /* Don't use outside of BKE! */
 
-WorkSpace *workspace_alloc(void) ATTR_WARN_UNUSED_RESULT;
+WorkSpace *BKE_workspace_alloc(void) ATTR_WARN_UNUSED_RESULT;
 
 #endif /* __BKE_WORKSPACE_H__ */

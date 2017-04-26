@@ -66,7 +66,6 @@ enum {
 	BLENDER_USER_DATAFILES      = 32,
 	BLENDER_USER_SCRIPTS        = 33,
 	BLENDER_USER_AUTOSAVE       = 34,
-	BLENDER_USER_WORKFLOW       = 35,
 
 	/* system */
 	BLENDER_SYSTEM_DATAFILES    = 52,
@@ -83,7 +82,7 @@ enum {
 
 #define BLENDER_STARTUP_FILE    "startup.blend"
 #define BLENDER_USERPREF_FILE   "userpref.blend"
-#define BLENDER_WORKFLOW_FILE   "workflow.blend"
+#define BLENDER_WORKSPACES_FILE "workspaces.blend"
 #define BLENDER_QUIT_FILE       "quit.blend"
 #define BLENDER_BOOKMARK_FILE   "bookmarks.txt"
 #define BLENDER_HISTORY_FILE    "recent-files.txt"

@@ -30,8 +30,10 @@
 #include "BKE_library_remap.h"
 #include "BKE_main.h"
 #include "BKE_scene.h"
+#include "BKE_workspace.h"
 
 #include "BLI_compiler_attrs.h"
+#include "BLI_listbase.h"
 
 #include "BLT_translation.h"
 
@@ -107,7 +109,13 @@ void ED_scene_exit(bContext *C)
 
 void ED_scene_changed_update(Main *bmain, bContext *C, Scene *scene_new, const bScreen *active_screen)
 {
+	/* XXX Just using active scene render-layer for workspace when switching,
+	 * but workspace should remember the last one set. Could store render-layer
+	 * per window-workspace combination (using WorkSpaceDataRelation) */
+	SceneLayer *layer_new = BLI_findlink(&scene_new->render_layers, scene_new->active_layer);
+
 	CTX_data_scene_set(C, scene_new);
+	BKE_workspace_render_layer_set(CTX_wm_workspace(C), layer_new);
 	BKE_scene_set_background(bmain, scene_new);
 	DAG_on_visible_update(bmain, false);
 

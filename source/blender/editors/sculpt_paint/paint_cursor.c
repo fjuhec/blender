@@ -53,15 +53,14 @@
 
 #include "WM_api.h"
 
-#include "BIF_glutil.h"
-
 #include "IMB_imbuf_types.h"
 
 #include "ED_view3d.h"
 
+#include "GPU_draw.h"
 #include "GPU_immediate.h"
+#include "GPU_immediate_util.h"
 #include "GPU_matrix.h"
-#include "GPU_basic_shader.h"
 
 #include "UI_resources.h"
 
@@ -336,8 +335,8 @@ static int load_tex(Brush *br, ViewContext *vc, float zoom, bool col, bool prima
 	glBindTexture(GL_TEXTURE_2D, target->overlay_texture);
 
 	if (refresh) {
-		GLenum format = col ? GL_RGBA : GL_ALPHA;
-		GLenum internalformat = col ? GL_RGBA8 : GL_ALPHA8;
+		GLenum format = col ? GL_RGBA : GL_RED;
+		GLenum internalformat = col ? GL_RGBA8 : GL_R8;
 
 		if (!init || (target->old_col != col)) {
 			glTexImage2D(GL_TEXTURE_2D, 0, internalformat, size, size, 0, format, GL_UNSIGNED_BYTE, buffer);
@@ -351,8 +350,6 @@ static int load_tex(Brush *br, ViewContext *vc, float zoom, bool col, bool prima
 
 		target->old_col = col;
 	}
-
-	GPU_basic_shader_bind(GPU_SHADER_TEXTURE_2D | GPU_SHADER_USE_COLOR);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -460,17 +457,15 @@ static int load_tex_cursor(Brush *br, ViewContext *vc, float zoom)
 
 	if (refresh) {
 		if (!init) {
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA8, size, size, 0, GL_ALPHA, GL_UNSIGNED_BYTE, buffer);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, size, size, 0, GL_RED, GL_UNSIGNED_BYTE, buffer);
 		}
 		else {
-			glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, size, size, GL_ALPHA, GL_UNSIGNED_BYTE, buffer);
+			glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, size, size, GL_RED, GL_UNSIGNED_BYTE, buffer);
 		}
 
 		if (buffer)
 			MEM_freeN(buffer);
 	}
-
-	GPU_basic_shader_bind(GPU_SHADER_TEXTURE_2D | GPU_SHADER_USE_COLOR);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -605,21 +600,20 @@ static void paint_draw_tex_overlay(UnifiedPaintSettings *ups, Brush *brush,
 		glDepthMask(GL_FALSE);
 		glDepthFunc(GL_ALWAYS);
 
-		glMatrixMode(GL_TEXTURE);
-		glPushMatrix(); /* TEXTURE */
-		glLoadIdentity(); /* TEXTURE */
-
 		if (mtex->brush_map_mode == MTEX_MAP_MODE_VIEW) {
+			gpuPushMatrix();
+
 			/* brush rotation */
-			glTranslatef(0.5, 0.5, 0); /* TEXTURE */
-			glRotatef(RAD2DEGF(primary ? ups->brush_rotation : ups->brush_rotation_sec), 0, 0, 1);  /* TEXTURE */
-			glTranslatef(-0.5f, -0.5f, 0); /* TEXTURE */
+			gpuTranslate2f(x, y);
+			gpuRotate2D(-RAD2DEGF(primary ? ups->brush_rotation : ups->brush_rotation_sec));
+			gpuTranslate2f(-x, -y);
 
 			/* scale based on tablet pressure */
 			if (primary && ups->stroke_active && BKE_brush_use_size_pressure(vc->scene, brush)) {
-				glTranslatef(0.5f, 0.5f, 0); /* TEXTURE */
-				glScalef(1.0f / ups->size_pressure_value, 1.0f / ups->size_pressure_value, 1.0f / ups->size_pressure_value); /* TEXTURE */
-				glTranslatef(-0.5f, -0.5f, 0); /* TEXTURE */
+				const float scale = ups->size_pressure_value;
+				gpuTranslate2f(x, y);
+				gpuScale2f(scale, scale);
+				gpuTranslate2f(-x, -y);
 			}
 
 			if (ups->draw_anchored) {
@@ -657,34 +651,32 @@ static void paint_draw_tex_overlay(UnifiedPaintSettings *ups, Brush *brush,
 				quad.xmax = brush->mask_stencil_dimension[0];
 				quad.ymax = brush->mask_stencil_dimension[1];
 			}
-			glMatrixMode(GL_MODELVIEW);
 			gpuPushMatrix();
 			if (primary)
 				gpuTranslate2fv(brush->stencil_pos);
 			else
 				gpuTranslate2fv(brush->mask_stencil_pos);
 			gpuRotate2D(RAD2DEGF(mtex->rot));
-			glMatrixMode(GL_TEXTURE);
 		}
 
 		/* set quad color. Colored overlay does not get blending */
 		VertexFormat *format = immVertexFormat();
-		unsigned int pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
-		unsigned int texCoord = add_attrib(format, "texCoord", GL_FLOAT, 2, KEEP_FLOAT);
-
-		immBindBuiltinProgram(GPU_SHADER_2D_IMAGE_COLOR);
+		unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
+		unsigned int texCoord = VertexFormat_add_attrib(format, "texCoord", COMP_F32, 2, KEEP_FLOAT);
 
 		if (col) {
-			immUniform4f("color", 1.0f, 1.0f, 1.0f, overlay_alpha / 100.0f);
+			immBindBuiltinProgram(GPU_SHADER_2D_IMAGE_COLOR);
+			immUniformColor4f(1.0f, 1.0f, 1.0f, overlay_alpha * 0.01f);
 		}
 		else {
-			immUniform4f("color", UNPACK3(U.sculpt_paint_overlay_col), overlay_alpha / 100.0f);
+			immBindBuiltinProgram(GPU_SHADER_2D_IMAGE_ALPHA_COLOR);
+			immUniformColor3fvAlpha(U.sculpt_paint_overlay_col, overlay_alpha * 0.01f);
 		}
 
 		/* draw textured quad */
 		immUniform1i("image", GL_TEXTURE0);
 
-		immBegin(GL_QUADS, 4);
+		immBegin(PRIM_TRIANGLE_FAN, 4);
 		immAttrib2f(texCoord, 0.0f, 0.0f);
 		immVertex2f(pos, quad.xmin, quad.ymin);
 		immAttrib2f(texCoord, 1.0f, 0.0f);
@@ -697,10 +689,7 @@ static void paint_draw_tex_overlay(UnifiedPaintSettings *ups, Brush *brush,
 
 		immUnbindProgram();
 
-		glPopMatrix(); /* TEXTURE */
-
-		if (mtex->brush_map_mode == MTEX_MAP_MODE_STENCIL) {
-			glMatrixMode(GL_MODELVIEW);
+		if (ELEM(mtex->brush_map_mode, MTEX_MAP_MODE_STENCIL, MTEX_MAP_MODE_VIEW)) {
 			gpuPopMatrix();
 		}
 	}
@@ -757,23 +746,19 @@ static void paint_draw_cursor_overlay(UnifiedPaintSettings *ups, Brush *brush,
 		}
 
 		VertexFormat *format = immVertexFormat();
-		unsigned int pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
-		unsigned int texCoord = add_attrib(format, "texCoord", GL_FLOAT, 2, KEEP_FLOAT);
+		unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
+		unsigned int texCoord = VertexFormat_add_attrib(format, "texCoord", COMP_F32, 2, KEEP_FLOAT);
 
 		immBindBuiltinProgram(GPU_SHADER_2D_IMAGE_COLOR);
 
-		immUniform4f("color",
-		        U.sculpt_paint_overlay_col[0],
-		        U.sculpt_paint_overlay_col[1],
-		        U.sculpt_paint_overlay_col[2],
-		        brush->cursor_overlay_alpha / 100.0f);
+		immUniformColor3fvAlpha(U.sculpt_paint_overlay_col, brush->cursor_overlay_alpha * 0.01f);
 
 		/* draw textured quad */
 
 		/* draw textured quad */
 		immUniform1i("image", GL_TEXTURE0);
 
-		immBegin(GL_QUADS, 4);
+		immBegin(PRIM_TRIANGLE_FAN, 4);
 		immAttrib2f(texCoord, 0.0f, 0.0f);
 		immVertex2f(pos, quad.xmin, quad.ymin);
 		immAttrib2f(texCoord, 1.0f, 0.0f);
@@ -797,19 +782,8 @@ static void paint_draw_alpha_overlay(UnifiedPaintSettings *ups, Brush *brush,
 	/* color means that primary brush texture is colured and secondary is used for alpha/mask control */
 	bool col = ELEM(mode, ePaintTextureProjective, ePaintTexture2D, ePaintVertex) ? true : false;
 	OverlayControlFlags flags = BKE_paint_get_overlay_flags();
-	/* save lots of GL state
-	 * TODO: check on whether all of these are needed? */
-	glPushAttrib(GL_COLOR_BUFFER_BIT |
-	             GL_CURRENT_BIT |
-	             GL_DEPTH_BUFFER_BIT |
-	             GL_ENABLE_BIT |
-	             GL_LINE_BIT |
-	             GL_POLYGON_BIT |
-	             GL_STENCIL_BUFFER_BIT |
-	             GL_TRANSFORM_BIT |
-	             GL_VIEWPORT_BIT |
-	             GL_TEXTURE_BIT);
-
+	GPUStateValues attribs;
+	gpuSaveState(&attribs, GPU_DEPTH_BUFFER_BIT | GPU_BLEND_BIT);
 
 	/* coloured overlay should be drawn separately */
 	if (col) {
@@ -827,8 +801,7 @@ static void paint_draw_alpha_overlay(UnifiedPaintSettings *ups, Brush *brush,
 			paint_draw_cursor_overlay(ups, brush, vc, x, y, zoom);
 	}
 
-	glPopAttrib();
-	GPU_basic_shader_bind(GPU_SHADER_USE_COLOR);
+	gpuRestoreState(&attribs);
 }
 
 
@@ -836,12 +809,8 @@ BLI_INLINE void draw_tri_point(
         unsigned int pos, float sel_col[4], float pivot_col[4],
         float *co, float width, bool selected)
 {
-	if (selected) {
-		immUniformColor4fv(sel_col);
-	}
-	else {
-		immUniformColor4fv(pivot_col);
-	}
+	immUniformColor4fv(selected ? sel_col : pivot_col);
+
 	glLineWidth(3.0f);
 
 	float w = width / 2.0f;
@@ -871,12 +840,8 @@ BLI_INLINE void draw_rect_point(
         unsigned int pos, float sel_col[4], float handle_col[4],
         float *co, float width, bool selected)
 {
-	if (selected) {
-		immUniformColor4fv(sel_col);
-	}
-	else {
-		immUniformColor4fv(handle_col);
-	}
+	immUniformColor4fv(selected ? sel_col : handle_col);
+
 	glLineWidth(3.0f);
 
 	float w = width / 2.0f;
@@ -899,7 +864,7 @@ BLI_INLINE void draw_bezier_handle_lines(unsigned int pos, float sel_col[4], Bez
 	immUniformColor4f(0.0f, 0.0f, 0.0f, 0.5f);
 	glLineWidth(3.0f);
 
-	immBegin(GL_LINE_STRIP, 3);
+	immBegin(PRIM_LINE_STRIP, 3);
 	immVertex2fv(pos, bez->vec[0]);
 	immVertex2fv(pos, bez->vec[1]);
 	immVertex2fv(pos, bez->vec[2]);
@@ -913,7 +878,7 @@ BLI_INLINE void draw_bezier_handle_lines(unsigned int pos, float sel_col[4], Bez
 	else {
 		immUniformColor4f(1.0f, 1.0f, 1.0f, 0.5f);
 	}
-	immBegin(GL_LINES, 2);
+	immBegin(PRIM_LINES, 2);
 	immVertex2fv(pos, bez->vec[0]);
 	immVertex2fv(pos, bez->vec[1]);
 	immEnd();
@@ -924,7 +889,7 @@ BLI_INLINE void draw_bezier_handle_lines(unsigned int pos, float sel_col[4], Bez
 	else {
 		immUniformColor4f(1.0f, 1.0f, 1.0f, 0.5f);
 	}
-	immBegin(GL_LINES, 2);
+	immBegin(PRIM_LINES, 2);
 	immVertex2fv(pos, bez->vec[1]);
 	immVertex2fv(pos, bez->vec[2]);
 	immEnd();
@@ -941,7 +906,7 @@ static void paint_draw_curve_cursor(Brush *brush)
 		glEnable(GL_BLEND);
 
 		/* draw the bezier handles and the curve segment between the current and next point */
-		unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
+		unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
@@ -972,7 +937,7 @@ static void paint_draw_curve_cursor(Brush *brush)
 
 			immUniformColor4f(0.0f, 0.0f, 0.0f, 0.5f);
 			glLineWidth(3.0f);
-			immBegin(GL_LINE_STRIP, PAINT_CURVE_NUM_SEGMENTS + 1);
+			immBegin(PRIM_LINE_STRIP, PAINT_CURVE_NUM_SEGMENTS + 1);
 			for (j = 0; j <= PAINT_CURVE_NUM_SEGMENTS; j++) {
 				immVertex2fv(pos, v[j]);
 			}
@@ -980,7 +945,7 @@ static void paint_draw_curve_cursor(Brush *brush)
 
 			immUniformColor4f(0.9f, 0.9f, 1.0f, 0.5f);
 			glLineWidth(1.0f);
-			immBegin(GL_LINE_STRIP, PAINT_CURVE_NUM_SEGMENTS + 1);
+			immBegin(PRIM_LINE_STRIP, PAINT_CURVE_NUM_SEGMENTS + 1);
 			for (j = 0; j <= PAINT_CURVE_NUM_SEGMENTS; j++) {
 				immVertex2fv(pos, v[j]);
 			}
@@ -1125,7 +1090,7 @@ static void paint_draw_cursor(bContext *C, int x, int y, void *UNUSED(unused))
 	glEnable(GL_BLEND); /* TODO: also set blend mode? */
 	glEnable(GL_LINE_SMOOTH);
 
-	unsigned int pos = add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
 	/* set brush color */
@@ -1134,11 +1099,11 @@ static void paint_draw_cursor(bContext *C, int x, int y, void *UNUSED(unused))
 	/* draw brush outline */
 	if (ups->stroke_active && BKE_brush_use_size_pressure(scene, brush)) {
 		/* inner at full alpha */
-		imm_draw_lined_circle(pos, translation[0], translation[1], final_radius * ups->size_pressure_value, 40);
+		imm_draw_circle_wire(pos, translation[0], translation[1], final_radius * ups->size_pressure_value, 40);
 		/* outer at half alpha */
 		immUniformColor3fvAlpha(outline_col, outline_alpha * 0.5f);
 	}
-	imm_draw_lined_circle(pos, translation[0], translation[1], final_radius, 40);
+	imm_draw_circle_wire(pos, translation[0], translation[1], final_radius, 40);
 
 	immUnbindProgram();
 

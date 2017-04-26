@@ -49,6 +49,8 @@
 #include "BKE_report.h"
 #include "BKE_scene.h"
 
+#include "DEG_depsgraph.h"
+
 #include "RNA_access.h"
 
 #ifdef WITH_PYTHON
@@ -125,7 +127,8 @@ void RE_engines_register(Main *bmain, RenderEngineType *render_type)
 		DRW_engine_register(render_type->draw_engine);
 	}
 	if (render_type->collection_settings_create) {
-		BKE_layer_collection_engine_settings_callback_register(bmain, render_type->idname, render_type->collection_settings_create);
+		BKE_layer_collection_engine_settings_callback_register(
+		            bmain, render_type->idname, render_type->collection_settings_create);
 	}
 	BLI_addtail(&R_engines, render_type);
 }
@@ -144,7 +147,7 @@ RenderEngineType *RE_engines_find(const char *idname)
 bool RE_engine_is_external(Render *re)
 {
 	RenderEngineType *type = RE_engines_find(re->r.engine);
-	return (type && type->render);
+	return (type && type->render_to_image);
 }
 
 /* Create, Free */
@@ -202,7 +205,8 @@ static RenderPart *get_part_from_result(Render *re, RenderResult *result)
 	return NULL;
 }
 
-RenderResult *RE_engine_begin_result(RenderEngine *engine, int x, int y, int w, int h, const char *layername, const char *viewname)
+RenderResult *RE_engine_begin_result(
+        RenderEngine *engine, int x, int y, int w, int h, const char *layername, const char *viewname)
 {
 	Render *re = engine->re;
 	RenderResult *result;
@@ -414,7 +418,8 @@ float RE_engine_get_camera_shift_x(RenderEngine *engine, Object *camera, int use
 	return BKE_camera_multiview_shift_x(re ? &re->r : NULL, camera, re->viewname);
 }
 
-void RE_engine_get_camera_model_matrix(RenderEngine *engine, Object *camera, int use_spherical_stereo, float *r_modelmat)
+void RE_engine_get_camera_model_matrix(
+        RenderEngine *engine, Object *camera, int use_spherical_stereo, float *r_modelmat)
 {
 	Render *re = engine->re;
 
@@ -491,8 +496,9 @@ RenderData *RE_engine_get_render_data(Render *re)
 }
 
 /* Bake */
-void RE_bake_engine_set_engine_parameters(Render *re, Main *bmain, Scene *scene)
+void RE_bake_engine_set_engine_parameters(Render *re, Main *bmain, Depsgraph *graph, Scene *scene)
 {
+	re->depsgraph = graph;
 	re->scene = scene;
 	re->main = bmain;
 	render_copy_renderdata(&re->r, &scene->r);
@@ -542,10 +548,21 @@ bool RE_bake_engine(
 
 	/* update is only called so we create the engine.session */
 	if (type->update)
-		type->update(engine, re->main, re->scene);
+		type->update(engine, re->main, re->depsgraph, re->scene);
 
-	if (type->bake)
-		type->bake(engine, re->scene, object, pass_type, pass_filter, object_id, pixel_array, num_pixels, depth, result);
+	if (type->bake) {
+		type->bake(
+		            engine,
+		            re->scene,
+		            object,
+		            pass_type,
+		            pass_filter,
+		            object_id,
+		            pixel_array,
+		            num_pixels,
+		            depth,
+		            result);
+	}
 
 	engine->tile_x = 0;
 	engine->tile_y = 0;
@@ -581,8 +598,7 @@ void RE_engine_frame_set(RenderEngine *engine, int frame, float subframe)
 	BPy_BEGIN_ALLOW_THREADS;
 #endif
 
-	/* It's possible that here we're including layers which were never visible before. */
-	BKE_scene_update_for_newframe_ex(re->eval_ctx, re->main, scene, (1 << 20) - 1, true);
+	BKE_scene_update_for_newframe(re->eval_ctx, re->main, scene);
 
 #ifdef WITH_PYTHON
 	BPy_END_ALLOW_THREADS;
@@ -593,17 +609,6 @@ void RE_engine_frame_set(RenderEngine *engine, int frame, float subframe)
 
 /* Render */
 
-static bool render_layer_exclude_animated(Scene *scene, SceneRenderLayer *srl)
-{
-	PointerRNA ptr;
-	PropertyRNA *prop;
-
-	RNA_pointer_create(&scene->id, &RNA_SceneRenderLayer, srl, &ptr);
-	prop = RNA_struct_find_property(&ptr, "layers_exclude");
-
-	return RNA_property_animated(&ptr, prop);
-}
-
 int RE_engine_render(Render *re, int do_all)
 {
 	RenderEngineType *type = RE_engines_find(re->r.engine);
@@ -611,7 +616,7 @@ int RE_engine_render(Render *re, int do_all)
 	bool persistent_data = (re->r.mode & R_PERSISTENT_DATA) != 0;
 
 	/* verify if we can render */
-	if (!type->render)
+	if (!type->render_to_image)
 		return 0;
 	if ((re->r.scemode & R_BUTS_PREVIEW) && !(type->flag & RE_USE_PREVIEW))
 		return 0;
@@ -628,40 +633,7 @@ int RE_engine_render(Render *re, int do_all)
 	/* update animation here so any render layer animation is applied before
 	 * creating the render result */
 	if ((re->r.scemode & (R_NO_FRAME_UPDATE | R_BUTS_PREVIEW)) == 0) {
-		unsigned int lay = re->lay;
-
-		/* don't update layers excluded on all render layers */
-		if (type->flag & RE_USE_EXCLUDE_LAYERS) {
-			SceneRenderLayer *srl;
-			unsigned int non_excluded_lay = 0;
-
-			if (re->r.scemode & R_SINGLE_LAYER) {
-				srl = BLI_findlink(&re->r.layers, re->r.actlay);
-				if (srl) {
-					non_excluded_lay |= ~(srl->lay_exclude & ~srl->lay_zmask);
-
-					/* in this case we must update all because animation for
-					 * the scene has not been updated yet, and so may not be
-					 * up to date until after BKE_scene_update_for_newframe */
-					if (render_layer_exclude_animated(re->scene, srl))
-						non_excluded_lay |= ~0;
-				}
-			}
-			else {
-				for (srl = re->r.layers.first; srl; srl = srl->next) {
-					if (!(srl->layflag & SCE_LAY_DISABLE)) {
-						non_excluded_lay |= ~(srl->lay_exclude & ~srl->lay_zmask);
-
-						if (render_layer_exclude_animated(re->scene, srl))
-							non_excluded_lay |= ~0;
-					}
-				}
-			}
-
-			lay &= non_excluded_lay;
-		}
-
-		BKE_scene_update_for_newframe_ex(re->eval_ctx, re->main, re->scene, lay, true);
+		BKE_scene_update_for_newframe(re->eval_ctx, re->main, re->scene);
 		render_update_anim_renderdata(re, &re->scene->r);
 	}
 
@@ -727,16 +699,18 @@ int RE_engine_render(Render *re, int do_all)
 	if (re->result->do_exr_tile)
 		render_result_exr_file_begin(re);
 
-	if (type->update)
-		type->update(engine, re->main, re->scene);
+	if (type->update) {
+		type->update(engine, re->main, re->depsgraph, re->scene);
+	}
 
 	/* Clear UI drawing locks. */
 	if (re->draw_lock) {
 		re->draw_lock(re->dlh, 0);
 	}
 
-	if (type->render)
-		type->render(engine, re->scene);
+	if (type->render_to_image) {
+		type->render_to_image(engine, re->depsgraph);
+	}
 
 	engine->tile_x = 0;
 	engine->tile_y = 0;

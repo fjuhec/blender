@@ -86,8 +86,7 @@ static void rna_Scene_frame_set(Scene *scene, int frame, float subframe)
 	BPy_BEGIN_ALLOW_THREADS;
 #endif
 
-	/* It's possible that here we're including layers which were never visible before. */
-	BKE_scene_update_for_newframe_ex(G.main->eval_ctx, G.main, scene, (1 << 20) - 1, true);
+	BKE_scene_update_for_newframe(G.main->eval_ctx, G.main, scene);
 
 #ifdef WITH_PYTHON
 	BPy_END_ALLOW_THREADS;
@@ -153,14 +152,14 @@ static void rna_SceneRender_get_frame_path(RenderData *rd, int frame, int previe
 }
 
 static void rna_Scene_ray_cast(
-        Scene *scene, float origin[3], float direction[3], float ray_dist,
+        Scene *scene, SceneLayer *sl, float origin[3], float direction[3], float ray_dist,
         int *r_success, float r_location[3], float r_normal[3], int *r_index,
         Object **r_ob, float r_obmat[16])
 {
 	normalize_v3(direction);
 
 	SnapObjectContext *sctx = ED_transform_snap_object_context_create(
-	        G.main, scene, 0);
+	        G.main, scene, sl, 0);
 
 	bool ret = ED_transform_snap_object_project_ray_ex(
 	        sctx,
@@ -208,6 +207,8 @@ static void rna_Scene_alembic_export(
         int renderable_only,
         int face_sets,
         int use_subdiv_schema,
+        int export_hair,
+        int export_particles,
         int compression_type,
         int packuv,
         float scale,
@@ -241,6 +242,8 @@ static void rna_Scene_alembic_export(
 	    .renderable_only = renderable_only,
 	    .face_sets = face_sets,
 	    .use_subdiv_schema = use_subdiv_schema,
+	    .export_hair = export_hair,
+	    .export_particles = export_particles,
 	    .compression_type = compression_type,
 	    .packuv = packuv,
 	    .triangulate = triangulate,
@@ -250,7 +253,7 @@ static void rna_Scene_alembic_export(
 	    .global_scale = scale,
 	};
 
-	ABC_export(scene, C, filepath, &params);
+	ABC_export(scene, C, filepath, &params, true);
 
 #ifdef WITH_PYTHON
 	BPy_END_ALLOW_THREADS;
@@ -266,6 +269,7 @@ static void rna_Scene_alembic_export(
 /* Note: This definition must match to the generated function call */
 static void rna_Scene_collada_export(
         Scene *scene,
+        bContext *C,
         const char *filepath, 
         int apply_modifiers,
 
@@ -285,9 +289,11 @@ static void rna_Scene_collada_export(
         int sort_by_name,
         int export_transformation_type,
         int open_sim,
+        int limit_precision,
         int keep_bind_info)
 {
 	collada_export(scene,
+		CTX_data_scene_layer(C),
 		filepath,
 
 		apply_modifiers,
@@ -311,6 +317,7 @@ static void rna_Scene_collada_export(
 
 		export_transformation_type,
 		open_sim,
+		limit_precision,
 		keep_bind_info);
 }
 
@@ -344,6 +351,8 @@ void RNA_api_scene(StructRNA *srna)
 	/* Ray Cast */
 	func = RNA_def_function(srna, "ray_cast", "rna_Scene_ray_cast");
 	RNA_def_function_ui_description(func, "Cast a ray onto in object space");
+	parm = RNA_def_pointer(func, "scene_layer", "SceneLayer", "", "Scene Layer");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 	/* ray start and end */
 	parm = RNA_def_float_vector(func, "origin", 3, NULL, -FLT_MAX, FLT_MAX, "", "", -1e4, 1e4);
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
@@ -422,14 +431,22 @@ void RNA_api_scene(StructRNA *srna)
 	RNA_def_boolean(func, "open_sim", false,
 	                "Export to SL/OpenSim", "Compatibility mode for SL, OpenSim and other compatible online worlds");
 
-	RNA_def_boolean(func, "keep_bind_info", false, "Keep Bind Info",
+	RNA_def_boolean(func, "limit_precision", false,
+	                "Limit Precision",
+	                "Reduce the precision of the exported data to 6 digits");
+
+	RNA_def_boolean(func, "keep_bind_info", false,
+	                "Keep Bind Info",
 	                "Store bind pose information in custom bone properties for later use during Collada export");
+
+	RNA_def_function_flag(func, FUNC_USE_CONTEXT);
 
 #endif
 
 #ifdef WITH_ALEMBIC
+	/* XXX Deprecated, will be removed in 2.8 in favour of calling the export operator. */
 	func = RNA_def_function(srna, "alembic_export", "rna_Scene_alembic_export");
-	RNA_def_function_ui_description(func, "Export to Alembic file");
+	RNA_def_function_ui_description(func, "Export to Alembic file (deprecated, use the Alembic export operator)");
 
 	parm = RNA_def_string(func, "filepath", NULL, FILE_MAX, "File Path", "File path to write Alembic file");
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
@@ -451,6 +468,8 @@ void RNA_api_scene(StructRNA *srna)
 	RNA_def_boolean(func, "renderable_only"	, 0, "Renderable objects only", "Export only objects marked renderable in the outliner");
 	RNA_def_boolean(func, "face_sets"	, 0, "Facesets", "Export face sets");
 	RNA_def_boolean(func, "subdiv_schema", 0, "Use Alembic subdivision Schema", "Use Alembic subdivision Schema");
+	RNA_def_boolean(func, "export_hair", 1, "Export Hair", "Exports hair particle systems as animated curves");
+	RNA_def_boolean(func, "export_particles", 1, "Export Particles", "Exports non-hair particle systems");
 	RNA_def_enum(func, "compression_type", rna_enum_abc_compression_items, 0, "Compression", "");
 	RNA_def_boolean(func, "packuv"		, 0, "Export with packed UV islands", "Export with packed UV islands");
 	RNA_def_float(func, "scale", 1.0f, 0.0001f, 1000.0f, "Scale", "Value by which to enlarge or shrink the objects with respect to the world's origin", 0.0001f, 1000.0f);

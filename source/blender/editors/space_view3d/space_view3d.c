@@ -43,11 +43,13 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_context.h"
+#include "BKE_curve.h"
 #include "BKE_depsgraph.h"
 #include "BKE_icons.h"
+#include "BKE_lattice.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
-#include "BKE_mesh_render.h"
+#include "BKE_mesh.h"
 #include "BKE_object.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
@@ -55,6 +57,7 @@
 
 #include "ED_space_api.h"
 #include "ED_screen.h"
+#include "ED_transform.h"
 
 #include "GPU_compositing.h"
 #include "GPU_framebuffer.h"
@@ -252,7 +255,7 @@ void ED_view3d_init_mats_rv3d_gl(struct Object *ob, struct RegionView3D *rv3d)
 	/* we have to multiply instead of loading viewmatob to make
 	 * it work with duplis using displists, otherwise it will
 	 * override the dupli-matrix */
-	gpuMultMatrix3D(ob->obmat);
+	gpuMultMatrix(ob->obmat);
 }
 
 #ifdef DEBUG
@@ -342,7 +345,7 @@ static SpaceLink *view3d_new(const bContext *C)
 	v3d->near = 0.01f;
 	v3d->far = 1000.0f;
 
-	v3d->twflag |= U.tw_flag & V3D_USE_MANIPULATOR;
+	v3d->twflag |= U.manipulator_flag & V3D_USE_MANIPULATOR;
 	v3d->twtype = V3D_MANIP_TRANSLATE;
 	v3d->around = V3D_AROUND_CENTER_MEAN;
 	
@@ -488,6 +491,13 @@ static void view3d_main_region_init(wmWindowManager *wm, ARegion *ar)
 {
 	ListBase *lb;
 	wmKeyMap *keymap;
+
+	if (!ar->manipulator_map) {
+		ar->manipulator_map = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
+		        "View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW});
+	}
+
+	WM_manipulatormap_add_handlers(ar, ar->manipulator_map);
 
 	/* object ops. */
 	
@@ -720,6 +730,16 @@ static void view3d_dropboxes(void)
 	WM_dropbox_add(lb, "OBJECT_OT_group_instance_add", view3d_group_drop_poll, view3d_group_drop_copy);	
 }
 
+static void view3d_widgets(void)
+{
+	const struct wmManipulatorMapType_Params wmap_params = {
+		.idname = "View3D",
+		.spaceid = SPACE_VIEW3D, .regionid = RGN_TYPE_WINDOW,
+	};
+	wmManipulatorMapType *wmaptype = WM_manipulatormaptype_ensure(&wmap_params);
+
+	WM_manipulatorgrouptype_append(wmaptype, TRANSFORM_WGT_manipulator);
+}
 
 
 /* type callback, not region itself */
@@ -816,9 +836,16 @@ static void view3d_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegio
                                         wmNotifier *wmn, const Scene *scene)
 {
 	View3D *v3d = sa->spacedata.first;
-	
+	RegionView3D *rv3d = ar->regiondata;
+	wmManipulatorMap *mmap = ar->manipulator_map;
+
 	/* context changes */
 	switch (wmn->category) {
+		case NC_WM:
+			if (ELEM(wmn->data, ND_UNDO)) {
+				WM_manipulatormap_tag_refresh(mmap);
+			}
+			break;
 		case NC_ANIMATION:
 			switch (wmn->data) {
 				case ND_KEYFRAME_PROP:
@@ -838,10 +865,12 @@ static void view3d_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegio
 			break;
 		case NC_SCENE:
 			switch (wmn->data) {
+				case ND_SCENEBROWSE:
 				case ND_LAYER_CONTENT:
 					if (wmn->reference)
 						view3d_recalc_used_layers(ar, wmn, wmn->reference);
 					ED_region_tag_redraw(ar);
+					WM_manipulatormap_tag_refresh(mmap);
 					break;
 				case ND_LAYER:
 					if (wmn->reference) {
@@ -858,6 +887,7 @@ static void view3d_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegio
 				case ND_MARKERS:
 				case ND_MODE:
 					ED_region_tag_redraw(ar);
+					WM_manipulatormap_tag_refresh(mmap);
 					break;
 				case ND_WORLD:
 					/* handled by space_view3d_listener() for v3d access */
@@ -865,7 +895,6 @@ static void view3d_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegio
 				case ND_DRAW_RENDER_VIEWPORT:
 				{
 					if (v3d->camera && (scene == wmn->reference)) {
-						RegionView3D *rv3d = ar->regiondata;
 						if (rv3d->persp == RV3D_CAMOB) {
 							ED_region_tag_redraw(ar);
 						}
@@ -890,6 +919,7 @@ static void view3d_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegio
 				case ND_POINTCACHE:
 				case ND_LOD:
 					ED_region_tag_redraw(ar);
+					WM_manipulatormap_tag_refresh(mmap);
 					break;
 			}
 			switch (wmn->action) {
@@ -902,11 +932,22 @@ static void view3d_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegio
 			switch (wmn->data) {
 				case ND_SELECT:
 				{
+					WM_manipulatormap_tag_refresh(mmap);
+
 					if (scene->obedit) {
 						Object *ob = scene->obedit;
-						if (ob->type == OB_MESH) {
-							struct Mesh *me = ob->data;
-							BKE_mesh_batch_selection_dirty(me);
+						switch (ob->type) {
+							case OB_MESH:
+								BKE_mesh_batch_cache_dirty(ob->data, BKE_CURVE_BATCH_DIRTY_SELECT);
+								break;
+							// case OB_FONT:  /* handled by text_update_edited */
+							case OB_CURVE:
+							case OB_SURF:
+								BKE_curve_batch_cache_dirty(ob->data, BKE_CURVE_BATCH_DIRTY_SELECT);
+								break;
+							case OB_LATTICE:
+								BKE_lattice_batch_cache_dirty(ob->data, BKE_CURVE_BATCH_DIRTY_SELECT);
+								break;
 						}
 					}
 				}
@@ -926,7 +967,6 @@ static void view3d_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegio
 				case ND_DRAW_RENDER_VIEWPORT:
 				{
 					if (v3d->camera && (v3d->camera->data == wmn->reference)) {
-						RegionView3D *rv3d = ar->regiondata;
 						if (rv3d->persp == RV3D_CAMOB) {
 							ED_region_tag_redraw(ar);
 						}
@@ -985,6 +1025,7 @@ static void view3d_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegio
 					break;
 				case ND_LIGHTING_DRAW:
 					ED_region_tag_redraw(ar);
+					WM_manipulatormap_tag_refresh(mmap);
 					break;
 			}
 			break;
@@ -1004,31 +1045,26 @@ static void view3d_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegio
 		case NC_SPACE:
 			if (wmn->data == ND_SPACE_VIEW3D) {
 				if (wmn->subtype == NS_VIEW3D_GPU) {
-					RegionView3D *rv3d = ar->regiondata;
 					rv3d->rflag |= RV3D_GPULIGHT_UPDATE;
 				}
 				ED_region_tag_redraw(ar);
+				WM_manipulatormap_tag_refresh(mmap);
 			}
 			break;
 		case NC_ID:
 			if (wmn->action == NA_RENAME)
 				ED_region_tag_redraw(ar);
 			break;
-		case NC_WORKSPACE:
+		case NC_SCREEN:
 			switch (wmn->data) {
 				case ND_ANIMPLAY:
 				case ND_SKETCH:
 					ED_region_tag_redraw(ar);
 					break;
-				/* XXX */
-//				case ND_SCREENBROWSE:
-//				case ND_SCREENDELETE:
-				case ND_SCREENSET:
-					/* screen was changed, need to update used layers due to NC_SCENE|ND_LAYER_CONTENT */
-					/* updates used layers only for View3D in active screen */
-					if (wmn->reference) {
-						view3d_recalc_used_layers(ar, wmn, scene);
-					}
+				case ND_LAYOUTBROWSE:
+				case ND_LAYOUTDELETE:
+				case ND_LAYOUTSET:
+					WM_manipulatormap_tag_refresh(mmap);
 					ED_region_tag_redraw(ar);
 					break;
 				case ND_LAYER:
@@ -1405,6 +1441,7 @@ void ED_spacetype_view3d(void)
 	st->operatortypes = view3d_operatortypes;
 	st->keymap = view3d_keymap;
 	st->dropboxes = view3d_dropboxes;
+	st->manipulators = view3d_widgets;
 	st->context = view3d_context;
 	st->id_remap = view3d_id_remap;
 

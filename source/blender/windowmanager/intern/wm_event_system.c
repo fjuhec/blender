@@ -36,6 +36,7 @@
 #include <string.h>
 
 #include "DNA_listBase.h"
+#include "DNA_manipulator_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_windowmanager_types.h"
@@ -292,17 +293,17 @@ void wm_event_do_notifiers(bContext *C)
 					wm_window_title(wm, win);
 			}
 			if (note->window == win) {
-				if (note->category == NC_WORKSPACE) {
+				if (note->category == NC_SCREEN) {
 					if (note->data == ND_WORKSPACE_SET) {
 						WorkSpace *ref_ws = note->reference;
 
 						UI_popup_handlers_remove_all(C, &win->modalhandlers);
 
-						ED_workspace_change(C, wm, win, ref_ws);
+						ED_workspace_change(ref_ws, C, wm, win);
 						if (G.debug & G_DEBUG_EVENTS)
 							printf("%s: Workspace set %p\n", __func__, note->reference);
 					}
-					else if (note->data == ND_SCREENBROWSE) {
+					else if (note->data == ND_LAYOUTBROWSE) {
 						bScreen *ref_screen = BKE_workspace_layout_screen_get(note->reference);
 
 						/* free popup handlers only [#35434] */
@@ -313,11 +314,11 @@ void wm_event_do_notifiers(bContext *C)
 						if (G.debug & G_DEBUG_EVENTS)
 							printf("%s: screen set %p\n", __func__, note->reference);
 					}
-					else if (note->data == ND_SCREENDELETE) {
+					else if (note->data == ND_LAYOUTDELETE) {
 						WorkSpace *workspace = WM_window_get_active_workspace(win);
 						WorkSpaceLayout *layout = note->reference;
 
-						ED_workspace_layout_delete(C, workspace, layout);   // XXX hrms, think this over!
+						ED_workspace_layout_delete(workspace, layout, C);   // XXX hrms, think this over!
 						if (G.debug & G_DEBUG_EVENTS)
 							printf("%s: screen delete %p\n", __func__, note->reference);
 					}
@@ -357,7 +358,7 @@ void wm_event_do_notifiers(bContext *C)
 			bScreen *screen = WM_window_get_active_screen(win);
 
 			/* filter out notifiers */
-			if (note->category == NC_WORKSPACE &&
+			if (note->category == NC_SCREEN &&
 			    note->reference &&
 			    note->reference != screen &&
 			    note->reference != WM_window_get_active_workspace(win) &&

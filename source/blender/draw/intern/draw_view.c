@@ -41,6 +41,9 @@
 
 #include "UI_resources.h"
 
+#include "WM_api.h"
+#include "WM_types.h"
+
 #include "BKE_global.h"
 #include "BKE_object.h"
 #include "BKE_paint.h"
@@ -56,11 +59,11 @@
 
 void DRW_draw_region_info(void)
 {
-	const bContext *C = DRW_get_context();
-	ARegion *ar = CTX_wm_region(C);
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	ARegion *ar = draw_ctx->ar;
 
 	DRW_draw_cursor();
-	view3d_draw_region_info(C, ar);
+	view3d_draw_region_info(draw_ctx->evil_C, ar);
 }
 
 /* ************************* Grid ************************** */
@@ -100,7 +103,9 @@ static int gridline_count(ARegion *ar, double x0, double y0, double dx)
 	return total_ct;
 }
 
-static bool drawgrid_draw(ARegion *ar, double x0, double y0, double dx, int skip_mod, unsigned pos, unsigned col, GLubyte col_value[3])
+static bool drawgrid_draw(
+        ARegion *ar, double x0, double y0, double dx, int skip_mod,
+        unsigned pos, unsigned col, GLubyte col_value[3])
 {
 	/* skip every skip_mod lines relative to each axis; they will be overlaid by another drawgrid_draw
 	* always skip exact x0 & y0 axes; they will be drawn later in color
@@ -199,8 +204,8 @@ static void drawgrid(UnitSettings *unit, ARegion *ar, View3D *v3d, const char **
 #endif
 
 	VertexFormat *format = immVertexFormat();
-	unsigned int pos = add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
-	unsigned int color = add_attrib(format, "color", COMP_U8, 3, NORMALIZE_INT_TO_FLOAT);
+	unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
+	unsigned int color = VertexFormat_add_attrib(format, "color", COMP_U8, 3, NORMALIZE_INT_TO_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_2D_FLAT_COLOR);
 
@@ -237,7 +242,7 @@ static void drawgrid(UnitSettings *unit, ARegion *ar, View3D *v3d, const char **
 					if (gridline_ct == 0)
 						goto drawgrid_cleanup; /* nothing to draw */
 
-					immBegin(GL_LINES, gridline_ct * 2);
+					immBegin(PRIM_LINES, gridline_ct * 2);
 				}
 
 				float blend_fac = 1.0f - ((GRID_MIN_PX_F * 2.0f) / (float)dx_scalar);
@@ -290,12 +295,13 @@ static void drawgrid(UnitSettings *unit, ARegion *ar, View3D *v3d, const char **
 		if (gridline_ct == 0)
 			goto drawgrid_cleanup; /* nothing to draw */
 
-		immBegin(GL_LINES, gridline_ct * 2);
+		immBegin(PRIM_LINES, gridline_ct * 2);
 
 		if (grids_to_draw == 2) {
 			UI_GetThemeColorBlend3ubv(TH_HIGH_GRAD, TH_GRID, dx / (GRID_MIN_PX_D * 6.0), col2);
-			if (drawgrid_draw(ar, x, y, dx, v3d->gridsubdiv, pos, color, col2))
+			if (drawgrid_draw(ar, x, y, dx, v3d->gridsubdiv, pos, color, col2)) {
 				drawgrid_draw(ar, x, y, dx * sublines, 0, pos, color, col);
+			}
 		}
 		else if (grids_to_draw == 1) {
 			drawgrid_draw(ar, x, y, dx, 0, pos, color, col);
@@ -348,9 +354,9 @@ static void drawfloor(Scene *scene, View3D *v3d, const char **grid_unit)
 
 		const bool show_floor = (v3d->gridflag & V3D_SHOW_FLOOR) && gridlines >= 1;
 
-		bool show_axis_x = v3d->gridflag & V3D_SHOW_X;
-		bool show_axis_y = v3d->gridflag & V3D_SHOW_Y;
-		bool show_axis_z = v3d->gridflag & V3D_SHOW_Z;
+		bool show_axis_x = (v3d->gridflag & V3D_SHOW_X) != 0;
+		bool show_axis_y = (v3d->gridflag & V3D_SHOW_Y) != 0;
+		bool show_axis_z = (v3d->gridflag & V3D_SHOW_Z) != 0;
 
 		unsigned char col_grid[3], col_axis[3];
 
@@ -365,12 +371,12 @@ static void drawfloor(Scene *scene, View3D *v3d, const char **grid_unit)
 			unsigned char col_bg[3], col_grid_emphasise[3], col_grid_light[3];
 
 			VertexFormat *format = immVertexFormat();
-			unsigned int pos = add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
-			unsigned int color = add_attrib(format, "color", COMP_U8, 3, NORMALIZE_INT_TO_FLOAT);
+			unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
+			unsigned int color = VertexFormat_add_attrib(format, "color", COMP_U8, 3, NORMALIZE_INT_TO_FLOAT);
 
 			immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
 
-			immBegin(GL_LINES, vertex_ct);
+			immBegin(PRIM_LINES, vertex_ct);
 
 			/* draw normal grid lines */
 			UI_GetColorPtrShade3ubv(col_grid, col_grid_light, 10);
@@ -453,11 +459,11 @@ static void drawfloor(Scene *scene, View3D *v3d, const char **grid_unit)
 			/* draw axis lines -- sometimes grid floor is off, other times we still need to draw the Z axis */
 
 			VertexFormat *format = immVertexFormat();
-			unsigned int pos = add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
-			unsigned int color = add_attrib(format, "color", COMP_U8, 3, NORMALIZE_INT_TO_FLOAT);
+			unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
+			unsigned int color = VertexFormat_add_attrib(format, "color", COMP_U8, 3, NORMALIZE_INT_TO_FLOAT);
 
 			immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
-			immBegin(GL_LINES, (show_axis_x + show_axis_y + show_axis_z) * 2);
+			immBegin(PRIM_LINES, (show_axis_x + show_axis_y + show_axis_z) * 2);
 
 			if (show_axis_x) {
 				UI_make_axis_color(col_grid, col_axis, 'X');
@@ -505,11 +511,11 @@ void DRW_draw_grid(void)
 	 *
 	 * 'RegionView3D.pixsize' is used for viewport drawing, not rendering.
 	 */
-	const bContext *C = DRW_get_context();
-	Scene *scene = CTX_data_scene(C);
-	View3D *v3d = CTX_wm_view3d(C);
-	ARegion *ar = CTX_wm_region(C);
-	RegionView3D *rv3d = ar->regiondata;
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	Scene *scene = draw_ctx->scene;
+	View3D *v3d = draw_ctx->v3d;
+	ARegion *ar = draw_ctx->ar;
+	RegionView3D *rv3d = draw_ctx->rv3d;
 
 	const bool draw_floor = (rv3d->view == RV3D_VIEW_USER) || (rv3d->persp != RV3D_ORTHO);
 	const char *grid_unit = NULL;
@@ -531,8 +537,8 @@ void DRW_draw_grid(void)
 		*(&grid_unit) = NULL;  /* drawgrid need this to detect/affect smallest valid unit... */
 		drawgrid(&scene->unit, ar, v3d, &grid_unit);
 
-		gpuLoadProjectionMatrix3D(rv3d->winmat);
-		gpuLoadMatrix3D(rv3d->viewmat);
+		gpuLoadProjectionMatrix(rv3d->winmat);
+		gpuLoadMatrix(rv3d->viewmat);
 	}
 	else {
 		glDepthMask(GL_TRUE);
@@ -550,22 +556,27 @@ void DRW_draw_background(void)
 	glStencilMask(0xFF);
 
 	if (UI_GetThemeValue(TH_SHOW_BACK_GRAD)) {
-		/* Gradient background Color */
-		gpuMatrixBegin3D(); /* TODO: finish 2D API */
+		float m[4][4];
+		unit_m4(m);
 
+		/* Gradient background Color */
 		glDisable(GL_DEPTH_TEST);
 
 		VertexFormat *format = immVertexFormat();
-		unsigned pos = add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
-		unsigned color = add_attrib(format, "color", COMP_U8, 3, NORMALIZE_INT_TO_FLOAT);
+		unsigned pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
+		unsigned color = VertexFormat_add_attrib(format, "color", COMP_U8, 3, NORMALIZE_INT_TO_FLOAT);
 		unsigned char col_hi[3], col_lo[3];
+
+		gpuPushMatrix();
+		gpuLoadIdentity();
+		gpuLoadProjectionMatrix(m);
 
 		immBindBuiltinProgram(GPU_SHADER_2D_SMOOTH_COLOR);
 
 		UI_GetThemeColor3ubv(TH_LOW_GRAD, col_lo);
 		UI_GetThemeColor3ubv(TH_HIGH_GRAD, col_hi);
 
-		immBegin(GL_QUADS, 4);
+		immBegin(PRIM_TRIANGLE_FAN, 4);
 		immAttrib3ubv(color, col_lo);
 		immVertex2f(pos, -1.0f, -1.0f);
 		immVertex2f(pos, 1.0f, -1.0f);
@@ -577,7 +588,7 @@ void DRW_draw_background(void)
 
 		immUnbindProgram();
 
-		gpuMatrixEnd();
+		gpuPopMatrix();
 
 		glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	}
@@ -604,7 +615,7 @@ static bool is_cursor_visible(Scene *scene, SceneLayer *sl)
 		}
 		/* exception: object in texture paint mode, clone brush, use_clone_layer disabled */
 		else if (ob->mode & OB_MODE_TEXTURE_PAINT) {
-			const Paint *p = BKE_paint_get_active(scene);
+			const Paint *p = BKE_paint_get_active(scene, sl);
 
 			if (p && p->brush && p->brush->imagepaint_tool == PAINT_TOOL_CLONE) {
 				if ((scene->toolsettings->imapaint.flag & IMAGEPAINT_PROJECT_LAYER_CLONE) == 0) {
@@ -622,11 +633,11 @@ static bool is_cursor_visible(Scene *scene, SceneLayer *sl)
 
 void DRW_draw_cursor(void)
 {
-	const bContext *C = DRW_get_context();
-	View3D *v3d = CTX_wm_view3d(C);
-	RegionView3D *rv3d = CTX_wm_region_view3d(C);
-	Scene *scene = CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	View3D *v3d = draw_ctx->v3d;
+	RegionView3D *rv3d = draw_ctx->rv3d;
+	Scene *scene = draw_ctx->scene;
+	SceneLayer *sl = draw_ctx->sl;
 
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glDepthMask(GL_FALSE);
@@ -642,9 +653,9 @@ void DRW_draw_cursor(void)
 		const float f20 = 1.0f;
 
 		VertexFormat *format = immVertexFormat();
-		unsigned int pos = add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
-		unsigned int color = add_attrib(format, "color", COMP_U8, 3, NORMALIZE_INT_TO_FLOAT);
-		unsigned int wpos = add_attrib(format, "world_pos", COMP_F32, 3, KEEP_FLOAT);
+		unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
+		unsigned int color = VertexFormat_add_attrib(format, "color", COMP_U8, 3, NORMALIZE_INT_TO_FLOAT);
+		unsigned int wpos = VertexFormat_add_attrib(format, "world_pos", COMP_F32, 3, KEEP_FLOAT);
 
 		/* XXX Using instance shader without instance */
 		immBindBuiltinProgram(GPU_SHADER_3D_SCREENSPACE_VARIYING_COLOR);
@@ -655,7 +666,7 @@ void DRW_draw_cursor(void)
 
 		const int segments = 16;
 
-		immBegin(GL_LINE_LOOP, segments);
+		immBegin(PRIM_LINE_LOOP, segments);
 		immAttrib3fv(wpos, co);
 
 		for (int i = 0; i < segments; ++i) {
@@ -674,7 +685,7 @@ void DRW_draw_cursor(void)
 
 		UI_GetThemeColor3ubv(TH_VIEW_OVERLAY, crosshair_color);
 
-		immBegin(GL_LINES, 8);
+		immBegin(PRIM_LINES, 8);
 		immAttrib3ubv(color, crosshair_color);
 		immAttrib3fv(wpos, co);
 
@@ -696,8 +707,16 @@ void DRW_draw_cursor(void)
 
 void DRW_draw_manipulator(void)
 {
-	const bContext *C = DRW_get_context();
-	View3D *v3d = CTX_wm_view3d(C);
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	View3D *v3d = draw_ctx->v3d;
 	v3d->zbuf = false;
-	BIF_draw_manipulator(C);
+	ARegion *ar = draw_ctx->ar;
+
+
+	/* TODO, only draws 3D manipulators right now, need to see how 2D drawing will work in new viewport */
+
+	/* draw depth culled manipulators - manipulators need to be updated *after* view matrix was set up */
+	/* TODO depth culling manipulators is not yet supported, just drawing _3D here, should
+	 * later become _IN_SCENE (and draw _3D separate) */
+	WM_manipulatormap_draw(ar->manipulator_map, draw_ctx->evil_C, WM_MANIPULATORMAP_DRAWSTEP_3D);
 }

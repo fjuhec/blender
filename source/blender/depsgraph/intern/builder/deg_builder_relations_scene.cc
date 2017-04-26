@@ -70,6 +70,9 @@ namespace DEG {
 
 void DepsgraphRelationBuilder::build_scene(Main *bmain, Scene *scene)
 {
+	/* XXX store scene to access from DAG_get_scene */
+	m_graph->scene = scene;
+
 	if (scene->set) {
 		build_scene(bmain, scene->set);
 	}
@@ -115,6 +118,9 @@ void DepsgraphRelationBuilder::build_scene(Main *bmain, Scene *scene)
 	LINKLIST_FOREACH (MovieClip *, clip, &bmain->movieclip) {
 		build_movieclip(clip);
 	}
+
+	/* Collections. */
+	build_scene_layer_collections(scene);
 
 	for (Depsgraph::OperationNodes::const_iterator it_op = m_graph->operations.begin();
 	     it_op != m_graph->operations.end();

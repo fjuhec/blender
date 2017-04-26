@@ -106,15 +106,15 @@ static void ringsel_draw(const bContext *C, ARegion *UNUSED(ar), void *arg)
 			glDisable(GL_DEPTH_TEST);
 
 		gpuPushMatrix();
-		gpuMultMatrix3D(lcd->ob->obmat);
+		gpuMultMatrix(lcd->ob->obmat);
 
-		unsigned pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+		unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 
 		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 		immUniformColor3ub(255, 0, 255);
 
 		if (lcd->totedge > 0) {
-			immBegin(GL_LINES, lcd->totedge * 2);
+			immBegin(PRIM_LINES, lcd->totedge * 2);
 
 			for (int i = 0; i < lcd->totedge; i++) {
 				immVertex3fv(pos, lcd->edges[i][0]);
@@ -127,7 +127,7 @@ static void ringsel_draw(const bContext *C, ARegion *UNUSED(ar), void *arg)
 		if (lcd->totpoint > 0) {
 			glPointSize(3.0f);
 
-			immBegin(GL_POINTS, lcd->totpoint);
+			immBegin(PRIM_POINTS, lcd->totpoint);
 
 			for (int i = 0; i < lcd->totpoint; i++) {
 				immVertex3fv(pos, lcd->points[i]);

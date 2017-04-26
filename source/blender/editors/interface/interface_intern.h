@@ -259,6 +259,7 @@ struct uiBut {
 	
 	uiButSearchCreateFunc search_create_func;
 	uiButSearchFunc search_func;
+	bool free_search_arg;
 	void *search_arg;
 
 	uiButHandleRenameFunc rename_func;
@@ -557,6 +558,7 @@ struct uiPopupBlockHandle {
 	struct uiKeyNavLock keynav_state;
 
 	/* for operator popups */
+	struct wmOperator *popup_op;
 	struct wmOperatorType *optype;
 	ScrArea *ctx_area;
 	ARegion *ctx_region;
@@ -605,7 +607,7 @@ int ui_searchbox_autocomplete(struct bContext *C, struct ARegion *ar, uiBut *but
 void ui_searchbox_event(struct bContext *C, struct ARegion *ar, uiBut *but, const struct wmEvent *event);
 bool ui_searchbox_apply(uiBut *but, struct ARegion *ar);
 void ui_searchbox_free(struct bContext *C, struct ARegion *ar);
-void ui_but_search_refresh(uiBut *but);
+void ui_but_search_refresh(uiBut *but, const bool is_template_ID);
 
 uiBlock *ui_popup_block_refresh(
         struct bContext *C, uiPopupBlockHandle *handle,

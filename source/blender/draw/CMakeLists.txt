@@ -26,23 +26,23 @@
 set(INC
 	.
 	intern
-	engines/clay
-	engines/eevee
 	modes
 
 	../blenfont
 	../blenkernel
 	../blenlib
 	../blentranslation
-	../imbuf
+	../bmesh
 	../depsgraph
-	../makesdna
-	../makesrna
-	../gpu
 	../editors/include
 	../editors/space_view3d
+	../gpu
+	../imbuf
+	../makesdna
+	../makesrna
 	../render/extern/include
 	../render/intern/include
+	../windowmanager
 
 	../../../intern/glew-mx
 	../../../intern/guardedalloc
@@ -59,13 +59,22 @@ set(SRC
 	intern/draw_view.c
 	intern/draw_armature.c
 
-	engines/clay/clay.c
-	engines/clay/clay.h
+	intern/draw_cache_impl_curve.c
+	intern/draw_cache_impl_displist.c
+	intern/draw_cache_impl_lattice.c
+	intern/draw_cache_impl_mesh.c
 
-	engines/eevee/eevee.c
+	engines/clay/clay_engine.c
+	engines/clay/clay_engine.h
+
+	engines/eevee/eevee_engine.c
+	engines/eevee/eevee_engine.h
 	engines/eevee/eevee_lights.c
-	engines/eevee/eevee.h
+	engines/eevee/eevee_probes.c
 	engines/eevee/eevee_private.h
+
+	engines/basic/basic_engine.c
+	engines/basic/basic_engine.h
 
 	modes/object_mode.c
 	modes/edit_armature_mode.c
@@ -85,10 +94,11 @@ set(SRC
 	intern/DRW_render.h
 	intern/draw_common.h
 	intern/draw_cache.h
+	intern/draw_cache_impl.h
 	intern/draw_view.h
 	modes/draw_mode_engines.h
 
-	./DRW_engine.h
+	DRW_engine.h
 )
 
 if(WITH_CLAY_ENGINE)
@@ -100,23 +110,39 @@ data_to_c_simple(engines/clay/shaders/clay_vert.glsl SRC)
 data_to_c_simple(engines/clay/shaders/ssao_alchemy.glsl SRC)
 data_to_c_simple(engines/clay/shaders/ssao_groundtruth.glsl SRC)
 
+data_to_c_simple(engines/eevee/shaders/default_frag.glsl SRC)
+data_to_c_simple(engines/eevee/shaders/default_world_frag.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/lit_surface_frag.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/lit_surface_vert.glsl SRC)
+data_to_c_simple(engines/eevee/shaders/probe_filter_frag.glsl SRC)
+data_to_c_simple(engines/eevee/shaders/probe_sh_frag.glsl SRC)
+data_to_c_simple(engines/eevee/shaders/probe_geom.glsl SRC)
+data_to_c_simple(engines/eevee/shaders/probe_vert.glsl SRC)
+data_to_c_simple(engines/eevee/shaders/shadow_frag.glsl SRC)
+data_to_c_simple(engines/eevee/shaders/shadow_geom.glsl SRC)
+data_to_c_simple(engines/eevee/shaders/shadow_vert.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/tonemap_frag.glsl SRC)
+data_to_c_simple(engines/eevee/shaders/bsdf_lut_frag.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/bsdf_direct_lib.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/bsdf_common_lib.glsl SRC)
+data_to_c_simple(engines/eevee/shaders/bsdf_sampling_lib.glsl SRC)
+data_to_c_simple(engines/eevee/shaders/ltc_lib.glsl SRC)
 
 data_to_c_simple(modes/shaders/common_globals_lib.glsl SRC)
-data_to_c_simple(modes/shaders/edit_overlay_frag.glsl SRC)
-data_to_c_simple(modes/shaders/edit_overlay_vert.glsl SRC)
-data_to_c_simple(modes/shaders/edit_overlay_geom_tri.glsl SRC)
-data_to_c_simple(modes/shaders/edit_overlay_geom_edge.glsl SRC)
-data_to_c_simple(modes/shaders/edit_overlay_loosevert_vert.glsl SRC)
-data_to_c_simple(modes/shaders/edit_overlay_facedot_frag.glsl SRC)
-data_to_c_simple(modes/shaders/edit_overlay_facedot_vert.glsl SRC)
-data_to_c_simple(modes/shaders/edit_overlay_mix_frag.glsl SRC)
-data_to_c_simple(modes/shaders/edit_overlay_facefill_vert.glsl SRC)
-data_to_c_simple(modes/shaders/edit_overlay_facefill_frag.glsl SRC)
+data_to_c_simple(modes/shaders/edit_mesh_overlay_frag.glsl SRC)
+data_to_c_simple(modes/shaders/edit_mesh_overlay_vert.glsl SRC)
+data_to_c_simple(modes/shaders/edit_mesh_overlay_geom_tri.glsl SRC)
+data_to_c_simple(modes/shaders/edit_mesh_overlay_geom_edge.glsl SRC)
+data_to_c_simple(modes/shaders/edit_mesh_overlay_loosevert_vert.glsl SRC)
+data_to_c_simple(modes/shaders/edit_mesh_overlay_facedot_frag.glsl SRC)
+data_to_c_simple(modes/shaders/edit_mesh_overlay_facedot_vert.glsl SRC)
+data_to_c_simple(modes/shaders/edit_mesh_overlay_mix_frag.glsl SRC)
+data_to_c_simple(modes/shaders/edit_mesh_overlay_facefill_vert.glsl SRC)
+data_to_c_simple(modes/shaders/edit_mesh_overlay_facefill_frag.glsl SRC)
+data_to_c_simple(modes/shaders/edit_curve_overlay_frag.glsl SRC)
+data_to_c_simple(modes/shaders/edit_curve_overlay_loosevert_vert.glsl SRC)
+data_to_c_simple(modes/shaders/edit_lattice_overlay_frag.glsl SRC)
+data_to_c_simple(modes/shaders/edit_lattice_overlay_loosevert_vert.glsl SRC)
 data_to_c_simple(modes/shaders/edit_normals_vert.glsl SRC)
 data_to_c_simple(modes/shaders/edit_normals_geom.glsl SRC)
 data_to_c_simple(modes/shaders/object_outline_resolve_frag.glsl SRC)

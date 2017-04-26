@@ -32,9 +32,8 @@ struct Batch;
 struct Object;
 struct SceneLayer;
 
-/* Used as ubo but colors can be directly
- * referenced as well */
-/* Keep in sync with globalsBlock in shaders */
+/* Used as ubo but colors can be directly referenced as well */
+/* Keep in sync with: common_globals_lib.glsl (globalsBlock) */
 typedef struct GlobalsUboStorage {
 	/* UBOs data needs to be 16 byte aligned (size of vec4) */
 	float colorWire[4];
@@ -43,7 +42,10 @@ typedef struct GlobalsUboStorage {
 	float colorSelect[4];
 	float colorTransform[4];
 	float colorGroupActive[4];
+	float colorGroupSelect[4];
 	float colorGroup[4];
+	float colorLibrarySelect[4];
+	float colorLibrary[4];
 	float colorLamp[4];
 	float colorSpeaker[4];
 	float colorCamera[4];
@@ -92,13 +94,16 @@ struct DRWShadingGroup *shgroup_groundpoints_uniform_color(struct DRWPass *pass,
 struct DRWShadingGroup *shgroup_instance_screenspace(struct DRWPass *pass, struct Batch *geom, float *size);
 struct DRWShadingGroup *shgroup_instance_objspace_solid(struct DRWPass *pass, struct Batch *geom, float (*obmat)[4]);
 struct DRWShadingGroup *shgroup_instance_objspace_wire(struct DRWPass *pass, struct Batch *geom, float (*obmat)[4]);
+struct DRWShadingGroup *shgroup_instance_screen_aligned(struct DRWPass *pass, struct Batch *geom);
 struct DRWShadingGroup *shgroup_instance_axis_names(struct DRWPass *pass, struct Batch *geom);
+struct DRWShadingGroup *shgroup_instance_scaled(struct DRWPass *pass, struct Batch *geom);
 struct DRWShadingGroup *shgroup_instance(struct DRWPass *pass, struct Batch *geom);
 struct DRWShadingGroup *shgroup_camera_instance(struct DRWPass *pass, struct Batch *geom);
 struct DRWShadingGroup *shgroup_distance_lines_instance(struct DRWPass *pass, struct Batch *geom);
 struct DRWShadingGroup *shgroup_spot_instance(struct DRWPass *pass, struct Batch *geom);
 
-int DRW_object_wire_theme_get(struct Object *ob, struct SceneLayer *sl, float **color);
+int DRW_object_wire_theme_get(struct Object *ob, struct SceneLayer *sl, float **r_color);
+float *DRW_color_background_blend_get(int theme_id);
 
 /* draw_armature.c */
 void DRW_shgroup_armature_object(

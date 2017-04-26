@@ -69,7 +69,6 @@
 #include "BKE_cachefile.h"
 #include "BKE_collection.h"
 #include "BKE_colortools.h"
-#include "BKE_depsgraph.h"
 #include "BKE_editmesh.h"
 #include "BKE_fcurve.h"
 #include "BKE_freestyle.h"
@@ -98,6 +97,8 @@
 #include "BKE_world.h"
 
 #include "DEG_depsgraph.h"
+#include "DEG_depsgraph_build.h"
+#include "DEG_depsgraph_query.h"
 
 #include "RE_engine.h"
 
@@ -331,6 +332,9 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 			}
 			new_sl = new_sl->next;
 		}
+
+		IDPropertyTemplate val = {0};
+		scen->collection_properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
 	}
 
 	/* copy color management settings */
@@ -444,6 +448,12 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 
 	BKE_previewimg_id_copy(&scen->id, &sce->id);
 
+	if (type != SCE_COPY_NEW) {
+		if (sce->collection_properties) {
+			IDP_MergeGroup(scen->collection_properties, sce->collection_properties, true);
+		}
+	}
+
 	return scen;
 }
 
@@ -545,7 +555,7 @@ void BKE_scene_free(Scene *sce)
 		sce->toolsettings = NULL;
 	}
 	
-	DAG_scene_free(sce);
+	DEG_scene_graph_free(sce);
 	if (sce->depsgraph)
 		DEG_graph_free(sce->depsgraph);
 	
@@ -570,11 +580,11 @@ void BKE_scene_free(Scene *sce)
 	sce->collection = NULL;
 
 	/* Runtime Engine Data */
-	for (RenderEngineSettings *res = sce->engines_settings.first; res; res = res->next) {
-		if (res->data)
-			MEM_freeN(res->data);
+	if (sce->collection_properties) {
+		IDP_FreeProperty(sce->collection_properties);
+		MEM_freeN(sce->collection_properties);
+		sce->collection_properties = NULL;
 	}
-	BLI_freelistN(&sce->engines_settings);
 }
 
 void BKE_scene_init(Scene *sce)
@@ -929,6 +939,10 @@ void BKE_scene_init(Scene *sce)
 	sce->collection = MEM_callocN(sizeof(SceneCollection), "Master Collection");
 	BLI_strncpy(sce->collection->name, "Master Collection", sizeof(sce->collection->name));
 
+	IDPropertyTemplate val = {0};
+	sce->collection_properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
+	BKE_layer_collection_engine_settings_create(sce->collection_properties);
+
 	BKE_scene_layer_add(sce, "Render Layer");
 }
 
@@ -998,7 +1012,7 @@ void BKE_scene_set_background(Main *bmain, Scene *scene)
 
 	/* sort baselist for scene and sets */
 	for (sce = scene; sce; sce = sce->set)
-		DAG_scene_relations_rebuild(bmain, sce);
+		DEG_scene_relations_rebuild(bmain, sce);
 
 	/* copy layers and flags from bases to objects */
 	for (base = scene->base.first; base; base = base->next) {
@@ -1386,7 +1400,7 @@ void BKE_scene_frame_set(struct Scene *scene, double cfra)
 static void scene_armature_depsgraph_workaround(Main *bmain)
 {
 	Object *ob;
-	if (BLI_listbase_is_empty(&bmain->armature) || !DAG_id_type_tagged(bmain, ID_OB)) {
+	if (BLI_listbase_is_empty(&bmain->armature) || !DEG_id_type_tagged(bmain, ID_OB)) {
 		return;
 	}
 	for (ob = bmain->object.first; ob; ob = ob->id.next) {
@@ -1440,7 +1454,7 @@ static void prepare_mesh_for_viewport_render(Main *bmain, Scene *scene)
 			if (check_rendered_viewport_visible(bmain)) {
 				BMesh *bm = mesh->edit_btmesh->bm;
 				BM_mesh_bm_to_me(bm, mesh, (&(struct BMeshToMeshParams){0}));
-				DAG_id_tag_update(&mesh->id, 0);
+				DEG_id_tag_update(&mesh->id, 0);
 			}
 		}
 	}
@@ -1455,10 +1469,10 @@ void BKE_scene_update_tagged(EvaluationContext *eval_ctx, Main *bmain, Scene *sc
 
 	/* (re-)build dependency graph if needed */
 	for (sce_iter = scene; sce_iter; sce_iter = sce_iter->set) {
-		DAG_scene_relations_update(bmain, sce_iter);
+		DEG_scene_relations_update(bmain, sce_iter);
 		/* Uncomment this to check if graph was properly tagged for update. */
 #if 0
-		DAG_scene_relations_validate(bmain, sce_iter);
+		DEG_scene_relations_validate(bmain, sce_iter);
 #endif
 	}
 
@@ -1466,7 +1480,7 @@ void BKE_scene_update_tagged(EvaluationContext *eval_ctx, Main *bmain, Scene *sc
 	prepare_mesh_for_viewport_render(bmain, scene);
 
 	/* flush recalc flags to dependencies */
-	DAG_ids_flush_tagged(bmain);
+	DEG_ids_flush_tagged(bmain);
 
 	/* removed calls to quick_cache, see pointcache.c */
 	
@@ -1501,24 +1515,19 @@ void BKE_scene_update_tagged(EvaluationContext *eval_ctx, Main *bmain, Scene *sc
 	BLI_callback_exec(bmain, &scene->id, BLI_CB_EVT_SCENE_UPDATE_POST);
 
 	/* Inform editors about possible changes. */
-	DAG_ids_check_recalc(bmain, scene, false);
+	DEG_ids_check_recalc(bmain, scene, false);
 
 	/* clear recalc flags */
-	DAG_ids_clear_recalc(bmain);
+	DEG_ids_clear_recalc(bmain);
 }
 
 /* applies changes right away, does all sets too */
-void BKE_scene_update_for_newframe(EvaluationContext *eval_ctx, Main *bmain, Scene *sce, unsigned int lay)
-{
-	BKE_scene_update_for_newframe_ex(eval_ctx, bmain, sce, lay, false);
-}
-
-void BKE_scene_update_for_newframe_ex(EvaluationContext *eval_ctx, Main *bmain, Scene *sce, unsigned int lay, bool UNUSED(do_invisible_flush))
+void BKE_scene_update_for_newframe(EvaluationContext *eval_ctx, Main *bmain, Scene *sce)
 {
 	float ctime = BKE_scene_frame_get(sce);
 	Scene *sce_iter;
 
-	DAG_editors_update_pre(bmain, sce, true);
+	DEG_editors_update_pre(bmain, sce, true);
 
 	/* keep this first */
 	BLI_callback_exec(bmain, &sce->id, BLI_CB_EVT_FRAME_CHANGE_PRE);
@@ -1534,7 +1543,7 @@ void BKE_scene_update_for_newframe_ex(EvaluationContext *eval_ctx, Main *bmain, 
 	/* XXX TODO... */
 
 	for (sce_iter = sce; sce_iter; sce_iter = sce_iter->set)
-		DAG_scene_relations_update(bmain, sce_iter);
+		DEG_scene_relations_update(bmain, sce_iter);
 
 	BKE_mask_evaluate_all_masks(bmain, ctime, true);
 
@@ -1552,7 +1561,7 @@ void BKE_scene_update_for_newframe_ex(EvaluationContext *eval_ctx, Main *bmain, 
 	BKE_main_id_tag_idcode(bmain, ID_LA, LIB_TAG_DOIT, false);
 
 	/* BKE_object_handle_update() on all objects, groups and sets */
-	DEG_evaluate_on_framechange(eval_ctx, bmain, sce->depsgraph, ctime, lay);
+	DEG_evaluate_on_framechange(eval_ctx, bmain, sce->depsgraph, ctime);
 
 	/* update sound system animation (TODO, move to depsgraph) */
 	BKE_sound_update_scene(bmain, sce);
@@ -1562,10 +1571,10 @@ void BKE_scene_update_for_newframe_ex(EvaluationContext *eval_ctx, Main *bmain, 
 	BLI_callback_exec(bmain, &sce->id, BLI_CB_EVT_FRAME_CHANGE_POST);
 
 	/* Inform editors about possible changes. */
-	DAG_ids_check_recalc(bmain, sce, true);
+	DEG_ids_check_recalc(bmain, sce, true);
 
 	/* clear recalc flags */
-	DAG_ids_clear_recalc(bmain);
+	DEG_ids_clear_recalc(bmain);
 }
 
 /* return default layer, also used to patch old files */

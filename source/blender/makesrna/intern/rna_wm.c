@@ -697,7 +697,7 @@ static void rna_Window_workspace_update(bContext *C, PointerRNA *ptr)
 	/* exception: can't set screens inside of area/region handlers,
 	 * and must use context so notifier gets to the right window */
 	if (new_workspace) {
-		WM_event_add_notifier(C, NC_WORKSPACE | ND_WORKSPACE_SET, new_workspace);
+		WM_event_add_notifier(C, NC_SCREEN | ND_WORKSPACE_SET, new_workspace);
 		BKE_workspace_temp_store_set(win->workspace_hook, NULL);
 	}
 }
@@ -742,7 +742,7 @@ static void rna_workspace_screen_update(bContext *C, PointerRNA *ptr)
 	/* exception: can't set screens inside of area/region handlers,
 	 * and must use context so notifier gets to the right window */
 	if (layout_new) {
-		WM_event_add_notifier(C, NC_WORKSPACE | ND_SCREENBROWSE, layout_new);
+		WM_event_add_notifier(C, NC_SCREEN | ND_LAYOUTBROWSE, layout_new);
 		BKE_workspace_temp_layout_store_set(win->workspace_hook, NULL);
 	}
 }
@@ -1045,7 +1045,7 @@ static void rna_Operator_unregister(struct Main *bmain, StructRNA *type)
 
 		WM_operator_handlers_clear(wm, ot);
 	}
-	WM_main_add_notifier(NC_WORKSPACE | NA_EDITED, NULL);
+	WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);
 
 	RNA_struct_free_extension(type, &ot->ext);
 
@@ -1352,7 +1352,7 @@ static StructRNA *rna_Operator_register(Main *bmain, ReportList *reports, void *
 	WM_operatortype_append_ptr(operator_wrapper, (void *)&dummyot);
 
 	/* update while blender is running */
-	WM_main_add_notifier(NC_WORKSPACE | NA_EDITED, NULL);
+	WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);
 
 	return dummyot.ext.srna;
 }
@@ -1444,7 +1444,7 @@ static StructRNA *rna_MacroOperator_register(Main *bmain, ReportList *reports, v
 	WM_operatortype_append_macro_ptr(macro_wrapper, (void *)&dummyot);
 
 	/* update while blender is running */
-	WM_main_add_notifier(NC_WORKSPACE | NA_EDITED, NULL);
+	WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);
 
 	return dummyot.ext.srna;
 }
@@ -1646,6 +1646,7 @@ static void rna_def_operator(BlenderRNA *brna)
 	RNA_def_struct_ui_text(srna, "Operator Properties", "Input properties of an Operator");
 	RNA_def_struct_refine_func(srna, "rna_OperatorProperties_refine");
 	RNA_def_struct_idprops_func(srna, "rna_OperatorProperties_idprops");
+	RNA_def_struct_flag(srna, STRUCT_NO_DATABLOCK_IDPROPERTIES);
 }
 
 static void rna_def_macro_operator(BlenderRNA *brna)

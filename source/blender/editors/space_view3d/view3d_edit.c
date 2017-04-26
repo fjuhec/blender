@@ -60,9 +60,7 @@
 #include "BKE_action.h"
 #include "BKE_depsgraph.h" /* for ED_view3d_camera_lock_sync */
 
-
 #include "BIF_gl.h"
-#include "BIF_glutil.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -731,13 +729,14 @@ static void viewops_data_create_ex(bContext *C, wmOperator *op, const wmEvent *e
 	}
 	else if (use_orbit_zbuf) {
 		Scene *scene = CTX_data_scene(C);
+		struct Depsgraph *graph = CTX_data_depsgraph(C);
 		float fallback_depth_pt[3];
 
 		view3d_operator_needs_opengl(C); /* needed for zbuf drawing */
 
 		negate_v3_v3(fallback_depth_pt, rv3d->ofs);
 
-		if ((vod->use_dyn_ofs = ED_view3d_autodist(scene, vod->ar, vod->v3d,
+		if ((vod->use_dyn_ofs = ED_view3d_autodist(graph, scene, vod->ar, vod->v3d,
 		                                           event->mval, vod->dyn_ofs, true, fallback_depth_pt)))
 		{
 			if (rv3d->is_persp) {
@@ -3051,7 +3050,7 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 		/* hard-coded exception, we look for the one selected armature */
 		/* this is weak code this way, we should make a generic active/selection callback interface once... */
 		Base *base;
-		for (base = scene->base.first; base; base = base->next) {
+		for (base = sl->object_bases.first; base; base = base->next) {
 			if (TESTBASELIB_NEW(base)) {
 				if (base->object->type == OB_ARMATURE)
 					if (base->object->mode & OB_MODE_POSE)
@@ -3279,6 +3278,7 @@ static int viewcenter_pick_invoke(bContext *C, wmOperator *op, const wmEvent *ev
 	ARegion *ar = CTX_wm_region(C);
 
 	if (rv3d) {
+		struct Depsgraph *graph = CTX_data_depsgraph(C);
 		float new_ofs[3];
 		const int smooth_viewtx = WM_operator_smooth_viewtx_get(op);
 
@@ -3286,7 +3286,7 @@ static int viewcenter_pick_invoke(bContext *C, wmOperator *op, const wmEvent *ev
 
 		view3d_operator_needs_opengl(C);
 
-		if (ED_view3d_autodist(scene, ar, v3d, event->mval, new_ofs, false, NULL)) {
+		if (ED_view3d_autodist(graph, scene, ar, v3d, event->mval, new_ofs, false, NULL)) {
 			/* pass */
 		}
 		else {
@@ -3573,7 +3573,7 @@ static int view3d_zoom_border_exec(bContext *C, wmOperator *op)
 	ED_view3d_dist_range_get(v3d, dist_range);
 
 	/* Get Z Depths, needed for perspective, nice for ortho */
-	ED_view3d_draw_depth(scene, ar, v3d, true);
+	ED_view3d_draw_depth(CTX_data_depsgraph(C), scene, ar, v3d, true);
 	
 	{
 		/* avoid allocating the whole depth buffer */
@@ -4674,8 +4674,9 @@ void ED_view3d_cursor3d_position(bContext *C, float fp[3], const int mval[2])
 	}
 
 	if (U.uiflag & USER_ZBUF_CURSOR) {  /* maybe this should be accessed some other way */
+		struct Depsgraph *graph = CTX_data_depsgraph(C);
 		view3d_operator_needs_opengl(C);
-		if (ED_view3d_autodist(scene, ar, v3d, mval, fp, true, NULL))
+		if (ED_view3d_autodist(graph, scene, ar, v3d, mval, fp, true, NULL))
 			depth_used = true;
 	}
 
@@ -4747,45 +4748,6 @@ void VIEW3D_OT_cursor3d(wmOperatorType *ot)
 }
 
 /* ***************** manipulator op ******************* */
-
-
-static int manipulator_invoke(bContext *C, wmOperator *op, const wmEvent *event)
-{
-	View3D *v3d = CTX_wm_view3d(C);
-
-	if (!(v3d->twflag & V3D_USE_MANIPULATOR)) return OPERATOR_PASS_THROUGH;
-	if (!(v3d->twflag & V3D_DRAW_MANIPULATOR)) return OPERATOR_PASS_THROUGH;
-
-	/* note; otherwise opengl won't work */
-	view3d_operator_needs_opengl(C);
-
-	if (BIF_do_manipulator(C, event, op) == 0)
-		return OPERATOR_PASS_THROUGH;
-
-	return OPERATOR_FINISHED;
-}
-
-void VIEW3D_OT_manipulator(wmOperatorType *ot)
-{
-	PropertyRNA *prop;
-
-	/* identifiers */
-	ot->name = "3D Manipulator";
-	ot->description = "Manipulate selected item by axis";
-	ot->idname = "VIEW3D_OT_manipulator";
-
-	/* api callbacks */
-	ot->invoke = manipulator_invoke;
-
-	ot->poll = ED_operator_view3d_active;
-
-	/* properties to pass to transform */
-	Transform_Properties(ot, P_CONSTRAINT);
-
-	prop = RNA_def_boolean(ot->srna, "use_planar_constraint", false, "Planar Constraint", "Limit the transformation to the "
-	                       "two axes that have not been clicked (translate/scale only)");
-	RNA_def_property_flag(prop, PROP_SKIP_SAVE | PROP_HIDDEN);
-}
 
 static int enable_manipulator_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
@@ -4890,7 +4852,7 @@ static float view_autodist_depth_margin(ARegion *ar, const int mval[2], int marg
  * \param fallback_depth_pt: Use this points depth when no depth can be found.
  */
 bool ED_view3d_autodist(
-        Scene *scene, ARegion *ar, View3D *v3d,
+        struct Depsgraph *graph, Scene *scene, ARegion *ar, View3D *v3d,
         const int mval[2], float mouse_worldloc[3],
         const bool alphaoverride, const float fallback_depth_pt[3])
 {
@@ -4900,7 +4862,7 @@ bool ED_view3d_autodist(
 	bool depth_ok = false;
 
 	/* Get Z Depths, needed for perspective, nice for ortho */
-	ED_view3d_draw_depth(scene, ar, v3d, alphaoverride);
+	ED_view3d_draw_depth(graph, scene, ar, v3d, alphaoverride);
 
 	/* Attempt with low margin's first */
 	i = 0;
@@ -4928,12 +4890,14 @@ bool ED_view3d_autodist(
 	}
 }
 
-void ED_view3d_autodist_init(Scene *scene, ARegion *ar, View3D *v3d, int mode)
+void ED_view3d_autodist_init(
+        struct Depsgraph *graph,
+        Scene *scene, ARegion *ar, View3D *v3d, int mode)
 {
 	/* Get Z Depths, needed for perspective, nice for ortho */
 	switch (mode) {
 		case 0:
-			ED_view3d_draw_depth(scene, ar, v3d, true);
+			ED_view3d_draw_depth(graph, scene, ar, v3d, true);
 			break;
 		case 1:
 			ED_view3d_draw_depth_gpencil(scene, ar, v3d);

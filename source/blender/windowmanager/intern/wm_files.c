@@ -77,7 +77,6 @@
 #include "BKE_blendfile.h"
 #include "BKE_blender_undo.h"
 #include "BKE_context.h"
-#include "BKE_depsgraph.h"
 #include "BKE_global.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
@@ -119,6 +118,8 @@
 #ifdef WITH_PYTHON
 #include "BPY_extern.h"
 #endif
+
+#include "DEG_depsgraph.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -245,6 +246,7 @@ static void wm_window_match_do(bContext *C, ListBase *oldwmlist)
 			bScreen *screen = NULL;
 
 			/* when loading without UI, no matching needed */
+			/* XXX think we don't handle this correctly yet, it's activating workspace from old file */
 			if (!(G.fileflags & G_FILE_NO_UI) && (screen = CTX_wm_screen(C))) {
 
 				/* match oldwm to new dbase, only old files */
@@ -472,7 +474,7 @@ static void wm_file_read_post(bContext *C, bool is_startup_file)
 	CTX_wm_window_set(C, wm->windows.first);
 
 	ED_editors_init(C);
-	DAG_on_visible_update(CTX_data_main(C), true);
+	DEG_on_visible_update(CTX_data_main(C), true);
 
 #ifdef WITH_PYTHON
 	if (is_startup_file) {
@@ -586,6 +588,7 @@ bool WM_file_read(bContext *C, const char *filepath, ReportList *reports)
 		/* match the read WM with current WM */
 		wm_window_match_do(C, &wmbase);
 		WM_check(C); /* opens window(s), checks keymaps */
+		wm_file_read_post(C, false); /* do before wm_init_usedef to ensure updated context */
 
 		if (retval == BKE_BLENDFILE_READ_OK_USERPREFS) {
 			/* in case a userdef is read from regular .blend */
@@ -597,8 +600,6 @@ bool WM_file_read(bContext *C, const char *filepath, ReportList *reports)
 				wm_history_file_update();
 			}
 		}
-
-		wm_file_read_post(C, false);
 
 		success = true;
 	}
@@ -732,7 +733,7 @@ int wm_homefile_read(
 	if (filepath_startup_override != NULL) {
 		/* pass */
 	}
-	else if (app_template_override) {
+	else if (app_template_override && app_template_override[0]) {
 		app_template = app_template_override;
 	}
 	else if (!use_factory_settings && U.app_template[0]) {
@@ -817,7 +818,7 @@ int wm_homefile_read(
 		if (userdef_template == NULL) {
 			/* we need to have preferences load to overwrite preferences from previous template */
 			userdef_template = BKE_blendfile_userdef_read_from_memory(
-					datatoc_startup_blend, datatoc_startup_blend_size, NULL);
+			        datatoc_startup_blend, datatoc_startup_blend_size, NULL);
 		}
 		if (userdef_template) {
 			BKE_blender_userdef_set_app_template(userdef_template);
@@ -1512,6 +1513,42 @@ void WM_OT_save_userpref(wmOperatorType *ot)
 	ot->exec = wm_userpref_write_exec;
 }
 
+static int wm_workspace_configuration_file_write_exec(bContext *C, wmOperator *op)
+{
+	Main *bmain = CTX_data_main(C);
+	char filepath[FILE_MAX];
+
+	const char *app_template = U.app_template[0] ? U.app_template : NULL;
+	const char * const cfgdir = BKE_appdir_folder_id_create(BLENDER_USER_CONFIG, app_template);
+	if (cfgdir == NULL) {
+		BKE_report(op->reports, RPT_ERROR, "Unable to create workspace configuration file path");
+		return OPERATOR_CANCELLED;
+	}
+
+	BLI_path_join(filepath, sizeof(filepath), cfgdir, BLENDER_WORKSPACES_FILE, NULL);
+	printf("trying to save workspace configuration file at %s ", filepath);
+
+	if (BKE_blendfile_workspace_config_write(bmain, filepath, op->reports) != 0) {
+		printf("ok\n");
+		return OPERATOR_FINISHED;
+	}
+	else {
+		printf("fail\n");
+	}
+
+	return OPERATOR_CANCELLED;
+}
+
+void WM_OT_save_workspace_file(wmOperatorType *ot)
+{
+	ot->name = "Save Workspace Configuration";
+	ot->idname = "WM_OT_save_workspace_file";
+	ot->description = "Save workspaces of the current file as part of the user configuration";
+
+	ot->invoke = WM_operator_confirm;
+	ot->exec = wm_workspace_configuration_file_write_exec;
+}
+
 static int wm_history_file_read_exec(bContext *UNUSED(C), wmOperator *UNUSED(op))
 {
 	ED_file_read_bookmarks();
@@ -1568,6 +1605,11 @@ static int wm_homefile_read_exec(bContext *C, wmOperator *op)
 
 	if (prop_app_template && RNA_property_is_set(op->ptr, prop_app_template)) {
 		RNA_property_string_get(op->ptr, prop_app_template, app_template_buf);
+		app_template = app_template_buf;
+	}
+	else if (!use_factory_settings) {
+		/* TODO: dont reset prefs on 'New File' */
+		BLI_strncpy(app_template_buf, U.app_template, sizeof(app_template_buf));
 		app_template = app_template_buf;
 	}
 	else {

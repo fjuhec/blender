@@ -39,6 +39,8 @@
 #include "DNA_linestyle_types.h"
 #include "DNA_gpencil_types.h"
 
+#include "DEG_depsgraph.h"
+
 #include "BLI_listbase.h"
 #include "BLI_string.h"
 #include "BLI_threads.h"
@@ -842,8 +844,8 @@ void CTX_wm_manager_set(bContext *C, wmWindowManager *wm)
 void CTX_wm_window_set(bContext *C, wmWindow *win)
 {
 	C->wm.window = win;
-	if (C->wm.window) {
-		C->data.scene = C->wm.window->scene;
+	if (win) {
+		C->data.scene = win->scene;
 	}
 	C->wm.workspace = (win) ? BKE_workspace_active_get(win->workspace_hook) : NULL;
 	C->wm.screen = (win) ? BKE_workspace_active_screen_get(win->workspace_hook) : NULL;
@@ -1223,3 +1225,8 @@ int CTX_data_editable_gpencil_strokes(const bContext *C, ListBase *list)
 	return ctx_data_collection_get(C, "editable_gpencil_strokes", list);
 }
 
+Depsgraph *CTX_data_depsgraph(const bContext *C)
+{
+	Scene *scene = CTX_data_scene(C);
+	return scene->depsgraph;
+}

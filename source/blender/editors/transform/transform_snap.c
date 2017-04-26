@@ -78,7 +78,7 @@
 #include "transform.h"
 
 /* this should be passed as an arg for use in snap functions */
-#undef BASACT
+#undef BASACT_NEW
 
 /* use half of flt-max so we can scale up without an exception */
 
@@ -164,7 +164,7 @@ void drawSnapping(const struct bContext *C, TransInfo *t)
 			
 			invert_m4_m4(imat, rv3d->viewmat);
 
-			unsigned pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+			unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 
 			immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
@@ -189,7 +189,7 @@ void drawSnapping(const struct bContext *C, TransInfo *t)
 			if (usingSnappingNormal(t) && validSnappingNormal(t)) {
 				immUniformColor4ubv(activeCol);
 				
-				immBegin(GL_LINES, 2);
+				immBegin(PRIM_LINES, 2);
 				immVertex3f(pos, t->tsnap.snapPoint[0], t->tsnap.snapPoint[1], t->tsnap.snapPoint[2]);
 				immVertex3f(pos, t->tsnap.snapPoint[0] + t->tsnap.snapNormal[0],
 				            t->tsnap.snapPoint[1] + t->tsnap.snapNormal[1],
@@ -219,7 +219,7 @@ void drawSnapping(const struct bContext *C, TransInfo *t)
 			
 			glEnable(GL_BLEND);
 			
-			unsigned pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
+			unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 
 			immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
@@ -503,8 +503,8 @@ static void initSnappingMode(TransInfo *t)
 {
 	ToolSettings *ts = t->settings;
 	Object *obedit = t->obedit;
-	Scene *scene = t->scene;
-	BaseLegacy *base_act = scene->basact;
+	SceneLayer *sl = t->scene_layer;
+	Base *base_act = sl->basact;
 
 	if (t->spacetype == SPACE_NODE) {
 		/* force project off when not supported */
@@ -585,7 +585,7 @@ static void initSnappingMode(TransInfo *t)
 	if (t->spacetype == SPACE_VIEW3D) {
 		if (t->tsnap.object_context == NULL) {
 			t->tsnap.object_context = ED_transform_snap_object_context_create_view3d(
-			        G.main, t->scene, 0,
+			        G.main, t->scene, t->scene_layer, 0,
 			        t->ar, t->view);
 
 			ED_transform_snap_object_context_set_editmesh_callbacks(

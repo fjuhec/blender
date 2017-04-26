@@ -389,7 +389,7 @@ static void clip_listener(bScreen *UNUSED(sc), ScrArea *sa, wmNotifier *wmn, con
 					break;
 			}
 			break;
-		case NC_WORKSPACE:
+		case NC_SCREEN:
 			switch (wmn->data) {
 				case ND_ANIMPLAY:
 					ED_area_tag_redraw(sa);
@@ -1216,7 +1216,7 @@ static void clip_main_region_draw(const bContext *C, ARegion *ar)
 		gpuPushMatrix();
 		gpuTranslate2f(x, y);
 		gpuScale2f(zoomx, zoomy);
-		gpuMultMatrix3D(sc->stabmat); /* XXX make this a 2D matrix */
+		gpuMultMatrix(sc->stabmat);
 		gpuScale2f(width, height);
 		ED_image_draw_cursor(ar, sc->cursor);
 		gpuPopMatrix();

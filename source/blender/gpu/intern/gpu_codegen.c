@@ -410,6 +410,8 @@ const char *GPU_builtin_name(GPUBuiltin builtin)
 		return "unfparticlevel";
 	else if (builtin == GPU_PARTICLE_ANG_VELOCITY)
 		return "unfparticleangvel";
+	else if (builtin == GPU_OBJECT_INFO)
+		return "unfobjectinfo";
 	else
 		return "";
 }
@@ -1686,9 +1688,6 @@ GPUPass *GPU_generate_pass(
 	                              geometrycode,
 	                              glsl_material_library,
 	                              NULL,
-	                              0,
-	                              0,
-	                              0,
 	                              flags);
 
 	/* failed? */

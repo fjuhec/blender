@@ -41,30 +41,25 @@
 
 typedef struct GPUViewport GPUViewport;
 
-#define MAX_BUFFERS 8
-#define MAX_TEXTURES 16
-#define MAX_PASSES 16
-#define MAX_STORAGE 5 /* extend if needed */
-
 /* All FramebufferLists are just the same pointers with different names */
 typedef struct FramebufferList {
-	struct GPUFrameBuffer *framebuffers[MAX_BUFFERS];
+	struct GPUFrameBuffer *framebuffers[0];
 } FramebufferList;
 
 typedef struct TextureList {
-	struct GPUTexture *textures[MAX_TEXTURES];
+	struct GPUTexture *textures[0];
 } TextureList;
 
 typedef struct PassList {
-	struct DRWPass *passes[MAX_PASSES];
+	struct DRWPass *passes[0];
 } PassList;
 
 typedef struct StorageList {
-	void *storage[MAX_STORAGE]; /* custom structs from the engine */
+	void *storage[0]; /* custom structs from the engine */
 } StorageList;
 
 typedef struct ViewportEngineData {
-	char engine_name[32];
+	void *engine_type;
 
 	FramebufferList *fbl;
 	TextureList *txl;
@@ -78,16 +73,24 @@ typedef struct ViewportEngineData {
 	double background_time;
 } ViewportEngineData;
 
+typedef struct ViewportEngineData_Info {
+	int fbl_len;
+	int txl_len;
+	int psl_len;
+	int stl_len;
+} ViewportEngineData_Info;
+
 GPUViewport *GPU_viewport_create(void);
 void GPU_viewport_bind(GPUViewport *viewport, const rcti *rect);
 void GPU_viewport_unbind(GPUViewport *viewport);
 void GPU_viewport_free(GPUViewport *viewport);
 
-void *GPU_viewport_engine_data_create(GPUViewport *viewport, const char *engine_name);
-void *GPU_viewport_engine_data_get(GPUViewport *viewport, const char *engine_name);
+void *GPU_viewport_engine_data_create(GPUViewport *viewport, void *engine_type);
+void *GPU_viewport_engine_data_get(GPUViewport *viewport, void *engine_type);
 void *GPU_viewport_framebuffer_list_get(GPUViewport *viewport);
 void *GPU_viewport_texture_list_get(GPUViewport *viewport);
-void  GPU_viewport_size_get(GPUViewport *viewport, int *size);
+void  GPU_viewport_size_get(const GPUViewport *viewport, int size[2]);
+void  GPU_viewport_size_set(GPUViewport *viewport, const int size[2]);
 
 bool GPU_viewport_cache_validate(GPUViewport *viewport, unsigned int hash);
 

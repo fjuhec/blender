@@ -91,7 +91,6 @@
 #include "BKE_cachefile.h"
 #include "BKE_context.h"
 #include "BKE_curve.h"
-#include "BKE_depsgraph.h"
 #include "BKE_font.h"
 #include "BKE_global.h"
 #include "BKE_group.h"
@@ -469,7 +468,8 @@ bool id_make_local(Main *bmain, ID *id, const bool test, const bool lib_local)
 			return true;
 		case ID_WS:
 		case ID_SCR:
-			/* A bit special: can be appended but not linked. Thus, supporting make-local doesn't make much sense. */
+			/* A bit special: can be appended but not linked. Return false
+			 * since supporting make-local doesn't make much sense. */
 			return false;
 		case ID_LI:
 		case ID_KE:
@@ -780,11 +780,11 @@ void BKE_main_lib_objects_recalc_all(Main *bmain)
 	/* flag for full recalc */
 	for (ob = bmain->object.first; ob; ob = ob->id.next) {
 		if (ID_IS_LINKED_DATABLOCK(ob)) {
-			DAG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
+			DEG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 		}
 	}
 
-	DAG_id_type_tag(bmain, ID_OB);
+	DEG_id_type_tag(bmain, ID_OB);
 }
 
 /**
@@ -971,7 +971,7 @@ void *BKE_libblock_alloc_notest(short type)
 			id = MEM_callocN(sizeof(CacheFile), "Cache File");
 			break;
 		case ID_WS:
-			id = (ID *)workspace_alloc();
+			id = (ID *)BKE_workspace_alloc();
 			break;
 	}
 	return id;
@@ -999,7 +999,7 @@ void *BKE_libblock_alloc(Main *bmain, short type, const char *name)
 		/* alphabetic insertion: is in new_id */
 		BKE_main_unlock(bmain);
 	}
-	DAG_id_type_tag(bmain, type);
+	DEG_id_type_tag(bmain, type);
 	return id;
 }
 

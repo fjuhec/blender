@@ -93,7 +93,8 @@ static void clean_paths(Main *main)
 
 static bool wm_scene_is_visible(wmWindowManager *wm, Scene *scene)
 {
-	for (wmWindow *win = wm->windows.first; win; win = win->next) {
+	wmWindow *win;
+	for (win = wm->windows.first; win; win = win->next) {
 		if (win->scene == scene) {
 			return true;
 		}
@@ -514,27 +515,50 @@ int BKE_blendfile_userdef_write(const char *filepath, ReportList *reports)
 	return retval;
 }
 
-WorkflowFileData *BKE_blendfile_workflow_read(const char *filepath, ReportList *reports)
+WorkspaceConfigFileData *BKE_blendfile_workspace_config_read(const char *filepath, ReportList *reports)
 {
 	BlendFileData *bfd;
-	WorkflowFileData *workflow_file = NULL;
+	WorkspaceConfigFileData *workspace_config = NULL;
 
-	bfd = BLO_read_from_file(filepath, reports, BLO_READ_SKIP_USERDEF); /* TODO only read workspaces */
+	bfd = BLO_read_from_file(filepath, reports, BLO_READ_SKIP_USERDEF);
 	if (bfd) {
-		workflow_file = MEM_mallocN(sizeof(*workflow_file), __func__);
-		workflow_file->main = bfd->main;
-		workflow_file->workspaces = bfd->main->workspaces;
+		workspace_config = MEM_mallocN(sizeof(*workspace_config), __func__);
+		workspace_config->main = bfd->main;
+		workspace_config->workspaces = bfd->main->workspaces;
 
 		MEM_freeN(bfd);
 	}
 
-	return workflow_file;
+	return workspace_config;
 }
 
-void BKE_blendfile_workflow_data_free(WorkflowFileData *workflow_file)
+bool BKE_blendfile_workspace_config_write(Main *bmain, const char *filepath, ReportList *reports)
 {
-	BKE_main_free(workflow_file->main);
-	MEM_freeN(workflow_file);
+	int fileflags = G.fileflags & ~(G_FILE_NO_UI | G_FILE_AUTOPLAY | G_FILE_HISTORY);
+	bool retval = false;
+
+	BKE_blendfile_write_partial_begin(bmain);
+
+	BKE_workspace_iter_begin(workspace, bmain->workspaces.first)
+	{
+		ID *workspace_id = BKE_workspace_id_get(workspace);
+		BKE_blendfile_write_partial_tag_ID(workspace_id, true);
+	}
+	BKE_workspace_iter_end;
+
+	if (BKE_blendfile_write_partial(bmain, filepath, fileflags, reports)) {
+		retval = true;
+	}
+
+	BKE_blendfile_write_partial_end(bmain);
+
+	return retval;
+}
+
+void BKE_blendfile_workspace_config_data_free(WorkspaceConfigFileData *workspace_config)
+{
+	BKE_main_free(workspace_config->main);
+	MEM_freeN(workspace_config);
 }
 
 /** \} */

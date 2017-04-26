@@ -51,6 +51,7 @@ struct SceneLayer;
 struct wmOperatorType;
 struct wmWindowManager;
 struct wmKeyConfig;
+struct wmManipulatorGroupType;
 
 /* drawing flags: */
 enum {
@@ -101,7 +102,6 @@ void VIEW3D_OT_view_orbit(struct wmOperatorType *ot);
 void VIEW3D_OT_view_roll(struct wmOperatorType *ot);
 void VIEW3D_OT_clip_border(struct wmOperatorType *ot);
 void VIEW3D_OT_cursor3d(struct wmOperatorType *ot);
-void VIEW3D_OT_manipulator(struct wmOperatorType *ot);
 void VIEW3D_OT_enable_manipulator(struct wmOperatorType *ot);
 void VIEW3D_OT_render_border(struct wmOperatorType *ot);
 void VIEW3D_OT_clear_render_border(struct wmOperatorType *ot);
@@ -211,13 +211,19 @@ void draw_sim_debug_data(Scene *scene, View3D *v3d, ARegion *ar);
 void view3d_main_region_draw(const struct bContext *C, struct ARegion *ar);
 void view3d_draw_region_info(const struct bContext *C, struct ARegion *ar);
 
+void ED_view3d_draw_depth(
+        struct Depsgraph *graph,
+        Scene *scene, struct ARegion *ar, View3D *v3d, bool alphaoverride);
+
 /* view3d_draw_legacy.c */
 void view3d_main_region_draw_legacy(const struct bContext *C, struct ARegion *ar);
-void ED_view3d_draw_depth(Scene *scene, struct ARegion *ar, View3D *v3d, bool alphaoverride);
 void ED_view3d_draw_depth_gpencil(Scene *scene, ARegion *ar, View3D *v3d);
+
 void ED_view3d_draw_select_loop(
         ViewContext *vc, Scene *scene, struct SceneLayer *sl, View3D *v3d, ARegion *ar,
         bool use_obedit_skip, bool use_nearest);
+
+void ED_view3d_draw_depth_loop(Scene *scene, ARegion *ar, View3D *v3d);
 
 void ED_view3d_after_add(ListBase *lb, BaseLegacy *base, const short dflag);
 
@@ -235,7 +241,6 @@ void VIEW3D_OT_smoothview(struct wmOperatorType *ot);
 void VIEW3D_OT_camera_to_view(struct wmOperatorType *ot);
 void VIEW3D_OT_camera_to_view_selected(struct wmOperatorType *ot);
 void VIEW3D_OT_object_as_camera(struct wmOperatorType *ot);
-void VIEW3D_OT_localview(struct wmOperatorType *ot);
 void VIEW3D_OT_game_start(struct wmOperatorType *ot);
 
 
@@ -312,6 +317,12 @@ ARegion *view3d_has_buttons_region(ScrArea *sa);
 ARegion *view3d_has_tools_region(ScrArea *sa);
 
 extern const char *view3d_context_dir[]; /* doc access */
+
+/* view3d_widgets.c */
+void VIEW3D_WGT_lamp             (struct wmManipulatorGroupType *wgt);
+void VIEW3D_WGT_camera           (struct wmManipulatorGroupType *wgt);
+void VIEW3D_WGT_force_field      (struct wmManipulatorGroupType *wgt);
+void VIEW3D_WGT_armature_facemaps(struct wmManipulatorGroupType *wgt);
 
 /* draw_volume.c */
 void draw_smoke_volume(struct SmokeDomainSettings *sds, struct Object *ob,

@@ -257,7 +257,7 @@ static void info_header_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegi
 {
 	/* context changes */
 	switch (wmn->category) {
-		case NC_WORKSPACE:
+		case NC_SCREEN:
 			if (ELEM(wmn->data, ND_LAYER, ND_SCREENCAST, ND_ANIMPLAY)) {
 				ED_region_tag_redraw(ar);
 			}
