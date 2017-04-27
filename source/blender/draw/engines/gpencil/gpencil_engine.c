@@ -475,7 +475,11 @@ static void gpencil_draw_buffer_strokes(void *vedata, ToolSettings *ts, bGPdata 
 				struct Batch *drawing_stroke_geom = gpencil_get_buffer_stroke_geom(gpd, lthick);
 				DRW_shgroup_call_add(stl->g_data->shgrps_drawing_stroke, drawing_stroke_geom, matrix);
 
-				if ((gpd->sbuffer_size >= 3) && (gpd->sfill[3] > GPENCIL_ALPHA_OPACITY_THRESH)) {
+				if ((gpd->sbuffer_size >= 3) && ((gpd->sfill[3] > GPENCIL_ALPHA_OPACITY_THRESH) || (gpd->bfill_style > 0))) {
+					/* if not solid, fill is simulated with solid color */
+					if (gpd->bfill_style > 0) {
+						gpd->sfill[3] = 0.5f;
+					}
 					struct Batch *drawing_fill_geom = gpencil_get_buffer_fill_geom(gpd->sbuffer, gpd->sbuffer_size, gpd->sfill);
 					DRW_shgroup_call_add(stl->g_data->shgrps_drawing_fill, drawing_fill_geom, matrix);
 				}
