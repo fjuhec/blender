@@ -40,7 +40,7 @@
 #include "draw_common.h"
 
 #include "draw_mode_engines.h"
-#include "gpencil_mode.h"
+#include "gpencil_engine.h"
 
 #include "IMB_imbuf_types.h"
 

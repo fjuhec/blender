@@ -76,8 +76,8 @@ set(SRC
 	engines/basic/basic_engine.c
 	engines/basic/basic_engine.h
 
-	engines/gpencil/gpencil_mode.h
-	engines/gpencil/gpencil_mode.c
+	engines/gpencil/gpencil_engine.h
+	engines/gpencil/gpencil_engine.c
 	engines/gpencil/gpencil_draw.c
 
 	modes/object_mode.c

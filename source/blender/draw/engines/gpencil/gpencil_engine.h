@@ -19,12 +19,12 @@
  *
  */
 
-/** \file gpencil_mode.h
+/** \file gpencil_engine.h
  *  \ingroup DNA
  */
 
-#ifndef __GPENCIL_MODE_H__
-#define __GPENCIL_MODE_H__
+#ifndef __GPENCIL_ENGINE_H__
+#define __GPENCIL_ENGINE_H__
 
 struct Batch;
 
@@ -38,4 +38,4 @@ struct Batch *gpencil_get_buffer_point_geom(struct bGPdata *gpd, short thickness
 
 bool gpencil_can_draw_stroke(const struct bGPDstroke *gps);
 
-#endif /* __GPENCIL_MODE_H__ */
+#endif /* __GPENCIL_ENGINE_H__ */
