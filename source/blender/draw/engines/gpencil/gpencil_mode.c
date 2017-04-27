@@ -100,6 +100,7 @@ typedef struct g_data{
 	DRWShadingGroup *shgrps_point_volumetric;
 	DRWShadingGroup *shgrps_drawing_stroke;
 	DRWShadingGroup *shgrps_drawing_fill;
+	bool scene_draw;
 } g_data; /* Transient data */
 
 static struct {
@@ -278,6 +279,7 @@ static void GPENCIL_cache_init(void *vedata)
 	if (!stl->g_data) {
 		/* Alloc transient pointers */
 		stl->g_data = MEM_mallocN(sizeof(g_data), "g_data");
+		stl->g_data->scene_draw = false;
 	}
 
 	{
@@ -316,7 +318,7 @@ static int GPENCIL_shgroup_find(GPENCIL_Storage *storage, PaletteColor *palcolor
 
 /* main function to draw strokes */
 static void gpencil_draw_strokes(void *vedata, ToolSettings *ts, Object *ob,
-	bGPDlayer *gpl, bGPDframe *gpf,
+	bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf,
 	const float opacity, const float tintcolor[4], const bool onion, const bool custonion)
 {
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
@@ -324,7 +326,6 @@ static void gpencil_draw_strokes(void *vedata, ToolSettings *ts, Object *ob,
 	DRWShadingGroup *fillgrp;
 	DRWShadingGroup *strokegrp;
 	bGPDbrush *brush = BKE_gpencil_brush_getactive(ts);
-	bGPdata *gpd = ob->gpd;
 	float tcolor[4];
 	float matrix[4][4];
 	float ink[4];
@@ -443,12 +444,11 @@ static void gpencil_draw_strokes(void *vedata, ToolSettings *ts, Object *ob,
 }
 
 /* draw stroke in drawing buffer */
-static void gpencil_draw_buffer_strokes(void *vedata, ToolSettings *ts, Object *ob)
+static void gpencil_draw_buffer_strokes(void *vedata, ToolSettings *ts, bGPdata *gpd)
 {
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	bGPDbrush *brush = BKE_gpencil_brush_getactive(ts);
-	bGPdata *gpd = ob->gpd;
 
 	/* drawing strokes */
 	/* Check if may need to draw the active stroke cache, only if this layer is the active layer
@@ -507,7 +507,7 @@ static void gpencil_draw_onionskins(void *vedata, ToolSettings *ts, Object *ob,b
 				/* alpha decreases with distance from curframe index */
 				float fac = 1.0f - ((float)(gpf->framenum - gf->framenum) / (float)(gpl->gstep + 1));
 				color[3] = alpha * fac * 0.66f;
-				gpencil_draw_strokes(vedata, ts, ob, gpl, gf, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_PREVCOL);
+				gpencil_draw_strokes(vedata, ts, ob, gpd, gpl, gf, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_PREVCOL);
 			}
 			else
 				break;
@@ -517,7 +517,7 @@ static void gpencil_draw_onionskins(void *vedata, ToolSettings *ts, Object *ob,b
 		/* draw the strokes for the ghost frames (at half of the alpha set by user) */
 		if (gpf->prev) {
 			color[3] = (alpha / 7);
-			gpencil_draw_strokes(vedata, ts, ob, gpl, gpf->prev, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_PREVCOL);
+			gpencil_draw_strokes(vedata, ts, ob, gpd, gpl, gpf->prev, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_PREVCOL);
 		}
 	}
 	else {
@@ -540,7 +540,7 @@ static void gpencil_draw_onionskins(void *vedata, ToolSettings *ts, Object *ob,b
 				/* alpha decreases with distance from curframe index */
 				float fac = 1.0f - ((float)(gf->framenum - gpf->framenum) / (float)(gpl->gstep_next + 1));
 				color[3] = alpha * fac * 0.66f;
-				gpencil_draw_strokes(vedata, ts, ob, gpl, gf, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_NEXTCOL);
+				gpencil_draw_strokes(vedata, ts, ob, gpd, gpl, gf, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_NEXTCOL);
 			}
 			else
 				break;
@@ -550,7 +550,7 @@ static void gpencil_draw_onionskins(void *vedata, ToolSettings *ts, Object *ob,b
 		/* draw the strokes for the ghost frames (at half of the alpha set by user) */
 		if (gpf->next) {
 			color[3] = (alpha / 4);
-			gpencil_draw_strokes(vedata, ts, ob, gpl, gpf->next, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_NEXTCOL);
+			gpencil_draw_strokes(vedata, ts, ob, gpd, gpl, gpf->next, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_NEXTCOL);
 		}
 	}
 	else {
@@ -572,13 +572,13 @@ static void gpencil_draw_datablock(void *vedata, Scene *scene, Object *ob, ToolS
 		/* draw onion skins */
 		if ((gpl->flag & GP_LAYER_ONIONSKIN) || (gpl->flag & GP_LAYER_GHOST_ALWAYS))
 		{
-			gpencil_draw_onionskins(vedata, ts, ob, ob->gpd, gpl, gpf);
+			gpencil_draw_onionskins(vedata, ts, ob, gpd, gpl, gpf);
 		}
 		/* draw normal strokes */
-		gpencil_draw_strokes(vedata, ts, ob, gpl, gpf, gpl->opacity, gpl->tintcolor, false, false);
+		gpencil_draw_strokes(vedata, ts, ob, gpd, gpl, gpf, gpl->opacity, gpl->tintcolor, false, false);
 	}
 	/* draw current painting strokes */
-	gpencil_draw_buffer_strokes(vedata, ts, ob);
+	gpencil_draw_buffer_strokes(vedata, ts, gpd);
 }
 
 static void GPENCIL_cache_populate(void *vedata, Object *ob)
@@ -591,6 +591,15 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 
 	UNUSED_VARS(psl, stl);
 
+	/* scene datablock (only once) */
+	if (stl->g_data->scene_draw == false) {
+		stl->g_data->scene_draw = true;
+		if (scene && scene->gpd) {
+			gpencil_draw_datablock(vedata, scene, NULL, ts, scene->gpd);
+		}
+	}
+
+	/* object datablock */
 	if (ob->type == OB_GPENCIL && ob->gpd) {
 		gpencil_draw_datablock(vedata, scene, ob, ts, ob->gpd);
 	}
@@ -599,6 +608,7 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 static void GPENCIL_cache_finish(void *vedata)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
+	stl->g_data->scene_draw = false;
 }
 
 static void GPENCIL_draw_scene(void *vedata)
