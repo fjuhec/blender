@@ -36,6 +36,8 @@
 /**
 * Pack color into 3 bytes
 *
+* \Note BGR format (i.e. 0xBBGGRR)...
+*
 * \param x color.
 */
 void imm_cpack(unsigned int x)
@@ -178,6 +180,32 @@ void imm_draw_line_box_3d(unsigned pos, float x1, float y1, float x2, float y2)
 	immVertex3f(pos, x1, y2, 0.0f);
 	immVertex3f(pos, x2, y2, 0.0f);
 	immVertex3f(pos, x2, y1, 0.0f);
+	immEnd();
+}
+
+/** Same as \a imm_draw_line_box, but for dashed shader. */
+/* TODO find a way to generate screen-space dashed lines without that line_origin ugly hack
+ * (would not bet it's possible with current GLSL though :( ). */
+void imm_draw_line_box_dashed(uint pos, uint line_origin, float x1, float y1, float x2, float y2)
+{
+	immBegin(PRIM_LINES, 8);
+
+	immAttrib2f(line_origin, x1, y1);
+	immVertex2f(pos, x1, y1);
+	immVertex2f(pos, x1, y2);
+
+	immAttrib2f(line_origin, x1, y2);
+	immVertex2f(pos, x1, y2);
+	immVertex2f(pos, x2, y2);
+
+	immAttrib2f(line_origin, x2, y1);
+	immVertex2f(pos, x2, y2);
+	immVertex2f(pos, x2, y1);
+
+	immAttrib2f(line_origin, x1, y1);
+	immVertex2f(pos, x2, y1);
+	immVertex2f(pos, x1, y1);
+
 	immEnd();
 }
 

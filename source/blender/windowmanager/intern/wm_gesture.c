@@ -178,6 +178,10 @@ static void wm_gesture_draw_line(wmGesture *gt)
 
 	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_COLOR);
 
+	float viewport_size[4];
+	glGetFloatv(GL_VIEWPORT, viewport_size);
+	immUniform2f("viewport_size", viewport_size[2], viewport_size[3]);
+
 	immUniform4f("color1", 0.4f, 0.4f, 0.4f, 1.0f);
 	immUniform4f("color2", 1.0f, 1.0f, 1.0f, 1.0f);
 	immUniform1f("dash_width", 8.0f);
@@ -196,24 +200,6 @@ static void wm_gesture_draw_line(wmGesture *gt)
 	immEnd();
 
 	immUnbindProgram();
-}
-
-static void imm_draw_line_box_dashed(unsigned pos, unsigned line_origin, float x1, float y1, float x2, float y2)
-{
-	immBegin(PRIM_LINES, 8);
-	immAttrib2f(line_origin, x1, y1);
-	immVertex2f(pos, x1, y1);
-	immVertex2f(pos, x1, y2);
-	immAttrib2f(line_origin, x1, y2);
-	immVertex2f(pos, x1, y2);
-	immVertex2f(pos, x2, y2);
-	immAttrib2f(line_origin, x2, y1);
-	immVertex2f(pos, x2, y2);
-	immVertex2f(pos, x2, y1);
-	immAttrib2f(line_origin, x1, y1);
-	immVertex2f(pos, x2, y1);
-	immVertex2f(pos, x1, y1);
-	immEnd();
 }
 
 static void wm_gesture_draw_rect(wmGesture *gt)
@@ -239,6 +225,10 @@ static void wm_gesture_draw_rect(wmGesture *gt)
 	unsigned line_origin = VertexFormat_add_attrib(format, "line_origin", COMP_F32, 2, KEEP_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_COLOR);
+
+	float viewport_size[4];
+	glGetFloatv(GL_VIEWPORT, viewport_size);
+	immUniform2f("viewport_size", viewport_size[2], viewport_size[3]);
 
 	immUniform4f("color1", 0.4f, 0.4f, 0.4f, 1.0f);
 	immUniform4f("color2", 1.0f, 1.0f, 1.0f, 1.0f);
@@ -300,6 +290,10 @@ static void wm_gesture_draw_circle(wmGesture *gt)
 	unsigned int line_origin = VertexFormat_add_attrib(format, "line_origin", COMP_F32, 2, KEEP_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_COLOR);
+
+	float viewport_size[4];
+	glGetFloatv(GL_VIEWPORT, viewport_size);
+	immUniform2f("viewport_size", viewport_size[2], viewport_size[3]);
 
 	immUniform4f("color1", 0.4f, 0.4f, 0.4f, 1.0f);
 	immUniform4f("color2", 1.0f, 1.0f, 1.0f, 1.0f);
@@ -401,7 +395,7 @@ static void wm_gesture_draw_lasso(wmWindow *win, wmGesture *gt, bool filled)
 		numverts++;
 	}
 
-	/* Nothing to drawe, do early output. */
+	/* Nothing to draw, do early output. */
 	if (numverts < 2) {
 		return;
 	}
@@ -411,6 +405,10 @@ static void wm_gesture_draw_lasso(wmWindow *win, wmGesture *gt, bool filled)
 	unsigned int line_origin = VertexFormat_add_attrib(format, "line_origin", COMP_F32, 2, KEEP_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_COLOR);
+
+	float viewport_size[4];
+	glGetFloatv(GL_VIEWPORT, viewport_size);
+	immUniform2f("viewport_size", viewport_size[2], viewport_size[3]);
 
 	immUniform4f("color1", 0.4f, 0.4f, 0.4f, 1.0f);
 	immUniform4f("color2", 1.0f, 1.0f, 1.0f, 1.0f);
@@ -455,6 +453,10 @@ static void wm_gesture_draw_cross(wmWindow *win, wmGesture *gt)
 	unsigned int line_origin = VertexFormat_add_attrib(format, "line_origin", COMP_F32, 2, KEEP_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_COLOR);
+
+	float viewport_size[4];
+	glGetFloatv(GL_VIEWPORT, viewport_size);
+	immUniform2f("viewport_size", viewport_size[2], viewport_size[3]);
 
 	immUniform4f("color1", 0.4f, 0.4f, 0.4f, 1.0f);
 	immUniform4f("color2", 1.0f, 1.0f, 1.0f, 1.0f);

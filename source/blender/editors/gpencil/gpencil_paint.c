@@ -115,6 +115,7 @@ typedef enum eGPencil_PaintFlags {
  */
 typedef struct tGPsdata {
 	Scene *scene;       /* current scene from context */
+	struct Depsgraph *graph;
 	
 	wmWindow *win;      /* window where painting originated */
 	ScrArea *sa;        /* area where painting originated */
@@ -678,7 +679,8 @@ static short gp_stroke_addpoint(tGPsdata *p, const int mval[2], float pressure, 
 				View3D *v3d = p->sa->spacedata.first;
 				
 				view3d_region_operator_needs_opengl(p->win, p->ar);
-				ED_view3d_autodist_init(p->scene, p->ar, v3d, (ts->gpencil_v3d_align & GP_PROJECT_DEPTH_STROKE) ? 1 : 0);
+				ED_view3d_autodist_init(
+				        p->graph, p->scene, p->ar, v3d, (ts->gpencil_v3d_align & GP_PROJECT_DEPTH_STROKE) ? 1 : 0);
 			}
 			
 			/* convert screen-coordinates to appropriate coordinates (and store them) */
@@ -1258,9 +1260,8 @@ static void gp_stroke_doeraser(tGPsdata *p)
 	if (p->sa->spacetype == SPACE_VIEW3D) {
 		if (p->flags & GP_PAINTFLAG_V3D_ERASER_DEPTH) {
 			View3D *v3d = p->sa->spacedata.first;
-			
 			view3d_region_operator_needs_opengl(p->win, p->ar);
-			ED_view3d_autodist_init(p->scene, p->ar, v3d, 0);
+			ED_view3d_autodist_init(p->graph, p->scene, p->ar, v3d, 0);
 		}
 	}
 	
@@ -1396,6 +1397,7 @@ static bool gp_session_initdata(bContext *C, tGPsdata *p)
 	
 	/* pass on current scene and window */
 	p->scene = CTX_data_scene(C);
+	p->graph = CTX_data_depsgraph(C);
 	p->win = CTX_wm_window(C);
 	p->palette = BKE_palette_get_active_from_context(C);
 	/* if not exist palette, create a new one */
@@ -1828,7 +1830,7 @@ static void gp_paint_strokeend(tGPsdata *p)
 		
 		/* need to restore the original projection settings before packing up */
 		view3d_region_operator_needs_opengl(p->win, p->ar);
-		ED_view3d_autodist_init(p->scene, p->ar, v3d, (ts->gpencil_v3d_align & GP_PROJECT_DEPTH_STROKE) ? 1 : 0);
+		ED_view3d_autodist_init(p->graph, p->scene, p->ar, v3d, (ts->gpencil_v3d_align & GP_PROJECT_DEPTH_STROKE) ? 1 : 0);
 	}
 	
 	/* check if doing eraser or not */

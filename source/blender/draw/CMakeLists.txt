@@ -26,9 +26,6 @@
 set(INC
 	.
 	intern
-	engines/clay
-	engines/eevee
-	engines/gpencil
 	modes
 
 	../blenfont
@@ -67,14 +64,17 @@ set(SRC
 	intern/draw_cache_impl_lattice.c
 	intern/draw_cache_impl_mesh.c
 
-	engines/clay/clay.c
-	engines/clay/clay.h
+	engines/clay/clay_engine.c
+	engines/clay/clay_engine.h
 
-	engines/eevee/eevee.c
+	engines/eevee/eevee_engine.c
+	engines/eevee/eevee_engine.h
 	engines/eevee/eevee_lights.c
 	engines/eevee/eevee_probes.c
-	engines/eevee/eevee.h
 	engines/eevee/eevee_private.h
+
+	engines/basic/basic_engine.c
+	engines/basic/basic_engine.h
 
 	engines/gpencil/gpencil_mode.h
 	engines/gpencil/gpencil_mode.c
@@ -102,7 +102,7 @@ set(SRC
 	intern/draw_view.h
 	modes/draw_mode_engines.h
 
-	./DRW_engine.h
+	DRW_engine.h
 )
 
 if(WITH_CLAY_ENGINE)
@@ -115,11 +115,11 @@ data_to_c_simple(engines/clay/shaders/ssao_alchemy.glsl SRC)
 data_to_c_simple(engines/clay/shaders/ssao_groundtruth.glsl SRC)
 
 data_to_c_simple(engines/eevee/shaders/default_frag.glsl SRC)
+data_to_c_simple(engines/eevee/shaders/default_world_frag.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/lit_surface_frag.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/lit_surface_vert.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/probe_filter_frag.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/probe_sh_frag.glsl SRC)
-data_to_c_simple(engines/eevee/shaders/probe_frag.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/probe_geom.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/probe_vert.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/shadow_frag.glsl SRC)
