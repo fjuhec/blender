@@ -1498,7 +1498,7 @@ ScrArea *ED_screen_state_toggle(bContext *C, wmWindow *win, ScrArea *sa, const s
 
 		ED_screen_change(C, sc);
 
-		BKE_workspace_layout_remove(workspace, layout_old, CTX_data_main(C));
+		BKE_workspace_layout_remove(CTX_data_main(C), workspace, layout_old);
 
 		/* After we've restored back to SCREENNORMAL, we have to wait with
 		 * screen handling as it uses the area coords which aren't updated yet.

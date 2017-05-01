@@ -90,7 +90,7 @@ static bool workspace_layout_delete_doit(
 	ED_screen_change(C, screen_new);
 
 	if (BKE_workspace_active_layout_get(win->workspace_hook) != layout_old) {
-		BKE_workspace_layout_remove(workspace, layout_old, bmain);
+		BKE_workspace_layout_remove(bmain, workspace, layout_old);
 		return true;
 	}
 

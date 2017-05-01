@@ -160,11 +160,11 @@ void BKE_workspace_free(WorkSpace *workspace)
 	BLI_freelistN(&workspace->layouts);
 }
 
-void BKE_workspace_remove(WorkSpace *workspace, Main *bmain)
+void BKE_workspace_remove(Main *bmain, WorkSpace *workspace)
 {
 	BKE_workspace_layout_iter_begin(layout, workspace->layouts.first)
 	{
-		BKE_workspace_layout_remove(workspace, layout, bmain);
+		BKE_workspace_layout_remove(bmain, workspace, layout);
 	}
 	BKE_workspace_layout_iter_end;
 
@@ -184,7 +184,7 @@ WorkSpaceInstanceHook *BKE_workspace_instance_hook_create(const Main *bmain)
 
 	return hook;
 }
-void BKE_workspace_instance_hook_free(WorkSpaceInstanceHook *hook, const Main *bmain)
+void BKE_workspace_instance_hook_free(const Main *bmain, WorkSpaceInstanceHook *hook)
 {
 	/* workspaces should never be freed before wm (during which we call this function) */
 	BLI_assert(!BLI_listbase_is_empty(&bmain->workspaces));
@@ -226,8 +226,8 @@ WorkSpaceLayout *BKE_workspace_layout_add(
 }
 
 void BKE_workspace_layout_remove(
-        WorkSpace *workspace, WorkSpaceLayout *layout,
-        Main *bmain)
+        Main *bmain,
+        WorkSpace *workspace, WorkSpaceLayout *layout)
 {
 	BKE_libblock_free(bmain, BKE_workspace_layout_screen_get(layout));
 	BLI_freelinkN(&workspace->layouts, layout);

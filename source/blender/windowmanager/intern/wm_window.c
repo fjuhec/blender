@@ -221,7 +221,7 @@ void wm_window_free(bContext *C, wmWindowManager *wm, wmWindow *win)
 
 	wm_ghostwindow_destroy(win);
 
-	BKE_workspace_instance_hook_free(win->workspace_hook, G.main);
+	BKE_workspace_instance_hook_free(G.main, win->workspace_hook);
 	MEM_freeN(win->stereo3d_format);
 
 	MEM_freeN(win);
@@ -383,7 +383,7 @@ void wm_window_close(bContext *C, wmWindowManager *wm, wmWindow *win)
 			Main *bmain = CTX_data_main(C);
 
 			BLI_assert(BKE_workspace_layout_screen_get(layout) == screen);
-			BKE_workspace_layout_remove(workspace, layout, bmain);
+			BKE_workspace_layout_remove(bmain, workspace, layout);
 		}
 	}
 }

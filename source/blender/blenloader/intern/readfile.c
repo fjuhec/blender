@@ -2796,7 +2796,7 @@ static void lib_link_workspaces(FileData *fd, Main *bmain)
 					screen->winid = 0;
 					if (screen->temp) {
 						/* delete temp layouts when appending */
-						BKE_workspace_layout_remove(workspace, layout, bmain);
+						BKE_workspace_layout_remove(bmain, workspace, layout);
 					}
 				}
 			}

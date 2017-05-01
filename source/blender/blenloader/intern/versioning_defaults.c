@@ -99,7 +99,7 @@ static void update_defaults_startup_workspaces(Main *bmain)
 			workspace_default = workspace;
 		}
 		else {
-			BKE_workspace_remove(workspace, bmain);
+			BKE_workspace_remove(bmain, workspace);
 		}
 	}
 	BKE_workspace_iter_end;

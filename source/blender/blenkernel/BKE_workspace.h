@@ -47,24 +47,23 @@ typedef struct WorkSpaceLayout WorkSpaceLayout;
  */
 #define USE_WORKSPACE_MODE
 
-
 /* -------------------------------------------------------------------- */
 /* Create, delete, init */
 
 WorkSpace *BKE_workspace_add(struct Main *bmain, const char *name);
 void BKE_workspace_free(WorkSpace *workspace);
-void BKE_workspace_remove(WorkSpace *workspace, struct Main *bmain);
+void BKE_workspace_remove(struct Main *bmain, WorkSpace *workspace);
 
 WorkSpaceInstanceHook *BKE_workspace_instance_hook_create(const struct Main *bmain);
-void BKE_workspace_instance_hook_free(WorkSpaceInstanceHook *hook, const struct Main *bmain);
+void BKE_workspace_instance_hook_free(const struct Main *bmain, WorkSpaceInstanceHook *hook);
 
 struct WorkSpaceLayout *BKE_workspace_layout_add(
         WorkSpace *workspace,
         struct bScreen *screen,
         const char *name) ATTR_NONNULL();
 void BKE_workspace_layout_remove(
-        WorkSpace *workspace, WorkSpaceLayout *layout,
-        struct Main *bmain) ATTR_NONNULL();
+        struct Main *bmain,
+        WorkSpace *workspace, WorkSpaceLayout *layout) ATTR_NONNULL();
 
 void BKE_workspace_layouts_transfer(
         WorkSpace *workspace_dst, WorkSpace *workspace_src) ATTR_NONNULL();

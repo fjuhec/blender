@@ -150,7 +150,7 @@ static void do_version_workspaces_after_lib_link(Main *bmain)
 			workspace_next = workspace->next;
 			ListBase *layouts = BKE_workspace_layouts_get((WorkSpace *)workspace);
 			if (BLI_listbase_is_empty(layouts)) {
-				BKE_workspace_remove((WorkSpace *)workspace, bmain);
+				BKE_workspace_remove(bmain, (WorkSpace *)workspace);
 			}
 		}
 	}
