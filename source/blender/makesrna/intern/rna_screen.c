@@ -90,7 +90,7 @@ static void rna_Screen_layout_name_get(PointerRNA *ptr, char *value)
 		WorkSpaceLayout *layout = BKE_workspace_layout_find(workspace, screen);
 		if (layout) {
 			const char *name = BKE_workspace_layout_name_get(layout);
-			BLI_strncpy(value, name, strlen(name) + 1);
+			strcpy(value, name);
 			return;
 		}
 	}
