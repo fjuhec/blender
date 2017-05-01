@@ -588,7 +588,6 @@ bool WM_file_read(bContext *C, const char *filepath, ReportList *reports)
 		/* match the read WM with current WM */
 		wm_window_match_do(C, &wmbase);
 		WM_check(C); /* opens window(s), checks keymaps */
-		wm_file_read_post(C, false); /* do before wm_init_usedef to ensure updated context */
 
 		if (retval == BKE_BLENDFILE_READ_OK_USERPREFS) {
 			/* in case a userdef is read from regular .blend */
@@ -600,6 +599,8 @@ bool WM_file_read(bContext *C, const char *filepath, ReportList *reports)
 				wm_history_file_update();
 			}
 		}
+
+		wm_file_read_post(C, false);
 
 		success = true;
 	}
