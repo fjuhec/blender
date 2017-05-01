@@ -71,7 +71,10 @@ WorkSpace *ED_workspace_add(
 {
 	WorkSpace *workspace = BKE_workspace_add(bmain, name);
 
+#ifdef USE_WORKSPACE_MODE
 	BKE_workspace_object_mode_set(workspace, OB_MODE_OBJECT);
+#endif
+
 	BKE_workspace_render_layer_set(workspace, act_render_layer);
 
 	return workspace;
@@ -113,7 +116,7 @@ static void workspace_change_update(
 #ifdef USE_WORKSPACE_MODE
 	workspace_change_update_mode(workspace_old, workspace_new, C, CTX_data_active_object(C), &wm->reports);
 #else
-	UNUSED_VARS(wm);
+	UNUSED_VARS(C, wm);
 #endif
 }
 
@@ -210,14 +213,16 @@ WorkSpace *ED_workspace_duplicate(
 {
 	WorkSpaceLayout *layout_active_old = BKE_workspace_active_layout_get(win->workspace_hook);
 	ListBase *layouts_old = BKE_workspace_layouts_get(workspace_old);
-	WorkSpace *workspace_new = ED_workspace_add(bmain, BKE_workspace_name_get(workspace_old),
-	                                            BKE_workspace_render_layer_get(workspace_old));
+	WorkSpace *workspace_new = ED_workspace_add(
+	        bmain, BKE_workspace_name_get(workspace_old),
+	        BKE_workspace_render_layer_get(workspace_old));
 
+#ifdef USE_WORKSPACE_MODE
 	BKE_workspace_object_mode_set(workspace_new, BKE_workspace_object_mode_get(workspace_old));
+#endif
 
 	BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout_old, layouts_old->first) {
 		WorkSpaceLayout *layout_new = ED_workspace_layout_duplicate(workspace_new, layout_old, win);
-
 		if (layout_active_old == layout_old) {
 			BKE_workspace_temp_layout_store_set(win->workspace_hook, layout_new);
 		}
