@@ -47,11 +47,13 @@
 #include "ED_space_api.h"
 #include "ED_screen.h"
 
+#include "intern/gpu_codegen.h"
 #include "GPU_batch.h"
 #include "GPU_draw.h"
 #include "GPU_extensions.h"
 #include "GPU_framebuffer.h"
 #include "GPU_lamp.h"
+#include "GPU_material.h"
 #include "GPU_shader.h"
 #include "GPU_texture.h"
 #include "GPU_uniformbuffer.h"
@@ -143,6 +145,7 @@ struct DRWInterface {
 	int modelview;
 	int projection;
 	int view;
+	int viewinverse;
 	int modelviewprojection;
 	int viewprojection;
 	int normal;
@@ -503,6 +506,7 @@ static DRWInterface *DRW_interface_create(GPUShader *shader)
 	interface->modelview = GPU_shader_get_uniform(shader, "ModelViewMatrix");
 	interface->projection = GPU_shader_get_uniform(shader, "ProjectionMatrix");
 	interface->view = GPU_shader_get_uniform(shader, "ViewMatrix");
+	interface->viewinverse = GPU_shader_get_uniform(shader, "ViewMatrixInverse");
 	interface->viewprojection = GPU_shader_get_uniform(shader, "ViewProjectionMatrix");
 	interface->modelviewprojection = GPU_shader_get_uniform(shader, "ModelViewProjectionMatrix");
 	interface->normal = GPU_shader_get_uniform(shader, "NormalMatrix");
@@ -610,6 +614,84 @@ DRWShadingGroup *DRW_shgroup_create(struct GPUShader *shader, DRWPass *pass)
 #ifdef USE_GPU_SELECT
 	shgroup->pass_parent = pass;
 #endif
+
+	return shgroup;
+}
+
+DRWShadingGroup *DRW_shgroup_material_create(struct GPUMaterial *material, DRWPass *pass)
+{
+	double time = 0.0; /* TODO make time variable */
+	const int max_tex = GPU_max_textures() - 1;
+
+	/* TODO : Ideally we should not convert. But since the whole codegen
+	 * is relying on GPUPass we keep it as is for now. */
+
+	GPUPass *gpupass = GPU_material_get_pass(material);
+
+	if (!gpupass) {
+		/* Shader compilation error */
+		return NULL;
+	}
+
+	struct GPUShader *shader = GPU_pass_shader(gpupass);
+
+	DRWShadingGroup *grp = DRW_shgroup_create(shader, pass);
+
+	/* Converting dynamic GPUInput to DRWUniform */
+	ListBase *inputs = &gpupass->inputs;
+
+	for (GPUInput *input = inputs->first; input; input = input->next) {
+		/* Textures */
+		if (input->ima) {
+			GPUTexture *tex = GPU_texture_from_blender(input->ima, input->iuser, input->textarget, input->image_isdata, time, 1);
+
+			if (input->bindtex) {
+				/* TODO maybe track texture slot usage to avoid clash with engine textures */
+				DRW_shgroup_uniform_texture(grp, input->shadername, tex, max_tex - input->texid);
+			}
+		}
+		/* Color Ramps */
+		else if (input->tex) {
+			DRW_shgroup_uniform_texture(grp, input->shadername, input->tex, max_tex - input->texid);
+		}
+		/* Floats */
+		else {
+			switch (input->type) {
+				case 1:
+					DRW_shgroup_uniform_float(grp, input->shadername, (float *)input->dynamicvec, 1);
+					break;
+				case 2:
+					DRW_shgroup_uniform_vec2(grp, input->shadername, (float *)input->dynamicvec, 1);
+					break;
+				case 3:
+					DRW_shgroup_uniform_vec3(grp, input->shadername, (float *)input->dynamicvec, 1);
+					break;
+				case 4:
+					DRW_shgroup_uniform_vec4(grp, input->shadername, (float *)input->dynamicvec, 1);
+					break;
+				case 9:
+					DRW_shgroup_uniform_mat3(grp, input->shadername, (float *)input->dynamicvec);
+					break;
+				case 16:
+					DRW_shgroup_uniform_mat4(grp, input->shadername, (float *)input->dynamicvec);
+					break;
+				default:
+					break;
+			}
+		}
+	}
+
+	return grp;
+}
+
+DRWShadingGroup *DRW_shgroup_material_instance_create(struct GPUMaterial *material, DRWPass *pass, Batch *geom)
+{
+	DRWShadingGroup *shgroup = DRW_shgroup_material_create(material, pass);
+
+	if (shgroup) {
+		shgroup->type = DRW_SHG_INSTANCE;
+		shgroup->instance_geom = geom;
+	}
 
 	return shgroup;
 }
@@ -791,8 +873,6 @@ void DRW_shgroup_uniform_mat4(DRWShadingGroup *shgroup, const char *name, const 
 	DRW_interface_uniform(shgroup, name, DRW_UNIFORM_MAT4, value, 16, 1, 0);
 }
 
-#ifdef WITH_CLAY_ENGINE
-
 /* Creates a VBO containing OGL primitives for all DRWCallDynamic */
 static void shgroup_dynamic_batch(DRWShadingGroup *shgroup)
 {
@@ -905,7 +985,6 @@ static void shgroup_dynamic_batch_from_calls(DRWShadingGroup *shgroup)
 		shgroup_dynamic_batch(shgroup);
 	}
 }
-#endif  /* WITH_CLAY_ENGINE */
 
 /** \} */
 
@@ -944,7 +1023,6 @@ void DRW_pass_free(DRWPass *pass)
 /** \name Draw (DRW_draw)
  * \{ */
 
-#ifdef WITH_CLAY_ENGINE
 static void set_state(DRWState flag, const bool reset)
 {
 	/* TODO Keep track of the state and only revert what is needed */
@@ -1118,6 +1196,9 @@ static void draw_geometry(DRWShadingGroup *shgroup, Batch *geom, const float (*o
 	}
 	if (interface->modelviewprojection != -1) {
 		GPU_shader_uniform_vector(shgroup->shader, interface->modelviewprojection, 16, 1, (float *)mvp);
+	}
+	if (interface->viewinverse != -1) {
+		GPU_shader_uniform_vector(shgroup->shader, interface->viewinverse, 16, 1, (float *)rv3d->viewinv);
 	}
 	if (interface->viewprojection != -1) {
 		GPU_shader_uniform_vector(shgroup->shader, interface->viewprojection, 16, 1, (float *)rv3d->persmat);
@@ -1352,15 +1433,6 @@ void DRW_state_reset(void)
 	state |= DRW_STATE_DEPTH_LESS;
 	set_state(state, true);
 }
-
-#else  /* !WITH_CLAY_ENGINE */
-
-void DRW_draw_pass(DRWPass *UNUSED(pass)) {}
-void DRW_draw_callbacks_pre_scene(void) {}
-void DRW_draw_callbacks_post_scene(void) {}
-void DRW_state_reset(void) {}
-
-#endif  /* WITH_CLAY_ENGINE */
 
 /** \} */
 
@@ -2435,6 +2507,7 @@ void DRW_engines_register(void)
 {
 #ifdef WITH_CLAY_ENGINE
 	RE_engines_register(NULL, &DRW_engine_viewport_clay_type);
+#endif
 	RE_engines_register(NULL, &DRW_engine_viewport_eevee_type);
 
 	DRW_engine_register(&draw_engine_object_type);
@@ -2451,7 +2524,6 @@ void DRW_engines_register(void)
 	DRW_engine_register(&draw_engine_particle_type);
 	DRW_engine_register(&draw_engine_pose_type);
 	DRW_engine_register(&draw_engine_sculpt_type);
-#endif
 
 	/* setup callbacks */
 	{
@@ -2479,7 +2551,6 @@ void DRW_engines_register(void)
 extern struct GPUUniformBuffer *globals_ubo; /* draw_common.c */
 void DRW_engines_free(void)
 {
-#ifdef WITH_CLAY_ENGINE
 	DRW_shape_cache_free();
 
 	DrawEngineType *next;
@@ -2495,6 +2566,7 @@ void DRW_engines_free(void)
 	if (globals_ubo)
 		GPU_uniformbuffer_free(globals_ubo);
 
+#ifdef WITH_CLAY_ENGINE
 	BLI_remlink(&R_engines, &DRW_engine_viewport_clay_type);
 #endif
 }
