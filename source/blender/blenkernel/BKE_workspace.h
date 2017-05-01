@@ -87,7 +87,7 @@ WorkSpaceLayout *BKE_workspace_layout_find(
 	for (WorkSpaceLayout *_layout = _start_layout, *_layout##_next; _layout; _layout = _layout##_next) { \
 		_layout##_next = BKE_workspace_layout_next_get(_layout); /* support removing layout from list */
 #define BKE_WORKSPACE_LAYOUT_ITER_BACKWARD_BEGIN(_layout, _start_layout) \
-	for (WorkSpaceLayout *_layout = _start_layout, *_layout##_prev; _layout; _layout = _layout##_prev) {\
+	for (WorkSpaceLayout *_layout = _start_layout, *_layout##_prev; _layout; _layout = _layout##_prev) { \
 		_layout##_prev = BKE_workspace_layout_prev_get(_layout); /* support removing layout from list */
 #define BKE_WORKSPACE_LAYOUT_ITER_END } ((void)0)
 

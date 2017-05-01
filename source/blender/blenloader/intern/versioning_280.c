@@ -143,16 +143,12 @@ static void do_version_workspaces_after_lib_link(Main *bmain)
 
 	/* Cleanup workspaces from temp screens */
 	if (has_temp_workspaces) {
-		for (ID *workspace = bmain->workspaces.first, *workspace_next;
-		     workspace;
-		     workspace = workspace_next)
-		{
-			workspace_next = workspace->next;
+		BKE_WORKSPACE_ITER_BEGIN (workspace, bmain->workspaces.first) {
 			ListBase *layouts = BKE_workspace_layouts_get((WorkSpace *)workspace);
 			if (BLI_listbase_is_empty(layouts)) {
 				BKE_workspace_remove(bmain, (WorkSpace *)workspace);
 			}
-		}
+		} BKE_WORKSPACE_ITER_END;
 	}
 }
 
