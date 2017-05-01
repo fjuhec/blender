@@ -1038,9 +1038,9 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 	BLI_strncpy(gps->colorname, p->palettecolor->info, sizeof(gps->colorname));
 
 	/* add stroke to frame, usually on tail of the listbase, but if on back is enabled the stroke is added on listbase head 
-	* because the drawing order is inverse and the head stroke is the first to draw. This is very useful for artist
-	* when drawing the background
-	*/
+	 * because the drawing order is inverse and the head stroke is the first to draw. This is very useful for artist
+	 * when drawing the background
+	 */
 	if ((ts->gpencil_flags & GP_TOOL_FLAG_PAINT_ONBACK) && (p->paintmode != GP_PAINTMODE_DRAW_POLY)) {
 		BLI_addhead(&p->gpf->strokes, gps);
 	}
@@ -1871,23 +1871,40 @@ static void gpencil_draw_eraser(bContext *UNUSED(C), int x, int y, void *p_ptr)
 
 	if (p->paintmode == GP_PAINTMODE_ERASER) {
 		VertexFormat *format = immVertexFormat();
-		unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
+		const uint shdr_pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
 		glEnable(GL_LINE_SMOOTH);
 		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 		immUniformColor4ub(255, 100, 100, 20);
-		imm_draw_circle_fill(pos, x, y, p->radius, 40);
-
-		setlinestyle(6); /* TODO: handle line stipple in shader */
-
-		immUniformColor4ub(255, 100, 100, 200);
-		imm_draw_circle_wire(pos, x, y, p->radius, 40);
+		imm_draw_circle_fill(shdr_pos, x, y, p->radius, 40);
 
 		immUnbindProgram();
 
-		setlinestyle(0);
+		format = immVertexFormat();
+		const uint shdr_dashed_pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
+		const uint shdr_dashed_origin = VertexFormat_add_attrib(format, "line_origin", COMP_F32, 2, KEEP_FLOAT);
+
+		immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_COLOR);
+
+		float viewport_size[4];
+		glGetFloatv(GL_VIEWPORT, viewport_size);
+		immUniform2f("viewport_size", viewport_size[2], viewport_size[3]);
+
+		immUniform4f("color1", 1.0f, 0.39f, 0.39f, 0.78f);
+		immUniform4f("color2", 0.0f, 0.0f, 0.0f, 0.0f);
+		immUniform1f("dash_width", 12.0f);
+		immUniform1f("dash_width_on", 6.0f);
+
+		imm_draw_circle_wire_dashed(shdr_dashed_pos, shdr_dashed_origin, x, y, p->radius,
+		                            /* XXX Dashed shader gives bad results with sets of small segments currently,
+		                             *     temp hack around the issue. :( */
+		                            max_ii(8, p->radius / 2));  /* was fixed 40 */
+
+		immUnbindProgram();
+
 		glDisable(GL_BLEND);
 		glDisable(GL_LINE_SMOOTH);
 	}

@@ -508,6 +508,18 @@ Batch *DRW_cache_gpencil_axes_get(void)
 /** \name Common Object API
 * \{ */
 
+Batch *DRW_cache_object_wire_outline_get(Object *ob)
+{
+	switch (ob->type) {
+		case OB_MESH:
+			return DRW_cache_mesh_wire_outline_get(ob);
+
+		/* TODO, should match 'DRW_cache_object_surface_get' */
+		default:
+			return NULL;
+	}
+}
+
 Batch *DRW_cache_object_surface_get(Object *ob)
 {
 	switch (ob->type) {
@@ -1667,6 +1679,14 @@ Batch *DRW_cache_mesh_surface_verts_get(Object *ob)
 
 	Mesh *me = ob->data;
 	return DRW_mesh_batch_cache_get_points_with_normals(me);
+}
+
+Batch *DRW_cache_mesh_edges_get(Object *ob)
+{
+	BLI_assert(ob->type == OB_MESH);
+
+	Mesh *me = ob->data;
+	return DRW_mesh_batch_cache_get_all_edges(me);
 }
 
 Batch *DRW_cache_mesh_verts_get(Object *ob)
