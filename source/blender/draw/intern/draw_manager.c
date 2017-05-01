@@ -64,6 +64,8 @@
 
 #include "UI_resources.h"
 
+#include "draw_manager_text.h"
+
 /* only for callbacks */
 #include "draw_cache_impl.h"
 
@@ -227,8 +229,16 @@ static struct DRWGlobalState {
 	float screenvecs[2][3];
 	float pixsize;
 
+	struct {
+		unsigned int is_select : 1;
+		unsigned int is_depth : 1;
+	} options;
+
 	/* Current rendering context */
 	DRWContextState draw_ctx;
+
+	/* Convenience pointer to text_store owned by the viewport */
+	struct DRWTextStore **text_store_p;
 
 	ListBase enabled_engines; /* RenderEngineType */
 } DST = {NULL};
@@ -967,9 +977,8 @@ static void set_state(DRWState flag, const bool reset)
 			glDisable(GL_CULL_FACE);
 		}
 
-		/* Depht Test */
-		if (flag & (DRW_STATE_DEPTH_LESS | DRW_STATE_DEPTH_EQUAL | DRW_STATE_DEPTH_GREATER))
-		{
+		/* Depth Test */
+		if ((flag & (DRW_STATE_DEPTH_LESS | DRW_STATE_DEPTH_EQUAL | DRW_STATE_DEPTH_GREATER)) != 0) {
 			glEnable(GL_DEPTH_TEST);
 
 			if (flag & DRW_STATE_DEPTH_LESS)
@@ -985,15 +994,15 @@ static void set_state(DRWState flag, const bool reset)
 	}
 
 	/* Wire Width */
-	if (flag & DRW_STATE_WIRE) {
+	if ((flag & DRW_STATE_WIRE) != 0) {
 		glLineWidth(1.0f);
 	}
-	else if (flag & DRW_STATE_WIRE_LARGE) {
+	else if ((flag & DRW_STATE_WIRE_LARGE) != 0) {
 		glLineWidth(UI_GetThemeValuef(TH_OUTLINE_WIDTH) * 2.0f);
 	}
 
 	/* Points Size */
-	if (flag & DRW_STATE_POINT) {
+	if ((flag & DRW_STATE_POINT) != 0) {
 		GPU_enable_program_point_size();
 		glPointSize(5.0f);
 	}
@@ -1002,7 +1011,7 @@ static void set_state(DRWState flag, const bool reset)
 	}
 
 	/* Blending (all buffer) */
-	if (flag & DRW_STATE_BLEND) {
+	if ((flag & DRW_STATE_BLEND) != 0) {
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	}
@@ -1011,13 +1020,13 @@ static void set_state(DRWState flag, const bool reset)
 	}
 
 	/* Line Stipple */
-	if (flag & DRW_STATE_STIPPLE_2) {
+	if ((flag & DRW_STATE_STIPPLE_2) != 0) {
 		setlinestyle(2);
 	}
-	else if (flag & DRW_STATE_STIPPLE_3) {
+	else if ((flag & DRW_STATE_STIPPLE_3) != 0) {
 		setlinestyle(3);
 	}
-	else if (flag & DRW_STATE_STIPPLE_4) {
+	else if ((flag & DRW_STATE_STIPPLE_4) != 0) {
 		setlinestyle(4);
 	}
 	else if (reset) {
@@ -1025,28 +1034,28 @@ static void set_state(DRWState flag, const bool reset)
 	}
 
 	/* Stencil */
-	if (flag & (DRW_STATE_WRITE_STENCIL_SELECT | DRW_STATE_WRITE_STENCIL_ACTIVE |
-	            DRW_STATE_TEST_STENCIL_SELECT | DRW_STATE_TEST_STENCIL_ACTIVE))
+	if ((flag & (DRW_STATE_WRITE_STENCIL_SELECT | DRW_STATE_WRITE_STENCIL_ACTIVE |
+	            DRW_STATE_TEST_STENCIL_SELECT | DRW_STATE_TEST_STENCIL_ACTIVE)) != 0)
 	{
 		glEnable(GL_STENCIL_TEST);
 
 		/* Stencil Write */
-		if (flag & DRW_STATE_WRITE_STENCIL_SELECT) {
+		if ((flag & DRW_STATE_WRITE_STENCIL_SELECT) != 0) {
 			glStencilMask(STENCIL_SELECT);
 			glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
 			glStencilFunc(GL_ALWAYS, 0xFF, STENCIL_SELECT);
 		}
-		else if (flag & DRW_STATE_WRITE_STENCIL_ACTIVE) {
+		else if ((flag & DRW_STATE_WRITE_STENCIL_ACTIVE) != 0) {
 			glStencilMask(STENCIL_ACTIVE);
 			glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
 			glStencilFunc(GL_ALWAYS, 0xFF, STENCIL_ACTIVE);
 		}
 		/* Stencil Test */
-		else if (flag & DRW_STATE_TEST_STENCIL_SELECT) {
+		else if ((flag & DRW_STATE_TEST_STENCIL_SELECT) != 0) {
 			glStencilMask(0x00); /* disable write */
 			glStencilFunc(GL_NOTEQUAL, 0xFF, STENCIL_SELECT);
 		}
-		else if (flag & DRW_STATE_TEST_STENCIL_ACTIVE) {
+		else if ((flag & DRW_STATE_TEST_STENCIL_ACTIVE) != 0) {
 			glStencilMask(0x00); /* disable write */
 			glStencilFunc(GL_NOTEQUAL, 0xFF, STENCIL_ACTIVE);
 		}
@@ -1260,6 +1269,11 @@ static void draw_shgroup(DRWShadingGroup *shgroup)
 			draw_geometry(shgroup, call->geometry, call->obmat);
 		}
 	}
+
+	/* reset the state for the next group, note - we could only reset states we changed! */
+	if (shgroup->state != 0) {
+		DRW_state_reset();
+	}
 }
 
 void DRW_draw_pass(DRWPass *pass)
@@ -1351,6 +1365,16 @@ void DRW_state_reset(void) {}
 /** \} */
 
 
+struct DRWTextStore *DRW_text_cache_ensure(void)
+{
+	BLI_assert(DST.text_store_p);
+	if (*DST.text_store_p == NULL) {
+		*DST.text_store_p = DRW_text_cache_create();
+	}
+	return *DST.text_store_p;
+}
+
+
 /* -------------------------------------------------------------------- */
 
 /** \name Settings
@@ -1384,8 +1408,7 @@ bool DRW_is_object_renderable(Object *ob)
 
 static GPUTextureFormat convert_tex_format(int fbo_format, int *channels, bool *is_depth)
 {
-	*is_depth = ((fbo_format == DRW_BUF_DEPTH_16) ||
-	             (fbo_format == DRW_BUF_DEPTH_24));
+	*is_depth = ELEM(fbo_format, DRW_BUF_DEPTH_16, DRW_BUF_DEPTH_24);
 
 	switch (fbo_format) {
 		case DRW_BUF_RG_16:    *channels = 2; return GPU_RG16F;
@@ -1585,14 +1608,23 @@ void DRW_viewport_matrix_get(float mat[4][4], DRWViewportMatrixType type)
 {
 	RegionView3D *rv3d = DST.draw_ctx.rv3d;
 
-	if (type == DRW_MAT_PERS)
-		copy_m4_m4(mat, rv3d->persmat);
-	else if (type == DRW_MAT_VIEW)
-		copy_m4_m4(mat, rv3d->viewmat);
-	else if (type == DRW_MAT_VIEWINV)
-		copy_m4_m4(mat, rv3d->viewinv);
-	else if (type == DRW_MAT_WIN)
-		copy_m4_m4(mat, rv3d->winmat);
+	switch (type) {
+		case DRW_MAT_PERS:
+			copy_m4_m4(mat, rv3d->persmat);
+			break;
+		case DRW_MAT_VIEW:
+			copy_m4_m4(mat, rv3d->viewmat);
+			break;
+		case DRW_MAT_VIEWINV:
+			copy_m4_m4(mat, rv3d->viewinv);
+			break;
+		case DRW_MAT_WIN:
+			copy_m4_m4(mat, rv3d->winmat);
+			break;
+		default:
+			BLI_assert(!"Matrix type invalid");
+			break;
+	}
 }
 
 bool DRW_viewport_is_persp_get(void)
@@ -1699,6 +1731,15 @@ static void DRW_engines_cache_init(void)
 	for (LinkData *link = DST.enabled_engines.first; link; link = link->next) {
 		DrawEngineType *engine = link->data;
 		ViewportEngineData *data = DRW_viewport_engine_data_get(engine);
+
+		if (data->text_draw_cache) {
+			DRW_text_cache_destroy(data->text_draw_cache);
+			data->text_draw_cache = NULL;
+		}
+		if (DST.text_store_p == NULL) {
+			DST.text_store_p = &data->text_draw_cache;
+		}
+
 		double stime = PIL_check_seconds_timer();
 		data->cache_time = 0.0;
 
@@ -1776,6 +1817,22 @@ static void DRW_engines_draw_scene(void)
 	}
 }
 
+static void DRW_engines_draw_text(void)
+{
+	for (LinkData *link = DST.enabled_engines.first; link; link = link->next) {
+		DrawEngineType *engine = link->data;
+		ViewportEngineData *data = DRW_viewport_engine_data_get(engine);
+		double stime = PIL_check_seconds_timer();
+
+		if (data->text_draw_cache) {
+			DRW_text_cache_draw(data->text_draw_cache, DST.draw_ctx.v3d, DST.draw_ctx.ar, false);
+		}
+
+		double ftime = (PIL_check_seconds_timer() - stime) * 1e3;
+		data->render_time = data->render_time * (1.0f - TIMER_FALLOFF) + ftime * TIMER_FALLOFF; /* exp average */
+	}
+}
+
 static void use_drw_engine(DrawEngineType *engine)
 {
 	LinkData *ld = MEM_callocN(sizeof(LinkData), "enabled engine link data");
@@ -1843,7 +1900,7 @@ static void DRW_engines_enable_from_mode(int mode)
 		case CTX_MODE_OBJECT:
 			break;
 		default:
-			BLI_assert(0);
+			BLI_assert(!"Draw mode invalid");
 			break;
 	}
 }
@@ -2081,6 +2138,11 @@ void DRW_draw_view(const bContext *C)
 	DRW_draw_callbacks_post_scene();
 	ED_region_draw_cb_draw(C, DST.draw_ctx.ar, REGION_DRAW_POST_VIEW);
 
+	DRW_engines_draw_text();
+
+	/* needed so manipulator isn't obscured */
+	glClear(GL_DEPTH_BUFFER_BIT);
+
 	DRW_draw_manipulator();
 
 	DRW_draw_region_info();
@@ -2135,6 +2197,8 @@ void DRW_draw_select_loop(
 	bool cache_is_dirty;
 	DST.viewport = viewport;
 	v3d->zbuf = true;
+
+	DST.options.is_select = true;
 
 	/* Get list of enabled engines */
 	if (use_obedit) {
@@ -2225,6 +2289,8 @@ void DRW_draw_depth_loop(
 	DST.viewport = viewport;
 	v3d->zbuf = true;
 
+	DST.options.is_depth = true;
+
 	/* Get list of enabled engines */
 	{
 		DRW_engines_enable_basic();
@@ -2309,7 +2375,21 @@ bool DRW_state_is_fbo(void)
  */
 bool DRW_state_is_select(void)
 {
-	return (G.f & G_PICKSEL) != 0;
+	return DST.options.is_select;
+}
+
+bool DRW_state_is_depth(void)
+{
+	return DST.options.is_depth;
+}
+
+/**
+ * Should text draw in this mode?
+ */
+bool DRW_state_show_text(void)
+{
+	return (DST.options.is_select) == 0 &&
+	       (DST.options.is_depth) == 0;
 }
 
 /** \} */

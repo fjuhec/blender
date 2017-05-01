@@ -47,6 +47,7 @@
 #include "UI_resources.h"
 
 #include "draw_mode_engines.h"
+#include "draw_manager_text.h"
 #include "draw_common.h"
 
 extern struct GPUUniformBuffer *globals_ubo; /* draw_common.c */
@@ -89,7 +90,7 @@ typedef struct OBJECT_TextureList {
 } OBJECT_TextureList;
 
 typedef struct OBJECT_StorageList {
-	struct g_data *g_data;
+	struct OBJECT_PrivateData *g_data;
 } OBJECT_StorageList;
 
 typedef struct OBJECT_Data {
@@ -102,7 +103,7 @@ typedef struct OBJECT_Data {
 
 /* *********** STATIC *********** */
 
-typedef struct g_data{
+typedef struct OBJECT_PrivateData{
 	/* Empties */
 	DRWShadingGroup *plain_axes;
 	DRWShadingGroup *cube;
@@ -178,7 +179,7 @@ typedef struct g_data{
 	DRWShadingGroup *wire_select_group;
 	DRWShadingGroup *wire_transform;
 
-} g_data; /* Transient data */
+} OBJECT_PrivateData; /* Transient data */
 
 static struct {
 	GPUShader *outline_resolve_sh;
@@ -453,7 +454,7 @@ static void OBJECT_cache_init(void *vedata)
 
 	if (!stl->g_data) {
 		/* Alloc transient pointers */
-		stl->g_data = MEM_mallocN(sizeof(g_data), "g_data");
+		stl->g_data = MEM_mallocN(sizeof(*stl->g_data), __func__);
 	}
 
 	{
@@ -1174,10 +1175,12 @@ static void DRW_shgroup_object_center(OBJECT_StorageList *stl, Object *ob)
 
 static void OBJECT_cache_populate(void *vedata, Object *ob)
 {
+	OBJECT_PassList *psl = ((OBJECT_Data *)vedata)->psl;
 	OBJECT_StorageList *stl = ((OBJECT_Data *)vedata)->stl;
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
 	SceneLayer *sl = draw_ctx->sl;
+	int theme_id = TH_UNDEFINED;
 
 	//CollectionEngineSettings *ces_mode_ob = BKE_object_collection_engine_get(ob, COLLECTION_MODE_OBJECT, "");
 
@@ -1189,7 +1192,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 		if (ob != obedit) {
 			struct Batch *geom = DRW_cache_object_surface_get(ob);
 			if (geom) {
-				int theme_id = DRW_object_wire_theme_get(ob, sl, NULL);
+				theme_id = DRW_object_wire_theme_get(ob, sl, NULL);
 				DRWShadingGroup *shgroup = shgroup_theme_id_to_outline_or(stl, theme_id, NULL);
 				if (shgroup != NULL) {
 					DRW_shgroup_call_add(shgroup, geom, ob->obmat);
@@ -1207,7 +1210,9 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 			Object *obedit = scene->obedit;
 			if (ob != obedit) {
 				struct Batch *geom = DRW_cache_lattice_wire_get(ob);
-				int theme_id = DRW_object_wire_theme_get(ob, sl, NULL);
+				if (theme_id == TH_UNDEFINED) {
+					theme_id = DRW_object_wire_theme_get(ob, sl, NULL);
+				}
 
 				DRWShadingGroup *shgroup = shgroup_theme_id_to_wire_or(stl, theme_id, stl->g_data->wire);
 				DRW_shgroup_call_add(shgroup, geom, ob->obmat);
@@ -1220,7 +1225,9 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 			Object *obedit = scene->obedit;
 			if (ob != obedit) {
 				struct Batch *geom = DRW_cache_curve_edge_wire_get(ob);
-				int theme_id = DRW_object_wire_theme_get(ob, sl, NULL);
+				if (theme_id == TH_UNDEFINED) {
+					theme_id = DRW_object_wire_theme_get(ob, sl, NULL);
+				}
 				DRWShadingGroup *shgroup = shgroup_theme_id_to_wire_or(stl, theme_id, stl->g_data->wire);
 				DRW_shgroup_call_add(shgroup, geom, ob->obmat);
 			}
@@ -1242,11 +1249,16 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 		{
 			bArmature *arm = ob->data;
 			if (arm->edbo == NULL) {
-				DRW_shgroup_armature_object(
-				        ob, sl,
-				        ((OBJECT_Data *)vedata)->psl->bone_solid,
-				        ((OBJECT_Data *)vedata)->psl->bone_wire,
-				        stl->g_data->relationship_lines);
+				if ((ob->mode & OB_MODE_POSE) && (ob == OBACT_NEW)) {
+					DRW_shgroup_armature_pose(
+					        ob, psl->bone_solid, psl->bone_wire,
+					        stl->g_data->relationship_lines);
+				}
+				else {
+					DRW_shgroup_armature_object(
+					        ob, sl, psl->bone_solid, psl->bone_wire,
+					        stl->g_data->relationship_lines);
+				}
 			}
 			break;
 		}
@@ -1258,8 +1270,26 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 		DRW_shgroup_forcefield(stl, ob, sl);
 	}
 
-	DRW_shgroup_object_center(stl, ob);
-	DRW_shgroup_relationship_lines(stl, ob);
+	/* don't show object extras in set's */
+	if ((ob->base_flag & BASE_FROM_SET) == 0) {
+		DRW_shgroup_object_center(stl, ob);
+		DRW_shgroup_relationship_lines(stl, ob);
+
+		if ((ob->dtx & OB_DRAWNAME) && DRW_state_show_text()) {
+			struct DRWTextStore *dt = DRW_text_cache_ensure();
+			if (theme_id == TH_UNDEFINED) {
+				theme_id = DRW_object_wire_theme_get(ob, sl, NULL);
+			}
+
+			unsigned char color[4];
+			UI_GetThemeColor4ubv(theme_id, color);
+
+			DRW_text_cache_add(
+			        dt, ob->obmat[3],
+			        ob->id.name + 2, strlen(ob->id.name + 2),
+			        10, DRW_TEXT_CACHE_GLOBALSPACE | DRW_TEXT_CACHE_STRING_PTR, color);
+		}
+	}
 }
 
 static void OBJECT_draw_scene(void *vedata)

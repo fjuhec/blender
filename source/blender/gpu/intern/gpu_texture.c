@@ -345,7 +345,9 @@ static GPUTexture *GPU_texture_create_nD(
 		glTexParameteri(tex->target_base, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexParameteri(tex->target_base, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_R_TO_TEXTURE);
 		glTexParameteri(tex->target_base, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+#ifdef WITH_LEGACY_OPENGL
 		glTexParameteri(tex->target_base, GL_DEPTH_TEXTURE_MODE, GL_INTENSITY);
+#endif
 	}
 	else {
 		glTexParameteri(tex->target_base, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -447,6 +449,7 @@ GPUTexture *GPU_texture_from_blender(Image *ima, ImageUser *iuser, int textarget
 	/* see GPUInput::textarget: it can take two values - GL_TEXTURE_2D and GL_TEXTURE_CUBE_MAP
 	 * these values are correct for glDisable, so textarget can be safely used in
 	 * GPU_texture_bind/GPU_texture_unbind through tex->target_base */
+	/* (is any of this obsolete now that we don't glEnable/Disable textures?) */
 	if (textarget == GL_TEXTURE_2D)
 		gputt = TEXTARGET_TEXTURE_2D;
 	else
@@ -675,14 +678,6 @@ void GPU_texture_bind(GPUTexture *tex, int number)
 	else
 		GPU_invalid_tex_bind(tex->target_base);
 
-	/* TODO: remove this lines once we're using GLSL everywhere */
-	GLenum target = tex->target_base;
-	if (tex->target_base == GL_TEXTURE_1D_ARRAY)
-		target = GL_TEXTURE_2D;
-	if (tex->target_base == GL_TEXTURE_2D_ARRAY)
-		target = GL_TEXTURE_3D;
-	glEnable(target);
-
 	if (number != 0)
 		glActiveTexture(GL_TEXTURE0);
 
@@ -703,14 +698,6 @@ void GPU_texture_unbind(GPUTexture *tex)
 		glActiveTexture(GL_TEXTURE0 + tex->number);
 
 	glBindTexture(tex->target_base, 0);
-
-	/* TODO: remove this lines */
-	GLenum target = tex->target_base;
-	if (tex->target_base == GL_TEXTURE_1D_ARRAY)
-		target = GL_TEXTURE_2D;
-	if (tex->target_base == GL_TEXTURE_2D_ARRAY)
-		target = GL_TEXTURE_3D;
-	glDisable(target);
 
 	if (tex->number != 0)
 		glActiveTexture(GL_TEXTURE0);
