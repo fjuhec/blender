@@ -2778,15 +2778,13 @@ static void lib_link_workspaces(FileData *fd, Main *bmain)
 	/* Note the NULL pointer checks for result of newlibadr. This is needed for reading old files from before the
 	 * introduction of workspaces (in do_versioning code we already created workspaces for screens of old file). */
 
-	BKE_workspace_iter_begin(workspace, bmain->workspaces.first)
-	{
+	BKE_WORKSPACE_ITER_BEGIN (workspace, bmain->workspaces.first) {
 		ID *id = BKE_workspace_id_get(workspace);
 		ListBase *layouts = BKE_workspace_layouts_get(workspace);
 
 		id_us_ensure_real(id);
 
-		BKE_workspace_layout_iter_begin(layout, layouts->first)
-		{
+		BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout, layouts->first) {
 			bScreen *screen = newlibadr(fd, id->lib, BKE_workspace_layout_screen_get(layout));
 
 			if (screen) {
@@ -2800,10 +2798,8 @@ static void lib_link_workspaces(FileData *fd, Main *bmain)
 					}
 				}
 			}
-		}
-		BKE_workspace_layout_iter_end;
-	}
-	BKE_workspace_iter_end;
+		} BKE_WORKSPACE_LAYOUT_ITER_END;
+	} BKE_WORKSPACE_ITER_END;
 }
 
 static void direct_link_workspace(FileData *fd, WorkSpace *workspace, const Main *main)
@@ -6121,12 +6117,10 @@ static void direct_link_layer_collections(FileData *fd, ListBase *lb)
 static void direct_link_scene_update_screen_data(
         FileData *fd, const ListBase *workspaces, const ListBase *screens)
 {
-	BKE_workspace_iter_begin(workspace, workspaces->first)
-	{
+	BKE_WORKSPACE_ITER_BEGIN (workspace, workspaces->first) {
 		SceneLayer *layer = newdataadr(fd, BKE_workspace_render_layer_get(workspace));
 		BKE_workspace_render_layer_set(workspace, layer);
-	}
-	BKE_workspace_iter_end;
+	} BKE_WORKSPACE_ITER_END;
 
 	for (bScreen *screen = screens->first; screen; screen = screen->id.next) {
 		for (ScrArea *area = screen->areabase.first; area; area = area->next) {
@@ -7175,18 +7169,14 @@ void blo_lib_link_restore(Main *newmain, wmWindowManager *curwm, Scene *curscene
 {
 	struct IDNameLib_Map *id_map = BKE_main_idmap_create(newmain);
 
-	BKE_workspace_iter_begin(workspace, newmain->workspaces.first)
-	{
+	BKE_WORKSPACE_ITER_BEGIN (workspace, newmain->workspaces.first) {
 		ListBase *layouts = BKE_workspace_layouts_get(workspace);
 
-		BKE_workspace_layout_iter_begin(layout, layouts->first)
-		{
+		BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout, layouts->first) {
 			lib_link_workspace_layout_restore(id_map, newmain, layout);
-		}
-		BKE_workspace_layout_iter_end;
+		} BKE_WORKSPACE_LAYOUT_ITER_END;
 		BKE_workspace_render_layer_set(workspace, cur_render_layer);
-	}
-	BKE_workspace_iter_end;
+	} BKE_WORKSPACE_ITER_END;
 
 	for (wmWindow *win = curwm->windows.first; win; win = win->next) {
 		WorkSpace *workspace = BKE_workspace_active_get(win->workspace_hook);
@@ -10064,11 +10054,9 @@ static void expand_workspace(FileData *fd, Main *mainvar, WorkSpace *workspace)
 {
 	ListBase *layouts = BKE_workspace_layouts_get(workspace);
 
-	BKE_workspace_layout_iter_begin(layout, layouts->first)
-	{
+	BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout, layouts->first) {
 		expand_doit(fd, mainvar, BKE_workspace_layout_screen_get(layout));
-	}
-	BKE_workspace_layout_iter_end;
+	} BKE_WORKSPACE_LAYOUT_ITER_END;
 }
 
 /**

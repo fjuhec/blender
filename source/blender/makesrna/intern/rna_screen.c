@@ -85,16 +85,14 @@ static void rna_Screen_layout_name_get(PointerRNA *ptr, char *value)
 {
 	bScreen *screen = ptr->data;
 
-	BKE_workspace_iter_begin(workspace, G.main->workspaces.first)
-	{
+	BKE_WORKSPACE_ITER_BEGIN (workspace, G.main->workspaces.first) {
 		WorkSpaceLayout *layout = BKE_workspace_layout_find(workspace, screen);
 		if (layout) {
 			const char *name = BKE_workspace_layout_name_get(layout);
 			strcpy(value, name);
 			return;
 		}
-	}
-	BKE_workspace_iter_end;
+	} BKE_WORKSPACE_ITER_END;
 
 	value[0] = '\0';
 }
@@ -103,15 +101,13 @@ static int rna_Screen_layout_name_length(PointerRNA *ptr)
 {
 	bScreen *screen = ptr->data;
 
-	BKE_workspace_iter_begin(workspace, G.main->workspaces.first)
-	{
+	BKE_WORKSPACE_ITER_BEGIN (workspace, G.main->workspaces.first) {
 		WorkSpaceLayout *layout = BKE_workspace_layout_find(workspace, screen);
 		if (layout) {
 			const char *name = BKE_workspace_layout_name_get(layout);
 			return strlen(name);
 		}
-	}
-	BKE_workspace_iter_end;
+	} BKE_WORKSPACE_ITER_END;
 
 	return 0;
 }
@@ -120,15 +116,13 @@ static void rna_Screen_layout_name_set(PointerRNA *ptr, const char *value)
 {
 	bScreen *screen = ptr->data;
 
-	BKE_workspace_iter_begin(workspace, G.main->workspaces.first)
-	{
+	BKE_WORKSPACE_ITER_BEGIN (workspace, G.main->workspaces.first) {
 		WorkSpaceLayout *layout = BKE_workspace_layout_find(workspace, screen);
 		if (layout) {
 			BKE_workspace_layout_name_set(workspace, layout, value);
 			break;
 		}
-	}
-	BKE_workspace_iter_end;
+	} BKE_WORKSPACE_ITER_END;
 }
 
 static int rna_Screen_fullscreen_get(PointerRNA *ptr)

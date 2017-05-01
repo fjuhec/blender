@@ -813,13 +813,11 @@ static WorkSpaceLayout *wm_window_new_find_layout(wmOperator *op, WorkSpace *wor
 	const int layout_id = RNA_enum_get(op->ptr, "screen");
 	int i = 0;
 
-	BKE_workspace_layout_iter_begin(layout, listbase->first)
-	{
+	BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout, listbase->first) {
 		if (i++ == layout_id) {
 			return layout;
 		}
-	}
-	BKE_workspace_layout_iter_end;
+	} BKE_WORKSPACE_LAYOUT_ITER_END;
 
 	BLI_assert(0);
 	return NULL;
@@ -881,8 +879,7 @@ struct EnumPropertyItem *wm_window_new_screen_itemf(
 	 * for dynamic strings in EnumPropertyItem.name to avoid this. */
 	static char active_screens[20][MAX_NAME + 12];
 
-	BKE_workspace_layout_iter_begin(layout, listbase->first)
-	{
+	BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout, listbase->first) {
 		bScreen *screen = BKE_workspace_layout_screen_get(layout);
 		const char *layout_name = BKE_workspace_layout_name_get(layout);
 
@@ -901,8 +898,7 @@ struct EnumPropertyItem *wm_window_new_screen_itemf(
 
 		RNA_enum_item_add(&item, &totitem, &tmp);
 		value++;
-	}
-	BKE_workspace_layout_iter_end;
+	} BKE_WORKSPACE_LAYOUT_ITER_END;
 
 	RNA_enum_item_end(&item, &totitem);
 	*r_free = true;

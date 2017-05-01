@@ -539,12 +539,10 @@ bool BKE_blendfile_workspace_config_write(Main *bmain, const char *filepath, Rep
 
 	BKE_blendfile_write_partial_begin(bmain);
 
-	BKE_workspace_iter_begin(workspace, bmain->workspaces.first)
-	{
+	BKE_WORKSPACE_ITER_BEGIN (workspace, bmain->workspaces.first) {
 		ID *workspace_id = BKE_workspace_id_get(workspace);
 		BKE_blendfile_write_partial_tag_ID(workspace_id, true);
-	}
-	BKE_workspace_iter_end;
+	} BKE_WORKSPACE_ITER_END;
 
 	if (BKE_blendfile_write_partial(bmain, filepath, fileflags, reports)) {
 		retval = true;

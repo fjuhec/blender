@@ -1008,15 +1008,13 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 				WorkSpace *workspace = (WorkSpace *)id;
 				ListBase *layouts = BKE_workspace_layouts_get(workspace);
 
-				BKE_workspace_layout_iter_begin(layout, layouts->first);
-				{
+				BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout, layouts->first) {
 					bScreen *screen = BKE_workspace_layout_screen_get(layout);
 
 					CALLBACK_INVOKE(screen, IDWALK_CB_NOP);
 					/* allow callback to set a different screen */
 					BKE_workspace_layout_screen_set(layout, screen);
-				}
-				BKE_workspace_layout_iter_end;
+				} BKE_WORKSPACE_LAYOUT_ITER_END;
 
 				break;
 			}

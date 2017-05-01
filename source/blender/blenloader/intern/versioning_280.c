@@ -304,14 +304,12 @@ void do_versions_after_linking_280(Main *main)
 		}
 
 		if (!MAIN_VERSION_ATLEAST(main, 280, 1)) {
-			BKE_workspace_iter_begin(workspace, main->workspaces.first)
-			{
+			BKE_WORKSPACE_ITER_BEGIN (workspace, main->workspaces.first) {
 				SceneLayer *layer = BKE_workspace_render_layer_get(workspace);
 				const bool is_single_collection = BLI_listbase_count_ex(&layer->layer_collections, 2) == 1;
 				ListBase *layouts = BKE_workspace_layouts_get(workspace);
 
-				BKE_workspace_layout_iter_begin(layout, layouts->first)
-				{
+				BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout, layouts->first) {
 					bScreen *screen = BKE_workspace_layout_screen_get(layout);
 
 					for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
@@ -334,10 +332,8 @@ void do_versions_after_linking_280(Main *main)
 							}
 						}
 					}
-				}
-				BKE_workspace_layout_iter_end;
-			}
-			BKE_workspace_iter_end;
+				} BKE_WORKSPACE_LAYOUT_ITER_END;
+			} BKE_WORKSPACE_ITER_END;
 		}
 	}
 }

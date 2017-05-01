@@ -71,10 +71,10 @@ void BKE_workspace_layouts_transfer(
 /* -------------------------------------------------------------------- */
 /* General Utils */
 
-#define BKE_workspace_iter_begin(_workspace, _start_workspace) \
+#define BKE_WORKSPACE_ITER_BEGIN(_workspace, _start_workspace) \
 	for (WorkSpace *_workspace = _start_workspace, *_workspace##_next; _workspace; _workspace = _workspace##_next) { \
 		_workspace##_next = BKE_workspace_next_get(_workspace); /* support removing workspace from list */
-#define BKE_workspace_iter_end } (void)0
+#define BKE_WORKSPACE_ITER_END } ((void)0)
 
 void BKE_workspaces_transform_orientation_remove(
         const struct ListBase *workspaces,
@@ -83,13 +83,13 @@ void BKE_workspaces_transform_orientation_remove(
 WorkSpaceLayout *BKE_workspace_layout_find(
         const WorkSpace *workspace, const struct bScreen *screen) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
 
-#define BKE_workspace_layout_iter_begin(_layout, _start_layout) \
+#define BKE_WORKSPACE_LAYOUT_ITER_BEGIN(_layout, _start_layout) \
 	for (WorkSpaceLayout *_layout = _start_layout, *_layout##_next; _layout; _layout = _layout##_next) { \
 		_layout##_next = BKE_workspace_layout_next_get(_layout); /* support removing layout from list */
-#define BKE_workspace_layout_iter_backwards_begin(_layout, _start_layout) \
+#define BKE_WORKSPACE_LAYOUT_ITER_BACKWARD_BEGIN(_layout, _start_layout) \
 	for (WorkSpaceLayout *_layout = _start_layout, *_layout##_prev; _layout; _layout = _layout##_prev) {\
 		_layout##_prev = BKE_workspace_layout_prev_get(_layout); /* support removing layout from list */
-#define BKE_workspace_layout_iter_end } (void)0
+#define BKE_WORKSPACE_LAYOUT_ITER_END } ((void)0)
 
 WorkSpaceLayout *BKE_workspace_layout_iter_circular(
         const WorkSpace *workspace, WorkSpaceLayout *start,

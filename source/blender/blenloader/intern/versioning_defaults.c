@@ -92,8 +92,7 @@ static void update_defaults_startup_workspaces(Main *bmain)
 {
 	WorkSpace *workspace_default = NULL;
 
-	BKE_workspace_iter_begin(workspace, bmain->workspaces.first)
-	{
+	BKE_WORKSPACE_ITER_BEGIN (workspace, bmain->workspaces.first) {
 		if (STREQ(BKE_workspace_name_get(workspace), "Default")) {
 			/* don't rename within iterator, renaming causes listbase to be re-sorted */
 			workspace_default = workspace;
@@ -101,8 +100,7 @@ static void update_defaults_startup_workspaces(Main *bmain)
 		else {
 			BKE_workspace_remove(bmain, workspace);
 		}
-	}
-	BKE_workspace_iter_end;
+	} BKE_WORKSPACE_ITER_END;
 
 	/* rename "Default" workspace to "General" */
 	BKE_libblock_rename(bmain, BKE_workspace_id_get(workspace_default), "General");

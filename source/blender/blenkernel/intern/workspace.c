@@ -163,11 +163,9 @@ void BKE_workspace_free(WorkSpace *workspace)
 
 void BKE_workspace_remove(Main *bmain, WorkSpace *workspace)
 {
-	BKE_workspace_layout_iter_begin(layout, workspace->layouts.first)
-	{
+	BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout, workspace->layouts.first) {
 		BKE_workspace_layout_remove(bmain, workspace, layout);
-	}
-	BKE_workspace_layout_iter_end;
+	} BKE_WORKSPACE_LAYOUT_ITER_END;
 
 	BKE_libblock_free(bmain, workspace);
 }
@@ -177,11 +175,9 @@ WorkSpaceInstanceHook *BKE_workspace_instance_hook_create(const Main *bmain)
 	WorkSpaceInstanceHook *hook = MEM_callocN(sizeof(WorkSpaceInstanceHook), __func__);
 
 	/* set an active screen-layout for each possible window/workspace combination */
-	BKE_workspace_iter_begin(workspace_iter, bmain->workspaces.first)
-	{
+	BKE_WORKSPACE_ITER_BEGIN (workspace_iter, bmain->workspaces.first) {
 		BKE_workspace_hook_layout_for_workspace_set(hook, workspace_iter, workspace_iter->layouts.first);
-	}
-	BKE_workspace_iter_end;
+	} BKE_WORKSPACE_ITER_END;
 
 	return hook;
 }
@@ -191,8 +187,7 @@ void BKE_workspace_instance_hook_free(const Main *bmain, WorkSpaceInstanceHook *
 	BLI_assert(!BLI_listbase_is_empty(&bmain->workspaces));
 
 	/* Free relations for this hook */
-	BKE_workspace_iter_begin(workspace, bmain->workspaces.first)
-	{
+	BKE_WORKSPACE_ITER_BEGIN (workspace, bmain->workspaces.first) {
 		for (WorkSpaceDataRelation *relation = workspace->hook_layout_relations.first, *relation_next;
 		     relation;
 		     relation = relation_next)
@@ -202,8 +197,7 @@ void BKE_workspace_instance_hook_free(const Main *bmain, WorkSpaceInstanceHook *
 				workspace_relation_remove(&workspace->hook_layout_relations, relation);
 			}
 		}
-	}
-	BKE_workspace_iter_end;
+	} BKE_WORKSPACE_ITER_END;
 
 	MEM_freeN(hook);
 }
@@ -247,15 +241,11 @@ void BKE_workspace_layouts_transfer(
 void BKE_workspaces_transform_orientation_remove(
         const ListBase *workspaces, const TransformOrientation *orientation)
 {
-	BKE_workspace_iter_begin(workspace, workspaces->first)
-	{
-		BKE_workspace_layout_iter_begin(layout, workspace->layouts.first)
-		{
+	BKE_WORKSPACE_ITER_BEGIN (workspace, workspaces->first) {
+		BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout, workspace->layouts.first) {
 			BKE_screen_transform_orientation_remove(BKE_workspace_layout_screen_get(layout), orientation);
-		}
-		BKE_workspace_layout_iter_end;
-	}
-	BKE_workspace_iter_end;
+		} BKE_WORKSPACE_LAYOUT_ITER_END;
+	} BKE_WORKSPACE_ITER_END;
 }
 
 WorkSpaceLayout *BKE_workspace_layout_find(

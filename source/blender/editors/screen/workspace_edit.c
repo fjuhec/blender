@@ -215,15 +215,13 @@ WorkSpace *ED_workspace_duplicate(
 
 	BKE_workspace_object_mode_set(workspace_new, BKE_workspace_object_mode_get(workspace_old));
 
-	BKE_workspace_layout_iter_begin(layout_old, layouts_old->first)
-	{
+	BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout_old, layouts_old->first) {
 		WorkSpaceLayout *layout_new = ED_workspace_layout_duplicate(workspace_new, layout_old, win);
 
 		if (layout_active_old == layout_old) {
 			BKE_workspace_temp_layout_store_set(win->workspace_hook, layout_new);
 		}
-	}
-	BKE_workspace_layout_iter_end;
+	} BKE_WORKSPACE_LAYOUT_ITER_END;
 
 	return workspace_new;
 }
@@ -374,11 +372,9 @@ static void workspace_config_file_append_buttons(
 	if (workspace_config) {
 		wmOperatorType *ot_append = WM_operatortype_find("WM_OT_append", true);
 
-		BKE_workspace_iter_begin(workspace, workspace_config->workspaces.first)
-		{
+		BKE_WORKSPACE_ITER_BEGIN (workspace, workspace_config->workspaces.first) {
 			workspace_append_button(layout, ot_append, workspace, workspace_config->main);
-		}
-		BKE_workspace_iter_end;
+		} BKE_WORKSPACE_ITER_END;
 
 		BKE_blendfile_workspace_config_data_free(workspace_config);
 	}
