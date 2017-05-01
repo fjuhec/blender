@@ -52,6 +52,17 @@
 
 #include "MEM_guardedalloc.h"
 
+
+static bScreen *screen_parent_get(bScreen *screen)
+{
+	for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
+		if (sa->full && sa->full != screen) {
+			return sa->full;
+		}
+	}
+	return NULL;
+}
+
 /**
  * \brief Before lib-link versioning for new workspace design.
  *
@@ -65,6 +76,10 @@ static void do_version_workspaces_before_lib_link(Main *main)
 	BLI_assert(BLI_listbase_is_empty(&main->workspaces));
 
 	for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
+
+		// XXX, ideally we would use screen_get_unique_full here to avoid loading some screens.
+		// but we didn't link yet so we can't tell .
+
 		WorkSpace *ws = BKE_workspace_add(main, screen->id.name + 2);
 		BKE_workspace_layout_add(ws, screen, screen->id.name + 2);
 
@@ -87,27 +102,56 @@ static void do_version_workspaces_before_lib_link(Main *main)
  *     here we need to find and activate the workspace that contains the active screen of the old file.
  *  *  Active scene isn't stored in screen anymore, but in window.
  */
-static void do_version_workspaces_after_lib_link(Main *main)
+static void do_version_workspaces_after_lib_link(Main *bmain)
 {
-	for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
-		WorkSpace *workspace = BLI_findstring(&main->workspaces, screen->id.name + 2, offsetof(ID, name) + 2);
-
+	for (bScreen *screen = bmain->screen.first; screen; screen = screen->id.next) {
+		WorkSpace *workspace = BLI_findstring(&bmain->workspaces, screen->id.name + 2, offsetof(ID, name) + 2);
 		BKE_workspace_render_layer_set(workspace, screen->scene->render_layers.first);
 	}
 
-	for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
+	bool has_temp_workspaces = false;
+
+	for (wmWindowManager *wm = bmain->wm.first; wm; wm = wm->id.next) {
 		for (wmWindow *win = wm->windows.first; win; win = win->next) {
 			bScreen *screen = win->screen;
-			WorkSpace *workspace = BLI_findstring(&main->workspaces, screen->id.name + 2, offsetof(ID, name) + 2);
+			bScreen *screen_parent = screen_parent_get(screen);
+			WorkSpace *workspace = BLI_findstring(&bmain->workspaces, screen->id.name + 2, offsetof(ID, name) + 2);
+
+			if (screen_parent) {
+				WorkSpace *workspace_parent = BLI_findstring(
+				        &bmain->workspaces, screen_parent->id.name + 2, offsetof(ID, name) + 2);
+				BKE_workspace_layouts_transfer(workspace_parent, workspace);
+
+				workspace = workspace_parent;
+
+				has_temp_workspaces = true;
+			}
+
 			ListBase *layouts = BKE_workspace_layouts_get(workspace);
 
 			BKE_workspace_active_set(win->workspace_hook, workspace);
 			win->scene = screen->scene;
-			BKE_workspace_active_layout_set(win->workspace_hook, layouts->first);
+
+			/* use last so the workspace_parent layout is used if it was added. */
+			BKE_workspace_active_layout_set(win->workspace_hook, layouts->last);
 
 			/* Deprecated from now on! */
 			win->screen = NULL;
 			screen->scene = NULL;
+		}
+	}
+
+	/* Cleanup workspaces from temp screens */
+	if (has_temp_workspaces) {
+		for (ID *workspace = bmain->workspaces.first, *workspace_next;
+		     workspace;
+		     workspace = workspace_next)
+		{
+			workspace_next = workspace->next;
+			ListBase *layouts = BKE_workspace_layouts_get((WorkSpace *)workspace);
+			if (BLI_listbase_is_empty(layouts)) {
+				BKE_workspace_remove((WorkSpace *)workspace, bmain);
+			}
 		}
 	}
 }

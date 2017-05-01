@@ -233,6 +233,12 @@ void BKE_workspace_layout_remove(
 	BLI_freelinkN(&workspace->layouts, layout);
 }
 
+void BKE_workspace_layouts_transfer(
+        WorkSpace *workspace_dst, WorkSpace *workspace_src)
+{
+	BLI_movelisttolist(&workspace_dst->layouts, &workspace_src->layouts);
+
+}
 
 /* -------------------------------------------------------------------- */
 /* General Utils */
