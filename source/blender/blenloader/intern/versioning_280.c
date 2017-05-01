@@ -245,6 +245,14 @@ void do_versions_after_linking_280(Main *main)
 		}
 	}
 
+	if (!MAIN_VERSION_ATLEAST(main, 280, 0)) {
+		IDPropertyTemplate val = {0};
+		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+			scene->collection_properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
+			BKE_layer_collection_engine_settings_create(scene->collection_properties);
+		}
+	}
+
 	{
 		/* New workspace design */
 		if (!MAIN_VERSION_ATLEAST(main, 280, 1)) {
@@ -286,14 +294,6 @@ void do_versions_after_linking_280(Main *main)
 				BKE_workspace_layout_iter_end;
 			}
 			BKE_workspace_iter_end;
-		}
-	}
-
-	if (!MAIN_VERSION_ATLEAST(main, 280, 0)) {
-		IDPropertyTemplate val = {0};
-		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
-			scene->collection_properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
-			BKE_layer_collection_engine_settings_create(scene->collection_properties);
 		}
 	}
 }
