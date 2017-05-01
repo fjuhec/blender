@@ -22,7 +22,8 @@
  *  \ingroup bke
  */
 
-#define NAMESPACE_WORKSPACE /* allow including specially guarded dna_workspace_types.h */
+/* allow including specially guarded dna_workspace_types.h */
+#define DNA_NAMESPACE_WORKSPACE
 
 #include <stdlib.h>
 
