@@ -411,7 +411,7 @@ static void rna_SpaceView3D_transform_orientation_update(Main *UNUSED(bmain), Sc
 	View3D *v3d = (View3D *)ptr->data;
 
 	v3d->custom_orientation = (v3d->twmode < V3D_MANIP_CUSTOM) ?
-	                              NULL : BLI_findlink(&scene->transform_spaces, v3d->twmode - V3D_MANIP_CUSTOM);
+	        NULL : BLI_findlink(&scene->transform_spaces, v3d->twmode - V3D_MANIP_CUSTOM);
 }
 
 static PointerRNA rna_CurrentOrientation_get(PointerRNA *ptr)

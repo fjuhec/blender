@@ -300,8 +300,9 @@ static void outliner_main_region_free(ARegion *UNUSED(ar))
 	
 }
 
-static void outliner_main_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
-                                          wmNotifier *wmn, const Scene *UNUSED(scene))
+static void outliner_main_region_listener(
+        bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
+        wmNotifier *wmn, const Scene *UNUSED(scene))
 {
 	/* context changes */
 	switch (wmn->category) {
@@ -429,8 +430,9 @@ static void outliner_header_region_free(ARegion *UNUSED(ar))
 {
 }
 
-static void outliner_header_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
-                                            wmNotifier *wmn, const Scene *UNUSED(scene))
+static void outliner_header_region_listener(
+        bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
+        wmNotifier *wmn, const Scene *UNUSED(scene))
 {
 	/* context changes */
 	switch (wmn->category) {

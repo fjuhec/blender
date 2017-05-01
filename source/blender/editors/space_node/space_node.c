@@ -737,8 +737,9 @@ static void node_header_region_draw(const bContext *C, ARegion *ar)
 }
 
 /* used for header + main region */
-static void node_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
-                                 wmNotifier *wmn, const Scene *UNUSED(scene))
+static void node_region_listener(
+        bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
+        wmNotifier *wmn, const Scene *UNUSED(scene))
 {
 	/* context changes */
 	switch (wmn->category) {

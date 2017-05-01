@@ -54,8 +54,9 @@ struct rcti;
 struct Main;
 
 /* regions */
-void    ED_region_do_listen(struct bScreen *sc, struct ScrArea *sa, struct ARegion *ar,
-                            struct wmNotifier *note, const Scene *scene);
+void    ED_region_do_listen(
+        struct bScreen *sc, struct ScrArea *sa, struct ARegion *ar,
+        struct wmNotifier *note, const Scene *scene);
 void    ED_region_do_draw(struct bContext *C, struct ARegion *ar);
 void    ED_region_exit(struct bContext *C, struct ARegion *ar);
 void    ED_region_pixelspace(struct ARegion *ar);
