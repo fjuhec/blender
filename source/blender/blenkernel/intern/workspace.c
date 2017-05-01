@@ -259,7 +259,13 @@ WorkSpaceLayout *BKE_workspace_layout_find(
 		return layout;
 	}
 
+#if 0
 	BLI_assert(!"Couldn't find layout in this workspace. This should not happen!");
+#else
+	printf("%s: Couldn't find layout in this workspace: '%s' screen: '%s'. "
+	       "This should not happen!\n",
+	       __func__, workspace->id.name + 2, screen->id.name + 2);
+#endif
 	return NULL;
 }
 
