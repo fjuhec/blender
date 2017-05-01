@@ -794,8 +794,12 @@ bool UI_search_item_add(uiSearchItems *items, const char *name, void *poin, int 
 		return true;
 	}
 	
-	if (items->names)
-		BLI_strncpy(items->names[items->totitem], name, items->maxstrlen);
+	if (items->names) {
+		MEM_freeN(items->names[items->totitem]);
+		int name_len = min_ii(strlen(name) + 1, items->maxstrlen);
+		items->names[items->totitem] = MEM_mallocN(name_len, __func__);
+		BLI_strncpy(items->names[items->totitem], name, name_len);
+	}
 	if (items->pointers)
 		items->pointers[items->totitem] = poin;
 	if (items->icons)
