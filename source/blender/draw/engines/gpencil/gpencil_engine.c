@@ -253,6 +253,14 @@ static float get_view_scale(ARegion *ar, View3D *v3d)
 
 	x += wx;
 	y += wy;
+
+	/* apply a factor to get more thick lines */
+	dx = dx / 100.0f;
+
+	if (dx < 0.0001f) {
+		dx = 0.0001f;
+	}
+
 	return dx;
 }
 
@@ -266,12 +274,8 @@ static DRWShadingGroup *GPENCIL_shgroup_stroke_create(GPENCIL_Data *vedata, DRWP
 	const float *viewport_size = DRW_viewport_size_get();
 
 	/* TODO: need a better way to detect the scale factor */
-	float size = get_view_scale(ar, v3d);
+	e_data.scale = get_view_scale(ar, v3d);
 
-	e_data.scale = size / 100.0f;
-	if (e_data.scale < 0.001f) {
-		e_data.scale = 0.001f;
-	}
 	DRWShadingGroup *grp = DRW_shgroup_create(e_data.gpencil_stroke_sh, pass);
 	DRW_shgroup_uniform_vec2(grp, "Viewport", viewport_size, 1);
 	DRW_shgroup_uniform_float(grp, "scale", &e_data.scale, 1);
