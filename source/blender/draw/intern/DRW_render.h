@@ -56,6 +56,7 @@
 struct bContext;
 struct GPUFrameBuffer;
 struct GPUShader;
+struct GPUMaterial;
 struct GPUTexture;
 struct GPUUniformBuffer;
 struct Object;
@@ -73,7 +74,11 @@ typedef struct DRWInterface DRWInterface;
 typedef struct DRWPass DRWPass;
 typedef struct DRWShadingGroup DRWShadingGroup;
 
-#define DRW_VIEWPORT_LIST_SIZE(list) (sizeof(list) == sizeof(char) ? 0 : ((sizeof(list)) / sizeof(void *)))
+/* declare members as empty (unused) */
+typedef char DRWViewportEmptyList;
+
+#define DRW_VIEWPORT_LIST_SIZE(list) \
+	(sizeof(list) == sizeof(DRWViewportEmptyList) ? 0 : ((sizeof(list)) / sizeof(void *)))
 
 /* Unused members must be either pass list or 'char *' when not usd. */
 #define DRW_VIEWPORT_DATA_SIZE(ty) { \
@@ -245,6 +250,8 @@ typedef enum {
 } DRWState;
 
 DRWShadingGroup *DRW_shgroup_create(struct GPUShader *shader, DRWPass *pass);
+DRWShadingGroup *DRW_shgroup_material_create(struct GPUMaterial *material, DRWPass *pass);
+DRWShadingGroup *DRW_shgroup_material_instance_create(struct GPUMaterial *material, DRWPass *pass, struct Batch *geom);
 DRWShadingGroup *DRW_shgroup_instance_create(struct GPUShader *shader, DRWPass *pass, struct Batch *geom);
 DRWShadingGroup *DRW_shgroup_point_batch_create(struct GPUShader *shader, DRWPass *pass);
 DRWShadingGroup *DRW_shgroup_line_batch_create(struct GPUShader *shader, DRWPass *pass);

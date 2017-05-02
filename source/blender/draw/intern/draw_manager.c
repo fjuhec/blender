@@ -47,11 +47,13 @@
 #include "ED_space_api.h"
 #include "ED_screen.h"
 
+#include "intern/gpu_codegen.h"
 #include "GPU_batch.h"
 #include "GPU_draw.h"
 #include "GPU_extensions.h"
 #include "GPU_framebuffer.h"
 #include "GPU_lamp.h"
+#include "GPU_material.h"
 #include "GPU_shader.h"
 #include "GPU_texture.h"
 #include "GPU_uniformbuffer.h"
@@ -74,6 +76,7 @@
 #include "engines/clay/clay_engine.h"
 #include "engines/eevee/eevee_engine.h"
 #include "engines/basic/basic_engine.h"
+#include "engines/external/external_engine.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
@@ -93,6 +96,9 @@
 extern char datatoc_gpu_shader_2D_vert_glsl[];
 extern char datatoc_gpu_shader_3D_vert_glsl[];
 extern char datatoc_gpu_shader_fullscreen_vert_glsl[];
+
+/* Prototypes. */
+static void DRW_engines_enable_external(void);
 
 /* Structures */
 typedef enum {
@@ -143,6 +149,7 @@ struct DRWInterface {
 	int modelview;
 	int projection;
 	int view;
+	int viewinverse;
 	int modelviewprojection;
 	int viewprojection;
 	int normal;
@@ -503,6 +510,7 @@ static DRWInterface *DRW_interface_create(GPUShader *shader)
 	interface->modelview = GPU_shader_get_uniform(shader, "ModelViewMatrix");
 	interface->projection = GPU_shader_get_uniform(shader, "ProjectionMatrix");
 	interface->view = GPU_shader_get_uniform(shader, "ViewMatrix");
+	interface->viewinverse = GPU_shader_get_uniform(shader, "ViewMatrixInverse");
 	interface->viewprojection = GPU_shader_get_uniform(shader, "ViewProjectionMatrix");
 	interface->modelviewprojection = GPU_shader_get_uniform(shader, "ModelViewProjectionMatrix");
 	interface->normal = GPU_shader_get_uniform(shader, "NormalMatrix");
@@ -610,6 +618,84 @@ DRWShadingGroup *DRW_shgroup_create(struct GPUShader *shader, DRWPass *pass)
 #ifdef USE_GPU_SELECT
 	shgroup->pass_parent = pass;
 #endif
+
+	return shgroup;
+}
+
+DRWShadingGroup *DRW_shgroup_material_create(struct GPUMaterial *material, DRWPass *pass)
+{
+	double time = 0.0; /* TODO make time variable */
+	const int max_tex = GPU_max_textures() - 1;
+
+	/* TODO : Ideally we should not convert. But since the whole codegen
+	 * is relying on GPUPass we keep it as is for now. */
+
+	GPUPass *gpupass = GPU_material_get_pass(material);
+
+	if (!gpupass) {
+		/* Shader compilation error */
+		return NULL;
+	}
+
+	struct GPUShader *shader = GPU_pass_shader(gpupass);
+
+	DRWShadingGroup *grp = DRW_shgroup_create(shader, pass);
+
+	/* Converting dynamic GPUInput to DRWUniform */
+	ListBase *inputs = &gpupass->inputs;
+
+	for (GPUInput *input = inputs->first; input; input = input->next) {
+		/* Textures */
+		if (input->ima) {
+			GPUTexture *tex = GPU_texture_from_blender(input->ima, input->iuser, input->textarget, input->image_isdata, time, 1);
+
+			if (input->bindtex) {
+				/* TODO maybe track texture slot usage to avoid clash with engine textures */
+				DRW_shgroup_uniform_texture(grp, input->shadername, tex, max_tex - input->texid);
+			}
+		}
+		/* Color Ramps */
+		else if (input->tex) {
+			DRW_shgroup_uniform_texture(grp, input->shadername, input->tex, max_tex - input->texid);
+		}
+		/* Floats */
+		else {
+			switch (input->type) {
+				case 1:
+					DRW_shgroup_uniform_float(grp, input->shadername, (float *)input->dynamicvec, 1);
+					break;
+				case 2:
+					DRW_shgroup_uniform_vec2(grp, input->shadername, (float *)input->dynamicvec, 1);
+					break;
+				case 3:
+					DRW_shgroup_uniform_vec3(grp, input->shadername, (float *)input->dynamicvec, 1);
+					break;
+				case 4:
+					DRW_shgroup_uniform_vec4(grp, input->shadername, (float *)input->dynamicvec, 1);
+					break;
+				case 9:
+					DRW_shgroup_uniform_mat3(grp, input->shadername, (float *)input->dynamicvec);
+					break;
+				case 16:
+					DRW_shgroup_uniform_mat4(grp, input->shadername, (float *)input->dynamicvec);
+					break;
+				default:
+					break;
+			}
+		}
+	}
+
+	return grp;
+}
+
+DRWShadingGroup *DRW_shgroup_material_instance_create(struct GPUMaterial *material, DRWPass *pass, Batch *geom)
+{
+	DRWShadingGroup *shgroup = DRW_shgroup_material_create(material, pass);
+
+	if (shgroup) {
+		shgroup->type = DRW_SHG_INSTANCE;
+		shgroup->instance_geom = geom;
+	}
 
 	return shgroup;
 }
@@ -1114,6 +1200,9 @@ static void draw_geometry(DRWShadingGroup *shgroup, Batch *geom, const float (*o
 	}
 	if (interface->modelviewprojection != -1) {
 		GPU_shader_uniform_vector(shgroup->shader, interface->modelviewprojection, 16, 1, (float *)mvp);
+	}
+	if (interface->viewinverse != -1) {
+		GPU_shader_uniform_vector(shgroup->shader, interface->viewinverse, 16, 1, (float *)rv3d->viewinv);
 	}
 	if (interface->viewprojection != -1) {
 		GPU_shader_uniform_vector(shgroup->shader, interface->viewprojection, 16, 1, (float *)rv3d->persmat);
@@ -1834,7 +1923,13 @@ static void DRW_engines_enable_from_engine(const Scene *scene)
 {
 	/* TODO layers */
 	RenderEngineType *type = RE_engines_find(scene->r.engine);
-	use_drw_engine(type->draw_engine);
+	if (type->draw_engine != NULL) {
+		use_drw_engine(type->draw_engine);
+	}
+
+	if ((type->flag & RE_INTERNAL) == 0) {
+		DRW_engines_enable_external();
+	}
 }
 
 static void DRW_engines_enable_from_object_mode(void)
@@ -1902,10 +1997,17 @@ static void DRW_engines_enable_basic(void)
 	use_drw_engine(DRW_engine_viewport_basic_type.draw_engine);
 }
 
-static void DRW_engines_enable(const bContext *C)
+/**
+ * Use for external render engines.
+ */
+static void DRW_engines_enable_external(void)
 {
-	Scene *scene = CTX_data_scene(C);
-	const int mode = CTX_data_mode_enum(C);
+	use_drw_engine(DRW_engine_viewport_external_type.draw_engine);
+}
+
+static void DRW_engines_enable(const Scene *scene, SceneLayer *sl)
+{
+	const int mode = CTX_data_mode_enum_ex(scene->obedit, OBACT_NEW);
 	DRW_engines_enable_from_engine(scene);
 	DRW_engines_enable_from_object_mode();
 	DRW_engines_enable_from_mode(mode);
@@ -2078,20 +2180,42 @@ static void DRW_debug_gpu_stats(void)
  * for each relevant engine / mode engine. */
 void DRW_draw_view(const bContext *C)
 {
-	bool cache_is_dirty;
-	RegionView3D *rv3d = CTX_wm_region_view3d(C);
+	struct Depsgraph *graph = CTX_data_depsgraph(C);
+	ARegion *ar = CTX_wm_region(C);
 	View3D *v3d = CTX_wm_view3d(C);
+
+	DST.draw_ctx.evil_C = C;
+
+	DRW_draw_render_loop(graph, ar, v3d);
+}
+
+/**
+ * Used for both regular and off-screen drawing.
+ */
+void DRW_draw_render_loop(
+        struct Depsgraph *graph,
+        ARegion *ar, View3D *v3d)
+{
+	Scene *scene = DAG_get_scene(graph);
+	SceneLayer *sl = DAG_get_scene_layer(graph);
+	RegionView3D *rv3d = ar->regiondata;
+
+	bool cache_is_dirty;
 	DST.viewport = rv3d->viewport;
 	v3d->zbuf = true;
 
 	/* Get list of enabled engines */
-	DRW_engines_enable(C);
+	DRW_engines_enable(scene, sl);
 
 	/* Setup viewport */
 	cache_is_dirty = GPU_viewport_cache_validate(DST.viewport, DRW_engines_get_hash());
 
-	/* Save context for all later needs */
-	DRW_context_state_init(C, &DST.draw_ctx);
+	DST.draw_ctx = (DRWContextState){
+		ar, rv3d, v3d, scene, sl,
+		/* reuse if caller sets */
+		DST.draw_ctx.evil_C,
+	};
+
 	DRW_viewport_var_init();
 
 	/* Update ubos */
@@ -2106,7 +2230,6 @@ void DRW_draw_view(const bContext *C)
 	if (cache_is_dirty) {
 		DRW_engines_cache_init();
 
-		Depsgraph *graph = CTX_data_depsgraph(C);
 		DEG_OBJECT_ITER(graph, ob);
 		{
 			DRW_engines_cache_populate(ob);
@@ -2120,21 +2243,27 @@ void DRW_draw_view(const bContext *C)
 	DRW_engines_draw_background();
 
 	DRW_draw_callbacks_pre_scene();
-	ED_region_draw_cb_draw(C, DST.draw_ctx.ar, REGION_DRAW_PRE_VIEW);
+	if (DST.draw_ctx.evil_C) {
+		ED_region_draw_cb_draw(DST.draw_ctx.evil_C, DST.draw_ctx.ar, REGION_DRAW_PRE_VIEW);
+	}
 
 	DRW_engines_draw_scene();
 
 	DRW_draw_callbacks_post_scene();
-	ED_region_draw_cb_draw(C, DST.draw_ctx.ar, REGION_DRAW_POST_VIEW);
+	if (DST.draw_ctx.evil_C) {
+		ED_region_draw_cb_draw(DST.draw_ctx.evil_C, DST.draw_ctx.ar, REGION_DRAW_POST_VIEW);
+	}
 
 	DRW_engines_draw_text();
 
 	/* needed so manipulator isn't obscured */
 	glClear(GL_DEPTH_BUFFER_BIT);
 
-	DRW_draw_manipulator();
+	if (DST.draw_ctx.evil_C) {
+		DRW_draw_manipulator();
 
-	DRW_draw_region_info();
+		DRW_draw_region_info();
+	}
 
 	if (G.debug_value > 20) {
 		DRW_debug_cpu_stats();
@@ -2148,33 +2277,67 @@ void DRW_draw_view(const bContext *C)
 	memset(&DST, 0x0, sizeof(DST));
 }
 
+void DRW_draw_render_loop_offscreen(
+        struct Depsgraph *graph,
+        ARegion *ar, View3D *v3d, GPUOffScreen *ofs)
+{
+	RegionView3D *rv3d = ar->regiondata;
+
+	/* backup */
+	void *backup_viewport = rv3d->viewport;
+	{
+		/* backup (_never_ use rv3d->viewport) */
+		rv3d->viewport = GPU_viewport_create_from_offscreen(ofs);
+	}
+
+	DST.draw_ctx.evil_C = NULL;
+
+	DRW_draw_render_loop(graph, ar, v3d);
+
+	/* restore */
+	{
+		/* don't free data owned by 'ofs' */
+		GPU_viewport_clear_from_offscreen(rv3d->viewport);
+		GPU_viewport_free(rv3d->viewport);
+		MEM_freeN(rv3d->viewport);
+
+		rv3d->viewport = backup_viewport;
+	}
+
+	/* we need to re-bind (annoying!) */
+	GPU_offscreen_bind(ofs, false);
+}
+
 /**
  * object mode select-loop, see: ED_view3d_draw_select_loop (legacy drawing).
  */
 void DRW_draw_select_loop(
-        struct ViewContext *vc, Depsgraph *graph,
-        Scene *scene, struct SceneLayer *sl, View3D *v3d, ARegion *ar,
+        struct Depsgraph *graph,
+        ARegion *ar, View3D *v3d,
         bool UNUSED(use_obedit_skip), bool UNUSED(use_nearest), const rcti *rect)
 {
+	Scene *scene = DAG_get_scene(graph);
+	SceneLayer *sl = DAG_get_scene_layer(graph);
 #ifndef USE_GPU_SELECT
 	UNUSED_VARS(vc, scene, sl, v3d, ar, rect);
 #else
-	RegionView3D *rv3d = vc->rv3d;
+	RegionView3D *rv3d = ar->regiondata;
 
 	/* backup (_never_ use rv3d->viewport) */
-	void *backup_viewport = vc->rv3d->viewport;
+	void *backup_viewport = rv3d->viewport;
 	rv3d->viewport = NULL;
 
 	bool use_obedit = false;
 	int obedit_mode = 0;
-	if (vc->obedit && vc->obedit->type == OB_MBALL) {
+	if (scene->obedit && scene->obedit->type == OB_MBALL) {
 		use_obedit = true;
-		DRW_engines_cache_populate(vc->obedit);
+		DRW_engines_cache_populate(scene->obedit);
 		obedit_mode = CTX_MODE_EDIT_METABALL;
 	}
-	else if ((vc->obedit && vc->obedit->type == OB_ARMATURE)) {
+	else if ((scene->obedit && scene->obedit->type == OB_ARMATURE)) {
 		/* if not drawing sketch, draw bones */
-		if (!BDR_drawSketchNames(vc)) {
+		// if (!BDR_drawSketchNames(vc))
+		{
 			use_obedit = true;
 			obedit_mode = CTX_MODE_EDIT_ARMATURE;
 		}
@@ -2222,7 +2385,7 @@ void DRW_draw_select_loop(
 		DRW_engines_cache_init();
 
 		if (use_obedit) {
-			DRW_engines_cache_populate(vc->obedit);
+			DRW_engines_cache_populate(scene->obedit);
 		}
 		else {
 			DEG_OBJECT_ITER(graph, ob)
@@ -2263,8 +2426,10 @@ void DRW_draw_select_loop(
  */
 void DRW_draw_depth_loop(
         Depsgraph *graph,
-        Scene *scene, ARegion *ar, View3D *v3d)
+        ARegion *ar, View3D *v3d)
 {
+	Scene *scene = DAG_get_scene(graph);
+	SceneLayer *sl = DAG_get_scene_layer(graph);
 	RegionView3D *rv3d = ar->regiondata;
 
 	/* backup (_never_ use rv3d->viewport) */
@@ -2291,7 +2456,7 @@ void DRW_draw_depth_loop(
 
 	/* Instead of 'DRW_context_state_init(C, &DST.draw_ctx)', assign from args */
 	DST.draw_ctx = (DRWContextState){
-		ar, rv3d, v3d, scene, BKE_scene_layer_context_active(scene), (bContext *)NULL,
+		ar, rv3d, v3d, scene, sl, (bContext *)NULL,
 	};
 
 	DRW_viewport_var_init();
@@ -2401,6 +2566,7 @@ void DRW_context_state_init(const bContext *C, DRWContextState *r_draw_ctx)
 	/* grr, cant avoid! */
 	r_draw_ctx->evil_C = C;
 }
+
 
 const DRWContextState *DRW_context_state_get(void)
 {
