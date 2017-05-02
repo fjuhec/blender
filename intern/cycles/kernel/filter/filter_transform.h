@@ -71,14 +71,14 @@ ccl_device void kernel_filter_construct_transform(float ccl_restrict_ptr buffer,
 	 * This transformation maps the DENOISE_FEATURES-dimentional feature space to a reduced feature (r-feature) space
 	 * which generally has fewer dimensions. This mainly helps to prevent overfitting. */
 	float* feature_matrix = tempmatrix;
-	math_trimatrix_zero(feature_matrix, DENOISE_FEATURES);
+	math_matrix_zero(feature_matrix, DENOISE_FEATURES);
 	FOR_PIXEL_WINDOW {
 		filter_get_features(pixel, pixel_buffer, features, feature_means, pass_stride);
 		math_vector_mul(features, feature_scale, DENOISE_FEATURES);
-		math_trimatrix_add_gramian(feature_matrix, DENOISE_FEATURES, features, 1.0f);
+		math_matrix_add_gramian(feature_matrix, DENOISE_FEATURES, features, 1.0f);
 	} END_FOR_PIXEL_WINDOW
 
-	math_trimatrix_jacobi_eigendecomposition(feature_matrix, transform, DENOISE_FEATURES, 1);
+	math_matrix_jacobi_eigendecomposition(feature_matrix, transform, DENOISE_FEATURES, 1);
 	*rank = 0;
 	if(pca_threshold < 0.0f) {
 		float threshold_energy = 0.0f;

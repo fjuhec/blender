@@ -56,17 +56,17 @@ ccl_device void kernel_filter_construct_transform(float ccl_restrict_ptr buffer,
 	filter_calculate_scale_sse(feature_scale);
 
 	__m128 feature_matrix_sse[DENOISE_FEATURES*DENOISE_FEATURES];
-	math_trimatrix_zero_sse(feature_matrix_sse, DENOISE_FEATURES);
+	math_matrix_zero_sse(feature_matrix_sse, DENOISE_FEATURES);
 	FOR_PIXEL_WINDOW_SSE {
 		filter_get_features_sse(x4, y4, active_pixels, pixel_buffer, features, feature_means, pass_stride);
 		math_vector_mul_sse(features, DENOISE_FEATURES, feature_scale);
-		math_trimatrix_add_gramian_sse(feature_matrix_sse, DENOISE_FEATURES, features, _mm_set1_ps(1.0f));
+		math_matrix_add_gramian_sse(feature_matrix_sse, DENOISE_FEATURES, features, _mm_set1_ps(1.0f));
 	} END_FOR_PIXEL_WINDOW_SSE
 
 	float feature_matrix[DENOISE_FEATURES*DENOISE_FEATURES];
-	math_trimatrix_hsum(feature_matrix, DENOISE_FEATURES, feature_matrix_sse);
+	math_matrix_hsum(feature_matrix, DENOISE_FEATURES, feature_matrix_sse);
 
-	math_trimatrix_jacobi_eigendecomposition(feature_matrix, transform, DENOISE_FEATURES, 1);
+	math_matrix_jacobi_eigendecomposition(feature_matrix, transform, DENOISE_FEATURES, 1);
 
 	*rank = 0;
 	if(pca_threshold < 0.0f) {

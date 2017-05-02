@@ -24,9 +24,12 @@ CCL_NAMESPACE_BEGIN
 /* Variants that use a constant stride on GPUS. */
 #ifdef __KERNEL_GPU__
 #define MATS(A, n, r, c, s) A[((r)*(n)+(c))*(s)]
+/* Element access when only the lower-triangular elements are stored. */
+#define MATHS(A, r, c, s) A[((r)*((r)+1)/2+(c))*(s)]
 #define VECS(V, i, s) V[(i)*(s)]
 #else
 #define MATS(A, n, r, c, s) MAT(A, n, r, c)
+#define MATHS(A, r, c, s) A[(r)*((r)+1)/2+(c)]
 #define VECS(V, i, s) V[i]
 #endif
 
@@ -38,7 +41,7 @@ ccl_device_inline void math_vector_zero(float *v, int n)
 		v[i] = 0.0f;
 }
 
-ccl_device_inline void math_trimatrix_zero(float *A, int n)
+ccl_device_inline void math_matrix_zero(float *A, int n)
 {
 	for(int row = 0; row < n; row++)
 		for(int col = 0; col <= row; col++)
@@ -92,16 +95,15 @@ ccl_device_inline void math_vec3_add_strided(ccl_global float3 *v, int n, float 
 /* Elementary matrix operations.
  * Note: TriMatrix refers to a square matrix that is symmetric, and therefore its upper-triangular part isn't stored. */
 
-ccl_device_inline void math_matrix_add_diagonal(ccl_global float *A, int n, float val, int stride)
+ccl_device_inline void math_trimatrix_add_diagonal(ccl_global float *A, int n, float val, int stride)
 {
 	for(int row = 0; row < n; row++)
-		MATS(A, n, row, row, stride) += val;
+		MATHS(A, row, row, stride) += val;
 }
 
 /* Add Gramian matrix of v to A.
- * The Gramian matrix of v is vt*v, so element (i,j) is v[i]*v[j].
- * Obviously, the resulting matrix is symmetric, so only the lower triangluar part is stored. */
-ccl_device_inline void math_trimatrix_add_gramian(float *A,
+ * The Gramian matrix of v is vt*v, so element (i,j) is v[i]*v[j]. */
+ccl_device_inline void math_matrix_add_gramian(float *A,
                                                   int n,
                                                   float ccl_restrict_ptr v,
                                                   float weight)
@@ -112,8 +114,7 @@ ccl_device_inline void math_trimatrix_add_gramian(float *A,
 }
 
 /* Add Gramian matrix of v to A.
- * The Gramian matrix of v is vt*v, so element (i,j) is v[i]*v[j].
- * Obviously, the resulting matrix is symmetric, so only the lower triangluar part is stored. */
+ * The Gramian matrix of v is vt*v, so element (i,j) is v[i]*v[j]. */
 ccl_device_inline void math_trimatrix_add_gramian_strided(ccl_global float *A,
                                                           int n,
                                                           float ccl_restrict_ptr v,
@@ -122,7 +123,7 @@ ccl_device_inline void math_trimatrix_add_gramian_strided(ccl_global float *A,
 {
 	for(int row = 0; row < n; row++)
 		for(int col = 0; col <= row; col++)
-			MATS(A, n, row, col, stride) += v[row]*v[col]*weight;
+			MATHS(A, row, col, stride) += v[row]*v[col]*weight;
 }
 
 /* Transpose matrix A inplace. */
@@ -149,17 +150,17 @@ ccl_device void math_trimatrix_cholesky(ccl_global float *A, int n, int stride)
 {
 	for(int row = 0; row < n; row++) {
 		for(int col = 0; col <= row; col++) {
-			float sum_col = MATS(A, n, row, col, stride);
+			float sum_col = MATHS(A, row, col, stride);
 			for(int k = 0; k < col; k++) {
-				sum_col -= MATS(A, n, row, k, stride) * MATS(A, n, col, k, stride);
+				sum_col -= MATHS(A, row, k, stride) * MATHS(A, col, k, stride);
 			}
 			if(row == col) {
 				sum_col = sqrtf(max(sum_col, 0.0f));
 			}
 			else {
-				sum_col /= MATS(A, n, col, col, stride);
+				sum_col /= MATHS(A, col, col, stride);
 			}
-			MATS(A, n, row, col, stride) = sum_col;
+			MATHS(A, row, col, stride) = sum_col;
 		}
 	}
 }
@@ -175,23 +176,23 @@ ccl_device void math_trimatrix_cholesky(ccl_global float *A, int n, int stride)
  * symmetrical positive-semidefinite by construction, so we can just use this function with A=Xt*W*X and y=Xt*W*y. */
 ccl_device_inline void math_trimatrix_vec3_solve(ccl_global float *A, ccl_global float3 *y, int n, int stride)
 {
-	math_matrix_add_diagonal(A, n, 1e-4f, stride); /* Improve the numerical stability. */
+	math_trimatrix_add_diagonal(A, n, 1e-4f, stride); /* Improve the numerical stability. */
 	math_trimatrix_cholesky(A, n, stride); /* Replace A with L so that L*Lt = A. */
 
 	/* Use forward substitution to solve L*b = y, replacing y by b. */
 	for(int row = 0; row < n; row++) {
 		float3 sum = VECS(y, row, stride);
 		for(int col = 0; col < row; col++)
-			sum -= MATS(A, n, row, col, stride) * VECS(y, col, stride);
-		VECS(y, row, stride) = sum / MATS(A, n, row, row, stride);
+			sum -= MATHS(A, row, col, stride) * VECS(y, col, stride);
+		VECS(y, row, stride) = sum / MATHS(A, row, row, stride);
 	}
 
 	/* Use backward substitution to solve Lt*S = b, replacing b by S. */
 	for(int row = n-1; row >= 0; row--) {
 		float3 sum = VECS(y, row, stride);
 		for(int col = row+1; col < n; col++)
-			sum -= MATS(A, n, col, row, stride) * VECS(y, col, stride);
-		VECS(y, row, stride) = sum / MATS(A, n, row, row, stride);
+			sum -= MATHS(A, col, row, stride) * VECS(y, col, stride);
+		VECS(y, row, stride) = sum / MATHS(A, row, row, stride);
 	}
 }
 
@@ -211,7 +212,7 @@ ccl_device_inline void math_trimatrix_vec3_solve(ccl_global float *A, ccl_global
  *
  * Additionally, the function returns an estimate of the rank of A.
  */
-ccl_device int math_trimatrix_jacobi_eigendecomposition(float *A, ccl_global float *V, int n, int v_stride)
+ccl_device int math_matrix_jacobi_eigendecomposition(float *A, ccl_global float *V, int n, int v_stride)
 {
 	const float epsilon = 1e-7f;
 	const float singular_epsilon = 1e-9f;
@@ -341,7 +342,7 @@ ccl_device_inline void math_vector_zero_sse(__m128 *A, int n)
 	for(int i = 0; i < n; i++)
 		A[i] = _mm_setzero_ps();
 }
-ccl_device_inline void math_trimatrix_zero_sse(__m128 *A, int n)
+ccl_device_inline void math_matrix_zero_sse(__m128 *A, int n)
 {
 	for(int row = 0; row < n; row++)
 		for(int col = 0; col <= row; col++)
@@ -349,9 +350,8 @@ ccl_device_inline void math_trimatrix_zero_sse(__m128 *A, int n)
 }
 
 /* Add Gramian matrix of v to A.
- * The Gramian matrix of v is v^T*v, so element (i,j) is v[i]*v[j].
- * Obviously, the resulting matrix is symmetric, so only the lower triangluar part is stored. */
-ccl_device_inline void math_trimatrix_add_gramian_sse(__m128 *A, int n, __m128 ccl_restrict_ptr v, __m128 weight)
+ * The Gramian matrix of v is v^T*v, so element (i,j) is v[i]*v[j]. */
+ccl_device_inline void math_matrix_add_gramian_sse(__m128 *A, int n, __m128 ccl_restrict_ptr v, __m128 weight)
 {
 	for(int row = 0; row < n; row++)
 		for(int col = 0; col <= row; col++)
@@ -370,7 +370,7 @@ ccl_device_inline void math_vector_mul_sse(__m128 *V, int n, __m128 ccl_restrict
 		V[i] = _mm_mul_ps(V[i], a[i]);
 }
 
-ccl_device_inline void math_trimatrix_hsum(float *A, int n, __m128 ccl_restrict_ptr B)
+ccl_device_inline void math_matrix_hsum(float *A, int n, __m128 ccl_restrict_ptr B)
 {
 	for(int row = 0; row < n; row++)
 		for(int col = 0; col <= row; col++)
