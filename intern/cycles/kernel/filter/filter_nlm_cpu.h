@@ -135,7 +135,7 @@ ccl_device_inline void kernel_filter_nlm_construct_gramian(int dx, int dy,
 			float weight = sum * (1.0f/(high - low));
 
 			int storage_ofs = fy*filter_rect.z + fx;
-			float  *l_transform = transform + storage_ofs*DENOISE_FEATURES*DENOISE_FEATURES;
+			float  *l_transform = transform + storage_ofs*TRANSFORM_SIZE;
 			float  *l_XtWX = XtWX + storage_ofs*XTWX_SIZE;
 			float3 *l_XtWY = XtWY + storage_ofs*XTWY_SIZE;
 			int    *l_rank = rank + storage_ofs;
