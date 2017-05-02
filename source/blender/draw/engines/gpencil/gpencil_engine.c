@@ -29,8 +29,11 @@
 #include "BKE_gpencil.h"
 #include "BKE_image.h"
 #include "ED_gpencil.h"
+#include "ED_view3d.h"
 
 #include "DNA_gpencil_types.h"
+#include "DNA_screen_types.h"
+#include "DNA_view3d_types.h"
 
  /* If builtin shaders are needed */
 #include "GPU_shader.h"
@@ -108,6 +111,7 @@ static struct {
 	struct GPUShader *gpencil_stroke_sh;
 	struct GPUShader *gpencil_volumetric_sh;
 	struct GPUShader *gpencil_drawing_fill_sh;
+	float scale;
 } e_data = {NULL}; /* Engine data */
 
 /* *********** FUNCTIONS *********** */
@@ -223,13 +227,54 @@ static DRWShadingGroup *GPENCIL_shgroup_point_volumetric_create(GPENCIL_Data *ve
 	return grp;
 }
 
+/* calculate scale of viewport */
+static float get_view_scale(ARegion *ar, View3D *v3d)
+{
+	RegionView3D *rv3d = ar->regiondata;
+
+	double fx = rv3d->persmat[3][0];
+	double fy = rv3d->persmat[3][1];
+	double fw = rv3d->persmat[3][3];
+
+	const double wx = 0.5 * ar->winx;  /* use double precision to avoid rounding errors */
+	const double wy = 0.5 * ar->winy;
+
+	double x = wx * fx / fw;
+	double y = wy * fy / fw;
+
+	double vec4[4] = { 1.0, 1.0, 0.0, 1.0 };
+	mul_m4_v4d(rv3d->persmat, vec4);
+	fx = vec4[0];
+	fy = vec4[1];
+	fw = vec4[3];
+
+	double dx = fabs(x - wx * fx / fw);
+	if (dx == 0) dx = fabs(y - wy * fy / fw);
+
+	x += wx;
+	y += wy;
+	return dx;
+}
+
 /* create shading group for strokes */
 static DRWShadingGroup *GPENCIL_shgroup_stroke_create(GPENCIL_Data *vedata, DRWPass *pass, PaletteColor *palcolor)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	ARegion *ar = draw_ctx->ar;
+	View3D *v3d = draw_ctx->v3d;
+	const float *viewport_size = DRW_viewport_size_get();
 
+	/* TODO: need a better way to detect the scale factor */
+	float size = get_view_scale(ar, v3d);
+
+	e_data.scale = size / 100.0f;
+	if (e_data.scale < 0.001f) {
+		e_data.scale = 0.001f;
+	}
 	DRWShadingGroup *grp = DRW_shgroup_create(e_data.gpencil_stroke_sh, pass);
-	DRW_shgroup_uniform_vec2(grp, "Viewport", DRW_viewport_size_get(), 1);
+	DRW_shgroup_uniform_vec2(grp, "Viewport", viewport_size, 1);
+	DRW_shgroup_uniform_float(grp, "scale", &e_data.scale, 1);
 
 	return grp;
 }
