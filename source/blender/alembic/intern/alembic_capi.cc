@@ -172,7 +172,7 @@ static bool gather_objects_paths(const IObject &object, ListBase *object_paths)
 		void *abc_path_void = MEM_callocN(sizeof(AlembicObjectPath), "AlembicObjectPath");
 		AlembicObjectPath *abc_path = static_cast<AlembicObjectPath *>(abc_path_void);
 
-		BLI_strncpy(abc_path->path, object.getFullName().c_str(), PATH_MAX);
+		BLI_strncpy(abc_path->path, object.getFullName().c_str(), sizeof(abc_path->path));
 		BLI_addtail(object_paths, abc_path);
 	}
 
@@ -359,6 +359,7 @@ bool ABC_export(
 		std::swap(job->settings.frame_start, job->settings.frame_end);
 	}
 
+	bool export_ok = false;
 	if (as_background_job) {
 		wmJob *wm_job = WM_jobs_get(CTX_wm_manager(C),
 		                            CTX_wm_window(C),
@@ -381,9 +382,12 @@ bool ABC_export(
 
 		export_startjob(job, &stop, &do_update, &progress);
 		export_endjob(job);
+		export_ok = job->export_ok;
+
+		MEM_freeN(job);
 	}
 
-	return job->export_ok;
+	return export_ok;
 }
 
 /* ********************** Import file ********************** */
@@ -542,7 +546,7 @@ static std::pair<bool, AbcObjectReader *> visit_object(
 
 		AlembicObjectPath *abc_path = static_cast<AlembicObjectPath *>(
 		                                  MEM_callocN(sizeof(AlembicObjectPath), "AlembicObjectPath"));
-		BLI_strncpy(abc_path->path, full_name.c_str(), PATH_MAX);
+		BLI_strncpy(abc_path->path, full_name.c_str(), sizeof(abc_path->path));
 		BLI_addtail(&settings.cache_file->object_paths, abc_path);
 
 		/* We can now assign this reader as parent for our children. */
@@ -595,6 +599,7 @@ static std::pair<bool, AbcObjectReader *> visit_object(
 enum {
 	ABC_NO_ERROR = 0,
 	ABC_ARCHIVE_FAIL,
+	ABC_UNSUPPORTED_HDF5,
 };
 
 struct ImportJobData {
@@ -659,8 +664,12 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
 	ArchiveReader *archive = new ArchiveReader(data->filename);
 
 	if (!archive->valid()) {
-		delete archive;
+#ifndef WITH_ALEMBIC_HDF5
+		data->error_code = archive->is_hdf5() ? ABC_UNSUPPORTED_HDF5 : ABC_ARCHIVE_FAIL;
+#else
 		data->error_code = ABC_ARCHIVE_FAIL;
+#endif
+		delete archive;
 		return;
 	}
 
@@ -830,6 +839,9 @@ static void import_endjob(void *user_data)
 		case ABC_ARCHIVE_FAIL:
 			WM_report(RPT_ERROR, "Could not open Alembic archive for reading! See console for detail.");
 			break;
+		case ABC_UNSUPPORTED_HDF5:
+			WM_report(RPT_ERROR, "Alembic archive in obsolete HDF5 format is not supported.");
+			break;
 	}
 
 	WM_main_add_notifier(NC_SCENE | ND_FRAME, data->scene);
@@ -864,13 +876,14 @@ bool ABC_import(bContext *C, const char *filepath, float scale, bool is_sequence
 
 	G.is_break = false;
 
+	bool import_ok = false;
 	if (as_background_job) {
 		wmJob *wm_job = WM_jobs_get(CTX_wm_manager(C),
-									CTX_wm_window(C),
-									job->scene,
-									"Alembic Import",
-									WM_JOB_PROGRESS,
-									WM_JOB_TYPE_ALEMBIC);
+		                            CTX_wm_window(C),
+		                            job->scene,
+		                            "Alembic Import",
+		                            WM_JOB_PROGRESS,
+		                            WM_JOB_TYPE_ALEMBIC);
 
 		/* setup job */
 		WM_jobs_customdata_set(wm_job, job, import_freejob);
@@ -886,9 +899,12 @@ bool ABC_import(bContext *C, const char *filepath, float scale, bool is_sequence
 
 		import_startjob(job, &stop, &do_update, &progress);
 		import_endjob(job);
+		import_ok = job->import_ok;
+
+		import_freejob(job);
 	}
 
-	return job->import_ok;
+	return import_ok;
 }
 
 /* ************************************************************************** */
@@ -923,43 +939,13 @@ DerivedMesh *ABC_read_mesh(CacheReader *reader,
 	}
 
 	const ObjectHeader &header = iobject.getHeader();
+	if (!abc_reader->accepts_object_type(header, ob, err_str)) {
+		/* err_str is set by acceptsObjectType() */
+		return NULL;
+	}
+
 	ISampleSelector sample_sel(time);
-
-	if (IPolyMesh::matches(header)) {
-		if (ob->type != OB_MESH) {
-			*err_str = "Object type mismatch: object path points to a mesh!";
-			return NULL;
-		}
-
-		return abc_reader->read_derivedmesh(dm, sample_sel, read_flag, err_str);
-	}
-	else if (ISubD::matches(header)) {
-		if (ob->type != OB_MESH) {
-			*err_str = "Object type mismatch: object path points to a subdivision mesh!";
-			return NULL;
-		}
-
-		return abc_reader->read_derivedmesh(dm, sample_sel, read_flag, err_str);
-	}
-	else if (IPoints::matches(header)) {
-		if (ob->type != OB_MESH) {
-			*err_str = "Object type mismatch: object path points to a point cloud (requires a mesh object)!";
-			return NULL;
-		}
-
-		return abc_reader->read_derivedmesh(dm, sample_sel, read_flag, err_str);
-	}
-	else if (ICurves::matches(header)) {
-		if (ob->type != OB_CURVE) {
-			*err_str = "Object type mismatch: object path points to a curve!";
-			return NULL;
-		}
-
-		return abc_reader->read_derivedmesh(dm, sample_sel, read_flag, err_str);
-	}
-
-	*err_str = "Unsupported object type: verify object path"; // or poke developer
-	return NULL;
+	return abc_reader->read_derivedmesh(dm, sample_sel, read_flag, err_str);
 }
 
 /* ************************************************************************** */
@@ -972,6 +958,12 @@ void CacheReader_free(CacheReader *reader)
 	if (abc_reader->refcount() == 0) {
 		delete abc_reader;
 	}
+}
+
+void CacheReader_incref(CacheReader *reader)
+{
+	AbcObjectReader *abc_reader = reinterpret_cast<AbcObjectReader *>(reader);
+	abc_reader->incref();
 }
 
 CacheReader *CacheReader_open_alembic_object(AbcArchiveHandle *handle, CacheReader *reader, Object *object, const char *object_path)
