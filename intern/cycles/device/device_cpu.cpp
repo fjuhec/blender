@@ -238,6 +238,8 @@ public:
 		REGISTER_SPLIT_KERNEL(do_volume);
 		REGISTER_SPLIT_KERNEL(queue_enqueue);
 		REGISTER_SPLIT_KERNEL(indirect_background);
+		REGISTER_SPLIT_KERNEL(shader_setup);
+		REGISTER_SPLIT_KERNEL(shader_sort);
 		REGISTER_SPLIT_KERNEL(shader_eval);
 		REGISTER_SPLIT_KERNEL(holdout_emission_blurring_pathtermination_ao);
 		REGISTER_SPLIT_KERNEL(subsurface_scatter);

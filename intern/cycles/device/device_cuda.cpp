@@ -122,6 +122,7 @@ public:
 	int cuDevId;
 	int cuDevArchitecture;
 	bool first_error;
+	CUDASplitKernel *split_kernel;
 
 	struct PixelMem {
 		GLuint cuPBO;
@@ -224,6 +225,8 @@ public:
 		cuDevice = 0;
 		cuContext = 0;
 
+		split_kernel = NULL;
+
 		need_bindless_mapping = false;
 
 		/* intialize */
@@ -262,6 +265,8 @@ public:
 	~CUDADevice()
 	{
 		task_pool.stop();
+
+		delete split_kernel;
 
 		if(info.has_bindless_textures) {
 			tex_free(bindless_mapping);
@@ -1703,14 +1708,15 @@ public:
 			load_bindless_mapping();
 
 			DeviceRequestedFeatures requested_features;
-			CUDASplitKernel *split_kernel = NULL;
 			if(use_split_kernel()) {
 				if(!use_adaptive_compilation()) {
 					requested_features.max_closure = 64;
 				}
 
-				split_kernel = new CUDASplitKernel(this);
-				split_kernel->load_kernels(requested_features);
+				if(split_kernel == NULL) {
+					split_kernel = new CUDASplitKernel(this);
+					split_kernel->load_kernels(requested_features);
+				}
 			}
 
 			/* keep rendering tiles until done */
@@ -1753,8 +1759,6 @@ public:
 						break;
 				}
 			}
-
-			delete split_kernel;
 		}
 		else if(task->type == DeviceTask::SHADER) {
 			/* Upload Bindless Mapping */
@@ -2031,7 +2035,8 @@ int2 CUDASplitKernel::split_kernel_global_size(device_memory& kg, device_memory&
 	        << string_human_readable_size(free) << ").";
 
 	size_t num_elements = max_elements_for_max_buffer_size(kg, data, free / 2);
-	int2 global_size = make_int2(round_down((int)sqrt(num_elements), 32), (int)sqrt(num_elements));
+	size_t side = round_down((int)sqrt(num_elements), 32);
+	int2 global_size = make_int2(side, round_down(num_elements / side, 16));
 	VLOG(1) << "Global size: " << global_size << ".";
 	return global_size;
 }
