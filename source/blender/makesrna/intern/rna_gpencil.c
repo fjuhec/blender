@@ -129,15 +129,7 @@ static void rna_GPencilLayer_line_width_range(PointerRNA *ptr, int *min, int *ma
 {
 	bGPDlayer *gpl = ptr->data;
 	
-	/* The restrictions on max width here are due to OpenGL on Windows not supporting
-	 * any widths greater than 10 (for driver-drawn) strokes/points.
-	 *
-	 * Although most of our 2D strokes also don't suffer from this restriction,
-	 * it's relatively hard to test for that. So, for now, only volumetric strokes
-	 * get to be larger...
-	 */
-
-	/* From GP v2 this value is used to increase or decrease the thickness of the stroke */
+		/* From GP v2 this value is used to increase or decrease the thickness of the stroke */
 	if (gpl->flag & GP_LAYER_VOLUMETRIC) {
 		*min = -300;
 		*max = 300;
@@ -146,11 +138,11 @@ static void rna_GPencilLayer_line_width_range(PointerRNA *ptr, int *min, int *ma
 		*softmax = 100;
 	}
 	else {
-		*min = -10;
-		*max = 10;
+		*min = -50;
+		*max = 50;
 		
-		*softmin = -10;
-		*softmax = 10;
+		*softmin = -50;
+		*softmax = 50;
 	}
 }
 
@@ -959,7 +951,6 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
 	/* Line Thickness change */
 	prop = RNA_def_property(srna, "line_change", PROP_INT, PROP_PIXEL);
 	RNA_def_property_int_sdna(prop, NULL, "thickness");
-	//RNA_def_property_range(prop, 1, 10); /* 10 px limit comes from Windows OpenGL limits for natively-drawn strokes */
 	RNA_def_property_int_funcs(prop, NULL, NULL, "rna_GPencilLayer_line_width_range");
 	RNA_def_property_ui_text(prop, "Thickness", "Thickness change to apply to current strokes (in pixels)");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
