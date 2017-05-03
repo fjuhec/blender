@@ -74,7 +74,11 @@ typedef struct DRWInterface DRWInterface;
 typedef struct DRWPass DRWPass;
 typedef struct DRWShadingGroup DRWShadingGroup;
 
-#define DRW_VIEWPORT_LIST_SIZE(list) (sizeof(list) == sizeof(char) ? 0 : ((sizeof(list)) / sizeof(void *)))
+/* declare members as empty (unused) */
+typedef char DRWViewportEmptyList;
+
+#define DRW_VIEWPORT_LIST_SIZE(list) \
+	(sizeof(list) == sizeof(DRWViewportEmptyList) ? 0 : ((sizeof(list)) / sizeof(void *)))
 
 /* Unused members must be either pass list or 'char *' when not usd. */
 #define DRW_VIEWPORT_DATA_SIZE(ty) { \
@@ -245,6 +249,9 @@ typedef enum {
 	DRW_STATE_TEST_STENCIL_ACTIVE  = (1 << 17),
 } DRWState;
 
+#define DRW_STATE_DEFAULT (DRW_STATE_WRITE_DEPTH | DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS)
+
+
 DRWShadingGroup *DRW_shgroup_create(struct GPUShader *shader, DRWPass *pass);
 DRWShadingGroup *DRW_shgroup_material_create(struct GPUMaterial *material, DRWPass *pass);
 DRWShadingGroup *DRW_shgroup_material_instance_create(struct GPUMaterial *material, DRWPass *pass, struct Batch *geom);
@@ -263,7 +270,7 @@ void DRW_shgroup_call_dynamic_add_array(DRWShadingGroup *shgroup, const void *at
 	DRW_shgroup_call_dynamic_add_array(shgroup, NULL, 0); \
 } while (0)
 
-void DRW_shgroup_state_set(DRWShadingGroup *shgroup, DRWState state);
+void DRW_shgroup_state_enable(DRWShadingGroup *shgroup, DRWState state);
 void DRW_shgroup_attrib_int(DRWShadingGroup *shgroup, const char *name, int size);
 void DRW_shgroup_attrib_float(DRWShadingGroup *shgroup, const char *name, int size);
 
@@ -284,6 +291,7 @@ void DRW_shgroup_uniform_mat4(DRWShadingGroup *shgroup, const char *name, const 
 
 /* Passes */
 DRWPass *DRW_pass_create(const char *name, DRWState state);
+void DRW_pass_foreach_shgroup(DRWPass *pass, void (*callback)(void *userData, DRWShadingGroup *shgrp), void *userData);
 
 /* Viewport */
 typedef enum {
@@ -319,6 +327,7 @@ void DRW_draw_text_cache_queue(struct DRWTextStore *dt);
 void DRW_draw_callbacks_pre_scene(void);
 void DRW_draw_callbacks_post_scene(void);
 
+void DRW_state_reset_ex(DRWState state);
 void DRW_state_reset(void);
 
 /* Selection */

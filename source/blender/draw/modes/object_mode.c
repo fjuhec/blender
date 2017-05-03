@@ -752,7 +752,7 @@ static void OBJECT_cache_init(void *vedata)
 
 		/* Relationship Lines */
 		stl->g_data->relationship_lines = shgroup_dynlines_uniform_color(psl->non_meshes, ts.colorWire);
-		DRW_shgroup_state_set(stl->g_data->relationship_lines, DRW_STATE_STIPPLE_3);
+		DRW_shgroup_state_enable(stl->g_data->relationship_lines, DRW_STATE_STIPPLE_3);
 
 		/* Force Field Curve Guide End (here because of stipple) */
 		geom = DRW_cache_screenspace_circle_get();
@@ -870,7 +870,7 @@ static void DRW_shgroup_lamp(OBJECT_StorageList *stl, Object *ob, SceneLayer *sl
 		mul_m4_m4m4(spotblendmat, shapemat, sizemat);
 
 		if (la->mode & LA_SQUARE) {
-			DRW_shgroup_call_dynamic_add(stl->g_data->lamp_spot_pyramid,    color, &one, shapemat);
+			DRW_shgroup_call_dynamic_add(stl->g_data->lamp_spot_pyramid, color, &one, shapemat);
 
 			/* hide line if it is zero size or overlaps with outer border,
 			 * previously it adjusted to always to show it but that seems
@@ -880,7 +880,7 @@ static void DRW_shgroup_lamp(OBJECT_StorageList *stl, Object *ob, SceneLayer *sl
 			}
 		}
 		else {
-			DRW_shgroup_call_dynamic_add(stl->g_data->lamp_spot_cone,  color, shapemat);
+			DRW_shgroup_call_dynamic_add(stl->g_data->lamp_spot_cone, color, shapemat);
 
 			/* hide line if it is zero size or overlaps with outer border,
 			 * previously it adjusted to always to show it but that seems
@@ -890,7 +890,7 @@ static void DRW_shgroup_lamp(OBJECT_StorageList *stl, Object *ob, SceneLayer *sl
 			}
 		}
 
-		DRW_shgroup_call_dynamic_add(stl->g_data->lamp_buflimit,        color, &la->clipsta, &la->clipend, ob->obmat);
+		DRW_shgroup_call_dynamic_add(stl->g_data->lamp_buflimit, color, &la->clipsta, &la->clipend, ob->obmat);
 		DRW_shgroup_call_dynamic_add(stl->g_data->lamp_buflimit_points, color, &la->clipsta, &la->clipend, ob->obmat);
 	}
 	else if (la->type == LA_HEMI) {
@@ -1189,7 +1189,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 
 	if (do_outlines) {
 		Object *obedit = scene->obedit;
-		if (ob != obedit) {
+		if (ob != obedit && !(sl->basact->object == ob && ob->mode & OB_MODE_WEIGHT_PAINT)) {
 			struct Batch *geom = DRW_cache_object_surface_get(ob);
 			if (geom) {
 				theme_id = DRW_object_wire_theme_get(ob, sl, NULL);
@@ -1249,15 +1249,10 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 		{
 			bArmature *arm = ob->data;
 			if (arm->edbo == NULL) {
-				if ((ob->mode & OB_MODE_POSE) && (ob == OBACT_NEW)) {
-					DRW_shgroup_armature_pose(
-					        ob, psl->bone_solid, psl->bone_wire,
-					        stl->g_data->relationship_lines);
-				}
-				else {
+				if (DRW_state_is_select() || !DRW_pose_mode_armature(ob, OBACT_NEW)) {
 					DRW_shgroup_armature_object(
-					        ob, sl, psl->bone_solid, psl->bone_wire,
-					        stl->g_data->relationship_lines);
+							ob, sl, psl->bone_solid, psl->bone_wire,
+							stl->g_data->relationship_lines);
 				}
 			}
 			break;

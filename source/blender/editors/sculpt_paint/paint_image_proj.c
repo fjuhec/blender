@@ -5025,8 +5025,9 @@ void paint_proj_stroke(
 
 		view3d_operator_needs_opengl(C);
 
-		if (!ED_view3d_autodist(graph, scene, ar, v3d, mval_i, cursor, false, NULL))
+		if (!ED_view3d_autodist(graph, ar, v3d, mval_i, cursor, false, NULL)) {
 			return;
+		}
 
 		ED_region_tag_redraw(ar);
 
@@ -5204,7 +5205,7 @@ void *paint_proj_new_stroke(bContext *C, Object *ob, const float mouse[2], int m
 
 		project_state_init(C, ob, ps, mode);
 
-		if (ps->ob == NULL || !(ps->ob->lay & ps->v3d->lay)) {
+		if (ps->ob == NULL || !(ob->base_flag & BASE_VISIBLED)) {
 			ps_handle->ps_views_tot = i + 1;
 			goto fail;
 		}

@@ -47,8 +47,8 @@ typedef struct EDIT_ARMATURE_StorageList {
 
 typedef struct EDIT_ARMATURE_Data {
 	void *engine_type;
-	char *fbl;
-	char *txl;
+	DRWViewportEmptyList *fbl;
+	DRWViewportEmptyList *txl;
 	EDIT_ARMATURE_PassList *psl;
 	EDIT_ARMATURE_StorageList *stl;
 } EDIT_ARMATURE_Data;
@@ -90,7 +90,7 @@ static void EDIT_ARMATURE_cache_init(void *vedata)
 
 		/* Relationship Lines */
 		stl->g_data->relationship_lines = shgroup_dynlines_uniform_color(psl->relationship, ts.colorWire);
-		DRW_shgroup_state_set(stl->g_data->relationship_lines, DRW_STATE_STIPPLE_3);
+		DRW_shgroup_state_enable(stl->g_data->relationship_lines, DRW_STATE_STIPPLE_3);
 	}
 }
 

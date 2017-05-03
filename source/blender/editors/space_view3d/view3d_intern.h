@@ -213,7 +213,7 @@ void view3d_draw_region_info(const struct bContext *C, struct ARegion *ar);
 
 void ED_view3d_draw_depth(
         struct Depsgraph *graph,
-        Scene *scene, struct ARegion *ar, View3D *v3d, bool alphaoverride);
+        struct ARegion *ar, View3D *v3d, bool alphaoverride);
 
 /* view3d_draw_legacy.c */
 void view3d_main_region_draw_legacy(const struct bContext *C, struct ARegion *ar);
@@ -361,5 +361,14 @@ void VP_drawviewborder(Scene *scene, ARegion *ar, View3D *v3d);
 void VP_drawrenderborder(ARegion *ar, View3D *v3d);
 void VP_view3d_draw_background_none(void);
 void VP_view3d_draw_background_world(Scene *scene, View3D *v3d, RegionView3D *rv3d);
+void VP_view3d_main_region_clear(Scene *scene, View3D *v3d, ARegion *ar);
+
+/* temporary legacy calls, only when there is a switch between new/old draw calls */
+void VP_deprecated_gpu_update_lamps_shadows_world(Scene *scene, View3D *v3d);
+void VP_deprecated_view3d_draw_objects(
+        const struct bContext *C,
+        Scene *scene, View3D *v3d, ARegion *ar,
+        const char **grid_unit,
+        const bool do_bgpic, const bool draw_offscreen, struct GPUFX *fx);
 
 #endif /* __VIEW3D_INTERN_H__ */

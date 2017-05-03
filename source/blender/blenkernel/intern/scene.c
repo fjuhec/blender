@@ -112,6 +112,7 @@
 const char *RE_engine_id_BLENDER_RENDER = "BLENDER_RENDER";
 const char *RE_engine_id_BLENDER_GAME = "BLENDER_GAME";
 const char *RE_engine_id_BLENDER_CLAY = "BLENDER_CLAY";
+const char *RE_engine_id_BLENDER_EEVEE = "BLENDER_EEVEE";
 const char *RE_engine_id_CYCLES = "CYCLES";
 
 void free_avicodecdata(AviCodecData *acd)
@@ -1419,13 +1420,19 @@ static bool check_rendered_viewport_visible(Main *bmain)
 	wmWindow *window;
 	for (window = wm->windows.first; window != NULL; window = window->next) {
 		const bScreen *screen = BKE_workspace_active_screen_get(window->workspace_hook);
-
-		for (ScrArea *area = screen->areabase.first; area != NULL; area = area->next) {
+		Scene *scene = window->scene;
+		ScrArea *area;
+		RenderEngineType *type = RE_engines_find(scene->r.engine);
+		if ((type->draw_engine != NULL) || (type->render_to_view == NULL)) {
+			continue;
+		}
+		const bool use_legacy = (type->flag & RE_USE_LEGACY_PIPELINE) != 0;
+		for (area = screen->areabase.first; area != NULL; area = area->next) {
 			View3D *v3d = area->spacedata.first;
 			if (area->spacetype != SPACE_VIEW3D) {
 				continue;
 			}
-			if (v3d->drawtype == OB_RENDER) {
+			if (v3d->drawtype == OB_RENDER || !use_legacy) {
 				return true;
 			}
 		}
@@ -1617,6 +1624,11 @@ bool BKE_scene_remove_render_layer(Main *bmain, Scene *scene, SceneRenderLayer *
 
 	BKE_freestyle_config_free(&srl->freestyleConfig);
 
+	if (srl->prop) {
+		IDP_FreeProperty(srl->prop);
+		MEM_freeN(srl->prop);
+	}
+
 	BLI_remlink(&scene->r.layers, srl);
 	MEM_freeN(srl);
 
@@ -1787,6 +1799,11 @@ bool BKE_scene_uses_blender_internal(const  Scene *scene)
 bool BKE_scene_uses_blender_game(const Scene *scene)
 {
 	return STREQ(scene->r.engine, RE_engine_id_BLENDER_GAME);
+}
+
+bool BKE_scene_uses_blender_eevee(const Scene *scene)
+{
+	return STREQ(scene->r.engine, RE_engine_id_BLENDER_EEVEE);
 }
 
 void BKE_scene_base_flag_to_objects(SceneLayer *sl)
