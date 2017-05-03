@@ -48,22 +48,38 @@
 #include "UI_resources.h"
 
 /* set stroke point to vbo */
-static void gpencil_set_stroke_point(VertexBuffer *vbo, const bGPDspoint *pt, int idx,
+static void gpencil_set_stroke_point(RegionView3D *rv3d, VertexBuffer *vbo, float matrix[4][4], const bGPDspoint *pt, int idx,
 						    unsigned int pos_id, unsigned int color_id,
 							unsigned int thickness_id, short thickness,
 	                        const float ink[4], bool inverse)
 {
 	float fpt[3];
+	float viewfpt[3];
+	copy_v3_v3(fpt, &pt->x);
+	
+	copy_v3_v3(viewfpt, &pt->x);
+	mul_m4_v3(matrix, viewfpt);
+
+	const float defaultpixsize = rv3d->pixsize * U.pixelsize;
+	const float pixsize = ED_view3d_pixel_size(rv3d, viewfpt);
+	float scale_thickness;
+	if (rv3d->is_persp) {
+		scale_thickness = (defaultpixsize / pixsize); 
+		/* need a factor to mimmic old glLine size, 10.0f works fine */
+		scale_thickness *= 10.0f;
+	}
+	else {
+		scale_thickness = (1.0f / pixsize) / 100.0f;
+	}
 
 	float alpha = ink[3] * pt->strength;
 	CLAMP(alpha, GPENCIL_STRENGTH_MIN, 1.0f);
 	float col[4] = { ink[0], ink[1], ink[2], alpha };
 	VertexBuffer_set_attrib(vbo, color_id, idx, col);
 
-	float thick = max_ff(pt->pressure * thickness, 1.0f);
+	float thick = max_ff(pt->pressure * thickness * scale_thickness, 1.0f);
 	VertexBuffer_set_attrib(vbo, thickness_id, idx, &thick);
 	
-	copy_v3_v3(fpt, &pt->x);
 	if (inverse) {
 		mul_v3_fl(fpt, -1.0f);
 	}
@@ -98,8 +114,11 @@ Batch *gpencil_get_point_geom(bGPDspoint *pt, short thickness, const float ink[4
 }
 
 /* create batch geometry data for stroke shader */
-Batch *gpencil_get_stroke_geom(bGPDstroke *gps, short thickness, const float ink[4])
+Batch *gpencil_get_stroke_geom(bGPDframe *gpf, bGPDstroke *gps, short thickness, const float ink[4])
 {
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	RegionView3D *rv3d = draw_ctx->rv3d;
+
 	bGPDspoint *points = gps->points;
 	int totpoints = gps->totpoints;
 	/* if cyclic needs more vertex */
@@ -122,27 +141,27 @@ Batch *gpencil_get_stroke_geom(bGPDstroke *gps, short thickness, const float ink
 	for (int i = 0; i < totpoints; i++, pt++) {
 		/* first point for adjacency (not drawn) */
 		if (i == 0) {
-			gpencil_set_stroke_point(vbo, pt, idx, pos_id, color_id, thickness_id, thickness, ink, true);
+			gpencil_set_stroke_point(rv3d, vbo, gpf->matrix, pt, idx, pos_id, color_id, thickness_id, thickness, ink, true);
 			++idx;
 		}
 		/* set point */
-		gpencil_set_stroke_point(vbo, pt, idx, pos_id, color_id, thickness_id, thickness, ink, false);
+		gpencil_set_stroke_point(rv3d, vbo, gpf->matrix, pt, idx, pos_id, color_id, thickness_id, thickness, ink, false);
 		++idx;
 	}
 
 	if (gps->flag & GP_STROKE_CYCLIC && totpoints > 2) {
 		/* draw line to first point to complete the cycle */
-		gpencil_set_stroke_point(vbo, &points[0], idx, pos_id, color_id, thickness_id, thickness, ink, false);
+		gpencil_set_stroke_point(rv3d, vbo, gpf->matrix, &points[0], idx, pos_id, color_id, thickness_id, thickness, ink, false);
 		++idx;
 		/* now add adjacency points using 2nd & 3rd point to get smooth transition */
-		gpencil_set_stroke_point(vbo, &points[1], idx, pos_id, color_id, thickness_id, thickness, ink, false);
+		gpencil_set_stroke_point(rv3d, vbo, gpf->matrix, &points[1], idx, pos_id, color_id, thickness_id, thickness, ink, false);
 		++idx;
-		gpencil_set_stroke_point(vbo, &points[2], idx, pos_id, color_id, thickness_id, thickness, ink, false);
+		gpencil_set_stroke_point(rv3d, vbo, gpf->matrix, &points[2], idx, pos_id, color_id, thickness_id, thickness, ink, false);
 		++idx;
 	}
 	/* last adjacency point (not drawn) */
 	else {
-		gpencil_set_stroke_point(vbo, &points[totpoints - 1], idx, pos_id, color_id, thickness_id, thickness, ink, true);
+		gpencil_set_stroke_point(rv3d, vbo, gpf->matrix, &points[totpoints - 1], idx, pos_id, color_id, thickness_id, thickness, ink, true);
 	}
 
 	return Batch_create(PRIM_LINE_STRIP_ADJACENCY, vbo, NULL);
@@ -227,12 +246,13 @@ Batch *gpencil_get_buffer_point_geom(bGPdata *gpd, short thickness)
 }
 
 /* create batch geometry data for current buffer stroke shader */
-Batch *gpencil_get_buffer_stroke_geom(bGPdata *gpd, short thickness)
+Batch *gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], short thickness)
 {
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
 	View3D *v3d = draw_ctx->v3d;
 	ARegion *ar = draw_ctx->ar;
+	RegionView3D *rv3d = draw_ctx->rv3d;
 
 	tGPspoint *points = gpd->sbuffer;
 	int totpoints = gpd->sbuffer_size;
@@ -258,16 +278,16 @@ Batch *gpencil_get_buffer_stroke_geom(bGPdata *gpd, short thickness)
 
 		/* first point for adjacency (not drawn) */
 		if (i == 0) {
-			gpencil_set_stroke_point(vbo, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor, true);
+			gpencil_set_stroke_point(rv3d, vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor, true);
 			++idx;
 		}
 		/* set point */
-		gpencil_set_stroke_point(vbo, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor, false);
+		gpencil_set_stroke_point(rv3d, vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor, false);
 		++idx;
 	}
 
 	/* last adjacency point (not drawn) */
-	gpencil_set_stroke_point(vbo, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor, true);
+	gpencil_set_stroke_point(rv3d, vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor, true);
 
 	return Batch_create(PRIM_LINE_STRIP_ADJACENCY, vbo, NULL);
 }

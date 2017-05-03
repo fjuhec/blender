@@ -29,11 +29,8 @@
 #include "BKE_gpencil.h"
 #include "BKE_image.h"
 #include "ED_gpencil.h"
-#include "ED_view3d.h"
 
 #include "DNA_gpencil_types.h"
-#include "DNA_screen_types.h"
-#include "DNA_view3d_types.h"
 
  /* If builtin shaders are needed */
 #include "GPU_shader.h"
@@ -111,7 +108,6 @@ static struct {
 	struct GPUShader *gpencil_stroke_sh;
 	struct GPUShader *gpencil_volumetric_sh;
 	struct GPUShader *gpencil_drawing_fill_sh;
-	float scale;
 } e_data = {NULL}; /* Engine data */
 
 /* *********** FUNCTIONS *********** */
@@ -227,58 +223,14 @@ static DRWShadingGroup *GPENCIL_shgroup_point_volumetric_create(GPENCIL_Data *ve
 	return grp;
 }
 
-/* calculate scale of viewport */
-static float get_view_scale(ARegion *ar, View3D *v3d)
-{
-	RegionView3D *rv3d = ar->regiondata;
-
-	double fx = rv3d->persmat[3][0];
-	double fy = rv3d->persmat[3][1];
-	double fw = rv3d->persmat[3][3];
-
-	const double wx = 0.5 * ar->winx;  /* use double precision to avoid rounding errors */
-	const double wy = 0.5 * ar->winy;
-
-	double x = wx * fx / fw;
-	double y = wy * fy / fw;
-
-	double vec4[4] = { 1.0, 1.0, 0.0, 1.0 };
-	mul_m4_v4d(rv3d->persmat, vec4);
-	fx = vec4[0];
-	fy = vec4[1];
-	fw = vec4[3];
-
-	double dx = fabs(x - wx * fx / fw);
-	if (dx == 0) dx = fabs(y - wy * fy / fw);
-
-	x += wx;
-	y += wy;
-
-	/* apply a factor to get more thick lines */
-	dx = dx / 100.0f;
-
-	if (dx < 0.0001f) {
-		dx = 0.0001f;
-	}
-
-	return dx;
-}
-
 /* create shading group for strokes */
 static DRWShadingGroup *GPENCIL_shgroup_stroke_create(GPENCIL_Data *vedata, DRWPass *pass, PaletteColor *palcolor)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
-	const DRWContextState *draw_ctx = DRW_context_state_get();
-	ARegion *ar = draw_ctx->ar;
-	View3D *v3d = draw_ctx->v3d;
 	const float *viewport_size = DRW_viewport_size_get();
-
-	/* TODO: need a better way to detect the scale factor */
-	e_data.scale = get_view_scale(ar, v3d);
 
 	DRWShadingGroup *grp = DRW_shgroup_create(e_data.gpencil_stroke_sh, pass);
 	DRW_shgroup_uniform_vec2(grp, "Viewport", viewport_size, 1);
-	DRW_shgroup_uniform_float(grp, "scale", &e_data.scale, 1);
 
 	return grp;
 }
@@ -460,7 +412,7 @@ static void gpencil_draw_strokes(void *vedata, ToolSettings *ts, Object *ob,
 		short sthickness = gps->thickness + gpl->thickness;
 		if (sthickness > 0) {
 			if (gps->totpoints > 1) {
-				struct Batch *stroke_geom = gpencil_get_stroke_geom(gps, sthickness, ink);
+				struct Batch *stroke_geom = gpencil_get_stroke_geom(gpf, gps, sthickness, ink);
 				DRW_shgroup_call_add(strokegrp, stroke_geom, gpf->matrix);
 			}
 			else if (gps->totpoints == 1) {
@@ -521,7 +473,7 @@ static void gpencil_draw_buffer_strokes(void *vedata, ToolSettings *ts, bGPdata 
 			}
 			else {
 				/* use unit matrix because the buffer is in screen space and does not need conversion */
-				struct Batch *drawing_stroke_geom = gpencil_get_buffer_stroke_geom(gpd, lthick);
+				struct Batch *drawing_stroke_geom = gpencil_get_buffer_stroke_geom(gpd, matrix, lthick);
 				DRW_shgroup_call_add(stl->g_data->shgrps_drawing_stroke, drawing_stroke_geom, matrix);
 
 				if ((gpd->sbuffer_size >= 3) && ((gpd->sfill[3] > GPENCIL_ALPHA_OPACITY_THRESH) || (gpd->bfill_style > 0))) {

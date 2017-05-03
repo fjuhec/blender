@@ -1,6 +1,5 @@
 uniform mat4 ModelViewProjectionMatrix;
 uniform vec2 Viewport;
-uniform float scale;
 
 layout(lines_adjacency) in;
 layout(triangle_strip, max_vertices = 7) out;
@@ -73,12 +72,12 @@ void main(void)
 		if (dot(v0, n1) > 0) {
 			mTexCoord = vec2(0, 0);
 			mColor = finalColor[1];
-			gl_Position = vec4((sp1 + (finalThickness[1] * scale) * n0) / Viewport, 0.0, 1.0);
+			gl_Position = vec4((sp1 + finalThickness[1] * n0) / Viewport, 0.0, 1.0);
 			EmitVertex();
 
 			mTexCoord = vec2(0, 0);
 			mColor = finalColor[1];
-			gl_Position = vec4((sp1 + (finalThickness[1] * scale) * n1) / Viewport, 0.0, 1.0);
+			gl_Position = vec4((sp1 + finalThickness[1] * n1) / Viewport, 0.0, 1.0);
 			EmitVertex();
 
 			mTexCoord = vec2(0, 0.5);
@@ -91,12 +90,12 @@ void main(void)
 		else {
 			mTexCoord = vec2(0, 1);
 			mColor = finalColor[1];
-			gl_Position = vec4((sp1 - (finalThickness[1] * scale) * n1) / Viewport, 0.0, 1.0);
+			gl_Position = vec4((sp1 - finalThickness[1] * n1) / Viewport, 0.0, 1.0);
 			EmitVertex();
 
 			mTexCoord = vec2(0, 1);
 			mColor = finalColor[1];
-			gl_Position = vec4((sp1 - (finalThickness[1] * scale) * n0) / Viewport, 0.0, 1.0);
+			gl_Position = vec4((sp1 - finalThickness[1] * n0) / Viewport, 0.0, 1.0);
 			EmitVertex();
 
 			mTexCoord = vec2(0, 0.5);
@@ -116,22 +115,22 @@ void main(void)
 	/* generate the triangle strip */
 	mTexCoord = vec2(0, 0);
 	mColor = finalColor[1];
-	gl_Position = vec4((sp1 + (length_a * scale) * miter_a) / Viewport, 0.0, 1.0);
+	gl_Position = vec4((sp1 + length_a * miter_a) / Viewport, 0.0, 1.0);
 	EmitVertex();
 
 	mTexCoord = vec2(0, 1);
 	mColor = finalColor[1];
-	gl_Position = vec4((sp1 - (length_a * scale) * miter_a) / Viewport, 0.0, 1.0);
+	gl_Position = vec4((sp1 - length_a * miter_a) / Viewport, 0.0, 1.0);
 	EmitVertex();
 
 	mTexCoord = vec2(0, 0);
 	mColor = finalColor[2];
-	gl_Position = vec4((sp2 + (length_b * scale) * miter_b) / Viewport, 0.0, 1.0);
+	gl_Position = vec4((sp2 + length_b * miter_b) / Viewport, 0.0, 1.0);
 	EmitVertex();
 
 	mTexCoord = vec2(0, 1);
 	mColor = finalColor[2];
-	gl_Position = vec4((sp2 - (length_b * scale) * miter_b) / Viewport, 0.0, 1.0);
+	gl_Position = vec4((sp2 - length_b * miter_b) / Viewport, 0.0, 1.0);
 	EmitVertex();
 
 	EndPrimitive();
