@@ -663,8 +663,7 @@ public:
 		kgbuffer.resize(1);
 		mem_alloc("kernel_globals", kgbuffer, MEM_READ_WRITE);
 
-		KernelGlobals *kg = (KernelGlobals*)kgbuffer.device_pointer;
-		*kg = thread_kernel_globals_init();
+		KernelGlobals *kg = new((void*)kgbuffer.device_pointer) KernelGlobals(thread_kernel_globals_init());
 
 		CPUSplitKernel *split_kernel = NULL;
 		if(use_split_kernel) {
