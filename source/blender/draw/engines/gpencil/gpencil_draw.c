@@ -64,9 +64,8 @@ static void gpencil_set_stroke_point(RegionView3D *rv3d, VertexBuffer *vbo, floa
 	const float pixsize = ED_view3d_pixel_size(rv3d, viewfpt);
 	float scale_thickness;
 	if (rv3d->is_persp) {
-		scale_thickness = (defaultpixsize / pixsize); 
 		/* need a factor to mimmic old glLine size, 10.0f works fine */
-		scale_thickness *= 10.0f;
+		scale_thickness = (defaultpixsize / pixsize) * 10.0f;
 	}
 	else {
 		scale_thickness = (1.0f / pixsize) / 100.0f;
