@@ -2041,9 +2041,6 @@ SceneRenderLayer *BKE_scene_add_render_layer(Scene *sce, const char *name)
 	srl->layflag = 0x7FFF;   /* solid ztra halo edge strand */
 	srl->passflag = SCE_PASS_COMBINED | SCE_PASS_Z;
 	srl->pass_alpha_threshold = 0.5f;
-	srl->denoising_flag = SCE_DENOISING_PASS_DIFFDIR|SCE_DENOISING_PASS_GLOSSDIR|SCE_DENOISING_PASS_TRANSDIR|SCE_DENOISING_PASS_SUBDIR|
-                           SCE_DENOISING_PASS_DIFFIND|SCE_DENOISING_PASS_GLOSSIND|SCE_DENOISING_PASS_TRANSIND|SCE_DENOISING_PASS_SUBIND;
-	srl->denoising_radius = 8;
 	BKE_freestyle_config_init(&srl->freestyleConfig);
 
 	return srl;

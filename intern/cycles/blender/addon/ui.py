@@ -589,7 +589,8 @@ class CyclesRender_PT_denoising(CyclesButtonsPanel, Panel):
     def draw_header(self, context):
         rd = context.scene.render
         rl = rd.layers.active
-        self.layout.prop(rl, "use_denoising", text="")
+        crl = rl.cycles
+        self.layout.prop(crl, "use_denoising", text="")
 
     def draw(self, context):
         layout = self.layout
@@ -597,26 +598,45 @@ class CyclesRender_PT_denoising(CyclesButtonsPanel, Panel):
         scene = context.scene
         rd = scene.render
         rl = rd.layers.active
+        crl = rl.cycles
 
-        col = layout.column()
+        split = layout.split()
 
+        col = split.column()
         sub = col.column(align=True)
-        sub.prop(rl, "denoising_radius")
-        sub.prop(rl, "denoising_strength", slider=True)
-        sub.prop(rl, "denoising_feature_strength", slider=True)
-        sub.prop(rl, "denoising_relative_pca")
+        sub.prop(crl, "denoising_radius", text="Radius")
+        sub.prop(crl, "denoising_strength", slider=True, text="Strength")
 
+        col = split.column()
         sub = col.column(align=True)
-        row = sub.row(align=True)
-        row.prop(rl, "denoising_diffuse_direct", toggle=True)
-        row.prop(rl, "denoising_glossy_direct", toggle=True)
-        row.prop(rl, "denoising_transmission_direct", toggle=True)
-        row.prop(rl, "denoising_subsurface_direct", toggle=True)
-        row = sub.row(align=True)
-        row.prop(rl, "denoising_diffuse_indirect", toggle=True)
-        row.prop(rl, "denoising_glossy_indirect", toggle=True)
-        row.prop(rl, "denoising_transmission_indirect", toggle=True)
-        row.prop(rl, "denoising_subsurface_indirect", toggle=True)
+        sub.prop(crl, "denoising_feature_strength", slider=True, text="Feature Strength")
+        sub.prop(crl, "denoising_relative_pca")
+
+        layout.separator()
+
+        row = layout.row()
+        row.label(text="Diffuse:")
+        sub = row.row(align=True)
+        sub.prop(crl, "denoising_diffuse_direct", text="Direct", toggle=True)
+        sub.prop(crl, "denoising_diffuse_indirect", text="Indirect", toggle=True)
+
+        row = layout.row()
+        row.label(text="Glossy:")
+        sub = row.row(align=True)
+        sub.prop(crl, "denoising_glossy_direct", text="Direct", toggle=True)
+        sub.prop(crl, "denoising_glossy_indirect", text="Indirect", toggle=True)
+
+        row = layout.row()
+        row.label(text="Transmission:")
+        sub = row.row(align=True)
+        sub.prop(crl, "denoising_transmission_direct", text="Direct", toggle=True)
+        sub.prop(crl, "denoising_transmission_indirect", text="Indirect", toggle=True)
+
+        row = layout.row()
+        row.label(text="Subsurface:")
+        sub = row.row(align=True)
+        sub.prop(crl, "denoising_subsurface_direct", text="Direct", toggle=True)
+        sub.prop(crl, "denoising_subsurface_indirect", text="Indirect", toggle=True)
 
 
 class Cycles_PT_post_processing(CyclesButtonsPanel, Panel):

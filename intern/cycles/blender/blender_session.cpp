@@ -408,25 +408,27 @@ void BlenderSession::render()
 		}
 
 		buffer_params.passes = passes;
-		buffer_params.denoising_data_pass = b_layer_iter->use_denoising();
-		session->tile_manager.schedule_denoising = b_layer_iter->use_denoising();
-		session->params.use_denoising = b_layer_iter->use_denoising();
+
+		PointerRNA crl = RNA_pointer_get(&b_layer_iter->ptr, "cycles");
+		buffer_params.denoising_data_pass = get_boolean(crl, "use_denoising");
+		session->tile_manager.schedule_denoising = get_boolean(crl, "use_denoising");
+		session->params.use_denoising = get_boolean(crl, "use_denoising");
 		scene->film->denoising_data_pass = buffer_params.denoising_data_pass;
 		scene->film->denoising_flags = 0;
-		if(!b_layer_iter->denoising_diffuse_direct()) scene->film->denoising_flags |= DENOISING_CLEAN_DIFFUSE_DIR;
-		if(!b_layer_iter->denoising_diffuse_indirect()) scene->film->denoising_flags |= DENOISING_CLEAN_DIFFUSE_IND;
-		if(!b_layer_iter->denoising_glossy_direct()) scene->film->denoising_flags |= DENOISING_CLEAN_GLOSSY_DIR;
-		if(!b_layer_iter->denoising_glossy_indirect()) scene->film->denoising_flags |= DENOISING_CLEAN_GLOSSY_IND;
-		if(!b_layer_iter->denoising_transmission_direct()) scene->film->denoising_flags |= DENOISING_CLEAN_TRANSMISSION_DIR;
-		if(!b_layer_iter->denoising_transmission_indirect()) scene->film->denoising_flags |= DENOISING_CLEAN_TRANSMISSION_IND;
-		if(!b_layer_iter->denoising_subsurface_direct()) scene->film->denoising_flags |= DENOISING_CLEAN_SUBSURFACE_DIR;
-		if(!b_layer_iter->denoising_subsurface_indirect()) scene->film->denoising_flags |= DENOISING_CLEAN_SUBSURFACE_IND;
+		if(!get_boolean(crl, "denoising_diffuse_direct"))        scene->film->denoising_flags |= DENOISING_CLEAN_DIFFUSE_DIR;
+		if(!get_boolean(crl, "denoising_diffuse_indirect"))      scene->film->denoising_flags |= DENOISING_CLEAN_DIFFUSE_IND;
+		if(!get_boolean(crl, "denoising_glossy_direct"))         scene->film->denoising_flags |= DENOISING_CLEAN_GLOSSY_DIR;
+		if(!get_boolean(crl, "denoising_glossy_indirect"))       scene->film->denoising_flags |= DENOISING_CLEAN_GLOSSY_IND;
+		if(!get_boolean(crl, "denoising_transmission_direct"))   scene->film->denoising_flags |= DENOISING_CLEAN_TRANSMISSION_DIR;
+		if(!get_boolean(crl, "denoising_transmission_indirect")) scene->film->denoising_flags |= DENOISING_CLEAN_TRANSMISSION_IND;
+		if(!get_boolean(crl, "denoising_subsurface_direct"))     scene->film->denoising_flags |= DENOISING_CLEAN_SUBSURFACE_DIR;
+		if(!get_boolean(crl, "denoising_subsurface_indirect"))   scene->film->denoising_flags |= DENOISING_CLEAN_SUBSURFACE_IND;
 		scene->film->denoising_clean_pass = (scene->film->denoising_flags & DENOISING_CLEAN_ALL_PASSES);
 		buffer_params.denoising_clean_pass = scene->film->denoising_clean_pass;
-		session->params.denoising_radius = b_layer_iter->denoising_radius();
-		session->params.denoising_strength = b_layer_iter->denoising_strength();
-		session->params.denoising_feature_strength = b_layer_iter->denoising_feature_strength();
-		session->params.denoising_relative_pca = b_layer_iter->denoising_relative_pca();
+		session->params.denoising_radius = get_boolean(crl, "denoising_radius");
+		session->params.denoising_strength = get_boolean(crl, "denoising_strength");
+		session->params.denoising_feature_strength = get_boolean(crl, "denoising_feature_strength");
+		session->params.denoising_relative_pca = get_boolean(crl, "denoising_relative_pca");
 
 		scene->film->pass_alpha_threshold = b_layer_iter->pass_alpha_threshold();
 		scene->film->tag_passes_update(scene, passes);
