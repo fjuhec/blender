@@ -530,6 +530,12 @@ class CyclesRender_PT_layer_passes(CyclesButtonsPanel, Panel):
         col.prop(rl, "use_pass_emit", text="Emission")
         col.prop(rl, "use_pass_environment")
 
+        if context.scene.cycles.feature_set == 'EXPERIMENTAL':
+           col.separator()
+           sub = col.column()
+           sub.active = crl.use_denoising
+           sub.prop(crl, "denoising_store_passes", text="Denoising")
+
         if _cycles.with_cycles_debug:
           col = layout.column()
           col.prop(crl, "pass_debug_bvh_traversed_nodes")

@@ -42,27 +42,27 @@ ccl_device void kernel_filter_divide_shadow(int sample,
 	int ytile = (y < tiles->y[1])? 0: ((y < tiles->y[2])? 1: 2);
 	int tile = ytile*3+xtile;
 
-	ccl_global float ccl_restrict_ptr buffer = (ccl_global float*) tiles->buffers[tile];
 	int offset = tiles->offsets[tile];
 	int stride = tiles->strides[tile];
-	ccl_global float ccl_restrict_ptr center_buffer = buffer + (y*stride + x + offset)*buffer_pass_stride + buffer_denoising_offset;
+	ccl_global float ccl_restrict_ptr center_buffer = (ccl_global float*) tiles->buffers[tile];
+	center_buffer += (y*stride + x + offset)*buffer_pass_stride;
+	center_buffer += buffer_denoising_offset + 14;
 
 	int buffer_w = align_up(rect.z - rect.x, 4);
 	int idx = (y-rect.y)*buffer_w + (x - rect.x);
-	unfilteredA[idx] = center_buffer[15] / max(center_buffer[14], 1e-7f);
-	unfilteredB[idx] = center_buffer[18] / max(center_buffer[17], 1e-7f);
+	unfilteredA[idx] = center_buffer[1] / max(center_buffer[0], 1e-7f);
+	unfilteredB[idx] = center_buffer[4] / max(center_buffer[3], 1e-7f);
 
-	float varA, varB;
+	float varA = center_buffer[2];
+	float varB = center_buffer[5];
 	int odd_sample = (sample+1)/2;
 	int even_sample = sample/2;
 	if(use_split_variance) {
-		varA = max(0.0f, (center_buffer[16] - unfilteredA[idx]*unfilteredA[idx]*odd_sample) / (odd_sample - 1));
-		varB = max(0.0f, (center_buffer[19] - unfilteredB[idx]*unfilteredB[idx]*even_sample) / (even_sample - 1));
+		varA = max(0.0f, varA - unfilteredA[idx]*unfilteredA[idx]*odd_sample);
+		varB = max(0.0f, varB - unfilteredB[idx]*unfilteredB[idx]*even_sample);
 	}
-	else {
-		varA = center_buffer[16] / (odd_sample - 1);
-		varB = center_buffer[19] / (even_sample - 1);
-	}
+	varA /= (odd_sample - 1);
+	varB /= (even_sample - 1);
 
 	sampleVariance[idx]  = 0.5f*(varA + varB) / sample;
 	sampleVarianceV[idx] = 0.5f * (varA - varB) * (varA - varB) / (sample*sample);

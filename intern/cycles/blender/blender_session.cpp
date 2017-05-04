@@ -689,6 +689,12 @@ void BlenderSession::do_write_update_render_result(BL::RenderResult& b_rr,
 				/* copy pixels */
 				read = buffers->get_pass_rect(pass_type, exposure, sample, components, &pixels[0]);
 			}
+			else {
+				int denoising_offset = BlenderSync::get_denoising_pass(b_pass);
+				if(denoising_offset >= 0) {
+					read = buffers->get_denoising_pass_rect(denoising_offset, exposure, sample, components, &pixels[0]);
+				}
+			}
 
 			if(!read) {
 				memset(&pixels[0], 0, pixels.size()*sizeof(float));

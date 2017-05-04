@@ -1263,6 +1263,11 @@ class CyclesRenderLayerSettings(bpy.types.PropertyGroup):
                 description="When removing that don't carry information, use a relative threshold instead of an absolute one (can help to reduce artifacts, but might cause detail loss around edges)",
                 default=False,
         )
+        cls.denoising_store_passes = BoolProperty(
+                name="Store denoising passes",
+                description="Store the denoising feature passes and the noisy image",
+                default=False,
+        )
 
     @classmethod
     def unregister(cls):
