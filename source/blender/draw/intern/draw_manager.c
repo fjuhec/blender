@@ -41,6 +41,7 @@
 #include "DRW_engine.h"
 #include "DRW_render.h"
 
+#include "DNA_camera_types.h"
 #include "DNA_view3d_types.h"
 #include "DNA_screen_types.h"
 
@@ -64,6 +65,7 @@
 
 #include "RE_engine.h"
 
+#include "UI_interface.h"
 #include "UI_resources.h"
 
 #include "draw_manager_text.h"
@@ -146,12 +148,16 @@ struct DRWInterface {
 	int attribs_loc[16];
 	/* matrices locations */
 	int model;
+	int modelinverse;
 	int modelview;
+	int modelviewinverse;
 	int projection;
+	int projectioninverse;
 	int view;
 	int viewinverse;
 	int modelviewprojection;
 	int viewprojection;
+	int viewprojectioninverse;
 	int normal;
 	int worldnormal;
 	int eye;
@@ -196,7 +202,7 @@ struct DRWShadingGroup {
 	GPUShader *shader;               /* Shader to bind */
 	DRWInterface *interface;         /* Uniforms pointers */
 	ListBase calls;                  /* DRWCall or DRWCallDynamic depending of type */
-	DRWState state;                  /* State changes for this batch only */
+	DRWState state_extra;            /* State changes for this batch only (or'd with the pass's state) */
 	int type;
 
 	Batch *instance_geom;  /* Geometry to instance */
@@ -228,6 +234,9 @@ static struct DRWGlobalState {
 	GPUShader *shader;
 	ListBase bound_texs;
 	int tex_bind_id;
+
+	/* Managed by `DRW_state_set`, `DRW_state_reset` */
+	DRWState state;
 
 	/* Per viewport */
 	GPUViewport *viewport;
@@ -507,11 +516,15 @@ static DRWInterface *DRW_interface_create(GPUShader *shader)
 	DRWInterface *interface = MEM_mallocN(sizeof(DRWInterface), "DRWInterface");
 
 	interface->model = GPU_shader_get_uniform(shader, "ModelMatrix");
+	interface->modelinverse = GPU_shader_get_uniform(shader, "ModelMatrixInverse");
 	interface->modelview = GPU_shader_get_uniform(shader, "ModelViewMatrix");
+	interface->modelviewinverse = GPU_shader_get_uniform(shader, "ModelViewMatrixInverse");
 	interface->projection = GPU_shader_get_uniform(shader, "ProjectionMatrix");
+	interface->projectioninverse = GPU_shader_get_uniform(shader, "ProjectionMatrixInverse");
 	interface->view = GPU_shader_get_uniform(shader, "ViewMatrix");
 	interface->viewinverse = GPU_shader_get_uniform(shader, "ViewMatrixInverse");
 	interface->viewprojection = GPU_shader_get_uniform(shader, "ViewProjectionMatrix");
+	interface->viewprojectioninverse = GPU_shader_get_uniform(shader, "ViewProjectionMatrixInverse");
 	interface->modelviewprojection = GPU_shader_get_uniform(shader, "ModelViewProjectionMatrix");
 	interface->normal = GPU_shader_get_uniform(shader, "NormalMatrix");
 	interface->worldnormal = GPU_shader_get_uniform(shader, "WorldNormalMatrix");
@@ -608,7 +621,7 @@ DRWShadingGroup *DRW_shgroup_create(struct GPUShader *shader, DRWPass *pass)
 	shgroup->type = DRW_SHG_NORMAL;
 	shgroup->shader = shader;
 	shgroup->interface = DRW_interface_create(shader);
-	shgroup->state = 0;
+	shgroup->state_extra = 0;
 	shgroup->batch_geom = NULL;
 	shgroup->instance_geom = NULL;
 
@@ -795,11 +808,15 @@ void DRW_shgroup_call_dynamic_add_array(DRWShadingGroup *shgroup, const void *at
 	BLI_addtail(&shgroup->calls, call);
 }
 
-/* Make sure you know what you do when using this,
- * State is not revert back at the end of the shgroup */
-void DRW_shgroup_state_set(DRWShadingGroup *shgroup, DRWState state)
+/**
+ * State is added to #Pass.state while drawing.
+ * Use to temporarily enable draw options.
+ *
+ * Currently there is no way to disable (could add if needed).
+ */
+void DRW_shgroup_state_enable(DRWShadingGroup *shgroup, DRWState state)
 {
-	shgroup->state = state;
+	shgroup->state_extra |= state;
 }
 
 void DRW_shgroup_attrib_float(DRWShadingGroup *shgroup, const char *name, int size)
@@ -1019,6 +1036,13 @@ void DRW_pass_free(DRWPass *pass)
 	BLI_freelistN(&pass->shgroups);
 }
 
+void DRW_pass_foreach_shgroup(DRWPass *pass, void (*callback)(void *userData, DRWShadingGroup *shgrp), void *userData)
+{
+	for (DRWShadingGroup *shgroup = pass->shgroups.first; shgroup; shgroup = shgroup->next) {
+		callback(userData, shgroup);
+	}
+}
+
 /** \} */
 
 
@@ -1027,127 +1051,226 @@ void DRW_pass_free(DRWPass *pass)
 /** \name Draw (DRW_draw)
  * \{ */
 
-static void set_state(DRWState flag, const bool reset)
+static void DRW_state_set(DRWState state)
 {
-	/* TODO Keep track of the state and only revert what is needed */
+	if (DST.state == state) {
+		return;
+	}
 
-	if (reset) {
-		/* Depth Write */
-		if (flag & DRW_STATE_WRITE_DEPTH)
-			glDepthMask(GL_TRUE);
-		else
-			glDepthMask(GL_FALSE);
 
-		/* Color Write */
-		if (flag & DRW_STATE_WRITE_COLOR)
-			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		else
-			glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+#define CHANGED_TO(f) \
+	((DST.state & (f)) ? \
+		((state & (f)) ?  0 : -1) : \
+		((state & (f)) ?  1 :  0))
 
-		/* Backface Culling */
-		if (flag & DRW_STATE_CULL_BACK ||
-		    flag & DRW_STATE_CULL_FRONT)
+#define CHANGED_ANY(f) \
+	((DST.state & (f)) != (state & (f)))
+
+#define CHANGED_ANY_STORE_VAR(f, enabled) \
+	((DST.state & (f)) != (enabled = (state & (f))))
+
+	/* Depth Write */
+	{
+		int test;
+		if ((test = CHANGED_TO(DRW_STATE_WRITE_DEPTH))) {
+			if (test == 1) {
+				glDepthMask(GL_TRUE);
+			}
+			else {
+				glDepthMask(GL_FALSE);
+			}
+		}
+	}
+
+	/* Color Write */
+	{
+		int test;
+		if ((test = CHANGED_TO(DRW_STATE_WRITE_COLOR))) {
+			if (test == 1) {
+				glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+			}
+			else {
+				glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+			}
+		}
+	}
+
+	/* Cull */
+	{
+		DRWState test;
+		if (CHANGED_ANY_STORE_VAR(
+		        DRW_STATE_CULL_BACK | DRW_STATE_CULL_FRONT,
+		        test))
 		{
-			glEnable(GL_CULL_FACE);
+			if (test) {
+				glEnable(GL_CULL_FACE);
 
-			if (flag & DRW_STATE_CULL_BACK)
-				glCullFace(GL_BACK);
-			else if (flag & DRW_STATE_CULL_FRONT)
-				glCullFace(GL_FRONT);
+				if ((state & DRW_STATE_CULL_BACK) != 0) {
+					glCullFace(GL_BACK);
+				}
+				else if ((state & DRW_STATE_CULL_FRONT) != 0) {
+					glCullFace(GL_FRONT);
+				}
+				else {
+					BLI_assert(0);
+				}
+			}
+			else {
+				glDisable(GL_CULL_FACE);
+			}
 		}
-		else {
-			glDisable(GL_CULL_FACE);
-		}
+	}
 
-		/* Depth Test */
-		if ((flag & (DRW_STATE_DEPTH_LESS | DRW_STATE_DEPTH_EQUAL | DRW_STATE_DEPTH_GREATER)) != 0) {
-			glEnable(GL_DEPTH_TEST);
+	/* Depth Test */
+	{
+		DRWState test;
+		if (CHANGED_ANY_STORE_VAR(
+		        DRW_STATE_DEPTH_LESS | DRW_STATE_DEPTH_EQUAL | DRW_STATE_DEPTH_GREATER,
+		        test))
+		{
+			if (test) {
+				glEnable(GL_DEPTH_TEST);
 
-			if (flag & DRW_STATE_DEPTH_LESS)
-				glDepthFunc(GL_LEQUAL);
-			else if (flag & DRW_STATE_DEPTH_EQUAL)
-				glDepthFunc(GL_EQUAL);
-			else if (flag & DRW_STATE_DEPTH_GREATER)
-				glDepthFunc(GL_GREATER);
-		}
-		else {
-			glDisable(GL_DEPTH_TEST);
+				if (state & DRW_STATE_DEPTH_LESS) {
+					glDepthFunc(GL_LEQUAL);
+				}
+				else if (state & DRW_STATE_DEPTH_EQUAL) {
+					glDepthFunc(GL_EQUAL);
+				}
+				else if (state & DRW_STATE_DEPTH_GREATER) {
+					glDepthFunc(GL_GREATER);
+				}
+				else {
+					BLI_assert(0);
+				}
+			}
+			else {
+				glDisable(GL_DEPTH_TEST);
+			}
 		}
 	}
 
 	/* Wire Width */
-	if ((flag & DRW_STATE_WIRE) != 0) {
-		glLineWidth(1.0f);
-	}
-	else if ((flag & DRW_STATE_WIRE_LARGE) != 0) {
-		glLineWidth(UI_GetThemeValuef(TH_OUTLINE_WIDTH) * 2.0f);
+	{
+		if (CHANGED_ANY(DRW_STATE_WIRE | DRW_STATE_WIRE_LARGE)) {
+			if ((state & DRW_STATE_WIRE) != 0) {
+				glLineWidth(1.0f);
+			}
+			else if ((state & DRW_STATE_WIRE_LARGE) != 0) {
+				glLineWidth(UI_GetThemeValuef(TH_OUTLINE_WIDTH) * 2.0f);
+			}
+			else {
+				/* do nothing */
+			}
+		}
 	}
 
 	/* Points Size */
-	if ((flag & DRW_STATE_POINT) != 0) {
-		GPU_enable_program_point_size();
-		glPointSize(5.0f);
-	}
-	else if (reset) {
-		GPU_disable_program_point_size();
+	{
+		int test;
+		if ((test = CHANGED_TO(DRW_STATE_POINT))) {
+			if (test == 1) {
+				GPU_enable_program_point_size();
+				glPointSize(5.0f);
+			}
+			else {
+				GPU_disable_program_point_size();
+			}
+		}
 	}
 
 	/* Blending (all buffer) */
-	if ((flag & DRW_STATE_BLEND) != 0) {
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	}
-	else if (reset) {
-		glDisable(GL_BLEND);
+	{
+		int test;
+		if ((test = CHANGED_TO(DRW_STATE_BLEND))) {
+			if (test == 1) {
+				glEnable(GL_BLEND);
+				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			}
+			else {
+				glDisable(GL_BLEND);
+			}
+		}
 	}
 
 	/* Line Stipple */
-	if ((flag & DRW_STATE_STIPPLE_2) != 0) {
-		setlinestyle(2);
-	}
-	else if ((flag & DRW_STATE_STIPPLE_3) != 0) {
-		setlinestyle(3);
-	}
-	else if ((flag & DRW_STATE_STIPPLE_4) != 0) {
-		setlinestyle(4);
-	}
-	else if (reset) {
-		setlinestyle(0);
+	{
+		int test;
+		if (CHANGED_ANY_STORE_VAR(
+		        DRW_STATE_STIPPLE_2 | DRW_STATE_STIPPLE_3 | DRW_STATE_STIPPLE_4,
+		        test))
+		{
+			if (test) {
+				if ((state & DRW_STATE_STIPPLE_2) != 0) {
+					setlinestyle(2);
+				}
+				else if ((state & DRW_STATE_STIPPLE_3) != 0) {
+					setlinestyle(3);
+				}
+				else if ((state & DRW_STATE_STIPPLE_4) != 0) {
+					setlinestyle(4);
+				}
+				else {
+					BLI_assert(0);
+				}
+			}
+			else {
+				setlinestyle(0);
+			}
+		}
 	}
 
 	/* Stencil */
-	if ((flag & (DRW_STATE_WRITE_STENCIL_SELECT | DRW_STATE_WRITE_STENCIL_ACTIVE |
-	            DRW_STATE_TEST_STENCIL_SELECT | DRW_STATE_TEST_STENCIL_ACTIVE)) != 0)
 	{
-		glEnable(GL_STENCIL_TEST);
+		DRWState test;
+		if (CHANGED_ANY_STORE_VAR(
+		        DRW_STATE_WRITE_STENCIL_SELECT |
+		        DRW_STATE_WRITE_STENCIL_ACTIVE |
+		        DRW_STATE_TEST_STENCIL_SELECT |
+		        DRW_STATE_TEST_STENCIL_ACTIVE,
+		        test))
+		{
+			if (test) {
+				glEnable(GL_STENCIL_TEST);
 
-		/* Stencil Write */
-		if ((flag & DRW_STATE_WRITE_STENCIL_SELECT) != 0) {
-			glStencilMask(STENCIL_SELECT);
-			glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
-			glStencilFunc(GL_ALWAYS, 0xFF, STENCIL_SELECT);
-		}
-		else if ((flag & DRW_STATE_WRITE_STENCIL_ACTIVE) != 0) {
-			glStencilMask(STENCIL_ACTIVE);
-			glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
-			glStencilFunc(GL_ALWAYS, 0xFF, STENCIL_ACTIVE);
-		}
-		/* Stencil Test */
-		else if ((flag & DRW_STATE_TEST_STENCIL_SELECT) != 0) {
-			glStencilMask(0x00); /* disable write */
-			glStencilFunc(GL_NOTEQUAL, 0xFF, STENCIL_SELECT);
-		}
-		else if ((flag & DRW_STATE_TEST_STENCIL_ACTIVE) != 0) {
-			glStencilMask(0x00); /* disable write */
-			glStencilFunc(GL_NOTEQUAL, 0xFF, STENCIL_ACTIVE);
+				/* Stencil Write */
+				if ((state & DRW_STATE_WRITE_STENCIL_SELECT) != 0) {
+					glStencilMask(STENCIL_SELECT);
+					glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
+					glStencilFunc(GL_ALWAYS, 0xFF, STENCIL_SELECT);
+				}
+				else if ((state & DRW_STATE_WRITE_STENCIL_ACTIVE) != 0) {
+					glStencilMask(STENCIL_ACTIVE);
+					glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
+					glStencilFunc(GL_ALWAYS, 0xFF, STENCIL_ACTIVE);
+				}
+				/* Stencil Test */
+				else if ((state & DRW_STATE_TEST_STENCIL_SELECT) != 0) {
+					glStencilMask(0x00); /* disable write */
+					glStencilFunc(GL_NOTEQUAL, 0xFF, STENCIL_SELECT);
+				}
+				else if ((state & DRW_STATE_TEST_STENCIL_ACTIVE) != 0) {
+					glStencilMask(0x00); /* disable write */
+					glStencilFunc(GL_NOTEQUAL, 0xFF, STENCIL_ACTIVE);
+				}
+				else {
+					BLI_assert(0);
+				}
+			}
+			else {
+				/* disable write & test */
+				glStencilMask(0x00);
+				glStencilFunc(GL_ALWAYS, 1, 0xFF);
+				glDisable(GL_STENCIL_TEST);
+			}
 		}
 	}
-	else if (reset) {
-		/* disable write & test */
-		glStencilMask(0x00);
-		glStencilFunc(GL_ALWAYS, 1, 0xFF);
-		glDisable(GL_STENCIL_TEST);
-	}
+
+#undef CHANGED_TO
+#undef CHANGED_ANY
+#undef CHANGED_ANY_STORE_VAR
+
+	DST.state = state;
 }
 
 typedef struct DRWBoundTexture {
@@ -1160,20 +1283,32 @@ static void draw_geometry(DRWShadingGroup *shgroup, Batch *geom, const float (*o
 	RegionView3D *rv3d = DST.draw_ctx.rv3d;
 	DRWInterface *interface = shgroup->interface;
 
-	float mvp[4][4], mv[4][4], n[3][3], wn[3][3];
+	float mvp[4][4], mv[4][4], mi[4][4], mvi[4][4], pi[4][4], n[3][3], wn[3][3];
 	float eye[3] = { 0.0f, 0.0f, 1.0f }; /* looking into the screen */
 
+	bool do_pi = (interface->projectioninverse != -1);
 	bool do_mvp = (interface->modelviewprojection != -1);
+	bool do_mi = (interface->modelinverse != -1);
 	bool do_mv = (interface->modelview != -1);
+	bool do_mvi = (interface->modelviewinverse != -1);
 	bool do_n = (interface->normal != -1);
 	bool do_wn = (interface->worldnormal != -1);
 	bool do_eye = (interface->eye != -1);
 
+	if (do_pi) {
+		invert_m4_m4(pi, rv3d->winmat);
+	}
+	if (do_mi) {
+		invert_m4_m4(mi, obmat);
+	}
 	if (do_mvp) {
 		mul_m4_m4m4(mvp, rv3d->persmat, obmat);
 	}
-	if (do_mv || do_n || do_eye) {
+	if (do_mv || do_mvi || do_n || do_eye) {
 		mul_m4_m4m4(mv, rv3d->viewmat, obmat);
+	}
+	if (do_mvi) {
+		invert_m4_m4(mvi, mv);
 	}
 	if (do_n || do_eye) {
 		copy_m3_m4(n, mv);
@@ -1198,6 +1333,9 @@ static void draw_geometry(DRWShadingGroup *shgroup, Batch *geom, const float (*o
 	if (interface->model != -1) {
 		GPU_shader_uniform_vector(shgroup->shader, interface->model, 16, 1, (float *)obmat);
 	}
+	if (interface->modelinverse != -1) {
+		GPU_shader_uniform_vector(shgroup->shader, interface->modelinverse, 16, 1, (float *)mi);
+	}
 	if (interface->modelviewprojection != -1) {
 		GPU_shader_uniform_vector(shgroup->shader, interface->modelviewprojection, 16, 1, (float *)mvp);
 	}
@@ -1207,14 +1345,23 @@ static void draw_geometry(DRWShadingGroup *shgroup, Batch *geom, const float (*o
 	if (interface->viewprojection != -1) {
 		GPU_shader_uniform_vector(shgroup->shader, interface->viewprojection, 16, 1, (float *)rv3d->persmat);
 	}
+	if (interface->viewprojectioninverse != -1) {
+		GPU_shader_uniform_vector(shgroup->shader, interface->viewprojectioninverse, 16, 1, (float *)rv3d->persinv);
+	}
 	if (interface->projection != -1) {
 		GPU_shader_uniform_vector(shgroup->shader, interface->projection, 16, 1, (float *)rv3d->winmat);
+	}
+	if (interface->projectioninverse != -1) {
+		GPU_shader_uniform_vector(shgroup->shader, interface->projectioninverse, 16, 1, (float *)pi);
 	}
 	if (interface->view != -1) {
 		GPU_shader_uniform_vector(shgroup->shader, interface->view, 16, 1, (float *)rv3d->viewmat);
 	}
 	if (interface->modelview != -1) {
 		GPU_shader_uniform_vector(shgroup->shader, interface->modelview, 16, 1, (float *)mv);
+	}
+	if (interface->modelviewinverse != -1) {
+		GPU_shader_uniform_vector(shgroup->shader, interface->modelviewinverse, 16, 1, (float *)mvi);
 	}
 	if (interface->normal != -1) {
 		GPU_shader_uniform_vector(shgroup->shader, interface->normal, 9, 1, (float *)n);
@@ -1237,7 +1384,7 @@ static void draw_geometry(DRWShadingGroup *shgroup, Batch *geom, const float (*o
 	}
 }
 
-static void draw_shgroup(DRWShadingGroup *shgroup)
+static void draw_shgroup(DRWShadingGroup *shgroup, DRWState pass_state)
 {
 	BLI_assert(shgroup->shader);
 	BLI_assert(shgroup->interface);
@@ -1256,9 +1403,7 @@ static void draw_shgroup(DRWShadingGroup *shgroup)
 		shgroup_dynamic_batch_from_calls(shgroup);
 	}
 
-	if (shgroup->state != 0) {
-		set_state(shgroup->state, false);
-	}
+	DRW_state_set(pass_state | shgroup->state_extra);
 
 	/* Binding Uniform */
 	/* Don't check anything, Interface should already contain the least uniform as possible */
@@ -1355,10 +1500,7 @@ static void draw_shgroup(DRWShadingGroup *shgroup)
 		}
 	}
 
-	/* reset the state for the next group, note - we could only reset states we changed! */
-	if (shgroup->state != 0) {
-		DRW_state_reset();
-	}
+	DRW_state_reset();
 }
 
 void DRW_draw_pass(DRWPass *pass)
@@ -1367,7 +1509,7 @@ void DRW_draw_pass(DRWPass *pass)
 	DST.shader = NULL;
 	DST.tex_bind_id = 0;
 
-	set_state(pass->state, true);
+	DRW_state_set(pass->state);
 	BLI_listbase_clear(&DST.bound_texs);
 
 	pass->wasdrawn = true;
@@ -1394,7 +1536,7 @@ void DRW_draw_pass(DRWPass *pass)
 	glBeginQuery(GL_TIME_ELAPSED, pass->timer_queries[pass->back_idx]);
 
 	for (DRWShadingGroup *shgroup = pass->shgroups.first; shgroup; shgroup = shgroup->next) {
-		draw_shgroup(shgroup);
+		draw_shgroup(shgroup, pass->state);
 	}
 
 	/* Clear Bound textures */
@@ -1429,13 +1571,15 @@ void DRW_draw_callbacks_post_scene(void)
 }
 
 /* Reset state to not interfer with other UI drawcall */
+void DRW_state_reset_ex(DRWState state)
+{
+	DST.state = ~state;
+	DRW_state_set(state);
+}
+
 void DRW_state_reset(void)
 {
-	DRWState state = 0;
-	state |= DRW_STATE_WRITE_DEPTH;
-	state |= DRW_STATE_WRITE_COLOR;
-	state |= DRW_STATE_DEPTH_LESS;
-	set_state(state, true);
+	DRW_state_reset_ex(DRW_STATE_DEFAULT);
 }
 
 /** \} */
@@ -1688,6 +1832,9 @@ void DRW_viewport_matrix_get(float mat[4][4], DRWViewportMatrixType type)
 		case DRW_MAT_PERS:
 			copy_m4_m4(mat, rv3d->persmat);
 			break;
+		case DRW_MAT_PERSINV:
+			copy_m4_m4(mat, rv3d->persinv);
+			break;
 		case DRW_MAT_VIEW:
 			copy_m4_m4(mat, rv3d->viewmat);
 			break;
@@ -1909,6 +2056,64 @@ static void DRW_engines_draw_text(void)
 	}
 }
 
+/**
+ * Returns the offset required for the drawing of engines info.
+ */
+int DRW_draw_region_engine_info_offset()
+{
+	int lines = 0;
+	for (LinkData *link = DST.enabled_engines.first; link; link = link->next) {
+		DrawEngineType *engine = link->data;
+		ViewportEngineData *data = DRW_viewport_engine_data_get(engine);
+
+		/* Count the number of lines. */
+		if (data->info[0] != '\0') {
+			lines++;
+			char *c = data->info;
+			while (*c++ != '\0') {
+				if (*c == '\n') {
+					lines++;
+				}
+			}
+		}
+	}
+	return lines * UI_UNIT_Y;
+}
+
+/**
+ * Actual drawing;
+ */
+void DRW_draw_region_engine_info()
+{
+	char info[GPU_INFO_SIZE * 5] = {0}; /* This should be maxium number of engines running at the same time. */
+	char *str_start = info;
+
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	ARegion *ar = draw_ctx->ar;
+	float fill_color[4] = {0.0f, 0.0f, 0.0f, 0.25f};
+
+	UI_GetThemeColor3fv(TH_HIGH_GRAD, fill_color);
+	mul_v3_fl(fill_color, fill_color[3]);
+
+	for (LinkData *link = DST.enabled_engines.first; link; link = link->next) {
+		DrawEngineType *engine = link->data;
+		ViewportEngineData *data = DRW_viewport_engine_data_get(engine);
+
+		if (data->info[0] != '\0') {
+			BLI_strncpy(str_start, data->info, sizeof(info) - (str_start - info));
+			str_start += BLI_strnlen(data->info, sizeof(data->info));
+			*str_start++ = '\n';
+		}
+	}
+
+	if (info[0] != '\0') {
+		if (str_start != info) {
+			*(str_start - 1) = '\0';
+		}
+		ED_region_info_draw(ar, info, fill_color, true);
+	}
+}
+
 static void use_drw_engine(DrawEngineType *engine)
 {
 	LinkData *ld = MEM_callocN(sizeof(LinkData), "enabled engine link data");
@@ -1968,6 +2173,7 @@ static void DRW_engines_enable_from_mode(int mode)
 			use_drw_engine(&draw_engine_sculpt_type);
 			break;
 		case CTX_MODE_PAINT_WEIGHT:
+			use_drw_engine(&draw_engine_pose_type);
 			use_drw_engine(&draw_engine_paint_weight_type);
 			break;
 		case CTX_MODE_PAINT_VERTEX:
@@ -2144,16 +2350,18 @@ static void DRW_debug_gpu_stats(void)
 			if (pass != NULL) {
 				GLuint64 time;
 				glGetQueryObjectui64v(pass->timer_queries[pass->front_idx], GL_QUERY_RESULT, &time);
-				tot_time += time;
-				engine_time += time;
 
 				sprintf(pass_name, "   |--> %s", pass->name);
 				draw_stat(&rect, 0, v, pass_name, sizeof(pass_name));
 
-				if (pass->wasdrawn)
+				if (pass->wasdrawn) {
 					sprintf(time_to_txt, "%.2fms", time / 1000000.0);
-				else
+					engine_time += time;
+					tot_time += time;
+				}
+				else {
 					sprintf(time_to_txt, "Not drawn");
+				}
 				draw_stat(&rect, 2, v++, time_to_txt, sizeof(time_to_txt));
 
 				pass->wasdrawn = false;
@@ -2240,6 +2448,7 @@ void DRW_draw_render_loop(
 	}
 
 	/* Start Drawing */
+	DRW_state_reset();
 	DRW_engines_draw_background();
 
 	DRW_draw_callbacks_pre_scene();
@@ -2253,6 +2462,8 @@ void DRW_draw_render_loop(
 	if (DST.draw_ctx.evil_C) {
 		ED_region_draw_cb_draw(DST.draw_ctx.evil_C, DST.draw_ctx.ar, REGION_DRAW_POST_VIEW);
 	}
+
+	DRW_state_reset();
 
 	DRW_engines_draw_text();
 
@@ -2402,6 +2613,7 @@ void DRW_draw_select_loop(
 	}
 
 	/* Start Drawing */
+	DRW_state_reset();
 	DRW_draw_callbacks_pre_scene();
 	DRW_engines_draw_scene();
 	DRW_draw_callbacks_post_scene();
@@ -2484,6 +2696,7 @@ void DRW_draw_depth_loop(
 	}
 
 	/* Start Drawing */
+	DRW_state_reset();
 	DRW_draw_callbacks_pre_scene();
 	DRW_engines_draw_scene();
 	DRW_draw_callbacks_post_scene();

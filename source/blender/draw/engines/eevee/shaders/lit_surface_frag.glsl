@@ -231,8 +231,10 @@ float light_common(inout LightData ld, inout ShadingData sd)
 	return vis;
 }
 
-vec3 eevee_surface_lit(vec3 world_normal, vec3 albedo, vec3 f0, float roughness)
+vec3 eevee_surface_lit(vec3 world_normal, vec3 albedo, vec3 f0, float roughness, float ao)
 {
+	float roughnessSquared = roughness * roughness;
+
 	ShadingData sd;
 	sd.N = normalize(world_normal);
 	sd.V = (ProjectionMatrix[3][3] == 0.0) /* if perspective */
@@ -240,9 +242,10 @@ vec3 eevee_surface_lit(vec3 world_normal, vec3 albedo, vec3 f0, float roughness)
 	            : normalize(eye);
 	sd.W = worldPosition;
 	sd.R = reflect(-sd.V, sd.N);
-	sd.spec_dominant_dir = get_specular_dominant_dir(sd.N, sd.R, roughness);
+	sd.spec_dominant_dir = get_specular_dominant_dir(sd.N, sd.R, roughnessSquared);
 
 	vec3 radiance = vec3(0.0);
+	vec3 indirect_radiance = vec3(0.0);
 
 	/* Analitic Lights */
 	for (int i = 0; i < MAX_LIGHT && i < light_count; ++i) {
@@ -254,7 +257,7 @@ vec3 eevee_surface_lit(vec3 world_normal, vec3 albedo, vec3 f0, float roughness)
 		light_common(ld, sd);
 
 		float vis = light_visibility(ld, sd);
-		vec3 spec = light_specular(ld, sd, roughness, f0);
+		vec3 spec = light_specular(ld, sd, roughnessSquared, f0);
 		vec3 diff = light_diffuse(ld, sd, albedo);
 
 		radiance += vis * (diff + spec) * ld.l_color;
@@ -264,9 +267,9 @@ vec3 eevee_surface_lit(vec3 world_normal, vec3 albedo, vec3 f0, float roughness)
 	vec2 uv = ltc_coords(dot(sd.N, sd.V), sqrt(roughness));
 	vec2 brdf_lut = texture(brdfLut, uv).rg;
 	vec3 Li = textureLod(probeFiltered, sd.spec_dominant_dir, roughness * lodMax).rgb;
-	radiance += Li * brdf_lut.y + f0 * Li * brdf_lut.x;
+	indirect_radiance += Li * brdf_lut.y + f0 * Li * brdf_lut.x;
 
-	radiance += spherical_harmonics(sd.N, shCoefs) * albedo;
+	indirect_radiance += spherical_harmonics(sd.N, shCoefs) * albedo;
 
-	return radiance;
+	return radiance + indirect_radiance * ao;
 }

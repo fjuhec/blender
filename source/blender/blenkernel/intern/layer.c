@@ -791,6 +791,7 @@ static void layer_collection_object_add(SceneLayer *sl, LayerCollection *lc, Obj
 
 	if (is_selectable) {
 		base->flag |= BASE_SELECTABLED;
+		base->flag |= BASE_SELECTED;
 	}
 
 	BLI_addtail(&lc->object_bases, BLI_genericNodeN(base));
@@ -1088,6 +1089,38 @@ static void layer_collection_create_mode_settings_edit(IDProperty *root, const b
 	IDP_AddToGroup(root, props);
 }
 
+static void layer_collection_create_mode_settings_paint_weight(IDProperty *root, const bool populate)
+{
+	IDProperty *props;
+	IDPropertyTemplate val = {0};
+
+	props = IDP_New(IDP_GROUP, &val, "WeightPaintMode");
+	props->subtype = IDP_GROUP_SUB_MODE_PAINT_WEIGHT;
+
+	/* properties */
+	if (populate) {
+		PAINT_WEIGHT_collection_settings_create(props);
+	}
+
+	IDP_AddToGroup(root, props);
+}
+
+static void layer_collection_create_mode_settings_paint_vertex(IDProperty *root, const bool populate)
+{
+	IDProperty *props;
+	IDPropertyTemplate val = {0};
+
+	props = IDP_New(IDP_GROUP, &val, "VertexPaintMode");
+	props->subtype = IDP_GROUP_SUB_MODE_PAINT_VERTEX;
+
+	/* properties */
+	if (populate) {
+		PAINT_VERTEX_collection_settings_create(props);
+	}
+
+	IDP_AddToGroup(root, props);
+}
+
 static void collection_create_render_settings(IDProperty *root, const bool populate)
 {
 	CollectionEngineSettingsCB_Type *ces_type;
@@ -1103,6 +1136,8 @@ static void collection_create_mode_settings(IDProperty *root, const bool populat
 	 * and have IDP_AddToGroup outside the callbacks */
 	layer_collection_create_mode_settings_object(root, populate);
 	layer_collection_create_mode_settings_edit(root, populate);
+	layer_collection_create_mode_settings_paint_weight(root, populate);
+	layer_collection_create_mode_settings_paint_vertex(root, populate);
 }
 
 static int idproperty_group_subtype(const int mode_type)
@@ -1115,6 +1150,12 @@ static int idproperty_group_subtype(const int mode_type)
 			break;
 		case COLLECTION_MODE_EDIT:
 			idgroup_type = IDP_GROUP_SUB_MODE_EDIT;
+			break;
+		case COLLECTION_MODE_PAINT_WEIGHT:
+			idgroup_type = IDP_GROUP_SUB_MODE_PAINT_WEIGHT;
+			break;
+		case COLLECTION_MODE_PAINT_VERTEX:
+			idgroup_type = IDP_GROUP_SUB_MODE_PAINT_VERTEX;
 			break;
 		default:
 		case COLLECTION_MODE_NONE:
@@ -1251,6 +1292,86 @@ static void collection_engine_settings_init(IDProperty *root, const bool populat
 void BKE_layer_collection_engine_settings_create(IDProperty *root)
 {
 	collection_engine_settings_init(root, true);
+}
+
+/**
+ * Reference of IDProperty group scene collection settings
+ * Used when reading blendfiles, to see if there is any missing settings.
+ */
+static struct {
+	IDProperty *scene;
+	IDProperty *layer_collection;
+} root_reference = {
+	.scene = NULL,
+	.layer_collection = NULL,
+};
+
+/**
+ * Free the reference scene collection settings IDProperty group.
+ */
+static void layer_collection_engine_settings_validate_init(void)
+{
+	IDPropertyTemplate val = {0};
+
+	if (root_reference.scene == NULL) {
+		root_reference.scene = IDP_New(IDP_GROUP, &val, ROOT_PROP);
+		collection_engine_settings_init(root_reference.scene, true);
+	}
+
+	if (root_reference.layer_collection == NULL) {
+		root_reference.layer_collection = IDP_New(IDP_GROUP, &val, ROOT_PROP);
+		collection_engine_settings_init(root_reference.layer_collection, false);
+	}
+}
+
+/**
+ * Free the reference scene collection settings IDProperty group.
+ */
+static void layer_collection_engine_settings_validate_free(void)
+{
+	if (root_reference.scene != NULL) {
+		IDP_FreeProperty(root_reference.scene);
+		MEM_freeN(root_reference.scene);
+		root_reference.scene = NULL;
+	}
+
+	if (root_reference.layer_collection != NULL) {
+		IDP_FreeProperty(root_reference.layer_collection);
+		MEM_freeN(root_reference.layer_collection);
+		root_reference.layer_collection = NULL;
+	}
+}
+
+/**
+ * Make sure Scene has all required collection settings.
+ */
+void BKE_layer_collection_engine_settings_validate_scene(Scene *scene)
+{
+	if (root_reference.scene == NULL) {
+		layer_collection_engine_settings_validate_init();
+	}
+
+	if (scene->collection_properties == NULL) {
+		IDPropertyTemplate val = {0};
+		scene->collection_properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
+		BKE_layer_collection_engine_settings_create(scene->collection_properties);
+	}
+	else {
+		IDP_MergeGroup(scene->collection_properties, root_reference.scene, false);
+	}
+}
+
+/**
+ * Maker sure LayerCollection has all required collection settings.
+ */
+void BKE_layer_collection_engine_settings_validate_collection(LayerCollection *lc)
+{
+	if (root_reference.layer_collection == NULL) {
+		layer_collection_engine_settings_validate_init();
+	}
+
+	BLI_assert(lc->properties != NULL);
+	IDP_MergeGroup(lc->properties, root_reference.layer_collection, false);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1391,7 +1512,7 @@ static void idproperty_reset(IDProperty **props, IDProperty *props_ref)
 	*props = IDP_New(IDP_GROUP, &val, ROOT_PROP);
 
 	if (props_ref) {
-		IDP_MergeGroupValues(*props, props_ref);
+		IDP_MergeGroup(*props, props_ref, true);
 	}
 }
 
@@ -1435,7 +1556,7 @@ void BKE_layer_eval_layer_collection(struct EvaluationContext *UNUSED(eval_ctx),
 		}
 		else {
 			idproperty_reset(&layer_collection->properties_evaluated, parent_layer_collection->properties_evaluated);
-			IDP_MergeGroupValues(layer_collection->properties_evaluated, layer_collection->properties);
+			IDP_MergeGroup(layer_collection->properties_evaluated, layer_collection->properties, true);
 		}
 	}
 
@@ -1443,7 +1564,7 @@ void BKE_layer_eval_layer_collection(struct EvaluationContext *UNUSED(eval_ctx),
 		Base *base = link->data;
 
 		if (is_visible) {
-			IDP_MergeGroupValues(base->collection_properties, layer_collection->properties_evaluated);
+			IDP_MergeGroup(base->collection_properties, layer_collection->properties_evaluated, true);
 			base->flag |= BASE_VISIBLED;
 		}
 
@@ -1463,4 +1584,12 @@ void BKE_layer_eval_layer_collection_post(struct EvaluationContext *UNUSED(eval_
 			base->flag &= ~BASE_SELECTED;
 		}
 	}
+}
+
+/**
+ * Free any static allocated memory.
+ */
+void BKE_layer_exit()
+{
+	layer_collection_engine_settings_validate_free();
 }

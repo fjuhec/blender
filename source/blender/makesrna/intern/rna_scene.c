@@ -441,6 +441,8 @@ EnumPropertyItem rna_enum_gpencil_interpolation_mode_items[] = {
 EnumPropertyItem rna_enum_layer_collection_mode_settings_type_items[] = {
 	{COLLECTION_MODE_OBJECT, "OBJECT", 0, "Object", ""},
 	{COLLECTION_MODE_EDIT, "EDIT", 0, "Edit", ""},
+	{COLLECTION_MODE_PAINT_WEIGHT, "PAINT_WEIGHT", 0, "Weight Paint", ""},
+	{COLLECTION_MODE_PAINT_WEIGHT, "PAINT_VERTEX", 0, "Vertex Paint", ""},
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -462,6 +464,7 @@ EnumPropertyItem rna_enum_layer_collection_mode_settings_type_items[] = {
 #include "BKE_colortools.h"
 #include "BKE_context.h"
 #include "BKE_global.h"
+#include "BKE_idprop.h"
 #include "BKE_image.h"
 #include "BKE_layer.h"
 #include "BKE_main.h"
@@ -1627,6 +1630,18 @@ static void rna_Scene_use_view_map_cache_update(Main *UNUSED(bmain), Scene *UNUS
 #endif
 }
 
+static IDProperty *rna_SceneRenderLayer_idprops(PointerRNA *ptr, bool create)
+{
+	SceneRenderLayer *srl = (SceneRenderLayer *)ptr->data;
+
+	if (create && !srl->prop) {
+		IDPropertyTemplate val = {0};
+		srl->prop = IDP_New(IDP_GROUP, &val, "SceneRenderLayer ID properties");
+	}
+
+	return srl->prop;
+}
+
 static void rna_SceneRenderLayer_name_set(PointerRNA *ptr, const char *value)
 {
 	Scene *scene = (Scene *)ptr->id.data;
@@ -1731,9 +1746,16 @@ static void rna_SceneRenderLayer_pass_update(Main *bmain, Scene *activescene, Po
 	Scene *scene = (Scene *)ptr->id.data;
 
 	if (scene->nodetree)
-		ntreeCompositForceHidden(scene->nodetree);
-	
+		ntreeCompositUpdateRLayers(scene->nodetree);
+
 	rna_Scene_glsl_update(bmain, activescene, ptr);
+}
+
+static void rna_SceneRenderLayer_update_render_passes(ID *id)
+{
+	Scene *scene = (Scene*) id;
+	if (scene->nodetree)
+		ntreeCompositUpdateRLayers(scene->nodetree);
 }
 
 static void rna_Scene_use_nodes_update(bContext *C, PointerRNA *ptr)
@@ -1929,7 +1951,14 @@ static StructRNA *rna_LayerCollectionSettings_refine(PointerRNA *ptr)
 		case IDP_GROUP_SUB_MODE_EDIT:
 			return &RNA_LayerCollectionModeSettingsEdit;
 			break;
+		case IDP_GROUP_SUB_MODE_PAINT_WEIGHT:
+			return &RNA_LayerCollectionModeSettingsPaintWeight;
+			break;
+		case IDP_GROUP_SUB_MODE_PAINT_VERTEX:
+			return &RNA_LayerCollectionModeSettingsPaintVertex;
+			break;
 		default:
+			BLI_assert(!"Mode not fully implemented");
 			break;
 	}
 
@@ -2468,6 +2497,12 @@ static void rna_LayerEngineSettings_##_ENGINE_##_##_NAME_##_set(PointerRNA *ptr,
 #define RNA_LAYER_MODE_EDIT_GET_SET_BOOL(_NAME_) \
 	RNA_LAYER_ENGINE_GET_SET(bool, EditMode, COLLECTION_MODE_EDIT, _NAME_)
 
+#define RNA_LAYER_MODE_PAINT_WEIGHT_GET_SET_BOOL(_NAME_) \
+	RNA_LAYER_ENGINE_GET_SET(bool, PaintWeightMode, COLLECTION_MODE_PAINT_WEIGHT, _NAME_)
+
+#define RNA_LAYER_MODE_PAINT_VERTEX_GET_SET_BOOL(_NAME_) \
+	RNA_LAYER_ENGINE_GET_SET(bool, PaintVertexMode, COLLECTION_MODE_PAINT_VERTEX, _NAME_)
+
 /* clay engine */
 #ifdef WITH_CLAY_ENGINE
 RNA_LAYER_ENGINE_CLAY_GET_SET_INT(matcap_icon)
@@ -2493,11 +2528,33 @@ RNA_LAYER_MODE_EDIT_GET_SET_BOOL(loop_normals_show)
 RNA_LAYER_MODE_EDIT_GET_SET_FLOAT(normals_length)
 RNA_LAYER_MODE_EDIT_GET_SET_FLOAT(backwire_opacity)
 
+/* weight paint engine */
+RNA_LAYER_MODE_PAINT_WEIGHT_GET_SET_BOOL(use_shading)
+RNA_LAYER_MODE_PAINT_WEIGHT_GET_SET_BOOL(use_wire)
+
+/* vertex paint engine */
+RNA_LAYER_MODE_PAINT_VERTEX_GET_SET_BOOL(use_shading)
+RNA_LAYER_MODE_PAINT_VERTEX_GET_SET_BOOL(use_wire)
+
 #undef RNA_LAYER_ENGINE_GET_SET
 
 static void rna_LayerCollectionEngineSettings_update(bContext *C, PointerRNA *UNUSED(ptr))
 {
 	Scene *scene = CTX_data_scene(C);
+	/* TODO(sergey): Use proper flag for tagging here. */
+	DAG_id_tag_update(&scene->id, 0);
+}
+
+static void rna_LayerCollectionEngineSettings_wire_update(bContext *C, PointerRNA *UNUSED(ptr))
+{
+	Scene *scene = CTX_data_scene(C);
+	SceneLayer *sl = CTX_data_scene_layer(C);
+	Object *ob = OBACT_NEW;
+
+	if (ob != NULL && ob->type == OB_MESH) {
+		BKE_mesh_batch_cache_dirty(ob->data, BKE_MESH_BATCH_DIRTY_PAINT);
+	}
+
 	/* TODO(sergey): Use proper flag for tagging here. */
 	DAG_id_tag_update(&scene->id, 0);
 }
@@ -6140,6 +6197,58 @@ static void rna_def_layer_collection_mode_settings_edit(BlenderRNA *brna)
 	RNA_define_verify_sdna(1); /* not in sdna */
 }
 
+static void rna_def_layer_collection_mode_settings_paint_weight(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+
+	srna = RNA_def_struct(brna, "LayerCollectionModeSettingsPaintWeight", "LayerCollectionSettings");
+	RNA_def_struct_ui_text(srna, "Collections Weight Paint Mode Settings", "Weight Paint Mode specific settings to be overridden per collection");
+	RNA_define_verify_sdna(0); /* not in sdna */
+
+	/* see RNA_LAYER_ENGINE_GET_SET macro */
+
+	prop = RNA_def_property(srna, "use_shading", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_ui_text(prop, "Use Shading", "Whether to use shaded or shadeless drawing");
+	RNA_def_property_boolean_funcs(prop, "rna_LayerEngineSettings_PaintWeightMode_use_shading_get", "rna_LayerEngineSettings_PaintWeightMode_use_shading_set");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_LayerCollectionEngineSettings_update");
+
+	prop = RNA_def_property(srna, "use_wire", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_ui_text(prop, "Show Wire", "Whether to overlay wireframe onto the mesh");
+	RNA_def_property_boolean_funcs(prop, "rna_LayerEngineSettings_PaintWeightMode_use_wire_get", "rna_LayerEngineSettings_PaintWeightMode_use_wire_set");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_LayerCollectionEngineSettings_wire_update");
+
+	RNA_define_verify_sdna(1); /* not in sdna */
+}
+
+static void rna_def_layer_collection_mode_settings_paint_vertex(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+
+	srna = RNA_def_struct(brna, "LayerCollectionModeSettingsPaintVertex", "LayerCollectionSettings");
+	RNA_def_struct_ui_text(srna, "Collections Vertex Paint Mode Settings", "Vertex Paint Mode specific settings to be overridden per collection");
+	RNA_define_verify_sdna(0); /* not in sdna */
+
+	/* see RNA_LAYER_ENGINE_GET_SET macro */
+
+	prop = RNA_def_property(srna, "use_shading", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_ui_text(prop, "Use Shading", "Whether to use shaded or shadeless drawing");
+	RNA_def_property_boolean_funcs(prop, "rna_LayerEngineSettings_PaintVertexMode_use_shading_get", "rna_LayerEngineSettings_PaintVertexMode_use_shading_set");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_LayerCollectionEngineSettings_update");
+
+	prop = RNA_def_property(srna, "use_wire", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_ui_text(prop, "Show Wire", "Whether to overlay wireframe onto the mesh");
+	RNA_def_property_boolean_funcs(prop, "rna_LayerEngineSettings_PaintVertexMode_use_wire_get", "rna_LayerEngineSettings_PaintVertexMode_use_wire_set");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_LayerCollectionEngineSettings_wire_update");
+
+	RNA_define_verify_sdna(1); /* not in sdna */
+}
+
 static void rna_def_layer_collection_settings(BlenderRNA *brna)
 {
 	StructRNA *srna;
@@ -6179,6 +6288,8 @@ static void rna_def_layer_collection_settings(BlenderRNA *brna)
 
 	rna_def_layer_collection_mode_settings_object(brna);
 	rna_def_layer_collection_mode_settings_edit(brna);
+	rna_def_layer_collection_mode_settings_paint_weight(brna);
+	rna_def_layer_collection_mode_settings_paint_vertex(brna);
 
 	RNA_define_verify_sdna(1);
 }
@@ -6470,13 +6581,19 @@ static void rna_def_scene_render_layer(BlenderRNA *brna)
 {
 	StructRNA *srna;
 	PropertyRNA *prop;
+	FunctionRNA *func;
 
 	srna = RNA_def_struct(brna, "SceneRenderLayer", NULL);
 	RNA_def_struct_ui_text(srna, "Scene Render Layer", "Render layer");
 	RNA_def_struct_ui_icon(srna, ICON_RENDERLAYERS);
 	RNA_def_struct_path_func(srna, "rna_SceneRenderLayer_path");
+	RNA_def_struct_idprops_func(srna, "rna_SceneRenderLayer_idprops");
 
 	rna_def_render_layer_common(srna, 1);
+
+	func = RNA_def_function(srna, "update_render_passes", "rna_SceneRenderLayer_update_render_passes");
+	RNA_def_function_ui_description(func, "Requery the enabled render passes from the render engine");
+	RNA_def_function_flag(func, FUNC_USE_SELF_ID | FUNC_NO_SELF);
 
 	/* Freestyle */
 	rna_def_freestyle_settings(brna);
@@ -8160,14 +8277,6 @@ static void rna_def_scene_render_data(BlenderRNA *brna)
 	RNA_def_property_pointer_sdna(prop, NULL, "bake");
 	RNA_def_property_struct_type(prop, "BakeSettings");
 	RNA_def_property_ui_text(prop, "Bake Data", "");
-
-	/* Debugging settings. */
-#ifdef WITH_CYCLES_DEBUG
-	prop = RNA_def_property(srna, "debug_pass_type", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_items(prop, rna_enum_render_pass_debug_type_items);
-	RNA_def_property_ui_text(prop, "Debug Pass Type", "Type of the debug pass to use");
-	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
-#endif
 
 	/* Nestled Data  */
 	/* *** Non-Animated *** */

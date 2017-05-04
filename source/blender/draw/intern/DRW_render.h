@@ -249,6 +249,9 @@ typedef enum {
 	DRW_STATE_TEST_STENCIL_ACTIVE  = (1 << 17),
 } DRWState;
 
+#define DRW_STATE_DEFAULT (DRW_STATE_WRITE_DEPTH | DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS)
+
+
 DRWShadingGroup *DRW_shgroup_create(struct GPUShader *shader, DRWPass *pass);
 DRWShadingGroup *DRW_shgroup_material_create(struct GPUMaterial *material, DRWPass *pass);
 DRWShadingGroup *DRW_shgroup_material_instance_create(struct GPUMaterial *material, DRWPass *pass, struct Batch *geom);
@@ -267,7 +270,7 @@ void DRW_shgroup_call_dynamic_add_array(DRWShadingGroup *shgroup, const void *at
 	DRW_shgroup_call_dynamic_add_array(shgroup, NULL, 0); \
 } while (0)
 
-void DRW_shgroup_state_set(DRWShadingGroup *shgroup, DRWState state);
+void DRW_shgroup_state_enable(DRWShadingGroup *shgroup, DRWState state);
 void DRW_shgroup_attrib_int(DRWShadingGroup *shgroup, const char *name, int size);
 void DRW_shgroup_attrib_float(DRWShadingGroup *shgroup, const char *name, int size);
 
@@ -288,10 +291,12 @@ void DRW_shgroup_uniform_mat4(DRWShadingGroup *shgroup, const char *name, const 
 
 /* Passes */
 DRWPass *DRW_pass_create(const char *name, DRWState state);
+void DRW_pass_foreach_shgroup(DRWPass *pass, void (*callback)(void *userData, DRWShadingGroup *shgrp), void *userData);
 
 /* Viewport */
 typedef enum {
 	DRW_MAT_PERS,
+	DRW_MAT_PERSINV,
 	DRW_MAT_VIEW,
 	DRW_MAT_VIEWINV,
 	DRW_MAT_WIN,
@@ -323,6 +328,10 @@ void DRW_draw_text_cache_queue(struct DRWTextStore *dt);
 void DRW_draw_callbacks_pre_scene(void);
 void DRW_draw_callbacks_post_scene(void);
 
+int DRW_draw_region_engine_info_offset(void);
+void DRW_draw_region_engine_info(void);
+
+void DRW_state_reset_ex(DRWState state);
 void DRW_state_reset(void);
 
 /* Selection */
