@@ -1545,7 +1545,7 @@ static int PyRASOffScreen__tp_init(PyRASOffScreen *self, PyObject *args, PyObjec
 	samples = 0;
 	target = RAS_IOffScreen::RAS_OFS_RENDER_BUFFER;
 	bits = RAS_IOffScreen::RAS_OFS_COLOR_8BITS;
-	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "ii|ii:RASOffscreen", (char **)keywords, &width, &height, &samples, &target, &bits)) {
+	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "ii|iii:RASOffscreen", (char **)keywords, &width, &height, &samples, &target, &bits)) {
 		return -1;
 	}
 
@@ -1644,9 +1644,10 @@ static PyObject *gPyOffScreenCreate(PyObject *UNUSED(self), PyObject *args)
 	int height;
 	int samples;
 	int target;
+	int bits
 
 	samples = 0;
-	if (!PyArg_ParseTuple(args, "ii|ii:offScreenCreate", &width, &height, &samples, &target))
+	if (!PyArg_ParseTuple(args, "ii|iii:offScreenCreate", &width, &height, &samples, &target, &bits))
 		return NULL;
 
 	return PyObject_CallObject((PyObject *) &PyRASOffScreen_Type, args);
