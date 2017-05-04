@@ -425,9 +425,9 @@ void BlenderSession::render()
 		if(!get_boolean(crl, "denoising_subsurface_indirect"))   scene->film->denoising_flags |= DENOISING_CLEAN_SUBSURFACE_IND;
 		scene->film->denoising_clean_pass = (scene->film->denoising_flags & DENOISING_CLEAN_ALL_PASSES);
 		buffer_params.denoising_clean_pass = scene->film->denoising_clean_pass;
-		session->params.denoising_radius = get_boolean(crl, "denoising_radius");
-		session->params.denoising_strength = get_boolean(crl, "denoising_strength");
-		session->params.denoising_feature_strength = get_boolean(crl, "denoising_feature_strength");
+		session->params.denoising_radius = get_int(crl, "denoising_radius");
+		session->params.denoising_strength = get_float(crl, "denoising_strength");
+		session->params.denoising_feature_strength = get_float(crl, "denoising_feature_strength");
 		session->params.denoising_relative_pca = get_boolean(crl, "denoising_relative_pca");
 
 		scene->film->pass_alpha_threshold = b_layer_iter->pass_alpha_threshold();

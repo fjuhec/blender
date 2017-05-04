@@ -23,12 +23,12 @@ CCL_NAMESPACE_BEGIN
 void DenoisingTask::init_from_devicetask(const DeviceTask &task)
 {
 	radius = task.denoising_radius;
-	nlm_k_2 = powf(2.0f, task.denoising_strength - 1.0f);
+	nlm_k_2 = powf(2.0f, lerp(-5.0f, 3.0f, task.denoising_strength));
 	if(task.denoising_relative_pca) {
-		pca_threshold = -powf(10.0f, task.denoising_feature_strength - 4.0f);
+		pca_threshold = -powf(10.0f, lerp(-8.0f, 0.0f, task.denoising_feature_strength));
 	}
 	else {
-		pca_threshold = powf(10.0f, task.denoising_feature_strength - 1.0f);
+		pca_threshold = powf(10.0f, lerp(-5.0f, 3.0f, task.denoising_feature_strength));
 	}
 
 	render_buffer.pass_stride = task.pass_stride;
