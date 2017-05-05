@@ -36,6 +36,6 @@ struct Batch *gpencil_get_buffer_stroke_geom(struct bGPdata *gpd, float matrix[4
 struct Batch *gpencil_get_buffer_fill_geom(const struct tGPspoint *points, int totpoints, float ink[4]);
 struct Batch *gpencil_get_buffer_point_geom(struct bGPdata *gpd, short thickness);
 
-bool gpencil_can_draw_stroke(const struct bGPDstroke *gps);
+bool gpencil_can_draw_stroke(struct RegionView3D *rv3d, const struct bGPDframe *gpf, const struct bGPDstroke *gps);
 
 #endif /* __GPENCIL_ENGINE_H__ */

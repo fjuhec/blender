@@ -31,6 +31,7 @@
 #include "ED_gpencil.h"
 
 #include "DNA_gpencil_types.h"
+#include "DNA_view3d_types.h"
 
  /* If builtin shaders are needed */
 #include "GPU_shader.h"
@@ -307,6 +308,9 @@ static void gpencil_draw_strokes(void *vedata, ToolSettings *ts, Object *ob,
 {
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	RegionView3D *rv3d = draw_ctx->rv3d;
+
 	DRWShadingGroup *fillgrp;
 	DRWShadingGroup *strokegrp;
 	bGPDbrush *brush = BKE_gpencil_brush_getactive(ts);
@@ -334,7 +338,7 @@ static void gpencil_draw_strokes(void *vedata, ToolSettings *ts, Object *ob,
 
 	for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 		/* check if stroke can be drawn */
-		if (gpencil_can_draw_stroke(gps) == false) {
+		if (gpencil_can_draw_stroke(rv3d, gpf, gps) == false) {
 			continue;
 		}
 		/* try to find shader group or create a new one */
