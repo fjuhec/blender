@@ -114,8 +114,6 @@ static struct {
 
 static void GPENCIL_engine_init(void *vedata)
 {
-	GPENCIL_TextureList *txl = ((GPENCIL_Data *)vedata)->txl;
-	GPENCIL_FramebufferList *fbl = ((GPENCIL_Data *)vedata)->fbl;
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 
 	/* normal fill shader */
@@ -215,9 +213,6 @@ static DRWShadingGroup *GPENCIL_shgroup_fill_create(GPENCIL_Data *vedata, DRWPas
 /* create shading group for volumetric points */
 static DRWShadingGroup *GPENCIL_shgroup_point_volumetric_create(GPENCIL_Data *vedata, DRWPass *pass)
 {
-	GPENCIL_TextureList *txl = ((GPENCIL_Data *)vedata)->txl;
-	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
-
 	DRWShadingGroup *grp = DRW_shgroup_create(e_data.gpencil_volumetric_sh, pass);
 
 	return grp;
@@ -226,7 +221,6 @@ static DRWShadingGroup *GPENCIL_shgroup_point_volumetric_create(GPENCIL_Data *ve
 /* create shading group for strokes */
 static DRWShadingGroup *GPENCIL_shgroup_stroke_create(GPENCIL_Data *vedata, DRWPass *pass, PaletteColor *palcolor)
 {
-	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	const float *viewport_size = DRW_viewport_size_get();
 
 	DRWShadingGroup *grp = DRW_shgroup_create(e_data.gpencil_stroke_sh, pass);
@@ -238,9 +232,6 @@ static DRWShadingGroup *GPENCIL_shgroup_stroke_create(GPENCIL_Data *vedata, DRWP
 /* create shading group for edit points using volumetric */
 static DRWShadingGroup *GPENCIL_shgroup_edit_volumetric_create(GPENCIL_Data *vedata, DRWPass *pass)
 {
-	GPENCIL_TextureList *txl = ((GPENCIL_Data *)vedata)->txl;
-	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
-
 	DRWShadingGroup *grp = DRW_shgroup_create(e_data.gpencil_volumetric_sh, pass);
 
 	return grp;
@@ -249,8 +240,6 @@ static DRWShadingGroup *GPENCIL_shgroup_edit_volumetric_create(GPENCIL_Data *ved
 /* create shading group for drawing strokes in buffer */
 static DRWShadingGroup *GPENCIL_shgroup_drawing_stroke_create(GPENCIL_Data *vedata, DRWPass *pass, PaletteColor *palcolor)
 {
-	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
-
 	DRWShadingGroup *grp = DRW_shgroup_create(e_data.gpencil_stroke_sh, pass);
 	DRW_shgroup_uniform_vec2(grp, "Viewport", DRW_viewport_size_get(), 1);
 	return grp;
@@ -259,8 +248,6 @@ static DRWShadingGroup *GPENCIL_shgroup_drawing_stroke_create(GPENCIL_Data *veda
 /* create shading group for drawing fill in buffer */
 static DRWShadingGroup *GPENCIL_shgroup_drawing_fill_create(GPENCIL_Data *vedata, DRWPass *pass, PaletteColor *palcolor)
 {
-	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
-
 	DRWShadingGroup *grp = DRW_shgroup_create(e_data.gpencil_drawing_fill_sh, pass);
 	return grp;
 }
@@ -268,13 +255,9 @@ static DRWShadingGroup *GPENCIL_shgroup_drawing_fill_create(GPENCIL_Data *vedata
 static void GPENCIL_cache_init(void *vedata)
 {
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
-	GPENCIL_TextureList *txl = ((GPENCIL_Data *)vedata)->txl;
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
-	DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
 
 	const DRWContextState *draw_ctx = DRW_context_state_get();
-	Scene *scene = draw_ctx->scene;
-	SceneLayer *sl = draw_ctx->sl;
 	PaletteColor *palcolor = CTX_data_active_palettecolor(draw_ctx->evil_C);
 
 	if (!stl->g_data) {
@@ -447,7 +430,6 @@ static void gpencil_draw_strokes(void *vedata, ToolSettings *ts, Object *ob,
 /* draw stroke in drawing buffer */
 static void gpencil_draw_buffer_strokes(void *vedata, ToolSettings *ts, bGPdata *gpd)
 {
-	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	bGPDbrush *brush = BKE_gpencil_brush_getactive(ts);
 
@@ -588,13 +570,10 @@ static void gpencil_draw_datablock(void *vedata, Scene *scene, Object *ob, ToolS
 
 static void GPENCIL_cache_populate(void *vedata, Object *ob)
 {
-	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
 	ToolSettings *ts = scene->toolsettings;
-
-	UNUSED_VARS(psl, stl);
 
 	/* scene datablock (only once) */
 	if (stl->g_data->scene_draw == false) {
@@ -619,13 +598,6 @@ static void GPENCIL_cache_finish(void *vedata)
 static void GPENCIL_draw_scene(void *vedata)
 {
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
-	GPENCIL_FramebufferList *fbl = ((GPENCIL_Data *)vedata)->fbl;
-	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
-	/* Default framebuffer and texture */
-	DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
-	DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
-
-	UNUSED_VARS(fbl, dfbl, dtxl);
 
 	DRW_draw_pass(psl->stroke_pass);
 	DRW_draw_pass(psl->edit_pass);
