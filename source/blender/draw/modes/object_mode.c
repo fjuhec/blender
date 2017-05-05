@@ -1197,14 +1197,14 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 	SceneLayer *sl = draw_ctx->sl;
 	int theme_id = TH_UNDEFINED;
 
-	//CollectionEngineSettings *ces_mode_ob = BKE_object_collection_engine_get(ob, COLLECTION_MODE_OBJECT, "");
+	//CollectionEngineSettings *ces_mode_ob = BKE_layer_collection_engine_evaluated_get(ob, COLLECTION_MODE_OBJECT, "");
 
 	//bool do_wire = BKE_collection_engine_property_value_get_bool(ces_mode_ob, "show_wire");
 	bool do_outlines = ((ob->base_flag & BASE_SELECTED) != 0);
 
 	if (do_outlines) {
 		Object *obedit = scene->obedit;
-		if (ob != obedit && !(sl->basact->object == ob && ob->mode & (OB_MODE_WEIGHT_PAINT | OB_MODE_VERTEX_PAINT))) {
+		if (ob != obedit && !(OBACT_NEW == ob && ob->mode & (OB_MODE_WEIGHT_PAINT | OB_MODE_VERTEX_PAINT))) {
 			struct Batch *geom = DRW_cache_object_surface_get(ob);
 			if (geom) {
 				theme_id = DRW_object_wire_theme_get(ob, sl, NULL);

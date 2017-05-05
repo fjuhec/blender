@@ -51,8 +51,6 @@
 #include "GPU_batch.h"
 #include "GPU_draw.h"
 
-#include "UI_resources.h"
-
 #include "draw_cache_impl.h"  /* own include */
 
 static void mesh_batch_cache_clear(Mesh *me);
@@ -1329,8 +1327,8 @@ static bool mesh_render_data_looptri_cos_select_id_get(
 
 static bool mesh_render_data_edge_cos_sel_get(
         MeshRenderData *rdata, const int edge_idx,
-        float r_vert_cos[2][3], float r_vert_col[3],
-        bool use_wire, bool use_sel, bool use_theme)
+        float r_vert_cos[2][3], int *r_vert_sel,
+        bool use_wire, bool use_sel)
 {
 	BLI_assert(rdata->types & (MR_DATATYPE_VERT | MR_DATATYPE_EDGE | MR_DATATYPE_POLY | MR_DATATYPE_LOOP));
 
@@ -1361,20 +1359,11 @@ static bool mesh_render_data_edge_cos_sel_get(
 		}
 
 		if (use_sel && rdata->edge_selection[edge_idx]) {
-			if (use_theme) {
-				UI_GetThemeColorShade3fv(TH_EDGE_SELECT, -50, r_vert_col);
-			}
-			else {
-				r_vert_col[0] = 1.0f;
-				r_vert_col[1] = 1.0f;
-				r_vert_col[2] = 1.0f;
-			}
+			*r_vert_sel = true;
 		}
 		else {
 			if (use_wire) {
-				r_vert_col[0] = 0.5f;
-				r_vert_col[1] = 0.5f;
-				r_vert_col[2] = 0.5f;
+				*r_vert_sel = false;
 			}
 			else {
 				return false;
@@ -1390,7 +1379,7 @@ static bool mesh_render_data_edge_cos_sel_get(
 
 static bool mesh_render_data_tri_cos_sel_get(
         MeshRenderData *rdata, const int tri_idx,
-        float r_vert_cos[3][3], float r_vert_col[4])
+        float r_vert_cos[3][3])
 {
 	BLI_assert(rdata->types & (MR_DATATYPE_VERT | MR_DATATYPE_POLY | MR_DATATYPE_LOOP | MR_DATATYPE_LOOPTRI));
 
@@ -1401,13 +1390,7 @@ static bool mesh_render_data_tri_cos_sel_get(
 		const MLoopTri *mlt = &rdata->mlooptri[tri_idx];
 
 		if (rdata->mpoly[mlt->poly].flag & ME_FACE_SEL) {
-			r_vert_col[3] = 0.0f;
-		}
-		else {
-			r_vert_col[0] = 1.0f;
-			r_vert_col[1] = 1.0f;
-			r_vert_col[2] = 1.0f;
-			r_vert_col[3] = 0.2f;
+			return false;
 		}
 
 		copy_v3_v3(r_vert_cos[0], rdata->mvert[rdata->mloop[mlt->tri[0]].v].co);
@@ -1420,7 +1403,7 @@ static bool mesh_render_data_tri_cos_sel_get(
 
 static bool mesh_render_data_vert_cos_sel_get(
         MeshRenderData *rdata, const int vert_idx,
-        float r_vert_co[3], float r_vert_col[3])
+        float r_vert_co[3], int *r_vert_sel)
 {
 	BLI_assert(rdata->types & (MR_DATATYPE_VERT));
 
@@ -1431,14 +1414,10 @@ static bool mesh_render_data_vert_cos_sel_get(
 		const MVert *mv = &rdata->mvert[vert_idx];
 
 		if (mv->flag & SELECT) {
-			r_vert_col[0] = 1.0f;
-			r_vert_col[1] = 1.0f;
-			r_vert_col[2] = 1.0f;
+			*r_vert_sel = true;
 		}
 		else {
-			r_vert_col[0] = 0.4f;
-			r_vert_col[1] = 0.4f;
-			r_vert_col[2] = 0.4f;
+			*r_vert_sel = false;
 		}
 
 		copy_v3_v3(r_vert_co, mv->co);
@@ -1663,7 +1642,7 @@ typedef struct MeshBatchCache {
 	Batch *overlay_loose_verts;
 	Batch *overlay_loose_edges;
 	Batch *overlay_facedots;
-	Batch *overlay_weight_edges;
+	Batch *overlay_paint_edges;
 	Batch *overlay_weight_faces;
 	Batch *overlay_weight_verts;
 
@@ -1800,7 +1779,7 @@ static void mesh_batch_cache_clear(Mesh *me)
 	BATCH_DISCARD_ALL_SAFE(cache->overlay_loose_verts);
 	BATCH_DISCARD_ALL_SAFE(cache->overlay_loose_edges);
 	BATCH_DISCARD_ALL_SAFE(cache->overlay_facedots);
-	BATCH_DISCARD_ALL_SAFE(cache->overlay_weight_edges);
+	BATCH_DISCARD_ALL_SAFE(cache->overlay_paint_edges);
 	BATCH_DISCARD_ALL_SAFE(cache->overlay_weight_faces);
 	BATCH_DISCARD_ALL_SAFE(cache->overlay_weight_verts);
 
@@ -2373,7 +2352,7 @@ static ElementList **mesh_batch_cache_get_shaded_triangles_in_order(MeshRenderDa
 }
 
 static VertexBuffer *mesh_batch_cache_get_edge_pos_with_sel(
-        MeshRenderData *rdata, MeshBatchCache *cache, bool use_wire, bool use_sel, bool use_theme)
+        MeshRenderData *rdata, MeshBatchCache *cache, bool use_wire, bool use_sel)
 {
 	BLI_assert(rdata->types & (MR_DATATYPE_VERT | MR_DATATYPE_EDGE | MR_DATATYPE_POLY | MR_DATATYPE_LOOP));
 
@@ -2381,11 +2360,11 @@ static VertexBuffer *mesh_batch_cache_get_edge_pos_with_sel(
 		unsigned int vidx = 0, cidx = 0;
 
 		static VertexFormat format = { 0 };
-		static unsigned int pos_id, col_id;
+		static unsigned int pos_id, sel_id;
 		if (format.attrib_ct == 0) {
 			/* initialize vertex format */
 			pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
-			col_id = VertexFormat_add_attrib(&format, "color", COMP_F32, 3, KEEP_FLOAT);
+			sel_id = VertexFormat_add_attrib(&format, "select", COMP_U8, 1, KEEP_INT);
 		}
 
 		const int edge_len = mesh_render_data_edges_len_get(rdata);
@@ -2397,13 +2376,14 @@ static VertexBuffer *mesh_batch_cache_get_edge_pos_with_sel(
 		VertexBuffer_allocate_data(vbo, vbo_len_capacity);
 
 		for (int i = 0; i < edge_len; i++) {
-			static float edge_vert_cos[2][3], edge_vert_col[3];
+			static float edge_vert_cos[2][3];
+			static int edge_vert_sel;
 
 			if (mesh_render_data_edge_cos_sel_get(
-			        rdata, i, edge_vert_cos, edge_vert_col, use_wire, use_sel, use_theme))
+			        rdata, i, edge_vert_cos, &edge_vert_sel, use_wire, use_sel))
 			{
-				VertexBuffer_set_attrib(vbo, col_id, cidx++, edge_vert_col);
-				VertexBuffer_set_attrib(vbo, col_id, cidx++, edge_vert_col);
+				VertexBuffer_set_attrib(vbo, sel_id, cidx++, &edge_vert_sel);
+				VertexBuffer_set_attrib(vbo, sel_id, cidx++, &edge_vert_sel);
 
 				VertexBuffer_set_attrib(vbo, pos_id, vidx++, edge_vert_cos[0]);
 				VertexBuffer_set_attrib(vbo, pos_id, vidx++, edge_vert_cos[1]);
@@ -2425,14 +2405,13 @@ static VertexBuffer *mesh_batch_cache_get_tri_pos_with_sel(MeshRenderData *rdata
 	BLI_assert(rdata->types & (MR_DATATYPE_VERT | MR_DATATYPE_POLY | MR_DATATYPE_LOOP | MR_DATATYPE_LOOPTRI));
 
 	if (cache->tri_pos_with_sel == NULL) {
-		unsigned int vidx = 0, cidx = 0;
+		unsigned int vidx = 0;
 
 		static VertexFormat format = { 0 };
-		static unsigned int pos_id, col_id;
+		static unsigned int pos_id;
 		if (format.attrib_ct == 0) {
 			/* initialize vertex format */
 			pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
-			col_id = VertexFormat_add_attrib(&format, "color", COMP_F32, 4, KEEP_FLOAT);
 		}
 
 		const int tri_len = mesh_render_data_looptri_len_get(rdata);
@@ -2444,15 +2423,11 @@ static VertexBuffer *mesh_batch_cache_get_tri_pos_with_sel(MeshRenderData *rdata
 		VertexBuffer_allocate_data(vbo, vbo_len_capacity);
 
 		for (int i = 0; i < tri_len; i++) {
-			static float tri_vert_cos[3][3], tri_vert_col[4];
+			static float tri_vert_cos[3][3];
 
 			if (mesh_render_data_tri_cos_sel_get(
-			        rdata, i, tri_vert_cos, tri_vert_col))
+			        rdata, i, tri_vert_cos))
 			{
-				VertexBuffer_set_attrib(vbo, col_id, cidx++, tri_vert_col);
-				VertexBuffer_set_attrib(vbo, col_id, cidx++, tri_vert_col);
-				VertexBuffer_set_attrib(vbo, col_id, cidx++, tri_vert_col);
-
 				VertexBuffer_set_attrib(vbo, pos_id, vidx++, tri_vert_cos[0]);
 				VertexBuffer_set_attrib(vbo, pos_id, vidx++, tri_vert_cos[1]);
 				VertexBuffer_set_attrib(vbo, pos_id, vidx++, tri_vert_cos[2]);
@@ -2477,11 +2452,11 @@ static VertexBuffer *mesh_batch_cache_get_vert_pos_with_sel(MeshRenderData *rdat
 		unsigned int vidx = 0, cidx = 0;
 
 		static VertexFormat format = { 0 };
-		static unsigned int pos_id, col_id;
+		static unsigned int pos_id, sel_id;
 		if (format.attrib_ct == 0) {
 			/* initialize vertex format */
 			pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
-			col_id = VertexFormat_add_attrib(&format, "color", COMP_F32, 3, KEEP_FLOAT);
+			sel_id = VertexFormat_add_attrib(&format, "select", COMP_I8, 1, KEEP_INT);
 		}
 
 		const int vert_len = mesh_render_data_verts_len_get(rdata);
@@ -2493,12 +2468,13 @@ static VertexBuffer *mesh_batch_cache_get_vert_pos_with_sel(MeshRenderData *rdat
 		VertexBuffer_allocate_data(vbo, vbo_len_capacity);
 
 		for (int i = 0; i < vert_len; i++) {
-			static float vert_co[3], vert_col[3];
+			static float vert_co[3];
+			static int vert_sel;
 
 			if (mesh_render_data_vert_cos_sel_get(
-			        rdata, i, vert_co, vert_col))
+			        rdata, i, vert_co, &vert_sel))
 			{
-				VertexBuffer_set_attrib(vbo, col_id, cidx++, vert_col);
+				VertexBuffer_set_attrib(vbo, sel_id, cidx++, &vert_sel);
 				VertexBuffer_set_attrib(vbo, pos_id, vidx++, vert_co);
 			}
 		}
@@ -2941,22 +2917,22 @@ Batch **DRW_mesh_batch_cache_get_surface_shaded(Mesh *me)
 	return cache->shaded_triangles;
 }
 
-Batch *DRW_mesh_batch_cache_get_weight_overlay_edges(Mesh *me, bool use_wire, bool use_sel, bool use_theme)
+Batch *DRW_mesh_batch_cache_get_weight_overlay_edges(Mesh *me, bool use_wire, bool use_sel)
 {
 	MeshBatchCache *cache = mesh_batch_cache_get(me);
 
-	if (cache->overlay_weight_edges == NULL) {
+	if (cache->overlay_paint_edges == NULL) {
 		/* create batch from Mesh */
 		const int datatype = MR_DATATYPE_VERT | MR_DATATYPE_EDGE | MR_DATATYPE_POLY | MR_DATATYPE_LOOP;
 		MeshRenderData *rdata = mesh_render_data_create(me, datatype);
 
-		cache->overlay_weight_edges = Batch_create(
-		        PRIM_LINES, mesh_batch_cache_get_edge_pos_with_sel(rdata, cache, use_wire, use_sel, use_theme), NULL);
+		cache->overlay_paint_edges = Batch_create(
+		        PRIM_LINES, mesh_batch_cache_get_edge_pos_with_sel(rdata, cache, use_wire, use_sel), NULL);
 
 		mesh_render_data_free(rdata);
 	}
 
-	return cache->overlay_weight_edges;
+	return cache->overlay_paint_edges;
 }
 
 Batch *DRW_mesh_batch_cache_get_weight_overlay_faces(Mesh *me)
