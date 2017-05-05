@@ -6129,11 +6129,14 @@ static void direct_link_layer_collections(FileData *fd, ListBase *lb)
  * -- Julian
  */
 static void direct_link_scene_update_screen_data(
-        FileData *fd, const ListBase *workspaces, const ListBase *screens)
+        FileData *fd, const Scene *scene, const ListBase *workspaces, const ListBase *screens)
 {
 	BKE_WORKSPACE_ITER_BEGIN (workspace, workspaces->first) {
 		SceneLayer *layer = newdataadr(fd, BKE_workspace_render_layer_get(workspace));
-		BKE_workspace_render_layer_set(workspace, layer);
+		/* only set when layer is from the scene we read */
+		if (layer && (BLI_findindex(&scene->render_layers, layer) != -1)) {
+			BKE_workspace_render_layer_set(workspace, layer);
+		}
 	} BKE_WORKSPACE_ITER_END;
 
 	for (bScreen *screen = screens->first; screen; screen = screen->id.next) {
@@ -6447,7 +6450,7 @@ static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
 	BKE_layer_collection_engine_settings_validate_scene(sce);
 	BKE_scene_layer_engine_settings_validate_scene(sce);
 
-	direct_link_scene_update_screen_data(fd, &bmain->workspaces, &bmain->screen);
+	direct_link_scene_update_screen_data(fd, sce, &bmain->workspaces, &bmain->screen);
 }
 
 /* ************ READ WM ***************** */
