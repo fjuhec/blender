@@ -49,6 +49,7 @@
 #include "bmesh.h"
 
 #include "GPU_batch.h"
+#include "GPU_draw.h"
 
 #include "UI_resources.h"
 
@@ -57,7 +58,9 @@
 static void mesh_batch_cache_clear(Mesh *me);
 
 /* ---------------------------------------------------------------------- */
-/* Mesh/BMesh Interface, direct access to basic data. */
+
+/** \name Mesh/BMesh Interface (direct access to basic data).
+ * \{ */
 
 static int mesh_render_verts_len_get(Mesh *me)
 {
@@ -89,8 +92,13 @@ static int UNUSED_FUNCTION(mesh_render_loops_len_get)(Mesh *me)
 	return me->edit_btmesh ? me->edit_btmesh->bm->totloop : me->totloop;
 }
 
+/** \} */
+
+
 /* ---------------------------------------------------------------------- */
-/* Mesh/BMesh Interface, indirect, partially cached access to complex data. */
+
+/** \name Mesh/BMesh Interface (indirect, partially cached access to complex data).
+ * \{ */
 
 typedef struct EdgeAdjacentPolys {
 	int count;
@@ -487,6 +495,14 @@ static void mesh_render_data_free(MeshRenderData *rdata)
 	MEM_freeN(rdata);
 }
 
+/** \} */
+
+
+/* ---------------------------------------------------------------------- */
+
+/** \name Accessor Functions
+ * \{ */
+
 static const char *mesh_render_data_uv_auto_layer_name_get(const MeshRenderData *rdata, int layer)
 {
 	BLI_assert(rdata->types & MR_DATATYPE_SHADING);
@@ -616,6 +632,204 @@ static bool mesh_render_data_edge_verts_indices_get(
 	}
 	return true;
 }
+
+/** \} */
+
+
+/* ---------------------------------------------------------------------- */
+
+/** \name Internal Cache (Lazy Initialization)
+ * \{ */
+
+/** Ensure #MeshRenderData.poly_normals_short */
+static void mesh_render_data_ensure_poly_normals_short(MeshRenderData *rdata)
+{
+	short (*pnors_short)[3] = rdata->poly_normals_short;
+	if (pnors_short == NULL) {
+		if (rdata->edit_bmesh) {
+			BMesh *bm = rdata->edit_bmesh->bm;
+			BMIter fiter;
+			BMFace *face;
+			int i;
+
+			pnors_short = rdata->poly_normals_short = MEM_mallocN(sizeof(*pnors_short) * rdata->poly_len, __func__);
+			BM_ITER_MESH_INDEX(face, &fiter, bm, BM_FACES_OF_MESH, i) {
+				normal_float_to_short_v3(pnors_short[i], face->no);
+			}
+		}
+		else {
+			float (*pnors)[3] = rdata->poly_normals;
+
+			if (!pnors) {
+				pnors = rdata->poly_normals = MEM_mallocN(sizeof(*pnors) * rdata->poly_len, __func__);
+				BKE_mesh_calc_normals_poly(
+				        rdata->mvert, NULL, rdata->vert_len,
+				        rdata->mloop, rdata->mpoly, rdata->loop_len, rdata->poly_len, pnors, true);
+			}
+
+			pnors_short = rdata->poly_normals_short = MEM_mallocN(sizeof(*pnors_short) * rdata->poly_len, __func__);
+			for (int i = 0; i < rdata->poly_len; i++) {
+				normal_float_to_short_v3(pnors_short[i], pnors[i]);
+			}
+		}
+	}
+}
+
+/** Ensure #MeshRenderData.vert_normals_short */
+static void mesh_render_data_ensure_vert_normals_short(MeshRenderData *rdata)
+{
+	short (*vnors_short)[3] = rdata->vert_normals_short;
+	if (vnors_short == NULL) {
+		if (rdata->edit_bmesh) {
+			BMesh *bm = rdata->edit_bmesh->bm;
+			BMIter viter;
+			BMVert *vert;
+			int i;
+
+			vnors_short = rdata->vert_normals_short = MEM_mallocN(sizeof(*vnors_short) * rdata->vert_len, __func__);
+			BM_ITER_MESH_INDEX(vert, &viter, bm, BM_VERT, i) {
+				normal_float_to_short_v3(vnors_short[i], vert->no);
+			}
+		}
+		else {
+			/* data from mesh used directly */
+			BLI_assert(0);
+		}
+	}
+}
+
+
+/** Ensure #MeshRenderData.vert_color */
+static void mesh_render_data_ensure_vert_color(MeshRenderData *rdata)
+{
+	char (*vcol)[3] = rdata->vert_color;
+	if (vcol == NULL) {
+		if (rdata->edit_bmesh) {
+			/* TODO */
+			BLI_assert(0);
+		}
+		else {
+			if (rdata->loopcol == NULL) {
+				goto fallback;
+			}
+
+			vcol = rdata->vert_color = MEM_mallocN(sizeof(*vcol) * rdata->loop_len, __func__);
+
+			for (int i = 0; i < rdata->loop_len; i++) {
+				vcol[i][0] = rdata->loopcol[i].r;
+				vcol[i][1] = rdata->loopcol[i].g;
+				vcol[i][2] = rdata->loopcol[i].b;
+			}
+		}
+	}
+	return;
+
+fallback:
+	vcol = rdata->vert_color = MEM_mallocN(sizeof(*vcol) * rdata->loop_len, __func__);
+
+	for (int i = 0; i < rdata->loop_len; i++) {
+		vcol[i][0] = 255;
+		vcol[i][1] = 255;
+		vcol[i][2] = 255;
+	}
+}
+
+/* TODO, move into shader? */
+static void rgb_from_weight(float r_rgb[3], const float weight)
+{
+	const float blend = ((weight / 2.0f) + 0.5f);
+
+	if (weight <= 0.25f) {    /* blue->cyan */
+		r_rgb[0] = 0.0f;
+		r_rgb[1] = blend * weight * 4.0f;
+		r_rgb[2] = blend;
+	}
+	else if (weight <= 0.50f) {  /* cyan->green */
+		r_rgb[0] = 0.0f;
+		r_rgb[1] = blend;
+		r_rgb[2] = blend * (1.0f - ((weight - 0.25f) * 4.0f));
+	}
+	else if (weight <= 0.75f) {  /* green->yellow */
+		r_rgb[0] = blend * ((weight - 0.50f) * 4.0f);
+		r_rgb[1] = blend;
+		r_rgb[2] = 0.0f;
+	}
+	else if (weight <= 1.0f) {  /* yellow->red */
+		r_rgb[0] = blend;
+		r_rgb[1] = blend * (1.0f - ((weight - 0.75f) * 4.0f));
+		r_rgb[2] = 0.0f;
+	}
+	else {
+		/* exceptional value, unclamped or nan,
+		 * avoid uninitialized memory use */
+		r_rgb[0] = 1.0f;
+		r_rgb[1] = 0.0f;
+		r_rgb[2] = 1.0f;
+	}
+}
+
+
+/** Ensure #MeshRenderData.vert_color */
+static void mesh_render_data_ensure_vert_weight_color(MeshRenderData *rdata, const int defgroup)
+{
+	float (*vweight)[3] = rdata->vert_weight_color;
+	if (vweight == NULL) {
+		if (rdata->edit_bmesh) {
+			BMesh *bm = rdata->edit_bmesh->bm;
+			const int cd_dvert_offset = CustomData_get_offset(&bm->vdata, CD_MDEFORMVERT);
+			if (cd_dvert_offset == -1) {
+				goto fallback;
+			}
+
+			BMIter viter;
+			BMVert *vert;
+			int i;
+
+			vweight = rdata->vert_weight_color = MEM_mallocN(sizeof(*vweight) * rdata->vert_len, __func__);
+			BM_ITER_MESH_INDEX(vert, &viter, bm, BM_VERT, i) {
+				const MDeformVert *dvert = BM_ELEM_CD_GET_VOID_P(vert, cd_dvert_offset);
+				float weight = defvert_find_weight(dvert, defgroup);
+				if (U.flag & USER_CUSTOM_RANGE) {
+					do_colorband(&U.coba_weight, weight, vweight[i]);
+				}
+				else {
+					rgb_from_weight(vweight[i], weight);
+				}
+			}
+		}
+		else {
+			if (rdata->dvert == NULL) {
+				goto fallback;
+			}
+
+			vweight = rdata->vert_weight_color = MEM_mallocN(sizeof(*vweight) * rdata->vert_len, __func__);
+			for (int i = 0; i < rdata->vert_len; i++) {
+				float weight = defvert_find_weight(&rdata->dvert[i], defgroup);
+				if (U.flag & USER_CUSTOM_RANGE) {
+					do_colorband(&U.coba_weight, weight, vweight[i]);
+				}
+				else {
+					rgb_from_weight(vweight[i], weight);
+				}
+			}
+		}
+	}
+	return;
+
+fallback:
+	vweight = rdata->vert_weight_color = MEM_callocN(sizeof(*vweight) * rdata->vert_len, __func__);
+
+	for (int i = 0; i < rdata->vert_len; i++) {
+		vweight[i][2] = 0.5f;
+	}
+}
+
+/** \} */
+
+/* ---------------------------------------------------------------------- */
+
+/** \name Internal Cache Generation
+ * \{ */
 
 static bool mesh_render_data_pnors_pcenter_select_get(
         MeshRenderData *rdata, const int poly,
@@ -923,31 +1137,11 @@ static bool mesh_render_data_looptri_cos_nors_smooth_get(
 			return false;
 		}
 
+		mesh_render_data_ensure_poly_normals_short(rdata);
+		mesh_render_data_ensure_vert_normals_short(rdata);
+
 		short (*pnors_short)[3] = rdata->poly_normals_short;
 		short (*vnors_short)[3] = rdata->vert_normals_short;
-
-		if (!pnors_short) {
-			BMesh *bm = rdata->edit_bmesh->bm;
-			BMIter fiter;
-			BMFace *face;
-			int i;
-
-			pnors_short = rdata->poly_normals_short = MEM_mallocN(sizeof(*pnors_short) * rdata->poly_len, __func__);
-			BM_ITER_MESH_INDEX(face, &fiter, bm, BM_FACES_OF_MESH, i) {
-				normal_float_to_short_v3(pnors_short[i], face->no);
-			}
-		}
-		if (!vnors_short) {
-			BMesh *bm = rdata->edit_bmesh->bm;
-			BMIter viter;
-			BMVert *vert;
-			int i;
-
-			vnors_short = rdata->vert_normals_short = MEM_mallocN(sizeof(*vnors_short) * rdata->vert_len, __func__);
-			BM_ITER_MESH_INDEX(vert, &viter, bm, BM_VERT, i) {
-				normal_float_to_short_v3(vnors_short[i], vert->no);
-			}
-		}
 
 		(*r_vert_cos)[0] = bm_looptri[0]->v->co;
 		(*r_vert_cos)[1] = bm_looptri[1]->v->co;
@@ -961,23 +1155,10 @@ static bool mesh_render_data_looptri_cos_nors_smooth_get(
 	}
 	else {
 		const MLoopTri *mlt = &rdata->mlooptri[tri_idx];
+
+		mesh_render_data_ensure_poly_normals_short(rdata);
+
 		short (*pnors_short)[3] = rdata->poly_normals_short;
-
-		if (!pnors_short) {
-			float (*pnors)[3] = rdata->poly_normals;
-
-			if (!pnors) {
-				pnors = rdata->poly_normals = MEM_mallocN(sizeof(*pnors) * rdata->poly_len, __func__);
-				BKE_mesh_calc_normals_poly(
-				            rdata->mvert, NULL, rdata->vert_len,
-				            rdata->mloop, rdata->mpoly, rdata->loop_len, rdata->poly_len, pnors, true);
-			}
-
-			pnors_short = rdata->poly_normals_short = MEM_mallocN(sizeof(*pnors_short) * rdata->poly_len, __func__);
-			for (int i = 0; i < rdata->poly_len; i++) {
-				normal_float_to_short_v3(pnors_short[i], pnors[i]);
-			}
-		}
 
 		(*r_vert_cos)[0] = rdata->mvert[rdata->mloop[mlt->tri[0]].v].co;
 		(*r_vert_cos)[1] = rdata->mvert[rdata->mloop[mlt->tri[1]].v].co;
@@ -990,39 +1171,6 @@ static bool mesh_render_data_looptri_cos_nors_smooth_get(
 		*r_is_smooth = (rdata->mpoly[mlt->poly].flag & ME_SMOOTH) != 0;
 	}
 	return true;
-}
-
-static void rgb_from_weight(float r_rgb[3], const float weight)
-{
-	const float blend = ((weight / 2.0f) + 0.5f);
-
-	if (weight <= 0.25f) {    /* blue->cyan */
-		r_rgb[0] = 0.0f;
-		r_rgb[1] = blend * weight * 4.0f;
-		r_rgb[2] = blend;
-	}
-	else if (weight <= 0.50f) {  /* cyan->green */
-		r_rgb[0] = 0.0f;
-		r_rgb[1] = blend;
-		r_rgb[2] = blend * (1.0f - ((weight - 0.25f) * 4.0f));
-	}
-	else if (weight <= 0.75f) {  /* green->yellow */
-		r_rgb[0] = blend * ((weight - 0.50f) * 4.0f);
-		r_rgb[1] = blend;
-		r_rgb[2] = 0.0f;
-	}
-	else if (weight <= 1.0f) {  /* yellow->red */
-		r_rgb[0] = blend;
-		r_rgb[1] = blend * (1.0f - ((weight - 0.75f) * 4.0f));
-		r_rgb[2] = 0.0f;
-	}
-	else {
-		/* exceptional value, unclamped or nan,
-		 * avoid uninitialized memory use */
-		r_rgb[0] = 1.0f;
-		r_rgb[1] = 0.0f;
-		r_rgb[2] = 1.0f;
-	}
 }
 
 static bool mesh_render_data_looptri_cos_weights_get(
@@ -1041,64 +1189,13 @@ static bool mesh_render_data_looptri_cos_weights_get(
 			return false;
 		}
 
-		float (*vweight)[3] = rdata->vert_weight_color;
+		mesh_render_data_ensure_poly_normals_short(rdata);
+		mesh_render_data_ensure_vert_normals_short(rdata);
+		mesh_render_data_ensure_vert_weight_color(rdata, defgroup);
+
 		short (*pnors_short)[3] = rdata->poly_normals_short;
 		short (*vnors_short)[3] = rdata->vert_normals_short;
-
-		if (!pnors_short) {
-			BMesh *bm = rdata->edit_bmesh->bm;
-			BMIter fiter;
-			BMFace *face;
-			int i;
-
-			pnors_short = rdata->poly_normals_short = MEM_mallocN(sizeof(*pnors_short) * rdata->poly_len, __func__);
-			BM_ITER_MESH_INDEX(face, &fiter, bm, BM_FACES_OF_MESH, i) {
-				normal_float_to_short_v3(pnors_short[i], face->no);
-			}
-		}
-		if (!vnors_short) {
-			BMesh *bm = rdata->edit_bmesh->bm;
-			BMIter viter;
-			BMVert *vert;
-			int i;
-
-			vnors_short = rdata->vert_normals_short = MEM_mallocN(sizeof(*vnors_short) * rdata->vert_len, __func__);
-			BM_ITER_MESH_INDEX(vert, &viter, bm, BM_VERT, i) {
-				normal_float_to_short_v3(vnors_short[i], vert->no);
-			}
-		}
-
-		if (!vweight) {
-			BMesh *bm = rdata->edit_bmesh->bm;
-
-			if (CustomData_has_layer(&bm->vdata, CD_MDEFORMVERT)) {
-				BMIter viter;
-				BMVert *vert;
-				int i;
-
-				const int cd_dvert_offset = CustomData_get_offset(&bm->vdata, CD_MDEFORMVERT);
-				BLI_assert(cd_dvert_offset != -1);
-
-				vweight = rdata->vert_weight_color = MEM_mallocN(sizeof(*vweight) * rdata->vert_len, __func__);
-				BM_ITER_MESH_INDEX(vert, &viter, bm, BM_VERT, i) {
-					const MDeformVert *dvert = BM_ELEM_CD_GET_VOID_P(vert, cd_dvert_offset);
-					float weight = defvert_find_weight(dvert, defgroup);
-					if (U.flag & USER_CUSTOM_RANGE) {
-						do_colorband(&U.coba_weight, weight, vweight[i]);
-					}
-					else {
-						rgb_from_weight(vweight[i], weight);
-					}
-				}
-			}
-			else {
-				vweight = rdata->vert_weight_color = MEM_callocN(sizeof(*vweight) * rdata->vert_len, __func__);
-
-				for (int i = 0; i < rdata->vert_len; i++) {
-					vweight[i][2] = 0.5f;
-				}
-			}
-		}
+		float (*vweight)[3] = rdata->vert_weight_color;
 
 		(*r_vert_cos)[0] = bm_looptri[0]->v->co;
 		(*r_vert_cos)[1] = bm_looptri[1]->v->co;
@@ -1115,47 +1212,12 @@ static bool mesh_render_data_looptri_cos_weights_get(
 	}
 	else {
 		const MLoopTri *mlt = &rdata->mlooptri[tri_idx];
-		float (*vweight)[3] = rdata->vert_weight_color;
+
+		mesh_render_data_ensure_poly_normals_short(rdata);
+		mesh_render_data_ensure_vert_weight_color(rdata, defgroup);
+
 		short (*pnors_short)[3] = rdata->poly_normals_short;
-
-		if (!pnors_short) {
-			float (*pnors)[3] = rdata->poly_normals;
-
-			if (!pnors) {
-				pnors = rdata->poly_normals = MEM_mallocN(sizeof(*pnors) * rdata->poly_len, __func__);
-				BKE_mesh_calc_normals_poly(
-				            rdata->mvert, NULL, rdata->vert_len,
-				            rdata->mloop, rdata->mpoly, rdata->loop_len, rdata->poly_len, pnors, true);
-			}
-
-			pnors_short = rdata->poly_normals_short = MEM_mallocN(sizeof(*pnors_short) * rdata->poly_len, __func__);
-			for (int i = 0; i < rdata->poly_len; i++) {
-				normal_float_to_short_v3(pnors_short[i], pnors[i]);
-			}
-		}
-
-		if (!vweight) {
-			if (rdata->dvert) {
-				vweight = rdata->vert_weight_color = MEM_mallocN(sizeof(*vweight) * rdata->vert_len, __func__);
-
-				for (int i = 0; i < rdata->vert_len; i++) {
-					float weight = defvert_find_weight(&rdata->dvert[i], defgroup);
-					if (U.flag & USER_CUSTOM_RANGE) {
-						do_colorband(&U.coba_weight, weight, vweight[i]);
-					}
-					else {
-						rgb_from_weight(vweight[i], weight);
-					}
-				}
-			}
-			else {
-				vweight = rdata->vert_weight_color = MEM_callocN(sizeof(*vweight) * rdata->vert_len, __func__);
-
-				for (int i = 0; i < rdata->vert_len; i++) {
-					vweight[i][2] = 0.5f;
-				}
-			}
-		}
+		float (*vweight)[3] = rdata->vert_weight_color;
 
 		(*r_vert_cos)[0] = rdata->mvert[rdata->mloop[mlt->tri[0]].v].co;
 		(*r_vert_cos)[1] = rdata->mvert[rdata->mloop[mlt->tri[1]].v].co;
@@ -1184,49 +1246,18 @@ static bool mesh_render_data_looptri_cos_vert_colors_get(
 	        (MR_DATATYPE_VERT | MR_DATATYPE_LOOPTRI | MR_DATATYPE_LOOP | MR_DATATYPE_POLY | MR_DATATYPE_LOOPCOL));
 
 	if (rdata->edit_bmesh) {
+		/* TODO */
 		return false;
 	}
 	else {
 		const MLoopTri *mlt = &rdata->mlooptri[tri_idx];
-		char (*vcol)[3] = rdata->vert_color;
+
+		mesh_render_data_ensure_poly_normals_short(rdata);
+		mesh_render_data_ensure_vert_color(rdata);
+
 		short (*pnors_short)[3] = rdata->poly_normals_short;
+		char (*vcol)[3] = rdata->vert_color;
 
-		if (!pnors_short) {
-			float (*pnors)[3] = rdata->poly_normals;
-
-			if (!pnors) {
-				pnors = rdata->poly_normals = MEM_mallocN(sizeof(*pnors) * rdata->poly_len, __func__);
-				BKE_mesh_calc_normals_poly(
-				            rdata->mvert, NULL, rdata->vert_len,
-				            rdata->mloop, rdata->mpoly, rdata->loop_len, rdata->poly_len, pnors, true);
-			}
-
-			pnors_short = rdata->poly_normals_short = MEM_mallocN(sizeof(*pnors_short) * rdata->poly_len, __func__);
-			for (int i = 0; i < rdata->poly_len; i++) {
-				normal_float_to_short_v3(pnors_short[i], pnors[i]);
-			}
-		}
-
-		if (!vcol) {
-			if (rdata->loopcol) {
-				vcol = rdata->vert_color = MEM_mallocN(sizeof(*vcol) * rdata->loop_len, __func__);
-
-				for (int i = 0; i < rdata->loop_len; i++) {
-					vcol[i][0] = rdata->loopcol[i].r;
-					vcol[i][1] = rdata->loopcol[i].g;
-					vcol[i][2] = rdata->loopcol[i].b;
-				}
-			}
-			else {
-				vcol = rdata->vert_color = MEM_mallocN(sizeof(*vcol) * rdata->loop_len, __func__);
-
-				for (int i = 0; i < rdata->loop_len; i++) {
-					vcol[i][0] = 255;
-					vcol[i][1] = 255;
-					vcol[i][2] = 255;
-				}
-			}
-		}
 		(*r_vert_cos)[0] = rdata->mvert[rdata->mloop[mlt->tri[0]].v].co;
 		(*r_vert_cos)[1] = rdata->mvert[rdata->mloop[mlt->tri[1]].v].co;
 		(*r_vert_cos)[2] = rdata->mvert[rdata->mloop[mlt->tri[2]].v].co;
@@ -1239,6 +1270,58 @@ static bool mesh_render_data_looptri_cos_vert_colors_get(
 		(*r_vert_nors)[2] = rdata->mvert[rdata->mloop[mlt->tri[2]].v].no;
 
 		*r_is_smooth = (rdata->mpoly[mlt->poly].flag & ME_SMOOTH) != 0;
+	}
+
+	return true;
+}
+
+static bool mesh_render_data_looptri_cos_select_id_get(
+        MeshRenderData *rdata, const int tri_idx, const bool use_hide,
+        float *(*r_vert_cos)[3],
+        short **r_tri_nor, int *r_select_id)
+{
+	BLI_assert(
+	        rdata->types &
+	        (MR_DATATYPE_VERT | MR_DATATYPE_LOOPTRI | MR_DATATYPE_LOOP | MR_DATATYPE_POLY | MR_DATATYPE_DVERT));
+
+	if (rdata->edit_bmesh) {
+		const BMLoop **bm_looptri = (const BMLoop **)rdata->edit_bmesh->looptris[tri_idx];
+		const int poly_index = BM_elem_index_get(bm_looptri[0]->f);
+
+		if (use_hide && BM_elem_flag_test(bm_looptri[0]->f, BM_ELEM_HIDDEN)) {
+			return false;
+		}
+
+		mesh_render_data_ensure_poly_normals_short(rdata);
+
+		short (*pnors_short)[3] = rdata->poly_normals_short;
+
+
+		(*r_vert_cos)[0] = bm_looptri[0]->v->co;
+		(*r_vert_cos)[1] = bm_looptri[1]->v->co;
+		(*r_vert_cos)[2] = bm_looptri[2]->v->co;
+		*r_tri_nor = pnors_short[poly_index];
+
+		GPU_select_index_get(poly_index + 1, r_select_id);
+	}
+	else {
+		const MLoopTri *mlt = &rdata->mlooptri[tri_idx];
+		const int poly_index = mlt->poly;
+
+		if (use_hide && (rdata->mpoly[poly_index].flag & ME_HIDE)) {
+			return false;
+		}
+
+		mesh_render_data_ensure_poly_normals_short(rdata);
+
+		short (*pnors_short)[3] = rdata->poly_normals_short;
+
+		(*r_vert_cos)[0] = rdata->mvert[rdata->mloop[mlt->tri[0]].v].co;
+		(*r_vert_cos)[1] = rdata->mvert[rdata->mloop[mlt->tri[1]].v].co;
+		(*r_vert_cos)[2] = rdata->mvert[rdata->mloop[mlt->tri[2]].v].co;
+		*r_tri_nor = pnors_short[poly_index];
+
+		GPU_select_index_get(poly_index + 1, r_select_id);
 	}
 
 	return true;
@@ -1533,8 +1616,13 @@ static void add_overlay_loose_vert(
 	VertexBuffer_set_attrib(vbo, edgeMod_id, base_vert_idx + 0, vflag);
 }
 
+/** \} */
+
+
 /* ---------------------------------------------------------------------- */
-/* Mesh Batch Cache */
+
+/** \name Mesh Batch Cache
+ * \{ */
 
 typedef struct MeshBatchCache {
 	VertexBuffer *pos_in_order;
@@ -1552,9 +1640,11 @@ typedef struct MeshBatchCache {
 	VertexBuffer *edge_pos_with_sel;
 	VertexBuffer *tri_pos_with_sel;
 	VertexBuffer *pos_with_sel;
+	VertexBuffer *pos_with_sel_id;
 	Batch *triangles_with_normals;
 	Batch *triangles_with_weights;
 	Batch *triangles_with_vert_colors;
+	Batch *triangles_with_select_id;
 	Batch *points_with_normals;
 	Batch *fancy_edges; /* owns its vertex buffer (not shared) */
 
@@ -1719,6 +1809,8 @@ static void mesh_batch_cache_clear(Mesh *me)
 	VERTEXBUFFER_DISCARD_SAFE(cache->pos_with_normals);
 	BATCH_DISCARD_ALL_SAFE(cache->triangles_with_weights);
 	BATCH_DISCARD_ALL_SAFE(cache->triangles_with_vert_colors);
+	VERTEXBUFFER_DISCARD_SAFE(cache->pos_with_sel_id);
+	BATCH_DISCARD_SAFE(cache->triangles_with_select_id);
 
 	BATCH_DISCARD_ALL_SAFE(cache->fancy_edges);
 
@@ -1746,7 +1838,7 @@ void DRW_mesh_batch_cache_free(Mesh *me)
 
 /* Batch cache usage. */
 
-static VertexBuffer *mesh_batch_cache_get_shading_data(MeshRenderData *rdata, MeshBatchCache *cache)
+static VertexBuffer *mesh_batch_cache_get_tri_pos_shading_data(MeshRenderData *rdata, MeshBatchCache *cache)
 {
 	BLI_assert(rdata->types & (MR_DATATYPE_VERT | MR_DATATYPE_LOOPTRI | MR_DATATYPE_LOOP | MR_DATATYPE_POLY));
 
@@ -1913,7 +2005,8 @@ static VertexBuffer *mesh_batch_cache_get_shading_data(MeshRenderData *rdata, Me
 	return cache->shaded_triangles_data;
 }
 
-static VertexBuffer *mesh_batch_cache_get_pos_and_normals(MeshRenderData *rdata, MeshBatchCache *cache)
+static VertexBuffer *mesh_batch_cache_get_tri_pos_and_normals(
+        MeshRenderData *rdata, MeshBatchCache *cache)
 {
 	BLI_assert(rdata->types & (MR_DATATYPE_VERT | MR_DATATYPE_LOOPTRI | MR_DATATYPE_LOOP | MR_DATATYPE_POLY));
 
@@ -1969,7 +2062,7 @@ static VertexBuffer *mesh_batch_cache_get_pos_and_normals(MeshRenderData *rdata,
 	return cache->pos_with_normals;
 }
 
-static VertexBuffer *mesh_batch_cache_get_pos_normals_and_weights(
+static VertexBuffer *mesh_batch_cache_get_tri_pos_normals_and_weights(
         MeshRenderData *rdata, MeshBatchCache *cache, int defgroup)
 {
 	BLI_assert(
@@ -2034,7 +2127,7 @@ static VertexBuffer *mesh_batch_cache_get_pos_normals_and_weights(
 	return cache->pos_with_weights;
 }
 
-static VertexBuffer *mesh_batch_cache_get_pos_normals_and_vert_colors(
+static VertexBuffer *mesh_batch_cache_get_tri_pos_normals_and_vert_colors(
         MeshRenderData *rdata, MeshBatchCache *cache)
 {
 	BLI_assert(
@@ -2100,7 +2193,68 @@ static VertexBuffer *mesh_batch_cache_get_pos_normals_and_vert_colors(
 	return cache->pos_with_vert_colors;
 }
 
-static VertexBuffer *mesh_batch_cache_get_pos_and_nor_in_order(MeshRenderData *rdata, MeshBatchCache *cache)
+static VertexBuffer *mesh_batch_cache_get_tri_pos_normals_and_select_id(
+        MeshRenderData *rdata, MeshBatchCache *cache, bool use_hide)
+{
+	BLI_assert(
+	        rdata->types &
+	        (MR_DATATYPE_VERT | MR_DATATYPE_LOOPTRI | MR_DATATYPE_LOOP | MR_DATATYPE_POLY));
+
+	if (cache->pos_with_sel_id == NULL) {
+		unsigned int vidx = 0, cidx = 0, nidx = 0;
+
+		static VertexFormat format = { 0 };
+		static unsigned int pos_id, col_id, nor_id;
+		if (format.attrib_ct == 0) {
+			/* initialize vertex format */
+			pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
+			nor_id = VertexFormat_add_attrib(&format, "nor", COMP_I16, 3, NORMALIZE_INT_TO_FLOAT);
+			col_id = VertexFormat_add_attrib(&format, "color", COMP_I32, 1, KEEP_INT);
+		}
+
+		const int tri_len = mesh_render_data_looptri_len_get(rdata);
+
+		VertexBuffer *vbo = cache->pos_with_sel_id = VertexBuffer_create_with_format(&format);
+
+		const int vbo_len_capacity = tri_len * 3;
+		int vbo_len_used = 0;
+		VertexBuffer_allocate_data(vbo, vbo_len_capacity);
+
+		for (int i = 0; i < tri_len; i++) {
+			float *tri_vert_cos[3];
+			short *tri_nor;
+			int select_id;
+
+			if (mesh_render_data_looptri_cos_select_id_get(
+			        rdata, i, use_hide, &tri_vert_cos, &tri_nor, &select_id))
+			{
+				/* TODO, one elem per tri */
+				VertexBuffer_set_attrib(vbo, col_id, cidx++, &select_id);
+				VertexBuffer_set_attrib(vbo, col_id, cidx++, &select_id);
+				VertexBuffer_set_attrib(vbo, col_id, cidx++, &select_id);
+
+				VertexBuffer_set_attrib(vbo, pos_id, vidx++, tri_vert_cos[0]);
+				VertexBuffer_set_attrib(vbo, pos_id, vidx++, tri_vert_cos[1]);
+				VertexBuffer_set_attrib(vbo, pos_id, vidx++, tri_vert_cos[2]);
+
+				/* TODO, one elem per tri */
+				VertexBuffer_set_attrib(vbo, nor_id, nidx++, tri_nor);
+				VertexBuffer_set_attrib(vbo, nor_id, nidx++, tri_nor);
+				VertexBuffer_set_attrib(vbo, nor_id, nidx++, tri_nor);
+			}
+		}
+		vbo_len_used = vidx;
+
+		if (vbo_len_capacity != vbo_len_used) {
+			VertexBuffer_resize_data(vbo, vbo_len_used);
+		}
+	}
+
+	return cache->pos_with_sel_id;
+}
+
+static VertexBuffer *mesh_batch_cache_get_vert_pos_and_nor_in_order(
+        MeshRenderData *rdata, MeshBatchCache *cache)
 {
 	BLI_assert(rdata->types & MR_DATATYPE_VERT);
 
@@ -2199,7 +2353,7 @@ static ElementList **mesh_batch_cache_get_shaded_triangles_in_order(MeshRenderDa
 		for (int i = 0; i < tri_len; ++i) {
 			short ma_id;
 
-			/* TODO deduplicate verts see mesh_batch_cache_get_shading_data */
+			/* TODO deduplicate verts see mesh_batch_cache_get_triangle_shading_data */
 			if (mesh_render_data_looptri_mat_index_get(rdata, i, &ma_id)) {
 				add_triangle_vertices(&elb[ma_id], nidx + 0, nidx + 1, nidx + 2);
 				nidx += 3;
@@ -2315,7 +2469,7 @@ static VertexBuffer *mesh_batch_cache_get_tri_pos_with_sel(MeshRenderData *rdata
 	return cache->tri_pos_with_sel;
 }
 
-static VertexBuffer *mesh_batch_cache_get_pos_with_sel(MeshRenderData *rdata, MeshBatchCache *cache)
+static VertexBuffer *mesh_batch_cache_get_vert_pos_with_sel(MeshRenderData *rdata, MeshBatchCache *cache)
 {
 	BLI_assert(rdata->types & (MR_DATATYPE_VERT));
 
@@ -2359,6 +2513,14 @@ static VertexBuffer *mesh_batch_cache_get_pos_with_sel(MeshRenderData *rdata, Me
 	return cache->pos_with_sel;
 }
 
+/** \} */
+
+
+/* ---------------------------------------------------------------------- */
+
+/** \name Public API
+ * \{ */
+
 Batch *DRW_mesh_batch_cache_get_all_edges(Mesh *me)
 {
 	MeshBatchCache *cache = mesh_batch_cache_get(me);
@@ -2369,7 +2531,7 @@ Batch *DRW_mesh_batch_cache_get_all_edges(Mesh *me)
 		MeshRenderData *rdata = mesh_render_data_create(me, datatype);
 
 		cache->all_edges = Batch_create(
-		         PRIM_LINES, mesh_batch_cache_get_pos_and_nor_in_order(rdata, cache),
+		         PRIM_LINES, mesh_batch_cache_get_vert_pos_and_nor_in_order(rdata, cache),
 		         mesh_batch_cache_get_edges_in_order(rdata, cache));
 
 		mesh_render_data_free(rdata);
@@ -2388,7 +2550,7 @@ Batch *DRW_mesh_batch_cache_get_all_triangles(Mesh *me)
 		MeshRenderData *rdata = mesh_render_data_create(me, datatype);
 
 		cache->all_triangles = Batch_create(
-		        PRIM_TRIANGLES, mesh_batch_cache_get_pos_and_nor_in_order(rdata, cache),
+		        PRIM_TRIANGLES, mesh_batch_cache_get_vert_pos_and_nor_in_order(rdata, cache),
 		        mesh_batch_cache_get_triangles_in_order(rdata, cache));
 
 		mesh_render_data_free(rdata);
@@ -2406,7 +2568,7 @@ Batch *DRW_mesh_batch_cache_get_triangles_with_normals(Mesh *me)
 		MeshRenderData *rdata = mesh_render_data_create(me, datatype);
 
 		cache->triangles_with_normals = Batch_create(
-		        PRIM_TRIANGLES, mesh_batch_cache_get_pos_and_normals(rdata, cache), NULL);
+		        PRIM_TRIANGLES, mesh_batch_cache_get_tri_pos_and_normals(rdata, cache), NULL);
 
 		mesh_render_data_free(rdata);
 	}
@@ -2424,7 +2586,7 @@ Batch *DRW_mesh_batch_cache_get_triangles_with_normals_and_weights(Mesh *me, int
 		MeshRenderData *rdata = mesh_render_data_create(me, datatype);
 
 		cache->triangles_with_weights = Batch_create(
-		        PRIM_TRIANGLES, mesh_batch_cache_get_pos_normals_and_weights(rdata, cache, defgroup), NULL);
+		        PRIM_TRIANGLES, mesh_batch_cache_get_tri_pos_normals_and_weights(rdata, cache, defgroup), NULL);
 
 		mesh_render_data_free(rdata);
 	}
@@ -2442,12 +2604,31 @@ Batch *DRW_mesh_batch_cache_get_triangles_with_normals_and_vert_colors(Mesh *me)
 		MeshRenderData *rdata = mesh_render_data_create(me, datatype);
 
 		cache->triangles_with_vert_colors = Batch_create(
-		        PRIM_TRIANGLES, mesh_batch_cache_get_pos_normals_and_vert_colors(rdata, cache), NULL);
+		        PRIM_TRIANGLES, mesh_batch_cache_get_tri_pos_normals_and_vert_colors(rdata, cache), NULL);
 
 		mesh_render_data_free(rdata);
 	}
 
 	return cache->triangles_with_vert_colors;
+}
+
+
+struct Batch *DRW_mesh_batch_cache_get_triangles_with_select_id(struct Mesh *me, bool use_hide)
+{
+	MeshBatchCache *cache = mesh_batch_cache_get(me);
+
+	if (cache->triangles_with_select_id == NULL) {
+		const int datatype =
+		        MR_DATATYPE_VERT | MR_DATATYPE_LOOPTRI | MR_DATATYPE_LOOP | MR_DATATYPE_POLY;
+		MeshRenderData *rdata = mesh_render_data_create(me, datatype);
+
+		cache->triangles_with_select_id = Batch_create(
+		        PRIM_TRIANGLES, mesh_batch_cache_get_tri_pos_normals_and_select_id(rdata, cache, use_hide), NULL);
+
+		mesh_render_data_free(rdata);
+	}
+
+	return cache->triangles_with_select_id;
 }
 
 Batch *DRW_mesh_batch_cache_get_points_with_normals(Mesh *me)
@@ -2459,7 +2640,7 @@ Batch *DRW_mesh_batch_cache_get_points_with_normals(Mesh *me)
 		MeshRenderData *rdata = mesh_render_data_create(me, datatype);
 
 		cache->points_with_normals = Batch_create(
-		        PRIM_POINTS, mesh_batch_cache_get_pos_and_normals(rdata, cache), NULL);
+		        PRIM_POINTS, mesh_batch_cache_get_tri_pos_and_normals(rdata, cache), NULL);
 
 		mesh_render_data_free(rdata);
 	}
@@ -2476,7 +2657,7 @@ Batch *DRW_mesh_batch_cache_get_all_verts(Mesh *me)
 		MeshRenderData *rdata = mesh_render_data_create(me, MR_DATATYPE_VERT);
 
 		cache->all_verts = Batch_create(
-		        PRIM_POINTS, mesh_batch_cache_get_pos_and_nor_in_order(rdata, cache), NULL);
+		        PRIM_POINTS, mesh_batch_cache_get_vert_pos_and_nor_in_order(rdata, cache), NULL);
 
 		mesh_render_data_free(rdata);
 	}
@@ -2751,7 +2932,7 @@ Batch **DRW_mesh_batch_cache_get_surface_shaded(Mesh *me)
 
 		for (int i = 0; i < mat_ct; ++i) {
 			cache->shaded_triangles[i] = Batch_create(
-			        PRIM_TRIANGLES, mesh_batch_cache_get_shading_data(rdata, cache), el[i]);
+			        PRIM_TRIANGLES, mesh_batch_cache_get_tri_pos_shading_data(rdata, cache), el[i]);
 		}
 
 		mesh_render_data_free(rdata);
@@ -2805,12 +2986,14 @@ Batch *DRW_mesh_batch_cache_get_weight_overlay_verts(Mesh *me)
 		MeshRenderData *rdata = mesh_render_data_create(me, MR_DATATYPE_VERT);
 
 		cache->overlay_weight_verts = Batch_create(
-		        PRIM_POINTS, mesh_batch_cache_get_pos_with_sel(rdata, cache), NULL);
+		        PRIM_POINTS, mesh_batch_cache_get_vert_pos_with_sel(rdata, cache), NULL);
 
 		mesh_render_data_free(rdata);
 	}
 
 	return cache->overlay_weight_verts;
 }
+
+/** \} */
 
 #undef MESH_RENDER_FUNCTION

@@ -2056,6 +2056,8 @@ static void DRW_engines_draw_text(void)
 	}
 }
 
+#define MAX_INFO_LINES 10
+
 /**
  * Returns the offset required for the drawing of engines info.
  */
@@ -2077,7 +2079,7 @@ int DRW_draw_region_engine_info_offset()
 			}
 		}
 	}
-	return lines * UI_UNIT_Y;
+	return MIN2(MAX_INFO_LINES, lines) * UI_UNIT_Y;
 }
 
 /**
@@ -2085,8 +2087,9 @@ int DRW_draw_region_engine_info_offset()
  */
 void DRW_draw_region_engine_info()
 {
-	char info[GPU_INFO_SIZE * 5] = {0}; /* This should be maxium number of engines running at the same time. */
-	char *str_start = info;
+	const char *info_array_final[MAX_INFO_LINES + 1];
+	char info_array[MAX_INFO_LINES][GPU_INFO_SIZE]; /* This should be maxium number of engines running at the same time. */
+	int i = 0;
 
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	ARegion *ar = draw_ctx->ar;
@@ -2100,19 +2103,39 @@ void DRW_draw_region_engine_info()
 		ViewportEngineData *data = DRW_viewport_engine_data_get(engine);
 
 		if (data->info[0] != '\0') {
-			BLI_strncpy(str_start, data->info, sizeof(info) - (str_start - info));
-			str_start += BLI_strnlen(data->info, sizeof(data->info));
-			*str_start++ = '\n';
+			char *chr_current = data->info;
+			char *chr_start = chr_current;
+			int line_len = 0;
+
+			while (*chr_current++ != '\0') {
+				line_len++;
+				if (*chr_current == '\n') {
+					BLI_strncpy(info_array[i++], chr_start, line_len + 1);
+					/* Re-start counting. */
+					chr_start = chr_current + 1;
+					line_len = -1;
+				}
+			}
+
+			BLI_strncpy(info_array[i++], chr_start, line_len + 1);
+
+			if (i >= MAX_INFO_LINES) {
+				break;
+			}
 		}
 	}
 
-	if (info[0] != '\0') {
-		if (str_start != info) {
-			*(str_start - 1) = '\0';
-		}
-		ED_region_info_draw(ar, info, fill_color, true);
+	for (int j = 0; j < i; j++) {
+		info_array_final[j] = info_array[j];
+	}
+	info_array_final[i] = NULL;
+
+	if (info_array[0] != NULL) {
+		ED_region_info_draw_multiline(ar, info_array_final, fill_color, true);
 	}
 }
+
+#undef MAX_INFO_LINES
 
 static void use_drw_engine(DrawEngineType *engine)
 {
@@ -2332,7 +2355,7 @@ static void DRW_debug_gpu_stats(void)
 	UI_FontThemeColor(BLF_default(), TH_TEXT_HI);
 
 	char time_to_txt[16];
-	char pass_name[MAX_PASS_NAME + 8];
+	char pass_name[MAX_PASS_NAME + 16];
 	int v = BLI_listbase_count(&DST.enabled_engines) + 3;
 	GLuint64 tot_time = 0;
 
@@ -2374,7 +2397,25 @@ static void DRW_debug_gpu_stats(void)
 	}
 
 	sprintf(pass_name, "Total GPU time %.2fms (%.1f fps)", tot_time / 1000000.0, 1000000000.0 / tot_time);
+	draw_stat(&rect, 0, v++, pass_name, sizeof(pass_name));
+	v++;
+
+	/* Memory Stats */
+	unsigned int tex_mem = GPU_texture_memory_usage_get();
+	unsigned int vbo_mem = VertexBuffer_get_memory_usage();
+
+	sprintf(pass_name, "GPU Memory");
 	draw_stat(&rect, 0, v, pass_name, sizeof(pass_name));
+	sprintf(pass_name, "%.2fMB", (float)(tex_mem + vbo_mem) / 1000000.0);
+	draw_stat(&rect, 1, v++, pass_name, sizeof(pass_name));
+	sprintf(pass_name, "   |--> Textures");
+	draw_stat(&rect, 0, v, pass_name, sizeof(pass_name));
+	sprintf(pass_name, "%.2fMB", (float)tex_mem / 1000000.0);
+	draw_stat(&rect, 1, v++, pass_name, sizeof(pass_name));
+	sprintf(pass_name, "   |--> Meshes");
+	draw_stat(&rect, 0, v, pass_name, sizeof(pass_name));
+	sprintf(pass_name, "%.2fMB", (float)vbo_mem / 1000000.0);
+	draw_stat(&rect, 1, v++, pass_name, sizeof(pass_name));
 }
 
 
