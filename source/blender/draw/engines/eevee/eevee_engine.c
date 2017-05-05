@@ -45,6 +45,7 @@ static struct {
 
 	struct GPUShader *default_lit;
 	struct GPUShader *default_world;
+	struct GPUShader *default_background;
 	struct GPUShader *depth_sh;
 	struct GPUShader *tonemap;
 	struct GPUShader *shadow_sh;
@@ -69,7 +70,6 @@ extern char datatoc_bsdf_direct_lib_glsl[];
 extern char datatoc_bsdf_sampling_lib_glsl[];
 extern char datatoc_lit_surface_frag_glsl[];
 extern char datatoc_lit_surface_vert_glsl[];
-extern char datatoc_tonemap_frag_glsl[];
 extern char datatoc_shadow_frag_glsl[];
 extern char datatoc_shadow_geom_glsl[];
 extern char datatoc_shadow_vert_glsl[];
@@ -77,6 +77,7 @@ extern char datatoc_probe_filter_frag_glsl[];
 extern char datatoc_probe_sh_frag_glsl[];
 extern char datatoc_probe_geom_glsl[];
 extern char datatoc_probe_vert_glsl[];
+extern char datatoc_background_vert_glsl[];
 
 extern Material defmaterial;
 extern GlobalsUboStorage ts;
@@ -262,6 +263,10 @@ static void EEVEE_engine_init(void *ved)
 		        datatoc_probe_vert_glsl, datatoc_probe_geom_glsl, datatoc_default_world_frag_glsl, NULL);
 	}
 
+	if (!e_data.default_background) {
+		e_data.default_background = DRW_shader_create_fullscreen(datatoc_default_world_frag_glsl, NULL);
+	}
+
 	if (!e_data.probe_filter_sh) {
 		char *shader_str = NULL;
 
@@ -282,10 +287,6 @@ static void EEVEE_engine_init(void *ved)
 
 	if (!e_data.probe_spherical_harmonic_sh) {
 		e_data.probe_spherical_harmonic_sh = DRW_shader_create_fullscreen(datatoc_probe_sh_frag_glsl, NULL);
-	}
-
-	if (!e_data.tonemap) {
-		e_data.tonemap = DRW_shader_create_fullscreen(datatoc_tonemap_frag_glsl, NULL);
 	}
 
 	if (!e_data.ltc_mat) {
@@ -314,6 +315,8 @@ static void EEVEE_engine_init(void *ved)
 	EEVEE_lights_init(stl);
 
 	EEVEE_probes_init(vedata);
+
+	EEVEE_effects_init(vedata);
 
 	// EEVEE_lights_update(stl);
 }
@@ -432,6 +435,52 @@ static void EEVEE_cache_init(void *vedata)
 	}
 
 	{
+		psl->background_pass = DRW_pass_create("Background Pass", DRW_STATE_WRITE_DEPTH | DRW_STATE_WRITE_COLOR);
+
+		struct Batch *geom = DRW_cache_fullscreen_quad_get();
+		DRWShadingGroup *grp = NULL;
+
+		const DRWContextState *draw_ctx = DRW_context_state_get();
+		Scene *scene = draw_ctx->scene;
+		World *wo = scene->world;
+
+		float *col = ts.colorBackground;
+		if (wo) {
+			col = &wo->horr;
+		}
+
+		if (wo && wo->use_nodes && wo->nodetree) {
+			struct GPUMaterial *gpumat = GPU_material_from_nodetree(
+				scene, wo->nodetree, &wo->gpumaterial, &DRW_engine_viewport_eevee_type, 1,
+			    datatoc_background_vert_glsl, NULL, e_data.frag_shader_lib,
+			    "#define WORLD_BACKGROUND\n"
+			    "#define MAX_LIGHT 128\n"
+			    "#define MAX_SHADOW_CUBE 42\n"
+			    "#define MAX_SHADOW_MAP 64\n"
+			    "#define MAX_SHADOW_CASCADE 8\n"
+			    "#define MAX_CASCADE_NUM 4\n");
+
+			grp = DRW_shgroup_material_create(gpumat, psl->background_pass);
+
+			if (grp) {
+				DRW_shgroup_call_add(grp, geom, NULL);
+			}
+			else {
+				/* Shader failed : pink background */
+				static float pink[3] = {1.0f, 0.0f, 1.0f};
+				col = pink;
+			}
+		}
+
+		/* Fallback if shader fails or if not using nodetree. */
+		if (grp == NULL) {
+			grp = DRW_shgroup_create(e_data.default_background, psl->background_pass);
+			DRW_shgroup_uniform_vec3(grp, "color", col, 1);
+			DRW_shgroup_call_add(grp, geom, NULL);
+		}
+	}
+
+	{
 		psl->probe_prefilter = DRW_pass_create("Probe Filtering", DRW_STATE_WRITE_COLOR);
 
 		struct Batch *geom = DRW_cache_fullscreen_quad_get();
@@ -492,19 +541,10 @@ static void EEVEE_cache_init(void *vedata)
 		psl->material_pass = DRW_pass_create("Material Shader Pass", state);
 	}
 
-	{
-		/* Final pass : Map HDR color to LDR color.
-		 * Write result to the default color buffer */
-		psl->tonemap = DRW_pass_create("Tone Mapping", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND);
-
-		DRWShadingGroup *grp = DRW_shgroup_create(e_data.tonemap, psl->tonemap);
-		DRW_shgroup_uniform_buffer(grp, "hdrColorBuf", &txl->color, 0);
-
-		struct Batch *geom = DRW_cache_fullscreen_quad_get();
-		DRW_shgroup_call_add(grp, geom, NULL);
-	}
 
 	EEVEE_lights_cache_init(stl);
+
+	EEVEE_effects_cache_init(vedata);
 }
 
 static void EEVEE_cache_populate(void *vedata, Object *ob)
@@ -584,8 +624,8 @@ static void EEVEE_cache_populate(void *vedata, Object *ob)
 			/* TODO, support for all geometry types (non mesh geometry) */
 			DRW_shgroup_call_add(stl->g_data->default_lit_grp, geom, ob->obmat);
 			// DRW_shgroup_call_add(stl->g_data->shadow_shgrp, geom, ob->obmat);
-			eevee_cascade_shadow_shgroup(psl, stl, geom, ob->obmat);
-			eevee_cube_shadow_shgroup(psl, stl, geom, ob->obmat);
+			// eevee_cascade_shadow_shgroup(psl, stl, geom, ob->obmat);
+			// eevee_cube_shadow_shgroup(psl, stl, geom, ob->obmat);
 		}
 		// GPUMaterial *gpumat = GPU_material_from_nodetree(struct bNodeTree *ntree, ListBase *gpumaterials, void *engine_type, int options)
 
@@ -638,7 +678,6 @@ static void EEVEE_draw_scene(void *vedata)
 	EEVEE_FramebufferList *fbl = ((EEVEE_Data *)vedata)->fbl;
 
 	/* Default framebuffer and texture */
-	DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
 	DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
 
 	/* Refresh Probes */
@@ -652,34 +691,26 @@ static void EEVEE_draw_scene(void *vedata)
 	DRW_framebuffer_texture_attach(fbl->main, dtxl->depth, 0, 0);
 	DRW_framebuffer_bind(fbl->main);
 
-	/* Clear Depth */
-	/* TODO do background */
-	// float clearcol[4] = {0.0f, 0.0f, 0.0f, 1.0f};
-	// DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
-	DRW_draw_background();
-
+	DRW_draw_pass(psl->background_pass);
 	DRW_draw_pass(psl->depth_pass);
 	DRW_draw_pass(psl->depth_pass_cull);
 	DRW_draw_pass(psl->default_pass);
 	DRW_draw_pass(psl->material_pass);
 
-	/* Restore default framebuffer */
-	DRW_framebuffer_texture_detach(dtxl->depth);
-	DRW_framebuffer_texture_attach(dfbl->default_fb, dtxl->depth, 0, 0);
-	DRW_framebuffer_bind(dfbl->default_fb);
-
-	DRW_draw_pass(psl->tonemap);
+	EEVEE_draw_effects(vedata);
 }
 
 static void EEVEE_engine_free(void)
 {
+	EEVEE_effects_free();
+
 	MEM_SAFE_FREE(e_data.frag_shader_lib);
 	DRW_SHADER_FREE_SAFE(e_data.default_lit);
 	DRW_SHADER_FREE_SAFE(e_data.shadow_sh);
 	DRW_SHADER_FREE_SAFE(e_data.default_world);
+	DRW_SHADER_FREE_SAFE(e_data.default_background);
 	DRW_SHADER_FREE_SAFE(e_data.probe_filter_sh);
 	DRW_SHADER_FREE_SAFE(e_data.probe_spherical_harmonic_sh);
-	DRW_SHADER_FREE_SAFE(e_data.tonemap);
 	DRW_TEXTURE_FREE_SAFE(e_data.ltc_mat);
 	DRW_TEXTURE_FREE_SAFE(e_data.brdf_lut);
 	DRW_TEXTURE_FREE_SAFE(e_data.hammersley);

@@ -41,6 +41,7 @@
 #include "DRW_engine.h"
 #include "DRW_render.h"
 
+#include "DNA_camera_types.h"
 #include "DNA_view3d_types.h"
 #include "DNA_screen_types.h"
 
@@ -64,6 +65,7 @@
 
 #include "RE_engine.h"
 
+#include "UI_interface.h"
 #include "UI_resources.h"
 
 #include "draw_manager_text.h"
@@ -146,12 +148,16 @@ struct DRWInterface {
 	int attribs_loc[16];
 	/* matrices locations */
 	int model;
+	int modelinverse;
 	int modelview;
+	int modelviewinverse;
 	int projection;
+	int projectioninverse;
 	int view;
 	int viewinverse;
 	int modelviewprojection;
 	int viewprojection;
+	int viewprojectioninverse;
 	int normal;
 	int worldnormal;
 	int eye;
@@ -510,11 +516,15 @@ static DRWInterface *DRW_interface_create(GPUShader *shader)
 	DRWInterface *interface = MEM_mallocN(sizeof(DRWInterface), "DRWInterface");
 
 	interface->model = GPU_shader_get_uniform(shader, "ModelMatrix");
+	interface->modelinverse = GPU_shader_get_uniform(shader, "ModelMatrixInverse");
 	interface->modelview = GPU_shader_get_uniform(shader, "ModelViewMatrix");
+	interface->modelviewinverse = GPU_shader_get_uniform(shader, "ModelViewMatrixInverse");
 	interface->projection = GPU_shader_get_uniform(shader, "ProjectionMatrix");
+	interface->projectioninverse = GPU_shader_get_uniform(shader, "ProjectionMatrixInverse");
 	interface->view = GPU_shader_get_uniform(shader, "ViewMatrix");
 	interface->viewinverse = GPU_shader_get_uniform(shader, "ViewMatrixInverse");
 	interface->viewprojection = GPU_shader_get_uniform(shader, "ViewProjectionMatrix");
+	interface->viewprojectioninverse = GPU_shader_get_uniform(shader, "ViewProjectionMatrixInverse");
 	interface->modelviewprojection = GPU_shader_get_uniform(shader, "ModelViewProjectionMatrix");
 	interface->normal = GPU_shader_get_uniform(shader, "NormalMatrix");
 	interface->worldnormal = GPU_shader_get_uniform(shader, "WorldNormalMatrix");
@@ -1273,20 +1283,32 @@ static void draw_geometry(DRWShadingGroup *shgroup, Batch *geom, const float (*o
 	RegionView3D *rv3d = DST.draw_ctx.rv3d;
 	DRWInterface *interface = shgroup->interface;
 
-	float mvp[4][4], mv[4][4], n[3][3], wn[3][3];
+	float mvp[4][4], mv[4][4], mi[4][4], mvi[4][4], pi[4][4], n[3][3], wn[3][3];
 	float eye[3] = { 0.0f, 0.0f, 1.0f }; /* looking into the screen */
 
+	bool do_pi = (interface->projectioninverse != -1);
 	bool do_mvp = (interface->modelviewprojection != -1);
+	bool do_mi = (interface->modelinverse != -1);
 	bool do_mv = (interface->modelview != -1);
+	bool do_mvi = (interface->modelviewinverse != -1);
 	bool do_n = (interface->normal != -1);
 	bool do_wn = (interface->worldnormal != -1);
 	bool do_eye = (interface->eye != -1);
 
+	if (do_pi) {
+		invert_m4_m4(pi, rv3d->winmat);
+	}
+	if (do_mi) {
+		invert_m4_m4(mi, obmat);
+	}
 	if (do_mvp) {
 		mul_m4_m4m4(mvp, rv3d->persmat, obmat);
 	}
-	if (do_mv || do_n || do_eye) {
+	if (do_mv || do_mvi || do_n || do_eye) {
 		mul_m4_m4m4(mv, rv3d->viewmat, obmat);
+	}
+	if (do_mvi) {
+		invert_m4_m4(mvi, mv);
 	}
 	if (do_n || do_eye) {
 		copy_m3_m4(n, mv);
@@ -1311,6 +1333,9 @@ static void draw_geometry(DRWShadingGroup *shgroup, Batch *geom, const float (*o
 	if (interface->model != -1) {
 		GPU_shader_uniform_vector(shgroup->shader, interface->model, 16, 1, (float *)obmat);
 	}
+	if (interface->modelinverse != -1) {
+		GPU_shader_uniform_vector(shgroup->shader, interface->modelinverse, 16, 1, (float *)mi);
+	}
 	if (interface->modelviewprojection != -1) {
 		GPU_shader_uniform_vector(shgroup->shader, interface->modelviewprojection, 16, 1, (float *)mvp);
 	}
@@ -1320,14 +1345,23 @@ static void draw_geometry(DRWShadingGroup *shgroup, Batch *geom, const float (*o
 	if (interface->viewprojection != -1) {
 		GPU_shader_uniform_vector(shgroup->shader, interface->viewprojection, 16, 1, (float *)rv3d->persmat);
 	}
+	if (interface->viewprojectioninverse != -1) {
+		GPU_shader_uniform_vector(shgroup->shader, interface->viewprojectioninverse, 16, 1, (float *)rv3d->persinv);
+	}
 	if (interface->projection != -1) {
 		GPU_shader_uniform_vector(shgroup->shader, interface->projection, 16, 1, (float *)rv3d->winmat);
+	}
+	if (interface->projectioninverse != -1) {
+		GPU_shader_uniform_vector(shgroup->shader, interface->projectioninverse, 16, 1, (float *)pi);
 	}
 	if (interface->view != -1) {
 		GPU_shader_uniform_vector(shgroup->shader, interface->view, 16, 1, (float *)rv3d->viewmat);
 	}
 	if (interface->modelview != -1) {
 		GPU_shader_uniform_vector(shgroup->shader, interface->modelview, 16, 1, (float *)mv);
+	}
+	if (interface->modelviewinverse != -1) {
+		GPU_shader_uniform_vector(shgroup->shader, interface->modelviewinverse, 16, 1, (float *)mvi);
 	}
 	if (interface->normal != -1) {
 		GPU_shader_uniform_vector(shgroup->shader, interface->normal, 9, 1, (float *)n);
@@ -1798,6 +1832,9 @@ void DRW_viewport_matrix_get(float mat[4][4], DRWViewportMatrixType type)
 		case DRW_MAT_PERS:
 			copy_m4_m4(mat, rv3d->persmat);
 			break;
+		case DRW_MAT_PERSINV:
+			copy_m4_m4(mat, rv3d->persinv);
+			break;
 		case DRW_MAT_VIEW:
 			copy_m4_m4(mat, rv3d->viewmat);
 			break;
@@ -2019,6 +2056,87 @@ static void DRW_engines_draw_text(void)
 	}
 }
 
+#define MAX_INFO_LINES 10
+
+/**
+ * Returns the offset required for the drawing of engines info.
+ */
+int DRW_draw_region_engine_info_offset()
+{
+	int lines = 0;
+	for (LinkData *link = DST.enabled_engines.first; link; link = link->next) {
+		DrawEngineType *engine = link->data;
+		ViewportEngineData *data = DRW_viewport_engine_data_get(engine);
+
+		/* Count the number of lines. */
+		if (data->info[0] != '\0') {
+			lines++;
+			char *c = data->info;
+			while (*c++ != '\0') {
+				if (*c == '\n') {
+					lines++;
+				}
+			}
+		}
+	}
+	return MIN2(MAX_INFO_LINES, lines) * UI_UNIT_Y;
+}
+
+/**
+ * Actual drawing;
+ */
+void DRW_draw_region_engine_info()
+{
+	const char *info_array_final[MAX_INFO_LINES + 1];
+	char info_array[MAX_INFO_LINES][GPU_INFO_SIZE]; /* This should be maxium number of engines running at the same time. */
+	int i = 0;
+
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	ARegion *ar = draw_ctx->ar;
+	float fill_color[4] = {0.0f, 0.0f, 0.0f, 0.25f};
+
+	UI_GetThemeColor3fv(TH_HIGH_GRAD, fill_color);
+	mul_v3_fl(fill_color, fill_color[3]);
+
+	for (LinkData *link = DST.enabled_engines.first; link; link = link->next) {
+		DrawEngineType *engine = link->data;
+		ViewportEngineData *data = DRW_viewport_engine_data_get(engine);
+
+		if (data->info[0] != '\0') {
+			char *chr_current = data->info;
+			char *chr_start = chr_current;
+			int line_len = 0;
+
+			while (*chr_current++ != '\0') {
+				line_len++;
+				if (*chr_current == '\n') {
+					BLI_strncpy(info_array[i++], chr_start, line_len + 1);
+					/* Re-start counting. */
+					chr_start = chr_current + 1;
+					line_len = -1;
+				}
+			}
+
+			BLI_strncpy(info_array[i++], chr_start, line_len + 1);
+
+			if (i >= MAX_INFO_LINES) {
+				break;
+			}
+		}
+	}
+
+	for (int j = 0; j < i; j++) {
+		info_array_final[j] = info_array[j];
+	}
+	info_array_final[i] = NULL;
+
+	if (info_array[0] != NULL) {
+		ED_region_info_draw_multiline(ar, info_array_final, fill_color, true);
+	}
+}
+
+#undef MAX_INFO_LINES
+
 static void use_drw_engine(DrawEngineType *engine)
 {
 	LinkData *ld = MEM_callocN(sizeof(LinkData), "enabled engine link data");
@@ -2235,7 +2353,7 @@ static void DRW_debug_gpu_stats(void)
 	UI_FontThemeColor(BLF_default(), TH_TEXT_HI);
 
 	char time_to_txt[16];
-	char pass_name[MAX_PASS_NAME + 8];
+	char pass_name[MAX_PASS_NAME + 16];
 	int v = BLI_listbase_count(&DST.enabled_engines) + 3;
 	GLuint64 tot_time = 0;
 
@@ -2253,16 +2371,18 @@ static void DRW_debug_gpu_stats(void)
 			if (pass != NULL) {
 				GLuint64 time;
 				glGetQueryObjectui64v(pass->timer_queries[pass->front_idx], GL_QUERY_RESULT, &time);
-				tot_time += time;
-				engine_time += time;
 
 				sprintf(pass_name, "   |--> %s", pass->name);
 				draw_stat(&rect, 0, v, pass_name, sizeof(pass_name));
 
-				if (pass->wasdrawn)
+				if (pass->wasdrawn) {
 					sprintf(time_to_txt, "%.2fms", time / 1000000.0);
-				else
+					engine_time += time;
+					tot_time += time;
+				}
+				else {
 					sprintf(time_to_txt, "Not drawn");
+				}
 				draw_stat(&rect, 2, v++, time_to_txt, sizeof(time_to_txt));
 
 				pass->wasdrawn = false;
@@ -2275,7 +2395,25 @@ static void DRW_debug_gpu_stats(void)
 	}
 
 	sprintf(pass_name, "Total GPU time %.2fms (%.1f fps)", tot_time / 1000000.0, 1000000000.0 / tot_time);
+	draw_stat(&rect, 0, v++, pass_name, sizeof(pass_name));
+	v++;
+
+	/* Memory Stats */
+	unsigned int tex_mem = GPU_texture_memory_usage_get();
+	unsigned int vbo_mem = VertexBuffer_get_memory_usage();
+
+	sprintf(pass_name, "GPU Memory");
 	draw_stat(&rect, 0, v, pass_name, sizeof(pass_name));
+	sprintf(pass_name, "%.2fMB", (float)(tex_mem + vbo_mem) / 1000000.0);
+	draw_stat(&rect, 1, v++, pass_name, sizeof(pass_name));
+	sprintf(pass_name, "   |--> Textures");
+	draw_stat(&rect, 0, v, pass_name, sizeof(pass_name));
+	sprintf(pass_name, "%.2fMB", (float)tex_mem / 1000000.0);
+	draw_stat(&rect, 1, v++, pass_name, sizeof(pass_name));
+	sprintf(pass_name, "   |--> Meshes");
+	draw_stat(&rect, 0, v, pass_name, sizeof(pass_name));
+	sprintf(pass_name, "%.2fMB", (float)vbo_mem / 1000000.0);
+	draw_stat(&rect, 1, v++, pass_name, sizeof(pass_name));
 }
 
 

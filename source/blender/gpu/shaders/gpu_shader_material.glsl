@@ -1,8 +1,11 @@
 
 uniform mat4 ModelViewMatrix;
 #ifndef PROBE_CAPTURE
+#ifndef WORLD_BACKGROUND
 uniform mat4 ProjectionMatrix;
 #endif
+#endif
+uniform mat4 ModelMatrixInverse;
 uniform mat4 ModelViewMatrixInverse;
 uniform mat4 ViewMatrixInverse;
 uniform mat4 ProjectionMatrixInverse;
@@ -173,9 +176,12 @@ void color_to_blender_normal_new_shading(vec3 color, out vec3 normal)
 	normal.y = -2.0 * ((color.g) - 0.5);
 	normal.z = -2.0 * ((color.b) - 0.5);
 }
-
+#ifndef M_PI
 #define M_PI 3.14159265358979323846
+#endif
+#ifndef M_1_PI
 #define M_1_PI 0.318309886183790671538
+#endif
 
 /*********** SHADER NODES ***************/
 
@@ -2580,6 +2586,24 @@ vec3 rotate_vector(vec3 p, vec3 n, float theta) {
 
 #define NUM_LIGHTS 3
 
+#if __VERSION__ > 120
+struct glLight {
+	vec4 position;
+	vec4 diffuse;
+	vec4 specular;
+	vec4 halfVector;
+};
+
+layout(std140) uniform lightSource {
+	glLight glLightSource[NUM_LIGHTS];
+};
+
+#define gl_NormalMatrix NormalMatrix
+
+#else
+#define glLightSource gl_LightSource
+#endif
+
 /* bsdfs */
 
 void node_bsdf_diffuse(vec4 color, float roughness, vec3 N, out vec4 result)
@@ -2589,8 +2613,8 @@ void node_bsdf_diffuse(vec4 color, float roughness, vec3 N, out vec4 result)
 
 	/* directional lights */
 	for (int i = 0; i < NUM_LIGHTS; i++) {
-		vec3 light_position = gl_LightSource[i].position.xyz;
-		vec3 light_diffuse = gl_LightSource[i].diffuse.rgb;
+		vec3 light_position = glLightSource[i].position.xyz;
+		vec3 light_diffuse = glLightSource[i].diffuse.rgb;
 
 		float bsdf = max(dot(N, light_position), 0.0);
 		L += light_diffuse * bsdf;
@@ -2606,10 +2630,10 @@ void node_bsdf_glossy(vec4 color, float roughness, vec3 N, out vec4 result)
 
 	/* directional lights */
 	for (int i = 0; i < NUM_LIGHTS; i++) {
-		vec3 light_position = gl_LightSource[i].position.xyz;
-		vec3 H = gl_LightSource[i].halfVector.xyz;
-		vec3 light_diffuse = gl_LightSource[i].diffuse.rgb;
-		vec3 light_specular = gl_LightSource[i].specular.rgb;
+		vec3 light_position = glLightSource[i].position.xyz;
+		vec3 H = glLightSource[i].halfVector.xyz;
+		vec3 light_diffuse = glLightSource[i].diffuse.rgb;
+		vec3 light_specular = glLightSource[i].specular.rgb;
 
 		/* we mix in some diffuse so low roughness still shows up */
 		float bsdf = 0.5 * pow(max(dot(N, H), 0.0), 1.0 / roughness);
@@ -2680,12 +2704,12 @@ void node_bsdf_principled(vec4 base_color, float subsurface, vec3 subsurface_rad
 
 	/* directional lights */
 	for (int i = 0; i < NUM_LIGHTS; i++) {
-		vec3 light_position_world = gl_LightSource[i].position.xyz;
+		vec3 light_position_world = glLightSource[i].position.xyz;
 		vec3 light_position = normalize(gl_NormalMatrix * light_position_world);
 
 		vec3 H = normalize(light_position + V);
 
-		vec3 light_specular = gl_LightSource[i].specular.rgb;
+		vec3 light_specular = glLightSource[i].specular.rgb;
 
 		float NdotL = dot(N, light_position);
 		float NdotV = dot(N, V);
@@ -2816,14 +2840,24 @@ void background_transform_to_world(vec3 viewvec, out vec3 worldvec)
 	worldvec = (ModelViewMatrixInverse * co).xyz;
 }
 
-#ifdef PROBE_CAPTURE
+#if defined(PROBE_CAPTURE) || defined(WORLD_BACKGROUND)
 void environment_default_vector(out vec3 worldvec)
 {
+#ifdef WORLD_BACKGROUND
+	vec4 v = (ProjectionMatrix[3][3] == 0.0) ? vec4(viewPosition, 1.0) : vec4(0.0, 0.0, 1.0, 1.0);
+	vec4 co_homogenous = (ProjectionMatrixInverse * v);
+
+	vec4 co = vec4(co_homogenous.xyz / co_homogenous.w, 0.0);
+
+	co = normalize(co);
+	worldvec = (ViewMatrixInverse * co).xyz;
+#else
 	worldvec = normalize(worldPosition);
+#endif
 }
 #endif
 
-void node_background(vec4 color, float strength, vec3 N, out vec4 result)
+void node_background(vec4 color, float strength, out vec4 result)
 {
 	result = color * strength;
 }
@@ -2951,7 +2985,12 @@ void node_tex_coord_background(
 	vec4 co = vec4(co_homogenous.xyz / co_homogenous.w, 0.0);
 
 	co = normalize(co);
+
+#ifdef PROBE_CAPTURE
+	vec3 coords = normalize(worldPosition);
+#else
 	vec3 coords = (ModelViewMatrixInverse * co).xyz;
+#endif
 
 	generated = coords;
 	normal = -coords;
@@ -2965,6 +3004,10 @@ void node_tex_coord_background(
 
 	reflection = -coords;
 }
+
+#if defined(WORLD_BACKGROUND) || defined(PROBE_CAPTURE)
+#define node_tex_coord node_tex_coord_background
+#endif
 
 /* textures */
 
@@ -3111,7 +3154,19 @@ void node_tex_environment_equirectangular(vec3 co, sampler2D ima, out vec4 color
 	float u = -atan(nco.y, nco.x) / (2.0 * M_PI) + 0.5;
 	float v = atan(nco.z, hypot(nco.x, nco.y)) / M_PI + 0.5;
 
+#if __VERSION__ > 120
+	/* Fix pole bleeding */
+	float half_width = 0.5 / float(textureSize(ima, 0).x);
+	v = clamp(v, half_width, 1.0 - half_width);
+
+	/* Fix u = 0 seam */
+	/* This is caused by texture filtering, since uv don't have smooth derivatives
+	 * at u = 0 or 2PI, hardware filtering is using the smallest mipmap for certain
+	 * texels. So we force the highest mipmap and don't do anisotropic filtering. */
+	color = textureLod(ima, vec2(u, v), 0.0);
+#else
 	color = texture2D(ima, vec2(u, v));
+#endif
 }
 
 void node_tex_environment_mirror_ball(vec3 co, sampler2D ima, out vec4 color)

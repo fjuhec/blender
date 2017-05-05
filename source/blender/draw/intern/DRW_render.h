@@ -296,6 +296,7 @@ void DRW_pass_foreach_shgroup(DRWPass *pass, void (*callback)(void *userData, DR
 /* Viewport */
 typedef enum {
 	DRW_MAT_PERS,
+	DRW_MAT_PERSINV,
 	DRW_MAT_VIEW,
 	DRW_MAT_VIEWINV,
 	DRW_MAT_WIN,
@@ -326,6 +327,9 @@ void DRW_draw_text_cache_queue(struct DRWTextStore *dt);
 
 void DRW_draw_callbacks_pre_scene(void);
 void DRW_draw_callbacks_post_scene(void);
+
+int DRW_draw_region_engine_info_offset(void);
+void DRW_draw_region_engine_info(void);
 
 void DRW_state_reset_ex(DRWState state);
 void DRW_state_reset(void);

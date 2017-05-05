@@ -1142,7 +1142,7 @@ static void DRW_shgroup_speaker(OBJECT_StorageList *stl, Object *ob, SceneLayer 
 
 static void DRW_shgroup_relationship_lines(OBJECT_StorageList *stl, Object *ob)
 {
-	if (ob->parent) {
+	if (ob->parent && ((ob->parent->base_flag & BASE_VISIBLED) != 0)) {
 		DRW_shgroup_call_dynamic_add(stl->g_data->relationship_lines, ob->obmat[3]);
 		DRW_shgroup_call_dynamic_add(stl->g_data->relationship_lines, ob->parent->obmat[3]);
 	}
@@ -1189,7 +1189,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 
 	if (do_outlines) {
 		Object *obedit = scene->obedit;
-		if (ob != obedit && !(sl->basact->object == ob && ob->mode & OB_MODE_WEIGHT_PAINT)) {
+		if (ob != obedit && !(sl->basact->object == ob && ob->mode & (OB_MODE_WEIGHT_PAINT | OB_MODE_VERTEX_PAINT))) {
 			struct Batch *geom = DRW_cache_object_surface_get(ob);
 			if (geom) {
 				theme_id = DRW_object_wire_theme_get(ob, sl, NULL);
