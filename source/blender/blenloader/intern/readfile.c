@@ -6427,11 +6427,25 @@ static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
 		link_list(fd, &sl->object_bases);
 		sl->basact = newdataadr(fd, sl->basact);
 		direct_link_layer_collections(fd, &sl->layer_collections);
+
+		if (sl->properties != NULL) {
+			sl->properties = newdataadr(fd, sl->properties);
+			BLI_assert(sl->properties != NULL);
+			IDP_DirectLinkGroup_OrFree(&sl->properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
+			BKE_scene_layer_engine_settings_validate_layer(sl);
+		}
+
+		sl->properties_evaluated = NULL;
 	}
 
 	sce->collection_properties = newdataadr(fd, sce->collection_properties);
 	IDP_DirectLinkGroup_OrFree(&sce->collection_properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
+
+	sce->layer_properties = newdataadr(fd, sce->layer_properties);
+	IDP_DirectLinkGroup_OrFree(&sce->layer_properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
+
 	BKE_layer_collection_engine_settings_validate_scene(sce);
+	BKE_scene_layer_engine_settings_validate_scene(sce);
 
 	direct_link_scene_update_screen_data(fd, &bmain->workspaces, &bmain->screen);
 }
@@ -6514,6 +6528,7 @@ static void lib_link_windowmanager(FileData *fd, Main *main)
 	
 	for (wm = main->wm.first; wm; wm = wm->id.next) {
 		if (wm->id.tag & LIB_TAG_NEED_LINK) {
+			/* Note: WM IDProperties are never written to file, hence no need to read/link them here. */
 			for (win = wm->windows.first; win; win = win->next) {
 				/* Note: WM IDProperties are never written to file, hence no need to read/link them here. */
 				win->scene = newlibadr(fd, wm->id.lib, win->scene);
