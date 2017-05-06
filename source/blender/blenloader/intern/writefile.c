@@ -2844,6 +2844,9 @@ static void write_windowmanager(WriteData *wd, wmWindowManager *wm)
 		writestruct(wd, DATA, wmWindow, 1, win);
 		writestruct(wd, DATA, WorkSpaceInstanceHook, 1, win->workspace_hook);
 		writestruct(wd, DATA, Stereo3dFormat, 1, win->stereo3d_format);
+
+		/* data is written, clear deprecated data again */
+		win->screen = NULL;
 	}
 }
 
