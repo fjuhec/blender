@@ -83,31 +83,27 @@ static int rna_Screen_is_animation_playing_get(PointerRNA *UNUSED(ptr))
 
 static void rna_Screen_layout_name_get(PointerRNA *ptr, char *value)
 {
-	bScreen *screen = ptr->data;
+	const bScreen *screen = ptr->data;
+	const WorkSpaceLayout *layout = BKE_workspace_layout_find_global(G.main, screen, NULL);
 
-	BKE_WORKSPACE_ITER_BEGIN (workspace, G.main->workspaces.first) {
-		WorkSpaceLayout *layout = BKE_workspace_layout_find(workspace, screen);
-		if (layout) {
-			const char *name = BKE_workspace_layout_name_get(layout);
-			strcpy(value, name);
-			return;
-		}
-	} BKE_WORKSPACE_ITER_END;
-
-	value[0] = '\0';
+	if (layout) {
+		const char *name = BKE_workspace_layout_name_get(layout);
+		strcpy(value, name);
+	}
+	else {
+		value[0] = '\0';
+	}
 }
 
 static int rna_Screen_layout_name_length(PointerRNA *ptr)
 {
-	bScreen *screen = ptr->data;
+	const bScreen *screen = ptr->data;
+	const WorkSpaceLayout *layout = BKE_workspace_layout_find_global(G.main, screen, NULL);
 
-	BKE_WORKSPACE_ITER_BEGIN (workspace, G.main->workspaces.first) {
-		WorkSpaceLayout *layout = BKE_workspace_layout_find(workspace, screen);
-		if (layout) {
-			const char *name = BKE_workspace_layout_name_get(layout);
-			return strlen(name);
-		}
-	} BKE_WORKSPACE_ITER_END;
+	if (layout) {
+		const char *name = BKE_workspace_layout_name_get(layout);
+		return strlen(name);
+	}
 
 	return 0;
 }
@@ -115,14 +111,12 @@ static int rna_Screen_layout_name_length(PointerRNA *ptr)
 static void rna_Screen_layout_name_set(PointerRNA *ptr, const char *value)
 {
 	bScreen *screen = ptr->data;
+	WorkSpace *workspace;
+	WorkSpaceLayout *layout = BKE_workspace_layout_find_global(G.main, screen, &workspace);
 
-	BKE_WORKSPACE_ITER_BEGIN (workspace, G.main->workspaces.first) {
-		WorkSpaceLayout *layout = BKE_workspace_layout_find(workspace, screen);
-		if (layout) {
-			BKE_workspace_layout_name_set(workspace, layout, value);
-			break;
-		}
-	} BKE_WORKSPACE_ITER_END;
+	if (layout) {
+		BKE_workspace_layout_name_set(workspace, layout, value);
+	}
 }
 
 static int rna_Screen_fullscreen_get(PointerRNA *ptr)

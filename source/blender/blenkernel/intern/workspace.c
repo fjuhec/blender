@@ -232,7 +232,6 @@ void BKE_workspace_layouts_transfer(
         WorkSpace *workspace_dst, WorkSpace *workspace_src)
 {
 	BLI_movelisttolist(&workspace_dst->layouts, &workspace_src->layouts);
-
 }
 
 /* -------------------------------------------------------------------- */
@@ -256,13 +255,38 @@ WorkSpaceLayout *BKE_workspace_layout_find(
 		return layout;
 	}
 
-#if 0
-	BLI_assert(!"Couldn't find layout in this workspace. This should not happen!");
-#else
 	printf("%s: Couldn't find layout in this workspace: '%s' screen: '%s'. "
 	       "This should not happen!\n",
 	       __func__, workspace->id.name + 2, screen->id.name + 2);
-#endif
+
+	return NULL;
+}
+
+/**
+ * Find the layout for \a screen without knowing which workspace to look in.
+ *
+ * \param r_workspace: Optionally return the workspace that contains the looked up layout (if found).
+ */
+WorkSpaceLayout *BKE_workspace_layout_find_global(
+        const Main *bmain, const bScreen *screen,
+        WorkSpace **r_workspace)
+{
+	WorkSpaceLayout *layout;
+
+	if (r_workspace) {
+		*r_workspace = NULL;
+	}
+
+	BKE_WORKSPACE_ITER_BEGIN (workspace, bmain->workspaces.first) {
+		if ((layout = workspace_layout_find_exec(workspace, screen))) {
+			if (r_workspace) {
+				*r_workspace = workspace;
+			}
+
+			return layout;
+		}
+	} BKE_WORKSPACE_ITER_END;
+
 	return NULL;
 }
 
