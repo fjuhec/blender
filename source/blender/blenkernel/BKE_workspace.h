@@ -65,9 +65,6 @@ void BKE_workspace_layout_remove(
         struct Main *bmain,
         WorkSpace *workspace, WorkSpaceLayout *layout) ATTR_NONNULL();
 
-void BKE_workspace_layouts_transfer(
-        WorkSpace *workspace_dst, WorkSpace *workspace_src) ATTR_NONNULL();
-
 /* -------------------------------------------------------------------- */
 /* General Utils */
 

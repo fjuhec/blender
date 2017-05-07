@@ -53,102 +53,75 @@
 #include "MEM_guardedalloc.h"
 
 
-static bScreen *screen_parent_get(bScreen *screen)
+static bScreen *screen_parent_find(const bScreen *screen)
 {
-	for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
-		if (sa->full && sa->full != screen) {
-			return sa->full;
+	/* can avoid lookup if screen state isn't maximized/full (parent and child store the same state) */
+	if (ELEM(screen->state, SCREENMAXIMIZED, SCREENFULL)) {
+		for (const ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
+			if (sa->full && sa->full != screen) {
+				BLI_assert(sa->full->state == screen->state);
+				return sa->full;
+			}
 		}
 	}
+
 	return NULL;
 }
 
-/**
- * \brief Before lib-link versioning for new workspace design.
- *
- * Adds a workspace for each screen of the old file and adds the needed workspace-layout to wrap the screen.
- * Rest of the conversion is done in #do_version_workspaces_after_lib_link.
- *
- * Note that some of the created workspaces might be deleted again in case of reading the default startup.blend.
- */
-static void do_version_workspaces_before_lib_link(Main *main)
+static void do_version_workspaces_create_from_screens(Main *bmain)
 {
-	BLI_assert(BLI_listbase_is_empty(&main->workspaces));
+	for (bScreen *screen = bmain->screen.first; screen; screen = screen->id.next) {
+		const bScreen *screen_parent = screen_parent_find(screen);
+		WorkSpace *workspace;
 
-	for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
-
-		// XXX, ideally we would use screen_get_unique_full here to avoid loading some screens.
-		// but we didn't link yet so we can't tell .
-
-		WorkSpace *ws = BKE_workspace_add(main, screen->id.name + 2);
-		BKE_workspace_layout_add(ws, screen, screen->id.name + 2);
-
-		/* For compatibility, the workspace should be activated that represents the active
-		 * screen of the old file. This is done in blo_do_versions_after_linking_270. */
-	}
-
-	for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
-		for (wmWindow *win = wm->windows.first; win; win = win->next) {
-			win->workspace_hook = BKE_workspace_instance_hook_create(main);
+		if (screen_parent) {
+			/* fullscreen with "Back to Previous" option, don't create
+			 * a new workspace, add layout workspace containing parent */
+			workspace = BLI_findstring(
+			        &bmain->workspaces, screen_parent->id.name + 2, offsetof(ID, name) + 2);
 		}
+		else {
+			workspace = BKE_workspace_add(bmain, screen->id.name + 2);
+		}
+		BKE_workspace_layout_add(workspace, screen, screen->id.name + 2);
+		BKE_workspace_render_layer_set(workspace, screen->scene->render_layers.first);
 	}
 }
 
 /**
  * \brief After lib-link versioning for new workspace design.
  *
+ *  *  Adds a workspace for (almost) each screen of the old file
+ *     and adds the needed workspace-layout to wrap the screen.
  *  *  Active screen isn't stored directly in window anymore, but in the active workspace.
- *     We already created a new workspace for each screen in #do_version_workspaces_before_lib_link,
- *     here we need to find and activate the workspace that contains the active screen of the old file.
  *  *  Active scene isn't stored in screen anymore, but in window.
+ *  *  Create workspace instance hook for each window.
+ *
+ * \note Some of the created workspaces might be deleted again in case of reading the default startup.blend.
  */
 static void do_version_workspaces_after_lib_link(Main *bmain)
 {
-	for (bScreen *screen = bmain->screen.first; screen; screen = screen->id.next) {
-		WorkSpace *workspace = BLI_findstring(&bmain->workspaces, screen->id.name + 2, offsetof(ID, name) + 2);
-		BKE_workspace_render_layer_set(workspace, screen->scene->render_layers.first);
-	}
+	BLI_assert(BLI_listbase_is_empty(&bmain->workspaces));
 
-	bool has_temp_workspaces = false;
+	do_version_workspaces_create_from_screens(bmain);
 
 	for (wmWindowManager *wm = bmain->wm.first; wm; wm = wm->id.next) {
 		for (wmWindow *win = wm->windows.first; win; win = win->next) {
-			bScreen *screen = win->screen;
-			bScreen *screen_parent = screen_parent_get(screen);
+			bScreen *screen_parent = screen_parent_find(win->screen);
+			bScreen *screen = screen_parent ? screen_parent : win->screen;
 			WorkSpace *workspace = BLI_findstring(&bmain->workspaces, screen->id.name + 2, offsetof(ID, name) + 2);
-
-			if (screen_parent) {
-				WorkSpace *workspace_parent = BLI_findstring(
-				        &bmain->workspaces, screen_parent->id.name + 2, offsetof(ID, name) + 2);
-				BKE_workspace_layouts_transfer(workspace_parent, workspace);
-
-				workspace = workspace_parent;
-
-				has_temp_workspaces = true;
-			}
-
 			ListBase *layouts = BKE_workspace_layouts_get(workspace);
 
+			win->workspace_hook = BKE_workspace_instance_hook_create(bmain);
+
 			BKE_workspace_active_set(win->workspace_hook, workspace);
+			BKE_workspace_active_layout_set(win->workspace_hook, layouts->first);
+
 			win->scene = screen->scene;
-
-			/* use last so the workspace_parent layout is used if it was added. */
-			BKE_workspace_active_layout_set(win->workspace_hook, layouts->last);
-
 			/* Deprecated from now on! */
+			win->screen->scene = screen->scene = NULL;
 			win->screen = NULL;
-			screen->scene = NULL;
 		}
-	}
-
-	/* Cleanup workspaces from temp screens */
-	if (has_temp_workspaces) {
-		BKE_WORKSPACE_ITER_BEGIN (workspace, bmain->workspaces.first) {
-			ListBase *layouts = BKE_workspace_layouts_get((WorkSpace *)workspace);
-			if (BLI_listbase_is_empty(layouts)) {
-				BKE_workspace_remove(bmain, (WorkSpace *)workspace);
-			}
-		} BKE_WORKSPACE_ITER_END;
 	}
 }
 
@@ -375,13 +348,6 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 				sl->properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
 				BKE_scene_layer_engine_settings_create(sl->properties);
 			}
-		}
-	}
-
-	{
-		/* New workspace design */
-		if (!DNA_struct_find(fd->filesdna, "WorkSpace")) {
-			do_version_workspaces_before_lib_link(main);
 		}
 	}
 }

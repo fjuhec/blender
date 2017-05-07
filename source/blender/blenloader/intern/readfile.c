@@ -2786,9 +2786,6 @@ static void direct_link_cachefile(FileData *fd, CacheFile *cache_file)
 
 static void lib_link_workspaces(FileData *fd, Main *bmain)
 {
-	/* Note the NULL pointer checks for result of newlibadr. This is needed for reading old files from before the
-	 * introduction of workspaces (in do_versioning code we already created workspaces for screens of old file). */
-
 	BKE_WORKSPACE_ITER_BEGIN (workspace, bmain->workspaces.first) {
 		ID *id = BKE_workspace_id_get(workspace);
 		ListBase *layouts = BKE_workspace_layouts_get(workspace);
@@ -2798,15 +2795,13 @@ static void lib_link_workspaces(FileData *fd, Main *bmain)
 		BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout, layouts->first) {
 			bScreen *screen = newlibadr(fd, id->lib, BKE_workspace_layout_screen_get(layout));
 
-			if (screen) {
-				BKE_workspace_layout_screen_set(layout, screen);
+			BKE_workspace_layout_screen_set(layout, screen);
 
-				if (ID_IS_LINKED_DATABLOCK(id)) {
-					screen->winid = 0;
-					if (screen->temp) {
-						/* delete temp layouts when appending */
-						BKE_workspace_layout_remove(bmain, workspace, layout);
-					}
+			if (ID_IS_LINKED_DATABLOCK(id)) {
+				screen->winid = 0;
+				if (screen->temp) {
+					/* delete temp layouts when appending */
+					BKE_workspace_layout_remove(bmain, workspace, layout);
 				}
 			}
 		} BKE_WORKSPACE_LAYOUT_ITER_END;
@@ -6533,9 +6528,10 @@ static void lib_link_windowmanager(FileData *fd, Main *main)
 		if (wm->id.tag & LIB_TAG_NEED_LINK) {
 			/* Note: WM IDProperties are never written to file, hence no need to read/link them here. */
 			for (win = wm->windows.first; win; win = win->next) {
-				/* Note: WM IDProperties are never written to file, hence no need to read/link them here. */
+				if (win->workspace_hook) { /* NULL for old files */
+					lib_link_workspace_instance_hook(fd, win->workspace_hook, &wm->id);
+				}
 				win->scene = newlibadr(fd, wm->id.lib, win->scene);
-				lib_link_workspace_instance_hook(fd, win->workspace_hook, &wm->id);
 				/* deprecated, but needed for versioning (will be NULL'ed then) */
 				win->screen = newlibadr(fd, NULL, win->screen);
 			}
