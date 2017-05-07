@@ -326,10 +326,8 @@ static void wm_window_match_do(bContext *C, ListBase *oldwmlist)
 }
 
 /* in case UserDef was read, we re-initialize all, and do versioning */
-static void wm_init_userdef(bContext *C, const bool use_factory_settings)
+static void wm_init_userdef(Main *bmain, const bool use_factory_settings)
 {
-	Main *bmain = CTX_data_main(C);
-
 	/* versioning is here */
 	UI_init_userdef();
 	
@@ -591,7 +589,7 @@ bool WM_file_read(bContext *C, const char *filepath, ReportList *reports)
 
 		if (retval == BKE_BLENDFILE_READ_OK_USERPREFS) {
 			/* in case a userdef is read from regular .blend */
-			wm_init_userdef(C, false);
+			wm_init_userdef(G.main, false);
 		}
 		
 		if (retval != BKE_BLENDFILE_READ_FAIL) {
@@ -837,7 +835,7 @@ int wm_homefile_read(
 	G.fileflags &= ~G_FILE_RELATIVE_REMAP;
 	
 	/* check userdef before open window, keymaps etc */
-	wm_init_userdef(C, read_userdef_from_memory);
+	wm_init_userdef(CTX_data_main(C), read_userdef_from_memory);
 	
 	/* match the read WM with current WM */
 	wm_window_match_do(C, &wmbase); 
