@@ -58,6 +58,7 @@ typedef struct GPENCIL_Storage {
 	int pal_id;
 	int t_mix[MAX_GPENCIL_MAT];
 	int t_flip[MAX_GPENCIL_MAT];
+	int t_clamp[MAX_GPENCIL_MAT];
 	int fill_style[MAX_GPENCIL_MAT];
 	PaletteColor *materials[MAX_GPENCIL_MAT];
 	DRWShadingGroup *shgrps_fill[MAX_GPENCIL_MAT];
@@ -203,15 +204,8 @@ static DRWShadingGroup *GPENCIL_shgroup_fill_create(GPENCIL_Data *vedata, DRWPas
 			GPUTexture *texture = GPU_texture_from_blender(palcolor->ima, &iuser, GL_TEXTURE_2D, true, 0.0, 0);
 			DRW_shgroup_uniform_texture(grp, "myTexture", texture, 0);
 
-			// TODO: How apply these parameters
-			//if (flag & PAC_COLOR_TEX_CLAMP) {
-			//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-			//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-			//}
-			//else {
-			//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-			//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-			//}
+			stl->storage->t_clamp[id] = palcolor->flag & PAC_COLOR_TEX_CLAMP ? 1 : 0;
+			DRW_shgroup_uniform_int(grp, "t_clamp", &stl->storage->t_clamp[id], 1);
 
 			BKE_image_release_ibuf(image, ibuf, NULL);
 		}
