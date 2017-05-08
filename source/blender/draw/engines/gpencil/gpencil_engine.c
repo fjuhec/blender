@@ -118,21 +118,26 @@ static void GPENCIL_engine_init(void *vedata)
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 
 	/* normal fill shader */
-	e_data.gpencil_fill_sh = DRW_shader_create(datatoc_gpencil_fill_vert_glsl, NULL,
-											   datatoc_gpencil_fill_frag_glsl,
-											   NULL);
-
+	if (!e_data.gpencil_fill_sh) {
+		e_data.gpencil_fill_sh = DRW_shader_create(datatoc_gpencil_fill_vert_glsl, NULL,
+			datatoc_gpencil_fill_frag_glsl,
+			NULL);
+	}
 	/* normal stroke shader using geometry to display lines */
-	e_data.gpencil_stroke_sh = DRW_shader_create(datatoc_gpencil_stroke_vert_glsl, 
-												 datatoc_gpencil_stroke_geom_glsl,
-												 datatoc_gpencil_stroke_frag_glsl,
-												 NULL);
-
+	if (!e_data.gpencil_stroke_sh) {
+		e_data.gpencil_stroke_sh = DRW_shader_create(datatoc_gpencil_stroke_vert_glsl,
+			datatoc_gpencil_stroke_geom_glsl,
+			datatoc_gpencil_stroke_frag_glsl,
+			NULL);
+	}
 	/* used for edit points or strokes with one point only */
-	e_data.gpencil_volumetric_sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_POINT_VARYING_SIZE_VARYING_COLOR);
-
+	if (!e_data.gpencil_volumetric_sh) {
+		e_data.gpencil_volumetric_sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_POINT_VARYING_SIZE_VARYING_COLOR);
+	}
 	/* used to filling during drawing */
-	e_data.gpencil_drawing_fill_sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_SMOOTH_COLOR);
+	if (!e_data.gpencil_drawing_fill_sh) {
+		e_data.gpencil_drawing_fill_sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_SMOOTH_COLOR);
+	}
 
 	if (!stl->storage) {
 		stl->storage = MEM_callocN(sizeof(GPENCIL_Storage), "GPENCIL_Storage");
@@ -144,8 +149,6 @@ static void GPENCIL_engine_free(void)
 {
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_fill_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_stroke_sh);
-	DRW_SHADER_FREE_SAFE(e_data.gpencil_volumetric_sh);
-	DRW_SHADER_FREE_SAFE(e_data.gpencil_drawing_fill_sh);
 }
 
 /* create shading group for filling */
