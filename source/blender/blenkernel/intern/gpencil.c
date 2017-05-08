@@ -1252,9 +1252,9 @@ bGPDpalettecolor *BKE_gpencil_palettecolor_getbyname(bGPDpalette *palette, char 
 void BKE_gpencil_palettecolor_allnames(PaletteColor *palcolor, const char *newname)
 {
 	bGPdata *gpd;
-	Main *main = G.main;
+	Main *bmain = G.main;
 
-	for (gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
+	for (gpd = bmain->gpencil.first; gpd; gpd = gpd->id.next) {
 		BKE_gpencil_palettecolor_changename(palcolor, gpd, newname);
 	}
 }

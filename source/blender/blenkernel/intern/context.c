@@ -1230,7 +1230,7 @@ int CTX_data_available_palettes(const bContext *C, ListBase *list)
 	return ctx_data_collection_get(C, "available_palettes", list);
 }
 
-int CTX_data_active_palettecolorss(const bContext *C, ListBase *list)
+int CTX_data_active_palettecolors(const bContext *C, ListBase *list)
 {
 	return ctx_data_collection_get(C, "active_palettecolors", list);
 }

@@ -894,7 +894,7 @@ static int gp_stroke_change_palette_exec(bContext *C, wmOperator *op)
 
 			for (bGPDstroke *gps = gpl->actframe->strokes.last; gps; gps = gps->prev) {
 				/* only if selected */
-				if ((!gps->flag & GP_STROKE_SELECT) && (type == GP_MOVE_PALETTE_SELECT))
+				if (((gps->flag & GP_STROKE_SELECT) == 0) || (type != GP_MOVE_PALETTE_SELECT))
 					continue;
 				/* skip strokes that are invalid for current view */
 				if (ED_gpencil_stroke_can_use(C, gps) == false)
@@ -1430,8 +1430,8 @@ void GPENCIL_OT_brush_select(wmOperatorType *ot)
 static int gp_convert_old_palettes_poll(bContext *C)
 {
 	/* TODO: need better poll*/
-	Main *main = CTX_data_main(C);
-	if (main->gpencil.first) {
+	Main *bmain = CTX_data_main(C);
+	if (bmain->gpencil.first) {
 		return true;
 	}
 	else { 
@@ -1440,10 +1440,10 @@ static int gp_convert_old_palettes_poll(bContext *C)
 }
 
 /* convert old animation data to new format */
-static int gp_convert_old_palettes_exec(bContext *C, wmOperator *op)
+static int gp_convert_old_palettes_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	Main *main = CTX_data_main(C);
-	for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
+	Main *bmain = CTX_data_main(C);
+	for (bGPdata *gpd = bmain->gpencil.first; gpd; gpd = gpd->id.next) {
 		BKE_gpencil_move_animdata_to_palettes(gpd);
 	}
 	/* notifiers */
@@ -1479,7 +1479,7 @@ static int gp_convert_scene_to_object_poll(bContext *C)
 }
 
 /* convert scene datablock to gpencil object */
-static int gp_convert_scene_to_object_exec(bContext *C, wmOperator *op)
+static int gp_convert_scene_to_object_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Scene *scene = CTX_data_scene(C);
 	ToolSettings *ts = CTX_data_tool_settings(C);

@@ -188,6 +188,7 @@ static DRWShadingGroup *GPENCIL_shgroup_fill_create(GPENCIL_Data *vedata, DRWPas
 		ImBuf *ibuf;
 		Image *image = palcolor->ima;
 		unsigned int *bind = &image->bindcode[TEXTARGET_TEXTURE_2D];
+		UNUSED_VARS(bind);
 		ImageUser iuser = { NULL };
 		void *lock;
 
@@ -220,7 +221,7 @@ static DRWShadingGroup *GPENCIL_shgroup_fill_create(GPENCIL_Data *vedata, DRWPas
 }
 
 /* create shading group for volumetric points */
-static DRWShadingGroup *GPENCIL_shgroup_point_volumetric_create(GPENCIL_Data *vedata, DRWPass *pass)
+static DRWShadingGroup *GPENCIL_shgroup_point_volumetric_create(GPENCIL_Data *UNUSED(vedata), DRWPass *pass)
 {
 	DRWShadingGroup *grp = DRW_shgroup_create(e_data.gpencil_volumetric_sh, pass);
 
@@ -228,7 +229,7 @@ static DRWShadingGroup *GPENCIL_shgroup_point_volumetric_create(GPENCIL_Data *ve
 }
 
 /* create shading group for strokes */
-static DRWShadingGroup *GPENCIL_shgroup_stroke_create(GPENCIL_Data *vedata, DRWPass *pass, PaletteColor *palcolor)
+static DRWShadingGroup *GPENCIL_shgroup_stroke_create(GPENCIL_Data *UNUSED(vedata), DRWPass *pass, PaletteColor *UNUSED(palcolor))
 {
 	const float *viewport_size = DRW_viewport_size_get();
 
@@ -239,7 +240,7 @@ static DRWShadingGroup *GPENCIL_shgroup_stroke_create(GPENCIL_Data *vedata, DRWP
 }
 
 /* create shading group for edit points using volumetric */
-static DRWShadingGroup *GPENCIL_shgroup_edit_volumetric_create(GPENCIL_Data *vedata, DRWPass *pass)
+static DRWShadingGroup *GPENCIL_shgroup_edit_volumetric_create(GPENCIL_Data *UNUSED(vedata), DRWPass *pass)
 {
 	DRWShadingGroup *grp = DRW_shgroup_create(e_data.gpencil_volumetric_sh, pass);
 
@@ -247,7 +248,8 @@ static DRWShadingGroup *GPENCIL_shgroup_edit_volumetric_create(GPENCIL_Data *ved
 }
 
 /* create shading group for drawing strokes in buffer */
-static DRWShadingGroup *GPENCIL_shgroup_drawing_stroke_create(GPENCIL_Data *vedata, DRWPass *pass, PaletteColor *palcolor)
+static DRWShadingGroup *GPENCIL_shgroup_drawing_stroke_create(
+        GPENCIL_Data *UNUSED(vedata), DRWPass *pass, PaletteColor *UNUSED(palcolor))
 {
 	DRWShadingGroup *grp = DRW_shgroup_create(e_data.gpencil_stroke_sh, pass);
 	DRW_shgroup_uniform_vec2(grp, "Viewport", DRW_viewport_size_get(), 1);
@@ -255,7 +257,8 @@ static DRWShadingGroup *GPENCIL_shgroup_drawing_stroke_create(GPENCIL_Data *veda
 }
 
 /* create shading group for drawing fill in buffer */
-static DRWShadingGroup *GPENCIL_shgroup_drawing_fill_create(GPENCIL_Data *vedata, DRWPass *pass, PaletteColor *palcolor)
+static DRWShadingGroup *GPENCIL_shgroup_drawing_fill_create(
+        GPENCIL_Data *UNUSED(vedata), DRWPass *pass, PaletteColor *UNUSED(palcolor))
 {
 	DRWShadingGroup *grp = DRW_shgroup_create(e_data.gpencil_drawing_fill_sh, pass);
 	return grp;
@@ -321,7 +324,6 @@ static void gpencil_draw_strokes(void *vedata, ToolSettings *ts, Object *ob,
 
 	DRWShadingGroup *fillgrp;
 	DRWShadingGroup *strokegrp;
-	bGPDbrush *brush = BKE_gpencil_brush_getactive(ts);
 	float tcolor[4];
 	float matrix[4][4];
 	float ink[4];
@@ -451,14 +453,12 @@ static void gpencil_draw_buffer_strokes(void *vedata, ToolSettings *ts, bGPdata 
 	*/
 	if (ED_gpencil_session_active() && (gpd->sbuffer_size > 0))
 	{
-		float matrix[4][4];
-		unit_m4(matrix);
 		if ((gpd->sbuffer_sflag & GP_STROKE_ERASER) == 0) {
 			/* It should also be noted that sbuffer contains temporary point types
 			* i.e. tGPspoints NOT bGPDspoints
 			*/
 			short lthick = brush->thickness;
-			static float matrix[4][4];
+			float matrix[4][4];
 			unit_m4(matrix);
 
 			if (gpd->sbuffer_size == 1) {

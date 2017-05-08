@@ -47,6 +47,8 @@
 
 #include "UI_resources.h"
 
+#include "gpencil_engine.h"
+
 /* set stroke point to vbo */
 static void gpencil_set_stroke_point(RegionView3D *rv3d, VertexBuffer *vbo, float matrix[4][4], const bGPDspoint *pt, int idx,
 						    unsigned int pos_id, unsigned int color_id,
@@ -167,7 +169,7 @@ Batch *gpencil_get_stroke_geom(bGPDframe *gpf, bGPDstroke *gps, short thickness,
 }
 
 /* helper to convert 2d to 3d for simple drawing buffer */
-static void gpencil_stroke_convertcoords(Scene *scene, ARegion *ar, View3D *v3d, const tGPspoint *point2D, float out[3], float *depth)
+static void gpencil_stroke_convertcoords(Scene *scene, ARegion *ar, View3D *v3d, const tGPspoint *point2D, float out[3], float *UNUSED(depth))
 {
 	float mval_f[2] = { point2D->x, point2D->y };
 	float mval_prj[2];
@@ -193,7 +195,7 @@ static void gpencil_stroke_convertcoords(Scene *scene, ARegion *ar, View3D *v3d,
 }
 
 /* convert 2d tGPspoint to 3d bGPDspoint */
-void gpencil_tpoint_to_point(Scene *scene, ARegion *ar, View3D *v3d, const tGPspoint *tpt, bGPDspoint *pt)
+static void gpencil_tpoint_to_point(Scene *scene, ARegion *ar, View3D *v3d, const tGPspoint *tpt, bGPDspoint *pt)
 {
 	float p3d[3];
 	/* conversion to 3d format */
@@ -567,7 +569,7 @@ static void gp_triangulate_stroke_fill(bGPDstroke *gps)
 }
 
 /* add a new fill point and texture coordinates to vertex buffer */
-static void gpencil_set_fill_point(VertexBuffer *vbo, int idx, bGPDspoint *pt, float fcolor[4], float uv[2],
+static void gpencil_set_fill_point(VertexBuffer *vbo, int idx, bGPDspoint *pt, const float fcolor[4], float uv[2],
 	unsigned int pos_id, unsigned int color_id, unsigned int text_id,
 	short UNUSED(flag),	int UNUSED(offsx), int UNUSED(offsy), int UNUSED(winx), int UNUSED(winy))
 {
@@ -587,7 +589,7 @@ static void gpencil_set_fill_point(VertexBuffer *vbo, int idx, bGPDspoint *pt, f
 }
 
 /* create batch geometry data for stroke shader */
-Batch *gpencil_get_fill_geom(bGPDstroke *gps, float color[4])
+Batch *gpencil_get_fill_geom(bGPDstroke *gps, const float color[4])
 {
 	BLI_assert(gps->totpoints >= 3);
 	int offsx = 0;

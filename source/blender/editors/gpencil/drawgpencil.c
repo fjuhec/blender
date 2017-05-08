@@ -619,7 +619,7 @@ static int gp_set_filling_texture(Image *image, short flag)
 
 /* draw fills for shapes */
 static void gp_draw_stroke_fill(
-        bGPdata *gpd, bGPDstroke *gps,
+        bGPdata *UNUSED(gpd), bGPDstroke *gps,
         int offsx, int offsy, int winx, int winy, const float diff_mat[4][4], const float color[4])
 {
 	BLI_assert(gps->totpoints >= 3);
@@ -727,6 +727,7 @@ static void gp_draw_stroke_3d(const bGPDspoint *points, int totpoints, short thi
 	float offset[2] = { offsx, offsy };
 	float curpressure = points[0].pressure;
 	float fpt[3];
+	UNUSED_VARS(offset);
 
 	/* if cyclic needs more vertex */
 	int cyclic_add = (cyclic) ? 2 : 0;

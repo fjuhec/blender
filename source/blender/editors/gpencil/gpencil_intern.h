@@ -407,15 +407,15 @@ typedef enum ACTCONT_TYPES {
 */
 #define GP_EDITABLE_STROKES_BEGIN(C, gpl, gps)                                          \
 {                                                                                       \
-	Object *obact = CTX_data_active_object(C);                                          \
-	bGPdata *gpd = CTX_data_gpencil_data(C);                                            \
+	Object *obact_ = CTX_data_active_object(C);                                          \
+	bGPdata *gpd_ = CTX_data_gpencil_data(C);                                            \
 	CTX_DATA_BEGIN(C, bGPDlayer*, gpl, editable_gpencil_layers)                         \
 	{                                                                                   \
 		if (gpl->actframe == NULL)                                                      \
 			continue;                                                                   \
 		/* calculate difference matrix */                                               \
 		float diff_mat[4][4];                                                           \
-		ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);                          \
+		ED_gpencil_parent_location(obact_, gpd_, gpl, diff_mat);                          \
 		/* loop over strokes */                                                         \
 		for (bGPDstroke *gps = gpl->actframe->strokes.first; gps; gps = gps->next) {    \
 			/* skip strokes that are invalid for current view */                        \
