@@ -123,6 +123,7 @@ static void GPENCIL_engine_init(void *vedata)
 			datatoc_gpencil_fill_frag_glsl,
 			NULL);
 	}
+
 	/* normal stroke shader using geometry to display lines */
 	if (!e_data.gpencil_stroke_sh) {
 		e_data.gpencil_stroke_sh = DRW_shader_create(datatoc_gpencil_stroke_vert_glsl,
@@ -130,10 +131,12 @@ static void GPENCIL_engine_init(void *vedata)
 			datatoc_gpencil_stroke_frag_glsl,
 			NULL);
 	}
+
 	/* used for edit points or strokes with one point only */
 	if (!e_data.gpencil_volumetric_sh) {
 		e_data.gpencil_volumetric_sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_POINT_VARYING_SIZE_VARYING_COLOR);
 	}
+
 	/* used to filling during drawing */
 	if (!e_data.gpencil_drawing_fill_sh) {
 		e_data.gpencil_drawing_fill_sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_SMOOTH_COLOR);
@@ -142,11 +145,11 @@ static void GPENCIL_engine_init(void *vedata)
 	if (!stl->storage) {
 		stl->storage = MEM_callocN(sizeof(GPENCIL_Storage), "GPENCIL_Storage");
 	}
-
 }
 
 static void GPENCIL_engine_free(void)
 {
+	/* only free custom shaders, builtin shaders are freed in blender close */
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_fill_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_stroke_sh);
 }
