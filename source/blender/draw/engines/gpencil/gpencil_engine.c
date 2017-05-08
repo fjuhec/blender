@@ -200,8 +200,8 @@ static DRWShadingGroup *GPENCIL_shgroup_fill_create(GPENCIL_Data *vedata, DRWPas
 			BKE_image_release_ibuf(image, ibuf, NULL);
 		}
 		else {
-			txl->texture = GPU_texture_from_blender(palcolor->ima, &iuser, GL_TEXTURE_2D, true, 0.0, 0);
-			DRW_shgroup_uniform_texture(grp, "myTexture", txl->texture, 0);
+			GPUTexture *texture = GPU_texture_from_blender(palcolor->ima, &iuser, GL_TEXTURE_2D, true, 0.0, 0);
+			DRW_shgroup_uniform_texture(grp, "myTexture", texture, 0);
 
 			// TODO: How apply these parameters
 			//if (flag & PAC_COLOR_TEX_CLAMP) {
