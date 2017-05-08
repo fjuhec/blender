@@ -160,6 +160,7 @@ struct DRWInterface {
 	int viewprojectioninverse;
 	int normal;
 	int worldnormal;
+	int camtexfac;
 	int eye;
 	/* Dynamic batch */
 	GLuint instance_vbo;
@@ -528,6 +529,7 @@ static DRWInterface *DRW_interface_create(GPUShader *shader)
 	interface->modelviewprojection = GPU_shader_get_uniform(shader, "ModelViewProjectionMatrix");
 	interface->normal = GPU_shader_get_uniform(shader, "NormalMatrix");
 	interface->worldnormal = GPU_shader_get_uniform(shader, "WorldNormalMatrix");
+	interface->camtexfac = GPU_shader_get_uniform(shader, "CameraTexCoFactors");
 	interface->eye = GPU_shader_get_uniform(shader, "eye");
 	interface->instance_count = 0;
 	interface->attribs_count = 0;
@@ -1369,6 +1371,9 @@ static void draw_geometry(DRWShadingGroup *shgroup, Batch *geom, const float (*o
 	if (interface->worldnormal != -1) {
 		GPU_shader_uniform_vector(shgroup->shader, interface->worldnormal, 9, 1, (float *)wn);
 	}
+	if (interface->camtexfac != -1) {
+		GPU_shader_uniform_vector(shgroup->shader, interface->camtexfac, 4, 1, (float *)rv3d->viewcamtexcofac);
+	}
 	if (interface->eye != -1) {
 		GPU_shader_uniform_vector(shgroup->shader, interface->eye, 3, 1, (float *)eye);
 	}
@@ -1443,8 +1448,6 @@ static void draw_shgroup(DRWShadingGroup *shgroup, DRWState pass_state)
 				}
 				tex = *((GPUTexture **)uni->value);
 				GPU_texture_bind(tex, uni->bindloc);
-				GPU_texture_compare_mode(tex, false);
-				GPU_texture_filter_mode(tex, false);
 
 				bound_tex = MEM_callocN(sizeof(DRWBoundTexture), "DRWBoundTexture");
 				bound_tex->tex = tex;
@@ -1512,8 +1515,6 @@ void DRW_draw_pass(DRWPass *pass)
 	DRW_state_set(pass->state);
 	BLI_listbase_clear(&DST.bound_texs);
 
-	pass->wasdrawn = true;
-
 	/* Init Timer queries */
 	if (pass->timer_queries[0] == 0) {
 		pass->front_idx = 0;
@@ -1532,8 +1533,10 @@ void DRW_draw_pass(DRWPass *pass)
 		pass->front_idx = tmp;
 	}
 
-	/* issue query for the next frame */
-	glBeginQuery(GL_TIME_ELAPSED, pass->timer_queries[pass->back_idx]);
+	if (!pass->wasdrawn) {
+		/* issue query for the next frame */
+		glBeginQuery(GL_TIME_ELAPSED, pass->timer_queries[pass->back_idx]);
+	}
 
 	for (DRWShadingGroup *shgroup = pass->shgroups.first; shgroup; shgroup = shgroup->next) {
 		draw_shgroup(shgroup, pass->state);
@@ -1551,7 +1554,11 @@ void DRW_draw_pass(DRWPass *pass)
 		DST.shader = NULL;
 	}
 
-	glEndQuery(GL_TIME_ELAPSED);
+	if (!pass->wasdrawn) {
+		glEndQuery(GL_TIME_ELAPSED);
+	}
+
+	pass->wasdrawn = true;
 }
 
 void DRW_draw_callbacks_pre_scene(void)
@@ -1600,7 +1607,7 @@ struct DRWTextStore *DRW_text_cache_ensure(void)
 /** \name Settings
  * \{ */
 
-bool DRW_is_object_renderable(Object *ob)
+bool DRW_object_is_renderable(Object *ob)
 {
 	Scene *scene = DST.draw_ctx.scene;
 	Object *obedit = scene->obedit;
@@ -1608,10 +1615,14 @@ bool DRW_is_object_renderable(Object *ob)
 	if (ob->type == OB_MESH) {
 		if (ob == obedit) {
 			IDProperty *props = BKE_layer_collection_engine_evaluated_get(ob, COLLECTION_MODE_EDIT, "");
-			bool do_occlude_wire = BKE_collection_engine_property_value_get_bool(props, "show_occlude_wire");
-
-			if (do_occlude_wire)
+			bool do_show_occlude_wire = BKE_collection_engine_property_value_get_bool(props, "show_occlude_wire");
+			if (do_show_occlude_wire) {
 				return false;
+			}
+			bool do_show_weight = BKE_collection_engine_property_value_get_bool(props, "show_weight");
+			if (do_show_weight) {
+				return false;
+			}
 		}
 	}
 

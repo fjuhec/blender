@@ -23,8 +23,8 @@
  *  \ingroup draw
  */
 
-#ifndef __DRAW_MODES_ENGINES_H__
-#define __DRAW_MODES_ENGINES_H__
+#ifndef __DRAW_MODE_ENGINES_H__
+#define __DRAW_MODE_ENGINES_H__
 
 extern DrawEngineType draw_engine_object_type;
 extern DrawEngineType draw_engine_edit_armature_type;
@@ -42,4 +42,4 @@ extern DrawEngineType draw_engine_pose_type;
 extern DrawEngineType draw_engine_sculpt_type;
 extern DrawEngineType draw_engine_gpencil_type;
 
-#endif /* __DRAW_MODES_ENGINES_H__ */
+#endif /* __DRAW_MODE_ENGINES_H__ */
