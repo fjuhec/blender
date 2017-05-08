@@ -1290,9 +1290,9 @@ void BKE_gpencil_palettecolor_delete_allstrokes(PaletteColor *palcolor)
 	bGPDframe *gpf;
 	bGPDstroke *gps, *gpsn;
 
-	Main *main = G.main;
+	Main *bmain = G.main;
 
-	for (gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
+	for (gpd = bmain->gpencil.first; gpd; gpd = gpd->id.next) {
 		for (gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 			for (gpf = gpl->frames.first; gpf; gpf = gpf->next) {
 				for (gps = gpf->strokes.first; gps; gps = gpsn) {
@@ -1347,7 +1347,7 @@ void BKE_gpencil_palettecolor_delete(bGPDpalette *palette, bGPDpalettecolor *pal
 * \param basepath Shorter path fragment to look for
 * \return Whether there is a match
 */
-static bool gp_animpath_matches_basepath(const char path[], const char basepath[])
+static bool UNUSED_FUNCTION(gp_animpath_matches_basepath)(const char path[], const char basepath[])
 {
 	/* we need start of path to be basepath */
 	return (path && basepath) && STRPREFIX(path, basepath);
@@ -1356,7 +1356,7 @@ static bool gp_animpath_matches_basepath(const char path[], const char basepath[
 /* Transfer the animation data from bGPDpalette to Palette */
 void BKE_gpencil_move_animdata_to_palettes(bGPdata *gpd)
 {
-	Main *main = G.main;
+	Main *bmain = G.main;
 	Palette *palette = NULL;
 	AnimData *srcAdt = NULL, *dstAdt = NULL;
 	FCurve *fcu = NULL;
@@ -1382,7 +1382,7 @@ void BKE_gpencil_move_animdata_to_palettes(bGPdata *gpd)
 			int x = strcspn(fcu->rna_path, "[") + 2;
 			int y = strcspn(fcu->rna_path, "]");
 			BLI_strncpy(info, fcu->rna_path + x, y - x);
-			palette = BLI_findstring(&main->palettes, info, offsetof(ID, name) + 2);
+			palette = BLI_findstring(&bmain->palettes, info, offsetof(ID, name) + 2);
 			break;
 		}
 	}

@@ -285,7 +285,7 @@ static int palette_lock_layer_exec(bContext *C, wmOperator *UNUSED(op))
 	return OPERATOR_FINISHED;
 }
 
-void PALETTE_OT_lock_layer(wmOperatorType *ot)
+static void PALETTE_OT_lock_layer(wmOperatorType *ot)
 {
 	/* identifiers */
 	ot->name = "Disable Unused Layer Colors";
@@ -437,7 +437,7 @@ static int palettecolor_isolate_exec(bContext *C, wmOperator *op)
 	return OPERATOR_FINISHED;
 }
 
-void PALETTE_OT_palettecolor_isolate(wmOperatorType *ot)
+static void PALETTE_OT_palettecolor_isolate(wmOperatorType *ot)
 {
 	/* identifiers */
 	ot->name = "Isolate Palette Color";
@@ -489,7 +489,7 @@ static int palettecolor_hide_exec(bContext *C, wmOperator *op)
 	return OPERATOR_FINISHED;
 }
 
-void PALETTE_OT_palettecolor_hide(wmOperatorType *ot)
+static void PALETTE_OT_palettecolor_hide(wmOperatorType *ot)
 {
 	/* identifiers */
 	ot->name = "Hide Color(s)";
@@ -528,7 +528,7 @@ static int palettecolor_reveal_exec(bContext *C, wmOperator *UNUSED(op))
 	return OPERATOR_FINISHED;
 }
 
-void PALETTE_OT_palettecolor_reveal(wmOperatorType *ot)
+static void PALETTE_OT_palettecolor_reveal(wmOperatorType *ot)
 {
 	/* identifiers */
 	ot->name = "Show All Colors";
@@ -564,7 +564,7 @@ static int palettecolor_lock_all_exec(bContext *C, wmOperator *UNUSED(op))
 	return OPERATOR_FINISHED;
 }
 
-void PALETTE_OT_palettecolor_lock_all(wmOperatorType *ot)
+static void PALETTE_OT_palettecolor_lock_all(wmOperatorType *ot)
 {
 	/* identifiers */
 	ot->name = "Lock All Colors";
@@ -600,7 +600,7 @@ static int palettecolor_unlock_all_exec(bContext *C, wmOperator *UNUSED(op))
 	return OPERATOR_FINISHED;
 }
 
-void PALETTE_OT_palettecolor_unlock_all(wmOperatorType *ot)
+static void PALETTE_OT_palettecolor_unlock_all(wmOperatorType *ot)
 {
 	/* identifiers */
 	ot->name = "Unlock All Colors";
@@ -653,7 +653,7 @@ static int palettecolor_move_exec(bContext *C, wmOperator *op)
 	return OPERATOR_FINISHED;
 }
 
-void PALETTE_OT_palettecolor_move(wmOperatorType *ot)
+static void PALETTE_OT_palettecolor_move(wmOperatorType *ot)
 {
 	static EnumPropertyItem slot_move[] = {
 		{ PALETTE_COLOR_MOVE_UP, "UP", 0, "Up", "" },
@@ -719,7 +719,7 @@ static int palettecolor_select_exec(bContext *C, wmOperator *UNUSED(op))
 	return OPERATOR_FINISHED;
 }
 
-void PALETTE_OT_palettecolor_select(wmOperatorType *ot)
+static void PALETTE_OT_palettecolor_select(wmOperatorType *ot)
 {
 	/* identifiers */
 	ot->name = "Select Color";
@@ -773,7 +773,7 @@ static int palettecolor_copy_exec(bContext *C, wmOperator *UNUSED(op))
 	return OPERATOR_FINISHED;
 }
 
-void PALETTE_OT_palettecolor_copy(wmOperatorType *ot)
+static void PALETTE_OT_palettecolor_copy(wmOperatorType *ot)
 {
 	/* identifiers */
 	ot->name = "Copy Color";
