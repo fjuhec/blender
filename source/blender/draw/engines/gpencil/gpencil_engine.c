@@ -458,7 +458,7 @@ static void gpencil_draw_buffer_strokes(void *vedata, ToolSettings *ts, bGPdata 
 			* i.e. tGPspoints NOT bGPDspoints
 			*/
 			short lthick = brush->thickness;
-			float matrix[4][4];
+			static float matrix[4][4];
 			unit_m4(matrix);
 
 			if (gpd->sbuffer_size == 1) {
