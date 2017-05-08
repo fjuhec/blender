@@ -188,8 +188,6 @@ static DRWShadingGroup *GPENCIL_shgroup_fill_create(GPENCIL_Data *vedata, DRWPas
 	if ((palcolor->fill_style == FILL_STYLE_TEXTURE) || (palcolor->flag & PAC_COLOR_TEX_MIX)) {
 		ImBuf *ibuf;
 		Image *image = palcolor->ima;
-		unsigned int *bind = &image->bindcode[TEXTARGET_TEXTURE_2D];
-		UNUSED_VARS(bind);
 		ImageUser iuser = { NULL };
 		void *lock;
 
@@ -215,7 +213,7 @@ static DRWShadingGroup *GPENCIL_shgroup_fill_create(GPENCIL_Data *vedata, DRWPas
 }
 
 /* create shading group for volumetric points */
-static DRWShadingGroup *GPENCIL_shgroup_point_volumetric_create(GPENCIL_Data *UNUSED(vedata), DRWPass *pass)
+static DRWShadingGroup *GPENCIL_shgroup_point_volumetric_create(DRWPass *pass)
 {
 	DRWShadingGroup *grp = DRW_shgroup_create(e_data.gpencil_volumetric_sh, pass);
 
@@ -223,7 +221,7 @@ static DRWShadingGroup *GPENCIL_shgroup_point_volumetric_create(GPENCIL_Data *UN
 }
 
 /* create shading group for strokes */
-static DRWShadingGroup *GPENCIL_shgroup_stroke_create(GPENCIL_Data *UNUSED(vedata), DRWPass *pass, PaletteColor *UNUSED(palcolor))
+static DRWShadingGroup *GPENCIL_shgroup_stroke_create(DRWPass *pass)
 {
 	const float *viewport_size = DRW_viewport_size_get();
 
@@ -234,7 +232,7 @@ static DRWShadingGroup *GPENCIL_shgroup_stroke_create(GPENCIL_Data *UNUSED(vedat
 }
 
 /* create shading group for edit points using volumetric */
-static DRWShadingGroup *GPENCIL_shgroup_edit_volumetric_create(GPENCIL_Data *UNUSED(vedata), DRWPass *pass)
+static DRWShadingGroup *GPENCIL_shgroup_edit_volumetric_create(DRWPass *pass)
 {
 	DRWShadingGroup *grp = DRW_shgroup_create(e_data.gpencil_volumetric_sh, pass);
 
@@ -242,8 +240,7 @@ static DRWShadingGroup *GPENCIL_shgroup_edit_volumetric_create(GPENCIL_Data *UNU
 }
 
 /* create shading group for drawing strokes in buffer */
-static DRWShadingGroup *GPENCIL_shgroup_drawing_stroke_create(
-        GPENCIL_Data *UNUSED(vedata), DRWPass *pass, PaletteColor *UNUSED(palcolor))
+static DRWShadingGroup *GPENCIL_shgroup_drawing_stroke_create(DRWPass *pass)
 {
 	DRWShadingGroup *grp = DRW_shgroup_create(e_data.gpencil_stroke_sh, pass);
 	DRW_shgroup_uniform_vec2(grp, "Viewport", DRW_viewport_size_get(), 1);
@@ -251,8 +248,7 @@ static DRWShadingGroup *GPENCIL_shgroup_drawing_stroke_create(
 }
 
 /* create shading group for drawing fill in buffer */
-static DRWShadingGroup *GPENCIL_shgroup_drawing_fill_create(
-        GPENCIL_Data *UNUSED(vedata), DRWPass *pass, PaletteColor *UNUSED(palcolor))
+static DRWShadingGroup *GPENCIL_shgroup_drawing_fill_create(DRWPass *pass)
 {
 	DRWShadingGroup *grp = DRW_shgroup_create(e_data.gpencil_drawing_fill_sh, pass);
 	return grp;
@@ -280,16 +276,16 @@ static void GPENCIL_cache_init(void *vedata)
 		memset(stl->storage->shgrps_fill, 0, sizeof(DRWShadingGroup *) * MAX_GPENCIL_MAT);
 		memset(stl->storage->shgrps_stroke, 0, sizeof(DRWShadingGroup *) * MAX_GPENCIL_MAT);
 		memset(stl->storage->materials, 0, sizeof(PaletteColor *) * MAX_GPENCIL_MAT);
-		stl->g_data->shgrps_point_volumetric = GPENCIL_shgroup_point_volumetric_create(vedata, psl->stroke_pass);
+		stl->g_data->shgrps_point_volumetric = GPENCIL_shgroup_point_volumetric_create(psl->stroke_pass);
 
 		/* edit pass */
 		psl->edit_pass = DRW_pass_create("Gpencil Edit Pass", state);
-		stl->g_data->shgrps_edit_volumetric = GPENCIL_shgroup_edit_volumetric_create(vedata, psl->edit_pass);
+		stl->g_data->shgrps_edit_volumetric = GPENCIL_shgroup_edit_volumetric_create(psl->edit_pass);
 
 		/* drawing buffer pass */
 		psl->drawing_pass = DRW_pass_create("Gpencil Drawing Pass", state);
-		stl->g_data->shgrps_drawing_stroke = GPENCIL_shgroup_drawing_stroke_create(vedata, psl->drawing_pass, palcolor);
-		stl->g_data->shgrps_drawing_fill = GPENCIL_shgroup_drawing_fill_create(vedata, psl->drawing_pass, palcolor);
+		stl->g_data->shgrps_drawing_stroke = GPENCIL_shgroup_drawing_stroke_create(psl->drawing_pass);
+		stl->g_data->shgrps_drawing_fill = GPENCIL_shgroup_drawing_fill_create(psl->drawing_pass);
 	}
 }
 
@@ -352,7 +348,7 @@ static void gpencil_draw_strokes(void *vedata, ToolSettings *ts, Object *ob,
 				id = stl->storage->pal_id;
 				stl->storage->materials[id] = gps->palcolor;
 				stl->storage->shgrps_fill[id] = GPENCIL_shgroup_fill_create(vedata, psl->stroke_pass, gps->palcolor, id);
-				stl->storage->shgrps_stroke[id] = GPENCIL_shgroup_stroke_create(vedata, psl->stroke_pass, gps->palcolor);
+				stl->storage->shgrps_stroke[id] = GPENCIL_shgroup_stroke_create(psl->stroke_pass);
 				++stl->storage->pal_id;
 			}
 
