@@ -63,6 +63,7 @@ typedef struct GPENCIL_Storage {
 	PaletteColor *materials[MAX_GPENCIL_MAT];
 	DRWShadingGroup *shgrps_fill[MAX_GPENCIL_MAT];
 	DRWShadingGroup *shgrps_stroke[MAX_GPENCIL_MAT];
+	float unit_matrix[4][4];
 } GPENCIL_Storage;
 
 /* keep it under MAX_STORAGE */
@@ -146,6 +147,9 @@ static void GPENCIL_engine_init(void *vedata)
 	if (!stl->storage) {
 		stl->storage = MEM_callocN(sizeof(GPENCIL_Storage), "GPENCIL_Storage");
 	}
+
+	unit_m4(stl->storage->unit_matrix);
+
 }
 
 static void GPENCIL_engine_free(void)
@@ -448,17 +452,15 @@ static void gpencil_draw_buffer_strokes(void *vedata, ToolSettings *ts, bGPdata 
 			* i.e. tGPspoints NOT bGPDspoints
 			*/
 			short lthick = brush->thickness;
-			static float matrix[4][4];
-			unit_m4(matrix);
 
 			if (gpd->sbuffer_size == 1) {
 				struct Batch *point_geom = gpencil_get_buffer_point_geom(gpd, lthick);
-				DRW_shgroup_call_add(stl->g_data->shgrps_point_volumetric, point_geom, matrix);
+				DRW_shgroup_call_add(stl->g_data->shgrps_point_volumetric, point_geom, stl->storage->unit_matrix);
 			}
 			else {
 				/* use unit matrix because the buffer is in screen space and does not need conversion */
-				struct Batch *drawing_stroke_geom = gpencil_get_buffer_stroke_geom(gpd, matrix, lthick);
-				DRW_shgroup_call_add(stl->g_data->shgrps_drawing_stroke, drawing_stroke_geom, matrix);
+				struct Batch *drawing_stroke_geom = gpencil_get_buffer_stroke_geom(gpd, stl->storage->unit_matrix, lthick);
+				DRW_shgroup_call_add(stl->g_data->shgrps_drawing_stroke, drawing_stroke_geom, stl->storage->unit_matrix);
 
 				if ((gpd->sbuffer_size >= 3) && ((gpd->sfill[3] > GPENCIL_ALPHA_OPACITY_THRESH) || (gpd->bfill_style > 0))) {
 					/* if not solid, fill is simulated with solid color */
@@ -466,7 +468,7 @@ static void gpencil_draw_buffer_strokes(void *vedata, ToolSettings *ts, bGPdata 
 						gpd->sfill[3] = 0.5f;
 					}
 					struct Batch *drawing_fill_geom = gpencil_get_buffer_fill_geom(gpd->sbuffer, gpd->sbuffer_size, gpd->sfill);
-					DRW_shgroup_call_add(stl->g_data->shgrps_drawing_fill, drawing_fill_geom, matrix);
+					DRW_shgroup_call_add(stl->g_data->shgrps_drawing_fill, drawing_fill_geom, stl->storage->unit_matrix);
 				}
 			}
 		}
