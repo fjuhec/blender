@@ -428,7 +428,7 @@ void math_modulo(float val1, float val2, out float outval)
 
 	/* change sign to match C convention, mod in GLSL will take absolute for negative numbers,
 	 * see https://www.opengl.org/sdk/docs/man/html/mod.xhtml */
-	outval = (val1 > 0.0) ? outval : -outval;
+	outval = (val1 > 0.0) ? outval : outval - val2;
 }
 
 void math_abs(float val1, out float outval)
@@ -2281,7 +2281,11 @@ void test_shadowbuf(
 		co.z -= shadowbias * co.w;
 
 		if (co.w > 0.0 && co.x > 0.0 && co.x / co.w < 1.0 && co.y > 0.0 && co.y / co.w < 1.0)
+#if __VERSION__ == 120
 			result = shadow2DProj(shadowmap, co).x;
+#else
+			result = textureProj(shadowmap, co);
+#endif
 		else
 			result = 1.0;
 	}
