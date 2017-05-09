@@ -169,7 +169,7 @@ Batch *gpencil_get_stroke_geom(bGPDframe *gpf, bGPDstroke *gps, short thickness,
 }
 
 /* helper to convert 2d to 3d for simple drawing buffer */
-static void gpencil_stroke_convertcoords(Scene *scene, ARegion *ar, View3D *v3d, const tGPspoint *point2D, float out[3], float *UNUSED(depth))
+static void gpencil_stroke_convertcoords(Scene *scene, ARegion *ar, View3D *v3d, const tGPspoint *point2D, float out[3])
 {
 	float mval_f[2] = { point2D->x, point2D->y };
 	float mval_prj[2];
@@ -199,7 +199,7 @@ static void gpencil_tpoint_to_point(Scene *scene, ARegion *ar, View3D *v3d, cons
 {
 	float p3d[3];
 	/* conversion to 3d format */
-	gpencil_stroke_convertcoords(scene, ar, v3d, tpt, p3d, NULL);
+	gpencil_stroke_convertcoords(scene, ar, v3d, tpt, p3d);
 	copy_v3_v3(&pt->x, p3d);
 
 	pt->pressure = tpt->pressure;
