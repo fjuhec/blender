@@ -881,27 +881,28 @@ class GreasePencilDataPanel:
     def poll(cls, context):
         ts = context.scene.tool_settings
 
-        if ts.grease_pencil_source == 'SCENE':
-            if context.space_data.context != 'SCENE':
-                return False
-
-        if ts.grease_pencil_source == 'OBJECT':
-            if context.space_data.context != 'DATA':
-                return False
-
         if context.gpencil_data is None:
             return False
 
-        if context.space_data.context == 'DATA':
-            if context.object.type != 'GPENCIL':
-                return False
-            else:
-                if context.object.grease_pencil != context.gpencil_data:
+        if context.space_data.type == 'VIEW_3D':
+            if ts.grease_pencil_source == 'SCENE':
+                if context.space_data.context != 'SCENE':
                     return False
 
-        if context.space_data.context == 'SCENE':
-            if context.scene.grease_pencil != context.gpencil_data:
-                return False
+            if ts.grease_pencil_source == 'OBJECT':
+                if context.space_data.context != 'DATA':
+                    return False
+
+            if context.space_data.context == 'DATA':
+                if context.object.type != 'GPENCIL':
+                    return False
+                else:
+                    if context.object.grease_pencil != context.gpencil_data:
+                        return False
+
+            if context.space_data.context == 'SCENE':
+                if context.scene.grease_pencil != context.gpencil_data:
+                    return False
 
         return True
 
@@ -943,9 +944,10 @@ class GreasePencilDataPanel:
             self.draw_layers(context, layout, gpd)
 
         # convert to object
-        if context.space_data.context == 'SCENE':
-            row = layout.row()
-            row.operator("gpencil.convert_scene_to_object", text="Convert")
+        if context.space_data.type == 'VIEW_3D':
+            if context.space_data.context == 'SCENE':
+                row = layout.row()
+                row.operator("gpencil.convert_scene_to_object", text="Convert")
 
     def draw_layers(self, context, layout, gpd):
         row = layout.row()
