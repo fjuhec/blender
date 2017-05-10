@@ -21,7 +21,7 @@ import bpy
 from bpy.types import Header, Menu, Panel
 
 
-class TOPBAR_HT_header(Header):
+class TOPBAR_HT_upper_bar(Header):
     bl_space_type = 'TOPBAR'
 
     def draw(self, context):
@@ -77,6 +77,18 @@ class TOPBAR_HT_header(Header):
             return
 
         row.operator("wm.splash", text="", icon='BLENDER', emboss=False)
+
+
+class TOPBAR_HT_lower_bar(Header):
+    bl_space_type = 'TOPBAR'
+    bl_region_type = 'WINDOW'
+
+    def draw(self, context):
+        layout = self.layout
+
+        workspace = context.workspace
+
+        layout.prop(workspace, "object_mode", text="")
 
 
 class TOPBAR_MT_editor_menus(Menu):
@@ -348,22 +360,9 @@ class TOPBAR_MT_help(Menu):
         layout.operator("wm.splash", icon='BLENDER')
 
 
-class TOPBAR_PT_subbar(Panel):
-    bl_space_type = 'TOPBAR'
-    bl_region_type = 'WINDOW'
-    bl_label = 'Global Settings'
-    bl_options = {'HIDE_HEADER'}
-
-    def draw(self, context):
-        layout = self.layout.row()
-
-        workspace = context.workspace
-
-        layout.prop(workspace, "object_mode", text="")
-
-
 classes = (
-    TOPBAR_HT_header,
+    TOPBAR_HT_upper_bar,
+    TOPBAR_HT_lower_bar,
     TOPBAR_MT_editor_menus,
     TOPBAR_MT_file,
     TOPBAR_MT_file_import,
@@ -375,7 +374,6 @@ classes = (
     TOPBAR_MT_opengl_render,
     TOPBAR_MT_window,
     TOPBAR_MT_help,
-    TOPBAR_PT_subbar,
 )
 
 if __name__ == "__main__":  # only for live edit.

@@ -234,6 +234,7 @@ typedef struct HeaderType {
 
 	char idname[BKE_ST_MAXNAME];        /* unique name */
 	int space_type;
+	int region_type;
 
 	/* draw entirely, view changes should be handled here */
 	void (*draw)(const struct bContext *, struct Header *);

@@ -48,6 +48,7 @@
 
 #include "UI_interface.h"
 #include "UI_resources.h"
+#include "UI_view2d.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -104,16 +105,19 @@ static SpaceLink *topbar_duplicate(SpaceLink *sl)
 
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void topbar_main_region_init(wmWindowManager *wm, ARegion *ar)
+static void topbar_main_region_init(wmWindowManager *wm, ARegion *region)
 {
-	ar->v2d.scroll = V2D_SCROLL_RIGHT | V2D_SCROLL_VERTICAL_HIDE;
+	wmKeyMap *keymap;
 
-	ED_region_panels_init(wm, ar);
+	UI_view2d_region_reinit(&region->v2d, V2D_COMMONVIEW_HEADER, region->winx, region->winy);
+
+	keymap = WM_keymap_find(wm->defaultconf, "View2D Buttons List", 0, 0);
+	WM_event_add_keymap_handler(&region->handlers, keymap);
 }
 
-static void topbar_main_region_draw(const bContext *C, ARegion *ar)
+static void topbar_main_region_draw(const bContext *C, ARegion *region)
 {
-	ED_region_panels(C, ar, NULL, -1, true);
+	ED_region_header(C, region);
 }
 
 static void topbar_operatortypes(void)
