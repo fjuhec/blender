@@ -1040,13 +1040,13 @@ void ED_screen_global_areas_create(const bContext *C, wmWindow *win)
 		ScrArea *sa = MEM_callocN(sizeof(*sa), "top bar area");
 
 		sa->v1 = MEM_callocN(sizeof(*sa->v1), __func__);
-		sa->v2 = MEM_callocN(sizeof(*sa->v1), __func__);
-		sa->v3 = MEM_callocN(sizeof(*sa->v1), __func__);
-		sa->v4 = MEM_callocN(sizeof(*sa->v1), __func__);
+		sa->v2 = MEM_callocN(sizeof(*sa->v2), __func__);
+		sa->v3 = MEM_callocN(sizeof(*sa->v3), __func__);
+		sa->v4 = MEM_callocN(sizeof(*sa->v4), __func__);
 
 		sa->v1->vec.x = sa->v2->vec.x = 0;
 		sa->v3->vec.x = sa->v4->vec.x = win->sizex;
-		sa->v1->vec.y = sa->v4->vec.y = win->sizey - (2 * U.widget_unit);
+		sa->v1->vec.y = sa->v4->vec.y = win->sizey - (2 * HEADERY);
 		sa->v2->vec.y = sa->v3->vec.y = win->sizey;
 		sa->headertype = HEADERTOP;
 		sa->spacetype = sa->butspacetype = SPACE_TOPBAR;

@@ -312,9 +312,9 @@ void do_versions_after_linking_280(Main *main)
 						ScrArea *sa = MEM_callocN(sizeof(*sa), "do version topbar area");
 
 						sa->v1 = MEM_callocN(sizeof(*sa->v1), "do_version topbar vert");
-						sa->v2 = MEM_callocN(sizeof(*sa->v1), "do_version topbar vert");
-						sa->v3 = MEM_callocN(sizeof(*sa->v1), "do_version topbar vert");
-						sa->v4 = MEM_callocN(sizeof(*sa->v1), "do_version topbar vert");
+						sa->v2 = MEM_callocN(sizeof(*sa->v2), "do_version topbar vert");
+						sa->v3 = MEM_callocN(sizeof(*sa->v3), "do_version topbar vert");
+						sa->v4 = MEM_callocN(sizeof(*sa->v4), "do_version topbar vert");
 
 						sa->v1->vec.x = sa->v2->vec.x = 0;
 						sa->v3->vec.x = sa->v4->vec.x = win->sizex;
@@ -337,12 +337,11 @@ void do_versions_after_linking_280(Main *main)
 					}
 				}
 			}
-			BKE_workspace_iter_begin(workspace, main->workspaces.first)
-			{
+
+			BKE_WORKSPACE_ITER_BEGIN(workspace, main->workspaces.first) {
 				ListBase *layouts = BKE_workspace_layouts_get(workspace);
 
-				BKE_workspace_layout_iter_begin(layout, layouts->first)
-				{
+				BKE_WORKSPACE_LAYOUT_ITER_BEGIN(layout, layouts->first) {
 					bScreen *screen = BKE_workspace_layout_screen_get(layout);
 
 					for (ScrArea *area = screen->areabase.first, *area_next; area; area = area_next) {
@@ -360,10 +359,8 @@ void do_versions_after_linking_280(Main *main)
 							MEM_freeN(area);
 						}
 					}
-				}
-				BKE_workspace_layout_iter_end;
-			}
-			BKE_workspace_iter_end;
+				} BKE_WORKSPACE_LAYOUT_ITER_END;
+			} BKE_WORKSPACE_ITER_END;
 		}
 	}
 }
