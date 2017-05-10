@@ -53,30 +53,16 @@ set(INC_SYS
 )
 
 set(SRC
-	intern/draw_manager.c
-	intern/draw_common.c
-	intern/draw_cache.c
-	intern/draw_view.c
 	intern/draw_armature.c
-
+	intern/draw_cache.c
 	intern/draw_cache_impl_curve.c
 	intern/draw_cache_impl_displist.c
 	intern/draw_cache_impl_lattice.c
 	intern/draw_cache_impl_mesh.c
-
-	engines/clay/clay_engine.c
-	engines/clay/clay_engine.h
-
-	engines/eevee/eevee_engine.c
-	engines/eevee/eevee_engine.h
-	engines/eevee/eevee_lights.c
-	engines/eevee/eevee_probes.c
-	engines/eevee/eevee_private.h
-
-	engines/basic/basic_engine.c
-	engines/basic/basic_engine.h
-
-	modes/object_mode.c
+	intern/draw_common.c
+	intern/draw_manager.c
+	intern/draw_manager_text.c
+	intern/draw_view.c
 	modes/edit_armature_mode.c
 	modes/edit_curve_mode.c
 	modes/edit_lattice_mode.c
@@ -84,21 +70,34 @@ set(SRC
 	modes/edit_metaball_mode.c
 	modes/edit_surface_mode.c
 	modes/edit_text_mode.c
+	modes/object_mode.c
 	modes/paint_texture_mode.c
 	modes/paint_vertex_mode.c
 	modes/paint_weight_mode.c
 	modes/particle_mode.c
 	modes/pose_mode.c
 	modes/sculpt_mode.c
-
-	intern/DRW_render.h
-	intern/draw_common.h
-	intern/draw_cache.h
-	intern/draw_cache_impl.h
-	intern/draw_view.h
-	modes/draw_mode_engines.h
+	engines/basic/basic_engine.c
+	engines/clay/clay_engine.c
+	engines/eevee/eevee_engine.c
+	engines/eevee/eevee_lights.c
+	engines/eevee/eevee_probes.c
+	engines/eevee/eevee_effects.c
+	engines/external/external_engine.c
 
 	DRW_engine.h
+	intern/DRW_render.h
+	intern/draw_cache.h
+	intern/draw_cache_impl.h
+	intern/draw_common.h
+	intern/draw_manager_text.h
+	intern/draw_view.h
+	modes/draw_mode_engines.h
+	engines/basic/basic_engine.h
+	engines/clay/clay_engine.h
+	engines/eevee/eevee_engine.h
+	engines/eevee/eevee_private.h
+	engines/external/external_engine.h
 )
 
 if(WITH_CLAY_ENGINE)
@@ -112,8 +111,11 @@ data_to_c_simple(engines/clay/shaders/ssao_groundtruth.glsl SRC)
 
 data_to_c_simple(engines/eevee/shaders/default_frag.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/default_world_frag.glsl SRC)
+data_to_c_simple(engines/eevee/shaders/background_vert.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/lit_surface_frag.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/lit_surface_vert.glsl SRC)
+data_to_c_simple(engines/eevee/shaders/effect_bloom_frag.glsl SRC)
+data_to_c_simple(engines/eevee/shaders/effect_motion_blur_frag.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/probe_filter_frag.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/probe_sh_frag.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/probe_geom.glsl SRC)
@@ -150,6 +152,9 @@ data_to_c_simple(modes/shaders/object_outline_expand_frag.glsl SRC)
 data_to_c_simple(modes/shaders/object_outline_detect_frag.glsl SRC)
 data_to_c_simple(modes/shaders/object_grid_frag.glsl SRC)
 data_to_c_simple(modes/shaders/object_grid_vert.glsl SRC)
+data_to_c_simple(modes/shaders/paint_wire_frag.glsl SRC)
+data_to_c_simple(modes/shaders/paint_wire_vert.glsl SRC)
+data_to_c_simple(modes/shaders/paint_vert_frag.glsl SRC)
 
 list(APPEND INC
 )

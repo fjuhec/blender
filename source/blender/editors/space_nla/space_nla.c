@@ -353,8 +353,9 @@ static void nla_buttons_region_draw(const bContext *C, ARegion *ar)
 	ED_region_panels(C, ar, NULL, -1, true);
 }
 
-static void nla_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
-                                wmNotifier *wmn, const Scene *UNUSED(scene))
+static void nla_region_listener(
+        bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
+        wmNotifier *wmn, const Scene *UNUSED(scene))
 {
 	/* context changes */
 	switch (wmn->category) {
@@ -387,8 +388,9 @@ static void nla_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegio
 }
 
 
-static void nla_main_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
-                                     wmNotifier *wmn, const Scene *UNUSED(scene))
+static void nla_main_region_listener(
+        bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
+        wmNotifier *wmn, const Scene *UNUSED(scene))
 {
 	/* context changes */
 	switch (wmn->category) {
@@ -438,8 +440,9 @@ static void nla_main_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), A
 	}
 }
 
-static void nla_channel_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
-                                        wmNotifier *wmn, const Scene *UNUSED(scene))
+static void nla_channel_region_listener(
+        bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
+        wmNotifier *wmn, const Scene *UNUSED(scene))
 {
 	/* context changes */
 	switch (wmn->category) {

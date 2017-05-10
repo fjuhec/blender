@@ -585,7 +585,7 @@ void ui_draw_but_IMAGE(ARegion *UNUSED(ar), uiBut *but, uiWidgetColors *UNUSED(w
  * The next 4 parameters are the offsets for the view, not the zones.
  */
 void UI_draw_safe_areas(
-        uint pos, uint line_origin, float x1, float x2, float y1, float y2,
+        uint pos, float x1, float x2, float y1, float y2,
         const float title_aspect[2], const float action_aspect[2])
 {
 	const float size_x_half = (x2 - x1) * 0.5f;
@@ -604,7 +604,7 @@ void UI_draw_safe_areas(
 			float maxx = x2 - margin_x;
 			float maxy = y2 - margin_y;
 
-			imm_draw_line_box_dashed(pos, line_origin, minx, miny, maxx, maxy);
+			imm_draw_line_box(pos, minx, miny, maxx, maxy);
 		}
 	}
 }
@@ -1202,7 +1202,7 @@ static void ui_draw_colorband_handle_box(unsigned int pos, float x1, float y1, f
 }
 
 static void ui_draw_colorband_handle(
-        unsigned int pos, const rcti *rect, float x,
+        uint shdr_pos, const rcti *rect, float x,
         const float rgb[3], struct ColorManagedDisplay *display,
         bool active)
 {
@@ -1221,19 +1221,26 @@ static void ui_draw_colorband_handle(
 	y1 = floorf(y1 + 0.5f);
 
 	if (active || half_width < min_width) {
-		immUniformColor3ub(0, 0, 0);
+		immUnbindProgram();
+
+		immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_COLOR);
+
+		float viewport_size[4];
+		glGetFloatv(GL_VIEWPORT, viewport_size);
+		immUniform2f("viewport_size", viewport_size[2] / UI_DPI_FAC, viewport_size[3] / UI_DPI_FAC);
+
+		immUniform1i("num_colors", 2);  /* "advanced" mode */
+		immUniformArray4fv("colors", (float *)(float[][4]){{0.8f, 0.8f, 0.8f, 1.0f}, {0.0f, 0.0f, 0.0f, 1.0f}}, 2);
+		immUniform1f("dash_width", active ? 4.0f : 2.0f);
+
 		immBegin(PRIM_LINES, 2);
-		immVertex2f(pos, x, y1);
-		immVertex2f(pos, x, y2);
+		immVertex2f(shdr_pos, x, y1);
+		immVertex2f(shdr_pos, x, y2);
 		immEnd();
 
-		setlinestyle(active ? 2 : 1);
-		immUniformColor3ub(200, 200, 200);
-		immBegin(PRIM_LINES, 2);
-		immVertex2f(pos, x, y1);
-		immVertex2f(pos, x, y2);
-		immEnd();
-		setlinestyle(0);
+		immUnbindProgram();
+
+		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
 		/* hide handles when zoomed out too far */
 		if (half_width < min_width) {
@@ -1245,39 +1252,39 @@ static void ui_draw_colorband_handle(
 	y1 -= half_width;
 
 	immUniformColor3ub(0, 0, 0);
-	ui_draw_colorband_handle_box(pos, x - half_width, y1 - 1, x + half_width, y1 + height, false);
+	ui_draw_colorband_handle_box(shdr_pos, x - half_width, y1 - 1, x + half_width, y1 + height, false);
 
 	/* draw all triangles blended */
 	glEnable(GL_BLEND);
 
-	ui_draw_colorband_handle_tri(pos, x, y1 + height, half_width, half_width, true);
+	ui_draw_colorband_handle_tri(shdr_pos, x, y1 + height, half_width, half_width, true);
 
 	if (active)
 		immUniformColor3ub(196, 196, 196);
 	else
 		immUniformColor3ub(96, 96, 96);
-	ui_draw_colorband_handle_tri(pos, x, y1 + height, half_width, half_width, true);
+	ui_draw_colorband_handle_tri(shdr_pos, x, y1 + height, half_width, half_width, true);
 
 	if (active)
 		immUniformColor3ub(255, 255, 255);
 	else
 		immUniformColor3ub(128, 128, 128);
-	ui_draw_colorband_handle_tri_hlight(pos, x, y1 + height - 1, (half_width - 1), (half_width - 1));
+	ui_draw_colorband_handle_tri_hlight(shdr_pos, x, y1 + height - 1, (half_width - 1), (half_width - 1));
 
 	immUniformColor3ub(0, 0, 0);
-	ui_draw_colorband_handle_tri_hlight(pos, x, y1 + height, half_width, half_width);
+	ui_draw_colorband_handle_tri_hlight(shdr_pos, x, y1 + height, half_width, half_width);
 
 	glDisable(GL_BLEND);
 
 	immUniformColor3ub(128, 128, 128);
-	ui_draw_colorband_handle_box(pos, x - (half_width - 1), y1, x + (half_width - 1), y1 + height, true);
+	ui_draw_colorband_handle_box(shdr_pos, x - (half_width - 1), y1, x + (half_width - 1), y1 + height, true);
 
 	if (display) {
 		IMB_colormanagement_scene_linear_to_display_v3(colf, display);
 	}
 
 	immUniformColor3fv(colf);
-	ui_draw_colorband_handle_box(pos, x - (half_width - 2), y1 + 1, x + (half_width - 2), y1 + height - 2, true);
+	ui_draw_colorband_handle_box(shdr_pos, x - (half_width - 2), y1 + 1, x + (half_width - 2), y1 + height - 2, true);
 }
 
 void ui_draw_but_COLORBAND(uiBut *but, uiWidgetColors *UNUSED(wcol), const rcti *rect)

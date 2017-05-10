@@ -2117,8 +2117,19 @@ static void IDP_DirectLinkProperty(IDProperty *prop, int switch_endian, FileData
 				BLI_endian_switch_int32(&prop->data.val2);
 				BLI_endian_switch_int64((int64_t *)&prop->data.val);
 			}
-			
 			break;
+		case IDP_INT:
+		case IDP_FLOAT:
+		case IDP_ID:
+			break;  /* Nothing special to do here. */
+		default:
+			/* Unknown IDP type, nuke it (we cannot handle unknown types everywhere in code,
+			 * IDP are way too polymorphic to do it safely. */
+			printf("%s: found unknown IDProperty type %d, reset to Integer one !\n", __func__, prop->type);
+			/* Note: we do not attempt to free unknown prop, we have no way to know how to do that! */
+			prop->type = IDP_INT;
+			prop->subtype = 0;
+			IDP_Int(prop) = 0;
 	}
 }
 
@@ -2775,35 +2786,26 @@ static void direct_link_cachefile(FileData *fd, CacheFile *cache_file)
 
 static void lib_link_workspaces(FileData *fd, Main *bmain)
 {
-	/* Note the NULL pointer checks for result of newlibadr. This is needed for reading old files from before the
-	 * introduction of workspaces (in do_versioning code we already created workspaces for screens of old file). */
-
-	BKE_workspace_iter_begin(workspace, bmain->workspaces.first)
-	{
+	BKE_WORKSPACE_ITER_BEGIN (workspace, bmain->workspaces.first) {
 		ID *id = BKE_workspace_id_get(workspace);
 		ListBase *layouts = BKE_workspace_layouts_get(workspace);
 
 		id_us_ensure_real(id);
 
-		BKE_workspace_layout_iter_begin(layout, layouts->first)
-		{
+		BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout, layouts->first) {
 			bScreen *screen = newlibadr(fd, id->lib, BKE_workspace_layout_screen_get(layout));
 
-			if (screen) {
-				BKE_workspace_layout_screen_set(layout, screen);
+			BKE_workspace_layout_screen_set(layout, screen);
 
-				if (ID_IS_LINKED_DATABLOCK(id)) {
-					screen->winid = 0;
-					if (screen->temp) {
-						/* delete temp layouts when appending */
-						BKE_workspace_layout_remove(workspace, layout, bmain);
-					}
+			if (ID_IS_LINKED_DATABLOCK(id)) {
+				screen->winid = 0;
+				if (screen->temp) {
+					/* delete temp layouts when appending */
+					BKE_workspace_layout_remove(bmain, workspace, layout);
 				}
 			}
-		}
-		BKE_workspace_layout_iter_end;
-	}
-	BKE_workspace_iter_end;
+		} BKE_WORKSPACE_LAYOUT_ITER_END;
+	} BKE_WORKSPACE_ITER_END;
 }
 
 static void direct_link_workspace(FileData *fd, WorkSpace *workspace, const Main *main)
@@ -3198,7 +3200,7 @@ static void direct_link_nodetree(FileData *fd, bNodeTree *ntree)
 			else if (ntree->type==NTREE_COMPOSIT) {
 				if (ELEM(node->type, CMP_NODE_TIME, CMP_NODE_CURVE_VEC, CMP_NODE_CURVE_RGB, CMP_NODE_HUECORRECT))
 					direct_link_curvemapping(fd, node->storage);
-				else if (ELEM(node->type, CMP_NODE_IMAGE, CMP_NODE_VIEWER, CMP_NODE_SPLITVIEWER))
+				else if (ELEM(node->type, CMP_NODE_IMAGE, CMP_NODE_R_LAYERS, CMP_NODE_VIEWER, CMP_NODE_SPLITVIEWER))
 					((ImageUser *)node->storage)->ok = 1;
 			}
 			else if ( ntree->type==NTREE_TEXTURE) {
@@ -5150,6 +5152,8 @@ static void direct_link_pose(FileData *fd, bPose *pose)
 		
 		/* in case this value changes in future, clamp else we get undefined behavior */
 		CLAMP(pchan->rotmode, ROT_MODE_MIN, ROT_MODE_MAX);
+
+		pchan->draw_data = NULL;
 	}
 	pose->ikdata = NULL;
 	if (pose->ikparam != NULL) {
@@ -6100,6 +6104,7 @@ static void direct_link_layer_collections(FileData *fd, ListBase *lb)
 		if (lc->properties) {
 			lc->properties = newdataadr(fd, lc->properties);
 			IDP_DirectLinkGroup_OrFree(&lc->properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
+			BKE_layer_collection_engine_settings_validate_collection(lc);
 		}
 		lc->properties_evaluated = NULL;
 
@@ -6119,14 +6124,15 @@ static void direct_link_layer_collections(FileData *fd, ListBase *lb)
  * -- Julian
  */
 static void direct_link_scene_update_screen_data(
-        FileData *fd, const ListBase *workspaces, const ListBase *screens)
+        FileData *fd, const Scene *scene, const ListBase *workspaces, const ListBase *screens)
 {
-	BKE_workspace_iter_begin(workspace, workspaces->first)
-	{
+	BKE_WORKSPACE_ITER_BEGIN (workspace, workspaces->first) {
 		SceneLayer *layer = newdataadr(fd, BKE_workspace_render_layer_get(workspace));
-		BKE_workspace_render_layer_set(workspace, layer);
-	}
-	BKE_workspace_iter_end;
+		/* only set when layer is from the scene we read */
+		if (layer && (BLI_findindex(&scene->render_layers, layer) != -1)) {
+			BKE_workspace_render_layer_set(workspace, layer);
+		}
+	} BKE_WORKSPACE_ITER_END;
 
 	for (bScreen *screen = screens->first; screen; screen = screen->id.next) {
 		for (ScrArea *area = screen->areabase.first; area; area = area->next) {
@@ -6360,6 +6366,11 @@ static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
 	link_list(fd, &(sce->r.layers));
 	link_list(fd, &(sce->r.views));
 
+
+	for (srl = sce->r.layers.first; srl; srl = srl->next) {
+		srl->prop = newdataadr(fd, srl->prop);
+		IDP_DirectLinkGroup_OrFree(&srl->prop, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
+	}
 	for (srl = sce->r.layers.first; srl; srl = srl->next) {
 		link_list(fd, &(srl->freestyleConfig.modules));
 	}
@@ -6414,12 +6425,27 @@ static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
 		link_list(fd, &sl->object_bases);
 		sl->basact = newdataadr(fd, sl->basact);
 		direct_link_layer_collections(fd, &sl->layer_collections);
+
+		if (sl->properties != NULL) {
+			sl->properties = newdataadr(fd, sl->properties);
+			BLI_assert(sl->properties != NULL);
+			IDP_DirectLinkGroup_OrFree(&sl->properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
+			BKE_scene_layer_engine_settings_validate_layer(sl);
+		}
+
+		sl->properties_evaluated = NULL;
 	}
 
 	sce->collection_properties = newdataadr(fd, sce->collection_properties);
 	IDP_DirectLinkGroup_OrFree(&sce->collection_properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
 
-	direct_link_scene_update_screen_data(fd, &bmain->workspaces, &bmain->screen);
+	sce->layer_properties = newdataadr(fd, sce->layer_properties);
+	IDP_DirectLinkGroup_OrFree(&sce->layer_properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
+
+	BKE_layer_collection_engine_settings_validate_scene(sce);
+	BKE_scene_layer_engine_settings_validate_scene(sce);
+
+	direct_link_scene_update_screen_data(fd, sce, &bmain->workspaces, &bmain->screen);
 }
 
 /* ************ READ WM ***************** */
@@ -6500,10 +6526,12 @@ static void lib_link_windowmanager(FileData *fd, Main *main)
 	
 	for (wm = main->wm.first; wm; wm = wm->id.next) {
 		if (wm->id.tag & LIB_TAG_NEED_LINK) {
+			/* Note: WM IDProperties are never written to file, hence no need to read/link them here. */
 			for (win = wm->windows.first; win; win = win->next) {
-				/* Note: WM IDProperties are never written to file, hence no need to read/link them here. */
+				if (win->workspace_hook) { /* NULL for old files */
+					lib_link_workspace_instance_hook(fd, win->workspace_hook, &wm->id);
+				}
 				win->scene = newlibadr(fd, wm->id.lib, win->scene);
-				lib_link_workspace_instance_hook(fd, win->workspace_hook, &wm->id);
 				/* deprecated, but needed for versioning (will be NULL'ed then) */
 				win->screen = newlibadr(fd, NULL, win->screen);
 			}
@@ -7175,18 +7203,14 @@ void blo_lib_link_restore(Main *newmain, wmWindowManager *curwm, Scene *curscene
 {
 	struct IDNameLib_Map *id_map = BKE_main_idmap_create(newmain);
 
-	BKE_workspace_iter_begin(workspace, newmain->workspaces.first)
-	{
+	BKE_WORKSPACE_ITER_BEGIN (workspace, newmain->workspaces.first) {
 		ListBase *layouts = BKE_workspace_layouts_get(workspace);
 
-		BKE_workspace_layout_iter_begin(layout, layouts->first)
-		{
+		BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout, layouts->first) {
 			lib_link_workspace_layout_restore(id_map, newmain, layout);
-		}
-		BKE_workspace_layout_iter_end;
+		} BKE_WORKSPACE_LAYOUT_ITER_END;
 		BKE_workspace_render_layer_set(workspace, cur_render_layer);
-	}
-	BKE_workspace_iter_end;
+	} BKE_WORKSPACE_ITER_END;
 
 	for (wmWindow *win = curwm->windows.first; win; win = win->next) {
 		WorkSpace *workspace = BKE_workspace_active_get(win->workspace_hook);
@@ -10064,11 +10088,9 @@ static void expand_workspace(FileData *fd, Main *mainvar, WorkSpace *workspace)
 {
 	ListBase *layouts = BKE_workspace_layouts_get(workspace);
 
-	BKE_workspace_layout_iter_begin(layout, layouts->first)
-	{
+	BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout, layouts->first) {
 		expand_doit(fd, mainvar, BKE_workspace_layout_screen_get(layout));
-	}
-	BKE_workspace_layout_iter_end;
+	} BKE_WORKSPACE_LAYOUT_ITER_END;
 }
 
 /**

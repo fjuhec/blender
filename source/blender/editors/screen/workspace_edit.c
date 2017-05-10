@@ -71,7 +71,10 @@ WorkSpace *ED_workspace_add(
 {
 	WorkSpace *workspace = BKE_workspace_add(bmain, name);
 
+#ifdef USE_WORKSPACE_MODE
 	BKE_workspace_object_mode_set(workspace, OB_MODE_OBJECT);
+#endif
+
 	BKE_workspace_render_layer_set(workspace, act_render_layer);
 
 	return workspace;
@@ -113,7 +116,7 @@ static void workspace_change_update(
 #ifdef USE_WORKSPACE_MODE
 	workspace_change_update_mode(workspace_old, workspace_new, C, CTX_data_active_object(C), &wm->reports);
 #else
-	UNUSED_VARS(wm);
+	UNUSED_VARS(C, wm);
 #endif
 }
 
@@ -210,20 +213,20 @@ WorkSpace *ED_workspace_duplicate(
 {
 	WorkSpaceLayout *layout_active_old = BKE_workspace_active_layout_get(win->workspace_hook);
 	ListBase *layouts_old = BKE_workspace_layouts_get(workspace_old);
-	WorkSpace *workspace_new = ED_workspace_add(bmain, BKE_workspace_name_get(workspace_old),
-	                                            BKE_workspace_render_layer_get(workspace_old));
+	WorkSpace *workspace_new = ED_workspace_add(
+	        bmain, BKE_workspace_name_get(workspace_old),
+	        BKE_workspace_render_layer_get(workspace_old));
 
+#ifdef USE_WORKSPACE_MODE
 	BKE_workspace_object_mode_set(workspace_new, BKE_workspace_object_mode_get(workspace_old));
+#endif
 
-	BKE_workspace_layout_iter_begin(layout_old, layouts_old->first)
-	{
+	BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout_old, layouts_old->first) {
 		WorkSpaceLayout *layout_new = ED_workspace_layout_duplicate(workspace_new, layout_old, win);
-
 		if (layout_active_old == layout_old) {
 			BKE_workspace_temp_layout_store_set(win->workspace_hook, layout_new);
 		}
-	}
-	BKE_workspace_layout_iter_end;
+	} BKE_WORKSPACE_LAYOUT_ITER_END;
 
 	return workspace_new;
 }
@@ -374,11 +377,9 @@ static void workspace_config_file_append_buttons(
 	if (workspace_config) {
 		wmOperatorType *ot_append = WM_operatortype_find("WM_OT_append", true);
 
-		BKE_workspace_iter_begin(workspace, workspace_config->workspaces.first)
-		{
+		BKE_WORKSPACE_ITER_BEGIN (workspace, workspace_config->workspaces.first) {
 			workspace_append_button(layout, ot_append, workspace, workspace_config->main);
-		}
-		BKE_workspace_iter_end;
+		} BKE_WORKSPACE_ITER_END;
 
 		BKE_blendfile_workspace_config_data_free(workspace_config);
 	}

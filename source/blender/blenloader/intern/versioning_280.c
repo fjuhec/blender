@@ -53,62 +53,75 @@
 
 #include "MEM_guardedalloc.h"
 
-/**
- * \brief Before lib-link versioning for new workspace design.
- *
- * Adds a workspace for each screen of the old file and adds the needed workspace-layout to wrap the screen.
- * Rest of the conversion is done in #do_version_workspaces_after_lib_link.
- *
- * Note that some of the created workspaces might be deleted again in case of reading the default startup.blend.
- */
-static void do_version_workspaces_before_lib_link(Main *main)
+
+static bScreen *screen_parent_find(const bScreen *screen)
 {
-	BLI_assert(BLI_listbase_is_empty(&main->workspaces));
-
-	for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
-		WorkSpace *ws = BKE_workspace_add(main, screen->id.name + 2);
-		BKE_workspace_layout_add(ws, screen, screen->id.name + 2);
-
-		/* For compatibility, the workspace should be activated that represents the active
-		 * screen of the old file. This is done in blo_do_versions_after_linking_270. */
+	/* can avoid lookup if screen state isn't maximized/full (parent and child store the same state) */
+	if (ELEM(screen->state, SCREENMAXIMIZED, SCREENFULL)) {
+		for (const ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
+			if (sa->full && sa->full != screen) {
+				BLI_assert(sa->full->state == screen->state);
+				return sa->full;
+			}
+		}
 	}
 
-	for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
-		for (wmWindow *win = wm->windows.first; win; win = win->next) {
-			win->workspace_hook = BKE_workspace_instance_hook_create(main);
+	return NULL;
+}
+
+static void do_version_workspaces_create_from_screens(Main *bmain)
+{
+	for (bScreen *screen = bmain->screen.first; screen; screen = screen->id.next) {
+		const bScreen *screen_parent = screen_parent_find(screen);
+		WorkSpace *workspace;
+
+		if (screen_parent) {
+			/* fullscreen with "Back to Previous" option, don't create
+			 * a new workspace, add layout workspace containing parent */
+			workspace = BLI_findstring(
+			        &bmain->workspaces, screen_parent->id.name + 2, offsetof(ID, name) + 2);
 		}
+		else {
+			workspace = BKE_workspace_add(bmain, screen->id.name + 2);
+		}
+		BKE_workspace_layout_add(workspace, screen, screen->id.name + 2);
+		BKE_workspace_render_layer_set(workspace, screen->scene->render_layers.first);
 	}
 }
 
 /**
  * \brief After lib-link versioning for new workspace design.
  *
+ *  *  Adds a workspace for (almost) each screen of the old file
+ *     and adds the needed workspace-layout to wrap the screen.
  *  *  Active screen isn't stored directly in window anymore, but in the active workspace.
- *     We already created a new workspace for each screen in #do_version_workspaces_before_lib_link,
- *     here we need to find and activate the workspace that contains the active screen of the old file.
  *  *  Active scene isn't stored in screen anymore, but in window.
+ *  *  Create workspace instance hook for each window.
+ *
+ * \note Some of the created workspaces might be deleted again in case of reading the default startup.blend.
  */
-static void do_version_workspaces_after_lib_link(Main *main)
+static void do_version_workspaces_after_lib_link(Main *bmain)
 {
-	for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
-		WorkSpace *workspace = BLI_findstring(&main->workspaces, screen->id.name + 2, offsetof(ID, name) + 2);
+	BLI_assert(BLI_listbase_is_empty(&bmain->workspaces));
 
-		BKE_workspace_render_layer_set(workspace, screen->scene->render_layers.first);
-	}
+	do_version_workspaces_create_from_screens(bmain);
 
-	for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
+	for (wmWindowManager *wm = bmain->wm.first; wm; wm = wm->id.next) {
 		for (wmWindow *win = wm->windows.first; win; win = win->next) {
-			bScreen *screen = win->screen;
-			WorkSpace *workspace = BLI_findstring(&main->workspaces, screen->id.name + 2, offsetof(ID, name) + 2);
+			bScreen *screen_parent = screen_parent_find(win->screen);
+			bScreen *screen = screen_parent ? screen_parent : win->screen;
+			WorkSpace *workspace = BLI_findstring(&bmain->workspaces, screen->id.name + 2, offsetof(ID, name) + 2);
 			ListBase *layouts = BKE_workspace_layouts_get(workspace);
 
+			win->workspace_hook = BKE_workspace_instance_hook_create(bmain);
+
 			BKE_workspace_active_set(win->workspace_hook, workspace);
-			win->scene = screen->scene;
 			BKE_workspace_active_layout_set(win->workspace_hook, layouts->first);
 
+			win->scene = screen->scene;
 			/* Deprecated from now on! */
+			win->screen->scene = screen->scene = NULL;
 			win->screen = NULL;
-			screen->scene = NULL;
 		}
 	}
 }
@@ -246,55 +259,44 @@ void do_versions_after_linking_280(Main *main)
 		}
 	}
 
+	if (!MAIN_VERSION_ATLEAST(main, 280, 0)) {
+		for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
+			/* same render-layer as do_version_workspaces_after_lib_link will activate,
+			 * so same layer as BKE_scene_layer_context_active would return */
+			SceneLayer *layer = screen->scene->render_layers.first;
+
+			for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
+				for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
+					if (sl->spacetype == SPACE_OUTLINER) {
+						SpaceOops *soutliner = (SpaceOops *)sl;
+
+						soutliner->outlinevis = SO_ACT_LAYER;
+
+						if (BLI_listbase_count_ex(&layer->layer_collections, 2) == 1) {
+							if (soutliner->treestore == NULL) {
+								soutliner->treestore = BLI_mempool_create(
+								        sizeof(TreeStoreElem), 1, 512, BLI_MEMPOOL_ALLOW_ITER);
+							}
+
+							/* Create a tree store element for the collection. This is normally
+							 * done in check_persistent (outliner_tree.c), but we need to access
+							 * it here :/ (expand element if it's the only one) */
+							TreeStoreElem *tselem = BLI_mempool_calloc(soutliner->treestore);
+							tselem->type = TSE_LAYER_COLLECTION;
+							tselem->id = layer->layer_collections.first;
+							tselem->nr = tselem->used = 0;
+							tselem->flag &= ~TSE_CLOSED;
+						}
+					}
+				}
+			}
+		}
+	}
+
 	{
 		/* New workspace design */
 		if (!MAIN_VERSION_ATLEAST(main, 280, 1)) {
 			do_version_workspaces_after_lib_link(main);
-		}
-
-		if (!MAIN_VERSION_ATLEAST(main, 280, 1)) {
-			BKE_workspace_iter_begin(workspace, main->workspaces.first)
-			{
-				SceneLayer *layer = BKE_workspace_render_layer_get(workspace);
-				const bool is_single_collection = BLI_listbase_count_ex(&layer->layer_collections, 2) == 1;
-				ListBase *layouts = BKE_workspace_layouts_get(workspace);
-
-				BKE_workspace_layout_iter_begin(layout, layouts->first)
-				{
-					bScreen *screen = BKE_workspace_layout_screen_get(layout);
-
-					for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
-						for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
-							if (sl->spacetype == SPACE_OUTLINER) {
-								SpaceOops *soutliner = (SpaceOops *)sl;
-
-								soutliner->outlinevis = SO_ACT_LAYER;
-
-								if (is_single_collection) {
-									/* Create a tree store element for the collection. This is normally
-									 * done in check_persistent (outliner_tree.c), but we need to access
-									 * it here :/ (expand element if it's the only one) */
-									TreeStoreElem *tselem = BLI_mempool_calloc(soutliner->treestore);
-									tselem->type = TSE_LAYER_COLLECTION;
-									tselem->id = layer->layer_collections.first;
-									tselem->nr = tselem->used = 0;
-									tselem->flag &= ~TSE_CLOSED;
-								}
-							}
-						}
-					}
-				}
-				BKE_workspace_layout_iter_end;
-			}
-			BKE_workspace_iter_end;
-		}
-	}
-
-	if (!MAIN_VERSION_ATLEAST(main, 280, 0)) {
-		IDPropertyTemplate val = {0};
-		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
-			scene->collection_properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
-			BKE_layer_collection_engine_settings_create(scene->collection_properties);
 		}
 	}
 
@@ -407,10 +409,13 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 		}
 	}
 
-	{
-		/* New workspace design */
-		if (!DNA_struct_find(fd->filesdna, "WorkSpace")) {
-			do_version_workspaces_before_lib_link(main);
+	if (!DNA_struct_elem_find(fd->filesdna, "SceneLayer", "IDProperty", "*properties")) {
+		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+			for (SceneLayer *sl = scene->render_layers.first; sl; sl = sl->next) {
+				IDPropertyTemplate val = {0};
+				sl->properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
+				BKE_scene_layer_engine_settings_create(sl->properties);
+			}
 		}
 	}
 }

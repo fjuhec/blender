@@ -22,7 +22,8 @@
  *  \ingroup bke
  */
 
-#define NAMESPACE_WORKSPACE /* allow including specially guarded dna_workspace_types.h */
+/* allow including specially guarded dna_workspace_types.h */
+#define DNA_NAMESPACE_WORKSPACE
 
 #include <stdlib.h>
 
@@ -160,13 +161,11 @@ void BKE_workspace_free(WorkSpace *workspace)
 	BLI_freelistN(&workspace->layouts);
 }
 
-void BKE_workspace_remove(WorkSpace *workspace, Main *bmain)
+void BKE_workspace_remove(Main *bmain, WorkSpace *workspace)
 {
-	BKE_workspace_layout_iter_begin(layout, workspace->layouts.first)
-	{
-		BKE_workspace_layout_remove(workspace, layout, bmain);
-	}
-	BKE_workspace_layout_iter_end;
+	BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout, workspace->layouts.first) {
+		BKE_workspace_layout_remove(bmain, workspace, layout);
+	} BKE_WORKSPACE_LAYOUT_ITER_END;
 
 	BKE_libblock_free(bmain, workspace);
 }
@@ -176,22 +175,19 @@ WorkSpaceInstanceHook *BKE_workspace_instance_hook_create(const Main *bmain)
 	WorkSpaceInstanceHook *hook = MEM_callocN(sizeof(WorkSpaceInstanceHook), __func__);
 
 	/* set an active screen-layout for each possible window/workspace combination */
-	BKE_workspace_iter_begin(workspace_iter, bmain->workspaces.first)
-	{
+	BKE_WORKSPACE_ITER_BEGIN (workspace_iter, bmain->workspaces.first) {
 		BKE_workspace_hook_layout_for_workspace_set(hook, workspace_iter, workspace_iter->layouts.first);
-	}
-	BKE_workspace_iter_end;
+	} BKE_WORKSPACE_ITER_END;
 
 	return hook;
 }
-void BKE_workspace_instance_hook_free(WorkSpaceInstanceHook *hook, const Main *bmain)
+void BKE_workspace_instance_hook_free(const Main *bmain, WorkSpaceInstanceHook *hook)
 {
 	/* workspaces should never be freed before wm (during which we call this function) */
 	BLI_assert(!BLI_listbase_is_empty(&bmain->workspaces));
 
 	/* Free relations for this hook */
-	BKE_workspace_iter_begin(workspace, bmain->workspaces.first)
-	{
+	BKE_WORKSPACE_ITER_BEGIN (workspace, bmain->workspaces.first) {
 		for (WorkSpaceDataRelation *relation = workspace->hook_layout_relations.first, *relation_next;
 		     relation;
 		     relation = relation_next)
@@ -201,8 +197,7 @@ void BKE_workspace_instance_hook_free(WorkSpaceInstanceHook *hook, const Main *b
 				workspace_relation_remove(&workspace->hook_layout_relations, relation);
 			}
 		}
-	}
-	BKE_workspace_iter_end;
+	} BKE_WORKSPACE_ITER_END;
 
 	MEM_freeN(hook);
 }
@@ -226,13 +221,12 @@ WorkSpaceLayout *BKE_workspace_layout_add(
 }
 
 void BKE_workspace_layout_remove(
-        WorkSpace *workspace, WorkSpaceLayout *layout,
-        Main *bmain)
+        Main *bmain,
+        WorkSpace *workspace, WorkSpaceLayout *layout)
 {
 	BKE_libblock_free(bmain, BKE_workspace_layout_screen_get(layout));
 	BLI_freelinkN(&workspace->layouts, layout);
 }
-
 
 /* -------------------------------------------------------------------- */
 /* General Utils */
@@ -240,15 +234,11 @@ void BKE_workspace_layout_remove(
 void BKE_workspaces_transform_orientation_remove(
         const ListBase *workspaces, const TransformOrientation *orientation)
 {
-	BKE_workspace_iter_begin(workspace, workspaces->first)
-	{
-		BKE_workspace_layout_iter_begin(layout, workspace->layouts.first)
-		{
+	BKE_WORKSPACE_ITER_BEGIN (workspace, workspaces->first) {
+		BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout, workspace->layouts.first) {
 			BKE_screen_transform_orientation_remove(BKE_workspace_layout_screen_get(layout), orientation);
-		}
-		BKE_workspace_layout_iter_end;
-	}
-	BKE_workspace_iter_end;
+		} BKE_WORKSPACE_LAYOUT_ITER_END;
+	} BKE_WORKSPACE_ITER_END;
 }
 
 WorkSpaceLayout *BKE_workspace_layout_find(
@@ -259,7 +249,38 @@ WorkSpaceLayout *BKE_workspace_layout_find(
 		return layout;
 	}
 
-	BLI_assert(!"Couldn't find layout in this workspace. This should not happen!");
+	printf("%s: Couldn't find layout in this workspace: '%s' screen: '%s'. "
+	       "This should not happen!\n",
+	       __func__, workspace->id.name + 2, screen->id.name + 2);
+
+	return NULL;
+}
+
+/**
+ * Find the layout for \a screen without knowing which workspace to look in.
+ *
+ * \param r_workspace: Optionally return the workspace that contains the looked up layout (if found).
+ */
+WorkSpaceLayout *BKE_workspace_layout_find_global(
+        const Main *bmain, const bScreen *screen,
+        WorkSpace **r_workspace)
+{
+	WorkSpaceLayout *layout;
+
+	if (r_workspace) {
+		*r_workspace = NULL;
+	}
+
+	BKE_WORKSPACE_ITER_BEGIN (workspace, bmain->workspaces.first) {
+		if ((layout = workspace_layout_find_exec(workspace, screen))) {
+			if (r_workspace) {
+				*r_workspace = workspace;
+			}
+
+			return layout;
+		}
+	} BKE_WORKSPACE_ITER_END;
+
 	return NULL;
 }
 

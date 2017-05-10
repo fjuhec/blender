@@ -486,8 +486,9 @@ void initTransformOrientation(bContext *C, TransInfo *t)
 			break;
 		default: /* V3D_MANIP_CUSTOM */
 		{
-			TransformOrientation *ts = BLI_findlink(&t->scene->transform_spaces,
-			                                        t->current_orientation - V3D_MANIP_CUSTOM);
+			TransformOrientation *ts = BLI_findlink(
+			        &t->scene->transform_spaces,
+			        t->current_orientation - V3D_MANIP_CUSTOM);
 
 			if (applyTransformOrientation(ts, t->spacemtx, t->spacename)) {
 				/* pass */

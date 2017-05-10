@@ -224,7 +224,7 @@ typedef struct wmNotifier {
 #define NOTE_CATEGORY		0xFF000000
 #define	NC_WM				(1<<24)
 #define	NC_WINDOW			(2<<24)
-#define NC_SCREEN		(3<<24)
+#define NC_SCREEN			(3<<24)
 #define	NC_SCENE			(4<<24)
 #define	NC_OBJECT			(5<<24)
 #define	NC_MATERIAL			(6<<24)

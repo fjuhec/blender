@@ -76,6 +76,8 @@ typedef struct SceneLayer {
 	ListBase object_bases;      /* ObjectBase */
 	struct Base *basact;
 	ListBase layer_collections; /* LayerCollection */
+	struct IDProperty *properties;  /* overrides */
+	struct IDProperty *properties_evaluated;
 } SceneLayer;
 
 typedef struct SceneCollection {
@@ -120,6 +122,8 @@ typedef enum CollectionEngineSettingsType {
 	COLLECTION_MODE_NONE = 0,
 	COLLECTION_MODE_OBJECT = 1,
 	COLLECTION_MODE_EDIT = 2,
+	COLLECTION_MODE_PAINT_WEIGHT = 5,
+	COLLECTION_MODE_PAINT_VERTEX = 6,
 } CollectionModeSettingsType;
 
 /* *************************************************************** */

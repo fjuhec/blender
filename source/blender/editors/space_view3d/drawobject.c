@@ -62,6 +62,7 @@
 #include "BKE_global.h"
 #include "BKE_image.h"
 #include "BKE_key.h"
+#include "BKE_layer.h"
 #include "BKE_lattice.h"
 #include "BKE_main.h"
 #include "BKE_mesh.h"
@@ -892,7 +893,7 @@ void view3d_cached_text_draw_add(const float co[3],
 	memcpy(vos->str, str, alloc_len);
 }
 
-void view3d_cached_text_draw_end(View3D *v3d, ARegion *ar, bool depth_write, float mat[4][4])
+void view3d_cached_text_draw_end(View3D *v3d, ARegion *ar, bool depth_write)
 {
 	RegionView3D *rv3d = ar->regiondata;
 	ViewCachedString *vos;
@@ -902,9 +903,6 @@ void view3d_cached_text_draw_end(View3D *v3d, ARegion *ar, bool depth_write, flo
 
 	/* project first and test */
 	for (vos = g_v3d_strings[g_v3d_string_level]; vos; vos = vos->next) {
-		if (mat && !(vos->flag & V3D_CACHE_TEXT_WORLDSPACE))
-			mul_m4_v3(mat, vos->vec);
-
 		if (ED_view3d_project_short_ex(ar,
 		                               (vos->flag & V3D_CACHE_TEXT_GLOBALSPACE) ? rv3d->persmat : rv3d->persmatob,
 		                               (vos->flag & V3D_CACHE_TEXT_LOCALCLIP) != 0,
@@ -939,10 +937,12 @@ void view3d_cached_text_draw_end(View3D *v3d, ARegion *ar, bool depth_write, flo
 			glDepthMask(GL_FALSE);
 		}
 		
+		const int font_id = BLF_default();
+
 		for (vos = g_v3d_strings[g_v3d_string_level]; vos; vos = vos->next) {
 			if (vos->sco[0] != IS_CLIPPED) {
 				if (col_pack_prev != vos->col.pack) {
-					//glColor3ubv(vos->col.ub);
+					BLF_color3ubv(font_id, vos->col.ub);
 					col_pack_prev = vos->col.pack;
 				}
 
@@ -7441,7 +7441,7 @@ static void draw_editfont(Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3
 	draw_editfont_textcurs(rv3d, ef->textcurs);
 
 	if (cu->flag & CU_FAST) {
-		cpack(0xFFFFFF);
+		imm_cpack(0xFFFFFF);
 		set_inverted_drawing(1);
 		drawDispList(scene, sl, v3d, rv3d, base, OB_WIRE, dflag, ob_wire_col);
 		set_inverted_drawing(0);
@@ -8524,7 +8524,6 @@ void draw_object(Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d, Base *b
 	Object *ob = base->object;
 	Curve *cu;
 	RegionView3D *rv3d = ar->regiondata;
-	unsigned int col = 0;
 	unsigned char _ob_wire_col[4];            /* dont initialize this */
 	const unsigned char *ob_wire_col = NULL;  /* dont initialize this, use NULL crashes as a way to find invalid use */
 	bool zbufoff = false, is_paint = false, empty_object = false;
@@ -8890,12 +8889,6 @@ afterdraw:
 	{
 		ParticleSystem *psys;
 
-		if ((dflag & DRAW_CONSTCOLOR) == 0) {
-			/* for visibility, also while wpaint */
-			if (col || (base->flag & BASE_SELECTED)) {
-				cpack(0xFFFFFF);
-			}
-		}
 		//glDepthMask(GL_FALSE);
 
 		gpuLoadMatrix(rv3d->viewmat);
@@ -8913,12 +8906,11 @@ afterdraw:
 			draw_new_particle_system(scene, v3d, rv3d, base, psys, dt, dflag);
 		}
 		invert_m4_m4(ob->imat, ob->obmat);
-		view3d_cached_text_draw_end(v3d, ar, 0, NULL);
+		view3d_cached_text_draw_end(v3d, ar, 0);
 
 		gpuMultMatrix(ob->obmat);
 		
 		//glDepthMask(GL_TRUE);
-		if (col) cpack(col);
 	}
 
 	/* draw edit particles last so that they can draw over child particles */
@@ -9107,7 +9099,7 @@ afterdraw:
 	
 	/* return warning, this is cached text draw */
 	invert_m4_m4(ob->imat, ob->obmat);
-	view3d_cached_text_draw_end(v3d, ar, 1, NULL);
+	view3d_cached_text_draw_end(v3d, ar, 1);
 	/* return warning, clear temp flag */
 	v3d->flag2 &= ~V3D_SHOW_SOLID_MATCAP;
 	
@@ -9180,13 +9172,16 @@ afterdraw:
 			draw_hooks(ob, pos);
 
 		/* help lines and so */
-		if (ob != scene->obedit && ob->parent && (ob->parent->lay & v3d->lay)) {
-			setlinestyle(3);
-			immBegin(PRIM_LINES, 2);
-			immVertex3fv(pos, ob->obmat[3]);
-			immVertex3fv(pos, ob->orig);
-			immEnd();
-			setlinestyle(0);
+		if (ob != scene->obedit && ob->parent) {
+			Base *base_parent = BKE_scene_layer_base_find(sl, ob->parent);
+			if ((base_parent->flag & BASE_VISIBLED) != 0) {
+				setlinestyle(3);
+				immBegin(PRIM_LINES, 2);
+				immVertex3fv(pos, ob->obmat[3]);
+				immVertex3fv(pos, ob->orig);
+				immEnd();
+				setlinestyle(0);
+			}
 		}
 
 		/* Drawing the constraint lines */
@@ -9353,10 +9348,11 @@ static void bbs_obmode_mesh_verts(Object *ob, DerivedMesh *dm, int offset)
 	data.mvert = mvert;
 	data.offset = offset;
 
+	const int imm_len = dm->getNumVerts(dm);
+
+	if (imm_len == 0) return;
+
 	VertexFormat *format = immVertexFormat();
-
-	if (dm->getNumVerts(dm) == 0) return;
-
 	data.pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
 	data.col = VertexFormat_add_attrib(format, "color", COMP_U8, 3, NORMALIZE_INT_TO_FLOAT);
 
@@ -9364,7 +9360,7 @@ static void bbs_obmode_mesh_verts(Object *ob, DerivedMesh *dm, int offset)
 
 	glPointSize(UI_GetThemeValuef(TH_VERTEX_SIZE));
 
-	immBeginAtMost(PRIM_POINTS, dm->getNumVerts(dm));
+	immBeginAtMost(PRIM_POINTS, imm_len);
 	dm->foreachMappedVert(dm, bbs_obmode_mesh_verts__mapFunc, &data, DM_FOREACH_NOP);
 	immEnd();
 
@@ -9404,6 +9400,7 @@ static void bbs_mesh_verts(BMEditMesh *em, DerivedMesh *dm, int offset)
 	immUnbindProgram();
 }
 
+#if defined(WITH_LEGACY_OPENGL)
 static DMDrawOption bbs_mesh_wire__setDrawOptions(void *userData, int index)
 {
 	drawBMOffset_userData *data = userData;
@@ -9417,15 +9414,52 @@ static DMDrawOption bbs_mesh_wire__setDrawOptions(void *userData, int index)
 		return DM_DRAW_OPTION_SKIP;
 	}
 }
+#else
+static void bbs_mesh_wire__mapFunc(void *userData, int index, const float v0co[3], const float v1co[3])
+{
+	drawBMOffset_userData *data = userData;
+	BMEdge *eed = BM_edge_at_index(data->bm, index);
+
+	if (!BM_elem_flag_test(eed, BM_ELEM_HIDDEN)) {
+		int selcol;
+		GPU_select_index_get(data->offset + index, &selcol);
+		immAttrib3ubv(data->col, (unsigned char *)&selcol);
+		immVertex3fv(data->pos, v0co);
+		immVertex3fv(data->pos, v1co);
+	}
+}
+#endif
 static void bbs_mesh_wire(BMEditMesh *em, DerivedMesh *dm, int offset)
 {
 	drawBMOffset_userData data;
 	data.bm = em->bm;
 	data.offset = offset;
 
+#if defined(WITH_LEGACY_OPENGL)
 	dm->drawMappedEdges(dm, bbs_mesh_wire__setDrawOptions, &data);
+#else
+	VertexFormat *format = immVertexFormat();
+
+	const int imm_len = dm->getNumEdges(dm) * 2;
+
+	if (imm_len == 0) return;
+
+	data.pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
+	data.col = VertexFormat_add_attrib(format, "color", COMP_U8, 3, NORMALIZE_INT_TO_FLOAT);
+
+	immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
+
+	glPointSize(UI_GetThemeValuef(TH_VERTEX_SIZE));
+
+	immBeginAtMost(PRIM_LINES, imm_len);
+	dm->foreachMappedEdge(dm, bbs_mesh_wire__mapFunc, &data);
+	immEnd();
+
+	immUnbindProgram();
+#endif
 }
 
+#if defined(WITH_LEGACY_OPENGL)
 /**
  * dont set #GPU_framebuffer_index_set. just use to mask other
  */
@@ -9453,6 +9487,73 @@ static DMDrawOption bbs_mesh_solid__setSolidDrawOptions(void *userData, int inde
 		return DM_DRAW_OPTION_SKIP;
 	}
 }
+#endif
+
+static void bbs_mesh_face(BMEditMesh *em, DerivedMesh *dm, const bool use_select)
+{
+#if defined(WITH_LEGACY_OPENGL)
+	if (use_select) {
+		dm->drawMappedFaces(
+		        dm, bbs_mesh_solid__setSolidDrawOptions, NULL, NULL, em->bm,
+		        DM_DRAW_SKIP_HIDDEN | DM_DRAW_SELECT_USE_EDITMODE);
+	}
+	else {
+		dm->drawMappedFaces(
+		        dm, bbs_mesh_mask__setSolidDrawOptions, NULL, NULL, em->bm,
+		        DM_DRAW_SKIP_HIDDEN | DM_DRAW_SELECT_USE_EDITMODE | DM_DRAW_SKIP_SELECT);
+	}
+#else
+	UNUSED_VARS(dm);
+
+	drawBMOffset_userData data;
+	data.bm = em->bm;
+
+	const int tri_len = em->tottri;
+	const int imm_len = tri_len * 3;
+	const char hflag_skip = use_select ? BM_ELEM_SELECT : (BM_ELEM_HIDDEN | BM_ELEM_SELECT);
+
+	if (imm_len == 0) return;
+
+	VertexFormat *format = immVertexFormat();
+	data.pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
+	data.col = VertexFormat_add_attrib(format, "color", COMP_U8, 3, NORMALIZE_INT_TO_FLOAT);
+
+	immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
+
+	immBeginAtMost(PRIM_TRIANGLES, imm_len);
+
+	if (use_select == false) {
+		int selcol;
+		GPU_select_index_get(0, &selcol);
+		immAttrib3ubv(data.col, (unsigned char *)&selcol);
+	}
+
+	int index = 0;
+	while (index < tri_len) {
+		const BMFace *f = em->looptris[index][0]->f;
+		const int ntris = f->len - 2;
+		if (!BM_elem_flag_test(f, hflag_skip)) {
+			if (use_select) {
+				int selcol;
+				GPU_select_index_get(BM_elem_index_get(f) + 1, &selcol);
+				immAttrib3ubv(data.col, (unsigned char *)&selcol);
+			}
+			for (int t = 0; t < ntris; t++) {
+				immVertex3fv(data.pos, em->looptris[index][0]->v->co);
+				immVertex3fv(data.pos, em->looptris[index][1]->v->co);
+				immVertex3fv(data.pos, em->looptris[index][2]->v->co);
+				index++;
+			}
+		}
+		else {
+			index += ntris;
+		}
+	}
+	immEnd();
+
+	immUnbindProgram();
+#endif
+}
 
 static void bbs_mesh_solid__drawCenter(void *userData, int index, const float cent[3], const float UNUSED(no[3]))
 {
@@ -9467,36 +9568,38 @@ static void bbs_mesh_solid__drawCenter(void *userData, int index, const float ce
 	}
 }
 
+static void bbs_mesh_face_dot(BMEditMesh *em, DerivedMesh *dm)
+{
+	drawBMOffset_userData data; /* don't use offset */
+	data.bm = em->bm;
+	VertexFormat *format = immVertexFormat();
+	data.pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
+	data.col = VertexFormat_add_attrib(format, "color", COMP_U8, 3, NORMALIZE_INT_TO_FLOAT);
+
+	immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
+
+	glPointSize(UI_GetThemeValuef(TH_FACEDOT_SIZE));
+
+	immBeginAtMost(PRIM_POINTS, em->bm->totface);
+	dm->foreachMappedFaceCenter(dm, bbs_mesh_solid__drawCenter, &data, DM_FOREACH_NOP);
+	immEnd();
+
+	immUnbindProgram();
+}
+
 /* two options, facecolors or black */
 static void bbs_mesh_solid_EM(BMEditMesh *em, Scene *scene, View3D *v3d,
                               Object *ob, DerivedMesh *dm, bool use_faceselect)
 {
-	cpack(0);
-
 	if (use_faceselect) {
-		dm->drawMappedFaces(dm, bbs_mesh_solid__setSolidDrawOptions, NULL, NULL, em->bm, DM_DRAW_SKIP_HIDDEN | DM_DRAW_SELECT_USE_EDITMODE);
+		bbs_mesh_face(em, dm, true);
 
 		if (check_ob_drawface_dot(scene, v3d, ob->dt)) {
-			drawBMOffset_userData data; /* don't use offset */
-			data.bm = em->bm;
-			VertexFormat *format = immVertexFormat();
-			data.pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
-			data.col = VertexFormat_add_attrib(format, "color", COMP_U8, 3, NORMALIZE_INT_TO_FLOAT);
-
-			immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
-
-			glPointSize(UI_GetThemeValuef(TH_FACEDOT_SIZE));
-
-			immBeginAtMost(PRIM_POINTS, em->bm->totface);
-			dm->foreachMappedFaceCenter(dm, bbs_mesh_solid__drawCenter, &data, DM_FOREACH_NOP);
-			immEnd();
-
-			immUnbindProgram();
+			bbs_mesh_face_dot(em, dm);
 		}
-
 	}
 	else {
-		dm->drawMappedFaces(dm, bbs_mesh_mask__setSolidDrawOptions, NULL, NULL, em->bm, DM_DRAW_SKIP_SELECT | DM_DRAW_SKIP_HIDDEN | DM_DRAW_SELECT_USE_EDITMODE);
+		bbs_mesh_face(em, dm, false);
 	}
 }
 
@@ -9549,8 +9652,9 @@ static void bbs_mesh_solid_verts(Scene *scene, Object *ob)
 
 static void bbs_mesh_solid_faces(Scene *scene, Object *ob)
 {
-	DerivedMesh *dm = mesh_get_derived_final(scene, ob, scene->customdata_mask);
 	Mesh *me = ob->data;
+#if defined(WITH_LEGACY_OPENGL)
+	DerivedMesh *dm = mesh_get_derived_final(scene, ob, scene->customdata_mask);
 	
 	DM_update_materials(dm, ob);
 
@@ -9560,6 +9664,18 @@ static void bbs_mesh_solid_faces(Scene *scene, Object *ob)
 		dm->drawMappedFaces(dm, bbs_mesh_solid__setDrawOpts, NULL, NULL, me, 0);
 
 	dm->release(dm);
+#else
+	UNUSED_VARS(scene, bbs_mesh_solid_hide__setDrawOpts, bbs_mesh_solid__setDrawOpts);
+	Batch *batch;
+	if ((me->editflag & ME_EDIT_PAINT_FACE_SEL)) {
+		batch = DRW_mesh_batch_cache_get_triangles_with_select_id(me, true);
+	}
+	else {
+		batch = DRW_mesh_batch_cache_get_triangles_with_select_id(me, false);
+	}
+	Batch_set_builtin_program(batch, GPU_SHADER_3D_FLAT_COLOR_U32);
+	Batch_draw(batch);
+#endif
 }
 
 void draw_object_backbufsel(Scene *scene, View3D *v3d, RegionView3D *rv3d, Object *ob)
@@ -9595,8 +9711,8 @@ void draw_object_backbufsel(Scene *scene, View3D *v3d, RegionView3D *rv3d, Objec
 				bbs_mesh_wire(em, dm, bm_solidoffs);
 				bm_wireoffs = bm_solidoffs + em->bm->totedge;
 
-				/* we draw verts if vert select mode or if in transform (for snap). */
-				if ((ts->selectmode & SCE_SELECT_VERTEX) || (G.moving & G_TRANSFORM_EDIT)) {
+				/* we draw verts if vert select mode. */
+				if (ts->selectmode & SCE_SELECT_VERTEX) {
 					bbs_mesh_verts(em, dm, bm_wireoffs);
 					bm_vertoffs = bm_wireoffs + em->bm->totvert;
 				}

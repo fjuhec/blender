@@ -323,8 +323,7 @@ void UI_draw_roundbox_shade_y(bool filled, float minx, float miny, float maxx, f
 void UI_draw_box_shadow(unsigned char alpha, float minx, float miny, float maxx, float maxy);
 void UI_draw_text_underline(int pos_x, int pos_y, int len, int height, const float color[4]);
 
-void UI_draw_safe_areas(
-        uint pos, uint line_origin, float x1, float x2, float y1, float y2,
+void UI_draw_safe_areas(uint pos, float x1, float x2, float y1, float y2,
         const float title_aspect[2], const float action_aspect[2]);
 
 /* state for scrolldrawing */
@@ -700,7 +699,7 @@ void    UI_but_func_search_set(
 int     UI_searchbox_size_y(void);
 int     UI_searchbox_size_x(void);
 /* check if a string is in an existing search box */
-int     UI_search_items_find_index(uiSearchItems *items, const char *name, const size_t offset);
+int     UI_search_items_find_index(uiSearchItems *items, const char *name);
 
 void    UI_block_func_handle_set(uiBlock *block, uiBlockHandleFunc func, void *arg);
 void    UI_block_func_butmenu_set(uiBlock *block, uiMenuHandleFunc func, void *arg);

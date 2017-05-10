@@ -76,7 +76,7 @@ typedef struct CLAY_Storage {
 typedef struct CLAY_StorageList {
 	struct CLAY_Storage *storage;
 	struct GPUUniformBuffer *mat_ubo;
-	struct g_data *g_data;
+	struct CLAY_PrivateData *g_data;
 } CLAY_StorageList;
 
 typedef struct CLAY_FramebufferList {
@@ -98,7 +98,6 @@ typedef struct CLAY_PassList {
 	struct DRWPass *depth_pass;
 	struct DRWPass *depth_pass_cull;
 	struct DRWPass *clay_pass;
-	struct g_data *g_data;
 } CLAY_PassList;
 
 typedef struct CLAY_Data {
@@ -133,14 +132,14 @@ static struct {
 	int ubo_mat_idxs[MAX_CLAY_MAT];
 } e_data = {NULL}; /* Engine data */
 
-typedef struct g_data {
+typedef struct CLAY_PrivateData {
 	DRWShadingGroup *depth_shgrp;
 	DRWShadingGroup *depth_shgrp_select;
 	DRWShadingGroup *depth_shgrp_active;
 	DRWShadingGroup *depth_shgrp_cull;
 	DRWShadingGroup *depth_shgrp_cull_select;
 	DRWShadingGroup *depth_shgrp_cull_active;
-} g_data; /* Transient data */
+} CLAY_PrivateData; /* Transient data */
 
 /* Functions */
 
@@ -345,7 +344,11 @@ static void CLAY_engine_init(void *vedata)
 
 	/* SSAO setup */
 	{
-		int ssao_samples = 32; /* XXX get from render settings */
+		const DRWContextState *draw_ctx = DRW_context_state_get();
+		SceneLayer *scene_layer = draw_ctx->sl;
+		IDProperty *props = BKE_scene_layer_engine_evaluated_get(scene_layer, COLLECTION_MODE_NONE, RE_engine_id_BLENDER_CLAY);
+		int ssao_samples = BKE_collection_engine_property_value_get_int(props, "ssao_samples");
+
 		float invproj[4][4];
 		float dfdyfacs[2];
 		const bool is_persp = DRW_viewport_is_persp_get();
@@ -506,7 +509,7 @@ static int mat_in_ubo(CLAY_Storage *storage, float matcap_rot, float matcap_hue,
 static DRWShadingGroup *CLAY_object_shgrp_get(CLAY_Data *vedata, Object *ob, CLAY_StorageList *stl, CLAY_PassList *psl)
 {
 	DRWShadingGroup **shgrps = stl->storage->shgrps;
-	IDProperty *props = BKE_object_collection_engine_get(ob, COLLECTION_MODE_NONE, RE_engine_id_BLENDER_CLAY);
+	IDProperty *props = BKE_layer_collection_engine_evaluated_get(ob, COLLECTION_MODE_NONE, RE_engine_id_BLENDER_CLAY);
 
 	/* Default Settings */
 	float matcap_rot = BKE_collection_engine_property_value_get_float(props, "matcap_rotation");
@@ -541,7 +544,7 @@ static void CLAY_cache_init(void *vedata)
 
 	if (!stl->g_data) {
 		/* Alloc transient pointers */
-		stl->g_data = MEM_mallocN(sizeof(g_data), "g_data");
+		stl->g_data = MEM_mallocN(sizeof(*stl->g_data), __func__);
 	}
 
 	/* Depth Pass */
@@ -575,7 +578,7 @@ static void CLAY_cache_populate(void *vedata, Object *ob)
 
 	struct Batch *geom = DRW_cache_object_surface_get(ob);
 	if (geom) {
-		IDProperty *ces_mode_ob = BKE_object_collection_engine_get(ob, COLLECTION_MODE_OBJECT, "");
+		IDProperty *ces_mode_ob = BKE_layer_collection_engine_evaluated_get(ob, COLLECTION_MODE_OBJECT, "");
 		bool do_cull = BKE_collection_engine_property_value_get_bool(ces_mode_ob, "show_backface_culling");
 
 		/* Depth Prepass */
@@ -615,7 +618,7 @@ static void CLAY_draw_scene(void *vedata)
 	DRW_draw_pass(psl->clay_pass);
 }
 
-static void CLAY_collection_settings_create(RenderEngine *UNUSED(engine), IDProperty *props)
+static void CLAY_layer_collection_settings_create(RenderEngine *UNUSED(engine), IDProperty *props)
 {
 	BLI_assert(props &&
 	           props->type == IDP_GROUP &&
@@ -631,6 +634,15 @@ static void CLAY_collection_settings_create(RenderEngine *UNUSED(engine), IDProp
 	BKE_collection_engine_property_add_float(props, "ssao_attenuation", 1.0f);
 	BKE_collection_engine_property_add_float(props, "ssao_factor_cavity", 1.0f);
 	BKE_collection_engine_property_add_float(props, "ssao_factor_edge", 1.0f);
+}
+
+static void CLAY_scene_layer_settings_create(RenderEngine *UNUSED(engine), IDProperty *props)
+{
+	BLI_assert(props &&
+	           props->type == IDP_GROUP &&
+	           props->subtype == IDP_GROUP_SUB_ENGINE_RENDER);
+
+	BKE_collection_engine_property_add_int(props, "ssao_samples", 32);
 }
 
 static void CLAY_engine_free(void)
@@ -658,8 +670,10 @@ DrawEngineType draw_engine_clay_type = {
 
 RenderEngineType DRW_engine_viewport_clay_type = {
 	NULL, NULL,
-	CLAY_ENGINE, N_("Clay"), RE_INTERNAL | RE_USE_OGL_PIPELINE,
-	NULL, NULL, NULL, NULL, NULL, NULL, &CLAY_collection_settings_create,
+	CLAY_ENGINE, N_("Clay"), RE_INTERNAL,
+	NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+    &CLAY_layer_collection_settings_create,
+    &CLAY_scene_layer_settings_create,
 	&draw_engine_clay_type,
 	{NULL, NULL, NULL}
 };

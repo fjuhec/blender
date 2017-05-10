@@ -529,7 +529,7 @@ void gp_point_conversion_init(bContext *C, GP_SpaceConversion *r_gsc)
 		view3d_operator_needs_opengl(C);
 		
 		view3d_region_operator_needs_opengl(win, ar);
-		ED_view3d_autodist_init(graph, scene, ar, v3d, 0);
+		ED_view3d_autodist_init(graph, ar, v3d, 0);
 		
 		/* for camera view set the subrect */
 		if (rv3d->persp == RV3D_CAMOB) {
@@ -831,8 +831,8 @@ bool gp_smooth_stroke_strength(bGPDstroke *gps, int i, float inf)
 	ptc = &gps->points[after];
 
 	/* the optimal value is the corresponding to the interpolation of the strength
-	*  at the distance of point b
-	*/
+	 *  at the distance of point b
+	 */
 	const float fac = line_point_factor_v3(&ptb->x, &pta->x, &ptc->x);
 	const float optimal = (1.0f - fac) * pta->strength + fac * ptc->strength;
 
@@ -869,8 +869,8 @@ bool gp_smooth_stroke_thickness(bGPDstroke *gps, int i, float inf)
 	ptc = &gps->points[after];
 
 	/* the optimal value is the corresponding to the interpolation of the pressure
-	*  at the distance of point b
-	*/
+	 *  at the distance of point b
+	 */
 	float fac = line_point_factor_v3(&ptb->x, &pta->x, &ptc->x);
 	float optimal = (1.0f - fac) * pta->pressure + fac * ptc->pressure;
 

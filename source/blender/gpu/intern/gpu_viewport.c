@@ -83,6 +83,24 @@ GPUViewport *GPU_viewport_create(void)
 	return viewport;
 }
 
+GPUViewport *GPU_viewport_create_from_offscreen(struct GPUOffScreen *ofs)
+{
+	GPUViewport *viewport = GPU_viewport_create();
+	GPU_offscreen_viewport_data_get(ofs, &viewport->fbl->default_fb, &viewport->txl->color, &viewport->txl->depth);
+	viewport->size[0] = GPU_offscreen_width(ofs);
+	viewport->size[1] = GPU_offscreen_height(ofs);
+	return viewport;
+}
+/**
+ * Clear vars assigned from offscreen, so we don't free data owned by `GPUOffScreen`.
+ */
+void GPU_viewport_clear_from_offscreen(GPUViewport *viewport)
+{
+	viewport->fbl->default_fb = NULL;
+	viewport->txl->color = NULL;
+	viewport->txl->depth = NULL;
+}
+
 void *GPU_viewport_engine_data_create(GPUViewport *viewport, void *engine_type)
 {
 	LinkData *ld = MEM_callocN(sizeof(LinkData), "LinkData");
@@ -122,6 +140,13 @@ static void gpu_viewport_engines_data_free(GPUViewport *viewport)
 		MEM_freeN(data->txl);
 		MEM_freeN(data->psl);
 		MEM_freeN(data->stl);
+
+		/* We could handle this in the DRW module */
+		if (data->text_draw_cache) {
+			extern void DRW_text_cache_destroy(struct DRWTextStore *dt);
+			DRW_text_cache_destroy(data->text_draw_cache);
+			data->text_draw_cache = NULL;
+		}
 
 		MEM_freeN(data);
 
@@ -242,11 +267,20 @@ void GPU_viewport_bind(GPUViewport *viewport, const rcti *rect)
 
 		/* Depth */
 		dtxl->depth = GPU_texture_create_depth(rect_w, rect_h, NULL);
-		if (!dtxl->depth) {
+
+		if (dtxl->depth) {
+			/* Define texture parameters */
+			GPU_texture_bind(dtxl->depth, 0);
+			GPU_texture_compare_mode(dtxl->depth, false);
+			GPU_texture_filter_mode(dtxl->depth, true);
+			GPU_texture_unbind(dtxl->depth);
+		}
+		else {
 			ok = false;
 			goto cleanup;
 		}
-		else if (!GPU_framebuffer_texture_attach(dfbl->default_fb, dtxl->depth, 0, 0)) {
+
+		if (!GPU_framebuffer_texture_attach(dfbl->default_fb, dtxl->depth, 0, 0)) {
 			ok = false;
 			goto cleanup;
 		}

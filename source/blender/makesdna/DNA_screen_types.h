@@ -46,7 +46,6 @@ struct Scene;
 struct uiLayout;
 struct wmTimer;
 
-
 typedef struct bScreen {
 	ID id;
 	

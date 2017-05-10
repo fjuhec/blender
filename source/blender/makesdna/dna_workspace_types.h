@@ -27,7 +27,7 @@
 #ifndef __DNA_WORKSPACE_TYPES_H__
 #define __DNA_WORKSPACE_TYPES_H__
 
-#if !defined(NAMESPACE_WORKSPACE) && !defined(NAMESPACE_DNA)
+#if !defined(DNA_NAMESPACE_WORKSPACE) && !defined(DNA_NAMESPACE)
 #  error "This file shouldn't be included outside of workspace namespace."
 #endif
 

@@ -90,7 +90,7 @@ static bool workspace_layout_delete_doit(
 	ED_screen_change(C, screen_new);
 
 	if (BKE_workspace_active_layout_get(win->workspace_hook) != layout_old) {
-		BKE_workspace_layout_remove(workspace, layout_old, bmain);
+		BKE_workspace_layout_remove(bmain, workspace, layout_old);
 		return true;
 	}
 
@@ -114,20 +114,17 @@ static WorkSpaceLayout *workspace_layout_delete_find_new(const WorkSpaceLayout *
 	WorkSpaceLayout *prev = BKE_workspace_layout_prev_get(layout_old);
 	WorkSpaceLayout *next = BKE_workspace_layout_next_get(layout_old);
 
-	BKE_workspace_layout_iter_backwards_begin(layout_new, prev)
-	{
+	BKE_WORKSPACE_LAYOUT_ITER_BACKWARD_BEGIN (layout_new, prev) {
 		if (workspace_layout_set_poll(layout_new)) {
 			return layout_new;
 		}
-	}
-	BKE_workspace_layout_iter_end;
-	BKE_workspace_layout_iter_begin(layout_new, next)
-	{
+	} BKE_WORKSPACE_LAYOUT_ITER_END;
+
+	BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout_new, next) {
 		if (workspace_layout_set_poll(layout_new)) {
 			return layout_new;
 		}
-	}
-	BKE_workspace_layout_iter_end;
+	} BKE_WORKSPACE_LAYOUT_ITER_END;
 
 	return NULL;
 }

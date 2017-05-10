@@ -47,33 +47,31 @@ typedef struct WorkSpaceLayout WorkSpaceLayout;
  */
 #define USE_WORKSPACE_MODE
 
-
 /* -------------------------------------------------------------------- */
 /* Create, delete, init */
 
 WorkSpace *BKE_workspace_add(struct Main *bmain, const char *name);
 void BKE_workspace_free(WorkSpace *workspace);
-void BKE_workspace_remove(WorkSpace *workspace, struct Main *bmain);
+void BKE_workspace_remove(struct Main *bmain, WorkSpace *workspace);
 
 WorkSpaceInstanceHook *BKE_workspace_instance_hook_create(const struct Main *bmain);
-void BKE_workspace_instance_hook_free(WorkSpaceInstanceHook *hook, const struct Main *bmain);
+void BKE_workspace_instance_hook_free(const struct Main *bmain, WorkSpaceInstanceHook *hook);
 
 struct WorkSpaceLayout *BKE_workspace_layout_add(
         WorkSpace *workspace,
         struct bScreen *screen,
         const char *name) ATTR_NONNULL();
 void BKE_workspace_layout_remove(
-        WorkSpace *workspace, WorkSpaceLayout *layout,
-        struct Main *bmain) ATTR_NONNULL();
-
+        struct Main *bmain,
+        WorkSpace *workspace, WorkSpaceLayout *layout) ATTR_NONNULL();
 
 /* -------------------------------------------------------------------- */
 /* General Utils */
 
-#define BKE_workspace_iter_begin(_workspace, _start_workspace) \
+#define BKE_WORKSPACE_ITER_BEGIN(_workspace, _start_workspace) \
 	for (WorkSpace *_workspace = _start_workspace, *_workspace##_next; _workspace; _workspace = _workspace##_next) { \
 		_workspace##_next = BKE_workspace_next_get(_workspace); /* support removing workspace from list */
-#define BKE_workspace_iter_end } (void)0
+#define BKE_WORKSPACE_ITER_END } ((void)0)
 
 void BKE_workspaces_transform_orientation_remove(
         const struct ListBase *workspaces,
@@ -81,14 +79,17 @@ void BKE_workspaces_transform_orientation_remove(
 
 WorkSpaceLayout *BKE_workspace_layout_find(
         const WorkSpace *workspace, const struct bScreen *screen) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
+WorkSpaceLayout *BKE_workspace_layout_find_global(
+        const struct Main *bmain, const struct bScreen *screen,
+        WorkSpace **r_workspace) ATTR_NONNULL(1, 2) ATTR_WARN_UNUSED_RESULT;
 
-#define BKE_workspace_layout_iter_begin(_layout, _start_layout) \
+#define BKE_WORKSPACE_LAYOUT_ITER_BEGIN(_layout, _start_layout) \
 	for (WorkSpaceLayout *_layout = _start_layout, *_layout##_next; _layout; _layout = _layout##_next) { \
 		_layout##_next = BKE_workspace_layout_next_get(_layout); /* support removing layout from list */
-#define BKE_workspace_layout_iter_backwards_begin(_layout, _start_layout) \
-	for (WorkSpaceLayout *_layout = _start_layout, *_layout##_prev; _layout; _layout = _layout##_prev) {\
+#define BKE_WORKSPACE_LAYOUT_ITER_BACKWARD_BEGIN(_layout, _start_layout) \
+	for (WorkSpaceLayout *_layout = _start_layout, *_layout##_prev; _layout; _layout = _layout##_prev) { \
 		_layout##_prev = BKE_workspace_layout_prev_get(_layout); /* support removing layout from list */
-#define BKE_workspace_layout_iter_end } (void)0
+#define BKE_WORKSPACE_LAYOUT_ITER_END } ((void)0)
 
 WorkSpaceLayout *BKE_workspace_layout_iter_circular(
         const WorkSpace *workspace, WorkSpaceLayout *start,

@@ -262,8 +262,9 @@ void ED_view3d_calc_camera_border_size(
         const struct Scene *scene, const struct ARegion *ar,
         const struct View3D *v3d, const struct RegionView3D *rv3d,
         float r_size[2]);
-bool ED_view3d_calc_render_border(const struct Scene *scene, struct View3D *v3d,
-                                  struct ARegion *ar, struct rcti *rect);
+bool ED_view3d_calc_render_border(
+        const struct Scene *scene, struct View3D *v3d,
+        struct ARegion *ar, struct rcti *rect);
 
 void ED_view3d_clipping_calc_from_boundbox(float clip[6][4], const struct BoundBox *clipbb, const bool is_flip);
 void ED_view3d_clipping_calc(struct BoundBox *bb, float planes[4][4],
@@ -295,12 +296,12 @@ int          ED_view3d_backbuf_sample_size_clamp(struct ARegion *ar, const float
 unsigned int ED_view3d_backbuf_sample(struct ViewContext *vc, int x, int y);
 
 bool ED_view3d_autodist(
-        struct Depsgraph *graph, struct Scene *scene, struct ARegion *ar, struct View3D *v3d,
+        struct Depsgraph *graph, struct ARegion *ar, struct View3D *v3d,
         const int mval[2], float mouse_worldloc[3],
         const bool alphaoverride, const float fallback_depth_pt[3]);
 
 /* only draw so ED_view3d_autodist_simple can be called many times after */
-void ED_view3d_autodist_init(struct Depsgraph *graph, struct Scene *scene, struct ARegion *ar, struct View3D *v3d, int mode);
+void ED_view3d_autodist_init(struct Depsgraph *graph, struct ARegion *ar, struct View3D *v3d, int mode);
 bool ED_view3d_autodist_simple(struct ARegion *ar, const int mval[2], float mouse_worldloc[3], int margin, float *force_depth);
 bool ED_view3d_autodist_depth(struct ARegion *ar, const int mval[2], int margin, float *depth);
 bool ED_view3d_autodist_depth_seg(struct ARegion *ar, const int mval_sta[2], const int mval_end[2], int margin, float *depth);
