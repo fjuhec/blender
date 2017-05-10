@@ -851,7 +851,7 @@ static void ui_searchbox_select(bContext *C, ARegion *ar, uiBut *but, int step)
 		}
 		else {
 			/* only let users step into an 'unset' state for unlink buttons */
-			data->active = (but->flag & UI_BUT_SEARCH_UNLINK) ? -1 : 0;
+			data->active = (but->flag & UI_BUT_VALUE_CLEAR) ? -1 : 0;
 		}
 	}
 	
@@ -922,8 +922,8 @@ bool ui_searchbox_apply(uiBut *but, ARegion *ar)
 
 		return true;
 	}
-	else if (but->flag & UI_BUT_SEARCH_UNLINK) {
-		/* It is valid for _UNLINK flavor to have no active element (it's a valid way to unlink). */
+	else if (but->flag & UI_BUT_VALUE_CLEAR) {
+		/* It is valid for _VALUE_CLEAR flavor to have no active element (it's a valid way to unlink). */
 		but->editstr[0] = '\0';
 
 		return true;
@@ -1692,6 +1692,28 @@ static void ui_block_region_draw(const bContext *C, ARegion *ar)
 		UI_block_draw(C, block);
 }
 
+/**
+ * Use to refresh centered popups on screen resizing (for splash).
+ */
+static void ui_block_region_popup_window_listener(
+        bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar, wmNotifier *wmn)
+{
+	switch (wmn->category) {
+		case NC_WINDOW:
+		{
+			switch (wmn->action) {
+				case NA_EDITED:
+				{
+					/* window resize */
+					ED_region_tag_refresh_ui(ar);
+					break;
+				}
+			}
+			break;
+		}
+	}
+}
+
 static void ui_popup_block_clip(wmWindow *window, uiBlock *block)
 {
 	uiBut *bt;
@@ -2002,6 +2024,11 @@ uiPopupBlockHandle *ui_popup_block_create(
 
 	block = ui_popup_block_refresh(C, handle, butregion, but);
 	handle = block->handle;
+
+	/* keep centered on window resizing */
+	if ((block->bounds_type == UI_BLOCK_BOUNDS_POPUP_CENTER) && handle->can_refresh) {
+		type.listener = ui_block_region_popup_window_listener;
+	}
 
 	return handle;
 }
@@ -3285,7 +3312,7 @@ void UI_popup_block_invoke(bContext *C, uiBlockCreateFunc func, void *arg)
 	UI_popup_block_invoke_ex(C, func, arg, NULL, WM_OP_INVOKE_DEFAULT);
 }
 
-void UI_popup_block_ex(bContext *C, uiBlockCreateFunc func, uiBlockHandleFunc popup_func, uiBlockCancelFunc cancel_func, void *arg)
+void UI_popup_block_ex(bContext *C, uiBlockCreateFunc func, uiBlockHandleFunc popup_func, uiBlockCancelFunc cancel_func, void *arg, wmOperator *op)
 {
 	wmWindow *window = CTX_wm_window(C);
 	uiPopupBlockHandle *handle;
@@ -3294,6 +3321,7 @@ void UI_popup_block_ex(bContext *C, uiBlockCreateFunc func, uiBlockHandleFunc po
 	handle->popup = true;
 	handle->retvalue = 1;
 
+	handle->popup_op = op;
 	handle->popup_arg = arg;
 	handle->popup_func = popup_func;
 	handle->cancel_func = cancel_func;

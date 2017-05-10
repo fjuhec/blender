@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 
-#include "background.h"
-#include "camera.h"
-#include "device.h"
-#include "graph.h"
-#include "integrator.h"
-#include "light.h"
-#include "mesh.h"
-#include "nodes.h"
-#include "object.h"
-#include "osl.h"
-#include "scene.h"
-#include "shader.h"
-#include "svm.h"
-#include "tables.h"
+#include "render/background.h"
+#include "render/camera.h"
+#include "device/device.h"
+#include "render/graph.h"
+#include "render/integrator.h"
+#include "render/light.h"
+#include "render/mesh.h"
+#include "render/nodes.h"
+#include "render/object.h"
+#include "render/osl.h"
+#include "render/scene.h"
+#include "render/shader.h"
+#include "render/svm.h"
+#include "render/tables.h"
 
-#include "util_foreach.h"
+#include "util/util_foreach.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -48,6 +48,16 @@ static float beckmann_table_slope_max()
 {
 	return 6.0;
 }
+
+
+/* MSVC 2015 needs this ugly hack to prevent a codegen bug on x86
+ * see T50176 for details
+ */
+#if defined(_MSC_VER) && (_MSC_VER == 1900)
+#  define MSVC_VOLATILE volatile
+#else
+#  define MSVC_VOLATILE
+#endif
 
 /* Paper used: Importance Sampling Microfacet-Based BSDFs with the
  * Distribution of Visible Normals. Supplemental Material 2/2.
@@ -72,7 +82,7 @@ static void beckmann_table_rows(float *table, int row_from, int row_to)
 		slope_x[0] = (double)-beckmann_table_slope_max();
 		CDF_P22_omega_i[0] = 0;
 
-		for(int index_slope_x = 1; index_slope_x < DATA_TMP_SIZE; ++index_slope_x) {
+		for(MSVC_VOLATILE int index_slope_x = 1; index_slope_x < DATA_TMP_SIZE; ++index_slope_x) {
 			/* slope_x */
 			slope_x[index_slope_x] = (double)(-beckmann_table_slope_max() + 2.0f * beckmann_table_slope_max() * index_slope_x/(DATA_TMP_SIZE - 1.0f));
 
@@ -115,6 +125,8 @@ static void beckmann_table_rows(float *table, int row_from, int row_to)
 		}
 	}
 }
+
+#undef MSVC_VOLATILE
 
 static void beckmann_table_build(vector<float>& table)
 {
@@ -332,6 +344,8 @@ ShaderManager *ShaderManager::create(Scene *scene, int shadingsystem)
 
 uint ShaderManager::get_attribute_id(ustring name)
 {
+	thread_scoped_spin_lock lock(attribute_lock_);
+
 	/* get a unique id for each name, for SVM attribute lookup */
 	AttributeIDMap::iterator it = unique_attribute_id.find(name);
 
@@ -567,9 +581,15 @@ void ShaderManager::get_requested_graph_features(ShaderGraph *graph,
 			if(CLOSURE_IS_VOLUME(bsdf_node->closure)) {
 				requested_features->nodes_features |= NODE_FEATURE_VOLUME;
 			}
+			else if(CLOSURE_IS_PRINCIPLED(bsdf_node->closure)) {
+				requested_features->use_principled = true;
+			}
 		}
 		if(node->has_surface_bssrdf()) {
 			requested_features->use_subsurface = true;
+		}
+		if(node->has_surface_transparent()) {
+			requested_features->use_transparent = true;
 		}
 	}
 }

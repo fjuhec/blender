@@ -23,6 +23,10 @@
 
 # Libraries configuration for Apple.
 
+macro(find_package_wrapper)
+# do nothing, just satisfy the macro
+endmacro()
+
 if(NOT DEFINED LIBDIR)
 	if(WITH_CXX11)
 		set(LIBDIR ${CMAKE_SOURCE_DIR}/../lib/darwin)
@@ -52,6 +56,7 @@ if(WITH_ALEMBIC)
 	set(ALEMBIC_INCLUDE_DIRS ${ALEMBIC_INCLUDE_DIR})
 	set(ALEMBIC_LIBPATH ${ALEMBIC}/lib)
 	set(ALEMBIC_LIBRARIES Alembic)
+	set(ALEMBIC_FOUND ON)
 endif()
 
 if(WITH_OPENSUBDIV OR WITH_CYCLES_OPENSUBDIV)
@@ -158,7 +163,7 @@ if(WITH_CODEC_FFMPEG)
 		mp3lame swscale x264 xvidcore theora theoradec theoraenc vorbis vorbisenc vorbisfile ogg
 	)
 	if(WITH_CXX11)
-		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} schroedinger orc vpx)
+		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} schroedinger orc vpx webp swresample)
 	endif()
 	set(FFMPEG_LIBPATH ${FFMPEG}/lib)
 endif()
@@ -316,6 +321,9 @@ if(WITH_OPENIMAGEIO)
 		${OPENEXR_LIBRARIES}
 		${ZLIB_LIBRARIES}
 	)
+	if(WITH_CXX11)
+		set(OPENIMAGEIO_LIBRARIES ${OPENIMAGEIO_LIBRARIES} ${LIBDIR}/ffmpeg/lib/libwebp.a)
+	endif()
 	set(OPENIMAGEIO_LIBPATH
 		${OPENIMAGEIO}/lib
 		${JPEG_LIBPATH}

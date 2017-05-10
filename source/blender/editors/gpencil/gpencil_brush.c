@@ -297,9 +297,9 @@ static bool gp_brush_strength_apply(
 	float inf;
 
 	/* Compute strength of effect
-	* - We divide the strength by 10, so that users can set "sane" values.
-	*   Otherwise, good default values are in the range of 0.093
-	*/
+	 * - We divide the strength by 10, so that users can set "sane" values.
+	 *   Otherwise, good default values are in the range of 0.093
+	 */
 	inf = gp_brush_influence_calc(gso, radius, co) / 10.0f;
 
 	/* apply */
@@ -1797,6 +1797,12 @@ static int gpsculpt_brush_modal(bContext *C, wmOperator *op, const wmEvent *even
 			case RIGHTARROWKEY:
 			case UPARROWKEY:
 			case DOWNARROWKEY:
+				return OPERATOR_PASS_THROUGH;
+				
+			/* Camera/View Manipulations - Allowed */
+			/* (See rationale in gpencil_paint.c -> gpencil_draw_modal()) */
+			case PAD0:  case PAD1:  case PAD2:  case PAD3:  case PAD4:
+			case PAD5:  case PAD6:  case PAD7:  case PAD8:  case PAD9:
 				return OPERATOR_PASS_THROUGH;
 			
 			/* Unhandled event */

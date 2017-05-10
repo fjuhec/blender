@@ -22,19 +22,20 @@
 #include "RNA_access.h"
 #include "RNA_blender_cpp.h"
 
-#include "blender_util.h"
+#include "blender/blender_util.h"
 
-#include "scene.h"
-#include "session.h"
+#include "render/scene.h"
+#include "render/session.h"
 
-#include "util_map.h"
-#include "util_set.h"
-#include "util_transform.h"
-#include "util_vector.h"
+#include "util/util_map.h"
+#include "util/util_set.h"
+#include "util/util_transform.h"
+#include "util/util_vector.h"
 
 CCL_NAMESPACE_BEGIN
 
 class Background;
+class BlenderObjectCulling;
 class Camera;
 class Film;
 class Light;
@@ -66,6 +67,8 @@ public:
 	               void **python_thread_state,
 	               const char *layer = 0);
 	void sync_render_layers(BL::SpaceView3D& b_v3d, const char *layer);
+	array<Pass> sync_render_passes(BL::RenderLayer& b_rlay,
+	                               BL::SceneRenderLayer& b_srlay);
 	void sync_integrator();
 	void sync_camera(BL::RenderSettings& b_render,
 	                 BL::Object& b_override,
@@ -92,13 +95,15 @@ public:
 	                                      Camera *cam,
 	                                      int width, int height);
 
+	static PassType get_pass_type(BL::RenderPass& b_pass);
+	static int get_denoising_pass(BL::RenderPass& b_pass);
+
 private:
 	/* sync */
 	void sync_lamps(bool update_all);
 	void sync_materials(bool update_all);
-	void sync_objects(BL::SpaceView3D& b_v3d, float motion_time = 0.0f);
+	void sync_objects(float motion_time = 0.0f);
 	void sync_motion(BL::RenderSettings& b_render,
-	                 BL::SpaceView3D& b_v3d,
 	                 BL::Object& b_override,
 	                 int width, int height,
 	                 void **python_thread_state);
@@ -122,8 +127,7 @@ private:
 	                    uint layer_flag,
 	                    float motion_time,
 	                    bool hide_tris,
-	                    bool use_camera_cull,
-	                    float camera_cull_margin,
+	                    BlenderObjectCulling& culling,
 	                    bool *use_portal);
 	void sync_light(BL::Object& b_parent,
 	                int persistent_id[OBJECT_PERSISTENT_ID_SIZE],

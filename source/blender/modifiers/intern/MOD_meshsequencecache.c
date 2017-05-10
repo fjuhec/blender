@@ -81,6 +81,7 @@ static void freeData(ModifierData *md)
 #ifdef WITH_ALEMBIC
 		CacheReader_free(mcmd->reader);
 #endif
+		mcmd->reader = NULL;
 	}
 }
 
@@ -111,9 +112,13 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 
 	if (!mcmd->reader) {
 		mcmd->reader = CacheReader_open_alembic_object(cache_file->handle,
-		                                               mcmd->reader,
+		                                               NULL,
 		                                               ob,
 		                                               mcmd->object_path);
+		if (!mcmd->reader) {
+			modifier_setError(md, "Could not create Alembic reader for file %s", cache_file->filepath);
+			return dm;
+		}
 	}
 
 	DerivedMesh *result = ABC_read_mesh(mcmd->reader,
@@ -146,7 +151,7 @@ static void foreachIDLink(ModifierData *md, Object *ob,
 {
 	MeshSeqCacheModifierData *mcmd = (MeshSeqCacheModifierData *) md;
 
-	walk(userData, ob, (ID **)&mcmd->cache_file, IDWALK_USER);
+	walk(userData, ob, (ID **)&mcmd->cache_file, IDWALK_CB_USER);
 }
 
 

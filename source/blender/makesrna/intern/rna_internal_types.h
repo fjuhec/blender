@@ -94,6 +94,7 @@ typedef PointerRNA (*PropPointerGetFunc)(struct PointerRNA *ptr);
 typedef StructRNA *(*PropPointerTypeFunc)(struct PointerRNA *ptr);
 typedef void (*PropPointerSetFunc)(struct PointerRNA *ptr, const PointerRNA value);
 typedef int (*PropPointerPollFunc)(struct PointerRNA *ptr, const PointerRNA value);
+typedef int (*PropPointerPollFuncPy)(struct PointerRNA *ptr, const PointerRNA value, const PropertyRNA *prop);
 typedef void (*PropCollectionBeginFunc)(struct CollectionPropertyIterator *iter, struct PointerRNA *ptr);
 typedef void (*PropCollectionNextFunc)(struct CollectionPropertyIterator *iter);
 typedef void (*PropCollectionEndFunc)(struct CollectionPropertyIterator *iter);
@@ -162,6 +163,10 @@ struct PropertyRNA {
 	const char *identifier;
 	/* various options */
 	int flag;
+	/* Function parameters flags. */
+	short flag_parameter;
+	/* Internal ("private") flags. */
+	short flag_internal;
 
 	/* user readable name */
 	const char *name;
@@ -183,7 +188,7 @@ struct PropertyRNA {
 	/* array lengths lengths for all dimensions (when arraydimension > 0) */
 	unsigned int arraylength[RNA_MAX_ARRAY_DIMENSION];
 	unsigned int totarraylength;
-	
+
 	/* callback for updates on change */
 	UpdateFunc update;
 	int noteflag;
@@ -208,6 +213,15 @@ struct PropertyRNA {
 	 * (in a pointer array at the moment, may later be a tuple) */
 	void *py_data;
 };
+
+/* internal flags WARNING! 16bits only! */
+typedef enum PropertyFlagIntern {
+	PROP_INTERN_BUILTIN                 = (1 << 0),
+	PROP_INTERN_RUNTIME                 = (1 << 1),
+	PROP_INTERN_RAW_ACCESS              = (1 << 2),
+	PROP_INTERN_RAW_ARRAY               = (1 << 3),
+	PROP_INTERN_FREE_POINTERS           = (1 << 4),
+} PropertyFlagIntern;
 
 /* Property Types */
 
@@ -347,7 +361,7 @@ struct StructRNA {
 	 * which is useful for subclassing RNA */
 	void *py_type;
 	void *blender_type;
-	
+
 	/* various options */
 	int flag;
 
@@ -359,7 +373,7 @@ struct StructRNA {
 	const char *translation_context;
 	/* icon ID */
 	int icon;
-	
+
 	/* property that defines the name */
 	PropertyRNA *nameproperty;
 

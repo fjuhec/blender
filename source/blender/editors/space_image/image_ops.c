@@ -52,6 +52,7 @@
 #include "DNA_node_types.h"
 #include "DNA_packedFile_types.h"
 #include "DNA_scene_types.h"
+#include "DNA_screen_types.h"
 
 #include "BKE_colortools.h"
 #include "BKE_context.h"
@@ -1218,7 +1219,7 @@ static Image *image_open_single(
 static int image_open_exec(bContext *C, wmOperator *op)
 {
 	Main *bmain = CTX_data_main(C);
-	SpaceImage *sima = CTX_wm_space_image(C); /* XXX other space types can call */
+	ScrArea *sa = CTX_wm_area(C);
 	Scene *scene = CTX_data_scene(C);
 	Object *obedit = CTX_data_edit_object(C);
 	ImageUser *iuser = NULL;
@@ -1297,9 +1298,20 @@ static int image_open_exec(bContext *C, wmOperator *op)
 	if (iod->iuser) {
 		iuser = iod->iuser;
 	}
-	else if (sima) {
+	else if (sa->spacetype == SPACE_IMAGE) {
+		SpaceImage *sima = sa->spacedata.first;
 		ED_space_image_set(sima, scene, obedit, ima);
 		iuser = &sima->iuser;
+	}
+	else if (sa->spacetype == SPACE_VIEW3D) {
+		View3D *v3d = sa->spacedata.first;
+
+		for (BGpic *bgpic = v3d->bgpicbase.first; bgpic; bgpic = bgpic->next) {
+			if (bgpic->ima == ima) {
+				iuser = &bgpic->iuser;
+				break;
+			}
+		}
 	}
 	else {
 		Tex *tex = CTX_data_pointer_get_type(C, "texture", &RNA_Texture).data;
@@ -1463,7 +1475,10 @@ static int image_match_len_exec(bContext *C, wmOperator *UNUSED(op))
 	if (!ima || !iuser || !BKE_image_has_anim(ima))
 		return OPERATOR_CANCELLED;
 
-	iuser->frames = IMB_anim_get_duration(((ImageAnim *) ima->anims.first)->anim, IMB_TC_RECORD_RUN);
+	struct anim *anim = ((ImageAnim *)ima->anims.first)->anim;
+	if (!anim)
+		return OPERATOR_CANCELLED;
+	iuser->frames = IMB_anim_get_duration(anim, IMB_TC_RECORD_RUN);
 	BKE_image_user_frame_calc(iuser, scene->r.cfra, 0);
 
 	return OPERATOR_FINISHED;
@@ -2885,11 +2900,9 @@ static void image_sample_draw(const bContext *C, ARegion *ar, void *arg_info)
 	}
 }
 
-/* Returns color in the display space, matching ED_space_node_color_sample(). */
-bool ED_space_image_color_sample(Scene *scene, SpaceImage *sima, ARegion *ar, int mval[2], float r_col[3])
+/* Returns color in linear space, matching ED_space_node_color_sample(). */
+bool ED_space_image_color_sample(SpaceImage *sima, ARegion *ar, int mval[2], float r_col[3])
 {
-	const char *display_device = scene->display_settings.display_device;
-	struct ColorManagedDisplay *display = IMB_colormanagement_display_get_named(display_device);
 	void *lock;
 	ImBuf *ibuf = ED_space_image_acquire_buffer(sima, &lock);
 	float fx, fy;
@@ -2921,10 +2934,6 @@ bool ED_space_image_color_sample(Scene *scene, SpaceImage *sima, ARegion *ar, in
 			IMB_colormanagement_colorspace_to_scene_linear_v3(r_col, ibuf->rect_colorspace);
 			ret = true;
 		}
-	}
-
-	if (ret) {
-		IMB_colormanagement_scene_linear_to_display_v3(r_col, display);
 	}
 
 	ED_space_image_release_buffer(sima, ibuf, lock);

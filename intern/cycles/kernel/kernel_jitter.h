@@ -149,6 +149,15 @@ ccl_device_inline uint cmj_hash(uint i, uint p)
 	return i;
 }
 
+ccl_device_inline uint cmj_hash_simple(uint i, uint p)
+{
+	i = (i ^ 61) ^ p;
+	i += i << 3;
+	i ^= i >> 4;
+	i *= 0x27d4eb2d;
+	return i;
+}
+
 ccl_device_inline float cmj_randfloat(uint i, uint p)
 {
 	return cmj_hash(i, p) * (1.0f / 4294967808.0f);
@@ -166,15 +175,26 @@ ccl_device float cmj_sample_1D(int s, int N, int p)
 	return (x + jx)*invN;
 }
 
+/* TODO(sergey): Do some extra tests and consider moving to util_math.h. */
+ccl_device_inline int cmj_isqrt(int value)
+{
+#if defined(__KERNEL_CUDA__)
+	return float_to_int(__fsqrt_ru(value));
+#elif defined(__KERNEL_GPU__)
+	return float_to_int(sqrtf(value));
+#else
+	/* This is a work around for fast-math on CPU which might replace sqrtf()
+	 * with am approximated version.
+	 */
+	return float_to_int(sqrtf(value) + 1e-6f);
+#endif
+}
+
 ccl_device void cmj_sample_2D(int s, int N, int p, float *fx, float *fy)
 {
 	kernel_assert(s < N);
 
-#if defined(__KERNEL_CUDA__)
-	int m = float_to_int(__fsqrt_ru(N));
-#else
-	int m = float_to_int(sqrtf(N));
-#endif
+	int m = cmj_isqrt(N);
 	int n = (N - 1)/m + 1;
 	float invN = 1.0f/N;
 	float invm = 1.0f/m;

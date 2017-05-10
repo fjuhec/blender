@@ -84,8 +84,6 @@ void mul_qt_qtqt(float q[4], const float q1[4], const float q2[4])
  * \note:
  * Assumes a unit quaternion?
  *
- * \note: multiplying by 3x3 matrix is ~25% faster.
- *
  * in fact not, but you may want to use a unit quat, read on...
  *
  * Shortcut for 'q v q*' when \a v is actually a quaternion.
@@ -98,6 +96,8 @@ void mul_qt_qtqt(float q[4], const float q1[4], const float q2[4])
  *
  * For people used to python mathutils, its like:
  * def mul_qt_v3(q, v): (q * Quaternion((0.0, v[0], v[1], v[2])) * q.conjugated())[1:]
+ *
+ * \note: multiplying by 3x3 matrix is ~25% faster.
  */
 void mul_qt_v3(const float q[4], float v[3])
 {
@@ -1007,6 +1007,13 @@ void mat4_to_axis_angle(float axis[3], float *angle, float mat[4][4])
 	/* TODO: it would be nicer to go straight there... */
 	mat4_to_quat(q, mat);
 	quat_to_axis_angle(axis, angle, q);
+}
+
+void axis_angle_to_mat4_single(float mat[4][4], const char axis, const float angle)
+{
+	float mat3[3][3];
+	axis_angle_to_mat3_single(mat3, axis, angle);
+	copy_m4_m3(mat, mat3);
 }
 
 /* rotation matrix from a single axis */

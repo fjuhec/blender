@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include "util_debug.h"
-#include "util_md5.h"
-#include "util_path.h"
-#include "util_string.h"
+#include "util/util_debug.h"
+#include "util/util_md5.h"
+#include "util/util_path.h"
+#include "util/util_string.h"
 
 #include <OpenImageIO/filesystem.h>
 #include <OpenImageIO/strutil.h>
@@ -45,7 +45,7 @@ OIIO_NAMESPACE_USING
 #  include <shlwapi.h>
 #endif
 
-#include "util_windows.h"
+#include "util/util_windows.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -320,17 +320,18 @@ static char *path_specials(const string& sub)
 {
 	static bool env_init = false;
 	static char *env_shader_path;
-	static char *env_kernel_path;
+	static char *env_source_path;
 	if(!env_init) {
 		env_shader_path = getenv("CYCLES_SHADER_PATH");
-		env_kernel_path = getenv("CYCLES_KERNEL_PATH");
+		/* NOTE: It is KERNEL in env variable for compatibility reasons. */
+		env_source_path = getenv("CYCLES_KERNEL_PATH");
 		env_init = true;
 	}
 	if(env_shader_path != NULL && sub == "shader") {
 		return env_shader_path;
 	}
-	else if(env_shader_path != NULL && sub == "kernel") {
-		return env_kernel_path;
+	else if(env_shader_path != NULL && sub == "source") {
+		return env_source_path;
 	}
 	return NULL;
 }
@@ -757,9 +758,9 @@ uint64_t path_modified_time(const string& path)
 {
 	path_stat_t st;
 	if(path_stat(path, &st) != 0) {
-		return st.st_mtime;
+		return 0;
 	}
-	return 0;
+	return st.st_mtime;
 }
 
 bool path_remove(const string& path)
@@ -767,9 +768,17 @@ bool path_remove(const string& path)
 	return remove(path.c_str()) == 0;
 }
 
-static string line_directive(const string& path, int line)
+static string line_directive(const string& base, const string& path, int line)
 {
 	string escaped_path = path;
+	/* First we make path relative. */
+	if(string_startswith(escaped_path, base.c_str())) {
+		const string base_file = path_filename(base);
+		const size_t base_len = base.length();
+		escaped_path = base_file + escaped_path.substr(base_len,
+		                                               escaped_path.length() - base_len);
+	}
+	/* Second, we replace all unsafe characters. */
 	string_replace(escaped_path, "\"", "\\\"");
 	string_replace(escaped_path, "\'", "\\\'");
 	string_replace(escaped_path, "\?", "\\\?");
@@ -778,12 +787,14 @@ static string line_directive(const string& path, int line)
 }
 
 
-string path_source_replace_includes(const string& source,
-                                    const string& path,
-                                    const string& source_filename)
+static string path_source_replace_includes_recursive(
+        const string& base,
+        const string& source,
+        const string& path,
+        const string& source_filename)
 {
 	/* Our own little c preprocessor that replaces #includes with the file
-	 * contents, to work around issue of opencl drivers not supporting
+	 * contents, to work around issue of OpenCL drivers not supporting
 	 * include paths with spaces in them.
 	 */
 
@@ -812,9 +823,9 @@ string path_source_replace_includes(const string& source,
 						        text, path_dirname(filepath), filename);
 						text = path_source_replace_includes(text, path, filename);
 						/* Use line directives for better error messages. */
-						line = line_directive(filepath, 1)
+						line = line_directive(base, filepath, 1)
 						     + token.replace(0, n_end + 1, "\n" + text + "\n")
-						     + line_directive(path_join(path, source_filename), i);
+						     + line_directive(base, path_join(path, source_filename), i + 1);
 					}
 				}
 			}
@@ -823,6 +834,13 @@ string path_source_replace_includes(const string& source,
 	}
 
 	return result;
+}
+
+string path_source_replace_includes(const string& source,
+                                    const string& path,
+                                    const string& source_filename)
+{
+	return path_source_replace_includes_recursive(path, source, path, source_filename);
 }
 
 FILE *path_fopen(const string& path, const string& mode)

@@ -82,8 +82,6 @@ enum {
 	IDP_FLOAT            = 2,
 	IDP_ARRAY            = 5,
 	IDP_GROUP            = 6,
-	/* the ID link property type hasn't been implemented yet, this will require
-	 * some cleanup of blenkernel, most likely. */
 	IDP_ID               = 7,
 	IDP_DOUBLE           = 8,
 	IDP_IDPARRAY         = 9,
@@ -155,8 +153,9 @@ typedef struct Library {
 	
 	struct PackedFile *packedfile;
 
+	/* Temp data needed by read/write code. */
 	int temp_index;
-	int _pad;
+	short versionfile, subversionfile;  /* see BLENDER_VERSION, BLENDER_SUBVERSION, needed for do_versions */
 } Library;
 
 enum eIconSizes {
@@ -276,6 +275,7 @@ typedef enum ID_Type {
 
 #define ID_FAKE_USERS(id) ((((ID *)id)->flag & LIB_FAKEUSER) ? 1 : 0)
 #define ID_REAL_USERS(id) (((ID *)id)->us - ID_FAKE_USERS(id))
+#define ID_EXTRA_USERS(id) (((ID *)id)->tag & LIB_TAG_EXTRAUSER ? 1 : 0)
 
 #define ID_CHECK_UNDO(id) ((GS((id)->name) != ID_SCR) && (GS((id)->name) != ID_WM))
 
@@ -290,9 +290,9 @@ typedef enum ID_Type {
 #endif
 #define GS(a)	(CHECK_TYPE_ANY(a, char *, const char *, char [66], const char[66]), (*((const short *)(a))))
 
-#define ID_NEW(a)		if (      (a) && (a)->id.newid ) (a) = (void *)(a)->id.newid
-#define ID_NEW_US(a)	if (      (a)->id.newid)       { (a) = (void *)(a)->id.newid;       (a)->id.us++; }
-#define ID_NEW_US2(a)	if (((ID *)a)->newid)          { (a) = ((ID  *)a)->newid;     ((ID *)a)->us++;    }
+#define ID_NEW_SET(_id, _idn) \
+	(((ID *)(_id))->newid = (ID *)(_idn), ((ID *)(_id))->newid->tag |= LIB_TAG_NEW, (void *)((ID *)(_id))->newid)
+#define ID_NEW_REMAP(a) if ((a) && (a)->id.newid) (a) = (void *)(a)->id.newid
 
 /* id->flag (persitent). */
 enum {
@@ -336,7 +336,8 @@ enum {
 	/* tag datablock has having actually increased usercount for the extra virtual user. */
 	LIB_TAG_EXTRAUSER_SET   = 1 << 7,
 
-	/* RESET_AFTER_USE tag newly duplicated/copied IDs. */
+	/* RESET_AFTER_USE tag newly duplicated/copied IDs.
+	 * Also used internally in readfile.c to mark datablocks needing do_versions. */
 	LIB_TAG_NEW             = 1 << 8,
 	/* RESET_BEFORE_USE free test flag.
      * TODO make it a RESET_AFTER_USE too. */

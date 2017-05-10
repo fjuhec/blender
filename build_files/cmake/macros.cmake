@@ -416,14 +416,7 @@ function(setup_liblinks
 		target_link_libraries(${target} ${OPENCOLORIO_LIBRARIES})
 	endif()
 	if(WITH_OPENSUBDIV OR WITH_CYCLES_OPENSUBDIV)
-		if(WIN32 AND NOT UNIX)
-			file_list_suffix(OPENSUBDIV_LIBRARIES_DEBUG "${OPENSUBDIV_LIBRARIES}" "_d")
-			target_link_libraries_debug(${target} "${OPENSUBDIV_LIBRARIES_DEBUG}")
-			target_link_libraries_optimized(${target} "${OPENSUBDIV_LIBRARIES}")
-			unset(OPENSUBDIV_LIBRARIES_DEBUG)
-		else()
 			target_link_libraries(${target} ${OPENSUBDIV_LIBRARIES})
-		endif()
 	endif()
 	if(WITH_OPENVDB)
 		target_link_libraries(${target} ${OPENVDB_LIBRARIES} ${TBB_LIBRARIES})
@@ -497,6 +490,12 @@ function(setup_liblinks
 		if(WITH_INPUT_NDOF)
 			target_link_libraries(${target} ${NDOF_LIBRARIES})
 		endif()
+	endif()
+	if(WITH_SYSTEM_GLOG)
+		target_link_libraries(${target} ${GLOG_LIBRARIES})
+	endif()
+	if(WITH_SYSTEM_GFLAGS)
+		target_link_libraries(${target} ${GFLAGS_LIBRARIES})
 	endif()
 
 	# We put CLEW and CUEW here because OPENSUBDIV_LIBRARIES dpeends on them..
@@ -602,6 +601,7 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		bf_freestyle
 		bf_ikplugin
 		bf_modifiers
+		bf_alembic
 		bf_bmesh
 		bf_gpu
 		bf_blenloader
@@ -620,7 +620,6 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		bf_imbuf_openimageio
 		bf_imbuf_dds
 		bf_collada
-		bf_alembic
 		bf_intern_elbeem
 		bf_intern_memutil
 		bf_intern_guardedalloc
@@ -665,12 +664,18 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		extern_rangetree
 		extern_wcwidth
 		bf_intern_libmv
-		extern_glog
-		extern_gflags
 		extern_sdlew
 
 		bf_intern_glew_mx
 	)
+
+	if(NOT WITH_SYSTEM_GLOG)
+		list(APPEND BLENDER_SORTED_LIBS extern_glog)
+	endif()
+
+	if(NOT WITH_SYSTEM_GFLAGS)
+		list(APPEND BLENDER_SORTED_LIBS extern_gflags)
+	endif()
 
 	if(WITH_COMPOSITOR)
 		# added for opencl compositor
@@ -1581,24 +1586,24 @@ macro(openmp_delayload
 endmacro()
 
 MACRO(WINDOWS_SIGN_TARGET target)
-	if (WITH_WINDOWS_CODESIGN)
-		if (!SIGNTOOL_EXE)
+	if(WITH_WINDOWS_CODESIGN)
+		if(!SIGNTOOL_EXE)
 			error("Codesigning is enabled, but signtool is not found")
 		else()
-			if (WINDOWS_CODESIGN_PFX_PASSWORD)
+			if(WINDOWS_CODESIGN_PFX_PASSWORD)
 				set(CODESIGNPASSWORD /p ${WINDOWS_CODESIGN_PFX_PASSWORD})
 			else()
-				if ($ENV{PFXPASSWORD})
+				if($ENV{PFXPASSWORD})
 					set(CODESIGNPASSWORD /p $ENV{PFXPASSWORD})
 				else()
-					message( FATAL_ERROR "WITH_WINDOWS_CODESIGN is on but WINDOWS_CODESIGN_PFX_PASSWORD not set, and environment variable PFXPASSWORD not found, unable to sign code.")
+					message(FATAL_ERROR "WITH_WINDOWS_CODESIGN is on but WINDOWS_CODESIGN_PFX_PASSWORD not set, and environment variable PFXPASSWORD not found, unable to sign code.")
 				endif()
 			endif()
 			add_custom_command(TARGET ${target}
-						POST_BUILD
-						COMMAND ${SIGNTOOL_EXE} sign /f ${WINDOWS_CODESIGN_PFX} ${CODESIGNPASSWORD} $<TARGET_FILE:${target}>
-						VERBATIM
-				)
+				POST_BUILD
+				COMMAND ${SIGNTOOL_EXE} sign /f ${WINDOWS_CODESIGN_PFX} ${CODESIGNPASSWORD} $<TARGET_FILE:${target}>
+				VERBATIM
+			)
 		endif()
 	endif()
 ENDMACRO()

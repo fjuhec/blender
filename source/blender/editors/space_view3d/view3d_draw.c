@@ -100,10 +100,12 @@
 #include "GPU_material.h"
 #include "GPU_compositing.h"
 #include "GPU_extensions.h"
+#include "GPU_select.h"
 
 #include "view3d_intern.h"  /* own include */
 
 /* prototypes */
+static bool view3d_stereo3d_active(wmWindow *win, Scene *scene, View3D *v3d, RegionView3D *rv3d);
 static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar);
 static void view3d_stereo3d_setup_offscreen(Scene *scene, View3D *v3d, ARegion *ar,
                                             float winmat[4][4], const char *viewname);
@@ -2023,6 +2025,35 @@ static void view3d_draw_xraytransp(Scene *scene, ARegion *ar, View3D *v3d, const
 	glDepthMask(GL_TRUE);
 }
 
+/* clears zbuffer and draws it over,
+ * note that in the select version we don't care about transparent flag as with regular drawing */
+static void view3d_draw_xray_select(Scene *scene, ARegion *ar, View3D *v3d, bool *clear)
+{
+	/* Not ideal, but we need to read from the previous depths before clearing
+	 * otherwise we could have a function to load the depths after drawing.
+	 *
+	 * Clearing the depth buffer isn't all that common between drawing objects so accept this for now.
+	 */
+	if (U.gpu_select_pick_deph) {
+		GPU_select_load_id(-1);
+	}
+
+	View3DAfter *v3da;
+	if (*clear && v3d->zbuf) {
+		glClear(GL_DEPTH_BUFFER_BIT);
+		*clear = false;
+	}
+
+	v3d->xray = true;
+	while ((v3da = BLI_pophead(&v3d->afterdraw_xray))) {
+		if (GPU_select_load_id(v3da->base->selcol)) {
+			draw_object_select(scene, ar, v3d, v3da->base, v3da->dflag);
+		}
+		MEM_freeN(v3da);
+	}
+	v3d->xray = false;
+}
+
 /* *********************** */
 
 /*
@@ -2339,18 +2370,11 @@ float view3d_depth_near(ViewDepths *d)
 void ED_view3d_draw_depth_gpencil(Scene *scene, ARegion *ar, View3D *v3d)
 {
 	short zbuf = v3d->zbuf;
-	RegionView3D *rv3d = ar->regiondata;
 
-	view3d_winmatrix_set(ar, v3d, NULL);
-	view3d_viewmatrix_set(scene, v3d, rv3d);  /* note: calls BKE_object_where_is_calc for camera... */
-
-	mul_m4_m4m4(rv3d->persmat, rv3d->winmat, rv3d->viewmat);
-	invert_m4_m4(rv3d->persinv, rv3d->persmat);
-	invert_m4_m4(rv3d->viewinv, rv3d->viewmat);
+	/* Setup view matrix. */
+	ED_view3d_draw_setup_view(NULL, scene, ar, v3d);
 
 	glClear(GL_DEPTH_BUFFER_BIT);
-
-	glLoadMatrixf(rv3d->viewmat);
 
 	v3d->zbuf = true;
 	glEnable(GL_DEPTH_TEST);
@@ -2360,46 +2384,15 @@ void ED_view3d_draw_depth_gpencil(Scene *scene, ARegion *ar, View3D *v3d)
 	}
 	
 	v3d->zbuf = zbuf;
-
 }
 
-void ED_view3d_draw_depth(Scene *scene, ARegion *ar, View3D *v3d, bool alphaoverride)
+static void view3d_draw_depth_loop(Scene *scene, ARegion *ar, View3D *v3d)
 {
-	RegionView3D *rv3d = ar->regiondata;
 	Base *base;
-	short zbuf = v3d->zbuf;
-	short flag = v3d->flag;
-	float glalphaclip = U.glalphaclip;
-	int obcenter_dia = U.obcenter_dia;
+
 	/* no need for color when drawing depth buffer */
 	const short dflag_depth = DRAW_CONSTCOLOR;
-	/* temp set drawtype to solid */
-	
-	/* Setting these temporarily is not nice */
-	v3d->flag &= ~V3D_SELECT_OUTLINE;
-	U.glalphaclip = alphaoverride ? 0.5f : glalphaclip; /* not that nice but means we wont zoom into billboards */
-	U.obcenter_dia = 0;
-	
-	view3d_winmatrix_set(ar, v3d, NULL);
-	view3d_viewmatrix_set(scene, v3d, rv3d);  /* note: calls BKE_object_where_is_calc for camera... */
-	
-	mul_m4_m4m4(rv3d->persmat, rv3d->winmat, rv3d->viewmat);
-	invert_m4_m4(rv3d->persinv, rv3d->persmat);
-	invert_m4_m4(rv3d->viewinv, rv3d->viewmat);
-	
-	glClear(GL_DEPTH_BUFFER_BIT);
-	
-	glLoadMatrixf(rv3d->viewmat);
-	
-	if (rv3d->rflag & RV3D_CLIPPING) {
-		ED_view3d_clipping_set(rv3d);
-	}
-	/* get surface depth without bias */
-	rv3d->rflag |= RV3D_ZOFFSET_DISABLED;
 
-	v3d->zbuf = true;
-	glEnable(GL_DEPTH_TEST);
-	
 	/* draw set first */
 	if (scene->set) {
 		Scene *sce_iter;
@@ -2473,7 +2466,38 @@ void ED_view3d_draw_depth(Scene *scene, ARegion *ar, View3D *v3d, bool alphaover
 
 		glDepthMask(mask_orig);
 	}
+}
+
+void ED_view3d_draw_depth(Scene *scene, ARegion *ar, View3D *v3d, bool alphaoverride)
+{
+	RegionView3D *rv3d = ar->regiondata;
+	short zbuf = v3d->zbuf;
+	short flag = v3d->flag;
+	float glalphaclip = U.glalphaclip;
+	int obcenter_dia = U.obcenter_dia;
+	/* temp set drawtype to solid */
 	
+	/* Setting these temporarily is not nice */
+	v3d->flag &= ~V3D_SELECT_OUTLINE;
+	U.glalphaclip = alphaoverride ? 0.5f : glalphaclip; /* not that nice but means we wont zoom into billboards */
+	U.obcenter_dia = 0;
+	
+	/* Setup view matrix. */
+	ED_view3d_draw_setup_view(NULL, scene, ar, v3d);
+	
+	glClear(GL_DEPTH_BUFFER_BIT);
+	
+	if (rv3d->rflag & RV3D_CLIPPING) {
+		ED_view3d_clipping_set(rv3d);
+	}
+	/* get surface depth without bias */
+	rv3d->rflag |= RV3D_ZOFFSET_DISABLED;
+
+	v3d->zbuf = true;
+	glEnable(GL_DEPTH_TEST);
+
+	view3d_draw_depth_loop(scene, ar, v3d);
+
 	if (rv3d->rflag & RV3D_CLIPPING) {
 		ED_view3d_clipping_disable();
 	}
@@ -2485,6 +2509,58 @@ void ED_view3d_draw_depth(Scene *scene, ARegion *ar, View3D *v3d, bool alphaover
 	U.glalphaclip = glalphaclip;
 	v3d->flag = flag;
 	U.obcenter_dia = obcenter_dia;
+}
+
+void ED_view3d_draw_select_loop(
+        ViewContext *vc, Scene *scene, View3D *v3d, ARegion *ar,
+        bool use_obedit_skip, bool use_nearest)
+{
+	short code = 1;
+	const short dflag = DRAW_PICKING | DRAW_CONSTCOLOR;
+
+	if (vc->obedit && vc->obedit->type == OB_MBALL) {
+		draw_object(scene, ar, v3d, BASACT, dflag);
+	}
+	else if ((vc->obedit && vc->obedit->type == OB_ARMATURE)) {
+		/* if not drawing sketch, draw bones */
+		if (!BDR_drawSketchNames(vc)) {
+			draw_object(scene, ar, v3d, BASACT, dflag);
+		}
+	}
+	else {
+		Base *base;
+
+		for (base = scene->base.first; base; base = base->next) {
+			if (base->lay & v3d->lay) {
+
+				if ((base->object->restrictflag & OB_RESTRICT_SELECT) ||
+				    (use_obedit_skip && (scene->obedit->data == base->object->data)))
+				{
+					base->selcol = 0;
+				}
+				else {
+					base->selcol = code;
+
+					if (use_nearest && (base->object->dtx & OB_DRAWXRAY)) {
+						ED_view3d_after_add(&v3d->afterdraw_xray, base, dflag);
+					}
+					else {
+						if (GPU_select_load_id(code)) {
+							draw_object_select(scene, ar, v3d, base, dflag);
+						}
+					}
+					code++;
+				}
+			}
+		}
+
+		if (use_nearest) {
+			bool xrayclear = true;
+			if (v3d->afterdraw_xray.first) {
+				view3d_draw_xray_select(scene, ar, v3d, &xrayclear);
+			}
+		}
+	}
 }
 
 typedef struct View3DShadow {
@@ -2658,7 +2734,6 @@ CustomDataMask ED_view3d_screen_datamask(const bScreen *screen)
 void ED_view3d_update_viewmat(Scene *scene, View3D *v3d, ARegion *ar, float viewmat[4][4], float winmat[4][4])
 {
 	RegionView3D *rv3d = ar->regiondata;
-	rctf cameraborder;
 
 	/* setup window matrices */
 	if (winmat)
@@ -2672,7 +2747,7 @@ void ED_view3d_update_viewmat(Scene *scene, View3D *v3d, ARegion *ar, float view
 	else
 		view3d_viewmatrix_set(scene, v3d, rv3d);  /* note: calls BKE_object_where_is_calc for camera... */
 
-	/* update utilitity matrices */
+	/* update utility matrices */
 	mul_m4_m4m4(rv3d->persmat, rv3d->winmat, rv3d->viewmat);
 	invert_m4_m4(rv3d->persinv, rv3d->persmat);
 	invert_m4_m4(rv3d->viewinv, rv3d->viewmat);
@@ -2681,6 +2756,7 @@ void ED_view3d_update_viewmat(Scene *scene, View3D *v3d, ARegion *ar, float view
 
 	/* store window coordinates scaling/offset */
 	if (rv3d->persp == RV3D_CAMOB && v3d->camera) {
+		rctf cameraborder;
 		ED_view3d_calc_camera_border(scene, ar, v3d, rv3d, &cameraborder, false);
 		rv3d->viewcamtexcofac[0] = (float)ar->winx / BLI_rctf_size_x(&cameraborder);
 		rv3d->viewcamtexcofac[1] = (float)ar->winy / BLI_rctf_size_y(&cameraborder);
@@ -2692,8 +2768,17 @@ void ED_view3d_update_viewmat(Scene *scene, View3D *v3d, ARegion *ar, float view
 		rv3d->viewcamtexcofac[0] = rv3d->viewcamtexcofac[1] = 1.0f;
 		rv3d->viewcamtexcofac[2] = rv3d->viewcamtexcofac[3] = 0.0f;
 	}
-	
-	/* calculate pixelsize factor once, is used for lamps and obcenters */
+
+	/**
+	 * Calculate pixel-size factor once, is used for lamps and object centers.
+	 * Used by #ED_view3d_pixel_size and typically not accessed directly.
+	 *
+	 * \note #BKE_camera_params_compute_viewplane' also calculates a pixel-size value,
+	 * passed to #RE_SetPixelSize, in ortho mode this is compatible with this value,
+	 * but in perspective mode its offset by the near-clip.
+	 *
+	 * 'RegionView3D.pixsize' is used for viewport drawing, not rendering.
+	 */
 	{
 		/* note:  '1.0f / len_v3(v1)'  replaced  'len_v3(rv3d->viewmat[0])'
 		 * because of float point precision problems at large values [#23908] */
@@ -2946,7 +3031,7 @@ struct RV3DMatrixStore {
 	float pixsize;
 };
 
-void *ED_view3d_mats_rv3d_backup(struct RegionView3D *rv3d)
+struct RV3DMatrixStore *ED_view3d_mats_rv3d_backup(struct RegionView3D *rv3d)
 {
 	struct RV3DMatrixStore *rv3dmat = MEM_mallocN(sizeof(*rv3dmat), __func__);
 	copy_m4_m4(rv3dmat->winmat, rv3d->winmat);
@@ -2959,9 +3044,8 @@ void *ED_view3d_mats_rv3d_backup(struct RegionView3D *rv3d)
 	return (void *)rv3dmat;
 }
 
-void ED_view3d_mats_rv3d_restore(struct RegionView3D *rv3d, void *rv3dmat_pt)
+void ED_view3d_mats_rv3d_restore(struct RegionView3D *rv3d, struct RV3DMatrixStore *rv3dmat)
 {
-	struct RV3DMatrixStore *rv3dmat = rv3dmat_pt;
 	copy_m4_m4(rv3d->winmat, rv3dmat->winmat);
 	copy_m4_m4(rv3d->viewmat, rv3dmat->viewmat);
 	copy_m4_m4(rv3d->persmat, rv3dmat->persmat);
@@ -3165,6 +3249,22 @@ void ED_view3d_draw_offscreen(
 	UI_Theme_Restore(&theme_state);
 
 	G.f &= ~G_RENDER_OGL;
+}
+
+/**
+ * Set the correct matrices
+ */
+void ED_view3d_draw_setup_view(wmWindow *win, Scene *scene, ARegion *ar, View3D *v3d)
+{
+	RegionView3D *rv3d = ar->regiondata;
+
+	/* Setup the view matrix. */
+	if (view3d_stereo3d_active(win, scene, v3d, rv3d)) {
+		view3d_stereo3d_setup(scene, v3d, ar);
+	}
+	else {
+		view3d_main_region_setup_view(scene, v3d, ar, NULL, NULL);
+	}
 }
 
 /**
@@ -3601,26 +3701,37 @@ static void view3d_main_region_draw_engine_info(View3D *v3d, RegionView3D *rv3d,
 	ED_region_info_draw(ar, rv3d->render_engine->text, fill_color, true);
 }
 
-static bool view3d_stereo3d_active(const bContext *C, Scene *scene, View3D *v3d, RegionView3D *rv3d)
+static bool view3d_stereo3d_active(wmWindow *win, Scene *scene, View3D *v3d, RegionView3D *rv3d)
 {
-	wmWindow *win = CTX_wm_window(C);
-
-	if ((scene->r.scemode & R_MULTIVIEW) == 0)
+	if ((scene->r.scemode & R_MULTIVIEW) == 0) {
 		return false;
-
-	if (WM_stereo3d_enabled(win, true) == false)
-		return false;
-
-	if ((v3d->camera == NULL) || (v3d->camera->type != OB_CAMERA) || rv3d->persp != RV3D_CAMOB)
-		return false;
-
-	if (scene->r.views_format & SCE_VIEWS_FORMAT_MULTIVIEW) {
-		if (v3d->stereo3d_camera == STEREO_MONO_ID)
-			return false;
-
-		return BKE_scene_multiview_is_stereo3d(&scene->r);
 	}
 
+	if ((v3d->camera == NULL) || (v3d->camera->type != OB_CAMERA) || rv3d->persp != RV3D_CAMOB) {
+		return false;
+	}
+
+	switch (v3d->stereo3d_camera) {
+		case STEREO_MONO_ID:
+			return false;
+			break;
+		case STEREO_3D_ID:
+			/* win will be NULL when calling this from the selection or draw loop. */
+			if ((win == NULL) || (WM_stereo3d_enabled(win, true) == false)) {
+				return false;
+			}
+			if (((scene->r.views_format & SCE_VIEWS_FORMAT_MULTIVIEW) != 0) &&
+			    !BKE_scene_multiview_is_stereo3d(&scene->r))
+			{
+				return false;
+			}
+			break;
+		/* We always need the stereo calculation for left and right cameras. */
+		case STEREO_LEFT_ID:
+		case STEREO_RIGHT_ID:
+		default:
+			break;
+	}
 	return true;
 }
 
@@ -3733,11 +3844,8 @@ static void view3d_main_region_draw_objects(const bContext *C, Scene *scene, Vie
 		GPU_default_lights();
 	}
 
-	/* setup the view matrix */
-	if (view3d_stereo3d_active(C, scene, v3d, rv3d))
-		view3d_stereo3d_setup(scene, v3d, ar);
-	else
-		view3d_main_region_setup_view(scene, v3d, ar, NULL, NULL);
+	/* Setup the view matrix. */
+	ED_view3d_draw_setup_view(CTX_wm_window(C), scene, ar, v3d);
 
 	rv3d->rflag &= ~RV3D_IS_GAME_ENGINE;
 #ifdef WITH_GAMEENGINE

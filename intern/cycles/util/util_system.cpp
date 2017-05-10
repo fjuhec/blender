@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include "util_system.h"
+#include "util/util_system.h"
 
-#include "util_debug.h"
-#include "util_logging.h"
-#include "util_types.h"
-#include "util_string.h"
+#include "util/util_debug.h"
+#include "util/util_logging.h"
+#include "util/util_types.h"
+#include "util/util_string.h"
 
 #ifdef _WIN32
 #  if(!defined(FREE_WINDOWS))
@@ -87,6 +87,22 @@ int system_cpu_thread_count()
 	}
 
 	return count;
+}
+
+unsigned short system_cpu_process_groups(unsigned short max_groups,
+                                         unsigned short *groups)
+{
+#ifdef _WIN32
+	unsigned short group_count = max_groups;
+	if(!GetProcessGroupAffinity(GetCurrentProcess(), &group_count, groups)) {
+		return 0;
+	}
+	return group_count;
+#else
+	(void) max_groups;
+	(void) groups;
+	return 0;
+#endif
 }
 
 #if !defined(_WIN32) || defined(FREE_WINDOWS)

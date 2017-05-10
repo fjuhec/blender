@@ -760,8 +760,8 @@ void bmo_create_grid_exec(BMesh *bm, BMOperator *op)
 	BMOpSlot *slot_verts_out = BMO_slot_get(op->slots_out, "verts.out");
 
 	const float dia = BMO_slot_float_get(op->slots_in, "size");
-	const unsigned int xtot = max_ii(2, BMO_slot_int_get(op->slots_in, "x_segments"));
-	const unsigned int ytot = max_ii(2, BMO_slot_int_get(op->slots_in, "y_segments"));
+	const uint xtot = max_ii(2, BMO_slot_int_get(op->slots_in, "x_segments"));
+	const uint ytot = max_ii(2, BMO_slot_int_get(op->slots_in, "y_segments"));
 	const float xtot_inv2 = 2.0f / (xtot - 1);
 	const float ytot_inv2 = 2.0f / (ytot - 1);
 	const bool calc_uvs = BMO_slot_bool_get(op->slots_in, "calc_uvs");
@@ -772,7 +772,7 @@ void bmo_create_grid_exec(BMesh *bm, BMOperator *op)
 	float mat[4][4];
 	float vec[3], tvec[3];
 
-	unsigned int x, y, i;
+	uint x, y, i;
 
 
 	BMO_slot_mat4_get(op->slots_in, "matrix", mat);
@@ -826,7 +826,7 @@ void bmo_create_grid_exec(BMesh *bm, BMOperator *op)
  * \param y_segments The y-resolution of the grid
  * \param oflag The flag to check faces with.
  */
-void BM_mesh_calc_uvs_grid(BMesh *bm, const unsigned int x_segments, const unsigned int y_segments, const short oflag)
+void BM_mesh_calc_uvs_grid(BMesh *bm, const uint x_segments, const uint y_segments, const short oflag)
 {
 	BMFace *f;
 	BMLoop *l;
@@ -1122,7 +1122,7 @@ static void bm_mesh_calc_uvs_sphere_face(BMFace *f, const int cd_loop_uv_offset)
 		}
 
 		/* Shift borderline coordinates to the left. */
-		if (fabsf(theta - M_PI) < 0.0001f) {
+		if (fabsf(theta - (float)M_PI) < 0.0001f) {
 			theta = -M_PI;
 		}
 
@@ -1174,7 +1174,7 @@ void BM_mesh_calc_uvs_sphere(BMesh *bm, const short oflag)
 	}
 
 	BMIter iter2;
-	BMLoop* l;
+	BMLoop *l;
 	int loop_index;
 	float minx = 1.0f;
 
@@ -1236,14 +1236,14 @@ void bmo_create_monkey_exec(BMesh *bm, BMOperator *op)
 	int uvi = 0;
 	const int cd_loop_uv_offset = CustomData_get_offset(&bm->ldata, CD_MLOOPUV);
 	for (i = 0; i < monkeynf; i++) {
-		BMFace* temp1 = BM_face_create_quad_tri(bm,
+		BMFace *f_new_a = BM_face_create_quad_tri(bm,
 		                        tv[monkeyf[i][0] + i - monkeyo],
 		                        tv[monkeyf[i][1] + i - monkeyo],
 		                        tv[monkeyf[i][2] + i - monkeyo],
 		                        (monkeyf[i][3] != monkeyf[i][2]) ? tv[monkeyf[i][3] + i - monkeyo] : NULL,
 		                        NULL, BM_CREATE_NOP);
 
-		BMFace* temp2 = BM_face_create_quad_tri(bm,
+		BMFace *f_new_b = BM_face_create_quad_tri(bm,
 		                        tv[monkeynv + monkeyf[i][2] + i - monkeyo],
 		                        tv[monkeynv + monkeyf[i][1] + i - monkeyo],
 		                        tv[monkeynv + monkeyf[i][0] + i - monkeyo],
@@ -1252,20 +1252,19 @@ void bmo_create_monkey_exec(BMesh *bm, BMOperator *op)
 
 		/* Set the UVs here, the iteration order of the faces is not guaranteed,
 		 * so it's best to set the UVs right after the face is created. */
-		if(calc_uvs) {
-			BMLoop* l;
+		if (calc_uvs) {
+			BMLoop *l;
 			BMIter liter;
-			int loop_index;
-			BM_ITER_ELEM_INDEX (l, &liter, temp1, BM_LOOPS_OF_FACE, loop_index) {
+			BM_ITER_ELEM (l, &liter, f_new_a, BM_LOOPS_OF_FACE) {
 				MLoopUV *luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
-				luv->uv[0] = monkeyuvs[uvi*2 + 0];
-				luv->uv[1] = monkeyuvs[uvi*2 + 1];
+				luv->uv[0] = monkeyuvs[uvi * 2 + 0];
+				luv->uv[1] = monkeyuvs[uvi * 2 + 1];
 				uvi++;
 			}
-			BM_ITER_ELEM_INDEX (l, &liter, temp2, BM_LOOPS_OF_FACE, loop_index) {
+			BM_ITER_ELEM (l, &liter, f_new_b, BM_LOOPS_OF_FACE) {
 				MLoopUV *luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
-				luv->uv[0] = monkeyuvs[uvi*2 + 0];
-				luv->uv[1] = monkeyuvs[uvi*2 + 1];
+				luv->uv[0] = monkeyuvs[uvi * 2 + 0];
+				luv->uv[1] = monkeyuvs[uvi * 2 + 1];
 				uvi++;
 			}
 
@@ -1567,7 +1566,7 @@ void BM_mesh_calc_uvs_cone(
 
 	BLI_assert(cd_loop_uv_offset != -1); /* caller is responsible for ensuring the mesh has UVs */
 
-	x = 0.0f;
+	x = 1.0f;
 	y = 1.0f - uv_height;
 
 	BM_ITER_MESH (f, &fiter, bm, BM_FACES_OF_MESH) {
@@ -1581,7 +1580,7 @@ void BM_mesh_calc_uvs_cone(
 
 				switch (loop_index) {
 					case 0:
-						x += uv_width;
+						/* Continue in the last position */
 						break;
 					case 1:
 						y += uv_height;
@@ -1599,8 +1598,6 @@ void BM_mesh_calc_uvs_cone(
 				luv->uv[0] = x;
 				luv->uv[1] = y;
 			}
-
-			x += uv_width;
 		}
 		else {
 			/* top or bottom face - so unwrap it by transforming back to a circle and using the X/Y coords */

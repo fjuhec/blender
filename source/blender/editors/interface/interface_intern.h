@@ -127,7 +127,7 @@ enum {
  * (e.g. 'x' icon in search menu) - used with ui_but_icon_extra_get */
 typedef enum uiButExtraIconType {
 	UI_BUT_ICONEXTRA_NONE = 1,
-	UI_BUT_ICONEXTRA_UNLINK,
+	UI_BUT_ICONEXTRA_CLEAR,
 	UI_BUT_ICONEXTRA_EYEDROPPER,
 } uiButExtraIconType;
 
@@ -556,6 +556,7 @@ struct uiPopupBlockHandle {
 	struct uiKeyNavLock keynav_state;
 
 	/* for operator popups */
+	struct wmOperator *popup_op;
 	struct wmOperatorType *optype;
 	ScrArea *ctx_area;
 	ARegion *ctx_region;

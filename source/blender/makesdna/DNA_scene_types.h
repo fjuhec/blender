@@ -229,7 +229,9 @@ typedef struct SceneRenderLayer {
 
 	int samples;
 	float pass_alpha_threshold;
-	
+
+	IDProperty *prop;
+
 	struct FreestyleConfig freestyleConfig;
 } SceneRenderLayer;
 
@@ -283,8 +285,42 @@ typedef enum ScenePassType {
 	SCE_PASS_SUBSURFACE_DIRECT        = (1 << 28),
 	SCE_PASS_SUBSURFACE_INDIRECT      = (1 << 29),
 	SCE_PASS_SUBSURFACE_COLOR         = (1 << 30),
-	SCE_PASS_DEBUG                    = (1 << 31),  /* This is a virtual pass. */
 } ScenePassType;
+
+#define RE_PASSNAME_COMBINED "Combined"
+#define RE_PASSNAME_Z "Depth"
+#define RE_PASSNAME_VECTOR "Vector"
+#define RE_PASSNAME_NORMAL "Normal"
+#define RE_PASSNAME_UV "UV"
+#define RE_PASSNAME_RGBA "Color"
+#define RE_PASSNAME_EMIT "Emit"
+#define RE_PASSNAME_DIFFUSE "Diffuse"
+#define RE_PASSNAME_SPEC "Spec"
+#define RE_PASSNAME_SHADOW "Shadow"
+
+#define RE_PASSNAME_AO "AO"
+#define RE_PASSNAME_ENVIRONMENT "Env"
+#define RE_PASSNAME_INDIRECT "Indirect"
+#define RE_PASSNAME_REFLECT "Reflect"
+#define RE_PASSNAME_REFRACT "Refract"
+#define RE_PASSNAME_INDEXOB "IndexOB"
+#define RE_PASSNAME_INDEXMA "IndexMA"
+#define RE_PASSNAME_MIST "Mist"
+
+#define RE_PASSNAME_RAYHITS "RayHits"
+#define RE_PASSNAME_DIFFUSE_DIRECT "DiffDir"
+#define RE_PASSNAME_DIFFUSE_INDIRECT "DiffInd"
+#define RE_PASSNAME_DIFFUSE_COLOR "DiffCol"
+#define RE_PASSNAME_GLOSSY_DIRECT "GlossDir"
+#define RE_PASSNAME_GLOSSY_INDIRECT "GlossInd"
+#define RE_PASSNAME_GLOSSY_COLOR "GlossCol"
+#define RE_PASSNAME_TRANSM_DIRECT "TransDir"
+#define RE_PASSNAME_TRANSM_INDIRECT "TransInd"
+#define RE_PASSNAME_TRANSM_COLOR "TransCol"
+
+#define RE_PASSNAME_SUBSURFACE_DIRECT "SubsurfaceDir"
+#define RE_PASSNAME_SUBSURFACE_INDIRECT "SubsurfaceInd"
+#define RE_PASSNAME_SUBSURFACE_COLOR "SubsurfaceCol"
 
 /* note, srl->passflag is treestore element 'nr' in outliner, short still... */
 
@@ -1103,7 +1139,7 @@ typedef struct Sculpt {
 	float gravity_factor;
 
 	/* scale for constant detail size */
-	float constant_detail;
+	float constant_detail; /* Constant detail resolution (Blender unit / constant_detail) */
 	float detail_percent;
 	float pad;
 
@@ -1212,12 +1248,51 @@ typedef enum eGP_BrushEdit_SettingsFlag {
 	GP_BRUSHEDIT_FLAG_APPLY_STRENGTH = (1 << 2),
 	/* apply brush to thickness */
 	GP_BRUSHEDIT_FLAG_APPLY_THICKNESS = (1 << 3),
-	/* apply interpolation to all layers */
-	GP_BRUSHEDIT_FLAG_INTERPOLATE_ALL_LAYERS = (1 << 4),
-	/* apply interpolation to only selected */
-	GP_BRUSHEDIT_FLAG_INTERPOLATE_ONLY_SELECTED = (1 << 5)
-
 } eGP_BrushEdit_SettingsFlag;
+
+
+/* Settings for GP Interpolation Operators */
+typedef struct GP_Interpolate_Settings {
+	short flag;                        /* eGP_Interpolate_SettingsFlag */
+	
+	char type;                         /* eGP_Interpolate_Type - Interpolation Mode */ 
+	char easing;                       /* eBezTriple_Easing - Easing mode (if easing equation used) */
+	
+	float back;                        /* BEZT_IPO_BACK */
+	float amplitude, period;           /* BEZT_IPO_ELASTIC */
+	
+	struct CurveMapping *custom_ipo;   /* custom interpolation curve (for use with GP_IPO_CURVEMAP) */
+} GP_Interpolate_Settings;
+
+/* GP_Interpolate_Settings.flag */
+typedef enum eGP_Interpolate_SettingsFlag {
+	/* apply interpolation to all layers */
+	GP_TOOLFLAG_INTERPOLATE_ALL_LAYERS    = (1 << 0),
+	/* apply interpolation to only selected */
+	GP_TOOLFLAG_INTERPOLATE_ONLY_SELECTED = (1 << 1),
+} eGP_Interpolate_SettingsFlag;
+
+/* GP_Interpolate_Settings.type */
+typedef enum eGP_Interpolate_Type {
+	/* Traditional Linear Interpolation */
+	GP_IPO_LINEAR   = 0,
+	
+	/* CurveMap Defined Interpolation */
+	GP_IPO_CURVEMAP = 1,
+	
+	/* Easing Equations */
+	GP_IPO_BACK = 3,
+	GP_IPO_BOUNCE = 4,
+	GP_IPO_CIRC = 5,
+	GP_IPO_CUBIC = 6,
+	GP_IPO_ELASTIC = 7,
+	GP_IPO_EXPO = 8,
+	GP_IPO_QUAD = 9,
+	GP_IPO_QUART = 10,
+	GP_IPO_QUINT = 11,
+	GP_IPO_SINE = 12,
+} eGP_Interpolate_Type;
+
 
 /* *************************************************************** */
 /* Transform Orientations */
@@ -1435,7 +1510,10 @@ typedef struct ToolSettings {
 	
 	/* Grease Pencil Sculpt */
 	struct GP_BrushEdit_Settings gp_sculpt;
-
+	
+	/* Grease Pencil Interpolation Tool(s) */
+	struct GP_Interpolate_Settings gp_interpolate;
+	
 	/* Grease Pencil Drawing Brushes (bGPDbrush) */
 	ListBase gp_brushes; 
 
@@ -1674,6 +1752,7 @@ typedef struct Scene {
 #define SCER_LOCK_FRAME_SELECTION	(1<<1)
 	/* timeline/keyframe jumping - only selected items (on by default) */
 #define SCE_KEYS_NO_SELONLY	(1<<2)
+#define SCER_SHOW_SUBFRAME	(1<<3)
 
 /* mode (int now) */
 #define R_OSA			0x0001

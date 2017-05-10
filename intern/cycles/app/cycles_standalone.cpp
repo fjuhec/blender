@@ -16,29 +16,29 @@
 
 #include <stdio.h>
 
-#include "buffers.h"
-#include "camera.h"
-#include "device.h"
-#include "scene.h"
-#include "session.h"
-#include "integrator.h"
+#include "render/buffers.h"
+#include "render/camera.h"
+#include "device/device.h"
+#include "render/scene.h"
+#include "render/session.h"
+#include "render/integrator.h"
 
-#include "util_args.h"
-#include "util_foreach.h"
-#include "util_function.h"
-#include "util_logging.h"
-#include "util_path.h"
-#include "util_progress.h"
-#include "util_string.h"
-#include "util_time.h"
-#include "util_transform.h"
-#include "util_version.h"
+#include "util/util_args.h"
+#include "util/util_foreach.h"
+#include "util/util_function.h"
+#include "util/util_logging.h"
+#include "util/util_path.h"
+#include "util/util_progress.h"
+#include "util/util_string.h"
+#include "util/util_time.h"
+#include "util/util_transform.h"
+#include "util/util_version.h"
 
 #ifdef WITH_CYCLES_STANDALONE_GUI
-#include "util_view.h"
+#include "util/util_view.h"
 #endif
 
-#include "cycles_xml.h"
+#include "app/cycles_xml.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -72,20 +72,17 @@ static void session_print(const string& str)
 
 static void session_print_status()
 {
-	int sample, tile;
-	double total_time, sample_time, render_time;
 	string status, substatus;
 
 	/* get status */
-	sample = options.session->progress.get_sample();
-	options.session->progress.get_tile(tile, total_time, sample_time, render_time);
+	float progress = options.session->progress.get_progress();
 	options.session->progress.get_status(status, substatus);
 
 	if(substatus != "")
 		status += ": " + substatus;
 
 	/* print status */
-	status = string_printf("Sample %d   %s", sample, status.c_str());
+	status = string_printf("Progress %05.2f   %s", (double) progress*100, status.c_str());
 	session_print(status);
 }
 
@@ -167,13 +164,12 @@ static void display_info(Progress& progress)
 	latency = (elapsed - last);
 	last = elapsed;
 
-	int sample, tile;
-	double total_time, sample_time, render_time;
+	double total_time, sample_time;
 	string status, substatus;
 
-	sample = progress.get_sample();
-	progress.get_tile(tile, total_time, sample_time, render_time);
+	progress.get_time(total_time, sample_time);
 	progress.get_status(status, substatus);
+	float progress_val = progress.get_progress();
 
 	if(substatus != "")
 		status += ": " + substatus;
@@ -184,10 +180,10 @@ static void display_info(Progress& progress)
 	        "%s"
 	        "        Time: %.2f"
 	        "        Latency: %.4f"
-	        "        Sample: %d"
+	        "        Progress: %05.2f"
 	        "        Average: %.4f"
 	        "        Interactive: %s",
-	        status.c_str(), total_time, latency, sample, sample_time, interactive.c_str());
+	        status.c_str(), total_time, latency, (double) progress_val*100, sample_time, interactive.c_str());
 
 	view_display_info(str.c_str());
 
@@ -337,7 +333,7 @@ static void options_parse(int argc, const char **argv)
 
 	/* device names */
 	string device_names = "";
-	string devicename = "cpu";
+	string devicename = "CPU";
 	bool list = false;
 
 	vector<DeviceType>& types = Device::available_types();

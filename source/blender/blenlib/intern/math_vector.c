@@ -280,6 +280,16 @@ void mid_v3_v3v3v3v3(float v[3], const float v1[3], const float v2[3], const flo
 	v[2] = (v1[2] + v2[2] + v3[2] + v4[2]) / 4.0f;
 }
 
+void mid_v3_v3_array(float r[3], const float (*vec_arr)[3], const unsigned int nbr)
+{
+	const float factor = 1.0f / (float)nbr;
+	zero_v3(r);
+
+	for (unsigned int i = 0; i < nbr; i++) {
+		madd_v3_v3fl(r, vec_arr[i], factor);
+	}
+}
+
 /**
  * Specialized function for calculating normals.
  * fastpath for:
@@ -687,7 +697,19 @@ void bisect_v3_v3v3v3(float out[3], const float v1[3], const float v2[3], const 
 
 /**
  * Returns a reflection vector from a vector and a normal vector
- * reflect = vec - ((2 * DotVecs(vec, mirror)) * mirror)
+ * reflect = vec - ((2 * dot(vec, mirror)) * mirror).
+ *
+ * <pre>
+ * v
+ * +  ^
+ *  \ |
+ *   \|
+ *    + normal: axis of reflection
+ *   /
+ *  /
+ * +
+ * out: result (negate for a 'bounce').
+ * </pre>
  */
 void reflect_v3_v3v3(float out[3], const float v[3], const float normal[3])
 {

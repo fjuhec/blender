@@ -303,7 +303,10 @@ static void template_id_cb(bContext *C, void *arg_litem, void *arg_event)
 			break;
 		case UI_ID_LOCAL:
 			if (id) {
-				if (id_make_local(CTX_data_main(C), id, false, false)) {
+				Main *bmain = CTX_data_main(C);
+				if (id_make_local(bmain, id, false, false)) {
+					BKE_main_id_clear_newpoins(bmain);
+
 					/* reassign to get get proper updates/notifiers */
 					idptr = RNA_property_pointer_get(&template->ptr, template->prop);
 					RNA_property_pointer_set(&template->ptr, template->prop, idptr);
@@ -1975,6 +1978,7 @@ static void curvemap_tools_dofunc(bContext *C, void *cumap_v, int event)
 		case UICURVE_FUNC_HANDLE_AUTO_ANIM: /* set auto-clamped */
 			curvemap_handle_set(cuma, HD_AUTO_ANIM);
 			curvemapping_changed(cumap, false);
+			break;
 		case UICURVE_FUNC_EXTEND_HOZ: /* extend horiz */
 			cuma->flag &= ~CUMA_EXTEND_EXTRAPOLATE;
 			curvemapping_changed(cumap, false);

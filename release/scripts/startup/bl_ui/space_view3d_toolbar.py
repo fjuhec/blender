@@ -22,6 +22,7 @@ from bpy.types import Menu, Panel, UIList
 from bl_ui.properties_grease_pencil_common import (
         GreasePencilDrawingToolsPanel,
         GreasePencilStrokeEditPanel,
+        GreasePencilInterpolatePanel,
         GreasePencilStrokeSculptPanel,
         GreasePencilBrushPanel,
         GreasePencilBrushCurvesPanel
@@ -431,6 +432,7 @@ class VIEW3D_PT_tools_shading(View3DPanel, Panel):
         col.label(text="Normals:")
         col.operator("mesh.normals_make_consistent", text="Recalculate")
         col.operator("mesh.flip_normals", text="Flip Direction")
+        col.operator("mesh.set_normals_from_faces", text="Set From Faces")
 
 
 class VIEW3D_PT_tools_uvs(View3DPanel, Panel):
@@ -1559,7 +1561,7 @@ class VIEW3D_PT_sculpt_dyntopo(Panel, View3DPaintPanel):
         sub.active = (brush and brush.sculpt_tool != 'MASK')
         if (sculpt.detail_type_method == 'CONSTANT'):
             row = sub.row(align=True)
-            row.prop(sculpt, "constant_detail")
+            row.prop(sculpt, "constant_detail_resolution")
             row.operator("sculpt.sample_detail_size", text="", icon='EYEDROPPER')
         elif (sculpt.detail_type_method == 'BRUSH'):
             sub.prop(sculpt, "detail_percent")
@@ -1962,6 +1964,11 @@ class VIEW3D_PT_tools_grease_pencil_edit(GreasePencilStrokeEditPanel, Panel):
     bl_space_type = 'VIEW_3D'
 
 
+# Grease Pencil stroke interpolation tools
+class VIEW3D_PT_tools_grease_pencil_interpolate(GreasePencilInterpolatePanel, Panel):
+    bl_space_type = 'VIEW_3D'
+
+
 # Grease Pencil stroke sculpting tools
 class VIEW3D_PT_tools_grease_pencil_sculpt(GreasePencilStrokeSculptPanel, Panel):
     bl_space_type = 'VIEW_3D'
@@ -2001,5 +2008,69 @@ class VIEW3D_PT_tools_history(View3DPanel, Panel):
         col.operator("screen.repeat_history", text="History...")
 
 
+classes = (
+    VIEW3D_PT_tools_transform,
+    VIEW3D_PT_tools_object,
+    VIEW3D_PT_tools_add_object,
+    VIEW3D_PT_tools_relations,
+    VIEW3D_PT_tools_animation,
+    VIEW3D_PT_tools_rigid_body,
+    VIEW3D_PT_tools_transform_mesh,
+    VIEW3D_PT_tools_meshedit,
+    VIEW3D_PT_tools_meshweight,
+    VIEW3D_PT_tools_add_mesh_edit,
+    VIEW3D_PT_tools_shading,
+    VIEW3D_PT_tools_uvs,
+    VIEW3D_PT_tools_meshedit_options,
+    VIEW3D_PT_tools_transform_curve,
+    VIEW3D_PT_tools_curveedit,
+    VIEW3D_PT_tools_add_curve_edit,
+    VIEW3D_PT_tools_curveedit_options_stroke,
+    VIEW3D_PT_tools_transform_surface,
+    VIEW3D_PT_tools_surfaceedit,
+    VIEW3D_PT_tools_add_surface_edit,
+    VIEW3D_PT_tools_textedit,
+    VIEW3D_PT_tools_armatureedit,
+    VIEW3D_PT_tools_armatureedit_transform,
+    VIEW3D_PT_tools_armatureedit_options,
+    VIEW3D_PT_tools_mballedit,
+    VIEW3D_PT_tools_add_mball_edit,
+    VIEW3D_PT_tools_latticeedit,
+    VIEW3D_PT_tools_posemode,
+    VIEW3D_PT_tools_posemode_options,
+    VIEW3D_PT_imapaint_tools_missing,
+    VIEW3D_PT_tools_brush,
+    TEXTURE_UL_texpaintslots,
+    VIEW3D_MT_tools_projectpaint_uvlayer,
+    VIEW3D_PT_slots_projectpaint,
+    VIEW3D_PT_stencil_projectpaint,
+    VIEW3D_PT_tools_brush_overlay,
+    VIEW3D_PT_tools_brush_texture,
+    VIEW3D_PT_tools_mask_texture,
+    VIEW3D_PT_tools_brush_stroke,
+    VIEW3D_PT_tools_brush_curve,
+    VIEW3D_PT_sculpt_dyntopo,
+    VIEW3D_PT_sculpt_options,
+    VIEW3D_PT_sculpt_symmetry,
+    VIEW3D_PT_tools_brush_appearance,
+    VIEW3D_PT_tools_weightpaint,
+    VIEW3D_PT_tools_weightpaint_options,
+    VIEW3D_PT_tools_vertexpaint,
+    VIEW3D_PT_tools_imagepaint_external,
+    VIEW3D_PT_tools_imagepaint_symmetry,
+    VIEW3D_PT_tools_projectpaint,
+    VIEW3D_MT_tools_projectpaint_stencil,
+    VIEW3D_PT_tools_particlemode,
+    VIEW3D_PT_tools_grease_pencil_draw,
+    VIEW3D_PT_tools_grease_pencil_edit,
+    VIEW3D_PT_tools_grease_pencil_interpolate,
+    VIEW3D_PT_tools_grease_pencil_sculpt,
+    VIEW3D_PT_tools_grease_pencil_brush,
+    VIEW3D_PT_tools_grease_pencil_brushcurves,
+    VIEW3D_PT_tools_history,
+)
+
 if __name__ == "__main__":  # only for live edit.
-    bpy.utils.register_module(__name__)
+    from bpy.utils import register_class
+    for cls in classes:
+        register_class(cls)

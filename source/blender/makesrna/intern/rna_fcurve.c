@@ -35,6 +35,8 @@
 
 #include "BLI_math.h"
 
+#include "BLT_translation.h"
+
 #include "BKE_action.h"
 
 #include "RNA_access.h"
@@ -1029,7 +1031,7 @@ static void rna_def_fmodifier_envelope_control_points(BlenderRNA *brna, Property
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_float(func, "frame", 0.0f, -FLT_MAX, FLT_MAX, "",
 	                     "Frame to add this control-point", -FLT_MAX, FLT_MAX);
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_pointer(func, "point", "FModifierEnvelopeControlPoint", "", "Newly created control-point");
 	RNA_def_function_return(func, parm);
 
@@ -1037,7 +1039,7 @@ static void rna_def_fmodifier_envelope_control_points(BlenderRNA *brna, Property
 	RNA_def_function_ui_description(func, "Remove a control-point from an FModifierEnvelope");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_pointer(func, "point", "FModifierEnvelopeControlPoint", "", "Control-point to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
 }
 
 
@@ -1448,6 +1450,7 @@ static void rna_def_drivertarget(BlenderRNA *brna)
 	RNA_def_property_enum_funcs(prop, NULL, "rna_DriverTarget_id_type_set", NULL);
 	RNA_def_property_editable_func(prop, "rna_DriverTarget_id_type_editable");
 	RNA_def_property_ui_text(prop, "ID Type", "Type of ID-block that can be used");
+	RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_ID);
 	RNA_def_property_update(prop, 0, "rna_DriverTarget_update_data");
 	
 	/* Target Properties - Property to Drive */
@@ -1554,8 +1557,8 @@ static void rna_def_channeldriver_variables(BlenderRNA *brna, PropertyRNA *cprop
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	/* target to remove */
 	parm = RNA_def_pointer(func, "variable", "DriverVariable", "", "Variable to remove from the driver");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
 }
 
 static void rna_def_channeldriver(BlenderRNA *brna)
@@ -1774,15 +1777,15 @@ static void rna_def_fcurve_modifiers(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_return(func, parm);
 	/* object to add */
 	parm = RNA_def_enum(func, "type", rna_enum_fmodifier_type_items, 1, "", "Constraint type to add");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	func = RNA_def_function(srna, "remove", "rna_FCurve_modifiers_remove");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove a modifier from this F-Curve");
 	/* modifier to remove */
 	parm = RNA_def_pointer(func, "modifier", "FModifier", "", "Removed modifier");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
 }
 
 /* fcurve.keyframe_points */
@@ -1809,14 +1812,13 @@ static void rna_def_fcurve_keyframe_points(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_ui_description(func, "Add a keyframe point to a F-Curve");
 	parm = RNA_def_float(func, "frame", 0.0f, -FLT_MAX, FLT_MAX, "",
 	                     "X Value of this keyframe point", -FLT_MAX, FLT_MAX);
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_float(func, "value", 0.0f, -FLT_MAX, FLT_MAX, "",
 	                     "Y Value of this keyframe point", -FLT_MAX, FLT_MAX);
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	RNA_def_enum_flag(func, "options", keyframe_flag_items, 0, "", "Keyframe options");
 	RNA_def_enum(func, "keyframe_type", rna_enum_beztriple_keyframe_type_items, BEZT_KEYTYPE_KEYFRAME, "",
 	             "Type of keyframe to insert");
-
 	parm = RNA_def_pointer(func, "keyframe", "Keyframe", "", "Newly created keyframe");
 	RNA_def_function_return(func, parm);
 
@@ -1828,8 +1830,8 @@ static void rna_def_fcurve_keyframe_points(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_ui_description(func, "Remove keyframe from an F-Curve");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_pointer(func, "keyframe", "Keyframe", "", "Keyframe to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
 	/* optional */
 	RNA_def_boolean(func, "fast", 0, "Fast", "Fast keyframe removal to avoid recalculating the curve each time");
 }
@@ -1961,7 +1963,7 @@ static void rna_def_fcurve(BlenderRNA *brna)
 	RNA_def_function_ui_description(func, "Evaluate F-Curve");
 	parm = RNA_def_float(func, "frame", 1.0f, -FLT_MAX, FLT_MAX, "Frame",
 	                     "Evaluate F-Curve at given frame", -FLT_MAX, FLT_MAX);
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	/* return value */
 	parm = RNA_def_float(func, "value", 0, -FLT_MAX, FLT_MAX, "Value", "Value of F-Curve specific frame", -FLT_MAX, FLT_MAX);
 	RNA_def_function_return(func, parm);
@@ -1976,7 +1978,7 @@ static void rna_def_fcurve(BlenderRNA *brna)
 	/* return value */
 	parm = RNA_def_float_vector(func, "range", 2, NULL, -FLT_MAX, FLT_MAX, "Range",
 	                            "Min/Max values", -FLT_MAX, FLT_MAX);
-	RNA_def_property_flag(parm, PROP_THICK_WRAP);
+	RNA_def_parameter_flags(parm, PROP_THICK_WRAP, 0);
 	RNA_def_function_output(func, parm);
 	
 	/* -- auto-flag validity (ensures valid handling for data type) -- */
@@ -1986,7 +1988,7 @@ static void rna_def_fcurve(BlenderRNA *brna)
 	RNA_def_function_flag(func, FUNC_USE_CONTEXT | FUNC_USE_REPORTS);
 	parm = RNA_def_pointer(func, "data", "AnyType", "Data",
 	                       "Data containing the property controlled by given FCurve");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_RNAPTR | PROP_NEVER_NULL);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
 
 
 	/* Functions */

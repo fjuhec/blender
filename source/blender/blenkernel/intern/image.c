@@ -436,7 +436,6 @@ static void copy_image_packedfiles(ListBase *lb_dst, const ListBase *lb_src)
 Image *BKE_image_copy(Main *bmain, Image *ima)
 {
 	Image *nima = image_alloc(bmain, ima->id.name + 2, ima->source, ima->type);
-	ima->id.newid = &nima->id;
 
 	BLI_strncpy(nima->name, ima->name, sizeof(ima->name));
 
@@ -1244,7 +1243,6 @@ char BKE_imtype_valid_channels(const char imtype, bool write_file)
 		case R_IMF_IMTYPE_RAWTGA:
 		case R_IMF_IMTYPE_IRIS:
 		case R_IMF_IMTYPE_PNG:
-		case R_IMF_IMTYPE_RADHDR:
 		case R_IMF_IMTYPE_TIFF:
 		case R_IMF_IMTYPE_OPENEXR:
 		case R_IMF_IMTYPE_MULTILAYER:
@@ -2218,8 +2216,10 @@ void BKE_imbuf_write_prepare(ImBuf *ibuf, const ImageFormatData *imf)
 			ibuf->foptions.flag |= OPENEXR_HALF;
 		ibuf->foptions.flag |= (imf->exr_codec & OPENEXR_COMPRESS);
 
-		if (!(imf->flag & R_IMF_FLAG_ZBUF))
-			ibuf->zbuf_float = NULL;    /* signal for exr saving */
+		if (!(imf->flag & R_IMF_FLAG_ZBUF)) {
+			/* Signal for exr saving. */
+			IMB_freezbuffloatImBuf(ibuf);
+		}
 
 	}
 #endif
@@ -2739,7 +2739,6 @@ void BKE_image_signal(Image *ima, ImageUser *iuser, int signal)
 	}
 }
 
-#define PASSTYPE_UNSET -1
 /* return renderpass for a given pass index and active view */
 /* fallback to available if there are missing passes for active view */
 static RenderPass *image_render_pass_get(RenderLayer *rl, const int pass, const int view, int *r_passindex)
@@ -2748,7 +2747,7 @@ static RenderPass *image_render_pass_get(RenderLayer *rl, const int pass, const 
 	RenderPass *rpass;
 
 	int rp_index = 0;
-	int rp_passtype = PASSTYPE_UNSET;
+	const char *rp_name = "";
 
 	for (rpass = rl->passes.first; rpass; rpass = rpass->next, rp_index++) {
 		if (rp_index == pass) {
@@ -2758,12 +2757,12 @@ static RenderPass *image_render_pass_get(RenderLayer *rl, const int pass, const 
 				break;
 			}
 			else {
-				rp_passtype = rpass->passtype;
+				rp_name = rpass->name;
 			}
 		}
 		/* multiview */
-		else if ((rp_passtype != PASSTYPE_UNSET) &&
-		         (rpass->passtype == rp_passtype) &&
+		else if (rp_name[0] &&
+		         STREQ(rpass->name, rp_name) &&
 		         (rpass->view_id == view))
 		{
 			rpass_ret = rpass;
@@ -2783,7 +2782,6 @@ static RenderPass *image_render_pass_get(RenderLayer *rl, const int pass, const 
 
 	return rpass_ret;
 }
-#undef PASSTYPE_UNSET
 
 /* if layer or pass changes, we need an index for the imbufs list */
 /* note it is called for rendered results, but it doesnt use the index! */
@@ -3161,7 +3159,7 @@ static ImBuf *load_sequence_single(Image *ima, ImageUser *iuser, int frame, cons
 	struct ImBuf *ibuf;
 	char name[FILE_MAX];
 	int flag;
-	ImageUser iuser_t;
+	ImageUser iuser_t = {0};
 
 	/* XXX temp stuff? */
 	if (ima->lastframe != frame)
@@ -3169,8 +3167,12 @@ static ImBuf *load_sequence_single(Image *ima, ImageUser *iuser, int frame, cons
 
 	ima->lastframe = frame;
 
-	if (iuser)
+	if (iuser) {
 		iuser_t = *iuser;
+	}
+	else {
+		/* TODO(sergey): Do we need to initialize something here? */
+	}
 
 	iuser_t.view = view_id;
 	BKE_image_user_file_path(&iuser_t, ima, name);
@@ -3749,7 +3751,7 @@ static ImBuf *image_get_render_result(Image *ima, ImageUser *iuser, void **r_loc
 			}
 
 			for (rpass = rl->passes.first; rpass; rpass = rpass->next)
-				if (rpass->passtype == SCE_PASS_Z)
+				if (STREQ(rpass->name, RE_PASSNAME_Z) && rpass->view_id == actview)
 					rectz = rpass->rect;
 		}
 	}

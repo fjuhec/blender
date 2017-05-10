@@ -52,15 +52,6 @@
 #include "BLT_lang.h"
 #include "GPU_buffers.h"
 
-#ifdef WITH_CYCLES
-static EnumPropertyItem compute_device_type_items[] = {
-	{USER_COMPUTE_DEVICE_NONE, "NONE", 0, "None", "Don't use compute device"},
-	{USER_COMPUTE_DEVICE_CUDA, "CUDA", 0, "CUDA", "Use CUDA for GPU acceleration"},
-	{USER_COMPUTE_DEVICE_OPENCL, "OPENCL", 0, "OpenCL", "Use OpenCL for GPU acceleration"},
-	{ 0, NULL, 0, NULL, NULL}
-};
-#endif
-
 #ifdef WITH_OPENSUBDIV
 static EnumPropertyItem opensubdiv_compute_type_items[] = {
 	{USER_OPENSUBDIV_COMPUTE_NONE, "NONE", 0, "None", ""},
@@ -124,8 +115,6 @@ static EnumPropertyItem rna_enum_language_default_items[] = {
 
 #include "UI_interface.h"
 
-#include "CCL_api.h"
-
 #ifdef WITH_OPENSUBDIV
 #  include "opensubdiv_capi.h"
 #endif
@@ -135,28 +124,24 @@ static EnumPropertyItem rna_enum_language_default_items[] = {
 #endif
 
 
+static void rna_userdef_version_get(PointerRNA *ptr, int *value)
+{
+	UserDef *userdef = (UserDef *)ptr->data;
+	value[0] = userdef->versionfile / 100;
+	value[1] = userdef->versionfile % 100;
+	value[2] = userdef->subversionfile;
+}
+
 static void rna_userdef_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *UNUSED(ptr))
 {
 	WM_main_add_notifier(NC_WINDOW, NULL);
 }
 
 /* also used by buffer swap switching */
-static void rna_userdef_dpi_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *UNUSED(ptr))
+static void rna_userdef_dpi_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *UNUSED(ptr))
 {
 	/* font's are stored at each DPI level, without this we can easy load 100's of fonts */
 	BLF_cache_clear();
-
-	BKE_blender_userdef_refresh();
-	WM_main_add_notifier(NC_WINDOW, NULL);      /* full redraw */
-	WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);    /* refresh region sizes */
-}
-
-static void rna_userdef_virtual_pixel_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *UNUSED(ptr))
-{
-	/* font's are stored at each DPI level, without this we can easy load 100's of fonts */
-	BLF_cache_clear();
-	
-	BKE_blender_userdef_refresh();
 
 	/* force setting drawable again */
 	wmWindowManager *wm = bmain->wm.first;
@@ -475,78 +460,6 @@ static PointerRNA rna_Theme_space_list_generic_get(PointerRNA *ptr)
 	return rna_pointer_inherit_refine(ptr, &RNA_ThemeSpaceListGeneric, ptr->data);
 }
 
-
-#ifdef WITH_CYCLES
-static EnumPropertyItem *rna_userdef_compute_device_type_itemf(bContext *UNUSED(C), PointerRNA *UNUSED(ptr),
-                                                               PropertyRNA *UNUSED(prop), bool *r_free)
-{
-	EnumPropertyItem *item = NULL;
-	int totitem = 0;
-
-	/* add supported device types */
-	RNA_enum_items_add_value(&item, &totitem, compute_device_type_items, USER_COMPUTE_DEVICE_NONE);
-	if (CCL_compute_device_list(0))
-		RNA_enum_items_add_value(&item, &totitem, compute_device_type_items, USER_COMPUTE_DEVICE_CUDA);
-	if (CCL_compute_device_list(1))
-		RNA_enum_items_add_value(&item, &totitem, compute_device_type_items, USER_COMPUTE_DEVICE_OPENCL);
-
-	RNA_enum_item_end(&item, &totitem);
-	*r_free = true;
-
-	return item;
-}
-
-static int rna_userdef_compute_device_get(PointerRNA *UNUSED(ptr))
-{
-	if (U.compute_device_type == USER_COMPUTE_DEVICE_NONE)
-		return 0;
-
-	return U.compute_device_id;
-}
-
-static EnumPropertyItem *rna_userdef_compute_device_itemf(bContext *UNUSED(C), PointerRNA *UNUSED(ptr),
-                                                          PropertyRNA *UNUSED(prop), bool *r_free)
-{
-	EnumPropertyItem tmp = {0, "", 0, "", ""};
-	EnumPropertyItem *item = NULL;
-	int totitem = 0;
-	
-	if (U.compute_device_type == USER_COMPUTE_DEVICE_NONE) {
-		/* only add a single CPU device */
-		tmp.value = 0;
-		tmp.name = "CPU";
-		tmp.identifier = "CPU";
-		RNA_enum_item_add(&item, &totitem, &tmp);
-	}
-	else {
-		/* get device list from cycles. it would be good to make this generic
-		 * once we have more subsystems using opencl, for now this is easiest */
-		int opencl = (U.compute_device_type == USER_COMPUTE_DEVICE_OPENCL);
-		CCLDeviceInfo *devices = CCL_compute_device_list(opencl);
-		int a;
-
-		if (devices) {
-			for (a = 0; devices[a].identifier[0]; a++) {
-				tmp.value = devices[a].value;
-				tmp.identifier = devices[a].identifier;
-				tmp.name = devices[a].name;
-				RNA_enum_item_add(&item, &totitem, &tmp);
-			}
-		}
-		else {
-			tmp.value = 0;
-			tmp.name = "CPU";
-			tmp.identifier = "CPU";
-			RNA_enum_item_add(&item, &totitem, &tmp);
-		}
-	}
-
-	RNA_enum_item_end(&item, &totitem);
-	*r_free = true;
-
-	return item;
-}
-#endif
 
 #ifdef WITH_OPENSUBDIV
 static EnumPropertyItem *rna_userdef_opensubdiv_compute_type_itemf(bContext *UNUSED(C), PointerRNA *UNUSED(ptr),
@@ -3243,6 +3156,7 @@ static void rna_def_userdef_addon_pref(BlenderRNA *brna)
 	RNA_def_struct_refine_func(srna, "rna_AddonPref_refine");
 	RNA_def_struct_register_funcs(srna, "rna_AddonPref_register", "rna_AddonPref_unregister", NULL);
 	RNA_def_struct_idprops_func(srna, "rna_AddonPref_idprops");
+	RNA_def_struct_flag(srna, STRUCT_NO_DATABLOCK_IDPROPERTIES);  /* Mandatory! */
 
 	/* registration */
 	RNA_define_verify_sdna(0);
@@ -3362,7 +3276,7 @@ static void rna_def_userdef_walk_navigation(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "use_mouse_reverse", PROP_BOOLEAN, PROP_BOOLEAN);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", USER_WALK_MOUSE_REVERSE);
-	RNA_def_property_ui_text(prop, "Reverse Mouse", "Reverse the mouse look");
+	RNA_def_property_ui_text(prop, "Reverse Mouse", "Reverse the vertical movement of the mouse");
 }
 
 static void rna_def_userdef_view(BlenderRNA *brna)
@@ -3400,6 +3314,12 @@ static void rna_def_userdef_view(BlenderRNA *brna)
 	RNA_def_struct_ui_text(srna, "View & Controls", "Preferences related to viewing data");
 
 	/* View  */
+	prop = RNA_def_property(srna, "ui_scale", PROP_FLOAT, PROP_FACTOR);
+	RNA_def_property_ui_text(prop, "UI Scale", "Changes the size of the fonts and buttons in the interface");
+	RNA_def_property_range(prop, 0.25f, 4.0f);
+	RNA_def_property_ui_range(prop, 0.5f, 2.0f, 1, 1);
+	RNA_def_property_float_default(prop, 1.0f);
+	RNA_def_property_update(prop, 0, "rna_userdef_dpi_update");
 
 	/* display */
 	prop = RNA_def_property(srna, "show_tooltips", PROP_BOOLEAN, PROP_NONE);
@@ -3977,13 +3897,6 @@ static void rna_def_userdef_system(BlenderRNA *brna)
 		{0, NULL, 0, NULL, NULL}
 	};
 
-#ifdef WITH_CYCLES
-	static EnumPropertyItem compute_device_items[] = {
-		{0, "CPU", 0, "CPU", ""},
-		{ 0, NULL, 0, NULL, NULL}
-	};
-#endif
-
 	static EnumPropertyItem image_draw_methods[] = {
 		{IMAGE_DRAW_METHOD_2DTEXTURE, "2DTEXTURE", 0, "2D Texture", "Use CPU for display transform and draw image with 2D texture"},
 		{IMAGE_DRAW_METHOD_GLSL, "GLSL", 0, "GLSL", "Use GLSL shaders for display transform and draw image with 2D texture"},
@@ -3996,12 +3909,6 @@ static void rna_def_userdef_system(BlenderRNA *brna)
 	    {USER_SELECT_USE_SELECT_RENDERMODE, "GL_SELECT", 0, "OpenGL Select", ""},
 	    {USER_SELECT_USE_OCCLUSION_QUERY, "GL_QUERY", 0, "OpenGL Occlusion Queries", ""},
 	    {0, NULL, 0, NULL, NULL}
-	};
-
-	static EnumPropertyItem virtual_pixel_mode_items[] = {
-		{VIRTUAL_PIXEL_NATIVE, "NATIVE", 0, "Native", "Use native pixel size of the display"},
-		{VIRTUAL_PIXEL_DOUBLE, "DOUBLE", 0, "Double", "Use double the native pixel size of the display"},
-		{0, NULL, 0, NULL, NULL}
 	};
 
 	srna = RNA_def_struct(brna, "UserPreferencesSystem", NULL);
@@ -4018,16 +3925,8 @@ static void rna_def_userdef_system(BlenderRNA *brna)
 	RNA_def_property_update(prop, NC_WINDOW, "rna_userdef_language_update");
 
 	prop = RNA_def_property(srna, "dpi", PROP_INT, PROP_NONE);
-	RNA_def_property_int_sdna(prop, NULL, "dpi");
-	RNA_def_property_range(prop, 48, 144);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_ui_text(prop, "DPI", "Font size and resolution for display");
-	RNA_def_property_update(prop, 0, "rna_userdef_dpi_update");
-
-	prop = RNA_def_property(srna, "virtual_pixel_mode", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_sdna(prop, NULL, "virtual_pixel");
-	RNA_def_property_enum_items(prop, virtual_pixel_mode_items);
-	RNA_def_property_ui_text(prop, "Virtual Pixel Mode", "Modify the pixel size for hi-res devices");
-	RNA_def_property_update(prop, 0, "rna_userdef_virtual_pixel_update");
 
 	prop = RNA_def_property(srna, "pixel_size", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -4262,6 +4161,10 @@ static void rna_def_userdef_system(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Selection Method",
 	                         "Use OpenGL occlusion queries or selection render mode to accelerate selection");
 
+	prop = RNA_def_property(srna, "use_select_pick_depth", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "gpu_select_pick_deph", 1);
+	RNA_def_property_ui_text(prop, "OpenGL Depth Picking", "Use the depth buffer for picking 3D View selection");
+
 	/* Full scene anti-aliasing */
 	prop = RNA_def_property(srna, "multi_sample", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_bitflag_sdna(prop, NULL, "ogl_multisamples");
@@ -4275,23 +4178,6 @@ static void rna_def_userdef_system(BlenderRNA *brna)
 	                         "Draw tool/property regions over the main region, when using Triple Buffer");
 	RNA_def_property_update(prop, 0, "rna_userdef_dpi_update");	
 
-#ifdef WITH_CYCLES
-	prop = RNA_def_property(srna, "compute_device_type", PROP_ENUM, PROP_NONE);
-	RNA_def_property_flag(prop, PROP_ENUM_NO_CONTEXT);
-	RNA_def_property_enum_sdna(prop, NULL, "compute_device_type");
-	RNA_def_property_enum_items(prop, compute_device_type_items);
-	RNA_def_property_enum_funcs(prop, NULL, NULL, "rna_userdef_compute_device_type_itemf");
-	RNA_def_property_ui_text(prop, "Compute Device Type", "Device to use for computation (rendering with Cycles)");
-	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_PROPERTIES, NULL);
-
-	prop = RNA_def_property(srna, "compute_device", PROP_ENUM, PROP_NONE);
-	RNA_def_property_flag(prop, PROP_ENUM_NO_CONTEXT);
-	RNA_def_property_enum_sdna(prop, NULL, "compute_device_id");
-	RNA_def_property_enum_items(prop, compute_device_items);
-	RNA_def_property_enum_funcs(prop, "rna_userdef_compute_device_get", NULL, "rna_userdef_compute_device_itemf");
-	RNA_def_property_ui_text(prop, "Compute Device", "Device to use for computation");
-#endif
-
 #ifdef WITH_OPENSUBDIV
 	prop = RNA_def_property(srna, "opensubdiv_compute_type", PROP_ENUM, PROP_NONE);
 	RNA_def_property_flag(prop, PROP_ENUM_NO_CONTEXT);
@@ -4300,6 +4186,14 @@ static void rna_def_userdef_system(BlenderRNA *brna)
 	RNA_def_property_enum_funcs(prop, NULL, NULL, "rna_userdef_opensubdiv_compute_type_itemf");
 	RNA_def_property_ui_text(prop, "OpenSubdiv Compute Type", "Type of computer back-end used with OpenSubdiv");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_PROPERTIES, "rna_userdef_opensubdiv_update");
+#endif
+
+#ifdef WITH_CYCLES
+	prop = RNA_def_property(srna, "legacy_compute_device_type", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "compute_device_type");
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_flag(prop, PROP_HIDDEN);
+	RNA_def_property_ui_text(prop, "Legacy Compute Device Type", "For backwards compatibility only");
 #endif
 }
 
@@ -4423,7 +4317,7 @@ static void rna_def_userdef_input(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "ndof_deadzone", PROP_FLOAT, PROP_FACTOR);
 	RNA_def_property_range(prop, 0.0f, 1.0f);
-	RNA_def_property_ui_text(prop, "Deadzone", "Deadzone of the 3D Mouse");
+	RNA_def_property_ui_text(prop, "Deadzone", "Threshold of initial movement needed from the device's rest position");
 	RNA_def_property_update(prop, 0, "rna_userdef_ndof_deadzone_update");
 
 	prop = RNA_def_property(srna, "ndof_pan_yz_swap_axis", PROP_BOOLEAN, PROP_NONE);
@@ -4703,8 +4597,8 @@ static void rna_def_userdef_addon_collection(BlenderRNA *brna, PropertyRNA *cpro
 	RNA_def_function_flag(func, FUNC_NO_SELF | FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove add-on");
 	parm = RNA_def_pointer(func, "addon", "Addon", "", "Add-on to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
 }
 
 static void rna_def_userdef_autoexec_path_collection(BlenderRNA *brna, PropertyRNA *cprop)
@@ -4729,8 +4623,8 @@ static void rna_def_userdef_autoexec_path_collection(BlenderRNA *brna, PropertyR
 	RNA_def_function_flag(func, FUNC_NO_SELF | FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove path");
 	parm = RNA_def_pointer(func, "pathcmp", "PathCompare", "", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
 }
 
 void RNA_def_userdef(BlenderRNA *brna)
@@ -4764,6 +4658,11 @@ void RNA_def_userdef(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Active Section",
 	                         "Active section of the user preferences shown in the user interface");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
+
+	/* don't expose this directly via the UI, modify via an operator */
+	prop = RNA_def_property(srna, "app_template", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_sdna(prop, NULL, "app_template");
+	RNA_def_property_ui_text(prop, "Application Template", "");
 
 	prop = RNA_def_property(srna, "themes", PROP_COLLECTION, PROP_NONE);
 	RNA_def_property_collection_sdna(prop, NULL, "themes", NULL);
@@ -4818,6 +4717,12 @@ void RNA_def_userdef(BlenderRNA *brna)
 	RNA_def_property_pointer_funcs(prop, "rna_UserDef_system_get", NULL, NULL, NULL);
 	RNA_def_property_ui_text(prop, "System & OpenGL", "Graphics driver and operating system settings");
 	
+	prop = RNA_def_int_vector(srna, "version", 3, NULL, 0, INT_MAX,
+	                   "Version", "Version of Blender the userpref.blend was saved with", 0, INT_MAX);
+	RNA_def_property_int_funcs(prop, "rna_userdef_version_get", NULL, NULL);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_flag(prop, PROP_THICK_WRAP);
+
 	rna_def_userdef_view(brna);
 	rna_def_userdef_edit(brna);
 	rna_def_userdef_input(brna);

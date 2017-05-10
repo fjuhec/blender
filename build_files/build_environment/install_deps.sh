@@ -289,7 +289,7 @@ NO_BUILD=false
 NO_CONFIRM=false
 USE_CXX11=false
 
-PYTHON_VERSION="3.5.1"
+PYTHON_VERSION="3.5.2"
 PYTHON_VERSION_MIN="3.5"
 PYTHON_FORCE_BUILD=false
 PYTHON_FORCE_REBUILD=false
@@ -322,8 +322,8 @@ OPENEXR_FORCE_REBUILD=false
 OPENEXR_SKIP=false
 _with_built_openexr=false
 
-OIIO_VERSION="1.6.9"
-OIIO_VERSION_MIN="1.6.0"
+OIIO_VERSION="1.7.13"
+OIIO_VERSION_MIN="1.7.13"
 OIIO_VERSION_MAX="1.9.0"  # UNKNOWN currently # Not supported by current OSL...
 OIIO_FORCE_BUILD=false
 OIIO_FORCE_REBUILD=false
@@ -337,14 +337,14 @@ LLVM_FORCE_REBUILD=false
 LLVM_SKIP=false
 
 # OSL needs to be compiled for now!
-OSL_VERSION="1.7.3"
+OSL_VERSION="1.7.5"
 OSL_VERSION_MIN=$OSL_VERSION
 OSL_FORCE_BUILD=false
 OSL_FORCE_REBUILD=false
 OSL_SKIP=false
 
 # OpenSubdiv needs to be compiled for now
-OSD_VERSION="3.0.5"
+OSD_VERSION="3.1.1"
 OSD_VERSION_MIN=$OSD_VERSION
 OSD_FORCE_BUILD=false
 OSD_FORCE_REBUILD=false
@@ -360,7 +360,7 @@ OPENVDB_FORCE_REBUILD=false
 OPENVDB_SKIP=false
 
 # Alembic needs to be compiled for now
-ALEMBIC_VERSION="1.6.0"
+ALEMBIC_VERSION="1.7.1"
 ALEMBIC_VERSION_MIN=$ALEMBIC_VERSION
 ALEMBIC_FORCE_BUILD=false
 ALEMBIC_FORCE_REBUILD=false
@@ -372,7 +372,7 @@ OPENCOLLADA_FORCE_BUILD=false
 OPENCOLLADA_FORCE_REBUILD=false
 OPENCOLLADA_SKIP=false
 
-FFMPEG_VERSION="2.8.4"
+FFMPEG_VERSION="3.2.1"
 FFMPEG_VERSION_MIN="2.8.4"
 FFMPEG_FORCE_BUILD=false
 FFMPEG_FORCE_REBUILD=false
@@ -713,6 +713,21 @@ if [ "$WITH_ALL" = true -a "$OPENCOLLADA_SKIP" = false ]; then
 fi
 
 
+WARNING "****WARNING****"
+PRINT "If you are experiencing issues building Blender, _*TRY A FRESH, CLEAN BUILD FIRST*_!"
+PRINT "The same goes for install_deps itself, if you encounter issues, please first erase everything in $SRC and $INST"
+PRINT "(provided obviously you did not add anything yourself in those dirs!), and run install_deps.sh again!"
+PRINT "Often, changes in the libs built by this script, or in your distro package, cannot be handled simply, so..."
+PRINT ""
+PRINT "You may also try to use the '--build-foo' options to bypass your distribution's packages"
+PRINT "for some troublesome/buggy libraries..."
+PRINT ""
+PRINT ""
+PRINT "Ran with:"
+PRINT "    install_deps.sh $COMMANDLINE"
+PRINT ""
+PRINT ""
+
 
 # This has to be done here, because user might force some versions...
 PYTHON_SOURCE=( "https://www.python.org/ftp/python/$PYTHON_VERSION/Python-$PYTHON_VERSION.tgz" )
@@ -780,11 +795,13 @@ CXXFLAGS_BACK=$CXXFLAGS
 if [ "$USE_CXX11" = true ]; then
   WARNING "You are trying to use c++11, this *should* go smoothely with any very recent distribution
 However, if you are experiencing linking errors (also when building Blender itself), please try the following:
-    * Re-run this script with `--build-all --force-all` options.
+    * Re-run this script with '--build-all --force-all' options.
     * Ensure your gcc version is at the very least 4.8, if possible you should really rather use gcc-5.1 or above.
 
 Please note that until the transition to C++11-built libraries if completed in your distribution, situation will
 remain fuzzy and incompatibilities may happen..."
+  PRINT ""
+  PRINT ""
   CXXFLAGS="$CXXFLAGS -std=c++11"
   export CXXFLAGS
 fi
@@ -1858,6 +1875,9 @@ compile_OSL() {
     cmake_d="$cmake_d -D OSL_BUILD_PLUGINS=OFF"
     cmake_d="$cmake_d -D OSL_BUILD_TESTS=OFF"
     cmake_d="$cmake_d -D USE_SIMD=sse2"
+    if [ "$USE_CXX11" = true ]; then
+        cmake_d="$cmake_d -D OSL_BUILD_CPP11=1"
+    fi
 
     #~ cmake_d="$cmake_d -D ILMBASE_VERSION=$ILMBASE_VERSION"
 
@@ -2216,9 +2236,6 @@ compile_ALEMBIC() {
     return
   fi
 
-  compile_HDF5
-  PRINT ""
-
   # To be changed each time we make edits that would modify the compiled result!
   alembic_magic=2
   _init_alembic
@@ -2246,8 +2263,16 @@ compile_ALEMBIC() {
 
     cmake_d="-D CMAKE_INSTALL_PREFIX=$_inst"
 
+    # Without Boost or TR1, Alembic requires C++11.
+    if [ "$USE_CXX11" != true ]; then
+      cmake_d="$cmake_d -D ALEMBIC_LIB_USES_BOOST=ON"
+      cmake_d="$cmake_d -D ALEMBIC_LIB_USES_TR1=OFF"
+    fi
+
     if [ -d $INST/boost ]; then
-      cmake_d="$cmake_d -D BOOST_ROOT=$INST/boost"
+      if [ -d $INST/boost ]; then
+        cmake_d="$cmake_d -D BOOST_ROOT=$INST/boost"
+      fi
       cmake_d="$cmake_d -D USE_STATIC_BOOST=ON"
     else
       cmake_d="$cmake_d -D USE_STATIC_BOOST=OFF"
@@ -2265,8 +2290,6 @@ compile_ALEMBIC() {
       cmake_d="$cmake_d -D USE_STATIC_HDF5=OFF"
       cmake_d="$cmake_d -D ALEMBIC_ILMBASE_LINK_STATIC=OFF"
       cmake_d="$cmake_d -D ALEMBIC_SHARED_LIBS=OFF"
-      cmake_d="$cmake_d -D ALEMBIC_LIB_USES_BOOST=ON"
-      cmake_d="$cmake_d -D ALEMBIC_LIB_USES_TR1=OFF"
       INFO "ILMBASE_ROOT=$INST/openexr"
     fi
 
@@ -2460,7 +2483,7 @@ compile_FFmpeg() {
         --enable-avfilter --disable-vdpau \
         --disable-bzlib --disable-libgsm --disable-libspeex \
         --enable-pthreads --enable-zlib --enable-stripping --enable-runtime-cpudetect \
-        --disable-vaapi --disable-libfaac --disable-nonfree --enable-gpl \
+        --disable-vaapi --disable-nonfree --enable-gpl \
         --disable-postproc --disable-librtmp --disable-libopencore-amrnb \
         --disable-libopencore-amrwb --disable-libdc1394 --disable-version3 --disable-outdev=sdl \
         --disable-libxcb \
@@ -2578,7 +2601,6 @@ install_DEB() {
   fi
 
   # These libs should always be available in debian/ubuntu official repository...
-  OPENJPEG_DEV="libopenjpeg-dev"
   VORBIS_DEV="libvorbis-dev"
   OGG_DEV="libogg-dev"
   THEORA_DEV="libtheora-dev"
@@ -2586,15 +2608,23 @@ install_DEB() {
   _packages="gawk cmake cmake-curses-gui build-essential libjpeg-dev libpng-dev libtiff-dev \
              git libfreetype6-dev libx11-dev flex bison libtbb-dev libxxf86vm-dev \
              libxcursor-dev libxi-dev wget libsqlite3-dev libxrandr-dev libxinerama-dev \
-             libbz2-dev libncurses5-dev libssl-dev liblzma-dev libreadline-dev $OPENJPEG_DEV \
+             libbz2-dev libncurses5-dev libssl-dev liblzma-dev libreadline-dev \
              libopenal-dev libglew-dev yasm $THEORA_DEV $VORBIS_DEV $OGG_DEV \
              libsdl1.2-dev libfftw3-dev patch bzip2 libxml2-dev libtinyxml-dev libjemalloc-dev"
              # libglewmx-dev  (broken in deb testing currently...)
 
-  OPENJPEG_USE=true
   VORBIS_USE=true
   OGG_USE=true
   THEORA_USE=true
+
+  PRINT ""
+  # New Ubuntu crap (17.04 and more) have no openjpeg lib!
+  OPENJPEG_DEV="libopenjpeg-dev"
+  check_package_DEB $OPENJPEG_DEV
+  if [ $? -eq 0 ]; then
+    _packages="$_packages $OPENJPEG_DEV"
+    OPENJPEG_USE=true
+  fi
 
   PRINT ""
   # Some not-so-old distro (ubuntu 12.4) do not have it, do not fail in this case, just warn.
@@ -2757,7 +2787,7 @@ install_DEB() {
 
       boost_version=$(echo `get_package_version_DEB libboost-dev` | sed -r 's/^([0-9]+\.[0-9]+).*/\1/')
 
-      install_packages_DEB libboost-{filesystem,iostreams,locale,regex,system,thread,wave}$boost_version-dev
+      install_packages_DEB libboost-{filesystem,iostreams,locale,regex,system,thread,wave,program-options}$boost_version-dev
       clean_Boost
     else
       compile_Boost
@@ -4023,9 +4053,6 @@ install_OTHER() {
   fi
 
   if [ "$_do_compile_llvm" = true ]; then
-    install_packages_DEB libffi-dev
-    # LLVM can't find the debian ffi header dir
-    _FFI_INCLUDE_DIR=`dpkg -L libffi-dev | grep -e ".*/ffi.h" | sed -r 's/(.*)\/ffi.h/\1/'`
     PRINT ""
     compile_LLVM
     have_llvm=true
@@ -4044,7 +4071,6 @@ install_OTHER() {
 
   if [ "$_do_compile_osl" = true ]; then
     if [ "$have_llvm" = true ]; then
-      install_packages_DEB flex bison libtbb-dev
       PRINT ""
       compile_OSL
     else
@@ -4063,7 +4089,6 @@ install_OTHER() {
   fi
 
   if [ "$_do_compile_osd" = true ]; then
-    install_packages_DEB flex bison libtbb-dev
     PRINT ""
     compile_OSD
   fi
@@ -4080,10 +4105,6 @@ install_OTHER() {
     fi
 
     if [ "$_do_compile_collada" = true ]; then
-      install_packages_DEB libpcre3-dev
-      # Find path to libxml shared lib...
-      _XML2_LIB=`dpkg -L libxml2-dev | grep -e ".*/libxml2.so"`
-      # No package
       PRINT ""
       compile_OpenCOLLADA
     fi
@@ -4170,16 +4191,6 @@ print_info_ffmpeglink() {
 print_info() {
   PRINT ""
   PRINT ""
-  WARNING "****WARNING****"
-  PRINT "If you are experiencing issues building Blender, _*TRY A FRESH, CLEAN BUILD FIRST*_!"
-  PRINT "The same goes for install_deps itself, if you encounter issues, please first erase everything in $SRC and $INST"
-  PRINT "(provided obviously you did not add anything yourself in those dirs!), and run install_deps.sh again!"
-  PRINT "Often, changes in the libs built by this script, or in your distro package, cannot be handled simply, so..."
-  PRINT ""
-  PRINT "You may also try to use the '--build-foo' options to bypass your distribution's packages"
-  PRINT "for some troublesome/buggy libraries..."
-  PRINT ""
-  PRINT ""
   PRINT "Ran with:"
   PRINT "    install_deps.sh $COMMANDLINE"
   PRINT ""
@@ -4251,7 +4262,7 @@ print_info() {
     PRINT "  $_3"
     _buildargs="$_buildargs $_1 $_2 $_3"
     if [ -d $INST/osl ]; then
-      _1="-D CYCLES_OSL=$INST/osl"
+      _1="-D OSL_ROOT_DIR=$INST/osl"
       PRINT "  $_1"
       _buildargs="$_buildargs $_1"
     fi

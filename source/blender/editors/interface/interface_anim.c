@@ -39,6 +39,7 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_context.h"
+#include "BKE_depsgraph.h"
 #include "BKE_fcurve.h"
 #include "BKE_global.h"
 #include "BKE_nla.h"
@@ -99,6 +100,10 @@ void ui_but_anim_flag(uiBut *but, float cfra)
 	}
 }
 
+/**
+ * \a str can be NULL to only perform check if \a but has an expression at all.
+ * \return if button has an expression.
+ */
 bool ui_but_anim_expression_get(uiBut *but, char *str, size_t maxlen)
 {
 	FCurve *fcu;
@@ -111,7 +116,9 @@ bool ui_but_anim_expression_get(uiBut *but, char *str, size_t maxlen)
 		driver = fcu->driver;
 
 		if (driver && driver->type == DRIVER_TYPE_PYTHON) {
-			BLI_strncpy(str, driver->expression, maxlen);
+			if (str) {
+				BLI_strncpy(str, driver->expression, maxlen);
+			}
 			return true;
 		}
 	}
@@ -204,6 +211,7 @@ bool ui_but_anim_expression_create(uiBut *but, const char *str)
 
 			/* updates */
 			driver->flag |= DRIVER_FLAG_RECOMPILE;
+			DAG_relations_tag_update(CTX_data_main(C));
 			WM_event_add_notifier(C, NC_ANIMATION | ND_KEYFRAME, NULL);
 			ok = true;
 		}
