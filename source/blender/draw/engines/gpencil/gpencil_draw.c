@@ -49,22 +49,12 @@
 
 #include "gpencil_engine.h"
 
-/* set stroke point to vbo */
-static void gpencil_set_stroke_point(RegionView3D *rv3d, VertexBuffer *vbo, float matrix[4][4], const bGPDspoint *pt, int idx,
-						    unsigned int pos_id, unsigned int color_id,
-							unsigned int thickness_id, short thickness,
-	                        const float ink[4])
+/* get pixel scale size at stroke point location */
+static float get_pixel_scale(RegionView3D *rv3d, float viewfpt[3])
 {
-	float fpt[3];
-	float viewfpt[3];
-	copy_v3_v3(fpt, &pt->x);
-	
-	copy_v3_v3(viewfpt, &pt->x);
-	mul_m4_v3(matrix, viewfpt);
-
 	const float defaultpixsize = rv3d->pixsize * U.pixelsize;
 	const float pixsize = ED_view3d_pixel_size(rv3d, viewfpt);
-	float scale_thickness;
+	float scale_thickness = 0.0f;
 	if (rv3d->is_persp) {
 		/* need a factor to mimmic old glLine size, 10.0f works fine */
 		scale_thickness = (defaultpixsize / pixsize) * 10.0f;
@@ -73,15 +63,29 @@ static void gpencil_set_stroke_point(RegionView3D *rv3d, VertexBuffer *vbo, floa
 		scale_thickness = (1.0f / pixsize) / 100.0f;
 	}
 
+	return scale_thickness;
+}
+
+/* set stroke point to vbo */
+static void gpencil_set_stroke_point(RegionView3D *rv3d, VertexBuffer *vbo, float matrix[4][4], const bGPDspoint *pt, int idx,
+						    unsigned int pos_id, unsigned int color_id,
+							unsigned int thickness_id, short thickness,
+	                        const float ink[4])
+{
+	float viewfpt[3];
+	
 	float alpha = ink[3] * pt->strength;
 	CLAMP(alpha, GPENCIL_STRENGTH_MIN, 1.0f);
 	float col[4] = { ink[0], ink[1], ink[2], alpha };
 	VertexBuffer_set_attrib(vbo, color_id, idx, col);
 
+	/* the thickness of the stroke must be affected by zoom, so a pixel scale is calculated */
+	mul_v3_m4v3(viewfpt, matrix, &pt->x);
+	float scale_thickness = get_pixel_scale(rv3d, viewfpt);
 	float thick = max_ff(pt->pressure * thickness * scale_thickness, 1.0f);
 	VertexBuffer_set_attrib(vbo, thickness_id, idx, &thick);
 	
-	VertexBuffer_set_attrib(vbo, pos_id, idx, fpt);
+	VertexBuffer_set_attrib(vbo, pos_id, idx, &pt->x);
 }
 
 /* create batch geometry data for one point stroke shader */
