@@ -1177,7 +1177,10 @@ void uiTemplateOperatorRedo(uiLayout *layout, bContext *C)
 	wmOperator *op = WM_operator_last_redo(C);
 
 	if (op) {
+		uiBlock *block = uiLayoutGetBlock(layout);
+
 		uiLayoutOperatorButs(C, layout, op, NULL, '\0', UI_LAYOUT_OP_COMPACT);
+		UI_block_func_handle_set(block, ED_undo_operator_repeat_cb_evt, op);
 	}
 }
 

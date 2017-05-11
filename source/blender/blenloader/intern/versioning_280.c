@@ -415,4 +415,24 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 			}
 		}
 	}
+
+	if (!DNA_struct_find(fd->filesdna, "SpaceTopBar")) {
+		for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
+			for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
+				for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
+					ListBase *regionbase = (sl == sa->spacedata.first) ? &sa->regionbase : &sl->regionbase;
+
+					if (sl->spacetype == SPACE_VIEW3D) {
+						for (ARegion *region = regionbase->first; region; region = region->next) {
+							if (region->regiontype == RGN_TYPE_TOOL_PROPS) {
+								BKE_area_region_free(NULL, region);
+								BLI_freelinkN(regionbase, region);
+								break;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 }

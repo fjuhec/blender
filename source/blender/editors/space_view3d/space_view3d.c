@@ -111,18 +111,17 @@ ARegion *view3d_has_buttons_region(ScrArea *sa)
 
 ARegion *view3d_has_tools_region(ScrArea *sa)
 {
-	ARegion *ar, *artool = NULL, *arprops = NULL, *arhead;
+	ARegion *ar, *artool = NULL, *arhead;
 	
 	for (ar = sa->regionbase.first; ar; ar = ar->next) {
 		if (ar->regiontype == RGN_TYPE_TOOLS)
 			artool = ar;
-		if (ar->regiontype == RGN_TYPE_TOOL_PROPS)
-			arprops = ar;
 	}
-	
-	/* tool region hide/unhide also hides props */
-	if (arprops && artool) return artool;
-	
+
+	if (artool) {
+		return artool;
+	}
+
 	if (artool == NULL) {
 		/* add subdiv level; after header */
 		for (arhead = sa->regionbase.first; arhead; arhead = arhead->next)
@@ -140,15 +139,6 @@ ARegion *view3d_has_tools_region(ScrArea *sa)
 		artool->flag = RGN_FLAG_HIDDEN;
 	}
 
-	if (arprops == NULL) {
-		/* add extra subdivided region for tool properties */
-		arprops = MEM_callocN(sizeof(ARegion), "tool props for view3d");
-		
-		BLI_insertlinkafter(&sa->regionbase, artool, arprops);
-		arprops->regiontype = RGN_TYPE_TOOL_PROPS;
-		arprops->alignment = RGN_ALIGN_BOTTOM | RGN_SPLIT_PREV;
-	}
-	
 	return artool;
 }
 
@@ -372,15 +362,7 @@ static SpaceLink *view3d_new(const bContext *C)
 	ar->regiontype = RGN_TYPE_TOOLS;
 	ar->alignment = RGN_ALIGN_LEFT;
 	ar->flag = RGN_FLAG_HIDDEN;
-	
-	/* tool properties */
-	ar = MEM_callocN(sizeof(ARegion), "tool properties for view3d");
-	
-	BLI_addtail(&v3d->regionbase, ar);
-	ar->regiontype = RGN_TYPE_TOOL_PROPS;
-	ar->alignment = RGN_ALIGN_BOTTOM | RGN_SPLIT_PREV;
-	ar->flag = RGN_FLAG_HIDDEN;
-	
+
 	/* buttons/list view */
 	ar = MEM_callocN(sizeof(ARegion), "buttons for view3d");
 	
@@ -1266,27 +1248,6 @@ static void view3d_tools_region_draw(const bContext *C, ARegion *ar)
 	ED_region_panels(C, ar, CTX_data_mode_string(C), -1, true);
 }
 
-static void view3d_props_region_listener(
-        bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
-        wmNotifier *wmn, const Scene *UNUSED(scene))
-{
-	/* context changes */
-	switch (wmn->category) {
-		case NC_WM:
-			if (wmn->data == ND_HISTORY)
-				ED_region_tag_redraw(ar);
-			break;
-		case NC_SCENE:
-			if (wmn->data == ND_MODE)
-				ED_region_tag_redraw(ar);
-			break;
-		case NC_SPACE:
-			if (wmn->data == ND_SPACE_VIEW3D)
-				ED_region_tag_redraw(ar);
-			break;
-	}
-}
-
 /* area (not region) level listener */
 static void space_view3d_listener(
         bScreen *UNUSED(sc), ScrArea *sa, struct wmNotifier *wmn, const Scene *UNUSED(scene))
@@ -1492,20 +1453,6 @@ void ED_spacetype_view3d(void)
 	view3d_toolshelf_register(art);
 #endif
 
-	/* regions: tool properties */
-	art = MEM_callocN(sizeof(ARegionType), "spacetype view3d tool properties region");
-	art->regionid = RGN_TYPE_TOOL_PROPS;
-	art->prefsizex = 0;
-	art->prefsizey = 120;
-	art->keymapflag = ED_KEYMAP_UI | ED_KEYMAP_FRAMES;
-	art->listener = view3d_props_region_listener;
-	art->init = view3d_tools_region_init;
-	art->draw = view3d_tools_region_draw;
-	BLI_addhead(&st->regiontypes, art);
-	
-	view3d_tool_props_register(art);
-	
-	
 	/* regions: header */
 	art = MEM_callocN(sizeof(ARegionType), "spacetype view3d header region");
 	art->regionid = RGN_TYPE_HEADER;

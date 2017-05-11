@@ -141,10 +141,24 @@ static void topbar_header_region_draw(const bContext *C, ARegion *ar)
 	ED_region_header(C, ar);
 }
 
-static void topbar_main_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *UNUSED(ar),
-                                        wmNotifier *UNUSED(wmn), const Scene *UNUSED(scene))
+static void topbar_main_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
+                                        wmNotifier *wmn, const Scene *UNUSED(scene))
 {
 	/* context changes */
+	switch (wmn->category) {
+		case NC_WM:
+			if (wmn->data == ND_HISTORY)
+				ED_region_tag_redraw(ar);
+			break;
+		case NC_SCENE:
+			if (wmn->data == ND_MODE)
+				ED_region_tag_redraw(ar);
+			break;
+		case NC_SPACE:
+			if (wmn->data == ND_SPACE_VIEW3D)
+				ED_region_tag_redraw(ar);
+			break;
+	}
 }
 
 static void topbar_header_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *UNUSED(ar),
