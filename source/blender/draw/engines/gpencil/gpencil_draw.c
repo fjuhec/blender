@@ -50,10 +50,10 @@
 #include "gpencil_engine.h"
 
 /* get pixel scale size at stroke point location */
-static float get_pixel_scale(RegionView3D *rv3d, float viewfpt[3])
+static float get_pixel_scale(RegionView3D *rv3d, float point[3])
 {
 	const float defaultpixsize = rv3d->pixsize * U.pixelsize;
-	const float pixsize = ED_view3d_pixel_size(rv3d, viewfpt);
+	const float pixsize = ED_view3d_pixel_size(rv3d, point);
 	float scale_thickness = 0.0f;
 	if (rv3d->is_persp) {
 		/* need a factor to mimmic old glLine size, 10.0f works fine */
