@@ -964,7 +964,7 @@ static void parent_set_ui(bContext *C, wmOperator *op)
 	RNA_pointer_create(&wm->id, op->type->srna, op->properties, &ptr);
 
 	/* Main auto-draw call. */
-	uiDefAutoButsRNA(layout, &ptr, parent_set_draw_check_prop, '\0');
+	uiDefAutoButsRNA(layout, &ptr, parent_set_draw_check_prop, '\0', false);
 }
 
 void OBJECT_OT_parent_set(wmOperatorType *ot)

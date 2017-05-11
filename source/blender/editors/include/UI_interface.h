@@ -677,7 +677,10 @@ uiBut *uiDefSearchButO_ptr(uiBlock *block, struct wmOperatorType *ot, struct IDP
                            short width, short height, float a1, float a2, const char *tip);
 
 uiBut *uiDefAutoButR(uiBlock *block, struct PointerRNA *ptr, struct PropertyRNA *prop, int index, const char *name, int icon, int x1, int y1, int x2, int y2);
-int uiDefAutoButsRNA(uiLayout *layout, struct PointerRNA *ptr, bool (*check_prop)(struct PointerRNA *, struct PropertyRNA *), const char label_align);
+int uiDefAutoButsRNA(
+        uiLayout *layout, struct PointerRNA *ptr,
+        bool (*check_prop)(struct PointerRNA *, struct PropertyRNA *),
+        const char label_align, const bool compact);
 
 /* Links
  *
@@ -830,10 +833,12 @@ void UI_exit(void);
 #define UI_ITEM_R_FULL_EVENT    (1 << 6)
 #define UI_ITEM_R_NO_BG         (1 << 7)
 #define UI_ITEM_R_IMMEDIATE     (1 << 8)
+#define UI_ITEM_R_COMPACT       (1 << 9)
 
 /* uiLayoutOperatorButs flags */
-#define UI_LAYOUT_OP_SHOW_TITLE 1
-#define UI_LAYOUT_OP_SHOW_EMPTY 2
+#define UI_LAYOUT_OP_SHOW_TITLE (1 << 0)
+#define UI_LAYOUT_OP_SHOW_EMPTY (1 << 1)
+#define UI_LAYOUT_OP_COMPACT    (1 << 2)
 
 /* used for transp checkers */
 #define UI_ALPHA_CHECKER_DARK 100
@@ -918,6 +923,7 @@ void uiTemplateAnyID(uiLayout *layout, struct PointerRNA *ptr, const char *propn
 void uiTemplatePathBuilder(uiLayout *layout, struct PointerRNA *ptr, const char *propname, 
                            struct PointerRNA *root_ptr, const char *text);
 uiLayout *uiTemplateModifier(uiLayout *layout, struct bContext *C, struct PointerRNA *ptr);
+void uiTemplateOperatorRedo(uiLayout *layout, struct bContext *C);
 uiLayout *uiTemplateConstraint(uiLayout *layout, struct PointerRNA *ptr);
 void uiTemplatePreview(uiLayout *layout, struct bContext *C, struct ID *id, int show_buttons, struct ID *parent,
                        struct MTex *slot, const char *preview_id);

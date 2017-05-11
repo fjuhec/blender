@@ -90,6 +90,10 @@ class TOPBAR_HT_lower_bar(Header):
 
         layout.prop(workspace, "object_mode", text="")
 
+        layout.separator()
+
+        layout.template_operator_redo()
+
 
 class TOPBAR_MT_editor_menus(Menu):
     bl_idname = "TOPBAR_MT_editor_menus"

@@ -627,6 +627,7 @@ void uiTemplateID(uiLayout *layout, struct bContext *C, struct PointerRNA *ptr, 
                   struct PointerRNA *searchptr, const char *searchpropname, const char *newop,
                   const char *openop, const char *unlinkop) RET_NONE
 struct uiLayout *uiTemplateModifier(uiLayout *layout, struct bContext *C, struct PointerRNA *ptr) RET_NULL
+void uiTemplateOperatorRedo(uiLayout *layout, struct bContext *C) RET_NONE
 struct uiLayout *uiTemplateConstraint(struct uiLayout *layout, struct PointerRNA *ptr) RET_NULL
 void uiTemplatePreview(struct uiLayout *layout, struct bContext *C, struct ID *id, int show_buttons, struct ID *parent,
                        struct MTex *slot, const char *preview_id) RET_NONE

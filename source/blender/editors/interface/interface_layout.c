@@ -388,7 +388,7 @@ static void ui_layer_but_cb(bContext *C, void *arg_but, void *arg_index)
 static void ui_item_array(
         uiLayout *layout, uiBlock *block, const char *name, int icon,
         PointerRNA *ptr, PropertyRNA *prop, int len, int x, int y, int w, int UNUSED(h),
-        bool expand, bool slider, bool toggle, bool icon_only)
+        bool expand, bool slider, bool toggle, bool icon_only, bool compact)
 {
 	uiStyle *style = layout->root->style;
 	uiBut *but;
@@ -537,9 +537,18 @@ static void ui_item_array(
 			}
 
 			for (a = 0; a < len; a++) {
-				if (!icon_only) str[0] = RNA_property_array_item_char(prop, a);
-				if (boolarr) icon = boolarr[a] ? ICON_CHECKBOX_HLT : ICON_CHECKBOX_DEHLT;
-				but = uiDefAutoButR(block, ptr, prop, a, str, icon, 0, 0, w, UI_UNIT_Y);
+				int width_item;
+
+				if (!icon_only) {
+					str[0] = RNA_property_array_item_char(prop, a);
+				}
+				if (boolarr) {
+					icon = boolarr[a] ? ICON_CHECKBOX_HLT : ICON_CHECKBOX_DEHLT;
+				}
+				width_item = (compact && type == PROP_BOOLEAN) ?
+				                 min_ii(w, ui_text_icon_width(layout, str, icon, false)) : w;
+
+				but = uiDefAutoButR(block, ptr, prop, a, str, icon, 0, 0, width_item, UI_UNIT_Y);
 				if (slider && but->type == UI_BTYPE_NUM)
 					but->type = UI_BTYPE_NUM_SLIDER;
 				if (toggle && but->type == UI_BTYPE_CHECKBOX)
@@ -1235,8 +1244,10 @@ void uiItemO(uiLayout *layout, const char *name, int icon, const char *opname)
 /* RNA property items */
 
 static void ui_item_rna_size(
-        uiLayout *layout, const char *name, int icon, PointerRNA *ptr, PropertyRNA *prop,
-        int index, bool icon_only, int *r_w, int *r_h)
+        uiLayout *layout, const char *name, int icon,
+        PointerRNA *ptr, PropertyRNA *prop,
+        int index, bool icon_only, bool compact,
+        int *r_w, int *r_h)
 {
 	PropertyType type;
 	PropertySubType subtype;
@@ -1262,7 +1273,7 @@ static void ui_item_rna_size(
 			RNA_property_enum_items_gettexted(layout->root->block->evil_C, ptr, prop, &item_array, NULL, &free);
 			for (item = item_array; item->identifier; item++) {
 				if (item->identifier[0]) {
-					w = max_ii(w, ui_text_icon_width(layout, item->name, item->icon, 0));
+					w = max_ii(w, ui_text_icon_width(layout, item->name, item->icon, compact));
 				}
 			}
 			if (free) {
@@ -1273,12 +1284,13 @@ static void ui_item_rna_size(
 
 	if (!w) {
 		if (type == PROP_ENUM && icon_only) {
-			w = ui_text_icon_width(layout, "", ICON_BLANK1, 0);
+			w = ui_text_icon_width(layout, "", ICON_BLANK1, compact);
 			if (index != RNA_ENUM_VALUE)
 				w += 0.6f * UI_UNIT_X;
 		}
 		else {
-			w = ui_text_icon_width(layout, name, icon, 0);
+			/* not compact for float/int buttons, looks too squashed */
+			w = ui_text_icon_width(layout, name, icon, ELEM(type, PROP_FLOAT, PROP_INT) ? false : compact);
 		}
 	}
 	h = UI_UNIT_Y;
@@ -1315,7 +1327,7 @@ void uiItemFullR(uiLayout *layout, PointerRNA *ptr, PropertyRNA *prop, int index
 	PropertyType type;
 	char namestr[UI_MAX_NAME_STR];
 	int len, w, h;
-	bool slider, toggle, expand, icon_only, no_bg;
+	bool slider, toggle, expand, icon_only, no_bg, compact;
 	bool is_array;
 
 	UI_block_layout_set_current(block, layout);
@@ -1348,7 +1360,12 @@ void uiItemFullR(uiLayout *layout, PointerRNA *ptr, PropertyRNA *prop, int index
 		name = ui_item_name_add_colon(name, namestr);
 	}
 	else if (type == PROP_ENUM && index != RNA_ENUM_VALUE) {
-		name = ui_item_name_add_colon(name, namestr);
+		if (flag & UI_ITEM_R_COMPACT) {
+			name = "";
+		}
+		else {
+			name = ui_item_name_add_colon(name, namestr);
+		}
 	}
 
 	/* menus and pie-menus don't show checkbox without this */
@@ -1376,16 +1393,19 @@ void uiItemFullR(uiLayout *layout, PointerRNA *ptr, PropertyRNA *prop, int index
 	expand = (flag & UI_ITEM_R_EXPAND) != 0;
 	icon_only = (flag & UI_ITEM_R_ICON_ONLY) != 0;
 	no_bg = (flag & UI_ITEM_R_NO_BG) != 0;
+	compact = (flag & UI_ITEM_R_COMPACT) != 0;
 
 	/* get size */
-	ui_item_rna_size(layout, name, icon, ptr, prop, index, icon_only, &w, &h);
+	ui_item_rna_size(layout, name, icon, ptr, prop, index, icon_only, compact, &w, &h);
 
 	if (no_bg)
 		UI_block_emboss_set(block, UI_EMBOSS_NONE);
 	
 	/* array property */
 	if (index == RNA_NO_INDEX && is_array)
-		ui_item_array(layout, block, name, icon, ptr, prop, len, 0, 0, w, h, expand, slider, toggle, icon_only);
+		ui_item_array(
+		            layout, block, name, icon, ptr, prop, len, 0, 0, w, h,
+		            expand, slider, toggle, icon_only, compact);
 	/* enum item */
 	else if (type == PROP_ENUM && index == RNA_ENUM_VALUE) {
 		if (icon && name[0] && !icon_only)
@@ -1701,7 +1721,7 @@ void uiItemPointerR(uiLayout *layout, struct PointerRNA *ptr, const char *propna
 	/* create button */
 	block = uiLayoutGetBlock(layout);
 
-	ui_item_rna_size(layout, name, icon, ptr, prop, 0, 0, &w, &h);
+	ui_item_rna_size(layout, name, icon, ptr, prop, 0, 0, false, &w, &h);
 	w += UI_UNIT_X; /* X icon needs more space */
 	but = ui_item_with_label(layout, block, name, icon, ptr, prop, 0, 0, 0, w, h, 0);
 
@@ -3525,7 +3545,7 @@ void uiLayoutOperatorButs(
 		RNA_pointer_create(&wm->id, op->type->srna, op->properties, &ptr);
 
 		/* main draw call */
-		empty = uiDefAutoButsRNA(layout, &ptr, check_prop, label_align) == 0;
+		empty = uiDefAutoButsRNA(layout, &ptr, check_prop, label_align, (flag & UI_LAYOUT_OP_COMPACT)) == 0;
 
 		if (empty && (flag & UI_LAYOUT_OP_SHOW_EMPTY)) {
 			uiItemL(layout, IFACE_("No Properties"), ICON_NONE);

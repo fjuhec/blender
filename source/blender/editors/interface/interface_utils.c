@@ -160,7 +160,7 @@ uiBut *uiDefAutoButR(uiBlock *block, PointerRNA *ptr, PropertyRNA *prop, int ind
 int uiDefAutoButsRNA(
         uiLayout *layout, PointerRNA *ptr,
         bool (*check_prop)(PointerRNA *, PropertyRNA *),
-        const char label_align)
+        const char label_align, const bool compact)
 {
 	uiLayout *split, *col;
 	int flag;
@@ -207,7 +207,7 @@ int uiDefAutoButsRNA(
 			name = NULL; /* no smart label alignment, show default name with button */
 		}
 
-		uiItemFullR(col, ptr, prop, -1, 0, 0, name, ICON_NONE);
+		uiItemFullR(col, ptr, prop, -1, 0, compact ? UI_ITEM_R_COMPACT : 0, name, ICON_NONE);
 		tot++;
 	}
 	RNA_STRUCT_END;

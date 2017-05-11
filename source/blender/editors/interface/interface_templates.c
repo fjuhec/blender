@@ -1169,6 +1169,19 @@ uiLayout *uiTemplateModifier(uiLayout *layout, bContext *C, PointerRNA *ptr)
 	return NULL;
 }
 
+
+/************************ Redo Buttons Template *************************/
+
+void uiTemplateOperatorRedo(uiLayout *layout, bContext *C)
+{
+	wmOperator *op = WM_operator_last_redo(C);
+
+	if (op) {
+		uiLayoutOperatorButs(C, layout, op, NULL, '\0', UI_LAYOUT_OP_COMPACT);
+	}
+}
+
+
 /************************ Constraint Template *************************/
 
 #include "DNA_constraint_types.h"

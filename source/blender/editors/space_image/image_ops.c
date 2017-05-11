@@ -1418,7 +1418,7 @@ static void image_open_draw(bContext *UNUSED(C), wmOperator *op)
 
 	/* main draw call */
 	RNA_pointer_create(NULL, op->type->srna, op->properties, &ptr);
-	uiDefAutoButsRNA(layout, &ptr, image_open_draw_check_prop, '\0');
+	uiDefAutoButsRNA(layout, &ptr, image_open_draw_check_prop, '\0', false);
 
 	/* image template */
 	RNA_pointer_create(NULL, &RNA_ImageFormatSettings, imf, &imf_ptr);
@@ -2139,7 +2139,7 @@ static void image_save_as_draw(bContext *UNUSED(C), wmOperator *op)
 
 	/* main draw call */
 	RNA_pointer_create(NULL, op->type->srna, op->properties, &ptr);
-	uiDefAutoButsRNA(layout, &ptr, image_save_as_draw_check_prop, '\0');
+	uiDefAutoButsRNA(layout, &ptr, image_save_as_draw_check_prop, '\0', false);
 
 	/* multiview template */
 	if (is_multiview)

@@ -1446,7 +1446,7 @@ static void gp_convert_ui(bContext *C, wmOperator *op)
 	RNA_pointer_create(&wm->id, op->type->srna, op->properties, &ptr);
 	
 	/* Main auto-draw call */
-	uiDefAutoButsRNA(layout, &ptr, gp_convert_draw_check_prop, '\0');
+	uiDefAutoButsRNA(layout, &ptr, gp_convert_draw_check_prop, '\0', false);
 }
 
 void GPENCIL_OT_convert(wmOperatorType *ot)
