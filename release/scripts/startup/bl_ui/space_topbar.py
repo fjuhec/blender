@@ -28,26 +28,18 @@ class TOPBAR_HT_upper_bar(Header):
         layout = self.layout
 
         window = context.window
-        workspace = context.workspace
         screen = context.screen
         scene = context.scene
         rd = scene.render
+
+        layout.operator("wm.splash", text="", icon='BLENDER', emboss=False)
 
         TOPBAR_MT_editor_menus.draw_collapsible(context, layout)
 
         layout.separator()
 
-        if screen.show_fullscreen:
-            layout.operator("screen.back_to_previous", icon='SCREEN_BACK', text="Back to Previous")
-            layout.separator()
-        else:
+        if not screen.show_fullscreen:
             layout.template_ID(window, "workspace", new="workspace.workspace_add_menu", unlink="workspace.workspace_delete")
-            layout.template_ID_preview(window, "screen", workspace, "screens", new="screen.new", unlink="screen.delete", rows=2, cols=6)
-
-        if hasattr(workspace, 'object_mode'):
-            act_mode_item = bpy.types.Object.bl_rna.properties['mode'].enum_items[workspace.object_mode]
-            layout.operator_menu_enum("object.mode_set", "mode", text=act_mode_item.name, icon=act_mode_item.icon)
-        layout.prop_search(workspace, "render_layer", scene, "render_layers", text="Render Layer:")
 
         layout.separator()
 
@@ -76,8 +68,6 @@ class TOPBAR_HT_upper_bar(Header):
             row.label(bpy.app.autoexec_fail_message)
             return
 
-        row.operator("wm.splash", text="", icon='BLENDER', emboss=False)
-
 
 class TOPBAR_HT_lower_bar(Header):
     bl_space_type = 'TOPBAR'
@@ -86,13 +76,26 @@ class TOPBAR_HT_lower_bar(Header):
     def draw(self, context):
         layout = self.layout
 
+        window = context.window
         workspace = context.workspace
+        screen = context.screen
+        scene = context.scene
 
-        layout.prop(workspace, "object_mode", text="")
+        if hasattr(workspace, 'object_mode'):
+            act_mode_item = bpy.types.Object.bl_rna.properties['mode'].enum_items[workspace.object_mode]
+            layout.operator_menu_enum("object.mode_set", "mode", text=act_mode_item.name, icon=act_mode_item.icon)
 
         layout.separator()
 
         layout.template_operator_redo()
+
+        layout.separator()
+
+        if screen.show_fullscreen:
+            layout.operator("screen.back_to_previous", icon='SCREEN_BACK', text="Back to Previous")
+        else:
+            layout.template_ID_preview(window, "screen", workspace, "screens", new="screen.new", unlink="screen.delete", rows=2, cols=6)
+        layout.prop_search(workspace, "render_layer", scene, "render_layers", text="Render Layer:")
 
 
 class TOPBAR_MT_editor_menus(Menu):

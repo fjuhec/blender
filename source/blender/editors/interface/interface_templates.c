@@ -466,7 +466,7 @@ static void template_ID(
 
 	if (flag & UI_ID_PREVIEWS) {
 		ARegion *region = CTX_wm_region(C);
-		const bool use_big_size = (region->regiontype != RGN_TYPE_HEADER); /* silly check, could be more generic */
+		const bool use_big_size = region->winy > (6 * UI_UNIT_Y); /* silly check, could be more generic */
 		/* Ugly exception for screens here, drawing their preview in icon size looks ugly/useless */
 		const bool use_preview_icon = use_big_size || (id && (GS(id->name) != ID_SCR));
 		const short width = UI_UNIT_X * (use_big_size ? 6 : 1.6f);
