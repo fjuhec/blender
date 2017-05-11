@@ -1213,7 +1213,12 @@ void ui_theme_init_default(void)
 	ui_theme_space_init_handles_color(&btheme->tclip);
 
 	/* space topbar */
+	char tmp[3];
 	btheme->ttopbar = btheme->tv3d;
+	/* swap colors */
+	copy_v4_v4_char(tmp, btheme->ttopbar.header);
+	copy_v4_v4_char(btheme->ttopbar.header, btheme->ttopbar.tab_inactive);
+	copy_v4_v4_char(btheme->ttopbar.back, tmp);
 }
 
 void ui_style_init_default(void)
@@ -2927,8 +2932,14 @@ void init_userdef_do_versions(void)
 		};
 
 		for (bTheme *btheme = U.themes.first; btheme; btheme = btheme->next) {
+			char tmp[4];
+
 			btheme->tui.wcol_tab = wcol_tab;
 			btheme->ttopbar = btheme->tv3d;
+			/* swap colors */
+			copy_v4_v4_char(tmp, btheme->ttopbar.header);
+			copy_v4_v4_char(btheme->ttopbar.header, btheme->ttopbar.tab_inactive);
+			copy_v4_v4_char(btheme->ttopbar.back, tmp);
 		}
 	}
 

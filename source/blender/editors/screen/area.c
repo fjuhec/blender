@@ -2138,7 +2138,7 @@ void ED_region_header(const bContext *C, ARegion *ar)
 	int headery = ED_area_headersize();
 
 	/* clear */
-	UI_ThemeClearColor((ED_screen_area_active(C)) ? TH_HEADER : TH_HEADERDESEL);
+	UI_ThemeClearColor((ED_screen_area_active(C) || (ar->regiontype != RGN_TYPE_HEADER)) ? TH_BACK : TH_HEADERDESEL);
 	glClear(GL_COLOR_BUFFER_BIT);
 	
 	/* set view2d view matrix for scrolling (without scrollers) */
