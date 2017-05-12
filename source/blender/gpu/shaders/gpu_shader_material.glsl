@@ -17,6 +17,7 @@ uniform vec4 CameraTexCoFactors;
 #else
   out vec4 fragColor;
   #define texture2D texture
+  #define shadow2D shadow
   #define textureCube texture
 #endif
 
@@ -428,7 +429,7 @@ void math_modulo(float val1, float val2, out float outval)
 
 	/* change sign to match C convention, mod in GLSL will take absolute for negative numbers,
 	 * see https://www.opengl.org/sdk/docs/man/html/mod.xhtml */
-	outval = (val1 > 0.0) ? outval : -outval;
+	outval = (val1 > 0.0) ? outval : outval - val2;
 }
 
 void math_abs(float val1, out float outval)
@@ -2281,7 +2282,11 @@ void test_shadowbuf(
 		co.z -= shadowbias * co.w;
 
 		if (co.w > 0.0 && co.x > 0.0 && co.x / co.w < 1.0 && co.y > 0.0 && co.y / co.w < 1.0)
+#if __VERSION__ == 120
 			result = shadow2DProj(shadowmap, co).x;
+#else
+			result = textureProj(shadowmap, co);
+#endif
 		else
 			result = 1.0;
 	}
@@ -3808,13 +3813,21 @@ void node_light_path(
 	out float transparent_depth,
 	out float transmission_depth)
 {
+#ifndef PROBE_CAPTURE
 	is_camera_ray = 1.0;
-	is_shadow_ray = 0.0;
-	is_diffuse_ray = 0.0;
 	is_glossy_ray = 0.0;
-	is_singular_ray = 0.0;
+	is_diffuse_ray = 0.0;
 	is_reflection_ray = 0.0;
 	is_transmission_ray = 0.0;
+#else
+	is_camera_ray = 0.0;
+	is_glossy_ray = 1.0;
+	is_diffuse_ray = 1.0;
+	is_reflection_ray = 1.0;
+	is_transmission_ray = 1.0;
+#endif
+	is_shadow_ray = 0.0;
+	is_singular_ray = 0.0;
 	ray_length = 1.0;
 	ray_depth = 1.0;
 	diffuse_depth = 1.0;
@@ -3891,6 +3904,9 @@ void convert_metallic_to_specular(vec4 basecol, float metallic, float specular_f
 	f0 = mix(dielectric, basecol, metallic);
 }
 
+/* TODO : clean this ifdef mess */
+/* EEVEE output */
+#ifdef PROBE_CAPTURE
 void world_normals_get(out vec3 N)
 {
 	N = gl_FrontFacing ? worldNormal : -worldNormal;
@@ -3914,6 +3930,7 @@ void node_output_specular(
 {
 	result = vec4(eevee_surface_lit(normal, diffuse.rgb, specular.rgb, roughness, occlusion) + emissive.rgb, 1.0 - transp);
 }
+#endif
 
 /* ********************** matcap style render ******************** */
 

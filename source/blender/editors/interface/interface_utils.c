@@ -238,12 +238,12 @@ static int sort_search_items_list(const void *a, const void *b)
 
 void ui_rna_collection_search_cb(const struct bContext *C, void *arg, const char *str, uiSearchItems *items)
 {
-	struct uiRNACollectionSearch *data = arg;
+	uiRNACollectionSearch *data = arg;
 	char *name;
 	int i = 0, iconid = 0, flag = RNA_property_flag(data->target_prop);
 	ListBase *items_list = MEM_callocN(sizeof(ListBase), "items_list");
 	CollItemSearch *cis;
-	const bool skip_filter = !GET_INT_FROM_POINTER(data->but_changed);
+	const bool skip_filter = !(data->but_changed && *data->but_changed);
 
 	/* build a temporary list of relevant items first */
 	RNA_PROP_BEGIN (&data->search_ptr, itemptr, data->search_prop)
@@ -301,8 +301,7 @@ void ui_rna_collection_search_cb(const struct bContext *C, void *arg, const char
 }
 
 
-/***************************** ID Utilities *******************************/
-
+/***************************** ID Utilities *******************************/ 
 int UI_icon_from_id(ID *id)
 {
 	Object *ob;

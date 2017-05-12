@@ -55,6 +55,7 @@ extern char datatoc_gpu_shader_uniform_color_frag_glsl[];
 
 /* *********** LISTS *********** */
 typedef struct EDIT_MESH_PassList {
+	struct DRWPass *vcolor_faces;
 	struct DRWPass *depth_hidden_wire;
 	struct DRWPass *edit_face_overlay;
 	struct DRWPass *edit_face_occluded;
@@ -87,6 +88,8 @@ typedef struct EDIT_MESH_Data {
 /* *********** STATIC *********** */
 
 static struct {
+	/* weight/vert-color */
+	GPUShader *vcolor_face_shader;
 	GPUShader *overlay_tri_sh;
 	GPUShader *overlay_tri_fast_sh;
 	GPUShader *overlay_tri_vcol_sh;
@@ -103,6 +106,8 @@ static struct {
 } e_data = {NULL}; /* Engine data */
 
 typedef struct EDIT_MESH_PrivateData {
+	/* weight/vert-color */
+	DRWShadingGroup *fvcolor_shgrp;
 	DRWShadingGroup *depth_shgrp_hidden_wire;
 
 	DRWShadingGroup *fnormals_shgrp;
@@ -139,6 +144,10 @@ static void EDIT_MESH_engine_init(void *vedata)
 	        &fbl->occlude_wire_fb,
 	        (int)viewport_size[0], (int)viewport_size[1],
 	        tex, ARRAY_SIZE(tex));
+
+	if (!e_data.vcolor_face_shader) {
+		e_data.vcolor_face_shader = GPU_shader_get_builtin_shader(GPU_SHADER_SIMPLE_LIGHTING_SMOOTH_COLOR_ALPHA);
+	}
 
 	if (!e_data.overlay_tri_sh) {
 		e_data.overlay_tri_sh = DRW_shader_create_with_lib(
@@ -259,7 +268,7 @@ static DRWPass *edit_mesh_create_overlay_pass(
 	        DRW_STATE_WRITE_COLOR | DRW_STATE_POINT | statemod);
 
 	*r_face_shgrp = DRW_shgroup_create(tri_sh, pass);
-	DRW_shgroup_uniform_block(*r_face_shgrp, "globalsBlock", globals_ubo, 0);
+	DRW_shgroup_uniform_block(*r_face_shgrp, "globalsBlock", globals_ubo);
 	DRW_shgroup_uniform_vec2(*r_face_shgrp, "viewportSize", DRW_viewport_size_get(), 1);
 	DRW_shgroup_uniform_float(*r_face_shgrp, "faceAlphaMod", faceAlpha, 1);
 
@@ -299,6 +308,21 @@ static void EDIT_MESH_cache_init(void *vedata)
 	if (!stl->g_data) {
 		/* Alloc transient pointers */
 		stl->g_data = MEM_mallocN(sizeof(*stl->g_data), __func__);
+	}
+
+	{
+		psl->vcolor_faces = DRW_pass_create(
+		        "Vert Color Pass",
+		        DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+
+		stl->g_data->fvcolor_shgrp = DRW_shgroup_create(e_data.vcolor_face_shader, psl->vcolor_faces);
+
+		static float light[3] = {-0.3f, 0.5f, 1.0f};
+		static float alpha = 1.0f;
+		static float world_light = 1.0f;  /* XXX, see: paint_vertex_mode.c */
+		DRW_shgroup_uniform_vec3(stl->g_data->fvcolor_shgrp, "light", light, 1);
+		DRW_shgroup_uniform_float(stl->g_data->fvcolor_shgrp, "alpha", &alpha, 1);
+		DRW_shgroup_uniform_float(stl->g_data->fvcolor_shgrp, "global", &world_light, 1);
 	}
 
 	{
@@ -347,7 +371,7 @@ static void EDIT_MESH_cache_init(void *vedata)
 		        "Front Face Color",
 		        DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS | DRW_STATE_BLEND);
 		stl->g_data->facefill_occluded_shgrp = DRW_shgroup_create(e_data.overlay_facefill_sh, psl->facefill_occlude);
-		DRW_shgroup_uniform_block(stl->g_data->facefill_occluded_shgrp, "globalsBlock", globals_ubo, 0);
+		DRW_shgroup_uniform_block(stl->g_data->facefill_occluded_shgrp, "globalsBlock", globals_ubo);
 
 		/* we need a full screen pass to combine the result */
 		struct Batch *quad = DRW_cache_fullscreen_quad_get();
@@ -358,9 +382,9 @@ static void EDIT_MESH_cache_init(void *vedata)
 		DRWShadingGroup *mix_shgrp = DRW_shgroup_create(e_data.overlay_mix_sh, psl->mix_occlude);
 		DRW_shgroup_call_add(mix_shgrp, quad, NULL);
 		DRW_shgroup_uniform_float(mix_shgrp, "alpha", &backwire_opacity, 1);
-		DRW_shgroup_uniform_buffer(mix_shgrp, "wireColor", &txl->occlude_wire_color_tx, 0);
-		DRW_shgroup_uniform_buffer(mix_shgrp, "wireDepth", &txl->occlude_wire_depth_tx, 2);
-		DRW_shgroup_uniform_buffer(mix_shgrp, "sceneDepth", &dtxl->depth, 3);
+		DRW_shgroup_uniform_buffer(mix_shgrp, "wireColor", &txl->occlude_wire_color_tx);
+		DRW_shgroup_uniform_buffer(mix_shgrp, "wireDepth", &txl->occlude_wire_depth_tx);
+		DRW_shgroup_uniform_buffer(mix_shgrp, "sceneDepth", &dtxl->depth);
 	}
 }
 
@@ -402,6 +426,8 @@ static void EDIT_MESH_cache_populate(void *vedata, Object *ob)
 		if (ob == obedit) {
 			IDProperty *ces_mode_ed = BKE_layer_collection_engine_evaluated_get(ob, COLLECTION_MODE_EDIT, "");
 			bool do_occlude_wire = BKE_collection_engine_property_value_get_bool(ces_mode_ed, "show_occlude_wire");
+			bool do_show_weight = BKE_collection_engine_property_value_get_bool(ces_mode_ed, "show_weight");
+
 			/* Updating uniform */
 			backwire_opacity = BKE_collection_engine_property_value_get_float(ces_mode_ed, "backwire_opacity");
 
@@ -412,6 +438,11 @@ static void EDIT_MESH_cache_populate(void *vedata, Object *ob)
 			size_normal = BKE_collection_engine_property_value_get_float(ces_mode_ed, "normals_length");
 
 			face_mod = (do_occlude_wire) ? 0.0f : 1.0f;
+
+			if (do_show_weight) {
+				geom = DRW_cache_mesh_surface_weights_get(ob);
+				DRW_shgroup_call_add(stl->g_data->fvcolor_shgrp, geom, ob->obmat);
+			}
 
 			if (do_occlude_wire) {
 				geom = DRW_cache_mesh_surface_get(ob);
@@ -455,6 +486,8 @@ static void EDIT_MESH_draw_scene(void *vedata)
 	DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
 	DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
 
+	DRW_draw_pass(psl->vcolor_faces);
+
 	DRW_draw_pass(psl->depth_hidden_wire);
 
 	if (psl->edit_face_occluded) {
@@ -490,6 +523,7 @@ void EDIT_MESH_collection_settings_create(IDProperty *properties)
 	           properties->type == IDP_GROUP &&
 	           properties->subtype == IDP_GROUP_SUB_MODE_EDIT);
 	BKE_collection_engine_property_add_int(properties, "show_occlude_wire", false);
+	BKE_collection_engine_property_add_int(properties, "show_weight", false);
 	BKE_collection_engine_property_add_int(properties, "face_normals_show", false);
 	BKE_collection_engine_property_add_int(properties, "vert_normals_show", false);
 	BKE_collection_engine_property_add_int(properties, "loop_normals_show", false);

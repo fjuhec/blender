@@ -284,7 +284,7 @@ static int node_resize_area_default(bNode *node, int x, int y)
 
 static void node_draw_buttons_group(uiLayout *layout, bContext *C, PointerRNA *ptr)
 {
-	uiTemplateIDBrowse(layout, C, ptr, "node_tree", NULL, NULL, NULL, NULL, NULL);
+	uiTemplateIDBrowse(layout, C, ptr, "node_tree", NULL, NULL, NULL);
 }
 
 /* XXX Does a bounding box update by iterating over all children.
@@ -681,7 +681,7 @@ static void node_shader_buts_material(uiLayout *layout, bContext *C, PointerRNA 
 	bNode *node = ptr->data;
 	uiLayout *col;
 	
-	uiTemplateID(layout, C, ptr, "material", NULL, NULL, "MATERIAL_OT_new", NULL, NULL);
+	uiTemplateID(layout, C, ptr, "material", "MATERIAL_OT_new", NULL, NULL);
 	
 	if (!node->id) return;
 	
@@ -778,7 +778,7 @@ static void node_shader_buts_tex_image(uiLayout *layout, bContext *C, PointerRNA
 	PointerRNA iuserptr = RNA_pointer_get(ptr, "image_user");
 
 	uiLayoutSetContextPointer(layout, "image_user", &iuserptr);
-	uiTemplateID(layout, C, ptr, "image", NULL, NULL, NULL, "IMAGE_OT_open", NULL);
+	uiTemplateID(layout, C, ptr, "image", NULL, "IMAGE_OT_open", NULL);
 	uiItemR(layout, ptr, "color_space", 0, "", ICON_NONE);
 	uiItemR(layout, ptr, "interpolation", 0, "", ICON_NONE);
 	uiItemR(layout, ptr, "projection", 0, "", ICON_NONE);
@@ -807,7 +807,7 @@ static void node_shader_buts_tex_environment(uiLayout *layout, bContext *C, Poin
 	PointerRNA iuserptr = RNA_pointer_get(ptr, "image_user");
 
 	uiLayoutSetContextPointer(layout, "image_user", &iuserptr);
-	uiTemplateID(layout, C, ptr, "image", NULL, NULL, NULL, "IMAGE_OT_open", NULL);
+	uiTemplateID(layout, C, ptr, "image", NULL, "IMAGE_OT_open", NULL);
 
 	node_buts_image_user(layout, C, &iuserptr, &imaptr, &iuserptr);
 
@@ -823,7 +823,7 @@ static void node_shader_buts_tex_environment_ex(uiLayout *layout, bContext *C, P
 	Image *ima = imaptr.data;
 
 	uiLayoutSetContextPointer(layout, "image_user", &iuserptr);
-	uiTemplateID(layout, C, ptr, "image", NULL, NULL, ima ? NULL : "IMAGE_OT_new", "IMAGE_OT_open", NULL);
+	uiTemplateID(layout, C, ptr, "image", ima ? NULL : "IMAGE_OT_new", "IMAGE_OT_open", NULL);
 
 	if (!ima)
 		return;
@@ -1242,7 +1242,7 @@ static void node_composit_buts_image(uiLayout *layout, bContext *C, PointerRNA *
 	
 	RNA_pointer_create((ID *)ptr->id.data, &RNA_ImageUser, node->storage, &iuserptr);
 	uiLayoutSetContextPointer(layout, "image_user", &iuserptr);
-	uiTemplateID(layout, C, ptr, "image", NULL, NULL, NULL, "IMAGE_OT_open", NULL);
+	uiTemplateID(layout, C, ptr, "image", NULL, "IMAGE_OT_open", NULL);
 	if (!node->id) return;
 	
 	imaptr = RNA_pointer_get(ptr, "image");
@@ -1272,7 +1272,7 @@ static void node_composit_buts_renderlayers(uiLayout *layout, bContext *C, Point
 	const char *layer_name;
 	char scene_name[MAX_ID_NAME - 2];
 
-	uiTemplateID(layout, C, ptr, "scene", NULL, NULL, NULL, NULL, NULL);
+	uiTemplateID(layout, C, ptr, "scene", NULL, NULL, NULL);
 	
 	if (!node->id) return;
 
@@ -1386,7 +1386,7 @@ static void node_composit_buts_defocus(uiLayout *layout, bContext *C, PointerRNA
 	col = uiLayoutColumn(layout, false);
 	uiItemR(col, ptr, "use_preview", 0, NULL, ICON_NONE);
 
-	uiTemplateID(layout, C, ptr, "scene", NULL, NULL, NULL, NULL, NULL);
+	uiTemplateID(layout, C, ptr, "scene", NULL, NULL, NULL);
 
 	col = uiLayoutColumn(layout, false);
 	uiItemR(col, ptr, "use_zbuffer", 0, NULL, ICON_NONE);
@@ -1953,7 +1953,7 @@ static void node_composit_buts_ycc(uiLayout *layout, bContext *UNUSED(C), Pointe
 
 static void node_composit_buts_movieclip(uiLayout *layout, bContext *C, PointerRNA *ptr)
 {
-	uiTemplateID(layout, C, ptr, "clip", NULL, NULL, NULL, "CLIP_OT_open", NULL);
+	uiTemplateID(layout, C, ptr, "clip", NULL, "CLIP_OT_open", NULL);
 }
 
 static void node_composit_buts_movieclip_ex(uiLayout *layout, bContext *C, PointerRNA *ptr)
@@ -1961,7 +1961,7 @@ static void node_composit_buts_movieclip_ex(uiLayout *layout, bContext *C, Point
 	bNode *node = ptr->data;
 	PointerRNA clipptr;
 
-	uiTemplateID(layout, C, ptr, "clip", NULL, NULL, NULL, "CLIP_OT_open", NULL);
+	uiTemplateID(layout, C, ptr, "clip", NULL, "CLIP_OT_open", NULL);
 
 	if (!node->id)
 		return;
@@ -1975,7 +1975,7 @@ static void node_composit_buts_stabilize2d(uiLayout *layout, bContext *C, Pointe
 {
 	bNode *node = ptr->data;
 
-	uiTemplateID(layout, C, ptr, "clip", NULL, NULL, NULL, "CLIP_OT_open", NULL);
+	uiTemplateID(layout, C, ptr, "clip", NULL, "CLIP_OT_open", NULL);
 
 	if (!node->id)
 		return;
@@ -1999,7 +1999,7 @@ static void node_composit_buts_moviedistortion(uiLayout *layout, bContext *C, Po
 {
 	bNode *node = ptr->data;
 
-	uiTemplateID(layout, C, ptr, "clip", NULL, NULL, NULL, "CLIP_OT_open", NULL);
+	uiTemplateID(layout, C, ptr, "clip", NULL, "CLIP_OT_open", NULL);
 
 	if (!node->id)
 		return;
@@ -2304,7 +2304,7 @@ static void node_composit_buts_mask(uiLayout *layout, bContext *C, PointerRNA *p
 {
 	bNode *node = ptr->data;
 
-	uiTemplateID(layout, C, ptr, "mask", NULL, NULL, NULL, NULL, NULL);
+	uiTemplateID(layout, C, ptr, "mask", NULL, NULL, NULL);
 	uiItemR(layout, ptr, "use_antialiasing", 0, NULL, ICON_NONE);
 	uiItemR(layout, ptr, "use_feather", 0, NULL, ICON_NONE);
 
@@ -2326,7 +2326,7 @@ static void node_composit_buts_keyingscreen(uiLayout *layout, bContext *C, Point
 {
 	bNode *node = ptr->data;
 
-	uiTemplateID(layout, C, ptr, "clip", NULL, NULL, NULL, NULL, NULL);
+	uiTemplateID(layout, C, ptr, "clip", NULL, NULL, NULL);
 
 	if (node->id) {
 		MovieClip *clip = (MovieClip *) node->id;
@@ -2362,7 +2362,7 @@ static void node_composit_buts_trackpos(uiLayout *layout, bContext *C, PointerRN
 {
 	bNode *node = ptr->data;
 
-	uiTemplateID(layout, C, ptr, "clip", NULL, NULL, NULL, "CLIP_OT_open", NULL);
+	uiTemplateID(layout, C, ptr, "clip", NULL, "CLIP_OT_open", NULL);
 
 	if (node->id) {
 		MovieClip *clip = (MovieClip *) node->id;
@@ -2402,7 +2402,7 @@ static void node_composit_buts_planetrackdeform(uiLayout *layout, bContext *C, P
 	bNode *node = ptr->data;
 	NodePlaneTrackDeformData *data = node->storage;
 
-	uiTemplateID(layout, C, ptr, "clip", NULL, NULL, NULL, "CLIP_OT_open", NULL);
+	uiTemplateID(layout, C, ptr, "clip", NULL, "CLIP_OT_open", NULL);
 
 	if (node->id) {
 		MovieClip *clip = (MovieClip *) node->id;
@@ -2773,7 +2773,7 @@ static void node_texture_buts_proc(uiLayout *layout, bContext *UNUSED(C), Pointe
 
 static void node_texture_buts_image(uiLayout *layout, bContext *C, PointerRNA *ptr)
 {
-	uiTemplateID(layout, C, ptr, "image", NULL, NULL, NULL, "IMAGE_OT_open", NULL);
+	uiTemplateID(layout, C, ptr, "image", NULL, "IMAGE_OT_open", NULL);
 }
 
 static void node_texture_buts_image_ex(uiLayout *layout, bContext *C, PointerRNA *ptr)

@@ -378,7 +378,10 @@ static void OBJECT_engine_init(void *vedata)
 		winmat[3][2] -= offs;
 		mul_m4_m4m4(e_data.grid_mat, winmat, viewmat);
 
-		e_data.grid_settings[0] = v3d->far / 2.0f; /* gridDistance */
+		float dist = (rv3d->persp == RV3D_CAMOB && v3d->camera)
+		             ? ((Camera *)v3d->camera)->clipend : v3d->far;
+
+		e_data.grid_settings[0] = dist / 2.0f; /* gridDistance */
 		e_data.grid_settings[1] = grid_res; /* gridResolution */
 		e_data.grid_settings[2] = grid_scale; /* gridScale */
 		e_data.grid_settings[3] = v3d->gridsubdiv; /* gridSubdiv */
@@ -491,17 +494,17 @@ static void OBJECT_cache_init(void *vedata)
 		psl->outlines_search = DRW_pass_create("Outlines Expand Pass", state);
 
 		DRWShadingGroup *grp = DRW_shgroup_create(e_data.outline_detect_sh, psl->outlines_search);
-		DRW_shgroup_uniform_buffer(grp, "outlineColor", &txl->outlines_color_tx, 0);
-		DRW_shgroup_uniform_buffer(grp, "outlineDepth", &txl->outlines_depth_tx, 1);
-		DRW_shgroup_uniform_buffer(grp, "sceneDepth", &dtxl->depth, 2);
+		DRW_shgroup_uniform_buffer(grp, "outlineColor", &txl->outlines_color_tx);
+		DRW_shgroup_uniform_buffer(grp, "outlineDepth", &txl->outlines_depth_tx);
+		DRW_shgroup_uniform_buffer(grp, "sceneDepth", &dtxl->depth);
 		DRW_shgroup_uniform_float(grp, "alphaOcclu", &alphaOcclu, 1);
 		DRW_shgroup_call_add(grp, quad, NULL);
 
 		psl->outlines_expand = DRW_pass_create("Outlines Expand Pass", state);
 
 		grp = DRW_shgroup_create(e_data.outline_fade_sh, psl->outlines_expand);
-		DRW_shgroup_uniform_buffer(grp, "outlineColor", &txl->outlines_blur_tx, 0);
-		DRW_shgroup_uniform_buffer(grp, "outlineDepth", &txl->outlines_depth_tx, 1);
+		DRW_shgroup_uniform_buffer(grp, "outlineColor", &txl->outlines_blur_tx);
+		DRW_shgroup_uniform_buffer(grp, "outlineDepth", &txl->outlines_depth_tx);
 		DRW_shgroup_uniform_float(grp, "alpha", &one, 1);
 		DRW_shgroup_uniform_bool(grp, "doExpand", &bTrue, 1);
 		DRW_shgroup_call_add(grp, quad, NULL);
@@ -509,8 +512,8 @@ static void OBJECT_cache_init(void *vedata)
 		psl->outlines_fade1 = DRW_pass_create("Outlines Fade 1 Pass", state);
 
 		grp = DRW_shgroup_create(e_data.outline_fade_sh, psl->outlines_fade1);
-		DRW_shgroup_uniform_buffer(grp, "outlineColor", &txl->outlines_color_tx, 0);
-		DRW_shgroup_uniform_buffer(grp, "outlineDepth", &txl->outlines_depth_tx, 1);
+		DRW_shgroup_uniform_buffer(grp, "outlineColor", &txl->outlines_color_tx);
+		DRW_shgroup_uniform_buffer(grp, "outlineDepth", &txl->outlines_depth_tx);
 		DRW_shgroup_uniform_float(grp, "alpha", &alpha1, 1);
 		DRW_shgroup_uniform_bool(grp, "doExpand", &bFalse, 1);
 		DRW_shgroup_call_add(grp, quad, NULL);
@@ -518,8 +521,8 @@ static void OBJECT_cache_init(void *vedata)
 		psl->outlines_fade2 = DRW_pass_create("Outlines Fade 2 Pass", state);
 
 		grp = DRW_shgroup_create(e_data.outline_fade_sh, psl->outlines_fade2);
-		DRW_shgroup_uniform_buffer(grp, "outlineColor", &txl->outlines_blur_tx, 0);
-		DRW_shgroup_uniform_buffer(grp, "outlineDepth", &txl->outlines_depth_tx, 1);
+		DRW_shgroup_uniform_buffer(grp, "outlineColor", &txl->outlines_blur_tx);
+		DRW_shgroup_uniform_buffer(grp, "outlineDepth", &txl->outlines_depth_tx);
 		DRW_shgroup_uniform_float(grp, "alpha", &alpha2, 1);
 		DRW_shgroup_uniform_bool(grp, "doExpand", &bFalse, 1);
 		DRW_shgroup_call_add(grp, quad, NULL);
@@ -527,8 +530,8 @@ static void OBJECT_cache_init(void *vedata)
 		psl->outlines_fade3 = DRW_pass_create("Outlines Fade 3 Pass", state);
 
 		grp = DRW_shgroup_create(e_data.outline_fade_sh, psl->outlines_fade3);
-		DRW_shgroup_uniform_buffer(grp, "outlineColor", &txl->outlines_color_tx, 0);
-		DRW_shgroup_uniform_buffer(grp, "outlineDepth", &txl->outlines_depth_tx, 1);
+		DRW_shgroup_uniform_buffer(grp, "outlineColor", &txl->outlines_color_tx);
+		DRW_shgroup_uniform_buffer(grp, "outlineDepth", &txl->outlines_depth_tx);
 		DRW_shgroup_uniform_float(grp, "alpha", &alpha3, 1);
 		DRW_shgroup_uniform_bool(grp, "doExpand", &bFalse, 1);
 		DRW_shgroup_call_add(grp, quad, NULL);
@@ -536,8 +539,8 @@ static void OBJECT_cache_init(void *vedata)
 		psl->outlines_fade4 = DRW_pass_create("Outlines Fade 4 Pass", state);
 
 		grp = DRW_shgroup_create(e_data.outline_fade_sh, psl->outlines_fade4);
-		DRW_shgroup_uniform_buffer(grp, "outlineColor", &txl->outlines_blur_tx, 0);
-		DRW_shgroup_uniform_buffer(grp, "outlineDepth", &txl->outlines_depth_tx, 1);
+		DRW_shgroup_uniform_buffer(grp, "outlineColor", &txl->outlines_blur_tx);
+		DRW_shgroup_uniform_buffer(grp, "outlineDepth", &txl->outlines_depth_tx);
 		DRW_shgroup_uniform_float(grp, "alpha", &alpha4, 1);
 		DRW_shgroup_uniform_bool(grp, "doExpand", &bFalse, 1);
 		DRW_shgroup_call_add(grp, quad, NULL);
@@ -545,8 +548,8 @@ static void OBJECT_cache_init(void *vedata)
 		psl->outlines_fade5 = DRW_pass_create("Outlines Fade 5 Pass", state);
 
 		grp = DRW_shgroup_create(e_data.outline_fade_sh, psl->outlines_fade5);
-		DRW_shgroup_uniform_buffer(grp, "outlineColor", &txl->outlines_color_tx, 0);
-		DRW_shgroup_uniform_buffer(grp, "outlineDepth", &txl->outlines_depth_tx, 1);
+		DRW_shgroup_uniform_buffer(grp, "outlineColor", &txl->outlines_color_tx);
+		DRW_shgroup_uniform_buffer(grp, "outlineDepth", &txl->outlines_depth_tx);
 		DRW_shgroup_uniform_float(grp, "alpha", &alpha5, 1);
 		DRW_shgroup_uniform_bool(grp, "doExpand", &bFalse, 1);
 		DRW_shgroup_call_add(grp, quad, NULL);
@@ -559,7 +562,7 @@ static void OBJECT_cache_init(void *vedata)
 		struct Batch *quad = DRW_cache_fullscreen_quad_get();
 
 		DRWShadingGroup *grp = DRW_shgroup_create(e_data.outline_resolve_sh, psl->outlines_resolve);
-		DRW_shgroup_uniform_buffer(grp, "outlineBluredColor", &txl->outlines_blur_tx, 0);
+		DRW_shgroup_uniform_buffer(grp, "outlineBluredColor", &txl->outlines_blur_tx);
 		DRW_shgroup_call_add(grp, quad, NULL);
 	}
 
@@ -579,7 +582,7 @@ static void OBJECT_cache_init(void *vedata)
 		DRW_shgroup_uniform_vec3(grp, "cameraPos", e_data.camera_pos, 1);
 		DRW_shgroup_uniform_vec4(grp, "gridSettings", e_data.grid_settings, 1);
 		DRW_shgroup_uniform_float(grp, "gridOneOverLogSubdiv", &e_data.grid_settings[4], 1);
-		DRW_shgroup_uniform_block(grp, "globalsBlock", globals_ubo, 0);
+		DRW_shgroup_uniform_block(grp, "globalsBlock", globals_ubo);
 		DRW_shgroup_call_add(grp, quad, mat);
 
 		grp = DRW_shgroup_create(e_data.grid_sh, psl->grid);
@@ -1189,7 +1192,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 
 	if (do_outlines) {
 		Object *obedit = scene->obedit;
-		if (ob != obedit && !(OBACT_NEW == ob && ob->mode & (OB_MODE_WEIGHT_PAINT | OB_MODE_VERTEX_PAINT))) {
+		if (ob != obedit && !(OBACT_NEW == ob && ob->mode & OB_MODE_ALL_PAINT)) {
 			struct Batch *geom = DRW_cache_object_surface_get(ob);
 			if (geom) {
 				theme_id = DRW_object_wire_theme_get(ob, sl, NULL);

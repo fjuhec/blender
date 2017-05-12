@@ -279,7 +279,7 @@ struct uiBut {
 	BIFIconID icon;
 	char dt; /* drawtype: UI_EMBOSS, UI_EMBOSS_NONE ... etc, copied from the block */
 	signed char pie_dir; /* direction in a pie menu, used for collision detection (RadialDirection) */
-	char changed; /* could be made into a single flag */
+	bool changed; /* could be made into a single flag */
 	unsigned char unit_type; /* so buttons can support unit systems which are not RNA */
 	short modifier_key;
 	short iconadd;
@@ -754,7 +754,7 @@ void UI_OT_eyedropper_driver(struct wmOperatorType *ot);
 /**
  * For use with #ui_rna_collection_search_cb.
  */
-struct uiRNACollectionSearch {
+typedef struct uiRNACollectionSearch {
 	PointerRNA target_ptr;
 	PropertyRNA *target_prop;
 
@@ -762,7 +762,7 @@ struct uiRNACollectionSearch {
 	PropertyRNA *search_prop;
 
 	bool *but_changed; /* pointer to uiBut.changed */
-};
+} uiRNACollectionSearch;
 void ui_rna_collection_search_cb(const struct bContext *C, void *arg, const char *str, uiSearchItems *items);
 
 #endif  /* __INTERFACE_INTERN_H__ */

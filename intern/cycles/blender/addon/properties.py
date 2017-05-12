@@ -1249,12 +1249,12 @@ class CyclesRenderLayerSettings(bpy.types.PropertyGroup):
         cls.denoising_radius = IntProperty(
                 name="Denoising Radius",
                 description="Size of the image area that's used to denoise a pixel (higher values are smoother, but might lose detail and are slower)",
-                min=1, max=50,
+                min=1, max=25,
                 default=8,
         )
         cls.denoising_relative_pca = BoolProperty(
                 name="Relative filter",
-                description="When removing that don't carry information, use a relative threshold instead of an absolute one (can help to reduce artifacts, but might cause detail loss around edges)",
+                description="When removing pixels that don't carry information, use a relative threshold instead of an absolute one (can help to reduce artifacts, but might cause detail loss around edges)",
                 default=False,
         )
         cls.denoising_store_passes = BoolProperty(

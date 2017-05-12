@@ -57,6 +57,7 @@ typedef struct CLAY_UBO_Material {
 	float matcap_rot[2];
 	float pad[2]; /* ensure 16 bytes alignement */
 } CLAY_UBO_Material; /* 48 bytes */
+BLI_STATIC_ASSERT_ALIGN(CLAY_UBO_Material, 16);
 
 #define MAX_CLAY_MAT 512 /* 512 = 9 bit material id */
 
@@ -413,13 +414,12 @@ static void CLAY_engine_init(void *vedata)
 static DRWShadingGroup *CLAY_shgroup_create(CLAY_Data *vedata, DRWPass *pass, int *material_id)
 {
 	CLAY_TextureList *txl = ((CLAY_Data *)vedata)->txl;
-	const int depthloc = 0, matcaploc = 1, jitterloc = 2, sampleloc = 3;
 
 	DRWShadingGroup *grp = DRW_shgroup_create(e_data.clay_sh, pass);
 
 	DRW_shgroup_uniform_vec2(grp, "screenres", DRW_viewport_size_get(), 1);
-	DRW_shgroup_uniform_buffer(grp, "depthtex", &txl->depth_dup, depthloc);
-	DRW_shgroup_uniform_texture(grp, "matcaps", e_data.matcap_array, matcaploc);
+	DRW_shgroup_uniform_buffer(grp, "depthtex", &txl->depth_dup);
+	DRW_shgroup_uniform_texture(grp, "matcaps", e_data.matcap_array);
 	DRW_shgroup_uniform_mat4(grp, "WinMatrix", (float *)e_data.winmat);
 	DRW_shgroup_uniform_vec4(grp, "viewvecs[0]", (float *)e_data.viewvecs, 3);
 	DRW_shgroup_uniform_vec4(grp, "ssao_params", e_data.ssao_params, 1);
@@ -427,8 +427,8 @@ static DRWShadingGroup *CLAY_shgroup_create(CLAY_Data *vedata, DRWPass *pass, in
 
 	DRW_shgroup_uniform_int(grp, "mat_id", material_id, 1);
 
-	DRW_shgroup_uniform_texture(grp, "ssao_jitter", e_data.jitter_tx, jitterloc);
-	DRW_shgroup_uniform_texture(grp, "ssao_samples", e_data.sampling_tx, sampleloc);
+	DRW_shgroup_uniform_texture(grp, "ssao_jitter", e_data.jitter_tx);
+	DRW_shgroup_uniform_texture(grp, "ssao_samples", e_data.sampling_tx);
 
 	return grp;
 }
@@ -530,7 +530,7 @@ static DRWShadingGroup *CLAY_object_shgrp_get(CLAY_Data *vedata, Object *ob, CLA
 		shgrps[id] = CLAY_shgroup_create(vedata, psl->clay_pass, &e_data.ubo_mat_idxs[id]);
 		/* if it's the first shgrp, pass bind the material UBO */
 		if (stl->storage->ubo_current_id == 1) {
-			DRW_shgroup_uniform_block(shgrps[0], "material_block", stl->mat_ubo, 0);
+			DRW_shgroup_uniform_block(shgrps[0], "material_block", stl->mat_ubo);
 		}
 	}
 
@@ -573,7 +573,7 @@ static void CLAY_cache_populate(void *vedata, Object *ob)
 
 	DRWShadingGroup *clay_shgrp;
 
-	if (!DRW_is_object_renderable(ob))
+	if (!DRW_object_is_renderable(ob))
 		return;
 
 	struct Batch *geom = DRW_cache_object_surface_get(ob);

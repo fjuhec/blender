@@ -28,6 +28,7 @@
 #include "BLI_utildefines.h"
 #include "BLI_listbase.h"
 #include "BLI_math.h"
+#include "BLI_string.h"
 
 #include "DNA_brush_types.h"
 #include "DNA_freestyle_types.h"
@@ -113,6 +114,8 @@ static void update_defaults_startup_workspaces(Main *bmain)
 void BLO_update_defaults_startup_blend(Main *bmain)
 {
 	for (Scene *scene = bmain->scene.first; scene; scene = scene->id.next) {
+		BLI_strncpy(scene->r.engine, RE_engine_id_BLENDER_EEVEE, sizeof(scene->r.engine));
+
 		scene->r.im_format.planes = R_IMF_PLANES_RGBA;
 		scene->r.im_format.compress = 15;
 

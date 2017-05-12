@@ -625,7 +625,6 @@ static const float *get_bone_wire_color(
 
 static void pchan_draw_data_init(bPoseChannel *pchan)
 {
-
 	if (pchan->draw_data != NULL) {
 		if (pchan->draw_data->bbone_matrix_len != pchan->bone->segments) {
 			MEM_SAFE_FREE(pchan->draw_data);
@@ -633,9 +632,7 @@ static void pchan_draw_data_init(bPoseChannel *pchan)
 	}
 
 	if (pchan->draw_data == NULL) {
-		bPoseChannelDrawData *draw_data;
-		/* We just allocate max allowed segcount, we can always refine this later if really needed. */
-		pchan->draw_data = MEM_mallocN(sizeof(*draw_data) + sizeof(Mat4) * pchan->bone->segments, __func__);
+		pchan->draw_data = MEM_mallocN(sizeof(*pchan->draw_data) + sizeof(Mat4) * pchan->bone->segments, __func__);
 		pchan->draw_data->bbone_matrix_len = pchan->bone->segments;
 	}
 }
@@ -753,7 +750,6 @@ static void draw_bone_update_disp_matrix_bbone(EditBone *eBone, bPoseChannel *pc
 	float s[4][4], ebmat[4][4];
 	float length, xwidth, zwidth;
 	float (*bone_mat)[4];
-	float (*disp_mat)[4];
 	short bbone_segments;
 
 	/* TODO : This should be moved to depsgraph or armature refresh
@@ -764,7 +760,6 @@ static void draw_bone_update_disp_matrix_bbone(EditBone *eBone, bPoseChannel *pc
 		xwidth = pchan->bone->xwidth;
 		zwidth = pchan->bone->zwidth;
 		bone_mat = pchan->pose_mat;
-		disp_mat = pchan->disp_mat;
 		bbone_segments = pchan->bone->segments;
 	}
 	else {
@@ -775,7 +770,6 @@ static void draw_bone_update_disp_matrix_bbone(EditBone *eBone, bPoseChannel *pc
 		xwidth = eBone->xwidth;
 		zwidth = eBone->zwidth;
 		bone_mat = ebmat;
-		disp_mat = eBone->disp_mat;
 		bbone_segments = eBone->segments;
 	}
 
@@ -791,7 +785,7 @@ static void draw_bone_update_disp_matrix_bbone(EditBone *eBone, bPoseChannel *pc
 
 			for (int i = bbone_segments; i--; bbones_mat++) {
 				mul_m4_m4m4(bbones_mat->mat, bbones_mat->mat, s);
-				mul_m4_m4m4(bbones_mat->mat, disp_mat, bbones_mat->mat);
+				mul_m4_m4m4(bbones_mat->mat, bone_mat, bbones_mat->mat);
 			}
 		}
 		else {
@@ -806,7 +800,7 @@ static void draw_bone_update_disp_matrix_bbone(EditBone *eBone, bPoseChannel *pc
 
 			for (int i = bbone_segments; i--; bbones_mat++) {
 				mul_m4_m4m4(*bbones_mat, *bbones_mat, s);
-				mul_m4_m4m4(*bbones_mat, disp_mat, *bbones_mat);
+				mul_m4_m4m4(*bbones_mat, bone_mat, *bbones_mat);
 			}
 		}
 		else {
