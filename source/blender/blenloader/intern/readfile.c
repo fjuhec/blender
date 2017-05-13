@@ -4449,6 +4449,8 @@ static void direct_link_particlesystems(FileData *fd, ListBase *particles)
 
 		psys->tree = NULL;
 		psys->bvhtree = NULL;
+
+		psys->batch_cache = NULL;
 	}
 	return;
 }
