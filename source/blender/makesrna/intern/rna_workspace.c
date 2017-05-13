@@ -36,8 +36,14 @@
 
 #ifdef RNA_RUNTIME
 
+#include "BKE_global.h"
+
+#include "BLI_listbase.h"
+
 #include "DNA_object_types.h"
 #include "DNA_screen_types.h"
+
+#include "RNA_access.h"
 
 
 void rna_workspace_screens_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
@@ -73,7 +79,19 @@ static void rna_workspace_object_mode_set(PointerRNA *ptr, int value)
 static PointerRNA rna_workspace_render_layer_get(PointerRNA *ptr)
 {
 	WorkSpace *workspace = ptr->data;
-	return rna_pointer_inherit_refine(ptr, &RNA_SceneLayer, BKE_workspace_render_layer_get(workspace));
+	SceneLayer *render_layer = BKE_workspace_render_layer_get(workspace);
+
+	/* XXX hmrf... lookup in getter... but how could we avoid it? */
+	for (Scene *scene = G.main->scene.first; scene; scene = scene->id.next) {
+		if (BLI_findindex(&scene->render_layers, render_layer) != -1) {
+			PointerRNA scene_ptr;
+
+			RNA_id_pointer_create(&scene->id, &scene_ptr);
+			return rna_pointer_inherit_refine(&scene_ptr, &RNA_SceneLayer, render_layer);
+		}
+	}
+
+	return PointerRNA_NULL;
 }
 
 static void rna_workspace_render_layer_set(PointerRNA *ptr, PointerRNA value)
