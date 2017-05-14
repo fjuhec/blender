@@ -56,7 +56,7 @@ typedef struct {
  * \note Plural need to match rna_main.c's MainCollectionDef.
  * \note IDs that are only linkable (non-appendable) aren't used currently and thus poorly tested.
  *
- * \warning Keep it in sync with i19n contexts in BLT_translation.h!
+ * \warning Keep it in sync with i18n contexts in BLT_translation.h!
  */
 static IDType idtypes[] = {
 	/** ID's directly below must all be in #Main (membership, not order), and be kept in sync with #MAX_LIBARRAY */
