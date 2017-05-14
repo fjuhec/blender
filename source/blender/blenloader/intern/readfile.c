@@ -2790,6 +2790,10 @@ static void lib_link_workspaces(FileData *fd, Main *bmain)
 		ID *id = BKE_workspace_id_get(workspace);
 		ListBase *layouts = BKE_workspace_layouts_get(workspace);
 
+		if ((id->tag & LIB_TAG_NEED_LINK) == 0) {
+			continue;
+		}
+		IDP_LibLinkProperty(id->properties, fd);
 		id_us_ensure_real(id);
 
 		BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout, layouts->first) {
@@ -2807,6 +2811,8 @@ static void lib_link_workspaces(FileData *fd, Main *bmain)
 				}
 			}
 		} BKE_WORKSPACE_LAYOUT_ITER_END;
+
+		id->tag &= ~LIB_TAG_NEED_LINK;
 	} BKE_WORKSPACE_ITER_END;
 }
 
