@@ -246,7 +246,6 @@ static void wm_window_match_do(bContext *C, ListBase *oldwmlist)
 			bScreen *screen = NULL;
 
 			/* when loading without UI, no matching needed */
-			/* XXX think we don't handle this correctly yet, it's activating workspace from old file */
 			if (!(G.fileflags & G_FILE_NO_UI) && (screen = CTX_wm_screen(C))) {
 
 				/* match oldwm to new dbase, only old files */
