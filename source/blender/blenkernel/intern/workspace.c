@@ -332,23 +332,9 @@ void BKE_workspace_active_set(WorkSpaceInstanceHook *hook, WorkSpace *workspace)
 	}
 }
 
-ID *BKE_workspace_id_get(WorkSpace *workspace)
-{
-	return &workspace->id;
-}
-
 const char *BKE_workspace_name_get(const WorkSpace *workspace)
 {
 	return workspace->id.name + 2;
-}
-
-WorkSpace *BKE_workspace_next_get(const WorkSpace *workspace)
-{
-	return workspace->id.next;
-}
-WorkSpace *BKE_workspace_prev_get(const WorkSpace *workspace)
-{
-	return workspace->id.prev;
 }
 
 /**
@@ -436,15 +422,6 @@ void BKE_workspace_layout_screen_set(WorkSpaceLayout *layout, bScreen *screen)
 	layout->screen = screen;
 }
 
-WorkSpaceLayout *BKE_workspace_layout_next_get(const WorkSpaceLayout *layout)
-{
-	return layout->next;
-}
-WorkSpaceLayout *BKE_workspace_layout_prev_get(const WorkSpaceLayout *layout)
-{
-	return layout->prev;
-}
-
 WorkSpaceLayout *BKE_workspace_hook_layout_for_workspace_get(
         const WorkSpaceInstanceHook *hook, const WorkSpace *workspace)
 {
@@ -460,11 +437,6 @@ void BKE_workspace_hook_layout_for_workspace_set(
 ListBase *BKE_workspace_hook_layout_relations_get(WorkSpace *workspace)
 {
 	return &workspace->hook_layout_relations;
-}
-
-WorkSpaceDataRelation *BKE_workspace_relation_next_get(const WorkSpaceDataRelation *relation)
-{
-	return relation->next;
 }
 
 void BKE_workspace_relation_data_get(

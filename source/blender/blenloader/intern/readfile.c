@@ -2787,7 +2787,7 @@ static void direct_link_cachefile(FileData *fd, CacheFile *cache_file)
 static void lib_link_workspaces(FileData *fd, Main *bmain)
 {
 	BKE_WORKSPACE_ITER_BEGIN (workspace, bmain->workspaces.first) {
-		ID *id = BKE_workspace_id_get(workspace);
+		ID *id = (ID *)workspace;
 		ListBase *layouts = BKE_workspace_layouts_get(workspace);
 
 		if ((id->tag & LIB_TAG_NEED_LINK) == 0) {
@@ -2818,7 +2818,7 @@ static void lib_link_workspaces(FileData *fd, Main *bmain)
 
 static void direct_link_workspace(FileData *fd, WorkSpace *workspace, const Main *main)
 {
-	ID *workspace_id = BKE_workspace_id_get(workspace);
+	ID *workspace_id = (ID *)workspace;
 	ListBase *hook_layout_relations = BKE_workspace_hook_layout_relations_get(workspace);
 
 	link_list(fd, BKE_workspace_layouts_get(workspace));
@@ -2826,7 +2826,7 @@ static void direct_link_workspace(FileData *fd, WorkSpace *workspace, const Main
 
 	for (struct WorkSpaceDataRelation *relation = hook_layout_relations->first;
 	     relation;
-	     relation = BKE_workspace_relation_next_get(relation))
+	     relation = (void *)((Link *)relation)->next)
 	{
 		void *parent, *data;
 		BKE_workspace_relation_data_get(relation, &parent, &data);
@@ -7224,7 +7224,7 @@ void blo_lib_link_restore(Main *newmain, wmWindowManager *curwm, Scene *curscene
 
 	for (wmWindow *win = curwm->windows.first; win; win = win->next) {
 		WorkSpace *workspace = BKE_workspace_active_get(win->workspace_hook);
-		ID *workspace_id = BKE_workspace_id_get(workspace);
+		ID *workspace_id = (ID *)workspace;
 		Scene *oldscene = win->scene;
 
 		workspace = restore_pointer_by_name(id_map, workspace_id, USER_REAL);

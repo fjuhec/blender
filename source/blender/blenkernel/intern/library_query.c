@@ -988,7 +988,7 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 				wmWindowManager *wm = (wmWindowManager *)id;
 
 				for (wmWindow *win = wm->windows.first; win; win = win->next) {
-					ID *workspace = BKE_workspace_id_get(BKE_workspace_active_get(win->workspace_hook));
+					ID *workspace = (ID *)BKE_workspace_active_get(win->workspace_hook);
 
 					CALLBACK_INVOKE(win->scene, IDWALK_CB_USER_ONE);
 

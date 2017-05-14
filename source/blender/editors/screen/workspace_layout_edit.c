@@ -111,8 +111,8 @@ bool workspace_layout_set_poll(const WorkSpaceLayout *layout)
 
 static WorkSpaceLayout *workspace_layout_delete_find_new(const WorkSpaceLayout *layout_old)
 {
-	WorkSpaceLayout *prev = BKE_workspace_layout_prev_get(layout_old);
-	WorkSpaceLayout *next = BKE_workspace_layout_next_get(layout_old);
+	WorkSpaceLayout *prev = (void *)((Link *)layout_old)->prev;
+	WorkSpaceLayout *next = (void *)((Link *)layout_old)->next;
 
 	BKE_WORKSPACE_LAYOUT_ITER_BACKWARD_BEGIN (layout_new, prev) {
 		if (workspace_layout_set_poll(layout_new)) {

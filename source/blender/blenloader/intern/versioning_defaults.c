@@ -104,7 +104,7 @@ static void update_defaults_startup_workspaces(Main *bmain)
 	} BKE_WORKSPACE_ITER_END;
 
 	/* rename "Default" workspace to "General" */
-	BKE_libblock_rename(bmain, BKE_workspace_id_get(workspace_default), "General");
+	BKE_libblock_rename(bmain, (ID *)workspace_default, "General");
 	BLI_assert(BLI_listbase_count(BKE_workspace_layouts_get(workspace_default)) == 1);
 }
 

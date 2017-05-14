@@ -32,6 +32,7 @@ struct ListBase;
 struct Main;
 struct TransformOrientation;
 struct WorkSpace;
+struct WorkSpaceDataRelation;
 
 typedef struct WorkSpace WorkSpace;
 typedef struct WorkSpaceInstanceHook WorkSpaceInstanceHook;
@@ -70,7 +71,7 @@ void BKE_workspace_layout_remove(
 
 #define BKE_WORKSPACE_ITER_BEGIN(_workspace, _start_workspace) \
 	for (WorkSpace *_workspace = _start_workspace, *_workspace##_next; _workspace; _workspace = _workspace##_next) { \
-		_workspace##_next = BKE_workspace_next_get(_workspace); /* support removing workspace from list */
+		_workspace##_next = ((ID *)_workspace)->next; /* support removing workspace from list */
 #define BKE_WORKSPACE_ITER_END } ((void)0)
 
 void BKE_workspaces_transform_orientation_remove(
@@ -85,10 +86,10 @@ WorkSpaceLayout *BKE_workspace_layout_find_global(
 
 #define BKE_WORKSPACE_LAYOUT_ITER_BEGIN(_layout, _start_layout) \
 	for (WorkSpaceLayout *_layout = _start_layout, *_layout##_next; _layout; _layout = _layout##_next) { \
-		_layout##_next = BKE_workspace_layout_next_get(_layout); /* support removing layout from list */
+		_layout##_next = (WorkSpaceLayout *)((Link *)_layout)->next; /* support removing layout from list */
 #define BKE_WORKSPACE_LAYOUT_ITER_BACKWARD_BEGIN(_layout, _start_layout) \
 	for (WorkSpaceLayout *_layout = _start_layout, *_layout##_prev; _layout; _layout = _layout##_prev) { \
-		_layout##_prev = BKE_workspace_layout_prev_get(_layout); /* support removing layout from list */
+		_layout##_prev = (WorkSpaceLayout *)((Link *)_layout)->prev; /* support removing layout from list */
 #define BKE_WORKSPACE_LAYOUT_ITER_END } ((void)0)
 
 WorkSpaceLayout *BKE_workspace_layout_iter_circular(
@@ -105,10 +106,7 @@ WorkSpaceLayout *BKE_workspace_layout_iter_circular(
 
 WorkSpace *BKE_workspace_active_get(WorkSpaceInstanceHook *hook) GETTER_ATTRS;
 void       BKE_workspace_active_set(WorkSpaceInstanceHook *hook, WorkSpace *workspace) SETTER_ATTRS;
-struct ID *BKE_workspace_id_get(WorkSpace *workspace) GETTER_ATTRS;
 const char *BKE_workspace_name_get(const WorkSpace *workspace) GETTER_ATTRS;
-WorkSpace *BKE_workspace_next_get(const WorkSpace *workspace) GETTER_ATTRS;
-WorkSpace *BKE_workspace_prev_get(const WorkSpace *workspace) GETTER_ATTRS;
 WorkSpace *BKE_workspace_temp_store_get(WorkSpaceInstanceHook *hook) GETTER_ATTRS;
 void       BKE_workspace_temp_store_set(WorkSpaceInstanceHook *hook, WorkSpace *workspace) SETTER_ATTRS;
 WorkSpaceLayout *BKE_workspace_active_layout_get(const WorkSpaceInstanceHook *hook) GETTER_ATTRS;
@@ -130,8 +128,6 @@ const char *BKE_workspace_layout_name_get(const WorkSpaceLayout *layout) GETTER_
 void        BKE_workspace_layout_name_set(WorkSpace *workspace, WorkSpaceLayout *layout, const char *new_name) ATTR_NONNULL();
 struct bScreen *BKE_workspace_layout_screen_get(const WorkSpaceLayout *layout) GETTER_ATTRS;
 void            BKE_workspace_layout_screen_set(WorkSpaceLayout *layout, struct bScreen *screen) SETTER_ATTRS;
-WorkSpaceLayout *BKE_workspace_layout_next_get(const WorkSpaceLayout *layout) GETTER_ATTRS;
-WorkSpaceLayout *BKE_workspace_layout_prev_get(const WorkSpaceLayout *layout) GETTER_ATTRS;
 
 WorkSpaceLayout *BKE_workspace_hook_layout_for_workspace_get(
         const WorkSpaceInstanceHook *hook, const WorkSpace *workspace) GETTER_ATTRS;
@@ -139,7 +135,6 @@ void             BKE_workspace_hook_layout_for_workspace_set(
         WorkSpaceInstanceHook *hook, WorkSpace *workspace, WorkSpaceLayout *layout) ATTR_NONNULL();
 struct ListBase *BKE_workspace_hook_layout_relations_get(WorkSpace *workspace) GETTER_ATTRS;
 
-struct WorkSpaceDataRelation *BKE_workspace_relation_next_get(const struct WorkSpaceDataRelation *relation) GETTER_ATTRS;
 void BKE_workspace_relation_data_get(
         const struct WorkSpaceDataRelation *relation,
         void **parent, void **data) ATTR_NONNULL();

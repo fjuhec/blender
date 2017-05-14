@@ -237,17 +237,19 @@ WorkSpace *ED_workspace_duplicate(
 bool ED_workspace_delete(
         WorkSpace *workspace, Main *bmain, bContext *C, wmWindowManager *wm, wmWindow *win)
 {
+	ID *workspace_id = (ID *)workspace;
+
 	if (BLI_listbase_is_single(&bmain->workspaces)) {
 		return false;
 	}
 
 	if (WM_window_get_active_workspace(win) == workspace) {
-		WorkSpace *prev = BKE_workspace_prev_get(workspace);
-		WorkSpace *next = BKE_workspace_next_get(workspace);
+		WorkSpace *prev = workspace_id->prev;
+		WorkSpace *next = workspace_id->next;
 
 		ED_workspace_change((prev != NULL) ? prev : next, C, wm, win);
 	}
-	BKE_libblock_free(bmain, BKE_workspace_id_get(workspace));
+	BKE_libblock_free(bmain, workspace_id);
 
 	return true;
 }
@@ -353,7 +355,7 @@ static WorkspaceConfigFileData *workspace_config_file_read(
 static void workspace_append_button(
         uiLayout *layout, wmOperatorType *ot_append, const WorkSpace *workspace, const Main *from_main)
 {
-	const ID *id = BKE_workspace_id_get((WorkSpace *)workspace); /* non-const cast, but we really don't modify it... */
+	const ID *id = (ID *)workspace;
 	PointerRNA opptr;
 	char lib_path[FILE_MAX_LIBEXTRA];
 

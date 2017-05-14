@@ -540,7 +540,7 @@ bool BKE_blendfile_workspace_config_write(Main *bmain, const char *filepath, Rep
 	BKE_blendfile_write_partial_begin(bmain);
 
 	BKE_WORKSPACE_ITER_BEGIN (workspace, bmain->workspaces.first) {
-		ID *workspace_id = BKE_workspace_id_get(workspace);
+		ID *workspace_id = (ID *)workspace;
 		BKE_blendfile_write_partial_tag_ID(workspace_id, true);
 	} BKE_WORKSPACE_ITER_END;
 
