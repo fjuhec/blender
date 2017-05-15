@@ -86,7 +86,8 @@ set(SRC
 	engines/external/external_engine.c
 	engines/gpencil/gpencil_engine.h
 	engines/gpencil/gpencil_engine.c
-	engines/gpencil/gpencil_draw.c
+	engines/gpencil/gpencil_draw_cache_impl.c
+	engines/gpencil/gpencil_geom.c
 
 	DRW_engine.h
 	intern/DRW_render.h

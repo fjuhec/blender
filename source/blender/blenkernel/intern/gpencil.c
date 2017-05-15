@@ -56,6 +56,23 @@
 #include "BKE_library.h"
 #include "BKE_main.h"
 
+ /* Draw Engine */
+void(*BKE_gpencil_batch_cache_dirty_cb)(bGPdata *gpd, int mode) = NULL;
+void(*BKE_gpencil_batch_cache_free_cb)(bGPdata *gpd) = NULL;
+
+void BKE_gpencil_batch_cache_dirty(bGPdata *gpd, int mode)
+{
+	if (gpd->batch_cache) {
+		BKE_gpencil_batch_cache_dirty_cb(gpd, mode);
+	}
+}
+
+void BKE_gpencil_batch_cache_free(bGPdata *gpd)
+{
+	if (gpd->batch_cache) {
+		BKE_gpencil_batch_cache_free_cb(gpd);
+	}
+}
 
 /* ************************************************** */
 /* GENERAL STUFF */
@@ -194,15 +211,18 @@ void BKE_gpencil_free_layers(ListBase *list)
 }
 
 /** Free (or release) any data used by this grease pencil (does not free the gpencil itself). */
-void BKE_gpencil_free(bGPdata *gpd, bool free_palettes)
+void BKE_gpencil_free(bGPdata *gpd, bool free_all)
 {
+	/* clear animation data */
 	BKE_animdata_free(&gpd->id, false);
 
 	/* free layers */
 	BKE_gpencil_free_layers(&gpd->layers);
 
-	/* free palettes */
-	if (free_palettes) {
+	/* free all data */
+	if (free_all) {
+		/* clear cache */
+		BKE_gpencil_batch_cache_free(gpd);
 		BKE_gpencil_free_palettes(&gpd->palettes);
 	}
 }
@@ -634,6 +654,7 @@ bGPdata *BKE_gpencil_data_addnew(const char name[])
 	 * since this is more useful...
 	 */
 	gpd->flag |= GP_DATA_VIEWALIGN;
+	gpd->batch_cache = NULL;
 	
 	return gpd;
 }

@@ -23,7 +23,7 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/gpencil/drawgpencil.c
+/** \file blender/editors/gpencil/gpencil_geom.c
  *  \ingroup edgpencil
  */
 
@@ -143,27 +143,27 @@ Batch *gpencil_get_stroke_geom(bGPDframe *gpf, bGPDstroke *gps, short thickness,
 	for (int i = 0; i < totpoints; i++, pt++) {
 		/* first point for adjacency (not drawn) */
 		if (i == 0) {
-			gpencil_set_stroke_point(rv3d, vbo, gpf->matrix, &points[1], idx, pos_id, color_id, thickness_id, thickness, ink);
+			gpencil_set_stroke_point(rv3d, vbo, gpf->viewmatrix, &points[1], idx, pos_id, color_id, thickness_id, thickness, ink);
 			++idx;
 		}
 		/* set point */
-		gpencil_set_stroke_point(rv3d, vbo, gpf->matrix, pt, idx, pos_id, color_id, thickness_id, thickness, ink);
+		gpencil_set_stroke_point(rv3d, vbo, gpf->viewmatrix, pt, idx, pos_id, color_id, thickness_id, thickness, ink);
 		++idx;
 	}
 
 	if (gps->flag & GP_STROKE_CYCLIC && totpoints > 2) {
 		/* draw line to first point to complete the cycle */
-		gpencil_set_stroke_point(rv3d, vbo, gpf->matrix, &points[0], idx, pos_id, color_id, thickness_id, thickness, ink);
+		gpencil_set_stroke_point(rv3d, vbo, gpf->viewmatrix, &points[0], idx, pos_id, color_id, thickness_id, thickness, ink);
 		++idx;
 		/* now add adjacency points using 2nd & 3rd point to get smooth transition */
-		gpencil_set_stroke_point(rv3d, vbo, gpf->matrix, &points[1], idx, pos_id, color_id, thickness_id, thickness, ink);
+		gpencil_set_stroke_point(rv3d, vbo, gpf->viewmatrix, &points[1], idx, pos_id, color_id, thickness_id, thickness, ink);
 		++idx;
-		gpencil_set_stroke_point(rv3d, vbo, gpf->matrix, &points[2], idx, pos_id, color_id, thickness_id, thickness, ink);
+		gpencil_set_stroke_point(rv3d, vbo, gpf->viewmatrix, &points[2], idx, pos_id, color_id, thickness_id, thickness, ink);
 		++idx;
 	}
 	/* last adjacency point (not drawn) */
 	else {
-		gpencil_set_stroke_point(rv3d, vbo, gpf->matrix, &points[totpoints - 2], idx, pos_id, color_id, thickness_id, thickness, ink);
+		gpencil_set_stroke_point(rv3d, vbo, gpf->viewmatrix, &points[totpoints - 2], idx, pos_id, color_id, thickness_id, thickness, ink);
 	}
 
 	return Batch_create(PRIM_LINE_STRIP_ADJACENCY, vbo, NULL);
@@ -392,8 +392,7 @@ bool gpencil_can_draw_stroke(RegionView3D *rv3d, const bGPDframe *gpf, const bGP
 	   the stroke because check all points is too work and it works fine in most situations
 	*/
 	float viewfpt[3];
-	copy_v3_v3(viewfpt, &gps->points[0].x);
-	mul_m4_v3(gpf->matrix, viewfpt);
+	mul_v3_m4v3(viewfpt, gpf->viewmatrix, &gps->points[0].x);
 	float zdepth = 0.0;
 
 	if (rv3d->is_persp) {

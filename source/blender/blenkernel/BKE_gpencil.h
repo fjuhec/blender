@@ -50,7 +50,10 @@ void BKE_gpencil_free_frames(struct bGPDlayer *gpl);
 void BKE_gpencil_free_layers(struct ListBase *list);
 void BKE_gpencil_free_brushes(struct ListBase *list);
 void BKE_gpencil_free_palettes(struct ListBase *list);
-void BKE_gpencil_free(struct bGPdata *gpd, bool free_palettes);
+void BKE_gpencil_free(struct bGPdata *gpd, bool free_all);
+
+void BKE_gpencil_batch_cache_dirty(struct bGPdata *gpd, int mode);
+void BKE_gpencil_batch_cache_free(struct bGPdata *gpd);
 
 void BKE_gpencil_stroke_sync_selection(struct bGPDstroke *gps);
 

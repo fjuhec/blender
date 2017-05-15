@@ -1941,7 +1941,7 @@ static void gpencil_draw_exit(bContext *C, wmOperator *op)
 	
 	/* clear undo stack */
 	gpencil_undo_finish();
-	
+
 	/* restore cursor to indicate end of drawing */
 	WM_cursor_modal_restore(CTX_wm_window(C));
 	
@@ -1962,7 +1962,10 @@ static void gpencil_draw_exit(bContext *C, wmOperator *op)
 		/* cleanup */
 		gp_paint_cleanup(p);
 		gp_session_cleanup(p);
-		
+
+		/* drawing batch cache is dirty now */
+		BKE_gpencil_batch_cache_free(p->gpd);
+		p->gpd->flag |= GP_DATA_CACHE_IS_DIRTY;
 		/* finally, free the temp data */
 		MEM_freeN(p);
 	}

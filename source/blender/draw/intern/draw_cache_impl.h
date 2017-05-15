@@ -44,6 +44,9 @@ void DRW_mesh_batch_cache_free(struct Mesh *me);
 void DRW_lattice_batch_cache_dirty(struct Lattice *lt, int mode);
 void DRW_lattice_batch_cache_free(struct Lattice *lt);
 
+void DRW_gpencil_batch_cache_dirty(struct bGPdata *gpd, int mode);
+void DRW_gpencil_batch_cache_free(struct bGPdata *gpd);
+
 /* Curve */
 struct Batch *DRW_curve_batch_cache_get_wire_edge(struct Curve *cu, struct CurveCache *ob_curve_cache);
 struct Batch *DRW_curve_batch_cache_get_normal_edge(

@@ -210,7 +210,7 @@ typedef struct bGPDframe {
 	
 	short flag;			/* temp settings */
 	short key_type;		/* keyframe type (eBezTriple_KeyframeType) */
-	float matrix[4][4];     /* parent matrix for drawing */
+	float viewmatrix[4][4];     /* parent matrix for drawing */
 } bGPDframe;
 
 /* bGPDframe->flag */
@@ -309,6 +309,8 @@ typedef struct bGPdata {
 
 	/* saved palettes */
 	ListBase palettes;
+	/* drawing manager cache */
+	void *batch_cache;
 } bGPdata;
 
 /* bGPdata->flag */
@@ -345,7 +347,9 @@ typedef enum eGPdata_Flag {
 	/* Convenience/cache flag to make it easier to quickly toggle onion skinning on/off */
 	GP_DATA_SHOW_ONIONSKINS = (1 << 9),
 	/* Draw a green and red point to indicate start and end of the stroke */
-	GP_DATA_SHOW_DIRECTION = (1 << 10)
+	GP_DATA_SHOW_DIRECTION = (1 << 10),
+	/* Batch drawing cache need to be recalculated */
+	GP_DATA_CACHE_IS_DIRTY = (1 << 11)
 } eGPdata_Flag;
 
 #endif /*  __DNA_GPENCIL_TYPES_H__ */
