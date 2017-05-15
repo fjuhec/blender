@@ -1437,3 +1437,15 @@ void BKE_gpencil_move_animdata_to_palettes(bGPdata *gpd)
 		}
 	}
 }
+
+/* Change draw manager status in all gpd datablocks */
+void BKE_gpencil_batch_cache_alldirty()
+{
+	bGPdata *gpd;
+	Main *bmain = G.main;
+
+	for (gpd = bmain->gpencil.first; gpd; gpd = gpd->id.next) {
+		BKE_gpencil_batch_cache_dirty(gpd, 0);
+	}
+}
+

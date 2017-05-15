@@ -54,6 +54,7 @@
 
 static void rna_GPencil_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *UNUSED(ptr))
 {
+	BKE_gpencil_batch_cache_alldirty();
 	WM_main_add_notifier(NC_GPENCIL | NA_EDITED, NULL);
 }
 
