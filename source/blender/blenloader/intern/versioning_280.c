@@ -301,9 +301,6 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 			}
 		}
 		/* ------- end grease pencil palettes conversion --------------- */
-			}
-		}
-
 	}
 
 	if (!DNA_struct_elem_find(fd->filesdna, "GPUDOFSettings", "float", "ratio"))	{

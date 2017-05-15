@@ -1,31 +1,31 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version. 
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2009 Blender Foundation.
- * All rights reserved.
- * 
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
- */
+* ***** BEGIN GPL LICENSE BLOCK *****
+*
+* This program is free software; you can redistribute it and/or
+* modify it under the terms of the GNU General Public License
+* as published by the Free Software Foundation; either version 2
+* of the License, or (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program; if not, write to the Free Software Foundation,
+* Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+*
+* The Original Code is Copyright (C) 2009 Blender Foundation.
+* All rights reserved.
+*
+* Contributor(s): Blender Foundation
+*
+* ***** END GPL LICENSE BLOCK *****
+*/
 
 /** \file blender/editors/interface/interface_utils.c
- *  \ingroup edinterface
- */
+*  \ingroup edinterface
+*/
 
 
 #include <stdio.h>
@@ -65,102 +65,102 @@ uiBut *uiDefAutoButR(uiBlock *block, PointerRNA *ptr, PropertyRNA *prop, int ind
 	uiBut *but = NULL;
 
 	switch (RNA_property_type(prop)) {
-		case PROP_BOOLEAN:
-		{
-			int arraylen = RNA_property_array_length(ptr, prop);
+	case PROP_BOOLEAN:
+	{
+		int arraylen = RNA_property_array_length(ptr, prop);
 
-			if (arraylen && index == -1)
+		if (arraylen && index == -1)
+			return NULL;
+
+		if (icon && name && name[0] == '\0')
+			but = uiDefIconButR_prop(block, UI_BTYPE_ICON_TOGGLE, 0, icon, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
+		else if (icon)
+			but = uiDefIconTextButR_prop(block, UI_BTYPE_ICON_TOGGLE, 0, icon, name, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
+		else
+			but = uiDefButR_prop(block, UI_BTYPE_CHECKBOX, 0, name, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
+		break;
+	}
+	case PROP_INT:
+	case PROP_FLOAT:
+	{
+		int arraylen = RNA_property_array_length(ptr, prop);
+
+		if (arraylen && index == -1) {
+			if (ELEM(RNA_property_subtype(prop), PROP_COLOR, PROP_COLOR_GAMMA)) {
+				but = uiDefButR_prop(block, UI_BTYPE_COLOR, 0, name, x1, y1, x2, y2, ptr, prop, -1, 0, 0, -1, -1, NULL);
+			}
+			else {
 				return NULL;
-			
-			if (icon && name && name[0] == '\0')
-				but = uiDefIconButR_prop(block, UI_BTYPE_ICON_TOGGLE, 0, icon, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
-			else if (icon)
-				but = uiDefIconTextButR_prop(block, UI_BTYPE_ICON_TOGGLE, 0, icon, name, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
-			else
-				but = uiDefButR_prop(block, UI_BTYPE_CHECKBOX, 0, name, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
-			break;
-		}
-		case PROP_INT:
-		case PROP_FLOAT:
-		{
-			int arraylen = RNA_property_array_length(ptr, prop);
-
-			if (arraylen && index == -1) {
-				if (ELEM(RNA_property_subtype(prop), PROP_COLOR, PROP_COLOR_GAMMA)) {
-					but = uiDefButR_prop(block, UI_BTYPE_COLOR, 0, name, x1, y1, x2, y2, ptr, prop, -1, 0, 0, -1, -1, NULL);
-				}
-				else {
-					return NULL;
-				}
 			}
-			else if (RNA_property_subtype(prop) == PROP_PERCENTAGE || RNA_property_subtype(prop) == PROP_FACTOR)
-				but = uiDefButR_prop(block, UI_BTYPE_NUM_SLIDER, 0, name, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
-			else
-				but = uiDefButR_prop(block, UI_BTYPE_NUM, 0, name, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
-
-			if (RNA_property_flag(prop) & PROP_TEXTEDIT_UPDATE) {
-				UI_but_flag_enable(but, UI_BUT_TEXTEDIT_UPDATE);
-			}
-			break;
 		}
-		case PROP_ENUM:
-			if (icon && name && name[0] == '\0')
-				but = uiDefIconButR_prop(block, UI_BTYPE_MENU, 0, icon, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
-			else if (icon)
-				but = uiDefIconTextButR_prop(block, UI_BTYPE_MENU, 0, icon, NULL, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
-			else
-				but = uiDefButR_prop(block, UI_BTYPE_MENU, 0, name, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
-			break;
-		case PROP_STRING:
-			if (icon && name && name[0] == '\0')
-				but = uiDefIconButR_prop(block, UI_BTYPE_TEXT, 0, icon, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
-			else if (icon)
-				but = uiDefIconTextButR_prop(block, UI_BTYPE_TEXT, 0, icon, name, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
-			else
-				but = uiDefButR_prop(block, UI_BTYPE_TEXT, 0, name, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
+		else if (RNA_property_subtype(prop) == PROP_PERCENTAGE || RNA_property_subtype(prop) == PROP_FACTOR)
+			but = uiDefButR_prop(block, UI_BTYPE_NUM_SLIDER, 0, name, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
+		else
+			but = uiDefButR_prop(block, UI_BTYPE_NUM, 0, name, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
 
-			if (RNA_property_flag(prop) & PROP_TEXTEDIT_UPDATE) {
-				/* TEXTEDIT_UPDATE is usally used for search buttons. For these we also want
-				 * the 'x' icon to clear search string, so setting VALUE_CLEAR flag, too. */
-				UI_but_flag_enable(but, UI_BUT_TEXTEDIT_UPDATE | UI_BUT_VALUE_CLEAR);
-			}
-			break;
-		case PROP_POINTER:
-		{
-			if (icon == 0) {
-				PointerRNA pptr = RNA_property_pointer_get(ptr, prop);
-				icon = RNA_struct_ui_icon(pptr.type ? pptr.type : RNA_property_pointer_type(ptr, prop));
-			}
-			if (icon == ICON_DOT)
-				icon = 0;
+		if (RNA_property_flag(prop) & PROP_TEXTEDIT_UPDATE) {
+			UI_but_flag_enable(but, UI_BUT_TEXTEDIT_UPDATE);
+		}
+		break;
+	}
+	case PROP_ENUM:
+		if (icon && name && name[0] == '\0')
+			but = uiDefIconButR_prop(block, UI_BTYPE_MENU, 0, icon, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
+		else if (icon)
+			but = uiDefIconTextButR_prop(block, UI_BTYPE_MENU, 0, icon, NULL, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
+		else
+			but = uiDefButR_prop(block, UI_BTYPE_MENU, 0, name, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
+		break;
+	case PROP_STRING:
+		if (icon && name && name[0] == '\0')
+			but = uiDefIconButR_prop(block, UI_BTYPE_TEXT, 0, icon, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
+		else if (icon)
+			but = uiDefIconTextButR_prop(block, UI_BTYPE_TEXT, 0, icon, name, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
+		else
+			but = uiDefButR_prop(block, UI_BTYPE_TEXT, 0, name, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
 
-			but = uiDefIconTextButR_prop(block, UI_BTYPE_SEARCH_MENU, 0, icon, name, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
-			break;
+		if (RNA_property_flag(prop) & PROP_TEXTEDIT_UPDATE) {
+			/* TEXTEDIT_UPDATE is usally used for search buttons. For these we also want
+			* the 'x' icon to clear search string, so setting VALUE_CLEAR flag, too. */
+			UI_but_flag_enable(but, UI_BUT_TEXTEDIT_UPDATE | UI_BUT_VALUE_CLEAR);
 		}
-		case PROP_COLLECTION:
-		{
-			char text[256];
-			BLI_snprintf(text, sizeof(text), IFACE_("%d items"), RNA_property_collection_length(ptr, prop));
-			but = uiDefBut(block, UI_BTYPE_LABEL, 0, text, x1, y1, x2, y2, NULL, 0, 0, 0, 0, NULL);
-			UI_but_flag_enable(but, UI_BUT_DISABLED);
-			break;
+		break;
+	case PROP_POINTER:
+	{
+		if (icon == 0) {
+			PointerRNA pptr = RNA_property_pointer_get(ptr, prop);
+			icon = RNA_struct_ui_icon(pptr.type ? pptr.type : RNA_property_pointer_type(ptr, prop));
 		}
-		default:
-			but = NULL;
-			break;
+		if (icon == ICON_DOT)
+			icon = 0;
+
+		but = uiDefIconTextButR_prop(block, UI_BTYPE_SEARCH_MENU, 0, icon, name, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
+		break;
+	}
+	case PROP_COLLECTION:
+	{
+		char text[256];
+		BLI_snprintf(text, sizeof(text), IFACE_("%d items"), RNA_property_collection_length(ptr, prop));
+		but = uiDefBut(block, UI_BTYPE_LABEL, 0, text, x1, y1, x2, y2, NULL, 0, 0, 0, 0, NULL);
+		UI_but_flag_enable(but, UI_BUT_DISABLED);
+		break;
+	}
+	default:
+		but = NULL;
+		break;
 	}
 
 	return but;
 }
 
 /**
- * \a check_prop callback filters functions to avoid drawing certain properties,
- * in cases where PROP_HIDDEN flag can't be used for a property.
- */
+* \a check_prop callback filters functions to avoid drawing certain properties,
+* in cases where PROP_HIDDEN flag can't be used for a property.
+*/
 int uiDefAutoButsRNA(
-        uiLayout *layout, PointerRNA *ptr,
-        bool (*check_prop)(PointerRNA *, PropertyRNA *),
-        const char label_align)
+	uiLayout *layout, PointerRNA *ptr,
+	bool(*check_prop)(PointerRNA *, PropertyRNA *),
+	const char label_align)
 {
 	uiLayout *split, *col;
 	int flag;
@@ -169,7 +169,7 @@ int uiDefAutoButsRNA(
 
 	assert(ELEM(label_align, '\0', 'H', 'V'));
 
-	RNA_STRUCT_BEGIN (ptr, prop)
+	RNA_STRUCT_BEGIN(ptr, prop)
 	{
 		flag = RNA_property_flag(prop);
 		if (flag & PROP_HIDDEN || (check_prop && check_prop(ptr, prop) == 0))
@@ -197,7 +197,7 @@ int uiDefAutoButsRNA(
 			}
 
 			/* may meed to add more cases here.
-			 * don't override enum flag names */
+			* don't override enum flag names */
 
 			/* name is shown above, empty name for button below */
 			name = (flag & PROP_ENUM_FLAG || is_boolean) ? NULL : "";
@@ -214,91 +214,6 @@ int uiDefAutoButsRNA(
 
 	return tot;
 }
-/* *** RNA collection search menu *** */
-
-typedef struct CollItemSearch {
-	struct CollItemSearch *next, *prev;
-	ID *id;
-	char *name;
-	int index;
-	int iconid;
-} CollItemSearch;
-
-static int sort_search_items_list(const void *a, const void *b)
-{
-	const CollItemSearch *cis1 = a;
-	const CollItemSearch *cis2 = b;
-
-	if (BLI_strcasecmp(cis1->name, cis2->name) > 0)
-		return 1;
-	else
-		return 0;
-}
-
-void ui_rna_collection_search_cb(const struct bContext *C, void *arg, const char *str, uiSearchItems *items)
-{
-	uiRNACollectionSearch *data = arg;
-	char *name;
-	int i = 0, iconid = 0, flag = RNA_property_flag(data->target_prop);
-	ListBase *items_list = MEM_callocN(sizeof(ListBase), "items_list");
-	CollItemSearch *cis;
-	const bool skip_filter = !(data->but_changed && *data->but_changed);
-
-	/* build a temporary list of relevant items first */
-	RNA_PROP_BEGIN (&data->search_ptr, itemptr, data->search_prop)
-	{
-		ID *id = NULL;
-
-		if (flag & PROP_ID_SELF_CHECK)
-			if (itemptr.data == data->target_ptr.id.data)
-				continue;
-
-		/* use filter */
-		if (RNA_property_type(data->target_prop) == PROP_POINTER) {
-			if (RNA_property_pointer_poll(&data->target_ptr, data->target_prop, &itemptr) == 0)
-				continue;
-		}
-
-		name = RNA_struct_name_get_alloc(&itemptr, NULL, 0, NULL); /* could use the string length here */
-		iconid = 0;
-		if (itemptr.type && RNA_struct_is_ID(itemptr.type)) {
-			id = itemptr.data;
-			iconid = ui_id_icon_get(C, id, false);
-		}
-
-		if (name) {
-			if (skip_filter || BLI_strcasestr(name, str)) {
-				cis = MEM_callocN(sizeof(CollItemSearch), "CollectionItemSearch");
-				cis->id = id;
-				cis->name = MEM_dupallocN(name);
-				cis->index = i;
-				cis->iconid = iconid;
-				BLI_addtail(items_list, cis);
-			}
-			MEM_freeN(name);
-		}
-
-		i++;
-	}
-	RNA_PROP_END;
-
-	BLI_listbase_sort(items_list, sort_search_items_list);
-
-	/* add search items from temporary list */
-	for (cis = items_list->first; cis; cis = cis->next) {
-		void *poin = cis->id ? cis->id : SET_INT_IN_POINTER(cis->index);
-		if (UI_search_item_add(items, cis->name, poin, cis->iconid) == false) {
-			break;
-		}
-	}
-
-	for (cis = items_list->first; cis; cis = cis->next) {
-		MEM_freeN(cis->name);
-	}
-	BLI_freelistN(items_list);
-	MEM_freeN(items_list);
-}
-
 
 /* *** RNA collection search menu *** */
 
@@ -331,7 +246,7 @@ void ui_rna_collection_search_cb(const struct bContext *C, void *arg, const char
 	const bool skip_filter = !(data->but_changed && *data->but_changed);
 
 	/* build a temporary list of relevant items first */
-	RNA_PROP_BEGIN (&data->search_ptr, itemptr, data->search_prop)
+	RNA_PROP_BEGIN(&data->search_ptr, itemptr, data->search_prop)
 	{
 
 		if (flag & PROP_ID_SELF_CHECK)
@@ -393,7 +308,7 @@ int UI_icon_from_id(ID *id)
 
 	if (id == NULL)
 		return ICON_NONE;
-	
+
 	idcode = GS(id->name);
 
 	/* exception for objects */
@@ -407,7 +322,7 @@ int UI_icon_from_id(ID *id)
 	}
 
 	/* otherwise get it through RNA, creating the pointer
-	 * will set the right type, also with subclassing */
+	* will set the right type, also with subclassing */
 	RNA_id_pointer_create(id, &ptr);
 
 	return (ptr.type) ? RNA_struct_ui_icon(ptr.type) : ICON_NONE;
@@ -429,21 +344,21 @@ int UI_icon_from_report_type(int type)
 /********************************** Misc **************************************/
 
 /**
- * Returns the best "UI" precision for given floating value, so that e.g. 10.000001 rather gets drawn as '10'...
- */
+* Returns the best "UI" precision for given floating value, so that e.g. 10.000001 rather gets drawn as '10'...
+*/
 int UI_calc_float_precision(int prec, double value)
 {
-	static const double pow10_neg[UI_PRECISION_FLOAT_MAX + 1] = {1e0, 1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7};
+	static const double pow10_neg[UI_PRECISION_FLOAT_MAX + 1] = { 1e0, 1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7 };
 	static const double max_pow = 10000000.0;  /* pow(10, UI_PRECISION_FLOAT_MAX) */
 
 	BLI_assert(prec <= UI_PRECISION_FLOAT_MAX);
 	BLI_assert(fabs(pow10_neg[prec] - pow(10, -prec)) < 1e-16);
 
 	/* check on the number of decimal places need to display the number, this is so 0.00001 is not displayed as 0.00,
-	 * _but_, this is only for small values si 10.0001 will not get the same treatment.
-	 */
+	* _but_, this is only for small values si 10.0001 will not get the same treatment.
+	*/
 	value = ABS(value);
-	if ((value < pow10_neg[prec]) && (value > (1.0 / max_pow))) {
+	if ((value < pow10_neg[prec]) && (value >(1.0 / max_pow))) {
 		int value_i = (int)((value * max_pow) + 0.5);
 		if (value_i != 0) {
 			const int prec_span = 3; /* show: 0.01001, 5 would allow 0.0100001 for eg. */
@@ -485,7 +400,7 @@ bool UI_but_online_manual_id(const uiBut *but, char *r_str, size_t maxlength)
 {
 	if (but->rnapoin.id.data && but->rnapoin.data && but->rnaprop) {
 		BLI_snprintf(r_str, maxlength, "%s.%s", RNA_struct_identifier(but->rnapoin.type),
-		             RNA_property_identifier(but->rnaprop));
+			RNA_property_identifier(but->rnaprop));
 		return true;
 	}
 	else if (but->optype) {
@@ -514,13 +429,13 @@ bool UI_but_online_manual_id_from_active(const struct bContext *C, char *r_str, 
 /* Modal Button Store API */
 
 /** \name Button Store
- *
- * Store for modal operators & handlers to register button pointers
- * which are maintained while drawing or NULL when removed.
- *
- * This is needed since button pointers are continuously freed and re-allocated.
- *
- * \{ */
+*
+* Store for modal operators & handlers to register button pointers
+* which are maintained while drawing or NULL when removed.
+*
+* This is needed since button pointers are continuously freed and re-allocated.
+*
+* \{ */
 
 struct uiButStore {
 	struct uiButStore *next, *prev;
@@ -534,8 +449,8 @@ struct uiButStoreElem {
 };
 
 /**
- * Create a new button store, the caller must manage and run #UI_butstore_free
- */
+* Create a new button store, the caller must manage and run #UI_butstore_free
+*/
 uiButStore *UI_butstore_create(uiBlock *block)
 {
 	uiButStore *bs_handle = MEM_callocN(sizeof(uiButStore), __func__);
@@ -602,8 +517,8 @@ void UI_butstore_unregister(uiButStore *bs_handle, uiBut **but_p)
 }
 
 /**
- * Update the pointer for a registered button.
- */
+* Update the pointer for a registered button.
+*/
 bool UI_butstore_register_update(uiBlock *block, uiBut *but_dst, const uiBut *but_src)
 {
 	uiButStore *bs_handle;
@@ -623,8 +538,8 @@ bool UI_butstore_register_update(uiBlock *block, uiBut *but_dst, const uiBut *bu
 }
 
 /**
- * NULL all pointers, don't free since the owner needs to be able to inspect.
- */
+* NULL all pointers, don't free since the owner needs to be able to inspect.
+*/
 void UI_butstore_clear(uiBlock *block)
 {
 	uiButStore *bs_handle;
@@ -641,8 +556,8 @@ void UI_butstore_clear(uiBlock *block)
 }
 
 /**
- * Map freed buttons from the old block and update pointers.
- */
+* Map freed buttons from the old block and update pointers.
+*/
 void UI_butstore_update(uiBlock *block)
 {
 	uiButStore *bs_handle;
@@ -659,12 +574,12 @@ void UI_butstore_update(uiBlock *block)
 		return;
 
 	/* warning, loop-in-loop, in practice we only store <10 buttons at a time,
-	 * so this isn't going to be a problem, if that changes old-new mapping can be cached first */
+	* so this isn't going to be a problem, if that changes old-new mapping can be cached first */
 	for (bs_handle = block->butstore.first; bs_handle; bs_handle = bs_handle->next) {
 
 		BLI_assert((bs_handle->block == NULL) ||
-		           (bs_handle->block == block) ||
-		           (block->oldblock && block->oldblock == bs_handle->block));
+			(bs_handle->block == block) ||
+			(block->oldblock && block->oldblock == bs_handle->block));
 
 		if (bs_handle->block == block->oldblock) {
 			uiButStoreElem *bs_elem;
@@ -676,8 +591,8 @@ void UI_butstore_update(uiBlock *block)
 					uiBut *but_new = ui_but_find_new(block, *bs_elem->but_p);
 
 					/* can be NULL if the buttons removed,
-					 * note: we could allow passing in a callback when buttons are removed
-					 * so the caller can cleanup */
+					* note: we could allow passing in a callback when buttons are removed
+					* so the caller can cleanup */
 					*bs_elem->but_p = but_new;
 				}
 			}
