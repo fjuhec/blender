@@ -29,6 +29,7 @@
 struct Batch;
 struct ListBase;
 struct CurveCache;
+struct ParticleSystem;
 
 struct Curve;
 struct Lattice;
@@ -43,6 +44,9 @@ void DRW_mesh_batch_cache_free(struct Mesh *me);
 
 void DRW_lattice_batch_cache_dirty(struct Lattice *lt, int mode);
 void DRW_lattice_batch_cache_free(struct Lattice *lt);
+
+void DRW_particle_batch_cache_dirty(struct ParticleSystem *psys, int mode);
+void DRW_particle_batch_cache_free(struct ParticleSystem *psys);
 
 void DRW_gpencil_batch_cache_dirty(struct bGPdata *gpd, int mode);
 void DRW_gpencil_batch_cache_free(struct bGPdata *gpd);
@@ -87,5 +91,8 @@ struct Batch *DRW_mesh_batch_cache_get_overlay_triangles(struct Mesh *me);
 struct Batch *DRW_mesh_batch_cache_get_overlay_loose_edges(struct Mesh *me);
 struct Batch *DRW_mesh_batch_cache_get_overlay_loose_verts(struct Mesh *me);
 struct Batch *DRW_mesh_batch_cache_get_overlay_facedots(struct Mesh *me);
+
+/* Particles */
+struct Batch *DRW_particles_batch_cache_get_hair(struct ParticleSystem *psys);
 
 #endif /* __DRAW_CACHE_IMPL_H__ */

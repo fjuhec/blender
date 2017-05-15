@@ -29,6 +29,8 @@
 #define DNA_DEPRECATED_ALLOW
 
 #include "DNA_object_types.h"
+#include "DNA_camera_types.h"
+#include "DNA_gpu_types.h"
 #include "DNA_layer_types.h"
 #include "DNA_material_types.h"
 #include "DNA_scene_types.h"
@@ -299,6 +301,15 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 			}
 		}
 		/* ------- end grease pencil palettes conversion --------------- */
+			}
+		}
+
+	}
+
+	if (!DNA_struct_elem_find(fd->filesdna, "GPUDOFSettings", "float", "ratio"))	{
+		for (Camera *ca = main->camera.first; ca; ca = ca->id.next) {
+			ca->gpu_dof.ratio = 1.0f;
+		}
 	}
 
 	if (!DNA_struct_elem_find(fd->filesdna, "SceneLayer", "IDProperty", "*properties")) {
