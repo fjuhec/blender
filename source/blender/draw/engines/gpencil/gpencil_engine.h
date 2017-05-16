@@ -101,7 +101,6 @@ typedef struct GpencilBatchCache {
 	 */
 	Batch **batch_stroke;
 	Batch **batch_fill;
-	Batch **batch_point;
 	Batch **batch_edit;
 
 	/* for buffer only one batch is nedeed because the drawing is only of one stroke */

@@ -79,7 +79,6 @@ static void gpencil_batch_cache_resize(bGPdata *gpd, int slots)
 	cache->cache_size = slots;
 	cache->batch_stroke = MEM_recallocN(cache->batch_stroke, sizeof(struct Batch) * slots);
 	cache->batch_fill = MEM_recallocN(cache->batch_fill, sizeof(struct Batch) * slots);
-	cache->batch_point = MEM_recallocN(cache->batch_point, sizeof(struct Batch) * slots);
 	cache->batch_edit = MEM_recallocN(cache->batch_edit, sizeof(struct Batch) * slots);
 }
 
@@ -110,7 +109,6 @@ static void gpencil_batch_cache_init(bGPdata *gpd, int cfra)
 	cache->cache_size = GPENCIL_MIN_BATCH_SLOTS_CHUNK;
 	cache->batch_stroke = MEM_callocN(sizeof(struct Batch) * cache->cache_size, "Gpencil_Batch_Stroke");
 	cache->batch_fill = MEM_callocN(sizeof(struct Batch) * cache->cache_size, "Gpencil_Batch_Fill");
-	cache->batch_point = MEM_callocN(sizeof(struct Batch) * cache->cache_size, "Gpencil_Batch_Point");
 	cache->batch_edit = MEM_callocN(sizeof(struct Batch) * cache->cache_size, "Gpencil_Batch_Edit");
 
 	cache->is_editmode = gpd->flag & GP_DATA_STROKE_EDITMODE;
@@ -136,12 +134,10 @@ void gpencil_batch_cache_clear(bGPdata *gpd)
 		for (int i = 0; i < cache->cache_size; ++i) {
 		BATCH_DISCARD_ALL_SAFE(cache->batch_stroke[i]);
 		BATCH_DISCARD_ALL_SAFE(cache->batch_fill[i]);
-		BATCH_DISCARD_ALL_SAFE(cache->batch_point[i]);
 		BATCH_DISCARD_ALL_SAFE(cache->batch_edit[i]);
 	}
 		MEM_SAFE_FREE(cache->batch_stroke);
 		MEM_SAFE_FREE(cache->batch_fill);
-		MEM_SAFE_FREE(cache->batch_point);
 		MEM_SAFE_FREE(cache->batch_edit);
 	}
 
@@ -386,9 +382,9 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 			else if (gps->totpoints == 1) {
 				if (cache->is_dirty) {
 					gpencil_batch_cache_check_free_slots(gpd);
-					cache->batch_point[cache->cache_idx] = gpencil_get_point_geom(gps->points, sthickness, ink);
+					cache->batch_stroke[cache->cache_idx] = gpencil_get_point_geom(gps->points, sthickness, ink);
 				}
-				DRW_shgroup_call_add(stl->g_data->shgrps_point_volumetric, cache->batch_point[cache->cache_idx], gpf->viewmatrix);
+				DRW_shgroup_call_add(stl->g_data->shgrps_point_volumetric, cache->batch_stroke[cache->cache_idx], gpf->viewmatrix);
 			}
 		}
 		/* edit points (only in edit mode) */
