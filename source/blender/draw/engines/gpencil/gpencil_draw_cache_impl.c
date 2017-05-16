@@ -222,13 +222,23 @@ DRWShadingGroup *DRW_gpencil_shgroup_point_volumetric_create(DRWPass *pass, GPUS
 }
 
 /* create shading group for strokes */
-static DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(DRWPass *pass, GPUShader *shader)
+DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_Data *vedata, DRWPass *pass, GPUShader *shader)
 {
+	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
+
 	const float *viewport_size = DRW_viewport_size_get();
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	RegionView3D *rv3d = draw_ctx->rv3d;
 
 	/* e_data.gpencil_stroke_sh */
 	DRWShadingGroup *grp = DRW_shgroup_create(shader, pass);
 	DRW_shgroup_uniform_vec2(grp, "Viewport", viewport_size, 1);
+
+	DRW_shgroup_uniform_float(grp, "pixsize", &rv3d->pixsize, 1);
+	DRW_shgroup_uniform_float(grp, "pixelsize", &U.pixelsize, 1);
+
+	stl->storage->is_persp = rv3d->is_persp ? 1 : 0;
+	DRW_shgroup_uniform_int(grp, "is_persp", &stl->storage->is_persp, 1);
 
 	return grp;
 }
@@ -239,15 +249,6 @@ DRWShadingGroup *DRW_gpencil_shgroup_edit_volumetric_create(DRWPass *pass, GPUSh
 	/* e_data.gpencil_volumetric_sh */
 	DRWShadingGroup *grp = DRW_shgroup_create(shader, pass);
 
-	return grp;
-}
-
-/* create shading group for drawing strokes in buffer */
-DRWShadingGroup *DRW_gpencil_shgroup_drawing_stroke_create(DRWPass *pass, GPUShader *shader)
-{
-	/* e_data.gpencil_stroke_sh */
-	DRWShadingGroup *grp = DRW_shgroup_create(shader, pass);
-	DRW_shgroup_uniform_vec2(grp, "Viewport", DRW_viewport_size_get(), 1);
 	return grp;
 }
 
@@ -319,7 +320,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 				id = stl->storage->pal_id;
 				stl->storage->materials[id] = gps->palcolor;
 				stl->storage->shgrps_fill[id] = DRW_gpencil_shgroup_fill_create(vedata, psl->stroke_pass, e_data->gpencil_fill_sh, gps->palcolor, id);
-				stl->storage->shgrps_stroke[id] = DRW_gpencil_shgroup_stroke_create(psl->stroke_pass, e_data->gpencil_stroke_sh);
+				stl->storage->shgrps_stroke[id] = DRW_gpencil_shgroup_stroke_create(vedata, psl->stroke_pass, e_data->gpencil_stroke_sh);
 				++stl->storage->pal_id;
 			}
 

@@ -33,7 +33,7 @@
 
  /* *********** LISTS *********** */
 typedef struct GPENCIL_Storage {
-	int pal_id;
+	int pal_id; /* total elements */
 	int t_mix[MAX_GPENCIL_MAT];
 	int t_flip[MAX_GPENCIL_MAT];
 	int t_clamp[MAX_GPENCIL_MAT];
@@ -42,6 +42,7 @@ typedef struct GPENCIL_Storage {
 	DRWShadingGroup *shgrps_fill[MAX_GPENCIL_MAT];
 	DRWShadingGroup *shgrps_stroke[MAX_GPENCIL_MAT];
 	float unit_matrix[4][4];
+	int is_persp;   /* rv3d->is_persp (1-yes) */
 } GPENCIL_Storage;
 
 /* keep it under MAX_STORAGE */
@@ -117,9 +118,9 @@ typedef struct GpencilBatchCache {
 	int cache_idx;   /* current slot index */
 } GpencilBatchCache;
 
+struct DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(struct GPENCIL_Data *vedata, struct DRWPass *pass, struct GPUShader *shader);
 struct DRWShadingGroup *DRW_gpencil_shgroup_point_volumetric_create(struct DRWPass *pass, struct GPUShader *shader);
 struct DRWShadingGroup *DRW_gpencil_shgroup_edit_volumetric_create(struct DRWPass *pass, struct GPUShader *shader);
-struct DRWShadingGroup *DRW_gpencil_shgroup_drawing_stroke_create(struct DRWPass *pass, struct GPUShader *shader);
 struct DRWShadingGroup *DRW_gpencil_shgroup_drawing_fill_create(struct DRWPass *pass, struct GPUShader *shader);
 
 void DRW_gpencil_populate_datablock(struct GPENCIL_e_data *e_data, void *vedata, struct Scene *scene, struct Object *ob, struct ToolSettings *ts, struct bGPdata *gpd);

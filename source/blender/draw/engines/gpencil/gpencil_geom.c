@@ -49,23 +49,6 @@
 
 #include "gpencil_engine.h"
 
-/* get pixel scale size at stroke point location */
-static float get_pixel_scale(RegionView3D *rv3d, float point[3])
-{
-	const float defaultpixsize = rv3d->pixsize * U.pixelsize;
-	const float pixsize = ED_view3d_pixel_size(rv3d, point);
-	float scale_thickness = 0.0f;
-	if (rv3d->is_persp) {
-		/* need a factor to mimmic old glLine size, 10.0f works fine */
-		scale_thickness = (defaultpixsize / pixsize) * 10.0f;
-	}
-	else {
-		scale_thickness = (1.0f / pixsize) / 100.0f;
-	}
-
-	return scale_thickness;
-}
-
 /* set stroke point to vbo */
 static void gpencil_set_stroke_point(RegionView3D *rv3d, VertexBuffer *vbo, float matrix[4][4], const bGPDspoint *pt, int idx,
 						    unsigned int pos_id, unsigned int color_id,
@@ -81,8 +64,7 @@ static void gpencil_set_stroke_point(RegionView3D *rv3d, VertexBuffer *vbo, floa
 
 	/* the thickness of the stroke must be affected by zoom, so a pixel scale is calculated */
 	mul_v3_m4v3(viewfpt, matrix, &pt->x);
-	float scale_thickness = get_pixel_scale(rv3d, viewfpt);
-	float thick = max_ff(pt->pressure * thickness * scale_thickness, 1.0f);
+	float thick = max_ff(pt->pressure * thickness, 1.0f);
 	VertexBuffer_set_attrib(vbo, thickness_id, idx, &thick);
 	
 	VertexBuffer_set_attrib(vbo, pos_id, idx, &pt->x);
