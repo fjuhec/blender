@@ -28,6 +28,7 @@ void VertexFormat_clear(VertexFormat* format)
 	format->attrib_ct = 0;
 	format->packed = false;
 	format->name_offset = 0;
+	format->name_ct = 0;
 #endif
 	}
 
@@ -37,7 +38,13 @@ void VertexFormat_copy(VertexFormat* dest, const VertexFormat* src)
 	memcpy(dest, src, sizeof(VertexFormat));
 
 	for (unsigned i = 0; i < dest->attrib_ct; i++)
-		dest->attribs[i].name = (char *)dest + (dest->attribs[i].name - ((char *)src));
+		{
+		dest->attribs[i].name_ct = dest->attribs[i].name_ct;
+		for (unsigned j = 0; j < dest->attribs[i].name_ct; j++)
+			{
+			dest->attribs[i].name[j] = (char *)dest + (src->attribs[i].name[j] - ((char *)src));
+			}
+		}
 	}
 
 static GLenum convert_comp_type_to_gl(VertexCompType type)
@@ -134,6 +141,7 @@ static const char* copy_attrib_name(VertexFormat* format, const char* name)
 unsigned VertexFormat_add_attrib(VertexFormat* format, const char* name, VertexCompType comp_type, unsigned comp_ct, VertexFetchMode fetch_mode)
 	{
 #if TRUST_NO_ONE
+	assert(format->name_ct < MAX_VERTEX_ATTRIBS); // there's room for more
 	assert(format->attrib_ct < MAX_VERTEX_ATTRIBS); // there's room for more
 	assert(!format->packed); // packed means frozen/locked
 	assert(comp_ct >= 1 && comp_ct <= 4);
@@ -156,11 +164,12 @@ unsigned VertexFormat_add_attrib(VertexFormat* format, const char* name, VertexC
 			assert(fetch_mode != KEEP_FLOAT);
 		}
 #endif
+	format->name_ct++; // multiname support
 
 	const unsigned attrib_id = format->attrib_ct++;
 	Attrib* attrib = format->attribs + attrib_id;
 
-	attrib->name = copy_attrib_name(format, name);
+	attrib->name[attrib->name_ct++] = copy_attrib_name(format, name);
 	attrib->comp_type = comp_type;
 	attrib->gl_comp_type = convert_comp_type_to_gl(comp_type);
 #if USE_10_10_10
@@ -173,6 +182,17 @@ unsigned VertexFormat_add_attrib(VertexFormat* format, const char* name, VertexC
 	attrib->fetch_mode = fetch_mode;
 
 	return attrib_id;
+	}
+
+void VertexFormat_add_alias(VertexFormat* format, const char* alias)
+	{
+	Attrib* attrib = format->attribs + (format->attrib_ct - 1);
+#if TRUST_NO_ONE
+	assert(format->name_ct < MAX_VERTEX_ATTRIBS); // there's room for more
+	assert(attrib->name_ct < MAX_ATTRIB_NAMES);
+#endif
+	format->name_ct++; // multiname support
+	attrib->name[attrib->name_ct++] = copy_attrib_name(format, alias);
 	}
 
 unsigned padding(unsigned offset, unsigned alignment)
@@ -268,6 +288,16 @@ static int quantize(float x)
 PackedNormal convert_i10_v3(const float data[3])
 	{
 	PackedNormal n = { .x = quantize(data[0]), .y = quantize(data[1]), .z = quantize(data[2]) };
+	return n;
+	}
+
+PackedNormal convert_i10_s3(const short data[3])
+	{
+	PackedNormal n = {
+		.x = quantize((float)data[0] / 32767.0f),
+		.y = quantize((float)data[1] / 32767.0f),
+		.z = quantize((float)data[2] / 32767.0f)
+	};
 	return n;
 	}
 

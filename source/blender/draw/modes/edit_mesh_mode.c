@@ -101,6 +101,7 @@ static struct {
 	GPUShader *overlay_mix_sh;
 	GPUShader *overlay_facefill_sh;
 	GPUShader *normals_face_sh;
+	GPUShader *normals_loop_sh;
 	GPUShader *normals_sh;
 	GPUShader *depth_sh;
 } e_data = {NULL}; /* Engine data */
@@ -224,6 +225,13 @@ static void EDIT_MESH_engine_init(void *vedata)
 		        datatoc_gpu_shader_uniform_color_frag_glsl,
 		        "#define FACE_NORMALS\n");
 	}
+	if (!e_data.normals_loop_sh) {
+		e_data.normals_loop_sh = DRW_shader_create(
+		        datatoc_edit_normals_vert_glsl,
+		        datatoc_edit_normals_geom_glsl,
+		        datatoc_gpu_shader_uniform_color_frag_glsl,
+		        "#define LOOP_NORMALS\n");
+	}
 	if (!e_data.normals_sh) {
 		e_data.normals_sh = DRW_shader_create(
 		        datatoc_edit_normals_vert_glsl,
@@ -273,15 +281,18 @@ static DRWPass *edit_mesh_create_overlay_pass(
 	DRW_shgroup_uniform_float(*r_face_shgrp, "faceAlphaMod", faceAlpha, 1);
 
 	*r_ledges_shgrp = DRW_shgroup_create(ledge_sh, pass);
+	DRW_shgroup_uniform_block(*r_ledges_shgrp, "globalsBlock", globals_ubo);
 	DRW_shgroup_uniform_vec2(*r_ledges_shgrp, "viewportSize", DRW_viewport_size_get(), 1);
 
 	if ((tsettings->selectmode & (SCE_SELECT_VERTEX)) != 0) {
 		*r_lverts_shgrp = DRW_shgroup_create(e_data.overlay_vert_sh, pass);
+		DRW_shgroup_uniform_block(*r_lverts_shgrp, "globalsBlock", globals_ubo);
 		DRW_shgroup_uniform_vec2(*r_lverts_shgrp, "viewportSize", DRW_viewport_size_get(), 1);
 	}
 
 	if ((tsettings->selectmode & (SCE_SELECT_FACE)) != 0) {
 		*r_facedot_shgrp = DRW_shgroup_create(e_data.overlay_facedot_sh, pass);
+		DRW_shgroup_uniform_block(*r_facedot_shgrp, "globalsBlock", globals_ubo);
 	}
 
 	return pass;
@@ -347,7 +358,7 @@ static void EDIT_MESH_cache_init(void *vedata)
 		DRW_shgroup_uniform_float(stl->g_data->vnormals_shgrp, "normalSize", &size_normal, 1);
 		DRW_shgroup_uniform_vec4(stl->g_data->vnormals_shgrp, "color", ts.colorVNormal, 1);
 
-		stl->g_data->lnormals_shgrp = DRW_shgroup_create(e_data.normals_sh, psl->normals);
+		stl->g_data->lnormals_shgrp = DRW_shgroup_create(e_data.normals_loop_sh, psl->normals);
 		DRW_shgroup_uniform_float(stl->g_data->lnormals_shgrp, "normalSize", &size_normal, 1);
 		DRW_shgroup_uniform_vec4(stl->g_data->lnormals_shgrp, "color", ts.colorLNormal, 1);
 	}
@@ -454,14 +465,19 @@ static void EDIT_MESH_cache_populate(void *vedata, Object *ob)
 				DRW_shgroup_call_add(stl->g_data->fnormals_shgrp, geom, ob->obmat);
 			}
 
-			if (vnormals_do) {
-				geom = DRW_cache_mesh_verts_get(ob);
-				DRW_shgroup_call_add(stl->g_data->vnormals_shgrp, geom, ob->obmat);
-			}
+			if (vnormals_do || lnormals_do) {
+				struct Batch *geo_ovl_tris, *geo_ovl_ledges, *geo_ovl_lverts;
+				DRW_cache_mesh_normals_overlay_get(ob, &geo_ovl_tris, &geo_ovl_ledges, &geo_ovl_lverts);
 
-			if (lnormals_do) {
-				geom = DRW_cache_mesh_surface_verts_get(ob);
-				DRW_shgroup_call_add(stl->g_data->lnormals_shgrp, geom, ob->obmat);
+				if (vnormals_do) {
+					DRW_shgroup_call_add(stl->g_data->vnormals_shgrp, geo_ovl_tris, ob->obmat);
+					DRW_shgroup_call_add(stl->g_data->vnormals_shgrp, geo_ovl_ledges, ob->obmat);
+					DRW_shgroup_call_add(stl->g_data->vnormals_shgrp, geo_ovl_lverts, ob->obmat);
+				}
+
+				if (lnormals_do) {
+					DRW_shgroup_call_add(stl->g_data->lnormals_shgrp, geo_ovl_tris, ob->obmat);
+				}
 			}
 
 			if ((v3d->flag & V3D_ZBUF_SELECT) == 0) {
@@ -543,6 +559,7 @@ static void EDIT_MESH_engine_free(void)
 	DRW_SHADER_FREE_SAFE(e_data.overlay_facedot_sh);
 	DRW_SHADER_FREE_SAFE(e_data.overlay_mix_sh);
 	DRW_SHADER_FREE_SAFE(e_data.overlay_facefill_sh);
+	DRW_SHADER_FREE_SAFE(e_data.normals_loop_sh);
 	DRW_SHADER_FREE_SAFE(e_data.normals_face_sh);
 	DRW_SHADER_FREE_SAFE(e_data.normals_sh);
 }
