@@ -944,7 +944,7 @@ class GreasePencilDataPanel:
             self.draw_layers(context, layout, gpd)
 
         # convert to object
-        if context.space_data.type == 'VIEW_3D':
+        if gpd and context.space_data.type in ('VIEW_3D', 'PROPERTIES'):
             if context.space_data.context == 'SCENE':
                 row = layout.row()
                 row.operator("gpencil.convert_scene_to_object", text="Convert")
