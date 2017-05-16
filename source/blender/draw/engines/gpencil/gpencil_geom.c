@@ -89,7 +89,7 @@ static void gpencil_set_stroke_point(RegionView3D *rv3d, VertexBuffer *vbo, floa
 }
 
 /* create batch geometry data for one point stroke shader */
-Batch *gpencil_get_point_geom(bGPDspoint *pt, short thickness, const float ink[4])
+Batch *DRW_gpencil_get_point_geom(bGPDspoint *pt, short thickness, const float ink[4])
 {
 	static VertexFormat format = { 0 };
 	static unsigned int pos_id, color_id, size_id;
@@ -116,7 +116,7 @@ Batch *gpencil_get_point_geom(bGPDspoint *pt, short thickness, const float ink[4
 }
 
 /* create batch geometry data for stroke shader */
-Batch *gpencil_get_stroke_geom(bGPDframe *gpf, bGPDstroke *gps, short thickness, const float ink[4])
+Batch *DRW_gpencil_get_stroke_geom(bGPDframe *gpf, bGPDstroke *gps, short thickness, const float ink[4])
 {
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	RegionView3D *rv3d = draw_ctx->rv3d;
@@ -208,7 +208,7 @@ static void gpencil_tpoint_to_point(Scene *scene, ARegion *ar, View3D *v3d, cons
 }
 
 /* create batch geometry data for current buffer for one point stroke shader */
-Batch *gpencil_get_buffer_point_geom(bGPdata *gpd, short thickness)
+Batch *DRW_gpencil_get_buffer_point_geom(bGPdata *gpd, short thickness)
 {
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
@@ -248,7 +248,7 @@ Batch *gpencil_get_buffer_point_geom(bGPdata *gpd, short thickness)
 }
 
 /* create batch geometry data for current buffer stroke shader */
-Batch *gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], short thickness)
+Batch *DRW_gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], short thickness)
 {
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
@@ -295,7 +295,7 @@ Batch *gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], short th
 }
 
 /* create batch geometry data for current buffer fill shader */
-Batch *gpencil_get_buffer_fill_geom(const tGPspoint *points, int totpoints, float ink[4])
+Batch *DRW_gpencil_get_buffer_fill_geom(const tGPspoint *points, int totpoints, float ink[4])
 {
 	if (totpoints < 3) {
 		return NULL;
@@ -589,7 +589,7 @@ static void gpencil_set_fill_point(VertexBuffer *vbo, int idx, bGPDspoint *pt, c
 }
 
 /* create batch geometry data for stroke shader */
-Batch *gpencil_get_fill_geom(bGPDstroke *gps, const float color[4])
+Batch *DRW_gpencil_get_fill_geom(bGPDstroke *gps, const float color[4])
 {
 	BLI_assert(gps->totpoints >= 3);
 	int offsx = 0;
@@ -637,7 +637,7 @@ Batch *gpencil_get_fill_geom(bGPDstroke *gps, const float color[4])
 }
 
 /* Draw selected verts for strokes being edited */
-Batch *gpencil_get_edit_geom(bGPDstroke *gps, float alpha, short dflag)
+Batch *DRW_gpencil_get_edit_geom(bGPDstroke *gps, float alpha, short dflag)
 {
 	/* Get size of verts:
 	* - The selected state needs to be larger than the unselected state so that
