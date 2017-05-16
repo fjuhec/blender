@@ -185,6 +185,10 @@ static void gp_stroke_added_enable(tGPsdata *p)
 {
 	BLI_assert(p->gpf->strokes.last != NULL);
 	p->flags |= GP_PAINTFLAG_STROKEADDED;
+
+	/* drawing batch cache is dirty now */
+	BKE_gpencil_batch_cache_free(p->gpd);
+	p->gpd->flag |= GP_DATA_CACHE_IS_DIRTY;
 }
 
 /* ------ */
@@ -1963,9 +1967,6 @@ static void gpencil_draw_exit(bContext *C, wmOperator *op)
 		gp_paint_cleanup(p);
 		gp_session_cleanup(p);
 
-		/* drawing batch cache is dirty now */
-		BKE_gpencil_batch_cache_free(p->gpd);
-		p->gpd->flag |= GP_DATA_CACHE_IS_DIRTY;
 		/* finally, free the temp data */
 		MEM_freeN(p);
 	}
