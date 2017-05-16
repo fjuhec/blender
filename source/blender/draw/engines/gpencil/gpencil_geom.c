@@ -356,7 +356,7 @@ Batch *DRW_gpencil_get_buffer_fill_geom(const tGPspoint *points, int totpoints, 
 
 
 /* Helper for doing all the checks on whether a stroke can be drawn */
-bool gpencil_can_draw_stroke(RegionView3D *rv3d, const bGPDframe *gpf, const bGPDstroke *gps)
+bool gpencil_can_draw_stroke(RegionView3D *UNUSED(rv3d), const bGPDframe *UNUSED(gpf), const bGPDstroke *gps)
 {
 	/* skip stroke if it doesn't have any valid data */
 	if ((gps->points == NULL) || (gps->totpoints < 1))
@@ -370,6 +370,7 @@ bool gpencil_can_draw_stroke(RegionView3D *rv3d, const bGPDframe *gpf, const bGP
 		return false;
 	}
 
+#if 0
 	/* Check if stroke is in view plane, not on camera back. Only check first point of 
 	   the stroke because check all points is too work and it works fine in most situations
 	*/
@@ -386,6 +387,7 @@ bool gpencil_can_draw_stroke(RegionView3D *rv3d, const bGPDframe *gpf, const bGP
 	if (zdepth < 0.0) {
 		return false;
 	}
+#endif 
 
 	/* stroke can be drawn */
 	return true;
