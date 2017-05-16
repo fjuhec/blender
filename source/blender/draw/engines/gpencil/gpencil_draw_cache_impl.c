@@ -145,12 +145,8 @@ void gpencil_batch_cache_clear(bGPdata *gpd)
 		MEM_SAFE_FREE(cache->batch_edit);
 	}
 
-	if (cache->is_buffer_stroke) {
-		BATCH_DISCARD_ALL_SAFE(cache->batch_buffer_stroke);
-	}
-	if (cache->is_buffer_fill) {
-		BATCH_DISCARD_ALL_SAFE(cache->batch_buffer_fill);
-	}
+	BATCH_DISCARD_ALL_SAFE(cache->batch_buffer_stroke);
+	BATCH_DISCARD_ALL_SAFE(cache->batch_buffer_fill);
 }
 
 /* get cache */
@@ -445,13 +441,11 @@ static void gpencil_draw_buffer_strokes(GpencilBatchCache *cache, void *vedata, 
 			short lthick = brush->thickness;
 			if (gpd->sbuffer_size == 1) {
 				cache->batch_buffer_stroke = gpencil_get_buffer_point_geom(gpd, lthick);
-				cache->is_buffer_stroke = true;
 				DRW_shgroup_call_add(stl->g_data->shgrps_point_volumetric, cache->batch_buffer_stroke, stl->storage->unit_matrix);
 			}
 			else {
 				/* use unit matrix because the buffer is in screen space and does not need conversion */
 				cache->batch_buffer_stroke = gpencil_get_buffer_stroke_geom(gpd, stl->storage->unit_matrix, lthick);
-				cache->is_buffer_stroke = true;
 				DRW_shgroup_call_add(stl->g_data->shgrps_drawing_stroke, cache->batch_buffer_stroke, stl->storage->unit_matrix);
 
 				if ((gpd->sbuffer_size >= 3) && ((gpd->sfill[3] > GPENCIL_ALPHA_OPACITY_THRESH) || (gpd->bfill_style > 0))) {
@@ -460,7 +454,6 @@ static void gpencil_draw_buffer_strokes(GpencilBatchCache *cache, void *vedata, 
 						gpd->sfill[3] = 0.5f;
 					}
 					cache->batch_buffer_fill = gpencil_get_buffer_fill_geom(gpd->sbuffer, gpd->sbuffer_size, gpd->sfill);
-					cache->is_buffer_fill = true;
 					DRW_shgroup_call_add(stl->g_data->shgrps_drawing_fill, cache->batch_buffer_fill, stl->storage->unit_matrix);
 				}
 			}

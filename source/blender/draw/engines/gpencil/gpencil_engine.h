@@ -107,8 +107,6 @@ typedef struct GpencilBatchCache {
 	/* for buffer only one batch is nedeed because the drawing is only of one stroke */
 	Batch *batch_buffer_stroke;
 	Batch *batch_buffer_fill;
-	bool is_buffer_stroke;
-	bool is_buffer_fill;
 
 	/* settings to determine if cache is invalid */
 	bool is_dirty;
