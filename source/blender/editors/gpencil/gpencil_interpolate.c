@@ -128,6 +128,7 @@ static void gp_interpolate_update_points(bGPDstroke *gps_from, bGPDstroke *gps_t
 /* Helper: Update all strokes interpolated */
 static void gp_interpolate_update_strokes(bContext *C, tGPDinterpolate *tgpi)
 {
+	bGPdata *gpd = tgpi->gpd;
 	tGPDinterpolate_layer *tgpil;
 	const float shift = tgpi->shift;
 	
@@ -156,6 +157,7 @@ static void gp_interpolate_update_strokes(bContext *C, tGPDinterpolate *tgpi)
 		}
 	}
 	
+	BKE_gpencil_batch_cache_dirty(gpd, 0);
 	WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
 }
 
@@ -388,7 +390,8 @@ static void gpencil_interpolate_exit(bContext *C, wmOperator *op)
 {
 	tGPDinterpolate *tgpi = op->customdata;
 	tGPDinterpolate_layer *tgpil;
-	
+	bGPdata *gpd = tgpi->gpd;
+
 	/* don't assume that operator data exists at all */
 	if (tgpi) {
 		/* remove drawing handler */
@@ -411,6 +414,7 @@ static void gpencil_interpolate_exit(bContext *C, wmOperator *op)
 		BLI_freelistN(&tgpi->ilayers);
 		MEM_freeN(tgpi);
 	}
+	BKE_gpencil_batch_cache_dirty(gpd, 0);
 	WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
 	
 	/* clear pointer */
@@ -524,6 +528,7 @@ static int gpencil_interpolate_invoke(bContext *C, wmOperator *op, const wmEvent
 	
 	/* update shift indicator in header */
 	gpencil_interpolate_status_indicators(tgpi);
+	BKE_gpencil_batch_cache_dirty(gpd, 0);
 	WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
 	
 	/* add a modal handler for this operator */
@@ -1003,6 +1008,7 @@ static int gpencil_interpolate_seq_exec(bContext *C, wmOperator *op)
 	}
 	
 	/* notifiers */
+	BKE_gpencil_batch_cache_dirty(gpd, 0);
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 	
 	return OPERATOR_FINISHED;
@@ -1044,6 +1050,8 @@ static int gpencil_interpolate_reverse_poll(bContext *C)
 
 static int gpencil_interpolate_reverse_exec(bContext *C, wmOperator *UNUSED(op))
 {
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+
 	/* Go through each layer, deleting the breakdowns around the current frame,
 	 * but only if there is a keyframe nearby to stop at
 	 */
@@ -1112,6 +1120,7 @@ static int gpencil_interpolate_reverse_exec(bContext *C, wmOperator *UNUSED(op))
 	CTX_DATA_END;
 	
 	/* notifiers */
+	BKE_gpencil_batch_cache_dirty(gpd, 0);
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 	
 	return OPERATOR_FINISHED;
