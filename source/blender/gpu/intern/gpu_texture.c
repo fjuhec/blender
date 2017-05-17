@@ -65,6 +65,7 @@ struct GPUTexture {
 	bool stencil;       /* is a stencil texture? */
 
 	unsigned int bytesize; /* number of byte for one pixel */
+	int format;         /* GPUTextureFormat */
 };
 
 /* ------ Memory Management ------- */
@@ -157,6 +158,7 @@ static GLenum gpu_texture_get_format(
 		case GPU_DEPTH24_STENCIL8:
 		case GPU_DEPTH_COMPONENT32F:
 		case GPU_RGBA8:
+		case GPU_R11F_G11F_B10F:
 			*bytesize = 4;
 			break;
 		case GPU_DEPTH_COMPONENT24:
@@ -187,6 +189,7 @@ static GLenum gpu_texture_get_format(
 		case GPU_R16F: return GL_R16F;
 		case GPU_R8: return GL_R8;
 		/* Special formats texture & renderbuffer */
+		case GPU_R11F_G11F_B10F: return GL_R11F_G11F_B10F;
 		case GPU_DEPTH24_STENCIL8: return GL_DEPTH24_STENCIL8;
 		/* Texture only format */
 		/* ** Add Format here **/
@@ -318,6 +321,7 @@ static GPUTexture *GPU_texture_create_nD(
 	tex->number = -1;
 	tex->refcount = 1;
 	tex->fb_attachment = -1;
+	tex->format = data_type;
 
 	if (n == 2) {
 		if (d == 0)
@@ -462,6 +466,7 @@ static GPUTexture *GPU_texture_cube_create(
 	tex->number = -1;
 	tex->refcount = 1;
 	tex->fb_attachment = -1;
+	tex->format = data_type;
 
 	if (d == 0) {
 		tex->target_base = tex->target = GL_TEXTURE_CUBE_MAP;
@@ -551,6 +556,7 @@ GPUTexture *GPU_texture_from_blender(Image *ima, ImageUser *iuser, int textarget
 	tex->target = textarget;
 	tex->target_base = textarget;
 	tex->fromblender = 1;
+	tex->format = -1;
 
 	ima->gputexture[gputt] = tex;
 
@@ -611,6 +617,7 @@ GPUTexture *GPU_texture_from_preview(PreviewImage *prv, int mipmap)
 	tex->refcount = 1;
 	tex->target = GL_TEXTURE_2D;
 	tex->target_base = GL_TEXTURE_2D;
+	tex->format = -1;
 	
 	prv->gputexture[0] = tex;
 	
@@ -942,6 +949,11 @@ int GPU_texture_width(const GPUTexture *tex)
 int GPU_texture_height(const GPUTexture *tex)
 {
 	return tex->h;
+}
+
+int GPU_texture_format(const GPUTexture *tex)
+{
+	return tex->format;
 }
 
 bool GPU_texture_depth(const GPUTexture *tex)

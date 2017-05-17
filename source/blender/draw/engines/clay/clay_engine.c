@@ -62,7 +62,7 @@ typedef struct CLAY_UBO_Material {
 	float matcap_rot[2];
 	float pad[2]; /* ensure 16 bytes alignement */
 } CLAY_UBO_Material; /* 48 bytes */
-BLI_STATIC_ASSERT_ALIGN(CLAY_UBO_Material, 16);
+BLI_STATIC_ASSERT_ALIGN(CLAY_UBO_Material, 16)
 
 typedef struct CLAY_HAIR_UBO_Material {
 	float hair_randomness;
@@ -70,7 +70,8 @@ typedef struct CLAY_HAIR_UBO_Material {
 	float matcap_rot[2];
 	float matcap_hsv[3];
 	float pad;
-} CLAY_HAIR_UBO_Material; /* 48 bytes */
+} CLAY_HAIR_UBO_Material; /* 32 bytes */
+BLI_STATIC_ASSERT_ALIGN(CLAY_UBO_Material, 16)
 
 #define MAX_CLAY_MAT 512 /* 512 = 9 bit material id */
 
@@ -108,14 +109,6 @@ typedef struct CLAY_FramebufferList {
 	struct GPUFrameBuffer *dupli_depth;
 } CLAY_FramebufferList;
 
-typedef struct CLAY_TextureList {
-	/* default */
-	struct GPUTexture *color;
-	struct GPUTexture *depth;
-	/* engine specific */
-	struct GPUTexture *depth_dup;
-} CLAY_TextureList;
-
 typedef struct CLAY_PassList {
 	struct DRWPass *depth_pass;
 	struct DRWPass *depth_pass_cull;
@@ -126,7 +119,7 @@ typedef struct CLAY_PassList {
 typedef struct CLAY_Data {
 	void *engine_type;
 	CLAY_FramebufferList *fbl;
-	CLAY_TextureList *txl;
+	DRWViewportEmptyList *txl;
 	CLAY_PassList *psl;
 	CLAY_StorageList *stl;
 } CLAY_Data;
@@ -155,6 +148,9 @@ static struct {
 	/* Just a serie of int from 0 to MAX_CLAY_MAT-1 */
 	int ubo_mat_idxs[MAX_CLAY_MAT];
 	int hair_ubo_mat_idxs[MAX_CLAY_MAT];
+
+	/* engine specific */
+	struct GPUTexture *depth_dup;
 } e_data = {NULL}; /* Engine data */
 
 typedef struct CLAY_PrivateData {
@@ -281,7 +277,6 @@ static struct GPUTexture *create_jitter_texture(void)
 static void CLAY_engine_init(void *vedata)
 {
 	CLAY_StorageList *stl = ((CLAY_Data *)vedata)->stl;
-	CLAY_TextureList *txl = ((CLAY_Data *)vedata)->txl;
 	CLAY_FramebufferList *fbl = ((CLAY_Data *)vedata)->fbl;
 
 	/* Create Texture Array */
@@ -374,8 +369,8 @@ static void CLAY_engine_init(void *vedata)
 
 	if (DRW_state_is_fbo()) {
 		const float *viewport_size = DRW_viewport_size_get();
-		DRWFboTexture tex = {&txl->depth_dup, DRW_BUF_DEPTH_24, 0};
-		DRW_framebuffer_init(&fbl->dupli_depth,
+		DRWFboTexture tex = {&e_data.depth_dup, DRW_TEX_DEPTH_24, DRW_TEX_TEMP};
+		DRW_framebuffer_init(&fbl->dupli_depth, &draw_engine_clay_type,
 		                     (int)viewport_size[0], (int)viewport_size[1],
 		                     &tex, 1);
 	}
@@ -448,14 +443,12 @@ static void CLAY_engine_init(void *vedata)
 	}
 }
 
-static DRWShadingGroup *CLAY_shgroup_create(CLAY_Data *vedata, DRWPass *pass, int *material_id)
+static DRWShadingGroup *CLAY_shgroup_create(CLAY_Data *UNUSED(vedata), DRWPass *pass, int *material_id)
 {
-	CLAY_TextureList *txl = ((CLAY_Data *)vedata)->txl;
-
 	DRWShadingGroup *grp = DRW_shgroup_create(e_data.clay_sh, pass);
 
 	DRW_shgroup_uniform_vec2(grp, "screenres", DRW_viewport_size_get(), 1);
-	DRW_shgroup_uniform_buffer(grp, "depthtex", &txl->depth_dup);
+	DRW_shgroup_uniform_buffer(grp, "depthtex", &e_data.depth_dup);
 	DRW_shgroup_uniform_texture(grp, "matcaps", e_data.matcap_array);
 	DRW_shgroup_uniform_mat4(grp, "WinMatrix", (float *)e_data.winmat);
 	DRW_shgroup_uniform_vec4(grp, "viewvecs[0]", (float *)e_data.viewvecs, 3);
@@ -661,7 +654,7 @@ static DRWShadingGroup *CLAY_hair_shgrp_get(Object *ob, CLAY_StorageList *stl, C
 	                              matcap_val, hair_randomness, matcap_icon);
 
 	if (hair_shgrps[hair_id] == NULL) {
-		hair_shgrps[hair_id] = CLAY_hair_shgroup_create(psl->hair_pass, &e_data.hair_ubo_mat_idxs[hair_id]);
+		hair_shgrps[hair_id] = CLAY_hair_shgroup_create(psl->hair_pass, &e_data.ubo_mat_idxs[hair_id]);
 		/* if it's the first shgrp, pass bind the material UBO */
 		if (stl->storage->hair_ubo_current_id == 1) {
 			DRW_shgroup_uniform_block(hair_shgrps[0], "material_block", stl->hair_mat_ubo);
@@ -701,7 +694,9 @@ static void CLAY_cache_init(void *vedata)
 
 	/* Hair Pass */
 	{
-		psl->hair_pass = DRW_pass_create("Hair Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+		psl->hair_pass = DRW_pass_create(
+		                     "Hair Pass",
+		                     DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS | DRW_STATE_WIRE);
 		stl->storage->hair_ubo_current_id = 0;
 		memset(stl->storage->hair_shgrps, 0, sizeof(DRWShadingGroup *) * MAX_CLAY_MAT);
 	}
@@ -717,25 +712,35 @@ static void CLAY_cache_populate(void *vedata, Object *ob)
 	if (!DRW_object_is_renderable(ob))
 		return;
 
-	bool sculpt_mode = ob->mode & OB_MODE_SCULPT;
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	const bool is_active = (ob == draw_ctx->obact);
+	if (is_active) {
+		if (ob->mode & (OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT | OB_MODE_TEXTURE_PAINT)) {
+			return;
+		}
+	}
 
 	struct Batch *geom = DRW_cache_object_surface_get(ob);
 	if (geom) {
 		IDProperty *ces_mode_ob = BKE_layer_collection_engine_evaluated_get(ob, COLLECTION_MODE_OBJECT, "");
-		bool do_cull = BKE_collection_engine_property_value_get_bool(ces_mode_ob, "show_backface_culling");
+		const bool do_cull = BKE_collection_engine_property_value_get_bool(ces_mode_ob, "show_backface_culling");
+		const bool is_sculpt_mode = is_active && (ob->mode & OB_MODE_SCULPT) != 0;
 
 		/* Depth Prepass */
-		if (sculpt_mode) {
-			DRW_shgroup_call_sculpt_add((do_cull) ? stl->g_data->depth_shgrp_cull : stl->g_data->depth_shgrp, ob, ob->obmat);
-		}
-		else {
-			DRW_shgroup_call_add((do_cull) ? stl->g_data->depth_shgrp_cull : stl->g_data->depth_shgrp, geom, ob->obmat);
+		{
+			DRWShadingGroup *depth_shgrp = do_cull ? stl->g_data->depth_shgrp_cull : stl->g_data->depth_shgrp;
+			if (is_sculpt_mode) {
+				DRW_shgroup_call_sculpt_add(depth_shgrp, ob, ob->obmat);
+			}
+			else {
+				DRW_shgroup_call_add(depth_shgrp, geom, ob->obmat);
+			}
 		}
 
 		/* Shading */
 		clay_shgrp = CLAY_object_shgrp_get(vedata, ob, stl, psl);
 
-		if (sculpt_mode) {
+		if (is_sculpt_mode) {
 			DRW_shgroup_call_sculpt_add(clay_shgrp, ob, ob->obmat);
 		}
 		else {
@@ -744,29 +749,34 @@ static void CLAY_cache_populate(void *vedata, Object *ob)
 	}
 
 	if (ob->type == OB_MESH) {
-		for (ParticleSystem *psys = ob->particlesystem.first; psys; psys = psys->next) {
-			if (psys_check_enabled(ob, psys, false)) {
-				ParticleSettings *part = psys->part;
-				int draw_as = (part->draw_as == PART_DRAW_REND) ? part->ren_as : part->draw_as;
+		Scene *scene = draw_ctx->scene;
+		Object *obedit = scene->obedit;
 
-				if (draw_as == PART_DRAW_PATH && !psys->pathcache && !psys->childcache) {
-					draw_as = PART_DRAW_DOT;
-				}
+		if (ob != obedit) {
+			for (ParticleSystem *psys = ob->particlesystem.first; psys; psys = psys->next) {
+				if (psys_check_enabled(ob, psys, false)) {
+					ParticleSettings *part = psys->part;
+					int draw_as = (part->draw_as == PART_DRAW_REND) ? part->ren_as : part->draw_as;
 
-				switch (draw_as) {
-					case PART_DRAW_PATH:
-						geom = DRW_cache_particles_get_hair(psys);
-						break;
-					default:
-						geom = NULL;
-						break;
-				}
+					if (draw_as == PART_DRAW_PATH && !psys->pathcache && !psys->childcache) {
+						draw_as = PART_DRAW_DOT;
+					}
 
-				if (geom) {
-					static float mat[4][4];
-					unit_m4(mat);
-					hair_shgrp = CLAY_hair_shgrp_get(ob, stl, psl);
-					DRW_shgroup_call_add(hair_shgrp, geom, mat);
+					switch (draw_as) {
+						case PART_DRAW_PATH:
+							geom = DRW_cache_particles_get_hair(psys);
+							break;
+						default:
+							geom = NULL;
+							break;
+					}
+
+					if (geom) {
+						static float mat[4][4];
+						unit_m4(mat);
+						hair_shgrp = CLAY_hair_shgrp_get(ob, stl, psl);
+						DRW_shgroup_call_add(hair_shgrp, geom, mat);
+					}
 				}
 			}
 		}
@@ -795,7 +805,16 @@ static void CLAY_draw_scene(void *vedata)
 	/* Pass 2 : Duplicate depth */
 	/* Unless we go for deferred shading we need this to avoid manual depth test and artifacts */
 	if (DRW_state_is_fbo()) {
+		/* attach temp textures */
+		DRW_framebuffer_texture_attach(fbl->dupli_depth, e_data.depth_dup, 0, 0);
+
 		DRW_framebuffer_blit(dfbl->default_fb, fbl->dupli_depth, true);
+
+		/* detach temp textures */
+		DRW_framebuffer_texture_detach(e_data.depth_dup);
+
+		/* restore default fb */
+		DRW_framebuffer_bind(dfbl->default_fb);
 	}
 
 	/* Pass 3 : Shading */
