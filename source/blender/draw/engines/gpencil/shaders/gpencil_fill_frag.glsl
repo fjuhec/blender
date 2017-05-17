@@ -25,16 +25,10 @@ uniform int t_clamp;
 #define CHESS 3
 #define TEXTURE 4
 
-#if __VERSION__ == 120
-	varying vec4 finalColor;
-	varying vec2 texCoord_interp;
-	#define fragColor gl_FragColor
-#else
-	in vec4 finalColor;
-	in vec2 texCoord_interp;
-	out vec4 fragColor;
-	#define texture2D texture
-#endif
+in vec4 finalColor;
+in vec2 texCoord_interp;
+out vec4 fragColor;
+#define texture2D texture
 
 void set_color(in vec4 color, in vec4 color2, in vec4 tcolor, in float mixv, in float factor, 
 			   in int tmix, in int flip, out vec4 ocolor)
