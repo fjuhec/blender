@@ -101,15 +101,6 @@ static void GPENCIL_engine_free(void)
 	/* only free custom shaders, builtin shaders are freed in blender close */
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_fill_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_stroke_sh);
-
-	// TODO: When load new file, the previous GPD is not cleared
-	/* free all cache data */
-	//for (bGPdata *gpd = e_data.bmain->gpencil.first; gpd; gpd = gpd->id.next) {
-	//	if (gpd->batch_cache) {
-	//		gpencil_batch_cache_clear(gpd);
-	//		MEM_SAFE_FREE(gpd->batch_cache);
-	//	}
-	//}
 }
 
 static void GPENCIL_cache_init(void *vedata)
