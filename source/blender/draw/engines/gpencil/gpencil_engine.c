@@ -136,6 +136,7 @@ static void GPENCIL_cache_init(void *vedata)
 		memset(stl->storage->materials, 0, sizeof(PaletteColor *) * MAX_GPENCIL_MAT);
 		stl->g_data->shgrps_point_volumetric = DRW_gpencil_shgroup_point_volumetric_create(psl->stroke_pass, e_data.gpencil_volumetric_sh);
 
+		state = DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH;
 		/* edit pass */
 		psl->edit_pass = DRW_pass_create("Gpencil Edit Pass", state);
 		stl->g_data->shgrps_edit_volumetric = DRW_gpencil_shgroup_edit_volumetric_create(psl->edit_pass, e_data.gpencil_volumetric_sh);
