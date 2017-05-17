@@ -27,6 +27,7 @@
 #include "DRW_render.h"
 
 #include "BKE_main.h"
+#include "BKE_global.h"
 #include "BKE_gpencil.h"
 #include "BKE_image.h"
 #include "ED_gpencil.h"
@@ -97,6 +98,9 @@ static void gpencil_batch_cache_check_free_slots(bGPdata *gpd)
 /* cache init */
 static void gpencil_batch_cache_init(bGPdata *gpd, int cfra)
 {
+	if (G.debug & G_DEBUG) {
+		printf("GPencil_Cache init for %s\n", gpd->id.name);
+	}
 	GpencilBatchCache *cache = gpd->batch_cache;
 
 	if (!cache) {
@@ -128,6 +132,9 @@ void gpencil_batch_cache_clear(bGPdata *gpd)
 	}
 	if (gpd->flag & GP_DATA_CACHE_IS_DIRTY) {
 		return;
+	}
+	if (G.debug & G_DEBUG) {
+		printf("GPencil_Cache clear for %s\n", gpd->id.name);
 	}
 
 	if (cache->cache_size > 0) {
@@ -535,6 +542,10 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 /* helper for populate a complete grease pencil datablock */
 void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene *scene, Object *ob, ToolSettings *ts, bGPdata *gpd)
 {
+	if (G.debug & G_DEBUG) {
+		printf("GPencil_Cache populate for %s\n", gpd->id.name);
+	}
+
 	GpencilBatchCache *cache = gpencil_batch_cache_get(gpd, CFRA);
 	cache->cache_idx = 0;
 	/* draw normal strokes */
