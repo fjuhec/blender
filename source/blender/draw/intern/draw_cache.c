@@ -70,6 +70,10 @@ static struct DRWShapeCache {
 	Batch *drw_bone_box;
 	Batch *drw_bone_box_wire;
 	Batch *drw_bone_wire_wire;
+	Batch *drw_bone_envelope;
+	Batch *drw_bone_envelope_distance;
+	Batch *drw_bone_envelope_wire;
+	Batch *drw_bone_envelope_head_wire;
 	Batch *drw_bone_point;
 	Batch *drw_bone_point_wire;
 	Batch *drw_bone_arrows;
@@ -111,6 +115,10 @@ void DRW_shape_cache_free(void)
 	BATCH_DISCARD_ALL_SAFE(SHC.drw_bone_box);
 	BATCH_DISCARD_ALL_SAFE(SHC.drw_bone_box_wire);
 	BATCH_DISCARD_ALL_SAFE(SHC.drw_bone_wire_wire);
+	BATCH_DISCARD_ALL_SAFE(SHC.drw_bone_envelope);
+	BATCH_DISCARD_ALL_SAFE(SHC.drw_bone_envelope_distance);
+	BATCH_DISCARD_ALL_SAFE(SHC.drw_bone_envelope_wire);
+	BATCH_DISCARD_ALL_SAFE(SHC.drw_bone_envelope_head_wire);
 	BATCH_DISCARD_ALL_SAFE(SHC.drw_bone_point);
 	BATCH_DISCARD_ALL_SAFE(SHC.drw_bone_point_wire);
 	BATCH_DISCARD_ALL_SAFE(SHC.drw_bone_arrows);
@@ -1577,6 +1585,203 @@ Batch *DRW_cache_bone_wire_wire_outline_get(void)
 		SHC.drw_bone_wire_wire = Batch_create(PRIM_LINES, vbo, NULL);
 	}
 	return SHC.drw_bone_wire_wire;
+}
+
+
+/* Helpers for envelope bone's solid sphere-with-hidden-equatorial-cylinder.
+ * Note that here we only encode head/tail in forth component of the vector. */
+static void benv_lat_lon_to_co(const float lat, const float lon, float r_nor[3])
+{
+	/* Poles are along Y axis. */
+	r_nor[0] = sinf(lat) * cosf(lon);
+	r_nor[1] = cosf(lat);
+	r_nor[2] = sinf(lat) * sinf(lon);
+}
+
+static void benv_add_tri(VertexBuffer *vbo, uint pos_id, uint *v_idx, float *co1, float *co2, float *co3)
+{
+	/* Given tri and its seven other mirrors along X/Y/Z axes. */
+	for (int x = -1; x <= 1; x += 2) {
+		for (int y = -1; y <= 1; y += 2) {
+			const float head_tail = (y == -1) ? 0.0f : 1.0f;
+			for (int z = -1; z <= 1; z += 2) {
+				VertexBuffer_set_attrib(vbo, pos_id, (*v_idx)++,
+				                        (const float[4]){co1[0] * x, co1[1] * y, co1[2] * z, head_tail});
+				VertexBuffer_set_attrib(vbo, pos_id, (*v_idx)++,
+				                        (const float[4]){co2[0] * x, co2[1] * y, co2[2] * z, head_tail});
+				VertexBuffer_set_attrib(vbo, pos_id, (*v_idx)++,
+				                        (const float[4]){co3[0] * x, co3[1] * y, co3[2] * z, head_tail});
+			}
+		}
+	}
+}
+
+Batch *DRW_cache_bone_envelope_solid_get(void)
+{
+#define CIRCLE_RESOL 32  /* Must be multiple of 4 */
+	if (!SHC.drw_bone_envelope) {
+		const int lon_res = CIRCLE_RESOL / 4;
+		const int lat_res = CIRCLE_RESOL / 4;
+		const float lon_inc = M_PI_2 / lon_res;
+		const float lat_inc = M_PI_2 / lat_res;
+		unsigned int v_idx = 0;
+
+		static VertexFormat format = { 0 };
+		static struct { uint pos; } attr_id;
+		if (format.attrib_ct == 0) {
+			attr_id.pos = VertexFormat_add_attrib(&format, "pos", COMP_F32, 4, KEEP_FLOAT);
+		}
+
+		/* Vertices */
+		VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
+		VertexBuffer_allocate_data(vbo, lat_res * lon_res * 8 * 6);
+
+		float lon = 0.0f;
+		for (int i = 0; i < lon_res; i++, lon += lon_inc) {
+			float lat = 0.0f;
+			float co1[3], co2[3], co3[3], co4[3];
+
+			for (int j = 0; j < lat_res; j++, lat += lat_inc) {
+				benv_lat_lon_to_co(lat          , lon          , co1);
+				benv_lat_lon_to_co(lat          , lon + lon_inc, co2);
+				benv_lat_lon_to_co(lat + lat_inc, lon + lon_inc, co3);
+				benv_lat_lon_to_co(lat + lat_inc, lon          , co4);
+
+				if (j != 0) {  /* At pole, n1 and n2 are identical. */
+					benv_add_tri(vbo, attr_id.pos, &v_idx, co1, co2, co3);
+				}
+				benv_add_tri(vbo, attr_id.pos, &v_idx, co1, co3, co4);
+			}
+
+			/* lat is at equator (i.e. lat == pi / 2). */
+			/* We need to add 'cylinder' part between the equators (along XZ plane). */
+			for (int x = -1; x <= 1; x += 2) {
+				for (int z = -1; z <= 1; z += 2) {
+					VertexBuffer_set_attrib(vbo, attr_id.pos, v_idx++,
+					                        (const float[4]){co3[0] * x, co3[1], co3[2] * z, 0.0f});
+					VertexBuffer_set_attrib(vbo, attr_id.pos, v_idx++,
+					                        (const float[4]){co4[0] * x, co4[1], co4[2] * z, 0.0f});
+					VertexBuffer_set_attrib(vbo, attr_id.pos, v_idx++,
+					                        (const float[4]){co4[0] * x, co4[1], co4[2] * z, 1.0f});
+
+					VertexBuffer_set_attrib(vbo, attr_id.pos, v_idx++,
+					                        (const float[4]){co3[0] * x, co3[1], co3[2] * z, 0.0f});
+					VertexBuffer_set_attrib(vbo, attr_id.pos, v_idx++,
+					                        (const float[4]){co4[0] * x, co4[1], co4[2] * z, 1.0f});
+					VertexBuffer_set_attrib(vbo, attr_id.pos, v_idx++,
+					                        (const float[4]){co3[0] * x, co3[1], co3[2] * z, 1.0f});
+				}
+			}
+		}
+
+		SHC.drw_bone_envelope = Batch_create(PRIM_TRIANGLES, vbo, NULL);
+	}
+	return SHC.drw_bone_envelope;
+}
+
+
+Batch *DRW_cache_bone_envelope_distance_outline_get(void)
+{
+#define CIRCLE_RESOL 32  /* Must be multiple of 2 */
+	if (!SHC.drw_bone_envelope_distance) {
+		unsigned int v_idx = 0;
+
+		static VertexFormat format = { 0 };
+		static unsigned int pos_id;
+		if (format.attrib_ct == 0) {
+			pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 4, KEEP_FLOAT);
+		}
+
+		/* Vertices */
+		VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
+		VertexBuffer_allocate_data(vbo, CIRCLE_RESOL * 2 + 6);
+
+		/* Encoded triangle strip, vertex shader gives them final correct value. */
+		for (int i = 0; i < CIRCLE_RESOL + 1; i++) {
+			const bool is_headtail_transition = ELEM(i, CIRCLE_RESOL / 2, CIRCLE_RESOL);
+			const float head_tail = (i > CIRCLE_RESOL / 2) ? 1.0f : 0.0f;
+			const float alpha = 2.0f * M_PI * i / CIRCLE_RESOL;
+			const float x = cosf(alpha);
+			const float y = -sinf(alpha);
+
+			/*                                                           { X, Y, head/tail, inner/outer border } */
+			VertexBuffer_set_attrib(vbo, pos_id, v_idx++, (const float[4]){x, y, head_tail, 0.0f});
+			VertexBuffer_set_attrib(vbo, pos_id, v_idx++, (const float[4]){x, y, head_tail, 1.0f});
+			if (is_headtail_transition) {
+				VertexBuffer_set_attrib(vbo, pos_id, v_idx++, (const float[4]){x, y, 1.0f - head_tail, 0.0f});
+				VertexBuffer_set_attrib(vbo, pos_id, v_idx++, (const float[4]){x, y, 1.0f - head_tail, 1.0f});
+			}
+		}
+
+		SHC.drw_bone_envelope_distance = Batch_create(PRIM_TRIANGLE_STRIP, vbo, NULL);
+	}
+	return SHC.drw_bone_envelope_distance;
+#undef CIRCLE_RESOL
+}
+
+
+/* Bone body. */
+Batch *DRW_cache_bone_envelope_wire_outline_get(void)
+{
+	if (!SHC.drw_bone_envelope_wire) {
+		unsigned int v_idx = 0;
+
+		static VertexFormat format = { 0 };
+		static unsigned int pos_id;
+		if (format.attrib_ct == 0) {
+			pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 4, KEEP_FLOAT);
+		}
+
+		/* Vertices */
+		VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
+		VertexBuffer_allocate_data(vbo, 4);
+
+		/* Two lines between head and tail circles. */
+		/* Encoded lines, vertex shader gives them final correct value. */
+		/*                                                           {     X,    Y, head/tail, inner/outer border } */
+		VertexBuffer_set_attrib(vbo, pos_id, v_idx++, (const float[4]){ 1.0f, 0.0f,       0.0f, 0.0f});
+		VertexBuffer_set_attrib(vbo, pos_id, v_idx++, (const float[4]){ 1.0f, 0.0f,       1.0f, 0.0f});
+		VertexBuffer_set_attrib(vbo, pos_id, v_idx++, (const float[4]){-1.0f, 0.0f,       0.0f, 0.0f});
+		VertexBuffer_set_attrib(vbo, pos_id, v_idx++, (const float[4]){-1.0f, 0.0f,       1.0f, 0.0f});
+
+		SHC.drw_bone_envelope_wire = Batch_create(PRIM_LINES, vbo, NULL);
+	}
+	return SHC.drw_bone_envelope_wire;
+}
+
+
+/* Bone head and tail. */
+Batch *DRW_cache_bone_envelope_head_wire_outline_get(void)
+{
+#define CIRCLE_RESOL 32  /* Must be multiple of 2 */
+	if (!SHC.drw_bone_envelope_head_wire) {
+		unsigned int v_idx = 0;
+
+		static VertexFormat format = { 0 };
+		static unsigned int pos_id;
+		if (format.attrib_ct == 0) {
+			pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 4, KEEP_FLOAT);
+		}
+
+		/* Vertices */
+		VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
+		VertexBuffer_allocate_data(vbo, CIRCLE_RESOL);
+
+		/* Encoded lines, vertex shader gives them final correct value. */
+		/* Only head circle (tail is drawn in disp_tail_mat space as a head one by draw_armature.c's draw_point()). */
+		for (int i = 0; i < CIRCLE_RESOL; i++) {
+			const float alpha = 2.0f * M_PI * i / CIRCLE_RESOL;
+			const float x = cosf(alpha);
+			const float y = -sinf(alpha);
+
+			/*                                                           {      X,      Y, head/tail, inner/outer border } */
+			VertexBuffer_set_attrib(vbo, pos_id, v_idx++, (const float[4]){     x,      y,      0.0f, 0.0f});
+		}
+
+		SHC.drw_bone_envelope_head_wire = Batch_create(PRIM_LINE_LOOP, vbo, NULL);
+	}
+	return SHC.drw_bone_envelope_head_wire;
+#undef CIRCLE_RESOL
 }
 
 

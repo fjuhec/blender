@@ -1460,6 +1460,7 @@ typedef struct MeshBatchCache {
 	VertexBuffer *nor_in_order;
 	ElementList *edges_in_order;
 	ElementList *triangles_in_order;
+	ElementList *overlay_triangles_vpaint;
 
 	Batch *all_verts;
 	Batch *all_edges;
@@ -1471,7 +1472,6 @@ typedef struct MeshBatchCache {
 	VertexBuffer *tri_aligned_vert_colors;
 	VertexBuffer *tri_aligned_select_id;
 	VertexBuffer *edge_pos_with_select_bool;
-	VertexBuffer *tri_pos_with_unselect_only;
 	VertexBuffer *pos_with_select_bool;
 	Batch *triangles_with_normals;
 
@@ -1515,9 +1515,9 @@ typedef struct MeshBatchCache {
 	Batch *overlay_loose_verts;
 	Batch *overlay_facedots;
 
-	Batch *overlay_paint_edges;
 	Batch *overlay_weight_faces;
 	Batch *overlay_weight_verts;
+	Batch *overlay_paint_edges;
 
 	/* settings to determine if cache is invalid */
 	bool is_dirty;
@@ -1649,8 +1649,10 @@ static void mesh_batch_cache_clear(Mesh *me)
 	BATCH_DISCARD_SAFE(cache->all_triangles);
 
 	VERTEXBUFFER_DISCARD_SAFE(cache->pos_in_order);
+	VERTEXBUFFER_DISCARD_SAFE(cache->pos_with_select_bool);
 	ELEMENTLIST_DISCARD_SAFE(cache->edges_in_order);
 	ELEMENTLIST_DISCARD_SAFE(cache->triangles_in_order);
+	ELEMENTLIST_DISCARD_SAFE(cache->overlay_triangles_vpaint);
 
 	VERTEXBUFFER_DISCARD_SAFE(cache->ed_tri_pos);
 	VERTEXBUFFER_DISCARD_SAFE(cache->ed_tri_nor);
@@ -1669,10 +1671,10 @@ static void mesh_batch_cache_clear(Mesh *me)
 	BATCH_DISCARD_SAFE(cache->overlay_loose_edges);
 	BATCH_DISCARD_SAFE(cache->overlay_loose_edges_nor);
 
-	BATCH_DISCARD_ALL_SAFE(cache->overlay_facedots);
+	BATCH_DISCARD_SAFE(cache->overlay_weight_faces);
+	BATCH_DISCARD_SAFE(cache->overlay_weight_verts);
 	BATCH_DISCARD_ALL_SAFE(cache->overlay_paint_edges);
-	BATCH_DISCARD_ALL_SAFE(cache->overlay_weight_faces);
-	BATCH_DISCARD_ALL_SAFE(cache->overlay_weight_verts);
+	BATCH_DISCARD_ALL_SAFE(cache->overlay_facedots);
 
 	BATCH_DISCARD_SAFE(cache->triangles_with_normals);
 	BATCH_DISCARD_SAFE(cache->points_with_normals);
@@ -1752,6 +1754,8 @@ static VertexBuffer *mesh_batch_cache_get_tri_shading_data(MeshRenderData *rdata
 
 			/* Tangent */
 			attrib_name = mesh_render_data_tangent_layer_uuid_get(rdata, i);
+			/* WATCH IT : only specifying 3 component instead of 4 (4th is sign).
+			 * That may cause some problem but I could not make it to fail (fclem) */
 #ifdef USE_COMP_MESH_DATA
 #  if USE_10_10_10 && 0 /* Tangents need more precision than this */
 			tangent_id[i] = VertexFormat_add_attrib(format, attrib_name, COMP_I10, 3, NORMALIZE_INT_TO_FLOAT);
@@ -2324,8 +2328,9 @@ static void mesh_batch_cache_create_overlay_ledge_buffers(
 
 	for (int i = 0; i < ledge_len; ++i) {
 		int vert_idx[2];
-		bool ok = mesh_render_data_edge_verts_indices_get(rdata, rdata->loose_edges[i], vert_idx);
+		const bool ok = mesh_render_data_edge_verts_indices_get(rdata, rdata->loose_edges[i], vert_idx);
 		BLI_assert(ok);  /* we don't add */
+		UNUSED_VARS_NDEBUG(ok);
 		add_overlay_loose_edge(
 		        rdata, vbo_pos, vbo_nor, vbo_data,
 		        attr_id.pos, attr_id.vnor, attr_id.data,
@@ -2681,49 +2686,30 @@ static VertexBuffer *mesh_batch_cache_get_edge_pos_with_sel(
 	return cache->edge_pos_with_select_bool;
 }
 
-/**
- * TODO, reuse pos VBO with elements.
- */
-static VertexBuffer *mesh_batch_cache_get_tri_pos_with_unselect_only(
+static ElementList *mesh_batch_cache_get_tri_overlay_weight_faces(
         MeshRenderData *rdata, MeshBatchCache *cache)
 {
-	BLI_assert(rdata->types & (MR_DATATYPE_VERT | MR_DATATYPE_POLY | MR_DATATYPE_LOOP | MR_DATATYPE_LOOPTRI));
-	BLI_assert(rdata->edit_bmesh == NULL);
+	BLI_assert(rdata->types & (MR_DATATYPE_VERT | MR_DATATYPE_LOOPTRI));
 
-	if (cache->tri_pos_with_unselect_only == NULL) {
-		unsigned int vidx = 0;
-
-		static VertexFormat format = { 0 };
-		static struct { uint pos; } attr_id;
-		if (format.attrib_ct == 0) {
-			attr_id.pos = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
-		}
-
+	if (cache->overlay_triangles_vpaint == NULL) {
+		const int vert_len = mesh_render_data_verts_len_get(rdata);
 		const int tri_len = mesh_render_data_looptri_len_get(rdata);
 
-		VertexBuffer *vbo = cache->tri_pos_with_unselect_only = VertexBuffer_create_with_format(&format);
+		ElementListBuilder elb;
+		ElementListBuilder_init(&elb, PRIM_TRIANGLES, tri_len, vert_len);
 
-		const int vbo_len_capacity = tri_len * 3;
-		int vbo_len_used = 0;
-		VertexBuffer_allocate_data(vbo, vbo_len_capacity);
-
-		for (int i = 0; i < tri_len; i++) {
+		for (int i = 0; i < tri_len; ++i) {
 			const MLoopTri *mlt = &rdata->mlooptri[i];
 			if (!(rdata->mpoly[mlt->poly].flag & (ME_FACE_SEL | ME_HIDE))) {
 				for (uint tri_corner = 0; tri_corner < 3; tri_corner++) {
-					const uint v_index = rdata->mloop[mlt->tri[tri_corner]].v;
-					VertexBuffer_set_attrib(vbo, attr_id.pos, vidx++, rdata->mvert[v_index].co);
+					add_generic_vertex(&elb, rdata->mloop[mlt->tri[tri_corner]].v);
 				}
 			}
 		}
-		vbo_len_used = vidx;
-
-		if (vbo_len_capacity != vbo_len_used) {
-			VertexBuffer_resize_data(vbo, vbo_len_used);
-		}
+		cache->overlay_triangles_vpaint = ElementList_build(&elb);
 	}
 
-	return cache->tri_pos_with_unselect_only;
+	return cache->overlay_triangles_vpaint;
 }
 
 /**
@@ -2736,13 +2722,12 @@ static VertexBuffer *mesh_batch_cache_get_vert_pos_with_overlay_data(
 	BLI_assert(rdata->edit_bmesh == NULL);
 
 	if (cache->pos_with_select_bool == NULL) {
-		unsigned int vidx = 0, cidx = 0;
+		unsigned int cidx = 0;
 
 		static VertexFormat format = { 0 };
-		static struct { uint pos, sel; } attr_id;
+		static struct { uint data; } attr_id;
 		if (format.attrib_ct == 0) {
-			attr_id.pos = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
-			attr_id.sel = VertexFormat_add_attrib(&format, "data", COMP_I8, 1, KEEP_INT);
+			attr_id.data = VertexFormat_add_attrib(&format, "data", COMP_I8, 1, KEEP_INT);
 		}
 
 		const int vert_len = mesh_render_data_verts_len_get(rdata);
@@ -2756,10 +2741,9 @@ static VertexBuffer *mesh_batch_cache_get_vert_pos_with_overlay_data(
 		for (int i = 0; i < vert_len; i++) {
 			const MVert *mv = &rdata->mvert[i];
 			const char data = mv->flag & (SELECT | ME_HIDE);
-			VertexBuffer_set_attrib(vbo, attr_id.sel, cidx++, &data);
-			VertexBuffer_set_attrib(vbo, attr_id.pos, vidx++, mv->co);
+			VertexBuffer_set_attrib(vbo, attr_id.data, cidx++, &data);
 		}
-		vbo_len_used = vidx;
+		vbo_len_used = cidx;
 
 		if (vbo_len_capacity != vbo_len_used) {
 			VertexBuffer_resize_data(vbo, vbo_len_used);
@@ -2894,8 +2878,10 @@ struct Batch *DRW_mesh_batch_cache_get_triangles_with_select_id(struct Mesh *me,
 		cache->triangles_with_select_id = Batch_create(
 		        PRIM_TRIANGLES, mesh_batch_cache_get_tri_select_id(rdata, cache, use_hide), NULL);
 
-		VertexBuffer *vbo = mesh_batch_cache_get_tri_pos_and_normals_visible_only(rdata, cache);
-		Batch_add_VertexBuffer(cache->triangles_with_select_id, vbo);
+		VertexBuffer *vbo_tris = use_hide ?
+		        mesh_batch_cache_get_tri_pos_and_normals_visible_only(rdata, cache) :
+		        mesh_batch_cache_get_tri_pos_and_normals(rdata, cache);
+		Batch_add_VertexBuffer(cache->triangles_with_select_id, vbo_tris);
 
 		mesh_render_data_free(rdata);
 	}
@@ -3229,7 +3215,8 @@ Batch *DRW_mesh_batch_cache_get_weight_overlay_faces(Mesh *me)
 		MeshRenderData *rdata = mesh_render_data_create(me, datatype);
 
 		cache->overlay_weight_faces = Batch_create(
-		        PRIM_TRIANGLES, mesh_batch_cache_get_tri_pos_with_unselect_only(rdata, cache), NULL);
+		        PRIM_TRIANGLES, mesh_batch_cache_get_vert_pos_and_nor_in_order(rdata, cache),
+		        mesh_batch_cache_get_tri_overlay_weight_faces(rdata, cache));
 
 		mesh_render_data_free(rdata);
 	}
@@ -3246,8 +3233,11 @@ Batch *DRW_mesh_batch_cache_get_weight_overlay_verts(Mesh *me)
 		MeshRenderData *rdata = mesh_render_data_create(me, MR_DATATYPE_VERT);
 
 		cache->overlay_weight_verts = Batch_create(
-		        PRIM_POINTS, mesh_batch_cache_get_vert_pos_with_overlay_data(rdata, cache), NULL);
+		        PRIM_POINTS, mesh_batch_cache_get_vert_pos_and_nor_in_order(rdata, cache), NULL);
 
+		Batch_add_VertexBuffer(
+		        cache->overlay_weight_verts,
+		        mesh_batch_cache_get_vert_pos_with_overlay_data(rdata, cache));
 		mesh_render_data_free(rdata);
 	}
 

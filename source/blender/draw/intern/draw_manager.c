@@ -47,6 +47,8 @@
 #include "DNA_camera_types.h"
 #include "DNA_view3d_types.h"
 #include "DNA_screen_types.h"
+#include "DNA_mesh_types.h"
+#include "DNA_meshdata_types.h"
 
 #include "ED_space_api.h"
 #include "ED_screen.h"
@@ -808,7 +810,9 @@ void DRW_shgroup_free(struct DRWShadingGroup *shgroup)
 	BLI_freelistN(&shgroup->interface->uniforms);
 	BLI_freelistN(&shgroup->interface->attribs);
 
-	if (shgroup->interface->instance_vbo) {
+	if (shgroup->interface->instance_vbo &&
+		(shgroup->interface->instance_batch == 0))
+	{
 		glDeleteBuffers(1, &shgroup->interface->instance_vbo);
 	}
 
@@ -923,6 +927,7 @@ void DRW_shgroup_call_dynamic_add_array(DRWShadingGroup *shgroup, const void *at
 	DRWCallDynamic *call = MEM_callocN(size, "DRWCallDynamic");
 
 	BLI_assert(attr_len == interface->attribs_count);
+	UNUSED_VARS_NDEBUG(attr_len);
 
 	call->head.type = DRW_CALL_DYNAMIC;
 #ifdef USE_GPU_SELECT
@@ -1112,7 +1117,6 @@ static void shgroup_dynamic_instance(DRWShadingGroup *shgroup)
 	int i = 0;
 	int offset = 0;
 	DRWInterface *interface = shgroup->interface;
-	int instance_ct = interface->instance_count;
 	int buffer_size = 0;
 
 	/* XXX All of this is pretty garbage. Better revisit it later. */
@@ -1127,7 +1131,7 @@ static void shgroup_dynamic_instance(DRWShadingGroup *shgroup)
 		interface->instance_count = vert->vertex_ct;
 	}
 
-	if (instance_ct == 0) {
+	if (interface->instance_count == 0) {
 		if (interface->instance_vbo) {
 			glDeleteBuffers(1, &interface->instance_vbo);
 			interface->instance_vbo = 0;
@@ -1151,7 +1155,7 @@ static void shgroup_dynamic_instance(DRWShadingGroup *shgroup)
 	}
 
 	/* Gather Data */
-	buffer_size = sizeof(float) * interface->attribs_stride * instance_ct;
+	buffer_size = sizeof(float) * interface->attribs_stride * interface->instance_count;
 	float *data = MEM_mallocN(buffer_size, "Instance VBO data");
 
 	for (DRWCallDynamic *call = shgroup->calls.first; call; call = call->head.next) {
@@ -1880,6 +1884,18 @@ bool DRW_object_is_renderable(Object *ob)
 	return true;
 }
 
+
+bool DRW_object_is_flat_normal(Object *ob)
+{
+	if (ob->type == OB_MESH) {
+		Mesh *me = ob->data;
+		if (me->mpoly && me->mpoly[0].flag & ME_SMOOTH) {
+			return false;
+		}
+	}
+	return true;
+}
+
 /** \} */
 
 
@@ -1911,36 +1927,43 @@ void DRW_framebuffer_init(
 {
 	BLI_assert(textures_len <= MAX_FBO_TEX);
 
+	bool create_fb = false;
+	int color_attachment = -1;
+
 	if (!*fb) {
-		int color_attachment = -1;
 		*fb = GPU_framebuffer_create();
+		create_fb = true;
+	}
 
-		for (int i = 0; i < textures_len; ++i) {
-			int channels;
-			bool is_depth;
+	for (int i = 0; i < textures_len; ++i) {
+		int channels;
+		bool is_depth;
 
-			DRWFboTexture fbotex = textures[i];
-			bool is_temp = (fbotex.flag & DRW_TEX_TEMP) != 0;
+		DRWFboTexture fbotex = textures[i];
+		bool is_temp = (fbotex.flag & DRW_TEX_TEMP) != 0;
 
-			GPUTextureFormat gpu_format = convert_tex_format(fbotex.format, &channels, &is_depth);
+		GPUTextureFormat gpu_format = convert_tex_format(fbotex.format, &channels, &is_depth);
 
-			if (!*fbotex.tex || is_temp) {
-				if (is_temp) {
-					*fbotex.tex = GPU_viewport_texture_pool_query(DST.viewport, engine_type, width, height, channels, gpu_format);
-				}
-				else {
-					*fbotex.tex = GPU_texture_create_2D_custom(width, height, channels, gpu_format, NULL, NULL);
-				}
-				drw_texture_set_parameters(*fbotex.tex, fbotex.flag);
+		if (!*fbotex.tex || is_temp) {
+			/* Temp textures need to be queried each frame, others not. */
+			if (is_temp) {
+				*fbotex.tex = GPU_viewport_texture_pool_query(DST.viewport, engine_type, width, height, channels, gpu_format);
 			}
+			else if (create_fb) {
+				*fbotex.tex = GPU_texture_create_2D_custom(width, height, channels, gpu_format, NULL, NULL);
+			}
+		}
 
+		if (create_fb) {
 			if (!is_depth) {
 				++color_attachment;
 			}
-
+			drw_texture_set_parameters(*fbotex.tex, fbotex.flag);
 			GPU_framebuffer_texture_attach(*fb, *fbotex.tex, color_attachment, 0);
 		}
+	}
 
+	if (create_fb) {
 		if (!GPU_framebuffer_check_valid(*fb, NULL)) {
 			printf("Error invalid framebuffer\n");
 		}

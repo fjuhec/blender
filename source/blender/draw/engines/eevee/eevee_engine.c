@@ -39,11 +39,20 @@
 
 #define EEVEE_ENGINE "BLENDER_EEVEE"
 
+#define SHADER_DEFINES \
+	"#define EEVEE_ENGINE\n" \
+	"#define MAX_LIGHT " STRINGIFY(MAX_LIGHT) "\n" \
+	"#define MAX_SHADOW_CUBE " STRINGIFY(MAX_SHADOW_CUBE) "\n" \
+	"#define MAX_SHADOW_MAP " STRINGIFY(MAX_SHADOW_MAP) "\n" \
+	"#define MAX_SHADOW_CASCADE " STRINGIFY(MAX_SHADOW_CASCADE) "\n" \
+	"#define MAX_CASCADE_NUM " STRINGIFY(MAX_CASCADE_NUM) "\n"
+
 /* *********** STATIC *********** */
 static struct {
 	char *frag_shader_lib;
 
 	struct GPUShader *default_lit;
+	struct GPUShader *default_lit_flat;
 	struct GPUShader *default_world;
 	struct GPUShader *default_background;
 	struct GPUShader *depth_sh;
@@ -243,12 +252,13 @@ static void EEVEE_engine_init(void *ved)
 		BLI_dynstr_free(ds_frag);
 
 		e_data.default_lit = DRW_shader_create(
+		        datatoc_lit_surface_vert_glsl, NULL, frag_str, SHADER_DEFINES "#define MESH_SHADER\n");
+
+		e_data.default_lit_flat = DRW_shader_create(
 		        datatoc_lit_surface_vert_glsl, NULL, frag_str,
-		        "#define MAX_LIGHT 128\n"
-		        "#define MAX_SHADOW_CUBE 42\n"
-		        "#define MAX_SHADOW_MAP 64\n"
-		        "#define MAX_SHADOW_CASCADE 8\n"
-		        "#define MAX_CASCADE_NUM 4\n");
+		        SHADER_DEFINES
+		        "#define MESH_SHADER\n"
+		        "#define USE_FLAT_NORMAL\n");
 
 		MEM_freeN(frag_str);
 	}
@@ -404,12 +414,7 @@ static void EEVEE_cache_init(void *vedata)
 			struct GPUMaterial *gpumat = GPU_material_from_nodetree(
 				scene, wo->nodetree, &wo->gpumaterial, &DRW_engine_viewport_eevee_type, 0,
 			    datatoc_probe_vert_glsl, datatoc_probe_geom_glsl, e_data.frag_shader_lib,
-			    "#define PROBE_CAPTURE\n"
-			    "#define MAX_LIGHT 128\n"
-			    "#define MAX_SHADOW_CUBE 42\n"
-			    "#define MAX_SHADOW_MAP 64\n"
-			    "#define MAX_SHADOW_CASCADE 8\n"
-			    "#define MAX_CASCADE_NUM 4\n");
+			    SHADER_DEFINES "#define PROBE_CAPTURE\n");
 
 			grp = DRW_shgroup_material_instance_create(gpumat, psl->probe_background, geom);
 
@@ -453,12 +458,7 @@ static void EEVEE_cache_init(void *vedata)
 			struct GPUMaterial *gpumat = GPU_material_from_nodetree(
 				scene, wo->nodetree, &wo->gpumaterial, &DRW_engine_viewport_eevee_type, 1,
 			    datatoc_background_vert_glsl, NULL, e_data.frag_shader_lib,
-			    "#define WORLD_BACKGROUND\n"
-			    "#define MAX_LIGHT 128\n"
-			    "#define MAX_SHADOW_CUBE 42\n"
-			    "#define MAX_SHADOW_MAP 64\n"
-			    "#define MAX_SHADOW_CASCADE 8\n"
-			    "#define MAX_CASCADE_NUM 4\n");
+			    SHADER_DEFINES "#define WORLD_BACKGROUND\n");
 
 			grp = DRW_shgroup_material_create(gpumat, psl->background_pass);
 
@@ -522,17 +522,32 @@ static void EEVEE_cache_init(void *vedata)
 		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_EQUAL;
 		psl->default_pass = DRW_pass_create("Default Shader Pass", state);
 
-		stl->g_data->default_lit_grp = DRW_shgroup_create(e_data.default_lit, psl->default_pass);
-		DRW_shgroup_uniform_block(stl->g_data->default_lit_grp, "light_block", stl->light_ubo);
-		DRW_shgroup_uniform_block(stl->g_data->default_lit_grp, "shadow_block", stl->shadow_ubo);
-		DRW_shgroup_uniform_int(stl->g_data->default_lit_grp, "light_count", &stl->lamps->num_light, 1);
-		DRW_shgroup_uniform_float(stl->g_data->default_lit_grp, "lodMax", &stl->probes->lodmax, 1);
-		DRW_shgroup_uniform_vec3(stl->g_data->default_lit_grp, "shCoefs[0]", (float *)stl->probes->shcoefs, 9);
-		DRW_shgroup_uniform_vec3(stl->g_data->default_lit_grp, "cameraPos", e_data.camera_pos, 1);
-		DRW_shgroup_uniform_texture(stl->g_data->default_lit_grp, "ltcMat", e_data.ltc_mat);
-		DRW_shgroup_uniform_texture(stl->g_data->default_lit_grp, "brdfLut", e_data.brdf_lut);
-		DRW_shgroup_uniform_texture(stl->g_data->default_lit_grp, "probeFiltered", txl->probe_pool);
-		/* NOTE : Adding Shadow Map textures uniform in EEVEE_cache_finish */
+		for (uint j = 0; j < 2; j++) {
+			struct GPUShader *shader;
+			struct DRWShadingGroup *shgrp;
+
+			if (j == 0) {
+				shader = e_data.default_lit;
+				shgrp = DRW_shgroup_create(shader, psl->default_pass);
+				stl->g_data->default_lit_grp = shgrp;
+			}
+			else {
+				shader = e_data.default_lit_flat;
+				shgrp = DRW_shgroup_create(shader, psl->default_pass);
+				stl->g_data->default_lit_grp_flat = shgrp;
+			}
+
+			DRW_shgroup_uniform_block(shgrp, "light_block", stl->light_ubo);
+			DRW_shgroup_uniform_block(shgrp, "shadow_block", stl->shadow_ubo);
+			DRW_shgroup_uniform_int(shgrp, "light_count", &stl->lamps->num_light, 1);
+			DRW_shgroup_uniform_float(shgrp, "lodMax", &stl->probes->lodmax, 1);
+			DRW_shgroup_uniform_vec3(shgrp, "shCoefs[0]", (float *)stl->probes->shcoefs, 9);
+			DRW_shgroup_uniform_vec3(shgrp, "cameraPos", e_data.camera_pos, 1);
+			DRW_shgroup_uniform_texture(shgrp, "ltcMat", e_data.ltc_mat);
+			DRW_shgroup_uniform_texture(shgrp, "brdfLut", e_data.brdf_lut);
+			DRW_shgroup_uniform_texture(shgrp, "probeFiltered", txl->probe_pool);
+			/* NOTE : Adding Shadow Map textures uniform in EEVEE_cache_finish */
+		}
 	}
 
 	{
@@ -565,6 +580,7 @@ static void EEVEE_cache_populate(void *vedata, Object *ob)
 		IDProperty *ces_mode_ob = BKE_layer_collection_engine_evaluated_get(ob, COLLECTION_MODE_OBJECT, "");
 		const bool do_cull = BKE_collection_engine_property_value_get_bool(ces_mode_ob, "show_backface_culling");
 		const bool is_sculpt_mode = is_active && (ob->mode & OB_MODE_SCULPT) != 0;
+		const bool is_default_mode_shader = is_sculpt_mode;
 
 		/* Depth Prepass */
 		{
@@ -580,6 +596,17 @@ static void EEVEE_cache_populate(void *vedata, Object *ob)
 		/* Get per-material split surface */
 		struct Batch **mat_geom = DRW_cache_object_surface_material_get(ob);
 		if (mat_geom) {
+			struct GPUShader *default_shader = e_data.default_lit;
+			struct DRWShadingGroup *default_shgrp = stl->g_data->default_lit_grp;
+
+			if (is_default_mode_shader) {
+				if (is_sculpt_mode) {
+					bool use_flat = DRW_object_is_flat_normal(ob);
+					default_shader = use_flat ? e_data.default_lit_flat : e_data.default_lit;
+					default_shgrp = use_flat ? stl->g_data->default_lit_grp_flat : stl->g_data->default_lit_grp;
+				}
+			}
+
 			for (int i = 0; i < MAX2(1, (is_sculpt_mode ? 1 : ob->totcol)); ++i) {
 				Material *ma = give_current_material(ob, i + 1);
 
@@ -591,12 +618,7 @@ static void EEVEE_cache_populate(void *vedata, Object *ob)
 					struct GPUMaterial *gpumat = GPU_material_from_nodetree(
 					    scene, ma->nodetree, &ma->gpumaterial, &DRW_engine_viewport_eevee_type, 0,
 					    datatoc_lit_surface_vert_glsl, NULL, e_data.frag_shader_lib,
-					    "#define PROBE_CAPTURE\n"
-					    "#define MAX_LIGHT 128\n"
-					    "#define MAX_SHADOW_CUBE 42\n"
-					    "#define MAX_SHADOW_MAP 64\n"
-					    "#define MAX_SHADOW_CASCADE 8\n"
-					    "#define MAX_CASCADE_NUM 4\n");
+					    SHADER_DEFINES "#define MESH_SHADER\n");
 
 					DRWShadingGroup *shgrp = DRW_shgroup_material_create(gpumat, psl->material_pass);
 					if (shgrp) {
@@ -620,15 +642,16 @@ static void EEVEE_cache_populate(void *vedata, Object *ob)
 					else {
 						/* Shader failed : pink color */
 						static float col[3] = {1.0f, 0.0f, 1.0f};
-						static float spec[3] = {1.0f, 0.0f, 1.0f};
-						static short hardness = 1;
-						shgrp = DRW_shgroup_create(e_data.default_lit, psl->default_pass);
-						DRW_shgroup_uniform_vec3(shgrp, "diffuse_col", col, 1);
-						DRW_shgroup_uniform_vec3(shgrp, "specular_col", spec, 1);
-						DRW_shgroup_uniform_short(shgrp, "hardness", &hardness, 1);
-						DRW_shgroup_uniform_texture(stl->g_data->default_lit_grp, "ltcMat", e_data.ltc_mat);
-						DRW_shgroup_uniform_texture(stl->g_data->default_lit_grp, "brdfLut", e_data.brdf_lut);
-						DRW_shgroup_uniform_texture(stl->g_data->default_lit_grp, "probeFiltered", txl->probe_pool);
+						static float half = 0.5f;
+
+						shgrp = DRW_shgroup_create(default_shader, psl->default_pass);
+						DRW_shgroup_uniform_vec3(shgrp, "basecol", col, 1);
+						DRW_shgroup_uniform_float(shgrp, "metallic", &half, 1);
+						DRW_shgroup_uniform_float(shgrp, "specular", &half, 1);
+						DRW_shgroup_uniform_float(shgrp, "roughness", &half, 1);
+						DRW_shgroup_uniform_texture(default_shgrp, "ltcMat", e_data.ltc_mat);
+						DRW_shgroup_uniform_texture(default_shgrp, "brdfLut", e_data.brdf_lut);
+						DRW_shgroup_uniform_texture(default_shgrp, "probeFiltered", txl->probe_pool);
 
 						if (is_sculpt_mode) {
 							DRW_shgroup_call_sculpt_add(shgrp, ob, ob->obmat);
@@ -639,13 +662,14 @@ static void EEVEE_cache_populate(void *vedata, Object *ob)
 					}
 				}
 				else {
-					DRWShadingGroup *shgrp = DRW_shgroup_create(e_data.default_lit, psl->default_pass);
-					DRW_shgroup_uniform_vec3(shgrp, "diffuse_col", &ma->r, 1);
-					DRW_shgroup_uniform_vec3(shgrp, "specular_col", &ma->specr, 1);
-					DRW_shgroup_uniform_short(shgrp, "hardness", &ma->har, 1);
-					DRW_shgroup_uniform_texture(stl->g_data->default_lit_grp, "ltcMat", e_data.ltc_mat);
-					DRW_shgroup_uniform_texture(stl->g_data->default_lit_grp, "brdfLut", e_data.brdf_lut);
-					DRW_shgroup_uniform_texture(stl->g_data->default_lit_grp, "probeFiltered", txl->probe_pool);
+					DRWShadingGroup *shgrp = DRW_shgroup_create(default_shader, psl->default_pass);
+					DRW_shgroup_uniform_vec3(shgrp, "basecol", &ma->r, 1);
+					DRW_shgroup_uniform_float(shgrp, "metallic", &ma->ray_mirror, 1);
+					DRW_shgroup_uniform_float(shgrp, "specular", &ma->spec, 1);
+					DRW_shgroup_uniform_float(shgrp, "roughness", &ma->gloss_mir, 1);
+					DRW_shgroup_uniform_texture(default_shgrp, "ltcMat", e_data.ltc_mat);
+					DRW_shgroup_uniform_texture(default_shgrp, "brdfLut", e_data.brdf_lut);
+					DRW_shgroup_uniform_texture(default_shgrp, "probeFiltered", txl->probe_pool);
 
 					if (is_sculpt_mode) {
 						DRW_shgroup_call_sculpt_add(shgrp, ob, ob->obmat);
@@ -736,6 +760,7 @@ static void EEVEE_engine_free(void)
 
 	MEM_SAFE_FREE(e_data.frag_shader_lib);
 	DRW_SHADER_FREE_SAFE(e_data.default_lit);
+	DRW_SHADER_FREE_SAFE(e_data.default_lit_flat);
 	DRW_SHADER_FREE_SAFE(e_data.shadow_sh);
 	DRW_SHADER_FREE_SAFE(e_data.default_world);
 	DRW_SHADER_FREE_SAFE(e_data.default_background);

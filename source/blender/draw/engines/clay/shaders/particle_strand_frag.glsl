@@ -9,6 +9,7 @@ layout(std140) uniform material_block {
 	Material shader_param[MAX_MATERIAL];
 };
 
+uniform mat4 ProjectionMatrix;
 uniform sampler2DArray matcaps;
 uniform int mat_id;
 
@@ -116,8 +117,8 @@ void hue_sat(float hue, float sat, float value, inout vec3 col)
 
 void main()
 {
-	vec3 viewvec = normalize(viewPosition);
-	vec3 ortho = normalize(cross(viewPosition, tangent));
+	vec3 viewvec = (ProjectionMatrix[3][3] == 0.0) ? normalize(viewPosition) : vec3(0.0, 0.0, -1.0);
+	vec3 ortho = normalize(cross(viewvec, tangent));
 	vec3 norm = normalize(cross(ortho, tangent));
 
 	vec3 col = vec3(0);
