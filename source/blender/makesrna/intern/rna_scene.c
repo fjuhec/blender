@@ -95,7 +95,8 @@ EnumPropertyItem rna_enum_exr_codec_items[] = {
 	{R_IMF_EXR_CODEC_B44, "B44", 0, "B44 (lossy)", ""},
 	{R_IMF_EXR_CODEC_B44A, "B44A", 0, "B44A (lossy)", ""},
 	{R_IMF_EXR_CODEC_DWAA, "DWAA", 0, "DWAA (lossy)", ""},
-	{R_IMF_EXR_CODEC_DWAB, "DWAB", 0, "DWAB (lossy)", ""},
+	/* NOTE: Commented out for until new OpenEXR is released, see T50673. */
+	/* {R_IMF_EXR_CODEC_DWAB, "DWAB", 0, "DWAB (lossy)", ""}, */
 	{0, NULL, 0, NULL, NULL}
 };
 #endif
@@ -2317,7 +2318,7 @@ static void rna_Stereo3dFormat_update(Main *UNUSED(bmain), Scene *UNUSED(scene),
 
 static int rna_gpu_is_hq_supported_get(PointerRNA *UNUSED(ptr))
 {
-	return GPU_instanced_drawing_support() && GPU_geometry_shader_support();
+	return true;
 }
 
 static void rna_SceneCollection_name_set(PointerRNA *ptr, const char *value)
@@ -5747,11 +5748,6 @@ static void rna_def_scene_game_data(BlenderRNA *brna)
 	                         "Respect the frame rate from the Physics panel in the world properties "
 	                         "rather than rendering as many frames as possible");
 
-	prop = RNA_def_property(srna, "use_display_lists", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GAME_DISPLAY_LISTS);
-	RNA_def_property_ui_text(prop, "Display Lists",
-	                         "Use display lists to speed up rendering by keeping geometry on the GPU");
-
 	prop = RNA_def_property(srna, "use_deprecation_warnings", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_negative_sdna(prop, NULL, "flag", GAME_IGNORE_DEPRECATION_WARNINGS);
 	RNA_def_property_ui_text(prop, "Deprecation Warnings",
@@ -5927,6 +5923,7 @@ static void rna_def_gpu_dof_fx(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "High Quality", "Use high quality depth of field");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 
+	/* NOTE: high quality is always supported */
 	prop = RNA_def_property(srna, "is_hq_supported", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_funcs(prop, "rna_gpu_is_hq_supported_get", NULL);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
