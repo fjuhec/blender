@@ -98,8 +98,8 @@ static void gpencil_batch_cache_check_free_slots(bGPdata *gpd)
 /* cache init */
 static void gpencil_batch_cache_init(bGPdata *gpd, int cfra)
 {
-	if (G.debug & G_DEBUG) {
-		printf("GPencil_Cache init for %s\n", gpd->id.name);
+	if (G.debug_value == 668) {
+		printf("gpencil_batch_cache_init for %s\n", gpd->id.name);
 	}
 	GpencilBatchCache *cache = gpd->batch_cache;
 
@@ -133,8 +133,8 @@ void gpencil_batch_cache_clear(bGPdata *gpd)
 	if (gpd->flag & GP_DATA_CACHE_IS_DIRTY) {
 		return;
 	}
-	if (G.debug & G_DEBUG) {
-		printf("GPencil_Cache clear for %s\n", gpd->id.name);
+	if (G.debug_value == 668) {
+		printf("gpencil_batch_cache_clear for %s\n", gpd->id.name);
 	}
 
 	if (cache->cache_size > 0) {
@@ -542,8 +542,8 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 /* helper for populate a complete grease pencil datablock */
 void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene *scene, Object *ob, ToolSettings *ts, bGPdata *gpd)
 {
-	if (G.debug & G_DEBUG) {
-		printf("GPencil_Cache populate for %s\n", gpd->id.name);
+	if (G.debug_value == 668) {
+		printf("DRW_gpencil_populate_datablock for %s\n", gpd->id.name);
 	}
 
 	GpencilBatchCache *cache = gpencil_batch_cache_get(gpd, CFRA);

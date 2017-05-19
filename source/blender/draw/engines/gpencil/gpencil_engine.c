@@ -27,6 +27,7 @@
 #include "DRW_render.h"
 
 #include "BKE_main.h"
+#include "BKE_global.h"
 #include "BKE_gpencil.h"
 #include "BKE_image.h"
 #include "ED_gpencil.h"
@@ -105,6 +106,10 @@ static void GPENCIL_engine_free(void)
 
 static void GPENCIL_cache_init(void *vedata)
 {
+	if (G.debug_value == 668) {
+		printf("GPENCIL_cache_init\n");
+	}
+
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 
@@ -150,18 +155,28 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 	if (stl->g_data->scene_draw == false) {
 		stl->g_data->scene_draw = true;
 		if (scene && scene->gpd) {
+			if (G.debug_value == 668) {
+				printf("GPENCIL_cache_populate: Scene\n");
+			}
 			DRW_gpencil_populate_datablock(&e_data, vedata, scene, NULL, ts, scene->gpd);
 		}
 	}
 
 	/* object datablock */
 	if (ob->type == OB_GPENCIL && ob->gpd) {
+		if (G.debug_value == 668) {
+			printf("GPENCIL_cache_populate: Object\n");
+		}
 		DRW_gpencil_populate_datablock(&e_data, vedata, scene, ob, ts, ob->gpd);
 	}
 }
 
 static void GPENCIL_cache_finish(void *vedata)
 {
+	if (G.debug_value == 668) {
+		printf("GPENCIL_cache_finish\n");
+	}
+
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	stl->g_data->scene_draw = false;
 }
