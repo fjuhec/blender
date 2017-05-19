@@ -163,7 +163,7 @@ static GpencilBatchCache *gpencil_batch_cache_get(bGPdata *gpd, int cfra)
 }
 
  /* create shading group for filling */
-static DRWShadingGroup *DRW_gpencil_shgroup_fill_create(GPENCIL_Data *vedata, DRWPass *pass, GPUShader *shader, PaletteColor *palcolor, int id)
+static DRWShadingGroup *DRW_gpencil_shgroup_fill_create(GPENCIL_Data *vedata, DRWPass *pass, GPUShader *shader, bGPdata *gpd, PaletteColor *palcolor, int id)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 
@@ -190,6 +190,8 @@ static DRWShadingGroup *DRW_gpencil_shgroup_fill_create(GPENCIL_Data *vedata, DR
 
 	stl->storage->t_flip[id] = palcolor->flag & PAC_COLOR_FLIP_FILL ? 1 : 0;
 	DRW_shgroup_uniform_int(grp, "t_flip", &stl->storage->t_flip[id], 1);
+
+	DRW_shgroup_uniform_int(grp, "xraymode", &gpd->xray_mode, 1);
 
 	/* image texture */
 	if ((palcolor->fill_style == FILL_STYLE_TEXTURE) || (palcolor->flag & PAC_COLOR_TEX_MIX)) {
@@ -229,7 +231,7 @@ DRWShadingGroup *DRW_gpencil_shgroup_point_volumetric_create(DRWPass *pass, GPUS
 }
 
 /* create shading group for strokes */
-DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_Data *vedata, DRWPass *pass, GPUShader *shader)
+DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_Data *vedata, DRWPass *pass, GPUShader *shader, bGPdata *gpd)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 
@@ -246,6 +248,14 @@ DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_Data *vedata, DRWPass
 
 	stl->storage->is_persp = rv3d->is_persp ? 1 : 0;
 	DRW_shgroup_uniform_int(grp, "is_persp", &stl->storage->is_persp, 1);
+
+	if (gpd) {
+		DRW_shgroup_uniform_int(grp, "xraymode", &gpd->xray_mode, 1);
+	}
+	else {
+		/* for drawing always on front */
+		DRW_shgroup_uniform_int(grp, "xraymode", &stl->storage->xray, 1);
+	}
 
 	return grp;
 }
@@ -326,8 +336,8 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 			if (id == -1) {
 				id = stl->storage->pal_id;
 				stl->storage->materials[id] = gps->palcolor;
-				stl->storage->shgrps_fill[id] = DRW_gpencil_shgroup_fill_create(vedata, psl->stroke_pass, e_data->gpencil_fill_sh, gps->palcolor, id);
-				stl->storage->shgrps_stroke[id] = DRW_gpencil_shgroup_stroke_create(vedata, psl->stroke_pass, e_data->gpencil_stroke_sh);
+				stl->storage->shgrps_fill[id] = DRW_gpencil_shgroup_fill_create(vedata, psl->stroke_pass, e_data->gpencil_fill_sh, gpd, gps->palcolor, id);
+				stl->storage->shgrps_stroke[id] = DRW_gpencil_shgroup_stroke_create(vedata, psl->stroke_pass, e_data->gpencil_stroke_sh, gpd);
 				++stl->storage->pal_id;
 			}
 

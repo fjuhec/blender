@@ -284,6 +284,13 @@ typedef enum eGPDlayer_Flag {
 	GP_LAYER_USE_LOCATION = (1 << 14),
 } eGPDlayer_Flag;
 
+/* xray modes */
+typedef enum eGP_Xraymodes_Types {
+	GP_XRAY_FRONT = 0,
+	GP_XRAY_SPACE = 1,
+	GP_XRAY_BACK  = 2
+} eGP_Xraymodes_Types;
+
 /* Grease-Pencil Annotations - 'DataBlock' */
 typedef struct bGPdata {
 	ID id;					/* Grease Pencil data is a datablock */
@@ -305,7 +312,8 @@ typedef struct bGPdata {
 	short sflag;                /* settings for palette color */
 	short bstroke_style;        /* buffer style for drawing strokes (used to select shader type) */
 	short bfill_style;          /* buffer style for filling areas (used to select shader type) */
-	char  pad[2];               /* padding for compiler alignment error */
+
+	short xray_mode;            /* xray mode for strokes */
 
 	/* saved palettes */
 	ListBase palettes;

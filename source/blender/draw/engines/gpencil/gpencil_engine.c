@@ -120,6 +120,7 @@ static void GPENCIL_cache_init(void *vedata)
 		/* Alloc transient pointers */
 		stl->g_data = MEM_mallocN(sizeof(g_data), "g_data");
 		stl->g_data->scene_draw = false;
+		stl->storage->xray = GP_XRAY_FRONT; /* used for drawing */
 	}
 
 	{
@@ -139,7 +140,7 @@ static void GPENCIL_cache_init(void *vedata)
 
 		/* drawing buffer pass */
 		psl->drawing_pass = DRW_pass_create("Gpencil Drawing Pass", state);
-		stl->g_data->shgrps_drawing_stroke = DRW_gpencil_shgroup_stroke_create(vedata, psl->drawing_pass, e_data.gpencil_stroke_sh);
+		stl->g_data->shgrps_drawing_stroke = DRW_gpencil_shgroup_stroke_create(vedata, psl->drawing_pass, e_data.gpencil_stroke_sh, NULL);
 		stl->g_data->shgrps_drawing_fill = DRW_gpencil_shgroup_drawing_fill_create(psl->drawing_pass, e_data.gpencil_drawing_fill_sh);
 	}
 }

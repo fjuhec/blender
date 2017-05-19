@@ -14,6 +14,7 @@ uniform vec2 t_shift;
 uniform int t_mix;
 uniform int t_flip;
 uniform float t_opacity;
+uniform int xraymode;
 
 uniform sampler2D myTexture;
 uniform int t_clamp;
@@ -24,6 +25,10 @@ uniform int t_clamp;
 #define RADIAL 2
 #define CHESS 3
 #define TEXTURE 4
+
+#define GP_XRAY_FRONT 0
+#define GP_XRAY_SPACE 1
+#define GP_XRAY_BACK  2
 
 in vec4 finalColor;
 in vec2 texCoord_interp;
@@ -170,4 +175,16 @@ void main()
 			fragColor = text_color;
 		}
 	}
+
+	/* set zdepth */
+	if (xraymode == GP_XRAY_FRONT) {
+		gl_FragDepth = 0.0;
+	}
+	if (xraymode == GP_XRAY_SPACE) {
+		gl_FragDepth = gl_FragCoord.z;
+	}
+	if  (xraymode == GP_XRAY_BACK) {
+		gl_FragDepth = 1.0;
+	}
+
 }

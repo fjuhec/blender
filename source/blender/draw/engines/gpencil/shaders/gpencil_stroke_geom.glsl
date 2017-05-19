@@ -1,5 +1,6 @@
 uniform mat4 ModelViewProjectionMatrix;
 uniform vec2 Viewport;
+uniform int xraymode;
 
 layout(lines_adjacency) in;
 layout(triangle_strip, max_vertices = 7) out;
@@ -10,6 +11,10 @@ in float finalThickness[4];
 out vec4 mColor;
 out vec2 mTexCoord;
 
+#define GP_XRAY_FRONT 0
+#define GP_XRAY_SPACE 1
+#define GP_XRAY_BACK  2
+
 /* project 3d point to 2d on screen space */
 vec2 toScreenSpace(vec4 vertex)
 {
@@ -19,10 +24,19 @@ vec2 toScreenSpace(vec4 vertex)
 /* get zdepth value (0 Near, 1 Far) */
 float getZdepth(vec4 point)
 {
-	/* TODO: add xray support */
-	return point.z / point.w;
-}
+	if (xraymode == GP_XRAY_FRONT) {
+		return 0.0;
+	}
+	if (xraymode == GP_XRAY_SPACE) {
+		return point.z / point.w;
+	}
+	if  (xraymode == GP_XRAY_BACK) {
+		return 1.0;
+	}
 
+	/* in front by default */
+	return 0.0;
+}
 void main(void)
 {
 	float MiterLimit = 0.75;

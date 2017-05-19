@@ -54,6 +54,12 @@ static EnumPropertyItem parent_type_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
+EnumPropertyItem rna_enum_gpencil_xraymodes_items[] = {
+	{ GP_XRAY_FRONT, "GP_XRAY_FRONT", 0, "Front", "Draw all strokes in front" },
+	{ GP_XRAY_SPACE, "GP_XRAY_SPACE", 0, "Space", "Draw strokes relative to other objects in space" },
+	{ GP_XRAY_BACK, "GP_XRAY_BACK", 0, "Back", "Draw all strokes on back" },
+	{ 0, NULL, 0, NULL, NULL }
+};
 
 #ifdef RNA_RUNTIME
 
@@ -1174,6 +1180,13 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
 	/* Animation Data */
 	rna_def_animdata_common(srna);
 	
+	/* xray modes */
+	prop = RNA_def_property(srna, "xray_mode", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "xray_mode");
+	RNA_def_property_enum_items(prop, rna_enum_gpencil_xraymodes_items);
+	RNA_def_property_ui_text(prop, "Xray", "");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
 	/* Flags */
 	prop = RNA_def_property(srna, "use_stroke_edit_mode", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_DATA_STROKE_EDITMODE);

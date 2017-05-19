@@ -941,6 +941,8 @@ class GreasePencilDataPanel:
         if (gpd is None) or (not gpd.layers):
             layout.operator("gpencil.layer_add", text="New Layer")
         else:
+            row = layout.row()
+            row.prop(gpd, "xray_mode", text="Xray Mode")
             self.draw_layers(context, layout, gpd)
 
         # convert to object
@@ -997,7 +999,6 @@ class GreasePencilDataPanel:
         # Layer options
         split = layout.split(percentage=0.5)
         split.active = not gpl.lock
-        split.prop(gpl, "show_x_ray")
         split.prop(gpl, "show_points")
 
         # Offsets + Parenting (where available)
