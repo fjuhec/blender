@@ -28,6 +28,8 @@
 
 struct Object;
 
+extern struct DrawEngineType draw_engine_eevee_type;
+
 /* Minimum UBO is 16384 bytes */
 #define MAX_LIGHT 128 /* TODO : find size by dividing UBO max size by light data size */
 #define MAX_SHADOW_CUBE 42 /* TODO : Make this depends on GL_MAX_ARRAY_TEXTURE_LAYERS */
@@ -251,6 +253,7 @@ typedef struct EEVEE_LampEngineData {
 
 typedef struct EEVEE_PrivateData {
 	struct DRWShadingGroup *default_lit_grp;
+	struct DRWShadingGroup *default_lit_grp_flat;
 	struct DRWShadingGroup *shadow_shgrp;
 	struct DRWShadingGroup *depth_shgrp;
 	struct DRWShadingGroup *depth_shgrp_cull;

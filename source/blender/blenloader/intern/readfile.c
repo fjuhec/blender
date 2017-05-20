@@ -6171,7 +6171,6 @@ static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
 	sce->theDag = NULL;
 	sce->depsgraph = NULL;
 	sce->obedit = NULL;
-	sce->stats = NULL;
 	sce->fps_info = NULL;
 	sce->customdata_mask_modal = 0;
 	sce->lay_updated = 0;
@@ -6432,6 +6431,7 @@ static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
 	/* insert into global old-new map for reading without UI (link_global accesses it again) */
 	link_glob_list(fd, &sce->render_layers);
 	for (sl = sce->render_layers.first; sl; sl = sl->next) {
+		sl->stats = NULL;
 		link_list(fd, &sl->object_bases);
 		sl->basact = newdataadr(fd, sl->basact);
 		direct_link_layer_collections(fd, &sl->layer_collections);

@@ -95,7 +95,8 @@ EnumPropertyItem rna_enum_exr_codec_items[] = {
 	{R_IMF_EXR_CODEC_B44, "B44", 0, "B44 (lossy)", ""},
 	{R_IMF_EXR_CODEC_B44A, "B44A", 0, "B44A (lossy)", ""},
 	{R_IMF_EXR_CODEC_DWAA, "DWAA", 0, "DWAA (lossy)", ""},
-	{R_IMF_EXR_CODEC_DWAB, "DWAB", 0, "DWAB (lossy)", ""},
+	/* NOTE: Commented out for until new OpenEXR is released, see T50673. */
+	/* {R_IMF_EXR_CODEC_DWAB, "DWAB", 0, "DWAB (lossy)", ""}, */
 	{0, NULL, 0, NULL, NULL}
 };
 #endif
@@ -1755,7 +1756,7 @@ static void rna_SceneRenderLayer_pass_update(Main *bmain, Scene *activescene, Po
 
 static void rna_SceneRenderLayer_update_render_passes(ID *id)
 {
-	Scene *scene = (Scene*) id;
+	Scene *scene = (Scene *)id;
 	if (scene->nodetree)
 		ntreeCompositUpdateRLayers(scene->nodetree);
 }
@@ -2319,7 +2320,7 @@ static void rna_Stereo3dFormat_update(Main *UNUSED(bmain), Scene *UNUSED(scene),
 
 static int rna_gpu_is_hq_supported_get(PointerRNA *UNUSED(ptr))
 {
-	return GPU_instanced_drawing_support() && GPU_geometry_shader_support();
+	return true;
 }
 
 static void rna_SceneCollection_name_set(PointerRNA *ptr, const char *value)
@@ -2580,13 +2581,7 @@ RNA_LAYER_ENGINE_CLAY_GET_SET_FLOAT(ssao_factor_cavity)
 RNA_LAYER_ENGINE_CLAY_GET_SET_FLOAT(ssao_factor_edge)
 RNA_LAYER_ENGINE_CLAY_GET_SET_FLOAT(ssao_distance)
 RNA_LAYER_ENGINE_CLAY_GET_SET_FLOAT(ssao_attenuation)
-RNA_LAYER_ENGINE_CLAY_GET_SET_FLOAT(world_intensity)
-RNA_LAYER_ENGINE_CLAY_GET_SET_FLOAT(diffuse_intensity)
-RNA_LAYER_ENGINE_CLAY_GET_SET_FLOAT(specular_intensity)
-RNA_LAYER_ENGINE_CLAY_GET_SET_FLOAT(specular_hardness)
-RNA_LAYER_ENGINE_CLAY_GET_SET_FLOAT(color_randomicity)
-RNA_LAYER_ENGINE_CLAY_GET_SET_FLOAT_ARRAY(hair_diffuse_color, 4)
-RNA_LAYER_ENGINE_CLAY_GET_SET_FLOAT_ARRAY(hair_specular_color, 4)
+RNA_LAYER_ENGINE_CLAY_GET_SET_FLOAT(hair_brightness_randomness)
 #endif /* WITH_CLAY_ENGINE */
 
 /* eevee engine */
@@ -5749,11 +5744,6 @@ static void rna_def_scene_game_data(BlenderRNA *brna)
 	                         "Respect the frame rate from the Physics panel in the world properties "
 	                         "rather than rendering as many frames as possible");
 
-	prop = RNA_def_property(srna, "use_display_lists", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GAME_DISPLAY_LISTS);
-	RNA_def_property_ui_text(prop, "Display Lists",
-	                         "Use display lists to speed up rendering by keeping geometry on the GPU");
-
 	prop = RNA_def_property(srna, "use_deprecation_warnings", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_negative_sdna(prop, NULL, "flag", GAME_IGNORE_DEPRECATION_WARNINGS);
 	RNA_def_property_ui_text(prop, "Deprecation Warnings",
@@ -5929,6 +5919,7 @@ static void rna_def_gpu_dof_fx(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "High Quality", "Use high quality depth of field");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 
+	/* NOTE: high quality is always supported */
 	prop = RNA_def_property(srna, "is_hq_supported", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_funcs(prop, "rna_gpu_is_hq_supported_get", NULL);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -6338,7 +6329,7 @@ static void rna_def_layer_collection_engine_settings_clay(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "matcap_hue", PROP_FLOAT, PROP_FACTOR);
 	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Clay_matcap_hue_get", "rna_LayerEngineSettings_Clay_matcap_hue_set", NULL);
 	RNA_def_property_range(prop, 0.0f, 1.0f);
-	RNA_def_property_ui_text(prop, "Matcap Hue shift", "Hue correction of the matcap");
+	RNA_def_property_ui_text(prop, "Matcap Hue Shift", "Hue correction of the matcap");
 	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_LayerCollectionEngineSettings_update");
 
@@ -6386,54 +6377,10 @@ static void rna_def_layer_collection_engine_settings_clay(BlenderRNA *brna)
 	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_LayerCollectionEngineSettings_update");
 
-	prop = RNA_def_property(srna, "world_intensity", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Clay_world_intensity_get", "rna_LayerEngineSettings_Clay_world_intensity_set", NULL);
-	RNA_def_property_ui_text(prop, "Hair World Light", "World lighting intensity for hair");
+	prop = RNA_def_property(srna, "hair_brightness_randomness", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Clay_hair_brightness_randomness_get", "rna_LayerEngineSettings_Clay_hair_brightness_randomness_set", NULL);
+	RNA_def_property_ui_text(prop, "Hair Brightness Randomness", "Brightness randomness for hair");
 	RNA_def_property_range(prop, 0.0f, 1.0f);
-	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
-	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_LayerCollectionEngineSettings_update");
-
-	prop = RNA_def_property(srna, "diffuse_intensity", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Clay_diffuse_intensity_get", "rna_LayerEngineSettings_Clay_diffuse_intensity_set", NULL);
-	RNA_def_property_ui_text(prop, "Hair Diffuse", "Diffuse lighting intensity for hair");
-	RNA_def_property_range(prop, 0.0f, 1.0f);
-	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
-	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_LayerCollectionEngineSettings_update");
-
-	prop = RNA_def_property(srna, "specular_intensity", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Clay_specular_intensity_get", "rna_LayerEngineSettings_Clay_specular_intensity_set", NULL);
-	RNA_def_property_ui_text(prop, "Hair Specular", "Specular lighting intensity for hair");
-	RNA_def_property_range(prop, 0.0f, 1.0f);
-	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
-	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_LayerCollectionEngineSettings_update");
-
-	prop = RNA_def_property(srna, "specular_hardness", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Clay_specular_hardness_get", "rna_LayerEngineSettings_Clay_specular_hardness_set", NULL);
-	RNA_def_property_ui_text(prop, "Hair Specular Hardness", "Specular hardness for hair");
-	RNA_def_property_range(prop, 0.0f, 1000.0f);
-	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
-	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_LayerCollectionEngineSettings_update");
-
-	prop = RNA_def_property(srna, "color_randomicity", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Clay_color_randomicity_get", "rna_LayerEngineSettings_Clay_color_randomicity_set", NULL);
-	RNA_def_property_ui_text(prop, "Hair Color Randomicity", "Color randomicity for hair");
-	RNA_def_property_range(prop, 0.0f, 1.0f);
-	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
-	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_LayerCollectionEngineSettings_update");
-
-	prop = RNA_def_property(srna, "hair_diffuse_color", PROP_FLOAT, PROP_COLOR);
-	RNA_def_property_array(prop, 4);
-	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Clay_hair_diffuse_color_get",
-	                             "rna_LayerEngineSettings_Clay_hair_diffuse_color_set", NULL);
-	RNA_def_property_ui_text(prop, "Hair Diffuse Color", "Diffuse component of hair shading color");
-	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
-	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_LayerCollectionEngineSettings_update");
-
-	prop = RNA_def_property(srna, "hair_specular_color", PROP_FLOAT, PROP_COLOR);
-	RNA_def_property_array(prop, 4);
-	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Clay_hair_specular_color_get",
-	                             "rna_LayerEngineSettings_Clay_hair_specular_color_set", NULL);
-	RNA_def_property_ui_text(prop, "Hair Specular Color", "Specular component of hair shading color");
 	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_LayerCollectionEngineSettings_update");
 
@@ -9282,6 +9229,8 @@ void RNA_def_scene(BlenderRNA *brna)
 
 	/* Statistics */
 	func = RNA_def_function(srna, "statistics", "ED_info_stats_string");
+	parm = RNA_def_pointer(func, "scene_layer", "SceneLayer", "", "Active layer");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 	parm = RNA_def_string(func, "statistics", NULL, 0, "Statistics", "");
 	RNA_def_function_return(func, parm);
 	

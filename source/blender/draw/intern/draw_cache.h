@@ -82,6 +82,10 @@ struct Batch *DRW_cache_bone_octahedral_wire_outline_get(void);
 struct Batch *DRW_cache_bone_box_get(void);
 struct Batch *DRW_cache_bone_box_wire_outline_get(void);
 struct Batch *DRW_cache_bone_wire_wire_outline_get(void);
+struct Batch *DRW_cache_bone_envelope_solid_get(void);
+struct Batch *DRW_cache_bone_envelope_distance_outline_get(void);
+struct Batch *DRW_cache_bone_envelope_wire_outline_get(void);
+struct Batch *DRW_cache_bone_envelope_head_wire_outline_get(void);
 struct Batch *DRW_cache_bone_point_get(void);
 struct Batch *DRW_cache_bone_point_wire_outline_get(void);
 struct Batch *DRW_cache_bone_arrows_get(void);
@@ -89,6 +93,9 @@ struct Batch *DRW_cache_bone_arrows_get(void);
 /* Meshes */
 struct Batch *DRW_cache_mesh_surface_overlay_get(struct Object *ob);
 void DRW_cache_mesh_wire_overlay_get(
+        struct Object *ob,
+        struct Batch **r_tris, struct Batch **r_ledges, struct Batch **r_lverts);
+void DRW_cache_mesh_normals_overlay_get(
         struct Object *ob,
         struct Batch **r_tris, struct Batch **r_ledges, struct Batch **r_lverts);
 struct Batch *DRW_cache_face_centers_get(struct Object *ob);

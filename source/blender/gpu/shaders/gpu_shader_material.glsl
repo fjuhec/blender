@@ -1,10 +1,9 @@
 
 uniform mat4 ModelViewMatrix;
-#ifndef PROBE_CAPTURE
-#ifndef WORLD_BACKGROUND
+#ifndef EEVEE_ENGINE
 uniform mat4 ProjectionMatrix;
 #endif
-#endif
+uniform mat4 ModelMatrix;
 uniform mat4 ModelMatrixInverse;
 uniform mat4 ModelViewMatrixInverse;
 uniform mat4 ViewMatrixInverse;
@@ -12,14 +11,10 @@ uniform mat4 ProjectionMatrixInverse;
 uniform mat3 NormalMatrix;
 uniform vec4 CameraTexCoFactors;
 
-#if __VERSION__ == 120
-  #define fragColor gl_FragColor
-#else
-  out vec4 fragColor;
-  #define texture2D texture
-  #define shadow2D shadow
-  #define textureCube texture
-#endif
+out vec4 fragColor;
+#define texture2D texture
+#define shadow2D shadow
+#define textureCube texture
 
 /* Converters */
 
@@ -2281,14 +2276,12 @@ void test_shadowbuf(
 		//float bias = (1.5 - inp*inp)*shadowbias;
 		co.z -= shadowbias * co.w;
 
-		if (co.w > 0.0 && co.x > 0.0 && co.x / co.w < 1.0 && co.y > 0.0 && co.y / co.w < 1.0)
-#if __VERSION__ == 120
-			result = shadow2DProj(shadowmap, co).x;
-#else
+		if (co.w > 0.0 && co.x > 0.0 && co.x / co.w < 1.0 && co.y > 0.0 && co.y / co.w < 1.0) {
 			result = textureProj(shadowmap, co);
-#endif
-		else
+		}
+		else {
 			result = 1.0;
+		}
 	}
 }
 
@@ -2451,7 +2444,7 @@ float hypot(float x, float y)
 
 void generated_from_orco(vec3 orco, out vec3 generated)
 {
-	generated = orco * 0.5 + vec3(0.5);
+	generated = orco;
 }
 
 int floor_to_int(float x)
@@ -2592,7 +2585,6 @@ vec3 rotate_vector(vec3 p, vec3 n, float theta) {
 
 #define NUM_LIGHTS 3
 
-#if __VERSION__ > 120
 struct glLight {
 	vec4 position;
 	vec4 diffuse;
@@ -2603,12 +2595,6 @@ struct glLight {
 layout(std140) uniform lightSource {
 	glLight glLightSource[NUM_LIGHTS];
 };
-
-#define gl_NormalMatrix NormalMatrix
-
-#else
-#define glLightSource gl_LightSource
-#endif
 
 /* bsdfs */
 
@@ -2669,7 +2655,7 @@ void node_bsdf_toon(vec4 color, float size, float tsmooth, vec3 N, out vec4 resu
 
 void node_bsdf_principled(vec4 base_color, float subsurface, vec3 subsurface_radius, vec4 subsurface_color, float metallic, float specular,
 	float specular_tint, float roughness, float anisotropic, float anisotropic_rotation, float sheen, float sheen_tint, float clearcoat,
-	float clearcoat_gloss, float ior, float transparency, float refraction_roughness, vec3 N, vec3 CN, vec3 T, vec3 I, out vec4 result)
+	float clearcoat_gloss, float ior, float transmission, float transmission_roughness, vec3 N, vec3 CN, vec3 T, vec3 I, out vec4 result)
 {
 	/* ambient light */
 	// TODO: set ambient light to an appropriate value
@@ -2711,7 +2697,7 @@ void node_bsdf_principled(vec4 base_color, float subsurface, vec3 subsurface_rad
 	/* directional lights */
 	for (int i = 0; i < NUM_LIGHTS; i++) {
 		vec3 light_position_world = glLightSource[i].position.xyz;
-		vec3 light_position = normalize(gl_NormalMatrix * light_position_world);
+		vec3 light_position = normalize(NormalMatrix * light_position_world);
 
 		vec3 H = normalize(light_position + V);
 
@@ -2937,15 +2923,43 @@ void node_uvmap(vec3 attr_uv, out vec3 outvec)
 	outvec = attr_uv;
 }
 
+void tangent_orco_x(vec3 orco_in, out vec3 orco_out)
+{
+	orco_out = vec3(0.0, (orco_in.z - 0.5) * -0.5, (orco_in.y - 0.5) * 0.5);
+}
+
+void tangent_orco_y(vec3 orco_in, out vec3 orco_out)
+{
+	orco_out = vec3((orco_in.z - 0.5) * -0.5, 0.0, (orco_in.x - 0.5) * 0.5);
+}
+
+void tangent_orco_z(vec3 orco_in, out vec3 orco_out)
+{
+	orco_out = vec3((orco_in.y - 0.5) * -0.5, (orco_in.x - 0.5) * 0.5, 0.0);
+}
+
+void node_tangentmap(vec4 attr_tangent, mat4 toworld, out vec3 tangent)
+{
+	tangent = (toworld * vec4(attr_tangent.xyz, 0.0)).xyz;
+}
+
+void node_tangent(vec3 N, vec3 orco, mat4 objmat, mat4 toworld, out vec3 T)
+{
+	N = (toworld * vec4(N, 0.0)).xyz;
+	T = (objmat * vec4(orco, 0.0)).xyz;
+	T = cross(N, normalize(cross(T, N)));
+}
+
 void node_geometry(
-        vec3 I, vec3 N, mat4 toworld,
+        vec3 I, vec3 N, vec3 orco, mat4 objmat, mat4 toworld,
         out vec3 position, out vec3 normal, out vec3 tangent,
         out vec3 true_normal, out vec3 incoming, out vec3 parametric,
         out float backfacing, out float pointiness)
 {
 	position = (toworld * vec4(I, 1.0)).xyz;
 	normal = (toworld * vec4(N, 0.0)).xyz;
-	tangent = vec3(0.0);
+	tangent_orco_z(orco, orco);
+	node_tangent(N, orco, objmat, toworld, tangent);
 	true_normal = normal;
 
 	/* handle perspective/orthographic */
@@ -2963,7 +2977,7 @@ void node_tex_coord(
         out vec3 generated, out vec3 normal, out vec3 uv, out vec3 object,
         out vec3 camera, out vec3 window, out vec3 reflection)
 {
-	generated = attr_orco * 0.5 + vec3(0.5);
+	generated = attr_orco;
 	normal = normalize((obinvmat * (viewinvmat * vec4(N, 0.0))).xyz);
 	uv = attr_uv;
 	object = (obinvmat * (viewinvmat * vec4(I, 1.0))).xyz;
@@ -3011,7 +3025,7 @@ void node_tex_coord_background(
 	reflection = -coords;
 }
 
-#if defined(WORLD_BACKGROUND) || defined(PROBE_CAPTURE)
+#if defined(WORLD_BACKGROUND) || (defined(PROBE_CAPTURE) && !defined(MESH_SHADER))
 #define node_tex_coord node_tex_coord_background
 #endif
 
@@ -3160,7 +3174,6 @@ void node_tex_environment_equirectangular(vec3 co, sampler2D ima, out vec4 color
 	float u = -atan(nco.y, nco.x) / (2.0 * M_PI) + 0.5;
 	float v = atan(nco.z, hypot(nco.x, nco.y)) / M_PI + 0.5;
 
-#if __VERSION__ > 120
 	/* Fix pole bleeding */
 	float half_width = 0.5 / float(textureSize(ima, 0).x);
 	v = clamp(v, half_width, 1.0 - half_width);
@@ -3170,9 +3183,6 @@ void node_tex_environment_equirectangular(vec3 co, sampler2D ima, out vec4 color
 	 * at u = 0 or 2PI, hardware filtering is using the smallest mipmap for certain
 	 * texels. So we force the highest mipmap and don't do anisotropic filtering. */
 	color = textureLod(ima, vec2(u, v), 0.0);
-#else
-	color = texture2D(ima, vec2(u, v));
-#endif
 }
 
 void node_tex_environment_mirror_ball(vec3 co, sampler2D ima, out vec4 color)
@@ -3906,7 +3916,7 @@ void convert_metallic_to_specular(vec4 basecol, float metallic, float specular_f
 
 /* TODO : clean this ifdef mess */
 /* EEVEE output */
-#ifdef PROBE_CAPTURE
+#ifdef EEVEE_ENGINE
 void world_normals_get(out vec3 N)
 {
 	N = gl_FrontFacing ? worldNormal : -worldNormal;
