@@ -125,7 +125,7 @@ static void GPENCIL_cache_init(void *vedata)
 
 	{
 		/* Stroke pass */
-		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS;
+		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_DEPTH_LESS;
 		psl->stroke_pass = DRW_pass_create("Gpencil Stroke Pass", state);
 		stl->storage->pal_id = 0;
 		memset(stl->storage->shgrps_fill, 0, sizeof(DRWShadingGroup *) * MAX_GPENCIL_MAT);
@@ -133,7 +133,7 @@ static void GPENCIL_cache_init(void *vedata)
 		memset(stl->storage->materials, 0, sizeof(PaletteColor *) * MAX_GPENCIL_MAT);
 		stl->g_data->shgrps_point_volumetric = DRW_gpencil_shgroup_point_volumetric_create(psl->stroke_pass, e_data.gpencil_volumetric_sh);
 
-		state = DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH;
+		state = DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND;
 		/* edit pass */
 		psl->edit_pass = DRW_pass_create("Gpencil Edit Pass", state);
 		stl->g_data->shgrps_edit_volumetric = DRW_gpencil_shgroup_edit_volumetric_create(psl->edit_pass, e_data.gpencil_volumetric_sh);
