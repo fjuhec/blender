@@ -307,20 +307,6 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 	float viewmatrix[4][4];
 	float ink[4];
 
-#if 0 // TODO convert xray function
-	const int no_xray = (dflag & GP_DRAWDATA_NO_XRAY);
-	int mask_orig = 0;
-
-	if (no_xray) {
-		glGetIntegerv(GL_DEPTH_WRITEMASK, &mask_orig);
-		glDepthMask(0);
-		glEnable(GL_DEPTH_TEST);
-		/* first arg is normally rv3d->dist, but this isn't
-		* available here and seems to work quite well without */
-		bglPolygonOffset(1.0f, 1.0f);
-	}
-#endif
-
 	/* get parent matrix and save as static data */
 	ED_gpencil_parent_location(ob, gpd, gpl, viewmatrix);
 	copy_m4_m4(gpf->viewmatrix, viewmatrix);
@@ -421,14 +407,6 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 			}
 		}
 
-#if 0 // TODO convert xray function
-		if (no_xray) {
-			glDepthMask(mask_orig);
-			glDisable(GL_DEPTH_TEST);
-
-			bglPolygonOffset(0.0, 0.0);
-		}
-#endif
 		++cache->cache_idx;
 	}
 }
