@@ -27,7 +27,7 @@ uniform int t_clamp;
 #define TEXTURE 4
 
 #define GP_XRAY_FRONT 0
-#define GP_XRAY_SPACE 1
+#define GP_XRAY_3DSPACE 1
 #define GP_XRAY_BACK  2
 
 in vec4 finalColor;
@@ -180,7 +180,7 @@ void main()
 	if (xraymode == GP_XRAY_FRONT) {
 		gl_FragDepth = 0.0;
 	}
-	if (xraymode == GP_XRAY_SPACE) {
+	if (xraymode == GP_XRAY_3DSPACE) {
 		gl_FragDepth = gl_FragCoord.z;
 	}
 	if  (xraymode == GP_XRAY_BACK) {

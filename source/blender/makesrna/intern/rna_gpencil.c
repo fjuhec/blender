@@ -55,9 +55,9 @@ static EnumPropertyItem parent_type_items[] = {
 };
 
 EnumPropertyItem rna_enum_gpencil_xraymodes_items[] = {
-	{ GP_XRAY_FRONT, "GP_XRAY_FRONT", 0, "Front", "Draw all strokes in front" },
-	{ GP_XRAY_SPACE, "GP_XRAY_SPACE", 0, "Space", "Draw strokes relative to other objects in space" },
-	{ GP_XRAY_BACK, "GP_XRAY_BACK", 0, "Back", "Draw all strokes on back" },
+	{ GP_XRAY_FRONT, "FRONT", 0, "Front", "Draw all strokes in front" },
+	{ GP_XRAY_3DSPACE, "3DSPACE", 0, "3DSpace", "Draw strokes relative to other objects in 3D space" },
+	{ GP_XRAY_BACK, "BACK", 0, "Back", "Draw all strokes on back" },
 	{ 0, NULL, 0, NULL, NULL }
 };
 

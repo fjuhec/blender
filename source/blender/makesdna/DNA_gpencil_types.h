@@ -287,7 +287,7 @@ typedef enum eGPDlayer_Flag {
 /* xray modes */
 typedef enum eGP_Xraymodes_Types {
 	GP_XRAY_FRONT = 0,
-	GP_XRAY_SPACE = 1,
+	GP_XRAY_3DSPACE = 1,
 	GP_XRAY_BACK  = 2
 } eGP_Xraymodes_Types;
 
