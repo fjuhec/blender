@@ -191,7 +191,7 @@ static DRWShadingGroup *DRW_gpencil_shgroup_fill_create(GPENCIL_Data *vedata, DR
 	stl->storage->t_flip[id] = palcolor->flag & PAC_COLOR_FLIP_FILL ? 1 : 0;
 	DRW_shgroup_uniform_int(grp, "t_flip", &stl->storage->t_flip[id], 1);
 
-	DRW_shgroup_uniform_int(grp, "xraymode", &gpd->xray_mode, 1);
+	DRW_shgroup_uniform_int(grp, "xraymode", (const int *) &gpd->xray_mode, 1);
 
 	/* image texture */
 	if ((palcolor->fill_style == FILL_STYLE_TEXTURE) || (palcolor->flag & PAC_COLOR_TEX_MIX)) {
@@ -250,7 +250,7 @@ DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_Data *vedata, DRWPass
 	DRW_shgroup_uniform_int(grp, "is_persp", &stl->storage->is_persp, 1);
 
 	if (gpd) {
-		DRW_shgroup_uniform_int(grp, "xraymode", &gpd->xray_mode, 1);
+		DRW_shgroup_uniform_int(grp, "xraymode", (const int *) &gpd->xray_mode, 1);
 	}
 	else {
 		/* for drawing always on front */
@@ -290,6 +290,98 @@ static int DRW_gpencil_shgroup_find(GPENCIL_Storage *storage, PaletteColor *palc
 	return -1;
 }
 
+/* add fill shading group to pass */
+static void gpencil_add_fill_shgroup(GpencilBatchCache *cache, DRWShadingGroup *fillgrp, 
+	bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf, bGPDstroke *gps, 
+	const float tintcolor[4], const bool onion, const bool custonion)
+{
+	if (gps->totpoints >= 3) {
+		float tfill[4];
+		/* set color using palette, tint color and opacity */
+		interp_v3_v3v3(tfill, gps->palcolor->fill, tintcolor, tintcolor[3]);
+		tfill[3] = gps->palcolor->fill[3] * gpl->opacity;
+		if ((tfill[3] > GPENCIL_ALPHA_OPACITY_THRESH) || (gps->palcolor->fill_style > 0)) {
+			const float *color;
+			if (!onion) {
+				color = tfill;
+			}
+			else {
+				if (custonion) {
+					color = tintcolor;
+				}
+				else {
+					ARRAY_SET_ITEMS(tfill, UNPACK3(gps->palcolor->fill), tintcolor[3]);
+					color = tfill;
+				}
+			}
+			if (cache->is_dirty) {
+				gpencil_batch_cache_check_free_slots(gpd);
+				cache->batch_fill[cache->cache_idx] = DRW_gpencil_get_fill_geom(gps, color);
+			}
+			DRW_shgroup_call_add(fillgrp, cache->batch_fill[cache->cache_idx], gpf->viewmatrix);
+		}
+	}
+}
+
+/* add stroke shading group to pass */
+static void gpencil_add_stroke_shgroup(GPENCIL_StorageList *stl, GpencilBatchCache *cache, DRWShadingGroup *strokegrp,
+	bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf, bGPDstroke *gps, 
+	const float opacity, const float tintcolor[4], const bool onion, const bool custonion)
+{
+	float tcolor[4];
+	float ink[4];
+
+	/* set color using palette, tint color and opacity */
+	if (!onion) {
+		interp_v3_v3v3(tcolor, gps->palcolor->rgb, tintcolor, tintcolor[3]);
+		tcolor[3] = gps->palcolor->rgb[3] * opacity;
+		copy_v4_v4(ink, tcolor);
+	}
+	else {
+		if (custonion) {
+			copy_v4_v4(ink, tintcolor);
+		}
+		else {
+			ARRAY_SET_ITEMS(tcolor, gps->palcolor->rgb[0], gps->palcolor->rgb[1], gps->palcolor->rgb[2], opacity);
+			copy_v4_v4(ink, tcolor);
+		}
+	}
+	short sthickness = gps->thickness + gpl->thickness;
+	if (sthickness > 0) {
+		if (gps->totpoints > 1) {
+			if (cache->is_dirty) {
+				gpencil_batch_cache_check_free_slots(gpd);
+				cache->batch_stroke[cache->cache_idx] = DRW_gpencil_get_stroke_geom(gpf, gps, sthickness, ink);
+			}
+			DRW_shgroup_call_add(strokegrp, cache->batch_stroke[cache->cache_idx], gpf->viewmatrix);
+		}
+		else if (gps->totpoints == 1) {
+			if (cache->is_dirty) {
+				gpencil_batch_cache_check_free_slots(gpd);
+				cache->batch_stroke[cache->cache_idx] = DRW_gpencil_get_point_geom(gps->points, sthickness, ink);
+			}
+			DRW_shgroup_call_add(stl->g_data->shgrps_point_volumetric, cache->batch_stroke[cache->cache_idx], gpf->viewmatrix);
+		}
+	}
+}
+
+/* add edit points shading group to pass */
+static void gpencil_add_editpoints_shgroup(GPENCIL_StorageList *stl, GpencilBatchCache *cache, ToolSettings *ts,
+	bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf, bGPDstroke *gps) {
+	if ((gpl->flag & GP_LAYER_LOCKED) == 0 && (gpd->flag & GP_DATA_STROKE_EDITMODE))
+	{
+		if (gps->flag & GP_STROKE_SELECT) {
+			if ((gpl->flag & GP_LAYER_UNLOCK_COLOR) || ((gps->palcolor->flag & PC_COLOR_LOCKED) == 0)) {
+				if (cache->is_dirty) {
+					gpencil_batch_cache_check_free_slots(gpd);
+					cache->batch_edit[cache->cache_idx] = DRW_gpencil_get_edit_geom(gps, ts->gp_sculpt.alpha, gpd->flag);
+				}
+				DRW_shgroup_call_add(stl->g_data->shgrps_edit_volumetric, cache->batch_edit[cache->cache_idx], gpf->viewmatrix);
+			}
+		}
+	}
+}
+
 /* main function to draw strokes */
 static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_data, void *vedata, ToolSettings *ts, Object *ob,
 	bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf,
@@ -303,9 +395,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 
 	DRWShadingGroup *fillgrp;
 	DRWShadingGroup *strokegrp;
-	float tcolor[4];
 	float viewmatrix[4][4];
-	float ink[4];
 
 	/* get parent matrix and save as static data */
 	ED_gpencil_parent_location(ob, gpd, gpl, viewmatrix);
@@ -331,80 +421,14 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 			strokegrp = stl->storage->shgrps_stroke[id];
 		}
 		/* fill */
-		if (gps->totpoints >= 3) {
-			float tfill[4];
-			/* set color using palette, tint color and opacity */
-			interp_v3_v3v3(tfill, gps->palcolor->fill, tintcolor, tintcolor[3]);
-			tfill[3] = gps->palcolor->fill[3] * gpl->opacity;
-			if ((tfill[3] > GPENCIL_ALPHA_OPACITY_THRESH) || (gps->palcolor->fill_style > 0)) {
-				const float *color;
-				if (!onion) {
-					color = tfill;
-				}
-				else {
-					if (custonion) {
-						color = tintcolor;
-					}
-					else {
-						ARRAY_SET_ITEMS(tfill, UNPACK3(gps->palcolor->fill), tintcolor[3]);
-						color = tfill;
-					}
-				}
-				if (cache->is_dirty) {
-					gpencil_batch_cache_check_free_slots(gpd);
-					cache->batch_fill[cache->cache_idx] = DRW_gpencil_get_fill_geom(gps, color);
-				}
-				DRW_shgroup_call_add(fillgrp, cache->batch_fill[cache->cache_idx], gpf->viewmatrix);
-			}
-		}
+		gpencil_add_fill_shgroup(cache, fillgrp, gpd, gpl, gpf, gps, tintcolor, onion, custonion);
 
 		/* stroke */
-		/* set color using palette, tint color and opacity */
-		if (!onion) {
-			interp_v3_v3v3(tcolor, gps->palcolor->rgb, tintcolor, tintcolor[3]);
-			tcolor[3] = gps->palcolor->rgb[3] * opacity;
-			copy_v4_v4(ink, tcolor);
-		}
-		else {
-			if (custonion) {
-				copy_v4_v4(ink, tintcolor);
-			}
-			else {
-				ARRAY_SET_ITEMS(tcolor, gps->palcolor->rgb[0], gps->palcolor->rgb[1], gps->palcolor->rgb[2], opacity);
-				copy_v4_v4(ink, tcolor);
-			}
-		}
-		short sthickness = gps->thickness + gpl->thickness;
-		if (sthickness > 0) {
-			if (gps->totpoints > 1) {
-				if (cache->is_dirty) {
-					gpencil_batch_cache_check_free_slots(gpd);
-					cache->batch_stroke[cache->cache_idx] = DRW_gpencil_get_stroke_geom(gpf, gps, sthickness, ink);
-				}
-				DRW_shgroup_call_add(strokegrp, cache->batch_stroke[cache->cache_idx], gpf->viewmatrix);
-			}
-			else if (gps->totpoints == 1) {
-				if (cache->is_dirty) {
-					gpencil_batch_cache_check_free_slots(gpd);
-					cache->batch_stroke[cache->cache_idx] = DRW_gpencil_get_point_geom(gps->points, sthickness, ink);
-				}
-				DRW_shgroup_call_add(stl->g_data->shgrps_point_volumetric, cache->batch_stroke[cache->cache_idx], gpf->viewmatrix);
-			}
-		}
+		gpencil_add_stroke_shgroup(stl, cache, strokegrp, gpd, gpl, gpf, gps, opacity, tintcolor, onion, custonion);
+
 		/* edit points (only in edit mode) */
 		if (!onion) {
-			if ((gpl->flag & GP_LAYER_LOCKED) == 0 && (gpd->flag & GP_DATA_STROKE_EDITMODE))
-			{
-				if (gps->flag & GP_STROKE_SELECT) {
-					if ((gpl->flag & GP_LAYER_UNLOCK_COLOR) || ((gps->palcolor->flag & PC_COLOR_LOCKED) == 0)) {
-						if (cache->is_dirty) {
-							gpencil_batch_cache_check_free_slots(gpd);
-							cache->batch_edit[cache->cache_idx] = DRW_gpencil_get_edit_geom(gps, ts->gp_sculpt.alpha, gpd->flag);
-						}
-						DRW_shgroup_call_add(stl->g_data->shgrps_edit_volumetric, cache->batch_edit[cache->cache_idx], gpf->viewmatrix);
-					}
-				}
-			}
+			gpencil_add_editpoints_shgroup(stl, cache, ts, gpd, gpl, gpf, gps);
 		}
 
 		++cache->cache_idx;
