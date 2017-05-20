@@ -31,6 +31,8 @@
 #include "BLI_dynstr.h"
 #include "BLI_rand.h"
 
+#include "GPU_shader.h"
+
 #include "IMB_imbuf.h"
 #include "IMB_imbuf_types.h"
 
@@ -56,6 +58,8 @@ extern char datatoc_clay_vert_glsl[];
 extern char datatoc_ssao_alchemy_glsl[];
 extern char datatoc_particle_vert_glsl[];
 extern char datatoc_particle_strand_frag_glsl[];
+extern char datatoc_particle_prim_vert_glsl[];
+extern char datatoc_particle_prim_frag_glsl[];
 
 /* *********** LISTS *********** */
 
@@ -175,7 +179,6 @@ typedef struct CLAY_PrivateData {
 	DRWShadingGroup *depth_shgrp_cull;
 	DRWShadingGroup *depth_shgrp_cull_select;
 	DRWShadingGroup *depth_shgrp_cull_active;
-	DRWShadingGroup *hair;
 } CLAY_PrivateData; /* Transient data */
 
 /* Functions */
@@ -766,39 +769,33 @@ static void CLAY_cache_populate(void *vedata, Object *ob)
 		}
 	}
 
-	if (ob->type == OB_MESH) {
-		Scene *scene = draw_ctx->scene;
-		Object *obedit = scene->obedit;
+   if (ob->type == OB_MESH) {
+		   Scene *scene = draw_ctx->scene;
+		   Object *obedit = scene->obedit;
 
-		if (ob != obedit) {
-			for (ParticleSystem *psys = ob->particlesystem.first; psys; psys = psys->next) {
-				if (psys_check_enabled(ob, psys, false)) {
-					ParticleSettings *part = psys->part;
-					int draw_as = (part->draw_as == PART_DRAW_REND) ? part->ren_as : part->draw_as;
+		   if (ob != obedit) {
+				   for (ParticleSystem *psys = ob->particlesystem.first; psys; psys = psys->next) {
+						   if (psys_check_enabled(ob, psys, false)) {
+								   ParticleSettings *part = psys->part;
+								   int draw_as = (part->draw_as == PART_DRAW_REND) ? part->ren_as : part->draw_as;
 
-					if (draw_as == PART_DRAW_PATH && !psys->pathcache && !psys->childcache) {
-						draw_as = PART_DRAW_DOT;
-					}
+								   if (draw_as == PART_DRAW_PATH && !psys->pathcache && !psys->childcache) {
+										   draw_as = PART_DRAW_DOT;
+								   }
 
-					switch (draw_as) {
-						case PART_DRAW_PATH:
-							geom = DRW_cache_particles_get_hair(psys);
-							break;
-						default:
-							geom = NULL;
-							break;
-					}
+								   static float mat[4][4];
+								   unit_m4(mat);
 
-					if (geom) {
-						static float mat[4][4];
-						unit_m4(mat);
-						hair_shgrp = CLAY_hair_shgrp_get(ob, stl, psl);
-						DRW_shgroup_call_add(hair_shgrp, geom, mat);
-					}
-				}
-			}
-		}
-	}
+								   if (draw_as == PART_DRAW_PATH) {
+										   geom = DRW_cache_particles_get_hair(psys);
+										   hair_shgrp = CLAY_hair_shgrp_get(ob, stl, psl);
+										   DRW_shgroup_call_add(hair_shgrp, geom, mat);
+								   }
+						   }
+				   }
+		   }
+   }
+
 }
 
 static void CLAY_cache_finish(void *vedata)
