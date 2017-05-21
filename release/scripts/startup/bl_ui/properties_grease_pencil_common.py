@@ -884,7 +884,7 @@ class GreasePencilDataPanel:
         if context.gpencil_data is None:
             return False
 
-        if context.space_data.type == 'VIEW_3D':
+        if context.space_data.type in ('VIEW_3D', 'PROPERTIES'):
             if ts.grease_pencil_source == 'SCENE':
                 if context.space_data.context != 'SCENE':
                     return False
