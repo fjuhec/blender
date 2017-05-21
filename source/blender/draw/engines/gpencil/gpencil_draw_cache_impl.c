@@ -26,7 +26,6 @@
 #include "DRW_engine.h"
 #include "DRW_render.h"
 
-#include "BKE_main.h"
 #include "BKE_global.h"
 #include "BKE_gpencil.h"
 #include "BKE_image.h"
@@ -41,13 +40,9 @@
 #include "GPU_texture.h"
 #include "GPU_glew.h"
 
-#include "draw_common.h"
-
-#include "draw_mode_engines.h"
-#include "gpencil_engine.h"
-
 #include "IMB_imbuf_types.h"
 
+#include "gpencil_engine.h"
 
 /* allocate cache to store GP objects */
 tGPencilObjectCache *gpencil_object_cache_allocate(tGPencilObjectCache *cache, int *gp_cache_size, int *gp_cache_used)

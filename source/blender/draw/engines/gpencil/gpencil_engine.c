@@ -26,26 +26,12 @@
 #include "DRW_engine.h"
 #include "DRW_render.h"
 
-#include "BKE_main.h"
 #include "BKE_global.h"
-#include "BKE_gpencil.h"
-#include "BKE_image.h"
-#include "ED_gpencil.h"
 
 #include "DNA_gpencil_types.h"
 #include "DNA_view3d_types.h"
 
- /* If builtin shaders are needed */
-#include "GPU_shader.h"
-#include "GPU_texture.h"
-#include "GPU_glew.h"
-
-#include "draw_common.h"
-
-#include "draw_mode_engines.h"
 #include "gpencil_engine.h"
-
-#include "IMB_imbuf_types.h"
 
 extern char datatoc_gpencil_fill_vert_glsl[];
 extern char datatoc_gpencil_fill_frag_glsl[];
