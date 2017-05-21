@@ -329,12 +329,12 @@ static void drw_texture_get_format(DRWTextureFormat format, GPUTextureFormat *da
 		case DRW_TEX_RG_32: *data_type = GPU_RG32F; break;
 		case DRW_TEX_R_8: *data_type = GPU_R8; break;
 		case DRW_TEX_R_16: *data_type = GPU_R16F; break;
+		case DRW_TEX_R_32: *data_type = GPU_R32F; break;
 #if 0
 		case DRW_TEX_RGBA_32: *data_type = GPU_RGBA32F; break;
 		case DRW_TEX_RGB_8: *data_type = GPU_RGB8; break;
 		case DRW_TEX_RGB_32: *data_type = GPU_RGB32F; break;
 		case DRW_TEX_RG_8: *data_type = GPU_RG8; break;
-		case DRW_TEX_R_32: *data_type = GPU_R32F; break;
 #endif
 		case DRW_TEX_DEPTH_16: *data_type = GPU_DEPTH_COMPONENT16; break;
 		case DRW_TEX_DEPTH_24: *data_type = GPU_DEPTH_COMPONENT24; break;
@@ -623,7 +623,7 @@ static void DRW_interface_uniform(DRWShadingGroup *shgroup, const char *name,
 	if (uni->location == -1) {
 		if (G.debug & G_DEBUG)
 			fprintf(stderr, "Uniform '%s' not found!\n", name);
-
+		BLI_assert(0);
 		MEM_freeN(uni);
 		return;
 	}
@@ -643,7 +643,7 @@ static void DRW_interface_attrib(DRWShadingGroup *shgroup, const char *name, DRW
 	if (attrib->location == -1 && !dummy) {
 		if (G.debug & G_DEBUG)
 			fprintf(stderr, "Attribute '%s' not found!\n", name);
-
+		BLI_assert(0);
 		MEM_freeN(attrib);
 		return;
 	}
@@ -1909,6 +1909,8 @@ static GPUTextureFormat convert_tex_format(int fbo_format, int *channels, bool *
 	*is_depth = ELEM(fbo_format, DRW_TEX_DEPTH_16, DRW_TEX_DEPTH_24);
 
 	switch (fbo_format) {
+		case DRW_TEX_R_16:     *channels = 1; return GPU_R16F;
+		case DRW_TEX_R_32:     *channels = 1; return GPU_R32F;
 		case DRW_TEX_RG_16:    *channels = 2; return GPU_RG16F;
 		case DRW_TEX_RGBA_8:   *channels = 4; return GPU_RGBA8;
 		case DRW_TEX_RGBA_16:  *channels = 4; return GPU_RGBA16F;
@@ -2419,7 +2421,7 @@ static void DRW_engines_draw_text(void)
 /**
  * Returns the offset required for the drawing of engines info.
  */
-int DRW_draw_region_engine_info_offset()
+int DRW_draw_region_engine_info_offset(void)
 {
 	int lines = 0;
 	for (LinkData *link = DST.enabled_engines.first; link; link = link->next) {
@@ -2443,7 +2445,7 @@ int DRW_draw_region_engine_info_offset()
 /**
  * Actual drawing;
  */
-void DRW_draw_region_engine_info()
+void DRW_draw_region_engine_info(void)
 {
 	const char *info_array_final[MAX_INFO_LINES + 1];
 	char info_array[MAX_INFO_LINES][GPU_INFO_SIZE]; /* This should be maxium number of engines running at the same time. */
