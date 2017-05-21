@@ -277,19 +277,6 @@ DRWShadingGroup *DRW_gpencil_shgroup_drawing_fill_create(DRWPass *pass, GPUShade
 	return grp;
 }
 
-/* find shader group */
-static int DRW_gpencil_shgroup_find(GPENCIL_Storage *storage, PaletteColor *palcolor)
-{
-	for (int i = 0; i < storage->pal_id; ++i) {
-		if (storage->materials[i] == palcolor) {
-			return i;
-		}
-	}
-
-	/* not found */
-	return -1;
-}
-
 /* add fill shading group to pass */
 static void gpencil_add_fill_shgroup(GpencilBatchCache *cache, DRWShadingGroup *fillgrp, 
 	bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf, bGPDstroke *gps, 
@@ -406,16 +393,17 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 		if (gpencil_can_draw_stroke(rv3d, gpf, gps) == false) {
 			continue;
 		}
-		/* try to find shader group or create a new one */
+
+		/* limit the number of shading groups */
+		if (stl->storage->pal_id >= MAX_GPENCIL_MAT) {
+			continue;
+		}
+
 		if (gps->totpoints > 1) {
-			int id = DRW_gpencil_shgroup_find(stl->storage, gps->palcolor);
-			if (id == -1) {
-				id = stl->storage->pal_id;
-				stl->storage->materials[id] = gps->palcolor;
-				stl->storage->shgrps_fill[id] = DRW_gpencil_shgroup_fill_create(vedata, psl->stroke_pass, e_data->gpencil_fill_sh, gpd, gps->palcolor, id);
-				stl->storage->shgrps_stroke[id] = DRW_gpencil_shgroup_stroke_create(vedata, psl->stroke_pass, e_data->gpencil_stroke_sh, gpd);
-				++stl->storage->pal_id;
-			}
+			int id = stl->storage->pal_id;
+			stl->storage->shgrps_fill[id] = DRW_gpencil_shgroup_fill_create(vedata, psl->stroke_pass, e_data->gpencil_fill_sh, gpd, gps->palcolor, id);
+			stl->storage->shgrps_stroke[id] = DRW_gpencil_shgroup_stroke_create(vedata, psl->stroke_pass, e_data->gpencil_stroke_sh, gpd);
+			++stl->storage->pal_id;
 
 			fillgrp = stl->storage->shgrps_fill[id];
 			strokegrp = stl->storage->shgrps_stroke[id];

@@ -28,7 +28,7 @@
 
 #include "GPU_batch.h"
 
-#define MAX_GPENCIL_MAT 512 
+#define MAX_GPENCIL_MAT 65536
 #define GPENCIL_MIN_BATCH_SLOTS_CHUNK 8
 
  /* *********** LISTS *********** */
@@ -38,7 +38,6 @@ typedef struct GPENCIL_Storage {
 	int t_flip[MAX_GPENCIL_MAT];
 	int t_clamp[MAX_GPENCIL_MAT];
 	int fill_style[MAX_GPENCIL_MAT];
-	PaletteColor *materials[MAX_GPENCIL_MAT];
 	DRWShadingGroup *shgrps_fill[MAX_GPENCIL_MAT];
 	DRWShadingGroup *shgrps_stroke[MAX_GPENCIL_MAT];
 	float unit_matrix[4][4];
