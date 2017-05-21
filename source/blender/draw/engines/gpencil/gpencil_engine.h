@@ -31,6 +31,16 @@
 #define MAX_GPENCIL_MAT 65536
 #define GPENCIL_MIN_BATCH_SLOTS_CHUNK 8
 
+ /* *********** OBJECTS CACHE *********** */
+ /* TODO: this could be a system parameter in userprefs screen */
+#define GPENCIL_CACHE_BLOCK_SIZE 8 
+
+ /* used to sort gpencil objects */
+typedef struct tGPencilObjectCache {
+	Object *ob;
+	float zdepth;
+} tGPencilObjectCache;
+
  /* *********** LISTS *********** */
 typedef struct GPENCIL_Storage {
 	int pal_id; /* total elements */
@@ -83,6 +93,10 @@ typedef struct g_data {
 	DRWShadingGroup *shgrps_drawing_stroke;
 	DRWShadingGroup *shgrps_drawing_fill;
 	bool scene_draw;
+
+	int gp_cache_used;
+	int gp_cache_size;
+	tGPencilObjectCache *gp_object_cache;
 } g_data; /* Transient data */
 
 typedef struct GPENCIL_e_data {
@@ -136,5 +150,9 @@ struct Batch *DRW_gpencil_get_buffer_point_geom(struct bGPdata *gpd, short thick
 void gpencil_batch_cache_clear(struct bGPdata *gpd);
 
 bool gpencil_can_draw_stroke(struct RegionView3D *rv3d, const struct bGPDframe *gpf, const struct bGPDstroke *gps);
+
+struct tGPencilObjectCache *gpencil_object_cache_allocate(struct tGPencilObjectCache *cache, int *gp_cache_size, int *gp_cache_used);
+void gpencil_object_cache_add(struct tGPencilObjectCache *cache, struct RegionView3D *rv3d, struct Object *ob, int *gp_cache_used);
+void gpencil_object_cache_draw(struct GPENCIL_e_data *e_data, struct GPENCIL_Data *vedata, struct ToolSettings *ts, struct Scene *scene, struct tGPencilObjectCache *cache, int gp_cache_used);
 
 #endif /* __GPENCIL_ENGINE_H__ */

@@ -31,6 +31,7 @@
 #include "BKE_gpencil.h"
 #include "BKE_image.h"
 #include "ED_gpencil.h"
+#include "ED_view3d.h"
 
 #include "DNA_gpencil_types.h"
 #include "DNA_view3d_types.h"
@@ -47,6 +48,76 @@
 
 #include "IMB_imbuf_types.h"
 
+
+/* allocate cache to store GP objects */
+tGPencilObjectCache *gpencil_object_cache_allocate(tGPencilObjectCache *cache, int *gp_cache_size, int *gp_cache_used)
+{
+	tGPencilObjectCache *p = NULL;
+
+	/* By default a cache is created with one block with a predefined number of free slots,
+	if the size is not enough, the cache is reallocated adding a new block of free slots.
+	This is done in order to keep cache small */
+	if (*gp_cache_used + 1 > *gp_cache_size) {
+		if ((*gp_cache_size == 0) || (cache == NULL)) {
+			p = MEM_callocN(sizeof(struct tGPencilObjectCache) * GP_CACHE_BLOCK_SIZE, "tGPencilObjectCache");
+			*gp_cache_size = GP_CACHE_BLOCK_SIZE;
+		}
+		else {
+			*gp_cache_size += GP_CACHE_BLOCK_SIZE;
+			p = MEM_recallocN(cache, sizeof(struct tGPencilObjectCache) * *gp_cache_size);
+		}
+		cache = p;
+	}
+	return cache;
+}
+
+/* add a gpencil object to cache to defer drawing */
+void gpencil_object_cache_add(tGPencilObjectCache *cache, RegionView3D *rv3d, Object *ob, int *gp_cache_used)
+{
+	/* save object */
+	cache[*gp_cache_used].ob = ob;
+
+	/* calculate zdepth from point of view */
+	float zdepth = 0.0;
+	if (rv3d->is_persp) {
+		zdepth = ED_view3d_calc_zfac(rv3d, ob->loc, NULL);
+	}
+	else {
+		zdepth = -dot_v3v3(rv3d->viewinv[2], ob->loc);
+	}
+	cache[*gp_cache_used].zdepth = zdepth;
+
+	/* increase slots used in cache */
+	++*gp_cache_used;
+}
+
+/* helper function to sort gpencil objects using qsort */
+static int gpencil_object_cache_compare_zdepth(const void *a1, const void *a2)
+{
+	const tGPencilObjectCache *ps1 = a1, *ps2 = a2;
+
+	if (ps1->zdepth > ps2->zdepth) return 1;
+	else if (ps1->zdepth < ps2->zdepth) return -1;
+
+	return 0;
+}
+
+/* draw objects in cache from back to from */
+void gpencil_object_cache_draw(GPENCIL_e_data *e_data, GPENCIL_Data *vedata, ToolSettings *ts,
+	Scene *scene, tGPencilObjectCache *cache, int gp_cache_used)
+{
+	if (gp_cache_used > 0) {
+		/* sort by zdepth */
+		qsort(cache, gp_cache_used, sizeof(tGPencilObjectCache), gpencil_object_cache_compare_zdepth);
+		/* inverse loop to draw from back to front */
+		for (int i = gp_cache_used; i > 0; --i) {
+			Object *ob = cache[i - 1].ob;
+			DRW_gpencil_populate_datablock(e_data, vedata, scene, ob, ts, ob->gpd);
+		}
+	}
+	/* free memory */
+	MEM_SAFE_FREE(cache);
+}
 
 /* verify if cache is valid */
 static bool gpencil_batch_cache_valid(bGPdata *gpd, int cfra)

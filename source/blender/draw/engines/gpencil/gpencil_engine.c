@@ -124,6 +124,11 @@ static void GPENCIL_cache_init(void *vedata)
 	}
 
 	{
+		/* init gp objects cache */
+		stl->g_data->gp_cache_used = 0;
+		stl->g_data->gp_cache_size = 0;
+		stl->g_data->gp_object_cache = NULL;
+
 		/* Stroke pass */
 		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_DEPTH_LESS;
 		psl->stroke_pass = DRW_pass_create("Gpencil Stroke Pass", state);
@@ -149,6 +154,7 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
+	RegionView3D *rv3d = draw_ctx->rv3d;
 	ToolSettings *ts = scene->toolsettings;
 
 	/* scene datablock (only once) */
@@ -162,12 +168,15 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 		}
 	}
 
-	/* object datablock */
+	/* object datablock (this is not draw now) */
 	if (ob->type == OB_GPENCIL && ob->gpd) {
 		if (G.debug_value == 668) {
 			printf("GPENCIL_cache_populate: Object\n");
 		}
-		DRW_gpencil_populate_datablock(&e_data, vedata, scene, ob, ts, ob->gpd);
+		/* allocate memory for saving gp objects */
+		stl->g_data->gp_object_cache = gpencil_object_cache_allocate(stl->g_data->gp_object_cache, &stl->g_data->gp_cache_size, &stl->g_data->gp_cache_used);
+		/* add for drawing later */
+		gpencil_object_cache_add(stl->g_data->gp_object_cache, rv3d, ob, &stl->g_data->gp_cache_used);
 	}
 }
 
@@ -178,6 +187,15 @@ static void GPENCIL_cache_finish(void *vedata)
 	}
 
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	Scene *scene = draw_ctx->scene;
+	RegionView3D *rv3d = draw_ctx->rv3d;
+	ToolSettings *ts = scene->toolsettings;
+
+	/* Draw all pending objects sorted by object location zdepth.For GP objects, the order of drawing 
+	   is decided by location of the object that is used as a pivot point */
+	gpencil_object_cache_draw(&e_data, vedata, ts, scene, stl->g_data->gp_object_cache, stl->g_data->gp_cache_used);
+
 	stl->g_data->scene_draw = false;
 }
 
