@@ -357,7 +357,7 @@ void ED_gpencil_strokes_copybuf_free(void)
 		
 		if (gps->points)    MEM_freeN(gps->points);
 		if (gps->triangles) MEM_freeN(gps->triangles);
-		
+
 		BLI_freelinkN(&gp_strokes_copypastebuf, gps);
 	}
 	
@@ -931,7 +931,7 @@ static int gp_delete_selected_strokes(bContext *C)
 				if (gps->points) MEM_freeN(gps->points);
 				if (gps->triangles) MEM_freeN(gps->triangles);
 				BLI_freelinkN(&gpf->strokes, gps);
-				
+
 				changed = true;
 			}
 		}
@@ -999,6 +999,7 @@ static int gp_dissolve_selected_points(bContext *C)
 						MEM_freeN(gps->triangles);
 					}
 					BLI_freelinkN(&gpf->strokes, gps);
+					BKE_gpencil_batch_cache_dirty(gpd, 0);
 				}
 				else {
 					/* just copy all unselected into a smaller buffer */
@@ -1201,7 +1202,7 @@ static int gp_delete_selected_points(bContext *C)
 				
 				/* delete unwanted points by splitting stroke into several smaller ones */
 				gp_stroke_delete_tagged_points(gpf, gps, gpsn, GP_SPOINT_SELECT);
-				
+
 				changed = true;
 			}
 		}
