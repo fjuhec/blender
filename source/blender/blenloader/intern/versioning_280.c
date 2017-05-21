@@ -121,9 +121,13 @@ static void do_version_workspaces_after_lib_link(Main *bmain)
 
 			win->scene = screen->scene;
 			/* Deprecated from now on! */
-			win->screen->scene = screen->scene = NULL;
 			win->screen = NULL;
 		}
+	}
+
+	for (bScreen *screen = bmain->screen.first; screen; screen = screen->id.next) {
+		/* Deprecated from now on! */
+		screen->scene = NULL;
 	}
 }
 
