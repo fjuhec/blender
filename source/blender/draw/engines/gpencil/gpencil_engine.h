@@ -28,13 +28,12 @@
 
 #include "GPU_batch.h"
 
-#define MAX_GPENCIL_MAT 65536
+ /* TODO: these could be system parameter in userprefs screen */
+#define GPENCIL_CACHE_BLOCK_SIZE 8 
+#define GPENCIL_MAX_SHGROUPS 65536
 #define GPENCIL_MIN_BATCH_SLOTS_CHUNK 8
 
  /* *********** OBJECTS CACHE *********** */
- /* TODO: this could be a system parameter in userprefs screen */
-#define GPENCIL_CACHE_BLOCK_SIZE 8 
-
  /* used to sort gpencil objects */
 typedef struct tGPencilObjectCache {
 	Object *ob;
@@ -44,36 +43,32 @@ typedef struct tGPencilObjectCache {
  /* *********** LISTS *********** */
 typedef struct GPENCIL_Storage {
 	int pal_id; /* total elements */
-	int t_mix[MAX_GPENCIL_MAT];
-	int t_flip[MAX_GPENCIL_MAT];
-	int t_clamp[MAX_GPENCIL_MAT];
-	int fill_style[MAX_GPENCIL_MAT];
-	DRWShadingGroup *shgrps_fill[MAX_GPENCIL_MAT];
-	DRWShadingGroup *shgrps_stroke[MAX_GPENCIL_MAT];
+	int t_mix[GPENCIL_MAX_SHGROUPS];
+	int t_flip[GPENCIL_MAX_SHGROUPS];
+	int t_clamp[GPENCIL_MAX_SHGROUPS];
+	int fill_style[GPENCIL_MAX_SHGROUPS];
+	DRWShadingGroup *shgrps_fill[GPENCIL_MAX_SHGROUPS];
+	DRWShadingGroup *shgrps_stroke[GPENCIL_MAX_SHGROUPS];
 	float unit_matrix[4][4];
 	int is_persp;   /* rv3d->is_persp (1-yes) */
 	int xray;
 } GPENCIL_Storage;
 
-/* keep it under MAX_STORAGE */
 typedef struct GPENCIL_StorageList {
 	struct GPENCIL_Storage *storage;
 	struct g_data *g_data;
 } GPENCIL_StorageList;
 
-/* keep it under MAX_PASSES */
 typedef struct GPENCIL_PassList {
 	struct DRWPass *stroke_pass;
 	struct DRWPass *edit_pass;
 	struct DRWPass *drawing_pass;
 } GPENCIL_PassList;
 
-/* keep it under MAX_BUFFERS */
 typedef struct GPENCIL_FramebufferList {
 	struct GPUFrameBuffer *fb;
 } GPENCIL_FramebufferList;
 
-/* keep it under MAX_TEXTURES */
 typedef struct GPENCIL_TextureList {
 	struct GPUTexture *texture;
 } GPENCIL_TextureList;

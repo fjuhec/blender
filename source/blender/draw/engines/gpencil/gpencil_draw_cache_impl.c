@@ -38,7 +38,6 @@
  /* If builtin shaders are needed */
 #include "GPU_shader.h"
 #include "GPU_texture.h"
-#include "GPU_glew.h"
 
 #include "IMB_imbuf_types.h"
 
@@ -461,7 +460,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 		}
 
 		/* limit the number of shading groups */
-		if (stl->storage->pal_id >= MAX_GPENCIL_MAT) {
+		if (stl->storage->pal_id >= GPENCIL_MAX_SHGROUPS) {
 			continue;
 		}
 
