@@ -240,53 +240,11 @@ static void gp_get_3d_reference(tGPsdata *p, float vec[3])
 	View3D *v3d = p->sa->spacedata.first;
 	ToolSettings *ts = p->scene->toolsettings;
 	const float *fp = ED_view3d_cursor3d_get(p->scene, v3d);
-	
-	/* the reference point used depends on the owner... */
-#if 0 /* XXX: disabled for now, since we can't draw relative to the owner yet */
+	Object *ob = NULL;
 	if (p->ownerPtr.type == &RNA_Object) {
-		Object *ob = (Object *)p->ownerPtr.data;
-		
-		/* active Object
-		 *  - use relative distance of 3D-cursor from object center
-		 */
-		sub_v3_v3v3(vec, fp, ob->loc);
+		ob = (Object *)p->ownerPtr.data;
 	}
-#endif
-	/* if using a gpencil object at cursor mode, can use the location of the object */
-	if ((ts->gpencil_src & GP_TOOL_SOURCE_OBJECT) && (*p->align_flag & GP_PROJECT_VIEWSPACE)) {
-		if (p->ownerPtr.type == &RNA_Object) {
-			Object *ob = (Object *)p->ownerPtr.data;
-			if (ob->type == OB_GPENCIL) {
-				/* use last stroke position for layer */
-				if (p->gpl && p->gpl->flag & GP_LAYER_USE_LOCATION) {
-					if (p->gpl->actframe) {
-						bGPDframe *gpf = p->gpl->actframe;
-						if (gpf->strokes.last) {
-							bGPDstroke *gps = gpf->strokes.last;
-							if (gps->totpoints > 0) {
-								copy_v3_v3(vec, &gps->points[gps->totpoints - 1].x);
-								return;
-							}
-						}
-					}
-				}
-				/* use cursor */
-				if (ts->gpencil_flags & GP_TOOL_FLAG_USE_3DCURSOR) {
-					/* use 3D-cursor */
-					copy_v3_v3(vec, fp);
-				}
-				else {
-					/* use object location */
-					copy_v3_v3(vec, ob->loc);
-				}
-			}
-		}
-	}
-	else
-	{
-		/* use 3D-cursor */
-		copy_v3_v3(vec, fp);
-	}
+	ED_gp_get_drawing_reference(ts, v3d, p->scene, ob, p->gpl, *p->align_flag, vec);
 }
 
 /* Stroke Editing ---------------------------- */
@@ -319,43 +277,6 @@ static bool gp_stroke_filtermval(tGPsdata *p, const int mval[2], int pmval[2])
 		return false;
 }
 
-/* reproject the points of the stroke to a plane locked to axis to avoid stroke offset */
-static void gp_project_points_to_plane(Object *ob, RegionView3D *rv3d, bGPDstroke *gps, const float origin[3], const int axis, char type)
-{
-	float plane_normal[3];
-	float vn[3];
-
-	float ray[3];
-	float rpoint[3];
-
-	/* normal vector for a plane locked to axis */
-	zero_v3(plane_normal);
-	plane_normal[axis] = 1.0f;
-	/* if object, apply object rotation */
-	if (type & GP_TOOL_SOURCE_OBJECT) {
-		if (ob && ob->type == OB_GPENCIL) {
-			mul_mat3_m4_v3(ob->obmat, plane_normal);
-		}
-	}
-
-	/* Reproject the points in the plane */
-	for (int i = 0; i < gps->totpoints; i++) {
-		bGPDspoint *pt = &gps->points[i];
-
-		/* get a vector from the point with the current view direction of the viewport */
-		ED_view3d_global_to_vector(rv3d, &pt->x, vn);
-
-		/* calculate line extrem point to create a ray that cross the plane */
-		mul_v3_fl(vn, -50.0f);
-		add_v3_v3v3(ray, &pt->x, vn);
-
-		/* if the line never intersect, the point is not changed */
-		if (isect_line_plane_v3(rpoint, &pt->x, ray, origin, plane_normal)) {
-			copy_v3_v3(&pt->x, rpoint);
-		}
-	}
-}
-
 /* reproject stroke to plane locked to axis in 3d cursor location */
 static void gp_reproject_toplane(tGPsdata *p, bGPDstroke *gps)
 {
@@ -380,7 +301,7 @@ static void gp_reproject_toplane(tGPsdata *p, bGPDstroke *gps)
 	/* get drawing origin and copy */
 	gp_get_3d_reference(p, cursor);
 	copy_v3_v3(origin, cursor);
-	gp_project_points_to_plane(obact, rv3d, gps, origin, p->lock_axis - 1, p->scene->toolsettings->gpencil_src);
+	ED_gp_project_points_to_plane(obact, rv3d, gps, origin, p->lock_axis - 1, p->scene->toolsettings->gpencil_src);
 }
 
 /* convert screen-coordinates to buffer-coordinates */

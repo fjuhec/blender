@@ -1141,4 +1141,82 @@ void ED_gpencil_add_to_cache(tGPencilSort *cache, RegionView3D *rv3d, Base *base
 	/* increase slots used in cache */
 	++*gp_cache_used;
 }
+
+/* reproject the points of the stroke to a plane locked to axis to avoid stroke offset */
+void ED_gp_project_points_to_plane(Object *ob, RegionView3D *rv3d, bGPDstroke *gps, const float origin[3], const int axis, char type)
+{
+	float plane_normal[3];
+	float vn[3];
+
+	float ray[3];
+	float rpoint[3];
+
+	/* normal vector for a plane locked to axis */
+	zero_v3(plane_normal);
+	plane_normal[axis] = 1.0f;
+	/* if object, apply object rotation */
+	if (type & GP_TOOL_SOURCE_OBJECT) {
+		if (ob && ob->type == OB_GPENCIL) {
+			mul_mat3_m4_v3(ob->obmat, plane_normal);
+		}
+	}
+
+	/* Reproject the points in the plane */
+	for (int i = 0; i < gps->totpoints; i++) {
+		bGPDspoint *pt = &gps->points[i];
+
+		/* get a vector from the point with the current view direction of the viewport */
+		ED_view3d_global_to_vector(rv3d, &pt->x, vn);
+
+		/* calculate line extrem point to create a ray that cross the plane */
+		mul_v3_fl(vn, -50.0f);
+		add_v3_v3v3(ray, &pt->x, vn);
+
+		/* if the line never intersect, the point is not changed */
+		if (isect_line_plane_v3(rpoint, &pt->x, ray, origin, plane_normal)) {
+			copy_v3_v3(&pt->x, rpoint);
+		}
+	}
+}
+
+/* get drawing reference for conversion or projection of the stroke */
+void ED_gp_get_drawing_reference(ToolSettings *ts, View3D *v3d, Scene *scene, Object *ob, bGPDlayer *gpl, char align_flag, float vec[3])
+{
+	const float *fp = ED_view3d_cursor3d_get(scene, v3d);
+
+	/* if using a gpencil object at cursor mode, can use the location of the object */
+	if ((ts->gpencil_src & GP_TOOL_SOURCE_OBJECT) && (align_flag & GP_PROJECT_VIEWSPACE)) {
+		if (ob) {
+			if (ob->type == OB_GPENCIL) {
+				/* use last stroke position for layer */
+				if (gpl && gpl->flag & GP_LAYER_USE_LOCATION) {
+					if (gpl->actframe) {
+						bGPDframe *gpf = gpl->actframe;
+						if (gpf->strokes.last) {
+							bGPDstroke *gps = gpf->strokes.last;
+							if (gps->totpoints > 0) {
+								copy_v3_v3(vec, &gps->points[gps->totpoints - 1].x);
+								return;
+							}
+						}
+					}
+				}
+				/* use cursor */
+				if (ts->gpencil_flags & GP_TOOL_FLAG_USE_3DCURSOR) {
+					/* use 3D-cursor */
+					copy_v3_v3(vec, fp);
+				}
+				else {
+					/* use object location */
+					copy_v3_v3(vec, ob->loc);
+				}
+			}
+		}
+	}
+	else
+	{
+		/* use 3D-cursor */
+		copy_v3_v3(vec, fp);
+	}
+}
 /* ******************************************************** */
