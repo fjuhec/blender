@@ -1180,13 +1180,18 @@ void ED_gp_project_stroke_to_plane(Object *ob, RegionView3D *rv3d, bGPDstroke *g
 }
 
 /* reproject one points to a plane locked to axis to avoid stroke offset */
-void ED_gp_project_point_to_plane(Object *ob, RegionView3D *rv3d, const float origin[3], const int axis, char type, float pt[3])
+void ED_gp_project_point_to_plane(Object *ob, RegionView3D *rv3d, const float origin[3], const int axis, char type, bGPDspoint *pt)
 {
 	float plane_normal[3];
 	float vn[3];
 
 	float ray[3];
 	float rpoint[3];
+
+	/* no need reproject */
+	if (axis < 0) {
+		return;
+	}
 
 	/* normal vector for a plane locked to axis */
 	zero_v3(plane_normal);
@@ -1200,15 +1205,15 @@ void ED_gp_project_point_to_plane(Object *ob, RegionView3D *rv3d, const float or
 
 	/* Reproject the points in the plane */
 	/* get a vector from the point with the current view direction of the viewport */
-	ED_view3d_global_to_vector(rv3d, pt, vn);
+	ED_view3d_global_to_vector(rv3d, &pt->x, vn);
 
 	/* calculate line extrem point to create a ray that cross the plane */
 	mul_v3_fl(vn, -50.0f);
-	add_v3_v3v3(ray, pt, vn);
+	add_v3_v3v3(ray, &pt->x, vn);
 
 	/* if the line never intersect, the point is not changed */
-	if (isect_line_plane_v3(rpoint, pt, ray, origin, plane_normal)) {
-		copy_v3_v3(pt, rpoint);
+	if (isect_line_plane_v3(rpoint, &pt->x, ray, origin, plane_normal)) {
+		copy_v3_v3(&pt->x, rpoint);
 	}
 }
 

@@ -237,6 +237,8 @@ Batch *DRW_gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], shor
 	View3D *v3d = draw_ctx->v3d;
 	ARegion *ar = draw_ctx->ar;
 	RegionView3D *rv3d = draw_ctx->rv3d;
+	ToolSettings *ts = scene->toolsettings;
+	Object *ob = draw_ctx->obact;
 
 	tGPspoint *points = gpd->sbuffer;
 	int totpoints = gpd->sbuffer_size;
@@ -256,9 +258,15 @@ Batch *DRW_gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], shor
 	const tGPspoint *tpt = points;
 	bGPDspoint pt;
 	int idx = 0;
+	
+	/* get origin to reproject point */
+	float origin[3];
+	bGPDlayer *gpl = BKE_gpencil_layer_getactive(gpd);
+	ED_gp_get_drawing_reference(ts, v3d, scene, ob, gpl, ts->gpencil_v3d_align, origin);
 
 	for (int i = 0; i < totpoints; i++, tpt++) {
 		gpencil_tpoint_to_point(scene, ar, v3d, tpt, &pt);
+		ED_gp_project_point_to_plane(ob, rv3d, origin, ts->gp_sculpt.lock_axis - 1, ts->gpencil_src, &pt);
 
 		/* first point for adjacency (not drawn) */
 		if (i == 0) {
