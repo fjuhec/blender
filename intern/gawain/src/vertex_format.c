@@ -64,9 +64,7 @@ static GLenum convert_comp_type_to_gl(VertexCompType type)
 
 		[COMP_F32] = GL_FLOAT,
 
-	#if USE_10_10_10
 		[COMP_I10] = GL_INT_2_10_10_10_REV
-	#endif
 		};
 	return table[type];
 	}
@@ -83,20 +81,16 @@ static unsigned comp_sz(VertexCompType type)
 
 static unsigned attrib_sz(const Attrib *a)
 	{
-#if USE_10_10_10
 	if (a->comp_type == COMP_I10)
 		return 4; // always packed as 10_10_10_2
-#endif
 
 	return a->comp_ct * comp_sz(a->comp_type);
 	}
 
 static unsigned attrib_align(const Attrib *a)
 	{
-#if USE_10_10_10
 	if (a->comp_type == COMP_I10)
 		return 4; // always packed as 10_10_10_2
-#endif
 
 	unsigned c = comp_sz(a->comp_type);
 	if (a->comp_ct == 3 && c <= 2)
@@ -156,14 +150,12 @@ unsigned VertexFormat_add_attrib(VertexFormat* format, const char* name, VertexC
 			// float type can only kept as float
 			assert(fetch_mode == KEEP_FLOAT);
 			break;
- #if USE_10_10_10
 		case COMP_I10:
 			// 10_10_10 format intended for normals (xyz) or colors (rgb)
 			// extra component packed.w can be manually set to { -2, -1, 0, 1 }
 			assert(comp_ct == 3 || comp_ct == 4);
 			assert(fetch_mode == NORMALIZE_INT_TO_FLOAT); // not strictly required, may relax later
 			break;
- #endif
 		default:
 			// integer types can be kept as int or converted/normalized to float
 			assert(fetch_mode != KEEP_FLOAT);
@@ -177,11 +169,7 @@ unsigned VertexFormat_add_attrib(VertexFormat* format, const char* name, VertexC
 	attrib->name[attrib->name_ct++] = copy_attrib_name(format, name);
 	attrib->comp_type = comp_type;
 	attrib->gl_comp_type = convert_comp_type_to_gl(comp_type);
-#if USE_10_10_10
 	attrib->comp_ct = (comp_type == COMP_I10) ? 4 : comp_ct; // system needs 10_10_10_2 to be 4 or BGRA
-#else
-	attrib->comp_ct = comp_ct;
-#endif
 	attrib->sz = attrib_sz(attrib);
 	attrib->offset = 0; // offsets & stride are calculated later (during pack)
 	attrib->fetch_mode = fetch_mode;
@@ -262,8 +250,6 @@ void VertexFormat_pack(VertexFormat* format)
 	}
 
 
-#if USE_10_10_10
-
 // OpenGL ES packs in a different order as desktop GL but component conversion is the same.
 // Of the code here, only struct PackedNormal needs to change.
 
@@ -290,6 +276,13 @@ static int quantize(float x)
 	return clampi(qx, SIGNED_INT_10_MIN, SIGNED_INT_10_MAX);
 	}
 
+static int convert_i16(short x)
+	{
+	// 16-bit signed --> 10-bit signed
+	return x >> 6;
+	// TODO: round?
+	}
+
 PackedNormal convert_i10_v3(const float data[3])
 	{
 	PackedNormal n = { .x = quantize(data[0]), .y = quantize(data[1]), .z = quantize(data[2]) };
@@ -298,12 +291,6 @@ PackedNormal convert_i10_v3(const float data[3])
 
 PackedNormal convert_i10_s3(const short data[3])
 	{
-	PackedNormal n = {
-		.x = quantize((float)data[0] / 32767.0f),
-		.y = quantize((float)data[1] / 32767.0f),
-		.z = quantize((float)data[2] / 32767.0f)
-	};
+	PackedNormal n = { .x = convert_i16(data[0]), .y = convert_i16(data[1]), .z = convert_i16(data[2]) };
 	return n;
 	}
-
-#endif // USE_10_10_10
