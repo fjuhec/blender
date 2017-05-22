@@ -301,7 +301,7 @@ static void gp_reproject_toplane(tGPsdata *p, bGPDstroke *gps)
 	/* get drawing origin and copy */
 	gp_get_3d_reference(p, cursor);
 	copy_v3_v3(origin, cursor);
-	ED_gp_project_points_to_plane(obact, rv3d, gps, origin, p->lock_axis - 1, p->scene->toolsettings->gpencil_src);
+	ED_gp_project_stroke_to_plane(obact, rv3d, gps, origin, p->lock_axis - 1, p->scene->toolsettings->gpencil_src);
 }
 
 /* convert screen-coordinates to buffer-coordinates */
