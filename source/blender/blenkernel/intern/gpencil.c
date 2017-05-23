@@ -792,6 +792,7 @@ bGPdata *BKE_gpencil_data_duplicate(Main *bmain, bGPdata *gpd_src, bool internal
 	else {
 		/* make a copy when others use this */
 		gpd_dst = BKE_libblock_copy(bmain, &gpd_src->id);
+		gpd_dst->batch_cache = NULL;
 	}
 	
 	/* copy layers */
