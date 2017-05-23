@@ -41,14 +41,18 @@ typedef struct tGPencilObjectCache {
 } tGPencilObjectCache;
 
  /* *********** LISTS *********** */
+typedef struct GPENCIL_shgroup {
+	int t_mix;
+	int t_flip;
+	int t_clamp;
+	int fill_style;
+	DRWShadingGroup *shgrps_fill;
+	DRWShadingGroup *shgrps_stroke;
+} GPENCIL_shgroup;
+
 typedef struct GPENCIL_Storage {
 	int pal_id; /* total elements */
-	int t_mix[GPENCIL_MAX_SHGROUPS];
-	int t_flip[GPENCIL_MAX_SHGROUPS];
-	int t_clamp[GPENCIL_MAX_SHGROUPS];
-	int fill_style[GPENCIL_MAX_SHGROUPS];
-	DRWShadingGroup *shgrps_fill[GPENCIL_MAX_SHGROUPS];
-	DRWShadingGroup *shgrps_stroke[GPENCIL_MAX_SHGROUPS];
+	GPENCIL_shgroup shgroups[GPENCIL_MAX_SHGROUPS];
 	float unit_matrix[4][4];
 	int is_persp;   /* rv3d->is_persp (1-yes) */
 	int xray;

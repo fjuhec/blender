@@ -235,8 +235,8 @@ static DRWShadingGroup *DRW_gpencil_shgroup_fill_create(GPENCIL_Data *vedata, DR
 	/* e_data.gpencil_fill_sh */
 	DRWShadingGroup *grp = DRW_shgroup_create(shader, pass);
 	DRW_shgroup_uniform_vec4(grp, "color2", palcolor->scolor, 1);
-	stl->storage->fill_style[id] = palcolor->fill_style;
-	DRW_shgroup_uniform_int(grp, "fill_type", &stl->storage->fill_style[id], 1);
+	stl->storage->shgroups[id].fill_style = palcolor->fill_style;
+	DRW_shgroup_uniform_int(grp, "fill_type", &stl->storage->shgroups[id].fill_style, 1);
 	DRW_shgroup_uniform_float(grp, "mix_factor", &palcolor->mix_factor, 1);
 
 	DRW_shgroup_uniform_float(grp, "g_angle", &palcolor->g_angle, 1);
@@ -250,11 +250,11 @@ static DRWShadingGroup *DRW_gpencil_shgroup_fill_create(GPENCIL_Data *vedata, DR
 	DRW_shgroup_uniform_vec2(grp, "t_shift", palcolor->t_shift, 1);
 	DRW_shgroup_uniform_float(grp, "t_opacity", &palcolor->t_opacity, 1);
 
-	stl->storage->t_mix[id] = palcolor->flag & PAC_COLOR_TEX_MIX ? 1 : 0;
-	DRW_shgroup_uniform_int(grp, "t_mix", &stl->storage->t_mix[id], 1);
+	stl->storage->shgroups[id].t_mix = palcolor->flag & PAC_COLOR_TEX_MIX ? 1 : 0;
+	DRW_shgroup_uniform_int(grp, "t_mix", &stl->storage->shgroups[id].t_mix, 1);
 
-	stl->storage->t_flip[id] = palcolor->flag & PAC_COLOR_FLIP_FILL ? 1 : 0;
-	DRW_shgroup_uniform_int(grp, "t_flip", &stl->storage->t_flip[id], 1);
+	stl->storage->shgroups[id].t_flip = palcolor->flag & PAC_COLOR_FLIP_FILL ? 1 : 0;
+	DRW_shgroup_uniform_int(grp, "t_flip", &stl->storage->shgroups[id].t_flip, 1);
 
 	DRW_shgroup_uniform_int(grp, "xraymode", (const int *) &gpd->xray_mode, 1);
 
@@ -276,8 +276,8 @@ static DRWShadingGroup *DRW_gpencil_shgroup_fill_create(GPENCIL_Data *vedata, DR
 			GPUTexture *texture = GPU_texture_from_blender(palcolor->ima, &iuser, GL_TEXTURE_2D, true, 0.0, 0);
 			DRW_shgroup_uniform_texture(grp, "myTexture", texture);
 
-			stl->storage->t_clamp[id] = palcolor->flag & PAC_COLOR_TEX_CLAMP ? 1 : 0;
-			DRW_shgroup_uniform_int(grp, "t_clamp", &stl->storage->t_clamp[id], 1);
+			stl->storage->shgroups[id].t_clamp = palcolor->flag & PAC_COLOR_TEX_CLAMP ? 1 : 0;
+			DRW_shgroup_uniform_int(grp, "t_clamp", &stl->storage->shgroups[id].t_clamp, 1);
 
 			BKE_image_release_ibuf(image, ibuf, NULL);
 		}
@@ -466,12 +466,12 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 
 		if (gps->totpoints > 1) {
 			int id = stl->storage->pal_id;
-			stl->storage->shgrps_fill[id] = DRW_gpencil_shgroup_fill_create(vedata, psl->stroke_pass, e_data->gpencil_fill_sh, gpd, gps->palcolor, id);
-			stl->storage->shgrps_stroke[id] = DRW_gpencil_shgroup_stroke_create(vedata, psl->stroke_pass, e_data->gpencil_stroke_sh, gpd);
+			stl->storage->shgroups[id].shgrps_fill = DRW_gpencil_shgroup_fill_create(vedata, psl->stroke_pass, e_data->gpencil_fill_sh, gpd, gps->palcolor, id);
+			stl->storage->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_stroke_create(vedata, psl->stroke_pass, e_data->gpencil_stroke_sh, gpd);
 			++stl->storage->pal_id;
 
-			fillgrp = stl->storage->shgrps_fill[id];
-			strokegrp = stl->storage->shgrps_stroke[id];
+			fillgrp = stl->storage->shgroups[id].shgrps_fill;
+			strokegrp = stl->storage->shgroups[id].shgrps_stroke;
 		}
 		/* fill */
 		gpencil_add_fill_shgroup(cache, fillgrp, gpd, gpl, gpf, gps, tintcolor, onion, custonion);
