@@ -113,7 +113,8 @@ static void DRW_engines_enable_external(void);
 /* Structures */
 typedef enum {
 	DRW_UNIFORM_BOOL,
-	DRW_UNIFORM_SHORT,
+	DRW_UNIFORM_SHORT_TO_INT,
+	DRW_UNIFORM_SHORT_TO_FLOAT,
 	DRW_UNIFORM_INT,
 	DRW_UNIFORM_FLOAT,
 	DRW_UNIFORM_TEXTURE,
@@ -825,6 +826,7 @@ void DRW_shgroup_free(struct DRWShadingGroup *shgroup)
 void DRW_shgroup_instance_batch(DRWShadingGroup *shgroup, struct Batch *instances)
 {
 	BLI_assert(shgroup->type == DRW_SHG_INSTANCE);
+	BLI_assert(shgroup->interface->instance_batch == NULL);
 
 	shgroup->interface->instance_batch = instances;
 }
@@ -1035,9 +1037,14 @@ void DRW_shgroup_uniform_vec4(DRWShadingGroup *shgroup, const char *name, const 
 	DRW_interface_uniform(shgroup, name, DRW_UNIFORM_FLOAT, value, 4, arraysize, 0);
 }
 
-void DRW_shgroup_uniform_short(DRWShadingGroup *shgroup, const char *name, const short *value, int arraysize)
+void DRW_shgroup_uniform_short_to_int(DRWShadingGroup *shgroup, const char *name, const short *value, int arraysize)
 {
-	DRW_interface_uniform(shgroup, name, DRW_UNIFORM_SHORT, value, 1, arraysize, 0);
+	DRW_interface_uniform(shgroup, name, DRW_UNIFORM_SHORT_TO_INT, value, 1, arraysize, 0);
+}
+
+void DRW_shgroup_uniform_short_to_float(DRWShadingGroup *shgroup, const char *name, const short *value, int arraysize)
+{
+	DRW_interface_uniform(shgroup, name, DRW_UNIFORM_SHORT_TO_FLOAT, value, 1, arraysize, 0);
 }
 
 void DRW_shgroup_uniform_int(DRWShadingGroup *shgroup, const char *name, const int *value, int arraysize)
@@ -1629,6 +1636,7 @@ static void draw_shgroup(DRWShadingGroup *shgroup, DRWState pass_state)
 	DRWInterface *interface = shgroup->interface;
 	GPUTexture *tex;
 	int val;
+	float fval;
 
 	if (DST.shader != shgroup->shader) {
 		if (DST.shader) GPU_shader_unbind();
@@ -1650,10 +1658,15 @@ static void draw_shgroup(DRWShadingGroup *shgroup, DRWState pass_state)
 		DRWBoundTexture *bound_tex;
 
 		switch (uni->type) {
-			case DRW_UNIFORM_SHORT:
+			case DRW_UNIFORM_SHORT_TO_INT:
 				val = (int)*((short *)uni->value);
 				GPU_shader_uniform_vector_int(
 				        shgroup->shader, uni->location, uni->length, uni->arraysize, (int *)&val);
+				break;
+			case DRW_UNIFORM_SHORT_TO_FLOAT:
+				fval = (float)*((short *)uni->value);
+				GPU_shader_uniform_vector(
+				        shgroup->shader, uni->location, uni->length, uni->arraysize, (float *)&fval);
 				break;
 			case DRW_UNIFORM_BOOL:
 			case DRW_UNIFORM_INT:

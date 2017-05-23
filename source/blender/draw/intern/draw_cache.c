@@ -2121,6 +2121,23 @@ Batch **DRW_cache_mesh_surface_shaded_get(Object *ob)
 	return DRW_mesh_batch_cache_get_surface_shaded(me);
 }
 
+/* Return list of batches */
+Batch **DRW_cache_mesh_surface_texpaint_get(Object *ob)
+{
+	BLI_assert(ob->type == OB_MESH);
+
+	Mesh *me = ob->data;
+	return DRW_mesh_batch_cache_get_surface_texpaint(me);
+}
+
+Batch *DRW_cache_mesh_surface_texpaint_single_get(Object *ob)
+{
+	BLI_assert(ob->type == OB_MESH);
+
+	Mesh *me = ob->data;
+	return DRW_mesh_batch_cache_get_surface_texpaint_single(me);
+}
+
 Batch *DRW_cache_mesh_surface_verts_get(Object *ob)
 {
 	BLI_assert(ob->type == OB_MESH);
@@ -2338,6 +2355,7 @@ Batch *DRW_cache_particles_get_prim(int type)
 				float co[3] = {-1.0f, 0.0f, 0.0f};
 				int axis = -1;
 				VertexBuffer_set_attrib(vbo, pos_id, 0, co);
+				VertexBuffer_set_attrib(vbo, axis_id, 0, &axis);
 
 				co[0] = 1.0f;
 				VertexBuffer_set_attrib(vbo, pos_id, 1, co);
@@ -2347,6 +2365,7 @@ Batch *DRW_cache_particles_get_prim(int type)
 				co[0] = 0.0f;
 				co[1] = -1.0f;
 				VertexBuffer_set_attrib(vbo, pos_id, 2, co);
+				VertexBuffer_set_attrib(vbo, axis_id, 2, &axis);
 
 				co[1] = 1.0f;
 				VertexBuffer_set_attrib(vbo, pos_id, 3, co);
@@ -2356,6 +2375,7 @@ Batch *DRW_cache_particles_get_prim(int type)
 				co[1] = 0.0f;
 				co[2] = -1.0f;
 				VertexBuffer_set_attrib(vbo, pos_id, 4, co);
+				VertexBuffer_set_attrib(vbo, axis_id, 4, &axis);
 
 				co[2] = 1.0f;
 				VertexBuffer_set_attrib(vbo, pos_id, 5, co);
@@ -2382,6 +2402,7 @@ Batch *DRW_cache_particles_get_prim(int type)
 				float co[3] = {0.0f, 0.0f, 0.0f};
 				int axis = 0;
 				VertexBuffer_set_attrib(vbo, pos_id, 0, co);
+				VertexBuffer_set_attrib(vbo, axis_id, 0, &axis);
 
 				co[0] = 1.0f;
 				VertexBuffer_set_attrib(vbo, pos_id, 1, co);
@@ -2391,6 +2412,7 @@ Batch *DRW_cache_particles_get_prim(int type)
 				co[0] = 0.0f;
 				axis = 1;
 				VertexBuffer_set_attrib(vbo, pos_id, 2, co);
+				VertexBuffer_set_attrib(vbo, axis_id, 2, &axis);
 
 				co[1] = 1.0f;
 				VertexBuffer_set_attrib(vbo, pos_id, 3, co);
@@ -2400,6 +2422,7 @@ Batch *DRW_cache_particles_get_prim(int type)
 				co[1] = 0.0f;
 				axis = 2;
 				VertexBuffer_set_attrib(vbo, pos_id, 4, co);
+				VertexBuffer_set_attrib(vbo, axis_id, 4, &axis);
 
 				co[2] = 1.0f;
 				VertexBuffer_set_attrib(vbo, pos_id, 5, co);

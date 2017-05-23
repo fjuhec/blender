@@ -55,11 +55,9 @@
 
 extern char datatoc_clay_frag_glsl[];
 extern char datatoc_clay_vert_glsl[];
+extern char datatoc_clay_particle_vert_glsl[];
+extern char datatoc_clay_particle_strand_frag_glsl[];
 extern char datatoc_ssao_alchemy_glsl[];
-extern char datatoc_particle_vert_glsl[];
-extern char datatoc_particle_strand_frag_glsl[];
-extern char datatoc_particle_prim_vert_glsl[];
-extern char datatoc_particle_prim_frag_glsl[];
 
 /* *********** LISTS *********** */
 
@@ -89,7 +87,7 @@ typedef struct CLAY_HAIR_UBO_Material {
 	float matcap_hsv[3];
 	float pad;
 } CLAY_HAIR_UBO_Material; /* 32 bytes */
-BLI_STATIC_ASSERT_ALIGN(CLAY_UBO_Material, 16)
+BLI_STATIC_ASSERT_ALIGN(CLAY_HAIR_UBO_Material, 16)
 
 typedef struct CLAY_UBO_Storage {
 	CLAY_UBO_Material materials[MAX_CLAY_MAT];
@@ -166,7 +164,6 @@ static struct {
 
 	/* Just a serie of int from 0 to MAX_CLAY_MAT-1 */
 	int ubo_mat_idxs[MAX_CLAY_MAT];
-	int hair_ubo_mat_idxs[MAX_CLAY_MAT];
 
 	/* engine specific */
 	struct GPUTexture *depth_dup;
@@ -365,7 +362,7 @@ static void CLAY_engine_init(void *vedata)
 
 	if (!e_data.hair_sh) {
 		e_data.hair_sh = DRW_shader_create(
-		        datatoc_particle_vert_glsl, NULL, datatoc_particle_strand_frag_glsl,
+		        datatoc_clay_particle_vert_glsl, NULL, datatoc_clay_particle_strand_frag_glsl,
 		        "#define MAX_MATERIAL 512\n");
 	}
 
