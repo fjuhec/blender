@@ -6,13 +6,16 @@ uniform mat4 ProjectionMatrix;
 uniform int screen_space;
 uniform float pixel_size;
 uniform int draw_size;
+uniform vec3 color;
+uniform sampler1D ramp;
 
 in vec3 pos;
 in vec4 rot;
+in float val;
 in vec3 inst_pos;
 in int axis;
 
-flat out int finalAxis;
+flat out vec4 finalColor;
 
 vec3 rotate(vec3 vec, vec4 quat)
 {
@@ -45,5 +48,17 @@ void main()
 		gl_Position = ModelViewProjectionMatrix * vec4(pos + rotate(inst_pos * pix_size * size, rot), 1.0);
 	}
 
-	finalAxis = axis;
+#ifdef USE_AXIS
+	finalColor.rgb = vec3(0.0);
+	finalColor[axis] = 1.0;
+#else
+	if (val < 0.0) {
+		finalColor.rgb = color;
+	}
+	else {
+		finalColor.rgb = texture(ramp, val).rgb;
+	}
+#endif
+
+	finalColor.a = 1.0;
 }

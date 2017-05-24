@@ -642,6 +642,9 @@ static void DRW_interface_attrib(DRWShadingGroup *shgroup, const char *name, DRW
 	attrib->type = type;
 	attrib->size = size;
 
+/* Adding attribute even if not found for now (to keep memory alignment).
+ * Should ideally take vertex format automatically from batch eventually */
+#if 0
 	if (attrib->location == -1 && !dummy) {
 		if (G.debug & G_DEBUG)
 			fprintf(stderr, "Attribute '%s' not found!\n", name);
@@ -649,6 +652,7 @@ static void DRW_interface_attrib(DRWShadingGroup *shgroup, const char *name, DRW
 		MEM_freeN(attrib);
 		return;
 	}
+#endif
 
 	BLI_assert(BLI_strnlen(name, 32) < 32);
 	BLI_strncpy(attrib->name, name, 32);
@@ -3274,6 +3278,7 @@ void DRW_engines_register(void)
 }
 
 extern struct GPUUniformBuffer *globals_ubo; /* draw_common.c */
+extern struct GPUTexture *globals_ramp; /* draw_common.c */
 void DRW_engines_free(void)
 {
 	DRW_shape_cache_free();
@@ -3290,6 +3295,9 @@ void DRW_engines_free(void)
 
 	if (globals_ubo)
 		GPU_uniformbuffer_free(globals_ubo);
+
+	if (globals_ramp)
+		GPU_texture_free(globals_ramp);
 
 #ifdef WITH_CLAY_ENGINE
 	BLI_remlink(&R_engines, &DRW_engine_viewport_clay_type);
