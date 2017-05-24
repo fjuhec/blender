@@ -2989,9 +2989,6 @@ static void write_screen(WriteData *wd, bScreen *sc)
 				BGpic *bgpic;
 				writestruct(wd, DATA, View3D, 1, v3d);
 
-				/* Don't write data of custom_orientation pointer here, scene already writes it. We only
-				 * have to update the pointer when reading (see direct_link_scene_update_screens) */
-
 				for (bgpic = v3d->bgpicbase.first; bgpic; bgpic = bgpic->next) {
 					writestruct(wd, DATA, BGpic, 1, bgpic);
 				}

@@ -6068,19 +6068,8 @@ static void direct_link_layer_collections(FileData *fd, ListBase *lb)
 	}
 }
 
-/**
- * bScreen data may use pointers to Scene data. We can't read this when reading screens
- * though, so we have to update screens when/after reading scenes. This function should
- * be called during Scene direct linking to update needed pointers within screen data
- * (as in everything visible in the window, not just bScreen).
- *
- * Maybe we could change read order so that screens are read after scene. But guess that
- * would be asking for trouble. Depending on the write/read order sounds ugly anyway,
- * Workspaces already depend on it...
- * -- Julian
- */
 static void direct_link_scene_update_screen_data(
-        FileData *fd, const Scene *scene, const ListBase *workspaces, const ListBase *screens)
+        FileData *fd, const Scene *scene, const ListBase *workspaces)
 {
 	BKE_WORKSPACE_ITER_BEGIN (workspace, workspaces->first) {
 		SceneLayer *layer = newdataadr(fd, BKE_workspace_render_layer_get(workspace));
@@ -6089,20 +6078,6 @@ static void direct_link_scene_update_screen_data(
 			BKE_workspace_render_layer_set(workspace, layer);
 		}
 	} BKE_WORKSPACE_ITER_END;
-
-	for (bScreen *screen = screens->first; screen; screen = screen->id.next) {
-		for (ScrArea *area = screen->areabase.first; area; area = area->next) {
-			for (SpaceLink *sl = area->spacedata.first; sl; sl = sl->next) {
-				if (sl->spacetype == SPACE_VIEW3D) {
-					View3D *v3d = (View3D *)sl;
-
-					if (v3d->custom_orientation) {
-						v3d->custom_orientation = newdataadr(fd, v3d->custom_orientation);
-					}
-				}
-			}
-		}
-	}
 }
 
 static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
@@ -6401,7 +6376,7 @@ static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
 	BKE_layer_collection_engine_settings_validate_scene(sce);
 	BKE_scene_layer_engine_settings_validate_scene(sce);
 
-	direct_link_scene_update_screen_data(fd, sce, &bmain->workspaces, &bmain->screen);
+	direct_link_scene_update_screen_data(fd, sce, &bmain->workspaces);
 }
 
 /* ************ READ WM ***************** */
@@ -7371,9 +7346,7 @@ static bool direct_link_screen(FileData *fd, bScreen *sc)
 			if (sl->spacetype == SPACE_VIEW3D) {
 				View3D *v3d= (View3D*) sl;
 				BGpic *bgpic;
-
-				/* v3d->custom_orientation will be updated later, see direct_link_scene_update_screens */
-
+				
 				v3d->flag |= V3D_INVALID_BACKBUF;
 				
 				link_list(fd, &v3d->bgpicbase);

@@ -30,7 +30,6 @@
 struct bScreen;
 struct ListBase;
 struct Main;
-struct TransformOrientation;
 struct WorkSpace;
 struct WorkSpaceDataRelation;
 
@@ -73,10 +72,6 @@ void BKE_workspace_layout_remove(
 	for (WorkSpace *_workspace = _start_workspace, *_workspace##_next; _workspace; _workspace = _workspace##_next) { \
 		_workspace##_next = ((ID *)_workspace)->next; /* support removing workspace from list */
 #define BKE_WORKSPACE_ITER_END } ((void)0)
-
-void BKE_workspaces_transform_orientation_remove(
-        const struct ListBase *workspaces,
-        const struct TransformOrientation *orientation) ATTR_NONNULL();
 
 WorkSpaceLayout *BKE_workspace_layout_find(
         const WorkSpace *workspace, const struct bScreen *screen) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;

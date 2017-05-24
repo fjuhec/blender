@@ -35,7 +35,6 @@
 #include "BKE_global.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
-#include "BKE_screen.h"
 #include "BKE_workspace.h"
 
 #include "DNA_object_types.h"
@@ -230,16 +229,6 @@ void BKE_workspace_layout_remove(
 
 /* -------------------------------------------------------------------- */
 /* General Utils */
-
-void BKE_workspaces_transform_orientation_remove(
-        const ListBase *workspaces, const TransformOrientation *orientation)
-{
-	BKE_WORKSPACE_ITER_BEGIN (workspace, workspaces->first) {
-		BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout, workspace->layouts.first) {
-			BKE_screen_transform_orientation_remove(BKE_workspace_layout_screen_get(layout), orientation);
-		} BKE_WORKSPACE_LAYOUT_ITER_END;
-	} BKE_WORKSPACE_ITER_END;
-}
 
 WorkSpaceLayout *BKE_workspace_layout_find(
         const WorkSpace *workspace, const bScreen *screen)
