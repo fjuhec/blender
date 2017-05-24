@@ -53,6 +53,8 @@ struct Batch *DRW_cache_empty_sphere_get(void);
 struct Batch *DRW_cache_empty_cone_get(void);
 struct Batch *DRW_cache_arrows_get(void);
 struct Batch *DRW_cache_axis_names_get(void);
+struct Batch *DRW_cache_image_plane_get(void);
+struct Batch *DRW_cache_image_plane_wire_get(void);
 
 /* Force Field */
 struct Batch *DRW_cache_field_wind_get(void);
@@ -110,6 +112,8 @@ struct Batch *DRW_cache_mesh_edges_paint_overlay_get(struct Object *ob, bool use
 struct Batch *DRW_cache_mesh_faces_weight_overlay_get(struct Object *ob);
 struct Batch *DRW_cache_mesh_verts_weight_overlay_get(struct Object *ob);
 struct Batch **DRW_cache_mesh_surface_shaded_get(struct Object *ob);
+struct Batch **DRW_cache_mesh_surface_texpaint_get(struct Object *ob);
+struct Batch *DRW_cache_mesh_surface_texpaint_single_get(struct Object *ob);
 
 /* Curve */
 struct Batch *DRW_cache_curve_surface_get(struct Object *ob);
@@ -137,5 +141,7 @@ struct Batch *DRW_cache_lattice_vert_overlay_get(struct Object *ob);
 
 /* Particles */
 struct Batch *DRW_cache_particles_get_hair(struct ParticleSystem *psys);
+struct Batch *DRW_cache_particles_get_dots(struct ParticleSystem *psys);
+struct Batch *DRW_cache_particles_get_prim(int type);
 
 #endif /* __DRAW_CACHE_H__ */

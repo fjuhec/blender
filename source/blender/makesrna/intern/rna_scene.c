@@ -82,8 +82,6 @@
 
 #include "BLI_threads.h"
 
-#define NO_ENGINE "NO_ENGINE"
-
 #ifdef WITH_OPENEXR
 EnumPropertyItem rna_enum_exr_codec_items[] = {
 	{R_IMF_EXR_CODEC_NONE, "NONE", 0, "None", ""},
@@ -1842,7 +1840,7 @@ static void object_simplify_update(Object *ob)
 	}
 }
 
-static void rna_Scene_use_simplify_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *ptr)
+static void rna_Scene_use_simplify_update(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
 	Scene *sce = ptr->id.data;
 	Scene *sce_iter;
@@ -1853,6 +1851,7 @@ static void rna_Scene_use_simplify_update(Main *bmain, Scene *UNUSED(scene), Poi
 		object_simplify_update(base->object);
 	
 	WM_main_add_notifier(NC_GEOM | ND_DATA, NULL);
+	DAG_id_tag_update(&scene->id, 0);
 }
 
 static void rna_Scene_simplify_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *ptr)
@@ -9324,5 +9323,3 @@ void RNA_def_scene(BlenderRNA *brna)
 }
 
 #endif
-
-#undef NO_ENGINE

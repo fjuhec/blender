@@ -72,6 +72,8 @@ struct Batch *DRW_lattice_batch_cache_get_overlay_verts(struct Lattice *lt);
 /* Mesh */
 
 struct Batch **DRW_mesh_batch_cache_get_surface_shaded(struct Mesh *me);
+struct Batch **DRW_mesh_batch_cache_get_surface_texpaint(struct Mesh *me);
+struct Batch *DRW_mesh_batch_cache_get_surface_texpaint_single(struct Mesh *me);
 struct Batch *DRW_mesh_batch_cache_get_weight_overlay_edges(struct Mesh *me, bool use_wire, bool use_sel);
 struct Batch *DRW_mesh_batch_cache_get_weight_overlay_faces(struct Mesh *me);
 struct Batch *DRW_mesh_batch_cache_get_weight_overlay_verts(struct Mesh *me);
@@ -93,5 +95,6 @@ struct Batch *DRW_mesh_batch_cache_get_overlay_facedots(struct Mesh *me);
 
 /* Particles */
 struct Batch *DRW_particles_batch_cache_get_hair(struct ParticleSystem *psys);
+struct Batch *DRW_particles_batch_cache_get_dots(struct ParticleSystem *psys);
 
 #endif /* __DRAW_CACHE_IMPL_H__ */

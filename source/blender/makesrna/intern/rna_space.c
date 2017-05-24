@@ -1156,7 +1156,8 @@ static EnumPropertyItem *rna_SpaceProperties_context_itemf(bContext *UNUSED(C), 
 static void rna_SpaceProperties_context_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
 {
 	SpaceButs *sbuts = (SpaceButs *)(ptr->data);
-	if (ELEM(sbuts->mainb, BCONTEXT_WORLD, BCONTEXT_MATERIAL, BCONTEXT_TEXTURE)) {
+	/* XXX BCONTEXT_DATA is ugly, but required for lamps... See T51318. */
+	if (ELEM(sbuts->mainb, BCONTEXT_WORLD, BCONTEXT_MATERIAL, BCONTEXT_TEXTURE, BCONTEXT_DATA)) {
 		sbuts->preview = 1;
 	}
 }
@@ -1362,7 +1363,7 @@ static void rna_SpaceDopeSheetEditor_action_update(Main *bmain, bContext *C, Sce
 	}
 }
 
-static void rna_SpaceDopeSheetEditor_mode_update(Main *UNUSED(bmain), bContext *C, Scene *UNUSED(scene), PointerRNA *ptr)
+static void rna_SpaceDopeSheetEditor_mode_update(bContext *C, PointerRNA *ptr)
 {
 	SpaceAction *saction = (SpaceAction *)(ptr->data);
 	SceneLayer *sl = CTX_data_scene_layer(C);

@@ -31,6 +31,8 @@
 #include "BLI_dynstr.h"
 #include "BLI_rand.h"
 
+#include "GPU_shader.h"
+
 #include "IMB_imbuf.h"
 #include "IMB_imbuf_types.h"
 
@@ -53,9 +55,9 @@
 
 extern char datatoc_clay_frag_glsl[];
 extern char datatoc_clay_vert_glsl[];
+extern char datatoc_clay_particle_vert_glsl[];
+extern char datatoc_clay_particle_strand_frag_glsl[];
 extern char datatoc_ssao_alchemy_glsl[];
-extern char datatoc_particle_vert_glsl[];
-extern char datatoc_particle_strand_frag_glsl[];
 
 /* *********** LISTS *********** */
 
@@ -85,7 +87,7 @@ typedef struct CLAY_HAIR_UBO_Material {
 	float matcap_hsv[3];
 	float pad;
 } CLAY_HAIR_UBO_Material; /* 32 bytes */
-BLI_STATIC_ASSERT_ALIGN(CLAY_UBO_Material, 16)
+BLI_STATIC_ASSERT_ALIGN(CLAY_HAIR_UBO_Material, 16)
 
 typedef struct CLAY_UBO_Storage {
 	CLAY_UBO_Material materials[MAX_CLAY_MAT];
@@ -162,7 +164,6 @@ static struct {
 
 	/* Just a serie of int from 0 to MAX_CLAY_MAT-1 */
 	int ubo_mat_idxs[MAX_CLAY_MAT];
-	int hair_ubo_mat_idxs[MAX_CLAY_MAT];
 
 	/* engine specific */
 	struct GPUTexture *depth_dup;
@@ -175,7 +176,6 @@ typedef struct CLAY_PrivateData {
 	DRWShadingGroup *depth_shgrp_cull;
 	DRWShadingGroup *depth_shgrp_cull_select;
 	DRWShadingGroup *depth_shgrp_cull_active;
-	DRWShadingGroup *hair;
 } CLAY_PrivateData; /* Transient data */
 
 /* Functions */
@@ -361,7 +361,9 @@ static void CLAY_engine_init(void *vedata)
 	}
 
 	if (!e_data.hair_sh) {
-		e_data.hair_sh = DRW_shader_create(datatoc_particle_vert_glsl, NULL, datatoc_particle_strand_frag_glsl, "#define MAX_MATERIAL 512\n");
+		e_data.hair_sh = DRW_shader_create(
+		        datatoc_clay_particle_vert_glsl, NULL, datatoc_clay_particle_strand_frag_glsl,
+		        "#define MAX_MATERIAL 512\n");
 	}
 
 	if (!stl->storage) {
@@ -395,13 +397,15 @@ static void CLAY_engine_init(void *vedata)
 	{
 		const DRWContextState *draw_ctx = DRW_context_state_get();
 		SceneLayer *scene_layer = draw_ctx->sl;
-		IDProperty *props = BKE_scene_layer_engine_evaluated_get(scene_layer, COLLECTION_MODE_NONE, RE_engine_id_BLENDER_CLAY);
+		IDProperty *props = BKE_scene_layer_engine_evaluated_get(
+		        scene_layer, COLLECTION_MODE_NONE, RE_engine_id_BLENDER_CLAY);
 		int ssao_samples = BKE_collection_engine_property_value_get_int(props, "ssao_samples");
 
 		float invproj[4][4];
 		float dfdyfacs[2];
 		const bool is_persp = DRW_viewport_is_persp_get();
-		/* view vectors for the corners of the view frustum. Can be used to recreate the world space position easily */
+		/* view vectors for the corners of the view frustum.
+		 * Can be used to recreate the world space position easily */
 		float viewvecs[3][4] = {
 		    {-1.0f, -1.0f, -1.0f, 1.0f},
 		    {1.0f, -1.0f, -1.0f, 1.0f},
@@ -766,39 +770,33 @@ static void CLAY_cache_populate(void *vedata, Object *ob)
 		}
 	}
 
-	if (ob->type == OB_MESH) {
-		Scene *scene = draw_ctx->scene;
-		Object *obedit = scene->obedit;
+   if (ob->type == OB_MESH) {
+		   Scene *scene = draw_ctx->scene;
+		   Object *obedit = scene->obedit;
 
-		if (ob != obedit) {
-			for (ParticleSystem *psys = ob->particlesystem.first; psys; psys = psys->next) {
-				if (psys_check_enabled(ob, psys, false)) {
-					ParticleSettings *part = psys->part;
-					int draw_as = (part->draw_as == PART_DRAW_REND) ? part->ren_as : part->draw_as;
+		   if (ob != obedit) {
+				   for (ParticleSystem *psys = ob->particlesystem.first; psys; psys = psys->next) {
+						   if (psys_check_enabled(ob, psys, false)) {
+								   ParticleSettings *part = psys->part;
+								   int draw_as = (part->draw_as == PART_DRAW_REND) ? part->ren_as : part->draw_as;
 
-					if (draw_as == PART_DRAW_PATH && !psys->pathcache && !psys->childcache) {
-						draw_as = PART_DRAW_DOT;
-					}
+								   if (draw_as == PART_DRAW_PATH && !psys->pathcache && !psys->childcache) {
+										   draw_as = PART_DRAW_DOT;
+								   }
 
-					switch (draw_as) {
-						case PART_DRAW_PATH:
-							geom = DRW_cache_particles_get_hair(psys);
-							break;
-						default:
-							geom = NULL;
-							break;
-					}
+								   static float mat[4][4];
+								   unit_m4(mat);
 
-					if (geom) {
-						static float mat[4][4];
-						unit_m4(mat);
-						hair_shgrp = CLAY_hair_shgrp_get(ob, stl, psl);
-						DRW_shgroup_call_add(hair_shgrp, geom, mat);
-					}
-				}
-			}
-		}
-	}
+								   if (draw_as == PART_DRAW_PATH) {
+										   geom = DRW_cache_particles_get_hair(psys);
+										   hair_shgrp = CLAY_hair_shgrp_get(ob, stl, psl);
+										   DRW_shgroup_call_add(hair_shgrp, geom, mat);
+								   }
+						   }
+				   }
+		   }
+   }
+
 }
 
 static void CLAY_cache_finish(void *vedata)
