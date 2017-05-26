@@ -652,6 +652,8 @@ static void DRW_interface_attrib(DRWShadingGroup *shgroup, const char *name, DRW
 		MEM_freeN(attrib);
 		return;
 	}
+#else
+	UNUSED_VARS(dummy);
 #endif
 
 	BLI_assert(BLI_strnlen(name, 32) < 32);
@@ -2823,8 +2825,8 @@ void DRW_draw_render_loop(
         struct Depsgraph *graph,
         ARegion *ar, View3D *v3d)
 {
-	Scene *scene = DAG_get_scene(graph);
-	SceneLayer *sl = DAG_get_scene_layer(graph);
+	Scene *scene = DEG_get_scene(graph);
+	SceneLayer *sl = DEG_get_scene_layer(graph);
 	RegionView3D *rv3d = ar->regiondata;
 
 	bool cache_is_dirty;
@@ -2946,8 +2948,8 @@ void DRW_draw_select_loop(
         ARegion *ar, View3D *v3d,
         bool UNUSED(use_obedit_skip), bool UNUSED(use_nearest), const rcti *rect)
 {
-	Scene *scene = DAG_get_scene(graph);
-	SceneLayer *sl = DAG_get_scene_layer(graph);
+	Scene *scene = DEG_get_scene(graph);
+	SceneLayer *sl = DEG_get_scene_layer(graph);
 #ifndef USE_GPU_SELECT
 	UNUSED_VARS(vc, scene, sl, v3d, ar, rect);
 #else
@@ -3059,8 +3061,8 @@ void DRW_draw_depth_loop(
         Depsgraph *graph,
         ARegion *ar, View3D *v3d)
 {
-	Scene *scene = DAG_get_scene(graph);
-	SceneLayer *sl = DAG_get_scene_layer(graph);
+	Scene *scene = DEG_get_scene(graph);
+	SceneLayer *sl = DEG_get_scene_layer(graph);
 	RegionView3D *rv3d = ar->regiondata;
 
 	/* backup (_never_ use rv3d->viewport) */

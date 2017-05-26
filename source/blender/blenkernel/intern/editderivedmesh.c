@@ -1455,34 +1455,27 @@ static void *emDM_getTessFaceDataArray(DerivedMesh *dm, int type)
 	/* layers are store per face for editmesh, we convert to a temporary
 	 * data layer array in the derivedmesh when these are requested */
 	if (type == CD_MTFACE || type == CD_MCOL) {
-		const int type_from = (type == CD_MTFACE) ? CD_MTEXPOLY : CD_MLOOPCOL;
-		int index;
 		const char *bmdata;
 		char *data;
-		index = CustomData_get_layer_index(&bm->pdata, type_from);
 
-		if (index != -1) {
+		bool has_type_source = CustomData_has_layer(&bm->ldata, (type == CD_MTFACE) ? CD_MLOOPUV : CD_MLOOPCOL);
+
+		if (has_type_source) {
 			/* offset = bm->pdata.layers[index].offset; */ /* UNUSED */
 			BMLoop *(*looptris)[3] = bmdm->em->looptris;
 			const int size = CustomData_sizeof(type);
 			int i, j;
 
 			DM_add_tessface_layer(dm, type, CD_CALLOC, NULL);
-			index = CustomData_get_layer_index(&dm->faceData, type);
+			const int index = CustomData_get_layer_index(&dm->faceData, type);
 			dm->faceData.layers[index].flag |= CD_FLAG_TEMPORARY;
 
 			data = datalayer = DM_get_tessface_data_layer(dm, type);
 
 			if (type == CD_MTFACE) {
 				const int cd_loop_uv_offset  = CustomData_get_offset(&bm->ldata, CD_MLOOPUV);
-				const int cd_poly_tex_offset = CustomData_get_offset(&bm->pdata, CD_MTEXPOLY);
 
 				for (i = 0; i < bmdm->em->tottri; i++, data += size) {
-					BMFace *efa = looptris[i][0]->f;
-
-					// bmdata = CustomData_bmesh_get(&bm->pdata, efa->head.data, CD_MTEXPOLY);
-					bmdata = BM_ELEM_CD_GET_VOID_P(efa, cd_poly_tex_offset);
-
 					for (j = 0; j < 3; j++) {
 						// bmdata = CustomData_bmesh_get(&bm->ldata, looptris[i][j]->head.data, CD_MLOOPUV);
 						bmdata = BM_ELEM_CD_GET_VOID_P(looptris[i][j], cd_loop_uv_offset);
