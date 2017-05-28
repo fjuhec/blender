@@ -849,7 +849,7 @@ int set_listbasepointers(Main *main, ListBase **lb)
 	lb[INDEX_ID_WS]  = &(main->workspaces); /* before wm, so it's freed after it! */
 	lb[INDEX_ID_WM]  = &(main->wm);
 	lb[INDEX_ID_MSK] = &(main->mask);
-
+	
 	lb[INDEX_ID_NULL] = NULL;
 
 	return (MAX_LIBARRAY - 1);
@@ -1822,7 +1822,7 @@ void BKE_library_make_local(
 
 		/* Do not explicitly make local non-linkable IDs (shapekeys, in fact), they are assumed to be handled
 		 * by real datablocks responsible of them. */
-		const bool do_skip = (id && !BKE_idcode_is_appendable(GS(id->name)));
+		const bool do_skip = (id && !BKE_idcode_is_linkable(GS(id->name)));
 
 		for (; id; id = id->next) {
 			ID *ntree = (ID *)ntreeFromID(id);

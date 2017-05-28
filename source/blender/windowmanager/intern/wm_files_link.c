@@ -283,8 +283,8 @@ static void wm_link_do(
  *
  * \param reports: Optionally report an error when an item can't be appended/linked.
  */
-static bool wm_link_append_item_poll(ReportList *reports, const char *path, const char *group, const char *name,
-                                     const bool is_append)
+static bool wm_link_append_item_poll(
+        ReportList *reports, const char *path, const char *group, const char *name, const bool do_append)
 {
 	short idcode;
 
@@ -295,12 +295,16 @@ static bool wm_link_append_item_poll(ReportList *reports, const char *path, cons
 
 	idcode = BKE_idcode_from_name(group);
 
-	if ((is_append  && !BKE_idcode_is_appendable(idcode)) ||
-	    (!is_append && !BKE_idcode_is_linkable(idcode)))
-	{
+	/* XXX For now, we do a nasty exception for workspace, forbid linking them.
+	 *     Not nice, ultimately should be solved! */
+	if (!BKE_idcode_is_linkable(idcode) && (do_append || idcode != ID_WS)) {
 		if (reports) {
-			BKE_reportf(reports, RPT_ERROR_INVALID_INPUT, "Can't %s data-block '%s' of type '%s'",
-			            is_append ? "append" : "link", name, group);
+			if (do_append) {
+				BKE_reportf(reports, RPT_ERROR_INVALID_INPUT, "Can't append data-block '%s' of type '%s'", name, group);
+			}
+			else {
+				BKE_reportf(reports, RPT_ERROR_INVALID_INPUT, "Can't link data-block '%s' of type '%s'", name, group);
+			}
 		}
 		return false;
 	}
@@ -320,7 +324,7 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 	int totfiles = 0;
 	short flag;
 	bool has_item = false;
-	bool is_append;
+	bool do_append;
 
 	RNA_string_get(op->ptr, "filename", relname);
 	RNA_string_get(op->ptr, "directory", root);
@@ -358,7 +362,7 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 	}
 
 	flag = wm_link_append_flag(op);
-	is_append = (flag & FILE_LINK) == 0;
+	do_append = (flag & FILE_LINK) == 0;
 
 	/* sanity checks for flag */
 	if (scene && scene->id.lib) {
@@ -394,7 +398,7 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 			BLI_join_dirfile(path, sizeof(path), root, relname);
 
 			if (BLO_library_path_explode(path, libname, &group, &name)) {
-				if (!wm_link_append_item_poll(NULL, path, group, name, is_append)) {
+				if (!wm_link_append_item_poll(NULL, path, group, name, do_append)) {
 					continue;
 				}
 
@@ -417,7 +421,7 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 			if (BLO_library_path_explode(path, libname, &group, &name)) {
 				WMLinkAppendDataItem *item;
 
-				if (!wm_link_append_item_poll(op->reports, path, group, name, is_append)) {
+				if (!wm_link_append_item_poll(op->reports, path, group, name, do_append)) {
 					continue;
 				}
 
@@ -458,7 +462,7 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 	IMB_colormanagement_check_file_config(bmain);
 
 	/* append, rather than linking */
-	if (is_append) {
+	if (do_append) {
 		const bool set_fake = RNA_boolean_get(op->ptr, "set_fake");
 		const bool use_recursive = RNA_boolean_get(op->ptr, "use_recursive");
 
@@ -545,7 +549,7 @@ void WM_OT_link(wmOperatorType *ot)
 	ot->flag |= OPTYPE_UNDO;
 
 	WM_operator_properties_filesel(
-	        ot, FILE_TYPE_FOLDER | FILE_TYPE_BLENDER | FILE_TYPE_BLENDERLIB, FILE_LOADLIB_LINKABLE, FILE_OPENFILE,
+	        ot, FILE_TYPE_FOLDER | FILE_TYPE_BLENDER | FILE_TYPE_BLENDERLIB, FILE_LOADLIB, FILE_OPENFILE,
 	        WM_FILESEL_FILEPATH | WM_FILESEL_DIRECTORY | WM_FILESEL_FILENAME | WM_FILESEL_RELPATH | WM_FILESEL_FILES,
 	        FILE_DEFAULTDISPLAY, FILE_SORT_ALPHA);
 	
@@ -565,7 +569,7 @@ void WM_OT_append(wmOperatorType *ot)
 	ot->flag |= OPTYPE_UNDO;
 
 	WM_operator_properties_filesel(
-	        ot, FILE_TYPE_FOLDER | FILE_TYPE_BLENDER | FILE_TYPE_BLENDERLIB, FILE_LOADLIB_APPENDABLE, FILE_OPENFILE,
+	        ot, FILE_TYPE_FOLDER | FILE_TYPE_BLENDER | FILE_TYPE_BLENDERLIB, FILE_LOADLIB, FILE_OPENFILE,
 	        WM_FILESEL_FILEPATH | WM_FILESEL_DIRECTORY | WM_FILESEL_FILENAME | WM_FILESEL_FILES,
 	        FILE_DEFAULTDISPLAY, FILE_SORT_ALPHA);
 
@@ -621,20 +625,14 @@ static void lib_relocate_do(
 		ID *id = lbarray[lba_idx]->first;
 		const short idcode = id ? GS(id->name) : 0;
 
-		/* Could continue for non-linkable ID types here already, but we
-		 * want to show an error message for all un-linkable IDs. */
+		if (!id || !BKE_idcode_is_linkable(idcode)) {
+			/* No need to reload non-linkable datatypes, those will get relinked with their 'users ID'. */
+			continue;
+		}
 
 		for (; id; id = id->next) {
 			if (id->lib == library) {
 				WMLinkAppendDataItem *item;
-
-				if (!BKE_idcode_is_linkable(idcode)) {
-					/* No need to reload non-linkable datatypes, those will get relinked with their 'users ID'. */
-					BKE_reportf(reports, RPT_ERROR_INVALID_INPUT, "Can not %s '%s': Data-blocks of type '%s' "
-					            "don't support linking", do_reload ? "reload" : "relocate",
-					            id->name + 2, BKE_idcode_to_name(idcode));
-					continue;
-				}
 
 				/* We remove it from current Main, and add it to items to link... */
 				/* Note that non-linkable IDs (like e.g. shapekeys) are also explicitly linked here... */

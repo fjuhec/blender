@@ -353,8 +353,7 @@ static ImBuf *gSpecialFileImages[SPECIAL_IMG_MAX];
 
 
 static void filelist_readjob_main(struct FileList *, const char *, short *, short *, float *, ThreadMutex *);
-static void filelist_readjob_lib_linkable(struct FileList *, const char *, short *, short *, float *, ThreadMutex *);
-static void filelist_readjob_lib_appendable(struct FileList *, const char *, short *, short *, float *, ThreadMutex *);
+static void filelist_readjob_lib(struct FileList *, const char *, short *, short *, float *, ThreadMutex *);
 static void filelist_readjob_dir(struct FileList *, const char *, short *, short *, float *, ThreadMutex *);
 
 /* helper, could probably go in BKE actually? */
@@ -1287,14 +1286,9 @@ FileList *filelist_new(short type)
 			p->read_jobf = filelist_readjob_main;
 			p->filterf = is_filtered_main;
 			break;
-		case FILE_LOADLIB_LINKABLE:
+		case FILE_LOADLIB:
 			p->checkdirf = filelist_checkdir_lib;
-			p->read_jobf = filelist_readjob_lib_linkable;
-			p->filterf = is_filtered_lib;
-			break;
-		case FILE_LOADLIB_APPENDABLE:
-			p->checkdirf = filelist_checkdir_lib;
-			p->read_jobf = filelist_readjob_lib_appendable;
+			p->read_jobf = filelist_readjob_lib;
 			p->filterf = is_filtered_lib;
 			break;
 		default:
@@ -2239,16 +2233,7 @@ static int filelist_readjob_list_dir(
 	return nbr_entries;
 }
 
-enum FileListReadType {
-	FILELIST_DIRECTORY,
-	FILELIST_LIB_LINKABLE,
-	FILELIST_LIB_APPENDABLE,
-};
-
-static int filelist_readjob_list_lib(
-        const enum FileListReadType type,
-        const char *root, ListBase *entries,
-        const bool skip_currpar)
+static int filelist_readjob_list_lib(const char *root, ListBase *entries, const bool skip_currpar)
 {
 	FileListInternEntry *entry;
 	LinkNode *ln, *names;
@@ -2276,13 +2261,7 @@ static int filelist_readjob_list_lib(
 		names = BLO_blendhandle_get_datablock_names(libfiledata, idcode, &nnames);
 	}
 	else {
-		if (type == FILELIST_LIB_LINKABLE) {
-			names = BLO_blendhandle_get_linkable_groups(libfiledata);
-		}
-		else {
-			BLI_assert(type == FILELIST_LIB_APPENDABLE);
-			names = BLO_blendhandle_get_appendable_groups(libfiledata);
-		}
+		names = BLO_blendhandle_get_linkable_groups(libfiledata);
 		nnames = BLI_linklist_count(names);
 	}
 
@@ -2465,9 +2444,8 @@ static void filelist_readjob_main_rec(struct FileList *filelist)
 #endif
 
 static void filelist_readjob_do(
-        const enum FileListReadType type,
-        FileList *filelist, const char *main_name,
-        short *stop, short *do_update, float *progress, ThreadMutex *lock)
+        const bool do_lib,
+        FileList *filelist, const char *main_name, short *stop, short *do_update, float *progress, ThreadMutex *lock)
 {
 	ListBase entries = {0};
 	BLI_Stack *todo_dirs;
@@ -2476,7 +2454,6 @@ static void filelist_readjob_do(
 	char filter_glob[64];  /* TODO should be define! */
 	const char *root = filelist->filelist.root;
 	const int max_recursion = filelist->max_recursion;
-	const bool do_lib = ELEM(type, FILELIST_LIB_LINKABLE, FILELIST_LIB_APPENDABLE);
 	int nbr_done_dirs = 0, nbr_todo_dirs = 1;
 
 //	BLI_assert(filelist->filtered == NULL);
@@ -2518,7 +2495,7 @@ static void filelist_readjob_do(
 		BLI_path_rel(rel_subdir, root);
 
 		if (do_lib) {
-			nbr_entries = filelist_readjob_list_lib(type, subdir, &entries, skip_currpar);
+			nbr_entries = filelist_readjob_list_lib(subdir, &entries, skip_currpar);
 		}
 		if (!nbr_entries) {
 			is_lib = false;
@@ -2590,19 +2567,13 @@ static void filelist_readjob_do(
 static void filelist_readjob_dir(
         FileList *filelist, const char *main_name, short *stop, short *do_update, float *progress, ThreadMutex *lock)
 {
-	filelist_readjob_do(FILELIST_DIRECTORY, filelist, main_name, stop, do_update, progress, lock);
+	filelist_readjob_do(false, filelist, main_name, stop, do_update, progress, lock);
 }
 
-static void filelist_readjob_lib_linkable(
+static void filelist_readjob_lib(
         FileList *filelist, const char *main_name, short *stop, short *do_update, float *progress, ThreadMutex *lock)
 {
-	filelist_readjob_do(FILELIST_LIB_LINKABLE, filelist, main_name, stop, do_update, progress, lock);
-}
-
-static void filelist_readjob_lib_appendable(
-        FileList *filelist, const char *main_name, short *stop, short *do_update, float *progress, ThreadMutex *lock)
-{
-	filelist_readjob_do(FILELIST_LIB_APPENDABLE, filelist, main_name, stop, do_update, progress, lock);
+	filelist_readjob_do(true, filelist, main_name, stop, do_update, progress, lock);
 }
 
 static void filelist_readjob_main(

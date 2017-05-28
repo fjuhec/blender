@@ -1613,7 +1613,7 @@ static int rna_FileSelectParams_use_lib_get(PointerRNA *ptr)
 {
 	FileSelectParams *params = ptr->data;
 
-	return params && ELEM(params->type, FILE_LOADLIB_LINKABLE, FILE_LOADLIB_APPENDABLE);
+	return params && (params->type == FILE_LOADLIB);
 }
 
 static EnumPropertyItem *rna_FileSelectParams_recursion_level_itemf(
@@ -1621,7 +1621,7 @@ static EnumPropertyItem *rna_FileSelectParams_recursion_level_itemf(
 {
 	FileSelectParams *params = ptr->data;
 
-	if (params && ELEM(params->type, FILE_LOADLIB_LINKABLE, FILE_LOADLIB_APPENDABLE)) {
+	if (params && params->type != FILE_LOADLIB) {
 		EnumPropertyItem *item = NULL;
 		int totitem = 0;
 
