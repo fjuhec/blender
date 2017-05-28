@@ -423,11 +423,7 @@ static void rna_Object_parent_set(PointerRNA *ptr, PointerRNA value)
 {
 	Object *ob = (Object *)ptr->data;
 	Object *par = (Object *)value.data;
-	
-#ifdef FREE_WINDOWS
-	/* NOTE: this dummy check here prevents this method causing weird runtime errors on mingw 4.6.2 */
-	if (ob)
-#endif
+
 	{
 		ED_object_parent(ob, par, ob->partype, ob->parsubstr);
 	}
@@ -622,10 +618,10 @@ void rna_object_uvlayer_name_set(PointerRNA *ptr, const char *value, char *resul
 	if (ob->type == OB_MESH && ob->data) {
 		me = (Mesh *)ob->data;
 
-		for (a = 0; a < me->pdata.totlayer; a++) {
-			layer = &me->pdata.layers[a];
+		for (a = 0; a < me->ldata.totlayer; a++) {
+			layer = &me->ldata.layers[a];
 
-			if (layer->type == CD_MTEXPOLY && STREQ(layer->name, value)) {
+			if (layer->type == CD_MLOOPUV && STREQ(layer->name, value)) {
 				BLI_strncpy(result, value, maxlen);
 				return;
 			}
