@@ -25,7 +25,6 @@
 #include "BKE_context.h"
 #include "BKE_image.h"
 
-#include "DNA_image_types.h"
 #include "DNA_manipulator_types.h"
 
 #include "ED_screen.h"
@@ -66,8 +65,8 @@ static void WIDGETGROUP_node_transform_init(const bContext *UNUSED(C), wmManipul
 	wmManipulatorWrapper *wwrapper = MEM_mallocN(sizeof(wmManipulatorWrapper), __func__);
 
 	wwrapper->manipulator = MANIPULATOR_rect_transform_new(
-	                       wgroup, "backdrop_cage",
-	                       MANIPULATOR_RECT_TRANSFORM_STYLE_TRANSLATE | MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM);
+	        wgroup, "backdrop_cage",
+	        MANIPULATOR_RECT_TRANSFORM_STYLE_TRANSLATE | MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM);
 	wgroup->customdata = wwrapper;
 
 }
