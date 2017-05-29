@@ -1396,20 +1396,21 @@ void drawnodespace(const bContext *C, ARegion *ar)
 			/* backdrop */
 			draw_nodespace_back_pix(C, ar, snode, path->parent_key);
 
-			glMatrixMode(GL_PROJECTION);
-			glPushMatrix();
-			glMatrixMode(GL_MODELVIEW);
-			glPushMatrix();
-			
-			glaDefine2DArea(&ar->winrct);
-			wmOrtho2_pixelspace(ar->winx, ar->winy);
+			{
+				float original_proj[4][4];
+				gpuGetProjectionMatrix(original_proj);
 
-			WM_manipulatormap_draw(ar->manipulator_map, C, WM_MANIPULATORMAP_DRAWSTEP_2D);
+				gpuPushMatrix();
+				gpuLoadIdentity();
 
-			glMatrixMode(GL_PROJECTION);
-			glPopMatrix();
-			glMatrixMode(GL_MODELVIEW);
-			glPopMatrix();
+				glaDefine2DArea(&ar->winrct);
+				wmOrtho2_pixelspace(ar->winx, ar->winy);
+
+				WM_manipulatormap_draw(ar->manipulator_map, C, WM_MANIPULATORMAP_DRAWSTEP_2D);
+
+				gpuPopMatrix();
+				gpuLoadProjectionMatrix(original_proj);
+			}
 
 			draw_nodetree(C, ar, ntree, path->parent_key);
 		}
