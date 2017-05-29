@@ -9780,10 +9780,12 @@ void ED_draw_object_facemap(Scene *scene, Object *ob, const float col[4], const 
 	if (!dm || !CustomData_has_layer(&dm->polyData, CD_FACEMAP))
 		return;
 
-	DM_update_materials(dm, ob);
 
 	glFrontFace((ob->transflag & OB_NEG_SCALE) ? GL_CW : GL_CCW);
 	
+#if 0
+	DM_update_materials(dm, ob);
+
 	/* add polygon offset so we draw above the original surface */
 	glPolygonOffset(1.0, 1.0);
 
@@ -9810,6 +9812,85 @@ void ED_draw_object_facemap(Scene *scene, Object *ob, const float col[4], const 
 	GPU_buffers_unbind();
 
 	glPolygonOffset(0.0, 0.0);
+
+#else
+
+	(void)facemap;
+	(void)col;
+
+	/* Just to create the data to pass to immediate mode, grr! */
+	Mesh *me = ob->data;
+	const int *facemap_data = CustomData_get_layer(&me->pdata, CD_FACEMAP);
+	if (facemap_data) {
+		VertexFormat *format = immVertexFormat();
+		unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
+
+		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+		immUniformColor4f(1.0, 1.0, 1.0, 2.0);
+
+		/* XXX, alpha isn't working yet, not sure why. */
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glEnable(GL_BLEND);
+
+		MVert *mvert;
+
+		MPoly *mpoly;
+		int    mpoly_len;
+
+		MLoop *mloop;
+		int    mloop_len;
+
+		if (dm && CustomData_has_layer(&dm->polyData, CD_FACEMAP)) {
+			mvert = dm->getVertArray(dm);
+			mpoly = dm->getPolyArray(dm);
+			mloop = dm->getLoopArray(dm);
+
+			mpoly_len = dm->getNumPolys(dm);
+			mloop_len = dm->getNumLoops(dm);
+
+			facemap_data = CustomData_get_layer(&dm->polyData, CD_FACEMAP);
+		}
+		else {
+			mvert = me->mvert;
+			mpoly = me->mpoly;
+			mloop = me->mloop;
+
+			mpoly_len = me->totpoly;
+			mloop_len = me->totloop;
+
+			facemap_data = CustomData_get_layer(&me->pdata, CD_FACEMAP);
+		}
+
+		/* use gawain immediate mode fore now */
+		const int looptris_len = poly_to_tri_count(mpoly_len, mloop_len);
+		immBeginAtMost(PRIM_TRIANGLES, looptris_len * 3);
+
+		MPoly *mp;
+		int i;
+		for (mp = mpoly, i = 0; i < mpoly_len; i++, mp++) {
+			if (facemap_data[i] == facemap) {
+				/* Weak, fan-fill, use until we have derived-mesh replaced. */
+				const MLoop *ml_start = &mloop[mp->loopstart];
+				const MLoop *ml_a = ml_start + 1;
+				const MLoop *ml_b = ml_start + 2;
+				for (int j = 2; j < mp->totloop; j++) {
+					immVertex3fv(pos, mvert[ml_start->v].co);
+					immVertex3fv(pos, mvert[ml_a->v].co);
+					immVertex3fv(pos, mvert[ml_b->v].co);
+
+					ml_a++;
+					ml_b++;
+				}
+			}
+		}
+		immEnd();
+
+		immUnbindProgram();
+
+		glDisable(GL_BLEND);
+	}
+#endif
+
 	dm->release(dm);
 }
 
