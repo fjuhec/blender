@@ -49,6 +49,7 @@
 #include "ED_view3d.h"
 
 #include "GPU_select.h"
+#include "GPU_matrix.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -74,11 +75,11 @@ static void widget_facemap_draw(const bContext *C, struct wmManipulator *widget)
 	FacemapManipulator *fmap_widget = (FacemapManipulator *)widget;
 	const float *col = (widget->state & WM_MANIPULATOR_SELECTED) ? widget->col_hi : widget->col;
 
-	glPushMatrix();
-	glMultMatrixf(fmap_widget->ob->obmat);
-	glTranslatef(UNPACK3(widget->offset));
+	gpuPushMatrix();
+	gpuMultMatrix(fmap_widget->ob->obmat);
+	gpuTranslate3fv(widget->offset);
 	ED_draw_object_facemap(CTX_data_scene(C), fmap_widget->ob, col, fmap_widget->facemap);
-	glPopMatrix();
+	gpuPopMatrix();
 }
 
 static void widget_facemap_render_3d_intersect(const bContext *C, struct wmManipulator *widget, int selectionbase)
