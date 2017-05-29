@@ -117,6 +117,7 @@ typedef struct RenderJob {
 	ScrArea *sa;
 	ColorManagedViewSettings view_settings;
 	ColorManagedDisplaySettings display_settings;
+	bool supports_glsl_draw;
 	bool interface_locked;
 } RenderJob;
 
@@ -211,7 +212,7 @@ static void image_buffer_rect_update(RenderJob *rj, RenderResult *rr, ImBuf *ibu
 			}
 			else {
 				if (rr->renlay == NULL) return;
-				rectf = RE_RenderLayerGetPass(rr->renlay, SCE_PASS_COMBINED, viewname);
+				rectf = RE_RenderLayerGetPass(rr->renlay, RE_PASSNAME_COMBINED, viewname);
 			}
 		}
 		if (rectf == NULL) return;
@@ -306,6 +307,7 @@ static int screen_render_exec(bContext *C, wmOperator *op)
 	}
 
 	re = RE_NewRender(scene->id.name);
+	RE_SetDepsgraph(re, CTX_data_depsgraph(C));
 	lay_override = (v3d && v3d->lay != scene->lay) ? v3d->lay : 0;
 
 	G.is_break = false;
@@ -570,6 +572,7 @@ static void image_rect_update(void *rjv, RenderResult *rr, volatile rcti *renrec
 		 * operate with.
 		 */
 		if (rr->do_exr_tile ||
+		    !rj->supports_glsl_draw ||
 		    ibuf->channels == 1 ||
 		    U.image_draw_method != IMAGE_DRAW_METHOD_GLSL)
 		{
@@ -905,6 +908,7 @@ static int screen_render_invoke(bContext *C, wmOperator *op, const wmEvent *even
 	rj->orig_layer = 0;
 	rj->last_layer = 0;
 	rj->sa = sa;
+	rj->supports_glsl_draw = IMB_colormanagement_support_glsl_draw(&scene->view_settings);
 
 	BKE_color_managed_display_settings_copy(&rj->display_settings, &scene->display_settings);
 	BKE_color_managed_view_settings_copy(&rj->view_settings, &scene->view_settings);
@@ -967,6 +971,7 @@ static int screen_render_invoke(bContext *C, wmOperator *op, const wmEvent *even
 	RE_current_scene_update_cb(re, rj, current_scene_update);
 	RE_stats_draw_cb(re, rj, image_renderinfo_cb);
 	RE_progress_cb(re, rj, render_progress_update);
+	RE_SetDepsgraph(re, CTX_data_depsgraph(C));
 
 	rj->re = re;
 	G.is_break = false;

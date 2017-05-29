@@ -251,15 +251,12 @@ bool WIDGETGROUP_manipulator2d_poll(const bContext *C, wmManipulatorGroupType *U
 		BMFace *efa;
 		BMLoop *l;
 		BMIter iter, liter;
-		MTexPoly *tf;
 
 		const int cd_loop_uv_offset  = CustomData_get_offset(&em->bm->ldata, CD_MLOOPUV);
-		const int cd_poly_tex_offset = CustomData_get_offset(&em->bm->pdata, CD_MTEXPOLY);
 
 		/* check if there's a selected poly */
 		BM_ITER_MESH (efa, &iter, em->bm, BM_FACES_OF_MESH) {
-			tf = BM_ELEM_CD_GET_VOID_P(efa, cd_poly_tex_offset);
-			if (!uvedit_face_visible_test(scene, ima, efa, tf))
+			if (!uvedit_face_visible_test(scene, ima, efa))
 				continue;
 
 			BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {

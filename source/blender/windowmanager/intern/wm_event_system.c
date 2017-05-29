@@ -54,6 +54,7 @@
 #include "BKE_context.h"
 #include "BKE_idprop.h"
 #include "BKE_global.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
@@ -318,7 +319,8 @@ void wm_event_do_notifiers(bContext *C)
 				}
 			}
 			if (ELEM(note->category, NC_SCENE, NC_OBJECT, NC_GEOM, NC_WM)) {
-				ED_info_stats_clear(win->screen->scene);
+				SceneLayer *sl = BKE_scene_layer_context_active(win->screen->scene);
+				ED_info_stats_clear(sl);
 				WM_event_add_notifier(C, NC_SPACE | ND_SPACE_INFO, NULL);
 			}
 		}
@@ -338,12 +340,13 @@ void wm_event_do_notifiers(bContext *C)
 	/* the notifiers are sent without context, to keep it clean */
 	while ((note = BLI_pophead(&wm->queue))) {
 		for (win = wm->windows.first; win; win = win->next) {
+			Scene *scene = win->screen->scene;
 			
 			/* filter out notifiers */
 			if (note->category == NC_SCREEN && note->reference && note->reference != win->screen) {
 				/* pass */
 			}
-			else if (note->category == NC_SCENE && note->reference && note->reference != win->screen->scene) {
+			else if (note->category == NC_SCENE && note->reference && note->reference != scene) {
 				/* pass */
 			}
 			else {
@@ -357,13 +360,13 @@ void wm_event_do_notifiers(bContext *C)
 				ED_screen_do_listen(C, note);
 
 				for (ar = win->screen->regionbase.first; ar; ar = ar->next) {
-					ED_region_do_listen(win->screen, NULL, ar, note);
+					ED_region_do_listen(win->screen, NULL, ar, note, scene);
 				}
 				
 				for (sa = win->screen->areabase.first; sa; sa = sa->next) {
-					ED_area_do_listen(win->screen, sa, note);
+					ED_area_do_listen(win->screen, sa, note, scene);
 					for (ar = sa->regionbase.first; ar; ar = ar->next) {
-						ED_region_do_listen(win->screen, sa, ar, note);
+						ED_region_do_listen(win->screen, sa, ar, note, scene);
 					}
 				}
 			}

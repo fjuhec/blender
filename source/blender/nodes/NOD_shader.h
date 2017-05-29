@@ -106,6 +106,7 @@ void register_node_type_sh_bsdf_transparent(void);
 void register_node_type_sh_bsdf_velvet(void);
 void register_node_type_sh_bsdf_toon(void);
 void register_node_type_sh_bsdf_anisotropic(void);
+void register_node_type_sh_bsdf_principled(void);
 void register_node_type_sh_emission(void);
 void register_node_type_sh_holdout(void);
 void register_node_type_sh_volume_absorption(void);
@@ -119,6 +120,8 @@ void register_node_type_sh_uvalongstroke(void);
 
 void register_node_type_sh_output_lamp(void);
 void register_node_type_sh_output_material(void);
+void register_node_type_sh_output_metallic(void);
+void register_node_type_sh_output_specular(void);
 void register_node_type_sh_output_world(void);
 void register_node_type_sh_output_linestyle(void);
 

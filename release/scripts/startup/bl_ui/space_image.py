@@ -481,7 +481,7 @@ class IMAGE_HT_header(Header):
                 row.prop(toolsettings, "snap_target", text="")
 
             mesh = context.edit_object.data
-            layout.prop_search(mesh.uv_textures, "active", mesh, "uv_textures", text="")
+            layout.prop_search(mesh.uv_layers, "active", mesh, "uv_layers", text="")
 
         if ima:
             if ima.is_stereo_3d:
@@ -617,7 +617,6 @@ class IMAGE_PT_game_properties(Panel):
         ima = sima.image
 
         split = layout.split()
-
         col = split.column()
         col.prop(ima, "use_animation")
         sub = col.column(align=True)
@@ -626,17 +625,21 @@ class IMAGE_PT_game_properties(Panel):
         sub.prop(ima, "frame_end", text="End")
         sub.prop(ima, "fps", text="Speed")
 
+        col = split.column()
         col.prop(ima, "use_tiles")
         sub = col.column(align=True)
         sub.active = ima.use_tiles or ima.use_animation
         sub.prop(ima, "tiles_x", text="X")
         sub.prop(ima, "tiles_y", text="Y")
 
+        split = layout.split()
         col = split.column()
         col.label(text="Clamp:")
         col.prop(ima, "use_clamp_x", text="X")
         col.prop(ima, "use_clamp_y", text="Y")
-        col.separator()
+
+        col = split.column()
+        col.label(text="Mapping:")
         col.prop(ima, "mapping", expand=True)
 
 

@@ -111,6 +111,7 @@
 const char *RE_engine_id_BLENDER_RENDER = "BLENDER_RENDER";
 const char *RE_engine_id_BLENDER_GAME = "BLENDER_GAME";
 const char *RE_engine_id_BLENDER_CLAY = "BLENDER_CLAY";
+const char *RE_engine_id_BLENDER_EEVEE = "BLENDER_EEVEE";
 const char *RE_engine_id_CYCLES = "CYCLES";
 
 void free_avicodecdata(AviCodecData *acd)
@@ -253,7 +254,6 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 		scen->theDag = NULL;
 		scen->depsgraph = NULL;
 		scen->obedit = NULL;
-		scen->stats = NULL;
 		scen->fps_info = NULL;
 
 		if (sce->rigidbody_world)
@@ -290,6 +290,9 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 		/* copy Freestyle settings */
 		new_srl = scen->r.layers.first;
 		for (srl = sce->r.layers.first; srl; srl = srl->next) {
+			if (new_srl->prop != NULL) {
+				new_srl->prop = IDP_CopyProperty(new_srl->prop);
+			}
 			BKE_freestyle_config_copy(&new_srl->freestyleConfig, &srl->freestyleConfig);
 			if (type == SCE_COPY_FULL) {
 				for (lineset = new_srl->freestyleConfig.linesets.first; lineset; lineset = lineset->next) {
@@ -310,15 +313,20 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 		/* recursively creates a new SceneCollection tree */
 		scene_collection_copy(mcn, mc);
 
+		IDPropertyTemplate val = {0};
 		BLI_duplicatelist(&scen->render_layers, &sce->render_layers);
 		SceneLayer *new_sl = scen->render_layers.first;
 		for (SceneLayer *sl = sce->render_layers.first; sl; sl = sl->next) {
+			new_sl->stats = NULL;
+			new_sl->properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
+			new_sl->properties_evaluated = NULL;
 
 			/* we start fresh with no overrides and no visibility flags set
 			 * instead of syncing both trees we simply unlink and relink the scene collection */
 			BLI_listbase_clear(&new_sl->layer_collections);
 			BLI_listbase_clear(&new_sl->object_bases);
 			layer_collections_recreate(new_sl, &sl->layer_collections, mcn, mc);
+
 
 			if (sl->basact) {
 				Object *active_ob = sl->basact->object;
@@ -332,8 +340,8 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 			new_sl = new_sl->next;
 		}
 
-		IDPropertyTemplate val = {0};
 		scen->collection_properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
+		scen->layer_properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
 	}
 
 	/* copy color management settings */
@@ -451,6 +459,9 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 		if (sce->collection_properties) {
 			IDP_MergeGroup(scen->collection_properties, sce->collection_properties, true);
 		}
+		if (sce->layer_properties) {
+			IDP_MergeGroup(scen->layer_properties, sce->layer_properties, true);
+		}
 	}
 
 	return scen;
@@ -512,11 +523,15 @@ void BKE_scene_free(Scene *sce)
 		MEM_freeN(sce->r.ffcodecdata.properties);
 		sce->r.ffcodecdata.properties = NULL;
 	}
-	
+
 	for (srl = sce->r.layers.first; srl; srl = srl->next) {
+		if (srl->prop != NULL) {
+			IDP_FreeProperty(srl->prop);
+			MEM_freeN(srl->prop);
+		}
 		BKE_freestyle_config_free(&srl->freestyleConfig);
 	}
-	
+
 	BLI_freelistN(&sce->markers);
 	BLI_freelistN(&sce->transform_spaces);
 	BLI_freelistN(&sce->r.layers);
@@ -557,8 +572,7 @@ void BKE_scene_free(Scene *sce)
 	DEG_scene_graph_free(sce);
 	if (sce->depsgraph)
 		DEG_graph_free(sce->depsgraph);
-	
-	MEM_SAFE_FREE(sce->stats);
+
 	MEM_SAFE_FREE(sce->fps_info);
 
 	BKE_sound_destroy_scene(sce);
@@ -578,11 +592,18 @@ void BKE_scene_free(Scene *sce)
 	MEM_freeN(sce->collection);
 	sce->collection = NULL;
 
-	/* Runtime Engine Data */
+	/* LayerCollection engine settings. */
 	if (sce->collection_properties) {
 		IDP_FreeProperty(sce->collection_properties);
 		MEM_freeN(sce->collection_properties);
 		sce->collection_properties = NULL;
+	}
+
+	/* Render engine setting. */
+	if (sce->layer_properties) {
+		IDP_FreeProperty(sce->layer_properties);
+		MEM_freeN(sce->layer_properties);
+		sce->layer_properties = NULL;
 	}
 }
 
@@ -839,7 +860,7 @@ void BKE_scene_init(Scene *sce)
 	sce->gm.angulardeactthreshold = 1.0f;
 	sce->gm.deactivationtime = 0.0f;
 
-	sce->gm.flag = GAME_DISPLAY_LISTS;
+	sce->gm.flag = 0;
 	sce->gm.matmode = GAME_MAT_MULTITEX;
 
 	sce->gm.obstacleSimulation = OBSTSIMULATION_NONE;
@@ -938,9 +959,13 @@ void BKE_scene_init(Scene *sce)
 	sce->collection = MEM_callocN(sizeof(SceneCollection), "Master Collection");
 	BLI_strncpy(sce->collection->name, "Master Collection", sizeof(sce->collection->name));
 
+	/* Engine settings */
 	IDPropertyTemplate val = {0};
 	sce->collection_properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
 	BKE_layer_collection_engine_settings_create(sce->collection_properties);
+
+	sce->layer_properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
+	BKE_scene_layer_engine_settings_create(sce->layer_properties);
 
 	BKE_scene_layer_add(sce, "Render Layer");
 }
@@ -1418,13 +1443,19 @@ static bool check_rendered_viewport_visible(Main *bmain)
 	wmWindow *window;
 	for (window = wm->windows.first; window != NULL; window = window->next) {
 		bScreen *screen = window->screen;
+		Scene *scene = screen->scene;
 		ScrArea *area;
+		RenderEngineType *type = RE_engines_find(scene->r.engine);
+		if ((type->draw_engine != NULL) || (type->render_to_view == NULL)) {
+			continue;
+		}
+		const bool use_legacy = (type->flag & RE_USE_LEGACY_PIPELINE) != 0;
 		for (area = screen->areabase.first; area != NULL; area = area->next) {
 			View3D *v3d = area->spacedata.first;
 			if (area->spacetype != SPACE_VIEW3D) {
 				continue;
 			}
-			if (v3d->drawtype == OB_RENDER) {
+			if (v3d->drawtype == OB_RENDER || !use_legacy) {
 				return true;
 			}
 		}
@@ -1462,9 +1493,6 @@ static void prepare_mesh_for_viewport_render(Main *bmain, Scene *scene)
 void BKE_scene_update_tagged(EvaluationContext *eval_ctx, Main *bmain, Scene *scene)
 {
 	Scene *sce_iter;
-
-	/* keep this first */
-	BLI_callback_exec(bmain, &scene->id, BLI_CB_EVT_SCENE_UPDATE_PRE);
 
 	/* (re-)build dependency graph if needed */
 	for (sce_iter = scene; sce_iter; sce_iter = sce_iter->set) {
@@ -1510,9 +1538,6 @@ void BKE_scene_update_tagged(EvaluationContext *eval_ctx, Main *bmain, Scene *sc
 			BKE_animsys_evaluate_animdata(scene, &scene->id, adt, ctime, 0);
 	}
 
-	/* notify editors and python about recalc */
-	BLI_callback_exec(bmain, &scene->id, BLI_CB_EVT_SCENE_UPDATE_POST);
-
 	/* Inform editors about possible changes. */
 	DEG_ids_check_recalc(bmain, scene, false);
 
@@ -1530,7 +1555,6 @@ void BKE_scene_update_for_newframe(EvaluationContext *eval_ctx, Main *bmain, Sce
 
 	/* keep this first */
 	BLI_callback_exec(bmain, &sce->id, BLI_CB_EVT_FRAME_CHANGE_PRE);
-	BLI_callback_exec(bmain, &sce->id, BLI_CB_EVT_SCENE_UPDATE_PRE);
 
 	/* update animated image textures for particles, modifiers, gpu, etc,
 	 * call this at the start so modifiers with textures don't lag 1 frame */
@@ -1566,7 +1590,6 @@ void BKE_scene_update_for_newframe(EvaluationContext *eval_ctx, Main *bmain, Sce
 	BKE_sound_update_scene(bmain, sce);
 
 	/* notify editors and python about recalc */
-	BLI_callback_exec(bmain, &sce->id, BLI_CB_EVT_SCENE_UPDATE_POST);
 	BLI_callback_exec(bmain, &sce->id, BLI_CB_EVT_FRAME_CHANGE_POST);
 
 	/* Inform editors about possible changes. */
@@ -1615,6 +1638,11 @@ bool BKE_scene_remove_render_layer(Main *bmain, Scene *scene, SceneRenderLayer *
 	}
 
 	BKE_freestyle_config_free(&srl->freestyleConfig);
+
+	if (srl->prop) {
+		IDP_FreeProperty(srl->prop);
+		MEM_freeN(srl->prop);
+	}
 
 	BLI_remlink(&scene->r.layers, srl);
 	MEM_freeN(srl);
@@ -1783,6 +1811,11 @@ bool BKE_scene_uses_blender_internal(const  Scene *scene)
 bool BKE_scene_uses_blender_game(const Scene *scene)
 {
 	return STREQ(scene->r.engine, RE_engine_id_BLENDER_GAME);
+}
+
+bool BKE_scene_uses_blender_eevee(const Scene *scene)
+{
+	return STREQ(scene->r.engine, RE_engine_id_BLENDER_EEVEE);
 }
 
 void BKE_scene_base_flag_to_objects(SceneLayer *sl)

@@ -26,10 +26,12 @@
 #include "DRW_render.h"
 
 #include "GPU_shader.h"
+#include "GPU_texture.h"
 
 #include "UI_resources.h"
 
 #include "BKE_global.h"
+#include "BKE_texture.h"
 
 #include "draw_common.h"
 
@@ -44,6 +46,7 @@
 /* Colors & Constant */
 GlobalsUboStorage ts;
 struct GPUUniformBuffer *globals_ubo = NULL;
+struct GPUTexture *globals_ramp = NULL;
 
 void DRW_globals_update(void)
 {
@@ -99,8 +102,8 @@ void DRW_globals_update(void)
 	ts.sizeLampCircleShadow = ts.sizeLampCircle + U.pixelsize * 3.0f;
 
 	/* M_SQRT2 to be at least the same size of the old square */
-	ts.sizeVertex = UI_GetThemeValuef(TH_VERTEX_SIZE) * M_SQRT2 / 2.0f;
-	ts.sizeFaceDot = UI_GetThemeValuef(TH_FACEDOT_SIZE) * M_SQRT2;
+	ts.sizeVertex = ceil(UI_GetThemeValuef(TH_VERTEX_SIZE) * M_SQRT2 / 2.0f);
+	ts.sizeFaceDot = ceil(UI_GetThemeValuef(TH_FACEDOT_SIZE) * M_SQRT2);
 	ts.sizeEdge = 1.0f / 2.0f; /* TODO Theme */
 	ts.sizeEdgeFix = 0.5f + 2.0f * (2.0f * (MAX2(ts.sizeVertex, ts.sizeEdge)) * M_SQRT1_2);
 
@@ -110,6 +113,30 @@ void DRW_globals_update(void)
 	}
 
 	globals_ubo = DRW_uniformbuffer_create(sizeof(GlobalsUboStorage), &ts);
+
+	ColorBand ramp = {0};
+	float *colors;
+	int col_size;
+
+	ramp.tot = 3;
+	ramp.data[0].a = 1.0f;
+	ramp.data[0].b = 1.0f;
+	ramp.data[0].pos = 0.0f;
+	ramp.data[1].a = 1.0f;
+	ramp.data[1].g = 1.0f;
+	ramp.data[1].pos = 0.5f;
+	ramp.data[2].a = 1.0f;
+	ramp.data[2].r = 1.0f;
+	ramp.data[2].pos = 1.0f;
+
+	colorband_table_RGBA(&ramp, &colors, &col_size);
+
+	if (globals_ramp) {
+		GPU_texture_free(globals_ramp);
+	}
+	globals_ramp = GPU_texture_create_1D(col_size, colors, NULL);
+
+	MEM_freeN(colors);
 }
 
 /* ********************************* SHGROUP ************************************* */
@@ -131,7 +158,7 @@ DRWShadingGroup *shgroup_dynpoints_uniform_color(DRWPass *pass, float color[4], 
 	DRWShadingGroup *grp = DRW_shgroup_point_batch_create(sh, pass);
 	DRW_shgroup_uniform_vec4(grp, "color", color, 1);
 	DRW_shgroup_uniform_float(grp, "size", size, 1);
-	DRW_shgroup_state_set(grp, DRW_STATE_POINT);
+	DRW_shgroup_state_enable(grp, DRW_STATE_POINT);
 
 	return grp;
 }
@@ -152,7 +179,7 @@ DRWShadingGroup *shgroup_groundpoints_uniform_color(DRWPass *pass, float color[4
 
 	DRWShadingGroup *grp = DRW_shgroup_point_batch_create(sh, pass);
 	DRW_shgroup_uniform_vec4(grp, "color", color, 1);
-	DRW_shgroup_state_set(grp, DRW_STATE_POINT);
+	DRW_shgroup_state_enable(grp, DRW_STATE_POINT);
 
 	return grp;
 }
@@ -166,8 +193,8 @@ DRWShadingGroup *shgroup_instance_screenspace(DRWPass *pass, struct Batch *geom,
 	DRW_shgroup_attrib_float(grp, "color", 3);
 	DRW_shgroup_uniform_float(grp, "size", size, 1);
 	DRW_shgroup_uniform_float(grp, "pixel_size", DRW_viewport_pixelsize_get(), 1);
-	DRW_shgroup_uniform_vec3(grp, "screen_vecs", DRW_viewport_screenvecs_get(), 2);
-	DRW_shgroup_state_set(grp, DRW_STATE_STIPPLE_3);
+	DRW_shgroup_uniform_vec3(grp, "screen_vecs[0]", DRW_viewport_screenvecs_get(), 2);
+	DRW_shgroup_state_enable(grp, DRW_STATE_STIPPLE_3);
 
 	return grp;
 }
@@ -180,7 +207,7 @@ DRWShadingGroup *shgroup_instance_objspace_solid(DRWPass *pass, struct Batch *ge
 	DRWShadingGroup *grp = DRW_shgroup_instance_create(sh, pass, geom);
 	DRW_shgroup_attrib_float(grp, "InstanceModelMatrix", 16);
 	DRW_shgroup_attrib_float(grp, "color", 4);
-	DRW_shgroup_uniform_mat4(grp, "ModelMatrix", (float *)obmat);
+	DRW_shgroup_uniform_mat4(grp, "ObjectModelMatrix", (float *)obmat);
 	DRW_shgroup_uniform_vec3(grp, "light", light, 1);
 
 	return grp;
@@ -193,7 +220,7 @@ DRWShadingGroup *shgroup_instance_objspace_wire(DRWPass *pass, struct Batch *geo
 	DRWShadingGroup *grp = DRW_shgroup_instance_create(sh, pass, geom);
 	DRW_shgroup_attrib_float(grp, "InstanceModelMatrix", 16);
 	DRW_shgroup_attrib_float(grp, "color", 4);
-	DRW_shgroup_uniform_mat4(grp, "ModelMatrix", (float *)obmat);
+	DRW_shgroup_uniform_mat4(grp, "ObjectModelMatrix", (float *)obmat);
 
 	return grp;
 }
@@ -206,7 +233,7 @@ DRWShadingGroup *shgroup_instance_screen_aligned(DRWPass *pass, struct Batch *ge
 	DRW_shgroup_attrib_float(grp, "color", 3);
 	DRW_shgroup_attrib_float(grp, "size", 1);
 	DRW_shgroup_attrib_float(grp, "InstanceModelMatrix", 16);
-	DRW_shgroup_uniform_vec3(grp, "screen_vecs", DRW_viewport_screenvecs_get(), 2);
+	DRW_shgroup_uniform_vec3(grp, "screen_vecs[0]", DRW_viewport_screenvecs_get(), 2);
 
 	return grp;
 }
@@ -219,7 +246,7 @@ DRWShadingGroup *shgroup_instance_axis_names(DRWPass *pass, struct Batch *geom)
 	DRW_shgroup_attrib_float(grp, "color", 3);
 	DRW_shgroup_attrib_float(grp, "size", 1);
 	DRW_shgroup_attrib_float(grp, "InstanceModelMatrix", 16);
-	DRW_shgroup_uniform_vec3(grp, "screen_vecs", DRW_viewport_screenvecs_get(), 2);
+	DRW_shgroup_uniform_vec3(grp, "screen_vecs[0]", DRW_viewport_screenvecs_get(), 2);
 
 	return grp;
 }
@@ -293,12 +320,46 @@ DRWShadingGroup *shgroup_spot_instance(DRWPass *pass, struct Batch *geom)
 	return grp;
 }
 
+DRWShadingGroup *shgroup_instance_bone_envelope_wire(DRWPass *pass, struct Batch *geom, float (*obmat)[4])
+{
+	GPUShader *sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_INSTANCE_BONE_ENVELOPE_WIRE);
+
+	DRWShadingGroup *grp = DRW_shgroup_instance_create(sh, pass, geom);
+	DRW_shgroup_attrib_float(grp, "InstanceModelMatrix", 16);
+	DRW_shgroup_attrib_float(grp, "color", 4);
+	DRW_shgroup_attrib_float(grp, "radius_head", 1);
+	DRW_shgroup_attrib_float(grp, "radius_tail", 1);
+	DRW_shgroup_attrib_float(grp, "distance", 1);
+	DRW_shgroup_uniform_mat4(grp, "ObjectModelMatrix", (float *)obmat);
+
+	return grp;
+}
+
+DRWShadingGroup *shgroup_instance_bone_envelope_solid(DRWPass *pass, struct Batch *geom, float (*obmat)[4])
+{
+	static float light[3] = {0.0f, 0.0f, 1.0f};
+	GPUShader *sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_INSTANCE_BONE_ENVELOPE_SOLID);
+
+	DRWShadingGroup *grp = DRW_shgroup_instance_create(sh, pass, geom);
+	DRW_shgroup_attrib_float(grp, "InstanceModelMatrix", 16);
+	DRW_shgroup_attrib_float(grp, "color", 4);
+	DRW_shgroup_attrib_float(grp, "radius_head", 1);
+	DRW_shgroup_attrib_float(grp, "radius_tail", 1);
+	DRW_shgroup_uniform_mat4(grp, "ObjectModelMatrix", (float *)obmat);
+	DRW_shgroup_uniform_vec3(grp, "light", light, 1);
+
+	return grp;
+}
+
+
 /* ******************************************** COLOR UTILS *********************************************** */
 
 /* TODO FINISH */
-/* Get the wire color theme_id of an object based on it's state
- * **color is a way to get a pointer to the static color var associated */
-int DRW_object_wire_theme_get(Object *ob, SceneLayer *sl, float **color)
+/**
+ * Get the wire color theme_id of an object based on it's state
+ * \a r_color is a way to get a pointer to the static color var associated
+ */
+int DRW_object_wire_theme_get(Object *ob, SceneLayer *sl, float **r_color)
 {
 	const bool is_edit = (ob->mode & OB_MODE_EDIT) != 0;
 	const bool active = (sl->basact && sl->basact->object == ob);
@@ -338,24 +399,24 @@ int DRW_object_wire_theme_get(Object *ob, SceneLayer *sl, float **color)
 		}
 	}
 
-	if (color != NULL) {
+	if (r_color != NULL) {
 		switch (theme_id) {
-			case TH_WIRE_EDIT:    *color = ts.colorTransform; break;
-			case TH_ACTIVE:       *color = ts.colorActive; break;
-			case TH_SELECT:       *color = ts.colorSelect; break;
-			case TH_GROUP:        *color = ts.colorGroup; break;
-			case TH_GROUP_ACTIVE: *color = ts.colorGroupActive; break;
-			case TH_TRANSFORM:    *color = ts.colorTransform; break;
-			case OB_SPEAKER:      *color = ts.colorSpeaker; break;
-			case OB_CAMERA:       *color = ts.colorCamera; break;
-			case OB_EMPTY:        *color = ts.colorEmpty; break;
-			case OB_LAMP:         *color = ts.colorLamp; break;
-			default:              *color = ts.colorWire; break;
+			case TH_WIRE_EDIT:    *r_color = ts.colorTransform; break;
+			case TH_ACTIVE:       *r_color = ts.colorActive; break;
+			case TH_SELECT:       *r_color = ts.colorSelect; break;
+			case TH_GROUP:        *r_color = ts.colorGroup; break;
+			case TH_GROUP_ACTIVE: *r_color = ts.colorGroupActive; break;
+			case TH_TRANSFORM:    *r_color = ts.colorTransform; break;
+			case OB_SPEAKER:      *r_color = ts.colorSpeaker; break;
+			case OB_CAMERA:       *r_color = ts.colorCamera; break;
+			case OB_EMPTY:        *r_color = ts.colorEmpty; break;
+			case OB_LAMP:         *r_color = ts.colorLamp; break;
+			default:              *r_color = ts.colorWire; break;
 		}
 
 		/* uses darker active color for non-active + selected */
 		if ((theme_id == TH_GROUP_ACTIVE) && !active) {
-			*color = ts.colorGroupSelect;
+			*r_color = ts.colorGroupSelect;
 		}
 	}
 

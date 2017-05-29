@@ -424,11 +424,7 @@ static void rna_Object_parent_set(PointerRNA *ptr, PointerRNA value)
 {
 	Object *ob = (Object *)ptr->data;
 	Object *par = (Object *)value.data;
-	
-#ifdef FREE_WINDOWS
-	/* NOTE: this dummy check here prevents this method causing weird runtime errors on mingw 4.6.2 */
-	if (ob)
-#endif
+
 	{
 		ED_object_parent(ob, par, ob->partype, ob->parsubstr);
 	}
@@ -704,10 +700,10 @@ void rna_object_uvlayer_name_set(PointerRNA *ptr, const char *value, char *resul
 	if (ob->type == OB_MESH && ob->data) {
 		me = (Mesh *)ob->data;
 
-		for (a = 0; a < me->pdata.totlayer; a++) {
-			layer = &me->pdata.layers[a];
+		for (a = 0; a < me->ldata.totlayer; a++) {
+			layer = &me->ldata.layers[a];
 
-			if (layer->type == CD_MTEXPOLY && STREQ(layer->name, value)) {
+			if (layer->type == CD_MLOOPUV && STREQ(layer->name, value)) {
 				BLI_strncpy(result, value, maxlen);
 				return;
 			}
@@ -3132,6 +3128,10 @@ static void rna_def_dupli_object(BlenderRNA *brna)
 	RNA_def_property_enum_items(prop, dupli_items);
 	RNA_def_property_clear_flag(prop, PROP_ANIMATABLE | PROP_EDITABLE);
 	RNA_def_property_ui_text(prop, "Dupli Type", "Duplicator type that generated this dupli object");
+
+	prop = RNA_def_property(srna, "random_id", PROP_INT, PROP_UNSIGNED);
+	RNA_def_property_clear_flag(prop, PROP_ANIMATABLE | PROP_EDITABLE);
+	RNA_def_property_ui_text(prop, "Dupli random id", "Random id for this dupli object");
 }
 
 static void rna_def_object_base_legacy(BlenderRNA *brna)

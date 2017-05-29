@@ -111,7 +111,7 @@ static void rna_Scene_uvedit_aspect(Scene *scene, Object *ob, float *aspect)
 	if ((ob->type == OB_MESH) && (ob->mode == OB_MODE_EDIT)) {
 		BMEditMesh *em;
 		em = BKE_editmesh_from_object(ob);
-		if (EDBM_mtexpoly_check(em)) {
+		if (EDBM_uv_check(em)) {
 			ED_uvedit_get_aspect(scene, ob, em->bm, aspect, aspect + 1);
 			return;
 		}
@@ -207,6 +207,8 @@ static void rna_Scene_alembic_export(
         int renderable_only,
         int face_sets,
         int use_subdiv_schema,
+        int export_hair,
+        int export_particles,
         int compression_type,
         int packuv,
         float scale,
@@ -240,6 +242,8 @@ static void rna_Scene_alembic_export(
 	    .renderable_only = renderable_only,
 	    .face_sets = face_sets,
 	    .use_subdiv_schema = use_subdiv_schema,
+	    .export_hair = export_hair,
+	    .export_particles = export_particles,
 	    .compression_type = compression_type,
 	    .packuv = packuv,
 	    .triangulate = triangulate,
@@ -249,7 +253,7 @@ static void rna_Scene_alembic_export(
 	    .global_scale = scale,
 	};
 
-	ABC_export(scene, C, filepath, &params);
+	ABC_export(scene, C, filepath, &params, true);
 
 #ifdef WITH_PYTHON
 	BPy_END_ALLOW_THREADS;
@@ -276,7 +280,6 @@ static void rna_Scene_collada_export(
         int include_shapekeys,
         int deform_bones_only,
         int active_uv_only,
-        int include_uv_textures,
         int include_material_textures,
         int use_texture_copies,
         int triangulate,
@@ -302,7 +305,6 @@ static void rna_Scene_collada_export(
 		deform_bones_only,
 
 		active_uv_only,
-		include_uv_textures,
 		include_material_textures,
 		use_texture_copies,
 
@@ -402,9 +404,6 @@ void RNA_api_scene(StructRNA *srna)
 
 	RNA_def_boolean(func, "active_uv_only", false, "Only Selected UV Map", "Export only the selected UV Map");
 
-	RNA_def_boolean(func, "include_uv_textures", false,
-	                "Include UV Textures", "Export textures assigned to the object UV Maps");
-
 	RNA_def_boolean(func, "include_material_textures", false,
 	                "Include Material Textures", "Export textures assigned to the object Materials");
 
@@ -440,8 +439,9 @@ void RNA_api_scene(StructRNA *srna)
 #endif
 
 #ifdef WITH_ALEMBIC
+	/* XXX Deprecated, will be removed in 2.8 in favour of calling the export operator. */
 	func = RNA_def_function(srna, "alembic_export", "rna_Scene_alembic_export");
-	RNA_def_function_ui_description(func, "Export to Alembic file");
+	RNA_def_function_ui_description(func, "Export to Alembic file (deprecated, use the Alembic export operator)");
 
 	parm = RNA_def_string(func, "filepath", NULL, FILE_MAX, "File Path", "File path to write Alembic file");
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
@@ -463,6 +463,8 @@ void RNA_api_scene(StructRNA *srna)
 	RNA_def_boolean(func, "renderable_only"	, 0, "Renderable objects only", "Export only objects marked renderable in the outliner");
 	RNA_def_boolean(func, "face_sets"	, 0, "Facesets", "Export face sets");
 	RNA_def_boolean(func, "subdiv_schema", 0, "Use Alembic subdivision Schema", "Use Alembic subdivision Schema");
+	RNA_def_boolean(func, "export_hair", 1, "Export Hair", "Exports hair particle systems as animated curves");
+	RNA_def_boolean(func, "export_particles", 1, "Export Particles", "Exports non-hair particle systems");
 	RNA_def_enum(func, "compression_type", rna_enum_abc_compression_items, 0, "Compression", "");
 	RNA_def_boolean(func, "packuv"		, 0, "Export with packed UV islands", "Export with packed UV islands");
 	RNA_def_float(func, "scale", 1.0f, 0.0001f, 1000.0f, "Scale", "Value by which to enlarge or shrink the objects with respect to the world's origin", 0.0001f, 1000.0f);

@@ -11,8 +11,12 @@
 
 #pragma once
 
-#define TRUST_NO_ONE !defined(NDEBUG)
-// strict error checking, enabled for debug builds during early development
+#if defined(NDEBUG)
+  #define TRUST_NO_ONE 0
+#else
+  // strict error checking, enabled for debug builds during early development
+  #define TRUST_NO_ONE 1
+#endif
 
 #include <GL/glew.h>
 #include <stdbool.h>
@@ -20,17 +24,4 @@
 
 #if TRUST_NO_ONE
   #include <assert.h>
-#endif
-
-#define APPLE_LEGACY (defined(__APPLE__) && defined(WITH_GL_PROFILE_COMPAT))
-
-#if APPLE_LEGACY
-  #undef glGenVertexArrays
-  #define glGenVertexArrays glGenVertexArraysAPPLE
-
-  #undef glDeleteVertexArrays
-  #define glDeleteVertexArrays glDeleteVertexArraysAPPLE
-
-  #undef glBindVertexArray
-  #define glBindVertexArray glBindVertexArrayAPPLE
 #endif

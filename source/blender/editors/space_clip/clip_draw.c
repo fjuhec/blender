@@ -348,31 +348,37 @@ static void draw_stabilization_border(SpaceClip *sc, ARegion *ar, int width, int
 
 	/* draw boundary border for frame if stabilization is enabled */
 	if (sc->flag & SC_SHOW_STABLE && clip->tracking.stabilization.flag & TRACKING_2D_STABILIZATION) {
-		setlinestyle(3);
+		const uint shdr_pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 
+		/* Exclusive OR allows to get orig value when second operand is 0,
+		 * and negative of orig value when second operand is 1. */
 		glEnable(GL_COLOR_LOGIC_OP);
-		glLogicOp(GL_NOR);
+		glLogicOp(GL_XOR);
 
 		gpuPushMatrix();
 		gpuTranslate2f(x, y);
 
 		gpuScale2f(zoomx, zoomy);
-		gpuMultMatrix3D(sc->stabmat); /* XXX can we make stabmat a 2D matrix? --merwin */
+		gpuMultMatrix(sc->stabmat);
 
-		unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
+		immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_COLOR);
 
-		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
-		immUniformColor3f(0.0f, 0.0f, 0.0f);
+		float viewport_size[4];
+		glGetFloatv(GL_VIEWPORT, viewport_size);
+		immUniform2f("viewport_size", viewport_size[2] / UI_DPI_FAC, viewport_size[3] / UI_DPI_FAC);
 
-		imm_draw_line_box(pos, 0.0f, 0.0f, width, height);
+		immUniform1i("num_colors", 0);  /* "simple" mode */
+		immUniformColor4f(1.0f, 1.0f, 1.0f, 0.0f);
+		immUniform1f("dash_width", 6.0f);
+		immUniform1f("dash_factor", 0.5f);
+
+		imm_draw_line_box(shdr_pos, 0.0f, 0.0f, width, height);
 
 		immUnbindProgram();
 
 		gpuPopMatrix();
 
 		glDisable(GL_COLOR_LOGIC_OP);
-
-		setlinestyle(0);
 	}
 }
 
@@ -628,11 +634,12 @@ static void track_colors(MovieTrackingTrack *track, int act, float col[3], float
 }
 
 static void draw_marker_areas(SpaceClip *sc, MovieTrackingTrack *track, MovieTrackingMarker *marker,
-                              const float marker_pos[2], int width, int height, int act, int sel, unsigned int position)
+                              const float marker_pos[2], int width, int height, int act, int sel, const uint shdr_pos)
 {
 	int tiny = sc->flag & SC_SHOW_TINY_MARKER;
 	bool show_search = false;
-	float col[3], scol[3], px[2];
+	float col[3], scol[3];
+	float px[2];
 
 	track_colors(track, act, col, scol);
 
@@ -640,6 +647,17 @@ static void draw_marker_areas(SpaceClip *sc, MovieTrackingTrack *track, MovieTra
 	px[1] = 1.0f / height / sc->zoom;
 
 	glLineWidth(1.0f);
+
+	/* Since we are switching solid and dashed lines in rather complex logic here, just always go with dashed shader. */
+	immUnbindProgram();
+
+	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_COLOR);
+
+	float viewport_size[4];
+	glGetFloatv(GL_VIEWPORT, viewport_size);
+	immUniform2f("viewport_size", viewport_size[2] / UI_DPI_FAC, viewport_size[3] / UI_DPI_FAC);
+
+	immUniform1i("num_colors", 0);  /* "simple" mode */
 
 	/* marker position and offset position */
 	if ((track->flag & SELECT) == sel && (marker->flag & MARKER_DISABLED) == 0) {
@@ -670,51 +688,50 @@ static void draw_marker_areas(SpaceClip *sc, MovieTrackingTrack *track, MovieTra
 		{
 			glPointSize(tiny ? 1.0f : 2.0f);
 
+			immUniform1f("dash_factor", 2.0f);  /* Solid "line" */
+
 			immBegin(PRIM_POINTS, 1);
-			immVertex2f(position, pos[0], pos[1]);
+			immVertex2f(shdr_pos, pos[0], pos[1]);
 			immEnd();
 		}
 		else {
+			immUniform1f("dash_factor", 2.0f);  /* Solid line */
+
 			immBegin(PRIM_LINES, 8);
 
-			immVertex2f(position, pos[0] + px[0] * 3, pos[1]);
-			immVertex2f(position, pos[0] + px[0] * 7, pos[1]);
+			immVertex2f(shdr_pos, pos[0] + px[0] * 3, pos[1]);
+			immVertex2f(shdr_pos, pos[0] + px[0] * 7, pos[1]);
 
-			immVertex2f(position, pos[0] - px[0] * 3, pos[1]);
-			immVertex2f(position, pos[0] - px[0] * 7, pos[1]);
+			immVertex2f(shdr_pos, pos[0] - px[0] * 3, pos[1]);
+			immVertex2f(shdr_pos, pos[0] - px[0] * 7, pos[1]);
 
-			immVertex2f(position, pos[0], pos[1] - px[1] * 3);
-			immVertex2f(position, pos[0], pos[1] - px[1] * 7);
+			immVertex2f(shdr_pos, pos[0], pos[1] - px[1] * 3);
+			immVertex2f(shdr_pos, pos[0], pos[1] - px[1] * 7);
 
-			immVertex2f(position, pos[0], pos[1] + px[1] * 3);
-			immVertex2f(position, pos[0], pos[1] + px[1] * 7);
+			immVertex2f(shdr_pos, pos[0], pos[1] + px[1] * 3);
+			immVertex2f(shdr_pos, pos[0], pos[1] + px[1] * 7);
 
 			immEnd();
 
-			immUniformColor3f(0.0f, 0.0f, 0.0f);
-			setlinestyle(3);
+			immUniformColor4f(1.0f, 1.0f, 1.0f, 0.0f);
+			immUniform1f("dash_width", 6.0f);
+			immUniform1f("dash_factor", 0.5f);
 
 			glEnable(GL_COLOR_LOGIC_OP);
-			glLogicOp(GL_NOR);
+			glLogicOp(GL_XOR);
 
 			immBegin(PRIM_LINES, 2);
-			immVertex2fv(position, pos);
-			immVertex2fv(position, marker_pos);
+			immVertex2fv(shdr_pos, pos);
+			immVertex2fv(shdr_pos, marker_pos);
 			immEnd();
 
 			glDisable(GL_COLOR_LOGIC_OP);
-
-			setlinestyle(0);
 		}
 	}
 
 	/* pattern */
 	gpuPushMatrix();
 	gpuTranslate2fv(marker_pos);
-
-	if (tiny) {
-		setlinestyle(3);
-	}
 
 	if (track->flag & TRACK_LOCKED) {
 		if (act) {
@@ -742,12 +759,20 @@ static void draw_marker_areas(SpaceClip *sc, MovieTrackingTrack *track, MovieTra
 		immUniformColor3fv((track->pat_flag & SELECT) ? scol : col);
 	}
 
+	if (tiny) {
+		immUniform1f("dash_width", 6.0f);
+		immUniform1f("dash_factor", 0.5f);
+	}
+	else {
+		immUniform1f("dash_factor", 2.0f);  /* Solid line */
+	}
+
 	if ((track->pat_flag & SELECT) == sel && (sc->flag & SC_SHOW_MARKER_PATTERN)) {
 		immBegin(PRIM_LINE_LOOP, 4);
-		immVertex2fv(position, marker->pattern_corners[0]);
-		immVertex2fv(position, marker->pattern_corners[1]);
-		immVertex2fv(position, marker->pattern_corners[2]);
-		immVertex2fv(position, marker->pattern_corners[3]);
+		immVertex2fv(shdr_pos, marker->pattern_corners[0]);
+		immVertex2fv(shdr_pos, marker->pattern_corners[1]);
+		immVertex2fv(shdr_pos, marker->pattern_corners[2]);
+		immVertex2fv(shdr_pos, marker->pattern_corners[3]);
 		immEnd();
 	}
 
@@ -756,17 +781,20 @@ static void draw_marker_areas(SpaceClip *sc, MovieTrackingTrack *track, MovieTra
 	               ((marker->flag & MARKER_DISABLED) == 0 || (sc->flag & SC_SHOW_MARKER_PATTERN) == 0)) != 0;
 
 	if ((track->search_flag & SELECT) == sel && (sc->flag & SC_SHOW_MARKER_SEARCH) && show_search) {
-		imm_draw_line_box(position, marker->search_min[0],
-		                            marker->search_min[1],
-		                            marker->search_max[0],
-		                            marker->search_max[1]);
-	}
-
-	if (tiny) {
-		setlinestyle(0);
+		imm_draw_line_box(shdr_pos, marker->search_min[0], marker->search_min[1],
+		                            marker->search_max[0], marker->search_max[1]);
 	}
 
 	gpuPopMatrix();
+
+	/* Restore default shader */
+	immUnbindProgram();
+
+	const uint pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
+	BLI_assert(pos == shdr_pos);
+	UNUSED_VARS_NDEBUG(pos);
+
+	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 }
 
 static float get_shortest_pattern_side(MovieTrackingMarker *marker)
@@ -1079,7 +1107,7 @@ static void draw_plane_marker_image(Scene *scene,
 			                                          plane_marker->corners,
 			                                          perspective_matrix);
 
-			homogeneous_2d_to_gl_matrix(perspective_matrix, gl_matrix); /* XXX update for new 2D matrix API --merwin */
+			homogeneous_2d_to_gl_matrix(perspective_matrix, gl_matrix);
 
 			if (plane_track->image_opacity != 1.0f || ibuf->planes == 32) {
 				transparent = true;
@@ -1098,14 +1126,14 @@ static void draw_plane_marker_image(Scene *scene,
 			             GL_UNSIGNED_BYTE, display_buffer);
 
 			gpuPushMatrix();
-			gpuMultMatrix3D(gl_matrix); /* XXX update for new 2D matrix API --merwin */
+			gpuMultMatrix(gl_matrix);
 
 			VertexFormat *imm_format = immVertexFormat();
 			unsigned int pos = VertexFormat_add_attrib(imm_format, "pos", COMP_F32, 2, KEEP_FLOAT);
 			unsigned int texCoord = VertexFormat_add_attrib(imm_format, "texCoord", COMP_F32, 2, KEEP_FLOAT);
 
 			immBindBuiltinProgram(GPU_SHADER_2D_IMAGE_COLOR);
-			immUniform4f("color", 1.0f, 1.0f, 1.0f, plane_track->image_opacity);
+			immUniformColor4f(1.0f, 1.0f, 1.0f, plane_track->image_opacity);
 			immUniform1i("image", GL_TEXTURE0);
 
 			immBegin(PRIM_TRIANGLE_FAN, 4);
@@ -1162,35 +1190,44 @@ static void draw_plane_marker_ex(SpaceClip *sc, Scene *scene, MovieTrackingPlane
 	}
 
 	if (draw_plane_quad || is_selected_track) {
-		unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
+		const uint shdr_pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 
-		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+		immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_COLOR);
 
-		if (draw_outline) {
-			immUniformThemeColor(TH_MARKER_OUTLINE);
-		}
-		else {
-			plane_track_colors(is_active_track, color, selected_color);
+		float viewport_size[4];
+		glGetFloatv(GL_VIEWPORT, viewport_size);
+		immUniform2f("viewport_size", viewport_size[2] / UI_DPI_FAC, viewport_size[3] / UI_DPI_FAC);
 
-			immUniformColor3fv(is_selected_track ? selected_color : color);
-		}
+		immUniform1i("num_colors", 0);  /* "simple" mode */
 
 		if (draw_plane_quad) {
 			const bool stipple = !draw_outline && tiny;
 			const bool thick = draw_outline && !tiny;
 
+			glLineWidth(thick ? 3.0f : 1.0f);
+
 			if (stipple) {
-				setlinestyle(3);
+				immUniform1f("dash_width", 6.0f);
+				immUniform1f("dash_factor", 0.5f);
+			}
+			else {
+				immUniform1f("dash_factor", 2.0f);  /* Solid line */
 			}
 
-			glLineWidth(thick ? 3.0f : 1.0f);
+			if (draw_outline) {
+				immUniformThemeColor(TH_MARKER_OUTLINE);
+			}
+			else {
+				plane_track_colors(is_active_track, color, selected_color);
+				immUniformColor3fv(is_selected_track ? selected_color : color);
+			}
 
 			/* Draw rectangle itself. */
 			immBegin(PRIM_LINE_LOOP, 4);
-			immVertex2fv(pos, plane_marker->corners[0]);
-			immVertex2fv(pos, plane_marker->corners[1]);
-			immVertex2fv(pos, plane_marker->corners[2]);
-			immVertex2fv(pos, plane_marker->corners[3]);
+			immVertex2fv(shdr_pos, plane_marker->corners[0]);
+			immVertex2fv(shdr_pos, plane_marker->corners[1]);
+			immVertex2fv(shdr_pos, plane_marker->corners[2]);
+			immVertex2fv(shdr_pos, plane_marker->corners[3]);
 			immEnd();
 
 			/* Draw axis. */
@@ -1202,8 +1239,8 @@ static void draw_plane_marker_ex(SpaceClip *sc, Scene *scene, MovieTrackingPlane
 				immBegin(PRIM_LINES, 2);
 
 				getArrowEndPoint(width, height, sc->zoom, plane_marker->corners[0], plane_marker->corners[1], end_point);
-				immVertex2fv(pos, plane_marker->corners[0]);
-				immVertex2fv(pos, end_point);
+				immVertex2fv(shdr_pos, plane_marker->corners[0]);
+				immVertex2fv(shdr_pos, end_point);
 
 				immEnd();
 
@@ -1212,19 +1249,17 @@ static void draw_plane_marker_ex(SpaceClip *sc, Scene *scene, MovieTrackingPlane
 				immBegin(PRIM_LINES, 2);
 
 				getArrowEndPoint(width, height, sc->zoom, plane_marker->corners[0], plane_marker->corners[3], end_point);
-				immVertex2fv(pos, plane_marker->corners[0]);
-				immVertex2fv(pos, end_point);
+				immVertex2fv(shdr_pos, plane_marker->corners[0]);
+				immVertex2fv(shdr_pos, end_point);
 
 				immEnd();
-			}
-
-			if (stipple) {
-				setlinestyle(0);
 			}
 		}
 
 		/* Draw sliders. */
 		if (is_selected_track) {
+			immUniform1f("dash_factor", 2.0f);  /* Solid line */
+
 			if (draw_outline) {
 				immUniformThemeColor(TH_MARKER_OUTLINE);
 			}
@@ -1235,7 +1270,7 @@ static void draw_plane_marker_ex(SpaceClip *sc, Scene *scene, MovieTrackingPlane
 			int i;
 			for (i = 0; i < 4; i++) {
 				draw_marker_slide_square(plane_marker->corners[i][0], plane_marker->corners[i][1],
-										 3.0f * px[0], 3.0f * px[1], draw_outline, px, pos);
+				                         3.0f * px[0], 3.0f * px[1], draw_outline, px, shdr_pos);
 			}
 		}
 
@@ -1296,7 +1331,7 @@ static void draw_tracking_tracks(SpaceClip *sc, Scene *scene, ARegion *ar, Movie
 
 	gpuPushMatrix();
 	gpuScale2f(zoomx, zoomy);
-	gpuMultMatrix3D(sc->stabmat); /* XXX would like 2D stabmat --merwin */
+	gpuMultMatrix(sc->stabmat);
 	gpuScale2f(width, height);
 
 	act_track = BKE_tracking_track_get_active(tracking);
@@ -1544,7 +1579,7 @@ static void draw_distortion(SpaceClip *sc, ARegion *ar, MovieClip *clip,
 	gpuPushMatrix();
 	gpuTranslate2f(x, y);
 	gpuScale2f(zoomx, zoomy);
-	gpuMultMatrix3D(sc->stabmat); /* XXX make 2D */
+	gpuMultMatrix(sc->stabmat);
 	gpuScale2f(width, height);
 
 	unsigned int position = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
@@ -1821,7 +1856,7 @@ void clip_draw_grease_pencil(bContext *C, int onlyv2d)
 		 */
 		if ((sc->flag & SC_MANUAL_CALIBRATION) == 0 || is_track_source) {
 			gpuPushMatrix();
-			gpuMultMatrix3D(sc->unistabmat); /* XXX make 2D */
+			gpuMultMatrix(sc->unistabmat);
 
 			if (is_track_source) {
 				MovieTrackingTrack *track = BKE_tracking_track_get_active(&sc->clip->tracking);

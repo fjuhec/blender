@@ -133,6 +133,7 @@
 #endif
 
 #include "CCGSubSurf.h"
+#include "atomic_ops.h"
 
 #include "GPU_lamp.h"
 
@@ -325,19 +326,24 @@ void BKE_object_link_modifiers(struct Object *ob_dst, const struct Object *ob_sr
 /* free data derived from mesh, called when mesh changes or is freed */
 void BKE_object_free_derived_caches(Object *ob)
 {
-	/* also serves as signal to remake texspace */
+	/* Also serves as signal to remake texspace.
+	 *
+	 * NOTE: This function can be called from threads on different objects
+	 * sharing same data datablock. So we need to ensure atomic nature of
+	 * data modification here.
+	 */
 	if (ob->type == OB_MESH) {
 		Mesh *me = ob->data;
 
 		if (me && me->bb) {
-			me->bb->flag |= BOUNDBOX_DIRTY;
+			atomic_fetch_and_or_uint32((uint*)&me->bb->flag, BOUNDBOX_DIRTY);
 		}
 	}
 	else if (ELEM(ob->type, OB_SURF, OB_CURVE, OB_FONT)) {
 		Curve *cu = ob->data;
 
 		if (cu && cu->bb) {
-			cu->bb->flag |= BOUNDBOX_DIRTY;
+			atomic_fetch_and_or_uint32((uint*)&cu->bb->flag, BOUNDBOX_DIRTY);
 		}
 	}
 
@@ -699,14 +705,7 @@ Object *BKE_object_add(
 
 	ob->data = BKE_object_obdata_add_from_type(bmain, type, name);
 
-	lc = BKE_layer_collection_active(sl);
-
-	if (lc == NULL) {
-		BLI_assert(BLI_listbase_count_ex(&sl->layer_collections, 1) == 0);
-		/* when there is no collection linked to this SceneLayer, create one */
-		SceneCollection *sc = BKE_collection_add(scene, NULL, NULL);
-		lc = BKE_collection_link(sl, sc);
-	}
+	lc = BKE_layer_collection_get_active_ensure(scene, sl);
 
 	BKE_collection_object_add(scene, lc->scene_collection, ob);
 
@@ -958,6 +957,7 @@ ParticleSystem *BKE_object_copy_particlesystem(ParticleSystem *psys)
 	psysn->effectors = NULL;
 	psysn->tree = NULL;
 	psysn->bvhtree = NULL;
+	psysn->batch_cache = NULL;
 	
 	BLI_listbase_clear(&psysn->pathcachebufs);
 	BLI_listbase_clear(&psysn->childcachebufs);
@@ -1161,6 +1161,7 @@ Object *BKE_object_copy_ex(Main *bmain, Object *ob, bool copy_caches)
 
 	/* increase user numbers */
 	id_us_plus((ID *)obn->data);
+	id_us_plus((ID *)obn->poselib);
 	id_us_plus((ID *)obn->gpd);
 	id_us_plus((ID *)obn->dup_group);
 

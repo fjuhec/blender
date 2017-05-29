@@ -396,6 +396,10 @@ bool OCIOImpl::setupGLSLDraw(OCIO_GLSLDrawState **state_r, OCIO_ConstProcessorRc
 			state->program = linkShaders(state->ocio_shader, state->vert_shader);
 		}
 
+		if (state->program) {
+			state->shader_interface = ShaderInterface_create(state->program);
+		}
+
 		state->curve_mapping_used = use_curve_mapping;
 		state->dither_used = use_dither;
 		state->predivide_used = use_predivide;
@@ -412,8 +416,17 @@ bool OCIOImpl::setupGLSLDraw(OCIO_GLSLDrawState **state_r, OCIO_ConstProcessorRc
 
 		glActiveTexture(GL_TEXTURE0);
 
-		state->shader_interface = ShaderInterface_create(state->program);
-
+		/* IMM needs vertex format even if we don't draw with it.
+		 *
+		 * NOTE: The only reason why it's here is because of Cycles viewport.
+		 * All other areas are managing their own vertex formats.
+		 * Doing it here is probably harmless, but kind of stupid.
+		 *
+		 * TODO(sergey): Look into some nicer solution.
+		 */
+		VertexFormat *format = immVertexFormat();
+		VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
+		VertexFormat_add_attrib(format, "texCoord", COMP_F32, 2, KEEP_FLOAT);
 		immBindProgram(state->program, state->shader_interface);
 
 		immUniform1i("image_texture", 0);

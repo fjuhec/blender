@@ -13,9 +13,14 @@ in ivec4 data;
 
 /* these are the same for all vertices
  * and does not need interpolation */
+flat out vec3 edgesCrease;
+flat out vec3 edgesBweight;
 flat out ivec3 flag;
 flat out vec4 faceColor;
 flat out int clipCase;
+#ifdef VERTEX_SELECTION
+out vec3 vertexColor;
+#endif
 
 /* See fragment shader */
 noperspective out vec4 eData1;
@@ -30,13 +35,19 @@ vec2 proj(vec4 pos)
 void main()
 {
 	clipCase = 0;
+	edgesCrease = vec3(0.0);
+	edgesBweight = vec3(0.0);
 
 	vec4 pPos = ModelViewProjectionMatrix * vec4(pos, 1.0);
 
 	/* there is no face */
 	faceColor = vec4(0.0);
 
-	/* only verterx position 0 is used */
+#ifdef VERTEX_SELECTION
+	vertexColor = vec3(0.0);
+#endif
+
+	/* only vertex position 0 is used */
 	eData1 = eData2 = vec4(1e10);
 	eData2.zw = proj(pPos);
 

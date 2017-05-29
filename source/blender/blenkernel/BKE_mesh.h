@@ -186,13 +186,6 @@ void BKE_mesh_calc_normals_looptri(
         const struct MLoop *mloop,
         const struct MLoopTri *looptri, int looptri_num,
         float (*r_tri_nors)[3]);
-void BKE_mesh_loop_tangents_ex(
-        const struct MVert *mverts, const int numVerts, const struct MLoop *mloops,
-        float (*r_looptangent)[4], float (*loopnors)[3], const struct MLoopUV *loopuv,
-        const int numLoops, const struct MPoly *mpolys, const int numPolys,
-        struct ReportList *reports);
-void BKE_mesh_loop_tangents(
-        struct Mesh *mesh, const char *uvmap, float (*r_looptangents)[4], struct ReportList *reports);
 
 /**
  * References a contiguous loop-fan with normal offset vars.
@@ -294,7 +287,7 @@ void BKE_mesh_loops_to_mface_corners(
         const int numTex, const int numCol,
         const bool hasPCol, const bool hasOrigSpace, const bool hasLNor);
 void BKE_mesh_loops_to_tessdata(
-        struct CustomData *fdata, struct CustomData *ldata, struct CustomData *pdata, struct MFace *mface,
+        struct CustomData *fdata, struct CustomData *ldata, struct MFace *mface,
         int *polyindices, unsigned int (*loopindices)[4], const int num_faces);
 void BKE_mesh_tangent_loops_to_tessdata(
         struct CustomData *fdata, struct CustomData *ldata, struct MFace *mface,
@@ -372,7 +365,6 @@ void BKE_mesh_calc_relative_deform(
 /* *** mesh_validate.c *** */
 
 int BKE_mesh_validate(struct Mesh *me, const int do_verbose, const int cddata_check_mask);
-void BKE_mesh_cd_validate(struct Mesh *me);
 int BKE_mesh_validate_material_indices(struct Mesh *me);
 
 bool BKE_mesh_validate_arrays(
@@ -406,6 +398,15 @@ struct EvaluationContext;
 
 void BKE_mesh_eval_geometry(struct EvaluationContext *eval_ctx,
                             struct Mesh *mesh);
+
+/* Draw Cache */
+enum {
+	BKE_MESH_BATCH_DIRTY_ALL = 0,
+	BKE_MESH_BATCH_DIRTY_SELECT,
+	BKE_MESH_BATCH_DIRTY_PAINT,
+};
+void BKE_mesh_batch_cache_dirty(struct Mesh *me, int mode);
+void BKE_mesh_batch_cache_free(struct Mesh *me);
 
 #ifdef __cplusplus
 }

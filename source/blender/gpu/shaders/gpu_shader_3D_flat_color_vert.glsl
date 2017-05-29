@@ -1,20 +1,26 @@
 
 uniform mat4 ModelViewProjectionMatrix;
 
-#if __VERSION__ == 120
-  attribute vec3 pos;
-  attribute vec4 color;
-
-  flat varying vec4 finalColor;
+in vec3 pos;
+#if defined(USE_COLOR_U32)
+in uint color;
 #else
-  in vec3 pos;
-  in vec4 color;
-
-  flat out vec4 finalColor;
+in vec4 color;
 #endif
+
+flat out vec4 finalColor;
 
 void main()
 {
 	gl_Position = ModelViewProjectionMatrix * vec4(pos, 1.0);
+
+#if defined(USE_COLOR_U32)
+	finalColor = vec4(
+		((color      ) & uint(0xFF)) * (1.0f / 255.0f),
+		((color >>  8) & uint(0xFF)) * (1.0f / 255.0f),
+		((color >> 16) & uint(0xFF)) * (1.0f / 255.0f),
+		((color >> 24)             ) * (1.0f / 255.0f));
+#else
 	finalColor = color;
+#endif
 }

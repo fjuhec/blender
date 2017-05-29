@@ -54,6 +54,17 @@
 static const int default_fbl_len = (sizeof(DefaultFramebufferList)) / sizeof(void *);
 static const int default_txl_len = (sizeof(DefaultTextureList)) / sizeof(void *);
 
+/* Maximum number of simultaneous engine enabled at the same time.
+ * Setting it lower than the real number will do lead to
+ * higher VRAM usage due to sub-efficient buffer reuse. */
+#define MAX_ENGINE_BUFFER_SHARING 5
+
+typedef struct ViewportTempTexture {
+	struct ViewportTempTexture *next, *prev;
+	void *user[MAX_ENGINE_BUFFER_SHARING];
+	GPUTexture *texture;
+} ViewportTempTexture;
+
 struct GPUViewport {
 	float pad[4];
 
@@ -66,11 +77,14 @@ struct GPUViewport {
 
 	DefaultFramebufferList *fbl;
 	DefaultTextureList *txl;
+
+	ListBase tex_pool;  /* ViewportTempTexture list : Temporary textures shared across draw engines */
 };
 
 static void gpu_viewport_buffers_free(FramebufferList *fbl, int fbl_len, TextureList *txl, int txl_len);
 static void gpu_viewport_storage_free(StorageList *stl, int stl_len);
 static void gpu_viewport_passes_free(PassList *psl, int psl_len);
+static void gpu_viewport_texture_pool_free(GPUViewport *viewport);
 
 GPUViewport *GPU_viewport_create(void)
 {
@@ -81,6 +95,24 @@ GPUViewport *GPU_viewport_create(void)
 	viewport->size[0] = viewport->size[1] = -1;
 
 	return viewport;
+}
+
+GPUViewport *GPU_viewport_create_from_offscreen(struct GPUOffScreen *ofs)
+{
+	GPUViewport *viewport = GPU_viewport_create();
+	GPU_offscreen_viewport_data_get(ofs, &viewport->fbl->default_fb, &viewport->txl->color, &viewport->txl->depth);
+	viewport->size[0] = GPU_offscreen_width(ofs);
+	viewport->size[1] = GPU_offscreen_height(ofs);
+	return viewport;
+}
+/**
+ * Clear vars assigned from offscreen, so we don't free data owned by `GPUOffScreen`.
+ */
+void GPU_viewport_clear_from_offscreen(GPUViewport *viewport)
+{
+	viewport->fbl->default_fb = NULL;
+	viewport->txl->color = NULL;
+	viewport->txl->depth = NULL;
 }
 
 void *GPU_viewport_engine_data_create(GPUViewport *viewport, void *engine_type)
@@ -123,11 +155,20 @@ static void gpu_viewport_engines_data_free(GPUViewport *viewport)
 		MEM_freeN(data->psl);
 		MEM_freeN(data->stl);
 
+		/* We could handle this in the DRW module */
+		if (data->text_draw_cache) {
+			extern void DRW_text_cache_destroy(struct DRWTextStore *dt);
+			DRW_text_cache_destroy(data->text_draw_cache);
+			data->text_draw_cache = NULL;
+		}
+
 		MEM_freeN(data);
 
 		BLI_remlink(&viewport->data, link);
 		MEM_freeN(link);
 	}
+
+	gpu_viewport_texture_pool_free(viewport);
 }
 
 void *GPU_viewport_engine_data_get(GPUViewport *viewport, void *engine_type)
@@ -151,10 +192,88 @@ void *GPU_viewport_texture_list_get(GPUViewport *viewport)
 	return viewport->txl;
 }
 
-void GPU_viewport_size_get(GPUViewport *viewport, int *size)
+void GPU_viewport_size_get(const GPUViewport *viewport, int size[2])
 {
 	size[0] = viewport->size[0];
 	size[1] = viewport->size[1];
+}
+
+/**
+ * Special case, this is needed for when we have a viewport without a frame-buffer output
+ * (occlusion queries for eg) but still need to set the size since it may be used for other calculations.
+ */
+void GPU_viewport_size_set(GPUViewport *viewport, const int size[2])
+{
+	viewport->size[0] = size[0];
+	viewport->size[1] = size[1];
+}
+
+/**
+ * Try to find a texture coresponding to params into the texture pool.
+ * If no texture was found, create one and add it to the pool.
+ */
+GPUTexture *GPU_viewport_texture_pool_query(GPUViewport *viewport, void *engine, int width, int height, int channels, int format)
+{
+	GPUTexture *tex;
+
+	for (ViewportTempTexture *tmp_tex = viewport->tex_pool.first; tmp_tex; tmp_tex = tmp_tex->next) {
+		if ((GPU_texture_width(tmp_tex->texture) == width) &&
+			(GPU_texture_height(tmp_tex->texture) == height) &&
+			(GPU_texture_format(tmp_tex->texture) == format))
+		{
+			/* Search if the engine is not already using this texture */
+			for (int i = 0; i < MAX_ENGINE_BUFFER_SHARING; ++i) {
+				if (tmp_tex->user[i] == engine) {
+					break;
+				}
+
+				if (tmp_tex->user[i] == NULL) {
+					tmp_tex->user[i] = engine;
+					return tmp_tex->texture;
+				}
+			}
+		}
+	}
+
+	tex = GPU_texture_create_2D_custom(width, height, channels, format, NULL, NULL);
+
+	ViewportTempTexture *tmp_tex = MEM_callocN(sizeof(ViewportTempTexture), "ViewportTempTexture");
+	tmp_tex->texture = tex;
+	tmp_tex->user[0] = engine;
+
+	BLI_addtail(&viewport->tex_pool, tmp_tex);
+
+	return tex;
+}
+
+static void gpu_viewport_texture_pool_clear_users(GPUViewport *viewport)
+{
+	ViewportTempTexture *tmp_tex_next;
+
+	for (ViewportTempTexture *tmp_tex = viewport->tex_pool.first; tmp_tex; tmp_tex = tmp_tex_next) {
+		tmp_tex_next = tmp_tex->next;
+		bool no_user = true;
+		for (int i = 0; i < MAX_ENGINE_BUFFER_SHARING; ++i) {
+			if (tmp_tex->user[i] != NULL) {
+				tmp_tex->user[i] = NULL;
+				no_user = false;
+			}
+		}
+
+		if (no_user) {
+			GPU_texture_free(tmp_tex->texture);
+			BLI_freelinkN(&viewport->tex_pool, tmp_tex);
+		}
+	}
+}
+
+static void gpu_viewport_texture_pool_free(GPUViewport *viewport)
+{
+	for (ViewportTempTexture *tmp_tex = viewport->tex_pool.first; tmp_tex; tmp_tex = tmp_tex->next) {
+		GPU_texture_free(tmp_tex->texture);
+	}
+
+	BLI_freelistN(&viewport->tex_pool);
 }
 
 bool GPU_viewport_cache_validate(GPUViewport *viewport, unsigned int hash)
@@ -203,8 +322,12 @@ void GPU_viewport_bind(GPUViewport *viewport, const rcti *rect)
 				DRW_engine_viewport_data_size_get(data->engine_type, &fbl_len, &txl_len, NULL, NULL);
 				gpu_viewport_buffers_free(data->fbl, fbl_len, data->txl, txl_len);
 			}
+
+			gpu_viewport_texture_pool_free(viewport);
 		}
 	}
+
+	gpu_viewport_texture_pool_clear_users(viewport);
 
 	if (!dfbl->default_fb) {
 		bool ok = true;
@@ -225,18 +348,27 @@ void GPU_viewport_bind(GPUViewport *viewport, const rcti *rect)
 			goto cleanup;
 		}
 
-		if (!GPU_framebuffer_texture_attach(dfbl->default_fb, dtxl->color, 0)) {
+		if (!GPU_framebuffer_texture_attach(dfbl->default_fb, dtxl->color, 0, 0)) {
 			ok = false;
 			goto cleanup;
 		}
 
 		/* Depth */
 		dtxl->depth = GPU_texture_create_depth(rect_w, rect_h, NULL);
-		if (!dtxl->depth) {
+
+		if (dtxl->depth) {
+			/* Define texture parameters */
+			GPU_texture_bind(dtxl->depth, 0);
+			GPU_texture_compare_mode(dtxl->depth, false);
+			GPU_texture_filter_mode(dtxl->depth, true);
+			GPU_texture_unbind(dtxl->depth);
+		}
+		else {
 			ok = false;
 			goto cleanup;
 		}
-		else if (!GPU_framebuffer_texture_attach(dfbl->default_fb, dtxl->depth, 0)) {
+
+		if (!GPU_framebuffer_texture_attach(dfbl->default_fb, dtxl->depth, 0, 0)) {
 			ok = false;
 			goto cleanup;
 		}
@@ -302,7 +434,7 @@ void GPU_viewport_unbind(GPUViewport *viewport)
 	DefaultFramebufferList *dfbl = viewport->fbl;
 
 	if (dfbl->default_fb) {
-		GPU_framebuffer_texture_unbind(dfbl->default_fb, NULL);
+		GPU_framebuffer_texture_unbind(NULL, NULL);
 		GPU_framebuffer_restore();
 
 		glEnable(GL_SCISSOR_TEST);
@@ -363,6 +495,8 @@ void GPU_viewport_free(GPUViewport *viewport)
 	gpu_viewport_buffers_free(
 	        (FramebufferList *)viewport->fbl, default_fbl_len,
 	        (TextureList *)viewport->txl, default_txl_len);
+
+	gpu_viewport_texture_pool_free(viewport);
 
 	MEM_freeN(viewport->fbl);
 	MEM_freeN(viewport->txl);

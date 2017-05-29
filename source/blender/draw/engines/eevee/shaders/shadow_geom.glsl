@@ -1,21 +1,27 @@
 
+layout(std140) uniform shadow_render_block {
+	mat4 ShadowMatrix[6];
+	vec4 lampPosition;
+	int layer;
+};
+
 layout(triangles) in;
 layout(triangle_strip, max_vertices=3) out;
 
-uniform mat4 ShadowMatrix;
-uniform int Layer;
-
 in vec4 vPos[];
+flat in int face[];
+
+out vec3 worldPosition;
 
 void main() {
-	gl_Layer = Layer;
-	gl_Position = ShadowMatrix * vPos[0];
-	EmitVertex();
-	gl_Layer = Layer;
-	gl_Position = ShadowMatrix * vPos[1];
-	EmitVertex();
-	gl_Layer = Layer;
-	gl_Position = ShadowMatrix * vPos[2];
-	EmitVertex();
+	int f = face[0];
+	gl_Layer = f;
+
+	for (int v = 0; v < 3; ++v) {
+		gl_Position = ShadowMatrix[f] * vPos[v];
+		worldPosition = vPos[v].xyz;
+		EmitVertex();
+	}
+
 	EndPrimitive();
 }

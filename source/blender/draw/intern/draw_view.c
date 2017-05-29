@@ -59,11 +59,19 @@
 
 void DRW_draw_region_info(void)
 {
-	const bContext *C = DRW_get_context();
-	ARegion *ar = CTX_wm_region(C);
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	ARegion *ar = draw_ctx->ar;
+	int offset;
 
 	DRW_draw_cursor();
-	view3d_draw_region_info(C, ar);
+
+	offset = DRW_draw_region_engine_info_offset();
+
+	view3d_draw_region_info(draw_ctx->evil_C, ar, offset);
+
+	if (offset > 0) {
+		DRW_draw_region_engine_info();
+	}
 }
 
 /* ************************* Grid ************************** */
@@ -71,8 +79,8 @@ void DRW_draw_region_info(void)
 static void gridline_range(double x0, double dx, double max, int *r_first, int *r_count)
 {
 	/* determine range of gridlines that appear in this Area -- similar calc but separate ranges for x & y
-	* x0 is gridline 0, the axis in screen space
-	* Area covers [0 .. max) pixels */
+	 * x0 is gridline 0, the axis in screen space
+	 * Area covers [0 .. max) pixels */
 
 	int first = (int)ceil(-x0 / dx);
 	int last = (int)floor((max - x0) / dx);
@@ -90,8 +98,8 @@ static void gridline_range(double x0, double dx, double max, int *r_first, int *
 static int gridline_count(ARegion *ar, double x0, double y0, double dx)
 {
 	/* x0 & y0 establish the "phase" of the grid within this 2D region
-	* dx is the frequency, shared by x & y directions
-	* pass in dx of smallest (highest precision) grid we want to draw */
+	 * dx is the frequency, shared by x & y directions
+	 * pass in dx of smallest (highest precision) grid we want to draw */
 
 	int first, x_ct, y_ct;
 
@@ -103,14 +111,16 @@ static int gridline_count(ARegion *ar, double x0, double y0, double dx)
 	return total_ct;
 }
 
-static bool drawgrid_draw(ARegion *ar, double x0, double y0, double dx, int skip_mod, unsigned pos, unsigned col, GLubyte col_value[3])
+static bool drawgrid_draw(
+        ARegion *ar, double x0, double y0, double dx, int skip_mod,
+        unsigned pos, unsigned col, GLubyte col_value[3])
 {
 	/* skip every skip_mod lines relative to each axis; they will be overlaid by another drawgrid_draw
-	* always skip exact x0 & y0 axes; they will be drawn later in color
-	*
-	* set grid color once, just before the first line is drawn
-	* it's harmless to set same color for every line, or every vertex
-	* but if no lines are drawn, color must not be set! */
+	 * always skip exact x0 & y0 axes; they will be drawn later in color
+	 *
+	 * set grid color once, just before the first line is drawn
+	 * it's harmless to set same color for every line, or every vertex
+	 * but if no lines are drawn, color must not be set! */
 
 	const float x_max = (float)ar->winx;
 	const float y_max = (float)ar->winy;
@@ -192,8 +202,8 @@ static void drawgrid(UnitSettings *unit, ARegion *ar, View3D *v3d, const char **
 	y += wy;
 
 	/* now x, y, and dx have their final values
-	* (x,y) is the world origin (0,0,0) mapped to Area-relative screen space
-	* dx is the distance in pixels between grid lines -- same for horiz or vert grid lines */
+	 * (x,y) is the world origin (0,0,0) mapped to Area-relative screen space
+	 * dx is the distance in pixels between grid lines -- same for horiz or vert grid lines */
 
 	glLineWidth(1.0f);
 
@@ -297,8 +307,9 @@ static void drawgrid(UnitSettings *unit, ARegion *ar, View3D *v3d, const char **
 
 		if (grids_to_draw == 2) {
 			UI_GetThemeColorBlend3ubv(TH_HIGH_GRAD, TH_GRID, dx / (GRID_MIN_PX_D * 6.0), col2);
-			if (drawgrid_draw(ar, x, y, dx, v3d->gridsubdiv, pos, color, col2))
+			if (drawgrid_draw(ar, x, y, dx, v3d->gridsubdiv, pos, color, col2)) {
 				drawgrid_draw(ar, x, y, dx * sublines, 0, pos, color, col);
+			}
 		}
 		else if (grids_to_draw == 1) {
 			drawgrid_draw(ar, x, y, dx, 0, pos, color, col);
@@ -341,19 +352,19 @@ static void drawfloor(Scene *scene, View3D *v3d, const char **grid_unit)
 	/* draw only if there is something to draw */
 	if (v3d->gridflag & (V3D_SHOW_FLOOR | V3D_SHOW_X | V3D_SHOW_Y | V3D_SHOW_Z)) {
 		/* draw how many lines?
-		* trunc(v3d->gridlines / 2) * 4
-		* + 2 for xy axes (possibly with special colors)
-		* + 1 for z axis (the only line not in xy plane)
-		* even v3d->gridlines are honored, odd rounded down */
+		 * trunc(v3d->gridlines / 2) * 4
+		 * + 2 for xy axes (possibly with special colors)
+		 * + 1 for z axis (the only line not in xy plane)
+		 * even v3d->gridlines are honored, odd rounded down */
 		const int gridlines = v3d->gridlines / 2;
 		const float grid_scale = ED_view3d_grid_scale(scene, v3d, grid_unit);
 		const float grid = gridlines * grid_scale;
 
 		const bool show_floor = (v3d->gridflag & V3D_SHOW_FLOOR) && gridlines >= 1;
 
-		bool show_axis_x = v3d->gridflag & V3D_SHOW_X;
-		bool show_axis_y = v3d->gridflag & V3D_SHOW_Y;
-		bool show_axis_z = v3d->gridflag & V3D_SHOW_Z;
+		bool show_axis_x = (v3d->gridflag & V3D_SHOW_X) != 0;
+		bool show_axis_y = (v3d->gridflag & V3D_SHOW_Y) != 0;
+		bool show_axis_z = (v3d->gridflag & V3D_SHOW_Z) != 0;
 
 		unsigned char col_grid[3], col_axis[3];
 
@@ -508,11 +519,11 @@ void DRW_draw_grid(void)
 	 *
 	 * 'RegionView3D.pixsize' is used for viewport drawing, not rendering.
 	 */
-	const bContext *C = DRW_get_context();
-	Scene *scene = CTX_data_scene(C);
-	View3D *v3d = CTX_wm_view3d(C);
-	ARegion *ar = CTX_wm_region(C);
-	RegionView3D *rv3d = ar->regiondata;
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	Scene *scene = draw_ctx->scene;
+	View3D *v3d = draw_ctx->v3d;
+	ARegion *ar = draw_ctx->ar;
+	RegionView3D *rv3d = draw_ctx->rv3d;
 
 	const bool draw_floor = (rv3d->view == RV3D_VIEW_USER) || (rv3d->persp != RV3D_ORTHO);
 	const char *grid_unit = NULL;
@@ -534,8 +545,8 @@ void DRW_draw_grid(void)
 		*(&grid_unit) = NULL;  /* drawgrid need this to detect/affect smallest valid unit... */
 		drawgrid(&scene->unit, ar, v3d, &grid_unit);
 
-		gpuLoadProjectionMatrix3D(rv3d->winmat);
-		gpuLoadMatrix3D(rv3d->viewmat);
+		gpuLoadProjectionMatrix(rv3d->winmat);
+		gpuLoadMatrix(rv3d->viewmat);
 	}
 	else {
 		glDepthMask(GL_TRUE);
@@ -553,15 +564,20 @@ void DRW_draw_background(void)
 	glStencilMask(0xFF);
 
 	if (UI_GetThemeValue(TH_SHOW_BACK_GRAD)) {
-		/* Gradient background Color */
-		gpuMatrixBegin3D(); /* TODO: finish 2D API */
+		float m[4][4];
+		unit_m4(m);
 
+		/* Gradient background Color */
 		glDisable(GL_DEPTH_TEST);
 
 		VertexFormat *format = immVertexFormat();
 		unsigned pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
 		unsigned color = VertexFormat_add_attrib(format, "color", COMP_U8, 3, NORMALIZE_INT_TO_FLOAT);
 		unsigned char col_hi[3], col_lo[3];
+
+		gpuPushMatrix();
+		gpuLoadIdentity();
+		gpuLoadProjectionMatrix(m);
 
 		immBindBuiltinProgram(GPU_SHADER_2D_SMOOTH_COLOR);
 
@@ -580,9 +596,11 @@ void DRW_draw_background(void)
 
 		immUnbindProgram();
 
-		gpuMatrixEnd();
+		gpuPopMatrix();
 
 		glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+		glEnable(GL_DEPTH_TEST);
 	}
 	else {
 		/* Solid background Color */
@@ -625,11 +643,11 @@ static bool is_cursor_visible(Scene *scene, SceneLayer *sl)
 
 void DRW_draw_cursor(void)
 {
-	const bContext *C = DRW_get_context();
-	View3D *v3d = CTX_wm_view3d(C);
-	RegionView3D *rv3d = CTX_wm_region_view3d(C);
-	Scene *scene = CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	View3D *v3d = draw_ctx->v3d;
+	RegionView3D *rv3d = draw_ctx->rv3d;
+	Scene *scene = draw_ctx->scene;
+	SceneLayer *sl = draw_ctx->sl;
 
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glDepthMask(GL_FALSE);
@@ -699,10 +717,10 @@ void DRW_draw_cursor(void)
 
 void DRW_draw_manipulator(void)
 {
-	const bContext *C = DRW_get_context();
-	View3D *v3d = CTX_wm_view3d(C);
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	View3D *v3d = draw_ctx->v3d;
 	v3d->zbuf = false;
-	ARegion *ar = CTX_wm_region(C);
+	ARegion *ar = draw_ctx->ar;
 
 
 	/* TODO, only draws 3D manipulators right now, need to see how 2D drawing will work in new viewport */
@@ -710,5 +728,5 @@ void DRW_draw_manipulator(void)
 	/* draw depth culled manipulators - manipulators need to be updated *after* view matrix was set up */
 	/* TODO depth culling manipulators is not yet supported, just drawing _3D here, should
 	 * later become _IN_SCENE (and draw _3D separate) */
-	WM_manipulatormap_draw(ar->manipulator_map, C, WM_MANIPULATORMAP_DRAWSTEP_3D);
+	WM_manipulatormap_draw(ar->manipulator_map, draw_ctx->evil_C, WM_MANIPULATORMAP_DRAWSTEP_3D);
 }

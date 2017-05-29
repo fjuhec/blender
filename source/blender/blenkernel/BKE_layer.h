@@ -57,8 +57,10 @@ struct Scene;
 struct SceneCollection;
 struct SceneLayer;
 
+void BKE_layer_exit(void);
+
 struct SceneLayer *BKE_scene_layer_render_active(const struct Scene *scene);
-struct SceneLayer *BKE_scene_layer_context_active(struct Scene *scene);
+struct SceneLayer *BKE_scene_layer_context_active(const struct Scene *scene);
 struct SceneLayer *BKE_scene_layer_add(struct Scene *scene, const char *name);
 
 bool BKE_scene_layer_remove(struct Main *bmain, struct Scene *scene, struct SceneLayer *sl);
@@ -76,7 +78,8 @@ void BKE_scene_layer_base_select(struct SceneLayer *sl, struct Base *selbase);
 
 void BKE_layer_collection_free(struct SceneLayer *sl, struct LayerCollection *lc);
 
-struct LayerCollection *BKE_layer_collection_active(struct SceneLayer *sl);
+struct LayerCollection *BKE_layer_collection_get_active(struct SceneLayer *sl);
+struct LayerCollection *BKE_layer_collection_get_active_ensure(struct Scene *scene, struct SceneLayer *sl);
 
 int BKE_layer_collection_count(struct SceneLayer *sl);
 
@@ -106,23 +109,39 @@ void BKE_layer_sync_object_unlink(const struct Scene *scene, struct SceneCollect
 void BKE_collection_override_datablock_add(struct LayerCollection *lc, const char *data_path, struct ID *id);
 
 /* engine settings */
-typedef void (*CollectionEngineSettingsCB)(struct RenderEngine *engine, struct IDProperty *props);
-struct IDProperty *BKE_layer_collection_engine_get(struct LayerCollection *lc, const int type, const char *engine_name);
-struct IDProperty *BKE_object_collection_engine_get(struct Object *ob, const int type, const char *engine_name);
-struct IDProperty *BKE_scene_collection_engine_get(struct Scene *scene, const int type, const char *engine_name);
-void BKE_layer_collection_engine_settings_callback_register(struct Main *bmain, const char *engine_name, CollectionEngineSettingsCB func);
+typedef void (*EngineSettingsCB)(struct RenderEngine *engine, struct IDProperty *props);
+
+struct IDProperty *BKE_layer_collection_engine_evaluated_get(struct Object *ob, const int type, const char *engine_name);
+struct IDProperty *BKE_layer_collection_engine_collection_get(struct LayerCollection *lc, const int type, const char *engine_name);
+struct IDProperty *BKE_layer_collection_engine_scene_get(struct Scene *scene, const int type, const char *engine_name);
+void BKE_layer_collection_engine_settings_callback_register(struct Main *bmain, const char *engine_name, EngineSettingsCB func);
 void BKE_layer_collection_engine_settings_callback_free(void);
 void BKE_layer_collection_engine_settings_create(struct IDProperty *root);
+void BKE_layer_collection_engine_settings_validate_scene(struct Scene *scene);
+void BKE_layer_collection_engine_settings_validate_collection(struct LayerCollection *lc);
+
+struct IDProperty *BKE_scene_layer_engine_evaluated_get(struct SceneLayer *sl, const int type, const char *engine_name);
+struct IDProperty *BKE_scene_layer_engine_layer_get(struct SceneLayer *sl, const int type, const char *engine_name);
+struct IDProperty *BKE_scene_layer_engine_scene_get(struct Scene *scene, const int type, const char *engine_name);
+void BKE_scene_layer_engine_settings_callback_register(struct Main *bmain, const char *engine_name, EngineSettingsCB func);
+void BKE_scene_layer_engine_settings_callback_free(void);
+void BKE_scene_layer_engine_settings_validate_scene(struct Scene *scene);
+void BKE_scene_layer_engine_settings_validate_layer(struct SceneLayer *sl);
+void BKE_scene_layer_engine_settings_create(struct IDProperty *root);
 
 void BKE_collection_engine_property_add_float(struct IDProperty *props, const char *name, float value);
+void BKE_collection_engine_property_add_float_array(
+        struct IDProperty *props, const char *name, const float *values, const int array_length);
 void BKE_collection_engine_property_add_int(struct IDProperty *props, const char *name, int value);
 void BKE_collection_engine_property_add_bool(struct IDProperty *props, const char *name, bool value);
 
 int BKE_collection_engine_property_value_get_int(struct IDProperty *props, const char *name);
 float BKE_collection_engine_property_value_get_float(struct IDProperty *props, const char *name);
+const float *BKE_collection_engine_property_value_get_float_array(struct IDProperty *props, const char *name);
 bool BKE_collection_engine_property_value_get_bool(struct IDProperty *props, const char *name);
 void BKE_collection_engine_property_value_set_int(struct IDProperty *props, const char *name, int value);
 void BKE_collection_engine_property_value_set_float(struct IDProperty *props, const char *name, float value);
+void BKE_collection_engine_property_value_set_float_array(struct IDProperty *props, const char *name, const float *values);
 void BKE_collection_engine_property_value_set_bool(struct IDProperty *props, const char *name, bool value);
 
 /* evaluation */
@@ -131,7 +150,6 @@ void BKE_layer_eval_layer_collection_pre(struct EvaluationContext *eval_ctx,
                                          struct Scene *scene,
                                          struct SceneLayer *scene_layer);
 void BKE_layer_eval_layer_collection(struct EvaluationContext *eval_ctx,
-                                     struct Scene *scene,
                                      struct LayerCollection *layer_collection,
                                      struct LayerCollection *parent_layer_collection);
 void BKE_layer_eval_layer_collection_post(struct EvaluationContext *eval_ctx,
@@ -139,41 +157,53 @@ void BKE_layer_eval_layer_collection_post(struct EvaluationContext *eval_ctx,
 
 /* iterators */
 
-void BKE_selected_objects_Iterator_begin(Iterator *iter, void *data_in);
-void BKE_selected_objects_Iterator_next(Iterator *iter);
-void BKE_selected_objects_Iterator_end(Iterator *iter);
+void BKE_selected_objects_iterator_begin(BLI_Iterator *iter, void *data_in);
+void BKE_selected_objects_iterator_next(BLI_Iterator *iter);
+void BKE_selected_objects_iterator_end(BLI_Iterator *iter);
 
-void BKE_visible_objects_Iterator_begin(Iterator *iter, void *data_in);
-void BKE_visible_objects_Iterator_next(Iterator *iter);
-void BKE_visible_objects_Iterator_end(Iterator *iter);
+void BKE_visible_objects_iterator_begin(BLI_Iterator *iter, void *data_in);
+void BKE_visible_objects_iterator_next(BLI_Iterator *iter);
+void BKE_visible_objects_iterator_end(BLI_Iterator *iter);
 
-void BKE_visible_bases_Iterator_begin(Iterator *iter, void *data_in);
-void BKE_visible_bases_Iterator_next(Iterator *iter);
-void BKE_visible_bases_Iterator_end(Iterator *iter);
+void BKE_selected_bases_iterator_begin(BLI_Iterator *iter, void *data_in);
+void BKE_selected_bases_iterator_next(BLI_Iterator *iter);
+void BKE_selected_bases_iterator_end(BLI_Iterator *iter);
+
+void BKE_visible_bases_iterator_begin(BLI_Iterator *iter, void *data_in);
+void BKE_visible_bases_iterator_next(BLI_Iterator *iter);
+void BKE_visible_bases_iterator_end(BLI_Iterator *iter);
 
 #define FOREACH_SELECTED_OBJECT(sl, _instance)                                \
-	ITER_BEGIN(BKE_selected_objects_Iterator_begin,                           \
-	           BKE_selected_objects_Iterator_next,                            \
-	           BKE_selected_objects_Iterator_end,                             \
+	ITER_BEGIN(BKE_selected_objects_iterator_begin,                           \
+	           BKE_selected_objects_iterator_next,                            \
+	           BKE_selected_objects_iterator_end,                             \
 	           sl, Object *, _instance)
 
 #define FOREACH_SELECTED_OBJECT_END                                           \
 	ITER_END
 
 #define FOREACH_VISIBLE_OBJECT(sl, _instance)                                 \
-	ITER_BEGIN(BKE_visible_objects_Iterator_begin,                            \
-	           BKE_visible_objects_Iterator_next,                             \
-	           BKE_visible_objects_Iterator_end,                              \
+	ITER_BEGIN(BKE_visible_objects_iterator_begin,                            \
+	           BKE_visible_objects_iterator_next,                             \
+	           BKE_visible_objects_iterator_end,                              \
 	           sl, Object *, _instance)
 
 #define FOREACH_VISIBLE_OBJECT_END                                            \
 	ITER_END
 
+#define FOREACH_SELECTED_BASE(sl, _instance)                                   \
+	ITER_BEGIN(BKE_selected_bases_iterator_begin,                              \
+	           BKE_selected_bases_iterator_next,                               \
+	           BKE_selected_bases_iterator_end,                                \
+	           sl, Base *, _instance)
+
+#define FOREACH_SELECTED_BASE_END                                              \
+	ITER_END
 
 #define FOREACH_VISIBLE_BASE(sl, _instance)                                   \
-	ITER_BEGIN(BKE_visible_bases_Iterator_begin,                              \
-	           BKE_visible_bases_Iterator_next,                               \
-	           BKE_visible_bases_Iterator_end,                                \
+	ITER_BEGIN(BKE_visible_bases_iterator_begin,                              \
+	           BKE_visible_bases_iterator_next,                               \
+	           BKE_visible_bases_iterator_end,                                \
 	           sl, Base *, _instance)
 
 #define FOREACH_VISIBLE_BASE_END                                              \
@@ -198,15 +228,15 @@ void BKE_visible_bases_Iterator_end(Iterator *iter);
 	void *data_in;                                                            \
 	                                                                          \
 	if (flag == SELECT) {                                                     \
-	    func_begin = &BKE_selected_objects_Iterator_begin;                    \
-	    func_next = &BKE_selected_objects_Iterator_next;                      \
-	    func_end = &BKE_selected_objects_Iterator_end;                        \
+	    func_begin = &BKE_selected_objects_iterator_begin;                    \
+	    func_next = &BKE_selected_objects_iterator_next;                      \
+	    func_end = &BKE_selected_objects_iterator_end;                        \
 	    data_in = (sl);                                                       \
 	}                                                                         \
 	else {                                                                    \
-	    func_begin = BKE_scene_objects_Iterator_begin;                        \
-	    func_next = BKE_scene_objects_Iterator_next;                          \
-	    func_end = BKE_scene_objects_Iterator_end;                            \
+	    func_begin = BKE_scene_objects_iterator_begin;                        \
+	    func_next = BKE_scene_objects_iterator_next;                          \
+	    func_end = BKE_scene_objects_iterator_end;                            \
 	    data_in = (scene);                                                    \
 	}                                                                         \
 	ITER_BEGIN(func_begin, func_next, func_end, data_in, Object *, _instance)
@@ -214,23 +244,6 @@ void BKE_visible_bases_Iterator_end(Iterator *iter);
 
 #define FOREACH_OBJECT_FLAG_END                                               \
 	ITER_END                                                                  \
-}
-
-/* temporary hacky solution waiting for CoW depsgraph implementation */
-#define DEG_OBJECT_ITER(sl_, instance_)                                       \
-{                                                                             \
-	/* flush all the depsgraph data to objects */                             \
-	Object *instance_;                                                        \
-	Base *base_;                                                              \
-	for (base_ = (sl_)->object_bases.first; base_; base_ = base_->next) {     \
-	    if ((base_->flag & BASE_VISIBLED) != 0) {                             \
-	        instance_ = base_->object;                                        \
-	        instance_->base_flag = base_->flag;                               \
-	        instance_->base_collection_properties = base_->collection_properties;
-
-#define DEG_OBJECT_ITER_END                                                   \
-        }                                                                     \
-    }                                                                         \
 }
 
 #ifdef __cplusplus

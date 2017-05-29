@@ -931,7 +931,7 @@ LayerCollection *CTX_data_layer_collection(const bContext *C)
 	}
 
 	/* fallback */
-	return BKE_layer_collection_active(sl);
+	return BKE_layer_collection_get_active(sl);
 }
 
 SceneCollection *CTX_data_scene_collection(const bContext *C)
@@ -953,10 +953,9 @@ SceneCollection *CTX_data_scene_collection(const bContext *C)
 	return BKE_collection_master(scene);
 }
 
-int CTX_data_mode_enum(const bContext *C)
+int CTX_data_mode_enum_ex(const Object *obedit, const Object *ob)
 {
-	Object *obedit = CTX_data_edit_object(C);
-
+	// Object *obedit = CTX_data_edit_object(C);
 	if (obedit) {
 		switch (obedit->type) {
 			case OB_MESH:
@@ -976,8 +975,7 @@ int CTX_data_mode_enum(const bContext *C)
 		}
 	}
 	else {
-		Object *ob = CTX_data_active_object(C);
-
+		// Object *ob = CTX_data_active_object(C);
 		if (ob) {
 			if (ob->mode & OB_MODE_POSE) return CTX_MODE_POSE;
 			else if (ob->mode & OB_MODE_SCULPT) return CTX_MODE_SCULPT;
@@ -991,6 +989,12 @@ int CTX_data_mode_enum(const bContext *C)
 	return CTX_MODE_OBJECT;
 }
 
+int CTX_data_mode_enum(const bContext *C)
+{
+	Object *obedit = CTX_data_edit_object(C);
+	Object *obact = obedit ? NULL : CTX_data_active_object(C);
+	return CTX_data_mode_enum_ex(obedit, obact);
+}
 
 /* would prefer if we can use the enum version below over this one - Campbell */
 /* must be aligned with above enum  */

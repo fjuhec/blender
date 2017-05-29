@@ -3,9 +3,16 @@ uniform int light_count;
 uniform vec3 cameraPos;
 uniform vec3 eye;
 uniform mat4 ProjectionMatrix;
-uniform sampler2DArrayShadow shadowCubes;
-uniform sampler2DArrayShadow shadowMaps;
-// uniform sampler2DArrayShadow shadowCascades;
+
+uniform samplerCube probeFiltered;
+uniform float lodMax;
+uniform vec3 shCoefs[9];
+
+#ifndef USE_LTC
+uniform sampler2D brdfLut;
+#endif
+uniform sampler2DArray shadowCubes;
+uniform sampler2DArrayShadow shadowCascades;
 
 layout(std140) uniform light_block {
 	LightData lights_data[MAX_LIGHT];
@@ -18,9 +25,15 @@ layout(std140) uniform shadow_block {
 };
 
 in vec3 worldPosition;
-in vec3 worldNormal;
+in vec3 viewPosition;
 
-out vec4 fragColor;
+#ifdef USE_FLAT_NORMAL
+flat in vec3 worldNormal;
+flat in vec3 viewNormal;
+#else
+in vec3 worldNormal;
+in vec3 viewNormal;
+#endif
 
 /* type */
 #define POINT    0.0
@@ -29,30 +42,30 @@ out vec4 fragColor;
 #define HEMI     3.0
 #define AREA     4.0
 
-float light_diffuse(LightData ld, ShadingData sd)
+vec3 light_diffuse(LightData ld, ShadingData sd, vec3 albedo)
 {
 	if (ld.l_type == SUN) {
-		return direct_diffuse_sun(ld, sd);
+		return direct_diffuse_sun(ld, sd) * albedo;
 	}
 	else if (ld.l_type == AREA) {
-		return direct_diffuse_rectangle(ld, sd);
+		return direct_diffuse_rectangle(ld, sd) * albedo;
 	}
 	else {
-		return direct_diffuse_sphere(ld, sd);
+		return direct_diffuse_sphere(ld, sd) * albedo;
 	}
 }
 
-float light_specular(LightData ld, ShadingData sd, float roughness)
+vec3 light_specular(LightData ld, ShadingData sd, float roughness, vec3 f0)
 {
 	if (ld.l_type == SUN) {
-		return direct_ggx_point(sd, roughness);
+		return direct_ggx_point(sd, roughness, f0);
 	}
 	else if (ld.l_type == AREA) {
-		return direct_ggx_rectangle(ld, sd, roughness);
+		return direct_ggx_rectangle(ld, sd, roughness, f0);
 	}
 	else {
-		// return direct_ggx_point(sd, roughness);
-		return direct_ggx_sphere(ld, sd, roughness);
+		// return direct_ggx_point(sd, roughness, f0);
+		return direct_ggx_sphere(ld, sd, roughness, f0);
 	}
 }
 
@@ -80,78 +93,80 @@ float light_visibility(LightData ld, ShadingData sd)
 	/* shadowing */
 	if (ld.l_shadowid >= (MAX_SHADOW_MAP + MAX_SHADOW_CUBE)) {
 		/* Shadow Cascade */
-	}
-	else if (ld.l_shadowid >= MAX_SHADOW_CUBE) {
-		/* Shadow Map */
-		float shid = ld.l_shadowid - MAX_SHADOW_CUBE;
-		ShadowMapData smd = shadows_map_data[int(shid)];
-		vec4 shpos = smd.shadowmat * vec4(sd.W, 1.0);
-		shpos.z -= smd.sh_map_bias * shpos.w;
+		float shid = ld.l_shadowid - (MAX_SHADOW_CUBE + MAX_SHADOW_MAP);
+		ShadowCascadeData smd = shadows_cascade_data[int(shid)];
+
+		/* Finding Cascade index */
+		vec4 z = vec4(-dot(cameraPos - worldPosition, normalize(eye)));
+		vec4 comp = step(z, smd.split_distances);
+		float cascade = dot(comp, comp);
+		mat4 shadowmat;
+		float bias;
+
+		/* Manual Unrolling of a loop for better performance.
+		 * Doing fetch directly with cascade index leads to
+		 * major performance impact. (0.27ms -> 10.0ms for 1 light) */
+		if (cascade == 0.0) {
+			shadowmat = smd.shadowmat[0];
+			bias = smd.bias[0];
+		}
+		else if (cascade == 1.0) {
+			shadowmat = smd.shadowmat[1];
+			bias = smd.bias[1];
+		}
+		else if (cascade == 2.0) {
+			shadowmat = smd.shadowmat[2];
+			bias = smd.bias[2];
+		}
+		else {
+			shadowmat = smd.shadowmat[3];
+			bias = smd.bias[3];
+		}
+
+		vec4 shpos = shadowmat * vec4(sd.W, 1.0);
+		shpos.z -= bias * shpos.w;
 		shpos.xyz /= shpos.w;
 
-		if (shpos.w > 0.0 && min(shpos.x, shpos.y) > 0.0 && max(shpos.x, shpos.y) < 1.0) {
-			vis *= texture(shadowMaps, vec4(shpos.xy, shid, shpos.z));
-		}
+		vis *= texture(shadowCascades, vec4(shpos.xy, shid * float(MAX_CASCADE_NUM) + cascade, shpos.z));
 	}
-	else {
+	else if (ld.l_shadowid >= 0.0) {
 		/* Shadow Cube */
 		float shid = ld.l_shadowid;
 		ShadowCubeData scd = shadows_cube_data[int(shid)];
 
-		float face;
-		vec2 uvs;
-		vec3 Linv = sd.L;
-		vec3 Labs = abs(Linv);
-		vec3 maj_axis;
+		vec3 cubevec = sd.W - ld.l_position;
+		float dist = length(cubevec);
 
-		if (max(Labs.y, Labs.z) < Labs.x) {
-			if (Linv.x > 0.0) {
-				face = 1.0;
-				uvs = vec2(1.0, -1.0) * Linv.zy / -Linv.x;
-				maj_axis = vec3(1.0, 0.0, 0.0);
-			}
-			else {
-				face = 0.0;
-				uvs = -Linv.zy / Linv.x;
-				maj_axis = vec3(-1.0, 0.0, 0.0);
-			}
+		/* projection onto octahedron */
+		cubevec /= dot( vec3(1), abs(cubevec) );
+
+		/* out-folding of the downward faces */
+		if ( cubevec.z < 0.0 ) {
+			cubevec.xy = (1.0 - abs(cubevec.yx)) * sign(cubevec.xy);
 		}
-		else if (max(Labs.x, Labs.z) < Labs.y) {
-			if (Linv.y > 0.0) {
-				face = 2.0;
-				uvs = vec2(-1.0, 1.0) * Linv.xz / Linv.y;
-				maj_axis = vec3(0.0, 1.0, 0.0);
-			}
-			else {
-				face = 3.0;
-				uvs = -Linv.xz / -Linv.y;
-				maj_axis = vec3(0.0, -1.0, 0.0);
-			}
-		}
-		else {
-			if (Linv.z > 0.0) {
-				face = 5.0;
-				uvs = Linv.xy / Linv.z;
-				maj_axis = vec3(0.0, 0.0, 1.0);
-			}
-			else {
-				face = 4.0;
-				uvs = vec2(-1.0, 1.0) * Linv.xy / -Linv.z;
-				maj_axis = vec3(0.0, 0.0, -1.0);
-			}
-		}
+		vec2 texelSize = vec2(1.0 / 512.0);
 
-		uvs = uvs * 0.5 + 0.5;
+		/* mapping to [0;1]ˆ2 texture space */
+		vec2 uvs = cubevec.xy * (0.5) + 0.5;
+		uvs = uvs * (1.0 - 2.0 * texelSize) + 1.0 * texelSize; /* edge filtering fix */
 
-		/* Depth in lightspace to compare against shadow map */
-		float w = dot(maj_axis, sd.l_vector);
-		w -= scd.sh_map_bias * w;
-		float shdepth = buffer_depth(w, scd.sh_cube_far, scd.sh_cube_near);
+		float z = texture(shadowCubes, vec3(uvs, shid)).r;
 
-		vis *= texture(shadowCubes, vec4(uvs, shid * 6.0 + face, shdepth));
+		float esm_test = min(1.0, exp(-5.0 * dist) * z);
+		float sh_test = step(0, z - dist);
+
+		vis *= esm_test;
 	}
 
 	return vis;
+}
+
+vec3 light_fresnel(LightData ld, ShadingData sd, vec3 f0)
+{
+	vec3 H = normalize(sd.L + sd.V);
+	float NH = max(dot(sd.N, H), 1e-8);
+
+	return F_schlick(f0, NH);
 }
 
 /* Calculation common to all bsdfs */
@@ -179,24 +194,23 @@ float light_common(inout LightData ld, inout ShadingData sd)
 	return vis;
 }
 
-void main()
+vec3 eevee_surface_lit(vec3 world_normal, vec3 albedo, vec3 f0, float roughness, float ao)
 {
+	float roughnessSquared = roughness * roughness;
+
 	ShadingData sd;
-	sd.N = normalize(worldNormal);
+	sd.N = normalize(world_normal);
 	sd.V = (ProjectionMatrix[3][3] == 0.0) /* if perspective */
 	            ? normalize(cameraPos - worldPosition)
 	            : normalize(eye);
 	sd.W = worldPosition;
 	sd.R = reflect(-sd.V, sd.N);
-
-	/* hardcoded test vars */
-	vec3 albedo = vec3(0.8);
-	vec3 specular = mix(vec3(0.03), vec3(1.0), pow(max(0.0, 1.0 - dot(sd.N, sd.V)), 5.0));
-	float roughness = 0.1;
-
-	sd.spec_dominant_dir = get_specular_dominant_dir(sd.N, sd.R, roughness);
+	sd.spec_dominant_dir = get_specular_dominant_dir(sd.N, sd.R, roughnessSquared);
 
 	vec3 radiance = vec3(0.0);
+	vec3 indirect_radiance = vec3(0.0);
+
+	/* Analitic Lights */
 	for (int i = 0; i < MAX_LIGHT && i < light_count; ++i) {
 		LightData ld = lights_data[i];
 
@@ -206,11 +220,19 @@ void main()
 		light_common(ld, sd);
 
 		float vis = light_visibility(ld, sd);
-		float spec = light_specular(ld, sd, roughness);
-		float diff = light_diffuse(ld, sd);
+		vec3 spec = light_specular(ld, sd, roughnessSquared, f0);
+		vec3 diff = light_diffuse(ld, sd, albedo);
 
-		radiance += vis * (albedo * diff + specular * spec) * ld.l_color;
+		radiance += vis * (diff + spec) * ld.l_color;
 	}
 
-	fragColor = vec4(radiance, 1.0);
+	/* Envmaps */
+	vec2 uv = lut_coords(dot(sd.N, sd.V), sqrt(roughness));
+	vec2 brdf_lut = texture(brdfLut, uv).rg;
+	vec3 Li = textureLod(probeFiltered, sd.spec_dominant_dir, roughness * lodMax).rgb;
+	indirect_radiance += Li * F_ibl(f0, brdf_lut);
+
+	indirect_radiance += spherical_harmonics(sd.N, shCoefs) * albedo;
+
+	return radiance + indirect_radiance * ao;
 }

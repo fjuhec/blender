@@ -44,11 +44,13 @@
 
 #include "BKE_colortools.h"
 #include "BKE_context.h"
+#include "BKE_editmesh.h"
 #include "BKE_image.h"
 #include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
+#include "BKE_material.h"
 
 #include "DEG_depsgraph.h"
 
@@ -426,27 +428,23 @@ static void image_refresh(const bContext *C, ScrArea *sa)
 		}
 		else {
 			/* old shading system, we set texface */
-			MTexPoly *tf;
-			
-			if (em && EDBM_mtexpoly_check(em)) {
-				tf = EDBM_mtexpoly_active_get(em, NULL, sloppy, selected);
+			if (em && EDBM_uv_check(em)) {
+				BMFace *efa = BM_mesh_active_face_get(em->bm, sloppy, selected);
 
-				if (tf) {
+				if (efa) {
 					/* don't need to check for pin here, see above */
-					sima->image = tf->tpage;
-					
-					if ((sima->flag & SI_EDITTILE) == 0) {
-						sima->curtile = tf->tile;
-					}
+					Image *image = BKE_object_material_edit_image_get(obedit, efa->mat_nr);
+
+					sima->image = image;
 				}
 			}
 		}
 	}
 }
 
-static void image_listener(bScreen *sc, ScrArea *sa, wmNotifier *wmn)
+static void image_listener(bScreen *UNUSED(sc), ScrArea *sa, wmNotifier *wmn, const Scene *scene)
 {
-	Scene *scene = sc->scene;
+	SceneLayer *sl = BKE_scene_layer_context_active(scene);
 	SpaceImage *sima = (SpaceImage *)sa->spacedata.first;
 	
 	/* context changes */
@@ -539,8 +537,7 @@ static void image_listener(bScreen *sc, ScrArea *sa, wmNotifier *wmn)
 				case ND_TRANSFORM:
 				case ND_MODIFIER:
 				{
-					TODO_LAYER_CONTEXT; /* need to use OBACT_NEW */
-					Object *ob = OBACT;
+					Object *ob = OBACT_NEW;
 					if (ob && (ob == wmn->reference) && (ob->mode & OB_MODE_EDIT)) {
 						if (sima->lock && (sima->flag & SI_DRAWSHADOW)) {
 							ED_area_tag_refresh(sa);
@@ -837,7 +834,9 @@ static void image_main_region_draw(const bContext *C, ARegion *ar)
 #endif
 }
 
-static void image_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegion *ar, wmNotifier *wmn)
+static void image_main_region_listener(
+        bScreen *UNUSED(sc), ScrArea *sa, ARegion *ar,
+        wmNotifier *wmn, const Scene *UNUSED(scene))
 {
 	/* context changes */
 	switch (wmn->category) {
@@ -886,7 +885,9 @@ static void image_buttons_region_draw(const bContext *C, ARegion *ar)
 	ED_region_panels(C, ar, NULL, -1, true);
 }
 
-static void image_buttons_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar, wmNotifier *wmn)
+static void image_buttons_region_listener(
+        bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
+        wmNotifier *wmn, const Scene *UNUSED(scene))
 {
 	/* context changes */
 	switch (wmn->category) {
@@ -959,7 +960,9 @@ static void image_tools_region_draw(const bContext *C, ARegion *ar)
 	ED_region_panels(C, ar, NULL, -1, true);
 }
 
-static void image_tools_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar, wmNotifier *wmn)
+static void image_tools_region_listener(
+        bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
+        wmNotifier *wmn, const Scene *UNUSED(scene))
 {
 	/* context changes */
 	switch (wmn->category) {
@@ -1005,7 +1008,9 @@ static void image_header_region_draw(const bContext *C, ARegion *ar)
 	ED_region_header(C, ar);
 }
 
-static void image_header_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar, wmNotifier *wmn)
+static void image_header_region_listener(
+        bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
+        wmNotifier *wmn, const Scene *UNUSED(scene))
 {
 	/* context changes */
 	switch (wmn->category) {

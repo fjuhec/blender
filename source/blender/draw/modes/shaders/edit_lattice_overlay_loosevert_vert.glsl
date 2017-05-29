@@ -28,12 +28,12 @@ void main()
 
 	vec4 pPos = ModelViewProjectionMatrix * vec4(pos, 1.0);
 
-	/* only verterx position 0 is used */
+	/* only vertex position 0 is used */
 	eData1 = eData2 = vec4(1e10);
 	eData2.zw = proj(pPos);
 
 	vertFlag = data;
 
-	gl_PointSize = sizeEdgeFix;
+	gl_PointSize = sizeVertex;
 	gl_Position = pPos;
 }

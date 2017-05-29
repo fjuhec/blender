@@ -157,6 +157,7 @@ shader_node_categories = [
         NodeItem("ShaderNodeGeometry"),
         NodeItem("ShaderNodeExtendedMaterial"),
         NodeItem("ShaderNodeParticleInfo"),
+        NodeItem("ShaderNodeObjectInfo"),
         NodeItem("NodeGroupInput", poll=group_input_output_item_poll),
         ]),
     ShaderOldNodeCategory("SH_OUTPUT", "Output", items=[
@@ -215,6 +216,8 @@ shader_node_categories = [
         NodeItem("NodeGroupInput", poll=group_input_output_item_poll),
         ]),
     ShaderNewNodeCategory("SH_NEW_OUTPUT", "Output", items=[
+        NodeItem("ShaderNodeOutputMetallic", poll=object_shader_nodes_poll),
+        NodeItem("ShaderNodeOutputSpecular", poll=object_shader_nodes_poll),
         NodeItem("ShaderNodeOutputMaterial", poll=object_shader_nodes_poll),
         NodeItem("ShaderNodeOutputLamp", poll=object_shader_nodes_poll),
         NodeItem("ShaderNodeOutputWorld", poll=world_shader_nodes_poll),
@@ -225,6 +228,7 @@ shader_node_categories = [
         NodeItem("ShaderNodeMixShader"),
         NodeItem("ShaderNodeAddShader"),
         NodeItem("ShaderNodeBsdfDiffuse", poll=object_shader_nodes_poll),
+        NodeItem("ShaderNodeBsdfPrincipled", poll=object_shader_nodes_poll),
         NodeItem("ShaderNodeBsdfGlossy", poll=object_shader_nodes_poll),
         NodeItem("ShaderNodeBsdfTransparent", poll=object_shader_nodes_poll),
         NodeItem("ShaderNodeBsdfRefraction", poll=object_shader_nodes_poll),

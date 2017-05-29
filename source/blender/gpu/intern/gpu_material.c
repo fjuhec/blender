@@ -94,12 +94,15 @@ static struct GPUWorld {
 } GPUWorld;
 
 struct GPUMaterial {
-	Scene *scene;
+	Scene *scene; /* DEPRECATED was only usefull for lamps */
 	Material *ma;
 
 	/* material for mesh surface, worlds or something else.
 	 * some code generation is done differently depending on the use case */
-	int type;
+	int type; /* DEPRECATED */
+
+	void *engine;   /* attached engine type */
+	int options;    /* to identify shader variations (shadow, probe, world background...) */
 	
 	/* for creating the material */
 	ListBase nodes;
@@ -123,6 +126,8 @@ struct GPUMaterial {
 	int partcoloc;
 	int partvel;
 	int partangvel;
+
+	int objectinfoloc;
 
 	ListBase lamps;
 	bool bound;
@@ -226,6 +231,8 @@ static int gpu_material_construct_end(GPUMaterial *material, const char *passnam
 			material->partvel = GPU_shader_get_uniform(shader, GPU_builtin_name(GPU_PARTICLE_VELOCITY));
 		if (material->builtins & GPU_PARTICLE_ANG_VELOCITY)
 			material->partangvel = GPU_shader_get_uniform(shader, GPU_builtin_name(GPU_PARTICLE_ANG_VELOCITY));
+		if (material->builtins & GPU_OBJECT_INFO)
+			material->objectinfoloc = GPU_shader_get_uniform(shader, GPU_builtin_name(GPU_OBJECT_INFO));
 		return 1;
 	}
 	else {
@@ -346,9 +353,14 @@ void GPU_material_bind(
 	}
 }
 
+GPUBuiltin GPU_get_material_builtins(GPUMaterial *material)
+{
+	return material->builtins;
+}
+
 void GPU_material_bind_uniforms(
         GPUMaterial *material, float obmat[4][4], float viewmat[4][4], float obcol[4],
-        float autobumpscale, GPUParticleInfo *pi)
+        float autobumpscale, GPUParticleInfo *pi, float object_info[3])
 {
 	if (material->pass) {
 		GPUShader *shader = GPU_pass_shader(material->pass);
@@ -397,6 +409,9 @@ void GPU_material_bind_uniforms(
 		if (material->builtins & GPU_PARTICLE_ANG_VELOCITY) {
 			GPU_shader_uniform_vector(shader, material->partangvel, 3, 1, pi->angular_velocity);
 		}
+		if (material->builtins & GPU_OBJECT_INFO) {
+			GPU_shader_uniform_vector(shader, material->objectinfoloc, 3, 1, object_info);
+		}
 
 	}
 }
@@ -424,6 +439,10 @@ GPUMatType GPU_Material_get_type(GPUMaterial *material)
 	return material->type;
 }
 
+GPUPass *GPU_material_get_pass(GPUMaterial *material)
+{
+	return material->pass;
+}
 
 void GPU_material_vertex_attributes(GPUMaterial *material, GPUVertexAttribs *attribs)
 {
@@ -2084,6 +2103,48 @@ GPUMaterial *GPU_material_world(struct Scene *scene, struct World *wo)
 	return mat;
 }
 
+/* TODO : This is supposed to replace GPU_material_from_blender/_world in the future */
+GPUMaterial *GPU_material_from_nodetree(
+        Scene *scene, struct bNodeTree *ntree, ListBase *gpumaterials, void *engine_type, int options,
+        const char *vert_code, const char *geom_code, const char *frag_lib, const char *defines)
+{
+	GPUMaterial *mat;
+	GPUNodeLink *outlink;
+	LinkData *link;
+
+	for (link = gpumaterials->first; link; link = link->next) {
+		GPUMaterial *current_material = (GPUMaterial *)link->data;
+		if (current_material->engine == engine_type &&
+		    current_material->options == options)
+		{
+			return current_material;
+		}
+	}
+
+	/* allocate material */
+	mat = GPU_material_construct_begin(NULL); /* TODO remove GPU_material_construct_begin */
+	mat->scene = scene;
+	mat->engine = engine_type;
+	mat->options = options;
+
+	ntreeGPUMaterialNodes(ntree, mat, NODE_NEWER_SHADING);
+
+	/* Let Draw manager finish the construction. */
+	if (mat->outlink) {
+		outlink = mat->outlink;
+		mat->pass = GPU_generate_pass_new(&mat->nodes, outlink, vert_code, geom_code, frag_lib, defines);
+	}
+
+	/* note that even if building the shader fails in some way, we still keep
+	 * it to avoid trying to compile again and again, and simple do not use
+	 * the actual shader on drawing */
+
+	link = MEM_callocN(sizeof(LinkData), "GPUMaterialLink");
+	link->data = mat;
+	BLI_addtail(gpumaterials, link);
+
+	return mat;
+}
 
 GPUMaterial *GPU_material_from_blender(Scene *scene, Material *ma, bool use_opensubdiv)
 {

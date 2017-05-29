@@ -38,26 +38,27 @@ extern GlobalsUboStorage ts;
 typedef struct EDIT_ARMATURE_PassList {
 	struct DRWPass *bone_solid;
 	struct DRWPass *bone_wire;
+	struct DRWPass *bone_envelope;
 	struct DRWPass *relationship;
 } EDIT_ARMATURE_PassList;
 
 typedef struct EDIT_ARMATURE_StorageList {
-	struct g_data *g_data;
+	struct EDIT_ARMATURE_PrivateData *g_data;
 } EDIT_ARMATURE_StorageList;
 
 typedef struct EDIT_ARMATURE_Data {
 	void *engine_type;
-	char *fbl;
-	char *txl;
+	DRWViewportEmptyList *fbl;
+	DRWViewportEmptyList *txl;
 	EDIT_ARMATURE_PassList *psl;
 	EDIT_ARMATURE_StorageList *stl;
 } EDIT_ARMATURE_Data;
 
 /* *********** STATIC *********** */
 
-typedef struct g_data {
+typedef struct EDIT_ARMATURE_PrivateData {
 	DRWShadingGroup *relationship_lines;
-} g_data; /* Transient data */
+} EDIT_ARMATURE_PrivateData; /* Transient data */
 
 /* *********** FUNCTIONS *********** */
 
@@ -68,7 +69,7 @@ static void EDIT_ARMATURE_cache_init(void *vedata)
 
 	if (!stl->g_data) {
 		/* Alloc transient pointers */
-		stl->g_data = MEM_mallocN(sizeof(g_data), "g_data");
+		stl->g_data = MEM_mallocN(sizeof(*stl->g_data), __func__);
 	}
 
 	{
@@ -84,13 +85,19 @@ static void EDIT_ARMATURE_cache_init(void *vedata)
 	}
 
 	{
+		/* distance outline around envelope bones */
+		DRWState state = DRW_STATE_ADDITIVE | DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS | DRW_STATE_BLEND;
+		psl->bone_envelope = DRW_pass_create("Bone Envelope Outline Pass", state);
+	}
+
+	{
 		/* Non Meshes Pass (Camera, empties, lamps ...) */
 		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS | DRW_STATE_BLEND | DRW_STATE_WIRE;
 		psl->relationship = DRW_pass_create("Bone Relationship Pass", state);
 
 		/* Relationship Lines */
 		stl->g_data->relationship_lines = shgroup_dynlines_uniform_color(psl->relationship, ts.colorWire);
-		DRW_shgroup_state_set(stl->g_data->relationship_lines, DRW_STATE_STIPPLE_3);
+		DRW_shgroup_state_enable(stl->g_data->relationship_lines, DRW_STATE_STIPPLE_3);
 	}
 }
 
@@ -102,7 +109,8 @@ static void EDIT_ARMATURE_cache_populate(void *vedata, Object *ob)
 
 	if (ob->type == OB_ARMATURE) {
 		if (arm->edbo) {
-			DRW_shgroup_armature_edit(ob, psl->bone_solid, psl->bone_wire, stl->g_data->relationship_lines);
+			DRW_shgroup_armature_edit(
+			            ob, psl->bone_solid, psl->bone_wire, psl->bone_envelope, stl->g_data->relationship_lines);
 		}
 	}
 }
@@ -111,6 +119,7 @@ static void EDIT_ARMATURE_draw_scene(void *vedata)
 {
 	EDIT_ARMATURE_PassList *psl = ((EDIT_ARMATURE_Data *)vedata)->psl;
 
+	DRW_draw_pass(psl->bone_envelope);
 	DRW_draw_pass(psl->bone_solid);
 	DRW_draw_pass(psl->bone_wire);
 	DRW_draw_pass(psl->relationship);

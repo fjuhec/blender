@@ -1053,7 +1053,7 @@ static void write_nodetree_nolib(WriteData *wd, bNodeTree *ntree)
 				writestruct(wd, DATA, NodeImageMultiFileSocket, 1, sock->storage);
 			}
 		}
-		if (node->type == CMP_NODE_IMAGE) {
+		if (ELEM(node->type, CMP_NODE_IMAGE, CMP_NODE_R_LAYERS)) {
 			/* write extra socket info */
 			for (sock = node->outputs.first; sock; sock = sock->next) {
 				writestruct(wd, DATA, NodeImageLayer, 1, sock->storage);
@@ -1318,8 +1318,8 @@ static void write_particlesettings(WriteData *wd, ParticleSettings *part)
 				dw->index = 0;
 				if (part->dup_group) { /* can be NULL if lining fails or set to None */
 					for (GroupObject *go = part->dup_group->gobject.first;
-						 go && go->ob != dw->ob;
-						 go = go->next, dw->index++);
+					     go && go->ob != dw->ob;
+					     go = go->next, dw->index++);
 				}
 			}
 			writestruct(wd, DATA, ParticleDupliWeight, 1, dw);
@@ -2257,8 +2257,9 @@ static void write_mesh(WriteData *wd, Mesh *mesh)
 			 *     outside of save process itself.
 			 *     Maybe we can live with this, though?
 			 */
-			mesh->totface = BKE_mesh_mpoly_to_mface(&mesh->fdata, &old_mesh->ldata, &old_mesh->pdata,
-													mesh->totface, old_mesh->totloop, old_mesh->totpoly);
+			mesh->totface = BKE_mesh_mpoly_to_mface(
+			        &mesh->fdata, &old_mesh->ldata, &old_mesh->pdata,
+			        mesh->totface, old_mesh->totloop, old_mesh->totpoly);
 
 			BKE_mesh_update_customdata_pointers(mesh, false);
 
@@ -2695,8 +2696,8 @@ static void write_scene(WriteData *wd, Scene *sce)
 				}
 				if (seq->type == SEQ_TYPE_IMAGE) {
 					writestruct(wd, DATA, StripElem,
-								MEM_allocN_len(strip->stripdata) / sizeof(struct StripElem),
-								strip->stripdata);
+					            MEM_allocN_len(strip->stripdata) / sizeof(struct StripElem),
+					            strip->stripdata);
 				}
 				else if (ELEM(seq->type, SEQ_TYPE_MOVIE, SEQ_TYPE_SOUND_RAM, SEQ_TYPE_SOUND_HD)) {
 					writestruct(wd, DATA, StripElem, 1, strip->stripdata);
@@ -2751,6 +2752,9 @@ static void write_scene(WriteData *wd, Scene *sce)
 
 	for (SceneRenderLayer *srl = sce->r.layers.first; srl; srl = srl->next) {
 		writestruct(wd, DATA, SceneRenderLayer, 1, srl);
+		if (srl->prop) {
+			IDP_WriteProperty(srl->prop, wd);
+		}
 		for (FreestyleModuleConfig *fmc = srl->freestyleConfig.modules.first; fmc; fmc = fmc->next) {
 			writestruct(wd, DATA, FreestyleModuleConfig, 1, fmc);
 		}
@@ -2785,7 +2789,14 @@ static void write_scene(WriteData *wd, Scene *sce)
 	for (SceneLayer *sl = sce->render_layers.first; sl; sl = sl->next) {
 		writestruct(wd, DATA, SceneLayer, 1, sl);
 		writelist(wd, DATA, Base, &sl->object_bases);
+		if (sl->properties) {
+			IDP_WriteProperty(sl->properties, wd);
+		}
 		write_layer_collections(wd, &sl->layer_collections);
+	}
+
+	if (sce->layer_properties) {
+		IDP_WriteProperty(sce->layer_properties, wd);
 	}
 
 	if (sce->collection_properties) {
@@ -3416,13 +3427,13 @@ static void write_mask(WriteData *wd, Mask *mask)
 			}
 
 			for (masklay_shape = masklay->splines_shapes.first;
-				 masklay_shape;
-				 masklay_shape = masklay_shape->next)
+			     masklay_shape;
+			     masklay_shape = masklay_shape->next)
 			{
 				writestruct(wd, DATA, MaskLayerShape, 1, masklay_shape);
 				writedata(wd, DATA,
-						  masklay_shape->tot_vert * sizeof(float) * MASK_OBJECT_SHAPE_ELEM_SIZE,
-						  masklay_shape->data);
+				          masklay_shape->tot_vert * sizeof(float) * MASK_OBJECT_SHAPE_ELEM_SIZE,
+				          masklay_shape->data);
 			}
 		}
 	}
@@ -3908,7 +3919,7 @@ static bool write_file_handle(
 					write_scene(wd, (Scene *)id);
 					break;
 				case ID_CU:
-					write_curve(wd,(Curve *)id);
+					write_curve(wd, (Curve *)id);
 					break;
 				case ID_MB:
 					write_mball(wd, (MetaBall *)id);

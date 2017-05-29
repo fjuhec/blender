@@ -103,6 +103,7 @@ set(SRC
 	intern/editderivedmesh.c
 	intern/editmesh.c
 	intern/editmesh_bvh.c
+	intern/editmesh_tangent.c
 	intern/effect.c
 	intern/facemap.c
 	intern/fcurve.c
@@ -121,7 +122,6 @@ set(SRC
 	intern/key.c
 	intern/lamp.c
 	intern/lattice.c
-	intern/lattice_render.c
 	intern/library.c
 	intern/library_idmap.c
 	intern/library_query.c
@@ -137,7 +137,7 @@ set(SRC
 	intern/mesh_evaluate.c
 	intern/mesh_mapping.c
 	intern/mesh_remap.c
-	intern/mesh_render.c
+	intern/mesh_tangent.c
 	intern/mesh_validate.c
 	intern/modifier.c
 	intern/modifiers_bmesh.c
@@ -235,6 +235,7 @@ set(SRC
 	BKE_dynamicpaint.h
 	BKE_editmesh.h
 	BKE_editmesh_bvh.h
+	BKE_editmesh_tangent.h
 	BKE_effect.h
 	BKE_facemap.h
 	BKE_fcurve.h
@@ -252,7 +253,6 @@ set(SRC
 	BKE_key.h
 	BKE_lamp.h
 	BKE_lattice.h
-	BKE_lattice_render.h
 	BKE_library.h
 	BKE_library_idmap.h
 	BKE_library_query.h
@@ -266,7 +266,7 @@ set(SRC
 	BKE_mesh.h
 	BKE_mesh_mapping.h
 	BKE_mesh_remap.h
-	BKE_mesh_render.h
+	BKE_mesh_tangent.h
 	BKE_modifier.h
 	BKE_movieclip.h
 	BKE_multires.h

@@ -29,6 +29,7 @@
  *  \ingroup gpu
  */
 
+#include "BLI_compiler_attrs.h"
 #include "BLI_utildefines.h"
 #include "BLI_sys_types.h"
 #include "BLI_system.h"
@@ -94,7 +95,7 @@ static void APIENTRY gpu_debug_proc(
 	switch (severity) {
 		case GL_DEBUG_SEVERITY_HIGH:
 			backtrace = true;
-			/* fall through */
+			ATTR_FALLTHROUGH;
 		case GL_DEBUG_SEVERITY_MEDIUM:
 		case GL_DEBUG_SEVERITY_LOW:
 		case GL_DEBUG_SEVERITY_NOTIFICATION: /* KHR has this, ARB does not */
@@ -134,7 +135,7 @@ static void APIENTRY gpu_debug_proc_amd(
 	switch (severity) {
 		case GL_DEBUG_SEVERITY_HIGH:
 			backtrace = true;
-			/* fall through */
+			ATTR_FALLTHROUGH;
 		case GL_DEBUG_SEVERITY_MEDIUM:
 		case GL_DEBUG_SEVERITY_LOW:
 			fprintf(stderr, "GL %s: %s\n", category_name_amd(category), message);
@@ -161,21 +162,21 @@ void gpu_debug_init(void)
 		fprintf(stderr, "Using %s\n", GLEW_VERSION_4_3 ? "OpenGL 4.3 debug facilities" : "KHR_debug extension");
 		glEnable(GL_DEBUG_OUTPUT);
 		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-		glDebugMessageCallback((GLDEBUGPROC)gpu_debug_proc, mxGetCurrentContext());
+		glDebugMessageCallback((GLDEBUGPROC)gpu_debug_proc, NULL);
 		glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL, GL_TRUE);
 		GPU_string_marker(success);
 	}
 	else if (GLEW_ARB_debug_output) {
 		fprintf(stderr, "Using ARB_debug_output extension\n");
 		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-		glDebugMessageCallbackARB((GLDEBUGPROCARB)gpu_debug_proc, mxGetCurrentContext());
+		glDebugMessageCallbackARB((GLDEBUGPROCARB)gpu_debug_proc, NULL);
 		glDebugMessageControlARB(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL, GL_TRUE);
 		GPU_string_marker(success);
 	}
 #  if LEGACY_DEBUG
 	else if (GLEW_AMD_debug_output) {
 		fprintf(stderr, "Using AMD_debug_output extension\n");
-		glDebugMessageCallbackAMD(gpu_debug_proc_amd, mxGetCurrentContext());
+		glDebugMessageCallbackAMD(gpu_debug_proc_amd, NULL);
 		glDebugMessageEnableAMD(GL_DONT_CARE, GL_DONT_CARE, 0, NULL, GL_TRUE);
 		GPU_string_marker(success);
 	}

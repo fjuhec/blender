@@ -41,6 +41,9 @@ class AbcTransformWriter : public AbcObjectWriter {
 	bool m_inherits_xform;
 
 public:
+	Object *m_proxy_from;
+
+public:
 	AbcTransformWriter(Object *ob,
 	                   const Alembic::AbcGeom::OObject &abc_parent,
 	                   AbcTransformWriter *parent,
@@ -65,8 +68,11 @@ public:
 	AbcEmptyReader(const Alembic::Abc::IObject &object, ImportSettings &settings);
 
 	bool valid() const;
+	bool accepts_object_type(const Alembic::AbcCoreAbstract::ObjectHeader &alembic_header,
+	                         const Object *const ob,
+	                         const char **err_str) const;
 
-	void readObjectData(Main *bmain, float time);
+	void readObjectData(Main *bmain, const Alembic::Abc::ISampleSelector &sample_sel);
 };
 
 #endif  /* __ABC_TRANSFORM_H__ */

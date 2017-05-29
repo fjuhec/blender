@@ -226,7 +226,9 @@ typedef struct SceneRenderLayer {
 
 	int samples;
 	float pass_alpha_threshold;
-	
+
+	IDProperty *prop;
+
 	struct FreestyleConfig freestyleConfig;
 } SceneRenderLayer;
 
@@ -280,8 +282,42 @@ typedef enum ScenePassType {
 	SCE_PASS_SUBSURFACE_DIRECT        = (1 << 28),
 	SCE_PASS_SUBSURFACE_INDIRECT      = (1 << 29),
 	SCE_PASS_SUBSURFACE_COLOR         = (1 << 30),
-	SCE_PASS_DEBUG                    = (1 << 31),  /* This is a virtual pass. */
 } ScenePassType;
+
+#define RE_PASSNAME_COMBINED "Combined"
+#define RE_PASSNAME_Z "Depth"
+#define RE_PASSNAME_VECTOR "Vector"
+#define RE_PASSNAME_NORMAL "Normal"
+#define RE_PASSNAME_UV "UV"
+#define RE_PASSNAME_RGBA "Color"
+#define RE_PASSNAME_EMIT "Emit"
+#define RE_PASSNAME_DIFFUSE "Diffuse"
+#define RE_PASSNAME_SPEC "Spec"
+#define RE_PASSNAME_SHADOW "Shadow"
+
+#define RE_PASSNAME_AO "AO"
+#define RE_PASSNAME_ENVIRONMENT "Env"
+#define RE_PASSNAME_INDIRECT "Indirect"
+#define RE_PASSNAME_REFLECT "Reflect"
+#define RE_PASSNAME_REFRACT "Refract"
+#define RE_PASSNAME_INDEXOB "IndexOB"
+#define RE_PASSNAME_INDEXMA "IndexMA"
+#define RE_PASSNAME_MIST "Mist"
+
+#define RE_PASSNAME_RAYHITS "RayHits"
+#define RE_PASSNAME_DIFFUSE_DIRECT "DiffDir"
+#define RE_PASSNAME_DIFFUSE_INDIRECT "DiffInd"
+#define RE_PASSNAME_DIFFUSE_COLOR "DiffCol"
+#define RE_PASSNAME_GLOSSY_DIRECT "GlossDir"
+#define RE_PASSNAME_GLOSSY_INDIRECT "GlossInd"
+#define RE_PASSNAME_GLOSSY_COLOR "GlossCol"
+#define RE_PASSNAME_TRANSM_DIRECT "TransDir"
+#define RE_PASSNAME_TRANSM_INDIRECT "TransInd"
+#define RE_PASSNAME_TRANSM_COLOR "TransCol"
+
+#define RE_PASSNAME_SUBSURFACE_DIRECT "SubsurfaceDir"
+#define RE_PASSNAME_SUBSURFACE_INDIRECT "SubsurfaceInd"
+#define RE_PASSNAME_SUBSURFACE_COLOR "SubsurfaceCol"
 
 /* note, srl->passflag is treestore element 'nr' in outliner, short still... */
 
@@ -929,7 +965,7 @@ typedef struct GameData {
 #define GAME_SHOW_DEBUG_PROPS				(1 << 2)
 #define GAME_SHOW_FRAMERATE					(1 << 3)
 #define GAME_SHOW_PHYSICS					(1 << 4)
-#define GAME_DISPLAY_LISTS					(1 << 5)
+// #define GAME_DISPLAY_LISTS					(1 << 5)   /* deprecated */
 #define GAME_GLSL_NO_LIGHTS					(1 << 6)
 #define GAME_GLSL_NO_SHADERS				(1 << 7)
 #define GAME_GLSL_NO_SHADOWS				(1 << 8)
@@ -1653,7 +1689,7 @@ typedef struct Scene {
 	struct Editing *ed;								/* sequence editor data is allocated here */
 	
 	struct ToolSettings *toolsettings;		/* default allocated now */
-	struct SceneStats *stats;				/* default allocated now */
+	void *pad2;
 	struct DisplaySafeAreas safe_areas;
 
 	/* migrate or replace? depends on some internal things... */
@@ -1717,6 +1753,8 @@ typedef struct Scene {
 	int pad4;
 
 	IDProperty *collection_properties;  /* settings to be overriden by layer collections */
+	IDProperty *layer_properties;  /* settings to be override by workspaces */
+
 	int pad5[2];
 } Scene;
 
@@ -1908,6 +1946,7 @@ enum {
 extern const char *RE_engine_id_BLENDER_RENDER;
 extern const char *RE_engine_id_BLENDER_GAME;
 extern const char *RE_engine_id_BLENDER_CLAY;
+extern const char *RE_engine_id_BLENDER_EEVEE;
 extern const char *RE_engine_id_CYCLES;
 
 /* **************** SCENE ********************* */

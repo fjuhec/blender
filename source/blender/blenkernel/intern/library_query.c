@@ -560,7 +560,7 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 				if (object->proxy_from) {
 					data.cb_flag = ID_IS_LINKED_DATABLOCK(object->proxy_from) ? IDWALK_CB_INDIRECT_USAGE : 0;
 				}
-				CALLBACK_INVOKE(object->proxy_from, IDWALK_CB_NOP);
+				CALLBACK_INVOKE(object->proxy_from, IDWALK_CB_LOOPBACK);
 				data.cb_flag = data_cb_flag;
 
 				CALLBACK_INVOKE(object->poselib, IDWALK_CB_USER);
@@ -644,31 +644,6 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 				for (i = 0; i < mesh->totcol; i++) {
 					CALLBACK_INVOKE(mesh->mat[i], IDWALK_CB_USER);
 				}
-
-				/* XXX Really not happy with this - probably texface should rather use some kind of
-				 * 'texture slots' and just set indices in each poly/face item - would also save some memory.
-				 * Maybe a nice TODO for blender2.8? */
-				if (mesh->mtface || mesh->mtpoly) {
-					for (i = 0; i < mesh->pdata.totlayer; i++) {
-						if (mesh->pdata.layers[i].type == CD_MTEXPOLY) {
-							MTexPoly *txface = (MTexPoly *)mesh->pdata.layers[i].data;
-
-							for (int j = 0; j < mesh->totpoly; j++, txface++) {
-								CALLBACK_INVOKE(txface->tpage, IDWALK_CB_USER_ONE);
-							}
-						}
-					}
-
-					for (i = 0; i < mesh->fdata.totlayer; i++) {
-						if (mesh->fdata.layers[i].type == CD_MTFACE) {
-							MTFace *tface = (MTFace *)mesh->fdata.layers[i].data;
-
-							for (int j = 0; j < mesh->totface; j++, tface++) {
-								CALLBACK_INVOKE(tface->tpage, IDWALK_CB_USER_ONE);
-							}
-						}
-					}
-				}
 				break;
 			}
 
@@ -711,6 +686,7 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 					library_foreach_ID_as_subdata_link((ID **)&material->nodetree, callback, user_data, flag, &data);
 				}
 				CALLBACK_INVOKE(material->group, IDWALK_CB_USER);
+				CALLBACK_INVOKE(material->edit_image, IDWALK_CB_USER);
 				break;
 			}
 
@@ -766,12 +742,8 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 
 			case ID_KE:
 			{
-				/* XXX Only ID pointer from shapekeys is the 'from' one, which is not actually ID usage.
-				 * Maybe we should even nuke it from here, not 100% sure yet...
-				 * (see also foreach_libblock_id_users_callback).
-				 */
 				Key *key = (Key *) id;
-				CALLBACK_INVOKE_ID(key->from, IDWALK_CB_NOP);
+				CALLBACK_INVOKE_ID(key->from, IDWALK_CB_LOOPBACK);
 				break;
 			}
 
@@ -992,13 +964,21 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 				}
 				break;
 			}
+			case ID_GD:
+			{
+				bGPdata *gpencil = (bGPdata *) id;
+
+				for (bGPDlayer *gp_layer = gpencil->layers.first; gp_layer; gp_layer = gp_layer->next) {
+					CALLBACK_INVOKE(gp_layer->parent, IDWALK_CB_NOP);
+				}
+				break;
+			}
 
 			/* Nothing needed for those... */
 			case ID_IM:
 			case ID_VF:
 			case ID_TXT:
 			case ID_SO:
-			case ID_GD:
 			case ID_WM:
 			case ID_PAL:
 			case ID_PC:
@@ -1159,20 +1139,15 @@ typedef struct IDUsersIter {
 	int count_direct, count_indirect;  /* Set by callback. */
 } IDUsersIter;
 
-static int foreach_libblock_id_users_callback(void *user_data, ID *self_id, ID **id_p, int cb_flag)
+static int foreach_libblock_id_users_callback(void *user_data, ID *UNUSED(self_id), ID **id_p, int cb_flag)
 {
 	IDUsersIter *iter = user_data;
 
 	if (*id_p) {
-		/* XXX This is actually some kind of hack...
-		 * Issue is, shapekeys' 'from' ID pointer is not actually ID usage.
-		 * Maybe we should even nuke it from BKE_library_foreach_ID_link, not 100% sure yet...
+		/* 'Loopback' ID pointers (the ugly 'from' ones, Object->proxy_from and Key->from).
+		 * Those are not actually ID usage, we can ignore them here.
 		 */
-		if ((GS(self_id->name) == ID_KE) && (((Key *)self_id)->from == *id_p)) {
-			return IDWALK_RET_NOP;
-		}
-		/* XXX another hack, for similar reasons as above one. */
-		if ((GS(self_id->name) == ID_OB) && (((Object *)self_id)->proxy_from == (Object *)*id_p)) {
+		if (cb_flag & IDWALK_CB_LOOPBACK) {
 			return IDWALK_RET_NOP;
 		}
 

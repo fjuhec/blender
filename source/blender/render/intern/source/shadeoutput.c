@@ -899,14 +899,7 @@ void shade_color(ShadeInput *shi, ShadeResult *shr)
 {
 	Material *ma= shi->mat;
 
-	if (ma->mode & (MA_FACETEXTURE)) {
-		shi->r= shi->vcol[0];
-		shi->g= shi->vcol[1];
-		shi->b= shi->vcol[2];
-		if (ma->mode & (MA_FACETEXTURE_ALPHA))
-			shi->alpha= shi->vcol[3];
-	}
-	else if (ma->mode & (MA_VERTEXCOLP)) {
+	if (ma->mode & (MA_VERTEXCOLP)) {
 		float neg_alpha = 1.0f - shi->vcol[3];
 		shi->r= shi->r*neg_alpha + shi->vcol[0]*shi->vcol[3];
 		shi->g= shi->g*neg_alpha + shi->vcol[1]*shi->vcol[3];
@@ -1764,12 +1757,8 @@ void shade_lamp_loop(ShadeInput *shi, ShadeResult *shr)
 	
 	/* material color itself */
 	if (passflag & color_passes) {
-		if (ma->mode & (MA_FACETEXTURE)) {
-			shi->r= shi->vcol[0];
-			shi->g= shi->vcol[1];
-			shi->b= shi->vcol[2];
-			if (ma->mode & (MA_FACETEXTURE_ALPHA))
-				shi->alpha= shi->vcol[3];
+		if (false) {
+			/* pass */
 		}
 #ifdef WITH_FREESTYLE
 		else if (ma->vcol_alpha) {
@@ -2139,6 +2128,16 @@ const float (*RE_object_instance_get_matrix(struct ObjectInstanceRen *obi, int m
 		}
 	}
 	return NULL;
+}
+
+float RE_object_instance_get_object_pass_index(struct ObjectInstanceRen *obi)
+{
+	return obi->ob->index;
+}
+
+float RE_object_instance_get_random_id(struct ObjectInstanceRen *obi)
+{
+	return obi->random_id;
 }
 
 const float (*RE_render_current_get_matrix(int matrix_id))[4]

@@ -40,6 +40,7 @@ struct BPoint;
 struct BaseLegacy;
 struct BezTriple;
 struct BoundBox;
+struct Depsgraph;
 struct EditBone;
 struct wmEvent;
 struct ImBuf;
@@ -74,6 +75,7 @@ enum eGPUFXFlags;
 
 /* for derivedmesh drawing callbacks, for view3d_select, .... */
 typedef struct ViewContext {
+	struct Depsgraph *depsgraph;
 	struct Scene *scene;
 	struct SceneLayer *scene_layer;
 	struct Object *obact;
@@ -297,12 +299,12 @@ int          ED_view3d_backbuf_sample_size_clamp(struct ARegion *ar, const float
 unsigned int ED_view3d_backbuf_sample(struct ViewContext *vc, int x, int y);
 
 bool ED_view3d_autodist(
-        struct Scene *scene, struct ARegion *ar, struct View3D *v3d,
+        struct Depsgraph *graph, struct ARegion *ar, struct View3D *v3d,
         const int mval[2], float mouse_worldloc[3],
         const bool alphaoverride, const float fallback_depth_pt[3]);
 
 /* only draw so ED_view3d_autodist_simple can be called many times after */
-void ED_view3d_autodist_init(struct Scene *scene, struct ARegion *ar, struct View3D *v3d, int mode);
+void ED_view3d_autodist_init(struct Depsgraph *graph, struct ARegion *ar, struct View3D *v3d, int mode);
 bool ED_view3d_autodist_simple(struct ARegion *ar, const int mval[2], float mouse_worldloc[3], int margin, float *force_depth);
 bool ED_view3d_autodist_depth(struct ARegion *ar, const int mval[2], int margin, float *depth);
 bool ED_view3d_autodist_depth_seg(struct ARegion *ar, const int mval_sta[2], const int mval_end[2], int margin, float *depth);
@@ -365,6 +367,9 @@ void ED_view3d_draw_offscreen(
         float winmat[4][4], bool do_bgpic, bool do_sky, bool is_persp, const char *viewname,
         struct GPUFX *fx, struct GPUFXSettings *fx_settings,
         struct GPUOffScreen *ofs);
+void ED_view3d_draw_setup_view(
+        struct wmWindow *win, struct Scene *scene, struct ARegion *ar, struct View3D *v3d,
+        float viewmat[4][4], float winmat[4][4], const struct rcti *rect);
 
 struct ImBuf *ED_view3d_draw_offscreen_imbuf(
         struct Scene *scene, struct SceneLayer *sl, struct View3D *v3d, struct ARegion *ar, int sizex, int sizey,
@@ -379,7 +384,9 @@ struct ImBuf *ED_view3d_draw_offscreen_imbuf_simple(
 
 struct BaseLegacy *ED_view3d_give_base_under_cursor(struct bContext *C, const int mval[2]);
 void ED_view3d_quadview_update(struct ScrArea *sa, struct ARegion *ar, bool do_clip);
-void ED_view3d_update_viewmat(struct Scene *scene, struct View3D *v3d, struct ARegion *ar, float viewmat[4][4], float winmat[4][4]);
+void ED_view3d_update_viewmat(
+        struct Scene *scene, struct View3D *v3d, struct ARegion *ar,
+        float viewmat[4][4], float winmat[4][4], const struct rcti *rect);
 bool ED_view3d_quat_from_axis_view(const char view, float quat[4]);
 char ED_view3d_quat_to_axis_view(const float quat[4], const float epsilon);
 char ED_view3d_lock_view_from_index(int index);

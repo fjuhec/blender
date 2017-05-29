@@ -127,6 +127,8 @@ void BKE_curve_free(Curve *cu)
 {
 	BKE_animdata_free((ID *)cu, false);
 
+	BKE_curve_batch_cache_free(cu);
+
 	BKE_nurbList_free(&cu->nurb);
 	BKE_curve_editfont_free(cu);
 
@@ -207,6 +209,7 @@ Curve *BKE_curve_copy(Main *bmain, Curve *cu)
 	cun->strinfo = MEM_dupallocN(cu->strinfo);
 	cun->tb = MEM_dupallocN(cu->tb);
 	cun->bb = MEM_dupallocN(cu->bb);
+	cun->batch_cache = NULL;
 
 	if (cu->key) {
 		cun->key = BKE_key_copy(bmain, cu->key);
@@ -4655,5 +4658,22 @@ void BKE_curve_eval_path(EvaluationContext *UNUSED(eval_ctx),
 	 */
 	if (G.debug & G_DEBUG_DEPSGRAPH) {
 		printf("%s on %s\n", __func__, curve->id.name);
+	}
+}
+
+/* Draw Engine */
+void (*BKE_curve_batch_cache_dirty_cb)(Curve *cu, int mode) = NULL;
+void (*BKE_curve_batch_cache_free_cb)(Curve *cu) = NULL;
+
+void BKE_curve_batch_cache_dirty(Curve *cu, int mode)
+{
+	if (cu->batch_cache) {
+		BKE_curve_batch_cache_dirty_cb(cu, mode);
+	}
+}
+void BKE_curve_batch_cache_free(Curve *cu)
+{
+	if (cu->batch_cache) {
+		BKE_curve_batch_cache_free_cb(cu);
 	}
 }

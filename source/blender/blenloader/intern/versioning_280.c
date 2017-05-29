@@ -29,17 +29,22 @@
 #define DNA_DEPRECATED_ALLOW
 
 #include "DNA_object_types.h"
+#include "DNA_camera_types.h"
+#include "DNA_gpu_types.h"
 #include "DNA_layer_types.h"
 #include "DNA_material_types.h"
+#include "DNA_mesh_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_genfile.h"
 
 #include "BKE_blender.h"
 #include "BKE_collection.h"
+#include "BKE_customdata.h"
 #include "BKE_idprop.h"
 #include "BKE_layer.h"
 #include "BKE_main.h"
+#include "BKE_mesh.h"
 #include "BKE_scene.h"
 
 #include "BLI_listbase.h"
@@ -193,6 +198,11 @@ void do_versions_after_linking_280(Main *main)
 						soutliner->outlinevis = SO_ACT_LAYER;
 
 						if (BLI_listbase_count_ex(&layer->layer_collections, 2) == 1) {
+							if (soutliner->treestore == NULL) {
+								soutliner->treestore = BLI_mempool_create(
+								        sizeof(TreeStoreElem), 1, 512, BLI_MEMPOOL_ALLOW_ITER);
+							}
+
 							/* Create a tree store element for the collection. This is normally
 							 * done in check_persistent (outliner_tree.c), but we need to access
 							 * it here :/ (expand element if it's the only one) */
@@ -205,14 +215,6 @@ void do_versions_after_linking_280(Main *main)
 					}
 				}
 			}
-		}
-	}
-
-	if (!MAIN_VERSION_ATLEAST(main, 280, 0)) {
-		IDPropertyTemplate val = {0};
-		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
-			scene->collection_properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
-			BKE_layer_collection_engine_settings_create(scene->collection_properties);
 		}
 	}
 }
@@ -254,6 +256,36 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 				for (SceneLayer *sl = scene->render_layers.first; sl; sl = sl->next) {
 					do_version_layer_collections_idproperties(&sl->layer_collections);
 				}
+			}
+		}
+
+	}
+
+	if (!DNA_struct_elem_find(fd->filesdna, "GPUDOFSettings", "float", "ratio"))	{
+		for (Camera *ca = main->camera.first; ca; ca = ca->id.next) {
+			ca->gpu_dof.ratio = 1.0f;
+		}
+	}
+
+	if (!DNA_struct_elem_find(fd->filesdna, "SceneLayer", "IDProperty", "*properties")) {
+		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+			for (SceneLayer *sl = scene->render_layers.first; sl; sl = sl->next) {
+				IDPropertyTemplate val = {0};
+				sl->properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
+				BKE_scene_layer_engine_settings_create(sl->properties);
+			}
+		}
+	}
+
+	/* MTexPoly now removed. */
+	if (DNA_struct_find(fd->filesdna, "MTexPoly")) {
+		const int cd_mtexpoly = 15;  /* CD_MTEXPOLY, deprecated */
+		for (Mesh *me = main->mesh.first; me; me = me->id.next) {
+			/* If we have UV's, so this file will have MTexPoly layers too! */
+			if (me->mloopuv != NULL) {
+				CustomData_update_typemap(&me->pdata);
+				CustomData_free_layers(&me->pdata, cd_mtexpoly, me->totpoly);
+				BKE_mesh_update_customdata_pointers(me, false);
 			}
 		}
 	}

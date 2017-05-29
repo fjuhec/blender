@@ -27,17 +27,14 @@ static const char* BuiltinUniform_name(BuiltinUniform u)
 		{
 		[UNIFORM_NONE] = NULL,
 
-		[UNIFORM_MODELVIEW_3D] = "ModelViewMatrix",
-		[UNIFORM_PROJECTION_3D] = "ProjectionMatrix",
-		[UNIFORM_MVP_3D] = "ModelViewProjectionMatrix",
-		[UNIFORM_NORMAL_3D] = "NormalMatrix",
+		[UNIFORM_MODELVIEW] = "ModelViewMatrix",
+		[UNIFORM_PROJECTION] = "ProjectionMatrix",
+		[UNIFORM_MVP] = "ModelViewProjectionMatrix",
 
-		[UNIFORM_MODELVIEW_INV_3D] = "ModelViewInverseMatrix",
-		[UNIFORM_PROJECTION_INV_3D] = "ProjectionInverseMatrix",
+		[UNIFORM_MODELVIEW_INV] = "ModelViewInverseMatrix",
+		[UNIFORM_PROJECTION_INV] = "ProjectionInverseMatrix",
 
-		[UNIFORM_MODELVIEW_2D] = "ModelViewMatrix",
-		[UNIFORM_PROJECTION_2D] = "ProjectionMatrix",
-		[UNIFORM_MVP_2D] = "ModelViewProjectionMatrix",
+		[UNIFORM_NORMAL] = "NormalMatrix",
 
 		[UNIFORM_COLOR] = "color",
 
@@ -47,13 +44,61 @@ static const char* BuiltinUniform_name(BuiltinUniform u)
 	return names[u];
 	}
 
+static bool match(const char* a, const char* b)
+	{
+	return strcmp(a, b) == 0;
+	}
+
+// keep these in sync with BuiltinUniform order
+#define FIRST_MAT4_UNIFORM UNIFORM_MODELVIEW
+#define LAST_MAT4_UNIFORM UNIFORM_PROJECTION_INV
+
 static bool setup_builtin_uniform(ShaderInput* input, const char* name)
 	{
 	// TODO: reject DOUBLE, IMAGE, ATOMIC_COUNTER gl_types
 
-	// TODO: detect built-in uniforms (gl_type and name must match)
-	//       if a match is found, use BuiltinUniform_name so name buffer space can be reclaimed
-	input->name = name;
+	// detect built-in uniforms (gl_type and name must match)
+	// if a match is found, use BuiltinUniform_name so name buffer space can be reclaimed
+	switch (input->gl_type)
+		{
+		case GL_FLOAT_MAT4:
+			for (BuiltinUniform u = FIRST_MAT4_UNIFORM; u <= LAST_MAT4_UNIFORM; ++u)
+				{
+				const char* builtin_name = BuiltinUniform_name(u);
+				if (match(name, builtin_name))
+					{
+					input->name = builtin_name;
+					input->builtin_type = u;
+					return true;
+					}
+				}
+			break;
+		case GL_FLOAT_MAT3:
+			{
+			const char* builtin_name = BuiltinUniform_name(UNIFORM_NORMAL);
+			if (match(name, builtin_name))
+				{
+				input->name = builtin_name;
+				input->builtin_type = UNIFORM_NORMAL;
+				return true;
+				}
+			}
+			break;
+		case GL_FLOAT_VEC4:
+			{
+			const char* builtin_name = BuiltinUniform_name(UNIFORM_COLOR);
+			if (match(name, builtin_name))
+				{
+				input->name = builtin_name;
+				input->builtin_type = UNIFORM_COLOR;
+				return true;
+				}
+			}
+			break;
+		default:
+			;
+		} 
+
 	input->builtin_type = UNIFORM_CUSTOM;
 	return false;
 	}
@@ -147,13 +192,35 @@ ShaderInterface* ShaderInterface_create(GLint program)
 #endif
 		}
 
-	// TODO: realloc shaderface to shrink name buffer
-	//       each input->name will need adjustment (except static built-in names)
+	const uint32_t name_buffer_used = name_buffer_offset;
 
 #if DEBUG_SHADER_INTERFACE
-	printf("using %u of %u bytes from name buffer\n", name_buffer_offset, name_buffer_len);
+	printf("using %u of %u bytes from name buffer\n", name_buffer_used, name_buffer_len);
 	printf("}\n"); // exit function
 #endif
+
+	if (name_buffer_used < name_buffer_len)
+		{
+		// realloc shaderface to shrink name buffer
+		const size_t shaderface_alloc =
+		        offsetof(ShaderInterface, inputs) + (input_ct * sizeof(ShaderInput)) + name_buffer_used;
+		const char* shaderface_orig_start = (const char*)shaderface;
+		const char* shaderface_orig_end = &shaderface_orig_start[shaderface_alloc];
+		shaderface = realloc(shaderface, shaderface_alloc);
+		const ptrdiff_t delta = (char*)shaderface - shaderface_orig_start;
+
+		if (delta)
+			{
+			// each input->name will need adjustment (except static built-in names)
+			for (uint32_t i = 0; i < input_ct; ++i)
+				{
+				ShaderInput* input = shaderface->inputs + i;
+
+				if (input->name >= shaderface_orig_start && input->name < shaderface_orig_end)
+					input->name += delta;
+				}
+			}
+		}
 
 	return shaderface;
 	}
@@ -166,6 +233,23 @@ void ShaderInterface_discard(ShaderInterface* shaderface)
 
 const ShaderInput* ShaderInterface_uniform(const ShaderInterface* shaderface, const char* name)
 	{
+	// search through custom uniforms first
+	for (uint32_t i = 0; i < shaderface->uniform_ct; ++i)
+		{
+		const ShaderInput* uniform = shaderface->inputs + i;
+
+		if (uniform->builtin_type == UNIFORM_CUSTOM)
+			{
+#if SUPPORT_LEGACY_GLSL
+			if (uniform->name == NULL) continue;
+#endif
+
+			if (match(uniform->name, name))
+				return uniform;
+			}
+		}
+
+	// search through builtin uniforms next
 	for (uint32_t i = 0; i < shaderface->uniform_ct; ++i)
 		{
 		const ShaderInput* uniform = shaderface->inputs + i;
@@ -173,15 +257,43 @@ const ShaderInput* ShaderInterface_uniform(const ShaderInterface* shaderface, co
 #if SUPPORT_LEGACY_GLSL
 		if (uniform->name == NULL) continue;
 #endif
+		if (uniform->builtin_type != UNIFORM_CUSTOM)
+			if (match(uniform->name, name))
+				return uniform;
 
-		if (strcmp(uniform->name, name) == 0)
-			return uniform;
+		// TODO: warn if we find a matching builtin, since these can be looked up much quicker --v
 		}
+
 	return NULL; // not found
 	}
 
 const ShaderInput* ShaderInterface_builtin_uniform(const ShaderInterface* shaderface, BuiltinUniform builtin)
 	{
-	// TODO: look up by enum, not name (fix setup_builtin_uniform first)
-	return ShaderInterface_uniform(shaderface, BuiltinUniform_name(builtin));
+	// look up by enum, not name
+	for (uint32_t i = 0; i < shaderface->uniform_ct; ++i)
+		{
+		const ShaderInput* uniform = shaderface->inputs + i;
+
+		if (uniform->builtin_type == builtin)
+			return uniform;
+		}
+	return NULL; // not found
+	}
+
+const ShaderInput* ShaderInterface_attrib(const ShaderInterface* shaderface, const char* name)
+	{
+	// attribs are stored after uniforms
+	const uint32_t input_ct = shaderface->uniform_ct + shaderface->attrib_ct;
+	for (uint32_t i = shaderface->uniform_ct; i < input_ct; ++i)
+		{
+		const ShaderInput* attrib = shaderface->inputs + i;
+
+#if SUPPORT_LEGACY_GLSL
+		if (attrib->name == NULL) continue;
+#endif
+
+		if (match(attrib->name, name))
+			return attrib;
+		}
+	return NULL; // not found
 	}

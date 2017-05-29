@@ -1,5 +1,5 @@
 
-// Gawain geometry batch
+// Gawain vertex buffer
 //
 // This code is part of the Gawain library, with modifications
 // specific to integration with Blender.
@@ -11,10 +11,13 @@
 
 #include "vertex_buffer.h"
 #include "buffer_id.h"
+#include "vertex_format_private.h"
 #include <stdlib.h>
 #include <string.h>
 
 #define KEEP_SINGLE_COPY 1
+
+static unsigned vbo_memory_usage;
 
 VertexBuffer* VertexBuffer_create(void)
 	{
@@ -50,13 +53,16 @@ void VertexBuffer_init_with_format(VertexBuffer* verts, const VertexFormat* form
 
 void VertexBuffer_discard(VertexBuffer* verts)
 	{
-	if (verts->vbo_id)
+	if (verts->vbo_id) {
 		buffer_id_free(verts->vbo_id);
+		vbo_memory_usage -= VertexBuffer_size(verts);
+	}
 #if KEEP_SINGLE_COPY
 	else
 #endif
 	if (verts->data)
 		free(verts->data);
+
 
 	free(verts);
 	}
@@ -147,12 +153,14 @@ void VertexBuffer_fill_attrib_stride(VertexBuffer* verts, unsigned a_idx, unsign
 
 static void VertexBuffer_prime(VertexBuffer* verts)
 	{
-	const VertexFormat* format = &verts->format;
+	const unsigned buffer_sz = VertexBuffer_size(verts);
 
 	verts->vbo_id = buffer_id_alloc();
 	glBindBuffer(GL_ARRAY_BUFFER, verts->vbo_id);
 	// fill with delicious data & send to GPU the first time only
-	glBufferData(GL_ARRAY_BUFFER, vertex_buffer_size(format, verts->vertex_ct), verts->data, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, buffer_sz, verts->data, GL_STATIC_DRAW);
+
+	vbo_memory_usage += buffer_sz;
 
 #if KEEP_SINGLE_COPY
 	// now that GL has a copy, discard original
@@ -167,4 +175,9 @@ void VertexBuffer_use(VertexBuffer* verts)
 		glBindBuffer(GL_ARRAY_BUFFER, verts->vbo_id);
 	else
 		VertexBuffer_prime(verts);
+	}
+
+unsigned VertexBuffer_get_memory_usage(void)
+	{
+	return vbo_memory_usage;
 	}

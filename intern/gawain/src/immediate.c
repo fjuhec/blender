@@ -10,8 +10,11 @@
 // the MPL was not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "immediate.h"
-#include "attrib_binding.h"
 #include "buffer_id.h"
+#include "attrib_binding.h"
+#include "attrib_binding_private.h"
+#include "vertex_format_private.h"
+#include "primitive_private.h"
 #include <string.h>
 
 // necessary functions from matrix API
@@ -66,11 +69,6 @@ void immInit(void)
 	imm.vbo_id = buffer_id_alloc();
 	glBindBuffer(GL_ARRAY_BUFFER, imm.vbo_id);
 	glBufferData(GL_ARRAY_BUFFER, IMM_BUFFER_SIZE, NULL, GL_DYNAMIC_DRAW);
-
-#if APPLE_LEGACY
-	glBufferParameteriAPPLE(GL_ARRAY_BUFFER, GL_BUFFER_SERIALIZED_MODIFY_APPLE, GL_FALSE);
-	glBufferParameteriAPPLE(GL_ARRAY_BUFFER, GL_BUFFER_FLUSHING_UNMAP_APPLE, GL_FALSE);
-#endif
 
 	imm.prim_type = PRIM_NONE;
 	imm.strict_vertex_ct = true;
@@ -132,7 +130,7 @@ void immBindProgram(GLuint program, const ShaderInterface* shaderface)
 		VertexFormat_pack(&imm.vertex_format);
 
 	glUseProgram(program);
-	get_attrib_locations(&imm.vertex_format, &imm.attrib_binding, program);
+	get_attrib_locations(&imm.vertex_format, &imm.attrib_binding, shaderface);
 	gpuBindMatrices(shaderface);
 	}
 
@@ -206,13 +204,26 @@ void immBegin(PrimitiveType prim_type, unsigned vertex_ct)
 	else
 		{
 		// orphan this buffer & start with a fresh one
-#if APPLE_LEGACY
+#if 1
+		// this method works on all platforms, old & new
 		glBufferData(GL_ARRAY_BUFFER, IMM_BUFFER_SIZE, NULL, GL_DYNAMIC_DRAW);
 #else
+		// TODO: use other (more recent) methods after thorough testing
 		if (GLEW_VERSION_4_3 || GLEW_ARB_invalidate_subdata)
 			glInvalidateBufferData(imm.vbo_id);
 		else
-			glMapBufferRange(GL_ARRAY_BUFFER, 0, IMM_BUFFER_SIZE, GL_MAP_INVALIDATE_BUFFER_BIT);
+			{
+			// glitches!
+//			glMapBufferRange(GL_ARRAY_BUFFER, 0, IMM_BUFFER_SIZE, GL_MAP_INVALIDATE_BUFFER_BIT);
+
+			// works
+//			glMapBufferRange(GL_ARRAY_BUFFER, 0, IMM_BUFFER_SIZE,
+//			                 GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT | GL_MAP_UNSYNCHRONIZED_BIT | GL_MAP_FLUSH_EXPLICIT_BIT);
+//			glUnmapBuffer(GL_ARRAY_BUFFER);
+
+			// also works
+			glBufferData(GL_ARRAY_BUFFER, IMM_BUFFER_SIZE, NULL, GL_DYNAMIC_DRAW);
+			}
 #endif
 
 		imm.buffer_offset = 0;
@@ -220,12 +231,8 @@ void immBegin(PrimitiveType prim_type, unsigned vertex_ct)
 
 //	printf("mapping %u to %u\n", imm.buffer_offset, imm.buffer_offset + bytes_needed - 1);
 
-#if APPLE_LEGACY
-	imm.buffer_data = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY) + imm.buffer_offset;
-#else
 	imm.buffer_data = glMapBufferRange(GL_ARRAY_BUFFER, imm.buffer_offset, bytes_needed,
 	                                   GL_MAP_WRITE_BIT | GL_MAP_UNSYNCHRONIZED_BIT | (imm.strict_vertex_ct ? 0 : GL_MAP_FLUSH_EXPLICIT_BIT));
-#endif
 
 #if TRUST_NO_ONE
 	assert(imm.buffer_data != NULL);
@@ -375,11 +382,10 @@ void immEnd(void)
 			// unused buffer bytes are available to the next immBegin
 			// printf(" %u of %u bytes\n", buffer_bytes_used, imm.buffer_bytes_mapped);
 			}
-#if !APPLE_LEGACY
+
 		// tell OpenGL what range was modified so it doesn't copy the whole mapped range
 		// printf("flushing %u to %u\n", imm.buffer_offset, imm.buffer_offset + buffer_bytes_used - 1);
 		glFlushMappedBufferRange(GL_ARRAY_BUFFER, 0, buffer_bytes_used);
-#endif
 		}
 
 #if IMM_BATCH_COMBO
@@ -397,11 +403,6 @@ void immEnd(void)
 	else
 #endif
 		{
-#if APPLE_LEGACY
-		// tell OpenGL what range was modified so it doesn't copy the whole buffer
-		// printf("flushing %u to %u\n", imm.buffer_offset, imm.buffer_offset + buffer_bytes_used - 1);
-		glFlushMappedBufferRangeAPPLE(GL_ARRAY_BUFFER, imm.buffer_offset, buffer_bytes_used);
-#endif
 		glUnmapBuffer(GL_ARRAY_BUFFER);
 
 		if (imm.vertex_ct > 0)
@@ -522,6 +523,25 @@ void immAttrib4f(unsigned attrib_id, float x, float y, float z, float w)
 	data[3] = w;
 	}
 
+void immAttrib1u(unsigned attrib_id, unsigned x)
+	{
+	Attrib* attrib = imm.vertex_format.attribs + attrib_id;
+
+#if TRUST_NO_ONE
+	assert(attrib_id < imm.vertex_format.attrib_ct);
+	assert(attrib->comp_type == COMP_U32);
+	assert(attrib->comp_ct == 1);
+	assert(imm.vertex_idx < imm.vertex_ct);
+	assert(imm.prim_type != PRIM_NONE); // make sure we're between a Begin/End pair
+#endif
+
+	setAttribValueBit(attrib_id);
+
+	unsigned* data = (unsigned*)(imm.vertex_data + attrib->offset);
+
+	data[0] = x;
+	}
+
 void immAttrib2i(unsigned attrib_id, int x, int y)
 	{
 	Attrib* attrib = imm.vertex_format.attribs + attrib_id;
@@ -560,6 +580,11 @@ void immAttrib2s(unsigned attrib_id, short x, short y)
 
 	data[0] = x;
 	data[1] = y;
+	}
+
+void immAttrib2fv(unsigned attrib_id, const float data[2])
+	{
+	immAttrib2f(attrib_id, data[0], data[1]);
 	}
 
 void immAttrib3fv(unsigned attrib_id, const float data[3])
@@ -718,10 +743,18 @@ void immVertex2iv(unsigned attrib_id, const int data[2])
 
 // --- generic uniform functions ---
 
-#if TRUST_NO_ONE
-  #define GET_UNIFORM const ShaderInput* uniform = ShaderInterface_uniform(imm.shader_interface, name); assert(uniform);
+#if 0
+  #if TRUST_NO_ONE
+    #define GET_UNIFORM const ShaderInput* uniform = ShaderInterface_uniform(imm.shader_interface, name); assert(uniform);
+  #else
+    #define GET_UNIFORM const ShaderInput* uniform = ShaderInterface_uniform(imm.shader_interface, name);
+  #endif
 #else
-  #define GET_UNIFORM const ShaderInput* uniform = ShaderInterface_uniform(imm.shader_interface, name);
+	// NOTE: It is possible to have uniform fully optimized out from the shader.
+	//       In this case we can't assert failure or allow NULL-pointer dereference.
+	// TODO(sergey): How can we detect existing-but-optimized-out uniform but still
+	//               catch typos in uniform names passed to immUniform*() functions?
+  #define GET_UNIFORM const ShaderInput* uniform = ShaderInterface_uniform(imm.shader_interface, name); if (uniform == NULL) return;
 #endif
 
 void immUniform1f(const char* name, float x)
@@ -731,16 +764,16 @@ void immUniform1f(const char* name, float x)
 	}
 
 void immUniform2f(const char* name, float x, float y)
-{
+	{
 	GET_UNIFORM
 	glUniform2f(uniform->location, x, y);
-}
+	}
 
 void immUniform2fv(const char* name, const float data[2])
-{
+	{
 	GET_UNIFORM
 	glUniform2fv(uniform->location, 1, data);
-}
+	}
 
 void immUniform3f(const char* name, float x, float y, float z)
 	{
@@ -787,6 +820,24 @@ void immUniform4fv(const char* name, const float data[4])
 	glUniform4fv(uniform->location, 1, data);
 	}
 
+void immUniformArray4fv(const char* bare_name, const float *data, int count)
+	{
+	// look up "name[0]" when given "name"
+	const size_t len = strlen(bare_name);
+#if TRUST_NO_ONE
+	assert(len <= MAX_UNIFORM_NAME_LEN);
+#endif
+	char name[MAX_UNIFORM_NAME_LEN];
+	strcpy(name, bare_name);
+	name[len + 0] = '[';
+	name[len + 1] = '0';
+	name[len + 2] = ']';
+	name[len + 3] = '\0';
+
+	GET_UNIFORM
+	glUniform4fv(uniform->location, count, data);
+	}
+
 void immUniformMatrix4fv(const char* name, const float data[4][4])
 	{
 	GET_UNIFORM
@@ -809,27 +860,33 @@ void immUniform4iv(const char* name, const int data[4])
 
 void immUniformColor4f(float r, float g, float b, float a)
 	{
-	immUniform4f("color", r, g, b, a);
+	const ShaderInput* uniform = ShaderInterface_builtin_uniform(imm.shader_interface, UNIFORM_COLOR);
+
+#if TRUST_NO_ONE
+	assert(uniform != NULL);
+#endif
+
+	glUniform4f(uniform->location, r, g, b, a);
 	}
 
 void immUniformColor4fv(const float rgba[4])
 	{
-	immUniform4fv("color", rgba);
+	immUniformColor4f(rgba[0], rgba[1], rgba[2], rgba[3]);
 	}
 
 void immUniformColor3f(float r, float g, float b)
 	{
-	immUniform4f("color", r, g, b, 1.0f);
+	immUniformColor4f(r, g, b, 1.0f);
 	}
 
 void immUniformColor3fv(const float rgb[3])
 	{
-	immUniform4f("color", rgb[0], rgb[1], rgb[2], 1.0f);
+	immUniformColor4f(rgb[0], rgb[1], rgb[2], 1.0f);
 	}
 
 void immUniformColor3fvAlpha(const float rgb[3], float a)
 	{
-	immUniform4f("color", rgb[0], rgb[1], rgb[2], a);
+	immUniformColor4f(rgb[0], rgb[1], rgb[2], a);
 	}
 
 // TODO: v-- treat as sRGB? --v
@@ -837,18 +894,23 @@ void immUniformColor3fvAlpha(const float rgb[3], float a)
 void immUniformColor3ub(unsigned char r, unsigned char g, unsigned char b)
 	{
 	const float scale = 1.0f / 255.0f;
-	immUniform4f("color", scale * r, scale * g, scale * b, 1.0f);
+	immUniformColor4f(scale * r, scale * g, scale * b, 1.0f);
 	}
 
 void immUniformColor4ub(unsigned char r, unsigned char g, unsigned char b, unsigned char a)
 	{
 	const float scale = 1.0f / 255.0f;
-	immUniform4f("color", scale * r, scale * g, scale * b, scale * a);
+	immUniformColor4f(scale * r, scale * g, scale * b, scale * a);
 	}
 
 void immUniformColor3ubv(const unsigned char rgb[3])
 	{
 	immUniformColor3ub(rgb[0], rgb[1], rgb[2]);
+	}
+
+void immUniformColor3ubvAlpha(const unsigned char rgb[3], unsigned char alpha)
+	{
+	immUniformColor4ub(rgb[0], rgb[1], rgb[2], alpha);
 	}
 
 void immUniformColor4ubv(const unsigned char rgba[4])

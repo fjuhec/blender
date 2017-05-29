@@ -36,6 +36,7 @@
 
 #include "BKE_cdderivedmesh.h"
 #include "BKE_dynamicpaint.h"
+#include "BKE_layer.h"
 #include "BKE_library_query.h"
 #include "BKE_modifier.h"
 
@@ -77,7 +78,7 @@ static CustomDataMask requiredDataMask(Object *UNUSED(ob), ModifierData *md)
 			if (surface->format == MOD_DPAINT_SURFACE_F_IMAGESEQ || 
 			    surface->init_color_type == MOD_DPAINT_INITIAL_TEXTURE)
 			{
-				dataMask |= CD_MASK_MLOOPUV | CD_MASK_MTEXPOLY;
+				dataMask |= CD_MASK_MLOOPUV;
 			}
 			/* mcol */
 			if (surface->type == MOD_DPAINT_SURFACE_T_PAINT ||
@@ -94,7 +95,7 @@ static CustomDataMask requiredDataMask(Object *UNUSED(ob), ModifierData *md)
 
 	if (pmd->brush) {
 		if (pmd->brush->flags & MOD_DPAINT_USE_MATERIAL) {
-			dataMask |= CD_MASK_MLOOPUV | CD_MASK_MTEXPOLY;
+			dataMask |= CD_MASK_MLOOPUV;
 		}
 	}
 	return dataMask;
@@ -108,7 +109,7 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 
 	/* dont apply dynamic paint on orco dm stack */
 	if (!(flag & MOD_APPLY_ORCO)) {
-		return dynamicPaint_Modifier_do(pmd, md->scene, ob, dm);
+		return dynamicPaint_Modifier_do(pmd, md->scene, BKE_scene_layer_context_active(md->scene), ob, dm);
 	}
 	return dm;
 }

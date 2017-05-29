@@ -28,7 +28,6 @@ set(SRC
 	gawain/vertex_format.h
 )
 
-# remove this when we switch to core profile
-add_definitions(-DWITH_GL_PROFILE_COMPAT)
+add_definitions(${GL_DEFINITIONS})
 
 blender_add_lib(bf_intern_gawain "${SRC}" "${INC}" "${INC_SYS}")

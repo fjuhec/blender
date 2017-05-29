@@ -1357,7 +1357,7 @@ static void draw_b_bone_boxes(const short dt, bPoseChannel *pchan, EditBone *ebo
 		
 		for (a = 0; a < segments; a++) {
 			gpuPushMatrix();
-			gpuMultMatrix3D(bbone[a].mat);
+			gpuMultMatrix(bbone[a].mat);
 			if (dt == OB_SOLID) drawsolidcube_size(xwidth, dlen, zwidth);
 			else drawcube_size(xwidth, dlen, zwidth);
 			gpuPopMatrix();
@@ -1464,7 +1464,7 @@ static void draw_wire_bone_segments(bPoseChannel *pchan, Mat4 *bbones, float len
 
 		for (a = 0; a < segments; a++, bbone++) {
 			gpuPushMatrix();
-			gpuMultMatrix3D(bbone->mat);
+			gpuMultMatrix(bbone->mat);
 
 			immBegin(PRIM_LINES, 2);
 			immVertex3f(pos, 0.0f, 0.0f, 0.0f);
@@ -1632,13 +1632,19 @@ static void pchan_draw_IK_root_lines(bPoseChannel *pchan, short only_temp)
 	bConstraint *con;
 	bPoseChannel *parchan;
 
-	VertexFormat *format = immVertexFormat();
-	unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
+	const uint shdr_pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 
-	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+	immBindBuiltinProgram(GPU_SHADER_3D_LINE_DASHED_COLOR);
+
+	float viewport_size[4];
+	glGetFloatv(GL_VIEWPORT, viewport_size);
+	immUniform2f("viewport_size", viewport_size[2], viewport_size[3]);
+
+	immUniform1i("num_colors", 0);  /* "simple" mode */
 	immUniformColor4fv(fcolor);
+	immUniform1f("dash_width", 6.0f);
+	immUniform1f("dash_factor", 0.5f);
 
-	setlinestyle(3);
 	for (con = pchan->constraints.first; con; con = con->next) {
 		if (con->enforce == 0.0f)
 			continue;
@@ -1672,8 +1678,8 @@ static void pchan_draw_IK_root_lines(bPoseChannel *pchan, short only_temp)
 
 				if (parchan) {
 					immBegin(PRIM_LINES, 2);
-					immVertex3fv(pos, ik_tip);
-					immVertex3fv(pos, parchan->pose_head);
+					immVertex3fv(shdr_pos, ik_tip);
+					immVertex3fv(shdr_pos, parchan->pose_head);
 					immEnd();
 				}
 				
@@ -1698,15 +1704,15 @@ static void pchan_draw_IK_root_lines(bPoseChannel *pchan, short only_temp)
 				/* Only draw line in case our chain is more than one bone long! */
 				if (parchan != pchan) { /* XXX revise the breaking conditions to only stop at the tail? */
 					immBegin(PRIM_LINES, 2);
-					immVertex3fv(pos, ik_tip);
-					immVertex3fv(pos, parchan->pose_head);
+					immVertex3fv(shdr_pos, ik_tip);
+					immVertex3fv(shdr_pos, parchan->pose_head);
 					immEnd();
 				}
 				break;
 			}
 		}
 	}
-	setlinestyle(0);
+
 	immUnbindProgram();
 }
 
@@ -1817,11 +1823,11 @@ static void draw_pose_dofs(Object *ob)
 							if (pchan->parent) {
 								copy_m4_m4(mat, pchan->parent->pose_mat);
 								mat[3][0] = mat[3][1] = mat[3][2] = 0.0f;
-								gpuMultMatrix3D(mat);
+								gpuMultMatrix(mat);
 							}
 							
 							copy_m4_m3(mat, pchan->bone->bone_mat);
-							gpuMultMatrix3D(mat);
+							gpuMultMatrix(mat);
 							
 							scale = bone->length * pchan->size[1];
 							gpuScaleUniform(scale);
@@ -2020,10 +2026,10 @@ static void draw_pose_bones(Scene *scene, SceneLayer *sl, View3D *v3d, ARegion *
 					gpuPushMatrix();
 					
 					if (use_custom && pchan->custom_tx) {
-						gpuMultMatrix3D(pchan->custom_tx->pose_mat);
+						gpuMultMatrix(pchan->custom_tx->pose_mat);
 					}
 					else {
-						gpuMultMatrix3D(pchan->pose_mat);
+						gpuMultMatrix(pchan->pose_mat);
 					}
 					
 					/* catch exception for bone with hidden parent */
@@ -2127,10 +2133,10 @@ static void draw_pose_bones(Scene *scene, SceneLayer *sl, View3D *v3d, ARegion *
 							gpuPushMatrix();
 							
 							if (pchan->custom_tx) {
-								gpuMultMatrix3D(pchan->custom_tx->pose_mat);
+								gpuMultMatrix(pchan->custom_tx->pose_mat);
 							}
 							else {
-								gpuMultMatrix3D(pchan->pose_mat);
+								gpuMultMatrix(pchan->pose_mat);
 							}
 							
 							/* prepare colors */
@@ -2217,23 +2223,28 @@ static void draw_pose_bones(Scene *scene, SceneLayer *sl, View3D *v3d, ARegion *
 						 * - only if V3D_HIDE_HELPLINES is enabled...
 						 */
 						if ((do_dashed & DASH_HELP_LINES) && ((bone->flag & BONE_CONNECTED) == 0)) {
-							VertexFormat *format = immVertexFormat();
-							unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
+							const uint shdr_pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 
-							immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+							immBindBuiltinProgram(GPU_SHADER_3D_LINE_DASHED_COLOR);
+
+							float viewport_size[4];
+							glGetFloatv(GL_VIEWPORT, viewport_size);
+							immUniform2f("viewport_size", viewport_size[2], viewport_size[3]);
+
+							immUniform1i("num_colors", 0);  /* "simple" mode */
+							immUniformColor4fv(fcolor);
+							immUniform1f("dash_width", 6.0f);
+							immUniform1f("dash_factor", 0.5f);
 
 							if (arm->flag & ARM_POSEMODE) {
 								GPU_select_load_id(index & 0xFFFF);  /* object tag, for bordersel optim */
-								UI_GetThemeColor4fv(TH_WIRE, fcolor);
-								immUniformColor4fv(fcolor);
+								immUniformThemeColor(TH_WIRE);
 							}
 
-							setlinestyle(3);
 							immBegin(PRIM_LINES, 2);
-							immVertex3fv(pos, pchan->pose_head);
-							immVertex3fv(pos, pchan->parent->pose_tail);
+							immVertex3fv(shdr_pos, pchan->parent->pose_tail);
+							immVertex3fv(shdr_pos, pchan->pose_head);
 							immEnd();
-							setlinestyle(0);
 
 							immUnbindProgram();
 						}
@@ -2264,7 +2275,7 @@ static void draw_pose_bones(Scene *scene, SceneLayer *sl, View3D *v3d, ARegion *
 					
 					gpuPushMatrix();
 					if (arm->drawtype != ARM_ENVELOPE)
-						gpuMultMatrix3D(pchan->pose_mat);
+						gpuMultMatrix(pchan->pose_mat);
 					
 					/* catch exception for bone with hidden parent */
 					flag = bone->flag;
@@ -2369,7 +2380,7 @@ static void draw_pose_bones(Scene *scene, SceneLayer *sl, View3D *v3d, ARegion *
 							gpuPushMatrix();
 							copy_m4_m4(bmat, pchan->pose_mat);
 							bone_matrix_translate_y(bmat, pchan->bone->length);
-							gpuMultMatrix3D(bmat);
+							gpuMultMatrix(bmat);
 							
 							float viewmat_pchan[4][4];
 							mul_m4_m4m4(viewmat_pchan, rv3d->viewmatob, bmat);
@@ -2443,7 +2454,7 @@ static void draw_ebones(View3D *v3d, ARegion *ar, Object *ob, const short dt)
 				if ((eBone->flag & BONE_HIDDEN_A) == 0) {
 					gpuPushMatrix();
 					get_matrix_editbone(eBone, bmat);
-					gpuMultMatrix3D(bmat);
+					gpuMultMatrix(bmat);
 					
 					/* catch exception for bone with hidden parent */
 					flag = eBone->flag;
@@ -2505,7 +2516,7 @@ static void draw_ebones(View3D *v3d, ARegion *ar, Object *ob, const short dt)
 				else {
 					gpuPushMatrix();
 					get_matrix_editbone(eBone, bmat);
-					gpuMultMatrix3D(bmat);
+					gpuMultMatrix(bmat);
 					
 					if (arm->drawtype == ARM_LINE) 
 						draw_line_bone(arm->flag, flag, 0, index, NULL, eBone);
@@ -2521,21 +2532,25 @@ static void draw_ebones(View3D *v3d, ARegion *ar, Object *ob, const short dt)
 				
 				/* offset to parent */
 				if (eBone->parent) {
-					VertexFormat *format = immVertexFormat();
-					unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
+					const uint shdr_pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
 
 					GPU_select_load_id(-1);  /* -1 here is OK! */
 
-					immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
-					UI_GetThemeColor4fv(TH_WIRE_EDIT, fcolor);
-					immUniformColor4fv(fcolor);
-					
-					setlinestyle(3);
+					immBindBuiltinProgram(GPU_SHADER_3D_LINE_DASHED_COLOR);
+
+					float viewport_size[4];
+					glGetFloatv(GL_VIEWPORT, viewport_size);
+					immUniform2f("viewport_size", viewport_size[2], viewport_size[3]);
+
+					immUniform1i("num_colors", 0);  /* "simple" mode */
+					immUniformThemeColor(TH_WIRE_EDIT);
+					immUniform1f("dash_width", 6.0f);
+					immUniform1f("dash_factor", 0.5f);
+
 					immBegin(PRIM_LINES, 2);
-					immVertex3fv(pos, eBone->head);
-					immVertex3fv(pos, eBone->parent->tail);
+					immVertex3fv(shdr_pos, eBone->parent->tail);
+					immVertex3fv(shdr_pos, eBone->head);
 					immEnd();
-					setlinestyle(0);
 
 					immUnbindProgram();
 				}
@@ -2582,7 +2597,7 @@ static void draw_ebones(View3D *v3d, ARegion *ar, Object *ob, const short dt)
 							gpuPushMatrix();
 							get_matrix_editbone(eBone, bmat);
 							bone_matrix_translate_y(bmat, eBone->length);
-							gpuMultMatrix3D(bmat);
+							gpuMultMatrix(bmat);
 
 							float viewmat_ebone[4][4];
 							mul_m4_m4m4(viewmat_ebone, rv3d->viewmatob, bmat);

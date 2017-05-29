@@ -30,6 +30,7 @@
 
 #include "BKE_context.h"
 #include "BKE_layer.h"
+#include "BKE_material.h"
 #include "BKE_scene.h"
 
 #include "BLI_listbase.h"
@@ -55,12 +56,14 @@
 struct bContext;
 struct GPUFrameBuffer;
 struct GPUShader;
+struct GPUMaterial;
 struct GPUTexture;
 struct GPUUniformBuffer;
 struct Object;
 struct Batch;
 struct DefaultFramebufferList;
 struct DefaultTextureList;
+struct DRWTextStore;
 struct LampEngineData;
 struct RenderEngineType;
 struct ViewportEngineData;
@@ -71,7 +74,11 @@ typedef struct DRWInterface DRWInterface;
 typedef struct DRWPass DRWPass;
 typedef struct DRWShadingGroup DRWShadingGroup;
 
-#define DRW_VIEWPORT_LIST_SIZE(list) (sizeof(list) == sizeof(char) ? 0 : ((sizeof(list)) / sizeof(void *)))
+/* declare members as empty (unused) */
+typedef char DRWViewportEmptyList;
+
+#define DRW_VIEWPORT_LIST_SIZE(list) \
+	(sizeof(list) == sizeof(DRWViewportEmptyList) ? 0 : ((sizeof(list)) / sizeof(void *)))
 
 /* Unused members must be either pass list or 'char *' when not usd. */
 #define DRW_VIEWPORT_DATA_SIZE(ty) { \
@@ -124,6 +131,7 @@ typedef enum {
 	DRW_TEX_RGBA_8,
 	DRW_TEX_RGBA_16,
 	DRW_TEX_RGBA_32,
+	DRW_TEX_RGB_11_11_10,
 	DRW_TEX_RGB_8,
 	DRW_TEX_RGB_16,
 	DRW_TEX_RGB_32,
@@ -142,6 +150,8 @@ typedef enum {
 	DRW_TEX_FILTER = (1 << 0),
 	DRW_TEX_WRAP = (1 << 1),
 	DRW_TEX_COMPARE = (1 << 2),
+	DRW_TEX_MIPMAP = (1 << 3),
+	DRW_TEX_TEMP = (1 << 4),
 } DRWTextureFlag;
 
 struct GPUTexture *DRW_texture_create_1D(
@@ -152,6 +162,7 @@ struct GPUTexture *DRW_texture_create_2D_array(
         int w, int h, int d, DRWTextureFormat format, DRWTextureFlag flags, const float *fpixels);
 struct GPUTexture *DRW_texture_create_cube(
         int w, DRWTextureFormat format, DRWTextureFlag flags, const float *fpixels);
+void DRW_texture_generate_mipmaps(struct GPUTexture *tex);
 void DRW_texture_free(struct GPUTexture *tex);
 #define DRW_TEXTURE_FREE_SAFE(tex) do { \
 	if (tex != NULL) { \
@@ -166,23 +177,6 @@ void DRW_uniformbuffer_update(struct GPUUniformBuffer *ubo, const void *data);
 void DRW_uniformbuffer_free(struct GPUUniformBuffer *ubo);
 
 /* Buffers */
-
-/* DRWFboTexture->format */
-#define DRW_BUF_DEPTH_16		1
-#define DRW_BUF_DEPTH_24		2
-#define DRW_BUF_R_8				3
-#define DRW_BUF_R_16			4
-#define DRW_BUF_R_32			5
-#define DRW_BUF_RG_8			6
-#define DRW_BUF_RG_16			7
-#define DRW_BUF_RG_32			8
-#define DRW_BUF_RGB_8			9
-#define DRW_BUF_RGB_16			10
-#define DRW_BUF_RGB_32			11
-#define DRW_BUF_RGBA_8			12
-#define DRW_BUF_RGBA_16			13
-#define DRW_BUF_RGBA_32			14
-
 #define MAX_FBO_TEX			5
 
 typedef struct DRWFboTexture {
@@ -191,16 +185,25 @@ typedef struct DRWFboTexture {
 	DRWTextureFlag flag;
 } DRWFboTexture;
 
-void DRW_framebuffer_init(struct GPUFrameBuffer **fb, int width, int height, DRWFboTexture textures[MAX_FBO_TEX], int texnbr);
+void DRW_framebuffer_init(
+        struct GPUFrameBuffer **fb, void *engine_type, int width, int height,
+        DRWFboTexture textures[MAX_FBO_TEX], int textures_len);
+void DRW_framebuffer_free(struct GPUFrameBuffer *fb);
 void DRW_framebuffer_bind(struct GPUFrameBuffer *fb);
 void DRW_framebuffer_clear(bool color, bool depth, bool stencil, float clear_col[4], float clear_depth);
-void DRW_framebuffer_texture_attach(struct GPUFrameBuffer *fb, struct GPUTexture *tex, int slot);
+void DRW_framebuffer_read_data(int x, int y, int w, int h, int channels, int slot, float *data);
+void DRW_framebuffer_texture_attach(struct GPUFrameBuffer *fb, struct GPUTexture *tex, int slot, int mip);
 void DRW_framebuffer_texture_detach(struct GPUTexture *tex);
 void DRW_framebuffer_blit(struct GPUFrameBuffer *fb_read, struct GPUFrameBuffer *fb_write, bool depth);
+void DRW_framebuffer_viewport_size(struct GPUFrameBuffer *UNUSED(fb_read), int w, int h);
+
+void DRW_transform_to_display(struct GPUTexture *tex);
 
 /* Shaders */
-struct GPUShader *DRW_shader_create(const char *vert, const char *geom, const char *frag, const char *defines);
-struct GPUShader *DRW_shader_create_with_lib(const char *vert, const char *geom, const char *frag, const char *lib, const char *defines);
+struct GPUShader *DRW_shader_create(
+        const char *vert, const char *geom, const char *frag, const char *defines);
+struct GPUShader *DRW_shader_create_with_lib(
+        const char *vert, const char *geom, const char *frag, const char *lib, const char *defines);
 struct GPUShader *DRW_shader_create_2D(const char *frag, const char *defines);
 struct GPUShader *DRW_shader_create_3D(const char *frag, const char *defines);
 struct GPUShader *DRW_shader_create_fullscreen(const char *frag, const char *defines);
@@ -230,38 +233,63 @@ typedef enum {
 	DRW_STATE_STIPPLE_3     = (1 << 11),
 	DRW_STATE_STIPPLE_4     = (1 << 12),
 	DRW_STATE_BLEND         = (1 << 13),
+	DRW_STATE_ADDITIVE      = (1 << 14),
+	DRW_STATE_MULTIPLY      = (1 << 15),
 
-	DRW_STATE_WRITE_STENCIL_SELECT = (1 << 14),
-	DRW_STATE_WRITE_STENCIL_ACTIVE = (1 << 15),
-	DRW_STATE_TEST_STENCIL_SELECT  = (1 << 16),
-	DRW_STATE_TEST_STENCIL_ACTIVE  = (1 << 17),
+	DRW_STATE_WRITE_STENCIL_SELECT = (1 << 27),
+	DRW_STATE_WRITE_STENCIL_ACTIVE = (1 << 28),
+	DRW_STATE_TEST_STENCIL_SELECT  = (1 << 29),
+	DRW_STATE_TEST_STENCIL_ACTIVE  = (1 << 30),
 } DRWState;
 
+#define DRW_STATE_DEFAULT (DRW_STATE_WRITE_DEPTH | DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS)
+
+
 DRWShadingGroup *DRW_shgroup_create(struct GPUShader *shader, DRWPass *pass);
+DRWShadingGroup *DRW_shgroup_material_create(struct GPUMaterial *material, DRWPass *pass);
+DRWShadingGroup *DRW_shgroup_material_instance_create(struct GPUMaterial *material, DRWPass *pass, struct Batch *geom);
 DRWShadingGroup *DRW_shgroup_instance_create(struct GPUShader *shader, DRWPass *pass, struct Batch *geom);
 DRWShadingGroup *DRW_shgroup_point_batch_create(struct GPUShader *shader, DRWPass *pass);
 DRWShadingGroup *DRW_shgroup_line_batch_create(struct GPUShader *shader, DRWPass *pass);
+DRWShadingGroup *DRW_shgroup_empty_tri_batch_create(struct GPUShader *shader, DRWPass *pass, int size);
+
+typedef void (DRWCallGenerateFn)(
+        DRWShadingGroup *shgroup,
+        void (*draw_fn)(DRWShadingGroup *shgroup, struct Batch *geom),
+        void *user_data);
+
+void DRW_shgroup_instance_batch(DRWShadingGroup *shgroup, struct Batch *instances);
 
 void DRW_shgroup_free(struct DRWShadingGroup *shgroup);
 void DRW_shgroup_call_add(DRWShadingGroup *shgroup, struct Batch *geom, float (*obmat)[4]);
-void DRW_shgroup_dynamic_call_add_array(DRWShadingGroup *shgroup, const void **attr, unsigned int attr_len);
-#define DRW_shgroup_dynamic_call_add(shgroup, ...) do { \
+void DRW_shgroup_call_object_add(DRWShadingGroup *shgroup, struct Batch *geom, struct Object *ob);
+void DRW_shgroup_call_sculpt_add(DRWShadingGroup *shgroup, struct Object *ob, float (*obmat)[4]);
+void DRW_shgroup_call_generate_add(
+        DRWShadingGroup *shgroup, DRWCallGenerateFn *geometry_fn, void *user_data, float (*obmat)[4]);
+void DRW_shgroup_call_dynamic_add_array(DRWShadingGroup *shgroup, const void *attr[], unsigned int attr_len);
+#define DRW_shgroup_call_dynamic_add(shgroup, ...) do { \
 	const void *array[] = {__VA_ARGS__}; \
-	DRW_shgroup_dynamic_call_add_array(shgroup, array, (sizeof(array) / sizeof(*array))); \
+	DRW_shgroup_call_dynamic_add_array(shgroup, array, (sizeof(array) / sizeof(*array))); \
 } while (0)
+#define DRW_shgroup_call_dynamic_add_empty(shgroup) do { \
+	DRW_shgroup_call_dynamic_add_array(shgroup, NULL, 0); \
+} while (0)
+void DRW_shgroup_set_instance_count(DRWShadingGroup *shgroup, int count);
 
-void DRW_shgroup_state_set(DRWShadingGroup *shgroup, DRWState state);
+void DRW_shgroup_state_enable(DRWShadingGroup *shgroup, DRWState state);
 void DRW_shgroup_attrib_int(DRWShadingGroup *shgroup, const char *name, int size);
 void DRW_shgroup_attrib_float(DRWShadingGroup *shgroup, const char *name, int size);
 
-void DRW_shgroup_uniform_texture(DRWShadingGroup *shgroup, const char *name, const struct GPUTexture *tex, int loc);
-void DRW_shgroup_uniform_block(DRWShadingGroup *shgroup, const char *name, const struct GPUUniformBuffer *ubo, int loc);
-void DRW_shgroup_uniform_buffer(DRWShadingGroup *shgroup, const char *name, struct GPUTexture **tex, int loc);
+void DRW_shgroup_uniform_texture(DRWShadingGroup *shgroup, const char *name, const struct GPUTexture *tex);
+void DRW_shgroup_uniform_block(DRWShadingGroup *shgroup, const char *name, const struct GPUUniformBuffer *ubo);
+void DRW_shgroup_uniform_buffer(DRWShadingGroup *shgroup, const char *name, struct GPUTexture **tex);
 void DRW_shgroup_uniform_bool(DRWShadingGroup *shgroup, const char *name, const bool *value, int arraysize);
 void DRW_shgroup_uniform_float(DRWShadingGroup *shgroup, const char *name, const float *value, int arraysize);
 void DRW_shgroup_uniform_vec2(DRWShadingGroup *shgroup, const char *name, const float *value, int arraysize);
 void DRW_shgroup_uniform_vec3(DRWShadingGroup *shgroup, const char *name, const float *value, int arraysize);
 void DRW_shgroup_uniform_vec4(DRWShadingGroup *shgroup, const char *name, const float *value, int arraysize);
+void DRW_shgroup_uniform_short_to_int(DRWShadingGroup *shgroup, const char *name, const short *value, int arraysize);
+void DRW_shgroup_uniform_short_to_float(DRWShadingGroup *shgroup, const char *name, const short *value, int arraysize);
 void DRW_shgroup_uniform_int(DRWShadingGroup *shgroup, const char *name, const int *value, int arraysize);
 void DRW_shgroup_uniform_ivec2(DRWShadingGroup *shgroup, const char *name, const int *value, int arraysize);
 void DRW_shgroup_uniform_ivec3(DRWShadingGroup *shgroup, const char *name, const int *value, int arraysize);
@@ -270,10 +298,12 @@ void DRW_shgroup_uniform_mat4(DRWShadingGroup *shgroup, const char *name, const 
 
 /* Passes */
 DRWPass *DRW_pass_create(const char *name, DRWState state);
+void DRW_pass_foreach_shgroup(DRWPass *pass, void (*callback)(void *userData, DRWShadingGroup *shgrp), void *userData);
 
 /* Viewport */
 typedef enum {
 	DRW_MAT_PERS,
+	DRW_MAT_PERSINV,
 	DRW_MAT_VIEW,
 	DRW_MAT_VIEWINV,
 	DRW_MAT_WIN,
@@ -285,7 +315,6 @@ const float *DRW_viewport_size_get(void);
 const float *DRW_viewport_screenvecs_get(void);
 const float *DRW_viewport_pixelsize_get(void);
 bool DRW_viewport_is_persp_get(void);
-bool DRW_viewport_cache_is_dirty(void);
 
 struct DefaultFramebufferList *DRW_viewport_framebuffer_list_get(void);
 struct DefaultTextureList     *DRW_viewport_texture_list_get(void);
@@ -296,17 +325,53 @@ struct LampEngineData *DRW_lamp_engine_data_get(Object *ob, struct RenderEngineT
 void DRW_lamp_engine_data_free(struct LampEngineData *led);
 
 /* Settings */
-bool DRW_is_object_renderable(struct Object *ob);
+bool DRW_object_is_renderable(struct Object *ob);
+bool DRW_object_is_flat_normal(struct Object *ob);
 
 /* Draw commands */
 void DRW_draw_pass(DRWPass *pass);
 
+void DRW_draw_text_cache_queue(struct DRWTextStore *dt);
+
 void DRW_draw_callbacks_pre_scene(void);
 void DRW_draw_callbacks_post_scene(void);
 
+int DRW_draw_region_engine_info_offset(void);
+void DRW_draw_region_engine_info(void);
+
+void DRW_state_reset_ex(DRWState state);
 void DRW_state_reset(void);
 
-/* Other */
-void DRW_get_dfdy_factors(float dfdyfac[2]);
-const struct bContext *DRW_get_context(void);
+/* Selection */
+void DRW_select_load_id(unsigned int id);
+
+/* Draw State */
+void DRW_state_dfdy_factors_get(float dfdyfac[2]);
+bool DRW_state_is_fbo(void);
+bool DRW_state_is_select(void);
+bool DRW_state_is_depth(void);
+bool DRW_state_show_text(void);
+
+struct DRWTextStore *DRW_state_text_cache_get(void);
+
+/* Avoid too many lookups while drawing */
+typedef struct DRWContextState {
+	struct ARegion *ar;         /* 'CTX_wm_region(C)' */
+	struct RegionView3D *rv3d;  /* 'CTX_wm_region_view3d(C)' */
+	struct View3D *v3d;     /* 'CTX_wm_view3d(C)' */
+
+	struct Scene *scene;    /* 'CTX_data_scene(C)' */
+	struct SceneLayer *sl;  /* 'CTX_data_scene_layer(C)' */
+
+	/* Use 'scene->obedit' for edit-mode */
+	struct Object *obact;   /* 'OBACT_NEW' */
+
+	/* Last resort (some functions take this as an arg so we can't easily avoid).
+	 * May be NULL when used for selection or depth buffer. */
+	const struct bContext *evil_C;
+} DRWContextState;
+
+void DRW_context_state_init(const struct bContext *C, DRWContextState *r_draw_ctx);
+const DRWContextState *DRW_context_state_get(void);
+
 #endif /* __DRW_RENDER_H__ */

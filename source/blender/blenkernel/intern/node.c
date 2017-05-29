@@ -3568,6 +3568,7 @@ static void registerShaderNodes(void)
 	register_node_type_sh_background();
 	register_node_type_sh_bsdf_anisotropic();
 	register_node_type_sh_bsdf_diffuse();
+	register_node_type_sh_bsdf_principled();
 	register_node_type_sh_bsdf_glossy();
 	register_node_type_sh_bsdf_glass();
 	register_node_type_sh_bsdf_translucent();
@@ -3587,6 +3588,8 @@ static void registerShaderNodes(void)
 
 	register_node_type_sh_output_lamp();
 	register_node_type_sh_output_material();
+	register_node_type_sh_output_metallic();
+	register_node_type_sh_output_specular();
 	register_node_type_sh_output_world();
 	register_node_type_sh_output_linestyle();
 

@@ -1,16 +1,34 @@
 
 uniform mat4 ModelViewProjectionMatrix;
 uniform mat4 ModelMatrix;
+uniform mat4 ModelViewMatrix;
 uniform mat3 WorldNormalMatrix;
+#ifndef ATTRIB
+uniform mat3 NormalMatrix;
+#endif
 
 in vec3 pos;
 in vec3 nor;
 
 out vec3 worldPosition;
+out vec3 viewPosition;
+
+#ifdef USE_FLAT_NORMAL
+flat out vec3 worldNormal;
+flat out vec3 viewNormal;
+#else
 out vec3 worldNormal;
+out vec3 viewNormal;
+#endif
 
 void main() {
 	gl_Position = ModelViewProjectionMatrix * vec4(pos, 1.0);
+	viewPosition = (ModelViewMatrix * vec4(pos, 1.0)).xyz;
 	worldPosition = (ModelMatrix * vec4(pos, 1.0)).xyz;
-	worldNormal = WorldNormalMatrix * nor;
+	viewNormal = normalize(NormalMatrix * nor);
+	worldNormal = normalize(WorldNormalMatrix * nor);
+
+#ifdef ATTRIB
+	pass_attrib(pos);
+#endif
 }

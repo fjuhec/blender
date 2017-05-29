@@ -241,27 +241,13 @@ static void manipulators_draw_list(const wmManipulatorMap *mmap, const bContext 
 	BLI_assert(!BLI_listbase_is_empty(&mmap->manipulator_groups));
 
 	const bool draw_multisample = (U.ogl_multisamples != USER_MULTISAMPLE_NONE);
-	const bool use_lighting = (U.manipulator_flag & V3D_SHADED_MANIPULATORS) != 0;
+
+	/* TODO this will need it own shader probably? don't think it can be handled from that point though. */
+/*	const bool use_lighting = (U.manipulator_flag & V3D_SHADED_MANIPULATORS) != 0; */
 
 	/* enable multisampling */
 	if (draw_multisample) {
 		glEnable(GL_MULTISAMPLE);
-	}
-	if (use_lighting) {
-		const float lightpos[4] = {0.0, 0.0, 1.0, 0.0};
-		const float diffuse[4] = {1.0, 1.0, 1.0, 0.0};
-
-		glPushAttrib(GL_LIGHTING_BIT | GL_ENABLE_BIT);
-
-		glEnable(GL_LIGHTING);
-		glEnable(GL_LIGHT0);
-		glEnable(GL_COLOR_MATERIAL);
-		glColorMaterial(GL_FRONT_AND_BACK, GL_DIFFUSE);
-		gpuPushMatrix();
-		gpuLoadIdentity();
-		glLightfv(GL_LIGHT0, GL_POSITION, lightpos);
-		glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse);
-		gpuPopMatrix();
 	}
 
 	/* draw_manipulators contains all visible manipulators - draw them */
@@ -276,9 +262,6 @@ static void manipulators_draw_list(const wmManipulatorMap *mmap, const bContext 
 
 	if (draw_multisample) {
 		glDisable(GL_MULTISAMPLE);
-	}
-	if (use_lighting) {
-		glPopAttrib();
 	}
 }
 
@@ -312,21 +295,17 @@ static int manipulator_find_intersected_3D_intern(
 	ScrArea *sa = CTX_wm_area(C);
 	ARegion *ar = CTX_wm_region(C);
 	View3D *v3d = sa->spacedata.first;
-	RegionView3D *rv3d = ar->regiondata;
 	rcti rect;
 	GLuint buffer[64];      // max 4 items per select, so large enuf
 	short hits;
 	const bool do_passes = GPU_select_query_check_active();
-
-	extern void view3d_winmatrix_set(ARegion *ar, View3D *v3d, const rcti *rect);
 
 	rect.xmin = co[0] - hotspot;
 	rect.xmax = co[0] + hotspot;
 	rect.ymin = co[1] - hotspot;
 	rect.ymax = co[1] + hotspot;
 
-	view3d_winmatrix_set(ar, v3d, &rect);
-	mul_m4_m4m4(rv3d->persmat, rv3d->winmat, rv3d->viewmat);
+	ED_view3d_draw_setup_view(CTX_wm_window(C), CTX_data_scene(C), ar, v3d, NULL, NULL, &rect);
 
 	if (do_passes)
 		GPU_select_begin(buffer, ARRAY_SIZE(buffer), &rect, GPU_SELECT_NEAREST_FIRST_PASS, 0);
@@ -343,8 +322,7 @@ static int manipulator_find_intersected_3D_intern(
 		GPU_select_end();
 	}
 
-	view3d_winmatrix_set(ar, v3d, NULL);
-	mul_m4_m4m4(rv3d->persmat, rv3d->winmat, rv3d->viewmat);
+	ED_view3d_draw_setup_view(CTX_wm_window(C), CTX_data_scene(C), ar, v3d, NULL, NULL, NULL);
 
 	return hits > 0 ? buffer[3] : -1;
 }
@@ -446,7 +424,7 @@ void wm_manipulatormaps_handled_modal_update(
 	/* regular update for running operator */
 	if (modal_running) {
 		if (manipulator && manipulator->handler && manipulator->opname &&
-			STREQ(manipulator->opname, handler->op->idname))
+		    STREQ(manipulator->opname, handler->op->idname))
 		{
 			manipulator->handler(C, event, manipulator, 0);
 		}

@@ -342,7 +342,6 @@ static void playanim_toscreen(PlayState *ps, PlayAnimPict *picture, struct ImBuf
 		int sizex, sizey;
 		float fsizex_inv, fsizey_inv;
 		char str[32 + FILE_MAX];
-		cpack(-1);
 		BLI_snprintf(str, sizeof(str), "%s | %.2f frames/s", picture->name, fstep / swaptime);
 
 		playanim_window_get_size(&sizex, &sizey);
@@ -360,17 +359,15 @@ static void playanim_toscreen(PlayState *ps, PlayAnimPict *picture, struct ImBuf
 		float fac = ps->picture->frame / (double)(((PlayAnimPict *)picsbase.last)->frame - ((PlayAnimPict *)picsbase.first)->frame);
 
 		fac = 2.0f * fac - 1.0f;
-		glMatrixMode(GL_PROJECTION); /* TODO: convert this nasty code */
-		gpuPushMatrix();
-		gpuLoadIdentity();
-		glMatrixMode(GL_MODELVIEW);
+		gpuPushProjectionMatrix();
+		gpuLoadIdentityProjectionMatrix();
 		gpuPushMatrix();
 		gpuLoadIdentity();
 
 		unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
 
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
-		immUniformColor4ub(0, 255, 0, 255);
+		immUniformColor3ub(0, 255, 0);
 
 		immBegin(PRIM_LINES, 2);
 		immVertex2f(pos, fac, -1.0f);
@@ -380,9 +377,7 @@ static void playanim_toscreen(PlayState *ps, PlayAnimPict *picture, struct ImBuf
 		immUnbindProgram();
 
 		gpuPopMatrix();
-		glMatrixMode(GL_PROJECTION);
-		gpuPopMatrix();
-		glMatrixMode(GL_MODELVIEW);
+		gpuPopProjectionMatrix();
 	}
 
 	GHOST_SwapWindowBuffers(g_WS.ghost_window);

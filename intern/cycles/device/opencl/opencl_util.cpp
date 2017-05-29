@@ -902,7 +902,7 @@ bool OpenCLInfo::get_platform_name(cl_platform_id platform_id,
 string OpenCLInfo::get_platform_name(cl_platform_id platform_id)
 {
 	string platform_name;
-	if (!get_platform_name(platform_id, &platform_name)) {
+	if(!get_platform_name(platform_id, &platform_name)) {
 		return "";
 	}
 	return platform_name;
@@ -1071,6 +1071,20 @@ string OpenCLInfo::get_readable_device_name(cl_device_id device_id)
 	}
 	/* Fallback to standard device name API. */
 	return get_device_name(device_id);
+}
+
+int OpenCLInfo::mem_address_alignment(cl_device_id device_id)
+{
+	int base_align_bits;
+	if(clGetDeviceInfo(device_id,
+	                   CL_DEVICE_MEM_BASE_ADDR_ALIGN,
+	                   sizeof(int),
+	                   &base_align_bits,
+	                   NULL) == CL_SUCCESS)
+	{
+		return base_align_bits/8;
+	}
+	return 1;
 }
 
 CCL_NAMESPACE_END

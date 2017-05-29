@@ -18,12 +18,12 @@ in ivec4 vData[];
 /* these are the same for all vertices
  * and does not need interpolation */
 flat out vec3 edgesCrease;
-flat out vec3 edgesSharp;
+flat out vec3 edgesBweight;
 flat out ivec3 flag;
 flat out vec4 faceColor;
 flat out int clipCase;
 #ifdef VERTEX_SELECTION
-smooth out vec3 vertexColor;
+out vec3 vertexColor;
 #endif
 
 /* See fragment shader */
@@ -104,7 +104,7 @@ void main()
 	/* perpendicular to dir */
 	dirs1.zw = vec2(-dirs1.y, dirs1.x);
 
-	/* Make it view independant */
+	/* Make it view independent */
 	dirs1 *= sizeEdgeFix / viewportSize.xyxy;
 
 	dirs2 = dirs1;
@@ -131,7 +131,7 @@ void main()
 
 	flag[2] = vData[0].y | (vData[0].x << 8);
 	edgesCrease[2] = vData[0].z / 255.0;
-	edgesSharp[2] = vData[0].w / 255.0;
+	edgesBweight[2] = vData[0].w / 255.0;
 
 	doVertex(1, pPos[1] + vec4( dirs2.zw, 0.0, 0.0));
 	doVertex(1, pPos[1] + vec4(-dirs2.zw, 0.0, 0.0));

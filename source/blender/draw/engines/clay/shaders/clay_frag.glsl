@@ -38,7 +38,12 @@ uniform int mat_id;
 #define matcap_index		matcaps_param[mat_id].matcap_hsv_id.w
 #define matcap_rotation		matcaps_param[mat_id].matcap_rot.xy
 
+#ifdef USE_FLAT_NORMAL
+flat in vec3 normal;
+#else
 in vec3 normal;
+#endif
+
 out vec4 fragColor;
 
 /* TODO Move this to SSAO modules */
@@ -153,7 +158,9 @@ void hue_sat(float hue, float sat, float value, inout vec3 col)
 
 #ifdef USE_AO
 /* Prototype */
-void ssao_factors(in float depth, in vec3 normal, in vec3 position, in vec2 screenco, out float cavities, out float edges);
+void ssao_factors(
+        in float depth, in vec3 normal, in vec3 position, in vec2 screenco,
+        out float cavities, out float edges);
 #endif
 
 void main() {

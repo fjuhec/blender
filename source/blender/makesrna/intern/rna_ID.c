@@ -136,7 +136,7 @@ static int rna_ID_name_editable(PointerRNA *ptr, const char **UNUSED(r_info))
 	return PROP_EDITABLE;
 }
 
-short RNA_type_to_ID_code(StructRNA *type)
+short RNA_type_to_ID_code(const StructRNA *type)
 {
 	if (RNA_struct_is_a(type, &RNA_Action)) return ID_AC;
 	if (RNA_struct_is_a(type, &RNA_Armature)) return ID_AR;
@@ -342,7 +342,7 @@ static void rna_ID_user_clear(ID *id)
 
 static void rna_ID_user_remap(ID *id, Main *bmain, ID *new_id)
 {
-	if (GS(id->name) == GS(new_id->name)) {
+	if ((GS(id->name) == GS(new_id->name)) && (id != new_id)) {
 		/* For now, do not allow remapping data in linked data from here... */
 		BKE_libblock_remap(bmain, id, new_id, ID_REMAP_SKIP_INDIRECT_USAGE | ID_REMAP_SKIP_NEVER_NULL_USAGE);
 	}

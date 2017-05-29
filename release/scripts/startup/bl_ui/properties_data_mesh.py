@@ -24,7 +24,7 @@ from rna_prop_ui import PropertyPanel
 
 class MESH_MT_vertex_group_specials(Menu):
     bl_label = "Vertex Group Specials"
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
 
     def draw(self, context):
         layout = self.layout
@@ -48,7 +48,7 @@ class MESH_MT_vertex_group_specials(Menu):
 
 class MESH_MT_shape_key_specials(Menu):
     bl_label = "Shape Key Specials"
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
 
     def draw(self, context):
         layout = self.layout
@@ -137,7 +137,7 @@ class MeshButtonsPanel:
 class DATA_PT_context_mesh(MeshButtonsPanel, Panel):
     bl_label = ""
     bl_options = {'HIDE_HEADER'}
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
 
     def draw(self, context):
         layout = self.layout
@@ -154,7 +154,7 @@ class DATA_PT_context_mesh(MeshButtonsPanel, Panel):
 
 class DATA_PT_normals(MeshButtonsPanel, Panel):
     bl_label = "Normals"
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
 
     def draw(self, context):
         layout = self.layout
@@ -175,7 +175,7 @@ class DATA_PT_normals(MeshButtonsPanel, Panel):
 class DATA_PT_texture_space(MeshButtonsPanel, Panel):
     bl_label = "Texture Space"
     bl_options = {'DEFAULT_CLOSED'}
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
 
     def draw(self, context):
         layout = self.layout
@@ -194,7 +194,7 @@ class DATA_PT_texture_space(MeshButtonsPanel, Panel):
 
 class DATA_PT_vertex_groups(MeshButtonsPanel, Panel):
     bl_label = "Vertex Groups"
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
 
     @classmethod
     def poll(cls, context):
@@ -281,7 +281,7 @@ class DATA_PT_face_maps(MeshButtonsPanel, Panel):
 
 class DATA_PT_shape_keys(MeshButtonsPanel, Panel):
     bl_label = "Shape Keys"
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
 
     @classmethod
     def poll(cls, context):
@@ -374,7 +374,7 @@ class DATA_PT_shape_keys(MeshButtonsPanel, Panel):
 
 class DATA_PT_uv_texture(MeshButtonsPanel, Panel):
     bl_label = "UV Maps"
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
 
     def draw(self, context):
         layout = self.layout
@@ -384,7 +384,7 @@ class DATA_PT_uv_texture(MeshButtonsPanel, Panel):
         row = layout.row()
         col = row.column()
 
-        col.template_list("MESH_UL_uvmaps_vcols", "uvmaps", me, "uv_textures", me.uv_textures, "active_index", rows=1)
+        col.template_list("MESH_UL_uvmaps_vcols", "uvmaps", me, "uv_layers", me.uv_layers, "active_index", rows=1)
 
         col = row.column(align=True)
         col.operator("mesh.uv_texture_add", icon='ZOOMIN', text="")
@@ -393,7 +393,7 @@ class DATA_PT_uv_texture(MeshButtonsPanel, Panel):
 
 class DATA_PT_vertex_colors(MeshButtonsPanel, Panel):
     bl_label = "Vertex Colors"
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
 
     def draw(self, context):
         layout = self.layout
@@ -413,7 +413,7 @@ class DATA_PT_vertex_colors(MeshButtonsPanel, Panel):
 class DATA_PT_customdata(MeshButtonsPanel, Panel):
     bl_label = "Geometry Data"
     bl_options = {'DEFAULT_CLOSED'}
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
 
     def draw(self, context):
         layout = self.layout
@@ -439,7 +439,7 @@ class DATA_PT_customdata(MeshButtonsPanel, Panel):
 
 
 class DATA_PT_custom_props_mesh(MeshButtonsPanel, PropertyPanel, Panel):
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
     _context_path = "object.data"
     _property_type = bpy.types.Mesh
 

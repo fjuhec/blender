@@ -68,6 +68,7 @@ class COLLECTION_PT_clay_settings(CollectionButtonsPanel, Panel):
         col.template_override_property(collection_props, scene_props, "ssao_factor_edge")
         col.template_override_property(collection_props, scene_props, "ssao_distance")
         col.template_override_property(collection_props, scene_props, "ssao_attenuation")
+        col.template_override_property(collection_props, scene_props, "hair_brightness_randomness")
 
 
 class COLLECTION_PT_object_mode_settings(CollectionButtonsPanel, Panel):
@@ -110,6 +111,45 @@ class COLLECTION_PT_edit_mode_settings(CollectionButtonsPanel, Panel):
         col.template_override_property(collection_props, scene_props, "vert_normals_show")
         col.template_override_property(collection_props, scene_props, "loop_normals_show")
         col.template_override_property(collection_props, scene_props, "normals_length")
+        col.template_override_property(collection_props, scene_props, "show_weight")
+
+
+class COLLECTION_PT_paint_weight_mode_settings(CollectionButtonsPanel, Panel):
+    bl_label = "Weight Paint Mode Settings"
+
+    @classmethod
+    def poll(cls, context):
+        ob = context.object
+        return ob and (ob.mode == 'WEIGHT_PAINT')
+
+    def draw(self, context):
+        layout = self.layout
+        scene_props = context.scene.collection_properties['WeightPaintMode']
+        collection = context.layer_collection
+        collection_props = collection.engine_overrides['WeightPaintMode']
+
+        col = layout.column()
+        col.template_override_property(collection_props, scene_props, "use_shading")
+        col.template_override_property(collection_props, scene_props, "use_wire")
+
+
+class COLLECTION_PT_paint_vertex_mode_settings(CollectionButtonsPanel, Panel):
+    bl_label = "Vertex Paint Mode Settings"
+
+    @classmethod
+    def poll(cls, context):
+        ob = context.object
+        return ob and (ob.mode == 'VERTEX_PAINT')
+
+    def draw(self, context):
+        layout = self.layout
+        scene_props = context.scene.collection_properties['VertexPaintMode']
+        collection = context.layer_collection
+        collection_props = collection.engine_overrides['VertexPaintMode']
+
+        col = layout.column()
+        col.template_override_property(collection_props, scene_props, "use_shading")
+        col.template_override_property(collection_props, scene_props, "use_wire")
 
 
 classes = (
@@ -117,6 +157,8 @@ classes = (
     COLLECTION_PT_clay_settings,
     COLLECTION_PT_object_mode_settings,
     COLLECTION_PT_edit_mode_settings,
+    COLLECTION_PT_paint_weight_mode_settings,
+    COLLECTION_PT_paint_vertex_mode_settings,
 )
 
 if __name__ == "__main__":  # only for live edit.

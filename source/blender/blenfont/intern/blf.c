@@ -555,15 +555,15 @@ static void blf_draw_gl__start(FontBLF *font)
 	gpuPushMatrix();
 
 	if (font->flags & BLF_MATRIX)
-		gpuMultMatrix3D(font->m);
+		gpuMultMatrix(font->m);
 
 	gpuTranslate3fv(font->pos);
 
 	if (font->flags & BLF_ASPECT)
 		gpuScale3fv(font->aspect);
 
-	if (font->flags & BLF_ROTATION)  /* radians -> degrees */
-		gpuRotateAxis(RAD2DEG(font->angle), 'Z'); /* TODO: use gpuRotate2D here? */
+	if (font->flags & BLF_ROTATION)
+		gpuRotate2D(RAD2DEG(font->angle));
 
 #ifndef BLF_STANDALONE
 	VertexFormat *format = immVertexFormat();
@@ -574,6 +574,8 @@ static void blf_draw_gl__start(FontBLF *font)
 	BLI_assert(pos == BLF_POS_ID);
 	BLI_assert(texCoord == BLF_COORD_ID);
 	BLI_assert(color == BLF_COLOR_ID);
+
+	UNUSED_VARS_NDEBUG(pos, texCoord, color);
 
 	immBindBuiltinProgram(GPU_SHADER_TEXT);
 #endif

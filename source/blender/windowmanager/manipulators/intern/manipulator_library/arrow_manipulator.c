@@ -210,7 +210,7 @@ static void arrow_draw_intern(ArrowManipulator *arrow, const bool select, const 
 	mul_mat3_m4_fl(mat, arrow->manipulator.scale);
 
 	gpuPushMatrix();
-	gpuMultMatrix3D(mat);
+	gpuMultMatrix(mat);
 
 	gpuTranslate3fv(arrow->manipulator.offset);
 
@@ -228,7 +228,7 @@ static void arrow_draw_intern(ArrowManipulator *arrow, const bool select, const 
 		mul_mat3_m4_fl(mat, inter->init_scale);
 
 		gpuPushMatrix();
-		gpuMultMatrix3D(mat);
+		gpuMultMatrix(mat);
 		gpuTranslate3fv(arrow->manipulator.offset);
 
 		glEnable(GL_BLEND);
@@ -256,8 +256,6 @@ static void manipulator_arrow_draw(const bContext *UNUSED(C), wmManipulator *man
  * Calculate arrow offset independent from prop min value,
  * meaning the range will not be offset by min value first.
  */
-#define USE_ABS_HANDLE_RANGE
-
 static int manipulator_arrow_handler(bContext *C, const wmEvent *event, wmManipulator *manipulator, const int flag)
 {
 	ArrowManipulator *arrow = (ArrowManipulator *)manipulator;

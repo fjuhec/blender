@@ -66,7 +66,7 @@ typedef struct PARTICLE_StorageList {
 	 * free with MEM_freeN() when viewport is freed.
 	 * (not per object) */
 	struct CustomStruct *block;
-	struct g_data *g_data;
+	struct PARTICLE_PrivateData *g_data;
 } PARTICLE_StorageList;
 
 typedef struct PARTICLE_Data {
@@ -90,11 +90,11 @@ static struct {
 	struct GPUShader *custom_shader;
 } e_data = {NULL}; /* Engine data */
 
-typedef struct g_data {
+typedef struct PARTICLE_PrivateData {
 	/* This keeps the references of the shading groups for
 	 * easy access in PARTICLE_cache_populate() */
 	DRWShadingGroup *group;
-} g_data; /* Transient data */
+} PARTICLE_PrivateData; /* Transient data */
 
 /* *********** FUNCTIONS *********** */
 
@@ -111,8 +111,8 @@ static void PARTICLE_engine_init(void *vedata)
 
 	/* Init Framebuffers like this: order is attachment order (for color texs) */
 	/*
-	 * DRWFboTexture tex[2] = {{&txl->depth, DRW_BUF_DEPTH_24, 0},
-	 *                         {&txl->color, DRW_BUF_RGBA_8, DRW_TEX_FILTER}};
+	 * DRWFboTexture tex[2] = {{&txl->depth, DRW_TEX_DEPTH_24, 0},
+	 *                         {&txl->color, DRW_TEX_RGBA_8, DRW_TEX_FILTER}};
 	 */
 
 	/* DRW_framebuffer_init takes care of checking if
@@ -138,7 +138,7 @@ static void PARTICLE_cache_init(void *vedata)
 
 	if (!stl->g_data) {
 		/* Alloc transient pointers */
-		stl->g_data = MEM_mallocN(sizeof(g_data), "g_data");
+		stl->g_data = MEM_mallocN(sizeof(*stl->g_data), __func__);
 	}
 
 	{
@@ -207,7 +207,7 @@ static void PARTICLE_draw_scene(void *vedata)
 	 * DRW_framebuffer_texture_detach(dtxl->depth);
 	 * DRW_framebuffer_bind(fbl->custom_fb);
 	 * DRW_draw_pass(psl->pass);
-	 * DRW_framebuffer_texture_attach(dfbl->default_fb, dtxl->depth, 0);
+	 * DRW_framebuffer_texture_attach(dfbl->default_fb, dtxl->depth, 0, 0);
 	 * DRW_framebuffer_bind(dfbl->default_fb);
 	 */
 

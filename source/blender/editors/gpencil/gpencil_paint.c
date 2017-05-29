@@ -115,6 +115,7 @@ typedef enum eGPencil_PaintFlags {
  */
 typedef struct tGPsdata {
 	Scene *scene;       /* current scene from context */
+	struct Depsgraph *graph;
 	
 	wmWindow *win;      /* window where painting originated */
 	ScrArea *sa;        /* area where painting originated */
@@ -486,7 +487,8 @@ static short gp_stroke_addpoint(tGPsdata *p, const int mval[2], float pressure, 
 	bGPdata *gpd = p->gpd;
 	bGPDbrush *brush = p->brush;
 	tGPspoint *pt;
-	
+	ToolSettings *ts = p->scene->toolsettings;
+
 	/* check painting mode */
 	if (p->paintmode == GP_PAINTMODE_DRAW_STRAIGHT) {
 		/* straight lines only - i.e. only store start and end point in buffer */
@@ -638,7 +640,8 @@ static short gp_stroke_addpoint(tGPsdata *p, const int mval[2], float pressure, 
 				View3D *v3d = p->sa->spacedata.first;
 				
 				view3d_region_operator_needs_opengl(p->win, p->ar);
-				ED_view3d_autodist_init(p->scene, p->ar, v3d, (p->gpd->flag & GP_DATA_DEPTH_STROKE) ? 1 : 0);
+				ED_view3d_autodist_init(
+				        p->graph, p->ar, v3d, (ts->gpencil_v3d_align & GP_PROJECT_DEPTH_STROKE) ? 1 : 0);
 			}
 			
 			/* convert screen-coordinates to appropriate coordinates (and store them) */
@@ -758,7 +761,7 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 	
 	int i, totelem;
 	/* since strokes are so fine, when using their depth we need a margin otherwise they might get missed */
-	int depth_margin = (p->gpd->flag & GP_DATA_DEPTH_STROKE) ? 4 : 0;
+	int depth_margin = (ts->gpencil_v3d_align & GP_PROJECT_DEPTH_STROKE) ? 4 : 0;
 	
 	/* get total number of points to allocate space for
 	 *	- drawing straight-lines only requires the endpoints
@@ -895,7 +898,7 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 				copy_v2_v2_int(mval, &ptc->x);
 
 				if ((ED_view3d_autodist_depth(p->ar, mval, depth_margin, depth_arr + i) == 0) &&
-					(i && (ED_view3d_autodist_depth_seg(p->ar, mval, mval_prev, depth_margin + 1, depth_arr + i) == 0)))
+				    (i && (ED_view3d_autodist_depth_seg(p->ar, mval, mval_prev, depth_margin + 1, depth_arr + i) == 0)))
 				{
 					interp_depth = true;
 				}
@@ -912,7 +915,7 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 					depth_arr[i] = 0.9999f;
 			}
 			else {
-				if (p->gpd->flag & GP_DATA_DEPTH_STROKE_ENDPOINTS) {
+				if (ts->gpencil_v3d_align & GP_PROJECT_DEPTH_STROKE_ENDPOINTS) {
 					/* remove all info between the valid endpoints */
 					int first_valid = 0;
 					int last_valid = 0;
@@ -1006,9 +1009,9 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 	BLI_strncpy(gps->colorname, palcolor->info, sizeof(gps->colorname));
 
 	/* add stroke to frame, usually on tail of the listbase, but if on back is enabled the stroke is added on listbase head 
-	* because the drawing order is inverse and the head stroke is the first to draw. This is very useful for artist
-	* when drawing the background
-	*/
+	 * because the drawing order is inverse and the head stroke is the first to draw. This is very useful for artist
+	 * when drawing the background
+	 */
 	if ((ts->gpencil_flags & GP_TOOL_FLAG_PAINT_ONBACK) && (p->paintmode != GP_PAINTMODE_DRAW_POLY)) {
 		BLI_addhead(&p->gpf->strokes, gps);
 	}
@@ -1238,9 +1241,8 @@ static void gp_stroke_doeraser(tGPsdata *p)
 	if (p->sa->spacetype == SPACE_VIEW3D) {
 		if (p->flags & GP_PAINTFLAG_V3D_ERASER_DEPTH) {
 			View3D *v3d = p->sa->spacedata.first;
-			
 			view3d_region_operator_needs_opengl(p->win, p->ar);
-			ED_view3d_autodist_init(p->scene, p->ar, v3d, 0);
+			ED_view3d_autodist_init(p->graph, p->ar, v3d, 0);
 		}
 	}
 	
@@ -1394,6 +1396,7 @@ static bool gp_session_initdata(bContext *C, tGPsdata *p)
 	
 	/* pass on current scene and window */
 	p->scene = CTX_data_scene(C);
+	p->graph = CTX_data_depsgraph(C);
 	p->win = CTX_wm_window(C);
 	
 	unit_m4(p->imat);
@@ -1797,6 +1800,7 @@ static void gp_paint_initstroke(tGPsdata *p, eGPencil_PaintModes paintmode)
 /* finish off a stroke (clears buffer, but doesn't finish the paint operation) */
 static void gp_paint_strokeend(tGPsdata *p)
 {
+	ToolSettings *ts = p->scene->toolsettings;
 	/* for surface sketching, need to set the right OpenGL context stuff so that
 	 * the conversions will project the values correctly...
 	 */
@@ -1805,7 +1809,7 @@ static void gp_paint_strokeend(tGPsdata *p)
 		
 		/* need to restore the original projection settings before packing up */
 		view3d_region_operator_needs_opengl(p->win, p->ar);
-		ED_view3d_autodist_init(p->scene, p->ar, v3d, (p->gpd->flag & GP_DATA_DEPTH_STROKE) ? 1 : 0);
+		ED_view3d_autodist_init(p->graph, p->ar, v3d, (ts->gpencil_v3d_align & GP_PROJECT_DEPTH_STROKE) ? 1 : 0);
 	}
 	
 	/* check if doing eraser or not */
@@ -1846,23 +1850,36 @@ static void gpencil_draw_eraser(bContext *UNUSED(C), int x, int y, void *p_ptr)
 
 	if (p->paintmode == GP_PAINTMODE_ERASER) {
 		VertexFormat *format = immVertexFormat();
-		unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
+		const uint shdr_pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
 		glEnable(GL_LINE_SMOOTH);
 		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 		immUniformColor4ub(255, 100, 100, 20);
-		imm_draw_circle_fill(pos, x, y, p->radius, 40);
-
-		setlinestyle(6); /* TODO: handle line stipple in shader */
-
-		immUniformColor4ub(255, 100, 100, 200);
-		imm_draw_circle_wire(pos, x, y, p->radius, 40);
+		imm_draw_circle_fill(shdr_pos, x, y, p->radius, 40);
 
 		immUnbindProgram();
 
-		setlinestyle(0);
+		immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_COLOR);
+
+		float viewport_size[4];
+		glGetFloatv(GL_VIEWPORT, viewport_size);
+		immUniform2f("viewport_size", viewport_size[2], viewport_size[3]);
+
+		immUniformColor4f(1.0f, 0.39f, 0.39f, 0.78f);
+		immUniform1i("num_colors", 0);  /* "simple" mode */
+		immUniform1f("dash_width", 12.0f);
+		immUniform1f("dash_factor", 0.5f);
+
+		imm_draw_circle_wire(shdr_pos, x, y, p->radius,
+		                     /* XXX Dashed shader gives bad results with sets of small segments currently,
+		                      *     temp hack around the issue. :( */
+		                     max_ii(8, p->radius / 2));  /* was fixed 40 */
+
+		immUnbindProgram();
+
 		glDisable(GL_BLEND);
 		glDisable(GL_LINE_SMOOTH);
 	}

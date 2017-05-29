@@ -1830,13 +1830,13 @@ static uiBlock *wm_block_create_splash(bContext *C, ARegion *ar, void *UNUSED(ar
 	if (version_suffix != NULL && version_suffix[0]) {
 		/* placed after the version number in the image,
 		 * placing y is tricky to match baseline */
-		int x = 260 - (2 * UI_DPI_WINDOW_FAC);
-		int y = 242 + (4 * UI_DPI_WINDOW_FAC);
-		int w = 240;
+		int x = 260 * U.pixelsize - (2 * UI_DPI_FAC);
+		int y = 242 * U.pixelsize + (4 * UI_DPI_FAC);
+		int w = 240 * U.pixelsize;
 
 		/* hack to have text draw 'text_sel' */
 		UI_block_emboss_set(block, UI_EMBOSS_NONE);
-		but = uiDefBut(block, UI_BTYPE_LABEL, 0, version_suffix, x * U.pixelsize, y * U.pixelsize, w * U.pixelsize, UI_UNIT_Y, NULL, 0, 0, 0, 0, NULL);
+		but = uiDefBut(block, UI_BTYPE_LABEL, 0, version_suffix, x, y, w, UI_UNIT_Y, NULL, 0, 0, 0, 0, NULL);
 		/* XXX, set internal flag - UI_SELECT */
 		UI_but_flag_enable(but, 1);
 		UI_block_emboss_set(block, UI_EMBOSS);
@@ -3089,7 +3089,7 @@ static void radial_control_paint_tex(RadialControl *rc, float radius, float alph
 
 		immBindBuiltinProgram(GPU_SHADER_2D_IMAGE_MASK_UNIFORM_COLOR);
 
-		immUniform4f("color", col[0], col[1], col[2], alpha);
+		immUniformColor3fvAlpha(col, alpha);
 		immUniform1i("image", GL_TEXTURE0);
 
 		/* set up rotation if available */
@@ -3208,7 +3208,7 @@ static void radial_control_paint_cursor(bContext *C, int x, int y, void *customd
 	unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 2, KEEP_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
-	immUniformColor3fvAlpha(col, 0.5); 
+	immUniformColor3fvAlpha(col, 0.5f);
 
 	if (rc->subtype == PROP_ANGLE) {
 		gpuPushMatrix();

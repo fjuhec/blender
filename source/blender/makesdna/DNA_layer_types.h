@@ -74,8 +74,11 @@ typedef struct SceneLayer {
 	short flag;
 	short pad[2];
 	ListBase object_bases;      /* ObjectBase */
+	struct SceneStats *stats;   /* default allocated now */
 	struct Base *basact;
 	ListBase layer_collections; /* LayerCollection */
+	struct IDProperty *properties;  /* overrides */
+	struct IDProperty *properties_evaluated;
 } SceneLayer;
 
 typedef struct SceneCollection {
@@ -96,6 +99,7 @@ enum {
 	BASE_SELECTABLED      = (1 << 2),
 	BASE_FROMDUPLI        = (1 << 3),
 	BASE_DIRTY_ENGINE_SETTINGS = (1 << 4),
+	BASE_FROM_SET         = (1 << 5), /* To be set only by the depsgraph */
 };
 
 /* LayerCollection->flag */
@@ -119,6 +123,8 @@ typedef enum CollectionEngineSettingsType {
 	COLLECTION_MODE_NONE = 0,
 	COLLECTION_MODE_OBJECT = 1,
 	COLLECTION_MODE_EDIT = 2,
+	COLLECTION_MODE_PAINT_WEIGHT = 5,
+	COLLECTION_MODE_PAINT_VERTEX = 6,
 } CollectionModeSettingsType;
 
 /* *************************************************************** */

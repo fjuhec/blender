@@ -748,7 +748,7 @@ static void node_shader_buts_geometry(uiLayout *layout, bContext *C, PointerRNA 
 	if (obptr.data && RNA_enum_get(&obptr, "type") == OB_MESH) {
 		PointerRNA dataptr = RNA_pointer_get(&obptr, "data");
 
-		uiItemPointerR(col, ptr, "uv_layer", &dataptr, "uv_textures", "", ICON_NONE);
+		uiItemPointerR(col, ptr, "uv_layer", &dataptr, "uv_layers", "", ICON_NONE);
 		uiItemPointerR(col, ptr, "color_layer", &dataptr, "vertex_colors", "", ICON_NONE);
 	}
 	else {
@@ -966,7 +966,7 @@ static void node_shader_buts_uvmap(uiLayout *layout, bContext *C, PointerRNA *pt
 
 		if (obptr.data && RNA_enum_get(&obptr, "type") == OB_MESH) {
 			PointerRNA dataptr = RNA_pointer_get(&obptr, "data");
-			uiItemPointerR(layout, ptr, "uv_map", &dataptr, "uv_textures", "", ICON_NONE);
+			uiItemPointerR(layout, ptr, "uv_map", &dataptr, "uv_layers", "", ICON_NONE);
 		}
 	}
 }
@@ -985,7 +985,7 @@ static void node_shader_buts_normal_map(uiLayout *layout, bContext *C, PointerRN
 
 		if (obptr.data && RNA_enum_get(&obptr, "type") == OB_MESH) {
 			PointerRNA dataptr = RNA_pointer_get(&obptr, "data");
-			uiItemPointerR(layout, ptr, "uv_map", &dataptr, "uv_textures", "", ICON_NONE);
+			uiItemPointerR(layout, ptr, "uv_map", &dataptr, "uv_layers", "", ICON_NONE);
 		}
 		else
 			uiItemR(layout, ptr, "uv_map", 0, "", 0);
@@ -1007,7 +1007,7 @@ static void node_shader_buts_tangent(uiLayout *layout, bContext *C, PointerRNA *
 
 		if (obptr.data && RNA_enum_get(&obptr, "type") == OB_MESH) {
 			PointerRNA dataptr = RNA_pointer_get(&obptr, "data");
-			uiItemPointerR(row, ptr, "uv_map", &dataptr, "uv_textures", "", ICON_NONE);
+			uiItemPointerR(row, ptr, "uv_map", &dataptr, "uv_layers", "", ICON_NONE);
 		}
 		else
 			uiItemR(row, ptr, "uv_map", 0, "", 0);
@@ -1184,6 +1184,7 @@ static void node_shader_set_butfunc(bNodeType *ntype)
 		case SH_NODE_BSDF_GLOSSY:
 		case SH_NODE_BSDF_GLASS:
 		case SH_NODE_BSDF_REFRACTION:
+		case SH_NODE_BSDF_PRINCIPLED:
 			ntype->draw_buttons = node_shader_buts_glossy;
 			break;
 		case SH_NODE_BSDF_ANISOTROPIC:
@@ -2445,6 +2446,11 @@ static void node_composit_buts_sunbeams(uiLayout *layout, bContext *UNUSED(C), P
 	uiItemR(layout, ptr, "ray_length", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
 }
 
+static void node_composit_buts_brightcontrast(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+{
+	uiItemR(layout, ptr, "use_premultiply", 0, NULL, ICON_NONE);
+}
+
 /* only once called */
 static void node_composit_set_butfunc(bNodeType *ntype)
 {
@@ -2672,6 +2678,8 @@ static void node_composit_set_butfunc(bNodeType *ntype)
 		case CMP_NODE_SUNBEAMS:
 			ntype->draw_buttons = node_composit_buts_sunbeams;
 			break;
+		case CMP_NODE_BRIGHTCONTRAST:
+			ntype->draw_buttons = node_composit_buts_brightcontrast;
 	}
 }
 
@@ -3043,7 +3051,7 @@ static void std_node_socket_draw(bContext *C, uiLayout *layout, PointerRNA *ptr,
 		node_file_output_socket_draw(C, layout, ptr, node_ptr);
 		return;
 	}
-	
+
 	if ((sock->in_out == SOCK_OUT) || (sock->flag & SOCK_IN_USE) || (sock->flag & SOCK_HIDE_VALUE)) {
 		node_socket_button_label(C, layout, ptr, node_ptr, text);
 		return;
@@ -3174,9 +3182,7 @@ void draw_nodespace_back_pix(const bContext *C, ARegion *ar, SpaceNode *snode, b
 	if (ibuf) {
 		float x, y; 
 
-		glMatrixMode(GL_PROJECTION);
-		gpuPushMatrix();
-		glMatrixMode(GL_MODELVIEW);
+		gpuPushProjectionMatrix();
 		gpuPushMatrix();
 
 		/* somehow the offset has to be calculated inverse */
@@ -3262,9 +3268,7 @@ void draw_nodespace_back_pix(const bContext *C, ARegion *ar, SpaceNode *snode, b
 			}
 		}
 
-		glMatrixMode(GL_PROJECTION);
-		gpuPopMatrix();
-		glMatrixMode(GL_MODELVIEW);
+		gpuPopProjectionMatrix();
 		gpuPopMatrix();
 	}
 	
@@ -3376,7 +3380,6 @@ void node_draw_link_bezier(View2D *v2d, SpaceNode *snode, bNodeLink *link,
 		/* store current linewidth */
 		float linew;
 		float arrow[2], arrow1[2], arrow2[2];
-		const float px_fac = UI_DPI_WINDOW_FAC;
 		glGetFloatv(GL_LINE_WIDTH, &linew);
 		unsigned int pos;
 		
@@ -3410,7 +3413,7 @@ void node_draw_link_bezier(View2D *v2d, SpaceNode *snode, bNodeLink *link,
 
 		if (do_triple) {
 			immUniformThemeColorShadeAlpha(th_col3, -80, -120);
-			glLineWidth(4.0f * px_fac);
+			glLineWidth(4.0f);
 
 			immBegin(PRIM_LINE_STRIP, (LINK_RESOL + 1));
 
@@ -3429,7 +3432,7 @@ void node_draw_link_bezier(View2D *v2d, SpaceNode *snode, bNodeLink *link,
 			}
 		}
 
-		glLineWidth(1.5f * px_fac);
+		glLineWidth(1.5f);
 
 		if (drawarrow) {
 			immUniformThemeColorBlend(th_col1, th_col2, 0.5f);
@@ -3507,7 +3510,7 @@ void node_draw_link(View2D *v2d, SpaceNode *snode, bNodeLink *link)
 			return;
 		if (link->fromsock->flag & SOCK_UNAVAIL)
 			return;
-		
+
 		if (link->flag & NODE_LINK_VALID) {
 			/* special indicated link, on drop-node */
 			if (link->flag & NODE_LINKFLAG_HILITE) {
@@ -3527,7 +3530,7 @@ void node_draw_link(View2D *v2d, SpaceNode *snode, bNodeLink *link)
 			th_col1 = TH_REDALERT;
 		}
 	}
-	
+
 	node_draw_link_bezier(v2d, snode, link, th_col1, do_shaded, th_col2, do_triple, th_col3);
 //	node_draw_link_straight(v2d, snode, link, th_col1, do_shaded, th_col2, do_triple, th_col3);
 }

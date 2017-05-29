@@ -39,7 +39,6 @@ extern "C" {
 struct ImBuf;
 struct Image;
 struct ImageUser;
-struct MTexPoly;
 struct Object;
 struct Scene;
 struct SceneLayer;
@@ -93,29 +92,19 @@ bool GPU_material_use_matcaps_get(void);
 void GPU_set_material_alpha_blend(int alphablend);
 int GPU_get_material_alpha_blend(void);
 
-/* TexFace drawing
- * - this is mutually exclusive with material drawing, a mesh should
- *   be drawn using one or the other
- * - passing NULL clears the state again */
-
-int GPU_set_tpage(struct MTexPoly *mtexpoly, int mipmap, int transp);
-void GPU_clear_tpage(bool force);
-
 /* Lights
  * - returns how many lights were enabled
  * - this affects fixed functions materials and texface, not glsl */
 
 int GPU_default_lights(void);
 int GPU_scene_object_lights(
-        struct Scene *scene, struct Object *ob,
-        int lay, float viewmat[4][4], int ortho);
+        struct SceneLayer *sl, float viewmat[4][4], int ortho);
 
 /* Text render
  * - based on moving uv coordinates */
 
 void GPU_render_text(
-        struct MTexPoly *mtexpoly, int mode,
-        const char *textstr, int textlen, unsigned int *col,
+        int mode, const char *textstr, int textlen, unsigned int *col,
         const float *v_quad[4], const float *uv_quad[4],
         int glattrib);
 
@@ -175,57 +164,16 @@ void	GPU_select_index_get(int index, int *r_col);
 int		GPU_select_to_index(unsigned int col);
 void	GPU_select_to_index_array(unsigned int *col, const unsigned int size);
 
-typedef enum eGPUStateMask {
+typedef enum eGPUAttribMask {
 	GPU_DEPTH_BUFFER_BIT = (1 << 0),
 	GPU_ENABLE_BIT = (1 << 1),
 	GPU_SCISSOR_BIT = (1 << 2),
 	GPU_VIEWPORT_BIT = (1 << 3),
 	GPU_BLEND_BIT = (1 << 4),
-} eGPUStateMask;
+} eGPUAttribMask;
 
-typedef struct GPUStateValues
-{
-	eGPUStateMask mask;
-
-	/* GL_ENABLE_BIT */
-	unsigned int is_alpha_test : 1;
-	unsigned int is_blend : 1;
-	bool is_clip_plane[6];
-	unsigned int is_cull_face : 1;
-	unsigned int is_depth_test : 1;
-	unsigned int is_dither : 1;
-	bool is_light[8];
-	unsigned int is_lighting : 1;
-	unsigned int is_line_smooth : 1;
-	unsigned int is_color_logic_op : 1;
-	unsigned int is_map1_vertex3 : 1;
-	unsigned int is_multisample : 1;
-	unsigned int is_normalize : 1;
-	unsigned int is_polygon_offset_line : 1;
-	unsigned int is_polygon_offset_fill : 1;
-	unsigned int is_polygon_smooth : 1;
-	unsigned int is_sample_alpha_to_coverage : 1;
-	unsigned int is_scissor_test : 1;
-	unsigned int is_stencil_test : 1;
-	unsigned int is_texture_2d : 1;
-
-	/* GL_DEPTH_BUFFER_BIT */
-	/* unsigned int is_depth_test : 1; */
-	int depth_func;
-	double depth_clear_value;
-	bool depth_write_mask;
-
-	/* GL_SCISSOR_BIT */
-	int scissor_box[4];
-	/* unsigned int is_scissor_test : 1; */
-
-	/* GL_VIEWPORT_BIT */
-	int viewport[4];
-	double near_far[2];
-} GPUStateValues;
-
-void gpuSaveState(GPUStateValues *attribs, eGPUStateMask mask);
-void gpuRestoreState(GPUStateValues *attribs);
+void gpuPushAttrib(eGPUAttribMask mask);
+void gpuPopAttrib(void);
 
 #ifdef __cplusplus
 }

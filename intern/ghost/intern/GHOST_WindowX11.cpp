@@ -1329,6 +1329,16 @@ GHOST_Context *GHOST_WindowX11::newDrawingContext(GHOST_TDrawingContextType type
 		//   try 3.3 core profile
 		//   no fallbacks
 
+#if defined(WITH_GL_PROFILE_CORE)
+		{
+			const char *version_major = (char*)glewGetString(GLEW_VERSION_MAJOR);
+			if (version_major != NULL && version_major[0] == '1') {
+				fprintf(stderr, "Error: GLEW version 2.0 and above is required.\n");
+				abort();
+			}
+		}
+#endif
+
 		const int profile_mask =
 #if defined(WITH_GL_PROFILE_CORE)
 			GLX_CONTEXT_CORE_PROFILE_BIT_ARB;
@@ -1376,23 +1386,6 @@ GHOST_Context *GHOST_WindowX11::newDrawingContext(GHOST_TDrawingContextType type
 		else
 			delete context;
 
-		// since that failed try 3.0 (mostly for Mesa, which doesn't implement compatibility profile)
-		context = new GHOST_ContextGLX(
-		        m_wantStereoVisual,
-		        m_wantNumOfAASamples,
-		        m_window,
-		        m_display,
-		        m_visualInfo,
-		        (GLXFBConfig)m_fbconfig,
-		        0, // no profile bit
-		        3, 0,
-		        GHOST_OPENGL_GLX_CONTEXT_FLAGS | (m_is_debug_context ? GLX_CONTEXT_DEBUG_BIT_ARB : 0),
-		        GHOST_OPENGL_GLX_RESET_NOTIFICATION_STRATEGY);
-
-		if (context->initializeDrawingContext())
-			return context;
-		else
-			delete context;
 	}
 
 	return NULL;

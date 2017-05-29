@@ -491,6 +491,12 @@ function(setup_liblinks
 			target_link_libraries(${target} ${NDOF_LIBRARIES})
 		endif()
 	endif()
+	if(WITH_SYSTEM_GLOG)
+		target_link_libraries(${target} ${GLOG_LIBRARIES})
+	endif()
+	if(WITH_SYSTEM_GFLAGS)
+		target_link_libraries(${target} ${GFLAGS_LIBRARIES})
+	endif()
 
 	# We put CLEW and CUEW here because OPENSUBDIV_LIBRARIES dpeends on them..
 	if(WITH_CYCLES OR WITH_COMPOSITOR OR WITH_OPENSUBDIV)
@@ -660,12 +666,18 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		extern_rangetree
 		extern_wcwidth
 		bf_intern_libmv
-		extern_glog
-		extern_gflags
 		extern_sdlew
 
 		bf_intern_glew_mx
 	)
+
+	if(NOT WITH_SYSTEM_GLOG)
+		list(APPEND BLENDER_SORTED_LIBS extern_glog)
+	endif()
+
+	if(NOT WITH_SYSTEM_GFLAGS)
+		list(APPEND BLENDER_SORTED_LIBS extern_gflags)
+	endif()
 
 	if(WITH_COMPOSITOR)
 		# added for opencl compositor
@@ -1237,17 +1249,6 @@ endfunction()
 # hacks to override initial project settings
 # these macros must be called directly before/after project(Blender)
 macro(blender_project_hack_pre)
-	# ----------------
-	# MINGW HACK START
-	# ignore system set flag, use our own
-	# must be before project(...)
-	# if the user wants to add their own its ok after first run.
-	if(DEFINED CMAKE_C_STANDARD_LIBRARIES)
-		set(_reset_standard_libraries OFF)
-	else()
-		set(_reset_standard_libraries ON)
-	endif()
-
 	# ------------------
 	# GCC -O3 HACK START
 	# needed because O3 can cause problems but
@@ -1266,25 +1267,6 @@ endmacro()
 
 
 macro(blender_project_hack_post)
-	# --------------
-	# MINGW HACK END
-	if(_reset_standard_libraries)
-		# Must come after projecINCt(...)
-		#
-		# MINGW workaround for -ladvapi32 being included which surprisingly causes
-		# string formatting of floats, eg: printf("%.*f", 3, value). to crash blender
-		# with a meaningless stack trace. by overriding this flag we ensure we only
-		# have libs we define.
-		set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "" FORCE)
-		set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "" FORCE)
-		mark_as_advanced(
-			CMAKE_C_STANDARD_LIBRARIES
-			CMAKE_CXX_STANDARD_LIBRARIES
-		)
-	endif()
-	unset(_reset_standard_libraries)
-
-
 	# ----------------
 	# GCC -O3 HACK END
 	if(_reset_standard_cflags_rel)

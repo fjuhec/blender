@@ -159,6 +159,7 @@ IMMDrawPixelsTexState immDrawPixelsTexSetup(int builtin)
 	/* Shader will be unbind by immUnbindProgram in immDrawPixelsTexScaled_clipping */
 	immBindBuiltinProgram(builtin);
 	immUniform1i("image", 0);
+	state.do_shader_unbind = true;
 
 	return state;
 }
@@ -241,7 +242,7 @@ void immDrawPixelsTexScaled_clipping(IMMDrawPixelsTexState *state,
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, tex_w, tex_h, 0, format, GL_UNSIGNED_BYTE, NULL);
 	}
 
-	unsigned int pos = 0, texco = 1;
+	unsigned int pos = state->pos, texco = state->texco;
 
 	/* optional */
 	/* NOTE: Shader could be null for GLSL OCIO drawing, it is fine, since
@@ -318,7 +319,9 @@ void immDrawPixelsTexScaled_clipping(IMMDrawPixelsTexState *state,
 		}
 	}
 
-	immUnbindProgram();
+	if (state->do_shader_unbind) {
+		immUnbindProgram();
+	}
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, unpack_row_length);
@@ -367,18 +370,8 @@ void glaDefine2DArea(rcti *screen_rect)
 	 * Programming Guide, Appendix H, Correctness Tips.
 	 */
 
-#if 1 /* new style */
 	gpuOrtho2D(GLA_PIXEL_OFS, sc_w + GLA_PIXEL_OFS, GLA_PIXEL_OFS, sc_h + GLA_PIXEL_OFS);
 	gpuLoadIdentity();
-#else /* original */
-	glMatrixMode(GL_PROJECTION);
-	gpuLoadIdentity();
-	glOrtho(0.0, sc_w, 0.0, sc_h, -1, 1);
-	gpuTranslate2f(GLA_PIXEL_OFS, GLA_PIXEL_OFS);
-
-	glMatrixMode(GL_MODELVIEW);
-	gpuLoadIdentity();
-#endif
 }
 
 /* TODO(merwin): put the following 2D code to use, or build new 2D code inspired & informd by it */
@@ -436,8 +429,8 @@ gla2DDrawInfo *glaBegin2DDraw(rcti *screen_rect, rctf *world_rect)
 
 	glGetIntegerv(GL_VIEWPORT, (GLint *)di->orig_vp);
 	glGetIntegerv(GL_SCISSOR_BOX, (GLint *)di->orig_sc);
-	gpuGetProjectionMatrix3D(di->orig_projmat);
-	gpuGetModelViewMatrix3D(di->orig_viewmat);
+	gpuGetProjectionMatrix(di->orig_projmat);
+	gpuGetModelViewMatrix(di->orig_viewmat);
 
 	di->screen_rect = *screen_rect;
 	if (world_rect) {
@@ -488,8 +481,8 @@ void glaEnd2DDraw(gla2DDrawInfo *di)
 {
 	glViewport(di->orig_vp[0], di->orig_vp[1], di->orig_vp[2], di->orig_vp[3]);
 	glScissor(di->orig_vp[0], di->orig_vp[1], di->orig_vp[2], di->orig_vp[3]);
-	gpuLoadProjectionMatrix3D(di->orig_projmat);
-	gpuLoadMatrix3D(di->orig_viewmat);
+	gpuLoadProjectionMatrix(di->orig_projmat);
+	gpuLoadMatrix(di->orig_viewmat);
 
 	MEM_freeN(di);
 }
@@ -513,7 +506,7 @@ void bglPolygonOffset(float viewdist, float dist)
 		// glPolygonOffset(-1.0, -1.0);
 
 		/* hack below is to mimic polygon offset */
-		gpuGetProjectionMatrix3D((float (*)[4])winmat);
+		gpuGetProjectionMatrix(winmat);
 		
 		/* dist is from camera to center point */
 		
@@ -550,7 +543,7 @@ void bglPolygonOffset(float viewdist, float dist)
 		offset = 0.0;
 	}
 
-	gpuLoadProjectionMatrix3D((const float (*)[4])winmat);
+	gpuLoadProjectionMatrix(winmat);
 }
 
 /* **** Color management helper functions for GLSL display/transform ***** */
@@ -581,6 +574,8 @@ void glaDrawImBuf_glsl_clipping(ImBuf *ibuf, float x, float y, int zoomfilter,
 		int ok;
 
 		IMMDrawPixelsTexState state = {0};
+		/* We want GLSL state to be fully handled by OCIO. */
+		state.do_shader_unbind = false;
 		immDrawPixelsTexSetupAttributes(&state);
 
 		if (ibuf->rect_float) {
@@ -685,14 +680,6 @@ void glaDrawImBuf_glsl_ctx(const bContext *C, ImBuf *ibuf, float x, float y, int
                            float zoom_x, float zoom_y)
 {
 	glaDrawImBuf_glsl_ctx_clipping(C, ibuf, x, y, zoomfilter, 0.0f, 0.0f, 0.0f, 0.0f, zoom_x, zoom_y);
-}
-
-void cpack(unsigned int x)
-{
-	/* DEPRECATED: use imm_cpack */
-	glColor3ub(( (x)        & 0xFF),
-	           (((x) >>  8) & 0xFF),
-	           (((x) >> 16) & 0xFF));
 }
 
 /* don't move to GPU_immediate_util.h because this uses user-prefs

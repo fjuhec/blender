@@ -242,7 +242,6 @@ typedef struct OldNewMap {
 /* local prototypes */
 static void *read_struct(FileData *fd, BHead *bh, const char *blockname);
 static void direct_link_modifiers(FileData *fd, ListBase *lb);
-static void convert_tface_mt(FileData *fd, Main *main);
 static BHead *find_bhead_from_code_name(FileData *fd, const short idcode, const char *name);
 static BHead *find_bhead_from_idname(FileData *fd, const char *idname);
 
@@ -2111,8 +2110,19 @@ static void IDP_DirectLinkProperty(IDProperty *prop, int switch_endian, FileData
 				BLI_endian_switch_int32(&prop->data.val2);
 				BLI_endian_switch_int64((int64_t *)&prop->data.val);
 			}
-			
 			break;
+		case IDP_INT:
+		case IDP_FLOAT:
+		case IDP_ID:
+			break;  /* Nothing special to do here. */
+		default:
+			/* Unknown IDP type, nuke it (we cannot handle unknown types everywhere in code,
+			 * IDP are way too polymorphic to do it safely. */
+			printf("%s: found unknown IDProperty type %d, reset to Integer one !\n", __func__, prop->type);
+			/* Note: we do not attempt to free unknown prop, we have no way to know how to do that! */
+			prop->type = IDP_INT;
+			prop->subtype = 0;
+			IDP_Int(prop) = 0;
 	}
 }
 
@@ -3113,7 +3123,7 @@ static void direct_link_nodetree(FileData *fd, bNodeTree *ntree)
 			else if (ntree->type==NTREE_COMPOSIT) {
 				if (ELEM(node->type, CMP_NODE_TIME, CMP_NODE_CURVE_VEC, CMP_NODE_CURVE_RGB, CMP_NODE_HUECORRECT))
 					direct_link_curvemapping(fd, node->storage);
-				else if (ELEM(node->type, CMP_NODE_IMAGE, CMP_NODE_VIEWER, CMP_NODE_SPLITVIEWER))
+				else if (ELEM(node->type, CMP_NODE_IMAGE, CMP_NODE_R_LAYERS, CMP_NODE_VIEWER, CMP_NODE_SPLITVIEWER))
 					((ImageUser *)node->storage)->ok = 1;
 			}
 			else if ( ntree->type==NTREE_TEXTURE) {
@@ -3863,6 +3873,7 @@ static void direct_link_curve(FileData *fd, Curve *cu)
 
 	cu->editnurb = NULL;
 	cu->editfont = NULL;
+	cu->batch_cache = NULL;
 	
 	for (nu = cu->nurb.first; nu; nu = nu->next) {
 		nu->bezt = newdataadr(fd, nu->bezt);
@@ -4369,54 +4380,13 @@ static void direct_link_particlesystems(FileData *fd, ListBase *particles)
 
 		psys->tree = NULL;
 		psys->bvhtree = NULL;
+
+		psys->batch_cache = NULL;
 	}
 	return;
 }
 
 /* ************ READ MESH ***************** */
-
-static void lib_link_mtface(FileData *fd, Mesh *me, MTFace *mtface, int totface)
-{
-	MTFace *tf= mtface;
-	int i;
-	
-	/* Add pseudo-references (not fake users!) to images used by texface. A
-	 * little bogus; it would be better if each mesh consistently added one ref
-	 * to each image it used. - z0r */
-	for (i = 0; i < totface; i++, tf++) {
-		tf->tpage = newlibadr_real_us(fd, me->id.lib, tf->tpage);
-	}
-}
-
-static void lib_link_customdata_mtface(FileData *fd, Mesh *me, CustomData *fdata, int totface)
-{
-	int i;
-	for (i = 0; i < fdata->totlayer; i++) {
-		CustomDataLayer *layer = &fdata->layers[i];
-		
-		if (layer->type == CD_MTFACE)
-			lib_link_mtface(fd, me, layer->data, totface);
-	}
-
-}
-
-static void lib_link_customdata_mtpoly(FileData *fd, Mesh *me, CustomData *pdata, int totface)
-{
-	int i;
-
-	for (i=0; i < pdata->totlayer; i++) {
-		CustomDataLayer *layer = &pdata->layers[i];
-		
-		if (layer->type == CD_MTEXPOLY) {
-			MTexPoly *tf= layer->data;
-			int j;
-			
-			for (j = 0; j < totface; j++, tf++) {
-				tf->tpage = newlibadr_real_us(fd, me->id.lib, tf->tpage);
-			}
-		}
-	}
-}
 
 static void lib_link_mesh(FileData *fd, Main *main)
 {
@@ -4444,18 +4414,8 @@ static void lib_link_mesh(FileData *fd, Main *main)
 			me->ipo = newlibadr_us(fd, me->id.lib, me->ipo); // XXX: deprecated: old anim sys
 			me->key = newlibadr_us(fd, me->id.lib, me->key);
 			me->texcomesh = newlibadr_us(fd, me->id.lib, me->texcomesh);
-			
-			lib_link_customdata_mtface(fd, me, &me->fdata, me->totface);
-			lib_link_customdata_mtpoly(fd, me, &me->pdata, me->totpoly);
-			if (me->mr && me->mr->levels.first) {
-				lib_link_customdata_mtface(fd, me, &me->mr->fdata,
-				                           ((MultiresLevel*)me->mr->levels.first)->totface);
-			}
 		}
 	}
-
-	/* convert texface options to material */
-	convert_tface_mt(fd, main);
 
 	for (me = main->mesh.first; me; me = me->id.next) {
 		if (me->id.tag & LIB_TAG_NEED_LINK) {
@@ -4612,7 +4572,6 @@ static void direct_link_mesh(FileData *fd, Mesh *mesh)
 	mesh->dvert = newdataadr(fd, mesh->dvert);
 	mesh->mloopcol = newdataadr(fd, mesh->mloopcol);
 	mesh->mloopuv = newdataadr(fd, mesh->mloopuv);
-	mesh->mtpoly = newdataadr(fd, mesh->mtpoly);
 	mesh->mselect = newdataadr(fd, mesh->mselect);
 	
 	/* animdata */
@@ -4636,12 +4595,6 @@ static void direct_link_mesh(FileData *fd, Mesh *mesh)
 	/* happens with old files */
 	if (mesh->mselect == NULL) {
 		mesh->totselect = 0;
-	}
-
-	if (mesh->mloopuv || mesh->mtpoly) {
-		/* for now we have to ensure texpoly and mloopuv layers are aligned
-		 * in the future we may allow non-aligned layers */
-		BKE_mesh_cd_validate(mesh);
 	}
 
 	/* Multires data */
@@ -5073,6 +5026,8 @@ static void direct_link_pose(FileData *fd, bPose *pose)
 		
 		/* in case this value changes in future, clamp else we get undefined behavior */
 		CLAMP(pchan->rotmode, ROT_MODE_MIN, ROT_MODE_MAX);
+
+		pchan->draw_data = NULL;
 	}
 	pose->ikdata = NULL;
 	if (pose->ikparam != NULL) {
@@ -6024,6 +5979,7 @@ static void direct_link_layer_collections(FileData *fd, ListBase *lb)
 		if (lc->properties) {
 			lc->properties = newdataadr(fd, lc->properties);
 			IDP_DirectLinkGroup_OrFree(&lc->properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
+			BKE_layer_collection_engine_settings_validate_collection(lc);
 		}
 		lc->properties_evaluated = NULL;
 
@@ -6043,7 +5999,6 @@ static void direct_link_scene(FileData *fd, Scene *sce)
 	sce->theDag = NULL;
 	sce->depsgraph = NULL;
 	sce->obedit = NULL;
-	sce->stats = NULL;
 	sce->fps_info = NULL;
 	sce->customdata_mask_modal = 0;
 	sce->lay_updated = 0;
@@ -6171,9 +6126,13 @@ static void direct_link_scene(FileData *fd, Scene *sce)
 					seq->strip->transform = NULL;
 				}
 				if (seq->flag & SEQ_USE_PROXY) {
-					seq->strip->proxy = newdataadr(
-						fd, seq->strip->proxy);
-					seq->strip->proxy->anim = NULL;
+					seq->strip->proxy = newdataadr(fd, seq->strip->proxy);
+					if (seq->strip->proxy) {
+						seq->strip->proxy->anim = NULL;
+					}
+					else {
+						BKE_sequencer_proxy_set(seq, true);
+					}
 				}
 				else {
 					seq->strip->proxy = NULL;
@@ -6248,6 +6207,11 @@ static void direct_link_scene(FileData *fd, Scene *sce)
 	link_list(fd, &(sce->r.layers));
 	link_list(fd, &(sce->r.views));
 
+
+	for (srl = sce->r.layers.first; srl; srl = srl->next) {
+		srl->prop = newdataadr(fd, srl->prop);
+		IDP_DirectLinkGroup_OrFree(&srl->prop, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
+	}
 	for (srl = sce->r.layers.first; srl; srl = srl->next) {
 		link_list(fd, &(srl->freestyleConfig.modules));
 	}
@@ -6298,13 +6262,29 @@ static void direct_link_scene(FileData *fd, Scene *sce)
 
 	link_list(fd, &sce->render_layers);
 	for (sl = sce->render_layers.first; sl; sl = sl->next) {
+		sl->stats = NULL;
 		link_list(fd, &sl->object_bases);
 		sl->basact = newdataadr(fd, sl->basact);
 		direct_link_layer_collections(fd, &sl->layer_collections);
+
+		if (sl->properties != NULL) {
+			sl->properties = newdataadr(fd, sl->properties);
+			BLI_assert(sl->properties != NULL);
+			IDP_DirectLinkGroup_OrFree(&sl->properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
+			BKE_scene_layer_engine_settings_validate_layer(sl);
+		}
+
+		sl->properties_evaluated = NULL;
 	}
 
 	sce->collection_properties = newdataadr(fd, sce->collection_properties);
 	IDP_DirectLinkGroup_OrFree(&sce->collection_properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
+
+	sce->layer_properties = newdataadr(fd, sce->layer_properties);
+	IDP_DirectLinkGroup_OrFree(&sce->layer_properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
+
+	BKE_layer_collection_engine_settings_validate_scene(sce);
+	BKE_scene_layer_engine_settings_validate_scene(sce);
 }
 
 /* ************ READ WM ***************** */
@@ -8497,26 +8477,6 @@ static void link_global(FileData *fd, BlendFileData *bfd)
 	}
 }
 
-static void convert_tface_mt(FileData *fd, Main *main)
-{
-	Main *gmain;
-	
-	/* this is a delayed do_version (so it can create new materials) */
-	if (main->versionfile < 259 || (main->versionfile == 259 && main->subversionfile < 3)) {
-		//XXX hack, material.c uses G.main all over the place, instead of main
-		// temporarily set G.main to the current main
-		gmain = G.main;
-		G.main = main;
-		
-		if (!(do_version_tface(main))) {
-			BKE_report(fd->reports, RPT_WARNING, "Texface conversion problem (see error in console)");
-		}
-		
-		//XXX hack, material.c uses G.main allover the place, instead of main
-		G.main = gmain;
-	}
-}
-
 /* initialize userdef with non-UI dependency stuff */
 /* other initializers (such as theme color defaults) go to resources.c */
 static void do_versions_userdef(FileData *fd, BlendFileData *bfd)
@@ -8777,7 +8737,8 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
 			/* in 2.50+ files, the file identifier for screens is patched, forward compatibility */
 		case ID_SCRN:
 			bhead->code = ID_SCR;
-			/* deliberate pass on to default */
+			/* pass on to default */
+			ATTR_FALLTHROUGH;
 		default:
 			if (fd->skip_flags & BLO_READ_SKIP_DATA) {
 				bhead = blo_nextbhead(fd, bhead);
@@ -9327,6 +9288,10 @@ static void expand_material(FileData *fd, Main *mainvar, Material *ma)
 	
 	if (ma->group)
 		expand_doit(fd, mainvar, ma->group);
+
+	if (ma->edit_image) {
+		expand_doit(fd, mainvar, ma->edit_image);
+	}
 }
 
 static void expand_lamp(FileData *fd, Main *mainvar, Lamp *la)
@@ -9416,9 +9381,7 @@ static void expand_curve(FileData *fd, Main *mainvar, Curve *cu)
 
 static void expand_mesh(FileData *fd, Main *mainvar, Mesh *me)
 {
-	CustomDataLayer *layer;
-	TFace *tf;
-	int a, i;
+	int a;
 	
 	if (me->adt)
 		expand_animdata(fd, mainvar, me->adt);
@@ -9429,46 +9392,6 @@ static void expand_mesh(FileData *fd, Main *mainvar, Mesh *me)
 	
 	expand_doit(fd, mainvar, me->key);
 	expand_doit(fd, mainvar, me->texcomesh);
-	
-	if (me->tface) {
-		tf = me->tface;
-		for (i=0; i<me->totface; i++, tf++) {
-			if (tf->tpage)
-				expand_doit(fd, mainvar, tf->tpage);
-		}
-	}
-
-	if (me->mface && !me->mpoly) {
-		MTFace *mtf;
-
-		for (a = 0; a < me->fdata.totlayer; a++) {
-			layer = &me->fdata.layers[a];
-
-			if (layer->type == CD_MTFACE) {
-				mtf = (MTFace *) layer->data;
-				for (i = 0; i < me->totface; i++, mtf++) {
-					if (mtf->tpage)
-						expand_doit(fd, mainvar, mtf->tpage);
-				}
-			}
-		}
-	}
-	else {
-		MTexPoly *mtp;
-
-		for (a = 0; a < me->pdata.totlayer; a++) {
-			layer = &me->pdata.layers[a];
-
-			if (layer->type == CD_MTEXPOLY) {
-				mtp = (MTexPoly *) layer->data;
-
-				for (i = 0; i < me->totpoly; i++, mtp++) {
-					if (mtp->tpage)
-						expand_doit(fd, mainvar, mtp->tpage);
-				}
-			}
-		}
-	}
 }
 
 /* temp struct used to transport needed info to expand_constraint_cb() */
@@ -10045,11 +9968,11 @@ static bool object_in_any_scene(Main *mainvar, Object *ob)
 	return false;
 }
 
-static void give_base_to_objects(Main *mainvar, Scene *scene, View3D *v3d, Library *lib, const short flag)
+static void give_base_to_objects(
+        Main *mainvar, Scene *scene, SceneLayer *sl, SceneCollection *sc, Library *lib, const short flag)
 {
 	Object *ob;
-	BaseLegacy *base;
-	const unsigned int active_lay = (flag & FILE_ACTIVELAY) ? BKE_screen_view3d_layer_active(v3d, scene) : 0;
+	Base *base;
 	const bool is_link = (flag & FILE_LINK) != 0;
 
 	BLI_assert(scene);
@@ -10069,25 +9992,22 @@ static void give_base_to_objects(Main *mainvar, Scene *scene, View3D *v3d, Libra
 			}
 
 			if (do_it) {
-				base = MEM_callocN(sizeof(BaseLegacy), __func__);
-				BLI_addtail(&scene->base, base);
+				CLAMP_MIN(ob->id.us, 0);
 
-				if (active_lay) {
-					ob->lay = active_lay;
-				}
+				BKE_collection_object_add(scene, sc, ob);
+				base = BKE_scene_layer_base_find(sl, ob);
+				BKE_scene_object_base_flag_sync_from_base(base);
+
 				if (flag & FILE_AUTOSELECT) {
 					/* Note that link_object_postprocess() already checks for FILE_AUTOSELECT flag,
 					 * but it will miss objects from non-instanciated groups... */
-					ob->flag |= SELECT;
+					if (base->flag & BASE_SELECTABLED) {
+						base->flag |= BASE_SELECTED;
+						BKE_scene_base_flag_sync_from_base(base);
+					}
 					/* do NOT make base active here! screws up GUI stuff, if you want it do it on src/ level */
 				}
 
-				base->object = ob;
-				base->lay = ob->lay;
-				BKE_scene_base_flag_sync_from_object(base);
-
-				CLAMP_MIN(ob->id.us, 0);
-				id_us_plus_no_lib((ID *)ob);
 
 				ob->id.tag &= ~LIB_TAG_INDIRECT;
 				ob->id.tag |= LIB_TAG_EXTERN;
@@ -10097,12 +10017,12 @@ static void give_base_to_objects(Main *mainvar, Scene *scene, View3D *v3d, Libra
 }
 
 static void give_base_to_groups(
-        Main *mainvar, Scene *scene, View3D *v3d, Library *UNUSED(lib), const short UNUSED(flag))
+        Main *mainvar, Scene *scene, SceneLayer *sl, SceneCollection *sc,
+        Library *UNUSED(lib), const short UNUSED(flag))
 {
 	Group *group;
-	BaseLegacy *base;
+	Base *base;
 	Object *ob;
-	const unsigned int active_lay = BKE_screen_view3d_layer_active(v3d, scene);
 
 	/* give all objects which are tagged a base */
 	for (group = mainvar->group.first; group; group = group->id.next) {
@@ -10113,14 +10033,17 @@ static void give_base_to_groups(
 			/* BKE_object_add(...) messes with the selection */
 			ob = BKE_object_add_only_object(mainvar, OB_EMPTY, group->id.name + 2);
 			ob->type = OB_EMPTY;
-			ob->lay = active_lay;
 
-			/* assign the base */
-			base = BKE_scene_base_add(scene, ob);
-			base->flag_legacy |= SELECT;
-			BKE_scene_base_flag_sync_from_base(base);
+			BKE_collection_object_add(scene, sc, ob);
+			base = BKE_scene_layer_base_find(sl, ob);
+
+			if (base->flag & BASE_SELECTABLED) {
+				base->flag |= BASE_SELECTED;
+			}
+
+			BKE_scene_object_base_flag_sync_from_base(base);
 			DEG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
-			scene->basact = base;
+			sl->basact = base;
 
 			/* assign the group */
 			ob->dup_group = group;
@@ -10197,31 +10120,42 @@ static ID *link_named_part(
 	return id;
 }
 
-static void link_object_postprocess(ID *id, Scene *scene, View3D *v3d, const short flag)
+static SceneCollection *get_scene_collection_active_or_create(struct Scene *scene, struct SceneLayer *sl, const short flag)
+{
+	LayerCollection *lc = NULL;
+
+	if (flag & FILE_ACTIVE_COLLECTION) {
+		lc = BKE_layer_collection_get_active_ensure(scene, sl);
+	}
+	else {
+		SceneCollection *sc = BKE_collection_add(scene, NULL, NULL);
+		lc = BKE_collection_link(sl, sc);
+	}
+
+	return lc->scene_collection;
+}
+
+static void link_object_postprocess(ID *id, Scene *scene, SceneLayer *sl, const short flag)
 {
 	if (scene) {
-		BaseLegacy *base;
+		/* link to scene */
+		Base *base;
 		Object *ob;
-
-		base = MEM_callocN(sizeof(BaseLegacy), "app_nam_part");
-		BLI_addtail(&scene->base, base);
+		SceneCollection *sc;
 
 		ob = (Object *)id;
-
-		/* link at active layer (view3d if available in context, else scene one */
-		if (flag & FILE_ACTIVELAY) {
-			ob->lay = BKE_screen_view3d_layer_active(v3d, scene);
-		}
-
 		ob->mode = OB_MODE_OBJECT;
-		base->lay = ob->lay;
-		base->object = ob;
-		base->flag_legacy = ob->flag;
-		id_us_plus_no_lib((ID *)ob);
+
+		sc =  get_scene_collection_active_or_create(scene, sl, flag);
+		BKE_collection_object_add(scene, sc, ob);
+		base = BKE_scene_layer_base_find(sl, ob);
+		BKE_scene_object_base_flag_sync_from_base(base);
 
 		if (flag & FILE_AUTOSELECT) {
-			base->flag_legacy |= SELECT;
-			BKE_scene_base_flag_sync_from_base(base);
+			if (base->flag & BASE_SELECTABLED) {
+				base->flag |= BASE_SELECTED;
+				BKE_scene_base_flag_sync_from_base(base);
+			}
 			/* do NOT make base active here! screws up GUI stuff, if you want it do it on src/ level */
 		}
 	}
@@ -10264,12 +10198,12 @@ void BLO_library_link_copypaste(Main *mainl, BlendHandle *bh)
 
 static ID *link_named_part_ex(
         Main *mainl, FileData *fd, const short idcode, const char *name, const short flag,
-		Scene *scene, View3D *v3d, const bool use_placeholders, const bool force_indirect)
+		Scene *scene, SceneLayer *sl, const bool use_placeholders, const bool force_indirect)
 {
 	ID *id = link_named_part(mainl, fd, idcode, name, use_placeholders, force_indirect);
 
 	if (id && (GS(id->name) == ID_OB)) {	/* loose object: give a base */
-		link_object_postprocess(id, scene, v3d, flag);
+		link_object_postprocess(id, scene, sl, flag);
 	}
 	else if (id && (GS(id->name) == ID_GR)) {
 		/* tag as needing to be instantiated */
@@ -10313,11 +10247,11 @@ ID *BLO_library_link_named_part(Main *mainl, BlendHandle **bh, const short idcod
 ID *BLO_library_link_named_part_ex(
         Main *mainl, BlendHandle **bh,
         const short idcode, const char *name, const short flag,
-        Scene *scene, View3D *v3d,
+        Scene *scene, SceneLayer *sl,
         const bool use_placeholders, const bool force_indirect)
 {
 	FileData *fd = (FileData*)(*bh);
-	return link_named_part_ex(mainl, fd, idcode, name, flag, scene, v3d, use_placeholders, force_indirect);
+	return link_named_part_ex(mainl, fd, idcode, name, flag, scene, sl, use_placeholders, force_indirect);
 }
 
 static void link_id_part(ReportList *reports, FileData *fd, Main *mainvar, ID *id, ID **r_id)
@@ -10430,7 +10364,7 @@ static void split_main_newid(Main *mainptr, Main *main_newid)
 }
 
 /* scene and v3d may be NULL. */
-static void library_link_end(Main *mainl, FileData **fd, const short flag, Scene *scene, View3D *v3d)
+static void library_link_end(Main *mainl, FileData **fd, const short flag, Scene *scene, SceneLayer *sl)
 {
 	Main *mainvar;
 	Library *curlib;
@@ -10486,10 +10420,11 @@ static void library_link_end(Main *mainl, FileData **fd, const short flag, Scene
 	 * Only directly linked objects & groups are instantiated by `BLO_library_link_named_part_ex()` & co,
 	 * here we handle indirect ones and other possible edge-cases. */
 	if (scene) {
-		give_base_to_objects(mainvar, scene, v3d, curlib, flag);
+		SceneCollection *sc = get_scene_collection_active_or_create(scene, sl, FILE_ACTIVE_COLLECTION);
+		give_base_to_objects(mainvar, scene, sl, sc, curlib, flag);
 
 		if (flag & FILE_GROUP_INSTANCE) {
-			give_base_to_groups(mainvar, scene, v3d, curlib, flag);
+			give_base_to_groups(mainvar, scene, sl, sc, curlib, flag);
 		}
 	}
 	else {
@@ -10515,12 +10450,12 @@ static void library_link_end(Main *mainl, FileData **fd, const short flag, Scene
  * \param bh The blender file handle (WARNING! may be freed by this function!).
  * \param flag Options for linking, used for instantiating.
  * \param scene The scene in which to instantiate objects/groups (if NULL, no instantiation is done).
- * \param v3d The active View3D (only to define active layers for instantiated objects & groups, can be NULL).
+ * \param sl The scene layer in which to instantiate objects/groups (if NULL, no instantiation is done).
  */
-void BLO_library_link_end(Main *mainl, BlendHandle **bh, short flag, Scene *scene, View3D *v3d)
+void BLO_library_link_end(Main *mainl, BlendHandle **bh, short flag, Scene *scene, SceneLayer *sl)
 {
 	FileData *fd = (FileData*)(*bh);
-	library_link_end(mainl, &fd, flag, scene, v3d);
+	library_link_end(mainl, &fd, flag, scene, sl);
 	*bh = (BlendHandle*)fd;
 }
 

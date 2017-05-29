@@ -36,6 +36,7 @@ extern "C" {
 
 using Alembic::AbcGeom::OObject;
 using Alembic::AbcGeom::OXform;
+using Alembic::Abc::ISampleSelector;
 
 /* ************************************************************************** */
 
@@ -62,6 +63,7 @@ AbcTransformWriter::AbcTransformWriter(Object *ob,
                                        unsigned int time_sampling,
                                        ExportSettings &settings)
     : AbcObjectWriter(NULL, ob, time_sampling, settings, parent)
+    , m_proxy_from(NULL)
 {
 	m_is_animated = hasAnimation(m_object);
 
@@ -90,7 +92,8 @@ void AbcTransformWriter::do_write()
 
 	float yup_mat[4][4];
 	create_transform_matrix(m_object, yup_mat,
-	                        m_inherits_xform ? ABC_MATRIX_LOCAL : ABC_MATRIX_WORLD);
+	                        m_inherits_xform ? ABC_MATRIX_LOCAL : ABC_MATRIX_WORLD,
+	                        m_proxy_from);
 
 	/* Only apply rotation to root camera, parenting will propagate it. */
 	if (m_object->type == OB_CAMERA && (!m_inherits_xform || !has_parent_camera(m_object))) {
@@ -151,7 +154,24 @@ bool AbcEmptyReader::valid() const
 	return m_schema.valid();
 }
 
-void AbcEmptyReader::readObjectData(Main *bmain, float /*time*/)
+bool AbcEmptyReader::accepts_object_type(const Alembic::AbcCoreAbstract::ObjectHeader &alembic_header,
+                                         const Object *const ob,
+                                         const char **err_str) const
+{
+	if (!Alembic::AbcGeom::IXform::matches(alembic_header)) {
+		*err_str = "Object type mismatch, Alembic object path pointed to XForm when importing, but not any more.";
+		return false;
+	}
+
+	if (ob->type != OB_EMPTY) {
+		*err_str = "Object type mismatch, Alembic object path points to XForm.";
+		return false;
+	}
+
+	return true;
+}
+
+void AbcEmptyReader::readObjectData(Main *bmain, const ISampleSelector &UNUSED(sample_sel))
 {
 	m_object = BKE_object_add_only_object(bmain, OB_EMPTY,
 	                                      m_object_name.c_str());

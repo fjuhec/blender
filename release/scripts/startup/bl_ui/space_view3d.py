@@ -710,6 +710,7 @@ class VIEW3D_MT_select_particle(Menu):
         layout = self.layout
 
         layout.operator("view3d.select_border")
+        layout.operator("view3d.select_circle")
 
         layout.separator()
 
@@ -1677,7 +1678,7 @@ class VIEW3D_MT_brush(Menu):
         layout = self.layout
 
         settings = UnifiedPaintPanel.paint_settings(context)
-        brush = settings.brush
+        brush = getattr(settings, "brush", None)
 
         ups = context.tool_settings.unified_paint_settings
         layout.prop(ups, "use_unified_size", text="Unified Size")
@@ -1685,6 +1686,11 @@ class VIEW3D_MT_brush(Menu):
         if context.image_paint_object or context.vertex_paint_object:
             layout.prop(ups, "use_unified_color", text="Unified Color")
         layout.separator()
+
+        # skip if no active brush
+        if not brush:
+            layout.label(text="No Brushes currently available", icon="INFO")
+            return
 
         # brush paint modes
         layout.menu("VIEW3D_MT_brush_paint_modes")
@@ -1697,10 +1703,6 @@ class VIEW3D_MT_brush(Menu):
             layout.prop_menu_enum(brush, "image_tool")
         elif context.vertex_paint_object or context.weight_paint_object:
             layout.prop_menu_enum(brush, "vertex_tool")
-
-        # skip if no active brush
-        if not brush:
-            return
 
         # TODO: still missing a lot of brush options here
 
@@ -3126,48 +3128,6 @@ class VIEW3D_MT_edit_gpencil_interpolate(Menu):
 
 # ********** Panel **********
 
-
-class VIEW3D_PT_viewport_debug(Panel):
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'UI'
-    bl_label = "Modern Viewport"
-    bl_options = {'DEFAULT_CLOSED'}
-
-    @classmethod
-    def poll(cls, context):
-        view = context.space_data
-        return (view)
-
-    def draw_header(self, context):
-        view = context.space_data
-        self.layout.prop(view, "use_modern_viewport", text="")
-
-    def draw(self, context):
-        layout = self.layout
-        view = context.space_data
-
-        layout.active = view.use_modern_viewport
-
-        col = layout.column()
-        col.label(text="Placeholder for debugging options")
-        col.separator()
-
-        row = col.row()
-        row.active = not view.show_combined_depth
-        row.prop(view, "show_scene_depth")
-        row = col.row()
-        row.active = not view.show_scene_depth
-        row.prop(view, "show_combined_depth")
-
-        row = col.row(align=True)
-        row.active = view.show_scene_depth or view.show_combined_depth
-        row.prop(view, "debug_near")
-        row.prop(view, "debug_far")
-
-        col.label(text="Background:")
-        col.row(align=True).prop(view, "debug_background", expand=True)
-
-
 class VIEW3D_PT_grease_pencil(GreasePencilDataPanel, Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -3281,7 +3241,7 @@ class VIEW3D_PT_view3d_display(Panel):
     @classmethod
     def poll(cls, context):
         view = context.space_data
-        return (view) and not view.use_modern_viewport
+        return (view)
 
     def draw(self, context):
         layout = self.layout
@@ -3374,61 +3334,6 @@ class VIEW3D_PT_view3d_stereo(Panel):
         split.prop(view, "show_stereo_3d_volume")
         split = row.split()
         split.prop(view, "stereo_3d_volume_alpha", text="Alpha")
-
-
-class VIEW3D_PT_view3d_shading(Panel):
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'UI'
-    bl_label = "Shading"
-
-    @classmethod
-    def poll(cls, context):
-        view = context.space_data
-        return (view) and not view.use_modern_viewport
-
-    def draw(self, context):
-        layout = self.layout
-
-        view = context.space_data
-        scene = context.scene
-        gs = scene.game_settings
-        obj = context.object
-
-        col = layout.column()
-
-        if not scene.render.use_shading_nodes:
-            col.prop(gs, "material_mode", text="")
-
-        if view.viewport_shade == 'SOLID':
-            col.prop(view, "show_textured_solid")
-            col.prop(view, "use_matcap")
-            if view.use_matcap:
-                col.template_icon_view(view, "matcap_icon")
-        if view.viewport_shade == 'TEXTURED' or context.mode == 'PAINT_TEXTURE':
-            if scene.render.use_shading_nodes or gs.material_mode != 'GLSL':
-                col.prop(view, "show_textured_shadeless")
-
-        col.prop(view, "show_backface_culling")
-
-        if view.viewport_shade not in {'BOUNDBOX', 'WIREFRAME'}:
-            if obj and obj.mode == 'EDIT':
-                col.prop(view, "show_occlude_wire")
-
-        fx_settings = view.fx_settings
-
-        if view.viewport_shade not in {'BOUNDBOX', 'WIREFRAME'}:
-            sub = col.column()
-            sub.active = view.region_3d.view_perspective == 'CAMERA'
-            sub.prop(fx_settings, "use_dof")
-            col.prop(fx_settings, "use_ssao", text="Ambient Occlusion")
-            if fx_settings.use_ssao:
-                ssao_settings = fx_settings.ssao
-                subcol = col.column(align=True)
-                subcol.prop(ssao_settings, "factor")
-                subcol.prop(ssao_settings, "distance_max")
-                subcol.prop(ssao_settings, "attenuation")
-                subcol.prop(ssao_settings, "samples")
-                subcol.prop(ssao_settings, "color")
 
 
 class VIEW3D_PT_view3d_motion_tracking(Panel):
@@ -3942,7 +3847,6 @@ classes = (
     VIEW3D_MT_edit_armature_delete,
     VIEW3D_MT_edit_gpencil_transform,
     VIEW3D_MT_edit_gpencil_interpolate,
-    VIEW3D_PT_viewport_debug,
     VIEW3D_PT_grease_pencil,
     VIEW3D_PT_grease_pencil_palettecolor,
     VIEW3D_PT_view3d_properties,
@@ -3950,7 +3854,6 @@ classes = (
     VIEW3D_PT_view3d_name,
     VIEW3D_PT_view3d_display,
     VIEW3D_PT_view3d_stereo,
-    VIEW3D_PT_view3d_shading,
     VIEW3D_PT_view3d_motion_tracking,
     VIEW3D_PT_view3d_meshdisplay,
     VIEW3D_PT_view3d_meshstatvis,

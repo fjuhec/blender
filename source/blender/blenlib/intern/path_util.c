@@ -1173,21 +1173,9 @@ bool BLI_path_program_search(
 void BLI_setenv(const char *env, const char *val)
 {
 	/* free windows */
-#if (defined(WIN32) || defined(WIN64)) && defined(FREE_WINDOWS)
-	char *envstr;
 
-	if (val)
-		envstr = BLI_sprintfN("%s=%s", env, val);
-	else
-		envstr = BLI_sprintfN("%s=", env);
-
-	putenv(envstr);
-	MEM_freeN(envstr);
-
-	/* non-free windows */
-#elif (defined(WIN32) || defined(WIN64)) /* not free windows */
+#if (defined(WIN32) || defined(WIN64))
 	uputenv(env, val);
-
 
 #else
 	/* linux/osx/bsd */
@@ -1234,14 +1222,16 @@ void BLI_make_exist(char *dir)
 
 /**
  * Ensures that the parent directory of *name exists.
+ *
+ * \return true on success (i.e. given path now exists on FS), false otherwise.
  */
-void BLI_make_existing_file(const char *name)
+bool BLI_make_existing_file(const char *name)
 {
 	char di[FILE_MAX];
 	BLI_split_dir_part(name, di, sizeof(di));
 
 	/* make if the dir doesn't exist */
-	BLI_dir_create_recursive(di);
+	return BLI_dir_create_recursive(di);
 }
 
 /**

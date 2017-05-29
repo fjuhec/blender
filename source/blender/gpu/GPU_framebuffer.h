@@ -50,7 +50,7 @@ struct GPUTexture;
 void GPU_texture_bind_as_framebuffer(struct GPUTexture *tex);
 
 GPUFrameBuffer *GPU_framebuffer_create(void);
-bool GPU_framebuffer_texture_attach(GPUFrameBuffer *fb, struct GPUTexture *tex, int slot);
+bool GPU_framebuffer_texture_attach(GPUFrameBuffer *fb, struct GPUTexture *tex, int slot, int mip);
 void GPU_framebuffer_texture_detach(struct GPUTexture *tex);
 void GPU_framebuffer_bind(GPUFrameBuffer *fb);
 void GPU_framebuffer_slots_bind(GPUFrameBuffer *fb, int slot);
@@ -83,6 +83,10 @@ void GPU_offscreen_read_pixels(GPUOffScreen *ofs, int type, void *pixels);
 int GPU_offscreen_width(const GPUOffScreen *ofs);
 int GPU_offscreen_height(const GPUOffScreen *ofs);
 int GPU_offscreen_color_texture(const GPUOffScreen *ofs);
+
+void GPU_offscreen_viewport_data_get(
+        GPUOffScreen *ofs,
+        GPUFrameBuffer **r_fb, struct GPUTexture **r_color, struct GPUTexture **r_depth);
 
 #ifdef __cplusplus
 }
