@@ -9826,7 +9826,7 @@ void ED_draw_object_facemap(Scene *scene, Object *ob, const float col[4], const 
 		unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
 
 		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
-		immUniformColor4f(1.0, 1.0, 1.0, 2.0);
+		immUniformColor4fv(col);
 
 		/* XXX, alpha isn't working yet, not sure why. */
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
