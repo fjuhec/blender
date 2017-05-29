@@ -46,11 +46,16 @@ static bool WIDGETGROUP_node_transform_poll(const bContext *C, wmManipulatorGrou
 {
 	SpaceNode *snode = CTX_wm_space_node(C);
 
+	if ((snode->flag & SNODE_BACKDRAW) == 0) {
+		return false;
+	}
+
 	if (snode && snode->edittree && snode->edittree->type == NTREE_COMPOSIT) {
 		bNode *node = nodeGetActive(snode->edittree);
 
-		if (node && node->type == CMP_NODE_VIEWER)
+		if (node && node->type == CMP_NODE_VIEWER) {
 			return true;
+		}
 	}
 
 	return false;
