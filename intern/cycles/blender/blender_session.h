@@ -17,12 +17,12 @@
 #ifndef __BLENDER_SESSION_H__
 #define __BLENDER_SESSION_H__
 
-#include "device.h"
-#include "scene.h"
-#include "session.h"
-#include "bake.h"
+#include "device/device.h"
+#include "render/scene.h"
+#include "render/session.h"
+#include "render/bake.h"
 
-#include "util_vector.h"
+#include "util/util_vector.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -79,7 +79,7 @@ public:
 	void update_render_result(BL::RenderResult& b_rr,
 	                          BL::RenderLayer& b_rlay,
 	                          RenderTile& rtile);
-	void update_render_tile(RenderTile& rtile);
+	void update_render_tile(RenderTile& rtile, bool highlight);
 
 	/* interactive updates */
 	void synchronize();
@@ -147,7 +147,7 @@ protected:
 	                                   BL::RenderLayer& b_rlay,
 	                                   RenderTile& rtile,
 	                                   bool do_update_only);
-	void do_write_update_render_tile(RenderTile& rtile, bool do_update_only);
+	void do_write_update_render_tile(RenderTile& rtile, bool do_update_only, bool highlight);
 
 	int builtin_image_frame(const string &builtin_name);
 	void builtin_image_info(const string &builtin_name,

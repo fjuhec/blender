@@ -16,21 +16,21 @@
 
 #include <Python.h>
 
-#include "CCL_api.h"
+#include "blender/CCL_api.h"
 
-#include "blender_sync.h"
-#include "blender_session.h"
+#include "blender/blender_sync.h"
+#include "blender/blender_session.h"
 
-#include "util_foreach.h"
-#include "util_logging.h"
-#include "util_md5.h"
-#include "util_opengl.h"
-#include "util_path.h"
-#include "util_string.h"
-#include "util_types.h"
+#include "util/util_foreach.h"
+#include "util/util_logging.h"
+#include "util/util_md5.h"
+#include "util/util_opengl.h"
+#include "util/util_path.h"
+#include "util/util_string.h"
+#include "util/util_types.h"
 
 #ifdef WITH_OSL
-#include "osl.h"
+#include "render/osl.h"
 
 #include <OSL/oslquery.h>
 #include <OSL/oslconfig.h>
@@ -809,6 +809,14 @@ void *CCL_python_module_init()
 	Py_INCREF(Py_False);
 	PyModule_AddStringConstant(mod, "osl_version", "unknown");
 	PyModule_AddStringConstant(mod, "osl_version_string", "unknown");
+#endif
+
+#ifdef WITH_CYCLES_DEBUG
+	PyModule_AddObject(mod, "with_cycles_debug", Py_True);
+	Py_INCREF(Py_True);
+#else
+	PyModule_AddObject(mod, "with_cycles_debug", Py_False);
+	Py_INCREF(Py_False);
 #endif
 
 #ifdef WITH_NETWORK
