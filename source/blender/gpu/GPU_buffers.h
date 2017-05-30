@@ -54,9 +54,6 @@ struct PBVH;
 struct Batch;
 struct MVert;
 
-typedef void (*GPUBufferCopyFunc)(DerivedMesh *dm, float *varray, int *index,
-                                  int *mat_orig_to_new, void *user_data);
-
 typedef struct GPUBuffer {
 	size_t size;        /* in bytes */
 	unsigned int id; /* used with vertex buffer objects */
@@ -102,7 +99,6 @@ typedef struct GPUDrawObject {
 	GPUBuffer *edges;
 	GPUBuffer *uvedges;
 	GPUBuffer *triangles; /* triangle index buffer */
-	GPUBuffer *facemapindices;
 
 	/* for each original vertex, the list of related points */
 	struct GPUVertPointLink *vert_points;
@@ -135,10 +131,6 @@ typedef struct GPUDrawObject {
 	/* for subsurf, offset where drawing of interior edges starts */
 	unsigned int interior_offset;
 	unsigned int totinterior;
-
-	int totfacemaps;    /* total facemaps */
-	int *facemap_start; /* beginning of facemap */
-	int *facemap_count; /* elements per facemap */
 } GPUDrawObject;
 
 /* currently unused */
@@ -179,8 +171,7 @@ typedef enum {
 	GPU_BUFFER_UV_TEXPAINT,
 	GPU_BUFFER_EDGE,
 	GPU_BUFFER_UVEDGE,
-	GPU_BUFFER_TRIANGLES,
-	GPU_BUFFER_FACEMAP
+	GPU_BUFFER_TRIANGLES
 } GPUBufferType;
 
 typedef enum {
@@ -202,7 +193,6 @@ void GPU_color_setup(struct DerivedMesh *dm, int colType);
 void GPU_buffer_bind_as_color(GPUBuffer *buffer);
 void GPU_edge_setup(struct DerivedMesh *dm); /* does not mix with other data */
 void GPU_uvedge_setup(struct DerivedMesh *dm);
-void GPU_facemap_setup(struct DerivedMesh *dm);
 
 void GPU_triangle_setup(struct DerivedMesh *dm);
 
