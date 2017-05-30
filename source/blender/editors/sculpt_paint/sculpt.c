@@ -172,7 +172,7 @@ static bool sculpt_brush_needs_rake_rotation(const Brush *brush)
 struct SculptRakeData {
 	float follow_dist;
 	float follow_co[3];
-};
+} SculptRakeData;
 
 typedef enum StrokeFlags {
 	CLIP_X = 1,
@@ -214,8 +214,8 @@ typedef struct StrokeCache {
 	float projection_mat[4][4];
 
 	/* Clean this up! */
-	ViewContext *vc;
-	Brush *brush;
+	struct ViewContext *vc;
+	struct Brush *brush;
 
 	float special_rotation;
 	float grab_delta[3], grab_delta_symmetry[3];
@@ -253,7 +253,7 @@ typedef struct StrokeCache {
 	float anchored_location[3];
 
 	float vertex_rotation; /* amount to rotate the vertices when using rotate brush */
-	Dial *dial;
+	struct Dial *dial;
 	
 	char saved_active_brush_name[MAX_ID_NAME];
 	char saved_mask_brush_tool;
@@ -269,6 +269,21 @@ typedef struct StrokeCache {
 	rcti previous_r; /* previous redraw rectangle */
 	rcti current_r; /* current redraw rectangle */
 } StrokeCache;
+
+
+
+/* reduce brush spacing step size when the geometry curves away from the view */
+static void set_adaptive_space_factor(Sculpt *sd)
+{
+	Brush *brush = BKE_paint_brush(&(sd->paint));
+
+	/*TODO: Reasonable 2D View 3D conversion
+	 * Currently somewhere about 1bu / 200px
+	 */
+
+	brush->adaptive_space_factor = 1.0f/200.0f;
+}
+
 
 /************** Access to original unmodified vertex data *************/
 
@@ -678,6 +693,24 @@ static void sculpt_brush_test_init(SculptSession *ss, SculptBrushTest *test)
 	}
 }
 
+static void sculpt_brush_range_test_init(const SculptSession *ss, SculptBrushTest *test, float range)
+{
+	RegionView3D *rv3d = ss->cache->vc->rv3d;
+
+	test->radius_squared= ss->cache->radius_squared*range*range;
+	copy_v3_v3(test->location, ss->cache->location);
+	test->dist = 0.0f;   /* just for initialize */
+
+	test->mirror_symmetry_pass = ss->cache->mirror_symmetry_pass;
+
+	if (rv3d->rflag & RV3D_CLIPPING) {
+		test->clip_rv3d = rv3d;
+	}
+	else {
+		test->clip_rv3d = NULL;
+	}
+}
+
 BLI_INLINE bool sculpt_brush_test_clipping(const SculptBrushTest *test, const float co[3])
 {
 	RegionView3D *rv3d = test->clip_rv3d;
@@ -894,6 +927,7 @@ static void calc_area_normal_and_center_task_cb(void *userdata, const int n)
 	SculptSession *ss = data->ob->sculpt;
 	float (*area_nos)[3] = data->area_nos;
 	float (*area_cos)[3] = data->area_cos;
+	float sampling_radius_pct = data->brush->sculpt_plane_range;
 
 	PBVHVertexIter vd;
 	SculptBrushTest test;
@@ -905,7 +939,7 @@ static void calc_area_normal_and_center_task_cb(void *userdata, const int n)
 	bool use_original;
 
 	unode = sculpt_undo_push_node(data->ob, data->nodes[n], SCULPT_UNDO_COORDS);
-	sculpt_brush_test_init(ss, &test);
+	sculpt_brush_range_test_init(ss, &test, sampling_radius_pct);
 
 	use_original = (ss->cache->original && (unode->co || unode->bm_entry));
 
@@ -1031,7 +1065,8 @@ static void calc_area_center(
 
 	SculptThreadedTaskData data = {
 		.sd = sd, .ob = ob, .nodes = nodes, .totnode = totnode,
-		.has_bm_orco = has_bm_orco, .area_cos = area_cos, .area_nos = NULL, .count = count,
+		.has_bm_orco = has_bm_orco, .area_cos = area_cos, .area_nos = NULL,
+		.count = count, .brush = brush
 	};
 	BLI_mutex_init(&data.mutex);
 
@@ -1071,7 +1106,8 @@ static void calc_area_normal(
 
 	SculptThreadedTaskData data = {
 		.sd = sd, .ob = ob, .nodes = nodes, .totnode = totnode,
-		.has_bm_orco = has_bm_orco, .area_cos = NULL, .area_nos = area_nos, .count = count,
+		.has_bm_orco = has_bm_orco, .area_cos = NULL, .area_nos = area_nos,
+		.count = count, .brush = brush
 	};
 	BLI_mutex_init(&data.mutex);
 
@@ -1109,7 +1145,8 @@ static void calc_area_normal_and_center(
 
 	SculptThreadedTaskData data = {
 		.sd = sd, .ob = ob, .nodes = nodes, .totnode = totnode,
-		.has_bm_orco = has_bm_orco, .area_cos = area_cos, .area_nos = area_nos, .count = count,
+		.has_bm_orco = has_bm_orco, .area_cos = area_cos, .area_nos = area_nos,
+		.count = count, .brush = brush
 	};
 	BLI_mutex_init(&data.mutex);
 
@@ -1367,7 +1404,7 @@ static void sculpt_clip(Sculpt *sd, SculptSession *ss, float co[3], const float 
 }
 
 /* Calculate primary direction of movement for many brushes */
-static void calc_sculpt_normal(
+void calc_sculpt_normal(
         Sculpt *sd, Object *ob,
         PBVHNode **nodes, int totnode,
         float r_area_no[3])
@@ -1891,6 +1928,8 @@ static void smooth(
 		return;
 	}
 
+	set_adaptive_space_factor(sd);
+
 	for (iteration = 0; iteration <= count; ++iteration) {
 		const float strength = (iteration != count) ? 1.0f : last;
 
@@ -1975,6 +2014,8 @@ static void do_mask_brush_draw(Sculpt *sd, Object *ob, PBVHNode **nodes, int tot
 {
 	Brush *brush = BKE_paint_brush(&sd->paint);
 
+	set_adaptive_space_factor(sd);
+
 	/* threaded loop over nodes */
 	SculptThreadedTaskData data = {
 	    .sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
@@ -2043,6 +2084,8 @@ static void do_draw_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode)
 	mul_v3_v3fl(offset, ss->cache->sculpt_normal_symm, ss->cache->radius);
 	mul_v3_v3(offset, ss->cache->scale);
 	mul_v3_fl(offset, bstrength);
+
+	set_adaptive_space_factor(sd);
 
 	/* threaded loop over nodes */
 	SculptThreadedTaskData data = {
@@ -2132,6 +2175,8 @@ static void do_crease_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnod
 	 * Without this we get a 'flat' surface surrounding the pinch */
 	sculpt_project_v3_cache_init(&spvc, ss->cache->sculpt_normal_symm);
 
+	set_adaptive_space_factor(sd);
+
 	/* threaded loop over nodes */
 	SculptThreadedTaskData data = {
 	    .sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
@@ -2179,6 +2224,8 @@ static void do_pinch_brush_task_cb_ex(
 static void do_pinch_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode)
 {
 	Brush *brush = BKE_paint_brush(&sd->paint);
+
+	set_adaptive_space_factor(sd);
 
 	SculptThreadedTaskData data = {
 	    .sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
@@ -2239,6 +2286,8 @@ static void do_grab_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode)
 		sculpt_project_v3_normal_align(ss, ss->cache->normal_weight, grab_delta);
 	}
 
+	set_adaptive_space_factor(sd);
+
 	SculptThreadedTaskData data = {
 	    .sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
 	    .grab_delta = grab_delta,
@@ -2292,6 +2341,8 @@ static void do_nudge_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode
 
 	cross_v3_v3v3(tmp, ss->cache->sculpt_normal_symm, grab_delta);
 	cross_v3_v3v3(cono, tmp, ss->cache->sculpt_normal_symm);
+
+	set_adaptive_space_factor(sd);
 
 	SculptThreadedTaskData data = {
 	    .sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
@@ -2394,6 +2445,9 @@ static void do_snake_hook_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int to
 		sculpt_project_v3_cache_init(&spvc, grab_delta);
 	}
 
+
+	set_adaptive_space_factor(sd);
+
 	SculptThreadedTaskData data = {
 	    .sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
 	    .spvc = &spvc, .grab_delta = grab_delta,
@@ -2453,6 +2507,8 @@ static void do_thumb_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode
 
 	cross_v3_v3v3(tmp, ss->cache->sculpt_normal_symm, grab_delta);
 	cross_v3_v3v3(cono, tmp, ss->cache->sculpt_normal_symm);
+
+	set_adaptive_space_factor(sd);
 
 	SculptThreadedTaskData data = {
 	    .sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
@@ -2514,6 +2570,8 @@ static void do_rotate_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnod
 
 	static const int flip[8] = { 1, -1, -1, 1, -1, 1, 1, -1 };
 	const float angle = ss->cache->vertex_rotation * flip[ss->cache->mirror_symmetry_pass];
+
+	set_adaptive_space_factor(sd);
 
 	SculptThreadedTaskData data = {
 	    .sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
@@ -2597,6 +2655,8 @@ static void do_layer_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode
 
 	mul_v3_v3v3(offset, ss->cache->scale, ss->cache->sculpt_normal_symm);
 
+	set_adaptive_space_factor(sd);
+
 	SculptThreadedTaskData data = {
 	    .sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
 	    .offset = offset,
@@ -2651,6 +2711,8 @@ static void do_inflate_brush_task_cb_ex(
 static void do_inflate_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode)
 {
 	Brush *brush = BKE_paint_brush(&sd->paint);
+
+	set_adaptive_space_factor(sd);
 
 	SculptThreadedTaskData data = {
 	    .sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
@@ -2786,6 +2848,7 @@ static float get_offset(Sculpt *sd, SculptSession *ss)
 	return rv;
 }
 
+//Move up?
 static void do_flatten_brush_task_cb_ex(
         void *userdata, void *UNUSED(userdata_chunk), const int n, const int thread_id)
 {
@@ -2850,6 +2913,8 @@ static void do_flatten_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totno
 	mul_v3_v3v3(temp, area_no, ss->cache->scale);
 	mul_v3_fl(temp, displace);
 	add_v3_v3(area_co, temp);
+
+	set_adaptive_space_factor(sd);
 
 	SculptThreadedTaskData data = {
 	    .sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
@@ -2933,6 +2998,8 @@ static void do_clay_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode)
 	add_v3_v3(area_co, temp);
 
 	/* add_v3_v3v3(p, ss->cache->location, area_no); */
+
+	set_adaptive_space_factor(sd);
 
 	SculptThreadedTaskData data = {
 	    .sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
@@ -3043,6 +3110,8 @@ static void do_clay_strips_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int t
 	mul_m4_m4m4(tmat, mat, scale);
 	invert_m4_m4(mat, tmat);
 
+	set_adaptive_space_factor(sd);
+
 	SculptThreadedTaskData data = {
 	    .sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
 	    .area_no_sp = area_no_sp, .area_co = area_co, .mat = mat,
@@ -3120,6 +3189,8 @@ static void do_fill_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode)
 	mul_v3_v3v3(temp, area_no, ss->cache->scale);
 	mul_v3_fl(temp, displace);
 	add_v3_v3(area_co, temp);
+
+	set_adaptive_space_factor(sd);
 
 	SculptThreadedTaskData data = {
 	    .sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
@@ -3199,6 +3270,8 @@ static void do_scrape_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnod
 	mul_v3_fl(temp, displace);
 	add_v3_v3(area_co, temp);
 
+	set_adaptive_space_factor(sd);
+
 	SculptThreadedTaskData data = {
 	    .sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
 	    .area_no = area_no, .area_co = area_co,
@@ -3253,6 +3326,8 @@ static void do_gravity(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode, fl
 	/* offset with as much as possible factored in already */
 	mul_v3_v3v3(offset, gravity_vector, ss->cache->scale);
 	mul_v3_fl(offset, bstrength);
+
+	set_adaptive_space_factor(sd);
 
 	/* threaded loop over nodes */
 	SculptThreadedTaskData data = {

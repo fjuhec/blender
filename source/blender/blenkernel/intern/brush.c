@@ -78,7 +78,8 @@ static void brush_defaults(Brush *brush)
 	brush->alpha = 0.5f; /* brush strength/intensity probably variable should be renamed? */
 	brush->autosmooth_factor = 0.0f;
 	brush->crease_pinch_factor = 0.5f;
-	brush->sculpt_plane = SCULPT_DISP_DIR_AREA;
+	brush->sculpt_plane = SCULPT_DISP_DIR_AREA; /* default to the area normal as the sculpt plane displacement direction */
+	brush->sculpt_plane_range= 1; /* how large an area to determine the normal of the plane in brush radiuses */
 	brush->plane_offset = 0.0f; /* how far above or below the plane that is found by averaging the faces */
 	brush->plane_trim = 0.5f;
 	brush->clone.alpha = 0.5f;
@@ -94,7 +95,7 @@ static void brush_defaults(Brush *brush)
 	zero_v3(brush->secondary_rgb);
 
 	/* BRUSH STROKE SETTINGS */
-	brush->flag |= (BRUSH_SPACE | BRUSH_SPACE_ATTEN);
+	brush->flag |= (BRUSH_SPACE | BRUSH_SPACE_ATTEN | BRUSH_ADAPTIVE_SPACE);
 	brush->spacing = 10; /* how far each brush dot should be spaced as a percentage of brush diameter */
 
 	brush->smooth_stroke_radius = 75;
@@ -103,6 +104,8 @@ static void brush_defaults(Brush *brush)
 	brush->rate = 0.1f; /* time delay between dots of paint or sculpting when doing airbrush mode */
 
 	brush->jitter = 0.0f;
+
+	brush->adaptive_space_factor = 1;
 
 	/* BRUSH TEXTURE SETTINGS */
 	BKE_texture_mtex_default(&brush->mtex);
@@ -842,6 +845,12 @@ int BKE_brush_use_alpha_pressure(const Scene *scene, const Brush *brush)
 	return (us_flag & UNIFIED_PAINT_ALPHA) ?
 	       (us_flag & UNIFIED_PAINT_BRUSH_ALPHA_PRESSURE) :
 	       (brush->flag & BRUSH_ALPHA_PRESSURE);
+}
+
+
+int BKE_brush_use_adaptive_spacing(const Brush *brush)
+{
+	return (brush->flag & BRUSH_ADAPTIVE_SPACE); //FIXME make sure we are in view3D
 }
 
 void BKE_brush_unprojected_radius_set(Scene *scene, Brush *brush, float unprojected_radius)

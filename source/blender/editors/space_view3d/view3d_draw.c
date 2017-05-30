@@ -112,7 +112,7 @@ static void view3d_stereo3d_setup_offscreen(Scene *scene, View3D *v3d, ARegion *
 
 /* handy utility for drawing shapes in the viewport for arbitrary code.
  * could add lines and points too */
-// #define DEBUG_DRAW
+#define DEBUG_DRAW
 #ifdef DEBUG_DRAW
 static void bl_debug_draw(void);
 /* add these locally when using these functions for testing */

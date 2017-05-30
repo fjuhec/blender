@@ -66,14 +66,38 @@
 #include "IMB_imbuf_types.h"
 
 #include "paint_intern.h"
+#include "sculpt_intern.h"
 
 #include <float.h>
 #include <math.h>
+
+#include <stdio.h>
 
 //#define DEBUG_TIME
 
 #ifdef DEBUG_TIME
 #  include "PIL_time_utildefines.h"
+#endif
+
+/*Debug spacing calc define DEBUG_DRAW to get info about sampling etc.*/
+/*#define DEBUG_DRAW*/
+
+#ifdef DEBUG_DRAW
+static void bl_debug_draw(void);
+/* add these locally when using these functions for testing */
+extern void bl_debug_draw_quad_clear(void);
+extern void bl_debug_draw_quad_add(const float v0[3], const float v1[3], const float v2[3], const float v3[3]);
+extern void bl_debug_draw_edge_add(const float v0[3], const float v1[3]);
+extern void bl_debug_color_set(const unsigned int col);
+
+void bl_debug_draw_point(const float pos[3],const float thickness){
+	float h = thickness*0.5;
+	float v1[] = {pos[0]-h,pos[1]-h,pos[2]};
+	float v2[] = {pos[0]-h,pos[1]+h,pos[2]};
+	float v3[] = {pos[0]+h,pos[1]-h,pos[2]};
+	float v4[] = {pos[0]+h,pos[1]+h,pos[2]};
+	bl_debug_draw_quad_add(v1,v2,v3,v4);
+}
 #endif
 
 typedef struct PaintSample {
@@ -101,8 +125,10 @@ typedef struct PaintStroke {
 	int cur_sample;
 
 	float last_mouse_position[2];
+	float last_v3_mouse_position[3];
 	/* space distance covered so far */
 	float stroke_distance;
+	float distance_since_last_dab;
 
 	/* Set whether any stroke step has yet occurred
 	 * e.g. in sculpt mode, stroke doesn't start until cursor
@@ -444,6 +470,7 @@ static void paint_brush_stroke_add_step(bContext *C, wmOperator *op, const float
 	 * will create too many dabs */
 	copy_v2_v2(stroke->last_mouse_position, mouse_in);
 	stroke->last_pressure = pressure;
+	stroke->distance_since_last_dab = 0.0f;
 
 	if (paint_stroke_use_jitter(mode, brush, stroke->stroke_mode == BRUSH_STROKE_INVERT)) {
 		float delta[2];
@@ -473,6 +500,14 @@ static void paint_brush_stroke_add_step(bContext *C, wmOperator *op, const float
 	if (!ups->last_hit) {
 		return;
 	}
+
+#ifdef DEBUG_DRAW
+	bl_debug_color_set(0x0000FF);
+	bl_debug_draw_point(ups->last_location,0.05f);
+	bl_debug_color_set(0x000000);
+#endif
+
+	copy_v3_v3(stroke->last_v3_mouse_position, location);
 
 	/* Add to stroke */
 	RNA_collection_add(op->ptr, "stroke", &itemptr);
@@ -516,36 +551,56 @@ static bool paint_smooth_stroke(
 	return true;
 }
 
-static float paint_space_stroke_spacing(const Scene *scene, PaintStroke *stroke, float size_pressure, float spacing_pressure)
+static const float MIN_BRUSH_SIZE_PIXELS = 1.0f;
+static const float MAGIC_50 = 50.0f;
+static const float MAGIC_1_5 = 1.5f;
+
+/* Brush spacing ignoring both pressure and brush angle to the geometry */
+static float paint_space_unadjusted_stroke_spacing(const Scene *scene, PaintStroke *stroke) {
+
+	const float size_clamp = max_ff(MIN_BRUSH_SIZE_PIXELS, BKE_brush_size_get(scene, stroke->brush));
+
+	return max_ff(MIN_BRUSH_SIZE_PIXELS, size_clamp * stroke->brush->spacing / MAGIC_50);
+}
+
+static float paint_space_stroke_adaptive_spacing(const Scene *scene, PaintStroke *stroke, float spacing)
+{
+	spacing = spacing * stroke->brush->adaptive_space_factor;
+
+	return spacing;
+}
+
+static float paint_space_stroke_pressure_spacing(const Scene *scene, PaintStroke *stroke, float size_pressure, float spacing_pressure, float spacing)
 {
 	/* brushes can have a minimum size of 1.0 but with pressure it can be smaller then a pixel
 	 * causing very high step sizes, hanging blender [#32381] */
-	const float size_clamp = max_ff(1.0f, BKE_brush_size_get(scene, stroke->brush) * size_pressure);
-	float spacing = stroke->brush->spacing;
+	//TODO size_clamp should probably be calculated at the start and used throughout
+	const float size_clamp = max_ff(MIN_BRUSH_SIZE_PIXELS, BKE_brush_size_get(scene, stroke->brush) * size_pressure);
 
-	/* apply spacing pressure */
-	if (stroke->brush->flag & BRUSH_SPACING_PRESSURE)
-		spacing = spacing * (1.5f - spacing_pressure);
 
+	spacing = spacing * (MAGIC_1_5 - spacing_pressure);
+
+	//TODO zoom_2d should be seperated out
 	/* stroke system is used for 2d paint too, so we need to account for
 	 * the fact that brush can be scaled there. */
 	spacing *= stroke->zoom_2d;
 
-	return max_ff(1.0, size_clamp * spacing / 50.0f);
+	return max_ff(MIN_BRUSH_SIZE_PIXELS, size_clamp * spacing / MAGIC_50);
 }
-
 
 
 static float paint_stroke_overlapped_curve(Brush *br, float x, float spacing)
 {
 	int i;
 	const int n = 100 / spacing;
-	const float h = spacing / 50.0f;
-	const float x0 = x - 1;
+	//TODO I think the refactoring and spacing integration elsewhere makes this no longer necessary
+	//const int n = 100 / ((br->flag&BRUSH_ADAPTIVE_SPACE ? br->adaptive_space_factor : 1.0f)  *  br->spacing);
+	const float h = spacing / MAGIC_50;
+	const float x0 = x - 1.0f;
 
 	float sum;
 
-	sum = 0;
+	sum = 0.0f;
 	for (i = 0; i < n; i++) {
 		float xx;
 
@@ -585,32 +640,73 @@ static float paint_stroke_integrate_overlap(Brush *br, float factor)
 
 static float paint_space_stroke_spacing_variable(const Scene *scene, PaintStroke *stroke, float pressure, float dpressure, float length)
 {
+	float spacing = paint_space_unadjusted_stroke_spacing(scene, stroke); //spacing without adjustment for angle or pressure
+
+	//adapt the stroke spacing to account for geometry that curves away from the viewport
+	if (BKE_brush_use_adaptive_spacing(stroke->brush)) {
+		spacing = paint_space_stroke_adaptive_spacing(scene, stroke, spacing);
+		//TODO perhaps should do a last_adaptive and new_adaptive as is done with pressure
+
+	}
+
 	if (BKE_brush_use_size_pressure(scene, stroke->brush)) {
 		/* use pressure to modify size. set spacing so that at 100%, the circles
 		 * are aligned nicely with no overlap. for this the spacing needs to be
 		 * the average of the previous and next size. */
-		float s = paint_space_stroke_spacing(scene, stroke, 1.0f, pressure);
-		float q = s * dpressure / (2.0f * length);
+		float q = spacing * dpressure / (2.0f * length);
 		float pressure_fac = (1.0f + q) / (1.0f - q);
 
 		float last_size_pressure = stroke->last_pressure;
 		float new_size_pressure = stroke->last_pressure * pressure_fac;
 
 		/* average spacing */
-		float last_spacing = paint_space_stroke_spacing(scene, stroke, last_size_pressure, pressure);
-		float new_spacing = paint_space_stroke_spacing(scene, stroke, new_size_pressure, pressure);
+		float last_spacing = paint_space_stroke_pressure_spacing(scene, stroke, last_size_pressure, pressure, spacing);
+		float new_spacing = paint_space_stroke_pressure_spacing(scene, stroke, new_size_pressure, pressure, spacing);
 
-		return 0.5f * (last_spacing + new_spacing);
+		spacing = 0.5f * (last_spacing + new_spacing);
+
 	}
-	else {
-		/* no size pressure */
-		return paint_space_stroke_spacing(scene, stroke, 1.0f, pressure);
-	}
+	return spacing;
 }
 
-/* For brushes with stroke spacing enabled, moves mouse in steps
- * towards the final mouse location. */
-static int paint_space_stroke(bContext *C, wmOperator *op, const float final_mouse[2], float final_pressure)
+/* Draw a dab in the sample region.
+ * sample_point is the end point.
+ * step_v2 is the vector between first point and the end point.
+ * draw dabs with spacing interpolated on the line between the two points.
+ */
+static int draw_spaced_dab(bContext *C, wmOperator *op,const float sample_point[2], float step_v2[2], float dist_last_dab, float spacing, float pressure, float *length_v3){
+	float draw_pos[2];
+	float interpol_fact;
+	float interpol_pos = -dist_last_dab;
+	int cnt = 0;
+
+	while((*length_v3)-interpol_pos >= spacing){
+		interpol_fact = 1.0f-((interpol_pos+spacing)/(*length_v3));
+		if(interpol_fact > 0.0f && interpol_fact <= 1.0f){
+			mul_v2_v2fl(draw_pos,step_v2,-interpol_fact);
+			add_v2_v2(draw_pos,sample_point);
+			paint_brush_stroke_add_step(C, op, draw_pos, pressure);
+			cnt ++;
+		}else{
+			/*Cornercase should not happen. TODO: Delete?*/
+			mul_v2_v2fl(draw_pos,step_v2,-1.0f);
+			add_v2_v2(draw_pos,sample_point);
+			paint_brush_stroke_add_step(C, op, draw_pos, pressure);
+			*length_v3 = 0.0f;
+			return cnt+1;
+		}
+		interpol_pos += spacing;
+	}
+	/* transfer remaining space between end point and last dab to the next region*/
+	*length_v3 -= interpol_pos;
+
+	return cnt;
+}
+
+/* Calculate spacing in screen space. (distance between last dab in screen space)
+ * This checks distance to the last dab. Maybe it should be distance drawn on screen?
+ */
+static int paint_space_stroke_screen_space(bContext *C, wmOperator *op, const float final_mouse[2], float final_pressure)
 {
 	const Scene *scene = CTX_data_scene(C);
 	PaintStroke *stroke = op->customdata;
@@ -620,7 +716,7 @@ static int paint_space_stroke(bContext *C, wmOperator *op, const float final_mou
 	float pressure, dpressure;
 	float mouse[2], dmouse[2];
 	float length;
-	float no_pressure_spacing = paint_space_stroke_spacing(scene, stroke, 1.0f, 1.0f);
+	float no_pressure_spacing = paint_space_unadjusted_stroke_spacing(scene, stroke);
 
 	sub_v2_v2v2(dmouse, final_mouse, stroke->last_mouse_position);
 
@@ -652,6 +748,143 @@ static int paint_space_stroke(bContext *C, wmOperator *op, const float final_mou
 			break;
 		}
 	}
+	
+	return cnt;
+}
+
+/* For brushes with adaptive stroke spacing enabled.
+ * Calculate spacing in object space. Distance drawn on surface rather than distance drawn on screen.
+ */
+static int paint_space_stroke_object_space(bContext *C, wmOperator *op, const float final_mouse[2], float final_pressure)
+{
+	const Scene *scene = CTX_data_scene(C);
+	PaintStroke *stroke = op->customdata;
+	UnifiedPaintSettings *ups = stroke->ups;
+	int cnt = 0;
+
+	float pressure, dpressure;
+	float mouse_v3[3], diff_mouse_v3[3];
+
+	float length, length_v3;
+	float no_pressure_spacing = paint_space_unadjusted_stroke_spacing(scene, stroke);
+
+	int steps;
+	float length_v2,step_size;
+	float diff_path_v2[2], step_pos_v2[2];
+	float start_step_v3[3], end_step_v3[3];
+
+	bool off_mesh = false;
+	float min_res = 0.1f;
+
+	pressure = stroke->last_pressure;
+	dpressure = final_pressure - stroke->last_pressure;
+
+	if(stroke->get_location){
+		if(!stroke->get_location(C, mouse_v3, final_mouse)){
+			off_mesh = true;
+		}
+	}
+
+	sub_v3_v3v3(diff_mouse_v3, mouse_v3, stroke->last_v3_mouse_position);
+
+	/* accumulate path or 3d max distance from last dab?
+	 * accumulative version here:
+	 */
+
+	/*length_v3 is the distance between the last samplepoint and the current*/
+	length_v3 = normalize_v3(diff_mouse_v3);
+
+	if(length_v3 > 0.0f){
+		float spacing = paint_space_stroke_spacing_variable(scene, stroke, pressure, dpressure, stroke->distance_since_last_dab);
+
+		/*check if more samplepoints are needed to better approximate the surface.*/
+		if(length_v3 > min_res){
+			steps = ceilf(length_v3/min_res);
+			sub_v2_v2v2(diff_path_v2,final_mouse,stroke->last_mouse_position);
+			length_v2 = normalize_v2(diff_path_v2);
+			if(off_mesh){
+				step_size = 1.0f/min_res;
+				steps = 10000;/*turns "for" into "while", maybe there is a better way?*/
+			}else{
+				step_size = length_v2/steps;
+			}
+
+			length_v3 = 0.0f;
+
+			mul_v2_fl(diff_path_v2,step_size);
+
+			copy_v3_v3(start_step_v3,stroke->last_v3_mouse_position);
+			copy_v2_v2(step_pos_v2,stroke->last_mouse_position);
+
+#ifdef DEBUG_DRAW
+			bl_debug_color_set(0x000000);
+#endif
+			/*split up the current section into smaller parts*/
+			for(int i = 0; i < steps; i++){
+				if(i < steps-1){
+					add_v2_v2(step_pos_v2,diff_path_v2);
+					if(stroke->get_location){
+						if(!stroke->get_location(C, end_step_v3, step_pos_v2)){
+							copy_v2_v2(stroke->last_mouse_position,step_pos_v2);
+							copy_v3_v3(stroke->last_v3_mouse_position,end_step_v3);
+							return cnt;
+						}
+					}
+					length_v3 = len_v3v3(end_step_v3,start_step_v3);
+#ifdef DEBUG_DRAW
+					bl_debug_draw_edge_add(end_step_v3,start_step_v3);
+#endif
+					copy_v3_v3(start_step_v3,end_step_v3);
+				}else{
+					add_v2_v2(step_pos_v2,diff_path_v2);
+					length_v3 = len_v3v3(end_step_v3,mouse_v3);
+#ifdef DEBUG_DRAW
+					bl_debug_color_set(0xff0000);
+					bl_debug_draw_edge_add(end_step_v3,mouse_v3);
+#endif
+				}
+
+				/*Dab*/
+				length = stroke->distance_since_last_dab + length_v3;
+				if(length >= spacing){
+					pressure = stroke->last_pressure + (spacing / length) * dpressure;
+					ups->overlap_factor = paint_stroke_integrate_overlap(stroke->brush, (spacing/stroke->brush->adaptive_space_factor) / no_pressure_spacing);
+					stroke->stroke_distance += spacing;
+
+					cnt += draw_spaced_dab(C, op, step_pos_v2, diff_path_v2, stroke->distance_since_last_dab, spacing, pressure, &length_v3);
+
+					stroke->distance_since_last_dab = length_v3;
+					pressure = stroke->last_pressure;
+					dpressure = final_pressure - stroke->last_pressure;
+				}else{
+					stroke->distance_since_last_dab += length_v3;
+				}
+				/*end Dab*/
+			}
+		}else{
+			/*Dab*/
+			length = stroke->distance_since_last_dab + length_v3;
+			if(length >= spacing){
+				sub_v2_v2v2(diff_path_v2,final_mouse,stroke->last_mouse_position);
+
+				pressure = stroke->last_pressure + (spacing / length) * dpressure;
+				ups->overlap_factor = paint_stroke_integrate_overlap(stroke->brush, (spacing/stroke->brush->adaptive_space_factor) / no_pressure_spacing);//paint_stroke_integrate_overlap(stroke->brush, spacing / no_pressure_spacing);
+				stroke->stroke_distance += length;
+
+				cnt += draw_spaced_dab(C, op, final_mouse, diff_path_v2, stroke->distance_since_last_dab, spacing, pressure, &length_v3);
+
+				stroke->distance_since_last_dab = length_v3;
+				pressure = stroke->last_pressure;
+				dpressure = final_pressure - stroke->last_pressure;
+			}else{
+				stroke->distance_since_last_dab += length_v3;
+			}
+			/*end Dab*/
+		}
+	}
+
+	copy_v2_v2(stroke->last_mouse_position,final_mouse);
+	copy_v3_v3(stroke->last_v3_mouse_position,mouse_v3);
 
 	return cnt;
 }
@@ -960,7 +1193,12 @@ static void paint_stroke_line_end(bContext *C, wmOperator *op, PaintStroke *stro
 		stroke->ups->overlap_factor = paint_stroke_integrate_overlap(br, 1.0);
 
 		paint_brush_stroke_add_step(C, op, stroke->last_mouse_position, 1.0);
-		paint_space_stroke(C, op, mouse, 1.0);
+
+		if(BKE_brush_use_adaptive_spacing(stroke->brush)){
+			paint_space_stroke_object_space(C,op, mouse, 1.0f);
+		}else{
+			paint_space_stroke_screen_space(C,op, mouse, 1.0f);
+		}
 	}
 }
 
@@ -971,7 +1209,7 @@ static bool paint_stroke_curve_end(bContext *C, wmOperator *op, PaintStroke *str
 	if (br->flag & BRUSH_CURVE) {
 		UnifiedPaintSettings *ups = &CTX_data_tool_settings(C)->unified_paint_settings;
 		const Scene *scene = CTX_data_scene(C);
-		const float spacing = paint_space_stroke_spacing(scene, stroke, 1.0f, 1.0f);
+		const float spacing = paint_space_unadjusted_stroke_spacing(scene, stroke);
 		PaintCurve *pc = br->paint_curve;
 		PaintCurvePoint *pcp;
 		float length_residue = 0.0f;
@@ -1125,6 +1363,7 @@ int paint_stroke_modal(bContext *C, wmOperator *op, const wmEvent *event)
 	if (!stroke->stroke_started) {
 		stroke->last_pressure = sample_average.pressure;
 		copy_v2_v2(stroke->last_mouse_position, sample_average.mouse);
+		stroke->get_location(C,stroke->last_v3_mouse_position,stroke->last_mouse_position);
 		stroke->stroke_started = stroke->test_start(C, op, sample_average.mouse);
 		BLI_assert((stroke->stroke_started & ~1) == 0);  /* 0/1 */
 
@@ -1191,8 +1430,13 @@ int paint_stroke_modal(bContext *C, wmOperator *op, const wmEvent *event)
 		if (paint_smooth_stroke(stroke, &sample_average, mode, mouse, &pressure)) {
 			if (stroke->stroke_started) {
 				if (paint_space_stroke_enabled(br, mode)) {
-					if (paint_space_stroke(C, op, mouse, pressure))
-						redraw = true;
+					if (BKE_brush_use_adaptive_spacing(stroke->brush)) {
+						if (paint_space_stroke_object_space(C, op, mouse, pressure))
+							redraw = true;
+					}else{
+						if (paint_space_stroke_screen_space(C, op, mouse, pressure))
+							redraw = true;
+					}
 				}
 				else {
 					float dmouse[2];

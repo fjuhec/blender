@@ -91,6 +91,7 @@ typedef struct Brush {
 	float secondary_rgb[3]; /* background color */
 
 	int sculpt_plane;       /* the direction of movement for sculpt vertices */
+	float sculpt_plane_range; /* adjust the range for determining the sculpt plane normal and center */
 
 	float plane_offset;     /* offset for plane brushes (clay, flatten, fill, scrape) */
 
@@ -118,6 +119,8 @@ typedef struct Brush {
 	int cursor_overlay_alpha;
 
 	float unprojected_radius;
+
+	float adaptive_space_factor;
 
 	/* soften/sharpen */
 	float sharp_threshold;

@@ -1575,6 +1575,16 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 			}
 		}
 
+		Brush *br;
+		for (br = main->brush.first; br; br = br->id.next) {
+			br->flag |= BRUSH_SPACE_ATTEN; // enable adaptive attenuation
+			//TODO currently too slow to be enabled on by default
+			//br->flag |= BRUSH_ADAPTIVE_SPACE;
+			if (br->ob_mode & OB_MODE_SCULPT)
+				br->sculpt_plane_range = 1.0;				
+		}
+
+
 		/* Fix for T50736, Glare comp node using same var for two different things. */
 		if (!DNA_struct_elem_find(fd->filesdna, "NodeGlare", "char", "star_45")) {
 			FOREACH_NODETREE(main, ntree, id) {

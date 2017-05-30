@@ -36,14 +36,14 @@
 #include "DNA_listBase.h"
 #include "DNA_vec_types.h"
 #include "DNA_key_types.h"
-
+#include "DNA_customdata_types.h"
 #include "BLI_bitmap.h"
 #include "BKE_pbvh.h"
 
 struct bContext;
-struct KeyBlock;
 struct Object;
 struct SculptUndoNode;
+
 
 int sculpt_mode_poll(struct bContext *C);
 int sculpt_mode_poll_view3d(struct bContext *C);
@@ -54,6 +54,7 @@ int sculpt_poll_view3d(struct bContext *C);
 /* Stroke */
 bool sculpt_stroke_get_location(bContext *C, float out[3], const float mouse[2]);
 
+
 /* Dynamic topology */
 void sculpt_pbvh_clear(Object *ob);
 void sculpt_dyntopo_node_layers_add(struct SculptSession *ss);
@@ -62,9 +63,21 @@ void sculpt_dynamic_topology_enable(struct bContext *C);
 void sculpt_dynamic_topology_disable(struct bContext *C,
                                      struct SculptUndoNode *unode);
 
+/* Calculate Sculpt Normals and Centers */
+void calc_sculpt_normal(struct Sculpt *sd,
+			struct Object *ob,
+			struct PBVHNode **nodes,
+			int totnode,
+			float r_area_no[3]);
+//void calc_area_normal(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode, float r_area_no[3]);
+//void calc_sculpt_plane(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode, float r_area_no[3], float r_area_co[3]);
+//void calc_area_normal_and_center(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode, float r_area_no[3], float r_area_co[3]);
+//void calc_area_center(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode, float r_area_co[3]);
+
+
 /* Undo */
 
-typedef enum {
+typedef enum SculptUndoType {
 	SCULPT_UNDO_COORDS,
 	SCULPT_UNDO_HIDDEN,
 	SCULPT_UNDO_MASK,
@@ -76,7 +89,7 @@ typedef enum {
 typedef struct SculptUndoNode {
 	struct SculptUndoNode *next, *prev;
 
-	SculptUndoType type;
+	enum SculptUndoType type;
 
 	char idname[MAX_ID_NAME];   /* name instead of pointer*/
 	void *node;                 /* only during push, not valid afterwards! */
