@@ -2489,7 +2489,7 @@ void BKE_pose_fmap_cache_update(Depsgraph *graph, Object *ob_pose)
 				/* We know that 'ob' is a mesh that is deformed by 'ob_act'. */
 				for (bFaceMap *fmap = ob->fmaps.first; fmap; fmap = fmap->next) {
 					bPoseChannel *pchan = BKE_pose_channel_find_name(ob_pose->pose, fmap->name);
-					if (pchan->bone->flag & BONE_DRAW_FMAP) {
+					if (pchan && pchan->bone->flag & BONE_DRAW_FMAP) {
 						if (pchan->fmap_data != NULL) {
 							/* XXX, we could support multiple meshes per bone,
 							 * it's a corner-case so only add if users end up needing it. */
