@@ -53,6 +53,8 @@
 
 /* allow readfile to use deprecated functionality */
 #define DNA_DEPRECATED_ALLOW
+/* allow using DNA struct members that are marked as private for read/write */
+#define DNA_PRIVATE_READ_WRITE_ALLOW
 
 #include "DNA_anim_types.h"
 #include "DNA_armature_types.h"
@@ -99,6 +101,7 @@
 #include "DNA_sound_types.h"
 #include "DNA_space_types.h"
 #include "DNA_vfont_types.h"
+#include "DNA_workspace_types.h"
 #include "DNA_world_types.h"
 #include "DNA_movieclip_types.h"
 #include "DNA_mask_types.h"
@@ -2781,9 +2784,9 @@ static void direct_link_cachefile(FileData *fd, CacheFile *cache_file)
 
 static void lib_link_workspaces(FileData *fd, Main *bmain)
 {
-	BKE_WORKSPACE_ITER_BEGIN (workspace, bmain->workspaces.first) {
-		ID *id = (ID *)workspace;
+	for (WorkSpace *workspace = bmain->workspaces.first; workspace; workspace = workspace->id.next) {
 		ListBase *layouts = BKE_workspace_layouts_get(workspace);
+		ID *id = (ID *)workspace;
 
 		if ((id->tag & LIB_TAG_NEED_LINK) == 0) {
 			continue;
@@ -2791,7 +2794,7 @@ static void lib_link_workspaces(FileData *fd, Main *bmain)
 		IDP_LibLinkProperty(id->properties, fd);
 		id_us_ensure_real(id);
 
-		BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout, layouts->first) {
+		for (WorkSpaceLayout *layout = layouts->first; layout; layout = layout->next) {
 			bScreen *screen = newlibadr(fd, id->lib, BKE_workspace_layout_screen_get(layout));
 
 			if (screen) {
@@ -2805,32 +2808,26 @@ static void lib_link_workspaces(FileData *fd, Main *bmain)
 					}
 				}
 			}
-		} BKE_WORKSPACE_LAYOUT_ITER_END;
+		}
 
 		id->tag &= ~LIB_TAG_NEED_LINK;
-	} BKE_WORKSPACE_ITER_END;
+	}
 }
 
 static void direct_link_workspace(FileData *fd, WorkSpace *workspace, const Main *main)
 {
-	ID *workspace_id = (ID *)workspace;
-	ListBase *hook_layout_relations = BKE_workspace_hook_layout_relations_get(workspace);
-
 	link_list(fd, BKE_workspace_layouts_get(workspace));
-	link_list(fd, hook_layout_relations);
+	link_list(fd, &workspace->hook_layout_relations);
 
-	for (struct WorkSpaceDataRelation *relation = hook_layout_relations->first;
+	for (WorkSpaceDataRelation *relation = workspace->hook_layout_relations.first;
 	     relation;
-	     relation = (void *)((Link *)relation)->next)
+	     relation = relation->next)
 	{
-		void *parent, *data;
-		BKE_workspace_relation_data_get(relation, &parent, &data);
-		parent = newglobadr(fd, parent); /* data from window - need to access through global oldnew-map */
-		data = newdataadr(fd, data);
-		BKE_workspace_relation_data_set(relation, parent, data);
+		relation->parent = newglobadr(fd, relation->parent); /* data from window - need to access through global oldnew-map */
+		relation->value = newdataadr(fd, relation->value);
 	}
 
-	if (ID_IS_LINKED_DATABLOCK(workspace_id)) {
+	if (ID_IS_LINKED_DATABLOCK(&workspace->id)) {
 		/* Appending workspace so render layer is likely from a different scene. Unset
 		 * now, when activating workspace later we set a valid one from current scene. */
 		BKE_workspace_render_layer_set(workspace, NULL);
@@ -6060,13 +6057,13 @@ static void direct_link_layer_collections(FileData *fd, ListBase *lb)
 static void direct_link_scene_update_screen_data(
         FileData *fd, const Scene *scene, const ListBase *workspaces)
 {
-	BKE_WORKSPACE_ITER_BEGIN (workspace, workspaces->first) {
+	for (WorkSpace *workspace = workspaces->first; workspace; workspace = workspace->id.next) {
 		SceneLayer *layer = newdataadr(fd, BKE_workspace_render_layer_get(workspace));
 		/* only set when layer is from the scene we read */
 		if (layer && (BLI_findindex(&scene->render_layers, layer) != -1)) {
 			BKE_workspace_render_layer_set(workspace, layer);
 		}
-	} BKE_WORKSPACE_ITER_END;
+	}
 }
 
 static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
@@ -7127,14 +7124,14 @@ void blo_lib_link_restore(Main *newmain, wmWindowManager *curwm, Scene *curscene
 {
 	struct IDNameLib_Map *id_map = BKE_main_idmap_create(newmain);
 
-	BKE_WORKSPACE_ITER_BEGIN (workspace, newmain->workspaces.first) {
+	for (WorkSpace *workspace = newmain->workspaces.first; workspace; workspace = workspace->id.next) {
 		ListBase *layouts = BKE_workspace_layouts_get(workspace);
 
-		BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout, layouts->first) {
+		for (WorkSpaceLayout *layout = layouts->first; layout; layout = layout->next) {
 			lib_link_workspace_layout_restore(id_map, newmain, layout);
-		} BKE_WORKSPACE_LAYOUT_ITER_END;
+		}
 		BKE_workspace_render_layer_set(workspace, cur_render_layer);
-	} BKE_WORKSPACE_ITER_END;
+	}
 
 	for (wmWindow *win = curwm->windows.first; win; win = win->next) {
 		WorkSpace *workspace = BKE_workspace_active_get(win->workspace_hook);
@@ -9953,9 +9950,9 @@ static void expand_workspace(FileData *fd, Main *mainvar, WorkSpace *workspace)
 {
 	ListBase *layouts = BKE_workspace_layouts_get(workspace);
 
-	BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout, layouts->first) {
+	for (WorkSpaceLayout *layout = layouts->first; layout; layout = layout->next) {
 		expand_doit(fd, mainvar, BKE_workspace_layout_screen_get(layout));
-	} BKE_WORKSPACE_LAYOUT_ITER_END;
+	}
 }
 
 /**

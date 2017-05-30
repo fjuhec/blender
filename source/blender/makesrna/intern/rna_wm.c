@@ -461,6 +461,8 @@ EnumPropertyItem rna_enum_wm_report_items[] = {
 
 #include "WM_api.h"
 
+#include "DNA_workspace_types.h"
+
 #include "ED_screen.h"
 
 #include "UI_interface.h"
@@ -686,19 +688,19 @@ static void rna_Window_workspace_set(PointerRNA *ptr, PointerRNA value)
 	}
 
 	/* exception: can't set workspaces inside of area/region handlers */
-	BKE_workspace_temp_store_set(win->workspace_hook, value.data);
+	win->workspace_hook->temp_workspace_store = value.data;
 }
 
 static void rna_Window_workspace_update(bContext *C, PointerRNA *ptr)
 {
 	wmWindow *win = ptr->data;
-	WorkSpace *new_workspace = BKE_workspace_temp_store_get(win->workspace_hook);
+	WorkSpace *new_workspace = win->workspace_hook->temp_workspace_store;
 
 	/* exception: can't set screens inside of area/region handlers,
 	 * and must use context so notifier gets to the right window */
 	if (new_workspace) {
 		WM_event_add_notifier(C, NC_SCREEN | ND_WORKSPACE_SET, new_workspace);
-		BKE_workspace_temp_store_set(win->workspace_hook, NULL);
+		win->workspace_hook->temp_workspace_store = NULL;
 	}
 }
 
@@ -725,7 +727,7 @@ static void rna_Window_screen_set(PointerRNA *ptr, PointerRNA value)
 
 	/* exception: can't set screens inside of area/region handlers */
 	layout_new = BKE_workspace_layout_find(workspace, value.data);
-	BKE_workspace_temp_layout_store_set(win->workspace_hook, layout_new);
+	win->workspace_hook->temp_layout_store = layout_new;
 }
 
 static int rna_Window_screen_assign_poll(PointerRNA *UNUSED(ptr), PointerRNA value)
@@ -737,13 +739,13 @@ static int rna_Window_screen_assign_poll(PointerRNA *UNUSED(ptr), PointerRNA val
 static void rna_workspace_screen_update(bContext *C, PointerRNA *ptr)
 {
 	wmWindow *win = ptr->data;
-	WorkSpaceLayout *layout_new = BKE_workspace_temp_layout_store_get(win->workspace_hook);
+	WorkSpaceLayout *layout_new = win->workspace_hook->temp_layout_store;
 
 	/* exception: can't set screens inside of area/region handlers,
 	 * and must use context so notifier gets to the right window */
 	if (layout_new) {
 		WM_event_add_notifier(C, NC_SCREEN | ND_LAYOUTBROWSE, layout_new);
-		BKE_workspace_temp_layout_store_set(win->workspace_hook, NULL);
+		win->workspace_hook->temp_layout_store = NULL;
 	}
 }
 

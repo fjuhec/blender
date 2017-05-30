@@ -70,6 +70,7 @@
 #include "DNA_vfont_types.h"
 #include "DNA_windowmanager_types.h"
 #include "DNA_world_types.h"
+#include "DNA_workspace_types.h"
 
 #include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
@@ -121,7 +122,6 @@
 #include "BKE_scene.h"
 #include "BKE_text.h"
 #include "BKE_texture.h"
-#include "BKE_workspace.h"
 #include "BKE_world.h"
 
 #include "DEG_depsgraph.h"
@@ -977,7 +977,7 @@ void *BKE_libblock_alloc_notest(short type)
 			id = MEM_callocN(sizeof(CacheFile), "Cache File");
 			break;
 		case ID_WS:
-			id = (ID *)BKE_workspace_alloc();
+			id = MEM_callocN(sizeof(WorkSpace), "Workspace");
 			break;
 	}
 	return id;

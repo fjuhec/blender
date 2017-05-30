@@ -22,8 +22,8 @@
  *  \ingroup bke
  */
 
-/* allow including specially guarded dna_workspace_types.h */
-#define DNA_NAMESPACE_WORKSPACE
+/* allow accessing private members of DNA_workspace_types.h */
+#define DNA_PRIVATE_WORKSPACE_ALLOW
 
 #include <stdlib.h>
 
@@ -40,21 +40,13 @@
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
-#include "dna_workspace_types.h"
+#include "DNA_workspace_types.h"
 
 #include "MEM_guardedalloc.h"
 
 
 /* -------------------------------------------------------------------- */
 /* Internal utils */
-
-/**
- * Only to be called by #BKE_libblock_alloc_notest! Always use BKE_workspace_add to add a new workspace.
- */
-WorkSpace *BKE_workspace_alloc(void)
-{
-	return MEM_callocN(sizeof(WorkSpace), __func__);
-}
 
 static void workspace_layout_name_set(
         WorkSpace *workspace, WorkSpaceLayout *layout, const char *new_name)
@@ -162,9 +154,10 @@ void BKE_workspace_free(WorkSpace *workspace)
 
 void BKE_workspace_remove(Main *bmain, WorkSpace *workspace)
 {
-	BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout, workspace->layouts.first) {
+	for (WorkSpaceLayout *layout = workspace->layouts.first, *layout_next; layout; layout = layout_next) {
+		layout_next = layout->next;
 		BKE_workspace_layout_remove(bmain, workspace, layout);
-	} BKE_WORKSPACE_LAYOUT_ITER_END;
+	}
 
 	BKE_libblock_free(bmain, workspace);
 }
@@ -174,9 +167,9 @@ WorkSpaceInstanceHook *BKE_workspace_instance_hook_create(const Main *bmain)
 	WorkSpaceInstanceHook *hook = MEM_callocN(sizeof(WorkSpaceInstanceHook), __func__);
 
 	/* set an active screen-layout for each possible window/workspace combination */
-	BKE_WORKSPACE_ITER_BEGIN (workspace_iter, bmain->workspaces.first) {
-		BKE_workspace_hook_layout_for_workspace_set(hook, workspace_iter, workspace_iter->layouts.first);
-	} BKE_WORKSPACE_ITER_END;
+	for (WorkSpace *workspace = bmain->workspaces.first; workspace; workspace = workspace->id.next) {
+		BKE_workspace_hook_layout_for_workspace_set(hook, workspace, workspace->layouts.first);
+	}
 
 	return hook;
 }
@@ -186,7 +179,7 @@ void BKE_workspace_instance_hook_free(const Main *bmain, WorkSpaceInstanceHook *
 	BLI_assert(!BLI_listbase_is_empty(&bmain->workspaces));
 
 	/* Free relations for this hook */
-	BKE_WORKSPACE_ITER_BEGIN (workspace, bmain->workspaces.first) {
+	for (WorkSpace *workspace = bmain->workspaces.first; workspace; workspace = workspace->id.next) {
 		for (WorkSpaceDataRelation *relation = workspace->hook_layout_relations.first, *relation_next;
 		     relation;
 		     relation = relation_next)
@@ -196,7 +189,7 @@ void BKE_workspace_instance_hook_free(const Main *bmain, WorkSpaceInstanceHook *
 				workspace_relation_remove(&workspace->hook_layout_relations, relation);
 			}
 		}
-	} BKE_WORKSPACE_ITER_END;
+	}
 
 	MEM_freeN(hook);
 }
@@ -260,7 +253,7 @@ WorkSpaceLayout *BKE_workspace_layout_find_global(
 		*r_workspace = NULL;
 	}
 
-	BKE_WORKSPACE_ITER_BEGIN (workspace, bmain->workspaces.first) {
+	for (WorkSpace *workspace = bmain->workspaces.first; workspace; workspace = workspace->id.next) {
 		if ((layout = workspace_layout_find_exec(workspace, screen))) {
 			if (r_workspace) {
 				*r_workspace = workspace;
@@ -268,7 +261,7 @@ WorkSpaceLayout *BKE_workspace_layout_find_global(
 
 			return layout;
 		}
-	} BKE_WORKSPACE_ITER_END;
+	}
 
 	return NULL;
 }
@@ -321,23 +314,6 @@ void BKE_workspace_active_set(WorkSpaceInstanceHook *hook, WorkSpace *workspace)
 	}
 }
 
-const char *BKE_workspace_name_get(const WorkSpace *workspace)
-{
-	return workspace->id.name + 2;
-}
-
-/**
- * Needed because we can't switch workspaces during handlers, it would break context.
- */
-WorkSpace *BKE_workspace_temp_store_get(WorkSpaceInstanceHook *hook)
-{
-	return hook->temp_store;
-}
-void BKE_workspace_temp_store_set(WorkSpaceInstanceHook *hook, WorkSpace *workspace)
-{
-	hook->temp_store = workspace;
-}
-
 WorkSpaceLayout *BKE_workspace_active_layout_get(const WorkSpaceInstanceHook *hook)
 {
 	return hook->act_layout;
@@ -345,15 +321,6 @@ WorkSpaceLayout *BKE_workspace_active_layout_get(const WorkSpaceInstanceHook *ho
 void BKE_workspace_active_layout_set(WorkSpaceInstanceHook *hook, WorkSpaceLayout *layout)
 {
 	hook->act_layout = layout;
-}
-
-WorkSpaceLayout *BKE_workspace_temp_layout_store_get(const WorkSpaceInstanceHook *hook)
-{
-	return hook->temp_layout_store;
-}
-void BKE_workspace_temp_layout_store_set(WorkSpaceInstanceHook *hook, WorkSpaceLayout *layout)
-{
-	hook->temp_layout_store = layout;
 }
 
 bScreen *BKE_workspace_active_screen_get(const WorkSpaceInstanceHook *hook)
@@ -421,22 +388,4 @@ void BKE_workspace_hook_layout_for_workspace_set(
 {
 	hook->act_layout = layout;
 	workspace_relation_ensure_updated(&workspace->hook_layout_relations, hook, layout);
-}
-
-ListBase *BKE_workspace_hook_layout_relations_get(WorkSpace *workspace)
-{
-	return &workspace->hook_layout_relations;
-}
-
-void BKE_workspace_relation_data_get(
-        const WorkSpaceDataRelation *relation,
-        void **parent, void **data)
-{
-	*parent = relation->parent;
-	*data = relation->value;
-}
-void BKE_workspace_relation_data_set(WorkSpaceDataRelation *relation, void *parent, void *data)
-{
-	relation->parent = parent;
-	relation->value = data;
 }

@@ -18,18 +18,42 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file dna_workspace_types.h
+/** \file DNA_workspace_types.h
  *  \ingroup DNA
  *
- * Only use with API in BKE_workspace.h!
+ * Use API in BKE_workspace.h!
+ * Struct members marked with DNA_PRIVATE_WORKSPACE will throw a
+ * warning saying it's deprecated when used outside of workspace.c.
  */
 
 #ifndef __DNA_WORKSPACE_TYPES_H__
 #define __DNA_WORKSPACE_TYPES_H__
 
-#if !defined(DNA_NAMESPACE_WORKSPACE) && !defined(DNA_NAMESPACE)
-#  error "This file shouldn't be included outside of workspace namespace."
+
+/* Same logic as DNA_DEPRECATED_ALLOW, but throws 'deprecated'
+ * warnings if DNA_PRIVATE_WORKSPACE_ALLOW is not defined */
+#ifdef DNA_PRIVATE_WORKSPACE_ALLOW
+   /* allow use of private items */
+#  define DNA_PRIVATE_WORKSPACE
+#else
+#  ifndef DNA_PRIVATE_WORKSPACE
+#    ifdef __GNUC__
+#      define DNA_PRIVATE_WORKSPACE __attribute__ ((deprecated))
+#    else
+       /* TODO, msvc & others */
+#      define DNA_PRIVATE_WORKSPACE
+#    endif
+#  endif
 #endif
+
+#ifdef DNA_PRIVATE_READ_WRITE_ALLOW
+#  define DNA_PRIVATE_WORKSPACE_READ_WRITE
+#else
+#  ifndef DNA_PRIVATE_WORKSPACE_READ_WRITE
+#    define DNA_PRIVATE_WORKSPACE_READ_WRITE DNA_PRIVATE_WORKSPACE
+#  endif
+#endif
+
 
 /**
  * \brief Wrapper for bScreen.
@@ -41,24 +65,27 @@
 typedef struct WorkSpaceLayout {
 	struct WorkSpaceLayout *next, *prev;
 
-	struct bScreen *screen;
+	struct bScreen *screen DNA_PRIVATE_WORKSPACE;
 	/* The name of this layout, we override the RNA name of the screen with this (but not ID name itself) */
-	char name[64]; /* MAX_NAME */
+	char name[64] DNA_PRIVATE_WORKSPACE; /* MAX_NAME */
 } WorkSpaceLayout;
 
 typedef struct WorkSpace {
 	ID id;
 
-	ListBase layouts; /* WorkSpaceLayout */
+	ListBase layouts DNA_PRIVATE_WORKSPACE; /* WorkSpaceLayout */
 	/* Store for each hook (so for each window) which layout has
 	 * been activated the last time this workspace was visible. */
-	ListBase hook_layout_relations; /* WorkSpaceDataRelation */
+	ListBase hook_layout_relations DNA_PRIVATE_WORKSPACE_READ_WRITE; /* WorkSpaceDataRelation */
 
-	int object_mode; /* enum ObjectMode */
+	int object_mode DNA_PRIVATE_WORKSPACE; /* enum ObjectMode */
 	int pad;
 
-	struct SceneLayer *render_layer;
+	struct SceneLayer *render_layer DNA_PRIVATE_WORKSPACE;
 } WorkSpace;
+
+/* internal struct, but exported for read/write */
+#if defined(DNA_PRIVATE_READ_WRITE_ALLOW) || defined(DNA_PRIVATE_WORKSPACE_ALLOW)
 
 /**
  * Generic (and simple/primitive) struct for storing a history of assignments/relations
@@ -92,16 +119,19 @@ typedef struct WorkSpaceDataRelation {
 	void *value;
 } WorkSpaceDataRelation;
 
+#endif /* DNA_PRIVATE_WORKSPACE_READ_WRITE */
+
 /**
  * Little wrapper to store data that is going to be per window, but comming from the workspace.
  * It allows us to keep workspace and window data completely separate.
  */
 typedef struct WorkSpaceInstanceHook {
-	WorkSpace *active;
-	WorkSpace *temp_store;
+	WorkSpace *active DNA_PRIVATE_WORKSPACE;
+	struct WorkSpaceLayout *act_layout DNA_PRIVATE_WORKSPACE;
 
-	struct WorkSpaceLayout *act_layout;
-	struct WorkSpaceLayout *temp_layout_store; /* temporary when switching screens */
+	/* Needed because we can't change workspaces/layouts in running handler loop, it would break context. */
+	WorkSpace *temp_workspace_store;
+	struct WorkSpaceLayout *temp_layout_store;
 } WorkSpaceInstanceHook;
 
 #endif /* __DNA_WORKSPACE_TYPES_H__ */

@@ -34,6 +34,7 @@
 #include "BLI_listbase.h"
 
 #include "DNA_screen_types.h"
+#include "DNA_workspace_types.h"
 
 #include "ED_screen.h"
 
@@ -111,20 +112,17 @@ bool workspace_layout_set_poll(const WorkSpaceLayout *layout)
 
 static WorkSpaceLayout *workspace_layout_delete_find_new(const WorkSpaceLayout *layout_old)
 {
-	WorkSpaceLayout *prev = (void *)((Link *)layout_old)->prev;
-	WorkSpaceLayout *next = (void *)((Link *)layout_old)->next;
-
-	BKE_WORKSPACE_LAYOUT_ITER_BACKWARD_BEGIN (layout_new, prev) {
+	for (WorkSpaceLayout *layout_new = layout_old->prev; layout_new; layout_new = layout_new->next) {
 		if (workspace_layout_set_poll(layout_new)) {
 			return layout_new;
 		}
-	} BKE_WORKSPACE_LAYOUT_ITER_END;
+	}
 
-	BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout_new, next) {
+	for (WorkSpaceLayout *layout_new = layout_old->next; layout_new; layout_new = layout_new->next) {
 		if (workspace_layout_set_poll(layout_new)) {
 			return layout_new;
 		}
-	} BKE_WORKSPACE_LAYOUT_ITER_END;
+	}
 
 	return NULL;
 }

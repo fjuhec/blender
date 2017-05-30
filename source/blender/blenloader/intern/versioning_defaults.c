@@ -40,6 +40,7 @@
 #include "DNA_mesh_types.h"
 #include "DNA_material_types.h"
 #include "DNA_object_types.h"
+#include "DNA_workspace_types.h"
 
 #include "BKE_brush.h"
 #include "BKE_library.h"
@@ -93,15 +94,17 @@ static void update_defaults_startup_workspaces(Main *bmain)
 {
 	WorkSpace *workspace_default = NULL;
 
-	BKE_WORKSPACE_ITER_BEGIN (workspace, bmain->workspaces.first) {
-		if (STREQ(BKE_workspace_name_get(workspace), "Default")) {
+	for (WorkSpace *workspace = bmain->workspaces.first, *workspace_next; workspace; workspace = workspace_next) {
+		workspace_next = workspace->id.next;
+
+		if (STREQ(workspace->id.name + 2, "Default")) {
 			/* don't rename within iterator, renaming causes listbase to be re-sorted */
 			workspace_default = workspace;
 		}
 		else {
 			BKE_workspace_remove(bmain, workspace);
 		}
-	} BKE_WORKSPACE_ITER_END;
+	}
 
 	/* rename "Default" workspace to "General" */
 	BKE_libblock_rename(bmain, (ID *)workspace_default, "General");

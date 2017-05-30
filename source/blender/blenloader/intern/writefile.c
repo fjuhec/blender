@@ -102,6 +102,8 @@
 
 /* allow writefile to use deprecated functionality (for forward compatibility code) */
 #define DNA_DEPRECATED_ALLOW
+/* allow using DNA struct members that are marked as private for read/write */
+#define DNA_PRIVATE_READ_WRITE_ALLOW
 
 #include "DNA_anim_types.h"
 #include "DNA_armature_types.h"
@@ -147,6 +149,7 @@
 #include "DNA_vfont_types.h"
 #include "DNA_world_types.h"
 #include "DNA_windowmanager_types.h"
+#include "DNA_workspace_types.h"
 #include "DNA_movieclip_types.h"
 #include "DNA_mask_types.h"
 
@@ -3737,11 +3740,10 @@ static void write_cachefile(WriteData *wd, CacheFile *cache_file)
 static void write_workspace(WriteData *wd, WorkSpace *workspace)
 {
 	ListBase *layouts = BKE_workspace_layouts_get(workspace);
-	ListBase *relation_list = BKE_workspace_hook_layout_relations_get(workspace);
 
 	writestruct(wd, ID_WS, WorkSpace, 1, workspace);
 	writelist(wd, DATA, WorkSpaceLayout, layouts);
-	writelist(wd, DATA, WorkSpaceDataRelation, relation_list);
+	writelist(wd, DATA, WorkSpaceDataRelation, &workspace->hook_layout_relations);
 }
 
 /* Keep it last of write_foodata functions. */

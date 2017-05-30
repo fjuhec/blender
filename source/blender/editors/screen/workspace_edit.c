@@ -46,6 +46,7 @@
 #include "DNA_object_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_windowmanager_types.h"
+#include "DNA_workspace_types.h"
 
 #include "ED_object.h"
 #include "ED_screen.h"
@@ -130,12 +131,11 @@ static WorkSpaceLayout *workspace_change_get_new_layout(
         WorkSpace *workspace_new, wmWindow *win)
 {
 	/* ED_workspace_duplicate may have stored a layout to activate once the workspace gets activated. */
-	WorkSpaceLayout *layout_temp_store = BKE_workspace_temp_layout_store_get(win->workspace_hook);
 	WorkSpaceLayout *layout_new;
 	bScreen *screen_new;
 
-	if (layout_temp_store) {
-		layout_new = layout_temp_store;
+	if (win->workspace_hook->temp_workspace_store) {
+		layout_new = win->workspace_hook->temp_layout_store;
 	}
 	else {
 		layout_new = BKE_workspace_hook_layout_for_workspace_get(win->workspace_hook, workspace_new);
@@ -178,7 +178,7 @@ bool ED_workspace_change(
 	bScreen *screen_new = BKE_workspace_layout_screen_get(layout_new);
 	bScreen *screen_old = BKE_workspace_active_screen_get(win->workspace_hook);
 
-	BKE_workspace_temp_layout_store_set(win->workspace_hook, NULL);
+	win->workspace_hook->temp_layout_store = NULL;
 	if (workspace_old == workspace_new) {
 		/* Could also return true, everything that needs to be done was done (nothing :P), but nothing changed */
 		return false;
@@ -214,19 +214,20 @@ WorkSpace *ED_workspace_duplicate(
 	WorkSpaceLayout *layout_active_old = BKE_workspace_active_layout_get(win->workspace_hook);
 	ListBase *layouts_old = BKE_workspace_layouts_get(workspace_old);
 	WorkSpace *workspace_new = ED_workspace_add(
-	        bmain, BKE_workspace_name_get(workspace_old),
+	        bmain, workspace_old->id.name + 2,
 	        BKE_workspace_render_layer_get(workspace_old));
 
 #ifdef USE_WORKSPACE_MODE
 	BKE_workspace_object_mode_set(workspace_new, BKE_workspace_object_mode_get(workspace_old));
 #endif
 
-	BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout_old, layouts_old->first) {
+	for (WorkSpaceLayout *layout_old = layouts_old->first; layout_old; layout_old = layout_old->next) {
 		WorkSpaceLayout *layout_new = ED_workspace_layout_duplicate(workspace_new, layout_old, win);
+
 		if (layout_active_old == layout_old) {
-			BKE_workspace_temp_layout_store_set(win->workspace_hook, layout_new);
+			win->workspace_hook->temp_layout_store = layout_new;
 		}
-	} BKE_WORKSPACE_LAYOUT_ITER_END;
+	}
 
 	return workspace_new;
 }
@@ -364,7 +365,7 @@ static void workspace_append_button(
 
 	BLI_assert(STREQ(ot_append->idname, "WM_OT_append"));
 	opptr = uiItemFullO_ptr(
-	            layout, ot_append, BKE_workspace_name_get(workspace), ICON_NONE, NULL,
+	            layout, ot_append, workspace->id.name + 2, ICON_NONE, NULL,
 	            WM_OP_EXEC_DEFAULT, UI_ITEM_O_RETURN_PROPS);
 	RNA_string_set(&opptr, "directory", lib_path);
 	RNA_string_set(&opptr, "filename", id->name + 2);
@@ -379,9 +380,9 @@ static void workspace_config_file_append_buttons(
 	if (workspace_config) {
 		wmOperatorType *ot_append = WM_operatortype_find("WM_OT_append", true);
 
-		BKE_WORKSPACE_ITER_BEGIN (workspace, workspace_config->workspaces.first) {
+		for (WorkSpace *workspace = workspace_config->workspaces.first; workspace; workspace = workspace->id.next) {
 			workspace_append_button(layout, ot_append, workspace, workspace_config->main);
-		} BKE_WORKSPACE_ITER_END;
+		}
 
 		BKE_blendfile_workspace_config_data_free(workspace_config);
 	}

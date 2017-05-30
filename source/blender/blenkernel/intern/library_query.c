@@ -62,6 +62,7 @@
 #include "DNA_text_types.h"
 #include "DNA_vfont_types.h"
 #include "DNA_windowmanager_types.h"
+#include "DNA_workspace_types.h"
 #include "DNA_world_types.h"
 
 #include "BLI_utildefines.h"
@@ -980,13 +981,13 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 				WorkSpace *workspace = (WorkSpace *)id;
 				ListBase *layouts = BKE_workspace_layouts_get(workspace);
 
-				BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout, layouts->first) {
+				for (WorkSpaceLayout *layout = layouts->first; layout; layout = layout->next) {
 					bScreen *screen = BKE_workspace_layout_screen_get(layout);
 
 					CALLBACK_INVOKE(screen, IDWALK_CB_NOP);
 					/* allow callback to set a different screen */
 					BKE_workspace_layout_screen_set(layout, screen);
-				} BKE_WORKSPACE_LAYOUT_ITER_END;
+				}
 
 				break;
 			}
