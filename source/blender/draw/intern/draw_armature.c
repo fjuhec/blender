@@ -1021,6 +1021,13 @@ static void draw_points(
 	}
 }
 
+static bool pchan_is_draw_fmap_only(const bArmature *arm, const bPoseChannel *pchan)
+{
+	return ((arm->flag & ARM_POSEMODE) &&
+	        (pchan->fmap_data != NULL) &&
+	        (pchan->bone->flag & BONE_DRAW_FMAP_ONLY));
+}
+
 /** \} */
 
 
@@ -1312,7 +1319,9 @@ static void draw_armature_pose(Object *ob, const float const_color[4])
 		arm->layer_used |= bone->layer;
 
 		/* bone must be visible */
-		if ((bone->flag & (BONE_HIDDEN_P | BONE_HIDDEN_PG)) == 0) {
+		if ((bone->flag & (BONE_HIDDEN_P | BONE_HIDDEN_PG)) == 0 &&
+		    (!pchan_is_draw_fmap_only(arm, pchan)))
+		{
 			if (bone->layer & arm->layer) {
 				const int select_id = is_pose_select ? index : (unsigned int)-1;
 
