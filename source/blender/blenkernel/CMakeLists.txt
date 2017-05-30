@@ -105,7 +105,6 @@ set(SRC
 	intern/editmesh_bvh.c
 	intern/editmesh_tangent.c
 	intern/effect.c
-	intern/facemap.c
 	intern/fcurve.c
 	intern/fluidsim.c
 	intern/fmodifier.c
@@ -146,6 +145,7 @@ set(SRC
 	intern/nla.c
 	intern/node.c
 	intern/object.c
+	intern/object_facemap.c
 	intern/object_deform.c
 	intern/object_dupli.c
 	intern/object_update.c
@@ -237,7 +237,6 @@ set(SRC
 	BKE_editmesh_bvh.h
 	BKE_editmesh_tangent.h
 	BKE_effect.h
-	BKE_facemap.h
 	BKE_fcurve.h
 	BKE_fluidsim.h
 	BKE_font.h
@@ -273,6 +272,7 @@ set(SRC
 	BKE_nla.h
 	BKE_node.h
 	BKE_object.h
+	BKE_object_facemap.h
 	BKE_object_deform.h
 	BKE_ocean.h
 	BKE_outliner_treehash.h

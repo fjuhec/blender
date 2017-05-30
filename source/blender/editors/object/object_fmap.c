@@ -33,9 +33,9 @@
 
 #include "BKE_context.h"
 #include "BKE_customdata.h"
-#include "BKE_facemap.h"
 #include "BKE_editmesh.h"
 #include "BKE_object.h"
+#include "BKE_object_facemap.h"
 #include "BKE_object_deform.h"
 
 #include "BKE_depsgraph.h"

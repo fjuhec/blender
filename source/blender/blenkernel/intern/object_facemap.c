@@ -25,15 +25,20 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
+/** \file blender/blenkernel/intern/object_facemap.c
+ *  \ingroup bke
+ */
+
+#include <string.h>
 
 #include "DNA_object_types.h"
 #include "DNA_mesh_types.h"
 
 #include "BKE_context.h"
 #include "BKE_customdata.h"
-#include "BKE_facemap.h"
 #include "BKE_editmesh.h"
 #include "BKE_object.h"
+#include "BKE_object_facemap.h"  /* own include */
 #include "BKE_object_deform.h"
 
 #include "BKE_depsgraph.h"
@@ -50,9 +55,6 @@
 
 #include "RNA_define.h"
 #include "RNA_access.h"
-
-#include <string.h>
-
 
 static bool fmap_unique_check(void *arg, const char *name)
 {
@@ -238,7 +240,7 @@ void BKE_object_fmap_remove_all(Object *ob)
 			fmap = next_fmap;
 		}
 	}
-	/* remove all dverts */
+	/* remove all face-maps */
 	if (ob->type == OB_MESH) {
 		Mesh *me = ob->data;
 		CustomData_free_layer(&me->pdata, CD_FACEMAP, me->totpoly, 0);

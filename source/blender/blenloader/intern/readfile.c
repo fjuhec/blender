@@ -122,7 +122,6 @@
 #include "BKE_context.h"
 #include "BKE_curve.h"
 #include "BKE_effect.h"
-#include "BKE_facemap.h"
 #include "BKE_fcurve.h"
 #include "BKE_global.h" // for G
 #include "BKE_group.h"
@@ -139,6 +138,7 @@
 #include "BKE_multires.h"
 #include "BKE_node.h" // for tree type defines
 #include "BKE_object.h"
+#include "BKE_object_facemap.h"
 #include "BKE_paint.h"
 #include "BKE_particle.h"
 #include "BKE_pointcache.h"

@@ -20,10 +20,10 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-#ifndef __BKE_FACEMAP_H__
-#define __BKE_FACEMAP_H__
+#ifndef __BKE_OBJECT_FACEMAP_H__
+#define __BKE_OBJECT_FACEMAP_H__
 
-/** \file BKE_facemap.h
+/** \file BKE_object_facemap.h
  * \ingroup bke
  * \brief Functions for dealing with objects and facemaps.
  */
@@ -51,4 +51,4 @@ void fmap_copy_list(struct ListBase *outbase, struct ListBase *inbase);
 }
 #endif
 
-#endif /* __BKE_FACEMAP_H__ */
+#endif /* __BKE_OBJECT_FACEMAP_H__ */
