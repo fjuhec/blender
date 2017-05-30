@@ -421,11 +421,16 @@ class CYCLES_RENDER_PT_performance(CyclesButtonsPanel, Panel):
         col.separator()
 
         col.label(text="Acceleration structure:")
-        col.prop(cscene, "debug_use_spatial_splits")
-        col.prop(cscene, "debug_use_hair_bvh")
+        col.prop(cscene, "use_bvh_embree")
+        row = col.row()
+        row.active = not cscene.use_bvh_embree
+        row.prop(cscene, "debug_use_spatial_splits")
+        row = col.row()
+        row.active = not cscene.use_bvh_embree
+        row.prop(cscene, "debug_use_hair_bvh")
 
         row = col.row()
-        row.active = not cscene.debug_use_spatial_splits
+        row.active = not cscene.debug_use_spatial_splits and not cscene.use_bvh_embree
         row.prop(cscene, "debug_bvh_time_steps")
 
         col = layout.column()
