@@ -47,7 +47,7 @@ set(SRC
 	object_bake_api.c
 	object_constraint.c
 	object_edit.c
-	object_fmap.c
+	object_facemap_ops.c
 	object_group.c
 	object_hook.c
 	object_lattice.c

@@ -1577,7 +1577,7 @@ static void rna_FaceMap_face_add(ID *id, bFaceMap *fmap, ReportList *reports, in
 	}
 
 	while (index_len--)
-		ED_fmap_face_add(ob, fmap, *index++);
+		ED_object_facemap_face_add(ob, fmap, *index++);
 
 	WM_main_add_notifier(NC_GEOM | ND_DATA, (ID *)ob->data);
 }
@@ -1592,7 +1592,7 @@ static void rna_FaceMap_face_remove(ID *id, bFaceMap *fmap, ReportList *reports,
 	}
 
 	while (index_len--)
-		ED_fmap_face_remove(ob, fmap, *index++);
+		ED_object_facemap_face_remove(ob, fmap, *index++);
 
 	WM_main_add_notifier(NC_GEOM | ND_DATA, (ID *)ob->data);
 }

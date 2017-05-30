@@ -261,9 +261,9 @@ float                ED_vgroup_vert_weight(struct Object *ob, struct bDeformGrou
 void                 ED_vgroup_vert_active_mirror(struct Object *ob, int def_nr);
 
 
-/* object_fmap.c */
-void ED_fmap_face_add(struct Object *ob, struct bFaceMap *fmap, int facenum);
-void ED_fmap_face_remove(struct Object *ob, struct bFaceMap *fmap, int facenum);
+/* object_facemap_ops.c */
+void ED_object_facemap_face_add(struct Object *ob, struct bFaceMap *fmap, int facenum);
+void ED_object_facemap_face_remove(struct Object *ob, struct bFaceMap *fmap, int facenum);
 
 /* mesh_data.c */
 // void ED_mesh_geometry_add(struct Mesh *mesh, struct ReportList *reports, int verts, int edges, int faces);
