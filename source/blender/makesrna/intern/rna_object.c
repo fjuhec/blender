@@ -2281,7 +2281,7 @@ static void rna_def_object_vertex_groups(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_ui_description(func, "Delete all vertex groups from object");
 }
 
-/* object.vertex_groups */
+/* object.face_maps */
 static void rna_def_object_face_maps(BlenderRNA *brna, PropertyRNA *cprop)
 {
 	StructRNA *srna;
@@ -2502,11 +2502,7 @@ static void rna_def_object(BlenderRNA *brna)
 	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_Object_parent_bone_set");
 	RNA_def_property_ui_text(prop, "Parent Bone", "Name of parent bone in case of a bone parenting relation");
 	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_dependency_update");
-
-	prop = RNA_def_property(srna, "wgroup", PROP_POINTER, PROP_NONE);
-	RNA_def_property_ui_text(prop, "Widget Group", "Group of widgets assigned to the object");
-	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, NULL);
-
+	
 	/* Track and Up flags */
 	/* XXX: these have been saved here for a bit longer (after old track was removed),
 	 *      since some other tools still refer to this */
@@ -2751,7 +2747,7 @@ static void rna_def_object(BlenderRNA *brna)
 	rna_def_object_vertex_groups(brna, prop);
 
 	
-	/* vertex groups */
+	/* face maps */
 	prop = RNA_def_property(srna, "face_maps", PROP_COLLECTION, PROP_NONE);
 	RNA_def_property_collection_sdna(prop, NULL, "fmaps", NULL);
 	RNA_def_property_struct_type(prop, "FaceMap");
