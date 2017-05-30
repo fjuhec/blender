@@ -744,7 +744,7 @@ static void rna_def_bone(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "show_fmap", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", BONE_DRAW_FMAP);
-	RNA_def_property_ui_text(prop, "Face Map", "Use an assosiated face map for this bone");
+	RNA_def_property_ui_text(prop, "Face Map", "Use an associated face map for this bone");
 	RNA_def_property_update(prop, 0, "rna_Armature_redraw_data");
 
 	prop = RNA_def_property(srna, "show_only_fmap", PROP_BOOLEAN, PROP_NONE);
