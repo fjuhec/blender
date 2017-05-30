@@ -1872,6 +1872,9 @@ static void pose_proxy_synchronize(Object *ob, Object *from, int layer_protected
 			
 			/* copy data in temp back over to the cleaned-out (but still allocated) original channel */
 			*pchan = pchanw;
+			if (pchan->custom) {
+				id_us_plus(&pchan->custom->id);
+			}
 		}
 		else {
 			/* always copy custom shape */
