@@ -289,7 +289,7 @@ NO_BUILD=false
 NO_CONFIRM=false
 USE_CXX11=false
 
-PYTHON_VERSION="3.5.2"
+PYTHON_VERSION="3.5.3"
 PYTHON_VERSION_MIN="3.5"
 PYTHON_FORCE_BUILD=false
 PYTHON_FORCE_REBUILD=false
@@ -366,8 +366,7 @@ ALEMBIC_FORCE_BUILD=false
 ALEMBIC_FORCE_REBUILD=false
 ALEMBIC_SKIP=false
 
-# Version??
-OPENCOLLADA_VERSION="1.3"
+OPENCOLLADA_VERSION="1.6.47"
 OPENCOLLADA_FORCE_BUILD=false
 OPENCOLLADA_FORCE_REBUILD=false
 OPENCOLLADA_SKIP=false
@@ -737,7 +736,10 @@ _boost_version_nodots=`echo "$BOOST_VERSION" | sed -r 's/\./_/g'`
 BOOST_SOURCE=( "http://sourceforge.net/projects/boost/files/boost/$BOOST_VERSION/boost_$_boost_version_nodots.tar.bz2/download" )
 BOOST_BUILD_MODULES="--with-system --with-filesystem --with-thread --with-regex --with-locale --with-date_time --with-wave --with-iostreams --with-python --with-program_options"
 
+OCIO_USE_REPO=true
 OCIO_SOURCE=( "https://github.com/imageworks/OpenColorIO/tarball/v$OCIO_VERSION" )
+OCIO_SOURCE_REPO=( "https://github.com/imageworks/OpenColorIO.git" )
+OCIO_SOURCE_REPO_UID="6de971097c7f552300f669ed69ca0b6cf5a70843"
 
 OPENEXR_USE_REPO=false
 OPENEXR_SOURCE=( "http://download.savannah.nongnu.org/releases/openexr/openexr-$OPENEXR_VERSION.tar.gz" )
@@ -786,7 +788,7 @@ ALEMBIC_SOURCE=( "https://github.com/alembic/alembic/archive/${ALEMBIC_VERSION}.
 # ALEMBIC_SOURCE_REPO_BRANCH="master"
 
 OPENCOLLADA_SOURCE=( "https://github.com/KhronosGroup/OpenCOLLADA.git" )
-OPENCOLLADA_REPO_UID="3335ac164e68b2512a40914b14c74db260e6ff7d"
+OPENCOLLADA_REPO_UID="22b1f4ff026881b4d2804d397730286ab7e3d090"
 OPENCOLLADA_REPO_BRANCH="master"
 
 FFMPEG_SOURCE=( "http://ffmpeg.org/releases/ffmpeg-$FFMPEG_VERSION.tar.bz2" )
@@ -1268,7 +1270,7 @@ compile_OCIO() {
   fi
 
   # To be changed each time we make edits that would modify the compiled result!
-  ocio_magic=1
+  ocio_magic=2
   _init_ocio
 
   # Clean install if needed!
@@ -1285,14 +1287,27 @@ compile_OCIO() {
     if [ ! -d $_src ]; then
       INFO "Downloading OpenColorIO-$OCIO_VERSION"
       mkdir -p $SRC
-      download OCIO_SOURCE[@] $_src.tar.gz
 
-      INFO "Unpacking OpenColorIO-$OCIO_VERSION"
-      tar -C $SRC --transform "s,(.*/?)imageworks-OpenColorIO[^/]*(.*),\1OpenColorIO-$OCIO_VERSION\2,x" \
-          -xf $_src.tar.gz
+      if [ "$OCIO_USE_REPO" = true ]; then
+        git clone ${OCIO_SOURCE_REPO[0]} $_src
+      else
+        download OCIO_SOURCE[@] $_src.tar.gz
+        INFO "Unpacking OpenColorIO-$OCIO_VERSION"
+        tar -C $SRC --transform "s,(.*/?)imageworks-OpenColorIO[^/]*(.*),\1OpenColorIO-$OCIO_VERSION\2,x" \
+            -xf $_src.tar.gz
+      fi
+
     fi
 
     cd $_src
+
+    if [ "$OCIO_USE_REPO" = true ]; then
+      # XXX For now, always update from latest repo...
+      git pull origin master
+      git checkout $OCIO_SOURCE_REPO_UID
+      git reset --hard
+    fi
+
     # Always refresh the whole build!
     if [ -d build ]; then
       rm -rf build
@@ -1498,7 +1513,6 @@ compile_OPENEXR() {
     if [ "$OPENEXR_USE_REPO" = true ]; then
       # XXX For now, always update from latest repo...
       git pull origin master
-      # Stick to same rev as windows' libs...
       git checkout $OPENEXR_SOURCE_REPO_UID
       git reset --hard
       oiio_src_path="../OpenEXR"
@@ -2270,7 +2284,9 @@ compile_ALEMBIC() {
     fi
 
     if [ -d $INST/boost ]; then
-      cmake_d="$cmake_d -D BOOST_ROOT=$INST/boost"
+      if [ -d $INST/boost ]; then
+        cmake_d="$cmake_d -D BOOST_ROOT=$INST/boost"
+      fi
       cmake_d="$cmake_d -D USE_STATIC_BOOST=ON"
     else
       cmake_d="$cmake_d -D USE_STATIC_BOOST=OFF"
@@ -2599,7 +2615,6 @@ install_DEB() {
   fi
 
   # These libs should always be available in debian/ubuntu official repository...
-  OPENJPEG_DEV="libopenjpeg-dev"
   VORBIS_DEV="libvorbis-dev"
   OGG_DEV="libogg-dev"
   THEORA_DEV="libtheora-dev"
@@ -2607,15 +2622,23 @@ install_DEB() {
   _packages="gawk cmake cmake-curses-gui build-essential libjpeg-dev libpng-dev libtiff-dev \
              git libfreetype6-dev libx11-dev flex bison libtbb-dev libxxf86vm-dev \
              libxcursor-dev libxi-dev wget libsqlite3-dev libxrandr-dev libxinerama-dev \
-             libbz2-dev libncurses5-dev libssl-dev liblzma-dev libreadline-dev $OPENJPEG_DEV \
+             libbz2-dev libncurses5-dev libssl-dev liblzma-dev libreadline-dev \
              libopenal-dev libglew-dev yasm $THEORA_DEV $VORBIS_DEV $OGG_DEV \
              libsdl1.2-dev libfftw3-dev patch bzip2 libxml2-dev libtinyxml-dev libjemalloc-dev"
              # libglewmx-dev  (broken in deb testing currently...)
 
-  OPENJPEG_USE=true
   VORBIS_USE=true
   OGG_USE=true
   THEORA_USE=true
+
+  PRINT ""
+  # New Ubuntu crap (17.04 and more) have no openjpeg lib!
+  OPENJPEG_DEV="libopenjpeg-dev"
+  check_package_DEB $OPENJPEG_DEV
+  if [ $? -eq 0 ]; then
+    _packages="$_packages $OPENJPEG_DEV"
+    OPENJPEG_USE=true
+  fi
 
   PRINT ""
   # Some not-so-old distro (ubuntu 12.4) do not have it, do not fail in this case, just warn.
@@ -2778,7 +2801,7 @@ install_DEB() {
 
       boost_version=$(echo `get_package_version_DEB libboost-dev` | sed -r 's/^([0-9]+\.[0-9]+).*/\1/')
 
-      install_packages_DEB libboost-{filesystem,iostreams,locale,regex,system,thread,wave}$boost_version-dev
+      install_packages_DEB libboost-{filesystem,iostreams,locale,regex,system,thread,wave,program-options}$boost_version-dev
       clean_Boost
     else
       compile_Boost

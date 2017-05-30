@@ -33,6 +33,7 @@
 #include <cuda.h>
 #include <cuda_fp16.h>
 #include <float.h>
+#include <stdint.h>
 
 /* Qualifier wrappers for different names on different devices */
 
@@ -53,6 +54,11 @@
 #define ccl_addr_space
 #define ccl_restrict __restrict__
 #define ccl_align(n) __align__(n)
+
+#define ATTR_FALLTHROUGH
+
+#define CCL_MAX_LOCAL_SIZE (CUDA_THREADS_BLOCK_WIDTH*CUDA_THREADS_BLOCK_WIDTH)
+
 
 /* No assert supported for CUDA */
 
