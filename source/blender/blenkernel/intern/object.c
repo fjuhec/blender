@@ -1153,7 +1153,7 @@ Object *BKE_object_copy_ex(Main *bmain, Object *ob, bool copy_caches)
 			BKE_pose_rebuild(obn, obn->data);
 	}
 	defgroup_copy_list(&obn->defbase, &ob->defbase);
-	fmap_copy_list(&obn->fmaps, &ob->fmaps);
+	BKE_object_facemap_copy_list(&obn->fmaps, &ob->fmaps);
 	BKE_constraints_copy(&obn->constraints, &ob->constraints, true);
 
 	obn->mode = OB_MODE_OBJECT;

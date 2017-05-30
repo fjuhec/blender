@@ -614,7 +614,7 @@ static void rna_FaceMap_name_set(PointerRNA *ptr, const char *value)
 	Object *ob = (Object *)ptr->id.data;
 	bFaceMap *fmap = (bFaceMap *)ptr->data;
 	BLI_strncpy_utf8(fmap->name, value, sizeof(fmap->name));
-	fmap_unique_name(fmap, ob);
+	BKE_object_facemap_unique_name(ob, fmap);
 }
 
 static int rna_FaceMap_index_get(PointerRNA *ptr)
@@ -651,7 +651,7 @@ static void rna_Object_active_face_map_index_range(PointerRNA *ptr, int *min, in
 	*max = max_ii(0, BLI_listbase_count(&ob->fmaps) - 1);
 }
 
-void rna_object_fmap_name_index_get(PointerRNA *ptr, char *value, int index)
+void rna_object_BKE_object_facemap_name_index_get(PointerRNA *ptr, char *value, int index)
 {
 	Object *ob = (Object *)ptr->id.data;
 	bFaceMap *fmap;
@@ -662,7 +662,7 @@ void rna_object_fmap_name_index_get(PointerRNA *ptr, char *value, int index)
 	else value[0] = '\0';
 }
 
-int rna_object_fmap_name_index_length(PointerRNA *ptr, int index)
+int rna_object_BKE_object_facemap_name_index_length(PointerRNA *ptr, int index)
 {
 	Object *ob = (Object *)ptr->id.data;
 	bFaceMap *fmap;
@@ -671,16 +671,16 @@ int rna_object_fmap_name_index_length(PointerRNA *ptr, int index)
 	return (fmap) ? strlen(fmap->name) : 0;
 }
 
-void rna_object_fmap_name_index_set(PointerRNA *ptr, const char *value, short *index)
+void rna_object_BKE_object_facemap_name_index_set(PointerRNA *ptr, const char *value, short *index)
 {
 	Object *ob = (Object *)ptr->id.data;
-	*index = fmap_name_index(ob, value) + 1;
+	*index = BKE_object_facemap_name_index(ob, value) + 1;
 }
 
 void rna_object_fmap_name_set(PointerRNA *ptr, const char *value, char *result, int maxlen)
 {
 	Object *ob = (Object *)ptr->id.data;
-	bFaceMap *fmap = fmap_find_name(ob, value);
+	bFaceMap *fmap = BKE_object_facemap_find_name(ob, value);
 	if (fmap) {
 		BLI_strncpy(result, value, maxlen); /* no need for BLI_strncpy_utf8, since this matches an existing group */
 		return;
@@ -1560,7 +1560,7 @@ static void rna_Object_fmap_remove(Object *ob, ReportList *reports, PointerRNA *
 
 static void rna_Object_fmap_clear(Object *ob)
 {
-	BKE_object_fmap_remove_all(ob);
+	BKE_object_facemap_clear(ob);
 
 	WM_main_add_notifier(NC_OBJECT | ND_DRAW, ob);
 }

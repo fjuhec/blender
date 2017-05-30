@@ -90,7 +90,7 @@ static bFaceMap *fmap_duplicate(bFaceMap *infmap)
 	return outfmap;
 }
 
-void fmap_copy_list(ListBase *outbase, ListBase *inbase)
+void BKE_object_facemap_copy_list(ListBase *outbase, ListBase *inbase)
 {
 	bFaceMap *fmap, *fmapn;
 
@@ -102,7 +102,7 @@ void fmap_copy_list(ListBase *outbase, ListBase *inbase)
 	}
 }
 
-void fmap_unique_name(bFaceMap *fmap, Object *ob)
+void BKE_object_facemap_unique_name(Object *ob, bFaceMap *fmap)
 {
 	struct {Object *ob; void *fmap; } data;
 	data.ob = ob;
@@ -126,7 +126,7 @@ bFaceMap *BKE_object_facemap_add_name(Object *ob, const char *name)
 	
 	ob->actfmap = BLI_listbase_count(&ob->fmaps);
 	
-	fmap_unique_name(fmap, ob);
+	BKE_object_facemap_unique_name(ob, fmap);
 
 	return fmap;
 }
@@ -227,7 +227,7 @@ void BKE_object_facemap_remove(Object *ob, bFaceMap *fmap)
 	fmap_remove_exec(ob, fmap, BKE_object_is_in_editmode(ob), true);
 }
 
-void BKE_object_fmap_remove_all(Object *ob)
+void BKE_object_facemap_clear(Object *ob)
 {
 	bFaceMap *fmap = (bFaceMap *)ob->fmaps.first;
 
@@ -248,12 +248,12 @@ void BKE_object_fmap_remove_all(Object *ob)
 	ob->actfmap = 0;
 }
 
-int fmap_name_index(Object *ob, const char *name)
+int BKE_object_facemap_name_index(Object *ob, const char *name)
 {
 	return (name) ? BLI_findstringindex(&ob->fmaps, name, offsetof(bFaceMap, name)) : -1;
 }
 
-bFaceMap *fmap_find_name(Object *ob, const char *name)
+bFaceMap *BKE_object_facemap_find_name(Object *ob, const char *name)
 {
 	return BLI_findstring(&ob->fmaps, name, offsetof(bFaceMap, name));
 }

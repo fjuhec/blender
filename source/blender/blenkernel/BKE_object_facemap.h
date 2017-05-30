@@ -25,7 +25,7 @@
 
 /** \file BKE_object_facemap.h
  * \ingroup bke
- * \brief Functions for dealing with objects and facemaps.
+ * \brief Functions for dealing with object face-maps.
  */
 
 #ifdef __cplusplus
@@ -36,16 +36,15 @@ struct bFaceMap;
 struct ListBase;
 struct Object;
 
-/* Face map operations */
 struct bFaceMap *BKE_object_facemap_add(struct Object *ob);
 struct bFaceMap *BKE_object_facemap_add_name(struct Object *ob, const char *name);
-void BKE_object_facemap_remove(struct Object *ob, struct bFaceMap *fmap);
-void BKE_object_fmap_remove_all(struct Object *ob);
+void             BKE_object_facemap_remove(struct Object *ob, struct bFaceMap *fmap);
+void             BKE_object_facemap_clear(struct Object *ob);
 
-int fmap_name_index(struct Object *ob, const char *name);
-void fmap_unique_name(struct bFaceMap *fmap, struct Object *ob);
-struct bFaceMap *fmap_find_name(struct Object *ob, const char *name);
-void fmap_copy_list(struct ListBase *outbase, struct ListBase *inbase);
+int              BKE_object_facemap_name_index(struct Object *ob, const char *name);
+void             BKE_object_facemap_unique_name(struct Object *ob, struct bFaceMap *fmap);
+struct bFaceMap *BKE_object_facemap_find_name(struct Object *ob, const char *name);
+void             BKE_object_facemap_copy_list(struct ListBase *outbase, struct ListBase *inbase);
 
 #ifdef __cplusplus
 }
