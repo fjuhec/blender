@@ -263,7 +263,7 @@ typedef struct Object {
 	short index;			/* custom index, for renderpasses */
 	unsigned short actdef;	/* current deformation group, note: index starts at 1 */
 	unsigned short actfmap;	/* current face map, note: index starts at 1 */
-	unsigned short pad9[3];
+	unsigned char pad5[6];
 	float col[4];			/* object color */
 
 	int gameflag;
