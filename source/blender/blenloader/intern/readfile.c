@@ -3327,14 +3327,6 @@ static void lib_link_pose(FileData *fd, Main *bmain, Object *ob, bPose *pose)
 		
 		IDP_LibLinkProperty(pchan->prop, fd);
 
-		pchan->fmap_object = newlibadr_us(fd, arm->id.lib, pchan->fmap_object);
-		if (pchan->fmap_object) {
-			bFaceMap *fmap = fmap_find_name(pchan->fmap_object, pchan->fmap->name);
-			/* fix fmap pointer now that we've got updated fmap_object */
-			MEM_freeN(pchan->fmap);
-			pchan->fmap = fmap;
-		}
-
 		pchan->custom = newlibadr_us(fd, arm->id.lib, pchan->custom);
 		if (UNLIKELY(pchan->bone == NULL)) {
 			rebuild = true;
@@ -5006,7 +4998,6 @@ static void direct_link_pose(FileData *fd, bPose *pose)
 		pchan->bone = NULL;
 		pchan->parent = newdataadr(fd, pchan->parent);
 		pchan->child = newdataadr(fd, pchan->child);
-		pchan->fmap = newdataadr(fd, pchan->fmap);
 		pchan->custom_tx = newdataadr(fd, pchan->custom_tx);
 		
 		pchan->bbone_prev = newdataadr(fd, pchan->bbone_prev);
@@ -5028,6 +5019,7 @@ static void direct_link_pose(FileData *fd, bPose *pose)
 		CLAMP(pchan->rotmode, ROT_MODE_MIN, ROT_MODE_MAX);
 
 		pchan->draw_data = NULL;
+		pchan->fmap_data = NULL;
 	}
 	pose->ikdata = NULL;
 	if (pose->ikparam != NULL) {
@@ -9434,7 +9426,6 @@ static void expand_pose(FileData *fd, Main *mainvar, bPose *pose)
 	for (chan = pose->chanbase.first; chan; chan = chan->next) {
 		expand_constraints(fd, mainvar, &chan->constraints);
 		expand_idprops(fd, mainvar, chan->prop);
-		expand_doit(fd, mainvar, chan->fmap_object);
 		expand_doit(fd, mainvar, chan->custom);
 	}
 }

@@ -33,7 +33,10 @@
  *  \author nzc
  */
 
+struct bPose;
+struct Base;
 struct Bone;
+struct Depsgraph;
 struct GHash;
 struct Main;
 struct bArmature;
@@ -100,6 +103,8 @@ void BKE_pose_rebuild(struct Object *ob, struct bArmature *arm);
 void BKE_pose_where_is(struct Scene *scene, struct Object *ob);
 void BKE_pose_where_is_bone(struct Scene *scene, struct Object *ob, struct bPoseChannel *pchan, float ctime, bool do_extra);
 void BKE_pose_where_is_bone_tail(struct bPoseChannel *pchan);
+
+void BKE_pose_fmap_cache_update(struct Depsgraph *graph, struct Object *ob);
 
 /* get_objectspace_bone_matrix has to be removed still */
 void get_objectspace_bone_matrix(struct Bone *bone, float M_accumulatedMatrix[4][4], int root, int posed);

@@ -30,6 +30,7 @@
 #include "BLI_math.h"
 #include "BLI_utildefines.h"
 
+#include "BKE_armature.h"
 #include "BKE_camera.h"
 #include "BKE_context.h"
 #include "BKE_object.h"
@@ -327,9 +328,6 @@ void VIEW3D_WGT_force_field(wmManipulatorGroupType *wgt)
 	wgt->flag |= WM_MANIPULATORGROUPTYPE_IS_3D;
 }
 
-/* draw facemaps depending on the selected bone in pose mode */
-#define USE_FACEMAP_FROM_BONE
-
 #define MAX_ARMATURE_FACEMAP_NAME (2 * MAX_NAME + 1) /* "OBJECTNAME_FACEMAPNAME" */
 
 
@@ -337,34 +335,13 @@ static bool WIDGETGROUP_armature_facemaps_poll(const bContext *C, wmManipulatorG
 {
 	Object *ob = CTX_data_active_object(C);
 
-#ifdef USE_FACEMAP_FROM_BONE
 	if (ob && BKE_object_pose_context_check(ob)) {
 		for (bPoseChannel *pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
-			if (pchan->fmap_object && pchan->fmap) {
+			if (pchan->fmap_data) {
 				return true;
 			}
 		}
 	}
-#else
-	if (ob && ob->type == OB_MESH && ob->fmaps.first) {
-		ModifierData *md;
-		VirtualModifierData virtualModifierData;
-
-		md = modifiers_getVirtualModifierList(ob, &virtualModifierData);
-
-		/* exception for shape keys because we can edit those */
-		for (; md; md = md->next) {
-			if (modifier_isEnabled(CTX_data_scene(C), md, eModifierMode_Realtime) &&
-			    md->type == eModifierType_Armature)
-			{
-				ArmatureModifierData *amd = (ArmatureModifierData *) md;
-				if (amd->object && (amd->deformflag & ARM_DEF_FACEMAPS))
-					return true;
-			}
-		}
-	}
-#endif
-
 	return false;
 }
 
@@ -375,7 +352,7 @@ static void WIDGET_armature_facemaps_select(bContext *C, wmManipulator *widget, 
 	switch (action) {
 		case SEL_SELECT:
 			for (bPoseChannel *pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
-				if (pchan->fmap == MANIPULATOR_facemap_get_fmap(widget)) {
+				if (pchan->fmap_data && pchan->fmap_data->fmap == MANIPULATOR_facemap_get_fmap(widget)) {
 					/* deselect all first */
 					ED_pose_de_selectall(ob, SEL_DESELECT, false);
 					ED_pose_bone_select(ob, pchan, true);
@@ -438,56 +415,25 @@ static void WIDGETGROUP_armature_facemaps_init(const bContext *C, wmManipulatorG
 	Object *ob = CTX_data_active_object(C);
 	bArmature *arm = (bArmature *)ob->data;
 
-#ifdef USE_FACEMAP_FROM_BONE
+	/* TODO(campbell): only update cache when toggling modes or armature modifiers. */
+	{
+		struct Depsgraph *graph = CTX_data_depsgraph(C);
+		BKE_pose_fmap_cache_update(graph, ob);
+	}
+
 	bPoseChannel *pchan;
 	GHash *hash = BLI_ghash_str_new(__func__);
 
 	for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
-		if (pchan->fmap && (pchan->bone->layer & arm->layer)) {
-			wmManipulator *widget = armature_facemap_widget_create(wgroup, pchan->fmap_object, pchan->fmap);
-			armature_facemap_ghash_insert(hash, widget, pchan->fmap_object, pchan->fmap);
+		if (pchan->fmap_data && (pchan->bone->layer & arm->layer)) {
+			wmManipulator *widget = armature_facemap_widget_create(
+			        wgroup, pchan->fmap_data->object, pchan->fmap_data->fmap);
+			armature_facemap_ghash_insert(
+			        hash, widget, pchan->fmap_data->object, pchan->fmap_data->fmap);
 		}
 	}
 	wgroup->customdata = hash;
 	wgroup->customdata_free = armature_facemap_ghash_free;
-#else
-	Object *armature;
-	ModifierData *md;
-	VirtualModifierData virtualModifierData;
-	int index = 0;
-	bFaceMap *fmap = ob->fmaps.first;
-
-
-	md = modifiers_getVirtualModifierList(ob, &virtualModifierData);
-
-	/* exception for shape keys because we can edit those */
-	for (; md; md = md->next) {
-		if (modifier_isEnabled(CTX_data_scene(C), md, eModifierMode_Realtime) && md->type == eModifierType_Armature) {
-			ArmatureModifierData *amd = (ArmatureModifierData *) md;
-			if (amd->object && (amd->deformflag & ARM_DEF_FACEMAPS)) {
-				armature = amd->object;
-				break;
-			}
-		}
-	}
-
-
-	for (; fmap; fmap = fmap->next, index++) {
-		if (BKE_pose_channel_find_name(armature->pose, fmap->name)) {
-			PointerRNA *opptr;
-
-			widget = MANIPULATOR_facemap_new(wgroup, fmap->name, 0, ob, index);
-
-			RNA_pointer_create(&ob->id, &RNA_FaceMap, fmap, &famapptr);
-			WM_manipulator_set_colors(widget, color_shape, color_shape);
-			WM_manipulator_set_flag(widget, WM_MANIPULATOR_DRAW_HOVER, true);
-			opptr = WM_manipulator_set_operator(widget, "TRANSFORM_OT_translate");
-			if ((prop = RNA_struct_find_property(opptr, "release_confirm"))) {
-				RNA_property_boolean_set(opptr, prop, true);
-			}
-		}
-	}
-#endif
 }
 
 /**
@@ -507,25 +453,25 @@ static void WIDGETGROUP_armature_facemaps_refresh(const bContext *C, wmManipulat
 	bArmature *arm = (bArmature *)ob->data;
 	ARegion *ar = CTX_wm_region(C);
 
-#ifdef USE_FACEMAP_FROM_BONE
 	/* we create a new hash from the visible members of the old hash */
 	GHash *oldhash = wgroup->customdata;
 	GHash *newhash = BLI_ghash_str_new(__func__);
 	wmManipulator *widget;
 
 	for (bPoseChannel *pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
-		if (!pchan->fmap)
+		if (pchan->fmap_data == NULL) {
 			continue;
+		}
 
 		char widgetkey[MAX_ARMATURE_FACEMAP_NAME];
-		armature_facemap_hashkey_get(pchan->fmap_object, pchan->fmap, sizeof(widgetkey), widgetkey);
+		armature_facemap_hashkey_get(pchan->fmap_data->object, pchan->fmap_data->fmap, sizeof(widgetkey), widgetkey);
 
 		/* create new widget for newly assigned facemap, add it to new hash */
 		if (!(widget = BLI_ghash_lookup(oldhash, widgetkey))) {
-			widget = armature_facemap_widget_create(wgroup, pchan->fmap_object, pchan->fmap);
+			widget = armature_facemap_widget_create(wgroup, pchan->fmap_data->object, pchan->fmap_data->fmap);
 			BLI_assert(widget);
 		}
-		armature_facemap_ghash_insert(newhash, widget, pchan->fmap_object, pchan->fmap);
+		armature_facemap_ghash_insert(newhash, widget, pchan->fmap_data->object, pchan->fmap_data->fmap);
 
 		if ((pchan->bone->layer & arm->layer)) {
 			const ThemeWireColor *bcol = ED_pchan_get_colorset(arm, ob->pose, pchan);
@@ -556,7 +502,6 @@ static void WIDGETGROUP_armature_facemaps_refresh(const bContext *C, wmManipulat
 	armature_facemap_ghash_free(oldhash);
 
 	wgroup->customdata = newhash;
-#endif
 }
 
 void VIEW3D_WGT_armature_facemaps(wmManipulatorGroupType *wgt)

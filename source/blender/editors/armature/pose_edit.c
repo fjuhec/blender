@@ -96,6 +96,9 @@ void ED_armature_enter_posemode(bContext *C, Base *base)
 			ob->restore_mode = ob->mode;
 			ob->mode |= OB_MODE_POSE;
 			
+			struct Depsgraph *graph = CTX_data_depsgraph(C);
+			BKE_pose_fmap_cache_update(graph, ob);
+
 			WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_MODE_POSE, NULL);
 			
 			break;

@@ -1283,7 +1283,6 @@ static void armature_set_id_extern(Object *ob)
 	
 	for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
 		if (!(pchan->bone->layer & lay)) {
-			id_lib_extern((ID *)pchan->fmap_object);
 			id_lib_extern((ID *)pchan->custom);
 		}
 	}

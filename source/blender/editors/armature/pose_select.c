@@ -365,8 +365,9 @@ static int pose_de_select_all_exec(bContext *C, wmOperator *op)
 	CTX_DATA_BEGIN(C, bPoseChannel *, pchan, visible_pose_bones)
 	{
 		pose_do_bone_select(pchan, action);
-		if (pchan->fmap)
+		if (pchan->fmap_data) {
 			has_facemap = true;
+		}
 	}
 	CTX_DATA_END;
 

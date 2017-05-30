@@ -1650,7 +1650,6 @@ static void write_pose(WriteData *wd, bPose *pose)
 		}
 
 		write_constraints(wd, &chan->constraints);
-		writestruct(wd, DATA, bFaceMap, 1, chan->fmap);
 
 		write_motionpath(wd, chan->mpath);
 

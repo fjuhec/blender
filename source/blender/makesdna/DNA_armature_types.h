@@ -214,7 +214,8 @@ typedef enum eBone_Flag {
 	BONE_NO_LOCAL_LOCATION      = (1 << 22),  /* bone location is in armature space */
 	BONE_RELATIVE_PARENTING     = (1 << 23),  /* object child will use relative transform (like deform) */
 	BONE_ADD_PARENT_END_ROLL    = (1 << 24),   /* it will add the parent end roll to the inroll */
-	BONE_DRAW_FMAP_ONLY         = (1 << 25),  /* don't draw bone itself in pose mode, only its facemap */
+	BONE_DRAW_FMAP              = (1 << 25),  /* don't draw bone itself in pose mode, only its facemap */
+	BONE_DRAW_FMAP_ONLY         = (1 << 26),  /* don't draw bone itself in pose mode, only its facemap */
 } eBone_Flag;
 
 #define MAXBONENAME 64
