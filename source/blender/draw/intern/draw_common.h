@@ -115,7 +115,7 @@ void DRW_shgroup_armature_object(
         struct DRWShadingGroup *shgrp_relationship_lines);
 
 void DRW_shgroup_armature_pose(
-        struct Object *ob,
+        struct Object *ob, SceneLayer *sl,
         struct DRWPass *pass_bone_solid, struct DRWPass *pass_bone_wire, struct DRWPass *pass_bone_envelope,
         struct DRWShadingGroup *shgrp_relationship_lines);
 
