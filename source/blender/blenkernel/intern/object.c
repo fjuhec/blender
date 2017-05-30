@@ -104,7 +104,6 @@
 #include "BKE_node.h"
 #include "BKE_object.h"
 #include "BKE_object_facemap.h"
-#include "BKE_object_deform.h"
 #include "BKE_paint.h"
 #include "BKE_particle.h"
 #include "BKE_pointcache.h"

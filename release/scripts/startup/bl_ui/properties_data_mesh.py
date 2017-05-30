@@ -78,7 +78,7 @@ class MESH_UL_vgroups(UIList):
 
 class MESH_UL_fmaps(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        # assert(isinstance(item, bpy.types.VertexGroup))
+        # assert(isinstance(item, bpy.types.FaceMap))
         fmap = item
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             layout.prop(fmap, "name", text="", emboss=False, icon_value=icon)
