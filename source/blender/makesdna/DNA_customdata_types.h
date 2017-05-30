@@ -91,7 +91,7 @@ typedef enum CustomDataType {
 	CD_MCOL             = 6,
 	CD_ORIGINDEX        = 7,
 	CD_NORMAL           = 8,
-/*	CD_POLYINDEX        = 9, */
+	CD_FACEMAP          = 9, /* exclusive face group, each face can only be part of one */
 	CD_PROP_FLT         = 10,
 	CD_PROP_INT         = 11,
 	CD_PROP_STR         = 12,
@@ -128,7 +128,6 @@ typedef enum CustomDataType {
 	CD_MLOOPTANGENT     = 39,
 	CD_TESSLOOPNORMAL   = 40,
 	CD_CUSTOMLOOPNORMAL = 41,
-	CD_FACEMAP          = 42, /* exclusive face group, each face can only be part of one */
 
 	CD_NUMTYPES         = 43
 } CustomDataType;
@@ -143,7 +142,7 @@ typedef enum CustomDataType {
 #define CD_MASK_MCOL		(1 << CD_MCOL)
 #define CD_MASK_ORIGINDEX	(1 << CD_ORIGINDEX)
 #define CD_MASK_NORMAL		(1 << CD_NORMAL)
-// #define CD_MASK_POLYINDEX	(1 << CD_POLYINDEX)
+#define CD_MASK_FACEMAP		(1 << CD_FACEMAP)
 #define CD_MASK_PROP_FLT	(1 << CD_PROP_FLT)
 #define CD_MASK_PROP_INT	(1 << CD_PROP_INT)
 #define CD_MASK_PROP_STR	(1 << CD_PROP_STR)
@@ -178,7 +177,6 @@ typedef enum CustomDataType {
 #define CD_MASK_MLOOPTANGENT    (1LL << CD_MLOOPTANGENT)
 #define CD_MASK_TESSLOOPNORMAL  (1LL << CD_TESSLOOPNORMAL)
 #define CD_MASK_CUSTOMLOOPNORMAL (1LL << CD_CUSTOMLOOPNORMAL)
-#define CD_MASK_FACEMAP         (1LL << CD_FACEMAP)
 
 /* CustomData.flag */
 enum {
