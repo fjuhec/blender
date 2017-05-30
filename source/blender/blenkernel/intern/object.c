@@ -430,6 +430,7 @@ void BKE_object_free(Object *ob)
 	}
 	if (ob->mpath) {
 		animviz_free_motionpath(ob->mpath);
+		ob->mpath = NULL;
 	}
 	BKE_bproperty_free_list(&ob->prop);
 

@@ -833,7 +833,7 @@ static void rna_def_pose_channel(BlenderRNA *brna)
 	RNA_def_property_struct_type(prop, "PoseBone");
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_ui_text(prop, "Child", "Child of this pose bone");
-
+	
 	/* Transformation settings */
 	prop = RNA_def_property(srna, "location", PROP_FLOAT, PROP_TRANSLATION);
 	RNA_def_property_float_sdna(prop, NULL, "loc");

@@ -9789,8 +9789,6 @@ void ED_draw_object_facemap(Scene *scene, Object *ob, const float col[4], const 
 	/* add polygon offset so we draw above the original surface */
 	glPolygonOffset(1.0, 1.0);
 
-	dm->totfmaps = BLI_listbase_count(&ob->fmaps);
-
 	GPU_facemap_setup(dm);
 
 	glColor4fv(col);
