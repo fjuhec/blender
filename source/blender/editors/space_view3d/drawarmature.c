@@ -1926,9 +1926,10 @@ static void bone_matrix_translate_y(float mat[4][4], float y)
 	add_v3_v3(mat[3], trans);
 }
 
-BLI_INLINE bool pchan_is_draw_fmap_only(const Scene *scene, const bPoseChannel *pchan)
+static bool pchan_is_draw_fmap_only(SceneLayer *sl, Base *base, const bPoseChannel *pchan)
 {
-	return ((scene->basact && scene->basact->object->mode & OB_MODE_POSE) &&
+	return ((sl->basact == base) &&
+	        (OBACT_NEW->mode & OB_MODE_POSE) &&
 	        (pchan->fmap_data != NULL) &&
 	        (pchan->bone->flag & BONE_DRAW_FMAP_ONLY));
 }
@@ -2018,7 +2019,7 @@ static void draw_pose_bones(Scene *scene, SceneLayer *sl, View3D *v3d, ARegion *
 			 * 2) drawing is not limited to face maps only
 			 * 3) for OpenGL select-drawing cannot have unselectable [#27194] */
 			if (((bone->flag & (BONE_HIDDEN_P | BONE_HIDDEN_PG)) == 0) &&
-			    (!pchan_is_draw_fmap_only(scene, pchan)) &&
+			    (!pchan_is_draw_fmap_only(sl, base, pchan)) &&
 			    ((G.f & G_PICKSEL) == 0 || (bone->flag & BONE_UNSELECTABLE) == 0))
 			{
 				if (bone->layer & arm->layer) {
@@ -2124,7 +2125,7 @@ static void draw_pose_bones(Scene *scene, SceneLayer *sl, View3D *v3d, ARegion *
 			 * 2) drawing is not limited to face maps only
 			 * 3) for OpenGL select-drawing cannot have unselectable [#27194] */
 			if (((bone->flag & (BONE_HIDDEN_P | BONE_HIDDEN_PG)) == 0) &&
-			    (!pchan_is_draw_fmap_only(scene, pchan)) &&
+			    (!pchan_is_draw_fmap_only(sl, base, pchan)) &&
 			    ((G.f & G_PICKSEL) == 0 || (bone->flag & BONE_UNSELECTABLE) == 0) )
 			{
 				if (bone->layer & arm->layer) {
@@ -2213,7 +2214,7 @@ static void draw_pose_bones(Scene *scene, SceneLayer *sl, View3D *v3d, ARegion *
 			 * 2) drawing is not limited to face maps only
 			 * 3) for OpenGL select-drawing cannot have unselectable [#27194] */
 			if (((bone->flag & (BONE_HIDDEN_P | BONE_HIDDEN_PG)) == 0) &&
-			    (!pchan_is_draw_fmap_only(scene, pchan)) &&
+			    (!pchan_is_draw_fmap_only(sl, base, pchan)) &&
 			    ((G.f & G_PICKSEL) == 0 || (bone->flag & BONE_UNSELECTABLE) == 0))
 			{
 				if (bone->layer & arm->layer) {
@@ -2358,7 +2359,7 @@ static void draw_pose_bones(Scene *scene, SceneLayer *sl, View3D *v3d, ARegion *
 				/* 1) bone must be visible
 				 * 2) drawing is not limited to face maps only */
 				if ((pchan->bone->flag & (BONE_HIDDEN_P | BONE_HIDDEN_PG)) == 0 &&
-				    (!pchan_is_draw_fmap_only(scene, pchan)))
+				    (!pchan_is_draw_fmap_only(sl, base, pchan)))
 				{
 					if (pchan->bone->layer & arm->layer) {
 						if (arm->flag & (ARM_EDITMODE | ARM_POSEMODE)) {
