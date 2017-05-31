@@ -103,7 +103,6 @@ typedef struct GPENCIL_e_data {
 	struct GPUShader *gpencil_stroke_sh;
 	struct GPUShader *gpencil_volumetric_sh;
 	struct GPUShader *gpencil_drawing_fill_sh;
-	struct Main *bmain;
 } GPENCIL_e_data; /* Engine data */
 
 /* Batch Cache */
