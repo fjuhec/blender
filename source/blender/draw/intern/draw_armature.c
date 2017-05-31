@@ -1430,7 +1430,7 @@ void DRW_shgroup_armature_object(
 	DRW_object_wire_theme_get(ob, sl, &color);
 
 	DRW_shgroup_armature(ob, pass_bone_solid, pass_bone_wire, NULL, shgrp_relationship_lines);
-	draw_armature_pose(ob, color, false);
+	draw_armature_pose(ob, color, OBACT_NEW == ob);
 }
 
 void DRW_shgroup_armature_pose(
