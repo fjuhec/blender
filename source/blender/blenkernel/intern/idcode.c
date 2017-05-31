@@ -82,7 +82,7 @@ static IDType idtypes[] = {
 	{ ID_PAL,  "Palettes",           "palettes",        BLT_I18NCONTEXT_ID_PALETTE,            IDTYPE_FLAGS_ISLINKABLE },
 	{ ID_PC,   "PaintCurve",         "paint_curves",    BLT_I18NCONTEXT_ID_PAINTCURVE,         IDTYPE_FLAGS_ISLINKABLE },
 	{ ID_SCE,  "Scene",              "scenes",          BLT_I18NCONTEXT_ID_SCENE,              IDTYPE_FLAGS_ISLINKABLE },
-	{ ID_SCR,  "Screen",             "screens",         BLT_I18NCONTEXT_ID_SCREEN,             0                       },
+	{ ID_SCR,  "Screen",             "screens",         BLT_I18NCONTEXT_ID_SCREEN,             IDTYPE_FLAGS_ISLINKABLE },
 	{ ID_SEQ,  "Sequence",           "sequences",       BLT_I18NCONTEXT_ID_SEQUENCE,           0                       }, /* not actually ID data */
 	{ ID_SPK,  "Speaker",            "speakers",        BLT_I18NCONTEXT_ID_SPEAKER,            IDTYPE_FLAGS_ISLINKABLE },
 	{ ID_SO,   "Sound",              "sounds",          BLT_I18NCONTEXT_ID_SOUND,              IDTYPE_FLAGS_ISLINKABLE },
