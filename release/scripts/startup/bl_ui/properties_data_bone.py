@@ -294,8 +294,8 @@ class BONE_PT_display(BoneButtonsPanel, Panel):
 
             col = split.column()
             col.prop(bone, "hide", text="Hide")
+            col.prop(bone, "show_fmap")
             sub = col.column()
-            sub.prop(bone, "show_fmap")
             sub.active = bone.show_fmap
             sub.prop(bone, "show_only_fmap")
             sub = col.column()
