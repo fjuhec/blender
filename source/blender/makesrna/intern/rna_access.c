@@ -7593,7 +7593,7 @@ static bool rna_property_override_operation_store(
 	if (prop->magic != RNA_MAGIC) {
 		/* In case of IDProperty, we have to find the *real* idprop of ptr,
 		 * since prop in this case is just a fake wrapper around actual IDProp data, and not a 'real' PropertyRNA. */
-		/* XXX TODO this is ugly, we already get correct prop in upcalling code, whould just pass them to this func! */
+		/* XXX TODO this is ugly, we already get correct prop in upcalling code, should just pass them to this func! */
 		prop = (PropertyRNA *)rna_idproperty_find(ptr, ((IDProperty *)prop)->name);
 		fromprop = (PropertyRNA *)rna_idproperty_find(fromptr, ((IDProperty *)fromprop)->name);
 		if (storage) {
@@ -7965,7 +7965,7 @@ bool RNA_struct_override_matches(
 	return equals;
 }
 
-/** Store needed second operands into local data-block for differential override operations. */
+/** Store needed second operands into \a storage data-block for differential override operations. */
 bool RNA_struct_override_store(PointerRNA *local, PointerRNA *reference, PointerRNA *storage, IDOverride *override)
 {
 	bool changed = false;

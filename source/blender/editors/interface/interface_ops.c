@@ -466,10 +466,15 @@ static int override_remove_button_exec(bContext *C, wmOperator *op)
 	BLI_assert(oprop != NULL);
 	BLI_assert(id != NULL && id->override != NULL);
 
-	/* We need source (i.e. linked data) to restore values of deleted overrides... */
-	RNA_id_pointer_create(id->override->reference, &id_refptr);
-	if (!RNA_path_resolve(&id_refptr, oprop->rna_path, &src, NULL)) {
-		BLI_assert(0 && "Failed to create matching source (linked data) RNA pointer");
+	const bool is_template = (id->override->reference == NULL);
+
+	/* We need source (i.e. linked data) to restore values of deleted overrides...
+	 * If this is an override template, we obviously do not need to restore anything. */
+	if (!is_template) {
+		RNA_id_pointer_create(id->override->reference, &id_refptr);
+		if (!RNA_path_resolve(&id_refptr, oprop->rna_path, &src, NULL)) {
+			BLI_assert(0 && "Failed to create matching source (linked data) RNA pointer");
+		}
 	}
 
 	if (!all && index != -1) {
@@ -488,7 +493,9 @@ static int override_remove_button_exec(bContext *C, wmOperator *op)
 			}
 		}
 		BKE_override_property_operation_delete(oprop, opop);
-		RNA_property_copy(&ptr, &src, prop, index);
+		if (!is_template) {
+			RNA_property_copy(&ptr, &src, prop, index);
+		}
 		if (BLI_listbase_is_empty(&oprop->operations)) {
 			BKE_override_property_delete(id->override, oprop);
 		}
@@ -496,7 +503,9 @@ static int override_remove_button_exec(bContext *C, wmOperator *op)
 	else {
 		/* Just remove whole generic override operation of this property. */
 		BKE_override_property_delete(id->override, oprop);
-		RNA_property_copy(&ptr, &src, prop, -1);
+		if (!is_template) {
+			RNA_property_copy(&ptr, &src, prop, -1);
+		}
 	}
 
 	return operator_button_property_finish(C, &ptr, prop);

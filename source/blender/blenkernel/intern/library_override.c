@@ -58,7 +58,9 @@ static void bke_override_property_operation_clear(IDOverridePropertyOperation *o
 /** Initialize empty overriding of \a reference_id by \a local_id. */
 IDOverride *BKE_override_init(struct ID *local_id, struct ID *reference_id)
 {
-	BLI_assert(reference_id->lib != NULL);
+	/* If reference_id is NULL, we are creating an override template for purely local data.
+	 * Else, reference *must* be linked data. */
+	BLI_assert(reference_id == NULL || reference_id->lib != NULL);
 
 	local_id->override = MEM_callocN(sizeof(*local_id->override), __func__);
 	local_id->override->reference = reference_id;
@@ -273,7 +275,12 @@ bool BKE_override_status_check_local(ID *local)
 
 	ID *reference = local->override->reference;
 
-	BLI_assert(reference != NULL && GS(local->name) == GS(reference->name));
+	if (reference == NULL) {
+		/* This is an override template, local status is always OK! */
+		return true;
+	}
+
+	BLI_assert(GS(local->name) == GS(reference->name));
 
 	/* Note that reference is assumed always valid, caller has to ensure that itself. */
 
@@ -304,7 +311,12 @@ bool BKE_override_status_check_reference(ID *local)
 
 	ID *reference = local->override->reference;
 
-	BLI_assert(reference != NULL && GS(local->name) == GS(reference->name));
+	if (reference == NULL) {
+		/* This is an override template, reference is virtual, so its status is always OK! */
+		return true;
+	}
+
+	BLI_assert(GS(local->name) == GS(reference->name));
 
 	if (reference->override && (reference->tag & LIB_TAG_OVERRIDE_OK) == 0) {
 		if (!BKE_override_status_check_reference(reference)) {
@@ -343,9 +355,10 @@ bool BKE_override_status_check_reference(ID *local)
 bool BKE_override_operations_create(ID *local, const bool no_skip)
 {
 	BLI_assert(local->override != NULL);
+	const bool is_template = (local->override->reference == NULL);
 	bool ret = false;
 
-	if (local->flag & LIB_AUTOOVERRIDE) {
+	if (!is_template && local->flag & LIB_AUTOOVERRIDE) {
 		/* This prevents running that (heavy) callback too often when editing data. */
 		const double currtime = PIL_check_seconds_timer();
 		if (!no_skip && (currtime - local->override->last_auto_run) < OVERRIDE_AUTO_CHECK_DELAY) {
@@ -371,7 +384,7 @@ bool BKE_override_operations_create(ID *local, const bool no_skip)
 /** Update given override from its reference (re-applying overriden properties). */
 void BKE_override_update(Main *bmain, ID *local)
 {
-	if (local->override == NULL) {
+	if (local->override == NULL || local->override->reference == NULL) {
 		return;
 	}
 
@@ -476,12 +489,17 @@ OverrideStorage *BKE_override_operations_store_initialize(void)
 /**
  * Generate suitable 'write' data (this only affects differential override operations).
  *
- * \note ID is in 'invalid' state for all usages but being written to file, after this function has been called and
- * until \a BKE_override_operations_store_end is called to restore it. */
+ * Note that \a local ID is no more modified by this call, all extra data are stored in its temp \a storage_id copy. */
 ID *BKE_override_operations_store_start(OverrideStorage *override_storage, ID *local)
 {
 	BLI_assert(local->override != NULL);
 	BLI_assert(override_storage != NULL);
+	const bool is_template = (local->override->reference == NULL);
+
+	if (is_template) {
+		/* This is actually purely local data with an override template, nothing to do here! */
+		return NULL;
+	}
 
 	/* Forcefully ensure we now about all needed override operations. */
 	BKE_override_operations_create(local, true);
@@ -489,15 +507,9 @@ ID *BKE_override_operations_store_start(OverrideStorage *override_storage, ID *l
 	ID *storage_id;
 	TIMEIT_START_AVERAGED(BKE_override_operations_store_start);
 
-	/* Here we work on original local data-block, after having made a temp copy of it.
-	 * Once we are done, _store_end() will swap temp and local contents.
-	 * This allows us to keep most of original data to write (which is needed to (hopefully) avoid memory/pointers
-	 * collisions in .blend file), and also neats things like original ID name. ;) */
-	/* Note: ideally I'd rather work on copy here as well, and not touch to original at all, but then we'd have
-	 * issues with ID data itself (which is currently not swapped by BKE_id_swap()) AND pointers overlapping. */
-
-	/* XXX TODO We *need* an id_copy_nolib(), that stays out of Main and does not inc/dec ID pointers... */
-	id_copy(override_storage, local, &storage_id, false);  /* XXX ...and worse of all, this won't work with scene! */
+	/* XXX TODO We may also want a specialized handling of things here too, to avoid copying heavy never-overridable
+	 *          data (like Mesh geometry etc.)? And also maybe avoid lib refcounting completely (shallow copy...). */
+	id_copy((Main *)override_storage, local, &storage_id, false);  /* XXX ...and worse of all, this won't work with scene! */
 
 	if (storage_id != NULL) {
 		PointerRNA rnaptr_reference, rnaptr_final, rnaptr_storage;
@@ -517,7 +529,7 @@ ID *BKE_override_operations_store_start(OverrideStorage *override_storage, ID *l
 	return storage_id;
 }
 
-/** Restore given ID modified by \a BKE_override_operations_store_start, to its valid original state. */
+/** Restore given ID modified by \a BKE_override_operations_store_start, to its original state. */
 void BKE_override_operations_store_end(OverrideStorage *UNUSED(override_storage), ID *local)
 {
 	BLI_assert(local->override != NULL);
