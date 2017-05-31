@@ -2485,6 +2485,13 @@ void BKE_pose_fmap_cache_update(Depsgraph *graph, Object *ob_pose)
 				}
 			}
 
+			/* bone parent */
+			if (use_ob_fmap == false) {
+				if (ob->parent == ob_pose && ob->parsubstr[0]) {
+					use_ob_fmap = true;
+				}
+			}
+
 			if (use_ob_fmap) {
 				/* We know that 'ob' is a mesh that is deformed by 'ob_act'. */
 				for (bFaceMap *fmap = ob->fmaps.first; fmap; fmap = fmap->next) {
