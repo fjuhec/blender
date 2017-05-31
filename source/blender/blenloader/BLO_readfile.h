@@ -39,6 +39,7 @@ extern "C" {
 struct BlendThumbnail;
 struct bScreen;
 struct LinkNode;
+struct ListBase;
 struct Main;
 struct MemFile;
 struct ReportList;
@@ -77,7 +78,7 @@ typedef struct BlendFileData {
 typedef struct WorkspaceConfigFileData {
 	struct Main *main; /* has to be freed when done reading file data */
 
-	ListBase workspaces;
+	struct ListBase workspaces;
 } WorkspaceConfigFileData;
 
 
