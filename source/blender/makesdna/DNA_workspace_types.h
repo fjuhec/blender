@@ -37,12 +37,7 @@
 #  define DNA_PRIVATE_WORKSPACE
 #else
 #  ifndef DNA_PRIVATE_WORKSPACE
-#    ifdef __GNUC__
-#      define DNA_PRIVATE_WORKSPACE __attribute__ ((deprecated))
-#    else
-       /* TODO, msvc & others */
-#      define DNA_PRIVATE_WORKSPACE
-#    endif
+#    define DNA_PRIVATE_WORKSPACE DNA_PRIVATE_ATTR
 #  endif
 #endif
 

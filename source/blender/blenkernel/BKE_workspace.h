@@ -28,10 +28,6 @@
 #include "BLI_compiler_attrs.h"
 
 struct bScreen;
-struct ListBase;
-struct Main;
-struct WorkSpace;
-struct WorkSpaceDataRelation;
 
 typedef struct WorkSpace WorkSpace;
 typedef struct WorkSpaceInstanceHook WorkSpaceInstanceHook;
@@ -46,6 +42,7 @@ typedef struct WorkSpaceLayout WorkSpaceLayout;
  * leaving this here for some testing until object-mode is really a workspace level setting.
  */
 #define USE_WORKSPACE_MODE
+
 
 /* -------------------------------------------------------------------- */
 /* Create, delete, init */

@@ -102,7 +102,9 @@
 
 /* allow writefile to use deprecated functionality (for forward compatibility code) */
 #define DNA_DEPRECATED_ALLOW
-/* allow using DNA struct members that are marked as private for read/write */
+/* Allow using DNA struct members that are marked as private for read/write.
+ * Note: Each header that uses this needs to define its own way of handling
+ * it. There's no generic implementation, direct use does nothing. */
 #define DNA_PRIVATE_READ_WRITE_ALLOW
 
 #include "DNA_anim_types.h"
