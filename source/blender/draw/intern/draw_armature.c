@@ -1393,11 +1393,10 @@ static void draw_armature_pose(Object *ob, const float const_color[4], bool is_a
 				if (arm->flag & ARM_DRAWAXES) {
 					draw_axes(NULL, pchan);
 				}
-
-				if (is_pose_select) {
-					index += 0x10000;
-				}
 			}
+		}
+		if (is_pose_select) {
+			index += 0x10000;
 		}
 	}
 
