@@ -6266,6 +6266,8 @@ static void direct_link_scene(FileData *fd, Scene *sce)
 		}
 
 		sl->properties_evaluated = NULL;
+
+		BLI_listbase_clear(&sl->drawdata);
 	}
 
 	sce->collection_properties = newdataadr(fd, sce->collection_properties);
