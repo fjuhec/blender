@@ -85,7 +85,7 @@ void ED_armature_enter_posemode(bContext *C, Base *base)
 {
 	ReportList *reports = CTX_wm_reports(C);
 	Object *ob = base->object;
-	
+
 	if (ID_IS_LINKED_DATABLOCK(ob)) {
 		BKE_report(reports, RPT_WARNING, "Cannot pose libdata");
 		return;
@@ -93,15 +93,23 @@ void ED_armature_enter_posemode(bContext *C, Base *base)
 	
 	switch (ob->type) {
 		case OB_ARMATURE:
-			ob->restore_mode = ob->mode;
-			ob->mode |= OB_MODE_POSE;
+		{
+			/* incase we're already in pose-mode */
+			const bool changed = (ob->mode & OB_MODE_POSE) == 0;
+
+			if (changed) {
+				ob->restore_mode = ob->mode;
+				ob->mode |= OB_MODE_POSE;
+			}
 			
 			struct Depsgraph *graph = CTX_data_depsgraph(C);
 			BKE_pose_fmap_cache_update(graph, ob);
 
-			WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_MODE_POSE, NULL);
-			
+			if (changed) {
+				WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_MODE_POSE, NULL);
+			}
 			break;
+		}
 		default:
 			return;
 	}
