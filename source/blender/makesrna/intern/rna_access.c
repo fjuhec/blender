@@ -6885,11 +6885,30 @@ static bool rna_property_override_equals_propptr(
         IDOverride *override, const char *rna_path, bool *r_override_changed,
         const bool ignore_non_overridable, const bool ignore_overridden)
 {
-	if (RNA_struct_is_ID(propptr_a->type)) {
+	bool is_id = false;
+	bool is_type_null = false;
+
+	/* Beware, PointerRNA_NULL has no type and is considered a 'blank page'! */
+	if (propptr_a->type == NULL) {
+		if (propptr_b->type == NULL) {
+			if (r_override_changed) {
+				*r_override_changed = false;
+			}
+			return true;
+		}
+		is_id = RNA_struct_is_ID(propptr_b->type);
+		is_type_null = true;
+	}
+	else {
+		is_id = RNA_struct_is_ID(propptr_a->type);
+		is_type_null = (propptr_b->type == NULL);
+	}
+
+	if (is_id) {
 		/* In case this is an ID, do not compare structs!
 		 * This is a quite safe path to infinite loop.
 		 * Instead, just compare ID pointers themselves (we assume sub-ID structs cannot loop). */
-		const bool equals = propptr_a->id.data != propptr_b->id.data;
+		const bool equals = (propptr_a->id.data == propptr_b->id.data);
 
 		if (!equals && rna_path) {
 			bool created = false;
@@ -6898,14 +6917,14 @@ static bool rna_property_override_equals_propptr(
 			if (op != NULL && created) {  /* If not yet overridden... */
 				BKE_override_property_operation_get(op, IDOVERRIDE_REPLACE, NULL, NULL, -1, -1, true, NULL, NULL);
 				if (r_override_changed) {
-					*r_override_changed = *r_override_changed || created;
+					*r_override_changed = created;
 				}
 			}
 		}
 
 		return equals;
 	}
-	else if (override) {
+	else if (!is_type_null && override) {  /* We cannot override struct if one is NULL pointer... */
 		if (rna_path) {
 			const bool changed = RNA_struct_auto_override(propptr_a, propptr_b, override, rna_path);
 			if (r_override_changed) {
@@ -7269,7 +7288,7 @@ static bool rna_property_override_operation_apply(
 	PropertyRNA *storageprop = prop;
 
 	if (override_op == IDOVERRIDE_NOOP) {
-		return false;
+		return true;
 	}
 
 	if (ELEM(override_op, IDOVERRIDE_ADD, IDOVERRIDE_SUBTRACT, IDOVERRIDE_MULTIPLY) && !storage) {

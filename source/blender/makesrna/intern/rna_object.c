@@ -2264,7 +2264,7 @@ static void rna_def_object(BlenderRNA *brna)
 	/* parent */
 	prop = RNA_def_property(srna, "parent", PROP_POINTER, PROP_NONE);
 	RNA_def_property_pointer_funcs(prop, NULL, "rna_Object_parent_set", NULL, NULL);
-	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_SELF_CHECK);
+	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_SELF_CHECK | PROP_OVERRIDABLE);
 	RNA_def_property_ui_text(prop, "Parent", "Parent Object");
 	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_dependency_update");
 	
@@ -2511,6 +2511,7 @@ static void rna_def_object(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "modifiers", PROP_COLLECTION, PROP_NONE);
 	RNA_def_property_struct_type(prop, "Modifier");
 	RNA_def_property_ui_text(prop, "Modifiers", "Modifiers affecting the geometric data of the object");
+	RNA_def_property_flag(prop, PROP_OVERRIDABLE);
 	rna_def_object_modifiers(brna, prop);
 
 	/* constraints */
