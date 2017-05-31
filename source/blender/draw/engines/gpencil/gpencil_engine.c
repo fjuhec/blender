@@ -49,7 +49,6 @@ static void GPENCIL_engine_init(void *vedata)
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 
 	const DRWContextState *draw_ctx = DRW_context_state_get();
-	e_data.bmain = CTX_data_main(draw_ctx->evil_C);
 
 	/* normal fill shader */
 	if (!e_data.gpencil_fill_sh) {
