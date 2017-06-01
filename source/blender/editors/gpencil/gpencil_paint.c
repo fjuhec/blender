@@ -1632,6 +1632,8 @@ static void gp_paint_initstroke(tGPsdata *p, eGPencil_PaintModes paintmode)
 			add_frame_mode = GP_GETFRAME_ADD_NEW;
 			
 		p->gpf = BKE_gpencil_layer_getframe(p->gpl, CFRA, add_frame_mode);
+		/* set as dirty draw manager cache */
+		BKE_gpencil_batch_cache_dirty(p->gpd, 0);
 		
 		if (p->gpf == NULL) {
 			p->status = GP_STATUS_ERROR;
