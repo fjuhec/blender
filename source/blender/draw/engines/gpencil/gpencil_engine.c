@@ -107,7 +107,14 @@ static void GPENCIL_cache_init(void *vedata)
 		stl->g_data->scene_draw = false;
 		stl->storage->xray = GP_XRAY_FRONT; /* used for drawing */
 	}
-
+	if (!stl->shgroups) {
+		/* Alloc maximum size because count strokes is very slow and can be very complex due onion skinning
+		   Note: I tried to allocate only one and using realloc, increase the size when read a new strokes 
+		         in cache_finish, but the realloc produce weird things on screen, so we keep as is while we
+				 found a better solution
+		 */
+		stl->shgroups = MEM_mallocN(sizeof(GPENCIL_shgroup) * GPENCIL_MAX_SHGROUPS, "GPENCIL_shgroup");
+	}
 	{
 		/* init gp objects cache */
 		stl->g_data->gp_cache_used = 0;
@@ -118,7 +125,6 @@ static void GPENCIL_cache_init(void *vedata)
 		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_DEPTH_LESS;
 		psl->stroke_pass = DRW_pass_create("Gpencil Stroke Pass", state);
 		stl->storage->pal_id = 0;
-		memset(stl->storage->shgroups, 0, sizeof(GPENCIL_shgroup *) * GPENCIL_MAX_SHGROUPS);
 		stl->g_data->shgrps_point_volumetric = DRW_gpencil_shgroup_point_volumetric_create(psl->stroke_pass, e_data.gpencil_volumetric_sh);
 
 		state = DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND;

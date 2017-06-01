@@ -36,7 +36,7 @@
  /* *********** OBJECTS CACHE *********** */
  /* used to sort gpencil objects */
 typedef struct tGPencilObjectCache {
-	Object *ob;
+	struct Object *ob;
 	float zdepth;
 } tGPencilObjectCache;
 
@@ -46,13 +46,12 @@ typedef struct GPENCIL_shgroup {
 	int t_flip;
 	int t_clamp;
 	int fill_style;
-	DRWShadingGroup *shgrps_fill;
-	DRWShadingGroup *shgrps_stroke;
+	struct DRWShadingGroup *shgrps_fill;
+	struct DRWShadingGroup *shgrps_stroke;
 } GPENCIL_shgroup;
 
 typedef struct GPENCIL_Storage {
 	int pal_id; /* total elements */
-	GPENCIL_shgroup shgroups[GPENCIL_MAX_SHGROUPS];
 	float unit_matrix[4][4];
 	int is_persp;   /* rv3d->is_persp (1-yes) */
 	int xray;
@@ -61,6 +60,7 @@ typedef struct GPENCIL_Storage {
 typedef struct GPENCIL_StorageList {
 	struct GPENCIL_Storage *storage;
 	struct g_data *g_data;
+	struct GPENCIL_shgroup *shgroups;
 } GPENCIL_StorageList;
 
 typedef struct GPENCIL_PassList {
@@ -79,23 +79,23 @@ typedef struct GPENCIL_TextureList {
 
 typedef struct GPENCIL_Data {
 	void *engine_type; /* Required */
-	GPENCIL_FramebufferList *fbl;
-	GPENCIL_TextureList *txl;
-	GPENCIL_PassList *psl;
-	GPENCIL_StorageList *stl;
+	struct GPENCIL_FramebufferList *fbl;
+	struct GPENCIL_TextureList *txl;
+	struct GPENCIL_PassList *psl;
+	struct GPENCIL_StorageList *stl;
 } GPENCIL_Data;
 
 /* *********** STATIC *********** */
 typedef struct g_data {
-	DRWShadingGroup *shgrps_edit_volumetric;
-	DRWShadingGroup *shgrps_point_volumetric;
-	DRWShadingGroup *shgrps_drawing_stroke;
-	DRWShadingGroup *shgrps_drawing_fill;
+	struct DRWShadingGroup *shgrps_edit_volumetric;
+	struct DRWShadingGroup *shgrps_point_volumetric;
+	struct DRWShadingGroup *shgrps_drawing_stroke;
+	struct DRWShadingGroup *shgrps_drawing_fill;
 	bool scene_draw;
 
 	int gp_cache_used;
 	int gp_cache_size;
-	tGPencilObjectCache *gp_object_cache;
+	struct tGPencilObjectCache *gp_object_cache;
 } g_data; /* Transient data */
 
 typedef struct GPENCIL_e_data {
