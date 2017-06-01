@@ -297,11 +297,9 @@ void do_versions_after_linking_280(Main *main)
 		}
 	}
 
-	{
-		/* New workspace design */
-		if (!MAIN_VERSION_ATLEAST(main, 280, 1)) {
-			do_version_workspaces_after_lib_link(main);
-		}
+	/* New workspace design */
+	if (!MAIN_VERSION_ATLEAST(main, 280, 1)) {
+		do_version_workspaces_after_lib_link(main);
 	}
 }
 
@@ -344,34 +342,35 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 				}
 			}
 		}
-
 	}
 
-	if (!DNA_struct_elem_find(fd->filesdna, "GPUDOFSettings", "float", "ratio"))	{
-		for (Camera *ca = main->camera.first; ca; ca = ca->id.next) {
-			ca->gpu_dof.ratio = 1.0f;
-		}
-	}
-
-	if (!DNA_struct_elem_find(fd->filesdna, "SceneLayer", "IDProperty", "*properties")) {
-		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
-			for (SceneLayer *sl = scene->render_layers.first; sl; sl = sl->next) {
-				IDPropertyTemplate val = {0};
-				sl->properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
-				BKE_scene_layer_engine_settings_create(sl->properties);
+	if (!MAIN_VERSION_ATLEAST(main, 280, 1)) {
+		if (!DNA_struct_elem_find(fd->filesdna, "GPUDOFSettings", "float", "ratio"))	{
+			for (Camera *ca = main->camera.first; ca; ca = ca->id.next) {
+				ca->gpu_dof.ratio = 1.0f;
 			}
 		}
-	}
 
-	/* MTexPoly now removed. */
-	if (DNA_struct_find(fd->filesdna, "MTexPoly")) {
-		const int cd_mtexpoly = 15;  /* CD_MTEXPOLY, deprecated */
-		for (Mesh *me = main->mesh.first; me; me = me->id.next) {
-			/* If we have UV's, so this file will have MTexPoly layers too! */
-			if (me->mloopuv != NULL) {
-				CustomData_update_typemap(&me->pdata);
-				CustomData_free_layers(&me->pdata, cd_mtexpoly, me->totpoly);
-				BKE_mesh_update_customdata_pointers(me, false);
+		if (!DNA_struct_elem_find(fd->filesdna, "SceneLayer", "IDProperty", "*properties")) {
+			for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+				for (SceneLayer *sl = scene->render_layers.first; sl; sl = sl->next) {
+					IDPropertyTemplate val = {0};
+					sl->properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
+					BKE_scene_layer_engine_settings_create(sl->properties);
+				}
+			}
+		}
+
+		/* MTexPoly now removed. */
+		if (DNA_struct_find(fd->filesdna, "MTexPoly")) {
+			const int cd_mtexpoly = 15;  /* CD_MTEXPOLY, deprecated */
+			for (Mesh *me = main->mesh.first; me; me = me->id.next) {
+				/* If we have UV's, so this file will have MTexPoly layers too! */
+				if (me->mloopuv != NULL) {
+					CustomData_update_typemap(&me->pdata);
+					CustomData_free_layers(&me->pdata, cd_mtexpoly, me->totpoly);
+					BKE_mesh_update_customdata_pointers(me, false);
+				}
 			}
 		}
 	}
