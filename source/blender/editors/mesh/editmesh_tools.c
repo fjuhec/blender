@@ -1771,6 +1771,10 @@ static int edbm_do_smooth_vertex_exec(bContext *C, wmOperator *op)
 			return OPERATOR_CANCELLED;
 		}
 	}
+	if (em->bm->spacearr_dirty | BM_SPACEARR_DIRTY) {
+		BM_lnorspace_invalidate(em->bm, false);
+		BM_lnorspace_rebuild(em->bm, true);
+	}
 
 	/* apply mirror */
 	if (((Mesh *)obedit->data)->editflag & ME_EDIT_MIRROR_X) {

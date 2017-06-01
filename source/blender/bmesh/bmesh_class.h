@@ -20,6 +20,8 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
+#include "BKE_mesh.h"
+
 #ifndef __BMESH_CLASS_H__
 #define __BMESH_CLASS_H__
 
@@ -253,6 +255,9 @@ typedef struct BMesh {
 	ListBase errorstack;
 
 	void *py_handle;
+
+	MLoopNorSpaceArray bmspacearr;		/* Stores MLoopNorSpaceArray for this BMesh */
+	char spacearr_dirty;
 } BMesh;
 
 /* BMHeader->htype (char) */
@@ -265,6 +270,9 @@ enum {
 
 #define BM_ALL (BM_VERT | BM_EDGE | BM_LOOP | BM_FACE)
 #define BM_ALL_NOLOOP (BM_VERT | BM_EDGE | BM_FACE)
+
+#define BM_SPACEARR_DIRTY (1 << 1)
+#define BM_SPACEARR_DIRTY_ALL (1 << 2)
 
 /* args for _Generic */
 #define _BM_GENERIC_TYPE_ELEM_NONCONST \
@@ -345,6 +353,9 @@ enum {
 	 * since tools may want to tag verts and
 	 * not have functions clobber them */
 	BM_ELEM_INTERNAL_TAG = (1 << 7),
+
+	/* Space invalid when set */
+	BM_ELEM_LNORSPACE = (1 << 6)
 };
 
 struct BPy_BMGeneric;

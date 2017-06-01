@@ -116,7 +116,8 @@ static BMOpDefine bmo_smooth_vert_def = {
 	},
 	{{{'\0'}}},  /* no output */
 	bmo_smooth_vert_exec,
-	(BMO_OPTYPE_FLAG_NORMALS_CALC),
+	(BMO_OPTYPE_FLAG_NORMALS_CALC |
+	 BMO_OPTYPE_FLAG_INVALIDATE_NORMAL_SPACE),
 };
 
 /*
