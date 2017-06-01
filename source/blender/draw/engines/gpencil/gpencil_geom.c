@@ -364,7 +364,7 @@ Batch *DRW_gpencil_get_buffer_fill_geom(const tGPspoint *points, int totpoints, 
 
 
 /* Helper for doing all the checks on whether a stroke can be drawn */
-bool gpencil_can_draw_stroke(RegionView3D *UNUSED(rv3d), const bGPDframe *UNUSED(gpf), const bGPDstroke *gps)
+bool gpencil_can_draw_stroke(RegionView3D *UNUSED(rv3d), const bGPDframe *UNUSED(gpf), const bGPDstroke *gps, const bool onion)
 {
 	/* skip stroke if it doesn't have any valid data */
 	if ((gps->points == NULL) || (gps->totpoints < 1))
@@ -373,7 +373,8 @@ bool gpencil_can_draw_stroke(RegionView3D *UNUSED(rv3d), const bGPDframe *UNUSED
 	/* check if the color is visible */
 	PaletteColor *palcolor = gps->palcolor;
 	if ((palcolor == NULL) ||
-		(palcolor->flag & PC_COLOR_HIDE))
+		(palcolor->flag & PC_COLOR_HIDE) ||
+		(onion && (palcolor->flag & PC_COLOR_ONIONSKIN)))
 	{
 		return false;
 	}

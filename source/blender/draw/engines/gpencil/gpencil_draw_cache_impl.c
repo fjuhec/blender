@@ -455,7 +455,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 
 	for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 		/* check if stroke can be drawn */
-		if (gpencil_can_draw_stroke(rv3d, gpf, gps) == false) {
+		if (gpencil_can_draw_stroke(rv3d, gpf, gps, onion) == false) {
 			continue;
 		}
 		/* limit the number of shading groups */
