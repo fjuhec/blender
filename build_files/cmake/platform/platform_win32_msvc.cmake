@@ -21,28 +21,20 @@
 #
 # ***** END GPL LICENSE BLOCK *****
 
-# Libraries configuration for Windows.
-
-add_definitions(-DWIN32)
-
-if(NOT MSVC)
-	message(FATAL_ERROR "Compiler is unsupported")
-endif()
-
 # Libraries configuration for Windows when compiling with MSVC.
 
 macro(warn_hardcoded_paths package_name
 	)
 	if(WITH_WINDOWS_FIND_MODULES)
 		message(WARNING "Using HARDCODED ${package_name} locations")
-	endif()
+	endif(WITH_WINDOWS_FIND_MODULES)
 endmacro()
 
 macro(windows_find_package package_name
 	)
 	if(WITH_WINDOWS_FIND_MODULES)
 		find_package(${package_name})
-	endif()
+	endif(WITH_WINDOWS_FIND_MODULES)
 endmacro()
 
 macro(find_package_wrapper)
@@ -142,10 +134,7 @@ if(NOT DEFINED LIBDIR)
 		message(STATUS "32 bit compiler detected.")
 		set(LIBDIR_BASE "windows")
 	endif()
-	if(MSVC_VERSION EQUAL 1911)
-		message(STATUS "Visual Studio 2017 detected.")
-		set(LIBDIR ${CMAKE_SOURCE_DIR}/../lib/${LIBDIR_BASE}_vc14)
-	elseif(MSVC_VERSION EQUAL 1910)
+	if(MSVC_VERSION EQUAL 1910)
 		message(STATUS "Visual Studio 2017 detected.")
 		set(LIBDIR ${CMAKE_SOURCE_DIR}/../lib/${LIBDIR_BASE}_vc14)
 	elseif(MSVC_VERSION EQUAL 1900)
@@ -182,7 +171,7 @@ windows_find_package(png)
 if(NOT PNG_FOUND)
 	warn_hardcoded_paths(libpng)
 	set(PNG_PNG_INCLUDE_DIR ${LIBDIR}/png/include)
-	set(PNG_LIBRARIES ${LIBDIR}/png/lib/libpng.lib)
+	set(PNG_LIBRARIES libpng)
 	set(PNG "${LIBDIR}/png")
 	set(PNG_INCLUDE_DIRS "${PNG}/include")
 	set(PNG_LIBPATH ${PNG}/lib) # not cmake defined
@@ -209,7 +198,7 @@ windows_find_package(freetype REQUIRED)
 
 if(WITH_FFTW3)
 	set(FFTW3 ${LIBDIR}/fftw3)
-	set(FFTW3_LIBRARIES ${FFTW3}/lib/libfftw.lib)
+	set(FFTW3_LIBRARIES libfftw)
 	set(FFTW3_INCLUDE_DIRS ${FFTW3}/include)
 	set(FFTW3_LIBPATH ${FFTW3}/lib)
 endif()
@@ -310,7 +299,7 @@ if(WITH_JACK)
 endif()
 
 if(WITH_PYTHON)
-	set(PYTHON_VERSION 3.6) # CACHE STRING)
+	set(PYTHON_VERSION 3.5) # CACHE STRING)
 
 	string(REPLACE "." "" _PYTHON_VERSION_NO_DOTS ${PYTHON_VERSION})
 	# Use shared libs for vc2008 and vc2010 until we actually have vc2010 libs
@@ -338,9 +327,9 @@ if(WITH_BOOST)
 	set(Boost_USE_STATIC_RUNTIME ON) # prefix lib
 	set(Boost_USE_MULTITHREADED ON) # suffix -mt
 	set(Boost_USE_STATIC_LIBS ON) # suffix -s
-	if(WITH_WINDOWS_FIND_MODULES)
+	if (WITH_WINDOWS_FIND_MODULES)
 		find_package(Boost COMPONENTS date_time filesystem thread regex system ${boost_extra_libs})
-	endif()
+	endif (WITH_WINDOWS_FIND_MODULES)
 	if(NOT Boost_FOUND)
 		warn_hardcoded_paths(BOOST)
 		set(BOOST ${LIBDIR}/boost)
@@ -355,28 +344,26 @@ if(WITH_BOOST)
 			set(BOOST_DEBUG_POSTFIX "vc140-mt-sgd-1_60.lib")
 		endif()
 		set(BOOST_LIBRARIES
-			optimized ${BOOST_LIBPATH}/libboost_date_time-${BOOST_POSTFIX}
-			optimized ${BOOST_LIBPATH}/libboost_filesystem-${BOOST_POSTFIX}
-			optimized ${BOOST_LIBPATH}/libboost_regex-${BOOST_POSTFIX}
-			optimized ${BOOST_LIBPATH}/libboost_system-${BOOST_POSTFIX}
-			optimized ${BOOST_LIBPATH}/libboost_thread-${BOOST_POSTFIX}
-			optimized ${BOOST_LIBPATH}/libboost_chrono-${BOOST_POSTFIX}
-			debug ${BOOST_LIBPATH}/libboost_date_time-${BOOST_DEBUG_POSTFIX}
-			debug ${BOOST_LIBPATH}/libboost_filesystem-${BOOST_DEBUG_POSTFIX}
-			debug ${BOOST_LIBPATH}/libboost_regex-${BOOST_DEBUG_POSTFIX}
-			debug ${BOOST_LIBPATH}/libboost_system-${BOOST_DEBUG_POSTFIX}
-			debug ${BOOST_LIBPATH}/libboost_thread-${BOOST_DEBUG_POSTFIX}
-			debug ${BOOST_LIBPATH}/libboost_chrono-${BOOST_DEBUG_POSTFIX}
+			optimized libboost_date_time-${BOOST_POSTFIX}
+			optimized libboost_filesystem-${BOOST_POSTFIX}
+			optimized libboost_regex-${BOOST_POSTFIX}
+			optimized libboost_system-${BOOST_POSTFIX}
+			optimized libboost_thread-${BOOST_POSTFIX}
+			debug libboost_date_time-${BOOST_DEBUG_POSTFIX}
+			debug libboost_filesystem-${BOOST_DEBUG_POSTFIX}
+			debug libboost_regex-${BOOST_DEBUG_POSTFIX}
+			debug libboost_system-${BOOST_DEBUG_POSTFIX}
+			debug libboost_thread-${BOOST_DEBUG_POSTFIX}
 		)
 		if(WITH_CYCLES_OSL)
 			set(BOOST_LIBRARIES ${BOOST_LIBRARIES}
-				optimized ${BOOST_LIBPATH}/libboost_wave-${BOOST_POSTFIX}
-				debug ${BOOST_LIBPATH}/libboost_wave-${BOOST_DEBUG_POSTFIX})
+				optimized libboost_wave-${BOOST_POSTFIX}
+				debug libboost_wave-${BOOST_DEBUG_POSTFIX})
 		endif()
 		if(WITH_INTERNATIONAL)
 			set(BOOST_LIBRARIES ${BOOST_LIBRARIES}
-				optimized ${BOOST_LIBPATH}/libboost_locale-${BOOST_POSTFIX}
-				debug ${BOOST_LIBPATH}/libboost_locale-${BOOST_DEBUG_POSTFIX})
+				optimized libboost_locale-${BOOST_POSTFIX}
+				debug libboost_locale-${BOOST_DEBUG_POSTFIX})
 		endif()
 	else() # we found boost using find_package
 		set(BOOST_INCLUDE_DIR ${Boost_INCLUDE_DIRS})
@@ -389,12 +376,11 @@ endif()
 if(WITH_OPENIMAGEIO)
 	windows_find_package(OpenImageIO)
 	set(OPENIMAGEIO ${LIBDIR}/openimageio)
-	set(OPENIMAGEIO_LIBPATH ${OPENIMAGEIO}/lib)
 	set(OPENIMAGEIO_INCLUDE_DIRS ${OPENIMAGEIO}/include)
-	set(OIIO_OPTIMIZED optimized ${OPENIMAGEIO_LIBPATH}/OpenImageIO.lib optimized ${OPENIMAGEIO_LIBPATH}/OpenImageIO_Util.lib)
-	set(OIIO_DEBUG debug ${OPENIMAGEIO_LIBPATH}/OpenImageIO_d.lib debug ${OPENIMAGEIO_LIBPATH}/OpenImageIO_Util_d.lib)
+	set(OIIO_OPTIMIZED optimized OpenImageIO optimized OpenImageIO_Util)
+	set(OIIO_DEBUG debug OpenImageIO_d debug OpenImageIO_Util_d)
 	set(OPENIMAGEIO_LIBRARIES ${OIIO_OPTIMIZED} ${OIIO_DEBUG})
-	
+	set(OPENIMAGEIO_LIBPATH ${OPENIMAGEIO}/lib)
 	set(OPENIMAGEIO_DEFINITIONS "-DUSE_TBB=0")
 	set(OPENCOLORIO_DEFINITIONS "-DOCIO_STATIC_BUILD")
 	set(OPENIMAGEIO_IDIFF "${OPENIMAGEIO}/bin/idiff.exe")
@@ -430,9 +416,13 @@ endif()
 if(WITH_OPENCOLORIO)
 	set(OPENCOLORIO ${LIBDIR}/opencolorio)
 	set(OPENCOLORIO_INCLUDE_DIRS ${OPENCOLORIO}/include)
+	set(OPENCOLORIO_LIBRARIES OpenColorIO)
 	set(OPENCOLORIO_LIBPATH ${LIBDIR}/opencolorio/lib)
-	set(OPENCOLORIO_LIBRARIES ${OPENCOLORIO_LIBPATH}/OpenColorIO.lib)
 	set(OPENCOLORIO_DEFINITIONS)
+endif()
+
+if(WITH_CYCLES_EMBREE)
+	find_package(embree 2.16.1 REQUIRED)
 endif()
 
 if(WITH_OPENVDB)
@@ -440,10 +430,9 @@ if(WITH_OPENVDB)
 	set(TBB_LIBRARIES optimized ${LIBDIR}/tbb/lib/tbb.lib debug ${LIBDIR}/tbb/lib/tbb_debug.lib)
 	set(TBB_INCLUDE_DIR ${LIBDIR}/tbb/include)
 	set(OPENVDB ${LIBDIR}/openvdb)
-	set(OPENVDB_LIBPATH ${LIBDIR}/openvdb/lib)
 	set(OPENVDB_INCLUDE_DIRS ${OPENVDB}/include ${TBB_INCLUDE_DIR})
-	set(OPENVDB_LIBRARIES optimized ${OPENVDB_LIBPATH}/openvdb.lib debug ${OPENVDB_LIBPATH}/openvdb_d.lib ${TBB_LIBRARIES} ${BLOSC_LIBRARIES})
-	
+	set(OPENVDB_LIBRARIES optimized openvdb debug openvdb_d ${TBB_LIBRARIES} ${BLOSC_LIBRARIES})
+	set(OPENVDB_LIBPATH ${LIBDIR}/openvdb/lib)
 endif()
 
 if(WITH_ALEMBIC)
@@ -451,7 +440,7 @@ if(WITH_ALEMBIC)
 	set(ALEMBIC_INCLUDE_DIR ${ALEMBIC}/include)
 	set(ALEMBIC_INCLUDE_DIRS ${ALEMBIC_INCLUDE_DIR})
 	set(ALEMBIC_LIBPATH ${ALEMBIC}/lib)
-	set(ALEMBIC_LIBRARIES optimized ${ALEMBIC}/lib/alembic.lib debug ${ALEMBIC}/lib/alembic_d.lib)
+	set(ALEMBIC_LIBRARIES optimized alembic debug alembic_d)
 	set(ALEMBIC_FOUND 1)
 endif()
 
@@ -488,7 +477,7 @@ if(WITH_SDL)
 	set(SDL ${LIBDIR}/sdl)
 	set(SDL_INCLUDE_DIR ${SDL}/include)
 	set(SDL_LIBPATH ${SDL}/lib)
-	set(SDL_LIBRARY ${SDL_LIBPATH}/SDL2.lib)
+	set(SDL_LIBRARY SDL2)
 endif()
 
 # Audio IO
@@ -515,61 +504,3 @@ find_program(SIGNTOOL_EXE signtool
 		"$ENV{${ProgramFilesX86_NAME}}/Windows Kits/8.0/bin/x86/"
 		"$ENV{ProgramFiles}/Windows Kits/8.0/bin/x86/"
 )
-set(WINTAB_INC ${LIBDIR}/wintab/include)
-
-if(WITH_OPENAL)
-	set(OPENAL ${LIBDIR}/openal)
-	set(OPENALDIR ${LIBDIR}/openal)
-	set(OPENAL_INCLUDE_DIR ${OPENAL}/include)
-	set(OPENAL_LIBPATH ${OPENAL}/lib)
-	if(MSVC)
-		set(OPENAL_LIBRARY ${OPENAL_LIBPATH}/openal32.lib)
-	else()
-		set(OPENAL_LIBRARY ${OPENAL_LIBPATH}/wrap_oal.lib)
-	endif()
-	
-endif()
-
-if(WITH_CODEC_SNDFILE)
-	set(SNDFILE ${LIBDIR}/sndfile)
-	set(SNDFILE_INCLUDE_DIRS ${SNDFILE}/include)
-	set(SNDFILE_LIBPATH ${SNDFILE}/lib) # TODO, deprecate
-	set(SNDFILE_LIBRARIES ${SNDFILE_LIBPATH}/libsndfile-1.lib)
-	
-endif()
-
-if(WITH_RAYOPTIMIZATION AND SUPPORT_SSE_BUILD)
-	add_definitions(-D__SSE__ -D__MMX__)
-endif()
-
-if(WITH_CYCLES_OSL)
-	set(CYCLES_OSL ${LIBDIR}/osl CACHE PATH "Path to OpenShadingLanguage installation")
-
-	find_library(OSL_LIB_EXEC NAMES oslexec PATHS ${CYCLES_OSL}/lib)
-	find_library(OSL_LIB_COMP NAMES oslcomp PATHS ${CYCLES_OSL}/lib)
-	find_library(OSL_LIB_QUERY NAMES oslquery PATHS ${CYCLES_OSL}/lib)
-	find_library(OSL_LIB_EXEC_DEBUG NAMES oslexec_d PATHS ${CYCLES_OSL}/lib)
-	find_library(OSL_LIB_COMP_DEBUG NAMES oslcomp_d PATHS ${CYCLES_OSL}/lib)
-	find_library(OSL_LIB_QUERY_DEBUG NAMES oslquery_d PATHS ${CYCLES_OSL}/lib)
-	list(APPEND OSL_LIBRARIES
-		optimized ${OSL_LIB_COMP}
-		optimized ${OSL_LIB_EXEC}
-		optimized ${OSL_LIB_QUERY}
-		debug ${OSL_LIB_EXEC_DEBUG}
-		debug ${OSL_LIB_COMP_DEBUG}
-		debug ${OSL_LIB_QUERY_DEBUG}
-	)
-	find_path(OSL_INCLUDE_DIR OSL/oslclosure.h PATHS ${CYCLES_OSL}/include)
-	find_program(OSL_COMPILER NAMES oslc PATHS ${CYCLES_OSL}/bin)
-
-	if(OSL_INCLUDE_DIR AND OSL_LIBRARIES AND OSL_COMPILER)
-		set(OSL_FOUND TRUE)
-	else()
-		message(STATUS "OSL not found")
-		set(WITH_CYCLES_OSL OFF)
-	endif()
-endif()
-
-if(WITH_CYCLES_EMBREE)
-	find_package(embree 2.16.1 REQUIRED)
-endif()
