@@ -207,7 +207,7 @@ WorkSpaceLayout *BKE_workspace_layout_add(
 	BLI_assert(!workspaces_is_screen_used(G.main, screen));
 	layout->screen = screen;
 	workspace_layout_name_set(workspace, layout, name);
-	BLI_addhead(&workspace->layouts, layout);
+	BLI_addtail(&workspace->layouts, layout);
 
 	return layout;
 }
@@ -266,6 +266,14 @@ WorkSpaceLayout *BKE_workspace_layout_find_global(
 	return NULL;
 }
 
+/**
+ * Circular workspace layout iterator.
+ *
+ * \param callback: Custom function which gets executed for each layout. Can return false to stop iterating.
+ * \param arg: Custom data passed to each \a callback call.
+ *
+ * \return the layout at which \a callback returned false.
+ */
 WorkSpaceLayout *BKE_workspace_layout_iter_circular(
         const WorkSpace *workspace, WorkSpaceLayout *start,
         bool (*callback)(const WorkSpaceLayout *layout, void *arg),

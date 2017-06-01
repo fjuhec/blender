@@ -105,7 +105,7 @@ bool workspace_layout_set_poll(const WorkSpaceLayout *layout)
 	return ((BKE_screen_is_used(screen) == false) &&
 	        /* in typical usage temp screens should have a nonzero winid
 	         * (all temp screens should be used, or closed & freed). */
-	        (screen->temp == false) &
+	        (screen->temp == false) &&
 	        (BKE_screen_is_fullscreen_area(screen) == false) &&
 	        (screen->id.name[2] != '.' || !(U.uiflag & USER_HIDE_DOT)));
 }
@@ -160,7 +160,8 @@ bool ED_workspace_layout_delete(
 
 static bool workspace_layout_cycle_iter_cb(const WorkSpaceLayout *layout, void *UNUSED(arg))
 {
-	return workspace_layout_set_poll(layout);
+	/* return false to stop iterator when we have found a layout to activate */
+	return !workspace_layout_set_poll(layout);
 }
 
 bool ED_workspace_layout_cycle(
