@@ -201,10 +201,30 @@ typedef struct SculptSession {
 
 	struct SculptStroke *stroke;
 	struct StrokeCache *cache;
+
+	union {
+		struct {
+			int *vert_map_mem;
+			struct MeshElemMap *vert_to_loop;
+			int *poly_map_mem;
+			struct MeshElemMap *vert_to_poly;
+
+			unsigned int (*total_color)[3];
+			double *total_weight;
+			unsigned int *tot_loops_hit;
+			float *max_weight;
+			unsigned int *previous_color;
+			bool building_vp_handle;
+		} vwpaint;
+		//struct {
+		//ToDo: identify sculpt-only fields
+		//} sculpt;
+	} modes;
 } SculptSession;
 
 void BKE_sculptsession_free(struct Object *ob);
 void BKE_sculptsession_free_deformMats(struct SculptSession *ss);
+void BKE_sculptsession_free_vwpaint_data(struct SculptSession *ss);
 void BKE_sculptsession_bm_to_me(struct Object *ob, bool reorder);
 void BKE_sculptsession_bm_to_me_for_render(struct Object *object);
 void BKE_sculpt_update_mesh_elements(struct Scene *scene, struct Sculpt *sd, struct Object *ob,

@@ -656,6 +656,22 @@ void BKE_sculptsession_free_deformMats(SculptSession *ss)
 	MEM_SAFE_FREE(ss->deform_imats);
 }
 
+void BKE_sculptsession_free_vwpaint_data(struct SculptSession *ss)
+{
+	/* Free maps */
+	MEM_SAFE_FREE(ss->modes.vwpaint.vert_to_loop);
+	MEM_SAFE_FREE(ss->modes.vwpaint.vert_map_mem);
+	MEM_SAFE_FREE(ss->modes.vwpaint.vert_to_poly);
+	MEM_SAFE_FREE(ss->modes.vwpaint.poly_map_mem);
+
+	/* Free average, blur, and spray brush arrays */
+	MEM_SAFE_FREE(ss->modes.vwpaint.tot_loops_hit);
+	MEM_SAFE_FREE(ss->modes.vwpaint.total_color);
+	MEM_SAFE_FREE(ss->modes.vwpaint.total_weight);
+	MEM_SAFE_FREE(ss->modes.vwpaint.max_weight);
+	MEM_SAFE_FREE(ss->modes.vwpaint.previous_color);
+}
+
 /* Write out the sculpt dynamic-topology BMesh to the Mesh */
 static void sculptsession_bm_to_me_update_data_only(Object *ob, bool reorder)
 {
@@ -697,10 +713,7 @@ void BKE_sculptsession_bm_to_me_for_render(Object *object)
 			 */
 			BKE_object_free_derived_caches(object);
 
-			if (object->sculpt->pbvh) {
-				BKE_pbvh_free(object->sculpt->pbvh);
-				object->sculpt->pbvh = NULL;
-			}
+			MEM_SAFE_FREE(object->sculpt->pbvh);
 
 			sculptsession_bm_to_me_update_data_only(object, false);
 
@@ -746,6 +759,8 @@ void BKE_sculptsession_free(Object *ob)
 			MEM_freeN(ss->deform_cos);
 		if (ss->deform_imats)
 			MEM_freeN(ss->deform_imats);
+
+		BKE_sculptsession_free_vwpaint_data(ob->sculpt);
 
 		MEM_freeN(ss);
 
@@ -831,6 +846,9 @@ void BKE_sculpt_update_mesh_elements(Scene *scene, Sculpt *sd, Object *ob,
 	ss->modifiers_active = sculpt_modifiers_active(scene, sd, ob);
 	ss->show_diffuse_color = (sd->flags & SCULPT_SHOW_DIFFUSE) != 0;
 
+	/* This flag prevents PBVH from being freed when creating the vp_handle for texture paint */
+	ss->modes.vwpaint.building_vp_handle = false;
+
 	if (need_mask) {
 		if (mmd == NULL) {
 			if (!CustomData_has_layer(&me->vdata, CD_PAINT_MASK)) {
@@ -859,7 +877,8 @@ void BKE_sculpt_update_mesh_elements(Scene *scene, Sculpt *sd, Object *ob,
 
 	dm = mesh_get_derived_final(scene, ob, CD_MASK_BAREMESH);
 
-	if (mmd) {
+	/* VWPaint require mesh info for loop lookup, so require sculpt mode here */
+	if (mmd && ob->mode & OB_MODE_SCULPT) {
 		ss->multires = mmd;
 		ss->totvert = dm->getNumVerts(dm);
 		ss->totpoly = dm->getNumPolys(dm);

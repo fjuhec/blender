@@ -1196,6 +1196,7 @@ int ccgSubSurf_getNumEdges(const CCGSubSurf *ss)
 }
 int ccgSubSurf_getNumFaces(const CCGSubSurf *ss)
 {
+
 	return ss->fMap->numEntries;
 }
 
