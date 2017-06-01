@@ -640,13 +640,11 @@ static float paint_stroke_integrate_overlap(Brush *br, float factor)
 
 static float paint_space_stroke_spacing_variable(const Scene *scene, PaintStroke *stroke, float pressure, float dpressure, float length)
 {
-	float spacing = paint_space_unadjusted_stroke_spacing(scene, stroke); //spacing without adjustment for angle or pressure
+	float spacing = paint_space_unadjusted_stroke_spacing(scene, stroke);
 
-	//adapt the stroke spacing to account for geometry that curves away from the viewport
 	if (BKE_brush_use_adaptive_spacing(stroke->brush)) {
+		/*adapt the stroke spacing to account for geometry that curves away from the viewport*/
 		spacing = paint_space_stroke_adaptive_spacing(scene, stroke, spacing);
-		//TODO perhaps should do a last_adaptive and new_adaptive as is done with pressure
-
 	}
 
 	if (BKE_brush_use_size_pressure(scene, stroke->brush)) {

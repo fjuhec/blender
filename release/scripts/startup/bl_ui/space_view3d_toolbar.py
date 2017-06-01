@@ -1032,7 +1032,7 @@ class VIEW3D_PT_tools_brush(Panel, View3DPaintPanel):
                 row = col.row(align=True)
                 row.prop(brush, "rake_factor", slider=True)
 
-            # use_original_normal and sculpt_plane and sculpt_plane_range
+            # use_original_normal and sculpt_plane
             if capabilities.has_sculpt_plane:
                 col.separator()
                 row = col.row(align=True)
@@ -1040,9 +1040,6 @@ class VIEW3D_PT_tools_brush(Panel, View3DPaintPanel):
                 row.prop(brush, "use_original_normal", toggle=True, icon_only=True)
 
                 row.prop(brush, "sculpt_plane", text="")
-
-                row = col.row()
-                row.prop(brush, "sculpt_plane_range")
 
             if brush.sculpt_tool == 'MASK':
                 col.prop(brush, "mask_tool", text="")
@@ -1447,11 +1444,6 @@ class VIEW3D_PT_tools_brush_stroke(Panel, View3DPaintPanel):
             row.prop(brush, "use_pressure_spacing", toggle=True, text="")
             col.separator()
             col.prop(brush, "use_adaptive_space", text="Adaptive Spacing")
-
-        if brush.use_line or brush.use_curve:
-            col.separator()
-            row = col.row(align=True)
-            row.prop(brush, "spacing", text="Spacing")
 
         if brush.use_curve:
             col.separator()

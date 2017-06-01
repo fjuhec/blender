@@ -91,7 +91,6 @@ typedef struct Brush {
 	float secondary_rgb[3]; /* background color */
 
 	int sculpt_plane;       /* the direction of movement for sculpt vertices */
-	float sculpt_plane_range; /* adjust the range for determining the sculpt plane normal and center */
 
 	float plane_offset;     /* offset for plane brushes (clay, flatten, fill, scrape) */
 
@@ -138,6 +137,8 @@ typedef struct Brush {
 
 	float mask_stencil_pos[2];
 	float mask_stencil_dimension[2];
+
+	float pad;
 } Brush;
 
 typedef struct PaletteColor {

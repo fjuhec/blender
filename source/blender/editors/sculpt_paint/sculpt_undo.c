@@ -36,7 +36,6 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_bitmap.h"
 #include "BLI_math.h"
 #include "BLI_utildefines.h"
 #include "BLI_string.h"

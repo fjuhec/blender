@@ -78,8 +78,7 @@ static void brush_defaults(Brush *brush)
 	brush->alpha = 0.5f; /* brush strength/intensity probably variable should be renamed? */
 	brush->autosmooth_factor = 0.0f;
 	brush->crease_pinch_factor = 0.5f;
-	brush->sculpt_plane = SCULPT_DISP_DIR_AREA; /* default to the area normal as the sculpt plane displacement direction */
-	brush->sculpt_plane_range= 1; /* how large an area to determine the normal of the plane in brush radiuses */
+	brush->sculpt_plane = SCULPT_DISP_DIR_AREA;
 	brush->plane_offset = 0.0f; /* how far above or below the plane that is found by averaging the faces */
 	brush->plane_trim = 0.5f;
 	brush->clone.alpha = 0.5f;

@@ -693,24 +693,6 @@ static void sculpt_brush_test_init(SculptSession *ss, SculptBrushTest *test)
 	}
 }
 
-static void sculpt_brush_range_test_init(const SculptSession *ss, SculptBrushTest *test, float range)
-{
-	RegionView3D *rv3d = ss->cache->vc->rv3d;
-
-	test->radius_squared= ss->cache->radius_squared*range*range;
-	copy_v3_v3(test->location, ss->cache->location);
-	test->dist = 0.0f;   /* just for initialize */
-
-	test->mirror_symmetry_pass = ss->cache->mirror_symmetry_pass;
-
-	if (rv3d->rflag & RV3D_CLIPPING) {
-		test->clip_rv3d = rv3d;
-	}
-	else {
-		test->clip_rv3d = NULL;
-	}
-}
-
 BLI_INLINE bool sculpt_brush_test_clipping(const SculptBrushTest *test, const float co[3])
 {
 	RegionView3D *rv3d = test->clip_rv3d;
@@ -927,7 +909,6 @@ static void calc_area_normal_and_center_task_cb(void *userdata, const int n)
 	SculptSession *ss = data->ob->sculpt;
 	float (*area_nos)[3] = data->area_nos;
 	float (*area_cos)[3] = data->area_cos;
-	float sampling_radius_pct = data->brush->sculpt_plane_range;
 
 	PBVHVertexIter vd;
 	SculptBrushTest test;
@@ -939,7 +920,7 @@ static void calc_area_normal_and_center_task_cb(void *userdata, const int n)
 	bool use_original;
 
 	unode = sculpt_undo_push_node(data->ob, data->nodes[n], SCULPT_UNDO_COORDS);
-	sculpt_brush_range_test_init(ss, &test, sampling_radius_pct);
+	sculpt_brush_test_init(ss, &test);
 
 	use_original = (ss->cache->original && (unode->co || unode->bm_entry));
 
@@ -1065,8 +1046,7 @@ static void calc_area_center(
 
 	SculptThreadedTaskData data = {
 		.sd = sd, .ob = ob, .nodes = nodes, .totnode = totnode,
-		.has_bm_orco = has_bm_orco, .area_cos = area_cos, .area_nos = NULL,
-		.count = count, .brush = brush
+		.has_bm_orco = has_bm_orco, .area_cos = area_cos, .area_nos = NULL, .count = count,
 	};
 	BLI_mutex_init(&data.mutex);
 
@@ -1106,8 +1086,7 @@ static void calc_area_normal(
 
 	SculptThreadedTaskData data = {
 		.sd = sd, .ob = ob, .nodes = nodes, .totnode = totnode,
-		.has_bm_orco = has_bm_orco, .area_cos = NULL, .area_nos = area_nos,
-		.count = count, .brush = brush
+		.has_bm_orco = has_bm_orco, .area_cos = NULL, .area_nos = area_nos, .count = count,
 	};
 	BLI_mutex_init(&data.mutex);
 
@@ -1145,8 +1124,7 @@ static void calc_area_normal_and_center(
 
 	SculptThreadedTaskData data = {
 		.sd = sd, .ob = ob, .nodes = nodes, .totnode = totnode,
-		.has_bm_orco = has_bm_orco, .area_cos = area_cos, .area_nos = area_nos,
-		.count = count, .brush = brush
+		.has_bm_orco = has_bm_orco, .area_cos = area_cos, .area_nos = area_nos, .count = count,
 	};
 	BLI_mutex_init(&data.mutex);
 
@@ -1404,7 +1382,7 @@ static void sculpt_clip(Sculpt *sd, SculptSession *ss, float co[3], const float 
 }
 
 /* Calculate primary direction of movement for many brushes */
-void calc_sculpt_normal(
+static void calc_sculpt_normal(
         Sculpt *sd, Object *ob,
         PBVHNode **nodes, int totnode,
         float r_area_no[3])
@@ -2848,7 +2826,6 @@ static float get_offset(Sculpt *sd, SculptSession *ss)
 	return rv;
 }
 
-//Move up?
 static void do_flatten_brush_task_cb_ex(
         void *userdata, void *UNUSED(userdata_chunk), const int n, const int thread_id)
 {
