@@ -1133,18 +1133,11 @@ static void shgroup_dynamic_instance(DRWShadingGroup *shgroup)
 	DRWInterface *interface = shgroup->interface;
 	int buffer_size = 0;
 
-	/* XXX All of this is pretty garbage. Better revisit it later. */
 	if (interface->instance_batch != NULL) {
-		VertexBuffer *vert = interface->instance_batch->verts[0];
-		/* This is double check but we don't want
-		 * VertexBuffer_use() to bind the buffer if it exists. */
-		if (vert->vbo_id == 0) {
-			VertexBuffer_use(vert);
-		}
-		interface->instance_vbo = vert->vbo_id;
-		interface->instance_count = vert->vertex_ct;
+		return;
 	}
 
+	/* TODO We still need this because gawain does not support Matrix attribs. */
 	if (interface->instance_count == 0) {
 		if (interface->instance_vbo) {
 			glDeleteBuffers(1, &interface->instance_vbo);
@@ -1161,11 +1154,6 @@ static void shgroup_dynamic_instance(DRWShadingGroup *shgroup)
 			interface->attribs_size[i] = attrib->size;
 			interface->attribs_loc[i] = attrib->location;
 		}
-	}
-
-	if (interface->instance_batch != NULL) {
-		/* Quit just after attribs where specified */
-		return;
 	}
 
 	/* Gather Data */
@@ -1611,7 +1599,10 @@ static void draw_geometry_execute(DRWShadingGroup *shgroup, Batch *geom)
 	DRWInterface *interface = shgroup->interface;
 	/* step 2 : bind vertex array & draw */
 	Batch_set_program(geom, GPU_shader_get_program(shgroup->shader), GPU_shader_get_interface(shgroup->shader));
-	if (interface->instance_vbo) {
+	if (interface->instance_batch) {
+		Batch_draw_stupid_instanced_with_batch(geom, interface->instance_batch);
+	}
+	else if (interface->instance_vbo) {
 		Batch_draw_stupid_instanced(geom, interface->instance_vbo, interface->instance_count, interface->attribs_count,
 		                            interface->attribs_stride, interface->attribs_size, interface->attribs_loc);
 	}
@@ -1737,7 +1728,9 @@ static void draw_shgroup(DRWShadingGroup *shgroup, DRWState pass_state)
 		float obmat[4][4];
 		unit_m4(obmat);
 
-		if (shgroup->type == DRW_SHG_INSTANCE && interface->instance_count > 0) {
+		if (shgroup->type == DRW_SHG_INSTANCE &&
+			(interface->instance_count > 0 || interface->instance_batch != NULL))
+		{
 			GPU_SELECT_LOAD_IF_PICKSEL_LIST(&shgroup->calls);
 			draw_geometry(shgroup, shgroup->instance_geom, obmat, NULL);
 		}
@@ -2224,6 +2217,9 @@ void DRW_viewport_matrix_get(float mat[4][4], DRWViewportMatrixType type)
 		case DRW_MAT_WIN:
 			copy_m4_m4(mat, rv3d->winmat);
 			break;
+		case DRW_MAT_WININV:
+			invert_m4_m4(mat, rv3d->winmat);
+			break;
 		default:
 			BLI_assert(!"Matrix type invalid");
 			break;
@@ -2250,17 +2246,37 @@ DefaultTextureList *DRW_viewport_texture_list_get(void)
 
 
 /* -------------------------------------------------------------------- */
+/** \name SceneLayers (DRW_scenelayer)
+ * \{ */
+
+void **DRW_scene_layer_engine_data_get(DrawEngineType *engine_type, void (*callback)(void *storage))
+{
+	SceneLayerEngineData *sled;
+
+	for (sled = DST.draw_ctx.sl->drawdata.first; sled; sled = sled->next) {
+		if (sled->engine_type == engine_type) {
+			return &sled->storage;
+		}
+	}
+
+	sled = MEM_callocN(sizeof(SceneLayerEngineData), "SceneLayerEngineData");
+	sled->engine_type = engine_type;
+	sled->free = callback;
+	BLI_addtail(&DST.draw_ctx.sl->drawdata, sled);
+
+	return &sled->storage;
+}
+
+/** \} */
+
+
+/* -------------------------------------------------------------------- */
 
 /** \name Objects (DRW_object)
  * \{ */
 
-typedef struct ObjectEngineData {
-	struct ObjectEngineData *next, *prev;
-	DrawEngineType *engine_type;
-	void *storage;
-} ObjectEngineData;
-
-void **DRW_object_engine_data_get(Object *ob, DrawEngineType *engine_type)
+void **DRW_object_engine_data_get(
+        Object *ob, DrawEngineType *engine_type, void (*callback)(void *storage))
 {
 	ObjectEngineData *oed;
 
@@ -2272,22 +2288,14 @@ void **DRW_object_engine_data_get(Object *ob, DrawEngineType *engine_type)
 
 	oed = MEM_callocN(sizeof(ObjectEngineData), "ObjectEngineData");
 	oed->engine_type = engine_type;
+	oed->free = callback;
 	BLI_addtail(&ob->drawdata, oed);
 
 	return &oed->storage;
 }
 
-void DRW_object_engine_data_free(Object *ob)
-{
-	for (ObjectEngineData *oed = ob->drawdata.first; oed; oed = oed->next) {
-		if (oed->storage) {
-			MEM_freeN(oed->storage);
-		}
-	}
-
-	BLI_freelistN(&ob->drawdata);
-}
-
+/* XXX There is definitly some overlap between this and DRW_object_engine_data_get.
+ * We should get rid of one of the two. */
 LampEngineData *DRW_lamp_engine_data_get(Object *ob, RenderEngineType *engine_type)
 {
 	BLI_assert(ob->type == OB_LAMP);
@@ -2295,6 +2303,7 @@ LampEngineData *DRW_lamp_engine_data_get(Object *ob, RenderEngineType *engine_ty
 	Scene *scene = DST.draw_ctx.scene;
 
 	/* TODO Dupliobjects */
+	/* TODO Should be per scenelayer */
 	return GPU_lamp_engine_data_get(scene, ob, NULL, engine_type);
 }
 

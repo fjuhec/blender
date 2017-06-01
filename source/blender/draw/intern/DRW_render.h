@@ -175,6 +175,12 @@ void DRW_texture_free(struct GPUTexture *tex);
 struct GPUUniformBuffer *DRW_uniformbuffer_create(int size, const void *data);
 void DRW_uniformbuffer_update(struct GPUUniformBuffer *ubo, const void *data);
 void DRW_uniformbuffer_free(struct GPUUniformBuffer *ubo);
+#define DRW_UBO_FREE_SAFE(ubo) do { \
+	if (ubo != NULL) { \
+		DRW_uniformbuffer_free(ubo); \
+		ubo = NULL; \
+	} \
+} while (0)
 
 /* Buffers */
 #define MAX_FBO_TEX			5
@@ -188,7 +194,6 @@ typedef struct DRWFboTexture {
 void DRW_framebuffer_init(
         struct GPUFrameBuffer **fb, void *engine_type, int width, int height,
         DRWFboTexture textures[MAX_FBO_TEX], int textures_len);
-void DRW_framebuffer_free(struct GPUFrameBuffer *fb);
 void DRW_framebuffer_bind(struct GPUFrameBuffer *fb);
 void DRW_framebuffer_clear(bool color, bool depth, bool stencil, float clear_col[4], float clear_depth);
 void DRW_framebuffer_read_data(int x, int y, int w, int h, int channels, int slot, float *data);
@@ -196,6 +201,13 @@ void DRW_framebuffer_texture_attach(struct GPUFrameBuffer *fb, struct GPUTexture
 void DRW_framebuffer_texture_detach(struct GPUTexture *tex);
 void DRW_framebuffer_blit(struct GPUFrameBuffer *fb_read, struct GPUFrameBuffer *fb_write, bool depth);
 void DRW_framebuffer_viewport_size(struct GPUFrameBuffer *UNUSED(fb_read), int w, int h);
+void DRW_framebuffer_free(struct GPUFrameBuffer *fb);
+#define DRW_FRAMEBUFFER_FREE_SAFE(fb) do { \
+	if (fb != NULL) { \
+		DRW_framebuffer_free(fb); \
+		fb = NULL; \
+	} \
+} while (0)
 
 void DRW_transform_to_display(struct GPUTexture *tex);
 
@@ -307,6 +319,7 @@ typedef enum {
 	DRW_MAT_VIEW,
 	DRW_MAT_VIEWINV,
 	DRW_MAT_WIN,
+	DRW_MAT_WININV,
 } DRWViewportMatrixType;
 
 void DRW_viewport_init(const bContext *C);
@@ -319,8 +332,12 @@ bool DRW_viewport_is_persp_get(void);
 struct DefaultFramebufferList *DRW_viewport_framebuffer_list_get(void);
 struct DefaultTextureList     *DRW_viewport_texture_list_get(void);
 
+/* SceneLayers */
+void **DRW_scene_layer_engine_data_get(DrawEngineType *engine_type, void (*callback)(void *storage));
+
 /* Objects */
-void **DRW_object_engine_data_get(Object *ob, DrawEngineType *det);
+void **DRW_object_engine_data_get(
+        Object *ob, DrawEngineType *engine_type, void (*callback)(void *storage));
 struct LampEngineData *DRW_lamp_engine_data_get(Object *ob, struct RenderEngineType *engine_type);
 void DRW_lamp_engine_data_free(struct LampEngineData *led);
 

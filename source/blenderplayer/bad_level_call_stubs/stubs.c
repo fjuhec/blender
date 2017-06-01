@@ -43,6 +43,7 @@
 
 struct ARegion;
 struct ARegionType;
+struct bFaceMap;
 struct BMEditMesh;
 struct Base;
 struct BaseLegacy;
@@ -372,6 +373,8 @@ void ED_armature_ebone_to_mat4(struct EditBone *ebone, float mat[4][4]) RET_NONE
 void ED_armature_ebone_from_mat4(EditBone *ebone, float mat[4][4]) RET_NONE
 void ED_object_parent(struct Object *ob, struct Object *par, const int type, const char *substr) RET_NONE
 void ED_object_constraint_set_active(struct Object *ob, struct bConstraint *con) RET_NONE
+void ED_object_facemap_face_add(struct Object *ob, struct bFaceMap *fmap, int facenum) RET_NONE
+void ED_object_facemap_face_remove(struct Object *ob, struct bFaceMap *fmap, int facenum) RET_NONE
 void ED_node_composit_default(const struct bContext *C, struct Scene *scene) RET_NONE
 void *ED_region_draw_cb_activate(struct ARegionType *art, void(*draw)(const struct bContext *, struct ARegion *, void *), void *custumdata, int type) RET_ZERO /* XXX this one looks weird */
 void *ED_region_draw_cb_customdata(void *handle) RET_ZERO /* XXX This one looks wrong also */
@@ -715,7 +718,6 @@ void EDIT_MESH_collection_settings_create(struct IDProperty *properties) RET_NON
 void EDIT_ARMATURE_collection_settings_create(struct IDProperty *properties) RET_NONE
 void PAINT_WEIGHT_collection_settings_create(struct IDProperty *properties) RET_NONE
 void PAINT_VERTEX_collection_settings_create(struct IDProperty *properties) RET_NONE
-void DRW_object_engine_data_free(struct Object *ob) RET_NONE
 
 /* python */
 struct wmOperatorType *WM_operatortype_find(const char *idname, bool quiet) RET_NULL

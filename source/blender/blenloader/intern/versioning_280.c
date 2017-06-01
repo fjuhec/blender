@@ -39,7 +39,6 @@
 #include "DNA_genfile.h"
 #include "DNA_gpencil_types.h"
 
-#include "BKE_blender.h"
 #include "BKE_collection.h"
 #include "BKE_customdata.h"
 #include "BKE_idprop.h"
@@ -63,9 +62,6 @@
 void do_versions_after_linking_280(Main *main)
 {
 	if (!MAIN_VERSION_ATLEAST(main, 280, 0)) {
-		char version[48];
-		BKE_blender_version_string(version, sizeof(version), main->versionfile, main->subversionfile, false, false);
-
 		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
 			/* since we don't have access to FileData we check the (always valid) first render layer instead */
 			if (scene->render_layers.first == NULL) {
@@ -79,7 +75,7 @@ void do_versions_after_linking_280(Main *main)
 				for (int i = 0; i < 20; i++) {
 					char name[MAX_NAME];
 
-					BLI_snprintf(name, sizeof(collections[i]->name), "Collection %d [converted from %s]", i + 1, version);
+					BLI_snprintf(name, sizeof(collections[i]->name), "Collection %d", i + 1);
 					collections[i] = BKE_collection_add(scene, sc_master, name);
 
 					is_visible[i] = (scene->lay & (1 << i));

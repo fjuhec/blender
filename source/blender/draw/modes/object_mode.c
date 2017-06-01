@@ -30,6 +30,7 @@
 #include "DNA_armature_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_curve_types.h"
+#include "DNA_mesh_types.h"
 #include "DNA_object_force.h"
 #include "DNA_particle_types.h"
 #include "DNA_view3d_types.h"
@@ -211,11 +212,17 @@ static struct {
 	GPUShader *part_prim_sh;
 	GPUShader *part_axis_sh;
 	float camera_pos[3];
+	float screenvecs[3][4];
 	float grid_settings[5];
 	float grid_mat[4][4];
 	int grid_flag;
+	float grid_normal[3];
+	float grid_axes[3];
 	int zpos_flag;
 	int zneg_flag;
+	float zplane_normal[3];
+	float zplane_axes[3];
+	bool draw_grid;
 	/* Temp buffer textures */
 	struct GPUTexture *outlines_depth_tx;
 	struct GPUTexture *outlines_color_tx;
@@ -309,7 +316,8 @@ static void OBJECT_engine_init(void *vedata)
 
 	{
 		/* Grid precompute */
-		float viewinvmat[4][4], winmat[4][4], invwinmat[4][4], viewmat[4][4];
+		float invviewmat[4][4], invwinmat[4][4];
+		float viewmat[4][4], winmat[4][4];
 		const DRWContextState *draw_ctx = DRW_context_state_get();
 		View3D *v3d = draw_ctx->v3d;
 		Scene *scene = draw_ctx->scene;
@@ -321,13 +329,15 @@ static void OBJECT_engine_init(void *vedata)
 		const bool show_axis_y = (v3d->gridflag & V3D_SHOW_Y) != 0;
 		const bool show_axis_z = (v3d->gridflag & V3D_SHOW_Z) != 0;
 		const bool show_floor = (v3d->gridflag & V3D_SHOW_FLOOR) != 0;
+		e_data.draw_grid = show_axis_x || show_axis_y || show_axis_z || show_floor;
 
 		DRW_viewport_matrix_get(winmat, DRW_MAT_WIN);
 		DRW_viewport_matrix_get(viewmat, DRW_MAT_VIEW);
-		DRW_viewport_matrix_get(viewinvmat, DRW_MAT_VIEWINV);
+		DRW_viewport_matrix_get(invwinmat, DRW_MAT_WININV);
+		DRW_viewport_matrix_get(invviewmat, DRW_MAT_VIEWINV);
 
 		/* Setup camera pos */
-		copy_v3_v3(e_data.camera_pos, viewinvmat[3]);
+		copy_v3_v3(e_data.camera_pos, invviewmat[3]);
 
 		/* if perps */
 		if (winmat[3][3] == 0.0f) {
@@ -336,13 +346,11 @@ static void OBJECT_engine_init(void *vedata)
 			    {1.0f, -1.0f, -1.0f, 1.0f},
 			    {-1.0f, 1.0f, -1.0f, 1.0f}
 			};
-			/* invert the proj matrix */
-			invert_m4_m4(invwinmat, winmat);
 
 			/* convert the view vectors to view space */
 			for (int i = 0; i < 2; i++) {
 				mul_m4_v4(invwinmat, viewvecs[i]);
-				mul_v3_fl(viewvecs[i], 1.0f / viewvecs[i][2]); /* normalize */
+				mul_v3_fl(viewvecs[i], 1.0f / viewvecs[i][2]); /* perspective divide */
 			}
 
 			fov = angle_v3v3(viewvecs[0], viewvecs[1]) / 2.0f;
@@ -359,6 +367,7 @@ static void OBJECT_engine_init(void *vedata)
 				e_data.grid_flag |= SHOW_AXIS_Y;
 			if (show_floor)
 				e_data.grid_flag |= SHOW_GRID;
+
 		}
 		else {
 			float viewdist = 1.0f / max_ff(fabsf(winmat[0][0]), fabsf(winmat[1][1]));
@@ -396,12 +405,44 @@ static void OBJECT_engine_init(void *vedata)
 			}
 		}
 
+		e_data.grid_normal[0] = (float)((e_data.grid_flag & PLANE_YZ) != 0);
+		e_data.grid_normal[1] = (float)((e_data.grid_flag & PLANE_XZ) != 0);
+		e_data.grid_normal[2] = (float)((e_data.grid_flag & PLANE_XY) != 0);
+
+		e_data.grid_axes[0] = (float)((e_data.grid_flag & (PLANE_XZ | PLANE_XY)) != 0);
+		e_data.grid_axes[1] = (float)((e_data.grid_flag & (PLANE_YZ | PLANE_XY)) != 0);
+		e_data.grid_axes[2] = (float)((e_data.grid_flag & (PLANE_YZ | PLANE_XZ)) != 0);
+
+		/* Vectors to recover pixel world position. Fix grid precision issue. */
+		/* Using pixel at z = 0.0f in ndc space : gives average precision between
+		 * near and far plane. Note that it might not be the best choice. */
+		copy_v4_fl4(e_data.screenvecs[0],  1.0f, -1.0f, 0.0f, 1.0f);
+		copy_v4_fl4(e_data.screenvecs[1], -1.0f,  1.0f, 0.0f, 1.0f);
+		copy_v4_fl4(e_data.screenvecs[2], -1.0f, -1.0f, 0.0f, 1.0f);
+
+		for (int i = 0; i < 3; i++) {
+			/* Doing 2 steps to recover world position of the corners of the frustum.
+			 * Using the inverse perspective matrix is giving very low precision output. */
+			mul_m4_v4(invwinmat, e_data.screenvecs[i]);
+			e_data.screenvecs[i][0] /= e_data.screenvecs[i][3]; /* perspective divide */
+			e_data.screenvecs[i][1] /= e_data.screenvecs[i][3]; /* perspective divide */
+			e_data.screenvecs[i][2] /= e_data.screenvecs[i][3]; /* perspective divide */
+			e_data.screenvecs[i][3] = 1.0f;
+			/* main instability come from this one */
+			/* TODO : to make things even more stable, don't use
+			 * invviewmat and derive vectors from camera properties */
+			mul_m4_v4(invviewmat, e_data.screenvecs[i]);
+		}
+
+		sub_v3_v3(e_data.screenvecs[0], e_data.screenvecs[2]);
+		sub_v3_v3(e_data.screenvecs[1], e_data.screenvecs[2]);
+
 		/* Z axis if needed */
 		if (((rv3d->view == RV3D_VIEW_USER) || (rv3d->persp != RV3D_ORTHO)) && show_axis_z) {
 			e_data.zpos_flag = SHOW_AXIS_Z;
 
 			float zvec[4] = {0.0f, 0.0f, -1.0f, 0.0f};
-			mul_m4_v4(viewinvmat, zvec);
+			mul_m4_v4(invviewmat, zvec);
 
 			/* z axis : chose the most facing plane */
 			if (fabsf(zvec[0]) < fabsf(zvec[1])) {
@@ -424,6 +465,15 @@ static void OBJECT_engine_init(void *vedata)
 				e_data.zpos_flag |= CLIP_ZNEG;
 				e_data.zneg_flag |= CLIP_ZPOS;
 			}
+
+			e_data.zplane_normal[0] = (float)((e_data.zpos_flag & PLANE_YZ) != 0);
+			e_data.zplane_normal[1] = (float)((e_data.zpos_flag & PLANE_XZ) != 0);
+			e_data.zplane_normal[2] = (float)((e_data.zpos_flag & PLANE_XY) != 0);
+
+			e_data.zplane_axes[0] = (float)((e_data.zpos_flag & (PLANE_XZ | PLANE_XY)) != 0);
+			e_data.zplane_axes[1] = (float)((e_data.zpos_flag & (PLANE_YZ | PLANE_XY)) != 0);
+			e_data.zplane_axes[2] = (float)((e_data.zpos_flag & (PLANE_YZ | PLANE_XZ)) != 0);
+
 		}
 		else {
 			e_data.zneg_flag = e_data.zpos_flag = CLIP_ZNEG | CLIP_ZPOS;
@@ -755,19 +805,27 @@ static void OBJECT_cache_init(void *vedata)
 		/* Create 3 quads to render ordered transparency Z axis */
 		DRWShadingGroup *grp = DRW_shgroup_create(e_data.grid_sh, psl->grid);
 		DRW_shgroup_uniform_int(grp, "gridFlag", &e_data.zneg_flag, 1);
+		DRW_shgroup_uniform_vec3(grp, "planeNormal", e_data.zplane_normal, 1);
+		DRW_shgroup_uniform_vec3(grp, "planeAxes", e_data.zplane_axes, 1);
 		DRW_shgroup_uniform_mat4(grp, "ViewProjectionOffsetMatrix", (float *)e_data.grid_mat);
 		DRW_shgroup_uniform_vec3(grp, "cameraPos", e_data.camera_pos, 1);
+		DRW_shgroup_uniform_vec4(grp, "screenvecs[0]", e_data.screenvecs[0], 3);
 		DRW_shgroup_uniform_vec4(grp, "gridSettings", e_data.grid_settings, 1);
 		DRW_shgroup_uniform_float(grp, "gridOneOverLogSubdiv", &e_data.grid_settings[4], 1);
 		DRW_shgroup_uniform_block(grp, "globalsBlock", globals_ubo);
+		DRW_shgroup_uniform_vec2(grp, "viewportSize", DRW_viewport_size_get(), 1);
 		DRW_shgroup_call_add(grp, quad, mat);
 
 		grp = DRW_shgroup_create(e_data.grid_sh, psl->grid);
 		DRW_shgroup_uniform_int(grp, "gridFlag", &e_data.grid_flag, 1);
+		DRW_shgroup_uniform_vec3(grp, "planeNormal", e_data.grid_normal, 1);
+		DRW_shgroup_uniform_vec3(grp, "planeAxes", e_data.grid_axes, 1);
 		DRW_shgroup_call_add(grp, quad, mat);
 
 		grp = DRW_shgroup_create(e_data.grid_sh, psl->grid);
 		DRW_shgroup_uniform_int(grp, "gridFlag", &e_data.zpos_flag, 1);
+		DRW_shgroup_uniform_vec3(grp, "planeNormal", e_data.zplane_normal, 1);
+		DRW_shgroup_uniform_vec3(grp, "planeAxes", e_data.zplane_axes, 1);
 		DRW_shgroup_call_add(grp, quad, mat);
 	}
 
@@ -1021,7 +1079,7 @@ static void DRW_shgroup_lamp(OBJECT_StorageList *stl, Object *ob, SceneLayer *sl
 	int theme_id = DRW_object_wire_theme_get(ob, sl, &color);
 	static float zero = 0.0f;
 
-	float **la_mats = (float **)DRW_object_engine_data_get(ob, &draw_engine_object_type);
+	float **la_mats = (float **)DRW_object_engine_data_get(ob, &draw_engine_object_type, NULL);
 	if (*la_mats == NULL) {
 		/* we need 2 matrices */
 		*la_mats = MEM_mallocN(sizeof(float) * 16 * 2, "Lamp Object Mode Matrices");
@@ -1389,6 +1447,71 @@ static void DRW_shgroup_object_center(OBJECT_StorageList *stl, Object *ob)
 	DRW_shgroup_call_dynamic_add(shgroup, ob->obmat[3]);
 }
 
+static void OBJECT_cache_populate_particles(Object *ob,
+                                            OBJECT_PassList *psl)
+{
+	for (ParticleSystem *psys = ob->particlesystem.first; psys; psys = psys->next) {
+		if (psys_check_enabled(ob, psys, false)) {
+			ParticleSettings *part = psys->part;
+			int draw_as = (part->draw_as == PART_DRAW_REND) ? part->ren_as : part->draw_as;
+
+			if (draw_as == PART_DRAW_PATH && !psys->pathcache && !psys->childcache) {
+				draw_as = PART_DRAW_DOT;
+			}
+
+			static float mat[4][4];
+			unit_m4(mat);
+
+			if (draw_as != PART_DRAW_PATH) {
+				struct Batch *geom = DRW_cache_particles_get_dots(psys);
+				DRWShadingGroup *shgrp = NULL;
+				static int screen_space[2] = {0, 1};
+				static float def_prim_col[3] = {0.5f, 0.5f, 0.5f};
+				static float def_sec_col[3] = {1.0f, 1.0f, 1.0f};
+
+				Material *ma = give_current_material(ob, part->omat);
+
+				switch (draw_as) {
+					case PART_DRAW_DOT:
+						shgrp = DRW_shgroup_create(e_data.part_dot_sh, psl->particle);
+						DRW_shgroup_uniform_vec3(shgrp, "color", ma ? &ma->r : def_prim_col, 1);
+						DRW_shgroup_uniform_vec3(shgrp, "outlineColor", ma ? &ma->specr : def_sec_col, 1);
+						DRW_shgroup_uniform_short_to_int(shgrp, "size", &part->draw_size, 1);
+						DRW_shgroup_uniform_texture(shgrp, "ramp", globals_ramp);
+						DRW_shgroup_call_add(shgrp, geom, mat);
+						break;
+					case PART_DRAW_CROSS:
+						shgrp = DRW_shgroup_instance_create(e_data.part_prim_sh, psl->particle, DRW_cache_particles_get_prim(PART_DRAW_CROSS));
+						DRW_shgroup_uniform_texture(shgrp, "ramp", globals_ramp);
+						DRW_shgroup_uniform_vec3(shgrp, "color", ma ? &ma->r : def_prim_col, 1);
+						DRW_shgroup_uniform_int(shgrp, "screen_space", &screen_space[0], 1);
+						break;
+					case PART_DRAW_CIRC:
+						shgrp = DRW_shgroup_instance_create(e_data.part_prim_sh, psl->particle, DRW_cache_particles_get_prim(PART_DRAW_CIRC));
+						DRW_shgroup_uniform_texture(shgrp, "ramp", globals_ramp);
+						DRW_shgroup_uniform_vec3(shgrp, "color", ma ? &ma->r : def_prim_col, 1);
+						DRW_shgroup_uniform_int(shgrp, "screen_space", &screen_space[1], 1);
+						break;
+					case PART_DRAW_AXIS:
+						shgrp = DRW_shgroup_instance_create(e_data.part_axis_sh, psl->particle, DRW_cache_particles_get_prim(PART_DRAW_AXIS));
+						DRW_shgroup_uniform_int(shgrp, "screen_space", &screen_space[0], 1);
+						break;
+					default:
+						break;
+				}
+
+				if (shgrp) {
+					if (draw_as != PART_DRAW_DOT) {
+						DRW_shgroup_uniform_short_to_int(shgrp, "draw_size", &part->draw_size, 1);
+						DRW_shgroup_uniform_float(shgrp, "pixel_size", DRW_viewport_pixelsize_get(), 1);
+						DRW_shgroup_instance_batch(shgrp, geom);
+					}
+				}
+			}
+		}
+	}
+}
+
 static void OBJECT_cache_populate(void *vedata, Object *ob)
 {
 	OBJECT_PassList *psl = ((OBJECT_Data *)vedata)->psl;
@@ -1419,69 +1542,26 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 
 	switch (ob->type) {
 		case OB_MESH:
-			for (ParticleSystem *psys = ob->particlesystem.first; psys; psys = psys->next) {
-				if (psys_check_enabled(ob, psys, false)) {
-					ParticleSettings *part = psys->part;
-					int draw_as = (part->draw_as == PART_DRAW_REND) ? part->ren_as : part->draw_as;
-
-					if (draw_as == PART_DRAW_PATH && !psys->pathcache && !psys->childcache) {
-						draw_as = PART_DRAW_DOT;
-					}
-
-					static float mat[4][4];
-					unit_m4(mat);
-
-					if (draw_as != PART_DRAW_PATH) {
-						struct Batch *geom = DRW_cache_particles_get_dots(psys);
-						DRWShadingGroup *shgrp = NULL;
-						static int screen_space[2] = {0, 1};
-						static float def_prim_col[3] = {0.5f, 0.5f, 0.5f};
-						static float def_sec_col[3] = {1.0f, 1.0f, 1.0f};
-
-						Material *ma = give_current_material(ob, part->omat);
-
-						switch (draw_as) {
-							case PART_DRAW_DOT:
-								shgrp = DRW_shgroup_create(e_data.part_dot_sh, psl->particle);
-								DRW_shgroup_uniform_vec3(shgrp, "color", ma ? &ma->r : def_prim_col, 1);
-								DRW_shgroup_uniform_vec3(shgrp, "outlineColor", ma ? &ma->specr : def_sec_col, 1);
-								DRW_shgroup_uniform_short_to_int(shgrp, "size", &part->draw_size, 1);
-								DRW_shgroup_uniform_texture(shgrp, "ramp", globals_ramp);
-								DRW_shgroup_call_add(shgrp, geom, mat);
-								break;
-							case PART_DRAW_CROSS:
-								shgrp = DRW_shgroup_instance_create(e_data.part_prim_sh, psl->particle, DRW_cache_particles_get_prim(PART_DRAW_CROSS));
-								DRW_shgroup_uniform_texture(shgrp, "ramp", globals_ramp);
-								DRW_shgroup_uniform_vec3(shgrp, "color", &ma->r, 1);
-								DRW_shgroup_uniform_int(shgrp, "screen_space", &screen_space[0], 1);
-								break;
-							case PART_DRAW_CIRC:
-								shgrp = DRW_shgroup_instance_create(e_data.part_prim_sh, psl->particle, DRW_cache_particles_get_prim(PART_DRAW_CIRC));
-								DRW_shgroup_uniform_texture(shgrp, "ramp", globals_ramp);
-								DRW_shgroup_uniform_vec3(shgrp, "color", &ma->r, 1);
-								DRW_shgroup_uniform_int(shgrp, "screen_space", &screen_space[1], 1);
-								break;
-							case PART_DRAW_AXIS:
-								shgrp = DRW_shgroup_instance_create(e_data.part_axis_sh, psl->particle, DRW_cache_particles_get_prim(PART_DRAW_AXIS));
-								DRW_shgroup_uniform_int(shgrp, "screen_space", &screen_space[0], 1);
-								break;
-							default:
-								break;
+		{
+			Mesh *me = ob->data;
+			if (me->totpoly == 0) {
+				Object *obedit = scene->obedit;
+				if (ob != obedit) {
+					struct Batch *geom = DRW_cache_mesh_edges_get(ob);
+					if (geom) {
+						if (theme_id == TH_UNDEFINED) {
+							theme_id = DRW_object_wire_theme_get(ob, sl, NULL);
 						}
 
-						if (shgrp) {
-							if (draw_as != PART_DRAW_DOT) {
-								DRW_shgroup_attrib_float(shgrp, "pos", 3);
-								DRW_shgroup_attrib_float(shgrp, "rot", 4);
-								DRW_shgroup_attrib_float(shgrp, "val", 1);
-								DRW_shgroup_uniform_short_to_int(shgrp, "draw_size", &part->draw_size, 1);
-								DRW_shgroup_uniform_float(shgrp, "pixel_size", DRW_viewport_pixelsize_get(), 1);
-								DRW_shgroup_instance_batch(shgrp, geom);
-							}
-						}
+						DRWShadingGroup *shgroup = shgroup_theme_id_to_wire_or(stl, theme_id, stl->g_data->wire);
+						DRW_shgroup_call_add(shgroup, geom, ob->obmat);
 					}
 				}
 			}
+
+			OBJECT_cache_populate_particles(ob, psl);
+			break;
+		}
 		case OB_SURF:
 			break;
 		case OB_LATTICE:
@@ -1640,7 +1720,9 @@ static void OBJECT_draw_scene(void *vedata)
 	DRW_draw_pass(psl->reference_image);
 
 	if (!DRW_state_is_select()) {
-		DRW_draw_pass(psl->grid);
+		if (e_data.draw_grid) {
+			DRW_draw_pass(psl->grid);
+		}
 
 		/* Combine with scene buffer last */
 		DRW_draw_pass(psl->outlines_resolve);

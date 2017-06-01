@@ -833,6 +833,10 @@ static void mesh_render_data_ensure_vert_weight_color(MeshRenderData *rdata, con
 {
 	float (*vweight)[3] = rdata->vert_weight_color;
 	if (vweight == NULL) {
+		if (defgroup == -1) {
+			goto fallback;
+		}
+
 		if (rdata->edit_bmesh) {
 			BMesh *bm = rdata->edit_bmesh->bm;
 			const int cd_dvert_offset = CustomData_get_offset(&bm->vdata, CD_MDEFORMVERT);
@@ -2422,7 +2426,6 @@ static ElementList *mesh_batch_cache_get_edges_in_order(MeshRenderData *rdata, M
 	BLI_assert(rdata->types & (MR_DATATYPE_VERT | MR_DATATYPE_EDGE));
 
 	if (cache->edges_in_order == NULL) {
-		printf("Caching edges in order...\n");
 		const int vert_len = mesh_render_data_verts_len_get(rdata);
 		const int edge_len = mesh_render_data_edges_len_get(rdata);
 
