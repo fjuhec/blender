@@ -1419,7 +1419,7 @@ static EnumPropertyItem *object_mode_set_itemsf(bContext *C, PointerRNA *UNUSED(
 	 */
 	gpd = CTX_data_gpencil_data(C);
 	if (gpd) {
-		RNA_enum_items_add_value(&item, &totitem, rna_enum_object_mode_items, OB_MODE_GPENCIL);
+		RNA_enum_items_add_value(&item, &totitem, rna_enum_object_mode_items, OB_MODE_GPENCIL_EDIT);
 	}
 
 	RNA_enum_item_end(&item, &totitem);
@@ -1445,7 +1445,7 @@ static const char *object_mode_op_string(int mode)
 		return "PARTICLE_OT_particle_edit_toggle";
 	if (mode == OB_MODE_POSE)
 		return "OBJECT_OT_posemode_toggle";
-	if (mode == OB_MODE_GPENCIL)
+	if (mode == OB_MODE_GPENCIL_EDIT)
 		return "GPENCIL_OT_editmode_toggle";
 	return NULL;
 }
@@ -1458,7 +1458,7 @@ static bool object_mode_compat_test(Object *ob, ObjectMode mode)
 	if (ob) {
 		if (mode == OB_MODE_OBJECT)
 			return true;
-		else if (mode == OB_MODE_GPENCIL)
+		else if (mode == OB_MODE_GPENCIL_EDIT)
 			return true; /* XXX: assume this is the case for now... */
 
 		switch (ob->type) {

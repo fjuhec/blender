@@ -307,7 +307,7 @@ void uiTemplateHeader3D(uiLayout *layout, struct bContext *C)
 	
 	/* mode */
 	if ((gpd) && (gpd->flag & GP_DATA_STROKE_EDITMODE)) {
-		modeselect = OB_MODE_GPENCIL;
+		modeselect = OB_MODE_GPENCIL_EDIT;
 	}
 	else if (ob) {
 		modeselect = ob->mode;
