@@ -108,10 +108,10 @@ static void GPENCIL_cache_init(void *vedata)
 		stl->storage->xray = GP_XRAY_FRONT; /* used for drawing */
 	}
 	if (!stl->shgroups) {
-		/* Alloc maximum size because count strokes is very slow and can be very complex due onion skinning
-		   Note: I tried to allocate only one and using realloc, increase the size when read a new strokes 
-		         in cache_finish, but the realloc produce weird things on screen, so we keep as is while we
-				 found a better solution
+		/* Alloc maximum size because count strokes is very slow and can be very complex due onion skinning.
+		   I tried to allocate only one block and using realloc, increasing the size when read a new strokes
+		   in cache_finish, but the realloc produce weird things on screen, so we keep as is while we found
+		   a better solution
 		 */
 		stl->shgroups = MEM_mallocN(sizeof(GPENCIL_shgroup) * GPENCIL_MAX_SHGROUPS, "GPENCIL_shgroup");
 	}
