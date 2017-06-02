@@ -256,16 +256,19 @@ EnumPropertyItem rna_enum_file_sort_items[] = {
 #include "BKE_context.h"
 #include "BKE_depsgraph.h"
 #include "BKE_layer.h"
+#include "BKE_global.h"
 #include "BKE_nla.h"
 #include "BKE_paint.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
 #include "BKE_icons.h"
+#include "BKE_workspace.h"
 
 #include "ED_buttons.h"
 #include "ED_fileselect.h"
 #include "ED_image.h"
 #include "ED_node.h"
+#include "ED_transform.h"
 #include "ED_screen.h"
 #include "ED_view3d.h"
 #include "ED_sequencer.h"
@@ -405,43 +408,63 @@ static void rna_Space_view2d_sync_update(Main *UNUSED(bmain), Scene *UNUSED(scen
 	}
 }
 
-static PointerRNA rna_CurrentOrientation_get(PointerRNA *ptr)
+static int rna_View3D_transform_orientation_get(PointerRNA *ptr)
 {
-	Scene *scene = ((bScreen *)ptr->id.data)->scene;
-	View3D *v3d = (View3D *)ptr->data;
+	const View3D *v3d = (View3D *)ptr->data;
+	/* convert to enum value */
+	return (v3d->twmode == V3D_MANIP_CUSTOM) ? (v3d->twmode + v3d->custom_orientation_index) : v3d->twmode;
+}
 
-	if (v3d->twmode < V3D_MANIP_CUSTOM)
-		return rna_pointer_inherit_refine(ptr, &RNA_TransformOrientation, NULL);
-	else
-		return rna_pointer_inherit_refine(ptr, &RNA_TransformOrientation,
-		                                  BLI_findlink(&scene->transform_spaces, v3d->twmode - V3D_MANIP_CUSTOM));
+void rna_View3D_transform_orientation_set(PointerRNA *ptr, int value)
+{
+	View3D *v3d = (View3D *)ptr->data;
+	BIF_selectTransformOrientationValue(v3d, value);
+}
+
+static PointerRNA rna_View3D_current_orientation_get(PointerRNA *ptr)
+{
+	View3D *v3d = (View3D *)ptr->data;
+	TransformOrientation *orientation;
+
+	if (v3d->twmode < V3D_MANIP_CUSTOM) {
+		orientation = NULL;
+	}
+	else {
+		WorkSpace *workspace;
+		bScreen *screen = ptr->id.data;
+
+		BKE_workspace_layout_find_global(G.main, screen, &workspace);
+		orientation = BKE_workspace_transform_orientation_find(workspace, v3d->custom_orientation_index);
+	}
+
+	return rna_pointer_inherit_refine(ptr, &RNA_TransformOrientation, orientation);
 }
 
 EnumPropertyItem *rna_TransformOrientation_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
 {
-	Scene *scene = NULL;
-	ListBase *transform_spaces;
-	TransformOrientation *ts = NULL;
+	WorkSpace *workspace;
+	ListBase *transform_orientations;
 	EnumPropertyItem tmp = {0, "", 0, "", ""};
 	EnumPropertyItem *item = NULL;
 	int i = V3D_MANIP_CUSTOM, totitem = 0;
 
 	RNA_enum_items_add(&item, &totitem, transform_orientation_items);
 
-	if (ptr->type == &RNA_SpaceView3D)
-		scene = ((bScreen *)ptr->id.data)->scene;
-	else
-		scene = CTX_data_scene(C);  /* can't use scene from ptr->id.data because that enum is also used by operators */
-
-	if (scene) {
-		transform_spaces = &scene->transform_spaces;
-		ts = transform_spaces->first;
+	if (ptr->type == &RNA_SpaceView3D) {
+		bScreen *screen = ptr->id.data;
+		BKE_workspace_layout_find_global(G.main, screen, &workspace);
+	}
+	else {
+		/* can't use scene from ptr->id.data because that enum is also used by operators */
+		workspace = CTX_wm_workspace(C);
 	}
 
-	if (ts) {
+	transform_orientations = BKE_workspace_transform_orientations_get(workspace);
+
+	if (BLI_listbase_is_empty(transform_orientations) == false) {
 		RNA_enum_item_add_separator(&item, &totitem);
 
-		for (; ts; ts = ts->next) {
+		for (TransformOrientation *ts = transform_orientations->first; ts; ts = ts->next) {
 			tmp.identifier = ts->name;
 			tmp.name = ts->name;
 			tmp.value = i++;
@@ -460,8 +483,10 @@ static void rna_SpaceView3D_camera_update(Main *bmain, Scene *scene, PointerRNA 
 {
 	View3D *v3d = (View3D *)(ptr->data);
 	if (v3d->scenelock) {
+		wmWindowManager *wm = bmain->wm.first;
+
 		scene->camera = v3d->camera;
-		BKE_screen_view3d_main_sync(&bmain->screen, scene);
+		WM_windows_scene_data_sync(&wm->windows, scene);
 	}
 }
 
@@ -473,8 +498,10 @@ static void rna_SpaceView3D_lock_camera_and_layers_set(PointerRNA *ptr, int valu
 	v3d->scenelock = value;
 
 	if (value) {
+		Scene *scene = ED_screen_scene_find(sc, G.main->wm.first);
 		int bit;
-		v3d->lay = sc->scene->lay;
+
+		v3d->lay = scene->lay;
 		/* seek for layact */
 		bit = 0;
 		while (bit < 32) {
@@ -484,15 +511,15 @@ static void rna_SpaceView3D_lock_camera_and_layers_set(PointerRNA *ptr, int valu
 			}
 			bit++;
 		}
-		v3d->camera = sc->scene->camera;
+		v3d->camera = scene->camera;
 	}
 }
 
 static void rna_View3D_CursorLocation_get(PointerRNA *ptr, float *values)
 {
 	View3D *v3d = (View3D *)(ptr->data);
-	bScreen *sc = (bScreen *)ptr->id.data;
-	Scene *scene = (Scene *)sc->scene;
+	bScreen *screen = ptr->id.data;
+	Scene *scene = ED_screen_scene_find(screen, G.main->wm.first);
 	const float *loc = ED_view3d_cursor3d_get(scene, v3d);
 
 	copy_v3_v3(values, loc);
@@ -501,8 +528,8 @@ static void rna_View3D_CursorLocation_get(PointerRNA *ptr, float *values)
 static void rna_View3D_CursorLocation_set(PointerRNA *ptr, const float *values)
 {
 	View3D *v3d = (View3D *)(ptr->data);
-	bScreen *sc = (bScreen *)ptr->id.data;
-	Scene *scene = (Scene *)sc->scene;
+	bScreen *screen = ptr->id.data;
+	Scene *scene = ED_screen_scene_find(screen, G.main->wm.first);
 	float *cursor = ED_view3d_cursor3d_get(scene, v3d);
 
 	copy_v3_v3(cursor, values);
@@ -511,8 +538,8 @@ static void rna_View3D_CursorLocation_set(PointerRNA *ptr, const float *values)
 static float rna_View3D_GridScaleUnit_get(PointerRNA *ptr)
 {
 	View3D *v3d = (View3D *)(ptr->data);
-	bScreen *sc = (bScreen *)ptr->id.data;
-	Scene *scene = (Scene *)sc->scene;
+	bScreen *screen = ptr->id.data;
+	Scene *scene = ED_screen_scene_find(screen, G.main->wm.first);
 
 	return ED_view3d_grid_scale(scene, v3d, NULL);
 }
@@ -696,7 +723,7 @@ static void rna_RegionView3D_view_matrix_set(PointerRNA *ptr, const float *value
 
 static int rna_SpaceView3D_viewport_shade_get(PointerRNA *ptr)
 {
-	Scene *scene = ((bScreen *)ptr->id.data)->scene;
+	Scene *scene = WM_windows_scene_get_from_screen(G.main->wm.first, ptr->id.data);
 	RenderEngineType *type = RE_engines_find(scene->r.engine);
 	View3D *v3d = (View3D *)ptr->data;
 	int drawtype = v3d->drawtype;
@@ -716,10 +743,11 @@ static void rna_SpaceView3D_viewport_shade_set(PointerRNA *ptr, int value)
 	v3d->drawtype = value;
 }
 
-static EnumPropertyItem *rna_SpaceView3D_viewport_shade_itemf(bContext *UNUSED(C), PointerRNA *ptr,
+static EnumPropertyItem *rna_SpaceView3D_viewport_shade_itemf(bContext *C, PointerRNA *UNUSED(ptr),
                                                               PropertyRNA *UNUSED(prop), bool *r_free)
 {
-	Scene *scene = ((bScreen *)ptr->id.data)->scene;
+	wmWindow *win = CTX_wm_window(C);
+	Scene *scene = WM_window_get_active_scene(win);
 	RenderEngineType *type = RE_engines_find(scene->r.engine);
 
 	EnumPropertyItem *item = NULL;
@@ -740,10 +768,10 @@ static EnumPropertyItem *rna_SpaceView3D_viewport_shade_itemf(bContext *UNUSED(C
 	return item;
 }
 
-static EnumPropertyItem *rna_SpaceView3D_stereo3d_camera_itemf(bContext *UNUSED(C), PointerRNA *ptr,
+static EnumPropertyItem *rna_SpaceView3D_stereo3d_camera_itemf(bContext *C, PointerRNA *UNUSED(ptr),
                                                                PropertyRNA *UNUSED(prop), bool *UNUSED(r_free))
 {
-	Scene *scene = ((bScreen *)ptr->id.data)->scene;
+	Scene *scene = CTX_data_scene(C);
 
 	if (scene->r.views_format == SCE_VIEWS_FORMAT_MULTIVIEW)
 		return multiview_camera_items;
@@ -811,16 +839,17 @@ static int rna_SpaceImageEditor_show_uvedit_get(PointerRNA *ptr)
 {
 	SpaceImage *sima = (SpaceImage *)(ptr->data);
 	bScreen *sc = (bScreen *)ptr->id.data;
-	return ED_space_image_show_uvedit(sima, sc->scene->obedit);
+	Scene *scene = ED_screen_scene_find(sc, G.main->wm.first);
+
+	return ED_space_image_show_uvedit(sima, scene->obedit);
 }
 
 static int rna_SpaceImageEditor_show_maskedit_get(PointerRNA *ptr)
 {
 	SpaceImage *sima = (SpaceImage *)(ptr->data);
 	bScreen *sc = (bScreen *)ptr->id.data;
-
-	TODO_LAYER_CONTEXT; /* get SceneLayer from context/window/workspace instead */
-	SceneLayer *sl = BKE_scene_layer_context_active(sc->scene);
+	Scene *scene = ED_screen_scene_find(sc, G.main->wm.first);
+	SceneLayer *sl = BKE_scene_layer_context_active(scene);
 
 	return ED_space_image_check_show_maskedit(sl, sima);
 }
@@ -829,8 +858,9 @@ static void rna_SpaceImageEditor_image_set(PointerRNA *ptr, PointerRNA value)
 {
 	SpaceImage *sima = (SpaceImage *)(ptr->data);
 	bScreen *sc = (bScreen *)ptr->id.data;
+	Scene *scene = ED_screen_scene_find(sc, G.main->wm.first);
 
-	ED_space_image_set(sima, sc->scene, sc->scene->obedit, (Image *)value.data);
+	ED_space_image_set(sima, scene, scene->obedit, (Image *)value.data);
 }
 
 static void rna_SpaceImageEditor_mask_set(PointerRNA *ptr, PointerRNA value)
@@ -2660,13 +2690,14 @@ static void rna_def_space_view3d(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "transform_orientation", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "twmode");
 	RNA_def_property_enum_items(prop, transform_orientation_items);
-	RNA_def_property_enum_funcs(prop, NULL, NULL, "rna_TransformOrientation_itemf");
+	RNA_def_property_enum_funcs(prop, "rna_View3D_transform_orientation_get", "rna_View3D_transform_orientation_set",
+	                            "rna_TransformOrientation_itemf");
 	RNA_def_property_ui_text(prop, "Transform Orientation", "Transformation orientation");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 
 	prop = RNA_def_property(srna, "current_orientation", PROP_POINTER, PROP_NONE);
 	RNA_def_property_struct_type(prop, "TransformOrientation");
-	RNA_def_property_pointer_funcs(prop, "rna_CurrentOrientation_get", NULL, NULL, NULL);
+	RNA_def_property_pointer_funcs(prop, "rna_View3D_current_orientation_get", NULL, NULL, NULL);
 	RNA_def_property_ui_text(prop, "Current Transform Orientation", "Current transformation orientation");
 
 	prop = RNA_def_property(srna, "lock_camera_and_layers", PROP_BOOLEAN, PROP_NONE);
@@ -3880,6 +3911,7 @@ static void rna_def_fileselect_params(BlenderRNA *brna)
 		{FILTER_ID_TXT, "TEXT", ICON_TEXT, "Texts", "Show/hide Text data-blocks"},
 		{FILTER_ID_VF, "FONT", ICON_FONT_DATA, "Fonts", "Show/hide Font data-blocks"},
 		{FILTER_ID_WO, "WORLD", ICON_WORLD_DATA, "Worlds", "Show/hide World data-blocks"},
+		{FILTER_ID_WS, "WORK_SPACE", ICON_NONE, "Workspaces", "Show/hide workspace data-blocks"},
 		{0, NULL, 0, NULL, NULL}
 	};
 
@@ -3897,7 +3929,7 @@ static void rna_def_fileselect_params(BlenderRNA *brna)
 	     "Show/hide materials, nodetrees, textures and Freestyle's linestyles"},
 		{FILTER_ID_IM | FILTER_ID_MC | FILTER_ID_MSK | FILTER_ID_SO,
 	     "IMAGE", ICON_IMAGE_DATA, "Images & Sounds", "Show/hide images, movie clips, sounds and masks"},
-		{FILTER_ID_CA | FILTER_ID_LA | FILTER_ID_SPK | FILTER_ID_WO,
+		{FILTER_ID_CA | FILTER_ID_LA | FILTER_ID_SPK | FILTER_ID_WO | FILTER_ID_WS,
 	     "ENVIRONMENT", ICON_WORLD_DATA, "Environment", "Show/hide worlds, lamps, cameras and speakers"},
 		{FILTER_ID_BR | FILTER_ID_GD | FILTER_ID_PA | FILTER_ID_PAL | FILTER_ID_PC | FILTER_ID_TXT | FILTER_ID_VF | FILTER_ID_CF,
 	     "MISC", ICON_GREASEPENCIL, "Miscellaneous", "Show/hide other data types"},
