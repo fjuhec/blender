@@ -97,23 +97,13 @@ static int gpencil_editmode_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	WorkSpace *workspace = CTX_wm_workspace(C);
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	bool is_object = false;
+	int mode;
 	/* if using a gpencil object, use this datablock */
 	Object *ob = CTX_data_active_object(C);
 	if ((ob) && (ob->type == OB_GPENCIL)) {
 		gpd = ob->gpd;
-		if (gpd) {
-			if (gpd->flag & GP_DATA_STROKE_EDITMODE) {
-				ob->mode = OB_MODE_OBJECT;
-			}
-			else {
-				ob->mode = OB_MODE_GPENCIL_EDIT;
-			}
-#ifdef USE_WORKSPACE_MODE
-			BKE_workspace_object_mode_set(workspace, ob->mode);
-#else
-			UNUSED_VARS(workspace);
-#endif
-		}
+		is_object = true;
 	}
 	
 	if (gpd == NULL)
@@ -125,6 +115,20 @@ static int gpencil_editmode_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 	if (gpd->flag & GP_DATA_STROKE_EDITMODE) {
 		ED_gpencil_reset_layers_parent(ob, gpd);
 	}
+	/* set mode */
+	if (gpd->flag & GP_DATA_STROKE_EDITMODE) {
+		mode = OB_MODE_GPENCIL_EDIT;
+	}
+	else {
+		mode = OB_MODE_OBJECT;
+	}
+
+	if (is_object) {
+		ob->mode = mode;
+	}
+
+	/* set workspace mode */
+	BKE_workspace_object_mode_set(workspace, mode);
 
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | ND_GPENCIL_EDITMODE, NULL);
 	WM_event_add_notifier(C, NC_SCENE | ND_MODE, NULL);
