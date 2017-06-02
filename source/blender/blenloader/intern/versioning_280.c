@@ -47,12 +47,9 @@
 #include "BKE_main.h"
 #include "BKE_mesh.h"
 #include "BKE_scene.h"
-<<<<<<< HEAD
+#include "BKE_workspace.h"
 #include "BKE_gpencil.h"
 #include "BKE_paint.h"
-=======
-#include "BKE_workspace.h"
->>>>>>> blender2.8
 
 #include "BLI_listbase.h"
 #include "BLI_math.h"
@@ -355,7 +352,6 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 				}
 			}
 		}
-<<<<<<< HEAD
 		/* ------- convert grease pencil palettes to blender palettes --------------- */
 		if (!DNA_struct_elem_find(fd->filesdna, "bGPDstroke", "Palette", "*palette")) {
 			for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
@@ -398,8 +394,6 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 			}
 		}
 		/* ------- end grease pencil palettes conversion --------------- */
-=======
->>>>>>> blender2.8
 	}
 
 	if (!MAIN_VERSION_ATLEAST(main, 280, 1)) {
