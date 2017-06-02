@@ -763,19 +763,21 @@ static int rna_Scene_active_layer_get(PointerRNA *ptr)
 
 static void rna_Scene_view3d_update(Main *bmain, Scene *UNUSED(scene_unused), PointerRNA *ptr)
 {
+	wmWindowManager *wm = bmain->wm.first;
 	Scene *scene = (Scene *)ptr->data;
 
-	BKE_screen_view3d_main_sync(&bmain->screen, scene);
+	WM_windows_scene_data_sync(&wm->windows, scene);
 }
 
-static void rna_Scene_layer_update(Main *bmain, Scene *scene, PointerRNA *ptr)
+static void rna_Scene_layer_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *UNUSED(ptr))
 {
-	rna_Scene_view3d_update(bmain, scene, ptr);
 	/* XXX We would need do_time=true here, else we can have update issues like [#36289]...
 	 *     However, this has too much drawbacks (like slower layer switch, undesired updates...).
 	 *     That's TODO for future DAG updates.
 	 */
 	DAG_on_visible_update(bmain, false);
+
+	/* No need to sync scene data here (WM_windows_scene_data_sync), handled through notifier. */
 }
 
 static void rna_Scene_fps_update(Main *UNUSED(bmain), Scene *scene, PointerRNA *UNUSED(ptr))
@@ -3373,24 +3375,6 @@ static void rna_def_gpencil_brushes(BlenderRNA *brna, PropertyRNA *cprop)
 		"rna_GPencilBrushes_index_set",
 		"rna_GPencilBrushes_index_range");
 	RNA_def_property_ui_text(prop, "Active Brush Index", "Index of active brush");
-}
-
-static void rna_def_transform_orientation(BlenderRNA *brna)
-{
-	StructRNA *srna;
-	PropertyRNA *prop;
-	
-	srna = RNA_def_struct(brna, "TransformOrientation", NULL);
-	
-	prop = RNA_def_property(srna, "matrix", PROP_FLOAT, PROP_MATRIX);
-	RNA_def_property_float_sdna(prop, NULL, "mat");
-	RNA_def_property_multi_array(prop, 2, rna_matrix_dimsize_3x3);
-	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
-	
-	prop = RNA_def_property(srna, "name", PROP_STRING, PROP_NONE);
-	RNA_def_struct_name_property(srna, prop);
-	RNA_def_property_ui_text(prop, "Name", "Name of the custom transform orientation");
-	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 }
 
 static void rna_def_tool_settings(BlenderRNA  *brna)
@@ -9244,12 +9228,6 @@ void RNA_def_scene(BlenderRNA *brna)
 	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_REFCOUNT);
 	RNA_def_property_ui_text(prop, "Grease Pencil Data", "Grease Pencil data-block");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
-	
-	/* Transform Orientations */
-	prop = RNA_def_property(srna, "orientations", PROP_COLLECTION, PROP_NONE);
-	RNA_def_property_collection_sdna(prop, NULL, "transform_spaces", NULL);
-	RNA_def_property_struct_type(prop, "TransformOrientation");
-	RNA_def_property_ui_text(prop, "Transform Orientations", "");
 
 	/* active MovieClip */
 	prop = RNA_def_property(srna, "active_clip", PROP_POINTER, PROP_NONE);
@@ -9305,7 +9283,6 @@ void RNA_def_scene(BlenderRNA *brna)
 	rna_def_unit_settings(brna);
 	rna_def_scene_image_format_data(brna);
 	rna_def_scene_game_data(brna);
-	rna_def_transform_orientation(brna);
 	rna_def_selected_uv_element(brna);
 	rna_def_display_safe_areas(brna);
 	rna_def_scene_collection(brna);

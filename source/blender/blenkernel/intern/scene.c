@@ -93,6 +93,7 @@
 #include "BKE_sequencer.h"
 #include "BKE_sound.h"
 #include "BKE_unit.h"
+#include "BKE_workspace.h"
 #include "BKE_world.h"
 
 #include "DEG_depsgraph.h"
@@ -260,7 +261,6 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 			scen->rigidbody_world = BKE_rigidbody_world_copy(sce->rigidbody_world);
 
 		BLI_duplicatelist(&(scen->markers), &(sce->markers));
-		BLI_duplicatelist(&(scen->transform_spaces), &(sce->transform_spaces));
 		BLI_duplicatelist(&(scen->r.layers), &(sce->r.layers));
 		BLI_duplicatelist(&(scen->r.views), &(sce->r.views));
 		BKE_keyingsets_copy(&(scen->keyingsets), &(sce->keyingsets));
@@ -533,10 +533,9 @@ void BKE_scene_free(Scene *sce)
 	}
 
 	BLI_freelistN(&sce->markers);
-	BLI_freelistN(&sce->transform_spaces);
 	BLI_freelistN(&sce->r.layers);
 	BLI_freelistN(&sce->r.views);
-	
+
 	if (sce->toolsettings) {
 		if (sce->toolsettings->vpaint) {
 			BKE_paint_free(&sce->toolsettings->vpaint->paint);
@@ -1004,7 +1003,7 @@ BaseLegacy *BKE_scene_base_find(Scene *scene, Object *ob)
 /**
  * Sets the active scene, mainly used when running in background mode (``--scene`` command line argument).
  * This is also called to set the scene directly, bypassing windowing code.
- * Otherwise #ED_screen_set_scene is used when changing scenes by the user.
+ * Otherwise #WM_window_change_active_scene is used when changing scenes by the user.
  */
 void BKE_scene_set_background(Main *bmain, Scene *scene)
 {
@@ -1442,8 +1441,8 @@ static bool check_rendered_viewport_visible(Main *bmain)
 	wmWindowManager *wm = bmain->wm.first;
 	wmWindow *window;
 	for (window = wm->windows.first; window != NULL; window = window->next) {
-		bScreen *screen = window->screen;
-		Scene *scene = screen->scene;
+		const bScreen *screen = BKE_workspace_active_screen_get(window->workspace_hook);
+		Scene *scene = window->scene;
 		ScrArea *area;
 		RenderEngineType *type = RE_engines_find(scene->r.engine);
 		if ((type->draw_engine != NULL) || (type->render_to_view == NULL)) {
@@ -1698,7 +1697,7 @@ bool BKE_scene_remove_render_view(Scene *scene, SceneRenderView *srv)
 
 int get_render_subsurf_level(const RenderData *r, int lvl, bool for_render)
 {
-	if (r->mode & R_SIMPLIFY)  {
+	if (r->mode & R_SIMPLIFY) {
 		if (for_render)
 			return min_ii(r->simplify_subsurf_render, lvl);
 		else
@@ -1755,6 +1754,9 @@ Base *_setlooper_base_step(Scene **sce_iter, Base *base)
 
 		/* for the first loop we should get the layer from context */
 		SceneLayer *sl = BKE_scene_layer_context_active((*sce_iter));
+		/* TODO For first scene (non-background set), we should pass the render layer as argument.
+		 * In some cases we want it to be the workspace one, in other the scene one. */
+		TODO_LAYER;
 
 		if (sl->object_bases.first) {
 			return (Base *)sl->object_bases.first;

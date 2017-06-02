@@ -242,7 +242,7 @@ class GreasePencilStrokeEditPanel:
 
         if is_3d_view:
             layout.separator()
-            
+
 
         layout.separator()
         col = layout.column(align=True)
@@ -926,9 +926,9 @@ class GreasePencilDataPanel:
 
         # Owner Selector
         if context.space_data.type == 'VIEW_3D':
-            layout.prop(context.tool_settings, "grease_pencil_source", expand=True)
+            layout.row().prop(context.tool_settings, "grease_pencil_source", expand=True)
         elif context.space_data.type == 'CLIP_EDITOR':
-            layout.prop(context.space_data, "grease_pencil_source", expand=True)
+            layout.row().prop(context.space_data, "grease_pencil_source", expand=True)
         elif context.space_data.type == 'PROPERTIES':
             if context.space_data.context == 'SCENE':
                 gpd_owner = context.scene

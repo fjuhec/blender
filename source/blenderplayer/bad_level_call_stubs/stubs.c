@@ -317,6 +317,12 @@ struct MenuType *WM_menutype_find(const char *idname, bool quiet) RET_NULL
 void WM_operator_stack_clear(struct wmWindowManager *wm) RET_NONE
 void WM_operator_handlers_clear(wmWindowManager *wm, struct wmOperatorType *ot) RET_NONE
 bool WM_operator_is_repeat(const struct bContext *C, const struct wmOperator *op) RET_ZERO;
+void WM_windows_scene_data_sync(const struct ListBase *win_lb, struct Scene *scene) RET_NONE
+struct Scene *WM_windows_scene_get_from_screen(const struct wmWindowManager *wm, const struct bScreen *screen) RET_NULL
+struct bScreen *WM_window_get_active_screen(const struct wmWindow *win) RET_NULL
+struct Scene *WM_window_get_active_scene(const struct wmWindow *win) RET_NULL
+void WM_window_change_active_scene(struct Main *bmain, struct bContext *C, struct wmWindow *win, struct Scene *scene_new) RET_NONE
+bool WM_window_is_temp_screen(const struct wmWindow *win) RET_ZERO
 
 void WM_autosave_init(wmWindowManager *wm) RET_NONE
 void WM_jobs_kill_all_except(struct wmWindowManager *wm, void *owner) RET_NONE
@@ -401,7 +407,6 @@ void ED_space_image_scopes_update(const struct bContext *C, struct SpaceImage *s
 
 void ED_uvedit_get_aspect(struct Scene *scene, struct Object *ob, struct BMesh *em, float *aspx, float *aspy) RET_NONE
 
-void ED_screen_set_scene(struct bContext *C, struct bScreen *screen, struct Scene *scene) RET_NONE
 struct MovieClip *ED_space_clip_get_clip(struct SpaceClip *sc) RET_NULL
 void ED_space_clip_set_clip(struct bContext *C, struct bScreen *screen, struct SpaceClip *sc, struct MovieClip *clip) RET_NONE
 void ED_space_clip_set_mask(struct bContext *C, struct SpaceClip *sc, struct Mask *mask) RET_NONE
@@ -496,6 +501,7 @@ void ED_view3d_shade_update(struct Main *bmain, struct Scene *scene, struct View
 void ED_node_shader_default(const struct bContext *C, struct ID *id) RET_NONE
 void ED_screen_animation_timer_update(struct bScreen *screen, int redraws, int refresh) RET_NONE
 struct bScreen *ED_screen_animation_playing(const struct wmWindowManager *wm) RET_NULL
+struct Scene *ED_screen_scene_find(const struct bScreen *screen, const struct wmWindowManager *wm) RET_NULL
 void ED_base_object_select(struct BaseLegacy *base, short mode) RET_NONE
 void ED_object_base_select(struct Base *base, short mode) RET_NONE
 bool ED_object_modifier_remove(struct ReportList *reports, struct Main *bmain, struct Object *ob, struct ModifierData *md) RET_ZERO
@@ -568,6 +574,7 @@ bool ED_transform_snap_object_project_ray_ex(
         /* return args */
         float r_loc[3], float r_no[3], int *r_index,
         struct Object **r_ob, float r_obmat[4][4]) RET_ZERO
+void BIF_selectTransformOrientationValue(struct View3D *v3d, int orientation) RET_NONE
 
 void ED_lattice_editlatt_make(struct Object *obedit) RET_NONE
 void ED_lattice_editlatt_load(struct Object *obedit) RET_NONE
