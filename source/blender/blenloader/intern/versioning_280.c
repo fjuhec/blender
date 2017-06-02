@@ -50,6 +50,7 @@
 #include "BKE_workspace.h"
 #include "BKE_gpencil.h"
 #include "BKE_paint.h"
+#include "BKE_object.h"
 
 #include "BLI_listbase.h"
 #include "BLI_math.h"
@@ -305,6 +306,25 @@ void do_versions_after_linking_280(Main *main)
 				}
 			}
 		}
+	}
+
+	/* Convert grease pencil datablock to GP object */
+	if (!MAIN_VERSION_ATLEAST(main, 280, 0)) {
+		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+			if (scene->gpd) {
+				Object *ob;
+				SceneLayer *sl = scene->render_layers.first;
+
+				ob = BKE_object_add(main, scene, sl, OB_GPENCIL, "GP_Scene");				
+				zero_v3(ob->loc);
+				ob->gpd = scene->gpd;
+				scene->gpd = NULL;
+
+				/* set cache as dirty */
+				BKE_gpencil_batch_cache_dirty(ob->gpd, 0);
+			}
+		}
+
 	}
 
 	/* New workspace design */
