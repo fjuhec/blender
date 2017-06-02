@@ -997,6 +997,9 @@ void BM_lnorspacearr_store(BMesh *bm, float (*r_lnors)[3])
 
 void BM_lnorspace_invalidate(BMesh *bm, bool inval_all)
 {
+	if (bm->spacearr_dirty & BM_SPACEARR_DIRTY_ALL) {
+		return;
+	}
 	if (inval_all || bm->totvertsel > CLEAR_SPACEARRAY_THRESHOLD(bm->totvert)) {
 		bm->spacearr_dirty |= BM_SPACEARR_DIRTY_ALL;
 		return;
@@ -1008,7 +1011,6 @@ void BM_lnorspace_invalidate(BMesh *bm, bool inval_all)
 	if (bm->elem_index_dirty & BM_FACE) {
 		BM_mesh_elem_index_ensure(bm, BM_FACE);
 	}
-
 	BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
 		if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
 
@@ -1025,6 +1027,12 @@ void BM_lnorspace_invalidate(BMesh *bm, bool inval_all)
 			}
 		}
 	}
+
+#ifdef _DEBUG
+	float(*r_lnors)[3] = MEM_mallocN(sizeof(*r_lnors) * bm->totloop, "__func__");
+	BM_lnorspacearr_store(bm, r_lnors);
+	BM_lnorspace_rebuild(bm, false);
+#endif
 }
 
 void BM_lnorspace_rebuild(BMesh *bm, bool preserve_clnor)
@@ -1038,6 +1046,7 @@ void BM_lnorspace_rebuild(BMesh *bm, bool preserve_clnor)
 
 	float(*r_lnors)[3] = MEM_callocN(sizeof(*r_lnors) * bm->totloop, "__func__");
 	float(*oldnors)[3] = MEM_mallocN(sizeof(*oldnors) * bm->totloop, "__func__");
+
 	int cd_loop_clnors_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
 
 	if (bm->elem_index_dirty & BM_LOOP) {
@@ -1065,11 +1074,18 @@ void BM_lnorspace_rebuild(BMesh *bm, bool preserve_clnor)
 		BM_ITER_ELEM(l, &liter, f, BM_LOOPS_OF_FACE) {
 
 			if (BM_elem_flag_test(l, BM_ELEM_LNORSPACE)) {
+
+#ifdef _DEBUG
+				short(*clnor)[2] = BM_ELEM_CD_GET_VOID_P(l, cd_loop_clnors_offset);
+				int l_index = BM_elem_index_get(l);
+				BKE_lnor_space_custom_normal_to_data(bm->bmspacearr.lspacearr[l_index], l->v->no, *clnor);
+#else
 				if (preserve_clnor) {
 					short(*clnor)[2] = BM_ELEM_CD_GET_VOID_P(l, cd_loop_clnors_offset);
 					int l_index = BM_elem_index_get(l);
 					BKE_lnor_space_custom_normal_to_data(bm->bmspacearr.lspacearr[l_index], oldnors[l_index], *clnor);
 				}
+#endif
 				BM_elem_flag_disable(l, BM_ELEM_LNORSPACE);
 			}
 		}
@@ -1181,7 +1197,6 @@ void bmesh_edit_end(BMesh *bm, BMOpTypeFlag type_flag)
 		BM_mesh_normals_update(bm);
 	}
 
-
 	if ((type_flag & BMO_OPTYPE_FLAG_SELECT_VALIDATE) == 0) {
 		select_history = bm->selected;
 		BLI_listbase_clear(&bm->selected);
@@ -1194,8 +1209,11 @@ void bmesh_edit_end(BMesh *bm, BMOpTypeFlag type_flag)
 	if ((type_flag & BMO_OPTYPE_FLAG_SELECT_VALIDATE) == 0) {
 		bm->selected = select_history;
 	}
-	if (type_flag & BMO_OPTYPE_FLAG_INVALIDATE_NORMAL_SPACE) {
-		bm->spacearr_dirty |= BM_SPACEARR_DIRTY;
+	if (type_flag & BMO_OPTYPE_FLAG_INVALIDATE_CLNOR_SPACE) {
+		bm->spacearr_dirty |= (BM_SPACEARR_DIRTY | BM_SPACEARR_BMO_SET);
+	}
+	if (type_flag & BMO_OPTYPE_FLAG_INVALIDATE_CLNOR_ALL) {
+		bm->spacearr_dirty |= BM_SPACEARR_DIRTY_ALL;
 	}
 }
 

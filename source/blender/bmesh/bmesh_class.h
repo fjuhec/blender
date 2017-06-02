@@ -273,6 +273,7 @@ enum {
 
 #define BM_SPACEARR_DIRTY (1 << 1)
 #define BM_SPACEARR_DIRTY_ALL (1 << 2)
+#define BM_SPACEARR_BMO_SET (1 << 3)
 
 /* args for _Generic */
 #define _BM_GENERIC_TYPE_ELEM_NONCONST \
