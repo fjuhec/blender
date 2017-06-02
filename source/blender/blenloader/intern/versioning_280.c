@@ -323,6 +323,8 @@ void do_versions_after_linking_280(Main *main)
 				/* set cache as dirty */
 				BKE_gpencil_batch_cache_dirty(ob->gpd, 0);
 			}
+			/* set default mode as object */
+			scene->toolsettings->gpencil_src = GP_TOOL_SOURCE_OBJECT;
 		}
 
 	}
