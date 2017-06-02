@@ -58,6 +58,7 @@
 #include "BKE_library.h"
 #include "BKE_report.h"
 #include "BKE_screen.h"
+#include "BKE_workspace.h"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -94,11 +95,25 @@ static int gpencil_editmode_toggle_poll(bContext *C)
 
 static int gpencil_editmode_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 {
+	WorkSpace *workspace = CTX_wm_workspace(C);
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	/* if using a gpencil object, use this datablock */
 	Object *ob = CTX_data_active_object(C);
 	if ((ob) && (ob->type == OB_GPENCIL)) {
 		gpd = ob->gpd;
+		if (gpd) {
+			if (gpd->flag & GP_DATA_STROKE_EDITMODE) {
+				ob->mode = OB_MODE_OBJECT;
+			}
+			else {
+				ob->mode = OB_MODE_GPENCIL_EDIT;
+			}
+#ifdef USE_WORKSPACE_MODE
+			BKE_workspace_object_mode_set(workspace, ob->mode);
+#else
+			UNUSED_VARS(workspace);
+#endif
+		}
 	}
 	
 	if (gpd == NULL)
