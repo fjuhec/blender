@@ -88,6 +88,7 @@ bGPdata **ED_gpencil_data_get_pointers_direct(ID *screen_id, Scene *scene, ScrAr
 		switch (sa->spacetype) {
 			case SPACE_VIEW3D: /* 3D-View */
 			case SPACE_BUTS: /* properties */
+			case SPACE_INFO: /* header info (needed after workspaces merge) */
 			{
 				BLI_assert(scene && ELEM(scene->toolsettings->gpencil_src,
 				                         GP_TOOL_SOURCE_SCENE, GP_TOOL_SOURCE_OBJECT));

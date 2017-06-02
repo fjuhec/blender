@@ -1403,6 +1403,8 @@ static EnumPropertyItem *object_mode_set_itemsf(bContext *C, PointerRNA *UNUSED(
 			    (input->value == OB_MODE_PARTICLE_EDIT && use_mode_particle_edit) ||
 			    (ELEM(input->value, OB_MODE_SCULPT, OB_MODE_VERTEX_PAINT,
 			           OB_MODE_WEIGHT_PAINT, OB_MODE_TEXTURE_PAINT) && (ob->type == OB_MESH)) ||
+				/* TODO: future gpencil modes to add here */
+				(ELEM(input->value, OB_MODE_GPENCIL_EDIT) && (ob->type == OB_GPENCIL)) ||
 			    (input->value == OB_MODE_OBJECT))
 			{
 				RNA_enum_item_add(&item, &totitem, input);
@@ -1416,13 +1418,14 @@ static EnumPropertyItem *object_mode_set_itemsf(bContext *C, PointerRNA *UNUSED(
 	}
 	
 	/* On top of all the rest, GPencil Stroke Edit Mode
-	 * is available if there's a valid gp datablock...
+	 * is available if there's a valid gp datablock and not gpencil object selected...
 	 */
-	gpd = CTX_data_gpencil_data(C);
-	if (gpd) {
-		RNA_enum_items_add_value(&item, &totitem, rna_enum_object_mode_items, OB_MODE_GPENCIL_EDIT);
+	if ((ob) && (ob->type != OB_GPENCIL)) {
+		gpd = CTX_data_gpencil_data(C);
+		if (gpd) {
+			RNA_enum_items_add_value(&item, &totitem, rna_enum_object_mode_items, OB_MODE_GPENCIL_EDIT);
+		}
 	}
-
 	RNA_enum_item_end(&item, &totitem);
 
 	*r_free = true;

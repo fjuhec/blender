@@ -300,10 +300,6 @@ void uiTemplateHeader3D(uiLayout *layout, struct bContext *C)
 	/* other buttons: */
 	UI_block_emboss_set(block, UI_EMBOSS);
 	
-	/* mode */
-	if ((gpd) && (gpd->flag & GP_DATA_STROKE_EDITMODE)) {
-		modeselect = OB_MODE_GPENCIL_EDIT;
-	}
 	row = uiLayoutRow(layout, true);
 	uiItemR(row, &v3dptr, "pivot_point", UI_ITEM_R_ICON_ONLY, "", ICON_NONE);
 	if (!ob || ELEM(ob->mode, OB_MODE_OBJECT, OB_MODE_POSE, OB_MODE_WEIGHT_PAINT)) {
