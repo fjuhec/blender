@@ -343,7 +343,7 @@ void wm_event_do_notifiers(bContext *C)
 			}
 			if (note->category == NC_SCENE) {
 				if (note->data == ND_OB_ACTIVE) {
-					SceneLayer *sl = BKE_scene_layer_context_active(win->screen->scene);
+					SceneLayer *sl = BKE_scene_layer_context_active(scene);
 					if (sl->basact) {
 						Object *ob = sl->basact->object;
 						if (ob->type == OB_ARMATURE) {
