@@ -1975,7 +1975,7 @@ static StructRNA *rna_LayerCollectionSettings_refine(PointerRNA *ptr)
 			}
 #endif
 			if (STREQ(props->name, RE_engine_id_BLENDER_EEVEE)) {
-				printf("Mode not fully implemented\n");
+				/* printf("Mode not fully implemented\n"); */
 				return &RNA_LayerCollectionSettings;
 			}
 			break;
@@ -3024,7 +3024,7 @@ static int rna_SceneLayer_multiple_engines_get(PointerRNA *UNUSED(ptr))
 static void rna_SceneLayer_update_tagged(SceneLayer *UNUSED(sl), bContext *C)
 {
 	Depsgraph *graph = CTX_data_depsgraph(C);
-	DEG_OBJECT_ITER(graph, ob)
+	DEG_OBJECT_ITER(graph, ob, DEG_OBJECT_ITER_FLAG_ALL)
 	{
 		/* Don't do anything, we just need to run the iterator to flush
 		 * the base info to the objects. */

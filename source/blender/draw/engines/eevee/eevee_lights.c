@@ -69,25 +69,6 @@ extern char datatoc_shadow_store_frag_glsl[];
 
 /* *********** FUNCTIONS *********** */
 
-static void eevee_lamp_engine_data_free(void *storage)
-{
-	EEVEE_LampEngineData *led = (EEVEE_LampEngineData *)storage;
-	MEM_SAFE_FREE(led->storage);
-	BLI_freelistN(&led->shadow_caster_list);
-}
-
-static EEVEE_LampEngineData *eevee_get_lamp_engine_data(Object *ob)
-{
-	EEVEE_LampEngineData **ledata = (EEVEE_LampEngineData **)DRW_object_engine_data_get(ob, &draw_engine_eevee_type, &eevee_lamp_engine_data_free);
-
-	if (*ledata == NULL) {
-		*ledata = MEM_callocN(sizeof(**ledata), "EEVEE_LampEngineData");
-		(*ledata)->need_update = true;
-	}
-
-	return *ledata;
-}
-
 void EEVEE_lights_init(EEVEE_SceneLayerData *sldata)
 {
 	const unsigned int shadow_ubo_size = sizeof(EEVEE_ShadowCube) * MAX_SHADOW_CUBE +
@@ -152,7 +133,7 @@ void EEVEE_lights_cache_add(EEVEE_SceneLayerData *sldata, Object *ob)
 	}
 	else {
 		Lamp *la = (Lamp *)ob->data;
-		EEVEE_LampEngineData *led = eevee_get_lamp_engine_data(ob);
+		EEVEE_LampEngineData *led = EEVEE_lamp_data_get(ob);
 
 		if ((ob->deg_update_flag & DEG_RUNTIME_DATA_UPDATE) != 0) {
 			led->need_update = true;
@@ -247,7 +228,7 @@ void EEVEE_lights_cache_finish(EEVEE_SceneLayerData *sldata)
 		/* Cubemap / octahedral map pool */
 		/* TODO Cubemap array */
 		sldata->shadow_depth_cube_pool = DRW_texture_create_2D_array(
-		        512, 512, max_ff(1, linfo->num_cube), DRW_TEX_R_32,
+		        512, 512, max_ff(1, linfo->num_cube), DRW_TEX_R_16,
 		        DRW_TEX_FILTER | DRW_TEX_COMPARE, NULL);
 		if (sldata->shadow_cube_fb) {
 			DRW_framebuffer_texture_attach(sldata->shadow_cube_fb, sldata->shadow_depth_cube_pool, 0, 0);
@@ -272,10 +253,10 @@ void EEVEE_lights_cache_finish(EEVEE_SceneLayerData *sldata)
 
 	DRWFboTexture tex_cube_target[2] = {
 	        {&sldata->shadow_depth_cube_target, DRW_TEX_DEPTH_24, 0},
-	        {&sldata->shadow_color_cube_target, DRW_TEX_R_32, DRW_TEX_FILTER}};
+	        {&sldata->shadow_color_cube_target, DRW_TEX_R_16, DRW_TEX_FILTER}};
 	DRW_framebuffer_init(&sldata->shadow_cube_target_fb, &draw_engine_eevee_type, 512, 512, tex_cube_target, 2);
 
-	DRWFboTexture tex_cube = {&sldata->shadow_depth_cube_pool, DRW_TEX_R_32, DRW_TEX_FILTER};
+	DRWFboTexture tex_cube = {&sldata->shadow_depth_cube_pool, DRW_TEX_R_16, DRW_TEX_FILTER};
 	DRW_framebuffer_init(&sldata->shadow_cube_fb, &draw_engine_eevee_type, 512, 512, &tex_cube, 1);
 
 	DRWFboTexture tex_cascade = {&sldata->shadow_depth_cascade_pool, DRW_TEX_DEPTH_24, DRW_TEX_FILTER | DRW_TEX_COMPARE};
@@ -382,6 +363,7 @@ static void eevee_shadow_cube_setup(Object *ob, EEVEE_LampsInfo *linfo, EEVEE_La
 	evsh->bias = 0.05f * la->bias;
 	evsh->near = la->clipsta;
 	evsh->far = la->clipend;
+	evsh->exp = la->bleedexp;
 
 	evli->shadowid = (float)(evsmp->shadow_id);
 }
@@ -623,6 +605,7 @@ static void delete_pruned_shadowcaster(EEVEE_LampEngineData *led)
 	for (ShadowCaster *ldata = led->shadow_caster_list.first; ldata; ldata = next) {
 		next = ldata->next;
 		if (ldata->prune == true) {
+			led->need_update = true;
 			BLI_freelinkN(&led->shadow_caster_list, ldata);
 		}
 	}
@@ -631,7 +614,7 @@ static void delete_pruned_shadowcaster(EEVEE_LampEngineData *led)
 static void light_tag_shadow_update(Object *lamp, Object *ob)
 {
 	Lamp *la = lamp->data;
-	EEVEE_LampEngineData *led = eevee_get_lamp_engine_data(lamp);
+	EEVEE_LampEngineData *led = EEVEE_lamp_data_get(lamp);
 
 	bool is_inside_range = cube_bbox_intersect(lamp->obmat[3], la->clipend, BKE_object_boundbox_get(ob), ob->obmat);
 	ShadowCaster *ldata = search_object_in_list(&led->shadow_caster_list, ob);
@@ -645,7 +628,7 @@ static void light_tag_shadow_update(Object *lamp, Object *ob)
 			led->need_update = true;
 		}
 		else {
-			EEVEE_ObjectEngineData *oedata = EEVEE_get_object_engine_data(ob);
+			EEVEE_ObjectEngineData *oedata = EEVEE_object_data_get(ob);
 			if (oedata->need_update) {
 				led->need_update = true;
 			}
@@ -680,7 +663,7 @@ void EEVEE_lights_update(EEVEE_SceneLayerData *sldata)
 	/* Prune shadow casters to remove if object does not exists anymore (unprune them if object exists) */
 	Object *lamp;
 	for (i = 0; (lamp = linfo->shadow_cube_ref[i]) && (i < MAX_SHADOW_CUBE); i++) {
-		EEVEE_LampEngineData *led = eevee_get_lamp_engine_data(lamp);
+		EEVEE_LampEngineData *led = EEVEE_lamp_data_get(lamp);
 
 		if ((linfo->update_flag & LIGHT_UPDATE_SHADOW_CUBE) != 0) {
 			led->need_update = true;
@@ -696,23 +679,23 @@ void EEVEE_lights_update(EEVEE_SceneLayerData *sldata)
 	}
 
 	for (i = 0; (ob = linfo->light_ref[i]) && (i < MAX_LIGHT); i++) {
-		EEVEE_LampEngineData *led = eevee_get_lamp_engine_data(ob);
+		EEVEE_LampEngineData *led = EEVEE_lamp_data_get(ob);
 		eevee_light_setup(ob, linfo, led);
 	}
 
 	for (i = 0; (ob = linfo->shadow_cube_ref[i]) && (i < MAX_SHADOW_CUBE); i++) {
-		EEVEE_LampEngineData *led = eevee_get_lamp_engine_data(ob);
+		EEVEE_LampEngineData *led = EEVEE_lamp_data_get(ob);
 		eevee_shadow_cube_setup(ob, linfo, led);
 		delete_pruned_shadowcaster(led);
 	}
 
 	for (i = 0; (ob = linfo->shadow_map_ref[i]) && (i < MAX_SHADOW_MAP); i++) {
-		EEVEE_LampEngineData *led = eevee_get_lamp_engine_data(ob);
+		EEVEE_LampEngineData *led = EEVEE_lamp_data_get(ob);
 		eevee_shadow_map_setup(ob, linfo, led);
 	}
 
 	for (i = 0; (ob = linfo->shadow_cascade_ref[i]) && (i < MAX_SHADOW_CASCADE); i++) {
-		EEVEE_LampEngineData *led = eevee_get_lamp_engine_data(ob);
+		EEVEE_LampEngineData *led = EEVEE_lamp_data_get(ob);
 		eevee_shadow_cascade_setup(ob, linfo, led);
 	}
 
@@ -726,18 +709,20 @@ void EEVEE_draw_shadows(EEVEE_SceneLayerData *sldata, EEVEE_PassList *psl)
 	EEVEE_LampsInfo *linfo = sldata->lamps;
 	Object *ob;
 	int i;
-	float clear_color[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+	float clear_color[4] = {FLT_MAX, FLT_MAX, FLT_MAX, 0.0f};
 
 	/* Cube Shadow Maps */
 	/* Render each shadow to one layer of the array */
 	for (i = 0; (ob = linfo->shadow_cube_ref[i]) && (i < MAX_SHADOW_CUBE); i++) {
-		EEVEE_LampEngineData *led = eevee_get_lamp_engine_data(ob);
+		EEVEE_LampEngineData *led = EEVEE_lamp_data_get(ob);
+		Lamp *la = (Lamp *)ob->data;
 
 		if (led->need_update) {
 			EEVEE_ShadowCubeData *evscd = (EEVEE_ShadowCubeData *)led->storage;
 			EEVEE_ShadowRender *srd = &linfo->shadow_render_data;
 
 			srd->layer = i;
+			srd->exponent = la->bleedexp;
 			copy_v3_v3(srd->position, ob->obmat[3]);
 			for (int j = 0; j < 6; ++j) {
 				copy_m4_m4(srd->shadowmat[j], evscd->viewprojmat[j]);
@@ -765,7 +750,7 @@ void EEVEE_draw_shadows(EEVEE_SceneLayerData *sldata, EEVEE_PassList *psl)
 
 	/* Render each shadow to one layer of the array */
 	for (i = 0; (ob = linfo->shadow_map_ref[i]) && (i < MAX_SHADOW_MAP); i++) {
-		EEVEE_LampEngineData *led = eevee_get_lamp_engine_data(ob);
+		EEVEE_LampEngineData *led = EEVEE_lamp_data_get(ob);
 		EEVEE_ShadowMapData *evsmd = (EEVEE_ShadowMapData *)led->storage;
 
 		linfo->layer = i;
@@ -780,7 +765,7 @@ void EEVEE_draw_shadows(EEVEE_SceneLayerData *sldata, EEVEE_PassList *psl)
 
 // 	/* Render each shadow to one layer of the array */
 // 	for (i = 0; (ob = linfo->shadow_cascade_ref[i]) && (i < MAX_SHADOW_CASCADE); i++) {
-// 		EEVEE_LampEngineData *led = eevee_get_lamp_engine_data(ob);
+// 		EEVEE_LampEngineData *led = EEVEE_lamp_data_get(ob);
 // 		EEVEE_ShadowCascadeData *evscd = (EEVEE_ShadowCascadeData *)led->storage;
 // 		EEVEE_ShadowRender *srd = &linfo->shadow_render_data;
 
@@ -798,23 +783,4 @@ void EEVEE_lights_free(void)
 {
 	DRW_SHADER_FREE_SAFE(e_data.shadow_sh);
 	DRW_SHADER_FREE_SAFE(e_data.shadow_store_sh);
-}
-
-void EEVEE_scene_layer_lights_free(EEVEE_SceneLayerData *sldata)
-{
-	MEM_SAFE_FREE(sldata->lamps);
-	DRW_UBO_FREE_SAFE(sldata->light_ubo);
-	DRW_UBO_FREE_SAFE(sldata->shadow_ubo);
-	DRW_UBO_FREE_SAFE(sldata->shadow_render_ubo);
-	DRW_FRAMEBUFFER_FREE_SAFE(sldata->shadow_cube_target_fb);
-	DRW_FRAMEBUFFER_FREE_SAFE(sldata->shadow_cube_fb);
-	DRW_FRAMEBUFFER_FREE_SAFE(sldata->shadow_map_fb);
-	DRW_FRAMEBUFFER_FREE_SAFE(sldata->shadow_cascade_fb);
-	DRW_TEXTURE_FREE_SAFE(sldata->shadow_depth_cube_target);
-	DRW_TEXTURE_FREE_SAFE(sldata->shadow_color_cube_target);
-	DRW_TEXTURE_FREE_SAFE(sldata->shadow_depth_cube_pool);
-	DRW_TEXTURE_FREE_SAFE(sldata->shadow_depth_map_pool);
-	DRW_TEXTURE_FREE_SAFE(sldata->shadow_depth_cascade_pool);
-
-	BLI_freelistN(&sldata->shadow_casters);
 }
