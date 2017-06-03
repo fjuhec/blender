@@ -736,6 +736,143 @@ BLI_INLINE unsigned int mcol_darken(unsigned int col1, unsigned int col2, int fa
 	return col;
 }
 
+BLI_INLINE unsigned int mcol_colordodge(unsigned int col1, unsigned int col2, int fac)
+{
+	unsigned char *cp1, *cp2, *cp;
+	int mfac,temp;
+	unsigned int col = 0;
+
+	if (fac == 0) {
+		return col1;
+	}
+
+	mfac = 255 - fac;
+
+	cp1 = (unsigned char *)&col1;
+	cp2 = (unsigned char *)&col2;
+	cp = (unsigned char *)&col;
+
+	temp = (cp2[0] == 255) ? 255 : min_ii((cp1[0] * 225) / (255 - cp2[0]), 255);
+	cp[0] = (mfac * cp1[0] + temp * fac) / 255;
+	temp = (cp2[1] == 255) ? 255 : min_ii((cp1[1] * 225) / (255 - cp2[1]), 255);
+	cp[1] = (mfac * cp1[1] + temp * fac) / 255;
+	temp = (cp2[2] == 255) ? 255 : min_ii((cp1[2] * 225 )/ (255 - cp2[2]), 255);
+	cp[2] = (mfac * cp1[2] + temp * fac) / 255;
+	return col;
+}
+
+BLI_INLINE unsigned int mcol_difference(unsigned int col1, unsigned int col2, int fac)
+{
+	unsigned char *cp1, *cp2, *cp;
+	int mfac, temp;
+	unsigned int col = 0;
+
+	if (fac == 0) {
+		return col1;
+	}
+
+	mfac = 255 - fac;
+
+	cp1 = (unsigned char *)&col1;
+	cp2 = (unsigned char *)&col2;
+	cp = (unsigned char *)&col;
+
+	temp = abs(cp1[0] - cp2[0]);
+	cp[0] = (mfac * cp1[0] + temp * fac) / 255;
+	temp = abs(cp1[0] - cp2[0]);
+	cp[1] = (mfac * cp1[1] + temp * fac) / 255;
+	temp = abs(cp1[2] - cp2[2]);
+	cp[2] = (mfac * cp1[2] + temp * fac) / 255;
+	return col;
+}
+
+BLI_INLINE unsigned int mcol_screen(unsigned int col1, unsigned int col2, int fac)
+{
+	unsigned char *cp1, *cp2, *cp;
+	int mfac, temp;
+	unsigned int col = 0;
+
+	if (fac == 0) {
+		return col1;
+	}
+
+	mfac = 255 - fac;
+
+	cp1 = (unsigned char *)&col1;
+	cp2 = (unsigned char *)&col2;
+	cp = (unsigned char *)&col;
+
+	temp = max_ii(255 - (((255 - cp1[0]) * (255 - cp2[0])) / 255), 0);
+	cp[0] = (mfac * cp1[0] + temp * fac) / 255;
+	temp = max_ii(255 - (((255 - cp1[1]) * (255 - cp2[1])) / 255), 0);
+	cp[1] = (mfac * cp1[1] + temp * fac) / 255;
+	temp = max_ii(255 - (((255 - cp1[2]) * (255 - cp2[2])) / 255), 0);
+	cp[2] = (mfac * cp1[2] + temp * fac) / 255;
+	return col;
+}
+
+BLI_INLINE unsigned int mcol_hardlight(unsigned int col1, unsigned int col2, int fac)
+{
+	unsigned char *cp1, *cp2, *cp;
+	int mfac, temp;
+	unsigned int col = 0;
+
+	if (fac == 0) {
+		return col1;
+	}
+
+	mfac = 255 - fac;
+
+	cp1 = (unsigned char *)&col1;
+	cp2 = (unsigned char *)&col2;
+	cp = (unsigned char *)&col;
+
+	int i = 0;
+
+	for (i = 0; i < 3; i++) {
+		
+		if (cp2[i] > 127) {
+			temp = 255 - ((255 - 2 * (cp2[i] - 127)) * (255 - cp1[i]) / 255);
+		}
+		else {
+			temp = (2 * cp2[i] * cp1[i]) >> 8;
+		}
+		cp[i] = min_ii((mfac * cp1[i] + temp * fac) / 255, 255);
+	}
+	return col;
+}
+
+BLI_INLINE unsigned int mcol_overlay(unsigned int col1, unsigned int col2, int fac)
+{
+	unsigned char *cp1, *cp2, *cp;
+	int mfac, temp;
+	unsigned int col = 0;
+
+	if (fac == 0) {
+		return col1;
+	}
+
+	mfac = 255 - fac;
+
+	cp1 = (unsigned char *)&col1;
+	cp2 = (unsigned char *)&col2;
+	cp = (unsigned char *)&col;
+
+	int i = 0;
+
+	for (i = 0; i < 3; i++) {
+
+		if (cp1[i] > 127) {
+			temp = 255 - ((255 - 2 * (cp1[i] - 127)) * (255 - cp2[i]) / 255);
+		}
+		else {
+			temp = (2 * cp2[i] * cp1[i]) >> 8;
+		}
+		cp[i] = min_ii((mfac * cp1[i] + temp * fac) / 255, 255);
+	}
+	return col;
+}
+
 /* wpaint has 'wpaint_blend_tool' */
 static unsigned int vpaint_blend_tool(const int tool, const unsigned int col,
                                       const unsigned int paintcol, const int alpha_i)
@@ -750,6 +887,11 @@ static unsigned int vpaint_blend_tool(const int tool, const unsigned int col,
 		case PAINT_BLEND_MUL:      return mcol_mul(col, paintcol, alpha_i);
 		case PAINT_BLEND_LIGHTEN:  return mcol_lighten(col, paintcol, alpha_i);
 		case PAINT_BLEND_DARKEN:   return mcol_darken(col, paintcol, alpha_i);
+		case PAINT_BLEND_COLORDODGE: return mcol_colordodge(col, paintcol, alpha_i);
+		case PAINT_BLEND_DIFFERENCE: return mcol_difference(col, paintcol, alpha_i);
+		case PAINT_BLEND_SCREEN:   return mcol_screen(col, paintcol, alpha_i);
+		case PAINT_BLEND_HARDLIGHT: return mcol_hardlight(col, paintcol, alpha_i);
+		case PAINT_BLEND_OVERLAY: return mcol_overlay(col, paintcol, alpha_i);
 		default:
 			BLI_assert(0);
 			return 0;

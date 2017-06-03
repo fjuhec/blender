@@ -94,8 +94,13 @@ EnumPropertyItem rna_enum_brush_vertex_tool_items[] = {
 	{PAINT_BLEND_BLUR, "BLUR", ICON_BRUSH_BLUR, "Blur", "Blur the color with surrounding values"},
 	{PAINT_BLEND_LIGHTEN, "LIGHTEN", ICON_BRUSH_LIGHTEN, "Lighten", "Use lighten blending mode while painting"},
 	{PAINT_BLEND_DARKEN, "DARKEN", ICON_BRUSH_DARKEN, "Darken", "Use darken blending mode while painting"},
-	{PAINT_BLEND_AVERAGE, "AVERAGE", ICON_BRUSH_BLUR, "Average", "Use average blending mode while painting" },
-	{PAINT_BLEND_SMEAR, "SMEAR", ICON_BRUSH_BLUR, "Smear", "Use smear blending mode while painting" },
+	{PAINT_BLEND_AVERAGE, "AVERAGE", ICON_BRUSH_BLUR, "Average", "Use average blending mode while painting"},
+	{PAINT_BLEND_SMEAR, "SMEAR", ICON_BRUSH_BLUR, "Smear", "Use smear blending mode while painting"},
+	{PAINT_BLEND_COLORDODGE, "COLORDODGE", ICON_BRUSH_BLUR, "Color Dodge", "Use color dodge blending mode while painting" },
+	{PAINT_BLEND_DIFFERENCE, "DIFFERENCE", ICON_BRUSH_BLUR, "Difference", "Use difference blending mode while painting"},
+	{PAINT_BLEND_SCREEN, "SCREEN", ICON_BRUSH_BLUR, "Screen", "Use screen blending mode while painting"},
+	{PAINT_BLEND_HARDLIGHT, "HARDLIGHT", ICON_BRUSH_BLUR, "Hardlight", "Use hardlight blending mode while painting"},
+	{PAINT_BLEND_OVERLAY, "OVERLAY", ICON_BRUSH_BLUR, "Overlay", "Use overlay blending mode while painting"},
 	{0, NULL, 0, NULL, NULL}
 };
 	
