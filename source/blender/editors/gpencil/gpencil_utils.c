@@ -90,29 +90,15 @@ bGPdata **ED_gpencil_data_get_pointers_direct(ID *screen_id, Scene *scene, ScrAr
 			case SPACE_BUTS: /* properties */
 			case SPACE_INFO: /* header info (needed after workspaces merge) */
 			{
-				BLI_assert(scene && ELEM(scene->toolsettings->gpencil_src,
-				                         GP_TOOL_SOURCE_SCENE, GP_TOOL_SOURCE_OBJECT));
-				
-				if (scene->toolsettings->gpencil_src == GP_TOOL_SOURCE_OBJECT) {
-
-					/* return obgpencil datablock */
-					if (ob && ob->type == OB_GPENCIL) {
-						if (ptr) RNA_id_pointer_create(&ob->id, ptr);
-						return &ob->gpd;
-					}
-
-					/* just in case no active/selected object... */
-					if (ob && (ob->flag & SELECT)) {
-						/* for now, as long as there's an object, default to using that in 3D-View */
-						if (ptr) RNA_id_pointer_create(&ob->id, ptr);
-						return &ob->gpd;
-					}
-					/* else: defaults to scene... */
+				/* return obgpencil datablock */
+				if (ob && ob->type == OB_GPENCIL) {
+					if (ptr) RNA_id_pointer_create(&ob->id, ptr);
+					return &ob->gpd;
 				}
 				else {
-					if (ptr) RNA_id_pointer_create(&scene->id, ptr);
-					return &scene->gpd;
+					return NULL;
 				}
+
 				break;
 			}
 			case SPACE_NODE: /* Nodes Editor */
@@ -190,7 +176,7 @@ bGPdata **ED_gpencil_data_get_pointers(const bContext *C, PointerRNA *ptr)
 	Scene *scene = CTX_data_scene(C);
 	ScrArea *sa = CTX_wm_area(C);
 	Object *ob = CTX_data_active_object(C);
-	
+
 	return ED_gpencil_data_get_pointers_direct(screen_id, scene, sa, ob, ptr);
 }
 

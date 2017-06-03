@@ -138,14 +138,11 @@ class GreasePencilDrawingToolsPanel:
         col.separator()
         col.separator()
 
-        if context.space_data.type in {'VIEW_3D', 'CLIP_EDITOR'}:
+        if context.space_data.type in {'CLIP_EDITOR'}:
             col.separator()
             col.label("Data Source:")
             row = col.row(align=True)
-            if is_3d_view:
-                row.prop(context.tool_settings, "grease_pencil_source", expand=True)
-            elif is_clip_editor:
-                row.prop(context.space_data, "grease_pencil_source", expand=True)
+            row.prop(context.space_data, "grease_pencil_source", expand=True)
 
         col.separator()
         col.separator()
@@ -885,10 +882,6 @@ class GreasePencilDataPanel:
             return False
 
         if context.space_data.type in ('VIEW_3D', 'PROPERTIES'):
-            if ts.grease_pencil_source == 'SCENE':
-                if context.space_data.context != 'SCENE':
-                    return False
-
             if ts.grease_pencil_source == 'OBJECT':
                 if context.space_data.context != 'DATA':
                     return False
@@ -899,10 +892,6 @@ class GreasePencilDataPanel:
                 else:
                     if context.object.grease_pencil != context.gpencil_data:
                         return False
-
-            if context.space_data.context == 'SCENE':
-                if context.scene.grease_pencil != context.gpencil_data:
-                    return False
 
         return True
 
@@ -925,15 +914,8 @@ class GreasePencilDataPanel:
         #    gpd = ob.grease_pencil
 
         # Owner Selector
-        if context.space_data.type == 'VIEW_3D':
-            layout.row().prop(context.tool_settings, "grease_pencil_source", expand=True)
-        elif context.space_data.type == 'CLIP_EDITOR':
+        if context.space_data.type == 'CLIP_EDITOR':
             layout.row().prop(context.space_data, "grease_pencil_source", expand=True)
-        elif context.space_data.type == 'PROPERTIES':
-            if context.space_data.context == 'SCENE':
-                gpd_owner = context.scene
-                gpd = context.scene.grease_pencil
-
         # Grease Pencil data selector
         layout.template_ID(gpd_owner, "grease_pencil", new="gpencil.data_add", unlink="gpencil.data_unlink")
 
@@ -944,12 +926,6 @@ class GreasePencilDataPanel:
             row = layout.row()
             row.prop(gpd, "xray_mode", text="Xray Mode")
             self.draw_layers(context, layout, gpd)
-
-        # convert to object
-        if gpd and context.space_data.type in ('VIEW_3D', 'PROPERTIES'):
-            if context.space_data.context == 'SCENE':
-                row = layout.row()
-                row.operator("gpencil.convert_scene_to_object", text="Convert")
 
     def draw_layers(self, context, layout, gpd):
         row = layout.row()

@@ -440,13 +440,6 @@ class SCENE_PT_simplify(SceneButtonsPanel, Panel):
         col.prop(rd, "simplify_ao_sss", text="AO and SSS")
         col.prop(rd, "use_simplify_triangulate")
 
-class SCENE_PT_gpencil_datapanel(GreasePencilDataPanel, Panel):
-    bl_space_type = 'PROPERTIES'
-    bl_region_type = 'WINDOW'
-    bl_context = "scene"
-
-    # NOTE: this is just a wrapper around the generic GP Panel
-
 class SCENE_PT_custom_props(SceneButtonsPanel, PropertyPanel, Panel):
     COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
     _context_path = "scene"
@@ -467,7 +460,6 @@ classes = (
     SCENE_PT_rigid_body_cache,
     SCENE_PT_rigid_body_field_weights,
     SCENE_PT_simplify,
-    SCENE_PT_gpencil_datapanel,
     SCENE_PT_custom_props,
 )
 

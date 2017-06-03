@@ -203,23 +203,35 @@ static void gp_session_validatebuffer(tGPsdata *p);
 static int gpencil_draw_poll(bContext *C)
 {
 	if (ED_operator_regionactive(C)) {
-		/* check if current context can support GPencil data */
-		if (ED_gpencil_data_get_pointers(C, NULL) != NULL) {
-			/* check if Grease Pencil isn't already running */
-			if (ED_gpencil_session_active() == 0)
-				return 1;
-			else
-				CTX_wm_operator_poll_msg_set(C, "Grease Pencil operator is already active");
+		ScrArea *sa = CTX_wm_area(C);
+		if (!ELEM(sa->spacetype, SPACE_VIEW3D)) {
+			/* check if current context can support GPencil data */
+			if (ED_gpencil_data_get_pointers(C, NULL) != NULL) {
+				/* check if Grease Pencil isn't already running */
+				if (ED_gpencil_session_active() == 0)
+					return 1;
+				else
+					CTX_wm_operator_poll_msg_set(C, "Grease Pencil operator is already active");
+			}
+			else {
+				CTX_wm_operator_poll_msg_set(C, "Failed to find Grease Pencil data to draw into");
+			}
+			return 0;
 		}
+		/* 3D Viewport */
 		else {
-			CTX_wm_operator_poll_msg_set(C, "Failed to find Grease Pencil data to draw into");
+			if (ED_gpencil_session_active() == 0) {
+				return 1;
+			}
+			else {
+				return 0;
+			}
 		}
 	}
 	else {
 		CTX_wm_operator_poll_msg_set(C, "Active region not set");
+		return 0;
 	}
-	
-	return 0;
 }
 
 /* check if projecting strokes into 3d-geometry in the 3D-View */
@@ -1342,32 +1354,25 @@ static bool gp_session_initdata(bContext *C, tGPsdata *p)
 		{
 			/* View3D *v3d = curarea->spacedata.first; */
 			/* RegionView3D *rv3d = ar->regiondata; */
-			
+
 			/* set current area
 			 *	- must verify that region data is 3D-view (and not something else)
 			 */
-			/* CAUTION: If this is the "toolbar", then this will change on the first stroke */
+			 /* CAUTION: If this is the "toolbar", then this will change on the first stroke */
 			p->sa = curarea;
 			p->ar = ar;
 			p->align_flag = &ts->gpencil_v3d_align;
-			
+
 			if (ar->regiondata == NULL) {
 				p->status = GP_STATUS_ERROR;
 				if (G.debug & G_DEBUG)
 					printf("Error: 3D-View active region doesn't have any region data, so cannot be drawable\n");
 				return 0;
 			}
-			/* if object mode and is not active a OB_GPENCIL, create one */
-			if (ts->gpencil_src & GP_TOOL_SOURCE_OBJECT) {
-				float *cur = ED_view3d_cursor3d_get(p->scene, v3d);
-				if (obact) {
-					if (obact->type != OB_GPENCIL) {
-						obact = ED_add_gpencil_object(C, p->scene, cur);
-					}
-				}
-				else {
-					obact = ED_add_gpencil_object(C, p->scene, cur);
-				}
+			/* if not active a OB_GPENCIL, create one */
+			float *cur = ED_view3d_cursor3d_get(p->scene, v3d);
+			if ((!obact) || (obact->type != OB_GPENCIL)) {
+				obact = ED_add_gpencil_object(C, p->scene, cur);
 			}
 			break;
 		}
