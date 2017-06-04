@@ -1386,7 +1386,6 @@ static EnumPropertyItem *object_mode_set_itemsf(bContext *C, PointerRNA *UNUSED(
 	EnumPropertyItem *input = rna_enum_object_mode_items;
 	EnumPropertyItem *item = NULL;
 	Object *ob;
-	bGPdata *gpd;
 	int totitem = 0;
 
 	if (!C) /* needed for docs */
@@ -1403,8 +1402,8 @@ static EnumPropertyItem *object_mode_set_itemsf(bContext *C, PointerRNA *UNUSED(
 			    (input->value == OB_MODE_PARTICLE_EDIT && use_mode_particle_edit) ||
 			    (ELEM(input->value, OB_MODE_SCULPT, OB_MODE_VERTEX_PAINT,
 			           OB_MODE_WEIGHT_PAINT, OB_MODE_TEXTURE_PAINT) && (ob->type == OB_MESH)) ||
-				/* TODO: future gpencil modes to add here */
-				(ELEM(input->value, OB_MODE_GPENCIL_EDIT) && (ob->type == OB_GPENCIL)) ||
+				(ELEM(input->value, OB_MODE_GPENCIL_EDIT, OB_MODE_GPENCIL_PAINT, 
+					  OB_MODE_GPENCIL_SCULPT) && (ob->type == OB_GPENCIL)) ||
 			    (input->value == OB_MODE_OBJECT))
 			{
 				RNA_enum_item_add(&item, &totitem, input);
@@ -1442,6 +1441,10 @@ static const char *object_mode_op_string(int mode)
 		return "OBJECT_OT_posemode_toggle";
 	if (mode == OB_MODE_GPENCIL_EDIT)
 		return "GPENCIL_OT_editmode_toggle";
+	if (mode == OB_MODE_GPENCIL_PAINT)
+		return "GPENCIL_OT_paintmode_toggle";
+	if (mode == OB_MODE_GPENCIL_SCULPT)
+		return "GPENCIL_OT_sculptmode_toggle";
 	return NULL;
 }
 
@@ -1453,8 +1456,6 @@ static bool object_mode_compat_test(Object *ob, ObjectMode mode)
 	if (ob) {
 		if (mode == OB_MODE_OBJECT)
 			return true;
-		else if (mode == OB_MODE_GPENCIL_EDIT)
-			return true; /* XXX: assume this is the case for now... */
 
 		switch (ob->type) {
 			case OB_MESH:
@@ -1478,6 +1479,12 @@ static bool object_mode_compat_test(Object *ob, ObjectMode mode)
 			case OB_ARMATURE:
 				if (mode & (OB_MODE_EDIT | OB_MODE_POSE))
 					return true;
+				break;
+			case OB_GPENCIL:
+				if (mode & (OB_MODE_GPENCIL_EDIT | OB_MODE_GPENCIL_PAINT | OB_MODE_GPENCIL_SCULPT))
+				{
+					return true;
+				}
 				break;
 		}
 	}
@@ -1537,32 +1544,42 @@ static int object_mode_set_exec(bContext *C, wmOperator *op)
 	ObjectMode restore_mode = (ob) ? ob->mode : OB_MODE_OBJECT;
 	const bool toggle = RNA_boolean_get(op->ptr, "toggle");
 
-	/* if type is OB_GPENCIL, then edit mode is for grease pencil strokes */	
+	/* if type is OB_GPENCIL, select mode for grease pencil strokes */	
 	if ((ob) && (ob->type == OB_GPENCIL)) {
 		if ((ob->gpd) && (ob->gpd == gpd))
 		{
-			WM_operator_name_call(C, "GPENCIL_OT_editmode_toggle", WM_OP_EXEC_REGION_WIN, NULL);
-			return OPERATOR_FINISHED;
+			if (ELEM(mode, OB_MODE_GPENCIL_EDIT, OB_MODE_OBJECT, OB_MODE_EDIT)) {
+				WM_operator_name_call(C, "GPENCIL_OT_editmode_toggle", WM_OP_EXEC_REGION_WIN, NULL);
+				return OPERATOR_FINISHED;
+			}
+			if (mode == OB_MODE_GPENCIL_PAINT) {
+				WM_operator_name_call(C, "GPENCIL_OT_paintmode_toggle", WM_OP_EXEC_REGION_WIN, NULL);
+				return OPERATOR_FINISHED;
+			}
+			if (mode == OB_MODE_GPENCIL_SCULPT) {
+				WM_operator_name_call(C, "GPENCIL_OT_sculptmode_toggle", WM_OP_EXEC_REGION_WIN, NULL);
+				return OPERATOR_FINISHED;
+			}
 		}
 	}
-	/* if gpd data, but not related to OB_GPENCIL object type */
-	if (gpd) {
-		/* GP Mode is not bound to a specific object. Therefore,
-		 * we don't want it to be actually saved on any objects,
-		 * as weirdness can happen if you select other objects,
-		 * or load old files.
-		 *
-		 * Instead, we use the following 2 rules to ensure that
-		 * the mode selector works as expected:
-		 *  1) If there's no object, we want to enter editmode.
-		 *     (i.e. with no object, we're in object mode)
-		 *  2) Otherwise, exit stroke editmode, so that we can
-		 *     enter another mode...
-		 */
-		if (!ob || (gpd->flag & GP_DATA_STROKE_EDITMODE)) {
-			WM_operator_name_call(C, "GPENCIL_OT_editmode_toggle", WM_OP_EXEC_REGION_WIN, NULL);
-		}
-	}
+	///* if gpd data, but not related to OB_GPENCIL object type */
+	//if (gpd) {
+	//	/* GP Mode is not bound to a specific object. Therefore,
+	//	 * we don't want it to be actually saved on any objects,
+	//	 * as weirdness can happen if you select other objects,
+	//	 * or load old files.
+	//	 *
+	//	 * Instead, we use the following 2 rules to ensure that
+	//	 * the mode selector works as expected:
+	//	 *  1) If there's no object, we want to enter editmode.
+	//	 *     (i.e. with no object, we're in object mode)
+	//	 *  2) Otherwise, exit stroke editmode, so that we can
+	//	 *     enter another mode...
+	//	 */
+	//	if (!ob || (gpd->flag & GP_DATA_STROKE_EDITMODE)) {
+	//		WM_operator_name_call(C, "GPENCIL_OT_editmode_toggle", WM_OP_EXEC_REGION_WIN, NULL);
+	//	}
+	//}
 	
 	if (!ob || !object_mode_compat_test(ob, mode))
 		return OPERATOR_PASS_THROUGH;

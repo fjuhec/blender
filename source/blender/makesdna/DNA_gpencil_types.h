@@ -357,7 +357,12 @@ typedef enum eGPdata_Flag {
 	/* Draw a green and red point to indicate start and end of the stroke */
 	GP_DATA_SHOW_DIRECTION = (1 << 10),
 	/* Batch drawing cache need to be recalculated */
-	GP_DATA_CACHE_IS_DIRTY = (1 << 11)
+	GP_DATA_CACHE_IS_DIRTY = (1 << 11),
+	/* Stroke Paint Mode - Toggle paint mode */
+	GP_DATA_STROKE_PAINTMODE = (1 << 12),
+	/* Stroke Editing Mode - Toggle sculpt mode */
+	GP_DATA_STROKE_SCULPTMODE = (1 << 13)
+
 } eGPdata_Flag;
 
 #endif /*  __DNA_GPENCIL_TYPES_H__ */

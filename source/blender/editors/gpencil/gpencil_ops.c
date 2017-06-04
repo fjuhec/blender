@@ -120,6 +120,20 @@ static int gp_stroke_editmode_poll(bContext *C)
 	return (gpd && (gpd->flag & GP_DATA_STROKE_EDITMODE));
 }
 
+/* Poll callback for stroke painting mode */
+static int gp_stroke_paintmode_poll(bContext *C)
+{
+	bGPdata *gpd = CTX_data_gpencil_data(C);
+	return (gpd && (gpd->flag & GP_DATA_STROKE_PAINTMODE));
+}
+
+/* Poll callback for stroke sculpting mode */
+static int gp_stroke_sculptmode_poll(bContext *C)
+{
+	bGPdata *gpd = CTX_data_gpencil_data(C);
+	return (gpd && (gpd->flag & GP_DATA_STROKE_SCULPTMODE));
+}
+
 /* Stroke Editing Keymap - Only when editmode is enabled */
 static void ed_keymap_gpencil_editing(wmKeyConfig *keyconf)
 {
@@ -337,12 +351,46 @@ static void ed_keymap_gpencil_editing(wmKeyConfig *keyconf)
 	ED_keymap_proportional_editmode(keyconf, keymap, true);
 }
 
+/* Stroke Painting Keymap - Only when paintmode is enabled */
+static void ed_keymap_gpencil_painting(wmKeyConfig *keyconf)
+{
+	wmKeyMap *keymap = WM_keymap_find(keyconf, "Grease Pencil Stroke Paint Mode", 0, 0);
+	wmKeyMapItem *kmi;
+
+	/* set poll callback - so that this keymap only gets enabled when stroke paintmode is enabled */
+	keymap->poll = gp_stroke_paintmode_poll;
+
+	/* ----------------------------------------------- */
+
+	/* Exit PaintMode */
+	WM_keymap_add_item(keymap, "GPENCIL_OT_paintmode_toggle", TABKEY, KM_PRESS, 0, 0);
+
+}
+
+/* Stroke Sculpting Keymap - Only when sculptmode is enabled */
+static void ed_keymap_gpencil_sculpting(wmKeyConfig *keyconf)
+{
+	wmKeyMap *keymap = WM_keymap_find(keyconf, "Grease Pencil Stroke Sculpt Mode", 0, 0);
+	wmKeyMapItem *kmi;
+
+	/* set poll callback - so that this keymap only gets enabled when stroke sculptmode is enabled */
+	keymap->poll = gp_stroke_sculptmode_poll;
+
+	/* ----------------------------------------------- */
+
+	/* Exit PaintMode */
+	WM_keymap_add_item(keymap, "GPENCIL_OT_sculptmode_toggle", TABKEY, KM_PRESS, 0, 0);
+
+}
+
 /* ==================== */
 
 void ED_keymap_gpencil(wmKeyConfig *keyconf)
 {
 	ed_keymap_gpencil_general(keyconf);
 	ed_keymap_gpencil_editing(keyconf);
+	ed_keymap_gpencil_painting(keyconf);
+	ed_keymap_gpencil_sculpting(keyconf);
 }
 
 /* ****************************************** */
@@ -356,6 +404,8 @@ void ED_operatortypes_gpencil(void)
 	/* Editing (Strokes) ------------ */
 	
 	WM_operatortype_append(GPENCIL_OT_editmode_toggle);
+	WM_operatortype_append(GPENCIL_OT_paintmode_toggle);
+	WM_operatortype_append(GPENCIL_OT_sculptmode_toggle);
 	WM_operatortype_append(GPENCIL_OT_selection_opacity_toggle);
 
 	WM_operatortype_append(GPENCIL_OT_select);

@@ -111,6 +111,9 @@ static int gpencil_editmode_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 	
 	/* Just toggle editmode flag... */
 	gpd->flag ^= GP_DATA_STROKE_EDITMODE;
+	/* disable other GP modes */
+	gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
+	gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
 	/* recalculate parent matrix */
 	if (gpd->flag & GP_DATA_STROKE_EDITMODE) {
 		ED_gpencil_reset_layers_parent(ob, gpd);
@@ -147,6 +150,146 @@ void GPENCIL_OT_editmode_toggle(wmOperatorType *ot)
 	ot->exec = gpencil_editmode_toggle_exec;
 	ot->poll = gpencil_editmode_toggle_poll;
 	
+	/* flags */
+	ot->flag = OPTYPE_UNDO | OPTYPE_REGISTER;
+}
+
+/* Stroke Paint Mode Management */
+
+static int gpencil_paintmode_toggle_poll(bContext *C)
+{
+	/* if using gpencil object, use this gpd */
+	Object *ob = CTX_data_active_object(C);
+	if ((ob) && (ob->type == OB_GPENCIL)) {
+		return ob->gpd != NULL;
+	}
+	return ED_gpencil_data_get_active(C) != NULL;
+}
+
+static int gpencil_paintmode_toggle_exec(bContext *C, wmOperator *UNUSED(op))
+{
+	WorkSpace *workspace = CTX_wm_workspace(C);
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	bool is_object = false;
+	int mode;
+	/* if using a gpencil object, use this datablock */
+	Object *ob = CTX_data_active_object(C);
+	if ((ob) && (ob->type == OB_GPENCIL)) {
+		gpd = ob->gpd;
+		is_object = true;
+	}
+
+	if (gpd == NULL)
+		return OPERATOR_CANCELLED;
+
+	/* Just toggle editmode flag... */
+	gpd->flag ^= GP_DATA_STROKE_PAINTMODE;
+	/* disable other GP modes */
+	gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
+	gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
+
+	/* set mode */
+	if (gpd->flag & GP_DATA_STROKE_PAINTMODE) {
+		mode = OB_MODE_GPENCIL_PAINT;
+	}
+	else {
+		mode = OB_MODE_OBJECT;
+	}
+
+	if (is_object) {
+		ob->mode = mode;
+	}
+
+	/* set workspace mode */
+	BKE_workspace_object_mode_set(workspace, mode);
+
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | ND_GPENCIL_EDITMODE, NULL);
+	WM_event_add_notifier(C, NC_SCENE | ND_MODE, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void GPENCIL_OT_paintmode_toggle(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Strokes Paint Mode Toggle";
+	ot->idname = "GPENCIL_OT_paintmode_toggle";
+	ot->description = "Enter/Exit paint mode for Grease Pencil strokes";
+
+	/* callbacks */
+	ot->exec = gpencil_paintmode_toggle_exec;
+	ot->poll = gpencil_paintmode_toggle_poll;
+
+	/* flags */
+	ot->flag = OPTYPE_UNDO | OPTYPE_REGISTER;
+}
+
+/* Stroke Scupt Mode Management */
+
+static int gpencil_sculptmode_toggle_poll(bContext *C)
+{
+	/* if using gpencil object, use this gpd */
+	Object *ob = CTX_data_active_object(C);
+	if ((ob) && (ob->type == OB_GPENCIL)) {
+		return ob->gpd != NULL;
+	}
+	return ED_gpencil_data_get_active(C) != NULL;
+}
+
+static int gpencil_sculptmode_toggle_exec(bContext *C, wmOperator *UNUSED(op))
+{
+	WorkSpace *workspace = CTX_wm_workspace(C);
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	bool is_object = false;
+	int mode;
+	/* if using a gpencil object, use this datablock */
+	Object *ob = CTX_data_active_object(C);
+	if ((ob) && (ob->type == OB_GPENCIL)) {
+		gpd = ob->gpd;
+		is_object = true;
+	}
+
+	if (gpd == NULL)
+		return OPERATOR_CANCELLED;
+
+	/* Just toggle editmode flag... */
+	gpd->flag ^= GP_DATA_STROKE_SCULPTMODE;
+	/* disable other GP modes */
+	gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
+	gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
+
+	/* set mode */
+	if (gpd->flag & GP_DATA_STROKE_SCULPTMODE) {
+		mode = OB_MODE_GPENCIL_SCULPT;
+	}
+	else {
+		mode = OB_MODE_OBJECT;
+	}
+
+	if (is_object) {
+		ob->mode = mode;
+	}
+
+	/* set workspace mode */
+	BKE_workspace_object_mode_set(workspace, mode);
+
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | ND_GPENCIL_EDITMODE, NULL);
+	WM_event_add_notifier(C, NC_SCENE | ND_MODE, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void GPENCIL_OT_sculptmode_toggle(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Strokes Sculpt Mode Toggle";
+	ot->idname = "GPENCIL_OT_sculptmode_toggle";
+	ot->description = "Enter/Exit sculpt mode for Grease Pencil strokes";
+
+	/* callbacks */
+	ot->exec = gpencil_sculptmode_toggle_exec;
+	ot->poll = gpencil_sculptmode_toggle_poll;
+
 	/* flags */
 	ot->flag = OPTYPE_UNDO | OPTYPE_REGISTER;
 }
