@@ -83,6 +83,8 @@
 #include "sculpt_intern.h"
 #include "paint_intern.h"  /* own include */
 
+#define EPS_SATURATION 0.0005f
+
 /* check if we can do partial updates and have them draw realtime
  * (without rebuilding the 'derivedFinal') */
 static bool vertex_paint_use_fast_update_check(Object *ob)
@@ -873,25 +875,185 @@ BLI_INLINE unsigned int mcol_overlay(unsigned int col1, unsigned int col2, int f
 	return col;
 }
 
+BLI_INLINE unsigned int mcol_softlight(unsigned int col1, unsigned int col2, int fac)
+{
+	unsigned char *cp1, *cp2, *cp;
+	int mfac, temp;
+	unsigned int col = 0;
+
+	if (fac == 0) {
+		return col1;
+	}
+
+	mfac = 255 - fac;
+
+	cp1 = (unsigned char *)&col1;
+	cp2 = (unsigned char *)&col2;
+	cp = (unsigned char *)&col;
+
+	int i = 0;
+
+	for (i = 0; i < 3; i++) {
+
+		if (cp1[i] < 127) {
+			temp = ((2 * ((cp2[i] / 2) + 64)) * cp1[i]) / 255;
+		}
+		else {
+			temp = 255 - (2 * (255 - ((cp2[i] / 2) + 64)) * (255 - cp1[i]) / 255);
+		}
+		cp[i] = (temp * fac + cp1[i] * mfac) / 255;
+	}
+	return col;
+}
+
+BLI_INLINE unsigned int mcol_exclusion(unsigned int col1, unsigned int col2, int fac)
+{
+	unsigned char *cp1, *cp2, *cp;
+	int mfac, temp;
+	unsigned int col = 0;
+
+	if (fac == 0) {
+		return col1;
+	}
+
+	mfac = 255 - fac;
+
+	cp1 = (unsigned char *)&col1;
+	cp2 = (unsigned char *)&col2;
+	cp = (unsigned char *)&col;
+
+	int i = 0;
+
+	for (i = 0; i < 3; i++) {
+		temp = 127 - ((2 * (cp1[i] - 127) * (cp2[i] - 127)) / 255);
+		cp[i] = (temp * fac + cp1[i] * mfac) / 255;
+	}
+	return col;
+}
+
+BLI_INLINE unsigned int mcol_luminocity(unsigned int col1, unsigned int col2, int fac)
+{
+	unsigned char *cp1, *cp2, *cp;
+	int mfac, temp;
+	unsigned int col = 0;
+
+	if (fac == 0) {
+		return col1;
+	}
+
+	mfac = 255 - fac;
+
+	cp1 = (unsigned char *)&col1;
+	cp2 = (unsigned char *)&col2;
+	cp = (unsigned char *)&col;
+
+	float h1, s1, v1;
+	float h2, s2, v2;
+	float r, g, b;
+	rgb_to_hsv(cp1[0] / 255.0f, cp1[1] / 255.0f, cp1[2] / 255.0f, &h1, &s1, &v1);
+	rgb_to_hsv(cp2[0] / 255.0f, cp2[1] / 255.0f, cp2[2] / 255.0f, &h2, &s2, &v2);
+
+	v1 = v2;
+
+	hsv_to_rgb(h1, s1, v1, &r, &g, &b);
+
+	cp[0] = ((int)(r * 255.0f) * fac + mfac * cp1[0]) / 255;
+	cp[1] = ((int)(g * 255.0f) * fac + mfac * cp1[1]) / 255;
+	cp[2] = ((int)(b * 255.0f) * fac + mfac * cp1[2]) / 255;
+	return col;
+}
+
+BLI_INLINE unsigned int mcol_saturation(unsigned int col1, unsigned int col2, int fac)
+{
+	unsigned char *cp1, *cp2, *cp;
+	int mfac, temp;
+	unsigned int col = 0;
+
+	if (fac == 0) {
+		return col1;
+	}
+
+	mfac = 255 - fac;
+
+	cp1 = (unsigned char *)&col1;
+	cp2 = (unsigned char *)&col2;
+	cp = (unsigned char *)&col;
+
+	float h1, s1, v1;
+	float h2, s2, v2;
+	float r, g, b;
+	rgb_to_hsv(cp1[0] / 255.0f, cp1[1] / 255.0f, cp1[2] / 255.0f, &h1, &s1, &v1);
+	rgb_to_hsv(cp2[0] / 255.0f, cp2[1] / 255.0f, cp2[2] / 255.0f, &h2, &s2, &v2);
+
+	if (s1 > EPS_SATURATION) {
+		s1 = s2;
+	}
+
+	hsv_to_rgb(h1, s1, v1, &r, &g, &b);
+
+	cp[0] = ((int)(r * 255.0f) * fac + mfac * cp1[0]) / 255;
+	cp[1] = ((int)(g * 255.0f) * fac + mfac * cp1[1]) / 255;
+	cp[2] = ((int)(b * 255.0f) * fac + mfac * cp1[2]) / 255;
+	return col;
+}
+
+BLI_INLINE unsigned int mcol_hue(unsigned int col1, unsigned int col2, int fac)
+{
+	unsigned char *cp1, *cp2, *cp;
+	int mfac, temp;
+	unsigned int col = 0;
+
+	if (fac == 0) {
+		return col1;
+	}
+
+	mfac = 255 - fac;
+
+	cp1 = (unsigned char *)&col1;
+	cp2 = (unsigned char *)&col2;
+	cp = (unsigned char *)&col;
+
+	float h1, s1, v1;
+	float h2, s2, v2;
+	float r, g, b;
+	rgb_to_hsv(cp1[0] / 255.0f, cp1[1] / 255.0f, cp1[2] / 255.0f, &h1, &s1, &v1);
+	rgb_to_hsv(cp2[0] / 255.0f, cp2[1] / 255.0f, cp2[2] / 255.0f, &h2, &s2, &v2);
+
+	h1 = h2;
+
+	hsv_to_rgb(h1, s1, v1, &r, &g, &b);
+
+	cp[0] = ((int)(r * 255.0f) * fac + mfac * cp1[0]) / 255;
+	cp[1] = ((int)(g * 255.0f) * fac + mfac * cp1[1]) / 255;
+	cp[2] = ((int)(b * 255.0f) * fac + mfac * cp1[2]) / 255;
+	return col;
+}
+
+
 /* wpaint has 'wpaint_blend_tool' */
 static unsigned int vpaint_blend_tool(const int tool, const unsigned int col,
                                       const unsigned int paintcol, const int alpha_i)
 {
 	switch (tool) {
 		case PAINT_BLEND_MIX:
-		case PAINT_BLEND_BLUR:     return mcol_blend(col, paintcol, alpha_i);
-		case PAINT_BLEND_AVERAGE:  return mcol_blend(col, paintcol, alpha_i);
-		case PAINT_BLEND_SMEAR:    return mcol_blend(col, paintcol, alpha_i);
-		case PAINT_BLEND_ADD:      return mcol_add(col, paintcol, alpha_i);
-		case PAINT_BLEND_SUB:      return mcol_sub(col, paintcol, alpha_i);
-		case PAINT_BLEND_MUL:      return mcol_mul(col, paintcol, alpha_i);
-		case PAINT_BLEND_LIGHTEN:  return mcol_lighten(col, paintcol, alpha_i);
-		case PAINT_BLEND_DARKEN:   return mcol_darken(col, paintcol, alpha_i);
+		case PAINT_BLEND_BLUR:       return mcol_blend(col, paintcol, alpha_i);
+		case PAINT_BLEND_AVERAGE:    return mcol_blend(col, paintcol, alpha_i);
+		case PAINT_BLEND_SMEAR:      return mcol_blend(col, paintcol, alpha_i);
+		case PAINT_BLEND_ADD:        return mcol_add(col, paintcol, alpha_i);
+		case PAINT_BLEND_SUB:        return mcol_sub(col, paintcol, alpha_i);
+		case PAINT_BLEND_MUL:        return mcol_mul(col, paintcol, alpha_i);
+		case PAINT_BLEND_LIGHTEN:    return mcol_lighten(col, paintcol, alpha_i);
+		case PAINT_BLEND_DARKEN:     return mcol_darken(col, paintcol, alpha_i);
 		case PAINT_BLEND_COLORDODGE: return mcol_colordodge(col, paintcol, alpha_i);
 		case PAINT_BLEND_DIFFERENCE: return mcol_difference(col, paintcol, alpha_i);
-		case PAINT_BLEND_SCREEN:   return mcol_screen(col, paintcol, alpha_i);
-		case PAINT_BLEND_HARDLIGHT: return mcol_hardlight(col, paintcol, alpha_i);
-		case PAINT_BLEND_OVERLAY: return mcol_overlay(col, paintcol, alpha_i);
+		case PAINT_BLEND_SCREEN:     return mcol_screen(col, paintcol, alpha_i);
+		case PAINT_BLEND_HARDLIGHT:  return mcol_hardlight(col, paintcol, alpha_i);
+		case PAINT_BLEND_OVERLAY:	 return mcol_overlay(col, paintcol, alpha_i);
+		case PAINT_BLEND_SOFTLIGHT:  return mcol_softlight(col, paintcol, alpha_i);
+		case PAINT_BLEND_EXCLUSION:  return mcol_exclusion(col, paintcol, alpha_i);
+		case PAINT_BLEND_LUMINOCITY: return mcol_luminocity(col, paintcol, alpha_i);
+		case PAINT_BLEND_SATURATION: return mcol_saturation(col, paintcol, alpha_i);
+		case PAINT_BLEND_HUE:        return mcol_hue(col, paintcol, alpha_i);
 		default:
 			BLI_assert(0);
 			return 0;

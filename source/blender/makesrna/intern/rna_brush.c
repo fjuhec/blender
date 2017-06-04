@@ -101,6 +101,12 @@ EnumPropertyItem rna_enum_brush_vertex_tool_items[] = {
 	{PAINT_BLEND_SCREEN, "SCREEN", ICON_BRUSH_BLUR, "Screen", "Use screen blending mode while painting"},
 	{PAINT_BLEND_HARDLIGHT, "HARDLIGHT", ICON_BRUSH_BLUR, "Hardlight", "Use hardlight blending mode while painting"},
 	{PAINT_BLEND_OVERLAY, "OVERLAY", ICON_BRUSH_BLUR, "Overlay", "Use overlay blending mode while painting"},
+	{PAINT_BLEND_SOFTLIGHT, "SOFTLIGHT", ICON_BRUSH_BLUR, "Softlight", "Use softlight blending mode while painting"},
+	{PAINT_BLEND_EXCLUSION, "EXCLUSION", ICON_BRUSH_BLUR, "Exclusion", "Use exclusion blending mode while painting"},
+	{PAINT_BLEND_LUMINOCITY, "LUMINOCITY", ICON_BRUSH_BLUR, "Luminocity", "Use luminocity blending mode while painting"},
+	{PAINT_BLEND_SATURATION, "SATURATION", ICON_BRUSH_BLUR, "Saturation", "Use saturation blending mode while painting"},
+	{PAINT_BLEND_HUE, "HUE", ICON_BRUSH_BLUR, "Hue", "Use hue blending mode while painting"},
+
 	{0, NULL, 0, NULL, NULL}
 };
 	
