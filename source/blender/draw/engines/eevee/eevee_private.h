@@ -31,6 +31,7 @@ struct Object;
 extern struct DrawEngineType draw_engine_eevee_type;
 
 /* Minimum UBO is 16384 bytes */
+#define MAX_PROBE 128 /* TODO : find size by dividing UBO max size by probe data size */
 #define MAX_LIGHT 128 /* TODO : find size by dividing UBO max size by light data size */
 #define MAX_SHADOW_CUBE 42 /* TODO : Make this depends on GL_MAX_ARRAY_TEXTURE_LAYERS */
 #define MAX_SHADOW_MAP 64
@@ -64,6 +65,7 @@ typedef struct EEVEE_PassList {
 	struct DRWPass *depth_pass;
 	struct DRWPass *depth_pass_cull;
 	struct DRWPass *default_pass;
+	struct DRWPass *default_flat_pass;
 	struct DRWPass *material_pass;
 	struct DRWPass *background_pass;
 } EEVEE_PassList;
@@ -114,7 +116,7 @@ typedef struct EEVEE_Light {
 } EEVEE_Light;
 
 typedef struct EEVEE_ShadowCube {
-	float near, far, bias, pad;
+	float near, far, bias, exp;
 } EEVEE_ShadowCube;
 
 typedef struct EEVEE_ShadowMap {
@@ -133,6 +135,7 @@ typedef struct EEVEE_ShadowRender {
 	float position[3];
 	float pad;
 	int layer;
+	float exponent;
 } EEVEE_ShadowRender;
 
 /* ************ LIGHT DATA ************* */
@@ -161,8 +164,16 @@ enum {
 	LIGHT_UPDATE_SHADOW_CUBE = (1 << 0),
 };
 
+/* ************ PROBE UBO ************* */
+typedef struct EEVEE_Probe {
+	float position[3], dist;
+	float shcoefs[9][3], pad;
+} EEVEE_Probe;
+
 /* ************ PROBE DATA ************* */
 typedef struct EEVEE_ProbesInfo {
+	int num_cube, cache_num_cube;
+	int update_flag;
 	/* For rendering probes */
 	float probemat[6][4][4];
 	int layer;
@@ -175,9 +186,18 @@ typedef struct EEVEE_ProbesInfo {
 	float lodmax;
 	int shres;
 	int shnbr;
-	float shcoefs[9][3]; /* Temp */
 	struct GPUTexture *backgroundtex;
+	/* List of probes in the scene. */
+	/* XXX This is fragile, can get out of sync quickly. */
+	struct Object *probes_ref[MAX_PROBE];
+	/* UBO Storage : data used by UBO */
+	struct EEVEE_Probe probe_data[MAX_PROBE];
 } EEVEE_ProbesInfo;
+
+/* EEVEE_ProbesInfo->update_flag */
+enum {
+	PROBE_UPDATE_CUBE = (1 << 0),
+};
 
 /* ************ EFFECTS DATA ************* */
 typedef struct EEVEE_EffectsInfo {
@@ -254,6 +274,8 @@ typedef struct EEVEE_SceneLayerData {
 	struct GPUTexture *probe_depth_rt;
 	struct GPUTexture *probe_pool;
 	struct GPUTexture *probe_sh;
+
+	struct ListBase probe_queue; /* List of probes to update */
 } EEVEE_SceneLayerData;
 
 /* ************ OBJECT DATA ************ */
@@ -283,8 +305,21 @@ typedef struct EEVEE_PrivateData {
 	struct DRWShadingGroup *depth_shgrp_cull;
 } EEVEE_PrivateData; /* Transient data */
 
-/* eevee_engine.c */
-EEVEE_ObjectEngineData *EEVEE_get_object_engine_data(Object *ob);
+/* eevee_data.c */
+EEVEE_SceneLayerData *EEVEE_scene_layer_data_get(void);
+EEVEE_ObjectEngineData *EEVEE_object_data_get(Object *ob);
+EEVEE_LampEngineData *EEVEE_lamp_data_get(Object *ob);
+
+
+/* eevee_materials.c */
+void EEVEE_materials_init(void);
+void EEVEE_materials_cache_init(EEVEE_Data *vedata);
+void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_SceneLayerData *sldata, Object *ob, struct Batch *geom);
+struct GPUMaterial *EEVEE_material_world_probe_get(struct Scene *scene, struct World *wo);
+struct GPUMaterial *EEVEE_material_world_background_get(struct Scene *scene, struct World *wo);
+struct GPUMaterial *EEVEE_material_mesh_probe_get(struct Scene *scene, Material *ma);
+struct GPUMaterial *EEVEE_material_mesh_get(struct Scene *scene, Material *ma);
+void EEVEE_materials_free(void);
 
 /* eevee_lights.c */
 void EEVEE_lights_init(EEVEE_SceneLayerData *sldata);
@@ -295,17 +330,14 @@ void EEVEE_lights_cache_finish(EEVEE_SceneLayerData *sldata);
 void EEVEE_lights_update(EEVEE_SceneLayerData *sldata);
 void EEVEE_draw_shadows(EEVEE_SceneLayerData *sldata, EEVEE_PassList *psl);
 void EEVEE_lights_free(void);
-void EEVEE_scene_layer_lights_free(EEVEE_SceneLayerData *sldata);
 
 /* eevee_probes.c */
 void EEVEE_probes_init(EEVEE_SceneLayerData *sldata);
 void EEVEE_probes_cache_init(EEVEE_SceneLayerData *sldata, EEVEE_PassList *psl);
 void EEVEE_probes_cache_add(EEVEE_SceneLayerData *sldata, Object *ob);
 void EEVEE_probes_cache_finish(EEVEE_SceneLayerData *sldata);
-void EEVEE_probes_update(EEVEE_SceneLayerData *sldata);
-void EEVEE_refresh_probe(EEVEE_SceneLayerData *sldata, EEVEE_PassList *psl);
+void EEVEE_probes_refresh(EEVEE_SceneLayerData *sldata, EEVEE_PassList *psl);
 void EEVEE_probes_free(void);
-void EEVEE_scene_layer_probes_free(EEVEE_SceneLayerData *sldata);
 
 /* eevee_effects.c */
 void EEVEE_effects_init(EEVEE_Data *vedata);

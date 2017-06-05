@@ -1,18 +1,24 @@
 
 uniform int light_count;
-uniform vec3 cameraPos;
-uniform vec3 eye;
+uniform int probe_count;
 uniform mat4 ProjectionMatrix;
+uniform mat4 ViewMatrixInverse;
 
-uniform sampler2D probeFiltered;
+uniform sampler2DArray probeCubes;
 uniform float lodMax;
 uniform vec3 shCoefs[9];
 
-#ifndef USE_LTC
-uniform sampler2D brdfLut;
-#endif
+#ifndef __UTIL_TEX__
+#define __UTIL_TEX__
+uniform sampler2DArray utilTex;
+#endif /* __UTIL_TEX__ */
+
 uniform sampler2DArray shadowCubes;
 uniform sampler2DArrayShadow shadowCascades;
+
+layout(std140) uniform probe_block {
+	ProbeData probes_data[MAX_PROBE];
+};
 
 layout(std140) uniform light_block {
 	LightData lights_data[MAX_LIGHT];
@@ -34,6 +40,9 @@ flat in vec3 viewNormal;
 in vec3 worldNormal;
 in vec3 viewNormal;
 #endif
+
+#define cameraForward   normalize(ViewMatrixInverse[2].xyz)
+#define cameraPos       ViewMatrixInverse[3].xyz
 
 /* type */
 #define POINT    0.0
@@ -62,13 +71,13 @@ vec2 mapping_octahedron(vec3 cubevec, vec2 texel_size)
 	return uvs;
 }
 
-vec4 textureLod_octahedron(sampler2D tex, vec3 cubevec, float lod)
+vec4 textureLod_octahedron(sampler2DArray tex, vec4 cubevec, float lod)
 {
 	vec2 texelSize = 1.0 / vec2(textureSize(tex, int(lodMax)));
 
-	vec2 uvs = mapping_octahedron(cubevec, texelSize);
+	vec2 uvs = mapping_octahedron(cubevec.xyz, texelSize);
 
-	return textureLod(tex, uvs, lod);
+	return textureLod(tex, vec3(uvs, cubevec.w), lod);
 }
 
 vec4 texture_octahedron(sampler2DArray tex, vec4 cubevec)
@@ -138,7 +147,7 @@ void light_visibility(LightData ld, ShadingData sd, out float vis)
 		ShadowCascadeData smd = shadows_cascade_data[int(shid)];
 
 		/* Finding Cascade index */
-		vec4 z = vec4(-dot(cameraPos - worldPosition, normalize(eye)));
+		vec4 z = vec4(-dot(cameraPos - worldPosition, cameraForward));
 		vec4 comp = step(z, smd.split_distances);
 		float cascade = dot(comp, comp);
 		mat4 shadowmat;
@@ -176,15 +185,22 @@ void light_visibility(LightData ld, ShadingData sd, out float vis)
 		ShadowCubeData scd = shadows_cube_data[int(shid)];
 
 		vec3 cubevec = sd.W - ld.l_position;
-		float dist = length(cubevec);
+		float dist = length(cubevec) - scd.sh_cube_bias;
 
 		float z = texture_octahedron(shadowCubes, vec4(cubevec, shid)).r;
 
-		float esm_test = min(1.0, exp(-5.0 * dist) * z);
+		float esm_test = saturate(exp(scd.sh_cube_exp * (z - dist)));
 		float sh_test = step(0, z - dist);
 
 		vis *= esm_test;
 	}
+}
+
+void probe_lighting(ShadingData sd, int index, vec3 spec_dir, float roughness, out vec3 diff, out vec3 spec)
+{
+	ProbeData pd = probes_data[index];
+	spec = textureLod_octahedron(probeCubes, vec4(spec_dir, index), roughness * lodMax).rgb;
+	diff = spherical_harmonics(sd.N, pd.shcoefs);
 }
 
 vec3 eevee_surface_lit(vec3 world_normal, vec3 albedo, vec3 f0, float roughness, float ao)
@@ -195,12 +211,10 @@ vec3 eevee_surface_lit(vec3 world_normal, vec3 albedo, vec3 f0, float roughness,
 	sd.N = normalize(world_normal);
 	sd.V = (ProjectionMatrix[3][3] == 0.0) /* if perspective */
 	            ? normalize(cameraPos - worldPosition)
-	            : normalize(eye);
+	            : cameraForward;
 	sd.W = worldPosition;
 
 	vec3 radiance = vec3(0.0);
-	vec3 indirect_radiance = vec3(0.0);
-
 	/* Analitic Lights */
 	for (int i = 0; i < MAX_LIGHT && i < light_count; ++i) {
 		LightData ld = lights_data[i];
@@ -215,14 +229,29 @@ vec3 eevee_surface_lit(vec3 world_normal, vec3 albedo, vec3 f0, float roughness,
 		radiance += vis * (diff + spec) * ld.l_color;
 	}
 
-	vec3 spec_dir = get_specular_dominant_dir(sd.N, reflect(-sd.V, sd.N), roughnessSquared);
 
 	/* Envmaps */
+	vec3 spec_dir = get_specular_dominant_dir(sd.N, reflect(-sd.V, sd.N), roughnessSquared);
 	vec2 uv = lut_coords(dot(sd.N, sd.V), roughness);
-	vec3 brdf_lut = texture(brdfLut, uv).rgb;
-	vec3 Li = textureLod_octahedron(probeFiltered, spec_dir, roughness * lodMax).rgb;
-	indirect_radiance += Li * F_ibl(f0, brdf_lut.rg);
-	indirect_radiance += spherical_harmonics(sd.N, shCoefs) * albedo;
+	vec2 brdf_lut = texture(utilTex, vec3(uv, 1.0)).rg;
+
+	vec4 spec_accum = vec4(0.0);
+	vec4 diff_accum = vec4(0.0);
+	/* Start at 1 because 0 is world probe */
+	for (int i = 1; i < MAX_PROBE && i < probe_count; ++i) {
+		/* TODO */
+	}
+
+	if (spec_accum.a < 1.0 || diff_accum.a < 1.0) {
+		vec3 diff, spec;
+		probe_lighting(sd, 0, spec_dir, roughness, diff, spec);
+		diff_accum.rgb += diff * (1.0 - diff_accum.a);
+		spec_accum.rgb += spec * (1.0 - spec_accum.a);
+	}
+
+	vec3 indirect_radiance =
+	        spec_accum.rgb * F_ibl(f0, brdf_lut) +
+	        diff_accum.rgb * albedo;
 
 	return radiance + indirect_radiance * ao;
 }

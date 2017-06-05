@@ -2468,7 +2468,7 @@ void BKE_pose_fmap_cache_update(Depsgraph *graph, Object *ob_pose)
 
 	VirtualModifierData virtualModifierData;
 
-	DEG_OBJECT_ITER(graph, ob)
+	DEG_OBJECT_ITER(graph, ob, 0)
 	{
 		if ((ob->type == OB_MESH) && !BLI_listbase_is_empty(&ob->fmaps)) {
 			bool use_ob_fmap = false;
