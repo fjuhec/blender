@@ -353,6 +353,12 @@ static void ed_keymap_gpencil_editing(wmKeyConfig *keyconf)
 	/* Proportional Editing */
 	ED_keymap_proportional_cycle(keyconf, keymap);
 	ED_keymap_proportional_editmode(keyconf, keymap, true);
+
+	/* Enter PaintMode */
+	WM_keymap_add_item(keymap, "GPENCIL_OT_paintmode_toggle", TABKEY, KM_PRESS, KM_SHIFT, 0);
+	/* Enter SculptMode */
+	WM_keymap_add_item(keymap, "GPENCIL_OT_sculptmode_toggle", TABKEY, KM_PRESS, KM_CTRL, 0);
+
 }
 
 /* Stroke Painting Keymap - Only when paintmode is enabled */
@@ -391,6 +397,11 @@ static void ed_keymap_gpencil_painting(wmKeyConfig *keyconf)
 	RNA_int_set(kmi->ptr, "index", 8);
 	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_brush_select", ZEROKEY, KM_PRESS, 0, 0);
 	RNA_int_set(kmi->ptr, "index", 9);
+
+	/* Enter EditMode */
+	WM_keymap_add_item(keymap, "GPENCIL_OT_editmode_toggle", TABKEY, KM_PRESS, KM_SHIFT, 0);
+	/* Enter SculptMode */
+	WM_keymap_add_item(keymap, "GPENCIL_OT_sculptmode_toggle", TABKEY, KM_PRESS, KM_CTRL, 0);
 }
 
 /* Stroke Sculpting Keymap - Only when sculptmode is enabled */
@@ -410,6 +421,11 @@ static void ed_keymap_gpencil_sculpting(wmKeyConfig *keyconf)
 
 	/* sculpt */
 	ed_keymap_gpencil_sculpt(keymap);
+
+	/* Enter EditMode */
+	WM_keymap_add_item(keymap, "GPENCIL_OT_editmode_toggle", TABKEY, KM_PRESS, KM_SHIFT, 0);
+	/* Enter PaintMode */
+	WM_keymap_add_item(keymap, "GPENCIL_OT_paintmode_toggle", TABKEY, KM_PRESS, KM_CTRL, 0);
 }
 
 /* ==================== */
