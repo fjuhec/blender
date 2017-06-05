@@ -122,6 +122,8 @@ KM_HIERARCHY = [
 
     ('Grease Pencil', 'EMPTY', 'WINDOW', [  # grease pencil stuff (per region)
         ('Grease Pencil Stroke Edit Mode', 'EMPTY', 'WINDOW', []),
+        ('Grease Pencil Stroke Paint Mode', 'EMPTY', 'WINDOW', []),
+        ('Grease Pencil Stroke Sculpt Mode', 'EMPTY', 'WINDOW', []),
     ]),
     ('Mask Editing', 'EMPTY', 'WINDOW', []),
     ('Frames', 'EMPTY', 'WINDOW', []),    # frame navigation (per region)

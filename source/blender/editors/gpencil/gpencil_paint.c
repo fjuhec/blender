@@ -55,6 +55,7 @@
 #include "BKE_screen.h"
 #include "BKE_tracking.h"
 #include "BKE_colortools.h"
+#include "BKE_workspace.h"
 
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
@@ -2290,7 +2291,26 @@ static int gpencil_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event
 		op->flag |= OP_IS_MODAL_CURSOR_REGION;
 	}
 	
+	/* enable paint mode */
+	if (p->sa->spacetype == SPACE_VIEW3D) {
+		Object *ob = CTX_data_active_object(C);
+		WorkSpace *workspace = CTX_wm_workspace(C);
+		if (ob && (ob->type == OB_GPENCIL)) {
+			/* Just set paintmode flag... */
+			p->gpd->flag |= GP_DATA_STROKE_PAINTMODE;
+			/* disable other GP modes */
+			p->gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
+			p->gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
+			ob->mode = OB_MODE_GPENCIL_PAINT;
+			/* set workspace mode */
+			BKE_workspace_object_mode_set(workspace, ob->mode);
+			/* redraw mode on screen */
+			WM_event_add_notifier(C, NC_SCENE | ND_MODE, NULL);
+		}
+	}
+
 	WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
+
 	/* add a modal handler for this operator, so that we can then draw continuous strokes */
 	WM_event_add_modal_handler(C, op);
 	return OPERATOR_RUNNING_MODAL;
@@ -2672,7 +2692,7 @@ static int gpencil_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 		gpencil_draw_status_indicators(p);
 		gpencil_draw_cursor_set(p); /* cursor may have changed outside our control - T44084 */
 	}
-	
+
 	/* process last operations before exiting */
 	switch (estate) {
 		case OPERATOR_FINISHED:

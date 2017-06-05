@@ -605,7 +605,7 @@ static int calc_manipulator_stats(const bContext *C)
 	Base *base;
 	Object *ob = OBACT_NEW;
 	bGPdata *gpd = CTX_data_gpencil_data(C);
-	const bool is_gp_edit = ((gpd) && (gpd->flag & GP_DATA_STROKE_EDITMODE));
+	const bool is_gp_edit = ((gpd) && (gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_PAINTMODE | GP_DATA_STROKE_SCULPTMODE)));
 	int a, totsel = 0;
 
 	/* transform widget matrix */

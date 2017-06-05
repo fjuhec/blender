@@ -182,7 +182,7 @@ static int gpencil_paintmode_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 	if (gpd == NULL)
 		return OPERATOR_CANCELLED;
 
-	/* Just toggle editmode flag... */
+	/* Just toggle paintmode flag... */
 	gpd->flag ^= GP_DATA_STROKE_PAINTMODE;
 	/* disable other GP modes */
 	gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
@@ -252,7 +252,7 @@ static int gpencil_sculptmode_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 	if (gpd == NULL)
 		return OPERATOR_CANCELLED;
 
-	/* Just toggle editmode flag... */
+	/* Just toggle sculptmode flag... */
 	gpd->flag ^= GP_DATA_STROKE_SCULPTMODE;
 	/* disable other GP modes */
 	gpd->flag &= ~GP_DATA_STROKE_EDITMODE;

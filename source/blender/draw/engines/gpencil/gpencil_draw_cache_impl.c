@@ -126,7 +126,7 @@ static bool gpencil_batch_cache_valid(bGPdata *gpd, int cfra)
 		return false;
 	}
 
-	cache->is_editmode = gpd->flag & GP_DATA_STROKE_EDITMODE;
+	cache->is_editmode = gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE);
 	if (cache->is_editmode) {
 		return false;
 	}
@@ -180,7 +180,7 @@ static void gpencil_batch_cache_init(bGPdata *gpd, int cfra)
 	cache->batch_fill = MEM_callocN(sizeof(struct Batch) * cache->cache_size, "Gpencil_Batch_Fill");
 	cache->batch_edit = MEM_callocN(sizeof(struct Batch) * cache->cache_size, "Gpencil_Batch_Edit");
 
-	cache->is_editmode = gpd->flag & GP_DATA_STROKE_EDITMODE;
+	cache->is_editmode = gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE);
 	gpd->flag &= ~GP_DATA_CACHE_IS_DIRTY;
 
 	cache->cache_idx = 0;

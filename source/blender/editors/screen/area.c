@@ -1464,13 +1464,15 @@ static void ed_default_handlers(wmWindowManager *wm, ScrArea *sa, ListBase *hand
 		 *       since you hardly want one without the others.
 		 */
 		wmKeyMap *keymap_general = WM_keymap_find(wm->defaultconf, "Grease Pencil", 0, 0);
-		wmKeyMap *keymap_edit = WM_keymap_find(wm->defaultconf, "Grease Pencil Stroke Edit Mode", 0, 0);
-		wmKeyMap *keymap_paint = WM_keymap_find(wm->defaultconf, "Grease Pencil Stroke Paint Mode", 0, 0);
-		wmKeyMap *keymap_sculpt = WM_keymap_find(wm->defaultconf, "Grease Pencil Stroke Sculpt Mode", 0, 0);
-
 		WM_event_add_keymap_handler(handlers, keymap_general);
+
+		wmKeyMap *keymap_edit = WM_keymap_find(wm->defaultconf, "Grease Pencil Stroke Edit Mode", 0, 0);
 		WM_event_add_keymap_handler(handlers, keymap_edit);
+
+		wmKeyMap *keymap_paint = WM_keymap_find(wm->defaultconf, "Grease Pencil Stroke Paint Mode", 0, 0);
 		WM_event_add_keymap_handler(handlers, keymap_paint);
+
+		wmKeyMap *keymap_sculpt = WM_keymap_find(wm->defaultconf, "Grease Pencil Stroke Sculpt Mode", 0, 0);
 		WM_event_add_keymap_handler(handlers, keymap_sculpt);
 	}
 	if (flag & ED_KEYMAP_HEADER) {

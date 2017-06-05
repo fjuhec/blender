@@ -71,8 +71,8 @@ static int gpencil_select_poll(bContext *C)
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	
-	/* we just need some visible strokes, and to be in editmode */
-	if ((gpd) && (gpd->flag & GP_DATA_STROKE_EDITMODE)) {
+	/* we just need some visible strokes, and to be in editmode or other modes only to catch event */
+	if ((gpd) && (gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_PAINTMODE | GP_DATA_STROKE_SCULPTMODE))) {
 		/* TODO: include a check for visible strokes? */
 		if (gpd->layers.first)
 			return true;
@@ -94,6 +94,11 @@ static int gpencil_select_all_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 	
+	/* if not edit mode, the event is catched but not processed */
+	if ((gpd->flag & GP_DATA_STROKE_EDITMODE) == 0) {
+		return OPERATOR_CANCELLED;
+	}
+
 	/* for "toggle", test for existing selected strokes */
 	if (action == SEL_TOGGLE) {
 		action = SEL_SELECT;
@@ -212,7 +217,12 @@ static int gpencil_select_linked_exec(bContext *C, wmOperator *op)
 		BKE_report(op->reports, RPT_ERROR, "No Grease Pencil data");
 		return OPERATOR_CANCELLED;
 	}
-	
+
+	/* if not edit mode, the event is catched but not processed */
+	if ((gpd->flag & GP_DATA_STROKE_EDITMODE) == 0) {
+		return OPERATOR_CANCELLED;
+	}
+
 	/* select all points in selected strokes */
 	CTX_DATA_BEGIN(C, bGPDstroke *, gps, editable_gpencil_strokes)
 	{
@@ -350,7 +360,12 @@ static void gp_select_same_color(bContext *C)
 static int gpencil_select_grouped_exec(bContext *C, wmOperator *op)
 {
 	eGP_SelectGrouped mode = RNA_enum_get(op->ptr, "type");
-	
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	/* if not edit mode, the event is catched but not processed */
+	if ((!gpd) || (gpd->flag & GP_DATA_STROKE_EDITMODE) == 0) {
+		return OPERATOR_CANCELLED;
+	}
+
 	switch (mode) {
 		case GP_SEL_SAME_LAYER:
 			gp_select_same_layer(C);
@@ -399,6 +414,12 @@ void GPENCIL_OT_select_grouped(wmOperatorType *ot)
 
 static int gpencil_select_first_exec(bContext *C, wmOperator *op)
 {
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	/* if not edit mode, the event is catched but not processed */
+	if ((!gpd) || (gpd->flag & GP_DATA_STROKE_EDITMODE) == 0) {
+		return OPERATOR_CANCELLED;
+	}
+
 	const bool only_selected = RNA_boolean_get(op->ptr, "only_selected_strokes");
 	const bool extend = RNA_boolean_get(op->ptr, "extend");
 	
@@ -459,6 +480,12 @@ void GPENCIL_OT_select_first(wmOperatorType *ot)
 
 static int gpencil_select_last_exec(bContext *C, wmOperator *op)
 {
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	/* if not edit mode, the event is catched but not processed */
+	if ((!gpd) || (gpd->flag & GP_DATA_STROKE_EDITMODE) == 0) {
+		return OPERATOR_CANCELLED;
+	}
+
 	const bool only_selected = RNA_boolean_get(op->ptr, "only_selected_strokes");
 	const bool extend = RNA_boolean_get(op->ptr, "extend");
 	
@@ -519,6 +546,12 @@ void GPENCIL_OT_select_last(wmOperatorType *ot)
 
 static int gpencil_select_more_exec(bContext *C, wmOperator *UNUSED(op))
 {
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	/* if not edit mode, the event is catched but not processed */
+	if ((!gpd) || (gpd->flag & GP_DATA_STROKE_EDITMODE) == 0) {
+		return OPERATOR_CANCELLED;
+	}
+
 	CTX_DATA_BEGIN(C, bGPDstroke *, gps, editable_gpencil_strokes)
 	{
 		if (gps->flag & GP_STROKE_SELECT) {
@@ -589,6 +622,12 @@ void GPENCIL_OT_select_more(wmOperatorType *ot)
 
 static int gpencil_select_less_exec(bContext *C, wmOperator *UNUSED(op))
 {
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	/* if not edit mode, the event is catched but not processed */
+	if ((!gpd) || (gpd->flag & GP_DATA_STROKE_EDITMODE) == 0) {
+		return OPERATOR_CANCELLED;
+	}
+
 	CTX_DATA_BEGIN(C, bGPDstroke *, gps, editable_gpencil_strokes)
 	{
 		if (gps->flag & GP_STROKE_SELECT) {
@@ -752,6 +791,12 @@ static bool gp_stroke_do_circle_sel(
 
 static int gpencil_circle_select_exec(bContext *C, wmOperator *op)
 {
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	/* if not edit mode, the event is catched but not processed */
+	if ((!gpd) || (gpd->flag & GP_DATA_STROKE_EDITMODE) == 0) {
+		return OPERATOR_CANCELLED;
+	}
+
 	ScrArea *sa = CTX_wm_area(C);
 	
 	const int mx = RNA_int_get(op->ptr, "x");
@@ -829,6 +874,12 @@ void GPENCIL_OT_select_circle(wmOperatorType *ot)
 
 static int gpencil_border_select_exec(bContext *C, wmOperator *op)
 {
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	/* if not edit mode, the event is catched but not processed */
+	if ((!gpd) || (gpd->flag & GP_DATA_STROKE_EDITMODE) == 0) {
+		return OPERATOR_CANCELLED;
+	}
+
 	ScrArea *sa = CTX_wm_area(C);
 	
 	const int gesture_mode = RNA_int_get(op->ptr, "gesture_mode");
@@ -938,6 +989,12 @@ void GPENCIL_OT_select_border(wmOperatorType *ot)
 
 static int gpencil_lasso_select_exec(bContext *C, wmOperator *op)
 {
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	/* if not edit mode, the event is catched but not processed */
+	if ((!gpd) || (gpd->flag & GP_DATA_STROKE_EDITMODE) == 0) {
+		return OPERATOR_CANCELLED;
+	}
+
 	GP_SpaceConversion gsc = {NULL};
 	rcti rect = {0};
 	
@@ -1044,6 +1101,12 @@ void GPENCIL_OT_select_lasso(wmOperatorType *ot)
 
 static int gpencil_select_exec(bContext *C, wmOperator *op)
 {
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	/* if not edit mode, the event is catched but not processed */
+	if ((!gpd) || (gpd->flag & GP_DATA_STROKE_EDITMODE) == 0) {
+		return OPERATOR_CANCELLED;
+	}
+
 	ScrArea *sa = CTX_wm_area(C);
 	
 	/* "radius" is simply a threshold (screen space) to make it easier to test with a tolerance */

@@ -3067,7 +3067,7 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 	Scene *scene = CTX_data_scene(C);
 	SceneLayer *sl = CTX_data_scene_layer(C);
 	bGPdata *gpd = CTX_data_gpencil_data(C);
-	const bool is_gp_edit = ((gpd) && (gpd->flag & GP_DATA_STROKE_EDITMODE));
+	const bool is_gp_edit = ((gpd) && (gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_PAINTMODE | GP_DATA_STROKE_SCULPTMODE)));
 	Object *ob = OBACT_NEW;
 	Object *obedit = CTX_data_edit_object(C);
 	float min[3], max[3];
