@@ -75,6 +75,9 @@ void WM_manipulator_set_colors(struct wmManipulator *manipulator, const float co
 /* -------------------------------------------------------------------- */
 /* wmManipulatorGroup */
 
+struct wmManipulatorGroupType *WM_manipulatorgrouptype_find(
+        struct wmManipulatorMapType *mmaptype,
+        const char *idname);
 struct wmManipulatorGroupType *WM_manipulatorgrouptype_append(
         struct wmManipulatorMapType *mmaptype,
         void (*mgrouptype_func)(struct wmManipulatorGroupType *));

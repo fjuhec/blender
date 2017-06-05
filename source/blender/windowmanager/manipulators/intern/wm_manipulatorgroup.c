@@ -33,6 +33,7 @@
  */
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "BKE_context.h"
 #include "BKE_main.h"
@@ -50,6 +51,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "RNA_access.h"
+#include "RNA_define.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -484,6 +486,23 @@ wmKeyMap *WM_manipulatorgroup_keymap_common_sel(const struct wmManipulatorGroupT
  *
  * \{ */
 
+struct wmManipulatorGroupType *WM_manipulatorgrouptype_find(
+        struct wmManipulatorMapType *mmaptype,
+        const char *idname)
+{
+	/* could use hash lookups as operator types do, for now simple search. */
+	for (wmManipulatorGroupType *mgrouptype = mmaptype->manipulator_grouptypes.first;
+	     mgrouptype;
+	     mgrouptype = mgrouptype->next)
+	{
+		if (STREQ(idname, mgrouptype->idname)) {
+			return mgrouptype;
+		}
+	}
+	return NULL;
+}
+
+
 static wmManipulatorGroupType *wm_manipulatorgrouptype_append__begin(void)
 {
 	wmManipulatorGroupType *mgrouptype = MEM_callocN(sizeof(wmManipulatorGroupType), "manipulator-group");
@@ -569,7 +588,7 @@ void WM_manipulatorgrouptype_init_runtime(
 				ListBase *lb = (sl == sa->spacedata.first) ? &sa->regionbase : &sl->regionbase;
 				for (ARegion *ar = lb->first; ar; ar = ar->next) {
 					wmManipulatorMap *mmap = ar->manipulator_map;
-					if (mmap->type == mmaptype) {
+					if (mmap && mmap->type == mmaptype) {
 						wmManipulatorGroup *mgroup = wm_manipulatorgroup_new_from_type(mgrouptype);
 
 						/* just add here, drawing will occur on next update */
@@ -591,13 +610,14 @@ void WM_manipulatorgrouptype_unregister(bContext *C, Main *bmain, wmManipulatorG
 				ListBase *lb = (sl == sa->spacedata.first) ? &sa->regionbase : &sl->regionbase;
 				for (ARegion *ar = lb->first; ar; ar = ar->next) {
 					wmManipulatorMap *mmap = ar->manipulator_map;
-					wmManipulatorGroup *mgroup, *mgroup_next;
-
-					for (mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup_next) {
-						mgroup_next = mgroup->next;
-						if (mgroup->type == mgrouptype) {
-							wm_manipulatorgroup_free(C, mmap, mgroup);
-							ED_region_tag_redraw(ar);
+					if (mmap) {
+						wmManipulatorGroup *mgroup, *mgroup_next;
+						for (mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup_next) {
+							mgroup_next = mgroup->next;
+							if (mgroup->type == mgrouptype) {
+								wm_manipulatorgroup_free(C, mmap, mgroup);
+								ED_region_tag_redraw(ar);
+							}
 						}
 					}
 				}

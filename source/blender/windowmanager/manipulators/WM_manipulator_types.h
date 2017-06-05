@@ -92,8 +92,11 @@ typedef struct wmManipulatorGroupType {
 	/* keymap created with callback from above */
 	struct wmKeyMap *keymap;
 
+	/* Disable for now, maybe some day we want properties. */
+#if 0
 	/* rna for properties */
 	struct StructRNA *srna;
+#endif
 
 	/* RNA integration */
 	ExtensionRNA ext;

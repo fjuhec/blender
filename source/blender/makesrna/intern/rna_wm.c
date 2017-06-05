@@ -1568,12 +1568,11 @@ static void rna_WidgetGroup_unregister(struct Main *bmain, StructRNA *type)
 
 	WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);
 
-	//RNA_struct_free_extension(type, &wgrouptype->ext);
+	RNA_struct_free_extension(type, &wgrouptype->ext);
 
 	WM_manipulatorgrouptype_unregister(NULL, bmain, wgrouptype);
 	//WM_operatortype_remove_ptr(ot);
 
-	/* not to be confused with the RNA_struct_free that WM_operatortype_remove calls, they are 2 different srna's */
 	RNA_struct_free(&BLENDER_RNA, type);
 }
 
@@ -1669,14 +1668,14 @@ static void operator_cancel(bContext *C, wmManipulatorGroup *op)
 }
 #endif
 
-void widgetgroup_wrapper(wmManipulatorGroupType *ot, void *userdata);
+void widgetgroup_wrapper(wmManipulatorGroupType *mgrouptype, void *userdata);
 
 static StructRNA *rna_WidgetGroup_register(
         Main *bmain, ReportList *reports, void *data, const char *identifier,
         StructValidateFunc validate, StructCallbackFunc call, StructFreeFunc free)
 {
 
-	wmManipulatorGroupType *wgrouptype, dummywgt = {NULL};
+	wmManipulatorGroupType dummywgt = {NULL};
 	wmManipulatorGroup dummywg = {NULL};
 	PointerRNA wgptr;
 	int have_function[3];
@@ -1697,7 +1696,9 @@ static StructRNA *rna_WidgetGroup_register(
 	
 	/* check if the area supports widgets */
 	const struct wmManipulatorMapType_Params wmap_params = {
-		dummywgt.mapidname, dummywgt.spaceid, dummywgt.regionid
+		.idname = dummywgt.idname,
+		.spaceid = dummywgt.spaceid,
+		.regionid = dummywgt.regionid,
 	};
 
 	wmManipulatorMapType *wmaptype = WM_manipulatormaptype_ensure(&wmap_params);
@@ -1706,54 +1707,37 @@ static StructRNA *rna_WidgetGroup_register(
 		return NULL;
 	}
 
-#if 0
 	/* check if we have registered this widgetgroup type before, and remove it */
 	{
-		//wmManipulatorGroupType *ot = WM_manipulatorrouptype_find(dummywgt.idname, true);
-		if (ot && ot->ext.srna)
-			rna_WidgetGroup_unregister(bmain, ot->ext.srna);
+		wmManipulatorGroupType *wgrouptype = WM_manipulatorgrouptype_find(wmaptype, dummywgt.idname);
+		if (wgrouptype && wgrouptype->ext.srna) {
+			printf("Unregister!\n");
+			WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);
+			WM_manipulatorgrouptype_unregister(NULL, bmain, wgrouptype);
+		}
 	}
 
-#endif
-	/* XXX, this doubles up with the widgetgroup name [#29666]
-	 * for now just remove from dir(bpy.types) */
+	/* create a new widgetgroup type */
+	dummywgt.ext.srna = RNA_def_struct_ptr(&BLENDER_RNA, dummywgt.idname, &RNA_WidgetGroup);
+	RNA_def_struct_flag(dummywgt.ext.srna, STRUCT_NO_IDPROPERTIES); /* widgetgroup properties are registered separately */
+	dummywgt.ext.data = data;
+	dummywgt.ext.call = call;
+	dummywgt.ext.free = free;
 
 	/* We used to register widget group types like this, now we do it similar to
 	 * operator types. Thus we should be able to do the same as operator types now. */
-#if 0
-	wgrouptype = WM_manipulatorrouptype_register_ptr(
-	        NULL, wmaptype,
-	        (have_function[0]) ? widgetgroup_poll : NULL,
-	        (have_function[2]) ? widgetgroup_draw : NULL,
-	        NULL, NULL, /* TODO */
-	        (have_function[1]) ? widgetgroup_keymap_init : NULL,
-	        dummywgt.name);
-#else
-	/* XXX needs updating */
 	dummywgt.poll = (have_function[0]) ? widgetgroup_poll : NULL;
-	dummywgt.init = (have_function[2]) ? widgetgroup_draw : NULL;
 	dummywgt.keymap_init = (have_function[1]) ? widgetgroup_keymap_init : NULL;
-	wgrouptype = &dummywgt; /* XXX incorrect, just to avoid uninitialized value warning */
-#endif
+	dummywgt.init = (have_function[2]) ? widgetgroup_draw : NULL;
 
-	/* create a new widgetgroup type */
-	wgrouptype->ext.srna = RNA_def_struct_ptr(&BLENDER_RNA, wgrouptype->idname, &RNA_WidgetGroup);
-	RNA_def_struct_flag(wgrouptype->ext.srna, STRUCT_NO_IDPROPERTIES); /* widgetgroup properties are registered separately */
-	wgrouptype->ext.data = data;
-	wgrouptype->ext.call = call;
-	wgrouptype->ext.free = free;
+	WM_manipulatorgrouptype_append_ptr_runtime(bmain, wmaptype, widgetgroup_wrapper, (void *)&dummywgt);
 
-	RNA_struct_blender_type_set(wgrouptype->ext.srna, wgrouptype);
-
-	/* by passing NULL as main to WM_manipulatorrouptype_register_ptr, we delay initialization */
-
-	/* XXX, currently not working since we cant call own callbacks until this function finishes, catch22! */
-	WM_manipulatorgrouptype_init_runtime(bmain, wmaptype, wgrouptype);
+	RNA_def_struct_duplicate_pointers(dummywgt.ext.srna);
 
 	/* update while blender is running */
 	WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);
 
-	return wgrouptype->ext.srna;
+	return dummywgt.ext.srna;
 }
 
 static void **rna_WidgetGroup_instance(PointerRNA *ptr)

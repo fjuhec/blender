@@ -78,6 +78,7 @@ set(SRC
 	bpy_util.c
 	bpy_utils_previews.c
 	bpy_utils_units.c
+	bpy_widgetgroup_wrap.c
 	stubs.c
 
 	gpu.h
@@ -108,6 +109,7 @@ set(SRC
 	bpy_util.h
 	bpy_utils_previews.h
 	bpy_utils_units.h
+	bpy_widgetgroup_wrap.h
 	../BPY_extern.h
 )
 

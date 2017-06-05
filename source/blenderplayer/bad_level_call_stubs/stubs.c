@@ -200,7 +200,11 @@ struct wmManipulatorMap;
 
 /* bpy_operator_wrap.h */
 extern void macro_wrapper(struct wmOperatorType *ot, void *userdata);
-extern void operator_wrapper(struct wmOperatorType *ot, void *userdata);
+extern void operator_wrapper(struct wmManipulatorGroupType *mgrouptype, void *userdata);
+
+/* bpy_widgetgroup_wrap.h */
+extern void widgetgroup_wrapper(struct wmOperatorType *ot, void *userdata);
+
 /* bpy_rna.h */
 extern bool pyrna_id_FromPyObject(struct PyObject *obj, struct ID **id);
 extern const char *BPY_app_translations_py_pgettext(const char *msgctxt, const char *msgid);
@@ -802,6 +806,7 @@ void ED_mesh_calc_tessface(struct Mesh *mesh, bool free_mpoly) RET_NONE
 
 /* bpy/python internal api */
 void operator_wrapper(struct wmOperatorType *ot, void *userdata) RET_NONE
+void widgetgroup_wrapper(struct wmManipulatorGroupType *mgrouptype, void *userdata) RET_NONE
 void BPY_text_free_code(struct Text *text) RET_NONE
 void BPY_id_release(struct ID *id) RET_NONE
 int BPY_context_member_get(struct bContext *C, const char *member, struct bContextDataResult *result) RET_ZERO
