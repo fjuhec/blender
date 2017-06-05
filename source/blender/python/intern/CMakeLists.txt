@@ -64,6 +64,7 @@ set(SRC
 	bpy_intern_string.c
 	bpy_library_load.c
 	bpy_library_write.c
+	bpy_manipulatorgroup_wrap.c
 	bpy_operator.c
 	bpy_operator_wrap.c
 	bpy_path.c
@@ -78,7 +79,6 @@ set(SRC
 	bpy_util.c
 	bpy_utils_previews.c
 	bpy_utils_units.c
-	bpy_widgetgroup_wrap.c
 	stubs.c
 
 	gpu.h
@@ -96,6 +96,7 @@ set(SRC
 	bpy_driver.h
 	bpy_intern_string.h
 	bpy_library.h
+	bpy_manipulatorgroup_wrap.h
 	bpy_operator.h
 	bpy_operator_wrap.h
 	bpy_path.h
@@ -109,7 +110,6 @@ set(SRC
 	bpy_util.h
 	bpy_utils_previews.h
 	bpy_utils_units.h
-	bpy_widgetgroup_wrap.h
 	../BPY_extern.h
 )
 

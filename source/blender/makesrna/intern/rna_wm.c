@@ -457,7 +457,7 @@ EnumPropertyItem rna_enum_wm_report_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
-EnumPropertyItem rna_enum_wm_widget_type_items[] = {
+EnumPropertyItem rna_enum_wm_manipulator_type_items[] = {
 	{WT_TRANSLATE, "TRANSLATE", ICON_MAN_TRANS, "Translate", "Add a widget for moving objects"},
 	{WT_ROTATE,    "ROTATE",    ICON_MAN_ROT,   "Rotate",    "Add a widget for rotating objects"},
 	{WT_SCALE,     "SCALE",     ICON_MAN_SCALE, "Scale",     "Add a widget for scaling objects"},
@@ -553,21 +553,21 @@ static PointerRNA rna_Operator_properties_get(PointerRNA *ptr)
 	return rna_pointer_inherit_refine(ptr, op->type->srna, op->properties);
 }
 
-static void rna_WidgetGroup_name_get(PointerRNA *ptr, char *value)
+static void rna_ManipulatorGroup_name_get(PointerRNA *ptr, char *value)
 {
 	wmManipulatorGroup *wgroup = ptr->data;
 	strcpy(value, wgroup->type->name);
 	(void)wgroup;
 }
 
-static int rna_WidgetGroup_name_length(PointerRNA *ptr)
+static int rna_ManipulatorGroup_name_length(PointerRNA *ptr)
 {
 	wmManipulatorGroup *wgroup = ptr->data;
 	return strlen(wgroup->type->name);
 	(void)wgroup;
 }
 
-static void rna_WidgetGroup_bl_label_set(PointerRNA *ptr, const char *value)
+static void rna_ManipulatorGroup_bl_label_set(PointerRNA *ptr, const char *value)
 {
 	wmManipulatorGroup *data = ptr->data;
 	const char *str = data->type->name;
@@ -577,7 +577,7 @@ static void rna_WidgetGroup_bl_label_set(PointerRNA *ptr, const char *value)
 		assert(!"setting the bl_label on a non-builtin operator");
 }
 
-static int rna_WidgetGroup_has_reports_get(PointerRNA *ptr)
+static int rna_ManipulatorGroup_has_reports_get(PointerRNA *ptr)
 {
 	wmManipulatorGroup *wgroup = ptr->data;
 	return (wgroup->reports && wgroup->reports->list.first);
@@ -1556,7 +1556,7 @@ static void rna_Operator_bl_undo_group_set(PointerRNA *ptr, const char *value)
 }
 
 #ifdef WITH_PYTHON
-static void rna_WidgetGroup_unregister(struct Main *bmain, StructRNA *type)
+static void rna_ManipulatorGroup_unregister(struct Main *bmain, StructRNA *type)
 {
 	//const char *idname;
 	wmManipulatorGroupType *wgrouptype = RNA_struct_blender_type_get(type);
@@ -1576,10 +1576,10 @@ static void rna_WidgetGroup_unregister(struct Main *bmain, StructRNA *type)
 	RNA_struct_free(&BLENDER_RNA, type);
 }
 
-static bool widgetgroup_poll(const bContext *C, wmManipulatorGroupType *wgrouptype)
+static bool manipulatorgroup_poll(const bContext *C, wmManipulatorGroupType *wgrouptype)
 {
 
-	extern FunctionRNA rna_WidgetGroup_poll_func;
+	extern FunctionRNA rna_ManipulatorGroup_poll_func;
 
 	PointerRNA ptr;
 	ParameterList list;
@@ -1588,7 +1588,7 @@ static bool widgetgroup_poll(const bContext *C, wmManipulatorGroupType *wgroupty
 	int visible;
 
 	RNA_pointer_create(NULL, wgrouptype->ext.srna, NULL, &ptr); /* dummy */
-	func = &rna_WidgetGroup_poll_func; /* RNA_struct_find_function(&ptr, "poll"); */
+	func = &rna_ManipulatorGroup_poll_func; /* RNA_struct_find_function(&ptr, "poll"); */
 
 	RNA_parameter_list_create(&list, &ptr, func);
 	RNA_parameter_set_lookup(&list, "context", &C);
@@ -1602,16 +1602,16 @@ static bool widgetgroup_poll(const bContext *C, wmManipulatorGroupType *wgroupty
 	return visible;
 }
 
-static void widgetgroup_draw(const bContext *C, wmManipulatorGroup *wgroup)
+static void manipulatorgroup_draw(const bContext *C, wmManipulatorGroup *wgroup)
 {
-	extern FunctionRNA rna_WidgetGroup_draw_func;
+	extern FunctionRNA rna_ManipulatorGroup_draw_func;
 
 	PointerRNA wgroup_ptr;
 	ParameterList list;
 	FunctionRNA *func;
 
 	RNA_pointer_create(NULL, wgroup->type->ext.srna, wgroup, &wgroup_ptr);
-	func = &rna_WidgetGroup_draw_func; /* RNA_struct_find_function(&wgroupr, "draw"); */
+	func = &rna_ManipulatorGroup_draw_func; /* RNA_struct_find_function(&wgroupr, "draw"); */
 
 	RNA_parameter_list_create(&list, &wgroup_ptr, func);
 	RNA_parameter_set_lookup(&list, "context", &C);
@@ -1620,9 +1620,9 @@ static void widgetgroup_draw(const bContext *C, wmManipulatorGroup *wgroup)
 	RNA_parameter_list_free(&list);
 }
 
-static wmKeyMap *widgetgroup_keymap_init(const wmManipulatorGroupType *wgrouptype, wmKeyConfig *config)
+static wmKeyMap *manipulatorgroup_keymap_init(const wmManipulatorGroupType *wgrouptype, wmKeyConfig *config)
 {
-	extern FunctionRNA rna_WidgetGroup_keymap_init_func;
+	extern FunctionRNA rna_ManipulatorGroup_keymap_init_func;
 	const char *wgroupname = wgrouptype->name;
 	void *ret;
 
@@ -1631,7 +1631,7 @@ static wmKeyMap *widgetgroup_keymap_init(const wmManipulatorGroupType *wgrouptyp
 	FunctionRNA *func;
 
 	RNA_pointer_create(NULL, wgrouptype->ext.srna, NULL, &ptr); /* dummy */
-	func = &rna_WidgetGroup_keymap_init_func; /* RNA_struct_find_function(&wgroupr, "keymap_init"); */
+	func = &rna_ManipulatorGroup_keymap_init_func; /* RNA_struct_find_function(&wgroupr, "keymap_init"); */
 
 	RNA_parameter_list_create(&list, &ptr, func);
 	RNA_parameter_set_lookup(&list, "keyconfig", &config);
@@ -1651,14 +1651,14 @@ static wmKeyMap *widgetgroup_keymap_init(const wmManipulatorGroupType *wgrouptyp
 /* same as exec(), but call cancel */
 static void operator_cancel(bContext *C, wmManipulatorGroup *op)
 {
-	extern FunctionRNA rna_WidgetGroup_cancel_func;
+	extern FunctionRNA rna_ManipulatorGroup_cancel_func;
 
 	PointerRNA opr;
 	ParameterList list;
 	FunctionRNA *func;
 
 	RNA_pointer_create(NULL, op->type->ext.srna, op, &opr);
-	func = &rna_WidgetGroup_cancel_func; /* RNA_struct_find_function(&opr, "cancel"); */
+	func = &rna_ManipulatorGroup_cancel_func; /* RNA_struct_find_function(&opr, "cancel"); */
 
 	RNA_parameter_list_create(&list, &opr, func);
 	RNA_parameter_set_lookup(&list, "context", &C);
@@ -1668,9 +1668,9 @@ static void operator_cancel(bContext *C, wmManipulatorGroup *op)
 }
 #endif
 
-void widgetgroup_wrapper(wmManipulatorGroupType *mgrouptype, void *userdata);
+void manipulatorgroup_wrapper(wmManipulatorGroupType *mgrouptype, void *userdata);
 
-static StructRNA *rna_WidgetGroup_register(
+static StructRNA *rna_ManipulatorGroup_register(
         Main *bmain, ReportList *reports, void *data, const char *identifier,
         StructValidateFunc validate, StructCallbackFunc call, StructFreeFunc free)
 {
@@ -1680,16 +1680,16 @@ static StructRNA *rna_WidgetGroup_register(
 	PointerRNA wgptr;
 	int have_function[3];
 
-	/* setup dummy widgetgroup & widgetgroup type to store static properties in */
+	/* setup dummy manipulatorgroup & manipulatorgroup type to store static properties in */
 	dummywg.type = &dummywgt;
-	RNA_pointer_create(NULL, &RNA_WidgetGroup, &dummywg, &wgptr);
+	RNA_pointer_create(NULL, &RNA_ManipulatorGroup, &dummywg, &wgptr);
 
 	/* validate the python class */
 	if (validate(&wgptr, data, have_function) != 0)
 		return NULL;
 
 	if (strlen(identifier) >= sizeof(dummywgt.idname)) {
-		BKE_reportf(reports, RPT_ERROR, "Registering widgetgroup class: '%s' is too long, maximum length is %d",
+		BKE_reportf(reports, RPT_ERROR, "Registering manipulatorgroup class: '%s' is too long, maximum length is %d",
 		            identifier, (int)sizeof(dummywgt.idname));
 		return NULL;
 	}
@@ -1703,11 +1703,11 @@ static StructRNA *rna_WidgetGroup_register(
 
 	wmManipulatorMapType *wmaptype = WM_manipulatormaptype_ensure(&wmap_params);
 	if (wmaptype == NULL) {
-		BKE_reportf(reports, RPT_ERROR, "Area type does not support widgets");
+		BKE_reportf(reports, RPT_ERROR, "Area type does not support manipulators");
 		return NULL;
 	}
 
-	/* check if we have registered this widgetgroup type before, and remove it */
+	/* check if we have registered this manipulatorgroup type before, and remove it */
 	{
 		wmManipulatorGroupType *wgrouptype = WM_manipulatorgrouptype_find(wmaptype, dummywgt.idname);
 		if (wgrouptype && wgrouptype->ext.srna) {
@@ -1716,20 +1716,20 @@ static StructRNA *rna_WidgetGroup_register(
 		}
 	}
 
-	/* create a new widgetgroup type */
-	dummywgt.ext.srna = RNA_def_struct_ptr(&BLENDER_RNA, dummywgt.idname, &RNA_WidgetGroup);
-	RNA_def_struct_flag(dummywgt.ext.srna, STRUCT_NO_IDPROPERTIES); /* widgetgroup properties are registered separately */
+	/* create a new manipulatorgroup type */
+	dummywgt.ext.srna = RNA_def_struct_ptr(&BLENDER_RNA, dummywgt.idname, &RNA_ManipulatorGroup);
+	RNA_def_struct_flag(dummywgt.ext.srna, STRUCT_NO_IDPROPERTIES); /* manipulatorgroup properties are registered separately */
 	dummywgt.ext.data = data;
 	dummywgt.ext.call = call;
 	dummywgt.ext.free = free;
 
 	/* We used to register widget group types like this, now we do it similar to
 	 * operator types. Thus we should be able to do the same as operator types now. */
-	dummywgt.poll = (have_function[0]) ? widgetgroup_poll : NULL;
-	dummywgt.keymap_init = (have_function[1]) ? widgetgroup_keymap_init : NULL;
-	dummywgt.init = (have_function[2]) ? widgetgroup_draw : NULL;
+	dummywgt.poll = (have_function[0]) ? manipulatorgroup_poll : NULL;
+	dummywgt.keymap_init = (have_function[1]) ? manipulatorgroup_keymap_init : NULL;
+	dummywgt.init = (have_function[2]) ? manipulatorgroup_draw : NULL;
 
-	WM_manipulatorgrouptype_append_ptr(wmaptype, widgetgroup_wrapper, (void *)&dummywgt);
+	WM_manipulatorgrouptype_append_ptr(wmaptype, manipulatorgroup_wrapper, (void *)&dummywgt);
 
 	/* TODO: WM_manipulatorgrouptype_init_runtime */
 
@@ -1741,16 +1741,16 @@ static StructRNA *rna_WidgetGroup_register(
 	return dummywgt.ext.srna;
 }
 
-static void **rna_WidgetGroup_instance(PointerRNA *ptr)
+static void **rna_ManipulatorGroup_instance(PointerRNA *ptr)
 {
 	wmManipulatorGroup *wgroup = ptr->data;
 	return &wgroup->py_instance;
 }
 
-static StructRNA *rna_WidgetGroup_refine(PointerRNA *wgroup_ptr)
+static StructRNA *rna_ManipulatorGroup_refine(PointerRNA *wgroup_ptr)
 {
 	wmManipulatorGroup *wgroup = wgroup_ptr->data;
-	return (wgroup->type && wgroup->type->ext.srna) ? wgroup->type->ext.srna : &RNA_WidgetGroup;
+	return (wgroup->type && wgroup->type->ext.srna) ? wgroup->type->ext.srna : &RNA_ManipulatorGroup;
 }
 
 #endif
@@ -2021,40 +2021,44 @@ static void rna_def_operator_filelist_element(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Name", "Name of a file or directory within a file list");
 }
 
-static void rna_def_widget(BlenderRNA *brna, PropertyRNA *cprop)
+static void rna_def_manipulator(BlenderRNA *brna, PropertyRNA *cprop)
 {
 	StructRNA *srna;
 
-	RNA_def_property_srna(cprop, "Widget");
-	srna = RNA_def_struct(brna, "Widget", NULL);
-	RNA_def_struct_sdna(srna, "WidgetGroup");
-	RNA_def_struct_ui_text(srna, "Widget", "Collection of widgets");
+	RNA_def_property_srna(cprop, "Manipulator");
+	srna = RNA_def_struct(brna, "Manipulator", NULL);
+	RNA_def_struct_sdna(srna, "ManipulatorGroup");
+	RNA_def_struct_ui_text(srna, "Manipulator", "Collection of manipulators");
 }
 
-static void rna_def_widgetgroup(BlenderRNA *brna)
+static void rna_def_manipulatorgroup(BlenderRNA *brna)
 {
 	StructRNA *srna;
 	PropertyRNA *prop;
 
-	srna = RNA_def_struct(brna, "WidgetGroup", NULL);
-	RNA_def_struct_ui_text(srna, "WidgetGroup", "Storage of an operator being executed, or registered after execution");
+	srna = RNA_def_struct(brna, "ManipulatorGroup", NULL);
+	RNA_def_struct_ui_text(srna, "ManipulatorGroup", "Storage of an operator being executed, or registered after execution");
 	RNA_def_struct_sdna(srna, "wmManipulatorGroup");
-	RNA_def_struct_refine_func(srna, "rna_WidgetGroup_refine");
+	RNA_def_struct_refine_func(srna, "rna_ManipulatorGroup_refine");
 #ifdef WITH_PYTHON
-	RNA_def_struct_register_funcs(srna, "rna_WidgetGroup_register", "rna_WidgetGroup_unregister", "rna_WidgetGroup_instance");
+	RNA_def_struct_register_funcs(
+	        srna,
+	        "rna_ManipulatorGroup_register",
+	        "rna_ManipulatorGroup_unregister",
+	        "rna_ManipulatorGroup_instance");
 #endif
 	RNA_def_struct_translation_context(srna, BLT_I18NCONTEXT_OPERATOR_DEFAULT);
 
 	prop = RNA_def_property(srna, "name", PROP_STRING, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
-	RNA_def_property_string_funcs(prop, "rna_WidgetGroup_name_get", "rna_WidgetGroup_name_length", NULL);
+	RNA_def_property_string_funcs(prop, "rna_ManipulatorGroup_name_get", "rna_ManipulatorGroup_name_length", NULL);
 	RNA_def_property_ui_text(prop, "Name", "");
 
 	prop = RNA_def_property(srna, "has_reports", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE); /* this is 'virtual' property */
-	RNA_def_property_boolean_funcs(prop, "rna_WidgetGroup_has_reports_get", NULL);
+	RNA_def_property_boolean_funcs(prop, "rna_ManipulatorGroup_has_reports_get", NULL);
 	RNA_def_property_ui_text(prop, "Has Reports",
-	                         "WidgetGroup has a set of reports (warnings and errors) from last execution");
+	                         "ManipulatorGroup has a set of reports (warnings and errors) from last execution");
 
 	/* Registration */
 	prop = RNA_def_property(srna, "bl_idname", PROP_STRING, PROP_NONE);
@@ -2066,7 +2070,7 @@ static void rna_def_widgetgroup(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "bl_label", PROP_STRING, PROP_NONE);
 	RNA_def_property_string_sdna(prop, NULL, "type->name");
 	RNA_def_property_string_maxlength(prop, 64); /* else it uses the pointer size! */
-	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_WidgetGroup_bl_label_set");
+	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_ManipulatorGroup_bl_label_set");
 	/* RNA_def_property_clear_flag(prop, PROP_EDITABLE); */
 	RNA_def_property_flag(prop, PROP_REGISTER);
 
@@ -2085,18 +2089,18 @@ static void rna_def_widgetgroup(BlenderRNA *brna)
 #if 0
 	prop = RNA_def_property(srna, "bl_options", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "type->flag");
-	RNA_def_property_enum_items(prop, widget_flag_items);
+	RNA_def_property_enum_items(prop, manipulator_flag_items);
 	RNA_def_property_flag(prop, PROP_REGISTER_OPTIONAL | PROP_ENUM_FLAG);
-	RNA_def_property_ui_text(prop, "Options",  "Options for this widget type");
+	RNA_def_property_ui_text(prop, "Options",  "Options for this manipulator type");
 #endif
 
-	prop = RNA_def_property(srna, "widgets", PROP_COLLECTION, PROP_NONE);
+	prop = RNA_def_property(srna, "manipulators", PROP_COLLECTION, PROP_NONE);
 	RNA_def_property_collection_sdna(prop, NULL, "manipulators", NULL);
-	RNA_def_property_struct_type(prop, "Widget");
-	RNA_def_property_ui_text(prop, "Widgets", "List of widgets in the Widget Map");
-	rna_def_widget(brna, prop);
+	RNA_def_property_struct_type(prop, "Manipulator");
+	RNA_def_property_ui_text(prop, "Manipulators", "List of manipulators in the Manipulator Map");
+	rna_def_manipulator(brna, prop);
 
-	RNA_api_widgetgroup(srna);
+	RNA_api_manipulatorgroup(srna);
 }
 
 static void rna_def_event(BlenderRNA *brna)
@@ -2696,7 +2700,7 @@ void RNA_def_wm(BlenderRNA *brna)
 	rna_def_operator_filelist_element(brna);
 	rna_def_macro_operator(brna);
 	rna_def_operator_type_macro(brna);
-	rna_def_widgetgroup(brna);
+	rna_def_manipulatorgroup(brna);
 	rna_def_event(brna);
 	rna_def_timer(brna);
 	rna_def_popupmenu(brna);

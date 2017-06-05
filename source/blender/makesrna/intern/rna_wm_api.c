@@ -635,7 +635,7 @@ void RNA_api_macro(StructRNA *srna)
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 }
 
-void RNA_api_widgetgroup(StructRNA *srna)
+void RNA_api_manipulatorgroup(StructRNA *srna)
 {
 	FunctionRNA *func;
 	PropertyRNA *parm;
@@ -662,12 +662,12 @@ void RNA_api_widgetgroup(StructRNA *srna)
 
 	/* keymap_init */
 	func = RNA_def_function(srna, "keymap_init", NULL);
-	RNA_def_function_ui_description(func, "Initialize keymaps for this widget group");
+	RNA_def_function_ui_description(func, "Initialize keymaps for this manipulator group");
 	RNA_def_function_flag(func, FUNC_NO_SELF | FUNC_REGISTER);
 	parm = RNA_def_pointer(func, "keyconf", "KeyConfig", "", "");
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-	parm = RNA_def_property(func, "widget_group", PROP_STRING, PROP_NONE);
-	RNA_def_property_ui_text(parm, "Widget Group", "Widget group id");
+	parm = RNA_def_property(func, "manipulator_group", PROP_STRING, PROP_NONE);
+	RNA_def_property_ui_text(parm, "Manipulator Group", "Manipulator Group ID");
 	// RNA_def_property_string_default(parm, "");
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
