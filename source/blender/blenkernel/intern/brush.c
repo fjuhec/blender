@@ -406,6 +406,11 @@ void BKE_brush_sculpt_reset(Brush *br)
 			br->sub_col[0] = 0.250000;
 			br->sub_col[1] = 1.000000;
 			break;
+		case SCULPT_TOOL_CLIP:
+			br->add_col[1] = 1.000000;
+			br->sub_col[0] = 0.250000;
+			br->sub_col[1] = 1.000000;
+			break;
 		case SCULPT_TOOL_ROTATE:
 			br->alpha = 1.0;
 			break;

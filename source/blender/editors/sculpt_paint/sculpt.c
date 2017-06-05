@@ -1230,7 +1230,6 @@ static float brush_strength(
 
 		case SCULPT_TOOL_ROTATE:
 			return alpha * pressure * feather;
-
 		default:
 			return 0;
 	}
@@ -3053,6 +3052,12 @@ static void do_clay_strips_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int t
 	            ((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
 }
 
+static void do_clip_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode)  /*clipping*/
+{
+	// some functions in future
+
+}
+
 static void do_fill_brush_task_cb_ex(
         void *userdata, void *UNUSED(userdata_chunk), const int n, const int thread_id)
 {
@@ -3438,6 +3443,9 @@ static void do_brush_action(Sculpt *sd, Object *ob, Brush *brush, UnifiedPaintSe
 				break;
 			case SCULPT_TOOL_ROTATE:
 				do_rotate_brush(sd, ob, nodes, totnode);
+				break;
+			case SCULPT_TOOL_CLIP: /*CLIP*/
+				do_clip_brush(sd, ob, nodes, totnode);
 				break;
 			case SCULPT_TOOL_SNAKE_HOOK:
 				do_snake_hook_brush(sd, ob, nodes, totnode);
@@ -3915,6 +3923,8 @@ static const char *sculpt_tool_name(Sculpt *sd)
 			return "Inflate Brush";
 		case SCULPT_TOOL_GRAB:
 			return "Grab Brush";
+		case SCULPT_TOOL_CLIP:  /*clip*/
+			return "Clip Brush";
 		case SCULPT_TOOL_NUDGE:
 			return "Nudge Brush";
 		case SCULPT_TOOL_THUMB:

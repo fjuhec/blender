@@ -105,6 +105,9 @@ extern char datatoc_flatten_png[];
 extern int datatoc_grab_png_size;
 extern char datatoc_grab_png[];
 
+extern int datatoc_clip_png_size;
+extern char datatoc_clip_png[];
+
 extern int datatoc_inflate_png_size;
 extern char datatoc_inflate_png[];
 

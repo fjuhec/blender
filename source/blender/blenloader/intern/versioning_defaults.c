@@ -144,6 +144,11 @@ void BLO_update_defaults_startup_blend(Main *bmain)
 				brush->size = 50;
 				brush->strength = 0.5f; // XXX?
 				brush->flag = GP_EDITBRUSH_FLAG_USE_FALLOFF;
+
+				brush = &gset->brush[GP_EDITBRUSH_TYPE_CLIP];  /* clipping */
+				brush->size = 40;
+				brush->strength = 0.5f; // XXX?
+				brush->flag = GP_EDITBRUSH_FLAG_USE_FALLOFF;
 				
 				brush = &gset->brush[GP_EDITBRUSH_TYPE_RANDOMIZE];
 				brush->size = 25;
