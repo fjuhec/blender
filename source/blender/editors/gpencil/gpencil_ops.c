@@ -147,6 +147,8 @@ static int gp_stroke_sculptmode_poll(bContext *C)
 			return (gpd && (gpd->flag & GP_DATA_STROKE_SCULPTMODE));
 		}
 	}
+
+	return 0;
 }
 
 static void ed_keymap_gpencil_selection(wmKeyMap *keymap)
@@ -408,7 +410,6 @@ static void ed_keymap_gpencil_painting(wmKeyConfig *keyconf)
 static void ed_keymap_gpencil_sculpting(wmKeyConfig *keyconf)
 {
 	wmKeyMap *keymap = WM_keymap_find(keyconf, "Grease Pencil Stroke Sculpt Mode", 0, 0);
-	wmKeyMapItem *kmi;
 
 	/* set poll callback - so that this keymap only gets enabled when stroke sculptmode is enabled */
 	keymap->poll = gp_stroke_sculptmode_poll;
