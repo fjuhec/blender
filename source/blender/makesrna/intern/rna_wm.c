@@ -1711,7 +1711,6 @@ static StructRNA *rna_WidgetGroup_register(
 	{
 		wmManipulatorGroupType *wgrouptype = WM_manipulatorgrouptype_find(wmaptype, dummywgt.idname);
 		if (wgrouptype && wgrouptype->ext.srna) {
-			printf("Unregister!\n");
 			WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);
 			WM_manipulatorgrouptype_unregister(NULL, bmain, wgrouptype);
 		}
@@ -1730,7 +1729,9 @@ static StructRNA *rna_WidgetGroup_register(
 	dummywgt.keymap_init = (have_function[1]) ? widgetgroup_keymap_init : NULL;
 	dummywgt.init = (have_function[2]) ? widgetgroup_draw : NULL;
 
-	WM_manipulatorgrouptype_append_ptr_runtime(bmain, wmaptype, widgetgroup_wrapper, (void *)&dummywgt);
+	WM_manipulatorgrouptype_append_ptr(wmaptype, widgetgroup_wrapper, (void *)&dummywgt);
+
+	/* TODO: WM_manipulatorgrouptype_init_runtime */
 
 	RNA_def_struct_duplicate_pointers(dummywgt.ext.srna);
 
