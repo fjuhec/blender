@@ -314,6 +314,18 @@ class GreasePencilBrushPanel:
     bl_category = "Grease Pencil"
     bl_region_type = 'TOOLS'
 
+    @classmethod
+    def poll(cls, context):
+        is_3d_view = context.space_data.type == 'VIEW_3D'
+        if is_3d_view:
+            if context.gpencil_data is None:
+                return False
+
+            gpd = context.gpencil_data
+            return bool(gpd.is_stroke_paint_mode)
+        else:
+            return True
+
     @staticmethod
     def draw(self, context):
         layout = self.layout
@@ -387,7 +399,14 @@ class GreasePencilStrokeSculptPanel:
             return False
 
         gpd = context.gpencil_data
-        return bool(context.editable_gpencil_strokes) and bool(gpd.use_stroke_edit_mode)
+        if context.editable_gpencil_strokes:
+            is_3d_view = context.space_data.type == 'VIEW_3D'
+            if not is_3d_view:
+                return bool(gpd.use_stroke_edit_mode)
+            else:
+                return bool(gpd.is_stroke_sculpt_mode)
+
+        return false
 
     @staticmethod
     def draw(self, context):
@@ -446,8 +465,16 @@ class GreasePencilBrushCurvesPanel:
         if context.active_gpencil_brush is None:
             return False
 
+        is_3d_view = context.space_data.type == 'VIEW_3D'
         brush = context.active_gpencil_brush
-        return bool(brush)
+        if is_3d_view:
+            if context.gpencil_data is None:
+                return False
+
+            gpd = context.gpencil_data
+            return bool(gpd.is_stroke_paint_mode)
+        else:
+            return bool(brush)
 
     @staticmethod
     def draw(self, context):
@@ -1084,7 +1111,17 @@ class GreasePencilPaletteColorPanel:
         if paint is None:
             return False
         else:
-            return True
+            is_3d_view = context.space_data.type == 'VIEW_3D'
+            if is_3d_view:
+                # if not gpd, the user maybe want prepare color before drawing
+                if context.gpencil_data is None:
+                    return True
+                gpd = context.gpencil_data
+                return bool(gpd.use_stroke_edit_mode or gpd.is_stroke_paint_mode)
+            else:
+                return True
+
+        return False
 
     @staticmethod
     def draw(self, context):
