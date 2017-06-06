@@ -19,12 +19,14 @@
 #include "kernel/kernel_types.h"
 #include "kernel/split/kernel_split_data_types.h"
 
+#include "render/session.h"
+
 #include "util/util_logging.h"
 #include "util/util_time.h"
 
 CCL_NAMESPACE_BEGIN
 
-static const double alpha = 0.1; /* alpha for rolling average */
+static const double alpha = 0.4; /* alpha for rolling average */
 
 DeviceSplitKernel::DeviceSplitKernel(Device *device) : device(device)
 {
@@ -195,8 +197,8 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 
 	tile.sample = tile.start_sample;
 
-	/* for exponential increase between tile updates */
-	int time_multiplier = 1;
+	/* time between tile updates */
+	double time_between_updates = 1.5;
 
 	while(tile.sample < tile.start_sample + tile.num_samples) {
 		/* to keep track of how long it takes to run a number of samples */
@@ -206,11 +208,20 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 		const int initial_num_samples = 1;
 		/* approx number of samples per second */
 		int samples_per_second = (avg_time_per_sample > 0.0) ?
-		                         int(double(time_multiplier) / avg_time_per_sample) + 1 : initial_num_samples;
+		                         int(time_between_updates / avg_time_per_sample) + 1 : initial_num_samples;
 
 		RenderTile subtile = tile;
 		subtile.start_sample = tile.sample;
 		subtile.num_samples = min(samples_per_second, tile.start_sample + tile.num_samples - tile.sample);
+
+		/* if running headless render all samples at once */
+		if(Session::headless) {
+			VLOG(3) << "Headless render, rendering all samples in tile";
+			subtile.num_samples = tile.start_sample + tile.num_samples - tile.sample;
+		}
+
+		VLOG(3) << "Starting batch of " << subtile.num_samples << " samples";
+		VLOG(3) << "Target completion time: " << time_between_updates;
 
 		if(device->have_error()) {
 			return false;
@@ -244,7 +255,7 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 
 		while(activeRaysAvailable) {
 			/* Do path-iteration in host [Enqueue Path-iteration kernels. */
-			for(int PathIter = 0; PathIter < 16; PathIter++) {
+			for(int PathIter = 0; PathIter < 1; PathIter++) {
 				ENQUEUE_SPLIT_KERNEL(scene_intersect, global_size, local_size);
 				ENQUEUE_SPLIT_KERNEL(lamp_emission, global_size, local_size);
 				ENQUEUE_SPLIT_KERNEL(do_volume, global_size, local_size);
@@ -269,7 +280,7 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 					/* Wait up to twice as many seconds for current samples to finish 
 					 * to avoid artifacts in render result from ending too soon.
 					 */
-					cancel_time = time_dt() + 2.0 * time_multiplier;
+					cancel_time = time_dt() + 1.5 * time_between_updates;
 				}
 
 				if(time_dt() > cancel_time) {
@@ -301,9 +312,16 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 			}
 		}
 
-		double time_per_sample = ((time_dt()-start_time) / subtile.num_samples);
+		double time_for_batch = time_dt() - start_time;
+		double time_per_sample = time_for_batch / subtile.num_samples;
 
-		if(avg_time_per_sample == 0.0) {
+		VLOG(3) << "Time rendering batch: " << time_for_batch;
+		VLOG(3) << "Time per sample: " << time_per_sample;
+
+		if((tile.sample == tile.start_sample) && (subtile.num_samples != tile.start_sample + tile.num_samples - tile.sample)) {
+			/* dont update avg_time_per_sample for first sample batch in tile as doing so may skew the result */
+		}
+		else if(avg_time_per_sample == 0.0) {
 			/* start rolling average */
 			avg_time_per_sample = time_per_sample;
 		}
@@ -316,7 +334,7 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 		tile.sample += subtile.num_samples;
 		task->update_progress(&tile, tile.w*tile.h*subtile.num_samples);
 
-		time_multiplier = min(time_multiplier << 1, 10);
+		time_between_updates = 10;
 
 		if(task->get_cancel()) {
 			return true;

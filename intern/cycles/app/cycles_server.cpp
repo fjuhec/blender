@@ -39,6 +39,8 @@ int main(int argc, const char **argv)
 	bool list = false, debug = false;
 	int threads = 0, verbosity = 1;
 
+	Session::headless = true;
+
 	vector<DeviceType>& types = Device::available_types();
 
 	foreach(DeviceType type, types) {

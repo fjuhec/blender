@@ -38,6 +38,8 @@
 
 CCL_NAMESPACE_BEGIN
 
+bool Session::headless = false;
+
 /* Note about  preserve_tile_device option for tile manager:
  * progressive refine and viewport rendering does requires tiles to
  * always be allocated for the same device

@@ -161,6 +161,8 @@ public:
 	 * (for example, when rendering with unlimited samples). */
 	float get_progress();
 
+	static bool headless;
+
 protected:
 	struct DelayedReset {
 		thread_mutex mutex;

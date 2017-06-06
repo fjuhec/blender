@@ -133,6 +133,8 @@ void BlenderSession::create_session()
 	scene->image_manager->builtin_image_pixels_cb = function_bind(&BlenderSession::builtin_image_pixels, this, _1, _2, _3, _4);
 	scene->image_manager->builtin_image_float_pixels_cb = function_bind(&BlenderSession::builtin_image_float_pixels, this, _1, _2, _3, _4);
 
+	Session::headless = headless;
+
 	/* create session */
 	session = new Session(session_params);
 	session->scene = scene;

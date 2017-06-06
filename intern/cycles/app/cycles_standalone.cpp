@@ -482,6 +482,8 @@ int main(int argc, const char **argv)
 	path_init();
 	options_parse(argc, argv);
 
+	Session::headless = options.session_params.background;
+
 #ifdef WITH_CYCLES_STANDALONE_GUI
 	if(options.session_params.background) {
 #endif
