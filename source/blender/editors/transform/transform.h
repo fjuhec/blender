@@ -315,6 +315,23 @@ typedef struct BoneInitData {
 	float zwidth;
 } BoneInitData;
 
+typedef struct TransDataLoopNormal {
+	int loop_index;
+	float mtx[3][3];
+	float smtx[3][3];
+	float iloc[3];
+	float loc[3];
+	short *clnors_data;
+
+} TransDataLoopNormal;
+
+typedef struct LoopNormalData {
+	TransDataLoopNormal *normal;
+
+	int offset;
+	int totloop;
+} LoopNormalData;
+
 typedef struct TransData {
 	float  dist;         /* Distance needed to affect element (for Proportionnal Editing)                  */
 	float  rdist;        /* Distance to the nearest element (for Proportionnal Editing)                    */
@@ -794,6 +811,8 @@ bool applyTransformOrientation(const struct bContext *C, float mat[3][3], char r
 
 int getTransformOrientation_ex(const struct bContext *C, float normal[3], float plane[3], const short around);
 int getTransformOrientation(const struct bContext *C, float normal[3], float plane[3]);
+
+void freeCustomNormalArray(TransInfo *t, TransCustomData *custom_data);
 
 void freeEdgeSlideTempFaces(EdgeSlideData *sld);
 void freeEdgeSlideVerts(TransInfo *t, TransCustomData *custom_data);

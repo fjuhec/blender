@@ -990,6 +990,7 @@ void BM_lnorspacearr_store(BMesh *bm, float (*r_lnors)[3])
 	int cd_loop_clnors_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
 
 	BM_loops_calc_normal_vcos(bm, NULL, NULL, NULL, true, M_PI, r_lnors, &bm->bmspacearr, NULL, cd_loop_clnors_offset, false);
+	bm->spacearr_dirty &= ~(BM_SPACEARR_DIRTY | BM_SPACEARR_DIRTY_ALL);
 }
 
 /* will change later */
@@ -1027,12 +1028,6 @@ void BM_lnorspace_invalidate(BMesh *bm, bool inval_all)
 			}
 		}
 	}
-
-#ifdef _DEBUG
-	float(*r_lnors)[3] = MEM_mallocN(sizeof(*r_lnors) * bm->totloop, "__func__");
-	BM_lnorspacearr_store(bm, r_lnors);
-	BM_lnorspace_rebuild(bm, false);
-#endif
 }
 
 void BM_lnorspace_rebuild(BMesh *bm, bool preserve_clnor)

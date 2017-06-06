@@ -1073,6 +1073,9 @@ void resetTransModal(TransInfo *t)
 	else if (t->mode == TFM_VERT_SLIDE) {
 		freeVertSlideVerts(t, &t->custom.mode);
 	}
+	else if (t->mode == TFM_NORMAL_ROTATION) {
+		freeCustomNormalArray(t, &t->custom.mode);
+	}
 }
 
 void resetTransRestrictions(TransInfo *t)
