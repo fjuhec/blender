@@ -2,7 +2,7 @@ uniform mat4 ModelViewProjectionMatrix;
 
 uniform float pixsize;   /* rv3d->pixsize */
 uniform float pixelsize; /* U.pixelsize */
-uniform int is_persp;    /* rv3d->is_persp (1-yes) */
+uniform int is_persp;    /* rv3d->is_persp (1-yes, 2->Orto), 0: No scale_thickness */
 
 in vec3 pos;
 in vec4 color;
@@ -29,13 +29,13 @@ void main(void)
 	finalColor = color;
 
 	float pixsize = mul_project_m4_v3_zfac(ModelViewProjectionMatrix, pos) * defaultpixsize;
-	float scale_thickness = 0.0f;
+	float scale_thickness = 1.0f;
 	
-	if (is_persp == TRUE) {
+	if (is_persp == 1) {
 		/* need a factor to mimmic old glLine size, 10.0f works fine */
 		scale_thickness = (defaultpixsize / pixsize) * 10.0f;
 	}
-	else {
+	if (is_persp == 2) {
 		scale_thickness = (1.0f / pixsize) / 100.0f;
 	}
 

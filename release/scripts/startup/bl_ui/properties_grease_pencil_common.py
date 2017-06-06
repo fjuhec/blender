@@ -951,7 +951,8 @@ class GreasePencilDataPanel:
             layout.operator("gpencil.layer_add", text="New Layer")
         else:
             row = layout.row()
-            row.prop(gpd, "xray_mode", text="Xray Mode")
+            row.prop(gpd, "xray_mode", text="Draw Mode")
+            row.prop(gpd, "keep_stroke_thickness")
             self.draw_layers(context, layout, gpd)
 
     def draw_layers(self, context, layout, gpd):

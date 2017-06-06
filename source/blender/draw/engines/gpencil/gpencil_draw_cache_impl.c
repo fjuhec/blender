@@ -311,7 +311,12 @@ DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_Data *vedata, DRWPass
 	DRW_shgroup_uniform_float(grp, "pixsize", &rv3d->pixsize, 1);
 	DRW_shgroup_uniform_float(grp, "pixelsize", &U.pixelsize, 1);
 
-	stl->storage->is_persp = rv3d->is_persp ? 1 : 0;
+	stl->storage->is_persp = rv3d->is_persp ? 1 : 2;
+	/* If disable zoom for strokes, disable scale */
+	if ((gpd) && (gpd->flag & GP_DATA_STROKE_KEEPTHICKNESS)) {
+		stl->storage->is_persp = 0;
+	}
+
 	DRW_shgroup_uniform_int(grp, "is_persp", &stl->storage->is_persp, 1);
 
 	if (gpd) {

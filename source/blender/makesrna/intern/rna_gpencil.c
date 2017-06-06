@@ -1218,6 +1218,11 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
 	                         "and smaller red dot (end) points");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
+	prop = RNA_def_property(srna, "keep_stroke_thickness", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_DATA_STROKE_KEEPTHICKNESS);
+	RNA_def_property_ui_text(prop, "Keep thickness", "Show stroke with same thickness when viewport zoom change");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
 	/* API Functions */
 	func = RNA_def_function(srna, "clear", "rna_GPencil_clear");
 	RNA_def_function_ui_description(func, "Remove all the grease pencil data");
