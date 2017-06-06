@@ -25,6 +25,7 @@ uniform int t_clamp;
 #define RADIAL 2
 #define CHESS 3
 #define TEXTURE 4
+#define PATTERN 5
 
 #define GP_XRAY_FRONT 0
 #define GP_XRAY_3DSPACE 1
@@ -173,6 +174,12 @@ void main()
 		/* texture */
 		if (fill_type == TEXTURE) {
 			fragColor = text_color;
+		}
+		/* pattern */
+		if (fill_type == PATTERN) {
+			/* normalize texture color */
+			float nvalue = 1.0 - ((text_color.x + text_color.y + text_color.z) / 3.0);
+			fragColor = mix(vec4(0.0, 0.0, 0.0, 0.0), finalColor, nvalue);
 		}
 	}
 

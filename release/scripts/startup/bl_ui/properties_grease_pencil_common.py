@@ -406,7 +406,7 @@ class GreasePencilStrokeSculptPanel:
             else:
                 return bool(gpd.is_stroke_sculpt_mode)
 
-        return false
+        return False
 
     @staticmethod
     def draw(self, context):
@@ -1205,13 +1205,13 @@ class GreasePencilPaletteColorPanel:
                 col.prop(pcolor, "mix_factor", text="Mix", slider=True)
 
         if pcolor.fill_style in ('GRADIENT', 'RADIAL', 'CHESSBOARD'):
-            if pcolor.texture_mix is False or pcolor.fill_style  == 'CHESSBOARD':
+            if pcolor.texture_mix is False or pcolor.fill_style == 'CHESSBOARD':
                 col.prop(pcolor, "mix_color", text="")
             split = col.split(percentage=0.5)
             subcol = split.column(align=True)
             subcol.prop(pcolor, "pattern_shift", text="Location")
             subrow = subcol.row(align=True)
-            if pcolor.fill_style  == 'RADIAL':
+            if pcolor.fill_style == 'RADIAL':
                 subrow.enabled = False
             subrow.prop(pcolor, "pattern_angle", text="Angle")
             subcol.prop(pcolor, "flip", text="Flip")
@@ -1219,19 +1219,19 @@ class GreasePencilPaletteColorPanel:
             subcol = split.column(align=True)
             subcol.prop(pcolor, "pattern_scale", text="Scale")
             subrow = subcol.row(align=True)
-            if pcolor.fill_style  != 'RADIAL':
+            if pcolor.fill_style != 'RADIAL':
                 subrow.enabled = False
             subrow.prop(pcolor, "pattern_radius", text="Radius")
             subrow = subcol.row(align=True)
-            if pcolor.fill_style  != 'CHESSBOARD':
+            if pcolor.fill_style != 'CHESSBOARD':
                 subrow.enabled = False
             subrow.prop(pcolor, "pattern_boxsize", text="Box")
         
         col.separator()
         col.label("Texture")
-        if pcolor.fill_style != 'TEXTURE':
+        if pcolor.fill_style not in ('TEXTURE', 'PATTERN'):
             col.prop(pcolor, "texture_mix", text="Mix Texture")
-        if pcolor.fill_style == 'TEXTURE' or pcolor.texture_mix is True:
+        if pcolor.fill_style in ('TEXTURE', 'PATTERN') or pcolor.texture_mix is True:
             col.template_ID(pcolor, "image", open="image.open")
             split = col.split(percentage=0.5)
             subcol = split.column(align=True)

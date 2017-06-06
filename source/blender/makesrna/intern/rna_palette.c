@@ -220,6 +220,7 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 		{ FILL_STYLE_RADIAL, "RADIAL", 0, "Radial", "Fill area with radial gradient" },
 		{ FILL_STYLE_CHESSBOARD, "CHESSBOARD", 0, "Chessboard", "Fill area with chessboard pattern" },
 		{ FILL_STYLE_TEXTURE, "TEXTURE", 0, "Texture", "Fill area with image texture" },
+		{ FILL_STYLE_PATTERN, "PATTERN", 0, "Pattern", "Fill area with color but use image texture as pattern to distribute color" },
 		{ 0, NULL, 0, NULL, NULL }
 	};
 

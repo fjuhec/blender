@@ -259,7 +259,7 @@ static DRWShadingGroup *DRW_gpencil_shgroup_fill_create(GPENCIL_Data *vedata, DR
 	DRW_shgroup_uniform_int(grp, "xraymode", (const int *) &gpd->xray_mode, 1);
 
 	/* image texture */
-	if ((palcolor->fill_style == FILL_STYLE_TEXTURE) || (palcolor->flag & PAC_COLOR_TEX_MIX)) {
+	if ((palcolor->fill_style == FILL_STYLE_TEXTURE) || (palcolor->fill_style == FILL_STYLE_PATTERN) || (palcolor->flag & PAC_COLOR_TEX_MIX)) {
 		ImBuf *ibuf;
 		Image *image = palcolor->ima;
 		ImageUser iuser = { NULL };

@@ -383,5 +383,6 @@ typedef enum BlurKernelType {
 #define FILL_STYLE_RADIAL	2
 #define FILL_STYLE_CHESSBOARD 3
 #define FILL_STYLE_TEXTURE 4
+#define FILL_STYLE_PATTERN 5
 
 #endif  /* __DNA_BRUSH_TYPES_H__ */
