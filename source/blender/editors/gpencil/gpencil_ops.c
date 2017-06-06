@@ -223,14 +223,14 @@ static void ed_keymap_gpencil_sculpt(wmKeyMap *keymap)
 	*
 	* For the modal version, use D+E -> Sculpt
 	*/
-	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_brush_paint", LEFTMOUSE, KM_PRESS, 0, EKEY);
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_brush_paint", LEFTMOUSE, KM_PRESS, 0, 0);
 	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
 
-	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_brush_paint", LEFTMOUSE, KM_PRESS, KM_CTRL, EKEY);
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_brush_paint", LEFTMOUSE, KM_PRESS, KM_CTRL, 0);
 	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
 	/*RNA_boolean_set(kmi->ptr, "use_invert", true);*/
 
-	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_brush_paint", LEFTMOUSE, KM_PRESS, KM_SHIFT, EKEY);
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_brush_paint", LEFTMOUSE, KM_PRESS, KM_SHIFT, 0);
 	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
 	/*RNA_boolean_set(kmi->ptr, "use_smooth", true);*/
 
@@ -372,6 +372,10 @@ static void ed_keymap_gpencil_painting(wmKeyConfig *keyconf)
 	/* set poll callback - so that this keymap only gets enabled when stroke paintmode is enabled */
 	keymap->poll = gp_stroke_paintmode_poll;
 
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", LEFTMOUSE, KM_PRESS, 0, 0);
+	RNA_enum_set(kmi->ptr, "mode", GP_PAINTMODE_DRAW);
+	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
+
 	/* Exit PaintMode */
 	WM_keymap_add_item(keymap, "GPENCIL_OT_paintmode_toggle", TABKEY, KM_PRESS, 0, 0);
 
@@ -414,7 +418,7 @@ static void ed_keymap_gpencil_sculpting(wmKeyConfig *keyconf)
 	/* set poll callback - so that this keymap only gets enabled when stroke sculptmode is enabled */
 	keymap->poll = gp_stroke_sculptmode_poll;
 
-	/* Exit PaintMode */
+	/* Exit SculptMode */
 	WM_keymap_add_item(keymap, "GPENCIL_OT_sculptmode_toggle", TABKEY, KM_PRESS, 0, 0);
 	
 	/* Selection */
