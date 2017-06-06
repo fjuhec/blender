@@ -281,6 +281,11 @@ PointerRNA *WM_manipulator_set_operator(wmManipulator *manipulator, const char *
 	return NULL;
 }
 
+void WM_manipulator_set_origin(wmManipulator *manipulator, const float origin[3])
+{
+	copy_v3_v3(manipulator->origin, origin);
+}
+
 void WM_manipulator_set_offset(wmManipulator *manipulator, const float offset[3])
 {
 	copy_v3_v3(manipulator->offset, offset);
@@ -316,11 +321,6 @@ void WM_manipulator_set_colors(wmManipulator *manipulator, const float col[4], c
 {
 	copy_v4_v4(manipulator->col, col);
 	copy_v4_v4(manipulator->col_hi, col_hi);
-}
-
-void WM_manipulator_set_origin(wmManipulator *manipulator, const float origin[3])
-{
-	copy_v3_v3(manipulator->origin, origin);
 }
 
 /** \} */ // Manipulator Creation API
