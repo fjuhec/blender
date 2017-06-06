@@ -681,6 +681,31 @@ void RNA_api_manipulatorgroup(StructRNA *srna)
 	RNA_def_function_flag(func, FUNC_REGISTER);
 	parm = RNA_def_pointer(func, "context", "Context", "", "");
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
+
+	/* -------------------------------------------------------------------- */
+	/* Manipulator API, we may want to move this into its own class,
+	 * however RNA makest this difficult.
+	 *
+	 * Note: Order is important! See: 'MANIPULATOR_FN_*' flag in 'rna_wm.c'.
+	 */
+
+	/* manipulator_draw -> wmManipulator.draw */
+	func = RNA_def_function(srna, "manipulator_draw", NULL);
+	RNA_def_function_ui_description(func, "");
+	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL);
+	parm = RNA_def_pointer(func, "context", "Context", "", "");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
+	parm = RNA_def_pointer(func, "manipulator", "Manipulator", "", "");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
+
+	/* manipulator_draw_select -> wmManipulator.draw_select */
+	/* manipulator_intersect -> wmManipulator.intersect */
+	/* manipulator_handler -> wmManipulator.handler */
+	/* manipulator_prop_data_update -> wmManipulator.prop_data_update */
+	/* manipulator_invoke -> wmManipulator.invoke */
+	/* manipulator_exit -> wmManipulator.exit */
+	/* manipulator_cursor_get -> wmManipulator.cursor_get */
+	/* manipulator_select -> wmManipulator.select */
 }
 
 void RNA_api_keyconfig(StructRNA *UNUSED(srna))
