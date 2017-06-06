@@ -109,7 +109,7 @@ static void EEVEE_cache_populate(void *vedata, Object *ob)
 	}
 }
 
-static void EEVEE_cache_finish(void *UNUSED(vedata))
+static void EEVEE_cache_finish(void *vedata)
 {
 	EEVEE_SceneLayerData *sldata = EEVEE_scene_layer_data_get();
 
