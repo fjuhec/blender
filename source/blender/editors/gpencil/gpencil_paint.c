@@ -2295,7 +2295,7 @@ static int gpencil_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event
 	if (p->sa->spacetype == SPACE_VIEW3D) {
 		Object *ob = CTX_data_active_object(C);
 		WorkSpace *workspace = CTX_wm_workspace(C);
-		if (ob && (ob->type == OB_GPENCIL)) {
+		if (ob && (ob->type == OB_GPENCIL) && ((p->gpd->flag & GP_DATA_STROKE_PAINTMODE) == 0)) {
 			/* Just set paintmode flag... */
 			p->gpd->flag |= GP_DATA_STROKE_PAINTMODE;
 			/* disable other GP modes */
