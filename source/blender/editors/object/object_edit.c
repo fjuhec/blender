@@ -1548,7 +1548,19 @@ static int object_mode_set_exec(bContext *C, wmOperator *op)
 	if ((ob) && (ob->type == OB_GPENCIL)) {
 		if ((ob->gpd) && (ob->gpd == gpd))
 		{
-			if (ELEM(mode, OB_MODE_GPENCIL_EDIT, OB_MODE_OBJECT, OB_MODE_EDIT)) {
+			if (ELEM(mode, OB_MODE_OBJECT, OB_MODE_EDIT)) {
+				if (ELEM(ob->mode, OB_MODE_OBJECT, OB_MODE_EDIT, OB_MODE_GPENCIL_EDIT)) {
+					WM_operator_name_call(C, "GPENCIL_OT_editmode_toggle", WM_OP_EXEC_REGION_WIN, NULL);
+				}
+				if (ob->mode == OB_MODE_GPENCIL_PAINT) {
+					WM_operator_name_call(C, "GPENCIL_OT_paintmode_toggle", WM_OP_EXEC_REGION_WIN, NULL);
+				}
+				if (ob->mode == OB_MODE_GPENCIL_SCULPT) {
+					WM_operator_name_call(C, "GPENCIL_OT_sculptmode_toggle", WM_OP_EXEC_REGION_WIN, NULL);
+				}
+				return OPERATOR_FINISHED;
+			}
+			if (mode == OB_MODE_GPENCIL_EDIT) {
 				WM_operator_name_call(C, "GPENCIL_OT_editmode_toggle", WM_OP_EXEC_REGION_WIN, NULL);
 				return OPERATOR_FINISHED;
 			}
