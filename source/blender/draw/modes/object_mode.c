@@ -1407,12 +1407,15 @@ static void DRW_shgroup_relationship_lines(OBJECT_StorageList *stl, Object *ob)
 	}
 }
 
-static void DRW_shgroup_object_center(OBJECT_StorageList *stl, Object *ob)
+static void DRW_shgroup_object_center(OBJECT_StorageList *stl, Object *ob, SceneLayer *sl, View3D *v3d)
 {
 	const bool is_library = ob->id.us > 1 || ID_IS_LINKED_DATABLOCK(ob);
 	DRWShadingGroup *shgroup;
 
-	if ((ob->base_flag & BASE_SELECTED) != 0) {
+	if (ob == OBACT_NEW) {
+		shgroup = stl->g_data->center_active;
+	}
+	else if (ob->base_flag & BASE_SELECTED) {
 		if (is_library) {
 			shgroup = stl->g_data->center_selected_lib;
 		}
@@ -1420,13 +1423,16 @@ static void DRW_shgroup_object_center(OBJECT_StorageList *stl, Object *ob)
 			shgroup = stl->g_data->center_selected;
 		}
 	}
-	else {
+	else if (v3d->flag & V3D_DRAW_CENTERS) {
 		if (is_library) {
 			shgroup = stl->g_data->center_deselected_lib;
 		}
 		else {
 			shgroup = stl->g_data->center_deselected;
 		}
+	}
+	else {
+		return;
 	}
 
 	DRW_shgroup_call_dynamic_add(shgroup, ob->obmat[3]);
@@ -1461,7 +1467,8 @@ static void OBJECT_cache_populate_particles(Object *ob,
 						shgrp = DRW_shgroup_create(e_data.part_dot_sh, psl->particle);
 						DRW_shgroup_uniform_vec3(shgrp, "color", ma ? &ma->r : def_prim_col, 1);
 						DRW_shgroup_uniform_vec3(shgrp, "outlineColor", ma ? &ma->specr : def_sec_col, 1);
-						DRW_shgroup_uniform_short_to_int(shgrp, "size", &part->draw_size, 1);
+						DRW_shgroup_uniform_float(shgrp, "pixel_size", DRW_viewport_pixelsize_get(), 1);
+						DRW_shgroup_uniform_float(shgrp, "size", &part->draw_size, 1);
 						DRW_shgroup_uniform_texture(shgrp, "ramp", globals_ramp);
 						DRW_shgroup_call_add(shgrp, geom, mat);
 						break;
@@ -1487,8 +1494,7 @@ static void OBJECT_cache_populate_particles(Object *ob,
 
 				if (shgrp) {
 					if (draw_as != PART_DRAW_DOT) {
-						DRW_shgroup_uniform_short_to_int(shgrp, "draw_size", &part->draw_size, 1);
-						DRW_shgroup_uniform_float(shgrp, "pixel_size", DRW_viewport_pixelsize_get(), 1);
+						DRW_shgroup_uniform_float(shgrp, "draw_size", &part->draw_size, 1);
 						DRW_shgroup_instance_batch(shgrp, geom);
 					}
 				}
@@ -1504,6 +1510,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
 	SceneLayer *sl = draw_ctx->sl;
+	View3D *v3d = draw_ctx->v3d;
 	int theme_id = TH_UNDEFINED;
 
 	//CollectionEngineSettings *ces_mode_ob = BKE_layer_collection_engine_evaluated_get(ob, COLLECTION_MODE_OBJECT, "");
@@ -1611,7 +1618,9 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 
 	/* don't show object extras in set's */
 	if ((ob->base_flag & (BASE_FROM_SET | BASE_FROMDUPLI)) == 0) {
-		DRW_shgroup_object_center(stl, ob);
+
+		DRW_shgroup_object_center(stl, ob, sl, v3d);
+
 		DRW_shgroup_relationship_lines(stl, ob);
 
 		if ((ob->dtx & OB_DRAWNAME) && DRW_state_show_text()) {
