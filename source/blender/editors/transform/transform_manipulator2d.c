@@ -165,7 +165,7 @@ BLI_INLINE void manipulator2d_origin_to_region(ARegion *ar, float *r_origin)
 /**
  * Custom handler for manipulator widgets
  */
-static int manipulator2d_handler(
+static void manipulator2d_handler(
         bContext *C, wmManipulator *widget, const wmEvent *UNUSED(event), const int UNUSED(flag))
 {
 	ARegion *ar = CTX_wm_region(C);
@@ -176,8 +176,6 @@ static int manipulator2d_handler(
 	WM_manipulator_set_origin(widget, origin);
 
 	ED_region_tag_redraw(ar);
-
-	return OPERATOR_PASS_THROUGH;
 }
 
 void WIDGETGROUP_manipulator2d_init(const bContext *UNUSED(C), wmManipulatorGroup *wgroup)
