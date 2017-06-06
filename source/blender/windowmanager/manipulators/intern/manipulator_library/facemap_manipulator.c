@@ -113,11 +113,11 @@ struct wmManipulator *MANIPULATOR_facemap_new(
 
 	BLI_assert(facemap > -1);
 
-	fmap_widget->widget.draw = widget_facemap_draw;
+	fmap_widget->widget.type.draw = widget_facemap_draw;
 //	fmap_widget->widget.invoke = widget_facemap_invoke;
 //	fmap_widget->widget.bind_to_prop = NULL;
 //	fmap_widget->widget.handler = widget_facemap_handler;
-	fmap_widget->widget.render_3d_intersection = widget_facemap_render_3d_intersect;
+	fmap_widget->widget.type.draw_select = widget_facemap_render_3d_intersect;
 	fmap_widget->ob = ob;
 	fmap_widget->facemap = facemap;
 	fmap_widget->style = style;

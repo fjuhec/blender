@@ -403,7 +403,7 @@ static wmManipulator *armature_facemap_widget_create(wmManipulatorGroup *wgroup,
 
 	WM_manipulator_set_operator(widget, "TRANSFORM_OT_translate");
 	WM_manipulator_set_flag(widget, WM_MANIPULATOR_DRAW_HOVER, true);
-	WM_manipulator_set_func_select(widget, WIDGET_armature_facemaps_select);
+	WM_manipulator_set_fn_select(widget, WIDGET_armature_facemaps_select);
 	PointerRNA *opptr = WM_manipulator_set_operator(widget, "TRANSFORM_OT_translate");
 	RNA_boolean_set(opptr, "release_confirm", true);
 

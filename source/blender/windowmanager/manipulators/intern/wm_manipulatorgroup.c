@@ -159,8 +159,8 @@ wmManipulator *wm_manipulatorgroup_find_intersected_mainpulator(
         unsigned char *part)
 {
 	for (wmManipulator *manipulator = mgroup->manipulators.first; manipulator; manipulator = manipulator->next) {
-		if (manipulator->intersect && (manipulator->flag & WM_MANIPULATOR_HIDDEN) == 0) {
-			if ((*part = manipulator->intersect(C, event, manipulator))) {
+		if (manipulator->type.intersect && (manipulator->flag & WM_MANIPULATOR_HIDDEN) == 0) {
+			if ((*part = manipulator->type.intersect(C, event, manipulator))) {
 				return manipulator;
 			}
 		}
@@ -176,8 +176,8 @@ void wm_manipulatorgroup_intersectable_manipulators_to_list(const wmManipulatorG
 {
 	for (wmManipulator *manipulator = mgroup->manipulators.first; manipulator; manipulator = manipulator->next) {
 		if ((manipulator->flag & WM_MANIPULATOR_HIDDEN) == 0) {
-			if (((mgroup->type->flag & WM_MANIPULATORGROUPTYPE_IS_3D) && manipulator->render_3d_intersection) ||
-			    ((mgroup->type->flag & WM_MANIPULATORGROUPTYPE_IS_3D) == 0 && manipulator->intersect))
+			if (((mgroup->type->flag & WM_MANIPULATORGROUPTYPE_IS_3D) && manipulator->type.draw_select) ||
+			    ((mgroup->type->flag & WM_MANIPULATORGROUPTYPE_IS_3D) == 0 && manipulator->type.intersect))
 			{
 				BLI_addhead(listbase, BLI_genericNodeN(manipulator));
 			}
@@ -297,8 +297,8 @@ typedef struct ManipulatorTweakData {
 static void manipulator_tweak_finish(bContext *C, wmOperator *op, const bool cancel)
 {
 	ManipulatorTweakData *mtweak = op->customdata;
-	if (mtweak->active->exit) {
-		mtweak->active->exit(C, mtweak->active, cancel);
+	if (mtweak->active->type.exit) {
+		mtweak->active->type.exit(C, mtweak->active, cancel);
 	}
 	wm_manipulatormap_set_active_manipulator(mtweak->mmap, C, NULL, NULL);
 	MEM_freeN(mtweak);
@@ -338,8 +338,8 @@ static int manipulator_tweak_modal(bContext *C, wmOperator *op, const wmEvent *e
 	}
 
 	/* handle manipulator */
-	if (manipulator->handler) {
-		manipulator->handler(C, event, manipulator, mtweak->flag);
+	if (manipulator->type.handler) {
+		manipulator->type.handler(C, event, manipulator, mtweak->flag);
 	}
 
 	/* Ugly hack to send manipulator events */

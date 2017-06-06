@@ -192,7 +192,7 @@ void WIDGETGROUP_manipulator2d_init(const bContext *UNUSED(C), wmManipulatorGrou
 		manipulator2d_get_axis_color(axis_idx, col, col_hi);
 
 		/* custom handler! */
-		WM_manipulator_set_custom_handler(axis, manipulator2d_handler);
+		WM_manipulator_set_fn_handler(axis, manipulator2d_handler);
 		/* set up widget data */
 		MANIPULATOR_arrow2d_set_angle(axis, -M_PI_2 * axis_idx);
 		MANIPULATOR_arrow2d_set_line_len(axis, 0.8f);
