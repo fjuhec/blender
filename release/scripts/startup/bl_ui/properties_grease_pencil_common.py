@@ -1112,17 +1112,7 @@ class GreasePencilPaletteColorPanel:
         if paint is None:
             return False
         else:
-            is_3d_view = context.space_data.type == 'VIEW_3D'
-            if is_3d_view:
-                # if not gpd, the user maybe want prepare color before drawing
-                if context.gpencil_data is None:
-                    return True
-                gpd = context.gpencil_data
-                return bool(gpd.use_stroke_edit_mode or gpd.is_stroke_paint_mode)
-            else:
-                return True
-
-        return False
+            return True
 
     @staticmethod
     def draw(self, context):
