@@ -113,6 +113,7 @@ static void EEVEE_cache_finish(void *UNUSED(vedata))
 {
 	EEVEE_SceneLayerData *sldata = EEVEE_scene_layer_data_get();
 
+	EEVEE_materials_cache_finish(vedata);
 	EEVEE_lights_cache_finish(sldata);
 	EEVEE_probes_cache_finish(sldata);
 }
