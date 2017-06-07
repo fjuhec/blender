@@ -186,6 +186,7 @@ void RNA_def_ui(struct BlenderRNA *brna);
 void RNA_def_userdef(struct BlenderRNA *brna);
 void RNA_def_vfont(struct BlenderRNA *brna);
 void RNA_def_wm(struct BlenderRNA *brna);
+void RNA_def_wm_manipulator(struct BlenderRNA *brna);
 void RNA_def_workspace(struct BlenderRNA *brna);
 void RNA_def_world(struct BlenderRNA *brna);
 void RNA_def_movieclip(struct BlenderRNA *brna);
