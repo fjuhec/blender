@@ -54,6 +54,7 @@
 #include "MEM_guardedalloc.h"
 
 /* own includes */
+#include "WM_manipulator_api.h"
 #include "WM_manipulator_types.h"
 #include "WM_manipulator_library.h"
 #include "wm_manipulator_wmapi.h"
@@ -109,20 +110,14 @@ struct wmManipulator *MANIPULATOR_facemap_new(
         wmManipulatorGroup *wgroup, const char *name, const int style,
         Object *ob, const int facemap)
 {
-	FacemapManipulator *fmap_widget = MEM_callocN(sizeof(FacemapManipulator), name);
+	const wmManipulatorType *mpt = WM_manipulatortype_find("MANIPULATOR_WT_facemap", false);
+	FacemapManipulator *fmap_widget = (FacemapManipulator *)WM_manipulator_new(mpt, wgroup, name);
 
 	BLI_assert(facemap > -1);
 
-	fmap_widget->widget.type.draw = widget_facemap_draw;
-//	fmap_widget->widget.invoke = widget_facemap_invoke;
-//	fmap_widget->widget.bind_to_prop = NULL;
-//	fmap_widget->widget.handler = widget_facemap_handler;
-	fmap_widget->widget.type.draw_select = widget_facemap_render_3d_intersect;
 	fmap_widget->ob = ob;
 	fmap_widget->facemap = facemap;
 	fmap_widget->style = style;
-
-	wm_manipulator_register(wgroup, &fmap_widget->widget, name);
 
 	return (struct wmManipulator *)fmap_widget;
 }
@@ -131,6 +126,23 @@ bFaceMap *MANIPULATOR_facemap_get_fmap(struct wmManipulator *widget)
 {
 	FacemapManipulator *fmap_widget = (FacemapManipulator *)widget;
 	return BLI_findlink(&fmap_widget->ob->fmaps, fmap_widget->facemap);
+}
+
+static void MANIPULATOR_WT_facemap(wmManipulatorType *wt)
+{
+	/* identifiers */
+	wt->idname = "MANIPULATOR_WT_facemap";
+
+	/* api callbacks */
+	wt->draw = widget_facemap_draw;
+	wt->draw_select = widget_facemap_render_3d_intersect;
+
+	wt->size = sizeof(FacemapManipulator);
+}
+
+void ED_manipulatortypes_facemap(void)
+{
+	WM_manipulatortype_append(MANIPULATOR_WT_facemap);
 }
 
 /** \} */ // Facemap Widget API

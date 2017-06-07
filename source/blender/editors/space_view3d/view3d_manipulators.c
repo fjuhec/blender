@@ -380,6 +380,7 @@ static bool WIDGETGROUP_armature_facemaps_poll(const bContext *C, wmManipulatorG
 	return false;
 }
 
+#if 0
 static void WIDGET_armature_facemaps_select(bContext *C, wmManipulator *widget, const int action)
 {
 	Object *ob = CTX_data_active_object(C);
@@ -398,6 +399,7 @@ static void WIDGET_armature_facemaps_select(bContext *C, wmManipulator *widget, 
 			BLI_assert(0);
 	}
 }
+#endif
 
 /**
  * Get a string that equals a string generated using #armature_facemap_hashname_create,
@@ -438,7 +440,9 @@ static wmManipulator *armature_facemap_widget_create(wmManipulatorGroup *wgroup,
 
 	WM_manipulator_set_operator(widget, "TRANSFORM_OT_translate");
 	WM_manipulator_set_flag(widget, WM_MANIPULATOR_DRAW_HOVER, true);
+#if 0
 	WM_manipulator_set_fn_select(widget, WIDGET_armature_facemaps_select);
+#endif
 	PointerRNA *opptr = WM_manipulator_set_operator(widget, "TRANSFORM_OT_translate");
 	RNA_boolean_set(opptr, "release_confirm", true);
 

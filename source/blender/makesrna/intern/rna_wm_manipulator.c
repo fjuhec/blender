@@ -71,6 +71,7 @@
 #  include "BPY_extern.h"
 #endif
 
+#if 0
 static void rna_manipulator_draw_cb(
         const struct bContext *C, struct wmManipulator *mpr)
 {
@@ -212,6 +213,7 @@ static void rna_manipulator_select_cb(
 	mgroup->type->ext.call((bContext *)C, &mgroup_ptr, func, &list);
 	RNA_parameter_list_free(&list);
 }
+#endif
 
 /* Order must match definitions from 'RNA_api_manipulatorgroup'. */
 enum {
@@ -227,6 +229,7 @@ enum {
 	MANIPULATOR_FN_SELECT				= (1 << 9),
 };
 
+#if 0
 static wmManipulator *rna_ManipulatorGroup_manipulator_new(wmManipulatorGroup *mgroup, const char *name)
 {
 	wmManipulator *mpr = WM_manipulator_new(mgroup, name);
@@ -264,6 +267,7 @@ static wmManipulator *rna_ManipulatorGroup_manipulator_new(wmManipulatorGroup *m
 
 	return mpr;
 }
+#endif
 
 static void rna_ManipulatorGroup_manipulator_remove(
         wmManipulatorGroup *mgroup, bContext *C, wmManipulator *manipulator)
@@ -586,11 +590,13 @@ static void rna_def_manipulators(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_struct_sdna(srna, "wmManipulatorGroup");
 	RNA_def_struct_ui_text(srna, "Manipulators", "Collection of manipulators");
 
+#if 0
 	func = RNA_def_function(srna, "new", "rna_ManipulatorGroup_manipulator_new");
 	RNA_def_function_ui_description(func, "Add manipulator");
 	RNA_def_string(func, "name", "Manipulator", 0, "", "Manipulator name"); /* optional */
 	parm = RNA_def_pointer(func, "manipulator", "Manipulator", "", "New manipulator");
 	RNA_def_function_return(func, parm);
+#endif
 
 	func = RNA_def_function(srna, "remove", "rna_ManipulatorGroup_manipulator_remove");
 	RNA_def_function_flag(func, FUNC_USE_CONTEXT);
