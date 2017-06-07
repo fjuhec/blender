@@ -196,6 +196,7 @@ static int gpencil_paintmode_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 	}
 	else {
 		mode = OB_MODE_OBJECT;
+		WM_cursor_modal_restore(CTX_wm_window(C));
 	}
 
 	if (is_object) {
