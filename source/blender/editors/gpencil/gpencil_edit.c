@@ -121,6 +121,7 @@ static int gpencil_editmode_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 	/* set mode */
 	if (gpd->flag & GP_DATA_STROKE_EDITMODE) {
 		mode = OB_MODE_GPENCIL_EDIT;
+		WM_cursor_modal_set(CTX_wm_window(C), CURSOR_STD);
 	}
 	else {
 		mode = OB_MODE_OBJECT;
@@ -264,9 +265,11 @@ static int gpencil_sculptmode_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 	/* set mode */
 	if (gpd->flag & GP_DATA_STROKE_SCULPTMODE) {
 		mode = OB_MODE_GPENCIL_SCULPT;
+		WM_cursor_modal_set(CTX_wm_window(C), BC_CROSSCURSOR);
 	}
 	else {
 		mode = OB_MODE_OBJECT;
+		WM_cursor_modal_set(CTX_wm_window(C), CURSOR_STD);
 	}
 
 	if (is_object) {
