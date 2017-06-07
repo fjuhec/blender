@@ -18,7 +18,7 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/python/intern/bpy_manipulatorgroup_wrap.c
+/** \file blender/python/intern/bpy_manipulator_wrap.c
  *  \ingroup pythonintern
  *
  * This file is so Python can define widget-group's that C can call into.
@@ -42,7 +42,7 @@
 
 #include "bpy_rna.h"
 #include "bpy_intern_string.h"
-#include "bpy_manipulatorgroup_wrap.h"  /* own include */
+#include "bpy_manipulator_wrap.h"  /* own include */
 
 /* we may want to add, but not now */
 // #define USE_SRNA

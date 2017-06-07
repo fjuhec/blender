@@ -18,17 +18,17 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/python/intern/bpy_manipulatorgroup_wrap.h
+/** \file blender/python/intern/bpy_manipulator_wrap.h
  *  \ingroup pythonintern
  */
 
-#ifndef __BPY_MANIPULATORGROUP_WRAP_H__
-#define __BPY_MANIPULATORGROUP_WRAP_H__
+#ifndef __BPY_MANIPULATOR_WRAP_H__
+#define __BPY_MANIPULATOR_WRAP_H__
 
 struct wmManipulatorGroupType;
 
 /* exposed to rna/wm api */
 void manipulatorgroup_wrapper(struct wmManipulatorGroupType *mgrouptype, void *userdata);
 
-#endif  /* __BPY_MANIPULATORGROUP_WRAP_H__ */
+#endif  /* __BPY_MANIPULATOR_WRAP_H__ */
 
