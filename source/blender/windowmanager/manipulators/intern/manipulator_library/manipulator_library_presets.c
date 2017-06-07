@@ -57,6 +57,8 @@
 #include "manipulator_geometry.h"
 #include "manipulator_library_intern.h"
 
+/* TODO, this is to be used by RNA. might move to ED_manipulator_library */
+
 void WM_manipulator_draw_preset_box(
         const struct wmManipulator *mpr, float mat[4][4], int select_id)
 {

@@ -47,6 +47,7 @@
 
 #include "ED_screen.h"
 #include "ED_view3d.h"
+#include "ED_manipulator_library.h"
 
 #include "GPU_select.h"
 #include "GPU_matrix.h"
@@ -54,11 +55,8 @@
 #include "MEM_guardedalloc.h"
 
 /* own includes */
-#include "WM_manipulator_api.h"
-#include "WM_manipulator_types.h"
-#include "WM_manipulator_library.h"
-#include "wm_manipulator_wmapi.h"
-#include "wm_manipulator_intern.h"
+#include "WM_api.h"
+#include "WM_types.h"
 
 
 typedef struct FacemapManipulator {
@@ -74,7 +72,7 @@ typedef struct FacemapManipulator {
 static void widget_facemap_draw(const bContext *C, struct wmManipulator *widget)
 {
 	FacemapManipulator *fmap_widget = (FacemapManipulator *)widget;
-	const float *col = (widget->state & WM_MANIPULATOR_SELECTED) ? widget->col_hi : widget->col;
+	const float *col = (widget->state & WM_MANIPULATOR_STATE_SELECT) ? widget->col_hi : widget->col;
 
 	gpuPushMatrix();
 	gpuMultMatrix(fmap_widget->ob->obmat);
@@ -106,11 +104,11 @@ static int widget_facemap_handler(bContext *C, const wmEvent *event, struct wmMa
  *
  * \{ */
 
-struct wmManipulator *MANIPULATOR_facemap_new(
+struct wmManipulator *ED_manipulator_facemap_new(
         wmManipulatorGroup *wgroup, const char *name, const int style,
         Object *ob, const int facemap)
 {
-	const wmManipulatorType *mpt = WM_manipulatortype_find("MANIPULATOR_WT_facemap", false);
+	const wmManipulatorType *mpt = WM_manipulatortype_find("MANIPULATOR_WT_facemap3d", false);
 	FacemapManipulator *fmap_widget = (FacemapManipulator *)WM_manipulator_new(mpt, wgroup, name);
 
 	BLI_assert(facemap > -1);
@@ -122,16 +120,16 @@ struct wmManipulator *MANIPULATOR_facemap_new(
 	return (struct wmManipulator *)fmap_widget;
 }
 
-bFaceMap *MANIPULATOR_facemap_get_fmap(struct wmManipulator *widget)
+bFaceMap *ED_manipulator_facemap_get_fmap(struct wmManipulator *widget)
 {
 	FacemapManipulator *fmap_widget = (FacemapManipulator *)widget;
 	return BLI_findlink(&fmap_widget->ob->fmaps, fmap_widget->facemap);
 }
 
-static void MANIPULATOR_WT_facemap(wmManipulatorType *wt)
+static void MANIPULATOR_WT_facemap3d(wmManipulatorType *wt)
 {
 	/* identifiers */
-	wt->idname = "MANIPULATOR_WT_facemap";
+	wt->idname = "MANIPULATOR_WT_facemap3d";
 
 	/* api callbacks */
 	wt->draw = widget_facemap_draw;
@@ -140,17 +138,9 @@ static void MANIPULATOR_WT_facemap(wmManipulatorType *wt)
 	wt->size = sizeof(FacemapManipulator);
 }
 
-void ED_manipulatortypes_facemap(void)
+void ED_manipulatortypes_facemap_3d(void)
 {
-	WM_manipulatortype_append(MANIPULATOR_WT_facemap);
+	WM_manipulatortype_append(MANIPULATOR_WT_facemap3d);
 }
 
 /** \} */ // Facemap Widget API
-
-
-/* -------------------------------------------------------------------- */
-
-void fix_linking_manipulator_facemap(void)
-{
-	(void)0;
-}

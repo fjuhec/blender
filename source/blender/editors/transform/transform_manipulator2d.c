@@ -47,6 +47,7 @@
 #include "ED_image.h"
 #include "ED_screen.h"
 #include "ED_uvedit.h"
+#include "ED_manipulator_library.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -132,8 +133,8 @@ static ManipulatorGroup2D *manipulatorgroup2d_init(wmManipulatorGroup *wgroup)
 {
 	ManipulatorGroup2D *man = MEM_callocN(sizeof(ManipulatorGroup2D), __func__);
 
-	man->translate_x = MANIPULATOR_arrow2d_new(wgroup, "translate_x");
-	man->translate_y = MANIPULATOR_arrow2d_new(wgroup, "translate_y");
+	man->translate_x = ED_manipulator_arrow2d_new(wgroup, "translate_x");
+	man->translate_y = ED_manipulator_arrow2d_new(wgroup, "translate_y");
 
 	return man;
 }
@@ -193,8 +194,8 @@ void WIDGETGROUP_manipulator2d_init(const bContext *UNUSED(C), wmManipulatorGrou
 		/* custom handler! */
 		WM_manipulator_set_fn_custom_handler(axis, manipulator2d_handler);
 		/* set up widget data */
-		MANIPULATOR_arrow2d_set_angle(axis, -M_PI_2 * axis_idx);
-		MANIPULATOR_arrow2d_set_line_len(axis, 0.8f);
+		ED_manipulator_arrow2d_set_angle(axis, -M_PI_2 * axis_idx);
+		ED_manipulator_arrow2d_set_line_len(axis, 0.8f);
 		WM_manipulator_set_offset(axis, offset);
 		WM_manipulator_set_line_width(axis, MANIPULATOR_AXIS_LINE_WIDTH);
 		WM_manipulator_set_scale(axis, U.manipulator_scale);

@@ -50,7 +50,9 @@
 
 static void rna_manipulator_draw_preset_box(wmManipulator *mpr, float matrix[16], int select_id)
 {
+#if 0 // TODO
 	WM_manipulator_draw_preset_box(mpr, (float (*)[4])matrix, select_id);
+#endif
 }
 
 #else
