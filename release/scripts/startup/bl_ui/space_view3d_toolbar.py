@@ -60,13 +60,6 @@ class VIEW3D_PT_tools_transform(View3DPanel, Panel):
     bl_context = "objectmode"
     bl_label = "Transform"
 
-    @classmethod
-    def poll(cls, context):
-        if context.active_object and context.active_object.mode == 'GPENCIL_PAINT':
-            return False
-        else:
-            return True
-
     def draw(self, context):
         layout = self.layout
 
@@ -86,7 +79,7 @@ class VIEW3D_PT_tools_object(View3DPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        if context.active_object and context.active_object.mode == 'GPENCIL_PAINT':
+        if context.active_object and context.active_object.mode in ('GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT'):
             return False
         else:
             return True
@@ -134,7 +127,7 @@ class VIEW3D_PT_tools_add_object(View3DPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        if context.active_object and context.active_object.mode == 'GPENCIL_PAINT':
+        if context.active_object and context.active_object.mode in ('GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT'):
             return False
         else:
             return True

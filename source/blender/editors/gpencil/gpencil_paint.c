@@ -2313,6 +2313,12 @@ static int gpencil_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event
 
 	/* add a modal handler for this operator, so that we can then draw continuous strokes */
 	WM_event_add_modal_handler(C, op);
+
+	/* enable continuous drawing by default */
+	if (p->sa->spacetype == SPACE_VIEW3D) {
+		p->scene->toolsettings->gpencil_flags |= GP_TOOL_FLAG_PAINTSESSIONS_ON;
+	}
+
 	return OPERATOR_RUNNING_MODAL;
 }
 

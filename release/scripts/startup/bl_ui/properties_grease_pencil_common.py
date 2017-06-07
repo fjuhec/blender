@@ -79,7 +79,7 @@ class GreasePencilDrawingToolsPanel:
     # subclass must set
     # bl_space_type = 'IMAGE_EDITOR'
     bl_label = "Grease Pencil"
-    bl_category = "Grease Pencil"
+    bl_category = "Create"
     bl_region_type = 'TOOLS'
 
     @staticmethod
@@ -120,12 +120,12 @@ class GreasePencilDrawingToolsPanel:
             row = col.row(align=True)
             row.prop(context.space_data, "grease_pencil_source", expand=True)
 
-        col.separator()
-        col.separator()
-
-        gpencil_stroke_placement_settings(context, col)
-
         gpd = context.gpencil_data
+        if gpd and not is_3d_view:
+            col.separator()
+            col.separator()
+
+            gpencil_stroke_placement_settings(context, col)
 
         if gpd and not is_3d_view:
             layout.separator()
@@ -135,9 +135,6 @@ class GreasePencilDrawingToolsPanel:
             col.prop(gpd, "use_stroke_edit_mode", text="Enable Editing", icon='EDIT', toggle=True)
 
         if is_3d_view:
-            col.separator()
-            col.separator()
-
             col.label(text="Tools:")
             col.operator_menu_enum("gpencil.convert", text="Convert to Geometry...", property="type")
             col.operator("view3d.ruler")
@@ -147,7 +144,7 @@ class GreasePencilStrokeEditPanel:
     # subclass must set
     # bl_space_type = 'IMAGE_EDITOR'
     bl_label = "Edit Strokes"
-    bl_category = "Grease Pencil"
+    bl_category = "Tools"
     bl_region_type = 'TOOLS'
     bl_options = {'DEFAULT_CLOSED'}
 
@@ -236,7 +233,7 @@ class GreasePencilStrokeEditPanel:
 class GreasePencilInterpolatePanel:
     bl_space_type = 'VIEW_3D'
     bl_label = "Interpolate"
-    bl_category = "Grease Pencil"
+    bl_category = "Tools"
     bl_region_type = 'TOOLS'
     bl_options = {'DEFAULT_CLOSED'}
 
@@ -366,7 +363,7 @@ class GreasePencilStrokeSculptPanel:
     # subclass must set
     # bl_space_type = 'IMAGE_EDITOR'
     bl_label = "Sculpt Strokes"
-    bl_category = "Grease Pencil"
+    bl_category = "Tools"
     bl_region_type = 'TOOLS'
 
     @classmethod
