@@ -191,6 +191,8 @@ static int gpencil_paintmode_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 	/* set mode */
 	if (gpd->flag & GP_DATA_STROKE_PAINTMODE) {
 		mode = OB_MODE_GPENCIL_PAINT;
+		/* set cursor */
+		WM_cursor_modal_set(CTX_wm_window(C), BC_PAINTBRUSHCURSOR);
 	}
 	else {
 		mode = OB_MODE_OBJECT;
