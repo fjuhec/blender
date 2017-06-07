@@ -334,6 +334,11 @@ static void rna_PieMenuEnd(bContext *C, PointerRNA *handle)
 	UI_pie_menu_end(C, handle->data);
 }
 
+static void rna_manipulator_draw_preset_box(wmManipulator *mpr, float matrix[16], int select_id)
+{
+	WM_manipulator_draw_preset_box(mpr, (float (*)[4])matrix, select_id);
+}
+
 #else
 
 #define WM_GEN_INVOKE_EVENT (1 << 0)
@@ -635,6 +640,28 @@ void RNA_api_macro(StructRNA *srna)
 	parm = RNA_def_pointer(func, "context", "Context", "", "");
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 }
+
+void RNA_api_manipulator(StructRNA *srna)
+{
+	/* Utility draw functions, since we don't expose new OpenGL drawing wrappers via Python yet.
+	 * exactly how these should be exposed isn't totally clear.
+	 * However it's probably good to have some high level API's for this anyway.
+	 * Just note that this could be re-worked once tests are done.
+	 */
+
+	FunctionRNA *func;
+	PropertyRNA *parm;
+
+	/* draw */
+	func = RNA_def_function(srna, "draw_preset_box", "rna_manipulator_draw_preset_box");
+	RNA_def_function_ui_description(func, "Draw a box");
+	parm = RNA_def_property(func, "matrix", PROP_FLOAT, PROP_MATRIX);
+	RNA_def_property_flag(parm, PARM_REQUIRED);
+	RNA_def_property_multi_array(parm, 2, rna_matrix_dimsize_4x4);
+	RNA_def_property_ui_text(parm, "", "The matrix to transform");
+	RNA_def_int(func, "select_id", 0, 0, INT_MAX, "Zero when not selecting", "", 0, INT_MAX);
+}
+
 
 void RNA_api_manipulatorgroup(StructRNA *srna)
 {

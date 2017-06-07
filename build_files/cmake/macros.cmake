@@ -611,6 +611,7 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		bf_physics
 		bf_nodes
 		bf_rna
+		bf_windowmanager # FIXME, needed because of bad-level calls.
 		bf_python
 		bf_imbuf
 		bf_blenlib

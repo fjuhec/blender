@@ -146,6 +146,7 @@ void fix_linking_manipulator_cage(void);
 void fix_linking_manipulator_dial(void);
 void fix_linking_manipulator_facemap(void);
 void fix_linking_manipulator_primitive(void);
+void fix_linking_manipulator_library_presets(void);
 
 
 /* -------------------------------------------------------------------- */

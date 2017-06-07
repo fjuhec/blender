@@ -84,6 +84,7 @@ set(SRC
 	manipulators/intern/manipulator_library/geom_cube_manipulator.c
 	manipulators/intern/manipulator_library/geom_dial_manipulator.c
 	manipulators/intern/manipulator_library/manipulator_library_utils.c
+	manipulators/intern/manipulator_library/manipulator_library_presets.c
 
 	WM_api.h
 	WM_keymap.h

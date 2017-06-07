@@ -85,7 +85,8 @@ static void WIDGETGROUP_lamp_init(const bContext *UNUSED(C), wmManipulatorGroup 
 	wgroup->customdata = wwrapper;
 
 	MANIPULATOR_arrow_set_range_fac(wwrapper->manipulator, 4.0f);
-	WM_manipulator_set_colors(wwrapper->manipulator, color, color_hi);
+	WM_manipulator_set_color(wwrapper->manipulator, color);
+	WM_manipulator_set_color_highlight(wwrapper->manipulator, color_hi);
 }
 
 static void WIDGETGROUP_lamp_refresh(const bContext *C, wmManipulatorGroup *wgroup)
@@ -166,7 +167,8 @@ static void WIDGETGROUP_camera_init(const bContext *C, wmManipulatorGroup *wgrou
 
 		camgroup->dop_dist = MANIPULATOR_arrow_new(wgroup, "dof_distance", MANIPULATOR_ARROW_STYLE_CROSS);
 		WM_manipulator_set_flag(camgroup->dop_dist, WM_MANIPULATOR_DRAW_HOVER, true);
-		WM_manipulator_set_colors(camgroup->dop_dist, color, color_hi);
+		WM_manipulator_set_color(camgroup->dop_dist, color);
+		WM_manipulator_set_color_highlight(camgroup->dop_dist, color_hi);
 	}
 
 	/* focal length
@@ -178,13 +180,15 @@ static void WIDGETGROUP_camera_init(const bContext *C, wmManipulatorGroup *wgrou
 		camgroup->focallen = MANIPULATOR_arrow_new(
 		                         wgroup, "focal_len",
 		                         (MANIPULATOR_ARROW_STYLE_CONE | MANIPULATOR_ARROW_STYLE_CONSTRAINED));
-		WM_manipulator_set_colors(camgroup->focallen, color, color_hi);
+		WM_manipulator_set_color(camgroup->focallen, color);
+		WM_manipulator_set_color_highlight(camgroup->focallen, color_hi);
 		cameragroup_property_setup(camgroup->focallen, ob, ca, false);
 
 		camgroup->ortho_scale = MANIPULATOR_arrow_new(
 		                            wgroup, "ortho_scale",
 		                            (MANIPULATOR_ARROW_STYLE_CONE | MANIPULATOR_ARROW_STYLE_CONSTRAINED));
-		WM_manipulator_set_colors(camgroup->ortho_scale, color, color_hi);
+		WM_manipulator_set_color(camgroup->ortho_scale, color);
+		WM_manipulator_set_color_highlight(camgroup->ortho_scale, color_hi);
 		cameragroup_property_setup(camgroup->ortho_scale, ob, ca, true);
 	}
 }
@@ -290,7 +294,8 @@ static void WIDGETGROUP_forcefield_init(const bContext *UNUSED(C), wmManipulator
 
 	MANIPULATOR_arrow_set_ui_range(wwrapper->manipulator, -200.0f, 200.0f);
 	MANIPULATOR_arrow_set_range_fac(wwrapper->manipulator, 6.0f);
-	WM_manipulator_set_colors(wwrapper->manipulator, col, col_hi);
+	WM_manipulator_set_color(wwrapper->manipulator, col);
+	WM_manipulator_set_color_highlight(wwrapper->manipulator, col_hi);
 }
 
 static void WIDGETGROUP_forcefield_refresh(const bContext *C, wmManipulatorGroup *wgroup)
@@ -482,7 +487,8 @@ static void WIDGETGROUP_armature_facemaps_refresh(const bContext *C, wmManipulat
 				rgb_uchar_to_float(col, (unsigned char *)bcol->solid);
 				rgb_uchar_to_float(col_hi, (unsigned char *)bcol->active);
 			}
-			WM_manipulator_set_colors(widget, col, col_hi);
+			WM_manipulator_set_color(widget, col);
+			WM_manipulator_set_color_highlight(widget, col_hi);
 			WM_manipulator_set_flag(widget, WM_MANIPULATOR_HIDDEN, false);
 		}
 		else {

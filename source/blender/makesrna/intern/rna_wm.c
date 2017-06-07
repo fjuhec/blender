@@ -566,7 +566,7 @@ static void rna_manipulator_draw_cb(
 	func = &rna_ManipulatorGroup_manipulator_draw_func;
 	RNA_parameter_list_create(&list, &mgroup_ptr, func);
 	RNA_parameter_set_lookup(&list, "context", &C);
-	RNA_parameter_set_lookup(&list, "manipulator", mpr);
+	RNA_parameter_set_lookup(&list, "manipulator", &mpr);
 	mgroup->type->ext.call((bContext *)C, &mgroup_ptr, func, &list);
 	RNA_parameter_list_free(&list);
 }
@@ -584,7 +584,7 @@ static void rna_manipulator_draw_select_cb(
 	func = &rna_ManipulatorGroup_manipulator_draw_select_func;
 	RNA_parameter_list_create(&list, &mgroup_ptr, func);
 	RNA_parameter_set_lookup(&list, "context", &C);
-	RNA_parameter_set_lookup(&list, "manipulator", mpr);
+	RNA_parameter_set_lookup(&list, "manipulator", &mpr);
 	RNA_parameter_set_lookup(&list, "select_id", &select_id);
 	mgroup->type->ext.call((bContext *)C, &mgroup_ptr, func, &list);
 	RNA_parameter_list_free(&list);
@@ -603,7 +603,7 @@ static int rna_manipulator_intersect_cb(
 	func = &rna_ManipulatorGroup_manipulator_intersect_func;
 	RNA_parameter_list_create(&list, &mgroup_ptr, func);
 	RNA_parameter_set_lookup(&list, "context", &C);
-	RNA_parameter_set_lookup(&list, "manipulator", mpr);
+	RNA_parameter_set_lookup(&list, "manipulator", &mpr);
 	RNA_parameter_set_lookup(&list, "event", &event);
 	mgroup->type->ext.call((bContext *)C, &mgroup_ptr, func, &list);
 
@@ -628,7 +628,7 @@ static void rna_manipulator_handler_cb(
 	func = &rna_ManipulatorGroup_manipulator_handler_func;
 	RNA_parameter_list_create(&list, &mgroup_ptr, func);
 	RNA_parameter_set_lookup(&list, "context", &C);
-	RNA_parameter_set_lookup(&list, "manipulator", mpr);
+	RNA_parameter_set_lookup(&list, "manipulator", &mpr);
 	RNA_parameter_set_lookup(&list, "event", &event);
 	RNA_parameter_set_lookup(&list, "tweak", &tweak);
 	mgroup->type->ext.call((bContext *)C, &mgroup_ptr, func, &list);
@@ -648,7 +648,7 @@ static void rna_manipulator_invoke_cb(
 	func = &rna_ManipulatorGroup_manipulator_invoke_func;
 	RNA_parameter_list_create(&list, &mgroup_ptr, func);
 	RNA_parameter_set_lookup(&list, "context", &C);
-	RNA_parameter_set_lookup(&list, "manipulator", mpr);
+	RNA_parameter_set_lookup(&list, "manipulator", &mpr);
 	RNA_parameter_set_lookup(&list, "event", &event);
 	mgroup->type->ext.call((bContext *)C, &mgroup_ptr, func, &list);
 	RNA_parameter_list_free(&list);
@@ -667,7 +667,7 @@ static void rna_manipulator_exit_cb(
 	func = &rna_ManipulatorGroup_manipulator_exit_func;
 	RNA_parameter_list_create(&list, &mgroup_ptr, func);
 	RNA_parameter_set_lookup(&list, "context", &C);
-	RNA_parameter_set_lookup(&list, "manipulator", mpr);
+	RNA_parameter_set_lookup(&list, "manipulator", &mpr);
 	{
 		int cancel_i = cancel;
 		RNA_parameter_set_lookup(&list, "cancel", &cancel_i);
@@ -689,7 +689,7 @@ static void rna_manipulator_select_cb(
 	func = &rna_ManipulatorGroup_manipulator_select_func;
 	RNA_parameter_list_create(&list, &mgroup_ptr, func);
 	RNA_parameter_set_lookup(&list, "context", &C);
-	RNA_parameter_set_lookup(&list, "manipulator", mpr);
+	RNA_parameter_set_lookup(&list, "manipulator", &mpr);
 	RNA_parameter_set_lookup(&list, "action", &action);
 	mgroup->type->ext.call((bContext *)C, &mgroup_ptr, func, &list);
 	RNA_parameter_list_free(&list);
@@ -1876,6 +1876,28 @@ static void operator_cancel(bContext *C, wmManipulatorGroup *op)
 }
 #endif
 
+static void rna_Manipulator_color_get(PointerRNA *ptr, float *values)
+{
+	const wmManipulator *mnp = ptr->data;
+	WM_manipulator_get_color(mnp, values);
+}
+static void rna_Manipulator_color_set(PointerRNA *ptr, const float *values)
+{
+	wmManipulator *mnp = ptr->data;
+	WM_manipulator_set_color(mnp, values);
+}
+
+static void rna_Manipulator_color_hi_get(PointerRNA *ptr, float *values)
+{
+	const wmManipulator *mnp = ptr->data;
+	WM_manipulator_get_color_highlight(mnp, values);
+}
+static void rna_Manipulator_color_hi_set(PointerRNA *ptr, const float *values)
+{
+	wmManipulator *mnp = ptr->data;
+	WM_manipulator_set_color_highlight(mnp, values);
+}
+
 void manipulatorgroup_wrapper(wmManipulatorGroupType *mgrouptype, void *userdata);
 
 static StructRNA *rna_ManipulatorGroup_register(
@@ -2249,11 +2271,24 @@ static void rna_def_operator_filelist_element(BlenderRNA *brna)
 static void rna_def_manipulator(BlenderRNA *brna, PropertyRNA *cprop)
 {
 	StructRNA *srna;
+	PropertyRNA *prop;
 
 	RNA_def_property_srna(cprop, "Manipulator");
 	srna = RNA_def_struct(brna, "Manipulator", NULL);
 	RNA_def_struct_sdna(srna, "wmManipulator");
 	RNA_def_struct_ui_text(srna, "Manipulator", "Collection of manipulators");
+
+	prop = RNA_def_property(srna, "color", PROP_FLOAT, PROP_COLOR);
+	RNA_def_property_array(prop, 4);
+	RNA_def_property_float_funcs(prop, "rna_Manipulator_color_get", "rna_Manipulator_color_set", NULL);
+
+	prop = RNA_def_property(srna, "color_highlight", PROP_FLOAT, PROP_COLOR);
+	RNA_def_property_array(prop, 4);
+	RNA_def_property_float_funcs(prop, "rna_Manipulator_color_hi_get", "rna_Manipulator_color_hi_set", NULL);
+
+	RNA_def_property_ui_text(prop, "Color", "");
+
+	RNA_api_manipulator(srna);
 }
 
 /* ManipulatorGroup.manipulators */
