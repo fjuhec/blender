@@ -130,6 +130,19 @@ class VIEW3D_HT_header(Header):
             row.operator("pose.paste", text="", icon='PASTEFLIPDOWN').flipped = True
 
         # GPencil
+        if context.active_object.type == 'GPENCIL':
+            ob = context.active_object
+            if ob.grease_pencil.is_stroke_paint_mode:
+                row.separator()
+                row.prop(toolsettings, "gpencil_stroke_placement_view3d", text='')
+                if toolsettings.gpencil_stroke_placement_view3d == 'CURSOR':
+                    row.separator()
+                    row.prop(toolsettings.gpencil_sculpt, "lockaxis", text='')
+                    row.prop(toolsettings, "use_gpencil_3dcursor")
+
+                if toolsettings.gpencil_stroke_placement_view3d in ('SURFACE', 'STROKE'):
+                    row.prop(toolsettings, "use_gpencil_stroke_endpoints")
+
         if context.gpencil_data and context.gpencil_data.use_stroke_edit_mode:
             row = layout.row(align=True)
             row.operator("gpencil.copy", text="", icon='COPYDOWN')

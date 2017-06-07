@@ -37,35 +37,11 @@ def gpencil_stroke_placement_settings(context, layout):
 
     col = layout.column(align=True)
 
-    col.label(text="Stroke Placement:")
-
-    row = col.row(align=True)
-    row.prop_enum(ts, propname, 'VIEW')
-    if ts.grease_pencil_source != 'OBJECT' or context.space_data.type != 'VIEW_3D':
-        row.prop_enum(ts, propname, 'CURSOR')
-    else:
-        row.prop_enum(ts, propname, 'CURSOR', text='Origin')
-
-    if context.space_data.type == 'VIEW_3D':
+    if context.space_data.type != 'VIEW_3D':
+        col.label(text="Stroke Placement:")
         row = col.row(align=True)
-        row.prop_enum(ts, propname, 'SURFACE')
-        row.prop_enum(ts, propname, 'STROKE')
-
-        row = col.row(align=False)
-        row.active = getattr(ts, propname) in {'SURFACE', 'STROKE'}
-        row.prop(ts, "use_gpencil_stroke_endpoints")
-
-        row = col.row(align=True)
-        row.label("Lock axis:")
-        row = col.row(align=True)
-        if ts.gpencil_stroke_placement_view3d != 'CURSOR':
-            row.active = False
-        row.prop(ts.gpencil_sculpt, "lockaxis", expand=True)
-
-        row = col.row(align=True)
-        if ts.gpencil_stroke_placement_view3d != 'CURSOR' or ts.grease_pencil_source != 'OBJECT':
-            row.active = False
-        row.prop(ts, "use_gpencil_3dcursor")
+        row.prop_enum(ts, propname, 'VIEW')
+        row.prop_enum(ts, propname, 'CURSOR', text='Cursor')
 
 
 def gpencil_active_brush_settings_simple(context, layout):
