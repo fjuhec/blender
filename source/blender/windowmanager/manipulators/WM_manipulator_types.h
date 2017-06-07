@@ -89,7 +89,7 @@ typedef struct wmManipulatorType {
 
 	/* returns the final position which may be different from the origin, depending on the manipulator.
 	 * used in calculations of scale */
-	wmManipulatorFnFinalPositionGet final_position_get;
+	wmManipulatorFnFinalPositionGet position_get;
 
 	/* activate a manipulator state when the user clicks on it */
 	wmManipulatorFnInvoke invoke;

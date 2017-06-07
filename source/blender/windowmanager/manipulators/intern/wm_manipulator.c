@@ -575,10 +575,10 @@ void wm_manipulator_calculate_scale(wmManipulator *manipulator, const bContext *
 
 	if (manipulator->parent_mgroup->type->flag & WM_MANIPULATORGROUPTYPE_SCALE_3D) {
 		if (rv3d /*&& (U.manipulator_flag & V3D_DRAW_MANIPULATOR) == 0*/) { /* UserPref flag might be useful for later */
-			if (manipulator->type->final_position_get) {
+			if (manipulator->type->position_get) {
 				float position[3];
 
-				manipulator->type->final_position_get(manipulator, position);
+				manipulator->type->position_get(manipulator, position);
 				scale = ED_view3d_pixel_size(rv3d, position) * (float)U.manipulator_scale;
 			}
 			else {

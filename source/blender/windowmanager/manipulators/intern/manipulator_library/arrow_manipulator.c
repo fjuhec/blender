@@ -533,7 +533,7 @@ static void MANIPULATOR_WT_arrow_3d(wmManipulatorType *wt)
 	/* api callbacks */
 	wt->draw = manipulator_arrow_draw;
 	wt->draw_select = manipulator_arrow_render_3d_intersect;
-	wt->final_position_get = manipulator_arrow_get_final_pos;
+	wt->position_get = manipulator_arrow_get_final_pos;
 	wt->intersect = NULL;
 	wt->handler = manipulator_arrow_handler;
 	wt->invoke = manipulator_arrow_invoke;
