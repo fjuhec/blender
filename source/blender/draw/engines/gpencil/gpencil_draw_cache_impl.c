@@ -530,7 +530,7 @@ static void gpencil_draw_buffer_strokes(GpencilBatchCache *cache, void *vedata, 
 				cache->batch_buffer_stroke = DRW_gpencil_get_buffer_stroke_geom(gpd, stl->storage->unit_matrix, lthick);
 				DRW_shgroup_call_add(stl->g_data->shgrps_drawing_stroke, cache->batch_buffer_stroke, stl->storage->unit_matrix);
 
-				if ((gpd->sbuffer_size >= 3) && ((gpd->sfill[3] > GPENCIL_ALPHA_OPACITY_THRESH) || (gpd->bfill_style > 0))) {
+				if ((gpd->sbuffer_size >= 3) && (gpd->sfill[3] > GPENCIL_ALPHA_OPACITY_THRESH)) {
 					/* if not solid, fill is simulated with solid color */
 					if (gpd->bfill_style > 0) {
 						gpd->sfill[3] = 0.5f;
