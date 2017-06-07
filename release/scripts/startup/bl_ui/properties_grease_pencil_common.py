@@ -287,7 +287,7 @@ class GreasePencilBrushPanel:
     # subclass must set
     # bl_space_type = 'IMAGE_EDITOR'
     bl_label = "Drawing Brushes"
-    bl_category = "Grease Pencil"
+    bl_category = "Tools"
     bl_region_type = 'TOOLS'
 
     @classmethod
@@ -432,7 +432,7 @@ class GreasePencilBrushCurvesPanel:
     # subclass must set
     # bl_space_type = 'IMAGE_EDITOR'
     bl_label = "Brush Curves"
-    bl_category = "Grease Pencil"
+    bl_category = "Tools"
     bl_region_type = 'TOOLS'
     bl_options = {'DEFAULT_CLOSED'}
 

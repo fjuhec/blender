@@ -60,6 +60,13 @@ class VIEW3D_PT_tools_transform(View3DPanel, Panel):
     bl_context = "objectmode"
     bl_label = "Transform"
 
+    @classmethod
+    def poll(cls, context):
+        if context.active_object and context.active_object.mode == 'GPENCIL_PAINT':
+            return False
+        else:
+            return True
+
     def draw(self, context):
         layout = self.layout
 
@@ -76,6 +83,13 @@ class VIEW3D_PT_tools_object(View3DPanel, Panel):
     bl_category = "Tools"
     bl_context = "objectmode"
     bl_label = "Edit"
+
+    @classmethod
+    def poll(cls, context):
+        if context.active_object and context.active_object.mode == 'GPENCIL_PAINT':
+            return False
+        else:
+            return True
 
     def draw(self, context):
         layout = self.layout
@@ -117,6 +131,13 @@ class VIEW3D_PT_tools_add_object(View3DPanel, Panel):
     bl_category = "Create"
     bl_context = "objectmode"
     bl_label = "Add Primitive"
+
+    @classmethod
+    def poll(cls, context):
+        if context.active_object and context.active_object.mode == 'GPENCIL_PAINT':
+            return False
+        else:
+            return True
 
     @staticmethod
     def draw_add_mesh(layout, label=False):
