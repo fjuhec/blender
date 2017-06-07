@@ -593,6 +593,7 @@ static int buttons_context_path(const bContext *C, ButsContextPath *path, int ma
 	SpaceButs *sbuts = CTX_wm_space_buts(C);
 	ID *id;
 	int found;
+	Object *ob = CTX_data_active_object(C);
 
 	memset(path, 0, sizeof(*path));
 	path->flag = flag;
@@ -649,6 +650,12 @@ static int buttons_context_path(const bContext *C, ButsContextPath *path, int ma
 			found = buttons_context_path_particle(path);
 			break;
 		case BCONTEXT_MATERIAL:
+			/* the colors of grease pencil are not real materials, but to keep UI consistency, we
+			   simulate and generate a path */
+			if (ob && ob->type == OB_GPENCIL) {
+				found = buttons_context_path_data(path, -1);
+				break;
+			}
 			found = buttons_context_path_material(path, false, (sbuts->texuser != NULL));
 			break;
 		case BCONTEXT_TEXTURE:

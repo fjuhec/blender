@@ -45,6 +45,7 @@ _modules = [
     "properties_game",
     "properties_mask_common",
     "properties_material",
+    "properties_material_gpencil",
     "properties_object",
     "properties_paint_common",
     "properties_grease_pencil_common",

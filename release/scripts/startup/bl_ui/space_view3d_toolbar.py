@@ -26,7 +26,6 @@ from bl_ui.properties_grease_pencil_common import (
         GreasePencilInterpolatePanel,
         GreasePencilStrokeSculptPanel,
         GreasePencilBrushPanel,
-        GreasePencilPaletteColorPanel,
         GreasePencilBrushCurvesPanel
         )
 from bl_ui.properties_paint_common import (
@@ -1981,10 +1980,6 @@ class VIEW3D_PT_tools_grease_pencil_sculpt(GreasePencilStrokeSculptPanel, Panel)
 class VIEW3D_PT_tools_grease_pencil_brush(GreasePencilBrushPanel, Panel):
     bl_space_type = 'VIEW_3D'
 
-# Grease Pencil colors (using blendpalettes)
-class VIEW3D_PT_tools_grease_pencil_palettecolor(GreasePencilPaletteColorPanel, Panel):
-    bl_space_type = 'VIEW_3D'
-
 # Grease Pencil drawingcurves
 class VIEW3D_PT_tools_grease_pencil_brushcurves(GreasePencilBrushCurvesPanel, Panel):
     bl_space_type = 'VIEW_3D'
@@ -2073,7 +2068,6 @@ classes = (
     VIEW3D_PT_tools_grease_pencil_interpolate,
     VIEW3D_PT_tools_grease_pencil_sculpt,
     VIEW3D_PT_tools_grease_pencil_brush,
-    VIEW3D_PT_tools_grease_pencil_palettecolor,
     VIEW3D_PT_tools_grease_pencil_brushcurves,
     VIEW3D_PT_tools_history,
 )
