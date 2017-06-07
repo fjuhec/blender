@@ -2039,9 +2039,6 @@ static int wm_action_not_handled(int action)
 	return action == WM_HANDLER_CONTINUE || action == (WM_HANDLER_BREAK | WM_HANDLER_MODAL);
 }
 
-/* use old, hardcoded widget map handling - kept in case new one doesn't work out */
-//#define USE_OLD_WIDGETMAP_HANDLING
-
 static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers)
 {
 	const bool do_debug_handler = (G.debug & G_DEBUG_HANDLERS) &&

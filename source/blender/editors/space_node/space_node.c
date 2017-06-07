@@ -39,10 +39,7 @@
 #include "BLI_blenlib.h"
 #include "BLI_math.h"
 
-#include "IMB_imbuf_types.h"
-
 #include "BKE_context.h"
-#include "BKE_image.h"
 #include "BKE_library.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"

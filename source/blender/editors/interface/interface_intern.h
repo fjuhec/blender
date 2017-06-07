@@ -765,7 +765,4 @@ typedef struct uiRNACollectionSearch {
 } uiRNACollectionSearch;
 void ui_rna_collection_search_cb(const struct bContext *C, void *arg, const char *str, uiSearchItems *items);
 
-/* interface_generic_widgets.c */
-void UI_OT_lamp_position(struct wmOperatorType *ot);
-
 #endif  /* __INTERFACE_INTERN_H__ */

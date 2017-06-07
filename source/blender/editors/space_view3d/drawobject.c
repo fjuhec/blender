@@ -87,7 +87,6 @@
 #include "BIF_gl.h"
 #include "BIF_glutil.h"
 
-#include "GPU_buffers.h"
 #include "GPU_draw.h"
 #include "GPU_select.h"
 #include "GPU_basic_shader.h"
