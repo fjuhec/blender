@@ -20,15 +20,15 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_view3d/view3d_widgets.c
+/** \file blender/editors/space_view3d/view3d_manipulators.c
  *  \ingroup spview3d
  */
 
 
 #include "BLI_blenlib.h"
-#include "BLI_ghash.h"
 #include "BLI_math.h"
 #include "BLI_utildefines.h"
+#include "BLI_ghash.h"
 
 #include "BKE_armature.h"
 #include "BKE_camera.h"
@@ -54,12 +54,10 @@
 
 #include "view3d_intern.h"  /* own include */
 
-typedef struct CameraWidgetGroup {
-	wmManipulator *dop_dist,
-	         *focallen,
-	         *ortho_scale;
-} CameraWidgetGroup;
+/* -------------------------------------------------------------------- */
 
+/** \name Lamp Manipulators
+ * \{ */
 
 static bool WIDGETGROUP_lamp_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgrouptype))
 {
@@ -102,10 +100,10 @@ static void WIDGETGROUP_lamp_refresh(const bContext *C, wmManipulatorGroup *wgro
 	WM_manipulator_set_origin(wwrapper->manipulator, ob->obmat[3]);
 
 	/* need to set property here for undo. TODO would prefer to do this in _init */
-	PointerRNA ptr;
+	PointerRNA lamp_ptr;
 	const char *propname = "spot_size";
-	RNA_pointer_create(&la->id, &RNA_Lamp, la, &ptr);
-	WM_manipulator_set_property(wwrapper->manipulator, ARROW_SLOT_OFFSET_WORLD_SPACE, &ptr, propname);
+	RNA_pointer_create(&la->id, &RNA_Lamp, la, &lamp_ptr);
+	WM_manipulator_set_property(wwrapper->manipulator, ARROW_SLOT_OFFSET_WORLD_SPACE, &lamp_ptr, propname);
 }
 
 void VIEW3D_WGT_lamp(wmManipulatorGroupType *wgt)
@@ -119,6 +117,20 @@ void VIEW3D_WGT_lamp(wmManipulatorGroupType *wgt)
 	wgt->flag |= (WM_MANIPULATORGROUPTYPE_IS_3D | WM_MANIPULATORGROUPTYPE_SCALE_3D);
 }
 
+/** \} */
+
+
+/* -------------------------------------------------------------------- */
+
+/** \name Camera Manipulators
+ * \{ */
+
+struct CameraWidgetGroup {
+	wmManipulator *dop_dist;
+	wmManipulator *focal_len;
+	wmManipulator *ortho_scale;
+};
+
 static bool WIDGETGROUP_camera_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgrouptype))
 {
 	Object *ob = CTX_data_active_object(C);
@@ -130,20 +142,21 @@ static void cameragroup_property_setup(wmManipulator *widget, Object *ob, Camera
 {
 	const float scale[3] = {1.0f / len_v3(ob->obmat[0]), 1.0f / len_v3(ob->obmat[1]), 1.0f / len_v3(ob->obmat[2])};
 	const float scale_fac = ca->drawsize;
-	const float drawsize = is_ortho ? (0.5f * ca->ortho_scale) :
-	                                  (scale_fac / ((scale[0] + scale[1] + scale[2]) / 3.0f));
+	const float drawsize = is_ortho ?
+	        (0.5f * ca->ortho_scale) :
+	        (scale_fac / ((scale[0] + scale[1] + scale[2]) / 3.0f));
 	const float half_sensor = 0.5f * ((ca->sensor_fit == CAMERA_SENSOR_FIT_VERT) ? ca->sensor_y : ca->sensor_x);
 	const char *propname = is_ortho ? "ortho_scale" : "lens";
 
-	PointerRNA cameraptr;
+	PointerRNA camera_ptr;
 	float min, max, range;
 	float step, precision;
 
-	RNA_pointer_create(&ca->id, &RNA_Camera, ca, &cameraptr);
+	RNA_pointer_create(&ca->id, &RNA_Camera, ca, &camera_ptr);
 
 	/* get property range */
-	PropertyRNA *prop = RNA_struct_find_property(&cameraptr, propname);
-	RNA_property_float_ui_range(&cameraptr, prop, &min, &max, &step, &precision);
+	PropertyRNA *prop = RNA_struct_find_property(&camera_ptr, propname);
+	RNA_property_float_ui_range(&camera_ptr, prop, &min, &max, &step, &precision);
 	range = max - min;
 
 	MANIPULATOR_arrow_set_range_fac(widget, is_ortho ? (scale_fac * range) : (drawsize * range / half_sensor));
@@ -155,7 +168,7 @@ static void WIDGETGROUP_camera_init(const bContext *C, wmManipulatorGroup *wgrou
 	Camera *ca = ob->data;
 	float dir[3];
 
-	CameraWidgetGroup *camgroup = MEM_callocN(sizeof(CameraWidgetGroup), __func__);
+	struct CameraWidgetGroup *camgroup = MEM_callocN(sizeof(struct CameraWidgetGroup), __func__);
 	wgroup->customdata = camgroup;
 
 	negate_v3_v3(dir, ob->obmat[2]);
@@ -177,16 +190,16 @@ static void WIDGETGROUP_camera_init(const bContext *C, wmManipulatorGroup *wgrou
 		const float color[4] = {1.0f, 1.0, 0.27f, 0.5f};
 		const float color_hi[4] = {1.0f, 1.0, 0.27f, 1.0f};
 
-		camgroup->focallen = MANIPULATOR_arrow_new(
-		                         wgroup, "focal_len",
-		                         (MANIPULATOR_ARROW_STYLE_CONE | MANIPULATOR_ARROW_STYLE_CONSTRAINED));
-		WM_manipulator_set_color(camgroup->focallen, color);
-		WM_manipulator_set_color_highlight(camgroup->focallen, color_hi);
-		cameragroup_property_setup(camgroup->focallen, ob, ca, false);
+		camgroup->focal_len = MANIPULATOR_arrow_new(
+		        wgroup, "focal_len",
+		        (MANIPULATOR_ARROW_STYLE_CONE | MANIPULATOR_ARROW_STYLE_CONSTRAINED));
+		WM_manipulator_set_color(camgroup->focal_len, color);
+		WM_manipulator_set_color_highlight(camgroup->focal_len, color_hi);
+		cameragroup_property_setup(camgroup->focal_len, ob, ca, false);
 
 		camgroup->ortho_scale = MANIPULATOR_arrow_new(
-		                            wgroup, "ortho_scale",
-		                            (MANIPULATOR_ARROW_STYLE_CONE | MANIPULATOR_ARROW_STYLE_CONSTRAINED));
+		        wgroup, "ortho_scale",
+		        (MANIPULATOR_ARROW_STYLE_CONE | MANIPULATOR_ARROW_STYLE_CONSTRAINED));
 		WM_manipulator_set_color(camgroup->ortho_scale, color);
 		WM_manipulator_set_color_highlight(camgroup->ortho_scale, color_hi);
 		cameragroup_property_setup(camgroup->ortho_scale, ob, ca, true);
@@ -198,13 +211,13 @@ static void WIDGETGROUP_camera_refresh(const bContext *C, wmManipulatorGroup *wg
 	if (!wgroup->customdata)
 		return;
 
-	CameraWidgetGroup *camgroup = wgroup->customdata;
+	struct CameraWidgetGroup *camgroup = wgroup->customdata;
 	Object *ob = CTX_data_active_object(C);
 	Camera *ca = ob->data;
-	PointerRNA cameraptr;
+	PointerRNA camera_ptr;
 	float dir[3];
 
-	RNA_pointer_create(&ca->id, &RNA_Camera, ca, &cameraptr);
+	RNA_pointer_create(&ca->id, &RNA_Camera, ca, &camera_ptr);
 
 	negate_v3_v3(dir, ob->obmat[2]);
 
@@ -216,7 +229,7 @@ static void WIDGETGROUP_camera_refresh(const bContext *C, wmManipulatorGroup *wg
 		WM_manipulator_set_flag(camgroup->dop_dist, WM_MANIPULATOR_HIDDEN, false);
 
 		/* need to set property here for undo. TODO would prefer to do this in _init */
-		WM_manipulator_set_property(camgroup->dop_dist, ARROW_SLOT_OFFSET_WORLD_SPACE, &cameraptr, "dof_distance");
+		WM_manipulator_set_property(camgroup->dop_dist, ARROW_SLOT_OFFSET_WORLD_SPACE, &camera_ptr, "dof_distance");
 	}
 	else {
 		WM_manipulator_set_flag(camgroup->dop_dist, WM_MANIPULATOR_HIDDEN, true);
@@ -227,14 +240,15 @@ static void WIDGETGROUP_camera_refresh(const bContext *C, wmManipulatorGroup *wg
 		const bool is_ortho = (ca->type == CAM_ORTHO);
 		const float scale[3] = {1.0f / len_v3(ob->obmat[0]), 1.0f / len_v3(ob->obmat[1]), 1.0f / len_v3(ob->obmat[2])};
 		const float scale_fac = ca->drawsize;
-		const float drawsize = is_ortho ? (0.5f * ca->ortho_scale) :
-		                                  (scale_fac / ((scale[0] + scale[1] + scale[2]) / 3.0f));
+		const float drawsize = is_ortho ?
+		        (0.5f * ca->ortho_scale) :
+		        (scale_fac / ((scale[0] + scale[1] + scale[2]) / 3.0f));
 		float offset[3];
 		float asp[2];
 
-		wmManipulator *widget = is_ortho ? camgroup->ortho_scale : camgroup->focallen;
+		wmManipulator *widget = is_ortho ? camgroup->ortho_scale : camgroup->focal_len;
 		WM_manipulator_set_flag(widget, WM_MANIPULATOR_HIDDEN, false);
-		WM_manipulator_set_flag(is_ortho ? camgroup->focallen : camgroup->ortho_scale, WM_MANIPULATOR_HIDDEN, true);
+		WM_manipulator_set_flag(is_ortho ? camgroup->focal_len : camgroup->ortho_scale, WM_MANIPULATOR_HIDDEN, true);
 
 
 		/* account for lens shifting */
@@ -258,8 +272,8 @@ static void WIDGETGROUP_camera_refresh(const bContext *C, wmManipulatorGroup *wg
 		WM_manipulator_set_scale(widget, drawsize);
 
 		/* need to set property here for undo. TODO would prefer to do this in _init */
-		WM_manipulator_set_property(camgroup->focallen, ARROW_SLOT_OFFSET_WORLD_SPACE, &cameraptr, "lens");
-		WM_manipulator_set_property(camgroup->ortho_scale, ARROW_SLOT_OFFSET_WORLD_SPACE, &cameraptr, "ortho_scale");
+		WM_manipulator_set_property(camgroup->focal_len, ARROW_SLOT_OFFSET_WORLD_SPACE, &camera_ptr, "lens");
+		WM_manipulator_set_property(camgroup->ortho_scale, ARROW_SLOT_OFFSET_WORLD_SPACE, &camera_ptr, "ortho_scale");
 	}
 }
 
@@ -273,6 +287,14 @@ void VIEW3D_WGT_camera(wmManipulatorGroupType *wgt)
 
 	wgt->flag |= WM_MANIPULATORGROUPTYPE_IS_3D;
 }
+
+/** \} */
+
+
+/* -------------------------------------------------------------------- */
+
+/** \name Force Field Manipulators
+ * \{ */
 
 static bool WIDGETGROUP_forcefield_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgrouptype))
 {
@@ -307,15 +329,15 @@ static void WIDGETGROUP_forcefield_refresh(const bContext *C, wmManipulatorGroup
 	if (pd->forcefield == PFIELD_WIND) {
 		const float size = (ob->type == OB_EMPTY) ? ob->empty_drawsize : 1.0f;
 		const float ofs[3] = {0.0f, -size, 0.0f};
-		PointerRNA ptr;
+		PointerRNA field_ptr;
 
-		RNA_pointer_create(&ob->id, &RNA_FieldSettings, pd, &ptr);
+		RNA_pointer_create(&ob->id, &RNA_FieldSettings, pd, &field_ptr);
 
 		MANIPULATOR_arrow_set_direction(wwrapper->manipulator, ob->obmat[2]);
 		WM_manipulator_set_origin(wwrapper->manipulator, ob->obmat[3]);
 		WM_manipulator_set_offset(wwrapper->manipulator, ofs);
 		WM_manipulator_set_flag(wwrapper->manipulator, WM_MANIPULATOR_HIDDEN, false);
-		WM_manipulator_set_property(wwrapper->manipulator, ARROW_SLOT_OFFSET_WORLD_SPACE, &ptr, "strength");
+		WM_manipulator_set_property(wwrapper->manipulator, ARROW_SLOT_OFFSET_WORLD_SPACE, &field_ptr, "strength");
 	}
 	else {
 		WM_manipulator_set_flag(wwrapper->manipulator, WM_MANIPULATOR_HIDDEN, true);
@@ -332,6 +354,14 @@ void VIEW3D_WGT_force_field(wmManipulatorGroupType *wgt)
 
 	wgt->flag |= WM_MANIPULATORGROUPTYPE_IS_3D;
 }
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+
+/** \name Face Maps
+ * \{ */
+
 
 #define MAX_ARMATURE_FACEMAP_NAME (2 * MAX_NAME + 1) /* "OBJECTNAME_FACEMAPNAME" */
 
@@ -524,3 +554,5 @@ void VIEW3D_WGT_armature_facemaps(wmManipulatorGroupType *wgt)
 	              WM_MANIPULATORGROUPTYPE_SCALE_3D |
 	              WM_MANIPULATORGROUPTYPE_SELECTABLE);
 }
+
+/** \} */

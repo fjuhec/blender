@@ -59,6 +59,7 @@ set(SRC
 	view3d_walk.c
 	view3d_header.c
 	view3d_iterators.c
+	view3d_manipulators.c
 	view3d_ops.c
 	view3d_project.c
 	view3d_ruler.c
@@ -66,7 +67,6 @@ set(SRC
 	view3d_snap.c
 	view3d_toolbar.c
 	view3d_view.c
-	view3d_widgets.c
 
 	view3d_intern.h
 )
