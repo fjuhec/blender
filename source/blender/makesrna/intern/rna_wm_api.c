@@ -41,7 +41,6 @@
 #include "DNA_space_types.h"
 #include "DNA_windowmanager_types.h"
 
-#include "WM_api.h"
 #include "wm_cursors.h"
 
 #include "rna_internal.h"  /* own include */

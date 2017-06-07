@@ -29,7 +29,6 @@
 #include "DNA_screen_types.h"
 #include "DNA_space_types.h"
 #include "DNA_userdef_types.h"
-#include "DNA_view3d_types.h"
 #include "DNA_windowmanager_types.h"
 
 #include "BLI_utildefines.h"
@@ -1781,7 +1780,7 @@ static void rna_def_operator_filelist_element(BlenderRNA *brna)
 	RNA_def_property_flag(prop, PROP_IDPROPERTY);
 	RNA_def_property_ui_text(prop, "Name", "Name of a file or directory within a file list");
 }
-
+	
 static void rna_def_event(BlenderRNA *brna)
 {
 	StructRNA *srna;
