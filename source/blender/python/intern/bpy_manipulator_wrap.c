@@ -75,7 +75,7 @@ static void manipulator_properties_init(wmManipulatorType *wt)
 #endif
 }
 
-void manipulator_wrapper(wmManipulatorType *wt, void *userdata)
+void BPY_RNA_manipulator_wrapper(wmManipulatorType *wt, void *userdata)
 {
 	/* take care not to overwrite anything set in
 	 * WM_manipulatorgrouptype_append_ptr before opfunc() is called */
@@ -127,7 +127,7 @@ static void manipulatorgroup_properties_init(wmManipulatorGroupType *wgt)
 #endif
 }
 
-void manipulatorgroup_wrapper(wmManipulatorGroupType *wgt, void *userdata)
+void BPY_RNA_manipulatorgroup_wrapper(wmManipulatorGroupType *wgt, void *userdata)
 {
 	/* take care not to overwrite anything set in
 	 * WM_manipulatorgrouptype_append_ptr before opfunc() is called */

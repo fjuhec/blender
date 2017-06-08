@@ -253,7 +253,7 @@ static void rna_Manipulator_color_hi_set(PointerRNA *ptr, const float *values)
 }
 
 static void rna_Manipulator_unregister(struct Main *bmain, StructRNA *type);
-void manipulator_wrapper(wmManipulatorType *wgt, void *userdata);
+void BPY_RNA_manipulator_wrapper(wmManipulatorType *wgt, void *userdata);
 
 static StructRNA *rna_Manipulator_register(
         Main *bmain, ReportList *reports, void *data, const char *identifier,
@@ -324,7 +324,7 @@ static StructRNA *rna_Manipulator_register(
 	/* use duplicated string */
 	dummywt.idname = dummywt.ext.srna->identifier;
 
-	WM_manipulatortype_append_ptr(manipulator_wrapper, (void *)&dummywt);
+	WM_manipulatortype_append_ptr(BPY_RNA_manipulator_wrapper, (void *)&dummywt);
 
 	/* update while blender is running */
 	WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);
@@ -506,7 +506,7 @@ static wmKeyMap *rna_manipulatorgroup_setup_keymap_cb(const wmManipulatorGroupTy
 	return keymap;
 }
 
-void manipulatorgroup_wrapper(wmManipulatorGroupType *wgt, void *userdata);
+void BPY_RNA_manipulatorgroup_wrapper(wmManipulatorGroupType *wgt, void *userdata);
 
 static StructRNA *rna_ManipulatorGroup_register(
         Main *bmain, ReportList *reports, void *data, const char *identifier,
@@ -583,7 +583,7 @@ static StructRNA *rna_ManipulatorGroup_register(
 	dummywgt.idname = dummywgt.ext.srna->identifier;
 	dummywgt.name = dummywgt.ext.srna->name;
 
-	WM_manipulatorgrouptype_append_ptr(wmaptype, manipulatorgroup_wrapper, (void *)&dummywgt);
+	WM_manipulatorgrouptype_append_ptr(wmaptype, BPY_RNA_manipulatorgroup_wrapper, (void *)&dummywgt);
 
 	/* TODO: WM_manipulatorgrouptype_init_runtime */
 
