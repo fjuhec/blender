@@ -280,9 +280,9 @@ static StructRNA *rna_Manipulator_register(
 	if (validate(&mnp_ptr, data, have_function) != 0)
 		return NULL;
 
-	if (strlen(identifier) >= MAX_NAME) {
+	if (strlen(identifier) >= sizeof(_manipulator_idname)) {
 		BKE_reportf(reports, RPT_ERROR, "Registering manipulator class: '%s' is too long, maximum length is %d",
-		            identifier, MAX_NAME);
+		            identifier, (int)sizeof(_manipulator_idname));
 		return NULL;
 	}
 
@@ -402,12 +402,23 @@ static int rna_ManipulatorGroup_name_length(PointerRNA *ptr)
 	(void)wgroup;
 }
 
+/* just to work around 'const char *' warning and to ensure this is a python op */
+static void rna_ManipulatorGroup_bl_idname_set(PointerRNA *ptr, const char *value)
+{
+	wmManipulatorGroup *data = ptr->data;
+	char *str = (char *)data->type->idname;
+	if (!str[0])
+		BLI_strncpy(str, value, MAX_NAME);    /* utf8 already ensured */
+	else
+		assert(!"setting the bl_idname on a non-builtin operator");
+}
+
 static void rna_ManipulatorGroup_bl_label_set(PointerRNA *ptr, const char *value)
 {
 	wmManipulatorGroup *data = ptr->data;
-	const char *str = data->type->name;
-	if (!str)
-		str = value;
+	char *str = (char *)data->type->name;
+	if (!str[0])
+		BLI_strncpy(str, value, MAX_NAME);    /* utf8 already ensured */
 	else
 		assert(!"setting the bl_label on a non-builtin operator");
 }
@@ -492,6 +503,9 @@ static wmKeyMap *manipulatorgroup_keymap_init(const wmManipulatorGroupType *wgt,
 
 void manipulatorgroup_wrapper(wmManipulatorGroupType *wgt, void *userdata);
 
+static char _manipulatorgroup_name[MAX_NAME];
+static char _manipulatorgroup_idname[MAX_NAME];
+
 static StructRNA *rna_ManipulatorGroup_register(
         Main *bmain, ReportList *reports, void *data, const char *identifier,
         StructValidateFunc validate, StructCallbackFunc call, StructFreeFunc free)
@@ -501,21 +515,22 @@ static StructRNA *rna_ManipulatorGroup_register(
 	PointerRNA wgptr;
 
 	/* Two sets of functions. */
-#define GROUP_FN_LEN 3
-#define MANIP_FN_LEN 7
-	int have_function[GROUP_FN_LEN + MANIP_FN_LEN];
+	int have_function[3];
 
 	/* setup dummy manipulatorgroup & manipulatorgroup type to store static properties in */
 	dummywg.type = &dummywgt;
+	dummywgt.name = _manipulatorgroup_name;
+	dummywgt.idname = _manipulatorgroup_idname;
+
 	RNA_pointer_create(NULL, &RNA_ManipulatorGroup, &dummywg, &wgptr);
 
 	/* validate the python class */
 	if (validate(&wgptr, data, have_function) != 0)
 		return NULL;
 
-	if (strlen(identifier) >= sizeof(dummywgt.idname)) {
+	if (strlen(identifier) >= sizeof(_manipulatorgroup_idname)) {
 		BKE_reportf(reports, RPT_ERROR, "Registering manipulatorgroup class: '%s' is too long, maximum length is %d",
-		            identifier, (int)sizeof(dummywgt.idname));
+		            identifier, (int)sizeof(_manipulatorgroup_idname));
 		return NULL;
 	}
 
@@ -530,6 +545,19 @@ static StructRNA *rna_ManipulatorGroup_register(
 	if (wmaptype == NULL) {
 		BKE_reportf(reports, RPT_ERROR, "Area type does not support manipulators");
 		return NULL;
+	}
+
+	{
+		int idlen = strlen(_manipulatorgroup_idname) + 1;
+		int namelen = strlen(_manipulatorgroup_name) + 1;
+
+		char *ch;
+		ch = MEM_callocN(sizeof(char) * (idlen + namelen), "_manipulatorgroup_idname");
+		dummywgt.idname = ch;
+		memcpy(ch, _manipulatorgroup_idname, idlen);
+		ch += idlen;
+		dummywgt.name = ch;
+		memcpy(ch, _manipulatorgroup_name, namelen);
 	}
 
 	/* check if we have registered this manipulatorgroup type before, and remove it */
@@ -566,9 +594,6 @@ static StructRNA *rna_ManipulatorGroup_register(
 	WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);
 
 	return dummywgt.ext.srna;
-
-#undef GROUP_FN_LEN
-#undef MANIP_FN_LEN
 }
 
 static void rna_ManipulatorGroup_unregister(struct Main *bmain, StructRNA *type)
@@ -821,13 +846,14 @@ static void rna_def_manipulatorgroup(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "bl_idname", PROP_STRING, PROP_NONE);
 	RNA_def_property_string_sdna(prop, NULL, "type->idname");
-	/* RNA_def_property_clear_flag(prop, PROP_EDITABLE); */
+	RNA_def_property_string_maxlength(prop, MAX_NAME);
+	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_ManipulatorGroup_bl_idname_set");
 	RNA_def_property_flag(prop, PROP_REGISTER);
 	RNA_def_struct_name_property(srna, prop);
 
 	prop = RNA_def_property(srna, "bl_label", PROP_STRING, PROP_NONE);
 	RNA_def_property_string_sdna(prop, NULL, "type->name");
-	RNA_def_property_string_maxlength(prop, 64); /* else it uses the pointer size! */
+	RNA_def_property_string_maxlength(prop, MAX_NAME); /* else it uses the pointer size! */
 	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_ManipulatorGroup_bl_label_set");
 	/* RNA_def_property_clear_flag(prop, PROP_EDITABLE); */
 	RNA_def_property_flag(prop, PROP_REGISTER);
@@ -864,8 +890,10 @@ static void rna_def_manipulatorgroup(BlenderRNA *brna)
 
 	/* keymap_init */
 	func = RNA_def_function(srna, "init_keymap", NULL);
-	RNA_def_function_ui_description(func, "Initialize keymaps for this manipulator group");
-	RNA_def_function_flag(func, FUNC_NO_SELF | FUNC_REGISTER);
+	RNA_def_function_ui_description(
+	        func,
+	        "Initialize keymaps for this manipulator group, use fallback keymap when not present");
+	RNA_def_function_flag(func, FUNC_NO_SELF | FUNC_REGISTER_OPTIONAL);
 	parm = RNA_def_pointer(func, "keyconf", "KeyConfig", "", "");
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 	parm = RNA_def_property(func, "manipulator_group", PROP_STRING, PROP_NONE);

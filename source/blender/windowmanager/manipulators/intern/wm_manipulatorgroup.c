@@ -120,6 +120,7 @@ void wm_manipulatorgroup_free(bContext *C, wmManipulatorGroup *mgroup)
 	}
 
 	BLI_remlink(&mmap->manipulator_groups, mgroup);
+
 	MEM_freeN(mgroup);
 }
 
@@ -190,6 +191,15 @@ void wm_manipulatorgroup_ensure_initialized(wmManipulatorGroup *mgroup, const bC
 	/* prepare for first draw */
 	if (UNLIKELY((mgroup->flag & WM_MANIPULATORGROUP_INITIALIZED) == 0)) {
 		mgroup->type->init(C, mgroup);
+
+		/* Not ideal, initialize keymap here, needed for RNA runtime generated manipulators. */
+		wmManipulatorGroupType *wgt = mgroup->type;
+		if (wgt->keymap == NULL) {
+			wmWindowManager *wm = CTX_wm_manager(C);
+			wm_manipulatorgrouptype_keymap_init(wgt, wm->defaultconf);
+			BLI_assert(wgt->keymap != NULL);
+		}
+
 		mgroup->flag |= WM_MANIPULATORGROUP_INITIALIZED;
 	}
 }
@@ -521,6 +531,9 @@ static wmManipulatorGroupType *wm_manipulatorgrouptype_append__begin(void)
 static void wm_manipulatorgrouptype_append__end(
         wmManipulatorMapType *mmaptype, wmManipulatorGroupType *wgt)
 {
+	BLI_assert(wgt->name != NULL);
+	BLI_assert(wgt->idname != NULL);
+
 	wgt->spaceid = mmaptype->spaceid;
 	wgt->regionid = mmaptype->regionid;
 	BLI_strncpy(wgt->mapidname, mmaptype->idname, MAX_NAME);
@@ -611,6 +624,20 @@ void WM_manipulatorgrouptype_init_runtime(
 	}
 }
 
+
+/**
+ * Unlike #WM_manipulatorgrouptype_remove_ptr this doesn't maintain correct state, simply free.
+ */
+void WM_manipulatorgrouptype_free(wmManipulatorGroupType *wgt)
+{
+	if (wgt->ext.srna) {
+		/* Python operator, allocs own string. */
+		MEM_freeN((void *)wgt->idname);
+	}
+
+	MEM_freeN(wgt);
+}
+
 void WM_manipulatorgrouptype_remove_ptr(bContext *C, Main *bmain, wmManipulatorGroupType *wgt)
 {
 	for (bScreen *sc = bmain->screen.first; sc; sc = sc->id.next) {
@@ -642,7 +669,7 @@ void WM_manipulatorgrouptype_remove_ptr(bContext *C, Main *bmain, wmManipulatorG
 	BLI_remlink(&mmaptype->manipulator_grouptypes, wgt);
 	wgt->prev = wgt->next = NULL;
 
-	MEM_freeN(wgt);
+	WM_manipulatorgrouptype_free(wgt);
 }
 
 void wm_manipulatorgrouptype_keymap_init(wmManipulatorGroupType *wgt, wmKeyConfig *keyconf)

@@ -132,7 +132,6 @@ enum {
 };
 
 typedef struct wmManipulatorType {
-	struct wmManipulatorGroupType *next, *prev;
 
 	const char *idname; /* MAX_NAME */
 
@@ -185,7 +184,7 @@ typedef struct wmManipulatorType {
 typedef struct wmManipulatorGroupType {
 	struct wmManipulatorGroupType *next, *prev;
 
-	char idname[64];  /* MAX_NAME */
+	const char *idname;  /* MAX_NAME */
 	const char *name; /* manipulator-group name - displayed in UI (keymap editor) */
 
 	/* poll if manipulator-map should be visible */

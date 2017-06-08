@@ -741,10 +741,20 @@ wmManipulatorMapType *WM_manipulatormaptype_ensure(
 
 void wm_manipulatormaptypes_free(void)
 {
-	for (wmManipulatorMapType *mmaptype = manipulatormaptypes.first; mmaptype; mmaptype = mmaptype->next) {
-		BLI_freelistN(&mmaptype->manipulator_grouptypes);
+	for (wmManipulatorMapType *mmaptype = manipulatormaptypes.first, *mmaptype_next;
+	     mmaptype;
+	     mmaptype = mmaptype_next)
+	{
+		mmaptype_next = mmaptype->next;
+		for (wmManipulatorGroupType *wgt = mmaptype->manipulator_grouptypes.first, *wgt_next;
+		     wgt;
+		     wgt = wgt_next)
+		{
+			wgt_next = wgt->next;
+			WM_manipulatorgrouptype_free(wgt);
+		}
+		MEM_freeN(mmaptype);
 	}
-	BLI_freelistN(&manipulatormaptypes);
 }
 
 /**

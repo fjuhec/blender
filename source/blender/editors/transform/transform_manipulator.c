@@ -1343,6 +1343,7 @@ static bool WIDGETGROUP_manipulator_poll(const struct bContext *C, struct wmMani
 void TRANSFORM_WGT_manipulator(wmManipulatorGroupType *wgt)
 {
 	wgt->name = "Transform Manipulator";
+	wgt->idname = "TRANSFORM_WGT_manipulator";
 
 	wgt->poll = WIDGETGROUP_manipulator_poll;
 	wgt->init = WIDGETGROUP_manipulator_init;

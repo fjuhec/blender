@@ -233,12 +233,7 @@ wmManipulatorGroup *WM_manipulator_get_parent_group(wmManipulator *manipulator)
  */
 static void manipulator_unique_idname_set(wmManipulatorGroup *mgroup, wmManipulator *manipulator, const char *rawname)
 {
-	if (mgroup->type->idname[0]) {
-		BLI_snprintf(manipulator->name, sizeof(manipulator->name), "%s_%s", mgroup->type->idname, rawname);
-	}
-	else {
-		BLI_strncpy(manipulator->name, rawname, sizeof(manipulator->name));
-	}
+	BLI_snprintf(manipulator->name, sizeof(manipulator->name), "%s_%s", mgroup->type->idname, rawname);
 
 	/* ensure name is unique, append '.001', '.002', etc if not */
 	BLI_uniquename(&mgroup->manipulators, manipulator, "Manipulator", '.',

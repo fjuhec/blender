@@ -592,6 +592,7 @@ static int image_context(const bContext *C, const char *member, bContextDataResu
 static void IMAGE_WGT_manipulator2d(wmManipulatorGroupType *wgt)
 {
 	wgt->name = "UV Transform Manipulator";
+	wgt->idname = "IMAGE_WGT_manipulator2d";
 
 	wgt->poll = WIDGETGROUP_manipulator2d_poll;
 	wgt->init = WIDGETGROUP_manipulator2d_init;

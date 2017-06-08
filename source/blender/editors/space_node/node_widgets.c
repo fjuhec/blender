@@ -108,6 +108,7 @@ static void WIDGETGROUP_node_transform_refresh(const bContext *C, wmManipulatorG
 void NODE_WGT_backdrop_transform(wmManipulatorGroupType *wgt)
 {
 	wgt->name = "Backdrop Transform Widgets";
+	wgt->idname = "NODE_WGT_backdrop_transform";
 
 	wgt->poll = WIDGETGROUP_node_transform_poll;
 	wgt->init = WIDGETGROUP_node_transform_init;

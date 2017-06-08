@@ -113,6 +113,7 @@ struct wmManipulatorGroupType *WM_manipulatorgrouptype_append_ptr_runtime(
 void WM_manipulatorgrouptype_init_runtime(
         const struct Main *bmain, struct wmManipulatorMapType *mmaptype,
         struct wmManipulatorGroupType *wgt);
+void WM_manipulatorgrouptype_free(struct wmManipulatorGroupType *wgt);
 void WM_manipulatorgrouptype_remove_ptr(
         struct bContext *C, struct Main *bmain, struct wmManipulatorGroupType *mgroup);
 

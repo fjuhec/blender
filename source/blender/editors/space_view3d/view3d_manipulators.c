@@ -110,6 +110,7 @@ static void WIDGETGROUP_lamp_refresh(const bContext *C, wmManipulatorGroup *wgro
 void VIEW3D_WGT_lamp(wmManipulatorGroupType *wgt)
 {
 	wgt->name = "Lamp Widgets";
+	wgt->idname = "VIEW3D_WGT_lamp";
 
 	wgt->poll = WIDGETGROUP_lamp_poll;
 	wgt->init = WIDGETGROUP_lamp_init;
@@ -281,6 +282,7 @@ static void WIDGETGROUP_camera_refresh(const bContext *C, wmManipulatorGroup *wg
 void VIEW3D_WGT_camera(wmManipulatorGroupType *wgt)
 {
 	wgt->name = "Camera Widgets";
+	wgt->idname = "VIEW3D_WGT_camera";
 
 	wgt->poll = WIDGETGROUP_camera_poll;
 	wgt->init = WIDGETGROUP_camera_init;
@@ -348,6 +350,7 @@ static void WIDGETGROUP_forcefield_refresh(const bContext *C, wmManipulatorGroup
 void VIEW3D_WGT_force_field(wmManipulatorGroupType *wgt)
 {
 	wgt->name = "Force Field Widgets";
+	wgt->idname = "VIEW3D_WGT_force_field";
 
 	wgt->poll = WIDGETGROUP_forcefield_poll;
 	wgt->init = WIDGETGROUP_forcefield_init;
@@ -548,6 +551,7 @@ static void WIDGETGROUP_armature_facemaps_refresh(const bContext *C, wmManipulat
 void VIEW3D_WGT_armature_facemaps(wmManipulatorGroupType *wgt)
 {
 	wgt->name = "Face Map Widgets";
+	wgt->idname = "VIEW3D_WGT_armature_facemaps";
 
 	wgt->poll = WIDGETGROUP_armature_facemaps_poll;
 	wgt->init = WIDGETGROUP_armature_facemaps_init;
