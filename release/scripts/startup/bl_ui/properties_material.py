@@ -113,9 +113,11 @@ class MATERIAL_PT_context_material(MaterialButtonsPanel, Panel):
     def poll(cls, context):
         # An exception, don't call the parent poll func because
         # this manages materials for all engine types
-
-        engine = context.scene.render.engine
-        return (context.material or context.object) and (engine in cls.COMPAT_ENGINES)
+        if context.active_object and context.active_object.type == 'GPENCIL':
+            return False
+        else:
+            engine = context.scene.render.engine
+            return (context.material or context.object) and (engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
         layout = self.layout
