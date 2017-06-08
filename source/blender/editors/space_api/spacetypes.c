@@ -66,6 +66,7 @@
 #include "ED_clip.h"
 #include "ED_mask.h"
 #include "ED_sequencer.h"
+#include "ED_manipulator_library.h"
 
 #include "io_ops.h"
 
@@ -124,6 +125,13 @@ void ED_spacetypes_init(void)
 	
 	ED_operatortypes_view2d();
 	ED_operatortypes_ui();
+
+	/* manipulator types */
+	ED_manipulatortypes_dial_3d();
+	ED_manipulatortypes_arrow_2d();
+	ED_manipulatortypes_arrow_3d();
+	ED_manipulatortypes_primitive_3d();
+	ED_manipulatortypes_cage_2d();
 
 	/* register types for operators and manipulators */
 	spacetypes = BKE_spacetypes_list();

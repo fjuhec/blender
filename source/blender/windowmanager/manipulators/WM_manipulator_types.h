@@ -48,6 +48,56 @@ struct wmKeyConfig;
 /* -------------------------------------------------------------------- */
 /* wmManipulator */
 
+/* manipulators are set per region by registering them on manipulator-maps */
+struct wmManipulator {
+	struct wmManipulator *next, *prev;
+
+	char idname[64 + 4]; /* MAX_NAME + 4 for unique '.001', '.002', etc suffix */
+
+	/* While we don't have a real type, use this to put type-like vars. */
+	const struct wmManipulatorType *type;
+
+	/* Overrides 'type->handler' when set. */
+	wmManipulatorFnHandler custom_handler;
+
+	void *custom_data;
+
+	/* pointer back to group this manipulator is in (just for quick access) */
+	struct wmManipulatorGroup *parent_mgroup;
+
+	int flag; /* flags that influence the behavior or how the manipulators are drawn */
+	short state; /* state flags (active, highlighted, selected) */
+
+	unsigned char highlighted_part;
+
+	/* center of manipulator in space, 2d or 3d */
+	float origin[3];
+	/* custom offset from origin */
+	float offset[3];
+	/* runtime property, set the scale while drawing on the viewport */
+	float scale;
+	/* user defined scale, in addition to the original one */
+	float user_scale;
+	/* user defined width for line drawing */
+	float line_width;
+	/* manipulator colors (uses default fallbacks if not defined) */
+	float col[4], col_hi[4];
+
+	/* data used during interaction */
+	void *interaction_data;
+
+	/* name of operator to spawn when activating the manipulator */
+	const char *opname;
+	/* operator properties if manipulator spawns and controls an operator,
+	 * or owner pointer if manipulator spawns and controls a property */
+	PointerRNA opptr;
+
+	/* arrays of properties attached to various manipulator parameters. As
+	 * the manipulator is interacted with, those properties get updated */
+	PointerRNA *ptr;
+	PropertyRNA **props;
+};
+
 /**
  * Simple utility wrapper for storing a single manipulator as wmManipulatorGroup.customdata (which gets freed).
  */
@@ -63,6 +113,68 @@ enum {
 	WM_MANIPULATOR_DRAW_VALUE  = (1 << 2), /* draw an indicator for the current value while dragging */
 	WM_MANIPULATOR_HIDDEN      = (1 << 3),
 };
+
+/* wmManipulator.state */
+enum {
+	WM_MANIPULATOR_STATE_HIGHLIGHT   = (1 << 0), /* while hovered */
+	WM_MANIPULATOR_STATE_ACTIVE      = (1 << 1), /* while dragging */
+	WM_MANIPULATOR_STATE_SELECT      = (1 << 2),
+};
+
+/**
+ * \brief Manipulator tweak flag.
+ * Bitflag passed to manipulator while tweaking.
+ */
+enum {
+	/* drag with extra precision (shift)
+	 * NOTE: Manipulators are responsible for handling this (manipulator->handler callback)! */
+	WM_MANIPULATOR_TWEAK_PRECISE = (1 << 0),
+};
+
+typedef struct wmManipulatorType {
+	struct wmManipulatorGroupType *next, *prev;
+
+	const char *idname; /* MAX_NAME */
+
+	uint size;
+
+	/* could become wmManipulatorType */
+	/* draw manipulator */
+	wmManipulatorFnDraw draw;
+
+	/* determines 3d intersection by rendering the manipulator in a selection routine. */
+	wmManipulatorFnDrawSelect draw_select;
+
+	/* determine if the mouse intersects with the manipulator. The calculation should be done in the callback itself */
+	wmManipulatorFnIntersect intersect;
+
+	/* handler used by the manipulator. Usually handles interaction tied to a manipulator type */
+	wmManipulatorFnHandler handler;
+
+	/* manipulator-specific handler to update manipulator attributes based on the property value */
+	wmManipulatorFnPropDataUpdate prop_data_update;
+
+	/* returns the final position which may be different from the origin, depending on the manipulator.
+	 * used in calculations of scale */
+	wmManipulatorFnFinalPositionGet position_get;
+
+	/* activate a manipulator state when the user clicks on it */
+	wmManipulatorFnInvoke invoke;
+
+	/* called when manipulator tweaking is done - used to free data and reset property when cancelling */
+	wmManipulatorFnExit exit;
+
+	wmManipulatorFnCursorGet cursor_get;
+
+	/* called when manipulator selection state changes */
+	wmManipulatorFnSelect select;
+
+	/* maximum number of properties attached to the manipulator */
+	int prop_len_max;
+
+	/* RNA integration */
+	ExtensionRNA ext;
+} wmManipulatorType;
 
 
 /* -------------------------------------------------------------------- */

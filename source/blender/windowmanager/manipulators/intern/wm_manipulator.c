@@ -30,6 +30,7 @@
 #include "BKE_context.h"
 
 #include "BLI_listbase.h"
+#include "BLI_ghash.h"
 #include "BLI_math.h"
 #include "BLI_string.h"
 #include "BLI_string_utils.h"
@@ -50,97 +51,123 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
+/* only for own init/exit calls (wm_manipulatortype_init/wm_manipulatortype_free) */
+#include "wm.h"
+
 /* own includes */
 #include "wm_manipulator_wmapi.h"
 #include "wm_manipulator_intern.h"
 
-#include "manipulator_library/manipulator_geometry.h"
+static void wm_manipulator_register(
+        wmManipulatorGroup *mgroup, wmManipulator *manipulator, const char *name);
+
+/** \name Manipulator Type Append
+ *
+ * \note This follows conventions from #WM_operatortype_find #WM_operatortype_append & friends.
+ * \{ */
+
+static GHash *global_manipulatortype_hash = NULL;
+
+const wmManipulatorType *WM_manipulatortype_find(const char *idname, bool quiet)
+{
+	if (idname[0]) {
+		wmManipulatorType *mt;
+
+		mt = BLI_ghash_lookup(global_manipulatortype_hash, idname);
+		if (mt) {
+			return mt;
+		}
+
+		if (!quiet) {
+			printf("search for unknown manipulator '%s'\n", idname);
+		}
+	}
+	else {
+		if (!quiet) {
+			printf("search for empty manipulator\n");
+		}
+	}
+
+	return NULL;
+}
+
+/* caller must free */
+void WM_manipulatortype_iter(GHashIterator *ghi)
+{
+	BLI_ghashIterator_init(ghi, global_manipulatortype_hash);
+}
+
+static wmManipulatorType *wm_manipulatortype_append__begin(void)
+{
+	wmManipulatorType *mt = MEM_callocN(sizeof(wmManipulatorType), "manipulatortype");
+	return mt;
+}
+static void wm_manipulatortype_append__end(wmManipulatorType *mt)
+{
+	/* Create at least one property for interaction,
+	 * note: we could enforce each type sets this it's self. */
+	if (mt->prop_len_max == 0) {
+		mt->prop_len_max = 1;
+	}
+
+	BLI_ghash_insert(global_manipulatortype_hash, (void *)mt->idname, mt);
+}
+
+void WM_manipulatortype_append(void (*mtfunc)(struct wmManipulatorType *))
+{
+	wmManipulatorType *mt = wm_manipulatortype_append__begin();
+	mtfunc(mt);
+	wm_manipulatortype_append__end(mt);
+}
+
+void WM_manipulatortype_append_ptr(void (*mtfunc)(struct wmManipulatorType *, void *), void *userdata)
+{
+	wmManipulatorType *mt = wm_manipulatortype_append__begin();
+	mtfunc(mt, userdata);
+	wm_manipulatortype_append__end(mt);
+}
+
+static void manipulatortype_ghash_free_cb(wmManipulatorType *mt)
+{
+	MEM_freeN(mt);
+}
+
+void wm_manipulatortype_free(void)
+{
+	BLI_ghash_free(global_manipulatortype_hash, NULL, (GHashValFreeFP)manipulatortype_ghash_free_cb);
+	global_manipulatortype_hash = NULL;
+}
+
+/* called on initialize WM_init() */
+void wm_manipulatortype_init(void)
+{
+	/* reserve size is set based on blender default setup */
+	global_manipulatortype_hash = BLI_ghash_str_new_ex("wm_manipulatortype_init gh", 128);
+}
+
+/** \} */
 
 /**
- * Main draw call for ManipulatorGeomInfo data
+ * \note Follow #wm_operator_create convention.
  */
-void wm_manipulator_geometryinfo_draw(const ManipulatorGeomInfo *info, const bool select, const float color[4])
+static wmManipulator *wm_manipulator_create(
+        const wmManipulatorType *mpt)
 {
-	/* TODO store the Batches inside the ManipulatorGeomInfo and updated it when geom changes
-	 * So we don't need to re-created and discard it every time */
+	BLI_assert(mpt != NULL);
+	BLI_assert(mpt->size >= sizeof(wmManipulator));
 
-	const bool use_lighting = true || (!select && ((U.manipulator_flag & V3D_SHADED_MANIPULATORS) != 0));
-	VertexBuffer *vbo;
-	ElementList *el;
-	Batch *batch;
-	ElementListBuilder elb = {0};
-
-	VertexFormat format = {0};
-	unsigned int pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
-	unsigned int nor_id;
-
-	if (use_lighting) {
-		nor_id = VertexFormat_add_attrib(&format, "nor", COMP_I16, 3, NORMALIZE_INT_TO_FLOAT);
-	}
-
-	/* Elements */
-	ElementListBuilder_init(&elb, PRIM_TRIANGLES, info->ntris, info->nverts);
-	for (int i = 0; i < info->ntris; ++i) {
-		const unsigned short *idx = &info->indices[i * 3];
-		add_triangle_vertices(&elb, idx[0], idx[1], idx[2]);
-	}
-	el = ElementList_build(&elb);
-
-	vbo = VertexBuffer_create_with_format(&format);
-	VertexBuffer_allocate_data(vbo, info->nverts);
-
-	VertexBuffer_fill_attrib(vbo, pos_id, info->verts);
-
-	if (use_lighting) {
-		/* Normals are expected to be smooth. */
-		VertexBuffer_fill_attrib(vbo, nor_id, info->normals);
-	}
-
-	batch = Batch_create(PRIM_TRIANGLES, vbo, el);
-	Batch_set_builtin_program(batch, GPU_SHADER_3D_UNIFORM_COLOR);
-
-	Batch_Uniform4fv(batch, "color", color);
-
-	glEnable(GL_CULL_FACE);
-	// glEnable(GL_DEPTH_TEST);
-
-	Batch_draw(batch);
-
-	glDisable(GL_DEPTH_TEST);
-	// glDisable(GL_CULL_FACE);
-
-
-	Batch_discard_all(batch);
+	wmManipulator *mpr = MEM_callocN(mpt->size, __func__);
+	mpr->type = mpt;
+	return mpr;
 }
 
-void wm_manipulator_vec_draw(
-        const float color[4], const float (*verts)[3], unsigned int vert_count,
-        unsigned int pos, unsigned int primitive_type)
+wmManipulator *WM_manipulator_new(const wmManipulatorType *mpt, wmManipulatorGroup *mgroup, const char *name)
 {
-	immUniformColor4fv(color);
-	immBegin(primitive_type, vert_count);
-	for (int i = 0; i < vert_count; i++) {
-		immVertex3fv(pos, verts[i]);
-	}
-	immEnd();
-}
+	wmManipulator *mpr = wm_manipulator_create(mpt);
 
-wmManipulator *WM_manipulator_new(wmManipulatorGroup *mgroup, const char *name)
-{
-	wmManipulator *manipulator = MEM_callocN(sizeof(wmManipulator), __func__);
+	wm_manipulator_register(mgroup, mpr, name);
 
-	wm_manipulator_register(mgroup, manipulator, name);
-
-	/* XXX: never happens */
-	if (name[0] == '\n') {
-		fix_linking_manipulator_arrow();
-		fix_linking_manipulator_arrow2d();
-		fix_linking_manipulator_cage();
-		fix_linking_manipulator_dial();
-		fix_linking_manipulator_primitive();
-	}
-
-	return manipulator;
+	return mpr;
 }
 
 wmManipulatorGroup *WM_manipulator_get_parent_group(wmManipulator *manipulator)
@@ -170,24 +197,19 @@ static void manipulator_unique_idname_set(wmManipulatorGroup *mgroup, wmManipula
 /**
  * Initialize default values and allocate needed memory for members.
  */
-static void manipulator_init(wmManipulator *manipulator)
+static void manipulator_init(wmManipulator *mpr)
 {
 	const float col_default[4] = {1.0f, 1.0f, 1.0f, 1.0f};
 
-	manipulator->user_scale = 1.0f;
-	manipulator->line_width = 1.0f;
+	mpr->user_scale = 1.0f;
+	mpr->line_width = 1.0f;
 
 	/* defaults */
-	copy_v4_v4(manipulator->col, col_default);
-	copy_v4_v4(manipulator->col_hi, col_default);
+	copy_v4_v4(mpr->col, col_default);
+	copy_v4_v4(mpr->col_hi, col_default);
 
-	/* create at least one property for interaction */
-	if (manipulator->max_prop == 0) {
-		manipulator->max_prop = 1;
-	}
-
-	manipulator->props = MEM_callocN(sizeof(PropertyRNA *) * manipulator->max_prop, "manipulator->props");
-	manipulator->ptr = MEM_callocN(sizeof(PointerRNA) * manipulator->max_prop, "manipulator->ptr");
+	mpr->props = MEM_callocN(sizeof(PropertyRNA *) * mpr->type->prop_len_max, "manipulator->props");
+	mpr->ptr = MEM_callocN(sizeof(PointerRNA) * mpr->type->prop_len_max, "manipulator->ptr");
 }
 
 /**
@@ -195,7 +217,7 @@ static void manipulator_init(wmManipulator *manipulator)
  *
  * \param name: name used to create a unique idname for \a manipulator in \a mgroup
  */
-void wm_manipulator_register(wmManipulatorGroup *mgroup, wmManipulator *manipulator, const char *name)
+static void wm_manipulator_register(wmManipulatorGroup *mgroup, wmManipulator *manipulator, const char *name)
 {
 	manipulator_init(manipulator);
 	manipulator_unique_idname_set(mgroup, manipulator, name);
@@ -208,13 +230,13 @@ void wm_manipulator_register(wmManipulatorGroup *mgroup, wmManipulator *manipula
  */
 void WM_manipulator_delete(ListBase *manipulatorlist, wmManipulatorMap *mmap, wmManipulator *manipulator, bContext *C)
 {
-	if (manipulator->state & WM_MANIPULATOR_HIGHLIGHT) {
+	if (manipulator->state & WM_MANIPULATOR_STATE_HIGHLIGHT) {
 		wm_manipulatormap_set_highlighted_manipulator(mmap, C, NULL, 0);
 	}
-	if (manipulator->state & WM_MANIPULATOR_ACTIVE) {
+	if (manipulator->state & WM_MANIPULATOR_STATE_ACTIVE) {
 		wm_manipulatormap_set_active_manipulator(mmap, C, NULL, NULL);
 	}
-	if (manipulator->state & WM_MANIPULATOR_SELECTED) {
+	if (manipulator->state & WM_MANIPULATOR_STATE_SELECT) {
 		wm_manipulator_deselect(mmap, manipulator);
 	}
 
@@ -244,7 +266,7 @@ wmManipulatorGroup *wm_manipulator_get_parent_group(const wmManipulator *manipul
 
 void WM_manipulator_set_property(wmManipulator *manipulator, const int slot, PointerRNA *ptr, const char *propname)
 {
-	if (slot < 0 || slot >= manipulator->max_prop) {
+	if (slot < 0 || slot >= manipulator->type->prop_len_max) {
 		fprintf(stderr, "invalid index %d when binding property for manipulator type %s\n", slot, manipulator->idname);
 		return;
 	}
@@ -254,8 +276,8 @@ void WM_manipulator_set_property(wmManipulator *manipulator, const int slot, Poi
 	manipulator->ptr[slot] = *ptr;
 	manipulator->props[slot] = RNA_struct_find_property(ptr, propname);
 
-	if (manipulator->type.prop_data_update) {
-		manipulator->type.prop_data_update(manipulator, slot);
+	if (manipulator->type->prop_data_update) {
+		manipulator->type->prop_data_update(manipulator, slot);
 	}
 }
 
@@ -316,11 +338,25 @@ void WM_manipulator_set_line_width(wmManipulator *manipulator, const float line_
  * \param col  Normal state color.
  * \param col_hi  Highlighted state color.
  */
-void WM_manipulator_set_colors(wmManipulator *manipulator, const float col[4], const float col_hi[4])
+void WM_manipulator_get_color(const wmManipulator *manipulator, float col[4])
+{
+	copy_v4_v4(col, manipulator->col);
+}
+void WM_manipulator_set_color(wmManipulator *manipulator, const float col[4])
 {
 	copy_v4_v4(manipulator->col, col);
+}
+
+void WM_manipulator_get_color_highlight(const wmManipulator *manipulator, float col_hi[4])
+{
+	copy_v4_v4(col_hi, manipulator->col_hi);
+}
+void WM_manipulator_set_color_highlight(wmManipulator *manipulator, const float col_hi[4])
+{
 	copy_v4_v4(manipulator->col_hi, col_hi);
 }
+
+
 /** \} */ // Manipulator Creation API
 
 
@@ -329,47 +365,51 @@ void WM_manipulator_set_colors(wmManipulator *manipulator, const float col[4], c
  *
  * \{ */
 
+#if 0
 void WM_manipulator_set_fn_draw(wmManipulator *mpr, wmManipulatorFnDraw draw_fn)
 {
-	mpr->type.draw = draw_fn;
+	mpr->type->draw = draw_fn;
 }
 void WM_manipulator_set_fn_draw_select(struct wmManipulator *mpr, wmManipulatorFnDrawSelect fn)
 {
-	mpr->type.draw_select = fn;
+	mpr->type->draw_select = fn;
 }
 void WM_manipulator_set_fn_intersect(wmManipulator *mpr, wmManipulatorFnIntersect fn)
 {
-	mpr->type.intersect = fn;
+	mpr->type->intersect = fn;
 }
-void WM_manipulator_set_fn_handler(struct wmManipulator *mpr, wmManipulatorFnHandler fn)
+#endif
+void WM_manipulator_set_fn_custom_handler(struct wmManipulator *mpr, wmManipulatorFnHandler fn)
 {
-	mpr->type.handler = fn;
+	mpr->custom_handler = fn;
 }
+#if 0
 void WM_manipulator_set_fn_prop_data_update(struct wmManipulator *mpr, wmManipulatorFnPropDataUpdate fn)
 {
-	mpr->type.prop_data_update = fn;
+	mpr->type->prop_data_update = fn;
 }
 void WM_manipulator_set_fn_final_position_get(struct wmManipulator *mpr, wmManipulatorFnFinalPositionGet fn)
 {
-	mpr->type.final_position_get = fn;
+	mpr->type->final_position_get = fn;
 }
 void WM_manipulator_set_fn_invoke(struct wmManipulator *mpr, wmManipulatorFnInvoke fn)
 {
-	mpr->type.invoke = fn;
+	mpr->type->invoke = fn;
 }
 void WM_manipulator_set_fn_exit(struct wmManipulator *mpr, wmManipulatorFnExit fn)
 {
-	mpr->type.exit = fn;
+	mpr->type->exit = fn;
 }
 void WM_manipulator_set_fn_cursor_get(struct wmManipulator *mpr, wmManipulatorFnCursorGet fn)
 {
-	mpr->type.cursor_get = fn;
+	mpr->type->cursor_get = fn;
 }
 void WM_manipulator_set_fn_select(wmManipulator *mpr, wmManipulatorFnSelect fn)
 {
 	BLI_assert(mpr->parent_mgroup->type->flag & WM_MANIPULATORGROUPTYPE_SELECTABLE);
-	mpr->type.select = fn;
+	mpr->type->select = fn;
 }
+#endif
 
 /** \} */
 
@@ -392,7 +432,7 @@ bool wm_manipulator_deselect(wmManipulatorMap *mmap, wmManipulator *manipulator)
 	bool changed = false;
 
 	/* caller should check! */
-	BLI_assert(manipulator->state & WM_MANIPULATOR_SELECTED);
+	BLI_assert(manipulator->state & WM_MANIPULATOR_STATE_SELECT);
 
 	/* remove manipulator from selected_manipulators array */
 	for (int i = 0; i < (*tot_selected); i++) {
@@ -414,7 +454,7 @@ bool wm_manipulator_deselect(wmManipulatorMap *mmap, wmManipulator *manipulator)
 		(*tot_selected)--;
 	}
 
-	manipulator->state &= ~WM_MANIPULATOR_SELECTED;
+	manipulator->state &= ~WM_MANIPULATOR_STATE_SELECT;
 	return changed;
 }
 
@@ -429,7 +469,7 @@ bool wm_manipulator_select(bContext *C, wmManipulatorMap *mmap, wmManipulator *m
 	wmManipulator ***sel = &mmap->mmap_context.selected_manipulator;
 	int *tot_selected = &mmap->mmap_context.tot_selected;
 
-	if (!manipulator || (manipulator->state & WM_MANIPULATOR_SELECTED))
+	if (!manipulator || (manipulator->state & WM_MANIPULATOR_STATE_SELECT))
 		return false;
 
 	(*tot_selected)++;
@@ -437,9 +477,9 @@ bool wm_manipulator_select(bContext *C, wmManipulatorMap *mmap, wmManipulator *m
 	*sel = MEM_reallocN(*sel, sizeof(wmManipulator *) * (*tot_selected));
 	(*sel)[(*tot_selected) - 1] = manipulator;
 
-	manipulator->state |= WM_MANIPULATOR_SELECTED;
-	if (manipulator->type.select) {
-		manipulator->type.select(C, manipulator, SEL_SELECT);
+	manipulator->state |= WM_MANIPULATOR_STATE_SELECT;
+	if (manipulator->type->select) {
+		manipulator->type->select(C, manipulator, SEL_SELECT);
 	}
 	wm_manipulatormap_set_highlighted_manipulator(mmap, C, manipulator, manipulator->highlighted_part);
 
@@ -453,10 +493,10 @@ void wm_manipulator_calculate_scale(wmManipulator *manipulator, const bContext *
 
 	if (manipulator->parent_mgroup->type->flag & WM_MANIPULATORGROUPTYPE_SCALE_3D) {
 		if (rv3d /*&& (U.manipulator_flag & V3D_DRAW_MANIPULATOR) == 0*/) { /* UserPref flag might be useful for later */
-			if (manipulator->type.final_position_get) {
+			if (manipulator->type->position_get) {
 				float position[3];
 
-				manipulator->type.final_position_get(manipulator, position);
+				manipulator->type->position_get(manipulator, position);
 				scale = ED_view3d_pixel_size(rv3d, position) * (float)U.manipulator_scale;
 			}
 			else {
@@ -474,10 +514,10 @@ void wm_manipulator_calculate_scale(wmManipulator *manipulator, const bContext *
 static void manipulator_update_prop_data(wmManipulator *manipulator)
 {
 	/* manipulator property might have been changed, so update manipulator */
-	if (manipulator->props && manipulator->type.prop_data_update) {
-		for (int i = 0; i < manipulator->max_prop; i++) {
+	if (manipulator->props && manipulator->type->prop_data_update) {
+		for (int i = 0; i < manipulator->type->prop_len_max; i++) {
 			if (manipulator->props[i]) {
-				manipulator->type.prop_data_update(manipulator, i);
+				manipulator->type->prop_data_update(manipulator, i);
 			}
 		}
 	}
@@ -496,15 +536,15 @@ bool wm_manipulator_is_visible(wmManipulator *manipulator)
 	if (manipulator->flag & WM_MANIPULATOR_HIDDEN) {
 		return false;
 	}
-	if ((manipulator->state & WM_MANIPULATOR_ACTIVE) &&
+	if ((manipulator->state & WM_MANIPULATOR_STATE_ACTIVE) &&
 	    !(manipulator->flag & (WM_MANIPULATOR_DRAW_ACTIVE | WM_MANIPULATOR_DRAW_VALUE)))
 	{
 		/* don't draw while active (while dragging) */
 		return false;
 	}
 	if ((manipulator->flag & WM_MANIPULATOR_DRAW_HOVER) &&
-	    !(manipulator->state & WM_MANIPULATOR_HIGHLIGHT) &&
-	    !(manipulator->state & WM_MANIPULATOR_SELECTED)) /* still draw selected manipulators */
+	    !(manipulator->state & WM_MANIPULATOR_STATE_HIGHLIGHT) &&
+	    !(manipulator->state & WM_MANIPULATOR_STATE_SELECT)) /* still draw selected manipulators */
 	{
 		/* only draw on mouse hover */
 		return false;
@@ -512,4 +552,3 @@ bool wm_manipulator_is_visible(wmManipulator *manipulator)
 
 	return true;
 }
-

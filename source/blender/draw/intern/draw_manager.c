@@ -32,7 +32,6 @@
 
 #include "BIF_glutil.h"
 
-#include "BKE_depsgraph.h"
 #include "BKE_global.h"
 #include "BKE_object.h"
 #include "BKE_pbvh.h"
@@ -3055,7 +3054,7 @@ void DRW_draw_select_loop(
 			DEG_OBJECT_ITER(graph, ob, DEG_OBJECT_ITER_FLAG_DUPLI)
 			{
 				if ((ob->base_flag & BASE_SELECTABLED) != 0) {
-					DRW_select_load_id(ob->base_selection_color);
+					DRW_select_load_id(ob->select_color);
 					DRW_engines_cache_populate(ob);
 				}
 			}

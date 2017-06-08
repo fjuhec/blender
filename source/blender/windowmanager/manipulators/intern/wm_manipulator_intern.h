@@ -31,107 +31,12 @@
 struct wmKeyConfig;
 struct wmManipulatorMap;
 struct ManipulatorGeomInfo;
+struct GHashIterator;
 
 #include "wm_manipulator_fn.h"
 
 /* -------------------------------------------------------------------- */
 /* wmManipulator */
-
-/* manipulators are set per region by registering them on manipulator-maps */
-struct wmManipulator {
-	struct wmManipulator *next, *prev;
-
-	char idname[MAX_NAME + 4]; /* + 4 for unique '.001', '.002', etc suffix */
-	/* pointer back to group this manipulator is in (just for quick access) */
-	struct wmManipulatorGroup *parent_mgroup;
-
-	/* While we don't have a real type, use this to put type-like vars. */
-	struct {
-		/* could become wmManipulatorType */
-		/* draw manipulator */
-		wmManipulatorFnDraw draw;
-
-		/* determines 3d intersection by rendering the manipulator in a selection routine. */
-		wmManipulatorFnDrawSelect draw_select;
-
-		/* determine if the mouse intersects with the manipulator. The calculation should be done in the callback itself */
-		wmManipulatorFnIntersect intersect;
-
-		/* handler used by the manipulator. Usually handles interaction tied to a manipulator type */
-		wmManipulatorFnHandler handler;
-
-		/* manipulator-specific handler to update manipulator attributes based on the property value */
-		wmManipulatorFnPropDataUpdate prop_data_update;
-
-		/* returns the final position which may be different from the origin, depending on the manipulator.
-		 * used in calculations of scale */
-		wmManipulatorFnFinalPositionGet final_position_get;
-
-		/* activate a manipulator state when the user clicks on it */
-		wmManipulatorFnInvoke invoke;
-
-		/* called when manipulator tweaking is done - used to free data and reset property when cancelling */
-		wmManipulatorFnExit exit;
-
-		wmManipulatorFnCursorGet cursor_get;
-
-		/* called when manipulator selection state changes */
-		wmManipulatorFnSelect select;
-	} type;
-
-	int flag; /* flags that influence the behavior or how the manipulators are drawn */
-	short state; /* state flags (active, highlighted, selected) */
-
-	unsigned char highlighted_part;
-
-	/* center of manipulator in space, 2d or 3d */
-	float origin[3];
-	/* custom offset from origin */
-	float offset[3];
-	/* runtime property, set the scale while drawing on the viewport */
-	float scale;
-	/* user defined scale, in addition to the original one */
-	float user_scale;
-	/* user defined width for line drawing */
-	float line_width;
-	/* manipulator colors (uses default fallbacks if not defined) */
-	float col[4], col_hi[4];
-
-	/* data used during interaction */
-	void *interaction_data;
-
-	/* name of operator to spawn when activating the manipulator */
-	const char *opname;
-	/* operator properties if manipulator spawns and controls an operator,
-	 * or owner pointer if manipulator spawns and controls a property */
-	PointerRNA opptr;
-
-	/* maximum number of properties attached to the manipulator */
-	int max_prop;
-	/* arrays of properties attached to various manipulator parameters. As
-	 * the manipulator is interacted with, those properties get updated */
-	PointerRNA *ptr;
-	PropertyRNA **props;
-};
-
-/* wmManipulator.state */
-enum {
-	WM_MANIPULATOR_HIGHLIGHT   = (1 << 0), /* while hovered */
-	WM_MANIPULATOR_ACTIVE      = (1 << 1), /* while dragging */
-	WM_MANIPULATOR_SELECTED    = (1 << 2),
-};
-
-/**
- * \brief Manipulator tweak flag.
- * Bitflag passed to manipulator while tweaking.
- */
-enum {
-	/* drag with extra precision (shift)
-	 * NOTE: Manipulators are responsible for handling this (manipulator->handler callback)! */
-	WM_MANIPULATOR_TWEAK_PRECISE = (1 << 0),
-};
-
-void wm_manipulator_register(struct wmManipulatorGroup *mgroup, struct wmManipulator *manipulator, const char *name);
 
 bool wm_manipulator_deselect(struct wmManipulatorMap *mmap, struct wmManipulator *manipulator);
 bool wm_manipulator_select(bContext *C, struct wmManipulatorMap *mmap, struct wmManipulator *manipulator);
@@ -139,14 +44,6 @@ bool wm_manipulator_select(bContext *C, struct wmManipulatorMap *mmap, struct wm
 void wm_manipulator_calculate_scale(struct wmManipulator *manipulator, const bContext *C);
 void wm_manipulator_update(struct wmManipulator *manipulator, const bContext *C, const bool refresh_map);
 bool wm_manipulator_is_visible(struct wmManipulator *manipulator);
-
-void fix_linking_manipulator_arrow(void);
-void fix_linking_manipulator_arrow2d(void);
-void fix_linking_manipulator_cage(void);
-void fix_linking_manipulator_dial(void);
-void fix_linking_manipulator_facemap(void);
-void fix_linking_manipulator_primitive(void);
-
 
 /* -------------------------------------------------------------------- */
 /* wmManipulatorGroup */
@@ -220,14 +117,4 @@ struct wmManipulatorMapType {
 void wm_manipulatormap_selected_delete(struct wmManipulatorMap *mmap);
 bool wm_manipulatormap_deselect_all(struct wmManipulatorMap *mmap, struct wmManipulator ***sel);
 
-
-/* -------------------------------------------------------------------- */
-/* Manipulator drawing */
-
-void wm_manipulator_geometryinfo_draw(const struct ManipulatorGeomInfo *info, const bool select, const float color[4]);
-void wm_manipulator_vec_draw(
-        const float color[4], const float (*verts)[3], unsigned int vert_count,
-        unsigned int pos, unsigned int primitive_type);
-
-#endif  /* __WM_MANIPULATOR_INTERN_H__ */
-
+#endif

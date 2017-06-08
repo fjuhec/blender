@@ -23,7 +23,7 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/manipulators/intern/manipulator_library/arrow2d_manipulator.c
+/** \file arrow2d_manipulator.c
  *  \ingroup wm
  *
  * \name 2D Arrow Manipulator
@@ -43,6 +43,7 @@
 #include "DNA_windowmanager_types.h"
 
 #include "ED_screen.h"
+#include "ED_manipulator_library.h"
 
 #include "GPU_draw.h"
 #include "GPU_immediate.h"
@@ -55,10 +56,8 @@
 #include "WM_types.h"
 
 /* own includes */
-#include "WM_manipulator_types.h"
-#include "wm_manipulator_wmapi.h"
-#include "WM_manipulator_library.h"
-#include "wm_manipulator_intern.h"
+#include "WM_api.h"
+
 #include "manipulator_library_intern.h"
 
 
@@ -111,7 +110,7 @@ static void manipulator_arrow2d_draw(const bContext *UNUSED(C), struct wmManipul
 	ArrowManipulator2D *arrow = (ArrowManipulator2D *)manipulator;
 	float col[4];
 
-	manipulator_color_get(manipulator, manipulator->state & WM_MANIPULATOR_HIGHLIGHT, col);
+	manipulator_color_get(manipulator, manipulator->state & WM_MANIPULATOR_STATE_HIGHLIGHT, col);
 
 	glLineWidth(manipulator->line_width);
 	glEnable(GL_BLEND);
@@ -189,43 +188,46 @@ static int manipulator_arrow2d_intersect(
  *
  * \{ */
 
-struct wmManipulator *MANIPULATOR_arrow2d_new(wmManipulatorGroup *mgroup, const char *name)
+struct wmManipulator *ED_manipulator_arrow2d_new(wmManipulatorGroup *mgroup, const char *name)
 {
-	ArrowManipulator2D *arrow = MEM_callocN(sizeof(ArrowManipulator2D), __func__);
+	const wmManipulatorType *mpt = WM_manipulatortype_find("MANIPULATOR_WT_arrow_2d", false);
+	ArrowManipulator2D *arrow = (ArrowManipulator2D *)WM_manipulator_new(mpt, mgroup, name);
 
-	arrow->manipulator.type.draw = manipulator_arrow2d_draw;
-	arrow->manipulator.type.invoke = manipulator_arrow2d_invoke;
-//	arrow->manipulator.type.bind_to_prop = manipulator_arrow2d_bind_to_prop;
-//	arrow->manipulator.type.handler = manipulator_arrow2d_handler;
-	arrow->manipulator.type.intersect = manipulator_arrow2d_intersect;
-//	arrow->manipulator.type.exit = manipulator_arrow2d_exit;
 	arrow->manipulator.flag |= WM_MANIPULATOR_DRAW_ACTIVE;
 
 	arrow->line_len = 1.0f;
 
-	wm_manipulator_register(mgroup, &arrow->manipulator, name);
-
-	return (struct wmManipulator *)arrow;
+	return &arrow->manipulator;
 }
 
-void MANIPULATOR_arrow2d_set_angle(struct wmManipulator *manipulator, const float angle)
+void ED_manipulator_arrow2d_set_angle(struct wmManipulator *manipulator, const float angle)
 {
 	ArrowManipulator2D *arrow = (ArrowManipulator2D *)manipulator;
 	arrow->angle = angle;
 }
 
-void MANIPULATOR_arrow2d_set_line_len(struct wmManipulator *manipulator, const float len)
+void ED_manipulator_arrow2d_set_line_len(struct wmManipulator *manipulator, const float len)
 {
 	ArrowManipulator2D *arrow = (ArrowManipulator2D *)manipulator;
 	arrow->line_len = len;
 }
 
-/** \} */ /* Arrow Manipulator API */
-
-
-/* -------------------------------------------------------------------- */
-
-void fix_linking_manipulator_arrow2d(void)
+static void MANIPULATOR_WT_arrow_2d(wmManipulatorType *wt)
 {
-	(void)0;
+	/* identifiers */
+	wt->idname = "MANIPULATOR_WT_arrow_2d";
+
+	/* api callbacks */
+	wt->draw = manipulator_arrow2d_draw;
+	wt->invoke = manipulator_arrow2d_invoke;
+	wt->intersect = manipulator_arrow2d_intersect;
+
+	wt->size = sizeof(ArrowManipulator2D);
 }
+
+void ED_manipulatortypes_arrow_2d(void)
+{
+	WM_manipulatortype_append(MANIPULATOR_WT_arrow_2d);
+}
+
+/** \} */ /* Arrow Manipulator API */

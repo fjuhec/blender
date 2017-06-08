@@ -37,9 +37,11 @@
 #define __WM_MANIPULATOR_API_H__
 
 struct ARegion;
+struct GHashIterator;
 struct Main;
 struct wmKeyConfig;
 struct wmManipulator;
+struct wmManipulatorType;
 struct wmManipulatorGroup;
 struct wmManipulatorGroupType;
 struct wmManipulatorMap;
@@ -52,6 +54,7 @@ struct wmManipulatorMapType_Params;
 /* wmManipulator */
 
 struct wmManipulator *WM_manipulator_new(
+        const struct wmManipulatorType *mpt,
         struct wmManipulatorGroup *mgroup, const char *name);
 void WM_manipulator_delete(
         ListBase *manipulatorlist, struct wmManipulatorMap *mmap, struct wmManipulator *manipulator,
@@ -62,24 +65,27 @@ void WM_manipulator_set_property(struct wmManipulator *, int slot, struct Pointe
 struct PointerRNA *WM_manipulator_set_operator(struct wmManipulator *, const char *opname);
 
 /* callbacks */
-void WM_manipulator_set_fn_draw(struct wmManipulator *manipulator, wmManipulatorFnDraw fn);
-void WM_manipulator_set_fn_draw_select(struct wmManipulator *manipulator, wmManipulatorFnDrawSelect fn);
-void WM_manipulator_set_fn_intersect(struct wmManipulator *manipulator, wmManipulatorFnIntersect fn);
-void WM_manipulator_set_fn_handler(struct wmManipulator *manipulator, wmManipulatorFnHandler fn);
-void WM_manipulator_set_fn_prop_data_update(struct wmManipulator *mpr, wmManipulatorFnPropDataUpdate fn);
-void WM_manipulator_set_fn_final_position_get(struct wmManipulator *mpr, wmManipulatorFnFinalPositionGet fn);
-void WM_manipulator_set_fn_invoke(struct wmManipulator *mpr, wmManipulatorFnInvoke fn);
-void WM_manipulator_set_fn_exit(struct wmManipulator *mpr, wmManipulatorFnExit fn);
-void WM_manipulator_set_fn_cursor_get(struct wmManipulator *mpr, wmManipulatorFnCursorGet fn);
-void WM_manipulator_set_fn_select(struct wmManipulator *manipulator, wmManipulatorFnSelect fn);
+void WM_manipulator_set_fn_custom_handler(struct wmManipulator *manipulator, wmManipulatorFnHandler fn);
 
 void WM_manipulator_set_origin(struct wmManipulator *manipulator, const float origin[3]);
 void WM_manipulator_set_offset(struct wmManipulator *manipulator, const float offset[3]);
 void WM_manipulator_set_flag(struct wmManipulator *manipulator, const int flag, const bool enable);
 void WM_manipulator_set_scale(struct wmManipulator *manipulator, float scale);
 void WM_manipulator_set_line_width(struct wmManipulator *manipulator, const float line_width);
-void WM_manipulator_set_colors(struct wmManipulator *manipulator, const float col[4], const float col_hi[4]);
 
+void WM_manipulator_get_color(const struct wmManipulator *manipulator, float col[4]);
+void WM_manipulator_set_color(struct wmManipulator *manipulator, const float col[4]);
+void WM_manipulator_get_color_highlight(const struct wmManipulator *manipulator, float col_hi[4]);
+void WM_manipulator_set_color_highlight(struct wmManipulator *manipulator, const float col[4]);
+
+/* manipulator_library_presets.c */
+void WM_manipulator_draw_preset_box(const struct wmManipulator *manipulator, float mat[4][4], int select_id);
+
+/* wm_manipulator.c */
+const struct wmManipulatorType *WM_manipulatortype_find(const char *idname, bool quiet);
+void WM_manipulatortype_append(void (*mnpfunc)(struct wmManipulatorType *));
+void WM_manipulatortype_append_ptr(void (*mnpfunc)(struct wmManipulatorType *, void *), void *userdata);
+void WM_manipulatortype_iter(struct GHashIterator *ghi);
 
 /* -------------------------------------------------------------------- */
 /* wmManipulatorGroup */

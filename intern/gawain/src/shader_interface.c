@@ -61,7 +61,7 @@ static unsigned hash_string(const char *str)
 	return i;
 	}
 
-static inline void set_input_name(ShaderInput* input, const char* name)
+static void set_input_name(ShaderInput* input, const char* name)
 	{
 	input->name = name;
 	input->name_hash = hash_string(name);
@@ -273,6 +273,11 @@ const ShaderInput* ShaderInterface_uniform(const ShaderInterface* shaderface, co
 
 const ShaderInput* ShaderInterface_builtin_uniform(const ShaderInterface* shaderface, BuiltinUniform builtin)
 	{
+#if TRUST_NO_ONE
+	assert(builtin != UNIFORM_NONE);
+	assert(builtin != UNIFORM_CUSTOM);
+#endif
+
 	// look up by enum, not name
 	for (uint32_t i = 0; i < shaderface->uniform_ct; ++i)
 		{
@@ -288,6 +293,7 @@ const ShaderInput* ShaderInterface_attrib(const ShaderInterface* shaderface, con
 	{
 	// attribs are stored after uniforms
 	const uint32_t input_ct = shaderface->uniform_ct + shaderface->attrib_ct;
+	const unsigned name_hash = hash_string(name);
 	for (uint32_t i = shaderface->uniform_ct; i < input_ct; ++i)
 		{
 		const ShaderInput* attrib = shaderface->inputs + i;
@@ -295,6 +301,8 @@ const ShaderInput* ShaderInterface_attrib(const ShaderInterface* shaderface, con
 #if SUPPORT_LEGACY_GLSL
 		if (attrib->name == NULL) continue;
 #endif
+
+		if (attrib->name_hash != name_hash) continue;
 
 		if (match(attrib->name, name))
 			return attrib;
