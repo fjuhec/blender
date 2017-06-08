@@ -130,7 +130,7 @@ class VIEW3D_HT_header(Header):
             row.operator("pose.paste", text="", icon='PASTEFLIPDOWN').flipped = True
 
         # GPencil
-        if context.active_object.type == 'GPENCIL':
+        if context.active_object and context.active_object.type == 'GPENCIL':
             ob = context.active_object
             if ob.grease_pencil.is_stroke_paint_mode:
                 row.separator()
