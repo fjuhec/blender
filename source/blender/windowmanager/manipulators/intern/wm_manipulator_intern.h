@@ -68,7 +68,7 @@ void wm_manipulatorgroup_ensure_initialized(struct wmManipulatorGroup *mgroup, c
 bool wm_manipulatorgroup_is_visible(const struct wmManipulatorGroup *mgroup, const struct bContext *C);
 bool wm_manipulatorgroup_is_visible_in_drawstep(const struct wmManipulatorGroup *mgroup, const int drawstep);
 
-void wm_manipulatorgrouptype_keymap_init(struct wmManipulatorGroupType *wgt, struct wmKeyConfig *keyconf);
+void wm_manipulatorgrouptype_setup_keymap(struct wmManipulatorGroupType *wgt, struct wmKeyConfig *keyconf);
 
 
 /* -------------------------------------------------------------------- */

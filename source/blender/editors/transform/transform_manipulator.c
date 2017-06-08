@@ -1346,7 +1346,7 @@ void TRANSFORM_WGT_manipulator(wmManipulatorGroupType *wgt)
 	wgt->idname = "TRANSFORM_WGT_manipulator";
 
 	wgt->poll = WIDGETGROUP_manipulator_poll;
-	wgt->init = WIDGETGROUP_manipulator_init;
+	wgt->setup = WIDGETGROUP_manipulator_init;
 	wgt->refresh = WIDGETGROUP_manipulator_refresh;
 	wgt->draw_prepare = WIDGETGROUP_manipulator_draw_prepare;
 
@@ -1386,7 +1386,7 @@ void TRANSFORM_WGT_object(wmManipulatorGroupType *wgt)
 	wgt->name = "Object Widgets";
 
 	wgt->poll = WIDGETGROUP_object_manipulator_poll;
-	wgt->init = WIDGETGROUP_object_manipulator_init;
+	wgt->setup = WIDGETGROUP_object_manipulator_init;
 	wgt->refresh = WIDGETGROUP_manipulator_refresh;
 	wgt->draw_prepare = WIDGETGROUP_manipulator_draw_prepare;
 

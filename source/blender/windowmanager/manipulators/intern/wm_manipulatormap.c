@@ -770,7 +770,7 @@ void wm_manipulators_keymap(wmKeyConfig *keyconf)
 
 	for (mmaptype = manipulatormaptypes.first; mmaptype; mmaptype = mmaptype->next) {
 		for (wgt = mmaptype->manipulator_grouptypes.first; wgt; wgt = wgt->next) {
-			wm_manipulatorgrouptype_keymap_init(wgt, keyconf);
+			wm_manipulatorgrouptype_setup_keymap(wgt, keyconf);
 		}
 	}
 }

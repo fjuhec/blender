@@ -190,13 +190,13 @@ void wm_manipulatorgroup_ensure_initialized(wmManipulatorGroup *mgroup, const bC
 {
 	/* prepare for first draw */
 	if (UNLIKELY((mgroup->flag & WM_MANIPULATORGROUP_INITIALIZED) == 0)) {
-		mgroup->type->init(C, mgroup);
+		mgroup->type->setup(C, mgroup);
 
 		/* Not ideal, initialize keymap here, needed for RNA runtime generated manipulators. */
 		wmManipulatorGroupType *wgt = mgroup->type;
 		if (wgt->keymap == NULL) {
 			wmWindowManager *wm = CTX_wm_manager(C);
-			wm_manipulatorgrouptype_keymap_init(wgt, wm->defaultconf);
+			wm_manipulatorgrouptype_setup_keymap(wgt, wm->defaultconf);
 			BLI_assert(wgt->keymap != NULL);
 		}
 
@@ -538,8 +538,8 @@ static void wm_manipulatorgrouptype_append__end(
 	wgt->regionid = mmaptype->regionid;
 	BLI_strncpy(wgt->mapidname, mmaptype->idname, MAX_NAME);
 	/* if not set, use default */
-	if (!wgt->keymap_init) {
-		wgt->keymap_init = WM_manipulatorgroup_keymap_common;
+	if (!wgt->setup_keymap) {
+		wgt->setup_keymap = WM_manipulatorgroup_keymap_common;
 	}
 
 	/* add the type for future created areas of the same type  */
@@ -602,7 +602,7 @@ void WM_manipulatorgrouptype_init_runtime(
         wmManipulatorGroupType *wgt)
 {
 	/* init keymap - on startup there's an extra call to init keymaps for 'permanent' manipulator-groups */
-	wm_manipulatorgrouptype_keymap_init(wgt, ((wmWindowManager *)bmain->wm.first)->defaultconf);
+	wm_manipulatorgrouptype_setup_keymap(wgt, ((wmWindowManager *)bmain->wm.first)->defaultconf);
 
 	/* now create a manipulator for all existing areas */
 	for (bScreen *sc = bmain->screen.first; sc; sc = sc->id.next) {
@@ -672,9 +672,9 @@ void WM_manipulatorgrouptype_remove_ptr(bContext *C, Main *bmain, wmManipulatorG
 	WM_manipulatorgrouptype_free(wgt);
 }
 
-void wm_manipulatorgrouptype_keymap_init(wmManipulatorGroupType *wgt, wmKeyConfig *keyconf)
+void wm_manipulatorgrouptype_setup_keymap(wmManipulatorGroupType *wgt, wmKeyConfig *keyconf)
 {
-	wgt->keymap = wgt->keymap_init(wgt, keyconf);
+	wgt->keymap = wgt->setup_keymap(wgt, keyconf);
 }
 
 /** \} */ /* wmManipulatorGroupType */

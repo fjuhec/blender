@@ -190,14 +190,15 @@ typedef struct wmManipulatorGroupType {
 	/* poll if manipulator-map should be visible */
 	wmManipulatorGroupFnPoll poll;
 	/* initially create manipulators and set permanent data - stuff you only need to do once */
-	wmManipulatorGroupFnInit init;
+	wmManipulatorGroupFnInit setup;
 	/* refresh data, only called if recreate flag is set (WM_manipulatormap_tag_refresh) */
 	wmManipulatorGroupFnRefresh refresh;
 	/* refresh data for drawing, called before each redraw */
 	wmManipulatorGroupFnDrawPrepare draw_prepare;
 
-	/* keymap init callback for this manipulator-group */
-	struct wmKeyMap *(*keymap_init)(const struct wmManipulatorGroupType *, struct wmKeyConfig *);
+	/* Keymap init callback for this manipulator-group (optional),
+	 * will fall back to default tweak keymap when left NULL. */
+	struct wmKeyMap *(*setup_keymap)(const struct wmManipulatorGroupType *, struct wmKeyConfig *);
 	/* keymap created with callback from above */
 	struct wmKeyMap *keymap;
 

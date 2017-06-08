@@ -61,7 +61,7 @@ static bool WIDGETGROUP_node_transform_poll(const bContext *C, wmManipulatorGrou
 	return false;
 }
 
-static void WIDGETGROUP_node_transform_init(const bContext *UNUSED(C), wmManipulatorGroup *wgroup)
+static void WIDGETGROUP_node_transform_setup(const bContext *UNUSED(C), wmManipulatorGroup *wgroup)
 {
 	wmManipulatorWrapper *wwrapper = MEM_mallocN(sizeof(wmManipulatorWrapper), __func__);
 
@@ -111,6 +111,6 @@ void NODE_WGT_backdrop_transform(wmManipulatorGroupType *wgt)
 	wgt->idname = "NODE_WGT_backdrop_transform";
 
 	wgt->poll = WIDGETGROUP_node_transform_poll;
-	wgt->init = WIDGETGROUP_node_transform_init;
+	wgt->setup = WIDGETGROUP_node_transform_setup;
 	wgt->refresh = WIDGETGROUP_node_transform_refresh;
 }

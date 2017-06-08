@@ -594,10 +594,10 @@ static void IMAGE_WGT_manipulator2d(wmManipulatorGroupType *wgt)
 	wgt->name = "UV Transform Manipulator";
 	wgt->idname = "IMAGE_WGT_manipulator2d";
 
-	wgt->poll = WIDGETGROUP_manipulator2d_poll;
-	wgt->init = WIDGETGROUP_manipulator2d_init;
-	wgt->refresh = WIDGETGROUP_manipulator2d_refresh;
-	wgt->draw_prepare = WIDGETGROUP_manipulator2d_draw_prepare;
+	wgt->poll = ED_widgetgroup_manipulator2d_poll;
+	wgt->setup = ED_widgetgroup_manipulator2d_setup;
+	wgt->refresh = ED_widgetgroup_manipulator2d_refresh;
+	wgt->draw_prepare = ED_widgetgroup_manipulator2d_draw_prepare;
 }
 
 static void image_widgets(void)

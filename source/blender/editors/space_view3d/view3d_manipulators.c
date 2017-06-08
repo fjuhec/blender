@@ -71,7 +71,7 @@ static bool WIDGETGROUP_lamp_poll(const bContext *C, wmManipulatorGroupType *UNU
 	return false;
 }
 
-static void WIDGETGROUP_lamp_init(const bContext *UNUSED(C), wmManipulatorGroup *wgroup)
+static void WIDGETGROUP_lamp_setup(const bContext *UNUSED(C), wmManipulatorGroup *wgroup)
 {
 	const char *propname = "spot_size";
 
@@ -113,7 +113,7 @@ void VIEW3D_WGT_lamp(wmManipulatorGroupType *wgt)
 	wgt->idname = "VIEW3D_WGT_lamp";
 
 	wgt->poll = WIDGETGROUP_lamp_poll;
-	wgt->init = WIDGETGROUP_lamp_init;
+	wgt->setup = WIDGETGROUP_lamp_setup;
 	wgt->refresh = WIDGETGROUP_lamp_refresh;
 
 	wgt->flag |= (WM_MANIPULATORGROUPTYPE_IS_3D | WM_MANIPULATORGROUPTYPE_SCALE_3D);
@@ -164,7 +164,7 @@ static void cameragroup_property_setup(wmManipulator *widget, Object *ob, Camera
 	ED_manipulator_arrow3d_set_range_fac(widget, is_ortho ? (scale_fac * range) : (drawsize * range / half_sensor));
 }
 
-static void WIDGETGROUP_camera_init(const bContext *C, wmManipulatorGroup *wgroup)
+static void WIDGETGROUP_camera_setup(const bContext *C, wmManipulatorGroup *wgroup)
 {
 	Object *ob = CTX_data_active_object(C);
 	Camera *ca = ob->data;
@@ -285,7 +285,7 @@ void VIEW3D_WGT_camera(wmManipulatorGroupType *wgt)
 	wgt->idname = "VIEW3D_WGT_camera";
 
 	wgt->poll = WIDGETGROUP_camera_poll;
-	wgt->init = WIDGETGROUP_camera_init;
+	wgt->setup = WIDGETGROUP_camera_setup;
 	wgt->refresh = WIDGETGROUP_camera_refresh;
 
 	wgt->flag |= WM_MANIPULATORGROUPTYPE_IS_3D;
@@ -353,7 +353,7 @@ void VIEW3D_WGT_force_field(wmManipulatorGroupType *wgt)
 	wgt->idname = "VIEW3D_WGT_force_field";
 
 	wgt->poll = WIDGETGROUP_forcefield_poll;
-	wgt->init = WIDGETGROUP_forcefield_init;
+	wgt->setup = WIDGETGROUP_forcefield_init;
 	wgt->refresh = WIDGETGROUP_forcefield_refresh;
 
 	wgt->flag |= WM_MANIPULATORGROUPTYPE_IS_3D;
@@ -554,10 +554,10 @@ void VIEW3D_WGT_armature_facemaps(wmManipulatorGroupType *wgt)
 	wgt->idname = "VIEW3D_WGT_armature_facemaps";
 
 	wgt->poll = WIDGETGROUP_armature_facemaps_poll;
-	wgt->init = WIDGETGROUP_armature_facemaps_init;
+	wgt->setup = WIDGETGROUP_armature_facemaps_init;
 	wgt->refresh = WIDGETGROUP_armature_facemaps_refresh;
 
-	wgt->keymap_init = WM_manipulatorgroup_keymap_common_sel;
+	wgt->setup_keymap = WM_manipulatorgroup_keymap_common_sel;
 
 	wgt->flag |= (WM_MANIPULATORGROUPTYPE_IS_3D |
 	              WM_MANIPULATORGROUPTYPE_SCALE_3D |

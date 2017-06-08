@@ -457,16 +457,16 @@ static bool manipulatorgroup_poll(const bContext *C, wmManipulatorGroupType *wgt
 	return visible;
 }
 
-static void manipulatorgroup_init(const bContext *C, wmManipulatorGroup *wgroup)
+static void manipulatorgroup_setup(const bContext *C, wmManipulatorGroup *wgroup)
 {
-	extern FunctionRNA rna_ManipulatorGroup_init_manipulators_func;
+	extern FunctionRNA rna_ManipulatorGroup_setup_func;
 
 	PointerRNA wgroup_ptr;
 	ParameterList list;
 	FunctionRNA *func;
 
 	RNA_pointer_create(NULL, wgroup->type->ext.srna, wgroup, &wgroup_ptr);
-	func = &rna_ManipulatorGroup_init_manipulators_func; /* RNA_struct_find_function(&wgroupr, "draw"); */
+	func = &rna_ManipulatorGroup_setup_func; /* RNA_struct_find_function(&wgroupr, "setup"); */
 
 	RNA_parameter_list_create(&list, &wgroup_ptr, func);
 	RNA_parameter_set_lookup(&list, "context", &C);
@@ -475,9 +475,9 @@ static void manipulatorgroup_init(const bContext *C, wmManipulatorGroup *wgroup)
 	RNA_parameter_list_free(&list);
 }
 
-static wmKeyMap *manipulatorgroup_keymap_init(const wmManipulatorGroupType *wgt, wmKeyConfig *config)
+static wmKeyMap *manipulatorgroup_setup_keymap(const wmManipulatorGroupType *wgt, wmKeyConfig *config)
 {
-	extern FunctionRNA rna_ManipulatorGroup_init_keymap_func;
+	extern FunctionRNA rna_ManipulatorGroup_setup_keymap_func;
 	const char *wgroupname = wgt->name;
 	void *ret;
 
@@ -486,7 +486,7 @@ static wmKeyMap *manipulatorgroup_keymap_init(const wmManipulatorGroupType *wgt,
 	FunctionRNA *func;
 
 	RNA_pointer_create(NULL, wgt->ext.srna, NULL, &ptr); /* dummy */
-	func = &rna_ManipulatorGroup_init_keymap_func; /* RNA_struct_find_function(&wgroupr, "keymap_init"); */
+	func = &rna_ManipulatorGroup_setup_keymap_func; /* RNA_struct_find_function(&wgroupr, "setup_keymap"); */
 
 	RNA_parameter_list_create(&list, &ptr, func);
 	RNA_parameter_set_lookup(&list, "keyconfig", &config);
@@ -579,8 +579,8 @@ static StructRNA *rna_ManipulatorGroup_register(
 	/* We used to register widget group types like this, now we do it similar to
 	 * operator types. Thus we should be able to do the same as operator types now. */
 	dummywgt.poll = (have_function[0]) ? manipulatorgroup_poll : NULL;
-	dummywgt.keymap_init = (have_function[1]) ? manipulatorgroup_keymap_init : NULL;
-	dummywgt.init = (have_function[2]) ? manipulatorgroup_init : NULL;
+	dummywgt.setup_keymap = (have_function[1]) ? manipulatorgroup_setup_keymap : NULL;
+	dummywgt.setup = (have_function[2]) ? manipulatorgroup_setup : NULL;
 	/* XXX, expose */
 	dummywgt.flag = WM_MANIPULATORGROUPTYPE_IS_3D;
 
@@ -889,7 +889,7 @@ static void rna_def_manipulatorgroup(BlenderRNA *brna)
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 
 	/* keymap_init */
-	func = RNA_def_function(srna, "init_keymap", NULL);
+	func = RNA_def_function(srna, "setup_keymap", NULL);
 	RNA_def_function_ui_description(
 	        func,
 	        "Initialize keymaps for this manipulator group, use fallback keymap when not present");
@@ -906,7 +906,7 @@ static void rna_def_manipulatorgroup(BlenderRNA *brna)
 	RNA_def_function_return(func, parm);
 
 	/* draw */
-	func = RNA_def_function(srna, "init_manipulators", NULL);
+	func = RNA_def_function(srna, "setup", NULL);
 	RNA_def_function_ui_description(func, "Create manipulators function for the manipulator group");
 	RNA_def_function_flag(func, FUNC_REGISTER);
 	parm = RNA_def_pointer(func, "context", "Context", "", "");

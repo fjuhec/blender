@@ -166,7 +166,7 @@ BLI_INLINE void manipulator2d_origin_to_region(ARegion *ar, float *r_origin)
 /**
  * Custom handler for manipulator widgets
  */
-static void manipulator2d_handler(
+static void manipulator2d_modal(
         bContext *C, wmManipulator *widget, const wmEvent *UNUSED(event), const int UNUSED(flag))
 {
 	ARegion *ar = CTX_wm_region(C);
@@ -179,7 +179,7 @@ static void manipulator2d_handler(
 	ED_region_tag_redraw(ar);
 }
 
-void WIDGETGROUP_manipulator2d_init(const bContext *UNUSED(C), wmManipulatorGroup *wgroup)
+void ED_widgetgroup_manipulator2d_setup(const bContext *UNUSED(C), wmManipulatorGroup *wgroup)
 {
 	ManipulatorGroup2D *man = manipulatorgroup2d_init(wgroup);
 	wgroup->customdata = man;
@@ -192,7 +192,7 @@ void WIDGETGROUP_manipulator2d_init(const bContext *UNUSED(C), wmManipulatorGrou
 		manipulator2d_get_axis_color(axis_idx, col, col_hi);
 
 		/* custom handler! */
-		WM_manipulator_set_fn_custom_modal(axis, manipulator2d_handler);
+		WM_manipulator_set_fn_custom_modal(axis, manipulator2d_modal);
 		/* set up widget data */
 		ED_manipulator_arrow2d_set_angle(axis, -M_PI_2 * axis_idx);
 		ED_manipulator_arrow2d_set_line_len(axis, 0.8f);
@@ -213,7 +213,7 @@ void WIDGETGROUP_manipulator2d_init(const bContext *UNUSED(C), wmManipulatorGrou
 	MAN2D_ITER_AXES_END;
 }
 
-void WIDGETGROUP_manipulator2d_refresh(const bContext *C, wmManipulatorGroup *wgroup)
+void ED_widgetgroup_manipulator2d_refresh(const bContext *C, wmManipulatorGroup *wgroup)
 {
 	ManipulatorGroup2D *man = wgroup->customdata;
 	float origin[3];
@@ -222,7 +222,7 @@ void WIDGETGROUP_manipulator2d_refresh(const bContext *C, wmManipulatorGroup *wg
 	copy_v2_v2(man->origin, origin);
 }
 
-void WIDGETGROUP_manipulator2d_draw_prepare(const bContext *C, wmManipulatorGroup *wgroup)
+void ED_widgetgroup_manipulator2d_draw_prepare(const bContext *C, wmManipulatorGroup *wgroup)
 {
 	ManipulatorGroup2D *man = wgroup->customdata;
 	float origin[3] = {UNPACK2(man->origin), 0.0f};
@@ -240,7 +240,7 @@ void WIDGETGROUP_manipulator2d_draw_prepare(const bContext *C, wmManipulatorGrou
  * - Called on every redraw, better to do a more simple poll and check for selection in _refresh
  * - UV editing only, could be expanded for other things.
  */
-bool WIDGETGROUP_manipulator2d_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgt))
+bool ED_widgetgroup_manipulator2d_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgt))
 {
 	SpaceImage *sima = CTX_wm_space_image(C);
 	Object *obedit = CTX_data_edit_object(C);
