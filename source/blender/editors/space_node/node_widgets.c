@@ -42,7 +42,7 @@
 #include "node_intern.h"
 
 
-static bool WIDGETGROUP_node_transform_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgrouptype))
+static bool WIDGETGROUP_node_transform_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgt))
 {
 	SpaceNode *snode = CTX_wm_space_node(C);
 

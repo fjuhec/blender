@@ -89,11 +89,8 @@ wmManipulatorMap *WM_manipulatormap_new_from_type(const struct wmManipulatorMapT
 
 	/* create all manipulator-groups for this manipulator-map. We may create an empty one
 	 * too in anticipation of manipulators from operators etc */
-	for (wmManipulatorGroupType *mgrouptype = mmaptype->manipulator_grouptypes.first;
-	     mgrouptype;
-	     mgrouptype = mgrouptype->next)
-	{
-		wm_manipulatorgroup_new_from_type(mmap, mgrouptype);
+	for (wmManipulatorGroupType *wgt = mmaptype->manipulator_grouptypes.first; wgt; wgt = wgt->next) {
+		wm_manipulatorgroup_new_from_type(mmap, wgt);
 	}
 
 	return mmap;
@@ -410,8 +407,8 @@ void wm_manipulatormaps_handled_modal_update(
 		return;
 
 	/* hide operator manipulators */
-	if (!modal_running && ot->mgrouptype) {
-		ot->mgrouptype->op = NULL;
+	if (!modal_running && ot->mgroup_type) {
+		ot->mgroup_type->op = NULL;
 	}
 
 	wmManipulatorMap *mmap = handler->op_region->manipulator_map;
@@ -426,11 +423,11 @@ void wm_manipulatormaps_handled_modal_update(
 		if (manipulator && manipulator->opname &&
 		    STREQ(manipulator->opname, handler->op->idname))
 		{
-			if (manipulator->custom_handler) {
-				manipulator->custom_handler(C, manipulator, event, 0);
+			if (manipulator->custom_modal) {
+				manipulator->custom_modal(C, manipulator, event, 0);
 			}
-			else if (manipulator->type->handler) {
-				manipulator->type->handler(C, manipulator, event, 0);
+			else if (manipulator->type->modal) {
+				manipulator->type->modal(C, manipulator, event, 0);
 			}
 		}
 	}
@@ -646,7 +643,7 @@ void wm_manipulatormap_set_active_manipulator(
 			if (ot) {
 				/* first activate the manipulator itself */
 				if (manipulator->type->invoke &&
-				    (manipulator->type->handler || manipulator->custom_handler))
+				    (manipulator->type->modal || manipulator->custom_modal))
 				{
 					manipulator->type->invoke(C, manipulator, event);
 				}
@@ -657,10 +654,7 @@ void wm_manipulatormap_set_active_manipulator(
 				if (!mmap->mmap_context.active_manipulator) {
 					manipulator->state &= ~WM_MANIPULATOR_STATE_ACTIVE;
 					/* first activate the manipulator itself */
-					if (manipulator->interaction_data) {
-						MEM_freeN(manipulator->interaction_data);
-						manipulator->interaction_data = NULL;
-					}
+					MEM_SAFE_FREE(manipulator->interaction_data);
 				}
 				return;
 			}
@@ -672,7 +666,7 @@ void wm_manipulatormap_set_active_manipulator(
 		}
 		else {
 			if (manipulator->type->invoke &&
-			    (manipulator->type->handler || manipulator->custom_handler))
+			    (manipulator->type->modal || manipulator->custom_modal))
 			{
 				manipulator->type->invoke(C, manipulator, event);
 			}
@@ -687,10 +681,7 @@ void wm_manipulatormap_set_active_manipulator(
 		if (manipulator) {
 			manipulator->state &= ~WM_MANIPULATOR_STATE_ACTIVE;
 			/* first activate the manipulator itself */
-			if (manipulator->interaction_data) {
-				MEM_freeN(manipulator->interaction_data);
-				manipulator->interaction_data = NULL;
-			}
+			MEM_SAFE_FREE(manipulator->interaction_data);
 		}
 		mmap->mmap_context.active_manipulator = NULL;
 
@@ -762,14 +753,14 @@ void wm_manipulatormaptypes_free(void)
 void wm_manipulators_keymap(wmKeyConfig *keyconf)
 {
 	wmManipulatorMapType *mmaptype;
-	wmManipulatorGroupType *mgrouptype;
+	wmManipulatorGroupType *wgt;
 
 	/* we add this item-less keymap once and use it to group manipulator-group keymaps into it */
 	WM_keymap_find(keyconf, "Manipulators", 0, 0);
 
 	for (mmaptype = manipulatormaptypes.first; mmaptype; mmaptype = mmaptype->next) {
-		for (mgrouptype = mmaptype->manipulator_grouptypes.first; mgrouptype; mgrouptype = mgrouptype->next) {
-			wm_manipulatorgrouptype_keymap_init(mgrouptype, keyconf);
+		for (wgt = mmaptype->manipulator_grouptypes.first; wgt; wgt = wgt->next) {
+			wm_manipulatorgrouptype_keymap_init(wgt, keyconf);
 		}
 	}
 }

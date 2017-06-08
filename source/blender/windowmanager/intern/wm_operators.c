@@ -177,8 +177,8 @@ static void wm_operatortype_append__end(wmOperatorType *ot)
 		ot->name = N_("Dummy Name");
 	}
 
-	if (ot->mgrouptype) {
-		ot->mgrouptype->flag |= WM_MANIPULATORGROUPTYPE_OP;
+	if (ot->mgroup_type) {
+		ot->mgroup_type->flag |= WM_MANIPULATORGROUPTYPE_OP;
 	}
 
 	/* XXX All ops should have a description but for now allow them not to. */
@@ -498,8 +498,8 @@ void WM_operatortype_remove_ptr(wmOperatorType *ot)
 	BLI_ghash_remove(global_ops_hash, ot->idname, NULL, NULL);
 
 	WM_keyconfig_update_operatortype();
-	if (ot->mgrouptype) {
-		WM_manipulatorgrouptype_remove_ptr(NULL, G.main, ot->mgrouptype);
+	if (ot->mgroup_type) {
+		WM_manipulatorgrouptype_remove_ptr(NULL, G.main, ot->mgroup_type);
 	}
 
 	MEM_freeN(ot);

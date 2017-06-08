@@ -161,7 +161,7 @@ void TRANSFORM_WGT_manipulator(struct wmManipulatorGroupType *wgt);
 
 void TRANSFORM_WGT_object(struct wmManipulatorGroupType *wgt);
 
-bool WIDGETGROUP_manipulator2d_poll(const struct bContext *C, struct wmManipulatorGroupType *wgrouptype);
+bool WIDGETGROUP_manipulator2d_poll(const struct bContext *C, struct wmManipulatorGroupType *wgt);
 void WIDGETGROUP_manipulator2d_init(const struct bContext *C, struct wmManipulatorGroup *wgroup);
 void WIDGETGROUP_manipulator2d_refresh(const struct bContext *C, struct wmManipulatorGroup *wgroup);
 void WIDGETGROUP_manipulator2d_draw_prepare(const struct bContext *C, struct wmManipulatorGroup *wgroup);

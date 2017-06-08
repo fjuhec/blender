@@ -61,7 +61,7 @@ void MANIPULATORGROUP_OT_manipulator_tweak(struct wmOperatorType *ot);
 
 void  wm_manipulatorgroup_attach_to_modal_handler(
         struct bContext *C, struct wmEventHandler *handler,
-        struct wmManipulatorGroupType *mgrouptype, struct wmOperator *op);
+        struct wmManipulatorGroupType *wgt, struct wmOperator *op);
 
 /* -------------------------------------------------------------------- */
 /* wmManipulatorMap */

@@ -68,7 +68,7 @@ void WM_manipulator_set_property(struct wmManipulator *, int slot, struct Pointe
 struct PointerRNA *WM_manipulator_set_operator(struct wmManipulator *, const char *opname);
 
 /* callbacks */
-void WM_manipulator_set_fn_custom_handler(struct wmManipulator *manipulator, wmManipulatorFnHandler fn);
+void WM_manipulator_set_fn_custom_modal(struct wmManipulator *manipulator, wmManipulatorFnModal fn);
 
 void WM_manipulator_set_origin(struct wmManipulator *manipulator, const float origin[3]);
 void WM_manipulator_set_offset(struct wmManipulator *manipulator, const float offset[3]);
@@ -112,14 +112,14 @@ struct wmManipulatorGroupType *WM_manipulatorgrouptype_append_ptr_runtime(
 
 void WM_manipulatorgrouptype_init_runtime(
         const struct Main *bmain, struct wmManipulatorMapType *mmaptype,
-        struct wmManipulatorGroupType *mgrouptype);
+        struct wmManipulatorGroupType *wgt);
 void WM_manipulatorgrouptype_remove_ptr(
         struct bContext *C, struct Main *bmain, struct wmManipulatorGroupType *mgroup);
 
 struct wmKeyMap *WM_manipulatorgroup_keymap_common(
-        const struct wmManipulatorGroupType *mgrouptype, struct wmKeyConfig *config);
+        const struct wmManipulatorGroupType *wgt, struct wmKeyConfig *config);
 struct wmKeyMap *WM_manipulatorgroup_keymap_common_sel(
-        const struct wmManipulatorGroupType *mgrouptype, struct wmKeyConfig *config);
+        const struct wmManipulatorGroupType *wgt, struct wmKeyConfig *config);
 
 
 /* -------------------------------------------------------------------- */

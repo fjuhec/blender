@@ -60,7 +60,7 @@
 /** \name Lamp Manipulators
  * \{ */
 
-static bool WIDGETGROUP_lamp_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgrouptype))
+static bool WIDGETGROUP_lamp_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgt))
 {
 	Object *ob = CTX_data_active_object(C);
 
@@ -132,7 +132,7 @@ struct CameraWidgetGroup {
 	wmManipulator *ortho_scale;
 };
 
-static bool WIDGETGROUP_camera_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgrouptype))
+static bool WIDGETGROUP_camera_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgt))
 {
 	Object *ob = CTX_data_active_object(C);
 
@@ -297,7 +297,7 @@ void VIEW3D_WGT_camera(wmManipulatorGroupType *wgt)
 /** \name Force Field Manipulators
  * \{ */
 
-static bool WIDGETGROUP_forcefield_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgrouptype))
+static bool WIDGETGROUP_forcefield_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgt))
 {
 	Object *ob = CTX_data_active_object(C);
 
@@ -367,7 +367,7 @@ void VIEW3D_WGT_force_field(wmManipulatorGroupType *wgt)
 #define MAX_ARMATURE_FACEMAP_NAME (2 * MAX_NAME + 1) /* "OBJECTNAME_FACEMAPNAME" */
 
 
-static bool WIDGETGROUP_armature_facemaps_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgrouptype))
+static bool WIDGETGROUP_armature_facemaps_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgt))
 {
 	Object *ob = CTX_data_active_object(C);
 

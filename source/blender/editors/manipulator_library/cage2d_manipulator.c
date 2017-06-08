@@ -414,7 +414,7 @@ static void manipulator_rect_transform_invoke(
 	manipulator->interaction_data = data;
 }
 
-static void manipulator_rect_transform_handler(
+static void manipulator_rect_transform_modal(
         bContext *C, wmManipulator *manipulator, const wmEvent *event,
         const int UNUSED(flag))
 {
@@ -580,7 +580,7 @@ static void MANIPULATOR_WT_cage(wmManipulatorType *wt)
 	wt->draw = manipulator_rect_transform_draw;
 	wt->invoke = manipulator_rect_transform_invoke;
 	wt->prop_data_update = manipulator_rect_transform_prop_data_update;
-	wt->handler = manipulator_rect_transform_handler;
+	wt->modal = manipulator_rect_transform_modal;
 	wt->intersect = manipulator_rect_transform_intersect;
 	wt->exit = manipulator_rect_transform_exit;
 	wt->cursor_get = manipulator_rect_transform_get_cursor;

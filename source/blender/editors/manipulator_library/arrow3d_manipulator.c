@@ -255,7 +255,7 @@ static void manipulator_arrow_draw(const bContext *UNUSED(C), wmManipulator *man
  * Calculate arrow offset independent from prop min value,
  * meaning the range will not be offset by min value first.
  */
-static void manipulator_arrow_handler(bContext *C, wmManipulator *manipulator, const wmEvent *event, const int flag)
+static void manipulator_arrow_modal(bContext *C, wmManipulator *manipulator, const wmEvent *event, const int flag)
 {
 	ArrowManipulator3D *arrow = (ArrowManipulator3D *)manipulator;
 	ManipulatorInteraction *inter = manipulator->interaction_data;
@@ -534,7 +534,7 @@ static void MANIPULATOR_WT_arrow_3d(wmManipulatorType *wt)
 	wt->draw_select = manipulator_arrow_render_3d_intersect;
 	wt->position_get = manipulator_arrow_get_final_pos;
 	wt->intersect = NULL;
-	wt->handler = manipulator_arrow_handler;
+	wt->modal = manipulator_arrow_modal;
 	wt->invoke = manipulator_arrow_invoke;
 	wt->prop_data_update = manipulator_arrow_prop_data_update;
 	wt->exit = manipulator_arrow_exit;

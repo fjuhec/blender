@@ -440,9 +440,9 @@ void WM_manipulator_set_fn_intersect(wmManipulator *mpr, wmManipulatorFnIntersec
 	mpr->type->intersect = fn;
 }
 #endif
-void WM_manipulator_set_fn_custom_handler(struct wmManipulator *mpr, wmManipulatorFnHandler fn)
+void WM_manipulator_set_fn_custom_modal(struct wmManipulator *mpr, wmManipulatorFnModal fn)
 {
-	mpr->custom_handler = fn;
+	mpr->custom_modal = fn;
 }
 #if 0
 void WM_manipulator_set_fn_prop_data_update(struct wmManipulator *mpr, wmManipulatorFnPropDataUpdate fn)

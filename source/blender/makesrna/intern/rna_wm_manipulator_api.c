@@ -73,10 +73,10 @@ void RNA_api_manipulator(StructRNA *srna)
 }
 
 
-void RNA_api_manipulatorgroup(StructRNA *srna)
+void RNA_api_manipulatorgroup(StructRNA *UNUSED(srna))
 {
-	FunctionRNA *func;
-	PropertyRNA *parm;
+//	FunctionRNA *func;
+//	PropertyRNA *parm;
 
 #if 0
 	/* utility, not for registering */
@@ -87,38 +87,6 @@ void RNA_api_manipulatorgroup(StructRNA *srna)
 	RNA_def_property_flag(parm, PROP_REQUIRED);
 #endif
 
-
-	/* Registration */
-
-	/* poll */
-	func = RNA_def_function(srna, "poll", NULL);
-	RNA_def_function_ui_description(func, "Test if the operator can be called or not");
-	RNA_def_function_flag(func, FUNC_NO_SELF | FUNC_REGISTER_OPTIONAL);
-	RNA_def_function_return(func, RNA_def_boolean(func, "visible", 1, "", ""));
-	parm = RNA_def_pointer(func, "context", "Context", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-
-	/* keymap_init */
-	func = RNA_def_function(srna, "keymap_init", NULL);
-	RNA_def_function_ui_description(func, "Initialize keymaps for this manipulator group");
-	RNA_def_function_flag(func, FUNC_NO_SELF | FUNC_REGISTER);
-	parm = RNA_def_pointer(func, "keyconf", "KeyConfig", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-	parm = RNA_def_property(func, "manipulator_group", PROP_STRING, PROP_NONE);
-	RNA_def_property_ui_text(parm, "Manipulator Group", "Manipulator Group ID");
-	// RNA_def_property_string_default(parm, "");
-	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
-
-	parm = RNA_def_pointer(func, "keymap", "KeyMap", "", "");
-	RNA_def_property_flag(parm, PROP_NEVER_NULL);
-	RNA_def_function_return(func, parm);
-
-	/* draw */
-	func = RNA_def_function(srna, "draw", NULL);
-	RNA_def_function_ui_description(func, "Draw function for the operator");
-	RNA_def_function_flag(func, FUNC_REGISTER);
-	parm = RNA_def_pointer(func, "context", "Context", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 }
 
 #endif

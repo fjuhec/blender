@@ -1739,8 +1739,8 @@ static int wm_handler_operator_call(bContext *C, ListBase *handlers, wmEventHand
 			wm_event_modalkeymap(C, op, event, &dbl_click_disabled);
 
 			/* attach manipulator-map to handler if not there yet */
-			if (ot->mgrouptype && !handler->manipulator_map) {
-				wm_manipulatorgroup_attach_to_modal_handler(C, handler, ot->mgrouptype, op);
+			if (ot->mgroup_type && !handler->manipulator_map) {
+				wm_manipulatorgroup_attach_to_modal_handler(C, handler, ot->mgroup_type, op);
 			}
 
 			if (ot->flag & OPTYPE_UNDO)

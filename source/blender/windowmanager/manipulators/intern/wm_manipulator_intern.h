@@ -56,7 +56,7 @@ enum {
 };
 
 struct wmManipulatorGroup *wm_manipulatorgroup_new_from_type(
-        struct wmManipulatorMap *mmap, struct wmManipulatorGroupType *mgrouptype);
+        struct wmManipulatorMap *mmap, struct wmManipulatorGroupType *mgroup_type);
 void wm_manipulatorgroup_free(bContext *C, struct wmManipulatorGroup *mgroup);
 void wm_manipulatorgroup_manipulator_register(struct wmManipulatorGroup *mgroup, struct wmManipulator *manipulator);
 struct wmManipulator *wm_manipulatorgroup_find_intersected_mainpulator(
@@ -68,7 +68,7 @@ void wm_manipulatorgroup_ensure_initialized(struct wmManipulatorGroup *mgroup, c
 bool wm_manipulatorgroup_is_visible(const struct wmManipulatorGroup *mgroup, const struct bContext *C);
 bool wm_manipulatorgroup_is_visible_in_drawstep(const struct wmManipulatorGroup *mgroup, const int drawstep);
 
-void wm_manipulatorgrouptype_keymap_init(struct wmManipulatorGroupType *mgrouptype, struct wmKeyConfig *keyconf);
+void wm_manipulatorgrouptype_keymap_init(struct wmManipulatorGroupType *wgt, struct wmKeyConfig *keyconf);
 
 
 /* -------------------------------------------------------------------- */

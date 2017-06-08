@@ -58,9 +58,7 @@ struct wmManipulator {
 	const struct wmManipulatorType *type;
 
 	/* Overrides 'type->handler' when set. */
-	wmManipulatorFnHandler custom_handler;
-
-	void *custom_data;
+	wmManipulatorFnModal custom_modal;
 
 	/* pointer back to group this manipulator is in (just for quick access) */
 	struct wmManipulatorGroup *parent_mgroup;
@@ -152,7 +150,7 @@ typedef struct wmManipulatorType {
 	wmManipulatorFnIntersect intersect;
 
 	/* handler used by the manipulator. Usually handles interaction tied to a manipulator type */
-	wmManipulatorFnHandler handler;
+	wmManipulatorFnModal modal;
 
 	/* manipulator-specific handler to update manipulator attributes based on the property value */
 	wmManipulatorFnPropDataUpdate prop_data_update;
@@ -214,9 +212,6 @@ typedef struct wmManipulatorGroupType {
 	ExtensionRNA ext;
 
 	int flag;
-
-	/* Weak, but needed to store which functions we have. */
-	int rna_func_flag;
 
 	/* if type is spawned from operator this is set here */
 	void *op;
