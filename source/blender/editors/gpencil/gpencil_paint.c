@@ -1882,6 +1882,12 @@ static void gpencil_draw_exit(bContext *C, wmOperator *op)
 	if (p->sa->spacetype != SPACE_VIEW3D) {
 		WM_cursor_modal_restore(CTX_wm_window(C));
 	}
+	else {
+		/* or restore paint if 3D view */
+		if ((p) && (p->paintmode == GP_PAINTMODE_ERASER)) {
+			WM_cursor_modal_set(p->win, BC_PAINTBRUSHCURSOR);
+		}
+	}
 	/* don't assume that operator data exists at all */
 	if (p) {
 		/* check size of buffer before cleanup, to determine if anything happened here */
