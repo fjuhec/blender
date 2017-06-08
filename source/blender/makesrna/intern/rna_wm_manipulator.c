@@ -252,12 +252,13 @@ static void rna_Manipulator_color_hi_set(PointerRNA *ptr, const float *values)
 	WM_manipulator_set_color_highlight(mnp, values);
 }
 
+static void rna_Manipulator_unregister(struct Main *bmain, StructRNA *type);
 void manipulator_wrapper(wmManipulatorType *wgt, void *userdata);
 
 static char _manipulator_idname[OP_MAX_TYPENAME];
 
 static StructRNA *rna_Manipulator_register(
-        Main *UNUSED(bmain), ReportList *reports, void *data, const char *identifier,
+        Main *bmain, ReportList *reports, void *data, const char *identifier,
         StructValidateFunc validate, StructCallbackFunc call, StructFreeFunc free)
 {
 	wmManipulatorType dummywt = {NULL};
@@ -286,17 +287,12 @@ static StructRNA *rna_Manipulator_register(
 	}
 
 	/* check if we have registered this manipulator type before, and remove it */
-
-	/* TODO: unregister */
-#if 0
 	{
-		const wmManipulatorType *wtype = WM_manipulatortype_find(dummywt.idname, true);
-		if (wtype && wtype->ext.srna) {
-			WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);
-			WM_manipulatortype_unregister(NULL, bmain, wtype);
+		const wmManipulatorType *wt = WM_manipulatortype_find(dummywt.idname, true);
+		if (wt && wt->ext.srna) {
+			rna_Manipulator_unregister(bmain, wt->ext.srna);
 		}
 	}
-#endif
 
 	/* create a new manipulator type */
 	dummywt.ext.srna = RNA_def_struct_ptr(&BLENDER_RNA, dummywt.idname, &RNA_Manipulator);
@@ -332,9 +328,11 @@ static StructRNA *rna_Manipulator_register(
 	return dummywt.ext.srna;
 }
 
-static void rna_Manipulator_unregister(struct Main *bmain, StructRNA *type)
+static void rna_Manipulator_unregister(struct Main *UNUSED(bmain), StructRNA *type)
 {
 	wmManipulatorType *wt = RNA_struct_blender_type_get(type);
+
+	/* TODO, remove widgets from interface! */
 
 	if (!wt)
 		return;
@@ -343,8 +341,7 @@ static void rna_Manipulator_unregister(struct Main *bmain, StructRNA *type)
 
 	RNA_struct_free_extension(type, &wt->ext);
 
-	WM_manipulatortype_unregister(wt);
-	//WM_operatortype_remove_ptr(ot);
+	WM_manipulatortype_remove_ptr(wt);
 
 	RNA_struct_free(&BLENDER_RNA, type);
 }
@@ -367,9 +364,14 @@ static StructRNA *rna_Manipulator_refine(PointerRNA *mnp_ptr)
  * \{ */
 
 static wmManipulator *rna_ManipulatorGroup_manipulator_new(
-        wmManipulatorGroup *mgroup, const char *idname, const char *name)
+        wmManipulatorGroup *mgroup, ReportList *reports, const char *idname, const char *name)
 {
-	wmManipulator *mpr = WM_manipulator_new(idname, mgroup, name);
+	const wmManipulatorType *wt = WM_manipulatortype_find(idname, true);
+	if (wt == NULL) {
+		BKE_reportf(reports, RPT_ERROR, "ManipulatorType '%s' not known", idname);
+		return NULL;
+	}
+	wmManipulator *mpr = WM_manipulator_new_ptr(wt, mgroup, name);
 	return mpr;
 }
 
@@ -536,7 +538,7 @@ static StructRNA *rna_ManipulatorGroup_register(
 		wmManipulatorGroupType *wgt = WM_manipulatorgrouptype_find(wmaptype, dummywgt.idname);
 		if (wgt && wgt->ext.srna) {
 			WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);
-			WM_manipulatorgrouptype_unregister(NULL, bmain, wgt);
+			WM_manipulatorgrouptype_remove_ptr(NULL, bmain, wgt);
 		}
 	}
 
@@ -581,10 +583,7 @@ static StructRNA *rna_ManipulatorGroup_register(
 
 static void rna_ManipulatorGroup_unregister(struct Main *bmain, StructRNA *type)
 {
-	//const char *idname;
 	wmManipulatorGroupType *wgt = RNA_struct_blender_type_get(type);
-	//wmWindowManager *wm;
-	//wmManipulatorMapType *wmap = NULL;
 
 	if (!wgt)
 		return;
@@ -593,8 +592,7 @@ static void rna_ManipulatorGroup_unregister(struct Main *bmain, StructRNA *type)
 
 	RNA_struct_free_extension(type, &wgt->ext);
 
-	WM_manipulatorgrouptype_unregister(NULL, bmain, wgt);
-	//WM_operatortype_remove_ptr(ot);
+	WM_manipulatorgrouptype_remove_ptr(NULL, bmain, wgt);
 
 	RNA_struct_free(&BLENDER_RNA, type);
 }
@@ -634,6 +632,7 @@ static void rna_def_manipulators(BlenderRNA *brna, PropertyRNA *cprop)
 
 	func = RNA_def_function(srna, "new", "rna_ManipulatorGroup_manipulator_new");
 	RNA_def_function_ui_description(func, "Add manipulator");
+	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_string(func, "type", "Type", 0, "", "Manipulator identifier"); /* optional */
 	RNA_def_string(func, "name", "Name", 0, "", "Manipulator name"); /* optional */
 	parm = RNA_def_pointer(func, "manipulator", "Manipulator", "", "New manipulator");
@@ -725,7 +724,7 @@ static void rna_def_manipulator(BlenderRNA *brna, PropertyRNA *cprop)
 
 	/* wmManipulator.handler */
 	static EnumPropertyItem tweak_actions[] = {
-		{1 /* WM_MANIPULATOR_TWEAK_PRECISE */, "PRECISE", 0, "Precise", ""},
+		{WM_MANIPULATOR_TWEAK_PRECISE, "PRECISE", 0, "Precise", ""},
 		{0, NULL, 0, NULL, NULL}
 	};
 	func = RNA_def_function(srna, "handler", NULL);

@@ -499,7 +499,7 @@ void WM_operatortype_remove_ptr(wmOperatorType *ot)
 
 	WM_keyconfig_update_operatortype();
 	if (ot->mgrouptype) {
-		WM_manipulatorgrouptype_unregister(NULL, G.main, ot->mgrouptype);
+		WM_manipulatorgrouptype_remove_ptr(NULL, G.main, ot->mgrouptype);
 	}
 
 	MEM_freeN(ot);

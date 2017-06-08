@@ -611,7 +611,7 @@ void WM_manipulatorgrouptype_init_runtime(
 	}
 }
 
-void WM_manipulatorgrouptype_unregister(bContext *C, Main *bmain, wmManipulatorGroupType *mgrouptype)
+void WM_manipulatorgrouptype_remove_ptr(bContext *C, Main *bmain, wmManipulatorGroupType *mgrouptype)
 {
 	for (bScreen *sc = bmain->screen.first; sc; sc = sc->id.next) {
 		for (ScrArea *sa = sc->areabase.first; sa; sa = sa->next) {

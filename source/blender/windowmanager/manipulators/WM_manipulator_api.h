@@ -85,7 +85,8 @@ void WM_manipulator_set_color_highlight(struct wmManipulator *manipulator, const
 const struct wmManipulatorType *WM_manipulatortype_find(const char *idname, bool quiet);
 void WM_manipulatortype_append(void (*wtfunc)(struct wmManipulatorType *));
 void WM_manipulatortype_append_ptr(void (*mnpfunc)(struct wmManipulatorType *, void *), void *userdata);
-void WM_manipulatortype_unregister(struct wmManipulatorType *wt);
+bool WM_manipulatortype_remove(const char *idname);
+void WM_manipulatortype_remove_ptr(struct wmManipulatorType *wt);
 void WM_manipulatortype_iter(struct GHashIterator *ghi);
 
 /* -------------------------------------------------------------------- */
@@ -112,7 +113,7 @@ struct wmManipulatorGroupType *WM_manipulatorgrouptype_append_ptr_runtime(
 void WM_manipulatorgrouptype_init_runtime(
         const struct Main *bmain, struct wmManipulatorMapType *mmaptype,
         struct wmManipulatorGroupType *mgrouptype);
-void WM_manipulatorgrouptype_unregister(
+void WM_manipulatorgrouptype_remove_ptr(
         struct bContext *C, struct Main *bmain, struct wmManipulatorGroupType *mgroup);
 
 struct wmKeyMap *WM_manipulatorgroup_keymap_common(

@@ -133,20 +133,44 @@ void WM_manipulatortype_append_ptr(void (*wtfunc)(struct wmManipulatorType *, vo
 	wm_manipulatortype_append__end(mt);
 }
 
-void WM_manipulatortype_unregister(wmManipulatorType *UNUSED(wt))
+/**
+ * Free but don't remove from ghash.
+ */
+static void manipulatortype_free(wmManipulatorType *wt)
 {
-	/* TODO */
-	BLI_assert(0);
+	MEM_freeN(wt);
 }
 
-static void manipulatortype_ghash_free_cb(wmManipulatorType *mt)
+void WM_manipulatortype_remove_ptr(wmManipulatorType *wt)
 {
-	MEM_freeN(mt);
+	BLI_assert(wt == WM_manipulatortype_find(wt->idname, false));
+
+	BLI_ghash_remove(global_manipulatortype_hash, wt->idname, NULL, NULL);
+
+	manipulatortype_free(wt);
+}
+
+bool WM_manipulatortype_remove(const char *idname)
+{
+	wmManipulatorType *wt = BLI_ghash_lookup(global_manipulatortype_hash, idname);
+
+	if (wt == NULL) {
+		return false;
+	}
+
+	WM_manipulatortype_remove_ptr(wt);
+
+	return true;
+}
+
+static void wm_manipulatortype_ghash_free_cb(wmManipulatorType *mt)
+{
+	manipulatortype_free(mt);
 }
 
 void wm_manipulatortype_free(void)
 {
-	BLI_ghash_free(global_manipulatortype_hash, NULL, (GHashValFreeFP)manipulatortype_ghash_free_cb);
+	BLI_ghash_free(global_manipulatortype_hash, NULL, (GHashValFreeFP)wm_manipulatortype_ghash_free_cb);
 	global_manipulatortype_hash = NULL;
 }
 
