@@ -581,8 +581,6 @@ static StructRNA *rna_ManipulatorGroup_register(
 	dummywgt.poll = (have_function[0]) ? manipulatorgroup_poll : NULL;
 	dummywgt.setup_keymap = (have_function[1]) ? manipulatorgroup_setup_keymap : NULL;
 	dummywgt.setup = (have_function[2]) ? manipulatorgroup_setup : NULL;
-	/* XXX, expose */
-	dummywgt.flag = WM_MANIPULATORGROUPTYPE_IS_3D;
 
 	WM_manipulatorgrouptype_append_ptr(wmaptype, manipulatorgroup_wrapper, (void *)&dummywgt);
 
@@ -704,7 +702,6 @@ static void rna_def_manipulator(BlenderRNA *brna, PropertyRNA *cprop)
 
 	RNA_define_verify_sdna(1); /* not in sdna */
 
-
 	/* wmManipulator.draw */
 	func = RNA_def_function(srna, "draw", NULL);
 	RNA_def_function_ui_description(func, "");
@@ -746,8 +743,6 @@ static void rna_def_manipulator(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_ui_description(func, "");
 	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL);
 	parm = RNA_def_pointer(func, "context", "Context", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-	parm = RNA_def_pointer(func, "manipulator", "Manipulator", "", "");
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 	parm = RNA_def_pointer(func, "event", "Event", "", "");
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
@@ -870,15 +865,27 @@ static void rna_def_manipulatorgroup(BlenderRNA *brna)
 	RNA_def_property_flag(prop, PROP_REGISTER);
 	RNA_def_property_ui_text(prop, "Region Type", "The region where the panel is going to be used in");
 
-#if 0
+	/* bl_options */
+	static EnumPropertyItem manipulatorgroup_flag_items[] = {
+		{WM_MANIPULATORGROUPTYPE_3D, "3D", 0, "3D",
+		 "Use in 3D viewport"},
+		{WM_MANIPULATORGROUPTYPE_SCALE_3D, "SCALE_3D", 0, "Scale 3D",
+		 "Scale manipulators as 3D object that respects zoom (otherwise zoom independent draw size)"},
+		{WM_MANIPULATORGROUPTYPE_DEPTH_3D, "DEPTH_3D", 0, "Depth 3D",
+		 "Supports culled depth by other objects in the view"},
+		{WM_MANIPULATORGROUPTYPE_SELECT, "SELECT", 0, "Select",
+		 "Supports selection"},
+		{WM_MANIPULATORGROUPTYPE_OP, "OPERATOR", 0, "Operator",
+		 "Attached to operator, and is only accessible as long as this runs"},
+		{0, NULL, 0, NULL, NULL}
+	};
 	prop = RNA_def_property(srna, "bl_options", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "type->flag");
-	RNA_def_property_enum_items(prop, manipulator_flag_items);
+	RNA_def_property_enum_items(prop, manipulatorgroup_flag_items);
 	RNA_def_property_flag(prop, PROP_REGISTER_OPTIONAL | PROP_ENUM_FLAG);
-	RNA_def_property_ui_text(prop, "Options",  "Options for this manipulator type");
-#endif
+	RNA_def_property_ui_text(prop, "Options",  "Options for this operator type");
 
-	/* Registration */
+	/* Functions */
 
 	/* poll */
 	func = RNA_def_function(srna, "poll", NULL);

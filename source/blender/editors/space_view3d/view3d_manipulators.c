@@ -116,7 +116,7 @@ void VIEW3D_WGT_lamp(wmManipulatorGroupType *wgt)
 	wgt->setup = WIDGETGROUP_lamp_setup;
 	wgt->refresh = WIDGETGROUP_lamp_refresh;
 
-	wgt->flag |= (WM_MANIPULATORGROUPTYPE_IS_3D | WM_MANIPULATORGROUPTYPE_SCALE_3D);
+	wgt->flag |= (WM_MANIPULATORGROUPTYPE_3D | WM_MANIPULATORGROUPTYPE_SCALE_3D);
 }
 
 /** \} */
@@ -288,7 +288,7 @@ void VIEW3D_WGT_camera(wmManipulatorGroupType *wgt)
 	wgt->setup = WIDGETGROUP_camera_setup;
 	wgt->refresh = WIDGETGROUP_camera_refresh;
 
-	wgt->flag |= WM_MANIPULATORGROUPTYPE_IS_3D;
+	wgt->flag |= WM_MANIPULATORGROUPTYPE_3D;
 }
 
 /** \} */
@@ -356,7 +356,7 @@ void VIEW3D_WGT_force_field(wmManipulatorGroupType *wgt)
 	wgt->setup = WIDGETGROUP_forcefield_init;
 	wgt->refresh = WIDGETGROUP_forcefield_refresh;
 
-	wgt->flag |= WM_MANIPULATORGROUPTYPE_IS_3D;
+	wgt->flag |= WM_MANIPULATORGROUPTYPE_3D;
 }
 
 /** \} */
@@ -559,9 +559,9 @@ void VIEW3D_WGT_armature_facemaps(wmManipulatorGroupType *wgt)
 
 	wgt->setup_keymap = WM_manipulatorgroup_keymap_common_sel;
 
-	wgt->flag |= (WM_MANIPULATORGROUPTYPE_IS_3D |
+	wgt->flag |= (WM_MANIPULATORGROUPTYPE_3D |
 	              WM_MANIPULATORGROUPTYPE_SCALE_3D |
-	              WM_MANIPULATORGROUPTYPE_SELECTABLE);
+	              WM_MANIPULATORGROUPTYPE_SELECT);
 }
 
 /** \} */

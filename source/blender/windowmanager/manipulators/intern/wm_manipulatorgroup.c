@@ -177,8 +177,8 @@ void wm_manipulatorgroup_intersectable_manipulators_to_list(const wmManipulatorG
 {
 	for (wmManipulator *manipulator = mgroup->manipulators.first; manipulator; manipulator = manipulator->next) {
 		if ((manipulator->flag & WM_MANIPULATOR_HIDDEN) == 0) {
-			if (((mgroup->type->flag & WM_MANIPULATORGROUPTYPE_IS_3D) && manipulator->type->draw_select) ||
-			    ((mgroup->type->flag & WM_MANIPULATORGROUPTYPE_IS_3D) == 0 && manipulator->type->intersect))
+			if (((mgroup->type->flag & WM_MANIPULATORGROUPTYPE_3D) && manipulator->type->draw_select) ||
+			    ((mgroup->type->flag & WM_MANIPULATORGROUPTYPE_3D) == 0 && manipulator->type->intersect))
 			{
 				BLI_addhead(listbase, BLI_genericNodeN(manipulator));
 			}
@@ -215,11 +215,11 @@ bool wm_manipulatorgroup_is_visible_in_drawstep(const wmManipulatorGroup *mgroup
 {
 	switch (drawstep) {
 		case WM_MANIPULATORMAP_DRAWSTEP_2D:
-			return (mgroup->type->flag & WM_MANIPULATORGROUPTYPE_IS_3D) == 0;
+			return (mgroup->type->flag & WM_MANIPULATORGROUPTYPE_3D) == 0;
 		case WM_MANIPULATORMAP_DRAWSTEP_3D:
-			return (mgroup->type->flag & WM_MANIPULATORGROUPTYPE_IS_3D);
+			return (mgroup->type->flag & WM_MANIPULATORGROUPTYPE_3D);
 		case WM_MANIPULATORMAP_DRAWSTEP_IN_SCENE:
-			return (mgroup->type->flag & WM_MANIPULATORGROUPTYPE_SCENE_DEPTH);
+			return (mgroup->type->flag & WM_MANIPULATORGROUPTYPE_DEPTH_3D);
 		default:
 			BLI_assert(0);
 			return false;

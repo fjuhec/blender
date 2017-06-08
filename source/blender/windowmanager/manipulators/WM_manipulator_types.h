@@ -227,13 +227,13 @@ typedef struct wmManipulatorGroupType {
  */
 enum {
 	/* Mark manipulator-group as being 3D */
-	WM_MANIPULATORGROUPTYPE_IS_3D       = (1 << 0),
+	WM_MANIPULATORGROUPTYPE_3D       = (1 << 0),
 	/* Scale manipulators as 3D object that respects zoom (otherwise zoom independent draw size) */
 	WM_MANIPULATORGROUPTYPE_SCALE_3D    = (1 << 1),
 	/* Manipulators can be depth culled with scene objects (covered by other geometry - TODO) */
-	WM_MANIPULATORGROUPTYPE_SCENE_DEPTH = (1 << 2),
+	WM_MANIPULATORGROUPTYPE_DEPTH_3D = (1 << 2),
 	/* Manipulators can be selected */
-	WM_MANIPULATORGROUPTYPE_SELECTABLE  = (1 << 3),
+	WM_MANIPULATORGROUPTYPE_SELECT  = (1 << 3),
 	/* manipulator group is attached to operator, and is only accessible as long as this runs */
 	WM_MANIPULATORGROUPTYPE_OP          = (1 << 4),
 };

@@ -370,7 +370,7 @@ wmManipulator *wm_manipulatormap_find_highlighted_manipulator(
 
 	for (wmManipulatorGroup *mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup->next) {
 		if (wm_manipulatorgroup_is_visible(mgroup, C)) {
-			if (mgroup->type->flag & WM_MANIPULATORGROUPTYPE_IS_3D) {
+			if (mgroup->type->flag & WM_MANIPULATORGROUPTYPE_3D) {
 				wm_manipulatorgroup_intersectable_manipulators_to_list(mgroup, &visible_3d_manipulators);
 			}
 			else if ((manipulator = wm_manipulatorgroup_find_intersected_mainpulator(mgroup, C, event, part))) {
@@ -464,7 +464,7 @@ bool wm_manipulatormap_deselect_all(wmManipulatorMap *mmap, wmManipulator ***sel
 
 BLI_INLINE bool manipulator_selectable_poll(const wmManipulator *manipulator, void *UNUSED(data))
 {
-	return (manipulator->parent_mgroup->type->flag & WM_MANIPULATORGROUPTYPE_SELECTABLE);
+	return (manipulator->parent_mgroup->type->flag & WM_MANIPULATORGROUPTYPE_SELECT);
 }
 
 /**

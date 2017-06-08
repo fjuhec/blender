@@ -462,7 +462,7 @@ void WM_manipulator_set_fn_cursor_get(struct wmManipulator *mpr, wmManipulatorFn
 }
 void WM_manipulator_set_fn_select(wmManipulator *mpr, wmManipulatorFnSelect fn)
 {
-	BLI_assert(mpr->parent_mgroup->type->flag & WM_MANIPULATORGROUPTYPE_SELECTABLE);
+	BLI_assert(mpr->parent_mgroup->type->flag & WM_MANIPULATORGROUPTYPE_SELECT);
 	mpr->type->select = fn;
 }
 #endif
