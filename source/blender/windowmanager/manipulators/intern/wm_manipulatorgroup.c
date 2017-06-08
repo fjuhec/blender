@@ -630,11 +630,6 @@ void WM_manipulatorgrouptype_init_runtime(
  */
 void WM_manipulatorgrouptype_free(wmManipulatorGroupType *wgt)
 {
-	if (wgt->ext.srna) {
-		/* Python operator, allocs own string. */
-		MEM_freeN((void *)wgt->idname);
-	}
-
 	MEM_freeN(wgt);
 }
 

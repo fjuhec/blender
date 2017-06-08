@@ -255,12 +255,14 @@ static void rna_Manipulator_color_hi_set(PointerRNA *ptr, const float *values)
 static void rna_Manipulator_unregister(struct Main *bmain, StructRNA *type);
 void manipulator_wrapper(wmManipulatorType *wgt, void *userdata);
 
-static char _manipulator_idname[OP_MAX_TYPENAME];
-
 static StructRNA *rna_Manipulator_register(
         Main *bmain, ReportList *reports, void *data, const char *identifier,
         StructValidateFunc validate, StructCallbackFunc call, StructFreeFunc free)
 {
+	struct {
+		char idname[MAX_NAME];
+	} temp_buffers;
+
 	wmManipulatorType dummywt = {NULL};
 	wmManipulator dummymnp = {NULL};
 	PointerRNA mnp_ptr;
@@ -270,19 +272,19 @@ static StructRNA *rna_Manipulator_register(
 
 	/* setup dummy manipulator & manipulator type to store static properties in */
 	dummymnp.type = &dummywt;
-	dummywt.idname = _manipulator_idname;
+	dummywt.idname = temp_buffers.idname;
 	RNA_pointer_create(NULL, &RNA_Manipulator, &dummymnp, &mnp_ptr);
 
-	/* clear in case they are left unset */
-	_manipulator_idname[0] = '\0';
+	/* Clear so we can detect if it's left unset. */
+	temp_buffers.idname[0] = '\0';
 
 	/* validate the python class */
 	if (validate(&mnp_ptr, data, have_function) != 0)
 		return NULL;
 
-	if (strlen(identifier) >= sizeof(_manipulator_idname)) {
+	if (strlen(identifier) >= sizeof(temp_buffers.idname)) {
 		BKE_reportf(reports, RPT_ERROR, "Registering manipulator class: '%s' is too long, maximum length is %d",
-		            identifier, (int)sizeof(_manipulator_idname));
+		            identifier, (int)sizeof(temp_buffers.idname));
 		return NULL;
 	}
 
@@ -317,9 +319,12 @@ static StructRNA *rna_Manipulator_register(
 		BLI_assert(i == ARRAY_SIZE(have_function));
 	}
 
-	WM_manipulatortype_append_ptr(manipulator_wrapper, (void *)&dummywt);
-
 	RNA_def_struct_duplicate_pointers(dummywt.ext.srna);
+
+	/* use duplicated string */
+	dummywt.idname = dummywt.ext.srna->identifier;
+
+	WM_manipulatortype_append_ptr(manipulator_wrapper, (void *)&dummywt);
 
 	/* update while blender is running */
 	WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);
@@ -431,7 +436,7 @@ static int rna_ManipulatorGroup_has_reports_get(PointerRNA *ptr)
 
 #ifdef WITH_PYTHON
 
-static bool manipulatorgroup_poll(const bContext *C, wmManipulatorGroupType *wgt)
+static bool rna_manipulatorgroup_poll_cb(const bContext *C, wmManipulatorGroupType *wgt)
 {
 
 	extern FunctionRNA rna_ManipulatorGroup_poll_func;
@@ -457,7 +462,7 @@ static bool manipulatorgroup_poll(const bContext *C, wmManipulatorGroupType *wgt
 	return visible;
 }
 
-static void manipulatorgroup_setup(const bContext *C, wmManipulatorGroup *wgroup)
+static void rna_manipulatorgroup_setup_cb(const bContext *C, wmManipulatorGroup *wgroup)
 {
 	extern FunctionRNA rna_ManipulatorGroup_setup_func;
 
@@ -475,7 +480,7 @@ static void manipulatorgroup_setup(const bContext *C, wmManipulatorGroup *wgroup
 	RNA_parameter_list_free(&list);
 }
 
-static wmKeyMap *manipulatorgroup_setup_keymap(const wmManipulatorGroupType *wgt, wmKeyConfig *config)
+static wmKeyMap *rna_manipulatorgroup_setup_keymap_cb(const wmManipulatorGroupType *wgt, wmKeyConfig *config)
 {
 	extern FunctionRNA rna_ManipulatorGroup_setup_keymap_func;
 	const char *wgroupname = wgt->name;
@@ -503,13 +508,15 @@ static wmKeyMap *manipulatorgroup_setup_keymap(const wmManipulatorGroupType *wgt
 
 void manipulatorgroup_wrapper(wmManipulatorGroupType *wgt, void *userdata);
 
-static char _manipulatorgroup_name[MAX_NAME];
-static char _manipulatorgroup_idname[MAX_NAME];
-
 static StructRNA *rna_ManipulatorGroup_register(
         Main *bmain, ReportList *reports, void *data, const char *identifier,
         StructValidateFunc validate, StructCallbackFunc call, StructFreeFunc free)
 {
+	struct {
+		char name[MAX_NAME];
+		char idname[MAX_NAME];
+	} temp_buffers;
+
 	wmManipulatorGroupType dummywgt = {NULL};
 	wmManipulatorGroup dummywg = {NULL};
 	PointerRNA wgptr;
@@ -519,18 +526,21 @@ static StructRNA *rna_ManipulatorGroup_register(
 
 	/* setup dummy manipulatorgroup & manipulatorgroup type to store static properties in */
 	dummywg.type = &dummywgt;
-	dummywgt.name = _manipulatorgroup_name;
-	dummywgt.idname = _manipulatorgroup_idname;
+	dummywgt.name = temp_buffers.name;
+	dummywgt.idname = temp_buffers.idname;
 
 	RNA_pointer_create(NULL, &RNA_ManipulatorGroup, &dummywg, &wgptr);
+
+	/* Clear so we can detect if it's left unset. */
+	temp_buffers.idname[0] = temp_buffers.name[0] = '\0';
 
 	/* validate the python class */
 	if (validate(&wgptr, data, have_function) != 0)
 		return NULL;
 
-	if (strlen(identifier) >= sizeof(_manipulatorgroup_idname)) {
+	if (strlen(identifier) >= sizeof(temp_buffers.idname)) {
 		BKE_reportf(reports, RPT_ERROR, "Registering manipulatorgroup class: '%s' is too long, maximum length is %d",
-		            identifier, (int)sizeof(_manipulatorgroup_idname));
+		            identifier, (int)sizeof(temp_buffers.idname));
 		return NULL;
 	}
 
@@ -545,19 +555,6 @@ static StructRNA *rna_ManipulatorGroup_register(
 	if (wmaptype == NULL) {
 		BKE_reportf(reports, RPT_ERROR, "Area type does not support manipulators");
 		return NULL;
-	}
-
-	{
-		int idlen = strlen(_manipulatorgroup_idname) + 1;
-		int namelen = strlen(_manipulatorgroup_name) + 1;
-
-		char *ch;
-		ch = MEM_callocN(sizeof(char) * (idlen + namelen), "_manipulatorgroup_idname");
-		dummywgt.idname = ch;
-		memcpy(ch, _manipulatorgroup_idname, idlen);
-		ch += idlen;
-		dummywgt.name = ch;
-		memcpy(ch, _manipulatorgroup_name, namelen);
 	}
 
 	/* check if we have registered this manipulatorgroup type before, and remove it */
@@ -578,15 +575,17 @@ static StructRNA *rna_ManipulatorGroup_register(
 
 	/* We used to register widget group types like this, now we do it similar to
 	 * operator types. Thus we should be able to do the same as operator types now. */
-	dummywgt.poll = (have_function[0]) ? manipulatorgroup_poll : NULL;
-	dummywgt.setup_keymap = (have_function[1]) ? manipulatorgroup_setup_keymap : NULL;
-	dummywgt.setup = (have_function[2]) ? manipulatorgroup_setup : NULL;
+	dummywgt.poll = (have_function[0]) ? rna_manipulatorgroup_poll_cb : NULL;
+	dummywgt.setup_keymap = (have_function[1]) ? rna_manipulatorgroup_setup_keymap_cb : NULL;
+	dummywgt.setup = (have_function[2]) ? rna_manipulatorgroup_setup_cb : NULL;
+
+	RNA_def_struct_duplicate_pointers(dummywgt.ext.srna);
+	dummywgt.idname = dummywgt.ext.srna->identifier;
+	dummywgt.name = dummywgt.ext.srna->name;
 
 	WM_manipulatorgrouptype_append_ptr(wmaptype, manipulatorgroup_wrapper, (void *)&dummywgt);
 
 	/* TODO: WM_manipulatorgrouptype_init_runtime */
-
-	RNA_def_struct_duplicate_pointers(dummywgt.ext.srna);
 
 	/* update while blender is running */
 	WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);
