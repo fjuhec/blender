@@ -1304,7 +1304,7 @@ static void draw_armature_pose(Object *ob, const float const_color[4], bool is_a
 		}
 
 		if (arm->flag & ARM_POSEMODE) {
-			index = ob->base_selection_color;
+			index = ob->select_color;
 		}
 	}
 

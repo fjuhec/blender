@@ -2009,7 +2009,7 @@ static void draw_pose_bones(Scene *scene, SceneLayer *sl, View3D *v3d, ARegion *
 	/* if solid we draw that first, with selection codes, but without names, axes etc */
 	if (dt > OB_WIRE) {
 		if (arm->flag & ARM_POSEMODE) 
-			index = base->selcol;
+			index = base->object->select_color;
 		
 		for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
 			bone = pchan->bone;
@@ -2115,7 +2115,7 @@ static void draw_pose_bones(Scene *scene, SceneLayer *sl, View3D *v3d, ARegion *
 	    (draw_wire || (dt <= OB_WIRE)) )
 	{
 		if (arm->flag & ARM_POSEMODE)
-			index = base->selcol;
+			index = base->object->select_color;
 			
 		/* only draw custom bone shapes that need to be drawn as wires */
 		for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
@@ -2189,7 +2189,7 @@ static void draw_pose_bones(Scene *scene, SceneLayer *sl, View3D *v3d, ARegion *
 		/* draw line check first. we do selection indices */
 		if (ELEM(arm->drawtype, ARM_LINE, ARM_WIRE)) {
 			if (arm->flag & ARM_POSEMODE) 
-				index = base->selcol;
+				index = base->object->select_color;
 		}
 		/* if solid && posemode, we draw again with polygonoffset */
 		else if ((dt > OB_WIRE) && (arm->flag & ARM_POSEMODE)) {
@@ -2198,7 +2198,7 @@ static void draw_pose_bones(Scene *scene, SceneLayer *sl, View3D *v3d, ARegion *
 		else {
 			/* and we use selection indices if not done yet */
 			if (arm->flag & ARM_POSEMODE) 
-				index = base->selcol;
+				index = base->object->select_color;
 		}
 
 		if (is_cull_enabled == false) {

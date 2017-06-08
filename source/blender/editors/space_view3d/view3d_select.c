@@ -63,7 +63,6 @@
 #include "BKE_armature.h"
 #include "BKE_context.h"
 #include "BKE_curve.h"
-#include "BKE_depsgraph.h"
 #include "BKE_layer.h"
 #include "BKE_mball.h"
 #include "BKE_mesh.h"
@@ -73,6 +72,8 @@
 #include "BKE_scene.h"
 #include "BKE_tracking.h"
 #include "BKE_utildefines.h"
+
+#include "DEG_depsgraph.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -369,7 +370,7 @@ static void do_lasso_select_pose(ViewContext *vc, Object *ob, const int mcords[]
 		bArmature *arm = ob->data;
 		if (arm->flag & ARM_HAS_VIZ_DEPS) {
 			/* mask modifier ('armature' mode), etc. */
-			DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+			DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 		}
 	}
 }
@@ -905,7 +906,7 @@ static unsigned int samplerect(unsigned int *buf, int size, unsigned int dontdo)
 	
 	base = LASTBASE;
 	if (base == 0) return 0;
-	maxob = base->selcol;
+	maxob = base->object->select_color;
 
 	len = (size - 1) / 2;
 	rc = 0;
@@ -1067,7 +1068,7 @@ static Base *object_mouse_select_menu(
 	bool ok;
 	LinkNode *linklist = NULL;
 
-	/* handle base->selcol */
+	/* handle base->object->select_color */
 	CTX_DATA_BEGIN (C, Base *, base, selectable_bases)
 	{
 		ok = false;
@@ -1076,7 +1077,7 @@ static Base *object_mouse_select_menu(
 		if (buffer) {
 			for (int a = 0; a < hits; a++) {
 				/* index was converted */
-				if (base->selcol == (buffer[(4 * a) + 3] & ~0xFFFF0000)) {
+				if (base->object->select_color == (buffer[(4 * a) + 3] & ~0xFFFF0000)) {
 					ok = true;
 					break;
 				}
@@ -1285,7 +1286,9 @@ static Base *mouse_select_eval_buffer(ViewContext *vc, unsigned int *buffer, int
 		}
 		else {
 			/* only exclude active object when it is selected... */
-			if (BASACT_NEW && (BASACT_NEW->flag & BASE_SELECTED) && hits > 1) notcol = BASACT_NEW->selcol;
+			if (BASACT_NEW && (BASACT_NEW->flag & BASE_SELECTED) && hits > 1) {
+				notcol = BASACT_NEW->object->select_color;
+			}
 			
 			for (a = 0; a < hits; a++) {
 				if (min > buffer[4 * a + 1] && notcol != (buffer[4 * a + 3] & 0xFFFF)) {
@@ -1298,7 +1301,7 @@ static Base *mouse_select_eval_buffer(ViewContext *vc, unsigned int *buffer, int
 		base = FIRSTBASE_NEW;
 		while (base) {
 			if (BASE_SELECTABLE_NEW(base)) {
-				if (base->selcol == selcol) break;
+				if (base->object->select_color == selcol) break;
 			}
 			base = base->next;
 		}
@@ -1321,12 +1324,12 @@ static Base *mouse_select_eval_buffer(ViewContext *vc, unsigned int *buffer, int
 					if (has_bones) {
 						/* skip non-bone objects */
 						if ((buffer[4 * a + 3] & 0xFFFF0000)) {
-							if (base->selcol == (buffer[(4 * a) + 3] & 0xFFFF))
+							if (base->object->select_color == (buffer[(4 * a) + 3] & 0xFFFF))
 								basact = base;
 						}
 					}
 					else {
-						if (base->selcol == (buffer[(4 * a) + 3] & 0xFFFF))
+						if (base->object->select_color == (buffer[(4 * a) + 3] & 0xFFFF))
 							basact = base;
 					}
 				}
@@ -1480,7 +1483,7 @@ static bool ed_object_select_pick(
 
 							/* if there's bundles in buffer select bundles first,
 							 * so non-camera elements should be ignored in buffer */
-							if (basact->selcol != (hitresult & 0xFFFF)) {
+							if (basact->object->select_color != (hitresult & 0xFFFF)) {
 								continue;
 							}
 
@@ -2070,7 +2073,7 @@ static int do_object_pose_box_select(bContext *C, ViewContext *vc, rcti *rect, b
 		 */
 		for (base = vc->scene_layer->object_bases.first; base && hits; base = base->next) {
 			if (BASE_SELECTABLE_NEW(base)) {
-				while (base->selcol == (*col & 0xFFFF)) {   /* we got an object */
+				while (base->object->select_color == (*col & 0xFFFF)) {   /* we got an object */
 					if (*col & 0xFFFF0000) {                    /* we got a bone */
 						bone = get_indexed_bone(base->object, *col & ~(BONESEL_ANY));
 						if (bone) {
@@ -2106,7 +2109,7 @@ static int do_object_pose_box_select(bContext *C, ViewContext *vc, rcti *rect, b
 					
 					if (arm && (arm->flag & ARM_HAS_VIZ_DEPS)) {
 						/* mask modifier ('armature' mode), etc. */
-						DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+						DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 					}
 				}
 			}
@@ -2664,7 +2667,7 @@ static void pose_circle_select(ViewContext *vc, const bool select, const int mva
 
 		if (arm->flag & ARM_HAS_VIZ_DEPS) {
 			/* mask modifier ('armature' mode), etc. */
-			DAG_id_tag_update(&vc->obact->id, OB_RECALC_DATA);
+			DEG_id_tag_update(&vc->obact->id, OB_RECALC_DATA);
 		}
 	}
 }
