@@ -146,7 +146,6 @@ class GreasePencilStrokeEditPanel:
     bl_label = "Edit Strokes"
     bl_category = "Tools"
     bl_region_type = 'TOOLS'
-    bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(cls, context):
