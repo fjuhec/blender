@@ -60,6 +60,13 @@ class VIEW3D_PT_tools_transform(View3DPanel, Panel):
     bl_context = "objectmode"
     bl_label = "Transform"
 
+    @classmethod
+    def poll(cls, context):
+        if context.active_object and context.active_object.mode in ('GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT'):
+            return False
+        else:
+            return True
+
     def draw(self, context):
         layout = self.layout
 
