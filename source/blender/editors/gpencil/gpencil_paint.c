@@ -2075,7 +2075,7 @@ static void gpencil_draw_apply_event(wmOperator *op, const wmEvent *event)
 	p->mval[1] = event->mval[1] + 1;
 	
 	/* verify key status for straight lines */
-	if ((event->ctrl > 0) || (event->alt > 0)) {
+	if (event->ctrl > 0) {
 		if (p->straight[0] == 0) {
 			int dx = abs(p->mval[0] - p->mvalo[0]);
 			int dy = abs(p->mval[1] - p->mvalo[1]);
