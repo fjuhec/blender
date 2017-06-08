@@ -47,44 +47,107 @@
 /* we may want to add, but not now */
 // #define USE_SRNA
 
-static void manipulatorgroup_properties_init(wmManipulatorGroupType *mgrouptype)
+
+
+/* -------------------------------------------------------------------- */
+
+/** \name Manipulator
+ * \{ */
+
+
+static void manipulator_properties_init(wmManipulatorType *wt)
 {
 #ifdef USE_SRNA
-	PyTypeObject *py_class = mgrouptype->ext.data;
+	PyTypeObject *py_class = wt->ext.data;
 #endif
-	RNA_struct_blender_type_set(mgrouptype->ext.srna, mgrouptype);
+	RNA_struct_blender_type_set(wt->ext.srna, wt);
 
 #ifdef USE_SRNA
 	/* only call this so pyrna_deferred_register_class gives a useful error
 	 * WM_operatortype_append_ptr will call RNA_def_struct_identifier
 	 * later */
-	RNA_def_struct_identifier(mgrouptype->srna, mgrouptype->idname);
+	RNA_def_struct_identifier(wt->srna, wt->idname);
 
-	if (pyrna_deferred_register_class(mgrouptype->srna, py_class) != 0) {
+	if (pyrna_deferred_register_class(wt->srna, py_class) != 0) {
 		PyErr_Print(); /* failed to register operator props */
 		PyErr_Clear();
 	}
 #endif
 }
 
-void manipulatorgroup_wrapper(wmManipulatorGroupType *mgrouptype, void *userdata)
+void manipulator_wrapper(wmManipulatorType *wt, void *userdata)
 {
 	/* take care not to overwrite anything set in
 	 * WM_manipulatorgrouptype_append_ptr before opfunc() is called */
 #ifdef USE_SRNA
-	StructRNA *srna = mgrouptype->srna;
+	StructRNA *srna = wt->srna;
 #endif
-	*mgrouptype = *((wmManipulatorGroupType *)userdata);
+	*wt = *((wmManipulatorType *)userdata);
 #ifdef USE_SRNA
-	mgrouptype->srna = srna; /* restore */
+	wt->srna = srna; /* restore */
 #endif
 
 #ifdef USE_SRNA
 	/* Use i18n context from ext.srna if possible (py manipulatorgroups). */
-	if (mgrouptype->ext.srna) {
-		RNA_def_struct_translation_context(mgrouptype->srna, RNA_struct_translation_context(mgrouptype->ext.srna));
+	if (wt->ext.srna) {
+		RNA_def_struct_translation_context(wt->srna, RNA_struct_translation_context(wt->ext.srna));
 	}
 #endif
 
-	manipulatorgroup_properties_init(mgrouptype);
+	wt->struct_size = sizeof(wmManipulator);
+
+	manipulator_properties_init(wt);
 }
+
+/** \} */
+
+
+/* -------------------------------------------------------------------- */
+
+/** \name Manipulator Group
+ * \{ */
+
+static void manipulatorgroup_properties_init(wmManipulatorGroupType *wgt)
+{
+#ifdef USE_SRNA
+	PyTypeObject *py_class = wgt->ext.data;
+#endif
+	RNA_struct_blender_type_set(wgt->ext.srna, wgt);
+
+#ifdef USE_SRNA
+	/* only call this so pyrna_deferred_register_class gives a useful error
+	 * WM_operatortype_append_ptr will call RNA_def_struct_identifier
+	 * later */
+	RNA_def_struct_identifier(wgt->srna, wgt->idname);
+
+	if (pyrna_deferred_register_class(wgt->srna, py_class) != 0) {
+		PyErr_Print(); /* failed to register operator props */
+		PyErr_Clear();
+	}
+#endif
+}
+
+void manipulatorgroup_wrapper(wmManipulatorGroupType *wgt, void *userdata)
+{
+	/* take care not to overwrite anything set in
+	 * WM_manipulatorgrouptype_append_ptr before opfunc() is called */
+#ifdef USE_SRNA
+	StructRNA *srna = wgt->srna;
+#endif
+	*wgt = *((wmManipulatorGroupType *)userdata);
+#ifdef USE_SRNA
+	wgt->srna = srna; /* restore */
+#endif
+
+#ifdef USE_SRNA
+	/* Use i18n context from ext.srna if possible (py manipulatorgroups). */
+	if (wgt->ext.srna) {
+		RNA_def_struct_translation_context(wgt->srna, RNA_struct_translation_context(wgt->ext.srna));
+	}
+#endif
+
+	manipulatorgroup_properties_init(wgt);
+}
+
+/** \} */
+

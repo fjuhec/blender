@@ -28,7 +28,8 @@
 struct wmManipulatorGroupType;
 
 /* exposed to rna/wm api */
-void manipulatorgroup_wrapper(struct wmManipulatorGroupType *mgrouptype, void *userdata);
+void manipulator_wrapper(struct wmManipulatorType *wt, void *userdata);
+void manipulatorgroup_wrapper(struct wmManipulatorGroupType *wgt, void *userdata);
 
 #endif  /* __BPY_MANIPULATOR_WRAP_H__ */
 

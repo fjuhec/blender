@@ -15,16 +15,10 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * The Original Code is Copyright (C) 2009 Blender Foundation.
- * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/makesrna/intern/rna_wm_api.c
+/** \file blender/makesrna/intern/rna_wm_manipulator_api.c
  *  \ingroup RNA
  */
 
@@ -48,11 +42,11 @@
 #include "UI_interface.h"
 #include "BKE_context.h"
 
+#include "ED_manipulator_library.h"
+
 static void rna_manipulator_draw_preset_box(wmManipulator *mpr, float matrix[16], int select_id)
 {
-#if 0 // TODO
-	WM_manipulator_draw_preset_box(mpr, (float (*)[4])matrix, select_id);
-#endif
+	ED_manipulator_draw_preset_box(mpr, (float (*)[4])matrix, select_id);
 }
 
 #else
@@ -125,111 +119,6 @@ void RNA_api_manipulatorgroup(StructRNA *srna)
 	RNA_def_function_flag(func, FUNC_REGISTER);
 	parm = RNA_def_pointer(func, "context", "Context", "", "");
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-
-	/* -------------------------------------------------------------------- */
-	/* Manipulator API, we may want to move this into its own class,
-	 * however RNA makest this difficult.
-	 *
-	 * Note: Order is important! See: 'MANIPULATOR_FN_*' flag in 'rna_wm.c'.
-	 */
-
-	/* manipulator_draw -> wmManipulator.draw */
-	func = RNA_def_function(srna, "manipulator_draw", NULL);
-	RNA_def_function_ui_description(func, "");
-	RNA_def_function_flag(func, FUNC_REGISTER);
-	parm = RNA_def_pointer(func, "context", "Context", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-	parm = RNA_def_pointer(func, "manipulator", "Manipulator", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-
-	/* manipulator_draw_select -> wmManipulator.draw_select */
-	func = RNA_def_function(srna, "manipulator_draw_select", NULL);
-	RNA_def_function_ui_description(func, "");
-	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL);
-	parm = RNA_def_pointer(func, "context", "Context", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-	parm = RNA_def_pointer(func, "manipulator", "Manipulator", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-	parm = RNA_def_int(func, "select_id", 0, 0, INT_MAX, "", "", 0, INT_MAX);
-
-	/* manipulator_intersect -> wmManipulator.intersect */
-	func = RNA_def_function(srna, "manipulator_intersect", NULL);
-	RNA_def_function_ui_description(func, "");
-	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL);
-	parm = RNA_def_pointer(func, "context", "Context", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-	parm = RNA_def_pointer(func, "manipulator", "Manipulator", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-	parm = RNA_def_pointer(func, "event", "Event", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-	parm = RNA_def_int(func, "intersect_id", 0, 0, INT_MAX, "", "", 0, INT_MAX);
-	RNA_def_function_return(func, parm);
-
-	/* manipulator_handler -> wmManipulator.handler */
-	static EnumPropertyItem tweak_actions[] = {
-		{1 /* WM_MANIPULATOR_TWEAK_PRECISE */, "PRECISE", 0, "Precise", ""},
-		{0, NULL, 0, NULL, NULL}
-	};
-	func = RNA_def_function(srna, "manipulator_handler", NULL);
-	RNA_def_function_ui_description(func, "");
-	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL);
-	parm = RNA_def_pointer(func, "context", "Context", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-	parm = RNA_def_pointer(func, "manipulator", "Manipulator", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-	parm = RNA_def_pointer(func, "event", "Event", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-	/* TODO, shuold be a enum-flag */
-	parm = RNA_def_enum(func, "tweak", tweak_actions, 0, "Tweak", "");
-	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
-	RNA_def_property_flag(parm, PROP_ENUM_FLAG);
-
-	/* manipulator_prop_data_update -> wmManipulator.prop_data_update */
-	/* TODO */
-
-	/* manipulator_invoke -> wmManipulator.invoke */
-	func = RNA_def_function(srna, "manipulator_invoke", NULL);
-	RNA_def_function_ui_description(func, "");
-	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL);
-	parm = RNA_def_pointer(func, "context", "Context", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-	parm = RNA_def_pointer(func, "manipulator", "Manipulator", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-	parm = RNA_def_pointer(func, "event", "Event", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-
-	/* manipulator_exit -> wmManipulator.exit */
-	func = RNA_def_function(srna, "manipulator_exit", NULL);
-	RNA_def_function_ui_description(func, "");
-	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL);
-	parm = RNA_def_pointer(func, "context", "Context", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-	parm = RNA_def_pointer(func, "manipulator", "Manipulator", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-	parm = RNA_def_boolean(func, "cancel", 0, "Cancel, otherwise confirm", "");
-	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
-
-	/* manipulator_cursor_get -> wmManipulator.cursor_get */
-	/* TODO */
-
-	/* manipulator_select -> wmManipulator.select */
-	/* TODO, de-duplicate! */
-	static EnumPropertyItem select_actions[] = {
-		{SEL_TOGGLE, "TOGGLE", 0, "Toggle", "Toggle selection for all elements"},
-		{SEL_SELECT, "SELECT", 0, "Select", "Select all elements"},
-		{SEL_DESELECT, "DESELECT", 0, "Deselect", "Deselect all elements"},
-		{SEL_INVERT, "INVERT", 0, "Invert", "Invert selection of all elements"},
-		{0, NULL, 0, NULL, NULL}
-	};
-	func = RNA_def_function(srna, "manipulator_select", NULL);
-	RNA_def_function_ui_description(func, "");
-	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL);
-	parm = RNA_def_pointer(func, "context", "Context", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-	parm = RNA_def_pointer(func, "manipulator", "Manipulator", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-	parm = RNA_def_enum(func, "action", select_actions, 0, "Action", "Selection action to execute");
-	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 }
 
 #endif

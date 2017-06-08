@@ -538,7 +538,7 @@ static void WIDGETGROUP_armature_facemaps_refresh(const bContext *C, wmManipulat
 	GHashIterator ghi;
 	GHASH_ITER(ghi, oldhash) {
 		wmManipulator *found = BLI_ghashIterator_getValue(&ghi);
-		WM_manipulator_delete(&wgroup->manipulators, ar->manipulator_map, found, (bContext *)C);
+		WM_manipulator_free(&wgroup->manipulators, ar->manipulator_map, found, (bContext *)C);
 	}
 	armature_facemap_ghash_free(oldhash);
 

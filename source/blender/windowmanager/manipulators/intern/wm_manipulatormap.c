@@ -145,7 +145,7 @@ static GHash *WM_manipulatormap_manipulator_hash_new(
 				if ((include_hidden || (manipulator->flag & WM_MANIPULATOR_HIDDEN) == 0) &&
 				    (!poll || poll(manipulator, data)))
 				{
-					BLI_ghash_insert(hash, manipulator->idname, manipulator);
+					BLI_ghash_insert(hash, manipulator->name, manipulator);
 				}
 			}
 		}

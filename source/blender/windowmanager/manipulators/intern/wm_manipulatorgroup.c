@@ -94,7 +94,7 @@ void wm_manipulatorgroup_free(bContext *C, wmManipulatorGroup *mgroup)
 	wmManipulatorMap *mmap = mgroup->parent_mmap;
 	for (wmManipulator *manipulator = mgroup->manipulators.first; manipulator;) {
 		wmManipulator *manipulator_next = manipulator->next;
-		WM_manipulator_delete(&mgroup->manipulators, mmap, manipulator, C);
+		WM_manipulator_free(&mgroup->manipulators, mmap, manipulator, C);
 		manipulator = manipulator_next;
 	}
 	BLI_assert(BLI_listbase_is_empty(&mgroup->manipulators));
@@ -128,7 +128,7 @@ void wm_manipulatorgroup_free(bContext *C, wmManipulatorGroup *mgroup)
  */
 void wm_manipulatorgroup_manipulator_register(wmManipulatorGroup *mgroup, wmManipulator *manipulator)
 {
-	BLI_assert(!BLI_findstring(&mgroup->manipulators, manipulator->idname, offsetof(wmManipulator, idname)));
+	BLI_assert(!BLI_findstring(&mgroup->manipulators, manipulator->name, offsetof(wmManipulator, name)));
 	BLI_addtail(&mgroup->manipulators, manipulator);
 	manipulator->parent_mgroup = mgroup;
 }

@@ -422,8 +422,8 @@ static void manipulator_arrow_exit(bContext *C, wmManipulator *manipulator, cons
 
 wmManipulator *ED_manipulator_arrow3d_new(wmManipulatorGroup *mgroup, const char *name, const int style)
 {
-	const wmManipulatorType *mpt = WM_manipulatortype_find("MANIPULATOR_WT_arrow_3d", false);
-	ArrowManipulator3D *arrow = (ArrowManipulator3D *)WM_manipulator_new(mpt, mgroup, name);
+	ArrowManipulator3D *arrow = (ArrowManipulator3D *)WM_manipulator_new(
+	        "MANIPULATOR_WT_arrow_3d", mgroup, name);
 
 	int real_style = style;
 
@@ -539,7 +539,7 @@ static void MANIPULATOR_WT_arrow_3d(wmManipulatorType *wt)
 	wt->prop_data_update = manipulator_arrow_prop_data_update;
 	wt->exit = manipulator_arrow_exit;
 
-	wt->size = sizeof(ArrowManipulator3D);
+	wt->struct_size = sizeof(ArrowManipulator3D);
 }
 
 void ED_manipulatortypes_arrow_3d(void)

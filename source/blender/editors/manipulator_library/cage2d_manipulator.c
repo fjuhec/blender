@@ -554,8 +554,8 @@ static void manipulator_rect_transform_exit(bContext *C, wmManipulator *manipula
 
 wmManipulator *ED_manipulator_rect_transform_new(wmManipulatorGroup *mgroup, const char *name, const int style)
 {
-	const wmManipulatorType *mpt = WM_manipulatortype_find("MANIPULATOR_WT_cage", false);
-	RectTransformManipulator *cage = (RectTransformManipulator *)WM_manipulator_new(mpt, mgroup, name);
+	RectTransformManipulator *cage = (RectTransformManipulator *)WM_manipulator_new(
+	        "MANIPULATOR_WT_cage", mgroup, name);
 
 	cage->manipulator.flag |= WM_MANIPULATOR_DRAW_ACTIVE;
 	cage->scale[0] = cage->scale[1] = 1.0f;
@@ -587,7 +587,7 @@ static void MANIPULATOR_WT_cage(wmManipulatorType *wt)
 
 	wt->prop_len_max = 2;
 
-	wt->size = sizeof(RectTransformManipulator);
+	wt->struct_size = sizeof(RectTransformManipulator);
 }
 
 void ED_manipulatortypes_cage_2d(void)

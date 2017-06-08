@@ -53,10 +53,13 @@ struct wmManipulatorMapType_Params;
 /* -------------------------------------------------------------------- */
 /* wmManipulator */
 
-struct wmManipulator *WM_manipulator_new(
-        const struct wmManipulatorType *mpt,
+struct wmManipulator *WM_manipulator_new_ptr(
+        const struct wmManipulatorType *wt,
         struct wmManipulatorGroup *mgroup, const char *name);
-void WM_manipulator_delete(
+struct wmManipulator *WM_manipulator_new(
+        const char *idname,
+        struct wmManipulatorGroup *mgroup, const char *name);
+void WM_manipulator_free(
         ListBase *manipulatorlist, struct wmManipulatorMap *mmap, struct wmManipulator *manipulator,
         struct bContext *C);
 struct wmManipulatorGroup *WM_manipulator_get_parent_group(struct wmManipulator *manipulator);
@@ -78,13 +81,11 @@ void WM_manipulator_set_color(struct wmManipulator *manipulator, const float col
 void WM_manipulator_get_color_highlight(const struct wmManipulator *manipulator, float col_hi[4]);
 void WM_manipulator_set_color_highlight(struct wmManipulator *manipulator, const float col[4]);
 
-/* manipulator_library_presets.c */
-void WM_manipulator_draw_preset_box(const struct wmManipulator *manipulator, float mat[4][4], int select_id);
-
 /* wm_manipulator.c */
 const struct wmManipulatorType *WM_manipulatortype_find(const char *idname, bool quiet);
-void WM_manipulatortype_append(void (*mnpfunc)(struct wmManipulatorType *));
+void WM_manipulatortype_append(void (*wtfunc)(struct wmManipulatorType *));
 void WM_manipulatortype_append_ptr(void (*mnpfunc)(struct wmManipulatorType *, void *), void *userdata);
+void WM_manipulatortype_unregister(struct wmManipulatorType *wt);
 void WM_manipulatortype_iter(struct GHashIterator *ghi);
 
 /* -------------------------------------------------------------------- */

@@ -190,8 +190,8 @@ static int manipulator_arrow2d_intersect(
 
 struct wmManipulator *ED_manipulator_arrow2d_new(wmManipulatorGroup *mgroup, const char *name)
 {
-	const wmManipulatorType *mpt = WM_manipulatortype_find("MANIPULATOR_WT_arrow_2d", false);
-	ArrowManipulator2D *arrow = (ArrowManipulator2D *)WM_manipulator_new(mpt, mgroup, name);
+	ArrowManipulator2D *arrow = (ArrowManipulator2D *)WM_manipulator_new(
+	        "MANIPULATOR_WT_arrow_2d", mgroup, name);
 
 	arrow->manipulator.flag |= WM_MANIPULATOR_DRAW_ACTIVE;
 
@@ -222,7 +222,7 @@ static void MANIPULATOR_WT_arrow_2d(wmManipulatorType *wt)
 	wt->invoke = manipulator_arrow2d_invoke;
 	wt->intersect = manipulator_arrow2d_intersect;
 
-	wt->size = sizeof(ArrowManipulator2D);
+	wt->struct_size = sizeof(ArrowManipulator2D);
 }
 
 void ED_manipulatortypes_arrow_2d(void)

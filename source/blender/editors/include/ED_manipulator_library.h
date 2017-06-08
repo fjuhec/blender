@@ -38,7 +38,19 @@ void ED_manipulatortypes_dial_3d(void);
 void ED_manipulatortypes_facemap_3d(void);
 void ED_manipulatortypes_primitive_3d(void);
 
+struct wmManipulator;
 struct wmManipulatorGroup;
+
+
+/* -------------------------------------------------------------------- */
+/* Shape Presets
+ *
+ * Intended to be called by custom draw functions.
+ */
+
+/* manipulator_library_presets.c */
+void ED_manipulator_draw_preset_box(const struct wmManipulator *manipulator, float mat[4][4], int select_id);
+
 
 /* -------------------------------------------------------------------- */
 /* 3D Arrow Manipulator */

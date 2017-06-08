@@ -108,8 +108,8 @@ struct wmManipulator *ED_manipulator_facemap_new(
         wmManipulatorGroup *wgroup, const char *name, const int style,
         Object *ob, const int facemap)
 {
-	const wmManipulatorType *mpt = WM_manipulatortype_find("MANIPULATOR_WT_facemap3d", false);
-	FacemapManipulator *fmap_widget = (FacemapManipulator *)WM_manipulator_new(mpt, wgroup, name);
+	FacemapManipulator *fmap_widget = (FacemapManipulator *)WM_manipulator_new(
+	        "MANIPULATOR_WT_facemap3d", wgroup, name);
 
 	BLI_assert(facemap > -1);
 
@@ -135,7 +135,7 @@ static void MANIPULATOR_WT_facemap3d(wmManipulatorType *wt)
 	wt->draw = widget_facemap_draw;
 	wt->draw_select = widget_facemap_render_3d_intersect;
 
-	wt->size = sizeof(FacemapManipulator);
+	wt->struct_size = sizeof(FacemapManipulator);
 }
 
 void ED_manipulatortypes_facemap_3d(void)

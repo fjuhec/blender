@@ -46,24 +46,24 @@
 
 #include "MEM_guardedalloc.h"
 
+
 #include "RNA_access.h"
 
 #include "WM_types.h"
 #include "WM_api.h"
 
+
 /* own includes */
-#include "wm_manipulator_wmapi.h"
-#include "wm_manipulator_intern.h"
-#include "manipulator_geometry.h"
-#include "manipulator_library_intern.h"
+#include "ED_manipulator_library.h"  /* own include */
+#include "manipulator_library_intern.h"  /* own include */
 
 /* TODO, this is to be used by RNA. might move to ED_manipulator_library */
 
-void WM_manipulator_draw_preset_box(
+void ED_manipulator_draw_preset_box(
         const struct wmManipulator *mpr, float mat[4][4], int select_id)
 {
 	const bool is_select = (select_id != -1);
-	const bool is_highlight = is_select && (mpr->state & WM_MANIPULATOR_HIGHLIGHT) != 0;
+	const bool is_highlight = is_select && (mpr->state & WM_MANIPULATOR_STATE_HIGHLIGHT) != 0;
 
 	float color[4];
 	manipulator_color_get(mpr, is_highlight, color);

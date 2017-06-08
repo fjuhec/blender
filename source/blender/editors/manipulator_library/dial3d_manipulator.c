@@ -331,8 +331,8 @@ static void manipulator_dial_invoke(
 
 wmManipulator *ED_manipulator_dial3d_new(wmManipulatorGroup *mgroup, const char *name, const int style)
 {
-	const wmManipulatorType *mpt = WM_manipulatortype_find("MANIPULATOR_WT_dial", false);
-	DialManipulator *dial = (DialManipulator *)WM_manipulator_new(mpt, mgroup, name);
+	DialManipulator *dial = (DialManipulator *)WM_manipulator_new(
+	        "MANIPULATOR_WT_dial", mgroup, name);
 
 	const float dir_default[3] = {0.0f, 0.0f, 1.0f};
 
@@ -365,7 +365,7 @@ static void MANIPULATOR_WT_dial_3d(wmManipulatorType *wt)
 	wt->draw_select = manipulator_dial_render_3d_intersect;
 	wt->invoke = manipulator_dial_invoke;
 
-	wt->size = sizeof(DialManipulator);
+	wt->struct_size = sizeof(DialManipulator);
 }
 
 void ED_manipulatortypes_dial_3d(void)

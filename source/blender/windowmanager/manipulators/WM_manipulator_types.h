@@ -52,7 +52,7 @@ struct wmKeyConfig;
 struct wmManipulator {
 	struct wmManipulator *next, *prev;
 
-	char idname[64 + 4]; /* MAX_NAME + 4 for unique '.001', '.002', etc suffix */
+	char name[64 + 4]; /* MAX_NAME + 4 for unique '.001', '.002', etc suffix */
 
 	/* While we don't have a real type, use this to put type-like vars. */
 	const struct wmManipulatorType *type;
@@ -64,6 +64,8 @@ struct wmManipulator {
 
 	/* pointer back to group this manipulator is in (just for quick access) */
 	struct wmManipulatorGroup *parent_mgroup;
+
+	void *py_instance;
 
 	int flag; /* flags that influence the behavior or how the manipulators are drawn */
 	short state; /* state flags (active, highlighted, selected) */
@@ -136,9 +138,10 @@ typedef struct wmManipulatorType {
 
 	const char *idname; /* MAX_NAME */
 
-	uint size;
+	/* Set to 'sizeof(wmManipulator)' or larger for instances of this type,
+	 * use so we can cant to other types without the hassle of a custom-data pointer. */
+	uint struct_size;
 
-	/* could become wmManipulatorType */
 	/* draw manipulator */
 	wmManipulatorFnDraw draw;
 
@@ -156,7 +159,7 @@ typedef struct wmManipulatorType {
 
 	/* returns the final position which may be different from the origin, depending on the manipulator.
 	 * used in calculations of scale */
-	wmManipulatorFnFinalPositionGet position_get;
+	wmManipulatorFnPositionGet position_get;
 
 	/* activate a manipulator state when the user clicks on it */
 	wmManipulatorFnInvoke invoke;

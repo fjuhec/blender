@@ -191,8 +191,8 @@ static void manipulator_primitive_invoke(
 
 wmManipulator *ED_manipulator_primitive3d_new(wmManipulatorGroup *mgroup, const char *name, const int style)
 {
-	const wmManipulatorType *mpt = WM_manipulatortype_find("MANIPULATOR_WT_primitive3d", false);
-	PrimitiveManipulator *prim = (PrimitiveManipulator *)WM_manipulator_new(mpt, mgroup, name);
+	PrimitiveManipulator *prim = (PrimitiveManipulator *)WM_manipulator_new(
+	        "MANIPULATOR_WT_primitive3d", mgroup, name);
 
 	const float dir_default[3] = {0.0f, 0.0f, 1.0f};
 
@@ -241,7 +241,7 @@ static void MANIPULATOR_WT_primitive3d(wmManipulatorType *wt)
 	wt->draw_select = manipulator_primitive_render_3d_intersect;
 	wt->invoke = manipulator_primitive_invoke;
 
-	wt->size = sizeof(PrimitiveManipulator);
+	wt->struct_size = sizeof(PrimitiveManipulator);
 }
 
 void ED_manipulatortypes_primitive_3d(void)

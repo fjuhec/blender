@@ -51,6 +51,10 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
+#ifdef WITH_PYTHON
+#include "BPY_extern.h"
+#endif
+
 /* only for own init/exit calls (wm_manipulatortype_init/wm_manipulatortype_free) */
 #include "wm.h"
 
@@ -71,11 +75,11 @@ static GHash *global_manipulatortype_hash = NULL;
 const wmManipulatorType *WM_manipulatortype_find(const char *idname, bool quiet)
 {
 	if (idname[0]) {
-		wmManipulatorType *mt;
+		wmManipulatorType *wt;
 
-		mt = BLI_ghash_lookup(global_manipulatortype_hash, idname);
-		if (mt) {
-			return mt;
+		wt = BLI_ghash_lookup(global_manipulatortype_hash, idname);
+		if (wt) {
+			return wt;
 		}
 
 		if (!quiet) {
@@ -99,32 +103,40 @@ void WM_manipulatortype_iter(GHashIterator *ghi)
 
 static wmManipulatorType *wm_manipulatortype_append__begin(void)
 {
-	wmManipulatorType *mt = MEM_callocN(sizeof(wmManipulatorType), "manipulatortype");
-	return mt;
+	wmManipulatorType *wt = MEM_callocN(sizeof(wmManipulatorType), "manipulatortype");
+	return wt;
 }
-static void wm_manipulatortype_append__end(wmManipulatorType *mt)
+static void wm_manipulatortype_append__end(wmManipulatorType *wt)
 {
+	BLI_assert(wt->struct_size >= sizeof(wmManipulator));
+
 	/* Create at least one property for interaction,
 	 * note: we could enforce each type sets this it's self. */
-	if (mt->prop_len_max == 0) {
-		mt->prop_len_max = 1;
+	if (wt->prop_len_max == 0) {
+		wt->prop_len_max = 1;
 	}
 
-	BLI_ghash_insert(global_manipulatortype_hash, (void *)mt->idname, mt);
+	BLI_ghash_insert(global_manipulatortype_hash, (void *)wt->idname, wt);
 }
 
-void WM_manipulatortype_append(void (*mtfunc)(struct wmManipulatorType *))
+void WM_manipulatortype_append(void (*wtfunc)(struct wmManipulatorType *))
+{
+	wmManipulatorType *wt = wm_manipulatortype_append__begin();
+	wtfunc(wt);
+	wm_manipulatortype_append__end(wt);
+}
+
+void WM_manipulatortype_append_ptr(void (*wtfunc)(struct wmManipulatorType *, void *), void *userdata)
 {
 	wmManipulatorType *mt = wm_manipulatortype_append__begin();
-	mtfunc(mt);
+	wtfunc(mt, userdata);
 	wm_manipulatortype_append__end(mt);
 }
 
-void WM_manipulatortype_append_ptr(void (*mtfunc)(struct wmManipulatorType *, void *), void *userdata)
+void WM_manipulatortype_unregister(wmManipulatorType *UNUSED(wt))
 {
-	wmManipulatorType *mt = wm_manipulatortype_append__begin();
-	mtfunc(mt, userdata);
-	wm_manipulatortype_append__end(mt);
+	/* TODO */
+	BLI_assert(0);
 }
 
 static void manipulatortype_ghash_free_cb(wmManipulatorType *mt)
@@ -154,16 +166,31 @@ static wmManipulator *wm_manipulator_create(
         const wmManipulatorType *mpt)
 {
 	BLI_assert(mpt != NULL);
-	BLI_assert(mpt->size >= sizeof(wmManipulator));
+	BLI_assert(mpt->struct_size >= sizeof(wmManipulator));
 
-	wmManipulator *mpr = MEM_callocN(mpt->size, __func__);
+	wmManipulator *mpr = MEM_callocN(mpt->struct_size, __func__);
 	mpr->type = mpt;
 	return mpr;
 }
 
-wmManipulator *WM_manipulator_new(const wmManipulatorType *mpt, wmManipulatorGroup *mgroup, const char *name)
+wmManipulator *WM_manipulator_new_ptr(const wmManipulatorType *mpt, wmManipulatorGroup *mgroup, const char *name)
 {
 	wmManipulator *mpr = wm_manipulator_create(mpt);
+
+	wm_manipulator_register(mgroup, mpr, name);
+
+	return mpr;
+}
+
+/**
+ * \param wt: Must be valid,
+ * if you need to check it exists use #WM_manipulator_new_ptr
+ * because callers of this function don't NULL check the return value.
+ */
+wmManipulator *WM_manipulator_new(const char *idname, wmManipulatorGroup *mgroup, const char *name)
+{
+	const wmManipulatorType *wt = WM_manipulatortype_find(idname, false);
+	wmManipulator *mpr = wm_manipulator_create(wt);
 
 	wm_manipulator_register(mgroup, mpr, name);
 
@@ -183,15 +210,15 @@ wmManipulatorGroup *WM_manipulator_get_parent_group(wmManipulator *manipulator)
 static void manipulator_unique_idname_set(wmManipulatorGroup *mgroup, wmManipulator *manipulator, const char *rawname)
 {
 	if (mgroup->type->idname[0]) {
-		BLI_snprintf(manipulator->idname, sizeof(manipulator->idname), "%s_%s", mgroup->type->idname, rawname);
+		BLI_snprintf(manipulator->name, sizeof(manipulator->name), "%s_%s", mgroup->type->idname, rawname);
 	}
 	else {
-		BLI_strncpy(manipulator->idname, rawname, sizeof(manipulator->idname));
+		BLI_strncpy(manipulator->name, rawname, sizeof(manipulator->name));
 	}
 
 	/* ensure name is unique, append '.001', '.002', etc if not */
 	BLI_uniquename(&mgroup->manipulators, manipulator, "Manipulator", '.',
-	               offsetof(wmManipulator, idname), sizeof(manipulator->idname));
+	               offsetof(wmManipulator, name), sizeof(manipulator->name));
 }
 
 /**
@@ -216,6 +243,8 @@ static void manipulator_init(wmManipulator *mpr)
  * Register \a manipulator.
  *
  * \param name: name used to create a unique idname for \a manipulator in \a mgroup
+ *
+ * \note Not to be confused with type registration from RNA.
  */
 static void wm_manipulator_register(wmManipulatorGroup *mgroup, wmManipulator *manipulator, const char *name)
 {
@@ -228,8 +257,16 @@ static void wm_manipulator_register(wmManipulatorGroup *mgroup, wmManipulator *m
  * Free \a manipulator and unlink from \a manipulatorlist.
  * \a manipulatorlist is allowed to be NULL.
  */
-void WM_manipulator_delete(ListBase *manipulatorlist, wmManipulatorMap *mmap, wmManipulator *manipulator, bContext *C)
+void WM_manipulator_free(ListBase *manipulatorlist, wmManipulatorMap *mmap, wmManipulator *manipulator, bContext *C)
 {
+#ifdef WITH_PYTHON
+	if (manipulator->py_instance) {
+		/* do this first in case there are any __del__ functions or
+		 * similar that use properties */
+		BPY_DECREF_RNA_INVALIDATE(manipulator->py_instance);
+	}
+#endif
+
 	if (manipulator->state & WM_MANIPULATOR_STATE_HIGHLIGHT) {
 		wm_manipulatormap_set_highlighted_manipulator(mmap, C, NULL, 0);
 	}
@@ -267,7 +304,7 @@ wmManipulatorGroup *wm_manipulator_get_parent_group(const wmManipulator *manipul
 void WM_manipulator_set_property(wmManipulator *manipulator, const int slot, PointerRNA *ptr, const char *propname)
 {
 	if (slot < 0 || slot >= manipulator->type->prop_len_max) {
-		fprintf(stderr, "invalid index %d when binding property for manipulator type %s\n", slot, manipulator->idname);
+		fprintf(stderr, "invalid index %d when binding property for manipulator type %s\n", slot, manipulator->name);
 		return;
 	}
 
