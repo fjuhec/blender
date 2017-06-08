@@ -36,7 +36,7 @@ struct RTCORE_ALIGN(16) CCLRay : public RTCRay {
 	int num_hits;
 
 	// for SSS Rays:
-	ccl::SubsurfaceIntersection *ss_isect;
+	ccl::LocalIntersection *ss_isect;
 	int sss_object_id;
 	uint *lcg_state;
 

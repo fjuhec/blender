@@ -1845,7 +1845,7 @@ void MeshManager::device_update_bvh(Device *device, DeviceScene *dscene, Scene *
 #endif
 
 	BVH *bvh = BVH::create(bparams, scene->objects);
-	bvh->build(progress);
+	bvh->build(progress, &device->stats);
 
 	if(progress.get_cancel()) {
 #ifdef WITH_EMBREE

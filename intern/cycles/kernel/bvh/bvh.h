@@ -230,9 +230,9 @@ ccl_device_intersect void scene_intersect_local(KernelGlobals *kg,
 		CCLRay rtc_ray(ray, kg, PATH_RAY_ALL_VISIBILITY, CCLRay::RAY_SSS);
 		rtc_ray.lcg_state = lcg_state;
 		rtc_ray.max_hits = max_hits;
-		rtc_ray.ss_isect = ss_isect;
-		ss_isect->num_hits = 0;
-		rtc_ray.sss_object_id = subsurface_object;
+		rtc_ray.ss_isect = local_isect;
+		local_isect->num_hits = 0;
+		rtc_ray.sss_object_id = local_object;
 		rtcOccluded(kernel_data.bvh.scene, rtc_ray);
 		return;
 	}
