@@ -73,6 +73,7 @@
 #include "BKE_scene.h"
 #include "BKE_tracking.h"
 #include "BKE_utildefines.h"
+#include "BKE_workspace.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -1592,6 +1593,26 @@ static bool ed_object_select_pick(
 			if ((oldbasact != basact) && (is_obedit == false)) {
 				ED_object_base_activate(C, basact); /* adds notifier */
 			}
+
+			/* Set special modes for grease pencil 
+			   The grease pencil modes are not real modes, but a hack to make the interface
+			   consistent, so need some tricks to keep UI synchronized */
+			if (((oldbasact) && oldbasact->object->type == OB_GPENCIL) || (basact->object->type == OB_GPENCIL)) {
+				/* set cursor */
+				if (basact->object->mode == OB_MODE_GPENCIL_PAINT) {
+					WM_cursor_modal_set(CTX_wm_window(C), BC_PAINTBRUSHCURSOR);
+				}
+				else if (basact->object->mode == OB_MODE_GPENCIL_PAINT) {
+					WM_cursor_modal_set(CTX_wm_window(C), BC_CROSSCURSOR);
+				}
+				else {
+					/* TODO: maybe is better use restore */
+					WM_cursor_modal_set(CTX_wm_window(C), CURSOR_STD);
+				}
+				/* set workspace mode */
+				BKE_workspace_object_mode_set(CTX_wm_workspace(C), basact->object->mode);
+			}
+
 		}
 
 		WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
