@@ -1879,8 +1879,9 @@ static void gpencil_draw_exit(bContext *C, wmOperator *op)
 	gpencil_undo_finish();
 
 	/* restore cursor to indicate end of drawing */
-	WM_cursor_modal_restore(CTX_wm_window(C));
-	
+	if (p->sa->spacetype != SPACE_VIEW3D) {
+		WM_cursor_modal_restore(CTX_wm_window(C));
+	}
 	/* don't assume that operator data exists at all */
 	if (p) {
 		/* check size of buffer before cleanup, to determine if anything happened here */
@@ -2314,11 +2315,6 @@ static int gpencil_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event
 	/* add a modal handler for this operator, so that we can then draw continuous strokes */
 	WM_event_add_modal_handler(C, op);
 
-	/* enable continuous drawing by default */
-	if (p->sa->spacetype == SPACE_VIEW3D) {
-		p->scene->toolsettings->gpencil_flags |= GP_TOOL_FLAG_PAINTSESSIONS_ON;
-	}
-
 	return OPERATOR_RUNNING_MODAL;
 }
 
@@ -2440,7 +2436,9 @@ static int gpencil_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 		}
 		else if ((ELEM(event->type, DKEY)) && (event->val == KM_RELEASE)) {
 			/* enable continuous if release D key in mid drawing */
-			p->scene->toolsettings->gpencil_flags |= GP_TOOL_FLAG_PAINTSESSIONS_ON;
+			if (p->sa->spacetype != SPACE_VIEW3D) {
+				p->scene->toolsettings->gpencil_flags |= GP_TOOL_FLAG_PAINTSESSIONS_ON;
+			}
 		}
 		else if ((event->type == BKEY) && (event->val == KM_RELEASE)) {
 			/* Add Blank Frame
