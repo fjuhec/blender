@@ -134,27 +134,6 @@ void wm_manipulatorgroup_manipulator_register(wmManipulatorGroup *mgroup, wmMani
 	manipulator->parent_mgroup = mgroup;
 }
 
-void wm_manipulatorgroup_attach_to_modal_handler(
-        bContext *C, wmEventHandler *handler,
-        wmManipulatorGroupType *wgt, wmOperator *op)
-{
-	/* maybe overly careful, but manipulator-grouptype could come from a failed creation */
-	if (!wgt) {
-		return;
-	}
-
-	/* now instantiate the manipulator-map */
-	wgt->op = op;
-
-	/* try to find map in handler region that contains wgt */
-	if (handler->op_region && handler->op_region->manipulator_map) {
-		handler->manipulator_map = handler->op_region->manipulator_map;
-		ED_region_tag_redraw(handler->op_region);
-	}
-
-	WM_event_add_mousemove(C);
-}
-
 wmManipulator *wm_manipulatorgroup_find_intersected_mainpulator(
         const wmManipulatorGroup *mgroup, bContext *C, const wmEvent *event,
         unsigned char *part)
@@ -207,8 +186,7 @@ void wm_manipulatorgroup_ensure_initialized(wmManipulatorGroup *mgroup, const bC
 bool wm_manipulatorgroup_is_visible(const wmManipulatorGroup *mgroup, const bContext *C)
 {
 	/* Check for poll function, if manipulator-group belongs to an operator, also check if the operator is running. */
-	return ((mgroup->type->flag & WM_MANIPULATORGROUPTYPE_OP) == 0 || mgroup->type->op) &&
-	       (!mgroup->type->poll || mgroup->type->poll(C, mgroup->type));
+	return (!mgroup->type->poll || mgroup->type->poll(C, mgroup->type));
 }
 
 bool wm_manipulatorgroup_is_visible_in_drawstep(const wmManipulatorGroup *mgroup, const int drawstep)

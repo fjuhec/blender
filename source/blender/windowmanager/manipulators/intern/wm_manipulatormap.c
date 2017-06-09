@@ -397,18 +397,13 @@ void WM_manipulatormap_add_handlers(ARegion *ar, wmManipulatorMap *mmap)
 }
 
 void wm_manipulatormaps_handled_modal_update(
-        bContext *C, wmEvent *event, wmEventHandler *handler,
-        const wmOperatorType *ot)
+        bContext *C, wmEvent *event, wmEventHandler *handler)
 {
 	const bool modal_running = (handler->op != NULL);
 
 	/* happens on render or when joining areas */
-	if (!handler->op_region || !handler->op_region->manipulator_map)
+	if (!handler->op_region || !handler->op_region->manipulator_map) {
 		return;
-
-	/* hide operator manipulators */
-	if (!modal_running && ot->mgroup_type) {
-		ot->mgroup_type->op = NULL;
 	}
 
 	wmManipulatorMap *mmap = handler->op_region->manipulator_map;

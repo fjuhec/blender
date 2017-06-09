@@ -213,9 +213,6 @@ typedef struct wmManipulatorGroupType {
 
 	int flag;
 
-	/* if type is spawned from operator this is set here */
-	void *op;
-
 	/* same as manipulator-maps, so registering/unregistering goes to the correct region */
 	short spaceid, regionid;
 	char mapidname[64];
@@ -234,8 +231,6 @@ enum {
 	WM_MANIPULATORGROUPTYPE_DEPTH_3D = (1 << 2),
 	/* Manipulators can be selected */
 	WM_MANIPULATORGROUPTYPE_SELECT  = (1 << 3),
-	/* manipulator group is attached to operator, and is only accessible as long as this runs */
-	WM_MANIPULATORGROUPTYPE_OP          = (1 << 4),
 };
 
 

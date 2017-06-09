@@ -912,8 +912,6 @@ static void rna_def_manipulatorgroup(BlenderRNA *brna)
 		 "Supports culled depth by other objects in the view"},
 		{WM_MANIPULATORGROUPTYPE_SELECT, "SELECT", 0, "Select",
 		 "Supports selection"},
-		{WM_MANIPULATORGROUPTYPE_OP, "OPERATOR", 0, "Operator",
-		 "Attached to operator, and is only accessible as long as this runs"},
 		{0, NULL, 0, NULL, NULL}
 	};
 	prop = RNA_def_property(srna, "bl_options", PROP_ENUM, PROP_NONE);

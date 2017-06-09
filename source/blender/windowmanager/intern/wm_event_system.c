@@ -1738,11 +1738,6 @@ static int wm_handler_operator_call(bContext *C, ListBase *handlers, wmEventHand
 			wm_region_mouse_co(C, event);
 			wm_event_modalkeymap(C, op, event, &dbl_click_disabled);
 
-			/* attach manipulator-map to handler if not there yet */
-			if (ot->mgroup_type && !handler->manipulator_map) {
-				wm_manipulatorgroup_attach_to_modal_handler(C, handler, ot->mgroup_type, op);
-			}
-
 			if (ot->flag & OPTYPE_UNDO)
 				wm->op_undo_depth++;
 
@@ -1792,7 +1787,7 @@ static int wm_handler_operator_call(bContext *C, ListBase *handlers, wmEventHand
 				}
 
 				/* update manipulators during modal handlers */
-				wm_manipulatormaps_handled_modal_update(C, event, handler, ot);
+				wm_manipulatormaps_handled_modal_update(C, event, handler);
 
 				/* remove modal handler, operator itself should have been canceled and freed */
 				if (retval & (OPERATOR_CANCELLED | OPERATOR_FINISHED)) {

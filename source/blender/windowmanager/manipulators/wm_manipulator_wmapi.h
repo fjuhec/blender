@@ -59,10 +59,6 @@ void wm_manipulatortype_init(void);
 void MANIPULATORGROUP_OT_manipulator_select(struct wmOperatorType *ot);
 void MANIPULATORGROUP_OT_manipulator_tweak(struct wmOperatorType *ot);
 
-void  wm_manipulatorgroup_attach_to_modal_handler(
-        struct bContext *C, struct wmEventHandler *handler,
-        struct wmManipulatorGroupType *wgt, struct wmOperator *op);
-
 /* -------------------------------------------------------------------- */
 /* wmManipulatorMap */
 
@@ -72,8 +68,7 @@ void wm_manipulatormaptypes_free(void);
 void wm_manipulators_keymap(struct wmKeyConfig *keyconf);
 
 void wm_manipulatormaps_handled_modal_update(
-        bContext *C, struct wmEvent *event, struct wmEventHandler *handler,
-        const struct wmOperatorType *ot);
+        bContext *C, struct wmEvent *event, struct wmEventHandler *handler);
 void wm_manipulatormap_handler_context(bContext *C, struct wmEventHandler *handler);
 
 struct wmManipulator *wm_manipulatormap_find_highlighted_manipulator(
