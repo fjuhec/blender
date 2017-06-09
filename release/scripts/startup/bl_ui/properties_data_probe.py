@@ -66,7 +66,13 @@ class DATA_PT_probe(DataButtonsPanel, Panel):
 
         col = split.column(align=True)
         col.label("Influence:")
-        col.prop(probe, "influence_distance", text="Distance")
+        col.prop(probe, "influence_type", text="")
+
+        if probe.influence_type == 'ELIPSOID':
+            col.prop(probe, "influence_distance", "Radius")
+        else:
+            col.prop(probe, "influence_distance", "Size")
+
         col.prop(probe, "falloff")
 
         col = split.column(align=True)
@@ -75,9 +81,57 @@ class DATA_PT_probe(DataButtonsPanel, Panel):
         col.prop(probe, "clip_end", text="End")
 
 
+class DATA_PT_parallax(DataButtonsPanel, Panel):
+    bl_label = "Parallax"
+    COMPAT_ENGINES = {'BLENDER_CLAY', 'BLENDER_EEVEE'}
+
+    def draw(self, context):
+        layout = self.layout
+
+        ob = context.object
+        probe = context.probe
+
+        layout.prop(probe, "use_custom_parallax")
+
+        col = layout.column()
+        col.active = probe.use_custom_parallax
+
+        row = col.row()
+        row.prop(probe, "parallax_type", expand=True)
+
+        if probe.parallax_type == 'ELIPSOID':
+            col.prop(probe, "parallax_distance", "Radius")
+        else:
+            col.prop(probe, "parallax_distance", "Size")
+
+
+class DATA_PT_display(DataButtonsPanel, Panel):
+    bl_label = "Display"
+    COMPAT_ENGINES = {'BLENDER_CLAY', 'BLENDER_EEVEE'}
+
+    def draw(self, context):
+        layout = self.layout
+
+        ob = context.object
+        probe = context.probe
+
+        split = layout.split()
+
+        col = split.column()
+        col.prop(probe, "show_influence")
+
+        col = split.column()
+        col.prop(probe, "show_parallax")
+
+        col = split.column()
+        col.prop(probe, "show_clip")
+
+
 classes = (
     DATA_PT_context_probe,
     DATA_PT_probe,
+    DATA_PT_parallax,
+    DATA_PT_display,
 )
 
 if __name__ == "__main__":  # only for live edit.

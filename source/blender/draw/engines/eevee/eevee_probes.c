@@ -29,6 +29,8 @@
 #include "DNA_probe_types.h"
 #include "DNA_view3d_types.h"
 
+#include "BKE_object.h"
+
 #include "BLI_dynstr.h"
 
 #include "ED_screen.h"
@@ -277,9 +279,30 @@ static void EEVEE_probes_updates(EEVEE_SceneLayerData *sldata)
 		Probe *probe = (Probe *)ob->data;
 		EEVEE_Probe *eprobe = &pinfo->probe_data[i];
 
-		float dist_minus_falloff = probe->distinf - (1.0f - probe->falloff) * probe->distinf;
-		eprobe->attenuation_bias = probe->distinf / max_ff(1e-8f, dist_minus_falloff);
-		eprobe->attenuation_scale = 1.0f / max_ff(1e-8f, dist_minus_falloff);
+		/* Attenuation */
+		eprobe->attenuation_type = probe->attenuation_type;
+		eprobe->attenuation_fac = 1.0f / max_ff(1e-8f, probe->falloff);
+
+		unit_m4(eprobe->attenuationmat);
+		scale_m4_fl(eprobe->attenuationmat, probe->distinf);
+		mul_m4_m4m4(eprobe->attenuationmat, ob->obmat, eprobe->attenuationmat);
+		invert_m4(eprobe->attenuationmat);
+
+		/* Parallax */
+		float dist;
+		if ((probe->flag & PRB_CUSTOM_PARALLAX) != 0) {
+			eprobe->parallax_type = probe->parallax_type;
+			dist = probe->distpar;
+		}
+		else {
+			eprobe->parallax_type = probe->attenuation_type;
+			dist = probe->distinf;
+		}
+
+		unit_m4(eprobe->parallaxmat);
+		scale_m4_fl(eprobe->parallaxmat, dist);
+		mul_m4_m4m4(eprobe->parallaxmat, ob->obmat, eprobe->parallaxmat);
+		invert_m4(eprobe->parallaxmat);
 	}
 }
 
@@ -296,7 +319,7 @@ void EEVEE_probes_cache_finish(EEVEE_SceneLayerData *sldata)
 
 	if (!sldata->probe_pool) {
 		sldata->probe_pool = DRW_texture_create_2D_array(PROBE_SIZE, PROBE_SIZE, max_ff(1, pinfo->num_cube),
-		                                                 DRW_TEX_RGBA_16, DRW_TEX_FILTER | DRW_TEX_MIPMAP, NULL);
+		                                                 DRW_TEX_RGB_11_11_10, DRW_TEX_FILTER | DRW_TEX_MIPMAP, NULL);
 		if (sldata->probe_filter_fb) {
 			DRW_framebuffer_texture_attach(sldata->probe_filter_fb, sldata->probe_pool, 0, 0);
 		}
@@ -315,7 +338,7 @@ void EEVEE_probes_cache_finish(EEVEE_SceneLayerData *sldata)
 		}
 	}
 
-	DRWFboTexture tex_filter = {&sldata->probe_pool, DRW_TEX_RGBA_16, DRW_TEX_FILTER | DRW_TEX_MIPMAP};
+	DRWFboTexture tex_filter = {&sldata->probe_pool, DRW_TEX_RGB_11_11_10, DRW_TEX_FILTER | DRW_TEX_MIPMAP};
 
 	DRW_framebuffer_init(&sldata->probe_filter_fb, &draw_engine_eevee_type, PROBE_SIZE, PROBE_SIZE, &tex_filter, 1);
 
@@ -500,7 +523,6 @@ void EEVEE_probes_refresh(EEVEE_SceneLayerData *sldata, EEVEE_PassList *psl)
 	Object *ob;
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	RegionView3D *rv3d = draw_ctx->rv3d;
-	struct wmWindowManager *wm = CTX_wm_manager(draw_ctx->evil_C);
 
 	/* Render world in priority */
 	if (e_data.update_world) {
@@ -518,9 +540,12 @@ void EEVEE_probes_refresh(EEVEE_SceneLayerData *sldata, EEVEE_PassList *psl)
 	}
 	else if (true) { /* TODO if at least one probe needs refresh */
 
-		/* Only compute probes if not navigating or in playback */
-		if (((rv3d->rflag & RV3D_NAVIGATING) != 0) || ED_screen_animation_no_scrub(wm) != NULL) {
-			return;
+		if (draw_ctx->evil_C != NULL) {
+			/* Only compute probes if not navigating or in playback */
+			struct wmWindowManager *wm = CTX_wm_manager(draw_ctx->evil_C);
+			if (((rv3d->rflag & RV3D_NAVIGATING) != 0) || ED_screen_animation_no_scrub(wm) != NULL) {
+				return;
+			}
 		}
 
 		for (int i = 1; (ob = pinfo->probes_ref[i]) && (i < MAX_PROBE); i++) {

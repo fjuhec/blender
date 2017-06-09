@@ -1418,9 +1418,58 @@ static void DRW_shgroup_probe(OBJECT_StorageList *stl, Object *ob, SceneLayer *s
 
 	DRW_shgroup_call_dynamic_add(stl->g_data->probe, ob->obmat[3], color);
 
-	DRW_shgroup_call_dynamic_add(stl->g_data->sphere, color, &prb->distinf, ob->obmat);
-	DRW_shgroup_call_dynamic_add(stl->g_data->sphere, color, &prb->distfalloff, ob->obmat);
+	if ((prb->flag & PRB_SHOW_INFLUENCE) != 0) {
+		if (prb->attenuation_type == PROBE_BOX) {
+			DRW_shgroup_call_dynamic_add(stl->g_data->cube, color, &prb->distinf, ob->obmat);
+			DRW_shgroup_call_dynamic_add(stl->g_data->cube, color, &prb->distfalloff, ob->obmat);
+		}
+		else {
+			DRW_shgroup_call_dynamic_add(stl->g_data->sphere, color, &prb->distinf, ob->obmat);
+			DRW_shgroup_call_dynamic_add(stl->g_data->sphere, color, &prb->distfalloff, ob->obmat);
+		}
+	}
 
+	if ((prb->flag & PRB_SHOW_PARALLAX) != 0) {
+		float (*obmat)[4], *dist;
+
+
+		if ((prb->flag & PRB_CUSTOM_PARALLAX) != 0) {
+			dist = &prb->distpar;
+			/* TODO object parallax */
+			obmat = ob->obmat;
+		}
+		else {
+			dist = &prb->distinf;
+			obmat = ob->obmat;
+		}
+
+		if (prb->parallax_type == PROBE_BOX) {
+			DRW_shgroup_call_dynamic_add(stl->g_data->cube, color, &dist, obmat);
+		}
+		else {
+			DRW_shgroup_call_dynamic_add(stl->g_data->sphere, color, &dist, obmat);
+		}
+	}
+
+	if ((prb->flag & PRB_SHOW_CLIP_DIST) != 0) {
+		static const float cubefacemat[6][4][4] = {
+			{{0.0, 0.0, -1.0, 0.0}, {0.0, -1.0, 0.0, 0.0}, {-1.0, 0.0, 0.0, 0.0}, {0.0, 0.0, 0.0, 1.0}},
+			{{0.0, 0.0, 1.0, 0.0}, {0.0, -1.0, 0.0, 0.0}, {1.0, 0.0, 0.0, 0.0}, {0.0, 0.0, 0.0, 1.0}},
+			{{1.0, 0.0, 0.0, 0.0}, {0.0, 0.0, -1.0, 0.0}, {0.0, 1.0, 0.0, 0.0}, {0.0, 0.0, 0.0, 1.0}},
+			{{1.0, 0.0, 0.0, 0.0}, {0.0, 0.0, 1.0, 0.0}, {0.0, -1.0, 0.0, 0.0}, {0.0, 0.0, 0.0, 1.0}},
+			{{1.0, 0.0, 0.0, 0.0}, {0.0, -1.0, 0.0, 0.0}, {0.0, 0.0, -1.0, 0.0}, {0.0, 0.0, 0.0, 1.0}},
+			{{-1.0, 0.0, 0.0, 0.0}, {0.0, -1.0, 0.0, 0.0}, {0.0, 0.0, 1.0, 0.0}, {0.0, 0.0, 0.0, 1.0}},
+		};
+
+		for (int i = 0; i < 6; ++i) {
+			normalize_m4_m4(prb->clipmat[i], ob->obmat);
+			// invert_m4(prb->clipmat[i]);
+			mul_m4_m4m4(prb->clipmat[i], prb->clipmat[i], cubefacemat[i]);
+
+			DRW_shgroup_call_dynamic_add(stl->g_data->lamp_buflimit, color, &prb->clipsta, &prb->clipend, prb->clipmat[i]);
+			DRW_shgroup_call_dynamic_add(stl->g_data->lamp_buflimit_points, color, &prb->clipsta, &prb->clipend, prb->clipmat[i]);
+		}
+	}
 	DRW_shgroup_call_dynamic_add(stl->g_data->lamp_center_group, ob->obmat[3]);
 
 	/* Line and point going to the ground */
