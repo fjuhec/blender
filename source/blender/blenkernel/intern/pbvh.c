@@ -519,16 +519,46 @@ static void pbvh_build(PBVH *bvh, BB *cb, BBC *prim_bbc, int totprim)
  * Attach a new mesh to a node of the PBVH
  * vertdata etc needs to be already in the basemesh
  */
-void BKE_pbvh_attach_mesh(PBVH *pbvh, PBVHNode *node, Mesh *me, int totvert, float *max_bmin, float *max_bmax){
+void BKE_pbvh_attach_mesh(PBVH *pbvh, PBVHNode *node, Mesh *me, int totprim, float *max_bmin, float *max_bmax){
 	BB new_BB;
 	copy_v3_v3(new_BB.bmin, max_bmin);
 	copy_v3_v3(new_BB.bmax, max_bmax);
+	int d_prim = totprim-pbvh->totprim;
 
-	if(totvert <= pbvh->leaf_limit){
+	/*for(int i = 0; i < pbvh->totprim; i++){
+		printf("%i,",pbvh->prim_indices[i]);
+	}*/
+
+	if(me->totvert <= pbvh->leaf_limit){
 		pbvh->totvert = me->totvert;
+		pbvh->totprim = totprim;
+		MEM_freeN(pbvh->prim_indices);
+
+		pbvh->prim_indices = MEM_mallocN(sizeof(int) * pbvh->totprim,
+										"bvh prim indices");
+
+		//TODO: parent nodes need to be scaled as well
+		node->totprim += d_prim;
+		node->prim_indices = pbvh->prim_indices;
+
+		//Fill with all prim to test
+		for(int i = 0; i < pbvh->totprim; i++){
+			pbvh->prim_indices[i] = i;
+		}
+
 		BB_expand_with_bb( &node->vb, &new_BB);
 
-		//build_mesh_leaf_node(pbvh, node);
+		pbvh->verts = me->mvert;
+		pbvh->mloop = me->mloop;
+		pbvh->mpoly = me->mpoly;
+
+		build_mesh_leaf_node(pbvh, node);
+
+		MEM_freeN(node->draw_buffers);
+		node->draw_buffers = NULL;
+
+		BKE_pbvh_node_mark_rebuild_draw(node);
+		printf("Attached new shape to pbvh.\n");
 	}else{
 		//TODO: Attach to multiple nodes.
 	}
@@ -1468,9 +1498,9 @@ float get_bb_distance_sqr(BB a, BB b){
 	return dist;
 }
 
-void BKE_pbvh_recalc_looptri_from_me(PBVH *pbvh, Mesh *me){
+int BKE_pbvh_recalc_looptri_from_me(PBVH *pbvh, Mesh *me){
 	MEM_freeN(pbvh->looptri);
-	MLoopTri *looptri;
+	MLoopTri *looptri = NULL;
 	int looptri_num = poly_to_tri_count(me->totpoly, me->totloop);
 	looptri = MEM_mallocN(sizeof(*looptri) * looptri_num, __func__);
 
@@ -1479,7 +1509,12 @@ void BKE_pbvh_recalc_looptri_from_me(PBVH *pbvh, Mesh *me){
 							me->mvert,
 							me->totloop, me->totpoly,
 							looptri);
+	/*for(int i = 0; i < looptri_num; i++){
+		printf("Tri (%i,%i,%i), Poly %i\n", looptri[i].tri[0], looptri[i].tri[1], looptri[i].tri[2], looptri[i].poly);
+	}*/
+
 	pbvh->looptri = looptri;
+	return looptri_num;
 }
 
 PBVHNode *BKE_search_closest_pbvh_leaf_node(PBVH *pbvh, PBVHNode *p_node, float *target_bmin, float *target_bmax){

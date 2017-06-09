@@ -62,7 +62,7 @@ typedef void (*BKE_pbvh_HitOccludedCallback)(PBVHNode *node, void *data, float *
 /* Building */
 
 PBVH *BKE_pbvh_new(void);
-void BKE_pbvh_attach_mesh(PBVH *pbvh, PBVHNode *node, Mesh *me, int totvert, float *max_bmin, float *max_bmax);
+void BKE_pbvh_attach_mesh(PBVH *pbvh, PBVHNode *node, Mesh *me, int totprim, float *max_bmin, float *max_bmax);
 void BKE_pbvh_build_mesh(
         PBVH *bvh,
         const struct MPoly *mpoly, const struct MLoop *mloop,
@@ -195,7 +195,7 @@ void BKE_pbvh_node_get_verts(
         PBVH *bvh, PBVHNode *node,
         const int **r_vert_indices, struct MVert **r_verts);
 
-void BKE_pbvh_recalc_looptri_from_me(PBVH *pbvh, Mesh *me);
+int BKE_pbvh_recalc_looptri_from_me(PBVH *pbvh, Mesh *me);
 PBVHNode *BKE_search_closest_pbvh_leaf_node(PBVH *pbvh, PBVHNode *p_node, float *target_bmin, float *target_bmax);
 
 void BKE_pbvh_node_get_BB(PBVHNode *node, float bb_min[3], float bb_max[3]);

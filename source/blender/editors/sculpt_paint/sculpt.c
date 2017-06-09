@@ -5219,77 +5219,73 @@ void silhouette_create_shape_mesh(const bContext *C, Mesh *me, SilhouetteData *s
 	float v_offset[3] = {0.0f,0.0f,1.0f};
 	ED_view3d_global_to_vector(sil->ar->regiondata, (float[3]){0.0f,0.0f,0.0f}, v_offset);
 
-	ED_mesh_vertices_add(me, NULL, stroke->totvert*2);//Barely used is there a better one?
-
-	MVert nu_vert;
-	nu_vert.flag = 0;
-	nu_vert.bweight = 0;
-	for(int i = 0; i < stroke->totvert; i ++){
-		float v1[3], zDepth[3] = {0.0f,0.0f,0.0f};
-
-		ED_view3d_win_to_3d(v3d, sil->ar, zDepth, stroke->points+i*2, v1);
-		copy_v3_v3(nu_vert.co,v1);
-		me->mvert[me->totvert-stroke->totvert*2+i*2] = nu_vert;
-		copy_v3_v3(nu_vert.co,v1);
-		add_v3_v3(nu_vert.co,v_offset);
-		me->mvert[me->totvert-stroke->totvert*2+i*2+1] = nu_vert;
-	}
-
+	float v1[3], zDepth[3] = {0.0f,0.0f,0.0f};
+	int vstart = me->totvert, estart = me->totedge, lstart = me->totloop, pstart = me->totpoly;
+	ED_mesh_vertices_add(me, NULL, stroke->totvert*2);
 	ED_mesh_edges_add(me, NULL, stroke->totvert*3-2);
-
-	MEdge nu_edge;
-	nu_edge.crease = 0;
-	nu_edge.bweight = 0;
-	nu_edge.flag = 0;
-	for(int i = 0; i < stroke->totvert-1; i ++){
-		nu_edge.v1 = me->totvert-stroke->totvert*2+i*2;
-		nu_edge.v2 = me->totvert-stroke->totvert*2+i*2+1;
-		me->medge[me->totedge-stroke->totvert*3+2 + i*3] = nu_edge;
-
-		nu_edge.v1 = me->totvert-stroke->totvert*2+i*2;
-		nu_edge.v2 = me->totvert-stroke->totvert*2+i*2+2;
-		me->medge[me->totedge-stroke->totvert*3+2 + i*3+1] = nu_edge;
-
-		nu_edge.v1 = me->totvert-stroke->totvert*2+i*2+1;
-		nu_edge.v2 = me->totvert-stroke->totvert*2+i*2+3;
-		me->medge[me->totedge-stroke->totvert*3+2 + i*3+2] = nu_edge;
-	}
-	nu_edge.v1 = me->totvert-2;
-	nu_edge.v2 = me->totvert-1;
-	me->medge[me->totedge-1] = nu_edge;
-
-	/*ED_mesh_loops_add(me, NULL, stroke->totvert*4-4);
-	MLoop nu_loop;
-	for(int i = 0; i < stroke->totvert-1; i++){
-		nu_loop.v = me->totvert-stroke->totvert*2+i*2;
-		nu_loop.e = me->totedge-stroke->totvert*3+2+i*2;
-		me->mloop[me->totloop-stroke->totvert*4+i*4+4] = nu_loop;
-
-		nu_loop.v = me->totvert-stroke->totvert*2+1+i*2;
-		nu_loop.e = me->totedge-stroke->totvert*3+4+i*2;
-		me->mloop[me->totloop-stroke->totvert*4+i*4+5] = nu_loop;
-
-		nu_loop.v = me->totvert-stroke->totvert*2+3+i*2;
-		nu_loop.e = me->totedge-stroke->totvert*3+5+i*2;
-		me->mloop[me->totloop-stroke->totvert*4+i*4+6] = nu_loop;
-
-		nu_loop.v = me->totvert-stroke->totvert*2+2+i*2;
-		nu_loop.e = me->totedge-stroke->totvert*3+3+i*2;
-		me->mloop[me->totloop-stroke->totvert*4+i*4+7] = nu_loop;
-	}
-
-	//Loops
+	ED_mesh_loops_add(me, NULL, stroke->totvert*4-4);
 	ED_mesh_polys_add(me, NULL, stroke->totvert-1);
+	for(int i = 0; i < stroke->totvert; i++){
+		//Add Verts
+		MVert ref_v;
+		ref_v.flag = 0; ref_v.bweight = 0;
+		ED_view3d_win_to_3d(v3d, sil->ar, zDepth, stroke->points+i*2, v1);
+		copy_v3_v3(ref_v.co,v1);
+		me->mvert[vstart] = ref_v;
+		vstart ++;
+		add_v3_v3(ref_v.co,v_offset);
+		me->mvert[vstart] = ref_v;
+		vstart ++;
 
-	MPoly nu_poly;
-	nu_poly.mat_nr = 0;
-	nu_poly.flag = 0;
-	nu_poly.pad = 0;
-	for(int i = 0; i < stroke->totvert-1; i++){
-		nu_poly.totloop = 4;
-		nu_poly.loopstart = me->totloop-stroke->totvert*4+4+i*4;
-		me->mpoly[me->totpoly-stroke->totvert+i+1] = nu_poly;
-	}*/
+		//Add Edges
+		MEdge ref_e;
+		ref_e.crease = 0; ref_e.bweight = 0; ref_e.flag = 0;
+		ref_e.v1 = vstart-2;
+		ref_e.v2 = vstart-1;
+		me->medge[estart] = ref_e;
+		estart ++;
+		if(i < stroke->totvert-1){
+			ref_e.v1 = vstart-2;
+			ref_e.v2 = vstart;
+			me->medge[estart] = ref_e;
+			estart ++;
+			ref_e.v1 = vstart-1;
+			ref_e.v2 = vstart+1;
+			me->medge[estart] = ref_e;
+			estart ++;
+		}
+
+		//Add Loops
+		MLoop ref_l;
+		if(i < stroke->totvert-1){
+			ref_l.v = vstart-2;
+			ref_l.e = estart-3;
+			me->mloop[lstart] = ref_l;
+			lstart ++;
+			ref_l.v = vstart-1;
+			ref_l.e = estart-1;
+			me->mloop[lstart] = ref_l;
+			lstart ++;
+			ref_l.v = vstart+1;
+			ref_l.e = estart;
+			me->mloop[lstart] = ref_l;
+			lstart ++;
+			ref_l.v = vstart;
+			ref_l.e = estart-2;
+			me->mloop[lstart] = ref_l;
+			lstart ++;
+		}
+
+		//Add Poly
+		MPoly ref_p;
+		ref_p.mat_nr = 0; ref_p.flag = 0; ref_p.pad = 0;
+		if(i < stroke->totvert-1){
+			ref_p.loopstart = lstart-4;
+			ref_p.totloop = 4;
+			me->mpoly[pstart] = ref_p;
+			pstart ++;
+		}
+	}
 
 	//ED_mesh_update(me, C, 1, 1);
 
@@ -5300,6 +5296,34 @@ void silhouette_create_shape_mesh(const bContext *C, Mesh *me, SilhouetteData *s
 		}else{
 			shape_bb->bmin[i] += v_offset[i];
 		}
+	}
+}
+
+void debug_mesh(Mesh *me){
+	printf("Logging Mesh:\n");
+	printf("Verts in mesh %i\n",me->totvert);
+	printf("Edges in mesh %i\n",me->totedge);
+	printf("Loops in mesh %i\n",me->totloop);
+	printf("Polys in mesh %i\n",me->totpoly);
+
+	printf("\nVert log:\n");
+	for(int i = 0; i < me->totvert; i++){
+		printf("\nVert %i (%f,%f,%f)", i, me->mvert[i].co[0], me->mvert[i].co[1], me->mvert[i].co[2]);
+	}
+
+	printf("\nEdge log:\n");
+	for(int i = 0; i < me->totedge;i++){
+		printf("Edge %i, v1v2(%i,%i)\n",i,me->medge[i].v1,me->medge[i].v2);
+	}
+
+	printf("\nLoop Log:\n");
+	for(int i = 0; i < me->totloop; i++){
+		printf("Loop %i, v(%i), e(%i)\n", i, me->mloop[i].v, me->mloop[i].e);
+	}
+
+	printf("\nPoly log:\n");
+	for(int i = 0; i < me->totpoly; i++){
+		printf("Poly %i, start(%i), totloop(%i)\n", i, me->mpoly[i].loopstart, me->mpoly[i].totloop);
 	}
 }
 
@@ -5391,7 +5415,10 @@ static void sculpt_silhouette_stroke_done(const bContext *C, wmOperator *op)
 		PBVHNode *closest_node;
 
 		silhouette_create_shape_mesh(C, me, sil, stroke, v3d, &shape_bb);
-		BKE_pbvh_recalc_looptri_from_me(pbvh, me);
+
+		int totprim = BKE_pbvh_recalc_looptri_from_me(pbvh, me);
+
+
 
 		root = BKE_pbvh_node_get_root(pbvh);
 		closest_node = BKE_search_closest_pbvh_leaf_node(pbvh, root, &shape_bb.bmin, &shape_bb.bmax);
@@ -5401,9 +5428,9 @@ static void sculpt_silhouette_stroke_done(const bContext *C, wmOperator *op)
 		bl_debug_draw_BB_add(&res_bb,0xFF0000);
 		bl_debug_draw_BB_add(&shape_bb,0xFF0000);
 
-		BKE_pbvh_attach_mesh(pbvh, closest_node, me, stroke->totvert*2, &shape_bb.bmin, &shape_bb.bmax);
+		//Todo: unique verts and prim renwe etc.
+		BKE_pbvh_attach_mesh(pbvh, closest_node, me, totprim, &shape_bb.bmin, &shape_bb.bmax);
 	}
-
 
 	/*cleanup*/
 	WM_cursor_modal_restore(CTX_wm_window(C));
