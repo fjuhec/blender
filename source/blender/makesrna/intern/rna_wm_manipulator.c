@@ -506,6 +506,42 @@ static wmKeyMap *rna_manipulatorgroup_setup_keymap_cb(const wmManipulatorGroupTy
 	return keymap;
 }
 
+static void rna_manipulatorgroup_refresh_cb(const bContext *C, wmManipulatorGroup *wgroup)
+{
+	extern FunctionRNA rna_ManipulatorGroup_refresh_func;
+
+	PointerRNA wgroup_ptr;
+	ParameterList list;
+	FunctionRNA *func;
+
+	RNA_pointer_create(NULL, wgroup->type->ext.srna, wgroup, &wgroup_ptr);
+	func = &rna_ManipulatorGroup_refresh_func; /* RNA_struct_find_function(&wgroupr, "refresh"); */
+
+	RNA_parameter_list_create(&list, &wgroup_ptr, func);
+	RNA_parameter_set_lookup(&list, "context", &C);
+	wgroup->type->ext.call((bContext *)C, &wgroup_ptr, func, &list);
+
+	RNA_parameter_list_free(&list);
+}
+
+static void rna_manipulatorgroup_draw_prepare_cb(const bContext *C, wmManipulatorGroup *wgroup)
+{
+	extern FunctionRNA rna_ManipulatorGroup_draw_prepare_func;
+
+	PointerRNA wgroup_ptr;
+	ParameterList list;
+	FunctionRNA *func;
+
+	RNA_pointer_create(NULL, wgroup->type->ext.srna, wgroup, &wgroup_ptr);
+	func = &rna_ManipulatorGroup_draw_prepare_func; /* RNA_struct_find_function(&wgroupr, "draw_prepare"); */
+
+	RNA_parameter_list_create(&list, &wgroup_ptr, func);
+	RNA_parameter_set_lookup(&list, "context", &C);
+	wgroup->type->ext.call((bContext *)C, &wgroup_ptr, func, &list);
+
+	RNA_parameter_list_free(&list);
+}
+
 void BPY_RNA_manipulatorgroup_wrapper(wmManipulatorGroupType *wgt, void *userdata);
 
 static StructRNA *rna_ManipulatorGroup_register(
@@ -522,7 +558,7 @@ static StructRNA *rna_ManipulatorGroup_register(
 	PointerRNA wgptr;
 
 	/* Two sets of functions. */
-	int have_function[3];
+	int have_function[5];
 
 	/* setup dummy manipulatorgroup & manipulatorgroup type to store static properties in */
 	dummywg.type = &dummywgt;
@@ -576,8 +612,10 @@ static StructRNA *rna_ManipulatorGroup_register(
 	/* We used to register widget group types like this, now we do it similar to
 	 * operator types. Thus we should be able to do the same as operator types now. */
 	dummywgt.poll = (have_function[0]) ? rna_manipulatorgroup_poll_cb : NULL;
-	dummywgt.setup_keymap = (have_function[1]) ? rna_manipulatorgroup_setup_keymap_cb : NULL;
-	dummywgt.setup = (have_function[2]) ? rna_manipulatorgroup_setup_cb : NULL;
+	dummywgt.setup_keymap =     (have_function[1]) ? rna_manipulatorgroup_setup_keymap_cb : NULL;
+	dummywgt.setup =            (have_function[2]) ? rna_manipulatorgroup_setup_cb : NULL;
+	dummywgt.refresh =          (have_function[3]) ? rna_manipulatorgroup_refresh_cb : NULL;
+	dummywgt.draw_prepare =     (have_function[4]) ? rna_manipulatorgroup_draw_prepare_cb : NULL;
 
 	RNA_def_struct_duplicate_pointers(dummywgt.ext.srna);
 	dummywgt.idname = dummywgt.ext.srna->identifier;
@@ -911,10 +949,23 @@ static void rna_def_manipulatorgroup(BlenderRNA *brna)
 	RNA_def_property_flag(parm, PROP_NEVER_NULL);
 	RNA_def_function_return(func, parm);
 
-	/* draw */
+	/* setup */
 	func = RNA_def_function(srna, "setup", NULL);
 	RNA_def_function_ui_description(func, "Create manipulators function for the manipulator group");
 	RNA_def_function_flag(func, FUNC_REGISTER);
+	parm = RNA_def_pointer(func, "context", "Context", "", "");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
+
+	/* refresh */
+	func = RNA_def_function(srna, "refresh", NULL);
+	RNA_def_function_ui_description(func, "Refresh data (called on common state changes such as selection)");
+	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL);
+	parm = RNA_def_pointer(func, "context", "Context", "", "");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
+
+	func = RNA_def_function(srna, "draw_prepare", NULL);
+	RNA_def_function_ui_description(func, "Run before each redraw");
+	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL);
 	parm = RNA_def_pointer(func, "context", "Context", "", "");
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 
