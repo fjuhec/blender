@@ -9812,9 +9812,6 @@ void ED_draw_object_facemap(Scene *scene, Object *ob, const float col[4], const 
 
 #else
 
-	(void)facemap;
-	(void)col;
-
 	/* Just to create the data to pass to immediate mode, grr! */
 	Mesh *me = ob->data;
 	const int *facemap_data = CustomData_get_layer(&me->pdata, CD_FACEMAP);

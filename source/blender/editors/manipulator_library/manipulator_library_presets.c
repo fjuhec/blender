@@ -34,6 +34,7 @@
 
 #include "DNA_manipulator_types.h"
 #include "DNA_view3d_types.h"
+#include "DNA_object_types.h"
 
 #include "ED_view3d.h"
 #include "ED_screen.h"
@@ -81,3 +82,27 @@ void ED_manipulator_draw_preset_box(
 		GPU_select_load_id(-1);
 	}
 }
+
+void ED_manipulator_draw_preset_facemap(
+        const struct wmManipulator *mpr, struct Scene *scene, Object *ob,  const int facemap, int select_id)
+{
+	const bool is_select = (select_id != -1);
+	const bool is_highlight = is_select && (mpr->state & WM_MANIPULATOR_STATE_HIGHLIGHT) != 0;
+
+	float color[4];
+	manipulator_color_get(mpr, is_highlight, color);
+
+	if (is_select) {
+		GPU_select_load_id(select_id);
+	}
+
+	gpuPushMatrix();
+	gpuMultMatrix(ob->obmat);
+	ED_draw_object_facemap(scene, ob, color, facemap);
+	gpuPopMatrix();
+
+	if (is_select) {
+		GPU_select_load_id(-1);
+	}
+}
+

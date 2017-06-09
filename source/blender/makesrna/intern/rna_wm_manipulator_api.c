@@ -44,9 +44,17 @@
 
 #include "ED_manipulator_library.h"
 
-static void rna_manipulator_draw_preset_box(wmManipulator *mpr, float matrix[16], int select_id)
+static void rna_manipulator_draw_preset_box(
+        wmManipulator *mpr, float matrix[16], int select_id)
 {
 	ED_manipulator_draw_preset_box(mpr, (float (*)[4])matrix, select_id);
+}
+
+static void rna_manipulator_draw_preset_facemap(
+        wmManipulator *mpr, struct bContext *C, struct Object *ob, int facemap, int select_id)
+{
+	struct Scene *scene = CTX_data_scene(C);
+	ED_manipulator_draw_preset_facemap(mpr, scene, ob, facemap, select_id);
 }
 
 #else
@@ -62,14 +70,23 @@ void RNA_api_manipulator(StructRNA *srna)
 	FunctionRNA *func;
 	PropertyRNA *parm;
 
-	/* draw */
+	/* draw_preset_box */
 	func = RNA_def_function(srna, "draw_preset_box", "rna_manipulator_draw_preset_box");
 	RNA_def_function_ui_description(func, "Draw a box");
 	parm = RNA_def_property(func, "matrix", PROP_FLOAT, PROP_MATRIX);
 	RNA_def_property_flag(parm, PARM_REQUIRED);
 	RNA_def_property_multi_array(parm, 2, rna_matrix_dimsize_4x4);
 	RNA_def_property_ui_text(parm, "", "The matrix to transform");
-	RNA_def_int(func, "select_id", 0, 0, INT_MAX, "Zero when not selecting", "", 0, INT_MAX);
+	RNA_def_int(func, "select_id", -1, -1, INT_MAX, "Zero when not selecting", "", -1, INT_MAX);
+
+	/* draw_preset_facemap */
+	func = RNA_def_function(srna, "draw_preset_facemap", "rna_manipulator_draw_preset_facemap");
+	RNA_def_function_ui_description(func, "Draw the face-map of a mesh object");
+	RNA_def_function_flag(func, FUNC_USE_CONTEXT);
+	parm = RNA_def_pointer(func, "object", "Object", "", "Object");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
+	RNA_def_int(func, "facemap", 0, 0, INT_MAX, "Face map index", "", 0, INT_MAX);
+	RNA_def_int(func, "select_id", -1, -1, INT_MAX, "Zero when not selecting", "", -1, INT_MAX);
 }
 
 
