@@ -139,8 +139,8 @@ wmManipulator *wm_manipulatorgroup_find_intersected_mainpulator(
         int *r_part)
 {
 	for (wmManipulator *manipulator = mgroup->manipulators.first; manipulator; manipulator = manipulator->next) {
-		if (manipulator->type->intersect && (manipulator->flag & WM_MANIPULATOR_HIDDEN) == 0) {
-			if ((*r_part = manipulator->type->intersect(C, manipulator, event))) {
+		if (manipulator->type->test_select && (manipulator->flag & WM_MANIPULATOR_HIDDEN) == 0) {
+			if ((*r_part = manipulator->type->test_select(C, manipulator, event))) {
 				return manipulator;
 			}
 		}
@@ -157,7 +157,7 @@ void wm_manipulatorgroup_intersectable_manipulators_to_list(const wmManipulatorG
 	for (wmManipulator *manipulator = mgroup->manipulators.first; manipulator; manipulator = manipulator->next) {
 		if ((manipulator->flag & WM_MANIPULATOR_HIDDEN) == 0) {
 			if (((mgroup->type->flag & WM_MANIPULATORGROUPTYPE_3D) && manipulator->type->draw_select) ||
-			    ((mgroup->type->flag & WM_MANIPULATORGROUPTYPE_3D) == 0 && manipulator->type->intersect))
+			    ((mgroup->type->flag & WM_MANIPULATORGROUPTYPE_3D) == 0 && manipulator->type->test_select))
 			{
 				BLI_addhead(listbase, BLI_genericNodeN(manipulator));
 			}

@@ -267,7 +267,7 @@ static int manipulator_rect_transform_get_cursor(wmManipulator *manipulator)
 	}
 }
 
-static int manipulator_rect_transform_intersect(
+static int manipulator_rect_transform_test_select(
         bContext *UNUSED(C), wmManipulator *manipulator, const wmEvent *event)
 {
 	RectTransformManipulator *cage = (RectTransformManipulator *)manipulator;
@@ -582,7 +582,7 @@ static void MANIPULATOR_WT_cage(wmManipulatorType *wt)
 	wt->invoke = manipulator_rect_transform_invoke;
 	wt->prop_data_update = manipulator_rect_transform_prop_data_update;
 	wt->modal = manipulator_rect_transform_modal;
-	wt->intersect = manipulator_rect_transform_intersect;
+	wt->test_select = manipulator_rect_transform_test_select;
 	wt->exit = manipulator_rect_transform_exit;
 	wt->cursor_get = manipulator_rect_transform_get_cursor;
 

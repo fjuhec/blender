@@ -112,17 +112,17 @@ static void rna_manipulator_draw_select_cb(
 	RNA_parameter_list_free(&list);
 }
 
-static int rna_manipulator_intersect_cb(
+static int rna_manipulator_test_select_cb(
         struct bContext *C, struct wmManipulator *mpr, const struct wmEvent *event)
 {
-	extern FunctionRNA rna_Manipulator_intersect_func;
+	extern FunctionRNA rna_Manipulator_test_select_func;
 	wmManipulatorGroup *mgroup = WM_manipulator_get_parent_group(mpr);
 	PointerRNA mpr_ptr;
 	ParameterList list;
 	FunctionRNA *func;
 	RNA_pointer_create(NULL, mpr->type->ext.srna, mpr, &mpr_ptr);
-	/* RNA_struct_find_function(&mpr_ptr, "intersect"); */
-	func = &rna_Manipulator_intersect_func;
+	/* RNA_struct_find_function(&mpr_ptr, "test_select"); */
+	func = &rna_Manipulator_test_select_func;
 	RNA_parameter_list_create(&list, &mpr_ptr, func);
 	RNA_parameter_set_lookup(&list, "context", &C);
 	RNA_parameter_set_lookup(&list, "manipulator", &mpr);
@@ -308,7 +308,7 @@ static StructRNA *rna_Manipulator_register(
 		int i = 0;
 		dummywt.draw = (have_function[i++]) ? rna_manipulator_draw_cb : NULL;
 		dummywt.draw_select = (have_function[i++]) ? rna_manipulator_draw_select_cb : NULL;
-		dummywt.intersect = (have_function[i++]) ? rna_manipulator_intersect_cb : NULL;
+		dummywt.test_select = (have_function[i++]) ? rna_manipulator_test_select_cb : NULL;
 		dummywt.modal = (have_function[i++]) ? rna_manipulator_modal_cb : NULL;
 //		dummywt.prop_data_update = (have_function[i++]) ? rna_manipulator_prop_data_update : NULL;
 //		dummywt.position_get = (have_function[i++]) ? rna_manipulator_position_get : NULL;
@@ -758,8 +758,8 @@ static void rna_def_manipulator(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 	parm = RNA_def_int(func, "select_id", 0, 0, INT_MAX, "", "", 0, INT_MAX);
 
-	/* wmManipulator.intersect */
-	func = RNA_def_function(srna, "intersect", NULL);
+	/* wmManipulator.test_select */
+	func = RNA_def_function(srna, "test_select", NULL);
 	RNA_def_function_ui_description(func, "");
 	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL);
 	parm = RNA_def_pointer(func, "context", "Context", "", "");

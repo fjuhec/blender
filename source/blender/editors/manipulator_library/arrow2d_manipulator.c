@@ -135,7 +135,7 @@ static void manipulator_arrow2d_invoke(
 	manipulator->interaction_data = inter;
 }
 
-static int manipulator_arrow2d_intersect(
+static int manipulator_arrow2d_test_select(
         bContext *UNUSED(C), struct wmManipulator *manipulator, const wmEvent *event)
 {
 	ArrowManipulator2D *arrow = (ArrowManipulator2D *)manipulator;
@@ -220,7 +220,7 @@ static void MANIPULATOR_WT_arrow_2d(wmManipulatorType *wt)
 	/* api callbacks */
 	wt->draw = manipulator_arrow2d_draw;
 	wt->invoke = manipulator_arrow2d_invoke;
-	wt->intersect = manipulator_arrow2d_intersect;
+	wt->test_select = manipulator_arrow2d_test_select;
 
 	wt->struct_size = sizeof(ArrowManipulator2D);
 }
