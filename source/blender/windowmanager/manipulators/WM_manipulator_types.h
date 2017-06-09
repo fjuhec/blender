@@ -146,7 +146,7 @@ typedef struct wmManipulatorType {
 	wmManipulatorFnDrawSelect draw_select;
 
 	/* determine if the mouse intersects with the manipulator. The calculation should be done in the callback itself */
-	wmManipulatorFnIntersect test_select;
+	wmManipulatorFnTestSelect test_select;
 
 	/* handler used by the manipulator. Usually handles interaction tied to a manipulator type */
 	wmManipulatorFnModal modal;

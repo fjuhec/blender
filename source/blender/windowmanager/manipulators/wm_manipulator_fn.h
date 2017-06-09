@@ -39,7 +39,7 @@ typedef void (*wmManipulatorGroupFnDrawPrepare)(const struct bContext *, struct 
 /* See: wmManipulatorType for docs on each type. */
 typedef void    (*wmManipulatorFnDraw)(const struct bContext *, struct wmManipulator *);
 typedef void    (*wmManipulatorFnDrawSelect)(const struct bContext *, struct wmManipulator *, int);
-typedef int     (*wmManipulatorFnIntersect)(struct bContext *, struct wmManipulator *, const struct wmEvent *);
+typedef int     (*wmManipulatorFnTestSelect)(struct bContext *, struct wmManipulator *, const struct wmEvent *);
 typedef void    (*wmManipulatorFnModal)(struct bContext *, struct wmManipulator *, const struct wmEvent *, const int);
 typedef void    (*wmManipulatorFnPropDataUpdate)(struct wmManipulator *, int);
 typedef void    (*wmManipulatorFnPositionGet)(struct wmManipulator *, float[]);
