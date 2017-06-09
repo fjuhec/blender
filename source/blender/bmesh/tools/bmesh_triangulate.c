@@ -159,3 +159,11 @@ void BM_mesh_triangulate(
 		BLI_edgehash_free(pf_ehash, NULL);
 	}
 }
+
+void BM_mesh_clip_project(
+	BMesh *bm, const int quad_method, const int ngon_method, const bool tag_only,
+	BMOperator *op, BMOpSlot *slot_facemap_out, BMOpSlot *slot_facemap_double_out)
+{
+	BMIter iter;
+	BMFace *face;
+}

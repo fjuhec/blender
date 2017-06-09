@@ -658,6 +658,9 @@ typedef struct SculptBrushTest {
 
 	/* View3d clipping - only set rv3d for clipping */
 	RegionView3D *clip_rv3d;
+
+
+
 } SculptBrushTest;
 
 static void sculpt_brush_test_init(SculptSession *ss, SculptBrushTest *test)
@@ -3052,10 +3055,65 @@ static void do_clay_strips_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int t
 	            ((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
 }
 
+static void do_clip_brush_task_cb_ex(
+	void *userdata, void *UNUSED(userdata_chunk), const int n, const int thread_id)
+{
+	SculptThreadedTaskData *data = userdata;
+	SculptSession *ss = data->ob->sculpt;
+	Brush *brush = data->brush;
+
+	PBVHVertexIter vd;
+	SculptBrushTest test;
+
+
+	SculptOrigVertData orig_data;
+	float(*proxy)[3];
+	const float bstrength = ss->cache->bstrength;
+
+	sculpt_orig_vert_data_init(&orig_data, data->ob, data->nodes[n]);
+
+	proxy = BKE_pbvh_node_add_proxy(ss->pbvh, data->nodes[n])->co;
+
+	sculpt_brush_test_init(ss, &test);
+
+	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
+	{
+		sculpt_orig_vert_data_update(&orig_data, &vd);
+
+		if (sculpt_brush_test(&test, vd.co)) { /*initially vd = orig_data*/
+			float vec[3] = { 0 };
+			const float fade = bstrength * tex_strength(
+				ss, brush, vd.co, test.dist, vd.no, NULL, vd.mask ? *vd.mask : 0.0f,
+				thread_id);
+			/*
+			sub_v3_v3v3(vec, orig_data.co, ss->cache->location);
+			axis_angle_normalized_to_mat3(rot, ss->cache->sculpt_normal_symm, angle * fade);
+			mul_v3_m3v3(proxy[vd.i], rot, vec);
+			add_v3_v3(proxy[vd.i], ss->cache->location); */
+			mul_v3_v3fl(proxy[vd.i], vd.co, 1.5); /*just testing the working*/
+			BM_vert_kill(ss->bm, vd.bm_vert);
+			if (vd.mvert)
+				vd.mvert->flag |= ME_VERT_PBVH_UPDATE;
+		}
+	}
+	BKE_pbvh_vertex_iter_end;
+}
+
 static void do_clip_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode)  /*clipping*/
 {
-	// some functions in future
+	SculptSession *ss = ob->sculpt;
+	Brush *brush = BKE_paint_brush(&sd->paint);
 
+	/*static const int flip[8] = { 1, -1, -1, 1, -1, 1, 1, -1 };
+	const float angle = ss->cache->vertex_rotation * flip[ss->cache->mirror_symmetry_pass];*/
+
+	SculptThreadedTaskData data = {
+		.sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
+	};
+
+	BLI_task_parallel_range_ex(
+		0, totnode, &data, NULL, 0, do_clip_brush_task_cb_ex,
+		((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
 }
 
 static void do_fill_brush_task_cb_ex(
@@ -4042,7 +4100,7 @@ static void sculpt_update_cache_invariants(
 		copy_v2_v2(cache->initial_mouse, mouse);
 	else
 		zero_v2(cache->initial_mouse);
-
+	
 	mode = RNA_enum_get(op->ptr, "mode");
 	cache->invert = mode == BRUSH_STROKE_INVERT;
 	cache->alt_smooth = mode == BRUSH_STROKE_SMOOTH;
