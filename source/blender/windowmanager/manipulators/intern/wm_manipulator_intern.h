@@ -61,7 +61,7 @@ void wm_manipulatorgroup_free(bContext *C, struct wmManipulatorGroup *mgroup);
 void wm_manipulatorgroup_manipulator_register(struct wmManipulatorGroup *mgroup, struct wmManipulator *manipulator);
 struct wmManipulator *wm_manipulatorgroup_find_intersected_mainpulator(
         const struct wmManipulatorGroup *mgroup, struct bContext *C, const struct wmEvent *event,
-        unsigned char *part);
+        int *r_part);
 void wm_manipulatorgroup_intersectable_manipulators_to_list(
         const struct wmManipulatorGroup *mgroup, struct ListBase *listbase);
 void wm_manipulatorgroup_ensure_initialized(struct wmManipulatorGroup *mgroup, const struct bContext *C);
@@ -90,13 +90,13 @@ struct wmManipulatorMap {
 	 */
 	struct {
 		/* we redraw the manipulator-map when this changes */
-		struct wmManipulator *highlighted_manipulator;
+		struct wmManipulator *highlight;
 		/* user has clicked this manipulator and it gets all input */
-		struct wmManipulator *active_manipulator;
+		struct wmManipulator *active;
 		/* array for all selected manipulators
 		 * TODO  check on using BLI_array */
-		struct wmManipulator **selected_manipulator;
-		int tot_selected;
+		struct wmManipulator **selected;
+		int selected_len;
 	} mmap_context;
 };
 
@@ -114,7 +114,7 @@ struct wmManipulatorMapType {
 	ListBase manipulator_grouptypes;
 };
 
-void wm_manipulatormap_selected_delete(struct wmManipulatorMap *mmap);
+void wm_manipulatormap_selected_clear(struct wmManipulatorMap *mmap);
 bool wm_manipulatormap_deselect_all(struct wmManipulatorMap *mmap, struct wmManipulator ***sel);
 
 #endif

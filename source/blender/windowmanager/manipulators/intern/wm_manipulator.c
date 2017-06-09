@@ -287,10 +287,10 @@ void WM_manipulator_free(ListBase *manipulatorlist, wmManipulatorMap *mmap, wmMa
 #endif
 
 	if (manipulator->state & WM_MANIPULATOR_STATE_HIGHLIGHT) {
-		wm_manipulatormap_set_highlighted_manipulator(mmap, C, NULL, 0);
+		wm_manipulatormap_highlight_set(mmap, C, NULL, 0);
 	}
 	if (manipulator->state & WM_MANIPULATOR_STATE_ACTIVE) {
-		wm_manipulatormap_set_active_manipulator(mmap, C, NULL, NULL);
+		wm_manipulatormap_active_set(mmap, C, NULL, NULL);
 	}
 	if (manipulator->state & WM_MANIPULATOR_STATE_SELECT) {
 		wm_manipulator_deselect(mmap, manipulator);
@@ -480,20 +480,20 @@ void WM_manipulator_set_fn_select(wmManipulator *mpr, wmManipulatorFnSelect fn)
  */
 bool wm_manipulator_deselect(wmManipulatorMap *mmap, wmManipulator *manipulator)
 {
-	if (!mmap->mmap_context.selected_manipulator)
+	if (!mmap->mmap_context.selected)
 		return false;
 
-	wmManipulator ***sel = &mmap->mmap_context.selected_manipulator;
-	int *tot_selected = &mmap->mmap_context.tot_selected;
+	wmManipulator ***sel = &mmap->mmap_context.selected;
+	int *selected_len = &mmap->mmap_context.selected_len;
 	bool changed = false;
 
 	/* caller should check! */
 	BLI_assert(manipulator->state & WM_MANIPULATOR_STATE_SELECT);
 
 	/* remove manipulator from selected_manipulators array */
-	for (int i = 0; i < (*tot_selected); i++) {
+	for (int i = 0; i < (*selected_len); i++) {
 		if ((*sel)[i] == manipulator) {
-			for (int j = i; j < ((*tot_selected) - 1); j++) {
+			for (int j = i; j < ((*selected_len) - 1); j++) {
 				(*sel)[j] = (*sel)[j + 1];
 			}
 			changed = true;
@@ -502,12 +502,12 @@ bool wm_manipulator_deselect(wmManipulatorMap *mmap, wmManipulator *manipulator)
 	}
 
 	/* update array data */
-	if ((*tot_selected) <= 1) {
-		wm_manipulatormap_selected_delete(mmap);
+	if ((*selected_len) <= 1) {
+		wm_manipulatormap_selected_clear(mmap);
 	}
 	else {
-		*sel = MEM_reallocN(*sel, sizeof(**sel) * (*tot_selected));
-		(*tot_selected)--;
+		*sel = MEM_reallocN(*sel, sizeof(**sel) * (*selected_len));
+		(*selected_len)--;
 	}
 
 	manipulator->state &= ~WM_MANIPULATOR_STATE_SELECT;
@@ -522,22 +522,22 @@ bool wm_manipulator_deselect(wmManipulatorMap *mmap, wmManipulator *manipulator)
  */
 bool wm_manipulator_select(bContext *C, wmManipulatorMap *mmap, wmManipulator *manipulator)
 {
-	wmManipulator ***sel = &mmap->mmap_context.selected_manipulator;
-	int *tot_selected = &mmap->mmap_context.tot_selected;
+	wmManipulator ***sel = &mmap->mmap_context.selected;
+	int *selected_len = &mmap->mmap_context.selected_len;
 
 	if (!manipulator || (manipulator->state & WM_MANIPULATOR_STATE_SELECT))
 		return false;
 
-	(*tot_selected)++;
+	(*selected_len)++;
 
-	*sel = MEM_reallocN(*sel, sizeof(wmManipulator *) * (*tot_selected));
-	(*sel)[(*tot_selected) - 1] = manipulator;
+	*sel = MEM_reallocN(*sel, sizeof(wmManipulator *) * (*selected_len));
+	(*sel)[(*selected_len) - 1] = manipulator;
 
 	manipulator->state |= WM_MANIPULATOR_STATE_SELECT;
 	if (manipulator->type->select) {
 		manipulator->type->select(C, manipulator, SEL_SELECT);
 	}
-	wm_manipulatormap_set_highlighted_manipulator(mmap, C, manipulator, manipulator->highlighted_part);
+	wm_manipulatormap_highlight_set(mmap, C, manipulator, manipulator->highlight_part);
 
 	return true;
 }

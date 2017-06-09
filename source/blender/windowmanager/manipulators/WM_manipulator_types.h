@@ -68,7 +68,7 @@ struct wmManipulator {
 	int flag; /* flags that influence the behavior or how the manipulators are drawn */
 	short state; /* state flags (active, highlighted, selected) */
 
-	unsigned char highlighted_part;
+	int highlight_part;
 
 	/* center of manipulator in space, 2d or 3d */
 	float origin[3];

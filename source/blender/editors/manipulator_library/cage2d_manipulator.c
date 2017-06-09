@@ -62,7 +62,7 @@
 //#include "wm_manipulator_intern.h"
 
 
-/* wmManipulator->highlighted_part */
+/* wmManipulator->highlight_part */
 enum {
 	ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_TRANSLATE     = 1,
 	ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_LEFT   = 2,
@@ -243,8 +243,9 @@ static void manipulator_rect_transform_draw(const bContext *UNUSED(C), wmManipul
 	glLineWidth(cage->manipulator.line_width);
 	rect_transform_draw_corners(&r, w, h, manipulator->col);
 
-	rect_transform_draw_interaction(manipulator->col, manipulator->highlighted_part, half_w, half_h,
-	                                w, h, cage->manipulator.line_width);
+	rect_transform_draw_interaction(
+	        manipulator->col, manipulator->highlight_part, half_w, half_h,
+	        w, h, cage->manipulator.line_width);
 
 	glLineWidth(1.0);
 	gpuPopMatrix();
@@ -252,7 +253,7 @@ static void manipulator_rect_transform_draw(const bContext *UNUSED(C), wmManipul
 
 static int manipulator_rect_transform_get_cursor(wmManipulator *manipulator)
 {
-	switch (manipulator->highlighted_part) {
+	switch (manipulator->highlight_part) {
 		case ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_TRANSLATE:
 			return BC_HANDCURSOR;
 		case ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_LEFT:
@@ -427,19 +428,19 @@ static void manipulator_rect_transform_modal(
 	const float valuey = (event->mval[1] - data->orig_mouse[1]);
 
 
-	if (manipulator->highlighted_part == ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_TRANSLATE) {
+	if (manipulator->highlight_part == ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_TRANSLATE) {
 		manipulator->offset[0] = data->orig_offset[0] + valuex;
 		manipulator->offset[1] = data->orig_offset[1] + valuey;
 	}
-	else if (manipulator->highlighted_part == ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_LEFT) {
+	else if (manipulator->highlight_part == ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_LEFT) {
 		manipulator->offset[0] = data->orig_offset[0] + valuex / 2.0;
 		cage->scale[0] = (cage->w * data->orig_scale[0] - valuex) / cage->w;
 	}
-	else if (manipulator->highlighted_part == ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_RIGHT) {
+	else if (manipulator->highlight_part == ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_RIGHT) {
 		manipulator->offset[0] = data->orig_offset[0] + valuex / 2.0;
 		cage->scale[0] = (cage->w * data->orig_scale[0] + valuex) / cage->w;
 	}
-	else if (manipulator->highlighted_part == ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_DOWN) {
+	else if (manipulator->highlight_part == ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_DOWN) {
 		manipulator->offset[1] = data->orig_offset[1] + valuey / 2.0;
 
 		if (cage->style & ED_MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM) {
@@ -449,7 +450,7 @@ static void manipulator_rect_transform_modal(
 			cage->scale[1] = (cage->h * data->orig_scale[1] - valuey) / cage->h;
 		}
 	}
-	else if (manipulator->highlighted_part == ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_UP) {
+	else if (manipulator->highlight_part == ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_UP) {
 		manipulator->offset[1] = data->orig_offset[1] + valuey / 2.0;
 
 		if (cage->style & ED_MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM) {

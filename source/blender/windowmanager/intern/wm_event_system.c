@@ -2165,16 +2165,16 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 				ScrArea *area = CTX_wm_area(C);
 				ARegion *region = CTX_wm_region(C);
 				wmManipulatorMap *mmap = handler->manipulator_map;
-				wmManipulator *manipulator = wm_manipulatormap_get_highlighted_manipulator(mmap);
-				unsigned char part;
+				wmManipulator *manipulator = wm_manipulatormap_highlight_get(mmap);
 
 				wm_manipulatormap_handler_context(C, handler);
 				wm_region_mouse_co(C, event);
 
 				/* handle manipulator highlighting */
-				if (event->type == MOUSEMOVE && !wm_manipulatormap_get_active_manipulator(mmap)) {
-					manipulator = wm_manipulatormap_find_highlighted_manipulator(mmap, C, event, &part);
-					wm_manipulatormap_set_highlighted_manipulator(mmap, C, manipulator, part);
+				if (event->type == MOUSEMOVE && !wm_manipulatormap_active_get(mmap)) {
+					int part;
+					manipulator = wm_manipulatormap_highlight_find(mmap, C, event, &part);
+					wm_manipulatormap_highlight_set(mmap, C, manipulator, part);
 				}
 				/* handle user configurable manipulator-map keymap */
 				else if (manipulator) {

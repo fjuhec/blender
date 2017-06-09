@@ -533,7 +533,6 @@ static void MANIPULATOR_WT_arrow_3d(wmManipulatorType *wt)
 	wt->draw = manipulator_arrow_draw;
 	wt->draw_select = manipulator_arrow_render_3d_intersect;
 	wt->position_get = manipulator_arrow_get_final_pos;
-	wt->intersect = NULL;
 	wt->modal = manipulator_arrow_modal;
 	wt->invoke = manipulator_arrow_invoke;
 	wt->prop_data_update = manipulator_arrow_prop_data_update;

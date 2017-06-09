@@ -136,11 +136,11 @@ void wm_manipulatorgroup_manipulator_register(wmManipulatorGroup *mgroup, wmMani
 
 wmManipulator *wm_manipulatorgroup_find_intersected_mainpulator(
         const wmManipulatorGroup *mgroup, bContext *C, const wmEvent *event,
-        unsigned char *part)
+        int *r_part)
 {
 	for (wmManipulator *manipulator = mgroup->manipulators.first; manipulator; manipulator = manipulator->next) {
 		if (manipulator->type->intersect && (manipulator->flag & WM_MANIPULATOR_HIDDEN) == 0) {
-			if ((*part = manipulator->type->intersect(C, manipulator, event))) {
+			if ((*r_part = manipulator->type->intersect(C, manipulator, event))) {
 				return manipulator;
 			}
 		}
@@ -214,8 +214,8 @@ static int manipulator_select_invoke(bContext *C, wmOperator *op, const wmEvent 
 {
 	ARegion *ar = CTX_wm_region(C);
 	wmManipulatorMap *mmap = ar->manipulator_map;
-	wmManipulator ***sel = &mmap->mmap_context.selected_manipulator;
-	wmManipulator *highlighted = mmap->mmap_context.highlighted_manipulator;
+	wmManipulator ***sel = &mmap->mmap_context.selected;
+	wmManipulator *highlight = mmap->mmap_context.highlight;
 
 	bool extend = RNA_boolean_get(op->ptr, "extend");
 	bool deselect = RNA_boolean_get(op->ptr, "deselect");
@@ -224,11 +224,11 @@ static int manipulator_select_invoke(bContext *C, wmOperator *op, const wmEvent 
 	/* deselect all first */
 	if (extend == false && deselect == false && toggle == false) {
 		wm_manipulatormap_deselect_all(mmap, sel);
-		BLI_assert(*sel == NULL && mmap->mmap_context.tot_selected == 0);
+		BLI_assert(*sel == NULL && mmap->mmap_context.selected_len == 0);
 	}
 
-	if (highlighted) {
-		const bool is_selected = (highlighted->state & WM_MANIPULATOR_STATE_SELECT);
+	if (highlight) {
+		const bool is_selected = (highlight->state & WM_MANIPULATOR_STATE_SELECT);
 		bool redraw = false;
 
 		if (toggle) {
@@ -237,11 +237,11 @@ static int manipulator_select_invoke(bContext *C, wmOperator *op, const wmEvent 
 		}
 
 		if (deselect) {
-			if (is_selected && wm_manipulator_deselect(mmap, highlighted)) {
+			if (is_selected && wm_manipulator_deselect(mmap, highlight)) {
 				redraw = true;
 			}
 		}
-		else if (wm_manipulator_select(C, mmap, highlighted)) {
+		else if (wm_manipulator_select(C, mmap, highlight)) {
 			redraw = true;
 		}
 
@@ -288,7 +288,7 @@ static void manipulator_tweak_finish(bContext *C, wmOperator *op, const bool can
 	if (mtweak->active->type->exit) {
 		mtweak->active->type->exit(C, mtweak->active, cancel);
 	}
-	wm_manipulatormap_set_active_manipulator(mtweak->mmap, C, NULL, NULL);
+	wm_manipulatormap_active_set(mtweak->mmap, C, NULL, NULL);
 	MEM_freeN(mtweak);
 }
 
@@ -345,7 +345,7 @@ static int manipulator_tweak_invoke(bContext *C, wmOperator *op, const wmEvent *
 {
 	ARegion *ar = CTX_wm_region(C);
 	wmManipulatorMap *mmap = ar->manipulator_map;
-	wmManipulator *manipulator = mmap->mmap_context.highlighted_manipulator;
+	wmManipulator *manipulator = mmap->mmap_context.highlight;
 
 	if (!manipulator) {
 		/* wm_handlers_do_intern shouldn't let this happen */
@@ -355,7 +355,7 @@ static int manipulator_tweak_invoke(bContext *C, wmOperator *op, const wmEvent *
 
 
 	/* activate highlighted manipulator */
-	wm_manipulatormap_set_active_manipulator(mmap, C, event, manipulator);
+	wm_manipulatormap_active_set(mmap, C, event, manipulator);
 
 	/* XXX temporary workaround for modal manipulator operator
 	 * conflicting with modal operator attached to manipulator */
@@ -370,7 +370,7 @@ static int manipulator_tweak_invoke(bContext *C, wmOperator *op, const wmEvent *
 	ManipulatorTweakData *mtweak = MEM_mallocN(sizeof(ManipulatorTweakData), __func__);
 
 	mtweak->init_event = event->type;
-	mtweak->active = mmap->mmap_context.highlighted_manipulator;
+	mtweak->active = mmap->mmap_context.highlight;
 	mtweak->mmap = mmap;
 	mtweak->flag = 0;
 
@@ -593,7 +593,7 @@ void WM_manipulatorgrouptype_init_runtime(
 						wm_manipulatorgroup_new_from_type(mmap, wgt);
 
 						/* just add here, drawing will occur on next update */
-						wm_manipulatormap_set_highlighted_manipulator(mmap, NULL, NULL, 0);
+						wm_manipulatormap_highlight_set(mmap, NULL, NULL, 0);
 						ED_region_tag_redraw(ar);
 					}
 				}
