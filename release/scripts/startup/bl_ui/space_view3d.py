@@ -143,6 +143,12 @@ class VIEW3D_HT_header(Header):
                 if toolsettings.gpencil_stroke_placement_view3d in ('SURFACE', 'STROKE'):
                     row.prop(toolsettings, "use_gpencil_stroke_endpoints")
 
+            if ob.grease_pencil.is_stroke_sculpt_mode:
+                settings = context.tool_settings.gpencil_sculpt
+                if settings.tool == 'GRAB':
+                    row.separator()
+                    row.prop(toolsettings.gpencil_sculpt, "lockaxis", text='')
+
         if context.gpencil_data:
             if context.gpencil_data.use_stroke_edit_mode:
                 row = layout.row(align=True)
