@@ -310,7 +310,7 @@ static StructRNA *rna_Manipulator_register(
 		dummywt.draw_select = (have_function[i++]) ? rna_manipulator_draw_select_cb : NULL;
 		dummywt.test_select = (have_function[i++]) ? rna_manipulator_test_select_cb : NULL;
 		dummywt.modal = (have_function[i++]) ? rna_manipulator_modal_cb : NULL;
-//		dummywt.prop_data_update = (have_function[i++]) ? rna_manipulator_prop_data_update : NULL;
+//		dummywt.property_update = (have_function[i++]) ? rna_manipulator_property_update : NULL;
 //		dummywt.position_get = (have_function[i++]) ? rna_manipulator_position_get : NULL;
 		dummywt.invoke = (have_function[i++]) ? rna_manipulator_invoke_cb : NULL;
 		dummywt.exit = (have_function[i++]) ? rna_manipulator_exit_cb : NULL;
@@ -788,7 +788,7 @@ static void rna_def_manipulator(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	RNA_def_property_flag(parm, PROP_ENUM_FLAG);
 
-	/* wmManipulator.prop_data_update */
+	/* wmManipulator.property_update */
 	/* TODO */
 
 	/* wmManipulator.invoke */

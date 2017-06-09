@@ -104,7 +104,7 @@ static void WIDGETGROUP_lamp_refresh(const bContext *C, wmManipulatorGroup *wgro
 	PointerRNA lamp_ptr;
 	const char *propname = "spot_size";
 	RNA_pointer_create(&la->id, &RNA_Lamp, la, &lamp_ptr);
-	WM_manipulator_set_property(wwrapper->manipulator, ED_MANIPULATOR_ARROW_SLOT_OFS_WORLD_SPACE, &lamp_ptr, propname);
+	WM_manipulator_def_property(wwrapper->manipulator, "offset", &lamp_ptr, propname, -1);
 }
 
 void VIEW3D_WGT_lamp(wmManipulatorGroupType *wgt)
@@ -231,7 +231,7 @@ static void WIDGETGROUP_camera_refresh(const bContext *C, wmManipulatorGroup *wg
 		WM_manipulator_set_flag(camgroup->dop_dist, WM_MANIPULATOR_HIDDEN, false);
 
 		/* need to set property here for undo. TODO would prefer to do this in _init */
-		WM_manipulator_set_property(camgroup->dop_dist, ED_MANIPULATOR_ARROW_SLOT_OFS_WORLD_SPACE, &camera_ptr, "dof_distance");
+		WM_manipulator_def_property(camgroup->dop_dist, "offset", &camera_ptr, "dof_distance", -1);
 	}
 	else {
 		WM_manipulator_set_flag(camgroup->dop_dist, WM_MANIPULATOR_HIDDEN, true);
@@ -274,8 +274,8 @@ static void WIDGETGROUP_camera_refresh(const bContext *C, wmManipulatorGroup *wg
 		WM_manipulator_set_scale(widget, drawsize);
 
 		/* need to set property here for undo. TODO would prefer to do this in _init */
-		WM_manipulator_set_property(camgroup->focal_len, ED_MANIPULATOR_ARROW_SLOT_OFS_WORLD_SPACE, &camera_ptr, "lens");
-		WM_manipulator_set_property(camgroup->ortho_scale, ED_MANIPULATOR_ARROW_SLOT_OFS_WORLD_SPACE, &camera_ptr, "ortho_scale");
+		WM_manipulator_def_property(camgroup->focal_len, "offset", &camera_ptr, "lens", -1);
+		WM_manipulator_def_property(camgroup->ortho_scale, "offset", &camera_ptr, "ortho_scale", -1);
 	}
 }
 
@@ -340,7 +340,7 @@ static void WIDGETGROUP_forcefield_refresh(const bContext *C, wmManipulatorGroup
 		WM_manipulator_set_origin(wwrapper->manipulator, ob->obmat[3]);
 		WM_manipulator_set_offset(wwrapper->manipulator, ofs);
 		WM_manipulator_set_flag(wwrapper->manipulator, WM_MANIPULATOR_HIDDEN, false);
-		WM_manipulator_set_property(wwrapper->manipulator, ED_MANIPULATOR_ARROW_SLOT_OFS_WORLD_SPACE, &field_ptr, "strength");
+		WM_manipulator_def_property(wwrapper->manipulator, "offset", &field_ptr, "strength", -1);
 	}
 	else {
 		WM_manipulator_set_flag(wwrapper->manipulator, WM_MANIPULATOR_HIDDEN, true);

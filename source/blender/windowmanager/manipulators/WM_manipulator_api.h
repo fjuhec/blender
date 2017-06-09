@@ -41,6 +41,7 @@ struct GHashIterator;
 struct Main;
 struct wmKeyConfig;
 struct wmManipulator;
+struct wmManipulatorProperty;
 struct wmManipulatorType;
 struct wmManipulatorGroup;
 struct wmManipulatorGroupType;
@@ -64,7 +65,12 @@ void WM_manipulator_free(
         struct bContext *C);
 struct wmManipulatorGroup *WM_manipulator_get_parent_group(struct wmManipulator *manipulator);
 
-void WM_manipulator_set_property(struct wmManipulator *, int slot, struct PointerRNA *ptr, const char *propname);
+struct wmManipulatorProperty *WM_manipulator_get_property(
+        struct wmManipulator *mpr, const char *idname);
+void WM_manipulator_def_property(
+        struct wmManipulator *mpr, const char *idname,
+        struct PointerRNA *ptr, const char *propname, int index);
+
 struct PointerRNA *WM_manipulator_set_operator(struct wmManipulator *, const char *opname);
 
 /* callbacks */

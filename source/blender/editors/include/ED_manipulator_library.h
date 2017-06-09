@@ -75,11 +75,6 @@ enum {
 	ED_MANIPULATOR_ARROW_STYLE_CONE          = (1 << 6),
 };
 
-/* slots for properties */
-enum {
-	ED_MANIPULATOR_ARROW_SLOT_OFS_WORLD_SPACE = 0
-};
-
 struct wmManipulator *ED_manipulator_arrow3d_new(
         struct wmManipulatorGroup *mgroup, const char *name, const int style);
 void ED_manipulator_arrow3d_set_direction(struct wmManipulator *manipulator, const float direction[3]);
@@ -106,11 +101,6 @@ enum {
 	ED_MANIPULATOR_RECT_TRANSFORM_STYLE_ROTATE          = (1 << 1), /* Manipulator rotates */
 	ED_MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE           = (1 << 2), /* Manipulator scales */
 	ED_MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM   = (1 << 3), /* Manipulator scales uniformly */
-};
-
-enum {
-	ED_MANIPULATOR_RECT_TX_SLOT_OFFSET = 0,
-	ED_MANIPULATOR_RECT_TX_SLOT_SCALE = 1
 };
 
 struct wmManipulator *ED_manipulator_rect_transform_new(

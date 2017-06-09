@@ -41,9 +41,13 @@
 struct wmManipulatorGroupType;
 struct wmManipulatorGroup;
 struct wmManipulator;
+struct wmManipulatorProperty;
 struct wmKeyConfig;
+struct PropertyElemRNA;
 
 #include "wm_manipulator_fn.h"
+
+#include "DNA_listBase.h"
 
 /* -------------------------------------------------------------------- */
 /* wmManipulator */
@@ -92,11 +96,24 @@ struct wmManipulator {
 	 * or owner pointer if manipulator spawns and controls a property */
 	PointerRNA opptr;
 
-	/* arrays of properties attached to various manipulator parameters. As
-	 * the manipulator is interacted with, those properties get updated */
-	PointerRNA *ptr;
-	PropertyRNA **props;
+	/* Properties 'wmManipulatorProperty' attached to various manipulator parameters.
+	 * As the manipulator is interacted with, those properties get updated.
+	 *
+	 * Public API's should use string names,
+	 * private API's can pass 'wmManipulatorProperty' directly.
+	 */
+	ListBase properties;
 };
+
+/* Similar to PropertyElemRNA, but has an identifier. */
+typedef struct wmManipulatorProperty {
+	struct wmManipulatorProperty *next, *prev;
+	PointerRNA ptr;
+	PropertyRNA *prop;
+	int index;
+	/* over alloc */
+	char idname[0];
+} wmManipulatorProperty;
 
 /**
  * Simple utility wrapper for storing a single manipulator as wmManipulatorGroup.customdata (which gets freed).
@@ -152,7 +169,7 @@ typedef struct wmManipulatorType {
 	wmManipulatorFnModal modal;
 
 	/* manipulator-specific handler to update manipulator attributes based on the property value */
-	wmManipulatorFnPropDataUpdate prop_data_update;
+	wmManipulatorFnPropertyUpdate property_update;
 
 	/* returns the final position which may be different from the origin, depending on the manipulator.
 	 * used in calculations of scale */
@@ -168,9 +185,6 @@ typedef struct wmManipulatorType {
 
 	/* called when manipulator selection state changes */
 	wmManipulatorFnSelect select;
-
-	/* maximum number of properties attached to the manipulator */
-	int prop_len_max;
 
 	/* RNA integration */
 	ExtensionRNA ext;
@@ -257,4 +271,3 @@ enum {
 };
 
 #endif  /* __WM_MANIPULATOR_TYPES_H__ */
-

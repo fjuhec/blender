@@ -110,12 +110,6 @@ static void wm_manipulatortype_append__end(wmManipulatorType *wt)
 {
 	BLI_assert(wt->struct_size >= sizeof(wmManipulator));
 
-	/* Create at least one property for interaction,
-	 * note: we could enforce each type sets this it's self. */
-	if (wt->prop_len_max == 0) {
-		wt->prop_len_max = 1;
-	}
-
 	BLI_ghash_insert(global_manipulatortype_hash, (void *)wt->idname, wt);
 }
 
@@ -253,9 +247,6 @@ static void manipulator_init(wmManipulator *mpr)
 	/* defaults */
 	copy_v4_v4(mpr->col, col_default);
 	copy_v4_v4(mpr->col_hi, col_default);
-
-	mpr->props = MEM_callocN(sizeof(PropertyRNA *) * mpr->type->prop_len_max, "manipulator->props");
-	mpr->ptr = MEM_callocN(sizeof(PointerRNA) * mpr->type->prop_len_max, "manipulator->ptr");
 }
 
 /**
@@ -299,8 +290,7 @@ void WM_manipulator_free(ListBase *manipulatorlist, wmManipulatorMap *mmap, wmMa
 	if (manipulator->opptr.data) {
 		WM_operator_properties_free(&manipulator->opptr);
 	}
-	MEM_freeN(manipulator->props);
-	MEM_freeN(manipulator->ptr);
+	BLI_freelistN(&manipulator->properties);
 
 	if (manipulatorlist)
 		BLI_remlink(manipulatorlist, manipulator);
@@ -320,20 +310,32 @@ wmManipulatorGroup *wm_manipulator_get_parent_group(const wmManipulator *manipul
  *
  * \{ */
 
-void WM_manipulator_set_property(wmManipulator *manipulator, const int slot, PointerRNA *ptr, const char *propname)
+struct wmManipulatorProperty *WM_manipulator_get_property(wmManipulator *mpr, const char *idname)
 {
-	if (slot < 0 || slot >= manipulator->type->prop_len_max) {
-		fprintf(stderr, "invalid index %d when binding property for manipulator type %s\n", slot, manipulator->name);
-		return;
+	return BLI_findstring(&mpr->properties, idname, offsetof(wmManipulatorProperty, idname));
+}
+
+void WM_manipulator_def_property(
+        wmManipulator *mpr, const char *idname,
+        PointerRNA *ptr, const char *propname, int index)
+{
+	wmManipulatorProperty *mpr_prop = WM_manipulator_get_property(mpr, idname);
+
+	if (mpr_prop == NULL) {
+		const uint idname_size = strlen(idname) + 1;
+		mpr_prop = MEM_callocN(sizeof(wmManipulatorProperty) + idname_size, __func__);
+		memcpy(mpr_prop->idname, idname, idname_size);
+		BLI_addtail(&mpr->properties, mpr_prop);
 	}
 
 	/* if manipulator evokes an operator we cannot use it for property manipulation */
-	manipulator->opname = NULL;
-	manipulator->ptr[slot] = *ptr;
-	manipulator->props[slot] = RNA_struct_find_property(ptr, propname);
+	mpr->opname = NULL;
+	mpr_prop->ptr = *ptr;
+	mpr_prop->prop = RNA_struct_find_property(ptr, propname);
+	mpr_prop->index = index;
 
-	if (manipulator->type->prop_data_update) {
-		manipulator->type->prop_data_update(manipulator, slot);
+	if (mpr->type->property_update) {
+		mpr->type->property_update(mpr, mpr_prop);
 	}
 }
 
@@ -440,9 +442,9 @@ void WM_manipulator_set_fn_custom_modal(struct wmManipulator *mpr, wmManipulator
 	mpr->custom_modal = fn;
 }
 #if 0
-void WM_manipulator_set_fn_prop_data_update(struct wmManipulator *mpr, wmManipulatorFnPropDataUpdate fn)
+void WM_manipulator_set_fn_property_update(struct wmManipulator *mpr, wmManipulatorFnPropDataUpdate fn)
 {
-	mpr->type->prop_data_update = fn;
+	mpr->type->property_update = fn;
 }
 void WM_manipulator_set_fn_final_position_get(struct wmManipulator *mpr, wmManipulatorFnFinalPositionGet fn)
 {
@@ -567,13 +569,13 @@ void wm_manipulator_calculate_scale(wmManipulator *manipulator, const bContext *
 	manipulator->scale = scale * manipulator->user_scale;
 }
 
-static void manipulator_update_prop_data(wmManipulator *manipulator)
+static void manipulator_update_prop_data(wmManipulator *mpr)
 {
 	/* manipulator property might have been changed, so update manipulator */
-	if (manipulator->props && manipulator->type->prop_data_update) {
-		for (int i = 0; i < manipulator->type->prop_len_max; i++) {
-			if (manipulator->props[i]) {
-				manipulator->type->prop_data_update(manipulator, i);
+	if (mpr->type->property_update && !BLI_listbase_is_empty(&mpr->properties)) {
+		for (wmManipulatorProperty *mpr_prop = mpr->properties.first; mpr_prop; mpr_prop = mpr_prop->next) {
+			if (mpr_prop->prop != NULL) {
+				mpr->type->property_update(mpr, mpr_prop);
 			}
 		}
 	}
