@@ -50,6 +50,18 @@ static void rna_manipulator_draw_preset_box(
 	ED_manipulator_draw_preset_box(mpr, (float (*)[4])matrix, select_id);
 }
 
+static void rna_manipulator_draw_preset_arrow(
+        wmManipulator *mpr, float matrix[16], int axis, int select_id)
+{
+	ED_manipulator_draw_preset_arrow(mpr, (float (*)[4])matrix, axis, select_id);
+}
+
+static void rna_manipulator_draw_preset_circle(
+        wmManipulator *mpr, float matrix[16], int axis, int select_id)
+{
+	ED_manipulator_draw_preset_circle(mpr, (float (*)[4])matrix, axis, select_id);
+}
+
 static void rna_manipulator_draw_preset_facemap(
         wmManipulator *mpr, struct bContext *C, struct Object *ob, int facemap, int select_id)
 {
@@ -70,6 +82,9 @@ void RNA_api_manipulator(StructRNA *srna)
 	FunctionRNA *func;
 	PropertyRNA *parm;
 
+	/* -------------------------------------------------------------------- */
+	/* Primitive Shapes */
+
 	/* draw_preset_box */
 	func = RNA_def_function(srna, "draw_preset_box", "rna_manipulator_draw_preset_box");
 	RNA_def_function_ui_description(func, "Draw a box");
@@ -78,6 +93,28 @@ void RNA_api_manipulator(StructRNA *srna)
 	RNA_def_property_multi_array(parm, 2, rna_matrix_dimsize_4x4);
 	RNA_def_property_ui_text(parm, "", "The matrix to transform");
 	RNA_def_int(func, "select_id", -1, -1, INT_MAX, "Zero when not selecting", "", -1, INT_MAX);
+
+	/* draw_preset_box */
+	func = RNA_def_function(srna, "draw_preset_arrow", "rna_manipulator_draw_preset_arrow");
+	RNA_def_function_ui_description(func, "Draw a box");
+	parm = RNA_def_property(func, "matrix", PROP_FLOAT, PROP_MATRIX);
+	RNA_def_property_flag(parm, PARM_REQUIRED);
+	RNA_def_property_multi_array(parm, 2, rna_matrix_dimsize_4x4);
+	RNA_def_property_ui_text(parm, "", "The matrix to transform");
+	RNA_def_enum(func, "axis", rna_enum_object_axis_items, 2, "", "Arrow Orientation");
+	RNA_def_int(func, "select_id", -1, -1, INT_MAX, "Zero when not selecting", "", -1, INT_MAX);
+
+	func = RNA_def_function(srna, "draw_preset_circle", "rna_manipulator_draw_preset_circle");
+	RNA_def_function_ui_description(func, "Draw a box");
+	parm = RNA_def_property(func, "matrix", PROP_FLOAT, PROP_MATRIX);
+	RNA_def_property_flag(parm, PARM_REQUIRED);
+	RNA_def_property_multi_array(parm, 2, rna_matrix_dimsize_4x4);
+	RNA_def_property_ui_text(parm, "", "The matrix to transform");
+	RNA_def_enum(func, "axis", rna_enum_object_axis_items, 2, "", "Arrow Orientation");
+	RNA_def_int(func, "select_id", -1, -1, INT_MAX, "Zero when not selecting", "", -1, INT_MAX);
+
+	/* -------------------------------------------------------------------- */
+	/* Other Shapes */
 
 	/* draw_preset_facemap */
 	func = RNA_def_function(srna, "draw_preset_facemap", "rna_manipulator_draw_preset_facemap");

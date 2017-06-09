@@ -51,6 +51,10 @@ struct wmManipulatorGroup;
 /* manipulator_library_presets.c */
 void ED_manipulator_draw_preset_box(
         const struct wmManipulator *manipulator, float mat[4][4], int select_id);
+void ED_manipulator_draw_preset_arrow(
+        const struct wmManipulator *manipulator, float mat[4][4], int axis, int select_id);
+void ED_manipulator_draw_preset_circle(
+        const struct wmManipulator *manipulator, float mat[4][4], int axis, int select_id);
 void ED_manipulator_draw_preset_facemap(
         const struct wmManipulator *mpr, struct Scene *scene, struct Object *ob,  const int facemap, int select_id);
 
