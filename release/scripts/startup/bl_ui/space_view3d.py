@@ -143,17 +143,19 @@ class VIEW3D_HT_header(Header):
                 if toolsettings.gpencil_stroke_placement_view3d in ('SURFACE', 'STROKE'):
                     row.prop(toolsettings, "use_gpencil_stroke_endpoints")
 
-        if context.gpencil_data and context.gpencil_data.use_stroke_edit_mode:
-            row = layout.row(align=True)
-            row.operator("gpencil.copy", text="", icon='COPYDOWN')
-            row.operator("gpencil.paste", text="", icon='PASTEDOWN')
+        if context.gpencil_data:
+            if context.gpencil_data.use_stroke_edit_mode:
+                row = layout.row(align=True)
+                row.operator("gpencil.copy", text="", icon='COPYDOWN')
+                row.operator("gpencil.paste", text="", icon='PASTEDOWN')
 
             # XXX: icon
             layout.prop(context.gpencil_data, "use_onion_skinning", text="Onion Skins", icon='PARTICLE_PATH')
 
-            row = layout.row(align=True)
-            row.prop(context.tool_settings.gpencil_sculpt, "use_select_mask")
-            row.prop(context.tool_settings.gpencil_sculpt, "selection_alpha", slider=True)
+            if context.gpencil_data.use_stroke_edit_mode or context.gpencil_data.is_stroke_sculpt_mode:
+                row = layout.row(align=True)
+                row.prop(context.tool_settings.gpencil_sculpt, "use_select_mask")
+                row.prop(context.tool_settings.gpencil_sculpt, "selection_alpha", slider=True)
 
 
 class VIEW3D_MT_editor_menus(Menu):
