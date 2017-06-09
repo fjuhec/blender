@@ -29,6 +29,7 @@
 #include "BLI_bitmap.h"
 #include "BLI_ghash.h"
 #include "BLI_utildefines.h"
+#include "DNA_mesh_types.h"
 
 struct CCGElem;
 struct CCGKey;
@@ -61,6 +62,7 @@ typedef void (*BKE_pbvh_HitOccludedCallback)(PBVHNode *node, void *data, float *
 /* Building */
 
 PBVH *BKE_pbvh_new(void);
+void BKE_pbvh_attach_mesh(PBVH *pbvh, PBVHNode *node, Mesh *me, int totvert, float *max_bmin, float *max_bmax);
 void BKE_pbvh_build_mesh(
         PBVH *bvh,
         const struct MPoly *mpoly, const struct MLoop *mloop,
@@ -71,6 +73,7 @@ void BKE_pbvh_build_grids(PBVH *bvh, struct CCGElem **grid_elems,
                           struct CCGKey *key, void **gridfaces, struct DMFlagMat *flagmats,
                           unsigned int **grid_hidden);
 void BKE_pbvh_build_bmesh(PBVH *bvh, struct BMesh *bm, bool smooth_shading, struct BMLog *log, const int cd_vert_node_offset, const int cd_face_node_offset);
+void BKE_pbvh_build_tmp_bmesh(PBVH *bvh, struct BMesh *bm, bool smooth_shading);
 
 void BKE_pbvh_free(PBVH *bvh);
 void BKE_pbvh_free_layer_disp(PBVH *bvh);
@@ -172,6 +175,8 @@ typedef enum {
 	PBVH_UpdateTopology = 256,
 } PBVHNodeFlags;
 
+bool BKE_pbvh_node_is_valid(PBVHNode *node);
+bool BKE_pbvh_node_is_leaf(PBVHNode *node);
 void BKE_pbvh_node_mark_update(PBVHNode *node);
 void BKE_pbvh_node_mark_rebuild_draw(PBVHNode *node);
 void BKE_pbvh_node_mark_redraw(PBVHNode *node);
@@ -190,8 +195,14 @@ void BKE_pbvh_node_get_verts(
         PBVH *bvh, PBVHNode *node,
         const int **r_vert_indices, struct MVert **r_verts);
 
+void BKE_pbvh_recalc_looptri_from_me(PBVH *pbvh, Mesh *me);
+PBVHNode *BKE_search_closest_pbvh_leaf_node(PBVH *pbvh, PBVHNode *p_node, float *target_bmin, float *target_bmax);
+
 void BKE_pbvh_node_get_BB(PBVHNode *node, float bb_min[3], float bb_max[3]);
 void BKE_pbvh_node_get_original_BB(PBVHNode *node, float bb_min[3], float bb_max[3]);
+
+void BKE_pbvh_node_get_children(PBVH *pbvh, PBVHNode *node, PBVHNode **left, PBVHNode **right);
+PBVHNode *BKE_pbvh_node_get_root(PBVH *pbvh);
 
 float BKE_pbvh_node_get_tmin(PBVHNode *node);
 

@@ -38,6 +38,7 @@
 #include "BKE_global.h"
 #include "BKE_mesh.h" /* for BKE_mesh_calc_normals */
 #include "BKE_paint.h"
+#include "DNA_mesh_types.h"
 
 #include "GPU_buffers.h"
 
@@ -512,6 +513,25 @@ static void pbvh_build(PBVH *bvh, BB *cb, BBC *prim_bbc, int totprim)
 
 	bvh->totnode = 1;
 	build_sub(bvh, 0, cb, prim_bbc, 0, totprim);
+}
+
+/**
+ * Attach a new mesh to a node of the PBVH
+ * vertdata etc needs to be already in the basemesh
+ */
+void BKE_pbvh_attach_mesh(PBVH *pbvh, PBVHNode *node, Mesh *me, int totvert, float *max_bmin, float *max_bmax){
+	BB new_BB;
+	copy_v3_v3(new_BB.bmin, max_bmin);
+	copy_v3_v3(new_BB.bmax, max_bmax);
+
+	if(totvert <= pbvh->leaf_limit){
+		pbvh->totvert = me->totvert;
+		BB_expand_with_bb( &node->vb, &new_BB);
+
+		//build_mesh_leaf_node(pbvh, node);
+	}else{
+		//TODO: Attach to multiple nodes.
+	}
 }
 
 /**
@@ -1337,6 +1357,14 @@ BMesh *BKE_pbvh_get_bmesh(PBVH *bvh)
 
 /***************************** Node Access ***********************************/
 
+bool BKE_pbvh_node_is_valid(PBVHNode *node){
+	return node->flag; //TODO: check diffrent!
+}
+
+bool BKE_pbvh_node_is_leaf(PBVHNode *node){
+	return node->flag & PBVH_Leaf;
+}
+
 void BKE_pbvh_node_mark_update(PBVHNode *node)
 {
 	node->flag |= PBVH_UpdateNormals | PBVH_UpdateBB | PBVH_UpdateOriginalBB | PBVH_UpdateDrawBuffers | PBVH_UpdateRedraw;
@@ -1428,6 +1456,64 @@ void BKE_pbvh_node_get_grids(
 	}
 }
 
+float get_bb_distance_sqr(BB a, BB b){
+	float dist = 0.0f;
+	for(int i = 0; i < 3; i++){
+		if(a.bmin[i] >= b.bmax[i]){
+			dist += (b.bmax[i] - a.bmin[i]) * (b.bmax[i] - a.bmin[i]);
+		}else if(a.bmax[i] < b.bmin[i]){
+			dist += (b.bmin[i] - a.bmax[i]) * (b.bmin[i] - a.bmax[i]);
+		}
+	}
+	return dist;
+}
+
+void BKE_pbvh_recalc_looptri_from_me(PBVH *pbvh, Mesh *me){
+	MEM_freeN(pbvh->looptri);
+	MLoopTri *looptri;
+	int looptri_num = poly_to_tri_count(me->totpoly, me->totloop);
+	looptri = MEM_mallocN(sizeof(*looptri) * looptri_num, __func__);
+
+	BKE_mesh_recalc_looptri(
+							me->mloop, me->mpoly,
+							me->mvert,
+							me->totloop, me->totpoly,
+							looptri);
+	pbvh->looptri = looptri;
+}
+
+PBVHNode *BKE_search_closest_pbvh_leaf_node(PBVH *pbvh, PBVHNode *p_node, float *target_bmin, float *target_bmax){
+	BB new_BB;
+	copy_v3_v3(new_BB.bmin,target_bmin);
+	copy_v3_v3(new_BB.bmax,target_bmax);
+	BB_expand_with_bb(&p_node->vb,&new_BB);
+	if(BKE_pbvh_node_is_leaf(p_node)){
+		return p_node;
+	}
+	PBVHNode *left = NULL, *right = NULL;
+	BB bb_left, bb_right, bb_target;
+
+	copy_v3_v3(bb_target.bmin,target_bmin);
+	copy_v3_v3(bb_target.bmax,target_bmax);
+
+	BKE_pbvh_node_get_children(pbvh, p_node, &left, &right);
+	if((!left && !right)){
+		return p_node;
+	}else if(!left){
+		return BKE_search_closest_pbvh_leaf_node(pbvh, right, bb_target.bmin, bb_target.bmax);
+	}else if(!right){
+		return BKE_search_closest_pbvh_leaf_node(pbvh, left, bb_target.bmin, bb_target.bmax);
+	}
+	BKE_pbvh_node_get_BB(left,&bb_left.bmin,&bb_left.bmax);
+	BKE_pbvh_node_get_BB(right,&bb_right.bmin,&bb_right.bmax);
+	if(get_bb_distance_sqr(bb_target,bb_left) > get_bb_distance_sqr(bb_target,bb_right)){
+		return BKE_search_closest_pbvh_leaf_node(pbvh, right, bb_target.bmin, bb_target.bmax);
+	}else{
+		return BKE_search_closest_pbvh_leaf_node(pbvh, left, bb_target.bmin, bb_target.bmax);
+	}
+}
+
+
 void BKE_pbvh_node_get_BB(PBVHNode *node, float bb_min[3], float bb_max[3])
 {
 	copy_v3_v3(bb_min, node->vb.bmin);
@@ -1438,6 +1524,15 @@ void BKE_pbvh_node_get_original_BB(PBVHNode *node, float bb_min[3], float bb_max
 {
 	copy_v3_v3(bb_min, node->orig_vb.bmin);
 	copy_v3_v3(bb_max, node->orig_vb.bmax);
+}
+
+void BKE_pbvh_node_get_children(PBVH *pbvh, PBVHNode *node, PBVHNode **left, PBVHNode **right){
+	*left = pbvh->nodes+node->children_offset;
+	*right = pbvh->nodes+node->children_offset+1;
+}
+
+PBVHNode *BKE_pbvh_node_get_root(PBVH *pbvh){
+	return pbvh->nodes;
 }
 
 void BKE_pbvh_node_get_proxies(PBVHNode *node, PBVHProxyNode **proxies, int *proxy_count)

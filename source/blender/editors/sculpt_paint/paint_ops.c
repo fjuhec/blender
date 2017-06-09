@@ -1566,6 +1566,9 @@ void ED_keymap_paint(wmKeyConfig *keyconf)
 	/* Toggle dynamic topology */
 	WM_keymap_add_item(keymap, "SCULPT_OT_dynamic_topology_toggle", DKEY, KM_PRESS, KM_CTRL, 0);
 
+	/* Draw Silhouette */
+	WM_keymap_add_item(keymap, "SCULPT_OT_silhouette_draw", LEFTMOUSE, KM_PRESS, KM_ALT, 0);
+
 	/* Dynamic-topology detail size
 	 * 
 	 * This should be improved further, perhaps by showing a triangle

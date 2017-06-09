@@ -1850,6 +1850,71 @@ void BKE_pbvh_build_bmesh(
 	MEM_freeN(nodeinfo);
 }
 
+/* Build a PBVH from a BMesh */
+void BKE_pbvh_build_tmp_bmesh(
+        PBVH *bvh, BMesh *bm, bool smooth_shading)
+{
+	bvh->cd_vert_node_offset = 0;
+	bvh->cd_face_node_offset = 0;
+	bvh->bm = bm;
+
+	bvh->type = PBVH_BMESH;
+
+	/* TODO: choose leaf limit better */
+	bvh->leaf_limit = 100;
+
+	if (smooth_shading)
+		bvh->flags |= PBVH_DYNTOPO_SMOOTH_SHADING;
+
+	/* bounding box array of all faces, no need to recalculate every time */
+	BBC *bbc_array = MEM_mallocN(sizeof(BBC) * bm->totface, "BBC");
+	BMFace **nodeinfo = MEM_mallocN(sizeof(*nodeinfo) * bm->totface, "nodeinfo");
+	MemArena *arena = BLI_memarena_new(BLI_MEMARENA_STD_BUFSIZE, "fast PBVH node storage");
+
+	BMIter iter;
+	BMFace *f;
+	int i;
+	BM_ITER_MESH_INDEX(f, &iter, bm, BM_FACES_OF_MESH, i) {
+		BBC *bbc = &bbc_array[i];
+		BMLoop *l_first = BM_FACE_FIRST_LOOP(f);
+		BMLoop *l_iter = l_first;
+
+		BB_reset((BB *)bbc);
+		do {
+			BB_expand((BB *)bbc, l_iter->v->co);
+		} while ((l_iter = l_iter->next) != l_first);
+		BBC_update_centroid(bbc);
+
+		/* so we can do direct lookups on 'bbc_array' */
+		BM_elem_index_set(f, i);  /* set_dirty! */
+		nodeinfo[i] = f;
+	}
+
+	/* likely this is already dirty */
+	bm->elem_index_dirty |= BM_FACE;
+
+	/* setup root node */
+	struct FastNodeBuildInfo rootnode = {0};
+	rootnode.totface = bm->totface;
+
+	/* start recursion, assign faces to nodes accordingly */
+	pbvh_bmesh_node_limit_ensure_fast(bvh, nodeinfo, bbc_array, &rootnode, arena);
+
+	/* we now have all faces assigned to a node, next we need to assign those to the gsets of the nodes */
+
+	/* Start with all faces in the root node */
+	bvh->nodes = MEM_callocN(sizeof(PBVHNode), "PBVHNode");
+	bvh->totnode = 1;
+
+	/* take root node and visit and populate children recursively */
+	pbvh_bmesh_create_nodes_fast_recursive(bvh, nodeinfo, bbc_array, &rootnode, 0);
+
+	BLI_memarena_free(arena);
+	MEM_freeN(bbc_array);
+	MEM_freeN(nodeinfo);
+}
+
+
 /* Collapse short edges, subdivide long edges */
 bool BKE_pbvh_bmesh_update_topology(
         PBVH *bvh, PBVHTopologyUpdateMode mode,

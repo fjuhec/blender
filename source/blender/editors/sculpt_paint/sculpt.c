@@ -99,6 +99,36 @@
 #include <stdlib.h>
 #include <string.h>
 
+/*Maybe move silhouette GL Drawing into a seperate file*/
+#include "BIF_gl.h"
+#include "BIF_glutil.h"
+#include "ED_space_api.h"
+#include "bmesh.h"
+#include "bmesh_tools.h"
+#include "BKE_cdderivedmesh.h"
+#include "BKE_editmesh.h"
+#include "BKE_editmesh_bvh.h"
+#include "ED_mesh.h"
+
+#define DEBUG_DRAW
+#ifdef DEBUG_DRAW
+static void bl_debug_draw(void);
+/* add these locally when using these functions for testing */
+extern void bl_debug_draw_quad_clear(void);
+extern void bl_debug_draw_quad_add(const float v0[3], const float v1[3], const float v2[3], const float v3[3]);
+extern void bl_debug_draw_edge_add(const float v0[3], const float v1[3]);
+extern void bl_debug_color_set(const unsigned int col);
+
+void bl_debug_draw_point(const float pos[3],const float thickness){
+	float h = thickness*0.5;
+	float v1[] = {pos[0]-h,pos[1]-h,pos[2]};
+	float v2[] = {pos[0]-h,pos[1]+h,pos[2]};
+	float v3[] = {pos[0]+h,pos[1]-h,pos[2]};
+	float v4[] = {pos[0]+h,pos[1]+h,pos[2]};
+	bl_debug_draw_quad_add(v1,v2,v3,v4);
+}
+#endif
+
 /** \name Tool Capabilities
  *
  * Avoid duplicate checks, internal logic only,
@@ -269,8 +299,6 @@ typedef struct StrokeCache {
 	rcti previous_r; /* previous redraw rectangle */
 	rcti current_r; /* current redraw rectangle */
 } StrokeCache;
-
-
 
 /* reduce brush spacing step size when the geometry curves away from the view */
 static void set_adaptive_space_factor(Sculpt *sd)
@@ -4981,6 +5009,528 @@ static void SCULPT_OT_set_persistent_base(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
+/* Topology tools Silhouette */
+/*init data:*/
+/*** Silhouette Data ***/
+typedef struct SilhouetteStroke {
+	float *points;
+	int totvert;
+	int max_verts;
+}SilhouetteStroke;
+
+/* Axis-aligned bounding box (Same as in pbvh_intern.h)*/
+typedef struct {
+	float bmin[3], bmax[3];
+} BB;
+
+#ifdef DEBUG_DRAW
+void bl_debug_draw_BB_add(BB *bb,const unsigned int col){
+	float v1[3],v2[3],v3[3],v4[3];
+	float xd[3], yd[3], zd[3];
+
+	bl_debug_color_set(col);
+
+	xd[0] = bb->bmax[0]-bb->bmin[0];
+	xd[1] = 0.0f;
+	xd[2] = 0.0f;
+
+	yd[0] = 0.0f;
+	yd[1] = bb->bmax[1]-bb->bmin[1];
+	yd[2] = 0.0f;
+
+	zd[0] = 0.0f;
+	zd[1] = 0.0f;
+	zd[2] = bb->bmax[2]-bb->bmin[2];
+
+	copy_v3_v3(v1,bb->bmin);
+	copy_v3_v3(v2,bb->bmin);
+	add_v3_v3(v2,xd);
+	add_v3_v3v3(v3,v1,yd);
+	add_v3_v3v3(v4,v2,yd);
+
+	bl_debug_draw_edge_add(v1,v2);
+	bl_debug_draw_edge_add(v1,v3);
+	bl_debug_draw_edge_add(v2,v4);
+
+	copy_v3_v3(v1,v3);
+	copy_v3_v3(v2,v4);
+	add_v3_v3v3(v3,v1,zd);
+	add_v3_v3v3(v4,v2,zd);
+
+	bl_debug_draw_edge_add(v1,v2);
+	bl_debug_draw_edge_add(v1,v3);
+	bl_debug_draw_edge_add(v2,v4);
+
+	copy_v3_v3(v1,v3);
+	copy_v3_v3(v2,v4);
+	sub_v3_v3v3(v3,v1,yd);
+	sub_v3_v3v3(v4,v2,yd);
+
+	bl_debug_draw_edge_add(v1,v2);
+	bl_debug_draw_edge_add(v1,v3);
+	bl_debug_draw_edge_add(v2,v4);
+
+	copy_v3_v3(v1,v3);
+	copy_v3_v3(v2,v4);
+	sub_v3_v3v3(v3,v1,zd);
+	sub_v3_v3v3(v4,v2,zd);
+
+	bl_debug_draw_edge_add(v1,v2);
+	bl_debug_draw_edge_add(v1,v3);
+	bl_debug_draw_edge_add(v2,v4);
+
+}
+#endif
+
+typedef struct SilhouetteData {
+	ARegion *ar;        /* region that Silhouette started drawn in */
+	void *draw_handle;  /* for drawing preview loop */
+	ViewContext vc;
+	SilhouetteStroke *current_stroke;
+	Object *ob;
+	BMEditMesh *em;
+	Scene *scene;
+
+	float add_col[3];
+	float last_mouse_pos[2];
+} SilhouetteData;
+
+typedef struct {
+	SculptSession *ss;
+	BB *bb_target;
+	bool original;
+} SculptSearchBBData;
+
+/* Search nodes to integrate another BB into (used for silhouette)*/
+static bool sculpt_search_BB_cb(PBVHNode *node, void *data_v)
+{
+	SculptSearchBBData *data = data_v;
+	BB *bb_target = data->bb_target;
+	float bb_min[3], bb_max[3];
+	int i;
+
+	/*TODO: */
+	/*if (data->original)
+		BKE_pbvh_node_get_original_BB(node, bb_min, bb_max);
+	else*/
+		BKE_pbvh_node_get_BB(node, bb_min, bb_max);
+
+	/* min is inclusive max is exclusive? BB*/
+	for (i = 0; i < 3; ++i) {
+		if(bb_target->bmin[i] >= bb_max[i] || bb_target->bmax[i] < bb_min[i]){
+			return false;
+		}
+	}
+
+	//float tmp[3] = {bb_min[0]*0.5f+bb_max[0]*0.5f,bb_min[1]*0.5f+bb_max[1]*0.5f,bb_min[2]*0.5f+bb_max[2]*0.5f};
+	//printf("node found at: (%f,%f,%f)\n",bb_min[0]*0.5f+bb_max[0]*0.5f,bb_min[1]*0.5f+bb_max[1]*0.5f,bb_min[2]*0.5f+bb_max[2]*0.5f);
+	return true;
+}
+
+void silhouette_stroke_free(SilhouetteStroke *stroke){
+	if(stroke){
+		if(stroke->points){
+			MEM_SAFE_FREE(stroke->points);
+		}
+		MEM_SAFE_FREE(stroke);
+	}
+	printf("Stroke freed.\n");
+	//MEM_SAFE_FREE(stroke);
+}
+
+SilhouetteStroke *silhouette_stroke_new(int max_verts){
+	SilhouetteStroke *stroke = MEM_callocN(sizeof(SilhouetteStroke), "SilhouetteStroke");
+	stroke->points = 0;
+	stroke->points = MEM_callocN(sizeof(float)*2*max_verts,"SilhouetteStrokePoints");//TODO: Dynamic length
+	stroke->totvert = 0;
+	stroke->max_verts = max_verts;
+	printf("Init silhouette Data\n");
+	return stroke;
+}
+
+SilhouetteData *silhouette_data_new(bContext *C,
+							  wmOperator *op)
+{
+	SilhouetteData *sil = MEM_callocN(sizeof(SilhouetteData), "SilhouetteData");
+	Object *obedit = CTX_data_edit_object(C);
+	Scene *scene = CTX_data_scene(C);
+	sil->ar = CTX_wm_region(C);
+	sil->current_stroke = 0;
+
+	sil->current_stroke = silhouette_stroke_new(1024);
+
+	view3d_set_viewcontext(C, &sil->vc);
+
+	sil->add_col[0] = 1.00; /* add mode color is light red */
+	sil->add_col[1] = 0.39;
+	sil->add_col[2] = 0.39;
+
+
+	/* assign the drawing handle for drawing preview line... */
+	sil->scene = scene;
+	sil->ob = obedit;
+
+	return sil;
+}
+
+void silhouette_data_free(struct wmOperator *op)
+{
+	SilhouetteData *data;
+	data = op->customdata;
+	if(data){
+		silhouette_stroke_free(data->current_stroke);
+		MEM_SAFE_FREE(data);
+	}
+}
+
+void silhouette_stroke_add_point(SilhouetteStroke *stroke, float point[2]){
+	if(stroke->totvert < stroke->max_verts){
+		stroke->points[stroke->totvert*2] = point[0];
+		stroke->points[stroke->totvert*2+1] = point[1];
+		stroke->totvert ++;
+	}else{
+		printf("Stroke reached maximum vert count.\n");
+	}
+}
+
+static void sculpt_silhouette_stroke_update(bContext *C, float mouse[2], SilhouetteData *sil)
+{
+	SilhouetteStroke *stroke = sil->current_stroke;
+
+	sil->last_mouse_pos[0] = mouse[0];//*(2.0f/(float)sil->ar->winx)-1.0f;
+	sil->last_mouse_pos[1] = mouse[1];//*(2.0f/(float)sil->ar->winy)-1.0f;
+	silhouette_stroke_add_point(stroke,sil->last_mouse_pos);
+	ED_region_tag_redraw(sil->ar);
+	copy_v2_v2(sil->last_mouse_pos,mouse);
+	//printf("Mouse Pos: (%f,%f)",mouse[0],mouse[1]);
+	/* Update stroke*/
+}
+
+static void silhouette_set_ref_plane(const bContext *C, float p[3]){
+	Scene *scene = CTX_data_scene(C);
+	View3D *v3d = CTX_wm_view3d(C);
+	const float *fp = ED_view3d_cursor3d_get(scene, v3d);
+
+	/* the reference point used depends on the owner... */
+	copy_v3_v3(p, fp);
+}
+
+void silhouette_create_shape_mesh(const bContext *C, Mesh *me, SilhouetteData *sil, SilhouetteStroke *stroke, View3D *v3d, BB *shape_bb){
+	float v_offset[3] = {0.0f,0.0f,1.0f};
+	ED_view3d_global_to_vector(sil->ar->regiondata, (float[3]){0.0f,0.0f,0.0f}, v_offset);
+
+	ED_mesh_vertices_add(me, NULL, stroke->totvert*2);//Barely used is there a better one?
+
+	MVert nu_vert;
+	nu_vert.flag = 0;
+	nu_vert.bweight = 0;
+	for(int i = 0; i < stroke->totvert; i ++){
+		float v1[3], zDepth[3] = {0.0f,0.0f,0.0f};
+
+		ED_view3d_win_to_3d(v3d, sil->ar, zDepth, stroke->points+i*2, v1);
+		copy_v3_v3(nu_vert.co,v1);
+		me->mvert[me->totvert-stroke->totvert*2+i*2] = nu_vert;
+		copy_v3_v3(nu_vert.co,v1);
+		add_v3_v3(nu_vert.co,v_offset);
+		me->mvert[me->totvert-stroke->totvert*2+i*2+1] = nu_vert;
+	}
+
+	ED_mesh_edges_add(me, NULL, stroke->totvert*3-2);
+
+	MEdge nu_edge;
+	nu_edge.crease = 0;
+	nu_edge.bweight = 0;
+	nu_edge.flag = 0;
+	for(int i = 0; i < stroke->totvert-1; i ++){
+		nu_edge.v1 = me->totvert-stroke->totvert*2+i*2;
+		nu_edge.v2 = me->totvert-stroke->totvert*2+i*2+1;
+		me->medge[me->totedge-stroke->totvert*3+2 + i*3] = nu_edge;
+
+		nu_edge.v1 = me->totvert-stroke->totvert*2+i*2;
+		nu_edge.v2 = me->totvert-stroke->totvert*2+i*2+2;
+		me->medge[me->totedge-stroke->totvert*3+2 + i*3+1] = nu_edge;
+
+		nu_edge.v1 = me->totvert-stroke->totvert*2+i*2+1;
+		nu_edge.v2 = me->totvert-stroke->totvert*2+i*2+3;
+		me->medge[me->totedge-stroke->totvert*3+2 + i*3+2] = nu_edge;
+	}
+	nu_edge.v1 = me->totvert-2;
+	nu_edge.v2 = me->totvert-1;
+	me->medge[me->totedge-1] = nu_edge;
+
+	/*ED_mesh_loops_add(me, NULL, stroke->totvert*4-4);
+	MLoop nu_loop;
+	for(int i = 0; i < stroke->totvert-1; i++){
+		nu_loop.v = me->totvert-stroke->totvert*2+i*2;
+		nu_loop.e = me->totedge-stroke->totvert*3+2+i*2;
+		me->mloop[me->totloop-stroke->totvert*4+i*4+4] = nu_loop;
+
+		nu_loop.v = me->totvert-stroke->totvert*2+1+i*2;
+		nu_loop.e = me->totedge-stroke->totvert*3+4+i*2;
+		me->mloop[me->totloop-stroke->totvert*4+i*4+5] = nu_loop;
+
+		nu_loop.v = me->totvert-stroke->totvert*2+3+i*2;
+		nu_loop.e = me->totedge-stroke->totvert*3+5+i*2;
+		me->mloop[me->totloop-stroke->totvert*4+i*4+6] = nu_loop;
+
+		nu_loop.v = me->totvert-stroke->totvert*2+2+i*2;
+		nu_loop.e = me->totedge-stroke->totvert*3+3+i*2;
+		me->mloop[me->totloop-stroke->totvert*4+i*4+7] = nu_loop;
+	}
+
+	//Loops
+	ED_mesh_polys_add(me, NULL, stroke->totvert-1);
+
+	MPoly nu_poly;
+	nu_poly.mat_nr = 0;
+	nu_poly.flag = 0;
+	nu_poly.pad = 0;
+	for(int i = 0; i < stroke->totvert-1; i++){
+		nu_poly.totloop = 4;
+		nu_poly.loopstart = me->totloop-stroke->totvert*4+4+i*4;
+		me->mpoly[me->totpoly-stroke->totvert+i+1] = nu_poly;
+	}*/
+
+	//ED_mesh_update(me, C, 1, 1);
+
+	//Extend BB
+	for(int i = 0; i < 3; i++){
+		if(v_offset[i] > 0){
+			shape_bb->bmax[i] += v_offset[i];
+		}else{
+			shape_bb->bmin[i] += v_offset[i];
+		}
+	}
+}
+
+static void sculpt_silhouette_stroke_done(const bContext *C, wmOperator *op)
+{
+	/*finalize stroke*/
+	Object *ob = CTX_data_active_object(C);
+	SculptSession *ss = ob->sculpt;
+	Scene *scene = CTX_data_scene(C);
+	SilhouetteData *sil = op->customdata;
+	View3D *v3d = CTX_wm_view3d(C);
+	RegionView3D *rv3d = sil->ar->regiondata;
+
+	/* PBVH stuff*/
+	PBVH *pbvh = ss->pbvh;
+	SculptSearchBBData pbvh_search_data;
+	BB shape_bb;
+	PBVHNode **nodes = NULL;
+	Mesh *me = ob->data;
+	int totnode;
+
+	float cursor[3];
+
+	silhouette_set_ref_plane(C, cursor);
+
+	float zfact = ED_view3d_calc_zfac(rv3d, cursor, NULL);
+
+	printf("zfact: %f\n",zfact);
+
+	SilhouetteStroke *stroke = sil->current_stroke;
+	for(int i = 0; i < stroke->totvert; i ++){
+		if(i+1 < stroke->totvert){
+			float v1[3], v2[3];
+			v1[0] = stroke->points[i*2];
+			v1[1] = stroke->points[i*2+1];
+			v1[2] = 0.0f;
+			v2[0] = stroke->points[i*2+2];
+			v2[1] = stroke->points[i*2+3];
+			v2[2] = 0.0f;
+
+			float zDepth[3] = {0.0f,0.0f,0.0f};
+
+			ED_view3d_win_to_3d(v3d, sil->ar, zDepth, stroke->points+i*2, v1);
+			ED_view3d_win_to_3d(v3d, sil->ar, zDepth, stroke->points+i*2+2, v2);
+
+			if(i == 0){
+				copy_v3_v3(shape_bb.bmin,v1);
+				copy_v3_v3(shape_bb.bmax,v1);
+			}else{
+				for(int d = 0; d < 3; d++){
+					if(shape_bb.bmin[d] > v1[d]){
+						shape_bb.bmin[d] = v1[d];
+					}
+					if(shape_bb.bmax[d] < v1[d]){
+						shape_bb.bmax[d] = v1[d];
+					}
+					if(shape_bb.bmin[d] > v2[d]){
+						shape_bb.bmin[d] = v2[d];
+					}
+					if(shape_bb.bmax[d] < v2[d]){
+						shape_bb.bmax[d] = v2[d];
+					}
+				}
+			}
+#ifdef DEBUG_DRAW
+			bl_debug_draw_edge_add(v1,v2);
+#endif
+		}
+	}
+
+	/* Find nodes intersecting with the BB of the new shape */
+	pbvh_search_data.ss = ss;
+	pbvh_search_data.bb_target = &shape_bb;
+	BKE_pbvh_search_gather(ss->pbvh, sculpt_search_BB_cb, &pbvh_search_data, &nodes, &totnode);
+
+	printf("Searched and found %i nodes.\n",totnode);
+	if(totnode > 0){
+		printf("The found node is:\n");
+#ifdef DEBUG_DRAW
+		bl_debug_draw_BB_add(&shape_bb,0x00FF00);
+		for(int i = 0; i < totnode; i++){
+			BB tmp_bb;
+			BKE_pbvh_node_get_BB(nodes[i],&tmp_bb.bmin,&tmp_bb.bmax);
+			bl_debug_draw_BB_add(&tmp_bb,0x000000);
+		}
+#endif
+	}else{
+		PBVHNode *root = NULL;
+		PBVHNode *closest_node;
+
+		silhouette_create_shape_mesh(C, me, sil, stroke, v3d, &shape_bb);
+		BKE_pbvh_recalc_looptri_from_me(pbvh, me);
+
+		root = BKE_pbvh_node_get_root(pbvh);
+		closest_node = BKE_search_closest_pbvh_leaf_node(pbvh, root, &shape_bb.bmin, &shape_bb.bmax);
+		BB res_bb;
+		BKE_pbvh_node_get_BB(closest_node,&res_bb.bmin,&res_bb.bmax);
+
+		bl_debug_draw_BB_add(&res_bb,0xFF0000);
+		bl_debug_draw_BB_add(&shape_bb,0xFF0000);
+
+		BKE_pbvh_attach_mesh(pbvh, closest_node, me, stroke->totvert*2, &shape_bb.bmin, &shape_bb.bmax);
+	}
+
+
+	/*cleanup*/
+	WM_cursor_modal_restore(CTX_wm_window(C));
+	ED_region_draw_cb_exit(sil->ar->type,sil->draw_handle);
+	silhouette_data_free(op);
+	op->customdata = NULL;
+}
+
+static int sculpt_silhouette_modal(bContext *C, wmOperator *op, const wmEvent *event)
+{
+	float mouse[2];
+	copy_v2_fl2(mouse, event->mval[0], event->mval[1]);
+	printf(".");
+	if (event->val == KM_RELEASE) {
+		sculpt_silhouette_stroke_done(C,op);
+		return OPERATOR_FINISHED;
+	}else{
+		sculpt_silhouette_stroke_update(C,mouse,op->customdata);
+		return OPERATOR_RUNNING_MODAL;
+	}
+}
+
+static void sculpt_silhouette_draw(const bContext *C,struct ARegion *ar, void *arg){
+	View3D *v3d = CTX_wm_view3d(C);
+	SilhouetteData *sil = arg;
+
+	/*view3d_operator_needs_opengl(C);*/
+	if(!sil){
+		return;
+	}
+	const SilhouetteStroke *stroke = sil->current_stroke;
+	if(!stroke){
+		return;
+	}
+	float t_mouse[2];
+
+	RegionView3D *rv3d = ar->regiondata;
+
+	glMultMatrixf(rv3d->persinv);
+
+	glLineWidth(1.0f);
+	glEnable(GL_BLEND);
+	glEnable(GL_LINE_SMOOTH);
+
+	/* set brush color */
+	glColor4f(sil->add_col[0],sil->add_col[1],sil->add_col[2], 0.2f);
+
+	if(stroke->points){
+		glBegin(GL_POLYGON); //starts drawing of points
+		for(int i = 0; i < stroke->totvert; i++){
+			glVertex2f(stroke->points[2*i]*(2.0f/((float)ar->winx))-1.0f,stroke->points[2*i+1]*(2.0f/((float)ar->winy))-1.0f);
+		}
+		glEnd();
+	}
+
+	/* restore GL state */
+	glDisable(GL_BLEND);
+	glDisable(GL_LINE_SMOOTH);
+}
+
+static int sculpt_silhouette_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+{
+	printf("Drawing Silhouette\n");
+
+	SilhouetteData *sil_data;
+
+	sil_data = silhouette_data_new(C,op);
+
+	op->customdata = sil_data;
+
+	/* For tablet rotation Needed?
+	ignore_background_click = RNA_boolean_get(op->ptr, "ignore_background_click");
+
+	if (ignore_background_click && !over_mesh(C, op, event->x, event->y)) {
+		paint_stroke_data_free(op);
+		return OPERATOR_PASS_THROUGH;
+	}*/
+	ED_region_tag_redraw(sil_data->ar);
+
+	sil_data->draw_handle = ED_region_draw_cb_activate(sil_data->ar->type, sculpt_silhouette_draw, op->customdata, REGION_DRAW_PRE_VIEW);
+
+	/* add modal handler */
+	WM_event_add_modal_handler(C, op);
+
+	return OPERATOR_RUNNING_MODAL;
+}
+
+static int sculpt_silhouette_exec(bContext *C, wmOperator *op)
+{
+	printf("Called exec!");
+	if (false){
+		sculpt_silhouette_stroke_done(C,op);
+		return OPERATOR_CANCELLED;
+	}
+
+	sculpt_silhouette_stroke_done(C,op);
+	return OPERATOR_FINISHED;
+}
+
+
+static void SCULPT_OT_silhouette_draw(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Draw Silhouette";
+	ot->idname = "SCULPT_OT_silhouette_draw";
+	ot->description = "Draw a new silhoutte for the sculpt";
+
+	/* api callbacks */
+	ot->invoke = sculpt_silhouette_invoke;
+	ot->modal = sculpt_silhouette_modal;
+	ot->exec = sculpt_silhouette_exec;
+	ot->poll = sculpt_poll;
+	ot->cancel = sculpt_silhouette_stroke_done;
+
+	/* flags */
+	ot->flag = OPTYPE_BLOCKING;
+
+	/* properties */
+
+	paint_stroke_operator_properties(ot);
+
+	RNA_def_boolean(ot->srna, "ignore_background_click", 0,
+					"Ignore Background Click",
+					"Clicks on the background do not start the stroke");
+}
+/* end Silhouette */
+
 /************************** Dynamic Topology **************************/
 
 static void sculpt_dynamic_topology_triangulate(BMesh *bm)
@@ -5787,6 +6337,7 @@ void ED_operatortypes_sculpt(void)
 	WM_operatortype_append(SCULPT_OT_brush_stroke);
 	WM_operatortype_append(SCULPT_OT_sculptmode_toggle);
 	WM_operatortype_append(SCULPT_OT_set_persistent_base);
+	WM_operatortype_append(SCULPT_OT_silhouette_draw);
 	WM_operatortype_append(SCULPT_OT_dynamic_topology_toggle);
 	WM_operatortype_append(SCULPT_OT_optimize);
 	WM_operatortype_append(SCULPT_OT_symmetrize);
