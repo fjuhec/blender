@@ -916,15 +916,13 @@ class GreasePencilDataPanel:
         if context.space_data.type == 'CLIP_EDITOR':
             layout.row().prop(context.space_data, "grease_pencil_source", expand=True)
         # Grease Pencil data selector
-        layout.template_ID(gpd_owner, "grease_pencil", new="gpencil.data_add", unlink="gpencil.data_unlink")
+        if context.space_data.type != 'PROPERTIES':
+            layout.template_ID(gpd_owner, "grease_pencil", new="gpencil.data_add", unlink="gpencil.data_unlink")
 
         # Grease Pencil data...
         if (gpd is None) or (not gpd.layers):
             layout.operator("gpencil.layer_add", text="New Layer")
         else:
-            row = layout.row()
-            row.prop(gpd, "xray_mode", text="Draw Mode")
-            row.prop(gpd, "keep_stroke_thickness")
             self.draw_layers(context, layout, gpd)
 
     def draw_layers(self, context, layout, gpd):

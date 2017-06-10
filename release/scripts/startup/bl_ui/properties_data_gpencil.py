@@ -31,17 +31,27 @@ class DataButtonsPanel:
 
     @classmethod
     def poll(cls, context):
-        return (context.object and context.object.type == 'GPENCIL')
+        return context.object and context.object.type == 'GPENCIL'
 
 
 class DATA_PT_gpencil(DataButtonsPanel, Panel):
-    bl_label = "Gpencil"
+    bl_label = "Grease Pencil"
 
     def draw(self, context):
         layout = self.layout
 
+        # Grease Pencil data selector
+        gpd_owner = context.gpencil_data_owner
+        gpd = context.gpencil_data
+
+        layout.template_ID(gpd_owner, "grease_pencil", new="gpencil.data_add", unlink="gpencil.data_unlink")
+        row = layout.row()
+        row.prop(gpd, "xray_mode", text="Draw Mode")
+        row.prop(gpd, "keep_stroke_thickness")
+
         ob = context.object
         layout.prop(ob, "empty_draw_size", text="Size")
+
 
 class DATA_PT_gpencil_datapanel(GreasePencilDataPanel, Panel):
     bl_space_type = 'PROPERTIES'
