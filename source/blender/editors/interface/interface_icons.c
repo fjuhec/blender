@@ -415,6 +415,17 @@ static void init_brush_icons(void)
 	INIT_BRUSH_ICON(ICON_BRUSH_THUMB, thumb);
 	INIT_BRUSH_ICON(ICON_BRUSH_ROTATE, twist);
 	INIT_BRUSH_ICON(ICON_BRUSH_VERTEXDRAW, vertexdraw);
+	
+	/* grease pencil sculpt */
+	INIT_BRUSH_ICON(ICON_GPBRUSH_SMOOTH, gp_brush_smooth);
+	INIT_BRUSH_ICON(ICON_GPBRUSH_THICKNESS, gp_brush_thickness);
+	INIT_BRUSH_ICON(ICON_GPBRUSH_STRENGTH, gp_brush_strength);
+	INIT_BRUSH_ICON(ICON_GPBRUSH_GRAB, gp_brush_grab);
+	INIT_BRUSH_ICON(ICON_GPBRUSH_PUSH, gp_brush_push);
+	INIT_BRUSH_ICON(ICON_GPBRUSH_TWIST, gp_brush_twist);
+	INIT_BRUSH_ICON(ICON_GPBRUSH_PINCH, gp_brush_pinch);
+	INIT_BRUSH_ICON(ICON_GPBRUSH_RANDOMIZE, gp_brush_randomize);
+	INIT_BRUSH_ICON(ICON_GPBRUSH_CLONE, gp_brush_clone);
 
 #undef INIT_BRUSH_ICON
 }

@@ -388,7 +388,7 @@ class GreasePencilStrokeSculptPanel:
         tool = settings.tool
         brush = settings.brush
 
-        layout.column().prop(settings, "tool")
+        layout.template_icon_view(settings, "tool", show_labels=True)
 
         col = layout.column()
         col.prop(brush, "size", slider=True)

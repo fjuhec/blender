@@ -239,7 +239,34 @@ extern char datatoc_mc23_jpg[];
 extern int datatoc_mc24_jpg_size;
 extern char datatoc_mc24_jpg[];
 
+/* grease pencil sculpt brushes files */
 
+extern int datatoc_gp_brush_smooth_png_size;
+extern char datatoc_gp_brush_smooth_png[];
+
+extern int datatoc_gp_brush_thickness_png_size;
+extern char datatoc_gp_brush_thickness_png[];
+
+extern int datatoc_gp_brush_strength_png_size;
+extern char datatoc_gp_brush_strength_png[];
+
+extern int datatoc_gp_brush_grab_png_size;
+extern char datatoc_gp_brush_grab_png[];
+
+extern int datatoc_gp_brush_push_png_size;
+extern char datatoc_gp_brush_push_png[];
+
+extern int datatoc_gp_brush_twist_png_size;
+extern char datatoc_gp_brush_twist_png[];
+
+extern int datatoc_gp_brush_pinch_png_size;
+extern char datatoc_gp_brush_pinch_png[];
+
+extern int datatoc_gp_brush_randomize_png_size;
+extern char datatoc_gp_brush_randomize_png[];
+
+extern int datatoc_gp_brush_clone_png_size;
+extern char datatoc_gp_brush_clone_png[];
 
 #endif /* __ED_DATAFILES_H__ */
 

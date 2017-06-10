@@ -125,6 +125,17 @@ if(WITH_BLENDER)
 		data_to_c_simple(../../../../release/datafiles/matcaps/mc23.jpg SRC)
 		data_to_c_simple(../../../../release/datafiles/matcaps/mc24.jpg SRC)
 
+		# grease pencil sculpt
+		data_to_c_simple(../../../../release/datafiles/brushicons/gp_brush_smooth.png SRC)
+		data_to_c_simple(../../../../release/datafiles/brushicons/gp_brush_thickness.png SRC)
+		data_to_c_simple(../../../../release/datafiles/brushicons/gp_brush_strength.png SRC)
+		data_to_c_simple(../../../../release/datafiles/brushicons/gp_brush_grab.png SRC)
+		data_to_c_simple(../../../../release/datafiles/brushicons/gp_brush_push.png SRC)
+		data_to_c_simple(../../../../release/datafiles/brushicons/gp_brush_twist.png SRC)
+		data_to_c_simple(../../../../release/datafiles/brushicons/gp_brush_pinch.png SRC)
+		data_to_c_simple(../../../../release/datafiles/brushicons/gp_brush_randomize.png SRC)
+		data_to_c_simple(../../../../release/datafiles/brushicons/gp_brush_clone.png SRC)
+
 	endif()
 
 	data_to_c_simple(../../../../release/datafiles/startup.blend SRC)

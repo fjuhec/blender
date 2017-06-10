@@ -61,17 +61,15 @@ static EnumPropertyItem particle_edit_hair_brush_items[] = {
 };
 
 EnumPropertyItem rna_enum_gpencil_sculpt_brush_items[] = {
-	{GP_EDITBRUSH_TYPE_SMOOTH, "SMOOTH", 0, "Smooth", "Smooth stroke points"},
-	{GP_EDITBRUSH_TYPE_THICKNESS, "THICKNESS", 0, "Thickness", "Adjust thickness of strokes"},
-	{ GP_EDITBRUSH_TYPE_STRENGTH, "STRENGTH", 0, "Strength", "Adjust color strength of strokes" },
-	{ GP_EDITBRUSH_TYPE_GRAB, "GRAB", 0, "Grab", "Translate the set of points initially within the brush circle" },
-	{GP_EDITBRUSH_TYPE_PUSH, "PUSH", 0, "Push", "Move points out of the way, as if combing them"},
-	{GP_EDITBRUSH_TYPE_TWIST, "TWIST", 0, "Twist", "Rotate points around the midpoint of the brush"},
-	{GP_EDITBRUSH_TYPE_PINCH, "PINCH", 0, "Pinch", "Pull points towards the midpoint of the brush"},
-	{GP_EDITBRUSH_TYPE_RANDOMIZE, "RANDOMIZE", 0, "Randomize", "Introduce jitter/randomness into strokes"},
-	//{GP_EDITBRUSH_TYPE_SUBDIVIDE, "SUBDIVIDE", 0, "Subdivide", "Increase point density for higher resolution strokes when zoomed in"},
-	//{GP_EDITBRUSH_TYPE_SIMPLIFY, "SIMPLIFY", 0, "Simplify", "Reduce density of stroke points"},
-	{GP_EDITBRUSH_TYPE_CLONE, "CLONE", 0, "Clone", "Paste copies of the strokes stored on the clipboard"},
+	{GP_EDITBRUSH_TYPE_SMOOTH, "SMOOTH", ICON_GPBRUSH_SMOOTH, "Smooth", "Smooth stroke points"},
+	{GP_EDITBRUSH_TYPE_THICKNESS, "THICKNESS", ICON_GPBRUSH_THICKNESS, "Thickness", "Adjust thickness of strokes"},
+	{GP_EDITBRUSH_TYPE_STRENGTH, "STRENGTH", ICON_GPBRUSH_STRENGTH, "Strength", "Adjust color strength of strokes" },
+	{GP_EDITBRUSH_TYPE_GRAB, "GRAB", ICON_GPBRUSH_GRAB, "Grab", "Translate the set of points initially within the brush circle" },
+	{GP_EDITBRUSH_TYPE_PUSH, "PUSH", ICON_GPBRUSH_PUSH, "Push", "Move points out of the way, as if combing them"},
+	{GP_EDITBRUSH_TYPE_TWIST, "TWIST", ICON_GPBRUSH_TWIST, "Twist", "Rotate points around the midpoint of the brush"},
+	{GP_EDITBRUSH_TYPE_PINCH, "PINCH", ICON_GPBRUSH_PINCH, "Pinch", "Pull points towards the midpoint of the brush"},
+	{GP_EDITBRUSH_TYPE_RANDOMIZE, "RANDOMIZE", ICON_GPBRUSH_RANDOMIZE, "Randomize", "Introduce jitter/randomness into strokes"},
+	{GP_EDITBRUSH_TYPE_CLONE, "CLONE", ICON_GPBRUSH_CLONE, "Clone", "Paste copies of the strokes stored on the clipboard"},
 	{ 0, NULL, 0, NULL, NULL }
 };
 
