@@ -63,7 +63,7 @@
 #include "wm_manipulator_intern.h"
 
 static void wm_manipulator_register(
-        wmManipulatorGroup *mgroup, wmManipulator *manipulator, const char *name);
+        wmManipulatorGroup *mgroup, wmManipulator *mpr, const char *name);
 
 /** \name Manipulator Type Append
  *
@@ -215,9 +215,9 @@ wmManipulator *WM_manipulator_new(const char *idname, wmManipulatorGroup *mgroup
 	return mpr;
 }
 
-wmManipulatorGroup *WM_manipulator_get_parent_group(wmManipulator *manipulator)
+wmManipulatorGroup *WM_manipulator_get_parent_group(wmManipulator *mpr)
 {
-	return manipulator->parent_mgroup;
+	return mpr->parent_mgroup;
 }
 
 /**
@@ -225,13 +225,13 @@ wmManipulatorGroup *WM_manipulator_get_parent_group(wmManipulator *manipulator)
  *
  * \param rawname: Name used as basis to define final unique idname.
  */
-static void manipulator_unique_idname_set(wmManipulatorGroup *mgroup, wmManipulator *manipulator, const char *rawname)
+static void manipulator_unique_idname_set(wmManipulatorGroup *mgroup, wmManipulator *mpr, const char *rawname)
 {
-	BLI_snprintf(manipulator->name, sizeof(manipulator->name), "%s_%s", mgroup->type->idname, rawname);
+	BLI_snprintf(mpr->name, sizeof(mpr->name), "%s_%s", mgroup->type->idname, rawname);
 
 	/* ensure name is unique, append '.001', '.002', etc if not */
-	BLI_uniquename(&mgroup->manipulators, manipulator, "Manipulator", '.',
-	               offsetof(wmManipulator, name), sizeof(manipulator->name));
+	BLI_uniquename(&mgroup->manipulators, mpr, "Manipulator", '.',
+	               offsetof(wmManipulator, name), sizeof(mpr->name));
 }
 
 /**
@@ -239,14 +239,14 @@ static void manipulator_unique_idname_set(wmManipulatorGroup *mgroup, wmManipula
  */
 static void manipulator_init(wmManipulator *mpr)
 {
-	const float col_default[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+	const float color_default[4] = {1.0f, 1.0f, 1.0f, 1.0f};
 
 	mpr->user_scale = 1.0f;
 	mpr->line_width = 1.0f;
 
 	/* defaults */
-	copy_v4_v4(mpr->col, col_default);
-	copy_v4_v4(mpr->col_hi, col_default);
+	copy_v4_v4(mpr->color, color_default);
+	copy_v4_v4(mpr->color_hi, color_default);
 }
 
 /**
@@ -256,50 +256,50 @@ static void manipulator_init(wmManipulator *mpr)
  *
  * \note Not to be confused with type registration from RNA.
  */
-static void wm_manipulator_register(wmManipulatorGroup *mgroup, wmManipulator *manipulator, const char *name)
+static void wm_manipulator_register(wmManipulatorGroup *mgroup, wmManipulator *mpr, const char *name)
 {
-	manipulator_init(manipulator);
-	manipulator_unique_idname_set(mgroup, manipulator, name);
-	wm_manipulatorgroup_manipulator_register(mgroup, manipulator);
+	manipulator_init(mpr);
+	manipulator_unique_idname_set(mgroup, mpr, name);
+	wm_manipulatorgroup_manipulator_register(mgroup, mpr);
 }
 
 /**
  * Free \a manipulator and unlink from \a manipulatorlist.
  * \a manipulatorlist is allowed to be NULL.
  */
-void WM_manipulator_free(ListBase *manipulatorlist, wmManipulatorMap *mmap, wmManipulator *manipulator, bContext *C)
+void WM_manipulator_free(ListBase *manipulatorlist, wmManipulatorMap *mmap, wmManipulator *mpr, bContext *C)
 {
 #ifdef WITH_PYTHON
-	if (manipulator->py_instance) {
+	if (mpr->py_instance) {
 		/* do this first in case there are any __del__ functions or
 		 * similar that use properties */
-		BPY_DECREF_RNA_INVALIDATE(manipulator->py_instance);
+		BPY_DECREF_RNA_INVALIDATE(mpr->py_instance);
 	}
 #endif
 
-	if (manipulator->state & WM_MANIPULATOR_STATE_HIGHLIGHT) {
+	if (mpr->state & WM_MANIPULATOR_STATE_HIGHLIGHT) {
 		wm_manipulatormap_highlight_set(mmap, C, NULL, 0);
 	}
-	if (manipulator->state & WM_MANIPULATOR_STATE_ACTIVE) {
+	if (mpr->state & WM_MANIPULATOR_STATE_ACTIVE) {
 		wm_manipulatormap_active_set(mmap, C, NULL, NULL);
 	}
-	if (manipulator->state & WM_MANIPULATOR_STATE_SELECT) {
-		wm_manipulator_deselect(mmap, manipulator);
+	if (mpr->state & WM_MANIPULATOR_STATE_SELECT) {
+		wm_manipulator_deselect(mmap, mpr);
 	}
 
-	if (manipulator->opptr.data) {
-		WM_operator_properties_free(&manipulator->opptr);
+	if (mpr->opptr.data) {
+		WM_operator_properties_free(&mpr->opptr);
 	}
-	BLI_freelistN(&manipulator->properties);
+	BLI_freelistN(&mpr->properties);
 
 	if (manipulatorlist)
-		BLI_remlink(manipulatorlist, manipulator);
-	MEM_freeN(manipulator);
+		BLI_remlink(manipulatorlist, mpr);
+	MEM_freeN(mpr);
 }
 
-wmManipulatorGroup *wm_manipulator_get_parent_group(const wmManipulator *manipulator)
+wmManipulatorGroup *wm_manipulator_get_parent_group(const wmManipulator *mpr)
 {
-	return manipulator->parent_mgroup;
+	return mpr->parent_mgroup;
 }
 
 
@@ -339,19 +339,19 @@ void WM_manipulator_def_property(
 	}
 }
 
-PointerRNA *WM_manipulator_set_operator(wmManipulator *manipulator, const char *opname)
+PointerRNA *WM_manipulator_set_operator(wmManipulator *mpr, const char *opname)
 {
 	wmOperatorType *ot = WM_operatortype_find(opname, 0);
 
 	if (ot) {
-		manipulator->opname = opname;
+		mpr->opname = opname;
 
-		if (manipulator->opptr.data) {
-			WM_operator_properties_free(&manipulator->opptr);
+		if (mpr->opptr.data) {
+			WM_operator_properties_free(&mpr->opptr);
 		}
-		WM_operator_properties_create_ptr(&manipulator->opptr, ot);
+		WM_operator_properties_create_ptr(&mpr->opptr, ot);
 
-		return &manipulator->opptr;
+		return &mpr->opptr;
 	}
 	else {
 		fprintf(stderr, "Error binding operator to manipulator: operator %s not found!\n", opname);
@@ -360,34 +360,34 @@ PointerRNA *WM_manipulator_set_operator(wmManipulator *manipulator, const char *
 	return NULL;
 }
 
-void WM_manipulator_set_origin(wmManipulator *manipulator, const float origin[3])
+void WM_manipulator_set_origin(wmManipulator *mpr, const float origin[3])
 {
-	copy_v3_v3(manipulator->origin, origin);
+	copy_v3_v3(mpr->origin, origin);
 }
 
-void WM_manipulator_set_offset(wmManipulator *manipulator, const float offset[3])
+void WM_manipulator_set_offset(wmManipulator *mpr, const float offset[3])
 {
-	copy_v3_v3(manipulator->offset, offset);
+	copy_v3_v3(mpr->offset, offset);
 }
 
-void WM_manipulator_set_flag(wmManipulator *manipulator, const int flag, const bool enable)
+void WM_manipulator_set_flag(wmManipulator *mpr, const int flag, const bool enable)
 {
 	if (enable) {
-		manipulator->flag |= flag;
+		mpr->flag |= flag;
 	}
 	else {
-		manipulator->flag &= ~flag;
+		mpr->flag &= ~flag;
 	}
 }
 
-void WM_manipulator_set_scale(wmManipulator *manipulator, const float scale)
+void WM_manipulator_set_scale(wmManipulator *mpr, const float scale)
 {
-	manipulator->user_scale = scale;
+	mpr->user_scale = scale;
 }
 
-void WM_manipulator_set_line_width(wmManipulator *manipulator, const float line_width)
+void WM_manipulator_set_line_width(wmManipulator *mpr, const float line_width)
 {
-	manipulator->line_width = line_width;
+	mpr->line_width = line_width;
 }
 
 /**
@@ -396,22 +396,22 @@ void WM_manipulator_set_line_width(wmManipulator *manipulator, const float line_
  * \param col  Normal state color.
  * \param col_hi  Highlighted state color.
  */
-void WM_manipulator_get_color(const wmManipulator *manipulator, float col[4])
+void WM_manipulator_get_color(const wmManipulator *mpr, float col[4])
 {
-	copy_v4_v4(col, manipulator->col);
+	copy_v4_v4(col, mpr->color);
 }
-void WM_manipulator_set_color(wmManipulator *manipulator, const float col[4])
+void WM_manipulator_set_color(wmManipulator *mpr, const float col[4])
 {
-	copy_v4_v4(manipulator->col, col);
+	copy_v4_v4(mpr->color, col);
 }
 
-void WM_manipulator_get_color_highlight(const wmManipulator *manipulator, float col_hi[4])
+void WM_manipulator_get_color_highlight(const wmManipulator *mpr, float color_hi[4])
 {
-	copy_v4_v4(col_hi, manipulator->col_hi);
+	copy_v4_v4(color_hi, mpr->color_hi);
 }
-void WM_manipulator_set_color_highlight(wmManipulator *manipulator, const float col_hi[4])
+void WM_manipulator_set_color_highlight(wmManipulator *mpr, const float color_hi[4])
 {
-	copy_v4_v4(manipulator->col_hi, col_hi);
+	copy_v4_v4(mpr->color_hi, color_hi);
 }
 
 
@@ -423,51 +423,10 @@ void WM_manipulator_set_color_highlight(wmManipulator *manipulator, const float 
  *
  * \{ */
 
-#if 0
-void WM_manipulator_set_fn_draw(wmManipulator *mpr, wmManipulatorFnDraw draw_fn)
-{
-	mpr->type->draw = draw_fn;
-}
-void WM_manipulator_set_fn_draw_select(struct wmManipulator *mpr, wmManipulatorFnDrawSelect fn)
-{
-	mpr->type->draw_select = fn;
-}
-void WM_manipulator_set_fn_intersect(wmManipulator *mpr, wmManipulatorFnIntersect fn)
-{
-	mpr->type->intersect = fn;
-}
-#endif
 void WM_manipulator_set_fn_custom_modal(struct wmManipulator *mpr, wmManipulatorFnModal fn)
 {
 	mpr->custom_modal = fn;
 }
-#if 0
-void WM_manipulator_set_fn_property_update(struct wmManipulator *mpr, wmManipulatorFnPropDataUpdate fn)
-{
-	mpr->type->property_update = fn;
-}
-void WM_manipulator_set_fn_final_position_get(struct wmManipulator *mpr, wmManipulatorFnFinalPositionGet fn)
-{
-	mpr->type->final_position_get = fn;
-}
-void WM_manipulator_set_fn_invoke(struct wmManipulator *mpr, wmManipulatorFnInvoke fn)
-{
-	mpr->type->invoke = fn;
-}
-void WM_manipulator_set_fn_exit(struct wmManipulator *mpr, wmManipulatorFnExit fn)
-{
-	mpr->type->exit = fn;
-}
-void WM_manipulator_set_fn_cursor_get(struct wmManipulator *mpr, wmManipulatorFnCursorGet fn)
-{
-	mpr->type->cursor_get = fn;
-}
-void WM_manipulator_set_fn_select(wmManipulator *mpr, wmManipulatorFnSelect fn)
-{
-	BLI_assert(mpr->parent_mgroup->type->flag & WM_MANIPULATORGROUPTYPE_SELECT);
-	mpr->type->select = fn;
-}
-#endif
 
 /** \} */
 
@@ -480,7 +439,7 @@ void WM_manipulator_set_fn_select(wmManipulator *mpr, wmManipulatorFnSelect fn)
  *
  * \return if the selection has changed.
  */
-bool wm_manipulator_deselect(wmManipulatorMap *mmap, wmManipulator *manipulator)
+bool wm_manipulator_deselect(wmManipulatorMap *mmap, wmManipulator *mpr)
 {
 	if (!mmap->mmap_context.selected)
 		return false;
@@ -490,11 +449,11 @@ bool wm_manipulator_deselect(wmManipulatorMap *mmap, wmManipulator *manipulator)
 	bool changed = false;
 
 	/* caller should check! */
-	BLI_assert(manipulator->state & WM_MANIPULATOR_STATE_SELECT);
+	BLI_assert(mpr->state & WM_MANIPULATOR_STATE_SELECT);
 
 	/* remove manipulator from selected_manipulators array */
 	for (int i = 0; i < (*selected_len); i++) {
-		if ((*sel)[i] == manipulator) {
+		if ((*sel)[i] == mpr) {
 			for (int j = i; j < ((*selected_len) - 1); j++) {
 				(*sel)[j] = (*sel)[j + 1];
 			}
@@ -512,7 +471,7 @@ bool wm_manipulator_deselect(wmManipulatorMap *mmap, wmManipulator *manipulator)
 		(*selected_len)--;
 	}
 
-	manipulator->state &= ~WM_MANIPULATOR_STATE_SELECT;
+	mpr->state &= ~WM_MANIPULATOR_STATE_SELECT;
 	return changed;
 }
 
@@ -522,43 +481,43 @@ bool wm_manipulator_deselect(wmManipulatorMap *mmap, wmManipulator *manipulator)
  *
  * \return if the selection has changed.
  */
-bool wm_manipulator_select(bContext *C, wmManipulatorMap *mmap, wmManipulator *manipulator)
+bool wm_manipulator_select(bContext *C, wmManipulatorMap *mmap, wmManipulator *mpr)
 {
 	wmManipulator ***sel = &mmap->mmap_context.selected;
 	int *selected_len = &mmap->mmap_context.selected_len;
 
-	if (!manipulator || (manipulator->state & WM_MANIPULATOR_STATE_SELECT))
+	if (!mpr || (mpr->state & WM_MANIPULATOR_STATE_SELECT))
 		return false;
 
 	(*selected_len)++;
 
 	*sel = MEM_reallocN(*sel, sizeof(wmManipulator *) * (*selected_len));
-	(*sel)[(*selected_len) - 1] = manipulator;
+	(*sel)[(*selected_len) - 1] = mpr;
 
-	manipulator->state |= WM_MANIPULATOR_STATE_SELECT;
-	if (manipulator->type->select) {
-		manipulator->type->select(C, manipulator, SEL_SELECT);
+	mpr->state |= WM_MANIPULATOR_STATE_SELECT;
+	if (mpr->type->select) {
+		mpr->type->select(C, mpr, SEL_SELECT);
 	}
-	wm_manipulatormap_highlight_set(mmap, C, manipulator, manipulator->highlight_part);
+	wm_manipulatormap_highlight_set(mmap, C, mpr, mpr->highlight_part);
 
 	return true;
 }
 
-void wm_manipulator_calculate_scale(wmManipulator *manipulator, const bContext *C)
+void wm_manipulator_calculate_scale(wmManipulator *mpr, const bContext *C)
 {
 	const RegionView3D *rv3d = CTX_wm_region_view3d(C);
 	float scale = 1.0f;
 
-	if (manipulator->parent_mgroup->type->flag & WM_MANIPULATORGROUPTYPE_SCALE_3D) {
+	if (mpr->parent_mgroup->type->flag & WM_MANIPULATORGROUPTYPE_SCALE_3D) {
 		if (rv3d /*&& (U.manipulator_flag & V3D_DRAW_MANIPULATOR) == 0*/) { /* UserPref flag might be useful for later */
-			if (manipulator->type->position_get) {
+			if (mpr->type->position_get) {
 				float position[3];
 
-				manipulator->type->position_get(manipulator, position);
+				mpr->type->position_get(mpr, position);
 				scale = ED_view3d_pixel_size(rv3d, position) * (float)U.manipulator_scale;
 			}
 			else {
-				scale = ED_view3d_pixel_size(rv3d, manipulator->origin) * (float)U.manipulator_scale;
+				scale = ED_view3d_pixel_size(rv3d, mpr->origin) * (float)U.manipulator_scale;
 			}
 		}
 		else {
@@ -566,7 +525,7 @@ void wm_manipulator_calculate_scale(wmManipulator *manipulator, const bContext *
 		}
 	}
 
-	manipulator->scale = scale * manipulator->user_scale;
+	mpr->scale = scale * mpr->user_scale;
 }
 
 static void manipulator_update_prop_data(wmManipulator *mpr)
@@ -581,28 +540,28 @@ static void manipulator_update_prop_data(wmManipulator *mpr)
 	}
 }
 
-void wm_manipulator_update(wmManipulator *manipulator, const bContext *C, const bool refresh_map)
+void wm_manipulator_update(wmManipulator *mpr, const bContext *C, const bool refresh_map)
 {
 	if (refresh_map) {
-		manipulator_update_prop_data(manipulator);
+		manipulator_update_prop_data(mpr);
 	}
-	wm_manipulator_calculate_scale(manipulator, C);
+	wm_manipulator_calculate_scale(mpr, C);
 }
 
-bool wm_manipulator_is_visible(wmManipulator *manipulator)
+bool wm_manipulator_is_visible(wmManipulator *mpr)
 {
-	if (manipulator->flag & WM_MANIPULATOR_HIDDEN) {
+	if (mpr->flag & WM_MANIPULATOR_HIDDEN) {
 		return false;
 	}
-	if ((manipulator->state & WM_MANIPULATOR_STATE_ACTIVE) &&
-	    !(manipulator->flag & (WM_MANIPULATOR_DRAW_ACTIVE | WM_MANIPULATOR_DRAW_VALUE)))
+	if ((mpr->state & WM_MANIPULATOR_STATE_ACTIVE) &&
+	    !(mpr->flag & (WM_MANIPULATOR_DRAW_ACTIVE | WM_MANIPULATOR_DRAW_VALUE)))
 	{
 		/* don't draw while active (while dragging) */
 		return false;
 	}
-	if ((manipulator->flag & WM_MANIPULATOR_DRAW_HOVER) &&
-	    !(manipulator->state & WM_MANIPULATOR_STATE_HIGHLIGHT) &&
-	    !(manipulator->state & WM_MANIPULATOR_STATE_SELECT)) /* still draw selected manipulators */
+	if ((mpr->flag & WM_MANIPULATOR_DRAW_HOVER) &&
+	    !(mpr->state & WM_MANIPULATOR_STATE_HIGHLIGHT) &&
+	    !(mpr->state & WM_MANIPULATOR_STATE_SELECT)) /* still draw selected manipulators */
 	{
 		/* only draw on mouse hover */
 		return false;

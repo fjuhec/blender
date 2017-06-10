@@ -135,14 +135,11 @@ static GHash *WM_manipulatormap_manipulator_hash_new(
 	/* collect manipulators */
 	for (wmManipulatorGroup *mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup->next) {
 		if (!mgroup->type->poll || mgroup->type->poll(C, mgroup->type)) {
-			for (wmManipulator *manipulator = mgroup->manipulators.first;
-			     manipulator;
-			     manipulator = manipulator->next)
-			{
-				if ((include_hidden || (manipulator->flag & WM_MANIPULATOR_HIDDEN) == 0) &&
-				    (!poll || poll(manipulator, data)))
+			for (wmManipulator *mpr = mgroup->manipulators.first; mpr; mpr = mpr->next) {
+				if ((include_hidden || (mpr->flag & WM_MANIPULATOR_HIDDEN) == 0) &&
+				    (!poll || poll(mpr, data)))
 				{
-					BLI_ghash_insert(hash, manipulator->name, manipulator);
+					BLI_ghash_insert(hash, mpr->name, mpr);
 				}
 			}
 		}
@@ -164,15 +161,15 @@ static void manipulatormap_tag_updated(wmManipulatorMap *mmap)
 }
 
 static bool manipulator_prepare_drawing(
-        wmManipulatorMap *mmap, wmManipulator *manipulator,
+        wmManipulatorMap *mmap, wmManipulator *mpr,
         const bContext *C, ListBase *draw_manipulators)
 {
-	if (!wm_manipulator_is_visible(manipulator)) {
+	if (!wm_manipulator_is_visible(mpr)) {
 		/* skip */
 	}
 	else {
-		wm_manipulator_update(manipulator, C, (mmap->update_flag & MANIPULATORMAP_REFRESH) != 0);
-		BLI_addhead(draw_manipulators, BLI_genericNodeN(manipulator));
+		wm_manipulator_update(mpr, C, (mmap->update_flag & MANIPULATORMAP_REFRESH) != 0);
+		BLI_addhead(draw_manipulators, BLI_genericNodeN(mpr));
 		return true;
 	}
 
@@ -219,8 +216,8 @@ static void manipulatormap_prepare_drawing(
 			mgroup->type->draw_prepare(C, mgroup);
 		}
 
-		for (wmManipulator *manipulator = mgroup->manipulators.first; manipulator; manipulator = manipulator->next) {
-			manipulator_prepare_drawing(mmap, manipulator, C, draw_manipulators);
+		for (wmManipulator *mpr = mgroup->manipulators.first; mpr; mpr = mpr->next) {
+			manipulator_prepare_drawing(mmap, mpr, C, draw_manipulators);
 		}
 	}
 
@@ -249,10 +246,10 @@ static void manipulators_draw_list(const wmManipulatorMap *mmap, const bContext 
 
 	/* draw_manipulators contains all visible manipulators - draw them */
 	for (LinkData *link = draw_manipulators->first, *link_next; link; link = link_next) {
-		wmManipulator *manipulator = link->data;
+		wmManipulator *mpr = link->data;
 		link_next = link->next;
 
-		manipulator->type->draw(C, manipulator);
+		mpr->type->draw(C, mpr);
 		/* free/remove manipulator link after drawing */
 		BLI_freelinkN(draw_manipulators, link);
 	}
@@ -274,12 +271,12 @@ void WM_manipulatormap_draw(wmManipulatorMap *mmap, const bContext *C, const int
 static void manipulator_find_active_3D_loop(const bContext *C, ListBase *visible_manipulators)
 {
 	int selectionbase = 0;
-	wmManipulator *manipulator;
+	wmManipulator *mpr;
 
 	for (LinkData *link = visible_manipulators->first; link; link = link->next) {
-		manipulator = link->data;
+		mpr = link->data;
 		/* pass the selection id shifted by 8 bits. Last 8 bits are used for selected manipulator part id */
-		manipulator->type->draw_select(C, manipulator, selectionbase << 8);
+		mpr->type->draw_select(C, mpr, selectionbase << 8);
 
 		selectionbase++;
 	}
@@ -365,7 +362,7 @@ wmManipulator *wm_manipulatormap_highlight_find(
         wmManipulatorMap *mmap, bContext *C, const wmEvent *event,
         int *r_part)
 {
-	wmManipulator *manipulator = NULL;
+	wmManipulator *mpr = NULL;
 	ListBase visible_3d_manipulators = {NULL};
 
 	for (wmManipulatorGroup *mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup->next) {
@@ -373,18 +370,18 @@ wmManipulator *wm_manipulatormap_highlight_find(
 			if (mgroup->type->flag & WM_MANIPULATORGROUPTYPE_3D) {
 				wm_manipulatorgroup_intersectable_manipulators_to_list(mgroup, &visible_3d_manipulators);
 			}
-			else if ((manipulator = wm_manipulatorgroup_find_intersected_mainpulator(mgroup, C, event, r_part))) {
+			else if ((mpr = wm_manipulatorgroup_find_intersected_mainpulator(mgroup, C, event, r_part))) {
 				break;
 			}
 		}
 	}
 
 	if (!BLI_listbase_is_empty(&visible_3d_manipulators)) {
-		manipulator = manipulator_find_intersected_3d(C, event->mval, &visible_3d_manipulators, r_part);
+		mpr = manipulator_find_intersected_3d(C, event->mval, &visible_3d_manipulators, r_part);
 		BLI_freelistN(&visible_3d_manipulators);
 	}
 
-	return manipulator;
+	return mpr;
 }
 
 void WM_manipulatormap_add_handlers(ARegion *ar, wmManipulatorMap *mmap)
@@ -407,7 +404,7 @@ void wm_manipulatormaps_handled_modal_update(
 	}
 
 	wmManipulatorMap *mmap = handler->op_region->manipulator_map;
-	wmManipulator *manipulator = wm_manipulatormap_active_get(mmap);
+	wmManipulator *mpr = wm_manipulatormap_active_get(mmap);
 	ScrArea *area = CTX_wm_area(C);
 	ARegion *region = CTX_wm_region(C);
 
@@ -415,14 +412,14 @@ void wm_manipulatormaps_handled_modal_update(
 
 	/* regular update for running operator */
 	if (modal_running) {
-		if (manipulator && manipulator->opname &&
-		    STREQ(manipulator->opname, handler->op->idname))
+		if (mpr && mpr->opname &&
+		    STREQ(mpr->opname, handler->op->idname))
 		{
-			if (manipulator->custom_modal) {
-				manipulator->custom_modal(C, manipulator, event, 0);
+			if (mpr->custom_modal) {
+				mpr->custom_modal(C, mpr, event, 0);
 			}
-			else if (manipulator->type->modal) {
-				manipulator->type->modal(C, manipulator, event, 0);
+			else if (mpr->type->modal) {
+				mpr->type->modal(C, mpr, event, 0);
 			}
 		}
 	}
@@ -457,9 +454,9 @@ bool wm_manipulatormap_deselect_all(wmManipulatorMap *mmap, wmManipulator ***sel
 	return true;
 }
 
-BLI_INLINE bool manipulator_selectable_poll(const wmManipulator *manipulator, void *UNUSED(data))
+BLI_INLINE bool manipulator_selectable_poll(const wmManipulator *mpr, void *UNUSED(data))
 {
-	return (manipulator->parent_mgroup->type->flag & WM_MANIPULATORGROUPTYPE_SELECT);
+	return (mpr->parent_mgroup->type->flag & WM_MANIPULATORGROUPTYPE_SELECT);
 }
 
 /**
@@ -483,16 +480,16 @@ static bool wm_manipulatormap_select_all_intern(
 	*sel = MEM_reallocN(*sel, sizeof(**sel) * (*selected_len));
 
 	GHASH_ITER_INDEX (gh_iter, hash, i) {
-		wmManipulator *manipulator_iter = BLI_ghashIterator_getValue(&gh_iter);
+		wmManipulator *mpr_iter = BLI_ghashIterator_getValue(&gh_iter);
 
-		if ((manipulator_iter->state & WM_MANIPULATOR_STATE_SELECT) == 0) {
+		if ((mpr_iter->state & WM_MANIPULATOR_STATE_SELECT) == 0) {
 			changed = true;
 		}
-		manipulator_iter->state |= WM_MANIPULATOR_STATE_SELECT;
-		if (manipulator_iter->type->select) {
-			manipulator_iter->type->select(C, manipulator_iter, action);
+		mpr_iter->state |= WM_MANIPULATOR_STATE_SELECT;
+		if (mpr_iter->type->select) {
+			mpr_iter->type->select(C, mpr_iter, action);
 		}
-		(*sel)[i] = manipulator_iter;
+		(*sel)[i] = mpr_iter;
 		BLI_assert(i < (*selected_len));
 	}
 	/* highlight first manipulator */
@@ -572,9 +569,9 @@ void wm_manipulatormap_handler_context(bContext *C, wmEventHandler *handler)
 bool WM_manipulatormap_cursor_set(const wmManipulatorMap *mmap, wmWindow *win)
 {
 	for (; mmap; mmap = mmap->next) {
-		wmManipulator *manipulator = mmap->mmap_context.highlight;
-		if (manipulator && manipulator->type->cursor_get) {
-			WM_cursor_set(win, manipulator->type->cursor_get(manipulator));
+		wmManipulator *mpr = mmap->mmap_context.highlight;
+		if (mpr && mpr->type->cursor_get) {
+			WM_cursor_set(win, mpr->type->cursor_get(mpr));
 			return true;
 		}
 	}
@@ -583,25 +580,25 @@ bool WM_manipulatormap_cursor_set(const wmManipulatorMap *mmap, wmWindow *win)
 }
 
 void wm_manipulatormap_highlight_set(
-        wmManipulatorMap *mmap, const bContext *C, wmManipulator *manipulator, int part)
+        wmManipulatorMap *mmap, const bContext *C, wmManipulator *mpr, int part)
 {
-	if ((manipulator != mmap->mmap_context.highlight) ||
-	    (manipulator && part != manipulator->highlight_part))
+	if ((mpr != mmap->mmap_context.highlight) ||
+	    (mpr && part != mpr->highlight_part))
 	{
 		if (mmap->mmap_context.highlight) {
 			mmap->mmap_context.highlight->state &= ~WM_MANIPULATOR_STATE_HIGHLIGHT;
 			mmap->mmap_context.highlight->highlight_part = 0;
 		}
 
-		mmap->mmap_context.highlight = manipulator;
+		mmap->mmap_context.highlight = mpr;
 
-		if (manipulator) {
-			manipulator->state |= WM_MANIPULATOR_STATE_HIGHLIGHT;
-			manipulator->highlight_part = part;
+		if (mpr) {
+			mpr->state |= WM_MANIPULATOR_STATE_HIGHLIGHT;
+			mpr->highlight_part = part;
 
-			if (C && manipulator->type->cursor_get) {
+			if (C && mpr->type->cursor_get) {
 				wmWindow *win = CTX_wm_window(C);
-				WM_cursor_set(win, manipulator->type->cursor_get(manipulator));
+				WM_cursor_set(win, mpr->type->cursor_get(mpr));
 			}
 		}
 		else {
@@ -625,30 +622,30 @@ wmManipulator *wm_manipulatormap_highlight_get(wmManipulatorMap *mmap)
 }
 
 void wm_manipulatormap_active_set(
-        wmManipulatorMap *mmap, bContext *C, const wmEvent *event, wmManipulator *manipulator)
+        wmManipulatorMap *mmap, bContext *C, const wmEvent *event, wmManipulator *mpr)
 {
-	if (manipulator && C) {
-		manipulator->state |= WM_MANIPULATOR_STATE_ACTIVE;
-		mmap->mmap_context.active = manipulator;
+	if (mpr && C) {
+		mpr->state |= WM_MANIPULATOR_STATE_ACTIVE;
+		mmap->mmap_context.active = mpr;
 
-		if (manipulator->opname) {
-			wmOperatorType *ot = WM_operatortype_find(manipulator->opname, 0);
+		if (mpr->opname) {
+			wmOperatorType *ot = WM_operatortype_find(mpr->opname, 0);
 
 			if (ot) {
 				/* first activate the manipulator itself */
-				if (manipulator->type->invoke &&
-				    (manipulator->type->modal || manipulator->custom_modal))
+				if (mpr->type->invoke &&
+				    (mpr->type->modal || mpr->custom_modal))
 				{
-					manipulator->type->invoke(C, manipulator, event);
+					mpr->type->invoke(C, mpr, event);
 				}
 
-				WM_operator_name_call_ptr(C, ot, WM_OP_INVOKE_DEFAULT, &manipulator->opptr);
+				WM_operator_name_call_ptr(C, ot, WM_OP_INVOKE_DEFAULT, &mpr->opptr);
 
 				/* we failed to hook the manipulator to the operator handler or operator was cancelled, return */
 				if (!mmap->mmap_context.active) {
-					manipulator->state &= ~WM_MANIPULATOR_STATE_ACTIVE;
+					mpr->state &= ~WM_MANIPULATOR_STATE_ACTIVE;
 					/* first activate the manipulator itself */
-					MEM_SAFE_FREE(manipulator->interaction_data);
+					MEM_SAFE_FREE(mpr->interaction_data);
 				}
 				return;
 			}
@@ -659,23 +656,22 @@ void wm_manipulatormap_active_set(
 			}
 		}
 		else {
-			if (manipulator->type->invoke &&
-			    (manipulator->type->modal || manipulator->custom_modal))
+			if (mpr->type->invoke &&
+			    (mpr->type->modal || mpr->custom_modal))
 			{
-				manipulator->type->invoke(C, manipulator, event);
+				mpr->type->invoke(C, mpr, event);
 			}
 		}
 		WM_cursor_grab_enable(CTX_wm_window(C), true, true, NULL);
 	}
 	else {
-		manipulator = mmap->mmap_context.active;
-
+		mpr = mmap->mmap_context.active;
 
 		/* deactivate, manipulator but first take care of some stuff */
-		if (manipulator) {
-			manipulator->state &= ~WM_MANIPULATOR_STATE_ACTIVE;
+		if (mpr) {
+			mpr->state &= ~WM_MANIPULATOR_STATE_ACTIVE;
 			/* first activate the manipulator itself */
-			MEM_SAFE_FREE(manipulator->interaction_data);
+			MEM_SAFE_FREE(mpr->interaction_data);
 		}
 		mmap->mmap_context.active = NULL;
 

@@ -92,10 +92,9 @@ wmManipulatorGroup *wm_manipulatorgroup_new_from_type(
 void wm_manipulatorgroup_free(bContext *C, wmManipulatorGroup *mgroup)
 {
 	wmManipulatorMap *mmap = mgroup->parent_mmap;
-	for (wmManipulator *manipulator = mgroup->manipulators.first; manipulator;) {
-		wmManipulator *manipulator_next = manipulator->next;
-		WM_manipulator_free(&mgroup->manipulators, mmap, manipulator, C);
-		manipulator = manipulator_next;
+	for (wmManipulator *mpr = mgroup->manipulators.first, *mpr_next; mpr; mpr = mpr_next) {
+		mpr_next = mpr->next;
+		WM_manipulator_free(&mgroup->manipulators, mmap, mpr, C);
 	}
 	BLI_assert(BLI_listbase_is_empty(&mgroup->manipulators));
 
@@ -127,21 +126,21 @@ void wm_manipulatorgroup_free(bContext *C, wmManipulatorGroup *mgroup)
 /**
  * Add \a manipulator to \a mgroup and make sure its name is unique within the group.
  */
-void wm_manipulatorgroup_manipulator_register(wmManipulatorGroup *mgroup, wmManipulator *manipulator)
+void wm_manipulatorgroup_manipulator_register(wmManipulatorGroup *mgroup, wmManipulator *mpr)
 {
-	BLI_assert(!BLI_findstring(&mgroup->manipulators, manipulator->name, offsetof(wmManipulator, name)));
-	BLI_addtail(&mgroup->manipulators, manipulator);
-	manipulator->parent_mgroup = mgroup;
+	BLI_assert(!BLI_findstring(&mgroup->manipulators, mpr->name, offsetof(wmManipulator, name)));
+	BLI_addtail(&mgroup->manipulators, mpr);
+	mpr->parent_mgroup = mgroup;
 }
 
 wmManipulator *wm_manipulatorgroup_find_intersected_mainpulator(
         const wmManipulatorGroup *mgroup, bContext *C, const wmEvent *event,
         int *r_part)
 {
-	for (wmManipulator *manipulator = mgroup->manipulators.first; manipulator; manipulator = manipulator->next) {
-		if (manipulator->type->test_select && (manipulator->flag & WM_MANIPULATOR_HIDDEN) == 0) {
-			if ((*r_part = manipulator->type->test_select(C, manipulator, event))) {
-				return manipulator;
+	for (wmManipulator *mpr = mgroup->manipulators.first; mpr; mpr = mpr->next) {
+		if (mpr->type->test_select && (mpr->flag & WM_MANIPULATOR_HIDDEN) == 0) {
+			if ((*r_part = mpr->type->test_select(C, mpr, event))) {
+				return mpr;
 			}
 		}
 	}
@@ -154,12 +153,12 @@ wmManipulator *wm_manipulatorgroup_find_intersected_mainpulator(
  */
 void wm_manipulatorgroup_intersectable_manipulators_to_list(const wmManipulatorGroup *mgroup, ListBase *listbase)
 {
-	for (wmManipulator *manipulator = mgroup->manipulators.first; manipulator; manipulator = manipulator->next) {
-		if ((manipulator->flag & WM_MANIPULATOR_HIDDEN) == 0) {
-			if (((mgroup->type->flag & WM_MANIPULATORGROUPTYPE_3D) && manipulator->type->draw_select) ||
-			    ((mgroup->type->flag & WM_MANIPULATORGROUPTYPE_3D) == 0 && manipulator->type->test_select))
+	for (wmManipulator *mpr = mgroup->manipulators.first; mpr; mpr = mpr->next) {
+		if ((mpr->flag & WM_MANIPULATOR_HIDDEN) == 0) {
+			if (((mgroup->type->flag & WM_MANIPULATORGROUPTYPE_3D) && mpr->type->draw_select) ||
+			    ((mgroup->type->flag & WM_MANIPULATORGROUPTYPE_3D) == 0 && mpr->type->test_select))
 			{
-				BLI_addhead(listbase, BLI_genericNodeN(manipulator));
+				BLI_addhead(listbase, BLI_genericNodeN(mpr));
 			}
 		}
 	}
@@ -295,9 +294,9 @@ static void manipulator_tweak_finish(bContext *C, wmOperator *op, const bool can
 static int manipulator_tweak_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	ManipulatorTweakData *mtweak = op->customdata;
-	wmManipulator *manipulator = mtweak->active;
+	wmManipulator *mpr = mtweak->active;
 
-	if (!manipulator) {
+	if (mpr == NULL) {
 		BLI_assert(0);
 		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
 	}
@@ -326,11 +325,11 @@ static int manipulator_tweak_modal(bContext *C, wmOperator *op, const wmEvent *e
 	}
 
 	/* handle manipulator */
-	if (manipulator->custom_modal) {
-		manipulator->custom_modal(C, manipulator, event, mtweak->flag);
+	if (mpr->custom_modal) {
+		mpr->custom_modal(C, mpr, event, mtweak->flag);
 	}
-	else if (manipulator->type->modal) {
-		manipulator->type->modal(C, manipulator, event, mtweak->flag);
+	else if (mpr->type->modal) {
+		mpr->type->modal(C, mpr, event, mtweak->flag);
 	}
 
 	/* Ugly hack to send manipulator events */
@@ -345,9 +344,9 @@ static int manipulator_tweak_invoke(bContext *C, wmOperator *op, const wmEvent *
 {
 	ARegion *ar = CTX_wm_region(C);
 	wmManipulatorMap *mmap = ar->manipulator_map;
-	wmManipulator *manipulator = mmap->mmap_context.highlight;
+	wmManipulator *mpr = mmap->mmap_context.highlight;
 
-	if (!manipulator) {
+	if (!mpr) {
 		/* wm_handlers_do_intern shouldn't let this happen */
 		BLI_assert(0);
 		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
@@ -355,12 +354,12 @@ static int manipulator_tweak_invoke(bContext *C, wmOperator *op, const wmEvent *
 
 
 	/* activate highlighted manipulator */
-	wm_manipulatormap_active_set(mmap, C, event, manipulator);
+	wm_manipulatormap_active_set(mmap, C, event, mpr);
 
 	/* XXX temporary workaround for modal manipulator operator
 	 * conflicting with modal operator attached to manipulator */
-	if (manipulator->opname) {
-		wmOperatorType *ot = WM_operatortype_find(manipulator->opname, true);
+	if (mpr->opname) {
+		wmOperatorType *ot = WM_operatortype_find(mpr->opname, true);
 		if (ot->modal) {
 			return OPERATOR_FINISHED;
 		}

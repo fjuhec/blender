@@ -380,9 +380,9 @@ static wmManipulator *rna_ManipulatorGroup_manipulator_new(
 }
 
 static void rna_ManipulatorGroup_manipulator_remove(
-        wmManipulatorGroup *mgroup, bContext *C, wmManipulator *manipulator)
+        wmManipulatorGroup *mgroup, bContext *C, wmManipulator *mpr)
 {
-	WM_manipulator_free(&mgroup->manipulators, mgroup->parent_mmap, manipulator, C);
+	WM_manipulator_free(&mgroup->manipulators, mgroup->parent_mmap, mpr, C);
 }
 
 static void rna_ManipulatorGroup_manipulator_clear(
@@ -395,16 +395,14 @@ static void rna_ManipulatorGroup_manipulator_clear(
 
 static void rna_ManipulatorGroup_name_get(PointerRNA *ptr, char *value)
 {
-	wmManipulatorGroup *wgroup = ptr->data;
-	strcpy(value, wgroup->type->name);
-	(void)wgroup;
+	wmManipulatorGroup *mgroup = ptr->data;
+	strcpy(value, mgroup->type->name);
 }
 
 static int rna_ManipulatorGroup_name_length(PointerRNA *ptr)
 {
-	wmManipulatorGroup *wgroup = ptr->data;
-	return strlen(wgroup->type->name);
-	(void)wgroup;
+	wmManipulatorGroup *mgroup = ptr->data;
+	return strlen(mgroup->type->name);
 }
 
 /* just to work around 'const char *' warning and to ensure this is a python op */
@@ -430,8 +428,8 @@ static void rna_ManipulatorGroup_bl_label_set(PointerRNA *ptr, const char *value
 
 static int rna_ManipulatorGroup_has_reports_get(PointerRNA *ptr)
 {
-	wmManipulatorGroup *wgroup = ptr->data;
-	return (wgroup->reports && wgroup->reports->list.first);
+	wmManipulatorGroup *mgroup = ptr->data;
+	return (mgroup->reports && mgroup->reports->list.first);
 }
 
 #ifdef WITH_PYTHON
@@ -462,20 +460,20 @@ static bool rna_manipulatorgroup_poll_cb(const bContext *C, wmManipulatorGroupTy
 	return visible;
 }
 
-static void rna_manipulatorgroup_setup_cb(const bContext *C, wmManipulatorGroup *wgroup)
+static void rna_manipulatorgroup_setup_cb(const bContext *C, wmManipulatorGroup *mgroup)
 {
 	extern FunctionRNA rna_ManipulatorGroup_setup_func;
 
-	PointerRNA wgroup_ptr;
+	PointerRNA mgroup_ptr;
 	ParameterList list;
 	FunctionRNA *func;
 
-	RNA_pointer_create(NULL, wgroup->type->ext.srna, wgroup, &wgroup_ptr);
+	RNA_pointer_create(NULL, mgroup->type->ext.srna, mgroup, &mgroup_ptr);
 	func = &rna_ManipulatorGroup_setup_func; /* RNA_struct_find_function(&wgroupr, "setup"); */
 
-	RNA_parameter_list_create(&list, &wgroup_ptr, func);
+	RNA_parameter_list_create(&list, &mgroup_ptr, func);
 	RNA_parameter_set_lookup(&list, "context", &C);
-	wgroup->type->ext.call((bContext *)C, &wgroup_ptr, func, &list);
+	mgroup->type->ext.call((bContext *)C, &mgroup_ptr, func, &list);
 
 	RNA_parameter_list_free(&list);
 }
@@ -506,38 +504,38 @@ static wmKeyMap *rna_manipulatorgroup_setup_keymap_cb(const wmManipulatorGroupTy
 	return keymap;
 }
 
-static void rna_manipulatorgroup_refresh_cb(const bContext *C, wmManipulatorGroup *wgroup)
+static void rna_manipulatorgroup_refresh_cb(const bContext *C, wmManipulatorGroup *mgroup)
 {
 	extern FunctionRNA rna_ManipulatorGroup_refresh_func;
 
-	PointerRNA wgroup_ptr;
+	PointerRNA mgroup_ptr;
 	ParameterList list;
 	FunctionRNA *func;
 
-	RNA_pointer_create(NULL, wgroup->type->ext.srna, wgroup, &wgroup_ptr);
+	RNA_pointer_create(NULL, mgroup->type->ext.srna, mgroup, &mgroup_ptr);
 	func = &rna_ManipulatorGroup_refresh_func; /* RNA_struct_find_function(&wgroupr, "refresh"); */
 
-	RNA_parameter_list_create(&list, &wgroup_ptr, func);
+	RNA_parameter_list_create(&list, &mgroup_ptr, func);
 	RNA_parameter_set_lookup(&list, "context", &C);
-	wgroup->type->ext.call((bContext *)C, &wgroup_ptr, func, &list);
+	mgroup->type->ext.call((bContext *)C, &mgroup_ptr, func, &list);
 
 	RNA_parameter_list_free(&list);
 }
 
-static void rna_manipulatorgroup_draw_prepare_cb(const bContext *C, wmManipulatorGroup *wgroup)
+static void rna_manipulatorgroup_draw_prepare_cb(const bContext *C, wmManipulatorGroup *mgroup)
 {
 	extern FunctionRNA rna_ManipulatorGroup_draw_prepare_func;
 
-	PointerRNA wgroup_ptr;
+	PointerRNA mgroup_ptr;
 	ParameterList list;
 	FunctionRNA *func;
 
-	RNA_pointer_create(NULL, wgroup->type->ext.srna, wgroup, &wgroup_ptr);
+	RNA_pointer_create(NULL, mgroup->type->ext.srna, mgroup, &mgroup_ptr);
 	func = &rna_ManipulatorGroup_draw_prepare_func; /* RNA_struct_find_function(&wgroupr, "draw_prepare"); */
 
-	RNA_parameter_list_create(&list, &wgroup_ptr, func);
+	RNA_parameter_list_create(&list, &mgroup_ptr, func);
 	RNA_parameter_set_lookup(&list, "context", &C);
-	wgroup->type->ext.call((bContext *)C, &wgroup_ptr, func, &list);
+	mgroup->type->ext.call((bContext *)C, &mgroup_ptr, func, &list);
 
 	RNA_parameter_list_free(&list);
 }
@@ -649,14 +647,14 @@ static void rna_ManipulatorGroup_unregister(struct Main *bmain, StructRNA *type)
 
 static void **rna_ManipulatorGroup_instance(PointerRNA *ptr)
 {
-	wmManipulatorGroup *wgroup = ptr->data;
-	return &wgroup->py_instance;
+	wmManipulatorGroup *mgroup = ptr->data;
+	return &mgroup->py_instance;
 }
 
-static StructRNA *rna_ManipulatorGroup_refine(PointerRNA *wgroup_ptr)
+static StructRNA *rna_ManipulatorGroup_refine(PointerRNA *mgroup_ptr)
 {
-	wmManipulatorGroup *wgroup = wgroup_ptr->data;
-	return (wgroup->type && wgroup->type->ext.srna) ? wgroup->type->ext.srna : &RNA_ManipulatorGroup;
+	wmManipulatorGroup *mgroup = mgroup_ptr->data;
+	return (mgroup->type && mgroup->type->ext.srna) ? mgroup->type->ext.srna : &RNA_ManipulatorGroup;
 }
 
 #endif

@@ -203,9 +203,9 @@ static void rect_transform_draw_interaction(
 	immUnbindProgram();
 }
 
-static void manipulator_rect_transform_draw(const bContext *UNUSED(C), wmManipulator *manipulator)
+static void manipulator_rect_transform_draw(const bContext *UNUSED(C), wmManipulator *mpr)
 {
-	RectTransformManipulator *cage = (RectTransformManipulator *)manipulator;
+	RectTransformManipulator *cage = (RectTransformManipulator *)mpr;
 	rctf r;
 	float w = cage->w;
 	float h = cage->h;
@@ -219,8 +219,8 @@ static void manipulator_rect_transform_draw(const bContext *UNUSED(C), wmManipul
 	r.ymax = half_h;
 
 	gpuPushMatrix();
-	gpuTranslate2f(manipulator->origin[0] + manipulator->offset[0],
-	               manipulator->origin[1] + manipulator->offset[1]);
+	gpuTranslate2f(mpr->origin[0] + mpr->offset[0],
+	               mpr->origin[1] + mpr->offset[1]);
 	if (cage->style & ED_MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM)
 		gpuScaleUniform(cage->scale[0]);
 	else
@@ -235,25 +235,25 @@ static void manipulator_rect_transform_draw(const bContext *UNUSED(C), wmManipul
 	           ((cage->style & ED_MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM) ? cage->scale[0] : cage->scale[1]));
 
 	/* corner manipulators */
-	glLineWidth(cage->manipulator.line_width + 3.0f);
+	glLineWidth(mpr->line_width + 3.0f);
 
 	rect_transform_draw_corners(&r, w, h, (const float[3]){0, 0, 0});
 
 	/* corner manipulators */
-	glLineWidth(cage->manipulator.line_width);
-	rect_transform_draw_corners(&r, w, h, manipulator->col);
+	glLineWidth(mpr->line_width);
+	rect_transform_draw_corners(&r, w, h, mpr->color);
 
 	rect_transform_draw_interaction(
-	        manipulator->col, manipulator->highlight_part, half_w, half_h,
-	        w, h, cage->manipulator.line_width);
+	        mpr->color, mpr->highlight_part, half_w, half_h,
+	        w, h, mpr->line_width);
 
 	glLineWidth(1.0);
 	gpuPopMatrix();
 }
 
-static int manipulator_rect_transform_get_cursor(wmManipulator *manipulator)
+static int manipulator_rect_transform_get_cursor(wmManipulator *mpr)
 {
-	switch (manipulator->highlight_part) {
+	switch (mpr->highlight_part) {
 		case ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_TRANSLATE:
 			return BC_HANDCURSOR;
 		case ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_LEFT:
@@ -268,9 +268,9 @@ static int manipulator_rect_transform_get_cursor(wmManipulator *manipulator)
 }
 
 static int manipulator_rect_transform_test_select(
-        bContext *UNUSED(C), wmManipulator *manipulator, const wmEvent *event)
+        bContext *UNUSED(C), wmManipulator *mpr, const wmEvent *event)
 {
-	RectTransformManipulator *cage = (RectTransformManipulator *)manipulator;
+	RectTransformManipulator *cage = (RectTransformManipulator *)mpr;
 	const float mouse[2] = {event->mval[0], event->mval[1]};
 	//float matrot[2][2];
 	float point_local[2];
@@ -281,9 +281,9 @@ static int manipulator_rect_transform_test_select(
 	float aspx = 1.0f, aspy = 1.0f;
 
 	/* rotate mouse in relation to the center and relocate it */
-	sub_v2_v2v2(point_local, mouse, manipulator->origin);
-	point_local[0] -= manipulator->offset[0];
-	point_local[1] -= manipulator->offset[1];
+	sub_v2_v2v2(point_local, mouse, mpr->origin);
+	point_local[0] -= mpr->offset[0];
+	point_local[1] -= mpr->offset[1];
 	//rotate_m2(matrot, -cage->transform.rotation);
 
 	if (cage->style & ED_MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM)
@@ -405,18 +405,18 @@ static bool manipulator_rect_transform_get_prop_value(
 }
 
 static void manipulator_rect_transform_invoke(
-        bContext *UNUSED(C), wmManipulator *manipulator, const wmEvent *event)
+        bContext *UNUSED(C), wmManipulator *mpr, const wmEvent *event)
 {
-	RectTransformManipulator *cage = (RectTransformManipulator *)manipulator;
+	RectTransformManipulator *cage = (RectTransformManipulator *)mpr;
 	RectTransformInteraction *data = MEM_callocN(sizeof(RectTransformInteraction), "cage_interaction");
 
-	copy_v2_v2(data->orig_offset, manipulator->offset);
+	copy_v2_v2(data->orig_offset, mpr->offset);
 	copy_v2_v2(data->orig_scale, cage->scale);
 
 	data->orig_mouse[0] = event->mval[0];
 	data->orig_mouse[1] = event->mval[1];
 
-	manipulator->interaction_data = data;
+	mpr->interaction_data = data;
 }
 
 static void manipulator_rect_transform_modal(
@@ -571,9 +571,9 @@ wmManipulator *ED_manipulator_rect_transform_new(wmManipulatorGroup *mgroup, con
 	return &cage->manipulator;
 }
 
-void ED_manipulator_rect_transform_set_dimensions(wmManipulator *manipulator, const float width, const float height)
+void ED_manipulator_rect_transform_set_dimensions(wmManipulator *mpr, const float width, const float height)
 {
-	RectTransformManipulator *cage = (RectTransformManipulator *)manipulator;
+	RectTransformManipulator *cage = (RectTransformManipulator *)mpr;
 	cage->w = width;
 	cage->h = height;
 }

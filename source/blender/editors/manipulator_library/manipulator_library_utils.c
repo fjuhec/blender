@@ -102,7 +102,7 @@ float manipulator_value_from_offset(
 }
 
 void manipulator_property_data_update(
-        wmManipulator *manipulator, ManipulatorCommonData *data, wmManipulatorProperty *mpr_prop,
+        wmManipulator *mpr, ManipulatorCommonData *data, wmManipulatorProperty *mpr_prop,
         const bool constrained, const bool inverted)
 {
 	if (mpr_prop->prop == NULL) {
@@ -110,7 +110,7 @@ void manipulator_property_data_update(
 		return;
 	}
 
-	float value = manipulator_property_value_get(manipulator, mpr_prop);
+	float value = manipulator_property_value_get(mpr, mpr_prop);
 
 	if (constrained) {
 		if ((data->flag & MANIPULATOR_CUSTOM_RANGE_SET) == 0) {
@@ -164,13 +164,13 @@ void manipulator_property_value_reset(
 /* -------------------------------------------------------------------- */
 
 void manipulator_color_get(
-        const wmManipulator *manipulator, const bool highlight,
+        const wmManipulator *mpr, const bool highlight,
         float r_col[4])
 {
-	if (highlight && !(manipulator->flag & WM_MANIPULATOR_DRAW_HOVER)) {
-		copy_v4_v4(r_col, manipulator->col_hi);
+	if (highlight && !(mpr->flag & WM_MANIPULATOR_DRAW_HOVER)) {
+		copy_v4_v4(r_col, mpr->color_hi);
 	}
 	else {
-		copy_v4_v4(r_col, manipulator->col);
+		copy_v4_v4(r_col, mpr->color);
 	}
 }

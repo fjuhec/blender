@@ -61,9 +61,9 @@ struct wmManipulator *WM_manipulator_new(
         const char *idname,
         struct wmManipulatorGroup *mgroup, const char *name);
 void WM_manipulator_free(
-        ListBase *manipulatorlist, struct wmManipulatorMap *mmap, struct wmManipulator *manipulator,
+        ListBase *manipulatorlist, struct wmManipulatorMap *mmap, struct wmManipulator *mpr,
         struct bContext *C);
-struct wmManipulatorGroup *WM_manipulator_get_parent_group(struct wmManipulator *manipulator);
+struct wmManipulatorGroup *WM_manipulator_get_parent_group(struct wmManipulator *mpr);
 
 struct wmManipulatorProperty *WM_manipulator_get_property(
         struct wmManipulator *mpr, const char *idname);
@@ -74,18 +74,18 @@ void WM_manipulator_def_property(
 struct PointerRNA *WM_manipulator_set_operator(struct wmManipulator *, const char *opname);
 
 /* callbacks */
-void WM_manipulator_set_fn_custom_modal(struct wmManipulator *manipulator, wmManipulatorFnModal fn);
+void WM_manipulator_set_fn_custom_modal(struct wmManipulator *mpr, wmManipulatorFnModal fn);
 
-void WM_manipulator_set_origin(struct wmManipulator *manipulator, const float origin[3]);
-void WM_manipulator_set_offset(struct wmManipulator *manipulator, const float offset[3]);
-void WM_manipulator_set_flag(struct wmManipulator *manipulator, const int flag, const bool enable);
-void WM_manipulator_set_scale(struct wmManipulator *manipulator, float scale);
-void WM_manipulator_set_line_width(struct wmManipulator *manipulator, const float line_width);
+void WM_manipulator_set_origin(struct wmManipulator *mpr, const float origin[3]);
+void WM_manipulator_set_offset(struct wmManipulator *mpr, const float offset[3]);
+void WM_manipulator_set_flag(struct wmManipulator *mpr, const int flag, const bool enable);
+void WM_manipulator_set_scale(struct wmManipulator *mpr, float scale);
+void WM_manipulator_set_line_width(struct wmManipulator *mpr, const float line_width);
 
-void WM_manipulator_get_color(const struct wmManipulator *manipulator, float col[4]);
-void WM_manipulator_set_color(struct wmManipulator *manipulator, const float col[4]);
-void WM_manipulator_get_color_highlight(const struct wmManipulator *manipulator, float col_hi[4]);
-void WM_manipulator_set_color_highlight(struct wmManipulator *manipulator, const float col[4]);
+void WM_manipulator_get_color(const struct wmManipulator *mpr, float col[4]);
+void WM_manipulator_set_color(struct wmManipulator *mpr, const float col[4]);
+void WM_manipulator_get_color_highlight(const struct wmManipulator *mpr, float col_hi[4]);
+void WM_manipulator_set_color_highlight(struct wmManipulator *mpr, const float col[4]);
 
 /* wm_manipulator.c */
 const struct wmManipulatorType *WM_manipulatortype_find(const char *idname, bool quiet);

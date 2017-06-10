@@ -72,12 +72,12 @@ typedef struct FacemapManipulator {
 static void widget_facemap_draw(const bContext *C, struct wmManipulator *widget)
 {
 	FacemapManipulator *fmap_widget = (FacemapManipulator *)widget;
-	const float *col = (widget->state & WM_MANIPULATOR_STATE_SELECT) ? widget->col_hi : widget->col;
+	const float *color = (widget->state & WM_MANIPULATOR_STATE_SELECT) ? widget->color_hi : widget->color;
 
 	gpuPushMatrix();
 	gpuMultMatrix(fmap_widget->ob->obmat);
 	gpuTranslate3fv(widget->offset);
-	ED_draw_object_facemap(CTX_data_scene(C), fmap_widget->ob, col, fmap_widget->facemap);
+	ED_draw_object_facemap(CTX_data_scene(C), fmap_widget->ob, color, fmap_widget->facemap);
 	gpuPopMatrix();
 }
 
@@ -105,11 +105,11 @@ static int widget_facemap_handler(bContext *C, const wmEvent *event, struct wmMa
  * \{ */
 
 struct wmManipulator *ED_manipulator_facemap_new(
-        wmManipulatorGroup *wgroup, const char *name, const int style,
+        wmManipulatorGroup *mgroup, const char *name, const int style,
         Object *ob, const int facemap)
 {
 	FacemapManipulator *fmap_widget = (FacemapManipulator *)WM_manipulator_new(
-	        "MANIPULATOR_WT_facemap3d", wgroup, name);
+	        "MANIPULATOR_WT_facemap3d", mgroup, name);
 
 	BLI_assert(facemap > -1);
 

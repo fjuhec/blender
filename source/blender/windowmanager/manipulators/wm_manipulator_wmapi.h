@@ -47,7 +47,7 @@ struct wmOperator;
 /* -------------------------------------------------------------------- */
 /* wmManipulator */
 
-struct wmManipulatorGroup *wm_manipulator_get_parent_group(const struct wmManipulator *manipulator);
+struct wmManipulatorGroup *wm_manipulator_get_parent_group(const struct wmManipulator *mpr);
 
 /* wm_manipulator.c, for init/exit */
 void wm_manipulatortype_free(void);
@@ -76,11 +76,11 @@ struct wmManipulator *wm_manipulatormap_highlight_find(
         int *r_part);
 void wm_manipulatormap_highlight_set(
         struct wmManipulatorMap *mmap, const bContext *C,
-        struct wmManipulator *manipulator, int part);
+        struct wmManipulator *mpr, int part);
 struct wmManipulator *wm_manipulatormap_highlight_get(struct wmManipulatorMap *mmap);
 void wm_manipulatormap_active_set(
         struct wmManipulatorMap *mmap, bContext *C,
-        const struct wmEvent *event, struct wmManipulator *manipulator);
+        const struct wmEvent *event, struct wmManipulator *mpr);
 struct wmManipulator *wm_manipulatormap_active_get(struct wmManipulatorMap *mmap);
 
 #endif  /* __WM_MANIPULATOR_WMAPI_H__ */

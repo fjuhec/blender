@@ -129,12 +129,12 @@ static void manipulator2d_get_axis_color(const int axis_idx, float *r_col, float
 	r_col_hi[3] *= alpha_hi;
 }
 
-static ManipulatorGroup2D *manipulatorgroup2d_init(wmManipulatorGroup *wgroup)
+static ManipulatorGroup2D *manipulatorgroup2d_init(wmManipulatorGroup *mgroup)
 {
 	ManipulatorGroup2D *man = MEM_callocN(sizeof(ManipulatorGroup2D), __func__);
 
-	man->translate_x = ED_manipulator_arrow2d_new(wgroup, "translate_x");
-	man->translate_y = ED_manipulator_arrow2d_new(wgroup, "translate_y");
+	man->translate_x = ED_manipulator_arrow2d_new(mgroup, "translate_x");
+	man->translate_y = ED_manipulator_arrow2d_new(mgroup, "translate_y");
 
 	return man;
 }
@@ -179,10 +179,10 @@ static void manipulator2d_modal(
 	ED_region_tag_redraw(ar);
 }
 
-void ED_widgetgroup_manipulator2d_setup(const bContext *UNUSED(C), wmManipulatorGroup *wgroup)
+void ED_widgetgroup_manipulator2d_setup(const bContext *UNUSED(C), wmManipulatorGroup *mgroup)
 {
-	ManipulatorGroup2D *man = manipulatorgroup2d_init(wgroup);
-	wgroup->customdata = man;
+	ManipulatorGroup2D *man = manipulatorgroup2d_init(mgroup);
+	mgroup->customdata = man;
 
 	MAN2D_ITER_AXES_BEGIN(axis, axis_idx)
 	{
@@ -213,18 +213,18 @@ void ED_widgetgroup_manipulator2d_setup(const bContext *UNUSED(C), wmManipulator
 	MAN2D_ITER_AXES_END;
 }
 
-void ED_widgetgroup_manipulator2d_refresh(const bContext *C, wmManipulatorGroup *wgroup)
+void ED_widgetgroup_manipulator2d_refresh(const bContext *C, wmManipulatorGroup *mgroup)
 {
-	ManipulatorGroup2D *man = wgroup->customdata;
+	ManipulatorGroup2D *man = mgroup->customdata;
 	float origin[3];
 
 	manipulator2d_calc_origin(C, origin);
 	copy_v2_v2(man->origin, origin);
 }
 
-void ED_widgetgroup_manipulator2d_draw_prepare(const bContext *C, wmManipulatorGroup *wgroup)
+void ED_widgetgroup_manipulator2d_draw_prepare(const bContext *C, wmManipulatorGroup *mgroup)
 {
-	ManipulatorGroup2D *man = wgroup->customdata;
+	ManipulatorGroup2D *man = mgroup->customdata;
 	float origin[3] = {UNPACK2(man->origin), 0.0f};
 
 	manipulator2d_origin_to_region(CTX_wm_region(C), origin);

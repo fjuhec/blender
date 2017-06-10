@@ -38,12 +38,12 @@ struct GHashIterator;
 /* -------------------------------------------------------------------- */
 /* wmManipulator */
 
-bool wm_manipulator_deselect(struct wmManipulatorMap *mmap, struct wmManipulator *manipulator);
-bool wm_manipulator_select(bContext *C, struct wmManipulatorMap *mmap, struct wmManipulator *manipulator);
+bool wm_manipulator_deselect(struct wmManipulatorMap *mmap, struct wmManipulator *mpr);
+bool wm_manipulator_select(bContext *C, struct wmManipulatorMap *mmap, struct wmManipulator *mpr);
 
-void wm_manipulator_calculate_scale(struct wmManipulator *manipulator, const bContext *C);
-void wm_manipulator_update(struct wmManipulator *manipulator, const bContext *C, const bool refresh_map);
-bool wm_manipulator_is_visible(struct wmManipulator *manipulator);
+void wm_manipulator_calculate_scale(struct wmManipulator *mpr, const bContext *C);
+void wm_manipulator_update(struct wmManipulator *mpr, const bContext *C, const bool refresh_map);
+bool wm_manipulator_is_visible(struct wmManipulator *mpr);
 
 /* -------------------------------------------------------------------- */
 /* wmManipulatorGroup */
@@ -58,7 +58,7 @@ enum {
 struct wmManipulatorGroup *wm_manipulatorgroup_new_from_type(
         struct wmManipulatorMap *mmap, struct wmManipulatorGroupType *mgroup_type);
 void wm_manipulatorgroup_free(bContext *C, struct wmManipulatorGroup *mgroup);
-void wm_manipulatorgroup_manipulator_register(struct wmManipulatorGroup *mgroup, struct wmManipulator *manipulator);
+void wm_manipulatorgroup_manipulator_register(struct wmManipulatorGroup *mgroup, struct wmManipulator *mpr);
 struct wmManipulator *wm_manipulatorgroup_find_intersected_mainpulator(
         const struct wmManipulatorGroup *mgroup, struct bContext *C, const struct wmEvent *event,
         int *r_part);

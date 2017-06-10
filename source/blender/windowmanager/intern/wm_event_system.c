@@ -2165,7 +2165,7 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 				ScrArea *area = CTX_wm_area(C);
 				ARegion *region = CTX_wm_region(C);
 				wmManipulatorMap *mmap = handler->manipulator_map;
-				wmManipulator *manipulator = wm_manipulatormap_highlight_get(mmap);
+				wmManipulator *mpr = wm_manipulatormap_highlight_get(mmap);
 
 				wm_manipulatormap_handler_context(C, handler);
 				wm_region_mouse_co(C, event);
@@ -2173,13 +2173,13 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 				/* handle manipulator highlighting */
 				if (event->type == MOUSEMOVE && !wm_manipulatormap_active_get(mmap)) {
 					int part;
-					manipulator = wm_manipulatormap_highlight_find(mmap, C, event, &part);
-					wm_manipulatormap_highlight_set(mmap, C, manipulator, part);
+					mpr = wm_manipulatormap_highlight_find(mmap, C, event, &part);
+					wm_manipulatormap_highlight_set(mmap, C, mpr, part);
 				}
 				/* handle user configurable manipulator-map keymap */
-				else if (manipulator) {
+				else if (mpr) {
 					/* get user customized keymap from default one */
-					const wmManipulatorGroup *highlightgroup = wm_manipulator_get_parent_group(manipulator);
+					const wmManipulatorGroup *highlightgroup = wm_manipulator_get_parent_group(mpr);
 					const wmKeyMap *keymap = WM_keymap_active(wm, highlightgroup->type->keymap);
 					wmKeyMapItem *kmi;
 

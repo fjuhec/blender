@@ -90,7 +90,7 @@ void  manipulator_property_value_reset(
 /* -------------------------------------------------------------------- */
 
 void manipulator_color_get(
-        const struct wmManipulator *manipulator, const bool highlight,
+        const struct wmManipulator *mpr, const bool highlight,
         float r_col[]);
 
 

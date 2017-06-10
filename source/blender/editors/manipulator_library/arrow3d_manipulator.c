@@ -90,9 +90,9 @@ typedef struct ArrowManipulator3D {
 
 /* -------------------------------------------------------------------- */
 
-static void manipulator_arrow_get_final_pos(wmManipulator *manipulator, float r_pos[3])
+static void manipulator_arrow_get_final_pos(wmManipulator *mpr, float r_pos[3])
 {
-	ArrowManipulator3D *arrow = (ArrowManipulator3D *)manipulator;
+	ArrowManipulator3D *arrow = (ArrowManipulator3D *)mpr;
 
 	mul_v3_v3fl(r_pos, arrow->direction, arrow->data.offset);
 	add_v3_v3(r_pos, arrow->manipulator.origin);

@@ -71,7 +71,7 @@ static bool WIDGETGROUP_lamp_poll(const bContext *C, wmManipulatorGroupType *UNU
 	return false;
 }
 
-static void WIDGETGROUP_lamp_setup(const bContext *UNUSED(C), wmManipulatorGroup *wgroup)
+static void WIDGETGROUP_lamp_setup(const bContext *UNUSED(C), wmManipulatorGroup *mgroup)
 {
 	const char *propname = "spot_size";
 
@@ -80,17 +80,17 @@ static void WIDGETGROUP_lamp_setup(const bContext *UNUSED(C), wmManipulatorGroup
 
 	wmManipulatorWrapper *wwrapper = MEM_mallocN(sizeof(wmManipulatorWrapper), __func__);
 
-	wwrapper->manipulator = ED_manipulator_arrow3d_new(wgroup, propname, ED_MANIPULATOR_ARROW_STYLE_INVERTED);
-	wgroup->customdata = wwrapper;
+	wwrapper->manipulator = ED_manipulator_arrow3d_new(mgroup, propname, ED_MANIPULATOR_ARROW_STYLE_INVERTED);
+	mgroup->customdata = wwrapper;
 
 	ED_manipulator_arrow3d_set_range_fac(wwrapper->manipulator, 4.0f);
 	WM_manipulator_set_color(wwrapper->manipulator, color);
 	WM_manipulator_set_color_highlight(wwrapper->manipulator, color_hi);
 }
 
-static void WIDGETGROUP_lamp_refresh(const bContext *C, wmManipulatorGroup *wgroup)
+static void WIDGETGROUP_lamp_refresh(const bContext *C, wmManipulatorGroup *mgroup)
 {
-	wmManipulatorWrapper *wwrapper = wgroup->customdata;
+	wmManipulatorWrapper *wwrapper = mgroup->customdata;
 	Object *ob = CTX_data_active_object(C);
 	Lamp *la = ob->data;
 	float dir[3];
@@ -164,14 +164,14 @@ static void cameragroup_property_setup(wmManipulator *widget, Object *ob, Camera
 	ED_manipulator_arrow3d_set_range_fac(widget, is_ortho ? (scale_fac * range) : (drawsize * range / half_sensor));
 }
 
-static void WIDGETGROUP_camera_setup(const bContext *C, wmManipulatorGroup *wgroup)
+static void WIDGETGROUP_camera_setup(const bContext *C, wmManipulatorGroup *mgroup)
 {
 	Object *ob = CTX_data_active_object(C);
 	Camera *ca = ob->data;
 	float dir[3];
 
 	struct CameraWidgetGroup *camgroup = MEM_callocN(sizeof(struct CameraWidgetGroup), __func__);
-	wgroup->customdata = camgroup;
+	mgroup->customdata = camgroup;
 
 	negate_v3_v3(dir, ob->obmat[2]);
 
@@ -180,7 +180,7 @@ static void WIDGETGROUP_camera_setup(const bContext *C, wmManipulatorGroup *wgro
 		const float color[4] = {1.0f, 0.3f, 0.0f, 1.0f};
 		const float color_hi[4] = {1.0f, 0.3f, 0.0f, 1.0f};
 
-		camgroup->dop_dist = ED_manipulator_arrow3d_new(wgroup, "dof_distance", ED_MANIPULATOR_ARROW_STYLE_CROSS);
+		camgroup->dop_dist = ED_manipulator_arrow3d_new(mgroup, "dof_distance", ED_MANIPULATOR_ARROW_STYLE_CROSS);
 		WM_manipulator_set_flag(camgroup->dop_dist, WM_MANIPULATOR_DRAW_HOVER, true);
 		WM_manipulator_set_color(camgroup->dop_dist, color);
 		WM_manipulator_set_color_highlight(camgroup->dop_dist, color_hi);
@@ -193,14 +193,14 @@ static void WIDGETGROUP_camera_setup(const bContext *C, wmManipulatorGroup *wgro
 		const float color_hi[4] = {1.0f, 1.0, 0.27f, 1.0f};
 
 		camgroup->focal_len = ED_manipulator_arrow3d_new(
-		        wgroup, "focal_len",
+		        mgroup, "focal_len",
 		        (ED_MANIPULATOR_ARROW_STYLE_CONE | ED_MANIPULATOR_ARROW_STYLE_CONSTRAINED));
 		WM_manipulator_set_color(camgroup->focal_len, color);
 		WM_manipulator_set_color_highlight(camgroup->focal_len, color_hi);
 		cameragroup_property_setup(camgroup->focal_len, ob, ca, false);
 
 		camgroup->ortho_scale = ED_manipulator_arrow3d_new(
-		        wgroup, "ortho_scale",
+		        mgroup, "ortho_scale",
 		        (ED_MANIPULATOR_ARROW_STYLE_CONE | ED_MANIPULATOR_ARROW_STYLE_CONSTRAINED));
 		WM_manipulator_set_color(camgroup->ortho_scale, color);
 		WM_manipulator_set_color_highlight(camgroup->ortho_scale, color_hi);
@@ -208,12 +208,12 @@ static void WIDGETGROUP_camera_setup(const bContext *C, wmManipulatorGroup *wgro
 	}
 }
 
-static void WIDGETGROUP_camera_refresh(const bContext *C, wmManipulatorGroup *wgroup)
+static void WIDGETGROUP_camera_refresh(const bContext *C, wmManipulatorGroup *mgroup)
 {
-	if (!wgroup->customdata)
+	if (!mgroup->customdata)
 		return;
 
-	struct CameraWidgetGroup *camgroup = wgroup->customdata;
+	struct CameraWidgetGroup *camgroup = mgroup->customdata;
 	Object *ob = CTX_data_active_object(C);
 	Camera *ca = ob->data;
 	PointerRNA camera_ptr;
@@ -306,16 +306,16 @@ static bool WIDGETGROUP_forcefield_poll(const bContext *C, wmManipulatorGroupTyp
 	return (ob && ob->pd && ob->pd->forcefield);
 }
 
-static void WIDGETGROUP_forcefield_init(const bContext *UNUSED(C), wmManipulatorGroup *wgroup)
+static void WIDGETGROUP_forcefield_init(const bContext *UNUSED(C), wmManipulatorGroup *mgroup)
 {
 	const float col[4] = {0.8f, 0.8f, 0.45f, 0.5f};
 	const float col_hi[4] = {0.8f, 0.8f, 0.45f, 1.0f};
 
 	/* only wind effector for now */
 	wmManipulatorWrapper *wwrapper = MEM_mallocN(sizeof(wmManipulatorWrapper), __func__);
-	wgroup->customdata = wwrapper;
+	mgroup->customdata = wwrapper;
 
-	wwrapper->manipulator = ED_manipulator_arrow3d_new(wgroup, "field_strength", ED_MANIPULATOR_ARROW_STYLE_CONSTRAINED);
+	wwrapper->manipulator = ED_manipulator_arrow3d_new(mgroup, "field_strength", ED_MANIPULATOR_ARROW_STYLE_CONSTRAINED);
 
 	ED_manipulator_arrow3d_set_ui_range(wwrapper->manipulator, -200.0f, 200.0f);
 	ED_manipulator_arrow3d_set_range_fac(wwrapper->manipulator, 6.0f);
@@ -323,9 +323,9 @@ static void WIDGETGROUP_forcefield_init(const bContext *UNUSED(C), wmManipulator
 	WM_manipulator_set_color_highlight(wwrapper->manipulator, col_hi);
 }
 
-static void WIDGETGROUP_forcefield_refresh(const bContext *C, wmManipulatorGroup *wgroup)
+static void WIDGETGROUP_forcefield_refresh(const bContext *C, wmManipulatorGroup *mgroup)
 {
-	wmManipulatorWrapper *wwrapper = wgroup->customdata;
+	wmManipulatorWrapper *wwrapper = mgroup->customdata;
 	Object *ob = CTX_data_active_object(C);
 	PartDeflect *pd = ob->pd;
 
@@ -438,9 +438,9 @@ BLI_INLINE void armature_facemap_ghash_free(void *customdata)
 	BLI_ghash_free(customdata, MEM_freeN, NULL);
 }
 
-static wmManipulator *armature_facemap_widget_create(wmManipulatorGroup *wgroup, Object *fmap_ob, bFaceMap *fmap)
+static wmManipulator *armature_facemap_widget_create(wmManipulatorGroup *mgroup, Object *fmap_ob, bFaceMap *fmap)
 {
-	wmManipulator *widget = ED_manipulator_facemap_new(wgroup, fmap->name, 0, fmap_ob, BLI_findindex(&fmap_ob->fmaps, fmap));
+	wmManipulator *widget = ED_manipulator_facemap_new(mgroup, fmap->name, 0, fmap_ob, BLI_findindex(&fmap_ob->fmaps, fmap));
 
 	WM_manipulator_set_operator(widget, "TRANSFORM_OT_translate");
 	WM_manipulator_set_flag(widget, WM_MANIPULATOR_DRAW_HOVER, true);
@@ -453,7 +453,7 @@ static wmManipulator *armature_facemap_widget_create(wmManipulatorGroup *wgroup,
 	return widget;
 }
 
-static void WIDGETGROUP_armature_facemaps_init(const bContext *C, wmManipulatorGroup *wgroup)
+static void WIDGETGROUP_armature_facemaps_init(const bContext *C, wmManipulatorGroup *mgroup)
 {
 	Object *ob = CTX_data_active_object(C);
 	bArmature *arm = (bArmature *)ob->data;
@@ -470,13 +470,13 @@ static void WIDGETGROUP_armature_facemaps_init(const bContext *C, wmManipulatorG
 	for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
 		if (pchan->fmap_data && (pchan->bone->layer & arm->layer)) {
 			wmManipulator *widget = armature_facemap_widget_create(
-			        wgroup, pchan->fmap_data->object, pchan->fmap_data->fmap);
+			        mgroup, pchan->fmap_data->object, pchan->fmap_data->fmap);
 			armature_facemap_ghash_insert(
 			        hash, widget, pchan->fmap_data->object, pchan->fmap_data->fmap);
 		}
 	}
-	wgroup->customdata = hash;
-	wgroup->customdata_free = armature_facemap_ghash_free;
+	mgroup->customdata = hash;
+	mgroup->customdata_free = armature_facemap_ghash_free;
 }
 
 /**
@@ -487,9 +487,9 @@ static void WIDGETGROUP_armature_facemaps_init(const bContext *C, wmManipulatorG
  * * The remaining widgets in the old hash table get completely deleted, the old hash table gets deleted, the new
  *   one is stored (wmManipulatorGroup.customdata) and becomes the old one on next refresh.
  */
-static void WIDGETGROUP_armature_facemaps_refresh(const bContext *C, wmManipulatorGroup *wgroup)
+static void WIDGETGROUP_armature_facemaps_refresh(const bContext *C, wmManipulatorGroup *mgroup)
 {
-	if (!wgroup->customdata)
+	if (!mgroup->customdata)
 		return;
 
 	Object *ob = CTX_data_active_object(C);
@@ -497,7 +497,7 @@ static void WIDGETGROUP_armature_facemaps_refresh(const bContext *C, wmManipulat
 	ARegion *ar = CTX_wm_region(C);
 
 	/* we create a new hash from the visible members of the old hash */
-	GHash *oldhash = wgroup->customdata;
+	GHash *oldhash = mgroup->customdata;
 	GHash *newhash = BLI_ghash_str_new(__func__);
 	wmManipulator *widget;
 
@@ -511,7 +511,7 @@ static void WIDGETGROUP_armature_facemaps_refresh(const bContext *C, wmManipulat
 
 		/* create new widget for newly assigned facemap, add it to new hash */
 		if (!(widget = BLI_ghash_lookup(oldhash, widgetkey))) {
-			widget = armature_facemap_widget_create(wgroup, pchan->fmap_data->object, pchan->fmap_data->fmap);
+			widget = armature_facemap_widget_create(mgroup, pchan->fmap_data->object, pchan->fmap_data->fmap);
 			BLI_assert(widget);
 		}
 		armature_facemap_ghash_insert(newhash, widget, pchan->fmap_data->object, pchan->fmap_data->fmap);
@@ -541,11 +541,11 @@ static void WIDGETGROUP_armature_facemaps_refresh(const bContext *C, wmManipulat
 	GHashIterator ghi;
 	GHASH_ITER(ghi, oldhash) {
 		wmManipulator *found = BLI_ghashIterator_getValue(&ghi);
-		WM_manipulator_free(&wgroup->manipulators, ar->manipulator_map, found, (bContext *)C);
+		WM_manipulator_free(&mgroup->manipulators, ar->manipulator_map, found, (bContext *)C);
 	}
 	armature_facemap_ghash_free(oldhash);
 
-	wgroup->customdata = newhash;
+	mgroup->customdata = newhash;
 }
 
 void VIEW3D_WGT_armature_facemaps(wmManipulatorGroupType *wgt)

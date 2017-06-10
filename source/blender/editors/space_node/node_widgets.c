@@ -61,20 +61,20 @@ static bool WIDGETGROUP_node_transform_poll(const bContext *C, wmManipulatorGrou
 	return false;
 }
 
-static void WIDGETGROUP_node_transform_setup(const bContext *UNUSED(C), wmManipulatorGroup *wgroup)
+static void WIDGETGROUP_node_transform_setup(const bContext *UNUSED(C), wmManipulatorGroup *mgroup)
 {
 	wmManipulatorWrapper *wwrapper = MEM_mallocN(sizeof(wmManipulatorWrapper), __func__);
 
 	wwrapper->manipulator = ED_manipulator_rect_transform_new(
-	        wgroup, "backdrop_cage",
+	        mgroup, "backdrop_cage",
 	        ED_MANIPULATOR_RECT_TRANSFORM_STYLE_TRANSLATE | ED_MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM);
-	wgroup->customdata = wwrapper;
+	mgroup->customdata = wwrapper;
 
 }
 
-static void WIDGETGROUP_node_transform_refresh(const bContext *C, wmManipulatorGroup *wgroup)
+static void WIDGETGROUP_node_transform_refresh(const bContext *C, wmManipulatorGroup *mgroup)
 {
-	wmManipulator *cage = ((wmManipulatorWrapper *)wgroup->customdata)->manipulator;
+	wmManipulator *cage = ((wmManipulatorWrapper *)mgroup->customdata)->manipulator;
 	const ARegion *ar = CTX_wm_region(C);
 	/* center is always at the origin */
 	const float origin[3] = {ar->winx / 2, ar->winy / 2};

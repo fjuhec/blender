@@ -158,29 +158,29 @@ static void manipulator_primitive_draw_intern(
 }
 
 static void manipulator_primitive_render_3d_intersect(
-        const bContext *UNUSED(C), wmManipulator *manipulator,
+        const bContext *UNUSED(C), wmManipulator *mpr,
         int selectionbase)
 {
 	GPU_select_load_id(selectionbase);
-	manipulator_primitive_draw_intern((PrimitiveManipulator *)manipulator, true, false);
+	manipulator_primitive_draw_intern((PrimitiveManipulator *)mpr, true, false);
 }
 
-static void manipulator_primitive_draw(const bContext *UNUSED(C), wmManipulator *manipulator)
+static void manipulator_primitive_draw(const bContext *UNUSED(C), wmManipulator *mpr)
 {
 	manipulator_primitive_draw_intern(
-	            (PrimitiveManipulator *)manipulator, false,
-	            (manipulator->state & WM_MANIPULATOR_STATE_HIGHLIGHT));
+	            (PrimitiveManipulator *)mpr, false,
+	            (mpr->state & WM_MANIPULATOR_STATE_HIGHLIGHT));
 }
 
 static void manipulator_primitive_invoke(
-        bContext *UNUSED(C), wmManipulator *manipulator, const wmEvent *UNUSED(event))
+        bContext *UNUSED(C), wmManipulator *mpr, const wmEvent *UNUSED(event))
 {
 	ManipulatorInteraction *inter = MEM_callocN(sizeof(ManipulatorInteraction), __func__);
 
-	copy_v3_v3(inter->init_origin, manipulator->origin);
-	inter->init_scale = manipulator->scale;
+	copy_v3_v3(inter->init_origin, mpr->origin);
+	inter->init_scale = mpr->scale;
 
-	manipulator->interaction_data = inter;
+	mpr->interaction_data = inter;
 }
 
 
@@ -208,9 +208,9 @@ wmManipulator *ED_manipulator_primitive3d_new(wmManipulatorGroup *mgroup, const 
 /**
  * Define direction the primitive will point towards
  */
-void ED_manipulator_primitive3d_set_direction(wmManipulator *manipulator, const float direction[3])
+void ED_manipulator_primitive3d_set_direction(wmManipulator *mpr, const float direction[3])
 {
-	PrimitiveManipulator *prim = (PrimitiveManipulator *)manipulator;
+	PrimitiveManipulator *prim = (PrimitiveManipulator *)mpr;
 
 	normalize_v3_v3(prim->direction, direction);
 }
@@ -218,9 +218,9 @@ void ED_manipulator_primitive3d_set_direction(wmManipulator *manipulator, const 
 /**
  * Define up-direction of the primitive manipulator
  */
-void ED_manipulator_primitive3d_set_up_vector(wmManipulator *manipulator, const float direction[3])
+void ED_manipulator_primitive3d_set_up_vector(wmManipulator *mpr, const float direction[3])
 {
-	PrimitiveManipulator *prim = (PrimitiveManipulator *)manipulator;
+	PrimitiveManipulator *prim = (PrimitiveManipulator *)mpr;
 
 	if (direction) {
 		normalize_v3_v3(prim->up, direction);
