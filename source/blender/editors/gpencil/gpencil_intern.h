@@ -328,6 +328,8 @@ void GPENCIL_OT_brush_presets_create(struct wmOperatorType *ot);
 void GPENCIL_OT_brush_copy(struct wmOperatorType *ot);
 void GPENCIL_OT_brush_select(struct wmOperatorType *ot);
 
+void GPENCIL_OT_sculpt_select(struct wmOperatorType *ot);
+
 void GPENCIL_OT_palette_add(struct wmOperatorType *ot);
 void GPENCIL_OT_palette_remove(struct wmOperatorType *ot);
 void GPENCIL_OT_palette_change(struct wmOperatorType *ot);

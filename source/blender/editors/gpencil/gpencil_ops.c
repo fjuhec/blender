@@ -414,6 +414,7 @@ static void ed_keymap_gpencil_painting(wmKeyConfig *keyconf)
 static void ed_keymap_gpencil_sculpting(wmKeyConfig *keyconf)
 {
 	wmKeyMap *keymap = WM_keymap_find(keyconf, "Grease Pencil Stroke Sculpt Mode", 0, 0);
+	wmKeyMapItem *kmi;
 
 	/* set poll callback - so that this keymap only gets enabled when stroke sculptmode is enabled */
 	keymap->poll = gp_stroke_sculptmode_poll;
@@ -426,6 +427,26 @@ static void ed_keymap_gpencil_sculpting(wmKeyConfig *keyconf)
 
 	/* sculpt */
 	ed_keymap_gpencil_sculpt(keymap);
+
+	/* Select sculpt brush using index */
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_sculpt_select", ONEKEY, KM_PRESS, 0, 0);
+	RNA_int_set(kmi->ptr, "index", 0);
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_sculpt_select", TWOKEY, KM_PRESS, 0, 0);
+	RNA_int_set(kmi->ptr, "index", 1);
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_sculpt_select", THREEKEY, KM_PRESS, 0, 0);
+	RNA_int_set(kmi->ptr, "index", 2);
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_sculpt_select", FOURKEY, KM_PRESS, 0, 0);
+	RNA_int_set(kmi->ptr, "index", 3);
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_sculpt_select", FIVEKEY, KM_PRESS, 0, 0);
+	RNA_int_set(kmi->ptr, "index", 4);
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_sculpt_select", SIXKEY, KM_PRESS, 0, 0);
+	RNA_int_set(kmi->ptr, "index", 5);
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_sculpt_select", SEVENKEY, KM_PRESS, 0, 0);
+	RNA_int_set(kmi->ptr, "index", 6);
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_sculpt_select", EIGHTKEY, KM_PRESS, 0, 0);
+	RNA_int_set(kmi->ptr, "index", 7);
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_sculpt_select", NINEKEY, KM_PRESS, 0, 0);
+	RNA_int_set(kmi->ptr, "index", 8);
 
 	/* Enter EditMode */
 	WM_keymap_add_item(keymap, "GPENCIL_OT_editmode_toggle", TABKEY, KM_PRESS, KM_SHIFT, 0);
@@ -530,6 +551,8 @@ void ED_operatortypes_gpencil(void)
 	WM_operatortype_append(GPENCIL_OT_brush_presets_create);
 	WM_operatortype_append(GPENCIL_OT_brush_copy);
 	WM_operatortype_append(GPENCIL_OT_brush_select);
+
+	WM_operatortype_append(GPENCIL_OT_sculpt_select);
 
 	/* conversion of old palettes */
 	WM_operatortype_append(GPENCIL_OT_convert_old_palettes);
