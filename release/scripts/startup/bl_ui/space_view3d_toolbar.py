@@ -2032,6 +2032,12 @@ class VIEW3D_PT_tools_history(View3DPanel, Panel):
 
 
 classes = (
+    VIEW3D_PT_tools_grease_pencil_edit,
+    VIEW3D_PT_tools_grease_pencil_interpolate,
+    VIEW3D_PT_tools_grease_pencil_sculpt,
+    VIEW3D_PT_tools_grease_pencil_brush,
+    VIEW3D_PT_tools_grease_pencil_brushcurves,
+    VIEW3D_PT_tools_grease_pencil_draw,
     VIEW3D_PT_tools_transform,
     VIEW3D_PT_tools_object,
     VIEW3D_PT_tools_add_object,
@@ -2084,12 +2090,6 @@ classes = (
     VIEW3D_PT_tools_projectpaint,
     VIEW3D_MT_tools_projectpaint_stencil,
     VIEW3D_PT_tools_particlemode,
-    VIEW3D_PT_tools_grease_pencil_draw,
-    VIEW3D_PT_tools_grease_pencil_edit,
-    VIEW3D_PT_tools_grease_pencil_interpolate,
-    VIEW3D_PT_tools_grease_pencil_sculpt,
-    VIEW3D_PT_tools_grease_pencil_brush,
-    VIEW3D_PT_tools_grease_pencil_brushcurves,
     VIEW3D_PT_tools_history,
 )
 
