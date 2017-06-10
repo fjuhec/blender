@@ -18,7 +18,7 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/manipulators/intern/manipulator_library/manipulator_library_presets.c
+/** \file blender/editors/manipulator_library/manipulator_library_presets.c
  *  \ingroup wm
  *
  * \name Manipulator Lib Presets
