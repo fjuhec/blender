@@ -339,6 +339,11 @@ static PointerRNA rna_UserDef_filepaths_get(PointerRNA *ptr)
 	return rna_pointer_inherit_refine(ptr, &RNA_UserPreferencesFilePaths, ptr->data);
 }
 
+static PointerRNA rna_UserDef_packages_get(PointerRNA *ptr)
+{
+	return rna_pointer_inherit_refine(ptr, &RNA_UserPreferencesPackages, ptr->data);
+}
+
 static PointerRNA rna_UserDef_system_get(PointerRNA *ptr)
 {
 	return rna_pointer_inherit_refine(ptr, &RNA_UserPreferencesSystem, ptr->data);
@@ -4575,6 +4580,18 @@ static void rna_def_userdef_filepaths(BlenderRNA *brna)
 	                         "Enables automatic saving of preview images in the .blend file");
 }
 
+static void rna_def_userdef_packages(BlenderRNA *brna)
+{
+	PropertyRNA *prop;
+	StructRNA *srna;
+
+	srna = RNA_def_struct(brna, "UserPreferencesPackages", NULL);
+	RNA_def_struct_sdna(srna, "UserDef");
+	RNA_def_struct_nested(brna, srna, "UserPreferences");
+	RNA_def_struct_clear_flag(srna, STRUCT_UNDO);
+	RNA_def_struct_ui_text(srna, "Packages", "Where packages are managed");
+}
+
 static void rna_def_userdef_addon_collection(BlenderRNA *brna, PropertyRNA *cprop)
 {
 	StructRNA *srna;
@@ -4640,6 +4657,7 @@ void RNA_def_userdef(BlenderRNA *brna)
 		{USER_SECTION_THEME, "THEMES", 0, "Themes", ""},
 		{USER_SECTION_FILE, "FILES", 0, "File", ""},
 		{USER_SECTION_SYSTEM, "SYSTEM", 0, "System", ""},
+		{USER_SECTION_PACKAGES, "PACKAGES", 0, "Packages", ""},
 		{0, NULL, 0, NULL, NULL}
 	};
 
@@ -4710,7 +4728,13 @@ void RNA_def_userdef(BlenderRNA *brna)
 	RNA_def_property_struct_type(prop, "UserPreferencesFilePaths");
 	RNA_def_property_pointer_funcs(prop, "rna_UserDef_filepaths_get", NULL, NULL, NULL);
 	RNA_def_property_ui_text(prop, "File Paths", "Default paths for external files");
-	
+
+	prop = RNA_def_property(srna, "packages", PROP_POINTER, PROP_NONE);
+	RNA_def_property_flag(prop, PROP_NEVER_NULL);
+	RNA_def_property_struct_type(prop, "UserPreferencesPackages");
+	RNA_def_property_pointer_funcs(prop, "rna_UserDef_packages_get", NULL, NULL, NULL);
+	RNA_def_property_ui_text(prop, "Packages", "test");
+
 	prop = RNA_def_property(srna, "system", PROP_POINTER, PROP_NONE);
 	RNA_def_property_flag(prop, PROP_NEVER_NULL);
 	RNA_def_property_struct_type(prop, "UserPreferencesSystem");
@@ -4727,6 +4751,7 @@ void RNA_def_userdef(BlenderRNA *brna)
 	rna_def_userdef_edit(brna);
 	rna_def_userdef_input(brna);
 	rna_def_userdef_filepaths(brna);
+	rna_def_userdef_packages(brna);
 	rna_def_userdef_system(brna);
 	rna_def_userdef_addon(brna);
 	rna_def_userdef_addon_pref(brna);

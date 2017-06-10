@@ -678,6 +678,7 @@ extern StructRNA RNA_UnknownType;
 extern StructRNA RNA_UserPreferences;
 extern StructRNA RNA_UserPreferencesEdit;
 extern StructRNA RNA_UserPreferencesFilePaths;
+extern StructRNA RNA_UserPreferencesPackages;
 extern StructRNA RNA_UserPreferencesInput;
 extern StructRNA RNA_UserPreferencesSystem;
 extern StructRNA RNA_UserPreferencesView;

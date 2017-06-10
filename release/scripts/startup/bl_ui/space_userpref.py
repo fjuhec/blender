@@ -1310,6 +1310,23 @@ class USERPREF_MT_addons_online_resources(Menu):
                 ).url = bpy.types.WM_OT_doc_view._prefix + "/info_quickstart.html"
         layout.operator("wm.url_open", text="Add-on Tutorial", icon='URL',
                 ).url = bpy.types.WM_OT_doc_view._prefix + "/info_tutorial_addon.html"
+                
+
+class USERPREF_PT_packages(Panel):
+    bl_space_type = 'USER_PREFERENCES'
+    bl_label = "Packages"
+    bl_region_type = 'WINDOW'
+    bl_options = {'HIDE_HEADER'}
+    
+    def draw(self, context):
+        @classmethod
+        def poll(cls, context):
+            userpref = context.user_preferences
+            return (userpref.active_section == 'PACKAGES')
+        
+        def draw(self, context):
+            pass
+
 
 
 class USERPREF_PT_addons(Panel):
@@ -1557,6 +1574,7 @@ classes = (
     USERPREF_MT_splash_footer,
     USERPREF_PT_interface,
     USERPREF_PT_edit,
+    USERPREF_PT_packages,
     USERPREF_PT_system,
     USERPREF_MT_interface_theme_presets,
     USERPREF_PT_theme,

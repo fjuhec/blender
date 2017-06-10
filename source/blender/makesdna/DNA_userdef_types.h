@@ -591,6 +591,7 @@ typedef enum eUserPref_Section {
 	USER_SECTION_THEME		= 4,
 	USER_SECTION_INPUT		= 5,
 	USER_SECTION_ADDONS 	= 6,
+	USER_SECTION_PACKAGES 	= 7,
 } eUserPref_Section;
 
 /* flag */
