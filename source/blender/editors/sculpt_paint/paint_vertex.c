@@ -781,7 +781,7 @@ BLI_INLINE unsigned int mcol_difference(unsigned int col1, unsigned int col2, in
 
 	temp = abs(cp1[0] - cp2[0]);
 	cp[0] = (mfac * cp1[0] + temp * fac) / 255;
-	temp = abs(cp1[0] - cp2[0]);
+	temp = abs(cp1[1] - cp2[1]);
 	cp[1] = (mfac * cp1[1] + temp * fac) / 255;
 	temp = abs(cp1[2] - cp2[2]);
 	cp[2] = (mfac * cp1[2] + temp * fac) / 255;
