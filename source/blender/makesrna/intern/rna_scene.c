@@ -437,6 +437,13 @@ EnumPropertyItem rna_enum_gpencil_interpolation_mode_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
+/* loaded dynamic only defined as dummy */
+EnumPropertyItem rna_enum_gpencil_drawing_brushes_items[] = {
+	{ 0, "BASIC", ICON_BRUSH_SCULPT_DRAW, "Basic", "Basic drawing brush" },
+	{ 0, NULL, 0, NULL, NULL }
+};
+
+
 EnumPropertyItem rna_enum_layer_collection_mode_settings_type_items[] = {
 	{COLLECTION_MODE_OBJECT, "OBJECT", 0, "Object", ""},
 	{COLLECTION_MODE_EDIT, "EDIT", 0, "Edit", ""},
@@ -617,6 +624,36 @@ static void rna_GPencilBrush_name_set(PointerRNA *ptr, const char *value)
 	BLI_strncpy_utf8(brush->info, value, sizeof(brush->info));
 
 	BLI_uniquename(&ts->gp_brushes, brush, DATA_("GP_Brush"), '.', offsetof(bGPDbrush, info), sizeof(brush->info));
+}
+
+/* Dynamic Enums of GP Brushes */
+static EnumPropertyItem *rna_GPencilBrush_enum_itemf(bContext *UNUSED(C), PointerRNA *ptr, PropertyRNA *UNUSED(prop),
+	bool *r_free)
+{
+	ToolSettings *ts = ((Scene *)ptr->id.data)->toolsettings;
+	bGPDbrush *brush;
+	EnumPropertyItem *item = NULL, item_tmp = { 0 };
+	int totitem = 0;
+	int i = 0;
+
+	if (ELEM(NULL, ts)) {
+		return rna_enum_gpencil_drawing_brushes_items;
+	}
+
+	/* Existing brushes */
+	for (brush = ts->gp_brushes.first; brush; brush = brush->next, i++) {
+		item_tmp.identifier = brush->info;
+		item_tmp.name = brush->info;
+		item_tmp.value = i;
+		item_tmp.icon = ICON_BRUSH_DATA;
+
+		RNA_enum_item_add(&item, &totitem, &item_tmp);
+	}
+
+	RNA_enum_item_end(&item, &totitem);
+	*r_free = true;
+
+	return item;
 }
 
 /* ----------------- end of Grease pencil drawing brushes ------------*/
@@ -3722,6 +3759,12 @@ static void rna_def_tool_settings(BlenderRNA  *brna)
 	RNA_def_property_struct_type(prop, "GPencilBrush");
 	RNA_def_property_ui_text(prop, "Grease Pencil Brushes", "Grease Pencil drawing brushes");
 	rna_def_gpencil_brushes(brna, prop);
+
+	prop = RNA_def_property(srna, "gpencil_brushes_enum", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_items(prop, rna_enum_gpencil_drawing_brushes_items);
+	RNA_def_property_enum_funcs(prop, "rna_GPencilBrushes_index_get", "rna_GPencilBrushes_index_set", "rna_GPencilBrush_enum_itemf");
+	RNA_def_property_ui_text(prop, "Enum of drawing brushes", "");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
 
 	/* Grease Pencil - 3D View Stroke Placement */
 	prop = RNA_def_property(srna, "gpencil_stroke_placement_view3d", PROP_ENUM, PROP_NONE);
