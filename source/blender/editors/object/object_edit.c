@@ -1564,14 +1564,17 @@ static int object_mode_set_exec(bContext *C, wmOperator *op)
 				return OPERATOR_FINISHED;
 			}
 			if (mode == OB_MODE_GPENCIL_EDIT) {
+				ob->restore_mode = ob->mode;
 				WM_operator_name_call(C, "GPENCIL_OT_editmode_toggle", WM_OP_EXEC_REGION_WIN, NULL);
 				return OPERATOR_FINISHED;
 			}
 			if (mode == OB_MODE_GPENCIL_PAINT) {
+				ob->restore_mode = ob->mode;
 				WM_operator_name_call(C, "GPENCIL_OT_paintmode_toggle", WM_OP_EXEC_REGION_WIN, NULL);
 				return OPERATOR_FINISHED;
 			}
 			if (mode == OB_MODE_GPENCIL_SCULPT) {
+				ob->restore_mode = ob->mode;
 				WM_operator_name_call(C, "GPENCIL_OT_sculptmode_toggle", WM_OP_EXEC_REGION_WIN, NULL);
 				return OPERATOR_FINISHED;
 			}
