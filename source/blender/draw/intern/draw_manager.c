@@ -2692,8 +2692,7 @@ static void DRW_engines_enable(const Scene *scene, SceneLayer *sl, const View3D 
 	}
 	else {
 		/* if gpencil must draw the strokes, but not the object */
-		Object *ob = OBACT_NEW;
-		if ((ob) && (ob->type == OB_GPENCIL)) {
+		if (mode == CTX_MODE_OBJECT) {
 			DRW_engines_enable_from_mode(mode);
 		}
 	}
