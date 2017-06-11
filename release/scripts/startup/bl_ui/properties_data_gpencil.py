@@ -35,7 +35,8 @@ class DataButtonsPanel:
 
 
 class DATA_PT_gpencil(DataButtonsPanel, Panel):
-    bl_label = "Grease Pencil"
+    bl_label = ""
+    bl_options = {'HIDE_HEADER'}
 
     def draw(self, context):
         layout = self.layout
