@@ -236,8 +236,12 @@ static void ed_keymap_gpencil_editing(wmKeyConfig *keyconf)
 	/* ----------------------------------------------- */
 	
 	/* Exit EditMode */
-	WM_keymap_add_item(keymap, "GPENCIL_OT_editmode_toggle", TABKEY, KM_PRESS, 0, 0);
-	
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_editmode_toggle", TABKEY, KM_PRESS, 0, 0);
+	RNA_int_set(kmi->ptr, "back", 0);
+
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_editmode_toggle", TABKEY, KM_PRESS, KM_CTRL, 0);
+	RNA_int_set(kmi->ptr, "back", 1);
+
 	/* Brush Settings */
 	/* NOTE: We cannot expose these in the standard keymap, as they will interfere with regular hotkeys
 	 *       in other modes. However, when we are dealing with Stroke Edit Mode, we know for certain
@@ -377,7 +381,11 @@ static void ed_keymap_gpencil_painting(wmKeyConfig *keyconf)
 	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
 
 	/* Exit PaintMode */
-	WM_keymap_add_item(keymap, "GPENCIL_OT_paintmode_toggle", TABKEY, KM_PRESS, 0, 0);
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_paintmode_toggle", TABKEY, KM_PRESS, 0, 0);
+	RNA_int_set(kmi->ptr, "back", 0);
+
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_paintmode_toggle", TABKEY, KM_PRESS, KM_CTRL, 0);
+	RNA_int_set(kmi->ptr, "back", 1);
 
 	/* Selection */
 	ed_keymap_gpencil_selection(keymap);
@@ -420,8 +428,12 @@ static void ed_keymap_gpencil_sculpting(wmKeyConfig *keyconf)
 	keymap->poll = gp_stroke_sculptmode_poll;
 
 	/* Exit SculptMode */
-	WM_keymap_add_item(keymap, "GPENCIL_OT_sculptmode_toggle", TABKEY, KM_PRESS, 0, 0);
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_sculptmode_toggle", TABKEY, KM_PRESS, 0, 0);
+	RNA_int_set(kmi->ptr, "back", 0);
 	
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_sculptmode_toggle", TABKEY, KM_PRESS, KM_CTRL, 0);
+	RNA_int_set(kmi->ptr, "back", 1);
+
 	/* Selection */
 	ed_keymap_gpencil_selection(keymap);
 

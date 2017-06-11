@@ -131,8 +131,10 @@ static int gpencil_editmode_toggle_poll(bContext *C)
 	return ED_gpencil_data_get_active(C) != NULL;
 }
 
-static int gpencil_editmode_toggle_exec(bContext *C, wmOperator *UNUSED(op))
+static int gpencil_editmode_toggle_exec(bContext *C, wmOperator *op)
 {
+	const int back = RNA_int_get(op->ptr, "back");
+
 	WorkSpace *workspace = CTX_wm_workspace(C);
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	bool is_object = false;
@@ -163,7 +165,7 @@ static int gpencil_editmode_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 
 	if (is_object) {
 		/* try to back previous mode */
-		if ((ob->restore_mode) && ((gpd->flag & GP_DATA_STROKE_EDITMODE) == 0)) {
+		if ((ob->restore_mode) && ((gpd->flag & GP_DATA_STROKE_EDITMODE) == 0) && (back == 1)) {
 			mode = ob->restore_mode;
 		}
 		ob->restore_mode = ob->mode;
@@ -194,6 +196,8 @@ void GPENCIL_OT_editmode_toggle(wmOperatorType *ot)
 	
 	/* flags */
 	ot->flag = OPTYPE_UNDO | OPTYPE_REGISTER;
+	/* properties */
+	RNA_def_int(ot->srna, "back", 0, 0, 1, "back", "1 to back previous mode", 0, 1);
 }
 
 /* Stroke Paint Mode Management */
@@ -208,8 +212,10 @@ static int gpencil_paintmode_toggle_poll(bContext *C)
 	return ED_gpencil_data_get_active(C) != NULL;
 }
 
-static int gpencil_paintmode_toggle_exec(bContext *C, wmOperator *UNUSED(op))
+static int gpencil_paintmode_toggle_exec(bContext *C, wmOperator *op)
 {
+	const int back = RNA_int_get(op->ptr, "back");
+
 	WorkSpace *workspace = CTX_wm_workspace(C);
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	bool is_object = false;
@@ -236,7 +242,7 @@ static int gpencil_paintmode_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 
 	if (is_object) {
 		/* try to back previous mode */
-		if ((ob->restore_mode) && ((gpd->flag & GP_DATA_STROKE_PAINTMODE) == 0)) {
+		if ((ob->restore_mode) && ((gpd->flag & GP_DATA_STROKE_PAINTMODE) == 0) && (back == 1)) {
 			mode = ob->restore_mode;
 		}
 		ob->restore_mode = ob->mode;
@@ -267,6 +273,8 @@ void GPENCIL_OT_paintmode_toggle(wmOperatorType *ot)
 
 	/* flags */
 	ot->flag = OPTYPE_UNDO | OPTYPE_REGISTER;
+	/* properties */
+	RNA_def_int(ot->srna, "back", 0, 0, 1, "back", "1 to back previous mode", 0, 1);
 }
 
 /* Stroke Scupt Mode Management */
@@ -281,8 +289,10 @@ static int gpencil_sculptmode_toggle_poll(bContext *C)
 	return ED_gpencil_data_get_active(C) != NULL;
 }
 
-static int gpencil_sculptmode_toggle_exec(bContext *C, wmOperator *UNUSED(op))
+static int gpencil_sculptmode_toggle_exec(bContext *C, wmOperator *op)
 {
+	const int back = RNA_int_get(op->ptr, "back");
+
 	WorkSpace *workspace = CTX_wm_workspace(C);
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	bool is_object = false;
@@ -309,7 +319,7 @@ static int gpencil_sculptmode_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 
 	if (is_object) {
 		/* try to back previous mode */
-		if ((ob->restore_mode) && ((gpd->flag & GP_DATA_STROKE_SCULPTMODE) == 0)) {
+		if ((ob->restore_mode) && ((gpd->flag & GP_DATA_STROKE_SCULPTMODE) == 0) && (back == 1)) {
 			mode = ob->restore_mode;
 		}
 		ob->restore_mode = ob->mode;
@@ -340,6 +350,8 @@ void GPENCIL_OT_sculptmode_toggle(wmOperatorType *ot)
 
 	/* flags */
 	ot->flag = OPTYPE_UNDO | OPTYPE_REGISTER;
+	/* properties */
+	RNA_def_int(ot->srna, "back", 0, 0, 1, "back", "1 to back previous mode", 0, 1);
 }
 
 /* ************************************************ */
