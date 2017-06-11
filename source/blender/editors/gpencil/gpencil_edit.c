@@ -84,8 +84,43 @@
 #include "gpencil_intern.h"
 
 /* ************************************************ */
-/* Stroke Edit Mode Management */
+/* setup modes and cursor */
+static void gpencil_setup_modes(bContext *C, bGPdata *gpd, int newmode)
+{
+	if (!gpd) {
+		return;
+	}
 
+	switch (newmode)
+	{
+	case OB_MODE_GPENCIL_EDIT:
+		gpd->flag |= GP_DATA_STROKE_EDITMODE;
+		gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
+		gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
+		WM_cursor_modal_set(CTX_wm_window(C), CURSOR_STD);
+		break;
+	case OB_MODE_GPENCIL_PAINT:
+		gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
+		gpd->flag |= GP_DATA_STROKE_PAINTMODE;
+		gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
+		WM_cursor_modal_set(CTX_wm_window(C), BC_PAINTBRUSHCURSOR);
+		break;
+	case OB_MODE_GPENCIL_SCULPT:
+		gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
+		gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
+		gpd->flag |= GP_DATA_STROKE_SCULPTMODE;
+		WM_cursor_modal_set(CTX_wm_window(C), BC_CROSSCURSOR);
+		break;
+	default:
+		gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
+		gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
+		gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
+		WM_cursor_modal_set(CTX_wm_window(C), CURSOR_STD);
+		break;
+	}
+}
+
+/* Stroke Edit Mode Management */
 static int gpencil_editmode_toggle_poll(bContext *C)
 {
 	/* if using gpencil object, use this gpd */
@@ -114,9 +149,6 @@ static int gpencil_editmode_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 	
 	/* Just toggle editmode flag... */
 	gpd->flag ^= GP_DATA_STROKE_EDITMODE;
-	/* disable other GP modes */
-	gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
-	gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
 	/* recalculate parent matrix */
 	if (gpd->flag & GP_DATA_STROKE_EDITMODE) {
 		ED_gpencil_reset_layers_parent(ob, gpd);
@@ -124,18 +156,24 @@ static int gpencil_editmode_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 	/* set mode */
 	if (gpd->flag & GP_DATA_STROKE_EDITMODE) {
 		mode = OB_MODE_GPENCIL_EDIT;
-		WM_cursor_modal_set(CTX_wm_window(C), CURSOR_STD);
 	}
 	else {
 		mode = OB_MODE_OBJECT;
 	}
 
 	if (is_object) {
+		/* try to back previous mode */
+		if ((ob->restore_mode) && ((gpd->flag & GP_DATA_STROKE_EDITMODE) == 0)) {
+			mode = ob->restore_mode;
+		}
+		ob->restore_mode = ob->mode;
 		ob->mode = mode;
 	}
 
 	/* set workspace mode */
 	BKE_workspace_object_mode_set(workspace, mode);
+	/* setup other modes */
+	gpencil_setup_modes(C, gpd, mode);
 
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | ND_GPENCIL_EDITMODE, NULL);
 	WM_event_add_notifier(C, NC_SCENE | ND_MODE, NULL);
@@ -188,27 +226,27 @@ static int gpencil_paintmode_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 
 	/* Just toggle paintmode flag... */
 	gpd->flag ^= GP_DATA_STROKE_PAINTMODE;
-	/* disable other GP modes */
-	gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
-	gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
-
 	/* set mode */
 	if (gpd->flag & GP_DATA_STROKE_PAINTMODE) {
 		mode = OB_MODE_GPENCIL_PAINT;
-		/* set cursor */
-		WM_cursor_modal_set(CTX_wm_window(C), BC_PAINTBRUSHCURSOR);
 	}
 	else {
 		mode = OB_MODE_OBJECT;
-		WM_cursor_modal_set(CTX_wm_window(C), CURSOR_STD);
 	}
 
 	if (is_object) {
+		/* try to back previous mode */
+		if ((ob->restore_mode) && ((gpd->flag & GP_DATA_STROKE_PAINTMODE) == 0)) {
+			mode = ob->restore_mode;
+		}
+		ob->restore_mode = ob->mode;
 		ob->mode = mode;
 	}
 
 	/* set workspace mode */
 	BKE_workspace_object_mode_set(workspace, mode);
+	/* setup other modes */
+	gpencil_setup_modes(C, gpd, mode);
 
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | ND_GPENCIL_EDITMODE, NULL);
 	WM_event_add_notifier(C, NC_SCENE | ND_MODE, NULL);
@@ -261,26 +299,27 @@ static int gpencil_sculptmode_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 
 	/* Just toggle sculptmode flag... */
 	gpd->flag ^= GP_DATA_STROKE_SCULPTMODE;
-	/* disable other GP modes */
-	gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
-	gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
-
 	/* set mode */
 	if (gpd->flag & GP_DATA_STROKE_SCULPTMODE) {
 		mode = OB_MODE_GPENCIL_SCULPT;
-		WM_cursor_modal_set(CTX_wm_window(C), BC_CROSSCURSOR);
 	}
 	else {
 		mode = OB_MODE_OBJECT;
-		WM_cursor_modal_set(CTX_wm_window(C), CURSOR_STD);
 	}
 
 	if (is_object) {
+		/* try to back previous mode */
+		if ((ob->restore_mode) && ((gpd->flag & GP_DATA_STROKE_SCULPTMODE) == 0)) {
+			mode = ob->restore_mode;
+		}
+		ob->restore_mode = ob->mode;
 		ob->mode = mode;
 	}
 
 	/* set workspace mode */
 	BKE_workspace_object_mode_set(workspace, mode);
+	/* setup other modes */
+	gpencil_setup_modes(C, gpd, mode);
 
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | ND_GPENCIL_EDITMODE, NULL);
 	WM_event_add_notifier(C, NC_SCENE | ND_MODE, NULL);
