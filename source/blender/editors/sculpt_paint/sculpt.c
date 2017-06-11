@@ -3090,10 +3090,20 @@ static void do_clip_brush_task_cb_ex(
 			axis_angle_normalized_to_mat3(rot, ss->cache->sculpt_normal_symm, angle * fade);
 			mul_v3_m3v3(proxy[vd.i], rot, vec);
 			add_v3_v3(proxy[vd.i], ss->cache->location); */
-			mul_v3_v3fl(proxy[vd.i], vd.co, 1.5); /*just testing the working*/
-			BM_vert_kill(ss->bm, vd.bm_vert);
+			sub_v3_v3v3(vec, vd.co, ss->cache->location);
+			float length = dot_v3v3(vec, vec);
+			float r = ss->cache->radius_squared;
+			float p1[3];
+			mul_v3_v3fl(p1, vec, sqrt(r / length));
+
+			copy_v3_v3(proxy[vd.i], p1);
+			/*
+			mul_v3_v3fl(proxy[vd.i], vd.co, 1.5); just testing the working*/
+			/*
+			BM_vert_kill(ss->bm, vd.bm_vert);*/
 			if (vd.mvert)
 				vd.mvert->flag |= ME_VERT_PBVH_UPDATE;
+
 		}
 	}
 	BKE_pbvh_vertex_iter_end;
