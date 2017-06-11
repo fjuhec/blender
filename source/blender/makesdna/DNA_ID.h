@@ -266,6 +266,7 @@ typedef enum ID_Type {
 	ID_PC   = MAKE_ID2('P', 'C'), /* PaintCurve  */
 	ID_CF   = MAKE_ID2('C', 'F'), /* CacheFile */
 	ID_WS   = MAKE_ID2('W', 'S'), /* WorkSpace */
+	ID_PRB  = MAKE_ID2('P', 'R'), /* Probe */
 } ID_Type;
 
 /* Only used as 'placeholder' in .blend files for directly linked datablocks. */
@@ -400,9 +401,10 @@ enum {
 	FILTER_ID_PA        = (1 << 27),
 	FILTER_ID_CF        = (1 << 28),
 	FILTER_ID_WS        = (1 << 29),
+	FILTER_ID_PRB       = (1 << 30),
 };
 
-/* IMPORTANT: this enum matches the order currently use in set_lisbasepointers,
+/* IMPORTANT: this enum matches the order currently use in set_listbasepointers,
  * keep them in sync! */
 enum {
 	INDEX_ID_LI = 0,
@@ -431,6 +433,7 @@ enum {
 	INDEX_ID_BR,
 	INDEX_ID_PA,
 	INDEX_ID_SPK,
+	INDEX_ID_PRB,
 	INDEX_ID_WO,
 	INDEX_ID_MC,
 	INDEX_ID_SCR,

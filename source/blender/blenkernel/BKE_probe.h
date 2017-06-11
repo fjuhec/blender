@@ -15,25 +15,31 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor(s): Campbell Barton
+ * The Original Code is Copyright (C) Blender Foundation.
+ * All rights reserved.
+ *
+ * The Original Code is: all of this file.
+ *
+ * Contributor(s): none yet.
  *
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/python/intern/bpy_operator_wrap.h
- *  \ingroup pythonintern
+#ifndef __BKE_PROBE_H__
+#define __BKE_PROBE_H__
+
+/** \file BKE_probe.h
+ *  \ingroup bke
+ *  \brief General operations for probes.
  */
 
-#ifndef __BPY_OPERATOR_WRAP_H__
-#define __BPY_OPERATOR_WRAP_H__
+struct Main;
+struct Probe;
 
-struct wmOperatorType;
+void BKE_probe_init(struct Probe *probe);
+void *BKE_probe_add(struct Main *bmain, const char *name);
+struct Probe *BKE_probe_copy(struct Main *bmain, struct Probe *probe);
+void BKE_probe_make_local(struct Main *bmain, struct Probe *probe, const bool lib_local);
+void BKE_probe_free(struct Probe *probe);
 
-/* these are used for operator methods, used by bpy_operator.c */
-PyObject *PYOP_wrap_macro_define(PyObject *self, PyObject *args);
-
-/* exposed to rna/wm api */
-void BPY_RNA_operator_wrapper(struct wmOperatorType *ot, void *userdata);
-void BPY_RNA_operator_macro_wrapper(struct wmOperatorType *ot, void *userdata);
-
-#endif
+#endif /* __BKE_PROBE_H__ */

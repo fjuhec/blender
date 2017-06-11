@@ -111,8 +111,7 @@ void DEG_objects_iterator_begin(BLI_Iterator *iter, DEGObjectsIteratorData *data
 	iter->valid = true;
 
 	data->scene = DEG_get_scene(graph);
-	/* TODO(sergey): Make it in-place initilization of evaluation context. */
-	data->eval_ctx = DEG_evaluation_context_new(DAG_EVAL_RENDER);
+	DEG_evaluation_context_init(&data->eval_ctx, DAG_EVAL_RENDER);
 
 	/* TODO(sergey): It's really confusing to store pointer to a local data. */
 	Base base = {(Base *)scene_layer->object_bases.first, NULL};
@@ -161,6 +160,7 @@ static bool deg_objects_dupli_iterator_next(BLI_Iterator *iter)
 
 		/* Temporary object to evaluate. */
 		data->temp_dupli_object = *dob->ob;
+		data->temp_dupli_object.select_color = data->dupli_parent->select_color;
 		copy_m4_m4(data->temp_dupli_object.obmat, dob->mat);
 
 		deg_flush_base_flags_and_settings(&data->temp_dupli_object,
@@ -210,7 +210,7 @@ void DEG_objects_iterator_next(BLI_Iterator *iter)
 
 			if ((data->flag & DEG_OBJECT_ITER_FLAG_DUPLI) && (ob->transflag & OB_DUPLI)) {
 				data->dupli_parent = ob;
-				data->dupli_list = object_duplilist(data->eval_ctx, data->scene, ob);
+				data->dupli_list = object_duplilist(&data->eval_ctx, data->scene, ob);
 				data->dupli_object_next = (DupliObject *)data->dupli_list->first;
 			}
 			return;
@@ -240,13 +240,11 @@ void DEG_objects_iterator_next(BLI_Iterator *iter)
 
 void DEG_objects_iterator_end(BLI_Iterator *iter)
 {
+#ifndef NDEBUG
 	DEGObjectsIteratorData *data = (DEGObjectsIteratorData *)iter->data;
-	if (data->eval_ctx != NULL) {
-		DEG_evaluation_context_free(data->eval_ctx);
-	}
-
-#ifdef DEBUG
 	/* Force crash in case the iterator data is referenced and accessed down the line. (T51718) */
-	memset(&data->temp_dupli_object, 0xFF, sizeof(data->temp_dupli_object));
+	memset(&data->temp_dupli_object, 0xff, sizeof(data->temp_dupli_object));
+#else
+	(void) iter;
 #endif
 }

@@ -32,6 +32,7 @@
 #include "DNA_curve_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_object_force.h"
+#include "DNA_probe_types.h"
 #include "DNA_particle_types.h"
 #include "DNA_view3d_types.h"
 #include "DNA_world_types.h"
@@ -144,6 +145,9 @@ typedef struct OBJECT_PrivateData{
 
 	/* Speaker */
 	DRWShadingGroup *speaker;
+
+	/* Speaker */
+	DRWShadingGroup *probe;
 
 	/* Lamps */
 	DRWShadingGroup *lamp_center;
@@ -909,6 +913,11 @@ static void OBJECT_cache_init(void *vedata)
 		geom = DRW_cache_speaker_get();
 		stl->g_data->speaker = shgroup_instance(psl->non_meshes, geom);
 
+		/* Probe */
+		static float probeSize = 10.0f;
+		geom = DRW_cache_probe_get();
+		stl->g_data->probe = shgroup_instance_screenspace(psl->non_meshes, geom, &probeSize);
+
 		/* Camera */
 		geom = DRW_cache_camera_get();
 		stl->g_data->camera = shgroup_camera_instance(psl->non_meshes, geom);
@@ -1414,6 +1423,75 @@ static void DRW_shgroup_speaker(OBJECT_StorageList *stl, Object *ob, SceneLayer 
 	DRW_shgroup_call_dynamic_add(stl->g_data->speaker, color, &one, ob->obmat);
 }
 
+static void DRW_shgroup_probe(OBJECT_StorageList *stl, Object *ob, SceneLayer *sl)
+{
+	float *color;
+	Probe *prb = (Probe *)ob->data;
+	DRW_object_wire_theme_get(ob, sl, &color);
+
+	prb->distfalloff = (1.0f - prb->falloff) * prb->distinf;
+
+	DRW_shgroup_call_dynamic_add(stl->g_data->probe, ob->obmat[3], color);
+
+	if ((prb->flag & PRB_SHOW_INFLUENCE) != 0) {
+		if (prb->attenuation_type == PROBE_BOX) {
+			DRW_shgroup_call_dynamic_add(stl->g_data->cube, color, &prb->distinf, ob->obmat);
+			DRW_shgroup_call_dynamic_add(stl->g_data->cube, color, &prb->distfalloff, ob->obmat);
+		}
+		else {
+			DRW_shgroup_call_dynamic_add(stl->g_data->sphere, color, &prb->distinf, ob->obmat);
+			DRW_shgroup_call_dynamic_add(stl->g_data->sphere, color, &prb->distfalloff, ob->obmat);
+		}
+	}
+
+	if ((prb->flag & PRB_SHOW_PARALLAX) != 0) {
+		float (*obmat)[4], *dist;
+
+
+		if ((prb->flag & PRB_CUSTOM_PARALLAX) != 0) {
+			dist = &prb->distpar;
+			/* TODO object parallax */
+			obmat = ob->obmat;
+		}
+		else {
+			dist = &prb->distinf;
+			obmat = ob->obmat;
+		}
+
+		if (prb->parallax_type == PROBE_BOX) {
+			DRW_shgroup_call_dynamic_add(stl->g_data->cube, color, &dist, obmat);
+		}
+		else {
+			DRW_shgroup_call_dynamic_add(stl->g_data->sphere, color, &dist, obmat);
+		}
+	}
+
+	if ((prb->flag & PRB_SHOW_CLIP_DIST) != 0) {
+		static const float cubefacemat[6][4][4] = {
+			{{0.0, 0.0, -1.0, 0.0}, {0.0, -1.0, 0.0, 0.0}, {-1.0, 0.0, 0.0, 0.0}, {0.0, 0.0, 0.0, 1.0}},
+			{{0.0, 0.0, 1.0, 0.0}, {0.0, -1.0, 0.0, 0.0}, {1.0, 0.0, 0.0, 0.0}, {0.0, 0.0, 0.0, 1.0}},
+			{{1.0, 0.0, 0.0, 0.0}, {0.0, 0.0, -1.0, 0.0}, {0.0, 1.0, 0.0, 0.0}, {0.0, 0.0, 0.0, 1.0}},
+			{{1.0, 0.0, 0.0, 0.0}, {0.0, 0.0, 1.0, 0.0}, {0.0, -1.0, 0.0, 0.0}, {0.0, 0.0, 0.0, 1.0}},
+			{{1.0, 0.0, 0.0, 0.0}, {0.0, -1.0, 0.0, 0.0}, {0.0, 0.0, -1.0, 0.0}, {0.0, 0.0, 0.0, 1.0}},
+			{{-1.0, 0.0, 0.0, 0.0}, {0.0, -1.0, 0.0, 0.0}, {0.0, 0.0, 1.0, 0.0}, {0.0, 0.0, 0.0, 1.0}},
+		};
+
+		for (int i = 0; i < 6; ++i) {
+			normalize_m4_m4(prb->clipmat[i], ob->obmat);
+			// invert_m4(prb->clipmat[i]);
+			mul_m4_m4m4(prb->clipmat[i], prb->clipmat[i], cubefacemat[i]);
+
+			DRW_shgroup_call_dynamic_add(stl->g_data->lamp_buflimit, color, &prb->clipsta, &prb->clipend, prb->clipmat[i]);
+			DRW_shgroup_call_dynamic_add(stl->g_data->lamp_buflimit_points, color, &prb->clipsta, &prb->clipend, prb->clipmat[i]);
+		}
+	}
+	DRW_shgroup_call_dynamic_add(stl->g_data->lamp_center_group, ob->obmat[3]);
+
+	/* Line and point going to the ground */
+	DRW_shgroup_call_dynamic_add(stl->g_data->lamp_groundline, ob->obmat[3]);
+	DRW_shgroup_call_dynamic_add(stl->g_data->lamp_groundpoint, ob->obmat[3]);
+}
+
 static void DRW_shgroup_relationship_lines(OBJECT_StorageList *stl, Object *ob)
 {
 	if (ob->parent && ((ob->parent->base_flag & BASE_VISIBLED) != 0)) {
@@ -1613,6 +1691,9 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 			break;
 		case OB_SPEAKER:
 			DRW_shgroup_speaker(stl, ob, sl);
+			break;
+		case OB_PROBE:
+			DRW_shgroup_probe(stl, ob, sl);
 			break;
 		case OB_ARMATURE:
 		{

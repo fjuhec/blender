@@ -169,6 +169,7 @@ struct wmWindowManager;
 #include "../blender/editors/include/ED_object.h"
 #include "../blender/editors/include/ED_particle.h"
 #include "../blender/editors/include/ED_render.h"
+#include "../blender/editors/include/ED_scene.h"
 #include "../blender/editors/include/ED_screen.h"
 #include "../blender/editors/include/ED_space_api.h"
 #include "../blender/editors/include/ED_text.h"
@@ -199,7 +200,11 @@ struct wmWindowManager;
 
 /* bpy_operator_wrap.h */
 extern void macro_wrapper(struct wmOperatorType *ot, void *userdata);
-extern void operator_wrapper(struct wmOperatorType *ot, void *userdata);
+extern void operator_wrapper(struct wmManipulatorGroupType *wgt, void *userdata);
+
+/* bpy_widgetgroup_wrap.h */
+extern void widgetgroup_wrapper(struct wmOperatorType *ot, void *userdata);
+
 /* bpy_rna.h */
 extern bool pyrna_id_FromPyObject(struct PyObject *obj, struct ID **id);
 extern const char *BPY_app_translations_py_pgettext(const char *msgctxt, const char *msgid);
@@ -355,8 +360,9 @@ void WM_report(ReportType type, const char *message) RET_NONE
 struct wmManipulatorMapType *WM_manipulatormaptype_find(const struct wmManipulatorMapType_Params *wmap_params) RET_NULL
 struct wmManipulatorMapType *WM_manipulatormaptype_ensure(const struct wmManipulatorMapType_Params *wmap_params) RET_NULL
 struct wmManipulatorMap *WM_manipulatormap_new_from_type(const struct wmManipulatorMapType_Params *wmap_params) RET_NULL
-void WM_manipulatorgrouptype_init_runtime(const struct Main *bmain, struct wmManipulatorMapType *wmaptype, struct wmManipulatorGroupType *wgrouptype) RET_NONE
-void WM_manipulatorgrouptype_unregister(struct bContext *C, struct Main *bmain, struct wmManipulatorGroupType *wgroup) RET_NONE
+void WM_manipulatorgrouptype_init_runtime(
+        const struct Main *bmain, struct wmManipulatorMapType *wmaptype, struct wmManipulatorGroupType *wgt) RET_NONE
+void WM_manipulatorgrouptype_unregister(struct bContext *C, struct Main *bmain, struct wmManipulatorGroupType *wgt) RET_NONE
 
 #ifdef WITH_INPUT_NDOF
     void WM_ndof_deadzone_set(float deadzone) RET_NONE
@@ -508,6 +514,7 @@ void ED_node_shader_default(const struct bContext *C, struct ID *id) RET_NONE
 void ED_screen_animation_timer_update(struct bScreen *screen, int redraws, int refresh) RET_NONE
 struct bScreen *ED_screen_animation_playing(const struct wmWindowManager *wm) RET_NULL
 struct Scene *ED_screen_scene_find(const struct bScreen *screen, const struct wmWindowManager *wm) RET_NULL
+bool ED_scene_render_layer_delete(struct Main *bmain, Scene *scene, SceneLayer *layer, ReportList *reports) RET_ZERO
 void ED_base_object_select(struct BaseLegacy *base, short mode) RET_NONE
 void ED_object_base_select(struct Base *base, short mode) RET_NONE
 bool ED_object_modifier_remove(struct ReportList *reports, struct Main *bmain, struct Object *ob, struct ModifierData *md) RET_ZERO
@@ -800,7 +807,10 @@ int collada_export(struct Scene *sce,
 void ED_mesh_calc_tessface(struct Mesh *mesh, bool free_mpoly) RET_NONE
 
 /* bpy/python internal api */
-void operator_wrapper(struct wmOperatorType *ot, void *userdata) RET_NONE
+extern void BPY_RNA_operator_wrapper(struct wmOperatorType *ot, void *userdata);
+extern void BPY_RNA_operator_macro_wrapper(struct wmOperatorType *ot, void *userdata);
+void BPY_RNA_operator_wrapper(struct wmOperatorType *ot, void *userdata) RET_NONE
+void BPY_RNA_operator_macro_wrapper(struct wmOperatorType *ot, void *userdata) RET_NONE
 void BPY_text_free_code(struct Text *text) RET_NONE
 void BPY_id_release(struct ID *id) RET_NONE
 int BPY_context_member_get(struct bContext *C, const char *member, struct bContextDataResult *result) RET_ZERO
@@ -808,7 +818,6 @@ void BPY_pyconstraint_target(struct bPythonConstraint *con, struct bConstraintTa
 float BPY_driver_exec(PathResolvedRNA *anim_rna, struct ChannelDriver *driver, const float evaltime) RET_ZERO /* might need this one! */
 void BPY_DECREF(void *pyob_ptr) RET_NONE
 void BPY_pyconstraint_exec(struct bPythonConstraint *con, struct bConstraintOb *cob, struct ListBase *targets) RET_NONE
-void macro_wrapper(struct wmOperatorType *ot, void *userdata) RET_NONE
 bool pyrna_id_FromPyObject(struct PyObject *obj, struct ID **id) RET_ZERO
 struct PyObject *pyrna_id_CreatePyObject(struct ID *id) RET_NULL
 bool pyrna_id_CheckPyObject(struct PyObject *obj) RET_ZERO

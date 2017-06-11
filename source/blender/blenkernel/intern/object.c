@@ -58,6 +58,7 @@
 #include "DNA_view3d_types.h"
 #include "DNA_world_types.h"
 #include "DNA_object_types.h"
+#include "DNA_probe_types.h"
 #include "DNA_property_types.h"
 #include "DNA_rigidbody_types.h"
 
@@ -107,6 +108,7 @@
 #include "BKE_paint.h"
 #include "BKE_particle.h"
 #include "BKE_pointcache.h"
+#include "BKE_probe.h"
 #include "BKE_property.h"
 #include "BKE_rigidbody.h"
 #include "BKE_sca.h"
@@ -603,6 +605,7 @@ void *BKE_object_obdata_add_from_type(Main *bmain, int type, const char *name)
 		case OB_LATTICE:   return BKE_lattice_add(bmain, name);
 		case OB_ARMATURE:  return BKE_armature_add(bmain, name);
 		case OB_SPEAKER:   return BKE_speaker_add(bmain, name);
+		case OB_PROBE:     return BKE_probe_add(bmain, name);
 		case OB_EMPTY:     return NULL;
 		case OB_GPENCIL:   return NULL;
 		default:
@@ -2748,14 +2751,7 @@ int BKE_object_obdata_texspace_get(Object *ob, short **r_texflag, float **r_loc,
 	switch (GS(((ID *)ob->data)->name)) {
 		case ID_ME:
 		{
-			Mesh *me = ob->data;
-			if (me->bb == NULL || (me->bb->flag & BOUNDBOX_DIRTY)) {
-				BKE_mesh_texspace_calc(me);
-			}
-			if (r_texflag) *r_texflag = &me->texflag;
-			if (r_loc) *r_loc = me->loc;
-			if (r_size) *r_size = me->size;
-			if (r_rot) *r_rot = me->rot;
+			BKE_mesh_texspace_get_reference((Mesh *)ob->data, r_texflag, r_loc, r_rot, r_size);
 			break;
 		}
 		case ID_CU:

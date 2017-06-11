@@ -33,6 +33,7 @@
 #include "BIF_glutil.h"
 
 #include "BKE_global.h"
+#include "BKE_mesh.h"
 #include "BKE_object.h"
 #include "BKE_pbvh.h"
 #include "BKE_paint.h"
@@ -75,13 +76,15 @@
 #include "UI_interface.h"
 #include "UI_resources.h"
 
+#include "WM_api.h"
+#include "WM_types.h"
+
 #include "draw_manager_text.h"
 
 /* only for callbacks */
 #include "draw_cache_impl.h"
 
 #include "draw_mode_engines.h"
-
 #include "engines/clay/clay_engine.h"
 #include "engines/eevee/eevee_engine.h"
 #include "engines/basic/basic_engine.h"
@@ -208,6 +211,7 @@ typedef struct DRWCall {
 	float obmat[4][4];
 	Batch *geometry;
 
+	Mesh *mesh; /* Optional. */
 	Object *ob; /* Optionnal */
 } DRWCall;
 
@@ -299,6 +303,11 @@ static struct DRWGlobalState {
 
 	ListBase enabled_engines; /* RenderEngineType */
 } DST = {NULL};
+
+static struct DRWMatrixOveride {
+	float mat[6][4][4];
+	bool override[6];
+} viewport_matrix_override = {0};
 
 ListBase DRW_engines = {NULL, NULL};
 
@@ -869,7 +878,7 @@ void DRW_shgroup_call_object_add(DRWShadingGroup *shgroup, Batch *geom, Object *
 
 	copy_m4_m4(call->obmat, ob->obmat);
 	call->geometry = geom;
-	call->ob = ob;
+	call->mesh = ob->data;
 
 	BLI_addtail(&shgroup->calls, call);
 }
@@ -1506,17 +1515,42 @@ static void draw_geometry_prepare(
 	bool do_eye = (interface->eye != -1);
 	bool do_orco = (interface->orcotexfac != -1) && (texcoloc != NULL) && (texcosize != NULL);
 
+	/* Matrix override */
+	float (*persmat)[4];
+	float (*persinv)[4];
+	float (*viewmat)[4];
+	float (*viewinv)[4];
+	float (*winmat)[4];
+	float (*wininv)[4];
+
+	persmat = (viewport_matrix_override.override[DRW_MAT_PERS])
+	          ? viewport_matrix_override.mat[DRW_MAT_PERS] : rv3d->persmat;
+	persinv = (viewport_matrix_override.override[DRW_MAT_PERSINV])
+	          ? viewport_matrix_override.mat[DRW_MAT_PERSINV] : rv3d->persinv;
+	viewmat = (viewport_matrix_override.override[DRW_MAT_VIEW])
+	          ? viewport_matrix_override.mat[DRW_MAT_VIEW] : rv3d->viewmat;
+	viewinv = (viewport_matrix_override.override[DRW_MAT_VIEWINV])
+	          ? viewport_matrix_override.mat[DRW_MAT_VIEWINV] : rv3d->viewinv;
+	winmat = (viewport_matrix_override.override[DRW_MAT_WIN])
+	          ? viewport_matrix_override.mat[DRW_MAT_WIN] : rv3d->winmat;
+
 	if (do_pi) {
-		invert_m4_m4(pi, rv3d->winmat);
+		if (viewport_matrix_override.override[DRW_MAT_WININV]) {
+			wininv = viewport_matrix_override.mat[DRW_MAT_WININV];
+		}
+		else {
+			invert_m4_m4(pi, winmat);
+			wininv = pi;
+		}
 	}
 	if (do_mi) {
 		invert_m4_m4(mi, obmat);
 	}
 	if (do_mvp) {
-		mul_m4_m4m4(mvp, rv3d->persmat, obmat);
+		mul_m4_m4m4(mvp, persmat, obmat);
 	}
 	if (do_mv || do_mvi || do_n || do_eye) {
-		mul_m4_m4m4(mv, rv3d->viewmat, obmat);
+		mul_m4_m4m4(mv, viewmat, obmat);
 	}
 	if (do_mvi) {
 		invert_m4_m4(mvi, mv);
@@ -1558,22 +1592,22 @@ static void draw_geometry_prepare(
 		GPU_shader_uniform_vector(shgroup->shader, interface->modelviewprojection, 16, 1, (float *)mvp);
 	}
 	if (interface->viewinverse != -1) {
-		GPU_shader_uniform_vector(shgroup->shader, interface->viewinverse, 16, 1, (float *)rv3d->viewinv);
+		GPU_shader_uniform_vector(shgroup->shader, interface->viewinverse, 16, 1, (float *)viewinv);
 	}
 	if (interface->viewprojection != -1) {
-		GPU_shader_uniform_vector(shgroup->shader, interface->viewprojection, 16, 1, (float *)rv3d->persmat);
+		GPU_shader_uniform_vector(shgroup->shader, interface->viewprojection, 16, 1, (float *)persmat);
 	}
 	if (interface->viewprojectioninverse != -1) {
-		GPU_shader_uniform_vector(shgroup->shader, interface->viewprojectioninverse, 16, 1, (float *)rv3d->persinv);
+		GPU_shader_uniform_vector(shgroup->shader, interface->viewprojectioninverse, 16, 1, (float *)persinv);
 	}
 	if (interface->projection != -1) {
-		GPU_shader_uniform_vector(shgroup->shader, interface->projection, 16, 1, (float *)rv3d->winmat);
+		GPU_shader_uniform_vector(shgroup->shader, interface->projection, 16, 1, (float *)winmat);
 	}
 	if (interface->projectioninverse != -1) {
-		GPU_shader_uniform_vector(shgroup->shader, interface->projectioninverse, 16, 1, (float *)pi);
+		GPU_shader_uniform_vector(shgroup->shader, interface->projectioninverse, 16, 1, (float *)wininv);
 	}
 	if (interface->view != -1) {
-		GPU_shader_uniform_vector(shgroup->shader, interface->view, 16, 1, (float *)rv3d->viewmat);
+		GPU_shader_uniform_vector(shgroup->shader, interface->view, 16, 1, (float *)viewmat);
 	}
 	if (interface->modelview != -1) {
 		GPU_shader_uniform_vector(shgroup->shader, interface->modelview, 16, 1, (float *)mv);
@@ -1615,13 +1649,13 @@ static void draw_geometry_execute(DRWShadingGroup *shgroup, Batch *geom)
 	}
 }
 
-static void draw_geometry(DRWShadingGroup *shgroup, Batch *geom, const float (*obmat)[4], Object *ob)
+static void draw_geometry(DRWShadingGroup *shgroup, Batch *geom, const float (*obmat)[4], Mesh *me)
 {
 	float *texcoloc = NULL;
 	float *texcosize = NULL;
 
-	if (ob != NULL) {
-		BKE_object_obdata_texspace_get(ob, NULL, &texcoloc, &texcosize, NULL);
+	if (me != NULL) {
+		BKE_mesh_texspace_get_reference(me, NULL, &texcoloc, NULL, &texcosize);
 	}
 
 	draw_geometry_prepare(shgroup, obmat, texcoloc, texcosize);
@@ -1758,7 +1792,7 @@ static void draw_shgroup(DRWShadingGroup *shgroup, DRWState pass_state)
 			GPU_SELECT_LOAD_IF_PICKSEL(call);
 
 			if (call->head.type == DRW_CALL_SINGLE) {
-				draw_geometry(shgroup, call->geometry, call->obmat, call->ob);
+				draw_geometry(shgroup, call->geometry, call->obmat, call->mesh);
 			}
 			else {
 				BLI_assert(call->head.type == DRW_CALL_GENERATE);
@@ -2049,6 +2083,10 @@ void DRW_framebuffer_texture_attach(struct GPUFrameBuffer *fb, GPUTexture *tex, 
 	GPU_framebuffer_texture_attach(fb, tex, slot, mip);
 }
 
+void DRW_framebuffer_cubeface_attach(struct GPUFrameBuffer *fb, GPUTexture *tex, int slot, int face, int mip)
+{
+	GPU_framebuffer_texture_cubeface_attach(fb, tex, slot, face, mip);
+}
 void DRW_framebuffer_texture_detach(GPUTexture *tex)
 {
 	GPU_framebuffer_texture_detach(tex);
@@ -2230,6 +2268,17 @@ void DRW_viewport_matrix_get(float mat[4][4], DRWViewportMatrixType type)
 	}
 }
 
+void DRW_viewport_matrix_override_set(float mat[4][4], DRWViewportMatrixType type)
+{
+	copy_m4_m4(viewport_matrix_override.mat[type], mat);
+	viewport_matrix_override.override[type] = true;
+}
+
+void DRW_viewport_matrix_override_unset(DRWViewportMatrixType type)
+{
+	viewport_matrix_override.override[type] = false;
+}
+
 bool DRW_viewport_is_persp_get(void)
 {
 	RegionView3D *rv3d = DST.draw_ctx.rv3d;
@@ -2244,6 +2293,12 @@ DefaultFramebufferList *DRW_viewport_framebuffer_list_get(void)
 DefaultTextureList *DRW_viewport_texture_list_get(void)
 {
 	return GPU_viewport_texture_list_get(DST.viewport);
+}
+
+void DRW_viewport_request_redraw(void)
+{
+	/* XXXXXXXXXXX HAAAAAAAACKKKK */
+	WM_main_add_notifier(NC_MATERIAL | ND_SHADING_DRAW, NULL);
 }
 
 /** \} */
