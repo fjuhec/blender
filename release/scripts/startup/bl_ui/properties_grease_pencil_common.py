@@ -301,18 +301,13 @@ class GreasePencilBrushPanel:
     @staticmethod
     def draw(self, context):
         layout = self.layout
-
         row = layout.row()
         col = row.column()
+
         ts = context.scene.tool_settings
-        if len(ts.gpencil_brushes) >= 2:
-            brows = 3
-        else:
-            brows = 2
-        col.template_list("GPENCIL_UL_brush", "", ts, "gpencil_brushes", ts.gpencil_brushes, "active_index", rows=brows)
+        col.template_icon_view(ts, "gpencil_brushes_enum", show_labels=True)
 
         col = row.column()
-
         sub = col.column(align=True)
         sub.operator("gpencil.brush_add", icon='ZOOMIN', text="")
         sub.operator("gpencil.brush_remove", icon='ZOOMOUT', text="")
@@ -327,6 +322,8 @@ class GreasePencilBrushPanel:
 
         # Brush details
         if brush is not None:
+            row = layout.row()
+            row.prop(brush, "name", text='')
             row = layout.row()
             row.prop(brush, "line_width")
             row = layout.row(align=True)
