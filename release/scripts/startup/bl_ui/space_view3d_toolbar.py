@@ -1166,6 +1166,7 @@ class VIEW3D_PT_tools_brush(Panel, View3DPaintPanel):
             # row.prop(brush, "use_pressure_jitter", toggle=True, text="")
             col.separator()
             col.prop(brush, "vertex_tool", text="Blend")
+            col.prop(brush,"use_accumulate")
 
             col.separator()
             col.template_ID(settings, "palette", new="palette.new")

@@ -2049,6 +2049,8 @@ static void vertex_paint_init_session_average_arrays(Object *ob)
 		        MEM_callocN(me->totvert * sizeof(float), "max_weight");
 		ob->sculpt->modes.vwpaint.previous_color =
 		        MEM_callocN(me->totloop * sizeof(unsigned int), "previous_color");
+		ob->sculpt->modes.vwpaint.previous_accum =
+				MEM_callocN(me->totloop * sizeof(float), "previous_accum");
 	}
 }
 
@@ -3536,6 +3538,7 @@ static bool vpaint_stroke_test_start(bContext *C, struct wmOperator *op, const f
 
 	for (int i = 0; i < me->totloop; i++) {
 		ob->sculpt->modes.vwpaint.previous_color[i] = 0;
+		ob->sculpt->modes.vwpaint.previous_accum[i] = 0.0f;
 	}
 
 	return 1;
@@ -3667,9 +3670,18 @@ static void do_vpaint_brush_draw_task_cb_ex(
 							if (ss->modes.vwpaint.previous_color[l_index] == 0) {
 								ss->modes.vwpaint.previous_color[l_index] = lcol[l_index];
 							}
-							const float final_alpha =
+							float final_alpha =
 							        255 * brush_fade * brush_strength * view_dot *
 							        tex_alpha * brush_alpha_pressure * grid_alpha;
+							float mask_accum;
+							mask_accum = ss->modes.vwpaint.previous_accum[l_index];
+							
+							if (brush->flag&BRUSH_ACCUMULATE) {
+								final_alpha = final_alpha + mask_accum;
+							}
+							
+							final_alpha = min_ff(final_alpha, 255.0f);
+							ss->modes.vwpaint.previous_accum[l_index] = final_alpha;
 							/* Mix the new color with the original based on final_alpha. */
 							lcol[l_index] = vpaint_blend(
 							        data->vp, lcol[l_index],

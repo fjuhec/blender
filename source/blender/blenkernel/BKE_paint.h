@@ -214,6 +214,7 @@ typedef struct SculptSession {
 			unsigned int *tot_loops_hit;
 			float *max_weight;
 			unsigned int *previous_color;
+			float *previous_accum;
 			bool building_vp_handle;
 		} vwpaint;
 		//struct {
