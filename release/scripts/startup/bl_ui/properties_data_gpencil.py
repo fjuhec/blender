@@ -45,12 +45,6 @@ class DATA_PT_gpencil(DataButtonsPanel, Panel):
         gpd = context.gpencil_data
 
         layout.template_ID(gpd_owner, "grease_pencil", new="gpencil.data_add", unlink="gpencil.data_unlink")
-        row = layout.row()
-        row.prop(gpd, "xray_mode", text="Draw Mode")
-        row.prop(gpd, "keep_stroke_thickness")
-
-        ob = context.object
-        layout.prop(ob, "empty_draw_size", text="Size")
 
 
 class DATA_PT_gpencil_datapanel(GreasePencilDataPanel, Panel):
@@ -61,9 +55,25 @@ class DATA_PT_gpencil_datapanel(GreasePencilDataPanel, Panel):
     # NOTE: this is just a wrapper around the generic GP Panel
 
 
+class DATA_PT_gpencil_display(DataButtonsPanel, Panel):
+    bl_label = "Display"
+
+    def draw(self, context):
+        layout = self.layout
+        ob = context.object
+        layout.prop(ob, "empty_draw_size", text="Size")
+
+        gpd = context.gpencil_data
+        row = layout.row()
+        row.prop(gpd, "xray_mode", text="Draw Mode")
+        row = layout.row()
+        row.prop(gpd, "keep_stroke_thickness")
+
+
 classes = (
     DATA_PT_gpencil,
     DATA_PT_gpencil_datapanel,
+    DATA_PT_gpencil_display,
 )
 
 if __name__ == "__main__":  # only for live edit.
