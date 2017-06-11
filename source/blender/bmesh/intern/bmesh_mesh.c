@@ -647,7 +647,6 @@ static void bm_mesh_loops_calc_normals(
 		do {
 			if (rebuild && !BM_elem_flag_test(l_curr, BM_ELEM_LNORSPACE) && !(bm->spacearr_dirty & BM_SPACEARR_DIRTY_ALL))
 				continue;
-
 			/* A smooth edge, we have to check for cyclic smooth fan case.
 			 * If we find a new, never-processed cyclic smooth fan, we can do it now using that loop/edge as
 			 * 'entry point', otherwise we can skip it. */
@@ -1070,7 +1069,7 @@ void BM_lnorspace_rebuild(BMesh *bm, bool preserve_clnor)
 
 			if (BM_elem_flag_test(l, BM_ELEM_LNORSPACE)) {
 
-#ifdef _DEBUG
+#if 0
 				short(*clnor)[2] = BM_ELEM_CD_GET_VOID_P(l, cd_loop_clnors_offset);
 				int l_index = BM_elem_index_get(l);
 				BKE_lnor_space_custom_normal_to_data(bm->bmspacearr.lspacearr[l_index], l->v->no, *clnor);
@@ -1087,6 +1086,54 @@ void BM_lnorspace_rebuild(BMesh *bm, bool preserve_clnor)
 	}
 	MEM_freeN(oldnors);
 	bm->spacearr_dirty &= ~(BM_SPACEARR_DIRTY | BM_SPACEARR_DIRTY_ALL);
+}
+
+void BM_lnorspace_update(BMesh *bm)
+{
+	float(*lnors)[3] = MEM_callocN(sizeof(*lnors) * bm->totloop, "__func__");
+
+	if (bm->bmspacearr.lspacearr == NULL) {
+		BM_lnorspacearr_store(bm, lnors);
+	}
+	else if(bm->spacearr_dirty & (BM_SPACEARR_DIRTY | BM_SPACEARR_DIRTY_ALL)){
+		BM_lnorspace_rebuild(bm, false);
+	}
+	MEM_freeN(lnors);
+}
+
+int BM_total_loop_select(BMesh *bm)
+{
+	int r_sel = 0;
+	BMVert *v;
+	BMIter viter;
+
+	BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
+		if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
+			r_sel += BM_vert_face_count(v);
+		}
+	}
+	return r_sel;
+}
+
+void InitTransDataNormal(BMesh *bm, TransDataLoopNormal *tld, BMVert *v, BMLoop *l, int offset)
+{
+	int l_index = BM_elem_index_get(l);
+	tld->loop_index = l_index;
+	short *clnors_data = BM_ELEM_CD_GET_VOID_P(l, offset);
+
+	float custom_normal[3];
+	BKE_lnor_space_custom_data_to_normal(bm->bmspacearr.lspacearr[l_index], clnors_data, custom_normal);
+
+	tld->clnors_data = clnors_data;
+	copy_v3_v3(tld->nloc, custom_normal);
+	copy_v3_v3(tld->niloc, custom_normal);
+
+	if (v) {
+		tld->loc = v->co;
+	}
+	else {
+		tld->loc = NULL;
+	}
 }
 
 static void UNUSED_FUNCTION(bm_mdisps_space_set)(Object *ob, BMesh *bm, int from, int to)

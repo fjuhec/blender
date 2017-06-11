@@ -55,6 +55,11 @@ void BM_loops_calc_normal_vcos(
 void BM_lnorspacearr_store(BMesh *bm, float (*r_lnors)[3]);
 void BM_lnorspace_invalidate(BMesh *bm, bool inval_all);
 void BM_lnorspace_rebuild(BMesh *bm, bool preserve_clnor);
+void BM_lnorspace_update(BMesh *bm);
+
+/* Loop Generics */
+int BM_total_loop_select(BMesh *bm);
+void InitTransDataNormal(BMesh *bm, TransDataLoopNormal *tld, BMVert *v, BMLoop *l, int offset);
 
 void bmesh_edit_begin(BMesh *bm, const BMOpTypeFlag type_flag);
 void bmesh_edit_end(BMesh *bm, const BMOpTypeFlag type_flag);

@@ -268,6 +268,24 @@ enum {
 	BM_FACE = 8
 };
 
+typedef struct TransDataLoopNormal {
+	int loop_index;
+	float mtx[3][3];
+	float smtx[3][3];
+	float niloc[3];
+	float nloc[3];
+	float *loc;
+	short *clnors_data;
+} TransDataLoopNormal;
+
+typedef struct LoopNormalData {
+	TransDataLoopNormal *normal;
+
+	int offset;
+	int totloop;
+	void *funcdata;
+} LoopNormalData;
+
 #define BM_ALL (BM_VERT | BM_EDGE | BM_LOOP | BM_FACE)
 #define BM_ALL_NOLOOP (BM_VERT | BM_EDGE | BM_FACE)
 
