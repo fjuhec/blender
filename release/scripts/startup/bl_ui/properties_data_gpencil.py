@@ -52,6 +52,7 @@ class DATA_PT_gpencil_datapanel(GreasePencilDataPanel, Panel):
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "data"
+    bl_label = "Layers"
 
     # NOTE: this is just a wrapper around the generic GP Panel
 
