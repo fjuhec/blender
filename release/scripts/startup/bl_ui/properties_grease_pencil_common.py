@@ -965,9 +965,10 @@ class GreasePencilDataPanel:
             row.prop(gpl, "use_stroke_location")
 
         # Layer options
-        split = layout.split(percentage=0.5)
-        split.active = not gpl.lock
-        split.prop(gpl, "show_points")
+        if context.space_data.type not in ('VIEW_3D', 'PROPERTIES'):
+            split = layout.split(percentage=0.5)
+            split.active = not gpl.lock
+            split.prop(gpl, "show_points")
 
         # Offsets + Parenting (where available)
         if context.space_data.type in ('VIEW_3D', 'PROPERTIES'):

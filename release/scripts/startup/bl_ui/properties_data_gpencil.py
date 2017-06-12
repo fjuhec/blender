@@ -71,6 +71,12 @@ class DATA_PT_gpencil_display(DataButtonsPanel, Panel):
         row = layout.row()
         row.prop(gpd, "keep_stroke_thickness")
 
+        gpl = context.active_gpencil_layer
+        if gpl:
+            row = layout.row()
+            row.prop(gpl, "show_points")
+
+
 
 classes = (
     DATA_PT_gpencil,
