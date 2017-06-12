@@ -43,6 +43,10 @@
 
 #include "gpencil_engine.h"
 
+#define PIX_PERSPECTIVE 1
+#define PIX_ORTHOGRAPHIC 2
+#define PIX_CAMERAVIEW 3
+
 /* allocate cache to store GP objects */
 tGPencilObjectCache *gpencil_object_cache_allocate(tGPencilObjectCache *cache, int *gp_cache_size, int *gp_cache_used)
 {
@@ -311,7 +315,15 @@ DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_Data *vedata, DRWPass
 	DRW_shgroup_uniform_float(grp, "pixsize", &rv3d->pixsize, 1);
 	DRW_shgroup_uniform_float(grp, "pixelsize", &U.pixelsize, 1);
 
-	stl->storage->is_persp = rv3d->is_persp ? 1 : 2;
+	if (rv3d->is_persp) {
+		stl->storage->is_persp = PIX_PERSPECTIVE;
+		if (rv3d->persp == RV3D_CAMOB) {
+			stl->storage->is_persp = PIX_CAMERAVIEW;
+		}
+	}
+	else {
+		stl->storage->is_persp = PIX_ORTHOGRAPHIC;
+	}
 	/* If disable zoom for strokes, disable scale */
 	if ((gpd) && (gpd->flag & GP_DATA_STROKE_KEEPTHICKNESS)) {
 		stl->storage->is_persp = 0;
