@@ -2416,20 +2416,6 @@ static int make_override_exec(bContext *C, wmOperator *UNUSED(op))
 	IDOverride *override = BKE_override_init(&locobj->id, &refobj->id);
 	locobj->id.flag |= LIB_AUTOOVERRIDE;
 
-	/* For testing only of course! This will have to be auto-generated/editable by user... */
-	if (0) {
-		IDOverrideProperty *overp = MEM_callocN(sizeof(IDOverrideProperty), __func__);
-		overp->rna_path = BLI_strdup("location");
-
-		IDOverridePropertyOperation *overp_op = MEM_callocN(sizeof(IDOverridePropertyOperation), __func__);
-		overp_op->subitem_local_index = overp_op->subitem_reference_index = -1;
-		overp_op->operation = IDOVERRIDE_REPLACE;
-
-		BLI_addtail(&overp->operations, overp_op);
-
-		BLI_addtail(&override->properties, overp);
-	}
-
 	WM_event_add_notifier(C, NC_WINDOW, NULL);
 
 	return OPERATOR_FINISHED;
