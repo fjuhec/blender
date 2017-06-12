@@ -202,6 +202,9 @@ void gp_subdivide_stroke(bGPDstroke *gps, const int new_totpoints);
 */
 void gp_randomize_stroke(bGPDstroke *gps, bGPDbrush *brush);
 
+/* set sculpt cursor */
+void ED_gpencil_toggle_brush_cursor(struct bContext *C, bool enable);
+
 /* Layers Enums -------------------------------------- */
 
 struct EnumPropertyItem *ED_gpencil_layers_enum_itemf(struct bContext *C, struct PointerRNA *ptr, struct PropertyRNA *prop, bool *r_free);

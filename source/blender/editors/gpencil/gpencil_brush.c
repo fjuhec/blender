@@ -1025,7 +1025,7 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *UNUSED(customda
 }
 
 /* Turn brush cursor in on/off */
-static void gpencil_toggle_brush_cursor(bContext *C, bool enable)
+void ED_gpencil_toggle_brush_cursor(bContext *C, bool enable)
 {
 	GP_BrushEdit_Settings *gset = gpsculpt_get_settings(CTX_data_scene(C));
 	
@@ -1146,8 +1146,9 @@ static bool gpsculpt_brush_init(bContext *C, wmOperator *op)
 	
 	/* setup cursor drawing */
 	WM_cursor_modal_set(CTX_wm_window(C), BC_CROSSCURSOR);
-	gpencil_toggle_brush_cursor(C, true);
-	
+	if (gso->sa->spacetype != SPACE_VIEW3D) {
+		ED_gpencil_toggle_brush_cursor(C, true);
+	}
 	return true;
 }
 
@@ -1187,7 +1188,9 @@ static void gpsculpt_brush_exit(bContext *C, wmOperator *op)
 	/* disable cursor and headerprints */
 	ED_area_headerprint(CTX_wm_area(C), NULL);
 	WM_cursor_modal_restore(win);
-	gpencil_toggle_brush_cursor(C, false);
+	if (gso->sa->spacetype != SPACE_VIEW3D) {
+		ED_gpencil_toggle_brush_cursor(C, false);
+	}
 	
 	/* free operator data */
 	MEM_freeN(gso);

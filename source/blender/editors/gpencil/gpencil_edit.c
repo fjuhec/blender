@@ -98,24 +98,28 @@ static void gpencil_setup_modes(bContext *C, bGPdata *gpd, int newmode)
 		gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
 		gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
 		WM_cursor_modal_set(CTX_wm_window(C), CURSOR_STD);
+		ED_gpencil_toggle_brush_cursor(C, false);
 		break;
 	case OB_MODE_GPENCIL_PAINT:
 		gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
 		gpd->flag |= GP_DATA_STROKE_PAINTMODE;
 		gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
 		WM_cursor_modal_set(CTX_wm_window(C), BC_PAINTBRUSHCURSOR);
+		ED_gpencil_toggle_brush_cursor(C, false);
 		break;
 	case OB_MODE_GPENCIL_SCULPT:
 		gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
 		gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
 		gpd->flag |= GP_DATA_STROKE_SCULPTMODE;
 		WM_cursor_modal_set(CTX_wm_window(C), BC_CROSSCURSOR);
+		ED_gpencil_toggle_brush_cursor(C, true);
 		break;
 	default:
 		gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
 		gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
 		gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
 		WM_cursor_modal_set(CTX_wm_window(C), CURSOR_STD);
+		ED_gpencil_toggle_brush_cursor(C, false);
 		break;
 	}
 }
