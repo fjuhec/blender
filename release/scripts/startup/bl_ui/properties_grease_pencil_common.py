@@ -325,6 +325,7 @@ class GreasePencilBrushPanel:
             row = layout.row()
             row.prop(brush, "name", text='')
             row = layout.row(align=True)
+            row.prop(brush, "use_random_pressure", text='', icon='RNDCURVE')
             row.prop(brush, "line_width", text='Radius')
             row.prop(brush, "use_pressure", text='', icon='STYLUS_PRESSURE')
             row = layout.row(align=True)
