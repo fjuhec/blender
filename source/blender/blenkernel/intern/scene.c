@@ -255,14 +255,12 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 		scen->theDag = NULL;
 		scen->depsgraph = NULL;
 		scen->obedit = NULL;
-		scen->stats = NULL;
 		scen->fps_info = NULL;
 
 		if (sce->rigidbody_world)
 			scen->rigidbody_world = BKE_rigidbody_world_copy(sce->rigidbody_world);
 
 		BLI_duplicatelist(&(scen->markers), &(sce->markers));
-		BLI_duplicatelist(&(scen->transform_spaces), &(sce->transform_spaces));
 		BLI_duplicatelist(&(scen->r.layers), &(sce->r.layers));
 		BLI_duplicatelist(&(scen->r.views), &(sce->r.views));
 		BKE_keyingsets_copy(&(scen->keyingsets), &(sce->keyingsets));
@@ -315,10 +313,12 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 		/* recursively creates a new SceneCollection tree */
 		scene_collection_copy(mcn, mc);
 
+		IDPropertyTemplate val = {0};
 		BLI_duplicatelist(&scen->render_layers, &sce->render_layers);
 		SceneLayer *new_sl = scen->render_layers.first;
 		for (SceneLayer *sl = sce->render_layers.first; sl; sl = sl->next) {
-			new_sl->properties = IDP_New(IDP_GROUP, (const IDPropertyTemplate *){0}, ROOT_PROP);
+			new_sl->stats = NULL;
+			new_sl->properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
 			new_sl->properties_evaluated = NULL;
 
 			/* we start fresh with no overrides and no visibility flags set
@@ -340,8 +340,8 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 			new_sl = new_sl->next;
 		}
 
-		scen->collection_properties = IDP_New(IDP_GROUP, (const IDPropertyTemplate *){0}, ROOT_PROP);
-		scen->layer_properties = IDP_New(IDP_GROUP, (const IDPropertyTemplate *){0}, ROOT_PROP);
+		scen->collection_properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
+		scen->layer_properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
 	}
 
 	/* copy color management settings */
@@ -533,10 +533,9 @@ void BKE_scene_free(Scene *sce)
 	}
 
 	BLI_freelistN(&sce->markers);
-	BLI_freelistN(&sce->transform_spaces);
 	BLI_freelistN(&sce->r.layers);
 	BLI_freelistN(&sce->r.views);
-	
+
 	if (sce->toolsettings) {
 		if (sce->toolsettings->vpaint) {
 			BKE_paint_free(&sce->toolsettings->vpaint->paint);
@@ -572,8 +571,7 @@ void BKE_scene_free(Scene *sce)
 	DEG_scene_graph_free(sce);
 	if (sce->depsgraph)
 		DEG_graph_free(sce->depsgraph);
-	
-	MEM_SAFE_FREE(sce->stats);
+
 	MEM_SAFE_FREE(sce->fps_info);
 
 	BKE_sound_destroy_scene(sce);
@@ -583,10 +581,12 @@ void BKE_scene_free(Scene *sce)
 	BKE_previewimg_free(&sce->preview);
 	curvemapping_free_data(&sce->r.mblur_shutter_curve);
 
-	for (SceneLayer *sl = sce->render_layers.first; sl; sl = sl->next) {
+	for (SceneLayer *sl = sce->render_layers.first, *sl_next; sl; sl = sl_next) {
+		sl_next = sl->next;
+
+		BLI_remlink(&sce->render_layers, sl);
 		BKE_scene_layer_free(sl);
 	}
-	BLI_freelistN(&sce->render_layers);
 
 	/* Master Collection */
 	BKE_collection_master_free(sce);
@@ -861,7 +861,7 @@ void BKE_scene_init(Scene *sce)
 	sce->gm.angulardeactthreshold = 1.0f;
 	sce->gm.deactivationtime = 0.0f;
 
-	sce->gm.flag = GAME_DISPLAY_LISTS;
+	sce->gm.flag = 0;
 	sce->gm.matmode = GAME_MAT_MULTITEX;
 
 	sce->gm.obstacleSimulation = OBSTSIMULATION_NONE;
@@ -961,10 +961,11 @@ void BKE_scene_init(Scene *sce)
 	BLI_strncpy(sce->collection->name, "Master Collection", sizeof(sce->collection->name));
 
 	/* Engine settings */
-	sce->collection_properties = IDP_New(IDP_GROUP, (const IDPropertyTemplate *){0}, ROOT_PROP);
+	IDPropertyTemplate val = {0};
+	sce->collection_properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
 	BKE_layer_collection_engine_settings_create(sce->collection_properties);
 
-	sce->layer_properties = IDP_New(IDP_GROUP, (const IDPropertyTemplate *){0}, ROOT_PROP);
+	sce->layer_properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
 	BKE_scene_layer_engine_settings_create(sce->layer_properties);
 
 	BKE_scene_layer_add(sce, "Render Layer");
@@ -1698,7 +1699,7 @@ bool BKE_scene_remove_render_view(Scene *scene, SceneRenderView *srv)
 
 int get_render_subsurf_level(const RenderData *r, int lvl, bool for_render)
 {
-	if (r->mode & R_SIMPLIFY)  {
+	if (r->mode & R_SIMPLIFY) {
 		if (for_render)
 			return min_ii(r->simplify_subsurf_render, lvl);
 		else

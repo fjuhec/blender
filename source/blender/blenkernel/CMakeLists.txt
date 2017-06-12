@@ -97,12 +97,12 @@ set(SRC
 	intern/customdata_file.c
 	intern/data_transfer.c
 	intern/deform.c
-	intern/depsgraph.c
 	intern/displist.c
 	intern/dynamicpaint.c
 	intern/editderivedmesh.c
 	intern/editmesh.c
 	intern/editmesh_bvh.c
+	intern/editmesh_tangent.c
 	intern/effect.c
 	intern/fcurve.c
 	intern/fluidsim.c
@@ -135,6 +135,7 @@ set(SRC
 	intern/mesh_evaluate.c
 	intern/mesh_mapping.c
 	intern/mesh_remap.c
+	intern/mesh_tangent.c
 	intern/mesh_validate.c
 	intern/modifier.c
 	intern/modifiers_bmesh.c
@@ -143,6 +144,7 @@ set(SRC
 	intern/nla.c
 	intern/node.c
 	intern/object.c
+	intern/object_facemap.c
 	intern/object_deform.c
 	intern/object_dupli.c
 	intern/object_update.c
@@ -157,6 +159,7 @@ set(SRC
 	intern/pbvh.c
 	intern/pbvh_bmesh.c
 	intern/pointcache.c
+	intern/probe.c
 	intern/property.c
 	intern/layer.c
 	intern/report.c
@@ -228,11 +231,11 @@ set(SRC
 	BKE_customdata_file.h
 	BKE_data_transfer.h
 	BKE_deform.h
-	BKE_depsgraph.h
 	BKE_displist.h
 	BKE_dynamicpaint.h
 	BKE_editmesh.h
 	BKE_editmesh_bvh.h
+	BKE_editmesh_tangent.h
 	BKE_effect.h
 	BKE_fcurve.h
 	BKE_fluidsim.h
@@ -262,12 +265,14 @@ set(SRC
 	BKE_mesh.h
 	BKE_mesh_mapping.h
 	BKE_mesh_remap.h
+	BKE_mesh_tangent.h
 	BKE_modifier.h
 	BKE_movieclip.h
 	BKE_multires.h
 	BKE_nla.h
 	BKE_node.h
 	BKE_object.h
+	BKE_object_facemap.h
 	BKE_object_deform.h
 	BKE_ocean.h
 	BKE_outliner_treehash.h
@@ -276,6 +281,7 @@ set(SRC
 	BKE_particle.h
 	BKE_pbvh.h
 	BKE_pointcache.h
+	BKE_probe.h
 	BKE_property.h
 	BKE_layer.h
 	BKE_report.h

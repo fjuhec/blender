@@ -39,10 +39,12 @@ extern "C" {
 struct BlendThumbnail;
 struct bScreen;
 struct LinkNode;
+struct ListBase;
 struct Main;
 struct MemFile;
 struct ReportList;
 struct Scene;
+struct SceneLayer;
 struct UserDef;
 struct View3D;
 struct bContext;
@@ -76,7 +78,7 @@ typedef struct BlendFileData {
 typedef struct WorkspaceConfigFileData {
 	struct Main *main; /* has to be freed when done reading file data */
 
-	ListBase workspaces;
+	struct ListBase workspaces;
 } WorkspaceConfigFileData;
 
 
@@ -107,7 +109,6 @@ BlendHandle *BLO_blendhandle_from_memory(const void *mem, int memsize);
 struct LinkNode *BLO_blendhandle_get_datablock_names(BlendHandle *bh, int ofblocktype, int *tot_names);
 struct LinkNode *BLO_blendhandle_get_previews(BlendHandle *bh, int ofblocktype, int *tot_prev);
 struct LinkNode *BLO_blendhandle_get_linkable_groups(BlendHandle *bh);
-struct LinkNode *BLO_blendhandle_get_appendable_groups(BlendHandle *bh);
 
 void BLO_blendhandle_close(BlendHandle *bh);
 
@@ -123,9 +124,9 @@ struct ID *BLO_library_link_named_part(struct Main *mainl, BlendHandle **bh, con
 struct ID *BLO_library_link_named_part_ex(
         struct Main *mainl, BlendHandle **bh,
         const short idcode, const char *name, const short flag,
-        struct Scene *scene, struct View3D *v3d,
+        struct Scene *scene, struct SceneLayer *sl,
         const bool use_placeholders, const bool force_indirect);
-void BLO_library_link_end(struct Main *mainl, BlendHandle **bh, short flag, struct Scene *scene, struct View3D *v3d);
+void BLO_library_link_end(struct Main *mainl, BlendHandle **bh, short flag, struct Scene *scene, struct SceneLayer *sl);
 
 void BLO_library_link_copypaste(struct Main *mainl, BlendHandle *bh);
 

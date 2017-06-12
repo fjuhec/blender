@@ -102,6 +102,10 @@
 
 /* allow writefile to use deprecated functionality (for forward compatibility code) */
 #define DNA_DEPRECATED_ALLOW
+/* Allow using DNA struct members that are marked as private for read/write.
+ * Note: Each header that uses this needs to define its own way of handling
+ * it. There's no generic implementation, direct use does nothing. */
+#define DNA_PRIVATE_READ_WRITE_ALLOW
 
 #include "DNA_anim_types.h"
 #include "DNA_armature_types.h"
@@ -131,6 +135,7 @@
 #include "DNA_object_force.h"
 #include "DNA_packedFile_types.h"
 #include "DNA_particle_types.h"
+#include "DNA_probe_types.h"
 #include "DNA_property_types.h"
 #include "DNA_rigidbody_types.h"
 #include "DNA_scene_types.h"
@@ -147,6 +152,7 @@
 #include "DNA_vfont_types.h"
 #include "DNA_world_types.h"
 #include "DNA_windowmanager_types.h"
+#include "DNA_workspace_types.h"
 #include "DNA_movieclip_types.h"
 #include "DNA_mask_types.h"
 
@@ -1693,6 +1699,13 @@ static void write_defgroups(WriteData *wd, ListBase *defbase)
 	}
 }
 
+static void write_fmaps(WriteData *wd, ListBase *fbase)
+{
+	for (bFaceMap *fmap = fbase->first; fmap; fmap = fmap->next) {
+		writestruct(wd, DATA, bFaceMap, 1, fmap);
+	}
+}
+
 static void write_modifiers(WriteData *wd, ListBase *modbase)
 {
 	ModifierData *md;
@@ -1896,6 +1909,7 @@ static void write_object(WriteData *wd, Object *ob)
 
 		write_pose(wd, ob->pose);
 		write_defgroups(wd, &ob->defbase);
+		write_fmaps(wd, &ob->fmaps);
 		write_constraints(wd, &ob->constraints);
 		write_motionpath(wd, ob->mpath);
 
@@ -2128,6 +2142,10 @@ static void write_customdata(
 		else if (layer->type == CD_GRID_PAINT_MASK) {
 			write_grid_paint_mask(wd, count, layer->data);
 		}
+		else if (layer->type == CD_FACEMAP) {
+			const int *layer_data = layer->data;
+			writedata(wd, DATA, sizeof(*layer_data) * count, layer_data);
+		}
 		else {
 			CustomData_file_write_info(layer->type, &structname, &structnum);
 			if (structnum) {
@@ -2249,8 +2267,9 @@ static void write_mesh(WriteData *wd, Mesh *mesh)
 			 *     outside of save process itself.
 			 *     Maybe we can live with this, though?
 			 */
-			mesh->totface = BKE_mesh_mpoly_to_mface(&mesh->fdata, &old_mesh->ldata, &old_mesh->pdata,
-													mesh->totface, old_mesh->totloop, old_mesh->totpoly);
+			mesh->totface = BKE_mesh_mpoly_to_mface(
+			        &mesh->fdata, &old_mesh->ldata, &old_mesh->pdata,
+			        mesh->totface, old_mesh->totloop, old_mesh->totpoly);
 
 			BKE_mesh_update_customdata_pointers(mesh, false);
 
@@ -2736,11 +2755,6 @@ static void write_scene(WriteData *wd, Scene *sce)
 		writestruct(wd, DATA, TimeMarker, 1, marker);
 	}
 
-	/* writing dynamic list of TransformOrientations to the blend file */
-	for (TransformOrientation *ts = sce->transform_spaces.first; ts; ts = ts->next) {
-		writestruct(wd, DATA, TransformOrientation, 1, ts);
-	}
-
 	for (SceneRenderLayer *srl = sce->r.layers.first; srl; srl = srl->next) {
 		writestruct(wd, DATA, SceneRenderLayer, 1, srl);
 		if (srl->prop) {
@@ -2988,9 +3002,6 @@ static void write_screen(WriteData *wd, bScreen *sc)
 				BGpic *bgpic;
 				writestruct(wd, DATA, View3D, 1, v3d);
 
-				/* Don't write data of custom_orientation pointer here, scene already writes it. We only
-				 * have to update the pointer when reading (see direct_link_scene_update_screens) */
-
 				for (bgpic = v3d->bgpicbase.first; bgpic; bgpic = bgpic->next) {
 					writestruct(wd, DATA, BGpic, 1, bgpic);
 				}
@@ -3189,6 +3200,19 @@ static void write_sound(WriteData *wd, bSound *sound)
 			PackedFile *pf = sound->packedfile;
 			writestruct(wd, DATA, PackedFile, 1, pf);
 			writedata(wd, DATA, pf->size, pf->data);
+		}
+	}
+}
+
+static void write_probe(WriteData *wd, Probe *prb)
+{
+	if (prb->id.us > 0 || wd->current) {
+		/* write LibData */
+		writestruct(wd, ID_PRB, Probe, 1, prb);
+		write_iddata(wd, &prb->id);
+
+		if (prb->adt) {
+			write_animdata(wd, prb->adt);
 		}
 	}
 }
@@ -3741,11 +3765,12 @@ static void write_cachefile(WriteData *wd, CacheFile *cache_file)
 static void write_workspace(WriteData *wd, WorkSpace *workspace)
 {
 	ListBase *layouts = BKE_workspace_layouts_get(workspace);
-	ListBase *relation_list = BKE_workspace_hook_layout_relations_get(workspace);
+	ListBase *transform_orientations = BKE_workspace_transform_orientations_get(workspace);
 
 	writestruct(wd, ID_WS, WorkSpace, 1, workspace);
 	writelist(wd, DATA, WorkSpaceLayout, layouts);
-	writelist(wd, DATA, WorkSpaceDataRelation, relation_list);
+	writelist(wd, DATA, WorkSpaceDataRelation, &workspace->hook_layout_relations);
+	writelist(wd, DATA, TransformOrientation, transform_orientations);
 }
 
 /* Keep it last of write_foodata functions. */
@@ -3974,6 +3999,9 @@ static bool write_file_handle(
 					break;
 				case ID_SPK:
 					write_speaker(wd, (Speaker *)id);
+					break;
+				case ID_PRB:
+					write_probe(wd, (Probe *)id);
 					break;
 				case ID_SO:
 					write_sound(wd, (bSound *)id);

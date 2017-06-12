@@ -945,7 +945,7 @@ LayerCollection *CTX_data_layer_collection(const bContext *C)
 	}
 
 	/* fallback */
-	return BKE_layer_collection_active(sl);
+	return BKE_layer_collection_get_active(sl);
 }
 
 SceneCollection *CTX_data_scene_collection(const bContext *C)
@@ -1006,7 +1006,7 @@ int CTX_data_mode_enum_ex(const Object *obedit, const Object *ob)
 int CTX_data_mode_enum(const bContext *C)
 {
 	Object *obedit = CTX_data_edit_object(C);
-	Object *obact = obedit ? CTX_data_active_object(C) : NULL;
+	Object *obact = obedit ? NULL : CTX_data_active_object(C);
 	return CTX_data_mode_enum_ex(obedit, obact);
 }
 

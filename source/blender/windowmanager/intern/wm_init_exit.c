@@ -165,12 +165,13 @@ void WM_init(bContext *C, int argc, const char **argv)
 	wm_operatortype_init();
 	WM_menutype_init();
 	WM_uilisttype_init();
+	wm_manipulatortype_init();
 
 	BKE_undo_callback_wm_kill_jobs_set(wm_undo_kill_callback);
 
 	BKE_library_callback_free_window_manager_set(wm_close_and_free);   /* library.c */
 	BKE_library_callback_free_notifier_reference_set(WM_main_remove_notifier_reference);   /* library.c */
-	BKE_region_callback_free_manipulatormap_set(wm_manipulatormap_delete); /* screen.c */
+	BKE_region_callback_free_manipulatormap_set(wm_manipulatormap_remove); /* screen.c */
 	BKE_library_callback_remap_editor_id_reference_set(WM_main_remap_editor_id_reference);   /* library.c */
 	BKE_blender_callback_test_break_set(wm_window_testbreak); /* blender.c */
 	BKE_spacedata_callback_id_remap_set(ED_spacedata_id_remap); /* screen.c */
@@ -487,6 +488,7 @@ void WM_exit_ext(bContext *C, const bool do_python)
 	wm_dropbox_free();
 	WM_menutype_free();
 	WM_uilisttype_free();
+	wm_manipulatortype_free();
 	
 	/* all non-screen and non-space stuff editors did, like editmode */
 	if (C)

@@ -225,6 +225,9 @@ public:
 		cuDevice = 0;
 		cuContext = 0;
 
+		cuModule = 0;
+		cuFilterModule = 0;
+
 		split_kernel = NULL;
 
 		need_bindless_mapping = false;
@@ -487,6 +490,16 @@ public:
 
 	bool load_kernels(const DeviceRequestedFeatures& requested_features)
 	{
+		/* TODO(sergey): Support kernels re-load for CUDA devices.
+		 *
+		 * Currently re-loading kernel will invalidate memory pointers,
+		 * causing problems in cuCtxSynchronize.
+		 */
+		if(cuFilterModule && cuModule) {
+			VLOG(1) << "Skipping kernel reload, not currently supported.";
+			return true;
+		}
+
 		/* check if cuda init succeeded */
 		if(cuContext == 0)
 			return false;
@@ -949,7 +962,7 @@ public:
 		cuda_push_context();
 
 		int4 rect = task->rect;
-		int w = rect.z-rect.x;
+		int w = align_up(rect.z-rect.x, 4);
 		int h = rect.w-rect.y;
 		int r = task->nlm_state.r;
 		int f = task->nlm_state.f;
@@ -1038,8 +1051,6 @@ public:
 
 	bool denoising_reconstruct(device_ptr color_ptr,
 	                           device_ptr color_variance_ptr,
-	                           device_ptr guide_ptr,
-	                           device_ptr guide_variance_ptr,
 	                           device_ptr output_ptr,
 	                           DenoisingTask *task)
 	{
@@ -1083,8 +1094,8 @@ public:
 			                     task->reconstruction_state.source_h - max(0, dy)};
 
 			void *calc_difference_args[] = {&dx, &dy,
-			                                &guide_ptr,
-			                                &guide_variance_ptr,
+			                                &color_ptr,
+			                                &color_variance_ptr,
 			                                &difference,
 			                                &local_rect,
 			                                &task->buffer.w,
@@ -1113,8 +1124,6 @@ public:
 			void *construct_gramian_args[] = {&dx, &dy,
 			                                  &blurDifference,
 			                                  &task->buffer.mem.device_pointer,
-			                                  &color_ptr,
-			                                  &color_variance_ptr,
 			                                  &task->storage.transform.device_pointer,
 			                                  &task->storage.rank.device_pointer,
 			                                  &task->storage.XtWX.device_pointer,
@@ -1148,8 +1157,6 @@ public:
 	                              device_ptr mean_ptr, device_ptr variance_ptr,
 	                              int r, int4 rect, DenoisingTask *task)
 	{
-		(void) task;
-
 		if(have_error())
 			return false;
 
@@ -1179,8 +1186,6 @@ public:
 	                             device_ptr sample_variance_ptr, device_ptr sv_variance_ptr,
 	                             device_ptr buffer_variance_ptr, DenoisingTask *task)
 	{
-		(void) task;
-
 		if(have_error())
 			return false;
 
@@ -1248,16 +1253,49 @@ public:
 		return !have_error();
 	}
 
+	bool denoising_detect_outliers(device_ptr image_ptr,
+	                               device_ptr variance_ptr,
+	                               device_ptr depth_ptr,
+	                               device_ptr output_ptr,
+	                               DenoisingTask *task)
+	{
+		if(have_error())
+			return false;
+
+		cuda_push_context();
+
+		CUfunction cuFilterDetectOutliers;
+		cuda_assert(cuModuleGetFunction(&cuFilterDetectOutliers, cuFilterModule, "kernel_cuda_filter_detect_outliers"));
+		cuda_assert(cuFuncSetCacheConfig(cuFilterDetectOutliers, CU_FUNC_CACHE_PREFER_L1));
+		CUDA_GET_BLOCKSIZE(cuFilterDetectOutliers,
+		                   task->rect.z-task->rect.x,
+		                   task->rect.w-task->rect.y);
+
+		void *args[] = {&image_ptr,
+		                &variance_ptr,
+		                &depth_ptr,
+		                &output_ptr,
+		                &task->rect,
+		                &task->buffer.pass_stride};
+
+		CUDA_LAUNCH_KERNEL(cuFilterDetectOutliers, args);
+		cuda_assert(cuCtxSynchronize());
+
+		cuda_pop_context();
+		return !have_error();
+	}
+
 	void denoise(RenderTile &rtile, const DeviceTask &task)
 	{
 		DenoisingTask denoising(this);
 
 		denoising.functions.construct_transform = function_bind(&CUDADevice::denoising_construct_transform, this, &denoising);
-		denoising.functions.reconstruct = function_bind(&CUDADevice::denoising_reconstruct, this, _1, _2, _3, _4, _5, &denoising);
+		denoising.functions.reconstruct = function_bind(&CUDADevice::denoising_reconstruct, this, _1, _2, _3, &denoising);
 		denoising.functions.divide_shadow = function_bind(&CUDADevice::denoising_divide_shadow, this, _1, _2, _3, _4, _5, &denoising);
 		denoising.functions.non_local_means = function_bind(&CUDADevice::denoising_non_local_means, this, _1, _2, _3, _4, &denoising);
 		denoising.functions.combine_halves = function_bind(&CUDADevice::denoising_combine_halves, this, _1, _2, _3, _4, _5, _6, &denoising);
 		denoising.functions.get_feature = function_bind(&CUDADevice::denoising_get_feature, this, _1, _2, _3, _4, &denoising);
+		denoising.functions.detect_outliers = function_bind(&CUDADevice::denoising_detect_outliers, this, _1, _2, _3, _4, &denoising);
 		denoising.functions.set_tiles = function_bind(&CUDADevice::denoising_set_tiles, this, _1, &denoising);
 
 		denoising.filter_area = make_int4(rtile.x, rtile.y, rtile.w, rtile.h);

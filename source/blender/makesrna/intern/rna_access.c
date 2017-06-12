@@ -54,6 +54,8 @@
 #include "BKE_main.h"
 #include "BKE_report.h"
 
+#include "DEG_depsgraph.h"
+
 #include "RNA_access.h"
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
@@ -62,7 +64,6 @@
 
 /* flush updates */
 #include "DNA_object_types.h"
-#include "BKE_depsgraph.h"
 #include "WM_types.h"
 
 #include "rna_internal.h"
@@ -560,7 +561,7 @@ const char *RNA_struct_translation_context(const StructRNA *type)
 	return type->translation_context;
 }
 
-PropertyRNA *RNA_struct_name_property(StructRNA *type)
+PropertyRNA *RNA_struct_name_property(const StructRNA *type)
 {
 	return type->nameproperty;
 }
@@ -1817,7 +1818,7 @@ static void rna_property_update(bContext *C, Main *bmain, Scene *scene, PointerR
 	if (!is_rna || (prop->flag & PROP_IDPROPERTY)) {
 		/* WARNING! This is so property drivers update the display!
 		 * not especially nice  */
-		DAG_id_tag_update(ptr->id.data, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
+		DEG_id_tag_update(ptr->id.data, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 		WM_main_add_notifier(NC_WINDOW, NULL);
 		/* Not nice as well, but the only way to make sure material preview
 		 * is updated with custom nodes.
@@ -2765,6 +2766,9 @@ char *RNA_property_string_get_alloc(PointerRNA *ptr, PropertyRNA *prop,
 	int length;
 
 	BLI_assert(RNA_property_type(prop) == PROP_STRING);
+	if (!ptr->data) {
+		return NULL;
+	}
 
 	length = RNA_property_string_length(ptr, prop);
 

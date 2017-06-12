@@ -74,6 +74,7 @@ EnumPropertyItem rna_enum_id_type_items[] = {
 	{ID_PC, "PAINTCURVE", ICON_CURVE_BEZCURVE, "Paint Curve", ""},
 	{ID_PAL, "PALETTE", ICON_COLOR, "Palette", ""},
 	{ID_PA, "PARTICLE", ICON_PARTICLE_DATA, "Particle", ""},
+	{ID_PRB, "PROBE", ICON_RADIO, "Probe", ""},
 	{ID_SCE, "SCENE", ICON_SCENE_DATA, "Scene", ""},
 	{ID_SCR, "SCREEN", ICON_SPLITSCREEN, "Screen", ""},
 	{ID_SO, "SOUND", ICON_PLAY_AUDIO, "Sound", ""},
@@ -99,8 +100,10 @@ EnumPropertyItem rna_enum_id_type_items[] = {
 #include "BKE_library_remap.h"
 #include "BKE_animsys.h"
 #include "BKE_material.h"
-#include "BKE_depsgraph.h"
 #include "BKE_global.h"  /* XXX, remove me */
+
+#include "DEG_depsgraph.h"
+#include "DEG_depsgraph_build.h"
 
 #include "WM_api.h"
 
@@ -137,7 +140,7 @@ static int rna_ID_name_editable(PointerRNA *ptr, const char **UNUSED(r_info))
 	return PROP_EDITABLE;
 }
 
-short RNA_type_to_ID_code(StructRNA *type)
+short RNA_type_to_ID_code(const StructRNA *type)
 {
 	if (RNA_struct_is_a(type, &RNA_Action)) return ID_AC;
 	if (RNA_struct_is_a(type, &RNA_Armature)) return ID_AR;
@@ -163,6 +166,7 @@ short RNA_type_to_ID_code(StructRNA *type)
 	if (RNA_struct_is_a(type, &RNA_ParticleSettings)) return ID_PA;
 	if (RNA_struct_is_a(type, &RNA_Palette)) return ID_PAL;
 	if (RNA_struct_is_a(type, &RNA_PaintCurve)) return ID_PC;
+	if (RNA_struct_is_a(type, &RNA_Probe)) return ID_PRB;
 	if (RNA_struct_is_a(type, &RNA_Scene)) return ID_SCE;
 	if (RNA_struct_is_a(type, &RNA_Screen)) return ID_SCR;
 	if (RNA_struct_is_a(type, &RNA_Sound)) return ID_SO;
@@ -204,6 +208,7 @@ StructRNA *ID_code_to_RNA_type(short idcode)
 		case ID_PA: return &RNA_ParticleSettings;
 		case ID_PAL: return &RNA_Palette;
 		case ID_PC: return &RNA_PaintCurve;
+		case ID_PRB: return &RNA_Probe;
 		case ID_SCE: return &RNA_Scene;
 		case ID_SCR: return &RNA_Screen;
 		case ID_SO: return &RNA_Sound;
@@ -334,7 +339,7 @@ static void rna_ID_update_tag(ID *id, ReportList *reports, int flag)
 		}
 	}
 
-	DAG_id_tag_update(id, flag);
+	DEG_id_tag_update(id, flag);
 }
 
 static void rna_ID_user_clear(ID *id)
@@ -370,14 +375,14 @@ static struct ID *rna_ID_make_local(struct ID *self, Main *bmain, int clear_prox
 static AnimData * rna_ID_animation_data_create(ID *id, Main *bmain)
 {
 	AnimData *adt = BKE_animdata_add_id(id);
-	DAG_relations_tag_update(bmain);
+	DEG_relations_tag_update(bmain);
 	return adt;
 }
 
 static void rna_ID_animation_data_free(ID *id, Main *bmain)
 {
 	BKE_animdata_free(id, true);
-	DAG_relations_tag_update(bmain);
+	DEG_relations_tag_update(bmain);
 }
 
 static void rna_IDPArray_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
@@ -435,7 +440,7 @@ static Material *rna_IDMaterials_pop_id(ID *id, Main *bmain, ReportList *reports
 		return NULL;
 	}
 
-	DAG_id_tag_update(id, OB_RECALC_DATA);
+	DEG_id_tag_update(id, OB_RECALC_DATA);
 	WM_main_add_notifier(NC_OBJECT | ND_DRAW, id);
 	WM_main_add_notifier(NC_OBJECT | ND_OB_SHADING, id);
 
@@ -446,7 +451,7 @@ static void rna_IDMaterials_clear_id(ID *id, int remove_material_slot)
 {
 	BKE_material_clear_id(G.main, id, remove_material_slot);
 
-	DAG_id_tag_update(id, OB_RECALC_DATA);
+	DEG_id_tag_update(id, OB_RECALC_DATA);
 	WM_main_add_notifier(NC_OBJECT | ND_DRAW, id);
 	WM_main_add_notifier(NC_OBJECT | ND_OB_SHADING, id);
 }

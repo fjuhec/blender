@@ -447,6 +447,7 @@ typedef struct TransInfo {
 	short		launch_event; 	/* event type used to launch transform */
 
 	short		current_orientation;
+	TransformOrientation *custom_orientation; /* this gets used when current_orientation is V3D_MANIP_CUSTOM */
 	short		twtype;			/* backup from view3d, to restore on end */
 
 	short		prop_mode;

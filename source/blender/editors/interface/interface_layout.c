@@ -1635,7 +1635,7 @@ void ui_but_add_search(uiBut *but, PointerRNA *ptr, PropertyRNA *prop, PointerRN
 
 	/* turn button into search button */
 	if (searchprop) {
-		struct uiRNACollectionSearch *coll_search = MEM_mallocN(sizeof(*coll_search), __func__);
+		uiRNACollectionSearch *coll_search = MEM_mallocN(sizeof(*coll_search), __func__);
 
 		but->type = UI_BTYPE_SEARCH_MENU;
 		but->hardmax = MAX2(but->hardmax, 256.0f);
@@ -1650,7 +1650,7 @@ void ui_but_add_search(uiBut *but, PointerRNA *ptr, PropertyRNA *prop, PointerRN
 		coll_search->target_prop = prop;
 		coll_search->search_ptr = *searchptr;
 		coll_search->search_prop = searchprop;
-		coll_search->but_changed = SET_INT_IN_POINTER(but->changed);
+		coll_search->but_changed = &but->changed;
 
 		if (RNA_property_type(prop) == PROP_ENUM) {
 			/* XXX, this will have a menu string,
@@ -1659,8 +1659,8 @@ void ui_but_add_search(uiBut *but, PointerRNA *ptr, PropertyRNA *prop, PointerRN
 		}
 
 		UI_but_func_search_set(
-		        but, ui_searchbox_create_generic, ui_rna_collection_search_cb,
-		        coll_search, NULL, NULL);
+		            but, ui_searchbox_create_generic, ui_rna_collection_search_cb,
+		            coll_search, NULL, NULL);
 		but->free_search_arg = true;
 	}
 }

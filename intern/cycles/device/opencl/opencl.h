@@ -390,8 +390,6 @@ protected:
 	bool denoising_construct_transform(DenoisingTask *task);
 	bool denoising_reconstruct(device_ptr color_ptr,
 	                           device_ptr color_variance_ptr,
-	                           device_ptr guide_ptr,
-	                           device_ptr guide_variance_ptr,
 	                           device_ptr output_ptr,
 	                           DenoisingTask *task);
 	bool denoising_combine_halves(device_ptr a_ptr,
@@ -411,6 +409,11 @@ protected:
 	                           device_ptr mean_ptr,
 	                           device_ptr variance_ptr,
 	                           DenoisingTask *task);
+	bool denoising_detect_outliers(device_ptr image_ptr,
+	                               device_ptr variance_ptr,
+	                               device_ptr depth_ptr,
+	                               device_ptr output_ptr,
+	                               DenoisingTask *task);
 	bool denoising_set_tiles(device_ptr *buffers,
 	                         DenoisingTask *task);
 

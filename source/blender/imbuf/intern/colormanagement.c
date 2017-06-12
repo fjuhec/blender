@@ -214,7 +214,7 @@ typedef struct ColormanageCacheKey {
 	int display;         /* display device name */
 } ColormanageCacheKey;
 
-typedef struct ColormnaageCacheData {
+typedef struct ColormanageCacheData {
 	int flag;        /* view flags of cached buffer */
 	int look;        /* Additional artistics transform */
 	float exposure;  /* exposure value cached buffer is calculated with */
@@ -222,12 +222,12 @@ typedef struct ColormnaageCacheData {
 	float dither;    /* dither value cached buffer is calculated with */
 	CurveMapping *curve_mapping;  /* curve mapping used for cached buffer */
 	int curve_mapping_timestamp;  /* time stamp of curve mapping used for cached buffer */
-} ColormnaageCacheData;
+} ColormanageCacheData;
 
 typedef struct ColormanageCache {
 	struct MovieCache *moviecache;
 
-	ColormnaageCacheData *data;
+	ColormanageCacheData *data;
 } ColormanageCache;
 
 static struct MovieCache *colormanage_moviecache_get(const ImBuf *ibuf)
@@ -238,7 +238,7 @@ static struct MovieCache *colormanage_moviecache_get(const ImBuf *ibuf)
 	return ibuf->colormanage_cache->moviecache;
 }
 
-static ColormnaageCacheData *colormanage_cachedata_get(const ImBuf *ibuf)
+static ColormanageCacheData *colormanage_cachedata_get(const ImBuf *ibuf)
 {
 	if (!ibuf->colormanage_cache)
 		return NULL;
@@ -281,7 +281,7 @@ static struct MovieCache *colormanage_moviecache_ensure(ImBuf *ibuf)
 	return ibuf->colormanage_cache->moviecache;
 }
 
-static void colormanage_cachedata_set(ImBuf *ibuf, ColormnaageCacheData *data)
+static void colormanage_cachedata_set(ImBuf *ibuf, ColormanageCacheData *data)
 {
 	if (!ibuf->colormanage_cache)
 		ibuf->colormanage_cache = MEM_callocN(sizeof(ColormanageCache), "imbuf colormanage cache");
@@ -361,7 +361,7 @@ static unsigned char *colormanage_cache_get(ImBuf *ibuf, const ColormanageCacheV
 	cache_ibuf = colormanage_cache_get_ibuf(ibuf, &key, cache_handle);
 
 	if (cache_ibuf) {
-		ColormnaageCacheData *cache_data;
+		ColormanageCacheData *cache_data;
 
 		BLI_assert(cache_ibuf->x == ibuf->x &&
 		           cache_ibuf->y == ibuf->y);
@@ -402,7 +402,7 @@ static void colormanage_cache_put(ImBuf *ibuf, const ColormanageCacheViewSetting
 {
 	ColormanageCacheKey key;
 	ImBuf *cache_ibuf;
-	ColormnaageCacheData *cache_data;
+	ColormanageCacheData *cache_data;
 	int view_flag = 1 << (view_settings->view - 1);
 	struct MovieCache *moviecache = colormanage_moviecache_ensure(ibuf);
 	CurveMapping *curve_mapping = view_settings->curve_mapping;
@@ -421,7 +421,7 @@ static void colormanage_cache_put(ImBuf *ibuf, const ColormanageCacheViewSetting
 	cache_ibuf->flags |= IB_rect;
 
 	/* store data which is needed to check whether cached buffer could be used for color managed display settings */
-	cache_data = MEM_callocN(sizeof(ColormnaageCacheData), "color manage cache imbuf data");
+	cache_data = MEM_callocN(sizeof(ColormanageCacheData), "color manage cache imbuf data");
 	cache_data->look = view_settings->look;
 	cache_data->exposure = view_settings->exposure;
 	cache_data->gamma = view_settings->gamma;
@@ -710,7 +710,7 @@ void colormanage_cache_free(ImBuf *ibuf)
 	}
 
 	if (ibuf->colormanage_cache) {
-		ColormnaageCacheData *cache_data = colormanage_cachedata_get(ibuf);
+		ColormanageCacheData *cache_data = colormanage_cachedata_get(ibuf);
 		struct MovieCache *moviecache = colormanage_moviecache_get(ibuf);
 
 		if (cache_data) {
@@ -1759,9 +1759,14 @@ void IMB_colormanagement_transform_from_byte_threaded(float *float_buffer, unsig
 		return;
 	}
 	if (STREQ(from_colorspace, to_colorspace)) {
-		/* If source and destination color spaces are identical, skip
-		 * threading overhead and simply do nothing
+		/* Because this function always takes a byte buffer and returns a float buffer, it must
+		 * always do byte-to-float conversion of some kind. To avoid threading overhead
+		 * IMB_buffer_float_from_byte is used when color spaces are identical. See T51002.
 		 */
+		IMB_buffer_float_from_byte(float_buffer, byte_buffer,
+		                           IB_PROFILE_SRGB, IB_PROFILE_SRGB,
+		                           true,
+		                           width, height, width, width);
 		return;
 	}
 	cm_processor = IMB_colormanagement_colorspace_processor_new(from_colorspace, to_colorspace);
@@ -2058,6 +2063,10 @@ ImBuf *IMB_colormanagement_imbuf_for_write(ImBuf *ibuf, bool save_as_render, boo
 			 */
 			colormanaged_ibuf->float_colorspace = display_transform_get_colorspace(view_settings, display_settings);
 		}
+	}
+
+	if (colormanaged_ibuf != ibuf) {
+		IMB_metadata_copy(colormanaged_ibuf, ibuf);
 	}
 
 	return colormanaged_ibuf;

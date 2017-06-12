@@ -202,6 +202,8 @@ extern StructRNA RNA_CurveMapPoint;
 extern StructRNA RNA_CurveMapping;
 extern StructRNA RNA_CurveModifier;
 extern StructRNA RNA_CurvePoint;
+extern StructRNA RNA_Depsgraph;
+extern StructRNA RNA_DepsgraphIter;
 extern StructRNA RNA_DampedTrackConstraint;
 extern StructRNA RNA_DataTransferModifier;
 extern StructRNA RNA_DecimateModifier;
@@ -231,6 +233,7 @@ extern StructRNA RNA_EnvironmentMapTexture;
 extern StructRNA RNA_Event;
 extern StructRNA RNA_ExplodeModifier;
 extern StructRNA RNA_ExpressionController;
+extern StructRNA RNA_FaceMap;
 extern StructRNA RNA_FCurve;
 extern StructRNA RNA_FCurveSample;
 extern StructRNA RNA_FFmpegSettings;
@@ -485,6 +488,7 @@ extern StructRNA RNA_PointLamp;
 extern StructRNA RNA_PointerProperty;
 extern StructRNA RNA_Pose;
 extern StructRNA RNA_PoseBone;
+extern StructRNA RNA_Probe;
 extern StructRNA RNA_Property;
 extern StructRNA RNA_PropertyGroup;
 extern StructRNA RNA_PropertyGroupItem;
@@ -752,7 +756,7 @@ const char *RNA_struct_ui_description_raw(const StructRNA *type);
 const char *RNA_struct_translation_context(const StructRNA *type);
 int RNA_struct_ui_icon(const StructRNA *type);
 
-PropertyRNA *RNA_struct_name_property(StructRNA *type);
+PropertyRNA *RNA_struct_name_property(const StructRNA *type);
 PropertyRNA *RNA_struct_iterator_property(StructRNA *type);
 StructRNA *RNA_struct_base(StructRNA *type);
 
@@ -1192,7 +1196,7 @@ int RNA_function_call_direct_va_lookup(struct bContext *C, struct ReportList *re
 
 /* ID */
 
-short RNA_type_to_ID_code(StructRNA *type);
+short RNA_type_to_ID_code(const StructRNA *type);
 StructRNA *ID_code_to_RNA_type(short idcode);
 
 

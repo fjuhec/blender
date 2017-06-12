@@ -51,7 +51,6 @@ struct GPUFrameBuffer {
 	GLuint object;
 	GPUTexture *colortex[GPU_FB_MAX_SLOTS];
 	GPUTexture *depthtex;
-	struct GPUStateValues attribs;
 };
 
 static void gpu_print_framebuffer_error(GLenum status, char err_out[256])
@@ -164,6 +163,52 @@ bool GPU_framebuffer_texture_attach(GPUFrameBuffer *fb, GPUTexture *tex, int slo
 	return true;
 }
 
+bool GPU_framebuffer_texture_cubeface_attach(GPUFrameBuffer *fb, GPUTexture *tex, int slot, int face, int mip)
+{
+	GLenum attachment;
+	GLenum facetarget;
+
+	if (slot >= GPU_FB_MAX_SLOTS) {
+		fprintf(stderr,
+		        "Attaching to index %d framebuffer slot unsupported. "
+		        "Use at most %d\n", slot, GPU_FB_MAX_SLOTS);
+		return false;
+	}
+
+	if ((G.debug & G_DEBUG)) {
+		if (GPU_texture_bound_number(tex) != -1) {
+			fprintf(stderr,
+			        "Feedback loop warning!: "
+			        "Attempting to attach texture to framebuffer while still bound to texture unit for drawing!\n");
+		}
+	}
+
+	BLI_assert(GPU_texture_target(tex) == GL_TEXTURE_CUBE_MAP);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, fb->object);
+	GG.currentfb = fb->object;
+
+	if (GPU_texture_stencil(tex) && GPU_texture_depth(tex))
+		attachment = GL_DEPTH_STENCIL_ATTACHMENT;
+	else if (GPU_texture_depth(tex))
+		attachment = GL_DEPTH_ATTACHMENT;
+	else
+		attachment = GL_COLOR_ATTACHMENT0 + slot;
+
+	facetarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + face;
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, facetarget, GPU_texture_opengl_bindcode(tex), mip);
+
+	if (GPU_texture_depth(tex))
+		fb->depthtex = tex;
+	else
+		fb->colortex[slot] = tex;
+
+	GPU_texture_framebuffer_set(tex, fb, slot);
+
+	return true;
+}
+
 void GPU_framebuffer_texture_detach(GPUTexture *tex)
 {
 	GLenum attachment;
@@ -217,7 +262,7 @@ void GPU_texture_bind_as_framebuffer(GPUTexture *tex)
 	}
 
 	/* push attributes */
-	gpuSaveState(&fb->attribs, GPU_ENABLE_BIT | GPU_VIEWPORT_BIT);
+	gpuPushAttrib(GPU_ENABLE_BIT | GPU_VIEWPORT_BIT);
 	glDisable(GL_SCISSOR_TEST);
 
 	/* bind framebuffer */
@@ -260,7 +305,7 @@ void GPU_framebuffer_slots_bind(GPUFrameBuffer *fb, int slot)
 	}
 	
 	/* push attributes */
-	gpuSaveState(&fb->attribs, GPU_ENABLE_BIT | GPU_VIEWPORT_BIT);
+	gpuPushAttrib(GPU_ENABLE_BIT | GPU_VIEWPORT_BIT);
 	glDisable(GL_SCISSOR_TEST);
 
 	/* bind framebuffer */
@@ -312,11 +357,10 @@ void GPU_framebuffer_bind(GPUFrameBuffer *fb)
 	GG.currentfb = fb->object;
 }
 
-
-void GPU_framebuffer_texture_unbind(GPUFrameBuffer *fb, GPUTexture *UNUSED(tex))
+void GPU_framebuffer_texture_unbind(GPUFrameBuffer *UNUSED(fb), GPUTexture *UNUSED(tex))
 {
-	/* restore attributes */
-	gpuRestoreState(&fb->attribs);
+	/* Restore attributes. */
+	gpuPopAttrib();
 }
 
 void GPU_framebuffer_bind_no_save(GPUFrameBuffer *fb, int slot)

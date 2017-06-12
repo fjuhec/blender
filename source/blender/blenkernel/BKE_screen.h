@@ -55,6 +55,7 @@ struct wmManipulatorMap;
 struct wmNotifier;
 struct wmWindow;
 struct wmWindowManager;
+struct WorkSpace;
 struct GPUFXSettings;
 
 #include "BLI_compiler_attrs.h"
@@ -312,8 +313,9 @@ unsigned int BKE_screen_view3d_layer_all(const struct bScreen *sc) ATTR_WARN_UNU
 
 void BKE_screen_view3d_sync(struct View3D *v3d, struct Scene *scene);
 void BKE_screen_view3d_scene_sync(struct bScreen *sc, struct Scene *scene);
-void BKE_screen_transform_orientation_remove(const struct bScreen *screen,
-                                             const struct TransformOrientation *orientation) ATTR_NONNULL();
+void BKE_screen_transform_orientation_remove(
+        const struct bScreen *screen, const struct WorkSpace *workspace,
+        const struct TransformOrientation *orientation) ATTR_NONNULL();
 void BKE_screen_gpu_fx_validate(struct GPUFXSettings *fx_settings);
 bool BKE_screen_is_fullscreen_area(const struct bScreen *screen) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 bool BKE_screen_is_used(const struct bScreen *screen) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();

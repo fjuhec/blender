@@ -2910,13 +2910,7 @@ void init_userdef_do_versions(void)
 			btheme->ttime.time_keyframe[3] = btheme->ttime.time_gp_keyframe[3] = 255;
 		}
 	}
-
-	/**
-	 * Include next version bump.
-	 *
-	 * (keep this block even if it becomes empty).
-	 */
-	{
+	if (!USER_VERSION_ATLEAST(280, 1)) {
 		/* interface_widgets.c */
 		struct uiWidgetColors wcol_tab = {
 			{255, 255, 255, 255},
@@ -2941,6 +2935,15 @@ void init_userdef_do_versions(void)
 			copy_v4_v4_char(btheme->ttopbar.header, btheme->ttopbar.tab_inactive);
 			copy_v4_v4_char(btheme->ttopbar.back, tmp);
 		}
+	}
+
+	/**
+	 * Include next version bump.
+	 *
+	 * (keep this block even if it becomes empty).
+	 */
+	{
+		
 	}
 
 	if (U.pixelsize == 0.0f)

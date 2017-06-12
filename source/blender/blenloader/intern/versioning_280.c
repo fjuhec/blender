@@ -29,17 +29,24 @@
 #define DNA_DEPRECATED_ALLOW
 
 #include "DNA_object_types.h"
+#include "DNA_camera_types.h"
+#include "DNA_gpu_types.h"
+#include "DNA_lamp_types.h"
 #include "DNA_layer_types.h"
 #include "DNA_material_types.h"
+#include "DNA_mesh_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
+#include "DNA_view3d_types.h"
+#include "DNA_workspace_types.h"
 #include "DNA_genfile.h"
 
-#include "BKE_blender.h"
 #include "BKE_collection.h"
+#include "BKE_customdata.h"
 #include "BKE_idprop.h"
 #include "BKE_layer.h"
 #include "BKE_main.h"
+#include "BKE_mesh.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
 #include "BKE_workspace.h"
@@ -74,6 +81,8 @@ static void do_version_workspaces_create_from_screens(Main *bmain)
 	for (bScreen *screen = bmain->screen.first; screen; screen = screen->id.next) {
 		const bScreen *screen_parent = screen_parent_find(screen);
 		WorkSpace *workspace;
+		SceneLayer *layer = BKE_scene_layer_render_active(screen->scene);
+		ListBase *transform_orientations;
 
 		if (screen_parent) {
 			/* fullscreen with "Back to Previous" option, don't create
@@ -85,7 +94,10 @@ static void do_version_workspaces_create_from_screens(Main *bmain)
 			workspace = BKE_workspace_add(bmain, screen->id.name + 2);
 		}
 		BKE_workspace_layout_add(workspace, screen, screen->id.name + 2);
-		BKE_workspace_render_layer_set(workspace, screen->scene->render_layers.first);
+		BKE_workspace_render_layer_set(workspace, layer);
+
+		transform_orientations = BKE_workspace_transform_orientations_get(workspace);
+		BLI_duplicatelist(transform_orientations, &screen->scene->transform_spaces);
 	}
 }
 
@@ -120,18 +132,20 @@ static void do_version_workspaces_after_lib_link(Main *bmain)
 
 			win->scene = screen->scene;
 			/* Deprecated from now on! */
-			win->screen->scene = screen->scene = NULL;
 			win->screen = NULL;
 		}
+	}
+
+	for (bScreen *screen = bmain->screen.first; screen; screen = screen->id.next) {
+		/* Deprecated from now on! */
+		BLI_freelistN(&screen->scene->transform_spaces);
+		screen->scene = NULL;
 	}
 }
 
 void do_versions_after_linking_280(Main *main)
 {
 	if (!MAIN_VERSION_ATLEAST(main, 280, 0)) {
-		char version[48];
-		BKE_blender_version_string(version, sizeof(version), main->versionfile, main->subversionfile, false, false);
-
 		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
 			/* since we don't have access to FileData we check the (always valid) first render layer instead */
 			if (scene->render_layers.first == NULL) {
@@ -145,7 +159,7 @@ void do_versions_after_linking_280(Main *main)
 				for (int i = 0; i < 20; i++) {
 					char name[MAX_NAME];
 
-					BLI_snprintf(name, sizeof(collections[i]->name), "Collection %d [converted from %s]", i + 1, version);
+					BLI_snprintf(name, sizeof(collections[i]->name), "Collection %d", i + 1);
 					collections[i] = BKE_collection_add(scene, sc_master, name);
 
 					is_visible[i] = (scene->lay & (1 << i));
@@ -293,11 +307,9 @@ void do_versions_after_linking_280(Main *main)
 		}
 	}
 
-	{
-		/* New workspace design */
-		if (!MAIN_VERSION_ATLEAST(main, 280, 1)) {
-			do_version_workspaces_after_lib_link(main);
-		}
+	/* New workspace design */
+	if (!MAIN_VERSION_ATLEAST(main, 280, 1)) {
+		do_version_workspaces_after_lib_link(main);
 	}
 
 	{
@@ -338,10 +350,10 @@ void do_versions_after_linking_280(Main *main)
 				}
 			}
 
-			BKE_WORKSPACE_ITER_BEGIN(workspace, main->workspaces.first) {
+			for (WorkSpace *workspace = main->workspaces.first; workspace; workspace = workspace->id.next) {
 				ListBase *layouts = BKE_workspace_layouts_get(workspace);
 
-				BKE_WORKSPACE_LAYOUT_ITER_BEGIN(layout, layouts->first) {
+				for (WorkSpaceLayout *layout = layouts->first; layout; layout = layout->next) {
 					bScreen *screen = BKE_workspace_layout_screen_get(layout);
 
 					for (ScrArea *area = screen->areabase.first, *area_next; area; area = area_next) {
@@ -359,8 +371,8 @@ void do_versions_after_linking_280(Main *main)
 							MEM_freeN(area);
 						}
 					}
-				} BKE_WORKSPACE_LAYOUT_ITER_END;
-			} BKE_WORKSPACE_ITER_END;
+				}
+			}
 		}
 	}
 }
@@ -406,28 +418,54 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 		}
 	}
 
-	if (!DNA_struct_elem_find(fd->filesdna, "SceneLayer", "IDProperty", "*properties")) {
-		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
-			for (SceneLayer *sl = scene->render_layers.first; sl; sl = sl->next) {
-				IDPropertyTemplate val = {0};
-				sl->properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
-				BKE_scene_layer_engine_settings_create(sl->properties);
+	if (!MAIN_VERSION_ATLEAST(main, 280, 1)) {
+		if (!DNA_struct_elem_find(fd->filesdna, "Lamp", "float", "bleedexp"))	{
+			for (Lamp *la = main->lamp.first; la; la = la->id.next) {
+				la->bleedexp = 120.0f;
 			}
 		}
-	}
 
-	if (!DNA_struct_find(fd->filesdna, "SpaceTopBar")) {
-		for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
-			for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
-				for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
-					ListBase *regionbase = (sl == sa->spacedata.first) ? &sa->regionbase : &sl->regionbase;
+		if (!DNA_struct_elem_find(fd->filesdna, "GPUDOFSettings", "float", "ratio"))	{
+			for (Camera *ca = main->camera.first; ca; ca = ca->id.next) {
+				ca->gpu_dof.ratio = 1.0f;
+			}
+		}
 
-					if (sl->spacetype == SPACE_VIEW3D) {
-						for (ARegion *region = regionbase->first; region; region = region->next) {
-							if (region->regiontype == RGN_TYPE_TOOL_PROPS) {
-								BKE_area_region_free(NULL, region);
-								BLI_freelinkN(regionbase, region);
-								break;
+		if (!DNA_struct_elem_find(fd->filesdna, "SceneLayer", "IDProperty", "*properties")) {
+			for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+				for (SceneLayer *sl = scene->render_layers.first; sl; sl = sl->next) {
+					IDPropertyTemplate val = {0};
+					sl->properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
+					BKE_scene_layer_engine_settings_create(sl->properties);
+				}
+			}
+		}
+
+		/* MTexPoly now removed. */
+		if (DNA_struct_find(fd->filesdna, "MTexPoly")) {
+			const int cd_mtexpoly = 15;  /* CD_MTEXPOLY, deprecated */
+			for (Mesh *me = main->mesh.first; me; me = me->id.next) {
+				/* If we have UV's, so this file will have MTexPoly layers too! */
+				if (me->mloopuv != NULL) {
+					CustomData_update_typemap(&me->pdata);
+					CustomData_free_layers(&me->pdata, cd_mtexpoly, me->totpoly);
+					BKE_mesh_update_customdata_pointers(me, false);
+				}
+			}
+		}
+
+		if (!DNA_struct_elem_find(fd->filesdna, "View3D", "short", "custom_orientation_index")) {
+			for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
+				for (ScrArea *area = screen->areabase.first; area; area = area->next) {
+					for (SpaceLink *sl = area->spacedata.first; sl; sl = sl->next) {
+						if (sl->spacetype == SPACE_VIEW3D) {
+							View3D *v3d = (View3D *)sl;
+							if (v3d->twmode >= V3D_MANIP_CUSTOM) {
+								v3d->custom_orientation_index = v3d->twmode - V3D_MANIP_CUSTOM;
+								v3d->twmode = V3D_MANIP_CUSTOM;
+							}
+							else {
+								v3d->custom_orientation_index = -1;
 							}
 						}
 					}

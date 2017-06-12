@@ -692,16 +692,13 @@ enum FileSortTypeE {
 #define FILE_MAX_LIBEXTRA   (FILE_MAX + MAX_ID_NAME)
 
 /* filesel types */
-enum {
-	FILE_LOADLIB_LINKABLE   = 1,
-	FILE_MAIN               = 2,
-	FILE_LOADFONT           = 3,
-	FILE_LOADLIB_APPENDABLE = 4,
+#define FILE_UNIX           8
+#define FILE_BLENDER        8 /* don't display relative paths */
+#define FILE_SPECIAL        9
 
-	FILE_UNIX               = 8,
-	FILE_BLENDER            = 8, /* don't display relative paths */
-	FILE_SPECIAL            = 9,
-};
+#define FILE_LOADLIB        1
+#define FILE_MAIN           2
+#define FILE_LOADFONT       3
 
 /* filesel op property -> action */
 typedef enum eFileSel_Action {
@@ -716,7 +713,7 @@ typedef enum eFileSel_Params_Flag {
 	FILE_LINK           = (1 << 2),
 	FILE_HIDE_DOT       = (1 << 3),
 	FILE_AUTOSELECT     = (1 << 4),
-	FILE_ACTIVELAY      = (1 << 5),
+	FILE_ACTIVE_COLLECTION = (1 << 5),
 /*  FILE_ATCURSOR       = (1 << 6), */ /* deprecated */
 	FILE_DIRSEL_ONLY    = (1 << 7),
 	FILE_FILTER         = (1 << 8),
@@ -945,7 +942,7 @@ typedef enum eSpaceImage_Sticky {
 /* SpaceImage->flag */
 typedef enum eSpaceImage_Flag {
 /*	SI_BE_SQUARE          = (1 << 0), */  /* deprecated */
-	SI_EDITTILE           = (1 << 1),     /* XXX - not used but should be? */
+/*	SI_EDITTILE           = (1 << 1), */  /* deprecated */
 	SI_CLIP_UV            = (1 << 2),
 /*	SI_DRAWTOOL           = (1 << 3), */  /* deprecated */
 	SI_NO_DRAWFACES       = (1 << 4),
@@ -1157,7 +1154,7 @@ typedef enum eSpaceNode_Flag {
 	SNODE_SHOW_G         = (1 << 8),
 	SNODE_SHOW_B         = (1 << 9),
 	SNODE_AUTO_RENDER    = (1 << 5),
-	SNODE_SHOW_HIGHLIGHT = (1 << 6),
+//	SNODE_SHOW_HIGHLIGHT = (1 << 6), DNA_DEPRECATED
 //	SNODE_USE_HIDDEN_PREVIEW = (1 << 10), DNA_DEPRECATED December2013 
 	SNODE_NEW_SHADERS    = (1 << 11),
 	SNODE_PIN            = (1 << 12),

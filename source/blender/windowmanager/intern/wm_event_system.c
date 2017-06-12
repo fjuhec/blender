@@ -54,6 +54,7 @@
 #include "BKE_context.h"
 #include "BKE_idprop.h"
 #include "BKE_global.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
@@ -334,7 +335,8 @@ void wm_event_do_notifiers(bContext *C)
 				}
 			}
 			if (ELEM(note->category, NC_SCENE, NC_OBJECT, NC_GEOM, NC_WM)) {
-				ED_info_stats_clear(scene);
+				SceneLayer *sl = BKE_scene_layer_context_active(scene);
+				ED_info_stats_clear(sl);
 				WM_event_add_notifier(C, NC_SPACE | ND_SPACE_INFO, NULL);
 			}
 		}
@@ -1724,11 +1726,6 @@ static int wm_handler_operator_call(bContext *C, ListBase *handlers, wmEventHand
 			wm_region_mouse_co(C, event);
 			wm_event_modalkeymap(C, op, event, &dbl_click_disabled);
 
-			/* attach manipulator-map to handler if not there yet */
-			if (ot->mgrouptype && !handler->manipulator_map) {
-				wm_manipulatorgroup_attach_to_modal_handler(C, handler, ot->mgrouptype, op);
-			}
-
 			if (ot->flag & OPTYPE_UNDO)
 				wm->op_undo_depth++;
 
@@ -1778,7 +1775,7 @@ static int wm_handler_operator_call(bContext *C, ListBase *handlers, wmEventHand
 				}
 
 				/* update manipulators during modal handlers */
-				wm_manipulatormaps_handled_modal_update(C, event, handler, ot);
+				wm_manipulatormaps_handled_modal_update(C, event, handler);
 
 				/* remove modal handler, operator itself should have been canceled and freed */
 				if (retval & (OPERATOR_CANCELLED | OPERATOR_FINISHED)) {
@@ -2156,21 +2153,21 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 				ScrArea *area = CTX_wm_area(C);
 				ARegion *region = CTX_wm_region(C);
 				wmManipulatorMap *mmap = handler->manipulator_map;
-				wmManipulator *manipulator = wm_manipulatormap_get_highlighted_manipulator(mmap);
-				unsigned char part;
+				wmManipulator *mpr = wm_manipulatormap_highlight_get(mmap);
 
 				wm_manipulatormap_handler_context(C, handler);
 				wm_region_mouse_co(C, event);
 
 				/* handle manipulator highlighting */
-				if (event->type == MOUSEMOVE && !wm_manipulatormap_get_active_manipulator(mmap)) {
-					manipulator = wm_manipulatormap_find_highlighted_manipulator(mmap, C, event, &part);
-					wm_manipulatormap_set_highlighted_manipulator(mmap, C, manipulator, part);
+				if (event->type == MOUSEMOVE && !wm_manipulatormap_active_get(mmap)) {
+					int part;
+					mpr = wm_manipulatormap_highlight_find(mmap, C, event, &part);
+					wm_manipulatormap_highlight_set(mmap, C, mpr, part);
 				}
 				/* handle user configurable manipulator-map keymap */
-				else if (manipulator) {
+				else if (mpr) {
 					/* get user customized keymap from default one */
-					const wmManipulatorGroup *highlightgroup = wm_manipulator_get_parent_group(manipulator);
+					const wmManipulatorGroup *highlightgroup = wm_manipulator_get_parent_group(mpr);
 					const wmKeyMap *keymap = WM_keymap_active(wm, highlightgroup->type->keymap);
 					wmKeyMapItem *kmi;
 

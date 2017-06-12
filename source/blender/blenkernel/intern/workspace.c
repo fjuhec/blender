@@ -22,8 +22,8 @@
  *  \ingroup bke
  */
 
-/* allow including specially guarded dna_workspace_types.h */
-#define DNA_NAMESPACE_WORKSPACE
+/* allow accessing private members of DNA_workspace_types.h */
+#define DNA_PRIVATE_WORKSPACE_ALLOW
 
 #include <stdlib.h>
 
@@ -41,21 +41,13 @@
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
-#include "dna_workspace_types.h"
+#include "DNA_workspace_types.h"
 
 #include "MEM_guardedalloc.h"
 
 
 /* -------------------------------------------------------------------- */
 /* Internal utils */
-
-/**
- * Only to be called by #BKE_libblock_alloc_notest! Always use BKE_workspace_add to add a new workspace.
- */
-WorkSpace *BKE_workspace_alloc(void)
-{
-	return MEM_callocN(sizeof(WorkSpace), __func__);
-}
 
 static void workspace_layout_name_set(
         WorkSpace *workspace, WorkSpaceLayout *layout, const char *new_name)
@@ -159,13 +151,15 @@ void BKE_workspace_free(WorkSpace *workspace)
 		workspace_relation_remove(&workspace->hook_layout_relations, relation);
 	}
 	BLI_freelistN(&workspace->layouts);
+	BLI_freelistN(&workspace->transform_orientations);
 }
 
 void BKE_workspace_remove(Main *bmain, WorkSpace *workspace)
 {
-	BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout, workspace->layouts.first) {
+	for (WorkSpaceLayout *layout = workspace->layouts.first, *layout_next; layout; layout = layout_next) {
+		layout_next = layout->next;
 		BKE_workspace_layout_remove(bmain, workspace, layout);
-	} BKE_WORKSPACE_LAYOUT_ITER_END;
+	}
 
 	BKE_libblock_free(bmain, workspace);
 }
@@ -175,9 +169,9 @@ WorkSpaceInstanceHook *BKE_workspace_instance_hook_create(const Main *bmain)
 	WorkSpaceInstanceHook *hook = MEM_callocN(sizeof(WorkSpaceInstanceHook), __func__);
 
 	/* set an active screen-layout for each possible window/workspace combination */
-	BKE_WORKSPACE_ITER_BEGIN (workspace_iter, bmain->workspaces.first) {
-		BKE_workspace_hook_layout_for_workspace_set(hook, workspace_iter, workspace_iter->layouts.first);
-	} BKE_WORKSPACE_ITER_END;
+	for (WorkSpace *workspace = bmain->workspaces.first; workspace; workspace = workspace->id.next) {
+		BKE_workspace_hook_layout_for_workspace_set(hook, workspace, workspace->layouts.first);
+	}
 
 	return hook;
 }
@@ -187,7 +181,7 @@ void BKE_workspace_instance_hook_free(const Main *bmain, WorkSpaceInstanceHook *
 	BLI_assert(!BLI_listbase_is_empty(&bmain->workspaces));
 
 	/* Free relations for this hook */
-	BKE_WORKSPACE_ITER_BEGIN (workspace, bmain->workspaces.first) {
+	for (WorkSpace *workspace = bmain->workspaces.first; workspace; workspace = workspace->id.next) {
 		for (WorkSpaceDataRelation *relation = workspace->hook_layout_relations.first, *relation_next;
 		     relation;
 		     relation = relation_next)
@@ -197,7 +191,7 @@ void BKE_workspace_instance_hook_free(const Main *bmain, WorkSpaceInstanceHook *
 				workspace_relation_remove(&workspace->hook_layout_relations, relation);
 			}
 		}
-	} BKE_WORKSPACE_ITER_END;
+	}
 
 	MEM_freeN(hook);
 }
@@ -215,7 +209,7 @@ WorkSpaceLayout *BKE_workspace_layout_add(
 	BLI_assert(!workspaces_is_screen_used(G.main, screen));
 	layout->screen = screen;
 	workspace_layout_name_set(workspace, layout, name);
-	BLI_addhead(&workspace->layouts, layout);
+	BLI_addtail(&workspace->layouts, layout);
 
 	return layout;
 }
@@ -231,14 +225,29 @@ void BKE_workspace_layout_remove(
 /* -------------------------------------------------------------------- */
 /* General Utils */
 
-void BKE_workspaces_transform_orientation_remove(
-        const ListBase *workspaces, const TransformOrientation *orientation)
+void BKE_workspace_transform_orientation_remove(
+        WorkSpace *workspace, TransformOrientation *orientation)
 {
-	BKE_WORKSPACE_ITER_BEGIN (workspace, workspaces->first) {
-		BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout, workspace->layouts.first) {
-			BKE_screen_transform_orientation_remove(BKE_workspace_layout_screen_get(layout), orientation);
-		} BKE_WORKSPACE_LAYOUT_ITER_END;
-	} BKE_WORKSPACE_ITER_END;
+	for (WorkSpaceLayout *layout = workspace->layouts.first; layout; layout = layout->next) {
+		BKE_screen_transform_orientation_remove(BKE_workspace_layout_screen_get(layout), workspace, orientation);
+	}
+
+	BLI_freelinkN(&workspace->transform_orientations, orientation);
+}
+
+TransformOrientation *BKE_workspace_transform_orientation_find(
+        const WorkSpace *workspace, const int index)
+{
+	return BLI_findlink(&workspace->transform_orientations, index);
+}
+
+/**
+ * \return the index that \a orientation has within \a workspace's transform-orientation list or -1 if not found.
+ */
+int BKE_workspace_transform_orientation_get_index(
+        const WorkSpace *workspace, const TransformOrientation *orientation)
+{
+	return BLI_findindex(&workspace->transform_orientations, orientation);
 }
 
 WorkSpaceLayout *BKE_workspace_layout_find(
@@ -258,6 +267,7 @@ WorkSpaceLayout *BKE_workspace_layout_find(
 
 /**
  * Find the layout for \a screen without knowing which workspace to look in.
+ * Can also be used to find the workspace that contains \a screen.
  *
  * \param r_workspace: Optionally return the workspace that contains the looked up layout (if found).
  */
@@ -271,7 +281,7 @@ WorkSpaceLayout *BKE_workspace_layout_find_global(
 		*r_workspace = NULL;
 	}
 
-	BKE_WORKSPACE_ITER_BEGIN (workspace, bmain->workspaces.first) {
+	for (WorkSpace *workspace = bmain->workspaces.first; workspace; workspace = workspace->id.next) {
 		if ((layout = workspace_layout_find_exec(workspace, screen))) {
 			if (r_workspace) {
 				*r_workspace = workspace;
@@ -279,11 +289,19 @@ WorkSpaceLayout *BKE_workspace_layout_find_global(
 
 			return layout;
 		}
-	} BKE_WORKSPACE_ITER_END;
+	}
 
 	return NULL;
 }
 
+/**
+ * Circular workspace layout iterator.
+ *
+ * \param callback: Custom function which gets executed for each layout. Can return false to stop iterating.
+ * \param arg: Custom data passed to each \a callback call.
+ *
+ * \return the layout at which \a callback returned false.
+ */
 WorkSpaceLayout *BKE_workspace_layout_iter_circular(
         const WorkSpace *workspace, WorkSpaceLayout *start,
         bool (*callback)(const WorkSpaceLayout *layout, void *arg),
@@ -332,37 +350,6 @@ void BKE_workspace_active_set(WorkSpaceInstanceHook *hook, WorkSpace *workspace)
 	}
 }
 
-ID *BKE_workspace_id_get(WorkSpace *workspace)
-{
-	return &workspace->id;
-}
-
-const char *BKE_workspace_name_get(const WorkSpace *workspace)
-{
-	return workspace->id.name + 2;
-}
-
-WorkSpace *BKE_workspace_next_get(const WorkSpace *workspace)
-{
-	return workspace->id.next;
-}
-WorkSpace *BKE_workspace_prev_get(const WorkSpace *workspace)
-{
-	return workspace->id.prev;
-}
-
-/**
- * Needed because we can't switch workspaces during handlers, it would break context.
- */
-WorkSpace *BKE_workspace_temp_store_get(WorkSpaceInstanceHook *hook)
-{
-	return hook->temp_store;
-}
-void BKE_workspace_temp_store_set(WorkSpaceInstanceHook *hook, WorkSpace *workspace)
-{
-	hook->temp_store = workspace;
-}
-
 WorkSpaceLayout *BKE_workspace_active_layout_get(const WorkSpaceInstanceHook *hook)
 {
 	return hook->act_layout;
@@ -370,15 +357,6 @@ WorkSpaceLayout *BKE_workspace_active_layout_get(const WorkSpaceInstanceHook *ho
 void BKE_workspace_active_layout_set(WorkSpaceInstanceHook *hook, WorkSpaceLayout *layout)
 {
 	hook->act_layout = layout;
-}
-
-WorkSpaceLayout *BKE_workspace_temp_layout_store_get(const WorkSpaceInstanceHook *hook)
-{
-	return hook->temp_layout_store;
-}
-void BKE_workspace_temp_layout_store_set(WorkSpaceInstanceHook *hook, WorkSpaceLayout *layout)
-{
-	hook->temp_layout_store = layout;
 }
 
 bScreen *BKE_workspace_active_screen_get(const WorkSpaceInstanceHook *hook)
@@ -402,6 +380,11 @@ void BKE_workspace_object_mode_set(WorkSpace *workspace, const ObjectMode mode)
 	workspace->object_mode = mode;
 }
 #endif
+
+ListBase *BKE_workspace_transform_orientations_get(WorkSpace *workspace)
+{
+	return &workspace->transform_orientations;
+}
 
 SceneLayer *BKE_workspace_render_layer_get(const WorkSpace *workspace)
 {
@@ -436,15 +419,6 @@ void BKE_workspace_layout_screen_set(WorkSpaceLayout *layout, bScreen *screen)
 	layout->screen = screen;
 }
 
-WorkSpaceLayout *BKE_workspace_layout_next_get(const WorkSpaceLayout *layout)
-{
-	return layout->next;
-}
-WorkSpaceLayout *BKE_workspace_layout_prev_get(const WorkSpaceLayout *layout)
-{
-	return layout->prev;
-}
-
 WorkSpaceLayout *BKE_workspace_hook_layout_for_workspace_get(
         const WorkSpaceInstanceHook *hook, const WorkSpace *workspace)
 {
@@ -455,27 +429,4 @@ void BKE_workspace_hook_layout_for_workspace_set(
 {
 	hook->act_layout = layout;
 	workspace_relation_ensure_updated(&workspace->hook_layout_relations, hook, layout);
-}
-
-ListBase *BKE_workspace_hook_layout_relations_get(WorkSpace *workspace)
-{
-	return &workspace->hook_layout_relations;
-}
-
-WorkSpaceDataRelation *BKE_workspace_relation_next_get(const WorkSpaceDataRelation *relation)
-{
-	return relation->next;
-}
-
-void BKE_workspace_relation_data_get(
-        const WorkSpaceDataRelation *relation,
-        void **parent, void **data)
-{
-	*parent = relation->parent;
-	*data = relation->value;
-}
-void BKE_workspace_relation_data_set(WorkSpaceDataRelation *relation, void *parent, void *data)
-{
-	relation->parent = parent;
-	relation->value = data;
 }

@@ -62,7 +62,7 @@ static IDProperty *collection_engine_settings_create(struct EngineSettingsCB_Typ
 static IDProperty *collection_engine_get(IDProperty *root, const int type, const char *engine_name);
 static void collection_engine_settings_init(IDProperty *root, const bool populate);
 static void layer_engine_settings_init(IDProperty *root, const bool populate);
-static void object_bases_Iterator_next(Iterator *iter, const int flag);
+static void object_bases_Iterator_next(BLI_Iterator *iter, const int flag);
 
 /* RenderLayer */
 
@@ -128,39 +128,8 @@ SceneLayer *BKE_scene_layer_add(Scene *scene, const char *name)
 	return sl;
 }
 
-bool BKE_scene_layer_remove(Main *bmain, Scene *scene, SceneLayer *sl)
-{
-	const int act = BLI_findindex(&scene->render_layers, sl);
-
-	if (act == -1) {
-		return false;
-	}
-	else if ( (scene->render_layers.first == scene->render_layers.last) &&
-	          (scene->render_layers.first == sl))
-	{
-		/* ensure 1 layer is kept */
-		return false;
-	}
-
-	BLI_remlink(&scene->render_layers, sl);
-
-	BKE_scene_layer_free(sl);
-	MEM_freeN(sl);
-
-	scene->active_layer = 0;
-	/* TODO WORKSPACE: set active_layer to 0 */
-
-	for (Scene *sce = bmain->scene.first; sce; sce = sce->id.next) {
-		if (sce->nodetree) {
-			BKE_nodetree_remove_layer_n(sce->nodetree, scene, act);
-		}
-	}
-
-	return true;
-}
-
 /**
- * Free (or release) any data used by this SceneLayer (does not free the SceneLayer itself).
+ * Free (or release) any data used by this SceneLayer.
  */
 void BKE_scene_layer_free(SceneLayer *sl)
 {
@@ -188,6 +157,20 @@ void BKE_scene_layer_free(SceneLayer *sl)
 		IDP_FreeProperty(sl->properties_evaluated);
 		MEM_freeN(sl->properties_evaluated);
 	}
+
+	for (SceneLayerEngineData *sled = sl->drawdata.first; sled; sled = sled->next) {
+		if (sled->storage) {
+			if (sled->free) {
+				sled->free(sled->storage);
+			}
+			MEM_freeN(sled->storage);
+		}
+	}
+	BLI_freelistN(&sl->drawdata);
+
+	MEM_SAFE_FREE(sl->stats);
+
+	MEM_freeN(sl);
 }
 
 /**
@@ -375,10 +358,29 @@ static LayerCollection *collection_from_index(ListBase *lb, const int number, in
 /**
  * Get the active collection
  */
-LayerCollection *BKE_layer_collection_active(SceneLayer *sl)
+LayerCollection *BKE_layer_collection_get_active(SceneLayer *sl)
 {
 	int i = 0;
 	return collection_from_index(&sl->layer_collections, sl->active_collection, &i);
+}
+
+
+/**
+ * Return layer collection to add new object(s).
+ * Create one if none exists.
+ */
+LayerCollection *BKE_layer_collection_get_active_ensure(Scene *scene, SceneLayer *sl)
+{
+	LayerCollection *lc = BKE_layer_collection_get_active(sl);
+
+	if (lc == NULL) {
+		BLI_assert(BLI_listbase_is_empty(&sl->layer_collections));
+		/* When there is no collection linked to this SceneLayer, create one. */
+		SceneCollection *sc = BKE_collection_add(scene, NULL, NULL);
+		lc = BKE_collection_link(sl, sc);
+	}
+
+	return lc;
 }
 
 /**
@@ -1346,6 +1348,18 @@ void BKE_collection_engine_property_add_float(IDProperty *props, const char *nam
 	IDP_AddToGroup(props, IDP_New(IDP_FLOAT, &val, name));
 }
 
+void BKE_collection_engine_property_add_float_array(
+        IDProperty *props, const char *name, const float *values, const int array_length)
+{
+	IDPropertyTemplate val = {0};
+	val.array.len = array_length;
+	val.array.type = IDP_FLOAT;
+
+	IDProperty *idprop= IDP_New(IDP_ARRAY, &val, name);
+	memcpy(IDP_Array(idprop), values, sizeof(float) * idprop->len);
+	IDP_AddToGroup(props, idprop);
+}
+
 void BKE_collection_engine_property_add_int(IDProperty *props, const char *name, int value)
 {
 	IDPropertyTemplate val = {0};
@@ -1372,6 +1386,12 @@ float BKE_collection_engine_property_value_get_float(IDProperty *props, const ch
 	return idprop ? IDP_Float(idprop) : 0.0f;
 }
 
+const float *BKE_collection_engine_property_value_get_float_array(IDProperty *props, const char *name)
+{
+	IDProperty *idprop = IDP_GetPropertyFromGroup(props, name);
+	return idprop ? IDP_Array(idprop) : NULL;
+}
+
 bool BKE_collection_engine_property_value_get_bool(IDProperty *props, const char *name)
 {
 	IDProperty *idprop = IDP_GetPropertyFromGroup(props, name);
@@ -1388,6 +1408,12 @@ void BKE_collection_engine_property_value_set_float(IDProperty *props, const cha
 {
 	IDProperty *idprop = IDP_GetPropertyFromGroup(props, name);
 	IDP_Float(idprop) = value;
+}
+
+void BKE_collection_engine_property_value_set_float_array(IDProperty *props, const char *name, const float *values)
+{
+	IDProperty *idprop = IDP_GetPropertyFromGroup(props, name);
+	memcpy(IDP_Array(idprop), values, sizeof(float) * idprop->len);
 }
 
 void BKE_collection_engine_property_value_set_bool(IDProperty *props, const char *name, bool value)
@@ -1573,7 +1599,7 @@ void BKE_scene_layer_engine_settings_validate_layer(SceneLayer *sl)
 /* ---------------------------------------------------------------------- */
 /* Iterators */
 
-static void object_bases_Iterator_begin(Iterator *iter, void *data_in, const int flag)
+static void object_bases_Iterator_begin(BLI_Iterator *iter, void *data_in, const int flag)
 {
 	SceneLayer *sl = data_in;
 	Base *base = sl->object_bases.first;
@@ -1595,7 +1621,7 @@ static void object_bases_Iterator_begin(Iterator *iter, void *data_in, const int
 	}
 }
 
-static void object_bases_Iterator_next(Iterator *iter, const int flag)
+static void object_bases_Iterator_next(BLI_Iterator *iter, const int flag)
 {
 	Base *base = ((Base *)iter->data)->next;
 
@@ -1612,7 +1638,7 @@ static void object_bases_Iterator_next(Iterator *iter, const int flag)
 	iter->valid = false;
 }
 
-static void objects_Iterator_begin(Iterator *iter, void *data_in, const int flag)
+static void objects_Iterator_begin(BLI_Iterator *iter, void *data_in, const int flag)
 {
 	object_bases_Iterator_begin(iter, data_in, flag);
 
@@ -1621,7 +1647,7 @@ static void objects_Iterator_begin(Iterator *iter, void *data_in, const int flag
 	}
 }
 
-static void objects_Iterator_next(Iterator *iter, const int flag)
+static void objects_Iterator_next(BLI_Iterator *iter, const int flag)
 {
 	object_bases_Iterator_next(iter, flag);
 
@@ -1630,62 +1656,62 @@ static void objects_Iterator_next(Iterator *iter, const int flag)
 	}
 }
 
-void BKE_selected_objects_iterator_begin(Iterator *iter, void *data_in)
+void BKE_selected_objects_iterator_begin(BLI_Iterator *iter, void *data_in)
 {
 	objects_Iterator_begin(iter, data_in, BASE_SELECTED);
 }
 
-void BKE_selected_objects_iterator_next(Iterator *iter)
+void BKE_selected_objects_iterator_next(BLI_Iterator *iter)
 {
 	objects_Iterator_next(iter, BASE_SELECTED);
 }
 
-void BKE_selected_objects_iterator_end(Iterator *UNUSED(iter))
+void BKE_selected_objects_iterator_end(BLI_Iterator *UNUSED(iter))
 {
 	/* do nothing */
 }
 
-void BKE_visible_objects_iterator_begin(Iterator *iter, void *data_in)
+void BKE_visible_objects_iterator_begin(BLI_Iterator *iter, void *data_in)
 {
 	objects_Iterator_begin(iter, data_in, BASE_VISIBLED);
 }
 
-void BKE_visible_objects_iterator_next(Iterator *iter)
+void BKE_visible_objects_iterator_next(BLI_Iterator *iter)
 {
 	objects_Iterator_next(iter, BASE_VISIBLED);
 }
 
-void BKE_visible_objects_iterator_end(Iterator *UNUSED(iter))
+void BKE_visible_objects_iterator_end(BLI_Iterator *UNUSED(iter))
 {
 	/* do nothing */
 }
 
-void BKE_selected_bases_iterator_begin(Iterator *iter, void *data_in)
+void BKE_selected_bases_iterator_begin(BLI_Iterator *iter, void *data_in)
 {
 	object_bases_Iterator_begin(iter, data_in, BASE_SELECTED);
 }
 
-void BKE_selected_bases_iterator_next(Iterator *iter)
+void BKE_selected_bases_iterator_next(BLI_Iterator *iter)
 {
 	object_bases_Iterator_next(iter, BASE_SELECTED);
 }
 
-void BKE_selected_bases_iterator_end(Iterator *UNUSED(iter))
+void BKE_selected_bases_iterator_end(BLI_Iterator *UNUSED(iter))
 {
 	/* do nothing */
 }
 
-void BKE_visible_bases_iterator_begin(Iterator *iter, void *data_in)
+void BKE_visible_bases_iterator_begin(BLI_Iterator *iter, void *data_in)
 {
 	object_bases_Iterator_begin(iter, data_in, BASE_VISIBLED);
 }
 
-void BKE_visible_bases_iterator_next(Iterator *iter)
+void BKE_visible_bases_iterator_next(BLI_Iterator *iter)
 {
 	object_bases_Iterator_next(iter, BASE_VISIBLED);
 }
 
-void BKE_visible_bases_iterator_end(Iterator *UNUSED(iter))
+void BKE_visible_bases_iterator_end(BLI_Iterator *UNUSED(iter))
 {
 	/* do nothing */
 }
@@ -1789,7 +1815,7 @@ void BKE_layer_eval_layer_collection_post(struct EvaluationContext *UNUSED(eval_
 /**
  * Free any static allocated memory.
  */
-void BKE_layer_exit()
+void BKE_layer_exit(void)
 {
 	layer_collection_engine_settings_validate_free();
 }

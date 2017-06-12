@@ -1160,6 +1160,12 @@ class CyclesCurveRenderSettings(bpy.types.PropertyGroup):
     def unregister(cls):
         del bpy.types.Scene.cycles_curves
 
+def update_render_passes(self, context):
+    scene = context.scene
+    rd = scene.render
+    rl = rd.layers.active
+    rl.update_render_passes()
+
 class CyclesRenderLayerSettings(bpy.types.PropertyGroup):
     @classmethod
     def register(cls):
@@ -1172,21 +1178,25 @@ class CyclesRenderLayerSettings(bpy.types.PropertyGroup):
                 name="Debug BVH Traversed Nodes",
                 description="Store Debug BVH Traversed Nodes pass",
                 default=False,
+                update=update_render_passes,
                 )
         cls.pass_debug_bvh_traversed_instances = BoolProperty(
                 name="Debug BVH Traversed Instances",
                 description="Store Debug BVH Traversed Instances pass",
                 default=False,
+                update=update_render_passes,
                 )
         cls.pass_debug_bvh_intersections = BoolProperty(
                 name="Debug BVH Intersections",
                 description="Store Debug BVH Intersections",
                 default=False,
+                update=update_render_passes,
                 )
         cls.pass_debug_ray_bounces = BoolProperty(
                 name="Debug Ray Bounces",
                 description="Store Debug Ray Bounces pass",
                 default=False,
+                update=update_render_passes,
                 )
 
         cls.use_denoising = BoolProperty(
@@ -1249,18 +1259,19 @@ class CyclesRenderLayerSettings(bpy.types.PropertyGroup):
         cls.denoising_radius = IntProperty(
                 name="Denoising Radius",
                 description="Size of the image area that's used to denoise a pixel (higher values are smoother, but might lose detail and are slower)",
-                min=1, max=50,
+                min=1, max=25,
                 default=8,
         )
         cls.denoising_relative_pca = BoolProperty(
                 name="Relative filter",
-                description="When removing that don't carry information, use a relative threshold instead of an absolute one (can help to reduce artifacts, but might cause detail loss around edges)",
+                description="When removing pixels that don't carry information, use a relative threshold instead of an absolute one (can help to reduce artifacts, but might cause detail loss around edges)",
                 default=False,
         )
         cls.denoising_store_passes = BoolProperty(
                 name="Store denoising passes",
                 description="Store the denoising feature passes and the noisy image",
                 default=False,
+                update=update_render_passes,
         )
 
     @classmethod

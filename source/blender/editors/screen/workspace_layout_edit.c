@@ -34,6 +34,7 @@
 #include "BLI_listbase.h"
 
 #include "DNA_screen_types.h"
+#include "DNA_workspace_types.h"
 
 #include "ED_screen.h"
 
@@ -104,27 +105,24 @@ bool workspace_layout_set_poll(const WorkSpaceLayout *layout)
 	return ((BKE_screen_is_used(screen) == false) &&
 	        /* in typical usage temp screens should have a nonzero winid
 	         * (all temp screens should be used, or closed & freed). */
-	        (screen->temp == false) &
+	        (screen->temp == false) &&
 	        (BKE_screen_is_fullscreen_area(screen) == false) &&
 	        (screen->id.name[2] != '.' || !(U.uiflag & USER_HIDE_DOT)));
 }
 
 static WorkSpaceLayout *workspace_layout_delete_find_new(const WorkSpaceLayout *layout_old)
 {
-	WorkSpaceLayout *prev = BKE_workspace_layout_prev_get(layout_old);
-	WorkSpaceLayout *next = BKE_workspace_layout_next_get(layout_old);
-
-	BKE_WORKSPACE_LAYOUT_ITER_BACKWARD_BEGIN (layout_new, prev) {
+	for (WorkSpaceLayout *layout_new = layout_old->prev; layout_new; layout_new = layout_new->next) {
 		if (workspace_layout_set_poll(layout_new)) {
 			return layout_new;
 		}
-	} BKE_WORKSPACE_LAYOUT_ITER_END;
+	}
 
-	BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout_new, next) {
+	for (WorkSpaceLayout *layout_new = layout_old->next; layout_new; layout_new = layout_new->next) {
 		if (workspace_layout_set_poll(layout_new)) {
 			return layout_new;
 		}
-	} BKE_WORKSPACE_LAYOUT_ITER_END;
+	}
 
 	return NULL;
 }
@@ -162,7 +160,8 @@ bool ED_workspace_layout_delete(
 
 static bool workspace_layout_cycle_iter_cb(const WorkSpaceLayout *layout, void *UNUSED(arg))
 {
-	return workspace_layout_set_poll(layout);
+	/* return false to stop iterator when we have found a layout to activate */
+	return !workspace_layout_set_poll(layout);
 }
 
 bool ED_workspace_layout_cycle(

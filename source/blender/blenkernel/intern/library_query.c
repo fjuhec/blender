@@ -52,6 +52,7 @@
 #include "DNA_mask_types.h"
 #include "DNA_node_types.h"
 #include "DNA_object_force.h"
+#include "DNA_probe_types.h"
 #include "DNA_rigidbody_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_sensor_types.h"
@@ -62,6 +63,7 @@
 #include "DNA_text_types.h"
 #include "DNA_vfont_types.h"
 #include "DNA_windowmanager_types.h"
+#include "DNA_workspace_types.h"
 #include "DNA_world_types.h"
 
 #include "BLI_utildefines.h"
@@ -645,31 +647,6 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 				for (i = 0; i < mesh->totcol; i++) {
 					CALLBACK_INVOKE(mesh->mat[i], IDWALK_CB_USER);
 				}
-
-				/* XXX Really not happy with this - probably texface should rather use some kind of
-				 * 'texture slots' and just set indices in each poly/face item - would also save some memory.
-				 * Maybe a nice TODO for blender2.8? */
-				if (mesh->mtface || mesh->mtpoly) {
-					for (i = 0; i < mesh->pdata.totlayer; i++) {
-						if (mesh->pdata.layers[i].type == CD_MTEXPOLY) {
-							MTexPoly *txface = (MTexPoly *)mesh->pdata.layers[i].data;
-
-							for (int j = 0; j < mesh->totpoly; j++, txface++) {
-								CALLBACK_INVOKE(txface->tpage, IDWALK_CB_USER_ONE);
-							}
-						}
-					}
-
-					for (i = 0; i < mesh->fdata.totlayer; i++) {
-						if (mesh->fdata.layers[i].type == CD_MTFACE) {
-							MTFace *tface = (MTFace *)mesh->fdata.layers[i].data;
-
-							for (int j = 0; j < mesh->totface; j++, tface++) {
-								CALLBACK_INVOKE(tface->tpage, IDWALK_CB_USER_ONE);
-							}
-						}
-					}
-				}
 				break;
 			}
 
@@ -712,6 +689,7 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 					library_foreach_ID_as_subdata_link((ID **)&material->nodetree, callback, user_data, flag, &data);
 				}
 				CALLBACK_INVOKE(material->group, IDWALK_CB_USER);
+				CALLBACK_INVOKE(material->edit_image, IDWALK_CB_USER);
 				break;
 			}
 
@@ -791,6 +769,13 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 			{
 				Speaker *speaker = (Speaker *) id;
 				CALLBACK_INVOKE(speaker->sound, IDWALK_CB_USER);
+				break;
+			}
+
+			case ID_PRB:
+			{
+				Probe *probe = (Probe *) id;
+				CALLBACK_INVOKE(probe->image, IDWALK_CB_USER);
 				break;
 			}
 
@@ -988,7 +973,7 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 				wmWindowManager *wm = (wmWindowManager *)id;
 
 				for (wmWindow *win = wm->windows.first; win; win = win->next) {
-					ID *workspace = BKE_workspace_id_get(BKE_workspace_active_get(win->workspace_hook));
+					ID *workspace = (ID *)BKE_workspace_active_get(win->workspace_hook);
 
 					CALLBACK_INVOKE(win->scene, IDWALK_CB_USER_ONE);
 
@@ -1004,13 +989,13 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 				WorkSpace *workspace = (WorkSpace *)id;
 				ListBase *layouts = BKE_workspace_layouts_get(workspace);
 
-				BKE_WORKSPACE_LAYOUT_ITER_BEGIN (layout, layouts->first) {
+				for (WorkSpaceLayout *layout = layouts->first; layout; layout = layout->next) {
 					bScreen *screen = BKE_workspace_layout_screen_get(layout);
 
 					CALLBACK_INVOKE(screen, IDWALK_CB_NOP);
 					/* allow callback to set a different screen */
 					BKE_workspace_layout_screen_set(layout, screen);
-				} BKE_WORKSPACE_LAYOUT_ITER_END;
+				}
 
 				break;
 			}
@@ -1157,6 +1142,8 @@ bool BKE_library_id_can_use_idtype(ID *id_owner, const short id_type_used)
 			return ELEM(id_type_used, ID_MC);  /* WARNING! mask->parent.id, not typed. */
 		case ID_LS:
 			return (ELEM(id_type_used, ID_TE, ID_OB));
+		case ID_PRB:
+			return ELEM(id_type_used, ID_IM);
 		case ID_WS:
 		case ID_IM:
 		case ID_VF:

@@ -49,7 +49,7 @@ static void rna_RegionView3D_update(ID *id, RegionView3D *rv3d)
 		View3D *v3d = sa->spacedata.first;
 		Scene *scene = ED_screen_scene_find(sc, G.main->wm.first);
 
-		ED_view3d_update_viewmat(scene, v3d, ar, NULL, NULL);
+		ED_view3d_update_viewmat(scene, v3d, ar, NULL, NULL, NULL);
 	}
 }
 

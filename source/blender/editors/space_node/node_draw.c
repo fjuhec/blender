@@ -44,10 +44,11 @@
 #include "BLT_translation.h"
 
 #include "BKE_context.h"
-#include "BKE_depsgraph.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
+
+#include "DEG_depsgraph.h"
 
 #include "BLF_api.h"
 
@@ -132,10 +133,10 @@ void ED_node_tag_update_id(ID *id)
 	 * all the users of this tree will have update
 	 * flushed from the tree,
 	 */
-	DAG_id_tag_update(&ntree->id, 0);
+	DEG_id_tag_update(&ntree->id, 0);
 
 	if (ntree->type == NTREE_SHADER) {
-		DAG_id_tag_update(id, 0);
+		DEG_id_tag_update(id, 0);
 		
 		if (GS(id->name) == ID_MA)
 			WM_main_add_notifier(NC_MATERIAL | ND_SHADING, id);
@@ -148,12 +149,12 @@ void ED_node_tag_update_id(ID *id)
 		WM_main_add_notifier(NC_SCENE | ND_NODES, id);
 	}
 	else if (ntree->type == NTREE_TEXTURE) {
-		DAG_id_tag_update(id, 0);
+		DEG_id_tag_update(id, 0);
 		WM_main_add_notifier(NC_TEXTURE | ND_NODES, id);
 	}
 	else if (id == &ntree->id) {
 		/* node groups */
-		DAG_id_tag_update(id, 0);
+		DEG_id_tag_update(id, 0);
 	}
 }
 
@@ -900,14 +901,6 @@ static void node_draw_basis(const bContext *C, ARegion *ar, SpaceNode *snode, bN
 		}
 	}
 
-#ifdef WITH_COMPOSITOR
-	if (ntree->type == NTREE_COMPOSIT && (snode->flag & SNODE_SHOW_HIGHLIGHT)) {
-		if (COM_isHighlightedbNode(node)) {
-			UI_GetThemeColorBlendShade4fv(color_id, TH_ACTIVE, 0.5f, 0, color);
-		}
-	}
-#endif
-
 	glLineWidth(1.0f);
 
 	UI_draw_roundbox_corner_set(UI_CNR_TOP_LEFT | UI_CNR_TOP_RIGHT);
@@ -1041,16 +1034,6 @@ static void node_draw_hidden(const bContext *C, ARegion *ar, SpaceNode *snode, b
 		UI_GetThemeColorBlendShade4fv(color_id, TH_REDALERT, 0.5f, 0, color);
 	else
 		UI_GetThemeColor4fv(color_id, color);
-
-#ifdef WITH_COMPOSITOR
-	if (ntree->type == NTREE_COMPOSIT && (snode->flag & SNODE_SHOW_HIGHLIGHT)) {
-		if (COM_isHighlightedbNode(node)) {
-			UI_GetThemeColorBlendShade4fv(color_id, TH_ACTIVE, 0.5f, 0, color);
-		}
-	}
-#else
-	(void)ntree;
-#endif
 	
 	UI_draw_roundbox_aa(true, rct->xmin, rct->ymin, rct->xmax, rct->ymax, hiddenrad, color);
 	
@@ -1302,15 +1285,9 @@ static void snode_setup_v2d(SpaceNode *snode, ARegion *ar, const float center[2]
 static void draw_nodetree(const bContext *C, ARegion *ar, bNodeTree *ntree, bNodeInstanceKey parent_key)
 {
 	SpaceNode *snode = CTX_wm_space_node(C);
-	
+
 	node_uiblocks_init(C, ntree);
-	
-#ifdef WITH_COMPOSITOR
-	if (ntree->type == NTREE_COMPOSIT) {
-		COM_startReadHighlights();
-	}
-#endif
-	
+
 	node_update_nodetree(C, ntree);
 	node_draw_nodetree(C, ar, snode, ntree, parent_key);
 }
@@ -1419,7 +1396,23 @@ void drawnodespace(const bContext *C, ARegion *ar)
 			
 			/* backdrop */
 			draw_nodespace_back_pix(C, ar, snode, path->parent_key);
-			
+
+			{
+				float original_proj[4][4];
+				gpuGetProjectionMatrix(original_proj);
+
+				gpuPushMatrix();
+				gpuLoadIdentity();
+
+				glaDefine2DArea(&ar->winrct);
+				wmOrtho2_pixelspace(ar->winx, ar->winy);
+
+				WM_manipulatormap_draw(ar->manipulator_map, C, WM_MANIPULATORMAP_DRAWSTEP_2D);
+
+				gpuPopMatrix();
+				gpuLoadProjectionMatrix(original_proj);
+			}
+
 			draw_nodetree(C, ar, ntree, path->parent_key);
 		}
 		

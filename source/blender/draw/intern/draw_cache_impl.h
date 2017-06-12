@@ -29,6 +29,7 @@
 struct Batch;
 struct ListBase;
 struct CurveCache;
+struct ParticleSystem;
 
 struct Curve;
 struct Lattice;
@@ -43,6 +44,9 @@ void DRW_mesh_batch_cache_free(struct Mesh *me);
 
 void DRW_lattice_batch_cache_dirty(struct Lattice *lt, int mode);
 void DRW_lattice_batch_cache_free(struct Lattice *lt);
+
+void DRW_particle_batch_cache_dirty(struct ParticleSystem *psys, int mode);
+void DRW_particle_batch_cache_free(struct ParticleSystem *psys);
 
 /* Curve */
 struct Batch *DRW_curve_batch_cache_get_wire_edge(struct Curve *cu, struct CurveCache *ob_curve_cache);
@@ -68,6 +72,8 @@ struct Batch *DRW_lattice_batch_cache_get_overlay_verts(struct Lattice *lt);
 /* Mesh */
 
 struct Batch **DRW_mesh_batch_cache_get_surface_shaded(struct Mesh *me);
+struct Batch **DRW_mesh_batch_cache_get_surface_texpaint(struct Mesh *me);
+struct Batch *DRW_mesh_batch_cache_get_surface_texpaint_single(struct Mesh *me);
 struct Batch *DRW_mesh_batch_cache_get_weight_overlay_edges(struct Mesh *me, bool use_wire, bool use_sel);
 struct Batch *DRW_mesh_batch_cache_get_weight_overlay_faces(struct Mesh *me);
 struct Batch *DRW_mesh_batch_cache_get_weight_overlay_verts(struct Mesh *me);
@@ -81,8 +87,14 @@ struct Batch *DRW_mesh_batch_cache_get_points_with_normals(struct Mesh *me);
 struct Batch *DRW_mesh_batch_cache_get_all_verts(struct Mesh *me);
 struct Batch *DRW_mesh_batch_cache_get_fancy_edges(struct Mesh *me);
 struct Batch *DRW_mesh_batch_cache_get_overlay_triangles(struct Mesh *me);
+struct Batch *DRW_mesh_batch_cache_get_overlay_triangles_nor(struct Mesh *me);
 struct Batch *DRW_mesh_batch_cache_get_overlay_loose_edges(struct Mesh *me);
+struct Batch *DRW_mesh_batch_cache_get_overlay_loose_edges_nor(struct Mesh *me);
 struct Batch *DRW_mesh_batch_cache_get_overlay_loose_verts(struct Mesh *me);
 struct Batch *DRW_mesh_batch_cache_get_overlay_facedots(struct Mesh *me);
+
+/* Particles */
+struct Batch *DRW_particles_batch_cache_get_hair(struct ParticleSystem *psys);
+struct Batch *DRW_particles_batch_cache_get_dots(struct ParticleSystem *psys);
 
 #endif /* __DRAW_CACHE_IMPL_H__ */

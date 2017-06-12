@@ -58,8 +58,6 @@ public:
 		              )> non_local_means;
 		function<bool(device_ptr color_ptr,
 		              device_ptr color_variance_ptr,
-		              device_ptr guide_ptr,
-		              device_ptr guide_variance_ptr,
 		              device_ptr output_ptr
 		              )> reconstruct;
 		function<bool()> construct_transform;
@@ -82,6 +80,11 @@ public:
 		              device_ptr mean_ptr,
 		              device_ptr variance_ptr
 		              )> get_feature;
+		function<bool(device_ptr image_ptr,
+		              device_ptr variance_ptr,
+		              device_ptr depth_ptr,
+		              device_ptr output_ptr
+		              )> detect_outliers;
 		function<bool(device_ptr*)> set_tiles;
 	} functions;
 

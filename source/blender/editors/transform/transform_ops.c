@@ -160,11 +160,12 @@ EnumPropertyItem rna_enum_transform_mode_types[] =
 
 static int select_orientation_exec(bContext *C, wmOperator *op)
 {
+	View3D *v3d = CTX_wm_view3d(C);
 	int orientation = RNA_enum_get(op->ptr, "orientation");
 
-	BIF_selectTransformOrientationValue(C, orientation);
+	BIF_selectTransformOrientationValue(v3d, orientation);
 	
-	WM_event_add_notifier(C, NC_SPACE | ND_SPACE_VIEW3D, CTX_wm_view3d(C));
+	WM_event_add_notifier(C, NC_SPACE | ND_SPACE_VIEW3D, v3d);
 
 	return OPERATOR_FINISHED;
 }
@@ -207,8 +208,8 @@ static int delete_orientation_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	View3D *v3d = CTX_wm_view3d(C);
 
-	BIF_removeTransformOrientation(C, v3d->custom_orientation);
-	
+	BIF_removeTransformOrientationIndex(C, v3d->custom_orientation_index);
+
 	WM_event_add_notifier(C, NC_SPACE | ND_SPACE_VIEW3D, v3d);
 	WM_event_add_notifier(C, NC_SCENE | NA_EDITED, CTX_data_scene(C));
 
@@ -227,7 +228,7 @@ static int delete_orientation_poll(bContext *C)
 	if (ED_operator_areaactive(C) == 0)
 		return 0;
 
-	return v3d->custom_orientation != NULL;
+	return (v3d->twmode >= V3D_MANIP_CUSTOM) && (v3d->custom_orientation_index != -1);
 }
 
 static void TRANSFORM_OT_delete_orientation(struct wmOperatorType *ot)

@@ -94,8 +94,8 @@ class TOPBAR_HT_lower_bar(Header):
         if screen.show_fullscreen:
             layout.operator("screen.back_to_previous", icon='SCREEN_BACK', text="Back to Previous")
         else:
-            layout.template_ID_preview(window, "screen", workspace, "screens", new="screen.new", unlink="screen.delete", rows=2, cols=6)
-        layout.prop_search(workspace, "render_layer", scene, "render_layers", text="Render Layer:")
+            layout.template_search_preview(window, "screen", workspace, "screens", new="screen.new", unlink="screen.delete", rows=2, cols=6)
+        layout.template_search(workspace, "render_layer", scene, "render_layers")
 
 
 class TOPBAR_MT_editor_menus(Menu):

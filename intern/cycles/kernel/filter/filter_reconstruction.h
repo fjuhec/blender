@@ -21,10 +21,8 @@ ccl_device_inline void kernel_filter_construct_gramian(int x, int y,
                                                        int dx, int dy,
                                                        int w, int h,
                                                        int pass_stride,
-                                                       ccl_global float ccl_restrict_ptr buffer,
-                                                       ccl_global float *color_pass,
-                                                       ccl_global float *variance_pass,
-                                                       ccl_global float ccl_restrict_ptr transform,
+                                                       const ccl_global float *ccl_restrict buffer,
+                                                       const ccl_global float *ccl_restrict transform,
                                                        ccl_global int *rank,
                                                        float weight,
                                                        ccl_global float *XtWX,
@@ -48,13 +46,10 @@ ccl_device_inline void kernel_filter_construct_gramian(int x, int y,
 	float design_row[DENOISE_FEATURES+1];
 #endif
 
-	float3 p_color = filter_get_pixel_color(color_pass + p_offset, pass_stride);
-	float3 q_color = filter_get_pixel_color(color_pass + q_offset, pass_stride);
+	float3 q_color = filter_get_color(buffer + q_offset, pass_stride);
 
-	float p_std_dev = sqrtf(filter_get_pixel_variance(variance_pass + p_offset, pass_stride));
-	float q_std_dev = sqrtf(filter_get_pixel_variance(variance_pass + q_offset, pass_stride));
-
-	if(average(fabs(p_color - q_color)) > 3.0f*(p_std_dev + q_std_dev + 1e-3f)) {
+	/* If the pixel was flagged as an outlier during prefiltering, skip it. */
+	if(ccl_get_feature(buffer + q_offset, 0) < 0.0f) {
 		return;
 	}
 
@@ -82,9 +77,17 @@ ccl_device_inline void kernel_filter_finalize(int x, int y, int w, int h,
 	const int stride = storage_stride;
 #endif
 
+	/* The weighted average of pixel colors (essentially, the NLM-filtered image).
+	 * In case the solution of the linear model fails due to numerical issues,
+	 * fall back to this value. */
+	float3 mean_color = XtWY[0]/XtWX[0];
+
 	math_trimatrix_vec3_solve(XtWX, XtWY, (*rank)+1, stride);
 
 	float3 final_color = XtWY[0];
+	if(!isfinite3_safe(final_color)) {
+		final_color = mean_color;
+	}
 
 	ccl_global float *combined_buffer = buffer + (y*buffer_params.y + x + buffer_params.x)*buffer_params.z;
 	final_color *= sample;

@@ -44,12 +44,13 @@
 #include "BLI_listbase.h"
 
 #include "BKE_context.h"
-#include "BKE_depsgraph.h"
 #include "BKE_object.h"
 #include "BKE_layer.h"
 #include "BKE_scene.h"
 #include "BKE_sequencer.h"
 #include "BKE_armature.h"
+
+#include "DEG_depsgraph.h"
 
 #include "ED_armature.h"
 #include "ED_object.h"
@@ -165,7 +166,7 @@ static eOLDrawState tree_element_set_active_object(
 	}
 	
 	/* find associated base in current scene */
-	base = BKE_scene_base_find(scene, ob);
+	base = BKE_scene_layer_base_find(sl, ob);
 
 	if (base) {
 		if (set == OL_SETSEL_EXTEND) {
@@ -245,7 +246,7 @@ static eOLDrawState tree_element_active_material(
 		/* Tagging object for update seems a bit stupid here, but looks like we have to do it
 		 * for render views to update. See T42973.
 		 * Note that RNA material update does it too, see e.g. rna_MaterialSlot_update(). */
-		DAG_id_tag_update((ID *)ob, OB_RECALC_OB);
+		DEG_id_tag_update((ID *)ob, OB_RECALC_OB);
 		WM_event_add_notifier(C, NC_MATERIAL | ND_SHADING_LINKS, NULL);
 	}
 	return OL_DRAWSEL_NONE;
@@ -418,7 +419,7 @@ static eOLDrawState tree_element_active_defgroup(
 		BLI_assert(te->index + 1 >= 0);
 		ob->actdef = te->index + 1;
 
-		DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 		WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, ob);
 	}
 	else {

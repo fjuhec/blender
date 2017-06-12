@@ -712,6 +712,10 @@ static void uiblock_layer_pass_buttons(
 	const char *display_name = "";
 	const bool show_stereo = (iuser->flag & IMA_SHOW_STEREO) != 0;
 
+	if (iuser->scene == NULL) {
+		return;
+	}
+
 	uiLayoutRow(layout, true);
 
 	/* layer menu is 1/3 larger than pass */
@@ -890,7 +894,7 @@ void uiTemplateImage(uiLayout *layout, bContext *C, PointerRNA *ptr, const char 
 	uiLayoutSetContextPointer(layout, "edit_image_user", userptr);
 
 	if (!compact)
-		uiTemplateID(layout, C, ptr, propname, NULL, NULL, ima ? NULL : "IMAGE_OT_new", "IMAGE_OT_open", NULL);
+		uiTemplateID(layout, C, ptr, propname, ima ? NULL : "IMAGE_OT_new", "IMAGE_OT_open", NULL);
 
 	if (ima) {
 		UI_block_funcN_set(block, rna_update_cb, MEM_dupallocN(cb), NULL);
@@ -1204,7 +1208,7 @@ void uiTemplateImageStereo3d(uiLayout *layout, PointerRNA *stereo3d_format_ptr)
 		case S3D_DISPLAY_SIDEBYSIDE:
 		{
 			uiItemR(col, stereo3d_format_ptr, "use_sidebyside_crosseyed", 0, NULL, ICON_NONE);
-			/* fall-through */
+			ATTR_FALLTHROUGH;
 		}
 		case S3D_DISPLAY_TOPBOTTOM:
 		{
