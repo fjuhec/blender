@@ -270,7 +270,10 @@ void BM_mesh_data_free(BMesh *bm)
 
 	BLI_freelistN(&bm->selected);
 
-	MEM_SAFE_FREE(bm->bmspacearr);
+	if (bm->bmspacearr) {
+		BKE_lnor_spacearr_free(bm->bmspacearr);
+		MEM_freeN(bm->bmspacearr);
+	}
 
 	BMO_error_clear(bm);
 }

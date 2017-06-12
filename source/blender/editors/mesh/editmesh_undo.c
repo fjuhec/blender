@@ -86,8 +86,6 @@ typedef struct UndoMesh {
 	 * There are a few ways this could be made to work but for now its a known limitation with mixing
 	 * object and editmode operations - Campbell */
 	int shapenr;
-	MLoopNorSpaceArray bmspacearr;
-	char spacearr_dirty;
 
 #ifdef USE_ARRAY_STORE
 	/* NULL arrays are considered empty */
@@ -491,9 +489,6 @@ static void *editbtMesh_to_undoMesh(void *emv, void *obdata)
 
 	UndoMesh *um = MEM_callocN(sizeof(UndoMesh), "undo Mesh");
 
-	um->bmspacearr = *em->bm->bmspacearr;
-	um->spacearr_dirty = em->bm->spacearr_dirty;
-
 	/* make sure shape keys work */
 	um->me.key = obme->key ? BKE_key_copy_nolib(obme->key) : NULL;
 
@@ -586,8 +581,7 @@ static void undoMesh_to_editbtMesh(void *um_v, void *em_v, void *obdata)
 	bm->selectmode = um->selectmode;
 	em->ob = ob;
 
-	*bm->bmspacearr = um->bmspacearr;
-	bm->spacearr_dirty = um->spacearr_dirty;
+	bm->spacearr_dirty = BM_SPACEARR_DIRTY_ALL;
 
 	/* T35170: Restore the active key on the RealMesh. Otherwise 'fake' offset propagation happens
 	 *         if the active is a basis for any other. */
