@@ -54,6 +54,7 @@
 #include "BKE_report.h"
 #include "BKE_texture.h"
 #include "BKE_main.h"
+#include "BKE_mesh.h"
 #include "BKE_editmesh.h"
 
 #include "BLT_translation.h"
@@ -6047,7 +6048,7 @@ static void apply_point_normals(bContext *C, wmOperator *op, float target[3], bo
 			negate_v3(tld->nloc);
 		}
 		if (tld->loop_index != -1) {
-			BKE_lnor_space_custom_normal_to_data(bm->bmspacearr.lspacearr[tld->loop_index], tld->nloc, tld->clnors_data);
+			BKE_lnor_space_custom_normal_to_data(bm->bmspacearr->lspacearr[tld->loop_index], tld->nloc, tld->clnors_data);
 		}
 	}
 }

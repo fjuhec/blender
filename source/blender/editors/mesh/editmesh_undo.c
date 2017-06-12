@@ -491,7 +491,7 @@ static void *editbtMesh_to_undoMesh(void *emv, void *obdata)
 
 	UndoMesh *um = MEM_callocN(sizeof(UndoMesh), "undo Mesh");
 
-	um->bmspacearr = em->bm->bmspacearr;
+	um->bmspacearr = *em->bm->bmspacearr;
 	um->spacearr_dirty = em->bm->spacearr_dirty;
 
 	/* make sure shape keys work */
@@ -586,7 +586,7 @@ static void undoMesh_to_editbtMesh(void *um_v, void *em_v, void *obdata)
 	bm->selectmode = um->selectmode;
 	em->ob = ob;
 
-	bm->bmspacearr = um->bmspacearr;
+	*bm->bmspacearr = um->bmspacearr;
 	bm->spacearr_dirty = um->spacearr_dirty;
 
 	/* T35170: Restore the active key on the RealMesh. Otherwise 'fake' offset propagation happens

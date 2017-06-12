@@ -20,8 +20,6 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-#include "BKE_mesh.h"
-
 #ifndef __BMESH_CLASS_H__
 #define __BMESH_CLASS_H__
 
@@ -39,6 +37,8 @@ struct BMVert;
 struct BMEdge;
 struct BMLoop;
 struct BMFace;
+
+struct MLoopNorSpaceArray;
 
 struct BLI_mempool;
 
@@ -256,7 +256,7 @@ typedef struct BMesh {
 
 	void *py_handle;
 
-	MLoopNorSpaceArray bmspacearr;		/* Stores MLoopNorSpaceArray for this BMesh */
+	struct MLoopNorSpaceArray *bmspacearr;  /* Stores MLoopNorSpaceArray for this BMesh */
 	char spacearr_dirty;
 } BMesh;
 
