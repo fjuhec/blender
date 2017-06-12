@@ -1459,14 +1459,8 @@ static int gp_sculpt_select_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
-	if (index < TOT_GP_EDITBRUSH_TYPES) {
-		if (index < 7) {
-			gp_sculpt->brushtype = index;
-		}
-		else {
-			/* brushes 7 and 8 not used */
-			gp_sculpt->brushtype = index + 2;
-		}
+	if (index < TOT_GP_EDITBRUSH_TYPES - 1) {
+		gp_sculpt->brushtype = index;
 	}
 	/* notifiers */
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
