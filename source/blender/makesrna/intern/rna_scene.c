@@ -3484,7 +3484,7 @@ static void rna_def_tool_settings(BlenderRNA  *brna)
 	
 	static EnumPropertyItem gpencil_stroke_placement_items[] = {
 		{GP_PROJECT_VIEWSPACE, "CURSOR", ICON_CURSOR, "Origin", "Draw stroke at the Object origin or 3D cursor"},
-		{0, "VIEW", ICON_VISIBLE_IPO_ON, "View", "Stick stroke to the view "}, /* weird, GP_PROJECT_VIEWALIGN is inverted */
+		// {0, "VIEW", ICON_VISIBLE_IPO_ON, "View", "Stick stroke to the view "}, /* weird, GP_PROJECT_VIEWALIGN is inverted */
 		{GP_PROJECT_VIEWSPACE | GP_PROJECT_DEPTH_VIEW, "SURFACE", ICON_FACESEL, "Surface", "Stick stroke to surfaces"},
 		{GP_PROJECT_VIEWSPACE | GP_PROJECT_DEPTH_STROKE, "STROKE", ICON_GREASEPENCIL, "Stroke", "Stick stroke to other strokes"},
 		{0, NULL, 0, NULL, NULL}
