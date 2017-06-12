@@ -174,13 +174,13 @@ IDDepsNode *DepsgraphNodeBuilder::add_id_node(ID *id)
 		id_node = m_graph->add_id_node(id, id->name);
 
 		if (id->override != NULL && (id->flag & LIB_AUTOOVERRIDE) != 0) {
-			ComponentDepsNode *comp_node = id_node->add_component(DEPSNODE_TYPE_PARAMETERS, "override_generator");
+			ComponentDepsNode *comp_node = id_node->add_component(DEG_NODE_TYPE_PARAMETERS, "override_generator");
 			comp_node->owner = id_node;
 
 			/* TDOD We most certainly do not want to run this on every deg evaluation! Especially not during animation? */
 			/* Ideally, putting this in some kind of queue (only one entry per ID in whole queue) and consuming it in a
 			 * low-priority background thread would be ideal, but we need to ensure IDs remain valid for the thread? */
-			add_operation_node(comp_node, DEPSOP_TYPE_INIT, function_bind(BKE_override_operations_create, id, false),
+			add_operation_node(comp_node, function_bind(BKE_override_operations_create, id, false),
 			                   DEG_OPCODE_OPERATION, "override_generator", 0);
 		}
 	}
