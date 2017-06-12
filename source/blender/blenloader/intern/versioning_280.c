@@ -313,64 +313,56 @@ void do_versions_after_linking_280(Main *main)
 	}
 
 	{
-		if (!MAIN_VERSION_ATLEAST(main, 280, 1)) {
-			for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
-				for (wmWindow *win = wm->windows.first; win; win = win->next) {
-					bScreen *screen = BKE_workspace_active_screen_get(win->workspace_hook);
-					const short size_y = 2 * HEADERY;
+		for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
+			for (wmWindow *win = wm->windows.first; win; win = win->next) {
+				bScreen *screen = BKE_workspace_active_screen_get(win->workspace_hook);
+				const short size_y = 2 * HEADERY;
 
-					/* XXX duplicated from ED_screen_global_areas_create */
-					if (screen->temp == 0) {
-						ScrArea *sa = MEM_callocN(sizeof(*sa), "do version topbar area");
+				/* XXX duplicated from ED_screen_global_areas_create */
+				if (screen->temp == 0) {
+					ScrArea *sa = MEM_callocN(sizeof(*sa), "do version topbar area");
 
-						sa->v1 = MEM_callocN(sizeof(*sa->v1), "do_version topbar vert");
-						sa->v2 = MEM_callocN(sizeof(*sa->v2), "do_version topbar vert");
-						sa->v3 = MEM_callocN(sizeof(*sa->v3), "do_version topbar vert");
-						sa->v4 = MEM_callocN(sizeof(*sa->v4), "do_version topbar vert");
+					sa->v1 = MEM_callocN(sizeof(*sa->v1), "do_version topbar vert");
+					sa->v2 = MEM_callocN(sizeof(*sa->v2), "do_version topbar vert");
+					sa->v3 = MEM_callocN(sizeof(*sa->v3), "do_version topbar vert");
+					sa->v4 = MEM_callocN(sizeof(*sa->v4), "do_version topbar vert");
 
-						sa->v1->vec.x = sa->v2->vec.x = 0;
-						sa->v3->vec.x = sa->v4->vec.x = win->sizex;
-						sa->v1->vec.y = sa->v4->vec.y = win->sizey - size_y;
-						sa->v2->vec.y = sa->v3->vec.y = win->sizey;
-						sa->headertype = HEADERTOP;
-						sa->spacetype = sa->butspacetype = SPACE_TOPBAR;
-						sa->winy = size_y;
+					sa->v1->vec.x = sa->v2->vec.x = 0;
+					sa->v3->vec.x = sa->v4->vec.x = win->sizex;
+					sa->v1->vec.y = sa->v4->vec.y = win->sizey - size_y;
+					sa->v2->vec.y = sa->v3->vec.y = win->sizey;
+					sa->headertype = HEADERTOP;
+					sa->spacetype = sa->butspacetype = SPACE_TOPBAR;
+					sa->winy = size_y;
 
-						BLI_addhead(&win->global_areas, sa);
+					BLI_addhead(&win->global_areas, sa);
 
-						{
-							SpaceType *st = BKE_spacetype_from_id(SPACE_TOPBAR);
-							SpaceLink *sl = st->new(NULL); /* XXX passing NULL as context */
+					{
+						SpaceType *st = BKE_spacetype_from_id(SPACE_TOPBAR);
+						SpaceLink *sl = st->new(NULL); /* XXX passing NULL as context */
 
-							BLI_addhead(&sa->spacedata, sl);
-							sa->regionbase = sl->regionbase;
-							BLI_listbase_clear(&sl->regionbase);
-						}
+						BLI_addhead(&sa->spacedata, sl);
+						sa->regionbase = sl->regionbase;
+						BLI_listbase_clear(&sl->regionbase);
 					}
 				}
 			}
+		}
 
-			for (WorkSpace *workspace = main->workspaces.first; workspace; workspace = workspace->id.next) {
-				ListBase *layouts = BKE_workspace_layouts_get(workspace);
+		for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
+			for (ScrArea *area = screen->areabase.first, *area_next; area; area = area_next) {
+				area_next = area->next;
 
-				for (WorkSpaceLayout *layout = layouts->first; layout; layout = layout->next) {
-					bScreen *screen = BKE_workspace_layout_screen_get(layout);
+				if (area->spacetype == SPACE_INFO) {
+					BKE_screen_area_free(area);
 
-					for (ScrArea *area = screen->areabase.first, *area_next; area; area = area_next) {
-						area_next = area->next;
+					BLI_remlink(&screen->areabase, area);
 
-						if (area->spacetype == SPACE_INFO) {
-							BKE_screen_area_free(area);
+					BKE_screen_remove_double_scredges(screen);
+					BKE_screen_remove_unused_scredges(screen);
+					BKE_screen_remove_unused_scrverts(screen);
 
-							BLI_remlink(&screen->areabase, area);
-
-							BKE_screen_remove_double_scredges(screen);
-							BKE_screen_remove_unused_scredges(screen);
-							BKE_screen_remove_unused_scrverts(screen);
-
-							MEM_freeN(area);
-						}
-					}
+					MEM_freeN(area);
 				}
 			}
 		}
@@ -466,6 +458,26 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 							}
 							else {
 								v3d->custom_orientation_index = -1;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if (!DNA_struct_find(fd->filesdna, "SpaceTopBar")) {
+		for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
+			for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
+				for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
+					ListBase *regionbase = (sl == sa->spacedata.first) ? &sa->regionbase : &sl->regionbase;
+
+					if (sl->spacetype == SPACE_VIEW3D) {
+						for (ARegion *region = regionbase->first; region; region = region->next) {
+							if (region->regiontype == RGN_TYPE_TOOL_PROPS) {
+								BKE_area_region_free(NULL, region);
+								BLI_freelinkN(regionbase, region);
+								break;
 							}
 						}
 					}
