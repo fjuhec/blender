@@ -145,7 +145,7 @@ class VIEW3D_HT_header(Header):
 
             if ob.grease_pencil.is_stroke_sculpt_mode:
                 settings = context.tool_settings.gpencil_sculpt
-                if settings.tool == 'GRAB':
+                if settings.tool in ('GRAB', 'PUSH', 'TWIST', 'PINCH', 'RANDOMIZE'):
                     row.separator()
                     row.prop(toolsettings.gpencil_sculpt, "lockaxis", text='')
 

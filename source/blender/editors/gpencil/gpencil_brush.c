@@ -501,6 +501,9 @@ static bool gp_brush_push_apply(tGP_BrushEditData *gso, bGPDstroke *gps, int i,
                                 const int radius, const int co[2])
 {
 	bGPDspoint *pt = gps->points + i;
+	float save_pt[3];
+	copy_v3_v3(save_pt, &pt->x);
+
 	float inf = gp_brush_influence_calc(gso, radius, co);
 	float delta[3] = {0.0f};
 		
@@ -509,6 +512,9 @@ static bool gp_brush_push_apply(tGP_BrushEditData *gso, bGPDstroke *gps, int i,
 	
 	/* apply */
 	add_v3_v3(&pt->x, delta);
+
+	/* compute lock axis */
+	gpsculpt_compute_lock_axis(gso, pt, save_pt);
 
 	/* done */
 	return true;
@@ -559,7 +565,9 @@ static bool gp_brush_pinch_apply(tGP_BrushEditData *gso, bGPDstroke *gps, int i,
 	bGPDspoint *pt = gps->points + i;
 	float fac, inf;
 	float vec[3];
-	
+	float save_pt[3];
+	copy_v3_v3(save_pt, &pt->x);
+
 	/* Scale down standard influence value to get it more manageable...
 	 *  - No damping = Unmanageable at > 0.5 strength
 	 *  - Div 10     = Not enough effect
@@ -587,7 +595,10 @@ static bool gp_brush_pinch_apply(tGP_BrushEditData *gso, bGPDstroke *gps, int i,
 	
 	/* 3) Translate back to original space, with the shrinkage applied */
 	add_v3_v3v3(&pt->x, gso->dvec, vec);
-	
+
+	/* compute lock axis */
+	gpsculpt_compute_lock_axis(gso, pt, save_pt);
+
 	/* done */
 	return true;
 }
@@ -604,7 +615,9 @@ static bool gp_brush_twist_apply(tGP_BrushEditData *gso, bGPDstroke *gps, int i,
 {
 	bGPDspoint *pt = gps->points + i;
 	float angle, inf;
-	
+	float save_pt[3];
+	copy_v3_v3(save_pt, &pt->x);
+
 	/* Angle to rotate by */
 	inf = gp_brush_influence_calc(gso, radius, co);
 	angle = DEG2RADF(1.0f) * inf;
@@ -632,6 +645,9 @@ static bool gp_brush_twist_apply(tGP_BrushEditData *gso, bGPDstroke *gps, int i,
 		sub_v3_v3v3(vec, &pt->x, gso->dvec); /* make relative to center (center is stored in dvec) */
 		mul_m3_v3(rmat, vec);
 		add_v3_v3v3(&pt->x, vec, gso->dvec); /* restore */
+		
+		/* compute lock axis */
+		gpsculpt_compute_lock_axis(gso, pt, save_pt);
 	}
 	else {
 		const float axis[3] = {0.0f, 0.0f, 1.0f};
@@ -675,7 +691,9 @@ static bool gp_brush_randomize_apply(tGP_BrushEditData *gso, bGPDstroke *gps, in
                                      const int radius, const int co[2])
 {
 	bGPDspoint *pt = gps->points + i;
-	
+	float save_pt[3];
+	copy_v3_v3(save_pt, &pt->x);
+
 	/* Amount of jitter to apply depends on the distance of the point to the cursor,
 	 * as well as the strength of the brush
 	 */
@@ -727,6 +745,8 @@ static bool gp_brush_randomize_apply(tGP_BrushEditData *gso, bGPDstroke *gps, in
 					float dvec[3];
 					ED_view3d_win_to_delta(gso->gsc.ar, svec, dvec, zfac);
 					add_v3_v3(&pt->x, dvec);
+					/* compute lock axis */
+					gpsculpt_compute_lock_axis(gso, pt, save_pt);
 				}
 			}
 			else {
