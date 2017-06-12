@@ -324,8 +324,9 @@ class GreasePencilBrushPanel:
         if brush is not None:
             row = layout.row()
             row.prop(brush, "name", text='')
-            row = layout.row()
+            row = layout.row(align=True)
             row.prop(brush, "line_width", text='Radius')
+            row.prop(brush, "use_pressure", text='', icon='STYLUS_PRESSURE')
             row = layout.row(align=True)
             row.prop(brush, "use_random_strength", text='', icon='RNDCURVE')
             row.prop(brush, "strength", slider=True)
