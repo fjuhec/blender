@@ -6096,9 +6096,13 @@ static void direct_link_scene(FileData *fd, Scene *sce)
 					seq->strip->transform = NULL;
 				}
 				if (seq->flag & SEQ_USE_PROXY) {
-					seq->strip->proxy = newdataadr(
-						fd, seq->strip->proxy);
-					seq->strip->proxy->anim = NULL;
+					seq->strip->proxy = newdataadr(fd, seq->strip->proxy);
+					if (seq->strip->proxy) {
+						seq->strip->proxy->anim = NULL;
+					}
+					else {
+						BKE_sequencer_proxy_set(seq, true);
+					}
 				}
 				else {
 					seq->strip->proxy = NULL;
@@ -8685,7 +8689,8 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
 			/* in 2.50+ files, the file identifier for screens is patched, forward compatibility */
 		case ID_SCRN:
 			bhead->code = ID_SCR;
-			/* deliberate pass on to default */
+			/* pass on to default */
+			ATTR_FALLTHROUGH;
 		default:
 			if (fd->skip_flags & BLO_READ_SKIP_DATA) {
 				bhead = blo_nextbhead(fd, bhead);
@@ -10154,7 +10159,7 @@ void BLO_library_link_copypaste(Main *mainl, BlendHandle *bh)
 
 static ID *link_named_part_ex(
         Main *mainl, FileData *fd, const short idcode, const char *name, const short flag,
-		Scene *scene, View3D *v3d, const bool use_placeholders, const bool force_indirect)
+        Scene *scene, View3D *v3d, const bool use_placeholders, const bool force_indirect)
 {
 	ID *id = link_named_part(mainl, fd, idcode, name, use_placeholders, force_indirect);
 

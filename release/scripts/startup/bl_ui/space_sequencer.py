@@ -42,7 +42,7 @@ def draw_color_balance(layout, color_balance):
     col.label(text="Lift:")
     col.separator()
     col.separator()
-    col.prop(color_balance, "")
+    col.prop(color_balance, "lift", text="")
     col.prop(color_balance, "invert_lift", text="Invert", icon="ARROW_LEFTRIGHT")
     split.template_color_picker(color_balance, "lift", value_slider=True,  cubic=True)
 
@@ -52,7 +52,7 @@ def draw_color_balance(layout, color_balance):
     col.label(text="Gamma:")
     col.separator()
     col.separator()
-    col.prop(color_balance, "")
+    col.prop(color_balance, "gamma", text="")
     col.prop(color_balance, "invert_gamma", text="Invert", icon="ARROW_LEFTRIGHT")
     split.template_color_picker(color_balance, "gamma", value_slider=True, lock_luminosity=True, cubic=True)
 
@@ -340,19 +340,19 @@ class SEQUENCER_MT_add(Menu):
             layout.operator_context = 'INVOKE_DEFAULT'
             layout.operator("sequencer.scene_strip_add", text="Scene...")
         else:
-            layout.operator_menu_enum("sequencer.scene_strip_add", "scene", text="Scene...")
+            layout.operator_menu_enum("sequencer.scene_strip_add", "scene", text="Scene")
 
         if len(bpy.data.movieclips) > 10:
             layout.operator_context = 'INVOKE_DEFAULT'
             layout.operator("sequencer.movieclip_strip_add", text="Clips...")
         else:
-            layout.operator_menu_enum("sequencer.movieclip_strip_add", "clip", text="Clip...")
+            layout.operator_menu_enum("sequencer.movieclip_strip_add", "clip", text="Clip")
 
         if len(bpy.data.masks) > 10:
             layout.operator_context = 'INVOKE_DEFAULT'
             layout.operator("sequencer.mask_strip_add", text="Masks...")
         else:
-            layout.operator_menu_enum("sequencer.mask_strip_add", "mask", text="Mask...")
+            layout.operator_menu_enum("sequencer.mask_strip_add", "mask", text="Mask")
 
         layout.operator("sequencer.movie_strip_add", text="Movie")
         layout.operator("sequencer.image_strip_add", text="Image")
@@ -362,7 +362,7 @@ class SEQUENCER_MT_add(Menu):
 
 
 class SEQUENCER_MT_add_effect(Menu):
-    bl_label = "Effect Strip..."
+    bl_label = "Effect Strip"
 
     def draw(self, context):
         layout = self.layout
