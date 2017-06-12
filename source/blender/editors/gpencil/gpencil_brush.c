@@ -148,29 +148,27 @@ typedef bool (*GP_BrushApplyCb)(tGP_BrushEditData *gso, bGPDstroke *gps, int i,
 
 /* ************************************************ */
 /* Utility Functions */
-/* compute vector for locking one axis */
-static void gp_brush_compute_lock_axis(tGP_BrushEditData *gso, float diff_mat[4][4], float vec[3])
+
+/* apply lock axis reset */
+static void gpsculpt_compute_lock_axis(tGP_BrushEditData *gso, bGPDspoint *pt, float save_pt[3])
 {
-	ToolSettings *ts = gso->scene->toolsettings;
-	int axis = ts->gp_sculpt.lock_axis;
-	if (axis == GP_LOCKAXIS_NONE) {
+	if (gso->sa->spacetype != SPACE_VIEW3D) {
 		return;
 	}
-	
-	/* calculate a unit vector in the local locked axis direction */
-	float unit_vector[3];
-	float sub_vector[3];
-	zero_v3(unit_vector);
-	unit_vector[axis - 1] = 1.0f;
-	mul_mat3_m4_v3(diff_mat, unit_vector); /* only rotation component */
 
-	/* mult displacement vector by unit vector to get what we need to substract 
-	* This need more work because in some extreme angles the result is not perfect */
-	sub_vector[0] = vec[0] * unit_vector[0];
-	sub_vector[1] = vec[1] * unit_vector[1];
-	sub_vector[2] = vec[2] * unit_vector[2];
+	ToolSettings *ts = gso->scene->toolsettings;
+	int axis = ts->gp_sculpt.lock_axis;
 
-	sub_v3_v3(vec, sub_vector);
+	/* lock axis control */
+	if (axis == 1) {
+		pt->x = save_pt[0];
+	}
+	if (axis == 2) {
+		pt->y = save_pt[1];
+	}
+	if (axis == 3) {
+		pt->z = save_pt[2];
+	}
 }
 
 /* Context ---------------------------------------- */
@@ -465,17 +463,20 @@ static void gp_brush_grab_apply_cached(
 		mul_v3_v3fl(delta, gso->dvec, data->weights[i]);
 
 		float fpt[3];
+		float save_pt[3];
+		copy_v3_v3(save_pt, &pt->x);
 		/* apply transformation */
 		mul_v3_m4v3(fpt, diff_mat, &pt->x);
 		/* apply */
-		gp_brush_compute_lock_axis(gso, diff_mat, delta);
 		add_v3_v3(fpt, delta);
 		copy_v3_v3(&pt->x, fpt);
 		/* undo transformation to the init parent position */
 		float inverse_diff_mat[4][4];
 		invert_m4_m4(inverse_diff_mat, diff_mat);
 		mul_m4_v3(inverse_diff_mat, &pt->x);
-		
+
+		/* compute lock axis */
+		gpsculpt_compute_lock_axis(gso, pt, save_pt);
 	}
 }
 
