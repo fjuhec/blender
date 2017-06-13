@@ -42,7 +42,6 @@
 
 #include "BLI_listbase.h"
 
-#include "DNA_manipulator_types.h"
 #include "DNA_object_types.h"
 
 #include "ED_screen.h"

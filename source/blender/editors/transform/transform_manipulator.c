@@ -39,7 +39,6 @@
 #include "DNA_curve_types.h"
 #include "DNA_gpencil_types.h"
 #include "DNA_lattice_types.h"
-#include "DNA_manipulator_types.h"
 #include "DNA_meta_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_scene_types.h"

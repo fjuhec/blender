@@ -36,7 +36,6 @@
 #include "BLI_math.h"
 
 #include "DNA_view3d_types.h"
-#include "DNA_manipulator_types.h"
 
 #include "GPU_immediate.h"
 #include "GPU_matrix.h"

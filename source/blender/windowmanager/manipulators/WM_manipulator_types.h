@@ -247,6 +247,23 @@ typedef struct wmManipulatorGroupType {
 
 } wmManipulatorGroupType;
 
+typedef struct wmManipulatorGroup {
+	struct wmManipulatorGroup *next, *prev;
+
+	struct wmManipulatorGroupType *type;
+	ListBase manipulators;
+
+	struct wmManipulatorMap *parent_mmap;
+
+	void *py_instance;            /* python stores the class instance here */
+	struct ReportList *reports;   /* errors and warnings storage */
+
+	void *customdata;
+	void (*customdata_free)(void *); /* for freeing customdata from above */
+	int flag; /* private */
+	int pad;
+} wmManipulatorGroup;
+
 /**
  * Manipulator-map type update flag: `wmManipulatorMapType.type_update_flag`
  */

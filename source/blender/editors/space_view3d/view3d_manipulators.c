@@ -40,7 +40,6 @@
 #include "DNA_lamp_types.h"
 #include "DNA_object_types.h"
 #include "DNA_object_force.h"
-#include "DNA_manipulator_types.h"
 
 #include "ED_armature.h"
 #include "ED_screen.h"

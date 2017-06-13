@@ -34,8 +34,6 @@
 #include "BLI_string.h"
 #include "BLI_string_utils.h"
 
-#include "DNA_manipulator_types.h"
-
 #include "ED_screen.h"
 #include "ED_view3d.h"
 

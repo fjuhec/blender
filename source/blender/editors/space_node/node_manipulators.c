@@ -25,8 +25,6 @@
 #include "BKE_context.h"
 #include "BKE_image.h"
 
-#include "DNA_manipulator_types.h"
-
 #include "ED_screen.h"
 #include "ED_manipulator_library.h"
 

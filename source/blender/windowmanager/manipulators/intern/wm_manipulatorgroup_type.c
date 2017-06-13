@@ -28,8 +28,6 @@
 #include "BLI_string.h"
 #include "BLI_string_utils.h"
 
-#include "DNA_manipulator_types.h"
-
 #include "MEM_guardedalloc.h"
 
 #include "RNA_access.h"

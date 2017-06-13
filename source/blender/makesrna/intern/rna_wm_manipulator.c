@@ -29,7 +29,6 @@
 #include "DNA_userdef_types.h"
 #include "DNA_view3d_types.h"
 #include "DNA_windowmanager_types.h"
-#include "DNA_manipulator_types.h"
 
 #include "BLI_utildefines.h"
 
@@ -661,6 +660,12 @@ static StructRNA *rna_ManipulatorGroup_refine(PointerRNA *mgroup_ptr)
 	return (mgroup->type && mgroup->type->ext.srna) ? mgroup->type->ext.srna : &RNA_ManipulatorGroup;
 }
 
+static void rna_ManipulatorGroup_manipulators_begin(CollectionPropertyIterator *iter, PointerRNA *mgroup_ptr)
+{
+	wmManipulatorGroup *mgroup = mgroup_ptr->data;
+	rna_iterator_listbase_begin(iter, &mgroup->manipulators, NULL);
+}
+
 #endif
 
 /** \} */
@@ -878,6 +883,8 @@ static void rna_def_manipulatorgroup(BlenderRNA *brna)
 	/* -------------------------------------------------------------------- */
 	/* Registration */
 
+	RNA_define_verify_sdna(0); /* not in sdna */
+
 	prop = RNA_def_property(srna, "bl_idname", PROP_STRING, PROP_NONE);
 	RNA_def_property_string_sdna(prop, NULL, "type->idname");
 	RNA_def_property_string_maxlength(prop, MAX_NAME);
@@ -923,6 +930,9 @@ static void rna_def_manipulatorgroup(BlenderRNA *brna)
 	RNA_def_property_enum_items(prop, manipulatorgroup_flag_items);
 	RNA_def_property_flag(prop, PROP_REGISTER_OPTIONAL | PROP_ENUM_FLAG);
 	RNA_def_property_ui_text(prop, "Options",  "Options for this operator type");
+
+	RNA_define_verify_sdna(1); /* not in sdna */
+
 
 	/* Functions */
 
@@ -985,12 +995,22 @@ static void rna_def_manipulatorgroup(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Has Reports",
 	                         "ManipulatorGroup has a set of reports (warnings and errors) from last execution");
 
+
+	RNA_define_verify_sdna(0); /* not in sdna */
+
 	prop = RNA_def_property(srna, "manipulators", PROP_COLLECTION, PROP_NONE);
 	RNA_def_property_collection_sdna(prop, NULL, "manipulators", NULL);
 	RNA_def_property_struct_type(prop, "Manipulator");
+	RNA_def_property_collection_funcs(
+	        prop, "rna_ManipulatorGroup_manipulators_begin", "rna_iterator_listbase_next",
+	        "rna_iterator_listbase_end", "rna_iterator_listbase_get",
+	        NULL, NULL, NULL, NULL);
+
 	RNA_def_property_ui_text(prop, "Manipulators", "List of manipulators in the Manipulator Map");
 	rna_def_manipulator(brna, prop);
 	rna_def_manipulators(brna, prop);
+
+	RNA_define_verify_sdna(1); /* not in sdna */
 
 	RNA_api_manipulatorgroup(srna);
 }
