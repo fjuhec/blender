@@ -864,7 +864,7 @@ static void gp_brush_clone_init(bContext *C, tGP_BrushEditData *gso)
 	/* Init colormap for mapping between the pasted stroke's source colour(names)
 	 * and the final colours that will be used here instead...
 	 */
-	data->new_colors = gp_copybuf_validate_colormap(C, gso->gpd);
+	data->new_colors = gp_copybuf_validate_colormap(C);
 }
 
 /* Free custom data used for "clone" brush */

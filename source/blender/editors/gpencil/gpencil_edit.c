@@ -609,7 +609,7 @@ void ED_gpencil_strokes_copybuf_free(void)
 /* Ensure that destination datablock has all the colours the pasted strokes need
  * Helper function for copy-pasting strokes
  */
-GHash *gp_copybuf_validate_colormap(bContext *C, bGPdata *gpd)
+GHash *gp_copybuf_validate_colormap(bContext *C)
 {
 	GHash *new_colors = BLI_ghash_str_new("GPencil Paste Dst Colors");
 	GHashIterator gh_iter;
@@ -830,7 +830,7 @@ static int gp_strokes_paste_exec(bContext *C, wmOperator *op)
 	CTX_DATA_END;
 	
 	/* Ensure that all the necessary colors exist */
-	new_colors = gp_copybuf_validate_colormap(C, gpd);
+	new_colors = gp_copybuf_validate_colormap(C);
 		
 	/* Copy over the strokes from the buffer (and adjust the colors) */
 	for (bGPDstroke *gps = gp_strokes_copypastebuf.first; gps; gps = gps->next) {
