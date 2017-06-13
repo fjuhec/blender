@@ -30,7 +30,6 @@
 #include "BKE_context.h"
 
 #include "BLI_listbase.h"
-#include "BLI_ghash.h"
 #include "BLI_math.h"
 #include "BLI_string.h"
 #include "BLI_string_utils.h"
@@ -64,118 +63,6 @@
 
 static void wm_manipulator_register(
         wmManipulatorGroup *mgroup, wmManipulator *mpr, const char *name);
-
-/** \name Manipulator Type Append
- *
- * \note This follows conventions from #WM_operatortype_find #WM_operatortype_append & friends.
- * \{ */
-
-static GHash *global_manipulatortype_hash = NULL;
-
-const wmManipulatorType *WM_manipulatortype_find(const char *idname, bool quiet)
-{
-	if (idname[0]) {
-		wmManipulatorType *wt;
-
-		wt = BLI_ghash_lookup(global_manipulatortype_hash, idname);
-		if (wt) {
-			return wt;
-		}
-
-		if (!quiet) {
-			printf("search for unknown manipulator '%s'\n", idname);
-		}
-	}
-	else {
-		if (!quiet) {
-			printf("search for empty manipulator\n");
-		}
-	}
-
-	return NULL;
-}
-
-/* caller must free */
-void WM_manipulatortype_iter(GHashIterator *ghi)
-{
-	BLI_ghashIterator_init(ghi, global_manipulatortype_hash);
-}
-
-static wmManipulatorType *wm_manipulatortype_append__begin(void)
-{
-	wmManipulatorType *wt = MEM_callocN(sizeof(wmManipulatorType), "manipulatortype");
-	return wt;
-}
-static void wm_manipulatortype_append__end(wmManipulatorType *wt)
-{
-	BLI_assert(wt->struct_size >= sizeof(wmManipulator));
-
-	BLI_ghash_insert(global_manipulatortype_hash, (void *)wt->idname, wt);
-}
-
-void WM_manipulatortype_append(void (*wtfunc)(struct wmManipulatorType *))
-{
-	wmManipulatorType *wt = wm_manipulatortype_append__begin();
-	wtfunc(wt);
-	wm_manipulatortype_append__end(wt);
-}
-
-void WM_manipulatortype_append_ptr(void (*wtfunc)(struct wmManipulatorType *, void *), void *userdata)
-{
-	wmManipulatorType *mt = wm_manipulatortype_append__begin();
-	wtfunc(mt, userdata);
-	wm_manipulatortype_append__end(mt);
-}
-
-/**
- * Free but don't remove from ghash.
- */
-static void manipulatortype_free(wmManipulatorType *wt)
-{
-	MEM_freeN(wt);
-}
-
-void WM_manipulatortype_remove_ptr(wmManipulatorType *wt)
-{
-	BLI_assert(wt == WM_manipulatortype_find(wt->idname, false));
-
-	BLI_ghash_remove(global_manipulatortype_hash, wt->idname, NULL, NULL);
-
-	manipulatortype_free(wt);
-}
-
-bool WM_manipulatortype_remove(const char *idname)
-{
-	wmManipulatorType *wt = BLI_ghash_lookup(global_manipulatortype_hash, idname);
-
-	if (wt == NULL) {
-		return false;
-	}
-
-	WM_manipulatortype_remove_ptr(wt);
-
-	return true;
-}
-
-static void wm_manipulatortype_ghash_free_cb(wmManipulatorType *mt)
-{
-	manipulatortype_free(mt);
-}
-
-void wm_manipulatortype_free(void)
-{
-	BLI_ghash_free(global_manipulatortype_hash, NULL, (GHashValFreeFP)wm_manipulatortype_ghash_free_cb);
-	global_manipulatortype_hash = NULL;
-}
-
-/* called on initialize WM_init() */
-void wm_manipulatortype_init(void)
-{
-	/* reserve size is set based on blender default setup */
-	global_manipulatortype_hash = BLI_ghash_str_new_ex("wm_manipulatortype_init gh", 128);
-}
-
-/** \} */
 
 /**
  * \note Follow #wm_operator_create convention.

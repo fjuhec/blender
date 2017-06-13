@@ -87,7 +87,7 @@ void WM_manipulator_set_color(struct wmManipulator *mpr, const float col[4]);
 void WM_manipulator_get_color_highlight(const struct wmManipulator *mpr, float col_hi[4]);
 void WM_manipulator_set_color_highlight(struct wmManipulator *mpr, const float col[4]);
 
-/* wm_manipulator.c */
+/* wm_manipulator_type.c */
 const struct wmManipulatorType *WM_manipulatortype_find(const char *idname, bool quiet);
 void WM_manipulatortype_append(void (*wtfunc)(struct wmManipulatorType *));
 void WM_manipulatortype_append_ptr(void (*mnpfunc)(struct wmManipulatorType *, void *), void *userdata);
