@@ -170,7 +170,7 @@ class VIEW3D_MT_editor_menus(Menu):
             mesh = obj.data
             if mesh.use_paint_mask:
                 layout.menu("VIEW3D_MT_select_paint_mask")
-            elif mesh.use_paint_mask_vertex and mode_string == 'PAINT_WEIGHT':
+            elif mesh.use_paint_mask_vertex and (mode_string == 'PAINT_WEIGHT' or mode_string == 'PAINT_VERTEX'):
                 layout.menu("VIEW3D_MT_select_paint_mask_vertex")
         elif mode_string != 'SCULPT':
             layout.menu("VIEW3D_MT_select_%s" % mode_string.lower())

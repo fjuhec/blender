@@ -452,7 +452,7 @@ bool BKE_paint_select_vert_test(Object *ob)
 	         (ob->type == OB_MESH) &&
 	         (ob->data != NULL) &&
 	         (((Mesh *)ob->data)->editflag & ME_EDIT_PAINT_VERT_SEL) &&
-	         (ob->mode & OB_MODE_WEIGHT_PAINT)
+	         (ob->mode & OB_MODE_WEIGHT_PAINT || ob->mode & OB_MODE_VERTEX_PAINT)
 	         );
 }
 
@@ -670,6 +670,7 @@ void BKE_sculptsession_free_vwpaint_data(struct SculptSession *ss)
 	MEM_SAFE_FREE(ss->modes.vwpaint.total_weight);
 	MEM_SAFE_FREE(ss->modes.vwpaint.max_weight);
 	MEM_SAFE_FREE(ss->modes.vwpaint.previous_color);
+	MEM_SAFE_FREE(ss->modes.vwpaint.previous_accum);
 }
 
 /* Write out the sculpt dynamic-topology BMesh to the Mesh */

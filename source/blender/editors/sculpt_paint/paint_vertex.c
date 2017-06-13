@@ -3362,6 +3362,9 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 		if (me->editflag & ME_EDIT_PAINT_FACE_SEL) {
 			BKE_mesh_flush_select_from_polys(me);
 		}
+		else if (me->editflag & ME_EDIT_PAINT_VERT_SEL) {
+			BKE_mesh_flush_select_from_verts(me);
+		}
 
 		/* If the cache is not released by a cancel or a done, free it now. */
 		if (ob->sculpt->cache) {
@@ -3556,6 +3559,7 @@ static void do_vpaint_brush_calc_ave_color_cb_ex(
 	char *col;
 	data->ob->sculpt->modes.vwpaint.tot_loops_hit[n] = 0;
 	const bool use_face_sel = (data->me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
+	const bool use_vert_sel = (data->me->editflag & ME_EDIT_PAINT_VERT_SEL) != 0;
 
 	SculptBrushTest test;
 	sculpt_brush_test_init(ss, &test);
@@ -3570,7 +3574,9 @@ static void do_vpaint_brush_calc_ave_color_cb_ex(
 			if (BKE_brush_curve_strength(data->brush, test.dist, cache->radius) > 0.0) {
 				/* If the vertex is selected for painting. */
 				const MVert *mv = &data->me->mvert[v_index];
-				if (!use_face_sel || mv->flag & SELECT) {
+				const bool v_flag = data->me->mvert[v_index].flag;
+
+				if (!(use_face_sel || use_vert_sel) || v_flag & SELECT) {
 					ss->modes.vwpaint.tot_loops_hit[n] += ss->modes.vwpaint.vert_to_loop[v_index].count;
 					/* if a vertex is within the brush region, then add it's color to the blend. */
 					for (int j = 0; j < ss->modes.vwpaint.vert_to_loop[v_index].count; j++) {
@@ -3626,6 +3632,7 @@ static void do_vpaint_brush_draw_task_cb_ex(
 	float brush_size_pressure, brush_alpha_value, brush_alpha_pressure;
 	get_brush_alpha_data(scene, ss, brush, &brush_size_pressure, &brush_alpha_value, &brush_alpha_pressure);
 	const bool use_face_sel = (data->me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
+	const bool use_vert_sel = (data->me->editflag & ME_EDIT_PAINT_VERT_SEL) != 0;
 
 	SculptBrushTest test;
 	sculpt_brush_test_init(ss, &test);
@@ -3642,9 +3649,10 @@ static void do_vpaint_brush_draw_task_cb_ex(
 			const int v_index = ccgdm ? data->me->mloop[vd.grid_indices[vd.g]].v : vd.vert_indices[vd.i];
 			const float grid_alpha = ccgdm ? 1.0f / vd.gridsize : 1.0f;
 			const MVert *mv = &data->me->mvert[v_index];
+			const bool v_flag = data->me->mvert[v_index].flag;
 
 			/* If the vertex is selected for painting. */
-			if (!use_face_sel || mv->flag & SELECT) {
+			if (!(use_face_sel || use_vert_sel) || v_flag & SELECT) {
 				/* Calc the dot prod. between ray norm on surf and current vert
 				 * (ie splash prevention factor), and only paint front facing verts. */
 				const float view_dot = (vd.no) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
@@ -3711,6 +3719,7 @@ static void do_vpaint_brush_blur_task_cb_ex(
 	float brush_size_pressure, brush_alpha_value, brush_alpha_pressure;
 	get_brush_alpha_data(scene, ss, brush, &brush_size_pressure, &brush_alpha_value, &brush_alpha_pressure);
 	const bool use_face_sel = (data->me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
+	const bool use_vert_sel = (data->me->editflag & ME_EDIT_PAINT_VERT_SEL) != 0;
 
 	SculptBrushTest test;
 	sculpt_brush_test_init(ss, &test);
@@ -3726,13 +3735,14 @@ static void do_vpaint_brush_blur_task_cb_ex(
 			const int v_index = ccgdm ? data->me->mloop[vd.grid_indices[vd.g]].v : vd.vert_indices[vd.i];
 			const float grid_alpha = ccgdm ? 1.0f / vd.gridsize : 1.0f;
 			const MVert *mv = &data->me->mvert[v_index];
+			const bool v_flag = data->me->mvert[v_index].flag;
 
 			const float view_dot = (vd.no) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
 			if (view_dot > 0.0f) {
 				const float brush_fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
 
 				/* If the vertex is selected for painting. */
-				if (!use_face_sel || mv->flag & SELECT) {
+				if (!(use_face_sel || use_vert_sel) || v_flag & SELECT) {
 					/* Get the average poly color */
 					unsigned int color_final = 0;
 					int total_hit_loops = 0;
@@ -3807,6 +3817,7 @@ static void do_vpaint_brush_smear_task_cb_ex(
 	get_brush_alpha_data(scene, ss, brush, &brush_size_pressure, &brush_alpha_value, &brush_alpha_pressure);
 	float brush_dir[3];
 	const bool use_face_sel = (data->me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
+	const bool use_vert_sel = (data->me->editflag & ME_EDIT_PAINT_VERT_SEL) != 0;
 
 	sub_v3_v3v3(brush_dir, cache->location, cache->last_location);
 	if (normalize_v3(brush_dir) != 0.0f) {
@@ -3825,9 +3836,10 @@ static void do_vpaint_brush_smear_task_cb_ex(
 				const int v_index = ccgdm ? data->me->mloop[vd.grid_indices[vd.g]].v : vd.vert_indices[vd.i];
 				const float grid_alpha = ccgdm ? 1.0f / vd.gridsize : 1.0f;
 				const MVert *mv_curr = &data->me->mvert[v_index];
+				const bool v_flag = data->me->mvert[v_index].flag;
 
 				/* if the vertex is selected for painting. */
-				if (!use_face_sel || mv_curr->flag & SELECT) {
+				if (!(use_face_sel || use_vert_sel) || v_flag & SELECT) {
 					/* Calc the dot prod. between ray norm on surf and current vert
 					(ie splash prevention factor), and only paint front facing verts. */
 					const float view_dot = (vd.no) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
