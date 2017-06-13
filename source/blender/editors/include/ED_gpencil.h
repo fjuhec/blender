@@ -39,7 +39,6 @@ struct bGPdata;
 struct bGPDlayer;
 struct bGPDframe;
 struct bGPDstroke;
-struct bGPDspoint;
 struct bGPDpalette;
 struct bGPDpalettecolor;
 struct bGPDspoint;
