@@ -57,13 +57,13 @@
 #include "BKE_main.h"
 
  /* Draw Engine */
-void(*BKE_gpencil_batch_cache_dirty_cb)(bGPdata *gpd, int mode) = NULL;
+void(*BKE_gpencil_batch_cache_dirty_cb)(bGPdata *gpd) = NULL;
 void(*BKE_gpencil_batch_cache_free_cb)(bGPdata *gpd) = NULL;
 
-void BKE_gpencil_batch_cache_dirty(bGPdata *gpd, int mode)
+void BKE_gpencil_batch_cache_dirty(bGPdata *gpd)
 {
 	if (gpd->batch_cache) {
-		BKE_gpencil_batch_cache_dirty_cb(gpd, mode);
+		BKE_gpencil_batch_cache_dirty_cb(gpd);
 	}
 }
 
@@ -1447,7 +1447,7 @@ void BKE_gpencil_batch_cache_alldirty()
 	Main *bmain = G.main;
 
 	for (gpd = bmain->gpencil.first; gpd; gpd = gpd->id.next) {
-		BKE_gpencil_batch_cache_dirty(gpd, 0);
+		BKE_gpencil_batch_cache_dirty(gpd);
 	}
 }
 

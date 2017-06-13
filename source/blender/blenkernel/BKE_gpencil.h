@@ -52,7 +52,7 @@ void BKE_gpencil_free_brushes(struct ListBase *list);
 void BKE_gpencil_free_palettes(struct ListBase *list);
 void BKE_gpencil_free(struct bGPdata *gpd, bool free_all);
 
-void BKE_gpencil_batch_cache_dirty(struct bGPdata *gpd, int mode);
+void BKE_gpencil_batch_cache_dirty(struct bGPdata *gpd);
 void BKE_gpencil_batch_cache_free(struct bGPdata *gpd);
 void BKE_gpencil_batch_cache_alldirty(void);
 

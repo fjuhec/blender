@@ -1074,7 +1074,7 @@ static void gp_stroke_eraser_dostroke(tGPsdata *p,
 		if (gps->triangles)
 			MEM_freeN(gps->triangles);
 		BLI_freelinkN(&gpf->strokes, gps);
-		BKE_gpencil_batch_cache_dirty(p->gpd, 0);
+		BKE_gpencil_batch_cache_dirty(p->gpd);
 	}
 	else if (gps->totpoints == 1) {
 		/* only process if it hasn't been masked out... */
@@ -1092,7 +1092,7 @@ static void gp_stroke_eraser_dostroke(tGPsdata *p,
 					if (gps->triangles)
 						MEM_freeN(gps->triangles);
 					BLI_freelinkN(&gpf->strokes, gps);
-					BKE_gpencil_batch_cache_dirty(p->gpd, 0);
+					BKE_gpencil_batch_cache_dirty(p->gpd);
 				}
 			}
 		}
@@ -1180,7 +1180,7 @@ static void gp_stroke_eraser_dostroke(tGPsdata *p,
 		if (do_cull) {
 			gp_stroke_delete_tagged_points(gpf, gps, gps->next, GP_SPOINT_TAG);
 		}
-		BKE_gpencil_batch_cache_dirty(p->gpd, 0);
+		BKE_gpencil_batch_cache_dirty(p->gpd);
 	}
 }
 
@@ -1638,7 +1638,7 @@ static void gp_paint_initstroke(tGPsdata *p, eGPencil_PaintModes paintmode)
 			
 		p->gpf = BKE_gpencil_layer_getframe(p->gpl, CFRA, add_frame_mode);
 		/* set as dirty draw manager cache */
-		BKE_gpencil_batch_cache_dirty(p->gpd, 0);
+		BKE_gpencil_batch_cache_dirty(p->gpd);
 		
 		if (p->gpf == NULL) {
 			p->status = GP_STATUS_ERROR;

@@ -75,14 +75,14 @@ EnumPropertyItem rna_enum_gpencil_xraymodes_items[] = {
 static void rna_GPencil_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
 {
 	bGPdata *gpd = (bGPdata *)ptr->id.data;
-	BKE_gpencil_batch_cache_dirty(gpd, 0);
+	BKE_gpencil_batch_cache_dirty(gpd);
 	WM_main_add_notifier(NC_GPENCIL | NA_EDITED, NULL);
 }
 
 static void rna_GPencil_editmode_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
 {
 	bGPdata *gpd = (bGPdata *)ptr->id.data;
-	BKE_gpencil_batch_cache_dirty(gpd, 0);
+	BKE_gpencil_batch_cache_dirty(gpd);
 
 	/* Notify all places where GPencil data lives that the editing state is different */
 	WM_main_add_notifier(NC_GPENCIL | NA_EDITED, NULL);

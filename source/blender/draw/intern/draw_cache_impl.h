@@ -49,7 +49,7 @@ void DRW_lattice_batch_cache_free(struct Lattice *lt);
 void DRW_particle_batch_cache_dirty(struct ParticleSystem *psys, int mode);
 void DRW_particle_batch_cache_free(struct ParticleSystem *psys);
 
-void DRW_gpencil_batch_cache_dirty(struct bGPdata *gpd, int mode);
+void DRW_gpencil_batch_cache_dirty(struct bGPdata *gpd);
 void DRW_gpencil_batch_cache_free(struct bGPdata *gpd);
 
 /* Curve */

@@ -539,7 +539,7 @@ static int gp_duplicate_exec(bContext *C, wmOperator *op)
 	CTX_DATA_END;
 	
 	/* updates */
-	BKE_gpencil_batch_cache_dirty(gpd, 0);
+	BKE_gpencil_batch_cache_dirty(gpd);
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 	
 	return OPERATOR_FINISHED;
@@ -879,7 +879,7 @@ static int gp_strokes_paste_exec(bContext *C, wmOperator *op)
 	BLI_ghash_free(new_colors, NULL, NULL);
 	
 	/* updates */
-	BKE_gpencil_batch_cache_dirty(gpd, 0);
+	BKE_gpencil_batch_cache_dirty(gpd);
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 	
 	return OPERATOR_FINISHED;
@@ -988,7 +988,7 @@ static int gp_move_to_layer_exec(bContext *C, wmOperator *op)
 	}
 	
 	/* updates */
-	BKE_gpencil_batch_cache_dirty(gpd, 0);
+	BKE_gpencil_batch_cache_dirty(gpd);
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 	
 	return OPERATOR_FINISHED;
@@ -1073,7 +1073,7 @@ static int gp_blank_frame_add_exec(bContext *C, wmOperator *op)
 	CTX_DATA_END;
 	
 	/* notifiers */
-	BKE_gpencil_batch_cache_dirty(gpd, 0);
+	BKE_gpencil_batch_cache_dirty(gpd);
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 	
 	return OPERATOR_FINISHED;
@@ -1129,7 +1129,7 @@ static int gp_actframe_delete_exec(bContext *C, wmOperator *op)
 	BKE_gpencil_layer_delframe(gpl, gpf);
 	
 	/* notifiers */
-	BKE_gpencil_batch_cache_dirty(gpd, 0);
+	BKE_gpencil_batch_cache_dirty(gpd);
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 	
 	return OPERATOR_FINISHED;
@@ -1185,7 +1185,7 @@ static int gp_actframe_delete_all_exec(bContext *C, wmOperator *op)
 	
 	/* updates */
 	if (success) {
-		BKE_gpencil_batch_cache_dirty(gpd, 0);
+		BKE_gpencil_batch_cache_dirty(gpd);
 		WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 		return OPERATOR_FINISHED;
 	}
@@ -1258,7 +1258,7 @@ static int gp_delete_selected_strokes(bContext *C)
 	CTX_DATA_END;
 	
 	if (changed) {
-		BKE_gpencil_batch_cache_dirty(gpd, 0);
+		BKE_gpencil_batch_cache_dirty(gpd);
 		WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 		return OPERATOR_FINISHED;
 	}
@@ -1318,7 +1318,7 @@ static int gp_dissolve_selected_points(bContext *C)
 						MEM_freeN(gps->triangles);
 					}
 					BLI_freelinkN(&gpf->strokes, gps);
-					BKE_gpencil_batch_cache_dirty(gpd, 0);
+					BKE_gpencil_batch_cache_dirty(gpd);
 				}
 				else {
 					/* just copy all unselected into a smaller buffer */
@@ -1354,7 +1354,7 @@ static int gp_dissolve_selected_points(bContext *C)
 	CTX_DATA_END;
 	
 	if (changed) {
-		BKE_gpencil_batch_cache_dirty(gpd, 0);
+		BKE_gpencil_batch_cache_dirty(gpd);
 		WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 		return OPERATOR_FINISHED;
 	}
@@ -1529,7 +1529,7 @@ static int gp_delete_selected_points(bContext *C)
 	CTX_DATA_END;
 	
 	if (changed) {
-		BKE_gpencil_batch_cache_dirty(gpd, 0);
+		BKE_gpencil_batch_cache_dirty(gpd);
 		WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 		return OPERATOR_FINISHED;
 	}
@@ -1672,7 +1672,7 @@ static int gp_snap_to_grid(bContext *C, wmOperator *UNUSED(op))
 		}
 	}
 	
-	BKE_gpencil_batch_cache_dirty(gpd, 0);
+	BKE_gpencil_batch_cache_dirty(gpd);
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 	return OPERATOR_FINISHED;
 }
@@ -1754,7 +1754,7 @@ static int gp_snap_to_cursor(bContext *C, wmOperator *op)
 		}
 	}
 	
-	BKE_gpencil_batch_cache_dirty(gpd, 0);
+	BKE_gpencil_batch_cache_dirty(gpd);
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 	return OPERATOR_FINISHED;
 }
@@ -1845,7 +1845,7 @@ static int gp_snap_cursor_to_sel(bContext *C, wmOperator *UNUSED(op))
 	}
 
 	
-	BKE_gpencil_batch_cache_dirty(gpd, 0);
+	BKE_gpencil_batch_cache_dirty(gpd);
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 	return OPERATOR_FINISHED;
 }
@@ -1887,7 +1887,7 @@ static int gp_stroke_apply_thickness_exec(bContext *C, wmOperator *UNUSED(op))
 	gpl->thickness = 0.0f;
 
 	/* notifiers */
-	BKE_gpencil_batch_cache_dirty(gpd, 0);
+	BKE_gpencil_batch_cache_dirty(gpd);
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 
 	return OPERATOR_FINISHED;
@@ -1960,7 +1960,7 @@ static int gp_stroke_cyclical_set_exec(bContext *C, wmOperator *op)
 	CTX_DATA_END;
 	
 	/* notifiers */
-	BKE_gpencil_batch_cache_dirty(gpd, 0);
+	BKE_gpencil_batch_cache_dirty(gpd);
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 	
 	return OPERATOR_FINISHED;
@@ -2226,7 +2226,7 @@ static int gp_stroke_join_exec(bContext *C, wmOperator *op)
 	}
 	
 	/* notifiers */
-	BKE_gpencil_batch_cache_dirty(gpd, 0);
+	BKE_gpencil_batch_cache_dirty(gpd);
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 	
 	return OPERATOR_FINISHED;
@@ -2293,7 +2293,7 @@ static int gp_stroke_flip_exec(bContext *C, wmOperator *UNUSED(op))
 	CTX_DATA_END;
 	
 	/* notifiers */
-	BKE_gpencil_batch_cache_dirty(gpd, 0);
+	BKE_gpencil_batch_cache_dirty(gpd);
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 	
 	return OPERATOR_FINISHED;
@@ -2408,7 +2408,7 @@ static int gp_strokes_reproject_exec(bContext *C, wmOperator *op)
 	}
 	GP_EDITABLE_STROKES_END;
 	
-	BKE_gpencil_batch_cache_dirty(gpd, 0);
+	BKE_gpencil_batch_cache_dirty(gpd);
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 	return OPERATOR_FINISHED;
 }
@@ -2535,7 +2535,7 @@ static int gp_stroke_subdivide_exec(bContext *C, wmOperator *op)
 	GP_EDITABLE_STROKES_END;
 
 	/* notifiers */
-	BKE_gpencil_batch_cache_dirty(gpd, 0);
+	BKE_gpencil_batch_cache_dirty(gpd);
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 
 	return OPERATOR_FINISHED;
