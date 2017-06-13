@@ -573,7 +573,9 @@ void WM_manipulatormaptype_group_free(wmManipulatorGroupTypeRef *wgt_ref)
 	MEM_freeN(wgt_ref);
 }
 
-void WM_manipulatormaptype_group_unlink(bContext *C, Main *bmain, const wmManipulatorGroupType *wgt)
+void WM_manipulatormaptype_group_unlink(
+        bContext *C, Main *bmain, wmManipulatorMapType *mmap_type,
+        const wmManipulatorGroupType *wgt)
 {
 	/* Free instances. */
 	for (bScreen *sc = bmain->screen.first; sc; sc = sc->id.next) {
@@ -582,7 +584,7 @@ void WM_manipulatormaptype_group_unlink(bContext *C, Main *bmain, const wmManipu
 				ListBase *lb = (sl == sa->spacedata.first) ? &sa->regionbase : &sl->regionbase;
 				for (ARegion *ar = lb->first; ar; ar = ar->next) {
 					wmManipulatorMap *mmap = ar->manipulator_map;
-					if (mmap) {
+					if (mmap && mmap->type == mmap_type) {
 						wmManipulatorGroup *mgroup, *mgroup_next;
 						for (mgroup = mmap->groups.first; mgroup; mgroup = mgroup_next) {
 							mgroup_next = mgroup->next;
@@ -599,21 +601,12 @@ void WM_manipulatormaptype_group_unlink(bContext *C, Main *bmain, const wmManipu
 	}
 
 	/* Free types. */
-	for (wmManipulatorMapType *mmap_type = wm_manipulatormaptypes_list_first();
-	     mmap_type;
-	     mmap_type = mmap_type->next)
-	{
-		if ((mmap_type->spaceid == wgt->mmap_params.spaceid) &&
-		    (mmap_type->regionid == wgt->mmap_params.regionid))
-		{
-			wmManipulatorGroupTypeRef *wgt_ref = WM_manipulatormaptype_group_find_ptr(mmap_type, wgt);
-			if (wgt_ref) {
-				BLI_remlink(&mmap_type->grouptype_refs, wgt_ref);
-				WM_manipulatormaptype_group_free(wgt_ref);
-			}
-			BLI_assert(WM_manipulatormaptype_group_find_ptr(mmap_type, wgt) == NULL);
-		}
+	wmManipulatorGroupTypeRef *wgt_ref = WM_manipulatormaptype_group_find_ptr(mmap_type, wgt);
+	if (wgt_ref) {
+		BLI_remlink(&mmap_type->grouptype_refs, wgt_ref);
+		WM_manipulatormaptype_group_free(wgt_ref);
 	}
+	BLI_assert(WM_manipulatormaptype_group_find_ptr(mmap_type, wgt) == NULL);
 }
 
 void wm_manipulatorgrouptype_setup_keymap(
@@ -623,3 +616,51 @@ void wm_manipulatorgrouptype_setup_keymap(
 }
 
 /** \} */ /* wmManipulatorGroupType */
+
+/* -------------------------------------------------------------------- */
+/** \name High Level Add/Remove API
+ *
+ * For use directly from operators & RNA registration.
+ *
+ * \note In context of manipulator API these names are a bit misleading,
+ * but for general use terms its OK.
+ * `WM_manipulator_group_add` would be more correctly called:
+ * `WM_manipulatormaptype_grouptype_reference_link`
+ * but for general purpose API this is too detailed & annoying.
+ *
+ * \note We may want to return a value if there is nothing to remove.
+ *
+ * \{ */
+
+void WM_manipulator_group_add_ex(
+        wmManipulatorGroupType *wgt,
+        wmManipulatorMapType *mmap_type)
+{
+	WM_manipulatormaptype_group_link_ptr(mmap_type, wgt);
+
+	WM_manipulatorconfig_update_tag_init(mmap_type, wgt);
+}
+
+void WM_manipulator_group_add(
+        wmManipulatorGroupType *wgt)
+{
+	wmManipulatorMapType *mmap_type = WM_manipulatormaptype_ensure(&wgt->mmap_params);
+	WM_manipulator_group_add_ex(wgt, mmap_type);
+}
+
+void WM_manipulator_group_remove_ex(
+        struct Main *bmain, wmManipulatorGroupType *wgt,
+        wmManipulatorMapType *mmap_type)
+{
+	WM_manipulatormaptype_group_unlink(NULL, bmain, mmap_type, wgt);
+}
+
+void WM_manipulator_group_remove(
+        struct Main *bmain, wmManipulatorGroupType *wgt)
+{
+	wmManipulatorMapType *mmap_type = WM_manipulatormaptype_ensure(&wgt->mmap_params);
+	WM_manipulator_group_remove_ex(bmain, wgt, mmap_type);
+}
+
+
+/** \} */

@@ -584,8 +584,8 @@ static StructRNA *rna_ManipulatorGroup_register(
 		.regionid = dummywgt.mmap_params.regionid,
 	};
 
-	wmManipulatorMapType *wmaptype = WM_manipulatormaptype_ensure(&wmap_params);
-	if (wmaptype == NULL) {
+	wmManipulatorMapType *mmap_type = WM_manipulatormaptype_ensure(&wmap_params);
+	if (mmap_type == NULL) {
 		BKE_reportf(reports, RPT_ERROR, "Area type does not support manipulators");
 		return NULL;
 	}
@@ -594,7 +594,7 @@ static StructRNA *rna_ManipulatorGroup_register(
 	{
 		wmManipulatorGroupType *wgt = WM_manipulatorgrouptype_find(dummywgt.idname, true);
 		if (wgt && wgt->ext.srna) {
-			WM_manipulatormaptype_group_unlink(NULL, bmain, wgt);
+			WM_manipulatormaptype_group_unlink(NULL, bmain, mmap_type, wgt);
 			WM_manipulatorgrouptype_remove_ptr(wgt);
 
 			WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);
@@ -624,9 +624,7 @@ static StructRNA *rna_ManipulatorGroup_register(
 	        BPY_RNA_manipulatorgroup_wrapper, (void *)&dummywgt);
 
 	if (wgt->flag & WM_MANIPULATORGROUPTYPE_PERSISTENT) {
-		WM_manipulatormaptype_group_link_ptr(wmaptype, wgt);
-
-		WM_manipulatorconfig_update_tag_init(wmaptype, wgt);
+		WM_manipulator_group_add_ex(wgt, mmap_type);
 
 		/* update while blender is running */
 		WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);
@@ -646,7 +644,7 @@ static void rna_ManipulatorGroup_unregister(struct Main *bmain, StructRNA *type)
 
 	RNA_struct_free_extension(type, &wgt->ext);
 
-	WM_manipulatormaptype_group_unlink(NULL, bmain, wgt);
+	WM_manipulator_group_remove(bmain, wgt);
 
 	RNA_struct_free(&BLENDER_RNA, type);
 }

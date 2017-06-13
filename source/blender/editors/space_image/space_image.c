@@ -604,10 +604,10 @@ static void IMAGE_WGT_manipulator2d(wmManipulatorGroupType *wgt)
 
 static void image_widgets(void)
 {
-	wmManipulatorMapType *wmaptype = WM_manipulatormaptype_ensure(
+	wmManipulatorMapType *mmap_type = WM_manipulatormaptype_ensure(
 	        &(const struct wmManipulatorMapType_Params){SPACE_IMAGE, RGN_TYPE_WINDOW});
 
-	WM_manipulatorgrouptype_append_and_link(wmaptype, IMAGE_WGT_manipulator2d);
+	WM_manipulatorgrouptype_append_and_link(mmap_type, IMAGE_WGT_manipulator2d);
 }
 
 /************************** main region ***************************/

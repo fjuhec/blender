@@ -859,9 +859,9 @@ static int node_context(const bContext *C, const char *member, bContextDataResul
 static void node_widgets(void)
 {
 	/* create the widgetmap for the area here */
-	wmManipulatorMapType *wmaptype = WM_manipulatormaptype_ensure(
+	wmManipulatorMapType *mmap_type = WM_manipulatormaptype_ensure(
 	        &(const struct wmManipulatorMapType_Params){SPACE_NODE, RGN_TYPE_WINDOW});
-	WM_manipulatorgrouptype_append_and_link(wmaptype, NODE_WGT_backdrop_transform);
+	WM_manipulatorgrouptype_append_and_link(mmap_type, NODE_WGT_backdrop_transform);
 }
 
 static void node_id_remap(ScrArea *UNUSED(sa), SpaceLink *slink, ID *old_id, ID *new_id)

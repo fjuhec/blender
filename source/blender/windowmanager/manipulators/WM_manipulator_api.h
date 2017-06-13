@@ -158,8 +158,25 @@ struct wmManipulatorGroupTypeRef *WM_manipulatormaptype_group_link_ptr(
 void WM_manipulatormaptype_group_init_runtime(
         const struct Main *bmain, struct wmManipulatorMapType *mmap_type,
         struct wmManipulatorGroupType *wgt);
-void WM_manipulatormaptype_group_free(struct wmManipulatorGroupTypeRef *wgt);
 void WM_manipulatormaptype_group_unlink(
-        struct bContext *C, struct Main *bmain, const struct wmManipulatorGroupType *wgt);
+        struct bContext *C, struct Main *bmain, struct wmManipulatorMapType *mmap_type,
+        const struct wmManipulatorGroupType *wgt);
+
+void WM_manipulatormaptype_group_free(struct wmManipulatorGroupTypeRef *wgt);
+
+/* -------------------------------------------------------------------- */
+/* Manipulator Add/Remove (High level API) */
+
+void WM_manipulator_group_add_ex(
+        struct wmManipulatorGroupType *wgt,
+        struct wmManipulatorMapType *mmap_type);
+void WM_manipulator_group_add(
+        struct wmManipulatorGroupType *wgt);
+
+void WM_manipulator_group_remove_ex(
+        struct Main *bmain, struct wmManipulatorGroupType *wgt,
+        struct wmManipulatorMapType *mmap_type);
+void WM_manipulator_group_remove(
+        struct Main *bmain, struct wmManipulatorGroupType *wgt);
 
 #endif  /* __WM_MANIPULATOR_API_H__ */

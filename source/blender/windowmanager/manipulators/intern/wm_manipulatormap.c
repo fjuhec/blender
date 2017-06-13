@@ -756,11 +756,6 @@ void wm_manipulatormaptypes_free(void)
 	}
 }
 
-wmManipulatorMapType *wm_manipulatormaptypes_list_first(void)
-{
-	return manipulatormaptypes.first;
-}
-
 /**
  * Initialize keymaps for all existing manipulator-groups
  */

@@ -89,8 +89,6 @@ struct wmManipulator *wm_manipulatormap_active_get(struct wmManipulatorMap *mmap
 /* -------------------------------------------------------------------- */
 /* wmManipulatorMapType */
 
-struct wmManipulatorMapType *wm_manipulatormaptypes_list_first(void);
-
 void wm_manipulatormaptypes_free(void);
 
 #endif  /* __WM_MANIPULATOR_WMAPI_H__ */

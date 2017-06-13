@@ -124,8 +124,8 @@ typedef struct wmManipulatorWrapper {
 } wmManipulatorWrapper;
 
 struct wmManipulatorMapType_Params {
-	const int spaceid;
-	const int regionid;
+	short spaceid;
+	short regionid;
 };
 
 
@@ -243,10 +243,7 @@ typedef struct wmManipulatorGroupType {
 	uchar type_update_flag;
 
 	/* same as manipulator-maps, so registering/unregistering goes to the correct region */
-	struct {
-		int spaceid;
-		int regionid;
-	} mmap_params;
+	struct wmManipulatorMapType_Params mmap_params;
 
 } wmManipulatorGroupType;
 

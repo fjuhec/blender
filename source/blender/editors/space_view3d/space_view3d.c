@@ -731,15 +731,15 @@ static void view3d_dropboxes(void)
 
 static void view3d_widgets(void)
 {
-	wmManipulatorMapType *wmaptype = WM_manipulatormaptype_ensure(
+	wmManipulatorMapType *mmap_type = WM_manipulatormaptype_ensure(
 	        &(const struct wmManipulatorMapType_Params){SPACE_VIEW3D, RGN_TYPE_WINDOW});
 
-	WM_manipulatorgrouptype_append_and_link(wmaptype, TRANSFORM_WGT_manipulator);
-	WM_manipulatorgrouptype_append_and_link(wmaptype, VIEW3D_WGT_lamp);
-	WM_manipulatorgrouptype_append_and_link(wmaptype, VIEW3D_WGT_force_field);
-	WM_manipulatorgrouptype_append_and_link(wmaptype, VIEW3D_WGT_camera);
+	WM_manipulatorgrouptype_append_and_link(mmap_type, TRANSFORM_WGT_manipulator);
+	WM_manipulatorgrouptype_append_and_link(mmap_type, VIEW3D_WGT_lamp);
+	WM_manipulatorgrouptype_append_and_link(mmap_type, VIEW3D_WGT_force_field);
+	WM_manipulatorgrouptype_append_and_link(mmap_type, VIEW3D_WGT_camera);
 
-	WM_manipulatorgrouptype_append_and_link(wmaptype, VIEW3D_WGT_armature_facemaps);
+	WM_manipulatorgrouptype_append_and_link(mmap_type, VIEW3D_WGT_armature_facemaps);
 }
 
 
