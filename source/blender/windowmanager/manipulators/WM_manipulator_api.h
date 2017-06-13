@@ -167,16 +167,18 @@ void WM_manipulatormaptype_group_free(struct wmManipulatorGroupTypeRef *wgt);
 /* -------------------------------------------------------------------- */
 /* Manipulator Add/Remove (High level API) */
 
-void WM_manipulator_group_add_ex(
+void WM_manipulator_group_add_ptr_ex(
         struct wmManipulatorGroupType *wgt,
         struct wmManipulatorMapType *mmap_type);
-void WM_manipulator_group_add(
+void WM_manipulator_group_add_ptr(
         struct wmManipulatorGroupType *wgt);
+void WM_manipulator_group_add(const char *idname);
 
-void WM_manipulator_group_remove_ex(
+void WM_manipulator_group_remove_ptr_ex(
         struct Main *bmain, struct wmManipulatorGroupType *wgt,
         struct wmManipulatorMapType *mmap_type);
-void WM_manipulator_group_remove(
+void WM_manipulator_group_remove_ptr(
         struct Main *bmain, struct wmManipulatorGroupType *wgt);
+void WM_manipulator_group_remove(struct Main *bmain, const char *idname);
 
 #endif  /* __WM_MANIPULATOR_API_H__ */

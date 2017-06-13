@@ -624,7 +624,7 @@ static StructRNA *rna_ManipulatorGroup_register(
 	        BPY_RNA_manipulatorgroup_wrapper, (void *)&dummywgt);
 
 	if (wgt->flag & WM_MANIPULATORGROUPTYPE_PERSISTENT) {
-		WM_manipulator_group_add_ex(wgt, mmap_type);
+		WM_manipulator_group_add_ptr_ex(wgt, mmap_type);
 
 		/* update while blender is running */
 		WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);
@@ -644,7 +644,7 @@ static void rna_ManipulatorGroup_unregister(struct Main *bmain, StructRNA *type)
 
 	RNA_struct_free_extension(type, &wgt->ext);
 
-	WM_manipulator_group_remove(bmain, wgt);
+	WM_manipulator_group_remove_ptr(bmain, wgt);
 
 	RNA_struct_free(&BLENDER_RNA, type);
 }
