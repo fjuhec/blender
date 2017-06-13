@@ -2413,7 +2413,7 @@ static int make_override_exec(bContext *C, wmOperator *UNUSED(op))
 	/* Remapping *before* defining override (this will have to be fixed btw, remapping of ref pointer...). */
 	BKE_libblock_remap(bmain, refobj, locobj, ID_REMAP_SKIP_INDIRECT_USAGE);
 
-	IDOverride *override = BKE_override_init(&locobj->id, &refobj->id);
+	BKE_override_init(&locobj->id, &refobj->id);
 	locobj->id.flag |= LIB_AUTOOVERRIDE;
 
 	WM_event_add_notifier(C, NC_WINDOW, NULL);

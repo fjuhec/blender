@@ -52,16 +52,27 @@
 
 #define OVERRIDE_AUTO_CHECK_DELAY 0.2  /* 200ms between auto-override checks. */
 
+static void bke_override_property_copy(IDOverrideProperty *op_dst, IDOverrideProperty *op_src);
+static void bke_override_property_operation_copy(IDOverridePropertyOperation *opop_dst, IDOverridePropertyOperation *opop_src);
+
 static void bke_override_property_clear(IDOverrideProperty *op);
 static void bke_override_property_operation_clear(IDOverridePropertyOperation *opop);
 
 /** Initialize empty overriding of \a reference_id by \a local_id. */
-IDOverride *BKE_override_init(struct ID *local_id, struct ID *reference_id)
+IDOverride *BKE_override_init(ID *local_id, ID *reference_id)
 {
 	/* If reference_id is NULL, we are creating an override template for purely local data.
 	 * Else, reference *must* be linked data. */
 	BLI_assert(reference_id == NULL || reference_id->lib != NULL);
+	BLI_assert(local_id->override == NULL);
 
+	if (reference_id != NULL && reference_id->override != NULL && reference_id->override->reference == NULL) {
+		/* reference ID has an override template, use it! */
+		BKE_override_copy(local_id, reference_id);
+		return local_id->override;
+	}
+
+	/* Else, generate new empty override. */
 	local_id->override = MEM_callocN(sizeof(*local_id->override), __func__);
 	local_id->override->reference = reference_id;
 	id_us_plus(reference_id);
@@ -70,8 +81,45 @@ IDOverride *BKE_override_init(struct ID *local_id, struct ID *reference_id)
 	return local_id->override;
 }
 
+/** Deep copy of a whole override from \a src_id to \a dst_id. */
+void BKE_override_copy(ID *dst_id, const ID *src_id)
+{
+	BLI_assert(src_id->override != NULL);
+
+	if (dst_id->override != NULL) {
+		if (src_id->override == NULL) {
+			BKE_override_free(&dst_id->override);
+			return;
+		}
+		else {
+			BKE_override_clear(dst_id->override);
+		}
+	}
+	else if (src_id->override == NULL) {
+		return;
+	}
+	else {
+		BKE_override_init(dst_id, NULL);
+	}
+
+	/* Source is already overriding data, we copy it but reuse it's reference for dest ID.
+	 * otherwise, source is only an override template, it then becomes reference of dest ID. */
+	dst_id->override->reference = src_id->override->reference ? src_id->override->reference : (ID *)src_id;
+	id_us_plus(dst_id->override->reference);
+
+	BLI_duplicatelist(&dst_id->override->properties, &src_id->override->properties);
+	for (IDOverrideProperty *op_dst = dst_id->override->properties.first, *op_src = src_id->override->properties.first;
+	     op_dst;
+	     op_dst = op_dst->next, op_src = op_src->next)
+	{
+		bke_override_property_copy(op_dst, op_src);
+	}
+
+	dst_id->tag &= ~LIB_TAG_OVERRIDE_OK;
+}
+
 /** Clear any overriding data from given \a override. */
-void BKE_override_clear(struct IDOverride *override)
+void BKE_override_clear(IDOverride *override)
 {
 	BLI_assert(override != NULL);
 
@@ -79,6 +127,9 @@ void BKE_override_clear(struct IDOverride *override)
 		bke_override_property_clear(op);
 	}
 	BLI_freelistN(&override->properties);
+
+	id_us_min(override->reference);
+	/* override->storage should never be refcounted... */
 }
 
 /** Free given \a override. */
@@ -122,6 +173,19 @@ IDOverrideProperty *BKE_override_property_get(IDOverride *override, const char *
 	}
 
 	return op;
+}
+
+void bke_override_property_copy(IDOverrideProperty *op_dst, IDOverrideProperty *op_src)
+{
+	op_dst->rna_path = BLI_strdup(op_src->rna_path);
+	BLI_duplicatelist(&op_dst->operations, &op_src->operations);
+
+	for (IDOverridePropertyOperation *opop_dst = op_dst->operations.first, *opop_src = op_src->operations.first;
+	     opop_dst;
+	     opop_dst = opop_dst->next, opop_src = opop_src->next)
+	{
+		bke_override_property_operation_copy(opop_dst, opop_src);
+	}
 }
 
 void bke_override_property_clear(IDOverrideProperty *op)
@@ -237,6 +301,16 @@ IDOverridePropertyOperation *BKE_override_property_operation_get(
 	}
 
 	return opop;
+}
+
+void bke_override_property_operation_copy(IDOverridePropertyOperation *opop_dst, IDOverridePropertyOperation *opop_src)
+{
+	if (opop_src->subitem_reference_name) {
+		opop_dst->subitem_reference_name = BLI_strdup(opop_src->subitem_reference_name);
+	}
+	if (opop_src->subitem_local_name) {
+		opop_dst->subitem_local_name = BLI_strdup(opop_src->subitem_local_name);
+	}
 }
 
 void bke_override_property_operation_clear(IDOverridePropertyOperation *opop)

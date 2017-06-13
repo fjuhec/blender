@@ -39,6 +39,7 @@ struct IDOverridePropertyOperation;
 struct Main;
 
 struct IDOverride *BKE_override_init(struct ID *local_id, struct ID *reference_id);
+void BKE_override_copy(struct ID *dst_id, const struct ID *src_id);
 void BKE_override_clear(struct IDOverride *override);
 void BKE_override_free(struct IDOverride **override);
 
