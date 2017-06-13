@@ -545,19 +545,8 @@ static void gp_triangulate_stroke_fill(bGPDstroke *gps)
 
 /* add a new fill point and texture coordinates to vertex buffer */
 static void gpencil_set_fill_point(VertexBuffer *vbo, int idx, bGPDspoint *pt, const float fcolor[4], float uv[2],
-	unsigned int pos_id, unsigned int color_id, unsigned int text_id,
-	short UNUSED(flag),	int UNUSED(offsx), int UNUSED(offsy), int UNUSED(winx), int UNUSED(winy))
+	unsigned int pos_id, unsigned int color_id, unsigned int text_id)
 {
-#if 0
-	/* if 2d, need conversion */
-	if (!flag & GP_STROKE_3DSPACE) {
-		float co[2];
-		gp_calc_2d_stroke_fxy(fpt, flag, offsx, offsy, winx, winy, co);
-		copy_v2_v2(fpt, co);
-		fpt[2] = 0.0f; /* 2d always is z=0.0f */
-	}
-#endif
-
 	VertexBuffer_set_attrib(vbo, pos_id, idx, &pt->x);
 	VertexBuffer_set_attrib(vbo, color_id, idx, fcolor);
 	VertexBuffer_set_attrib(vbo, text_id, idx, uv);
@@ -567,11 +556,6 @@ static void gpencil_set_fill_point(VertexBuffer *vbo, int idx, bGPDspoint *pt, c
 Batch *DRW_gpencil_get_fill_geom(bGPDstroke *gps, const float color[4])
 {
 	BLI_assert(gps->totpoints >= 3);
-	int offsx = 0;
-	int offsy = 0;
-	const float *viewport = DRW_viewport_size_get();
-	int winx = (int)viewport[0];
-	int winy = (int)viewport[1];
 
 	/* Calculate triangles cache for filling area (must be done only after changes) */
 	if ((gps->flag & GP_STROKE_RECALC_CACHES) || (gps->tot_triangles == 0) || (gps->triangles == NULL)) {
@@ -595,16 +579,13 @@ Batch *DRW_gpencil_get_fill_geom(bGPDstroke *gps, const float color[4])
 	int idx = 0;
 	for (int i = 0; i < gps->tot_triangles; i++, stroke_triangle++) {
 		gpencil_set_fill_point(vbo, idx, &gps->points[stroke_triangle->v1], color, stroke_triangle->uv1,
-			pos_id, color_id, text_id, gps->flag,
-			offsx, offsy, winx, winy);
+			pos_id, color_id, text_id);
 		++idx;
 		gpencil_set_fill_point(vbo, idx, &gps->points[stroke_triangle->v2], color, stroke_triangle->uv2,
-			pos_id, color_id, text_id, gps->flag,
-			offsx, offsy, winx, winy);
+			pos_id, color_id, text_id);
 		++idx;
 		gpencil_set_fill_point(vbo, idx, &gps->points[stroke_triangle->v3], color, stroke_triangle->uv3,
-			pos_id, color_id, text_id, gps->flag,
-			offsx, offsy, winx, winy);
+			pos_id, color_id, text_id);
 		++idx;
 	}
 
