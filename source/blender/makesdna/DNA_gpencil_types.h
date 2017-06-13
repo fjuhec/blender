@@ -316,7 +316,7 @@ typedef struct bGPdata {
 	short xray_mode;            /* xray mode for strokes */
 
 	/* saved palettes */
-	ListBase palettes;
+	ListBase palettes DNA_DEPRECATED;
 	/* drawing manager cache */
 	void *batch_cache;
 } bGPdata;
