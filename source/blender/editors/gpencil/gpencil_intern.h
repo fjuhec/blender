@@ -156,7 +156,7 @@ int gp_brush_crt_presets_poll(bContext *C);
 extern ListBase gp_strokes_copypastebuf;
 
 /* Build a map for converting between old colornames and destination-color-refs */
-struct GHash *gp_copybuf_validate_colormap(bGPdata *gpd);
+struct GHash *gp_copybuf_validate_colormap(struct bContext *C, struct bGPdata *gpd);
 
 /* Stroke Editing ------------------------------------ */
 
