@@ -29,12 +29,13 @@
 
 #include <string.h>
 
-#include "BKE_context.h"
-
 #include "BLI_listbase.h"
 #include "BLI_math.h"
 #include "BLI_string.h"
 #include "BLI_ghash.h"
+
+#include "BKE_context.h"
+#include "BKE_global.h"
 
 #include "DNA_manipulator_types.h"
 
@@ -60,6 +61,16 @@
  * area type can query the manipulator-map to do so.
  */
 static ListBase manipulatormaptypes = {NULL, NULL};
+
+/**
+ * Update when manipulator-map types change.
+ */
+/* so operator removal can trigger update */
+enum {
+	WM_MANIPULATORMAPTYPE_GLOBAL_UPDATE_INIT = (1 << 0),
+};
+
+static char wm_mmap_type_update_flag = 0;
 
 /**
  * Manipulator-map update tagging.
@@ -736,10 +747,7 @@ void wm_manipulatormaptypes_free(void)
 	     mmaptype = mmaptype_next)
 	{
 		mmaptype_next = mmaptype->next;
-		for (wmManipulatorGroupType *wgt = mmaptype->manipulator_grouptypes.first, *wgt_next;
-		     wgt;
-		     wgt = wgt_next)
-		{
+		for (wmManipulatorGroupType *wgt = mmaptype->manipulator_grouptypes.first, *wgt_next; wgt; wgt = wgt_next) {
 			wgt_next = wgt->next;
 			WM_manipulatorgrouptype_free(wgt);
 		}
@@ -767,3 +775,46 @@ void wm_manipulators_keymap(wmKeyConfig *keyconf)
 
 /** \} */ /* wmManipulatorMapType */
 
+/* -------------------------------------------------------------------- */
+/** \name Updates for Dynamic Type Registraion
+ *
+ * \{ */
+
+
+void WM_manipulatorconfig_update_tag_init(wmManipulatorMapType *mmaptype, wmManipulatorGroupType *wgt)
+{
+	/* tag for update on next use */
+	mmaptype->type_update_flag |= WM_MANIPULATORMAPTYPE_UPDATE_INIT;
+	wgt->type_update_flag |= WM_MANIPULATORMAPTYPE_UPDATE_INIT;
+
+	wm_mmap_type_update_flag |= WM_MANIPULATORMAPTYPE_GLOBAL_UPDATE_INIT;
+}
+
+/**
+ * Run incase new types have been added (runs often, early exit where possible).
+ * Follows #WM_keyconfig_update concentions.
+ */
+void WM_manipulatorconfig_update(const struct Main *bmain)
+{
+	if (G.background)
+		return;
+
+	if (wm_mmap_type_update_flag == 0)
+		return;
+
+	if (wm_mmap_type_update_flag & WM_MANIPULATORMAPTYPE_GLOBAL_UPDATE_INIT) {
+		for (wmManipulatorMapType *mmaptype = manipulatormaptypes.first; mmaptype; mmaptype = mmaptype->next) {
+			if (mmaptype->type_update_flag & WM_MANIPULATORMAPTYPE_UPDATE_INIT) {
+				mmaptype->type_update_flag &= ~WM_MANIPULATORMAPTYPE_UPDATE_INIT;
+				for (wmManipulatorGroupType *wgt = mmaptype->manipulator_grouptypes.first; wgt; wgt = wgt->next) {
+					wgt->type_update_flag &= ~WM_MANIPULATORMAPTYPE_UPDATE_INIT;
+					WM_manipulatorgrouptype_init_runtime(bmain, mmaptype, wgt);
+				}
+			}
+		}
+
+		wm_mmap_type_update_flag &= ~WM_MANIPULATORMAPTYPE_GLOBAL_UPDATE_INIT;
+	}
+}
+
+/** \} */

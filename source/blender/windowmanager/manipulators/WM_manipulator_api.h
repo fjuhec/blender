@@ -95,6 +95,13 @@ bool WM_manipulatortype_remove(const char *idname);
 void WM_manipulatortype_remove_ptr(struct wmManipulatorType *wt);
 void WM_manipulatortype_iter(struct GHashIterator *ghi);
 
+/* wm_manipulatormap.c */
+
+/* Dynamic Updates (for RNA runtime registration) */
+void WM_manipulatorconfig_update_tag_init(struct wmManipulatorMapType *mmaptype, struct wmManipulatorGroupType *wgt);
+void WM_manipulatorconfig_update(const struct Main *bmain);
+
+
 /* -------------------------------------------------------------------- */
 /* wmManipulatorGroup */
 
@@ -139,4 +146,3 @@ bool WM_manipulatormap_select_all(struct bContext *C, struct wmManipulatorMap *m
 bool WM_manipulatormap_cursor_set(const struct wmManipulatorMap *mmap, struct wmWindow *win);
 
 #endif  /* __WM_MANIPULATOR_API_H__ */
-

@@ -2466,6 +2466,7 @@ void wm_event_do_handlers(bContext *C)
 
 	/* update key configuration before handling events */
 	WM_keyconfig_update(wm);
+	WM_manipulatorconfig_update(CTX_data_main(C));
 
 	for (win = wm->windows.first; win; win = win->next) {
 		bScreen *screen = WM_window_get_active_screen(win);
@@ -2678,6 +2679,7 @@ void wm_event_do_handlers(bContext *C)
 
 	/* update key configuration after handling events */
 	WM_keyconfig_update(wm);
+	WM_manipulatorconfig_update(CTX_data_main(C));
 }
 
 /* ********** filesector handling ************ */

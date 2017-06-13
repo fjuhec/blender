@@ -619,9 +619,10 @@ static StructRNA *rna_ManipulatorGroup_register(
 	dummywgt.idname = dummywgt.ext.srna->identifier;
 	dummywgt.name = dummywgt.ext.srna->name;
 
-	WM_manipulatorgrouptype_append_ptr(wmaptype, BPY_RNA_manipulatorgroup_wrapper, (void *)&dummywgt);
+	WM_manipulatorconfig_update_tag_init(wmaptype, &dummywgt);
 
-	/* TODO: WM_manipulatorgrouptype_init_runtime */
+	/* Appending flags to initialize in next use. */
+	WM_manipulatorgrouptype_append_ptr(wmaptype, BPY_RNA_manipulatorgroup_wrapper, (void *)&dummywgt);
 
 	/* update while blender is running */
 	WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);

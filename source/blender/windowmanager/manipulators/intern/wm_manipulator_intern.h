@@ -112,6 +112,9 @@ struct wmManipulatorMapType {
 	short spaceid, regionid;
 	/* types of manipulator-groups for this manipulator-map type */
 	ListBase manipulator_grouptypes;
+
+	/* eManipulatorMapTypeUpdateFlags */
+	uchar type_update_flag;
 };
 
 void wm_manipulatormap_selected_clear(struct wmManipulatorMap *mmap);

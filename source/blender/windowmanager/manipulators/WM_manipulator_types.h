@@ -227,10 +227,21 @@ typedef struct wmManipulatorGroupType {
 
 	int flag;
 
+	/* eManipulatorMapTypeUpdateFlags (so we know which group type to update) */
+	uchar type_update_flag;
+
 	/* same as manipulator-maps, so registering/unregistering goes to the correct region */
 	short spaceid, regionid;
 	char mapidname[64];
 } wmManipulatorGroupType;
+
+/**
+ * Manipulator-map type update flag: `wmManipulatorMapType.type_update_flag`
+ */
+enum eManipulatorMapTypeUpdateFlags {
+	/* A new type has been added, needs to be initialized for all views. */
+	WM_MANIPULATORMAPTYPE_UPDATE_INIT = (1 << 0),
+};
 
 /**
  * wmManipulatorGroupType.flag

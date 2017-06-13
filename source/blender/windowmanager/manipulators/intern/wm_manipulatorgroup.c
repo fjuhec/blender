@@ -521,6 +521,11 @@ static void wm_manipulatorgrouptype_append__end(
 
 	/* add the type for future created areas of the same type  */
 	BLI_addtail(&mmaptype->manipulator_grouptypes, wgt);
+
+	/* Only call this from RNA registration, else we can assume types are initialized before the screens are. */
+#if 0
+	WM_manipulatorconfig_update_tag_init(mmaptype, wgt);
+#endif
 }
 
 /**
