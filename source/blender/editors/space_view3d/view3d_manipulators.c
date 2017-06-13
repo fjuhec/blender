@@ -309,7 +309,7 @@ static bool WIDGETGROUP_forcefield_poll(const bContext *C, wmManipulatorGroupTyp
 	return (ob && ob->pd && ob->pd->forcefield);
 }
 
-static void WIDGETGROUP_forcefield_init(const bContext *UNUSED(C), wmManipulatorGroup *mgroup)
+static void WIDGETGROUP_forcefield_setup(const bContext *UNUSED(C), wmManipulatorGroup *mgroup)
 {
 	const float col[4] = {0.8f, 0.8f, 0.45f, 0.5f};
 	const float col_hi[4] = {0.8f, 0.8f, 0.45f, 1.0f};
@@ -359,7 +359,7 @@ void VIEW3D_WGT_force_field(wmManipulatorGroupType *wgt)
 	              WM_MANIPULATORGROUPTYPE_3D);
 
 	wgt->poll = WIDGETGROUP_forcefield_poll;
-	wgt->setup = WIDGETGROUP_forcefield_init;
+	wgt->setup = WIDGETGROUP_forcefield_setup;
 	wgt->refresh = WIDGETGROUP_forcefield_refresh;
 }
 
@@ -457,7 +457,7 @@ static wmManipulator *armature_facemap_widget_create(wmManipulatorGroup *mgroup,
 	return widget;
 }
 
-static void WIDGETGROUP_armature_facemaps_init(const bContext *C, wmManipulatorGroup *mgroup)
+static void WIDGETGROUP_armature_facemaps_setup(const bContext *C, wmManipulatorGroup *mgroup)
 {
 	Object *ob = CTX_data_active_object(C);
 	bArmature *arm = (bArmature *)ob->data;
@@ -563,7 +563,7 @@ void VIEW3D_WGT_armature_facemaps(wmManipulatorGroupType *wgt)
 	              WM_MANIPULATORGROUPTYPE_SELECT);
 
 	wgt->poll = WIDGETGROUP_armature_facemaps_poll;
-	wgt->setup = WIDGETGROUP_armature_facemaps_init;
+	wgt->setup = WIDGETGROUP_armature_facemaps_setup;
 	wgt->refresh = WIDGETGROUP_armature_facemaps_refresh;
 
 	wgt->setup_keymap = WM_manipulatorgroup_keymap_common_select;

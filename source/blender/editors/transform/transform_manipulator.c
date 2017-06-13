@@ -1134,7 +1134,7 @@ static void manipulator_modal(
 	ED_region_tag_redraw(ar);
 }
 
-static void WIDGETGROUP_manipulator_init(const bContext *UNUSED(C), wmManipulatorGroup *mgroup)
+static void WIDGETGROUP_manipulator_setup(const bContext *UNUSED(C), wmManipulatorGroup *mgroup)
 {
 	ManipulatorGroup *man = manipulatorgroup_init(mgroup);
 	mgroup->customdata = man;
@@ -1350,7 +1350,7 @@ void TRANSFORM_WGT_manipulator(wmManipulatorGroupType *wgt)
 	              WM_MANIPULATORGROUPTYPE_SCALE_3D);
 
 	wgt->poll = WIDGETGROUP_manipulator_poll;
-	wgt->setup = WIDGETGROUP_manipulator_init;
+	wgt->setup = WIDGETGROUP_manipulator_setup;
 	wgt->refresh = WIDGETGROUP_manipulator_refresh;
 	wgt->draw_prepare = WIDGETGROUP_manipulator_draw_prepare;
 }
@@ -1367,7 +1367,7 @@ static void WIDGETGROUP_object_manipulator_init(const bContext *C, wmManipulator
 		ob->mgroup = mgroup;
 	}
 
-	WIDGETGROUP_manipulator_init(C, mgroup);
+	WIDGETGROUP_manipulator_setup(C, mgroup);
 }
 
 static bool WIDGETGROUP_object_manipulator_poll(const bContext *C, wmManipulatorGroupType *wgt)
