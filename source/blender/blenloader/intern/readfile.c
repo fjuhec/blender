@@ -6496,6 +6496,24 @@ static void lib_link_gpencil(FileData *fd, Main *main)
 {
 	for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
 		if (gpd->id.tag & LIB_TAG_NEED_LINK) {
+			for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+				for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+					for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+						gps->palette = newlibadr(fd, NULL, gps->palette);
+						/* Relink color
+						 * The Pallete colors are pointers to a listbase inside the Pallete datablock.
+						 * So the pointers have to be re-assigned on file open
+						 */
+						gps->palcolor = BKE_palette_color_getbyname(gps->palette, gps->colorname);
+						if (gps->palcolor == NULL) {
+							gps->palcolor = BKE_palette_color_add_name(gps->palette, gps->colorname);
+							/* Set to a different color. */
+							ARRAY_SET_ITEMS(gps->palcolor->rgb, 1.0f, 0.0f, 1.0f, 1.0f);
+						}
+					}
+				}
+			}
+
 			IDP_LibLinkProperty(gpd->id.properties, fd);
 			lib_link_animdata(fd, &gpd->id, gpd->adt);
 
@@ -6550,18 +6568,6 @@ static void direct_link_gpencil(FileData *fd, bGPdata *gpd)
 				gps->triangles = NULL;
 				gps->tot_triangles = 0;
 				gps->flag |= GP_STROKE_RECALC_CACHES;
-				/* palette */
-				gps->palette = newlibadr(fd, gpd->id.lib, gps->palette);
-				if (gps->palette == NULL) {
-					gps->palette = BKE_palette_add(G.main, "GP Palette");
-				}
-				/* relink color */
-				gps->palcolor = BKE_palette_color_getbyname(gps->palette, gps->colorname);
-				if (gps->palcolor == NULL) {
-					gps->palcolor = BKE_palette_color_add_name(gps->palette, gps->colorname);
-					/* set to a different color */
-					ARRAY_SET_ITEMS(gps->palcolor->rgb, 1.0f, 0.0f, 1.0f, 1.0f);
-				}
 			}
 		}
 	}
@@ -10012,8 +10018,17 @@ static void expand_linestyle(FileData *fd, Main *mainvar, FreestyleLineStyle *li
 
 static void expand_gpencil(FileData *fd, Main *mainvar, bGPdata *gpd)
 {
-	if (gpd->adt)
+	if (gpd->adt) {
 		expand_animdata(fd, mainvar, gpd->adt);
+	}
+
+	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+				expand_doit(fd, mainvar, gps->palette);
+			}
+		}
+	}
 }
 
 static void expand_palette(FileData *fd, Main *mainvar, Palette *palette)
