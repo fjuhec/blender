@@ -377,19 +377,19 @@ static int override_type_set_button_exec(bContext *C, wmOperator *op)
 
 	switch(op_type) {
 		case UIOverride_Type_NOOP:
-			operation = IDOVERRIDE_NOOP;
+			operation = IDOVERRIDE_OP_NOOP;
 			break;
 		case UIOverride_Type_Replace:
-			operation = IDOVERRIDE_REPLACE;
+			operation = IDOVERRIDE_OP_REPLACE;
 			break;
 		case UIOverride_Type_Difference:
-			operation = IDOVERRIDE_ADD;  /* override code will automatically switch to subtract if needed. */
+			operation = IDOVERRIDE_OP_ADD;  /* override code will automatically switch to subtract if needed. */
 			break;
 		case UIOverride_Type_Factor:
-			operation = IDOVERRIDE_MULTIPLY;
+			operation = IDOVERRIDE_OP_MULTIPLY;
 			break;
 		default:
-			operation = IDOVERRIDE_REPLACE;
+			operation = IDOVERRIDE_OP_REPLACE;
 			BLI_assert(0);
 			break;
 	}

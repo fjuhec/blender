@@ -112,7 +112,8 @@ typedef struct IDOverridePropertyOperation {
 
 	/* Type of override. */
 	short operation;
-	short pad_s1[3];
+	short flag;
+	short pad_s1[2];
 
 	/* Sub-item references, if needed (for arrays or collections only).
 	 * We need both reference and local values to allow e.g. insertion into collections (constraints, modifiers...).
@@ -128,19 +129,26 @@ typedef struct IDOverridePropertyOperation {
 /* IDOverridePropertyOperation->operation. */
 enum {
 	/* Basic operations. */
-	IDOVERRIDE_NOOP          =   0,  /* Special value, forbids any overriding. */
+	IDOVERRIDE_OP_NOOP          =   0,  /* Special value, forbids any overriding. */
 
-	IDOVERRIDE_REPLACE       =   1,  /* Fully replace local value by reference one. */
+	IDOVERRIDE_OP_REPLACE       =   1,  /* Fully replace local value by reference one. */
 
 	/* Numeric-only operations. */
-	IDOVERRIDE_ADD           = 101,  /* Add local value to reference one. */
-	IDOVERRIDE_SUBTRACT      = 102,  /* Subtract local value from reference one (needed due to unsigned values etc.). */
-	IDOVERRIDE_MULTIPLY      = 103,  /* Multiply reference value by local one (more useful than diff for scales and the like). */
+	IDOVERRIDE_OP_ADD           = 101,  /* Add local value to reference one. */
+	IDOVERRIDE_OP_SUBTRACT      = 102,  /* Subtract local value from reference one (needed due to unsigned values etc.). */
+	IDOVERRIDE_OP_MULTIPLY      = 103,  /* Multiply reference value by local one (more useful than diff for scales and the like). */
 
 	/* Collection-only operations. */
-	IDOVERRIDE_INSERT_AFTER  = 201,  /* Insert after given reference's subitem. */
-	IDOVERRIDE_INSERT_BEFORE = 202,  /* Insert before given reference's subitem. */
+	IDOVERRIDE_OP_INSERT_AFTER  = 201,  /* Insert after given reference's subitem. */
+	IDOVERRIDE_OP_INSERT_BEFORE = 202,  /* Insert before given reference's subitem. */
 	/* We can add more if needed (move, delete, ...). */
+};
+
+/* IDOverridePropertyOperation->flag. */
+enum {
+	/* Basic operations. */
+	IDOVERRIDE_FLAG_MANDATORY     =   1 << 0,  /* User cannot remove that override operation. */
+	IDOVERRIDE_FLAG_LOCKED        =   1 << 1,  /* User cannot change that override operation. */
 };
 
 /* A single overriden property, contain all operations on this one. */
