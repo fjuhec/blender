@@ -110,6 +110,8 @@ void NODE_WGT_backdrop_transform(wmManipulatorGroupType *wgt)
 	wgt->name = "Backdrop Transform Widgets";
 	wgt->idname = "NODE_WGT_backdrop_transform";
 
+	wgt->flag |= WM_MANIPULATORGROUPTYPE_PERSISTENT;
+
 	wgt->poll = WIDGETGROUP_node_transform_poll;
 	wgt->setup = WIDGETGROUP_node_transform_setup;
 	wgt->refresh = WIDGETGROUP_node_transform_refresh;

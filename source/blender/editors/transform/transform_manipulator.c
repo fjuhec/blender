@@ -1345,12 +1345,14 @@ void TRANSFORM_WGT_manipulator(wmManipulatorGroupType *wgt)
 	wgt->name = "Transform Manipulator";
 	wgt->idname = "TRANSFORM_WGT_manipulator";
 
+	wgt->flag |= (WM_MANIPULATORGROUPTYPE_PERSISTENT |
+	              WM_MANIPULATORGROUPTYPE_3D |
+	              WM_MANIPULATORGROUPTYPE_SCALE_3D);
+
 	wgt->poll = WIDGETGROUP_manipulator_poll;
 	wgt->setup = WIDGETGROUP_manipulator_init;
 	wgt->refresh = WIDGETGROUP_manipulator_refresh;
 	wgt->draw_prepare = WIDGETGROUP_manipulator_draw_prepare;
-
-	wgt->flag |= (WM_MANIPULATORGROUPTYPE_3D | WM_MANIPULATORGROUPTYPE_SCALE_3D);
 }
 
 

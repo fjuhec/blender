@@ -112,11 +112,13 @@ void VIEW3D_WGT_lamp(wmManipulatorGroupType *wgt)
 	wgt->name = "Lamp Widgets";
 	wgt->idname = "VIEW3D_WGT_lamp";
 
+	wgt->flag |= (WM_MANIPULATORGROUPTYPE_PERSISTENT |
+	              WM_MANIPULATORGROUPTYPE_3D |
+	              WM_MANIPULATORGROUPTYPE_SCALE_3D);
+
 	wgt->poll = WIDGETGROUP_lamp_poll;
 	wgt->setup = WIDGETGROUP_lamp_setup;
 	wgt->refresh = WIDGETGROUP_lamp_refresh;
-
-	wgt->flag |= (WM_MANIPULATORGROUPTYPE_3D | WM_MANIPULATORGROUPTYPE_SCALE_3D);
 }
 
 /** \} */
@@ -284,11 +286,12 @@ void VIEW3D_WGT_camera(wmManipulatorGroupType *wgt)
 	wgt->name = "Camera Widgets";
 	wgt->idname = "VIEW3D_WGT_camera";
 
+	wgt->flag = (WM_MANIPULATORGROUPTYPE_PERSISTENT |
+	             WM_MANIPULATORGROUPTYPE_3D);
+
 	wgt->poll = WIDGETGROUP_camera_poll;
 	wgt->setup = WIDGETGROUP_camera_setup;
 	wgt->refresh = WIDGETGROUP_camera_refresh;
-
-	wgt->flag |= WM_MANIPULATORGROUPTYPE_3D;
 }
 
 /** \} */
@@ -352,11 +355,12 @@ void VIEW3D_WGT_force_field(wmManipulatorGroupType *wgt)
 	wgt->name = "Force Field Widgets";
 	wgt->idname = "VIEW3D_WGT_force_field";
 
+	wgt->flag |= (WM_MANIPULATORGROUPTYPE_PERSISTENT |
+	              WM_MANIPULATORGROUPTYPE_3D);
+
 	wgt->poll = WIDGETGROUP_forcefield_poll;
 	wgt->setup = WIDGETGROUP_forcefield_init;
 	wgt->refresh = WIDGETGROUP_forcefield_refresh;
-
-	wgt->flag |= WM_MANIPULATORGROUPTYPE_3D;
 }
 
 /** \} */
@@ -553,15 +557,16 @@ void VIEW3D_WGT_armature_facemaps(wmManipulatorGroupType *wgt)
 	wgt->name = "Face Map Widgets";
 	wgt->idname = "VIEW3D_WGT_armature_facemaps";
 
+	wgt->flag |= (WM_MANIPULATORGROUPTYPE_PERSISTENT |
+	              WM_MANIPULATORGROUPTYPE_3D |
+	              WM_MANIPULATORGROUPTYPE_SCALE_3D |
+	              WM_MANIPULATORGROUPTYPE_SELECT);
+
 	wgt->poll = WIDGETGROUP_armature_facemaps_poll;
 	wgt->setup = WIDGETGROUP_armature_facemaps_init;
 	wgt->refresh = WIDGETGROUP_armature_facemaps_refresh;
 
-	wgt->setup_keymap = WM_manipulatorgroup_keymap_common_sel;
-
-	wgt->flag |= (WM_MANIPULATORGROUPTYPE_3D |
-	              WM_MANIPULATORGROUPTYPE_SCALE_3D |
-	              WM_MANIPULATORGROUPTYPE_SELECT);
+	wgt->setup_keymap = WM_manipulatorgroup_keymap_common_select;
 }
 
 /** \} */

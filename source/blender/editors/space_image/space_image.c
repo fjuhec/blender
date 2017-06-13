@@ -594,6 +594,8 @@ static void IMAGE_WGT_manipulator2d(wmManipulatorGroupType *wgt)
 	wgt->name = "UV Transform Manipulator";
 	wgt->idname = "IMAGE_WGT_manipulator2d";
 
+	wgt->flag |= WM_MANIPULATORGROUPTYPE_PERSISTENT;
+
 	wgt->poll = ED_widgetgroup_manipulator2d_poll;
 	wgt->setup = ED_widgetgroup_manipulator2d_setup;
 	wgt->refresh = ED_widgetgroup_manipulator2d_refresh;
@@ -602,13 +604,10 @@ static void IMAGE_WGT_manipulator2d(wmManipulatorGroupType *wgt)
 
 static void image_widgets(void)
 {
-	const struct wmManipulatorMapType_Params wmap_params = {
-		.idname = "Image_UV",
-		.spaceid = SPACE_IMAGE, .regionid = RGN_TYPE_WINDOW
-	};
-	wmManipulatorMapType *wmaptype = WM_manipulatormaptype_ensure(&wmap_params);
+	wmManipulatorMapType *wmaptype = WM_manipulatormaptype_ensure(
+	        &(const struct wmManipulatorMapType_Params){SPACE_IMAGE, RGN_TYPE_WINDOW});
 
-	WM_manipulatorgrouptype_append(wmaptype, IMAGE_WGT_manipulator2d);
+	WM_manipulatorgrouptype_append_and_link(wmaptype, IMAGE_WGT_manipulator2d);
 }
 
 /************************** main region ***************************/
@@ -675,9 +674,12 @@ static void image_main_region_init(wmWindowManager *wm, ARegion *ar)
 	// UI_view2d_region_reinit(&ar->v2d, V2D_COMMONVIEW_STANDARD, ar->winx, ar->winy);
 
 	/* manipulators */
-	if (!ar->manipulator_map) {
-		ar->manipulator_map = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
-		        "Image_UV", SPACE_IMAGE, RGN_TYPE_WINDOW});
+	if (ar->manipulator_map == NULL) {
+		const struct wmManipulatorMapType_Params wmap_params = {
+			.spaceid = SPACE_IMAGE,
+			.regionid = RGN_TYPE_WINDOW,
+		};
+		ar->manipulator_map = WM_manipulatormap_new_from_type(&wmap_params);
 	}
 	WM_manipulatormap_add_handlers(ar, ar->manipulator_map);
 

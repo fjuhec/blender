@@ -426,6 +426,15 @@ void RNA_api_wm(StructRNA *srna)
 	parm = RNA_def_pointer(func, "timer", "Timer", "", "");
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 
+/*
+	func = RNA_def_function(srna, "manipulator_group_type_add", "rna_manipulator_group_type_add");
+	RNA_def_function_ui_description(func, "XXX");
+	RNA_def_function_flag(func, FUNC_NO_SELF | FUNC_USE_CONTEXT);
+	parm = RNA_def_pointer(func, "operator", "Operator", "", "Operator to call");
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+	RNA_def_function_return(func, RNA_def_boolean(func, "handle", 1, "", "Whether adding the handler was successful"));
+*/
+
 	/* Progress bar interface */
 	func = RNA_def_function(srna, "progress_begin", "rna_progress_begin");
 	RNA_def_function_ui_description(func, "Start progress report");

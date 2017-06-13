@@ -63,7 +63,6 @@ struct wmManipulator *WM_manipulator_new(
 void WM_manipulator_free(
         ListBase *manipulatorlist, struct wmManipulatorMap *mmap, struct wmManipulator *mpr,
         struct bContext *C);
-struct wmManipulatorGroup *WM_manipulator_get_parent_group(struct wmManipulator *mpr);
 
 struct wmManipulatorProperty *WM_manipulator_get_property(
         struct wmManipulator *mpr, const char *idname);
@@ -95,47 +94,37 @@ bool WM_manipulatortype_remove(const char *idname);
 void WM_manipulatortype_remove_ptr(struct wmManipulatorType *wt);
 void WM_manipulatortype_iter(struct GHashIterator *ghi);
 
+/* wm_manipulatorgroup_type.c */
+struct wmManipulatorGroupType *WM_manipulatorgrouptype_find(const char *idname, bool quiet);
+struct wmManipulatorGroupType *WM_manipulatorgrouptype_append(void (*wtfunc)(struct wmManipulatorGroupType *));
+struct wmManipulatorGroupType *WM_manipulatorgrouptype_append_ptr(void (*mnpfunc)(struct wmManipulatorGroupType *, void *), void *userdata);
+bool WM_manipulatorgrouptype_remove(const char *idname);
+void WM_manipulatorgrouptype_remove_ptr(struct wmManipulatorGroupType *wt);
+void WM_manipulatorgrouptype_iter(struct GHashIterator *ghi);
+
+struct wmManipulatorGroupTypeRef *WM_manipulatorgrouptype_append_and_link(
+        struct wmManipulatorMapType *mmap_type,
+        void (*wtfunc)(struct wmManipulatorGroupType *));
+
 /* wm_manipulatormap.c */
 
 /* Dynamic Updates (for RNA runtime registration) */
-void WM_manipulatorconfig_update_tag_init(struct wmManipulatorMapType *mmaptype, struct wmManipulatorGroupType *wgt);
+void WM_manipulatorconfig_update_tag_init(struct wmManipulatorMapType *mmap_type, struct wmManipulatorGroupType *wgt);
 void WM_manipulatorconfig_update(const struct Main *bmain);
 
 
 /* -------------------------------------------------------------------- */
 /* wmManipulatorGroup */
 
-struct wmManipulatorGroupType *WM_manipulatorgrouptype_find(
-        struct wmManipulatorMapType *mmaptype,
-        const char *idname);
-struct wmManipulatorGroupType *WM_manipulatorgrouptype_append(
-        struct wmManipulatorMapType *mmaptype,
-        void (*mgrouptype_func)(struct wmManipulatorGroupType *));
-struct wmManipulatorGroupType *WM_manipulatorgrouptype_append_ptr(
-        struct wmManipulatorMapType *mmaptype,
-        void (*mgrouptype_func)(struct wmManipulatorGroupType *, void *),
-        void *userdata);
-
-void WM_manipulatorgrouptype_init_runtime(
-        const struct Main *bmain, struct wmManipulatorMapType *mmaptype,
-        struct wmManipulatorGroupType *wgt);
-void WM_manipulatorgrouptype_free(struct wmManipulatorGroupType *wgt);
-void WM_manipulatorgrouptype_remove_ptr(
-        struct bContext *C, struct Main *bmain, struct wmManipulatorGroupType *mgroup);
-
+/* Callbacks for 'wmManipulatorGroupType.setup_keymap' */
 struct wmKeyMap *WM_manipulatorgroup_keymap_common(
         const struct wmManipulatorGroupType *wgt, struct wmKeyConfig *config);
-struct wmKeyMap *WM_manipulatorgroup_keymap_common_sel(
+struct wmKeyMap *WM_manipulatorgroup_keymap_common_select(
         const struct wmManipulatorGroupType *wgt, struct wmKeyConfig *config);
 
 
 /* -------------------------------------------------------------------- */
 /* wmManipulatorMap */
-
-struct wmManipulatorMapType *WM_manipulatormaptype_find(
-        const struct wmManipulatorMapType_Params *mmap_params);
-struct wmManipulatorMapType *WM_manipulatormaptype_ensure(
-        const struct wmManipulatorMapType_Params *mmap_params);
 
 struct wmManipulatorMap *WM_manipulatormap_new_from_type(
         const struct wmManipulatorMapType_Params *mmap_params);
@@ -144,5 +133,33 @@ void WM_manipulatormap_draw(struct wmManipulatorMap *mmap, const struct bContext
 void WM_manipulatormap_add_handlers(struct ARegion *ar, struct wmManipulatorMap *mmap);
 bool WM_manipulatormap_select_all(struct bContext *C, struct wmManipulatorMap *mmap, const int action);
 bool WM_manipulatormap_cursor_set(const struct wmManipulatorMap *mmap, struct wmWindow *win);
+
+/* -------------------------------------------------------------------- */
+/* wmManipulatorMapType */
+
+struct wmManipulatorMapType *WM_manipulatormaptype_find(
+        const struct wmManipulatorMapType_Params *mmap_params);
+struct wmManipulatorMapType *WM_manipulatormaptype_ensure(
+        const struct wmManipulatorMapType_Params *mmap_params);
+
+struct wmManipulatorGroupTypeRef *WM_manipulatormaptype_group_find(
+        struct wmManipulatorMapType *mmap_type,
+        const char *idname);
+struct wmManipulatorGroupTypeRef *WM_manipulatormaptype_group_find_ptr(
+        struct wmManipulatorMapType *mmap_type,
+        const struct wmManipulatorGroupType *wgt);
+struct wmManipulatorGroupTypeRef *WM_manipulatormaptype_group_link(
+        struct wmManipulatorMapType *mmap_type,
+        const char *idname);
+struct wmManipulatorGroupTypeRef *WM_manipulatormaptype_group_link_ptr(
+        struct wmManipulatorMapType *mmap_type,
+        struct wmManipulatorGroupType *wgt);
+
+void WM_manipulatormaptype_group_init_runtime(
+        const struct Main *bmain, struct wmManipulatorMapType *mmap_type,
+        struct wmManipulatorGroupType *wgt);
+void WM_manipulatormaptype_group_free(struct wmManipulatorGroupTypeRef *wgt);
+void WM_manipulatormaptype_group_unlink(
+        struct bContext *C, struct Main *bmain, const struct wmManipulatorGroupType *wgt);
 
 #endif  /* __WM_MANIPULATOR_API_H__ */

@@ -38,6 +38,7 @@
 
 #include "BLI_compiler_attrs.h"
 
+struct wmManipulatorMapType;
 struct wmManipulatorGroupType;
 struct wmManipulatorGroup;
 struct wmManipulator;
@@ -122,6 +123,12 @@ typedef struct wmManipulatorWrapper {
 	struct wmManipulator *manipulator;
 } wmManipulatorWrapper;
 
+struct wmManipulatorMapType_Params {
+	const int spaceid;
+	const int regionid;
+};
+
+
 /* wmManipulator.flag
  * Flags for individual manipulators. */
 enum {
@@ -195,9 +202,13 @@ typedef struct wmManipulatorType {
 /* wmManipulatorGroup */
 
 /* factory class for a manipulator-group type, gets called every time a new area is spawned */
-typedef struct wmManipulatorGroupType {
-	struct wmManipulatorGroupType *next, *prev;
+typedef struct wmManipulatorGroupTypeRef {
+	struct wmManipulatorGroupTypeRef *next, *prev;
+	struct wmManipulatorGroupType *type;
+} wmManipulatorGroupTypeRef;
 
+/* factory class for a manipulator-group type, gets called every time a new area is spawned */
+typedef struct wmManipulatorGroupType {
 	const char *idname;  /* MAX_NAME */
 	const char *name; /* manipulator-group name - displayed in UI (keymap editor) */
 
@@ -212,7 +223,8 @@ typedef struct wmManipulatorGroupType {
 
 	/* Keymap init callback for this manipulator-group (optional),
 	 * will fall back to default tweak keymap when left NULL. */
-	struct wmKeyMap *(*setup_keymap)(const struct wmManipulatorGroupType *, struct wmKeyConfig *);
+	wmManipulatorGroupFnSetupKeymap setup_keymap;
+
 	/* keymap created with callback from above */
 	struct wmKeyMap *keymap;
 
@@ -231,8 +243,11 @@ typedef struct wmManipulatorGroupType {
 	uchar type_update_flag;
 
 	/* same as manipulator-maps, so registering/unregistering goes to the correct region */
-	short spaceid, regionid;
-	char mapidname[64];
+	struct {
+		int spaceid;
+		int regionid;
+	} mmap_params;
+
 } wmManipulatorGroupType;
 
 /**
@@ -256,17 +271,13 @@ enum {
 	WM_MANIPULATORGROUPTYPE_DEPTH_3D = (1 << 2),
 	/* Manipulators can be selected */
 	WM_MANIPULATORGROUPTYPE_SELECT  = (1 << 3),
+	/* The manipulator group is to be kept (not removed on loading a new file for eg). */
+	WM_MANIPULATORGROUPTYPE_PERSISTENT = (1 << 4),
 };
 
 
 /* -------------------------------------------------------------------- */
 /* wmManipulatorMap */
-
-struct wmManipulatorMapType_Params {
-	const char *idname;
-	const int spaceid;
-	const int regionid;
-};
 
 /**
  * Pass a value of this enum to #WM_manipulatormap_draw to tell it what to draw.

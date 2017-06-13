@@ -102,11 +102,6 @@ wmManipulator *WM_manipulator_new(const char *idname, wmManipulatorGroup *mgroup
 	return mpr;
 }
 
-wmManipulatorGroup *WM_manipulator_get_parent_group(wmManipulator *mpr)
-{
-	return mpr->parent_mgroup;
-}
-
 /**
  * Assign an idname that is unique in \a mgroup to \a manipulator.
  *

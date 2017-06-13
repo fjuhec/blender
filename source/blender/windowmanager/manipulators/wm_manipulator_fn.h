@@ -30,10 +30,18 @@
 #include "BLI_compiler_attrs.h"
 
 /* wmManipulatorGroup */
-typedef bool (*wmManipulatorGroupFnPoll)(const struct bContext *, struct wmManipulatorGroupType *) ATTR_WARN_UNUSED_RESULT;
-typedef void (*wmManipulatorGroupFnInit)(const struct bContext *, struct wmManipulatorGroup *);
-typedef void (*wmManipulatorGroupFnRefresh)(const struct bContext *, struct wmManipulatorGroup *);
-typedef void (*wmManipulatorGroupFnDrawPrepare)(const struct bContext *, struct wmManipulatorGroup *);
+typedef bool (*wmManipulatorGroupFnPoll)(
+        const struct bContext *, struct wmManipulatorGroupType *)
+        ATTR_WARN_UNUSED_RESULT;
+typedef void (*wmManipulatorGroupFnInit)(
+        const struct bContext *, struct wmManipulatorGroup *);
+typedef void (*wmManipulatorGroupFnRefresh)(
+        const struct bContext *, struct wmManipulatorGroup *);
+typedef void (*wmManipulatorGroupFnDrawPrepare)(
+        const struct bContext *, struct wmManipulatorGroup *);
+typedef struct wmKeyMap *(*wmManipulatorGroupFnSetupKeymap)(
+        const struct wmManipulatorGroupType *, struct wmKeyConfig *)
+        ATTR_WARN_UNUSED_RESULT;
 
 /* wmManipulator */
 /* See: wmManipulatorType for docs on each type. */

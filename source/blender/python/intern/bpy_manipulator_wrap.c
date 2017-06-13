@@ -78,7 +78,7 @@ static void manipulator_properties_init(wmManipulatorType *wt)
 void BPY_RNA_manipulator_wrapper(wmManipulatorType *wt, void *userdata)
 {
 	/* take care not to overwrite anything set in
-	 * WM_manipulatorgrouptype_append_ptr before opfunc() is called */
+	 * WM_manipulatormaptype_group_link_ptr before opfunc() is called */
 #ifdef USE_SRNA
 	StructRNA *srna = wt->srna;
 #endif
@@ -130,7 +130,7 @@ static void manipulatorgroup_properties_init(wmManipulatorGroupType *wgt)
 void BPY_RNA_manipulatorgroup_wrapper(wmManipulatorGroupType *wgt, void *userdata)
 {
 	/* take care not to overwrite anything set in
-	 * WM_manipulatorgrouptype_append_ptr before opfunc() is called */
+	 * WM_manipulatormaptype_group_link_ptr before opfunc() is called */
 #ifdef USE_SRNA
 	StructRNA *srna = wgt->srna;
 #endif

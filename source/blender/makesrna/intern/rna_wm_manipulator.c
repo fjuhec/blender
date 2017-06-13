@@ -79,7 +79,7 @@ static void rna_manipulator_draw_cb(
         const struct bContext *C, struct wmManipulator *mpr)
 {
 	extern FunctionRNA rna_Manipulator_draw_func;
-	wmManipulatorGroup *mgroup = WM_manipulator_get_parent_group(mpr);
+	wmManipulatorGroup *mgroup = mpr->parent_mgroup;
 	PointerRNA mpr_ptr;
 	ParameterList list;
 	FunctionRNA *func;
@@ -97,7 +97,7 @@ static void rna_manipulator_draw_select_cb(
         const struct bContext *C, struct wmManipulator *mpr, int select_id)
 {
 	extern FunctionRNA rna_Manipulator_draw_select_func;
-	wmManipulatorGroup *mgroup = WM_manipulator_get_parent_group(mpr);
+	wmManipulatorGroup *mgroup = mpr->parent_mgroup;
 	PointerRNA mpr_ptr;
 	ParameterList list;
 	FunctionRNA *func;
@@ -116,7 +116,7 @@ static int rna_manipulator_test_select_cb(
         struct bContext *C, struct wmManipulator *mpr, const struct wmEvent *event)
 {
 	extern FunctionRNA rna_Manipulator_test_select_func;
-	wmManipulatorGroup *mgroup = WM_manipulator_get_parent_group(mpr);
+	wmManipulatorGroup *mgroup = mpr->parent_mgroup;
 	PointerRNA mpr_ptr;
 	ParameterList list;
 	FunctionRNA *func;
@@ -141,7 +141,7 @@ static void rna_manipulator_modal_cb(
         struct bContext *C, struct wmManipulator *mpr, const struct wmEvent *event, int tweak)
 {
 	extern FunctionRNA rna_Manipulator_modal_func;
-	wmManipulatorGroup *mgroup = WM_manipulator_get_parent_group(mpr);
+	wmManipulatorGroup *mgroup = mpr->parent_mgroup;
 	PointerRNA mpr_ptr;
 	ParameterList list;
 	FunctionRNA *func;
@@ -161,7 +161,7 @@ static void rna_manipulator_invoke_cb(
         struct bContext *C, struct wmManipulator *mpr, const struct wmEvent *event)
 {
 	extern FunctionRNA rna_Manipulator_invoke_func;
-	wmManipulatorGroup *mgroup = WM_manipulator_get_parent_group(mpr);
+	wmManipulatorGroup *mgroup = mpr->parent_mgroup;
 	PointerRNA mpr_ptr;
 	ParameterList list;
 	FunctionRNA *func;
@@ -180,7 +180,7 @@ static void rna_manipulator_exit_cb(
         struct bContext *C, struct wmManipulator *mpr, bool cancel)
 {
 	extern FunctionRNA rna_Manipulator_exit_func;
-	wmManipulatorGroup *mgroup = WM_manipulator_get_parent_group(mpr);
+	wmManipulatorGroup *mgroup = mpr->parent_mgroup;
 	PointerRNA mpr_ptr;
 	ParameterList list;
 	FunctionRNA *func;
@@ -202,7 +202,7 @@ static void rna_manipulator_select_cb(
         struct bContext *C, struct wmManipulator *mpr, int action)
 {
 	extern FunctionRNA rna_Manipulator_select_func;
-	wmManipulatorGroup *mgroup = WM_manipulator_get_parent_group(mpr);
+	wmManipulatorGroup *mgroup = mpr->parent_mgroup;
 	PointerRNA mpr_ptr;
 	ParameterList list;
 	FunctionRNA *func;
@@ -580,9 +580,8 @@ static StructRNA *rna_ManipulatorGroup_register(
 
 	/* check if the area supports widgets */
 	const struct wmManipulatorMapType_Params wmap_params = {
-		.idname = dummywgt.idname,
-		.spaceid = dummywgt.spaceid,
-		.regionid = dummywgt.regionid,
+		.spaceid = dummywgt.mmap_params.spaceid,
+		.regionid = dummywgt.mmap_params.regionid,
 	};
 
 	wmManipulatorMapType *wmaptype = WM_manipulatormaptype_ensure(&wmap_params);
@@ -593,10 +592,12 @@ static StructRNA *rna_ManipulatorGroup_register(
 
 	/* check if we have registered this manipulatorgroup type before, and remove it */
 	{
-		wmManipulatorGroupType *wgt = WM_manipulatorgrouptype_find(wmaptype, dummywgt.idname);
+		wmManipulatorGroupType *wgt = WM_manipulatorgrouptype_find(dummywgt.idname, true);
 		if (wgt && wgt->ext.srna) {
+			WM_manipulatormaptype_group_unlink(NULL, bmain, wgt);
+			WM_manipulatorgrouptype_remove_ptr(wgt);
+
 			WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);
-			WM_manipulatorgrouptype_remove_ptr(NULL, bmain, wgt);
 		}
 	}
 
@@ -619,13 +620,17 @@ static StructRNA *rna_ManipulatorGroup_register(
 	dummywgt.idname = dummywgt.ext.srna->identifier;
 	dummywgt.name = dummywgt.ext.srna->name;
 
-	WM_manipulatorconfig_update_tag_init(wmaptype, &dummywgt);
+	wmManipulatorGroupType *wgt = WM_manipulatorgrouptype_append_ptr(
+	        BPY_RNA_manipulatorgroup_wrapper, (void *)&dummywgt);
 
-	/* Appending flags to initialize in next use. */
-	WM_manipulatorgrouptype_append_ptr(wmaptype, BPY_RNA_manipulatorgroup_wrapper, (void *)&dummywgt);
+	if (wgt->flag & WM_MANIPULATORGROUPTYPE_PERSISTENT) {
+		WM_manipulatormaptype_group_link_ptr(wmaptype, wgt);
 
-	/* update while blender is running */
-	WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);
+		WM_manipulatorconfig_update_tag_init(wmaptype, wgt);
+
+		/* update while blender is running */
+		WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);
+	}
 
 	return dummywgt.ext.srna;
 }
@@ -641,7 +646,7 @@ static void rna_ManipulatorGroup_unregister(struct Main *bmain, StructRNA *type)
 
 	RNA_struct_free_extension(type, &wgt->ext);
 
-	WM_manipulatorgrouptype_remove_ptr(NULL, bmain, wgt);
+	WM_manipulatormaptype_group_unlink(NULL, bmain, wgt);
 
 	RNA_struct_free(&BLENDER_RNA, type);
 }
@@ -890,13 +895,13 @@ static void rna_def_manipulatorgroup(BlenderRNA *brna)
 	RNA_def_property_flag(prop, PROP_REGISTER);
 
 	prop = RNA_def_property(srna, "bl_space_type", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_sdna(prop, NULL, "type->spaceid");
+	RNA_def_property_enum_sdna(prop, NULL, "type->mmap_params.spaceid");
 	RNA_def_property_enum_items(prop, rna_enum_space_type_items);
 	RNA_def_property_flag(prop, PROP_REGISTER);
 	RNA_def_property_ui_text(prop, "Space type", "The space where the panel is going to be used in");
 
 	prop = RNA_def_property(srna, "bl_region_type", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_sdna(prop, NULL, "type->regionid");
+	RNA_def_property_enum_sdna(prop, NULL, "type->mmap_params.regionid");
 	RNA_def_property_enum_items(prop, rna_enum_region_type_items);
 	RNA_def_property_flag(prop, PROP_REGISTER);
 	RNA_def_property_ui_text(prop, "Region Type", "The region where the panel is going to be used in");
@@ -911,6 +916,8 @@ static void rna_def_manipulatorgroup(BlenderRNA *brna)
 		 "Supports culled depth by other objects in the view"},
 		{WM_MANIPULATORGROUPTYPE_SELECT, "SELECT", 0, "Select",
 		 "Supports selection"},
+		{WM_MANIPULATORGROUPTYPE_PERSISTENT, "PERSISTENT", 0, "Persistent",
+		 ""},
 		{0, NULL, 0, NULL, NULL}
 	};
 	prop = RNA_def_property(srna, "bl_options", PROP_ENUM, PROP_NONE);

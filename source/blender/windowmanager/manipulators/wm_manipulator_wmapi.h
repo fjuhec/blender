@@ -49,9 +49,13 @@ struct wmOperator;
 
 struct wmManipulatorGroup *wm_manipulator_get_parent_group(const struct wmManipulator *mpr);
 
-/* wm_manipulator.c, for init/exit */
+/* wm_manipulator_type.c, for init/exit */
 void wm_manipulatortype_free(void);
 void wm_manipulatortype_init(void);
+
+/* wm_manipulatorgroup_type.c, for init/exit */
+void wm__manipulatorgrouptype_free(void);
+void wm__manipulatorgrouptype_init(void);
 
 /* -------------------------------------------------------------------- */
 /* wmManipulatorGroup */
@@ -63,7 +67,6 @@ void MANIPULATORGROUP_OT_manipulator_tweak(struct wmOperatorType *ot);
 /* wmManipulatorMap */
 
 void wm_manipulatormap_remove(struct wmManipulatorMap *mmap);
-void wm_manipulatormaptypes_free(void);
 
 void wm_manipulators_keymap(struct wmKeyConfig *keyconf);
 
@@ -82,6 +85,13 @@ void wm_manipulatormap_active_set(
         struct wmManipulatorMap *mmap, bContext *C,
         const struct wmEvent *event, struct wmManipulator *mpr);
 struct wmManipulator *wm_manipulatormap_active_get(struct wmManipulatorMap *mmap);
+
+/* -------------------------------------------------------------------- */
+/* wmManipulatorMapType */
+
+struct wmManipulatorMapType *wm_manipulatormaptypes_list_first(void);
+
+void wm_manipulatormaptypes_free(void);
 
 #endif  /* __WM_MANIPULATOR_WMAPI_H__ */
 
