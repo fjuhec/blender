@@ -108,13 +108,6 @@ struct wmManipulatorGroupType *WM_manipulatorgrouptype_append_ptr(
         struct wmManipulatorMapType *mmaptype,
         void (*mgrouptype_func)(struct wmManipulatorGroupType *, void *),
         void *userdata);
-struct wmManipulatorGroupType *WM_manipulatorgrouptype_append_runtime(
-        const struct Main *main, struct wmManipulatorMapType *mmaptype,
-        void (*mgrouptype_func)(struct wmManipulatorGroupType *));
-struct wmManipulatorGroupType *WM_manipulatorgrouptype_append_ptr_runtime(
-        const struct Main *main, struct wmManipulatorMapType *mmaptype,
-        void (*mgrouptype_func)(struct wmManipulatorGroupType *, void *),
-        void *userdata);
 
 void WM_manipulatorgrouptype_init_runtime(
         const struct Main *bmain, struct wmManipulatorMapType *mmaptype,

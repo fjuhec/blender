@@ -545,35 +545,6 @@ wmManipulatorGroupType *WM_manipulatorgrouptype_append_ptr(
 	return wgt;
 }
 
-/**
- * Use this for registering manipulators on runtime.
- */
-wmManipulatorGroupType *WM_manipulatorgrouptype_append_runtime(
-        const Main *main, wmManipulatorMapType *mmaptype,
-        void (*wgt_func)(wmManipulatorGroupType *))
-{
-	wmManipulatorGroupType *wgt = WM_manipulatorgrouptype_append(mmaptype, wgt_func);
-
-	/* Main is missing on startup when we create new areas.
-	 * So this is only called for manipulators initialized on runtime */
-	WM_manipulatorgrouptype_init_runtime(main, mmaptype, wgt);
-
-	return wgt;
-}
-wmManipulatorGroupType *WM_manipulatorgrouptype_append_ptr_runtime(
-        const Main *main, wmManipulatorMapType *mmaptype,
-        void (*wgt_func)(wmManipulatorGroupType *, void *),
-        void *userdata)
-{
-	wmManipulatorGroupType *wgt = WM_manipulatorgrouptype_append_ptr(mmaptype, wgt_func, userdata);
-
-	/* Main is missing on startup when we create new areas.
-	 * So this is only called for manipulators initialized on runtime */
-	WM_manipulatorgrouptype_init_runtime(main, mmaptype, wgt);
-
-	return wgt;
-}
-
 void WM_manipulatorgrouptype_init_runtime(
         const Main *bmain, wmManipulatorMapType *mmaptype,
         wmManipulatorGroupType *wgt)
