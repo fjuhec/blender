@@ -256,7 +256,7 @@ typedef struct BMesh {
 
 	void *py_handle;
 
-	struct MLoopNorSpaceArray *bmspacearr;  /* Stores MLoopNorSpaceArray for this BMesh */
+	struct MLoopNorSpaceArray *lnor_spacearr;  /* Stores MLoopNorSpaceArray for this BMesh */
 	char spacearr_dirty;
 } BMesh;
 

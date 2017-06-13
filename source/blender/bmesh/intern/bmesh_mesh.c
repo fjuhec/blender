@@ -270,9 +270,9 @@ void BM_mesh_data_free(BMesh *bm)
 
 	BLI_freelistN(&bm->selected);
 
-	if (bm->bmspacearr) {
-		BKE_lnor_spacearr_free(bm->bmspacearr);
-		MEM_freeN(bm->bmspacearr);
+	if (bm->lnor_spacearr) {
+		BKE_lnor_spacearr_free(bm->lnor_spacearr);
+		MEM_freeN(bm->lnor_spacearr);
 	}
 
 	BMO_error_clear(bm);
@@ -987,7 +987,7 @@ void BM_loops_calc_normal_vcos(
 
 void BM_lnorspacearr_store(BMesh *bm, float (*r_lnors)[3])
 {
-	BLI_assert(bm->bmspacearr != NULL);
+	BLI_assert(bm->lnor_spacearr != NULL);
 
 	if (!CustomData_has_layer(&bm->ldata, CD_CUSTOMLOOPNORMAL)) {
 		BM_data_layer_add(bm, &bm->ldata, CD_CUSTOMLOOPNORMAL);
@@ -995,7 +995,7 @@ void BM_lnorspacearr_store(BMesh *bm, float (*r_lnors)[3])
 
 	int cd_loop_clnors_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
 
-	BM_loops_calc_normal_vcos(bm, NULL, NULL, NULL, true, M_PI, r_lnors, bm->bmspacearr, NULL, cd_loop_clnors_offset, false);
+	BM_loops_calc_normal_vcos(bm, NULL, NULL, NULL, true, M_PI, r_lnors, bm->lnor_spacearr, NULL, cd_loop_clnors_offset, false);
 	bm->spacearr_dirty &= ~(BM_SPACEARR_DIRTY | BM_SPACEARR_DIRTY_ALL);
 }
 
@@ -1038,7 +1038,7 @@ void BM_lnorspace_invalidate(BMesh *bm, bool inval_all)
 
 void BM_lnorspace_rebuild(BMesh *bm, bool preserve_clnor)
 {
-	BLI_assert(bm->bmspacearr != NULL);
+	BLI_assert(bm->lnor_spacearr != NULL);
 
 	if (!(bm->spacearr_dirty & (BM_SPACEARR_DIRTY | BM_SPACEARR_DIRTY_ALL))) {
 		return;
@@ -1057,7 +1057,7 @@ void BM_lnorspace_rebuild(BMesh *bm, bool preserve_clnor)
 	}
 
 	if (preserve_clnor) {
-		BLI_assert(bm->bmspacearr->lspacearr != NULL);
+		BLI_assert(bm->lnor_spacearr->lspacearr != NULL);
 
 		BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
 			BM_ITER_ELEM(l, &liter, f, BM_LOOPS_OF_FACE) {
@@ -1066,12 +1066,12 @@ void BM_lnorspace_rebuild(BMesh *bm, bool preserve_clnor)
 					short(*clnor)[2] = BM_ELEM_CD_GET_VOID_P(l, cd_loop_clnors_offset);
 					int l_index = BM_elem_index_get(l);
 
-					BKE_lnor_space_custom_data_to_normal(bm->bmspacearr->lspacearr[l_index], *clnor, oldnors[l_index]);
+					BKE_lnor_space_custom_data_to_normal(bm->lnor_spacearr->lspacearr[l_index], *clnor, oldnors[l_index]);
 				}
 			}
 		}
 	}
-	BM_loops_calc_normal_vcos(bm, NULL, NULL, NULL, true, M_PI, r_lnors, bm->bmspacearr, NULL, cd_loop_clnors_offset, true);
+	BM_loops_calc_normal_vcos(bm, NULL, NULL, NULL, true, M_PI, r_lnors, bm->lnor_spacearr, NULL, cd_loop_clnors_offset, true);
 	MEM_freeN(r_lnors);
 
 	BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
@@ -1082,12 +1082,12 @@ void BM_lnorspace_rebuild(BMesh *bm, bool preserve_clnor)
 #if 0
 				short(*clnor)[2] = BM_ELEM_CD_GET_VOID_P(l, cd_loop_clnors_offset);
 				int l_index = BM_elem_index_get(l);
-				BKE_lnor_space_custom_normal_to_data(bm->bmspacearr->lspacearr[l_index], l->v->no, *clnor);
+				BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[l_index], l->v->no, *clnor);
 #else
 				if (preserve_clnor) {
 					short(*clnor)[2] = BM_ELEM_CD_GET_VOID_P(l, cd_loop_clnors_offset);
 					int l_index = BM_elem_index_get(l);
-					BKE_lnor_space_custom_normal_to_data(bm->bmspacearr->lspacearr[l_index], oldnors[l_index], *clnor);
+					BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[l_index], oldnors[l_index], *clnor);
 				}
 #endif
 				BM_elem_flag_disable(l, BM_ELEM_LNORSPACE);
@@ -1102,10 +1102,10 @@ void BM_lnorspace_update(BMesh *bm)
 {
 	float(*lnors)[3] = MEM_callocN(sizeof(*lnors) * bm->totloop, "__func__");
 
-	if (bm->bmspacearr == NULL) {
-		bm->bmspacearr = MEM_callocN(sizeof(*bm->bmspacearr), __func__);
+	if (bm->lnor_spacearr == NULL) {
+		bm->lnor_spacearr = MEM_callocN(sizeof(*bm->lnor_spacearr), __func__);
 	}
-	if (bm->bmspacearr->lspacearr == NULL) {
+	if (bm->lnor_spacearr->lspacearr == NULL) {
 		BM_lnorspacearr_store(bm, lnors);
 	}
 	else if(bm->spacearr_dirty & (BM_SPACEARR_DIRTY | BM_SPACEARR_DIRTY_ALL)){
@@ -1130,15 +1130,15 @@ int BM_total_loop_select(BMesh *bm)
 
 void InitTransDataNormal(BMesh *bm, TransDataLoopNormal *tld, BMVert *v, BMLoop *l, int offset)
 {
-	BLI_assert(bm->bmspacearr != NULL);
-	BLI_assert(bm->bmspacearr->lspacearr != NULL);
+	BLI_assert(bm->lnor_spacearr != NULL);
+	BLI_assert(bm->lnor_spacearr->lspacearr != NULL);
 
 	int l_index = BM_elem_index_get(l);
 	tld->loop_index = l_index;
 	short *clnors_data = BM_ELEM_CD_GET_VOID_P(l, offset);
 
 	float custom_normal[3];
-	BKE_lnor_space_custom_data_to_normal(bm->bmspacearr->lspacearr[l_index], clnors_data, custom_normal);
+	BKE_lnor_space_custom_data_to_normal(bm->lnor_spacearr->lspacearr[l_index], clnors_data, custom_normal);
 
 	tld->clnors_data = clnors_data;
 	copy_v3_v3(tld->nloc, custom_normal);

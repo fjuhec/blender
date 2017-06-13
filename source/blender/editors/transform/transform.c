@@ -4236,7 +4236,7 @@ void freeCustomNormalArray(TransInfo *t, TransCustomData *custom_data)
 		BMesh *bm = em->bm;
 
 		for (int i = 0; i < ld->totloop; i++, tld++){		/* Restore custom loop normal on cancel */
-			BKE_lnor_space_custom_normal_to_data(bm->bmspacearr->lspacearr[tld->loop_index], tld->niloc, tld->clnors_data);
+			BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], tld->niloc, tld->clnors_data);
 		}
 	}
 
@@ -4316,7 +4316,7 @@ static void applyNormalRotation(TransInfo *t, const int mval[2])
 		sub_v3_v3v3(vec, tld->nloc, tld->niloc);
 		add_v3_v3v3(tld->nloc, tld->niloc, vec);
 
-		BKE_lnor_space_custom_normal_to_data(bm->bmspacearr->lspacearr[tld->loop_index], tld->nloc, tld->clnors_data);
+		BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], tld->nloc, tld->clnors_data);
 	}
 
 	recalcData(t);
