@@ -62,6 +62,7 @@
 #include "DNA_gpencil_types.h"
 #include "DNA_brush_types.h"
 #include "DNA_windowmanager_types.h"
+#include "DNA_workspace_types.h"
 
 #include "UI_view2d.h"
 
