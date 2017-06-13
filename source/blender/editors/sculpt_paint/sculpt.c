@@ -659,7 +659,7 @@ typedef struct SculptBrushTest {
 	/* View3d clipping - only set rv3d for clipping */
 	RegionView3D *clip_rv3d;
 
-
+	float no[3];
 
 } SculptBrushTest;
 
@@ -670,7 +670,7 @@ static void sculpt_brush_test_init(SculptSession *ss, SculptBrushTest *test)
 	test->radius_squared = ss->cache->radius_squared;
 	copy_v3_v3(test->location, ss->cache->location);
 	test->dist = 0.0f;   /* just for initialize */
-
+	copy_v3_v3(test->no, ss->cache->view_normal);
 	test->mirror_symmetry_pass = ss->cache->mirror_symmetry_pass;
 
 	if (rv3d->rflag & RV3D_CLIPPING) {
@@ -3055,6 +3055,18 @@ static void do_clay_strips_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int t
 	            ((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
 }
 
+static void calc_foot_perp_v3_v3v3v3(float* foot, const float* a, const float* l_dir, const float* p) 
+/*to calculate foot of perpendicular */
+{
+	float v1[3];
+
+	sub_v3_v3v3(v1, a, p);
+
+	float vp[3];
+	mul_v3_v3fl(vp, l_dir, dot_v3v3(l_dir, v1));
+	add_v3_v3v3(foot, p, vp);
+}
+
 static void do_clip_brush_task_cb_ex(
 	void *userdata, void *UNUSED(userdata_chunk), const int n, const int thread_id)
 {
@@ -3075,7 +3087,7 @@ static void do_clip_brush_task_cb_ex(
 	proxy = BKE_pbvh_node_add_proxy(ss->pbvh, data->nodes[n])->co;
 
 	sculpt_brush_test_init(ss, &test);
-
+	
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
 		sculpt_orig_vert_data_update(&orig_data, &vd);
@@ -3090,12 +3102,17 @@ static void do_clip_brush_task_cb_ex(
 			axis_angle_normalized_to_mat3(rot, ss->cache->sculpt_normal_symm, angle * fade);
 			mul_v3_m3v3(proxy[vd.i], rot, vec);
 			add_v3_v3(proxy[vd.i], ss->cache->location); */
-			sub_v3_v3v3(vec, vd.co, ss->cache->location);
+
+			float foot[3];
+			calc_foot_perp_v3_v3v3v3(foot, vd.co, test.no, ss->cache->location);
+			sub_v3_v3v3(vec, vd.co, foot);
 			float length = dot_v3v3(vec, vec);
 			float r = ss->cache->radius_squared;
 			float p1[3];
-			mul_v3_v3fl(p1, vec, sqrt(r / length));
 
+			mul_v3_v3fl(p1, vec, sqrt(1 / length));
+			add_v3_v3v3(p1, p1, foot);
+			sub_v3_v3v3(vec, vd.co, ss->cache->location);
 			copy_v3_v3(proxy[vd.i], p1);
 			/*
 			mul_v3_v3fl(proxy[vd.i], vd.co, 1.5); just testing the working*/
@@ -4233,7 +4250,7 @@ static void sculpt_update_cache_invariants(
 	cache->first_time = 1;
 
 #define PIXEL_INPUT_THRESHHOLD 5
-	if (brush->sculpt_tool == SCULPT_TOOL_ROTATE)
+	if (brush->sculpt_tool == SCULPT_TOOL_ROTATE || brush->sculpt_tool == SCULPT_TOOL_CLIP)
 		cache->dial = BLI_dial_initialize(cache->initial_mouse, PIXEL_INPUT_THRESHHOLD);
 		
 #undef PIXEL_INPUT_THRESHHOLD
