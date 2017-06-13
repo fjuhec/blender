@@ -48,8 +48,6 @@ static void GPENCIL_engine_init(void *vedata)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 
-	const DRWContextState *draw_ctx = DRW_context_state_get();
-
 	/* normal fill shader */
 	if (!e_data.gpencil_fill_sh) {
 		e_data.gpencil_fill_sh = DRW_shader_create(datatoc_gpencil_fill_vert_glsl, NULL,
@@ -97,9 +95,6 @@ static void GPENCIL_cache_init(void *vedata)
 
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
-
-	const DRWContextState *draw_ctx = DRW_context_state_get();
-	PaletteColor *palcolor = CTX_data_active_palettecolor(draw_ctx->evil_C);
 
 	if (!stl->g_data) {
 		/* Alloc transient pointers */
@@ -179,7 +174,6 @@ static void GPENCIL_cache_finish(void *vedata)
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
-	RegionView3D *rv3d = draw_ctx->rv3d;
 	ToolSettings *ts = scene->toolsettings;
 
 	/* Draw all pending objects sorted by object location zdepth.For GP objects, the order of drawing 

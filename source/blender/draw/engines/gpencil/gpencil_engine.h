@@ -28,6 +28,8 @@
 
 #include "GPU_batch.h"
 
+struct tGPspoint;
+
  /* TODO: these could be system parameter in userprefs screen */
 #define GPENCIL_CACHE_BLOCK_SIZE 8 
 #define GPENCIL_MAX_SHGROUPS 65536

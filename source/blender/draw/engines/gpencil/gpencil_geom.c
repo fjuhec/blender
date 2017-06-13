@@ -50,7 +50,7 @@
 #include "gpencil_engine.h"
 
 /* set stroke point to vbo */
-static void gpencil_set_stroke_point(RegionView3D *rv3d, VertexBuffer *vbo, float matrix[4][4], const bGPDspoint *pt, int idx,
+static void gpencil_set_stroke_point(VertexBuffer *vbo, float matrix[4][4], const bGPDspoint *pt, int idx,
 						    unsigned int pos_id, unsigned int color_id,
 							unsigned int thickness_id, short thickness,
 	                        const float ink[4])
@@ -100,9 +100,6 @@ Batch *DRW_gpencil_get_point_geom(bGPDspoint *pt, short thickness, const float i
 /* create batch geometry data for stroke shader */
 Batch *DRW_gpencil_get_stroke_geom(bGPDframe *gpf, bGPDstroke *gps, short thickness, const float ink[4])
 {
-	const DRWContextState *draw_ctx = DRW_context_state_get();
-	RegionView3D *rv3d = draw_ctx->rv3d;
-
 	bGPDspoint *points = gps->points;
 	int totpoints = gps->totpoints;
 	/* if cyclic needs more vertex */
@@ -125,27 +122,27 @@ Batch *DRW_gpencil_get_stroke_geom(bGPDframe *gpf, bGPDstroke *gps, short thickn
 	for (int i = 0; i < totpoints; i++, pt++) {
 		/* first point for adjacency (not drawn) */
 		if (i == 0) {
-			gpencil_set_stroke_point(rv3d, vbo, gpf->viewmatrix, &points[1], idx, pos_id, color_id, thickness_id, thickness, ink);
+			gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[1], idx, pos_id, color_id, thickness_id, thickness, ink);
 			++idx;
 		}
 		/* set point */
-		gpencil_set_stroke_point(rv3d, vbo, gpf->viewmatrix, pt, idx, pos_id, color_id, thickness_id, thickness, ink);
+		gpencil_set_stroke_point(vbo, gpf->viewmatrix, pt, idx, pos_id, color_id, thickness_id, thickness, ink);
 		++idx;
 	}
 
 	if (gps->flag & GP_STROKE_CYCLIC && totpoints > 2) {
 		/* draw line to first point to complete the cycle */
-		gpencil_set_stroke_point(rv3d, vbo, gpf->viewmatrix, &points[0], idx, pos_id, color_id, thickness_id, thickness, ink);
+		gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[0], idx, pos_id, color_id, thickness_id, thickness, ink);
 		++idx;
 		/* now add adjacency points using 2nd & 3rd point to get smooth transition */
-		gpencil_set_stroke_point(rv3d, vbo, gpf->viewmatrix, &points[1], idx, pos_id, color_id, thickness_id, thickness, ink);
+		gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[1], idx, pos_id, color_id, thickness_id, thickness, ink);
 		++idx;
-		gpencil_set_stroke_point(rv3d, vbo, gpf->viewmatrix, &points[2], idx, pos_id, color_id, thickness_id, thickness, ink);
+		gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[2], idx, pos_id, color_id, thickness_id, thickness, ink);
 		++idx;
 	}
 	/* last adjacency point (not drawn) */
 	else {
-		gpencil_set_stroke_point(rv3d, vbo, gpf->viewmatrix, &points[totpoints - 2], idx, pos_id, color_id, thickness_id, thickness, ink);
+		gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[totpoints - 2], idx, pos_id, color_id, thickness_id, thickness, ink);
 	}
 
 	return Batch_create(PRIM_LINE_STRIP_ADJACENCY, vbo, NULL);
@@ -270,16 +267,16 @@ Batch *DRW_gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], shor
 
 		/* first point for adjacency (not drawn) */
 		if (i == 0) {
-			gpencil_set_stroke_point(rv3d, vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
+			gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
 			++idx;
 		}
 		/* set point */
-		gpencil_set_stroke_point(rv3d, vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
+		gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
 		++idx;
 	}
 
 	/* last adjacency point (not drawn) */
-	gpencil_set_stroke_point(rv3d, vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
+	gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
 
 	return Batch_create(PRIM_LINE_STRIP_ADJACENCY, vbo, NULL);
 }

@@ -41,6 +41,7 @@
 
 #include "IMB_imbuf_types.h"
 
+#include "draw_cache_impl.h"
 #include "gpencil_engine.h"
 
 #define PIX_PERSPECTIVE 1
@@ -460,7 +461,6 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	RegionView3D *rv3d = draw_ctx->rv3d;
-	Scene *scene = draw_ctx->scene;
 
 	DRWShadingGroup *fillgrp;
 	DRWShadingGroup *strokegrp;
@@ -516,9 +516,6 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
  /* draw stroke in drawing buffer */
 static void gpencil_draw_buffer_strokes(GpencilBatchCache *cache, void *vedata, ToolSettings *ts, bGPdata *gpd)
 {
-	const DRWContextState *draw_ctx = DRW_context_state_get();
-	Scene *scene = draw_ctx->scene;
-
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	bGPDbrush *brush = BKE_gpencil_brush_getactive(ts);
 
@@ -660,7 +657,7 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 	cache->is_dirty = false;
 }
 
-void DRW_gpencil_batch_cache_dirty(bGPdata *gpd, int mode)
+void DRW_gpencil_batch_cache_dirty(bGPdata *gpd, int UNUSED(mode))
 {
 	GpencilBatchCache *cache = gpd->batch_cache;
 	if (cache == NULL) {

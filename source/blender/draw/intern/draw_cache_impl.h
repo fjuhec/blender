@@ -26,6 +26,7 @@
 #ifndef __DRAW_CACHE_IMPL_H__
 #define __DRAW_CACHE_IMPL_H__
 
+struct bGPdata;
 struct Batch;
 struct ListBase;
 struct CurveCache;

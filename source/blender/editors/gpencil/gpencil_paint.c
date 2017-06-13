@@ -252,7 +252,6 @@ static void gp_get_3d_reference(tGPsdata *p, float vec[3])
 {
 	View3D *v3d = p->sa->spacedata.first;
 	ToolSettings *ts = p->scene->toolsettings;
-	const float *fp = ED_view3d_cursor3d_get(p->scene, v3d);
 	Object *ob = NULL;
 	if (p->ownerPtr.type == &RNA_Object) {
 		ob = (Object *)p->ownerPtr.data;
