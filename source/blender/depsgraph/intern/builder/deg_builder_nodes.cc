@@ -62,7 +62,7 @@ extern "C" {
 #include "DNA_node_types.h"
 #include "DNA_particle_types.h"
 #include "DNA_object_types.h"
-#include "DNA_probe_types.h"
+#include "DNA_lightprobe_types.h"
 #include "DNA_rigidbody_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_texture_types.h"
@@ -160,11 +160,6 @@ DepsgraphNodeBuilder::~DepsgraphNodeBuilder()
 {
 }
 
-RootDepsNode *DepsgraphNodeBuilder::add_root_node()
-{
-	return m_graph->add_root_node();
-}
-
 IDDepsNode *DepsgraphNodeBuilder::add_id_node(ID *id)
 {
 	return m_graph->add_id_node(id, id->name);
@@ -172,12 +167,7 @@ IDDepsNode *DepsgraphNodeBuilder::add_id_node(ID *id)
 
 TimeSourceDepsNode *DepsgraphNodeBuilder::add_time_source()
 {
-	/* root-node */
-	RootDepsNode *root_node = m_graph->root_node;
-	if (root_node != NULL) {
-		return root_node->add_time_source("Time Source");
-	}
-	return NULL;
+	return m_graph->add_time_source();
 }
 
 ComponentDepsNode *DepsgraphNodeBuilder::add_component_node(
@@ -193,7 +183,7 @@ ComponentDepsNode *DepsgraphNodeBuilder::add_component_node(
 
 OperationDepsNode *DepsgraphNodeBuilder::add_operation_node(
         ComponentDepsNode *comp_node,
-        DepsEvalOperationCb op,
+        const DepsEvalOperationCb& op,
         eDepsOperation_Code opcode,
         const char *name,
         int name_tag)
@@ -220,7 +210,7 @@ OperationDepsNode *DepsgraphNodeBuilder::add_operation_node(
         ID *id,
         eDepsNode_Type comp_type,
         const char *comp_name,
-        DepsEvalOperationCb op,
+        const DepsEvalOperationCb& op,
         eDepsOperation_Code opcode,
         const char *name,
         int name_tag)
@@ -232,7 +222,7 @@ OperationDepsNode *DepsgraphNodeBuilder::add_operation_node(
 OperationDepsNode *DepsgraphNodeBuilder::add_operation_node(
         ID *id,
         eDepsNode_Type comp_type,
-        DepsEvalOperationCb op,
+        const DepsEvalOperationCb& op,
         eDepsOperation_Code opcode,
         const char *name,
         int name_tag)
@@ -385,8 +375,8 @@ void DepsgraphNodeBuilder::build_object(Scene *scene, Object *ob)
 				build_camera(ob);
 				break;
 
-			case OB_PROBE:
-				build_probe(ob);
+			case OB_LIGHTPROBE:
+				build_lightprobe(ob);
 				break;
 
 			default:
@@ -1120,9 +1110,9 @@ void DepsgraphNodeBuilder::build_movieclip(MovieClip *clip)
 	build_animdata(clip_id);
 }
 
-void DepsgraphNodeBuilder::build_probe(Object *object)
+void DepsgraphNodeBuilder::build_lightprobe(Object *object)
 {
-	Probe *probe = (Probe *)object->data;
+	LightProbe *probe = (LightProbe *)object->data;
 	ID *probe_id = &probe->id;
 	if (probe_id->tag & LIB_TAG_DOIT) {
 		return;
@@ -1133,13 +1123,13 @@ void DepsgraphNodeBuilder::build_probe(Object *object)
 	                   DEG_NODE_TYPE_PARAMETERS,
 	                   NULL,
 	                   DEG_OPCODE_PLACEHOLDER,
-	                   "Probe Eval");
+	                   "LightProbe Eval");
 
 	add_operation_node(&object->id,
 	                   DEG_NODE_TYPE_PARAMETERS,
 	                   NULL,
 	                   DEG_OPCODE_PLACEHOLDER,
-	                   "Probe Eval");
+	                   "LightProbe Eval");
 
 	build_animdata(probe_id);
 }
