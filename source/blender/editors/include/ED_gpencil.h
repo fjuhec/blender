@@ -39,6 +39,7 @@ struct bGPdata;
 struct bGPDlayer;
 struct bGPDframe;
 struct bGPDstroke;
+struct bGPDspoint;
 struct bGPDpalette;
 struct bGPDpalettecolor;
 struct bGPDspoint;
@@ -55,7 +56,6 @@ struct ToolSettings;
 struct View3D;
 struct wmKeyConfig;
 struct wmWindowManager;
-
 
 /* ------------- Grease-Pencil Helpers ---------------- */
 typedef struct tGPDinterpolate_layer {

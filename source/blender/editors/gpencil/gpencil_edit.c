@@ -711,6 +711,8 @@ static int gp_strokes_copy_exec(bContext *C, wmOperator *op)
 	if (gp_strokes_copypastebuf.first) {
 		gp_strokes_copypastebuf_colors = BLI_ghash_str_new("GPencil CopyBuf Colors");
 		
+		/* TODO: this code must be review because this is not relevant now and use Blender Palettes */
+#if 0
 		for (bGPDstroke *gps = gp_strokes_copypastebuf.first; gps; gps = gps->next) {
 			if (ED_gpencil_stroke_can_use(C, gps)) {
 				if (BLI_ghash_haskey(gp_strokes_copypastebuf_colors, gps->colorname) == false) {
@@ -721,6 +723,7 @@ static int gp_strokes_copy_exec(bContext *C, wmOperator *op)
 				}
 			}
 		}
+#endif
 	}
 	
 	/* updates (to ensure operator buttons are refreshed, when used via hotkeys) */

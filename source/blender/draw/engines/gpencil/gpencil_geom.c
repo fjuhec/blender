@@ -59,7 +59,8 @@ static void gpencil_set_stroke_point(VertexBuffer *vbo, float matrix[4][4], cons
 	
 	float alpha = ink[3] * pt->strength;
 	CLAMP(alpha, GPENCIL_STRENGTH_MIN, 1.0f);
-	float col[4] = { ink[0], ink[1], ink[2], alpha };
+	float col[4];
+	ARRAY_SET_ITEMS(col, ink[0], ink[1], ink[2], alpha);
 	VertexBuffer_set_attrib(vbo, color_id, idx, col);
 
 	/* the thickness of the stroke must be affected by zoom, so a pixel scale is calculated */
@@ -86,7 +87,8 @@ Batch *DRW_gpencil_get_point_geom(bGPDspoint *pt, short thickness, const float i
 
 	float alpha = ink[3] * pt->strength;
 	CLAMP(alpha, GPENCIL_STRENGTH_MIN, 1.0f);
-	float col[4] = { ink[0], ink[1], ink[2], alpha };
+	float col[4];
+	ARRAY_SET_ITEMS(col, ink[0], ink[1], ink[2], alpha);
 	VertexBuffer_set_attrib(vbo, color_id, 0, col);
 
 	float thick = max_ff(pt->pressure * thickness, 1.0f);
@@ -151,7 +153,8 @@ Batch *DRW_gpencil_get_stroke_geom(bGPDframe *gpf, bGPDstroke *gps, short thickn
 /* helper to convert 2d to 3d for simple drawing buffer */
 static void gpencil_stroke_convertcoords(Scene *scene, ARegion *ar, View3D *v3d, const tGPspoint *point2D, float out[3])
 {
-	float mval_f[2] = { point2D->x, point2D->y };
+	float mval_f[2];
+	ARRAY_SET_ITEMS(mval_f, point2D->x, point2D->y);
 	float mval_prj[2];
 	float rvec[3], dvec[3];
 	float zfac;
@@ -215,7 +218,8 @@ Batch *DRW_gpencil_get_buffer_point_geom(bGPdata *gpd, short thickness)
 
 	float alpha = ink[3] * pt.strength;
 	CLAMP(alpha, GPENCIL_STRENGTH_MIN, 1.0f);
-	float col[4] = { ink[0], ink[1], ink[2], alpha };
+	float col[4];
+	ARRAY_SET_ITEMS(col, ink[0], ink[1], ink[2], alpha);
 	VertexBuffer_set_attrib(vbo, color_id, 0, col);
 
 	float thick = max_ff(pt.pressure * thickness, 1.0f);
