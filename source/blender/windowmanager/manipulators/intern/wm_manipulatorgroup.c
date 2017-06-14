@@ -389,7 +389,11 @@ void MANIPULATORGROUP_OT_manipulator_tweak(wmOperatorType *ot)
 	ot->invoke = manipulator_tweak_invoke;
 	ot->modal = manipulator_tweak_modal;
 
+	/* TODO(campbell) This causes problems tweaking settings for operators,
+	 * need to find a way to support this. */
+#if 0
 	ot->flag = OPTYPE_UNDO;
+#endif
 }
 
 /** \} */ // Manipulator operators
