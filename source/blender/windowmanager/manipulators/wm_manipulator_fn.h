@@ -56,4 +56,23 @@ typedef void    (*wmManipulatorFnExit)(struct bContext *, struct wmManipulator *
 typedef int     (*wmManipulatorFnCursorGet)(struct wmManipulator *);
 typedef void    (*wmManipulatorFnSelect)(struct bContext *, struct wmManipulator *, const int);
 
+/* wmManipulatorProperty */
+typedef void (*wmManipulatorPropertyFnGet)(
+        const struct wmManipulator *, struct wmManipulatorProperty *, void *user_data,
+        float *value, uint value_len);
+typedef void (*wmManipulatorPropertyFnSet)(
+        const struct wmManipulator *, struct wmManipulatorProperty *, void *user_data,
+        const float *value, uint value_len);
+typedef void (*wmManipulatorPropertyFnRangeGet)(
+        const struct wmManipulator *, struct wmManipulatorProperty *, void *user_data,
+        float range[2]);
+
+typedef struct wmManipulatorPropertyFnParams {
+	wmManipulatorPropertyFnGet value_get_fn;
+	wmManipulatorPropertyFnSet value_set_fn;
+	wmManipulatorPropertyFnRangeGet range_get_fn;
+	const struct bContext *context;
+	void *user_data;
+} wmManipulatorPropertyFnParams;
+
 #endif  /* __WM_MANIPULATOR_FN_H__ */

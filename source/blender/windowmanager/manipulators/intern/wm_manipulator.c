@@ -190,34 +190,6 @@ wmManipulatorGroup *wm_manipulator_get_parent_group(const wmManipulator *mpr)
  *
  * \{ */
 
-struct wmManipulatorProperty *WM_manipulator_get_property(wmManipulator *mpr, const char *idname)
-{
-	return BLI_findstring(&mpr->properties, idname, offsetof(wmManipulatorProperty, idname));
-}
-
-void WM_manipulator_def_property(
-        wmManipulator *mpr, const char *idname,
-        PointerRNA *ptr, const char *propname, int index)
-{
-	wmManipulatorProperty *mpr_prop = WM_manipulator_get_property(mpr, idname);
-
-	if (mpr_prop == NULL) {
-		const uint idname_size = strlen(idname) + 1;
-		mpr_prop = MEM_callocN(sizeof(wmManipulatorProperty) + idname_size, __func__);
-		memcpy(mpr_prop->idname, idname, idname_size);
-		BLI_addtail(&mpr->properties, mpr_prop);
-	}
-
-	/* if manipulator evokes an operator we cannot use it for property manipulation */
-	mpr->opname = NULL;
-	mpr_prop->ptr = *ptr;
-	mpr_prop->prop = RNA_struct_find_property(ptr, propname);
-	mpr_prop->index = index;
-
-	if (mpr->type->property_update) {
-		mpr->type->property_update(mpr, mpr_prop);
-	}
-}
 
 PointerRNA *WM_manipulator_set_operator(wmManipulator *mpr, const char *opname)
 {
@@ -413,7 +385,7 @@ static void manipulator_update_prop_data(wmManipulator *mpr)
 	/* manipulator property might have been changed, so update manipulator */
 	if (mpr->type->property_update && !BLI_listbase_is_empty(&mpr->properties)) {
 		for (wmManipulatorProperty *mpr_prop = mpr->properties.first; mpr_prop; mpr_prop = mpr_prop->next) {
-			if (mpr_prop->prop != NULL) {
+			if (WM_manipulator_property_is_valid(mpr_prop)) {
 				mpr->type->property_update(mpr, mpr_prop);
 			}
 		}

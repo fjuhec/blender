@@ -106,12 +106,25 @@ struct wmManipulator {
 	ListBase properties;
 };
 
+typedef void (*wmManipulatorGroupFnInit)(
+        const struct bContext *, struct wmManipulatorGroup *);
+
 /* Similar to PropertyElemRNA, but has an identifier. */
 typedef struct wmManipulatorProperty {
 	struct wmManipulatorProperty *next, *prev;
 	PointerRNA ptr;
 	PropertyRNA *prop;
 	int index;
+
+	/* Optional functions for converting to/from RNA  */
+	struct {
+		wmManipulatorPropertyFnGet value_get_fn;
+		wmManipulatorPropertyFnSet value_set_fn;
+		wmManipulatorPropertyFnRangeGet range_get_fn;
+		const struct bContext *context;
+		void *user_data;
+	} custom_func;
+
 	/* over alloc */
 	char idname[0];
 } wmManipulatorProperty;

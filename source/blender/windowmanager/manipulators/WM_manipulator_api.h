@@ -64,12 +64,6 @@ void WM_manipulator_free(
         ListBase *manipulatorlist, struct wmManipulatorMap *mmap, struct wmManipulator *mpr,
         struct bContext *C);
 
-struct wmManipulatorProperty *WM_manipulator_get_property(
-        struct wmManipulator *mpr, const char *idname);
-void WM_manipulator_def_property(
-        struct wmManipulator *mpr, const char *idname,
-        struct PointerRNA *ptr, const char *propname, int index);
-
 struct PointerRNA *WM_manipulator_set_operator(struct wmManipulator *, const char *opname);
 
 /* callbacks */
@@ -112,6 +106,27 @@ struct wmManipulatorGroupTypeRef *WM_manipulatorgrouptype_append_and_link(
 void WM_manipulatorconfig_update_tag_init(struct wmManipulatorMapType *mmap_type, struct wmManipulatorGroupType *wgt);
 void WM_manipulatorconfig_update(const struct Main *bmain);
 
+
+/* wm_maniulator_property.c */
+struct wmManipulatorProperty *WM_manipulator_property_find(
+        struct wmManipulator *mpr, const char *idname);
+
+void WM_manipulator_property_def_rna(
+        struct wmManipulator *mpr, const char *idname,
+        struct PointerRNA *ptr, const char *propname, int index);
+void WM_manipulator_property_def_func(
+        struct wmManipulator *mpr, const char *idname,
+        const struct wmManipulatorPropertyFnParams *params);
+
+bool WM_manipulator_property_is_valid(
+        const struct wmManipulatorProperty *mpr_prop);
+void  WM_manipulator_property_value_set(
+        struct bContext *C, const struct wmManipulator *mnp, struct wmManipulatorProperty *mpr_prop, const float value);
+float WM_manipulator_property_value_get(
+        const struct wmManipulator *mnp, struct wmManipulatorProperty *mpr_prop);
+void WM_manipulator_property_range_get(
+        const struct wmManipulator *mpr, struct wmManipulatorProperty *mpr_prop,
+        float range[2]);
 
 /* -------------------------------------------------------------------- */
 /* wmManipulatorGroup */
