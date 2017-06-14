@@ -47,8 +47,6 @@ struct wmOperator;
 /* -------------------------------------------------------------------- */
 /* wmManipulator */
 
-struct wmManipulatorGroup *wm_manipulator_get_parent_group(const struct wmManipulator *mpr);
-
 /* wm_manipulator_type.c, for init/exit */
 void wm_manipulatortype_free(void);
 void wm_manipulatortype_init(void);

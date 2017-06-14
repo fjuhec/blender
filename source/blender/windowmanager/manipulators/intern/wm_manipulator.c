@@ -177,12 +177,6 @@ void WM_manipulator_free(ListBase *manipulatorlist, wmManipulatorMap *mmap, wmMa
 	MEM_freeN(mpr);
 }
 
-wmManipulatorGroup *wm_manipulator_get_parent_group(const wmManipulator *mpr)
-{
-	return mpr->parent_mgroup;
-}
-
-
 /* -------------------------------------------------------------------- */
 /** \name Manipulator Creation API
  *

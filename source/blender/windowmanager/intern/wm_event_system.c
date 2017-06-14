@@ -2179,7 +2179,7 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 				/* handle user configurable manipulator-map keymap */
 				else if (mpr) {
 					/* get user customized keymap from default one */
-					const wmManipulatorGroup *highlightgroup = wm_manipulator_get_parent_group(mpr);
+					const wmManipulatorGroup *highlightgroup = mpr->parent_mgroup;
 					const wmKeyMap *keymap = WM_keymap_active(wm, highlightgroup->type->keymap);
 					wmKeyMapItem *kmi;
 

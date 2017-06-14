@@ -80,6 +80,7 @@ void WM_manipulator_property_def_rna(
 
 	/* if manipulator evokes an operator we cannot use it for property manipulation */
 	mpr->opname = NULL;
+
 	mpr_prop->ptr = *ptr;
 	mpr_prop->prop = RNA_struct_find_property(ptr, propname);
 	mpr_prop->index = index;
@@ -89,7 +90,6 @@ void WM_manipulator_property_def_rna(
 	}
 }
 
-/* TODO, de-duplicate */
 void WM_manipulator_property_def_func(
         wmManipulator *mpr, const char *idname,
         const wmManipulatorPropertyFnParams *params)
@@ -99,7 +99,6 @@ void WM_manipulator_property_def_func(
 	/* if manipulator evokes an operator we cannot use it for property manipulation */
 	mpr->opname = NULL;
 
-	/* XXX - de-duplicate*/
 	mpr_prop->custom_func.value_get_fn = params->value_get_fn;
 	mpr_prop->custom_func.value_set_fn = params->value_set_fn;
 	mpr_prop->custom_func.range_get_fn = params->range_get_fn;
