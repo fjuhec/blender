@@ -80,7 +80,7 @@ static void widget_facemap_draw(const bContext *C, struct wmManipulator *widget)
 	gpuPopMatrix();
 }
 
-static void widget_facemap_render_3d_intersect(const bContext *C, struct wmManipulator *widget, int selectionbase)
+static void widget_facemap_draw_select(const bContext *C, struct wmManipulator *widget, int selectionbase)
 {
 	GPU_select_load_id(selectionbase);
 	widget_facemap_draw(C, widget);
@@ -132,7 +132,7 @@ static void MANIPULATOR_WT_facemap3d(wmManipulatorType *wt)
 
 	/* api callbacks */
 	wt->draw = widget_facemap_draw;
-	wt->draw_select = widget_facemap_render_3d_intersect;
+	wt->draw_select = widget_facemap_draw_select;
 
 	wt->struct_size = sizeof(FacemapManipulator);
 }

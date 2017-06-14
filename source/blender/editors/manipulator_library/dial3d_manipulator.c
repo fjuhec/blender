@@ -257,7 +257,7 @@ static void dial_draw_intern(
 	gpuPopMatrix();
 }
 
-static void manipulator_dial_render_3d_intersect(const bContext *C, wmManipulator *mpr, int selectionbase)
+static void manipulator_dial_draw_select(const bContext *C, wmManipulator *mpr, int selectionbase)
 {
 	DialManipulator *dial = (DialManipulator *)mpr;
 	float clip_plane_buf[4];
@@ -360,7 +360,7 @@ static void MANIPULATOR_WT_dial_3d(wmManipulatorType *wt)
 
 	/* api callbacks */
 	wt->draw = manipulator_dial_draw;
-	wt->draw_select = manipulator_dial_render_3d_intersect;
+	wt->draw_select = manipulator_dial_draw_select;
 	wt->invoke = manipulator_dial_invoke;
 
 	wt->struct_size = sizeof(DialManipulator);

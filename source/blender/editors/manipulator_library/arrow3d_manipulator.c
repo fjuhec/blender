@@ -89,7 +89,7 @@ typedef struct ArrowManipulator3D {
 
 /* -------------------------------------------------------------------- */
 
-static void manipulator_arrow_get_final_pos(wmManipulator *mpr, float r_pos[3])
+static void manipulator_arrow_position_get(wmManipulator *mpr, float r_pos[3])
 {
 	ArrowManipulator3D *arrow = (ArrowManipulator3D *)mpr;
 
@@ -193,7 +193,7 @@ static void arrow_draw_intern(ArrowManipulator3D *arrow, const bool select, cons
 	float final_pos[3];
 
 	manipulator_color_get(&arrow->manipulator, highlight, col);
-	manipulator_arrow_get_final_pos(&arrow->manipulator, final_pos);
+	manipulator_arrow_position_get(&arrow->manipulator, final_pos);
 
 	if (arrow->flag & ARROW_UP_VECTOR_SET) {
 		copy_v3_v3(rot[2], arrow->direction);
@@ -237,7 +237,7 @@ static void arrow_draw_intern(ArrowManipulator3D *arrow, const bool select, cons
 	}
 }
 
-static void manipulator_arrow_render_3d_intersect(
+static void manipulator_arrow_draw_select(
         const bContext *UNUSED(C), wmManipulator *mpr,
         int selectionbase)
 {
@@ -387,7 +387,7 @@ static void manipulator_arrow_invoke(
 
 	inter->init_scale = mpr->scale;
 
-	manipulator_arrow_get_final_pos(mpr, inter->init_origin);
+	manipulator_arrow_position_get(mpr, inter->init_origin);
 
 	mpr->interaction_data = inter;
 }
@@ -531,8 +531,8 @@ static void MANIPULATOR_WT_arrow_3d(wmManipulatorType *wt)
 
 	/* api callbacks */
 	wt->draw = manipulator_arrow_draw;
-	wt->draw_select = manipulator_arrow_render_3d_intersect;
-	wt->position_get = manipulator_arrow_get_final_pos;
+	wt->draw_select = manipulator_arrow_draw_select;
+	wt->position_get = manipulator_arrow_position_get;
 	wt->modal = manipulator_arrow_modal;
 	wt->invoke = manipulator_arrow_invoke;
 	wt->property_update = manipulator_arrow_property_update;
