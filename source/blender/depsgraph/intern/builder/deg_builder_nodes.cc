@@ -160,11 +160,6 @@ DepsgraphNodeBuilder::~DepsgraphNodeBuilder()
 {
 }
 
-RootDepsNode *DepsgraphNodeBuilder::add_root_node()
-{
-	return m_graph->add_root_node();
-}
-
 IDDepsNode *DepsgraphNodeBuilder::add_id_node(ID *id)
 {
 	return m_graph->add_id_node(id, id->name);
@@ -172,12 +167,7 @@ IDDepsNode *DepsgraphNodeBuilder::add_id_node(ID *id)
 
 TimeSourceDepsNode *DepsgraphNodeBuilder::add_time_source()
 {
-	/* root-node */
-	RootDepsNode *root_node = m_graph->root_node;
-	if (root_node != NULL) {
-		return root_node->add_time_source("Time Source");
-	}
-	return NULL;
+	return m_graph->add_time_source();
 }
 
 ComponentDepsNode *DepsgraphNodeBuilder::add_component_node(
@@ -193,7 +183,7 @@ ComponentDepsNode *DepsgraphNodeBuilder::add_component_node(
 
 OperationDepsNode *DepsgraphNodeBuilder::add_operation_node(
         ComponentDepsNode *comp_node,
-        DepsEvalOperationCb op,
+        const DepsEvalOperationCb& op,
         eDepsOperation_Code opcode,
         const char *name,
         int name_tag)
@@ -220,7 +210,7 @@ OperationDepsNode *DepsgraphNodeBuilder::add_operation_node(
         ID *id,
         eDepsNode_Type comp_type,
         const char *comp_name,
-        DepsEvalOperationCb op,
+        const DepsEvalOperationCb& op,
         eDepsOperation_Code opcode,
         const char *name,
         int name_tag)
@@ -232,7 +222,7 @@ OperationDepsNode *DepsgraphNodeBuilder::add_operation_node(
 OperationDepsNode *DepsgraphNodeBuilder::add_operation_node(
         ID *id,
         eDepsNode_Type comp_type,
-        DepsEvalOperationCb op,
+        const DepsEvalOperationCb& op,
         eDepsOperation_Code opcode,
         const char *name,
         int name_tag)

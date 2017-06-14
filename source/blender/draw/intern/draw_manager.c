@@ -307,7 +307,7 @@ static struct DRWGlobalState {
 static struct DRWMatrixOveride {
 	float mat[6][4][4];
 	bool override[6];
-} viewport_matrix_override = {0};
+} viewport_matrix_override = {{{{0}}}};
 
 ListBase DRW_engines = {NULL, NULL};
 
@@ -1788,7 +1788,7 @@ static void draw_shgroup(DRWShadingGroup *shgroup, DRWState pass_state)
 	}
 	else {
 		for (DRWCall *call = shgroup->calls.first; call; call = call->head.next) {
-			bool neg_scale = call->obmat && is_negative_m4(call->obmat);
+			bool neg_scale = is_negative_m4(call->obmat);
 
 			/* Negative scale objects */
 			if (neg_scale) {
