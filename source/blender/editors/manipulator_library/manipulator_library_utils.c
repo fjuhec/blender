@@ -133,10 +133,10 @@ void manipulator_property_data_update(
 }
 
 void manipulator_property_value_reset(
-        bContext *C, const wmManipulator *mnp, ManipulatorInteraction *inter,
+        bContext *C, const wmManipulator *mpr, ManipulatorInteraction *inter,
         wmManipulatorProperty *mpr_prop)
 {
-	WM_manipulator_property_value_set(C, mnp, mpr_prop, inter->init_value);
+	WM_manipulator_property_value_set(C, mpr, mpr_prop, inter->init_value);
 }
 
 /* -------------------------------------------------------------------- */

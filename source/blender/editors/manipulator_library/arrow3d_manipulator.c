@@ -392,11 +392,11 @@ static void manipulator_arrow_invoke(
 	mpr->interaction_data = inter;
 }
 
-static void manipulator_arrow_property_update(wmManipulator *mnp, wmManipulatorProperty *mpr_prop)
+static void manipulator_arrow_property_update(wmManipulator *mpr, wmManipulatorProperty *mpr_prop)
 {
-	ArrowManipulator3D *arrow = (ArrowManipulator3D *)mnp;
+	ArrowManipulator3D *arrow = (ArrowManipulator3D *)mpr;
 	manipulator_property_data_update(
-	        mnp, &arrow->data, mpr_prop,
+	        mpr, &arrow->data, mpr_prop,
 	        (arrow->style & ED_MANIPULATOR_ARROW_STYLE_CONSTRAINED) != 0,
 	        (arrow->style & ED_MANIPULATOR_ARROW_STYLE_INVERTED) != 0);
 }

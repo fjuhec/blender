@@ -231,24 +231,24 @@ static void rna_Manipulator_bl_idname_set(PointerRNA *ptr, const char *value)
 
 static void rna_Manipulator_color_get(PointerRNA *ptr, float *values)
 {
-	const wmManipulator *mnp = ptr->data;
-	WM_manipulator_get_color(mnp, values);
+	const wmManipulator *mpr = ptr->data;
+	WM_manipulator_get_color(mpr, values);
 }
 static void rna_Manipulator_color_set(PointerRNA *ptr, const float *values)
 {
-	wmManipulator *mnp = ptr->data;
-	WM_manipulator_set_color(mnp, values);
+	wmManipulator *mpr = ptr->data;
+	WM_manipulator_set_color(mpr, values);
 }
 
 static void rna_Manipulator_color_hi_get(PointerRNA *ptr, float *values)
 {
-	const wmManipulator *mnp = ptr->data;
-	WM_manipulator_get_color_highlight(mnp, values);
+	const wmManipulator *mpr = ptr->data;
+	WM_manipulator_get_color_highlight(mpr, values);
 }
 static void rna_Manipulator_color_hi_set(PointerRNA *ptr, const float *values)
 {
-	wmManipulator *mnp = ptr->data;
-	WM_manipulator_set_color_highlight(mnp, values);
+	wmManipulator *mpr = ptr->data;
+	WM_manipulator_set_color_highlight(mpr, values);
 }
 
 static void rna_Manipulator_unregister(struct Main *bmain, StructRNA *type);
@@ -351,14 +351,14 @@ static void rna_Manipulator_unregister(struct Main *UNUSED(bmain), StructRNA *ty
 
 static void **rna_Manipulator_instance(PointerRNA *ptr)
 {
-	wmManipulator *mnp = ptr->data;
-	return &mnp->py_instance;
+	wmManipulator *mpr = ptr->data;
+	return &mpr->py_instance;
 }
 
 static StructRNA *rna_Manipulator_refine(PointerRNA *mnp_ptr)
 {
-	wmManipulator *mnp = mnp_ptr->data;
-	return (mnp->type && mnp->type->ext.srna) ? mnp->type->ext.srna : &RNA_Manipulator;
+	wmManipulator *mpr = mnp_ptr->data;
+	return (mpr->type && mpr->type->ext.srna) ? mpr->type->ext.srna : &RNA_Manipulator;
 }
 
 /** \} */
