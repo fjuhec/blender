@@ -8175,34 +8175,30 @@ IDOverridePropertyOperation *RNA_property_override_property_operation_get(
 	return BKE_override_property_operation_get(op, operation, NULL, NULL, index, index, strict, r_strict, r_created);
 }
 
-bool RNA_property_overridable(PointerRNA *ptr, PropertyRNA *prop)
+void RNA_property_override_status(
+        PointerRNA *ptr, PropertyRNA *prop, const int index,
+        bool *r_overridable, bool *r_overridden, bool *r_mandatory, bool *r_locked)
 {
+#define SET_RET(_name, _val) if (_name != NULL) *_name = (_val)
+
+	SET_RET(r_overridable, false);
+	SET_RET(r_overridden, false);
+	SET_RET(r_mandatory, false);
+	SET_RET(r_locked, false);
+
 	if (!ptr || !prop || !ptr->id.data || !((ID *)ptr->id.data)->override) {
-		return false;
+		return;
 	}
 
-	prop = rna_ensure_property(prop);
+	SET_RET(r_overridable, (prop->flag & PROP_OVERRIDABLE) && (prop->flag & PROP_EDITABLE));
 
-	if (!(prop->flag & PROP_OVERRIDABLE)) {
-		return false;
+	if (r_overridden || r_mandatory || r_locked) {
+		IDOverridePropertyOperation *opop = RNA_property_override_property_operation_find(ptr, prop, index, false, NULL);
+		SET_RET(r_overridden, opop != NULL);
+		SET_RET(r_mandatory, (opop->flag & IDOVERRIDE_FLAG_MANDATORY) != 0);
+		SET_RET(r_locked, (opop->flag & IDOVERRIDE_FLAG_LOCKED) != 0);
 	}
-
-	return (prop->flag & PROP_EDITABLE) != 0;
 }
-
-bool RNA_property_overridden(PointerRNA *ptr, PropertyRNA *prop, const int index)
-{
-	if (!ptr || !prop) {
-		return false;
-	}
-
-	if (RNA_property_override_property_operation_find(ptr, prop, index, false, NULL)) {
-		return true;
-	}
-
-	return false;
-}
-
 
 
 

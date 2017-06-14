@@ -6788,9 +6788,11 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 		const PropertySubType subtype = RNA_property_subtype(prop);
 		bool is_anim = RNA_property_animateable(ptr, prop);
 		bool is_editable = RNA_property_editable(ptr, prop);
-		const bool is_overridable = RNA_property_overridable(ptr, prop);
+		bool is_overridable;
 		/*bool is_idprop = RNA_property_is_idprop(prop);*/ /* XXX does not work as expected, not strictly needed */
 		bool is_set = RNA_property_is_set(ptr, prop);
+
+		RNA_property_override_status(ptr, prop, -1, &is_overridable, NULL, NULL, NULL);
 
 		/* set the prop and pointer data for python access to the hovered ui element; TODO, index could be supported as well*/
 		PointerRNA temp_ptr;

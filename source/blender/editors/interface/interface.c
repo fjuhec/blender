@@ -1192,7 +1192,11 @@ static void ui_menu_block_set_keymaps(const bContext *C, uiBlock *block)
 
 void ui_but_override_flag(uiBut *but)
 {
-	if (RNA_property_overridden(&but->rnapoin, but->rnaprop, but->rnaindex)) {
+	bool is_overridden;
+
+	RNA_property_override_status(&but->rnapoin, but->rnaprop, but->rnaindex, NULL, &is_overridden, NULL, NULL);
+
+	if (is_overridden) {
 		but->flag |= UI_BUT_OVERRIDEN;
 	}
 	else {
