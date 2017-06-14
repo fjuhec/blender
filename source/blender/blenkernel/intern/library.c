@@ -485,7 +485,12 @@ bool id_make_local(Main *bmain, ID *id, const bool test, const bool lib_local)
 }
 
 /**
- * Genric entry point for copying a datablock (new API).
+ * Generic entry point for copying a datablock (new API).
+ *
+ * \note Copy is only affecting given data-block (no ID used by copied one will be affected, besides usercount).
+ *       There is only one exception, if LIB_ID_COPY_ACTIONS is defined, actions used by animdata will be duplicated.
+ *
+ * \note Usercount of new copy is always set to 1.
  *
  * \param bmain Main database, may be NULL only if LIB_ID_COPY_NO_MAIN is specified.
  * \param id Source datablock.
@@ -494,97 +499,98 @@ bool id_make_local(Main *bmain, ID *id, const bool test, const bool lib_local)
  * \param test If set, do not do any copy, just test whether copy is supported.
  * \return False when copying that ID type is not supported, true otherwise.
  */
-bool BKE_id_copy(Main *bmain, const ID *id, ID **r_newid, const int flag, const bool test)
+/* XXX TODO remove test thing, *all* IDs should be copyable that way! */
+bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, const bool test)
 {
-	if (!test && (flag & LIB_ID_COPY_NO_ALLOCATE) == 0) {
-		*r_newid = NULL;
+	if (!test) {
+		/* Check to be removed of course, just here until all BKE_xxx_copy_ex functions are done. */
+		if (ELEM(GS(id->name), ID_OB)) {
+			BKE_libblock_copy_ex(bmain, id, r_newid, flag);
+		}
 	}
 
-	/* conventions:
-	 * - make shallow copy, only this ID block
-	 * - id.us of the new ID is set to 1 */
 	switch ((ID_Type)GS(id->name)) {
 		case ID_OB:
-			if (!test) *r_newid = (ID *)BKE_object_copy(bmain, (Object *)id);
-			return true;
+			if (!test) BKE_object_copy_ex(bmain, (Object *)id, (Object *)*r_newid, flag);
+			break;
 		case ID_ME:
 			if (!test) *r_newid = (ID *)BKE_mesh_copy(bmain, (Mesh *)id);
-			return true;
+			break;
 		case ID_CU:
 			if (!test) *r_newid = (ID *)BKE_curve_copy(bmain, (Curve *)id);
-			return true;
+			break;
 		case ID_MB:
 			if (!test) *r_newid = (ID *)BKE_mball_copy(bmain, (MetaBall *)id);
-			return true;
+			break;
 		case ID_MA:
 			if (!test) *r_newid = (ID *)BKE_material_copy(bmain, (Material *)id);
-			return true;
+			break;
 		case ID_TE:
 			if (!test) *r_newid = (ID *)BKE_texture_copy(bmain, (Tex *)id);
-			return true;
+			break;
 		case ID_IM:
 			if (!test) *r_newid = (ID *)BKE_image_copy(bmain, (Image *)id);
-			return true;
+			break;
 		case ID_LT:
 			if (!test) *r_newid = (ID *)BKE_lattice_copy(bmain, (Lattice *)id);
-			return true;
+			break;
 		case ID_LA:
 			if (!test) *r_newid = (ID *)BKE_lamp_copy(bmain, (Lamp *)id);
-			return true;
+			break;
 		case ID_SPK:
 			if (!test) *r_newid = (ID *)BKE_speaker_copy(bmain, (Speaker *)id);
-			return true;
+			break;
 		case ID_CA:
 			if (!test) *r_newid = (ID *)BKE_camera_copy(bmain, (Camera *)id);
-			return true;
+			break;
 		case ID_KE:
 			if (!test) *r_newid = (ID *)BKE_key_copy(bmain, (Key *)id);
-			return true;
+			break;
 		case ID_WO:
 			if (!test) *r_newid = (ID *)BKE_world_copy(bmain, (World *)id);
-			return true;
+			break;
 		case ID_TXT:
 			if (!test) *r_newid = (ID *)BKE_text_copy(bmain, (Text *)id);
-			return true;
+			break;
 		case ID_GR:
 			if (!test) *r_newid = (ID *)BKE_group_copy(bmain, (Group *)id);
-			return true;
+			break;
 		case ID_AR:
 			if (!test) *r_newid = (ID *)BKE_armature_copy(bmain, (bArmature *)id);
-			return true;
+			break;
 		case ID_AC:
 			if (!test) *r_newid = (ID *)BKE_action_copy(bmain, (bAction *)id);
-			return true;
+			break;
 		case ID_NT:
 			if (!test) *r_newid = (ID *)ntreeCopyTree(bmain, (bNodeTree *)id);
-			return true;
+			break;
 		case ID_BR:
 			if (!test) *r_newid = (ID *)BKE_brush_copy(bmain, (Brush *)id);
-			return true;
+			break;
 		case ID_PA:
 			if (!test) *r_newid = (ID *)BKE_particlesettings_copy(bmain, (ParticleSettings *)id);
-			return true;
+			break;
 		case ID_GD:
 			if (!test) *r_newid = (ID *)BKE_gpencil_data_duplicate(bmain, (bGPdata *)id, false);
-			return true;
+			break;
 		case ID_MC:
 			if (!test) *r_newid = (ID *)BKE_movieclip_copy(bmain, (MovieClip *)id);
-			return true;
+			break;
 		case ID_MSK:
 			if (!test) *r_newid = (ID *)BKE_mask_copy(bmain, (Mask *)id);
-			return true;
+			break;
 		case ID_LS:
 			if (!test) *r_newid = (ID *)BKE_linestyle_copy(bmain, (FreestyleLineStyle *)id);
-			return true;
+			break;
 		case ID_PAL:
 			if (!test) *r_newid = (ID *)BKE_palette_copy(bmain, (Palette *)id);
-			return true;
+			break;
 		case ID_PC:
 			if (!test) *r_newid = (ID *)BKE_paint_curve_copy(bmain, (PaintCurve *)id);
-			return true;
+			break;
 		case ID_CF:
 			if (!test) *r_newid = (ID *)BKE_cachefile_copy(bmain, (CacheFile *)id);
-			return true;
+			break;
 		case ID_SCE:
 		case ID_LI:
 		case ID_SCR:
@@ -597,7 +603,16 @@ bool BKE_id_copy(Main *bmain, const ID *id, ID **r_newid, const int flag, const 
 			return false;  /* deprecated */
 	}
 
-	return false;
+	if (!test) {
+		/* Check to be removed of course, just here until all BKE_xxx_copy_ex functions are done. */
+		if (ELEM(GS(id->name), ID_OB)) {
+			/* TODO: add id usage count update here, this should be generic as well.
+			 *       But currently, too much sub-data copying also handle idcount themselves... */
+			BKE_id_copy_ensure_local(bmain, id, *r_newid);
+		}
+	}
+
+	return true;
 }
 
 /**
@@ -606,7 +621,7 @@ bool BKE_id_copy(Main *bmain, const ID *id, ID **r_newid, const int flag, const 
  */
 bool id_copy(Main *bmain, const ID *id, ID **newid, bool test)
 {
-	return BKE_id_copy(bmain, id, newid, 0, test);
+	return BKE_id_copy_ex(bmain, id, newid, 0, test);
 }
 
 /** Does *not* set ID->newid pointer. */
@@ -963,6 +978,7 @@ void *BKE_libblock_alloc(Main *bmain, short type, const char *name)
 		/* alphabetic insertion: is in new_id */
 		BKE_main_unlock(bmain);
 	}
+	/* TODO to be removed from here! */
 	DAG_id_type_tag(bmain, type);
 	return id;
 }
@@ -1106,50 +1122,67 @@ void BKE_libblock_copy_data(ID *id, const ID *id_from, const bool do_action)
 	id_copy_animdata(id, do_action);
 }
 
+void BKE_libblock_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag)
+{
+	ID *idn = *r_newid;
+
+	BLI_assert((flag & LIB_ID_COPY_NO_MAIN) != 0 || bmain != NULL);
+	BLI_assert((flag & LIB_ID_COPY_NO_ALLOCATE) == 0 || (flag & LIB_ID_COPY_NO_MAIN) != 0);
+
+	if ((flag & LIB_ID_COPY_NO_ALLOCATE) != 0) {
+		/* r_newid already contains pointer to allocated memory. */
+		/* TODO do we want to memset(0) whole mem before filling it? */
+		BLI_strncpy(idn->name, id->name, sizeof(idn->name));
+		idn->us = 1;
+		/* TODO Do we want/need to copy more from ID struct itself? */
+	}
+	else if ((flag & LIB_ID_COPY_NO_MAIN) != 0) {
+		/* Allocate r_newid but do not register it in Main database. */
+		idn = BKE_libblock_alloc_notest(GS(id->name));
+		BLI_strncpy(idn->name, id->name, sizeof(idn->name));
+		idn->us = 1;
+	}
+	else {
+		idn = BKE_libblock_alloc(bmain, GS(id->name), id->name + 2);
+	}
+	BLI_assert(idn != NULL);
+
+	const size_t id_len = BKE_libblock_get_alloc_info(GS(idn->name), NULL);
+	const size_t id_offset = sizeof(ID);
+	if ((int)id_len - (int)id_offset > 0) { /* signed to allow neg result */
+		const char *cp = (const char *)id;
+		char *cpn = (char *)idn;
+
+		memcpy(cpn + id_offset, cp + id_offset, id_len - id_offset);
+	}
+
+	/* TODO we can remove that one later and bring its code here. */
+	BKE_libblock_copy_data(idn, id, (flag & LIB_ID_COPY_ACTIONS) != 0);
+
+	idn->copy_tag = flag & (LIB_ID_COPY_NO_MAIN | LIB_ID_COPY_NO_USER_REFCOUNT | LIB_ID_COPY_NO_ALLOCATE);
+
+	if ((flag & LIB_ID_COPY_NO_DEG_TAG) == 0 && (flag & LIB_ID_COPY_NO_MAIN) == 0) {
+		DAG_id_type_tag(bmain, GS(idn->name));
+	}
+
+	*r_newid = idn;
+}
+
 /* used everywhere in blenkernel */
 void *BKE_libblock_copy(Main *bmain, const ID *id)
 {
 	ID *idn;
-	size_t idn_len;
 
-	idn = BKE_libblock_alloc(bmain, GS(id->name), id->name + 2);
+	BKE_libblock_copy_ex(bmain, id, &idn, 0);
 
-	assert(idn != NULL);
-
-	idn_len = MEM_allocN_len(idn);
-	if ((int)idn_len - (int)sizeof(ID) > 0) { /* signed to allow neg result */
-		const char *cp = (const char *)id;
-		char *cpn = (char *)idn;
-
-		memcpy(cpn + sizeof(ID), cp + sizeof(ID), idn_len - sizeof(ID));
-	}
-
-	BKE_libblock_copy_data(idn, id, false);
-	
 	return idn;
 }
 
 void *BKE_libblock_copy_nolib(const ID *id, const bool do_action)
 {
 	ID *idn;
-	size_t idn_len;
 
-	idn = BKE_libblock_alloc_notest(GS(id->name));
-	assert(idn != NULL);
-
-	BLI_strncpy(idn->name, id->name, sizeof(idn->name));
-
-	idn_len = MEM_allocN_len(idn);
-	if ((int)idn_len - (int)sizeof(ID) > 0) { /* signed to allow neg result */
-		const char *cp = (const char *)id;
-		char *cpn = (char *)idn;
-
-		memcpy(cpn + sizeof(ID), cp + sizeof(ID), idn_len - sizeof(ID));
-	}
-
-	idn->us = 1;
-
-	BKE_libblock_copy_data(idn, id, do_action);
+	BKE_libblock_copy_ex(NULL, id, &idn, LIB_ID_COPY_NO_MAIN | (do_action ? LIB_ID_COPY_ACTIONS : 0));
 
 	return idn;
 }

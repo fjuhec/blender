@@ -1098,14 +1098,12 @@ void BKE_object_transform_copy(Object *ob_tar, const Object *ob_src)
 	copy_v3_v3(ob_tar->size, ob_src->size);
 }
 
-Object *BKE_object_copy_ex(Main *bmain, const Object *ob, bool copy_caches)
+void BKE_object_copy_ex(Main *UNUSED(bmain), const Object *ob, Object *obn, const int flag)
 {
-	Object *obn;
 	ModifierData *md;
+	const bool copy_caches = ((flag & LIB_ID_COPY_CACHES) != 0);
 	int a;
 
-	obn = BKE_libblock_copy(bmain, &ob->id);
-	
 	if (ob->totcol) {
 		obn->mat = MEM_dupallocN(ob->mat);
 		obn->matbits = MEM_dupallocN(ob->matbits);
@@ -1175,21 +1173,24 @@ Object *BKE_object_copy_ex(Main *bmain, const Object *ob, bool copy_caches)
 
 	copy_object_lod(obn, ob);
 	
-	/* Copy runtime surve data. */
+	/* Do not copy runtime curve data. */
 	obn->curve_cache = NULL;
 
-	BKE_id_copy_ensure_local(bmain, &ob->id, &obn->id);
-
 	/* Do not copy object's preview (mostly due to the fact renderers create temp copy of objects). */
-	obn->preview = NULL;
-
-	return obn;
+	if ((flag & LIB_ID_COPY_NO_PREVIEW) == 1 || true) {  /* XXX TODO temp hack */
+		obn->preview = NULL;
+	}
+	else {
+		BKE_previewimg_id_copy(&obn->id, &ob->id);
+	}
 }
 
 /* copy objects, will re-initialize cached simulation data */
 Object *BKE_object_copy(Main *bmain, const Object *ob)
 {
-	return BKE_object_copy_ex(bmain, ob, false);
+	Object *ob_copy;
+	BKE_id_copy_ex(bmain, &ob->id, (ID **)&ob_copy, 0, false);
+	return ob_copy;
 }
 
 void BKE_object_make_local_ex(Main *bmain, Object *ob, const bool lib_local, const bool clear_proxy)

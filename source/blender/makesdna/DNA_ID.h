@@ -380,6 +380,9 @@ enum {
 	/* Specific options to some ID types or usages, may be ignored by unrelated ID copying functions. */
 	LIB_ID_COPY_NO_PROXY_CLEAR     = 1 << 16,  /* Object only, needed by make_local code. */
 	LIB_ID_COPY_NO_PREVIEW         = 1 << 17,  /* Do not copy preview data, when supported. */
+	LIB_ID_COPY_CACHES             = 1 << 18,  /* Copy runtime data caches. */
+	/* XXX TODO Do we want to keep that? would rather try to get rid of it... */
+	LIB_ID_COPY_ACTIONS            = 1 << 19,  /* EXCEPTION! Deep-copy actions used by animdata of copied ID. */
 };
 
 /* To filter ID types (filter_id) */

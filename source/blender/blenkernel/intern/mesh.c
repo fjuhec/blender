@@ -2447,7 +2447,9 @@ Mesh *BKE_mesh_new_from_object(
 			int uv_from_orco;
 
 			/* copies object and modifiers (but not the data) */
-			Object *tmpobj = BKE_object_copy_ex(bmain, ob, true);
+			Object *tmpobj;
+			/* TODO: make it temp copy outside bmain! */
+			BKE_id_copy_ex(bmain, &ob->id, (ID **)&tmpobj, LIB_ID_COPY_CACHES, false);
 			tmpcu = (Curve *)tmpobj->data;
 			id_us_min(&tmpcu->id);
 

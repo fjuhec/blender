@@ -105,7 +105,7 @@ bool BKE_object_lod_is_usable(struct Object *ob, struct Scene *scene);
 struct Object *BKE_object_lod_meshob_get(struct Object *ob, struct Scene *scene);
 struct Object *BKE_object_lod_matob_get(struct Object *ob, struct Scene *scene);
 
-struct Object *BKE_object_copy_ex(struct Main *bmain, const struct Object *ob, bool copy_caches);
+void BKE_object_copy_ex(struct Main *bmain, const struct Object *ob, struct Object *obn, const int flag);
 struct Object *BKE_object_copy(struct Main *bmain, const struct Object *ob);
 void BKE_object_make_local(struct Main *bmain, struct Object *ob, const bool lib_local);
 void BKE_object_make_local_ex(struct Main *bmain, struct Object *ob, const bool lib_local, const bool clear_proxy);
