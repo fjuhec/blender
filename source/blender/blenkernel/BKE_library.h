@@ -52,6 +52,7 @@ struct bContext;
 struct PointerRNA;
 struct PropertyRNA;
 
+size_t BKE_libblock_get_alloc_info(short type, const char **name);
 void *BKE_libblock_alloc_notest(short type);
 void *BKE_libblock_alloc(struct Main *bmain, short type, const char *name) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 void  BKE_libblock_init_empty(struct ID *id);
@@ -66,9 +67,10 @@ struct ID *BKE_libblock_find_name(const short type, const char *name) ATTR_WARN_
 
 /* library_remap.c (keep here since they're general functions) */
 void  BKE_libblock_free(struct Main *bmain, void *idv) ATTR_NONNULL();
+void  BKE_libblock_free_datablock(struct ID *id) ATTR_NONNULL();
 void  BKE_libblock_free_ex(struct Main *bmain, void *idv, const bool do_id_user, const bool do_ui_user) ATTR_NONNULL();
 void  BKE_libblock_free_us(struct Main *bmain, void *idv) ATTR_NONNULL();
-void  BKE_libblock_free_data(struct Main *bmain, struct ID *id, const bool do_id_user) ATTR_NONNULL();
+void  BKE_libblock_free_data(struct ID *id, const bool do_id_user) ATTR_NONNULL();
 void  BKE_libblock_delete(struct Main *bmain, void *idv) ATTR_NONNULL();
 
 void BKE_id_lib_local_paths(struct Main *bmain, struct Library *lib, struct ID *id);

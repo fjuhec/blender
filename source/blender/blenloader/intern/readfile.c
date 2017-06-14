@@ -10196,8 +10196,8 @@ void BLO_library_link_copypaste(Main *mainl, BlendHandle *bh)
 
 static ID *link_named_part_ex(
         Main *mainl, FileData *fd, const AssetEngineType *aet, const char *root,
-        const short idcode, const char *name, const AssetUUID *uuid, const int flag,
-		Scene *scene, View3D *v3d,
+        const short idcode, const char *name, const AssetUUID *uuid, const short flag,
+        Scene *scene, View3D *v3d,
         const bool use_placeholders, const bool force_indirect)
 {
 	ID *id = link_named_part(mainl, fd, idcode, name, use_placeholders, force_indirect);
