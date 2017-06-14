@@ -8221,6 +8221,7 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 		return blo_nextbhead(fd, bhead);
 	
 	id->tag = tag | LIB_TAG_NEED_LINK;
+	id->copy_tag = 0;
 	id->lib = main->curlib;
 	id->us = ID_FAKE_USERS(id);
 	id->icon_id = 0;
