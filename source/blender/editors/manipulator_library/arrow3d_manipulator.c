@@ -326,14 +326,17 @@ static void manipulator_arrow_modal(bContext *C, wmManipulator *mpr, const wmEve
 
 	normalize_v3(viewvec);
 	if (!use_vertical) {
-		float fac;
 		/* now find a plane parallel to the view vector so we can intersect with the arrow direction */
 		cross_v3_v3v3(tangent, viewvec, offset);
 		cross_v3_v3v3(plane, tangent, viewvec);
-		fac = dot_v3v3(plane, offset) / dot_v3v3(arrow->direction, plane);
 
+		const float plane_offset = dot_v3v3(plane, offset);
+		const float plane_dir = dot_v3v3(plane, arrow->direction);
+		const float fac = (plane_dir != 0.0f) ? (plane_offset / plane_dir) : 0.0f;
 		facdir = (fac < 0.0) ? -1.0 : 1.0;
-		mul_v3_v3fl(offset, arrow->direction, fac);
+		if (isfinite(fac)) {
+			mul_v3_v3fl(offset, arrow->direction, fac);
+		}
 	}
 	else {
 		facdir = (m_diff[1] < 0.0) ? -1.0 : 1.0;
