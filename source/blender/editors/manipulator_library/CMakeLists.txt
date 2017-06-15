@@ -41,7 +41,6 @@ set(SRC
 	arrow3d_manipulator.c
 	cage2d_manipulator.c
 	dial3d_manipulator.c
-	facemap3d_manipulator.c
 	geom_arrow_manipulator.c
 	geom_cube_manipulator.c
 	geom_dial_manipulator.c

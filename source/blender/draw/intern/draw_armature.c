@@ -1021,13 +1021,6 @@ static void draw_points(
 	}
 }
 
-static bool pchan_is_draw_fmap_only(const bArmature *arm, const bPoseChannel *pchan)
-{
-	return ((arm->flag & ARM_POSEMODE) &&
-	        (pchan->fmap_data != NULL) &&
-	        (pchan->bone->flag & BONE_DRAW_FMAP_ONLY));
-}
-
 /** \} */
 
 
@@ -1283,7 +1276,7 @@ static void draw_armature_edit(Object *ob)
 }
 
 /* if const_color is NULL do pose mode coloring */
-static void draw_armature_pose(Object *ob, const float const_color[4], bool is_active)
+static void draw_armature_pose(Object *ob, const float const_color[4])
 {
 	bArmature *arm = ob->data;
 	bPoseChannel *pchan;
@@ -1298,7 +1291,7 @@ static void draw_armature_pose(Object *ob, const float const_color[4], bool is_a
 	}
 
 	// if (!(base->flag & OB_FROMDUPLI)) // TODO
-	if (is_active) {
+	{
 		if (ob->mode & OB_MODE_POSE) {
 			arm->flag |= ARM_POSEMODE;
 		}
@@ -1319,9 +1312,7 @@ static void draw_armature_pose(Object *ob, const float const_color[4], bool is_a
 		arm->layer_used |= bone->layer;
 
 		/* bone must be visible */
-		if ((bone->flag & (BONE_HIDDEN_P | BONE_HIDDEN_PG)) == 0 &&
-		    (!pchan_is_draw_fmap_only(arm, pchan)))
-		{
+		if ((bone->flag & (BONE_HIDDEN_P | BONE_HIDDEN_PG)) == 0) {
 			if (bone->layer & arm->layer) {
 				const int select_id = is_pose_select ? index : (unsigned int)-1;
 
@@ -1429,15 +1420,15 @@ void DRW_shgroup_armature_object(
 	DRW_object_wire_theme_get(ob, sl, &color);
 
 	DRW_shgroup_armature(ob, pass_bone_solid, pass_bone_wire, NULL, shgrp_relationship_lines);
-	draw_armature_pose(ob, color, OBACT_NEW == ob);
+	draw_armature_pose(ob, color);
 }
 
 void DRW_shgroup_armature_pose(
-        Object *ob, SceneLayer *sl, DRWPass *pass_bone_solid, DRWPass *pass_bone_wire, DRWPass *pass_bone_envelope,
+        Object *ob, DRWPass *pass_bone_solid, DRWPass *pass_bone_wire, DRWPass *pass_bone_envelope,
         DRWShadingGroup *shgrp_relationship_lines)
 {
 	DRW_shgroup_armature(ob, pass_bone_solid, pass_bone_wire, pass_bone_envelope, shgrp_relationship_lines);
-	draw_armature_pose(ob, NULL, OBACT_NEW == ob);
+	draw_armature_pose(ob, NULL);
 }
 
 void DRW_shgroup_armature_edit(

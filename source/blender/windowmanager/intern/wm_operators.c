@@ -118,8 +118,6 @@
 #include "wm_subwindow.h"
 #include "wm_window.h"
 
-#include "WM_manipulator_api.h"
-
 static GHash *global_ops_hash = NULL;
 
 #define UNDOCUMENTED_OPERATOR_TIP N_("(undocumented operator)")

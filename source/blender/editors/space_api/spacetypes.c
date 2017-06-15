@@ -130,7 +130,6 @@ void ED_spacetypes_init(void)
 	ED_manipulatortypes_dial_3d();
 	ED_manipulatortypes_arrow_2d();
 	ED_manipulatortypes_arrow_3d();
-	ED_manipulatortypes_facemap_3d();
 	ED_manipulatortypes_primitive_3d();
 	ED_manipulatortypes_cage_2d();
 
@@ -144,9 +143,6 @@ void ED_spacetypes_init(void)
 		if (type->operatortypes) {
 			type->operatortypes();
 		}
-		if (type->dropboxes) {
-			type->dropboxes();
-		}
 	}
 
 	/* register internal render callbacks */
@@ -155,6 +151,9 @@ void ED_spacetypes_init(void)
 
 void ED_spacemacros_init(void)
 {
+	const ListBase *spacetypes;
+	SpaceType *type;
+
 	/* Macros's must go last since they reference other operators.
 	 * We need to have them go after python operators too */
 	ED_operatormacros_armature();
@@ -171,6 +170,13 @@ void ED_spacemacros_init(void)
 	ED_operatormacros_sequencer();
 	ED_operatormacros_paint();
 	ED_operatormacros_gpencil();
+
+	/* register dropboxes (can use macros) */
+	spacetypes = BKE_spacetypes_list();
+	for (type = spacetypes->first; type; type = type->next) {
+		if (type->dropboxes)
+			type->dropboxes();
+	}
 }
 
 /* called in wm.c */

@@ -581,7 +581,6 @@ void BKE_pose_copy_data(bPose **dst, const bPose *src, const bool copy_constrain
 		}
 
 		pchan->draw_data = NULL;  /* Drawing cache, no need to copy. */
-		pchan->fmap_data = NULL;  /* Face-Map cache, no need to copy. */
 	}
 
 	/* for now, duplicate Bone Groups too when doing this */
@@ -773,7 +772,6 @@ void BKE_pose_channel_free_ex(bPoseChannel *pchan, bool do_id_user)
 
 	/* Cached data, for new draw manager rendering code. */
 	MEM_SAFE_FREE(pchan->draw_data);
-	MEM_SAFE_FREE(pchan->fmap_data);
 }
 
 void BKE_pose_channel_free(bPoseChannel *pchan)

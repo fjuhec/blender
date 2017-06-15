@@ -36,7 +36,6 @@
 #include <string.h>
 
 #include "DNA_listBase.h"
-#include "DNA_object_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_windowmanager_types.h"
@@ -52,7 +51,6 @@
 #include "BLI_utildefines.h"
 #include "BLI_math.h"
 
-#include "BKE_armature.h"
 #include "BKE_context.h"
 #include "BKE_idprop.h"
 #include "BKE_global.h"
@@ -341,20 +339,7 @@ void wm_event_do_notifiers(bContext *C)
 				ED_info_stats_clear(sl);
 				WM_event_add_notifier(C, NC_SPACE | ND_SPACE_INFO, NULL);
 			}
-			if (note->category == NC_SCENE) {
-				if (note->data == ND_OB_ACTIVE) {
-					SceneLayer *sl = BKE_scene_layer_context_active(scene);
-					if (sl->basact) {
-						Object *ob = sl->basact->object;
-						if (ob->type == OB_ARMATURE) {
-							struct Depsgraph *graph = CTX_data_depsgraph(C);
-							BKE_pose_fmap_cache_update(graph, ob);
-						}
-					}
-				}
-			}
 		}
-
 		if (do_anim) {
 
 			/* XXX, quick frame changes can cause a crash if framechange and rendering

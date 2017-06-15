@@ -192,15 +192,6 @@ typedef struct bPoseChannelDrawData {
 	float bbone_matrix[0][4][4];
 } bPoseChannelDrawData;
 
-/* runtime (generated when entering pose mode). */
-#
-#
-typedef struct bPoseChannelFaceMapData {
-	/* Both members need to be set (if the struct is used at all). */
-	struct Object *object;      /* object from which facemap can be chosen */
-	struct bFaceMap *fmap;      /* facemap from fmap_object, used to manipulate bone */
-} bPoseChannelFaceMapData;
-
 /* ************************************************ */
 /* Poses */
 
@@ -285,7 +276,6 @@ typedef struct bPoseChannel {
 	void        *temp;              /* use for outliner */
 	/* Runtime data for color and bbone segment matrix. */
 	bPoseChannelDrawData *draw_data;
-	bPoseChannelFaceMapData *fmap_data;
 } bPoseChannel;
 
 

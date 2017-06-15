@@ -163,8 +163,7 @@ typedef enum eArmature_DeformFlag {
 #ifdef DNA_DEPRECATED
 	ARM_DEF_B_BONE_REST		= (1<<3),	/* deprecated */
 #endif
-	ARM_DEF_INVERT_VGROUP	= (1<<4),
-	ARM_DEF_FACEMAPS		= (1<<5)
+	ARM_DEF_INVERT_VGROUP	= (1<<4)
 } eArmature_DeformFlag;
 
 /* armature->pathflag */
@@ -213,9 +212,8 @@ typedef enum eBone_Flag {
 	BONE_UNSELECTABLE           = (1 << 21),  /* bone cannot be selected */
 	BONE_NO_LOCAL_LOCATION      = (1 << 22),  /* bone location is in armature space */
 	BONE_RELATIVE_PARENTING     = (1 << 23),  /* object child will use relative transform (like deform) */
-	BONE_ADD_PARENT_END_ROLL    = (1 << 24),   /* it will add the parent end roll to the inroll */
-	BONE_DRAW_FMAP              = (1 << 25),  /* don't draw bone itself in pose mode, only its facemap */
-	BONE_DRAW_FMAP_ONLY         = (1 << 26),  /* don't draw bone itself in pose mode, only its facemap */
+	BONE_ADD_PARENT_END_ROLL    = (1 << 24)   /* it will add the parent end roll to the inroll */
+	
 } eBone_Flag;
 
 #define MAXBONENAME 64

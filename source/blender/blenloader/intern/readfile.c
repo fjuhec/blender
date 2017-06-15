@@ -5101,7 +5101,6 @@ static void direct_link_pose(FileData *fd, bPose *pose)
 		CLAMP(pchan->rotmode, ROT_MODE_MIN, ROT_MODE_MAX);
 
 		pchan->draw_data = NULL;
-		pchan->fmap_data = NULL;
 	}
 	pose->ikdata = NULL;
 	if (pose->ikparam != NULL) {

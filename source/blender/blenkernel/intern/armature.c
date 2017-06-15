@@ -38,7 +38,6 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_math.h"
-#include "BLI_iterator.h"
 #include "BLI_listbase.h"
 #include "BLI_string.h"
 #include "BLI_ghash.h"
@@ -71,12 +70,8 @@
 #include "BKE_library_remap.h"
 #include "BKE_lattice.h"
 #include "BKE_main.h"
-#include "BKE_modifier.h"
 #include "BKE_object.h"
 #include "BKE_scene.h"
-
-#include "DEG_depsgraph.h"
-#include "DEG_depsgraph_query.h"
 
 #include "BIK_api.h"
 #include "BKE_sketch.h"
@@ -2442,74 +2437,4 @@ bPoseChannel *BKE_armature_splineik_solver_find_root(
 		rootchan = rootchan->parent;
 	}
 	return rootchan;
-}
-
-void BKE_pose_fmap_cache_update(Depsgraph *graph, Object *ob_pose)
-{
-	if (ELEM(NULL, ob_pose, ob_pose->pose)) {
-		return;
-	}
-
-	bool has_fmap = false;
-	for (bPoseChannel *pchan = ob_pose->pose->chanbase.first; pchan; pchan = pchan->next) {
-		MEM_SAFE_FREE(pchan->fmap_data);
-		if (pchan->bone->flag & BONE_DRAW_FMAP) {
-			has_fmap = true;
-		}
-	}
-
-	if (has_fmap == false) {
-		return;
-	}
-
-	BKE_pose_channels_hash_make(ob_pose->pose);
-
-	Scene *scene = DEG_get_scene(graph);
-
-	VirtualModifierData virtualModifierData;
-
-	DEG_OBJECT_ITER(graph, ob, 0)
-	{
-		if ((ob->type == OB_MESH) && !BLI_listbase_is_empty(&ob->fmaps)) {
-			bool use_ob_fmap = false;
-			ModifierData *md = modifiers_getVirtualModifierList(ob, &virtualModifierData);
-			for (; md; md = md->next) {
-				if (modifier_isEnabled(scene, md, eModifierMode_Realtime) && md->type == eModifierType_Armature) {
-					ArmatureModifierData *amd = (ArmatureModifierData *)md;
-					if (amd->object && (amd->deformflag & ARM_DEF_FACEMAPS)) {
-						if (amd->object == ob_pose) {
-							use_ob_fmap = true;
-							break;
-						}
-					}
-				}
-			}
-
-			/* bone parent */
-			if (use_ob_fmap == false) {
-				if (ob->parent == ob_pose && ob->parsubstr[0]) {
-					use_ob_fmap = true;
-				}
-			}
-
-			if (use_ob_fmap) {
-				/* We know that 'ob' is a mesh that is deformed by 'ob_act'. */
-				for (bFaceMap *fmap = ob->fmaps.first; fmap; fmap = fmap->next) {
-					bPoseChannel *pchan = BKE_pose_channel_find_name(ob_pose->pose, fmap->name);
-					if (pchan && pchan->bone->flag & BONE_DRAW_FMAP) {
-						if (pchan->fmap_data != NULL) {
-							/* XXX, we could support multiple meshes per bone,
-							 * it's a corner-case so only add if users end up needing it. */
-							continue;
-						}
-
-						pchan->fmap_data = MEM_mallocN(sizeof(*pchan->fmap_data), __func__);
-						pchan->fmap_data->object = ob;
-						pchan->fmap_data->fmap = fmap;
-					}
-				}
-			}
-		}
-	}
-	DEG_OBJECT_ITER_END
 }
