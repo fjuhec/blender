@@ -373,7 +373,7 @@ bool gpencil_can_draw_stroke(const bGPDstroke *gps, const bool onion)
 
 	/* check if the color is visible */
 	PaletteColor *palcolor = gps->palcolor;
-	if ((palcolor == NULL) ||
+	if ((gps->palette == NULL) || (palcolor == NULL) ||
 		(palcolor->flag & PC_COLOR_HIDE) ||
 		(onion && (palcolor->flag & PC_COLOR_ONIONSKIN)))
 	{

@@ -428,7 +428,7 @@ bool ED_gpencil_stroke_color_use(const bGPDlayer *gpl, const bGPDstroke *gps)
 {
 	/* check if the color is editable */
 	PaletteColor *palcolor = gps->palcolor;
-	if (palcolor != NULL) {
+	if ((gps->palette) && (palcolor != NULL)) {
 		if (palcolor->flag & PC_COLOR_HIDE)
 			return false;
 		if (((gpl->flag & GP_LAYER_UNLOCK_COLOR) == 0) && (palcolor->flag & PC_COLOR_LOCKED))
