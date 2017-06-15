@@ -97,7 +97,7 @@ class SEQUENCER_HT_header(Header):
 
             layout.separator()
             layout.operator("sequencer.refresh_all")
-            layout.prop(st, "show_overdrop")
+            layout.prop(st, "show_backdrop")
         else:
             if st.view_type == 'SEQUENCER_PREVIEW':
                 layout.separator()
@@ -491,7 +491,7 @@ class SequencerButtonsPanel_Output:
     @staticmethod
     def has_preview(context):
         st = context.space_data
-        return (st.view_type in {'PREVIEW', 'SEQUENCER_PREVIEW'}) or st.show_overdrop
+        return (st.view_type in {'PREVIEW', 'SEQUENCER_PREVIEW'}) or st.show_backdrop
 
     @classmethod
     def poll(cls, context):

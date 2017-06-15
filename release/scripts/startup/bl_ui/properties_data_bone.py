@@ -294,10 +294,6 @@ class BONE_PT_display(BoneButtonsPanel, Panel):
 
             col = split.column()
             col.prop(bone, "hide", text="Hide")
-            col.prop(bone, "show_fmap")
-            sub = col.column()
-            sub.active = bone.show_fmap
-            sub.prop(bone, "show_only_fmap")
             sub = col.column()
             sub.active = bool(pchan and pchan.custom_shape)
             sub.prop(bone, "show_wire", text="Wireframe")

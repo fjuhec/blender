@@ -364,7 +364,7 @@ class DATA_PT_shape_keys(MeshButtonsPanel, Panel):
                     col.label(text="Blend:")
                     col.prop_search(kb, "vertex_group", ob, "vertex_groups", text="")
                     col.prop_search(kb, "relative_key", key, "key_blocks", text="")
-                    col.prop_search(kb, "face_map", ob, "face_maps", text="")
+
             else:
                 layout.prop(kb, "interpolation")
                 row = layout.column()
