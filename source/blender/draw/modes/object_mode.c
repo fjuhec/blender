@@ -1414,24 +1414,33 @@ static void DRW_shgroup_lightprobe(OBJECT_StorageList *stl, Object *ob, SceneLay
 	LightProbe *prb = (LightProbe *)ob->data;
 	DRW_object_wire_theme_get(ob, sl, &color);
 
-	prb->distfalloff = (1.0f - prb->falloff) * prb->distinf;
 
 	DRW_shgroup_call_dynamic_add(stl->g_data->probe, ob->obmat[3], color);
 
 	if ((prb->flag & LIGHTPROBE_FLAG_SHOW_INFLUENCE) != 0) {
-		if (prb->attenuation_type == LIGHTPROBE_SHAPE_BOX) {
-			DRW_shgroup_call_dynamic_add(stl->g_data->cube, color, &prb->distinf, ob->obmat);
+
+		prb->distfalloff = (1.0f - prb->falloff) * prb->distinf;
+		prb->distgridinf = prb->distinf;
+
+		if (prb->type == LIGHTPROBE_TYPE_GRID) {
+			prb->distfalloff += 1.0f;
+			prb->distgridinf += 1.0f;
+		}
+
+		if (prb->type == LIGHTPROBE_TYPE_GRID ||
+			prb->attenuation_type == LIGHTPROBE_SHAPE_BOX)
+		{
+			DRW_shgroup_call_dynamic_add(stl->g_data->cube, color, &prb->distgridinf, ob->obmat);
 			DRW_shgroup_call_dynamic_add(stl->g_data->cube, color, &prb->distfalloff, ob->obmat);
 		}
 		else {
-			DRW_shgroup_call_dynamic_add(stl->g_data->sphere, color, &prb->distinf, ob->obmat);
+			DRW_shgroup_call_dynamic_add(stl->g_data->sphere, color, &prb->distgridinf, ob->obmat);
 			DRW_shgroup_call_dynamic_add(stl->g_data->sphere, color, &prb->distfalloff, ob->obmat);
 		}
 	}
 
 	if ((prb->flag & LIGHTPROBE_FLAG_SHOW_PARALLAX) != 0) {
 		float (*obmat)[4], *dist;
-
 
 		if ((prb->flag & LIGHTPROBE_FLAG_CUSTOM_PARALLAX) != 0) {
 			dist = &prb->distpar;
@@ -1461,13 +1470,22 @@ static void DRW_shgroup_lightprobe(OBJECT_StorageList *stl, Object *ob, SceneLay
 			{{-1.0, 0.0, 0.0, 0.0}, {0.0, -1.0, 0.0, 0.0}, {0.0, 0.0, 1.0, 0.0}, {0.0, 0.0, 0.0, 1.0}},
 		};
 
-		for (int i = 0; i < 6; ++i) {
-			normalize_m4_m4(prb->clipmat[i], ob->obmat);
-			// invert_m4(prb->clipmat[i]);
-			mul_m4_m4m4(prb->clipmat[i], prb->clipmat[i], cubefacemat[i]);
+		float **prb_mats = (float **)DRW_object_engine_data_get(ob, &draw_engine_object_type, NULL);
+		if (*prb_mats == NULL) {
+			/* we need 2 matrices */
+			*prb_mats = MEM_mallocN(sizeof(float) * 16 * 6, "Probe Clip distances Matrices");
+		}
 
-			DRW_shgroup_call_dynamic_add(stl->g_data->lamp_buflimit, color, &prb->clipsta, &prb->clipend, prb->clipmat[i]);
-			DRW_shgroup_call_dynamic_add(stl->g_data->lamp_buflimit_points, color, &prb->clipsta, &prb->clipend, prb->clipmat[i]);
+		for (int i = 0; i < 6; ++i) {
+			float (*clipmat)[4];
+			clipmat = (float (*)[4])(*prb_mats + 16 * i);
+
+			normalize_m4_m4(clipmat, ob->obmat);
+			// invert_m4(clipmat);
+			mul_m4_m4m4(clipmat, clipmat, cubefacemat[i]);
+
+			DRW_shgroup_call_dynamic_add(stl->g_data->lamp_buflimit, color, &prb->clipsta, &prb->clipend, clipmat);
+			DRW_shgroup_call_dynamic_add(stl->g_data->lamp_buflimit_points, color, &prb->clipsta, &prb->clipend, clipmat);
 		}
 	}
 	DRW_shgroup_call_dynamic_add(stl->g_data->lamp_center_group, ob->obmat[3]);

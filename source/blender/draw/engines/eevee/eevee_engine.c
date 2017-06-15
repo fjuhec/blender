@@ -74,7 +74,7 @@ static void EEVEE_cache_init(void *vedata)
 
 	EEVEE_materials_cache_init(vedata);
 	EEVEE_lights_cache_init(sldata, psl);
-	EEVEE_lightprobes_cache_init(sldata, psl);
+	EEVEE_lightprobes_cache_init(sldata, psl, stl);
 	EEVEE_effects_cache_init(vedata);
 }
 
@@ -118,7 +118,7 @@ static void EEVEE_cache_finish(void *vedata)
 
 	EEVEE_materials_cache_finish(vedata);
 	EEVEE_lights_cache_finish(sldata);
-	EEVEE_lightprobes_cache_finish(sldata);
+	EEVEE_lightprobes_cache_finish(sldata, vedata);
 }
 
 static void EEVEE_draw_scene(void *vedata)
@@ -149,8 +149,10 @@ static void EEVEE_draw_scene(void *vedata)
 	DRW_draw_pass(psl->depth_pass_cull);
 
 	/* Shading pass */
+	DRW_draw_pass(psl->probe_display);
 	DRW_draw_pass(psl->default_pass);
 	DRW_draw_pass(psl->default_flat_pass);
+	DRW_draw_pass(psl->default_hair_pass);
 	DRW_draw_pass(psl->material_pass);
 
 	/* Post Process */

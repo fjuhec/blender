@@ -63,9 +63,10 @@ static EnumPropertyItem parallax_type_items[] = {
 };
 
 static EnumPropertyItem lightprobe_type_items[] = {
-	{LIGHTPROBE_TYPE_CUBE, "CUBEMAP", ICON_NONE, "Cubemap", ""},
+	{LIGHTPROBE_TYPE_CUBE, "CUBEMAP", ICON_NONE, "Cubemap", "Capture reflections"},
 	// {LIGHTPROBE_TYPE_PLANAR, "PLANAR", ICON_NONE, "Planar", ""},
 	// {LIGHTPROBE_TYPE_IMAGE, "IMAGE", ICON_NONE, "Image", ""},
+	{LIGHTPROBE_TYPE_GRID, "GRID", ICON_NONE, "Grid", "Volume used for precomputing indirect lighting"},
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -81,7 +82,7 @@ static void rna_def_lightprobe(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "type", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_items(prop, lightprobe_type_items);
 	RNA_def_property_ui_text(prop, "Type", "Type of probe");
-	RNA_def_property_update(prop, NC_MATERIAL | ND_SHADING, NULL);
+	RNA_def_property_update(prop, NC_MATERIAL | ND_SHADING, "rna_LightProbe_recalc");
 
 	prop = RNA_def_property(srna, "clip_start", PROP_FLOAT, PROP_DISTANCE);
 	RNA_def_property_float_sdna(prop, NULL, "clipsta");
@@ -143,6 +144,33 @@ static void rna_def_lightprobe(BlenderRNA *brna)
 	RNA_def_property_float_sdna(prop, NULL, "distpar");
 	RNA_def_property_range(prop, 0.0f, 99999.f);
 	RNA_def_property_ui_text(prop, "Parallax Radius", "Lowest corner of the parallax bounding box");
+	RNA_def_property_update(prop, NC_MATERIAL | ND_SHADING, NULL);
+
+	/* irradiance grid */
+	prop = RNA_def_property(srna, "grid_resolution_x", PROP_INT, PROP_PIXEL);
+	RNA_def_property_range(prop, 1, 256);
+	RNA_def_property_ui_text(prop, "Resolution X", "Number of sample along the x axis of the volume");
+	RNA_def_property_update(prop, NC_MATERIAL | ND_SHADING, "rna_LightProbe_recalc");
+
+	prop = RNA_def_property(srna, "grid_resolution_y", PROP_INT, PROP_PIXEL);
+	RNA_def_property_range(prop, 1, 256);
+	RNA_def_property_ui_text(prop, "Resolution Y", "Number of sample along the y axis of the volume");
+	RNA_def_property_update(prop, NC_MATERIAL | ND_SHADING, "rna_LightProbe_recalc");
+
+	prop = RNA_def_property(srna, "grid_resolution_z", PROP_INT, PROP_PIXEL);
+	RNA_def_property_range(prop, 1, 256);
+	RNA_def_property_ui_text(prop, "Resolution Z", "Number of sample along the z axis of the volume");
+	RNA_def_property_update(prop, NC_MATERIAL | ND_SHADING, "rna_LightProbe_recalc");
+
+	/* Data preview */
+	prop = RNA_def_property(srna, "show_data", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", LIGHTPROBE_FLAG_SHOW_DATA);
+	RNA_def_property_ui_text(prop, "Show Data", "Show captured lighting data into the 3D view for debuging purpose");
+	RNA_def_property_update(prop, NC_MATERIAL | ND_SHADING, NULL);
+
+	prop = RNA_def_property(srna, "data_draw_size", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_range(prop, 0.05f, 10.0f);
+	RNA_def_property_ui_text(prop, "Data Draw Size", "Size of the spheres to debug captured light");
 	RNA_def_property_update(prop, NC_MATERIAL | ND_SHADING, NULL);
 
 	/* common */
