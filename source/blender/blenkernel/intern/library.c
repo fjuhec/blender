@@ -1127,7 +1127,8 @@ void BKE_libblock_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int fla
 	ID *idn = *r_newid;
 
 	BLI_assert((flag & LIB_ID_COPY_NO_MAIN) != 0 || bmain != NULL);
-	BLI_assert((flag & LIB_ID_COPY_NO_ALLOCATE) == 0 || (flag & LIB_ID_COPY_NO_MAIN) != 0);
+	BLI_assert((flag & LIB_ID_COPY_NO_MAIN) != 0 || (flag & LIB_ID_COPY_NO_ALLOCATE) == 0);
+	BLI_assert((flag & LIB_ID_COPY_NO_MAIN) != 0 || (flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0);
 
 	if ((flag & LIB_ID_COPY_NO_ALLOCATE) != 0) {
 		/* r_newid already contains pointer to allocated memory. */
@@ -1166,7 +1167,7 @@ void BKE_libblock_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int fla
 		idn->tag |= LIB_TAG_FREE_NO_USER_REFCOUNT;
 	}
 	if ((flag & LIB_ID_COPY_NO_ALLOCATE) != 0) {
-		idn->tag |= LIB_TAG_FREE_NO_ALLOCATED;
+		idn->tag |= LIB_TAG_FREE_NOT_ALLOCATED;
 	}
 
 	if ((flag & LIB_ID_COPY_NO_DEG_TAG) == 0 && (flag & LIB_ID_COPY_NO_MAIN) == 0) {

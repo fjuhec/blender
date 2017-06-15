@@ -355,7 +355,7 @@ enum {
 	LIB_TAG_FREE_NO_USER_REFCOUNT = 1 << 17,  /* Datablock does not refcount usages of other IDs. */
 	/* Datablock was not allocated by standard system (BKE_libblock_alloc), do not free its memory
 	 * (usual type-specific freeing is called though). */
-	LIB_TAG_FREE_NO_ALLOCATED     = 1 << 18,
+	LIB_TAG_FREE_NOT_ALLOCATED     = 1 << 18,
 };
 
 /* To filter ID types (filter_id) */
