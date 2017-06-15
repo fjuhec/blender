@@ -297,20 +297,26 @@ DRWShadingGroup *DRW_gpencil_shgroup_point_volumetric_create(DRWPass *pass, GPUS
 }
 
 /* create shading group for strokes */
-DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_Data *vedata, DRWPass *pass, GPUShader *shader, bGPdata *gpd)
+DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_Data *vedata, DRWPass *pass, GPUShader *shader, Object *ob, bGPdata *gpd)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
-
 	const float *viewport_size = DRW_viewport_size_get();
-	const DRWContextState *draw_ctx = DRW_context_state_get();
-	RegionView3D *rv3d = draw_ctx->rv3d;
 
 	/* e_data.gpencil_stroke_sh */
 	DRWShadingGroup *grp = DRW_shgroup_create(shader, pass);
 	DRW_shgroup_uniform_vec2(grp, "Viewport", viewport_size, 1);
 
-	DRW_shgroup_uniform_float(grp, "pixsize", &rv3d->pixsize, 1);
+	DRW_shgroup_uniform_float(grp, "pixsize", DRW_viewport_pixelsize_get(), 1);
 	DRW_shgroup_uniform_float(grp, "pixelsize", &U.pixelsize, 1);
+
+	/* object scale */
+	stl->storage->objscale = 1.0f;
+	float scale;
+	if (ob) {
+		scale = (ob->size[0] + ob->size[1] + ob->size[2]) / 3.0f;
+		stl->storage->objscale = scale;
+	}
+	DRW_shgroup_uniform_float(grp, "objscale", &stl->storage->objscale, 1);
 
 	/* If disable zoom for strokes, disable scale */
 	if ((gpd) && (gpd->flag & GP_DATA_STROKE_KEEPTHICKNESS)) {
@@ -480,7 +486,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 		if (gps->totpoints > 1) {
 			int id = stl->storage->pal_id;
 			stl->shgroups[id].shgrps_fill = DRW_gpencil_shgroup_fill_create(vedata, psl->stroke_pass, e_data->gpencil_fill_sh, gpd, gps->palcolor, id);
-			stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_stroke_create(vedata, psl->stroke_pass, e_data->gpencil_stroke_sh, gpd);
+			stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_stroke_create(vedata, psl->stroke_pass, e_data->gpencil_stroke_sh, ob, gpd);
 			++stl->storage->pal_id;
 			
 			fillgrp = stl->shgroups[id].shgrps_fill;

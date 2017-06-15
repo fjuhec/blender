@@ -57,6 +57,7 @@ typedef struct GPENCIL_Storage {
 	float unit_matrix[4][4];
 	int is_persp;   /* rv3d->is_persp (1-yes) */
 	int xray;
+	float objscale;
 } GPENCIL_Storage;
 
 typedef struct GPENCIL_StorageList {
@@ -132,7 +133,7 @@ typedef struct GpencilBatchCache {
 	int cache_idx;   /* current slot index */
 } GpencilBatchCache;
 
-struct DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(struct GPENCIL_Data *vedata, struct DRWPass *pass, struct GPUShader *shader, bGPdata *gpd);
+struct DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(struct GPENCIL_Data *vedata, struct DRWPass *pass, struct GPUShader *shader, struct Object *ob, struct bGPdata *gpd);
 struct DRWShadingGroup *DRW_gpencil_shgroup_point_volumetric_create(struct DRWPass *pass, struct GPUShader *shader);
 struct DRWShadingGroup *DRW_gpencil_shgroup_edit_volumetric_create(struct DRWPass *pass, struct GPUShader *shader);
 struct DRWShadingGroup *DRW_gpencil_shgroup_drawing_fill_create(struct DRWPass *pass, struct GPUShader *shader);
