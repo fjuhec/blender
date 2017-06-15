@@ -169,14 +169,14 @@ static void wm_manipulatorgrouptype_ghash_free_cb(wmManipulatorGroupType *mt)
 	manipulatorgrouptype_free(mt);
 }
 
-void wm__manipulatorgrouptype_free(void)
+void wm_manipulatorgrouptype_free(void)
 {
 	BLI_ghash_free(global_manipulatorgrouptype_hash, NULL, (GHashValFreeFP)wm_manipulatorgrouptype_ghash_free_cb);
 	global_manipulatorgrouptype_hash = NULL;
 }
 
 /* called on initialize WM_init() */
-void wm__manipulatorgrouptype_init(void)
+void wm_manipulatorgrouptype_init(void)
 {
 	/* reserve size is set based on blender default setup */
 	global_manipulatorgrouptype_hash = BLI_ghash_str_new_ex("wm_manipulatorgrouptype_init gh", 128);

@@ -52,8 +52,8 @@ void wm_manipulatortype_free(void);
 void wm_manipulatortype_init(void);
 
 /* wm_manipulatorgroup_type.c, for init/exit */
-void wm__manipulatorgrouptype_free(void);
-void wm__manipulatorgrouptype_init(void);
+void wm_manipulatorgrouptype_free(void);
+void wm_manipulatorgrouptype_init(void);
 
 /* -------------------------------------------------------------------- */
 /* wmManipulatorGroup */
