@@ -23,7 +23,8 @@ void main(void)
 
 	if (is_persp == TRUE) {
 		float size = (ProjectionMatrix[3][3] == 0.0) ? (thickness / (-gl_Position.z * defaultpixsize)) : (thickness / defaultpixsize);
-		finalThickness = max(abs(size) / 40.0 , 1.0);
+		float objscale = (ModelViewProjectionMatrix[0][0] + ModelViewProjectionMatrix[1][1] + ModelViewProjectionMatrix[2][2]) / 3.0;
+		finalThickness = max((abs(size) / 40.0) * objscale , 1.0);
 	}
 	else {
 		finalThickness = thickness;
