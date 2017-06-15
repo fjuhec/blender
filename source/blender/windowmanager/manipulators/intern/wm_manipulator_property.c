@@ -102,7 +102,6 @@ void WM_manipulator_property_def_func(
 	mpr_prop->custom_func.value_get_fn = params->value_get_fn;
 	mpr_prop->custom_func.value_set_fn = params->value_set_fn;
 	mpr_prop->custom_func.range_get_fn = params->range_get_fn;
-	mpr_prop->custom_func.context = params->context;
 	mpr_prop->custom_func.user_data = params->user_data;
 
 	if (mpr->type->property_update) {
