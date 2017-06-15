@@ -6494,6 +6494,18 @@ static void lib_link_windowmanager(FileData *fd, Main *main)
 /* relink's grease pencil data's refs */
 static void lib_link_gpencil(FileData *fd, Main *main)
 {
+	/* Build up hash of colors to assign later to strokes */
+	int palette_count = BLI_listbase_count(&main->palettes);
+	GHash **gp_palettecolors_buffer = MEM_mallocN(sizeof(struct GHash *) * palette_count, "Hash Palettes Array");
+	int i = 0;
+	for (Palette *palette = main->palettes.first; palette; palette = palette->id.next) {
+		gp_palettecolors_buffer[i] = BLI_ghash_str_new("GPencil Hash Colors");
+		for (PaletteColor *palcolor = palette->colors.first; palcolor; palcolor = palcolor->next) {
+			BLI_ghash_insert(gp_palettecolors_buffer[i], palcolor->info, palcolor);
+		}
+		++i;
+	}
+
 	for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
 		if (gpd->id.tag & LIB_TAG_NEED_LINK) {
 			for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
@@ -6504,11 +6516,14 @@ static void lib_link_gpencil(FileData *fd, Main *main)
 						 * The Pallete colors are pointers to a listbase inside the Pallete datablock.
 						 * So the pointers have to be re-assigned on file open
 						 */
-						gps->palcolor = BKE_palette_color_getbyname(gps->palette, gps->colorname);
-						if (gps->palcolor == NULL) {
-							gps->palcolor = BKE_palette_color_add_name(gps->palette, gps->colorname);
-							/* Set to a different color. */
-							ARRAY_SET_ITEMS(gps->palcolor->rgb, 1.0f, 0.0f, 1.0f, 1.0f);
+						i = BLI_findindex(&main->palettes, gps->palette);
+						if (i > -1) {
+							gps->palcolor = BLI_ghash_lookup(gp_palettecolors_buffer[i], gps->colorname);
+							if (gps->palcolor == NULL) {
+								gps->palcolor = BKE_palette_color_add_name(gps->palette, gps->colorname);
+								/* Set to a different color. */
+								ARRAY_SET_ITEMS(gps->palcolor->rgb, 1.0f, 0.0f, 1.0f, 1.0f);
+							}
 						}
 					}
 				}
@@ -6520,6 +6535,15 @@ static void lib_link_gpencil(FileData *fd, Main *main)
 			gpd->id.tag &= ~LIB_TAG_NEED_LINK;
 		}
 	}
+
+	/* free hash buffer */
+	for (int i = 0; i < palette_count; ++i) {
+		if (gp_palettecolors_buffer[i]) {
+			BLI_ghash_free(gp_palettecolors_buffer[i], NULL, NULL);
+			gp_palettecolors_buffer[i] = NULL;
+		}
+	}
+	MEM_SAFE_FREE(gp_palettecolors_buffer);
 }
 
 /* relinks grease-pencil data - used for direct_link and old file linkage */
