@@ -54,10 +54,32 @@ size_t BKE_libblock_get_alloc_info(short type, const char **name);
 void *BKE_libblock_alloc_notest(short type);
 void *BKE_libblock_alloc(struct Main *bmain, short type, const char *name) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 void  BKE_libblock_init_empty(struct ID *id);
+
+/**
+ * New copy logic options.
+ */
+enum {
+	/* *** Generic options (should be handled by all ID types copying). *** */
+	/* Create copy outside of any main database - similar to 'localize' functions of materials etc. */
+	LIB_ID_COPY_NO_MAIN            = 1 << 0,
+	LIB_ID_COPY_NO_USER_REFCOUNT   = 1 << 1,  /* Do not affect user refcount of datablocks used by copied one. */
+	LIB_ID_COPY_NO_DEG_TAG         = 1 << 2,  /* Do not tag duplicated ID for update in depsgraph. */
+	/* Assume given 'newid' already points to allocated memory for whole datablock (ID + data) - USE WITH CAUTION! */
+	LIB_ID_COPY_NO_ALLOCATE        = 1 << 3,
+
+	/* Specific options to some ID types or usages, may be ignored by unrelated ID copying functions. */
+	LIB_ID_COPY_NO_PROXY_CLEAR     = 1 << 16,  /* Object only, needed by make_local code. */
+	LIB_ID_COPY_NO_PREVIEW         = 1 << 17,  /* Do not copy preview data, when supported. */
+	LIB_ID_COPY_CACHES             = 1 << 18,  /* Copy runtime data caches. */
+	/* XXX TODO Do we want to keep that? would rather try to get rid of it... */
+	LIB_ID_COPY_ACTIONS            = 1 << 19,  /* EXCEPTION! Deep-copy actions used by animdata of copied ID. */
+};
+
 void BKE_libblock_copy_ex(struct Main *bmain, const struct ID *id, struct ID **r_newid, const int flag);
 void *BKE_libblock_copy(struct Main *bmain, const struct ID *id) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 void *BKE_libblock_copy_nolib(const struct ID *id, const bool do_action) ATTR_NONNULL();
 void  BKE_libblock_copy_data(struct ID *id, const struct ID *id_from, const bool do_action);
+
 void  BKE_libblock_rename(struct Main *bmain, struct ID *id, const char *name) ATTR_NONNULL();
 void  BLI_libblock_ensure_unique_name(struct Main *bmain, const char *name) ATTR_NONNULL();
 

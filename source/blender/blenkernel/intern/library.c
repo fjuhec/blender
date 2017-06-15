@@ -1159,7 +1159,15 @@ void BKE_libblock_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int fla
 	/* TODO we can remove that one later and bring its code here. */
 	BKE_libblock_copy_data(idn, id, (flag & LIB_ID_COPY_ACTIONS) != 0);
 
-	idn->copy_tag = flag & (LIB_ID_COPY_NO_MAIN | LIB_ID_COPY_NO_USER_REFCOUNT | LIB_ID_COPY_NO_ALLOCATE);
+	if ((flag & LIB_ID_COPY_NO_MAIN) != 0) {
+		idn->tag |= LIB_TAG_FREE_NO_MAIN;
+	}
+	if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) != 0) {
+		idn->tag |= LIB_TAG_FREE_NO_USER_REFCOUNT;
+	}
+	if ((flag & LIB_ID_COPY_NO_ALLOCATE) != 0) {
+		idn->tag |= LIB_TAG_FREE_NO_ALLOCATED;
+	}
 
 	if ((flag & LIB_ID_COPY_NO_DEG_TAG) == 0 && (flag & LIB_ID_COPY_NO_MAIN) == 0) {
 		DAG_id_type_tag(bmain, GS(idn->name));

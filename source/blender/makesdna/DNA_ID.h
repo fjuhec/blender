@@ -127,17 +127,10 @@ typedef struct ID {
 	/**
 	 * LIB_TAG_... tags (runtime only, cleared at read time).
 	 */
-	short tag;
-	short pad_s1;
+	int tag;
 	int us;
 	int icon_id;
 	IDProperty *properties;
-	/**
-	 * LIB_ID_COPY_... options (should be NULL/empty when ID is not temp/runtime-only one).
-	 * Also used by freeing code to know what to do (unlink used IDs, remove from main, ...).
-	 */
-	int copy_tag;
-	int pad_i1;
 } ID;
 
 /**
@@ -356,33 +349,13 @@ enum {
 	LIB_TAG_ID_RECALC_DATA  = 1 << 13,
 	LIB_TAG_ANIM_NO_RECALC  = 1 << 14,
 	LIB_TAG_ID_RECALC_ALL   = (LIB_TAG_ID_RECALC | LIB_TAG_ID_RECALC_DATA),
-};
 
-/**
- * id->copy_tag (runtime-only).
- *
- * Those flags keep track of special options used when copying that ID from another one (or, in some case,
- * from special creation options).
- *
- * They are mostly here for two things:
- *   * Detect attempt to write in .blend file temp/runtime only IDs (id->copy_tag should be void for regular datablocks).
- *   * Simplify freeing, since they should tell whether ID has to be removed from main, whether it should be unlinked, etc.
- */
-enum {
-	/* *** Generic options (should be handled by all ID types copying). *** */
-	/* Create copy outside of any main database - similar to 'localize' functions of materials etc. */
-	LIB_ID_COPY_NO_MAIN            = 1 << 0,
-	LIB_ID_COPY_NO_USER_REFCOUNT   = 1 << 1,  /* Do not affect user refcount of datablocks used by copied one. */
-	LIB_ID_COPY_NO_DEG_TAG         = 1 << 2,  /* Do not tag duplicated ID for update in depsgraph. */
-	/* Assume given 'newid' already points to allocated memory for whole datablock (ID + data) - USE WITH CAUTION! */
-	LIB_ID_COPY_NO_ALLOCATE        = 1 << 3,
-
-	/* Specific options to some ID types or usages, may be ignored by unrelated ID copying functions. */
-	LIB_ID_COPY_NO_PROXY_CLEAR     = 1 << 16,  /* Object only, needed by make_local code. */
-	LIB_ID_COPY_NO_PREVIEW         = 1 << 17,  /* Do not copy preview data, when supported. */
-	LIB_ID_COPY_CACHES             = 1 << 18,  /* Copy runtime data caches. */
-	/* XXX TODO Do we want to keep that? would rather try to get rid of it... */
-	LIB_ID_COPY_ACTIONS            = 1 << 19,  /* EXCEPTION! Deep-copy actions used by animdata of copied ID. */
+	/* RESET_NEVER tag datablock for freeing behavior (usually set when copying real one into temp/runtime one). */
+	LIB_TAG_FREE_NO_MAIN          = 1 << 16,  /* Datablock is not listed in Main database. */
+	LIB_TAG_FREE_NO_USER_REFCOUNT = 1 << 17,  /* Datablock does not refcount usages of other IDs. */
+	/* Datablock was not allocated by standard system (BKE_libblock_alloc), do not free its memory
+	 * (usual type-specific freeing is called though). */
+	LIB_TAG_FREE_NO_ALLOCATED     = 1 << 18,
 };
 
 /* To filter ID types (filter_id) */
