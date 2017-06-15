@@ -5999,9 +5999,10 @@ static int init_point_normals(bContext *C, wmOperator *op, const wmEvent *event)
 	if (*vert_sel != -1) {
 		totloopsel = RNA_int_get(op->ptr, "loop_selected");
 		TransDataLoopNormal *tld = ld->normal = MEM_mallocN(sizeof(*tld) * totloopsel, "__func__");
+		int *vert_cur = vert_sel;
 
-		for (int i = 0; i < length; i++, vert_sel++) {
-			v = BM_vert_at_index_find_or_table(bm, *vert_sel);
+		for (int i = 0; i < length; i++, vert_cur++) {
+			v = BM_vert_at_index_find_or_table(bm, *vert_cur);
 
 			BM_ITER_ELEM(l, &liter, v, BM_LOOPS_OF_VERT) {
 				InitTransDataNormal(bm, tld, v, l, cd_custom_normal_offset);
@@ -6024,6 +6025,7 @@ static int init_point_normals(bContext *C, wmOperator *op, const wmEvent *event)
 			}
 		}
 	}
+	MEM_freeN(vert_sel);
 
 	ld->totloop = totloopsel;
 	ld->offset = cd_custom_normal_offset;
@@ -6095,7 +6097,7 @@ static int edbm_point_normals_modal(bContext *C, wmOperator *op, const wmEvent *
 	int i = 0;
 
 	bool handled = false;
-	PropertyRNA *prop = RNA_struct_find_property(op->ptr, "Target Location");
+	PropertyRNA *prop = RNA_struct_find_property(op->ptr, "target_location");
 
 	if (ele_ref) {
 		BMElem *ele_new = BM_mesh_active_elem_get(bm);
@@ -6114,7 +6116,13 @@ static int edbm_point_normals_modal(bContext *C, wmOperator *op, const wmEvent *
 	if (event->val == KM_PRESS) {
 		BMVert *v;
 		BMIter viter;
-
+		
+		if (event->type == LEFTMOUSE) {
+			ED_view3d_cursor3d_update(C, event->mval);
+			copy_v3_v3(target, ED_view3d_cursor3d_get(scene, v3d));
+			RNA_property_float_set_array(op->ptr, prop, target);
+			handled = true;
+		}
 		if (event->type == RIGHTMOUSE) {
 			ele_ref = BM_mesh_active_elem_get(bm);
 			int *vert_sel = MEM_mallocN(sizeof(*vert_sel) * bm->totvertsel, "__func_"), index;
@@ -6191,6 +6199,11 @@ static int edbm_point_normals_modal(bContext *C, wmOperator *op, const wmEvent *
 			}
 			handled = true;
 		}
+		else if (event->type == OKEY) {
+			copy_v3_v3(target, obedit->loc);
+			RNA_property_float_set_array(op->ptr, prop, target);
+			handled = true;
+		}
 		else if (ISKEYBOARD(event->type) && event->type != RIGHTALTKEY) {
 			point_normals_free(C, op);
 			return OPERATOR_CANCELLED;
@@ -6263,7 +6276,7 @@ static int edbm_point_normals_exec(bContext *C, wmOperator *op)
 
 	bool point_away = RNA_boolean_get(op->ptr, "point_away"), check_vert = RNA_boolean_get(op->ptr, "check_vert");
 
-	prop = RNA_struct_find_property(op->ptr, "Target Location");
+	prop = RNA_struct_find_property(op->ptr, "target_location");
 	RNA_property_float_get_array(op->ptr, prop, target);
 
 	apply_point_normals(C, op, NULL, target, check_vert);
@@ -6294,8 +6307,9 @@ void MESH_OT_point_normals(struct wmOperatorType *ot)
 
 	PropertyRNA *prop;
 
-	prop = RNA_def_property(ot->srna, "Target Location", PROP_FLOAT, PROP_XYZ);
+	prop = RNA_def_property(ot->srna, "target_location", PROP_FLOAT, PROP_XYZ);
 	RNA_def_property_array(prop, 3);
+	RNA_def_property_ui_text(prop, "Target Location", "Target location where normals will point");
 
 	prop = RNA_def_boolean(ot->srna, "check_vert", 0, "keep vert normal", "prevent vert normal from changing");
 	RNA_def_property_flag(prop, PROP_HIDDEN);
