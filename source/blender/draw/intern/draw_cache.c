@@ -295,6 +295,12 @@ Batch *DRW_cache_fullscreen_quad_get(void)
 	return SHC.drw_fullscreen_quad;
 }
 
+/* Sphere */
+Batch *DRW_cache_sphere_get(void)
+{
+	return Batch_get_sphere(2);
+}
+
 /** \} */
 
 /* -------------------------------------------------------------------- */
