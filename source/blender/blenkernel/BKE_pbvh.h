@@ -63,6 +63,7 @@ typedef void (*BKE_pbvh_HitOccludedCallback)(PBVHNode *node, void *data, float *
 
 PBVH *BKE_pbvh_new(void);
 void BKE_pbvh_attach_mesh(PBVH *pbvh, PBVHNode *node, Mesh *me, int totprim, float *max_bmin, float *max_bmax);
+void BKE_pbvh_build_mesh_complete(PBVH *pbvh, Mesh *me);
 void BKE_pbvh_build_mesh(
         PBVH *bvh,
         const struct MPoly *mpoly, const struct MLoop *mloop,

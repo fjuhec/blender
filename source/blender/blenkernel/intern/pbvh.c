@@ -519,30 +519,30 @@ static void pbvh_build(PBVH *bvh, BB *cb, BBC *prim_bbc, int totprim)
  * Attach a new mesh to a node of the PBVH
  * vertdata etc needs to be already in the basemesh
  */
-void BKE_pbvh_attach_mesh(PBVH *pbvh, PBVHNode *node, Mesh *me, int totprim, float *max_bmin, float *max_bmax){
+void BKE_pbvh_attach_mesh(PBVH *pbvh, PBVHNode *node, Mesh *me, int totprim, float *max_bmin, float *max_bmax)
+{
 	BB new_BB;
 	copy_v3_v3(new_BB.bmin, max_bmin);
 	copy_v3_v3(new_BB.bmax, max_bmax);
 	int d_prim = totprim-pbvh->totprim;
 
-	/*for(int i = 0; i < pbvh->totprim; i++){
+	/*for (int i = 0; i < pbvh->totprim; i++) {
 		printf("%i,",pbvh->prim_indices[i]);
 	}*/
 
-	if(me->totvert <= pbvh->leaf_limit){
+	if (me->totvert <= pbvh->leaf_limit) {
 		pbvh->totvert = me->totvert;
 		pbvh->totprim = totprim;
 		MEM_freeN(pbvh->prim_indices);
 
-		pbvh->prim_indices = MEM_mallocN(sizeof(int) * pbvh->totprim,
-										"bvh prim indices");
+		pbvh->prim_indices = MEM_mallocN(sizeof(int) * pbvh->totprim, "bvh prim indices");
 
 		//TODO: parent nodes need to be scaled as well
 		node->totprim += d_prim;
 		node->prim_indices = pbvh->prim_indices;
 
 		//Fill with all prim to test
-		for(int i = 0; i < pbvh->totprim; i++){
+		for (int i = 0; i < pbvh->totprim; i++) {
 			pbvh->prim_indices[i] = i;
 		}
 
@@ -559,11 +559,49 @@ void BKE_pbvh_attach_mesh(PBVH *pbvh, PBVHNode *node, Mesh *me, int totprim, flo
 
 		BKE_pbvh_node_mark_rebuild_draw(node);
 		printf("Attached new shape to pbvh.\n");
-	}else{
+	} else {
 		//TODO: Attach to multiple nodes.
 	}
 }
 
+void BKE_pbvh_build_mesh_complete(PBVH *pbvh, Mesh *me){
+	PBVHNode *root;
+	int looptri_num;
+
+	//BKE_pbvh_free(pbvh);
+	//pbvh = BKE_pbvh_new();
+
+	looptri_num = BKE_pbvh_recalc_looptri_from_me(pbvh, me);
+
+	BKE_pbvh_build_mesh( pbvh, me->mpoly, me->mloop, me->mvert,
+						me->totvert, &me->vdata,
+						pbvh->looptri, looptri_num);
+
+	/*pbvh_show_diffuse_color_set(pbvh, false);*/
+	root = BKE_pbvh_node_get_root(pbvh);
+
+	BKE_pbvh_node_mark_rebuild_draw(root);
+	BKE_pbvh_update( pbvh, root->flag, NULL);
+
+	/*if (root->flag & PBVH_RebuildDrawBuffers) {
+		root->draw_buffers = NULL;
+	} else if (root->draw_buffers){
+		MEM_freeN(root->draw_buffers);
+		root->draw_buffers = NULL;
+	}
+	root->draw_buffers = NULL;*/
+	/*printf("Buffers freed\n");
+	if (root->flag & PBVH_RebuildDrawBuffers) {
+		root->draw_buffers = NULL;
+	} else {
+		GPU_pbvh_buffers_free(root->draw_buffers);
+		root->draw_buffers = NULL;
+	}
+
+	BKE_pbvh_node_mark_rebuild_draw(root);
+
+	BKE_pbvh_update( pbvh, root->flag, NULL);*/
+}
 /**
  * Do a full rebuild with on Mesh data structure.
  *
@@ -1387,11 +1425,13 @@ BMesh *BKE_pbvh_get_bmesh(PBVH *bvh)
 
 /***************************** Node Access ***********************************/
 
-bool BKE_pbvh_node_is_valid(PBVHNode *node){
+bool BKE_pbvh_node_is_valid(PBVHNode *node)
+{
 	return node->flag; //TODO: check diffrent!
 }
 
-bool BKE_pbvh_node_is_leaf(PBVHNode *node){
+bool BKE_pbvh_node_is_leaf(PBVHNode *node)
+{
 	return node->flag & PBVH_Leaf;
 }
 
@@ -1486,30 +1526,34 @@ void BKE_pbvh_node_get_grids(
 	}
 }
 
-float get_bb_distance_sqr(BB a, BB b){
+static float get_bb_distance_sqr(BB a, BB b)
+{
 	float dist = 0.0f;
-	for(int i = 0; i < 3; i++){
-		if(a.bmin[i] >= b.bmax[i]){
+	for (int i = 0; i < 3; i++) {
+		if (a.bmin[i] >= b.bmax[i]) {
 			dist += (b.bmax[i] - a.bmin[i]) * (b.bmax[i] - a.bmin[i]);
-		}else if(a.bmax[i] < b.bmin[i]){
+		} else if (a.bmax[i] < b.bmin[i]) {
 			dist += (b.bmin[i] - a.bmax[i]) * (b.bmin[i] - a.bmax[i]);
 		}
 	}
 	return dist;
 }
 
-int BKE_pbvh_recalc_looptri_from_me(PBVH *pbvh, Mesh *me){
-	MEM_freeN(pbvh->looptri);
+int BKE_pbvh_recalc_looptri_from_me(PBVH *pbvh, Mesh *me)
+{
+	if(pbvh->looptri){
+		MEM_freeN((void*)pbvh->looptri);
+	}
 	MLoopTri *looptri = NULL;
 	int looptri_num = poly_to_tri_count(me->totpoly, me->totloop);
 	looptri = MEM_mallocN(sizeof(*looptri) * looptri_num, __func__);
 
 	BKE_mesh_recalc_looptri(
-							me->mloop, me->mpoly,
-							me->mvert,
-							me->totloop, me->totpoly,
-							looptri);
-	/*for(int i = 0; i < looptri_num; i++){
+	        me->mloop, me->mpoly,
+	        me->mvert,
+	        me->totloop, me->totpoly,
+	        looptri);
+	/*for (int i = 0; i < looptri_num; i++) {
 		printf("Tri (%i,%i,%i), Poly %i\n", looptri[i].tri[0], looptri[i].tri[1], looptri[i].tri[2], looptri[i].poly);
 	}*/
 
@@ -1517,12 +1561,13 @@ int BKE_pbvh_recalc_looptri_from_me(PBVH *pbvh, Mesh *me){
 	return looptri_num;
 }
 
-PBVHNode *BKE_search_closest_pbvh_leaf_node(PBVH *pbvh, PBVHNode *p_node, float *target_bmin, float *target_bmax){
+PBVHNode *BKE_search_closest_pbvh_leaf_node(PBVH *pbvh, PBVHNode *p_node, float *target_bmin, float *target_bmax)
+{
 	BB new_BB;
 	copy_v3_v3(new_BB.bmin,target_bmin);
 	copy_v3_v3(new_BB.bmax,target_bmax);
 	BB_expand_with_bb(&p_node->vb,&new_BB);
-	if(BKE_pbvh_node_is_leaf(p_node)){
+	if (BKE_pbvh_node_is_leaf(p_node)) {
 		return p_node;
 	}
 	PBVHNode *left = NULL, *right = NULL;
@@ -1532,18 +1577,18 @@ PBVHNode *BKE_search_closest_pbvh_leaf_node(PBVH *pbvh, PBVHNode *p_node, float 
 	copy_v3_v3(bb_target.bmax,target_bmax);
 
 	BKE_pbvh_node_get_children(pbvh, p_node, &left, &right);
-	if((!left && !right)){
+	if ((!left && !right)) {
 		return p_node;
-	}else if(!left){
+	} else if (!left) {
 		return BKE_search_closest_pbvh_leaf_node(pbvh, right, bb_target.bmin, bb_target.bmax);
-	}else if(!right){
+	} else if (!right) {
 		return BKE_search_closest_pbvh_leaf_node(pbvh, left, bb_target.bmin, bb_target.bmax);
 	}
-	BKE_pbvh_node_get_BB(left,&bb_left.bmin,&bb_left.bmax);
-	BKE_pbvh_node_get_BB(right,&bb_right.bmin,&bb_right.bmax);
-	if(get_bb_distance_sqr(bb_target,bb_left) > get_bb_distance_sqr(bb_target,bb_right)){
+	BKE_pbvh_node_get_BB(left, bb_left.bmin, bb_left.bmax);
+	BKE_pbvh_node_get_BB(right, bb_right.bmin, bb_right.bmax);
+	if (get_bb_distance_sqr(bb_target,bb_left) > get_bb_distance_sqr(bb_target,bb_right)) {
 		return BKE_search_closest_pbvh_leaf_node(pbvh, right, bb_target.bmin, bb_target.bmax);
-	}else{
+	} else {
 		return BKE_search_closest_pbvh_leaf_node(pbvh, left, bb_target.bmin, bb_target.bmax);
 	}
 }
@@ -1561,12 +1606,14 @@ void BKE_pbvh_node_get_original_BB(PBVHNode *node, float bb_min[3], float bb_max
 	copy_v3_v3(bb_max, node->orig_vb.bmax);
 }
 
-void BKE_pbvh_node_get_children(PBVH *pbvh, PBVHNode *node, PBVHNode **left, PBVHNode **right){
+void BKE_pbvh_node_get_children(PBVH *pbvh, PBVHNode *node, PBVHNode **left, PBVHNode **right)
+{
 	*left = pbvh->nodes+node->children_offset;
 	*right = pbvh->nodes+node->children_offset+1;
 }
 
-PBVHNode *BKE_pbvh_node_get_root(PBVH *pbvh){
+PBVHNode *BKE_pbvh_node_get_root(PBVH *pbvh)
+{
 	return pbvh->nodes;
 }
 
