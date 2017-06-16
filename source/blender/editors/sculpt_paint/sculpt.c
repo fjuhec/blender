@@ -126,10 +126,11 @@ static bool sculpt_has_active_modifiers(Scene *scene, Object *ob)
 static bool sculpt_tool_needs_original(const char sculpt_tool)
 {
 	return ELEM(sculpt_tool,
-	            SCULPT_TOOL_GRAB,
-	            SCULPT_TOOL_ROTATE,
-	            SCULPT_TOOL_THUMB,
-	            SCULPT_TOOL_LAYER);
+				SCULPT_TOOL_GRAB,
+				SCULPT_TOOL_ROTATE,
+				SCULPT_TOOL_THUMB,
+				SCULPT_TOOL_LAYER,
+				SCULPT_TOOL_CLIP);
 }
 
 static bool sculpt_tool_is_proxy_used(const char sculpt_tool)
@@ -198,6 +199,8 @@ typedef struct StrokeCache {
 	float radius_squared;
 	float true_location[3];
 	float location[3];
+
+	int brush_size;
 
 	bool pen_flip;
 	bool invert;
@@ -655,9 +658,15 @@ typedef struct SculptBrushTest {
 	float location[3];
 	float dist;
 	int mirror_symmetry_pass;
-
+	float normal[3];
 	/* View3d clipping - only set rv3d for clipping */
 	RegionView3D *clip_rv3d;
+
+	ViewContext* vc;
+	int brush_size;
+	float true_location[3];
+	float foot[3];
+	float radius;
 
 	float no[3];
 
@@ -667,7 +676,12 @@ static void sculpt_brush_test_init(SculptSession *ss, SculptBrushTest *test)
 {
 	RegionView3D *rv3d = ss->cache->vc->rv3d;
 
+	test->vc = ss->cache->vc;
+	test->brush_size = ss->cache->brush_size;
+	copy_v3_v3(test->true_location, ss->cache->true_location);
+	copy_v3_v3(test->normal, ss->cache->view_normal);
 	test->radius_squared = ss->cache->radius_squared;
+
 	copy_v3_v3(test->location, ss->cache->location);
 	test->dist = 0.0f;   /* just for initialize */
 	copy_v3_v3(test->no, ss->cache->view_normal);
@@ -3066,7 +3080,35 @@ static void calc_foot_perp_v3_v3v3v3(float* foot, const float* a, const float* l
 	mul_v3_v3fl(vp, l_dir, dot_v3v3(l_dir, v1));
 	add_v3_v3v3(foot, p, vp);
 }
+float dist_squared_to_line_direction_v3v3(const float v1[3], const float v2[3], const float dir[3])
+{
+	float v2v1[3];
+	sub_v3_v3v3(v2v1, v1, v2);
+	float e[3];
+	cross_v3_v3v3(e, v2v1, dir);
+	return len_squared_v3(e);
+}
+static bool sculpt_brush_test_clippc(SculptBrushTest *test, const float co[], float radius)
+{
+	calc_foot_perp_v3_v3v3v3(test->foot, co, test->normal, test->location);
+	test->radius =paint_calc_object_space_radius(test->vc,
+		test->foot,
+		test->brush_size);
+	test->radius_squared = test->radius * test->radius;
 
+	float distsq = dist_squared_to_line_direction_v3v3(co, test->location, test->normal);
+
+	if (distsq <= test->radius_squared) {
+		if (sculpt_brush_test_clipping(test, co)) {
+			return 0;
+		}
+		test->dist = sqrtf(distsq);
+		return 1;
+	}
+	else {
+		return 0;
+	}
+}
 static void do_clip_brush_task_cb_ex(
 	void *userdata, void *UNUSED(userdata_chunk), const int n, const int thread_id)
 {
@@ -3087,25 +3129,35 @@ static void do_clip_brush_task_cb_ex(
 	proxy = BKE_pbvh_node_add_proxy(ss->pbvh, data->nodes[n])->co;
 
 	sculpt_brush_test_init(ss, &test);
-	
+	float ray_normal[3], rays[3], raye[3];
+
+	ED_view3d_win_to_segment(test.vc->ar, test.vc->v3d, ss->cache->mouse, rays, raye, true);
+	sub_v3_v3v3(ray_normal, raye, rays);
+	normalize_v3(ray_normal);
+
+	copy_v3_v3(test.normal, ray_normal);
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
 		sculpt_orig_vert_data_update(&orig_data, &vd);
 
-		if (sculpt_brush_test(&test, vd.co)) { /*initially vd = orig_data*/
+		if (sculpt_brush_test_clippc(&test, vd.co, ss->cache->radius_squared)){ /*initially vd = orig_data*/
+			/*
 			float vec[3] = { 0 };
 			const float fade = bstrength * tex_strength(
 				ss, brush, vd.co, test.dist, vd.no, NULL, vd.mask ? *vd.mask : 0.0f,
 				thread_id);
-			/*
+			
 			sub_v3_v3v3(vec, orig_data.co, ss->cache->location);
 			axis_angle_normalized_to_mat3(rot, ss->cache->sculpt_normal_symm, angle * fade);
 			mul_v3_m3v3(proxy[vd.i], rot, vec);
-			add_v3_v3(proxy[vd.i], ss->cache->location); */
+			add_v3_v3(proxy[vd.i], ss->cache->location); 
 
 			float foot[3];
 			calc_foot_perp_v3_v3v3v3(foot, vd.co, test.no, ss->cache->location);
 			sub_v3_v3v3(vec, vd.co, foot);
+			normalize_v3(vec);
+
+			
 			float length = dot_v3v3(vec, vec);
 			float r = ss->cache->radius_squared;
 			float p1[3];
@@ -3114,10 +3166,22 @@ static void do_clip_brush_task_cb_ex(
 			add_v3_v3v3(p1, p1, foot);
 			sub_v3_v3v3(vec, vd.co, ss->cache->location);
 			copy_v3_v3(proxy[vd.i], p1);
-			/*
-			mul_v3_v3fl(proxy[vd.i], vd.co, 1.5); just testing the working*/
-			/*
+			
+			mul_v3_fl(vec, test.radius - test.dist);
+			copy_v3_v3(proxy[vd.i], vec);
+			
+			mul_v3_v3fl(proxy[vd.i], vd.co, 1.5); just testing the working
+			
 			BM_vert_kill(ss->bm, vd.bm_vert);*/
+			float ver[3];
+
+			sub_v3_v3v3(ver, vd.co, test.foot);
+
+			normalize_v3(ver);
+
+			mul_v3_fl(ver, test.radius - test.dist);
+			copy_v3_v3(proxy[vd.i], ver);
+
 			if (vd.mvert)
 				vd.mvert->flag |= ME_VERT_PBVH_UPDATE;
 
@@ -3618,7 +3682,7 @@ static void sculpt_combine_proxies_task_cb(void *userdata, const int n)
 	Object *ob = data->ob;
 
 	/* these brushes start from original coordinates */
-	const bool use_orco = ELEM(data->brush->sculpt_tool, SCULPT_TOOL_GRAB, SCULPT_TOOL_ROTATE, SCULPT_TOOL_THUMB);
+	const bool use_orco = ELEM(data->brush->sculpt_tool, SCULPT_TOOL_GRAB, SCULPT_TOOL_ROTATE, SCULPT_TOOL_THUMB, SCULPT_TOOL_CLIP);
 
 	PBVHVertexIter vd;
 	PBVHProxyNode *proxies;
@@ -4289,6 +4353,7 @@ static void sculpt_update_brush_delta(UnifiedPaintSettings *ups, Object *ob, Bru
 			switch (tool) {
 				case SCULPT_TOOL_GRAB:
 				case SCULPT_TOOL_THUMB:
+				case SCULPT_TOOL_CLIP:
 					sub_v3_v3v3(delta, grab_location, cache->old_grab_location);
 					invert_m4_m4(imat, ob->obmat);
 					mul_mat3_m4_v3(imat, delta);
@@ -4418,9 +4483,10 @@ static void sculpt_update_cache_variants(bContext *C, Sculpt *sd, Object *ob,
 	/* Truly temporary data that isn't stored in properties */
 	if (cache->first_time) {
 		if (!BKE_brush_use_locked_size(scene, brush)) {
+			cache->brush_size = BKE_brush_size_get(scene, brush);
 			cache->initial_radius = paint_calc_object_space_radius(cache->vc,
 			                                                       cache->true_location,
-			                                                       BKE_brush_size_get(scene, brush));
+																   cache->brush_size);
 			BKE_brush_unprojected_radius_set(scene, brush, cache->initial_radius);
 		}
 		else {
