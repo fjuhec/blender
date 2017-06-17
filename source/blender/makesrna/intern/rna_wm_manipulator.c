@@ -87,7 +87,6 @@ static void rna_manipulator_draw_cb(
 	func = &rna_Manipulator_draw_func;
 	RNA_parameter_list_create(&list, &mpr_ptr, func);
 	RNA_parameter_set_lookup(&list, "context", &C);
-	RNA_parameter_set_lookup(&list, "manipulator", &mpr);
 	mgroup->type->ext.call((bContext *)C, &mpr_ptr, func, &list);
 	RNA_parameter_list_free(&list);
 }
@@ -105,7 +104,6 @@ static void rna_manipulator_draw_select_cb(
 	func = &rna_Manipulator_draw_select_func;
 	RNA_parameter_list_create(&list, &mpr_ptr, func);
 	RNA_parameter_set_lookup(&list, "context", &C);
-	RNA_parameter_set_lookup(&list, "manipulator", &mpr);
 	RNA_parameter_set_lookup(&list, "select_id", &select_id);
 	mgroup->type->ext.call((bContext *)C, &mpr_ptr, func, &list);
 	RNA_parameter_list_free(&list);
@@ -124,7 +122,6 @@ static int rna_manipulator_test_select_cb(
 	func = &rna_Manipulator_test_select_func;
 	RNA_parameter_list_create(&list, &mpr_ptr, func);
 	RNA_parameter_set_lookup(&list, "context", &C);
-	RNA_parameter_set_lookup(&list, "manipulator", &mpr);
 	RNA_parameter_set_lookup(&list, "event", &event);
 	mgroup->type->ext.call((bContext *)C, &mpr_ptr, func, &list);
 
@@ -149,7 +146,6 @@ static void rna_manipulator_modal_cb(
 	func = &rna_Manipulator_modal_func;
 	RNA_parameter_list_create(&list, &mpr_ptr, func);
 	RNA_parameter_set_lookup(&list, "context", &C);
-	RNA_parameter_set_lookup(&list, "manipulator", &mpr);
 	RNA_parameter_set_lookup(&list, "event", &event);
 	RNA_parameter_set_lookup(&list, "tweak", &tweak);
 	mgroup->type->ext.call((bContext *)C, &mpr_ptr, func, &list);
@@ -186,7 +182,6 @@ static void rna_manipulator_invoke_cb(
 	func = &rna_Manipulator_invoke_func;
 	RNA_parameter_list_create(&list, &mpr_ptr, func);
 	RNA_parameter_set_lookup(&list, "context", &C);
-	RNA_parameter_set_lookup(&list, "manipulator", &mpr);
 	RNA_parameter_set_lookup(&list, "event", &event);
 	mgroup->type->ext.call((bContext *)C, &mpr_ptr, func, &list);
 	RNA_parameter_list_free(&list);
@@ -205,7 +200,6 @@ static void rna_manipulator_exit_cb(
 	func = &rna_Manipulator_exit_func;
 	RNA_parameter_list_create(&list, &mpr_ptr, func);
 	RNA_parameter_set_lookup(&list, "context", &C);
-	RNA_parameter_set_lookup(&list, "manipulator", &mpr);
 	{
 		int cancel_i = cancel;
 		RNA_parameter_set_lookup(&list, "cancel", &cancel_i);
@@ -227,7 +221,6 @@ static void rna_manipulator_select_cb(
 	func = &rna_Manipulator_select_func;
 	RNA_parameter_list_create(&list, &mpr_ptr, func);
 	RNA_parameter_set_lookup(&list, "context", &C);
-	RNA_parameter_set_lookup(&list, "manipulator", &mpr);
 	RNA_parameter_set_lookup(&list, "action", &action);
 	mgroup->type->ext.call((bContext *)C, &mpr_ptr, func, &list);
 	RNA_parameter_list_free(&list);
@@ -770,16 +763,12 @@ static void rna_def_manipulator(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_REGISTER);
 	parm = RNA_def_pointer(func, "context", "Context", "", "");
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-	parm = RNA_def_pointer(func, "manipulator", "Manipulator", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 
 	/* wmManipulator.draw_select */
 	func = RNA_def_function(srna, "draw_select", NULL);
 	RNA_def_function_ui_description(func, "");
 	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL);
 	parm = RNA_def_pointer(func, "context", "Context", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-	parm = RNA_def_pointer(func, "manipulator", "Manipulator", "", "");
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 	parm = RNA_def_int(func, "select_id", 0, 0, INT_MAX, "", "", 0, INT_MAX);
 
@@ -788,8 +777,6 @@ static void rna_def_manipulator(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_ui_description(func, "");
 	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL);
 	parm = RNA_def_pointer(func, "context", "Context", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-	parm = RNA_def_pointer(func, "manipulator", "Manipulator", "", "");
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 	parm = RNA_def_pointer(func, "event", "Event", "", "");
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
@@ -827,8 +814,6 @@ static void rna_def_manipulator(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL);
 	parm = RNA_def_pointer(func, "context", "Context", "", "");
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-	parm = RNA_def_pointer(func, "manipulator", "Manipulator", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 	parm = RNA_def_pointer(func, "event", "Event", "", "");
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 
@@ -837,8 +822,6 @@ static void rna_def_manipulator(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_ui_description(func, "");
 	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL);
 	parm = RNA_def_pointer(func, "context", "Context", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-	parm = RNA_def_pointer(func, "manipulator", "Manipulator", "", "");
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 	parm = RNA_def_boolean(func, "cancel", 0, "Cancel, otherwise confirm", "");
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
@@ -859,8 +842,6 @@ static void rna_def_manipulator(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_ui_description(func, "");
 	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL);
 	parm = RNA_def_pointer(func, "context", "Context", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-	parm = RNA_def_pointer(func, "manipulator", "Manipulator", "", "");
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 	parm = RNA_def_enum(func, "action", select_actions, 0, "Action", "Selection action to execute");
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
