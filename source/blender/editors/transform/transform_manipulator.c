@@ -1078,30 +1078,52 @@ static ManipulatorGroup *manipulatorgroup_init(wmManipulatorGroup *mgroup)
 
 	man = MEM_callocN(sizeof(ManipulatorGroup), "manipulator_data");
 
+	const wmManipulatorType *wt_arrow = WM_manipulatortype_find("MANIPULATOR_WT_arrow_3d", true);
+	const wmManipulatorType *wt_dial = WM_manipulatortype_find("MANIPULATOR_WT_dial_3d", true);
+	const wmManipulatorType *wt_prim = WM_manipulatortype_find("MANIPULATOR_WT_primitive_3d", true);
+
+#define MANIPULATOR_NEW_ARROW(v, name, style) { \
+	v = WM_manipulator_new_ptr(wt_arrow, mgroup, name); \
+	ED_manipulator_arrow3d_set_style(v, style); \
+} ((void)0)
+#define MANIPULATOR_NEW_DIAL(v, name, style) { \
+	v = WM_manipulator_new_ptr(wt_dial, mgroup, name); \
+	ED_manipulator_dial3d_set_style(v, style); \
+} ((void)0)
+#define MANIPULATOR_NEW_PRIM(v, name, style) { \
+	v = WM_manipulator_new_ptr(wt_prim, mgroup, name); \
+	ED_manipulator_primitive3d_set_style(v, style); \
+} ((void)0)
+
 	/* add/init widgets - order matters! */
-	man->rotate_t = ED_manipulator_dial3d_new(mgroup, "rotate_t", ED_MANIPULATOR_DIAL_STYLE_RING_FILLED);
+	MANIPULATOR_NEW_DIAL(man->rotate_t, "rotate_t", ED_MANIPULATOR_DIAL_STYLE_RING_FILLED);
 
-	man->scale_c = ED_manipulator_dial3d_new(mgroup, "scale_c", ED_MANIPULATOR_DIAL_STYLE_RING);
-	man->scale_x = ED_manipulator_arrow3d_new(mgroup, "scale_x", ED_MANIPULATOR_ARROW_STYLE_BOX);
-	man->scale_y = ED_manipulator_arrow3d_new(mgroup, "scale_y", ED_MANIPULATOR_ARROW_STYLE_BOX);
-	man->scale_z = ED_manipulator_arrow3d_new(mgroup, "scale_z", ED_MANIPULATOR_ARROW_STYLE_BOX);
-	man->scale_xy = ED_manipulator_primitive3d_new(mgroup, "scale_xy", ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE);
-	man->scale_yz = ED_manipulator_primitive3d_new(mgroup, "scale_yz", ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE);
-	man->scale_zx = ED_manipulator_primitive3d_new(mgroup, "scale_zx", ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE);
+	MANIPULATOR_NEW_DIAL(man->scale_c, "scale_c", ED_MANIPULATOR_DIAL_STYLE_RING);
 
-	man->rotate_x = ED_manipulator_dial3d_new(mgroup, "rotate_x", ED_MANIPULATOR_DIAL_STYLE_RING_CLIPPED);
-	man->rotate_y = ED_manipulator_dial3d_new(mgroup, "rotate_y", ED_MANIPULATOR_DIAL_STYLE_RING_CLIPPED);
-	man->rotate_z = ED_manipulator_dial3d_new(mgroup, "rotate_z", ED_MANIPULATOR_DIAL_STYLE_RING_CLIPPED);
+	MANIPULATOR_NEW_ARROW(man->scale_x, "scale_x", ED_MANIPULATOR_ARROW_STYLE_BOX);
+	MANIPULATOR_NEW_ARROW(man->scale_y, "scale_y", ED_MANIPULATOR_ARROW_STYLE_BOX);
+	MANIPULATOR_NEW_ARROW(man->scale_z, "scale_z", ED_MANIPULATOR_ARROW_STYLE_BOX);
+
+	MANIPULATOR_NEW_PRIM(man->scale_xy, "scale_xy", ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE);
+	MANIPULATOR_NEW_PRIM(man->scale_yz, "scale_yz", ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE);
+	MANIPULATOR_NEW_PRIM(man->scale_zx, "scale_zx", ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE);
+
+	MANIPULATOR_NEW_DIAL(man->rotate_x, "rotate_x", ED_MANIPULATOR_DIAL_STYLE_RING_CLIPPED);
+	MANIPULATOR_NEW_DIAL(man->rotate_y, "rotate_y", ED_MANIPULATOR_DIAL_STYLE_RING_CLIPPED);
+	MANIPULATOR_NEW_DIAL(man->rotate_z, "rotate_z", ED_MANIPULATOR_DIAL_STYLE_RING_CLIPPED);
+
 	/* init screen aligned widget last here, looks better, behaves better */
-	man->rotate_c = ED_manipulator_dial3d_new(mgroup, "rotate_c", ED_MANIPULATOR_DIAL_STYLE_RING);
+	MANIPULATOR_NEW_DIAL(man->rotate_c, "rotate_c", ED_MANIPULATOR_DIAL_STYLE_RING);
 
-	man->translate_c = ED_manipulator_dial3d_new(mgroup, "translate_c", ED_MANIPULATOR_DIAL_STYLE_RING);
-	man->translate_x = ED_manipulator_arrow3d_new(mgroup, "translate_x", ED_MANIPULATOR_ARROW_STYLE_NORMAL);
-	man->translate_y = ED_manipulator_arrow3d_new(mgroup, "translate_y", ED_MANIPULATOR_ARROW_STYLE_NORMAL);
-	man->translate_z = ED_manipulator_arrow3d_new(mgroup, "translate_z", ED_MANIPULATOR_ARROW_STYLE_NORMAL);
-	man->translate_xy = ED_manipulator_primitive3d_new(mgroup, "translate_xy", ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE);
-	man->translate_yz = ED_manipulator_primitive3d_new(mgroup, "translate_yz", ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE);
-	man->translate_zx = ED_manipulator_primitive3d_new(mgroup, "translate_zx", ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE);
+	MANIPULATOR_NEW_DIAL(man->translate_c, "translate_c", ED_MANIPULATOR_DIAL_STYLE_RING);
+
+	MANIPULATOR_NEW_ARROW(man->translate_x, "translate_x", ED_MANIPULATOR_ARROW_STYLE_NORMAL);
+	MANIPULATOR_NEW_ARROW(man->translate_y, "translate_y", ED_MANIPULATOR_ARROW_STYLE_NORMAL);
+	MANIPULATOR_NEW_ARROW(man->translate_z, "translate_z", ED_MANIPULATOR_ARROW_STYLE_NORMAL);
+
+	MANIPULATOR_NEW_PRIM(man->translate_xy, "translate_xy", ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE);
+	MANIPULATOR_NEW_PRIM(man->translate_yz, "translate_yz", ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE);
+	MANIPULATOR_NEW_PRIM(man->translate_zx, "translate_zx", ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE);
 
 	return man;
 }
@@ -1345,44 +1367,3 @@ void TRANSFORM_WGT_manipulator(wmManipulatorGroupType *wgt)
 	wgt->refresh = WIDGETGROUP_manipulator_refresh;
 	wgt->draw_prepare = WIDGETGROUP_manipulator_draw_prepare;
 }
-
-
-/* -------------------------------------------------------------------- */
-/* Custom Object Manipulator (unfinished - unsure if this will stay) */
-#if 0
-static void WIDGETGROUP_object_manipulator_init(const bContext *C, wmManipulatorGroup *mgroup)
-{
-	Object *ob = ED_object_active_context((bContext *)C);
-
-	if (ob->mgroup == NULL) {
-		ob->mgroup = mgroup;
-	}
-
-	WIDGETGROUP_manipulator_setup(C, mgroup);
-}
-
-static bool WIDGETGROUP_object_manipulator_poll(const bContext *C, wmManipulatorGroupType *wgt)
-{
-	Object *ob = ED_object_active_context((bContext *)C);
-
-	if (ED_operator_object_active((bContext *)C)) {
-		if (STREQ(wgt->idname, ob->id.name)) {
-			return true;
-		}
-	}
-	return false;
-}
-
-/* XXX should this really be in transform_manipulator.c? */
-void TRANSFORM_WGT_object(wmManipulatorGroupType *wgt)
-{
-	wgt->name = "Object Widgets";
-
-	wgt->poll = WIDGETGROUP_object_manipulator_poll;
-	wgt->setup = WIDGETGROUP_object_manipulator_init;
-	wgt->refresh = WIDGETGROUP_manipulator_refresh;
-	wgt->draw_prepare = WIDGETGROUP_manipulator_draw_prepare;
-
-	wgt->flag |= (WM_MANIPULATORGROUPTYPE_3D | WM_MANIPULATORGROUPTYPE_SCALE_3D);
-}
-#endif
