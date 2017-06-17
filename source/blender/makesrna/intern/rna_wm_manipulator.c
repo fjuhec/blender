@@ -156,6 +156,23 @@ static void rna_manipulator_modal_cb(
 	RNA_parameter_list_free(&list);
 }
 
+static void rna_manipulator_setup_cb(
+        struct wmManipulator *mpr)
+{
+	extern FunctionRNA rna_Manipulator_setup_func;
+	wmManipulatorGroup *mgroup = mpr->parent_mgroup;
+	PointerRNA mpr_ptr;
+	ParameterList list;
+	FunctionRNA *func;
+	RNA_pointer_create(NULL, mpr->type->ext.srna, mpr, &mpr_ptr);
+	/* RNA_struct_find_function(&mpr_ptr, "setup"); */
+	func = &rna_Manipulator_setup_func;
+	RNA_parameter_list_create(&list, &mpr_ptr, func);
+	mgroup->type->ext.call((bContext *)NULL, &mpr_ptr, func, &list);
+	RNA_parameter_list_free(&list);
+}
+
+
 static void rna_manipulator_invoke_cb(
         struct bContext *C, struct wmManipulator *mpr, const struct wmEvent *event)
 {
@@ -267,7 +284,7 @@ static StructRNA *rna_Manipulator_register(
 	PointerRNA mnp_ptr;
 
 	/* Two sets of functions. */
-	int have_function[7];
+	int have_function[8];
 
 	/* setup dummy manipulator & manipulator type to store static properties in */
 	dummymnp.type = &dummywt;
@@ -311,6 +328,7 @@ static StructRNA *rna_Manipulator_register(
 		dummywt.modal = (have_function[i++]) ? rna_manipulator_modal_cb : NULL;
 //		dummywt.property_update = (have_function[i++]) ? rna_manipulator_property_update : NULL;
 //		dummywt.position_get = (have_function[i++]) ? rna_manipulator_position_get : NULL;
+		dummywt.setup = (have_function[i++]) ? rna_manipulator_setup_cb : NULL;
 		dummywt.invoke = (have_function[i++]) ? rna_manipulator_invoke_cb : NULL;
 		dummywt.exit = (have_function[i++]) ? rna_manipulator_exit_cb : NULL;
 		dummywt.select = (have_function[i++]) ? rna_manipulator_select_cb : NULL;
@@ -797,6 +815,11 @@ static void rna_def_manipulator(BlenderRNA *brna, PropertyRNA *cprop)
 
 	/* wmManipulator.property_update */
 	/* TODO */
+
+	/* wmManipulator.setup */
+	func = RNA_def_function(srna, "setup", NULL);
+	RNA_def_function_ui_description(func, "");
+	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL);
 
 	/* wmManipulator.invoke */
 	func = RNA_def_function(srna, "invoke", NULL);
