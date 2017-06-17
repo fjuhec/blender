@@ -444,6 +444,12 @@ static void manipulator_mesh_bisect_update_from_op(ManipulatorGroup *man)
 
 		ED_manipulator_grab3d_set_up_vector(man->translate_c, plane_no);
 		ED_manipulator_dial3d_set_up_vector(man->rotate_c, man->data.rotate_axis);
+
+		float plane_no_cross[3];
+		cross_v3_v3v3(plane_no_cross, plane_no, man->data.rotate_axis);
+
+		ED_manipulator_dial3d_set_start_vector(man->rotate_c, true, plane_no_cross);
+		ED_manipulator_dial3d_set_double_helper(man->rotate_c, true);
 	}
 }
 
@@ -657,7 +663,8 @@ static void MESH_WGT_bisect(struct wmManipulatorGroupType *wgt)
 	wgt->name = "Mesh Bisect";
 	wgt->idname = "MESH_WGT_bisect";
 
-	wgt->flag = WM_MANIPULATORGROUPTYPE_3D;
+	wgt->flag = (WM_MANIPULATORGROUPTYPE_3D |
+	             WM_MANIPULATORGROUPTYPE_SCALE_3D);
 
 	wgt->mmap_params.spaceid = SPACE_VIEW3D;
 	wgt->mmap_params.regionid = RGN_TYPE_WINDOW;
