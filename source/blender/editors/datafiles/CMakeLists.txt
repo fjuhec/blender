@@ -97,6 +97,7 @@ if(WITH_BLENDER)
 		data_to_c_simple(../../../../release/datafiles/brushicons/texfill.png SRC)
 		data_to_c_simple(../../../../release/datafiles/brushicons/texmask.png SRC)
 		data_to_c_simple(../../../../release/datafiles/brushicons/thumb.png SRC)
+        data_to_c_simple(../../../../release/datafiles/brushicons/topograb.png SRC)
 		data_to_c_simple(../../../../release/datafiles/brushicons/twist.png SRC)
 		data_to_c_simple(../../../../release/datafiles/brushicons/vertexdraw.png SRC)
 

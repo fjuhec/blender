@@ -196,7 +196,7 @@ static bool paint_tool_require_location(Brush *brush, PaintMode mode)
 {
 	switch (mode) {
 		case ePaintSculpt:
-			if (ELEM(brush->sculpt_tool, SCULPT_TOOL_GRAB, SCULPT_TOOL_ROTATE,
+			if (ELEM(brush->sculpt_tool, SCULPT_TOOL_GRAB, SCULPT_TOOL_TOPO_GRAB, SCULPT_TOOL_CLIP, SCULPT_TOOL_ROTATE,
 			                             SCULPT_TOOL_SNAKE_HOOK, SCULPT_TOOL_THUMB))
 			{
 				return false;
@@ -763,6 +763,8 @@ static bool sculpt_is_grab_tool(Brush *br)
 {
 	return ELEM(br->sculpt_tool,
 	             SCULPT_TOOL_GRAB,
+				 SCULPT_TOOL_TOPO_GRAB,
+				 SCULPT_TOOL_CLIP,
 	             SCULPT_TOOL_THUMB,
 	             SCULPT_TOOL_ROTATE,
 	             SCULPT_TOOL_SNAKE_HOOK);

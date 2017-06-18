@@ -274,6 +274,12 @@ void BLO_update_defaults_startup_blend(Main *bmain)
 			br->flag |= BRUSH_ORIGINAL_NORMAL;
 		}
 
+		/* use original normal for topo grab brush (otherwise flickers with normal weighting). */
+		br = (Brush *)BKE_libblock_find_name_ex(bmain, ID_BR, "Topo");
+		if (br) {
+			br->flag |= BRUSH_ORIGINAL_NORMAL;
+		}
+
 		/* increase strength, better for smoothing method */
 		br = (Brush *)BKE_libblock_find_name_ex(bmain, ID_BR, "Blur");
 		if (br) {

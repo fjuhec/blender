@@ -127,6 +127,7 @@ static bool sculpt_tool_needs_original(const char sculpt_tool)
 {
 	return ELEM(sculpt_tool,
 				SCULPT_TOOL_GRAB,
+				SCULPT_TOOL_TOPO_GRAB,
 				SCULPT_TOOL_ROTATE,
 				SCULPT_TOOL_THUMB,
 				SCULPT_TOOL_LAYER,
@@ -1243,6 +1244,9 @@ static float brush_strength(
 			return root_alpha * feather;
 
 		case SCULPT_TOOL_GRAB:
+			return root_alpha * feather;
+		
+		case SCULPT_TOOL_TOPO_GRAB:
 			return root_alpha * feather;
 
 		case SCULPT_TOOL_ROTATE:
@@ -3088,7 +3092,7 @@ float dist_squared_to_line_direction_v3v3(const float v1[3], const float v2[3], 
 	cross_v3_v3v3(e, v2v1, dir);
 	return len_squared_v3(e);
 }
-static bool sculpt_brush_test_clippc(SculptBrushTest *test, const float co[], float radius)
+static bool sculpt_brush_test_clippc(SculptBrushTest *test, const float co[])
 {
 	calc_foot_perp_v3_v3v3v3(test->foot, co, test->normal, test->location);
 	test->radius =paint_calc_object_space_radius(test->vc,
@@ -3140,7 +3144,7 @@ static void do_clip_brush_task_cb_ex(
 	{
 		sculpt_orig_vert_data_update(&orig_data, &vd);
 
-		if (sculpt_brush_test_clippc(&test, vd.co, ss->cache->radius_squared)){ /*initially vd = orig_data*/
+		if (sculpt_brush_test_clippc(&test, vd.co)){ /*initially vd = orig_data*/
 			/*
 			float vec[3] = { 0 };
 			const float fade = bstrength * tex_strength(
@@ -3204,6 +3208,70 @@ static void do_clip_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode)
 
 	BLI_task_parallel_range_ex(
 		0, totnode, &data, NULL, 0, do_clip_brush_task_cb_ex,
+		((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+}
+
+static void do_topo_grab_brush_task_cb_ex(
+	void *userdata, void *UNUSED(userdata_chunk), const int n, const int thread_id)
+{
+	SculptThreadedTaskData *data = userdata;
+	SculptSession *ss = data->ob->sculpt;
+	Brush *brush = data->brush;
+	const float *grab_delta = data->grab_delta;
+
+	PBVHVertexIter vd;
+	SculptBrushTest test;
+	SculptOrigVertData orig_data;
+	float(*proxy)[3];
+	const float bstrength = ss->cache->bstrength;
+
+	sculpt_orig_vert_data_init(&orig_data, data->ob, data->nodes[n]);
+
+	proxy = BKE_pbvh_node_add_proxy(ss->pbvh, data->nodes[n])->co;
+
+	sculpt_brush_test_init(ss, &test);
+	int ip = 0;
+	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
+	{
+		sculpt_orig_vert_data_update(&orig_data, &vd);
+
+		if (sculpt_brush_test(&test, orig_data.co)) {
+			const float fade = bstrength * tex_strength(
+				ss, brush, orig_data.co, test.dist, orig_data.no, NULL, vd.mask ? *vd.mask : 0.0f,
+				thread_id);
+
+
+			mul_v3_v3fl(proxy[vd.i], grab_delta, fade);
+
+			if (vd.mvert){
+				vd.mvert->flag |= ME_VERT_PBVH_UPDATE;
+				if(ip < 10) vd.mvert->flag |= SELECT;
+				ip += 1;
+			}
+		}
+	}
+	BKE_pbvh_vertex_iter_end;
+}
+
+static void do_topo_grab_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode)
+{
+	SculptSession *ss = ob->sculpt;
+	Brush *brush = BKE_paint_brush(&sd->paint);
+	float grab_delta[3];
+
+	copy_v3_v3(grab_delta, ss->cache->grab_delta_symmetry);
+
+	if (ss->cache->normal_weight > 0.0f) {
+		sculpt_project_v3_normal_align(ss, ss->cache->normal_weight, grab_delta);
+	}
+
+	SculptThreadedTaskData data = {
+		.sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
+		.grab_delta = grab_delta,
+	};
+
+	BLI_task_parallel_range_ex(
+		0, totnode, &data, NULL, 0, do_topo_grab_brush_task_cb_ex,
 		((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
 }
 
@@ -3608,6 +3676,9 @@ static void do_brush_action(Sculpt *sd, Object *ob, Brush *brush, UnifiedPaintSe
 			case SCULPT_TOOL_LAYER:
 				do_layer_brush(sd, ob, nodes, totnode);
 				break;
+			case SCULPT_TOOL_TOPO_GRAB:
+				do_topo_grab_brush(sd, ob, nodes, totnode);
+				break;
 			case SCULPT_TOOL_FLATTEN:
 				do_flatten_brush(sd, ob, nodes, totnode);
 				break;
@@ -3682,7 +3753,8 @@ static void sculpt_combine_proxies_task_cb(void *userdata, const int n)
 	Object *ob = data->ob;
 
 	/* these brushes start from original coordinates */
-	const bool use_orco = ELEM(data->brush->sculpt_tool, SCULPT_TOOL_GRAB, SCULPT_TOOL_ROTATE, SCULPT_TOOL_THUMB, SCULPT_TOOL_CLIP);
+	const bool use_orco = ELEM(data->brush->sculpt_tool, SCULPT_TOOL_GRAB, SCULPT_TOOL_TOPO_GRAB,
+		SCULPT_TOOL_ROTATE, SCULPT_TOOL_THUMB, SCULPT_TOOL_CLIP);
 
 	PBVHVertexIter vd;
 	PBVHProxyNode *proxies;
@@ -4096,6 +4168,8 @@ static const char *sculpt_tool_name(Sculpt *sd)
 			return "Rotate Brush";
 		case SCULPT_TOOL_MASK:
 			return "Mask Brush";
+		case SCULPT_TOOL_TOPO_GRAB:
+			return "Mask Brush";
 		case SCULPT_TOOL_SIMPLIFY:
 			return "Simplify Brush";
 	}
@@ -4331,7 +4405,7 @@ static void sculpt_update_brush_delta(UnifiedPaintSettings *ups, Object *ob, Bru
 	int tool = brush->sculpt_tool;
 
 	if (ELEM(tool,
-	         SCULPT_TOOL_GRAB, SCULPT_TOOL_NUDGE,
+		SCULPT_TOOL_GRAB, SCULPT_TOOL_NUDGE, SCULPT_TOOL_TOPO_GRAB,
 	         SCULPT_TOOL_CLAY_STRIPS, SCULPT_TOOL_SNAKE_HOOK,
 	         SCULPT_TOOL_THUMB))
 	{
@@ -4352,6 +4426,7 @@ static void sculpt_update_brush_delta(UnifiedPaintSettings *ups, Object *ob, Bru
 		if (!cache->first_time) {
 			switch (tool) {
 				case SCULPT_TOOL_GRAB:
+				case SCULPT_TOOL_TOPO_GRAB:
 				case SCULPT_TOOL_THUMB:
 				case SCULPT_TOOL_CLIP:
 					sub_v3_v3v3(delta, grab_location, cache->old_grab_location);
@@ -4383,12 +4458,12 @@ static void sculpt_update_brush_delta(UnifiedPaintSettings *ups, Object *ob, Bru
 
 		copy_v3_v3(cache->old_grab_location, grab_location);
 
-		if (tool == SCULPT_TOOL_GRAB)
+		if (tool == SCULPT_TOOL_GRAB || tool == SCULPT_TOOL_TOPO_GRAB)
 			copy_v3_v3(cache->anchored_location, cache->true_location);
 		else if (tool == SCULPT_TOOL_THUMB)
 			copy_v3_v3(cache->anchored_location, cache->orig_grab_location);
 
-		if (ELEM(tool, SCULPT_TOOL_GRAB, SCULPT_TOOL_THUMB)) {
+		if (ELEM(tool, SCULPT_TOOL_GRAB, SCULPT_TOOL_TOPO_GRAB, SCULPT_TOOL_THUMB)) {
 			/* location stays the same for finding vertices in brush radius */
 			copy_v3_v3(cache->true_location, cache->orig_grab_location);
 

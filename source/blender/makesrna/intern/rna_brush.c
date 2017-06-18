@@ -81,6 +81,7 @@ EnumPropertyItem rna_enum_brush_sculpt_tool_items[] = {
 	{SCULPT_TOOL_SCRAPE, "SCRAPE", ICON_BRUSH_SCRAPE, "Scrape", ""},
 	{SCULPT_TOOL_SIMPLIFY, "SIMPLIFY", ICON_BRUSH_SUBTRACT /* icon TODO */, "Simplify", ""},
 	{SCULPT_TOOL_SMOOTH, "SMOOTH", ICON_BRUSH_SMOOTH, "Smooth", ""},
+	{SCULPT_TOOL_TOPO_GRAB, "TOPO_GRAB", ICON_BRUSH_TOPO_GRAB, "Topo", "" },
 	{SCULPT_TOOL_SNAKE_HOOK, "SNAKE_HOOK", ICON_BRUSH_SNAKE_HOOK, "Snake Hook", ""},
 	{SCULPT_TOOL_THUMB, "THUMB", ICON_BRUSH_THUMB, "Thumb", ""},
 	{0, NULL, 0, NULL, NULL}
@@ -145,7 +146,7 @@ static int rna_SculptToolCapabilities_has_jitter_get(PointerRNA *ptr)
 	return (!(br->flag & BRUSH_ANCHORED) &&
 	        !(br->flag & BRUSH_DRAG_DOT) &&
 	        !ELEM(br->sculpt_tool,
-	              SCULPT_TOOL_GRAB, SCULPT_TOOL_ROTATE,
+			SCULPT_TOOL_GRAB, SCULPT_TOOL_TOPO_GRAB, SCULPT_TOOL_ROTATE,
 	              SCULPT_TOOL_SNAKE_HOOK, SCULPT_TOOL_THUMB));
 }
 
@@ -193,7 +194,7 @@ static int rna_SculptToolCapabilities_has_random_texture_angle_get(PointerRNA *p
 {
 	Brush *br = (Brush *)ptr->data;
 	return (!ELEM(br->sculpt_tool,
-	              SCULPT_TOOL_GRAB, SCULPT_TOOL_ROTATE,
+		SCULPT_TOOL_GRAB, SCULPT_TOOL_TOPO_GRAB, SCULPT_TOOL_ROTATE,
 	              SCULPT_TOOL_SNAKE_HOOK, SCULPT_TOOL_THUMB));
 }
 
@@ -256,7 +257,7 @@ static int rna_SculptToolCapabilities_has_space_attenuation_get(PointerRNA *ptr)
 {
 	Brush *br = (Brush *)ptr->data;
 	return ((br->flag & (BRUSH_SPACE | BRUSH_LINE | BRUSH_CURVE)) &&
-	        !ELEM(br->sculpt_tool, SCULPT_TOOL_GRAB, SCULPT_TOOL_ROTATE,
+		!ELEM(br->sculpt_tool, SCULPT_TOOL_GRAB, SCULPT_TOOL_TOPO_GRAB, SCULPT_TOOL_ROTATE,
 	               SCULPT_TOOL_SMOOTH, SCULPT_TOOL_SNAKE_HOOK));
 }
 
@@ -276,7 +277,7 @@ static int rna_BrushCapabilities_has_spacing_get(PointerRNA *ptr)
 static int rna_SculptToolCapabilities_has_strength_pressure_get(PointerRNA *ptr)
 {
 	Brush *br = (Brush *)ptr->data;
-	return !ELEM(br->sculpt_tool, SCULPT_TOOL_GRAB, SCULPT_TOOL_SNAKE_HOOK);
+	return !ELEM(br->sculpt_tool, SCULPT_TOOL_GRAB, SCULPT_TOOL_TOPO_GRAB, SCULPT_TOOL_SNAKE_HOOK);
 }
 
 static int rna_TextureCapabilities_has_texture_angle_get(PointerRNA *ptr)

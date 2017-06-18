@@ -253,7 +253,8 @@ typedef enum BrushSculptTool {
 	SCULPT_TOOL_BLOB = 17,
 	SCULPT_TOOL_CLAY_STRIPS = 18,
 	SCULPT_TOOL_MASK = 19,
-	SCULPT_TOOL_CLIP = 20
+	SCULPT_TOOL_CLIP = 20,
+	SCULPT_TOOL_TOPO_GRAB = 21
 } BrushSculptTool;
 
 /** When #BRUSH_ACCUMULATE is used */
@@ -271,6 +272,7 @@ typedef enum BrushSculptTool {
 
 #define SCULPT_TOOL_HAS_NORMAL_WEIGHT(t) ELEM(t, \
 	SCULPT_TOOL_GRAB, \
+	SCULPT_TOOL_TOPO_GRAB, \
 	SCULPT_TOOL_SNAKE_HOOK \
 	)
 
@@ -281,6 +283,7 @@ typedef enum BrushSculptTool {
 #define SCULPT_TOOL_HAS_DYNTOPO(t) (ELEM(t, \
 	/* These brushes, as currently coded, cannot support dynamic topology */ \
 	SCULPT_TOOL_GRAB, \
+	SCULPT_TOOL_TOPO_GRAB, \
 	SCULPT_TOOL_ROTATE, \
 	SCULPT_TOOL_THUMB, \
 	SCULPT_TOOL_LAYER, \
