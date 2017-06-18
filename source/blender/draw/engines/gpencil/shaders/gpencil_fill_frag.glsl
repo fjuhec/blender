@@ -197,14 +197,14 @@ void main()
 	}
 	if (xraymode == GP_XRAY_3DSPACE) {
 		float factor;
-		if (obj_zdepth < ZFIGHT_LIMIT_MID) {
-			factor = ZFIGHT_SHIFT_LOW;
+		if (obj_zdepth < ZFIGHT_LIMIT_HIG) {
+			factor = ZFIGHT_SHIFT_HIG;
 		}
-		else if (obj_zdepth < ZFIGHT_LIMIT_HIG){
+		else if (obj_zdepth < ZFIGHT_LIMIT_MID) {
 			factor = ZFIGHT_SHIFT_MID;
 		}
 		else {
-			factor = ZFIGHT_SHIFT_HIG;
+			factor = ZFIGHT_SHIFT_LOW;
 		}
 		gl_FragDepth = gl_FragCoord.z - (sort * factor);
 	}
