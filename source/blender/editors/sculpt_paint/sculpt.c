@@ -669,14 +669,17 @@ typedef struct SculptBrushTest {
 	float foot[3];
 	float radius;
 
+	BMesh *bm;
+
 	float no[3];
 
+	BMVert* mv;
 } SculptBrushTest;
 
 static void sculpt_brush_test_init(SculptSession *ss, SculptBrushTest *test)
 {
 	RegionView3D *rv3d = ss->cache->vc->rv3d;
-
+	test->bm = ss->bm;
 	test->vc = ss->cache->vc;
 	test->brush_size = ss->cache->brush_size;
 	copy_v3_v3(test->true_location, ss->cache->true_location);
@@ -3211,6 +3214,33 @@ static void do_clip_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode)
 		((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
 }
 
+void mulv3_v3fl(float r[3], const short a[3], float f)
+{
+	r[0] = a[0] * f;
+	r[1] = a[1] * f;
+	r[2] = a[2] * f;
+}
+
+static bool sculpt_brush_topo_test(SculptBrushTest *test, const float co[3], const short no[3])
+{
+	float distsq = len_squared_v3v3(co, test->location);
+	float var[3];
+	mulv3_v3fl(var, no, 1.0f);
+	normalize_v3(var);
+	float p = dot_v3v3(test->location, var);
+
+	if (distsq <= test->radius_squared && p <= 0.7f) {
+		if (sculpt_brush_test_clipping(test, co)) {
+			return 0;
+		}
+		test->dist = sqrtf(distsq);
+		return 1;
+	}
+	else {
+		return 0;
+	}
+}
+
 static void do_topo_grab_brush_task_cb_ex(
 	void *userdata, void *UNUSED(userdata_chunk), const int n, const int thread_id)
 {
@@ -3230,7 +3260,35 @@ static void do_topo_grab_brush_task_cb_ex(
 	proxy = BKE_pbvh_node_add_proxy(ss->pbvh, data->nodes[n])->co;
 
 	sculpt_brush_test_init(ss, &test);
+
+	float ray_normal[3], rays[3], raye[3];
+
+	ED_view3d_win_to_segment(test.vc->ar, test.vc->v3d, ss->cache->mouse, rays, raye, true);
+	sub_v3_v3v3(ray_normal, raye, rays);
+	normalize_v3(ray_normal);
+
+	copy_v3_v3(test.normal, ray_normal);
 	int ip = 0;
+	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
+	{
+		sculpt_orig_vert_data_update(&orig_data, &vd);
+
+		if (sculpt_brush_topo_test(&test, orig_data.co, orig_data.no)) {
+			const float fade = bstrength * tex_strength(
+				ss, brush, orig_data.co, test.dist, orig_data.no, NULL, vd.mask ? *vd.mask : 0.0f,
+				thread_id);
+
+
+			mul_v3_v3fl(proxy[vd.i], grab_delta, fade);
+
+			if (vd.mvert){
+				//vd.mvert->flag |= ME_VERT_PBVH_UPDATE;
+				vd.mvert->flag |= SELECT;
+			}
+		}
+	}
+	BKE_pbvh_vertex_iter_end;
+
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
 		sculpt_orig_vert_data_update(&orig_data, &vd);
@@ -3245,12 +3303,13 @@ static void do_topo_grab_brush_task_cb_ex(
 
 			if (vd.mvert){
 				vd.mvert->flag |= ME_VERT_PBVH_UPDATE;
-				if(ip < 10) vd.mvert->flag |= SELECT;
-				ip += 1;
+				/*vd.mvert->flag |= SELECT;*/
 			}
 		}
 	}
 	BKE_pbvh_vertex_iter_end;
+	//vd.mvert->flag |= SELECT;
+	//edbm_shortest_path_select_exec();
 }
 
 static void do_topo_grab_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode)
