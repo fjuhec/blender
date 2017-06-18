@@ -42,6 +42,8 @@ typedef struct GPENCIL_shgroup {
 	int t_clamp;
 	int fill_style;
 	int sort;
+	float obj_zdepth;
+	float obj_scale;
 	struct DRWShadingGroup *shgrps_fill;
 	struct DRWShadingGroup *shgrps_stroke;
 } GPENCIL_shgroup;
@@ -52,6 +54,7 @@ typedef struct GPENCIL_Storage {
 	int is_persp;   /* rv3d->is_persp (1-yes) */
 	int xray;
 	float objscale;
+	float zdepth;
 	int sort; /* used only for drawing */
 } GPENCIL_Storage;
 
@@ -125,7 +128,7 @@ typedef struct GpencilBatchCache {
 	int cache_idx;   /* current slot index */
 } GpencilBatchCache;
 
-struct DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(struct GPENCIL_Data *vedata, struct DRWPass *pass, struct GPUShader *shader, struct Object *ob, struct bGPdata *gpd, int id);
+struct DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(struct GPENCIL_Data *vedata, struct DRWPass *pass, struct GPUShader *shader, struct Object *ob, struct bGPdata *gpd, int id, float zdepth);
 struct DRWShadingGroup *DRW_gpencil_shgroup_point_volumetric_create(struct DRWPass *pass, struct GPUShader *shader);
 struct DRWShadingGroup *DRW_gpencil_shgroup_edit_volumetric_create(struct DRWPass *pass, struct GPUShader *shader);
 struct DRWShadingGroup *DRW_gpencil_shgroup_drawing_fill_create(struct DRWPass *pass, struct GPUShader *shader);

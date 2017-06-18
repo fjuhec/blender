@@ -16,6 +16,7 @@ uniform int t_flip;
 uniform float t_opacity;
 uniform int xraymode;
 uniform int sort;
+uniform float obj_zdepth;
 
 uniform sampler2D myTexture;
 uniform int t_clamp;
@@ -32,7 +33,11 @@ uniform int t_clamp;
 #define GP_XRAY_3DSPACE 1
 #define GP_XRAY_BACK  2
 
-#define ZFIGHT_SHIFT 0.000001
+#define ZFIGHT_LIMIT_MID 15.0
+#define ZFIGHT_LIMIT_HIG 5.0
+#define ZFIGHT_SHIFT_LOW 0.00000001
+#define ZFIGHT_SHIFT_MID 0.0000001
+#define ZFIGHT_SHIFT_HIG 0.000001
 
 in vec4 finalColor;
 in vec2 texCoord_interp;
@@ -191,10 +196,19 @@ void main()
 		gl_FragDepth = 0.0;
 	}
 	if (xraymode == GP_XRAY_3DSPACE) {
-		gl_FragDepth = gl_FragCoord.z - (sort * ZFIGHT_SHIFT);
+		float factor;
+		if (obj_zdepth < ZFIGHT_LIMIT_MID) {
+			factor = ZFIGHT_SHIFT_LOW;
+		}
+		else if (obj_zdepth < ZFIGHT_LIMIT_HIG){
+			factor = ZFIGHT_SHIFT_MID;
+		}
+		else {
+			factor = ZFIGHT_SHIFT_HIG;
+		}
+		gl_FragDepth = gl_FragCoord.z - (sort * factor);
 	}
 	if  (xraymode == GP_XRAY_BACK) {
 		gl_FragDepth = 1.0;
 	}
-
 }
