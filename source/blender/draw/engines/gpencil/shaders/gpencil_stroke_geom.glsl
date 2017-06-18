@@ -1,6 +1,7 @@
 uniform mat4 ModelViewProjectionMatrix;
 uniform vec2 Viewport;
 uniform int xraymode;
+uniform int sort;
 
 layout(lines_adjacency) in;
 layout(triangle_strip, max_vertices = 7) out;
@@ -15,6 +16,8 @@ out vec2 mTexCoord;
 #define GP_XRAY_3DSPACE 1
 #define GP_XRAY_BACK  2
 
+#define ZFIGHT_SHIFT 0.000001
+
 /* project 3d point to 2d on screen space */
 vec2 toScreenSpace(vec4 vertex)
 {
@@ -28,7 +31,7 @@ float getZdepth(vec4 point)
 		return 0.0;
 	}
 	if (xraymode == GP_XRAY_3DSPACE) {
-		return point.z / point.w;
+		return (point.z / point.w)  - ((sort + 4) * ZFIGHT_SHIFT);
 	}
 	if  (xraymode == GP_XRAY_BACK) {
 		return 1.0;

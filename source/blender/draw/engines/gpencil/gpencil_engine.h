@@ -48,6 +48,7 @@ typedef struct GPENCIL_shgroup {
 	int t_flip;
 	int t_clamp;
 	int fill_style;
+	int sort;
 	struct DRWShadingGroup *shgrps_fill;
 	struct DRWShadingGroup *shgrps_stroke;
 } GPENCIL_shgroup;
@@ -58,6 +59,7 @@ typedef struct GPENCIL_Storage {
 	int is_persp;   /* rv3d->is_persp (1-yes) */
 	int xray;
 	float objscale;
+	int sort; /* used only for drawing */
 } GPENCIL_Storage;
 
 typedef struct GPENCIL_StorageList {
@@ -95,10 +97,7 @@ typedef struct g_data {
 	struct DRWShadingGroup *shgrps_drawing_stroke;
 	struct DRWShadingGroup *shgrps_drawing_fill;
 	bool scene_draw;
-
-	int gp_cache_used;
-	int gp_cache_size;
-	struct tGPencilObjectCache *gp_object_cache;
+	int main_sort;
 } g_data; /* Transient data */
 
 typedef struct GPENCIL_e_data {
@@ -133,7 +132,7 @@ typedef struct GpencilBatchCache {
 	int cache_idx;   /* current slot index */
 } GpencilBatchCache;
 
-struct DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(struct GPENCIL_Data *vedata, struct DRWPass *pass, struct GPUShader *shader, struct Object *ob, struct bGPdata *gpd);
+struct DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(struct GPENCIL_Data *vedata, struct DRWPass *pass, struct GPUShader *shader, struct Object *ob, struct bGPdata *gpd, int id);
 struct DRWShadingGroup *DRW_gpencil_shgroup_point_volumetric_create(struct DRWPass *pass, struct GPUShader *shader);
 struct DRWShadingGroup *DRW_gpencil_shgroup_edit_volumetric_create(struct DRWPass *pass, struct GPUShader *shader);
 struct DRWShadingGroup *DRW_gpencil_shgroup_drawing_fill_create(struct DRWPass *pass, struct GPUShader *shader);
@@ -151,9 +150,5 @@ struct Batch *DRW_gpencil_get_buffer_point_geom(struct bGPdata *gpd, short thick
 void gpencil_batch_cache_clear(struct bGPdata *gpd);
 
 bool gpencil_can_draw_stroke(const struct bGPDstroke *gps, const bool onion);
-
-struct tGPencilObjectCache *gpencil_object_cache_allocate(struct tGPencilObjectCache *cache, int *gp_cache_size, int *gp_cache_used);
-void gpencil_object_cache_add(struct tGPencilObjectCache *cache, struct RegionView3D *rv3d, struct Object *ob, int *gp_cache_used);
-void gpencil_object_cache_draw(struct GPENCIL_e_data *e_data, struct GPENCIL_Data *vedata, struct ToolSettings *ts, struct Scene *scene, struct tGPencilObjectCache *cache, int gp_cache_used);
 
 #endif /* __GPENCIL_ENGINE_H__ */

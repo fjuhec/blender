@@ -44,76 +44,6 @@
 #include "draw_cache_impl.h"
 #include "gpencil_engine.h"
 
-/* allocate cache to store GP objects */
-tGPencilObjectCache *gpencil_object_cache_allocate(tGPencilObjectCache *cache, int *gp_cache_size, int *gp_cache_used)
-{
-	tGPencilObjectCache *p = NULL;
-
-	/* By default a cache is created with one block with a predefined number of free slots,
-	if the size is not enough, the cache is reallocated adding a new block of free slots.
-	This is done in order to keep cache small */
-	if (*gp_cache_used + 1 > *gp_cache_size) {
-		if ((*gp_cache_size == 0) || (cache == NULL)) {
-			p = MEM_callocN(sizeof(struct tGPencilObjectCache) * GP_CACHE_BLOCK_SIZE, "tGPencilObjectCache");
-			*gp_cache_size = GP_CACHE_BLOCK_SIZE;
-		}
-		else {
-			*gp_cache_size += GP_CACHE_BLOCK_SIZE;
-			p = MEM_recallocN(cache, sizeof(struct tGPencilObjectCache) * *gp_cache_size);
-		}
-		cache = p;
-	}
-	return cache;
-}
-
-/* add a gpencil object to cache to defer drawing */
-void gpencil_object_cache_add(tGPencilObjectCache *cache, RegionView3D *rv3d, Object *ob, int *gp_cache_used)
-{
-	/* save object */
-	cache[*gp_cache_used].ob = ob;
-
-	/* calculate zdepth from point of view */
-	float zdepth = 0.0;
-	if (rv3d->is_persp) {
-		zdepth = ED_view3d_calc_zfac(rv3d, ob->loc, NULL);
-	}
-	else {
-		zdepth = -dot_v3v3(rv3d->viewinv[2], ob->loc);
-	}
-	cache[*gp_cache_used].zdepth = zdepth;
-
-	/* increase slots used in cache */
-	++*gp_cache_used;
-}
-
-/* helper function to sort gpencil objects using qsort */
-static int gpencil_object_cache_compare_zdepth(const void *a1, const void *a2)
-{
-	const tGPencilObjectCache *ps1 = a1, *ps2 = a2;
-
-	if (ps1->zdepth > ps2->zdepth) return 1;
-	else if (ps1->zdepth < ps2->zdepth) return -1;
-
-	return 0;
-}
-
-/* draw objects in cache from back to from */
-void gpencil_object_cache_draw(GPENCIL_e_data *e_data, GPENCIL_Data *vedata, ToolSettings *ts,
-	Scene *scene, tGPencilObjectCache *cache, int gp_cache_used)
-{
-	if (gp_cache_used > 0) {
-		/* sort by zdepth */
-		qsort(cache, gp_cache_used, sizeof(tGPencilObjectCache), gpencil_object_cache_compare_zdepth);
-		/* inverse loop to draw from back to front */
-		for (int i = gp_cache_used; i > 0; --i) {
-			Object *ob = cache[i - 1].ob;
-			DRW_gpencil_populate_datablock(e_data, vedata, scene, ob, ts, ob->gpd);
-		}
-	}
-	/* free memory */
-	MEM_SAFE_FREE(cache);
-}
-
 /* verify if cache is valid */
 static bool gpencil_batch_cache_valid(bGPdata *gpd, int cfra)
 {
@@ -258,7 +188,7 @@ static DRWShadingGroup *DRW_gpencil_shgroup_fill_create(GPENCIL_Data *vedata, DR
 	DRW_shgroup_uniform_int(grp, "t_flip", &stl->shgroups[id].t_flip, 1);
 
 	DRW_shgroup_uniform_int(grp, "xraymode", (const int *) &gpd->xray_mode, 1);
-
+	DRW_shgroup_uniform_int(grp, "sort", (const int *)&stl->shgroups[id].sort, 1);
 	/* image texture */
 	if ((palcolor->fill_style == FILL_STYLE_TEXTURE) || (palcolor->fill_style == FILL_STYLE_PATTERN) || (palcolor->flag & PAC_COLOR_TEX_MIX)) {
 		ImBuf *ibuf;
@@ -297,7 +227,7 @@ DRWShadingGroup *DRW_gpencil_shgroup_point_volumetric_create(DRWPass *pass, GPUS
 }
 
 /* create shading group for strokes */
-DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_Data *vedata, DRWPass *pass, GPUShader *shader, Object *ob, bGPdata *gpd)
+DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_Data *vedata, DRWPass *pass, GPUShader *shader, Object *ob, bGPdata *gpd, int id)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	const float *viewport_size = DRW_viewport_size_get();
@@ -334,6 +264,13 @@ DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_Data *vedata, DRWPass
 	else {
 		/* for drawing always on front */
 		DRW_shgroup_uniform_int(grp, "xraymode", &stl->storage->xray, 1);
+	}
+	if (id > -1) {
+		DRW_shgroup_uniform_int(grp, "sort", (const int *)&stl->shgroups[id].sort, 1);
+	}
+	else {
+		stl->storage->sort = 0;
+		DRW_shgroup_uniform_int(grp, "sort", &stl->storage->sort, 1);
 	}
 
 	return grp;
@@ -485,10 +422,12 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 #endif
 		if (gps->totpoints > 1) {
 			int id = stl->storage->pal_id;
+			stl->shgroups[id].sort = stl->g_data->main_sort;
 			stl->shgroups[id].shgrps_fill = DRW_gpencil_shgroup_fill_create(vedata, psl->stroke_pass, e_data->gpencil_fill_sh, gpd, gps->palcolor, id);
-			stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_stroke_create(vedata, psl->stroke_pass, e_data->gpencil_stroke_sh, ob, gpd);
+			stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_stroke_create(vedata, psl->stroke_pass, e_data->gpencil_stroke_sh, ob, gpd, id);
 			++stl->storage->pal_id;
-			
+			stl->g_data->main_sort += 6; 
+
 			fillgrp = stl->shgroups[id].shgrps_fill;
 			strokegrp = stl->shgroups[id].shgrps_stroke;
 		}
@@ -626,6 +565,8 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 	if (G.debug_value == 668) {
 		printf("DRW_gpencil_populate_datablock for %s\n", gpd->id.name);
 	}
+	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
+	stl->g_data->main_sort = 0;
 
 	GpencilBatchCache *cache = gpencil_batch_cache_get(gpd, CFRA);
 	cache->cache_idx = 0;
@@ -645,6 +586,9 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 		}
 		/* draw normal strokes */
 		gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gpf, gpl->opacity, gpl->tintcolor, false, false);
+		
+		/* separate layers */
+		stl->g_data->main_sort += 20;
 	}
 	/* draw current painting strokes */
 	gpencil_draw_buffer_strokes(cache, vedata, ts, gpd);

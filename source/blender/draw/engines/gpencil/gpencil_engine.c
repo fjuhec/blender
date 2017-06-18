@@ -100,6 +100,7 @@ static void GPENCIL_cache_init(void *vedata)
 		/* Alloc transient pointers */
 		stl->g_data = MEM_mallocN(sizeof(g_data), "g_data");
 		stl->g_data->scene_draw = false;
+		stl->g_data->main_sort = 0;
 		stl->storage->xray = GP_XRAY_FRONT; /* used for drawing */
 	}
 	if (!stl->shgroups) {
@@ -111,13 +112,8 @@ static void GPENCIL_cache_init(void *vedata)
 		stl->shgroups = MEM_mallocN(sizeof(GPENCIL_shgroup) * GPENCIL_MAX_SHGROUPS, "GPENCIL_shgroup");
 	}
 	{
-		/* init gp objects cache */
-		stl->g_data->gp_cache_used = 0;
-		stl->g_data->gp_cache_size = 0;
-		stl->g_data->gp_object_cache = NULL;
-
 		/* Stroke pass */
-		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_DEPTH_LESS;
+		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS;
 		psl->stroke_pass = DRW_pass_create("Gpencil Stroke Pass", state);
 		stl->storage->pal_id = 0;
 		stl->g_data->shgrps_point_volumetric = DRW_gpencil_shgroup_point_volumetric_create(psl->stroke_pass, e_data.gpencil_volumetric_sh);
@@ -129,7 +125,7 @@ static void GPENCIL_cache_init(void *vedata)
 
 		/* drawing buffer pass */
 		psl->drawing_pass = DRW_pass_create("Gpencil Drawing Pass", state);
-		stl->g_data->shgrps_drawing_stroke = DRW_gpencil_shgroup_stroke_create(vedata, psl->drawing_pass, e_data.gpencil_stroke_sh, NULL, NULL);
+		stl->g_data->shgrps_drawing_stroke = DRW_gpencil_shgroup_stroke_create(vedata, psl->drawing_pass, e_data.gpencil_stroke_sh, NULL, NULL, -1);
 		stl->g_data->shgrps_drawing_fill = DRW_gpencil_shgroup_drawing_fill_create(psl->drawing_pass, e_data.gpencil_drawing_fill_sh);
 	}
 }
@@ -139,7 +135,6 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
-	RegionView3D *rv3d = draw_ctx->rv3d;
 	ToolSettings *ts = scene->toolsettings;
 
 	/* scene datablock (only once) */
@@ -152,34 +147,18 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 			DRW_gpencil_populate_datablock(&e_data, vedata, scene, NULL, ts, scene->gpd);
 		}
 	}
-
 	/* object datablock (this is not draw now) */
 	if (ob->type == OB_GPENCIL && ob->gpd) {
 		if (G.debug_value == 668) {
 			printf("GPENCIL_cache_populate: Object\n");
 		}
-		/* allocate memory for saving gp objects */
-		stl->g_data->gp_object_cache = gpencil_object_cache_allocate(stl->g_data->gp_object_cache, &stl->g_data->gp_cache_size, &stl->g_data->gp_cache_used);
-		/* add for drawing later */
-		gpencil_object_cache_add(stl->g_data->gp_object_cache, rv3d, ob, &stl->g_data->gp_cache_used);
+		DRW_gpencil_populate_datablock(&e_data, vedata, scene, ob, ts, ob->gpd);
 	}
 }
 
 static void GPENCIL_cache_finish(void *vedata)
 {
-	if (G.debug_value == 668) {
-		printf("GPENCIL_cache_finish\n");
-	}
-
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
-	const DRWContextState *draw_ctx = DRW_context_state_get();
-	Scene *scene = draw_ctx->scene;
-	ToolSettings *ts = scene->toolsettings;
-
-	/* Draw all pending objects sorted by object location zdepth.For GP objects, the order of drawing 
-	   is decided by location of the object that is used as a pivot point */
-	gpencil_object_cache_draw(&e_data, vedata, ts, scene, stl->g_data->gp_object_cache, stl->g_data->gp_cache_used);
-
 	stl->g_data->scene_draw = false;
 }
 
