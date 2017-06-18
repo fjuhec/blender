@@ -35,14 +35,7 @@ struct tGPspoint;
 #define GPENCIL_MAX_SHGROUPS 65536
 #define GPENCIL_MIN_BATCH_SLOTS_CHUNK 8
 
- /* *********** OBJECTS CACHE *********** */
- /* used to sort gpencil objects */
-typedef struct tGPencilObjectCache {
-	struct Object *ob;
-	float zdepth;
-} tGPencilObjectCache;
-
- /* *********** LISTS *********** */
+  /* *********** LISTS *********** */
 typedef struct GPENCIL_shgroup {
 	int t_mix;
 	int t_flip;
