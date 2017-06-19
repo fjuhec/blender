@@ -5978,6 +5978,7 @@ void MESH_OT_mark_freestyle_face(wmOperatorType *ot)
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
+/* Initialize loop normal data */
 static int init_point_normals(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	Object *obedit = CTX_data_edit_object(C);
@@ -5993,10 +5994,13 @@ static int init_point_normals(bContext *C, wmOperator *op, const wmEvent *event)
 
 	PropertyRNA *prop = RNA_struct_find_property(op->ptr, "selected");
 	int length = RNA_property_array_length(op->ptr, prop);
-	int *vert_sel = MEM_mallocN(sizeof(*vert_sel) * length, "__func__");
-	RNA_int_get_array(op->ptr, "selected", vert_sel);
 
-	if (*vert_sel != -1) {
+	int *vert_sel = MEM_mallocN(sizeof(*vert_sel) * length, "__func__");
+	RNA_int_get_array(op->ptr, "selected", vert_sel);				/* Get loop indices of previous selected vertices */
+
+	/* This if statement is required as if we RMB on mesh then prev selected loop data is lost */
+
+	if (*vert_sel != -1) {											/* Means  function is called by exec() */
 		totloopsel = RNA_int_get(op->ptr, "loop_selected");
 		TransDataLoopNormal *tld = ld->normal = MEM_mallocN(sizeof(*tld) * totloopsel, "__func__");
 		int *vert_cur = vert_sel;
@@ -6005,13 +6009,13 @@ static int init_point_normals(bContext *C, wmOperator *op, const wmEvent *event)
 			v = BM_vert_at_index_find_or_table(bm, *vert_cur);
 
 			BM_ITER_ELEM(l, &liter, v, BM_LOOPS_OF_VERT) {
-				InitTransDataNormal(bm, tld, v, l, cd_custom_normal_offset);
+				InitTransDataNormal(bm, tld, v, l, cd_custom_normal_offset);		/* Init those loop normals used in previous call */
 				tld++;
 			}
 		}
 	}
 	else {
-		totloopsel = BM_total_loop_select(bm);
+		totloopsel = BM_total_loop_select(bm);		/* Invoke operation */
 		TransDataLoopNormal *tld = ld->normal = MEM_mallocN(sizeof(*tld) * totloopsel, "__func__");
 		BM_mesh_elem_index_ensure(bm, BM_LOOP);
 
@@ -6025,10 +6029,12 @@ static int init_point_normals(bContext *C, wmOperator *op, const wmEvent *event)
 			}
 		}
 	}
+
 	MEM_freeN(vert_sel);
 
 	ld->totloop = totloopsel;
 	ld->offset = cd_custom_normal_offset;
+	ld->funcdata = NULL;
 	op->customdata = ld;
 
 	return totloopsel;
@@ -6042,17 +6048,19 @@ static void apply_point_normals(bContext *C, wmOperator *op, const wmEvent *even
 	BMIter liter;
 	LoopNormalData *ld = op->customdata;
 	TransDataLoopNormal *tld = ld->normal;
-	bool point_away = RNA_boolean_get(op->ptr, "point_away");
-	int i = 0;
 
-	if (vert) {
+	const bool point_away = RNA_boolean_get(op->ptr, "point_away");
+
+	if (vert) {					/* if active vert is pivot, keep its normal same */
 		BMElem *ele;
 		ele = BM_mesh_active_elem_get(bm);
+
 		if (ele->head.htype == BM_VERT) {
 			BM_ITER_ELEM(l, &liter, ((BMVert *)ele), BM_LOOPS_OF_VERT) {
 				int loop_index = BM_elem_index_get(l);
 				tld = ld->normal;
-				for (i = 0; i < ld->totloop; i++, tld++) {
+
+				for (int i = 0; i < ld->totloop; i++, tld++) {
 					if (tld->loop_index == loop_index) {
 						tld->loop_index = -1;
 						break;
@@ -6075,14 +6083,71 @@ static void apply_point_normals(bContext *C, wmOperator *op, const wmEvent *even
 	}
 }
 
-static void point_normals_free(bContext *C, wmOperator *op)
+static void point_normals_free(bContext *C, wmOperator *op, const bool align)
 {
 	LoopNormalData *ld = op->customdata;
+	if (align) {
+		MEM_freeN(ld->normal->loc);
+	}
 	MEM_freeN(ld->normal);
 	MEM_freeN(ld);
 	op->customdata = NULL;
 
 	ED_area_headerprint(CTX_wm_area(C), NULL);
+}
+
+static int point_normals_mouse(bContext *C, wmOperator *op, const wmEvent *event)
+{
+	View3D *v3d = CTX_wm_view3d(C);
+	Object *obedit = CTX_data_edit_object(C);
+	ARegion *ar = CTX_wm_region(C);
+	BMEditMesh *em = BKE_editmesh_from_object(obedit);
+	BMesh *bm = em->bm;
+	BMVert *v;
+	BMIter viter;
+	int i = 0;
+
+	float target[3], center[3];
+
+	RNA_float_get_array(op->ptr, "target_location", target);
+
+	zero_v3(center);
+	BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
+		if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
+			add_v3_v3(center, v->co);
+			i++;
+		}
+	}
+	mul_v3_fl(center, 1.0f / (float)i);
+
+	ED_view3d_win_to_3d_int(v3d, ar, center, event->mval, target);
+
+	PropertyRNA *prop = RNA_struct_find_property(op->ptr, "align");
+	RNA_def_property_clear_flag(prop, PROP_HIDDEN);
+
+	const bool check_vert = RNA_boolean_get(op->ptr, "check_vert"),
+		  align = RNA_boolean_get(op->ptr, "align");
+
+	apply_point_normals(C, op, event, target, check_vert);
+	EDBM_update_generic(em, true, false);
+
+	if (event->type == LEFTMOUSE) {
+		RNA_float_set_array(op->ptr, "target_location", target);
+		point_normals_free(C, op, align);
+		return OPERATOR_FINISHED;
+	}
+
+	else if ((ISKEYBOARD(event->type) || event->type == RIGHTMOUSE) && event->type != MKEY) {
+		LoopNormalData *ld = op->customdata;
+		TransDataLoopNormal *tld = ld->normal;
+
+		for (i = 0; i < ld->totloop; i++, tld++) {				/* Reset custom normal data */
+			BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], tld->niloc, tld->clnors_data);
+		}
+		point_normals_free(C, op, align);
+		return OPERATOR_CANCELLED;
+	}
+	return OPERATOR_PASS_THROUGH;
 }
 
 static int edbm_point_normals_modal(bContext *C, wmOperator *op, const wmEvent *event)
@@ -6098,17 +6163,27 @@ static int edbm_point_normals_modal(bContext *C, wmOperator *op, const wmEvent *
 
 	bool handled = false;
 	PropertyRNA *prop = RNA_struct_find_property(op->ptr, "target_location");
+	LoopNormalData *ld = op->customdata;
+
+	if (ld->funcdata) {				/* executes point_normals_mouse */
+		int(*apply)(bContext *, wmOperator *, const wmEvent *);
+		apply = ld->funcdata;
+		return apply(C, op, event);
+	}
 
 	if (ele_ref) {
 		BMElem *ele_new = BM_mesh_active_elem_get(bm);
 		if (ele_ref == ele_new) {
 			ele_ref = NULL;
-			point_normals_free(C, op);
+			point_normals_free(C, op, false);
+			ED_area_headerprint(CTX_wm_area(C), NULL);
+
 			return OPERATOR_CANCELLED;
 		}
 		RNA_boolean_set(op->ptr, "check_vert", true);
 		ED_object_editmode_calc_active_center(obedit, false, target);
 		RNA_property_float_set_array(op->ptr, prop, target);
+
 		handled = true;
 		ele_ref = NULL;
 	}
@@ -6121,11 +6196,12 @@ static int edbm_point_normals_modal(bContext *C, wmOperator *op, const wmEvent *
 			ED_view3d_cursor3d_update(C, event->mval);
 			copy_v3_v3(target, ED_view3d_cursor3d_get(scene, v3d));
 			RNA_property_float_set_array(op->ptr, prop, target);
+
 			handled = true;
 		}
 		if (event->type == RIGHTMOUSE) {
 			ele_ref = BM_mesh_active_elem_get(bm);
-			int *vert_sel = MEM_mallocN(sizeof(*vert_sel) * bm->totvertsel, "__func_"), index;
+			int *vert_sel = MEM_mallocN(sizeof(*vert_sel) * bm->totvertsel, "__func__"), index;
 
 			BM_ITER_MESH_INDEX(v, &viter, bm, BM_VERTS_OF_MESH, index) {
 				if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
@@ -6133,7 +6209,7 @@ static int edbm_point_normals_modal(bContext *C, wmOperator *op, const wmEvent *
 					i++;
 				}
 			}
-			RNA_int_set_array(op->ptr, "selected", vert_sel);
+			RNA_int_set_array(op->ptr, "selected", vert_sel);		//Store selected verts, will be lost as selected elem changes
 			MEM_freeN(vert_sel);
 		}
 		else if (event->type == LKEY) {
@@ -6163,6 +6239,7 @@ static int edbm_point_normals_modal(bContext *C, wmOperator *op, const wmEvent *
 			case V3D_AROUND_CENTER_MEAN:
 				if (RNA_int_get(op->ptr, "loop_selected")) {
 					zero_v3(target);
+
 					BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
 						if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
 							add_v3_v3(target, v->co);
@@ -6172,7 +6249,7 @@ static int edbm_point_normals_modal(bContext *C, wmOperator *op, const wmEvent *
 					mul_v3_fl(target, 1.0f / (float)i);
 				}
 				else {
-					point_normals_free(C, op);
+					point_normals_free(C, op, false);
 					return OPERATOR_CANCELLED;	/* Mechanism to free mem with every cancel, other than ot->cancel() */
 				}
 				RNA_property_float_set_array(op->ptr, prop, target);
@@ -6194,10 +6271,39 @@ static int edbm_point_normals_modal(bContext *C, wmOperator *op, const wmEvent *
 
 			default:
 				BKE_report(op->reports, RPT_ERROR, "Does not support Indivisual Origin as pivot");
-				point_normals_free(C, op);
+				point_normals_free(C, op, false);
 				return OPERATOR_CANCELLED;
 			}
 			handled = true;
+		}
+		else if (event->type == MKEY) {
+			ld->funcdata = point_normals_mouse;
+
+			const bool align = RNA_boolean_get(op->ptr, "align");
+
+			if (align) {								/* Set TransData loc to center loc if align true */
+				float *center = MEM_mallocN(sizeof(*center) * 3, "__func__");
+				TransDataLoopNormal *t = ld->normal;
+				int i = 0;
+
+				zero_v3(center);
+				BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
+					if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
+						add_v3_v3(center, v->co);
+						i++;
+					}
+				}
+				mul_v3_fl(center, 1.0f / (float)i);
+
+				for (i = 0; i < ld->totloop; i++, t++) {
+					t->loc = center;
+				}
+			}
+
+			char header[UI_MAX_DRAW_STR];
+			BLI_snprintf(header, sizeof(header), IFACE_("Left Click to Confirm. Right click to Cancel."));
+
+			ED_area_headerprint(CTX_wm_area(C), header);
 		}
 		else if (event->type == OKEY) {
 			copy_v3_v3(target, obedit->loc);
@@ -6205,18 +6311,29 @@ static int edbm_point_normals_modal(bContext *C, wmOperator *op, const wmEvent *
 			handled = true;
 		}
 		else if (ISKEYBOARD(event->type) && event->type != RIGHTALTKEY) {
-			point_normals_free(C, op);
+			prop = RNA_struct_find_property(op->ptr, "align");
+			RNA_property_boolean_set(op->ptr, prop, false);
+			RNA_def_property_flag(prop, PROP_HIDDEN);
+
+			point_normals_free(C, op, false);
 			return OPERATOR_CANCELLED;
 		}
+	}
+	
+	if (handled || event->type == RIGHTMOUSE) {
+		prop = RNA_struct_find_property(op->ptr, "align");
+		RNA_property_boolean_set(op->ptr, prop, false);
+		RNA_def_property_flag(prop, PROP_HIDDEN);
 	}
 
 	if (handled) {
 		bool check_vert = RNA_boolean_get(op->ptr, "check_vert");
 		apply_point_normals(C, op, event, target, check_vert);
+
 		EDBM_update_generic(em, true, false);	/* Recheck bools */
 
 		ED_area_headerprint(CTX_wm_area(C), NULL);
-		point_normals_free(C, op);
+		point_normals_free(C, op, false);
 
 		return OPERATOR_FINISHED;
 	}
@@ -6236,16 +6353,18 @@ static int edbm_point_normals_invoke(bContext *C, wmOperator *op, const wmEvent 
 
 	RNA_int_set(op->ptr, "loop_selected", BM_total_loop_select(bm));
 
+	/* Init selected loop indices to 0, used by RMB click */
 	int *negate = MEM_mallocN(sizeof(*negate) * bm->totvertsel, "__func__");
 	memset(negate, -1, sizeof(*negate) * bm->totvertsel);
 
 	PropertyRNA *prop = RNA_struct_find_property(op->ptr, "selected");
 	RNA_def_property_array(prop, bm->totvertsel);
 	RNA_property_int_set_array(op->ptr, prop, negate);
+
 	MEM_freeN(negate);
 
 	if (!init_point_normals(C, op, event)) {
-		point_normals_free(C, op);
+		point_normals_free(C, op, false);
 		return OPERATOR_CANCELLED;
 	}
 
@@ -6254,7 +6373,8 @@ static int edbm_point_normals_invoke(bContext *C, wmOperator *op, const wmEvent 
 	WM_event_add_modal_handler(C, op);
 
 	char header[UI_MAX_DRAW_STR];
-	BLI_snprintf(header, sizeof(header), IFACE_("L Key to use Pivot as target, RMB on mesh to point to mesh"));
+	BLI_snprintf(header, sizeof(header), IFACE_("L Key to use Pivot as target, M Key to point to mouse, O Key to point to object origin, "
+		"Left Click to point to new cursor location, Right Click on mesh to point to mesh"));
 
 	ED_area_headerprint(CTX_wm_area(C), header);
 
@@ -6265,16 +6385,40 @@ static int edbm_point_normals_exec(bContext *C, wmOperator *op)
 {
 	Object *obedit = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
+	BMesh *bm = em->bm;
 
 	PropertyRNA *prop;
 
 	if (!init_point_normals(C, op, NULL)) {
-		point_normals_free(C, op);
+		point_normals_free(C, op, false);
 		return OPERATOR_CANCELLED;
 	}
 	float target[3];
 
-	bool point_away = RNA_boolean_get(op->ptr, "point_away"), check_vert = RNA_boolean_get(op->ptr, "check_vert");
+	bool point_away = RNA_boolean_get(op->ptr, "point_away"), check_vert = RNA_boolean_get(op->ptr, "check_vert"),
+		align = RNA_boolean_get(op->ptr, "align");
+
+	if (align) {								/* Set TransData loc to center loc if align true */
+		float *center = MEM_mallocN(sizeof(*center) * 3, "__func__");
+		LoopNormalData *ld = op->customdata;
+		TransDataLoopNormal *t = ld->normal;
+		BMVert *v;
+		BMIter viter;
+		int i = 0;
+
+		zero_v3(center);
+		BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
+			if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
+				add_v3_v3(center, v->co);
+				i++;
+			}
+		}
+		mul_v3_fl(center, 1.0f / (float)i);
+
+		for (i = 0; i < ld->totloop; i++, t++) {
+			t->loc = center;
+		}
+	}
 
 	prop = RNA_struct_find_property(op->ptr, "target_location");
 	RNA_property_float_get_array(op->ptr, prop, target);
@@ -6282,7 +6426,7 @@ static int edbm_point_normals_exec(bContext *C, wmOperator *op)
 	apply_point_normals(C, op, NULL, target, check_vert);
 
 	EDBM_update_generic(em, true, false);
-	point_normals_free(C, op);
+	point_normals_free(C, op, align);
 
 	return OPERATOR_FINISHED;
 }
@@ -6301,11 +6445,14 @@ void MESH_OT_point_normals(struct wmOperatorType *ot)
 	ot->poll = ED_operator_editmesh;
 
 	/* flags */
-	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+	ot->flag = OPTYPE_BLOCKING | OPTYPE_REGISTER | OPTYPE_UNDO;
 
 	ot->prop = RNA_def_boolean(ot->srna, "point_away", false, "Point Away", "Point Away from target");
 
 	PropertyRNA *prop;
+
+	prop = RNA_def_boolean(ot->srna, "align", false, "Align", "Align normal with mouse location");
+	RNA_def_property_flag(prop, PROP_HIDDEN);
 
 	prop = RNA_def_property(ot->srna, "target_location", PROP_FLOAT, PROP_XYZ);
 	RNA_def_property_array(prop, 3);
