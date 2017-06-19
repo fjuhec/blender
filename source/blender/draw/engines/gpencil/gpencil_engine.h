@@ -42,6 +42,7 @@ typedef struct GPENCIL_shgroup {
 	int t_clamp;
 	int fill_style;
 	int sort;
+	int keep_size;
 	float obj_zdepth;
 	float obj_scale;
 	struct DRWShadingGroup *shgrps_fill;
@@ -51,7 +52,7 @@ typedef struct GPENCIL_shgroup {
 typedef struct GPENCIL_Storage {
 	int pal_id; /* total elements */
 	float unit_matrix[4][4];
-	int is_persp;   /* rv3d->is_persp (1-yes) */
+	int keep_size;
 	int xray;
 	float objscale;
 	float zdepth;

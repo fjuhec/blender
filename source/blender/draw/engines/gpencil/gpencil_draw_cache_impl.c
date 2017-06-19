@@ -262,23 +262,17 @@ DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_Data *vedata, DRWPass
 		stl->shgroups[id].obj_zdepth = zdepth;
 		DRW_shgroup_uniform_float(grp, "objscale", &stl->shgroups[id].obj_scale, 1);
 		DRW_shgroup_uniform_float(grp, "obj_zdepth", &stl->shgroups[id].obj_zdepth, 1);
+		stl->shgroups[id].keep_size = (int)((gpd) && (gpd->flag & GP_DATA_STROKE_KEEPTHICKNESS));
+		DRW_shgroup_uniform_int(grp, "keep_size", &stl->shgroups[id].keep_size, 1);
 	}
 	else {
 		stl->storage->objscale = 1.0f;
 		stl->storage->zdepth = 0.0f;
+		stl->storage->keep_size = 0;
 		DRW_shgroup_uniform_float(grp, "objscale", &stl->storage->objscale, 1);
 		DRW_shgroup_uniform_float(grp, "obj_zdepth", &stl->storage->zdepth, 1);
+		DRW_shgroup_uniform_int(grp, "keep_size", &stl->storage->keep_size, 1);
 	}
-
-	/* If disable zoom for strokes, disable scale */
-	if ((gpd) && (gpd->flag & GP_DATA_STROKE_KEEPTHICKNESS)) {
-		stl->storage->is_persp = 0;
-	}
-	else {
-		stl->storage->is_persp = 1;
-	}
-
-	DRW_shgroup_uniform_int(grp, "is_persp", &stl->storage->is_persp, 1);
 
 	if (gpd) {
 		DRW_shgroup_uniform_int(grp, "xraymode", (const int *) &gpd->xray_mode, 1);

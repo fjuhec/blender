@@ -3,7 +3,7 @@ uniform mat4 ProjectionMatrix;
 
 uniform float pixsize;   /* rv3d->pixsize */
 uniform float pixelsize; /* U.pixelsize */
-uniform int is_persp;    /* 0: Keep Stroke size */
+uniform int keep_size;    
 uniform float objscale;
 
 in vec3 pos;
@@ -22,12 +22,12 @@ void main(void)
 	gl_Position = ModelViewProjectionMatrix * vec4( pos, 1.0 );
 	finalColor = color;
 
-	if (is_persp == TRUE) {
-		float size = (ProjectionMatrix[3][3] == 0.0) ? (thickness / (gl_Position.z * defaultpixsize)) : (thickness / defaultpixsize);
-		finalThickness = max(size * objscale, 1.0);
+	if (keep_size == TRUE) {
+		finalThickness = thickness;
 	}
 	else {
-		finalThickness = thickness;
+		float size = (ProjectionMatrix[3][3] == 0.0) ? (thickness / (gl_Position.z * defaultpixsize)) : (thickness / defaultpixsize);
+		finalThickness = max(size * objscale, 1.0);
 	}
 	
 } 
