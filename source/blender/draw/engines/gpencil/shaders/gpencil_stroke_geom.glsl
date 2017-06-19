@@ -22,6 +22,8 @@ out vec2 mTexCoord;
 #define ZFIGHT_SHIFT_LOW 0.00000001
 #define ZFIGHT_SHIFT_MID 0.0000001
 #define ZFIGHT_SHIFT_HIG 0.000001
+/* keep synchronized with ZFIGHT_STEP/2 in gpencil_draw_cache_impl.c */
+#define ZFIGHT_HALF_STEP 24
 
 /* project 3d point to 2d on screen space */
 vec2 toScreenSpace(vec4 vertex)
@@ -29,7 +31,7 @@ vec2 toScreenSpace(vec4 vertex)
 	return vec2(vertex.xy / vertex.w) * Viewport;
 }
 
-/* get zdepth value (0 Near, 1 Far) */
+/* get zdepth value */
 float getZdepth(vec4 point)
 {
 	if (xraymode == GP_XRAY_FRONT) {
@@ -46,7 +48,7 @@ float getZdepth(vec4 point)
 		else {
 			factor = ZFIGHT_SHIFT_LOW;
 		}
-		return (point.z / point.w)  - ((sort + 12) * factor);
+		return (point.z / point.w)  - ((sort + ZFIGHT_HALF_STEP) * factor);
 	}
 	if  (xraymode == GP_XRAY_BACK) {
 		return 1.0;

@@ -44,6 +44,9 @@
 #include "draw_cache_impl.h"
 #include "gpencil_engine.h"
 
+#define ZFIGHT_INIT -2048
+#define ZFIGHT_STEP 48
+
 /* verify if cache is valid */
 static bool gpencil_batch_cache_valid(bGPdata *gpd, int cfra)
 {
@@ -442,7 +445,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 			stl->shgroups[id].shgrps_fill = DRW_gpencil_shgroup_fill_create(vedata, psl->stroke_pass, e_data->gpencil_fill_sh, ob, gpd, gps->palcolor, id, zdepth);
 			stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_stroke_create(vedata, psl->stroke_pass, e_data->gpencil_stroke_sh, ob, gpd, id, zdepth);
 			++stl->storage->pal_id;
-			stl->g_data->main_sort += 15; 
+			stl->g_data->main_sort += ZFIGHT_STEP;
 
 			fillgrp = stl->shgroups[id].shgrps_fill;
 			strokegrp = stl->shgroups[id].shgrps_stroke;
@@ -596,7 +599,8 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 		}
 	}
 
-	stl->g_data->main_sort = -300;
+	/* start in negative to start zfight shift from back of the object location */
+	stl->g_data->main_sort = ZFIGHT_INIT;
 
 	GpencilBatchCache *cache = gpencil_batch_cache_get(gpd, CFRA);
 	cache->cache_idx = 0;
@@ -618,7 +622,7 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 		gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gpf, gpl->opacity, gpl->tintcolor, false, false, zdepth);
 		
 		/* separate layers */
-		stl->g_data->main_sort += 40;
+		stl->g_data->main_sort += ZFIGHT_STEP;
 	}
 	/* draw current painting strokes */
 	gpencil_draw_buffer_strokes(cache, vedata, ts, gpd);
