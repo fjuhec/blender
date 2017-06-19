@@ -206,7 +206,7 @@ void main()
 		else {
 			factor = ZFIGHT_SHIFT_LOW;
 		}
-		gl_FragDepth = gl_FragCoord.z - (sort * factor);
+		gl_FragDepth = clamp(gl_FragCoord.z - (sort * factor), 0.0, 1.0);
 	}
 	if  (xraymode == GP_XRAY_BACK) {
 		gl_FragDepth = 1.0;

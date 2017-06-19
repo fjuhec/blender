@@ -48,7 +48,7 @@ float getZdepth(vec4 point)
 		else {
 			factor = ZFIGHT_SHIFT_LOW;
 		}
-		return (point.z / point.w)  - ((sort + ZFIGHT_HALF_STEP) * factor);
+		return clamp((point.z / point.w)  - ((sort + ZFIGHT_HALF_STEP) * factor), 0.0, 1.0);
 	}
 	if  (xraymode == GP_XRAY_BACK) {
 		return 1.0;
