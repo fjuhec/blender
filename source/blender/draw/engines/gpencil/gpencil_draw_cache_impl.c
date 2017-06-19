@@ -45,7 +45,7 @@
 #include "gpencil_engine.h"
 
 #define ZFIGHT_INIT -2048
-#define ZFIGHT_STEP 48
+#define ZFIGHT_STEP 64
 
 /* verify if cache is valid */
 static bool gpencil_batch_cache_valid(bGPdata *gpd, int cfra)
@@ -163,7 +163,7 @@ static GpencilBatchCache *gpencil_batch_cache_get(bGPdata *gpd, int cfra)
 
  /* create shading group for filling */
 static DRWShadingGroup *DRW_gpencil_shgroup_fill_create(GPENCIL_Data *vedata, DRWPass *pass, GPUShader *shader, Object *ob, 
-	bGPdata *gpd, PaletteColor *palcolor, int id, float zdepth)
+	bGPdata *gpd, PaletteColor *palcolor, int id)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 
@@ -192,7 +192,6 @@ static DRWShadingGroup *DRW_gpencil_shgroup_fill_create(GPENCIL_Data *vedata, DR
 	DRW_shgroup_uniform_int(grp, "t_flip", &stl->shgroups[id].t_flip, 1);
 
 	DRW_shgroup_uniform_int(grp, "xraymode", (const int *) &gpd->xray_mode, 1);
-	DRW_shgroup_uniform_int(grp, "sort", (const int *)&stl->shgroups[id].sort, 1);
 	/* image texture */
 	if ((palcolor->fill_style == FILL_STYLE_TEXTURE) || (palcolor->fill_style == FILL_STYLE_PATTERN) || (palcolor->flag & PAC_COLOR_TEX_MIX)) {
 		ImBuf *ibuf;
@@ -218,18 +217,14 @@ static DRWShadingGroup *DRW_gpencil_shgroup_fill_create(GPENCIL_Data *vedata, DR
 		}
 	}
 
-	/* object scale and depth */
+	/* object scale */
 	if ((ob) && (id > -1)) {
 		stl->shgroups[id].obj_scale = (ob->size[0] + ob->size[1] + ob->size[2]) / 3.0f;
-		stl->shgroups[id].obj_zdepth = zdepth;
 		DRW_shgroup_uniform_float(grp, "objscale", &stl->shgroups[id].obj_scale, 1);
-		DRW_shgroup_uniform_float(grp, "obj_zdepth", &stl->shgroups[id].obj_zdepth, 1);
 	}
 	else {
-		stl->storage->objscale = 1.0f;
-		stl->storage->zdepth = 0.0f;
-		DRW_shgroup_uniform_float(grp, "objscale", &stl->storage->objscale, 1);
-		DRW_shgroup_uniform_float(grp, "obj_zdepth", &stl->storage->zdepth, 1);
+		stl->storage->obj_scale = 1.0f;
+		DRW_shgroup_uniform_float(grp, "objscale", &stl->storage->obj_scale, 1);
 	}
 
 
@@ -247,7 +242,7 @@ DRWShadingGroup *DRW_gpencil_shgroup_point_volumetric_create(DRWPass *pass, GPUS
 
 /* create shading group for strokes */
 DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_Data *vedata, DRWPass *pass, GPUShader *shader, Object *ob, 
-	bGPdata *gpd, int id, float zdepth)
+	bGPdata *gpd, int id)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	const float *viewport_size = DRW_viewport_size_get();
@@ -262,18 +257,14 @@ DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_Data *vedata, DRWPass
 	/* object scale and depth */
 	if ((ob) && (id > -1)) {
 		stl->shgroups[id].obj_scale = (ob->size[0] + ob->size[1] + ob->size[2]) / 3.0f;
-		stl->shgroups[id].obj_zdepth = zdepth;
 		DRW_shgroup_uniform_float(grp, "objscale", &stl->shgroups[id].obj_scale, 1);
-		DRW_shgroup_uniform_float(grp, "obj_zdepth", &stl->shgroups[id].obj_zdepth, 1);
 		stl->shgroups[id].keep_size = (int)((gpd) && (gpd->flag & GP_DATA_STROKE_KEEPTHICKNESS));
 		DRW_shgroup_uniform_int(grp, "keep_size", &stl->shgroups[id].keep_size, 1);
 	}
 	else {
-		stl->storage->objscale = 1.0f;
-		stl->storage->zdepth = 0.0f;
+		stl->storage->obj_scale = 1.0f;
 		stl->storage->keep_size = 0;
-		DRW_shgroup_uniform_float(grp, "objscale", &stl->storage->objscale, 1);
-		DRW_shgroup_uniform_float(grp, "obj_zdepth", &stl->storage->zdepth, 1);
+		DRW_shgroup_uniform_float(grp, "objscale", &stl->storage->obj_scale, 1);
 		DRW_shgroup_uniform_int(grp, "keep_size", &stl->storage->keep_size, 1);
 	}
 
@@ -283,13 +274,6 @@ DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_Data *vedata, DRWPass
 	else {
 		/* for drawing always on front */
 		DRW_shgroup_uniform_int(grp, "xraymode", &stl->storage->xray, 1);
-	}
-	if (id > -1) {
-		DRW_shgroup_uniform_int(grp, "sort", (const int *)&stl->shgroups[id].sort, 1);
-	}
-	else {
-		stl->storage->sort = 0;
-		DRW_shgroup_uniform_int(grp, "sort", &stl->storage->sort, 1);
 	}
 
 	return grp;
@@ -407,7 +391,7 @@ static void gpencil_add_editpoints_shgroup(GPENCIL_StorageList *stl, GpencilBatc
 /* main function to draw strokes */
 static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_data, void *vedata, ToolSettings *ts, Object *ob,
 	bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf,
-	const float opacity, const float tintcolor[4], const bool onion, const bool custonion, float zdepth)
+	const float opacity, const float tintcolor[4], const bool onion, const bool custonion)
 {
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
@@ -441,11 +425,9 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 #endif
 		if (gps->totpoints > 1) {
 			int id = stl->storage->pal_id;
-			stl->shgroups[id].sort = stl->g_data->main_sort;
-			stl->shgroups[id].shgrps_fill = DRW_gpencil_shgroup_fill_create(vedata, psl->stroke_pass, e_data->gpencil_fill_sh, ob, gpd, gps->palcolor, id, zdepth);
-			stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_stroke_create(vedata, psl->stroke_pass, e_data->gpencil_stroke_sh, ob, gpd, id, zdepth);
+			stl->shgroups[id].shgrps_fill = DRW_gpencil_shgroup_fill_create(vedata, psl->stroke_pass, e_data->gpencil_fill_sh, ob, gpd, gps->palcolor, id);
+			stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_stroke_create(vedata, psl->stroke_pass, e_data->gpencil_stroke_sh, ob, gpd, id);
 			++stl->storage->pal_id;
-			stl->g_data->main_sort += ZFIGHT_STEP;
 
 			fillgrp = stl->shgroups[id].shgrps_fill;
 			strokegrp = stl->shgroups[id].shgrps_stroke;
@@ -506,7 +488,7 @@ static void gpencil_draw_buffer_strokes(GpencilBatchCache *cache, void *vedata, 
 
 /* draw onion-skinning for a layer */
 static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_data, void *vedata, 
-	ToolSettings *ts, Object *ob, bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf, float zdepth)
+	ToolSettings *ts, Object *ob, bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf)
 {
 	const float default_color[3] = { UNPACK3(U.gpencil_new_layer_col) };
 	const float alpha = 1.0f;
@@ -528,7 +510,7 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 				/* alpha decreases with distance from curframe index */
 				float fac = 1.0f - ((float)(gpf->framenum - gf->framenum) / (float)(gpl->gstep + 1));
 				color[3] = alpha * fac * 0.66f;
-				gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gf, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_PREVCOL, zdepth);
+				gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gf, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_PREVCOL);
 			}
 			else
 				break;
@@ -538,7 +520,7 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 		/* draw the strokes for the ghost frames (at half of the alpha set by user) */
 		if (gpf->prev) {
 			color[3] = (alpha / 7);
-			gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gpf->prev, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_PREVCOL, zdepth);
+			gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gpf->prev, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_PREVCOL);
 		}
 	}
 	else {
@@ -561,7 +543,7 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 				/* alpha decreases with distance from curframe index */
 				float fac = 1.0f - ((float)(gf->framenum - gpf->framenum) / (float)(gpl->gstep_next + 1));
 				color[3] = alpha * fac * 0.66f;
-				gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gf, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_NEXTCOL, zdepth);
+				gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gf, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_NEXTCOL);
 			}
 			else
 				break;
@@ -571,7 +553,7 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 		/* draw the strokes for the ghost frames (at half of the alpha set by user) */
 		if (gpf->next) {
 			color[3] = (alpha / 4);
-			gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gpf->next, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_NEXTCOL, zdepth);
+			gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gpf->next, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_NEXTCOL);
 		}
 	}
 	else {
@@ -585,23 +567,7 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 	if (G.debug_value == 668) {
 		printf("DRW_gpencil_populate_datablock for %s\n", gpd->id.name);
 	}
-	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
-	const DRWContextState *draw_ctx = DRW_context_state_get();
-	RegionView3D *rv3d = draw_ctx->rv3d;
-	/* get object zdepth */
-	float zdepth = 0.0;
-	if (ob) {
-		if (rv3d->is_persp) {
-			zdepth = ED_view3d_calc_zfac(rv3d, ob->loc, NULL);
-		}
-		else {
-			zdepth = -dot_v3v3(rv3d->viewinv[2], ob->loc);
-		}
-	}
-
-	/* start in negative to start zfight shift from back of the object location */
-	stl->g_data->main_sort = ZFIGHT_INIT;
-
+	
 	GpencilBatchCache *cache = gpencil_batch_cache_get(gpd, CFRA);
 	cache->cache_idx = 0;
 	/* draw normal strokes */
@@ -616,13 +582,10 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 		/* draw onion skins */
 		if ((gpl->flag & GP_LAYER_ONIONSKIN) || (gpl->flag & GP_LAYER_GHOST_ALWAYS))
 		{
-			gpencil_draw_onionskins(cache, e_data, vedata, ts, ob, gpd, gpl, gpf, zdepth);
+			gpencil_draw_onionskins(cache, e_data, vedata, ts, ob, gpd, gpl, gpf);
 		}
 		/* draw normal strokes */
-		gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gpf, gpl->opacity, gpl->tintcolor, false, false, zdepth);
-		
-		/* separate layers */
-		stl->g_data->main_sort += ZFIGHT_STEP;
+		gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gpf, gpl->opacity, gpl->tintcolor, false, false);
 	}
 	/* draw current painting strokes */
 	gpencil_draw_buffer_strokes(cache, vedata, ts, gpd);

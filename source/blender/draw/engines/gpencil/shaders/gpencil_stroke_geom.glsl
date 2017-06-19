@@ -1,8 +1,6 @@
 uniform mat4 ModelViewProjectionMatrix;
 uniform vec2 Viewport;
 uniform int xraymode;
-uniform int sort;
-uniform float obj_zdepth;
 
 layout(lines_adjacency) in;
 layout(triangle_strip, max_vertices = 7) out;
@@ -17,14 +15,6 @@ out vec2 mTexCoord;
 #define GP_XRAY_3DSPACE 1
 #define GP_XRAY_BACK  2
 
-#define ZFIGHT_LIMIT_MID 15.0
-#define ZFIGHT_LIMIT_HIG 5.0
-#define ZFIGHT_SHIFT_LOW 0.00000001
-#define ZFIGHT_SHIFT_MID 0.0000001
-#define ZFIGHT_SHIFT_HIG 0.000001
-/* keep synchronized with ZFIGHT_STEP/2 in gpencil_draw_cache_impl.c */
-#define ZFIGHT_HALF_STEP 24
-
 /* project 3d point to 2d on screen space */
 vec2 toScreenSpace(vec4 vertex)
 {
@@ -38,17 +28,7 @@ float getZdepth(vec4 point)
 		return 0.0;
 	}
 	if (xraymode == GP_XRAY_3DSPACE) {
-		float factor;
-		if (obj_zdepth < ZFIGHT_LIMIT_HIG) {
-			factor = ZFIGHT_SHIFT_HIG;
-		}
-		else if (obj_zdepth < ZFIGHT_LIMIT_MID) {
-			factor = ZFIGHT_SHIFT_MID;
-		}
-		else {
-			factor = ZFIGHT_SHIFT_LOW;
-		}
-		return clamp((point.z / point.w)  - ((sort + ZFIGHT_HALF_STEP) * factor), 0.0, 1.0);
+		return (point.z / point.w);
 	}
 	if  (xraymode == GP_XRAY_BACK) {
 		return 1.0;

@@ -100,7 +100,6 @@ static void GPENCIL_cache_init(void *vedata)
 		/* Alloc transient pointers */
 		stl->g_data = MEM_mallocN(sizeof(g_data), "g_data");
 		stl->g_data->scene_draw = false;
-		stl->g_data->main_sort = 0;
 		stl->storage->xray = GP_XRAY_FRONT; /* used for drawing */
 	}
 	if (!stl->shgroups) {
@@ -113,7 +112,7 @@ static void GPENCIL_cache_init(void *vedata)
 	}
 	{
 		/* Stroke pass */
-		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS;
+		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_DEPTH_LESS;
 		psl->stroke_pass = DRW_pass_create("Gpencil Stroke Pass", state);
 		stl->storage->pal_id = 0;
 		stl->g_data->shgrps_point_volumetric = DRW_gpencil_shgroup_point_volumetric_create(psl->stroke_pass, e_data.gpencil_volumetric_sh);
@@ -125,7 +124,7 @@ static void GPENCIL_cache_init(void *vedata)
 
 		/* drawing buffer pass */
 		psl->drawing_pass = DRW_pass_create("Gpencil Drawing Pass", state);
-		stl->g_data->shgrps_drawing_stroke = DRW_gpencil_shgroup_stroke_create(vedata, psl->drawing_pass, e_data.gpencil_stroke_sh, NULL, NULL, -1, 0.0);
+		stl->g_data->shgrps_drawing_stroke = DRW_gpencil_shgroup_stroke_create(vedata, psl->drawing_pass, e_data.gpencil_stroke_sh, NULL, NULL, -1);
 		stl->g_data->shgrps_drawing_fill = DRW_gpencil_shgroup_drawing_fill_create(psl->drawing_pass, e_data.gpencil_drawing_fill_sh);
 	}
 }
