@@ -197,7 +197,7 @@ static int mesh_bisect_modal(bContext *C, wmOperator *op, const wmEvent *event)
 		/* Setup manipulators */
 		{
 			View3D *v3d = CTX_wm_view3d(C);
-			if (v3d && (v3d->twtype & V3D_USE_MANIPULATOR)) {
+			if (v3d && (v3d->twtype & V3D_MANIPULATOR_DRAW)) {
 				WM_manipulator_group_add("MESH_WGT_bisect");
 			}
 		}
@@ -462,6 +462,7 @@ static void manipulator_bisect_prop_depth_get(
 	wmOperator *op = man->data.op;
 
 	BLI_assert(value_len == 1);
+	UNUSED_VARS_NDEBUG(value_len);
 
 	float plane_co[3], plane_no[3];
 	RNA_property_float_get_array(op->ptr, man->data.prop_plane_co, plane_co);
@@ -478,6 +479,7 @@ static void manipulator_bisect_prop_depth_set(
 	wmOperator *op = man->data.op;
 
 	BLI_assert(value_len == 1);
+	UNUSED_VARS_NDEBUG(value_len);
 
 	float plane_co[3], plane[4];
 	RNA_property_float_get_array(op->ptr, man->data.prop_plane_co, plane_co);
@@ -526,7 +528,9 @@ static void manipulator_bisect_prop_angle_get(
 {
 	ManipulatorGroup *man = mpr->parent_mgroup->customdata;
 	wmOperator *op = man->data.op;
+
 	BLI_assert(value_len == 1);
+	UNUSED_VARS_NDEBUG(value_len);
 
 	float plane_no[4];
 	RNA_property_float_get_array(op->ptr, man->data.prop_plane_no, plane_no);
@@ -550,7 +554,9 @@ static void manipulator_bisect_prop_angle_set(
 {
 	ManipulatorGroup *man = mpr->parent_mgroup->customdata;
 	wmOperator *op = man->data.op;
+
 	BLI_assert(value_len == 1);
+	UNUSED_VARS_NDEBUG(value_len);
 
 	float plane_no[4];
 	RNA_property_float_get_array(op->ptr, man->data.prop_plane_no, plane_no);

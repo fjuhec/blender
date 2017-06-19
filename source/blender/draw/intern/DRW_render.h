@@ -198,6 +198,7 @@ void DRW_framebuffer_bind(struct GPUFrameBuffer *fb);
 void DRW_framebuffer_clear(bool color, bool depth, bool stencil, float clear_col[4], float clear_depth);
 void DRW_framebuffer_read_data(int x, int y, int w, int h, int channels, int slot, float *data);
 void DRW_framebuffer_texture_attach(struct GPUFrameBuffer *fb, struct GPUTexture *tex, int slot, int mip);
+void DRW_framebuffer_texture_layer_attach(struct GPUFrameBuffer *fb, struct GPUTexture *tex, int slot, int layer, int mip);
 void DRW_framebuffer_cubeface_attach(struct GPUFrameBuffer *fb, struct GPUTexture *tex, int slot, int face, int mip);
 void DRW_framebuffer_texture_detach(struct GPUTexture *tex);
 void DRW_framebuffer_blit(struct GPUFrameBuffer *fb_read, struct GPUFrameBuffer *fb_write, bool depth);
@@ -248,6 +249,7 @@ typedef enum {
 	DRW_STATE_BLEND         = (1 << 13),
 	DRW_STATE_ADDITIVE      = (1 << 14),
 	DRW_STATE_MULTIPLY      = (1 << 15),
+	DRW_STATE_CLIP_PLANES   = (1 << 16),
 
 	DRW_STATE_WRITE_STENCIL_SELECT = (1 << 27),
 	DRW_STATE_WRITE_STENCIL_ACTIVE = (1 << 28),
@@ -362,6 +364,11 @@ void DRW_draw_region_engine_info(void);
 
 void DRW_state_reset_ex(DRWState state);
 void DRW_state_reset(void);
+
+void DRW_state_invert_facing(void);
+
+void DRW_state_clip_planes_add(float plane_eq[4]);
+void DRW_state_clip_planes_reset(void);
 
 /* Selection */
 void DRW_select_load_id(unsigned int id);

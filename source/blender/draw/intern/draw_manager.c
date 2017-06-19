@@ -95,6 +95,7 @@
 
 #define MAX_ATTRIB_NAME 32
 #define MAX_PASS_NAME 32
+#define MAX_CLIP_PLANES 6 /* GL_MAX_CLIP_PLANES is at least 6 */
 
 /* Use draw manager to call GPU_select, see: DRW_draw_select_loop */
 #define USE_GPU_SELECT
@@ -174,6 +175,7 @@ struct DRWInterface {
 	int camtexfac;
 	int orcotexfac;
 	int eye;
+	int clipplanes;
 	/* Textures */
 	int tex_bind; /* next texture binding point */
 	/* UBO */
@@ -289,6 +291,12 @@ static struct DRWGlobalState {
 	float size[2];
 	float screenvecs[2][3];
 	float pixsize;
+
+	GLenum backface, frontface;
+
+	/* Clip planes */
+	int num_clip_planes;
+	float clip_planes_eq[MAX_CLIP_PLANES][4];
 
 	struct {
 		unsigned int is_select : 1;
@@ -583,6 +591,7 @@ static DRWInterface *DRW_interface_create(GPUShader *shader)
 	interface->camtexfac = GPU_shader_get_uniform(shader, "CameraTexCoFactors");
 	interface->orcotexfac = GPU_shader_get_uniform(shader, "OrcoTexCoFactors[0]");
 	interface->eye = GPU_shader_get_uniform(shader, "eye");
+	interface->clipplanes = GPU_shader_get_uniform(shader, "ClipPlanes[0]");
 	interface->instance_count = 0;
 	interface->attribs_count = 0;
 	interface->attribs_stride = 0;
@@ -1410,6 +1419,23 @@ static void DRW_state_set(DRWState state)
 		}
 	}
 
+	/* Clip Planes */
+	{
+		int test;
+		if ((test = CHANGED_TO(DRW_STATE_CLIP_PLANES))) {
+			if (test == 1) {
+				for (int i = 0; i < DST.num_clip_planes; ++i) {
+					glEnable(GL_CLIP_DISTANCE0 + i);
+				}
+			}
+			else {
+				for (int i = 0; i < MAX_CLIP_PLANES; ++i) {
+					glDisable(GL_CLIP_DISTANCE0 + i);
+				}
+			}
+		}
+	}
+
 	/* Line Stipple */
 	{
 		int test;
@@ -1582,54 +1608,26 @@ static void draw_geometry_prepare(
 
 	/* Should be really simple */
 	/* step 1 : bind object dependent matrices */
-	if (interface->model != -1) {
-		GPU_shader_uniform_vector(shgroup->shader, interface->model, 16, 1, (float *)obmat);
-	}
-	if (interface->modelinverse != -1) {
-		GPU_shader_uniform_vector(shgroup->shader, interface->modelinverse, 16, 1, (float *)mi);
-	}
-	if (interface->modelviewprojection != -1) {
-		GPU_shader_uniform_vector(shgroup->shader, interface->modelviewprojection, 16, 1, (float *)mvp);
-	}
-	if (interface->viewinverse != -1) {
-		GPU_shader_uniform_vector(shgroup->shader, interface->viewinverse, 16, 1, (float *)viewinv);
-	}
-	if (interface->viewprojection != -1) {
-		GPU_shader_uniform_vector(shgroup->shader, interface->viewprojection, 16, 1, (float *)persmat);
-	}
-	if (interface->viewprojectioninverse != -1) {
-		GPU_shader_uniform_vector(shgroup->shader, interface->viewprojectioninverse, 16, 1, (float *)persinv);
-	}
-	if (interface->projection != -1) {
-		GPU_shader_uniform_vector(shgroup->shader, interface->projection, 16, 1, (float *)winmat);
-	}
-	if (interface->projectioninverse != -1) {
-		GPU_shader_uniform_vector(shgroup->shader, interface->projectioninverse, 16, 1, (float *)wininv);
-	}
-	if (interface->view != -1) {
-		GPU_shader_uniform_vector(shgroup->shader, interface->view, 16, 1, (float *)viewmat);
-	}
-	if (interface->modelview != -1) {
-		GPU_shader_uniform_vector(shgroup->shader, interface->modelview, 16, 1, (float *)mv);
-	}
-	if (interface->modelviewinverse != -1) {
-		GPU_shader_uniform_vector(shgroup->shader, interface->modelviewinverse, 16, 1, (float *)mvi);
-	}
-	if (interface->normal != -1) {
-		GPU_shader_uniform_vector(shgroup->shader, interface->normal, 9, 1, (float *)n);
-	}
-	if (interface->worldnormal != -1) {
-		GPU_shader_uniform_vector(shgroup->shader, interface->worldnormal, 9, 1, (float *)wn);
-	}
-	if (interface->camtexfac != -1) {
-		GPU_shader_uniform_vector(shgroup->shader, interface->camtexfac, 4, 1, (float *)rv3d->viewcamtexcofac);
-	}
-	if (interface->orcotexfac != -1) {
-		GPU_shader_uniform_vector(shgroup->shader, interface->orcotexfac, 3, 2, (float *)orcofacs);
-	}
-	if (interface->eye != -1) {
-		GPU_shader_uniform_vector(shgroup->shader, interface->eye, 3, 1, (float *)eye);
-	}
+	/* TODO : Some of these are not object dependant.
+	 * They should be grouped inside a UBO updated once per redraw.
+	 * The rest can also go into a UBO to reduce API calls. */
+	GPU_shader_uniform_vector(shgroup->shader, interface->model, 16, 1, (float *)obmat);
+	GPU_shader_uniform_vector(shgroup->shader, interface->modelinverse, 16, 1, (float *)mi);
+	GPU_shader_uniform_vector(shgroup->shader, interface->modelviewprojection, 16, 1, (float *)mvp);
+	GPU_shader_uniform_vector(shgroup->shader, interface->viewinverse, 16, 1, (float *)viewinv);
+	GPU_shader_uniform_vector(shgroup->shader, interface->viewprojection, 16, 1, (float *)persmat);
+	GPU_shader_uniform_vector(shgroup->shader, interface->viewprojectioninverse, 16, 1, (float *)persinv);
+	GPU_shader_uniform_vector(shgroup->shader, interface->projection, 16, 1, (float *)winmat);
+	GPU_shader_uniform_vector(shgroup->shader, interface->projectioninverse, 16, 1, (float *)wininv);
+	GPU_shader_uniform_vector(shgroup->shader, interface->view, 16, 1, (float *)viewmat);
+	GPU_shader_uniform_vector(shgroup->shader, interface->modelview, 16, 1, (float *)mv);
+	GPU_shader_uniform_vector(shgroup->shader, interface->modelviewinverse, 16, 1, (float *)mvi);
+	GPU_shader_uniform_vector(shgroup->shader, interface->normal, 9, 1, (float *)n);
+	GPU_shader_uniform_vector(shgroup->shader, interface->worldnormal, 9, 1, (float *)wn);
+	GPU_shader_uniform_vector(shgroup->shader, interface->camtexfac, 4, 1, (float *)rv3d->viewcamtexcofac);
+	GPU_shader_uniform_vector(shgroup->shader, interface->orcotexfac, 3, 2, (float *)orcofacs);
+	GPU_shader_uniform_vector(shgroup->shader, interface->eye, 3, 1, (float *)eye);
+	GPU_shader_uniform_vector(shgroup->shader, interface->clipplanes, 4, DST.num_clip_planes, (float *)DST.clip_planes_eq);
 }
 
 static void draw_geometry_execute(DRWShadingGroup *shgroup, Batch *geom)
@@ -1735,6 +1733,10 @@ static void draw_shgroup(DRWShadingGroup *shgroup, DRWState pass_state)
 					break;
 				}
 				tex = *((GPUTexture **)uni->value);
+				if (tex == NULL) {
+					/* In case texture is not yet available */
+					break;
+				}
 				GPU_texture_bind(tex, uni->bindloc);
 
 				bound_tex = MEM_callocN(sizeof(DRWBoundTexture), "DRWBoundTexture");
@@ -1792,7 +1794,7 @@ static void draw_shgroup(DRWShadingGroup *shgroup, DRWState pass_state)
 
 			/* Negative scale objects */
 			if (neg_scale) {
-				glFrontFace(GL_CW);
+				glFrontFace(DST.backface);
 			}
 
 			GPU_SELECT_LOAD_IF_PICKSEL(call);
@@ -1809,7 +1811,7 @@ static void draw_shgroup(DRWShadingGroup *shgroup, DRWState pass_state)
 
 			/* Reset state */
 			if (neg_scale) {
-				glFrontFace(GL_CCW);
+				glFrontFace(DST.frontface);
 			}
 		}
 	}
@@ -1899,6 +1901,28 @@ void DRW_state_reset_ex(DRWState state)
 void DRW_state_reset(void)
 {
 	DRW_state_reset_ex(DRW_STATE_DEFAULT);
+}
+
+/* NOTE : Make sure to reset after use! */
+void DRW_state_invert_facing(void)
+{
+	SWAP(GLenum, DST.backface, DST.frontface);
+	glFrontFace(DST.frontface);
+}
+
+/**
+ * This only works if DRWPasses have been tagged with DRW_STATE_CLIP_PLANES,
+ * and if the shaders have support for it (see usage of gl_ClipDistance).
+ * Be sure to call DRW_state_clip_planes_reset() after you finish drawing.
+ **/
+void DRW_state_clip_planes_add(float plane_eq[4])
+{
+	copy_v4_v4(DST.clip_planes_eq[DST.num_clip_planes++], plane_eq);
+}
+
+void DRW_state_clip_planes_reset(void)
+{
+	DST.num_clip_planes = 0;
 }
 
 /** \} */
@@ -2089,10 +2113,16 @@ void DRW_framebuffer_texture_attach(struct GPUFrameBuffer *fb, GPUTexture *tex, 
 	GPU_framebuffer_texture_attach(fb, tex, slot, mip);
 }
 
+void DRW_framebuffer_texture_layer_attach(struct GPUFrameBuffer *fb, struct GPUTexture *tex, int slot, int layer, int mip)
+{
+	GPU_framebuffer_texture_layer_attach(fb, tex, slot, layer, mip);
+}
+
 void DRW_framebuffer_cubeface_attach(struct GPUFrameBuffer *fb, GPUTexture *tex, int slot, int face, int mip)
 {
 	GPU_framebuffer_texture_cubeface_attach(fb, tex, slot, face, mip);
 }
+
 void DRW_framebuffer_texture_detach(GPUTexture *tex)
 {
 	GPU_framebuffer_texture_detach(tex);
@@ -2243,6 +2273,11 @@ static void DRW_viewport_var_init(void)
 
 	/* Refresh DST.pixelsize */
 	DST.pixsize = rv3d->pixsize;
+
+	/* Reset facing */
+	DST.frontface = GL_CCW;
+	DST.backface = GL_CW;
+	glFrontFace(DST.frontface);
 }
 
 void DRW_viewport_matrix_get(float mat[4][4], DRWViewportMatrixType type)
