@@ -532,7 +532,7 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 
 	if (!test) {
 		/* Check to be removed of course, just here until all BKE_xxx_copy_ex functions are done. */
-		if (ELEM(GS(id->name), ID_OB)) {
+		if (ELEM(GS(id->name), ID_OB, ID_ME, ID_KE)) {
 			BKE_libblock_copy_ex(bmain, id, r_newid, flag);
 		}
 	}
@@ -542,7 +542,7 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 			if (!test) BKE_object_copy_ex(bmain, (Object *)*r_newid, (Object *)id, flag_idtype_copy);
 			break;
 		case ID_ME:
-			if (!test) *r_newid = (ID *)BKE_mesh_copy(bmain, (Mesh *)id);
+			if (!test) BKE_mesh_copy_ex(bmain, (Mesh *)*r_newid, (Mesh *)id, flag_idtype_copy);
 			break;
 		case ID_CU:
 			if (!test) *r_newid = (ID *)BKE_curve_copy(bmain, (Curve *)id);
@@ -572,7 +572,7 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 			if (!test) *r_newid = (ID *)BKE_camera_copy(bmain, (Camera *)id);
 			break;
 		case ID_KE:
-			if (!test) *r_newid = (ID *)BKE_key_copy(bmain, (Key *)id);
+			if (!test) BKE_key_copy_ex(bmain, (Key *)*r_newid, (Key *)id, flag_idtype_copy);
 			break;
 		case ID_WO:
 			if (!test) *r_newid = (ID *)BKE_world_copy(bmain, (World *)id);
@@ -633,12 +633,25 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 
 	if (!test) {
 		/* Check to be removed of course, just here until all BKE_xxx_copy_ex functions are done. */
-		if (ELEM(GS(id->name), ID_OB)) {
+		if (ELEM(GS(id->name), ID_OB, ID_ME, ID_KE)) {
 			/* Update ID refcount, remap pointers to self in new ID. */
 			struct IDCopyLibManagementData data = {.id_src=id, .flag=flag};
 			BKE_library_foreach_ID_link(bmain, *r_newid, id_copy_libmanagement_cb, &data, IDWALK_NOP);
 
-			BKE_id_copy_ensure_local(bmain, id, *r_newid);
+			/* Grrrrrrrrrrrrr..............
+			 * Since we call IDType-spefici copying logic without 'userrefcount' flag, we need to redo this here.
+			 * Note/TODO: maybe we'll make IDType copying functions 'private' to be only used by this one,
+			 * in which case we could solve this issue in a better and nicer way. */
+			Key *key = BKE_key_from_id(*r_newid);
+			if (key) {
+				data.id_src = BKE_key_from_id((ID *)id);
+				BKE_library_foreach_ID_link(bmain, &key->id, id_copy_libmanagement_cb, &data, IDWALK_NOP);
+			}
+			/* TODO: most likely same for nodes too? */
+
+			if ((flag & LIB_ID_COPY_NO_MAIN) == 0) {
+				BKE_id_copy_ensure_local(bmain, id, *r_newid);
+			}
 		}
 	}
 
