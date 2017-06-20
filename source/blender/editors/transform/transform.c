@@ -88,6 +88,7 @@
 #include "UI_resources.h"
 
 #include "RNA_access.h"
+#include "RNA_define.h"
 
 #include "BLF_api.h"
 #include "BLT_translation.h"
@@ -2392,6 +2393,35 @@ bool initTransform(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 		t->flag |= T_AUTOVALUES;
 	}
 
+	if ((prop = RNA_struct_find_property(op->ptr, "preserve_clnor"))) {
+		if (t->obedit && t->obedit->type == OB_MESH && (((Mesh *)(t->obedit->data))->flag & ME_AUTOSMOOTH)) {
+
+			BMEditMesh *em = BKE_editmesh_from_object(t->obedit);
+			RNA_def_property_clear_flag(prop, PROP_HIDDEN);
+			bool all_select = false;
+
+			if (ELEM(t->mode, TFM_TRANSLATION, TFM_ROTATION, TFM_RESIZE)) {
+				if (em->bm->totvertsel == em->bm->totvert) {	//Currently only used for 3 most frequent transform ops, can include more ops		
+					all_select = true;							//No need to invalidate if whole mesh is selected
+				}
+			}
+			if (!all_select) {
+				if (!em->bm->lnor_spacearr) {
+					BM_lnorspace_update(em->bm);
+				}
+				BM_lnorspace_invalidate(em->bm, false);
+
+				if (t->flag & T_MODAL) {
+					RNA_boolean_set(op->ptr, "preserve_clnor", false);
+				}
+				const bool preserve_clnor = RNA_boolean_get(op->ptr, "preserve_clnor");
+				if (preserve_clnor) {
+					t->flag |= T_CLNOR_REBUILD;
+				}
+			}
+		}
+	}
+
 	t->context = NULL;
 
 	return 1;
@@ -2452,6 +2482,10 @@ int transformEnd(bContext *C, TransInfo *t)
 			restoreTransObjects(t); // calls recalcData()
 		}
 		else {
+			if (t->flag & T_CLNOR_REBUILD) {
+				BMEditMesh *em = BKE_editmesh_from_object(t->obedit);
+				BM_lnorspace_rebuild(em->bm, true);
+			}
 			exit_code = OPERATOR_FINISHED;
 		}
 

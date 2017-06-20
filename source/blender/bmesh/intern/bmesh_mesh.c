@@ -1034,6 +1034,7 @@ void BM_lnorspace_invalidate(BMesh *bm, bool inval_all)
 			}
 		}
 	}
+	bm->spacearr_dirty |= BM_SPACEARR_DIRTY;
 }
 
 void BM_lnorspace_rebuild(BMesh *bm, bool preserve_clnor)
@@ -1096,6 +1097,10 @@ void BM_lnorspace_rebuild(BMesh *bm, bool preserve_clnor)
 	}
 	MEM_freeN(oldnors);
 	bm->spacearr_dirty &= ~(BM_SPACEARR_DIRTY | BM_SPACEARR_DIRTY_ALL);
+
+#ifdef DEBUG
+	BM_lnorspace_err(bm);
+#endif
 }
 
 void BM_lnorspace_update(BMesh *bm)
@@ -1112,6 +1117,52 @@ void BM_lnorspace_update(BMesh *bm)
 		BM_lnorspace_rebuild(bm, false);
 	}
 	MEM_freeN(lnors);
+}
+
+/* Auxillary function only used by rebuild to detect if any spaces were not marked in invalidate.
+   Reports error if any of the lnor spaces change after rebuilding, meaning that the all possible
+   lnor spaces to be rebuilt were not correctly marked */
+static void BM_lnorspace_err(BMesh *bm)
+{
+	bm->spacearr_dirty |= BM_SPACEARR_DIRTY_ALL;
+	bool clear = true;
+
+	MLoopNorSpaceArray *temp = MEM_callocN(sizeof(*temp), "__func__");
+	temp->lspacearr = NULL;
+
+	BKE_lnor_spacearr_init(temp, bm->totloop);
+
+	temp->lspacearr = MEM_callocN(sizeof(MLoopNorSpace *) * bm->totloop, "__func__");
+
+	for (int i = 0; i < bm->totloop; i++) {
+		temp->lspacearr[i] = BKE_lnor_space_create(temp);
+		memcpy(temp->lspacearr[i], bm->lnor_spacearr->lspacearr[i], sizeof(MLoopNorSpace));
+	}
+	
+	int cd_loop_clnors_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
+	float(*lnors)[3] = MEM_callocN(sizeof(*lnors) * bm->totloop, "__func__");
+	BM_loops_calc_normal_vcos(bm, NULL, NULL, NULL, true, M_PI, lnors, bm->lnor_spacearr, NULL, cd_loop_clnors_offset, true);
+
+	for (int i = 0; i < bm->totloop; i++) {
+		int j = 0;
+		j += compare_ff(temp->lspacearr[i]->ref_alpha, bm->lnor_spacearr->lspacearr[i]->ref_alpha, 1.0f - 1e-4f);
+		j += compare_ff(temp->lspacearr[i]->ref_beta, bm->lnor_spacearr->lspacearr[i]->ref_beta, 1.0f - 1e-4f);
+		j += compare_v3v3(temp->lspacearr[i]->vec_lnor, bm->lnor_spacearr->lspacearr[i]->vec_lnor, 1.0f - 1e-4f);
+		j += compare_v3v3(temp->lspacearr[i]->vec_ortho, bm->lnor_spacearr->lspacearr[i]->vec_ortho, 1.0f - 1e-4f);
+		j += compare_v3v3(temp->lspacearr[i]->vec_ref, bm->lnor_spacearr->lspacearr[i]->vec_ref, 1.0f - 1e-4f);
+
+		if (j != 5) {
+			clear = false;
+			break;
+		}
+	}
+	BKE_lnor_spacearr_free(temp);
+	MEM_freeN(temp);
+	MEM_freeN(lnors);
+	BLI_assert(clear);
+
+	bm->spacearr_dirty &= ~BM_SPACEARR_DIRTY_ALL;
+
 }
 
 int BM_total_loop_select(BMesh *bm)
