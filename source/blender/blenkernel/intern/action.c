@@ -523,7 +523,7 @@ const char *BKE_pose_ikparam_get_name(bPose *pose)
  *
  * \param dst  Should be freed already, makes entire duplicate.
  */
-void BKE_pose_copy_data(bPose **dst, const bPose *src, const bool copy_constraints)
+void BKE_pose_copy_data_ex(bPose **dst, const bPose *src, const int flag, const bool copy_constraints)
 {
 	bPose *outPose;
 	bPoseChannel *pchan;
@@ -553,9 +553,8 @@ void BKE_pose_copy_data(bPose **dst, const bPose *src, const bool copy_constrain
 	outPose->avs = src->avs;
 	
 	for (pchan = outPose->chanbase.first; pchan; pchan = pchan->next) {
-
-		if (pchan->custom) {
-			id_us_plus(&pchan->custom->id);
+		if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
+			id_us_plus((ID *)pchan->custom);
 		}
 
 		/* warning, O(n2) here, if done without the hash, but these are rarely used features. */
@@ -570,13 +569,13 @@ void BKE_pose_copy_data(bPose **dst, const bPose *src, const bool copy_constrain
 		}
 
 		if (copy_constraints) {
-			BKE_constraints_copy(&listb, &pchan->constraints, true);  // BKE_constraints_copy NULLs listb
+			BKE_constraints_copy_ex(&listb, &pchan->constraints, flag, true);  // BKE_constraints_copy NULLs listb
 			pchan->constraints = listb;
 			pchan->mpath = NULL; /* motion paths should not get copied yet... */
 		}
 		
 		if (pchan->prop) {
-			pchan->prop = IDP_CopyProperty(pchan->prop);
+			pchan->prop = IDP_CopyProperty_ex(pchan->prop, flag);
 		}
 	}
 
@@ -586,6 +585,11 @@ void BKE_pose_copy_data(bPose **dst, const bPose *src, const bool copy_constrain
 	}
 	
 	*dst = outPose;
+}
+
+void BKE_pose_copy_data(bPose **dst, const bPose *src, const bool copy_constraints)
+{
+	BKE_pose_copy_data_ex(dst, src, 0, copy_constraints);
 }
 
 void BKE_pose_itasc_init(bItasc *itasc)

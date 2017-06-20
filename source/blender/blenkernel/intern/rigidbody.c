@@ -184,7 +184,7 @@ void BKE_rigidbody_free_constraint(Object *ob)
  * be added to relevant groups later...
  */
 
-RigidBodyOb *BKE_rigidbody_copy_object(const Object *ob)
+RigidBodyOb *BKE_rigidbody_copy_object(const Object *ob, const int UNUSED(flag))
 {
 	RigidBodyOb *rboN = NULL;
 
@@ -204,7 +204,7 @@ RigidBodyOb *BKE_rigidbody_copy_object(const Object *ob)
 	return rboN;
 }
 
-RigidBodyCon *BKE_rigidbody_copy_constraint(const Object *ob)
+RigidBodyCon *BKE_rigidbody_copy_constraint(const Object *ob, const int UNUSED(flag))
 {
 	RigidBodyCon *rbcN = NULL;
 
@@ -945,7 +945,7 @@ RigidBodyWorld *BKE_rigidbody_create_world(Scene *scene)
 	return rbw;
 }
 
-RigidBodyWorld *BKE_rigidbody_world_copy(RigidBodyWorld *rbw)
+RigidBodyWorld *BKE_rigidbody_world_copy(RigidBodyWorld *rbw, const int flag)
 {
 	RigidBodyWorld *rbwn = MEM_dupallocN(rbw);
 
@@ -956,7 +956,8 @@ RigidBodyWorld *BKE_rigidbody_world_copy(RigidBodyWorld *rbw)
 	if (rbwn->constraints)
 		id_us_plus(&rbwn->constraints->id);
 
-	rbwn->pointcache = BKE_ptcache_copy_list(&rbwn->ptcaches, &rbw->ptcaches, false);
+	/* XXX Never copy caches here? */
+	rbwn->pointcache = BKE_ptcache_copy_list(&rbwn->ptcaches, &rbw->ptcaches, flag & ~LIB_ID_COPY_CACHES);
 
 	rbwn->objects = NULL;
 	rbwn->physics_world = NULL;

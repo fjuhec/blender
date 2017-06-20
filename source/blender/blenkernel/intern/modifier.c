@@ -294,7 +294,7 @@ void modifier_copyData_ex(ModifierData *md, ModifierData *target, const int flag
 			mti->foreachIDLink(target, NULL, modifier_copy_data_id_us_cb, NULL);
 		}
 		else if (mti->foreachObjectLink) {
-			mti->foreachObjectLink(target, NULL, (ObjectWalkFunc *)modifier_copy_data_id_us_cb, NULL);
+			mti->foreachObjectLink(target, NULL, (ObjectWalkFunc)modifier_copy_data_id_us_cb, NULL);
 		}
 	}
 }

@@ -200,7 +200,7 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 		scen->fps_info = NULL;
 
 		if (sce->rigidbody_world)
-			scen->rigidbody_world = BKE_rigidbody_world_copy(sce->rigidbody_world);
+			scen->rigidbody_world = BKE_rigidbody_world_copy(sce->rigidbody_world, /* TODO flag */ 0);
 
 		BLI_duplicatelist(&(scen->markers), &(sce->markers));
 		BLI_duplicatelist(&(scen->transform_spaces), &(sce->transform_spaces));

@@ -150,6 +150,7 @@ void                 BKE_pose_free_data_ex(struct bPose *pose, bool do_id_user);
 void                 BKE_pose_free_data(struct bPose *pose);
 void                 BKE_pose_free(struct bPose *pose);
 void                 BKE_pose_free_ex(struct bPose *pose, bool do_id_user);
+void                 BKE_pose_copy_data_ex(struct bPose **dst, const struct bPose *src, const int flag, const bool copy_constraints);
 void                 BKE_pose_copy_data(struct bPose **dst, const struct bPose *src, const bool copy_constraints);
 void                 BKE_pose_channel_copy_data(struct bPoseChannel *pchan, const struct bPoseChannel *pchan_from);
 struct bPoseChannel *BKE_pose_channel_find_name(const struct bPose *pose, const char *name);

@@ -484,6 +484,30 @@ bool id_make_local(Main *bmain, ID *id, const bool test, const bool lib_local)
 	return false;
 }
 
+struct IDCopyLibManagementData {
+	const ID *id_src;
+	int flag;
+};
+
+/* Increases usercount as required, and remap self ID pointers. */
+static int id_copy_libmanagement_cb(void *user_data, ID *id_self, ID **id_pointer, int cb_flag)
+{
+	struct IDCopyLibManagementData *data = user_data;
+	ID *id = *id_pointer;
+
+	/* Remap self-references to new copied ID. */
+	if (id == data->id_src) {
+		id = *id_pointer = id_self;
+	}
+
+	/* Increase used IDs refcount if needed and required. */
+	if ((data->flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0 && (cb_flag & IDWALK_CB_USER)) {
+		id_us_plus(id);
+	}
+
+	return IDWALK_RET_NOP;
+}
+
 /**
  * Generic entry point for copying a datablock (new API).
  *
@@ -502,6 +526,10 @@ bool id_make_local(Main *bmain, ID *id, const bool test, const bool lib_local)
 /* XXX TODO remove test thing, *all* IDs should be copyable that way! */
 bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, const bool test)
 {
+	/* We handle usercount ousrselves in post-copy processing.
+	 * Ideally, usercount should never be handled by IDType-specific copying code, but for now let's allow it... */
+	const int flag_idtype_copy = flag | LIB_ID_COPY_NO_USER_REFCOUNT;
+
 	if (!test) {
 		/* Check to be removed of course, just here until all BKE_xxx_copy_ex functions are done. */
 		if (ELEM(GS(id->name), ID_OB)) {
@@ -511,7 +539,7 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 
 	switch ((ID_Type)GS(id->name)) {
 		case ID_OB:
-			if (!test) BKE_object_copy_ex(bmain, (Object *)id, (Object *)*r_newid, flag);
+			if (!test) BKE_object_copy_ex(bmain, (Object *)*r_newid, (Object *)id, flag_idtype_copy);
 			break;
 		case ID_ME:
 			if (!test) *r_newid = (ID *)BKE_mesh_copy(bmain, (Mesh *)id);
@@ -606,8 +634,10 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 	if (!test) {
 		/* Check to be removed of course, just here until all BKE_xxx_copy_ex functions are done. */
 		if (ELEM(GS(id->name), ID_OB)) {
-			/* TODO: add id usage count update here, this should be generic as well.
-			 *       But currently, too much sub-data copying also handle idcount themselves... */
+			/* Update ID refcount, remap pointers to self in new ID. */
+			struct IDCopyLibManagementData data = {.id_src=id, .flag=flag};
+			BKE_library_foreach_ID_link(bmain, *r_newid, id_copy_libmanagement_cb, &data, IDWALK_NOP);
+
 			BKE_id_copy_ensure_local(bmain, id, *r_newid);
 		}
 	}
@@ -1113,13 +1143,13 @@ static void id_copy_animdata(ID *id, const bool do_action)
 }
 
 /* material nodes use this since they are not treated as libdata */
-void BKE_libblock_copy_data(ID *id, const ID *id_from, const bool do_action)
+void BKE_libblock_copy_data(ID *id, const ID *id_from, const int flag)
 {
 	if (id_from->properties)
-		id->properties = IDP_CopyProperty(id_from->properties);
+		id->properties = IDP_CopyProperty_ex(id_from->properties, flag);
 
 	/* the duplicate should get a copy of the animdata */
-	id_copy_animdata(id, do_action);
+	id_copy_animdata(id, (flag & LIB_ID_COPY_ACTIONS) != 0);
 }
 
 void BKE_libblock_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag)
@@ -1158,7 +1188,7 @@ void BKE_libblock_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int fla
 	}
 
 	/* TODO we can remove that one later and bring its code here. */
-	BKE_libblock_copy_data(idn, id, (flag & LIB_ID_COPY_ACTIONS) != 0);
+	BKE_libblock_copy_data(idn, id, flag);
 
 	if ((flag & LIB_ID_COPY_NO_MAIN) != 0) {
 		idn->tag |= LIB_TAG_FREE_NO_MAIN;
