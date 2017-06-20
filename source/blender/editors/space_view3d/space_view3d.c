@@ -486,14 +486,14 @@ static SpaceLink *view3d_duplicate(SpaceLink *sl)
 }
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void view3d_main_region_init(wmWindowManager *wm, ARegion *ar)
+static void view3d_main_region_init(wmWindowManager *wm, const bScreen *sc, ARegion *ar)
 {
 	ListBase *lb;
 	wmKeyMap *keymap;
 
 	if (ar->manipulator_map == NULL) {
 		ar->manipulator_map = WM_manipulatormap_new_from_type(
-		        &(const struct wmManipulatorMapType_Params) {SPACE_VIEW3D, RGN_TYPE_WINDOW});
+		        sc, &(const struct wmManipulatorMapType_Params) {SPACE_VIEW3D, RGN_TYPE_WINDOW});
 	}
 
 	WM_manipulatormap_add_handlers(ar, ar->manipulator_map);
@@ -1098,7 +1098,7 @@ static void view3d_main_region_cursor(wmWindow *win, ScrArea *UNUSED(sa), ARegio
 }
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void view3d_header_region_init(wmWindowManager *wm, ARegion *ar)
+static void view3d_header_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
 {
 	wmKeyMap *keymap = WM_keymap_find(wm->defaultconf, "3D View Generic", SPACE_VIEW3D, 0);
 	
@@ -1145,7 +1145,7 @@ static void view3d_header_region_listener(
 }
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void view3d_buttons_region_init(wmWindowManager *wm, ARegion *ar)
+static void view3d_buttons_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
 {
 	wmKeyMap *keymap;
 
@@ -1253,7 +1253,7 @@ static void view3d_buttons_region_listener(
 }
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void view3d_tools_region_init(wmWindowManager *wm, ARegion *ar)
+static void view3d_tools_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
 {
 	wmKeyMap *keymap;
 	

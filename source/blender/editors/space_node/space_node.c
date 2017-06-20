@@ -589,7 +589,7 @@ static SpaceLink *node_duplicate(SpaceLink *sl)
 
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void node_buttons_region_init(wmWindowManager *wm, ARegion *ar)
+static void node_buttons_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
 {
 	wmKeyMap *keymap;
 
@@ -605,7 +605,7 @@ static void node_buttons_region_draw(const bContext *C, ARegion *ar)
 }
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void node_toolbar_region_init(wmWindowManager *wm, ARegion *ar)
+static void node_toolbar_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
 {
 	wmKeyMap *keymap;
 
@@ -638,7 +638,7 @@ static void node_cursor(wmWindow *win, ScrArea *sa, ARegion *ar)
 }
 
 /* Initialize main region, setting handlers. */
-static void node_main_region_init(wmWindowManager *wm, ARegion *ar)
+static void node_main_region_init(wmWindowManager *wm, const bScreen *sc, ARegion *ar)
 {
 	wmKeyMap *keymap;
 	ListBase *lb;
@@ -648,7 +648,7 @@ static void node_main_region_init(wmWindowManager *wm, ARegion *ar)
 	/* manipulators stay in the background for now - quick patchjob to make sure nodes themselves work */
 	if (ar->manipulator_map == NULL) {
 		ar->manipulator_map = WM_manipulatormap_new_from_type(
-		        &(const struct wmManipulatorMapType_Params){SPACE_NODE, RGN_TYPE_WINDOW});
+		        sc, &(const struct wmManipulatorMapType_Params){SPACE_NODE, RGN_TYPE_WINDOW});
 	}
 
 	WM_manipulatormap_add_handlers(ar, ar->manipulator_map);
@@ -733,7 +733,7 @@ static void node_dropboxes(void)
 
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void node_header_region_init(wmWindowManager *UNUSED(wm), ARegion *ar)
+static void node_header_region_init(wmWindowManager *UNUSED(wm), const bScreen *UNUSED(sc), ARegion *ar)
 {
 	ED_region_header_init(ar);
 }

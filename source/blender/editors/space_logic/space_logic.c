@@ -237,7 +237,7 @@ static int logic_context(const bContext *UNUSED(C), const char *UNUSED(member), 
 
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void logic_main_region_init(wmWindowManager *wm, ARegion *ar)
+static void logic_main_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
 {
 	wmKeyMap *keymap;
 	
@@ -277,7 +277,7 @@ static void logic_main_region_draw(const bContext *C, ARegion *ar)
 /* *********************** buttons region ************************ */
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void logic_buttons_region_init(wmWindowManager *wm, ARegion *ar)
+static void logic_buttons_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
 {
 	wmKeyMap *keymap;
 
@@ -295,7 +295,7 @@ static void logic_buttons_region_draw(const bContext *C, ARegion *ar)
 /************************* header region **************************/
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void logic_header_region_init(wmWindowManager *UNUSED(wm), ARegion *ar)
+static void logic_header_region_init(wmWindowManager *UNUSED(wm), const bScreen *UNUSED(sc), ARegion *ar)
 {
 	ED_region_header_init(ar);
 }

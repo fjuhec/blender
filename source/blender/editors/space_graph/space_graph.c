@@ -209,7 +209,7 @@ static SpaceLink *graph_duplicate(SpaceLink *sl)
 }
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void graph_main_region_init(wmWindowManager *wm, ARegion *ar)
+static void graph_main_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
 {
 	wmKeyMap *keymap;
 	
@@ -339,7 +339,7 @@ static void graph_main_region_draw(const bContext *C, ARegion *ar)
 	UI_view2d_scrollers_free(scrollers);
 }
 
-static void graph_channel_region_init(wmWindowManager *wm, ARegion *ar)
+static void graph_channel_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
 {
 	wmKeyMap *keymap;
 	
@@ -387,7 +387,7 @@ static void graph_channel_region_draw(const bContext *C, ARegion *ar)
 }
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void graph_header_region_init(wmWindowManager *UNUSED(wm), ARegion *ar)
+static void graph_header_region_init(wmWindowManager *UNUSED(wm), const bScreen *UNUSED(sc), ARegion *ar)
 {
 	ED_region_header_init(ar);
 }
@@ -398,7 +398,7 @@ static void graph_header_region_draw(const bContext *C, ARegion *ar)
 }
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void graph_buttons_region_init(wmWindowManager *wm, ARegion *ar)
+static void graph_buttons_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
 {
 	wmKeyMap *keymap;
 	

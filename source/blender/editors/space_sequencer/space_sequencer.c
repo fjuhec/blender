@@ -460,7 +460,7 @@ static int sequencer_context(const bContext *C, const char *member, bContextData
 
 /* *********************** sequencer (main) region ************************ */
 /* add handlers, stuff you only do once or on area/region changes */
-static void sequencer_main_region_init(wmWindowManager *wm, ARegion *ar)
+static void sequencer_main_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
 {
 	wmKeyMap *keymap;
 	ListBase *lb;
@@ -533,7 +533,7 @@ static void sequencer_main_region_listener(
 
 /* *********************** header region ************************ */
 /* add handlers, stuff you only do once or on area/region changes */
-static void sequencer_header_region_init(wmWindowManager *UNUSED(wm), ARegion *ar)
+static void sequencer_header_region_init(wmWindowManager *UNUSED(wm), const bScreen *UNUSED(sc), ARegion *ar)
 {
 	ED_region_header_init(ar);
 }
@@ -544,7 +544,7 @@ static void sequencer_header_region_draw(const bContext *C, ARegion *ar)
 }
 
 /* *********************** preview region ************************ */
-static void sequencer_preview_region_init(wmWindowManager *wm, ARegion *ar)
+static void sequencer_preview_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
 {
 	wmKeyMap *keymap;
 
@@ -652,7 +652,7 @@ static void sequencer_preview_region_listener(
 /* *********************** buttons region ************************ */
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void sequencer_buttons_region_init(wmWindowManager *wm, ARegion *ar)
+static void sequencer_buttons_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
 {
 	wmKeyMap *keymap;
 

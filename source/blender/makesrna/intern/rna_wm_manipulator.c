@@ -52,6 +52,7 @@
 #include <assert.h>
 
 #include "WM_api.h"
+#include "WM_types.h"
 
 #include "DNA_workspace_types.h"
 
@@ -239,6 +240,54 @@ static void rna_Manipulator_bl_idname_set(PointerRNA *ptr, const char *value)
 	}
 }
 
+static wmManipulator *rna_ManipulatorProperties_find_operator(PointerRNA *ptr)
+{
+	bScreen *screen = ptr->id.data;
+
+	/* We could try workaruond this lookup, but not trivial. */
+	if (screen) {
+		IDProperty *properties = (IDProperty *)ptr->data;
+		for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
+			for (ARegion *ar = sa->regionbase.first; ar; ar = ar->next) {
+				if (ar->manipulator_map) {
+					wmManipulatorMap *mmap = ar->manipulator_map;
+					for (wmManipulatorGroup *mgroup = WM_manipulatormap_group_list(mmap)->first;
+					     mgroup;
+					     mgroup = mgroup->next)
+					{
+						for (wmManipulator *mpr = mgroup->manipulators.first; mpr; mpr = mpr->next) {
+							if (mpr->properties == properties) {
+								return mpr;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return NULL;
+}
+
+static StructRNA *rna_ManipulatorProperties_refine(PointerRNA *ptr)
+{
+	wmManipulator *mpr = rna_ManipulatorProperties_find_operator(ptr);
+
+	if (mpr)
+		return mpr->type->srna;
+	else
+		return ptr->type;
+}
+
+static IDProperty *rna_ManipulatorProperties_idprops(PointerRNA *ptr, bool create)
+{
+	if (create && !ptr->data) {
+		IDPropertyTemplate val = {0};
+		ptr->data = IDP_New(IDP_GROUP, &val, "RNA_ManipulatorProperties group");
+	}
+
+	return ptr->data;
+}
+
 static void rna_Manipulator_color_get(PointerRNA *ptr, float *values)
 {
 	const wmManipulator *mpr = ptr->data;
@@ -259,6 +308,13 @@ static void rna_Manipulator_color_hi_set(PointerRNA *ptr, const float *values)
 {
 	wmManipulator *mpr = ptr->data;
 	WM_manipulator_set_color_highlight(mpr, values);
+}
+
+
+static PointerRNA rna_Manipulator_properties_get(PointerRNA *ptr)
+{
+	wmManipulator *mpr = (wmManipulator *)ptr->data;
+	return rna_pointer_inherit_refine(ptr, mpr->type->srna, mpr->properties);
 }
 
 static void rna_Manipulator_unregister(struct Main *bmain, StructRNA *type);
@@ -385,7 +441,7 @@ static wmManipulator *rna_ManipulatorGroup_manipulator_new(
 		BKE_reportf(reports, RPT_ERROR, "ManipulatorType '%s' not known", idname);
 		return NULL;
 	}
-	wmManipulator *mpr = WM_manipulator_new_ptr(wt, mgroup, name);
+	wmManipulator *mpr = WM_manipulator_new_ptr(wt, mgroup, name, NULL);
 	return mpr;
 }
 
@@ -742,6 +798,12 @@ static void rna_def_manipulator(BlenderRNA *brna, PropertyRNA *cprop)
 #endif
 	RNA_def_struct_translation_context(srna, BLT_I18NCONTEXT_OPERATOR_DEFAULT);
 
+	prop = RNA_def_property(srna, "properties", PROP_POINTER, PROP_NONE);
+	RNA_def_property_flag(prop, PROP_NEVER_NULL);
+	RNA_def_property_struct_type(prop, "ManipulatorProperties");
+	RNA_def_property_ui_text(prop, "Properties", "");
+	RNA_def_property_pointer_funcs(prop, "rna_Manipulator_properties_get", NULL, NULL, NULL);
+
 	/* -------------------------------------------------------------------- */
 	/* Registerable Variables */
 
@@ -861,6 +923,12 @@ static void rna_def_manipulator(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_property_ui_text(prop, "Color", "");
 
 	RNA_api_manipulator(srna);
+
+	srna = RNA_def_struct(brna, "ManipulatorProperties", NULL);
+	RNA_def_struct_ui_text(srna, "Manipulator Properties", "Input properties of an Manipulator");
+	RNA_def_struct_refine_func(srna, "rna_ManipulatorProperties_refine");
+	RNA_def_struct_idprops_func(srna, "rna_ManipulatorProperties_idprops");
+	RNA_def_struct_flag(srna, STRUCT_NO_DATABLOCK_IDPROPERTIES);
 }
 
 static void rna_def_manipulatorgroup(BlenderRNA *brna)

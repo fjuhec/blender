@@ -45,9 +45,6 @@
 #include "bpy_manipulator_wrap.h"  /* own include */
 
 /* we may want to add, but not now */
-// #define USE_SRNA
-
-
 
 /* -------------------------------------------------------------------- */
 
@@ -57,12 +54,9 @@
 
 static void manipulator_properties_init(wmManipulatorType *wt)
 {
-#ifdef USE_SRNA
 	PyTypeObject *py_class = wt->ext.data;
-#endif
 	RNA_struct_blender_type_set(wt->ext.srna, wt);
 
-#ifdef USE_SRNA
 	/* only call this so pyrna_deferred_register_class gives a useful error
 	 * WM_operatortype_append_ptr will call RNA_def_struct_identifier
 	 * later */
@@ -72,22 +66,18 @@ static void manipulator_properties_init(wmManipulatorType *wt)
 		PyErr_Print(); /* failed to register operator props */
 		PyErr_Clear();
 	}
-#endif
 }
 
 void BPY_RNA_manipulator_wrapper(wmManipulatorType *wt, void *userdata)
 {
 	/* take care not to overwrite anything set in
 	 * WM_manipulatormaptype_group_link_ptr before opfunc() is called */
-#ifdef USE_SRNA
 	StructRNA *srna = wt->srna;
-#endif
 	*wt = *((wmManipulatorType *)userdata);
-#ifdef USE_SRNA
 	wt->srna = srna; /* restore */
-#endif
 
-#ifdef USE_SRNA
+	/* don't do translations here yet */
+#if 0
 	/* Use i18n context from ext.srna if possible (py manipulatorgroups). */
 	if (wt->ext.srna) {
 		RNA_def_struct_translation_context(wt->srna, RNA_struct_translation_context(wt->ext.srna));

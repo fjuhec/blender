@@ -539,7 +539,7 @@ static void time_listener(bScreen *UNUSED(sc), ScrArea *sa, wmNotifier *wmn, con
 /* ---------------- */
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void time_main_region_init(wmWindowManager *wm, ARegion *ar)
+static void time_main_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
 {
 	wmKeyMap *keymap;
 	
@@ -651,7 +651,7 @@ static void time_main_region_listener(
 /* ************************ header time area region *********************** */
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void time_header_region_init(wmWindowManager *UNUSED(wm), ARegion *ar)
+static void time_header_region_init(wmWindowManager *UNUSED(wm), const bScreen *UNUSED(sc), ARegion *ar)
 {
 	ED_region_header_init(ar);
 }

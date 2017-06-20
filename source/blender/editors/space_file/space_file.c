@@ -319,7 +319,7 @@ static void file_listener(bScreen *UNUSED(sc), ScrArea *sa, wmNotifier *wmn, con
 }
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void file_main_region_init(wmWindowManager *wm, ARegion *ar)
+static void file_main_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
 {
 	wmKeyMap *keymap;
 	
@@ -582,7 +582,7 @@ static void file_keymap(struct wmKeyConfig *keyconf)
 }
 
 
-static void file_tools_region_init(wmWindowManager *wm, ARegion *ar)
+static void file_tools_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
 {
 	wmKeyMap *keymap;
 
@@ -612,7 +612,7 @@ static void file_tools_region_listener(
 }
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void file_header_region_init(wmWindowManager *wm, ARegion *ar)
+static void file_header_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
 {
 	wmKeyMap *keymap;
 	
@@ -628,7 +628,7 @@ static void file_header_region_draw(const bContext *C, ARegion *ar)
 }
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void file_ui_region_init(wmWindowManager *wm, ARegion *ar)
+static void file_ui_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
 {
 	wmKeyMap *keymap;
 

@@ -185,7 +185,7 @@ static SpaceLink *action_duplicate(SpaceLink *sl)
 
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void action_main_region_init(wmWindowManager *wm, ARegion *ar)
+static void action_main_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
 {
 	wmKeyMap *keymap;
 	
@@ -256,7 +256,7 @@ static void action_main_region_draw(const bContext *C, ARegion *ar)
 }
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void action_channel_region_init(wmWindowManager *wm, ARegion *ar)
+static void action_channel_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
 {
 	wmKeyMap *keymap;
 	
@@ -298,7 +298,7 @@ static void action_channel_region_draw(const bContext *C, ARegion *ar)
 
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void action_header_region_init(wmWindowManager *UNUSED(wm), ARegion *ar)
+static void action_header_region_init(wmWindowManager *UNUSED(wm), const bScreen *UNUSED(sc), ARegion *ar)
 {
 	ED_region_header_init(ar);
 }
@@ -555,7 +555,7 @@ static void action_header_region_listener(
 }
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void action_buttons_area_init(wmWindowManager *wm, ARegion *ar)
+static void action_buttons_area_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
 {
 	wmKeyMap *keymap;
 	

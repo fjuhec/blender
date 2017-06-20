@@ -413,7 +413,7 @@ static int text_context(const bContext *C, const char *member, bContextDataResul
 /********************* main region ********************/
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void text_main_region_init(wmWindowManager *wm, ARegion *ar)
+static void text_main_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
 {
 	wmKeyMap *keymap;
 	ListBase *lb;
@@ -520,7 +520,7 @@ static void text_dropboxes(void)
 /****************** header region ******************/
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void text_header_region_init(wmWindowManager *UNUSED(wm), ARegion *ar)
+static void text_header_region_init(wmWindowManager *UNUSED(wm), const bScreen *UNUSED(sc), ARegion *ar)
 {
 	ED_region_header_init(ar);
 }
@@ -533,7 +533,7 @@ static void text_header_region_draw(const bContext *C, ARegion *ar)
 /****************** properties region ******************/
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void text_properties_region_init(wmWindowManager *wm, ARegion *ar)
+static void text_properties_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
 {
 	wmKeyMap *keymap;
 

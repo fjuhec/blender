@@ -62,7 +62,7 @@
 
 #include "outliner_intern.h"
 
-static void outliner_main_region_init(wmWindowManager *wm, ARegion *ar)
+static void outliner_main_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
 {
 	ListBase *lb;
 	wmKeyMap *keymap;
@@ -416,7 +416,7 @@ static void outliner_main_region_listener(
 /* ************************ header outliner area region *********************** */
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void outliner_header_region_init(wmWindowManager *UNUSED(wm), ARegion *ar)
+static void outliner_header_region_init(wmWindowManager *UNUSED(wm), const bScreen *UNUSED(sc), ARegion *ar)
 {
 	ED_region_header_init(ar);
 }

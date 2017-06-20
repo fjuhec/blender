@@ -101,7 +101,7 @@ static SpaceLink *userpref_duplicate(SpaceLink *sl)
 
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void userpref_main_region_init(wmWindowManager *wm, ARegion *ar)
+static void userpref_main_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
 {
 	/* do not use here, the properties changed in userprefs do a system-wide refresh, then scroller jumps back */
 	/*	ar->v2d.flag &= ~V2D_IS_INITIALISED; */
@@ -126,7 +126,7 @@ static void userpref_keymap(struct wmKeyConfig *UNUSED(keyconf))
 }
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void userpref_header_region_init(wmWindowManager *UNUSED(wm), ARegion *ar)
+static void userpref_header_region_init(wmWindowManager *UNUSED(wm), const bScreen *UNUSED(sc), ARegion *ar)
 {
 	ED_region_header_init(ar);
 }
