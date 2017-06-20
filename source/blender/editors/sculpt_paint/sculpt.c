@@ -291,6 +291,8 @@ typedef struct {
 } SculptOrigVertData;
 
 
+
+
 /* Initialize a SculptOrigVertData for accessing original vertex data;
  * handles BMesh, mesh, and multires */
 static void sculpt_orig_vert_data_unode_init(SculptOrigVertData *data,
@@ -480,6 +482,8 @@ static bool sculpt_stroke_is_dynamic_topology(
 
 /*** paint mesh ***/
 
+
+
 /* Single struct used by all BLI_task threaded callbacks, let's avoid adding 10's of those... */
 typedef struct SculptThreadedTaskData {
 	Sculpt *sd;
@@ -506,7 +510,7 @@ typedef struct SculptThreadedTaskData {
 	float *area_co;
 	float (*mat)[4];
 	float (*vertCos)[3];
-
+	float *v_index;
 	/* 0=towards view, 1=flipped */
 	float (*area_cos)[3];
 	float (*area_nos)[3];
@@ -669,7 +673,6 @@ typedef struct SculptBrushTest {
 	float foot[3];
 	float radius;
 
-	BMesh *bm;
 
 	float no[3];
 
@@ -679,7 +682,6 @@ typedef struct SculptBrushTest {
 static void sculpt_brush_test_init(SculptSession *ss, SculptBrushTest *test)
 {
 	RegionView3D *rv3d = ss->cache->vc->rv3d;
-	test->bm = ss->bm;
 	test->vc = ss->cache->vc;
 	test->brush_size = ss->cache->brush_size;
 	copy_v3_v3(test->true_location, ss->cache->true_location);
@@ -3221,6 +3223,7 @@ void mulv3_v3fl(float r[3], const short a[3], float f)
 	r[2] = a[2] * f;
 }
 
+
 static bool sculpt_brush_topo_test(SculptBrushTest *test, const float co[3], const short no[3])
 {
 	float distsq = len_squared_v3v3(co, test->location);
@@ -3229,7 +3232,7 @@ static bool sculpt_brush_topo_test(SculptBrushTest *test, const float co[3], con
 	normalize_v3(var);
 	float p = dot_v3v3(test->location, var);
 
-	if (distsq <= test->radius_squared && p <= 0.7f) {
+	if (distsq <= test->radius_squared) {
 		if (sculpt_brush_test_clipping(test, co)) {
 			return 0;
 		}
@@ -3240,6 +3243,8 @@ static bool sculpt_brush_topo_test(SculptBrushTest *test, const float co[3], con
 		return 0;
 	}
 }
+
+
 
 static void do_topo_grab_brush_task_cb_ex(
 	void *userdata, void *UNUSED(userdata_chunk), const int n, const int thread_id)
@@ -3261,14 +3266,22 @@ static void do_topo_grab_brush_task_cb_ex(
 
 	sculpt_brush_test_init(ss, &test);
 
-	float ray_normal[3], rays[3], raye[3];
 
+
+	float ray_normal[3], rays[3], raye[3];
+	PBVHType type = BKE_pbvh_type(ss->pbvh);
+	if (type == PBVH_FACES) printf("PBVH_FACES ");else
+	if (type == PBVH_BMESH) printf("PBVH_BMESH "); else
+	if (type == PBVH_GRIDS) printf("PBVH_GRIDS ");
+	if (type == PBVH_FACES && !ss->pmap) printf(" True "); else printf(" False ");
+
+	
 	ED_view3d_win_to_segment(test.vc->ar, test.vc->v3d, ss->cache->mouse, rays, raye, true);
 	sub_v3_v3v3(ray_normal, raye, rays);
 	normalize_v3(ray_normal);
 
 	copy_v3_v3(test.normal, ray_normal);
-	int ip = 0;
+	int it = 0;
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
 		sculpt_orig_vert_data_update(&orig_data, &vd);
@@ -3280,36 +3293,76 @@ static void do_topo_grab_brush_task_cb_ex(
 
 
 			mul_v3_v3fl(proxy[vd.i], grab_delta, fade);
-
-			if (vd.mvert){
-				//vd.mvert->flag |= ME_VERT_PBVH_UPDATE;
+			//printf("\n%d %d", vd.vert_indices[vd.i], it++);
+			if (vd.mvert) {
+				vd.mvert->flag |= ME_VERT_PBVH_UPDATE;
 				vd.mvert->flag |= SELECT;
 			}
 		}
 	}
 	BKE_pbvh_vertex_iter_end;
 
-	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
-	{
+
+}
+static void topo_init_task_cb(void *userdata, const int n) {
+	SculptThreadedTaskData *data = userdata;
+	SculptSession *ss = data->ob->sculpt;
+	Brush *brush = data->brush;
+	int *count = data->count;
+	//int *v_index = data->v_index;
+
+	PBVHVertexIter vd;
+	SculptBrushTest test;
+	SculptOrigVertData orig_data;
+	sculpt_orig_vert_data_init(&orig_data, data->ob, data->nodes[n]);
+	sculpt_brush_test_init(ss, &test);
+	int it = 0;
+	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE) {
 		sculpt_orig_vert_data_update(&orig_data, &vd);
 
-		if (sculpt_brush_test(&test, orig_data.co)) {
-			const float fade = bstrength * tex_strength(
-				ss, brush, orig_data.co, test.dist, orig_data.no, NULL, vd.mask ? *vd.mask : 0.0f,
-				thread_id);
-
-
-			mul_v3_v3fl(proxy[vd.i], grab_delta, fade);
-
-			if (vd.mvert){
-				vd.mvert->flag |= ME_VERT_PBVH_UPDATE;
-				/*vd.mvert->flag |= SELECT;*/
-			}
+		if (sculpt_brush_topo_test(&test, orig_data.co, orig_data.no)) {
+			float *co;
+			co = vd.co;
+			//printf("it = %d , ", it);
+			//v_index[it] = vd.vert_indices[vd.i];
+			it++;
 		}
+
 	}
 	BKE_pbvh_vertex_iter_end;
-	//vd.mvert->flag |= SELECT;
-	//edbm_shortest_path_select_exec();
+	BLI_mutex_lock(&data->mutex);
+	if (it) count[0] += it;
+	//if (v_index) printf("Success!\n");
+	BLI_mutex_unlock(&data->mutex);
+	//printf("\n Cxx: %d\n", count[0]);
+}
+
+static void topo_init(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode, int *count, int *vert_index)
+{
+	SculptSession *ss = ob->sculpt;
+	Brush *brush = BKE_paint_brush(&sd->paint);
+	int *t_count;
+	int *v_index = { 0 };
+	SculptThreadedTaskData data = {
+		.sd = sd, .ob = ob, .nodes = nodes, .totnode = totnode,
+		.count = t_count, 
+	};
+
+	//return;
+
+	BLI_mutex_init(&data.mutex);
+
+	BLI_task_parallel_range(
+		0, totnode, &data, topo_init_task_cb,
+		((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT));
+
+	BLI_mutex_end(&data.mutex);
+
+	count[0] = t_count[0];
+	vert_index = v_index;
+	printf("\n Cou: %d\n", count[0]);
+
+	//for (int ir = 0; ir < count[0]; ir++) printf(" %d , ", vert_index[ir]);
 }
 
 static void do_topo_grab_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode)
@@ -3317,16 +3370,24 @@ static void do_topo_grab_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int tot
 	SculptSession *ss = ob->sculpt;
 	Brush *brush = BKE_paint_brush(&sd->paint);
 	float grab_delta[3];
-
+	
 	copy_v3_v3(grab_delta, ss->cache->grab_delta_symmetry);
 
 	if (ss->cache->normal_weight > 0.0f) {
 		sculpt_project_v3_normal_align(ss, ss->cache->normal_weight, grab_delta);
 	}
+	int vert_count[1];
+	int vert_index[100];
+	//struct store_data std;
+	//std->count = { { 0, 0, 0 } };
+	topo_init(sd, ob, nodes, totnode, vert_count, vert_index);
+
+	printf("Selected Vertex Count = %d", vert_count[0]);
 
 	SculptThreadedTaskData data = {
 		.sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
 		.grab_delta = grab_delta,
+		//.std = std,
 	};
 
 	BLI_task_parallel_range_ex(
@@ -4677,7 +4738,7 @@ static bool sculpt_any_smooth_mode(const Brush *brush,
 	        (brush->sculpt_tool == SCULPT_TOOL_SMOOTH) ||
 	        (brush->autosmooth_factor > 0) ||
 	        ((brush->sculpt_tool == SCULPT_TOOL_MASK) &&
-	         (brush->mask_tool == BRUSH_MASK_SMOOTH)));
+			(brush->mask_tool == BRUSH_MASK_SMOOTH)) || (brush->sculpt_tool == SCULPT_TOOL_TOPO_GRAB));
 }
 
 static void sculpt_stroke_modifiers_check(const bContext *C, Object *ob)
