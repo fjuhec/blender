@@ -187,42 +187,46 @@ Curve *BKE_curve_add(Main *bmain, const char *name, int type)
 	return cu;
 }
 
-Curve *BKE_curve_copy(Main *bmain, const Curve *cu)
+void BKE_curve_copy_ex(Main *bmain, Curve *cu_dst, const Curve *cu_src, const int flag)
 {
-	Curve *cun;
 	int a;
 
-	cun = BKE_libblock_copy(bmain, &cu->id);
+	BLI_listbase_clear(&cu_dst->nurb);
+	BKE_nurbList_duplicate(&(cu_dst->nurb), &(cu_src->nurb));
 
-	BLI_listbase_clear(&cun->nurb);
-	BKE_nurbList_duplicate(&(cun->nurb), &(cu->nurb));
-
-	cun->mat = MEM_dupallocN(cu->mat);
-	for (a = 0; a < cun->totcol; a++) {
-		id_us_plus((ID *)cun->mat[a]);
+	cu_dst->mat = MEM_dupallocN(cu_src->mat);
+	if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
+		for (a = 0; a < cu_dst->totcol; a++) {
+			id_us_plus((ID *)cu_dst->mat[a]);
+		}
 	}
 
-	cun->str = MEM_dupallocN(cu->str);
-	cun->strinfo = MEM_dupallocN(cu->strinfo);
-	cun->tb = MEM_dupallocN(cu->tb);
-	cun->bb = MEM_dupallocN(cu->bb);
+	cu_dst->str = MEM_dupallocN(cu_src->str);
+	cu_dst->strinfo = MEM_dupallocN(cu_src->strinfo);
+	cu_dst->tb = MEM_dupallocN(cu_src->tb);
+	cu_dst->bb = MEM_dupallocN(cu_src->bb);
 
-	if (cu->key) {
-		cun->key = BKE_key_copy(bmain, cu->key);
-		cun->key->from = (ID *)cun;
+	if (cu_src->key) {
+		BKE_id_copy_ex(bmain, &cu_src->key->id, (ID **)&cu_dst->key, flag, false);
+		cu_dst->key->id.tag &= ~LIB_TAG_FREE_NO_USER_REFCOUNT;  /* XXX Bad hack, to be solved better hopefully :( */
 	}
 
-	cun->editnurb = NULL;
-	cun->editfont = NULL;
+	cu_dst->editnurb = NULL;
+	cu_dst->editfont = NULL;
 
-	id_us_plus((ID *)cun->vfont);
-	id_us_plus((ID *)cun->vfontb);
-	id_us_plus((ID *)cun->vfonti);
-	id_us_plus((ID *)cun->vfontbi);
+	if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
+		id_us_plus((ID *)cu_dst->vfont);
+		id_us_plus((ID *)cu_dst->vfontb);
+		id_us_plus((ID *)cu_dst->vfonti);
+		id_us_plus((ID *)cu_dst->vfontbi);
+	}
+}
 
-	BKE_id_copy_ensure_local(bmain, &cu->id, &cun->id);
-
-	return cun;
+Curve *BKE_curve_copy(Main *bmain, const Curve *cu)
+{
+	Curve *cu_copy;
+	BKE_id_copy_ex(bmain, &cu->id, (ID **)&cu_copy, 0, false);
+	return cu_copy;
 }
 
 void BKE_curve_make_local(Main *bmain, Curve *cu, const bool lib_local)
