@@ -1171,7 +1171,7 @@ void BKE_libblock_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int fla
 
 	BLI_assert((flag & LIB_ID_COPY_NO_MAIN) != 0 || bmain != NULL);
 	BLI_assert((flag & LIB_ID_COPY_NO_MAIN) != 0 || (flag & LIB_ID_COPY_NO_ALLOCATE) == 0);
-	BLI_assert((flag & LIB_ID_COPY_NO_MAIN) != 0 || (flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0);
+	BLI_assert((flag & LIB_ID_COPY_NO_MAIN) == 0 || (flag & LIB_ID_COPY_NO_USER_REFCOUNT) != 0);
 
 	if ((flag & LIB_ID_COPY_NO_ALLOCATE) != 0) {
 		/* r_newid already contains pointer to allocated memory. */

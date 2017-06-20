@@ -542,6 +542,7 @@ void BKE_mesh_copy_ex(Main *bmain, Mesh *me_dst, const Mesh *me_src, const int f
 	/* TODO Do we want to add flag to prevent this? */
 	if (me_src->key) {
 		BKE_id_copy_ex(bmain, &me_src->key->id, (ID **)&me_dst->key, flag, false);
+		me_dst->key->id.tag &= ~LIB_TAG_FREE_NO_USER_REFCOUNT;  /* XXX Bad hack, to be solved better hopefully :( */
 	}
 }
 
