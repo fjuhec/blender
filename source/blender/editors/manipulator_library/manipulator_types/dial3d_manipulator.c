@@ -293,7 +293,7 @@ static void dial_draw_intern(
 		DialInteraction *inter = mpr->interaction_data;
 
 		/* XXX, View3D rotation manipulator doesn't call modal. */
-		if (mpr->target_properties.first == NULL) {
+		if (mpr->target_properties_len_set == 0) {
 			wmWindow *win = CTX_wm_window(C);
 			manipulator_dial_modal((bContext *)C, mpr, win->eventstate, 0);
 		}

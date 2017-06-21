@@ -383,14 +383,14 @@ static bool manipulator_rect_transform_get_prop_value(
 		return false;
 	}
 	else {
-		if (STREQ(mpr_prop->idname, "offset")) {
+		if (STREQ(mpr_prop->type->idname, "offset")) {
 			if (RNA_property_array_length(&mpr_prop->ptr, mpr_prop->prop) != 2) {
 				fprintf(stderr, "Rect Transform manipulator offset not only be bound to array float property");
 				return false;
 			}
 			RNA_property_float_get_array(&mpr_prop->ptr, mpr_prop->prop, value);
 		}
-		else if (STREQ(mpr_prop->idname, "scale")) {
+		else if (STREQ(mpr_prop->type->idname, "scale")) {
 			const int transform_flag = RNA_enum_get(mpr->ptr, "transform");
 			if (transform_flag & ED_MANIPULATOR_RECT_TRANSFORM_FLAG_SCALE_UNIFORM) {
 				*value = RNA_property_float_get(&mpr_prop->ptr, mpr_prop->prop);
@@ -533,10 +533,10 @@ static void manipulator_rect_transform_modal(
 
 static void manipulator_rect_transform_property_update(wmManipulator *mpr, wmManipulatorProperty *mpr_prop)
 {
-	if (STREQ(mpr_prop->idname, "offset")) {
+	if (STREQ(mpr_prop->type->idname, "offset")) {
 		manipulator_rect_transform_get_prop_value(mpr, mpr_prop, mpr->matrix_offset[3]);
 	}
-	else if (STREQ(mpr_prop->idname, "scale")) {
+	else if (STREQ(mpr_prop->type->idname, "scale")) {
 		float scale[2];
 		RNA_float_get_array(mpr->ptr, "scale", scale);
 		manipulator_rect_transform_get_prop_value(mpr, mpr_prop, scale);

@@ -424,8 +424,8 @@ void ED_manipulator_arrow3d_set_ui_range(wmManipulator *mpr, const float min, co
 	ArrowManipulator3D *arrow = (ArrowManipulator3D *)mpr;
 
 	BLI_assert(min < max);
-	BLI_assert(!(WM_manipulator_target_property_find(mpr, "offset") && "Make sure this function "
-	           "is called before WM_manipulator_target_property_def_rna"));
+	BLI_assert(!(WM_manipulator_target_property_is_valid(WM_manipulator_target_property_find(mpr, "offset")) &&
+	             "Make sure this function is called before WM_manipulator_target_property_def_rna"));
 
 	arrow->data.range = max - min;
 	arrow->data.min = min;
@@ -440,8 +440,8 @@ void ED_manipulator_arrow3d_set_ui_range(wmManipulator *mpr, const float min, co
 void ED_manipulator_arrow3d_set_range_fac(wmManipulator *mpr, const float range_fac)
 {
 	ArrowManipulator3D *arrow = (ArrowManipulator3D *)mpr;
-	BLI_assert(!(WM_manipulator_target_property_find(mpr, "offset") && "Make sure this function "
-	           "is called before WM_manipulator_target_property_def_rna"));
+	BLI_assert(!(WM_manipulator_target_property_is_valid(WM_manipulator_target_property_find(mpr, "offset")) &&
+	             "Make sure this function is called before WM_manipulator_target_property_def_rna"));
 
 	arrow->data.range_fac = range_fac;
 }

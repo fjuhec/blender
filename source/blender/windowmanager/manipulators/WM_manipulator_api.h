@@ -134,6 +134,9 @@ void WM_manipulatorconfig_update(struct Main *bmain);
 
 
 /* wm_maniulator_target_props.c */
+struct wmManipulatorProperty *WM_manipulator_target_property_array(struct wmManipulator *mpr);
+struct wmManipulatorProperty *WM_manipulator_target_property_at_index(
+        struct wmManipulator *mpr, int index);
 struct wmManipulatorProperty *WM_manipulator_target_property_find(
         struct wmManipulator *mpr, const char *idname);
 

@@ -53,33 +53,46 @@
 /** \name Property Definition
  * \{ */
 
-wmManipulatorProperty *WM_manipulator_target_property_find(wmManipulator *mpr, const char *idname)
+BLI_INLINE wmManipulatorProperty *wm_manipulator_target_property_array(wmManipulator *mpr)
 {
-	return BLI_findstring(&mpr->target_properties, idname, offsetof(wmManipulatorProperty, idname));
+	return (wmManipulatorProperty *)(POINTER_OFFSET(mpr, mpr->type->struct_size));
 }
 
-static wmManipulatorProperty *wm_manipulator_target_property_def_internal(
-        wmManipulator *mpr, const wmManipulatorPropertyType *mpr_prop_type)
+wmManipulatorProperty *WM_manipulator_target_property_array(wmManipulator *mpr)
 {
-	wmManipulatorProperty *mpr_prop = WM_manipulator_target_property_find(mpr, mpr_prop_type->idname);
+	return wm_manipulator_target_property_array(mpr);
+}
 
-	if (mpr_prop == NULL) {
-		const uint idname_size = strlen(mpr_prop_type->idname) + 1;
-		mpr_prop = MEM_callocN(sizeof(wmManipulatorProperty) + idname_size, __func__);
-		memcpy(mpr_prop->idname, mpr_prop_type->idname, idname_size);
-		BLI_addtail(&mpr->target_properties, mpr_prop);
+wmManipulatorProperty *WM_manipulator_target_property_at_index(wmManipulator *mpr, int index)
+{
+	BLI_assert(index < mpr->type->target_property_defs_len);
+	BLI_assert(index != -1);
+	wmManipulatorProperty *mpr_prop_array = WM_manipulator_target_property_array(mpr);
+	return &mpr_prop_array[index];
+}
+
+wmManipulatorProperty *WM_manipulator_target_property_find(wmManipulator *mpr, const char *idname)
+{
+	int index = BLI_findstringindex(
+	        &mpr->type->target_property_defs, idname, offsetof(wmManipulatorPropertyType, idname));
+	if (index != -1) {
+		return WM_manipulator_target_property_at_index(mpr, index);
 	}
-	return mpr_prop;
+	else {
+		return NULL;
+	}
 }
 
 void WM_manipulator_target_property_def_rna_ptr(
         wmManipulator *mpr, const wmManipulatorPropertyType *mpr_prop_type,
         PointerRNA *ptr, PropertyRNA *prop, int index)
 {
-	wmManipulatorProperty *mpr_prop = wm_manipulator_target_property_def_internal(mpr, mpr_prop_type);
+	wmManipulatorProperty *mpr_prop = WM_manipulator_target_property_at_index(mpr, mpr_prop_type->index_in_type);
 
 	/* if manipulator evokes an operator we cannot use it for property manipulation */
 	mpr->op_data.type = NULL;
+
+	mpr_prop->type = mpr_prop_type;
 
 	mpr_prop->ptr = *ptr;
 	mpr_prop->prop = prop;
@@ -103,7 +116,7 @@ void WM_manipulator_target_property_def_func_ptr(
         wmManipulator *mpr, const wmManipulatorPropertyType *mpr_prop_type,
         const wmManipulatorPropertyFnParams *params)
 {
-	wmManipulatorProperty *mpr_prop = wm_manipulator_target_property_def_internal(mpr, mpr_prop_type);
+	wmManipulatorProperty *mpr_prop = WM_manipulator_target_property_at_index(mpr, mpr_prop_type->index_in_type);
 
 	/* if manipulator evokes an operator we cannot use it for property manipulation */
 	mpr->op_data.type = NULL;
@@ -243,6 +256,8 @@ void WM_manipulatortype_target_property_def(
 	memcpy(mpt->idname, idname, idname_size);
 	mpt->type = type;
 	mpt->array_length = array_length;
+	mpt->index_in_type = wt->target_property_defs_len;
+	wt->target_property_defs_len += 1;
 	BLI_addtail(&wt->target_property_defs, mpt);
 }
 
