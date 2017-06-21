@@ -39,9 +39,11 @@
 struct ARegion;
 struct GHashIterator;
 struct Main;
+struct PropertyRNA;
 struct wmKeyConfig;
 struct wmManipulator;
 struct wmManipulatorProperty;
+struct wmManipulatorPropertyType;
 struct wmManipulatorType;
 struct wmManipulatorGroup;
 struct wmManipulatorGroupType;
@@ -135,9 +137,16 @@ void WM_manipulatorconfig_update(struct Main *bmain);
 struct wmManipulatorProperty *WM_manipulator_target_property_find(
         struct wmManipulator *mpr, const char *idname);
 
+void WM_manipulator_target_property_def_rna_ptr(
+        struct wmManipulator *mpr, const struct wmManipulatorPropertyType *mpr_prop_type,
+        struct PointerRNA *ptr, struct PropertyRNA *prop, int index);
 void WM_manipulator_target_property_def_rna(
         struct wmManipulator *mpr, const char *idname,
         struct PointerRNA *ptr, const char *propname, int index);
+
+void WM_manipulator_target_property_def_func_ptr(
+        struct wmManipulator *mpr, const struct wmManipulatorPropertyType *mpr_prop_type,
+        const struct wmManipulatorPropertyFnParams *params);
 void WM_manipulator_target_property_def_func(
         struct wmManipulator *mpr, const char *idname,
         const struct wmManipulatorPropertyFnParams *params);
@@ -162,8 +171,8 @@ void WM_manipulator_target_property_range_get(
         float range[2]);
 
 /* definitions */
-struct wmManipulatorPropertyType *WM_manipulatortype_target_property_find(
-        struct wmManipulatorType *wt, const char *idname);
+const struct wmManipulatorPropertyType *WM_manipulatortype_target_property_find(
+        const struct wmManipulatorType *wt, const char *idname);
 void WM_manipulatortype_target_property_def(
         struct wmManipulatorType *wt, const char *idname, int type, int array_length);
 

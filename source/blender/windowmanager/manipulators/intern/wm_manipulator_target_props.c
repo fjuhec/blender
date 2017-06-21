@@ -59,30 +59,30 @@ wmManipulatorProperty *WM_manipulator_target_property_find(wmManipulator *mpr, c
 }
 
 static wmManipulatorProperty *wm_manipulator_target_property_def_internal(
-        wmManipulator *mpr, const char *idname)
+        wmManipulator *mpr, const wmManipulatorPropertyType *mpr_prop_type)
 {
-	wmManipulatorProperty *mpr_prop = WM_manipulator_target_property_find(mpr, idname);
+	wmManipulatorProperty *mpr_prop = WM_manipulator_target_property_find(mpr, mpr_prop_type->idname);
 
 	if (mpr_prop == NULL) {
-		const uint idname_size = strlen(idname) + 1;
+		const uint idname_size = strlen(mpr_prop_type->idname) + 1;
 		mpr_prop = MEM_callocN(sizeof(wmManipulatorProperty) + idname_size, __func__);
-		memcpy(mpr_prop->idname, idname, idname_size);
+		memcpy(mpr_prop->idname, mpr_prop_type->idname, idname_size);
 		BLI_addtail(&mpr->target_properties, mpr_prop);
 	}
 	return mpr_prop;
 }
 
-void WM_manipulator_target_property_def_rna(
-        wmManipulator *mpr, const char *idname,
-        PointerRNA *ptr, const char *propname, int index)
+void WM_manipulator_target_property_def_rna_ptr(
+        wmManipulator *mpr, const wmManipulatorPropertyType *mpr_prop_type,
+        PointerRNA *ptr, PropertyRNA *prop, int index)
 {
-	wmManipulatorProperty *mpr_prop = wm_manipulator_target_property_def_internal(mpr, idname);
+	wmManipulatorProperty *mpr_prop = wm_manipulator_target_property_def_internal(mpr, mpr_prop_type);
 
 	/* if manipulator evokes an operator we cannot use it for property manipulation */
 	mpr->op_data.type = NULL;
 
 	mpr_prop->ptr = *ptr;
-	mpr_prop->prop = RNA_struct_find_property(ptr, propname);
+	mpr_prop->prop = prop;
 	mpr_prop->index = index;
 
 	if (mpr->type->property_update) {
@@ -90,11 +90,20 @@ void WM_manipulator_target_property_def_rna(
 	}
 }
 
-void WM_manipulator_target_property_def_func(
+void WM_manipulator_target_property_def_rna(
         wmManipulator *mpr, const char *idname,
+        PointerRNA *ptr, const char *propname, int index)
+{
+	const wmManipulatorPropertyType *mpr_prop_type = WM_manipulatortype_target_property_find(mpr->type, idname);
+	PropertyRNA *prop = RNA_struct_find_property(ptr, propname);
+	WM_manipulator_target_property_def_rna_ptr(mpr, mpr_prop_type, ptr, prop, index);
+}
+
+void WM_manipulator_target_property_def_func_ptr(
+        wmManipulator *mpr, const wmManipulatorPropertyType *mpr_prop_type,
         const wmManipulatorPropertyFnParams *params)
 {
-	wmManipulatorProperty *mpr_prop = wm_manipulator_target_property_def_internal(mpr, idname);
+	wmManipulatorProperty *mpr_prop = wm_manipulator_target_property_def_internal(mpr, mpr_prop_type);
 
 	/* if manipulator evokes an operator we cannot use it for property manipulation */
 	mpr->op_data.type = NULL;
@@ -107,6 +116,14 @@ void WM_manipulator_target_property_def_func(
 	if (mpr->type->property_update) {
 		mpr->type->property_update(mpr, mpr_prop);
 	}
+}
+
+void WM_manipulator_target_property_def_func(
+        wmManipulator *mpr, const char *idname,
+        const wmManipulatorPropertyFnParams *params)
+{
+	const wmManipulatorPropertyType *mpr_prop_type = WM_manipulatortype_target_property_find(mpr->type, idname);
+	WM_manipulator_target_property_def_func_ptr(mpr, mpr_prop_type, params);
 }
 
 /** \} */
@@ -208,8 +225,8 @@ void WM_manipulator_target_property_range_get(
 /** \name Property Define
  * \{ */
 
-wmManipulatorPropertyType *WM_manipulatortype_target_property_find(
-        wmManipulatorType *wt, const char *idname)
+const wmManipulatorPropertyType *WM_manipulatortype_target_property_find(
+        const wmManipulatorType *wt, const char *idname)
 {
 	return BLI_findstring(&wt->target_property_defs, idname, offsetof(wmManipulatorPropertyType, idname));
 }
