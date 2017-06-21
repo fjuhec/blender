@@ -530,9 +530,11 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 	 * Ideally, usercount should never be handled by IDType-specific copying code, but for now let's allow it... */
 	const int flag_idtype_copy = flag | LIB_ID_COPY_NO_USER_REFCOUNT;
 
+#define ITEMS_IMPLEMENTED ID_OB, ID_ME, ID_CU, ID_MB, ID_LT, ID_KE
+
 	if (!test) {
 		/* Check to be removed of course, just here until all BKE_xxx_copy_ex functions are done. */
-		if (ELEM(GS(id->name), ID_OB, ID_ME, ID_CU, ID_KE)) {
+		if (ELEM(GS(id->name), ITEMS_IMPLEMENTED)) {
 			BKE_libblock_copy_ex(bmain, id, r_newid, flag);
 		}
 	}
@@ -548,7 +550,7 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 			if (!test) BKE_curve_copy_ex(bmain, (Curve *)*r_newid, (Curve *)id, flag_idtype_copy);
 			break;
 		case ID_MB:
-			if (!test) *r_newid = (ID *)BKE_mball_copy(bmain, (MetaBall *)id);
+			if (!test) BKE_mball_copy_ex(bmain, (MetaBall *)*r_newid, (MetaBall *)id, flag_idtype_copy);
 			break;
 		case ID_MA:
 			if (!test) *r_newid = (ID *)BKE_material_copy(bmain, (Material *)id);
@@ -560,7 +562,7 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 			if (!test) *r_newid = (ID *)BKE_image_copy(bmain, (Image *)id);
 			break;
 		case ID_LT:
-			if (!test) *r_newid = (ID *)BKE_lattice_copy(bmain, (Lattice *)id);
+			if (!test) BKE_lattice_copy_ex(bmain, (Lattice *)*r_newid, (Lattice *)id, flag_idtype_copy);
 			break;
 		case ID_LA:
 			if (!test) *r_newid = (ID *)BKE_lamp_copy(bmain, (Lamp *)id);
@@ -633,7 +635,7 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 
 	if (!test) {
 		/* Check to be removed of course, just here until all BKE_xxx_copy_ex functions are done. */
-		if (ELEM(GS(id->name), ID_OB, ID_ME, ID_CU, ID_KE)) {
+		if (ELEM(GS(id->name), ITEMS_IMPLEMENTED)) {
 			/* Update ID refcount, remap pointers to self in new ID. */
 			struct IDCopyLibManagementData data = {.id_src=id, .flag=flag};
 			BKE_library_foreach_ID_link(bmain, *r_newid, id_copy_libmanagement_cb, &data, IDWALK_NOP);
@@ -646,6 +648,9 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 			if (key) {
 				data.id_src = (ID *)BKE_key_from_id((ID *)id);
 				BKE_library_foreach_ID_link(bmain, key, id_copy_libmanagement_cb, &data, IDWALK_NOP);
+				if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
+					key->tag &= ~LIB_TAG_FREE_NO_USER_REFCOUNT;
+				}
 			}
 			/* TODO: most likely same for nodes too? */
 
