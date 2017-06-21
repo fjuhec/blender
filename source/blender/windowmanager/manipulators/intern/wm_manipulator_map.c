@@ -88,7 +88,8 @@ enum eManipulatorMapUpdateFlags {
 /**
  * Creates a manipulator-map with all registered manipulators for that type
  */
-wmManipulatorMap *WM_manipulatormap_new_from_type(const struct wmManipulatorMapType_Params *mmap_params)
+wmManipulatorMap *WM_manipulatormap_new_from_type(
+        const struct wmManipulatorMapType_Params *mmap_params)
 {
 	wmManipulatorMapType *mmap_type = WM_manipulatormaptype_ensure(mmap_params);
 	wmManipulatorMap *mmap;
@@ -127,6 +128,11 @@ void wm_manipulatormap_remove(wmManipulatorMap *mmap)
 	wm_manipulatormap_selected_clear(mmap);
 
 	MEM_freeN(mmap);
+}
+
+const ListBase *WM_manipulatormap_group_list(wmManipulatorMap *mmap)
+{
+	return &mmap->groups;
 }
 
 /**
@@ -248,7 +254,7 @@ static void manipulators_draw_list(const wmManipulatorMap *mmap, const bContext 
 	const bool draw_multisample = (U.ogl_multisamples != USER_MULTISAMPLE_NONE);
 
 	/* TODO this will need it own shader probably? don't think it can be handled from that point though. */
-/*	const bool use_lighting = (U.manipulator_flag & V3D_SHADED_MANIPULATORS) != 0; */
+/*	const bool use_lighting = (U.manipulator_flag & V3D_MANIPULATOR_SHADED) != 0; */
 
 	/* enable multisampling */
 	if (draw_multisample) {
@@ -424,8 +430,8 @@ void wm_manipulatormaps_handled_modal_update(
 
 	/* regular update for running operator */
 	if (modal_running) {
-		if (mpr && mpr->opname &&
-		    STREQ(mpr->opname, handler->op->idname))
+		if (mpr && (mpr->op_data.type != NULL) &&
+		    (mpr->op_data.type == handler->op->type))
 		{
 			if (mpr->custom_modal) {
 				mpr->custom_modal(C, mpr, event, 0);
@@ -640,32 +646,23 @@ void wm_manipulatormap_active_set(
 		mpr->state |= WM_MANIPULATOR_STATE_ACTIVE;
 		mmap->mmap_context.active = mpr;
 
-		if (mpr->opname) {
-			wmOperatorType *ot = WM_operatortype_find(mpr->opname, 0);
+		if (mpr->op_data.type) {
+			/* first activate the manipulator itself */
+			if (mpr->type->invoke &&
+			    (mpr->type->modal || mpr->custom_modal))
+			{
+				mpr->type->invoke(C, mpr, event);
+			}
 
-			if (ot) {
+			WM_operator_name_call_ptr(C, mpr->op_data.type, WM_OP_INVOKE_DEFAULT, &mpr->op_data.ptr);
+
+			/* we failed to hook the manipulator to the operator handler or operator was cancelled, return */
+			if (!mmap->mmap_context.active) {
+				mpr->state &= ~WM_MANIPULATOR_STATE_ACTIVE;
 				/* first activate the manipulator itself */
-				if (mpr->type->invoke &&
-				    (mpr->type->modal || mpr->custom_modal))
-				{
-					mpr->type->invoke(C, mpr, event);
-				}
-
-				WM_operator_name_call_ptr(C, ot, WM_OP_INVOKE_DEFAULT, &mpr->opptr);
-
-				/* we failed to hook the manipulator to the operator handler or operator was cancelled, return */
-				if (!mmap->mmap_context.active) {
-					mpr->state &= ~WM_MANIPULATOR_STATE_ACTIVE;
-					/* first activate the manipulator itself */
-					MEM_SAFE_FREE(mpr->interaction_data);
-				}
-				return;
+				MEM_SAFE_FREE(mpr->interaction_data);
 			}
-			else {
-				printf("Manipulator error: operator not found");
-				mmap->mmap_context.active = NULL;
-				return;
-			}
+			return;
 		}
 		else {
 			if (mpr->type->invoke &&

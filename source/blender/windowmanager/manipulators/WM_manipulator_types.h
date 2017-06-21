@@ -61,7 +61,8 @@ struct wmManipulator {
 	/* While we don't have a real type, use this to put type-like vars. */
 	const struct wmManipulatorType *type;
 
-	/* Overrides 'type->handler' when set. */
+	/* Overrides 'type->modal' when set.
+	 * Note that this is a workaround, remove if we can. */
 	wmManipulatorFnModal custom_modal;
 
 	/* pointer back to group this manipulator is in (just for quick access) */
@@ -69,15 +70,26 @@ struct wmManipulator {
 
 	void *py_instance;
 
+	/* rna pointer to access properties */
+	struct PointerRNA *ptr;
+
 	int flag; /* flags that influence the behavior or how the manipulators are drawn */
 	short state; /* state flags (active, highlighted, selected) */
 
+	/* Optional ID for highlighting different parts of this manipulator. */
 	int highlight_part;
 
-	/* center of manipulator in space, 2d or 3d */
-	float origin[3];
+	/* Transformation of the manipulator in 2d or 3d space.
+	 * - Matrix axis are expected to be unit length (scale is applied after).
+	 * - Behavior when axis aren't orthogonal depends on each manipulator.
+	 * - Typically the +Z is the primary axis for manipulators to use.
+	 * - 'matrix[3]' must be used for location,
+	 *   besides this it's up to the manipulators internal code how the
+	 *   rotation components are used for drawing and interaction.
+	 */
+	float matrix[4][4];
 	/* custom offset from origin */
-	float offset[3];
+	float matrix_offset[4][4];
 	/* runtime property, set the scale while drawing on the viewport */
 	float scale;
 	/* user defined scale, in addition to the original one */
@@ -91,10 +103,12 @@ struct wmManipulator {
 	void *interaction_data;
 
 	/* name of operator to spawn when activating the manipulator */
-	const char *opname;
-	/* operator properties if manipulator spawns and controls an operator,
-	 * or owner pointer if manipulator spawns and controls a property */
-	PointerRNA opptr;
+	struct {
+		struct wmOperatorType *type;
+		/* operator properties if manipulator spawns and controls an operator,
+		 * or owner pointer if manipulator spawns and controls a property */
+		PointerRNA ptr;
+	} op_data;
 
 	/* Properties 'wmManipulatorProperty' attached to various manipulator parameters.
 	 * As the manipulator is interacted with, those properties get updated.
@@ -102,7 +116,9 @@ struct wmManipulator {
 	 * Public API's should use string names,
 	 * private API's can pass 'wmManipulatorProperty' directly.
 	 */
-	ListBase properties;
+	ListBase target_properties;
+
+	struct IDProperty *properties;
 };
 
 typedef void (*wmManipulatorGroupFnInit)(
@@ -193,9 +209,13 @@ typedef struct wmManipulatorType {
 	/* manipulator-specific handler to update manipulator attributes based on the property value */
 	wmManipulatorFnPropertyUpdate property_update;
 
-	/* returns the final position which may be different from the origin, depending on the manipulator.
-	 * used in calculations of scale */
-	wmManipulatorFnPositionGet position_get;
+	/* Returns the final transformation which may be different from the 'matrix',
+	 * depending on the manipulator.
+	 * Notes:
+	 * - Scale isn't applied (wmManipulator.scale/user_scale).
+	 * - Offset isn't applied (wmManipulator.matrix_offset).
+	 */
+	wmManipulatorFnMatrixWorldGet matrix_world_get;
 
 	/* activate a manipulator state when the user clicks on it */
 	wmManipulatorFnInvoke invoke;
@@ -207,6 +227,9 @@ typedef struct wmManipulatorType {
 
 	/* called when manipulator selection state changes */
 	wmManipulatorFnSelect select;
+
+	/* RNA for properties */
+	struct StructRNA *srna;
 
 	/* RNA integration */
 	ExtensionRNA ext;

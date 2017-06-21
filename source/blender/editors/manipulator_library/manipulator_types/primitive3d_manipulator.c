@@ -18,7 +18,7 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file primitive_manipulator.c
+/** \file primitive3d_manipulator.c
  *  \ingroup wm
  *
  * \name Primitive Manipulator
@@ -43,29 +43,16 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "RNA_access.h"
+#include "RNA_define.h"
+
 #include "WM_api.h"
 #include "WM_types.h"
 
 #include "ED_manipulator_library.h"
 
 /* own includes */
-#include "manipulator_library_intern.h"
-
-
-/* PrimitiveManipulator->flag */
-enum {
-	PRIM_UP_VECTOR_SET = (1 << 0),
-};
-
-typedef struct PrimitiveManipulator {
-	wmManipulator manipulator;
-
-	float direction[3];
-	float up[3];
-	int style;
-	int flag;
-} PrimitiveManipulator;
-
+#include "../manipulator_library_intern.h"
 
 static float verts_plane[4][3] = {
 	{-1, -1, 0},
@@ -78,80 +65,66 @@ static float verts_plane[4][3] = {
 /* -------------------------------------------------------------------- */
 
 static void manipulator_primitive_draw_geom(
-        const float col_inner[4], const float col_outer[4], const int style)
+        const float col_inner[4], const float col_outer[4], const int draw_style)
 {
 	float (*verts)[3];
 	uint vert_count = 0;
 
-	if (style == ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE) {
+	if (draw_style == ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE) {
 		verts = verts_plane;
 		vert_count = ARRAY_SIZE(verts_plane);
 	}
 
 	if (vert_count > 0) {
-		uint pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
+		uint pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
 		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
-		wm_manipulator_vec_draw(col_inner, verts, vert_count, pos, PRIM_TRIANGLE_FAN);
-		wm_manipulator_vec_draw(col_outer, verts, vert_count, pos, PRIM_LINE_LOOP);
+		wm_manipulator_vec_draw(col_inner, verts, vert_count, pos, GWN_PRIM_TRI_FAN);
+		wm_manipulator_vec_draw(col_outer, verts, vert_count, pos, GWN_PRIM_LINE_LOOP);
 		immUnbindProgram();
 	}
 }
 
 static void manipulator_primitive_draw_intern(
-        PrimitiveManipulator *prim, const bool UNUSED(select),
+        wmManipulator *mpr, const bool UNUSED(select),
         const bool highlight)
 {
 	float col_inner[4], col_outer[4];
-	float rot[3][3];
 	float mat[4][4];
+	const int draw_style = RNA_enum_get(mpr->ptr, "draw_style");
 
-	BLI_assert(prim->style != -1);
+	manipulator_color_get(mpr, highlight, col_outer);
+	copy_v4_v4(col_inner, col_outer);
+	col_inner[3] *= 0.5f;
 
-	if (prim->flag & PRIM_UP_VECTOR_SET) {
-		copy_v3_v3(rot[2], prim->direction);
-		copy_v3_v3(rot[1], prim->up);
-		cross_v3_v3v3(rot[0], prim->up, prim->direction);
-	}
-	else {
-		const float up[3] = {0.0f, 0.0f, 1.0f};
-		rotation_between_vecs_to_mat3(rot, up, prim->direction);
-	}
-
-	copy_m4_m3(mat, rot);
-	copy_v3_v3(mat[3], prim->manipulator.origin);
-	mul_mat3_m4_fl(mat, prim->manipulator.scale);
+	copy_m4_m4(mat, mpr->matrix);
+	mul_mat3_m4_fl(mat, mpr->scale);
 
 	gpuPushMatrix();
 	gpuMultMatrix(mat);
 
-	manipulator_color_get(&prim->manipulator, highlight, col_outer);
-	copy_v4_v4(col_inner, col_outer);
-	col_inner[3] *= 0.5f;
-
 	glEnable(GL_BLEND);
-	gpuTranslate3fv(prim->manipulator.offset);
-	manipulator_primitive_draw_geom(col_inner, col_outer, prim->style);
+	gpuMultMatrix(mpr->matrix_offset);
+	manipulator_primitive_draw_geom(col_inner, col_outer, draw_style);
 	glDisable(GL_BLEND);
 
 	gpuPopMatrix();
 
-	if (prim->manipulator.interaction_data) {
-		ManipulatorInteraction *inter = prim->manipulator.interaction_data;
+	if (mpr->interaction_data) {
+		ManipulatorInteraction *inter = mpr->interaction_data;
 
 		copy_v4_fl(col_inner, 0.5f);
 		copy_v3_fl(col_outer, 0.5f);
 		col_outer[3] = 0.8f;
 
-		copy_m4_m3(mat, rot);
-		copy_v3_v3(mat[3], inter->init_origin);
+		copy_m4_m4(mat, inter->init_matrix);
 		mul_mat3_m4_fl(mat, inter->init_scale);
 
 		gpuPushMatrix();
 		gpuMultMatrix(mat);
 
 		glEnable(GL_BLEND);
-		gpuTranslate3fv(prim->manipulator.offset);
-		manipulator_primitive_draw_geom(col_inner, col_outer, prim->style);
+		gpuMultMatrix(mpr->matrix_offset);
+		manipulator_primitive_draw_geom(col_inner, col_outer, draw_style);
 		glDisable(GL_BLEND);
 
 		gpuPopMatrix();
@@ -163,27 +136,19 @@ static void manipulator_primitive_draw_select(
         int selectionbase)
 {
 	GPU_select_load_id(selectionbase);
-	manipulator_primitive_draw_intern((PrimitiveManipulator *)mpr, true, false);
+	manipulator_primitive_draw_intern(mpr, true, false);
 }
 
 static void manipulator_primitive_draw(const bContext *UNUSED(C), wmManipulator *mpr)
 {
 	manipulator_primitive_draw_intern(
-	            (PrimitiveManipulator *)mpr, false,
-	            (mpr->state & WM_MANIPULATOR_STATE_HIGHLIGHT));
+	        mpr, false,
+	        (mpr->state & WM_MANIPULATOR_STATE_HIGHLIGHT));
 }
 
 static void manipulator_primitive_setup(wmManipulator *mpr)
 {
-	PrimitiveManipulator *prim = (PrimitiveManipulator *)mpr;
-
-	const float dir_default[3] = {0.0f, 0.0f, 1.0f};
-
-	prim->manipulator.flag |= WM_MANIPULATOR_DRAW_ACTIVE;
-	prim->style = -1;
-
-	/* defaults */
-	copy_v3_v3(prim->direction, dir_default);
+	mpr->flag |= WM_MANIPULATOR_DRAW_ACTIVE;
 }
 
 static void manipulator_primitive_invoke(
@@ -191,7 +156,7 @@ static void manipulator_primitive_invoke(
 {
 	ManipulatorInteraction *inter = MEM_callocN(sizeof(ManipulatorInteraction), __func__);
 
-	copy_v3_v3(inter->init_origin, mpr->origin);
+	copy_m4_m4(inter->init_matrix, mpr->matrix);
 	inter->init_scale = mpr->scale;
 
 	mpr->interaction_data = inter;
@@ -201,43 +166,6 @@ static void manipulator_primitive_invoke(
 /** \name Primitive Manipulator API
  *
  * \{ */
-
-#define ASSERT_TYPE_CHECK(mpr) BLI_assert(mpr->type->draw == manipulator_primitive_draw)
-
-void ED_manipulator_primitive3d_set_style(struct wmManipulator *mpr, int style)
-{
-	ASSERT_TYPE_CHECK(mpr);
-	PrimitiveManipulator *prim = (PrimitiveManipulator *)mpr;
-	prim->style = style;
-}
-
-/**
- * Define direction the primitive will point towards
- */
-void ED_manipulator_primitive3d_set_direction(wmManipulator *mpr, const float direction[3])
-{
-	ASSERT_TYPE_CHECK(mpr);
-	PrimitiveManipulator *prim = (PrimitiveManipulator *)mpr;
-
-	normalize_v3_v3(prim->direction, direction);
-}
-
-/**
- * Define up-direction of the primitive manipulator
- */
-void ED_manipulator_primitive3d_set_up_vector(wmManipulator *mpr, const float direction[3])
-{
-	ASSERT_TYPE_CHECK(mpr);
-	PrimitiveManipulator *prim = (PrimitiveManipulator *)mpr;
-
-	if (direction) {
-		normalize_v3_v3(prim->up, direction);
-		prim->flag |= PRIM_UP_VECTOR_SET;
-	}
-	else {
-		prim->flag &= ~PRIM_UP_VECTOR_SET;
-	}
-}
 
 static void MANIPULATOR_WT_primitive_3d(wmManipulatorType *wt)
 {
@@ -250,7 +178,13 @@ static void MANIPULATOR_WT_primitive_3d(wmManipulatorType *wt)
 	wt->setup = manipulator_primitive_setup;
 	wt->invoke = manipulator_primitive_invoke;
 
-	wt->struct_size = sizeof(PrimitiveManipulator);
+	wt->struct_size = sizeof(wmManipulator);
+
+	static EnumPropertyItem rna_enum_draw_style[] = {
+		{ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE, "PLANE", 0, "Plane", ""},
+		{0, NULL, 0, NULL, NULL}
+	};
+	RNA_def_enum(wt->srna, "draw_style", rna_enum_draw_style, ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE, "Draw Style", "");
 }
 
 void ED_manipulatortypes_primitive_3d(void)
@@ -258,4 +192,4 @@ void ED_manipulatortypes_primitive_3d(void)
 	WM_manipulatortype_append(MANIPULATOR_WT_primitive_3d);
 }
 
-/** \} */ // Primitive Manipulator API
+/** \} */

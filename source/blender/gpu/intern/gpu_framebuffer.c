@@ -163,7 +163,7 @@ bool GPU_framebuffer_texture_attach(GPUFrameBuffer *fb, GPUTexture *tex, int slo
 	return true;
 }
 
-bool GPU_framebuffer_texture_cubeface_attach(GPUFrameBuffer *fb, GPUTexture *tex, int slot, int face, int mip)
+static bool gpu_framebuffer_texture_layer_attach_ex(GPUFrameBuffer *fb, GPUTexture *tex, int slot, int layer, int mip, bool cubemap)
 {
 	GLenum attachment;
 	GLenum facetarget;
@@ -183,8 +183,6 @@ bool GPU_framebuffer_texture_cubeface_attach(GPUFrameBuffer *fb, GPUTexture *tex
 		}
 	}
 
-	BLI_assert(GPU_texture_target(tex) == GL_TEXTURE_CUBE_MAP);
-
 	glBindFramebuffer(GL_FRAMEBUFFER, fb->object);
 	GG.currentfb = fb->object;
 
@@ -195,9 +193,13 @@ bool GPU_framebuffer_texture_cubeface_attach(GPUFrameBuffer *fb, GPUTexture *tex
 	else
 		attachment = GL_COLOR_ATTACHMENT0 + slot;
 
-	facetarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + face;
-
-	glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, facetarget, GPU_texture_opengl_bindcode(tex), mip);
+	if (cubemap) {
+		facetarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + layer;
+		glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, facetarget, GPU_texture_opengl_bindcode(tex), mip);
+	}
+	else {
+		glFramebufferTextureLayer(GL_FRAMEBUFFER, attachment, GPU_texture_opengl_bindcode(tex), mip, layer);
+	}
 
 	if (GPU_texture_depth(tex))
 		fb->depthtex = tex;
@@ -207,6 +209,17 @@ bool GPU_framebuffer_texture_cubeface_attach(GPUFrameBuffer *fb, GPUTexture *tex
 	GPU_texture_framebuffer_set(tex, fb, slot);
 
 	return true;
+}
+
+bool GPU_framebuffer_texture_layer_attach(GPUFrameBuffer *fb, GPUTexture *tex, int slot, int layer, int mip)
+{
+	return gpu_framebuffer_texture_layer_attach_ex(fb, tex, slot, layer, mip, false);
+}
+
+bool GPU_framebuffer_texture_cubeface_attach(GPUFrameBuffer *fb, GPUTexture *tex, int slot, int face, int mip)
+{
+	BLI_assert(GPU_texture_target(tex) == GL_TEXTURE_CUBE_MAP);
+	return gpu_framebuffer_texture_layer_attach_ex(fb, tex, slot, face, mip, true);
 }
 
 void GPU_framebuffer_texture_detach(GPUTexture *tex)
@@ -435,9 +448,9 @@ void GPU_framebuffer_blur(
 	const float fullscreencos[4][2] = {{-1.0f, -1.0f}, {1.0f, -1.0f}, {-1.0f, 1.0f}, {1.0f, 1.0f}};
 	const float fullscreenuvs[4][2] = {{0.0f, 0.0f}, {1.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 1.0f}};
 
-	static VertexFormat format = {0};
-	static VertexBuffer vbo = {{0}};
-	static Batch batch = {{0}};
+	static Gwn_VertFormat format = {0};
+	static Gwn_VertBuf vbo = {{0}};
+	static Gwn_Batch batch = {{0}};
 
 	const float scaleh[2] = {1.0f / GPU_texture_width(blurtex), 0.0f};
 	const float scalev[2] = {0.0f, 1.0f / GPU_texture_height(tex)};
@@ -451,23 +464,23 @@ void GPU_framebuffer_blur(
 	if (format.attrib_ct == 0) {
 		unsigned int i = 0;
 		/* Vertex format */
-		unsigned int pos = VertexFormat_add_attrib(&format, "pos", COMP_F32, 2, KEEP_FLOAT);
-		unsigned int uvs = VertexFormat_add_attrib(&format, "uvs", COMP_F32, 2, KEEP_FLOAT);
+		unsigned int pos = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
+		unsigned int uvs = GWN_vertformat_attr_add(&format, "uvs", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
 
 		/* Vertices */
-		VertexBuffer_init_with_format(&vbo, &format);
-		VertexBuffer_allocate_data(&vbo, 36);
+		GWN_vertbuf_init_with_format(&vbo, &format);
+		GWN_vertbuf_data_alloc(&vbo, 36);
 
 		for (int j = 0; j < 3; ++j) {
-			VertexBuffer_set_attrib(&vbo, uvs, i, fullscreenuvs[j]);
-			VertexBuffer_set_attrib(&vbo, pos, i++, fullscreencos[j]);
+			GWN_vertbuf_attr_set(&vbo, uvs, i, fullscreenuvs[j]);
+			GWN_vertbuf_attr_set(&vbo, pos, i++, fullscreencos[j]);
 		}
 		for (int j = 1; j < 4; ++j) {
-			VertexBuffer_set_attrib(&vbo, uvs, i, fullscreenuvs[j]);
-			VertexBuffer_set_attrib(&vbo, pos, i++, fullscreencos[j]);
+			GWN_vertbuf_attr_set(&vbo, uvs, i, fullscreenuvs[j]);
+			GWN_vertbuf_attr_set(&vbo, pos, i++, fullscreencos[j]);
 		}
 
-		Batch_init(&batch, GL_TRIANGLES, &vbo, NULL);
+		GWN_batch_init(&batch, GL_TRIANGLES, &vbo, NULL);
 	}
 		
 	glDisable(GL_DEPTH_TEST);
@@ -486,9 +499,9 @@ void GPU_framebuffer_blur(
 	GPU_texture_bind(tex, 0);
 
 	Batch_set_builtin_program(&batch, GPU_SHADER_SEP_GAUSSIAN_BLUR);
-	Batch_Uniform2f(&batch, "ScaleU", scaleh[0], scaleh[1]);
-	Batch_Uniform1i(&batch, "textureSource", GL_TEXTURE0);
-	Batch_draw(&batch);
+	GWN_batch_uniform_2f(&batch, "ScaleU", scaleh[0], scaleh[1]);
+	GWN_batch_uniform_1i(&batch, "textureSource", GL_TEXTURE0);
+	GWN_batch_draw(&batch);
 
 	/* Blurring vertically */
 	glBindFramebuffer(GL_FRAMEBUFFER, fb->object);
@@ -502,9 +515,9 @@ void GPU_framebuffer_blur(
 
 	/* Hack to make the following uniform stick */
 	Batch_set_builtin_program(&batch, GPU_SHADER_SEP_GAUSSIAN_BLUR);
-	Batch_Uniform2f(&batch, "ScaleU", scalev[0], scalev[1]);
-	Batch_Uniform1i(&batch, "textureSource", GL_TEXTURE0);
-	Batch_draw(&batch);
+	GWN_batch_uniform_2f(&batch, "ScaleU", scalev[0], scalev[1]);
+	GWN_batch_uniform_1i(&batch, "textureSource", GL_TEXTURE0);
+	GWN_batch_draw(&batch);
 }
 
 void GPU_framebuffer_blit(GPUFrameBuffer *fb_read, int read_slot, GPUFrameBuffer *fb_write, int write_slot, bool use_depth)
