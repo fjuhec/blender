@@ -109,9 +109,9 @@ static void gpencil_batch_cache_resize(bGPdata *gpd, int slots)
 {
 	GpencilBatchCache *cache = gpd->batch_cache;
 	cache->cache_size = slots;
-	cache->batch_stroke = MEM_recallocN(cache->batch_stroke, sizeof(struct Batch) * slots);
-	cache->batch_fill = MEM_recallocN(cache->batch_fill, sizeof(struct Batch) * slots);
-	cache->batch_edit = MEM_recallocN(cache->batch_edit, sizeof(struct Batch) * slots);
+	cache->batch_stroke = MEM_recallocN(cache->batch_stroke, sizeof(struct Gwn_Batch) * slots);
+	cache->batch_fill = MEM_recallocN(cache->batch_fill, sizeof(struct Gwn_Batch) * slots);
+	cache->batch_edit = MEM_recallocN(cache->batch_edit, sizeof(struct Gwn_Batch) * slots);
 }
 
 /* check size and increase if no free slots */
@@ -142,9 +142,9 @@ static void gpencil_batch_cache_init(bGPdata *gpd, int cfra)
 	}
 
 	cache->cache_size = GPENCIL_MIN_BATCH_SLOTS_CHUNK;
-	cache->batch_stroke = MEM_callocN(sizeof(struct Batch) * cache->cache_size, "Gpencil_Batch_Stroke");
-	cache->batch_fill = MEM_callocN(sizeof(struct Batch) * cache->cache_size, "Gpencil_Batch_Fill");
-	cache->batch_edit = MEM_callocN(sizeof(struct Batch) * cache->cache_size, "Gpencil_Batch_Edit");
+	cache->batch_stroke = MEM_callocN(sizeof(struct Gwn_Batch) * cache->cache_size, "Gpencil_Batch_Stroke");
+	cache->batch_fill = MEM_callocN(sizeof(struct Gwn_Batch) * cache->cache_size, "Gpencil_Batch_Fill");
+	cache->batch_edit = MEM_callocN(sizeof(struct Gwn_Batch) * cache->cache_size, "Gpencil_Batch_Edit");
 
 	cache->is_editmode = gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE);
 	gpd->flag &= ~GP_DATA_CACHE_IS_DIRTY;

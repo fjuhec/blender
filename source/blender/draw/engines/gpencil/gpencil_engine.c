@@ -153,7 +153,7 @@ static void GPENCIL_cache_init(void *vedata)
 		stl->g_data->shgrps_drawing_fill = DRW_gpencil_shgroup_drawing_fill_create(psl->drawing_pass, e_data.gpencil_drawing_fill_sh);
 
 		/* we need a full screen pass to combine the result of zdepth */
-		struct Batch *quad = DRW_cache_fullscreen_quad_get();
+		struct Gwn_Batch *quad = DRW_cache_fullscreen_quad_get();
 
 		psl->mix_pass = DRW_pass_create("GPencil Mix Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 		DRWShadingGroup *mix_shgrp = DRW_shgroup_create(e_data.gpencil_fullscreen_sh, psl->mix_pass);

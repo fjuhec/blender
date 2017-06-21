@@ -50,7 +50,7 @@
 #include "gpencil_engine.h"
 
 /* set stroke point to vbo */
-static void gpencil_set_stroke_point(VertexBuffer *vbo, float matrix[4][4], const bGPDspoint *pt, int idx,
+static void gpencil_set_stroke_point(Gwn_VertBuf *vbo, float matrix[4][4], const bGPDspoint *pt, int idx,
 						    unsigned int pos_id, unsigned int color_id,
 							unsigned int thickness_id, short thickness,
 	                        const float ink[4])
@@ -61,62 +61,62 @@ static void gpencil_set_stroke_point(VertexBuffer *vbo, float matrix[4][4], cons
 	CLAMP(alpha, GPENCIL_STRENGTH_MIN, 1.0f);
 	float col[4];
 	ARRAY_SET_ITEMS(col, ink[0], ink[1], ink[2], alpha);
-	VertexBuffer_set_attrib(vbo, color_id, idx, col);
+	GWN_vertbuf_attr_set(vbo, color_id, idx, col);
 
 	/* the thickness of the stroke must be affected by zoom, so a pixel scale is calculated */
 	mul_v3_m4v3(viewfpt, matrix, &pt->x);
 	float thick = max_ff(pt->pressure * thickness, 1.0f);
-	VertexBuffer_set_attrib(vbo, thickness_id, idx, &thick);
+	GWN_vertbuf_attr_set(vbo, thickness_id, idx, &thick);
 	
-	VertexBuffer_set_attrib(vbo, pos_id, idx, &pt->x);
+	GWN_vertbuf_attr_set(vbo, pos_id, idx, &pt->x);
 }
 
 /* create batch geometry data for one point stroke shader */
-Batch *DRW_gpencil_get_point_geom(bGPDspoint *pt, short thickness, const float ink[4])
+Gwn_Batch *DRW_gpencil_get_point_geom(bGPDspoint *pt, short thickness, const float ink[4])
 {
-	static VertexFormat format = { 0 };
+	static Gwn_VertFormat format = { 0 };
 	static unsigned int pos_id, color_id, size_id;
 	if (format.attrib_ct == 0) {
-		pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
-		color_id = VertexFormat_add_attrib(&format, "color", COMP_F32, 4, KEEP_FLOAT);
-		size_id = VertexFormat_add_attrib(&format, "size", COMP_F32, 1, KEEP_FLOAT);
+		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
+		color_id = GWN_vertformat_attr_add(&format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
+		size_id = GWN_vertformat_attr_add(&format, "size", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
 	}
 
-	VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
-	VertexBuffer_allocate_data(vbo, 1);
+	Gwn_VertBuf *vbo =  GWN_vertbuf_create_with_format(&format);
+	GWN_vertbuf_data_alloc(vbo, 1);
 
 	float alpha = ink[3] * pt->strength;
 	CLAMP(alpha, GPENCIL_STRENGTH_MIN, 1.0f);
 	float col[4];
 	ARRAY_SET_ITEMS(col, ink[0], ink[1], ink[2], alpha);
-	VertexBuffer_set_attrib(vbo, color_id, 0, col);
+	GWN_vertbuf_attr_set(vbo, color_id, 0, col);
 
 	float thick = max_ff(pt->pressure * thickness, 1.0f);
-	VertexBuffer_set_attrib(vbo, size_id, 0, &thick);
+	GWN_vertbuf_attr_set(vbo, size_id, 0, &thick);
 
-	VertexBuffer_set_attrib(vbo, pos_id, 0, &pt->x);
+	GWN_vertbuf_attr_set(vbo, pos_id, 0, &pt->x);
 
-	return Batch_create(PRIM_POINTS, vbo, NULL);
+	return GWN_batch_create(GWN_PRIM_POINTS, vbo, NULL);
 }
 
 /* create batch geometry data for stroke shader */
-Batch *DRW_gpencil_get_stroke_geom(bGPDframe *gpf, bGPDstroke *gps, short thickness, const float ink[4])
+Gwn_Batch *DRW_gpencil_get_stroke_geom(bGPDframe *gpf, bGPDstroke *gps, short thickness, const float ink[4])
 {
 	bGPDspoint *points = gps->points;
 	int totpoints = gps->totpoints;
 	/* if cyclic needs more vertex */
 	int cyclic_add = (gps->flag & GP_STROKE_CYCLIC) ? 2 : 0;
 
-	static VertexFormat format = { 0 };
+	static Gwn_VertFormat format = { 0 };
 	static unsigned int pos_id, color_id, thickness_id;
 	if (format.attrib_ct == 0) {
-		pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
-		color_id = VertexFormat_add_attrib(&format, "color", COMP_F32, 4, KEEP_FLOAT);
-		thickness_id = VertexFormat_add_attrib(&format, "thickness", COMP_F32, 1, KEEP_FLOAT);
+		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
+		color_id = GWN_vertformat_attr_add(&format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
+		thickness_id = GWN_vertformat_attr_add(&format, "thickness", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
 	}
 
-	VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
-	VertexBuffer_allocate_data(vbo, totpoints + cyclic_add + 2);
+	Gwn_VertBuf *vbo =  GWN_vertbuf_create_with_format(&format);
+	GWN_vertbuf_data_alloc(vbo, totpoints + cyclic_add + 2);
 
 	/* draw stroke curve */
 	const bGPDspoint *pt = points;
@@ -147,7 +147,7 @@ Batch *DRW_gpencil_get_stroke_geom(bGPDframe *gpf, bGPDstroke *gps, short thickn
 		gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[totpoints - 2], idx, pos_id, color_id, thickness_id, thickness, ink);
 	}
 
-	return Batch_create(PRIM_LINE_STRIP_ADJACENCY, vbo, NULL);
+	return GWN_batch_create(GWN_PRIM_LINE_STRIP_ADJ, vbo, NULL);
 }
 
 /* helper to convert 2d to 3d for simple drawing buffer */
@@ -190,7 +190,7 @@ static void gpencil_tpoint_to_point(Scene *scene, ARegion *ar, View3D *v3d, cons
 }
 
 /* create batch geometry data for current buffer for one point stroke shader */
-Batch *DRW_gpencil_get_buffer_point_geom(bGPdata *gpd, short thickness)
+Gwn_Batch *DRW_gpencil_get_buffer_point_geom(bGPdata *gpd, short thickness)
 {
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
@@ -202,16 +202,16 @@ Batch *DRW_gpencil_get_buffer_point_geom(bGPdata *gpd, short thickness)
 	float ink[4];
 	copy_v4_v4(ink, gpd->scolor);
 
-	static VertexFormat format = { 0 };
+	static Gwn_VertFormat format = { 0 };
 	static unsigned int pos_id, color_id, size_id;
 	if (format.attrib_ct == 0) {
-		pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
-		color_id = VertexFormat_add_attrib(&format, "color", COMP_F32, 4, KEEP_FLOAT);
-		size_id = VertexFormat_add_attrib(&format, "size", COMP_F32, 1, KEEP_FLOAT);
+		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
+		color_id = GWN_vertformat_attr_add(&format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
+		size_id = GWN_vertformat_attr_add(&format, "size", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
 	}
 
-	VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
-	VertexBuffer_allocate_data(vbo, 1);
+	Gwn_VertBuf *vbo =  GWN_vertbuf_create_with_format(&format);
+	GWN_vertbuf_data_alloc(vbo, 1);
 	
 	/* convert to 3D */
 	gpencil_tpoint_to_point(scene, ar, v3d, tpt, &pt);
@@ -220,18 +220,18 @@ Batch *DRW_gpencil_get_buffer_point_geom(bGPdata *gpd, short thickness)
 	CLAMP(alpha, GPENCIL_STRENGTH_MIN, 1.0f);
 	float col[4];
 	ARRAY_SET_ITEMS(col, ink[0], ink[1], ink[2], alpha);
-	VertexBuffer_set_attrib(vbo, color_id, 0, col);
+	GWN_vertbuf_attr_set(vbo, color_id, 0, col);
 
 	float thick = max_ff(pt.pressure * thickness, 1.0f);
-	VertexBuffer_set_attrib(vbo, size_id, 0, &thick);
+	GWN_vertbuf_attr_set(vbo, size_id, 0, &thick);
 
-	VertexBuffer_set_attrib(vbo, pos_id, 0, &pt.x);
+	GWN_vertbuf_attr_set(vbo, pos_id, 0, &pt.x);
 
-	return Batch_create(PRIM_POINTS, vbo, NULL);
+	return GWN_batch_create(GWN_PRIM_POINTS, vbo, NULL);
 }
 
 /* create batch geometry data for current buffer stroke shader */
-Batch *DRW_gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], short thickness)
+Gwn_Batch *DRW_gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], short thickness)
 {
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
@@ -244,16 +244,16 @@ Batch *DRW_gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], shor
 	tGPspoint *points = gpd->sbuffer;
 	int totpoints = gpd->sbuffer_size;
 
-	static VertexFormat format = { 0 };
+	static Gwn_VertFormat format = { 0 };
 	static unsigned int pos_id, color_id, thickness_id;
 	if (format.attrib_ct == 0) {
-		pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
-		color_id = VertexFormat_add_attrib(&format, "color", COMP_F32, 4, KEEP_FLOAT);
-		thickness_id = VertexFormat_add_attrib(&format, "thickness", COMP_F32, 1, KEEP_FLOAT);
+		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
+		color_id = GWN_vertformat_attr_add(&format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
+		thickness_id = GWN_vertformat_attr_add(&format, "thickness", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
 	}
 
-	VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
-	VertexBuffer_allocate_data(vbo, totpoints + 2);
+	Gwn_VertBuf *vbo =  GWN_vertbuf_create_with_format(&format);
+	GWN_vertbuf_data_alloc(vbo, totpoints + 2);
 
 	/* draw stroke curve */
 	const tGPspoint *tpt = points;
@@ -282,11 +282,11 @@ Batch *DRW_gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], shor
 	/* last adjacency point (not drawn) */
 	gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
 
-	return Batch_create(PRIM_LINE_STRIP_ADJACENCY, vbo, NULL);
+	return GWN_batch_create(GWN_PRIM_LINE_STRIP_ADJ, vbo, NULL);
 }
 
 /* create batch geometry data for current buffer fill shader */
-Batch *DRW_gpencil_get_buffer_fill_geom(const tGPspoint *points, int totpoints, float ink[4])
+Gwn_Batch *DRW_gpencil_get_buffer_fill_geom(const tGPspoint *points, int totpoints, float ink[4])
 {
 	if (totpoints < 3) {
 		return NULL;
@@ -313,18 +313,18 @@ Batch *DRW_gpencil_get_buffer_fill_geom(const tGPspoint *points, int totpoints, 
 	}
 	BLI_polyfill_calc((const float(*)[2])points2d, (unsigned int)totpoints, 0, (unsigned int(*)[3])tmp_triangles);
 
-	static VertexFormat format = { 0 };
+	static Gwn_VertFormat format = { 0 };
 	static unsigned int pos_id, color_id;
 	if (format.attrib_ct == 0) {
-		pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
-		color_id = VertexFormat_add_attrib(&format, "color", COMP_F32, 4, KEEP_FLOAT);
+		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
+		color_id = GWN_vertformat_attr_add(&format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
 	}
 
-	VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
+	Gwn_VertBuf *vbo =  GWN_vertbuf_create_with_format(&format);
 
 	/* draw triangulation data */
 	if (tot_triangles > 0) {
-		VertexBuffer_allocate_data(vbo, tot_triangles * 3);
+		GWN_vertbuf_data_alloc(vbo, tot_triangles * 3);
 
 		const tGPspoint *tpt;
 		bGPDspoint pt;
@@ -334,20 +334,20 @@ Batch *DRW_gpencil_get_buffer_fill_geom(const tGPspoint *points, int totpoints, 
 			/* vertex 1 */
 			tpt = &points[tmp_triangles[i][0]];
 			gpencil_tpoint_to_point(scene, ar, v3d, tpt, &pt);
-			VertexBuffer_set_attrib(vbo, pos_id, idx, &pt.x);
-			VertexBuffer_set_attrib(vbo, color_id, idx, ink);
+			GWN_vertbuf_attr_set(vbo, pos_id, idx, &pt.x);
+			GWN_vertbuf_attr_set(vbo, color_id, idx, ink);
 			++idx;
 			/* vertex 2 */
 			tpt = &points[tmp_triangles[i][1]];
 			gpencil_tpoint_to_point(scene, ar, v3d, tpt, &pt);
-			VertexBuffer_set_attrib(vbo, pos_id, idx, &pt.x);
-			VertexBuffer_set_attrib(vbo, color_id, idx, ink);
+			GWN_vertbuf_attr_set(vbo, pos_id, idx, &pt.x);
+			GWN_vertbuf_attr_set(vbo, color_id, idx, ink);
 			++idx;
 			/* vertex 3 */
 			tpt = &points[tmp_triangles[i][2]];
 			gpencil_tpoint_to_point(scene, ar, v3d, tpt, &pt);
-			VertexBuffer_set_attrib(vbo, pos_id, idx, &pt.x);
-			VertexBuffer_set_attrib(vbo, color_id, idx, ink);
+			GWN_vertbuf_attr_set(vbo, pos_id, idx, &pt.x);
+			GWN_vertbuf_attr_set(vbo, color_id, idx, ink);
 			++idx;
 		}
 	}
@@ -360,7 +360,7 @@ Batch *DRW_gpencil_get_buffer_fill_geom(const tGPspoint *points, int totpoints, 
 		MEM_freeN(points2d);
 	}
 
-	return Batch_create(PRIM_TRIANGLES, vbo, NULL);
+	return GWN_batch_create(GWN_PRIM_TRIS, vbo, NULL);
 }
 
 
@@ -544,16 +544,16 @@ static void gp_triangulate_stroke_fill(bGPDstroke *gps)
 }
 
 /* add a new fill point and texture coordinates to vertex buffer */
-static void gpencil_set_fill_point(VertexBuffer *vbo, int idx, bGPDspoint *pt, const float fcolor[4], float uv[2],
+static void gpencil_set_fill_point(Gwn_VertBuf *vbo, int idx, bGPDspoint *pt, const float fcolor[4], float uv[2],
 	unsigned int pos_id, unsigned int color_id, unsigned int text_id)
 {
-	VertexBuffer_set_attrib(vbo, pos_id, idx, &pt->x);
-	VertexBuffer_set_attrib(vbo, color_id, idx, fcolor);
-	VertexBuffer_set_attrib(vbo, text_id, idx, uv);
+	GWN_vertbuf_attr_set(vbo, pos_id, idx, &pt->x);
+	GWN_vertbuf_attr_set(vbo, color_id, idx, fcolor);
+	GWN_vertbuf_attr_set(vbo, text_id, idx, uv);
 }
 
 /* create batch geometry data for stroke shader */
-Batch *DRW_gpencil_get_fill_geom(bGPDstroke *gps, const float color[4])
+Gwn_Batch *DRW_gpencil_get_fill_geom(bGPDstroke *gps, const float color[4])
 {
 	BLI_assert(gps->totpoints >= 3);
 
@@ -563,16 +563,16 @@ Batch *DRW_gpencil_get_fill_geom(bGPDstroke *gps, const float color[4])
 	}
 	BLI_assert(gps->tot_triangles >= 1);
 
-	static VertexFormat format = { 0 };
+	static Gwn_VertFormat format = { 0 };
 	static unsigned int pos_id, color_id, text_id;
 	if (format.attrib_ct == 0) {
-		pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
-		color_id = VertexFormat_add_attrib(&format, "color", COMP_F32, 4, KEEP_FLOAT);
-		text_id = VertexFormat_add_attrib(&format, "texCoord", COMP_F32, 2, KEEP_FLOAT);
+		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
+		color_id = GWN_vertformat_attr_add(&format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
+		text_id = GWN_vertformat_attr_add(&format, "texCoord", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
 	}
 
-	VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
-	VertexBuffer_allocate_data(vbo, gps->tot_triangles * 3);
+	Gwn_VertBuf *vbo =  GWN_vertbuf_create_with_format(&format);
+	GWN_vertbuf_data_alloc(vbo, gps->tot_triangles * 3);
 
 	/* Draw all triangles for filling the polygon (cache must be calculated before) */
 	bGPDtriangle *stroke_triangle = gps->triangles;
@@ -589,11 +589,11 @@ Batch *DRW_gpencil_get_fill_geom(bGPDstroke *gps, const float color[4])
 		++idx;
 	}
 
-	return Batch_create(PRIM_TRIANGLES, vbo, NULL);
+	return GWN_batch_create(GWN_PRIM_TRIS, vbo, NULL);
 }
 
 /* Draw selected verts for strokes being edited */
-Batch *DRW_gpencil_get_edit_geom(bGPDstroke *gps, float alpha, short dflag)
+Gwn_Batch *DRW_gpencil_get_edit_geom(bGPDstroke *gps, float alpha, short dflag)
 {
 	/* Get size of verts:
 	* - The selected state needs to be larger than the unselected state so that
@@ -618,16 +618,16 @@ Batch *DRW_gpencil_get_edit_geom(bGPDstroke *gps, float alpha, short dflag)
 	UI_GetThemeColor3fv(TH_GP_VERTEX_SELECT, selectColor);
 	selectColor[3] = alpha;
 
-	static VertexFormat format = { 0 };
+	static Gwn_VertFormat format = { 0 };
 	static unsigned int pos_id, color_id, size_id;
 	if (format.attrib_ct == 0) {
-		pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
-		color_id = VertexFormat_add_attrib(&format, "color", COMP_F32, 4, KEEP_FLOAT);
-		size_id = VertexFormat_add_attrib(&format, "size", COMP_F32, 1, KEEP_FLOAT);
+		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
+		color_id = GWN_vertformat_attr_add(&format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
+		size_id = GWN_vertformat_attr_add(&format, "size", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
 	}
 
-	VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
-	VertexBuffer_allocate_data(vbo, gps->totpoints);
+	Gwn_VertBuf *vbo =  GWN_vertbuf_create_with_format(&format);
+	GWN_vertbuf_data_alloc(vbo, gps->totpoints);
 
 	/* Draw start and end point differently if enabled stroke direction hint */
 	bool show_direction_hint = (dflag & GP_DATA_SHOW_DIRECTION) && (gps->totpoints > 1);
@@ -658,11 +658,11 @@ Batch *DRW_gpencil_get_edit_geom(bGPDstroke *gps, float alpha, short dflag)
 			fsize = bsize;
 		}
 
-		VertexBuffer_set_attrib(vbo, color_id, idx, fcolor);
-		VertexBuffer_set_attrib(vbo, size_id, idx, &fsize);
-		VertexBuffer_set_attrib(vbo, pos_id, idx, &pt->x);
+		GWN_vertbuf_attr_set(vbo, color_id, idx, fcolor);
+		GWN_vertbuf_attr_set(vbo, size_id, idx, &fsize);
+		GWN_vertbuf_attr_set(vbo, pos_id, idx, &pt->x);
 		++idx;
 	}
 
-	return Batch_create(PRIM_POINTS, vbo, NULL);
+	return GWN_batch_create(GWN_PRIM_POINTS, vbo, NULL);
 }

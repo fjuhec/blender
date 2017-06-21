@@ -65,7 +65,7 @@ struct Gwn_Batch *DRW_cache_field_tube_limit_get(void);
 struct Gwn_Batch *DRW_cache_field_cone_limit_get(void);
 
 /* Grease Pencil */
-struct Batch *DRW_cache_gpencil_axes_get(void);
+struct Gwn_Batch *DRW_cache_gpencil_axes_get(void);
 
 /* Lamps */
 struct Gwn_Batch *DRW_cache_lamp_get(void);

@@ -506,22 +506,22 @@ Gwn_Batch *DRW_cache_gpencil_axes_get(void)
 		const GLubyte indices[24] = { 0, 1, 1, 3, 3, 2, 2, 0, 0, 4, 4, 5, 5, 7, 7, 6, 6, 4, 1, 5, 3, 7, 2, 6 };
 
 		/* Position Only 3D format */
-		static VertexFormat format = { 0 };
+		static Gwn_VertFormat format = { 0 };
 		static unsigned pos_id;
 		if (format.attrib_ct == 0) {
-			pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
+			pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
 		}
 
-		VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
-		VertexBuffer_allocate_data(vbo, 30);
+		Gwn_VertBuf *vbo =  GWN_vertbuf_create_with_format(&format);
+		GWN_vertbuf_data_alloc(vbo, 30);
 
 		/* draw axis */
 		for (axis = 0; axis < 3; axis++) {
 			v1[axis] = 1.0f;
 			v2[axis] = -1.0f;
 
-			VertexBuffer_set_attrib(vbo, pos_id, axis * 2, v1);
-			VertexBuffer_set_attrib(vbo, pos_id, axis * 2 + 1, v2);
+			GWN_vertbuf_attr_set(vbo, pos_id, axis * 2, v1);
+			GWN_vertbuf_attr_set(vbo, pos_id, axis * 2 + 1, v2);
 
 			/* reset v1 & v2 to zero for next axis */
 			v1[axis] = v2[axis] = 0.0f;
@@ -529,10 +529,10 @@ Gwn_Batch *DRW_cache_gpencil_axes_get(void)
 
 		/* draw cube */
 		for (int i = 0; i < 24; ++i) {
-			VertexBuffer_set_attrib(vbo, pos_id, i + 6, verts[indices[i]]);
+			GWN_vertbuf_attr_set(vbo, pos_id, i + 6, verts[indices[i]]);
 		}
 
-		SHC.drw_gpencil_axes = Batch_create(PRIM_LINES, vbo, NULL);
+		SHC.drw_gpencil_axes = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
 	}
 	return SHC.drw_gpencil_axes;
 }
