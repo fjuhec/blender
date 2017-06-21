@@ -125,7 +125,7 @@ static SpaceLink *console_duplicate(SpaceLink *sl)
 
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void console_main_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
+static void console_main_region_init(wmWindowManager *wm, ARegion *ar)
 {
 	wmKeyMap *keymap;
 	ListBase *lb;
@@ -358,7 +358,7 @@ static void console_keymap(struct wmKeyConfig *keyconf)
 /****************** header region ******************/
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void console_header_region_init(wmWindowManager *UNUSED(wm), const bScreen *UNUSED(sc), ARegion *ar)
+static void console_header_region_init(wmWindowManager *UNUSED(wm), ARegion *ar)
 {
 	ED_region_header_init(ar);
 }

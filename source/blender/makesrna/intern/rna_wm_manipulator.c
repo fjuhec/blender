@@ -242,10 +242,12 @@ static void rna_Manipulator_bl_idname_set(PointerRNA *ptr, const char *value)
 
 static wmManipulator *rna_ManipulatorProperties_find_operator(PointerRNA *ptr)
 {
-	bScreen *screen = ptr->id.data;
+#if 0
+	wmWindowManager *wm = ptr->id.data;
+#endif
 
 	/* We could try workaruond this lookup, but not trivial. */
-	if (screen) {
+	for (bScreen *screen = G.main->screen.first; screen; screen = screen->id.next) {
 		IDProperty *properties = (IDProperty *)ptr->data;
 		for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
 			for (ARegion *ar = sa->regionbase.first; ar; ar = ar->next) {

@@ -89,7 +89,7 @@ enum eManipulatorMapUpdateFlags {
  * Creates a manipulator-map with all registered manipulators for that type
  */
 wmManipulatorMap *WM_manipulatormap_new_from_type(
-        const bScreen *screen, const struct wmManipulatorMapType_Params *mmap_params)
+        const struct wmManipulatorMapType_Params *mmap_params)
 {
 	wmManipulatorMapType *mmap_type = WM_manipulatormaptype_ensure(mmap_params);
 	wmManipulatorMap *mmap;
@@ -97,8 +97,6 @@ wmManipulatorMap *WM_manipulatormap_new_from_type(
 	mmap = MEM_callocN(sizeof(wmManipulatorMap), "ManipulatorMap");
 	mmap->type = mmap_type;
 	mmap->update_flag = MANIPULATORMAP_REFRESH;
-
-	mmap->parent_screen = screen;
 
 	/* create all manipulator-groups for this manipulator-map. We may create an empty one
 	 * too in anticipation of manipulators from operators etc */

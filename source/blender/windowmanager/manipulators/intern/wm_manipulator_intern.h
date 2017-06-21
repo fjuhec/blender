@@ -83,8 +83,6 @@ struct wmManipulatorMap {
 
 	char update_flag; /* private, update tagging */
 
-	const struct bScreen *parent_screen;
-
 	/**
 	 * \brief Manipulator map runtime context
 	 *

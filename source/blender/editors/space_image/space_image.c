@@ -666,7 +666,7 @@ static void image_main_region_set_view2d(SpaceImage *sima, ARegion *ar)
 }
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void image_main_region_init(wmWindowManager *wm, const bScreen *sc, ARegion *ar)
+static void image_main_region_init(wmWindowManager *wm, ARegion *ar)
 {
 	wmKeyMap *keymap;
 	
@@ -679,7 +679,7 @@ static void image_main_region_init(wmWindowManager *wm, const bScreen *sc, ARegi
 			.spaceid = SPACE_IMAGE,
 			.regionid = RGN_TYPE_WINDOW,
 		};
-		ar->manipulator_map = WM_manipulatormap_new_from_type(sc, &wmap_params);
+		ar->manipulator_map = WM_manipulatormap_new_from_type(&wmap_params);
 	}
 	WM_manipulatormap_add_handlers(ar, ar->manipulator_map);
 
@@ -877,7 +877,7 @@ static void image_main_region_listener(
 /* *********************** buttons region ************************ */
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void image_buttons_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
+static void image_buttons_region_init(wmWindowManager *wm, ARegion *ar)
 {
 	wmKeyMap *keymap;
 
@@ -931,7 +931,7 @@ static void image_buttons_region_listener(
 /* *********************** scopes region ************************ */
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void image_tools_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
+static void image_tools_region_init(wmWindowManager *wm, ARegion *ar)
 {
 	wmKeyMap *keymap;
 	
@@ -1006,7 +1006,7 @@ static void image_tools_region_listener(
 /************************* header region **************************/
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void image_header_region_init(wmWindowManager *UNUSED(wm), const bScreen *UNUSED(sc), ARegion *ar)
+static void image_header_region_init(wmWindowManager *UNUSED(wm), ARegion *ar)
 {
 	ED_region_header_init(ar);
 }

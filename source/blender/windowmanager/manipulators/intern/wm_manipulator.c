@@ -46,6 +46,8 @@
 #include "RNA_access.h"
 #include "RNA_define.h"
 
+#include "BKE_global.h"
+#include "BKE_main.h"
 #include "BKE_idprop.h"
 
 #include "WM_api.h"
@@ -69,7 +71,7 @@ static void wm_manipulator_register(
  * \note Follow #wm_operator_create convention.
  */
 static wmManipulator *wm_manipulator_create(
-        bScreen *screen, const wmManipulatorType *wt,
+        const wmManipulatorType *wt,
         PointerRNA *properties)
 {
 	BLI_assert(wt != NULL);
@@ -87,7 +89,7 @@ static wmManipulator *wm_manipulator_create(
 		IDPropertyTemplate val = {0};
 		mpr->properties = IDP_New(IDP_GROUP, &val, "wmManipulatorProperties");
 	}
-	RNA_pointer_create(&screen->id, wt->srna, mpr->properties, mpr->ptr);
+	RNA_pointer_create(G.main->wm.first, wt->srna, mpr->properties, mpr->ptr);
 
 	WM_manipulator_properties_sanitize(mpr->ptr, 0);
 
@@ -101,8 +103,7 @@ wmManipulator *WM_manipulator_new_ptr(
         const wmManipulatorType *wt, wmManipulatorGroup *mgroup,
         const char *name, PointerRNA *properties)
 {
-	bScreen *screen = (bScreen *)mgroup->parent_mmap->parent_screen;
-	wmManipulator *mpr = wm_manipulator_create(screen, wt, properties);
+	wmManipulator *mpr = wm_manipulator_create(wt, properties);
 
 	wm_manipulator_register(mgroup, mpr, name);
 

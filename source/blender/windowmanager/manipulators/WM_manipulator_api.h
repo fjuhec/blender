@@ -175,7 +175,7 @@ struct wmKeyMap *WM_manipulatorgroup_keymap_common_select(
 /* wmManipulatorMap */
 
 struct wmManipulatorMap *WM_manipulatormap_new_from_type(
-        const struct bScreen *screen, const struct wmManipulatorMapType_Params *mmap_params);
+        const struct wmManipulatorMapType_Params *mmap_params);
 const struct ListBase *WM_manipulatormap_group_list(struct wmManipulatorMap *mmap);
 void WM_manipulatormap_tag_refresh(struct wmManipulatorMap *mmap);
 void WM_manipulatormap_draw(struct wmManipulatorMap *mmap, const struct bContext *C, const int drawstep);

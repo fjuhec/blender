@@ -1129,7 +1129,7 @@ static void movieclip_main_area_set_view2d(const bContext *C, ARegion *ar)
 }
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void clip_main_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
+static void clip_main_region_init(wmWindowManager *wm, ARegion *ar)
 {
 	wmKeyMap *keymap;
 
@@ -1255,7 +1255,7 @@ static void clip_main_region_listener(
 
 /****************** preview region ******************/
 
-static void clip_preview_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
+static void clip_preview_region_init(wmWindowManager *wm, ARegion *ar)
 {
 	wmKeyMap *keymap;
 
@@ -1359,7 +1359,7 @@ static void clip_preview_region_listener(
 
 /****************** channels region ******************/
 
-static void clip_channels_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
+static void clip_channels_region_init(wmWindowManager *wm, ARegion *ar)
 {
 	wmKeyMap *keymap;
 
@@ -1403,7 +1403,7 @@ static void clip_channels_region_listener(
 /****************** header region ******************/
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void clip_header_region_init(wmWindowManager *UNUSED(wm), const bScreen *UNUSED(sc), ARegion *ar)
+static void clip_header_region_init(wmWindowManager *UNUSED(wm), ARegion *ar)
 {
 	ED_region_header_init(ar);
 }
@@ -1438,7 +1438,7 @@ static void clip_header_region_listener(
 /****************** tools region ******************/
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void clip_tools_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
+static void clip_tools_region_init(wmWindowManager *wm, ARegion *ar)
 {
 	wmKeyMap *keymap;
 
@@ -1483,7 +1483,7 @@ static void clip_props_region_listener(
 /****************** properties region ******************/
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void clip_properties_region_init(wmWindowManager *wm, const bScreen *UNUSED(sc), ARegion *ar)
+static void clip_properties_region_init(wmWindowManager *wm, ARegion *ar)
 {
 	wmKeyMap *keymap;
 
