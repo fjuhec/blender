@@ -39,6 +39,7 @@
 
 #include "RNA_access.h"
 #include "RNA_define.h"
+#include "RNA_enum_types.h"
 
 #include "bpy_rna.h"
 #include "bpy_intern_string.h"
@@ -51,6 +52,64 @@
 /** \name Manipulator
  * \{ */
 
+
+static bool bpy_manipulatortype_target_property_def(
+        wmManipulatorType *wt, PyObject *item)
+{
+	/* Note: names based on 'rna_rna.c' */
+	PyObject *empty_tuple = PyTuple_New(0);
+	static const char * const _keywords[] = {"id", "type", "array_length", NULL};
+	static _PyArg_Parser _parser = {"|$ssi:register_class", _keywords, 0};
+
+	struct {
+		char *id;
+		char *type_id; int type;
+		int array_length;
+	} args = {
+		.id = NULL, /* not optional */
+		.type = PROP_FLOAT,
+		.type_id = NULL,
+		.array_length = 1,
+	};
+
+	if (!_PyArg_ParseTupleAndKeywordsFast(
+	        empty_tuple, item,
+	        &_parser,
+	        &args.id,
+	        &args.type_id,
+	        &args.array_length))
+	{
+		goto fail;
+	}
+
+	if (args.id == NULL) {
+		PyErr_SetString(PyExc_ValueError, "'id' argument not given");
+		goto fail;
+	}
+
+	if ((args.type_id != NULL) &&
+	    pyrna_enum_value_from_id(
+	        rna_enum_property_type_items, args.type_id, &args.type, "'type' enum value") == -1)
+	{
+		goto fail;
+	}
+	else {
+		args.type = rna_enum_property_type_items[args.type].value;
+	}
+
+	if ((args.array_length < 1 || args.array_length > RNA_MAX_ARRAY_LENGTH)) {
+		PyErr_SetString(PyExc_ValueError, "'array_length' out of range");
+		goto fail;
+	}
+
+	WM_manipulatortype_target_property_def(wt, args.id, args.type, args.array_length);
+	Py_DECREF(empty_tuple);
+	return true;
+
+fail:
+	Py_DECREF(empty_tuple);
+	return false;
+}
 
 static void manipulator_properties_init(wmManipulatorType *wt)
 {
@@ -65,6 +124,35 @@ static void manipulator_properties_init(wmManipulatorType *wt)
 	if (pyrna_deferred_register_class(wt->srna, py_class) != 0) {
 		PyErr_Print(); /* failed to register operator props */
 		PyErr_Clear();
+	}
+
+	/* Extract target property definitions from 'bl_target_properties' */
+	{
+		/* picky developers will notice that 'bl_targets' won't work with inheritance
+		 * get direct from the dict to avoid raising a load of attribute errors (yes this isnt ideal) - campbell */
+		PyObject *py_class_dict = py_class->tp_dict;
+		PyObject *bl_target_properties = PyDict_GetItem(py_class_dict, bpy_intern_str_bl_target_properties);
+		PyObject *bl_target_properties_fast;
+
+		if (!(bl_target_properties_fast = PySequence_Fast(bl_target_properties, "bl_target_properties sequence"))) {
+			/* PySequence_Fast sets the error */
+			PyErr_Print();
+			PyErr_Clear();
+			return;
+		}
+
+		const uint items_len = PySequence_Fast_GET_SIZE(bl_target_properties_fast);
+		PyObject **items = PySequence_Fast_ITEMS(bl_target_properties_fast);
+
+		for (uint i = 0; i < items_len; i++) {
+			if (!bpy_manipulatortype_target_property_def(wt, items[i])) {
+				PyErr_Print();
+				PyErr_Clear();
+				break;
+			}
+		}
+
+		Py_DECREF(bl_target_properties_fast);
 	}
 }
 

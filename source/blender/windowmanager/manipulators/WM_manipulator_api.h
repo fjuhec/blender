@@ -161,6 +161,13 @@ void WM_manipulator_target_property_range_get(
         const struct wmManipulator *mpr, struct wmManipulatorProperty *mpr_prop,
         float range[2]);
 
+/* definitions */
+struct wmManipulatorPropertyType *WM_manipulatortype_target_property_find(
+        struct wmManipulatorType *wt, const char *idname);
+void WM_manipulatortype_target_property_def(
+        struct wmManipulatorType *wt, const char *idname, int type, int array_length);
+
+
 /* -------------------------------------------------------------------- */
 /* wmManipulatorGroup */
 

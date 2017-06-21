@@ -457,6 +457,8 @@ static void MANIPULATOR_WT_dial_3d(wmManipulatorType *wt)
 		{0, NULL, 0, NULL, NULL}
 	};
 	RNA_def_enum_flag(wt->srna, "draw_options", rna_enum_draw_options, 0, "Draw Options", "");
+
+	WM_manipulatortype_target_property_def(wt, "offset", PROP_FLOAT, 1);
 }
 
 void ED_manipulatortypes_dial_3d(void)

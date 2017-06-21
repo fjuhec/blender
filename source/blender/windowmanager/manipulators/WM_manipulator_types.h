@@ -144,6 +144,18 @@ typedef struct wmManipulatorProperty {
 	char idname[0];
 } wmManipulatorProperty;
 
+typedef struct wmManipulatorPropertyType {
+	struct wmManipulatorPropertyType *next, *prev;
+	/* PropertyType, typically 'PROP_FLOAT' */
+	int type;
+	int array_length;
+
+	/* over alloc */
+	char idname[0];
+} wmManipulatorPropertyType;
+
+
+
 /**
  * Simple utility wrapper for storing a single manipulator as wmManipulatorGroup.customdata (which gets freed).
  */
@@ -233,6 +245,9 @@ typedef struct wmManipulatorType {
 
 	/* RNA integration */
 	ExtensionRNA ext;
+
+	ListBase target_property_defs;
+
 } wmManipulatorType;
 
 

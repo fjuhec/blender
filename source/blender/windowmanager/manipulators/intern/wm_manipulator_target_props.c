@@ -201,3 +201,32 @@ void WM_manipulator_target_property_range_get(
 }
 
 /** \} */
+
+
+/* -------------------------------------------------------------------- */
+
+/** \name Property Define
+ * \{ */
+
+wmManipulatorPropertyType *WM_manipulatortype_target_property_find(
+        wmManipulatorType *wt, const char *idname)
+{
+	return BLI_findstring(&wt->target_property_defs, idname, offsetof(wmManipulatorPropertyType, idname));
+}
+
+void WM_manipulatortype_target_property_def(
+        wmManipulatorType *wt, const char *idname, int type, int array_length)
+{
+	wmManipulatorPropertyType *mpt;
+
+	BLI_assert(WM_manipulatortype_target_property_find(wt, idname) == NULL);
+
+	const uint idname_size = strlen(idname) + 1;
+	mpt = MEM_callocN(sizeof(wmManipulatorPropertyType) + idname_size, __func__);
+	memcpy(mpt->idname, idname, idname_size);
+	mpt->type = type;
+	mpt->array_length = array_length;
+	BLI_addtail(&wt->target_property_defs, mpt);
+}
+
+/** \} */

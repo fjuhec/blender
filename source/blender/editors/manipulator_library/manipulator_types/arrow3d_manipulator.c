@@ -484,6 +484,8 @@ static void MANIPULATOR_WT_arrow_3d(wmManipulatorType *wt)
 
 	RNA_def_float(wt->srna, "length", 1.0f, 0.0f, FLT_MAX, "Arrow Line Length", "", 0.0f, FLT_MAX);
 	RNA_def_float_vector(wt->srna, "aspect", 2, NULL, 0, FLT_MAX, "Aspect", "Cone/box style only", 0.0f, FLT_MAX);
+
+	WM_manipulatortype_target_property_def(wt, "offset", PROP_FLOAT, 1);
 }
 
 void ED_manipulatortypes_arrow_3d(void)

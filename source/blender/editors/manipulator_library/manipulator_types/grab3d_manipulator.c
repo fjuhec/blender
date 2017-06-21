@@ -250,6 +250,8 @@ static void MANIPULATOR_WT_grab_3d(wmManipulatorType *wt)
 
 	RNA_def_enum(wt->srna, "draw_style", rna_enum_draw_style, ED_MANIPULATOR_GRAB_STYLE_RING, "Draw Style", "");
 	RNA_def_enum_flag(wt->srna, "draw_options", rna_enum_draw_options, 0, "Draw Options", "");
+
+	WM_manipulatortype_target_property_def(wt, "offset", PROP_FLOAT, 3);
 }
 
 void ED_manipulatortypes_grab_3d(void)
