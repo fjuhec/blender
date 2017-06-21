@@ -1839,30 +1839,28 @@ static int pyrna_py_to_prop(
 				 * class mixing if this causes problems in the future it should be removed.
 				 */
 				if ((ptr_type == &RNA_AnyType) &&
-				    (BPy_StructRNA_Check(value)) &&
-				    (RNA_struct_is_a(((BPy_StructRNA *)value)->ptr.type, &RNA_Operator)))
+				    (BPy_StructRNA_Check(value)))
 				{
-					value = PyObject_GetAttr(value, bpy_intern_str_properties);
-					value_new = value;
-				}
-				/* XXX, de-duplicate (abive) */
-				else if ((ptr_type == &RNA_AnyType) &&
-				         (BPy_StructRNA_Check(value)) &&
-				    (RNA_struct_is_a(((BPy_StructRNA *)value)->ptr.type, &RNA_Manipulator)))
-				{
-					value = PyObject_GetAttrString(value, "properties");
-					value_new = value;
+					const StructRNA *base_type =
+					        RNA_struct_base_child_of(((const BPy_StructRNA *)value)->ptr.type, NULL);
+					if (ELEM(base_type, &RNA_Operator, &RNA_Manipulator)) {
+						value = PyObject_GetAttr(value, bpy_intern_str_properties);
+						value_new = value;
+					}
 				}
 
-				/* if property is an OperatorProperties pointer and value is a map,
+				/* if property is an OperatorProperties/ManipulatorProperties pointer and value is a map,
 				 * forward back to pyrna_pydict_to_props */
-				if (RNA_struct_is_a(ptr_type, &RNA_OperatorProperties) && PyDict_Check(value)) {
-					PointerRNA opptr = RNA_property_pointer_get(ptr, prop);
-					return pyrna_pydict_to_props(&opptr, value, false, error_prefix);
-				}
-				else if (RNA_struct_is_a(ptr_type, &RNA_ManipulatorProperties) && PyDict_Check(value)) {
-					PointerRNA opptr = RNA_property_pointer_get(ptr, prop);
-					return pyrna_pydict_to_props(&opptr, value, false, error_prefix);
+				if (PyDict_Check(value)) {
+					const StructRNA *base_type = RNA_struct_base_child_of(ptr_type, NULL);
+					if (base_type == &RNA_OperatorProperties) {
+						PointerRNA opptr = RNA_property_pointer_get(ptr, prop);
+						return pyrna_pydict_to_props(&opptr, value, false, error_prefix);
+					}
+					else if (base_type == &RNA_ManipulatorProperties) {
+						PointerRNA opptr = RNA_property_pointer_get(ptr, prop);
+						return pyrna_pydict_to_props(&opptr, value, false, error_prefix);
+					}
 				}
 
 				/* another exception, allow to pass a collection as an RNA property */
