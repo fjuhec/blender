@@ -511,6 +511,8 @@ typedef struct SculptThreadedTaskData {
 	float (*mat)[4];
 	float (*vertCos)[3];
 	float *v_index;
+	short *t_index;
+	float *t_dis;
 	/* 0=towards view, 1=flipped */
 	float (*area_cos)[3];
 	float (*area_nos)[3];
@@ -3224,13 +3226,9 @@ void mulv3_v3fl(float r[3], const short a[3], float f)
 }
 
 
-static bool sculpt_brush_topo_test(SculptBrushTest *test, const float co[3], const short no[3])
+static bool sculpt_brush_topo_test(SculptBrushTest *test, const float co[3])
 {
 	float distsq = len_squared_v3v3(co, test->location);
-	float var[3];
-	mulv3_v3fl(var, no, 1.0f);
-	normalize_v3(var);
-	float p = dot_v3v3(test->location, var);
 
 	if (distsq <= test->radius_squared) {
 		if (sculpt_brush_test_clipping(test, co)) {
@@ -3246,12 +3244,16 @@ static bool sculpt_brush_topo_test(SculptBrushTest *test, const float co[3], con
 
 #define loop(i,a,b,n) for(int i=a;i<b;i+=n)
 
-int check_topo_connected(int vert, int *vert_array, int totvert){
-	loop(i, 0, totvert, 1){
-		if (vert_array[i] == vert)
-			return 1;
+int check_present(int a, int *array, int len){
+	loop(i, 0, len, 1){
+		if (array[i] == a)
+			return i;
 	}
-	return 0;
+	return -1;
+}
+
+int check_topo_connected(int vert, int *vert_array, int totvert){
+	return check_present(vert, vert_array, totvert);
 }
 
 static void do_topo_grab_brush_task_cb_ex(
@@ -3261,7 +3263,7 @@ static void do_topo_grab_brush_task_cb_ex(
 	SculptSession *ss = data->ob->sculpt;
 	Brush *brush = data->brush;
 	const float *grab_delta = data->grab_delta;
-	int *vert_array = data->v_index;
+	int *vert_array = data->t_index;
 	int *count = data->count;
 	PBVHVertexIter vd;
 	SculptBrushTest test;
@@ -3275,10 +3277,6 @@ static void do_topo_grab_brush_task_cb_ex(
 
 	sculpt_brush_test_init(ss, &test);
 
-
-
-	float ray_normal[3], rays[3], raye[3];
-
 	/* To check type of PBVH, will delete it in future 
 	PBVHType type = BKE_pbvh_type(ss->pbvh);
 	if (type == PBVH_FACES) printf("PBVH_FACES ");else
@@ -3288,18 +3286,13 @@ static void do_topo_grab_brush_task_cb_ex(
 
 	*/
 	
-	ED_view3d_win_to_segment(test.vc->ar, test.vc->v3d, ss->cache->mouse, rays, raye, true);
-	sub_v3_v3v3(ray_normal, raye, rays);
-	normalize_v3(ray_normal);
-
-	copy_v3_v3(test.normal, ray_normal);
 	int it = 0;
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
 		sculpt_orig_vert_data_update(&orig_data, &vd);
 
-		if (sculpt_brush_test(&test, orig_data.co) && check_topo_connected(
-			vd.vert_indices[vd.i], vert_array, count[0])) {
+		if (sculpt_brush_test(&test, orig_data.co) && (check_topo_connected(
+			vd.vert_indices[vd.i], vert_array, count[0])!=-1)) {
 			const float fade = bstrength * tex_strength(
 				ss, brush, orig_data.co, test.dist, orig_data.no, NULL, vd.mask ? *vd.mask : 0.0f,
 				thread_id);
@@ -3308,20 +3301,22 @@ static void do_topo_grab_brush_task_cb_ex(
 			mul_v3_v3fl(proxy[vd.i], grab_delta, fade);
 			if (vd.mvert) {
 				vd.mvert->flag |= ME_VERT_PBVH_UPDATE;
-				vd.mvert->flag |= SELECT;
+				//if(vd.vert_indices[vd.i] == count[1]) 
+					vd.mvert->flag |= SELECT;
 			}
 		}
 	}
 	BKE_pbvh_vertex_iter_end;
 
-
 }
+
 static void topo_init_task_cb(void *userdata, const int n) {
 	SculptThreadedTaskData *data = userdata;
 	SculptSession *ss = data->ob->sculpt;
 	Brush *brush = data->brush;
 	int *count = data->count;
 	int *v_index = data->v_index;
+	float *t_dis = data->t_dis;
 
 	PBVHVertexIter vd;
 	SculptBrushTest test;
@@ -3329,6 +3324,14 @@ static void topo_init_task_cb(void *userdata, const int n) {
 	sculpt_orig_vert_data_init(&orig_data, data->ob, data->nodes[n]);
 	sculpt_brush_test_init(ss, &test);
 	int it = 0;
+
+	float ray_normal[3], rays[3], raye[3];
+	ED_view3d_win_to_segment(test.vc->ar, test.vc->v3d, ss->cache->mouse, rays, raye, true);
+	sub_v3_v3v3(ray_normal, raye, rays);
+	normalize_v3(ray_normal);
+
+	copy_v3_v3(test.normal, ray_normal);
+	//printf("\nNormal: %f %f %f", test.normal[0], test.normal[1], test.normal[2]);
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE) {
 		sculpt_orig_vert_data_update(&orig_data, &vd);
 
@@ -3336,6 +3339,14 @@ static void topo_init_task_cb(void *userdata, const int n) {
 			float *co;
 			co = vd.co;
 			v_index[it + count[0]] = vd.vert_indices[vd.i];
+
+			float distsq = dist_squared_to_line_direction_v3v3(vd.co, test.location, test.normal);
+			//printf(" dist: %f , ", distsq);
+			if (distsq < t_dis[0]){
+				t_dis[0] = distsq;
+				count[1] = v_index[it + count[0]];
+			}
+
 			it++;
 		}
 
@@ -3343,21 +3354,40 @@ static void topo_init_task_cb(void *userdata, const int n) {
 	BKE_pbvh_vertex_iter_end;
 	BLI_mutex_lock(&data->mutex);
 	if (it) count[0] += it;
-	if (v_index) printf("Success!\n");
+	//if (v_index) printf("Success!\n");
 	BLI_mutex_unlock(&data->mutex);
 }
 
 #define VERLEN 1000
 
-static void topo_init(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode, int *count, int *vert_index)
+int find_connect(SculptSession *ss, int vert, short *ch, int *vert_index, int len){
+	int p = check_present(vert, vert_index, len);
+	if (p == -1 || ch[p] == 1){
+		return 0;
+	}
+	ch[p] = 1;
+	const MeshElemMap *v_map = &ss->pmap[vert];
+	loop(i, 0, v_map->count, 1){
+		printf("%d -> %d\n ",vert, v_map->indices[i]);
+		find_connect(ss, v_map->indices[i], ch, vert_index, len);
+		
+	}
+	return 0;
+}
+
+static void topo_init(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode, 
+	int *count, int *vert_index, float *temp_dis, short *t_index)
 {
 	SculptSession *ss = ob->sculpt;
 	Brush *brush = BKE_paint_brush(&sd->paint);
-	int t_count[1] = { 0 };
+	int t_count[3] = { 0 };
 	int v_index[VERLEN] = { 0 };
+	float t_dis[1];
+	t_dis[0] = 100000.0f;
+
 	SculptThreadedTaskData data = {
 		.sd = sd, .ob = ob, .nodes = nodes, .totnode = totnode,
-		.count = t_count, .v_index = v_index,
+		.count = t_count, .v_index = v_index, .t_dis = t_dis,
 	};
 
 	//return;
@@ -3370,17 +3400,16 @@ static void topo_init(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode, int
 
 	BLI_mutex_end(&data.mutex);
 
-	count[0] = t_count[0];
+	temp_dis[0] = t_dis[0];  // added
+	loop(ir, 0, 2, 1) count[ir] = t_count[ir]; //added
 	// vert_index = v_index;  //Not working! Don't know why!
 	loop(ir, 0, count[0], 1) vert_index[ir] = v_index[ir];
 
-	/* 
-	*  Here, connectivity of mesh will be checked, 
-	*  Using ss->pmap, vert_index and all vertex which are connected 
-	*  to central vert will be store in vert_index. Grab will only work
-	*  which are present in this vert_index array
-	*/
+	//printf("Closest vertex: %d at dis %f\n", count[1], temp_dis[0]);
 
+	
+
+	
 }
 
 static void do_topo_grab_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode)
@@ -3388,20 +3417,39 @@ static void do_topo_grab_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int tot
 	SculptSession *ss = ob->sculpt;
 	Brush *brush = BKE_paint_brush(&sd->paint);
 	float grab_delta[3];
-	
+
 	copy_v3_v3(grab_delta, ss->cache->grab_delta_symmetry);
 
 	if (ss->cache->normal_weight > 0.0f) {
 		sculpt_project_v3_normal_align(ss, ss->cache->normal_weight, grab_delta);
 	}
-	int count[1];
+	int count[3];  /* count[0] -> totalvertex that can be modified, count[1] -> store central vertex index */
 	int v_index[VERLEN];
-	topo_init(sd, ob, nodes, totnode, count, v_index);
-	
+
+	short t_index[VERLEN] = { 0 };
+	float dis[1];   //added new
+
+	topo_init(sd, ob, nodes, totnode, count, v_index, dis, t_index);
+	if (!ss->pmap) {printf("NO!"); return;}
+
+	int vrn = count[1];
+	short ch[VERLEN] = { 0 };
+	find_connect(ss, vrn, ch, v_index, count[0]);
+	int k = 0;
+	loop(ir, 0, count[0], 1){
+		printf(" %d , ", v_index[ir]);
+		if (ch[ir]){
+			t_index[k] = ch[ir];
+			k++;
+		}
+	}
+	count[2] = k;
+
+	printf("\ncount: %d %d %d , dis : %f", count[0], count[1], count[2],dis[0]);
+
 	SculptThreadedTaskData data = {
 		.sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
-		.grab_delta = grab_delta, .count = count, .v_index = v_index, 
-		
+		.grab_delta = grab_delta, .count = count, .t_index = v_index,
 	};
 
 	BLI_task_parallel_range_ex(
