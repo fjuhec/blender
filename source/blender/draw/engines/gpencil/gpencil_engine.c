@@ -31,6 +31,8 @@
 #include "DNA_gpencil_types.h"
 #include "DNA_view3d_types.h"
 
+#include "draw_mode_engines.h"
+
 #include "gpencil_engine.h"
 
 extern char datatoc_gpencil_fill_vert_glsl[];
@@ -38,6 +40,7 @@ extern char datatoc_gpencil_fill_frag_glsl[];
 extern char datatoc_gpencil_stroke_vert_glsl[];
 extern char datatoc_gpencil_stroke_geom_glsl[];
 extern char datatoc_gpencil_stroke_frag_glsl[];
+extern char datatoc_gpencil_zdepth_mix_frag_glsl[];
 
 /* *********** STATIC *********** */
 static GPENCIL_e_data e_data = {NULL}; /* Engine data */
@@ -47,6 +50,19 @@ static GPENCIL_e_data e_data = {NULL}; /* Engine data */
 static void GPENCIL_engine_init(void *vedata)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
+	GPENCIL_FramebufferList *fbl = ((GPENCIL_Data *)vedata)->fbl;
+
+	const float *viewport_size = DRW_viewport_size_get();
+
+	DRWFboTexture tex_color[2] = {{
+			&e_data.temp_fbcolor_depth_tx, DRW_TEX_DEPTH_24, DRW_TEX_TEMP },
+			{ &e_data.temp_fbcolor_color_tx, DRW_TEX_RGBA_8, DRW_TEX_FILTER | DRW_TEX_TEMP }
+	};
+	/* init temp framebuffer */
+	DRW_framebuffer_init(
+		&fbl->temp_color_fb, &draw_engine_gpencil_type,
+		(int)viewport_size[0], (int)viewport_size[1],
+		tex_color, ARRAY_SIZE(tex_color));
 
 	/* normal fill shader */
 	if (!e_data.gpencil_fill_sh) {
@@ -85,6 +101,7 @@ static void GPENCIL_engine_free(void)
 	/* only free custom shaders, builtin shaders are freed in blender close */
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_fill_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_stroke_sh);
+	DRW_SHADER_FREE_SAFE(e_data.gpencil_fullscreen_sh);
 }
 
 static void GPENCIL_cache_init(void *vedata)
@@ -99,7 +116,6 @@ static void GPENCIL_cache_init(void *vedata)
 	if (!stl->g_data) {
 		/* Alloc transient pointers */
 		stl->g_data = MEM_mallocN(sizeof(g_data), "g_data");
-		stl->g_data->scene_draw = false;
 		stl->storage->xray = GP_XRAY_FRONT; /* used for drawing */
 	}
 	if (!stl->shgroups) {
@@ -110,22 +126,40 @@ static void GPENCIL_cache_init(void *vedata)
 		 */
 		stl->shgroups = MEM_mallocN(sizeof(GPENCIL_shgroup) * GPENCIL_MAX_SHGROUPS, "GPENCIL_shgroup");
 	}
+	
+	/* init gp objects cache */
+	stl->g_data->gp_cache_used = 0;
+	stl->g_data->gp_cache_size = 0;
+	stl->g_data->gp_object_cache = NULL;
+
+	/* full screen for mix zdepth*/
+	if (!e_data.gpencil_fullscreen_sh) {
+		e_data.gpencil_fullscreen_sh = DRW_shader_create_fullscreen(datatoc_gpencil_zdepth_mix_frag_glsl, NULL);
+	}
+
 	{
 		/* Stroke pass */
-		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_DEPTH_LESS;
-		psl->stroke_pass = DRW_pass_create("Gpencil Stroke Pass", state);
+		psl->stroke_pass = DRW_pass_create("Gpencil Stroke Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_BLEND);
 		stl->storage->pal_id = 0;
 		stl->g_data->shgrps_point_volumetric = DRW_gpencil_shgroup_point_volumetric_create(psl->stroke_pass, e_data.gpencil_volumetric_sh);
 
-		state = DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND;
 		/* edit pass */
-		psl->edit_pass = DRW_pass_create("Gpencil Edit Pass", state);
+		psl->edit_pass = DRW_pass_create("Gpencil Edit Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND);
 		stl->g_data->shgrps_edit_volumetric = DRW_gpencil_shgroup_edit_volumetric_create(psl->edit_pass, e_data.gpencil_volumetric_sh);
 
 		/* drawing buffer pass */
-		psl->drawing_pass = DRW_pass_create("Gpencil Drawing Pass", state);
+		psl->drawing_pass = DRW_pass_create("Gpencil Drawing Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND);
 		stl->g_data->shgrps_drawing_stroke = DRW_gpencil_shgroup_stroke_create(vedata, psl->drawing_pass, e_data.gpencil_stroke_sh, NULL, NULL, -1);
 		stl->g_data->shgrps_drawing_fill = DRW_gpencil_shgroup_drawing_fill_create(psl->drawing_pass, e_data.gpencil_drawing_fill_sh);
+
+		/* we need a full screen pass to combine the result of zdepth */
+		struct Batch *quad = DRW_cache_fullscreen_quad_get();
+
+		psl->mix_pass = DRW_pass_create("GPencil Mix Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+		DRWShadingGroup *mix_shgrp = DRW_shgroup_create(e_data.gpencil_fullscreen_sh, psl->mix_pass);
+		DRW_shgroup_call_add(mix_shgrp, quad, NULL);
+		DRW_shgroup_uniform_buffer(mix_shgrp, "strokeColor", &e_data.temp_fbcolor_color_tx);
+		DRW_shgroup_uniform_buffer(mix_shgrp, "strokeDepth", &e_data.temp_fbcolor_depth_tx);
 	}
 }
 
@@ -136,39 +170,73 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 	Scene *scene = draw_ctx->scene;
 	ToolSettings *ts = scene->toolsettings;
 
-	/* scene datablock (only once) */
-	if (stl->g_data->scene_draw == false) {
-		stl->g_data->scene_draw = true;
-		if (scene && scene->gpd) {
-			if (G.debug_value == 668) {
-				printf("GPENCIL_cache_populate: Scene\n");
-			}
-			DRW_gpencil_populate_datablock(&e_data, vedata, scene, NULL, ts, scene->gpd);
-		}
-	}
 	/* object datablock (this is not draw now) */
 	if (ob->type == OB_GPENCIL && ob->gpd) {
 		if (G.debug_value == 668) {
 			printf("GPENCIL_cache_populate: Object\n");
 		}
-		DRW_gpencil_populate_datablock(&e_data, vedata, scene, ob, ts, ob->gpd);
+		/* allocate memory for saving gp objects */
+		stl->g_data->gp_object_cache = gpencil_object_cache_allocate(stl->g_data->gp_object_cache, &stl->g_data->gp_cache_size, &stl->g_data->gp_cache_used);
+		/* add for drawing later */
+		gpencil_object_cache_add(stl->g_data->gp_object_cache, ob, &stl->g_data->gp_cache_used);
 	}
 }
 
 static void GPENCIL_cache_finish(void *vedata)
 {
-	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
-	stl->g_data->scene_draw = false;
+	return;
 }
 
 static void GPENCIL_draw_scene(void *vedata)
 {
-	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
+	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	Scene *scene = draw_ctx->scene;
+	ToolSettings *ts = scene->toolsettings;
 
-	DRW_draw_pass(psl->stroke_pass);
-	DRW_draw_pass(psl->edit_pass);
-	/* current buffer */
-	DRW_draw_pass(psl->drawing_pass);
+	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
+	GPENCIL_FramebufferList *fbl = ((GPENCIL_Data *)vedata)->fbl;
+	DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
+	DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
+	float clearcol[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+	/* Draw all pending objects */
+	if (stl->g_data->gp_cache_used > 0) {
+		
+		/* attach temp textures */
+		DRW_framebuffer_texture_attach(fbl->temp_color_fb, e_data.temp_fbcolor_depth_tx, 0, 0);
+		DRW_framebuffer_texture_attach(fbl->temp_color_fb, e_data.temp_fbcolor_color_tx, 0, 0);
+
+		for (int i = 0; i < stl->g_data->gp_cache_used; ++i) {
+			Object *ob = stl->g_data->gp_object_cache[i].ob;
+			/* fill shading groups */
+			DRW_gpencil_populate_datablock(&e_data, vedata, scene, ob, ts, ob->gpd);
+
+			/* Render stroke in separated framebuffer */
+			DRW_framebuffer_bind(fbl->temp_color_fb);
+			DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
+
+			/* Stroke Pass: DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH */
+			DRW_draw_pass(psl->stroke_pass);
+
+			/* Combine with scene buffer */
+			DRW_framebuffer_bind(dfbl->default_fb);
+			
+			/* Mix Pass: DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS */
+			DRW_draw_pass(psl->mix_pass);
+
+			/* edit points */
+			DRW_draw_pass(psl->edit_pass);
+			/* current drawing buffer */
+			DRW_draw_pass(psl->drawing_pass);
+
+		}
+		/* detach temp textures */
+		DRW_framebuffer_texture_detach(e_data.temp_fbcolor_depth_tx);
+		DRW_framebuffer_texture_detach(e_data.temp_fbcolor_color_tx);
+	}
+	/* free memory */
+	MEM_SAFE_FREE(stl->g_data->gp_object_cache);
 }
 
 static const DrawEngineDataSize GPENCIL_data_size = DRW_VIEWPORT_DATA_SIZE(GPENCIL_Data);

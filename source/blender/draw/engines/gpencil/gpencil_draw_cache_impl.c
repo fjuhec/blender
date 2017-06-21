@@ -47,6 +47,38 @@
 #define ZFIGHT_INIT -2048
 #define ZFIGHT_STEP 64
 
+ /* allocate cache to store GP objects */
+tGPencilObjectCache *gpencil_object_cache_allocate(tGPencilObjectCache *cache, int *gp_cache_size, int *gp_cache_used)
+{
+	tGPencilObjectCache *p = NULL;
+
+	/* By default a cache is created with one block with a predefined number of free slots,
+	if the size is not enough, the cache is reallocated adding a new block of free slots.
+	This is done in order to keep cache small */
+	if (*gp_cache_used + 1 > *gp_cache_size) {
+		if ((*gp_cache_size == 0) || (cache == NULL)) {
+			p = MEM_callocN(sizeof(struct tGPencilObjectCache) * GP_CACHE_BLOCK_SIZE, "tGPencilObjectCache");
+			*gp_cache_size = GP_CACHE_BLOCK_SIZE;
+		}
+		else {
+			*gp_cache_size += GP_CACHE_BLOCK_SIZE;
+			p = MEM_recallocN(cache, sizeof(struct tGPencilObjectCache) * *gp_cache_size);
+		}
+		cache = p;
+	}
+	return cache;
+}
+
+/* add a gpencil object to cache to defer drawing */
+void gpencil_object_cache_add(tGPencilObjectCache *cache, Object *ob, int *gp_cache_used)
+{
+	/* save object */
+	cache[*gp_cache_used].ob = ob;
+
+	/* increase slots used in cache */
+	++*gp_cache_used;
+}
+
 /* verify if cache is valid */
 static bool gpencil_batch_cache_valid(bGPdata *gpd, int cfra)
 {

@@ -190,6 +190,7 @@ data_to_c_simple(engines/gpencil/shaders/gpencil_fill_frag.glsl SRC)
 data_to_c_simple(engines/gpencil/shaders/gpencil_stroke_vert.glsl SRC)
 data_to_c_simple(engines/gpencil/shaders/gpencil_stroke_geom.glsl SRC)
 data_to_c_simple(engines/gpencil/shaders/gpencil_stroke_frag.glsl SRC)
+data_to_c_simple(engines/gpencil/shaders/gpencil_zdepth_mix_frag.glsl SRC)
 
 list(APPEND INC
 )

@@ -35,6 +35,12 @@ struct tGPspoint;
 #define GPENCIL_MAX_SHGROUPS 65536
 #define GPENCIL_MIN_BATCH_SLOTS_CHUNK 8
 
+ /* *********** OBJECTS CACHE *********** */
+ /* used to save gpencil objects */
+typedef struct tGPencilObjectCache {
+	struct Object *ob;
+} tGPencilObjectCache;
+
   /* *********** LISTS *********** */
 typedef struct GPENCIL_shgroup {
 	int t_mix;
@@ -65,10 +71,12 @@ typedef struct GPENCIL_PassList {
 	struct DRWPass *stroke_pass;
 	struct DRWPass *edit_pass;
 	struct DRWPass *drawing_pass;
+	struct DRWPass *mix_pass;
 } GPENCIL_PassList;
 
 typedef struct GPENCIL_FramebufferList {
 	struct GPUFrameBuffer *fb;
+	struct GPUFrameBuffer *temp_color_fb;
 } GPENCIL_FramebufferList;
 
 typedef struct GPENCIL_TextureList {
@@ -89,7 +97,10 @@ typedef struct g_data {
 	struct DRWShadingGroup *shgrps_point_volumetric;
 	struct DRWShadingGroup *shgrps_drawing_stroke;
 	struct DRWShadingGroup *shgrps_drawing_fill;
-	bool scene_draw;
+
+	int gp_cache_used;
+	int gp_cache_size;
+	struct tGPencilObjectCache *gp_object_cache;
 } g_data; /* Transient data */
 
 typedef struct GPENCIL_e_data {
@@ -97,6 +108,10 @@ typedef struct GPENCIL_e_data {
 	struct GPUShader *gpencil_stroke_sh;
 	struct GPUShader *gpencil_volumetric_sh;
 	struct GPUShader *gpencil_drawing_fill_sh;
+	struct GPUShader *gpencil_fullscreen_sh;
+	/* temp depth texture */
+	struct GPUTexture *temp_fbcolor_depth_tx;
+	struct GPUTexture *temp_fbcolor_color_tx;
 } GPENCIL_e_data; /* Engine data */
 
 /* Batch Cache */
@@ -142,5 +157,8 @@ struct Batch *DRW_gpencil_get_buffer_point_geom(struct bGPdata *gpd, short thick
 void gpencil_batch_cache_clear(struct bGPdata *gpd);
 
 bool gpencil_can_draw_stroke(const struct bGPDstroke *gps, const bool onion);
+
+struct tGPencilObjectCache *gpencil_object_cache_allocate(struct tGPencilObjectCache *cache, int *gp_cache_size, int *gp_cache_used);
+void gpencil_object_cache_add(struct tGPencilObjectCache *cache, struct Object *ob, int *gp_cache_used);
 
 #endif /* __GPENCIL_ENGINE_H__ */
