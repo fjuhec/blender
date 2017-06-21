@@ -532,7 +532,7 @@ void gp_apply_parent(Object *obact, bGPdata *gpd, bGPDlayer *gpl, bGPDstroke *gp
 /** 
  * Change point position relative to parent object 
  */
-void gp_apply_parent_point(bGPDlayer *gpl, bGPDspoint *pt)
+void gp_apply_parent_point(Object *obact, bGPdata *gpd, bGPDlayer *gpl, bGPDspoint *pt)
 {
 	/* undo matrix */
 	float diff_mat[4][4];
