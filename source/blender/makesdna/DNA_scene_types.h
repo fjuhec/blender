@@ -1175,6 +1175,7 @@ enum {
 	VP_NORMALS      = (1 << 3),
 	VP_SPRAY        = (1 << 4),
 	// VP_MIRROR_X  = (1 << 5),  /* deprecated in 2.5x use (me->editflag & ME_EDIT_MIRROR_X) */
+	VP_OCCLUDE      = (1 << 6),
 	VP_ONLYVGROUP   = (1 << 7)   /* weight paint only */
 };
 

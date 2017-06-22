@@ -1797,6 +1797,7 @@ class VIEW3D_PT_tools_vertexpaint(Panel, View3DPaintPanel):
         # col.prop(vpaint, "mode", text="")
         row.prop(vpaint, "use_normal")
         col.prop(vpaint, "use_spray")
+        col.prop(vpaint, "use_occlude")
 
         self.unified_paint_settings(col, context)
 

@@ -934,7 +934,7 @@ BLI_INLINE unsigned int mcol_exclusion(unsigned int col1, unsigned int col2, int
 BLI_INLINE unsigned int mcol_luminocity(unsigned int col1, unsigned int col2, int fac)
 {
 	unsigned char *cp1, *cp2, *cp;
-	int mfac, temp;
+	int mfac;
 	unsigned int col = 0;
 
 	if (fac == 0) {
@@ -966,7 +966,7 @@ BLI_INLINE unsigned int mcol_luminocity(unsigned int col1, unsigned int col2, in
 BLI_INLINE unsigned int mcol_saturation(unsigned int col1, unsigned int col2, int fac)
 {
 	unsigned char *cp1, *cp2, *cp;
-	int mfac, temp;
+	int mfac;
 	unsigned int col = 0;
 
 	if (fac == 0) {
@@ -1000,7 +1000,7 @@ BLI_INLINE unsigned int mcol_saturation(unsigned int col1, unsigned int col2, in
 BLI_INLINE unsigned int mcol_hue(unsigned int col1, unsigned int col2, int fac)
 {
 	unsigned char *cp1, *cp2, *cp;
-	int mfac, temp;
+	int mfac;
 	unsigned int col = 0;
 
 	if (fac == 0) {
@@ -3617,6 +3617,21 @@ static void handle_texture_brush(
 	rgb_float_to_uchar((unsigned char *)r_color, rgba_br);
 }
 
+static bool is_non_occluded(StrokeCache *cache, PBVHVertexIter vd,
+		    float *dist, const float radius, const bool do_occlude) 
+{
+	if (cache->vc->ar && !do_occlude) {
+		float sco[2];
+		ED_view3d_project_float_v2_m4(cache->vc->ar, vd.co, sco, cache->projection_mat);
+		const float dist_sq = len_squared_v2v2(cache->mouse, sco);
+		*dist = sqrtf(dist_sq);
+		if (dist_sq <= radius*radius) {
+			return true;
+		}
+	}
+	return false;
+}
+
 static void do_vpaint_brush_draw_task_cb_ex(
         void *userdata, void *UNUSED(userdata_chunk), const int n, const int UNUSED(thread_id))
 {
@@ -3633,6 +3648,9 @@ static void do_vpaint_brush_draw_task_cb_ex(
 	get_brush_alpha_data(scene, ss, brush, &brush_size_pressure, &brush_alpha_value, &brush_alpha_pressure);
 	const bool use_face_sel = (data->me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
 	const bool use_vert_sel = (data->me->editflag & ME_EDIT_PAINT_VERT_SEL) != 0;
+	float dist;
+	bool non_occlude;
+	const float radius = BKE_brush_size_get(scene, brush);
 
 	SculptBrushTest test;
 	sculpt_brush_test_init(ss, &test);
@@ -3641,8 +3659,11 @@ static void do_vpaint_brush_draw_task_cb_ex(
 	PBVHVertexIter vd;
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
-		/* Test to see if the vertex coordinates are within the spherical brush region. */
-		if (sculpt_brush_test(&test, vd.co)) {
+		const bool do_occlude = data->vp->flag&VP_OCCLUDE ? 1 : 0;
+		non_occlude = is_non_occluded(cache, vd, &dist, radius, do_occlude);
+		/* Test to see if the vertex coordinates are within the spherical brush region or 
+		*  occluded vertex for non-occluded mode. */
+		if (sculpt_brush_test(&test, vd.co) || non_occlude) {
 			/* Note: Grids are 1:1 with corners (aka loops).
 			 * For grid based pbvh, take the vert whose loop cooresponds to the current grid.
 			 * Otherwise, take the current vert. */
@@ -3652,13 +3673,14 @@ static void do_vpaint_brush_draw_task_cb_ex(
 			const bool v_flag = data->me->mvert[v_index].flag;
 
 			/* If the vertex is selected for painting. */
-			if (!(use_face_sel || use_vert_sel) || v_flag & SELECT) {
+			if (!(use_face_sel || use_vert_sel) || v_flag & SELECT || non_occlude) {
 				/* Calc the dot prod. between ray norm on surf and current vert
 				 * (ie splash prevention factor), and only paint front facing verts. */
-				const float view_dot = (vd.no) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
+			    float view_dot = (vd.no && !non_occlude) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
 				if (view_dot > 0.0f) {
-					const float brush_fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
+					const float brush_fade = BKE_brush_curve_strength(brush, dist, radius);
 					unsigned int color_final = data->vpd->paintcol;
+					dist = non_occlude ? dist : test.dist;
 
 					/* If we're painting with a texture, sample the texture color and alpha. */
 					float tex_alpha = 1.0;
@@ -3720,6 +3742,9 @@ static void do_vpaint_brush_blur_task_cb_ex(
 	get_brush_alpha_data(scene, ss, brush, &brush_size_pressure, &brush_alpha_value, &brush_alpha_pressure);
 	const bool use_face_sel = (data->me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
 	const bool use_vert_sel = (data->me->editflag & ME_EDIT_PAINT_VERT_SEL) != 0;
+	float dist;
+	bool non_occlude;
+	const float radius = BKE_brush_size_get(scene, brush);
 
 	SculptBrushTest test;
 	sculpt_brush_test_init(ss, &test);
@@ -3728,8 +3753,11 @@ static void do_vpaint_brush_blur_task_cb_ex(
 	PBVHVertexIter vd;
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
-		/* Test to see if the vertex coordinates are within the spherical brush region. */
-		if (sculpt_brush_test(&test, vd.co)) {
+		const bool do_occlude = data->vp->flag&VP_OCCLUDE ? 1 : 0;
+		non_occlude = is_non_occluded(cache, vd, &dist, radius, do_occlude);
+		/* Test to see if the vertex coordinates are within the spherical brush region or
+		*  occluded vertex for non-occluded mode. */
+		if (sculpt_brush_test(&test, vd.co) || non_occlude) {
 			/* For grid based pbvh, take the vert whose loop cooresponds to the current grid. 
 			Otherwise, take the current vert. */
 			const int v_index = ccgdm ? data->me->mloop[vd.grid_indices[vd.g]].v : vd.vert_indices[vd.i];
@@ -3737,12 +3765,12 @@ static void do_vpaint_brush_blur_task_cb_ex(
 			const MVert *mv = &data->me->mvert[v_index];
 			const bool v_flag = data->me->mvert[v_index].flag;
 
-			const float view_dot = (vd.no) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
+			const float view_dot = (vd.no && !non_occlude) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
 			if (view_dot > 0.0f) {
 				const float brush_fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
 
 				/* If the vertex is selected for painting. */
-				if (!(use_face_sel || use_vert_sel) || v_flag & SELECT) {
+				if (!(use_face_sel || use_vert_sel) || v_flag & SELECT || non_occlude) {
 					/* Get the average poly color */
 					unsigned int color_final = 0;
 					int total_hit_loops = 0;
@@ -3818,6 +3846,9 @@ static void do_vpaint_brush_smear_task_cb_ex(
 	float brush_dir[3];
 	const bool use_face_sel = (data->me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
 	const bool use_vert_sel = (data->me->editflag & ME_EDIT_PAINT_VERT_SEL) != 0;
+	float dist;
+	bool non_occlude;
+	const float radius = BKE_brush_size_get(scene, brush);
 
 	sub_v3_v3v3(brush_dir, cache->location, cache->last_location);
 	if (normalize_v3(brush_dir) != 0.0f) {
@@ -3829,8 +3860,11 @@ static void do_vpaint_brush_smear_task_cb_ex(
 		PBVHVertexIter vd;
 		BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 		{
-			/* Test to see if the vertex coordinates are within the spherical brush region. */
-			if (sculpt_brush_test(&test, vd.co)) {
+			const bool do_occlude = data->vp->flag&VP_OCCLUDE ? 1 : 0;
+			non_occlude = is_non_occluded(cache, vd, &dist, radius, do_occlude);
+			/* Test to see if the vertex coordinates are within the spherical brush region or
+			*  occluded vertex for non-occluded mode. */
+			if (sculpt_brush_test(&test, vd.co) || non_occlude) {
 				/* For grid based pbvh, take the vert whose loop cooresponds to the current grid.
 				Otherwise, take the current vert. */
 				const int v_index = ccgdm ? data->me->mloop[vd.grid_indices[vd.g]].v : vd.vert_indices[vd.i];
@@ -3839,10 +3873,10 @@ static void do_vpaint_brush_smear_task_cb_ex(
 				const bool v_flag = data->me->mvert[v_index].flag;
 
 				/* if the vertex is selected for painting. */
-				if (!(use_face_sel || use_vert_sel) || v_flag & SELECT) {
+				if (!(use_face_sel || use_vert_sel) || v_flag & SELECT || non_occlude) {
 					/* Calc the dot prod. between ray norm on surf and current vert
 					(ie splash prevention factor), and only paint front facing verts. */
-					const float view_dot = (vd.no) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
+					const float view_dot = (vd.no && !non_occlude) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
 					if (view_dot > 0.0f) {
 						const float brush_fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
 
