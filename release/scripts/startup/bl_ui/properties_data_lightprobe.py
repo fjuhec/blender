@@ -60,8 +60,6 @@ class DATA_PT_lightprobe(DataButtonsPanel, Panel):
         ob = context.object
         probe = context.lightprobe
 
-        layout.prop(probe, "type", expand=True)
-
         split = layout.split()
 
         if probe.type == 'GRID':
@@ -76,11 +74,13 @@ class DATA_PT_lightprobe(DataButtonsPanel, Panel):
             col.label("Influence:")
             col.prop(probe, "influence_distance", "Distance")
             col.prop(probe, "falloff")
-        elif probe.type == "PLANAR":
+
+        elif probe.type == 'PLANAR':
             col = split.column(align=True)
             col.label("Influence:")
             col.prop(probe, "influence_distance", "Distance")
             col.prop(probe, "falloff")
+
         else:
             col = split.column(align=True)
             col.label("Influence:")
@@ -96,6 +96,7 @@ class DATA_PT_lightprobe(DataButtonsPanel, Panel):
         col = split.column(align=True)
         col.label("Clipping:")
         col.prop(probe, "clip_start", text="Start")
+
         if probe.type != "PLANAR":
             col.prop(probe, "clip_end", text="End")
 
@@ -155,8 +156,9 @@ class DATA_PT_lightprobe_display(DataButtonsPanel, Panel):
 
         row = layout.row()
         row.prop(probe, "show_data")
+
         if probe.type != "PLANAR":
-            row.prop(probe, "data_draw_size")
+            row.prop(probe, "data_draw_size", text="Size")
         else:
             row.prop(ob, "empty_draw_size", text="Arrow Size")
 
