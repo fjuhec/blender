@@ -95,7 +95,7 @@ static void GPENCIL_engine_init(void *vedata)
 
 	unit_m4(stl->storage->unit_matrix);
 
-	/* blank texture used if no texture defined for fill shader*/
+	/* blank texture used if no texture defined for fill shader */
 	if (!e_data.gpencil_blank_texture) {
 		e_data.gpencil_blank_texture = DRW_gpencil_create_blank_texture(64, 64);
 	}
@@ -146,7 +146,7 @@ static void GPENCIL_cache_init(void *vedata)
 
 	{
 		/* Stroke pass */
-		psl->stroke_pass = DRW_pass_create("Gpencil Stroke Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_BLEND);
+		psl->stroke_pass = DRW_pass_create("Gpencil Stroke Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_ALWAYS | DRW_STATE_BLEND);
 		stl->storage->pal_id = 0;
 		stl->g_data->shgrps_point_volumetric = DRW_gpencil_shgroup_point_volumetric_create(psl->stroke_pass, e_data.gpencil_volumetric_sh);
 
