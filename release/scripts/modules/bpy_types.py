@@ -618,6 +618,8 @@ class Manipulator(StructRNA, metaclass=OrderedMeta):
             return delattr(properties, attr)
         return super().__delattr__(attr)
 
+    target_set_handler = _bpy._rna_manipulator_target_set_handler
+
 
 # Only defined so operators members can be used by accessing self.order
 # with doc generation 'self.properties.bl_rna.properties' can fail

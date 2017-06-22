@@ -65,7 +65,7 @@ static bool bpy_manipulatortype_target_property_def(
 		char *id;
 		char *type_id; int type;
 		int array_length;
-	} args = {
+	} params = {
 		.id = NULL, /* not optional */
 		.type = PROP_FLOAT,
 		.type_id = NULL,
@@ -75,34 +75,34 @@ static bool bpy_manipulatortype_target_property_def(
 	if (!_PyArg_ParseTupleAndKeywordsFast(
 	        empty_tuple, item,
 	        &_parser,
-	        &args.id,
-	        &args.type_id,
-	        &args.array_length))
+	        &params.id,
+	        &params.type_id,
+	        &params.array_length))
 	{
 		goto fail;
 	}
 
-	if (args.id == NULL) {
+	if (params.id == NULL) {
 		PyErr_SetString(PyExc_ValueError, "'id' argument not given");
 		goto fail;
 	}
 
-	if ((args.type_id != NULL) &&
+	if ((params.type_id != NULL) &&
 	    pyrna_enum_value_from_id(
-	        rna_enum_property_type_items, args.type_id, &args.type, "'type' enum value") == -1)
+	        rna_enum_property_type_items, params.type_id, &params.type, "'type' enum value") == -1)
 	{
 		goto fail;
 	}
 	else {
-		args.type = rna_enum_property_type_items[args.type].value;
+		params.type = rna_enum_property_type_items[params.type].value;
 	}
 
-	if ((args.array_length < 1 || args.array_length > RNA_MAX_ARRAY_LENGTH)) {
+	if ((params.array_length < 1 || params.array_length > RNA_MAX_ARRAY_LENGTH)) {
 		PyErr_SetString(PyExc_ValueError, "'array_length' out of range");
 		goto fail;
 	}
 
-	WM_manipulatortype_target_property_def(wt, args.id, args.type, args.array_length);
+	WM_manipulatortype_target_property_def(wt, params.id, params.type, params.array_length);
 	Py_DECREF(empty_tuple);
 	return true;
 

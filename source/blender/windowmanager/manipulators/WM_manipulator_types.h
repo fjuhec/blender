@@ -134,6 +134,7 @@ typedef struct wmManipulatorProperty {
 		wmManipulatorPropertyFnGet value_get_fn;
 		wmManipulatorPropertyFnSet value_set_fn;
 		wmManipulatorPropertyFnRangeGet range_get_fn;
+		wmManipulatorPropertyFnFree free_fn;
 		const struct bContext *context;
 		void *user_data;
 	} custom_func;

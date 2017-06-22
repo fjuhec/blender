@@ -69,7 +69,7 @@ static void rna_manipulator_draw_preset_facemap(
 	ED_manipulator_draw_preset_facemap(mpr, scene, ob, facemap, select_id);
 }
 
-static void rna_manipulator_target_prop_set_property(
+static void rna_manipulator_target_set_prop(
         wmManipulator *mpr, ReportList *reports, const char *target_propname,
         PointerRNA *ptr, const char *propname, int index)
 {
@@ -193,10 +193,11 @@ void RNA_api_manipulator(StructRNA *srna)
 	/* -------------------------------------------------------------------- */
 	/* Property API */
 
-	func = RNA_def_function(srna, "target_prop_set_property", "rna_manipulator_target_prop_set_property");
+	/* note, 'target_set_handler' is defined in 'bpy_rna_manipulator.c' */
+	func = RNA_def_function(srna, "target_set_prop", "rna_manipulator_target_set_prop");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "");
-	parm = RNA_def_string(func, "target_property", NULL, 0, "", "Target property");
+	parm = RNA_def_string(func, "target", NULL, 0, "", "Target property");
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	/* similar to UILayout.prop */
 	parm = RNA_def_pointer(func, "data", "AnyType", "", "Data from which to take property");

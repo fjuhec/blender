@@ -204,6 +204,16 @@ void WM_manipulator_free(ListBase *manipulatorlist, wmManipulatorMap *mmap, wmMa
 		MEM_freeN(mpr->ptr);
 	}
 
+	if (mpr->type->target_property_defs_len != 0) {
+		wmManipulatorProperty *mpr_prop_array = WM_manipulator_target_property_array(mpr);
+		for (int i = 0; i < mpr->type->target_property_defs_len; i++) {
+			wmManipulatorProperty *mpr_prop = &mpr_prop_array[i];
+			if (mpr_prop->custom_func.free_fn) {
+				mpr_prop->custom_func.free_fn(mpr, mpr_prop);
+			}
+		}
+	}
+
 	if (manipulatorlist) {
 		BLI_remlink(manipulatorlist, mpr);
 	}
