@@ -195,27 +195,25 @@ void WM_manipulator_target_property_value_set(
 
 void WM_manipulator_target_property_value_get_array(
         const wmManipulator *mpr, wmManipulatorProperty *mpr_prop,
-        float *value, const int value_len)
+        float *value)
 {
 	if (mpr_prop->custom_func.value_get_fn) {
-		mpr_prop->custom_func.value_get_fn(mpr, mpr_prop, mpr_prop->custom_func.user_data, value, value_len);
+		mpr_prop->custom_func.value_get_fn(
+		        mpr, mpr_prop, mpr_prop->custom_func.user_data, value, mpr_prop->type->array_length);
 		return;
 	}
-
-	BLI_assert(RNA_property_array_length(&mpr_prop->ptr, mpr_prop->prop) == value_len);
 	return RNA_property_float_get_array(&mpr_prop->ptr, mpr_prop->prop, value);
 }
 
 void WM_manipulator_target_property_value_set_array(
         bContext *C, const wmManipulator *mpr, wmManipulatorProperty *mpr_prop,
-        const float *value, const int value_len)
+        const float *value)
 {
 	if (mpr_prop->custom_func.value_set_fn) {
-		mpr_prop->custom_func.value_set_fn(mpr, mpr_prop, mpr_prop->custom_func.user_data, value, value_len);
+		mpr_prop->custom_func.value_set_fn(
+		        mpr, mpr_prop, mpr_prop->custom_func.user_data, value, mpr_prop->type->array_length);
 		return;
 	}
-
-	BLI_assert(RNA_property_array_length(&mpr_prop->ptr, mpr_prop->prop) == value_len);
 	RNA_property_float_set_array(&mpr_prop->ptr, mpr_prop->prop, value);
 
 	RNA_property_update(C, &mpr_prop->ptr, mpr_prop->prop);

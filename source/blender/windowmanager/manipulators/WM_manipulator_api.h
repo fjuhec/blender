@@ -164,10 +164,10 @@ void  WM_manipulator_target_property_value_set(
 
 void WM_manipulator_target_property_value_get_array(
         const struct wmManipulator *mpr, struct wmManipulatorProperty *mpr_prop,
-        float *value, const int value_len);
+        float *value);
 void WM_manipulator_target_property_value_set_array(
         struct bContext *C, const struct wmManipulator *mpr, struct wmManipulatorProperty *mpr_prop,
-        const float *value, const int value_len);
+        const float *value);
 
 void WM_manipulator_target_property_range_get(
         const struct wmManipulator *mpr, struct wmManipulatorProperty *mpr_prop,

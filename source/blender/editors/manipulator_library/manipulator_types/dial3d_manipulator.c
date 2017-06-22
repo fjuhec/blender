@@ -397,7 +397,7 @@ static void manipulator_dial_modal(bContext *C, wmManipulator *mpr, const wmEven
 
 	/* set the property for the operator and call its modal function */
 	wmManipulatorProperty *mpr_prop = WM_manipulator_target_property_find(mpr, "offset");
-	if (mpr_prop && WM_manipulator_target_property_is_valid(mpr_prop)) {
+	if (WM_manipulator_target_property_is_valid(mpr_prop)) {
 		WM_manipulator_target_property_value_set(C, mpr, mpr_prop, inter->init_prop_angle + angle_delta);
 	}
 }
@@ -420,7 +420,7 @@ static void manipulator_dial_invoke(
 	inter->init_mval[1] = event->mval[1];
 
 	wmManipulatorProperty *mpr_prop = WM_manipulator_target_property_find(mpr, "offset");
-	if (mpr_prop && WM_manipulator_target_property_is_valid(mpr_prop)) {
+	if (WM_manipulator_target_property_is_valid(mpr_prop)) {
 		inter->init_prop_angle = WM_manipulator_target_property_value_get(mpr, mpr_prop);
 	}
 

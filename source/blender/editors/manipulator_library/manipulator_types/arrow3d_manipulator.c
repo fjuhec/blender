@@ -369,7 +369,7 @@ static void manipulator_arrow_invoke(
 	wmManipulatorProperty *mpr_prop = WM_manipulator_target_property_find(mpr, "offset");
 
 	/* Some manipulators don't use properties. */
-	if (mpr_prop && WM_manipulator_target_property_is_valid(mpr_prop)) {
+	if (WM_manipulator_target_property_is_valid(mpr_prop)) {
 		inter->init_value = WM_manipulator_target_property_value_get(mpr, mpr_prop);
 	}
 
