@@ -67,7 +67,7 @@ wmManipulatorProperty *WM_manipulator_target_property_at_index(wmManipulator *mp
 {
 	BLI_assert(index < mpr->type->target_property_defs_len);
 	BLI_assert(index != -1);
-	wmManipulatorProperty *mpr_prop_array = WM_manipulator_target_property_array(mpr);
+	wmManipulatorProperty *mpr_prop_array = wm_manipulator_target_property_array(mpr);
 	return &mpr_prop_array[index];
 }
 
@@ -97,8 +97,6 @@ void WM_manipulator_target_property_def_rna_ptr(
 	mpr_prop->ptr = *ptr;
 	mpr_prop->prop = prop;
 	mpr_prop->index = index;
-
-	mpr->target_properties_len_set += 1;
 
 	if (mpr->type->property_update) {
 		mpr->type->property_update(mpr, mpr_prop);
@@ -131,8 +129,6 @@ void WM_manipulator_target_property_def_func_ptr(
 	mpr_prop->custom_func.free_fn = params->free_fn;
 	mpr_prop->custom_func.user_data = params->user_data;
 
-	mpr->target_properties_len_set += 1;
-
 	if (mpr->type->property_update) {
 		mpr->type->property_update(mpr, mpr_prop);
 	}
@@ -153,6 +149,18 @@ void WM_manipulator_target_property_def_func(
 
 /** \name Property Access
  * \{ */
+
+bool WM_manipulator_target_property_is_valid_any(wmManipulator *mpr)
+{
+	wmManipulatorProperty *mpr_prop_array = wm_manipulator_target_property_array(mpr);
+	for (int i = 0; i < mpr->type->target_property_defs_len; i++) {
+		wmManipulatorProperty *mpr_prop = &mpr_prop_array[i];
+		if (WM_manipulator_target_property_is_valid(mpr_prop)) {
+			return true;
+		}
+	}
+	return false;
+}
 
 bool WM_manipulator_target_property_is_valid(const wmManipulatorProperty *mpr_prop)
 {

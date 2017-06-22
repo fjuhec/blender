@@ -112,8 +112,6 @@ struct wmManipulator {
 
 	struct IDProperty *properties;
 
-	int target_properties_len_set;
-
 	/* over alloc target_properties after 'wmManipulatorType.struct_size' */
 };
 

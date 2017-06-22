@@ -154,6 +154,7 @@ void WM_manipulator_target_property_def_func(
         struct wmManipulator *mpr, const char *idname,
         const struct wmManipulatorPropertyFnParams *params);
 
+bool WM_manipulator_target_property_is_valid_any(struct wmManipulator *mpr);
 bool WM_manipulator_target_property_is_valid(
         const struct wmManipulatorProperty *mpr_prop);
 float WM_manipulator_target_property_value_get(

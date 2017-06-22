@@ -471,7 +471,7 @@ void wm_manipulator_calculate_scale(wmManipulator *mpr, const bContext *C)
 static void manipulator_update_prop_data(wmManipulator *mpr)
 {
 	/* manipulator property might have been changed, so update manipulator */
-	if (mpr->type->property_update && mpr->target_properties_len_set) {
+	if (mpr->type->property_update) {
 		wmManipulatorProperty *mpr_prop_array = WM_manipulator_target_property_array(mpr);
 		for (int i = 0; i < mpr->type->target_property_defs_len; i++) {
 			wmManipulatorProperty *mpr_prop = &mpr_prop_array[i];
