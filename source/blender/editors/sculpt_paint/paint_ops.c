@@ -280,6 +280,7 @@ static int palette_lock_layer_exec(bContext *C, wmOperator *UNUSED(op))
 		}
 	}
 	/* notifiers */
+	BKE_gpencil_batch_cache_dirty(gpd);
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 
 	return OPERATOR_FINISHED;
@@ -432,6 +433,7 @@ static int palettecolor_isolate_exec(bContext *C, wmOperator *op)
 	}
 
 	/* notifiers */
+	BKE_gpencil_batch_cache_alldirty();
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 
 	return OPERATOR_FINISHED;

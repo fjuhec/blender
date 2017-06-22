@@ -1329,6 +1329,7 @@ void BKE_gpencil_palettecolor_delete_allstrokes(PaletteColor *palcolor)
 				}
 			}
 		}
+		BKE_gpencil_batch_cache_dirty(gpd);
 	}
 }
 
