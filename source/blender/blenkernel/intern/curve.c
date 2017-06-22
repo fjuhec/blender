@@ -191,7 +191,7 @@ Curve *BKE_curve_add(Main *bmain, const char *name, int type)
  * Only copy internal data of Curve ID from source to already allocated/initialized destination.
  * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
  *
- * @param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
+ * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
  */
 void BKE_curve_copy_ex(Main *bmain, Curve *cu_dst, const Curve *cu_src, const int flag)
 {

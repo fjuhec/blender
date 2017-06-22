@@ -116,31 +116,44 @@ Lamp *BKE_lamp_add(Main *bmain, const char *name)
 	return la;
 }
 
-Lamp *BKE_lamp_copy(Main *bmain, const Lamp *la)
+/**
+ * Only copy internal data of Lamp ID from source to already allocated/initialized destination.
+ * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ *
+ * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
+ */
+void BKE_lamp_copy_ex(Main *bmain, Lamp *la_dst, const Lamp *la_src, const int flag)
 {
-	Lamp *lan;
 	int a;
-	
-	lan = BKE_libblock_copy(bmain, &la->id);
 
 	for (a = 0; a < MAX_MTEX; a++) {
-		if (lan->mtex[a]) {
-			lan->mtex[a] = MEM_mallocN(sizeof(MTex), "copylamptex");
-			memcpy(lan->mtex[a], la->mtex[a], sizeof(MTex));
-			id_us_plus((ID *)lan->mtex[a]->tex);
+		if (la_dst->mtex[a]) {
+			la_dst->mtex[a] = MEM_mallocN(sizeof(MTex), "copylamptex");
+			memcpy(la_dst->mtex[a], la_src->mtex[a], sizeof(MTex));
+			if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
+				id_us_plus((ID *)la_dst->mtex[a]->tex);
+			}
 		}
 	}
 	
-	lan->curfalloff = curvemapping_copy(la->curfalloff);
+	la_dst->curfalloff = curvemapping_copy(la_src->curfalloff);
 
-	if (la->nodetree)
-		lan->nodetree = ntreeCopyTree(bmain, la->nodetree);
+	if (la_src->nodetree)
+		la_dst->nodetree = ntreeCopyTree(bmain, la_src->nodetree);  /* XXX TODO Replace this! */
 
-	BKE_previewimg_id_copy(&lan->id, &la->id);
+	if ((flag & LIB_ID_COPY_NO_PREVIEW) != 1) {
+		BKE_previewimg_id_copy(&la_dst->id, &la_src->id);
+	}
+	else {
+		la_dst->preview = NULL;
+	}
+}
 
-	BKE_id_copy_ensure_local(bmain, &la->id, &lan->id);
-
-	return lan;
+Lamp *BKE_lamp_copy(Main *bmain, const Lamp *la)
+{
+	Lamp *la_copy;
+	BKE_id_copy_ex(bmain, &la->id, (ID **)&la_copy, 0, false);
+	return la_copy;
 }
 
 Lamp *localize_lamp(Lamp *la)

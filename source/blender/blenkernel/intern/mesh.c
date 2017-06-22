@@ -505,7 +505,7 @@ Mesh *BKE_mesh_add(Main *bmain, const char *name)
  * Only copy internal data of Mesh ID from source to already allocated/initialized destination.
  * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
  *
- * @param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
+ * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
  */
 void BKE_mesh_copy_ex(Main *bmain, Mesh *me_dst, const Mesh *me_src, const int flag)
 {

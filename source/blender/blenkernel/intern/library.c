@@ -530,7 +530,7 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 	 * Ideally, usercount should never be handled by IDType-specific copying code, but for now let's allow it... */
 	const int flag_idtype_copy = flag | LIB_ID_COPY_NO_USER_REFCOUNT;
 
-#define ITEMS_IMPLEMENTED ID_OB, ID_ME, ID_CU, ID_MB, ID_LT, ID_KE
+#define ITEMS_IMPLEMENTED ID_OB, ID_ME, ID_CU, ID_MB, ID_LT, ID_LA, ID_SPK, ID_CA, ID_KE, ID_AR
 
 	if (!test) {
 		/* Check to be removed of course, just here until all BKE_xxx_copy_ex functions are done. */
@@ -565,13 +565,13 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 			if (!test) BKE_lattice_copy_ex(bmain, (Lattice *)*r_newid, (Lattice *)id, flag_idtype_copy);
 			break;
 		case ID_LA:
-			if (!test) *r_newid = (ID *)BKE_lamp_copy(bmain, (Lamp *)id);
+			if (!test) BKE_lamp_copy_ex(bmain, (Lamp *)*r_newid, (Lamp *)id, flag_idtype_copy);
 			break;
 		case ID_SPK:
-			if (!test) *r_newid = (ID *)BKE_speaker_copy(bmain, (Speaker *)id);
+			if (!test) BKE_speaker_copy_ex(bmain, (Speaker *)*r_newid, (Speaker *)id, flag_idtype_copy);
 			break;
 		case ID_CA:
-			if (!test) *r_newid = (ID *)BKE_camera_copy(bmain, (Camera *)id);
+			if (!test) BKE_camera_copy_ex(bmain, (Camera *)*r_newid, (Camera *)id, flag_idtype_copy);
 			break;
 		case ID_KE:
 			if (!test) BKE_key_copy_ex(bmain, (Key *)*r_newid, (Key *)id, flag_idtype_copy);
@@ -586,7 +586,7 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 			if (!test) *r_newid = (ID *)BKE_group_copy(bmain, (Group *)id);
 			break;
 		case ID_AR:
-			if (!test) *r_newid = (ID *)BKE_armature_copy(bmain, (bArmature *)id);
+			if (!test) BKE_armature_copy_ex(bmain, (bArmature *)*r_newid, (bArmature *)id, flag_idtype_copy);
 			break;
 		case ID_AC:
 			if (!test) *r_newid = (ID *)BKE_action_copy(bmain, (bAction *)id);
