@@ -510,8 +510,8 @@ typedef struct SculptThreadedTaskData {
 	float *area_co;
 	float (*mat)[4];
 	float (*vertCos)[3];
-	float *v_index;
-	short *t_index;
+	int *v_index;
+	int *t_index;
 	float *t_dis;
 	/* 0=towards view, 1=flipped */
 	float (*area_cos)[3];
@@ -3292,7 +3292,7 @@ static void do_topo_grab_brush_task_cb_ex(
 		sculpt_orig_vert_data_update(&orig_data, &vd);
 
 		if (sculpt_brush_test(&test, orig_data.co) && (check_topo_connected(
-			vd.vert_indices[vd.i], vert_array, count[0])!=-1)) {
+			vd.vert_indices[vd.i], vert_array, count[2])!=-1)) {
 			const float fade = bstrength * tex_strength(
 				ss, brush, orig_data.co, test.dist, orig_data.no, NULL, vd.mask ? *vd.mask : 0.0f,
 				thread_id);
@@ -3367,9 +3367,23 @@ int find_connect(SculptSession *ss, int vert, short *ch, int *vert_index, int le
 	}
 	ch[p] = 1;
 	const MeshElemMap *v_map = &ss->pmap[vert];
+	const MVert *mvert = ss->mvert;
 	loop(i, 0, v_map->count, 1){
-		printf("%d -> %d\n ",vert, v_map->indices[i]);
-		find_connect(ss, v_map->indices[i], ch, vert_index, len);
+
+		const MPoly *poly = &ss->mpoly[v_map->indices[i]];
+		unsigned adj[2];
+
+		if (poly_get_adj_loops_from_vert(poly, ss->mloop, vert, adj) != -1) {
+			int j;
+			for (j = 0; j < ARRAY_SIZE(adj); j += 1) {
+				if (v_map->count != 2 || ss->pmap[adj[j]].count <= 2) {
+					printf("\n v: %d", adj[j]);
+					find_connect(ss, adj[j], ch, vert_index, len);
+				}
+			}
+		}
+		//printf("%d -> %d\n ",vert, v_map->indices[i]);
+		//find_connect(ss, v_map->indices[i], ch, vert_index, len);
 		
 	}
 	return 0;
@@ -3426,7 +3440,7 @@ static void do_topo_grab_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int tot
 	int count[3];  /* count[0] -> totalvertex that can be modified, count[1] -> store central vertex index */
 	int v_index[VERLEN];
 
-	short t_index[VERLEN] = { 0 };
+	int t_index[VERLEN] = { 0 };
 	float dis[1];   //added new
 
 	topo_init(sd, ob, nodes, totnode, count, v_index, dis, t_index);
@@ -3437,9 +3451,9 @@ static void do_topo_grab_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int tot
 	find_connect(ss, vrn, ch, v_index, count[0]);
 	int k = 0;
 	loop(ir, 0, count[0], 1){
-		printf(" %d , ", v_index[ir]);
+		printf(" %d %d\n, ", v_index[ir], ch[ir]);
 		if (ch[ir]){
-			t_index[k] = ch[ir];
+			t_index[k] = v_index[ir];
 			k++;
 		}
 	}
@@ -3449,7 +3463,7 @@ static void do_topo_grab_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int tot
 
 	SculptThreadedTaskData data = {
 		.sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
-		.grab_delta = grab_delta, .count = count, .t_index = v_index,
+		.grab_delta = grab_delta, .count = count, .t_index = t_index,
 	};
 
 	BLI_task_parallel_range_ex(
