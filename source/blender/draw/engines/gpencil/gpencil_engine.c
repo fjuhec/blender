@@ -215,13 +215,12 @@ static void GPENCIL_draw_scene(void *vedata)
 			
 			/* Mix Pass: DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS */
 			DRW_draw_pass(psl->mix_pass);
-
-			/* edit points */
-			DRW_draw_pass(psl->edit_pass);
-			/* current drawing buffer */
-			DRW_draw_pass(psl->drawing_pass);
-
 		}
+		/* edit points */
+		DRW_draw_pass(psl->edit_pass);
+		/* current drawing buffer */
+		DRW_draw_pass(psl->drawing_pass);
+
 		/* detach temp textures */
 		DRW_framebuffer_texture_detach(e_data.temp_fbcolor_depth_tx);
 		DRW_framebuffer_texture_detach(e_data.temp_fbcolor_color_tx);
