@@ -390,10 +390,12 @@ static void drw_texture_get_format(DRWTextureFormat format, GPUTextureFormat *da
 static void drw_texture_set_parameters(GPUTexture *tex, DRWTextureFlag flags)
 {
 	GPU_texture_bind(tex, 0);
-	GPU_texture_filter_mode(tex, flags & DRW_TEX_FILTER);
 	if (flags & DRW_TEX_MIPMAP) {
-		GPU_texture_mipmap_mode(tex, true);
+		GPU_texture_mipmap_mode(tex, true, flags & DRW_TEX_FILTER);
 		DRW_texture_generate_mipmaps(tex);
+	}
+	else {
+		GPU_texture_filter_mode(tex, flags & DRW_TEX_FILTER);
 	}
 	GPU_texture_wrap_mode(tex, flags & DRW_TEX_WRAP);
 	GPU_texture_compare_mode(tex, flags & DRW_TEX_COMPARE);
@@ -1995,6 +1997,7 @@ static GPUTextureFormat convert_tex_format(int fbo_format, int *channels, bool *
 		case DRW_TEX_R_16:     *channels = 1; return GPU_R16F;
 		case DRW_TEX_R_32:     *channels = 1; return GPU_R32F;
 		case DRW_TEX_RG_16:    *channels = 2; return GPU_RG16F;
+		case DRW_TEX_RG_32:    *channels = 2; return GPU_RG32F;
 		case DRW_TEX_RGBA_8:   *channels = 4; return GPU_RGBA8;
 		case DRW_TEX_RGBA_16:  *channels = 4; return GPU_RGBA16F;
 		case DRW_TEX_RGBA_32:  *channels = 4; return GPU_RGBA32F;
@@ -2133,6 +2136,13 @@ void DRW_framebuffer_texture_detach(GPUTexture *tex)
 void DRW_framebuffer_blit(struct GPUFrameBuffer *fb_read, struct GPUFrameBuffer *fb_write, bool depth)
 {
 	GPU_framebuffer_blit(fb_read, 0, fb_write, 0, depth);
+}
+
+void DRW_framebuffer_recursive_downsample(
+        struct GPUFrameBuffer *fb, struct GPUTexture *tex, int num_iter,
+        void (*callback)(void *userData, int level), void *userData)
+{
+	GPU_framebuffer_recursive_downsample(fb, tex, num_iter, callback, userData);
 }
 
 void DRW_framebuffer_viewport_size(struct GPUFrameBuffer *UNUSED(fb_read), int x, int y, int w, int h)

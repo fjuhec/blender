@@ -46,6 +46,26 @@ extern struct DrawEngineType draw_engine_eevee_type;
 // #define IRRADIANCE_CUBEMAP
 #define IRRADIANCE_HL2
 
+/* World shader variations */
+enum {
+	VAR_WORLD_BACKGROUND,
+	VAR_WORLD_PROBE,
+};
+
+/* Material shader variations */
+enum {
+	VAR_MAT_MESH     = (1 << 0),
+	VAR_MAT_PROBE    = (1 << 1),
+	VAR_MAT_HAIR     = (1 << 2),
+	VAR_MAT_AO       = (1 << 3),
+	VAR_MAT_FLAT     = (1 << 4),
+	VAR_MAT_BENT     = (1 << 5),
+	/* Max number of variation */
+	/* IMPORTANT : Leave it last and set
+	 * it's value accordingly. */
+	VAR_MAT_MAX      = (1 << 6)
+};
+
 typedef struct EEVEE_PassList {
 	/* Shadows */
 	struct DRWPass *shadow_pass;
@@ -69,20 +89,22 @@ typedef struct EEVEE_PassList {
 	struct DRWPass *dof_down;
 	struct DRWPass *dof_scatter;
 	struct DRWPass *dof_resolve;
+	struct DRWPass *minmaxz_downlevel;
+	struct DRWPass *minmaxz_downdepth;
+	struct DRWPass *minmaxz_copydepth;
 
 	struct DRWPass *depth_pass;
 	struct DRWPass *depth_pass_cull;
 	struct DRWPass *depth_pass_clip;
 	struct DRWPass *depth_pass_clip_cull;
-	struct DRWPass *default_pass;
-	struct DRWPass *default_flat_pass;
-	struct DRWPass *default_hair_pass;
+	struct DRWPass *default_pass[VAR_MAT_MAX];
 	struct DRWPass *material_pass;
 	struct DRWPass *background_pass;
 } EEVEE_PassList;
 
 typedef struct EEVEE_FramebufferList {
 	/* Effects */
+	struct GPUFrameBuffer *minmaxz_fb;
 	struct GPUFrameBuffer *effect_fb; /* HDR */
 	struct GPUFrameBuffer *bloom_blit_fb; /* HDR */
 	struct GPUFrameBuffer *bloom_down_fb[MAX_BLOOM_STEP]; /* HDR */
@@ -251,6 +273,10 @@ enum {
 typedef struct EEVEE_EffectsInfo {
 	int enabled_effects;
 
+	/* Ambient Occlusion */
+	bool use_ao, use_bent_normals;
+	float ao_dist, ao_samples, ao_factor;
+
 	/* Motion Blur */
 	float current_ndc_to_world[4][4];
 	float past_world_to_ndc[4][4];
@@ -371,6 +397,7 @@ typedef struct EEVEE_PrivateData {
 	struct DRWShadingGroup *cube_display_shgrp;
 	struct GHash *material_hash;
 	struct GHash *hair_material_hash;
+	struct GPUTexture *minmaxz;
 } EEVEE_PrivateData; /* Transient data */
 
 /* eevee_data.c */
@@ -378,7 +405,6 @@ EEVEE_SceneLayerData *EEVEE_scene_layer_data_get(void);
 EEVEE_ObjectEngineData *EEVEE_object_data_get(Object *ob);
 EEVEE_LightProbeEngineData *EEVEE_lightprobe_data_get(Object *ob);
 EEVEE_LampEngineData *EEVEE_lamp_data_get(Object *ob);
-
 
 /* eevee_materials.c */
 void EEVEE_materials_init(void);
@@ -388,9 +414,10 @@ void EEVEE_materials_cache_finish(EEVEE_Data *vedata);
 struct GPUMaterial *EEVEE_material_world_lightprobe_get(struct Scene *scene, struct World *wo);
 struct GPUMaterial *EEVEE_material_world_background_get(struct Scene *scene, struct World *wo);
 struct GPUMaterial *EEVEE_material_mesh_lightprobe_get(struct Scene *scene, Material *ma);
-struct GPUMaterial *EEVEE_material_mesh_get(struct Scene *scene, Material *ma);
-struct GPUMaterial *EEVEE_material_hair_get(struct Scene *scene, Material *ma);
+struct GPUMaterial *EEVEE_material_mesh_get(struct Scene *scene, Material *ma, bool use_ao, bool use_bent_normals);
+struct GPUMaterial *EEVEE_material_hair_get(struct Scene *scene, Material *ma, bool use_ao, bool use_bent_normals);
 void EEVEE_materials_free(void);
+void EEVEE_draw_default_passes(EEVEE_PassList *psl);
 
 /* eevee_lights.c */
 void EEVEE_lights_init(EEVEE_SceneLayerData *sldata);
@@ -413,6 +440,7 @@ void EEVEE_lightprobes_free(void);
 /* eevee_effects.c */
 void EEVEE_effects_init(EEVEE_Data *vedata);
 void EEVEE_effects_cache_init(EEVEE_Data *vedata);
+void EEVEE_create_minmax_buffer(EEVEE_Data *vedata);
 void EEVEE_draw_effects(EEVEE_Data *vedata);
 void EEVEE_effects_free(void);
 
