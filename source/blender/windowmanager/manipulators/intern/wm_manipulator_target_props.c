@@ -165,7 +165,7 @@ float WM_manipulator_target_property_value_get(
 	if (mpr_prop->custom_func.value_get_fn) {
 		float value = 0.0f;
 		BLI_assert(mpr_prop->type->array_length == 1);
-		mpr_prop->custom_func.value_get_fn(mpr, mpr_prop, mpr_prop->custom_func.user_data, &value);
+		mpr_prop->custom_func.value_get_fn(mpr, mpr_prop, &value);
 		return value;
 	}
 
@@ -183,7 +183,7 @@ void WM_manipulator_target_property_value_set(
 {
 	if (mpr_prop->custom_func.value_set_fn) {
 		BLI_assert(mpr_prop->type->array_length == 1);
-		mpr_prop->custom_func.value_set_fn(mpr, mpr_prop, mpr_prop->custom_func.user_data, &value);
+		mpr_prop->custom_func.value_set_fn(mpr, mpr_prop, &value);
 		return;
 	}
 
@@ -202,8 +202,7 @@ void WM_manipulator_target_property_value_get_array(
         float *value)
 {
 	if (mpr_prop->custom_func.value_get_fn) {
-		mpr_prop->custom_func.value_get_fn(
-		        mpr, mpr_prop, mpr_prop->custom_func.user_data, value);
+		mpr_prop->custom_func.value_get_fn(mpr, mpr_prop, value);
 		return;
 	}
 	return RNA_property_float_get_array(&mpr_prop->ptr, mpr_prop->prop, value);
@@ -214,8 +213,7 @@ void WM_manipulator_target_property_value_set_array(
         const float *value)
 {
 	if (mpr_prop->custom_func.value_set_fn) {
-		mpr_prop->custom_func.value_set_fn(
-		        mpr, mpr_prop, mpr_prop->custom_func.user_data, value);
+		mpr_prop->custom_func.value_set_fn(mpr, mpr_prop, value);
 		return;
 	}
 	RNA_property_float_set_array(&mpr_prop->ptr, mpr_prop->prop, value);
@@ -228,7 +226,7 @@ void WM_manipulator_target_property_range_get(
         float range[2])
 {
 	if (mpr_prop->custom_func.range_get_fn) {
-		mpr_prop->custom_func.range_get_fn(mpr, mpr_prop, mpr_prop->custom_func.user_data, range);
+		mpr_prop->custom_func.range_get_fn(mpr, mpr_prop, range);
 		return;
 	}
 

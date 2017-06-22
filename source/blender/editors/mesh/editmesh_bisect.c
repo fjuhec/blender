@@ -456,7 +456,7 @@ static void manipulator_mesh_bisect_update_from_op(ManipulatorGroup *man)
 
 /* depth callbacks */
 static void manipulator_bisect_prop_depth_get(
-        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop, void *UNUSED(user_data),
+        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop,
         float *value)
 {
 	ManipulatorGroup *man = mpr->parent_mgroup->customdata;
@@ -473,7 +473,7 @@ static void manipulator_bisect_prop_depth_get(
 }
 
 static void manipulator_bisect_prop_depth_set(
-        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop, void *UNUSED(user_data),
+        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop,
         const float *value)
 {
 	ManipulatorGroup *man = mpr->parent_mgroup->customdata;
@@ -499,7 +499,7 @@ static void manipulator_bisect_prop_depth_set(
 
 /* translate callbacks */
 static void manipulator_bisect_prop_translate_get(
-        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop, void *UNUSED(user_data),
+        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop,
         float *value)
 {
 	ManipulatorGroup *man = mpr->parent_mgroup->customdata;
@@ -512,7 +512,7 @@ static void manipulator_bisect_prop_translate_get(
 }
 
 static void manipulator_bisect_prop_translate_set(
-        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop, void *UNUSED(user_data),
+        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop,
         const float *value)
 {
 	ManipulatorGroup *man = mpr->parent_mgroup->customdata;
@@ -528,7 +528,7 @@ static void manipulator_bisect_prop_translate_set(
 
 /* angle callbacks */
 static void manipulator_bisect_prop_angle_get(
-        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop, void *UNUSED(user_data),
+        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop,
         float *value)
 {
 	ManipulatorGroup *man = mpr->parent_mgroup->customdata;
@@ -554,7 +554,7 @@ static void manipulator_bisect_prop_angle_get(
 }
 
 static void manipulator_bisect_prop_angle_set(
-        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop, void *UNUSED(user_data),
+        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop,
         const float *value)
 {
 	ManipulatorGroup *man = mpr->parent_mgroup->customdata;

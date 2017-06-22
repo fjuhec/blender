@@ -890,7 +890,7 @@ static void manipulator_mesh_spin_update_from_op(ManipulatorSpinGroup *man)
 
 /* depth callbacks */
 static void manipulator_spin_prop_depth_get(
-        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop, void *UNUSED(user_data),
+        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop,
         float *value)
 {
 	ManipulatorSpinGroup *man = mpr->parent_mgroup->customdata;
@@ -907,7 +907,7 @@ static void manipulator_spin_prop_depth_get(
 }
 
 static void manipulator_spin_prop_depth_set(
-        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop, void *UNUSED(user_data),
+        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop,
         const float *value)
 {
 	ManipulatorSpinGroup *man = mpr->parent_mgroup->customdata;
@@ -933,7 +933,7 @@ static void manipulator_spin_prop_depth_set(
 
 /* translate callbacks */
 static void manipulator_spin_prop_translate_get(
-        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop, void *UNUSED(user_data),
+        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop,
         float *value)
 {
 	ManipulatorSpinGroup *man = mpr->parent_mgroup->customdata;
@@ -946,7 +946,7 @@ static void manipulator_spin_prop_translate_get(
 }
 
 static void manipulator_spin_prop_translate_set(
-        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop, void *UNUSED(user_data),
+        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop,
         const float *value)
 {
 	ManipulatorSpinGroup *man = mpr->parent_mgroup->customdata;
@@ -962,7 +962,7 @@ static void manipulator_spin_prop_translate_set(
 
 /* angle callbacks */
 static void manipulator_spin_prop_axis_angle_get(
-        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop, void *UNUSED(user_data),
+        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop,
         float *value)
 {
 	ManipulatorSpinGroup *man = mpr->parent_mgroup->customdata;
@@ -988,7 +988,7 @@ static void manipulator_spin_prop_axis_angle_get(
 }
 
 static void manipulator_spin_prop_axis_angle_set(
-        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop, void *UNUSED(user_data),
+        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop,
         const float *value)
 {
 	ManipulatorSpinGroup *man = mpr->parent_mgroup->customdata;
@@ -1022,7 +1022,7 @@ static void manipulator_spin_prop_axis_angle_set(
 
 /* angle callbacks */
 static void manipulator_spin_prop_angle_get(
-        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop, void *UNUSED(user_data),
+        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop,
         float *value)
 {
 	ManipulatorSpinGroup *man = mpr->parent_mgroup->customdata;
@@ -1033,7 +1033,7 @@ static void manipulator_spin_prop_angle_get(
 }
 
 static void manipulator_spin_prop_angle_set(
-        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop, void *UNUSED(user_data),
+        const wmManipulator *mpr, wmManipulatorProperty *mpr_prop,
         const float *value)
 {
 	ManipulatorSpinGroup *man = mpr->parent_mgroup->customdata;
