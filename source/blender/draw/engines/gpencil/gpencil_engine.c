@@ -179,11 +179,6 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 	}
 }
 
-static void GPENCIL_cache_finish(void *UNUSED(vedata))
-{
-	return;
-}
-
 static void GPENCIL_draw_scene(void *vedata)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
@@ -245,7 +240,7 @@ DrawEngineType draw_engine_gpencil_type = {
 	&GPENCIL_engine_free,
 	&GPENCIL_cache_init,
 	&GPENCIL_cache_populate,
-	&GPENCIL_cache_finish,
+	NULL,
 	NULL,
 	&GPENCIL_draw_scene
 };
