@@ -94,6 +94,12 @@ static void GPENCIL_engine_init(void *vedata)
 	}
 
 	unit_m4(stl->storage->unit_matrix);
+
+	/* blank texture used if no texture defined for fill shader*/
+	if (!e_data.gpencil_blank_texture) {
+		e_data.gpencil_blank_texture = DRW_gpencil_create_blank_texture(64, 64);
+	}
+
 }
 
 static void GPENCIL_engine_free(void)
@@ -102,6 +108,7 @@ static void GPENCIL_engine_free(void)
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_fill_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_stroke_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_fullscreen_sh);
+	DRW_TEXTURE_FREE_SAFE(e_data.gpencil_blank_texture);
 }
 
 static void GPENCIL_cache_init(void *vedata)
@@ -224,6 +231,9 @@ static void GPENCIL_draw_scene(void *vedata)
 		/* detach temp textures */
 		DRW_framebuffer_texture_detach(e_data.temp_fbcolor_depth_tx);
 		DRW_framebuffer_texture_detach(e_data.temp_fbcolor_color_tx);
+		
+		/* attach again default framebuffer */
+		DRW_framebuffer_bind(dfbl->default_fb);
 	}
 	/* free memory */
 	MEM_SAFE_FREE(stl->g_data->gp_object_cache);

@@ -194,7 +194,8 @@ static GpencilBatchCache *gpencil_batch_cache_get(bGPdata *gpd, int cfra)
 }
 
  /* create shading group for filling */
-static DRWShadingGroup *DRW_gpencil_shgroup_fill_create(GPENCIL_Data *vedata, DRWPass *pass, GPUShader *shader, Object *ob, 
+static DRWShadingGroup *DRW_gpencil_shgroup_fill_create(GPENCIL_e_data *e_data, GPENCIL_Data *vedata, DRWPass *pass, 
+	GPUShader *shader, Object *ob,
 	bGPdata *gpd, PaletteColor *palcolor, int id)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
@@ -247,6 +248,12 @@ static DRWShadingGroup *DRW_gpencil_shgroup_fill_create(GPENCIL_Data *vedata, DR
 
 			BKE_image_release_ibuf(image, ibuf, NULL);
 		}
+	}
+	else {
+		/* if no texture defined, need a blank texture to avoid errors in draw manager */
+		DRW_shgroup_uniform_texture(grp, "myTexture", e_data->gpencil_blank_texture);
+		stl->shgroups[id].t_clamp = 0;
+		DRW_shgroup_uniform_int(grp, "t_clamp", &stl->shgroups[id].t_clamp, 1);
 	}
 
 	/* object scale */
@@ -457,7 +464,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 #endif
 		if (gps->totpoints > 1) {
 			int id = stl->storage->pal_id;
-			stl->shgroups[id].shgrps_fill = DRW_gpencil_shgroup_fill_create(vedata, psl->stroke_pass, e_data->gpencil_fill_sh, ob, gpd, gps->palcolor, id);
+			stl->shgroups[id].shgrps_fill = DRW_gpencil_shgroup_fill_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_fill_sh, ob, gpd, gps->palcolor, id);
 			stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_stroke_create(vedata, psl->stroke_pass, e_data->gpencil_stroke_sh, ob, gpd, id);
 			++stl->storage->pal_id;
 
@@ -639,3 +646,15 @@ void DRW_gpencil_batch_cache_free(bGPdata *gpd)
 	MEM_SAFE_FREE(gpd->batch_cache);
 }
 
+struct GPUTexture *DRW_gpencil_create_blank_texture(int width, int height)
+{
+	struct GPUTexture *tex;
+	int w = width;
+	int h = height;
+	float *final_rect = MEM_callocN(sizeof(float) * 4 * w * h, "Gpencil Blank Texture");
+
+	tex = DRW_texture_create_2D(w, h, DRW_TEX_RGBA_8, DRW_TEX_FILTER, final_rect);
+	MEM_freeN(final_rect);
+
+	return tex;
+}

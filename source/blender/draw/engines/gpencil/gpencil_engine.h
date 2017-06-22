@@ -112,6 +112,7 @@ typedef struct GPENCIL_e_data {
 	/* temp depth texture */
 	struct GPUTexture *temp_fbcolor_depth_tx;
 	struct GPUTexture *temp_fbcolor_color_tx;
+	struct GPUTexture *gpencil_blank_texture;
 } GPENCIL_e_data; /* Engine data */
 
 /* Gwn_Batch Cache */
@@ -153,6 +154,8 @@ struct Gwn_Batch *DRW_gpencil_get_edit_geom(struct bGPDstroke *gps, float alpha,
 struct Gwn_Batch *DRW_gpencil_get_buffer_stroke_geom(struct bGPdata *gpd, float matrix[4][4], short thickness);
 struct Gwn_Batch *DRW_gpencil_get_buffer_fill_geom(const struct tGPspoint *points, int totpoints, float ink[4]);
 struct Gwn_Batch *DRW_gpencil_get_buffer_point_geom(struct bGPdata *gpd, short thickness);
+
+struct GPUTexture *DRW_gpencil_create_blank_texture(int width, int height);
 
 void gpencil_batch_cache_clear(struct bGPdata *gpd);
 
