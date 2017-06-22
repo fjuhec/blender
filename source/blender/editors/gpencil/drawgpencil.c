@@ -1625,7 +1625,7 @@ static void gp_draw_data_all(Scene *scene, bGPdata *gpd, int offsx, int offsy, i
                              int cfra, int dflag, const char spacetype)
 {
 	bGPdata *gpd_source = NULL;
-	ToolSettings *ts;
+	ToolSettings *ts = NULL;
 	bGPDbrush *brush = NULL;
 	if (scene) {
 		ts = scene->toolsettings;

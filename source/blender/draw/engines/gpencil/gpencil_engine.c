@@ -166,9 +166,6 @@ static void GPENCIL_cache_init(void *vedata)
 static void GPENCIL_cache_populate(void *vedata, Object *ob)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
-	const DRWContextState *draw_ctx = DRW_context_state_get();
-	Scene *scene = draw_ctx->scene;
-	ToolSettings *ts = scene->toolsettings;
 
 	/* object datablock (this is not draw now) */
 	if (ob->type == OB_GPENCIL && ob->gpd) {
@@ -182,7 +179,7 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 	}
 }
 
-static void GPENCIL_cache_finish(void *vedata)
+static void GPENCIL_cache_finish(void *UNUSED(vedata))
 {
 	return;
 }
@@ -197,7 +194,6 @@ static void GPENCIL_draw_scene(void *vedata)
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	GPENCIL_FramebufferList *fbl = ((GPENCIL_Data *)vedata)->fbl;
 	DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
-	DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
 	float clearcol[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 
 	/* Draw all pending objects */

@@ -1295,7 +1295,7 @@ static void gp_init_drawing_brush(ToolSettings *ts, tGPsdata *p)
 static void gp_init_palette(tGPsdata *p)
 {
 	Palette *palette;
-	PaletteColor *palcolor;
+	PaletteColor *palcolor = NULL;
 
 	palette = p->palette;
 
