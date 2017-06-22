@@ -3342,7 +3342,7 @@ static void topo_init_task_cb(void *userdata, const int n) {
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE) {
 		sculpt_orig_vert_data_update(&orig_data, &vd);
 
-		if (sculpt_brush_topo_test(&test, orig_data.co, orig_data.no)) {
+		if (sculpt_brush_topo_test(&test, orig_data.co)) {
 			float *co;
 			co = vd.co;
 			v_index[it + count[0]] = vd.vert_indices[vd.i];
