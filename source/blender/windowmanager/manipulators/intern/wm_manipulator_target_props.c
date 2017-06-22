@@ -123,6 +123,8 @@ void WM_manipulator_target_property_def_func_ptr(
 	/* if manipulator evokes an operator we cannot use it for property manipulation */
 	mpr->op_data.type = NULL;
 
+	mpr_prop->type = mpr_prop_type;
+
 	mpr_prop->custom_func.value_get_fn = params->value_get_fn;
 	mpr_prop->custom_func.value_set_fn = params->value_set_fn;
 	mpr_prop->custom_func.range_get_fn = params->range_get_fn;
@@ -162,7 +164,8 @@ float WM_manipulator_target_property_value_get(
 {
 	if (mpr_prop->custom_func.value_get_fn) {
 		float value = 0.0f;
-		mpr_prop->custom_func.value_get_fn(mpr, mpr_prop, mpr_prop->custom_func.user_data, &value, 1);
+		BLI_assert(mpr_prop->type->array_length == 1);
+		mpr_prop->custom_func.value_get_fn(mpr, mpr_prop, mpr_prop->custom_func.user_data, &value);
 		return value;
 	}
 
@@ -179,7 +182,8 @@ void WM_manipulator_target_property_value_set(
         wmManipulatorProperty *mpr_prop, const float value)
 {
 	if (mpr_prop->custom_func.value_set_fn) {
-		mpr_prop->custom_func.value_set_fn(mpr, mpr_prop, mpr_prop->custom_func.user_data, &value, 1);
+		BLI_assert(mpr_prop->type->array_length == 1);
+		mpr_prop->custom_func.value_set_fn(mpr, mpr_prop, mpr_prop->custom_func.user_data, &value);
 		return;
 	}
 
@@ -199,7 +203,7 @@ void WM_manipulator_target_property_value_get_array(
 {
 	if (mpr_prop->custom_func.value_get_fn) {
 		mpr_prop->custom_func.value_get_fn(
-		        mpr, mpr_prop, mpr_prop->custom_func.user_data, value, mpr_prop->type->array_length);
+		        mpr, mpr_prop, mpr_prop->custom_func.user_data, value);
 		return;
 	}
 	return RNA_property_float_get_array(&mpr_prop->ptr, mpr_prop->prop, value);
@@ -211,7 +215,7 @@ void WM_manipulator_target_property_value_set_array(
 {
 	if (mpr_prop->custom_func.value_set_fn) {
 		mpr_prop->custom_func.value_set_fn(
-		        mpr, mpr_prop, mpr_prop->custom_func.user_data, value, mpr_prop->type->array_length);
+		        mpr, mpr_prop, mpr_prop->custom_func.user_data, value);
 		return;
 	}
 	RNA_property_float_set_array(&mpr_prop->ptr, mpr_prop->prop, value);

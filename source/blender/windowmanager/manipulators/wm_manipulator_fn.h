@@ -61,10 +61,10 @@ typedef void    (*wmManipulatorFnSelect)(struct bContext *, struct wmManipulator
 /* wmManipulatorProperty */
 typedef void (*wmManipulatorPropertyFnGet)(
         const struct wmManipulator *, struct wmManipulatorProperty *, void *user_data,
-        float *value, uint value_len);
+        float *value);
 typedef void (*wmManipulatorPropertyFnSet)(
         const struct wmManipulator *, struct wmManipulatorProperty *, void *user_data,
-        const float *value, uint value_len);
+        const float *value);
 typedef void (*wmManipulatorPropertyFnRangeGet)(
         const struct wmManipulator *, struct wmManipulatorProperty *, void *user_data,
         float range[2]);
