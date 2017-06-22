@@ -42,58 +42,28 @@ void set_color(in vec4 color, in vec4 color2, in vec4 tcolor, in float mixv, in 
 	/* full color A */
 	if (mixv == 1.0) {
 		if (tmix == 1) {
-			if (flip == 0) {
-				ocolor = color;
-			}
-			else {
-				ocolor = tcolor;
-			}
+			ocolor = (flip == 0) ? color : tcolor;
 		}
 		else {
-			if (flip == 0) {
-				ocolor = color;
-			}
-			else {
-				ocolor = color2;
-			}
+			ocolor = (flip == 0) ? color : color2;
 		}
 	}
 	/* full color B */
 	else if (mixv == 0.0) {
 		if (tmix == 1) {
-			if (flip == 0) {
-				ocolor = tcolor;
-			}
-			else {
-				ocolor = color;
-			}
+			ocolor = (flip == 0) ? tcolor : color;
 		}
 		else {
-			if (flip == 0) {
-				ocolor = color2;
-			}
-			else {
-				ocolor = color;
-			}
+			ocolor = (flip == 0) ? color2 : color;
 		}
 	}
 	/* mix of colors */
 	else {
 		if (tmix == 1) {
-			if (flip == 0) {
-				ocolor = mix(color, tcolor, factor);
-			}
-			else {
-				ocolor = mix(tcolor, color, factor);
-			}
+			ocolor = (flip == 0) ? mix(color, tcolor, factor) : mix(tcolor, color, factor);
 		}
 		else {
-			if (flip == 0) {
-				ocolor = mix(color, color2, factor);
-			}
-			else {
-				ocolor = mix(color2, color, factor);
-			}
+			ocolor = (flip == 0) ? mix(color, color2, factor) : mix(color2, color, factor);
 		}
 	}
 }
@@ -104,23 +74,13 @@ void main()
 	mat2 matrot_tex = mat2(cos(t_angle), -sin(t_angle), sin(t_angle), cos(t_angle));
 	vec2 rot_tex = (matrot_tex * (texCoord_interp - t_center)) + t_center + t_shift;
 	vec4 tmp_color;
-	if (t_clamp == 0) {
-		tmp_color = texture2D(myTexture, rot_tex * t_scale);
-	}
-	else {
-		tmp_color = texture2D(myTexture, clamp(rot_tex * t_scale, 0.0, 1.0));
-	}
+	tmp_color = (t_clamp == 0) ? texture2D(myTexture, rot_tex * t_scale) : texture2D(myTexture, clamp(rot_tex * t_scale, 0.0, 1.0));
 	vec4 text_color = vec4(tmp_color[0], tmp_color[1], tmp_color[2], tmp_color[3] * t_opacity);
 	vec4 chesscolor;
 
 	/* solid fill */
 	if (fill_type == SOLID) {
-		if (t_mix == 1) {
-			fragColor = mix(finalColor, text_color, mix_factor);
-		}
-		else {
-			fragColor = finalColor;
-		}
+		fragColor = (t_mix == 1) ? mix(finalColor, text_color, mix_factor) : finalColor;
 	}
 	else {
 		vec2 center = vec2(0.5, 0.5) + g_shift;
@@ -148,28 +108,13 @@ void main()
 		if (fill_type == CHESS) {
 			vec2 pos = rot / g_boxsize;
 			if ((fract(pos.x) < 0.5 && fract(pos.y) < 0.5) || (fract(pos.x) > 0.5 && fract(pos.y) > 0.5)) {
-				if (t_flip == 0) {
-					chesscolor = finalColor;
-				}
-				else {
-					chesscolor = color2;
-				}
+			    chesscolor = (t_flip == 0) ? finalColor : color2; 
 			}
 			else {
-				if (t_flip == 0) {
-					chesscolor = color2;
-				}
-				else {
-					chesscolor = finalColor;
-				}
+			    chesscolor = (t_flip == 0) ? color2 : finalColor; 
 			}
 			/* mix with texture */
-			if (t_mix == 1) {
-				fragColor = mix(chesscolor, text_color, mix_factor);
-			}
-			else {
-				fragColor = chesscolor;
-			}
+			fragColor = (t_mix == 1) ? mix(chesscolor, text_color, mix_factor) : chesscolor;
 		}
 		/* texture */
 		if (fill_type == TEXTURE) {
