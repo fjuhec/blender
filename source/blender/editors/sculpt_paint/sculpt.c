@@ -210,6 +210,11 @@ typedef struct StrokeCache {
 	float bstrength;
 	float normal_weight;  /* from brush (with optional override) */
 
+	/* Just Topo things! */
+
+	int *d_count;
+	int *v_index;
+
 	/* The rest is temporary storage that isn't saved as a property */
 
 	bool first_time; /* Beginning of stroke may do some things special */
@@ -3263,12 +3268,14 @@ static void do_topo_grab_brush_task_cb_ex(
 	SculptSession *ss = data->ob->sculpt;
 	Brush *brush = data->brush;
 	const float *grab_delta = data->grab_delta;
-	int *vert_array = data->t_index;
-	int *count = data->count;
 	PBVHVertexIter vd;
 	SculptBrushTest test;
 	SculptOrigVertData orig_data;
 	float(*proxy)[3];
+
+	int *count = ss->cache->d_count;
+	int *vert_array = ss->cache->v_index;
+
 	const float bstrength = ss->cache->bstrength;
 
 	sculpt_orig_vert_data_init(&orig_data, data->ob, data->nodes[n]);
@@ -3340,7 +3347,7 @@ static void topo_init_task_cb(void *userdata, const int n) {
 			co = vd.co;
 			v_index[it + count[0]] = vd.vert_indices[vd.i];
 
-			float distsq = dist_squared_to_line_direction_v3v3(vd.co, test.location, test.normal);
+			float distsq = dist_squared_to_line_direction_v3v3(vd.co, test.true_location, test.normal);
 			//printf(" dist: %f , ", distsq);
 			if (distsq < t_dis[0]){
 				t_dis[0] = distsq;
@@ -3377,7 +3384,7 @@ int find_connect(SculptSession *ss, int vert, short *ch, int *vert_index, int le
 			int j;
 			for (j = 0; j < ARRAY_SIZE(adj); j += 1) {
 				if (v_map->count != 2 || ss->pmap[adj[j]].count <= 2) {
-					printf("\n v: %d", adj[j]);
+					/* printf("\n v: %d", adj[j]); */
 					find_connect(ss, adj[j], ch, vert_index, len);
 				}
 			}
@@ -3426,6 +3433,26 @@ static void topo_init(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode,
 	
 }
 
+static void connected_face_init(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode,
+	int *count, int *v_index, float *dis, int *t_index){
+	SculptSession *ss = ob->sculpt;
+	topo_init(sd, ob, nodes, totnode, count, v_index, dis, t_index);
+
+	int vrn = count[1];
+	short ch[VERLEN] = { 0 };
+	find_connect(ss, vrn, ch, v_index, count[0]);
+	int k = 0;
+	loop(ir, 0, count[0], 1){
+		/* printf(" %d %d\n, ", v_index[ir], ch[ir]); */
+		if (ch[ir]){
+			t_index[k] = v_index[ir];
+			k++;
+		}
+	}
+	count[2] = k;
+	printf("\ncount: %d %d %d , dis : %f", count[0], count[1], count[2], dis[0]);
+}
+
 static void do_topo_grab_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode)
 {
 	SculptSession *ss = ob->sculpt;
@@ -3437,35 +3464,20 @@ static void do_topo_grab_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int tot
 	if (ss->cache->normal_weight > 0.0f) {
 		sculpt_project_v3_normal_align(ss, ss->cache->normal_weight, grab_delta);
 	}
-	int count[3];  /* count[0] -> totalvertex that can be modified, count[1] -> store central vertex index */
+	/*
+	int count[3];  count[0] -> totalvertex that can be modified, count[1] -> store central vertex index 
 	int v_index[VERLEN];
-
 	int t_index[VERLEN] = { 0 };
 	float dis[1];   //added new
-
-	topo_init(sd, ob, nodes, totnode, count, v_index, dis, t_index);
+	*/
+	//connected_face_init(sd, ob, nodes, totnode, count, v_index, dis, t_index);
 	if (!ss->pmap) {printf("NO!"); return;}
-
-	int vrn = count[1];
-	short ch[VERLEN] = { 0 };
-	find_connect(ss, vrn, ch, v_index, count[0]);
-	int k = 0;
-	loop(ir, 0, count[0], 1){
-		printf(" %d %d\n, ", v_index[ir], ch[ir]);
-		if (ch[ir]){
-			t_index[k] = v_index[ir];
-			k++;
-		}
-	}
-	count[2] = k;
-
-	printf("\ncount: %d %d %d , dis : %f", count[0], count[1], count[2],dis[0]);
 
 	SculptThreadedTaskData data = {
 		.sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
-		.grab_delta = grab_delta, .count = count, .t_index = t_index,
+		.grab_delta = grab_delta, 
 	};
-
+	// .count = count, .t_index = t_index,
 	BLI_task_parallel_range_ex(
 		0, totnode, &data, NULL, 0, do_topo_grab_brush_task_cb_ex,
 		((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
@@ -4800,6 +4812,28 @@ static void sculpt_update_cache_variants(bContext *C, Sculpt *sd, Object *ob,
 	}
 
 	cache->special_rotation = ups->brush_rotation;
+
+	if (brush->sculpt_tool == SCULPT_TOOL_TOPO_GRAB){
+		SculptSession *ss = ob->sculpt;
+		SculptSearchSphereData data;
+		PBVHNode **nodes = NULL;
+		int totnode;
+		data.ss = ss;
+		data.sd = sd;
+		data.radius_squared = ss->cache->radius_squared;
+		data.original = sculpt_tool_needs_original(brush->sculpt_tool) ? true : ss->cache->original;
+		BKE_pbvh_search_gather(ss->pbvh, sculpt_search_sphere_cb, &data, &nodes, &totnode);
+
+		int count[3];  /* count[0] -> totalvertex that can be modified, count[1] -> store central vertex index */
+		int v_index[VERLEN];
+		int t_index[VERLEN] = { 0 };
+		float dis[1];   //added new
+
+		connected_face_init(sd, ob, nodes, totnode, count, v_index, dis, t_index);
+
+		cache->d_count = count;
+		cache->v_index = t_index;
+	}
 }
 
 /* Returns true if any of the smoothing modes are active (currently
