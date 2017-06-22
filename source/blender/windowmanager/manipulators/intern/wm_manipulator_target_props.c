@@ -98,6 +98,8 @@ void WM_manipulator_target_property_def_rna_ptr(
 	mpr_prop->prop = prop;
 	mpr_prop->index = index;
 
+	mpr->target_properties_len_set += 1;
+
 	if (mpr->type->property_update) {
 		mpr->type->property_update(mpr, mpr_prop);
 	}
@@ -125,6 +127,8 @@ void WM_manipulator_target_property_def_func_ptr(
 	mpr_prop->custom_func.value_set_fn = params->value_set_fn;
 	mpr_prop->custom_func.range_get_fn = params->range_get_fn;
 	mpr_prop->custom_func.user_data = params->user_data;
+
+	mpr->target_properties_len_set += 1;
 
 	if (mpr->type->property_update) {
 		mpr->type->property_update(mpr, mpr_prop);
