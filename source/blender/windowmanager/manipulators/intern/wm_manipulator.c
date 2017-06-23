@@ -94,7 +94,7 @@ static wmManipulator *wm_manipulator_create(
 
 	WM_manipulator_properties_sanitize(mpr->ptr, 0);
 
-	unit_m4(mpr->matrix);
+	unit_m4(mpr->matrix_basis);
 	unit_m4(mpr->matrix_offset);
 
 	return mpr;
@@ -149,7 +149,7 @@ static void manipulator_init(wmManipulator *mpr)
 {
 	const float color_default[4] = {1.0f, 1.0f, 1.0f, 1.0f};
 
-	mpr->user_scale = 1.0f;
+	mpr->scale_basis = 1.0f;
 	mpr->line_width = 1.0f;
 
 	/* defaults */
@@ -278,16 +278,16 @@ static void wm_manipulator_set_matrix_rotation_from_yz_axis__internal(
 void WM_manipulator_set_matrix_rotation_from_z_axis(
         wmManipulator *mpr, const float z_axis[3])
 {
-	wm_manipulator_set_matrix_rotation_from_z_axis__internal(mpr->matrix, z_axis);
+	wm_manipulator_set_matrix_rotation_from_z_axis__internal(mpr->matrix_basis, z_axis);
 }
 void WM_manipulator_set_matrix_rotation_from_yz_axis(
         wmManipulator *mpr, const float y_axis[3], const float z_axis[3])
 {
-	wm_manipulator_set_matrix_rotation_from_yz_axis__internal(mpr->matrix, y_axis, z_axis);
+	wm_manipulator_set_matrix_rotation_from_yz_axis__internal(mpr->matrix_basis, y_axis, z_axis);
 }
 void WM_manipulator_set_matrix_location(wmManipulator *mpr, const float origin[3])
 {
-	copy_v3_v3(mpr->matrix[3], origin);
+	copy_v3_v3(mpr->matrix_basis[3], origin);
 }
 
 /**
@@ -320,7 +320,7 @@ void WM_manipulator_set_flag(wmManipulator *mpr, const int flag, const bool enab
 
 void WM_manipulator_set_scale(wmManipulator *mpr, const float scale)
 {
-	mpr->user_scale = scale;
+	mpr->scale_basis = scale;
 }
 
 void WM_manipulator_set_line_width(wmManipulator *mpr, const float line_width)
@@ -446,7 +446,7 @@ void wm_manipulator_calculate_scale(wmManipulator *mpr, const bContext *C)
 	const RegionView3D *rv3d = CTX_wm_region_view3d(C);
 	float scale = U.ui_scale;
 
-	if (mpr->parent_mgroup->type->flag & WM_MANIPULATORGROUPTYPE_SCALE_3D) {
+	if ((mpr->parent_mgroup->type->flag & WM_MANIPULATORGROUPTYPE_SCALE) == 0) {
 		scale *= U.manipulator_size;
 		if (rv3d) {
 			/* 'ED_view3d_pixel_size' includes 'U.pixelsize', remove it. */
@@ -457,7 +457,7 @@ void wm_manipulator_calculate_scale(wmManipulator *mpr, const bContext *C)
 				scale *= ED_view3d_pixel_size(rv3d, matrix_world[3]) / U.pixelsize;
 			}
 			else {
-				scale *= ED_view3d_pixel_size(rv3d, mpr->matrix[3]) / U.pixelsize;
+				scale *= ED_view3d_pixel_size(rv3d, mpr->matrix_basis[3]) / U.pixelsize;
 			}
 		}
 		else {
@@ -465,7 +465,7 @@ void wm_manipulator_calculate_scale(wmManipulator *mpr, const bContext *C)
 		}
 	}
 
-	mpr->scale = scale * mpr->user_scale;
+	mpr->scale_final = mpr->scale_basis * scale;
 }
 
 static void manipulator_update_prop_data(wmManipulator *mpr)
@@ -490,26 +490,26 @@ void wm_manipulator_update(wmManipulator *mpr, const bContext *C, const bool ref
 	wm_manipulator_calculate_scale(mpr, C);
 }
 
-bool wm_manipulator_is_visible(wmManipulator *mpr)
+int wm_manipulator_is_visible(wmManipulator *mpr)
 {
 	if (mpr->flag & WM_MANIPULATOR_HIDDEN) {
-		return false;
+		return 0;
 	}
 	if ((mpr->state & WM_MANIPULATOR_STATE_ACTIVE) &&
 	    !(mpr->flag & (WM_MANIPULATOR_DRAW_ACTIVE | WM_MANIPULATOR_DRAW_VALUE)))
 	{
 		/* don't draw while active (while dragging) */
-		return false;
+		return 0;
 	}
 	if ((mpr->flag & WM_MANIPULATOR_DRAW_HOVER) &&
 	    !(mpr->state & WM_MANIPULATOR_STATE_HIGHLIGHT) &&
 	    !(mpr->state & WM_MANIPULATOR_STATE_SELECT)) /* still draw selected manipulators */
 	{
-		/* only draw on mouse hover */
-		return false;
+		/* update but don't draw */
+		return WM_MANIPULATOR_IS_VISIBLE_UPDATE;
 	}
 
-	return true;
+	return WM_MANIPULATOR_IS_VISIBLE_UPDATE | WM_MANIPULATOR_IS_VISIBLE_DRAW;
 }
 
 

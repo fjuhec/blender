@@ -87,13 +87,13 @@ struct wmManipulator {
 	 *   besides this it's up to the manipulators internal code how the
 	 *   rotation components are used for drawing and interaction.
 	 */
-	float matrix[4][4];
+	float matrix_basis[4][4];
 	/* custom offset from origin */
 	float matrix_offset[4][4];
 	/* runtime property, set the scale while drawing on the viewport */
-	float scale;
+	float scale_final;
 	/* user defined scale, in addition to the original one */
-	float user_scale;
+	float scale_basis;
 	/* user defined width for line drawing */
 	float line_width;
 	/* manipulator colors (uses default fallbacks if not defined) */
@@ -185,11 +185,14 @@ enum {
 /**
  * \brief Manipulator tweak flag.
  * Bitflag passed to manipulator while tweaking.
+ *
+ * \note Manipulators are responsible for handling this #wmManipulator.modal callback!.
  */
 enum {
-	/* drag with extra precision (shift)
-	 * NOTE: Manipulators are responsible for handling this (manipulator->handler callback)! */
+	/* Drag with extra precision (Shift). */
 	WM_MANIPULATOR_TWEAK_PRECISE = (1 << 0),
+	/* Drag with snap enabled (Ctrl).  */
+	WM_MANIPULATOR_TWEAK_SNAP = (1 << 1),
 };
 
 typedef struct wmManipulatorType {
@@ -333,8 +336,9 @@ enum eManipulatorMapTypeUpdateFlags {
 enum {
 	/* Mark manipulator-group as being 3D */
 	WM_MANIPULATORGROUPTYPE_3D       = (1 << 0),
-	/* Scale manipulators as 3D object that respects zoom (otherwise zoom independent draw size) */
-	WM_MANIPULATORGROUPTYPE_SCALE_3D    = (1 << 1),
+	/* Scale manipulators as 3D object that respects zoom (otherwise zoom independent draw size).
+	 * note: currently only for 3D views, 2D support needs adding. */
+	WM_MANIPULATORGROUPTYPE_SCALE    = (1 << 1),
 	/* Manipulators can be depth culled with scene objects (covered by other geometry - TODO) */
 	WM_MANIPULATORGROUPTYPE_DEPTH_3D = (1 << 2),
 	/* Manipulators can be selected */

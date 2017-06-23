@@ -114,7 +114,7 @@ void VIEW3D_WGT_lamp(wmManipulatorGroupType *wgt)
 
 	wgt->flag |= (WM_MANIPULATORGROUPTYPE_PERSISTENT |
 	              WM_MANIPULATORGROUPTYPE_3D |
-	              WM_MANIPULATORGROUPTYPE_SCALE_3D);
+	              WM_MANIPULATORGROUPTYPE_DEPTH_3D);
 
 	wgt->poll = WIDGETGROUP_lamp_poll;
 	wgt->setup = WIDGETGROUP_lamp_setup;
@@ -292,7 +292,9 @@ void VIEW3D_WGT_camera(wmManipulatorGroupType *wgt)
 	wgt->idname = "VIEW3D_WGT_camera";
 
 	wgt->flag = (WM_MANIPULATORGROUPTYPE_PERSISTENT |
-	             WM_MANIPULATORGROUPTYPE_3D);
+	             WM_MANIPULATORGROUPTYPE_3D |
+	             WM_MANIPULATORGROUPTYPE_SCALE |
+	             WM_MANIPULATORGROUPTYPE_DEPTH_3D);
 
 	wgt->poll = WIDGETGROUP_camera_poll;
 	wgt->setup = WIDGETGROUP_camera_setup;
@@ -360,7 +362,9 @@ void VIEW3D_WGT_force_field(wmManipulatorGroupType *wgt)
 	wgt->idname = "VIEW3D_WGT_force_field";
 
 	wgt->flag |= (WM_MANIPULATORGROUPTYPE_PERSISTENT |
-	              WM_MANIPULATORGROUPTYPE_3D);
+	              WM_MANIPULATORGROUPTYPE_3D |
+	              WM_MANIPULATORGROUPTYPE_SCALE |
+	              WM_MANIPULATORGROUPTYPE_DEPTH_3D);
 
 	wgt->poll = WIDGETGROUP_forcefield_poll;
 	wgt->setup = WIDGETGROUP_forcefield_setup;

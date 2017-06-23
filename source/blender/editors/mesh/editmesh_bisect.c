@@ -469,7 +469,7 @@ static void manipulator_bisect_prop_depth_get(
 	RNA_property_float_get_array(op->ptr, man->data.prop_plane_co, plane_co);
 	RNA_property_float_get_array(op->ptr, man->data.prop_plane_no, plane_no);
 
-	value[0] = dot_v3v3(plane_no, plane_co) - dot_v3v3(plane_no, mpr->matrix[3]);
+	value[0] = dot_v3v3(plane_no, plane_co) - dot_v3v3(plane_no, mpr->matrix_basis[3]);
 }
 
 static void manipulator_bisect_prop_depth_set(
@@ -487,7 +487,7 @@ static void manipulator_bisect_prop_depth_set(
 	RNA_property_float_get_array(op->ptr, man->data.prop_plane_no, plane);
 	normalize_v3(plane);
 
-	plane[3] = -value[0] - dot_v3v3(plane, mpr->matrix[3]);
+	plane[3] = -value[0] - dot_v3v3(plane, mpr->matrix_basis[3]);
 
 	/* Keep our location, may be offset simply to be inside the viewport. */
 	closest_to_plane_normalized_v3(plane_co, plane, plane_co);
@@ -673,8 +673,7 @@ static void MESH_WGT_bisect(struct wmManipulatorGroupType *wgt)
 	wgt->name = "Mesh Bisect";
 	wgt->idname = "MESH_WGT_bisect";
 
-	wgt->flag = (WM_MANIPULATORGROUPTYPE_3D |
-	             WM_MANIPULATORGROUPTYPE_SCALE_3D);
+	wgt->flag = WM_MANIPULATORGROUPTYPE_3D;
 
 	wgt->mmap_params.spaceid = SPACE_VIEW3D;
 	wgt->mmap_params.regionid = RGN_TYPE_WINDOW;
