@@ -1097,8 +1097,8 @@ static void rna_def_manipulatorgroup(BlenderRNA *brna)
 	static EnumPropertyItem manipulatorgroup_flag_items[] = {
 		{WM_MANIPULATORGROUPTYPE_3D, "3D", 0, "3D",
 		 "Use in 3D viewport"},
-		{WM_MANIPULATORGROUPTYPE_SCALE_3D, "SCALE_3D", 0, "Scale 3D",
-		 "Scale manipulators as 3D object that respects zoom (otherwise zoom independent draw size)"},
+		{WM_MANIPULATORGROUPTYPE_SCALE, "SCALE", 0, "Scale",
+		 "Scale to respect zoom (otherwise zoom independent draw size)"},
 		{WM_MANIPULATORGROUPTYPE_DEPTH_3D, "DEPTH_3D", 0, "Depth 3D",
 		 "Supports culled depth by other objects in the view"},
 		{WM_MANIPULATORGROUPTYPE_SELECT, "SELECT", 0, "Select",
