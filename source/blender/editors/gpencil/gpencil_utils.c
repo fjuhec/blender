@@ -69,6 +69,9 @@
 #include "ED_view3d.h"
 #include "ED_object.h"
 
+#include "GPU_immediate.h"
+#include "GPU_immediate_util.h"
+
 #include "gpencil_intern.h"
 
 /* ******************************************************** */
@@ -1287,3 +1290,54 @@ void ED_gp_get_drawing_reference(ToolSettings *ts, View3D *v3d, Scene *scene, Ob
 	}
 }
 /* ******************************************************** */
+/* Cursor drawing */
+
+/* Helper callback for drawing the cursor itself */
+static void gp_brush_drawcursor(bContext *C, int x, int y, void *UNUSED(customdata))
+{
+	Scene *scene = CTX_data_scene(C);
+	GP_BrushEdit_Settings *gset = &scene->toolsettings->gp_sculpt;
+	GP_EditBrush_Data *brush = &gset->brush[gset->brushtype]; 
+
+	if (brush) {
+		Gwn_VertFormat *format = immVertexFormat();
+		unsigned int pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
+		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+
+		glEnable(GL_LINE_SMOOTH);
+		glEnable(GL_BLEND);
+
+		/* Inner Ring: Light color for action of the brush */
+		/* TODO: toggle between add and remove? */
+		immUniformColor4ub(255, 255, 255, 200);
+		imm_draw_circle_wire(pos, x, y, brush->size, 40);
+
+		/* Outer Ring: Dark color for contrast on light backgrounds (e.g. gray on white) */
+		immUniformColor3ub(30, 30, 30);
+		imm_draw_circle_wire(pos, x, y, brush->size + 1, 40);
+
+		immUnbindProgram();
+
+		glDisable(GL_BLEND);
+		glDisable(GL_LINE_SMOOTH);
+	}
+}
+
+/* Turn brush cursor in on/off */
+void ED_gpencil_toggle_brush_cursor(bContext *C, bool enable)
+{
+	Scene *scene = CTX_data_scene(C);
+	GP_BrushEdit_Settings *gset = &scene->toolsettings->gp_sculpt;
+
+	if (gset->paintcursor && !enable) {
+		/* clear cursor */
+		WM_paint_cursor_end(CTX_wm_manager(C), gset->paintcursor);
+		gset->paintcursor = NULL;
+	}
+	else if (enable) {
+		/* enable cursor */
+		gset->paintcursor = WM_paint_cursor_activate(CTX_wm_manager(C),
+			NULL,
+			gp_brush_drawcursor, NULL);
+	}
+}

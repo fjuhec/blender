@@ -91,6 +91,7 @@
 #include "ED_screen.h"
 #include "ED_sculpt.h"
 #include "ED_mball.h"
+#include "ED_gpencil.h"
 
 #include "UI_interface.h"
 
@@ -1604,13 +1605,18 @@ static bool ed_object_select_pick(
 				/* set cursor */
 				if (basact->object->mode == OB_MODE_GPENCIL_PAINT) {
 					WM_cursor_modal_set(CTX_wm_window(C), BC_PAINTBRUSHCURSOR);
+					ED_gpencil_toggle_brush_cursor(C, false);
 				}
-				else if (basact->object->mode == OB_MODE_GPENCIL_PAINT) {
+				else if (basact->object->mode == OB_MODE_GPENCIL_SCULPT) {
 					WM_cursor_modal_set(CTX_wm_window(C), BC_CROSSCURSOR);
+					/* first disable to avoid duplicate cursors */
+					ED_gpencil_toggle_brush_cursor(C, false);
+					ED_gpencil_toggle_brush_cursor(C, true);
 				}
 				else {
 					/* TODO: maybe is better use restore */
 					WM_cursor_modal_set(CTX_wm_window(C), CURSOR_STD);
+					ED_gpencil_toggle_brush_cursor(C, false);
 				}
 				/* set workspace mode */
 				BKE_workspace_object_mode_set(CTX_wm_workspace(C), basact->object->mode);
