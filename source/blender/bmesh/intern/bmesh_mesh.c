@@ -30,6 +30,7 @@
 
 #include "DNA_listBase.h"
 #include "DNA_object_types.h"
+#include "DNA_scene_types.h"
 
 #include "BLI_linklist_stack.h"
 #include "BLI_listbase.h"
@@ -1163,6 +1164,98 @@ static void BM_lnorspace_err(BMesh *bm)
 
 	bm->spacearr_dirty &= ~BM_SPACEARR_DIRTY_ALL;
 
+}
+/* Marks the individual clnors to be edited, if multiple selection methods are used */
+static int BM_loop_normal_indiv(BMesh *bm)
+{
+	BMEditSelection *ese, *vert;
+	int totloopsel = 0;
+
+	if (bm->elem_index_dirty & BM_LOOP) {
+		BM_mesh_elem_index_ensure(bm, BM_LOOP);
+	}
+
+	for (ese = bm->selected.last; ese; ese = ese->prev) {		/* Goes from last selected to the first selected element */
+		if (ese->htype == BM_FACE) {
+			vert = ese;
+			while ((vert = vert->prev)) {			/* If current face is selected, then any verts to be edited must have been selected before it */
+				if (vert->htype == BM_VERT) {
+
+					BMLoop *l = BM_face_vert_share_loop((BMFace *)ese->ele, (BMVert *)vert->ele);	
+					if (l) {						/* if vert and face selected share a loop, mark it for editing */
+						BM_elem_flag_enable(l, BM_ELEM_LNORSPACE);
+						totloopsel++;
+					}
+				}
+			}
+		}
+		else if (ese->htype == BM_EDGE) {
+			vert = ese;
+			while ((vert = vert->prev)) {
+				if (vert->htype == BM_VERT) {
+
+					if (BM_vert_in_edge((BMEdge *)ese->ele, (BMVert *)vert->ele)) {
+						BMLoop *l = BM_edge_vert_share_loop(((BMEdge *)ese->ele)->l, (BMVert *)vert->ele);
+						BM_elem_flag_enable(l, BM_ELEM_LNORSPACE);
+						totloopsel++;
+					}
+				}
+			}
+		}
+	}
+
+	return totloopsel;
+}
+
+LoopNormalData *BM_loop_normal_init(BMesh *bm)
+{
+	bool verts = bm->selectmode & SCE_SELECT_VERTEX,
+		edges = bm->selectmode & SCE_SELECT_EDGE,
+		faces = bm->selectmode & SCE_SELECT_FACE;
+	int totloopsel = 0;
+
+	if (verts + edges + faces > 1) {		/* More than 1 sel mode, check if only individual normals to edit */
+		totloopsel = BM_loop_normal_indiv(bm);
+	}
+	LoopNormalData *ld = MEM_mallocN(sizeof(*ld), "__func__");
+	int cd_custom_normal_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
+	BMLoop *l;
+	BMVert *v;
+	BMIter liter, viter;
+
+	if (totloopsel) {
+		TransDataLoopNormal *tld = ld->normal = MEM_mallocN(sizeof(*tld) * totloopsel, "__func__");
+
+		BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
+			BM_ITER_ELEM(l, &liter, v, BM_LOOPS_OF_VERT) {
+				if (BM_elem_flag_test(l, BM_ELEM_LNORSPACE)) {
+
+					InitTransDataNormal(bm, tld, v, l, cd_custom_normal_offset);
+					BM_elem_flag_disable(l, BM_ELEM_LNORSPACE);
+					tld++;
+				}
+			}
+		}
+		ld->totloop = totloopsel;
+	}
+	else {					/* if multiple selection modes are inactive OR no such loop is found, fall back to editing all loops*/
+		totloopsel = BM_total_loop_select(bm);
+		TransDataLoopNormal *tld = ld->normal = MEM_mallocN(sizeof(*tld) * totloopsel, "__func__");
+
+		BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
+			if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
+				BM_ITER_ELEM(l, &liter, v, BM_LOOPS_OF_VERT) {
+
+					InitTransDataNormal(bm, tld, v, l, cd_custom_normal_offset);
+					tld++;
+				}
+			}
+		}
+		ld->totloop = totloopsel;
+	}
+
+	ld->offset = cd_custom_normal_offset;
+	return ld;
 }
 
 int BM_total_loop_select(BMesh *bm)

@@ -435,6 +435,19 @@ class VIEW3D_PT_tools_shading(View3DPanel, Panel):
         col.operator("mesh.set_normals_from_faces", text="Set From Faces")
 
 
+class VIEW3D_PT_tools_normal(View3DPanel, Panel):
+	bl_category = "Shading / UVs"
+	bl_context = "mesh_edit"
+	bl_label = "Normal Tools"
+
+	def draw(self, context):
+		layout = self.layout
+
+		col = layout.column(align=True)
+		col.operator("transform.rotate_normal", text = "Rotate Normal")
+		col.operator("mesh.point_normals")
+
+
 class VIEW3D_PT_tools_uvs(View3DPanel, Panel):
     bl_category = "Shading / UVs"
     bl_context = "mesh_edit"
@@ -2020,6 +2033,7 @@ classes = (
     VIEW3D_PT_tools_meshweight,
     VIEW3D_PT_tools_add_mesh_edit,
     VIEW3D_PT_tools_shading,
+	VIEW3D_PT_tools_normal,
     VIEW3D_PT_tools_uvs,
     VIEW3D_PT_tools_meshedit_options,
     VIEW3D_PT_tools_transform_curve,

@@ -59,6 +59,7 @@ void BM_lnorspace_update(BMesh *bm);
 static void BM_lnorspace_err(BMesh *bm);
 
 /* Loop Generics */
+LoopNormalData *BM_loop_normal_init(BMesh *bm);
 int BM_total_loop_select(BMesh *bm);
 void InitTransDataNormal(BMesh *bm, TransDataLoopNormal *tld, BMVert *v, BMLoop *l, int offset);
 

@@ -2405,15 +2405,15 @@ bool initTransform(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 					all_select = true;							//No need to invalidate if whole mesh is selected
 				}
 			}
+			if (t->flag & T_MODAL) {
+				RNA_boolean_set(op->ptr, "preserve_clnor", false);
+			}
 			if (!all_select) {
 				if (!em->bm->lnor_spacearr) {
 					BM_lnorspace_update(em->bm);
 				}
 				BM_lnorspace_invalidate(em->bm, false);
 
-				if (t->flag & T_MODAL) {
-					RNA_boolean_set(op->ptr, "preserve_clnor", false);
-				}
 				const bool preserve_clnor = RNA_boolean_get(op->ptr, "preserve_clnor");
 				if (preserve_clnor) {
 					t->flag |= T_CLNOR_REBUILD;
@@ -4225,37 +4225,19 @@ static void applyTrackball(TransInfo *t, const int UNUSED(mval[2]))
 
 static void StoreCustomlnorValue(TransInfo *t, BMesh *bm)
 {
-	TransDataLoopNormal *tob;
-	BMVert *v;
-	BMLoop *l;
-	BMIter viter, liter;
 	float mtx[3][3], smtx[3][3];
-	int totloopsel = 0;
 
-	LoopNormalData *ld = MEM_mallocN(sizeof(LoopNormalData), "__func__");
+	LoopNormalData *ld = BM_loop_normal_init(bm);
 
 	copy_m3_m4(mtx, t->obedit->obmat);
 	pseudoinverse_m3_m3(smtx, mtx, PSEUDOINVERSE_EPSILON);
 
-	totloopsel = BM_total_loop_select(bm);
-
-	tob = ld->normal = MEM_mallocN(sizeof(TransData) * totloopsel, "__func__");
-	int cd_custom_normal_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
-
-	BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
-		if (BM_elem_flag_test(v, BM_ELEM_SELECT)){
-			BM_ITER_ELEM(l, &liter, v, BM_LOOPS_OF_VERT) {
-
-				InitTransDataNormal(bm, tob, NULL, l, cd_custom_normal_offset);
-				copy_m3_m3(tob->smtx, smtx);
-				copy_m3_m3(tob->mtx, mtx);
-				tob++;
-			}
-		}
+	TransDataLoopNormal *tld = ld->normal;
+	for (int i = 0; i < ld->totloop; i++, tld++) {
+		copy_m3_m3(tld->mtx, mtx);
+		copy_m3_m3(tld->smtx, smtx);
 	}
 
-	ld->totloop = totloopsel;
-	ld->offset = cd_custom_normal_offset;
 	t->custom.mode.data = ld;
 	t->custom.mode.free_cb = freeCustomNormalArray;
 }
@@ -4300,6 +4282,9 @@ static void initNormalRotation(TransInfo *t)
 	BM_lnorspace_update(bm);
 
 	StoreCustomlnorValue(t, bm);
+	
+	negate_v3_v3(t->axis, t->viewinv[2]);
+	normalize_v3(t->axis);
 
 	copy_v3_v3(t->axis_orig, t->axis);
 }
