@@ -1759,6 +1759,7 @@ class VIEW3D_PT_tools_weightpaint_options(Panel, View3DPaintPanel):
         row = col.row()
 
         row.prop(wpaint, "use_normal")
+        row.prop(wpaint, "use_occlude")
         col = layout.column()
         row = col.row()
         row.prop(wpaint, "use_spray")
