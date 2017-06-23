@@ -56,7 +56,7 @@ static void GPENCIL_engine_init(void *vedata)
 
 	DRWFboTexture tex_color[2] = {{
 			&e_data.temp_fbcolor_depth_tx, DRW_TEX_DEPTH_24, DRW_TEX_TEMP },
-			{ &e_data.temp_fbcolor_color_tx, DRW_TEX_RGBA_8, DRW_TEX_FILTER | DRW_TEX_TEMP }
+			{ &e_data.temp_fbcolor_color_tx, DRW_TEX_RGBA_32, DRW_TEX_TEMP }
 	};
 	/* init temp framebuffer */
 	DRW_framebuffer_init(
