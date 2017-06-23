@@ -63,6 +63,7 @@
 #include "BKE_global.h"
 #include "BKE_idprop.h"
 #include "BKE_workspace.h"
+#include "BKE_utildefines.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -290,34 +291,75 @@ static IDProperty *rna_ManipulatorProperties_idprops(PointerRNA *ptr, bool creat
 	return ptr->data;
 }
 
-static void rna_Manipulator_color_get(PointerRNA *ptr, float *values)
-{
-	const wmManipulator *mpr = ptr->data;
-	WM_manipulator_get_color(mpr, values);
-}
-static void rna_Manipulator_color_set(PointerRNA *ptr, const float *values)
-{
-	wmManipulator *mpr = ptr->data;
-	WM_manipulator_set_color(mpr, values);
-}
-
-static void rna_Manipulator_color_hi_get(PointerRNA *ptr, float *values)
-{
-	const wmManipulator *mpr = ptr->data;
-	WM_manipulator_get_color_highlight(mpr, values);
-}
-static void rna_Manipulator_color_hi_set(PointerRNA *ptr, const float *values)
-{
-	wmManipulator *mpr = ptr->data;
-	WM_manipulator_set_color_highlight(mpr, values);
-}
-
-
 static PointerRNA rna_Manipulator_properties_get(PointerRNA *ptr)
 {
-	wmManipulator *mpr = (wmManipulator *)ptr->data;
+	wmManipulator *mpr = ptr->data;
 	return rna_pointer_inherit_refine(ptr, mpr->type->srna, mpr->properties);
 }
+
+/* wmManipulator.float */
+#define RNA_MANIPULATOR_GENERIC_FLOAT_RW_DEF(func_id, member_id) \
+static float rna_Manipulator_##func_id##_get(PointerRNA *ptr) \
+{ \
+	wmManipulator *mpr = ptr->data; \
+	return mpr->member_id; \
+} \
+static void rna_Manipulator_##func_id##_set(PointerRNA *ptr, float value) \
+{ \
+	wmManipulator *mpr = ptr->data; \
+	mpr->member_id = value; \
+}
+/* wmManipulator.float[len] */
+#define RNA_MANIPULATOR_GENERIC_FLOAT_ARRAY_RW_DEF(func_id, member_id, len) \
+static void rna_Manipulator_##func_id##_get(PointerRNA *ptr, float value[len]) \
+{ \
+	wmManipulator *mpr = ptr->data; \
+	memcpy(value, mpr->member_id, sizeof(float[len])); \
+} \
+static void rna_Manipulator_##func_id##_set(PointerRNA *ptr, const float value[len]) \
+{ \
+	wmManipulator *mpr = ptr->data; \
+	memcpy(mpr->member_id, value, sizeof(float[len])); \
+}
+
+/* wmManipulator.flag */
+#define RNA_MANIPULATOR_GENERIC_FLAG_RW_DEF(func_id, member_id, flag_value) \
+static int rna_Manipulator_##func_id##_get(PointerRNA *ptr) \
+{ \
+	wmManipulator *mpr = ptr->data; \
+	return (mpr->member_id & flag_value) != 0; \
+} \
+static void rna_Manipulator_##func_id##_set(PointerRNA *ptr, int value) \
+{ \
+	wmManipulator *mpr = ptr->data; \
+	BKE_BIT_TEST_SET(mpr->member_id, value, flag_value); \
+}
+
+#define RNA_MANIPULATOR_FLAG_RO_DEF(func_id, member_id, flag_value) \
+static int rna_Manipulator_##func_id##_get(PointerRNA *ptr) \
+{ \
+	wmManipulator *mpr = ptr->data; \
+	return (mpr->member_id & flag_value) != 0; \
+}
+
+RNA_MANIPULATOR_GENERIC_FLOAT_ARRAY_RW_DEF(color, color, 4);
+RNA_MANIPULATOR_GENERIC_FLOAT_ARRAY_RW_DEF(color_hi, color_hi, 4);
+
+RNA_MANIPULATOR_GENERIC_FLOAT_ARRAY_RW_DEF(matrix_basis, matrix_basis, 16);
+RNA_MANIPULATOR_GENERIC_FLOAT_ARRAY_RW_DEF(matrix_offset, matrix_offset, 16);
+
+RNA_MANIPULATOR_GENERIC_FLOAT_RW_DEF(scale_basis, scale_basis);
+RNA_MANIPULATOR_GENERIC_FLOAT_RW_DEF(line_width, line_width);
+
+RNA_MANIPULATOR_GENERIC_FLAG_RW_DEF(flag_use_draw_hover, flag, WM_MANIPULATOR_DRAW_HOVER);
+RNA_MANIPULATOR_GENERIC_FLAG_RW_DEF(flag_use_draw_active, flag, WM_MANIPULATOR_DRAW_ACTIVE);
+RNA_MANIPULATOR_GENERIC_FLAG_RW_DEF(flag_use_draw_value, flag, WM_MANIPULATOR_DRAW_VALUE);
+RNA_MANIPULATOR_GENERIC_FLAG_RW_DEF(flag_hide, flag, WM_MANIPULATOR_HIDDEN);
+
+/* wmManipulator.state */
+RNA_MANIPULATOR_FLAG_RO_DEF(state_is_highlight, state, WM_MANIPULATOR_STATE_HIGHLIGHT);
+RNA_MANIPULATOR_FLAG_RO_DEF(state_is_active, state, WM_MANIPULATOR_STATE_ACTIVE);
+RNA_MANIPULATOR_FLAG_RO_DEF(state_select, state, WM_MANIPULATOR_STATE_SELECT);
 
 static void rna_Manipulator_unregister(struct Main *bmain, StructRNA *type);
 void BPY_RNA_manipulator_wrapper(wmManipulatorType *wgt, void *userdata);
@@ -921,8 +963,74 @@ static void rna_def_manipulator(BlenderRNA *brna, PropertyRNA *cprop)
 	prop = RNA_def_property(srna, "color_highlight", PROP_FLOAT, PROP_COLOR);
 	RNA_def_property_array(prop, 4);
 	RNA_def_property_float_funcs(prop, "rna_Manipulator_color_hi_get", "rna_Manipulator_color_hi_set", NULL);
-
 	RNA_def_property_ui_text(prop, "Color", "");
+
+	prop = RNA_def_property(srna, "matrix_basis", PROP_FLOAT, PROP_MATRIX);
+	RNA_def_property_multi_array(prop, 2, rna_matrix_dimsize_4x4);
+	RNA_def_property_ui_text(prop, "Basis Matrix", "");
+	RNA_def_property_float_funcs(prop, "rna_Manipulator_matrix_basis_get", "rna_Manipulator_matrix_basis_set", NULL);
+	RNA_def_property_update(prop, NC_SCREEN | NA_EDITED, NULL);
+
+	prop = RNA_def_property(srna, "matrix_offset", PROP_FLOAT, PROP_MATRIX);
+	RNA_def_property_multi_array(prop, 2, rna_matrix_dimsize_4x4);
+	RNA_def_property_ui_text(prop, "Offset Matrix", "");
+	RNA_def_property_float_funcs(prop, "rna_Manipulator_matrix_offset_get", "rna_Manipulator_matrix_offset_set", NULL);
+	RNA_def_property_update(prop, NC_SCREEN | NA_EDITED, NULL);
+
+	prop = RNA_def_property(srna, "scale_basis", PROP_FLOAT, PROP_MATRIX);
+	RNA_def_property_ui_text(prop, "Scale Basis", "");
+	RNA_def_property_float_funcs(prop, "rna_Manipulator_scale_basis_get", "rna_Manipulator_scale_basis_set", NULL);
+	RNA_def_property_range(prop, 0.0f, FLT_MAX);
+	RNA_def_property_update(prop, NC_SCREEN | NA_EDITED, NULL);
+
+	prop = RNA_def_property(srna, "line_width", PROP_FLOAT, PROP_MATRIX);
+	RNA_def_property_ui_text(prop, "Line Width", "");
+	RNA_def_property_float_funcs(prop, "rna_Manipulator_line_width_get", "rna_Manipulator_line_width_set", NULL);
+	RNA_def_property_range(prop, 0.0f, FLT_MAX);
+	RNA_def_property_update(prop, NC_SCREEN | NA_EDITED, NULL);
+
+	/* wmManipulator.flag */
+	/* WM_MANIPULATOR_HIDDEN */
+	prop = RNA_def_property(srna, "hide", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_funcs(
+	        prop, "rna_Manipulator_flag_hide_get", "rna_Manipulator_flag_hide_set");
+	RNA_def_property_ui_text(prop, "Hide", "");
+	RNA_def_property_update(prop, NC_SCREEN | NA_EDITED, NULL);
+	/* WM_MANIPULATOR_DRAW_HOVER */
+	prop = RNA_def_property(srna, "use_draw_hover", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_funcs(
+	        prop, "rna_Manipulator_flag_use_draw_hover_get", "rna_Manipulator_flag_use_draw_hover_set");
+	RNA_def_property_ui_text(prop, "Draw Hover", "");
+	RNA_def_property_update(prop, NC_SCREEN | NA_EDITED, NULL);
+	/* WM_MANIPULATOR_DRAW_ACTIVE */
+	prop = RNA_def_property(srna, "use_draw_active", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_funcs(
+	        prop, "rna_Manipulator_flag_use_draw_active_get", "rna_Manipulator_flag_use_draw_active_set");
+	RNA_def_property_ui_text(prop, "Draw Active", "Draw while dragging");
+	RNA_def_property_update(prop, NC_SCREEN | NA_EDITED, NULL);
+	/* WM_MANIPULATOR_DRAW_VALUE */
+	prop = RNA_def_property(srna, "use_draw_value", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_funcs(
+	        prop, "rna_Manipulator_flag_use_draw_value_get", "rna_Manipulator_flag_use_draw_value_set");
+	RNA_def_property_ui_text(prop, "Draw Value", "Show an indicator for the current value while dragging");
+	RNA_def_property_update(prop, NC_SCREEN | NA_EDITED, NULL);
+
+	/* wmManipulator.state (readonly) */
+	/* WM_MANIPULATOR_STATE_HIGHLIGHT */
+	prop = RNA_def_property(srna, "is_highlight", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_funcs(prop, "rna_Manipulator_state_is_highlight_get", NULL);
+	RNA_def_property_ui_text(prop, "Highlight", "");
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	/* WM_MANIPULATOR_STATE_ACTIVE */
+	prop = RNA_def_property(srna, "is_active", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_funcs(prop, "rna_Manipulator_state_is_active_get", NULL);
+	RNA_def_property_ui_text(prop, "Highlight", "");
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	/* WM_MANIPULATOR_STATE_SELECT */
+	prop = RNA_def_property(srna, "select", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_funcs(prop, "rna_Manipulator_state_select_get", NULL);
+	RNA_def_property_ui_text(prop, "Select", "");
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 
 	RNA_api_manipulator(srna);
 
