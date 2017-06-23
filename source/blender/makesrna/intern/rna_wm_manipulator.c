@@ -249,7 +249,7 @@ static wmManipulator *rna_ManipulatorProperties_find_operator(PointerRNA *ptr)
 
 	/* We could try workaruond this lookup, but not trivial. */
 	for (bScreen *screen = G.main->screen.first; screen; screen = screen->id.next) {
-		IDProperty *properties = (IDProperty *)ptr->data;
+		IDProperty *properties = ptr->data;
 		for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
 			for (ARegion *ar = sa->regionbase.first; ar; ar = ar->next) {
 				if (ar->manipulator_map) {
@@ -360,6 +360,24 @@ RNA_MANIPULATOR_GENERIC_FLAG_RW_DEF(flag_hide, flag, WM_MANIPULATOR_HIDDEN);
 RNA_MANIPULATOR_FLAG_RO_DEF(state_is_highlight, state, WM_MANIPULATOR_STATE_HIGHLIGHT);
 RNA_MANIPULATOR_FLAG_RO_DEF(state_is_active, state, WM_MANIPULATOR_STATE_ACTIVE);
 RNA_MANIPULATOR_FLAG_RO_DEF(state_select, state, WM_MANIPULATOR_STATE_SELECT);
+
+static void rna_Manipulator_name_get(PointerRNA *ptr, char *value)
+{
+	wmManipulator *mpr = ptr->data;
+	strcpy(value, mpr->name);
+}
+
+static void rna_Manipulator_name_set(PointerRNA *ptr, const char *value)
+{
+	wmManipulator *mpr = ptr->data;
+	WM_manipulator_name_set(mpr->parent_mgroup, mpr, value);
+}
+
+static int rna_Manipulator_name_length(PointerRNA *ptr)
+{
+	wmManipulator *mpr = ptr->data;
+	return strlen(mpr->name);
+}
 
 static void rna_Manipulator_unregister(struct Main *bmain, StructRNA *type);
 void BPY_RNA_manipulator_wrapper(wmManipulatorType *wgt, void *userdata);
@@ -859,7 +877,6 @@ static void rna_def_manipulator(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_Manipulator_bl_idname_set");
 	/* RNA_def_property_clear_flag(prop, PROP_EDITABLE); */
 	RNA_def_property_flag(prop, PROP_REGISTER);
-	RNA_def_struct_name_property(srna, prop);
 
 	RNA_define_verify_sdna(1); /* not in sdna */
 
@@ -955,6 +972,13 @@ static void rna_def_manipulator(BlenderRNA *brna, PropertyRNA *cprop)
 
 	/* -------------------------------------------------------------------- */
 	/* Instance Variables */
+
+	prop = RNA_def_property(srna, "name", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_funcs(
+	        prop, "rna_Manipulator_name_get", "rna_Manipulator_name_length", "rna_Manipulator_name_set");
+	RNA_def_property_ui_text(prop, "Name", "");
+	RNA_def_struct_name_property(srna, prop);
+	RNA_def_property_update(prop, NC_SCENE | ND_SEQUENCER, NULL);
 
 	prop = RNA_def_property(srna, "color", PROP_FLOAT, PROP_COLOR);
 	RNA_def_property_array(prop, 4);
