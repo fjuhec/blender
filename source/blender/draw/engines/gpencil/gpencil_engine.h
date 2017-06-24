@@ -54,7 +54,7 @@ typedef struct GPENCIL_shgroup {
 } GPENCIL_shgroup;
 
 typedef struct GPENCIL_Storage {
-	int pal_id; /* total elements */
+	int shgroup_id; /* total elements */
 	float unit_matrix[4][4];
 	int xray;
 	int keep_size;

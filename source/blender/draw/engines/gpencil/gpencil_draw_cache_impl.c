@@ -449,24 +449,24 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 			continue;
 		}
 		/* limit the number of shading groups */
-		if (stl->storage->pal_id >= GPENCIL_MAX_SHGROUPS) {
+		if (stl->storage->shgroup_id >= GPENCIL_MAX_SHGROUPS) {
 			continue;
 		}
 #if 0   /* if we use the reallocate the shading group is doing weird thing, so disable while find a solution 
 		   and allocate the max size on cache_init */
 		/* realloc memory */
 		GPENCIL_shgroup *p = NULL;
-		int size = stl->storage->pal_id + 1;
+		int size = stl->storage->shgroup_id + 1;
 		p = MEM_recallocN(stl->shgroups, sizeof(struct GPENCIL_shgroup) * size);
 		if (p != NULL) {
 			stl->shgroups = p;
 		}
 #endif
 		if (gps->totpoints > 1) {
-			int id = stl->storage->pal_id;
+			int id = stl->storage->shgroup_id;
 			stl->shgroups[id].shgrps_fill = DRW_gpencil_shgroup_fill_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_fill_sh, ob, gpd, gps->palcolor, id);
 			stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_stroke_create(vedata, psl->stroke_pass, e_data->gpencil_stroke_sh, ob, gpd, id);
-			++stl->storage->pal_id;
+			++stl->storage->shgroup_id;
 
 			fillgrp = stl->shgroups[id].shgrps_fill;
 			strokegrp = stl->shgroups[id].shgrps_stroke;
