@@ -1335,6 +1335,12 @@ void ED_gpencil_toggle_brush_cursor(bContext *C, bool enable)
 		gset->paintcursor = NULL;
 	}
 	else if (enable) {
+		/* in some situations cursor could be duplicated, so it is better disable first if exist */
+		if (gset->paintcursor) {
+			/* clear cursor */
+			WM_paint_cursor_end(CTX_wm_manager(C), gset->paintcursor);
+			gset->paintcursor = NULL;
+		}
 		/* enable cursor */
 		gset->paintcursor = WM_paint_cursor_activate(CTX_wm_manager(C),
 			NULL,

@@ -1609,8 +1609,6 @@ static bool ed_object_select_pick(
 				}
 				else if (basact->object->mode == OB_MODE_GPENCIL_SCULPT) {
 					WM_cursor_modal_set(CTX_wm_window(C), BC_CROSSCURSOR);
-					/* first disable to avoid duplicate cursors */
-					ED_gpencil_toggle_brush_cursor(C, false);
 					ED_gpencil_toggle_brush_cursor(C, true);
 				}
 				else {
