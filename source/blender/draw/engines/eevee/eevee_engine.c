@@ -60,6 +60,7 @@ static void EEVEE_engine_init(void *ved)
 		/* Alloc transient pointers */
 		stl->g_data = MEM_mallocN(sizeof(*stl->g_data), __func__);
 	}
+	stl->g_data->background_alpha = 1.0f;
 
 	EEVEE_materials_init();
 	EEVEE_lights_init(sldata);
@@ -150,7 +151,7 @@ static void EEVEE_draw_scene(void *vedata)
 	DRW_draw_pass(psl->depth_pass_cull);
 
 	/* Create minmax texture */
-	EEVEE_create_minmax_buffer(vedata);
+	EEVEE_create_minmax_buffer(vedata, dtxl->depth);
 
 	/* Restore main FB */
 	DRW_framebuffer_bind(fbl->main);

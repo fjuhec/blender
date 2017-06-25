@@ -3855,9 +3855,11 @@ void node_output_material(vec4 surface, vec4 volume, float displacement, out vec
 	result = surface;
 }
 
+uniform float backgroundAlpha;
+
 void node_output_world(vec4 surface, vec4 volume, out vec4 result)
 {
-	result = vec4(surface.rgb, 1.0);
+	result = vec4(surface.rgb, backgroundAlpha);
 }
 
 void convert_metallic_to_specular(vec4 basecol, float metallic, float specular_fac, out vec4 diffuse, out vec4 f0)
@@ -3894,9 +3896,9 @@ void node_eevee_specular(
 	result = vec4(eevee_surface_lit(normal, diffuse.rgb, specular.rgb, roughness, occlusion) + emissive.rgb, 1.0 - transp);
 }
 
-void node_output_eevee_material(vec4 Surface, out vec4 result)
+void node_output_eevee_material(vec4 surface, out vec4 result)
 {
-	result = Surface;
+	result = vec4(surface.rgb, length(viewPosition));
 }
 
 #endif

@@ -346,7 +346,6 @@ typedef struct EEVEE_SceneLayerData {
 	struct GPUFrameBuffer *probe_filter_fb;
 
 	struct GPUTexture *probe_rt;
-	struct GPUTexture *probe_depth_rt;
 	struct GPUTexture *probe_pool;
 	struct GPUTexture *irradiance_pool;
 	struct GPUTexture *irradiance_rt;
@@ -398,6 +397,7 @@ typedef struct EEVEE_PrivateData {
 	struct GHash *material_hash;
 	struct GHash *hair_material_hash;
 	struct GPUTexture *minmaxz;
+	float background_alpha; /* TODO find a better place for this. */
 } EEVEE_PrivateData; /* Transient data */
 
 /* eevee_data.c */
@@ -440,7 +440,7 @@ void EEVEE_lightprobes_free(void);
 /* eevee_effects.c */
 void EEVEE_effects_init(EEVEE_Data *vedata);
 void EEVEE_effects_cache_init(EEVEE_Data *vedata);
-void EEVEE_create_minmax_buffer(EEVEE_Data *vedata);
+void EEVEE_create_minmax_buffer(EEVEE_Data *vedata, struct GPUTexture *depth_src);
 void EEVEE_draw_effects(EEVEE_Data *vedata);
 void EEVEE_effects_free(void);
 

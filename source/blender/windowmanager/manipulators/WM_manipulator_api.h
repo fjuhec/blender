@@ -38,6 +38,7 @@
 
 struct ARegion;
 struct GHashIterator;
+struct IDProperty;
 struct Main;
 struct PropertyRNA;
 struct wmKeyConfig;
@@ -68,7 +69,8 @@ void WM_manipulator_free(
 
 void WM_manipulator_name_set(struct wmManipulatorGroup *mgroup, struct wmManipulator *mpr, const char *name);
 
-struct PointerRNA *WM_manipulator_set_operator(struct wmManipulator *, struct wmOperatorType *ot);
+struct PointerRNA *WM_manipulator_set_operator(
+        struct wmManipulator *, struct wmOperatorType *ot, struct IDProperty *properties);
 
 /* callbacks */
 void WM_manipulator_set_fn_custom_modal(struct wmManipulator *mpr, wmManipulatorFnModal fn);

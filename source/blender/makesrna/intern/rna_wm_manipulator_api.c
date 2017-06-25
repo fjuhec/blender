@@ -146,7 +146,14 @@ static PointerRNA rna_manipulator_target_set_operator(
 		return PointerRNA_NULL;
 	}
 
-	WM_manipulator_set_operator(mpr, ot);
+	/* For the return value to be usable, we need 'PointerRNA.data' to be set. */
+	IDProperty *properties;
+	{
+		IDPropertyTemplate val = {0};
+		properties = IDP_New(IDP_GROUP, &val, "wmManipulatorProperties");
+	}
+
+	WM_manipulator_set_operator(mpr, ot, properties);
 
 	return mpr->op_data.ptr;
 }
