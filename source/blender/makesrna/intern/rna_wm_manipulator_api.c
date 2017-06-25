@@ -28,6 +28,8 @@
 
 #include "BLI_utildefines.h"
 
+#include "BKE_report.h"
+
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
 
@@ -133,6 +135,22 @@ static void rna_manipulator_target_set_prop(
 	WM_manipulator_target_property_def_rna_ptr(mpr, mpr_prop_type, ptr, prop, index);
 }
 
+static PointerRNA rna_manipulator_target_set_operator(
+        wmManipulator *mpr, ReportList *reports, const char *opname)
+{
+	wmOperatorType *ot;
+
+	ot = WM_operatortype_find(opname, 0); /* print error next */
+	if (!ot || !ot->srna) {
+		BKE_reportf(reports, RPT_ERROR, "%s '%s'", ot ? "unknown operator" : "operator missing srna", opname);
+		return PointerRNA_NULL;
+	}
+
+	WM_manipulator_set_operator(mpr, ot);
+
+	return mpr->op_data.ptr;
+}
+
 #else
 
 void RNA_api_manipulator(StructRNA *srna)
@@ -205,6 +223,19 @@ void RNA_api_manipulator(StructRNA *srna)
 	parm = RNA_def_string(func, "property", NULL, 0, "", "Identifier of property in data");
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	RNA_def_int(func, "index", -1, -1, INT_MAX, "", "", -1, INT_MAX); /* RNA_NO_INDEX == -1 */
+
+	func = RNA_def_function(srna, "target_set_operator", "rna_manipulator_target_set_operator");
+	RNA_def_function_flag(func, FUNC_USE_REPORTS);
+	RNA_def_function_ui_description(
+	        func,"Operator to run when activating the manipulator "
+	        "(overrides property targets)");
+	parm = RNA_def_string(func, "operator", NULL, 0, "", "Target operator");
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+	/* similar to UILayout.operator */
+	parm = RNA_def_pointer(func, "properties", "OperatorProperties", "", "Operator properties to fill in");
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_function_return(func, parm);
+
 }
 
 
