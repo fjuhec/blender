@@ -202,7 +202,7 @@ static void GPENCIL_cache_finish(void *vedata)
 			/* fill shading groups */
 			DRW_gpencil_populate_datablock(&e_data, vedata, scene, ob, ts, ob->gpd);
 			/* save end shading group */
-			stl->g_data->gp_object_cache[i].end_grp = stl->storage->shgroup_id;
+			stl->g_data->gp_object_cache[i].end_grp = stl->storage->shgroup_id - 1;
 		}
 	}
 }
@@ -228,24 +228,32 @@ static void GPENCIL_draw_scene(void *vedata)
 			Object *ob = stl->g_data->gp_object_cache[i].ob;
 			init_grp = stl->g_data->gp_object_cache[i].init_grp;
 			end_grp = stl->g_data->gp_object_cache[i].end_grp;
-			/* Render stroke in separated framebuffer */
-			DRW_framebuffer_bind(fbl->temp_color_fb);
-			DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
+			if ((end_grp >= init_grp) && (stl->shgroups[init_grp].shgrps_fill) 
+				&& (stl->shgroups[end_grp].shgrps_stroke)) 
+			{
+				/* Render stroke in separated framebuffer */
+				DRW_framebuffer_bind(fbl->temp_color_fb);
+				DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
 
-			/* Stroke Pass: DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH */
-			DRW_draw_pass_subset(psl->stroke_pass, stl->shgroups[init_grp].shgrps_stroke, stl->shgroups[end_grp].shgrps_stroke);
+				/* Stroke Pass: DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH
+				 * draw only a subset that always start with a fill and end with stroke because the
+				 * shading groups are created by pairs */
+				DRW_draw_pass_subset(psl->stroke_pass, 
+					stl->shgroups[init_grp].shgrps_fill, 
+					stl->shgroups[end_grp].shgrps_stroke);
 
-			/* Combine with scene buffer */
-			DRW_framebuffer_bind(dfbl->default_fb);
-			
-			/* Mix Pass: DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS */
-			DRW_draw_pass(psl->mix_pass);
+				/* Combine with scene buffer */
+				DRW_framebuffer_bind(dfbl->default_fb);
 
-			/* edit points */
-			DRW_draw_pass(psl->edit_pass);
-			/* current drawing buffer */
-			DRW_draw_pass(psl->drawing_pass);
+				/* Mix Pass: DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS */
+				DRW_draw_pass(psl->mix_pass);
+			}
 		}
+		/* edit points */
+		DRW_draw_pass(psl->edit_pass);
+
+		/* current drawing buffer */
+		DRW_draw_pass(psl->drawing_pass);
 
 		/* detach temp textures */
 		DRW_framebuffer_texture_detach(e_data.temp_fbcolor_depth_tx);
