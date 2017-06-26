@@ -166,14 +166,22 @@ static void py_rna_manipulator_handler_free_cb(
 }
 
 PyDoc_STRVAR(bpy_manipulator_target_set_handler_doc,
-".. method:: target_set_handler():\n"
+".. method:: target_set_handler(target, get, set, range=None):\n"
 "\n"
-"   TODO.\n"
+"   Assigns callbacks to a manipulators property.\n"
+"\n"
+"   :arg get: Function that returns the value for this property (single value or sequence).\n"
+"   :type get: callable\n"
+"   :arg set: Function that takes a single value argument and applies it.\n"
+"   :type set: callable\n"
+"   :arg range: Function that returns a (min, max) tuple for manipulators that use a range.\n"
+"   :type range: callable\n"
 );
 static PyObject *bpy_manipulator_target_set_handler(PyObject *UNUSED(self), PyObject *args, PyObject *kwds)
 {
-	/* Note: this is a counter-part to RNA function:
-	 * 'Manipulator.target_set_prop' (see: rna_wm_manipulator_api.c). conventions should match. */
+	/* Note: this is a counter-part to functions:
+	 * 'Manipulator.target_set_prop & target_set_operator'
+	 * (see: rna_wm_manipulator_api.c). conventions should match. */
 	static const char * const _keywords[] = {"self", "target", "get", "set", "range", NULL};
 	static _PyArg_Parser _parser = {"Os|$OOO:target_set_handler", _keywords, 0};
 
@@ -212,13 +220,21 @@ static PyObject *bpy_manipulator_target_set_handler(PyObject *UNUSED(self), PyOb
 		goto fail;
 	}
 
-	if ((!PyCallable_Check(params.py_fn_slots[BPY_MANIPULATOR_FN_SLOT_GET])) ||
-	    (!PyCallable_Check(params.py_fn_slots[BPY_MANIPULATOR_FN_SLOT_SET])) ||
-	    ((params.py_fn_slots[BPY_MANIPULATOR_FN_SLOT_RANGE] != NULL) &&
-	     !PyCallable_Check(params.py_fn_slots[BPY_MANIPULATOR_FN_SLOT_RANGE])))
 	{
-		PyErr_SetString(PyExc_RuntimeError, "Non callable passed as handler");
-		goto fail;
+		const int slots_required = 2;
+		const int slots_start = 2;
+		for (int i = 0; i < BPY_MANIPULATOR_FN_SLOT_LEN; i++) {
+			if (params.py_fn_slots[i] == NULL) {
+				if (i < slots_required) {
+					PyErr_Format(PyExc_ValueError, "Argument '%s' not given", _keywords[slots_start + i]);
+					goto fail;
+				}
+			}
+			else if (!PyCallable_Check(params.py_fn_slots[i])) {
+				PyErr_Format(PyExc_ValueError, "Argument '%s' not callable", _keywords[slots_start + i]);
+				goto fail;
+			}
+		}
 	}
 
 	struct BPyManipulatorHandlerUserData *data = MEM_callocN(sizeof(*data), __func__);
