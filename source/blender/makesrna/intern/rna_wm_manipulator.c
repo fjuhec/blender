@@ -379,6 +379,8 @@ static int rna_Manipulator_name_length(PointerRNA *ptr)
 	return strlen(mpr->name);
 }
 
+#ifdef WITH_PYTHON
+
 static void rna_Manipulator_unregister(struct Main *bmain, StructRNA *type);
 void BPY_RNA_manipulator_wrapper(wmManipulatorType *wgt, void *userdata);
 
@@ -483,6 +485,9 @@ static void **rna_Manipulator_instance(PointerRNA *ptr)
 	wmManipulator *mpr = ptr->data;
 	return &mpr->py_instance;
 }
+
+#endif  /* WITH_PYTHON */
+
 
 static StructRNA *rna_Manipulator_refine(PointerRNA *mnp_ptr)
 {
@@ -783,6 +788,8 @@ static void **rna_ManipulatorGroup_instance(PointerRNA *ptr)
 	return &mgroup->py_instance;
 }
 
+#endif  /* WITH_PYTHON */
+
 static StructRNA *rna_ManipulatorGroup_refine(PointerRNA *mgroup_ptr)
 {
 	wmManipulatorGroup *mgroup = mgroup_ptr->data;
@@ -794,8 +801,6 @@ static void rna_ManipulatorGroup_manipulators_begin(CollectionPropertyIterator *
 	wmManipulatorGroup *mgroup = mgroup_ptr->data;
 	rna_iterator_listbase_begin(iter, &mgroup->manipulators, NULL);
 }
-
-#endif
 
 /** \} */
 
