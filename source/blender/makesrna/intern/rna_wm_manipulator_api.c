@@ -90,8 +90,8 @@ static void rna_manipulator_target_set_prop(
 		return;
 	}
 
-	if (mpr_prop_type->type != RNA_property_type(prop)) {
-		const int manipulator_type_index = RNA_enum_from_value(rna_enum_property_type_items, mpr_prop_type->type);
+	if (mpr_prop_type->data_type != RNA_property_type(prop)) {
+		const int manipulator_type_index = RNA_enum_from_value(rna_enum_property_type_items, mpr_prop_type->data_type);
 		const int prop_type_index = RNA_enum_from_value(rna_enum_property_type_items, RNA_property_type(prop));
 		BLI_assert((manipulator_type_index != -1) && (prop_type_index == -1));
 

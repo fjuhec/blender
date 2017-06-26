@@ -62,7 +62,7 @@ struct BPyManipulatorHandlerUserData {
 
 static void py_rna_manipulator_handler_get_cb(
         const wmManipulator *UNUSED(mpr), wmManipulatorProperty *mpr_prop,
-        float *value)
+        void *value_p)
 {
 	PyGILState_STATE gilstate = PyGILState_Ensure();
 
@@ -72,7 +72,8 @@ static void py_rna_manipulator_handler_get_cb(
 		goto fail;
 	}
 
-	if (mpr_prop->type->type == PROP_FLOAT) {
+	if (mpr_prop->type->data_type == PROP_FLOAT) {
+		float *value = value_p;
 		if (mpr_prop->type->array_length == 1) {
 			if (((*value = PyFloat_AsDouble(ret)) == -1.0f && PyErr_Occurred()) == 0) {
 				goto fail;
@@ -105,7 +106,7 @@ fail:
 
 static void py_rna_manipulator_handler_set_cb(
         const wmManipulator *UNUSED(mpr), wmManipulatorProperty *mpr_prop,
-        const float *value)
+        const void *value_p)
 {
 	PyGILState_STATE gilstate = PyGILState_Ensure();
 
@@ -113,7 +114,8 @@ static void py_rna_manipulator_handler_set_cb(
 
 	PyObject *args = PyTuple_New(1);
 
-	if (mpr_prop->type->type == PROP_FLOAT) {
+	if (mpr_prop->type->data_type == PROP_FLOAT) {
+		const float *value = value_p;
 		PyObject *py_value;
 		if (mpr_prop->type->array_length == 1) {
 			py_value = PyFloat_FromDouble(*value);
