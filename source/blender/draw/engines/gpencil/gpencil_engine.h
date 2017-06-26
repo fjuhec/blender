@@ -39,6 +39,7 @@ struct tGPspoint;
  /* used to save gpencil objects */
 typedef struct tGPencilObjectCache {
 	struct Object *ob;
+	int init_grp, end_grp;
 } tGPencilObjectCache;
 
   /* *********** LISTS *********** */

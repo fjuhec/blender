@@ -186,17 +186,36 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 	}
 }
 
-static void GPENCIL_draw_scene(void *vedata)
+static void GPENCIL_cache_finish(void *vedata)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
 	ToolSettings *ts = scene->toolsettings;
 
+	/* Draw all pending objects */
+	if (stl->g_data->gp_cache_used > 0) {
+		for (int i = 0; i < stl->g_data->gp_cache_used; ++i) {
+			Object *ob = stl->g_data->gp_object_cache[i].ob;
+			/* save init shading group */
+			stl->g_data->gp_object_cache[i].init_grp = stl->storage->shgroup_id;
+			/* fill shading groups */
+			DRW_gpencil_populate_datablock(&e_data, vedata, scene, ob, ts, ob->gpd);
+			/* save end shading group */
+			stl->g_data->gp_object_cache[i].end_grp = stl->storage->shgroup_id;
+		}
+	}
+}
+
+static void GPENCIL_draw_scene(void *vedata)
+{
+	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
+
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	GPENCIL_FramebufferList *fbl = ((GPENCIL_Data *)vedata)->fbl;
 	DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
 	float clearcol[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	int init_grp, end_grp;
 
 	/* Draw all pending objects */
 	if (stl->g_data->gp_cache_used > 0) {
@@ -207,15 +226,14 @@ static void GPENCIL_draw_scene(void *vedata)
 
 		for (int i = 0; i < stl->g_data->gp_cache_used; ++i) {
 			Object *ob = stl->g_data->gp_object_cache[i].ob;
-			/* fill shading groups */
-			DRW_gpencil_populate_datablock(&e_data, vedata, scene, ob, ts, ob->gpd);
-
+			init_grp = stl->g_data->gp_object_cache[i].init_grp;
+			end_grp = stl->g_data->gp_object_cache[i].end_grp;
 			/* Render stroke in separated framebuffer */
 			DRW_framebuffer_bind(fbl->temp_color_fb);
 			DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
 
 			/* Stroke Pass: DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH */
-			DRW_draw_pass(psl->stroke_pass);
+			DRW_draw_pass_subset(psl->stroke_pass, stl->shgroups[init_grp].shgrps_stroke, stl->shgroups[end_grp].shgrps_stroke);
 
 			/* Combine with scene buffer */
 			DRW_framebuffer_bind(dfbl->default_fb);
@@ -250,7 +268,7 @@ DrawEngineType draw_engine_gpencil_type = {
 	&GPENCIL_engine_free,
 	&GPENCIL_cache_init,
 	&GPENCIL_cache_populate,
-	NULL,
+	&GPENCIL_cache_finish,
 	NULL,
 	&GPENCIL_draw_scene
 };
