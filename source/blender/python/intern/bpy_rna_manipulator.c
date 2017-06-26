@@ -51,9 +51,9 @@
 enum {
 	BPY_MANIPULATOR_FN_SLOT_GET = 0,
 	BPY_MANIPULATOR_FN_SLOT_SET,
-	BPY_MANIPULATOR_FN_SLOT_RANGE,
+	BPY_MANIPULATOR_FN_SLOT_RANGE_GET,
 };
-#define BPY_MANIPULATOR_FN_SLOT_LEN (BPY_MANIPULATOR_FN_SLOT_RANGE + 1)
+#define BPY_MANIPULATOR_FN_SLOT_LEN (BPY_MANIPULATOR_FN_SLOT_RANGE_GET + 1)
 
 struct BPyManipulatorHandlerUserData {
 
@@ -152,6 +152,63 @@ fail:
 	PyGILState_Release(gilstate);
 }
 
+static void py_rna_manipulator_handler_range_get_cb(
+        const wmManipulator *UNUSED(mpr), wmManipulatorProperty *mpr_prop,
+        void *value_p)
+{
+	struct BPyManipulatorHandlerUserData *data = mpr_prop->custom_func.user_data;
+
+	PyGILState_STATE gilstate = PyGILState_Ensure();
+
+	PyObject *ret = PyObject_CallObject(data->fn_slots[BPY_MANIPULATOR_FN_SLOT_RANGE_GET], NULL);
+	if (ret == NULL) {
+		goto fail;
+	}
+
+	if (!PyTuple_Check(ret)) {
+		PyErr_Format(PyExc_TypeError,
+		             "Expected a tuple, not %.200s",
+		             Py_TYPE(ret)->tp_name);
+		goto fail;
+	}
+
+	if (PyTuple_GET_SIZE(ret) != 2) {
+		PyErr_Format(PyExc_TypeError,
+		             "Expected a tuple of size 2, not %d",
+		             PyTuple_GET_SIZE(ret));
+		goto fail;
+	}
+
+	if (mpr_prop->type->data_type == PROP_FLOAT) {
+		float range[2];
+		for (int i = 0; i < 2; i++) {
+			if (((range[i] = PyFloat_AsDouble(PyTuple_GET_ITEM(ret, i))) == -1.0f && PyErr_Occurred()) == 0) {
+				/* pass */
+			}
+			else {
+				goto fail;
+			}
+		}
+		memcpy(value_p, range, sizeof(range));
+	}
+	else {
+		PyErr_SetString(PyExc_AttributeError, "internal error, unsupported type");
+		goto fail;
+	}
+
+	Py_DECREF(ret);
+	PyGILState_Release(gilstate);
+	return;
+
+fail:
+	Py_XDECREF(ret);
+
+	PyErr_Print();
+	PyErr_Clear();
+
+	PyGILState_Release(gilstate);
+}
+
 static void py_rna_manipulator_handler_free_cb(
         const wmManipulator *UNUSED(mpr), wmManipulatorProperty *mpr_prop)
 {
@@ -206,7 +263,7 @@ static PyObject *bpy_manipulator_target_set_handler(PyObject *UNUSED(self), PyOb
 	        &params.target,
 	        &params.py_fn_slots[BPY_MANIPULATOR_FN_SLOT_GET],
 	        &params.py_fn_slots[BPY_MANIPULATOR_FN_SLOT_SET],
-	        &params.py_fn_slots[BPY_MANIPULATOR_FN_SLOT_RANGE]))
+	        &params.py_fn_slots[BPY_MANIPULATOR_FN_SLOT_RANGE_GET]))
 	{
 		goto fail;
 	}
@@ -251,7 +308,7 @@ static PyObject *bpy_manipulator_target_set_handler(PyObject *UNUSED(self), PyOb
 	        &(const struct wmManipulatorPropertyFnParams) {
 	            .value_get_fn = py_rna_manipulator_handler_get_cb,
 	            .value_set_fn = py_rna_manipulator_handler_set_cb,
-	            .range_get_fn = NULL,
+	            .range_get_fn = py_rna_manipulator_handler_range_get_cb,
 	            .free_fn = py_rna_manipulator_handler_free_cb,
 	            .user_data = data,
 	        });
