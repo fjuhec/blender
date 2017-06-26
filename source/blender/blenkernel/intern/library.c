@@ -530,7 +530,7 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 	 * Ideally, usercount should never be handled by IDType-specific copying code, but for now let's allow it... */
 	const int flag_idtype_copy = flag | LIB_ID_COPY_NO_USER_REFCOUNT;
 
-#define ITEMS_IMPLEMENTED ID_OB, ID_ME, ID_CU, ID_MB, ID_LT, ID_LA, ID_SPK, ID_CA, ID_KE, ID_AR
+#define ITEMS_IMPLEMENTED ID_OB, ID_ME, ID_CU, ID_MB, ID_LT, ID_LA, ID_SPK, ID_CA, ID_KE, ID_AR, ID_NT
 
 	if (!test) {
 		/* Check to be removed of course, just here until all BKE_xxx_copy_ex functions are done. */
@@ -592,7 +592,7 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 			if (!test) *r_newid = (ID *)BKE_action_copy(bmain, (bAction *)id);
 			break;
 		case ID_NT:
-			if (!test) *r_newid = (ID *)ntreeCopyTree(bmain, (bNodeTree *)id);
+			if (!test) BKE_node_tree_copy_ex(bmain, (bNodeTree *)*r_newid, (bNodeTree *)id, flag_idtype_copy);
 			break;
 		case ID_BR:
 			if (!test) *r_newid = (ID *)BKE_brush_copy(bmain, (Brush *)id);
@@ -1239,7 +1239,7 @@ void *BKE_libblock_copy_nolib(const ID *id, const bool do_action)
 {
 	ID *idn;
 
-	BKE_libblock_copy_ex(NULL, id, &idn, LIB_ID_COPY_NO_MAIN | (do_action ? LIB_ID_COPY_ACTIONS : 0));
+	BKE_libblock_copy_ex(NULL, id, &idn, LIB_ID_COPY_NO_MAIN | LIB_ID_COPY_NO_USER_REFCOUNT | (do_action ? LIB_ID_COPY_ACTIONS : 0));
 
 	return idn;
 }
