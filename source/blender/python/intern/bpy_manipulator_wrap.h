@@ -25,6 +25,7 @@
 #ifndef __BPY_MANIPULATOR_WRAP_H__
 #define __BPY_MANIPULATOR_WRAP_H__
 
+struct wmManipulatorType;
 struct wmManipulatorGroupType;
 
 /* exposed to rna/wm api */

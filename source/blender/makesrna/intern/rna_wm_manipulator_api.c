@@ -248,18 +248,7 @@ void RNA_api_manipulator(StructRNA *srna)
 
 void RNA_api_manipulatorgroup(StructRNA *UNUSED(srna))
 {
-//	FunctionRNA *func;
-//	PropertyRNA *parm;
-
-#if 0
-	/* utility, not for registering */
-	func = RNA_def_function(srna, "report", "rna_Operator_report");
-	parm = RNA_def_enum_flag(func, "type", wm_report_items, 0, "Type", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
-	parm = RNA_def_string(func, "message", NULL, 0, "Report Message", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
-#endif
-
+	/* nothing yet */
 }
 
 #endif
