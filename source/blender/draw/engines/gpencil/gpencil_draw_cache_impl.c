@@ -74,6 +74,8 @@ void gpencil_object_cache_add(tGPencilObjectCache *cache, Object *ob, int *gp_ca
 {
 	/* save object */
 	cache[*gp_cache_used].ob = ob;
+	cache[*gp_cache_used].init_grp = 0;
+	cache[*gp_cache_used].end_grp = -1;
 
 	/* increase slots used in cache */
 	++*gp_cache_used;
