@@ -47,6 +47,7 @@
 #include "BKE_global.h"
 #include "BKE_main.h"
 #include "BKE_screen.h"
+#include "BKE_workspace.h"
 
 #include "ED_armature.h"
 #include "ED_particle.h"
@@ -135,6 +136,11 @@ static int ed_undo_step(bContext *C, int step, const char *undoname)
 	if (ED_gpencil_session_active()) {
 		return ED_undo_gpencil_step(C, step, undoname);
 	}
+	if (sa && (sa->spacetype == SPACE_VIEW3D)) {
+		if (obact && (obact->type == OB_GPENCIL)) {
+			ED_gpencil_toggle_brush_cursor(C, false);
+		}
+	}
 
 	if (sa && (sa->spacetype == SPACE_IMAGE)) {
 		SpaceImage *sima = (SpaceImage *)sa->spacedata.first;
@@ -207,10 +213,30 @@ static int ed_undo_step(bContext *C, int step, const char *undoname)
 			WM_event_add_notifier(C, NC_SCENE | ND_LAYER_CONTENT, scene);
 		}
 	}
-	
+
+	/* Set special modes for grease pencil */
+	if (sa && (sa->spacetype == SPACE_VIEW3D)) {
+		obact = CTX_data_active_object(C);
+		if (obact && (obact->type == OB_GPENCIL)) {
+			/* set cursor */
+			if (obact->mode == OB_MODE_GPENCIL_PAINT) {
+				WM_cursor_modal_set(CTX_wm_window(C), BC_PAINTBRUSHCURSOR);
+			}
+			else if (obact->mode == OB_MODE_GPENCIL_SCULPT) {
+				WM_cursor_modal_set(CTX_wm_window(C), BC_CROSSCURSOR);
+				ED_gpencil_toggle_brush_cursor(C, true);
+			}
+			else {
+				WM_cursor_modal_set(CTX_wm_window(C), CURSOR_STD);
+			}
+			/* set workspace mode */
+			BKE_workspace_object_mode_set(CTX_wm_workspace(C), obact->mode);
+		}
+	}
+
 	WM_event_add_notifier(C, NC_WINDOW, NULL);
 	WM_event_add_notifier(C, NC_WM | ND_UNDO, NULL);
-
+	
 	if (win) {
 		win->addmousemove = true;
 	}
