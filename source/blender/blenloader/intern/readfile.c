@@ -4873,6 +4873,18 @@ static void lib_link_object(FileData *fd, Main *main)
 			}
 			
 			ob->gpd = newlibadr_us(fd, ob->id.lib, ob->gpd);
+			if (ob->type == OB_GPENCIL) {
+				/* if load a gpencil object must be in object mode except for undo */
+				if ((!fd->memfile) && (ob->gpd)) {
+					ob->mode &= ~OB_MODE_GPENCIL_EDIT;
+					ob->mode &= ~OB_MODE_GPENCIL_PAINT;
+					ob->mode &= ~OB_MODE_GPENCIL_SCULPT;
+					ob->mode |= OB_MODE_OBJECT;
+					ob->gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
+					ob->gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
+					ob->gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
+				}
+			}
 			ob->duplilist = NULL;
 			
 			ob->id.tag &= ~LIB_TAG_NEED_LINK;
