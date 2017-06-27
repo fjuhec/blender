@@ -258,17 +258,6 @@ static DRWShadingGroup *DRW_gpencil_shgroup_fill_create(GPENCIL_e_data *e_data, 
 		DRW_shgroup_uniform_int(grp, "t_clamp", &stl->shgroups[id].t_clamp, 1);
 	}
 
-	/* object scale */
-	if ((ob) && (id > -1)) {
-		stl->shgroups[id].obj_scale = (ob->size[0] + ob->size[1] + ob->size[2]) / 3.0f;
-		DRW_shgroup_uniform_float(grp, "objscale", &stl->shgroups[id].obj_scale, 1);
-	}
-	else {
-		stl->storage->obj_scale = 1.0f;
-		DRW_shgroup_uniform_float(grp, "objscale", &stl->storage->obj_scale, 1);
-	}
-
-
 	return grp;
 }
 
