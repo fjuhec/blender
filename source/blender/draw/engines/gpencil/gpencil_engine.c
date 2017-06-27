@@ -177,7 +177,7 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 	/* object datablock (this is not draw now) */
 	if (ob->type == OB_GPENCIL && ob->gpd) {
 		if (G.debug_value == 668) {
-			printf("GPENCIL_cache_populate: Object\n");
+			printf("GPENCIL_cache_populate: %s\n", ob->id.name);
 		}
 		/* allocate memory for saving gp objects */
 		stl->g_data->gp_object_cache = gpencil_object_cache_allocate(stl->g_data->gp_object_cache, &stl->g_data->gp_cache_size, &stl->g_data->gp_cache_used);
@@ -203,6 +203,10 @@ static void GPENCIL_cache_finish(void *vedata)
 			DRW_gpencil_populate_datablock(&e_data, vedata, scene, ob, ts, ob->gpd);
 			/* save end shading group */
 			stl->g_data->gp_object_cache[i].end_grp = stl->storage->shgroup_id - 1;
+			if (G.debug_value == 668) {
+				printf("GPENCIL_cache_finish: %s %d->%d\n", ob->id.name, 
+					stl->g_data->gp_object_cache[i].init_grp, stl->g_data->gp_object_cache[i].end_grp);
+			}
 		}
 	}
 }
@@ -238,7 +242,10 @@ static void GPENCIL_draw_scene(void *vedata)
 				/* Stroke Pass: DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH
 				 * draw only a subset that always start with a fill and end with stroke because the
 				 * shading groups are created by pairs */
-				DRW_draw_pass_subset(psl->stroke_pass, 
+				if (G.debug_value == 668) {
+					printf("GPENCIL_draw_scene: %s %d->%d\n", ob->id.name, init_grp, end_grp);
+				}
+				DRW_draw_pass_subset(psl->stroke_pass,
 					stl->shgroups[init_grp].shgrps_fill, 
 					stl->shgroups[end_grp].shgrps_stroke);
 
