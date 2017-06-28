@@ -363,7 +363,9 @@ typedef enum eGPdata_Flag {
 	/* Stroke Editing Mode - Toggle sculpt mode */
 	GP_DATA_STROKE_SCULPTMODE = (1 << 13),
 	/* keep stroke thickness unchanged when zoom change */
-	GP_DATA_STROKE_KEEPTHICKNESS = (1 << 14)
+	GP_DATA_STROKE_KEEPTHICKNESS = (1 << 14),
+	/* Batch drawing cache can be reused */
+	GP_DATA_CACHE_REUSE = (1 << 15)
 
 } eGPdata_Flag;
 

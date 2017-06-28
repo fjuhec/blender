@@ -90,11 +90,16 @@ static bool gpencil_batch_cache_valid(bGPdata *gpd, int cfra)
 		return false;
 	}
 
+	cache->is_editmode = gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE);
+
+	if (gpd->flag & GP_DATA_CACHE_REUSE) {
+		return true;
+	}
+
 	if (gpd->flag & GP_DATA_CACHE_IS_DIRTY) {
 		return false;
 	}
 
-	cache->is_editmode = gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE);
 	if (cache->is_editmode) {
 		return false;
 	}
@@ -163,9 +168,11 @@ void gpencil_batch_cache_clear(bGPdata *gpd)
 	if (!cache) {
 		return;
 	}
-	if (gpd->flag & GP_DATA_CACHE_IS_DIRTY) {
+
+	if (cache->cache_size == 0) {
 		return;
 	}
+
 	if (G.debug_value == 668) {
 		printf("gpencil_batch_cache_clear: %s\n", gpd->id.name);
 	}
@@ -412,7 +419,9 @@ static void gpencil_add_editpoints_shgroup(GPENCIL_StorageList *stl, GpencilBatc
 					gpencil_batch_cache_check_free_slots(gpd);
 					cache->batch_edit[cache->cache_idx] = DRW_gpencil_get_edit_geom(gps, ts->gp_sculpt.alpha, gpd->flag);
 				}
-				DRW_shgroup_call_add(stl->g_data->shgrps_edit_volumetric, cache->batch_edit[cache->cache_idx], gpf->viewmatrix);
+				if (cache->batch_edit[cache->cache_idx]) {
+					DRW_shgroup_call_add(stl->g_data->shgrps_edit_volumetric, cache->batch_edit[cache->cache_idx], gpf->viewmatrix);
+				}
 			}
 		}
 	}

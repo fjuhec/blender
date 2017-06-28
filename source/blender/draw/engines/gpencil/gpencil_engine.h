@@ -102,6 +102,8 @@ typedef struct g_data {
 	int gp_cache_used;
 	int gp_cache_size;
 	struct tGPencilObjectCache *gp_object_cache;
+
+	struct GHash *gpd_in_cache;
 } g_data; /* Transient data */
 
 typedef struct GPENCIL_e_data {
