@@ -30,6 +30,7 @@
 
 #include "BLI_dynstr.h"
 #include "BLI_ghash.h"
+#include "BLI_alloca.h"
 
 #include "BKE_particle.h"
 
@@ -351,40 +352,55 @@ void EEVEE_materials_init(void)
 
 struct GPUMaterial *EEVEE_material_world_lightprobe_get(struct Scene *scene, World *wo)
 {
+	const void *engine = &DRW_engine_viewport_eevee_type;
+	const int options = VAR_WORLD_PROBE;
+
+	GPUMaterial *mat = GPU_material_from_nodetree_find(&wo->gpumaterial, engine, options);
+	if (mat != NULL) {
+		return mat;
+	}
 	return GPU_material_from_nodetree(
-	    scene, wo->nodetree, &wo->gpumaterial, &DRW_engine_viewport_eevee_type,
-	    VAR_WORLD_PROBE,
-	    datatoc_lightprobe_vert_glsl, datatoc_lightprobe_geom_glsl, e_data.frag_shader_lib,
-	    SHADER_DEFINES "#define PROBE_CAPTURE\n");
+	        scene, wo->nodetree, &wo->gpumaterial, engine, options,
+	        datatoc_lightprobe_vert_glsl, datatoc_lightprobe_geom_glsl, e_data.frag_shader_lib,
+	        SHADER_DEFINES "#define PROBE_CAPTURE\n");
 }
 
 struct GPUMaterial *EEVEE_material_world_background_get(struct Scene *scene, World *wo)
 {
+	const void *engine = &DRW_engine_viewport_eevee_type;
+	int options = VAR_WORLD_BACKGROUND;
+
+	GPUMaterial *mat = GPU_material_from_nodetree_find(&wo->gpumaterial, engine, options);
+	if (mat != NULL) {
+		return mat;
+	}
 	return GPU_material_from_nodetree(
-	    scene, wo->nodetree, &wo->gpumaterial, &DRW_engine_viewport_eevee_type,
-	    VAR_WORLD_BACKGROUND,
-	    datatoc_background_vert_glsl, NULL, e_data.frag_shader_lib,
-	    SHADER_DEFINES "#define WORLD_BACKGROUND\n");
+	        scene, wo->nodetree, &wo->gpumaterial, engine, options,
+	        datatoc_background_vert_glsl, NULL, e_data.frag_shader_lib,
+	        SHADER_DEFINES "#define WORLD_BACKGROUND\n");
 }
 
 struct GPUMaterial *EEVEE_material_mesh_get(
         struct Scene *scene, Material *ma,
         bool use_ao, bool use_bent_normals)
 {
-	struct GPUMaterial *mat;
-
+	const void *engine = &DRW_engine_viewport_eevee_type;
 	int options = VAR_MAT_MESH;
 
 	if (use_ao) options |= VAR_MAT_AO;
 	if (use_bent_normals) options |= VAR_MAT_BENT;
 
+	GPUMaterial *mat = GPU_material_from_nodetree_find(&ma->gpumaterial, engine, options);
+	if (mat) {
+		return mat;
+	}
+
 	char *defines = eevee_get_defines(options);
 
 	mat = GPU_material_from_nodetree(
-	    scene, ma->nodetree, &ma->gpumaterial, &DRW_engine_viewport_eevee_type,
-	    options,
-	    datatoc_lit_surface_vert_glsl, NULL, e_data.frag_shader_lib,
-	    defines);
+	        scene, ma->nodetree, &ma->gpumaterial, engine, options,
+	        datatoc_lit_surface_vert_glsl, NULL, e_data.frag_shader_lib,
+	        defines);
 
 	MEM_freeN(defines);
 
@@ -395,20 +411,23 @@ struct GPUMaterial *EEVEE_material_hair_get(
         struct Scene *scene, Material *ma,
         bool use_ao, bool use_bent_normals)
 {
-	struct GPUMaterial *mat;
-
+	const void *engine = &DRW_engine_viewport_eevee_type;
 	int options = VAR_MAT_MESH | VAR_MAT_HAIR;
 
 	if (use_ao) options |= VAR_MAT_AO;
 	if (use_bent_normals) options |= VAR_MAT_BENT;
 
+	GPUMaterial *mat = GPU_material_from_nodetree_find(&ma->gpumaterial, engine, options);
+	if (mat) {
+		return mat;
+	}
+
 	char *defines = eevee_get_defines(options);
 
 	mat = GPU_material_from_nodetree(
-	    scene, ma->nodetree, &ma->gpumaterial, &DRW_engine_viewport_eevee_type,
-	    options,
-	    datatoc_lit_surface_vert_glsl, NULL, e_data.frag_shader_lib,
-	    defines);
+	        scene, ma->nodetree, &ma->gpumaterial, engine, options,
+	        datatoc_lit_surface_vert_glsl, NULL, e_data.frag_shader_lib,
+	        defines);
 
 	MEM_freeN(defines);
 
@@ -553,9 +572,12 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_SceneLayerData *sl
 	ADD_SHGROUP_CALL(depth_shgrp, ob, geom);
 	ADD_SHGROUP_CALL(depth_clip_shgrp, ob, geom);
 
-	/* Get per-material split surface */
-	struct Gwn_Batch **mat_geom = DRW_cache_object_surface_material_get(ob);
-	if (mat_geom) {
+	/* First get materials for this mesh. */
+	if (ELEM(ob->type, OB_MESH)) {
+		const int materials_len = MAX2(1, (is_sculpt_mode ? 1 : ob->totcol));
+		struct DRWShadingGroup **shgrp_array = BLI_array_alloca(shgrp_array, materials_len);
+		struct GPUMaterial **gpumat_array = BLI_array_alloca(gpumat_array, materials_len);
+
 		bool use_flat_nor = false;
 
 		if (is_default_mode_shader) {
@@ -564,7 +586,7 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_SceneLayerData *sl
 			}
 		}
 
-		for (int i = 0; i < MAX2(1, (is_sculpt_mode ? 1 : ob->totcol)); ++i) {
+		for (int i = 0; i < materials_len; ++i) {
 			DRWShadingGroup *shgrp = NULL;
 			Material *ma = give_current_material(ob, i + 1);
 
@@ -576,13 +598,21 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_SceneLayerData *sl
 			float *spec_p = &ma->spec;
 			float *rough_p = &ma->gloss_mir;
 
+			const bool use_gpumat = (ma->use_nodes && ma->nodetree);
+
 			shgrp = BLI_ghash_lookup(material_hash, (const void *)ma);
 			if (shgrp) {
-				ADD_SHGROUP_CALL(shgrp, ob, mat_geom[i]);
+				shgrp_array[i] = shgrp;  /* ADD_SHGROUP_CALL below */
+				/* This will have been created already, just perform a lookup. */
+				gpumat_array[i] = (use_gpumat) ? EEVEE_material_mesh_get(
+				        draw_ctx->scene, ma,stl->effects->use_ao, stl->effects->use_bent_normals) : NULL;
 				continue;
 			}
 
-			if (ma->use_nodes && ma->nodetree) {
+			/* May not be set below. */
+			gpumat_array[i] = NULL;
+
+			if (use_gpumat) {
 				Scene *scene = draw_ctx->scene;
 				struct GPUMaterial *gpumat = EEVEE_material_mesh_get(scene, ma,
 				        stl->effects->use_ao, stl->effects->use_bent_normals);
@@ -592,8 +622,9 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_SceneLayerData *sl
 					add_standard_uniforms(shgrp, sldata, vedata);
 
 					BLI_ghash_insert(material_hash, ma, shgrp);
+					shgrp_array[i] = shgrp;  /* ADD_SHGROUP_CALL below */
 
-					ADD_SHGROUP_CALL(shgrp, ob, mat_geom[i]);
+					gpumat_array[i] = gpumat;
 				}
 				else {
 					/* Shader failed : pink color */
@@ -616,7 +647,15 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_SceneLayerData *sl
 
 				BLI_ghash_insert(material_hash, ma, shgrp);
 
-				ADD_SHGROUP_CALL(shgrp, ob, mat_geom[i]);
+				shgrp_array[i] = shgrp;  /* ADD_SHGROUP_CALL below */
+			}
+		}
+
+		/* Get per-material split surface */
+		struct Gwn_Batch **mat_geom = DRW_cache_object_surface_material_get(ob, gpumat_array, materials_len);
+		if (mat_geom) {
+			for (int i = 0; i < materials_len; ++i) {
+				ADD_SHGROUP_CALL(shgrp_array[i], ob, mat_geom[i]);
 			}
 		}
 	}

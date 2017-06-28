@@ -28,6 +28,7 @@
 
 struct bGPdata;
 struct Gwn_Batch;
+struct GPUMaterial;
 struct ListBase;
 struct CurveCache;
 struct ParticleSystem;
@@ -70,13 +71,14 @@ struct Gwn_Batch *DRW_curve_batch_cache_get_overlay_select(struct Curve *cu);
 struct Gwn_Batch *BLI_displist_batch_calc_surface(struct ListBase *lb);
 
 /* Lattice */
-struct Gwn_Batch *DRW_lattice_batch_cache_get_all_edges(struct Lattice *lt);
+struct Gwn_Batch *DRW_lattice_batch_cache_get_all_edges(struct Lattice *lt, bool use_weight, const int actdef);
 struct Gwn_Batch *DRW_lattice_batch_cache_get_all_verts(struct Lattice *lt);
 struct Gwn_Batch *DRW_lattice_batch_cache_get_overlay_verts(struct Lattice *lt);
 
 /* Mesh */
 
-struct Gwn_Batch **DRW_mesh_batch_cache_get_surface_shaded(struct Mesh *me);
+struct Gwn_Batch **DRW_mesh_batch_cache_get_surface_shaded(
+        struct Mesh *me, struct GPUMaterial **gpumat_array, uint gpumat_array_len);
 struct Gwn_Batch **DRW_mesh_batch_cache_get_surface_texpaint(struct Mesh *me);
 struct Gwn_Batch *DRW_mesh_batch_cache_get_surface_texpaint_single(struct Mesh *me);
 struct Gwn_Batch *DRW_mesh_batch_cache_get_weight_overlay_edges(struct Mesh *me, bool use_wire, bool use_sel);
