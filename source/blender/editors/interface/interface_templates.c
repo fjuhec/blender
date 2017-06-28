@@ -117,7 +117,9 @@ static void template_add_button_search_menu(
 
 	if (use_previews) {
 		ARegion *region = CTX_wm_region(C);
-		const bool use_big_size = (region->regiontype != RGN_TYPE_HEADER); /* silly check, could be more generic */
+		ScrArea *area = CTX_wm_area(C);
+		/* XXX ugly top-bar exception */
+		const bool use_big_size = (region->regiontype != RGN_TYPE_HEADER) && (area->spacetype != SPACE_TOPBAR); /* silly check, could be more generic */
 		/* Ugly exception for screens here, drawing their preview in icon size looks ugly/useless */
 		const bool use_preview_icon = use_big_size || (id && (GS(id->name) != ID_SCR));
 		const short width = UI_UNIT_X * (use_big_size ? 6 : 1.6f);
