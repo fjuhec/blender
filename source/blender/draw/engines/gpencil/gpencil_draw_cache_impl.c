@@ -410,9 +410,12 @@ static void gpencil_add_stroke_shgroup(GPENCIL_StorageList *stl, GpencilBatchCac
 
 /* add edit points shading group to pass */
 static void gpencil_add_editpoints_shgroup(GPENCIL_StorageList *stl, GpencilBatchCache *cache, ToolSettings *ts,
-	bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf, bGPDstroke *gps) {
+	Object *ob, bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf, bGPDstroke *gps) {
 	if ((gpl->flag & GP_LAYER_LOCKED) == 0 && (gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE)))
 	{
+		const DRWContextState *draw_ctx = DRW_context_state_get();
+		Object *obact = draw_ctx->obact;
+
 		if (gps->flag & GP_STROKE_SELECT) {
 			if ((gpl->flag & GP_LAYER_UNLOCK_COLOR) || ((gps->palcolor->flag & PC_COLOR_LOCKED) == 0)) {
 				if (cache->is_dirty) {
@@ -420,7 +423,9 @@ static void gpencil_add_editpoints_shgroup(GPENCIL_StorageList *stl, GpencilBatc
 					cache->batch_edit[cache->cache_idx] = DRW_gpencil_get_edit_geom(gps, ts->gp_sculpt.alpha, gpd->flag);
 				}
 				if (cache->batch_edit[cache->cache_idx]) {
-					DRW_shgroup_call_add(stl->g_data->shgrps_edit_volumetric, cache->batch_edit[cache->cache_idx], gpf->viewmatrix);
+					if ((obact) && (obact == ob)) {
+						DRW_shgroup_call_add(stl->g_data->shgrps_edit_volumetric, cache->batch_edit[cache->cache_idx], gpf->viewmatrix);
+					}
 				}
 			}
 		}
@@ -479,7 +484,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 
 		/* edit points (only in edit mode) */
 		if (!onion) {
-			gpencil_add_editpoints_shgroup(stl, cache, ts, gpd, gpl, gpf, gps);
+			gpencil_add_editpoints_shgroup(stl, cache, ts, ob, gpd, gpl, gpf, gps);
 		}
 
 		++cache->cache_idx;
