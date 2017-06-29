@@ -602,7 +602,7 @@ void BKE_mesh_calc_loop_tangent_ex(
 #endif
 
 		/* Calculation */
-		{
+		if (looptri_len != 0) {
 			TaskScheduler *scheduler = BLI_task_scheduler_get();
 			TaskPool *task_pool;
 			task_pool = BLI_task_pool_create(scheduler, NULL);
@@ -631,7 +631,7 @@ void BKE_mesh_calc_loop_tangent_ex(
 				mesh2tangent->precomputedFaceNormals = poly_normals;
 
 				mesh2tangent->orco = NULL;
-				mesh2tangent->mloopuv = CustomData_get_layer_named(loopdata, CD_MLOOPUV, loopdata->layers[index].name);
+				mesh2tangent->mloopuv = CustomData_get_layer_named(loopdata, CD_MLOOPUV, loopdata_out->layers[index].name);
 				if (!mesh2tangent->mloopuv) {
 					mesh2tangent->orco = vert_orco;
 					if (!mesh2tangent->orco)
@@ -652,6 +652,9 @@ void BKE_mesh_calc_loop_tangent_ex(
 			BLI_assert(tangent_mask_curr == tangent_mask);
 			BLI_task_pool_work_and_wait(task_pool);
 			BLI_task_pool_free(task_pool);
+		}
+		else {
+			tangent_mask_curr = tangent_mask;
 		}
 #ifdef USE_LOOPTRI_DETECT_QUADS
 		if (face_as_quad_map) {
