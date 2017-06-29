@@ -1333,6 +1333,7 @@ void ED_operatortypes_paint(void)
 	WM_operatortype_append(PAINT_OT_weight_gradient);
 	WM_operatortype_append(PAINT_OT_weight_sample);
 	WM_operatortype_append(PAINT_OT_weight_sample_group);
+	WM_operatortype_append(PAINT_OT_weight_to_vertex_convert);
 
 	/* uv */
 	WM_operatortype_append(SCULPT_OT_uv_sculpt_stroke);

@@ -4583,3 +4583,59 @@ void PAINT_OT_weight_gradient(wmOperatorType *ot)
 
 	WM_operator_properties_gesture_straightline(ot, CURSOR_EDIT);
 }
+
+static bool weight_to_vert_convert(Object *ob)
+{
+	Mesh *me;
+	const MPoly *mp;
+	int vgroup_active;
+
+	if (((me = BKE_mesh_from_object(ob)) == NULL || (me->dvert == NULL) ||
+		(me->mloopcol == NULL && (make_vertexcol(ob)) == false)))
+	{
+		return false;
+	}
+
+	mp = me->mpoly;
+	vgroup_active = ob->actdef - 1;
+	for (int i = 0; i < me->totpoly; i++, mp++) {
+		MLoopCol *lcol = &me->mloopcol[mp->loopstart];
+		unsigned int fidx = mp->totloop - 1,j = 0;
+		do{
+			unsigned int vidx = me->mloop[mp->loopstart + j].v;
+			if (1) {
+				const float weight = defvert_find_weight(&me->dvert[vidx], vgroup_active);
+				lcol->r = (-1.0f * weight +1) * 255;
+				lcol->b = (-1.0f * weight + 1) * 255;
+				lcol->g = (-1.0f * weight + 1) * 255;
+			}
+			lcol++;
+			j++;
+		} while (j <= fidx);
+	}
+	return true;
+}
+
+static int weight_to_vert_convert_exec(bContext *C, wmOperator *op)
+{
+	Object *obact = CTX_data_active_object(C);
+	if (weight_to_vert_convert(obact)) {
+		return OPERATOR_FINISHED;
+	}
+	return OPERATOR_CANCELLED;
+}
+
+void PAINT_OT_weight_to_vertex_convert(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Weight to Vertex Converter";
+	ot->idname = "PAINT_OT_weight_to_vertex_convert";
+	ot->description = "Converts the weight color into the black and white vertex color";
+
+	/* api callback */
+	ot->exec = weight_to_vert_convert_exec;
+	ot->poll = weight_paint_poll;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
