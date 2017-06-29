@@ -4600,18 +4600,16 @@ static bool weight_to_vert_convert(Object *ob)
 	vgroup_active = ob->actdef - 1;
 	for (int i = 0; i < me->totpoly; i++, mp++) {
 		MLoopCol *lcol = &me->mloopcol[mp->loopstart];
-		unsigned int fidx = mp->totloop - 1,j = 0;
+		unsigned int j = 0;
 		do{
 			unsigned int vidx = me->mloop[mp->loopstart + j].v;
-			if (1) {
-				const float weight = defvert_find_weight(&me->dvert[vidx], vgroup_active);
-				lcol->r = (-1.0f * weight +1) * 255;
-				lcol->b = (-1.0f * weight + 1) * 255;
-				lcol->g = (-1.0f * weight + 1) * 255;
-			}
+			const float weight = defvert_find_weight(&me->dvert[vidx], vgroup_active);
+			lcol->r = (-1.0f * weight +1) * 255;
+			lcol->b = (-1.0f * weight + 1) * 255;
+			lcol->g = (-1.0f * weight + 1) * 255;
 			lcol++;
 			j++;
-		} while (j <= fidx);
+		} while (j <= mp->totloop - 1);
 	}
 	return true;
 }
