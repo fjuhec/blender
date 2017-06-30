@@ -5167,6 +5167,12 @@ static void bl_debug_draw_BB_add(BB *bb,const unsigned int col)
 }
 #endif
 
+typedef enum {
+	SIL_INIT = 0,
+	SIL_DRAWING = 1,
+	SIL_OP = 2
+} SilhouetteState;
+
 typedef struct SilhouetteData {
 	ARegion *ar;        /* region that Silhouette started drawn in */
 	void *draw_handle;  /* for drawing preview loop */
@@ -5179,8 +5185,12 @@ typedef struct SilhouetteData {
 	float add_col[3];
 	float last_mouse_pos[2];
 
+	SilhouetteState state;
+
 	float depth;
+	float smoothness;
 	float anchor[3];
+	float z_vec[3];
 } SilhouetteData;
 
 typedef struct {
@@ -5233,14 +5243,14 @@ static SilhouetteStroke *silhouette_stroke_new(int max_verts)
 {
 	SilhouetteStroke *stroke = MEM_callocN(sizeof(SilhouetteStroke), "SilhouetteStroke");
 	stroke->points = 0;
-	stroke->points = MEM_callocN(sizeof(float)*2*max_verts,"SilhouetteStrokePoints");//TODO: Dynamic length
+	stroke->points = MEM_callocN(sizeof(float) * 3 * max_verts,"SilhouetteStrokePoints");//TODO: Dynamic length
 	stroke->totvert = 0;
 	stroke->max_verts = max_verts;
 	printf("Init silhouette Data\n");
 	return stroke;
 }
 
-static SilhouetteData *silhouette_data_new(bContext *C, wmOperator *UNUSED(op))
+static SilhouetteData *silhouette_data_new(bContext *C, wmOperator *op, bool rna_full)
 {
 	SilhouetteData *sil = MEM_callocN(sizeof(SilhouetteData), "SilhouetteData");
 	Object *obedit = CTX_data_edit_object(C);
@@ -5256,13 +5266,21 @@ static SilhouetteData *silhouette_data_new(bContext *C, wmOperator *UNUSED(op))
 	sil->add_col[1] = 0.39;
 	sil->add_col[2] = 0.39;
 
-	sil->depth = 1.5f;
+	sil->smoothness = RNA_float_get(op->ptr, "smoothness");
+	sil->depth = RNA_float_get(op->ptr, "depth");
+	if(rna_full){
+		RNA_float_get_array(op->ptr, "z_vec", sil->z_vec);
+		RNA_float_get_array(op->ptr, "anchor", sil->anchor);
+		RNA_float_get_array(op->ptr, "points", sil->current_stroke->points);
+		sil->current_stroke->totvert = RNA_int_get(op->ptr, "totvert");
+	}
 
 
 	/* assign the drawing handle for drawing preview line... */
 	sil->scene = scene;
 	sil->ob = obedit;
 
+	sil->state = SIL_INIT;
 	return sil;
 }
 
@@ -5277,14 +5295,29 @@ static void silhouette_data_free(struct wmOperator *op)
 }
 
 static void silhoute_stroke_point_to_3d(SilhouetteData *sil, int point, float r_v[3]){
-	ED_view3d_win_to_3d(sil->vc.v3d, sil->ar, sil->anchor, &sil->current_stroke->points[point], r_v);
+	copy_v3_v3(r_v,&sil->current_stroke->points[point]);
+	//ED_view3d_win_to_3d(sil->vc.v3d, sil->ar, sil->anchor, &sil->current_stroke->points[point], r_v);
 }
 
-static void silhouette_stroke_add_point(SilhouetteStroke *stroke, float point[2])
+static void silhouette_stroke_add_3Dpoint(SilhouetteStroke *stroke, float point[3])
 {
 	if (stroke->totvert < stroke->max_verts) {
-		stroke->points[stroke->totvert*2] = point[0];
-		stroke->points[stroke->totvert*2+1] = point[1];
+		copy_v3_v3(&stroke->points[stroke->totvert * 3], point);
+		//ED_view3d_win_to_3d(sil->vc.v3d, sil->ar, sil->anchor, point, &sil->current_stroke->points[stroke->totvert * 3]);
+		/*stroke->points[stroke->totvert * 3] = point[0];
+		 stroke->points[stroke->totvert*2+1] = point[1];*/
+		stroke->totvert ++;
+	} else {
+		printf("Stroke reached maximum vert count.\n");
+	}
+}
+
+static void silhouette_stroke_add_point(SilhouetteData *sil, SilhouetteStroke *stroke, float point[2])
+{
+	if (stroke->totvert < stroke->max_verts) {
+		ED_view3d_win_to_3d(sil->vc.v3d, sil->ar, sil->anchor, point, &sil->current_stroke->points[stroke->totvert * 3]);
+		/*stroke->points[stroke->totvert * 3] = point[0];
+		stroke->points[stroke->totvert*2+1] = point[1];*/
 		stroke->totvert ++;
 	} else {
 		printf("Stroke reached maximum vert count.\n");
@@ -5297,6 +5330,7 @@ static void silhouette_set_ref_plane(const bContext *C, SilhouetteData *sil)
 	View3D *v3d = CTX_wm_view3d(C);
 	const float *fp = ED_view3d_cursor3d_get(scene, v3d);
 
+	ED_view3d_global_to_vector(sil->ar->regiondata, (float[3]){0.0f,0.0f,0.0f}, sil->z_vec);
 	/* the reference point used depends on the owner... */
 	copy_v3_v3(sil->anchor, fp);
 }
@@ -5306,13 +5340,11 @@ static void sculpt_silhouette_stroke_update(bContext *C, float mouse[2], Silhoue
 	silhouette_set_ref_plane( C, sil);
 	SilhouetteStroke *stroke = sil->current_stroke;
 
-	sil->last_mouse_pos[0] = mouse[0];//*(2.0f/(float)sil->ar->winx)-1.0f;
-	sil->last_mouse_pos[1] = mouse[1];//*(2.0f/(float)sil->ar->winy)-1.0f;
-	silhouette_stroke_add_point(stroke, sil->last_mouse_pos);
+	sil->last_mouse_pos[0] = mouse[0];
+	sil->last_mouse_pos[1] = mouse[1];
+	silhouette_stroke_add_point(sil, stroke, sil->last_mouse_pos);
 	ED_region_tag_redraw(sil->ar);
 	copy_v2_v2(sil->last_mouse_pos,mouse);
-	//printf("Mouse Pos: (%f,%f)",mouse[0],mouse[1]);
-	/* Update stroke*/
 }
 
 typedef enum {
@@ -5321,7 +5353,8 @@ typedef enum {
 
 typedef enum {
 	BRANCH_INIT = 0,
-	BRANCH_VERT_GEN = 1
+	BRANCH_VERT_GEN = 1,
+	BRANCH_EDGE_GEN = 2
 } BranchState;
 
 typedef struct ShapePrimitive{
@@ -5340,6 +5373,7 @@ typedef struct SpineBranch{
 	int *terminal_points;
 	BranchState flag;
 	int *gen_verts;
+	int *e_start_arr;
 }SpineBranch;
 
 typedef struct Spine{
@@ -5387,6 +5421,9 @@ static void free_spine_branch(SpineBranch *branch)
 	if (branch->flag & BRANCH_VERT_GEN){
 		MEM_freeN(branch->gen_verts);
 	}
+	if (branch->flag & BRANCH_EDGE_GEN){
+		MEM_freeN(branch->e_start_arr);
+	}
 	MEM_freeN(branch);
 }
 
@@ -5409,25 +5446,11 @@ static void detach_branch(SpineBranch *b, SpineBranch *db)
 
 static void dissolve_branch(Spine *spine, SpineBranch *branch, SpineBranch *t_branch)
 {
-	/*for(int i = 0; i < branch->totpoints-1; i++){
-		t_branch->points[t_branch->totpoints] = branch->points[i];
-		t_branch->totpoints ++;
-	}*/
-
 	for(int i = 0; i < branch->tot_hull_points; i++){
 		t_branch->hull_points[t_branch->tot_hull_points] = branch->hull_points[i];
 		t_branch->tot_hull_points ++;
 	}
 
-	/*for(int i = 0; i < branch->totforks; i++){
-		if(spine->branches[branch->terminal_points[i*4+2]] != t_branch){
-			t_branch->terminal_points[t_branch->totforks*4  ] = branch->terminal_points[i*4];
-			t_branch->terminal_points[t_branch->totforks*4+1] = branch->terminal_points[i*4+1];
-			t_branch->terminal_points[t_branch->totforks*4+2] = branch->terminal_points[i*4+2];
-			t_branch->terminal_points[t_branch->totforks*4+3] = branch->terminal_points[i*4+3];
-			t_branch->totforks ++;
-		}
-	}*/
 	for(int i = 0; i < branch->totforks; i++){
 		if(branch->terminal_points[i * 2 + 1] != t_branch->idx){
 			detach_branch(spine->branches[branch->terminal_points[i * 2 + 1]], branch);
@@ -5630,7 +5653,7 @@ static Spine *silhouette_generate_spine(SilhouetteData *sil, SilhouetteStroke *s
 						&bm_create_params);
 
 	for (int i = 0; i < stroke->totvert; i++){
-		silhoute_stroke_point_to_3d(sil, i*2, v_co);
+		silhoute_stroke_point_to_3d(sil, i * 3, v_co);
 		v = BM_vert_create( bm, v_co, NULL, BM_CREATE_NOP);
 		BM_elem_index_set(v,i);
 		vert_arr[i] = v;
@@ -5771,6 +5794,48 @@ static void generate_mesh_grid_f_e(Mesh *me, int u_steps, int v_steps, int v_sta
 	}
 }
 
+static void bridge_loops(Mesh *me, int e_start_a, int e_start_b, int totvert, bool flip, int a_stride, int b_stride, bool n_flip)
+{
+	int e_start = me->totedge;
+	int l_start = me->totloop;
+	int p_start = me->totpoly;
+	ED_mesh_edges_add(me, NULL, totvert);
+	ED_mesh_loops_add(me, NULL, 4 * totvert - 4);
+	ED_mesh_polys_add(me, NULL, totvert - 1);
+
+	for (int i = 0; i < totvert; i++) {
+		me->medge[e_start + i].crease = 0;
+		me->medge[e_start + i].bweight = 0;
+		me->medge[e_start + i].flag = 0;
+
+		if (i < totvert - 1) {
+			me->medge[e_start + i].v1 = me->medge[e_start_a + i * a_stride].v1;
+			me->medge[e_start + i].v2 = me->medge[e_start_b + (flip ? -i : i) * b_stride].v1;
+
+			me->mloop[l_start + i * 4 + 0].v = me->medge[e_start_a + i * a_stride].v1;
+			me->mloop[l_start + i * 4 + 0].e = e_start_a + i * a_stride;
+
+			me->mloop[l_start + i * 4 + (n_flip? 3 : 1)].v = me->medge[e_start_a + i * a_stride].v2;
+			me->mloop[l_start + i * 4 + (n_flip? 3 : 1)].e = e_start + i + 1;
+
+			me->mloop[l_start + i * 4 + 2].v = me->medge[e_start_b + (flip ? -i : i) * b_stride].v2;
+			me->mloop[l_start + i * 4 + 2].e = e_start_b + (flip ? -i : i) * b_stride;
+
+			me->mloop[l_start + i * 4 + (n_flip? 1 : 3)].v = me->medge[e_start_b + (flip ? -i : i) * b_stride].v1;
+			me->mloop[l_start + i * 4 + (n_flip? 1 : 3)].e = e_start + i;
+
+			me->mpoly[p_start + i].loopstart = l_start + i * 4;
+			me->mpoly[p_start + i].totloop = 4;
+			me->mpoly[p_start + i].mat_nr = 0;
+			me->mpoly[p_start + i].flag = 0;
+			me->mpoly[p_start + i].pad = 0;
+		} else {
+			me->medge[e_start + i].v1 = me->medge[e_start_a + (i - 1) * a_stride].v2;
+			me->medge[e_start + i].v2 = me->medge[e_start_b + (flip ? -(i - 1) : (i - 1)) * b_stride].v2;
+		}
+	}
+}
+
 static void bridge_loop(Mesh *me, int v_start_a, int v_start_b, int totvert, bool flip, int l_start_a, int l_start_b, int l_stride)
 {
 	int e_start = me->totedge;
@@ -5814,292 +5879,15 @@ static int cmpfunc (const void * a, const void * b)/* TODO: is there a sort func
 	return ( *(int*)a - *(int*)b );
 }
 
-static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, int *gen_verts, Mesh *me, float z_vec[3], float depth, int ss_steps, int w_steps){
-	float cap_p[branch->tot_hull_points * 4];
-	float v1[3], v2[3], v3[3], z_vec_b[3];
-	float totlength = 0.0f;
-	float step_size = depth / (float)w_steps;
-	qsort (branch->hull_points, branch->tot_hull_points, sizeof(int), cmpfunc);
-
-	for(int i = 0; i < branch->tot_hull_points; i++){
-		silhoute_stroke_point_to_3d(sil, branch->hull_points[i] * 2, &cap_p[i * 4]);
-		if (i > 0) {
-			cap_p[i * 4 + 3] = len_v3v3(&cap_p[i * 4], v1) + cap_p[i * 4 - 1];
-		} else {
-			cap_p[i * 4 + 3] = 0.0f;
-		}
-		copy_v3_v3(v1, &cap_p[i * 4]);
-	}
-
-	totlength = cap_p[branch->tot_hull_points * 4 - 1];
-
-	float cap_length = fmin(totlength, (w_steps * step_size));
-	step_size = cap_length / (float)w_steps;
-	float cap_pos = (totlength - cap_length) * 0.5f;
-	float a, b, f;
-	int u_pos_i = 1;
-	int v_start = me->totvert;
-
-	if (totlength > step_size * w_steps && false){
-		/*TODO: tubeish ends*/
-	}
-
-	ED_mesh_vertices_add(me, NULL, w_steps * ss_steps);
-
-	for(int u = 0; u < w_steps; u++){
-		while(cap_p[u_pos_i * 4 + 3] < cap_pos){
-			u_pos_i ++;
-		}
-
-		a = cap_p[u_pos_i * 4 - 1];
-		b = cap_p[u_pos_i * 4 + 3];
-		f = (cap_pos - a) / (b - a);
-		interp_v3_v3v3(v1, &cap_p[u_pos_i * 4 - 4], &cap_p[u_pos_i * 4], f);
-		copy_v3_v3(z_vec_b, z_vec);
-
-		for(int v = 0; v < ss_steps; v++){
-			add_v3_v3(v1, z_vec_b);
-			f = (float)v / (float)(ss_steps * 2);
-			f = sin(M_PI * f - M_PI * 0.5f) + 1.0f;
-			interp_v3_v3v3(v3, v1, me->mvert[gen_verts[ss_steps + u]].co, f);
-			me->mvert[v_start + u * ss_steps + v].flag = 0;
-			me->mvert[v_start + u * ss_steps + v].bweight = 0;
-			copy_v3_v3(me->mvert[v_start + u * ss_steps + v].co,v3);
-			mul_v3_fl(z_vec_b, cos(0.5f * M_PI * ((float)v / (float)ss_steps)));
-		}
-		cap_pos += step_size;
-	}
-
-	generate_mesh_grid_f_e(me, w_steps, ss_steps, v_start, false);
-}
-
-static void calc_fork_arc(float v1[3], float v2[3], float *out, int offloop, const float z_vec[3], int ss_steps, int w_steps, float w_fact){
-	float v3[3], v4[3], z_vec_b[3];
-	float f;
-	copy_v3_v3(z_vec_b, z_vec);
-	for(int v = 0; v < ss_steps; v++){
-		add_v3_v3(v1, z_vec_b);
-		add_v3_v3(v2, z_vec_b);
-		f = (float)v/(float)(ss_steps * 2);
-		f = (sin(M_PI * f - M_PI * 0.5f) * 0.5f + 0.5f) * w_fact;
-		interp_v3_v3v3(v3, v1, v2, f);
-		copy_v3_v3(&out[offloop + v * 3], v3);
-		interp_v3_v3v3(v4, v2, v1, f);
-		copy_v3_v3(&out[offloop + (ss_steps + w_steps - 1 + v) * 3], v4);
-		mul_v3_fl(z_vec_b, cos(0.5f * M_PI * ((float)v / (float)ss_steps)));
-		if (v == ss_steps - 1) {
-			for (int w = 1; w < w_steps; w++) {
-				f = (float)w / (float)w_steps;
-				interp_v3_v3v3(v1, v3, v4, f);
-				copy_v3_v3(&out[offloop + (ss_steps + w - 1) * 3], v1);
-			}
-		}
-	}
-}
-
-static void add_ss_tinter(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float z_vec[3], int ss_steps, int w_steps, float w_fact)
+static void fill_tube(Mesh *me, float *left, float *right, int totl, int totr, int u_steps, float z_vec[3], int ss_steps, int w_steps, float w_fact, int *e_start_sides)
 {
-	float sa[branch->tot_hull_points * 4 * 3];
-	int b_start[3] = {0,0,0}, b_tot[3] = {0,0,0};
-	int filler = 0;
-
-	qsort (branch->hull_points, branch->tot_hull_points, sizeof(int), cmpfunc);
-
-	for(int i = 0; i < branch->tot_hull_points; i++){
-
-		silhoute_stroke_point_to_3d(sil, branch->hull_points[i] * 2, &sa[b_start[filler] + b_tot[filler] * 4]);
-		if (b_tot[filler] > 0){
-			sa[b_start[filler] + b_tot[filler] * 4 + 3] = len_v3v3(&sa[b_start[filler] + b_tot[filler] * 4],&sa[b_start[filler] + b_tot[filler] * 4 - 4]) + sa[b_start[filler] + b_tot[filler] * 4 - 1];
-		} else {
-			sa[b_start[filler] + b_tot[filler] * 4 + 3] = 0.0f;
-		}
-		b_tot[filler] ++;
-
-		if (branch->hull_points[i] + 1 != branch->hull_points[i + 1] && branch->hull_points[i] != branch->hull_points[i + 1]){
-			filler = (filler + 1) % 3;
-			if (filler > 0) {
-				b_start[filler] = b_start[filler - 1] + b_tot[filler - 1] * 4;
-			}
-		}
-	}
-
-	int loop_length = (ss_steps * 2 + w_steps);
-	/* a - b */
-	float loop[3 * loop_length * 3];
-	float v1[3], v2[3], v3[3];
-
-	copy_v3_v3(v1, &sa[b_tot[0] * 4 - 4]);
-	copy_v3_v3(v2, &sa[b_start[1]]);
-	calc_fork_arc(v1, v2, loop, 0, z_vec, ss_steps, w_steps + 1, w_fact);
-
-	/* b - c */
-	copy_v3_v3(v1, &sa[b_start[1] + b_tot[1] * 4 - 4]);
-	copy_v3_v3(v2, &sa[b_start[2]]);
-	calc_fork_arc(v1, v2, loop, loop_length * 3, z_vec, ss_steps, w_steps + 1, w_fact);
-
-	/* c - a */
-	copy_v3_v3(v1, &sa[b_start[2] + b_tot[2] * 4 - 4]);
-	copy_v3_v3(v2, &sa[0]);
-	calc_fork_arc(v1, v2, loop, loop_length * 3 * 2, z_vec, ss_steps, w_steps + 1, w_fact);
-
-	float center[3], ind_center[3 * 3];
-	int center_idx = (ss_steps + (int)floorf(w_steps * 0.5f)) * 3;
-	for(int s = 0; s < 3; s++){
-		copy_v3_v3(&ind_center[s * 3], &loop[s * loop_length * 3 + center_idx]);
-		add_v3_v3(&ind_center[s * 3], &loop[s * loop_length * 3 + center_idx - 3]);
-		mul_v3_fl(&ind_center[s * 3], 0.5f);
-	}
-
-	copy_v3_v3(center, ind_center);
-	add_v3_v3(center, ind_center + 3);
-	add_v3_v3(center, ind_center + 6);
-	mul_v3_fl(center, 1.0f/3.0f);
-
-	int v_start = me->totvert;
-	int v_center_guides = v_start;
-	int u_steps = 8;
-	int verts_per_side = w_steps * u_steps + w_steps;
-	float f;
-	int e_start = me->totedge;
-
-	ED_mesh_vertices_add(me, NULL, 3 * verts_per_side);
-	int center_face[3 * 2];
-
-	for(int s = 0; s < 3; s++){
-		for(int w = 0; w < w_steps/2; w++){
-			for(int u = 0; u < u_steps; u++){
-				copy_v3_v3(v1, &loop[s * loop_length * 3 + (ss_steps + w_steps - w - 1) * 3]);
-				copy_v3_v3(v2, &loop[((s + 1) % 3) * loop_length * 3 + (ss_steps + w) * 3]);
-				f = (float)u / (float)u_steps;
-				interp_v3_v3v3(v3, v1, v2, f);
-				f = -2.0 * ((f - 0.5f) * (f - 0.5f)) + 0.5f;
-				interp_v3_v3v3(v3, v3, center, f / (w_steps/2 - w + 1));
-				copy_v3_v3(me->mvert[v_start + s * verts_per_side + w * (u_steps + 1) + u].co, v3);
-
-				if (u == u_steps - 1) {
-					copy_v3_v3(me->mvert[v_start + s * verts_per_side + w * (u_steps + 1) + u + 1].co, v2);
-				}
-				if (u == u_steps / 2 && w == w_steps / 2 - 1) {
-					center_face[s * 2] = v_start + s * verts_per_side + w * (u_steps + 1) + u;
-				}
-			}
-		}
-		generate_mesh_grid_f_e(me, w_steps / 2, u_steps + 1, v_start + s * verts_per_side, true);
-	}
-
-	int edges_per_side = (w_steps / 2 - 1) * u_steps * 2 + w_steps / 2 - 1 + u_steps;
-	for(int s = 0; s < 3; s++){
-		bridge_loop(me,
-					v_start + s * verts_per_side + (u_steps + 1) * (w_steps / 2 - 1),
-					v_start + ((s + 2) % 3) * verts_per_side + (u_steps + 1) * (w_steps / 2) - 1,
-					u_steps / 2 + 1,
-					true,
-					e_start + (s + 1) * edges_per_side - u_steps,
-					e_start + ((s + 2) % 3 + 1) * edges_per_side - 1,
-					1);
-		center_face[s * 2 + 1] = me->totedge - 1;
-	}
-
-	ED_mesh_loops_add(me, NULL, 3);
-	ED_mesh_polys_add(me, NULL, 1);
-	for(int i = 0; i < 3; i++){
-		me->mloop[me->totloop - 3 + i].v = center_face[i * 2];
-		me->mloop[me->totloop - 3 + i].e = center_face[i * 2 + 1];
-	}
-
-	me->mpoly[me->totpoly - 1].loopstart = me->totloop - 3;
-	me->mpoly[me->totpoly - 1].totloop = 3;
-
-	int u_pos_i;
- 	float step_l, a, b;
-	float z_vec_b[3];
-	verts_per_side = u_steps * ss_steps;
-	v_start = me->totvert;
-	ED_mesh_vertices_add(me, NULL, 3 * verts_per_side);
-
-	for(int s = 0; s < 3; s++){
-		u_pos_i = fmin(1, b_tot[s] - 1);
-		step_l = sa[b_start[s] + b_tot[s] * 4 - 1] / u_steps;
-		for (int u = 0; u < u_steps; u++) {
-			while(u_pos_i < b_tot[s] - 1 && sa[u_pos_i * 4 + 3] <= step_l * (float)u){
-				u_pos_i ++;
-			}
-
-			if (u_pos_i == 0 || step_l == 0){
-				copy_v3_v3(v1, &sa[b_start[s]]);
-			} else {
-				a = sa[b_start[s] + u_pos_i * 4 - 1];
-				b = sa[b_start[s] + u_pos_i * 4 + 3];
-				f = (step_l * (float)u - a) / (b - a);
-				interp_v3_v3v3(v1, &sa[b_start[s] + u_pos_i * 4 - 4], &sa[b_start[s] + u_pos_i * 4], f);
-			}
-
-			copy_v3_v3(z_vec_b, z_vec);
-			sub_v3_v3v3(v2, center, z_vec);
-			copy_v3_v3(v2, me->mvert[v_center_guides + ((s + 2) % 3) * (w_steps * (u_steps + 1)) + u].co);
-
-			for(int v = 0; v < ss_steps; v++){
-				add_v3_v3(v1, z_vec_b);
-				f = (float)v/(float)(ss_steps);
-				f = sin(0.5f * f * M_PI - 0.5f * M_PI) + 1.0f;
-				interp_v3_v3v3(v3, v1, v2, f);
-				me->mvert[v_start + verts_per_side * s + u * ss_steps + v].flag = 0;
-				me->mvert[v_start + verts_per_side * s + u * ss_steps + v].bweight = 0;
-				copy_v3_v3(me->mvert[v_start + verts_per_side * s + u * ss_steps + v].co,v3);
-				mul_v3_fl(z_vec_b, cos(0.5f * M_PI * ((float)v / (float)ss_steps)));
-			}
-		}
-		generate_mesh_grid_f_e(me, u_steps, ss_steps, v_start + s * verts_per_side, false);
-	}
-	printf("Created a T-Intersection. Edges are %i, %i, %i Total length of: %f, %f, %f\n", b_tot[0], b_tot[1], b_tot[2], sa[b_tot[0] * 4 - 1], sa[b_start[1] + b_tot[1] * 4 - 1], sa[b_start[2] + b_tot[2] * 4 - 1]);
-}
-
-static void add_ss_tube(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float z_vec[3], float depth, int ss_steps, int w_steps, float w_fact)
-{
-	/* x y z l (accumulative length)*/
-	float left[branch->tot_hull_points * 4], right[branch->tot_hull_points * 4];
-	int totl = 0, totr = 0;
-	bool f_swap = false;
-
-	qsort (branch->hull_points, branch->tot_hull_points, sizeof(int), cmpfunc);
-
-	for(int i = 0; i < branch->tot_hull_points; i++){
-		if (!f_swap){
-			silhoute_stroke_point_to_3d(sil, branch->hull_points[i] * 2, &left[totl * 4]);
-			if(totl > 0){
-				left[totl * 4 + 3] = len_v3v3(&left[totl * 4],&left[totl * 4 - 4]) + left[totl * 4 - 1];
-			}else{
-				left[totl * 4 + 3] = 0.0f;
-			}
-			totl ++;
-		}else{
-			silhoute_stroke_point_to_3d(sil, branch->hull_points[i] * 2, &right[totr*4]);
-			if(totr > 0){
-				right[totr * 4 + 3] = len_v3v3(&right[totr * 4],&right[totr * 4 - 4]) + right[totr * 4 - 1];
-			}else{
-				right[totr * 4 + 3] = 0.0f;
-			}
-			totr ++;
-		}
-		if (branch->hull_points[i] + 1 != branch->hull_points[i + 1] && branch->hull_points[i] != branch->hull_points[i + 1]){
-			f_swap = !f_swap;
-		}
-	}
-
-	printf("Creating tube with %i left points and %i right points length: %f, %f", totl, totr, left[totl * 4 - 1], right[totr * 4 - 1]);
-
-	if(totl < 2 || totr < 2){
-		return;
-	}
-
 	int v_steps = ss_steps;
-	int u_steps = fmax(2.0f, fmax(left[totl * 4 - 1], right[totr * 4 - 1]) / (float)(2 * depth / ss_steps));
 	int square_ss_steps = u_steps * v_steps;
 	float step_l = left[totl * 4 - 1] / (float)u_steps;
 	float step_r = right[totr * 4 - 1] / (float)u_steps;
 	float a, b, f;
 	float v1[3], v2[3], v3[3], v4[3], z_vec_b[3];
- 	int l_u_pos_i = 0, r_u_pos_i = totr - 1;
+	int l_u_pos_i = 1, r_u_pos_i = totr - 1;
 	int v_pos_w = 0;
 
 	const int v_start = me->totvert;
@@ -6156,9 +5944,536 @@ static void add_ss_tube(SilhouetteData *sil, SpineBranch *branch, Mesh *me, floa
 		}
 	}
 
+	int ve_start_a = me->totedge + v_steps * 2 - 2;
+	e_start_sides[0] = me->totedge;
+	e_start_sides[1] = v_steps;
+	e_start_sides[2] = 2;
+	e_start_sides[9] = me->totedge + (v_steps * 2 - 1) * (u_steps - 1);
+	e_start_sides[10] = v_steps;
+	e_start_sides[11] = 1;
 	generate_mesh_grid_f_e(me, u_steps, v_steps, v_start, false);
+	int ve_start_ar = me->totedge + v_steps * 2 - 2;
+	e_start_sides[6] = me->totedge;
+	e_start_sides[7] = v_steps;
+	e_start_sides[8] = 2;
+	e_start_sides[15] = me->totedge + (v_steps * 2 - 1) * (u_steps - 1);
+	e_start_sides[16] = v_steps;
+	e_start_sides[17] = 1;
 	generate_mesh_grid_f_e(me, u_steps, v_steps, v_start + square_ss_steps, true);
+	int ve_start_b = me->totedge + 1;
+	e_start_sides[3] = me->totedge;
+	e_start_sides[4] = w_steps - 1;
+	e_start_sides[5] = 2;
+	e_start_sides[12] = me->totedge + ((w_steps - 1) * 2 - 1) * (u_steps - 1);//(w_steps * 2 - 1) * (u_steps - 1);
+	e_start_sides[13] = w_steps - 1;
+	e_start_sides[14] = 1;
 	generate_mesh_grid_f_e(me, u_steps, w_steps - 1, v_start + square_ss_steps * 2, false);
+
+	/*bl_debug_draw_edge_add(me->mvert[me->medge[ve_start_b].v1].co, me->mvert[me->medge[ve_start_b].v2].co);
+	bl_debug_draw_point(me->mvert[me->medge[ve_start_b].v1].co,0.2f);
+
+	bl_debug_color_set(0xFFFFFF);
+
+	bl_debug_draw_edge_add(me->mvert[me->medge[ve_start_a + (v_steps * 2 - 1)].v1].co, me->mvert[me->medge[ve_start_a + (v_steps * 2 - 1)].v2].co);
+	bl_debug_draw_point(me->mvert[me->medge[ve_start_a + (v_steps * 2 - 1)].v1].co,0.2f);
+
+	bl_debug_draw_edge_add(me->mvert[me->medge[ve_start_b + (w_steps * 2 - 3)].v1].co, me->mvert[me->medge[ve_start_b + (w_steps * 2 - 3)].v2].co);
+	bl_debug_draw_point(me->mvert[me->medge[ve_start_b + (w_steps * 2 - 3)].v1].co,0.2f);*/
+	bridge_loops(me,
+				 ve_start_a,
+				 ve_start_b,
+				 u_steps,
+				 false,
+				 (v_steps * 2 - 1),
+				 (w_steps * 2 - 3),
+				 false);
+	bridge_loops(me,
+				 ve_start_ar,
+				 ve_start_b + (w_steps * 2 - 3) - 2,
+				 u_steps,
+				 false,
+				 (v_steps * 2 - 1),
+				 (w_steps * 2 - 3),
+				 true);
+	//bridge_loop(me, int v_start_a, int v_start_b, int totvert, bool flip, int l_start_a, int l_start_b, int l_stride);
+}
+
+static void calc_fork_arc(float v1[3], float v2[3], float *out, int offloop, const float z_vec[3], int ss_steps, int w_steps, float w_fact){
+	float v3[3], v4[3], z_vec_b[3];
+	float f;
+	copy_v3_v3(z_vec_b, z_vec);
+	for(int v = 0; v < ss_steps; v++){
+		add_v3_v3(v1, z_vec_b);
+		add_v3_v3(v2, z_vec_b);
+		f = (float)v/(float)(ss_steps * 2);
+		f = (sin(M_PI * f - M_PI * 0.5f) * 0.5f + 0.5f) * w_fact;
+		interp_v3_v3v3(v3, v1, v2, f);
+		copy_v3_v3(&out[offloop + v * 3], v3);
+		interp_v3_v3v3(v4, v2, v1, f);
+		copy_v3_v3(&out[offloop + (ss_steps + w_steps - 1 + v) * 3], v4);
+		mul_v3_fl(z_vec_b, cos(0.5f * M_PI * ((float)v / (float)ss_steps)));
+		if (v == ss_steps - 1) {
+			for (int w = 1; w < w_steps; w++) {
+				f = (float)w / (float)w_steps;
+				interp_v3_v3v3(v1, v3, v4, f);
+				copy_v3_v3(&out[offloop + (ss_steps + w - 1) * 3], v1);
+			}
+		}
+	}
+}
+
+static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, int *gen_verts, Mesh *me, float z_vec[3], float depth, int ss_steps, int w_steps, float w_fact){
+	float cap_p[branch->tot_hull_points * 4];
+	float v1[3], v2[3], v3[3], z_vec_b[3];
+	float totlength = 0.0f;
+	float step_size = depth / (float)w_steps;
+	float loop[3 * (ss_steps * 2 + w_steps)];
+
+	qsort (branch->hull_points, branch->tot_hull_points, sizeof(int), cmpfunc);
+
+	for(int i = 0; i < branch->tot_hull_points; i++){
+		silhoute_stroke_point_to_3d(sil, branch->hull_points[i] * 3, &cap_p[i * 4]);
+		if (i > 0) {
+			cap_p[i * 4 + 3] = len_v3v3(&cap_p[i * 4], v1) + cap_p[i * 4 - 1];
+		} else {
+			cap_p[i * 4 + 3] = 0.0f;
+		}
+		copy_v3_v3(v1, &cap_p[i * 4]);
+	}
+
+	totlength = cap_p[branch->tot_hull_points * 4 - 1];
+
+	if(!gen_verts){
+		copy_v3_v3(v1, &cap_p[0]);
+		copy_v3_v3(v2, &cap_p[branch->tot_hull_points * 4 - 4]);
+		calc_fork_arc(v1, v2, loop, 0, z_vec, ss_steps, w_steps + 1, w_fact);
+	}
+
+	float cap_length = fmin(totlength, (w_steps * step_size));
+	step_size = cap_length / (float)w_steps;
+	float cap_pos = (totlength - cap_length) * 0.5f;
+	float a, b, f;
+	int u_pos_i = 0;
+	int v_start = me->totvert;
+	int u_steps;
+	int ve_start_a = -1;
+	int e_start_tube[18];
+
+	if (totlength > step_size * w_steps){
+		/*TODO: tubeish ends*/
+		int side_l = cap_pos;
+		int totl = 0, totr = 0;
+		float left[branch->tot_hull_points * 4], right[branch->tot_hull_points * 4];
+		float n_off_right;
+
+		while(cap_p[u_pos_i * 4 + 3] < side_l){
+			left[totl * 4    ] = cap_p[u_pos_i * 4    ];
+			left[totl * 4 + 1] = cap_p[u_pos_i * 4 + 1];
+			left[totl * 4 + 2] = cap_p[u_pos_i * 4 + 2];
+			left[totl * 4 + 3] = cap_p[u_pos_i * 4 + 3];
+			totl ++;
+			u_pos_i ++;
+		}
+		while(cap_p[u_pos_i * 4 + 3] < totlength - side_l){
+			u_pos_i ++;
+		}
+		while(u_pos_i < branch->tot_hull_points){
+			if(totr == 0){
+				n_off_right = cap_p[u_pos_i * 4 + 3];
+			}
+			right[totr * 4    ] = cap_p[u_pos_i * 4    ];
+			right[totr * 4 + 1] = cap_p[u_pos_i * 4 + 1];
+			right[totr * 4 + 2] = cap_p[u_pos_i * 4 + 2];
+			right[totr * 4 + 3] = cap_p[u_pos_i * 4 + 3] - n_off_right;
+			totr ++;
+			u_pos_i ++;
+		}
+
+		if(totl >= 2 && totr >= 2){
+			u_steps = fmax(2.0f, fmax(left[totl * 4 - 1], right[totr * 4 - 1]) / (float)(2 * depth / ss_steps));
+			ve_start_a = me->totedge + ss_steps * (u_steps - 1) * 2 - 2;
+			fill_tube(me, left, right, totl, totr, u_steps, z_vec, ss_steps, w_steps + 1, w_fact, e_start_tube);
+			for(int u = 0; u < w_steps; u++){
+				if (!gen_verts) {
+					copy_v3_v3(&loop[(ss_steps + u) * 3], me->mvert[me->totvert - w_steps + u].co);
+				} else {
+					gen_verts[ss_steps + u] = me->totvert - w_steps + u;
+				}
+			}
+		}
+	}
+
+	u_pos_i = 1;
+	v_start = me->totvert;
+
+	ED_mesh_vertices_add(me, NULL, w_steps * ss_steps);
+
+	/*TODO: Corners need two add loops*/
+
+	for(int u = 0; u < w_steps; u++){
+		while(cap_p[u_pos_i * 4 + 3] <= cap_pos){
+			u_pos_i ++;
+		}
+
+		a = cap_p[u_pos_i * 4 - 1];
+		b = cap_p[u_pos_i * 4 + 3];
+		f = (cap_pos - a) / (b - a);
+		interp_v3_v3v3(v1, &cap_p[u_pos_i * 4 - 4], &cap_p[u_pos_i * 4], f);
+		copy_v3_v3(z_vec_b, z_vec);
+
+		for(int v = 0; v < ss_steps; v++){
+			add_v3_v3(v1, z_vec_b);
+			f = (float)v / (float)(ss_steps * 2);
+			f = sin(M_PI * f - M_PI * 0.5f) + 1.0f;
+			if (!gen_verts) {
+				interp_v3_v3v3(v3, v1, &loop[(ss_steps + u) * 3], f * w_fact);
+			} else {
+				interp_v3_v3v3(v3, v1, me->mvert[gen_verts[ss_steps + u]].co, f * w_fact);
+			}
+			me->mvert[v_start + u * ss_steps + v].flag = 0;
+			me->mvert[v_start + u * ss_steps + v].bweight = 0;
+			copy_v3_v3(me->mvert[v_start + u * ss_steps + v].co,v3);
+			mul_v3_fl(z_vec_b, cos(0.5f * M_PI * ((float)v / (float)ss_steps)));
+		}
+		cap_pos += step_size;
+	}
+
+	int ve_start_b = me->totedge;
+	int center_face[3 * 2 * 2];
+	generate_mesh_grid_f_e(me, w_steps, ss_steps, v_start, false);
+	if (ve_start_a > 0 && e_start_tube){
+		bridge_loops(me,
+				 e_start_tube[9],
+				 ve_start_b,
+				 e_start_tube[10],
+				 false,
+				 1,
+				 2,
+				 true);
+		bridge_loops(me,
+					 e_start_tube[15],
+					 ve_start_b + (ss_steps * 2 - 1) * (w_steps - 1),
+					 e_start_tube[16],
+					 false,
+					 1,
+					 1,
+					 false);
+		bridge_loops(me,
+					 e_start_tube[12],
+					 ve_start_b + (ss_steps * 2 - 1) - 1,
+					 e_start_tube[13],
+					 false,
+					 1,
+					 ss_steps * 2 - 1,
+					 true);
+
+		if (!(branch->flag & BRANCH_EDGE_GEN)){
+			branch->e_start_arr = MEM_callocN(sizeof(int) * 9,"edge startposition array");
+			branch->flag |= BRANCH_EDGE_GEN;
+		}
+		memcpy( branch->e_start_arr, e_start_tube, 9 * sizeof(int));
+		/*Close corners!*/
+	} else {
+		if (!(branch->flag & BRANCH_EDGE_GEN)){
+			branch->e_start_arr = MEM_callocN(sizeof(int) * 9,"edge startposition array");
+			branch->flag |= BRANCH_EDGE_GEN;
+		}
+
+		branch->e_start_arr[0] = ve_start_b;
+		branch->e_start_arr[1] = ss_steps;
+		branch->e_start_arr[2] = 2;
+
+		branch->e_start_arr[3] = ve_start_b + (ss_steps * 2 - 1) - 1;
+		branch->e_start_arr[4] = ss_steps;
+		branch->e_start_arr[5] = ss_steps * 2 - 1;
+
+		branch->e_start_arr[6] = ve_start_b + (ss_steps * 2 - 1) * (w_steps - 1);
+		branch->e_start_arr[7] = w_steps;
+		branch->e_start_arr[8] = 1;
+	}
+}
+
+static void add_ss_tinter(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float z_vec[3], int ss_steps, int w_steps, float w_fact)
+{
+	float sa[branch->tot_hull_points * 4 * 3];
+	int b_start[3] = {0,0,0}, b_tot[3] = {0,0,0};
+	int filler = 0;
+	int cyclic_offset = 0, n_i = 0;
+
+	qsort (branch->hull_points, branch->tot_hull_points, sizeof(int), cmpfunc);
+
+	if(branch->hull_points[0] == 0){
+		for(int i = 0; i < branch->tot_hull_points; i++){
+			if(n_i > 2){
+				cyclic_offset ++;
+			}
+			if (branch->hull_points[i] + 1 != branch->hull_points[i + 1] &&
+				branch->hull_points[i] != branch->hull_points[i + 1] &&
+				i < branch->tot_hull_points - 1){
+				n_i ++;
+				cyclic_offset = 0;
+			}
+		}
+	}
+
+	for(int i = 0; i < branch->tot_hull_points; i++){
+		n_i = branch->tot_hull_points + (i - cyclic_offset);
+		silhoute_stroke_point_to_3d(sil, branch->hull_points[n_i % branch->tot_hull_points] * 3, &sa[b_start[filler] + b_tot[filler] * 4]);
+		if (b_tot[filler] > 0){
+			sa[b_start[filler] + b_tot[filler] * 4 + 3] = len_v3v3(&sa[b_start[filler] + b_tot[filler] * 4],&sa[b_start[filler] + b_tot[filler] * 4 - 4]) + sa[b_start[filler] + b_tot[filler] * 4 - 1];
+		} else {
+			sa[b_start[filler] + b_tot[filler] * 4 + 3] = 0.0f;
+		}
+		b_tot[filler] ++;
+
+		if (branch->hull_points[n_i % branch->tot_hull_points] + 1 != branch->hull_points[(i + 1) % branch->tot_hull_points] &&
+			branch->hull_points[i % branch->tot_hull_points] != branch->hull_points[(i + 1) % branch->tot_hull_points] &&
+			!(cyclic_offset != 0 && b_tot[0] <= cyclic_offset)){
+			filler = (filler + 1) % 3;
+			if (filler > 0) {
+				b_start[filler] = b_start[filler - 1] + b_tot[filler - 1] * 4;
+			}
+		}
+	}
+
+	/*for(int s = 0; s < 3; s++){
+		for(int i = 0; i < b_tot[s]; i++){
+			bl_debug_color_set(0x00FF00);
+			bl_debug_draw_point(&sa[b_start[s] + i * 4],0.2f);
+		}
+	}*/
+
+	int loop_length = (ss_steps * 2 + w_steps);
+	/* a - b */
+	float loop[3 * loop_length * 3];
+	float v1[3], v2[3], v3[3];
+
+	copy_v3_v3(v1, &sa[b_tot[0] * 4 - 4]);
+	copy_v3_v3(v2, &sa[b_start[1]]);
+	calc_fork_arc(v1, v2, loop, 0, z_vec, ss_steps, w_steps + 1, w_fact);
+
+	/* b - c */
+	copy_v3_v3(v1, &sa[b_start[1] + b_tot[1] * 4 - 4]);
+	copy_v3_v3(v2, &sa[b_start[2]]);
+	calc_fork_arc(v1, v2, loop, loop_length * 3, z_vec, ss_steps, w_steps + 1, w_fact);
+
+	/* c - a */
+	copy_v3_v3(v1, &sa[b_start[2] + b_tot[2] * 4 - 4]);
+	copy_v3_v3(v2, &sa[0]);
+	calc_fork_arc(v1, v2, loop, loop_length * 3 * 2, z_vec, ss_steps, w_steps + 1, w_fact);
+
+	float center[3], ind_center[3 * 3];
+	int center_idx = (ss_steps + (int)floorf(w_steps * 0.5f)) * 3;
+	for(int s = 0; s < 3; s++){
+		copy_v3_v3(&ind_center[s * 3], &loop[s * loop_length * 3 + center_idx]);
+		add_v3_v3(&ind_center[s * 3], &loop[s * loop_length * 3 + center_idx - 3]);
+		mul_v3_fl(&ind_center[s * 3], 0.5f);
+	}
+
+	copy_v3_v3(center, ind_center);
+	add_v3_v3(center, ind_center + 3);
+	add_v3_v3(center, ind_center + 6);
+	mul_v3_fl(center, 1.0f/3.0f);
+
+	int v_start = me->totvert;
+	int v_center_guides = v_start;
+	int u_steps = 9;
+	int verts_per_side = w_steps * u_steps + w_steps;
+	float f;
+	int e_start = me->totedge;
+	int bridge_in_out_start[3];
+
+	/*if (!(branch->flag & BRANCH_EDGE_GEN)){
+		branch->e_start_arr = MEM_callocN(sizeof(int) * 27,"edge startposition array");
+		branch->flag |= BRANCH_EDGE_GEN;
+	}*/
+
+	ED_mesh_vertices_add(me, NULL, 3 * verts_per_side);
+	int center_face[3 * 2];
+
+	for(int s = 0; s < 3; s++){
+		for(int w = 0; w < w_steps/2; w++){
+			copy_v3_v3(v1, &loop[s * loop_length * 3 + (ss_steps + w_steps - w - 1) * 3]);
+			copy_v3_v3(v2, &loop[((s + 1) % 3) * loop_length * 3 + (ss_steps + w) * 3]);
+			for(int u = 0; u < u_steps; u++){
+				f = (float)u / (float)(u_steps - 1);
+				interp_v3_v3v3(v3, v1, v2, f);
+				f = -2.0 * ((f - 0.5f) * (f - 0.5f)) + 0.5f;
+				interp_v3_v3v3(v3, v3, center, f / (w_steps/2 - w + 1));
+				copy_v3_v3(me->mvert[v_start + s * verts_per_side + w * u_steps + u].co, v3);
+
+				/*if (u == u_steps - 1) {
+					copy_v3_v3(me->mvert[v_start + s * verts_per_side + w * (u_steps + 1) + u + 1].co, v2);
+				}*/
+				if (u == u_steps / 2 && w == w_steps / 2 - 1) {
+					center_face[s * 2] = v_start + s * verts_per_side + w * u_steps + u;
+				}
+			}
+		}
+		generate_mesh_grid_f_e(me, w_steps / 2, u_steps, v_start + s * verts_per_side, true);
+		int e_start_off = (u_steps - 1) * 2 + 1;
+		int e_start_tot_ps = (u_steps * (w_steps / 2)) * 2 - u_steps - (w_steps / 2);//(u_steps * 2 - 1) * (w_steps / 2 - 1);
+
+		bridge_in_out_start[s] = e_start + s * e_start_tot_ps;
+	}
+
+	int edges_per_side = u_steps / 2 + 1;
+	for(int s = 0; s < 3; s++){
+		bridge_loop(me,
+					v_start + s * verts_per_side + u_steps * (w_steps / 2 - 1),
+					v_start + ((s + 2) % 3) * verts_per_side + u_steps * (w_steps / 2) - 1,
+					u_steps / 2 + 1,
+					true,
+					e_start + (s + 1) * edges_per_side - u_steps + 1,
+					e_start + ((s + 2) % 3 + 1) * edges_per_side - 1,
+					1);
+		center_face[s * 2 + 1] = me->totedge - 1;
+	}
+
+	ED_mesh_loops_add(me, NULL, 3);
+	ED_mesh_polys_add(me, NULL, 1);
+	for(int i = 0; i < 3; i++){
+		me->mloop[me->totloop - 3 + i].v = center_face[i * 2];
+		me->mloop[me->totloop - 3 + i].e = center_face[i * 2 + 1];
+	}
+
+	me->mpoly[me->totpoly - 1].loopstart = me->totloop - 3;
+	me->mpoly[me->totpoly - 1].totloop = 3;
+
+	int u_pos_i, e_tmp_start;
+	float step_l, a, b;
+	float z_vec_b[3];
+	verts_per_side = u_steps * ss_steps;
+	v_start = me->totvert;
+	ED_mesh_vertices_add(me, NULL, 3 * verts_per_side);
+
+	for(int s = 0; s < 3; s++){
+		u_pos_i = fmin(1, b_tot[s] - 1);
+		step_l = sa[b_start[s] + b_tot[s] * 4 - 1] / u_steps;
+
+		for (int u = 0; u < u_steps; u++) {
+			while(u_pos_i < b_tot[s] - 1 && sa[u_pos_i * 4 + 3] <= step_l * (float)u){
+				u_pos_i ++;
+			}
+
+			if (u_pos_i == 0 || step_l == 0){
+				copy_v3_v3(v1, &sa[b_start[s]]);
+			} else {
+				a = sa[b_start[s] + u_pos_i * 4 - 1];
+				b = sa[b_start[s] + u_pos_i * 4 + 3];
+				f = (step_l * (float)u - a) / (b - a);
+				interp_v3_v3v3(v1, &sa[b_start[s] + u_pos_i * 4 - 4], &sa[b_start[s] + u_pos_i * 4], f);
+			}
+
+			copy_v3_v3(z_vec_b, z_vec);
+			sub_v3_v3v3(v2, center, z_vec);
+			copy_v3_v3(v2, me->mvert[v_center_guides + ((s + 2) % 3) * (w_steps * (u_steps + 1)) + u].co);
+
+			for(int v = 0; v < ss_steps; v++){
+				add_v3_v3(v1, z_vec_b);
+				f = (float)v/(float)(ss_steps);
+				f = sin(0.5f * f * M_PI - 0.5f * M_PI) + 1.0f;
+				interp_v3_v3v3(v3, v1, v2, f);
+				me->mvert[v_start + verts_per_side * s + u * ss_steps + v].flag = 0;
+				me->mvert[v_start + verts_per_side * s + u * ss_steps + v].bweight = 0;
+				copy_v3_v3(me->mvert[v_start + verts_per_side * s + u * ss_steps + v].co,v3);
+				mul_v3_fl(z_vec_b, cos(0.5f * M_PI * ((float)v / (float)ss_steps)));
+			}
+		}
+		e_tmp_start = me->totedge;
+		generate_mesh_grid_f_e(me, u_steps, ss_steps, v_start + s * verts_per_side, false);
+
+		bridge_loops(me,
+					 bridge_in_out_start[(s + 2) % 3],
+					 e_tmp_start + ss_steps * 2 - 2,
+					 u_steps,
+					 false,
+					 2,
+					 ss_steps * 2 -1,
+					 true);
+	}
+
+	printf("Created a T-Intersection. Edges are %i, %i, %i Total length of: %f, %f, %f\n", b_tot[0], b_tot[1], b_tot[2], sa[b_tot[0] * 4 - 1], sa[b_start[1] + b_tot[1] * 4 - 1], sa[b_start[2] + b_tot[2] * 4 - 1]);
+}
+
+static void add_ss_tube(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float z_vec[3], float depth, int ss_steps, int w_steps, float w_fact)
+{
+	/* x y z l (accumulative length)*/
+	float left[branch->tot_hull_points * 4], right[branch->tot_hull_points * 4];
+	int totl = 0, totr = 0;
+	int u_steps = 0;
+	const int v_start = me->totvert;
+	int square_ss_steps;
+	bool f_swap = false;
+	int cyclic_offset = 0, n_i = 0;
+
+	qsort (branch->hull_points, branch->tot_hull_points, sizeof(int), cmpfunc);
+
+	if(branch->hull_points[0] == 0){
+		for(int i = 0; i < branch->tot_hull_points; i++){
+			if(n_i > 1){
+				cyclic_offset ++;
+			}
+			if (branch->hull_points[i] + 1 != branch->hull_points[i + 1] &&
+				branch->hull_points[i] != branch->hull_points[i + 1] &&
+				i < branch->tot_hull_points - 1){
+				n_i ++;
+				cyclic_offset = 0;
+			}
+		}
+	}
+
+	totl = 0;
+	f_swap = false;
+	n_i = 0;
+
+	for(int i = 0; i < branch->tot_hull_points; i++){
+		n_i = branch->tot_hull_points + (i - cyclic_offset);
+		if (!f_swap){
+			silhoute_stroke_point_to_3d(sil, branch->hull_points[n_i % branch->tot_hull_points] * 3, &left[totl * 4]);
+			if(totl > 0){
+				left[totl * 4 + 3] = len_v3v3(&left[totl * 4],&left[totl * 4 - 4]) + left[totl * 4 - 1];
+			}else{
+				left[totl * 4 + 3] = 0.0f;
+			}
+			totl ++;
+		}else{
+			silhoute_stroke_point_to_3d(sil, branch->hull_points[n_i % branch->tot_hull_points] * 3, &right[totr*4]);
+			if(totr > 0){
+				right[totr * 4 + 3] = len_v3v3(&right[totr * 4],&right[totr * 4 - 4]) + right[totr * 4 - 1];
+			}else{
+				right[totr * 4 + 3] = 0.0f;
+			}
+			totr ++;
+		}
+		if (branch->hull_points[n_i % branch->tot_hull_points] + 1 != branch->hull_points[(n_i + 1) % branch->tot_hull_points] &&
+			branch->hull_points[n_i % branch->tot_hull_points] != branch->hull_points[(n_i + 1) % branch->tot_hull_points] &&
+			!(cyclic_offset != 0 && totl <= cyclic_offset)){
+			f_swap = !f_swap;
+		}
+	}
+	//totl = totlb + cyclic_offset - 1;
+
+	int pos_i_t = 0;
+	float tmp_p[4];
+	for(int i = 0; i < totl; i++){
+		copy_v4_v4(tmp_p, &left[(pos_i_t + cyclic_offset) % totl * 4]);
+		copy_v4_v4(&left[(pos_i_t + cyclic_offset) % totl * 4], &left[pos_i_t * 4]);
+	}
+
+	if(totl < 2 || totr < 2){
+		return;
+	}
+
+	printf("Creating tube with %i left points and %i right points length: %f, %f", totl, totr, left[totl * 4 - 1], right[totr * 4 - 1]);
+
+	u_steps = fmax(2.0f, fmax(left[totl * 4 - 1], right[totr * 4 - 1]) / (float)(2 * depth / ss_steps));
+	square_ss_steps = u_steps * ss_steps;
+	if (!(branch->flag & BRANCH_EDGE_GEN)){
+		branch->e_start_arr = MEM_callocN(sizeof(int) * 18,"edge startposition array");
+		branch->flag |= BRANCH_EDGE_GEN;
+	}
+	fill_tube(me, left, right, totl, totr, u_steps, z_vec, ss_steps, w_steps, w_fact, branch->e_start_arr);
 
 	branch->flag |= BRANCH_VERT_GEN;
 	int verts_per_intersection = (2 * ss_steps + w_steps - 1);
@@ -6166,8 +6481,8 @@ static void add_ss_tube(SilhouetteData *sil, SpineBranch *branch, Mesh *me, floa
 	for(int v = 0; v < ss_steps; v ++){
 		branch->gen_verts[verts_per_intersection + v] = v_start + v;
 		branch->gen_verts[verts_per_intersection + v + ss_steps + w_steps - 1] = v_start + square_ss_steps + v;
-		branch->gen_verts[v] = v_start + v + u_steps * v_steps - v_steps;
-		branch->gen_verts[ss_steps + w_steps - 1 + v] = v_start + square_ss_steps + v + u_steps * v_steps - v_steps;
+		branch->gen_verts[v] = v_start + v + u_steps * ss_steps - ss_steps;
+		branch->gen_verts[ss_steps + w_steps - 1 + v] = v_start + square_ss_steps + v + u_steps * ss_steps - ss_steps;
 		if (v < w_steps - 1){
 			branch->gen_verts[verts_per_intersection + ss_steps + v] = v_start + square_ss_steps * 2 + v;
 			branch->gen_verts[ss_steps + v] = v_start + square_ss_steps * 2 + v + u_steps * (w_steps - 1) - (w_steps - 1);
@@ -6186,14 +6501,68 @@ static int r_branch_count(Spine *spine, SpineBranch *b)
 	return r_forks;
 }
 
-static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *sil, SilhouetteStroke *stroke, View3D *UNUSED(v3d), BB *UNUSED(shape_bb))
+static void bridge_all_parts_rec(Mesh *me, Spine *spine, SpineBranch *active_branch, SpineBranch *prev_branch)
+{
+	int b_fork_off, a_fork_off = 0;
+	for(int i = 0; i < active_branch->totforks; i++){
+		SpineBranch *comp = spine->branches[active_branch->terminal_points[i * 2 + 1]];
+		if(comp && comp != prev_branch){
+			if(active_branch->flag & BRANCH_EDGE_GEN && comp->flag & BRANCH_EDGE_GEN){
+				b_fork_off = 0;
+				for(int sb = 0; sb < comp->totforks; sb++){
+					if (spine->branches[comp->terminal_points[sb * 2 + 1]]) {
+						if (comp->terminal_points[sb * 2 + 1] == active_branch->idx) {
+							break;
+						}
+						b_fork_off ++;
+					}
+				}
+				for(int s = 0; s < 3; s++){
+					bridge_loops(me,
+								 active_branch->e_start_arr[a_fork_off * 9 + s * 3],
+								 comp->e_start_arr[b_fork_off * 9 + s * 3],
+								 active_branch->e_start_arr[a_fork_off * 9 + s * 3 + 1],
+								 false,
+								 active_branch->e_start_arr[a_fork_off * 9 + s * 3 + 2],
+								 comp->e_start_arr[b_fork_off * 9 + s * 3 + 2],
+								 !(s & 2));
+				}
+			}
+			bridge_all_parts_rec(me, spine, comp, active_branch);
+		}
+		if (comp) {
+			a_fork_off ++;
+		}
+	}
+}
+
+static void bridge_all_parts(Mesh *me, Spine *spine)
+{
+	SpineBranch *active_branch = NULL;
+	for(int i = 0; i < spine->totbranches; i++){
+		if (!active_branch) {
+			active_branch = spine->branches[i];
+		} else {
+			break;
+		}
+	}
+
+	if (!active_branch) {
+		return;
+	}
+
+	bridge_all_parts_rec(me, spine, active_branch, NULL);
+}
+
+static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *sil, SilhouetteStroke *stroke, View3D *UNUSED(v3d))
 {
 	float z_vec[3] = {0.0f,0.0f,1.0f};
 	float depth = sil->depth;
 	int ss_level = 3;
 	int ss_steps = (1<<ss_level)+2;
 
-	ED_view3d_global_to_vector(sil->ar->regiondata, (float[3]){0.0f,0.0f,0.0f}, z_vec);
+
+	copy_v3_v3(z_vec, sil->z_vec);
 	normalize_v3(z_vec);
 
 	/* Unused Shape stack*/
@@ -6208,18 +6577,19 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 	mul_v3_fl(z_vec, depth/(float)ss_steps);
 
 	int w_steps = ss_steps / 2 + 2;
+	float w_fact = sil->smoothness;
 
 	for(int i = 0; i < spine->totbranches; i++){
 		a_branch = spine->branches[i];
 		if (a_branch){
 			int r_forks = r_branch_count(spine, a_branch);
 			if (r_forks == 2) {
-				add_ss_tube(sil, a_branch, me, z_vec, depth, ss_steps, w_steps, 0.75f);
+				add_ss_tube(sil, a_branch, me, z_vec, depth, ss_steps, w_steps, w_fact);
 				int t_off = 0;
 				for(int sb = 0; sb < a_branch->totforks; sb++){
 					SpineBranch *sub_branch = spine->branches[a_branch->terminal_points[sb * 2 + 1]];
 					if(sub_branch && a_branch->flag & BRANCH_VERT_GEN && r_branch_count(spine, sub_branch) == 1){
-						add_ss_cap(sil, sub_branch, a_branch->gen_verts + t_off, me, z_vec, depth, ss_steps, w_steps - 1);
+						add_ss_cap(sil, sub_branch, a_branch->gen_verts + t_off, me, z_vec, depth, ss_steps, w_steps - 1, w_fact);
 						t_off += ss_steps * 2 + (ss_steps / 2) - 1;
 #ifdef DEBUG_DRAW
 						//debug_branch(sub_branch, spine, sil, 0xff00ff);
@@ -6239,7 +6609,16 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 			int r_forks = r_branch_count(spine, a_branch);
 
 			if (r_forks == 3) {
-				add_ss_tinter(sil, a_branch, me, z_vec, ss_steps, w_steps - 1, 0.75f);
+				add_ss_tinter(sil, a_branch, me, z_vec, ss_steps, w_steps - 1, w_fact);
+				for(int sb = 0; sb < a_branch->totforks; sb++){
+					SpineBranch *sub_branch = spine->branches[a_branch->terminal_points[sb * 2 + 1]];
+					if(sub_branch && r_branch_count(spine, sub_branch) == 1){
+						add_ss_cap(sil, sub_branch, NULL, me, z_vec, depth, ss_steps, w_steps - 1, w_fact);
+#ifdef DEBUG_DRAW
+						//debug_branch(sub_branch, spine, sil, 0x0000ff);
+#endif
+					}
+				}
 #ifdef DEBUG_DRAW
 				//debug_branch(a_branch, spine, sil, 0x0000ff);
 #endif
@@ -6247,6 +6626,8 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 
 		}
 	}
+
+	bridge_all_parts(me, spine);
 
 	MEM_freeN(shape_stack);
 	free_spine(spine);
@@ -6285,164 +6666,112 @@ static void debug_mesh(Mesh *me)
 }
 #endif
 
-static void stroke_smooth_cap(SilhouetteStroke *stroke, int max_pixel)
+static void stroke_smooth_cap(SilhouetteStroke *stroke, float max_dist)
 {
-	float v1[2], v2[2], dv[2];
+	float v1[3], v2[3], dv[3];
 	float length = 0;
-	copy_v2_v2(v1, &stroke->points[0]);
-	copy_v2_v2(v2, &stroke->points[stroke->totvert*2-2]);
+	copy_v3_v3(v1, &stroke->points[0]);
+	copy_v3_v3(v2, &stroke->points[stroke->totvert * 3 - 3]);
 
-	sub_v2_v2v2(dv,v1,v2);
-	length = len_v2(dv);
-	printf("length to smoth %f\n", length);
-	if (length > max_pixel) {
-		int steps = floorf(length/(float)max_pixel);
-		mul_v2_fl(dv,1.0f/(float)steps);
+	sub_v3_v3v3(dv,v1,v2);
+	length = len_v3(dv);
+
+	if (length > max_dist) {
+		int steps = floorf(length / (float)max_dist);
+		mul_v3_fl(dv, 1.0f / (float)steps);
 		for(int i = 1; i < steps; i++){
-			mul_v2_v2fl(v1, dv, i);
-			add_v2_v2(v1, v2);
-			silhouette_stroke_add_point(stroke, v1);
+			mul_v3_v3fl(v1, dv, i);
+			add_v3_v3(v1, v2);
+			silhouette_stroke_add_3Dpoint(stroke, v1);
 		}
 	}
 }
 
-static void sculpt_silhouette_stroke_done(bContext *C, wmOperator *op)
+static void sculpt_silhouette_calc_mesh(bContext *C, wmOperator *op)
 {
 	/*finalize stroke*/
 	Object *ob = CTX_data_active_object(C);
-#if 0
-	SculptSession *ss = ob->sculpt;
-	Scene *scene = CTX_data_scene(C);
-#endif
 	SilhouetteData *sil = op->customdata;
 	View3D *v3d = CTX_wm_view3d(C);
-	RegionView3D *rv3d = sil->ar->regiondata;
-
-	/* PBVH stuff*/
-#if 0
-	PBVH *pbvh = ss->pbvh;
-	SculptSearchBBData pbvh_search_data;
-#endif
-	BB shape_bb;
 	Mesh *me = ob->data;
 
-	float zfact = ED_view3d_calc_zfac(rv3d, sil->anchor, NULL);
-
-	printf("zfact: %f\n",zfact);
-
 	SilhouetteStroke *stroke = sil->current_stroke;
-	stroke_smooth_cap( stroke, 20);
+	stroke_smooth_cap( stroke, 0.3f);
 
-	for (int i = 0; i < stroke->totvert; i ++) {
-		if (i+1 < stroke->totvert) {
-			float v1[3], v2[3];
-			v1[0] = stroke->points[i*2];
-			v1[1] = stroke->points[i*2+1];
-			v1[2] = 0.0f;
-			v2[0] = stroke->points[i*2+2];
-			v2[1] = stroke->points[i*2+3];
-			v2[2] = 0.0f;
-
-			silhoute_stroke_point_to_3d(sil, i*2, v1);
-			silhoute_stroke_point_to_3d(sil, i*2+2, v2);
-
-			if (i == 0) {
-				copy_v3_v3(shape_bb.bmin,v1);
-				copy_v3_v3(shape_bb.bmax,v1);
-			} else {
-				for (int d = 0; d < 3; d++) {
-					if (shape_bb.bmin[d] > v1[d]) {
-						shape_bb.bmin[d] = v1[d];
-					}
-					if (shape_bb.bmax[d] < v1[d]) {
-						shape_bb.bmax[d] = v1[d];
-					}
-					if (shape_bb.bmin[d] > v2[d]) {
-						shape_bb.bmin[d] = v2[d];
-					}
-					if (shape_bb.bmax[d] < v2[d]) {
-						shape_bb.bmax[d] = v2[d];
-					}
-				}
-			}
-#ifdef DEBUG_DRAW
-			bl_debug_draw_edge_add(v1,v2);
-#endif
-		}
-	}
-
-	silhouette_create_shape_mesh(C, me, sil, stroke, v3d, &shape_bb);
+	silhouette_create_shape_mesh(C, me, sil, stroke, v3d);
 
 	BKE_object_free_derived_caches(ob);
+}
 
-#if 0
+static void sculpt_silhouette_stroke_done(bContext *C, wmOperator *op)
+{
+	SilhouetteData *sil = op->customdata;
 
-	/* Find nodes intersecting with the BB of the new shape */
-	pbvh_search_data.ss = ss;
-	pbvh_search_data.bb_target = &shape_bb;
-	BKE_pbvh_search_gather(ss->pbvh, sculpt_search_BB_cb, &pbvh_search_data, &nodes, &totnode);
-
-	printf("Searched and found %i nodes.\n",totnode);
-	if (totnode > 0) {
-		printf("The found node is:\n");
 #ifdef DEBUG_DRAW
-		bl_debug_draw_BB_add(&shape_bb,0x00FF00);
-		for (int i = 0; i < totnode; i++) {
-			BB tmp_bb;
-			BKE_pbvh_node_get_BB(nodes[i], tmp_bb.bmin, tmp_bb.bmax);
-			bl_debug_draw_BB_add(&tmp_bb,0x000000);
-		}
-#endif
-	} else {
-		silhouette_create_shape_mesh(C, me, sil, stroke, v3d, &shape_bb);
-
-		BKE_object_free_derived_caches(ob);
-		//BKE_pbvh_build_mesh_complete( pbvh, me);
-		/*
-		TODO: Integrate into the PBVH
-		int totprim = BKE_pbvh_recalc_looptri_from_me(pbvh, me);
-
-		root = BKE_pbvh_node_get_root(pbvh);
-		closest_node = BKE_search_closest_pbvh_leaf_node(pbvh, root, shape_bb.bmin, shape_bb.bmax);
-		BB res_bb;
-		BKE_pbvh_node_get_BB(closest_node, res_bb.bmin, res_bb.bmax);
-
-		bl_debug_draw_BB_add(&res_bb,0xFF0000);
-		bl_debug_draw_BB_add(&shape_bb,0xFF0000);
-
-		//Todo: unique verts and prim renwe etc.
-		BKE_pbvh_attach_mesh(pbvh, closest_node, me, totprim, shape_bb.bmin, shape_bb.bmax);*/
+	for (int i = 1; i < sil->current_stroke->totvert; i ++) {
+		float v1[3], v2[3];
+		copy_v3_v3(v1, &sil->current_stroke->points[i * 3 - 3]);
+		copy_v3_v3(v2, &sil->current_stroke->points[i * 3]);
+		bl_debug_draw_edge_add(v1,v2);
 	}
 #endif
-
+	
 	/*cleanup*/
+	silhouette_data_free(op);
+	op->customdata = NULL;
+}
+
+static void sculpt_silhouette_clean_draw(bContext *C, wmOperator *op)
+{
+	SilhouetteData *sil = op->customdata;
 	WM_cursor_modal_restore(CTX_wm_window(C));
 	ED_region_draw_cb_exit(sil->ar->type,sil->draw_handle);
 	ED_region_tag_redraw(sil->ar);
-	silhouette_data_free(op);
-	op->customdata = NULL;
+}
+
+static int sculpt_silhouette_exec(bContext *C, wmOperator *op)
+{
+	SilhouetteData *sil = op->customdata;
+	if (!sil) {
+		sil = silhouette_data_new(C, op, true);
+		op->customdata = sil;
+	}
+	sculpt_silhouette_calc_mesh(C, op);
+	sculpt_silhouette_stroke_done(C, op);
+
+	return OPERATOR_FINISHED;
 }
 
 static int sculpt_silhouette_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	float mouse[2];
+	float z_vec[3];
+	SilhouetteData *sil = op->customdata;
 	copy_v2_fl2(mouse, event->mval[0], event->mval[1]);
 	printf(".");
 	if (event->val == KM_RELEASE) {
-		sculpt_silhouette_stroke_done(C,op);
+		sculpt_silhouette_clean_draw(C, op);
+		if(sil->state == SIL_DRAWING){
+			RNA_float_set_array(op->ptr, "points", sil->current_stroke->points);
+			RNA_int_set(op->ptr,"totvert", sil->current_stroke->totvert);
+			ED_view3d_global_to_vector(sil->ar->regiondata, (float[3]){0.0f,0.0f,0.0f}, z_vec);
+			RNA_float_set_array(op->ptr, "z_vec", z_vec);
+			RNA_float_set_array(op->ptr, "anchor", sil->anchor);
+			return sculpt_silhouette_exec(C, op);
+		}
 		return OPERATOR_FINISHED;
 	} else {
-		sculpt_silhouette_stroke_update(C,mouse,op->customdata);
+		if(sil->state == SIL_DRAWING){
+			sculpt_silhouette_stroke_update(C,mouse,op->customdata);
+		}
 		return OPERATOR_RUNNING_MODAL;
 	}
 }
 
-static void sculpt_silhouette_draw(const bContext *UNUSED(C),struct ARegion *ar, void *arg)
+static void sculpt_silhouette_draw(const bContext *UNUSED(C),struct ARegion *UNUSED(ar), void *arg)
 {
-	/* View3D *v3d = CTX_wm_view3d(C); */ /* UNUSED */
 	SilhouetteData *sil = arg;
 
-	/*view3d_operator_needs_opengl(C);*/
 	if (!sil) {
 		return;
 	}
@@ -6450,11 +6779,6 @@ static void sculpt_silhouette_draw(const bContext *UNUSED(C),struct ARegion *ar,
 	if (!stroke) {
 		return;
 	}
-	/* float t_mouse[2]; */ /* UNUSED */
-
-	RegionView3D *rv3d = ar->regiondata;
-
-	glMultMatrixf(rv3d->persinv);
 
 	glLineWidth(1.0f);
 	glEnable(GL_BLEND);
@@ -6466,7 +6790,8 @@ static void sculpt_silhouette_draw(const bContext *UNUSED(C),struct ARegion *ar,
 	if (stroke->points) {
 		glBegin(GL_POLYGON); //starts drawing of points
 		for (int i = 0; i < stroke->totvert; i++) {
-			glVertex2f(stroke->points[2*i]*(2.0f/((float)ar->winx))-1.0f,stroke->points[2*i+1]*(2.0f/((float)ar->winy))-1.0f);
+			//glVertex2f(stroke->points[2 * i] * (2.0f / ((float)ar->winx)) - 1.0f, stroke->points[2 * i + 1] * (2.0f / ((float)ar->winy)) - 1.0f);
+			glVertex3f(stroke->points[3 * i], stroke->points[3 * i + 1], stroke->points[3 * i + 2]);
 		}
 		glEnd();
 	}
@@ -6482,20 +6807,14 @@ static int sculpt_silhouette_invoke(bContext *C, wmOperator *op, const wmEvent *
 
 	SilhouetteData *sil_data;
 
-	sil_data = silhouette_data_new(C,op);
+	sil_data = silhouette_data_new(C, op, false);
 
 	op->customdata = sil_data;
 
-	/* For tablet rotation Needed?
-	ignore_background_click = RNA_boolean_get(op->ptr, "ignore_background_click");
-
-	if (ignore_background_click && !over_mesh(C, op, event->x, event->y)) {
-		paint_stroke_data_free(op);
-		return OPERATOR_PASS_THROUGH;
-	}*/
 	ED_region_tag_redraw(sil_data->ar);
 
 	sil_data->draw_handle = ED_region_draw_cb_activate(sil_data->ar->type, sculpt_silhouette_draw, op->customdata, REGION_DRAW_PRE_VIEW);
+	sil_data->state = SIL_DRAWING;
 
 	/* add modal handler */
 	WM_event_add_modal_handler(C, op);
@@ -6503,21 +6822,15 @@ static int sculpt_silhouette_invoke(bContext *C, wmOperator *op, const wmEvent *
 	return OPERATOR_RUNNING_MODAL;
 }
 
-static int sculpt_silhouette_exec(bContext *C, wmOperator *op)
+static int sculpt_silhouette_poll(bContext *UNUSED(C))
 {
-	printf("Called exec!");
-	if (false) {
-		sculpt_silhouette_stroke_done(C,op);
-		return OPERATOR_CANCELLED;
-	}
-
-	sculpt_silhouette_stroke_done(C,op);
-	return OPERATOR_FINISHED;
+	return 1;
 }
-
 
 static void SCULPT_OT_silhouette_draw(wmOperatorType *ot)
 {
+	PropertyRNA *prop;
+
 	/* identifiers */
 	ot->name = "Draw Silhouette";
 	ot->idname = "SCULPT_OT_silhouette_draw";
@@ -6527,19 +6840,35 @@ static void SCULPT_OT_silhouette_draw(wmOperatorType *ot)
 	ot->invoke = sculpt_silhouette_invoke;
 	ot->modal = sculpt_silhouette_modal;
 	ot->exec = sculpt_silhouette_exec;
-	ot->poll = sculpt_poll;
+	ot->poll = sculpt_silhouette_poll;
 	ot->cancel = sculpt_silhouette_stroke_done;
 
 	/* flags */
-	ot->flag = OPTYPE_BLOCKING;
+	ot->flag = OPTYPE_BLOCKING | OPTYPE_REGISTER | OPTYPE_UNDO;
 
 	/* properties */
+	prop = RNA_def_int(ot->srna, "ss_level", 3, 1, 16, "Subsurface Level", "", 1, 8);
+	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 
-	paint_stroke_operator_properties(ot);
+	prop = RNA_def_float(ot->srna, "depth", 1.5f, 0.0f, 100000000.0f,
+						 "Depth", "Shape depth", 0.0f, 100.0f);
+	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 
-	RNA_def_boolean(ot->srna, "ignore_background_click", 0,
-					"Ignore Background Click",
-					"Clicks on the background do not start the stroke");
+	prop = RNA_def_float(ot->srna, "smoothness", 0.75f, 0.0f, 1.0f,
+						 "Smoothness", "Smoothness factor", 0.0f, 1.0f);
+	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+
+	prop = RNA_def_float_vector(ot->srna, "points", 3 * 1024, NULL, -FLT_MAX, FLT_MAX, "3D Points", "Stroke Mouse locations", -FLT_MAX, FLT_MAX);
+	RNA_def_property_flag(prop, PROP_HIDDEN);
+
+	prop = RNA_def_int(ot->srna, "totvert", 0, 0, INT_MAX, "stroke point count", "", 0, INT_MAX);
+	RNA_def_property_flag(prop, PROP_HIDDEN);
+
+	prop = RNA_def_float_vector(ot->srna, "z_vec", 3, NULL, -FLT_MAX, FLT_MAX, "Z Vector", "Silhouette orientation", -FLT_MAX, FLT_MAX);
+	RNA_def_property_flag(prop, PROP_HIDDEN);
+	//sizeof(float) * 
+	prop = RNA_def_float_vector(ot->srna, "anchor", 3, NULL, -FLT_MAX, FLT_MAX, "Anchor", "Silhouette position", -FLT_MAX, FLT_MAX);
+	RNA_def_property_flag(prop, PROP_HIDDEN);
 }
 /* end Silhouette */
 
