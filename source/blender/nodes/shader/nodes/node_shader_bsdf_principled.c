@@ -89,7 +89,22 @@ static int node_shader_gpu_bsdf_principled(GPUMaterial *mat, bNode *UNUSED(node)
 		GPU_link(mat, "world_normals_get", &in[18].link);
 	}
 
-	return GPU_stack_link(mat, "node_bsdf_principled", in, out, GPU_builtin(GPU_VIEW_POSITION));
+	/* Tangents */
+	if (!in[19].link) {
+		GPUNodeLink *orco = GPU_attribute(CD_ORCO, "");
+		GPU_link(mat, "tangent_orco_z", orco, &in[19].link);
+		GPU_link(mat, "node_tangent",
+		        GPU_builtin(GPU_VIEW_NORMAL), in[19].link, GPU_builtin(GPU_OBJECT_MATRIX), GPU_builtin(GPU_INVERSE_VIEW_MATRIX),
+		        &in[19].link);
+	}
+
+	/* Only use complex versions when needed. */
+	if (!in[12].link && (in[12].vec[0] == 0.0f)) {
+		return GPU_stack_link(mat, "node_bsdf_principled_simple", in, out, GPU_builtin(GPU_VIEW_POSITION));
+	}
+	else {
+		return GPU_stack_link(mat, "node_bsdf_principled_clearcoat", in, out, GPU_builtin(GPU_VIEW_POSITION));
+	}
 }
 
 static void node_shader_update_principled(bNodeTree *UNUSED(ntree), bNode *node)
