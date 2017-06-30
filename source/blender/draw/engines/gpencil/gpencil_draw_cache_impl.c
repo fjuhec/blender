@@ -72,10 +72,23 @@ tGPencilObjectCache *gpencil_object_cache_allocate(tGPencilObjectCache *cache, i
 /* add a gpencil object to cache to defer drawing */
 void gpencil_object_cache_add(tGPencilObjectCache *cache, Object *ob, int *gp_cache_used)
 {
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	RegionView3D *rv3d = draw_ctx->rv3d;
+
 	/* save object */
 	cache[*gp_cache_used].ob = ob;
 	cache[*gp_cache_used].init_grp = 0;
 	cache[*gp_cache_used].end_grp = -1;
+
+	/* calculate zdepth from point of view */
+	float zdepth = 0.0;
+	if (rv3d->is_persp) {
+		zdepth = ED_view3d_calc_zfac(rv3d, ob->loc, NULL);
+	}
+	else {
+		zdepth = -dot_v3v3(rv3d->viewinv[2], ob->loc);
+	}
+	cache[*gp_cache_used].zdepth = zdepth;
 
 	/* increase slots used in cache */
 	++*gp_cache_used;

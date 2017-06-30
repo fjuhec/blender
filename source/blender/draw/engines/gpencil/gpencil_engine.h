@@ -40,6 +40,7 @@ struct tGPspoint;
 typedef struct tGPencilObjectCache {
 	struct Object *ob;
 	int init_grp, end_grp;
+	float zdepth;
 } tGPencilObjectCache;
 
   /* *********** LISTS *********** */

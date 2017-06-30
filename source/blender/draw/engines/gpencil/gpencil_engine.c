@@ -235,6 +235,17 @@ static void GPENCIL_cache_finish(void *vedata)
 	MEM_SAFE_FREE(stl->g_data->gpd_in_cache);
 }
 
+/* helper function to sort inverse gpencil objects using qsort */
+static int gpencil_object_cache_compare_zdepth(const void *a1, const void *a2)
+{
+	const tGPencilObjectCache *ps1 = a1, *ps2 = a2;
+
+	if (ps1->zdepth < ps2->zdepth) return 1;
+	else if (ps1->zdepth > ps2->zdepth) return -1;
+
+	return 0;
+}
+
 static void GPENCIL_draw_scene(void *vedata)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
@@ -247,7 +258,11 @@ static void GPENCIL_draw_scene(void *vedata)
 
 	/* Draw all pending objects */
 	if (stl->g_data->gp_cache_used > 0) {
-		
+
+		/* sort by zdepth */
+		qsort(stl->g_data->gp_object_cache, stl->g_data->gp_cache_used, 
+			sizeof(tGPencilObjectCache), gpencil_object_cache_compare_zdepth);
+
 		/* attach temp textures */
 		DRW_framebuffer_texture_attach(fbl->temp_color_fb, e_data.temp_fbcolor_depth_tx, 0, 0);
 		DRW_framebuffer_texture_attach(fbl->temp_color_fb, e_data.temp_fbcolor_color_tx, 0, 0);
