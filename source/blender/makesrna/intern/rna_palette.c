@@ -55,7 +55,7 @@
 static void rna_GPencil_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *UNUSED(ptr))
 {
 	BKE_gpencil_batch_cache_alldirty();
-	WM_main_add_notifier(NC_SCREEN | NC_GPENCIL | NA_EDITED, NULL);
+	WM_main_add_notifier(NC_GPENCIL | NA_EDITED, NULL);
 }
 
 static PaletteColor *rna_Palette_color_new(Palette *palette)
@@ -233,7 +233,7 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	RNA_def_property_float_sdna(prop, NULL, "rgb");
 	RNA_def_property_array(prop, 3);
 	RNA_def_property_ui_text(prop, "Color", "");
-	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
+	RNA_def_property_update(prop, NC_SCREEN | NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
 
 	prop = RNA_def_property(srna, "strength", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_range(prop, 0.0, 1.0);
@@ -267,7 +267,7 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	RNA_def_property_array(prop, 3);
 	RNA_def_property_range(prop, 0.0f, 1.0f);
 	RNA_def_property_ui_text(prop, "Fill Color", "Color for filling region bounded by each stroke");
-	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
+	RNA_def_property_update(prop, NC_SCREEN | NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
 
 	/* Fill alpha */
 	prop = RNA_def_property(srna, "fill_alpha", PROP_FLOAT, PROP_NONE);
