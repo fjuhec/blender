@@ -200,9 +200,6 @@ void gpencil_batch_cache_clear(bGPdata *gpd)
 		MEM_SAFE_FREE(cache->batch_fill);
 		MEM_SAFE_FREE(cache->batch_edit);
 	}
-
-	BATCH_DISCARD_ALL_SAFE(cache->batch_buffer_stroke);
-	BATCH_DISCARD_ALL_SAFE(cache->batch_buffer_fill);
 }
 
 /* get cache */
@@ -505,7 +502,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 }
 
  /* draw stroke in drawing buffer */
-static void gpencil_draw_buffer_strokes(GpencilBatchCache *cache, void *vedata, ToolSettings *ts, bGPdata *gpd)
+void DRW_gpencil_populate_buffer_strokes(void *vedata, ToolSettings *ts, bGPdata *gpd)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	bGPDbrush *brush = BKE_gpencil_brush_getactive(ts);
@@ -522,21 +519,21 @@ static void gpencil_draw_buffer_strokes(GpencilBatchCache *cache, void *vedata, 
 			*/
 			short lthick = brush->thickness;
 			if (gpd->sbuffer_size == 1) {
-				cache->batch_buffer_stroke = DRW_gpencil_get_buffer_point_geom(gpd, lthick);
-				DRW_shgroup_call_add(stl->g_data->shgrps_point_volumetric, cache->batch_buffer_stroke, stl->storage->unit_matrix);
+				stl->g_data->batch_buffer_stroke = DRW_gpencil_get_buffer_point_geom(gpd, lthick);
+				DRW_shgroup_call_add(stl->g_data->shgrps_point_volumetric, stl->g_data->batch_buffer_stroke, stl->storage->unit_matrix);
 			}
 			else {
 				/* use unit matrix because the buffer is in screen space and does not need conversion */
-				cache->batch_buffer_stroke = DRW_gpencil_get_buffer_stroke_geom(gpd, stl->storage->unit_matrix, lthick);
-				DRW_shgroup_call_add(stl->g_data->shgrps_drawing_stroke, cache->batch_buffer_stroke, stl->storage->unit_matrix);
+				stl->g_data->batch_buffer_stroke = DRW_gpencil_get_buffer_stroke_geom(gpd, stl->storage->unit_matrix, lthick);
+				DRW_shgroup_call_add(stl->g_data->shgrps_drawing_stroke, stl->g_data->batch_buffer_stroke, stl->storage->unit_matrix);
 
 				if ((gpd->sbuffer_size >= 3) && (gpd->sfill[3] > GPENCIL_ALPHA_OPACITY_THRESH)) {
 					/* if not solid, fill is simulated with solid color */
 					if (gpd->bfill_style > 0) {
 						gpd->sfill[3] = 0.5f;
 					}
-					cache->batch_buffer_fill = DRW_gpencil_get_buffer_fill_geom(gpd->sbuffer, gpd->sbuffer_size, gpd->sfill);
-					DRW_shgroup_call_add(stl->g_data->shgrps_drawing_fill, cache->batch_buffer_fill, stl->storage->unit_matrix);
+					stl->g_data->batch_buffer_fill = DRW_gpencil_get_buffer_fill_geom(gpd->sbuffer, gpd->sbuffer_size, gpd->sfill);
+					DRW_shgroup_call_add(stl->g_data->shgrps_drawing_fill, stl->g_data->batch_buffer_fill, stl->storage->unit_matrix);
 				}
 			}
 		}
@@ -644,8 +641,6 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 		/* draw normal strokes */
 		gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gpf, gpl->opacity, gpl->tintcolor, false, false);
 	}
-	/* draw current painting strokes */
-	gpencil_draw_buffer_strokes(cache, vedata, ts, gpd);
 	cache->is_dirty = false;
 }
 

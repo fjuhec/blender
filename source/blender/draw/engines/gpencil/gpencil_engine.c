@@ -173,6 +173,9 @@ static void GPENCIL_cache_init(void *vedata)
 static void GPENCIL_cache_populate(void *vedata, Object *ob)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	Scene *scene = draw_ctx->scene;
+	ToolSettings *ts = scene->toolsettings;
 
 	/* object datablock (this is not draw now) */
 	if (ob->type == OB_GPENCIL && ob->gpd) {
@@ -183,6 +186,9 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 		stl->g_data->gp_object_cache = gpencil_object_cache_allocate(stl->g_data->gp_object_cache, &stl->g_data->gp_cache_size, &stl->g_data->gp_cache_used);
 		/* add for drawing later */
 		gpencil_object_cache_add(stl->g_data->gp_object_cache, ob, &stl->g_data->gp_cache_used);
+		
+		/* draw current painting strokes */
+		DRW_gpencil_populate_buffer_strokes(vedata, ts, ob->gpd);
 	}
 }
 
@@ -298,9 +304,6 @@ static void GPENCIL_draw_scene(void *vedata)
 		/* edit points */
 		DRW_draw_pass(psl->edit_pass);
 
-		/* current drawing buffer */
-		DRW_draw_pass(psl->drawing_pass);
-
 		/* detach temp textures */
 		DRW_framebuffer_texture_detach(e_data.temp_fbcolor_depth_tx);
 		DRW_framebuffer_texture_detach(e_data.temp_fbcolor_color_tx);
@@ -310,6 +313,9 @@ static void GPENCIL_draw_scene(void *vedata)
 	}
 	/* free memory */
 	MEM_SAFE_FREE(stl->g_data->gp_object_cache);
+
+	/* current drawing buffer */
+	DRW_draw_pass(psl->drawing_pass);
 }
 
 static const DrawEngineDataSize GPENCIL_data_size = DRW_VIEWPORT_DATA_SIZE(GPENCIL_Data);

@@ -100,6 +100,10 @@ typedef struct g_data {
 	struct DRWShadingGroup *shgrps_drawing_stroke;
 	struct DRWShadingGroup *shgrps_drawing_fill;
 
+	/* for buffer only one batch is nedeed because the drawing is only of one stroke */
+	Gwn_Batch *batch_buffer_stroke;
+	Gwn_Batch *batch_buffer_fill;
+
 	int gp_cache_used;
 	int gp_cache_size;
 	struct tGPencilObjectCache *gp_object_cache;
@@ -130,10 +134,6 @@ typedef struct GpencilBatchCache {
 	Gwn_Batch **batch_fill;
 	Gwn_Batch **batch_edit;
 
-	/* for buffer only one batch is nedeed because the drawing is only of one stroke */
-	Gwn_Batch *batch_buffer_stroke;
-	Gwn_Batch *batch_buffer_fill;
-
 	/* settings to determine if cache is invalid */
 	bool is_dirty;
 	bool is_editmode;
@@ -150,6 +150,7 @@ struct DRWShadingGroup *DRW_gpencil_shgroup_edit_volumetric_create(struct DRWPas
 struct DRWShadingGroup *DRW_gpencil_shgroup_drawing_fill_create(struct DRWPass *pass, struct GPUShader *shader);
 
 void DRW_gpencil_populate_datablock(struct GPENCIL_e_data *e_data, void *vedata, struct Scene *scene, struct Object *ob, struct ToolSettings *ts, struct bGPdata *gpd);
+void DRW_gpencil_populate_buffer_strokes(void *vedata, struct ToolSettings *ts, struct bGPdata *gpd);
 
 struct Gwn_Batch *DRW_gpencil_get_point_geom(struct bGPDspoint *pt, short thickness, const float ink[4]);
 struct Gwn_Batch *DRW_gpencil_get_stroke_geom(struct bGPDframe *gpf, struct bGPDstroke *gps, short thickness, const float ink[4]);
