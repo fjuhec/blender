@@ -124,6 +124,13 @@ int vertex_paint_mode_poll(bContext *C)
 	return ob && ob->mode == OB_MODE_VERTEX_PAINT && ((Mesh *)ob->data)->totpoly;
 }
 
+int vertex_weight_paint_mode_poll(bContext *C)
+{
+	Object *ob = CTX_data_active_object(C);
+
+	return ob && (ob->mode == OB_MODE_VERTEX_PAINT || ob->mode == OB_MODE_WEIGHT_PAINT) && ((Mesh *)ob->data)->totpoly;
+}
+
 int vertex_paint_poll(bContext *C)
 {
 	if (vertex_paint_mode_poll(C) && 
@@ -4584,8 +4591,9 @@ void PAINT_OT_weight_gradient(wmOperatorType *ot)
 	WM_operator_properties_gesture_straightline(ot, CURSOR_EDIT);
 }
 
-static bool weight_to_vert_convert(Object *ob)
+static bool weight_to_vert_convert(bContext *C)
 {
+	Object *ob = CTX_data_active_object(C);
 	Mesh *me;
 	const MPoly *mp;
 	int vgroup_active;
@@ -4611,13 +4619,15 @@ static bool weight_to_vert_convert(Object *ob)
 			j++;
 		} while (j <= mp->totloop - 1);
 	}
+
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 	return true;
 }
 
 static int weight_to_vert_convert_exec(bContext *C, wmOperator *op)
 {
-	Object *obact = CTX_data_active_object(C);
-	if (weight_to_vert_convert(obact)) {
+	if (weight_to_vert_convert(C)) {
 		return OPERATOR_FINISHED;
 	}
 	return OPERATOR_CANCELLED;
@@ -4626,13 +4636,13 @@ static int weight_to_vert_convert_exec(bContext *C, wmOperator *op)
 void PAINT_OT_weight_to_vertex_convert(wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name = "Weight to Vertex Converter";
+	ot->name = "Weight to Vertex Convert";
 	ot->idname = "PAINT_OT_weight_to_vertex_convert";
 	ot->description = "Converts the weight color into the black and white vertex color";
 
 	/* api callback */
 	ot->exec = weight_to_vert_convert_exec;
-	ot->poll = weight_paint_poll;
+	ot->poll = vertex_weight_paint_mode_poll;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;

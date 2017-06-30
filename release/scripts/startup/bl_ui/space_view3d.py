@@ -1779,6 +1779,7 @@ class VIEW3D_MT_paint_vertex(Menu):
         layout.operator("paint.vertex_color_set")
         layout.operator("paint.vertex_color_smooth")
         layout.operator("paint.vertex_color_dirt")
+        layout.operator("paint.weight_to_vertex_convert")
 
         layout.separator()
 
@@ -1869,6 +1870,7 @@ class VIEW3D_MT_paint_weight(Menu):
         layout.separator()
 
         layout.operator("paint.weight_set")
+        layout.operator("paint.weight_to_vertex_convert")
 
 
 # ********** Sculpt menu **********
