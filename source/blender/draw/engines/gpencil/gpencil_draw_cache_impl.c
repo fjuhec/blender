@@ -288,8 +288,8 @@ DRWShadingGroup *DRW_gpencil_shgroup_point_volumetric_create(DRWPass *pass, GPUS
 }
 
 /* create shading group for strokes */
-DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_Data *vedata, DRWPass *pass, GPUShader *shader, Object *ob, 
-	bGPdata *gpd, int id)
+DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_e_data *e_data, GPENCIL_Data *vedata, DRWPass *pass, GPUShader *shader, Object *ob,
+	bGPdata *gpd, PaletteColor *palcolor, int id)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	const float *viewport_size = DRW_viewport_size_get();
@@ -307,12 +307,16 @@ DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_Data *vedata, DRWPass
 		DRW_shgroup_uniform_float(grp, "objscale", &stl->shgroups[id].obj_scale, 1);
 		stl->shgroups[id].keep_size = (int)((gpd) && (gpd->flag & GP_DATA_STROKE_KEEPTHICKNESS));
 		DRW_shgroup_uniform_int(grp, "keep_size", &stl->shgroups[id].keep_size, 1);
+
+		stl->shgroups[id].stroke_style = palcolor->stroke_style;
+		DRW_shgroup_uniform_int(grp, "stroke_type", &stl->shgroups[id].stroke_style, 1);
 	}
 	else {
 		stl->storage->obj_scale = 1.0f;
 		stl->storage->keep_size = 0;
 		DRW_shgroup_uniform_float(grp, "objscale", &stl->storage->obj_scale, 1);
 		DRW_shgroup_uniform_int(grp, "keep_size", &stl->storage->keep_size, 1);
+		DRW_shgroup_uniform_int(grp, "stroke_type", &stl->storage->stroke_style, 1);
 	}
 
 	if (gpd) {
@@ -322,6 +326,33 @@ DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_Data *vedata, DRWPass
 		/* for drawing always on front */
 		DRW_shgroup_uniform_int(grp, "xraymode", &stl->storage->xray, 1);
 	}
+
+	/* image texture for pattern */
+	if ((palcolor) && ((palcolor->stroke_style == STROKE_STYLE_TEXTURE) || (palcolor->stroke_style == STROKE_STYLE_PATTERN))) {
+		ImBuf *ibuf;
+		Image *image = palcolor->sima;
+		ImageUser iuser = { NULL };
+		void *lock;
+
+		iuser.ok = true;
+
+		ibuf = BKE_image_acquire_ibuf(image, &iuser, &lock);
+
+		if (ibuf == NULL || ibuf->rect == NULL) {
+			BKE_image_release_ibuf(image, ibuf, NULL);
+		}
+		else {
+			GPUTexture *texture = GPU_texture_from_blender(palcolor->sima, &iuser, GL_TEXTURE_2D, true, 0.0, 0);
+			DRW_shgroup_uniform_texture(grp, "myTexture", texture);
+
+			BKE_image_release_ibuf(image, ibuf, NULL);
+		}
+	}
+	else {
+		/* if no texture defined, need a blank texture to avoid errors in draw manager */
+		DRW_shgroup_uniform_texture(grp, "myTexture", e_data->gpencil_blank_texture);
+	}
+
 
 	return grp;
 }
@@ -480,7 +511,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 		if (gps->totpoints > 1) {
 			int id = stl->storage->shgroup_id;
 			stl->shgroups[id].shgrps_fill = DRW_gpencil_shgroup_fill_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_fill_sh, ob, gpd, gps->palcolor, id);
-			stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_stroke_create(vedata, psl->stroke_pass, e_data->gpencil_stroke_sh, ob, gpd, id);
+			stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_stroke_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_stroke_sh, ob, gpd, gps->palcolor, id);
 			++stl->storage->shgroup_id;
 
 			fillgrp = stl->shgroups[id].shgrps_fill;

@@ -151,7 +151,19 @@ static int rna_PaletteColor_is_fill_visible_get(PointerRNA *ptr)
 	return ((pcolor->fill[3] > GPENCIL_ALPHA_OPACITY_THRESH) || (pcolor->fill_style > 0));
 }
 
-static void rna_PaletteColor_image_set(PointerRNA *ptr, PointerRNA value)
+static void rna_PaletteColor_stroke_image_set(PointerRNA *ptr, PointerRNA value)
+{
+	PaletteColor *pcolor = (PaletteColor *)ptr->data;
+	ID *id = value.data;
+
+	if (id) {
+		/* enable fake user */
+		id_fake_user_set(id);
+	}
+	pcolor->sima = (struct Image *)id;
+}
+
+static void rna_PaletteColor_fill_image_set(PointerRNA *ptr, PointerRNA value)
 {
 	PaletteColor *pcolor = (PaletteColor *)ptr->data;
 	ID *id = value.data;
@@ -210,6 +222,8 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	static EnumPropertyItem stroke_style_items[] = {
 		{ STROKE_STYLE_SOLID, "SOLID", 0, "Solid", "Draw strokes with solid color" },
 		{ STROKE_STYLE_VOLUMETRIC, "VOLUMETRIC", 0, "Volumetric", "Draw strokes with dots" },
+		{ STROKE_STYLE_TEXTURE, "TEXTURE", 0, "Texture", "Draw strokes using image texture" },
+		{ STROKE_STYLE_PATTERN, "PATTERN", 0, "Pattern", "Draw strokes using image texture as pattern" },
 		{ 0, NULL, 0, NULL, NULL }
 	};
 
@@ -408,6 +422,14 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Stroke Style", "Select style used to draw strokes");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
+	/* stroke image texture */
+	prop = RNA_def_property(srna, "stroke_image", PROP_POINTER, PROP_NONE);
+	RNA_def_property_pointer_sdna(prop, NULL, "sima");
+	RNA_def_property_pointer_funcs(prop, NULL, "rna_PaletteColor_stroke_image_set", NULL, NULL);
+	RNA_def_property_flag(prop, PROP_EDITABLE);
+	RNA_def_property_ui_text(prop, "Image", "");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
 	/* fill style */
 	prop = RNA_def_property(srna, "fill_style", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_bitflag_sdna(prop, NULL, "fill_style");
@@ -415,10 +437,10 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Fill Style", "Select style used to fill strokes");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
-	/* image texture */	
-	prop = RNA_def_property(srna, "image", PROP_POINTER, PROP_NONE);
+	/* fill image texture */	
+	prop = RNA_def_property(srna, "fill_image", PROP_POINTER, PROP_NONE);
 	RNA_def_property_pointer_sdna(prop, NULL, "ima");
-	RNA_def_property_pointer_funcs(prop, NULL, "rna_PaletteColor_image_set", NULL, NULL);
+	RNA_def_property_pointer_funcs(prop, NULL, "rna_PaletteColor_fill_image_set", NULL, NULL);
 	RNA_def_property_flag(prop, PROP_EDITABLE);
 	RNA_def_property_ui_text(prop, "Image", "");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");

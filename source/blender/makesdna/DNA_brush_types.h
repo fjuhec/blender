@@ -141,7 +141,8 @@ typedef struct Brush {
 
 typedef struct PaletteColor {
 	struct PaletteColor *next, *prev;
-	struct Image *ima;       /* Texture image */
+	struct Image *sima;      /* Texture image for strokes */
+	struct Image *ima;       /* Texture image for filling */
 	float rgb[4];            /* color for paint and strokes (alpha included) */
 	float fill[4];           /* color that should be used for drawing "fills" for strokes (alpha included) */
 	float scolor[4];         /* secondary color used for gradients and other stuff */
@@ -376,6 +377,8 @@ typedef enum BlurKernelType {
 /* Grease Pencil Stroke styles */
 #define STROKE_STYLE_SOLID	0
 #define STROKE_STYLE_VOLUMETRIC	1
+#define STROKE_STYLE_TEXTURE	2
+#define STROKE_STYLE_PATTERN	3
 
 /* Grease Pencil Fill styles */
 #define FILL_STYLE_SOLID	0

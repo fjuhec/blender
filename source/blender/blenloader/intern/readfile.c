@@ -2293,6 +2293,9 @@ static void lib_link_palette(FileData *fd, Main *main)
 			lib_link_animdata(fd, &palette->id, palette->adt);
 			/* relink images */
 			for (PaletteColor *palcolor = palette->colors.first; palcolor; palcolor = palcolor->next) {
+				if (palcolor->sima != NULL) {
+					palcolor->sima = newlibadr(fd, palette->id.lib, palcolor->sima);
+				}
 				if (palcolor->ima != NULL) {
 					palcolor->ima = newlibadr(fd, palette->id.lib, palcolor->ima);
 				}

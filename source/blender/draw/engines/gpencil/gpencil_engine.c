@@ -27,6 +27,7 @@
 #include "DRW_render.h"
 
 #include "BKE_global.h"
+#include "BKE_paint.h"
 
 #include "DNA_gpencil_types.h"
 #include "DNA_view3d_types.h"
@@ -124,6 +125,7 @@ static void GPENCIL_cache_init(void *vedata)
 		/* Alloc transient pointers */
 		stl->g_data = MEM_mallocN(sizeof(g_data), "g_data");
 		stl->storage->xray = GP_XRAY_FRONT; /* used for drawing */
+		stl->storage->stroke_style = STROKE_STYLE_SOLID; /* used for drawing */
 	}
 	if (!stl->shgroups) {
 		/* Alloc maximum size because count strokes is very slow and can be very complex due onion skinning.
@@ -155,8 +157,15 @@ static void GPENCIL_cache_init(void *vedata)
 		stl->g_data->shgrps_edit_volumetric = DRW_gpencil_shgroup_edit_volumetric_create(psl->edit_pass, e_data.gpencil_volumetric_sh);
 
 		/* drawing buffer pass */
+		const DRWContextState *draw_ctx = DRW_context_state_get();
+		Palette *palette = BKE_palette_get_active_from_context(draw_ctx->evil_C);
+		PaletteColor *palcolor = BKE_palette_color_get_active(palette);
+		if (palcolor) {
+			stl->storage->stroke_style = palcolor->stroke_style;
+		}
+
 		psl->drawing_pass = DRW_pass_create("Gpencil Drawing Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND);
-		stl->g_data->shgrps_drawing_stroke = DRW_gpencil_shgroup_stroke_create(vedata, psl->drawing_pass, e_data.gpencil_stroke_sh, NULL, NULL, -1);
+		stl->g_data->shgrps_drawing_stroke = DRW_gpencil_shgroup_stroke_create(&e_data, vedata, psl->drawing_pass, e_data.gpencil_stroke_sh, NULL, NULL, palcolor, -1);
 		stl->g_data->shgrps_drawing_fill = DRW_gpencil_shgroup_drawing_fill_create(psl->drawing_pass, e_data.gpencil_drawing_fill_sh);
 
 		/* we need a full screen pass to combine the result of zdepth */

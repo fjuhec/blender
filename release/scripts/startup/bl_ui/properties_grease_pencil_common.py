@@ -1146,6 +1146,8 @@ class GreasePencilPaletteColorPanel:
         col.prop(pcolor, "color", text="")
         col.prop(pcolor, "alpha", slider=True)
         col.prop(pcolor, "stroke_style", text="")
+        if pcolor.stroke_style in ('TEXTURE', 'PATTERN'):
+            col.template_ID(pcolor, "stroke_image", open="image.open")
 
         # Column 2 - Fill
         row = layout.row()
@@ -1188,7 +1190,7 @@ class GreasePencilPaletteColorPanel:
         if pcolor.fill_style not in ('TEXTURE', 'PATTERN'):
             col.prop(pcolor, "texture_mix", text="Mix Texture")
         if pcolor.fill_style in ('TEXTURE', 'PATTERN') or pcolor.texture_mix is True:
-            col.template_ID(pcolor, "image", open="image.open")
+            col.template_ID(pcolor, "fill_image", open="image.open")
             split = col.split(percentage=0.5)
             subcol = split.column(align=True)
             subcol.prop(pcolor, "texture_shift", text="Location")
