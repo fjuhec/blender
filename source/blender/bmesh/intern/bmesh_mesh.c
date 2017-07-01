@@ -814,7 +814,12 @@ static void bm_mesh_loops_calc_normals(
 
 					if (r_lnors_spacearr) {
 						/* Assign current lnor space to current 'vertex' loop. */
-						BKE_lnor_space_add_loop(r_lnors_spacearr, lnor_space, lfan_pivot_index, true);
+
+						/* weak fix, need to look out if breaks something. Without this 'if', wrongly builds the lnor spaces
+						   if loops are merged. */
+						if (!rebuild || !BM_elem_flag_test(lfan_pivot->v, BM_ELEM_TAG) || (bm->spacearr_dirty & BM_SPACEARR_DIRTY_ALL)) {
+							BKE_lnor_space_add_loop(r_lnors_spacearr, lnor_space, lfan_pivot_index, true);
+						}
 						if (e_next != e_org) {
 							/* We store here all edges-normalized vectors processed. */
 							BLI_stack_push(edge_vectors, vec_next);
@@ -853,7 +858,10 @@ static void bm_mesh_loops_calc_normals(
 								clnors_avg[0] /= clnors_nbr;
 								clnors_avg[1] /= clnors_nbr;
 								/* Fix/update all clnors of this fan with computed average value. */
-								printf("Invalid clnors in this fan!\n");
+								
+								/* Prints continuously when merge custom normals, so commenting -Rohan
+								printf("Invalid clnors in this fan!\n");*/
+
 								while ((clnor = BLI_SMALLSTACK_POP(clnors))) {
 									//print_v2("org clnor", clnor);
 									clnor[0] = (short)clnors_avg[0];
@@ -1073,6 +1081,7 @@ void BM_lnorspace_rebuild(BMesh *bm, bool preserve_clnor)
 			}
 		}
 	}
+
 	BM_loops_calc_normal_vcos(bm, NULL, NULL, NULL, true, M_PI, r_lnors, bm->lnor_spacearr, NULL, cd_loop_clnors_offset, true);
 	MEM_freeN(r_lnors);
 

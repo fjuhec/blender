@@ -208,8 +208,7 @@ static BMOpDefine bmo_region_extend_def = {
 	},
 	bmo_region_extend_exec,
 	(BMO_OPTYPE_FLAG_SELECT_FLUSH |
-	 BMO_OPTYPE_FLAG_SELECT_VALIDATE |
-	 BMO_OPTYPE_FLAG_INVALIDATE_CLNOR_ALL),
+	 BMO_OPTYPE_FLAG_SELECT_VALIDATE),
 };
 
 /*

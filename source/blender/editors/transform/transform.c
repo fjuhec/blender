@@ -4276,7 +4276,6 @@ static void initNormalRotation(TransInfo *t)
 	t->num.unit_type[0] = B_UNIT_ROTATION;
 
 	BMEditMesh *em = BKE_editmesh_from_object(t->obedit);
-	Mesh *me = t->obedit->data;
 	BMesh *bm = em->bm;
 
 	BM_lnorspace_update(bm);

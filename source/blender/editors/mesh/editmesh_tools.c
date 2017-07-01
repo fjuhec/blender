@@ -42,6 +42,8 @@
 #include "DNA_scene_types.h"
 
 #include "BLI_listbase.h"
+#include "BLI_linklist.h"
+#include "BLI_linklist_stack.h"
 #include "BLI_noise.h"
 #include "BLI_math.h"
 #include "BLI_rand.h"
@@ -6442,4 +6444,204 @@ void MESH_OT_point_normals(struct wmOperatorType *ot)
 
 	prop = RNA_def_property(ot->srna, "selected", PROP_INT, PROP_NONE);
 	RNA_def_property_flag(prop, PROP_HIDDEN);
+}
+
+/********************** Split/Merge Loop Normals **********************/
+
+enum {
+	MERGE_LOOP_AVERAGE = 1,
+	SPLIT_LOOP_TO_FACE = 2,
+	SPLIT_LOOP_KEEP = 3
+};
+
+static EnumPropertyItem merge_loop_method_items[] = {
+	{ MERGE_LOOP_AVERAGE, "Average", 0, "Average", "Take Average of Loop Normals" },
+	{ 0, NULL, 0, NULL, NULL }
+};
+
+static EnumPropertyItem split_loop_method_items[] = {
+	{ SPLIT_LOOP_TO_FACE, "Set to face", 0, "Set to face", "Set loop normal to respective faces" },
+	{ SPLIT_LOOP_KEEP, "Keep Normal", 0, "Keep Normal", "Keep normal value after splitting" },
+	{ 0, NULL, 0, NULL, NULL }
+};
+
+static bool merge_loop_average(bContext *C, wmOperator *op, LoopNormalData *ld)
+{
+	Object *obedit = CTX_data_edit_object(C);
+	BMEditMesh *em = BKE_editmesh_from_object(obedit);
+	BMesh *bm = em->bm;
+
+	TransDataLoopNormal *tld = ld->normal;
+
+	for (int i = 0; i < ld->totloop; i++, tld++) {
+		MLoopNorSpace *lnor_space = bm->lnor_spacearr->lspacearr[tld->loop_index];
+
+		if (lnor_space->loops) {
+
+			LinkNode *loops = lnor_space->loops;
+			float avg_normal[3] = { 0, 0, 0 };
+			BLI_SMALLSTACK_DECLARE(clnors, short *);
+			short *clnors_data;
+
+			while (loops) {
+				const int loop_index = GET_INT_FROM_POINTER(loops->link);
+
+				TransDataLoopNormal *temp = ld->normal;
+				for (int j = 0; j < ld->totloop; j++, temp++) {
+					if (loop_index == temp->loop_index) {
+						add_v3_v3(avg_normal, temp->nloc);
+						BLI_SMALLSTACK_PUSH(clnors, tld->clnors_data);
+					}
+				}
+				loops = loops->next;
+			}
+			if (len_squared_v3(avg_normal) < 1e-4f) {		/* if avg normal is nearly 0, set clnor to default value */
+				while ((clnors_data = BLI_SMALLSTACK_POP(clnors))) {
+					copy_v2_v2_short(clnors_data, (short[2]) { 0, 0 });
+				}
+			}
+			else {
+				normalize_v3(avg_normal);					/* else set all clnors to this avg */
+				while ((clnors_data = BLI_SMALLSTACK_POP(clnors))) {
+					BKE_lnor_space_custom_normal_to_data(lnor_space, avg_normal, clnors_data);
+					printf("hi");
+				}
+			}
+		}
+	}
+	return true;
+}
+
+static bool split_loop(bContext *C, wmOperator *op, LoopNormalData *ld)
+{
+	Object *obedit = CTX_data_edit_object(C);
+	BMEditMesh *em = BKE_editmesh_from_object(obedit);
+	BMesh *bm = em->bm;
+	BMFace *f;
+	BMLoop *l;
+	BMIter fiter, liter;
+
+	TransDataLoopNormal *tld = ld->normal;
+
+	const int type = RNA_enum_get(op->ptr, "split_type");
+
+	for (int i = 0; i < ld->totloop; i++, tld++) {
+		if (type == SPLIT_LOOP_TO_FACE) {						/* set loop to face normal if split to faces */
+			BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
+				if (BM_elem_flag_test(f, BM_ELEM_SELECT)) {
+					BM_ITER_ELEM(l, &liter, f, BM_LOOPS_OF_FACE) {
+						if (tld->loop_index == BM_elem_index_get(l)) {
+							BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], f->no, tld->clnors_data);
+						}
+					}
+				}
+			}
+		}
+		else if (type == SPLIT_LOOP_KEEP) {						/* else set to transdata normal computed */
+			BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], tld->nloc, tld->clnors_data);
+			printf("hi");
+		}
+	}
+	return true;
+}
+
+static int edbm_split_merge_loop_normals_exec(bContext *C, wmOperator *op)
+{
+	Object *obedit = CTX_data_edit_object(C);
+	BMEditMesh *em = BKE_editmesh_from_object(obedit);
+	BMesh *bm = em->bm;
+	BMEdge *e;
+	BMIter eiter;
+
+	if ((((Mesh *)(obedit->data))->flag & ME_AUTOSMOOTH) == 0) {
+		return OPERATOR_CANCELLED;
+	}
+
+	BM_lnorspace_update(bm);
+	LoopNormalData *ld = BM_loop_normal_init(bm);
+
+	const bool merge = RNA_struct_find_property(op->ptr, "merge_type") != NULL;
+	const int type = merge ? RNA_enum_get(op->ptr, "merge_type") : RNA_enum_get(op->ptr, "split_type");
+
+	mesh_set_smooth_faces(em, merge);
+
+	BM_ITER_MESH(e, &eiter, bm, BM_EDGES_OF_MESH) {
+		if (BM_elem_flag_test(e, BM_ELEM_SELECT)) {
+			BM_elem_flag_set(e, BM_ELEM_SMOOTH, merge);
+		}
+	}
+
+	bm->spacearr_dirty |= BM_SPACEARR_DIRTY_ALL;
+	BM_lnorspace_update(bm);
+
+	bool handled = false;
+	
+	if (merge) {
+		switch (type) {
+			case MERGE_LOOP_AVERAGE:
+				handled = merge_loop_average(C, op, ld);
+				break;
+
+			default:
+				BLI_assert(0);
+				break;
+		}
+	}
+	else {
+		switch (type) {
+			case SPLIT_LOOP_TO_FACE:
+				handled = split_loop(C, op, ld);
+				break;
+
+			case SPLIT_LOOP_KEEP:
+				handled = split_loop(C, op, ld);
+				break;
+
+			default:
+				BLI_assert(0);
+				break;
+		}
+	}
+	if (!handled) {
+		return OPERATOR_CANCELLED;
+	}
+
+	BKE_reportf(op->reports, RPT_INFO, "Finished");
+	EDBM_update_generic(em, true, false);
+
+	return OPERATOR_FINISHED;
+}
+
+void MESH_OT_merge_loop_normals(struct wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Merge Loop";
+	ot->description = "Merge loop normals of selected vertices";
+	ot->idname = "MESH_OT_merge_loop_normals";
+
+	/* api callbacks */
+	ot->exec = edbm_split_merge_loop_normals_exec;
+	ot->poll = ED_operator_editmesh;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	ot->prop = RNA_def_enum(ot->srna, "merge_type", merge_loop_method_items, MERGE_LOOP_AVERAGE, "Type", "Merge method");
+}
+
+void MESH_OT_split_loop_normals(struct wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Split Loop";
+	ot->description = "Split loop normals of selected vertices";
+	ot->idname = "MESH_OT_split_loop_normals";
+
+	/* api callbacks */
+	ot->exec = edbm_split_merge_loop_normals_exec;
+	ot->poll = ED_operator_editmesh;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	ot->prop = RNA_def_enum(ot->srna, "split_type", split_loop_method_items, SPLIT_LOOP_TO_FACE, "Type", "Split method");
 }

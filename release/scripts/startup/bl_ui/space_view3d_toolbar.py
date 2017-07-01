@@ -447,6 +447,12 @@ class VIEW3D_PT_tools_normal(View3DPanel, Panel):
 		col.operator("transform.rotate_normal", text = "Rotate Normal")
 		col.operator("mesh.point_normals")
 
+		col = layout.column(align=True)
+		col.label(text="Split/Merge: ")
+
+		col.operator_menu_enum("mesh.merge_loop_normals", "merge_type")
+		col.operator_menu_enum("mesh.split_loop_normals", "split_type")
+
 
 class VIEW3D_PT_tools_uvs(View3DPanel, Panel):
     bl_category = "Shading / UVs"

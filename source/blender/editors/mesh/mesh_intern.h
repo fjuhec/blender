@@ -230,6 +230,8 @@ void MESH_OT_merge(struct wmOperatorType *ot);
 void MESH_OT_remove_doubles(struct wmOperatorType *ot);
 void MESH_OT_poke(struct wmOperatorType *ot);
 void MESH_OT_point_normals(struct wmOperatorType *ot);
+void MESH_OT_merge_loop_normals(struct wmOperatorType *ot);
+void MESH_OT_split_loop_normals(struct wmOperatorType *ot);
 
 #ifdef WITH_FREESTYLE
 void MESH_OT_mark_freestyle_edge(struct wmOperatorType *ot);
