@@ -4612,9 +4612,10 @@ static bool weight_to_vert_convert(bContext *C)
 		do{
 			unsigned int vidx = me->mloop[mp->loopstart + j].v;
 			const float weight = defvert_find_weight(&me->dvert[vidx], vgroup_active);
-			lcol->r = (-1.0f * weight +1) * 255;
-			lcol->b = (-1.0f * weight + 1) * 255;
-			lcol->g = (-1.0f * weight + 1) * 255;
+			const char grayscale = weight * 255;
+			lcol->r = grayscale;
+			lcol->b = grayscale;
+			lcol->g = grayscale;
 			lcol++;
 			j++;
 		} while (j <= mp->totloop - 1);
