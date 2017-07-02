@@ -292,6 +292,12 @@ class VIEW3D_PT_tools_animation(View3DPanel, Panel):
         col.label(text="Action:")
         col.operator("nla.bake", text="Bake Action")
 
+        row = layout.row(align=True)
+        row.label("Grease Pencil:")
+        row = layout.row(align=True)
+        row.operator("gpencil.blank_frame_add", icon='NEW')
+        row.operator("gpencil.active_frames_delete_all", icon='X', text="Delete Frame(s)")
+
 
 class VIEW3D_PT_tools_rigid_body(View3DPanel, Panel):
     bl_category = "Physics"
