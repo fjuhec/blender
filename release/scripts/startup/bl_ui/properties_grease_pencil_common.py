@@ -231,8 +231,8 @@ class GreasePencilStrokeEditPanel:
 
 class GreasePencilInterpolatePanel:
     bl_space_type = 'VIEW_3D'
-    bl_label = "Interpolate"
-    bl_category = "Tools"
+    bl_label = "Interpolate Strokes"
+    bl_category = "Animation"
     bl_region_type = 'TOOLS'
     bl_options = {'DEFAULT_CLOSED'}
 
