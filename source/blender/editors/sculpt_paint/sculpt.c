@@ -3085,6 +3085,8 @@ static void do_clay_strips_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int t
 	            ((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
 }
 
+
+
 static void calc_foot_perp_v3_v3v3v3(float* foot, const float* a, const float* l_dir, const float* p) 
 /*to calculate foot of perpendicular */
 {
@@ -3249,6 +3251,14 @@ static bool sculpt_brush_topo_test(SculptBrushTest *test, const float co[3])
 
 #define loop(i,a,b,n) for(int i=a;i<b;i+=n)
 
+static void print_array_i(int *a, int len){
+	printf("\n[ ");
+	loop(i, 0, len, 1){
+		printf("%d ", a[i]);
+	}
+	printf("] ");
+}
+
 int check_present(int a, int *array, int len){
 	loop(i, 0, len, 1){
 		if (array[i] == a)
@@ -3387,7 +3397,8 @@ static void connected_face_init(Sculpt *sd, Object *ob, PBVHNode **nodes, int to
 	}
 	count[2] = k;
 }
-
+float loc[1000] = { 0.0f };
+int cn[2] = { 0 };
 static void do_topo_grab_brush_task_cb_ex(
 	void *userdata, void *UNUSED(userdata_chunk), const int n, const int thread_id)
 {
@@ -3410,18 +3421,33 @@ static void do_topo_grab_brush_task_cb_ex(
 	proxy = BKE_pbvh_node_add_proxy(ss->pbvh, data->nodes[n])->co;
 
 	sculpt_brush_test_init(ss, &test);
+	
+	
+	if (ss->cache->first_time){
+		loc[cn[0]] = test.location[0];
+		loc[cn[0] + 1] = test.location[1];
+		loc[cn[0] + 2] = test.location[2];
+		cn[0] += 3;
+		for (int ix = 0; ix < cn[0]; ix++) printf("%3f ", loc[ix]);
+		printf("\n");
+		prin
+		int it = 0;
+	}
 
-	int it = 0;
+	//for (int ix = 0; ix < cn[0]; ix++) printf("%f ", test.location[ix]);
+	//printf("\n");
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
 		sculpt_orig_vert_data_update(&orig_data, &vd);
 		
 		if (sculpt_brush_test(&test, orig_data.co)){
+
+			
 			if (check_topo_connected(vd.vert_indices[vd.i], vert_array, count[2]) != -1) {
 				const float fade = bstrength * tex_strength(
 				ss, brush, orig_data.co, test.dist, orig_data.no, NULL, vd.mask ? *vd.mask : 0.0f,
 				thread_id);
-
+				
 
 				mul_v3_v3fl(proxy[vd.i], grab_delta, fade);
 				if (vd.mvert) {
@@ -3432,6 +3458,7 @@ static void do_topo_grab_brush_task_cb_ex(
 		}
 	}
 	BKE_pbvh_vertex_iter_end;
+	
 }
 
 static void do_topo_grab_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode)
@@ -4653,7 +4680,7 @@ static void sculpt_update_brush_delta(UnifiedPaintSettings *ups, Object *ob, Bru
 			copy_v2_v2(ups->anchored_initial_mouse, cache->initial_mouse);
 			ups->anchored_size = ups->pixel_radius;
 		}
-
+		if(cache->first_time) cn[0] = 0;
 
 		/* handle 'rake' */
 		cache->is_rake_rotation_valid = false;
