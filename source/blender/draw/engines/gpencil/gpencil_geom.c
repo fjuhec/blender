@@ -71,30 +71,39 @@ static void gpencil_set_stroke_point(Gwn_VertBuf *vbo, float matrix[4][4], const
 	GWN_vertbuf_attr_set(vbo, pos_id, idx, &pt->x);
 }
 
-/* create batch geometry data for one point stroke shader */
-Gwn_Batch *DRW_gpencil_get_point_geom(bGPDspoint *pt, short thickness, const float ink[4])
+/* create batch geometry data for points stroke shader */
+Gwn_Batch *DRW_gpencil_get_point_geom(bGPDstroke *gps, short thickness, const float ink[4])
 {
 	static Gwn_VertFormat format = { 0 };
 	static unsigned int pos_id, color_id, size_id;
 	if (format.attrib_ct == 0) {
 		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
 		color_id = GWN_vertformat_attr_add(&format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
-		size_id = GWN_vertformat_attr_add(&format, "size", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
+		size_id = GWN_vertformat_attr_add(&format, "thickness", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
 	}
 
 	Gwn_VertBuf *vbo =  GWN_vertbuf_create_with_format(&format);
-	GWN_vertbuf_data_alloc(vbo, 1);
+	GWN_vertbuf_data_alloc(vbo, gps->totpoints);
 
-	float alpha = ink[3] * pt->strength;
-	CLAMP(alpha, GPENCIL_STRENGTH_MIN, 1.0f);
+	/* draw stroke curve */
+	const bGPDspoint *pt = gps->points;
+	int idx = 0;
+	float alpha;
 	float col[4];
-	ARRAY_SET_ITEMS(col, ink[0], ink[1], ink[2], alpha);
-	GWN_vertbuf_attr_set(vbo, color_id, 0, col);
 
-	float thick = max_ff(pt->pressure * thickness, 1.0f);
-	GWN_vertbuf_attr_set(vbo, size_id, 0, &thick);
+	for (int i = 0; i < gps->totpoints; i++, pt++) {
+		/* set point */
+		alpha = ink[3] * pt->strength;
+		CLAMP(alpha, GPENCIL_STRENGTH_MIN, 1.0f);
+		ARRAY_SET_ITEMS(col, ink[0], ink[1], ink[2], alpha);
 
-	GWN_vertbuf_attr_set(vbo, pos_id, 0, &pt->x);
+		float thick = max_ff(pt->pressure * thickness, 1.0f);
+
+		GWN_vertbuf_attr_set(vbo, color_id, idx, col);
+		GWN_vertbuf_attr_set(vbo, size_id, idx, &thick);
+		GWN_vertbuf_attr_set(vbo, pos_id, idx, &pt->x);
+		++idx;
+	}
 
 	return GWN_batch_create(GWN_PRIM_POINTS, vbo, NULL);
 }

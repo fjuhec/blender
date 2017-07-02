@@ -42,6 +42,8 @@ extern char datatoc_gpencil_stroke_vert_glsl[];
 extern char datatoc_gpencil_stroke_geom_glsl[];
 extern char datatoc_gpencil_stroke_frag_glsl[];
 extern char datatoc_gpencil_zdepth_mix_frag_glsl[];
+extern char datatoc_gpencil_point_vert_glsl[];
+extern char datatoc_gpencil_point_frag_glsl[];
 
 /* *********** STATIC *********** */
 static GPENCIL_e_data e_data = {NULL}; /* Engine data */
@@ -79,6 +81,12 @@ static void GPENCIL_engine_init(void *vedata)
 			datatoc_gpencil_stroke_frag_glsl,
 			NULL);
 	}
+	if (!e_data.gpencil_point_sh) {
+		e_data.gpencil_point_sh = DRW_shader_create(datatoc_gpencil_point_vert_glsl,
+			NULL,
+			datatoc_gpencil_point_frag_glsl,
+			NULL);
+	}
 
 	/* used for edit points or strokes with one point only */
 	if (!e_data.gpencil_volumetric_sh) {
@@ -98,7 +106,7 @@ static void GPENCIL_engine_init(void *vedata)
 
 	/* blank texture used if no texture defined for fill shader */
 	if (!e_data.gpencil_blank_texture) {
-		e_data.gpencil_blank_texture = DRW_gpencil_create_blank_texture(64, 64);
+		e_data.gpencil_blank_texture = DRW_gpencil_create_blank_texture(16, 16);
 	}
 
 }
@@ -108,6 +116,7 @@ static void GPENCIL_engine_free(void)
 	/* only free custom shaders, builtin shaders are freed in blender close */
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_fill_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_stroke_sh);
+	DRW_SHADER_FREE_SAFE(e_data.gpencil_point_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_fullscreen_sh);
 	DRW_TEXTURE_FREE_SAFE(e_data.gpencil_blank_texture);
 }
@@ -150,7 +159,6 @@ static void GPENCIL_cache_init(void *vedata)
 		/* Stroke pass */
 		psl->stroke_pass = DRW_pass_create("Gpencil Stroke Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_ALWAYS | DRW_STATE_BLEND);
 		stl->storage->shgroup_id = 0;
-		stl->g_data->shgrps_point_volumetric = DRW_gpencil_shgroup_point_volumetric_create(psl->stroke_pass, e_data.gpencil_volumetric_sh);
 
 		/* edit pass */
 		psl->edit_pass = DRW_pass_create("Gpencil Edit Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND);
@@ -160,9 +168,8 @@ static void GPENCIL_cache_init(void *vedata)
 		const DRWContextState *draw_ctx = DRW_context_state_get();
 		Palette *palette = BKE_palette_get_active_from_context(draw_ctx->evil_C);
 		PaletteColor *palcolor = BKE_palette_color_get_active(palette);
-		if (palcolor) {
-			stl->storage->stroke_style = palcolor->stroke_style;
-		}
+		stl->storage->stroke_style = STROKE_STYLE_SOLID;
+
 
 		psl->drawing_pass = DRW_pass_create("Gpencil Drawing Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND);
 		stl->g_data->shgrps_drawing_stroke = DRW_gpencil_shgroup_stroke_create(&e_data, vedata, psl->drawing_pass, e_data.gpencil_stroke_sh, NULL, NULL, palcolor, -1);
@@ -286,21 +293,20 @@ static void GPENCIL_draw_scene(void *vedata)
 			Object *ob = stl->g_data->gp_object_cache[i].ob;
 			init_grp = stl->g_data->gp_object_cache[i].init_grp;
 			end_grp = stl->g_data->gp_object_cache[i].end_grp;
-			if ((end_grp >= init_grp) && (stl->shgroups[init_grp].shgrps_fill) 
-				&& (stl->shgroups[end_grp].shgrps_stroke)) 
-			{
+			if (end_grp >= init_grp) {
 				/* Render stroke in separated framebuffer */
 				DRW_framebuffer_bind(fbl->temp_color_fb);
 				DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
 
 				/* Stroke Pass: DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH
-				 * draw only a subset that always start with a fill and end with stroke because the
+				 * draw only a subset that usually start with a fill and end with stroke because the
 				 * shading groups are created by pairs */
 				if (G.debug_value == 668) {
 					printf("GPENCIL_draw_scene: %s %d->%d\n", ob->id.name, init_grp, end_grp);
 				}
+
 				DRW_draw_pass_subset(psl->stroke_pass,
-					stl->shgroups[init_grp].shgrps_fill, 
+					stl->shgroups[init_grp].shgrps_fill != NULL ? stl->shgroups[init_grp].shgrps_fill : stl->shgroups[init_grp].shgrps_stroke,
 					stl->shgroups[end_grp].shgrps_stroke);
 
 				/* Combine with scene buffer */

@@ -99,7 +99,6 @@ typedef struct GPENCIL_Data {
 /* *********** STATIC *********** */
 typedef struct g_data {
 	struct DRWShadingGroup *shgrps_edit_volumetric;
-	struct DRWShadingGroup *shgrps_point_volumetric;
 	struct DRWShadingGroup *shgrps_drawing_stroke;
 	struct DRWShadingGroup *shgrps_drawing_fill;
 
@@ -117,6 +116,7 @@ typedef struct g_data {
 typedef struct GPENCIL_e_data {
 	struct GPUShader *gpencil_fill_sh;
 	struct GPUShader *gpencil_stroke_sh;
+	struct GPUShader *gpencil_point_sh;
 	struct GPUShader *gpencil_volumetric_sh;
 	struct GPUShader *gpencil_drawing_fill_sh;
 	struct GPUShader *gpencil_fullscreen_sh;
@@ -156,7 +156,7 @@ struct DRWShadingGroup *DRW_gpencil_shgroup_drawing_fill_create(struct DRWPass *
 void DRW_gpencil_populate_datablock(struct GPENCIL_e_data *e_data, void *vedata, struct Scene *scene, struct Object *ob, struct ToolSettings *ts, struct bGPdata *gpd);
 void DRW_gpencil_populate_buffer_strokes(void *vedata, struct ToolSettings *ts, struct bGPdata *gpd);
 
-struct Gwn_Batch *DRW_gpencil_get_point_geom(struct bGPDspoint *pt, short thickness, const float ink[4]);
+struct Gwn_Batch *DRW_gpencil_get_point_geom(struct bGPDstroke *gps, short thickness, const float ink[4]);
 struct Gwn_Batch *DRW_gpencil_get_stroke_geom(struct bGPDframe *gpf, struct bGPDstroke *gps, short thickness, const float ink[4]);
 struct Gwn_Batch *DRW_gpencil_get_fill_geom(struct bGPDstroke *gps, const float color[4]);
 struct Gwn_Batch *DRW_gpencil_get_edit_geom(struct bGPDstroke *gps, float alpha, short dflag);
