@@ -110,7 +110,6 @@ class GreasePencilDrawingToolsPanel:
         sub.prop(context.tool_settings, "use_gpencil_additive_drawing", text="Additive Drawing")
         if not is_3d_view:
             sub.prop(context.tool_settings, "use_gpencil_continuous_drawing", text="Continuous Drawing")
-        sub.prop(context.tool_settings, "use_gpencil_draw_onback", text="Draw on Back")
 
         col.separator()
         col.separator()
@@ -352,6 +351,9 @@ class GreasePencilBrushPanel:
             row = col.row(align=False)
             row.prop(brush, "pen_subdivision_steps")
             row.prop(brush, "random_subdiv", text='Randomness', slider=True)
+
+            row = layout.row(align=False)
+            row.prop(context.tool_settings, "use_gpencil_draw_onback", text="Draw on Back")
 
 
 class GreasePencilStrokeSculptPanel:
