@@ -105,6 +105,10 @@ static bool gpencil_batch_cache_valid(bGPdata *gpd, int cfra)
 
 	cache->is_editmode = gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE);
 
+	if (cfra != cache->cache_frame) {
+		return false;
+	}
+
 	if (gpd->flag & GP_DATA_CACHE_REUSE) {
 		return true;
 	}
@@ -114,10 +118,6 @@ static bool gpencil_batch_cache_valid(bGPdata *gpd, int cfra)
 	}
 
 	if (cache->is_editmode) {
-		return false;
-	}
-
-	if (cfra != cache->cache_frame) {
 		return false;
 	}
 
