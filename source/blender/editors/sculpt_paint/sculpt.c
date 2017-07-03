@@ -3271,7 +3271,13 @@ int check_topo_connected(int vert, int *vert_array, int totvert){
 	return check_present(vert, vert_array, totvert);
 }
 
+float loc[1000] = { 0.0f };
+int ver[6000] = { 0 };
+int c_ver[6000] = { 0 };
+int cn[6] = { 0 };
+float d[3] = { 0.0f };
 
+static int init_zero(int *a, int len){ loop(i, 0, len, 1)a[i] = 0; }
 
 static void topo_init_task_cb(void *userdata, const int n) {
 	SculptThreadedTaskData *data = userdata;
@@ -3304,6 +3310,7 @@ static void topo_init_task_cb(void *userdata, const int n) {
 			float *co;
 			co = vd.co;
 			v_index[it + count[0]] = vd.vert_indices[vd.i];
+			//if (ss->cache->first_time) ver[cn[1]++] = vd.vert_indices[vd.i];
 			float distsq = dist_squared_to_line_direction_v3v3(vd.co, test.true_location, test.normal);
 			
 			if (distsq < t_dis[0]){
@@ -3397,8 +3404,7 @@ static void connected_face_init(Sculpt *sd, Object *ob, PBVHNode **nodes, int to
 	}
 	count[2] = k;
 }
-float loc[1000] = { 0.0f };
-int cn[2] = { 0 };
+
 static void do_topo_grab_brush_task_cb_ex(
 	void *userdata, void *UNUSED(userdata_chunk), const int n, const int thread_id)
 {
@@ -3422,17 +3428,13 @@ static void do_topo_grab_brush_task_cb_ex(
 
 	sculpt_brush_test_init(ss, &test);
 	
+	float ray_normal[3], rays[3], raye[3];
+	ED_view3d_win_to_segment(test.vc->ar, test.vc->v3d, ss->cache->mouse, rays, raye, true);
+	sub_v3_v3v3(ray_normal, raye, rays);
+	normalize_v3(ray_normal);
+
+	copy_v3_v3(test.normal, ray_normal);
 	
-	if (ss->cache->first_time){
-		loc[cn[0]] = test.location[0];
-		loc[cn[0] + 1] = test.location[1];
-		loc[cn[0] + 2] = test.location[2];
-		cn[0] += 3;
-		for (int ix = 0; ix < cn[0]; ix++) printf("%3f ", loc[ix]);
-		printf("\n");
-		prin
-		int it = 0;
-	}
 
 	//for (int ix = 0; ix < cn[0]; ix++) printf("%f ", test.location[ix]);
 	//printf("\n");
@@ -3442,23 +3444,61 @@ static void do_topo_grab_brush_task_cb_ex(
 		
 		if (sculpt_brush_test(&test, orig_data.co)){
 
-			
-			if (check_topo_connected(vd.vert_indices[vd.i], vert_array, count[2]) != -1) {
-				const float fade = bstrength * tex_strength(
-				ss, brush, orig_data.co, test.dist, orig_data.no, NULL, vd.mask ? *vd.mask : 0.0f,
-				thread_id);
-				
+			if (ss->cache->first_time){
+				ver[cn[1]] = vd.vert_indices[vd.i];
+				float distsq = dist_squared_to_line_direction_v3v3(vd.co, test.true_location, test.normal);
+				if (distsq < d[0]){
+					d[0] = distsq;
+					cn[2] = ver[cn[1]];
+				}
+				cn[0] = 1;
+				cn[1]++;
+			}			
+			else{
+				if (check_topo_connected(vd.vert_indices[vd.i], c_ver, cn[4]) != -1) {
+					const float fade = bstrength * tex_strength(
+						ss, brush, orig_data.co, test.dist, orig_data.no, NULL, vd.mask ? *vd.mask : 0.0f,
+						thread_id);
 
-				mul_v3_v3fl(proxy[vd.i], grab_delta, fade);
-				if (vd.mvert) {
-					vd.mvert->flag |= ME_VERT_PBVH_UPDATE;
-					vd.mvert->flag |= SELECT;
+
+					mul_v3_v3fl(proxy[vd.i], grab_delta, fade);
+					if (vd.mvert) {
+						vd.mvert->flag |= ME_VERT_PBVH_UPDATE;
+						vd.mvert->flag |= SELECT;
+					}
 				}
 			}
+
 		}
 	}
 	BKE_pbvh_vertex_iter_end;
-	
+
+	if (ss->cache->first_time){
+		loc[cn[3]] = test.location[0];
+		loc[cn[3] + 1] = test.location[1];
+		loc[cn[3] + 2] = test.location[2];
+		cn[3] += 3;
+		//for (int ix = 0; ix < cn[3]; ix++) printf("%.3f ", loc[ix]);
+		//printf("\n%f", d[0]);
+		d[0] = 1000.0f;
+		//printf("\n%d", cn[2]);
+		//print_array_i(ver, cn[1]);
+		//printf("\n");
+
+		short ch1[VERLEN] = { 0 };
+		find_connect(ss, cn[2], ch1, ver, cn[1]);
+		int k = 0;
+		loop(ir, 0, cn[1], 1){
+			if (ch1[ir]){
+				c_ver[cn[4] + k] = ver[ir];
+				k++;
+			}
+		}
+		cn[1] = 0;
+		cn[4] = cn[4] + k;
+		print_array_i(c_ver, cn[4]);
+		printf("\n");
+	}
 }
 
 static void do_topo_grab_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode)
@@ -4595,7 +4635,7 @@ static void sculpt_update_cache_invariants(
 
 
 	cache->first_time = 1;
-
+	
 #define PIXEL_INPUT_THRESHHOLD 5
 	if (brush->sculpt_tool == SCULPT_TOOL_ROTATE || brush->sculpt_tool == SCULPT_TOOL_CLIP)
 		cache->dial = BLI_dial_initialize(cache->initial_mouse, PIXEL_INPUT_THRESHHOLD);
@@ -4680,7 +4720,7 @@ static void sculpt_update_brush_delta(UnifiedPaintSettings *ups, Object *ob, Bru
 			copy_v2_v2(ups->anchored_initial_mouse, cache->initial_mouse);
 			ups->anchored_size = ups->pixel_radius;
 		}
-		if(cache->first_time) cn[0] = 0;
+		if (cache->first_time) init_zero(cn,5) , d[0] = 1000.0f;
 
 		/* handle 'rake' */
 		cache->is_rake_rotation_valid = false;
