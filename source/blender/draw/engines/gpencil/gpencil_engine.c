@@ -43,6 +43,7 @@ extern char datatoc_gpencil_stroke_geom_glsl[];
 extern char datatoc_gpencil_stroke_frag_glsl[];
 extern char datatoc_gpencil_zdepth_mix_frag_glsl[];
 extern char datatoc_gpencil_point_vert_glsl[];
+extern char datatoc_gpencil_point_geom_glsl[];
 extern char datatoc_gpencil_point_frag_glsl[];
 
 /* *********** STATIC *********** */
@@ -83,7 +84,7 @@ static void GPENCIL_engine_init(void *vedata)
 	}
 	if (!e_data.gpencil_point_sh) {
 		e_data.gpencil_point_sh = DRW_shader_create(datatoc_gpencil_point_vert_glsl,
-			NULL,
+			datatoc_gpencil_point_geom_glsl,
 			datatoc_gpencil_point_frag_glsl,
 			NULL);
 	}

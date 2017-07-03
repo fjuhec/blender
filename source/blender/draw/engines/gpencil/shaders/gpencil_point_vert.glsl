@@ -12,6 +12,7 @@ in vec4 color;
 in float thickness;
 
 out vec4 finalColor;
+out float finalThickness;
 
 #define TRUE 1
 
@@ -23,11 +24,11 @@ void main()
 	finalColor = color;
 
 	if (keep_size == TRUE) {
-		gl_PointSize = thickness;
+		finalThickness = thickness;
 	}
 	else {
 		float size = (ProjectionMatrix[3][3] == 0.0) ? (thickness / (gl_Position.z * defaultpixsize)) : (thickness / defaultpixsize);
-		gl_PointSize = max(size * objscale, 1.0);
+		finalThickness = max(size * objscale, 1.0);
 	}
 	
 }
