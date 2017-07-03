@@ -2409,14 +2409,13 @@ bool initTransform(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 				RNA_boolean_set(op->ptr, "preserve_clnor", false);
 			}
 			if (!all_select) {
-				if (!em->bm->lnor_spacearr) {
-					BM_lnorspace_update(em->bm);
-				}
-				BM_lnorspace_invalidate(em->bm, false);
+				if (em->bm->lnor_spacearr) {
+					BM_lnorspace_invalidate(em->bm, false);
 
-				const bool preserve_clnor = RNA_boolean_get(op->ptr, "preserve_clnor");
-				if (preserve_clnor) {
-					t->flag |= T_CLNOR_REBUILD;
+					const bool preserve_clnor = RNA_boolean_get(op->ptr, "preserve_clnor");
+					if (preserve_clnor) {
+						t->flag |= T_CLNOR_REBUILD;
+					}
 				}
 			}
 		}

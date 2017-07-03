@@ -1024,9 +1024,8 @@ void BM_lnorspace_invalidate(BMesh *bm, bool inval_all)
 	BMIter viter, fiter, liter;
 	BLI_bitmap *faces = BLI_BITMAP_NEW(bm->totface, __func__);
 
-	if (bm->elem_index_dirty & BM_FACE) {
-		BM_mesh_elem_index_ensure(bm, BM_FACE);
-	}
+	BM_mesh_elem_index_ensure(bm, (BM_FACE | BM_LOOP));
+
 	BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
 		if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
 
@@ -1117,6 +1116,8 @@ void BM_lnorspace_update(BMesh *bm)
 {
 	float(*lnors)[3] = MEM_callocN(sizeof(*lnors) * bm->totloop, "__func__");
 
+	BM_mesh_elem_index_ensure(bm, BM_LOOP);
+
 	if (bm->lnor_spacearr == NULL) {
 		bm->lnor_spacearr = MEM_callocN(sizeof(*bm->lnor_spacearr), __func__);
 	}
@@ -1174,8 +1175,9 @@ static void BM_lnorspace_err(BMesh *bm)
 	bm->spacearr_dirty &= ~BM_SPACEARR_DIRTY_ALL;
 
 }
+
 /* Marks the individual clnors to be edited, if multiple selection methods are used */
-static int BM_loop_normal_indiv(BMesh *bm)
+static int BM_loop_normal_mark_indiv(BMesh *bm)
 {
 	BMEditSelection *ese, *vert;
 	int totloopsel = 0;
@@ -1191,20 +1193,19 @@ static int BM_loop_normal_indiv(BMesh *bm)
 				if (vert->htype == BM_VERT) {
 
 					BMLoop *l = BM_face_vert_share_loop((BMFace *)ese->ele, (BMVert *)vert->ele);	
-					if (l) {						/* if vert and face selected share a loop, mark it for editing */
+					if (l && !BM_elem_flag_test(l, BM_ELEM_LNORSPACE)) {	/* if vert and face selected share a loop, mark it for editing */
 						BM_elem_flag_enable(l, BM_ELEM_LNORSPACE);
 						totloopsel++;
 					}
 				}
-			}
-		}
-		else if (ese->htype == BM_EDGE) {
-			vert = ese;
-			while ((vert = vert->prev)) {
-				if (vert->htype == BM_VERT) {
-
-					if (BM_vert_in_edge((BMEdge *)ese->ele, (BMVert *)vert->ele)) {
-						BMLoop *l = BM_edge_vert_share_loop(((BMEdge *)ese->ele)->l, (BMVert *)vert->ele);
+				else if (vert->htype == BM_EDGE) {
+					BMLoop *l = BM_face_vert_share_loop((BMFace *)ese->ele, ((BMEdge *)vert->ele)->v1);
+					if (l && !BM_elem_flag_test(l, BM_ELEM_LNORSPACE)) {
+						BM_elem_flag_enable(l, BM_ELEM_LNORSPACE);
+						totloopsel++;
+					}
+					l = BM_face_vert_share_loop((BMFace *)ese->ele, ((BMEdge *)vert->ele)->v2);
+					if (l && !BM_elem_flag_test(l, BM_ELEM_LNORSPACE)) {
 						BM_elem_flag_enable(l, BM_ELEM_LNORSPACE);
 						totloopsel++;
 					}
@@ -1224,7 +1225,7 @@ LoopNormalData *BM_loop_normal_init(BMesh *bm)
 	int totloopsel = 0;
 
 	if (verts + edges + faces > 1) {		/* More than 1 sel mode, check if only individual normals to edit */
-		totloopsel = BM_loop_normal_indiv(bm);
+		totloopsel = BM_loop_normal_mark_indiv(bm);
 	}
 	LoopNormalData *ld = MEM_mallocN(sizeof(*ld), "__func__");
 	int cd_custom_normal_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
@@ -1405,6 +1406,7 @@ void bmesh_edit_end(BMesh *bm, BMOpTypeFlag type_flag)
 
 	/* compute normals, clear temp flags and flush selections */
 	if (type_flag & BMO_OPTYPE_FLAG_NORMALS_CALC) {
+		bm->spacearr_dirty |= (BM_SPACEARR_DIRTY | BM_SPACEARR_BMO_SET);
 		BM_mesh_normals_update(bm);
 	}
 
@@ -1419,9 +1421,6 @@ void bmesh_edit_end(BMesh *bm, BMOpTypeFlag type_flag)
 
 	if ((type_flag & BMO_OPTYPE_FLAG_SELECT_VALIDATE) == 0) {
 		bm->selected = select_history;
-	}
-	if (type_flag & BMO_OPTYPE_FLAG_INVALIDATE_CLNOR_SPACE) {
-		bm->spacearr_dirty |= (BM_SPACEARR_DIRTY | BM_SPACEARR_BMO_SET);
 	}
 	if (type_flag & BMO_OPTYPE_FLAG_INVALIDATE_CLNOR_ALL) {
 		bm->spacearr_dirty |= BM_SPACEARR_DIRTY_ALL;
