@@ -1141,8 +1141,9 @@ class GreasePencilPaletteColorPanel:
         col = split.column(align=True)
         col.enabled = not pcolor.lock
         col.label(text="Stroke:")
-        col.prop(pcolor, "color", text="")
-        col.prop(pcolor, "alpha", slider=True)
+        if pcolor.stroke_style != 'TEXTURE':
+            col.prop(pcolor, "color", text="")
+            col.prop(pcolor, "alpha", slider=True)
         col.prop(pcolor, "stroke_style", text="")
         if pcolor.stroke_style in ('TEXTURE', 'PATTERN'):
             col.template_ID(pcolor, "stroke_image", open="image.open")
