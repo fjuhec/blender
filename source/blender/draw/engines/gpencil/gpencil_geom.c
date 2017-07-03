@@ -198,47 +198,6 @@ static void gpencil_tpoint_to_point(Scene *scene, ARegion *ar, View3D *v3d, cons
 	pt->strength = tpt->strength;
 }
 
-/* create batch geometry data for current buffer for one point stroke shader */
-Gwn_Batch *DRW_gpencil_get_buffer_point_geom(bGPdata *gpd, short thickness)
-{
-	const DRWContextState *draw_ctx = DRW_context_state_get();
-	Scene *scene = draw_ctx->scene;
-	View3D *v3d = draw_ctx->v3d;
-	ARegion *ar = draw_ctx->ar;
-
-	const tGPspoint *tpt = gpd->sbuffer;
-	bGPDspoint pt;
-	float ink[4];
-	copy_v4_v4(ink, gpd->scolor);
-
-	static Gwn_VertFormat format = { 0 };
-	static unsigned int pos_id, color_id, size_id;
-	if (format.attrib_ct == 0) {
-		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
-		color_id = GWN_vertformat_attr_add(&format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
-		size_id = GWN_vertformat_attr_add(&format, "size", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
-	}
-
-	Gwn_VertBuf *vbo =  GWN_vertbuf_create_with_format(&format);
-	GWN_vertbuf_data_alloc(vbo, 1);
-	
-	/* convert to 3D */
-	gpencil_tpoint_to_point(scene, ar, v3d, tpt, &pt);
-
-	float alpha = ink[3] * pt.strength;
-	CLAMP(alpha, GPENCIL_STRENGTH_MIN, 1.0f);
-	float col[4];
-	ARRAY_SET_ITEMS(col, ink[0], ink[1], ink[2], alpha);
-	GWN_vertbuf_attr_set(vbo, color_id, 0, col);
-
-	float thick = max_ff(pt.pressure * thickness, 1.0f);
-	GWN_vertbuf_attr_set(vbo, size_id, 0, &thick);
-
-	GWN_vertbuf_attr_set(vbo, pos_id, 0, &pt.x);
-
-	return GWN_batch_create(GWN_PRIM_POINTS, vbo, NULL);
-}
-
 /* create batch geometry data for current buffer stroke shader */
 Gwn_Batch *DRW_gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], short thickness)
 {
@@ -292,6 +251,53 @@ Gwn_Batch *DRW_gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], 
 	gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
 
 	return GWN_batch_create(GWN_PRIM_LINE_STRIP_ADJ, vbo, NULL);
+}
+
+/* create batch geometry data for current buffer point shader */
+Gwn_Batch *DRW_gpencil_get_buffer_point_geom(bGPdata *gpd, float matrix[4][4], short thickness)
+{
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	Scene *scene = draw_ctx->scene;
+	View3D *v3d = draw_ctx->v3d;
+	ARegion *ar = draw_ctx->ar;
+	RegionView3D *rv3d = draw_ctx->rv3d;
+	ToolSettings *ts = scene->toolsettings;
+	Object *ob = draw_ctx->obact;
+
+	tGPspoint *points = gpd->sbuffer;
+	int totpoints = gpd->sbuffer_size;
+
+	static Gwn_VertFormat format = { 0 };
+	static unsigned int pos_id, color_id, thickness_id;
+	if (format.attrib_ct == 0) {
+		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
+		color_id = GWN_vertformat_attr_add(&format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
+		thickness_id = GWN_vertformat_attr_add(&format, "thickness", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
+	}
+
+	Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
+	GWN_vertbuf_data_alloc(vbo, totpoints);
+
+	/* draw stroke curve */
+	const tGPspoint *tpt = points;
+	bGPDspoint pt;
+	int idx = 0;
+
+	/* get origin to reproject point */
+	float origin[3];
+	bGPDlayer *gpl = BKE_gpencil_layer_getactive(gpd);
+	ED_gp_get_drawing_reference(ts, v3d, scene, ob, gpl, ts->gpencil_v3d_align, origin);
+
+	for (int i = 0; i < totpoints; i++, tpt++) {
+		gpencil_tpoint_to_point(scene, ar, v3d, tpt, &pt);
+		ED_gp_project_point_to_plane(ob, rv3d, origin, ts->gp_sculpt.lock_axis - 1, ts->gpencil_src, &pt);
+
+		/* set point */
+		gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
+		++idx;
+	}
+
+	return GWN_batch_create(GWN_PRIM_POINTS, vbo, NULL);
 }
 
 /* create batch geometry data for current buffer fill shader */

@@ -164,16 +164,26 @@ static void GPENCIL_cache_init(void *vedata)
 		/* edit pass */
 		psl->edit_pass = DRW_pass_create("Gpencil Edit Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND);
 		stl->g_data->shgrps_edit_volumetric = DRW_gpencil_shgroup_edit_volumetric_create(psl->edit_pass, e_data.gpencil_volumetric_sh);
-
 		/* drawing buffer pass */
 		const DRWContextState *draw_ctx = DRW_context_state_get();
 		Palette *palette = BKE_palette_get_active_from_context(draw_ctx->evil_C);
 		PaletteColor *palcolor = BKE_palette_color_get_active(palette);
-		stl->storage->stroke_style = STROKE_STYLE_SOLID;
+		if (palcolor) {
+			stl->storage->stroke_style = palcolor->stroke_style;
+		}
+		else { 
+			stl->storage->stroke_style = STROKE_STYLE_SOLID; 
+		}
 
 
 		psl->drawing_pass = DRW_pass_create("Gpencil Drawing Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND);
-		stl->g_data->shgrps_drawing_stroke = DRW_gpencil_shgroup_stroke_create(&e_data, vedata, psl->drawing_pass, e_data.gpencil_stroke_sh, NULL, NULL, palcolor, -1);
+		if (stl->storage->stroke_style != STROKE_STYLE_VOLUMETRIC) {
+			stl->g_data->shgrps_drawing_stroke = DRW_gpencil_shgroup_stroke_create(&e_data, vedata, psl->drawing_pass, e_data.gpencil_stroke_sh, NULL, NULL, palcolor, -1);
+		}
+		else {
+			stl->g_data->shgrps_drawing_stroke = DRW_gpencil_shgroup_point_create(&e_data, vedata, psl->drawing_pass, e_data.gpencil_point_sh, NULL, NULL, palcolor, -1);
+		}
+
 		stl->g_data->shgrps_drawing_fill = DRW_gpencil_shgroup_drawing_fill_create(psl->drawing_pass, e_data.gpencil_drawing_fill_sh);
 
 		/* we need a full screen pass to combine the result of zdepth */
