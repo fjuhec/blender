@@ -214,8 +214,7 @@ static GpencilBatchCache *gpencil_batch_cache_get(bGPdata *gpd, int cfra)
 
  /* create shading group for filling */
 static DRWShadingGroup *DRW_gpencil_shgroup_fill_create(GPENCIL_e_data *e_data, GPENCIL_Data *vedata, DRWPass *pass, 
-	GPUShader *shader, Object *ob,
-	bGPdata *gpd, PaletteColor *palcolor, int id)
+	GPUShader *shader, bGPdata *gpd, PaletteColor *palcolor, int id)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 
@@ -358,7 +357,7 @@ DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_e_data *e_data, GPENC
 }
 
 /* create shading group for volumetrics */
-DRWShadingGroup *DRW_gpencil_shgroup_point_create(GPENCIL_e_data *e_data, GPENCIL_Data *vedata, DRWPass *pass, GPUShader *shader, Object *ob,
+DRWShadingGroup *DRW_gpencil_shgroup_point_create(GPENCIL_Data *vedata, DRWPass *pass, GPUShader *shader, Object *ob,
 	bGPdata *gpd, PaletteColor *palcolor, int id)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
@@ -448,7 +447,7 @@ static void gpencil_add_fill_shgroup(GpencilBatchCache *cache, DRWShadingGroup *
 }
 
 /* add stroke shading group to pass */
-static void gpencil_add_stroke_shgroup(GPENCIL_StorageList *stl, GpencilBatchCache *cache, DRWShadingGroup *strokegrp,
+static void gpencil_add_stroke_shgroup(GpencilBatchCache *cache, DRWShadingGroup *strokegrp,
 	bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf, bGPDstroke *gps, 
 	const float opacity, const float tintcolor[4], const bool onion, const bool custonion)
 {
@@ -547,7 +546,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 		int id = stl->storage->shgroup_id;
 		if ((gps->totpoints > 1) && (gps->palcolor->stroke_style != STROKE_STYLE_VOLUMETRIC)) {
 			if (gps->totpoints > 2) {
-				stl->shgroups[id].shgrps_fill = DRW_gpencil_shgroup_fill_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_fill_sh, ob, gpd, gps->palcolor, id);
+				stl->shgroups[id].shgrps_fill = DRW_gpencil_shgroup_fill_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_fill_sh, gpd, gps->palcolor, id);
 			}
 			else { 
 				stl->shgroups[id].shgrps_fill = NULL;
@@ -556,7 +555,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 		}
 		else {
 			stl->shgroups[id].shgrps_fill = NULL;
-			stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_point_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_point_sh, ob, gpd, gps->palcolor, id);
+			stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_point_create(vedata, psl->stroke_pass, e_data->gpencil_point_sh, ob, gpd, gps->palcolor, id);
 		}
 		++stl->storage->shgroup_id;
 
@@ -567,7 +566,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 			gpencil_add_fill_shgroup(cache, fillgrp, gpd, gpl, gpf, gps, tintcolor, onion, custonion);
 		}
 		/* stroke */
-		gpencil_add_stroke_shgroup(stl, cache, strokegrp, gpd, gpl, gpf, gps, opacity, tintcolor, onion, custonion);
+		gpencil_add_stroke_shgroup(cache, strokegrp, gpd, gpl, gpf, gps, opacity, tintcolor, onion, custonion);
 
 		/* edit points (only in edit mode) */
 		if (!onion) {
