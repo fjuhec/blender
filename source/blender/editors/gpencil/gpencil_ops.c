@@ -414,6 +414,10 @@ static void ed_keymap_gpencil_painting(wmKeyConfig *keyconf)
 	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_brush_select", ZEROKEY, KM_PRESS, 0, 0);
 	RNA_int_set(kmi->ptr, "index", 9);
 
+	/* FKEY = Brush Size */
+	kmi = WM_keymap_add_item(keymap, "WM_OT_radial_control", FKEY, KM_PRESS, 0, 0);
+	RNA_string_set(kmi->ptr, "data_path_primary", "tool_settings.gpencil_brushes.active.line_width");
+
 	/* Enter EditMode */
 	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_editmode_toggle", TABKEY, KM_PRESS, KM_SHIFT, 0);
 	RNA_int_set(kmi->ptr, "back", 1);
