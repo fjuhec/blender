@@ -177,7 +177,11 @@ typedef enum ePaletteColor_Flag {
 	/* mix texture */
 	PAC_COLOR_TEX_MIX = (1 << 5),
 	/* Flip fill colors */
-	PAC_COLOR_FLIP_FILL = (1 << 6)
+	PAC_COLOR_FLIP_FILL = (1 << 6),
+	/* Stroke use Texture */
+	PAC_COLOR_TEXTURE = (1 << 7),
+	/* Texture is a pattern */
+	PAC_COLOR_PATTERN = (1 << 8)
 } ePaletteColor_Flag;
 
 typedef struct Palette {
@@ -377,8 +381,6 @@ typedef enum BlurKernelType {
 /* Grease Pencil Stroke styles */
 #define STROKE_STYLE_SOLID	0
 #define STROKE_STYLE_VOLUMETRIC	1
-#define STROKE_STYLE_TEXTURE	2
-#define STROKE_STYLE_PATTERN	3
 
 /* Grease Pencil Fill styles */
 #define FILL_STYLE_SOLID	0

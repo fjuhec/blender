@@ -28,7 +28,7 @@ void main()
 	}
 	else {
 		float size = (ProjectionMatrix[3][3] == 0.0) ? (thickness / (gl_Position.z * defaultpixsize)) : (thickness / defaultpixsize);
-		finalThickness = max(size * objscale, 1.0);
+		finalThickness = max(size * objscale, 4.0); /* minimum 4 pixels */
 	}
 	
 }

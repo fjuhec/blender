@@ -1,4 +1,4 @@
-uniform int stroke_type;
+uniform int color_type;
 uniform sampler2D myTexture;
 
 in vec4 mColor;
@@ -7,23 +7,23 @@ out vec4 fragColor;
 
 #define texture2D texture
 
-/* keep this list synchronized with list in DNA_brush_types.h */
-#define SOLID 0
-#define TEXTURE 2
-#define PATTERN 3
+/* keep this list synchronized with list in gpencil_engine.h */
+#define GPENCIL_COLOR_SOLID   0
+#define GPENCIL_COLOR_TEXTURE 1
+#define GPENCIL_COLOR_PATTERN 2
 
 void main()
 {
 	/* Solid */
-	if (stroke_type == SOLID) {
+	if (color_type == GPENCIL_COLOR_SOLID) {
 		fragColor = mColor;
 	}
 	/* texture */
-	if (stroke_type == TEXTURE) {
+	if (color_type == GPENCIL_COLOR_TEXTURE) {
 		fragColor =  texture2D(myTexture, mTexCoord);
 	}
 	/* pattern */
-	if (stroke_type == PATTERN) {
+	if (color_type == GPENCIL_COLOR_PATTERN) {
 		vec4 text_color = texture2D(myTexture, mTexCoord);
 		/* normalize texture color */
 		float nvalue = 1.0 - ((text_color.x + text_color.y + text_color.z) / 3.0);

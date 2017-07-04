@@ -35,6 +35,10 @@ struct tGPspoint;
 #define GPENCIL_MAX_SHGROUPS 65536
 #define GPENCIL_MIN_BATCH_SLOTS_CHUNK 8
 
+#define GPENCIL_COLOR_SOLID   0
+#define GPENCIL_COLOR_TEXTURE 1
+#define GPENCIL_COLOR_PATTERN 2
+
  /* *********** OBJECTS CACHE *********** */
  /* used to save gpencil objects */
 typedef struct tGPencilObjectCache {
@@ -47,6 +51,7 @@ typedef struct tGPencilObjectCache {
 typedef struct GPENCIL_shgroup {
 	int s_clamp;
 	int stroke_style;
+	int color_type;
 	int t_mix;
 	int t_flip;
 	int t_clamp;
@@ -61,6 +66,7 @@ typedef struct GPENCIL_Storage {
 	int shgroup_id; /* total elements */
 	float unit_matrix[4][4];
 	int stroke_style;
+	int color_type;
 	int xray;
 	int keep_size;
 	float obj_scale;
@@ -149,7 +155,7 @@ typedef struct GpencilBatchCache {
 
 struct DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(struct GPENCIL_e_data *e_data, struct GPENCIL_Data *vedata, struct DRWPass *pass, struct GPUShader *shader, struct Object *ob,
 	                                                      struct bGPdata *gpd, struct PaletteColor *palcolor, int id);
-struct DRWShadingGroup *DRW_gpencil_shgroup_point_create(struct GPENCIL_Data *vedata, struct DRWPass *pass, struct GPUShader *shader, struct Object *ob,
+struct DRWShadingGroup *DRW_gpencil_shgroup_point_create(struct GPENCIL_e_data *e_data, struct GPENCIL_Data *vedata, struct DRWPass *pass, struct GPUShader *shader, struct Object *ob,
 	                                                     struct bGPdata *gpd, struct PaletteColor *palcolor, int id);
 struct DRWShadingGroup *DRW_gpencil_shgroup_point_volumetric_create(struct DRWPass *pass, struct GPUShader *shader);
 struct DRWShadingGroup *DRW_gpencil_shgroup_edit_volumetric_create(struct DRWPass *pass, struct GPUShader *shader);
