@@ -1239,6 +1239,8 @@ LoopNormalData *BM_loop_normal_init(BMesh *bm)
 		faces = bm->selectmode & SCE_SELECT_FACE;
 	int totloopsel = 0;
 
+	BLI_assert(bm->spacearr_dirty == 0);
+
 	BLI_bitmap *loops = BLI_BITMAP_NEW(bm->totloop, "__func__");
 	if (verts + edges + faces > 1) {		/* More than 1 sel mode, check if only individual normals to edit */
 		totloopsel = BM_loop_normal_mark_indiv(bm, loops);
