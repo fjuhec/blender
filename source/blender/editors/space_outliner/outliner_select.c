@@ -49,6 +49,7 @@
 #include "BKE_scene.h"
 #include "BKE_sequencer.h"
 #include "BKE_armature.h"
+#include "BKE_workspace.h"
 
 #include "DEG_depsgraph.h"
 
@@ -57,6 +58,7 @@
 #include "ED_screen.h"
 #include "ED_sequencer.h"
 #include "ED_util.h"
+#include "ED_gpencil.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -193,6 +195,25 @@ static eOLDrawState tree_element_set_active_object(
 		}
 	}
 	
+	/* set special grease pencil modes */
+	if (ob->type == OB_GPENCIL) {
+		/* set cursor */
+		if (ob->mode == OB_MODE_GPENCIL_PAINT) {
+			WM_cursor_modal_set(CTX_wm_window(C), BC_PAINTBRUSHCURSOR);
+			ED_gpencil_toggle_brush_cursor(C, false);
+		}
+		else if (ob->mode == OB_MODE_GPENCIL_SCULPT) {
+			WM_cursor_modal_set(CTX_wm_window(C), BC_CROSSCURSOR);
+			ED_gpencil_toggle_brush_cursor(C, true);
+		}
+		else {
+			WM_cursor_modal_set(CTX_wm_window(C), CURSOR_STD);
+			ED_gpencil_toggle_brush_cursor(C, false);
+		}
+		/* set workspace mode */
+		BKE_workspace_object_mode_set(CTX_wm_workspace(C), ob->mode);
+	}
+
 	if (ob != scene->obedit)
 		ED_object_editmode_exit(C, EM_FREEDATA | EM_FREEUNDO | EM_WAITCURSOR | EM_DO_UNDO);
 		
