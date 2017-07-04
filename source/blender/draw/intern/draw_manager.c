@@ -1401,7 +1401,7 @@ static void DRW_state_set(DRWState state)
 	{
 		int test;
 		if (CHANGED_ANY_STORE_VAR(
-		        DRW_STATE_BLEND | DRW_STATE_ADDITIVE | DRW_STATE_MULTIPLY,
+		        DRW_STATE_BLEND | DRW_STATE_ADDITIVE | DRW_STATE_MULTIPLY | DRW_STATE_TRANSMISSION,
 		        test))
 		{
 			if (test) {
@@ -1412,6 +1412,9 @@ static void DRW_state_set(DRWState state)
 				}
 				else if ((state & DRW_STATE_MULTIPLY) != 0) {
 					glBlendFunc(GL_DST_COLOR, GL_ZERO);
+				}
+				else if ((state & DRW_STATE_TRANSMISSION) != 0) {
+					glBlendFunc(GL_ONE, GL_SRC_ALPHA);
 				}
 				else if ((state & DRW_STATE_ADDITIVE) != 0) {
 					glBlendFunc(GL_ONE, GL_ONE);
@@ -2751,14 +2754,12 @@ static void DRW_engines_enable_external(void)
 	use_drw_engine(DRW_engine_viewport_external_type.draw_engine);
 }
 
-static void DRW_engines_enable(const Scene *scene, SceneLayer *sl, const View3D *v3d)
+static void DRW_engines_enable(const Scene *scene, SceneLayer *sl)
 {
 	const int mode = CTX_data_mode_enum_ex(scene->obedit, OBACT_NEW);
 	DRW_engines_enable_from_engine(scene);
 
-	if ((DRW_state_is_scene_render() == false) &&
-	    (v3d->flag2 & V3D_RENDER_OVERRIDE) == 0)
-	{
+	if (DRW_state_draw_support()) {
 		DRW_engines_enable_from_object_mode();
 		DRW_engines_enable_from_mode(mode);
 	}
@@ -2983,9 +2984,6 @@ void DRW_draw_render_loop_ex(
 	DST.viewport = rv3d->viewport;
 	v3d->zbuf = true;
 
-	/* Get list of enabled engines */
-	DRW_engines_enable(scene, sl, v3d);
-
 	/* Setup viewport */
 	cache_is_dirty = GPU_viewport_cache_validate(DST.viewport, DRW_engines_get_hash());
 
@@ -2996,6 +2994,9 @@ void DRW_draw_render_loop_ex(
 	};
 
 	DRW_viewport_var_init();
+
+	/* Get list of enabled engines */
+	DRW_engines_enable(scene, sl);
 
 	/* Update ubos */
 	DRW_globals_update();
@@ -3372,6 +3373,18 @@ bool DRW_state_show_text(void)
 	return (DST.options.is_select) == 0 &&
 	       (DST.options.is_depth) == 0 &&
 	       (DST.options.is_scene_render) == 0;
+}
+
+/**
+ * Should draw support elements
+ * Objects center, selection outline, probe data, ...
+ */
+bool DRW_state_draw_support(void)
+{
+	View3D *v3d = DST.draw_ctx.v3d;
+	return (DRW_state_is_scene_render() == false) &&
+	        (v3d != NULL) &&
+	        ((v3d->flag2 & V3D_RENDER_OVERRIDE) == 0);
 }
 
 /** \} */

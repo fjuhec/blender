@@ -253,7 +253,8 @@ typedef enum {
 	DRW_STATE_BLEND         = (1 << 14),
 	DRW_STATE_ADDITIVE      = (1 << 15),
 	DRW_STATE_MULTIPLY      = (1 << 16),
-	DRW_STATE_CLIP_PLANES   = (1 << 17),
+	DRW_STATE_TRANSMISSION  = (1 << 17),
+	DRW_STATE_CLIP_PLANES   = (1 << 18),
 
 	DRW_STATE_WRITE_STENCIL_SELECT = (1 << 27),
 	DRW_STATE_WRITE_STENCIL_ACTIVE = (1 << 28),
@@ -386,6 +387,7 @@ bool DRW_state_is_depth(void);
 bool DRW_state_is_image_render(void);
 bool DRW_state_is_scene_render(void);
 bool DRW_state_show_text(void);
+bool DRW_state_draw_support(void);
 
 struct DRWTextStore *DRW_state_text_cache_get(void);
 

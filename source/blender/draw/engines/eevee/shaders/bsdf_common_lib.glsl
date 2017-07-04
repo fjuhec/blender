@@ -17,6 +17,44 @@ uniform vec4 viewvecs[2];
 #define cameraPos       ViewMatrixInverse[3].xyz
 
 /* ------- Structures -------- */
+#ifdef VOLUMETRICS
+
+#define NODETREE_EXEC
+
+struct Closure {
+	vec3 absorption;
+	vec3 scatter;
+	vec3 emission;
+	float anisotropy;
+};
+
+#define CLOSURE_DEFAULT Closure(vec3(0.0), vec3(0.0), vec3(0.0), 0.0)
+
+Closure closure_mix(Closure cl1, Closure cl2, float fac)
+{
+	Closure cl;
+	cl.absorption = mix(cl1.absorption, cl2.absorption, fac);
+	cl.scatter = mix(cl1.scatter, cl2.scatter, fac);
+	cl.emission = mix(cl1.emission, cl2.emission, fac);
+	cl.anisotropy = mix(cl1.anisotropy, cl2.anisotropy, fac);
+	return cl;
+}
+
+Closure closure_add(Closure cl1, Closure cl2)
+{
+	Closure cl;
+	cl.absorption = cl1.absorption + cl2.absorption;
+	cl.scatter = cl1.scatter + cl2.scatter;
+	cl.emission = cl1.emission + cl2.emission;
+	cl.anisotropy = cl1.anisotropy + cl2.anisotropy;
+	return cl;
+}
+
+Closure nodetree_exec(void); /* Prototype */
+
+
+#endif /* VOLUMETRICS */
+
 
 struct LightData {
 	vec4 position_influence;      /* w : InfluenceRadius */
@@ -225,12 +263,21 @@ float buffer_depth(bool is_persp, float z, float zf, float zn)
 	}
 }
 
-vec3 get_view_space_from_depth(vec2 uvcoords, float depth)
+float get_view_z_from_depth(float depth)
 {
 	if (ProjectionMatrix[3][3] == 0.0) {
 		float d = 2.0 * depth - 1.0;
-		float zview = -ProjectionMatrix[3][2] / (d + ProjectionMatrix[2][2]);
-		return (viewvecs[0].xyz + vec3(uvcoords, 0.0) * viewvecs[1].xyz) * zview;
+		return -ProjectionMatrix[3][2] / (d + ProjectionMatrix[2][2]);
+	}
+	else {
+		return viewvecs[0].z + depth * viewvecs[1].z;
+	}
+}
+
+vec3 get_view_space_from_depth(vec2 uvcoords, float depth)
+{
+	if (ProjectionMatrix[3][3] == 0.0) {
+		return (viewvecs[0].xyz + vec3(uvcoords, 0.0) * viewvecs[1].xyz) * get_view_z_from_depth(depth);
 	}
 	else {
 		return viewvecs[0].xyz + vec3(uvcoords, depth) * viewvecs[1].xyz;
@@ -257,7 +304,7 @@ vec3 F_schlick(vec3 f0, float cos_theta)
 
 	/* Unreal specular matching : if specular color is below 2% intensity,
 	 * (using green channel for intensity) treat as shadowning */
-	return saturate(50.0 * f0.g) * fac + (1.0 - fac) * f0;
+	return saturate(50.0 * dot(f0, vec3(0.3, 0.6, 0.1))) * fac + (1.0 - fac) * f0;
 }
 
 /* Fresnel approximation for LTC area lights (not MRP) */
