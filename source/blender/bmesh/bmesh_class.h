@@ -373,8 +373,7 @@ enum {
 	 * not have functions clobber them */
 	BM_ELEM_INTERNAL_TAG = (1 << 7),
 
-	/* Space invalid when set. This is also used to mark individual clnors for editing,
-		see BM_loop_normal_indiv()		*/
+	/* Space invalid when set. */
 	BM_ELEM_LNORSPACE = (1 << 6)
 };
 
