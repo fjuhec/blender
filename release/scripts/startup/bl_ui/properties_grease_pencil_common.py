@@ -229,7 +229,6 @@ class GreasePencilInterpolatePanel:
     bl_label = "Interpolate Strokes"
     bl_category = "Animation"
     bl_region_type = 'TOOLS'
-    bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(cls, context):
