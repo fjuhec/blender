@@ -428,6 +428,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 						}
 					}
 				}
+				gpd->id.tag &= ~LIB_TAG_NEED_LINK;
 			}
 		}
 		/* ------- end grease pencil palettes conversion --------------- */
