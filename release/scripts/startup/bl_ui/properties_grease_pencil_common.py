@@ -91,23 +91,22 @@ class GreasePencilDrawingToolsPanel:
 
         col = layout.column(align=True)
 
-        col.label(text="Draw:")
-        row = col.row(align=True)
-        row.operator("gpencil.draw", icon='GREASEPENCIL', text="Draw").mode = 'DRAW'
-        row.operator("gpencil.draw", icon='FORCE_CURVE', text="Erase").mode = 'ERASER'  # XXX: Needs a dedicated icon
-
-        row = col.row(align=True)
-        row.operator("gpencil.draw", icon='LINE_DATA', text="Line").mode = 'DRAW_STRAIGHT'
-        row.operator("gpencil.draw", icon='MESH_DATA', text="Poly").mode = 'DRAW_POLY'
-
-        col.separator()
-
-        sub = col.column(align=True)
         if not is_3d_view:
+            col.label(text="Draw:")
+            row = col.row(align=True)
+            row.operator("gpencil.draw", icon='GREASEPENCIL', text="Draw").mode = 'DRAW'
+            row.operator("gpencil.draw", icon='FORCE_CURVE', text="Erase").mode = 'ERASER'
+
+            row = col.row(align=True)
+            row.operator("gpencil.draw", icon='LINE_DATA', text="Line").mode = 'DRAW_STRAIGHT'
+            row.operator("gpencil.draw", icon='MESH_DATA', text="Poly").mode = 'DRAW_POLY'
+
+            col.separator()
+
+            sub = col.column(align=True)
             sub.prop(context.tool_settings, "use_gpencil_continuous_drawing", text="Continuous Drawing")
 
-        col.separator()
-        col.separator()
+            col.separator()
 
         if context.space_data.type in {'CLIP_EDITOR'}:
             col.separator()
