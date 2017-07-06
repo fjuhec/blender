@@ -521,13 +521,24 @@ static void gpencil_add_stroke_shgroup(GpencilBatchCache *cache, DRWShadingGroup
 	short sthickness = gps->thickness + gpl->thickness;
 	if (sthickness > 0) {
 		if (cache->is_dirty) {
+			/* apply modifiers */
+			bGPDstroke *gps_mod;
+			gps_mod = MEM_dupallocN(gps);
+			gps_mod->points = MEM_dupallocN(gps->points);
+			gps_mod->triangles = MEM_dupallocN(gps->triangles);
+
 			gpencil_batch_cache_check_free_slots(gpd);
 			if ((gps->totpoints > 1) && (gps->palcolor->stroke_style != STROKE_STYLE_VOLUMETRIC)) {
-				cache->batch_stroke[cache->cache_idx] = DRW_gpencil_get_stroke_geom(gpf, gps, sthickness, ink);
+				cache->batch_stroke[cache->cache_idx] = DRW_gpencil_get_stroke_geom(gpf, gps_mod, sthickness, ink);
 			}
 			else {
-				cache->batch_stroke[cache->cache_idx] = DRW_gpencil_get_point_geom(gps, sthickness, ink);
+				cache->batch_stroke[cache->cache_idx] = DRW_gpencil_get_point_geom(gps_mod, sthickness, ink);
 			}
+
+			/* free modifier temp data */
+			MEM_SAFE_FREE(gps_mod->triangles);
+			MEM_SAFE_FREE(gps_mod->points);
+			MEM_SAFE_FREE(gps_mod);
 		}
 		DRW_shgroup_call_add(strokegrp, cache->batch_stroke[cache->cache_idx], gpf->viewmatrix);
 	}
