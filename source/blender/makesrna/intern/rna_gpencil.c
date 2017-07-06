@@ -136,25 +136,15 @@ static int rna_GPencilLayer_active_frame_editable(PointerRNA *ptr, const char **
 }
 
 static void rna_GPencilLayer_line_width_range(PointerRNA *ptr, int *min, int *max,
-                                              int *softmin, int *softmax)
+	int *softmin, int *softmax)
 {
 	bGPDlayer *gpl = ptr->data;
-	
-		/* From GP v2 this value is used to increase or decrease the thickness of the stroke */
-	if (gpl->flag & GP_LAYER_VOLUMETRIC) {
-		*min = -300;
-		*max = 300;
-		
-		*softmin = -100;
-		*softmax = 100;
-	}
-	else {
-		*min = -50;
-		*max = 50;
-		
-		*softmin = -50;
-		*softmax = 50;
-	}
+
+	*min = -300;
+	*max = 300;
+
+	*softmin = -100;
+	*softmax = 100;
 }
 
 /* set parent */
