@@ -1,17 +1,60 @@
 
-out vec4 FragColor;
-
 #ifdef VOLUMETRICS
+
+#define VOLUMETRIC_INTEGRATION_MAX_STEP 256
+#define VOLUMETRIC_SHADOW_MAX_STEP 128
+
+uniform int light_count;
+uniform vec2 volume_start_end;
+uniform vec4 volume_samples_clamp;
+
+#define volume_start                   volume_start_end.x
+#define volume_end                     volume_start_end.y
+
+#define volume_integration_steps       volume_samples_clamp.x
+#define volume_shadows_steps           volume_samples_clamp.y
+#define volume_sample_distribution     volume_samples_clamp.z
+#define volume_light_clamp             volume_samples_clamp.w
+
+#ifdef COLOR_TRANSMITTANCE
+layout(location = 0) out vec4 outScattering;
+layout(location = 1) out vec4 outTransmittance;
+#else
+out vec4 outScatteringTransmittance;
+#endif
+
+/* Warning: theses are not attributes, theses are global vars. */
+vec3 worldPosition = vec3(0.0);
+vec3 viewPosition = vec3(0.0);
+vec3 viewNormal = vec3(0.0);
 
 uniform sampler2D depthFull;
 
-void participating_media_properties(vec3 wpos, out vec3 absorption, out vec3 scattering, out float anisotropy)
+void participating_media_properties(vec3 wpos, out vec3 extinction, out vec3 scattering, out vec3 emission, out float anisotropy)
 {
+#ifndef VOLUME_HOMOGENEOUS
+	worldPosition = wpos;
+	viewPosition = (ViewMatrix * vec4(wpos, 1.0)).xyz; /* warning, Perf. */
+#endif
+
 	Closure cl = nodetree_exec();
 
-	absorption = cl.absorption;
 	scattering = cl.scatter;
+	emission = cl.emission;
 	anisotropy = cl.anisotropy;
+	extinction = max(vec3(1e-4), cl.absorption + cl.scatter);
+}
+
+vec3 participating_media_extinction(vec3 wpos)
+{
+#ifndef VOLUME_HOMOGENEOUS
+	worldPosition = wpos;
+	viewPosition = (ViewMatrix * vec4(wpos, 1.0)).xyz; /* warning, Perf. */
+#endif
+
+	Closure cl = nodetree_exec();
+
+	return max(vec3(1e-4), cl.absorption + cl.scatter);
 }
 
 float phase_function_isotropic()
@@ -21,9 +64,10 @@ float phase_function_isotropic()
 
 float phase_function(vec3 v, vec3 l, float g)
 {
-#if 1
+#ifndef VOLUME_ISOTROPIC /* TODO Use this flag when only isotropic closures are used */
 	/* Henyey-Greenstein */
 	float cos_theta = dot(v, l);
+	g = clamp(g, -1.0 + 1e-3, 1.0 - 1e-3);
 	float sqr_g = g * g;
 	return (1- sqr_g) / (4.0 * M_PI * pow(1 + sqr_g - 2 * g * cos_theta, 3.0 / 2.0));
 #else
@@ -31,23 +75,66 @@ float phase_function(vec3 v, vec3 l, float g)
 #endif
 }
 
-vec3 light_volume(LightData ld, vec4 l_vector, vec3 l_col)
+float light_volume(LightData ld, vec4 l_vector)
 {
+	float power;
 	float dist = max(1e-4, abs(l_vector.w - ld.l_radius));
-	return l_col * (4.0 * ld.l_radius * ld.l_radius * M_PI * M_PI) / (dist * dist);
+	/* TODO : Area lighting ? */
+	/* Removing Area Power. */
+	/* TODO : put this out of the shader. */
+	if (ld.l_type == AREA) {
+		power = 0.0962 * (ld.l_sizex * ld.l_sizey * 4.0f * M_PI);
+	}
+	else {
+		power = 0.0248 * (4.0 * ld.l_radius * ld.l_radius * M_PI * M_PI);
+	}
+	return min(power / (l_vector.w * l_vector.w), volume_light_clamp);
 }
 
-float find_next_step(float near, float far, float noise, int iter, int iter_count)
+vec3 irradiance_volumetric(vec3 wpos)
 {
-	const float lambda = 0.8f; /* TODO : Parameter */
+	IrradianceData ir_data = load_irradiance_cell(0, vec3(1.0));
+	vec3 irradiance = ir_data.cubesides[0] + ir_data.cubesides[1] + ir_data.cubesides[2];
+	ir_data = load_irradiance_cell(0, vec3(-1.0));
+	irradiance += ir_data.cubesides[0] + ir_data.cubesides[1] + ir_data.cubesides[2];
+	irradiance *= 0.16666666; /* 1/6 */
+	return irradiance;
+}
 
-	float progress = (float(iter) + noise) / float(iter_count);
+vec3 light_volume_shadow(LightData ld, vec3 ray_wpos, vec4 l_vector, vec3 s_extinction)
+{
+#ifdef VOLUME_SHADOW
 
-	float linear_split = mix(near, far, progress);
+#ifdef VOLUME_HOMOGENEOUS
+	/* Simple extinction */
+	return exp(-s_extinction * l_vector.w);
+#else
+	/* Heterogeneous volume shadows */
+	float dd = l_vector.w / volume_shadows_steps;
+	vec3 L = l_vector.xyz * l_vector.w;
+	vec3 shadow = vec3(1.0);
+	for (float s = 0.5; s < VOLUMETRIC_SHADOW_MAX_STEP && s < (volume_shadows_steps - 0.1); s += 1.0) {
+		vec3 pos = ray_wpos + L * (s / volume_shadows_steps);
+		vec3 s_extinction = participating_media_extinction(pos);
+		shadow *= exp(-s_extinction * dd);
+	}
+	return shadow;
+#endif /* VOLUME_HOMOGENEOUS */
+
+#else
+	return vec3(1.0);
+#endif /* VOLUME_SHADOW */
+}
+
+float find_next_step(float iter, float noise)
+{
+	float progress = (iter + noise) / volume_integration_steps;
+
+	float linear_split = mix(volume_start, volume_end, progress);
 
 	if (ProjectionMatrix[3][3] == 0.0) {
-		float exp_split = near * pow(far / near, progress);
-		return mix(linear_split, exp_split, lambda);
+		float exp_split = volume_start * pow(volume_end / volume_start, progress);
+		return mix(linear_split, exp_split, volume_sample_distribution);
 	}
 	else {
 		return linear_split;
@@ -81,31 +168,35 @@ void main()
 		? cameraPos
 		: (ViewMatrixInverse * vec4(get_view_space_from_depth(uv, 0.5), 1.0)).xyz;
 
+#ifdef VOLUME_HOMOGENEOUS
+	/* Put it out of the loop for homogeneous media. */
+	vec3 s_extinction, s_scattering, s_emission;
+	float s_anisotropy;
+	participating_media_properties(vec3(0.0), s_extinction, s_scattering, s_emission, s_anisotropy);
+#endif
+
 	/* Start from near clip. TODO make start distance an option. */
 	float rand = texture(utilTex, vec3(gl_FragCoord.xy / LUT_SIZE, 2.0)).r;
 	/* Less noisy but noticeable patterns, could work better with temporal AA. */
 	// float rand = (1.0 / 16.0) * float(((int(gl_FragCoord.x + gl_FragCoord.y) & 0x3) << 2) + (int(gl_FragCoord.x) & 0x3));
-	float near = get_view_z_from_depth(0.0);
-	float far  = get_view_z_from_depth(1.0);
-	float dist = near;
-	for (int i = 1; i < 64; ++i) {
-		float new_dist = find_next_step(near, far, rand, i, 64);
+	float dist = volume_start;
+	for (float i = 0.5; i < VOLUMETRIC_INTEGRATION_MAX_STEP && i < (volume_integration_steps - 0.1); ++i) {
+		float new_dist = max(max_z, find_next_step(rand, i));
 		float step = dist - new_dist; /* Marching step */
 		dist = new_dist;
 
 		vec3 ray_wpos = ray_origin + wdir_proj * dist;
 
-		/* Volume Sample */
-		vec3 s_absorption, s_scattering; /* mu_a, mu_s */
+#ifndef VOLUME_HOMOGENEOUS
+		vec3 s_extinction, s_scattering, s_emission;
 		float s_anisotropy;
-		participating_media_properties(ray_wpos, s_absorption, s_scattering, s_anisotropy);
-
-		vec3 s_extinction = max(vec3(1e-8), s_absorption + s_scattering); /* mu_t */
+		participating_media_properties(ray_wpos, s_extinction, s_scattering, s_emission, s_anisotropy);
+#endif
 
 		/* Evaluate each light */
-		vec3 Lscat = vec3(0.0);
+		vec3 Lscat = s_emission;
 
-#if 1 /* Lights */
+#ifdef VOLUME_LIGHTING /* Lights */
 		for (int i = 0; i < MAX_LIGHT && i < light_count; ++i) {
 			LightData ld = lights_data[i];
 
@@ -113,23 +204,16 @@ void main()
 			l_vector.xyz = ld.l_position - ray_wpos;
 			l_vector.w = length(l_vector.xyz);
 
-#if 1 /* Shadows & Spots */
 			float Vis = light_visibility(ld, ray_wpos, l_vector);
-#else
-			float Vis = 1.0;
-#endif
-			vec3 Li = light_volume(ld, l_vector, ld.l_color);
+
+			vec3 Li = ld.l_color * light_volume(ld, l_vector) * light_volume_shadow(ld, ray_wpos, l_vector, s_extinction);
 
 			Lscat += Li * Vis * s_scattering * phase_function(-wdir, l_vector.xyz / l_vector.w, s_anisotropy);
 		}
 #endif
 
 		/* Environment : Average color. */
-		IrradianceData ir_data = load_irradiance_cell(0, vec3(1.0));
-		Lscat += (ir_data.cubesides[0] + ir_data.cubesides[1] + ir_data.cubesides[2]) * 0.333333 * s_scattering * phase_function_isotropic();
-
-		ir_data = load_irradiance_cell(0, vec3(-1.0));
-		Lscat += (ir_data.cubesides[0] + ir_data.cubesides[1] + ir_data.cubesides[2]) * 0.333333 * s_scattering * phase_function_isotropic();
+		Lscat += irradiance_volumetric(wpos) * s_scattering * phase_function_isotropic();
 
 		/* Evaluate Scattering */
 		float s_len = wlen * step;
@@ -143,16 +227,23 @@ void main()
 		/* Evaluate transmittance to view independantely */
 		transmittance *= Tr;
 
-		if (dist < max_z)
+		if (dist <= max_z)
 			break;
 	}
 
+#ifdef COLOR_TRANSMITTANCE
+	outScattering = vec4(scattering, 1.0);
+	outTransmittance = vec4(transmittance, 1.0);
+#else
 	float mono_transmittance = dot(transmittance, vec3(1.0)) / 3.0;
 
-	FragColor = vec4(scattering, mono_transmittance);
+	outScatteringTransmittance = vec4(scattering, mono_transmittance);
+#endif
 }
 
 #else /* STEP_UPSAMPLE */
+
+out vec4 FragColor;
 
 uniform sampler2D depthFull;
 uniform sampler2D volumetricBuffer;

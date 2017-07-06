@@ -2469,7 +2469,11 @@ float hypot(float x, float y)
 
 void generated_from_orco(vec3 orco, out vec3 generated)
 {
+#ifdef VOLUMETRICS
+	generated = worldPosition;
+#else
 	generated = orco;
+#endif
 }
 
 int floor_to_int(float x)
@@ -2955,6 +2959,15 @@ void node_volume_scatter(vec4 color, float density, float anisotropy, out Closur
 #endif
 }
 
+void node_volume_absorption(vec4 color, float density, out Closure result)
+{
+#ifdef VOLUMETRICS
+	result = Closure((1.0 - color.rgb) * density, vec3(0.0), vec3(0.0), 0.0);
+#else
+	result = CLOSURE_DEFAULT;
+#endif
+}
+
 /* closures */
 
 void node_mix_shader(float fac, Closure shader1, Closure shader2, out Closure shader)
@@ -3059,7 +3072,11 @@ void node_geometry(
         out vec3 true_normal, out vec3 incoming, out vec3 parametric,
         out float backfacing, out float pointiness)
 {
+#ifdef EEVEE_ENGINE
+	position = worldPosition;
+#else
 	position = (toworld * vec4(I, 1.0)).xyz;
+#endif
 	normal = (toworld * vec4(N, 0.0)).xyz;
 	tangent_orco_z(orco, orco);
 	node_tangent(N, orco, objmat, toworld, tangent);

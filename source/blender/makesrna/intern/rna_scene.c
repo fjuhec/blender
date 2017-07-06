@@ -2650,6 +2650,15 @@ RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(motion_blur_enable)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(motion_blur_samples)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(motion_blur_shutter)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(volumetric_enable)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(volumetric_start)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(volumetric_end)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(volumetric_samples)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(volumetric_sample_distribution)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(volumetric_lights)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(volumetric_light_clamp)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(volumetric_shadows)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(volumetric_shadow_samples)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(volumetric_colored_transmittance)
 
 /* object engine */
 RNA_LAYER_MODE_OBJECT_GET_SET_BOOL(show_wire)
@@ -6224,6 +6233,76 @@ static void rna_def_scene_layer_engine_settings_eevee(BlenderRNA *brna)
 	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
 
+	prop = RNA_def_property(srna, "volumetric_start", PROP_FLOAT, PROP_DISTANCE);
+	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Eevee_volumetric_start_get",
+	                               "rna_LayerEngineSettings_Eevee_volumetric_start_set", NULL);
+	RNA_def_property_ui_text(prop, "Start", "Start distance of the volumetric effect");
+	RNA_def_property_range(prop, 1e-6f, FLT_MAX);
+	RNA_def_property_ui_range(prop, 0.001f, FLT_MAX, 10, 3);
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
+
+	prop = RNA_def_property(srna, "volumetric_end", PROP_FLOAT, PROP_DISTANCE);
+	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Eevee_volumetric_end_get",
+	                               "rna_LayerEngineSettings_Eevee_volumetric_end_set", NULL);
+	RNA_def_property_ui_text(prop, "End", "End distance of the volumetric effect");
+	RNA_def_property_range(prop, 1e-6f, FLT_MAX);
+	RNA_def_property_ui_range(prop, 0.001f, FLT_MAX, 10, 3);
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
+
+	prop = RNA_def_property(srna, "volumetric_samples", PROP_INT, PROP_NONE);
+	RNA_def_property_int_funcs(prop, "rna_LayerEngineSettings_Eevee_volumetric_samples_get",
+	                               "rna_LayerEngineSettings_Eevee_volumetric_samples_set", NULL);
+	RNA_def_property_ui_text(prop, "Samples", "Number of samples to compute volumetric effects");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_range(prop, 1, 256);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
+
+	prop = RNA_def_property(srna, "volumetric_sample_distribution", PROP_FLOAT, PROP_FACTOR);
+	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Eevee_volumetric_sample_distribution_get",
+	                               "rna_LayerEngineSettings_Eevee_volumetric_sample_distribution_set", NULL);
+	RNA_def_property_ui_text(prop, "Exponential Sampling", "Distribute more samples closer to the camera");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
+
+	prop = RNA_def_property(srna, "volumetric_lights", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_funcs(prop, "rna_LayerEngineSettings_Eevee_volumetric_lights_get",
+	                               "rna_LayerEngineSettings_Eevee_volumetric_lights_set");
+	RNA_def_property_ui_text(prop, "Volumetric Lighting", "Enable scene lamps interactions with volumetrics");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
+
+	prop = RNA_def_property(srna, "volumetric_light_clamp", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Eevee_volumetric_light_clamp_get",
+	                               "rna_LayerEngineSettings_Eevee_volumetric_light_clamp_set", NULL);
+	RNA_def_property_range(prop, 0.0f, FLT_MAX);
+	RNA_def_property_ui_text(prop, "Clamp", "Maximum light contribution, reducing noise");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
+
+	prop = RNA_def_property(srna, "volumetric_shadows", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_funcs(prop, "rna_LayerEngineSettings_Eevee_volumetric_shadows_get",
+	                               "rna_LayerEngineSettings_Eevee_volumetric_shadows_set");
+	RNA_def_property_ui_text(prop, "Volumetric Shadows", "Generate shadows from volumetric material (Very expensive)");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
+
+	prop = RNA_def_property(srna, "volumetric_shadow_samples", PROP_INT, PROP_NONE);
+	RNA_def_property_int_funcs(prop, "rna_LayerEngineSettings_Eevee_volumetric_shadow_samples_get",
+	                               "rna_LayerEngineSettings_Eevee_volumetric_shadow_samples_set", NULL);
+	RNA_def_property_range(prop, 1, 128);
+	RNA_def_property_ui_text(prop, "Volumetric Shadow Samples", "Number of samples to compute volumetric shadowing");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
+
+	prop = RNA_def_property(srna, "volumetric_colored_transmittance", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_funcs(prop, "rna_LayerEngineSettings_Eevee_volumetric_colored_transmittance_get",
+	                               "rna_LayerEngineSettings_Eevee_volumetric_colored_transmittance_set");
+	RNA_def_property_ui_text(prop, "Colored transmittance", "Enable wavelength dependant volumetric transmittance");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
+
 	/* Ambient Occlusion */
 	prop = RNA_def_property(srna, "gtao_enable", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_funcs(prop, "rna_LayerEngineSettings_Eevee_gtao_enable_get",
@@ -6243,7 +6322,7 @@ static void rna_def_scene_layer_engine_settings_eevee(BlenderRNA *brna)
 	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Eevee_gtao_factor_get", "rna_LayerEngineSettings_Eevee_gtao_factor_set", NULL);
 	RNA_def_property_ui_text(prop, "Factor", "Factor for ambient occlusion blending");
 	RNA_def_property_range(prop, 0, FLT_MAX);
-	RNA_def_property_ui_range(prop, 0.0, 1.0, 0.1, 2);
+	RNA_def_property_ui_range(prop, 0.0f, 1.0f, 0.1f, 2);
 	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_LayerCollectionEngineSettings_update");
 
