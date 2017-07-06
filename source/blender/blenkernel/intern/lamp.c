@@ -120,6 +120,8 @@ Lamp *BKE_lamp_add(Main *bmain, const char *name)
  * Only copy internal data of Lamp ID from source to already allocated/initialized destination.
  * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
  *
+ * WARNING! This function will not handle ID user count!
+ *
  * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
  */
 void BKE_lamp_copy_ex(Main *bmain, Lamp *la_dst, const Lamp *la_src, const int flag)
@@ -130,16 +132,14 @@ void BKE_lamp_copy_ex(Main *bmain, Lamp *la_dst, const Lamp *la_src, const int f
 		if (la_dst->mtex[a]) {
 			la_dst->mtex[a] = MEM_mallocN(sizeof(MTex), "copylamptex");
 			memcpy(la_dst->mtex[a], la_src->mtex[a], sizeof(MTex));
-			if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
-				id_us_plus((ID *)la_dst->mtex[a]->tex);
-			}
 		}
 	}
-	
+
 	la_dst->curfalloff = curvemapping_copy(la_src->curfalloff);
 
-	if (la_src->nodetree)
-		la_dst->nodetree = ntreeCopyTree(bmain, la_src->nodetree);  /* XXX TODO Replace this! */
+	if (la_src->nodetree) {
+		BKE_id_copy_ex(bmain, (ID *)la_src->nodetree, (ID **)&la_dst->nodetree, flag, false);
+	}
 
 	if ((flag & LIB_ID_COPY_NO_PREVIEW) != 1) {
 		BKE_previewimg_id_copy(&la_dst->id, &la_src->id);

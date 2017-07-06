@@ -1104,12 +1104,16 @@ void BKE_object_transform_copy(Object *ob_tar, const Object *ob_src)
  * Only copy internal data of Object ID from source to already allocated/initialized destination.
  * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
  *
+ * WARNING! This function will not handle ID user count!
+ *
  * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
  */
 void BKE_object_copy_ex(Main *UNUSED(bmain), Object *ob_dst, const Object *ob_src, const int flag)
 {
 	ModifierData *md;
-	int a;
+
+	/* We never handle usercount here for own data. */
+	const int flag_subdata = flag | LIB_ID_COPY_NO_USER_REFCOUNT;
 
 	if (ob_src->totcol) {
 		ob_dst->mat = MEM_dupallocN(ob_src->mat);
@@ -1127,53 +1131,39 @@ void BKE_object_copy_ex(Main *UNUSED(bmain), Object *ob_dst, const Object *ob_sr
 	for (md = ob_src->modifiers.first; md; md = md->next) {
 		ModifierData *nmd = modifier_new(md->type);
 		BLI_strncpy(nmd->name, md->name, sizeof(nmd->name));
-		modifier_copyData_ex(md, nmd, flag);
+		modifier_copyData_ex(md, nmd, flag_subdata);
 		BLI_addtail(&ob_dst->modifiers, nmd);
 	}
 
 	BLI_listbase_clear(&ob_dst->prop);
 	BKE_bproperty_copy_list(&ob_dst->prop, &ob_src->prop);
 
-	BKE_sca_logic_copy(ob_dst, ob_src, flag);
+	BKE_sca_logic_copy(ob_dst, ob_src, flag_subdata);
 
 	if (ob_src->pose) {
-		copy_object_pose(ob_dst, ob_src, flag);
+		copy_object_pose(ob_dst, ob_src, flag_subdata);
 		/* backwards compat... non-armatures can get poses in older files? */
 		if (ob_src->type == OB_ARMATURE)
 			BKE_pose_rebuild(ob_dst, ob_dst->data);
 	}
 	defgroup_copy_list(&ob_dst->defbase, &ob_src->defbase);
-	BKE_constraints_copy_ex(&ob_dst->constraints, &ob_src->constraints, flag, true);
+	BKE_constraints_copy_ex(&ob_dst->constraints, &ob_src->constraints, flag_subdata, true);
 
 	ob_dst->mode = OB_MODE_OBJECT;
 	ob_dst->sculpt = NULL;
 
-	/* increase user numbers */
-	if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
-		id_us_plus((ID *)ob_dst->data);
-		id_us_plus((ID *)ob_dst->poselib);
-		id_us_plus((ID *)ob_dst->gpd);
-		id_us_plus((ID *)ob_dst->dup_group);
-
-		for (a = 0; a < ob_dst->totcol; a++) {
-			id_us_plus((ID *)ob_dst->mat[a]);
-		}
-	}
-	
 	if (ob_src->pd) {
 		ob_dst->pd = MEM_dupallocN(ob_src->pd);
-		if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
-			id_us_plus((ID *)ob_dst->pd->tex);
-		}
-		if (ob_dst->pd->rng)
+		if (ob_dst->pd->rng) {
 			ob_dst->pd->rng = MEM_dupallocN(ob_src->pd->rng);
+		}
 	}
-	ob_dst->soft = copy_softbody(ob_src->soft, flag);
-	ob_dst->bsoft = copy_bulletsoftbody(ob_src->bsoft, flag);
-	ob_dst->rigidbody_object = BKE_rigidbody_copy_object(ob_src, flag);
-	ob_dst->rigidbody_constraint = BKE_rigidbody_copy_constraint(ob_src, flag);
+	ob_dst->soft = copy_softbody(ob_src->soft, flag_subdata);
+	ob_dst->bsoft = copy_bulletsoftbody(ob_src->bsoft, flag_subdata);
+	ob_dst->rigidbody_object = BKE_rigidbody_copy_object(ob_src, flag_subdata);
+	ob_dst->rigidbody_constraint = BKE_rigidbody_copy_constraint(ob_src, flag_subdata);
 
-	BKE_object_copy_particlesystems(ob_dst, ob_src, flag);
+	BKE_object_copy_particlesystems(ob_dst, ob_src, flag_subdata);
 	
 	ob_dst->derivedDeform = NULL;
 	ob_dst->derivedFinal = NULL;
@@ -1183,7 +1173,7 @@ void BKE_object_copy_ex(Main *UNUSED(bmain), Object *ob_dst, const Object *ob_sr
 
 	ob_dst->mpath = NULL;
 
-	copy_object_lod(ob_dst, ob_src, flag);
+	copy_object_lod(ob_dst, ob_src, flag_subdata);
 	
 	/* Do not copy runtime curve data. */
 	ob_dst->curve_cache = NULL;

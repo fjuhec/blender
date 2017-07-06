@@ -526,10 +526,6 @@ static int id_copy_libmanagement_cb(void *user_data, ID *id_self, ID **id_pointe
 /* XXX TODO remove test thing, *all* IDs should be copyable that way! */
 bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, const bool test)
 {
-	/* We handle usercount ousrselves in post-copy processing.
-	 * Ideally, usercount should never be handled by IDType-specific copying code, but for now let's allow it... */
-	const int flag_idtype_copy = flag | LIB_ID_COPY_NO_USER_REFCOUNT;
-
 #define ITEMS_IMPLEMENTED ID_OB, ID_ME, ID_CU, ID_MB, ID_LT, ID_LA, ID_SPK, ID_CA, ID_KE, ID_AR, ID_NT
 
 	if (!test) {
@@ -541,16 +537,16 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 
 	switch ((ID_Type)GS(id->name)) {
 		case ID_OB:
-			if (!test) BKE_object_copy_ex(bmain, (Object *)*r_newid, (Object *)id, flag_idtype_copy);
+			if (!test) BKE_object_copy_ex(bmain, (Object *)*r_newid, (Object *)id, flag);
 			break;
 		case ID_ME:
-			if (!test) BKE_mesh_copy_ex(bmain, (Mesh *)*r_newid, (Mesh *)id, flag_idtype_copy);
+			if (!test) BKE_mesh_copy_ex(bmain, (Mesh *)*r_newid, (Mesh *)id, flag);
 			break;
 		case ID_CU:
-			if (!test) BKE_curve_copy_ex(bmain, (Curve *)*r_newid, (Curve *)id, flag_idtype_copy);
+			if (!test) BKE_curve_copy_ex(bmain, (Curve *)*r_newid, (Curve *)id, flag);
 			break;
 		case ID_MB:
-			if (!test) BKE_mball_copy_ex(bmain, (MetaBall *)*r_newid, (MetaBall *)id, flag_idtype_copy);
+			if (!test) BKE_mball_copy_ex(bmain, (MetaBall *)*r_newid, (MetaBall *)id, flag);
 			break;
 		case ID_MA:
 			if (!test) *r_newid = (ID *)BKE_material_copy(bmain, (Material *)id);
@@ -562,19 +558,19 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 			if (!test) *r_newid = (ID *)BKE_image_copy(bmain, (Image *)id);
 			break;
 		case ID_LT:
-			if (!test) BKE_lattice_copy_ex(bmain, (Lattice *)*r_newid, (Lattice *)id, flag_idtype_copy);
+			if (!test) BKE_lattice_copy_ex(bmain, (Lattice *)*r_newid, (Lattice *)id, flag);
 			break;
 		case ID_LA:
-			if (!test) BKE_lamp_copy_ex(bmain, (Lamp *)*r_newid, (Lamp *)id, flag_idtype_copy);
+			if (!test) BKE_lamp_copy_ex(bmain, (Lamp *)*r_newid, (Lamp *)id, flag);
 			break;
 		case ID_SPK:
-			if (!test) BKE_speaker_copy_ex(bmain, (Speaker *)*r_newid, (Speaker *)id, flag_idtype_copy);
+			if (!test) BKE_speaker_copy_ex(bmain, (Speaker *)*r_newid, (Speaker *)id, flag);
 			break;
 		case ID_CA:
-			if (!test) BKE_camera_copy_ex(bmain, (Camera *)*r_newid, (Camera *)id, flag_idtype_copy);
+			if (!test) BKE_camera_copy_ex(bmain, (Camera *)*r_newid, (Camera *)id, flag);
 			break;
 		case ID_KE:
-			if (!test) BKE_key_copy_ex(bmain, (Key *)*r_newid, (Key *)id, flag_idtype_copy);
+			if (!test) BKE_key_copy_ex(bmain, (Key *)*r_newid, (Key *)id, flag);
 			break;
 		case ID_WO:
 			if (!test) *r_newid = (ID *)BKE_world_copy(bmain, (World *)id);
@@ -586,13 +582,13 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 			if (!test) *r_newid = (ID *)BKE_group_copy(bmain, (Group *)id);
 			break;
 		case ID_AR:
-			if (!test) BKE_armature_copy_ex(bmain, (bArmature *)*r_newid, (bArmature *)id, flag_idtype_copy);
+			if (!test) BKE_armature_copy_ex(bmain, (bArmature *)*r_newid, (bArmature *)id, flag);
 			break;
 		case ID_AC:
 			if (!test) *r_newid = (ID *)BKE_action_copy(bmain, (bAction *)id);
 			break;
 		case ID_NT:
-			if (!test) BKE_node_tree_copy_ex(bmain, (bNodeTree *)*r_newid, (bNodeTree *)id, flag_idtype_copy);
+			if (!test) BKE_node_tree_copy_ex(bmain, (bNodeTree *)*r_newid, (bNodeTree *)id, flag);
 			break;
 		case ID_BR:
 			if (!test) *r_newid = (ID *)BKE_brush_copy(bmain, (Brush *)id);
@@ -639,20 +635,6 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 			/* Update ID refcount, remap pointers to self in new ID. */
 			struct IDCopyLibManagementData data = {.id_src=id, .flag=flag};
 			BKE_library_foreach_ID_link(bmain, *r_newid, id_copy_libmanagement_cb, &data, IDWALK_NOP);
-
-			/* Grrrrrrrrrrrrr..............
-			 * Since we call IDType-spefici copying logic without 'userrefcount' flag, we need to redo this here.
-			 * Note/TODO: maybe we'll make IDType copying functions 'private' to be only used by this one,
-			 * in which case we could solve this issue in a better and nicer way. */
-			ID *key = (ID *)BKE_key_from_id(*r_newid);
-			if (key) {
-				data.id_src = (ID *)BKE_key_from_id((ID *)id);
-				BKE_library_foreach_ID_link(bmain, key, id_copy_libmanagement_cb, &data, IDWALK_NOP);
-				if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
-					key->tag &= ~LIB_TAG_FREE_NO_USER_REFCOUNT;
-				}
-			}
-			/* TODO: most likely same for nodes too? */
 
 			if ((flag & LIB_ID_COPY_NO_MAIN) == 0) {
 				BKE_id_copy_ensure_local(bmain, id, *r_newid);
@@ -1174,6 +1156,11 @@ void BKE_libblock_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int fla
 {
 	ID *idn = *r_newid;
 
+	/* Grrrrrrrrr... Not adding 'root' nodetrees to bmain.... grrrrrrrrrrrrrrrrrrrr! */
+	/* This is taken from original ntree copy code, might be weak actually? */
+	const bool use_nodetree_alloc_exception = ((GS(id->name) == ID_NT) && (bmain != NULL) &&
+	                                           (BLI_findindex(&bmain->nodetree, id) < 0));
+
 	BLI_assert((flag & LIB_ID_COPY_NO_MAIN) != 0 || bmain != NULL);
 	BLI_assert((flag & LIB_ID_COPY_NO_MAIN) != 0 || (flag & LIB_ID_COPY_NO_ALLOCATE) == 0);
 	BLI_assert((flag & LIB_ID_COPY_NO_MAIN) == 0 || (flag & LIB_ID_COPY_NO_USER_REFCOUNT) != 0);
@@ -1185,7 +1172,7 @@ void BKE_libblock_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int fla
 		idn->us = 1;
 		/* TODO Do we want/need to copy more from ID struct itself? */
 	}
-	else if ((flag & LIB_ID_COPY_NO_MAIN) != 0) {
+	else if ((flag & LIB_ID_COPY_NO_MAIN) != 0 || use_nodetree_alloc_exception) {
 		/* Allocate r_newid but do not register it in Main database. */
 		idn = BKE_libblock_alloc_notest(GS(id->name));
 		BLI_strncpy(idn->name, id->name, sizeof(idn->name));
@@ -1198,7 +1185,7 @@ void BKE_libblock_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int fla
 
 	const size_t id_len = BKE_libblock_get_alloc_info(GS(idn->name), NULL);
 	const size_t id_offset = sizeof(ID);
-	if ((int)id_len - (int)id_offset > 0) { /* signed to allow neg result */
+	if ((int)id_len - (int)id_offset > 0) { /* signed to allow neg result */ /* XXX ????? */
 		const char *cp = (const char *)id;
 		char *cpn = (char *)idn;
 

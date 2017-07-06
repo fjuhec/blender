@@ -505,21 +505,15 @@ Mesh *BKE_mesh_add(Main *bmain, const char *name)
  * Only copy internal data of Mesh ID from source to already allocated/initialized destination.
  * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
  *
+ * WARNING! This function will not handle ID user count!
+ *
  * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
  */
 void BKE_mesh_copy_ex(Main *bmain, Mesh *me_dst, const Mesh *me_src, const int flag)
 {
-	int a;
 	const bool do_tessface = ((me_src->totface != 0) && (me_src->totpoly == 0)); /* only do tessface if we have no polys */
-	
-	me_dst->mat = MEM_dupallocN(me_src->mat);
 
-	if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
-		for (a = 0; a < me_dst->totcol; a++) {
-			id_us_plus((ID *)me_dst->mat[a]);
-		}
-		id_us_plus((ID *)me_dst->texcomesh);
-	}
+	me_dst->mat = MEM_dupallocN(me_src->mat);
 
 	CustomData_copy(&me_src->vdata, &me_dst->vdata, CD_MASK_MESH, CD_DUPLICATE, me_dst->totvert);
 	CustomData_copy(&me_src->edata, &me_dst->edata, CD_MASK_MESH, CD_DUPLICATE, me_dst->totedge);

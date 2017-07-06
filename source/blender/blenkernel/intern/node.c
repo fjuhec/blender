@@ -1215,13 +1215,18 @@ bNodeTree *ntreeAddTree(Main *bmain, const char *name, const char *idname)
  * Only copy internal data of NodeTree ID from source to already allocated/initialized destination.
  * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
  *
+ * WARNING! This function will not handle ID user count!
+ *
  * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
  */
 void BKE_node_tree_copy_ex(Main *UNUSED(bmain), bNodeTree *ntree_dst, const bNodeTree *ntree_src, const int flag)
 {
-	bNode *node_src, *node_src_last;
+	bNode *node_src;
 	bNodeSocket *sock_dst, *sock_src;
 	bNodeLink *link_dst;
+
+	/* We never handle usercount here for own data. */
+	const int flag_subdata = flag | LIB_ID_COPY_NO_USER_REFCOUNT;
 
 	if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
 		id_us_plus((ID *)ntree_dst->gpd);
@@ -1236,7 +1241,7 @@ void BKE_node_tree_copy_ex(Main *UNUSED(bmain), bNodeTree *ntree_dst, const bNod
 	BLI_listbase_clear(&ntree_dst->links);
 
 	for (node_src = ntree_src->nodes.first; node_src; node_src = node_src->next) {
-		BKE_node_copy_ex(ntree_dst, node_src, flag);
+		BKE_node_copy_ex(ntree_dst, node_src, flag_subdata);
 	}
 
 	/* copy links */
@@ -1258,7 +1263,7 @@ void BKE_node_tree_copy_ex(Main *UNUSED(bmain), bNodeTree *ntree_dst, const bNod
 	     sock_dst != NULL;
 	     sock_dst = sock_dst->next, sock_src = sock_src->next)
 	{
-		node_socket_copy(sock_dst, sock_src, flag);
+		node_socket_copy(sock_dst, sock_src, flag_subdata);
 	}
 
 	BLI_duplicatelist(&ntree_dst->outputs, &ntree_src->outputs);
@@ -1266,7 +1271,7 @@ void BKE_node_tree_copy_ex(Main *UNUSED(bmain), bNodeTree *ntree_dst, const bNod
 	     sock_dst != NULL;
 	     sock_dst = sock_dst->next, sock_src = sock_src->next)
 	{
-		node_socket_copy(sock_dst, sock_src, flag);
+		node_socket_copy(sock_dst, sock_src, flag_subdata);
 	}
 
 	/* copy preview hash */

@@ -191,21 +191,16 @@ Curve *BKE_curve_add(Main *bmain, const char *name, int type)
  * Only copy internal data of Curve ID from source to already allocated/initialized destination.
  * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
  *
+ * WARNING! This function will not handle ID user count!
+ *
  * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
  */
 void BKE_curve_copy_ex(Main *bmain, Curve *cu_dst, const Curve *cu_src, const int flag)
 {
-	int a;
-
 	BLI_listbase_clear(&cu_dst->nurb);
 	BKE_nurbList_duplicate(&(cu_dst->nurb), &(cu_src->nurb));
 
 	cu_dst->mat = MEM_dupallocN(cu_src->mat);
-	if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
-		for (a = 0; a < cu_dst->totcol; a++) {
-			id_us_plus((ID *)cu_dst->mat[a]);
-		}
-	}
 
 	cu_dst->str = MEM_dupallocN(cu_src->str);
 	cu_dst->strinfo = MEM_dupallocN(cu_src->strinfo);
@@ -218,13 +213,6 @@ void BKE_curve_copy_ex(Main *bmain, Curve *cu_dst, const Curve *cu_src, const in
 
 	cu_dst->editnurb = NULL;
 	cu_dst->editfont = NULL;
-
-	if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
-		id_us_plus((ID *)cu_dst->vfont);
-		id_us_plus((ID *)cu_dst->vfontb);
-		id_us_plus((ID *)cu_dst->vfonti);
-		id_us_plus((ID *)cu_dst->vfontbi);
-	}
 }
 
 Curve *BKE_curve_copy(Main *bmain, const Curve *cu)

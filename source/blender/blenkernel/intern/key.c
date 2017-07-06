@@ -155,6 +155,8 @@ Key *BKE_key_add(ID *id)    /* common function */
  * Only copy internal data of ShapeKey ID from source to already allocated/initialized destination.
  * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
  *
+ * WARNING! This function will not handle ID user count!
+ *
  * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
  */
 void BKE_key_copy_ex(Main *UNUSED(bmain), Key *key_dst, const Key *key_src, const int UNUSED(flag))

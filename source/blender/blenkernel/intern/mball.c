@@ -107,20 +107,15 @@ MetaBall *BKE_mball_add(Main *bmain, const char *name)
  * Only copy internal data of MetaBall ID from source to already allocated/initialized destination.
  * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
  *
+ * WARNING! This function will not handle ID user count!
+ *
  * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
  */
-void BKE_mball_copy_ex(Main *UNUSED(bmain), MetaBall *mb_dst, const MetaBall *mb_src, const int flag)
+void BKE_mball_copy_ex(Main *UNUSED(bmain), MetaBall *mb_dst, const MetaBall *mb_src, const int UNUSED(flag))
 {
-	int a;
-
 	BLI_duplicatelist(&mb_dst->elems, &mb_src->elems);
 
 	mb_dst->mat = MEM_dupallocN(mb_src->mat);
-	if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
-		for (a = 0; a < mb_dst->totcol; a++) {
-			id_us_plus((ID *)mb_dst->mat[a]);
-		}
-	}
 
 	mb_dst->editelems = NULL;
 	mb_dst->lastelem = NULL;

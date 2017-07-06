@@ -180,12 +180,17 @@ static void copy_bonechildren(
  * Only copy internal data of Armature ID from source to already allocated/initialized destination.
  * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
  *
+ * WARNING! This function will not handle ID user count!
+ *
  * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
  */
-void BKE_armature_copy_ex(Main *bmain, bArmature *arm_dst, const bArmature *arm_src, const int flag)
+void BKE_armature_copy_ex(Main *UNUSED(bmain), bArmature *arm_dst, const bArmature *arm_src, const int flag)
 {
 	Bone *bone_src, *bone_dst;
 	Bone *bone_dst_act = NULL;
+
+	/* We never handle usercount here for own data. */
+	const int flag_subdata = flag | LIB_ID_COPY_NO_USER_REFCOUNT;
 
 	BLI_duplicatelist(&arm_dst->bonebase, &arm_src->bonebase);
 
@@ -193,7 +198,7 @@ void BKE_armature_copy_ex(Main *bmain, bArmature *arm_dst, const bArmature *arm_
 	bone_dst = arm_dst->bonebase.first;
 	for (bone_src = arm_src->bonebase.first; bone_src; bone_src = bone_src->next) {
 		bone_dst->parent = NULL;
-		copy_bonechildren(bone_dst, bone_src, arm_src->act_bone, &bone_dst_act, flag);
+		copy_bonechildren(bone_dst, bone_src, arm_src->act_bone, &bone_dst_act, flag_subdata);
 		bone_dst = bone_dst->next;
 	}
 
