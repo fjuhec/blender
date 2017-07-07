@@ -135,10 +135,9 @@ class VIEW3D_HT_header(Header):
             if ob.grease_pencil.is_stroke_paint_mode:
                 row.separator()
                 row.prop(toolsettings, "gpencil_stroke_placement_view3d", text='')
-                if toolsettings.gpencil_stroke_placement_view3d == 'CURSOR':
+                if toolsettings.gpencil_stroke_placement_view3d in('ORIGIN', 'CURSOR'):
                     row.separator()
                     row.prop(toolsettings.gpencil_sculpt, "lockaxis", text='')
-                    row.prop(toolsettings, "use_gpencil_3dcursor")
 
                 if toolsettings.gpencil_stroke_placement_view3d in ('SURFACE', 'STROKE'):
                     row.prop(toolsettings, "use_gpencil_stroke_endpoints")

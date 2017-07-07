@@ -1377,6 +1377,8 @@ static bool gp_session_initdata(bContext *C, tGPsdata *p)
 			if ((!obact) || (obact->type != OB_GPENCIL)) {
 				obact = ED_add_gpencil_object(C, p->scene, cur);
 			}
+			/* set grease pencil mode to object */
+			ts->gpencil_src = GP_TOOL_SOURCE_OBJECT;
 			break;
 		}
 		case SPACE_NODE:

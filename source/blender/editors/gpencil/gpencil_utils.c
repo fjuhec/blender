@@ -1272,7 +1272,7 @@ void ED_gp_get_drawing_reference(ToolSettings *ts, View3D *v3d, Scene *scene, Ob
 					}
 				}
 				/* use cursor */
-				if (ts->gpencil_flags & GP_TOOL_FLAG_USE_3DCURSOR) {
+				if (align_flag & GP_PROJECT_CURSOR) {
 					/* use 3D-cursor */
 					copy_v3_v3(vec, fp);
 				}

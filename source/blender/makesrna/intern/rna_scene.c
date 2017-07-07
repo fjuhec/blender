@@ -3506,7 +3506,8 @@ static void rna_def_tool_settings(BlenderRNA  *brna)
 	};
 	
 	static EnumPropertyItem gpencil_stroke_placement_items[] = {
-		{GP_PROJECT_VIEWSPACE, "CURSOR", ICON_CURSOR, "Origin", "Draw stroke at the Object origin or 3D cursor"},
+		{GP_PROJECT_VIEWSPACE, "ORIGIN", ICON_ROTATECOLLECTION, "Origin", "Draw stroke at Object origin"},
+		{GP_PROJECT_VIEWSPACE | GP_PROJECT_CURSOR, "CURSOR", ICON_CURSOR, "3D Cursor", "Draw stroke at 3D cursor location" },
 		// {0, "VIEW", ICON_VISIBLE_IPO_ON, "View", "Stick stroke to the view "}, /* weird, GP_PROJECT_VIEWALIGN is inverted */
 		{GP_PROJECT_VIEWSPACE | GP_PROJECT_DEPTH_VIEW, "SURFACE", ICON_FACESEL, "Surface", "Stick stroke to surfaces"},
 		//{GP_PROJECT_VIEWSPACE | GP_PROJECT_DEPTH_STROKE, "STROKE", ICON_GREASEPENCIL, "Stroke", "Stick stroke to other strokes"},
@@ -3742,12 +3743,6 @@ static void rna_def_tool_settings(BlenderRNA  *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "gpencil_flags", GP_TOOL_FLAG_PAINT_ONBACK);
 	RNA_def_property_ui_text(prop, "Draw Strokes on Back",
 		"When draw new strokes, the new stroke is drawn below of all strokes in the layer");
-	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
-
-	prop = RNA_def_property(srna, "use_gpencil_3dcursor", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "gpencil_flags", GP_TOOL_FLAG_USE_3DCURSOR);
-	RNA_def_property_ui_text(prop, "Use 3D Cursor",
-		"When draw new strokes, use 3D cursor location as origin");
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 
 	prop = RNA_def_property(srna, "grease_pencil_source", PROP_ENUM, PROP_NONE);
