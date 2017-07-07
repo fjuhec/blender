@@ -223,9 +223,38 @@ class GreasePencilStrokeEditPanel:
             layout.operator_menu_enum("gpencil.reproject", text="Reproject Strokes...", property="type")
 
 
+class GreasePencilAnimationPanel:
+    bl_space_type = 'VIEW_3D'
+    bl_label = "Animation"
+    bl_category = "Animation"
+    bl_region_type = 'TOOLS'
+
+    @classmethod
+    def poll(cls, context):
+        if context.gpencil_data is None:
+            return False
+        elif context.space_data.type != 'VIEW_3D':
+            return False
+        elif context.object.mode == 'OBJECT':
+            return False
+
+        return True
+
+    @staticmethod
+    def draw(self, context):
+        layout = self.layout
+
+        col = layout.column(align=True)
+        col.operator("gpencil.blank_frame_add", icon='NEW')
+        col.operator("gpencil.active_frames_delete_all", icon='X', text="Delete Frame(s)")
+
+        col.separator()
+        col.prop(context.tool_settings, "use_gpencil_additive_drawing", text="Additive Drawing")
+
+
 class GreasePencilInterpolatePanel:
     bl_space_type = 'VIEW_3D'
-    bl_label = "Grease Pencil"
+    bl_label = "Interpolate Strokes"
     bl_category = "Animation"
     bl_region_type = 'TOOLS'
 
@@ -236,50 +265,42 @@ class GreasePencilInterpolatePanel:
         elif context.space_data.type != 'VIEW_3D':
             return False
 
-        return True
+        gpd = context.gpencil_data
+
+        return bool(context.editable_gpencil_strokes) and bool(gpd.use_stroke_edit_mode)
 
     @staticmethod
     def draw(self, context):
         layout = self.layout
         settings = context.tool_settings.gpencil_interpolate
-        gpd = context.gpencil_data
-        is_edit = bool(context.editable_gpencil_strokes) and bool(gpd.use_stroke_edit_mode)
 
         col = layout.column(align=True)
-        col.operator("gpencil.blank_frame_add", icon='NEW')
-        col.operator("gpencil.active_frames_delete_all", icon='X', text="Delete Frame(s)")
+        col.label("Interpolate Strokes")
+        col.operator("gpencil.interpolate", text="Interpolate")
+        col.operator("gpencil.interpolate_sequence", text="Sequence")
+        col.operator("gpencil.interpolate_reverse", text="Remove Breakdowns")
 
-        col.separator()
-        col.prop(context.tool_settings, "use_gpencil_additive_drawing", text="Additive Drawing")
+        col = layout.column(align=True)
+        col.label(text="Options:")
+        col.prop(settings, "interpolate_all_layers")
+        col.prop(settings, "interpolate_selected_only")
 
-        if is_edit is True:
-            col = layout.column(align=True)
-            col.label("Interpolate Strokes")
-            col.operator("gpencil.interpolate", text="Interpolate")
-            col.operator("gpencil.interpolate_sequence", text="Sequence")
-            col.operator("gpencil.interpolate_reverse", text="Remove Breakdowns")
+        col = layout.column(align=True)
+        col.label(text="Sequence Options:")
+        col.prop(settings, "type")
+        if settings.type == 'CUSTOM':
+            box = layout.box()
+            # TODO: Options for loading/saving curve presets?
+            box.template_curve_mapping(settings, "interpolation_curve", brush=True)
+        elif settings.type != 'LINEAR':
+            col.prop(settings, "easing")
 
-            col = layout.column(align=True)
-            col.label(text="Options:")
-            col.prop(settings, "interpolate_all_layers")
-            col.prop(settings, "interpolate_selected_only")
-
-            col = layout.column(align=True)
-            col.label(text="Sequence Options:")
-            col.prop(settings, "type")
-            if settings.type == 'CUSTOM':
-                box = layout.box()
-                # TODO: Options for loading/saving curve presets?
-                box.template_curve_mapping(settings, "interpolation_curve", brush=True)
-            elif settings.type != 'LINEAR':
-                col.prop(settings, "easing")
-
-                if settings.type == 'BACK':
-                    layout.prop(settings, "back")
-                elif setting.type == 'ELASTIC':
-                    sub = layout.column(align=True)
-                    sub.prop(settings, "amplitude")
-                    sub.prop(settings, "period")
+            if settings.type == 'BACK':
+                layout.prop(settings, "back")
+            elif setting.type == 'ELASTIC':
+                sub = layout.column(align=True)
+                sub.prop(settings, "amplitude")
+                sub.prop(settings, "period")
 
 
 class GreasePencilBrushPanel:

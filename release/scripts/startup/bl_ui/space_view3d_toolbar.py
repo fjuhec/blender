@@ -23,6 +23,7 @@ from bpy.types import Menu, Panel, UIList
 from bl_ui.properties_grease_pencil_common import (
         GreasePencilDrawingToolsPanel,
         GreasePencilStrokeEditPanel,
+        GreasePencilAnimationPanel,
         GreasePencilInterpolatePanel,
         GreasePencilStrokeSculptPanel,
         GreasePencilBrushPanel,
@@ -269,6 +270,13 @@ class VIEW3D_PT_tools_animation(View3DPanel, Panel):
     bl_category = "Animation"
     bl_context = "objectmode"
     bl_label = "Animation"
+
+    @classmethod
+    def poll(cls, context):
+        if context.active_object and context.active_object.mode in ('GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT'):
+            return False
+        else:
+            return True
 
     def draw(self, context):
         layout = self.layout
@@ -1986,6 +1994,10 @@ class VIEW3D_PT_tools_grease_pencil_edit(GreasePencilStrokeEditPanel, Panel):
     bl_space_type = 'VIEW_3D'
 
 
+# Grease Pencil stroke animation
+class VIEW3D_PT_tools_grease_pencil_animation(GreasePencilAnimationPanel, Panel):
+    bl_space_type = 'VIEW_3D'
+
 # Grease Pencil stroke interpolation tools
 class VIEW3D_PT_tools_grease_pencil_interpolate(GreasePencilInterpolatePanel, Panel):
     bl_space_type = 'VIEW_3D'
@@ -2032,7 +2044,6 @@ class VIEW3D_PT_tools_history(View3DPanel, Panel):
 
 classes = (
     VIEW3D_PT_tools_grease_pencil_edit,
-    VIEW3D_PT_tools_grease_pencil_interpolate,
     VIEW3D_PT_tools_grease_pencil_sculpt,
     VIEW3D_PT_tools_grease_pencil_brush,
     VIEW3D_PT_tools_grease_pencil_brushcurves,
@@ -2042,6 +2053,8 @@ classes = (
     VIEW3D_PT_tools_add_object,
     VIEW3D_PT_tools_relations,
     VIEW3D_PT_tools_animation,
+    VIEW3D_PT_tools_grease_pencil_animation,
+    VIEW3D_PT_tools_grease_pencil_interpolate,
     VIEW3D_PT_tools_rigid_body,
     VIEW3D_PT_tools_transform_mesh,
     VIEW3D_PT_tools_meshedit,
