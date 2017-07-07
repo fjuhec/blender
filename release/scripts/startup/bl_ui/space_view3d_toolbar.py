@@ -1167,6 +1167,10 @@ class VIEW3D_PT_tools_brush(Panel, View3DPaintPanel):
             col.separator()
             col.prop(brush, "vertex_tool", text="Blend")
             col.prop(brush,"use_accumulate")
+            col.prop(brush,"use_alpha_vpaint")
+            sub = col.column()
+            sub.active = brush.use_alpha_vpaint
+            sub.prop(brush, "alpha_vpaint", text="Alpha", slider=True)
 
             col.separator()
             col.template_ID(settings, "palette", new="palette.new")

@@ -1118,6 +1118,13 @@ static void rna_def_brush(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Blur Mode", "");
 	RNA_def_property_update(prop, 0, "rna_Brush_update");
 
+	prop = RNA_def_property(srna, "alpha_vpaint", PROP_INT, PROP_NONE);
+	RNA_def_property_range(prop, 0, 255);
+	RNA_def_property_int_sdna(prop, NULL, "alpha_paint");
+	RNA_def_property_range(prop, 0, 255);
+	RNA_def_property_ui_text(prop, "Alpha", "Alpha value");
+	RNA_def_property_update(prop, 0, "rna_Brush_update");
+	
 	/* flag */
 	prop = RNA_def_property(srna, "use_airbrush", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", BRUSH_AIRBRUSH);
@@ -1235,6 +1242,11 @@ static void rna_def_brush(BlenderRNA *brna)
 	RNA_def_property_ui_icon(prop, ICON_UNLOCKED, true);
 	RNA_def_property_ui_text(prop, "Use Automatic Strength Adjustment",
 	                         "Automatically adjust strength to give consistent results for different spacings");
+	RNA_def_property_update(prop, 0, "rna_Brush_update");
+
+	prop = RNA_def_property(srna, "use_alpha_vpaint", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", BRUSH_ALPHA_VPAINT);
+	RNA_def_property_ui_text(prop, "Alpha", "Gives transparany");
 	RNA_def_property_update(prop, 0, "rna_Brush_update");
 
 	/* adaptive space is not implemented yet */

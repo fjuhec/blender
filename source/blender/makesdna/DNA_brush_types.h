@@ -135,6 +135,10 @@ typedef struct Brush {
 
 	float mask_stencil_pos[2];
 	float mask_stencil_dimension[2];
+
+	/* vpaint */
+	int alpha_paint;
+	int pad; 
 } Brush;
 
 typedef struct PaletteColor {
@@ -187,7 +191,8 @@ typedef enum BrushFlags {
 	BRUSH_JITTER_PRESSURE = (1 << 4),
 	BRUSH_SPACING_PRESSURE = (1 << 5),
 	BRUSH_UNUSED = (1 << 6),
-//	BRUSH_RAKE = (1 << 7), deprecated, use brush_angle_mode
+//	BRUSH_RAKE = (1 << 7),// deprecated, use brush_angle_mode
+	BRUSH_ALPHA_VPAINT = (1 << 7),
 	BRUSH_ANCHORED = (1 << 8),
 	BRUSH_DIR_IN = (1 << 9),
 	BRUSH_SPACE = (1 << 10),

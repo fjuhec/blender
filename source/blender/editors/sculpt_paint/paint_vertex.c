@@ -568,7 +568,8 @@ void vpaint_dogamma(Scene *scene)
 }
 #endif
 
-BLI_INLINE unsigned int mcol_blend(unsigned int col1, unsigned int col2, int fac)
+BLI_INLINE unsigned int mcol_blend(unsigned int col1, unsigned int col2, int fac,
+									const bool use_alpha, const unsigned char alpha_value)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac;
@@ -600,12 +601,13 @@ BLI_INLINE unsigned int mcol_blend(unsigned int col1, unsigned int col2, int fac
 	cp[0] = (unsigned char)round(sqrt(divide_round_i((mfac * r1 + fac * r2), 255)));
 	cp[1] = (unsigned char)round(sqrt(divide_round_i((mfac * g1 + fac * g2), 255)));
 	cp[2] = (unsigned char)round(sqrt(divide_round_i((mfac * b1 + fac * b2), 255)));
-	cp[3] = 255;
+	cp[3] = use_alpha ? alpha_value : 255;
 
 	return col;
 }
 
-BLI_INLINE unsigned int mcol_add(unsigned int col1, unsigned int col2, int fac)
+BLI_INLINE unsigned int mcol_add(unsigned int col1, unsigned int col2, int fac,
+								 const bool use_alpha, const unsigned char alpha_value)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int temp;
@@ -625,12 +627,13 @@ BLI_INLINE unsigned int mcol_add(unsigned int col1, unsigned int col2, int fac)
 	cp[1] = (temp > 254) ? 255 : temp;
 	temp = cp1[2] + divide_round_i((fac * cp2[2]), 255);
 	cp[2] = (temp > 254) ? 255 : temp;
-	cp[3] = 255;
+	cp[3] = use_alpha ? alpha_value : 255;
 	
 	return col;
 }
 
-BLI_INLINE unsigned int mcol_sub(unsigned int col1, unsigned int col2, int fac)
+BLI_INLINE unsigned int mcol_sub(unsigned int col1, unsigned int col2, int fac,
+								 const bool use_alpha, const unsigned char alpha_value)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int temp;
@@ -650,12 +653,13 @@ BLI_INLINE unsigned int mcol_sub(unsigned int col1, unsigned int col2, int fac)
 	cp[1] = (temp < 0) ? 0 : temp;
 	temp = cp1[2] - divide_round_i((fac * cp2[2]), 255);
 	cp[2] = (temp < 0) ? 0 : temp;
-	cp[3] = 255;
+	cp[3] = use_alpha ? alpha_value : 255;
 
 	return col;
 }
 
-BLI_INLINE unsigned int mcol_mul(unsigned int col1, unsigned int col2, int fac)
+BLI_INLINE unsigned int mcol_mul(unsigned int col1, unsigned int col2, int fac,
+								 const bool use_alpha, const unsigned char alpha_value)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac;
@@ -675,12 +679,13 @@ BLI_INLINE unsigned int mcol_mul(unsigned int col1, unsigned int col2, int fac)
 	cp[0] = divide_round_i(mfac * cp1[0] * 255 + fac * cp2[0] * cp1[0], 255 * 255);
 	cp[1] = divide_round_i(mfac * cp1[1] * 255 + fac * cp2[1] * cp1[1], 255 * 255);
 	cp[2] = divide_round_i(mfac * cp1[2] * 255 + fac * cp2[2] * cp1[2], 255 * 255);
-	cp[3] = 255;
+	cp[3] = use_alpha ? alpha_value : 255;
 
 	return col;
 }
 
-BLI_INLINE unsigned int mcol_lighten(unsigned int col1, unsigned int col2, int fac)
+BLI_INLINE unsigned int mcol_lighten(unsigned int col1, unsigned int col2, int fac,
+									 const bool use_alpha, const unsigned char alpha_value)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac;
@@ -708,12 +713,13 @@ BLI_INLINE unsigned int mcol_lighten(unsigned int col1, unsigned int col2, int f
 	cp[0] = divide_round_i(mfac * cp1[0] + fac * cp2[0], 255);
 	cp[1] = divide_round_i(mfac * cp1[1] + fac * cp2[1], 255);
 	cp[2] = divide_round_i(mfac * cp1[2] + fac * cp2[2], 255);
-	cp[3] = 255;
+	cp[3] = use_alpha ? alpha_value : 255;
 
 	return col;
 }
 
-BLI_INLINE unsigned int mcol_darken(unsigned int col1, unsigned int col2, int fac)
+BLI_INLINE unsigned int mcol_darken(unsigned int col1, unsigned int col2, int fac,
+									const bool use_alpha, const unsigned char alpha_value)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac;
@@ -741,11 +747,12 @@ BLI_INLINE unsigned int mcol_darken(unsigned int col1, unsigned int col2, int fa
 	cp[0] = divide_round_i((mfac * cp1[0] + fac * cp2[0]), 255);
 	cp[1] = divide_round_i((mfac * cp1[1] + fac * cp2[1]), 255);
 	cp[2] = divide_round_i((mfac * cp1[2] + fac * cp2[2]), 255);
-	cp[3] = 255;
+	cp[3] = use_alpha ? alpha_value : 255;
 	return col;
 }
 
-BLI_INLINE unsigned int mcol_colordodge(unsigned int col1, unsigned int col2, int fac)
+BLI_INLINE unsigned int mcol_colordodge(unsigned int col1, unsigned int col2, int fac,
+										const bool use_alpha, const unsigned char alpha_value)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac,temp;
@@ -767,10 +774,12 @@ BLI_INLINE unsigned int mcol_colordodge(unsigned int col1, unsigned int col2, in
 	cp[1] = (mfac * cp1[1] + temp * fac) / 255;
 	temp = (cp2[2] == 255) ? 255 : min_ii((cp1[2] * 225 )/ (255 - cp2[2]), 255);
 	cp[2] = (mfac * cp1[2] + temp * fac) / 255;
+	cp[3] = use_alpha ? alpha_value : 255;
 	return col;
 }
 
-BLI_INLINE unsigned int mcol_difference(unsigned int col1, unsigned int col2, int fac)
+BLI_INLINE unsigned int mcol_difference(unsigned int col1, unsigned int col2, int fac,
+										const bool use_alpha, const unsigned char alpha_value)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac, temp;
@@ -792,10 +801,12 @@ BLI_INLINE unsigned int mcol_difference(unsigned int col1, unsigned int col2, in
 	cp[1] = (mfac * cp1[1] + temp * fac) / 255;
 	temp = abs(cp1[2] - cp2[2]);
 	cp[2] = (mfac * cp1[2] + temp * fac) / 255;
+	cp[3] = use_alpha ? alpha_value : 255;
 	return col;
 }
 
-BLI_INLINE unsigned int mcol_screen(unsigned int col1, unsigned int col2, int fac)
+BLI_INLINE unsigned int mcol_screen(unsigned int col1, unsigned int col2, int fac,
+									const bool use_alpha, const unsigned char alpha_value)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac, temp;
@@ -817,10 +828,12 @@ BLI_INLINE unsigned int mcol_screen(unsigned int col1, unsigned int col2, int fa
 	cp[1] = (mfac * cp1[1] + temp * fac) / 255;
 	temp = max_ii(255 - (((255 - cp1[2]) * (255 - cp2[2])) / 255), 0);
 	cp[2] = (mfac * cp1[2] + temp * fac) / 255;
+	cp[3] = use_alpha ? alpha_value : 255;
 	return col;
 }
 
-BLI_INLINE unsigned int mcol_hardlight(unsigned int col1, unsigned int col2, int fac)
+BLI_INLINE unsigned int mcol_hardlight(unsigned int col1, unsigned int col2, int fac,
+									const bool use_alpha, const unsigned char alpha_value)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac, temp;
@@ -848,10 +861,12 @@ BLI_INLINE unsigned int mcol_hardlight(unsigned int col1, unsigned int col2, int
 		}
 		cp[i] = min_ii((mfac * cp1[i] + temp * fac) / 255, 255);
 	}
+	cp[3] = use_alpha ? alpha_value : 255;
 	return col;
 }
 
-BLI_INLINE unsigned int mcol_overlay(unsigned int col1, unsigned int col2, int fac)
+BLI_INLINE unsigned int mcol_overlay(unsigned int col1, unsigned int col2, int fac,
+									const bool use_alpha, const unsigned char alpha_value)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac, temp;
@@ -879,10 +894,12 @@ BLI_INLINE unsigned int mcol_overlay(unsigned int col1, unsigned int col2, int f
 		}
 		cp[i] = min_ii((mfac * cp1[i] + temp * fac) / 255, 255);
 	}
+	cp[3] = use_alpha ? alpha_value : 255;
 	return col;
 }
 
-BLI_INLINE unsigned int mcol_softlight(unsigned int col1, unsigned int col2, int fac)
+BLI_INLINE unsigned int mcol_softlight(unsigned int col1, unsigned int col2, int fac,
+										const bool use_alpha, const unsigned char alpha_value)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac, temp;
@@ -910,10 +927,12 @@ BLI_INLINE unsigned int mcol_softlight(unsigned int col1, unsigned int col2, int
 		}
 		cp[i] = (temp * fac + cp1[i] * mfac) / 255;
 	}
+	cp[3] = use_alpha ? alpha_value : 255;
 	return col;
 }
 
-BLI_INLINE unsigned int mcol_exclusion(unsigned int col1, unsigned int col2, int fac)
+BLI_INLINE unsigned int mcol_exclusion(unsigned int col1, unsigned int col2, int fac,
+									   const bool use_alpha, const unsigned char alpha_value)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac, temp;
@@ -935,10 +954,12 @@ BLI_INLINE unsigned int mcol_exclusion(unsigned int col1, unsigned int col2, int
 		temp = 127 - ((2 * (cp1[i] - 127) * (cp2[i] - 127)) / 255);
 		cp[i] = (temp * fac + cp1[i] * mfac) / 255;
 	}
+	cp[3] = use_alpha ? alpha_value : 255;
 	return col;
 }
 
-BLI_INLINE unsigned int mcol_luminocity(unsigned int col1, unsigned int col2, int fac)
+BLI_INLINE unsigned int mcol_luminocity(unsigned int col1, unsigned int col2, int fac,
+										const bool use_alpha, const unsigned char alpha_value)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac;
@@ -967,10 +988,12 @@ BLI_INLINE unsigned int mcol_luminocity(unsigned int col1, unsigned int col2, in
 	cp[0] = ((int)(r * 255.0f) * fac + mfac * cp1[0]) / 255;
 	cp[1] = ((int)(g * 255.0f) * fac + mfac * cp1[1]) / 255;
 	cp[2] = ((int)(b * 255.0f) * fac + mfac * cp1[2]) / 255;
+	cp[3] = use_alpha ? alpha_value : 255;
 	return col;
 }
 
-BLI_INLINE unsigned int mcol_saturation(unsigned int col1, unsigned int col2, int fac)
+BLI_INLINE unsigned int mcol_saturation(unsigned int col1, unsigned int col2, int fac,
+										const bool use_alpha, const unsigned char alpha_value)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac;
@@ -1001,10 +1024,12 @@ BLI_INLINE unsigned int mcol_saturation(unsigned int col1, unsigned int col2, in
 	cp[0] = ((int)(r * 255.0f) * fac + mfac * cp1[0]) / 255;
 	cp[1] = ((int)(g * 255.0f) * fac + mfac * cp1[1]) / 255;
 	cp[2] = ((int)(b * 255.0f) * fac + mfac * cp1[2]) / 255;
+	cp[3] = use_alpha ? alpha_value : 255;
 	return col;
 }
 
-BLI_INLINE unsigned int mcol_hue(unsigned int col1, unsigned int col2, int fac)
+BLI_INLINE unsigned int mcol_hue(unsigned int col1, unsigned int col2, int fac,
+								const bool use_alpha, const unsigned char alpha_value)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac;
@@ -1033,34 +1058,36 @@ BLI_INLINE unsigned int mcol_hue(unsigned int col1, unsigned int col2, int fac)
 	cp[0] = ((int)(r * 255.0f) * fac + mfac * cp1[0]) / 255;
 	cp[1] = ((int)(g * 255.0f) * fac + mfac * cp1[1]) / 255;
 	cp[2] = ((int)(b * 255.0f) * fac + mfac * cp1[2]) / 255;
+	cp[3] = use_alpha ? alpha_value : 255;
 	return col;
 }
 
 
 /* wpaint has 'wpaint_blend_tool' */
 static unsigned int vpaint_blend_tool(const int tool, const unsigned int col,
-                                      const unsigned int paintcol, const int alpha_i)
+                                      const unsigned int paintcol, const int alpha_i,
+									  const bool use_alpha, const unsigned char alpha_value)
 {
 	switch (tool) {
 		case PAINT_BLEND_MIX:
-		case PAINT_BLEND_BLUR:       return mcol_blend(col, paintcol, alpha_i);
-		case PAINT_BLEND_AVERAGE:    return mcol_blend(col, paintcol, alpha_i);
-		case PAINT_BLEND_SMEAR:      return mcol_blend(col, paintcol, alpha_i);
-		case PAINT_BLEND_ADD:        return mcol_add(col, paintcol, alpha_i);
-		case PAINT_BLEND_SUB:        return mcol_sub(col, paintcol, alpha_i);
-		case PAINT_BLEND_MUL:        return mcol_mul(col, paintcol, alpha_i);
-		case PAINT_BLEND_LIGHTEN:    return mcol_lighten(col, paintcol, alpha_i);
-		case PAINT_BLEND_DARKEN:     return mcol_darken(col, paintcol, alpha_i);
-		case PAINT_BLEND_COLORDODGE: return mcol_colordodge(col, paintcol, alpha_i);
-		case PAINT_BLEND_DIFFERENCE: return mcol_difference(col, paintcol, alpha_i);
-		case PAINT_BLEND_SCREEN:     return mcol_screen(col, paintcol, alpha_i);
-		case PAINT_BLEND_HARDLIGHT:  return mcol_hardlight(col, paintcol, alpha_i);
-		case PAINT_BLEND_OVERLAY:	 return mcol_overlay(col, paintcol, alpha_i);
-		case PAINT_BLEND_SOFTLIGHT:  return mcol_softlight(col, paintcol, alpha_i);
-		case PAINT_BLEND_EXCLUSION:  return mcol_exclusion(col, paintcol, alpha_i);
-		case PAINT_BLEND_LUMINOCITY: return mcol_luminocity(col, paintcol, alpha_i);
-		case PAINT_BLEND_SATURATION: return mcol_saturation(col, paintcol, alpha_i);
-		case PAINT_BLEND_HUE:        return mcol_hue(col, paintcol, alpha_i);
+		case PAINT_BLEND_BLUR:       return mcol_blend(col, paintcol, alpha_i, use_alpha, alpha_value);
+		case PAINT_BLEND_AVERAGE:    return mcol_blend(col, paintcol, alpha_i, use_alpha, alpha_value);
+		case PAINT_BLEND_SMEAR:      return mcol_blend(col, paintcol, alpha_i, use_alpha, alpha_value);
+		case PAINT_BLEND_ADD:        return mcol_add(col, paintcol, alpha_i, use_alpha, alpha_value);
+		case PAINT_BLEND_SUB:        return mcol_sub(col, paintcol, alpha_i, use_alpha, alpha_value);
+		case PAINT_BLEND_MUL:        return mcol_mul(col, paintcol, alpha_i, use_alpha, alpha_value);
+		case PAINT_BLEND_LIGHTEN:    return mcol_lighten(col, paintcol, alpha_i, use_alpha, alpha_value);
+		case PAINT_BLEND_DARKEN:     return mcol_darken(col, paintcol, alpha_i, use_alpha, alpha_value);
+		case PAINT_BLEND_COLORDODGE: return mcol_colordodge(col, paintcol, alpha_i, use_alpha, alpha_value);
+		case PAINT_BLEND_DIFFERENCE: return mcol_difference(col, paintcol, alpha_i, use_alpha, alpha_value);
+		case PAINT_BLEND_SCREEN:     return mcol_screen(col, paintcol, alpha_i, use_alpha, alpha_value);
+		case PAINT_BLEND_HARDLIGHT:  return mcol_hardlight(col, paintcol, alpha_i, use_alpha, alpha_value);
+		case PAINT_BLEND_OVERLAY:	 return mcol_overlay(col, paintcol, alpha_i, use_alpha, alpha_value);
+		case PAINT_BLEND_SOFTLIGHT:  return mcol_softlight(col, paintcol, alpha_i, use_alpha, alpha_value);
+		case PAINT_BLEND_EXCLUSION:  return mcol_exclusion(col, paintcol, alpha_i, use_alpha, alpha_value);
+		case PAINT_BLEND_LUMINOCITY: return mcol_luminocity(col, paintcol, alpha_i, use_alpha, alpha_value);
+		case PAINT_BLEND_SATURATION: return mcol_saturation(col, paintcol, alpha_i, use_alpha, alpha_value);
+		case PAINT_BLEND_HUE:        return mcol_hue(col, paintcol, alpha_i, use_alpha, alpha_value);
 		default:
 			BLI_assert(0);
 			return 0;
@@ -1072,19 +1099,19 @@ static unsigned int vpaint_blend(
         VPaint *vp, unsigned int col, unsigned int colorig,
         const unsigned int paintcol, const int alpha_i,
         /* pre scaled from [0-1] --> [0-255] */
-        const int brush_alpha_value_i)
+        const int brush_alpha_value_i, const bool use_alpha, const unsigned char alpha_value)
 {
 	Brush *brush = BKE_paint_brush(&vp->paint);
 	const int tool = brush->vertexpaint_tool;
 
-	col = vpaint_blend_tool(tool, col, paintcol, alpha_i);
+	col = vpaint_blend_tool(tool, col, paintcol, alpha_i, use_alpha, alpha_value);
 
 	/* if no spray, clip color adding with colorig & orig alpha */
 	if ((vp->flag & VP_SPRAY) == 0) {
 		unsigned int testcol, a;
 		char *cp, *ct, *co;
 		
-		testcol = vpaint_blend_tool(tool, colorig, paintcol, brush_alpha_value_i);
+		testcol = vpaint_blend_tool(tool, colorig, paintcol, brush_alpha_value_i, use_alpha, alpha_value);
 		
 		cp = (char *)&col;
 		ct = (char *)&testcol;
@@ -3665,6 +3692,8 @@ static void do_vpaint_brush_draw_task_cb_ex(
 	get_brush_alpha_data(scene, ss, brush, &brush_size_pressure, &brush_alpha_value, &brush_alpha_pressure);
 	const bool use_face_sel = (data->me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
 	const bool use_vert_sel = (data->me->editflag & ME_EDIT_PAINT_VERT_SEL) != 0;
+	const bool use_alpha = brush->flag & BRUSH_ALPHA_VPAINT;
+	const unsigned char alpha_paint = brush->alpha_paint;
 	bool non_occlude;
 	const float radius = BKE_brush_size_get(scene, brush);
 
@@ -3731,7 +3760,8 @@ static void do_vpaint_brush_draw_task_cb_ex(
 							lcol[l_index] = vpaint_blend(
 							        data->vp, lcol[l_index],
 							        ss->modes.vwpaint.previous_color[l_index], color_final,
-							        final_alpha, 255 * brush_strength);
+							        final_alpha, 255 * brush_strength, use_alpha, alpha_paint);
+							printf("%c, %c, %c\n", lcol[l_index], lcol[l_index + 1], lcol[l_index + 2]);
 						}
 					}
 				}
@@ -3757,6 +3787,8 @@ static void do_vpaint_brush_blur_task_cb_ex(
 	get_brush_alpha_data(scene, ss, brush, &brush_size_pressure, &brush_alpha_value, &brush_alpha_pressure);
 	const bool use_face_sel = (data->me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
 	const bool use_vert_sel = (data->me->editflag & ME_EDIT_PAINT_VERT_SEL) != 0;
+	const bool use_alpha = brush->flag & BRUSH_ALPHA_VPAINT;
+	const unsigned char alpha_paint = brush->alpha_paint;
 	bool non_occlude;
 	const float radius = BKE_brush_size_get(scene, brush);
 
@@ -3832,7 +3864,7 @@ static void do_vpaint_brush_blur_task_cb_ex(
 								lcol[l_index] = vpaint_blend(
 								        data->vp, lcol[l_index],
 								        ss->modes.vwpaint.previous_color[l_index],
-								        *((unsigned int *)col), final_alpha, 255 * brush_strength);
+								        *((unsigned int *)col), final_alpha, 255 * brush_strength, use_alpha, alpha_paint);
 							}
 						}
 					}
@@ -3860,6 +3892,8 @@ static void do_vpaint_brush_smear_task_cb_ex(
 	float brush_dir[3];
 	const bool use_face_sel = (data->me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
 	const bool use_vert_sel = (data->me->editflag & ME_EDIT_PAINT_VERT_SEL) != 0;
+	const bool use_alpha = brush->flag & BRUSH_ALPHA_VPAINT;
+	const unsigned char alpha_paint = brush->alpha_paint;
 	bool non_occlude;
 	const float radius = BKE_brush_size_get(scene, brush);
 
@@ -3947,7 +3981,7 @@ static void do_vpaint_brush_smear_task_cb_ex(
 									lcol[l_index] = vpaint_blend(
 									        data->vp, lcol[l_index],
 									        ss->modes.vwpaint.previous_color[l_index], color_final,
-									        final_alpha, 255 * brush_strength);
+									        final_alpha, 255 * brush_strength, use_alpha, alpha_paint);
 								}
 							}
 						}
