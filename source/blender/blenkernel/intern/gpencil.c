@@ -47,6 +47,7 @@
 #include "DNA_gpencil_types.h"
 #include "DNA_userdef_types.h"
 #include "DNA_scene_types.h"
+#include "DNA_object_types.h"
 
 #include "BKE_action.h"
 #include "BKE_animsys.h"
@@ -55,6 +56,7 @@
 #include "BKE_colortools.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
+#include "BKE_object.h"
 
  /* Draw Engine */
 void(*BKE_gpencil_batch_cache_dirty_cb)(bGPdata *gpd) = NULL;
@@ -1452,3 +1454,76 @@ void BKE_gpencil_batch_cache_alldirty()
 	}
 }
 
+/* get stroke min max values */
+void static gpencil_minmax(bGPdata *gpd, float min[3], float max[3])
+{
+	int i;
+	bGPDspoint *pt;
+	bGPDframe *gpf;
+
+	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+		gpf= gpl->actframe;
+		if (!gpf) {
+			continue;
+		}
+		for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+			for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+				/* min */
+				if (pt->x < min[0]) {
+					min[0] = pt->x;
+				}
+				if (pt->y < min[1]) {
+					min[1] = pt->y;
+				}
+				if (pt->z < min[2]) {
+					min[2] = pt->z;
+				}
+				/* max */
+				if (pt->x > max[0]) {
+					max[0] = pt->x;
+				}
+				if (pt->y > max[1]) {
+					max[1] = pt->y;
+				}
+				if (pt->z > max[2]) {
+					max[2] = pt->z;
+				}
+			}
+		}
+	}
+}
+
+/* create bounding box values */
+static void boundbox_gpencil(Object *ob)
+{
+	BoundBox *bb;
+	bGPdata *gpd;
+	float min[3], max[3];
+
+	if (ob->bb == NULL) {
+		ob->bb = MEM_callocN(sizeof(BoundBox), "GPencil boundbox");
+	}
+
+	bb = ob->bb;
+	gpd= ob->gpd;
+
+	INIT_MINMAX(min, max);
+	gpencil_minmax(gpd, min, max);
+	BKE_boundbox_init_from_minmax(bb, min, max);
+
+	bb->flag &= ~BOUNDBOX_DIRTY;
+}
+
+/* get bounding box */
+BoundBox *BKE_gpencil_boundbox_get(Object *ob)
+{
+	if ((!ob) || (ob->gpd == NULL))
+		return NULL;
+
+	if ((ob->bb) && ((ob->bb->flag & BOUNDBOX_DIRTY) == 0) && ((ob->gpd->flag & GP_DATA_CACHE_IS_DIRTY) == 0))
+		return ob->bb;
+
+	boundbox_gpencil(ob);
+
+	return ob->bb;
+}

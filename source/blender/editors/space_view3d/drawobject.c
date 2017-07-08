@@ -78,6 +78,7 @@
 #include "BKE_subsurf.h"
 #include "BKE_unit.h"
 #include "BKE_tracking.h"
+#include "BKE_gpencil.h"
 
 #include "BKE_editmesh.h"
 
@@ -8145,6 +8146,9 @@ void draw_bounding_volume(Object *ob, char type, const unsigned char ob_wire_col
 	}
 	else if (ob->type == OB_LATTICE) {
 		bb = BKE_lattice_boundbox_get(ob);
+	}
+	else if (ob->type == OB_GPENCIL) {
+		bb = BKE_gpencil_boundbox_get(ob);
 	}
 	else {
 		const float min[3] = {-1.0f, -1.0f, -1.0f}, max[3] = {1.0f, 1.0f, 1.0f};
