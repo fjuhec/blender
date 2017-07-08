@@ -1909,7 +1909,7 @@ int WM_window_pixels_y(const wmWindow *win)
 }
 
 /**
- * Get the total pixels that are usable by the actual screen, excluding global areas.
+ * Get the total pixels that are usable by the screen-layouts, excluding global areas.
  */
 int WM_window_screen_pixels_x(const wmWindow *win)
 {

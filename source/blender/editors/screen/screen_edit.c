@@ -749,15 +749,17 @@ void ED_screen_refresh(wmWindowManager *wm, wmWindow *win)
 
 	/* exception for bg mode, we only need the screen context */
 	if (!G.background) {
+		const int window_size_x = WM_window_pixels_x(win);
+		const int window_size_y = WM_window_pixels_y(win);
 		const int screen_size_x = WM_window_screen_pixels_x(win);
 		const int screen_size_y = WM_window_screen_pixels_y(win);
 		ScrArea *sa;
-		rcti screen_rect;
+		rcti window_rect;
 
-		screen_rect.xmin = 0;
-		screen_rect.xmax = screen_size_x - 1;
-		screen_rect.ymin = 0;
-		screen_rect.ymax = screen_size_y - 1;
+		window_rect.xmin = 0;
+		window_rect.xmax = window_size_x - 1;
+		window_rect.ymin = 0;
+		window_rect.ymax = window_size_y - 1;
 
 		/* header size depends on DPI, let's verify */
 		WM_window_set_dpi(win);
@@ -766,10 +768,10 @@ void ED_screen_refresh(wmWindowManager *wm, wmWindow *win)
 		screen_test_scale(screen, screen_size_x, screen_size_y);
 		
 		if (screen->mainwin == 0) {
-			screen->mainwin = wm_subwindow_open(win, &screen_rect, false);
+			screen->mainwin = wm_subwindow_open(win, &window_rect, false);
 		}
 		else {
-			wm_subwindow_position(win, screen->mainwin, &screen_rect, false);
+			wm_subwindow_position(win, screen->mainwin, &window_rect, false);
 		}
 
 		for (sa = win->global_areas.first; sa; sa = sa->next) {
