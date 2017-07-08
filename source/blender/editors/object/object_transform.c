@@ -39,6 +39,7 @@
 #include "DNA_scene_types.h"
 #include "DNA_group_types.h"
 #include "DNA_lattice_types.h"
+#include "DNA_gpencil_types.h"
 
 #include "BLI_math.h"
 #include "BLI_listbase.h"
@@ -57,6 +58,7 @@
 #include "BKE_armature.h"
 #include "BKE_lattice.h"
 #include "BKE_tracking.h"
+#include "BKE_gpencil.h"
 
 #include "DEG_depsgraph.h"
 
@@ -71,6 +73,7 @@
 #include "ED_mesh.h"
 #include "ED_screen.h"
 #include "ED_view3d.h"
+#include "ED_gpencil.h"
 
 #include "object_intern.h"
 
@@ -995,6 +998,44 @@ static int object_origin_set_exec(bContext *C, wmOperator *op)
 				tot_change++;
 				lt->id.tag |= LIB_TAG_DOIT;
 				do_inverse_offset = true;
+			}
+			else if (ob->type == OB_GPENCIL) {
+				bGPdata *gpd = ob->gpd;
+
+				if ((gpd) && (centermode == ORIGIN_TO_CURSOR)) {
+					bGPDspoint *pt;
+					float imat[3][3], bmat[3][3];
+					float offset_global[3];
+					float offset_local[3];
+					int i;
+
+					sub_v3_v3v3(offset_global, cursor, ob->obmat[3]);
+					copy_m3_m4(bmat, obact->obmat);
+					invert_m3_m3(imat, bmat);
+					mul_m3_v3(imat, offset_global);
+					mul_v3_m3v3(offset_local, imat, offset_global);
+
+					/* recalculate all strokes (all layers are considered without evaluating lock attributtes) */
+					for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+						for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+							for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+								/* skip strokes that are invalid for current view */
+								if (ED_gpencil_stroke_can_use(C, gps) == false)
+									continue;
+
+								for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+									sub_v3_v3(&pt->x, offset_local);
+								}
+							}
+						}
+					}
+					BKE_gpencil_batch_cache_dirty(gpd);
+					DEG_id_tag_update(&obedit->id, OB_RECALC_DATA);
+
+					tot_change++;
+					ob->id.tag |= LIB_TAG_DOIT;
+					do_inverse_offset = true;
+				}
 			}
 
 			/* offset other selected objects */
