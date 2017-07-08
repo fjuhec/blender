@@ -573,7 +573,7 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 			if (!test) BKE_key_copy_data(bmain, (Key *)*r_newid, (Key *)id, flag);
 			break;
 		case ID_WO:
-			if (!test) *r_newid = (ID *)BKE_world_copy(bmain, (World *)id);
+			if (!test) BKE_world_copy_data(bmain, (World *)*r_newid, (World *)id, flag);
 			break;
 		case ID_TXT:
 			if (!test) *r_newid = (ID *)BKE_text_copy(bmain, (Text *)id);
@@ -600,7 +600,7 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 			if (!test) *r_newid = (ID *)BKE_gpencil_data_duplicate(bmain, (bGPdata *)id, false);
 			break;
 		case ID_MC:
-			if (!test) *r_newid = (ID *)BKE_movieclip_copy(bmain, (MovieClip *)id);
+			if (!test) BKE_movieclip_copy_data(bmain, (MovieClip *)*r_newid, (MovieClip *)id, flag);
 			break;
 		case ID_MSK:
 			if (!test) *r_newid = (ID *)BKE_mask_copy(bmain, (Mask *)id);

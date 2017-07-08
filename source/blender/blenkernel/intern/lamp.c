@@ -126,9 +126,7 @@ Lamp *BKE_lamp_add(Main *bmain, const char *name)
  */
 void BKE_lamp_copy_data(Main *bmain, Lamp *la_dst, const Lamp *la_src, const int flag)
 {
-	int a;
-
-	for (a = 0; a < MAX_MTEX; a++) {
+	for (int a = 0; a < MAX_MTEX; a++) {
 		if (la_dst->mtex[a]) {
 			la_dst->mtex[a] = MEM_mallocN(sizeof(*la_dst->mtex[a]), __func__);
 			*la_dst->mtex[a] = *la_src->mtex[a];
