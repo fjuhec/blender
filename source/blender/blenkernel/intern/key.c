@@ -159,7 +159,7 @@ Key *BKE_key_add(ID *id)    /* common function */
  *
  * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
  */
-void BKE_key_copy_ex(Main *UNUSED(bmain), Key *key_dst, const Key *key_src, const int UNUSED(flag))
+void BKE_key_copy_data(Main *UNUSED(bmain), Key *key_dst, const Key *key_src, const int UNUSED(flag))
 {
 	BLI_duplicatelist(&key_dst->block, &key_src->block);
 

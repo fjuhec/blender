@@ -1108,7 +1108,7 @@ void BKE_object_transform_copy(Object *ob_tar, const Object *ob_src)
  *
  * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
  */
-void BKE_object_copy_ex(Main *UNUSED(bmain), Object *ob_dst, const Object *ob_src, const int flag)
+void BKE_object_copy_data(Main *UNUSED(bmain), Object *ob_dst, const Object *ob_src, const int flag)
 {
 	ModifierData *md;
 

@@ -537,40 +537,40 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 
 	switch ((ID_Type)GS(id->name)) {
 		case ID_OB:
-			if (!test) BKE_object_copy_ex(bmain, (Object *)*r_newid, (Object *)id, flag);
+			if (!test) BKE_object_copy_data(bmain, (Object *)*r_newid, (Object *)id, flag);
 			break;
 		case ID_ME:
-			if (!test) BKE_mesh_copy_ex(bmain, (Mesh *)*r_newid, (Mesh *)id, flag);
+			if (!test) BKE_mesh_copy_data(bmain, (Mesh *)*r_newid, (Mesh *)id, flag);
 			break;
 		case ID_CU:
-			if (!test) BKE_curve_copy_ex(bmain, (Curve *)*r_newid, (Curve *)id, flag);
+			if (!test) BKE_curve_copy_data(bmain, (Curve *)*r_newid, (Curve *)id, flag);
 			break;
 		case ID_MB:
-			if (!test) BKE_mball_copy_ex(bmain, (MetaBall *)*r_newid, (MetaBall *)id, flag);
+			if (!test) BKE_mball_copy_data(bmain, (MetaBall *)*r_newid, (MetaBall *)id, flag);
 			break;
 		case ID_MA:
-			if (!test) BKE_material_copy_ex(bmain, (Material *)*r_newid, (Material *)id, flag);
+			if (!test) BKE_material_copy_data(bmain, (Material *)*r_newid, (Material *)id, flag);
 			break;
 		case ID_TE:
-			if (!test) BKE_texture_copy_ex(bmain, (Tex *)*r_newid, (Tex *)id, flag);
+			if (!test) BKE_texture_copy_data(bmain, (Tex *)*r_newid, (Tex *)id, flag);
 			break;
 		case ID_IM:
-			if (!test) BKE_image_copy_ex(bmain, (Image *)*r_newid, (Image *)id, flag);
+			if (!test) BKE_image_copy_data(bmain, (Image *)*r_newid, (Image *)id, flag);
 			break;
 		case ID_LT:
-			if (!test) BKE_lattice_copy_ex(bmain, (Lattice *)*r_newid, (Lattice *)id, flag);
+			if (!test) BKE_lattice_copy_data(bmain, (Lattice *)*r_newid, (Lattice *)id, flag);
 			break;
 		case ID_LA:
-			if (!test) BKE_lamp_copy_ex(bmain, (Lamp *)*r_newid, (Lamp *)id, flag);
+			if (!test) BKE_lamp_copy_data(bmain, (Lamp *)*r_newid, (Lamp *)id, flag);
 			break;
 		case ID_SPK:
-			if (!test) BKE_speaker_copy_ex(bmain, (Speaker *)*r_newid, (Speaker *)id, flag);
+			if (!test) BKE_speaker_copy_data(bmain, (Speaker *)*r_newid, (Speaker *)id, flag);
 			break;
 		case ID_CA:
-			if (!test) BKE_camera_copy_ex(bmain, (Camera *)*r_newid, (Camera *)id, flag);
+			if (!test) BKE_camera_copy_data(bmain, (Camera *)*r_newid, (Camera *)id, flag);
 			break;
 		case ID_KE:
-			if (!test) BKE_key_copy_ex(bmain, (Key *)*r_newid, (Key *)id, flag);
+			if (!test) BKE_key_copy_data(bmain, (Key *)*r_newid, (Key *)id, flag);
 			break;
 		case ID_WO:
 			if (!test) *r_newid = (ID *)BKE_world_copy(bmain, (World *)id);
@@ -582,13 +582,13 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 			if (!test) *r_newid = (ID *)BKE_group_copy(bmain, (Group *)id);
 			break;
 		case ID_AR:
-			if (!test) BKE_armature_copy_ex(bmain, (bArmature *)*r_newid, (bArmature *)id, flag);
+			if (!test) BKE_armature_copy_data(bmain, (bArmature *)*r_newid, (bArmature *)id, flag);
 			break;
 		case ID_AC:
 			if (!test) *r_newid = (ID *)BKE_action_copy(bmain, (bAction *)id);
 			break;
 		case ID_NT:
-			if (!test) BKE_node_tree_copy_ex(bmain, (bNodeTree *)*r_newid, (bNodeTree *)id, flag);
+			if (!test) BKE_node_tree_copy_data(bmain, (bNodeTree *)*r_newid, (bNodeTree *)id, flag);
 			break;
 		case ID_BR:
 			if (!test) *r_newid = (ID *)BKE_brush_copy(bmain, (Brush *)id);

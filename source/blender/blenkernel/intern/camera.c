@@ -101,7 +101,7 @@ void *BKE_camera_add(Main *bmain, const char *name)
  *
  * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
  */
-void BKE_camera_copy_ex(Main *UNUSED(bmain), Camera *UNUSED(cam_dst), const Camera *UNUSED(cam_src), const int UNUSED(flag))
+void BKE_camera_copy_data(Main *UNUSED(bmain), Camera *UNUSED(cam_dst), const Camera *UNUSED(cam_src), const int UNUSED(flag))
 {
 	/* Nothing to do! */
 }

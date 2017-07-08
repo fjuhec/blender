@@ -227,7 +227,7 @@ Material *BKE_material_add(Main *bmain, const char *name)
  *
  * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
  */
-void BKE_material_copy_ex(Main *bmain, Material *ma_dst, const Material *ma_src, const int flag)
+void BKE_material_copy_data(Main *bmain, Material *ma_dst, const Material *ma_src, const int flag)
 {
 	for (int a = 0; a < MAX_MTEX; a++) {
 		if (ma_src->mtex[a]) {

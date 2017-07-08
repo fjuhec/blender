@@ -70,7 +70,7 @@ void colorband_update_sort(struct ColorBand *coba);
 
 void         BKE_texture_free(struct Tex *tex);
 void         BKE_texture_default(struct Tex *tex);
-void         BKE_texture_copy_ex(struct Main *bmain, struct Tex *tex_dst, const struct Tex *tex_src, const int flag);
+void         BKE_texture_copy_data(struct Main *bmain, struct Tex *tex_dst, const struct Tex *tex_src, const int flag);
 struct Tex  *BKE_texture_copy(struct Main *bmain, const struct Tex *tex);
 struct Tex  *BKE_texture_add(struct Main *bmain, const char *name);
 struct Tex  *BKE_texture_localize(struct Tex *tex);

@@ -854,7 +854,7 @@ MTex *BKE_texture_mtex_add_id(ID *id, int slot)
  *
  * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
  */
-void BKE_texture_copy_ex(Main *bmain, Tex *tex_dst, const Tex *tex_src, const int flag)
+void BKE_texture_copy_data(Main *bmain, Tex *tex_dst, const Tex *tex_src, const int flag)
 {
 	/* We never handle usercount here for own data. */
 	const int flag_subdata = flag | LIB_ID_COPY_NO_USER_REFCOUNT;

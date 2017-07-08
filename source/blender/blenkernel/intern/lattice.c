@@ -285,7 +285,7 @@ Lattice *BKE_lattice_add(Main *bmain, const char *name)
  *
  * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
  */
-void BKE_lattice_copy_ex(Main *bmain, Lattice *lt_dst, const Lattice *lt_src, const int flag)
+void BKE_lattice_copy_data(Main *bmain, Lattice *lt_dst, const Lattice *lt_src, const int flag)
 {
 	lt_dst->def = MEM_dupallocN(lt_src->def);
 

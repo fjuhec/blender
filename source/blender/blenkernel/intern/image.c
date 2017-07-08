@@ -441,7 +441,7 @@ static void copy_image_packedfiles(ListBase *lb_dst, const ListBase *lb_src)
  *
  * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
  */
-void BKE_image_copy_ex(Main *UNUSED(bmain), Image *ima_dst, const Image *ima_src, const int flag)
+void BKE_image_copy_data(Main *UNUSED(bmain), Image *ima_dst, const Image *ima_src, const int flag)
 {
 	BKE_color_managed_colorspace_settings_copy(&ima_dst->colorspace_settings, &ima_src->colorspace_settings);
 

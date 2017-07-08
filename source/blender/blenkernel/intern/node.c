@@ -1219,7 +1219,7 @@ bNodeTree *ntreeAddTree(Main *bmain, const char *name, const char *idname)
  *
  * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
  */
-void BKE_node_tree_copy_ex(Main *UNUSED(bmain), bNodeTree *ntree_dst, const bNodeTree *ntree_src, const int flag)
+void BKE_node_tree_copy_data(Main *UNUSED(bmain), bNodeTree *ntree_dst, const bNodeTree *ntree_src, const int flag)
 {
 	bNode *node_src;
 	bNodeSocket *sock_dst, *sock_src;

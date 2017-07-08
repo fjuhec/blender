@@ -76,7 +76,7 @@ void *BKE_speaker_add(Main *bmain, const char *name)
  *
  * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
  */
-void BKE_speaker_copy_ex(Main *UNUSED(bmain), Speaker *UNUSED(spk_dst), const Speaker *UNUSED(spk_src), const int UNUSED(flag))
+void BKE_speaker_copy_data(Main *UNUSED(bmain), Speaker *UNUSED(spk_dst), const Speaker *UNUSED(spk_src), const int UNUSED(flag))
 {
 	/* Nothing to do! */
 }

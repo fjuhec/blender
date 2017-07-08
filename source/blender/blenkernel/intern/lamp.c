@@ -124,7 +124,7 @@ Lamp *BKE_lamp_add(Main *bmain, const char *name)
  *
  * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
  */
-void BKE_lamp_copy_ex(Main *bmain, Lamp *la_dst, const Lamp *la_src, const int flag)
+void BKE_lamp_copy_data(Main *bmain, Lamp *la_dst, const Lamp *la_src, const int flag)
 {
 	int a;
 

@@ -509,7 +509,7 @@ Mesh *BKE_mesh_add(Main *bmain, const char *name)
  *
  * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
  */
-void BKE_mesh_copy_ex(Main *bmain, Mesh *me_dst, const Mesh *me_src, const int flag)
+void BKE_mesh_copy_data(Main *bmain, Mesh *me_dst, const Mesh *me_src, const int flag)
 {
 	const bool do_tessface = ((me_src->totface != 0) && (me_src->totpoly == 0)); /* only do tessface if we have no polys */
 

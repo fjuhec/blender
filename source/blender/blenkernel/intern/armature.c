@@ -184,7 +184,7 @@ static void copy_bonechildren(
  *
  * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
  */
-void BKE_armature_copy_ex(Main *UNUSED(bmain), bArmature *arm_dst, const bArmature *arm_src, const int flag)
+void BKE_armature_copy_data(Main *UNUSED(bmain), bArmature *arm_dst, const bArmature *arm_src, const int flag)
 {
 	Bone *bone_src, *bone_dst;
 	Bone *bone_dst_act = NULL;
