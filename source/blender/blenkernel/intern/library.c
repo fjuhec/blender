@@ -526,7 +526,7 @@ static int id_copy_libmanagement_cb(void *user_data, ID *id_self, ID **id_pointe
 /* XXX TODO remove test thing, *all* IDs should be copyable that way! */
 bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, const bool test)
 {
-#define ITEMS_IMPLEMENTED ID_OB, ID_ME, ID_CU, ID_MB, ID_LT, ID_LA, ID_SPK, ID_CA, ID_KE, ID_AR, ID_NT
+#define ITEMS_IMPLEMENTED ID_OB, ID_ME, ID_CU, ID_MB, ID_MA, ID_TE, ID_IM, ID_LT, ID_LA, ID_SPK, ID_CA, ID_KE, ID_AR, ID_NT
 
 	if (!test) {
 		/* Check to be removed of course, just here until all BKE_xxx_copy_ex functions are done. */
@@ -549,13 +549,13 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 			if (!test) BKE_mball_copy_ex(bmain, (MetaBall *)*r_newid, (MetaBall *)id, flag);
 			break;
 		case ID_MA:
-			if (!test) *r_newid = (ID *)BKE_material_copy(bmain, (Material *)id);
+			if (!test) BKE_material_copy_ex(bmain, (Material *)*r_newid, (Material *)id, flag);
 			break;
 		case ID_TE:
-			if (!test) *r_newid = (ID *)BKE_texture_copy(bmain, (Tex *)id);
+			if (!test) BKE_texture_copy_ex(bmain, (Tex *)*r_newid, (Tex *)id, flag);
 			break;
 		case ID_IM:
-			if (!test) *r_newid = (ID *)BKE_image_copy(bmain, (Image *)id);
+			if (!test) BKE_image_copy_ex(bmain, (Image *)*r_newid, (Image *)id, flag);
 			break;
 		case ID_LT:
 			if (!test) BKE_lattice_copy_ex(bmain, (Lattice *)*r_newid, (Lattice *)id, flag);

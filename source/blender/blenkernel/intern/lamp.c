@@ -130,8 +130,8 @@ void BKE_lamp_copy_ex(Main *bmain, Lamp *la_dst, const Lamp *la_src, const int f
 
 	for (a = 0; a < MAX_MTEX; a++) {
 		if (la_dst->mtex[a]) {
-			la_dst->mtex[a] = MEM_mallocN(sizeof(MTex), "copylamptex");
-			memcpy(la_dst->mtex[a], la_src->mtex[a], sizeof(MTex));
+			la_dst->mtex[a] = MEM_mallocN(sizeof(*la_dst->mtex[a]), __func__);
+			*la_dst->mtex[a] = *la_src->mtex[a];
 		}
 	}
 
@@ -158,6 +158,13 @@ Lamp *BKE_lamp_copy(Main *bmain, const Lamp *la)
 
 Lamp *localize_lamp(Lamp *la)
 {
+	/* TODO replace with something like
+	 * 	Lamp *la_copy;
+	 * 	BKE_id_copy_ex(bmain, &la->id, (ID **)&la_copy, LIB_ID_COPY_NO_MAIN | LIB_ID_COPY_NO_PREVIEW | LIB_ID_COPY_NO_USER_REFCOUNT, false);
+	 * 	return la_copy;
+	 *
+	 * ... Once f*** nodes are fully converted to that too :( */
+
 	Lamp *lan;
 	int a;
 	
