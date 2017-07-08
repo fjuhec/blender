@@ -109,7 +109,7 @@ class VIEW3D_PT_tools_object(View3DPanel, Panel):
                 col = layout.column(align=True)
                 col.operator("object.join")
 
-            if obj_type in {'MESH', 'CURVE', 'SURFACE', 'ARMATURE', 'FONT', 'LATTICE'}:
+            if obj_type in {'MESH', 'CURVE', 'SURFACE', 'ARMATURE', 'FONT', 'LATTICE', 'GPENCIL'}:
                 col = layout.column(align=True)
                 col.operator_menu_enum("object.origin_set", "type", text="Set Origin")
 
