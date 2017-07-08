@@ -2906,7 +2906,7 @@ void init_userdef_do_versions(void)
 	if (!USER_VERSION_ATLEAST(280, 1)) {
 		/* interface_widgets.c */
 		struct uiWidgetColors wcol_tab = {
-			{255, 255, 255, 255},
+			{60, 60, 60, 255},
 			{83, 83, 83, 255},
 			{114, 114, 114, 255},
 			{90, 90, 90, 255},

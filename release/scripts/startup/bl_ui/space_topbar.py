@@ -39,7 +39,7 @@ class TOPBAR_HT_upper_bar(Header):
         layout.separator()
 
         if not screen.show_fullscreen:
-            layout.template_ID(window, "workspace", new="workspace.workspace_add_menu", unlink="workspace.workspace_delete")
+            layout.template_ID_tabs(window, "workspace", new="workspace.workspace_add_menu", unlink="workspace.workspace_delete")
 
         layout.separator()
 

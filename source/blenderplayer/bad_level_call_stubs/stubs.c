@@ -676,6 +676,10 @@ struct uiLayout *uiTemplateConstraint(struct uiLayout *layout, struct PointerRNA
 void uiTemplatePreview(struct uiLayout *layout, struct bContext *C, struct ID *id, int show_buttons, struct ID *parent,
                        struct MTex *slot, const char *preview_id) RET_NONE
 void uiTemplateIDPreview(uiLayout *layout, struct bContext *C, struct PointerRNA *ptr, const char *propname, const char *newop, const char *openop, const char *unlinkop, int rows, int cols) RET_NONE
+void uiTemplateIDTabs(
+        uiLayout *layout, struct bContext *C,
+        PointerRNA *ptr, const char *propname,
+        const char *newop, const char *openop, const char *unlinkop) RET_NONE
 void uiTemplateSearch(
         uiLayout *layout, struct bContext *C,
         PointerRNA *ptr, const char *propname,

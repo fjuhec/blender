@@ -1263,7 +1263,7 @@ void UI_block_end_ex(const bContext *C, uiBlock *block, const int xy[2])
 	if (block->layouts.first) {
 		UI_block_layout_resolve(block, NULL, NULL);
 	}
-	ui_block_align_calc(block);
+	ui_block_align_calc(block, CTX_wm_region(C));
 	if ((block->flag & UI_BLOCK_LOOP) && (block->flag & UI_BLOCK_NUMSELECT)) {
 		ui_menu_block_set_keyaccels(block); /* could use a different flag to check */
 	}
@@ -1459,7 +1459,6 @@ int ui_but_is_pushed_ex(uiBut *but, double *value)
 				break;
 			case UI_BTYPE_ROW:
 			case UI_BTYPE_LISTROW:
-			case UI_BTYPE_TAB:
 				UI_GET_BUT_VALUE_INIT(but, *value);
 				/* support for rna enum buts */
 				if (but->rnaprop && (RNA_property_flag(but->rnaprop) & PROP_ENUM_FLAG)) {

@@ -473,6 +473,67 @@ static const char *template_id_context(StructRNA *type)
 }
 #endif
 
+static uiBut *template_id_def_new_but(
+        uiBlock *block, const ID *id, const TemplateID *template, StructRNA *type,
+        const char * const newop, const bool editable, const bool id_open, const bool use_tab_but)
+{
+	ID *idfrom = template->ptr.id.data;
+	uiBut *but;
+	const int w = id ? UI_UNIT_X : id_open ? UI_UNIT_X * 3 : UI_UNIT_X * 6;
+	const int but_type = use_tab_but ? UI_BTYPE_TAB : UI_BTYPE_BUT;
+
+	/* i18n markup, does nothing! */
+	BLT_I18N_MSGID_MULTI_CTXT("New", BLT_I18NCONTEXT_DEFAULT,
+	                                 BLT_I18NCONTEXT_ID_SCENE,
+	                                 BLT_I18NCONTEXT_ID_OBJECT,
+	                                 BLT_I18NCONTEXT_ID_MESH,
+	                                 BLT_I18NCONTEXT_ID_CURVE,
+	                                 BLT_I18NCONTEXT_ID_METABALL,
+	                                 BLT_I18NCONTEXT_ID_MATERIAL,
+	                                 BLT_I18NCONTEXT_ID_TEXTURE,
+	                                 BLT_I18NCONTEXT_ID_IMAGE,
+	                                 BLT_I18NCONTEXT_ID_LATTICE,
+	                                 BLT_I18NCONTEXT_ID_LAMP,
+	                                 BLT_I18NCONTEXT_ID_CAMERA,
+	                                 BLT_I18NCONTEXT_ID_WORLD,
+	                                 BLT_I18NCONTEXT_ID_SCREEN,
+	                                 BLT_I18NCONTEXT_ID_TEXT,
+	);
+	BLT_I18N_MSGID_MULTI_CTXT("New", BLT_I18NCONTEXT_ID_SPEAKER,
+	                                 BLT_I18NCONTEXT_ID_SOUND,
+	                                 BLT_I18NCONTEXT_ID_ARMATURE,
+	                                 BLT_I18NCONTEXT_ID_ACTION,
+	                                 BLT_I18NCONTEXT_ID_NODETREE,
+	                                 BLT_I18NCONTEXT_ID_BRUSH,
+	                                 BLT_I18NCONTEXT_ID_PARTICLESETTINGS,
+	                                 BLT_I18NCONTEXT_ID_GPENCIL,
+	                                 BLT_I18NCONTEXT_ID_FREESTYLELINESTYLE,
+	                                 BLT_I18NCONTEXT_ID_WORKSPACE,
+	                                 BLT_I18NCONTEXT_ID_LIGHTPROBE,
+	);
+
+	if (newop) {
+		but = uiDefIconTextButO(block, but_type, newop, WM_OP_INVOKE_DEFAULT, ICON_ZOOMIN,
+		                        (id) ? "" : CTX_IFACE_(template_id_context(type), "New"), 0, 0, w, UI_UNIT_Y, NULL);
+		UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template), SET_INT_IN_POINTER(UI_ID_ADD_NEW));
+	}
+	else {
+		but = uiDefIconTextBut(block, but_type, 0, ICON_ZOOMIN, (id) ? "" : CTX_IFACE_(template_id_context(type), "New"),
+		                       0, 0, w, UI_UNIT_Y, NULL, 0, 0, 0, 0, NULL);
+		UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template), SET_INT_IN_POINTER(UI_ID_ADD_NEW));
+	}
+
+	if ((idfrom && idfrom->lib) || !editable) {
+		UI_but_flag_enable(but, UI_BUT_DISABLED);
+	}
+
+#ifndef WITH_INTERNATIONAL
+	UNUSED_VARS(type);
+#endif
+
+	return but;
+}
+
 static void template_ID(
         bContext *C, uiLayout *layout, TemplateID *template, StructRNA *type, short idcode, int flag,
         const char *newop, const char *openop, const char *unlinkop)
@@ -563,51 +624,7 @@ static void template_ID(
 	}
 	
 	if (flag & UI_ID_ADD_NEW) {
-		int w = id ? UI_UNIT_X : (flag & UI_ID_OPEN) ? UI_UNIT_X * 3 : UI_UNIT_X * 6;
-		
-		/* i18n markup, does nothing! */
-		BLT_I18N_MSGID_MULTI_CTXT("New", BLT_I18NCONTEXT_DEFAULT,
-		                                 BLT_I18NCONTEXT_ID_SCENE,
-		                                 BLT_I18NCONTEXT_ID_OBJECT,
-		                                 BLT_I18NCONTEXT_ID_MESH,
-		                                 BLT_I18NCONTEXT_ID_CURVE,
-		                                 BLT_I18NCONTEXT_ID_METABALL,
-		                                 BLT_I18NCONTEXT_ID_MATERIAL,
-		                                 BLT_I18NCONTEXT_ID_TEXTURE,
-		                                 BLT_I18NCONTEXT_ID_IMAGE,
-		                                 BLT_I18NCONTEXT_ID_LATTICE,
-		                                 BLT_I18NCONTEXT_ID_LAMP,
-		                                 BLT_I18NCONTEXT_ID_CAMERA,
-		                                 BLT_I18NCONTEXT_ID_WORLD,
-		                                 BLT_I18NCONTEXT_ID_SCREEN,
-		                                 BLT_I18NCONTEXT_ID_TEXT,
-		);
-		BLT_I18N_MSGID_MULTI_CTXT("New", BLT_I18NCONTEXT_ID_SPEAKER,
-		                                 BLT_I18NCONTEXT_ID_SOUND,
-		                                 BLT_I18NCONTEXT_ID_ARMATURE,
-		                                 BLT_I18NCONTEXT_ID_ACTION,
-		                                 BLT_I18NCONTEXT_ID_NODETREE,
-		                                 BLT_I18NCONTEXT_ID_BRUSH,
-		                                 BLT_I18NCONTEXT_ID_PARTICLESETTINGS,
-		                                 BLT_I18NCONTEXT_ID_GPENCIL,
-		                                 BLT_I18NCONTEXT_ID_FREESTYLELINESTYLE,
-		                                 BLT_I18NCONTEXT_ID_WORKSPACE,
-		                                 BLT_I18NCONTEXT_ID_LIGHTPROBE,
-		);
-		
-		if (newop) {
-			but = uiDefIconTextButO(block, UI_BTYPE_BUT, newop, WM_OP_INVOKE_DEFAULT, ICON_ZOOMIN,
-			                        (id) ? "" : CTX_IFACE_(template_id_context(type), "New"), 0, 0, w, UI_UNIT_Y, NULL);
-			UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template), SET_INT_IN_POINTER(UI_ID_ADD_NEW));
-		}
-		else {
-			but = uiDefIconTextBut(block, UI_BTYPE_BUT, 0, ICON_ZOOMIN, (id) ? "" : CTX_IFACE_(template_id_context(type), "New"),
-			                       0, 0, w, UI_UNIT_Y, NULL, 0, 0, 0, 0, NULL);
-			UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template), SET_INT_IN_POINTER(UI_ID_ADD_NEW));
-		}
-
-		if ((idfrom && idfrom->lib) || !editable)
-			UI_but_flag_enable(but, UI_BUT_DISABLED);
+		template_id_def_new_but(block, id, template, type, newop, editable, flag & UI_ID_OPEN, false);
 	}
 
 	/* Due to space limit in UI - skip the "open" icon for packed data, and allow to unpack.
@@ -676,9 +693,50 @@ static void template_ID(
 	UI_block_align_end(block);
 }
 
+static void template_ID_tabs(
+        bContext *C, uiLayout *layout, TemplateID *template, StructRNA *type, int flag,
+        const char *newop, const char *UNUSED(openop), const char *UNUSED(unlinkop))
+{
+	const ARegion *region = CTX_wm_region(C);
+	const PointerRNA active_ptr = RNA_property_pointer_get(&template->ptr, template->prop);
+	const int but_align = (region->alignment == RGN_ALIGN_TOP) ? UI_BUT_ALIGN_DOWN : UI_BUT_ALIGN_TOP;
+
+	uiBlock *block = uiLayoutGetBlock(layout);
+	uiStyle *style = UI_style_get_dpi();
+	uiBut *but;
+
+
+	for (ID *id = template->idlb->first; id; id = id->next) {
+		const char *id_name = id->name + 2;
+		const int but_width = UI_fontstyle_string_width(&style->widgetlabel, id_name) + UI_UNIT_X;
+
+		but = uiDefButR_prop(
+		        block, UI_BTYPE_TAB, 0, id_name, 0, 0, but_width, UI_UNIT_Y,
+		        &template->ptr, template->prop, 0, 0.0f, 0.0f, 0.0f, 0.0f, "");
+		UI_but_funcN_set(but, id_search_call_cb, MEM_dupallocN(template), id);
+		if (active_ptr.data == id) {
+			UI_but_flag_enable(but, UI_SELECT);
+		}
+		UI_but_drawflag_enable(but, but_align);
+	}
+
+	if (flag & UI_ID_ADD_NEW) {
+		const bool editable = RNA_property_editable(&template->ptr, template->prop);
+
+		if (active_ptr.type) {
+			type = active_ptr.type;
+		}
+
+		but = template_id_def_new_but(block, active_ptr.data, template, type, newop, editable, flag & UI_ID_OPEN, true);
+		UI_but_drawflag_enable(but, but_align);
+	}
+}
+
 static void ui_template_id(
-        uiLayout *layout, bContext *C, PointerRNA *ptr, const char *propname, const char *newop,
-        const char *openop, const char *unlinkop, int flag, int prv_rows, int prv_cols)
+        uiLayout *layout, bContext *C,
+        PointerRNA *ptr, const char *propname,
+        const char *newop, const char *openop, const char *unlinkop,
+        int flag, int prv_rows, int prv_cols, bool use_tabs)
 {
 	TemplateID *template;
 	PropertyRNA *prop;
@@ -711,8 +769,14 @@ static void ui_template_id(
 	 *	- template_ID makes a copy of the template data and assigns it to the relevant buttons
 	 */
 	if (template->idlb) {
-		uiLayoutRow(layout, true);
-		template_ID(C, layout, template, type, idcode, flag, newop, openop, unlinkop);
+		if (use_tabs) {
+			uiLayoutRow(layout, false);
+			template_ID_tabs(C, layout, template, type, flag, newop, openop, unlinkop);
+		}
+		else {
+			uiLayoutRow(layout, true);
+			template_ID(C, layout, template, type, idcode, flag, newop, openop, unlinkop);
+		}
 	}
 
 	MEM_freeN(template);
@@ -722,23 +786,48 @@ void uiTemplateID(
         uiLayout *layout, bContext *C, PointerRNA *ptr, const char *propname, const char *newop,
         const char *openop, const char *unlinkop)
 {
-	ui_template_id(layout, C, ptr, propname, newop, openop, unlinkop,
-	               UI_ID_BROWSE | UI_ID_RENAME | UI_ID_DELETE, 0, 0);
+	ui_template_id(
+	        layout, C, ptr, propname,
+	        newop, openop, unlinkop,
+	        UI_ID_BROWSE | UI_ID_RENAME | UI_ID_DELETE,
+	        0, 0, false);
 }
 
 void uiTemplateIDBrowse(
         uiLayout *layout, bContext *C, PointerRNA *ptr, const char *propname, const char *newop,
         const char *openop, const char *unlinkop)
 {
-	ui_template_id(layout, C, ptr, propname, newop, openop, unlinkop, UI_ID_BROWSE | UI_ID_RENAME, 0, 0);
+	ui_template_id(
+	        layout, C, ptr, propname,
+	        newop, openop, unlinkop,
+	        UI_ID_BROWSE | UI_ID_RENAME,
+	        0, 0, false);
 }
 
 void uiTemplateIDPreview(
         uiLayout *layout, bContext *C, PointerRNA *ptr, const char *propname, const char *newop,
         const char *openop, const char *unlinkop, int rows, int cols)
 {
-	ui_template_id(layout, C, ptr, propname, newop, openop, unlinkop,
-	               UI_ID_BROWSE | UI_ID_RENAME | UI_ID_DELETE | UI_ID_PREVIEWS, rows, cols);
+	ui_template_id(
+	        layout, C, ptr, propname,
+	        newop, openop, unlinkop,
+	        UI_ID_BROWSE | UI_ID_RENAME | UI_ID_DELETE | UI_ID_PREVIEWS,
+	        rows, cols, false);
+}
+
+/**
+ * Version of #uiTemplateID using tabs.
+ */
+void uiTemplateIDTabs(
+        uiLayout *layout, bContext *C,
+        PointerRNA *ptr, const char *propname,
+        const char *newop, const char *openop, const char *unlinkop)
+{
+	ui_template_id(
+	        layout, C, ptr, propname,
+	        newop, openop, unlinkop,
+	        UI_ID_BROWSE | UI_ID_RENAME | UI_ID_DELETE,
+	        0, 0, true);
 }
 
 /************************ ID Chooser Template ***************************/
