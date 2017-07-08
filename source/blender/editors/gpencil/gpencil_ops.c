@@ -294,9 +294,6 @@ static void ed_keymap_gpencil_editing(wmKeyConfig *keyconf)
 	/* snap */
 	WM_keymap_add_menu(keymap, "GPENCIL_MT_snap", SKEY, KM_PRESS, KM_SHIFT, 0);
 	
-	/* set origin */
-	WM_keymap_add_menu(keymap, "GPENCIL_MT_origin", CKEY, KM_PRESS, KM_ALT | KM_SHIFT | KM_CTRL, 0);
-
 	/* convert to geometry */
 	WM_keymap_add_item(keymap, "GPENCIL_OT_convert", CKEY, KM_PRESS, KM_ALT, 0);
 	
@@ -539,8 +536,6 @@ void ED_operatortypes_gpencil(void)
 	WM_operatortype_append(GPENCIL_OT_snap_to_cursor);
 	WM_operatortype_append(GPENCIL_OT_snap_cursor_to_selected);
 	
-	WM_operatortype_append(GPENCIL_OT_origin_to_cursor);
-
 	WM_operatortype_append(GPENCIL_OT_reproject);
 	
 	WM_operatortype_append(GPENCIL_OT_brush_paint);
