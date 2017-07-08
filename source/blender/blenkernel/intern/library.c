@@ -526,11 +526,12 @@ static int id_copy_libmanagement_cb(void *user_data, ID *id_self, ID **id_pointe
 /* XXX TODO remove test thing, *all* IDs should be copyable that way! */
 bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, const bool test)
 {
-#define ITEMS_IMPLEMENTED ID_OB, ID_ME, ID_CU, ID_MB, ID_MA, ID_TE, ID_IM, ID_LT, ID_LA, ID_SPK, ID_CA, ID_KE, ID_AR, ID_NT
+#define ITEMS_IMPLEMENTED_1 ID_OB, ID_ME, ID_CU, ID_MB, ID_MA, ID_TE, ID_IM, ID_LT, ID_LA, ID_SPK
+#define ITEMS_IMPLEMENTED_2 ID_CA, ID_KE, ID_WO, ID_GR, ID_AR, ID_NT, ID_PA, ID_MC
 
 	if (!test) {
 		/* Check to be removed of course, just here until all BKE_xxx_copy_ex functions are done. */
-		if (ELEM(GS(id->name), ITEMS_IMPLEMENTED)) {
+		if (ELEM(GS(id->name), ITEMS_IMPLEMENTED_1) || ELEM(GS(id->name), ITEMS_IMPLEMENTED_2)) {
 			BKE_libblock_copy_ex(bmain, id, r_newid, flag);
 		}
 	}
@@ -579,7 +580,7 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 			if (!test) *r_newid = (ID *)BKE_text_copy(bmain, (Text *)id);
 			break;
 		case ID_GR:
-			if (!test) *r_newid = (ID *)BKE_group_copy(bmain, (Group *)id);
+			if (!test) BKE_group_copy_data(bmain, (Group *)*r_newid, (Group *)id, flag);
 			break;
 		case ID_AR:
 			if (!test) BKE_armature_copy_data(bmain, (bArmature *)*r_newid, (bArmature *)id, flag);
@@ -594,7 +595,7 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 			if (!test) *r_newid = (ID *)BKE_brush_copy(bmain, (Brush *)id);
 			break;
 		case ID_PA:
-			if (!test) *r_newid = (ID *)BKE_particlesettings_copy(bmain, (ParticleSettings *)id);
+			if (!test) BKE_particlesettings_copy_data(bmain, (ParticleSettings *)*r_newid, (ParticleSettings *)id, flag);
 			break;
 		case ID_GD:
 			if (!test) *r_newid = (ID *)BKE_gpencil_data_duplicate(bmain, (bGPdata *)id, false);
@@ -631,7 +632,7 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 
 	if (!test) {
 		/* Check to be removed of course, just here until all BKE_xxx_copy_ex functions are done. */
-		if (ELEM(GS(id->name), ITEMS_IMPLEMENTED)) {
+		if (ELEM(GS(id->name), ITEMS_IMPLEMENTED_1) || ELEM(GS(id->name), ITEMS_IMPLEMENTED_2)) {
 			/* Update ID refcount, remap pointers to self in new ID. */
 			struct IDCopyLibManagementData data = {.id_src=id, .flag=flag};
 			BKE_library_foreach_ID_link(bmain, *r_newid, id_copy_libmanagement_cb, &data, IDWALK_NOP);

@@ -247,7 +247,7 @@ void BKE_material_copy_data(Main *bmain, Material *ma_dst, const Material *ma_sr
 		BKE_id_copy_ex(bmain, (ID *)ma_src->nodetree, (ID **)&ma_dst->nodetree, flag, false);
 	}
 
-	if ((flag & LIB_ID_COPY_NO_PREVIEW) != 1) {
+	if ((flag & LIB_ID_COPY_NO_PREVIEW) == 0) {
 		BKE_previewimg_id_copy(&ma_dst->id, &ma_src->id);
 	}
 	else {

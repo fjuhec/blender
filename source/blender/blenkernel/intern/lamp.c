@@ -139,7 +139,7 @@ void BKE_lamp_copy_data(Main *bmain, Lamp *la_dst, const Lamp *la_src, const int
 		BKE_id_copy_ex(bmain, (ID *)la_src->nodetree, (ID **)&la_dst->nodetree, flag, false);
 	}
 
-	if ((flag & LIB_ID_COPY_NO_PREVIEW) != 1) {
+	if ((flag & LIB_ID_COPY_NO_PREVIEW) == 0) {
 		BKE_previewimg_id_copy(&la_dst->id, &la_src->id);
 	}
 	else {

@@ -466,7 +466,7 @@ void BKE_image_copy_data(Main *UNUSED(bmain), Image *ima_dst, const Image *ima_s
 	}
 	ima_dst->repbind = NULL;
 
-	if ((flag & LIB_ID_COPY_NO_PREVIEW) != 1) {
+	if ((flag & LIB_ID_COPY_NO_PREVIEW) == 0) {
 		BKE_previewimg_id_copy(&ima_dst->id, &ima_src->id);
 	}
 	else {

@@ -141,7 +141,7 @@ void BKE_world_copy_data(Main *bmain, World *wrld_dst, const World *wrld_src, co
 
 	BLI_listbase_clear(&wrld_dst->gpumaterial);
 
-	if ((flag & LIB_ID_COPY_NO_PREVIEW) != 1) {
+	if ((flag & LIB_ID_COPY_NO_PREVIEW) == 0) {
 		BKE_previewimg_id_copy(&wrld_dst->id, &wrld_src->id);
 	}
 	else {

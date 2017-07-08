@@ -1179,11 +1179,11 @@ void BKE_object_copy_data(Main *UNUSED(bmain), Object *ob_dst, const Object *ob_
 	ob_dst->curve_cache = NULL;
 
 	/* Do not copy object's preview (mostly due to the fact renderers create temp copy of objects). */
-	if ((flag & LIB_ID_COPY_NO_PREVIEW) == 1 || true) {  /* XXX TODO temp hack */
-		ob_dst->preview = NULL;
+	if ((flag & LIB_ID_COPY_NO_PREVIEW) == 0 && false) {  /* XXX TODO temp hack */
+		BKE_previewimg_id_copy(&ob_dst->id, &ob_src->id);
 	}
 	else {
-		BKE_previewimg_id_copy(&ob_dst->id, &ob_src->id);
+		ob_dst->preview = NULL;
 	}
 }
 

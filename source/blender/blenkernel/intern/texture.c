@@ -886,7 +886,7 @@ void BKE_texture_copy_data(Main *bmain, Tex *tex_dst, const Tex *tex_src, const 
 		BKE_id_copy_ex(bmain, (ID *)tex_src->nodetree, (ID **)&tex_dst->nodetree, flag, false);
 	}
 
-	if ((flag & LIB_ID_COPY_NO_PREVIEW) != 1) {
+	if ((flag & LIB_ID_COPY_NO_PREVIEW) == 0) {
 		BKE_previewimg_id_copy(&tex_dst->id, &tex_src->id);
 	}
 	else {
