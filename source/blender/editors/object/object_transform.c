@@ -1036,6 +1036,9 @@ static int object_origin_set_exec(bContext *C, wmOperator *op)
 					ob->id.tag |= LIB_TAG_DOIT;
 					do_inverse_offset = true;
 				}
+				else {
+					BKE_report(op->reports, RPT_WARNING, "Grease Pencil Object does not support this set origin option");
+				}
 			}
 
 			/* offset other selected objects */
