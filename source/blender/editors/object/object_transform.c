@@ -1030,7 +1030,6 @@ static int object_origin_set_exec(bContext *C, wmOperator *op)
 						}
 					}
 					BKE_gpencil_batch_cache_dirty(gpd);
-					DEG_id_tag_update(&obedit->id, OB_RECALC_DATA);
 
 					tot_change++;
 					ob->id.tag |= LIB_TAG_DOIT;
