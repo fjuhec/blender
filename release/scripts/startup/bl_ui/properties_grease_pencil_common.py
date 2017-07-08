@@ -221,6 +221,9 @@ class GreasePencilStrokeEditPanel:
         if is_3d_view:
             layout.separator()
             layout.operator_menu_enum("gpencil.reproject", text="Reproject Strokes...", property="type")
+            layout.separator()
+            layout.label("Set Origin:")
+            layout.operator("gpencil.origin_to_cursor", text="Origin to 3D Cursor")
 
 
 class GreasePencilAnimationPanel:
@@ -741,6 +744,15 @@ class GPENCIL_MT_snap(Menu):
         layout.operator("gpencil.snap_cursor_to_selected", text="Cursor to Selected")
         layout.operator("view3d.snap_cursor_to_center", text="Cursor to Center")
         layout.operator("view3d.snap_cursor_to_grid", text="Cursor to Grid")
+
+
+class GPENCIL_MT_origin(Menu):
+    bl_label = "Set GPencil Origin"
+
+    def draw(self, context):
+        layout = self.layout
+
+        layout.operator("gpencil.origin_to_cursor", text="Origin to 3D Cursor", icon="CURSOR")
 
 
 class GPENCIL_MT_gpencil_edit_specials(Menu):
@@ -1289,6 +1301,7 @@ classes = (
     GPENCIL_PIE_tools_more,
     GPENCIL_PIE_sculpt,
     GPENCIL_MT_snap,
+    GPENCIL_MT_origin,
     GPENCIL_MT_gpencil_edit_specials,
     GPENCIL_UL_brush,
     GPENCIL_UL_palettecolor,
