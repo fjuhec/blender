@@ -221,9 +221,7 @@ class GreasePencilStrokeEditPanel:
         if is_3d_view:
             layout.separator()
             layout.operator_menu_enum("gpencil.reproject", text="Reproject Strokes...", property="type")
-            layout.separator()
-            layout.label("Set Origin:")
-            layout.operator("gpencil.origin_to_cursor", text="Origin to 3D Cursor")
+            layout.operator_menu_enum("gpencil.origin_to_cursor", "type", text="Set Origin")
 
 
 class GreasePencilAnimationPanel:
