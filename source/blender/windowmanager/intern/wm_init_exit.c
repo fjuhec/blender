@@ -166,6 +166,7 @@ void WM_init(bContext *C, int argc, const char **argv)
 	WM_menutype_init();
 	WM_uilisttype_init();
 	wm_manipulatortype_init();
+	wm_manipulatorgrouptype_init();
 
 	BKE_undo_callback_wm_kill_jobs_set(wm_undo_kill_callback);
 
@@ -184,7 +185,7 @@ void WM_init(bContext *C, int argc, const char **argv)
 	ED_file_init();         /* for fsmenu */
 	ED_node_init_butfuncs();
 	
-	BLF_init(11, U.dpi); /* Please update source/gamengine/GamePlayer/GPG_ghost.cpp if you change this */
+	BLF_init(); /* Please update source/gamengine/GamePlayer/GPG_ghost.cpp if you change this */
 	BLT_lang_init();
 
 	/* Enforce loading the UI for the initial homefile */
@@ -488,7 +489,6 @@ void WM_exit_ext(bContext *C, const bool do_python)
 	wm_dropbox_free();
 	WM_menutype_free();
 	WM_uilisttype_free();
-	wm_manipulatortype_free();
 	
 	/* all non-screen and non-space stuff editors did, like editmode */
 	if (C)
@@ -533,6 +533,8 @@ void WM_exit_ext(bContext *C, const bool do_python)
 
 	/* free manipulator-maps after freeing blender, so no deleted data get accessed during cleaning up of areas */
 	wm_manipulatormaptypes_free();
+	wm_manipulatorgrouptype_free();
+	wm_manipulatortype_free();
 
 	BLF_exit();
 

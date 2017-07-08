@@ -318,24 +318,28 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 		SceneLayer *new_sl = scen->render_layers.first;
 		for (SceneLayer *sl = sce->render_layers.first; sl; sl = sl->next) {
 			new_sl->stats = NULL;
-			new_sl->properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
 			new_sl->properties_evaluated = NULL;
+			new_sl->properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
+			IDP_MergeGroup(new_sl->properties, sl->properties, true);
 
 			/* we start fresh with no overrides and no visibility flags set
 			 * instead of syncing both trees we simply unlink and relink the scene collection */
 			BLI_listbase_clear(&new_sl->layer_collections);
 			BLI_listbase_clear(&new_sl->object_bases);
+			BLI_listbase_clear(&new_sl->drawdata);
 			layer_collections_recreate(new_sl, &sl->layer_collections, mcn, mc);
 
+			Object *active_ob = OBACT_NEW;
+			Base *new_base = new_sl->object_bases.first;
+			for (Base *base = sl->object_bases.first; base; base = base->next) {
+				new_base->flag = base->flag;
+				new_base->flag_legacy = base->flag_legacy;
 
-			if (sl->basact) {
-				Object *active_ob = sl->basact->object;
-				for (Base *base = new_sl->object_bases.first; base; base = base->next) {
-					if (base->object == active_ob) {
-						new_sl->basact = base;
-						break;
-					}
+				if (new_base->object == active_ob) {
+					new_sl->basact = new_base;
 				}
+
+				new_base = new_base->next;
 			}
 			new_sl = new_sl->next;
 		}
@@ -481,7 +485,7 @@ void BKE_scene_make_local(Main *bmain, Scene *sce, const bool lib_local)
 }
 
 /** Free (or release) any data used by this scene (does not free the scene itself). */
-void BKE_scene_free(Scene *sce)
+void BKE_scene_free_ex(Scene *sce, const bool do_id_user)
 {
 	SceneRenderLayer *srl;
 
@@ -589,7 +593,7 @@ void BKE_scene_free(Scene *sce)
 	}
 
 	/* Master Collection */
-	BKE_collection_master_free(sce);
+	BKE_collection_master_free(sce, do_id_user);
 	MEM_freeN(sce->collection);
 	sce->collection = NULL;
 
@@ -606,6 +610,11 @@ void BKE_scene_free(Scene *sce)
 		MEM_freeN(sce->layer_properties);
 		sce->layer_properties = NULL;
 	}
+}
+
+void BKE_scene_free(Scene *sce)
+{
+	return BKE_scene_free_ex(sce, true);
 }
 
 void BKE_scene_init(Scene *sce)
@@ -809,7 +818,7 @@ void BKE_scene_init(Scene *sce)
 	sce->r.ffcodecdata.audio_bitrate = 192;
 	sce->r.ffcodecdata.audio_channels = 2;
 
-	BLI_strncpy(sce->r.engine, RE_engine_id_BLENDER_RENDER, sizeof(sce->r.engine));
+	BLI_strncpy(sce->r.engine, RE_engine_id_BLENDER_EEVEE, sizeof(sce->r.engine));
 
 	sce->audio.distance_model = 2.0f;
 	sce->audio.doppler_factor = 1.0f;
@@ -1508,7 +1517,7 @@ void BKE_scene_update_tagged(EvaluationContext *eval_ctx, Main *bmain, Scene *sc
 	prepare_mesh_for_viewport_render(bmain, scene);
 
 	/* flush recalc flags to dependencies */
-	DEG_ids_flush_tagged(bmain);
+	DEG_ids_flush_tagged(bmain, scene);
 
 	/* removed calls to quick_cache, see pointcache.c */
 	

@@ -428,7 +428,7 @@ static GPUTexture *GPU_texture_create_nD(
 	if (tex->depth) {
 		glTexParameteri(tex->target_base, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(tex->target_base, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(tex->target_base, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_R_TO_TEXTURE);
+		glTexParameteri(tex->target_base, GL_TEXTURE_COMPARE_MODE, GL_NONE);
 		glTexParameteri(tex->target_base, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
 	}
 	else {
@@ -506,7 +506,7 @@ static GPUTexture *GPU_texture_cube_create(
 	if (tex->depth) {
 		glTexParameteri(tex->target_base, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(tex->target_base, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(tex->target_base, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_R_TO_TEXTURE);
+		glTexParameteri(tex->target_base, GL_TEXTURE_COMPARE_MODE, GL_NONE);
 		glTexParameteri(tex->target_base, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
 	}
 	else {
@@ -856,7 +856,7 @@ void GPU_texture_filter_mode(GPUTexture *tex, bool use_filter)
 		glActiveTexture(GL_TEXTURE0);
 }
 
-void GPU_texture_mipmap_mode(GPUTexture *tex, bool use_mipmap)
+void GPU_texture_mipmap_mode(GPUTexture *tex, bool use_mipmap, bool use_filter)
 {
 	if (tex->number >= GPU_max_textures()) {
 		fprintf(stderr, "Not enough texture slots.\n");
@@ -869,7 +869,9 @@ void GPU_texture_mipmap_mode(GPUTexture *tex, bool use_mipmap)
 	if (tex->number != 0)
 		glActiveTexture(GL_TEXTURE0 + tex->number);
 
-	GLenum mipmap = use_mipmap ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR;
+	GLenum mipmap = (use_filter)
+	       ? use_mipmap ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR
+	       : use_mipmap ? GL_NEAREST_MIPMAP_LINEAR : GL_NEAREST;
 	glTexParameteri(tex->target_base, GL_TEXTURE_MIN_FILTER, mipmap);
 
 	if (tex->number != 0)

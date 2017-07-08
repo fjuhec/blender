@@ -92,7 +92,7 @@ static void PAINT_WEIGHT_engine_init(void *UNUSED(vedata))
 	if (e_data.actdef != draw_ctx->obact->actdef) {
 		e_data.actdef = draw_ctx->obact->actdef;
 
-		BKE_mesh_batch_cache_dirty(draw_ctx->obact->data, BKE_MESH_BATCH_DIRTY_PAINT);
+		BKE_mesh_batch_cache_dirty(draw_ctx->obact->data, BKE_MESH_BATCH_DIRTY_NOCHECK);
 	}
 
 	if (!e_data.weight_face_shader) {
@@ -184,7 +184,7 @@ static void PAINT_WEIGHT_cache_populate(void *vedata, Object *ob)
 		const Mesh *me = ob->data;
 		const bool use_face_sel = (me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
 		const bool use_vert_sel = (me->editflag & ME_EDIT_PAINT_VERT_SEL) != 0;
-		struct Batch *geom;
+		struct Gwn_Batch *geom;
 
 		world_light = BKE_collection_engine_property_value_get_bool(ces_mode_pw, "use_shading") ? 0.5f : 1.0f;
 

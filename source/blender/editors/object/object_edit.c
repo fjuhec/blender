@@ -58,6 +58,7 @@
 #include "DNA_meshdata_types.h"
 #include "DNA_vfont_types.h"
 #include "DNA_mesh_types.h"
+#include "DNA_workspace_types.h"
 
 #include "IMB_imbuf_types.h"
 
@@ -280,6 +281,9 @@ void ED_object_editmode_exit(bContext *C, int flag)
 	}
 
 	if (flag & EM_WAITCURSOR) waitcursor(0);
+
+	/* This way we ensure scene's obedit is copied into all CoW scenes.  */
+	DEG_id_tag_update(&scene->id, 0);
 }
 
 
@@ -395,6 +399,8 @@ void ED_object_editmode_enter(bContext *C, int flag)
 
 	if (ok) {
 		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+		/* This way we ensure scene's obedit is copied into all CoW scenes.  */
+		DEG_id_tag_update(&scene->id, 0);
 	}
 	else {
 		scene->obedit = NULL; /* XXX for context */
@@ -1257,6 +1263,7 @@ static int shade_smooth_exec(bContext *C, wmOperator *op)
 		if (ob->type == OB_MESH) {
 			BKE_mesh_smooth_flag_set(ob, !clear);
 
+			BKE_mesh_batch_cache_dirty(ob->data, BKE_MESH_BATCH_DIRTY_NOCHECK);
 			DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 			WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 

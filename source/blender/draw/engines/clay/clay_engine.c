@@ -277,7 +277,7 @@ static int matcap_to_index(int matcap)
 }
 
 /* Van der Corput sequence */
-/* TODO this is duplicated code from eevee_probes.c */
+/* TODO this is duplicated code from eevee_lightprobes.c */
  /* From http://holger.dammertz.org/stuff/notes_HammersleyOnHemisphere.html */
 static float radical_inverse(int i) {
 	unsigned int bits = (unsigned int)i;
@@ -776,7 +776,7 @@ static void CLAY_cache_populate(void *vedata, Object *ob)
 		}
 	}
 
-	struct Batch *geom = DRW_cache_object_surface_get(ob);
+	struct Gwn_Batch *geom = DRW_cache_object_surface_get(ob);
 	if (geom) {
 		IDProperty *ces_mode_ob = BKE_layer_collection_engine_evaluated_get(ob, COLLECTION_MODE_OBJECT, "");
 		const bool do_cull = BKE_collection_engine_property_value_get_bool(ces_mode_ob, "show_backface_culling");
@@ -828,7 +828,7 @@ static void CLAY_cache_populate(void *vedata, Object *ob)
 					unit_m4(mat);
 
 					if (draw_as == PART_DRAW_PATH) {
-						geom = DRW_cache_particles_get_hair(psys);
+						geom = DRW_cache_particles_get_hair(psys, NULL);
 						hair_shgrp = CLAY_hair_shgrp_get(ob, stl, psl);
 						DRW_shgroup_call_add(hair_shgrp, geom, mat);
 					}

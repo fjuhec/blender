@@ -30,22 +30,56 @@
 #include "BLI_compiler_attrs.h"
 
 /* wmManipulatorGroup */
-typedef bool (*wmManipulatorGroupFnPoll)(const struct bContext *, struct wmManipulatorGroupType *) ATTR_WARN_UNUSED_RESULT;
-typedef void (*wmManipulatorGroupFnInit)(const struct bContext *, struct wmManipulatorGroup *);
-typedef void (*wmManipulatorGroupFnRefresh)(const struct bContext *, struct wmManipulatorGroup *);
-typedef void (*wmManipulatorGroupFnDrawPrepare)(const struct bContext *, struct wmManipulatorGroup *);
+typedef bool (*wmManipulatorGroupFnPoll)(
+        const struct bContext *, struct wmManipulatorGroupType *)
+        ATTR_WARN_UNUSED_RESULT;
+typedef void (*wmManipulatorGroupFnInit)(
+        const struct bContext *, struct wmManipulatorGroup *);
+typedef void (*wmManipulatorGroupFnRefresh)(
+        const struct bContext *, struct wmManipulatorGroup *);
+typedef void (*wmManipulatorGroupFnDrawPrepare)(
+        const struct bContext *, struct wmManipulatorGroup *);
+typedef struct wmKeyMap *(*wmManipulatorGroupFnSetupKeymap)(
+        const struct wmManipulatorGroupType *, struct wmKeyConfig *)
+        ATTR_WARN_UNUSED_RESULT;
 
 /* wmManipulator */
 /* See: wmManipulatorType for docs on each type. */
+
+typedef void    (*wmManipulatorFnSetup)(struct wmManipulator *);
 typedef void    (*wmManipulatorFnDraw)(const struct bContext *, struct wmManipulator *);
 typedef void    (*wmManipulatorFnDrawSelect)(const struct bContext *, struct wmManipulator *, int);
 typedef int     (*wmManipulatorFnTestSelect)(struct bContext *, struct wmManipulator *, const struct wmEvent *);
 typedef void    (*wmManipulatorFnModal)(struct bContext *, struct wmManipulator *, const struct wmEvent *, const int);
 typedef void    (*wmManipulatorFnPropertyUpdate)(struct wmManipulator *, struct wmManipulatorProperty *);
-typedef void    (*wmManipulatorFnPositionGet)(struct wmManipulator *, float[]);
+typedef void    (*wmManipulatorFnMatrixWorldGet)(struct wmManipulator *, float[4][4]);
 typedef void    (*wmManipulatorFnInvoke)(struct bContext *, struct wmManipulator *, const struct wmEvent *);
 typedef void    (*wmManipulatorFnExit)(struct bContext *, struct wmManipulator *, const bool);
 typedef int     (*wmManipulatorFnCursorGet)(struct wmManipulator *);
 typedef void    (*wmManipulatorFnSelect)(struct bContext *, struct wmManipulator *, const int);
+
+/* wmManipulatorProperty ('value' type defined by 'wmManipulatorProperty.data_type') */
+typedef void (*wmManipulatorPropertyFnGet)(
+        const struct wmManipulator *, struct wmManipulatorProperty *,
+        /* typically 'float *' */
+        void *value);
+typedef void (*wmManipulatorPropertyFnSet)(
+        const struct wmManipulator *, struct wmManipulatorProperty *,
+        /* typically 'const float *' */
+        const void *value);
+typedef void (*wmManipulatorPropertyFnRangeGet)(
+        const struct wmManipulator *, struct wmManipulatorProperty *,
+        /* typically 'float[2]' */
+        void *range);
+typedef void (*wmManipulatorPropertyFnFree)(
+        const struct wmManipulator *, struct wmManipulatorProperty *);
+
+typedef struct wmManipulatorPropertyFnParams {
+	wmManipulatorPropertyFnGet value_get_fn;
+	wmManipulatorPropertyFnSet value_set_fn;
+	wmManipulatorPropertyFnRangeGet range_get_fn;
+	wmManipulatorPropertyFnFree free_fn;
+	void *user_data;
+} wmManipulatorPropertyFnParams;
 
 #endif  /* __WM_MANIPULATOR_FN_H__ */

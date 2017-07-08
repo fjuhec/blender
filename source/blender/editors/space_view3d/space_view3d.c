@@ -334,7 +334,7 @@ static SpaceLink *view3d_new(const bContext *C)
 	v3d->near = 0.01f;
 	v3d->far = 1000.0f;
 
-	v3d->twflag |= U.manipulator_flag & V3D_USE_MANIPULATOR;
+	v3d->twflag |= U.manipulator_flag & V3D_MANIPULATOR_DRAW;
 	v3d->twtype = V3D_MANIP_TRANSLATE;
 	v3d->around = V3D_AROUND_CENTER_MEAN;
 	
@@ -473,9 +473,9 @@ static void view3d_main_region_init(wmWindowManager *wm, ARegion *ar)
 	ListBase *lb;
 	wmKeyMap *keymap;
 
-	if (!ar->manipulator_map) {
-		ar->manipulator_map = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
-		        "View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW});
+	if (ar->manipulator_map == NULL) {
+		ar->manipulator_map = WM_manipulatormap_new_from_type(
+		        &(const struct wmManipulatorMapType_Params) {SPACE_VIEW3D, RGN_TYPE_WINDOW});
 	}
 
 	WM_manipulatormap_add_handlers(ar, ar->manipulator_map);
@@ -713,16 +713,13 @@ static void view3d_dropboxes(void)
 
 static void view3d_widgets(void)
 {
-	const struct wmManipulatorMapType_Params wmap_params = {
-		.idname = "View3D",
-		.spaceid = SPACE_VIEW3D, .regionid = RGN_TYPE_WINDOW,
-	};
-	wmManipulatorMapType *wmaptype = WM_manipulatormaptype_ensure(&wmap_params);
+	wmManipulatorMapType *mmap_type = WM_manipulatormaptype_ensure(
+	        &(const struct wmManipulatorMapType_Params){SPACE_VIEW3D, RGN_TYPE_WINDOW});
 
-	WM_manipulatorgrouptype_append(wmaptype, TRANSFORM_WGT_manipulator);
-	WM_manipulatorgrouptype_append(wmaptype, VIEW3D_WGT_lamp);
-	WM_manipulatorgrouptype_append(wmaptype, VIEW3D_WGT_force_field);
-	WM_manipulatorgrouptype_append(wmaptype, VIEW3D_WGT_camera);
+	WM_manipulatorgrouptype_append_and_link(mmap_type, TRANSFORM_WGT_manipulator);
+	WM_manipulatorgrouptype_append_and_link(mmap_type, VIEW3D_WGT_lamp);
+	WM_manipulatorgrouptype_append_and_link(mmap_type, VIEW3D_WGT_force_field);
+	WM_manipulatorgrouptype_append_and_link(mmap_type, VIEW3D_WGT_camera);
 }
 
 
@@ -863,10 +860,12 @@ static void view3d_main_region_listener(
 					}
 					ED_region_tag_redraw(ar);
 					break;
-				case ND_FRAME:
-				case ND_TRANSFORM:
 				case ND_OB_ACTIVE:
 				case ND_OB_SELECT:
+					DEG_id_tag_update((ID *)&scene->id, DEG_TAG_COPY_ON_WRITE);
+					ATTR_FALLTHROUGH;
+				case ND_FRAME:
+				case ND_TRANSFORM:
 				case ND_OB_VISIBLE:
 				case ND_RENDER_OPTIONS:
 				case ND_MARKERS:
@@ -998,6 +997,10 @@ static void view3d_main_region_listener(
 			switch (wmn->data) {
 				case ND_WORLD_DRAW:
 					/* handled by space_view3d_listener() for v3d access */
+					break;
+				case ND_WORLD:
+					/* Needed for updating world materials */
+					ED_region_tag_redraw(ar);
 					break;
 			}
 			break;

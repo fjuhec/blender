@@ -34,6 +34,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "DNA_scene_types.h"
+#include "DNA_workspace_types.h"
 #include "DNA_userdef_types.h"
 
 #include "BLI_math.h"
@@ -759,6 +760,7 @@ void ED_screen_refresh(wmWindowManager *wm, wmWindow *win)
 		screen_rect.ymax = screen_size_y - 1;
 
 		/* header size depends on DPI, let's verify */
+		WM_window_set_dpi(win);
 		screen_refresh_headersizes();
 		
 		screen_test_scale(screen, screen_size_x, screen_size_y);

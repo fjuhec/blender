@@ -1,5 +1,6 @@
 
 #define M_PI        3.14159265358979323846  /* pi */
+#define M_2PI       6.28318530717958647692  /* 2*pi */
 #define M_PI_2      1.57079632679489661923  /* pi/2 */
 #define M_1_PI      0.318309886183790671538  /* 1/pi */
 #define M_1_2PI     0.159154943091895335768  /* 1/(2*pi) */
@@ -7,34 +8,53 @@
 
 #define LUT_SIZE 64
 
-/* ------- Structures -------- */
+uniform mat4 ProjectionMatrix;
+uniform mat4 ViewMatrixInverse;
+uniform mat4 ViewMatrix;
+uniform vec4 viewvecs[2];
 
-struct ProbeData {
-	vec4 position_type;
-	vec4 shcoefs[7];
-	vec4 attenuation_fac_type;
-	mat4 influencemat;
-	mat4 parallaxmat;
+#define cameraForward   normalize(ViewMatrixInverse[2].xyz)
+#define cameraPos       ViewMatrixInverse[3].xyz
+
+/* ------- Structures -------- */
+#ifdef VOLUMETRICS
+
+#define NODETREE_EXEC
+
+struct Closure {
+	vec3 absorption;
+	vec3 scatter;
+	vec3 emission;
+	float anisotropy;
 };
 
-#define PROBE_PARALLAX_BOX    1.0
-#define PROBE_ATTENUATION_BOX 1.0
+#define CLOSURE_DEFAULT Closure(vec3(0.0), vec3(0.0), vec3(0.0), 0.0)
 
-#define p_position      position_type.xyz
-#define p_parallax_type position_type.w
-#define p_atten_fac     attenuation_fac_type.x
-#define p_atten_type    attenuation_fac_type.y
+Closure closure_mix(Closure cl1, Closure cl2, float fac)
+{
+	Closure cl;
+	cl.absorption = mix(cl1.absorption, cl2.absorption, fac);
+	cl.scatter = mix(cl1.scatter, cl2.scatter, fac);
+	cl.emission = mix(cl1.emission, cl2.emission, fac);
+	cl.anisotropy = mix(cl1.anisotropy, cl2.anisotropy, fac);
+	return cl;
+}
 
-/* TODO remove sh once we have irradiance grid */
-#define shcoef0        shcoefs[0].rgb
-#define shcoef1        vec3(shcoefs[0].a, shcoefs[1].rg)
-#define shcoef2        vec3(shcoefs[1].ba, shcoefs[2].r)
-#define shcoef3        shcoefs[2].gba
-#define shcoef4        shcoefs[3].rgb
-#define shcoef5        vec3(shcoefs[3].a, shcoefs[4].rg)
-#define shcoef6        vec3(shcoefs[4].ba, shcoefs[5].r)
-#define shcoef7        shcoefs[5].gba
-#define shcoef8        shcoefs[6].rgb
+Closure closure_add(Closure cl1, Closure cl2)
+{
+	Closure cl;
+	cl.absorption = cl1.absorption + cl2.absorption;
+	cl.scatter = cl1.scatter + cl2.scatter;
+	cl.emission = cl1.emission + cl2.emission;
+	cl.anisotropy = (cl1.anisotropy + cl2.anisotropy) / 2.0; /* Average phase (no multi lobe) */
+	return cl;
+}
+
+Closure nodetree_exec(void); /* Prototype */
+
+
+#endif /* VOLUMETRICS */
+
 
 struct LightData {
 	vec4 position_influence;      /* w : InfluenceRadius */
@@ -94,17 +114,13 @@ struct ShadowCascadeData {
 	vec4 bias;
 };
 
-struct ShadingData {
-	vec3 V; /* View vector */
-	vec3 N; /* World Normal of the fragment */
-	vec3 W; /* World Position of the fragment */
-	vec3 l_vector; /* Current Light vector */
-};
+#define cameraVec      ((ProjectionMatrix[3][3] == 0.0) ? normalize(cameraPos - worldPosition) : cameraForward)
 
 /* ------- Convenience functions --------- */
 
 vec3 mul(mat3 m, vec3 v) { return m * v; }
 mat3 mul(mat3 m1, mat3 m2) { return m1 * m2; }
+vec3 transform_point(mat4 m, vec3 v) { return (m * vec4(v, 1.0)).xyz; }
 
 float min_v3(vec3 v) { return min(v.x, min(v.y, v.z)); }
 
@@ -115,12 +131,36 @@ vec4 saturate(vec4 a) { return clamp(a, 0.0, 1.0); }
 
 float distance_squared(vec2 a, vec2 b) { a -= b; return dot(a, a); }
 float distance_squared(vec3 a, vec3 b) { a -= b; return dot(a, a); }
+float len_squared(vec3 a) { return dot(a, a); }
 
 float inverse_distance(vec3 V) { return max( 1 / length(V), 1e-8); }
+
+/* ------- Fast Math ------- */
+
+/* [Drobot2014a] Low Level Optimizations for GCN */
+float fast_sqrt(float x)
+{
+	return intBitsToFloat(0x1fbd1df5 + (floatBitsToInt(x) >> 1));
+}
+
+/* [Eberly2014] GPGPU Programming for Games and Science */
+float fast_acos(float x)
+{
+	float res = -0.156583 * abs(x) + M_PI_2;
+	res *= fast_sqrt(1.0 - abs(x));
+	return (x >= 0) ? res : M_PI - res;
+}
 
 float line_plane_intersect_dist(vec3 lineorigin, vec3 linedirection, vec3 planeorigin, vec3 planenormal)
 {
 	return dot(planenormal, planeorigin - lineorigin) / dot(planenormal, linedirection);
+}
+
+float line_plane_intersect_dist(vec3 lineorigin, vec3 linedirection, vec4 plane)
+{
+	vec3 plane_co = plane.xyz * (-plane.w / len_squared(plane.xyz));
+	vec3 h = lineorigin - plane_co;
+	return -dot(plane.xyz, h) / dot(plane.xyz, linedirection);
 }
 
 vec3 line_plane_intersect(vec3 lineorigin, vec3 linedirection, vec3 planeorigin, vec3 planenormal)
@@ -223,46 +263,38 @@ float buffer_depth(bool is_persp, float z, float zf, float zn)
 	}
 }
 
-#define spherical_harmonics spherical_harmonics_L2
-
-/* http://seblagarde.wordpress.com/2012/01/08/pi-or-not-to-pi-in-game-lighting-equation/ */
-vec3 spherical_harmonics_L1(vec3 N, vec4 shcoefs[3])
+float get_view_z_from_depth(float depth)
 {
-	vec3 sh = vec3(0.0);
-
-	sh += 0.282095 * shcoef0;
-
-	sh += -0.488603 * N.z * shcoef1;
-	sh += 0.488603 * N.y * shcoef2;
-	sh += -0.488603 * N.x * shcoef3;
-
-	return sh;
+	if (ProjectionMatrix[3][3] == 0.0) {
+		float d = 2.0 * depth - 1.0;
+		return -ProjectionMatrix[3][2] / (d + ProjectionMatrix[2][2]);
+	}
+	else {
+		return viewvecs[0].z + depth * viewvecs[1].z;
+	}
 }
 
-vec3 spherical_harmonics_L2(vec3 N, vec4 shcoefs[7])
+vec3 get_view_space_from_depth(vec2 uvcoords, float depth)
 {
-	vec3 sh = vec3(0.0);
-
-	sh += 0.282095 * shcoef0;
-
-	sh += -0.488603 * N.z * shcoef1;
-	sh += 0.488603 * N.y * shcoef2;
-	sh += -0.488603 * N.x * shcoef3;
-
-	sh += 1.092548 * N.x * N.z * shcoef4;
-	sh += -1.092548 * N.z * N.y * shcoef5;
-	sh += 0.315392 * (3.0 * N.y * N.y - 1.0) * shcoef6;
-	sh += -1.092548 * N.x * N.y * shcoef7;
-	sh += 0.546274 * (N.x * N.x - N.z * N.z) * shcoef8;
-
-	return sh;
+	if (ProjectionMatrix[3][3] == 0.0) {
+		return (viewvecs[0].xyz + vec3(uvcoords, 0.0) * viewvecs[1].xyz) * get_view_z_from_depth(depth);
+	}
+	else {
+		return viewvecs[0].xyz + vec3(uvcoords, depth) * viewvecs[1].xyz;
+	}
 }
 
-vec3 get_specular_dominant_dir(vec3 N, vec3 R, float roughness)
+vec3 get_specular_dominant_dir(vec3 N, vec3 V, float roughness)
 {
+	vec3 R = -reflect(V, N);
 	float smoothness = 1.0 - roughness;
 	float fac = smoothness * (sqrt(smoothness) + roughness);
 	return normalize(mix(N, R, fac));
+}
+
+float specular_occlusion(float NV, float AO, float roughness)
+{
+	return saturate(pow(NV + AO, roughness) - 1.0 + AO);
 }
 
 /* Fresnel */
@@ -272,7 +304,7 @@ vec3 F_schlick(vec3 f0, float cos_theta)
 
 	/* Unreal specular matching : if specular color is below 2% intensity,
 	 * (using green channel for intensity) treat as shadowning */
-	return saturate(50.0 * f0.g) * fac + (1.0 - fac) * f0;
+	return saturate(50.0 * dot(f0, vec3(0.3, 0.6, 0.1))) * fac + (1.0 - fac) * f0;
 }
 
 /* Fresnel approximation for LTC area lights (not MRP) */
@@ -281,16 +313,16 @@ vec3 F_area(vec3 f0, vec2 lut)
 	vec2 fac = normalize(lut.xy);
 
 	/* Unreal specular matching : if specular color is below 2% intensity,
-	 * (using green channel for intensity) treat as shadowning */
-	return saturate(50.0 * f0.g) * fac.y + fac.x * f0;
+	 * treat as shadowning */
+	return saturate(50.0 * dot(f0, vec3(0.3, 0.6, 0.1))) * fac.y + fac.x * f0;
 }
 
 /* Fresnel approximation for LTC area lights (not MRP) */
 vec3 F_ibl(vec3 f0, vec2 lut)
 {
 	/* Unreal specular matching : if specular color is below 2% intensity,
-	 * (using green channel for intensity) treat as shadowning */
-	return saturate(50.0 * f0.g) * lut.y + lut.x * f0;
+	 * treat as shadowning */
+	return saturate(50.0 * dot(f0, vec3(0.3, 0.6, 0.1))) * lut.y + lut.x * f0;
 }
 
 /* GGX */
@@ -326,4 +358,9 @@ float bsdf_ggx(vec3 N, vec3 L, vec3 V, float roughness)
 	/* Denominator is canceled by G1_Smith */
 	/* bsdf = D * G / (4.0 * NL * NV); /* Reference function */
 	return NL * a2 / (D * G); /* NL to Fit cycles Equation : line. 345 in bsdf_microfacet.h */
+}
+
+void accumulate_light(vec3 light, float fac, inout vec4 accum)
+{
+	accum += vec4(light, 1.0) * min(fac, (1.0 - accum.a));
 }

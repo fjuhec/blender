@@ -453,7 +453,7 @@ static const char *template_id_browse_tip(const StructRNA *type)
 			case ID_PC:  return N_("Browse Paint Curve Data to be linked");
 			case ID_CF:  return N_("Browse Cache Files to be linked");
 			case ID_WS:  return N_("Browse Workspace to be linked");
-			case ID_PRB: return N_("Browse Probe to be linked");
+			case ID_LP:  return N_("Browse LightProbe to be linked");
 		}
 	}
 	return N_("Browse ID data to be linked");
@@ -592,7 +592,7 @@ static void template_ID(
 		                                 BLT_I18NCONTEXT_ID_GPENCIL,
 		                                 BLT_I18NCONTEXT_ID_FREESTYLELINESTYLE,
 		                                 BLT_I18NCONTEXT_ID_WORKSPACE,
-		                                 BLT_I18NCONTEXT_ID_PROBE,
+		                                 BLT_I18NCONTEXT_ID_LIGHTPROBE,
 		);
 		
 		if (newop) {
@@ -4018,7 +4018,10 @@ void uiTemplateKeymapItemProperties(uiLayout *layout, PointerRNA *ptr)
 
 /********************************* Overrides *************************************/
 
-void uiTemplateOverrideProperty(uiLayout *layout, struct PointerRNA *collection_props_ptr, struct PointerRNA *scene_props_ptr, const char *name, const char *custom_template)
+void uiTemplateOverrideProperty(
+        uiLayout *layout, PointerRNA *collection_props_ptr, PointerRNA *scene_props_ptr, const char *propname,
+        const char *name, const char *text_ctxt, int translate, int icon,
+        const char *custom_template)
 {
 	bool is_set = false;
 	uiLayout *row, *col;
@@ -4028,16 +4031,19 @@ void uiTemplateOverrideProperty(uiLayout *layout, struct PointerRNA *collection_
 
 	IDProperty *collection_props = collection_props_ptr->data;
 
-	if (IDP_GetPropertyFromGroup(collection_props, name)) {
-		prop = RNA_struct_find_property(collection_props_ptr, name);
+	if (IDP_GetPropertyFromGroup(collection_props, propname)) {
+		prop = RNA_struct_find_property(collection_props_ptr, propname);
 		ptr = collection_props_ptr;
 		is_set = RNA_property_is_set(ptr, prop);
 	}
 	else {
 		/* property doesn't exist yet */
-		prop = RNA_struct_find_property(scene_props_ptr, name);
+		prop = RNA_struct_find_property(scene_props_ptr, propname);
 		ptr = scene_props_ptr;
 	}
+
+	/* Get translated name (label). */
+	name = RNA_translate_ui_text(name, text_ctxt, NULL, prop, translate);
 
 	row = uiLayoutRow(layout, false);
 	col = uiLayoutColumn(row, false);
@@ -4045,10 +4051,10 @@ void uiTemplateOverrideProperty(uiLayout *layout, struct PointerRNA *collection_
 	uiLayoutSetEnabled(col, is_set);
 
 	if (custom_template && STREQ(custom_template, "icon_view")) {
-		uiTemplateIconView(col, ptr, name, false, 5.0f);
+		uiTemplateIconView(col, ptr, propname, false, 5.0f);
 	}
 	else {
-		uiItemFullR(col, ptr, prop, -1, 0, 0, NULL, ICON_NONE);
+		uiItemFullR(col, ptr, prop, -1, 0, 0, name, icon);
 	}
 
 	col = uiLayoutColumn(row, false);

@@ -159,9 +159,9 @@ set(SRC
 	intern/pbvh.c
 	intern/pbvh_bmesh.c
 	intern/pointcache.c
-	intern/probe.c
 	intern/property.c
 	intern/layer.c
+	intern/lightprobe.c
 	intern/report.c
 	intern/rigidbody.c
 	intern/sca.c
@@ -281,9 +281,9 @@ set(SRC
 	BKE_particle.h
 	BKE_pbvh.h
 	BKE_pointcache.h
-	BKE_probe.h
 	BKE_property.h
 	BKE_layer.h
+	BKE_lightprobe.h
 	BKE_report.h
 	BKE_rigidbody.h
 	BKE_sca.h
@@ -546,5 +546,9 @@ endif()
 #if(MSVC)
 #	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /WX")
 #endif()
+
+if(WITH_DEPSGRAPH_COPY_ON_WRITE)
+	add_definitions(-DWITH_COPY_ON_WRITE)
+endif()
 
 blender_add_lib(bf_blenkernel "${SRC}" "${INC}" "${INC_SYS}")

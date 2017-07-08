@@ -975,7 +975,7 @@ static void recalcData_sequencer(TransInfo *t)
 
 /* force recalculation of triangles during transformation */
 static void recalcData_gpencil_strokes(TransInfo *t)
- {
+{
 	TransData *td = t->data;
 	for (int i = 0; i < t->total; i++, td++) {
 		bGPDstroke *gps = td->extra;
@@ -1054,12 +1054,12 @@ void drawLine(TransInfo *t, const float center[3], const float dir[3], char axis
 		}
 		UI_make_axis_color(col, col2, axis);
 
-		unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 3, KEEP_FLOAT);
+		unsigned int pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
 
 		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 		immUniformColor3ubv(col2);
 
-		immBegin(PRIM_LINES, 2);
+		immBegin(GWN_PRIM_LINES, 2);
 		immVertex3fv(pos, v1);
 		immVertex3fv(pos, v2);
 		immEnd();

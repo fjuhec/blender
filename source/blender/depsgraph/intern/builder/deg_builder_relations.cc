@@ -61,7 +61,7 @@ extern "C" {
 #include "DNA_movieclip_types.h"
 #include "DNA_node_types.h"
 #include "DNA_particle_types.h"
-#include "DNA_probe_types.h"
+#include "DNA_lightprobe_types.h"
 #include "DNA_object_types.h"
 #include "DNA_rigidbody_types.h"
 #include "DNA_scene_types.h"
@@ -199,13 +199,6 @@ DepsgraphRelationBuilder::DepsgraphRelationBuilder(Depsgraph *graph) :
 {
 }
 
-RootDepsNode *DepsgraphRelationBuilder::find_node(const RootKey &key) const
-{
-	(void)key;
-	BLI_assert(!"Doesn't seem to be correct");
-	return m_graph->root_node;
-}
-
 TimeSourceDepsNode *DepsgraphRelationBuilder::find_node(
         const TimeSourceKey &key) const
 {
@@ -214,7 +207,7 @@ TimeSourceDepsNode *DepsgraphRelationBuilder::find_node(
 		return NULL;
 	}
 	else {
-		return m_graph->root_node->time_source;
+		return m_graph->time_source;
 	}
 }
 
@@ -370,6 +363,11 @@ void DepsgraphRelationBuilder::add_forcefield_relations(const OperationKey &key,
 	}
 
 	pdEndEffectors(&effectors);
+}
+
+Depsgraph *DepsgraphRelationBuilder::getGraph()
+{
+	return m_graph;
 }
 
 /* **** Functions to build relations between entities  **** */
@@ -535,8 +533,8 @@ void DepsgraphRelationBuilder::build_object(Main *bmain, Scene *scene, Object *o
 				build_camera(ob);
 				break;
 
-			case OB_PROBE:
-				build_probe(ob);
+			case OB_LIGHTPROBE:
+				build_lightprobe(ob);
 				break;
 		}
 
@@ -978,8 +976,8 @@ void DepsgraphRelationBuilder::build_driver(ID *id, FCurve *fcu)
 				IDDepsNode *to_node = (IDDepsNode *)rel->to;
 
 				/* we only care about objects with pose data which use this... */
-				if (GS(to_node->id->name) == ID_OB) {
-					Object *ob = (Object *)to_node->id;
+				if (GS(to_node->id_orig->name) == ID_OB) {
+					Object *ob = (Object *)to_node->id_orig;
 					bPoseChannel *pchan = BKE_pose_channel_find_name(ob->pose, bone_name); // NOTE: ob->pose may be NULL
 
 					if (pchan) {
@@ -1393,12 +1391,22 @@ void DepsgraphRelationBuilder::build_obdata_geom(Main *bmain, Scene *scene, Obje
 	/* link components to each other */
 	add_relation(obdata_geom_key, geom_key, "Object Geometry Base Data");
 
+	OperationKey obdata_ubereval_key(&ob->id,
+	                                 DEG_NODE_TYPE_GEOMETRY,
+	                                 DEG_OPCODE_GEOMETRY_UBEREVAL);
+
+	/* Special case: modifiers and DerivedMesh creation queries scene for various
+	 * things like data mask to be used. We add relation here to ensure object is
+	 * never evaluated prior to Scene's CoW is ready.
+	 */
+	OperationKey scene_key(&scene->id,
+	                       DEG_NODE_TYPE_PARAMETERS,
+	                       DEG_OPCODE_PLACEHOLDER,
+	                       "Scene Eval");
+	add_relation(scene_key, obdata_ubereval_key, "CoW Relation");
+
 	/* Modifiers */
 	if (ob->modifiers.first != NULL) {
-		OperationKey obdata_ubereval_key(&ob->id,
-		                                 DEG_NODE_TYPE_GEOMETRY,
-		                                 DEG_OPCODE_GEOMETRY_UBEREVAL);
-
 		LINKLIST_FOREACH (ModifierData *, md, &ob->modifiers) {
 			const ModifierTypeInfo *mti = modifierType_getInfo((ModifierType)md->type);
 
@@ -1472,6 +1480,19 @@ void DepsgraphRelationBuilder::build_obdata_geom(Main *bmain, Scene *scene, Obje
 	/* type-specific node/links */
 	switch (ob->type) {
 		case OB_MESH:
+			/* NOTE: This is compatibility code to support particle systems
+			 *
+			 * for viewport being properly rendered in final render mode.
+			 * This relation is similar to what dag_object_time_update_flags()
+			 * was doing for mesh objects with particle system/
+			 *
+			 * Ideally we need to get rid of this relation.
+			 */
+			if (ob->particlesystem.first != NULL) {
+				TimeSourceKey time_key;
+				OperationKey obdata_ubereval_key(&ob->id, DEG_NODE_TYPE_GEOMETRY, DEG_OPCODE_GEOMETRY_UBEREVAL);
+				add_relation(time_key, obdata_ubereval_key, "Legacy particle time");
+			}
 			break;
 
 		case OB_MBALL:
@@ -1741,9 +1762,9 @@ void DepsgraphRelationBuilder::build_movieclip(MovieClip *clip)
 	build_animdata(&clip->id);
 }
 
-void DepsgraphRelationBuilder::build_probe(Object *object)
+void DepsgraphRelationBuilder::build_lightprobe(Object *object)
 {
-	Probe *probe = (Probe *)object->data;
+	LightProbe *probe = (LightProbe *)object->data;
 	ID *probe_id = &probe->id;
 	if (probe_id->tag & LIB_TAG_DOIT) {
 		return;
@@ -1754,12 +1775,70 @@ void DepsgraphRelationBuilder::build_probe(Object *object)
 	OperationKey probe_key(probe_id,
 	                       DEG_NODE_TYPE_PARAMETERS,
 	                       DEG_OPCODE_PLACEHOLDER,
-	                       "Probe Eval");
+	                       "LightProbe Eval");
 	OperationKey object_key(&object->id,
 	                        DEG_NODE_TYPE_PARAMETERS,
 	                        DEG_OPCODE_PLACEHOLDER,
-	                        "Probe Eval");
-	add_relation(probe_key, object_key, "Probe Update");
+	                        "LightProbe Eval");
+	add_relation(probe_key, object_key, "LightProbe Update");
+}
+
+void DepsgraphRelationBuilder::build_copy_on_write_relations()
+{
+	GHASH_FOREACH_BEGIN(IDDepsNode *, id_node, m_graph->id_hash)
+	{
+		build_copy_on_write_relations(id_node);
+	}
+	GHASH_FOREACH_END();
+}
+
+void DepsgraphRelationBuilder::build_copy_on_write_relations(IDDepsNode *id_node)
+{
+	ID *id_orig = id_node->id_orig;
+
+	TimeSourceKey time_source_key;
+	OperationKey copy_on_write_key(id_orig,
+	                               DEG_NODE_TYPE_COPY_ON_WRITE,
+	                               DEG_OPCODE_COPY_ON_WRITE);
+	/* XXX: This is a quick hack to make Alt-A to work. */
+	add_relation(time_source_key, copy_on_write_key, "Fluxgate capacitor hack");
+	/* Resat of code is using rather low level trickery, so need to get some
+	 * explicit pointers.
+	 */
+	DepsNode *node_cow = find_node(copy_on_write_key);
+	OperationDepsNode *op_cow = node_cow->get_exit_operation();
+	/* Plug any other components to this one. */
+	GHASH_FOREACH_BEGIN(ComponentDepsNode *, comp_node, id_node->components)
+	{
+		if (comp_node->type == DEG_NODE_TYPE_COPY_ON_WRITE) {
+			/* Copy-on-write component never depends on itself. */
+			continue;
+		}
+		/* All entry operations of each component should wait for a proper
+		 * copy of ID.
+		 */
+		OperationDepsNode *op_entry = comp_node->get_entry_operation();
+		if (op_entry != NULL) {
+			m_graph->add_new_relation(op_cow, op_entry, "CoW Dependency");
+		}
+		/* All dangling operations should also be executed after copy-on-write. */
+		GHASH_FOREACH_BEGIN(OperationDepsNode *, op_node, comp_node->operations_map)
+		{
+			if (op_node->inlinks.size() == 0) {
+				m_graph->add_new_relation(op_cow, op_node, "CoW Dependency");
+			}
+		}
+		GHASH_FOREACH_END();
+		/* NOTE: We currently ignore implicit relations to an external
+		 * datablocks for copy-on-write operations. This means, for example,
+		 * copy-on-write component of Object will not wait for copy-on-write
+		 * component of it's Mesh. This is because pointers are all known
+		 * already so remapping will happen all correct. And then If some object
+		 * evaluation step needs geometry, it will have transitive dependency
+		 * to Mesh copy-on-write already.
+		 */
+	}
+	GHASH_FOREACH_END();
 }
 
 }  // namespace DEG

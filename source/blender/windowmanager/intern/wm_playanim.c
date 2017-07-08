@@ -364,12 +364,12 @@ static void playanim_toscreen(PlayState *ps, PlayAnimPict *picture, struct ImBuf
 		gpuPushMatrix();
 		gpuLoadIdentity();
 
-		unsigned int pos = VertexFormat_add_attrib(immVertexFormat(), "pos", COMP_F32, 2, KEEP_FLOAT);
+		unsigned int pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
 
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 		immUniformColor3ub(0, 255, 0);
 
-		immBegin(PRIM_LINES, 2);
+		immBegin(GWN_PRIM_LINES, 2);
 		immVertex2f(pos, fac, -1.0f);
 		immVertex2f(pos, fac,  1.0f);
 		immEnd();
@@ -1265,7 +1265,7 @@ static char *wm_main_playanim_intern(int argc, const char **argv)
 	immInit();
 
 	/* initialize the font */
-	BLF_init(11, 72);
+	BLF_init();
 	ps.fontid = BLF_load_mem("monospace", (unsigned char *)datatoc_bmonofont_ttf, datatoc_bmonofont_ttf_size);
 	BLF_size(ps.fontid, 11, 72);
 

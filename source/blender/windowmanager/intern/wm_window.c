@@ -427,7 +427,7 @@ void wm_window_title(wmWindowManager *wm, wmWindow *win)
 	}
 }
 
-static void wm_window_set_dpi(wmWindow *win)
+void WM_window_set_dpi(wmWindow *win)
 {
 	int auto_dpi = GHOST_GetDPIHint(win->ghostwin);
 
@@ -458,8 +458,10 @@ static void wm_window_set_dpi(wmWindow *win)
 	U.pixelsize = GHOST_GetNativePixelSize(win->ghostwin) * pixelsize;
 	U.dpi = dpi / pixelsize;
 	U.virtual_pixel = (pixelsize == 1) ? VIRTUAL_PIXEL_NATIVE : VIRTUAL_PIXEL_DOUBLE;
+	U.widget_unit = (U.pixelsize * U.dpi * 20 + 36) / 72;
 
-	BKE_blender_userdef_refresh();
+	/* update font drawing */
+	BLF_default_dpi(U.pixelsize * U.dpi);
 }
 
 /* belongs to below */
@@ -535,7 +537,7 @@ static void wm_window_ghostwindow_add(wmWindowManager *wm, const char *title, wm
 		}
 		
 		/* needed here, because it's used before it reads userdef */
-		wm_window_set_dpi(win);
+		WM_window_set_dpi(win);
 		
 		wm_window_swap_buffers(win);
 		
@@ -1024,7 +1026,7 @@ void wm_window_make_drawable(wmWindowManager *wm, wmWindow *win)
 		immActivate();
 
 		/* this can change per window */
-		wm_window_set_dpi(win);
+		WM_window_set_dpi(win);
 	}
 }
 
@@ -1224,7 +1226,7 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 					WM_jobs_stop(wm, WM_window_get_active_screen(win), NULL);
 				}
 
-				wm_window_set_dpi(win);
+				WM_window_set_dpi(win);
 				
 				/* win32: gives undefined window size when minimized */
 				if (state != GHOST_kWindowStateMinimized) {
@@ -1314,11 +1316,10 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 
 			case GHOST_kEventWindowDPIHintChanged:
 			{
-				wm_window_set_dpi(win);
+				WM_window_set_dpi(win);
 				/* font's are stored at each DPI level, without this we can easy load 100's of fonts */
 				BLF_cache_clear();
 
-				BKE_blender_userdef_refresh();
 				WM_main_add_notifier(NC_WINDOW, NULL);      /* full redraw */
 				WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);    /* refresh region sizes */
 				break;
@@ -1404,7 +1405,7 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 			{
 				// only update if the actual pixel size changes
 				float prev_pixelsize = U.pixelsize;
-				wm_window_set_dpi(win);
+				WM_window_set_dpi(win);
 
 				if (U.pixelsize != prev_pixelsize) {
 					BKE_icon_changed(WM_window_get_active_screen(win)->id.icon_id);

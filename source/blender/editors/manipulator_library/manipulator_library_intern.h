@@ -50,7 +50,7 @@ typedef struct ManipulatorCommonData {
 
 typedef struct ManipulatorInteraction {
 	float init_value; /* initial property value */
-	float init_origin[3];
+	float init_matrix[4][4];
 	float init_mval[2];
 	float init_offset;
 	float init_scale;
@@ -76,15 +76,11 @@ float manipulator_value_from_offset(
         const bool constrained, const bool inverted, const bool use_precision);
 
 void manipulator_property_data_update(
-        struct wmManipulator *mnp, ManipulatorCommonData *data, wmManipulatorProperty *mpr_prop,
+        struct wmManipulator *mpr, ManipulatorCommonData *data, wmManipulatorProperty *mpr_prop,
         const bool constrained, const bool inverted);
 
-void  manipulator_property_value_set(
-        bContext *C, const struct wmManipulator *mnp, wmManipulatorProperty *mpr_prop, const float value);
-float manipulator_property_value_get(
-        const struct wmManipulator *mnp, wmManipulatorProperty *mpr_prop);
 void  manipulator_property_value_reset(
-        bContext *C, const struct wmManipulator *mnp, ManipulatorInteraction *inter, wmManipulatorProperty *mpr_prop);
+        bContext *C, const struct wmManipulator *mpr, ManipulatorInteraction *inter, wmManipulatorProperty *mpr_prop);
 
 
 /* -------------------------------------------------------------------- */
@@ -101,8 +97,8 @@ void manipulator_color_get(
 
 void wm_manipulator_geometryinfo_draw(const struct ManipulatorGeomInfo *info, const bool select, const float color[4]);
 void wm_manipulator_vec_draw(
-        const float color[4], const float (*verts)[3], unsigned int vert_count,
-        unsigned int pos, unsigned int primitive_type);
+        const float color[4], const float (*verts)[3], uint vert_count,
+        uint pos, uint primitive_type);
 
 
 #endif  /* __MANIPULATOR_LIBRARY_INTERN_H__ */

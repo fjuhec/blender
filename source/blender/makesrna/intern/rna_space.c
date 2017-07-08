@@ -45,6 +45,7 @@
 #include "DNA_sequence_types.h"
 #include "DNA_mask_types.h"
 #include "DNA_view3d_types.h"
+#include "DNA_workspace_types.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -459,12 +460,12 @@ EnumPropertyItem *rna_TransformOrientation_itemf(bContext *C, PointerRNA *ptr, P
 	}
 	else {
 		/* can't use scene from ptr->id.data because that enum is also used by operators */
-		workspace = CTX_wm_workspace(C);
+		workspace = C ? CTX_wm_workspace(C) : NULL;
 	}
 
-	transform_orientations = BKE_workspace_transform_orientations_get(workspace);
+	transform_orientations = workspace ? BKE_workspace_transform_orientations_get(workspace) : NULL;
 
-	if (BLI_listbase_is_empty(transform_orientations) == false) {
+	if (transform_orientations && (BLI_listbase_is_empty(transform_orientations) == false)) {
 		RNA_enum_item_add_separator(&item, &totitem);
 
 		for (TransformOrientation *ts = transform_orientations->first; ts; ts = ts->next) {
@@ -2678,7 +2679,7 @@ static void rna_def_space_view3d(BlenderRNA *brna)
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_SpaceView3D_pivot_update");
 
 	prop = RNA_def_property(srna, "show_manipulator", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "twflag", V3D_USE_MANIPULATOR);
+	RNA_def_property_boolean_sdna(prop, NULL, "twflag", V3D_MANIPULATOR_DRAW);
 	RNA_def_property_ui_text(prop, "Manipulator", "Use a 3D manipulator widget for controlling transforms");
 	RNA_def_property_ui_icon(prop, ICON_MANIPUL, 0);
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
@@ -3907,7 +3908,7 @@ static void rna_def_fileselect_params(BlenderRNA *brna)
 		               "Particles Settings", "Show/hide Particle Settings data-blocks"},
 		{FILTER_ID_PAL, "PALETTE", ICON_COLOR, "Palettes", "Show/hide Palette data-blocks"},
 		{FILTER_ID_PC, "PAINT_CURVE", ICON_CURVE_BEZCURVE, "Paint Curves", "Show/hide Paint Curve data-blocks"},
-		{FILTER_ID_PRB, "PROBE", ICON_RADIO, "Probes", "Show/hide Probe data-blocks"},
+		{FILTER_ID_LP, "LIGHT_PROBE", ICON_RADIO, "Light Probes", "Show/hide Light Probe data-blocks"},
 		{FILTER_ID_SCE, "SCENE", ICON_SCENE_DATA, "Scenes", "Show/hide Scene data-blocks"},
 		{FILTER_ID_SPK, "SPEAKER", ICON_SPEAKER, "Speakers", "Show/hide Speaker data-blocks"},
 		{FILTER_ID_SO, "SOUND", ICON_SOUND, "Sounds", "Show/hide Sound data-blocks"},

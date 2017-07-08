@@ -85,10 +85,6 @@ struct ComponentDepsNode;
 struct OperationDepsNode;
 struct RootPChanMap;
 
-struct RootKey {
-	RootKey();
-};
-
 struct TimeSourceKey
 {
 	TimeSourceKey();
@@ -227,10 +223,15 @@ struct DepsgraphRelationBuilder
 	void build_cachefile(CacheFile *cache_file);
 	void build_mask(Mask *mask);
 	void build_movieclip(MovieClip *clip);
-	void build_probe(Object *object);
+	void build_lightprobe(Object *object);
 
-	void add_collision_relations(const OperationKey &key, Scene *scene, Object *ob, Group *group, bool dupli, const char *name);
-	void add_forcefield_relations(const OperationKey &key, Scene *scene, Object *ob, ParticleSystem *psys, EffectorWeights *eff, bool add_absorption, const char *name);
+	void add_collision_relations(const OperationKey &key,
+	                             Scene *scene, Object *ob, Group *group,
+	                             bool dupli, const char *name);
+	void add_forcefield_relations(const OperationKey &key,
+	                              Scene *scene, Object *ob, ParticleSystem *psys,
+	                              EffectorWeights *eff,
+	                              bool add_absorption, const char *name);
 
 	struct LayerCollectionState {
 		int index;
@@ -246,11 +247,15 @@ struct DepsgraphRelationBuilder
 	                             LayerCollectionState *state);
 	void build_scene_layer_collections(Scene *scene);
 
+	void build_copy_on_write_relations();
+	void build_copy_on_write_relations(IDDepsNode *id_node);
+
 	template <typename KeyType>
 	OperationDepsNode *find_operation_node(const KeyType &key);
 
+	Depsgraph *getGraph();
+
 protected:
-	RootDepsNode *find_node(const RootKey &key) const;
 	TimeSourceDepsNode *find_node(const TimeSourceKey &key) const;
 	ComponentDepsNode *find_node(const ComponentKey &key) const;
 	OperationDepsNode *find_node(const OperationKey &key) const;

@@ -326,7 +326,11 @@ typedef struct Object {
 	ListBase drawdata;		/* runtime, ObjectEngineData */
 	int deg_update_flag; /* what has been updated in this object */
 	int select_color;
-	int pad3[2];
+
+	/* Mesh structure createrd during object evaluaiton.
+	 * It has all modifiers applied.
+	 */
+	struct Mesh *mesh_evaluated;
 } Object;
 
 /* Warning, this is not used anymore because hooks are now modifiers */
@@ -385,7 +389,7 @@ enum {
 	OB_CAMERA     = 11,
 
 	OB_SPEAKER    = 12,
-	OB_PROBE      = 13,
+	OB_LIGHTPROBE = 13,
 
 /*	OB_WAVE       = 21, */
 	OB_LATTICE    = 22,
@@ -406,10 +410,10 @@ enum {
 
 /* is this ID type used as object data */
 #define OB_DATA_SUPPORT_ID(_id_type) \
-	(ELEM(_id_type, ID_ME, ID_CU, ID_MB, ID_LA, ID_SPK, ID_PRB, ID_CA, ID_LT, ID_AR))
+	(ELEM(_id_type, ID_ME, ID_CU, ID_MB, ID_LA, ID_SPK, ID_LP, ID_CA, ID_LT, ID_AR))
 
 #define OB_DATA_SUPPORT_ID_CASE \
-	ID_ME: case ID_CU: case ID_MB: case ID_LA: case ID_SPK: case ID_PRB: case ID_CA: case ID_LT: case ID_AR
+	ID_ME: case ID_CU: case ID_MB: case ID_LA: case ID_SPK: case ID_LP: case ID_CA: case ID_LT: case ID_AR
 
 /* partype: first 4 bits: type */
 enum {

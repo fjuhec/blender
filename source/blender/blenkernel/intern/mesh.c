@@ -498,7 +498,7 @@ Mesh *BKE_mesh_add(Main *bmain, const char *name)
 	return me;
 }
 
-Mesh *BKE_mesh_copy(Main *bmain, Mesh *me)
+Mesh *BKE_mesh_copy(Main *bmain, const Mesh *me)
 {
 	Mesh *men;
 	int a;
@@ -581,43 +581,44 @@ bool BKE_mesh_uv_cdlayer_rename_index(Mesh *me, const int poly_index, const int 
 		ldata = &me->ldata;
 		fdata = &me->fdata;
 	}
-	cdlp = (poly_index != -1) ? &pdata->layers[poly_index] : NULL;
-	cdlu = &ldata->layers[loop_index];
-	cdlf = fdata && do_tessface ? &fdata->layers[face_index] : NULL;
 
-	if (cdlp == NULL && cdlf == NULL) {
-		return false;
-	}
+	cdlu = &ldata->layers[loop_index];
+	cdlp = (poly_index != -1) ? &pdata->layers[poly_index] : NULL;
+	cdlf = (face_index != -1) && fdata && do_tessface ? &fdata->layers[face_index] : NULL;
 
 	if (cdlu->name != new_name) {
 		/* Mesh validate passes a name from the CD layer as the new name,
 		 * Avoid memcpy from self to self in this case.
 		 */
 		BLI_strncpy(cdlu->name, new_name, sizeof(cdlu->name));
-		CustomData_set_layer_unique_name(pdata, cdlu - pdata->layers);
+		CustomData_set_layer_unique_name(ldata, loop_index);
+	}
+
+	if (cdlp == NULL && cdlf == NULL) {
+		return false;
 	}
 
 	/* Loop until we do have exactly the same name for all layers! */
 	for (i = 1;
-	     (cdlp && !STREQ(cdlp->name, cdlu->name)) ||
-	     (cdlf && !STREQ(cdlp->name, cdlf->name));
+	     (cdlp && !STREQ(cdlu->name, cdlp->name)) ||
+	     (cdlf && !STREQ(cdlu->name, cdlf->name));
 	     i++)
 	{
 		switch (i % step) {
 			case 0:
 				if (cdlp) {
 					BLI_strncpy(cdlp->name, cdlu->name, sizeof(cdlp->name));
-					CustomData_set_layer_unique_name(pdata, cdlp - pdata->layers);
+					CustomData_set_layer_unique_name(pdata, poly_index);
 				}
 				break;
 			case 1:
 				BLI_strncpy(cdlu->name, cdlp->name, sizeof(cdlu->name));
-				CustomData_set_layer_unique_name(ldata, cdlu - ldata->layers);
+				CustomData_set_layer_unique_name(ldata, loop_index);
 				break;
 			case 2:
 				if (cdlf) {
 					BLI_strncpy(cdlf->name, cdlu->name, sizeof(cdlf->name));
-					CustomData_set_layer_unique_name(fdata, cdlf - fdata->layers);
+					CustomData_set_layer_unique_name(fdata, face_index);
 				}
 				break;
 		}
@@ -1337,7 +1338,7 @@ int BKE_mesh_nurbs_displist_to_mdata(
 
 
 /* this may fail replacing ob->data, be sure to check ob->type */
-void BKE_mesh_from_nurbs_displist(Object *ob, ListBase *dispbase, const bool use_orco_uv)
+void BKE_mesh_from_nurbs_displist(Object *ob, ListBase *dispbase, const bool use_orco_uv, const char *obdata_name)
 {
 	Main *bmain = G.main;
 	Object *ob1;
@@ -1364,7 +1365,7 @@ void BKE_mesh_from_nurbs_displist(Object *ob, ListBase *dispbase, const bool use
 		}
 
 		/* make mesh */
-		me = BKE_mesh_add(bmain, "Mesh");
+		me = BKE_mesh_add(bmain, obdata_name);
 		me->totvert = totvert;
 		me->totedge = totedge;
 		me->totloop = totloop;
@@ -1383,7 +1384,7 @@ void BKE_mesh_from_nurbs_displist(Object *ob, ListBase *dispbase, const bool use
 		BKE_mesh_calc_normals(me);
 	}
 	else {
-		me = BKE_mesh_add(bmain, "Mesh");
+		me = BKE_mesh_add(bmain, obdata_name);
 		DM_to_mesh(dm, me, ob, CD_MASK_MESH, false);
 	}
 
@@ -1395,9 +1396,7 @@ void BKE_mesh_from_nurbs_displist(Object *ob, ListBase *dispbase, const bool use
 	cu->mat = NULL;
 	cu->totcol = 0;
 
-	if (ob->data) {
-		BKE_libblock_free(bmain, ob->data);
-	}
+	/* Do not decrement ob->data usercount here, it's done at end of func with BKE_libblock_free_us() call. */
 	ob->data = me;
 	ob->type = OB_MESH;
 
@@ -1407,11 +1406,14 @@ void BKE_mesh_from_nurbs_displist(Object *ob, ListBase *dispbase, const bool use
 		if (ob1->data == cu) {
 			ob1->type = OB_MESH;
 		
+			id_us_min((ID *)ob1->data);
 			ob1->data = ob->data;
-			id_us_plus((ID *)ob->data);
+			id_us_plus((ID *)ob1->data);
 		}
 		ob1 = ob1->id.next;
 	}
+
+	BKE_libblock_free_us(bmain, cu);
 }
 
 void BKE_mesh_from_nurbs(Object *ob)
@@ -1424,7 +1426,7 @@ void BKE_mesh_from_nurbs(Object *ob)
 		disp = ob->curve_cache->disp;
 	}
 
-	BKE_mesh_from_nurbs_displist(ob, &disp, use_orco_uv);
+	BKE_mesh_from_nurbs_displist(ob, &disp, use_orco_uv, cu->id.name);
 }
 
 typedef struct EdgeLink {
@@ -2483,7 +2485,7 @@ Mesh *BKE_mesh_new_from_object(
 
 			/* convert object type to mesh */
 			uv_from_orco = (tmpcu->flag & CU_UV_ORCO) != 0;
-			BKE_mesh_from_nurbs_displist(tmpobj, &dispbase, uv_from_orco);
+			BKE_mesh_from_nurbs_displist(tmpobj, &dispbase, uv_from_orco, tmpcu->id.name + 2);
 
 			tmpmesh = tmpobj->data;
 
@@ -2519,7 +2521,7 @@ Mesh *BKE_mesh_new_from_object(
 			if (ob != basis_ob)
 				return NULL;  /* only do basis metaball */
 
-			tmpmesh = BKE_mesh_add(bmain, "Mesh");
+			tmpmesh = BKE_mesh_add(bmain, ((ID *)ob->data)->name + 2);
 			/* BKE_mesh_add gives us a user count we don't need */
 			id_us_min(&tmpmesh->id);
 
@@ -2574,7 +2576,7 @@ Mesh *BKE_mesh_new_from_object(
 				else
 					dm = mesh_create_derived_view(sce, ob, mask);
 
-				tmpmesh = BKE_mesh_add(bmain, "Mesh");
+				tmpmesh = BKE_mesh_add(bmain, ((ID *)ob->data)->name + 2);
 				DM_to_mesh(dm, tmpmesh, ob, mask, true);
 
 				/* Copy autosmooth settings from original mesh. */

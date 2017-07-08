@@ -33,10 +33,13 @@
 
 #include "BLI_utildefines.h"
 #include "BLI_math_vector.h"
+#include "BLI_ghash.h"
 
+#include "DNA_modifier_types.h"
 #include "DNA_particle_types.h"
 
 #include "BKE_particle.h"
+#include "BKE_DerivedMesh.h"
 
 #include "GPU_batch.h"
 
@@ -45,13 +48,13 @@
 static void particle_batch_cache_clear(ParticleSystem *psys);
 
 /* ---------------------------------------------------------------------- */
-/* Particle Batch Cache */
+/* Particle Gwn_Batch Cache */
 
 typedef struct ParticleBatchCache {
-	VertexBuffer *pos;
-	ElementList *segments;
+	Gwn_VertBuf *pos;
+	Gwn_IndexBuf *segments;
 
-	Batch *hairs;
+	Gwn_Batch *hairs;
 
 	int segment_count;
 	int point_count;
@@ -60,7 +63,7 @@ typedef struct ParticleBatchCache {
 	bool is_dirty;
 } ParticleBatchCache;
 
-/* Batch cache management. */
+/* Gwn_Batch cache management. */
 
 static bool particle_batch_cache_valid(ParticleSystem *psys)
 {
@@ -125,10 +128,10 @@ static void particle_batch_cache_clear(ParticleSystem *psys)
 		return;
 	}
 
-	BATCH_DISCARD_SAFE(cache->hairs);
+	GWN_BATCH_DISCARD_SAFE(cache->hairs);
 
-	VERTEXBUFFER_DISCARD_SAFE(cache->pos);
-	ELEMENTLIST_DISCARD_SAFE(cache->segments);
+	GWN_VERTBUF_DISCARD_SAFE(cache->pos);
+	GWN_INDEXBUF_DISCARD_SAFE(cache->segments);
 }
 
 void DRW_particle_batch_cache_free(ParticleSystem *psys)
@@ -169,36 +172,104 @@ static void ensure_seg_pt_count(ParticleSystem *psys, ParticleBatchCache *cache)
 	}
 }
 
-/* Batch cache usage. */
-static void particle_batch_cache_ensure_pos_and_seg(ParticleSystem *psys, ParticleBatchCache *cache)
+/* Gwn_Batch cache usage. */
+static void particle_batch_cache_ensure_pos_and_seg(ParticleSystem *psys, ModifierData *md, ParticleBatchCache *cache)
 {
 	if (cache->pos == NULL || cache->segments == NULL) {
 		int curr_point = 0;
+		ParticleSystemModifierData *psmd = (ParticleSystemModifierData *)md;
 
-		VERTEXBUFFER_DISCARD_SAFE(cache->pos);
-		ELEMENTLIST_DISCARD_SAFE(cache->segments);
+		GWN_VERTBUF_DISCARD_SAFE(cache->pos);
+		GWN_INDEXBUF_DISCARD_SAFE(cache->segments);
 
-		static VertexFormat format = { 0 };
+		static Gwn_VertFormat format = { 0 };
 		static struct { uint pos, tan, ind; } attr_id;
-		if (format.attrib_ct == 0) {
-			/* initialize vertex format */
-			attr_id.pos = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
-			attr_id.tan = VertexFormat_add_attrib(&format, "tang", COMP_F32, 3, KEEP_FLOAT);
-			attr_id.ind = VertexFormat_add_attrib(&format, "ind", COMP_I32, 1, KEEP_INT);
+		unsigned int *uv_id = NULL;
+		int uv_layers = 0;
+		MTFace **mtfaces = NULL;
+		float (**parent_uvs)[2] = NULL;
+		bool simple = psys->part->childtype == PART_CHILD_PARTICLES;
+
+		if (psmd) {
+			if (CustomData_has_layer(&psmd->dm_final->loopData, CD_MLOOPUV)) {
+				uv_layers = CustomData_number_of_layers(&psmd->dm_final->loopData, CD_MLOOPUV);
+			}
 		}
 
-		cache->pos = VertexBuffer_create_with_format(&format);
-		VertexBuffer_allocate_data(cache->pos, cache->point_count);
+		GWN_vertformat_clear(&format);
 
-		ElementListBuilder elb;
-		ElementListBuilder_init(&elb, PRIM_LINES, cache->segment_count, cache->point_count);
+		/* initialize vertex format */
+		attr_id.pos = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
+		attr_id.tan = GWN_vertformat_attr_add(&format, "nor", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
+		attr_id.ind = GWN_vertformat_attr_add(&format, "ind", GWN_COMP_I32, 1, GWN_FETCH_INT);
+
+		if (psmd) {
+			uv_id = MEM_mallocN(sizeof(*uv_id) * uv_layers, "UV attrib format");
+
+			for (int i = 0; i < uv_layers; i++) {
+				const char *name = CustomData_get_layer_name(&psmd->dm_final->loopData, CD_MLOOPUV, i);
+				char uuid[32];
+
+				BLI_snprintf(uuid, sizeof(uuid), "u%u", BLI_ghashutil_strhash_p(name));
+				uv_id[i] = GWN_vertformat_attr_add(&format, uuid, GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
+			}
+		}
+
+		cache->pos = GWN_vertbuf_create_with_format(&format);
+		GWN_vertbuf_data_alloc(cache->pos, cache->point_count);
+
+		Gwn_IndexBufBuilder elb;
+		GWN_indexbuf_init(&elb, GWN_PRIM_LINES, cache->segment_count, cache->point_count);
+
+		if (uv_layers) {
+			DM_ensure_tessface(psmd->dm_final);
+
+			mtfaces = MEM_mallocN(sizeof(*mtfaces) * uv_layers, "Faces UV layers");
+
+			for (int i = 0; i < uv_layers; i++) {
+				mtfaces[i] = (MTFace *)CustomData_get_layer_n(&psmd->dm_final->faceData, CD_MTFACE, i);
+			}
+		}
 
 		if (psys->pathcache && (!psys->childcache || (psys->part->draw & PART_DRAW_PARENT))) {
+			if (simple) {
+				parent_uvs = MEM_callocN(sizeof(*parent_uvs) * psys->totpart, "Parent particle UVs");
+			}
+
 			for (int i = 0; i < psys->totpart; i++) {
 				ParticleCacheKey *path = psys->pathcache[i];
 
 				if (path->segments > 0) {
 					float tangent[3];
+					int from = psmd ? psmd->psys->part->from : 0;
+					float (*uv)[2] = NULL;
+
+					if (psmd) {
+						uv = MEM_callocN(sizeof(*uv) * uv_layers, "Particle UVs");
+
+						if (simple) {
+							parent_uvs[i] = uv;
+						}
+					}
+
+					if (ELEM(from, PART_FROM_FACE, PART_FROM_VOLUME)) {
+						ParticleData *particle = &psys->particles[i];
+						int num = particle->num_dmcache;
+
+						if (num == DMCACHE_NOTFOUND) {
+							if (particle->num < psmd->dm_final->getNumTessFaces(psmd->dm_final)) {
+								num = particle->num;
+							}
+						}
+
+						if (num != DMCACHE_NOTFOUND) {
+							MFace *mface = psmd->dm_final->getTessFaceData(psmd->dm_final, num, CD_MFACE);
+
+							for (int j = 0; j < uv_layers; j++) {
+								psys_interpolate_uvs(mtfaces[j] + num, mface->v4, particle->fuv, uv[j]);
+							}
+						}
+					}
 
 					for (int j = 0; j < path->segments; j++) {
 						if (j == 0) {
@@ -208,20 +279,36 @@ static void particle_batch_cache_ensure_pos_and_seg(ParticleSystem *psys, Partic
 							sub_v3_v3v3(tangent, path[j + 1].co, path[j - 1].co);
 						}
 
-						VertexBuffer_set_attrib(cache->pos, attr_id.pos, curr_point, path[j].co);
-						VertexBuffer_set_attrib(cache->pos, attr_id.tan, curr_point, tangent);
-						VertexBuffer_set_attrib(cache->pos, attr_id.ind, curr_point, &i);
+						GWN_vertbuf_attr_set(cache->pos, attr_id.pos, curr_point, path[j].co);
+						GWN_vertbuf_attr_set(cache->pos, attr_id.tan, curr_point, tangent);
+						GWN_vertbuf_attr_set(cache->pos, attr_id.ind, curr_point, &i);
 
-						add_line_vertices(&elb, curr_point, curr_point + 1);
+						if (psmd) {
+							for (int k = 0; k < uv_layers; k++) {
+								GWN_vertbuf_attr_set(cache->pos, uv_id[k], curr_point, uv[k]);
+							}
+						}
+
+						GWN_indexbuf_add_line_verts(&elb, curr_point, curr_point + 1);
 
 						curr_point++;
 					}
 
 					sub_v3_v3v3(tangent, path[path->segments].co, path[path->segments - 1].co);
 
-					VertexBuffer_set_attrib(cache->pos, attr_id.pos, curr_point, path[path->segments].co);
-					VertexBuffer_set_attrib(cache->pos, attr_id.tan, curr_point, tangent);
-					VertexBuffer_set_attrib(cache->pos, attr_id.ind, curr_point, &i);
+					GWN_vertbuf_attr_set(cache->pos, attr_id.pos, curr_point, path[path->segments].co);
+					GWN_vertbuf_attr_set(cache->pos, attr_id.tan, curr_point, tangent);
+					GWN_vertbuf_attr_set(cache->pos, attr_id.ind, curr_point, &i);
+
+					if (psmd) {
+						for (int k = 0; k < uv_layers; k++) {
+							GWN_vertbuf_attr_set(cache->pos, uv_id[k], curr_point, uv[k]);
+						}
+
+						if (!simple) {
+							MEM_freeN(uv);
+						}
+					}
 
 					curr_point++;
 				}
@@ -231,11 +318,61 @@ static void particle_batch_cache_ensure_pos_and_seg(ParticleSystem *psys, Partic
 		if (psys->childcache) {
 			int child_count = psys->totchild * psys->part->disp / 100;
 
+			if (simple && !parent_uvs) {
+				parent_uvs = MEM_callocN(sizeof(*parent_uvs) * psys->totpart, "Parent particle UVs");
+			}
+
 			for (int i = 0, x = psys->totpart; i < child_count; i++, x++) {
 				ParticleCacheKey *path = psys->childcache[i];
 				float tangent[3];
 
 				if (path->segments > 0) {
+					int from = psmd ? psmd->psys->part->from : 0;
+					float (*uv)[2] = NULL;
+
+					if (!simple) {
+						if (psmd) {
+							uv = MEM_callocN(sizeof(*uv) * uv_layers, "Particle UVs");
+						}
+
+						if (ELEM(from, PART_FROM_FACE, PART_FROM_VOLUME)) {
+							ChildParticle *particle = &psys->child[i];
+							int num = particle->num;
+
+							if (num != DMCACHE_NOTFOUND) {
+								MFace *mface = psmd->dm_final->getTessFaceData(psmd->dm_final, num, CD_MFACE);
+
+								for (int j = 0; j < uv_layers; j++) {
+									psys_interpolate_uvs(mtfaces[j] + num, mface->v4, particle->fuv, uv[j]);
+								}
+							}
+						}
+					}
+					else if (!parent_uvs[psys->child[i].parent]) {
+						if (psmd) {
+							parent_uvs[psys->child[i].parent] = MEM_callocN(sizeof(*uv) * uv_layers, "Particle UVs");
+						}
+
+						if (ELEM(from, PART_FROM_FACE, PART_FROM_VOLUME)) {
+							ParticleData *particle = &psys->particles[psys->child[i].parent];
+							int num = particle->num_dmcache;
+
+							if (num == DMCACHE_NOTFOUND) {
+								if (particle->num < psmd->dm_final->getNumTessFaces(psmd->dm_final)) {
+									num = particle->num;
+								}
+							}
+
+							if (num != DMCACHE_NOTFOUND) {
+								MFace *mface = psmd->dm_final->getTessFaceData(psmd->dm_final, num, CD_MFACE);
+
+								for (int j = 0; j < uv_layers; j++) {
+									psys_interpolate_uvs(mtfaces[j] + num, mface->v4, particle->fuv, parent_uvs[psys->child[i].parent][j]);
+								}
+							}
+						}
+					}
+
 					for (int j = 0; j < path->segments; j++) {
 						if (j == 0) {
 							sub_v3_v3v3(tangent, path[j + 1].co, path[j].co);
@@ -244,50 +381,84 @@ static void particle_batch_cache_ensure_pos_and_seg(ParticleSystem *psys, Partic
 							sub_v3_v3v3(tangent, path[j + 1].co, path[j - 1].co);
 						}
 
-						VertexBuffer_set_attrib(cache->pos, attr_id.pos, curr_point, path[j].co);
-						VertexBuffer_set_attrib(cache->pos, attr_id.tan, curr_point, tangent);
-						VertexBuffer_set_attrib(cache->pos, attr_id.ind, curr_point, &x);
+						GWN_vertbuf_attr_set(cache->pos, attr_id.pos, curr_point, path[j].co);
+						GWN_vertbuf_attr_set(cache->pos, attr_id.tan, curr_point, tangent);
+						GWN_vertbuf_attr_set(cache->pos, attr_id.ind, curr_point, &x);
 
-						add_line_vertices(&elb, curr_point, curr_point + 1);
+						if (psmd) {
+							for (int k = 0; k < uv_layers; k++) {
+								GWN_vertbuf_attr_set(cache->pos, uv_id[k], curr_point,
+								                     simple ? parent_uvs[psys->child[i].parent][k] : uv[k]);
+							}
+						}
+
+						GWN_indexbuf_add_line_verts(&elb, curr_point, curr_point + 1);
 
 						curr_point++;
 					}
 
 					sub_v3_v3v3(tangent, path[path->segments].co, path[path->segments - 1].co);
 
-					VertexBuffer_set_attrib(cache->pos, attr_id.pos, curr_point, path[path->segments].co);
-					VertexBuffer_set_attrib(cache->pos, attr_id.tan, curr_point, tangent);
-					VertexBuffer_set_attrib(cache->pos, attr_id.ind, curr_point, &x);
+					GWN_vertbuf_attr_set(cache->pos, attr_id.pos, curr_point, path[path->segments].co);
+					GWN_vertbuf_attr_set(cache->pos, attr_id.tan, curr_point, tangent);
+					GWN_vertbuf_attr_set(cache->pos, attr_id.ind, curr_point, &x);
+
+					if (psmd) {
+						for (int k = 0; k < uv_layers; k++) {
+							GWN_vertbuf_attr_set(cache->pos, uv_id[k], curr_point,
+							                     simple ? parent_uvs[psys->child[i].parent][k] : uv[k]);
+						}
+
+						if (!simple) {
+							MEM_freeN(uv);
+						}
+					}
 
 					curr_point++;
 				}
 			}
 		}
 
-		cache->segments = ElementList_build(&elb);
+		if (parent_uvs) {
+			for (int i = 0; i < psys->totpart; i++) {
+				MEM_SAFE_FREE(parent_uvs[i]);
+			}
+
+			MEM_freeN(parent_uvs);
+		}
+
+		if (uv_layers) {
+			MEM_freeN(mtfaces);
+		}
+
+		if (psmd) {
+			MEM_freeN(uv_id);
+		}
+
+		cache->segments = GWN_indexbuf_build(&elb);
 	}
 }
 
 static void particle_batch_cache_ensure_pos(ParticleSystem *psys, ParticleBatchCache *cache)
 {
 	if (cache->pos == NULL) {
-		static VertexFormat format = { 0 };
+		static Gwn_VertFormat format = { 0 };
 		static unsigned pos_id, rot_id, val_id;
 		int i, curr_point;
 		ParticleData *pa;
 
-		VERTEXBUFFER_DISCARD_SAFE(cache->pos);
-		ELEMENTLIST_DISCARD_SAFE(cache->segments);
+		GWN_VERTBUF_DISCARD_SAFE(cache->pos);
+		GWN_INDEXBUF_DISCARD_SAFE(cache->segments);
 
 		if (format.attrib_ct == 0) {
 			/* initialize vertex format */
-			pos_id = VertexFormat_add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
-			rot_id = VertexFormat_add_attrib(&format, "rot", COMP_F32, 4, KEEP_FLOAT);
-			val_id = VertexFormat_add_attrib(&format, "val", COMP_F32, 1, KEEP_FLOAT);
+			pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
+			rot_id = GWN_vertformat_attr_add(&format, "rot", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
+			val_id = GWN_vertformat_attr_add(&format, "val", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
 		}
 
-		cache->pos = VertexBuffer_create_with_format(&format);
-		VertexBuffer_allocate_data(cache->pos, psys->totpart);
+		cache->pos = GWN_vertbuf_create_with_format(&format);
+		GWN_vertbuf_data_alloc(cache->pos, psys->totpart);
 
 		for (curr_point = 0, i = 0, pa = psys->particles; i < psys->totpart; i++, pa++) {
 			if (pa->state.time >= pa->time && pa->state.time < pa->dietime &&
@@ -295,8 +466,8 @@ static void particle_batch_cache_ensure_pos(ParticleSystem *psys, ParticleBatchC
 			{
 				float val;
 
-				VertexBuffer_set_attrib(cache->pos, pos_id, curr_point, pa->state.co);
-				VertexBuffer_set_attrib(cache->pos, rot_id, curr_point, pa->state.rot);
+				GWN_vertbuf_attr_set(cache->pos, pos_id, curr_point, pa->state.co);
+				GWN_vertbuf_attr_set(cache->pos, rot_id, curr_point, pa->state.rot);
 
 				switch (psys->part->draw_col) {
 					case PART_DRAW_COL_VEL:
@@ -310,38 +481,38 @@ static void particle_batch_cache_ensure_pos(ParticleSystem *psys, ParticleBatchC
 						break;
 				}
 
-				VertexBuffer_set_attrib(cache->pos, val_id, curr_point, &val);
+				GWN_vertbuf_attr_set(cache->pos, val_id, curr_point, &val);
 
 				curr_point++;
 			}
 		}
 
 		if (curr_point != psys->totpart) {
-			VertexBuffer_resize_data(cache->pos, curr_point);
+			GWN_vertbuf_data_resize(cache->pos, curr_point);
 		}
 	}
 }
 
-Batch *DRW_particles_batch_cache_get_hair(ParticleSystem *psys)
+Gwn_Batch *DRW_particles_batch_cache_get_hair(ParticleSystem *psys, ModifierData *md)
 {
 	ParticleBatchCache *cache = particle_batch_cache_get(psys);
 
 	if (cache->hairs == NULL) {
 		ensure_seg_pt_count(psys, cache);
-		particle_batch_cache_ensure_pos_and_seg(psys, cache);
-		cache->hairs = Batch_create(PRIM_LINES, cache->pos, cache->segments);
+		particle_batch_cache_ensure_pos_and_seg(psys, md, cache);
+		cache->hairs = GWN_batch_create(GWN_PRIM_LINES, cache->pos, cache->segments);
 	}
 
 	return cache->hairs;
 }
 
-Batch *DRW_particles_batch_cache_get_dots(ParticleSystem *psys)
+Gwn_Batch *DRW_particles_batch_cache_get_dots(ParticleSystem *psys)
 {
 	ParticleBatchCache *cache = particle_batch_cache_get(psys);
 
 	if (cache->hairs == NULL) {
 		particle_batch_cache_ensure_pos(psys, cache);
-		cache->hairs = Batch_create(PRIM_POINTS, cache->pos, NULL);
+		cache->hairs = GWN_batch_create(GWN_PRIM_POINTS, cache->pos, NULL);
 	}
 
 	return cache->hairs;

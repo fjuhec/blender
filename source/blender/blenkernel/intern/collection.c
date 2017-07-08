@@ -34,6 +34,7 @@
 #include "BLI_string_utils.h"
 
 #include "BKE_collection.h"
+#include "BKE_idprop.h"
 #include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
@@ -74,20 +75,22 @@ SceneCollection *BKE_collection_add(Scene *scene, SceneCollection *sc_parent, co
 /**
  * Free the collection items recursively
  */
-static void collection_free(SceneCollection *sc)
+static void collection_free(SceneCollection *sc, const bool do_id_user)
 {
-	for (LinkData *link = sc->objects.first; link; link = link->next) {
-		id_us_min(link->data);
+	if (do_id_user) {
+		for (LinkData *link = sc->objects.first; link; link = link->next) {
+			id_us_min(link->data);
+		}
+		for (LinkData *link = sc->filter_objects.first; link; link = link->next) {
+			id_us_min(link->data);
+		}
 	}
-	BLI_freelistN(&sc->objects);
 
-	for (LinkData *link = sc->filter_objects.first; link; link = link->next) {
-		id_us_min(link->data);
-	}
+	BLI_freelistN(&sc->objects);
 	BLI_freelistN(&sc->filter_objects);
 
 	for (SceneCollection *nsc = sc->scene_collections.first; nsc; nsc = nsc->next) {
-		collection_free(nsc);
+		collection_free(nsc, do_id_user);
 	}
 	BLI_freelistN(&sc->scene_collections);
 }
@@ -159,7 +162,7 @@ bool BKE_collection_remove(Scene *scene, SceneCollection *sc)
 	}
 
 	/* clear the collection items */
-	collection_free(sc);
+	collection_free(sc, true);
 
 	/* check all layers that use this collection and clear them */
 	for (SceneLayer *sl = scene->render_layers.first; sl; sl = sl->next) {
@@ -217,9 +220,9 @@ void BKE_collection_rename(const Scene *scene, SceneCollection *sc, const char *
  * Free (or release) any data used by the master collection (does not free the master collection itself).
  * Used only to clear the entire scene data since it's not doing re-syncing of the LayerCollection tree
  */
-void BKE_collection_master_free(Scene *scene)
+void BKE_collection_master_free(Scene *scene, const bool do_id_user)
 {
-	collection_free(BKE_collection_master(scene));
+	collection_free(BKE_collection_master(scene), do_id_user);
 }
 
 static void collection_object_add(const Scene *scene, SceneCollection *sc, Object *ob)
@@ -254,6 +257,14 @@ void BKE_collection_object_add_from(Scene *scene, Object *ob_src, Object *ob_dst
 		}
 	}
 	FOREACH_SCENE_COLLECTION_END
+
+	for (SceneLayer *sl = scene->render_layers.first; sl; sl = sl->next) {
+		Base *base_src = BKE_scene_layer_base_find(sl, ob_src);
+		if (base_src != NULL) {
+			Base *base_dst = BKE_scene_layer_base_find(sl, ob_dst);
+			IDP_MergeGroup(base_dst->collection_properties, base_src->collection_properties, true);
+		}
+	}
 }
 
 /**
@@ -554,7 +565,7 @@ void BKE_scene_collections_iterator_end(struct BLI_Iterator *iter)
 
 typedef struct SceneObjectsIteratorData {
 	GSet *visited;
-	LinkData *link;
+	LinkData *link_next;
 	BLI_Iterator scene_collection_iter;
 } SceneObjectsIteratorData;
 
@@ -586,8 +597,9 @@ static LinkData *object_base_unique(GSet *gs, LinkData *link)
 {
 	for (; link != NULL; link = link->next) {
 		Object *ob = link->data;
-		if (!BLI_gset_haskey(gs, ob)) {
-			BLI_gset_add(gs, ob);
+		void **ob_key_p;
+		if (!BLI_gset_ensure_p_ex(gs, ob, &ob_key_p)) {
+			*ob_key_p = ob;
 			return link;
 		}
 	}
@@ -597,10 +609,10 @@ static LinkData *object_base_unique(GSet *gs, LinkData *link)
 void BKE_scene_objects_iterator_next(BLI_Iterator *iter)
 {
 	SceneObjectsIteratorData *data = iter->data;
-	LinkData *link = data->link ? object_base_unique(data->visited, data->link->next) : NULL;
+	LinkData *link = data->link_next ? object_base_unique(data->visited, data->link_next) : NULL;
 
 	if (link) {
-		data->link = link;
+		data->link_next = link->next;
 		iter->current = link->data;
 	}
 	else {
@@ -612,8 +624,8 @@ void BKE_scene_objects_iterator_next(BLI_Iterator *iter)
 			/* get the first unique object of this collection */
 			LinkData *new_link = object_base_unique(data->visited, sc->objects.first);
 			if (new_link) {
-				data->link = new_link;
-				iter->current = data->link->data;
+				data->link_next = new_link->next;
+				iter->current = new_link->data;
 				return;
 			}
 			BKE_scene_collections_iterator_next(&data->scene_collection_iter);

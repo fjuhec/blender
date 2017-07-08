@@ -3054,14 +3054,23 @@ void DM_calc_tangents_names_from_gpu(
 	*r_tangent_names_count = count;
 }
 
+void DM_add_named_tangent_layer_for_uv(
+        CustomData *uv_data, CustomData *tan_data, int numLoopData,
+        const char *layer_name)
+{
+	if (CustomData_get_named_layer_index(tan_data, CD_TANGENT, layer_name) == -1 &&
+	    CustomData_get_named_layer_index(uv_data, CD_MLOOPUV, layer_name) != -1)
+	{
+		CustomData_add_layer_named(
+		        tan_data, CD_TANGENT, CD_CALLOC, NULL,
+		        numLoopData, layer_name);
+	}
+}
+
 void DM_calc_loop_tangents(
         DerivedMesh *dm, bool calc_active_tangent,
         const char (*tangent_names)[MAX_NAME], int tangent_names_len)
 {
-	if (CustomData_number_of_layers(&dm->loopData, CD_MLOOPUV) == 0) {
-		return;
-	}
-
 	BKE_mesh_calc_loop_tangent_ex(
 	        dm->getVertArray(dm),
 	        dm->getPolyArray(dm), dm->getNumPolys(dm),
@@ -3520,14 +3529,14 @@ static void navmesh_drawColored(DerivedMesh *dm)
 	dm->drawEdges(dm, 0, 1);
 #endif
 
-	VertexFormat *format = immVertexFormat();
-	unsigned int pos = VertexFormat_add_attrib(format, "pos", COMP_F32, 3, KEEP_FLOAT);
-	unsigned int color = VertexFormat_add_attrib(format, "color", COMP_F32, 3, KEEP_FLOAT);
+	Gwn_VertFormat *format = immVertexFormat();
+	unsigned int pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
+	unsigned int color = GWN_vertformat_attr_add(format, "color", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
 
 	/* Note: batch drawing API would let us share vertices */
-	immBeginAtMost(PRIM_TRIANGLES, dm->numTessFaceData * 6);
+	immBeginAtMost(GWN_PRIM_TRIS, dm->numTessFaceData * 6);
 	for (int a = 0; a < dm->numTessFaceData; a++, mface++) {
 		int pi = polygonIdx[a];
 		if (pi <= 0) {

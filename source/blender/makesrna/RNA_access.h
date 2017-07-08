@@ -376,6 +376,8 @@ extern StructRNA RNA_LineStyleThicknessModifier_Tangent;
 extern StructRNA RNA_LockedTrackConstraint;
 extern StructRNA RNA_Macro;
 extern StructRNA RNA_MagicTexture;
+extern StructRNA RNA_Manipulator;
+extern StructRNA RNA_ManipulatorProperties;
 extern StructRNA RNA_MarbleTexture;
 extern StructRNA RNA_MaskModifier;
 extern StructRNA RNA_MaskSequence;
@@ -488,7 +490,7 @@ extern StructRNA RNA_PointLamp;
 extern StructRNA RNA_PointerProperty;
 extern StructRNA RNA_Pose;
 extern StructRNA RNA_PoseBone;
-extern StructRNA RNA_Probe;
+extern StructRNA RNA_LightProbe;
 extern StructRNA RNA_Property;
 extern StructRNA RNA_PropertyGroup;
 extern StructRNA RNA_PropertyGroupItem;
@@ -759,6 +761,7 @@ int RNA_struct_ui_icon(const StructRNA *type);
 PropertyRNA *RNA_struct_name_property(const StructRNA *type);
 PropertyRNA *RNA_struct_iterator_property(StructRNA *type);
 StructRNA *RNA_struct_base(StructRNA *type);
+const StructRNA *RNA_struct_base_child_of(const StructRNA *type, const StructRNA *parent_type);
 
 bool RNA_struct_is_ID(const StructRNA *type);
 bool RNA_struct_is_a(const StructRNA *type, const StructRNA *srna);
@@ -1193,6 +1196,10 @@ int RNA_function_call_direct_va(struct bContext *C, struct ReportList *reports, 
                                 FunctionRNA *func, const char *format, va_list args);
 int RNA_function_call_direct_va_lookup(struct bContext *C, struct ReportList *reports, PointerRNA *ptr,
                                        const char *identifier, const char *format, va_list args);
+
+const char *RNA_translate_ui_text(const char *text, const char *text_ctxt,
+                                  struct StructRNA *type, struct PropertyRNA *prop,
+                                  int translate);
 
 /* ID */
 
