@@ -1015,8 +1015,15 @@ static int object_origin_set_exec(bContext *C, wmOperator *op)
 					mul_m3_v3(imat, offset_global);
 					mul_v3_m3v3(offset_local, imat, offset_global);
 
+					float diff_mat[4][4];
+					float inverse_diff_mat[4][4];
+
 					/* recalculate all strokes (all layers are considered without evaluating lock attributtes) */
 					for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+						/* calculate difference matrix */
+						ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);
+						/* undo matrix */
+						invert_m4_m4(inverse_diff_mat, diff_mat);
 						for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
 							for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 								/* skip strokes that are invalid for current view */
@@ -1024,7 +1031,10 @@ static int object_origin_set_exec(bContext *C, wmOperator *op)
 									continue;
 
 								for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
-									sub_v3_v3(&pt->x, offset_local);
+									float mpt[3];
+									mul_v3_m4v3(mpt, inverse_diff_mat, &pt->x);
+									sub_v3_v3(mpt, offset_local);
+									mul_v3_m4v3(&pt->x, diff_mat, mpt);
 								}
 							}
 						}
