@@ -127,6 +127,12 @@ class VIEW3D_PT_tools_object(View3DPanel, Panel):
                 row.operator("object.data_transfer", text="Data")
                 row.operator("object.datalayout_transfer", text="Data Layout")
 
+            if obj_type == 'GPENCIL':
+                col = layout.column(align=True)
+                col.label(text="Grease Pencil:")
+                row = col.row(align=True)
+                col.operator_menu_enum("gpencil.convert", text="Convert to Geometry...", property="type")
+
 
 class VIEW3D_PT_tools_add_object(View3DPanel, Panel):
     bl_category = "Create"

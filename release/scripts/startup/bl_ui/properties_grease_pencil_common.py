@@ -129,9 +129,10 @@ class GreasePencilDrawingToolsPanel:
             col.prop(gpd, "use_stroke_edit_mode", text="Enable Editing", icon='EDIT', toggle=True)
 
         if is_3d_view:
-            col.label(text="Tools:")
-            col.operator_menu_enum("gpencil.convert", text="Convert to Geometry...", property="type")
-            col.operator("view3d.ruler")
+            is_gpmode = context.active_object.mode in ('GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT')
+            if context.active_object is None or is_gpmode is False:
+                col.label(text="Tools:")
+                col.operator("view3d.ruler")
 
 
 class GreasePencilStrokeEditPanel:
