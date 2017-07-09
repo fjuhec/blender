@@ -576,10 +576,14 @@ BLI_INLINE unsigned int mcol_blend(unsigned int col1, unsigned int col2, int fac
 	unsigned int col = 0;
 
 	if (fac == 0) {
+		cp = (unsigned char *)&col1;
+		cp[3] = use_alpha ? alpha_value : cp[3];
 		return col1;
 	}
 
 	if (fac >= 255) {
+		cp = (unsigned char *)&col2;
+		cp[3] = use_alpha ? alpha_value : cp[3];
 		return col2;
 	}
 
@@ -614,6 +618,8 @@ BLI_INLINE unsigned int mcol_add(unsigned int col1, unsigned int col2, int fac,
 	unsigned int col = 0;
 
 	if (fac == 0) {
+		cp = (unsigned char *)&col1;
+		cp[3] = use_alpha ? alpha_value : cp[3];
 		return col1;
 	}
 
@@ -640,6 +646,8 @@ BLI_INLINE unsigned int mcol_sub(unsigned int col1, unsigned int col2, int fac,
 	unsigned int col = 0;
 
 	if (fac == 0) {
+		cp = (unsigned char *)&col1;
+		cp[3] = use_alpha ? alpha_value : cp[3];
 		return col1;
 	}
 
@@ -666,6 +674,8 @@ BLI_INLINE unsigned int mcol_mul(unsigned int col1, unsigned int col2, int fac,
 	unsigned int col = 0;
 
 	if (fac == 0) {
+		cp = (unsigned char *)&col1;
+		cp[3] = use_alpha ? alpha_value : cp[3];
 		return col1;
 	}
 
@@ -692,9 +702,13 @@ BLI_INLINE unsigned int mcol_lighten(unsigned int col1, unsigned int col2, int f
 	unsigned int col = 0;
 
 	if (fac == 0) {
+		cp = (unsigned char *)&col1;
+		cp[3] = use_alpha ? alpha_value : cp[3];
 		return col1;
 	}
 	else if (fac >= 255) {
+		cp = (unsigned char *)&col2;
+		cp[3] = use_alpha ? alpha_value : cp[3];
 		return col2;
 	}
 
@@ -726,9 +740,13 @@ BLI_INLINE unsigned int mcol_darken(unsigned int col1, unsigned int col2, int fa
 	unsigned int col = 0;
 
 	if (fac == 0) {
+		cp = (unsigned char *)&col1;
+		cp[3] = use_alpha ? alpha_value : cp[3];
 		return col1;
 	}
 	else if (fac >= 255) {
+		cp = (unsigned char *)&col2;
+		cp[3] = use_alpha ? alpha_value : cp[3];
 		return col2;
 	}
 
@@ -759,6 +777,8 @@ BLI_INLINE unsigned int mcol_colordodge(unsigned int col1, unsigned int col2, in
 	unsigned int col = 0;
 
 	if (fac == 0) {
+		cp = (unsigned char *)&col1;
+		cp[3] = use_alpha ? alpha_value : cp[3];
 		return col1;
 	}
 
@@ -786,6 +806,8 @@ BLI_INLINE unsigned int mcol_difference(unsigned int col1, unsigned int col2, in
 	unsigned int col = 0;
 
 	if (fac == 0) {
+		cp = (unsigned char *)&col1;
+		cp[3] = use_alpha ? alpha_value : cp[3];
 		return col1;
 	}
 
@@ -813,6 +835,8 @@ BLI_INLINE unsigned int mcol_screen(unsigned int col1, unsigned int col2, int fa
 	unsigned int col = 0;
 
 	if (fac == 0) {
+		cp = (unsigned char *)&col1;
+		cp[3] = use_alpha ? alpha_value : cp[3];
 		return col1;
 	}
 
@@ -840,6 +864,8 @@ BLI_INLINE unsigned int mcol_hardlight(unsigned int col1, unsigned int col2, int
 	unsigned int col = 0;
 
 	if (fac == 0) {
+		cp = (unsigned char *)&col1;
+		cp[3] = use_alpha ? alpha_value : cp[3];
 		return col1;
 	}
 
@@ -873,6 +899,8 @@ BLI_INLINE unsigned int mcol_overlay(unsigned int col1, unsigned int col2, int f
 	unsigned int col = 0;
 
 	if (fac == 0) {
+		cp = (unsigned char *)&col1;
+		cp[3] = use_alpha ? alpha_value : cp[3];
 		return col1;
 	}
 
@@ -906,6 +934,8 @@ BLI_INLINE unsigned int mcol_softlight(unsigned int col1, unsigned int col2, int
 	unsigned int col = 0;
 
 	if (fac == 0) {
+		cp = (unsigned char *)&col1;
+		cp[3] = use_alpha ? alpha_value : cp[3];
 		return col1;
 	}
 
@@ -939,6 +969,8 @@ BLI_INLINE unsigned int mcol_exclusion(unsigned int col1, unsigned int col2, int
 	unsigned int col = 0;
 
 	if (fac == 0) {
+		cp = (unsigned char *)&col1;
+		cp[3] = use_alpha ? alpha_value : cp[3];
 		return col1;
 	}
 
@@ -966,6 +998,8 @@ BLI_INLINE unsigned int mcol_luminocity(unsigned int col1, unsigned int col2, in
 	unsigned int col = 0;
 
 	if (fac == 0) {
+		cp = (unsigned char *)&col1;
+		cp[3] = use_alpha ? alpha_value : cp[3];
 		return col1;
 	}
 
@@ -1000,6 +1034,8 @@ BLI_INLINE unsigned int mcol_saturation(unsigned int col1, unsigned int col2, in
 	unsigned int col = 0;
 
 	if (fac == 0) {
+		cp = (unsigned char *)&col1;
+		cp[3] = use_alpha ? alpha_value : cp[3];
 		return col1;
 	}
 
@@ -1036,6 +1072,8 @@ BLI_INLINE unsigned int mcol_hue(unsigned int col1, unsigned int col2, int fac,
 	unsigned int col = 0;
 
 	if (fac == 0) {
+		cp = (unsigned char *)&col1;
+		cp[3] = use_alpha ? alpha_value : cp[3];
 		return col1;
 	}
 
