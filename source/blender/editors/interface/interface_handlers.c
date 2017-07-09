@@ -7406,15 +7406,14 @@ bool ui_but_is_active(ARegion *ar)
 /* is called by notifier */
 void UI_screen_free_active_but(const bContext *C, bScreen *screen)
 {
-	ScrArea *sa = screen->areabase.first;
-	
-	for (; sa; sa = sa->next) {
-		ARegion *ar = sa->regionbase.first;
-		for (; ar; ar = ar->next) {
-			uiBut *but = ui_but_find_active_in_region(ar);
+	wmWindow *win = CTX_wm_window(C);
+
+	ED_screen_areas_iter(win, screen, area) {
+		for (ARegion *region = area->regionbase.first; region; region = region->next) {
+			uiBut *but = ui_but_find_active_in_region(region);
 			if (but) {
 				uiHandleButtonData *data = but->active;
-				
+
 				if (data->menu == NULL && data->searchbox == NULL)
 					if (data->state == BUTTON_STATE_HIGHLIGHT)
 						ui_but_active_free(C, but);

@@ -959,15 +959,19 @@ void ED_screen_set_subwinactive(bContext *C, wmEvent *event)
 	bScreen *scr = WM_window_get_active_screen(win);
 
 	if (scr) {
-		ScrArea *sa;
+		ScrArea *sa = NULL;
 		ARegion *ar;
 		int oldswin = scr->subwinactive;
 
-		for (sa = scr->areabase.first; sa; sa = sa->next) {
-			if (event->x > sa->totrct.xmin && event->x < sa->totrct.xmax)
-				if (event->y > sa->totrct.ymin && event->y < sa->totrct.ymax)
-					if (NULL == is_in_area_actionzone(sa, &event->x))
+		ED_screen_areas_iter(win, scr, area_iter) {
+			if (event->x > area_iter->totrct.xmin && event->x < area_iter->totrct.xmax) {
+				if (event->y > area_iter->totrct.ymin && event->y < area_iter->totrct.ymax) {
+					if (is_in_area_actionzone(area_iter, &event->x) == NULL) {
+						sa = area_iter;
 						break;
+					}
+				}
+			}
 		}
 		if (sa) {
 			/* make overlap active when mouse over */
@@ -984,17 +988,21 @@ void ED_screen_set_subwinactive(bContext *C, wmEvent *event)
 		/* check for redraw headers */
 		if (oldswin != scr->subwinactive) {
 
-			for (sa = scr->areabase.first; sa; sa = sa->next) {
+			ED_screen_areas_iter(win, scr, area_iter) {
 				bool do_draw = false;
 				
-				for (ar = sa->regionbase.first; ar; ar = ar->next)
-					if (ar->swinid == oldswin || ar->swinid == scr->subwinactive)
+				for (ar = area_iter->regionbase.first; ar; ar = ar->next) {
+					if (ar->swinid == oldswin || ar->swinid == scr->subwinactive) {
 						do_draw = true;
+					}
+				}
 				
 				if (do_draw) {
-					for (ar = sa->regionbase.first; ar; ar = ar->next)
-						if (ar->regiontype == RGN_TYPE_HEADER)
+					for (ar = area_iter->regionbase.first; ar; ar = ar->next) {
+						if (ar->regiontype == RGN_TYPE_HEADER) {
 							ED_region_tag_redraw(ar);
+						}
+					}
 				}
 			}
 		}
