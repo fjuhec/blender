@@ -527,7 +527,7 @@ static int id_copy_libmanagement_cb(void *user_data, ID *id_self, ID **id_pointe
 bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, const bool test)
 {
 #define ITEMS_IMPLEMENTED_1 ID_OB, ID_ME, ID_CU, ID_MB, ID_MA, ID_TE, ID_IM, ID_LT, ID_LA, ID_SPK
-#define ITEMS_IMPLEMENTED_2 ID_CA, ID_KE, ID_WO, ID_GR, ID_AR, ID_NT, ID_PA, ID_MC
+#define ITEMS_IMPLEMENTED_2 ID_CA, ID_KE, ID_WO, ID_GR, ID_AR, ID_AC, ID_NT, ID_PA, ID_MC
 
 	if (!test) {
 		/* Check to be removed of course, just here until all BKE_xxx_copy_ex functions are done. */
@@ -586,7 +586,7 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 			if (!test) BKE_armature_copy_data(bmain, (bArmature *)*r_newid, (bArmature *)id, flag);
 			break;
 		case ID_AC:
-			if (!test) *r_newid = (ID *)BKE_action_copy(bmain, (bAction *)id);
+			if (!test) BKE_action_copy_data(bmain, (bAction *)*r_newid, (bAction *)id, flag);
 			break;
 		case ID_NT:
 			if (!test) BKE_node_tree_copy_data(bmain, (bNodeTree *)*r_newid, (bNodeTree *)id, flag);

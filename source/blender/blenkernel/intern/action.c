@@ -120,46 +120,56 @@ void BKE_action_free(bAction *act)
 
 /* .................................. */
 
-bAction *BKE_action_copy(Main *bmain, const bAction *src)
+/**
+ * Only copy internal data of Action ID from source to already allocated/initialized destination.
+ * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ *
+ * WARNING! This function will not handle ID user count!
+ *
+ * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
+ */
+void BKE_action_copy_data(Main *UNUSED(bmain), bAction *act_dst, const bAction *act_src, const int UNUSED(flag))
 {
-	bAction *dst = NULL;
-	bActionGroup *dgrp, *sgrp;
-	FCurve *dfcu, *sfcu;
-	
-	if (src == NULL) 
-		return NULL;
-	dst = BKE_libblock_copy(bmain, &src->id);
-	
+	bActionGroup *grp_dst, *grp_src;
+	FCurve *fcu_dst, *fcu_src;
+
 	/* duplicate the lists of groups and markers */
-	BLI_duplicatelist(&dst->groups, &src->groups);
-	BLI_duplicatelist(&dst->markers, &src->markers);
-	
+	BLI_duplicatelist(&act_dst->groups, &act_src->groups);
+	BLI_duplicatelist(&act_dst->markers, &act_src->markers);
+
 	/* copy F-Curves, fixing up the links as we go */
-	BLI_listbase_clear(&dst->curves);
-	
-	for (sfcu = src->curves.first; sfcu; sfcu = sfcu->next) {
+	BLI_listbase_clear(&act_dst->curves);
+
+	for (fcu_src = act_src->curves.first; fcu_src; fcu_src = fcu_src->next) {
 		/* duplicate F-Curve */
-		dfcu = copy_fcurve(sfcu);
-		BLI_addtail(&dst->curves, dfcu);
-		
+		fcu_dst = copy_fcurve(fcu_src);  /* XXX TODO pass subdata flag? But surprisingly does not seem to be doing any ID refcounting... */
+		BLI_addtail(&act_dst->curves, fcu_dst);
+
 		/* fix group links (kindof bad list-in-list search, but this is the most reliable way) */
-		for (dgrp = dst->groups.first, sgrp = src->groups.first; dgrp && sgrp; dgrp = dgrp->next, sgrp = sgrp->next) {
-			if (sfcu->grp == sgrp) {
-				dfcu->grp = dgrp;
-				
-				if (dgrp->channels.first == sfcu)
-					dgrp->channels.first = dfcu;
-				if (dgrp->channels.last == sfcu)
-					dgrp->channels.last = dfcu;
-					
+		for (grp_dst = act_dst->groups.first, grp_src = act_src->groups.first;
+		     grp_dst && grp_src;
+		     grp_dst = grp_dst->next, grp_src = grp_src->next)
+		{
+			if (fcu_src->grp == grp_src) {
+				fcu_dst->grp = grp_dst;
+
+				if (grp_dst->channels.first == fcu_src) {
+					grp_dst->channels.first = fcu_dst;
+				}
+				if (grp_dst->channels.last == fcu_src) {
+					grp_dst->channels.last = fcu_dst;
+				}
 				break;
 			}
 		}
 	}
-	
-	BKE_id_copy_ensure_local(bmain, &src->id, &dst->id);
+}
 
-	return dst;
+bAction *BKE_action_copy(Main *bmain, const bAction *act_src)
+{
+	bAction *act_copy;
+	BKE_id_copy_ex(bmain, &act_src->id, (ID **)&act_copy, 0, false);
+	return act_copy;
 }
 
 /* *************** Action Groups *************** */
