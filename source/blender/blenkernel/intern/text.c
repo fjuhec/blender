@@ -464,13 +464,11 @@ void BKE_text_copy_data(Main *UNUSED(bmain), Text *ta_dst, const Text *ta_src, c
 		ta_dst->name = BLI_strdup(ta_src->name);
 	}
 
-	ta_dst->flags = ta_src->flags | TXT_ISDIRTY;
+	ta_dst->flags |= TXT_ISDIRTY;
 
 	BLI_listbase_clear(&ta_dst->lines);
 	ta_dst->curl = ta_dst->sell = NULL;
 	ta_dst->compiled = NULL;
-
-	ta_dst->nlines = ta_src->nlines;
 
 	/* Walk down, reconstructing */
 	for (TextLine *line_src = ta_src->lines.first; line_src; line_src = line_src->next) {

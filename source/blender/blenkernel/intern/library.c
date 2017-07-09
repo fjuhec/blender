@@ -526,8 +526,8 @@ static int id_copy_libmanagement_cb(void *user_data, ID *id_self, ID **id_pointe
 /* XXX TODO remove test thing, *all* IDs should be copyable that way! */
 bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, const bool test)
 {
-#define ITEMS_IMPLEMENTED_1 ID_OB, ID_ME, ID_CU, ID_MB, ID_MA, ID_TE, ID_IM, ID_LT, ID_LA, ID_SPK, ID_CA, ID_KE, ID_WO, ID_TXT, ID_GR
-#define ITEMS_IMPLEMENTED_2 ID_AR, ID_AC, ID_NT, ID_BR, ID_PA, ID_GD, ID_MC
+#define ITEMS_IMPLEMENTED_1 ID_OB, ID_ME, ID_CU, ID_MB, ID_MA, ID_TE, ID_IM, ID_LT, ID_LA, ID_SPK, ID_CA, ID_KE, ID_WO, ID_TXT
+#define ITEMS_IMPLEMENTED_2 ID_GR, ID_AR, ID_AC, ID_NT, ID_BR, ID_PA, ID_GD, ID_MC, ID_MSK, ID_LS
 
 	if (!test) {
 		/* Check to be removed of course, just here until all BKE_xxx_copy_ex functions are done. */
@@ -604,10 +604,10 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 			if (!test) BKE_movieclip_copy_data(bmain, (MovieClip *)*r_newid, (MovieClip *)id, flag);
 			break;
 		case ID_MSK:
-			if (!test) *r_newid = (ID *)BKE_mask_copy(bmain, (Mask *)id);
+			if (!test) BKE_mask_copy_data(bmain, (Mask *)*r_newid, (Mask *)id, flag);
 			break;
 		case ID_LS:
-			if (!test) *r_newid = (ID *)BKE_linestyle_copy(bmain, (FreestyleLineStyle *)id);
+			if (!test) BKE_linestyle_copy_data(bmain, (FreestyleLineStyle *)*r_newid, (FreestyleLineStyle *)id, flag);
 			break;
 		case ID_PAL:
 			if (!test) *r_newid = (ID *)BKE_palette_copy(bmain, (Palette *)id);
@@ -619,13 +619,13 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 			if (!test) *r_newid = (ID *)BKE_cachefile_copy(bmain, (CacheFile *)id);
 			break;
 		case ID_SCE:
+		case ID_VF:
+		case ID_SO:
+			return false;  /* not implemented */
 		case ID_LI:
 		case ID_SCR:
 		case ID_WM:
 			return false;  /* can't be copied from here */
-		case ID_VF:
-		case ID_SO:
-			return false;  /* not implemented */
 		case ID_IP:
 			return false;  /* deprecated */
 	}
