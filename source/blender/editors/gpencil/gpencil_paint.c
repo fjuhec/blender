@@ -191,7 +191,7 @@ static void gp_stroke_added_enable(tGPsdata *p)
 	p->flags |= GP_PAINTFLAG_STROKEADDED;
 
 	/* drawing batch cache is dirty now */
-	BKE_gpencil_batch_cache_free(p->gpd);
+	BKE_gpencil_batch_cache_dirty(p->gpd);
 	p->gpd->flag |= GP_DATA_CACHE_IS_DIRTY;
 }
 
