@@ -236,6 +236,13 @@ class VIEW3D_PT_tools_relations(View3DPanel, Panel):
     bl_context = "objectmode"
     bl_label = "Relations"
 
+    @classmethod
+    def poll(cls, context):
+        if context.active_object and context.active_object.mode in ('GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT'):
+            return False
+        else:
+            return True
+
     def draw(self, context):
         layout = self.layout
 
@@ -304,6 +311,13 @@ class VIEW3D_PT_tools_rigid_body(View3DPanel, Panel):
     bl_category = "Physics"
     bl_context = "objectmode"
     bl_label = "Rigid Body Tools"
+
+    @classmethod
+    def poll(cls, context):
+        if context.active_object and context.active_object.mode in ('GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT'):
+            return False
+        else:
+            return True
 
     def draw(self, context):
         layout = self.layout
