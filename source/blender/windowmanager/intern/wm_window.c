@@ -860,6 +860,8 @@ int wm_window_new_exec(bContext *C, wmOperator *op)
 		win_dst->scene = win_src->scene;
 		screen_new->winid = win_dst->winid;
 		CTX_wm_window_set(C, win_dst);
+
+		ED_screen_global_areas_create(C, win_dst);
 		ED_screen_refresh(CTX_wm_manager(C), win_dst);
 	}
 
