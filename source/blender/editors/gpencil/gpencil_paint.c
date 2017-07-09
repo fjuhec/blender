@@ -1992,12 +1992,11 @@ static void gpencil_draw_status_indicators(tGPsdata *p)
 					                                  "ESC/Enter to end  (or click outside this area)"));
 					break;
 				case GP_PAINTMODE_DRAW:
-					ED_area_headerprint(p->sa, IFACE_("Grease Pencil Freehand Session: Hold and drag LMB to draw | "
-					                                  "E/ESC/Enter to end  (or click outside this area)"));
+					ED_area_headerprint(p->sa, IFACE_("Grease Pencil Freehand Session: Hold and drag LMB to draw"));
 					break;
 				case GP_PAINTMODE_DRAW_POLY:
 					ED_area_headerprint(p->sa, IFACE_("Grease Pencil Poly Session: LMB click to place next stroke vertex | "
-					                                  "ESC/Enter to end  (or click outside this area)"));
+					                                  "Release Shift/ESC/Enter to end  (or click outside this area)"));
 					break;
 				
 				default: /* unhandled future cases */
@@ -2475,7 +2474,9 @@ static int gpencil_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 	/* exit painting mode (and/or end current stroke)
 	 * NOTE: cannot do RIGHTMOUSE (as is standard for canceling) as that would break polyline [#32647]
 	 */
-	if (ELEM(event->type, RETKEY, PADENTER, ESCKEY, SPACEKEY, EKEY)) {
+	/* if polyline and release shift must cancel */
+	if ((ELEM(event->type, RETKEY, PADENTER, ESCKEY, SPACEKEY, EKEY)) || 
+		((p->paintmode == GP_PAINTMODE_DRAW_POLY) && (event->shift == 0))) {
 		/* exit() ends the current stroke before cleaning up */
 		/* printf("\t\tGP - end of paint op + end of stroke\n"); */
 		/* if drawing polygon and enable on back, must move stroke */
