@@ -637,6 +637,9 @@ static short gp_stroke_addpoint(tGPsdata *p, const int mval[2], float pressure, 
 			pts->time = pt->time;
 			/* force fill recalc */
 			gps->flag |= GP_STROKE_RECALC_CACHES;
+			/* drawing batch cache is dirty now */
+			BKE_gpencil_batch_cache_dirty(p->gpd);
+			p->gpd->flag |= GP_DATA_CACHE_IS_DIRTY;
 		}
 		
 		/* increment counters */
@@ -790,6 +793,9 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 	gps->triangles = MEM_callocN(sizeof(bGPDtriangle), "GP Stroke triangulation");
 	gps->flag |= GP_STROKE_RECALC_CACHES;
 	gps->tot_triangles = 0;
+	/* drawing batch cache is dirty now */
+	BKE_gpencil_batch_cache_dirty(p->gpd);
+	p->gpd->flag |= GP_DATA_CACHE_IS_DIRTY;
 	/* set pointer to first non-initialized point */
 	pt = gps->points + (gps->totpoints - totelem);
 	
@@ -1878,7 +1884,8 @@ static bool gpencil_is_tablet_eraser_active(const wmEvent *event)
 static void gpencil_draw_exit(bContext *C, wmOperator *op)
 {
 	tGPsdata *p = op->customdata;
-	
+	bGPdata *gpd = CTX_data_gpencil_data(C);
+
 	/* clear undo stack */
 	gpencil_undo_finish();
 
@@ -1891,6 +1898,12 @@ static void gpencil_draw_exit(bContext *C, wmOperator *op)
 		if ((p) && (p->paintmode == GP_PAINTMODE_ERASER)) {
 			WM_cursor_modal_set(p->win, BC_PAINTBRUSHCURSOR);
 		}
+		/* drawing batch cache is dirty now */
+		if (gpd) {
+			BKE_gpencil_batch_cache_dirty(gpd);
+			gpd->flag |= GP_DATA_CACHE_IS_DIRTY;
+		}
+
 	}
 	/* don't assume that operator data exists at all */
 	if (p) {
@@ -2551,6 +2564,10 @@ static int gpencil_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 						}
 					}
 				}
+				/* drawing batch cache is dirty now */
+				BKE_gpencil_batch_cache_dirty(p->gpd);
+				p->gpd->flag |= GP_DATA_CACHE_IS_DIRTY;
+
 				p->status = GP_STATUS_DONE;
 				estate = OPERATOR_FINISHED;
 			}
