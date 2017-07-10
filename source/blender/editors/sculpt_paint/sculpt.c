@@ -116,6 +116,7 @@
 #include "BLI_edgehash.h"
 #include "BLI_linklist.h"
 #include "BLI_alloca.h"
+#include "BLI_array.h"
 
 #define DEBUG_DRAW
 #ifdef DEBUG_DRAW
@@ -5164,8 +5165,7 @@ static void sculpt_silhouette_stroke_update(bContext *C, float mouse[2], Silhoue
 
 typedef enum {
 	BRANCH_INIT = 0,
-	BRANCH_VERT_GEN = 1,	/* Verts on the branch ends are stored */
-	BRANCH_EDGE_GEN = 2		/* Edges on the ends are stored (used primarly for bridging) */
+	BRANCH_EDGE_GEN = 1	/* Edges on the ends are stored (used primarly for bridging) */
 } BranchState;
 
 
@@ -5188,7 +5188,6 @@ typedef struct SpineBranch{
 	int idx;				/* Index in the Spine branches array */
 	int *terminal_points;	/* Description of the connected branches. Per fork 2 ints (point,branch_idx) */
 	BranchState flag;
-	int *gen_verts;			/* Verts on the branch ends are stored */
 	int *e_start_arr;		/* Edges on the ends are stored (used primarly for bridging) */
 }SpineBranch;
 
@@ -5287,9 +5286,6 @@ static void free_spine_branch(SpineBranch *branch)
 	}
 	if (branch->terminal_points) {
 		MEM_freeN(branch->terminal_points);
-	}
-	if (branch->flag & BRANCH_VERT_GEN) {
-		MEM_freeN(branch->gen_verts);
 	}
 	if (branch->flag & BRANCH_EDGE_GEN) {
 		MEM_freeN(branch->e_start_arr);
@@ -5533,6 +5529,91 @@ static Spine *silhouette_generate_spine(SilhouetteData *sil, SilhouetteStroke *s
 	return spine;
 }
 
+/*
+ *  d      ** | ******c
+ *      *     |       |
+ *    *       |       |
+ *   *        |       |
+ *  *         |       |
+ *  ---------- --------
+ *  *         |       |
+ *  *      smooth     |
+ * a _________|______ b
+ * Interpolate between the three points resulting in a vertex line between a and c.
+ * Smoothness regulates the cutoff to start a circular interpolation
+ */
+static void calc_vert_quarter(Mesh *me, float a[3], float b[3], float c[3], int v_steps, int w_h_steps, float smoothness, bool flip){
+	int v_start = me->totvert;
+	int v_pos = flip ? v_start + v_steps + w_h_steps - 1 : v_start;
+	float inv_smooth = 1.0f - smoothness;
+	float v1[3], v2[3], v3[3], v4[3], v5[3], up[3], side[3], d[3];
+	float f_sin, f_cos;
+	int s_steps_w = inv_smooth * (w_h_steps + 1);
+	int s_steps_v = inv_smooth * v_steps;
+	int s_steps_c = v_steps - s_steps_v + w_h_steps - s_steps_w;
+
+	ED_mesh_vertices_add(me, NULL, v_steps + w_h_steps);
+
+	sub_v3_v3v3(up, c, b);
+	add_v3_v3v3(d, a, up);
+	mul_v3_fl(up, 1.0f / (float)v_steps);
+	sub_v3_v3v3(side, a, b);
+	mul_v3_fl(side, 1.0f / (float)(w_h_steps + 1));
+	mul_v3_v3fl(v2, side, s_steps_w);
+	add_v3_v3(v2, c);
+
+	copy_v3_v3(v1, a);
+	for (int v = 0; v < s_steps_v; v++) {
+		copy_v3_v3(me->mvert[v_pos].co, v1);
+		me->mvert[v_pos].flag = 0;
+		me->mvert[v_pos].bweight = 0;
+		v_pos += flip ? - 1 : 1;
+		if (v < s_steps_v - 1) {
+			add_v3_v3(v1, up);
+		}
+	}
+
+	sub_v3_v3v3(v3, d, v1);
+	sub_v3_v3v3(v4, d, v2);
+	sub_v3_v3(v1, v4);
+
+	for (int c = 1; c < s_steps_c + 1; c++) {
+		f_sin = sin(((float)c / (float)(s_steps_c + 1)) * M_PI / 2);
+		f_cos = cos(((float)c / (float)(s_steps_c + 1)) * M_PI / 2);
+
+		mul_v3_v3fl(v2, v4, f_cos);
+		add_v3_v3v3(v5, v2, v1);
+		mul_v3_v3fl(v2, v3, f_sin);
+		add_v3_v3(v5, v2);
+
+		copy_v3_v3(me->mvert[v_pos].co, v5);
+		me->mvert[v_pos].flag = 0;
+		me->mvert[v_pos].bweight = 0;
+		v_pos += flip ? - 1 : 1;
+	}
+
+	add_v3_v3(v1, v3);
+	for (int w = 0; w < s_steps_w; w++) {
+		copy_v3_v3(me->mvert[v_pos].co, v1);
+		me->mvert[v_pos].flag = 0;
+		me->mvert[v_pos].bweight = 0;
+		sub_v3_v3(v1, side);
+		v_pos += flip ? - 1 : 1;
+	}
+}
+
+/* W_steps needs to be uneven! */
+static void calc_vert_half(Mesh *me, float left[3], float right[3], float center[3], float upper_center[3], int v_steps, int w_steps, float smoothness)
+{
+	int half_w = w_steps / 2;
+	calc_vert_quarter(me, left, center, upper_center, v_steps, half_w, smoothness, false);
+	ED_mesh_vertices_add(me, NULL, 1);
+	copy_v3_v3(me->mvert[me->totvert - 1].co, upper_center);
+	me->mvert[me->totvert - 1].flag = 0;
+	me->mvert[me->totvert - 1].bweight = 0;
+	calc_vert_quarter(me, right, center, upper_center, v_steps, half_w, smoothness, true);
+}
+
 /* Create standardised Mesh. Simple UxV rectangular grid. (Edges, Loops, Polys):*/
 static void generate_mesh_grid_f_e(Mesh *me, int u_steps, int v_steps, int v_start, bool n_flip)
 {
@@ -5662,45 +5743,6 @@ static void bridge_loops(Mesh *me, int e_start_a, int e_start_b, int totvert, bo
 	}
 }
 
-/* TODO: Redundant */
-static void bridge_loop_flip(Mesh *me, int v_start_a, int v_start_b, int totvert, bool flip, int l_start_a, int l_start_b, int l_stride)
-{
-	int e_start = me->totedge;
-	int l_start = me->totloop;
-	int p_start = me->totpoly;
-	ED_mesh_edges_add(me, NULL, totvert);
-	ED_mesh_loops_add(me, NULL, 4 * totvert - 4);
-	ED_mesh_polys_add(me, NULL, totvert - 1);
-
-	for (int i = 0; i < totvert; i++) {
-		me->medge[e_start + i].crease = 0;
-		me->medge[e_start + i].bweight = 0;
-		me->medge[e_start + i].flag = 0;
-		me->medge[e_start + i].v1 = v_start_a + i;
-		me->medge[e_start + i].v2 = v_start_b + (flip ? -i : i);
-
-		if (i < totvert - 1) {
-			me->mloop[l_start + i * 4 + 0].v = v_start_a + i;
-			me->mloop[l_start + i * 4 + 0].e = l_start_a + i * l_stride;
-
-			me->mloop[l_start + i * 4 + 1].v = v_start_a + i + 1;
-			me->mloop[l_start + i * 4 + 1].e = e_start + i + 1;
-
-			me->mloop[l_start + i * 4 + 2].v = v_start_b + (flip ? -i - 1 : i + 1);
-			me->mloop[l_start + i * 4 + 2].e = l_start_b + (flip ? -i : i) * l_stride;
-
-			me->mloop[l_start + i * 4 + 3].v = v_start_b + (flip ? -i : i);
-			me->mloop[l_start + i * 4 + 3].e = e_start + i;
-
-			me->mpoly[p_start + i].loopstart = l_start + i * 4;
-			me->mpoly[p_start + i].totloop = 4;
-			me->mpoly[p_start + i].mat_nr = 0;
-			me->mpoly[p_start + i].flag = 0;
-			me->mpoly[p_start + i].pad = 0;
-		}
-	}
-}
-
 /* TODO: is there a sort function already?*/
 static int cmpfunc (const void * a, const void * b)
 {
@@ -5708,162 +5750,63 @@ static int cmpfunc (const void * a, const void * b)
 }
 
 /* Generate the Tube shape for branches with two ends. */
-static void fill_tube(Mesh *me, float *left, float *right, int totl, int totr, int u_steps, float z_vec[3], int ss_steps, int w_steps, float w_fact, int *e_start_sides)
+static void fill_tube(Mesh *me, float *left, float *right, int totl, int totr, int u_steps, float z_vec[3], int v_steps, int w_steps, float smoothness, int *UNUSED(r_edge_loop_ends))
 {
-	int v_steps = ss_steps;
-	int square_ss_steps = u_steps * v_steps;
 	float step_l = left[totl * 4 - 1] / (float)u_steps;
 	float step_r = right[totr * 4 - 1] / (float)u_steps;
 	float a, b, f;
-	float v1[3], v2[3], v3[3], v4[3], z_vec_b[3];
-	int l_u_pos_i = 1, r_u_pos_i = totr - 1;
-	int v_pos_w = 0;
+	float v1[3], v2[3], v3[3], v4[3];
+	int l_u_pos_i = 1, r_u_pos_i = totr - 2;
 
-	int ve_start_a, ve_start_ar, ve_start_b;
 	const int v_start = me->totvert;
-	MVert ref_v;
-	ref_v.flag = 0; ref_v.bweight = 0;
-	ED_mesh_vertices_add(me, NULL, square_ss_steps * 2 + (w_steps - 1) * u_steps);
+	//const int e_start = me->totedge;
 
 	for (int u = 0; u < u_steps; u++) {
-		while (left[l_u_pos_i * 4 + 3] <= step_l * (float)u && l_u_pos_i < totl) {
+		while (l_u_pos_i < totl - 1 && left[l_u_pos_i * 4 + 3] <= step_l * (float)u) {
 			l_u_pos_i ++;
 		}
 
-		while (right[r_u_pos_i * 4 + 3] > step_r * (float)(u_steps - u - 1) && r_u_pos_i > 0) {
+		while (r_u_pos_i > 0 && right[r_u_pos_i * 4 + 3] > step_r * (float)(u_steps - u - 1)) {
 			r_u_pos_i --;
 		}
 
 		/* Interpolate over the points of each side. Interpolate an even point distribution along the line */
-		a = left[l_u_pos_i * 4 - 1];
-		b = left[l_u_pos_i * 4 + 3];
-		f = (step_l * (float)u - a) / (b - a);
-		interp_v3_v3v3(v1, &left[l_u_pos_i * 4 - 4], &left[l_u_pos_i * 4], f);
-
-		a = right[r_u_pos_i * 4 + 7];
-		b = right[r_u_pos_i * 4 + 3];
-		f = (step_r * (float)(u_steps - u - 1) - a) / (b - a);
-		interp_v3_v3v3(v2, &right[r_u_pos_i * 4 + 4], &right[r_u_pos_i * 4], f);
-
-		copy_v3_v3(z_vec_b, z_vec);
-
-		/*TODO: Different interpolation, different shapes, smoothness etc*/
-		/* Interpolate point position in z-direction. Smoothing etc is done here. Redundant?*/
-		for (int v = 0; v < ss_steps; v++) {
-			add_v3_v3(v1, z_vec_b);
-			add_v3_v3(v2, z_vec_b);
-			f = (float)v/(float)(v_steps * 2);
-			f = (sin(M_PI * f - M_PI * 0.5f) * 0.5f + 0.5f) * w_fact;
-			interp_v3_v3v3(v3, v1, v2, f);
-			me->mvert[v_start + u * v_steps + v].flag = 0;
-			me->mvert[v_start + u * v_steps + v].bweight = 0;
-			copy_v3_v3(me->mvert[v_start + u * v_steps + v].co,v3);
-			interp_v3_v3v3(v4, v2, v1, f);
-			me->mvert[v_start + u * v_steps + v + square_ss_steps].flag = 0;
-			me->mvert[v_start + u * v_steps + v + square_ss_steps].bweight = 0;
-			copy_v3_v3(me->mvert[v_start + u * v_steps + v + square_ss_steps].co,v4);
-			mul_v3_fl(z_vec_b, cos(0.5f * M_PI * ((float)v / (float)v_steps)));
-			if (v == ss_steps - 1) {
-				for (int w = 1; w < w_steps; w++) {
-					f = (float)w / (float)w_steps;
-					interp_v3_v3v3(v1, v3, v4, f);
-					v_pos_w = v_start + ss_steps * u_steps * 2 + u * (w_steps - 1) + (w - 1);
-					me->mvert[v_pos_w].flag = 0;
-					me->mvert[v_pos_w].bweight = 0;
-					copy_v3_v3(me->mvert[v_pos_w].co,v1);
-				}
-			}
+		if (totl > 1) {
+			a = left[l_u_pos_i * 4 - 1];
+			b = left[l_u_pos_i * 4 + 3];
+			f = (step_l * (float)u - a) / (b - a);
+			interp_v3_v3v3(v1, &left[l_u_pos_i * 4 - 4], &left[l_u_pos_i * 4], f);
+		} else {
+			copy_v3_v3(v1, &left[0]);
 		}
+
+		if (totr > 1) {
+			a = right[r_u_pos_i * 4 + 7];
+			b = right[r_u_pos_i * 4 + 3];
+			f = (step_r * (float)(u_steps - u - 1) - a) / (b - a);
+			interp_v3_v3v3(v2, &right[r_u_pos_i * 4 + 4], &right[r_u_pos_i * 4], f);
+		} else {
+			copy_v3_v3(v2, &right[0]);
+		}
+
+		add_v3_v3v3(v3, v1, v2);
+		mul_v3_fl(v3, 0.5f);
+		add_v3_v3v3(v4, v3, z_vec);
+
+		/* v1 left, v2 right, v3 center bottom, v4 center top */
+		calc_vert_half(me, v1, v2, v3, v4, v_steps, w_steps, smoothness);
 	}
+	generate_mesh_grid_f_e(me, u_steps, v_steps * 2 + w_steps, v_start, false);
+	/*r_edge_loop_ends[0] = e_start;
+	r_edge_loop_ends[1] = 2;
 
-	/* Generate the Mesh and store border edges for later */
-	ve_start_a = me->totedge + v_steps * 2 - 2;
-	e_start_sides[0] = me->totedge;
-	e_start_sides[1] = v_steps;
-	e_start_sides[2] = 2;
-	e_start_sides[9] = me->totedge + (v_steps * 2 - 1) * (u_steps - 1);
-	e_start_sides[10] = v_steps;
-	e_start_sides[11] = 1;
-	generate_mesh_grid_f_e(me, u_steps, v_steps, v_start, false);
-
-	ve_start_ar = me->totedge + v_steps * 2 - 2;
-	e_start_sides[6] = me->totedge;
-	e_start_sides[7] = v_steps;
-	e_start_sides[8] = 2;
-	e_start_sides[15] = me->totedge + (v_steps * 2 - 1) * (u_steps - 1);
-	e_start_sides[16] = v_steps;
-	e_start_sides[17] = 1;
-	generate_mesh_grid_f_e(me, u_steps, v_steps, v_start + square_ss_steps, true);
-
-	ve_start_b = me->totedge + 1;
-	e_start_sides[3] = me->totedge;
-	e_start_sides[4] = w_steps - 1;
-	e_start_sides[5] = 2;
-	e_start_sides[12] = me->totedge + ((w_steps - 1) * 2 - 1) * (u_steps - 1);//(w_steps * 2 - 1) * (u_steps - 1);
-	e_start_sides[13] = w_steps - 1;
-	e_start_sides[14] = 1;
-	generate_mesh_grid_f_e(me, u_steps, w_steps - 1, v_start + square_ss_steps * 2, false);
-
-	bridge_loops(me,
-				 ve_start_a,
-				 ve_start_b,
-				 u_steps,
-				 false,
-				 (v_steps * 2 - 1),
-				 (w_steps * 2 - 3),
-				 false);
-
-	bridge_loops(me,
-				 ve_start_ar,
-				 ve_start_b + (w_steps * 2 - 3) - 2,
-				 u_steps,
-				 false,
-				 (v_steps * 2 - 1),
-				 (w_steps * 2 - 3),
-				 true);
+	r_edge_loop_ends[2] = me->totedge - v_steps + w_steps;
+	r_edge_loop_ends[3] = 1;*/
 }
 
-/* Calculate an Arc between two points with additional interpolation in z direction */
-static void calc_fork_arc(float v1[3], float v2[3], float *out, int offloop, const float z_vec[3], int ss_steps, int w_steps, float w_fact)
+static int get_cyclic_offset(SpineBranch *branch)
 {
-	float v3[3], v4[3], z_vec_b[3];
-	float f;
-
-	copy_v3_v3(z_vec_b, z_vec);
-	for (int v = 0; v < ss_steps; v++) {
-		add_v3_v3(v1, z_vec_b);
-		add_v3_v3(v2, z_vec_b);
-		f = (float)v/(float)(ss_steps * 2);
-		f = (sin(M_PI * f - M_PI * 0.5f) * 0.5f + 0.5f) * w_fact;
-		interp_v3_v3v3(v3, v1, v2, f);
-		copy_v3_v3(&out[offloop + v * 3], v3);
-		interp_v3_v3v3(v4, v2, v1, f);
-		copy_v3_v3(&out[offloop + (ss_steps + w_steps - 1 + v) * 3], v4);
-		mul_v3_fl(z_vec_b, cos(0.5f * M_PI * ((float)v / (float)ss_steps)));
-		if (v == ss_steps - 1) {
-			for (int w = 1; w < w_steps; w++) {
-				f = (float)w / (float)w_steps;
-				interp_v3_v3v3(v1, v3, v4, f);
-				copy_v3_v3(&out[offloop + (ss_steps + w - 1) * 3], v1);
-			}
-		}
-	}
-}
-
-/* Generate the Cap for branches with one ends. */
-static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, int *gen_verts, Mesh *me, float z_vec[3], float depth, int ss_steps, int w_steps, float w_fact)
-{
-	float cap_p[branch->tot_hull_points * 4];
-	float v1[3], v2[3], v3[3], z_vec_b[3];
-	float totlength = 0.0f;
-	float step_size = depth / (float)w_steps;
-	float loop[3 * (ss_steps * 2 + w_steps)];
 	int cyclic_offset = 0, n_i = 0;
-	gen_verts = NULL; /*TODO: Remove gen_verts */
-
-	/* calc and sort hullpoints for the three sides */
-	qsort (branch->hull_points, branch->tot_hull_points, sizeof(int), cmpfunc);
-
 	if (branch->hull_points[0] == 0) {
 		for (int i = 0; i < branch->tot_hull_points; i++) {
 			if (n_i > 0) {
@@ -5878,10 +5821,27 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, int *gen_verts,
 			}
 		}
 	}
+	return cyclic_offset;
+}
 
-	printf("New Cap:\n");
+/* Generate the Cap for branches with one ends. */
+static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float z_vec[3], float depth, int v_steps, int w_steps, float smoothness)
+{
+	float *cap_p = NULL;
+	float v1[3], m_center[3], m_center_up[3];
+	float totlength = 0.0f;
+	float step_size = depth / (float)w_steps;
+	int cyclic_offset = 0, n_i = 0;
+	BLI_array_declare(cap_p);
+
+	/* calc and sort hullpoints for the three sides */
+	qsort (branch->hull_points, branch->tot_hull_points, sizeof(int), cmpfunc);
+
+	cyclic_offset = get_cyclic_offset(branch);
+
 	for (int i = 0; i < branch->tot_hull_points; i++) {
 		n_i = branch->tot_hull_points + i - cyclic_offset;
+		BLI_array_grow_items(cap_p, 4);
 		silhoute_stroke_point_to_3d(sil, branch->hull_points[n_i % branch->tot_hull_points] * 3, &cap_p[i * 4]);
 		if (i > 0) {
 			cap_p[i * 4 + 3] = len_v3v3(&cap_p[i * 4], v1) + cap_p[i * 4 - 1];
@@ -5889,16 +5849,9 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, int *gen_verts,
 			cap_p[i * 4 + 3] = 0.0f;
 		}
 		copy_v3_v3(v1, &cap_p[i * 4]);
-		printf("Added Point %i; length: %f\n", branch->hull_points[n_i % branch->tot_hull_points], cap_p[i * 4 + 3]);
 	}
 
 	totlength = cap_p[branch->tot_hull_points * 4 - 1];
-
-	if (!gen_verts) {
-		copy_v3_v3(v1, &cap_p[0]);
-		copy_v3_v3(v2, &cap_p[branch->tot_hull_points * 4 - 4]);
-		calc_fork_arc(v1, v2, loop, 0, z_vec, ss_steps, w_steps + 1, w_fact);
-	}
 
 	float cap_length = fmin(totlength, (w_steps * step_size));
 	step_size = cap_length / (float)w_steps;
@@ -5907,18 +5860,19 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, int *gen_verts,
 	int u_pos_i = 0;
 	int v_start = me->totvert;
 	int u_steps;
-	int ve_start_a = -1;
-	int e_start_tube[18];
+	int e_start_tube[4];
 
 	/* If the cap is big enough a tube is added between the cap and the last branch. */
 	if (totlength > step_size * w_steps) {
-		printf("Gen Tube before cap\n");
 		int side_l = cap_pos;
 		int totl = 0, totr = 0;
-		float left[branch->tot_hull_points * 4], right[branch->tot_hull_points * 4];
+		float *left = NULL, *right = NULL;
 		float n_off_right;
+		BLI_array_declare(left);
+		BLI_array_declare(right);
 
 		while (cap_p[u_pos_i * 4 + 3] < side_l) {
+			BLI_array_grow_items(left, 4);
 			left[totl * 4    ] = cap_p[u_pos_i * 4    ];
 			left[totl * 4 + 1] = cap_p[u_pos_i * 4 + 1];
 			left[totl * 4 + 2] = cap_p[u_pos_i * 4 + 2];
@@ -5933,6 +5887,7 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, int *gen_verts,
 			if (totr == 0) {
 				n_off_right = cap_p[u_pos_i * 4 + 3];
 			}
+			BLI_array_grow_items(right, 4);
 			right[totr * 4    ] = cap_p[u_pos_i * 4    ];
 			right[totr * 4 + 1] = cap_p[u_pos_i * 4 + 1];
 			right[totr * 4 + 2] = cap_p[u_pos_i * 4 + 2];
@@ -5942,27 +5897,30 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, int *gen_verts,
 		}
 
 		if (totl >= 1 && totr >= 1) {
-			u_steps = fmax(2.0f, fmax(left[totl * 4 - 1], right[totr * 4 - 1]) / (float)(2 * depth / ss_steps));
-			ve_start_a = me->totedge + ss_steps * (u_steps - 1) * 2 - 2;
-			fill_tube(me, left, right, totl, totr, u_steps, z_vec, ss_steps, w_steps + 1, w_fact, e_start_tube);
-			for (int u = 0; u < w_steps; u++) {
-				if (!gen_verts) {
-					copy_v3_v3(&loop[(ss_steps + u) * 3], me->mvert[me->totvert - w_steps + u].co);
-				} else {
-					gen_verts[ss_steps + u] = me->totvert - w_steps + u;
-				}
-			}
+			u_steps = fmax(2.0f, fmax(left[totl * 4 - 1], right[totr * 4 - 1]) / (float)(2 * depth / v_steps));
+			fill_tube(me, left, right, totl, totr, u_steps, z_vec, v_steps, w_steps, smoothness, e_start_tube);
 		}
+
+		copy_v3_v3(m_center, &left[totl * 4 - 4]);
+		add_v3_v3(m_center, &right[0]);
+		mul_v3_fl(m_center, 0.5f);
+		BLI_array_free(left);
+		BLI_array_free(right);
+	} else {
+		copy_v3_v3(m_center, &cap_p[0]);
+		add_v3_v3(m_center, &cap_p[branch->tot_hull_points * 4 - 4]);
+		mul_v3_fl(m_center, 0.5f);
 	}
 
+	cap_pos = (totlength - cap_length) / 2.0f;
 	u_pos_i = 1;
 	v_start = me->totvert;
 
-	ED_mesh_vertices_add(me, NULL, w_steps * ss_steps);
+	add_v3_v3v3(m_center_up, m_center, z_vec);
 
 	/*TODO: Corners need two additional loops*/
 	for (int u = 0; u < w_steps; u++) {
-		while (cap_p[u_pos_i * 4 + 3] <= cap_pos) {
+		while (u_pos_i < branch->tot_hull_points && cap_p[u_pos_i * 4 + 3] <= cap_pos) {
 			u_pos_i ++;
 		}
 
@@ -5970,101 +5928,41 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, int *gen_verts,
 		b = cap_p[u_pos_i * 4 + 3];
 		f = (cap_pos - a) / (b - a);
 		interp_v3_v3v3(v1, &cap_p[u_pos_i * 4 - 4], &cap_p[u_pos_i * 4], f);
-		copy_v3_v3(z_vec_b, z_vec);
 
-		for (int v = 0; v < ss_steps; v++) {
-			add_v3_v3(v1, z_vec_b);
-			f = (float)v / (float)(ss_steps * 2);
-			f = sin(M_PI * f - M_PI * 0.5f) + 1.0f;
-			if (!gen_verts) {
-				interp_v3_v3v3(v3, v1, &loop[(ss_steps + u) * 3], f * w_fact);
-			} else {
-				interp_v3_v3v3(v3, v1, me->mvert[gen_verts[ss_steps + u]].co, f * w_fact);
-			}
-			me->mvert[v_start + u * ss_steps + v].flag = 0;
-			me->mvert[v_start + u * ss_steps + v].bweight = 0;
-			copy_v3_v3(me->mvert[v_start + u * ss_steps + v].co,v3);
-			mul_v3_fl(z_vec_b, cos(0.5f * M_PI * ((float)v / (float)ss_steps)));
-		}
+		/* TODO: Better c ref point*/
+		bl_debug_color_set(0xff0000);
+		bl_debug_draw_point(v1, 0.2f);
+		bl_debug_color_set(0x000000);
+
+		calc_vert_quarter(me,
+						  v1,
+						  m_center,
+						  m_center_up,
+						  v_steps,
+						  0,
+						  smoothness,
+						  false);
+
 		cap_pos += step_size;
 	}
-
-	int ve_start_b = me->totedge;
-	generate_mesh_grid_f_e(me, w_steps, ss_steps, v_start, false);
-	if (ve_start_a > 0 && e_start_tube) {
-		bridge_loops(me,
-				 e_start_tube[9],
-				 ve_start_b,
-				 e_start_tube[10],
-				 false,
-				 1,
-				 2,
-				 true);
-		bridge_loops(me,
-					 e_start_tube[15],
-					 ve_start_b + (ss_steps * 2 - 1) * (w_steps - 1),
-					 e_start_tube[16],
-					 false,
-					 1,
-					 1,
-					 false);
-		bridge_loops(me,
-					 e_start_tube[12],
-					 ve_start_b + (ss_steps * 2 - 1) - 1,
-					 e_start_tube[13],
-					 false,
-					 1,
-					 ss_steps * 2 - 1,
-					 true);
-
-		if (!(branch->flag & BRANCH_EDGE_GEN)) {
-			branch->e_start_arr = MEM_callocN(sizeof(int) * 9,"edge startposition array");
-			branch->flag |= BRANCH_EDGE_GEN;
-		}
-		memcpy(branch->e_start_arr, e_start_tube, 9 * sizeof(int));
-		/*Close corners!*/
-	} else {
-		if (!(branch->flag & BRANCH_EDGE_GEN)){
-			branch->e_start_arr = MEM_callocN(sizeof(int) * 9,"edge startposition array");
-			branch->flag |= BRANCH_EDGE_GEN;
-		}
-
-		if (branch->hull_points[0] == 0) {
-			branch->e_start_arr[6] = ve_start_b;
-			branch->e_start_arr[7] = ss_steps;
-			branch->e_start_arr[8] = 2;
-
-			branch->e_start_arr[0] = ve_start_b + (ss_steps * 2 - 1) * (w_steps - 1);
-			branch->e_start_arr[1] = ss_steps;
-			branch->e_start_arr[2] = 1;
-
-			/* TODO: Inverse fix?*/
-			branch->e_start_arr[3] = ve_start_b + (ss_steps * 2 - 1) - 1;
-			branch->e_start_arr[4] = w_steps;
-			branch->e_start_arr[5] = ss_steps * 2 - 1;
-		} else {
-			branch->e_start_arr[0] = ve_start_b;
-			branch->e_start_arr[1] = ss_steps;
-			branch->e_start_arr[2] = 2;
-
-			branch->e_start_arr[6] = ve_start_b + (ss_steps * 2 - 1) * (w_steps - 1);
-			branch->e_start_arr[7] = ss_steps;
-			branch->e_start_arr[8] = 1;
-
-			branch->e_start_arr[3] = ve_start_b + (ss_steps * 2 - 1) - 1;
-			branch->e_start_arr[4] = w_steps;
-			branch->e_start_arr[5] = ss_steps * 2 - 1;
-		}
-	}
+	generate_mesh_grid_f_e(me, w_steps, v_steps, v_start, false);
+	BLI_array_free(cap_p);
 }
 
 /* Generate a T-Intersection for branches with three ends. */
-static void add_ss_tinter(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float z_vec[3], int ss_steps, int w_steps, float w_fact)
+static void add_ss_tinter(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float z_vec[3], float depth, int v_steps, int w_steps, float smoothness)
 {
-	float sa[branch->tot_hull_points * 4 * 3];
+	float *sa = NULL;
 	int b_start[3] = {0,0,0}, b_tot[3] = {0,0,0};
 	int filler = 0;
 	int cyclic_offset = 0, n_i = 0;
+	int pos_i_sa, u_steps;
+	float step_length, a, b, f;
+	float v1[3], v2[3], v3[3], v4[3], center[3], center_up[3];
+	float center_s[3 * 3];
+	int w_h_steps = w_steps / 2;
+	int v_start;
+	BLI_array_declare(sa);
 
 	/* calc and sort hullpoints for the three sides */
 	qsort (branch->hull_points, branch->tot_hull_points, sizeof(int), cmpfunc);
@@ -6088,6 +5986,7 @@ static void add_ss_tinter(SilhouetteData *sil, SpineBranch *branch, Mesh *me, fl
 	filler = 0;
 	for (int i = 0; i < branch->tot_hull_points; i++) {
 		n_i = branch->tot_hull_points + i - cyclic_offset;
+		BLI_array_grow_items(sa, 4);
 		silhoute_stroke_point_to_3d(sil, branch->hull_points[n_i % branch->tot_hull_points] * 3, &sa[b_start[filler] + b_tot[filler] * 4]);
 		if(b_tot[filler] == 0){
 			sa[b_start[filler] + b_tot[filler] * 4 + 3] = 0.0f;
@@ -6106,194 +6005,88 @@ static void add_ss_tinter(SilhouetteData *sil, SpineBranch *branch, Mesh *me, fl
 		}
 	}
 
-	int loop_length = (ss_steps * 2 + w_steps);
-	/* a - b */
-	float loop[3 * loop_length * 3];
-	float v1[3], v2[3], v3[3];
-
-	copy_v3_v3(v1, &sa[b_tot[0] * 4 - 4]);
-	copy_v3_v3(v2, &sa[b_start[1]]);
-	calc_fork_arc(v1, v2, loop, 0, z_vec, ss_steps, w_steps + 1, w_fact);
-
-	/* b - c */
-	copy_v3_v3(v1, &sa[b_start[1] + b_tot[1] * 4 - 4]);
-	copy_v3_v3(v2, &sa[b_start[2]]);
-	calc_fork_arc(v1, v2, loop, loop_length * 3, z_vec, ss_steps, w_steps + 1, w_fact);
-
-	/* c - a */
-	copy_v3_v3(v1, &sa[b_start[2] + b_tot[2] * 4 - 4]);
-	copy_v3_v3(v2, &sa[0]);
-	calc_fork_arc(v1, v2, loop, loop_length * 3 * 2, z_vec, ss_steps, w_steps + 1, w_fact);
-
-	float center[3], ind_center[3 * 3];
-	int center_idx = (ss_steps + (int)floorf(w_steps * 0.5f)) * 3;
+	u_steps = 3;
+	zero_v3(center);
 	for (int s = 0; s < 3; s++) {
-		copy_v3_v3(&ind_center[s * 3], &loop[s * loop_length * 3 + center_idx]);
-		add_v3_v3(&ind_center[s * 3], &loop[s * loop_length * 3 + center_idx - 3]);
-		mul_v3_fl(&ind_center[s * 3], 0.5f);
+		copy_v3_v3(&center_s[s * 3], &sa[b_start[s]]);
+		add_v3_v3(&center_s[s * 3], &sa[b_start[(s + 2) % 3] + b_tot[(s + 2) % 3] * 4 - 4]);
+		mul_v3_fl(&center_s[s * 3], 0.5f);
+		add_v3_v3(center, &center_s[s * 3]);
 	}
-
-	copy_v3_v3(center, ind_center);
-	add_v3_v3(center, ind_center + 3);
-	add_v3_v3(center, ind_center + 6);
 	mul_v3_fl(center, 1.0f/3.0f);
+	add_v3_v3v3(center_up, center, z_vec);
 
-	int v_start = me->totvert;
-	int v_center_guides = v_start;
-	int u_steps = 9; /* TODO: Calc from U_steps and length */
-	int verts_per_side = w_steps * u_steps + w_steps;
-	float f;
-	int e_start = me->totedge;
-	int bridge_in_out_start[3];
-
-	if (!(branch->flag & BRANCH_EDGE_GEN)){
-		branch->e_start_arr = MEM_callocN(sizeof(int) * 27,"edge startposition array");
-		branch->flag |= BRANCH_EDGE_GEN;
-	}
-
-	ED_mesh_vertices_add(me, NULL, 3 * verts_per_side);
-	int center_face[3 * 2];
-
-	/* Generate the topside Geometry. (3 Sides * w_steps / 2 * u_steps + One Tri in the middle)
-	 * Interpolate for every side between three points: The two sides and the centerpoint */
 	for (int s = 0; s < 3; s++) {
-		for (int w = 0; w < w_steps/2; w++) {
-			copy_v3_v3(v1, &loop[s * loop_length * 3 + (ss_steps + w_steps - w - 1) * 3]);
-			copy_v3_v3(v2, &loop[((s + 1) % 3) * loop_length * 3 + (ss_steps + w) * 3]);
-			for (int u = 0; u < u_steps; u++) {
-				f = (float)u / (float)(u_steps - 1);
-				interp_v3_v3v3(v3, v1, v2, f);
-				f = -2.0 * ((f - 0.5f) * (f - 0.5f)) + 0.5f;
-				interp_v3_v3v3(v3, v3, center, f / (w_steps/2 - w + 1));
-				copy_v3_v3(me->mvert[v_start + s * verts_per_side + w * u_steps + u].co, v3);
-
-				if (u == u_steps / 2 && w == w_steps / 2 - 1) {
-					center_face[s * 2] = v_start + s * verts_per_side + w * u_steps + u;
-				}
-			}
-		}
-		int e_start_off = me->totedge;
-		generate_mesh_grid_f_e(me, w_steps / 2, u_steps, v_start + s * verts_per_side, true);
-		branch->e_start_arr[s * 9 + 3] = e_start_off + 1;
-		branch->e_start_arr[s * 9 + 4] = w_steps / 2;
-		branch->e_start_arr[s * 9 + 5] = (u_steps - 1) * 2 + 1;
-
-		int e_start_tot_ps = (u_steps * (w_steps / 2)) * 2 - u_steps - (w_steps / 2);
-
-		bridge_in_out_start[s] = e_start + s * e_start_tot_ps;
+		/*TODO: Better max funktion (int)*/
+		u_steps = fmax(u_steps, len_v3v3(&center_s[(s + 1) % 3 * 3], &center_s[s * 3]) / (float)(2 * depth / v_steps));
 	}
 
-	int edges_per_side = u_steps / 2 + 1;
+	/*needs to be uneven*/
+	u_steps |= 1;
+
 	for (int s = 0; s < 3; s++) {
-		/* Todo: redundant */
-		bridge_loop_flip(me,
-					v_start + s * verts_per_side + u_steps * (w_steps / 2 - 1),
-					v_start + ((s + 2) % 3) * verts_per_side + u_steps * (w_steps / 2) - 1,
-					u_steps / 2 + 1,
-					true,
-					e_start + (s + 1) * edges_per_side - u_steps + 1,
-					e_start + ((s + 2) % 3 + 1) * edges_per_side - 1,
-					1);
-		center_face[s * 2 + 1] = me->totedge - 1;
-	}
+		step_length = sa[b_start[s] + b_tot[s] * 4 - 1] / (float)u_steps;
 
-	ED_mesh_loops_add(me, NULL, 3);
-	ED_mesh_polys_add(me, NULL, 1);
-	for (int i = 0; i < 3; i++) {
-		me->mloop[me->totloop - 3 + i].v = center_face[i * 2];
-		me->mloop[me->totloop - 3 + i].e = center_face[i * 2 + 1];
-	}
+		add_v3_v3v3(v3, &center_s[s * 3], z_vec);
 
-	me->mpoly[me->totpoly - 1].loopstart = me->totloop - 3;
-	me->mpoly[me->totpoly - 1].totloop = 3;
+		calc_vert_half(me,
+					   &sa[b_start[s]],
+					   &sa[b_start[(s + 2) % 3] + b_tot[(s + 2) % 3] * 4 - 4],
+					   &center_s[s * 3],
+					   v3,
+					   v_steps,
+					   w_steps,
+					   smoothness);
 
-	int u_pos_i, e_tmp_start;
-	float step_l, a, b;
-	float z_vec_b[3];
-	verts_per_side = u_steps * ss_steps;
-	v_start = me->totvert;
-	ED_mesh_vertices_add(me, NULL, 3 * verts_per_side);
+		v_start = me->totvert;
 
-	/* Generate the three lower sides (3 Sides * u_steps * ss_steps)*/
-	for (int s = 0; s < 3; s++) {
-		u_pos_i = fmin(1, b_tot[s] - 1);
-		step_l = sa[b_start[s] + b_tot[s] * 4 - 1] / u_steps;
-
-		for (int u = 0; u < u_steps; u++) {
-			while (u_pos_i < b_tot[s] - 1 && sa[b_start[s] + u_pos_i * 4 + 3] <= step_l * (float)u) {
-				u_pos_i ++;
+		for (int u = 1; u < u_steps - 1; u++) {
+			pos_i_sa = 1;
+			while (pos_i_sa < b_tot[s] && sa[b_start[s] + pos_i_sa * 4 + 3] <= step_length * (float)u) {
+				pos_i_sa ++;
 			}
 
-			if (u_pos_i == 0 || step_l == 0) {
+			/* Interpolate over the points of each side. Interpolate an even point distribution along the line */
+			if (b_tot[s] < 2) {
 				copy_v3_v3(v1, &sa[b_start[s]]);
 			} else {
-				a = sa[b_start[s] + u_pos_i * 4 - 1];
-				b = sa[b_start[s] + u_pos_i * 4 + 3];
-				BLI_assert(b > a);
-				f = (step_l * (float)u - a) / (b - a);
-				interp_v3_v3v3(v1, &sa[b_start[s] + u_pos_i * 4 - 4], &sa[b_start[s] + u_pos_i * 4], f);
+				a = sa[b_start[s] + pos_i_sa * 4 - 1];
+				b = sa[b_start[s] + pos_i_sa * 4 + 3];
+				f = (step_length * (float)u - a) / (b - a);
+				interp_v3_v3v3(v1, &sa[b_start[s] + pos_i_sa * 4 - 4], &sa[b_start[s] + pos_i_sa * 4], f);
 			}
 
-			copy_v3_v3(z_vec_b, z_vec);
-			sub_v3_v3v3(v2, center, z_vec);
-			copy_v3_v3(v2, me->mvert[v_center_guides + ((s + 2) % 3) * (w_steps * (u_steps + 1)) + u].co);
-
-			for (int v = 0; v < ss_steps; v++) {
-				add_v3_v3(v1, z_vec_b);
-				f = (float)v/(float)(ss_steps);
-				f = sin(0.5f * f * M_PI - 0.5f * M_PI) + 1.0f;
-				interp_v3_v3v3(v3, v1, v2, f);
-				me->mvert[v_start + verts_per_side * s + u * ss_steps + v].flag = 0;
-				me->mvert[v_start + verts_per_side * s + u * ss_steps + v].bweight = 0;
-				copy_v3_v3(me->mvert[v_start + verts_per_side * s + u * ss_steps + v].co,v3);
-				mul_v3_fl(z_vec_b, cos(0.5f * M_PI * ((float)v / (float)ss_steps)));
+			f = fabs((float)(u_steps / 2 - u) / ((float)u_steps / 2.0f));
+			if (u < u_steps / 2){
+				interp_v3_v3v3(v4, center, &center_s[s * 3], f);
+			} else if (u == u_steps / 2) {
+				copy_v3_v3(v4, center);
+			} else {
+				interp_v3_v3v3(v4, center, &center_s[(s + 1) % 3 * 3], f);
 			}
-		}
-		e_tmp_start = me->totedge;
-		generate_mesh_grid_f_e(me, u_steps, ss_steps, v_start + s * verts_per_side, false);
-		if (s > 0) {
-			branch->e_start_arr[s * 9 + 6] = e_tmp_start;
-			branch->e_start_arr[s * 9 + 7] = ss_steps;
-			branch->e_start_arr[s * 9 + 8] = 2;
-		} else {
-			branch->e_start_arr[s * 9 + 0] = e_tmp_start;
-			branch->e_start_arr[s * 9 + 1] = ss_steps;
-			branch->e_start_arr[s * 9 + 2] = 2;
+			add_v3_v3v3(v2, v4, z_vec);
+
+			calc_vert_quarter(me, v1, v4, v2, v_steps, w_h_steps, smoothness, false);
 		}
 
-		if ((s + 1) % 3 > 0) {
-			branch->e_start_arr[(s + 1) % 3 * 9 + 0] = e_tmp_start + (u_steps - 1) * ss_steps * 2 - u_steps + 1;
-			branch->e_start_arr[(s + 1) % 3 * 9 + 1] = ss_steps;
-			branch->e_start_arr[(s + 1) % 3 * 9 + 2] = 1;
-		} else {
-			branch->e_start_arr[(s + 1) % 3 * 9 + 6] = e_tmp_start + (u_steps - 1) * ss_steps * 2 - u_steps + 1;
-			branch->e_start_arr[(s + 1) % 3 * 9 + 7] = ss_steps;
-			branch->e_start_arr[(s + 1) % 3 * 9 + 8] = 1;
-		}
-
-		bridge_loops(me,
-					 bridge_in_out_start[(s + 2) % 3],
-					 e_tmp_start + ss_steps * 2 - 2,
-					 u_steps,
-					 false,
-					 2,
-					 ss_steps * 2 -1,
-					 true);
+		generate_mesh_grid_f_e(me, u_steps - 2, v_steps + w_steps / 2, v_start, false);
 	}
 
-	/*printf("Created a T-Intersection. Edges are %i, %i, %i Total length of: %f, %f, %f\n", b_tot[0], b_tot[1], b_tot[2], sa[b_tot[0] * 4 - 1], sa[b_start[1] + b_tot[1] * 4 - 1], sa[b_start[2] + b_tot[2] * 4 - 1]);*/
+	/* TODO: faces */
+	BLI_array_free(sa);
 }
 
-static void add_ss_tube(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float z_vec[3], float depth, int ss_steps, int w_steps, float w_fact)
+static void add_ss_tube(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float z_vec[3], float depth, int v_steps, int w_steps, float w_fact)
 {
 	/* x y z l (accumulative length)*/
-	float left[branch->tot_hull_points * 4], right[branch->tot_hull_points * 4];
+	float *left = NULL, *right = NULL;
 	int totl = 0, totr = 0;
 	int u_steps = 0;
-	const int v_start = me->totvert;
-	int square_ss_steps;
+	//int square_uv_steps;
 	bool f_swap = false;
 	int cyclic_offset = 0, n_i = 0;
+	BLI_array_declare(left);
+	BLI_array_declare(right);
 
 	/* Calc and sort Hullpoints to left and right side */
 	qsort (branch->hull_points, branch->tot_hull_points, sizeof(int), cmpfunc);
@@ -6313,13 +6106,11 @@ static void add_ss_tube(SilhouetteData *sil, SpineBranch *branch, Mesh *me, floa
 		}
 	}
 
-	totl = 0;
-	f_swap = false;
-	n_i = 0;
-
-	for (int i = 0; i < branch->tot_hull_points; i++) {
+	/* fill left and right arrays with hull points. */
+	for (int i = 0; i < branch->tot_hull_points; i++){
 		n_i = branch->tot_hull_points + (i - cyclic_offset);
 		if (!f_swap) {
+			BLI_array_grow_items(left, 4);
 			silhoute_stroke_point_to_3d(sil, branch->hull_points[n_i % branch->tot_hull_points] * 3, &left[totl * 4]);
 			if (totl > 0) {
 				left[totl * 4 + 3] = len_v3v3(&left[totl * 4],&left[totl * 4 - 4]) + left[totl * 4 - 1];
@@ -6328,6 +6119,7 @@ static void add_ss_tube(SilhouetteData *sil, SpineBranch *branch, Mesh *me, floa
 			}
 			totl ++;
 		} else {
+			BLI_array_grow_items(right, 4);
 			silhoute_stroke_point_to_3d(sil, branch->hull_points[n_i % branch->tot_hull_points] * 3, &right[totr*4]);
 			if (totr > 0) {
 				right[totr * 4 + 3] = len_v3v3(&right[totr * 4],&right[totr * 4 - 4]) + right[totr * 4 - 1];
@@ -6344,39 +6136,20 @@ static void add_ss_tube(SilhouetteData *sil, SpineBranch *branch, Mesh *me, floa
 		}
 	}
 
-	int pos_i_t = 0;
-	float tmp_p[4];
-	for (int i = 0; i < totl; i++) {
-		copy_v4_v4(tmp_p, &left[(pos_i_t + cyclic_offset) % totl * 4]);
-		copy_v4_v4(&left[(pos_i_t + cyclic_offset) % totl * 4], &left[pos_i_t * 4]);
-	}
-
 	if (totl < 1 && totr < 1) {
 		return;
 	}
-	/*printf("Creating tube with %i left points and %i right points length: %f, %f\n", totl, totr, left[totl * 4 - 1], right[totr * 4 - 1]);*/
 
-	u_steps = fmax(2.0f, fmax(left[totl * 4 - 1], right[totr * 4 - 1]) / (float)(2 * depth / ss_steps));
-	square_ss_steps = u_steps * ss_steps;
-	if (!(branch->flag & BRANCH_EDGE_GEN)) {
+	u_steps = fmax(2.0f, fmax(left[totl * 4 - 1], right[totr * 4 - 1]) / (float)(2 * depth / v_steps));
+	//square_uv_steps = u_steps * v_steps;
+	/*if (!(branch->flag & BRANCH_EDGE_GEN)) {
 		branch->e_start_arr = MEM_callocN(sizeof(int) * 18,"edge startposition array");
 		branch->flag |= BRANCH_EDGE_GEN;
-	}
-	fill_tube(me, left, right, totl, totr, u_steps, z_vec, ss_steps, w_steps, w_fact, branch->e_start_arr);
+	}*/
+	fill_tube(me, left, right, totl, totr, u_steps, z_vec, v_steps, w_steps, w_fact, branch->e_start_arr);
 
-	branch->flag |= BRANCH_VERT_GEN;
-	int verts_per_intersection = (2 * ss_steps + w_steps - 1);
-	branch->gen_verts = MEM_callocN(sizeof(int) * verts_per_intersection * 2, "Branch Bridges");
-	for (int v = 0; v < ss_steps; v ++) {
-		branch->gen_verts[verts_per_intersection + v] = v_start + v;
-		branch->gen_verts[verts_per_intersection + v + ss_steps + w_steps - 1] = v_start + square_ss_steps + v;
-		branch->gen_verts[v] = v_start + v + u_steps * ss_steps - ss_steps;
-		branch->gen_verts[ss_steps + w_steps - 1 + v] = v_start + square_ss_steps + v + u_steps * ss_steps - ss_steps;
-		if (v < w_steps - 1) {
-			branch->gen_verts[verts_per_intersection + ss_steps + v] = v_start + square_ss_steps * 2 + v;
-			branch->gen_verts[ss_steps + v] = v_start + square_ss_steps * 2 + v + u_steps * (w_steps - 1) - (w_steps - 1);
-		}
-	}
+	BLI_array_free(left);
+	BLI_array_free(right);
 }
 
 /* TODO: Fix for incomplete Spine Generation. Delete? It calculates the real amount of adjacent branches not counting empty ones.*/
@@ -6454,7 +6227,7 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 	float z_vec[3] = {0.0f,0.0f,1.0f};
 	float depth = sil->depth;
 	int ss_level = 3;
-	int ss_steps = (1 << ss_level) + 2;
+	int v_steps = (1 << ss_level) + 2;
 	/* TODO: RNA Init*/
 
 	copy_v3_v3(z_vec, sil->z_vec);
@@ -6464,57 +6237,26 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 	Spine *spine = silhouette_generate_spine(sil, stroke);
 	SpineBranch *a_branch;
 
-	mul_v3_fl(z_vec, depth / (float)ss_steps);
+	mul_v3_fl(z_vec, depth);
 
-	int w_steps = ss_steps / 2 + 2;
-	float w_fact = sil->smoothness;
-
-	/* Generate Tubes first then Caps and T-Intersections later. */
-	for (int i = 0; i < spine->totbranches; i++) {
-		a_branch = spine->branches[i];
-		if (a_branch) {
-			int r_forks = r_branch_count(spine, a_branch);
-			if (r_forks == 2) {
-				add_ss_tube(sil, a_branch, me, z_vec, depth, ss_steps, w_steps, w_fact);
-				int t_off = 0;
-				for (int sb = 0; sb < a_branch->totforks; sb++) {
-					SpineBranch *sub_branch = spine->branches[a_branch->terminal_points[sb * 2 + 1]];
-					if (sub_branch && a_branch->flag & BRANCH_VERT_GEN && r_branch_count(spine, sub_branch) == 1) {
-						add_ss_cap(sil, sub_branch, a_branch->gen_verts + t_off, me, z_vec, depth, ss_steps, w_steps - 1, w_fact);
-						t_off += ss_steps * 2 + (ss_steps / 2) - 1;
-#ifdef DEBUG_DRAW
-						//debug_branch(sub_branch, spine, sil, 0xff00ff);
-#endif
-					}
-				}
-#ifdef DEBUG_DRAW
-				//debug_branch(a_branch, spine, sil, 0x00ff00);
-#endif
-			}
-		}
-	}
+	int w_steps = v_steps / 2 + 2;
+	float smoothness = 0.5f;//sil->smoothness;
 
 	for (int i = 0; i < spine->totbranches; i++) {
 		a_branch = spine->branches[i];
 		if (a_branch) {
 			int r_forks = r_branch_count(spine, a_branch);
-
-			if (r_forks == 3) {
-				add_ss_tinter(sil, a_branch, me, z_vec, ss_steps, w_steps - 1, w_fact);
-				for (int sb = 0; sb < a_branch->totforks; sb++) {
-					SpineBranch *sub_branch = spine->branches[a_branch->terminal_points[sb * 2 + 1]];
-					if (sub_branch && r_branch_count(spine, sub_branch) == 1) {
-						add_ss_cap(sil, sub_branch, NULL, me, z_vec, depth, ss_steps, w_steps - 1, w_fact);
-#ifdef DEBUG_DRAW
-						//debug_branch(sub_branch, spine, sil, 0x0000ff);
-#endif
-					}
-				}
-#ifdef DEBUG_DRAW
-				//debug_branch(a_branch, spine, sil, 0x0000ff);
-#endif
+			switch (r_forks) {
+				case 1:
+					add_ss_cap(sil, a_branch, me, z_vec, depth, v_steps, w_steps, smoothness);
+					break;
+				case 2:
+					add_ss_tube(sil, a_branch, me, z_vec, depth, v_steps, w_steps, smoothness);
+					break;
+				case 3:
+					add_ss_tinter(sil, a_branch, me, z_vec, depth, v_steps, w_steps, smoothness);
+					break;
 			}
-
 		}
 	}
 
@@ -6524,37 +6266,6 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 
 	ED_mesh_update(me, C, 1, 1);
 }
-
-#if 0  /* UNUSED */
-static void debug_mesh(Mesh *me)
-{
-	printf("Logging Mesh:\n");
-	printf("Verts in mesh %i\n",me->totvert);
-	printf("Edges in mesh %i\n",me->totedge);
-	printf("Loops in mesh %i\n",me->totloop);
-	printf("Polys in mesh %i\n",me->totpoly);
-
-	printf("\nVert log:\n");
-	for (int i = 0; i < me->totvert; i++) {
-		printf("\nVert %i (%f,%f,%f)", i, me->mvert[i].co[0], me->mvert[i].co[1], me->mvert[i].co[2]);
-	}
-
-	printf("\nEdge log:\n");
-	for (int i = 0; i < me->totedge;i++) {
-		printf("Edge %i, v1v2(%u,%u)\n",i, me->medge[i].v1, me->medge[i].v2);
-	}
-
-	printf("\nLoop Log:\n");
-	for (int i = 0; i < me->totloop; i++) {
-		printf("Loop %i, v(%u), e(%u)\n", i, me->mloop[i].v, me->mloop[i].e);
-	}
-
-	printf("\nPoly log:\n");
-	for (int i = 0; i < me->totpoly; i++) {
-		printf("Poly %i, start(%i), totloop(%i)\n", i, me->mpoly[i].loopstart, me->mpoly[i].totloop);
-	}
-}
-#endif
 
 /* Adds additional points to the stroke if start and end are far apart. */
 static void stroke_smooth_cap(SilhouetteStroke *stroke, float max_dist)
@@ -6645,7 +6356,7 @@ static int sculpt_silhouette_modal(bContext *C, wmOperator *op, const wmEvent *e
 	if (event->val == KM_RELEASE) {
 		sculpt_silhouette_clean_draw(C, op);
 		if (sil->state == SIL_DRAWING) {
-			RNA_float_set_array(op->ptr, "points", sil->current_stroke->points);
+			/*RNA_float_set_array(op->ptr, "points", sil->current_stroke->points);*/
 			RNA_int_set(op->ptr,"totvert", sil->current_stroke->totvert);
 			ED_view3d_global_to_vector(sil->ar->regiondata, (float[3]){0.0f,0.0f,0.0f}, z_vec);
 			RNA_float_set_array(op->ptr, "z_vec", z_vec);
@@ -6754,8 +6465,8 @@ static void SCULPT_OT_silhouette_draw(wmOperatorType *ot)
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 
 	/* TODO: RNA points max size 30 */
-	prop = RNA_def_float_vector(ot->srna, "points", 3 * 1024, NULL, -FLT_MAX, FLT_MAX, "3D Points", "Stroke Mouse locations", -FLT_MAX, FLT_MAX);
-	RNA_def_property_flag(prop, PROP_HIDDEN);
+	/*prop = RNA_def_float_vector(ot->srna, "points", 3 * 1024, NULL, -FLT_MAX, FLT_MAX, "3D Points", "Stroke Mouse locations", -FLT_MAX, FLT_MAX);
+	RNA_def_property_flag(prop, PROP_HIDDEN);*/
 
 	prop = RNA_def_int(ot->srna, "totvert", 0, 0, INT_MAX, "stroke point count", "", 0, INT_MAX);
 	RNA_def_property_flag(prop, PROP_HIDDEN);
