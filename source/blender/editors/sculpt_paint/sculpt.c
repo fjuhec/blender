@@ -3255,7 +3255,7 @@ int check_topo_connected(int vert, int *vert_array, int totvert){
 	return check_present(vert, vert_array, totvert);
 }
 
-#define VERLEN 10000
+#define VERLEN 50000
 
 int ver[VERLEN] = { 0 };
 int c_ver[VERLEN] = { 0 };
@@ -3299,6 +3299,49 @@ int find_connect_mesh(SculptSession *ss, int vert, short *ch, int *vert_index, i
 		}
 		
 	}
+	return 0;
+}
+
+int find_connect_bmesh(const BMVert *vert, short *ch,const int *vert_index, int len){
+	int p = check_present(BM_elem_index_get( vert), vert_index, len);
+	if (p == -1 || ch[p] == 1){
+		return 0;
+	}
+	ch[p] = 1;
+
+	/*
+	const MeshElemMap *v_map = &ss->pmap[vert];
+	const MVert *mvert = ss->mvert;
+	loop(i, 0, v_map->count, 1){
+
+		const MPoly *poly = &ss->mpoly[v_map->indices[i]];
+		unsigned adj[2];
+
+		if (poly_get_adj_loops_from_vert(poly, ss->mloop, vert, adj) != -1) {
+			int j;
+			for (j = 0; j < ARRAY_SIZE(adj); j += 1) {
+				if (v_map->count != 2 || ss->pmap[adj[j]].count <= 2) {
+					find_connect_mesh(ss, adj[j], ch, vert_index, len);
+				}
+			}
+		}
+
+	}*/
+	const int vfcount = BM_vert_face_count_ex(vert, 3);
+	BMIter iter;
+	BMLoop *l;
+	int i, total = 0;
+
+	BM_ITER_ELEM(l,&iter, vert, BM_LOOPS_OF_VERT){
+		const BMVert *adjv[2] = { l->prev->v, l->next->v };
+		for (i = 0; i < ARRAY_SIZE(adjv); i++) {
+			const BMVert *v_other = adjv[i];
+			if (vfcount != 2 || BM_vert_face_count_ex(v_other, 2) <= 2) {
+				find_connect_bmesh(v_other, ch, vert_index, len);
+			}
+		}
+	}
+
 	return 0;
 }
 
@@ -3389,7 +3432,7 @@ static void do_topo_grab_brush_task_cb_ex(
 			d[0] = 1000.0f;
 			short ch1[VERLEN] = { 0 };
 			find_connect_mesh(ss, cn[2], ch1, ver, cn[1]);
-			printf(" V: %d\n", cn[2]);
+			//printf(" V: %d\n", cn[2]);
 			int k = 0;
 			loop(ir, 0, cn[1], 1){
 				if (ch1[ir]){
@@ -3404,9 +3447,9 @@ static void do_topo_grab_brush_task_cb_ex(
 				//do nothing
 				d[0] = 1000.0f;
 				short ch1[VERLEN] = { 0 };
-				//find_connect_bmesh(ss, cn[2], ch1, ver, cn[1]);
-				loop(i, 0, cn[1], 1) ch1[i] = 1;
-				printf(" BV: %d %d\n", BM_elem_index_get(vx), cn[2]);
+				find_connect_bmesh(vx, ch1, ver, cn[1]);
+				//loop(i, 0, cn[1], 1) ch1[i] = 1;
+				//printf(" BV: %d %d\n", BM_elem_index_get(vx), cn[2]);
 				int k = 0;
 				loop(ir, 0, cn[1], 1){
 					if (ch1[ir]){
