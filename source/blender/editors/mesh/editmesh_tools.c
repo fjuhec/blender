@@ -6372,15 +6372,18 @@ static bool merge_loop_average(bContext *C, wmOperator *op, LoopNormalData *ld)
 	BMesh *bm = em->bm;
 
 	TransDataLoopNormal *tld = ld->normal;
+	BLI_SMALLSTACK_DECLARE(clnors, short *);
 
 	for (int i = 0; i < ld->totloop; i++, tld++) {
+		if (tld->loop_index == -1)
+			continue;
+
 		MLoopNorSpace *lnor_space = bm->lnor_spacearr->lspacearr[tld->loop_index];
 
 		if (lnor_space->loops) {
 
 			LinkNode *loops = lnor_space->loops;
 			float avg_normal[3] = { 0, 0, 0 };
-			BLI_SMALLSTACK_DECLARE(clnors, short *);
 			short *clnors_data;
 
 			while (loops) {
@@ -6390,7 +6393,8 @@ static bool merge_loop_average(bContext *C, wmOperator *op, LoopNormalData *ld)
 				for (int j = 0; j < ld->totloop; j++, temp++) {
 					if (loop_index == temp->loop_index) {
 						add_v3_v3(avg_normal, temp->nloc);
-						BLI_SMALLSTACK_PUSH(clnors, tld->clnors_data);
+						BLI_SMALLSTACK_PUSH(clnors, temp->clnors_data);
+						temp->loop_index == -1;
 					}
 				}
 				loops = loops->next;
@@ -6404,7 +6408,6 @@ static bool merge_loop_average(bContext *C, wmOperator *op, LoopNormalData *ld)
 				normalize_v3(avg_normal);					/* else set all clnors to this avg */
 				while ((clnors_data = BLI_SMALLSTACK_POP(clnors))) {
 					BKE_lnor_space_custom_normal_to_data(lnor_space, avg_normal, clnors_data);
-					printf("hi");
 				}
 			}
 		}
@@ -6439,7 +6442,6 @@ static bool split_loop(bContext *C, wmOperator *op, LoopNormalData *ld)
 		}
 		else if (type == SPLIT_LOOP_KEEP) {						/* else set to transdata normal computed */
 			BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], tld->nloc, tld->clnors_data);
-			printf("hi");
 		}
 	}
 	return true;

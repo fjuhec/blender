@@ -814,12 +814,7 @@ static void bm_mesh_loops_calc_normals(
 
 					if (r_lnors_spacearr) {
 						/* Assign current lnor space to current 'vertex' loop. */
-
-						/* weak fix, need to look out if breaks something. Without this 'if', wrongly builds the lnor spaces
-						   if loops are merged. */
-						if (!rebuild || !BM_elem_flag_test(lfan_pivot->v, BM_ELEM_TAG) || (bm->spacearr_dirty & BM_SPACEARR_DIRTY_ALL)) {
-							BKE_lnor_space_add_loop(r_lnors_spacearr, lnor_space, lfan_pivot_index, true);
-						}
+						BKE_lnor_space_add_loop(r_lnors_spacearr, lnor_space, lfan_pivot_index, true);
 						if (e_next != e_org) {
 							/* We store here all edges-normalized vectors processed. */
 							BLI_stack_push(edge_vectors, vec_next);
@@ -1020,28 +1015,44 @@ void BM_lnorspace_invalidate(BMesh *bm, bool inval_all)
 		bm->spacearr_dirty |= BM_SPACEARR_DIRTY_ALL;
 		return;
 	}
+	BMFace *f;
 	BMVert *v;
+	BMLoop *l;
 	BMIter viter, fiter, liter;
 	BLI_bitmap *faces = BLI_BITMAP_NEW(bm->totface, __func__);
+	BLI_bitmap *loops_marked = BLI_BITMAP_NEW(bm->totloop, __func__);
 
 	BM_mesh_elem_index_ensure(bm, (BM_FACE | BM_LOOP));
 
 	BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
 		if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
-
-			BMFace *f;
 			BM_ITER_ELEM(f, &fiter, v, BM_FACES_OF_VERT) {
-				if (!BLI_BITMAP_TEST(faces, BM_elem_index_get(f))) {
 
-					BMLoop *l;
+				if (!BLI_BITMAP_TEST(faces, BM_elem_index_get(f))) {
 					BM_ITER_ELEM(l, &liter, f, BM_LOOPS_OF_FACE) {
-						BM_elem_flag_enable(l, BM_ELEM_LNORSPACE);
+
+						BLI_BITMAP_ENABLE(loops_marked, BM_elem_index_get(l));		/* enable bitmaps of all loops in the spaces */
+						LinkNode *loops = bm->lnor_spacearr ? bm->lnor_spacearr->lspacearr[BM_elem_index_get(l)]->loops : NULL;
+						while (loops) {
+							const int loop_index = GET_INT_FROM_POINTER(loops->link);
+							BLI_BITMAP_ENABLE(loops_marked, loop_index);
+							loops = loops->next;
+						}
 					}
-					BLI_BITMAP_ENABLE(faces, BM_elem_index_get(f));
+					BLI_BITMAP_ENABLE(faces, BM_elem_index_get(f));		/* enable bitmap of face to not iterate through it again */
 				}
 			}
 		}
 	}
+	BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
+		BM_ITER_ELEM(l, &liter, f, BM_LOOPS_OF_FACE) {
+			if (BLI_BITMAP_TEST(loops_marked, BM_elem_index_get(l))) {
+				BM_elem_flag_enable(l, BM_ELEM_LNORSPACE);				/* flag all loops marked */
+			}
+		}
+	}
+
+	MEM_freeN(loops_marked);
 	MEM_freeN(faces);
 	bm->spacearr_dirty |= BM_SPACEARR_DIRTY;
 }
@@ -1157,11 +1168,11 @@ static void BM_lnorspace_err(BMesh *bm)
 
 	for (int i = 0; i < bm->totloop; i++) {
 		int j = 0;
-		j += compare_ff(temp->lspacearr[i]->ref_alpha, bm->lnor_spacearr->lspacearr[i]->ref_alpha, 1.0f - 1e-4f);
-		j += compare_ff(temp->lspacearr[i]->ref_beta, bm->lnor_spacearr->lspacearr[i]->ref_beta, 1.0f - 1e-4f);
-		j += compare_v3v3(temp->lspacearr[i]->vec_lnor, bm->lnor_spacearr->lspacearr[i]->vec_lnor, 1.0f - 1e-4f);
-		j += compare_v3v3(temp->lspacearr[i]->vec_ortho, bm->lnor_spacearr->lspacearr[i]->vec_ortho, 1.0f - 1e-4f);
-		j += compare_v3v3(temp->lspacearr[i]->vec_ref, bm->lnor_spacearr->lspacearr[i]->vec_ref, 1.0f - 1e-4f);
+		j += compare_ff(temp->lspacearr[i]->ref_alpha, bm->lnor_spacearr->lspacearr[i]->ref_alpha, 1e-4f);
+		j += compare_ff(temp->lspacearr[i]->ref_beta, bm->lnor_spacearr->lspacearr[i]->ref_beta, 1e-4f);
+		j += compare_v3v3(temp->lspacearr[i]->vec_lnor, bm->lnor_spacearr->lspacearr[i]->vec_lnor, 1e-4f);
+		j += compare_v3v3(temp->lspacearr[i]->vec_ortho, bm->lnor_spacearr->lspacearr[i]->vec_ortho, 1e-4f);
+		j += compare_v3v3(temp->lspacearr[i]->vec_ref, bm->lnor_spacearr->lspacearr[i]->vec_ref, 1e-4f);
 
 		if (j != 5) {
 			clear = false;
