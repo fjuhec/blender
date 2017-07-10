@@ -527,7 +527,8 @@ static int id_copy_libmanagement_cb(void *user_data, ID *id_self, ID **id_pointe
 bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, const bool test)
 {
 #define LIB_ID_TYPES_NOCOPY ID_LI, ID_SCR, ID_WM,  /* Not supported */ \
-                            ID_IP  /* Deprecated */
+                            ID_IP,  /* Deprecated */ \
+                            ID_SCE  /* Temp, TODO */
 
 	if (ELEM(GS(id->name), LIB_ID_TYPES_NOCOPY)) {
 		return false;
@@ -622,8 +623,10 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 		case ID_SO:
 			if (!test) BKE_sound_copy_data(bmain, (bSound *)*r_newid, (bSound *)id, flag);
 			break;
-		case ID_SCE:
 		case ID_VF:
+			if (!test) BKE_vfont_copy_data(bmain, (VFont *)*r_newid, (VFont *)id, flag);
+			break;
+		case ID_SCE:
 			return false;  /* not implemented */
 		case ID_LI:
 		case ID_SCR:
