@@ -243,7 +243,7 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 				for (lineset = new_srl->freestyleConfig.linesets.first; lineset; lineset = lineset->next) {
 					if (lineset->linestyle) {
 						/* Has been incremented by BKE_freestyle_config_copy(). */
-						id_us_min(lineset->linestyle);
+						id_us_min(&lineset->linestyle->id);
 						lineset->linestyle = BKE_linestyle_copy(bmain, lineset->linestyle);
 					}
 				}
@@ -288,11 +288,19 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 			ts->sculpt = MEM_dupallocN(ts->sculpt);
 			BKE_paint_copy(&ts->sculpt->paint, &ts->sculpt->paint);
 		}
+		if (ts->uvsculpt) {
+			ts->uvsculpt = MEM_dupallocN(ts->uvsculpt);
+			BKE_paint_copy(&ts->uvsculpt->paint, &ts->uvsculpt->paint);
+		}
 
 		BKE_paint_copy(&ts->imapaint.paint, &ts->imapaint.paint);
 		ts->imapaint.paintcursor = NULL;
 		id_us_plus((ID *)ts->imapaint.stencil);
+		id_us_plus((ID *)ts->imapaint.clone);
+		id_us_plus((ID *)ts->imapaint.canvas);
 		ts->particle.paintcursor = NULL;
+		ts->particle.scene = NULL;
+		ts->particle.object = NULL;
 		
 		/* duplicate Grease Pencil Drawing Brushes */
 		BLI_listbase_clear(&ts->gp_brushes);
