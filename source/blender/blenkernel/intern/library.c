@@ -526,14 +526,15 @@ static int id_copy_libmanagement_cb(void *user_data, ID *id_self, ID **id_pointe
 /* XXX TODO remove test thing, *all* IDs should be copyable that way! */
 bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, const bool test)
 {
-#define ITEMS_IMPLEMENTED_1 ID_OB, ID_ME, ID_CU, ID_MB, ID_MA, ID_TE, ID_IM, ID_LT, ID_LA, ID_SPK, ID_CA, ID_KE, ID_WO, ID_TXT
-#define ITEMS_IMPLEMENTED_2 ID_GR, ID_AR, ID_AC, ID_NT, ID_BR, ID_PA, ID_GD, ID_MC, ID_MSK, ID_LS, ID_PAL, ID_PC, ID_CF
+#define LIB_ID_TYPES_NOCOPY ID_LI, ID_SCR, ID_WM,  /* Not supported */ \
+                            ID_IP  /* Deprecated */
+
+	if (ELEM(GS(id->name), LIB_ID_TYPES_NOCOPY)) {
+		return false;
+	}
 
 	if (!test) {
-		/* Check to be removed of course, just here until all BKE_xxx_copy_ex functions are done. */
-		if (ELEM(GS(id->name), ITEMS_IMPLEMENTED_1) || ELEM(GS(id->name), ITEMS_IMPLEMENTED_2)) {
-			BKE_libblock_copy_ex(bmain, id, r_newid, flag);
-		}
+		BKE_libblock_copy_ex(bmain, id, r_newid, flag);
 	}
 
 	switch ((ID_Type)GS(id->name)) {
@@ -618,28 +619,27 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 		case ID_CF:
 			if (!test) BKE_cachefile_copy_data(bmain, (CacheFile *)*r_newid, (CacheFile *)id, flag);
 			break;
+		case ID_SO:
+			if (!test) BKE_sound_copy_data(bmain, (bSound *)*r_newid, (bSound *)id, flag);
+			break;
 		case ID_SCE:
 		case ID_VF:
-		case ID_SO:
 			return false;  /* not implemented */
 		case ID_LI:
 		case ID_SCR:
 		case ID_WM:
-			return false;  /* can't be copied from here */
 		case ID_IP:
-			return false;  /* deprecated */
+			BLI_assert(0);  /* Should have been rejected at start of function! */
+			return false;
 	}
 
 	if (!test) {
-		/* Check to be removed of course, just here until all BKE_xxx_copy_ex functions are done. */
-		if (ELEM(GS(id->name), ITEMS_IMPLEMENTED_1) || ELEM(GS(id->name), ITEMS_IMPLEMENTED_2)) {
-			/* Update ID refcount, remap pointers to self in new ID. */
-			struct IDCopyLibManagementData data = {.id_src=id, .flag=flag};
-			BKE_library_foreach_ID_link(bmain, *r_newid, id_copy_libmanagement_cb, &data, IDWALK_NOP);
+		/* Update ID refcount, remap pointers to self in new ID. */
+		struct IDCopyLibManagementData data = {.id_src=id, .flag=flag};
+		BKE_library_foreach_ID_link(bmain, *r_newid, id_copy_libmanagement_cb, &data, IDWALK_NOP);
 
-			if ((flag & LIB_ID_COPY_NO_MAIN) == 0) {
-				BKE_id_copy_ensure_local(bmain, id, *r_newid);
-			}
+		if ((flag & LIB_ID_COPY_NO_MAIN) == 0) {
+			BKE_id_copy_ensure_local(bmain, id, *r_newid);
 		}
 	}
 
