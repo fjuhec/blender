@@ -42,6 +42,7 @@
 #include "BLI_threads.h"
 #include "BLI_utildefines.h"
 #include "BLI_ghash.h"
+#include "BLI_array.h"
 
 #include "BLT_translation.h"
 
@@ -1540,7 +1541,6 @@ static void neighbor_average(SculptSession *ss, float avg[3], unsigned vert)
 		int i, total = 0;
 
 		zero_v3(avg);
-		printf("Neighbor!\n");
 		for (i = 0; i < vert_map->count; i++) {
 			const MPoly *p = &ss->mpoly[vert_map->indices[i]];
 			unsigned f_adj_v[2];
@@ -1743,7 +1743,7 @@ static void do_smooth_brush_bmesh_task_cb_ex(
 			}
 			else {
 				float avg[3], val[3];
-
+				//if(ss->cache->first_time) printf("%d ", BM_elem_index_get( vd.bm_vert));
 				bmesh_neighbor_average(avg, vd.bm_vert);
 				sub_v3_v3v3(val, avg, vd.co);
 
@@ -3261,10 +3261,22 @@ int ver[VERLEN] = { 0 };
 int c_ver[VERLEN] = { 0 };
 int cn[6] = { 0 };
 float d[3] = { 0.0f };
+BMVert *vx;
+/*
+int *arrx = NULL;
+BLI_array_declare(arrx);
+loop(i,0,10,1){
+	BLI_array_grow_one(arr);
+	arr[i] = i*2;
+	
+}
+BLI_array_free(arr);
 
-static int init_zero(int *a, int len){ loop(i, 0, len, 1)  a[i] = 0; }
+*/
 
-int find_connect(SculptSession *ss, int vert, short *ch, int *vert_index, int len){
+static void init_zero(int *a, int len){ loop(i, 0, len, 1)  a[i] = 0; }
+
+int find_connect_mesh(SculptSession *ss, int vert, short *ch, int *vert_index, int len){
 	int p = check_present(vert, vert_index, len);
 	if (p == -1 || ch[p] == 1){
 		return 0;
@@ -3281,7 +3293,7 @@ int find_connect(SculptSession *ss, int vert, short *ch, int *vert_index, int le
 			int j;
 			for (j = 0; j < ARRAY_SIZE(adj); j += 1) {
 				if (v_map->count != 2 || ss->pmap[adj[j]].count <= 2) {
-					find_connect(ss, adj[j], ch, vert_index, len);
+					find_connect_mesh(ss, adj[j], ch, vert_index, len);
 				}
 			}
 		}
@@ -3316,7 +3328,8 @@ static void do_topo_grab_brush_task_cb_ex(
 	normalize_v3(ray_normal);
 
 	copy_v3_v3(test.normal, ray_normal);
-	
+	//if (ss->cache->first_time){ printf("\n"); }
+	PBVHType type = BKE_pbvh_type(ss->pbvh);
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
 		sculpt_orig_vert_data_update(&orig_data, &vd);
@@ -3324,17 +3337,35 @@ static void do_topo_grab_brush_task_cb_ex(
 		if (sculpt_brush_test(&test, orig_data.co)){
 
 			if (ss->cache->first_time){
-				ver[cn[1]] = vd.vert_indices[vd.i];
-				float distsq = dist_squared_to_line_direction_v3v3(vd.co, test.true_location, test.normal);
-				if (distsq < d[0]){
-					d[0] = distsq;
-					cn[2] = ver[cn[1]];
-				}
-				cn[0] = 1;
-				cn[1]++;
+				if (type == PBVH_FACES){
+					//printf("%d ", vd.vert_indices[vd.i]);
+					ver[cn[1]] = vd.vert_indices[vd.i];
+					float distsq = dist_squared_to_line_direction_v3v3(vd.co, test.true_location, test.normal);
+					if (distsq < d[0]){
+						d[0] = distsq;
+						cn[2] = ver[cn[1]];
+					}
+					cn[0] = 1;
+					cn[1]++;
+				}else
+					if (type == PBVH_BMESH){ 
+						//printf("(%d %.3f %.3f) ", BM_elem_index_get(vd.bm_vert), vd.co[0], vd.co[1]);
+						ver[cn[1]] = BM_elem_index_get( vd.bm_vert);
+						float distsq = dist_squared_to_line_direction_v3v3(vd.co, test.true_location, test.normal);
+						if (distsq < d[0]){
+							d[0] = distsq;
+							cn[2] = ver[cn[1]];
+							vx = vd.bm_vert;
+						}
+						cn[0] = 1;
+						cn[1]++;
+					}
 			}			
 			else{
-				if (check_topo_connected(vd.vert_indices[vd.i], c_ver, cn[4]) != -1) {
+				int vert_m;
+				if (type == PBVH_FACES) vert_m = vd.vert_indices[vd.i];
+				else vert_m = BM_elem_index_get(vd.bm_vert);
+				if (check_topo_connected(vert_m, c_ver, cn[4]) != -1) {
 					const float fade = bstrength * tex_strength(
 						ss, brush, orig_data.co, test.dist, orig_data.no, NULL, vd.mask ? *vd.mask : 0.0f,
 						thread_id);
@@ -3351,20 +3382,43 @@ static void do_topo_grab_brush_task_cb_ex(
 		}
 	}
 	BKE_pbvh_vertex_iter_end;
-
+	//PBVHType type = BKE_pbvh_type(ss->pbvh);
+	
 	if (ss->cache->first_time){
-		d[0] = 1000.0f;
-		short ch1[VERLEN] = { 0 };
-		find_connect(ss, cn[2], ch1, ver, cn[1]);
-		int k = 0;
-		loop(ir, 0, cn[1], 1){
-			if (ch1[ir]){
-				c_ver[cn[4] + k] = ver[ir];
-				k++;
+		if (type == PBVH_FACES){
+			d[0] = 1000.0f;
+			short ch1[VERLEN] = { 0 };
+			find_connect_mesh(ss, cn[2], ch1, ver, cn[1]);
+			printf(" V: %d\n", cn[2]);
+			int k = 0;
+			loop(ir, 0, cn[1], 1){
+				if (ch1[ir]){
+					c_ver[cn[4] + k] = ver[ir];
+					k++;
+				}
 			}
-		}
-		cn[1] = 0;
-		cn[4] = cn[4] + k;
+			cn[1] = 0;
+			cn[4] = cn[4] + k;
+		}else
+			if (type == PBVH_BMESH){
+				//do nothing
+				d[0] = 1000.0f;
+				short ch1[VERLEN] = { 0 };
+				//find_connect_bmesh(ss, cn[2], ch1, ver, cn[1]);
+				loop(i, 0, cn[1], 1) ch1[i] = 1;
+				printf(" BV: %d %d\n", BM_elem_index_get(vx), cn[2]);
+				int k = 0;
+				loop(ir, 0, cn[1], 1){
+					if (ch1[ir]){
+						c_ver[cn[4] + k] = ver[ir];
+						k++;
+					}
+				}
+				cn[1] = 0;
+				cn[4] = cn[4] + k;
+			}
+		
+		
 	}
 }
 
@@ -3382,7 +3436,7 @@ static void do_topo_grab_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int tot
 	if (!ss->pmap) {printf("NO!"); return;}
 
 	PBVHType type = BKE_pbvh_type(ss->pbvh);
-	if (type == PBVH_BMESH) return 0;  //removing dyntopo for now
+	//if (type == PBVH_BMESH) return 0;  //removing dyntopo for now
 
 	SculptThreadedTaskData data = {
 		.sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
@@ -4590,7 +4644,7 @@ static void sculpt_update_brush_delta(UnifiedPaintSettings *ups, Object *ob, Bru
 			copy_v2_v2(ups->anchored_initial_mouse, cache->initial_mouse);
 			ups->anchored_size = ups->pixel_radius;
 		}
-		if (cache->first_time && tool == SCULPT_TOOL_TOPO_GRAB) init_zero(cn,5) , d[0] = 1000.0f;
+		if (cache->first_time && tool == SCULPT_TOOL_TOPO_GRAB) init_zero(cn,5) , d[0] = 1000.0f, vx = NULL;
 
 		/* handle 'rake' */
 		cache->is_rake_rotation_valid = false;
