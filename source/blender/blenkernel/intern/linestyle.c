@@ -180,15 +180,19 @@ void BKE_linestyle_copy_data(
 	}
 
 	LineStyleModifier *m;
+	BLI_listbase_clear(&linestyle_dst->color_modifiers);
 	for (m = (LineStyleModifier *)linestyle_src->color_modifiers.first; m; m = m->next) {
 		BKE_linestyle_color_modifier_copy(linestyle_dst, m, flag_subdata);
 	}
+	BLI_listbase_clear(&linestyle_dst->alpha_modifiers);
 	for (m = (LineStyleModifier *)linestyle_src->alpha_modifiers.first; m; m = m->next) {
 		BKE_linestyle_alpha_modifier_copy(linestyle_dst, m, flag_subdata);
 	}
+	BLI_listbase_clear(&linestyle_dst->thickness_modifiers);
 	for (m = (LineStyleModifier *)linestyle_src->thickness_modifiers.first; m; m = m->next) {
 		BKE_linestyle_thickness_modifier_copy(linestyle_dst, m, flag_subdata);
 	}
+	BLI_listbase_clear(&linestyle_dst->geometry_modifiers);
 	for (m = (LineStyleModifier *)linestyle_src->geometry_modifiers.first; m; m = m->next) {
 		BKE_linestyle_geometry_modifier_copy(linestyle_dst, m, flag_subdata);
 	}
