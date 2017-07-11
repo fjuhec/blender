@@ -526,121 +526,130 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 #define LIB_ID_TYPES_NOCOPY ID_LI, ID_SCR, ID_WM,  /* Not supported */ \
                             ID_IP  /* Deprecated */
 
-	if (ELEM(GS(id->name), LIB_ID_TYPES_NOCOPY)) {
+	BLI_assert(test || (r_newid != NULL));
+	if (r_newid != NULL) {
+		*r_newid = NULL;
+	}
+	if (id == NULL) {
 		return false;
 	}
 
-	if (!test) {
-		BKE_libblock_copy_ex(bmain, id, r_newid, flag);
+	if (ELEM(GS(id->name), LIB_ID_TYPES_NOCOPY)) {
+		return false;
 	}
+	else if (test) {
+		return true;
+	}
+
+	BKE_libblock_copy_ex(bmain, id, r_newid, flag);
 
 	switch ((ID_Type)GS(id->name)) {
 		case ID_SCE:
-			if (!test) BKE_scene_copy_data(bmain, (Scene *)*r_newid, (Scene *)id, flag);
+			BKE_scene_copy_data(bmain, (Scene *)*r_newid, (Scene *)id, flag);
 			break;
 		case ID_OB:
-			if (!test) BKE_object_copy_data(bmain, (Object *)*r_newid, (Object *)id, flag);
+			BKE_object_copy_data(bmain, (Object *)*r_newid, (Object *)id, flag);
 			break;
 		case ID_ME:
-			if (!test) BKE_mesh_copy_data(bmain, (Mesh *)*r_newid, (Mesh *)id, flag);
+			BKE_mesh_copy_data(bmain, (Mesh *)*r_newid, (Mesh *)id, flag);
 			break;
 		case ID_CU:
-			if (!test) BKE_curve_copy_data(bmain, (Curve *)*r_newid, (Curve *)id, flag);
+			BKE_curve_copy_data(bmain, (Curve *)*r_newid, (Curve *)id, flag);
 			break;
 		case ID_MB:
-			if (!test) BKE_mball_copy_data(bmain, (MetaBall *)*r_newid, (MetaBall *)id, flag);
+			BKE_mball_copy_data(bmain, (MetaBall *)*r_newid, (MetaBall *)id, flag);
 			break;
 		case ID_MA:
-			if (!test) BKE_material_copy_data(bmain, (Material *)*r_newid, (Material *)id, flag);
+			BKE_material_copy_data(bmain, (Material *)*r_newid, (Material *)id, flag);
 			break;
 		case ID_TE:
-			if (!test) BKE_texture_copy_data(bmain, (Tex *)*r_newid, (Tex *)id, flag);
+			BKE_texture_copy_data(bmain, (Tex *)*r_newid, (Tex *)id, flag);
 			break;
 		case ID_IM:
-			if (!test) BKE_image_copy_data(bmain, (Image *)*r_newid, (Image *)id, flag);
+			BKE_image_copy_data(bmain, (Image *)*r_newid, (Image *)id, flag);
 			break;
 		case ID_LT:
-			if (!test) BKE_lattice_copy_data(bmain, (Lattice *)*r_newid, (Lattice *)id, flag);
+			BKE_lattice_copy_data(bmain, (Lattice *)*r_newid, (Lattice *)id, flag);
 			break;
 		case ID_LA:
-			if (!test) BKE_lamp_copy_data(bmain, (Lamp *)*r_newid, (Lamp *)id, flag);
+			BKE_lamp_copy_data(bmain, (Lamp *)*r_newid, (Lamp *)id, flag);
 			break;
 		case ID_SPK:
-			if (!test) BKE_speaker_copy_data(bmain, (Speaker *)*r_newid, (Speaker *)id, flag);
+			BKE_speaker_copy_data(bmain, (Speaker *)*r_newid, (Speaker *)id, flag);
 			break;
 		case ID_CA:
-			if (!test) BKE_camera_copy_data(bmain, (Camera *)*r_newid, (Camera *)id, flag);
+			BKE_camera_copy_data(bmain, (Camera *)*r_newid, (Camera *)id, flag);
 			break;
 		case ID_KE:
-			if (!test) BKE_key_copy_data(bmain, (Key *)*r_newid, (Key *)id, flag);
+			BKE_key_copy_data(bmain, (Key *)*r_newid, (Key *)id, flag);
 			break;
 		case ID_WO:
-			if (!test) BKE_world_copy_data(bmain, (World *)*r_newid, (World *)id, flag);
+			BKE_world_copy_data(bmain, (World *)*r_newid, (World *)id, flag);
 			break;
 		case ID_TXT:
-			if (!test) BKE_text_copy_data(bmain, (Text *)*r_newid, (Text *)id, flag);
+			BKE_text_copy_data(bmain, (Text *)*r_newid, (Text *)id, flag);
 			break;
 		case ID_GR:
-			if (!test) BKE_group_copy_data(bmain, (Group *)*r_newid, (Group *)id, flag);
+			BKE_group_copy_data(bmain, (Group *)*r_newid, (Group *)id, flag);
 			break;
 		case ID_AR:
-			if (!test) BKE_armature_copy_data(bmain, (bArmature *)*r_newid, (bArmature *)id, flag);
+			BKE_armature_copy_data(bmain, (bArmature *)*r_newid, (bArmature *)id, flag);
 			break;
 		case ID_AC:
-			if (!test) BKE_action_copy_data(bmain, (bAction *)*r_newid, (bAction *)id, flag);
+			BKE_action_copy_data(bmain, (bAction *)*r_newid, (bAction *)id, flag);
 			break;
 		case ID_NT:
-			if (!test) BKE_node_tree_copy_data(bmain, (bNodeTree *)*r_newid, (bNodeTree *)id, flag);
+			BKE_node_tree_copy_data(bmain, (bNodeTree *)*r_newid, (bNodeTree *)id, flag);
 			break;
 		case ID_BR:
-			if (!test) BKE_brush_copy_data(bmain, (Brush *)*r_newid, (Brush *)id, flag);
+			BKE_brush_copy_data(bmain, (Brush *)*r_newid, (Brush *)id, flag);
 			break;
 		case ID_PA:
-			if (!test) BKE_particlesettings_copy_data(bmain, (ParticleSettings *)*r_newid, (ParticleSettings *)id, flag);
+			BKE_particlesettings_copy_data(bmain, (ParticleSettings *)*r_newid, (ParticleSettings *)id, flag);
 			break;
 		case ID_GD:
-			if (!test) BKE_gpencil_copy_data(bmain, (bGPdata *)*r_newid, (bGPdata *)id, flag);
+			BKE_gpencil_copy_data(bmain, (bGPdata *)*r_newid, (bGPdata *)id, flag);
 			break;
 		case ID_MC:
-			if (!test) BKE_movieclip_copy_data(bmain, (MovieClip *)*r_newid, (MovieClip *)id, flag);
+			BKE_movieclip_copy_data(bmain, (MovieClip *)*r_newid, (MovieClip *)id, flag);
 			break;
 		case ID_MSK:
-			if (!test) BKE_mask_copy_data(bmain, (Mask *)*r_newid, (Mask *)id, flag);
+			BKE_mask_copy_data(bmain, (Mask *)*r_newid, (Mask *)id, flag);
 			break;
 		case ID_LS:
-			if (!test) BKE_linestyle_copy_data(bmain, (FreestyleLineStyle *)*r_newid, (FreestyleLineStyle *)id, flag);
+			BKE_linestyle_copy_data(bmain, (FreestyleLineStyle *)*r_newid, (FreestyleLineStyle *)id, flag);
 			break;
 		case ID_PAL:
-			if (!test) BKE_palette_copy_data(bmain, (Palette *)*r_newid, (Palette *)id, flag);
+			BKE_palette_copy_data(bmain, (Palette *)*r_newid, (Palette *)id, flag);
 			break;
 		case ID_PC:
-			if (!test) BKE_paint_curve_copy_data(bmain, (PaintCurve *)*r_newid, (PaintCurve *)id, flag);
+			BKE_paint_curve_copy_data(bmain, (PaintCurve *)*r_newid, (PaintCurve *)id, flag);
 			break;
 		case ID_CF:
-			if (!test) BKE_cachefile_copy_data(bmain, (CacheFile *)*r_newid, (CacheFile *)id, flag);
+			BKE_cachefile_copy_data(bmain, (CacheFile *)*r_newid, (CacheFile *)id, flag);
 			break;
 		case ID_SO:
-			if (!test) BKE_sound_copy_data(bmain, (bSound *)*r_newid, (bSound *)id, flag);
+			BKE_sound_copy_data(bmain, (bSound *)*r_newid, (bSound *)id, flag);
 			break;
 		case ID_VF:
-			if (!test) BKE_vfont_copy_data(bmain, (VFont *)*r_newid, (VFont *)id, flag);
+			BKE_vfont_copy_data(bmain, (VFont *)*r_newid, (VFont *)id, flag);
 			break;
 		case ID_LI:
 		case ID_SCR:
 		case ID_WM:
 		case ID_IP:
 			BLI_assert(0);  /* Should have been rejected at start of function! */
-			return false;
+			break;
 	}
 
-	if (!test) {
-		/* Update ID refcount, remap pointers to self in new ID. */
-		struct IDCopyLibManagementData data = {.id_src=id, .flag=flag};
-		BKE_library_foreach_ID_link(bmain, *r_newid, id_copy_libmanagement_cb, &data, IDWALK_NOP);
+	/* Update ID refcount, remap pointers to self in new ID. */
+	struct IDCopyLibManagementData data = {.id_src=id, .flag=flag};
+	BKE_library_foreach_ID_link(bmain, *r_newid, id_copy_libmanagement_cb, &data, IDWALK_NOP);
 
-		if ((flag & LIB_ID_COPY_NO_MAIN) == 0) {
-			BKE_id_copy_ensure_local(bmain, id, *r_newid);
-		}
+	/* Do not make new copy local in case we are copying outside of main...
+	 * XXX TODO: is this behavior OK, or should we need own flag to control that? */
+	if ((flag & LIB_ID_COPY_NO_MAIN) == 0) {
+		BKE_id_copy_ensure_local(bmain, id, *r_newid);
 	}
 
 	return true;
@@ -1133,24 +1142,24 @@ void BKE_libblock_init_empty(ID *id)
 
 /* by spec, animdata is first item after ID */
 /* and, trust that BKE_animdata_from_id() will only find AnimData for valid ID-types */
-static void id_copy_animdata(ID *id, const bool do_action)
+static void id_copy_animdata(Main *bmain, ID *id, const bool do_action)
 {
 	AnimData *adt = BKE_animdata_from_id(id);
 	
 	if (adt) {
 		IdAdtTemplate *iat = (IdAdtTemplate *)id;
-		iat->adt = BKE_animdata_copy(iat->adt, do_action); /* could be set to false, need to investigate */
+		iat->adt = BKE_animdata_copy(bmain, iat->adt, do_action); /* could be set to false, need to investigate */
 	}
 }
 
 /* material nodes use this since they are not treated as libdata */
-void BKE_libblock_copy_data(ID *id, const ID *id_from, const int flag)
+void BKE_libblock_copy_data(Main *bmain, ID *id, const ID *id_from, const int flag)
 {
 	if (id_from->properties)
 		id->properties = IDP_CopyProperty_ex(id_from->properties, flag);
 
 	/* the duplicate should get a copy of the animdata */
-	id_copy_animdata(id, (flag & LIB_ID_COPY_ACTIONS) != 0);
+	id_copy_animdata(bmain, id, (flag & LIB_ID_COPY_ACTIONS) != 0);
 }
 
 void BKE_libblock_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag)
@@ -1194,7 +1203,7 @@ void BKE_libblock_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int fla
 	}
 
 	/* TODO we can remove that one later and bring its code here. */
-	BKE_libblock_copy_data(idn, id, flag);
+	BKE_libblock_copy_data(bmain, idn, id, flag);
 
 	if ((flag & LIB_ID_COPY_NO_MAIN) != 0) {
 		idn->tag |= LIB_TAG_FREE_NO_MAIN;

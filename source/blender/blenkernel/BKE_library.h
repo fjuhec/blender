@@ -84,7 +84,7 @@ void *BKE_libblock_copy(struct Main *bmain, const struct ID *id) ATTR_WARN_UNUSE
 /* "Deprecated" old API. */
 void *BKE_libblock_copy_nolib(const struct ID *id, const bool do_action) ATTR_NONNULL();
 
-void  BKE_libblock_copy_data(struct ID *id, const struct ID *id_from, const int flag);
+void  BKE_libblock_copy_data(struct Main *bmain, struct ID *id, const struct ID *id_from, const int flag);
 
 void  BKE_libblock_rename(struct Main *bmain, struct ID *id, const char *name) ATTR_NONNULL();
 void  BLI_libblock_ensure_unique_name(struct Main *bmain, const char *name) ATTR_NONNULL();
