@@ -325,14 +325,18 @@ void do_versions_after_linking_280(Main *main)
 	}
 
 	{
+		const float dpi_fac = (U.pixelsize * (float)U.dpi / 72.0f); /* UI_DPI_FAC */
+		const short size_y = 2 * HEADERY;
+
 		for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
 			for (wmWindow *win = wm->windows.first; win; win = win->next) {
-				bScreen *screen = BKE_workspace_active_screen_get(win->workspace_hook);
-				const short size_y = 2 * HEADERY;
+				const bScreen *screen = BKE_workspace_active_screen_get(win->workspace_hook);
 
 				/* XXX duplicated from ED_screen_global_areas_create */
 				if (screen->temp == 0) {
 					ScrArea *sa = MEM_callocN(sizeof(*sa), "do version topbar area");
+					SpaceType *st = BKE_spacetype_from_id(SPACE_TOPBAR);
+					SpaceLink *sl = st->new(NULL); /* XXX passing NULL as context */
 
 					sa->v1 = MEM_callocN(sizeof(*sa->v1), "do_version topbar vert");
 					sa->v2 = MEM_callocN(sizeof(*sa->v2), "do_version topbar vert");
@@ -341,22 +345,18 @@ void do_versions_after_linking_280(Main *main)
 
 					sa->v1->vec.x = sa->v2->vec.x = 0;
 					sa->v3->vec.x = sa->v4->vec.x = win->sizex;
-					sa->v1->vec.y = sa->v4->vec.y = win->sizey - size_y;
+					sa->v1->vec.y = sa->v4->vec.y = win->sizey - size_y * dpi_fac;
 					sa->v2->vec.y = sa->v3->vec.y = win->sizey;
-					sa->headertype = HEADERTOP;
+
 					sa->spacetype = sa->butspacetype = SPACE_TOPBAR;
-					sa->winy = size_y;
+					sa->fixed_height = size_y;
+					sa->headertype = HEADERTOP;
 
 					BLI_addhead(&win->global_areas, sa);
 
-					{
-						SpaceType *st = BKE_spacetype_from_id(SPACE_TOPBAR);
-						SpaceLink *sl = st->new(NULL); /* XXX passing NULL as context */
-
-						BLI_addhead(&sa->spacedata, sl);
-						sa->regionbase = sl->regionbase;
-						BLI_listbase_clear(&sl->regionbase);
-					}
+					BLI_addhead(&sa->spacedata, sl);
+					sa->regionbase = sl->regionbase;
+					BLI_listbase_clear(&sl->regionbase);
 				}
 			}
 		}

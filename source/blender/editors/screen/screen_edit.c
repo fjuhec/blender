@@ -509,7 +509,7 @@ void select_connected_scredge(bScreen *sc, ScrEdge *edge)
 }
 
 /* test if screen vertices should be scaled */
-static void screen_test_scale(bScreen *sc, int winsize_x, int winsize_y)
+static void screen_test_scale(const wmWindow *win, bScreen *sc, int winsize_x, int winsize_y)
 {
 	/* clamp Y size of header sized areas when expanding windows
 	 * avoids annoying empty space around file menu */
@@ -678,7 +678,17 @@ static void screen_test_scale(bScreen *sc, int winsize_x, int winsize_y)
 			}
 		}
 	}
-	
+
+	for (ScrArea *area = win->global_areas.first; area; area = area->next) {
+		short px = (short)U.pixelsize;
+
+		/* width */
+		area->v1->vec.x = area->v2->vec.x = 0;
+		area->v3->vec.x = area->v4->vec.x = win->sizex;
+		/* height */
+		area->v1->vec.y = area->v4->vec.y = win->sizey - ED_area_global_size_y(win, area);
+		area->v2->vec.y = area->v3->vec.y = win->sizey - px;
+	}
 }
 
 
@@ -764,9 +774,9 @@ void ED_screen_refresh(wmWindowManager *wm, wmWindow *win)
 		/* header size depends on DPI, let's verify */
 		WM_window_set_dpi(win);
 		screen_refresh_headersizes();
-		
-		screen_test_scale(screen, screen_size_x, screen_size_y);
-		
+
+		screen_test_scale(win, screen, screen_size_x, screen_size_y);
+
 		if (screen->mainwin == 0) {
 			screen->mainwin = wm_subwindow_open(win, &window_rect, false);
 		}
@@ -1065,9 +1075,12 @@ int ED_screen_area_active(const bContext *C)
 void ED_screen_global_areas_create(const bContext *C, wmWindow *win)
 {
 	const bScreen *screen = BKE_workspace_active_screen_get(win->workspace_hook);
+	const short size_y = 2 * HEADERY;
 
 	if (screen->temp == 0) {
 		ScrArea *sa = MEM_callocN(sizeof(*sa), "top bar area");
+		SpaceType *st = BKE_spacetype_from_id(SPACE_TOPBAR);
+		SpaceLink *sl = st->new(C);
 
 		sa->v1 = MEM_callocN(sizeof(*sa->v1), __func__);
 		sa->v2 = MEM_callocN(sizeof(*sa->v2), __func__);
@@ -1076,21 +1089,18 @@ void ED_screen_global_areas_create(const bContext *C, wmWindow *win)
 
 		sa->v1->vec.x = sa->v2->vec.x = 0;
 		sa->v3->vec.x = sa->v4->vec.x = win->sizex;
-		sa->v1->vec.y = sa->v4->vec.y = win->sizey - (2 * HEADERY);
+		sa->v1->vec.y = sa->v4->vec.y = win->sizey - size_y * UI_DPI_FAC;
 		sa->v2->vec.y = sa->v3->vec.y = win->sizey;
-		sa->headertype = HEADERTOP;
+
 		sa->spacetype = sa->butspacetype = SPACE_TOPBAR;
+		sa->fixed_height = size_y;
+		sa->headertype = HEADERTOP;
 
 		BLI_addhead(&win->global_areas, sa);
 
-		{
-			SpaceType *st = BKE_spacetype_from_id(SPACE_TOPBAR);
-			SpaceLink *sl = st->new(C);
-
-			BLI_addhead(&sa->spacedata, sl);
-			sa->regionbase = sl->regionbase;
-			BLI_listbase_clear(&sl->regionbase);
-		}
+		BLI_addhead(&sa->spacedata, sl);
+		sa->regionbase = sl->regionbase;
+		BLI_listbase_clear(&sl->regionbase);
 	}
 }
 

@@ -1159,6 +1159,9 @@ static void region_rect_recursive(wmWindow *win, ScrArea *sa, ARegion *ar, rcti 
 	if (ar->regiontype == RGN_TYPE_HEADER) {
 		prefsizey = ED_area_headersize();
 	}
+	else if (ED_area_is_global(win, sa)) {
+		prefsizey = ED_region_global_size_y();
+	}
 	else if (ar->regiontype == RGN_TYPE_UI && sa->spacetype == SPACE_FILE) {
 		prefsizey = UI_UNIT_Y * 2 + (UI_UNIT_Y / 2);
 	}
@@ -1548,24 +1551,6 @@ void ED_area_initialize(wmWindowManager *wm, wmWindow *win, ScrArea *sa)
 	}
 }
 
-static void area_global_calc_totrct(ScrArea *sa, int sizex, int sizey)
-{
-	short rt = (short)U.pixelsize;
-
-	sa->v1->vec.x = sa->v2->vec.x = 0;
-	sa->v3->vec.x = sa->v4->vec.x = sizex - rt;
-	sa->v1->vec.y = sa->v4->vec.y = sizey - (2 * HEADERY) + rt;
-	sa->v2->vec.y = sa->v3->vec.y = sizey - rt;
-	sa->totrct.xmin = sa->v1->vec.x;
-	sa->totrct.xmax = sa->v4->vec.x;
-	sa->totrct.ymin = sa->v1->vec.y;
-	sa->totrct.ymax = sa->v2->vec.y;
-
-	/* for speedup */
-	sa->winx = BLI_rcti_size_x(&sa->totrct) + 1;
-	sa->winy = BLI_rcti_size_y(&sa->totrct) + 1;
-}
-
 /* XXX code duplicated from ED_area_initialize */
 void ED_area_global_initialize(wmWindowManager *wm, wmWindow *win, ScrArea *sa)
 {
@@ -1579,7 +1564,7 @@ void ED_area_global_initialize(wmWindowManager *wm, wmWindow *win, ScrArea *sa)
 	}
 
 	/* area sizes */
-	area_global_calc_totrct(sa, size_x, size_y);
+	area_calc_totrct(sa, size_x, size_y);
 
 	/* region rect sizes */
 	rect = sa->totrct;
@@ -2215,6 +2200,33 @@ void ED_region_header_init(ARegion *ar)
 int ED_area_headersize(void)
 {
 	return (int)(HEADERY * UI_DPI_FAC);
+}
+
+/**
+ * \return the final height of a global \a area, accounting for DPI.
+ */
+int ED_area_global_size_y(const wmWindow *win, const ScrArea *area)
+{
+	BLI_assert(ED_area_is_global(win, area));
+	UNUSED_VARS_NDEBUG(win);
+
+	return area->fixed_height * UI_DPI_FAC;
+}
+
+bool ED_area_is_global(const wmWindow *win, const ScrArea *area)
+{
+	return BLI_findindex(&win->global_areas, area) != -1;
+}
+
+/**
+ * For now we just assume all global areas are made up out of horizontal bars
+ * with the same size. A fixed size could be stored in ARegion instead if needed.
+ *
+ * \return the DPI aware height of a single bar/region in global areas.
+ */
+int ED_region_global_size_y(void)
+{
+	return ED_area_headersize(); /* same size as header */
 }
 
 void ED_region_info_draw_multiline(ARegion *ar, const char *text_array[], float fill_color[4], const bool full_redraw)

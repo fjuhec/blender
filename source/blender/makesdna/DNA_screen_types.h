@@ -218,7 +218,10 @@ typedef struct ScrArea {
 
 	char spacetype, butspacetype;	/* SPACE_..., butspacetype is button arg  */
 	short winx, winy;				/* size */
-	
+	/* Fixed height for global areas. Ignores DPI (winy and ED_area_global_size_y don't) */
+	short fixed_height;
+	short pad2[3];
+
 	short headertype;				/* OLD! 0=no header, 1= down, 2= up */
 	short do_refresh;				/* private, for spacetype refresh callback */
 	short flag;

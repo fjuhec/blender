@@ -105,6 +105,9 @@ void    ED_area_newspace(struct bContext *C, ScrArea *sa, int type, const bool s
 void    ED_area_prevspace(struct bContext *C, ScrArea *sa);
 void    ED_area_swapspace(struct bContext *C, ScrArea *sa1, ScrArea *sa2);
 int     ED_area_headersize(void);
+int     ED_area_global_size_y(const struct wmWindow *win, const ScrArea *area);
+bool    ED_area_is_global(const struct wmWindow *win, const ScrArea *area);
+int     ED_region_global_size_y(void);
 
 /** Iterate over all areas visible in the screen (screen as in everything visible in the window, not just bScreen) */
 #define ED_screen_areas_iter(win, screen, area_name)     \
