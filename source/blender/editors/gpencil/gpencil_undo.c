@@ -112,6 +112,9 @@ int ED_undo_gpencil_step(bContext *C, int step, const char *name)
 				}
 			}
 		}
+		/* drawing batch cache is dirty now */
+		BKE_gpencil_batch_cache_dirty(new_gpd);
+		new_gpd->flag |= GP_DATA_CACHE_IS_DIRTY;
 	}
 	
 	WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
