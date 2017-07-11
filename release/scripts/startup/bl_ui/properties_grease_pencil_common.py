@@ -78,9 +78,17 @@ def gpencil_active_brush_settings_simple(context, layout):
 class GreasePencilDrawingToolsPanel:
     # subclass must set
     # bl_space_type = 'IMAGE_EDITOR'
-    bl_label = "Grease Pencil"
+    bl_label = " "
     bl_category = "Create"
     bl_region_type = 'TOOLS'
+
+    @staticmethod
+    def draw_header(self, context):
+        layout = self.layout
+        if context.space_data.type == 'VIEW_3D':
+            layout.label(text="Measurement")
+        else:
+            layout.label(text="Grease Pencil")
 
     @staticmethod
     def draw(self, context):
