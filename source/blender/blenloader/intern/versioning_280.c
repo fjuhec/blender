@@ -488,6 +488,33 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 				}
 			}
 		}
+
+		/* grease pencil sculpt and paint cursors */
+		if (!DNA_struct_elem_find(fd->filesdna, "bGPDbrush", "float", "curcolor[3]")) {
+			float curcolor[3], curcolor_add[3], curcolor_sub[3];
+			ARRAY_SET_ITEMS(curcolor, 1.0f, 1.0f, 1.0f);
+			ARRAY_SET_ITEMS(curcolor_add, 1.0f, 0.6f, 0.6f);
+			ARRAY_SET_ITEMS(curcolor_sub, 0.6f, 0.6f, 1.0f);
+			GP_EditBrush_Data *gp_brush;
+
+			for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+				/* drawing brushes */
+				ToolSettings *ts = scene->toolsettings;
+				for (bGPDbrush *brush = ts->gp_brushes.first; brush; brush = brush->next) {
+					brush->flag |= GP_BRUSH_ENABLE_CURSOR;
+					copy_v3_v3(brush->curcolor, curcolor);
+				}
+				/* sculpt brushes */
+				GP_BrushEdit_Settings *gset = &ts->gp_sculpt;
+				for (int i = 0; i < TOT_GP_EDITBRUSH_TYPES; ++i) {
+					gp_brush = &gset->brush[i];
+					gp_brush->flag |= GP_EDITBRUSH_FLAG_ENABLE_CURSOR;
+					copy_v3_v3(gp_brush->curcolor_add, curcolor_add);
+					copy_v3_v3(gp_brush->curcolor_sub, curcolor_sub);
+				}
+			}
+		}
+
 	}
 
 	{

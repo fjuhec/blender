@@ -200,6 +200,14 @@ static bool gp_brush_invert_check(tGP_BrushEditData *gso)
 		invert ^= true;
 	}
 		
+	/* set temporary status */
+	if (invert) {
+		gso->brush->flag |= GP_EDITBRUSH_FLAG_TMP_INVERT;
+	}
+	else {
+		gso->brush->flag &= ~GP_EDITBRUSH_FLAG_TMP_INVERT;
+	}
+
 	return invert;
 }
 
@@ -1116,7 +1124,7 @@ static bool gpsculpt_brush_init(bContext *C, wmOperator *op)
 	gpsculpt_brush_header_set(C, gso);
 	
 	/* setup cursor drawing */
-	WM_cursor_modal_set(CTX_wm_window(C), BC_CROSSCURSOR);
+	//WM_cursor_modal_set(CTX_wm_window(C), BC_CROSSCURSOR);
 	if (gso->sa->spacetype != SPACE_VIEW3D) {
 		ED_gpencil_toggle_brush_cursor(C, true);
 	}
@@ -1163,6 +1171,9 @@ static void gpsculpt_brush_exit(bContext *C, wmOperator *op)
 		ED_gpencil_toggle_brush_cursor(C, false);
 	}
 	
+	/* disable temp invert flag */
+	gso->brush->flag &= ~GP_EDITBRUSH_FLAG_TMP_INVERT;
+
 	/* free operator data */
 	MEM_freeN(gso);
 	op->customdata = NULL;

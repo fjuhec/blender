@@ -3387,6 +3387,19 @@ static void rna_def_gpencil_brush(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Random Strength", "Use random value for strength");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
 
+	/* Cursor Color */
+	static float default_1[3] = { 1.0f, 1.0f, 1.0f };
+	prop = RNA_def_property(srna, "cursor_color", PROP_FLOAT, PROP_COLOR_GAMMA);
+	RNA_def_property_float_sdna(prop, NULL, "curcolor");
+	RNA_def_property_array(prop, 3);
+	RNA_def_property_range(prop, 0.0f, 1.0f);
+	RNA_def_property_float_array_default(prop, default_1);
+	RNA_def_property_ui_text(prop, "Cursor Color", "Color for the cursor");
+
+	prop = RNA_def_property(srna, "use_cursor", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSH_ENABLE_CURSOR); 
+	RNA_def_property_boolean_default(prop, true);
+	RNA_def_property_ui_text(prop, "Enable Cursor", "Enable cursor on screen");
 }
 
 /* Grease Pencil Drawing Brushes API */

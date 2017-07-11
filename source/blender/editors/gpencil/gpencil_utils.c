@@ -54,6 +54,7 @@
 #include "BKE_paint.h"
 #include "BKE_tracking.h"
 #include "BKE_action.h"
+#include "BKE_screen.h"
 
 #include "WM_api.h"
 
@@ -68,6 +69,7 @@
 #include "ED_clip.h"
 #include "ED_view3d.h"
 #include "ED_object.h"
+#include "ED_screen.h"
 
 #include "GPU_immediate.h"
 #include "GPU_immediate_util.h"
@@ -1292,35 +1294,107 @@ void ED_gp_get_drawing_reference(ToolSettings *ts, View3D *v3d, Scene *scene, Ob
 /* ******************************************************** */
 /* Cursor drawing */
 
+/* check if cursor is in drawing region */
+static bool gp_check_cursor_region(bContext *C, int mval[2])
+{
+	ARegion *ar = CTX_wm_region(C);
+	ScrArea *sa = CTX_wm_area(C);
+	/* TODO: add more spacetypes */
+	if (!ELEM(sa->spacetype, SPACE_VIEW3D)) {
+		return false;
+	}
+	if ((ar) && (ar->regiontype != RGN_TYPE_WINDOW)) {
+		return false;
+	}
+	else if (ar) {
+		rcti region_rect;
+
+		/* Perform bounds check using  */
+		ED_region_visible_rect(ar, &region_rect);
+		return BLI_rcti_isect_pt_v(&region_rect, mval);
+	}
+	else {
+		return false;
+	}
+
+	return false;
+}
+
 /* Helper callback for drawing the cursor itself */
 static void gp_brush_drawcursor(bContext *C, int x, int y, void *UNUSED(customdata))
 {
 	Scene *scene = CTX_data_scene(C);
 	GP_BrushEdit_Settings *gset = &scene->toolsettings->gp_sculpt;
-	GP_EditBrush_Data *brush = &gset->brush[gset->brushtype]; 
+	GP_EditBrush_Data *brush = &gset->brush[gset->brushtype];
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	bGPDbrush *paintbrush;
 
-	if (brush) {
-		Gwn_VertFormat *format = immVertexFormat();
-		unsigned int pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
-		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+	/* default radius and color */
+	float radius = 5.0f;
+	float color[3], darkcolor[3];
+	ARRAY_SET_ITEMS(color, 1.0f, 1.0f, 1.0f);
 
-		glEnable(GL_LINE_SMOOTH);
-		glEnable(GL_BLEND);
-
-		/* Inner Ring: Light color for action of the brush */
-		/* TODO: toggle between add and remove? */
-		immUniformColor4ub(255, 255, 255, 200);
-		imm_draw_circle_wire(pos, x, y, brush->size, 40);
-
-		/* Outer Ring: Dark color for contrast on light backgrounds (e.g. gray on white) */
-		immUniformColor3ub(30, 30, 30);
-		imm_draw_circle_wire(pos, x, y, brush->size + 1, 40);
-
-		immUnbindProgram();
-
-		glDisable(GL_BLEND);
-		glDisable(GL_LINE_SMOOTH);
+	int mval[2];
+	ARRAY_SET_ITEMS(mval, x, y);
+	/* check if cursor is in drawing region and has valid datablock */
+	if ((!gp_check_cursor_region(C, mval)) || (gpd == NULL)) {
+		return;
 	}
+
+	/* for paint use paint brush size and color */
+	if (gpd->flag & GP_DATA_STROKE_PAINTMODE) {
+		/* while drawing hide */
+		if (gpd->sbuffer_size > 0) {
+			return;
+		}
+
+		paintbrush = BKE_gpencil_brush_getactive(scene->toolsettings);
+		if (paintbrush) {
+			if ((paintbrush->flag & GP_BRUSH_ENABLE_CURSOR) == 0) {
+				return;
+			}
+			radius = paintbrush->thickness;
+			copy_v3_v3(color, paintbrush->curcolor);
+		}
+	}
+
+	/* for sculpt use sculpt brush size */
+	if (gpd->flag & GP_DATA_STROKE_SCULPTMODE) {
+		if (brush) {
+			if ((brush->flag & GP_EDITBRUSH_FLAG_ENABLE_CURSOR) == 0) {
+				return;
+			}
+
+			radius = brush->size;
+			if (brush->flag & (GP_EDITBRUSH_FLAG_INVERT | GP_EDITBRUSH_FLAG_TMP_INVERT)) {
+				copy_v3_v3(color, brush->curcolor_sub);
+			}
+			else {
+				copy_v3_v3(color, brush->curcolor_add);
+			}
+		}
+	}
+
+	/* draw icon */
+	Gwn_VertFormat *format = immVertexFormat();
+	unsigned int pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
+	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+
+	glEnable(GL_LINE_SMOOTH);
+	glEnable(GL_BLEND);
+
+	/* Inner Ring: Color from UI panel */
+	immUniformColor4f(color[0], color[1], color[2], 0.8f);
+	imm_draw_circle_wire(pos, x, y, radius, 40);
+	/* Outer Ring: Dark color for contrast on light backgrounds (e.g. gray on white) */
+	mul_v3_v3fl(darkcolor, color, 0.40f);
+	immUniformColor4f(darkcolor[0], darkcolor[1], darkcolor[2], 0.8f);
+	imm_draw_circle_wire(pos, x, y, radius + 1, 40);
+
+	immUnbindProgram();
+
+	glDisable(GL_BLEND);
+	glDisable(GL_LINE_SMOOTH);
 }
 
 /* Turn brush cursor in on/off */

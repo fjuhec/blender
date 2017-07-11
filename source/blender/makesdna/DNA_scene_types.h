@@ -1213,6 +1213,8 @@ typedef struct GP_EditBrush_Data {
 	short size;             /* radius of brush */
 	short flag;             /* eGP_EditBrush_Flag */
 	float strength;         /* strength of effect */
+	float curcolor_add[3];  /* cursor color for add */
+	float curcolor_sub[3];  /* cursor color for sub */
 } GP_EditBrush_Data;
 
 /* GP_EditBrush_Data.flag */
@@ -1226,7 +1228,11 @@ typedef enum eGP_EditBrush_Flag {
 	GP_EDITBRUSH_FLAG_USE_FALLOFF  = (1 << 2),
 	
 	/* smooth brush affects pressure values as well */
-	GP_EDITBRUSH_FLAG_SMOOTH_PRESSURE  = (1 << 3)
+	GP_EDITBRUSH_FLAG_SMOOTH_PRESSURE  = (1 << 3),
+	/* enable screen cursor */
+	GP_EDITBRUSH_FLAG_ENABLE_CURSOR = (1 << 4),
+	/* temporary invert action */
+	GP_EDITBRUSH_FLAG_TMP_INVERT = (1 << 5),
 } eGP_EditBrush_Flag;
 
 

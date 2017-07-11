@@ -1604,16 +1604,13 @@ static bool ed_object_select_pick(
 			if (((oldbasact) && oldbasact->object->type == OB_GPENCIL) || (basact->object->type == OB_GPENCIL)) {
 				/* set cursor */
 				if (basact->object->mode == OB_MODE_GPENCIL_PAINT) {
-					WM_cursor_modal_set(CTX_wm_window(C), BC_PAINTBRUSHCURSOR);
-					ED_gpencil_toggle_brush_cursor(C, false);
+					ED_gpencil_toggle_brush_cursor(C, true);
 				}
 				else if (basact->object->mode == OB_MODE_GPENCIL_SCULPT) {
-					WM_cursor_modal_set(CTX_wm_window(C), BC_CROSSCURSOR);
 					ED_gpencil_toggle_brush_cursor(C, true);
 				}
 				else {
 					/* TODO: maybe is better use restore */
-					WM_cursor_modal_set(CTX_wm_window(C), CURSOR_STD);
 					ED_gpencil_toggle_brush_cursor(C, false);
 				}
 				/* set workspace mode */

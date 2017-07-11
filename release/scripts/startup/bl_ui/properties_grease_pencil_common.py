@@ -447,6 +447,42 @@ class GreasePencilStrokeSculptPanel:
             layout.prop(brush, "affect_pressure")
 
 
+class GreasePencilAppearancePanel:
+    bl_label = "Appearance"
+    bl_category = "Options"
+    bl_region_type = 'TOOLS'
+
+    @classmethod
+    def poll(cls, context):
+        if context.gpencil_data is None:
+            return False
+
+        if context.active_object and context.active_object.mode in ('GPENCIL_PAINT', 'GPENCIL_SCULPT'):
+            return True
+        else:
+            return False
+
+    @staticmethod
+    def draw(self, context):
+        layout = self.layout
+        settings = context.tool_settings.gpencil_sculpt
+        brush = settings.brush
+
+        col = layout.column()
+        if context.active_object.mode == 'GPENCIL_PAINT':
+            drawingbrush = context.active_gpencil_brush
+            col.prop(drawingbrush, "use_cursor", text="Show Brush")
+            row = col.row(align=True)
+            row.prop(drawingbrush, "cursor_color", text="Color")
+
+        if context.active_object.mode == 'GPENCIL_SCULPT':
+            col.prop(brush, "use_cursor", text="Show Brush")
+            row = col.row(align=True)
+            row.prop(brush, "cursor_color_add", text="Add")
+            row = col.row(align=True)
+            row.prop(brush, "cursor_color_sub", text="Subtract")
+
+
 class GreasePencilBrushCurvesPanel:
     # subclass must set
     # bl_space_type = 'IMAGE_EDITOR'

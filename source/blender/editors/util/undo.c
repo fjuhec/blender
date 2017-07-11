@@ -220,14 +220,13 @@ static int ed_undo_step(bContext *C, int step, const char *undoname)
 		if (obact && (obact->type == OB_GPENCIL)) {
 			/* set cursor */
 			if (obact->mode == OB_MODE_GPENCIL_PAINT) {
-				WM_cursor_modal_set(CTX_wm_window(C), BC_PAINTBRUSHCURSOR);
+				ED_gpencil_toggle_brush_cursor(C, true);
 			}
 			else if (obact->mode == OB_MODE_GPENCIL_SCULPT) {
-				WM_cursor_modal_set(CTX_wm_window(C), BC_CROSSCURSOR);
 				ED_gpencil_toggle_brush_cursor(C, true);
 			}
 			else {
-				WM_cursor_modal_set(CTX_wm_window(C), CURSOR_STD);
+				ED_gpencil_toggle_brush_cursor(C, false);
 			}
 			/* set workspace mode */
 			BKE_workspace_object_mode_set(CTX_wm_workspace(C), obact->mode);

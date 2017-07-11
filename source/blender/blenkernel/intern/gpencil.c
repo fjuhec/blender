@@ -417,12 +417,16 @@ bGPDpalette *BKE_gpencil_palette_addnew(bGPdata *gpd, const char *name, bool set
 void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 {
 	bGPDbrush *brush;
+	float curcolor[3];
+	ARRAY_SET_ITEMS(curcolor, 1.0f, 1.0f, 1.0f);
+
 	/* Basic brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Basic", true);
 	brush->thickness = 3.0f;
 	brush->flag &= ~GP_BRUSH_USE_RANDOM_PRESSURE;
 	brush->draw_sensitivity = 1.0f;
 	brush->flag |= GP_BRUSH_USE_PRESSURE;
+	brush->flag |= GP_BRUSH_ENABLE_CURSOR;
 
 	brush->flag &= ~GP_BRUSH_USE_RANDOM_STRENGTH;
 	brush->draw_strength = 1.0f;
@@ -440,6 +444,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_smoothlvl = 1;
 	brush->sublevel = 0;
 	brush->draw_random_sub = 0.0f;
+	copy_v3_v3(brush->curcolor, curcolor);
 
 	/* Pencil brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Pencil", false);
@@ -447,6 +452,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->flag &= ~GP_BRUSH_USE_RANDOM_PRESSURE;
 	brush->draw_sensitivity = 1.0f;
 	brush->flag |= GP_BRUSH_USE_PRESSURE;
+	brush->flag |= GP_BRUSH_ENABLE_CURSOR;
 
 	brush->flag &= ~GP_BRUSH_USE_RANDOM_STRENGTH;
 	brush->draw_strength = 0.7f;
@@ -464,6 +470,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_smoothlvl = 2;
 	brush->sublevel = 2;
 	brush->draw_random_sub = 0.0f;
+	copy_v3_v3(brush->curcolor, curcolor);
 
 	/* Ink brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Ink", false);
@@ -471,6 +478,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->flag &= ~GP_BRUSH_USE_RANDOM_PRESSURE;
 	brush->draw_sensitivity = 1.6f;
 	brush->flag |= GP_BRUSH_USE_PRESSURE;
+	brush->flag |= GP_BRUSH_ENABLE_CURSOR;
 
 	brush->flag &= ~GP_BRUSH_USE_RANDOM_STRENGTH;
 	brush->draw_strength = 1.0f;
@@ -488,6 +496,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_smoothlvl = 2;
 	brush->sublevel = 2;
 	brush->draw_random_sub = 0.0f;
+	copy_v3_v3(brush->curcolor, curcolor);
 
 	/* Ink Noise brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Ink noise", false);
@@ -495,6 +504,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->flag |= GP_BRUSH_USE_RANDOM_PRESSURE;
 	brush->draw_sensitivity = 1.611f;
 	brush->flag |= GP_BRUSH_USE_PRESSURE;
+	brush->flag |= GP_BRUSH_ENABLE_CURSOR;
 
 	brush->flag &= ~GP_BRUSH_USE_RANDOM_STRENGTH;
 	brush->draw_strength = 1.0f;
@@ -512,6 +522,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_smoothlvl = 2;
 	brush->sublevel = 2;
 	brush->draw_random_sub = 0.0f;
+	copy_v3_v3(brush->curcolor, curcolor);
 
 	/* Marker brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Marker", false);
@@ -523,6 +534,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->flag &= ~GP_BRUSH_USE_RANDOM_STRENGTH;
 	brush->draw_strength = 1.0f;
 	brush->flag &= ~GP_BRUSH_USE_STENGTH_PRESSURE;
+	brush->flag |= GP_BRUSH_ENABLE_CURSOR;
 
 	brush->draw_random_press = 0.0f;
 
@@ -536,6 +548,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_smoothlvl = 2;
 	brush->sublevel = 2;
 	brush->draw_random_sub = 0.0f;
+	copy_v3_v3(brush->curcolor, curcolor);
 
 	/* Crayon brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Crayon", false);
@@ -543,6 +556,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->flag &= ~GP_BRUSH_USE_RANDOM_PRESSURE;
 	brush->draw_sensitivity = 3.0f;
 	brush->flag &= ~GP_BRUSH_USE_PRESSURE;
+	brush->flag |= GP_BRUSH_ENABLE_CURSOR;
 
 	brush->flag &= ~GP_BRUSH_USE_RANDOM_STRENGTH;
 	brush->draw_strength = 0.140f;
@@ -560,7 +574,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_smoothlvl = 1;
 	brush->sublevel = 2;
 	brush->draw_random_sub = 0.5f;
-
+	copy_v3_v3(brush->curcolor, curcolor);
 }
 
 /* add a new gp-brush and make it the active */

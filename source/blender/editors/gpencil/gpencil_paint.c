@@ -1896,7 +1896,7 @@ static void gpencil_draw_exit(bContext *C, wmOperator *op)
 	else {
 		/* or restore paint if 3D view */
 		if ((p) && (p->paintmode == GP_PAINTMODE_ERASER)) {
-			WM_cursor_modal_set(p->win, BC_PAINTBRUSHCURSOR);
+			WM_cursor_modal_set(p->win, CURSOR_STD);
 		}
 		/* drawing batch cache is dirty now */
 		if (gpd) {
@@ -1979,7 +1979,7 @@ static void gpencil_draw_cursor_set(tGPsdata *p)
 	if (p->paintmode == GP_PAINTMODE_ERASER)
 		WM_cursor_modal_set(p->win, BC_CROSSCURSOR);  /* XXX need a better cursor */
 	else
-		WM_cursor_modal_set(p->win, BC_PAINTBRUSHCURSOR);
+		WM_cursor_modal_set(p->win, CURSOR_STD);
 }
 
 /* update UI indicators of status, including cursor and header prints */
@@ -2304,6 +2304,7 @@ static int gpencil_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event
 	 *       or unintentionally if the user scrolls outside the area)...
 	 */
 	gpencil_draw_cursor_set(p);
+	ED_gpencil_toggle_brush_cursor(C, true);
 
 	/* only start drawing immediately if we're allowed to do so... */
 	if (RNA_boolean_get(op->ptr, "wait_for_input") == false) {

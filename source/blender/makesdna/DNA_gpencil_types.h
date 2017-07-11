@@ -91,6 +91,8 @@ typedef struct bGPDbrush {
 	struct CurveMapping *cur_sensitivity;
 	struct CurveMapping *cur_strength;
 	struct CurveMapping *cur_jitter;
+	float curcolor[3];
+	char pad[4];
 } bGPDbrush;
 
 /* bGPDbrush->flag */
@@ -106,7 +108,9 @@ typedef enum eGPDbrush_Flag {
 	/* brush use random for pressure */
 	GP_BRUSH_USE_RANDOM_PRESSURE = (1 << 4),
 	/* brush use random for strength */
-	GP_BRUSH_USE_RANDOM_STRENGTH = (1 << 5)
+	GP_BRUSH_USE_RANDOM_STRENGTH = (1 << 5),
+	/* enable screen cursor */
+	GP_BRUSH_ENABLE_CURSOR = (1 << 6)
 } eGPDbrush_Flag;
 
 /* color of palettes */
