@@ -1598,6 +1598,11 @@ void DRW_mesh_batch_cache_dirty(Mesh *me, int mode)
 		case BKE_MESH_BATCH_DIRTY_NOCHECK:
 			cache->is_really_dirty = true;
 			break;
+		case BKE_MESH_BATCH_DIRTY_SHADING:
+			/* TODO: This should only update UV and tangent data,
+			 * and not free the entire cache. */
+			cache->is_really_dirty = true;
+			break;
 		default:
 			BLI_assert(0);
 	}

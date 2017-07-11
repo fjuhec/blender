@@ -239,6 +239,7 @@ struct DRWShadingGroup {
 	DRWInterface *interface;         /* Uniforms pointers */
 	ListBase calls;                  /* DRWCall or DRWCallDynamic depending of type */
 	DRWState state_extra;            /* State changes for this batch only (or'd with the pass's state) */
+	DRWState state_extra_disable;    /* State changes for this batch only (and'd with the pass's state) */
 	int type;
 
 	Gwn_Batch *instance_geom;  /* Geometry to instance */
@@ -701,6 +702,7 @@ DRWShadingGroup *DRW_shgroup_create(struct GPUShader *shader, DRWPass *pass)
 	shgroup->shader = shader;
 	shgroup->interface = DRW_interface_create(shader);
 	shgroup->state_extra = 0;
+	shgroup->state_extra_disable = ~0x0;
 	shgroup->batch_geom = NULL;
 	shgroup->instance_geom = NULL;
 
@@ -991,12 +993,15 @@ void DRW_shgroup_set_instance_count(DRWShadingGroup *shgroup, int count)
 /**
  * State is added to #Pass.state while drawing.
  * Use to temporarily enable draw options.
- *
- * Currently there is no way to disable (could add if needed).
  */
 void DRW_shgroup_state_enable(DRWShadingGroup *shgroup, DRWState state)
 {
 	shgroup->state_extra |= state;
+}
+
+void DRW_shgroup_state_disable(DRWShadingGroup *shgroup, DRWState state)
+{
+	shgroup->state_extra_disable &= ~state;
 }
 
 void DRW_shgroup_attrib_float(DRWShadingGroup *shgroup, const char *name, int size)
@@ -1258,6 +1263,55 @@ void DRW_pass_foreach_shgroup(DRWPass *pass, void (*callback)(void *userData, DR
 	}
 }
 
+typedef struct ZSortData {
+	float *axis;
+	float *origin;
+} ZSortData;
+
+static int pass_shgroup_dist_sort(void *thunk, const void *a, const void *b)
+{
+	const DRWShadingGroup *shgrp_a = (const DRWShadingGroup *)a;
+	const DRWShadingGroup *shgrp_b = (const DRWShadingGroup *)b;
+	const DRWCall *call_a = (DRWCall *)(shgrp_a)->calls.first;
+	const DRWCall *call_b = (DRWCall *)(shgrp_b)->calls.first;
+	const ZSortData *zsortdata = (ZSortData *)thunk;
+
+	float tmp[3];
+	sub_v3_v3v3(tmp, zsortdata->origin, call_a->obmat[3]);
+	const float a_sq = dot_v3v3(zsortdata->axis, tmp);
+	sub_v3_v3v3(tmp, zsortdata->origin, call_b->obmat[3]);
+	const float b_sq = dot_v3v3(zsortdata->axis, tmp);
+
+	if      (a_sq < b_sq) return  1;
+	else if (a_sq > b_sq) return -1;
+	else {
+		/* If there is a depth prepass put it before */
+		if ((shgrp_a->state_extra & DRW_STATE_WRITE_DEPTH) != 0) {
+			return -1;
+		}
+		else if ((shgrp_b->state_extra & DRW_STATE_WRITE_DEPTH) != 0) {
+			return  1;
+		}
+		else return  0;
+	}
+}
+
+/**
+ * Sort Shading groups by decreasing Z of their first draw call.
+ * This is usefull for order dependant effect such as transparency.
+ **/
+void DRW_pass_sort_shgroup_z(DRWPass *pass)
+{
+	RegionView3D *rv3d = DST.draw_ctx.rv3d;
+
+	float (*viewinv)[4];
+	viewinv = (viewport_matrix_override.override[DRW_MAT_VIEWINV])
+	          ? viewport_matrix_override.mat[DRW_MAT_VIEWINV] : rv3d->viewinv;
+
+	ZSortData zsortdata = {viewinv[2], viewinv[3]};
+	BLI_listbase_sort_r(&pass->shgroups, pass_shgroup_dist_sort, &zsortdata);
+}
+
 /** \} */
 
 
@@ -1417,7 +1471,7 @@ static void DRW_state_set(DRWState state)
 					glBlendFunc(GL_ONE, GL_SRC_ALPHA);
 				}
 				else if ((state & DRW_STATE_ADDITIVE) != 0) {
-					glBlendFunc(GL_ONE, GL_ONE);
+					glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 				}
 				else {
 					BLI_assert(0);
@@ -1699,7 +1753,7 @@ static void draw_shgroup(DRWShadingGroup *shgroup, DRWState pass_state)
 		shgroup_dynamic_batch_from_calls(shgroup);
 	}
 
-	DRW_state_set(pass_state | shgroup->state_extra);
+	DRW_state_set((pass_state & shgroup->state_extra_disable) | shgroup->state_extra);
 
 	/* Binding Uniform */
 	/* Don't check anything, Interface should already contain the least uniform as possible */

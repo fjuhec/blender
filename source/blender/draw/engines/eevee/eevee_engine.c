@@ -81,7 +81,6 @@ static void EEVEE_cache_init(void *vedata)
 
 static void EEVEE_cache_populate(void *vedata, Object *ob)
 {
-	EEVEE_PassList *psl = ((EEVEE_Data *)vedata)->psl;
 	EEVEE_SceneLayerData *sldata = EEVEE_scene_layer_data_get();
 
 	const DRWContextState *draw_ctx = DRW_context_state_get();
@@ -92,14 +91,12 @@ static void EEVEE_cache_populate(void *vedata, Object *ob)
 		}
 	}
 
-	struct Gwn_Batch *geom = DRW_cache_object_surface_get(ob);
-	if (geom) {
-		EEVEE_materials_cache_populate(vedata, sldata, ob, geom);
+	if (ELEM(ob->type, OB_MESH)) {
+		EEVEE_materials_cache_populate(vedata, sldata, ob);
 
 		const bool cast_shadow = true;
 
 		if (cast_shadow) {
-			EEVEE_lights_cache_shcaster_add(sldata, psl, geom, ob->obmat);
 			BLI_addtail(&sldata->shadow_casters, BLI_genericNodeN(ob));
 			EEVEE_ObjectEngineData *oedata = EEVEE_object_data_get(ob);
 			oedata->need_update = ((ob->deg_update_flag & DEG_RUNTIME_DATA_UPDATE) != 0);
@@ -162,6 +159,10 @@ static void EEVEE_draw_scene(void *vedata)
 
 	/* Volumetrics */
 	EEVEE_effects_do_volumetrics(sldata, vedata);
+
+	/* Transparent */
+	DRW_pass_sort_shgroup_z(psl->transparent_pass);
+	DRW_draw_pass(psl->transparent_pass);
 
 	/* Post Process */
 	EEVEE_draw_effects(vedata);
