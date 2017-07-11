@@ -551,12 +551,15 @@ void BKE_paint_free(Paint *paint)
  * still do a id_us_plus(), rather then if we were copying between 2 existing
  * scenes where a matching value should decrease the existing user count as
  * with paint_brush_set() */
-void BKE_paint_copy(Paint *src, Paint *tar)
+void BKE_paint_copy(Paint *src, Paint *tar, const int flag)
 {
 	tar->brush = src->brush;
-	id_us_plus((ID *)tar->brush);
-	id_us_plus((ID *)tar->palette);
 	tar->cavity_curve = curvemapping_copy(src->cavity_curve);
+
+	if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
+		id_us_plus((ID *)tar->brush);
+		id_us_plus((ID *)tar->palette);
+	}
 }
 
 void BKE_paint_stroke_get_average(Scene *scene, Object *ob, float stroke[3])

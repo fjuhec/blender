@@ -383,7 +383,6 @@ bool id_make_local(Main *bmain, ID *id, const bool test, const bool lib_local)
 
 	switch ((ID_Type)GS(id->name)) {
 		case ID_SCE:
-			/* Partially implemented (has no copy...). */
 			if (!test) BKE_scene_make_local(bmain, (Scene *)id, lib_local);
 			return true;
 		case ID_OB:
@@ -423,14 +422,12 @@ bool id_make_local(Main *bmain, ID *id, const bool test, const bool lib_local)
 			if (!test) BKE_world_make_local(bmain, (World *)id, lib_local);
 			return true;
 		case ID_VF:
-			/* Partially implemented (has no copy...). */
 			if (!test) BKE_vfont_make_local(bmain, (VFont *)id, lib_local);
 			return true;
 		case ID_TXT:
 			if (!test) BKE_text_make_local(bmain, (Text *)id, lib_local);
 			return true;
 		case ID_SO:
-			/* Partially implemented (has no copy...). */
 			if (!test) BKE_sound_make_local(bmain, (bSound *)id, lib_local);
 			return true;
 		case ID_GR:
@@ -527,8 +524,7 @@ static int id_copy_libmanagement_cb(void *user_data, ID *id_self, ID **id_pointe
 bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, const bool test)
 {
 #define LIB_ID_TYPES_NOCOPY ID_LI, ID_SCR, ID_WM,  /* Not supported */ \
-                            ID_IP,  /* Deprecated */ \
-                            ID_SCE  /* Temp, TODO */
+                            ID_IP  /* Deprecated */
 
 	if (ELEM(GS(id->name), LIB_ID_TYPES_NOCOPY)) {
 		return false;
@@ -539,6 +535,9 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 	}
 
 	switch ((ID_Type)GS(id->name)) {
+		case ID_SCE:
+			if (!test) BKE_scene_copy_data(bmain, (Scene *)*r_newid, (Scene *)id, flag);
+			break;
 		case ID_OB:
 			if (!test) BKE_object_copy_data(bmain, (Object *)*r_newid, (Object *)id, flag);
 			break;
@@ -626,8 +625,6 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 		case ID_VF:
 			if (!test) BKE_vfont_copy_data(bmain, (VFont *)*r_newid, (VFont *)id, flag);
 			break;
-		case ID_SCE:
-			return false;  /* not implemented */
 		case ID_LI:
 		case ID_SCR:
 		case ID_WM:

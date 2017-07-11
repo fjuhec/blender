@@ -1347,7 +1347,7 @@ void BKE_keyingset_free_path(KeyingSet *ks, KS_Path *ksp)
 }
 
 /* Copy all KeyingSets in the given list */
-void BKE_keyingsets_copy(ListBase *newlist, ListBase *list)
+void BKE_keyingsets_copy(ListBase *newlist, const ListBase *list)
 {
 	KeyingSet *ksn;
 	KS_Path *kspn;

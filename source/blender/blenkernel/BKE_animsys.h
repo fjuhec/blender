@@ -102,7 +102,7 @@ struct KS_Path *BKE_keyingset_add_path(struct KeyingSet *ks, struct ID *id, cons
 struct KS_Path *BKE_keyingset_find_path(struct KeyingSet *ks, struct ID *id, const char group_name[], const char rna_path[], int array_index, int group_mode);
 
 /* Copy all KeyingSets in the given list */
-void BKE_keyingsets_copy(struct ListBase *newlist, struct ListBase *list);
+void BKE_keyingsets_copy(struct ListBase *newlist, const struct ListBase *list);
 
 /* Free the given Keying Set path */
 void BKE_keyingset_free_path(struct KeyingSet *ks, struct KS_Path *ksp);

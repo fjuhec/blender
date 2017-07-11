@@ -947,23 +947,24 @@ RigidBodyWorld *BKE_rigidbody_create_world(Scene *scene)
 
 RigidBodyWorld *BKE_rigidbody_world_copy(RigidBodyWorld *rbw, const int flag)
 {
-	RigidBodyWorld *rbwn = MEM_dupallocN(rbw);
+	RigidBodyWorld *rbw_copy = MEM_dupallocN(rbw);
 
-	if (rbw->effector_weights)
-		rbwn->effector_weights = MEM_dupallocN(rbw->effector_weights);
-	if (rbwn->group)
-		id_us_plus(&rbwn->group->id);
-	if (rbwn->constraints)
-		id_us_plus(&rbwn->constraints->id);
+	if (rbw->effector_weights) {
+		rbw_copy->effector_weights = MEM_dupallocN(rbw->effector_weights);
+	}
+	if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
+		id_us_plus((ID *)rbw_copy->group);
+		id_us_plus((ID *)rbw_copy->constraints);
+	}
 
 	/* XXX Never copy caches here? */
-	rbwn->pointcache = BKE_ptcache_copy_list(&rbwn->ptcaches, &rbw->ptcaches, flag & ~LIB_ID_COPY_CACHES);
+	rbw_copy->pointcache = BKE_ptcache_copy_list(&rbw_copy->ptcaches, &rbw->ptcaches, flag & ~LIB_ID_COPY_CACHES);
 
-	rbwn->objects = NULL;
-	rbwn->physics_world = NULL;
-	rbwn->numbodies = 0;
+	rbw_copy->objects = NULL;
+	rbw_copy->physics_world = NULL;
+	rbw_copy->numbodies = 0;
 
-	return rbwn;
+	return rbw_copy;
 }
 
 void BKE_rigidbody_world_groups_relink(RigidBodyWorld *rbw)

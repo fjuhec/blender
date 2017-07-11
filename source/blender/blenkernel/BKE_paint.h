@@ -118,7 +118,7 @@ void               BKE_paint_curve_make_local(struct Main *bmain, struct PaintCu
 
 void BKE_paint_init(struct Scene *sce, PaintMode mode, const char col[3]);
 void BKE_paint_free(struct Paint *p);
-void BKE_paint_copy(struct Paint *src, struct Paint *tar);
+void BKE_paint_copy(struct Paint *src, struct Paint *tar, const int flag);
 
 void BKE_paint_cavity_curve_preset(struct Paint *p, int preset);
 
