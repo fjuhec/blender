@@ -14,13 +14,11 @@
  * limitations under the License.
  */
 
-#include "kernel_compat_opencl.h"
-#include "split/kernel_split_common.h"
-#include "split/kernel_shadow_blocked_dl.h"
+#include "kernel/kernel_compat_opencl.h"
+#include "kernel/split/kernel_split_common.h"
+#include "kernel/split/kernel_shadow_blocked_dl.h"
 
-__kernel void kernel_ocl_path_trace_shadow_blocked_dl(
-        KernelGlobals *kg,
-        ccl_constant KernelData *data)
-{
-	kernel_shadow_blocked_dl(kg);
-}
+#define KERNEL_NAME shadow_blocked_dl
+#include "kernel/kernels/opencl/kernel_split_function.h"
+#undef KERNEL_NAME
+

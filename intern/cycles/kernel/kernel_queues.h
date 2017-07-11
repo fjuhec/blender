@@ -22,9 +22,10 @@ CCL_NAMESPACE_BEGIN
 /*
  * Queue utility functions for split kernel
  */
-
+#ifdef __KERNEL_OPENCL__
 #pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
 #pragma OPENCL EXTENSION cl_khr_local_int32_base_atomics : enable
+#endif
 
 /*
  * Enqueue ray index into the queue
@@ -125,6 +126,21 @@ ccl_device unsigned int get_global_queue_index(
 {
 	int my_gqidx = queuesize * queue_number + lqidx + global_per_queue_offset[queue_number];
 	return my_gqidx;
+}
+
+ccl_device int dequeue_ray_index(
+        int queue_number,
+        ccl_global int *queues,
+        int queue_size,
+        ccl_global int *queue_index)
+{
+	int index = atomic_fetch_and_dec_uint32((ccl_global uint*)&queue_index[queue_number])-1;
+
+	if(index < 0) {
+		return QUEUE_EMPTY_SLOT;
+	}
+
+	return queues[index + queue_number * queue_size];
 }
 
 CCL_NAMESPACE_END

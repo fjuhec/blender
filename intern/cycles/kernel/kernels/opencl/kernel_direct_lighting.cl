@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include "kernel_compat_opencl.h"
-#include "split/kernel_split_common.h"
-#include "split/kernel_direct_lighting.h"
+#include "kernel/kernel_compat_opencl.h"
+#include "kernel/split/kernel_split_common.h"
+#include "kernel/split/kernel_direct_lighting.h"
 
-__kernel void kernel_ocl_path_trace_direct_lighting(
-        KernelGlobals *kg,
-        ccl_constant KernelData *data)
-{
-	kernel_direct_lighting(kg);
-}
+#define KERNEL_NAME direct_lighting
+#define LOCALS_TYPE unsigned int
+#include "kernel/kernels/opencl/kernel_split_function.h"
+#undef KERNEL_NAME
+#undef LOCALS_TYPE
+

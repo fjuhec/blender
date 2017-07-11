@@ -360,7 +360,7 @@ ccl_device VolumeIntegrateResult kernel_volume_integrate_homogeneous(
     ShaderData *sd,
     PathRadiance *L,
     ccl_addr_space float3 *throughput,
-	ccl_addr_space RNG *rng,
+    RNG *rng,
     bool probalistic_scatter)
 {
 	VolumeShaderCoefficients coeff;
@@ -469,7 +469,7 @@ ccl_device VolumeIntegrateResult kernel_volume_integrate_heterogeneous_distance(
     ShaderData *sd,
     PathRadiance *L,
     ccl_addr_space float3 *throughput,
-    ccl_addr_space RNG *rng)
+    RNG *rng)
 {
 	float3 tp = *throughput;
 	const float tp_eps = 1e-6f; /* todo: this is likely not the right value */
@@ -610,7 +610,7 @@ ccl_device_noinline VolumeIntegrateResult kernel_volume_integrate(
     Ray *ray,
     PathRadiance *L,
     ccl_addr_space float3 *throughput,
-    ccl_addr_space RNG *rng,
+    RNG *rng,
     bool heterogeneous)
 {
 	shader_setup_from_volume(kg, sd, ray);
@@ -660,6 +660,7 @@ typedef struct VolumeSegment {
  * but the entire segment is needed to do always scattering, rather than probabilistically
  * hitting or missing the volume. if we don't know the transmittance at the end of the
  * volume we can't generate stratified distance samples up to that transmittance */
+#ifdef __VOLUME_DECOUPLED__
 ccl_device void kernel_volume_decoupled_record(KernelGlobals *kg, PathState *state,
 	Ray *ray, ShaderData *sd, VolumeSegment *segment, bool heterogeneous)
 {
@@ -829,6 +830,7 @@ ccl_device void kernel_volume_decoupled_free(KernelGlobals *kg, VolumeSegment *s
 #endif
 	}
 }
+#endif  /* __VOLUME_DECOUPLED__ */
 
 /* scattering for homogeneous and heterogeneous volumes, using decoupled ray
  * marching.

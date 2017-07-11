@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include "kernel_compat_opencl.h"
-#include "split/kernel_split_common.h"
-#include "split/kernel_holdout_emission_blurring_pathtermination_ao.h"
+#include "kernel/kernel_compat_opencl.h"
+#include "kernel/split/kernel_split_common.h"
+#include "kernel/split/kernel_holdout_emission_blurring_pathtermination_ao.h"
 
-__kernel void kernel_ocl_path_trace_holdout_emission_blurring_pathtermination_ao(
-        KernelGlobals *kg,
-        ccl_constant KernelData *data)
-{
-	kernel_holdout_emission_blurring_pathtermination_ao(kg);
-}
+#define KERNEL_NAME holdout_emission_blurring_pathtermination_ao
+#define LOCALS_TYPE BackgroundAOLocals
+#include "kernel/kernels/opencl/kernel_split_function.h"
+#undef KERNEL_NAME
+#undef LOCALS_TYPE
+

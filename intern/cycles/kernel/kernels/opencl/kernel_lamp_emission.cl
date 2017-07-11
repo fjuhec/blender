@@ -14,13 +14,11 @@
  * limitations under the License.
  */
 
-#include "kernel_compat_opencl.h"
-#include "split/kernel_split_common.h"
-#include "split/kernel_lamp_emission.h"
+#include "kernel/kernel_compat_opencl.h"
+#include "kernel/split/kernel_split_common.h"
+#include "kernel/split/kernel_lamp_emission.h"
 
-__kernel void kernel_ocl_path_trace_lamp_emission(
-        KernelGlobals *kg,
-        ccl_constant KernelData *data)
-{
-	kernel_lamp_emission(kg);
-}
+#define KERNEL_NAME lamp_emission
+#include "kernel/kernels/opencl/kernel_split_function.h"
+#undef KERNEL_NAME
+

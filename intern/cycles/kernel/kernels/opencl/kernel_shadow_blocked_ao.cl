@@ -14,13 +14,11 @@
  * limitations under the License.
  */
 
-#include "kernel_compat_opencl.h"
-#include "split/kernel_split_common.h"
-#include "split/kernel_shadow_blocked_ao.h"
+#include "kernel/kernel_compat_opencl.h"
+#include "kernel/split/kernel_split_common.h"
+#include "kernel/split/kernel_shadow_blocked_ao.h"
 
-__kernel void kernel_ocl_path_trace_shadow_blocked_ao(
-        KernelGlobals *kg,
-        ccl_constant KernelData *data)
-{
-	kernel_shadow_blocked_ao(kg);
-}
+#define KERNEL_NAME shadow_blocked_ao
+#include "kernel/kernels/opencl/kernel_split_function.h"
+#undef KERNEL_NAME
+
