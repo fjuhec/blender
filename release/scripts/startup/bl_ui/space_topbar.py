@@ -25,12 +25,18 @@ class TOPBAR_HT_upper_bar(Header):
     bl_space_type = 'TOPBAR'
 
     def draw(self, context):
+        region = context.region
+
+        if region.alignment == 'RIGHT':
+            self.draw_right(context)
+        else:
+            self.draw_left(context)
+
+    def draw_left(self, context):
         layout = self.layout
 
         window = context.window
         screen = context.screen
-        scene = context.scene
-        rd = scene.render
 
         layout.operator("wm.splash", text="", icon='BLENDER', emboss=False)
 
@@ -40,13 +46,6 @@ class TOPBAR_HT_upper_bar(Header):
 
         if not screen.show_fullscreen:
             layout.template_ID_tabs(window, "workspace", new="workspace.workspace_add_menu", unlink="workspace.workspace_delete")
-
-        layout.separator()
-
-        layout.template_ID(window, "scene", new="scene.new", unlink="scene.delete")
-
-        if rd.has_multiple_engines:
-            layout.prop(rd, "engine", text="")
 
         layout.separator()
 
@@ -68,6 +67,18 @@ class TOPBAR_HT_upper_bar(Header):
             row.label(bpy.app.autoexec_fail_message)
             return
 
+    def draw_right(self, context):
+        layout = self.layout
+
+        window = context.window
+        scene = context.scene
+        rd = scene.render
+
+        if rd.has_multiple_engines:
+            layout.prop(rd, "engine", text="")
+
+        layout.template_ID(window, "scene", new="scene.new", unlink="scene.delete")
+
 
 class TOPBAR_HT_lower_bar(Header):
     bl_space_type = 'TOPBAR'
@@ -75,21 +86,30 @@ class TOPBAR_HT_lower_bar(Header):
 
     def draw(self, context):
         layout = self.layout
+        region = context.region
 
-        window = context.window
+        if region.alignment == 'LEFT':
+            self.draw_left(context)
+        elif region.alignment == 'RIGHT':
+            self.draw_right(context)
+        else:
+            layout.template_operator_redo()
+
+    def draw_left(self, context):
+        layout = self.layout
         workspace = context.workspace
-        screen = context.screen
-        scene = context.scene
 
         if hasattr(workspace, 'object_mode'):
             act_mode_item = bpy.types.Object.bl_rna.properties['mode'].enum_items[workspace.object_mode]
             layout.operator_menu_enum("object.mode_set", "mode", text=act_mode_item.name, icon=act_mode_item.icon)
 
-        layout.separator()
+    def draw_right(self, context):
+        layout = self.layout
 
-        layout.template_operator_redo()
-
-        layout.separator()
+        window = context.window
+        workspace = context.workspace
+        scene = context.scene
+        screen = context.screen
 
         if screen.show_fullscreen:
             layout.operator("screen.back_to_previous", icon='SCREEN_BACK', text="Back to Previous")

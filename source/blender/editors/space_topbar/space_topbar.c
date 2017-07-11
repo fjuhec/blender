@@ -65,15 +65,25 @@ static SpaceLink *topbar_new(const bContext *UNUSED(C))
 	stopbar->spacetype = SPACE_TOPBAR;
 
 	/* header */
-	ar = MEM_callocN(sizeof(ARegion), "header for topbar");
-
+	ar = MEM_callocN(sizeof(ARegion), "left aligned header for topbar");
 	BLI_addtail(&stopbar->regionbase, ar);
 	ar->regiontype = RGN_TYPE_HEADER;
 	ar->alignment = RGN_ALIGN_TOP;
+	ar = MEM_callocN(sizeof(ARegion), "right aligned header for topbar");
+	BLI_addtail(&stopbar->regionbase, ar);
+	ar->regiontype = RGN_TYPE_HEADER;
+	ar->alignment = RGN_ALIGN_RIGHT | RGN_SPLIT_PREV;
 
-	/* main region */
-	ar = MEM_callocN(sizeof(ARegion), "main region for topbar");
-
+	/* main regions */
+	ar = MEM_callocN(sizeof(ARegion), "left aligned main region for topbar");
+	BLI_addtail(&stopbar->regionbase, ar);
+	ar->regiontype = RGN_TYPE_WINDOW;
+	ar->alignment = RGN_ALIGN_LEFT;
+	ar = MEM_callocN(sizeof(ARegion), "right aligned main region for topbar");
+	BLI_addtail(&stopbar->regionbase, ar);
+	ar->regiontype = RGN_TYPE_WINDOW;
+	ar->alignment = RGN_ALIGN_RIGHT;
+	ar = MEM_callocN(sizeof(ARegion), "center main region for topbar");
 	BLI_addtail(&stopbar->regionbase, ar);
 	ar->regiontype = RGN_TYPE_WINDOW;
 
@@ -109,6 +119,10 @@ static void topbar_main_region_init(wmWindowManager *wm, ARegion *region)
 {
 	wmKeyMap *keymap;
 
+	/* force delayed UI_view2d_region_reinit call */
+	if (ELEM(region->alignment, RGN_ALIGN_LEFT, RGN_ALIGN_RIGHT)) {
+		region->flag |= RGN_RESIZE_LAYOUT_BASED;
+	}
 	UI_view2d_region_reinit(&region->v2d, V2D_COMMONVIEW_HEADER, region->winx, region->winy);
 
 	keymap = WM_keymap_find(wm->defaultconf, "View2D Buttons List", 0, 0);
@@ -133,6 +147,9 @@ static void topbar_keymap(struct wmKeyConfig *UNUSED(keyconf))
 /* add handlers, stuff you only do once or on area/region changes */
 static void topbar_header_region_init(wmWindowManager *UNUSED(wm), ARegion *ar)
 {
+	if ((ar->alignment & ~RGN_SPLIT_PREV) == RGN_ALIGN_RIGHT) {
+		ar->flag |= RGN_RESIZE_LAYOUT_BASED;
+	}
 	ED_region_header_init(ar);
 }
 
@@ -225,6 +242,7 @@ void ED_spacetype_topbar(void)
 	art->init = topbar_main_region_init;
 	art->draw = topbar_main_region_draw;
 	art->listener = topbar_main_region_listener;
+	art->prefsizex = UI_UNIT_X * 5; /* Mainly to avoid glitches */
 	art->keymapflag = ED_KEYMAP_UI;
 
 	BLI_addhead(&st->regiontypes, art);
@@ -233,6 +251,7 @@ void ED_spacetype_topbar(void)
 	art = MEM_callocN(sizeof(ARegionType), "spacetype topbar header region");
 	art->regionid = RGN_TYPE_HEADER;
 	art->prefsizey = HEADERY;
+	art->prefsizex = UI_UNIT_X * 5; /* Mainly to avoid glitches */
 	art->keymapflag = ED_KEYMAP_UI | ED_KEYMAP_VIEW2D | ED_KEYMAP_HEADER;
 	art->listener = topbar_header_listener;
 	art->init = topbar_header_region_init;

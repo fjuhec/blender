@@ -301,6 +301,8 @@ enum {
 	AREA_FLAG_STACKED_FULLSCREEN = (1 << 7),
 	/* update action zones (even if the mouse is not intersecting them) */
 	AREA_FLAG_ACTIONZONES_UPDATE = (1 << 8),
+	/* update size of regions within the area */
+	AREA_FLAG_REGION_SIZE_UPDATE = (1 << 9),
 };
 
 #define EDGEWIDTH	1
@@ -410,8 +412,14 @@ enum {
 #define RGN_SPLIT_PREV		32
 
 /* region flag */
-#define RGN_FLAG_HIDDEN		1
-#define RGN_FLAG_TOO_SMALL	2
+enum {
+	RGN_FLAG_HIDDEN             = (1 << 0),
+	RGN_FLAG_TOO_SMALL          = (1 << 1),
+	/* Force delayed reinit of region size data, so that region size is calculated
+	 * just big enough to show all its content (if enough space is available).
+	 * Note that only ED_region_header supports this right now. */
+	RGN_RESIZE_LAYOUT_BASED = (1 << 2),
+};
 
 /* region do_draw */
 #define RGN_DRAW			1

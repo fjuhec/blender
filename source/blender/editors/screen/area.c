@@ -1477,6 +1477,20 @@ static void ed_default_handlers(wmWindowManager *wm, ScrArea *sa, ListBase *hand
 	}
 }
 
+void screen_area_update_region_sizes(wmWindow *win, ScrArea *area)
+{
+	rcti rect = area->totrct;
+
+	/* region rect sizes */
+	region_rect_recursive(win, area, area->regionbase.first, &rect, 0, false);
+	for (ARegion *ar = area->regionbase.first; ar; ar = ar->next) {
+		region_subwindow(win, ar, false);
+	}
+
+	/* XXX hack to force drawing */
+	ED_area_tag_redraw(area);
+	area->flag &= ~AREA_FLAG_REGION_SIZE_UPDATE;
+}
 
 /* called in screen_refresh, or screens_init, also area size changes */
 void ED_area_initialize(wmWindowManager *wm, wmWindow *win, ScrArea *sa)
@@ -1507,6 +1521,7 @@ void ED_area_initialize(wmWindowManager *wm, wmWindow *win, ScrArea *sa)
 	/* region rect sizes */
 	rect = sa->totrct;
 	region_rect_recursive(win, sa, sa->regionbase.first, &rect, 0, true);
+	sa->flag &= ~AREA_FLAG_REGION_SIZE_UPDATE;
 	
 	/* default area handlers */
 	ed_default_handlers(wm, sa, &sa->handlers, sa->type->keymapflag);
@@ -2137,6 +2152,7 @@ void ED_region_header(const bContext *C, ARegion *ar)
 	Header header = {NULL};
 	int maxco, xco, yco;
 	int headery = ED_area_headersize();
+	const int start_ofs = 0.4f * UI_UNIT_X;
 
 	/* clear */
 	UI_ThemeClearColor((ED_screen_area_active(C) || (ar->regiontype != RGN_TYPE_HEADER)) ? TH_BACK : TH_HEADERDESEL);
@@ -2145,7 +2161,7 @@ void ED_region_header(const bContext *C, ARegion *ar)
 	/* set view2d view matrix for scrolling (without scrollers) */
 	UI_view2d_view_ortho(&ar->v2d);
 
-	xco = maxco = 0.4f * UI_UNIT_X;
+	xco = maxco = start_ofs;
 	yco = headery - floor(0.2f * UI_UNIT_Y);
 
 	/* draw all headers types */
@@ -2169,7 +2185,16 @@ void ED_region_header(const bContext *C, ARegion *ar)
 		/* for view2d */
 		if (xco > maxco)
 			maxco = xco;
-		
+
+		if (ar->flag & RGN_RESIZE_LAYOUT_BASED) {
+			ScrArea *sa = CTX_wm_area(C);
+
+			ar->sizex = maxco + start_ofs;
+			UI_view2d_region_reinit(&ar->v2d, V2D_COMMONVIEW_HEADER, ar->sizex, ar->winy);
+
+			sa->flag |= AREA_FLAG_REGION_SIZE_UPDATE;
+			ar->flag &= ~RGN_RESIZE_LAYOUT_BASED;
+		}
 		UI_block_end(C, block);
 		UI_block_draw(C, block);
 	}

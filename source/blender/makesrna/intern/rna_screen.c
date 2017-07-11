@@ -83,6 +83,12 @@ static int rna_Screen_is_animation_playing_get(PointerRNA *UNUSED(ptr))
 	return wm ? (ED_screen_animation_playing(wm) != NULL) : 0;
 }
 
+static int rna_region_alignment_get(PointerRNA *ptr)
+{
+	ARegion *region = ptr->data;
+	return (region->alignment & ~RGN_SPLIT_PREV);
+}
+
 static void rna_Screen_layout_name_get(PointerRNA *ptr, char *value)
 {
 	const bScreen *screen = ptr->data;
@@ -329,6 +335,19 @@ static void rna_def_region(BlenderRNA *brna)
 	StructRNA *srna;
 	PropertyRNA *prop;
 
+	static const EnumPropertyItem alignment_types[] = {
+		{RGN_ALIGN_NONE, "NONE", 0, "None", "Don't use any fixed alignment, fill available space"},
+		{RGN_ALIGN_TOP, "TOP", 0, "Top", ""},
+		{RGN_ALIGN_BOTTOM, "BOTTOM", 0, "Bottom", ""},
+		{RGN_ALIGN_LEFT, "LEFT", 0, "Left", ""},
+		{RGN_ALIGN_RIGHT, "RIGHT", 0, "Right", ""},
+		{RGN_ALIGN_HSPLIT, "HORIZONTAL_SPLIT", 0, "Horizontal Split", ""},
+		{RGN_ALIGN_VSPLIT, "VERTICAL_SPLIT", 0, "Vertical Split", ""},
+		{RGN_ALIGN_FLOAT, "FLOAT", 0, "Float", "Region floats on screen, doesn't use any fixed alignment"},
+		{RGN_ALIGN_QSPLIT, "QUAD_SPLIT", 0, "Quad Split", "Region is split horizontally and vertically"},
+		{0, NULL, 0, NULL, NULL}
+	};
+
 	srna = RNA_def_struct(brna, "Region", NULL);
 	RNA_def_struct_ui_text(srna, "Region", "Region in a subdivided screen area");
 	RNA_def_struct_sdna(srna, "ARegion");
@@ -369,6 +388,12 @@ static void rna_def_region(BlenderRNA *brna)
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_flag(prop, PROP_NEVER_NULL);
 	RNA_def_property_ui_text(prop, "View2D", "2D view of the region");
+
+	prop = RNA_def_property(srna, "alignment", PROP_ENUM, PROP_NONE);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_enum_items(prop, alignment_types);
+	RNA_def_property_enum_funcs(prop, "rna_region_alignment_get", NULL, NULL);
+	RNA_def_property_ui_text(prop, "Alignment", "Alignment of the region within the area");
 
 	RNA_def_function(srna, "tag_redraw", "ED_region_tag_redraw");
 }

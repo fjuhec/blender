@@ -812,6 +812,21 @@ void ED_screens_initialize(wmWindowManager *wm)
 	}
 }
 
+void ED_screen_ensure_updated(wmWindowManager *wm, wmWindow *win, bScreen *screen)
+{
+	if (screen->do_refresh) {
+		ED_screen_refresh(wm, win);
+	}
+	else {
+		ED_screen_areas_iter(win, screen, area) {
+			if (area->flag & AREA_FLAG_REGION_SIZE_UPDATE) {
+				screen_area_update_region_sizes(win, area);
+				break;
+			}
+		}
+	}
+}
+
 
 /* *********** exit calls are for closing running stuff ******** */
 

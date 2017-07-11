@@ -951,8 +951,7 @@ void wm_draw_update(bContext *C)
 			wm_window_make_drawable(wm, win);
 
 			/* notifiers for screen redraw */
-			if (screen->do_refresh)
-				ED_screen_refresh(wm, win);
+			ED_screen_ensure_updated(wm, win, screen);
 
 			int drawmethod = wm_automatic_draw_method(win);
 

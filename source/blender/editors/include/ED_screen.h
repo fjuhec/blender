@@ -116,6 +116,7 @@ int     ED_area_headersize(void);
 void    ED_screens_initialize(struct wmWindowManager *wm);
 void    ED_screen_draw(struct wmWindow *win);
 void    ED_screen_refresh(struct wmWindowManager *wm, struct wmWindow *win);
+void    ED_screen_ensure_updated(struct wmWindowManager *wm, struct wmWindow *win, struct bScreen *screen);
 void    ED_screen_do_listen(struct bContext *C, struct wmNotifier *note);
 bool    ED_screen_change(struct bContext *C, struct bScreen *sc);
 void    ED_screen_update_after_scene_change(const struct bScreen *screen, struct Scene *scene_new);
