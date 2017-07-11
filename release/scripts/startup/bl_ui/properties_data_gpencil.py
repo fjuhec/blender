@@ -71,6 +71,9 @@ class DATA_PT_gpencil_display(DataButtonsPanel, Panel):
         row = layout.row()
         row.prop(gpd, "keep_stroke_thickness")
 
+        row = layout.row()
+        row.prop(gpd, "show_stroke_direction", text="Show Stroke Directions")
+
         gpl = context.active_gpencil_layer
         if gpl:
             row = layout.row()
