@@ -2068,14 +2068,14 @@ class VIEW3D_PT_tools_history(View3DPanel, Panel):
 
 
 classes = (
+    VIEW3D_PT_tools_transform,
+    VIEW3D_PT_tools_object,
+    VIEW3D_PT_tools_add_object,
     VIEW3D_PT_tools_grease_pencil_edit,
     VIEW3D_PT_tools_grease_pencil_sculpt,
     VIEW3D_PT_tools_grease_pencil_brush,
     VIEW3D_PT_tools_grease_pencil_brushcurves,
     VIEW3D_PT_tools_grease_pencil_draw,
-    VIEW3D_PT_tools_transform,
-    VIEW3D_PT_tools_object,
-    VIEW3D_PT_tools_add_object,
     VIEW3D_PT_tools_relations,
     VIEW3D_PT_tools_animation,
     VIEW3D_PT_tools_grease_pencil_animation,
