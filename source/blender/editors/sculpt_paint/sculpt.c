@@ -5759,6 +5759,71 @@ static void bridge_loops(Mesh *me, int e_start_a, int e_start_b, int totvert, bo
 	}
 }
 
+/*
+ * Generate a quad from three edges. Returning the newly created edge.
+ *  ___a___
+ *  |      |
+ *  b     new
+ *  |      |
+ *  ___c___
+ */
+static int add_quad(Mesh *me, int edge_b, int edge_a, int edge_c, bool flip)
+{
+	int v_a, v_c;
+	MEdge e_a, e_b, e_c;
+	int e_start = me->totedge;
+	int l_start = me->totloop;
+	int p_start = me->totpoly;
+	bool b_flip = false;
+
+	e_a = me->medge[edge_a];
+	e_b = me->medge[edge_b];
+	e_c = me->medge[edge_c];
+
+	if (e_a.v1 == e_b.v1 || e_a.v1 == e_b.v2){
+		b_flip = (e_a.v1 == e_b.v1);
+		v_a = e_a.v2;
+	} else {
+		b_flip = (e_a.v2 == e_b.v1);
+		v_a = e_a.v1;
+	}
+	if (e_c.v1 == e_b.v1 || e_c.v1 == e_b.v2){
+		v_c = e_c.v2;
+	} else {
+		v_c = e_c.v1;
+	}
+
+	ED_mesh_edges_add(me, NULL, 1);
+
+	me->medge[e_start].v2 = v_a;
+	me->medge[e_start].v1 = v_c;
+	me->medge[e_start].crease = 0;
+	me->medge[e_start].bweight = 0;
+	me->medge[e_start].flag = 0;
+
+	ED_mesh_loops_add(me, NULL, 4);
+	me->mloop[l_start].v = b_flip ? e_b.v1 : e_b.v2;
+	me->mloop[l_start].e = edge_a;
+
+	me->mloop[l_start + (flip ? 1 : 3)].v = v_a;
+	me->mloop[l_start + (flip ? 1 : 3)].e = e_start;
+
+	me->mloop[l_start + 2].v = v_c;
+	me->mloop[l_start + 2].e = edge_c;
+
+	me->mloop[l_start + (flip ? 3 : 1)].v = b_flip ? e_b.v2 : e_b.v1;
+	me->mloop[l_start + (flip ? 3 : 1)].e = edge_b;
+
+	ED_mesh_polys_add(me, NULL, 1);
+	me->mpoly[p_start].loopstart = l_start;
+	me->mpoly[p_start].totloop = 4;
+	me->mpoly[p_start].mat_nr = 0;
+	me->mpoly[p_start].flag = 0;
+	me->mpoly[p_start].pad = 0;
+
+	return e_start;
+}
+
 /* TODO: is there a sort function already?*/
 static int cmpfunc (const void * a, const void * b)
 {
@@ -6090,7 +6155,9 @@ static void add_ss_tinter(SilhouetteData *sil, SpineBranch *branch, Mesh *me, fl
 	float v1[3], v2[3], v3[3], v4[3], center[3], center_up[3];
 	float center_s[3 * 3];
 	int w_h_steps = w_steps / 2;
-	int v_start;
+	int v_start, v_start_center;
+	int e_start[3], e_start_center, e_start_inner[3], e_t_sign[6];
+	int stride_le;
 	BLI_array_declare(sa);
 
 	/* calc and sort hullpoints for the three sides */
@@ -6153,11 +6220,17 @@ static void add_ss_tinter(SilhouetteData *sil, SpineBranch *branch, Mesh *me, fl
 	/*needs to be uneven*/
 	u_steps |= 1;
 
+	v_start_center = me->totvert;
+	ED_mesh_vertices_add(me, NULL, u_steps + u_steps / 2);
+	e_start_center = me->totedge;
+	ED_mesh_edges_add(me, NULL, (u_steps / 2) * 3);
+
 	for (int s = 0; s < 3; s++) {
 		step_length = sa[b_start[s] + b_tot[s] * 4 - 1] / (float)u_steps;
 
 		add_v3_v3v3(v3, &center_s[s * 3], z_vec);
 
+		v_start = me->totvert;
 		calc_vert_half(me,
 					   &sa[b_start[s]],
 					   &sa[b_start[(s + 2) % 3] + b_tot[(s + 2) % 3] * 4 - 4],
@@ -6166,6 +6239,17 @@ static void add_ss_tinter(SilhouetteData *sil, SpineBranch *branch, Mesh *me, fl
 					   v_steps,
 					   w_steps,
 					   smoothness);
+
+		e_start[s] = me->totedge;
+
+		ED_mesh_edges_add(me, NULL, v_steps * 2 + w_steps - 1);
+		for(int v = 0; v < v_steps * 2 + w_steps - 1; v++){
+			me->medge[e_start[s] + v].v1 = v_start + v;
+			me->medge[e_start[s] + v].v2 = v_start + v + 1;
+			me->medge[e_start[s] + v].crease = 0;
+			me->medge[e_start[s] + v].bweight = 0;
+			me->medge[e_start[s] + v].flag = 0;
+		}
 
 		v_start = me->totvert;
 
@@ -6188,25 +6272,123 @@ static void add_ss_tinter(SilhouetteData *sil, SpineBranch *branch, Mesh *me, fl
 			f = fabs((float)(u_steps / 2 - u) / ((float)u_steps / 2.0f));
 			if (u < u_steps / 2){
 				interp_v3_v3v3(v4, center, &center_s[s * 3], f);
+				add_v3_v3v3(v2, v4, z_vec);
+
+				copy_v3_v3(me->mvert[v_start_center + s * (u_steps / 2) + u].co, v2);
+				me->mvert[v_start_center + s * (u_steps / 2) + u].flag = 0;
+				me->mvert[v_start_center + s * (u_steps / 2) + u].bweight = 0;
 			} else if (u == u_steps / 2) {
 				copy_v3_v3(v4, center);
+				add_v3_v3v3(v2, v4, z_vec);
+				if (s == 0) {
+					/* Add center at v2 */
+					copy_v3_v3(me->mvert[v_start_center].co, v2);
+					me->mvert[v_start_center].flag = 0;
+					me->mvert[v_start_center].bweight = 0;
+				}
 			} else {
 				interp_v3_v3v3(v4, center, &center_s[(s + 1) % 3 * 3], f);
+				add_v3_v3v3(v2, v4, z_vec);
 			}
-			add_v3_v3v3(v2, v4, z_vec);
-
-			bl_debug_color_set(0xff0000);
-			bl_debug_draw_point(v2, 0.2f);
-			bl_debug_color_set(0x000000);
 			
 			calc_vert_quarter(me, v1, v4, v2, v_steps, w_h_steps, smoothness, false);
 		}
 
+		me->medge[e_start_center + s * (u_steps / 2)].v1 = me->medge[e_start[s] + v_steps + w_steps / 2].v1;
+		me->medge[e_start_center + s * (u_steps / 2)].v2 = v_start_center + s * (u_steps / 2) + 1;
+		me->medge[e_start_center + s * (u_steps / 2)].crease = 0;
+		me->medge[e_start_center + s * (u_steps / 2)].bweight = 0;
+		me->medge[e_start_center + s * (u_steps / 2)].flag = 0;
+
+		for (int u = 1; u < u_steps / 2 - 1; u++) {
+			me->medge[e_start_center + s * (u_steps / 2) + u].v1 = v_start_center + s * (u_steps / 2) + u;
+			me->medge[e_start_center + s * (u_steps / 2) + u].v2 = v_start_center + s * (u_steps / 2) + 1 + u;
+			me->medge[e_start_center + s * (u_steps / 2) + u].crease = 0;
+			me->medge[e_start_center + s * (u_steps / 2) + u].bweight = 0;
+			me->medge[e_start_center + s * (u_steps / 2) + u].flag = 0;
+		}
+
+		me->medge[e_start_center + (s + 1) * (u_steps / 2) - 1].v1 = v_start_center + s * (u_steps / 2) + 1 + (u_steps / 2 - 2);
+		me->medge[e_start_center + (s + 1) * (u_steps / 2) - 1].v2 = v_start_center;
+		me->medge[e_start_center + (s + 1) * (u_steps / 2) - 1].crease = 0;
+		me->medge[e_start_center + (s + 1) * (u_steps / 2) - 1].bweight = 0;
+		me->medge[e_start_center + (s + 1) * (u_steps / 2) - 1].flag = 0;
+
+		e_start_inner[s] = me->totedge;
 		generate_mesh_grid_f_e(me, u_steps - 2, v_steps + w_steps / 2, v_start, false);
 	}
 
+	for(int s = 0; s < 3; s++){
+		int e_end_a, e_end_b;
+		bridge_loops(me,
+					 e_start_inner[s],
+					 e_start[s],
+					 v_steps + w_steps / 2,
+					 false,
+					 2,
+					 1,
+					 false);
 
-	/* TODO: faces */
+		e_end_a = me->totedge;
+		bridge_loops(me,
+					 e_start_inner[(s + 2) % 3] + (u_steps - 3) * (2 * (v_steps + w_steps / 2) - 1),
+					 e_start[s] + v_steps * 2 + w_steps - 2,
+					 v_steps + w_steps / 2,
+					 true,
+					 1,
+					 1,
+					 true);
+		e_end_b = me->totedge;
+
+		int e_side_a, e_side_b;
+		e_side_a = add_quad(me, e_start[s] + v_steps + w_steps / 2, e_start_center + s * (u_steps / 2), e_end_b - 1, true);
+		e_side_b = add_quad(me, e_start[s] + v_steps + w_steps / 2 - 1, e_end_a - 1, e_start_center + s * (u_steps / 2), true);
+		stride_le = (2 * (v_steps + w_steps / 2) - 1);
+
+		for (int u = 1; u < u_steps / 2 - 1; u++) {
+			e_side_b = add_quad(me,
+								e_side_b,
+								e_start_inner[s] - 1 + stride_le * u,
+								e_start_center + s * (u_steps / 2) + u,
+								true);
+			e_side_a = add_quad(me,
+								e_side_a,
+								e_start_inner[(s + 2) % 3] - 1 + stride_le * (u_steps - 2 - u),
+								e_start_center + s * (u_steps / 2) + u,
+								false);
+		}
+
+		e_t_sign[s * 2] = add_quad(me,
+				 e_side_b,
+				 e_start_inner[s] - 1 + stride_le * ((u_steps / 2) - 1),
+				 e_start_center + s * (u_steps / 2) + u_steps / 2 - 1,
+				 true);
+
+		e_t_sign[s * 2 + 1] = e_side_a;
+	}
+
+	for(int s = 0; s < 3; s++){
+		ED_mesh_loops_add(me, NULL, 4);
+		me->mloop[me->totloop - 4].v = me->medge[e_t_sign[(s + 2) % 3 * 2]].v1;
+		me->mloop[me->totloop - 4].e = e_t_sign[(s + 2) % 3 * 2];
+
+		me->mloop[me->totloop - 1].v = me->medge[e_start_center + s * (u_steps / 2) + u_steps / 2 - 1].v1;
+		me->mloop[me->totloop - 1].e = e_start_center + s * (u_steps / 2) + u_steps / 2 - 1;
+
+		me->mloop[me->totloop - 2].v = me->medge[e_t_sign[s * 2 + 1]].v2;
+		me->mloop[me->totloop - 2].e = e_t_sign[s * 2 + 1];
+
+		me->mloop[me->totloop - 3].v = me->medge[e_start_inner[(s + 2) % 3] - 1 + stride_le * ((u_steps / 2))].v1;
+		me->mloop[me->totloop - 3].e = e_start_inner[(s + 2) % 3] - 1 + stride_le * ((u_steps / 2));
+
+		ED_mesh_polys_add(me, NULL, 1);
+		me->mpoly[me->totpoly - 1].loopstart = me->totloop - 4;
+		me->mpoly[me->totpoly - 1].totloop = 4;
+		me->mpoly[me->totpoly - 1].mat_nr = 0;
+		me->mpoly[me->totpoly - 1].flag = 0;
+		me->mpoly[me->totpoly - 1].pad = 0;
+
+	}
 	BLI_array_free(sa);
 }
 
