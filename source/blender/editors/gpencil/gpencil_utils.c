@@ -1130,9 +1130,31 @@ Object *ED_add_gpencil_object(bContext *C, Scene *scene, const float loc[3])
 
 	/* define size */
 	BKE_object_obdata_size_init(ob, GP_OBGPENCIL_DEFAULT_SIZE);
-	
+	/* create default brushes and colors */
+	ED_gpencil_add_defaults(C);
+
 	return ob;
 }
+
+/* Helper function to create default colors and drawing brushes */
+void ED_gpencil_add_defaults(bContext *C)
+{
+	ToolSettings *ts = CTX_data_tool_settings(C);
+	Palette *palette = BKE_palette_get_active_from_context(C);
+	/* if not exist palette, create a new one */
+	if (!palette) {
+		palette = BKE_palette_add_gpencil(C);
+	}
+	if ((palette) && (BLI_listbase_is_empty(&palette->colors))) {
+		BKE_palette_color_add_default_set(palette);
+	}
+
+	/* create default brushes */
+	if (BLI_listbase_is_empty(&ts->gp_brushes)) {
+		BKE_gpencil_brush_init_presets(ts);
+	}
+}
+
 
 /* allocate memory for saving gp object to be sorted by zdepth */
 tGPencilSort *ED_gpencil_allocate_cache(tGPencilSort *cache, int *gp_cache_size, int gp_cache_used)

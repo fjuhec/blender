@@ -1012,6 +1012,7 @@ static int object_gpencil_add_exec(bContext *C, wmOperator *op)
 	ts->gpencil_src = GP_TOOL_SOURCE_OBJECT;
 	/* add a grease pencil datablock */	
 	ob->gpd = BKE_gpencil_data_addnew("GPencil");
+	ED_gpencil_add_defaults(C);
 
 	return OPERATOR_FINISHED;
 }

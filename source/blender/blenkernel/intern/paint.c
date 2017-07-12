@@ -485,6 +485,25 @@ void BKE_palette_free(Palette *palette)
 	}
 }
 
+void BKE_palette_color_add_default_set(Palette *palette)
+{
+	PaletteColor *palcolor;
+	palcolor = BKE_palette_color_add_name(palette, "Black");
+	ARRAY_SET_ITEMS(palcolor->rgb, 0.0, 0.0, 0.0, 1.0);
+
+	palcolor = BKE_palette_color_add_name(palette, "White");
+	ARRAY_SET_ITEMS(palcolor->rgb, 1.0, 1.0, 1.0, 1.0);
+
+	palcolor = BKE_palette_color_add_name(palette, "Red");
+	ARRAY_SET_ITEMS(palcolor->rgb, 1.0, 0.0, 0.0, 1.0);
+
+	palcolor = BKE_palette_color_add_name(palette, "Green");
+	ARRAY_SET_ITEMS(palcolor->rgb, 0.0, 1.0, 0.0, 1.0);
+
+	palcolor = BKE_palette_color_add_name(palette, "Blue");
+	ARRAY_SET_ITEMS(palcolor->rgb, 0.0, 0.0, 1.0, 1.0);
+}
+
 PaletteColor *BKE_palette_color_add(Palette *palette)
 {
 	return BKE_palette_color_add_name(palette, "Color");
