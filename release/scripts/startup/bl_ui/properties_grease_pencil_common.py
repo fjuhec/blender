@@ -1021,11 +1021,42 @@ class GreasePencilDataPanel:
                 sub.operator("gpencil.layer_isolate", icon='LOCKED', text="").affect_visibility = False
                 sub.operator("gpencil.layer_isolate", icon='RESTRICT_VIEW_OFF', text="").affect_visibility = True
 
-        if gpl:
-            self.draw_layer(context, layout, gpl)
 
-    def draw_layer(self, context, layout, gpl):
-        ts = context.tool_settings
+class GreasePencilLayerOptionPanel:
+    bl_label = "Options"
+    bl_region_type = 'UI'
+
+    @classmethod
+    def poll(cls, context):
+        ts = context.scene.tool_settings
+
+        if context.gpencil_data is None:
+            return False
+
+        if context.space_data.type in ('VIEW_3D', 'PROPERTIES'):
+            if ts.grease_pencil_source == 'OBJECT':
+                if context.space_data.context != 'DATA':
+                    return False
+
+            if context.space_data.context == 'DATA':
+                if context.object.type != 'GPENCIL':
+                    return False
+                else:
+                    if context.object.grease_pencil != context.gpencil_data:
+                        return False
+
+        gpl = context.active_gpencil_layer
+        if gpl is None:
+            return False;
+
+        return True
+
+    @staticmethod
+    def draw(self, context):
+        layout = self.layout
+        gpl = context.active_gpencil_layer
+        ts = context.scene.tool_settings
+
         row = layout.row(align=True)
         row.prop(gpl, "opacity", text="Opacity", slider=True)
 
@@ -1035,11 +1066,7 @@ class GreasePencilDataPanel:
             split.active = not gpl.lock
             split.prop(gpl, "show_points")
 
-        # Offsets + Parenting (where available)
-        if context.space_data.type in ('VIEW_3D', 'PROPERTIES'):
-            split = layout.split(percentage=0.5)
-        else:
-            split = layout.column()
+        split = layout.split(percentage=0.5)
         split.active = not gpl.lock
 
         # Offsets - Color Tint
@@ -1054,6 +1081,10 @@ class GreasePencilDataPanel:
         row = col.row(align=True)
         row.prop(gpl, "line_change", text="Thickness Change", slider=True)
         row.operator("gpencil.stroke_apply_thickness", icon='STYLUS_PRESSURE', text="")
+
+        if ts.grease_pencil_source == 'OBJECT' and context.space_data.type in ('VIEW_3D', 'PROPERTIES'):
+            row = layout.row(align=True)
+            row.prop(gpl, "use_stroke_location", text="Draw on Stroke Location")
 
         layout.separator()
 
