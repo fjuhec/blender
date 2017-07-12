@@ -659,6 +659,7 @@ static void rna_MeshLoopColor_color_get(PointerRNA *ptr, float *values)
 	values[0] = (&mcol->r)[0] / 255.0f;
 	values[1] = (&mcol->r)[1] / 255.0f;
 	values[2] = (&mcol->r)[2] / 255.0f;
+	values[3] = (&mcol->r)[3] / 255.0f;
 }
 
 static void rna_MeshLoopColor_color_set(PointerRNA *ptr, const float *values)
@@ -668,6 +669,7 @@ static void rna_MeshLoopColor_color_set(PointerRNA *ptr, const float *values)
 	(&mcol->r)[0] = (char)(CLAMPIS(values[0] * 255.0f, 0, 255));
 	(&mcol->r)[1] = (char)(CLAMPIS(values[1] * 255.0f, 0, 255));
 	(&mcol->r)[2] = (char)(CLAMPIS(values[2] * 255.0f, 0, 255));
+	(&mcol->r)[3] = (char)(CLAMPIS(values[3] * 255.0f, 0, 255));
 }
 
 static int rna_Mesh_texspace_editable(PointerRNA *ptr, const char **UNUSED(r_info))
@@ -2582,7 +2584,7 @@ static void rna_def_mloopcol(BlenderRNA *brna)
 	RNA_def_struct_path_func(srna, "rna_MeshColor_path");
 
 	prop = RNA_def_property(srna, "color", PROP_FLOAT, PROP_COLOR);
-	RNA_def_property_array(prop, 3);
+	RNA_def_property_array(prop, 4);
 	RNA_def_property_range(prop, 0.0f, 1.0f);
 	RNA_def_property_float_funcs(prop, "rna_MeshLoopColor_color_get", "rna_MeshLoopColor_color_set", NULL);
 	RNA_def_property_ui_text(prop, "Color", "");
