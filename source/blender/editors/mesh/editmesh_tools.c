@@ -6266,6 +6266,7 @@ static int edbm_point_normals_invoke(bContext *C, wmOperator *op, const wmEvent 
 
 	ED_area_headerprint(CTX_wm_area(C), header);
 
+	op->flag |= OP_IS_MODAL_GRAB_CURSOR;
 	return OPERATOR_RUNNING_MODAL;
 }
 
@@ -6425,24 +6426,30 @@ static bool split_loop(bContext *C, wmOperator *op, LoopNormalData *ld)
 	BMIter fiter, liter;
 
 	TransDataLoopNormal *tld = ld->normal;
+	void **loops;
 
 	const int type = RNA_enum_get(op->ptr, "split_type");
 
+	if (type == SPLIT_LOOP_TO_FACE) {
+		loops = MEM_mallocN(sizeof(void *) * bm->totloop, "__func__");		/* temp loop index table */
+		BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
+			BM_ITER_ELEM(l, &liter, f, BM_LOOPS_OF_FACE) {
+				loops[BM_elem_index_get(l)] = l;
+			}
+		}
+	}
+
 	for (int i = 0; i < ld->totloop; i++, tld++) {
 		if (type == SPLIT_LOOP_TO_FACE) {						/* set loop to face normal if split to faces */
-			BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
-				if (BM_elem_flag_test(f, BM_ELEM_SELECT)) {
-					BM_ITER_ELEM(l, &liter, f, BM_LOOPS_OF_FACE) {
-						if (tld->loop_index == BM_elem_index_get(l)) {
-							BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], f->no, tld->clnors_data);
-						}
-					}
-				}
-			}
+			BMLoop *loop_at_index = loops[tld->loop_index];
+			BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], loop_at_index->f->no, tld->clnors_data);
 		}
 		else if (type == SPLIT_LOOP_KEEP) {						/* else set to transdata normal computed */
 			BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], tld->nloc, tld->clnors_data);
 		}
+	}
+	if (type == SPLIT_LOOP_TO_FACE) {
+		MEM_freeN(loops);
 	}
 	return true;
 }
