@@ -221,7 +221,7 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	/* stroke styles */
 	static EnumPropertyItem stroke_style_items[] = {
 		{ STROKE_STYLE_SOLID, "SOLID", 0, "Solid", "Draw strokes with solid color" },
-		{ STROKE_STYLE_VOLUMETRIC, "VOLUMETRIC", 0, "Volumetric", "Draw strokes with dots" },
+		{ STROKE_STYLE_VOLUMETRIC, "VOLUMETRIC", 0, "Dot", "Draw strokes with dots" },
 		{ 0, NULL, 0, NULL, NULL }
 	};
 
