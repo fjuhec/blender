@@ -113,8 +113,8 @@ class DATA_PT_gpencil_display(DataButtonsPanel, Panel):
 classes = (
     DATA_PT_gpencil,
     DATA_PT_gpencil_datapanel,
-    DATA_PT_gpencil_layeroptionpanel,
     DATA_PT_gpencil_onionpanel,
+    DATA_PT_gpencil_layeroptionpanel,
     DATA_PT_gpencilparentpanel,
     DATA_PT_gpencil_display,
 )

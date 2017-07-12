@@ -1021,6 +1021,23 @@ class GreasePencilDataPanel:
                 sub.operator("gpencil.layer_isolate", icon='LOCKED', text="").affect_visibility = False
                 sub.operator("gpencil.layer_isolate", icon='RESTRICT_VIEW_OFF', text="").affect_visibility = True
 
+        row = layout.row(align=True)
+        row.prop(gpl, "opacity", text="Opacity", slider=True)
+
+        layout.separator()
+
+        # Full-Row - Frame Locking (and Delete Frame)
+        row = layout.row(align=True)
+        row.active = not gpl.lock
+
+        if gpl.active_frame:
+            lock_status = iface_("Locked") if gpl.lock_frame else iface_("Unlocked")
+            lock_label = iface_("Frame: %d (%s)") % (gpl.active_frame.frame_number, lock_status)
+        else:
+            lock_label = iface_("Lock Frame")
+        row.prop(gpl, "lock_frame", text=lock_label, icon='UNLOCKED')
+        row.operator("gpencil.active_frame_delete", text="", icon='X')
+
 
 class GreasePencilLayerOptionPanel:
     bl_label = "Options"
@@ -1057,9 +1074,6 @@ class GreasePencilLayerOptionPanel:
         gpl = context.active_gpencil_layer
         ts = context.scene.tool_settings
 
-        row = layout.row(align=True)
-        row.prop(gpl, "opacity", text="Opacity", slider=True)
-
         # Layer options
         if context.space_data.type not in ('VIEW_3D', 'PROPERTIES'):
             split = layout.split(percentage=0.5)
@@ -1085,20 +1099,6 @@ class GreasePencilLayerOptionPanel:
         if ts.grease_pencil_source == 'OBJECT' and context.space_data.type in ('VIEW_3D', 'PROPERTIES'):
             row = layout.row(align=True)
             row.prop(gpl, "use_stroke_location", text="Draw on Stroke Location")
-
-        layout.separator()
-
-        # Full-Row - Frame Locking (and Delete Frame)
-        row = layout.row(align=True)
-        row.active = not gpl.lock
-
-        if gpl.active_frame:
-            lock_status = iface_("Locked") if gpl.lock_frame else iface_("Unlocked")
-            lock_label = iface_("Frame: %d (%s)") % (gpl.active_frame.frame_number, lock_status)
-        else:
-            lock_label = iface_("Lock Frame")
-        row.prop(gpl, "lock_frame", text=lock_label, icon='UNLOCKED')
-        row.operator("gpencil.active_frame_delete", text="", icon='X')
 
 
 class GreasePencilOnionPanel:
