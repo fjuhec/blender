@@ -1029,10 +1029,6 @@ class GreasePencilDataPanel:
         row = layout.row(align=True)
         row.prop(gpl, "opacity", text="Opacity", slider=True)
 
-        if ts.grease_pencil_source == 'OBJECT' and context.space_data.type in ('VIEW_3D', 'PROPERTIES'):
-            row = layout.row(align=True)
-            row.prop(gpl, "use_stroke_location")
-
         # Layer options
         if context.space_data.type not in ('VIEW_3D', 'PROPERTIES'):
             split = layout.split(percentage=0.5)
@@ -1043,33 +1039,21 @@ class GreasePencilDataPanel:
         if context.space_data.type in ('VIEW_3D', 'PROPERTIES'):
             split = layout.split(percentage=0.5)
         else:
-            split = layout.column()  # parenting is not available in 2D editors...
+            split = layout.column()
         split.active = not gpl.lock
 
         # Offsets - Color Tint
         col = split.column()
         subcol = col.column(align=True)
-        subcol.label("Tint")
         subcol.enabled = not gpl.lock
         subcol.prop(gpl, "tint_color", text="")
         subcol.prop(gpl, "tint_factor", text="Factor", slider=True)
 
         # Offsets - Thickness
+        col = split.column(align=True)
         row = col.row(align=True)
         row.prop(gpl, "line_change", text="Thickness Change", slider=True)
         row.operator("gpencil.stroke_apply_thickness", icon='STYLUS_PRESSURE', text="")
-
-        # Parenting 
-        if context.space_data.type in ('VIEW_3D', 'PROPERTIES'):
-            col = split.column(align=True)
-            col.label(text="Parent:")
-            col.prop(gpl, "parent", text="")
-
-            sub = col.column()
-            sub.prop(gpl, "parent_type", text="")
-            parent = gpl.parent
-            if parent and gpl.parent_type == 'BONE' and parent.type == 'ARMATURE':
-                sub.prop_search(gpl, "parent_bone", parent.data, "bones", text="")
 
         layout.separator()
 
@@ -1146,6 +1130,53 @@ class GreasePencilOnionPanel:
         row.active = gpl.use_ghost_custom_colors
         row.prop(gpl, "after_color", text="")
         sub.prop(gpl, "ghost_after_range", text="After")
+
+
+class GreasePencilParentLayerPanel:
+    bl_label = "Parent Layer"
+    bl_region_type = 'UI'
+
+    @classmethod
+    def poll(cls, context):
+        ts = context.scene.tool_settings
+
+        if context.gpencil_data is None:
+            return False
+
+        if context.space_data.type in ('VIEW_3D', 'PROPERTIES'):
+            if ts.grease_pencil_source == 'OBJECT':
+                if context.space_data.context != 'DATA':
+                    return False
+
+            if context.space_data.context == 'DATA':
+                if context.object.type != 'GPENCIL':
+                    return False
+                else:
+                    if context.object.grease_pencil != context.gpencil_data:
+                        return False
+
+        gpl = context.active_gpencil_layer
+        if gpl is None:
+            return False;
+
+        return True
+
+    @staticmethod
+    def draw(self, context):
+        layout = self.layout
+        gpl = context.active_gpencil_layer
+        row = layout.row()
+
+        col = row.column(align=True)
+        col.active = not gpl.lock
+        col.label(text="Parent:")
+        col.prop(gpl, "parent", text="")
+
+        sub = col.column()
+        sub.prop(gpl, "parent_type", text="")
+        parent = gpl.parent
+        if parent and gpl.parent_type == 'BONE' and parent.type == 'ARMATURE':
+            sub.prop_search(gpl, "parent_bone", parent.data, "bones", text="")
 
 
 class GreasePencilPaletteColorPanel:

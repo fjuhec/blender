@@ -21,7 +21,8 @@ import bpy
 from bpy.types import Panel
 from bl_ui.properties_grease_pencil_common import (
         GreasePencilDataPanel,
-        GreasePencilOnionPanel
+        GreasePencilOnionPanel,
+        GreasePencilParentLayerPanel
         )
 
 
@@ -67,12 +68,22 @@ class DATA_PT_gpencil_onionpanel(GreasePencilOnionPanel, Panel):
     # NOTE: this is just a wrapper around the generic GP Panel
 
 
+class DATA_PT_gpencilparentpanel(GreasePencilParentLayerPanel, Panel):
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = "data"
+    bl_label = "Parent Layer"
+
+    # NOTE: this is just a wrapper around the generic GP Panel
+
+
 class DATA_PT_gpencil_display(DataButtonsPanel, Panel):
     bl_label = "Display"
 
     def draw(self, context):
         layout = self.layout
         ob = context.object
+        ts = context.tool_settings
         layout.prop(ob, "empty_draw_size", text="Size")
 
         gpd = context.gpencil_data
@@ -89,12 +100,16 @@ class DATA_PT_gpencil_display(DataButtonsPanel, Panel):
             row = layout.row()
             row.prop(gpl, "show_points")
 
+            if ts.grease_pencil_source == 'OBJECT' and context.space_data.type in ('VIEW_3D', 'PROPERTIES'):
+                row = layout.row(align=True)
+                row.prop(gpl, "use_stroke_location")
 
 
 classes = (
     DATA_PT_gpencil,
     DATA_PT_gpencil_datapanel,
     DATA_PT_gpencil_onionpanel,
+    DATA_PT_gpencilparentpanel,
     DATA_PT_gpencil_display,
 )
 
