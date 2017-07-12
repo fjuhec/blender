@@ -82,7 +82,7 @@ class DATA_PT_gpencilparentpanel(GreasePencilParentLayerPanel, Panel):
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "data"
-    bl_label = "Parent Layer"
+    bl_label = "Layer Relations"
 
     # NOTE: this is just a wrapper around the generic GP Panel
 
