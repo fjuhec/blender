@@ -1197,43 +1197,122 @@ class GreasePencilPaletteColorPanel:
             row = layout.row()
             row.operator_menu_enum("gpencil.stroke_change_palette", text="Change Palette...", property="type")
 
-            pcolor = palette.colors.active
-            if pcolor:
-                self.draw_palettecolors(layout, pcolor)
 
-    # Draw palette colors
-    def draw_palettecolors(self, layout, pcolor):
-        # color settings
+class GreasePencilPaletteStrokePanel:
+    # subclass must set
+    bl_label = "Stroke"
+    bl_category = "Grease Pencil"
+    bl_region_type = 'TOOLS'
+
+    @staticmethod
+    def paint_settings(context):
+        toolsettings = context.tool_settings
+
+        if context.sculpt_object:
+            return toolsettings.sculpt
+        elif context.vertex_paint_object:
+            return toolsettings.vertex_paint
+        elif context.weight_paint_object:
+            return toolsettings.weight_paint
+        elif context.image_paint_object:
+            if (toolsettings.image_paint and toolsettings.image_paint.detect_data()):
+                return toolsettings.image_paint
+
+            return toolsettings.image_paint
+
+        return toolsettings.image_paint
+
+    @classmethod
+    def poll(cls, context):
+        paint = cls.paint_settings(context)
+        palcol = context.active_palettecolor
+        if paint is None or palcol is None:
+            return False
+        else:
+            return True
+
+    @staticmethod
+    def draw(self, context):
+        layout = self.layout
+        palette = context.active_palette
+        pcolor = palette.colors.active
+
         split = layout.split(percentage=1.0)
         split.active = not pcolor.lock
 
-        # Column 1 - Stroke
         col = split.column(align=True)
         col.enabled = not pcolor.lock
-        col.label(text="Stroke:")
         col.prop(pcolor, "stroke_style", text="")
 
         row = layout.row()
+        row.enabled = not pcolor.lock and (pcolor.use_texture is False or pcolor.use_pattern is True)
         col = row.column(align=True)
-        col.enabled = pcolor.use_texture is False or pcolor.use_pattern is True
         col.prop(pcolor, "color", text="")
         col.prop(pcolor, "alpha", slider=True)
 
-        box = layout.box()
-        row = box.row(align=True)
+        row = layout.row(align=True)
+        row.enabled = not pcolor.lock
         row.prop(pcolor, "use_texture", text="Texture")
 
-        row = box.row()
+        row = layout.row()
+        row.enabled = not pcolor.lock
         col = row.column(align=True)
         col.enabled = pcolor.use_texture
         col.template_ID(pcolor, "stroke_image", open="image.open")
         col.prop(pcolor, "use_pattern", text="Use as Pattern")
 
-        # Column 2 - Fill
+        # Options
+        row = layout.row()
+        row.active = not pcolor.lock
+        row.prop(pcolor, "pass_index")
+
+
+class GreasePencilPaletteFillPanel:
+    # subclass must set
+    bl_label = "Fill"
+    bl_category = "Grease Pencil"
+    bl_region_type = 'TOOLS'
+
+    @staticmethod
+    def paint_settings(context):
+        toolsettings = context.tool_settings
+
+        if context.sculpt_object:
+            return toolsettings.sculpt
+        elif context.vertex_paint_object:
+            return toolsettings.vertex_paint
+        elif context.weight_paint_object:
+            return toolsettings.weight_paint
+        elif context.image_paint_object:
+            if (toolsettings.image_paint and toolsettings.image_paint.detect_data()):
+                return toolsettings.image_paint
+
+            return toolsettings.image_paint
+
+        return toolsettings.image_paint
+
+    @classmethod
+    def poll(cls, context):
+        paint = cls.paint_settings(context)
+        palcol = context.active_palettecolor
+        if paint is None or palcol is None:
+            return False
+        else:
+            return True
+
+    @staticmethod
+    def draw(self, context):
+        layout = self.layout
+        palette = context.active_palette
+        pcolor = palette.colors.active
+
+        # color settings
+        split = layout.split(percentage=1.0)
+        split.active = not pcolor.lock
+
         row = layout.row()
         col = row.column(align=True)
         col.enabled = not pcolor.lock
-        col.label(text="Fill:")
         col.prop(pcolor, "fill_style", text="")
         if pcolor.fill_style != 'TEXTURE':
             col.prop(pcolor, "fill_color", text="")
@@ -1264,7 +1343,7 @@ class GreasePencilPaletteColorPanel:
             if pcolor.fill_style != 'CHESSBOARD':
                 subrow.enabled = False
             subrow.prop(pcolor, "pattern_boxsize", text="Box")
-        
+
         col.separator()
         col.label("Texture")
         if pcolor.fill_style not in ('TEXTURE', 'PATTERN'):
@@ -1279,11 +1358,6 @@ class GreasePencilPaletteColorPanel:
             subcol = split.column(align=True)
             subcol.prop(pcolor, "texture_scale", text="Scale")
             subcol.prop(pcolor, "texture_opacity")
-
-        # Options
-        row = layout.row()
-        row.active = not pcolor.lock
-        row.prop(pcolor, "pass_index")
 
 
 class GreasePencilToolsPanel:

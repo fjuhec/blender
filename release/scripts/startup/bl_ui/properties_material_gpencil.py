@@ -20,8 +20,10 @@
 import bpy
 from bpy.types import Panel
 from bl_ui.properties_grease_pencil_common import (
-        GreasePencilPaletteColorPanel
-        )
+        GreasePencilPaletteColorPanel,
+        GreasePencilPaletteStrokePanel,
+        GreasePencilPaletteFillPanel
+)
 
 
 class MaterialButtonsPanel:
@@ -42,11 +44,31 @@ class MATERIAL_PT_gpencil_palettecolor(GreasePencilPaletteColorPanel, Panel):
     @classmethod
     def poll(cls, context):
         return context.object and context.object.type == 'GPENCIL'
+
     # NOTE: this is just a wrapper around the generic GP Panel
 
+class MATERIAL_PT_gpencil_palette_strokecolor(GreasePencilPaletteStrokePanel, Panel):
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = "material"
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.object.type == 'GPENCIL' and context.active_palettecolor
+
+class MATERIAL_PT_gpencil_palette_fillcolor(GreasePencilPaletteFillPanel, Panel):
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = "material"
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.object.type == 'GPENCIL' and context.active_palettecolor
 
 classes = (
     MATERIAL_PT_gpencil_palettecolor,
+    MATERIAL_PT_gpencil_palette_strokecolor,
+    MATERIAL_PT_gpencil_palette_fillcolor,
 )
 
 if __name__ == "__main__":  # only for live edit.
