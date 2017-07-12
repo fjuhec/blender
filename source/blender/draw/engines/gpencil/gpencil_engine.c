@@ -315,8 +315,9 @@ static void GPENCIL_draw_scene(void *vedata)
 
 		for (int i = 0; i < stl->g_data->gp_cache_used; ++i) {
 			Object *ob = stl->g_data->gp_object_cache[i].ob;
-			is_drawing_session = (bool) (ob->gpd->sbuffer_size > 0);
-
+			if (!is_drawing_session) {
+				is_drawing_session = (bool)(ob->gpd->sbuffer_size > 0);
+			}
 			init_grp = stl->g_data->gp_object_cache[i].init_grp;
 			end_grp = stl->g_data->gp_object_cache[i].end_grp;
 			if (end_grp >= init_grp) {
