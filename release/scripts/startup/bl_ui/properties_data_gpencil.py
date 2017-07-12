@@ -20,7 +20,8 @@
 import bpy
 from bpy.types import Panel
 from bl_ui.properties_grease_pencil_common import (
-        GreasePencilDataPanel
+        GreasePencilDataPanel,
+        GreasePencilOnionPanel
         )
 
 
@@ -57,6 +58,15 @@ class DATA_PT_gpencil_datapanel(GreasePencilDataPanel, Panel):
     # NOTE: this is just a wrapper around the generic GP Panel
 
 
+class DATA_PT_gpencil_onionpanel(GreasePencilOnionPanel, Panel):
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = "data"
+    bl_label = "Onion Skinning"
+
+    # NOTE: this is just a wrapper around the generic GP Panel
+
+
 class DATA_PT_gpencil_display(DataButtonsPanel, Panel):
     bl_label = "Display"
 
@@ -84,6 +94,7 @@ class DATA_PT_gpencil_display(DataButtonsPanel, Panel):
 classes = (
     DATA_PT_gpencil,
     DATA_PT_gpencil_datapanel,
+    DATA_PT_gpencil_onionpanel,
     DATA_PT_gpencil_display,
 )
 

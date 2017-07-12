@@ -1085,9 +1085,41 @@ class GreasePencilDataPanel:
         row.prop(gpl, "lock_frame", text=lock_label, icon='UNLOCKED')
         row.operator("gpencil.active_frame_delete", text="", icon='X')
 
-        layout.separator()
 
-        # Onion skinning
+class GreasePencilOnionPanel:
+    bl_label = "Onion Skinning"
+    bl_region_type = 'UI'
+
+    @classmethod
+    def poll(cls, context):
+        ts = context.scene.tool_settings
+
+        if context.gpencil_data is None:
+            return False
+
+        if context.space_data.type in ('VIEW_3D', 'PROPERTIES'):
+            if ts.grease_pencil_source == 'OBJECT':
+                if context.space_data.context != 'DATA':
+                    return False
+
+            if context.space_data.context == 'DATA':
+                if context.object.type != 'GPENCIL':
+                    return False
+                else:
+                    if context.object.grease_pencil != context.gpencil_data:
+                        return False
+
+        gpl = context.active_gpencil_layer
+        if gpl is None:
+            return False;
+
+        return True
+
+    @staticmethod
+    def draw(self, context):
+        layout = self.layout
+        gpl = context.active_gpencil_layer
+
         col = layout.column(align=True)
         col.active = not gpl.lock
 
