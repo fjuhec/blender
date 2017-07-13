@@ -401,7 +401,7 @@ typedef struct DRWContextState {
 	struct View3D *v3d;     /* 'CTX_wm_view3d(C)' */
 
 	struct Scene *scene;    /* 'CTX_data_scene(C)' */
-	struct SceneLayer *sl;  /* 'CTX_data_scene_layer(C)' */
+	struct SceneLayer *scene_layer;  /* 'CTX_data_scene_layer(C)' */
 
 	/* Use 'scene->obedit' for edit-mode */
 	struct Object *obact;   /* 'OBACT_NEW' */
@@ -411,7 +411,6 @@ typedef struct DRWContextState {
 	const struct bContext *evil_C;
 } DRWContextState;
 
-void DRW_context_state_init(const struct bContext *C, DRWContextState *r_draw_ctx);
 const DRWContextState *DRW_context_state_get(void);
 
 #endif /* __DRW_RENDER_H__ */

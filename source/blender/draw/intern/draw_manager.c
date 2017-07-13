@@ -2460,7 +2460,7 @@ void **DRW_scene_layer_engine_data_get(DrawEngineType *engine_type, void (*callb
 {
 	SceneLayerEngineData *sled;
 
-	for (sled = DST.draw_ctx.sl->drawdata.first; sled; sled = sled->next) {
+	for (sled = DST.draw_ctx.scene_layer->drawdata.first; sled; sled = sled->next) {
 		if (sled->engine_type == engine_type) {
 			return &sled->storage;
 		}
@@ -2469,7 +2469,7 @@ void **DRW_scene_layer_engine_data_get(DrawEngineType *engine_type, void (*callb
 	sled = MEM_callocN(sizeof(SceneLayerEngineData), "SceneLayerEngineData");
 	sled->engine_type = engine_type;
 	sled->free = callback;
-	BLI_addtail(&DST.draw_ctx.sl->drawdata, sled);
+	BLI_addtail(&DST.draw_ctx.scene_layer->drawdata, sled);
 
 	return &sled->storage;
 }
@@ -3053,8 +3053,8 @@ void DRW_draw_render_loop_ex(
         ARegion *ar, View3D *v3d,
         const bContext *evil_C)
 {
-	Scene *scene = DEG_get_scene(graph);
-	SceneLayer *sl = DEG_get_scene_layer(graph);
+	Scene *scene = DEG_get_evaluated_scene(graph);
+	SceneLayer *sl = DEG_get_evaluated_scene_layer(graph);
 	RegionView3D *rv3d = ar->regiondata;
 
 	DST.draw_ctx.evil_C = evil_C;
@@ -3193,8 +3193,8 @@ void DRW_draw_select_loop(
         ARegion *ar, View3D *v3d,
         bool UNUSED(use_obedit_skip), bool UNUSED(use_nearest), const rcti *rect)
 {
-	Scene *scene = DEG_get_scene(graph);
-	SceneLayer *sl = DEG_get_scene_layer(graph);
+	Scene *scene = DEG_get_evaluated_scene(graph);
+	SceneLayer *sl = DEG_get_evaluated_scene_layer(graph);
 #ifndef USE_GPU_SELECT
 	UNUSED_VARS(vc, scene, sl, v3d, ar, rect);
 #else
@@ -3311,8 +3311,8 @@ void DRW_draw_depth_loop(
         Depsgraph *graph,
         ARegion *ar, View3D *v3d)
 {
-	Scene *scene = DEG_get_scene(graph);
-	SceneLayer *sl = DEG_get_scene_layer(graph);
+	Scene *scene = DEG_get_evaluated_scene(graph);
+	SceneLayer *sl = DEG_get_evaluated_scene_layer(graph);
 	RegionView3D *rv3d = ar->regiondata;
 
 	/* backup (_never_ use rv3d->viewport) */
@@ -3474,21 +3474,6 @@ bool DRW_state_draw_support(void)
 
 /** \name Context State (DRW_context_state)
  * \{ */
-
-void DRW_context_state_init(const bContext *C, DRWContextState *r_draw_ctx)
-{
-	r_draw_ctx->ar = CTX_wm_region(C);
-	r_draw_ctx->rv3d = CTX_wm_region_view3d(C);
-	r_draw_ctx->v3d = CTX_wm_view3d(C);
-
-	r_draw_ctx->scene = CTX_data_scene(C);
-	r_draw_ctx->sl = CTX_data_scene_layer(C);
-	r_draw_ctx->obact = r_draw_ctx->sl->basact ? r_draw_ctx->sl->basact->object : NULL;
-
-	/* grr, cant avoid! */
-	r_draw_ctx->evil_C = C;
-}
-
 
 const DRWContextState *DRW_context_state_get(void)
 {
