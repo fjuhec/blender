@@ -6395,7 +6395,7 @@ static bool merge_loop_average(bContext *C, wmOperator *op, LoopNormalData *ld)
 					if (loop_index == temp->loop_index) {
 						add_v3_v3(avg_normal, temp->nloc);
 						BLI_SMALLSTACK_PUSH(clnors, temp->clnors_data);
-						temp->loop_index == -1;
+						temp->loop_index = -1;
 					}
 				}
 				loops = loops->next;
@@ -6549,4 +6549,117 @@ void MESH_OT_split_loop_normals(struct wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
 	ot->prop = RNA_def_enum(ot->srna, "split_type", split_loop_method_items, SPLIT_LOOP_TO_FACE, "Type", "Split method");
+}
+
+/********************** Average Loop Normals **********************/
+/*
+enum {
+	LOOP_AVERAGE = 1,
+	FACE_AVERAGE = 2,
+	AREA_AVERAGE = 3,
+};
+
+static EnumPropertyItem average_method_items[] = {
+	{ LOOP_AVERAGE, "Loop Average", 0, "Loop Average", "Take Average of Loop Normals" },
+	{ FACE_AVERAGE, "Face Average", 0, "Face Average", "Take Average of Face Normals"},
+	{ 0, NULL, 0, NULL, NULL }
+};
+
+static int edbm_average_loop_normals_exec(bContext *C, wmOperator *op)
+{
+	return OPERATOR_CANCELLED;
+}
+
+void MESH_OT_average_loop_normals(struct wmOperatorType *ot)
+{
+	/* identifiers *
+	ot->name = "Average Loop normals";
+	ot->description = "Average loop normals of selected vertices";
+	ot->idname = "MESH_ot_average_loop_normals";
+
+	/* api callbacks *
+	ot->exec = edbm_average_loop_normals_exec;
+	ot->poll = ED_operator_editmesh_auto_smooth;
+
+	/* flags *
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	ot->prop = RNA_def_enum(ot->srna, "type", average_method_items, LOOP_AVERAGE, "Type", "Averaging method");
+}*/
+
+/********************** Copy/Paste Loop Normals **********************/
+
+static int edbm_copy_paste_normal_exec(bContext *C, wmOperator *op)
+{
+	Object *obedit = CTX_data_edit_object(C);
+	BMEditMesh *em = BKE_editmesh_from_object(obedit);
+	BMesh *bm = em->bm;
+
+	const bool copy = RNA_boolean_get(op->ptr, "copy");
+
+	BM_lnorspace_update(bm);
+	LoopNormalData *ld = BM_loop_normal_init(bm);
+	TransDataLoopNormal *tld = ld->normal;
+	int i = 0;
+
+	if (copy) {
+		bool join =  ld->totloop > 0 ? true : false;
+		for (; i < ld->totloop; i++, tld++) {
+			if (!compare_v3v3(ld->normal->nloc, tld->nloc, 1e-4f))
+				join = false;
+		}
+		if (ld->totloop == 1 || join) {
+			RNA_float_set_array(op->ptr, "normal_vector", ld->normal->nloc);
+		}
+		else if (bm->totfacesel == 1) {
+			BMFace *f;
+			BMIter fiter;
+			BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
+				if (BM_elem_flag_test(f, BM_ELEM_SELECT)) {
+					RNA_float_set_array(op->ptr, "normal_vector", f->no);
+				}
+			}
+		}
+		else {
+			BKE_report(op->reports, RPT_ERROR, "Invalid Selection");
+			return OPERATOR_CANCELLED;
+		}
+	}
+	else {
+		float normal_val[3];
+		RNA_float_get_array(op->ptr, "normal_vector", normal_val);
+		if (is_zero_v3(normal_val)) {
+			BKE_reportf(op->reports, RPT_ERROR, "Buffer is empty");
+			return OPERATOR_CANCELLED;
+		}
+
+		for (i = 0; i < ld->totloop; i++, tld++) {
+			BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], normal_val, tld->clnors_data);
+		}
+	}
+
+	EDBM_update_generic(em, true, false);
+	return OPERATOR_FINISHED;
+}
+
+void MESH_OT_copy_normal(struct wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Copy normal";
+	ot->description = "Copy normal";
+	ot->idname = "MESH_OT_copy_normal";
+
+	/* api callbacks */
+	ot->exec = edbm_copy_paste_normal_exec;
+	ot->poll = ED_operator_editmesh_auto_smooth;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	ot->prop = RNA_def_boolean(ot->srna, "copy", 1, "Copy Normal", "Copy normal of mesh");
+	RNA_def_property_flag(ot->prop, PROP_HIDDEN);
+
+	PropertyRNA *prop = RNA_def_property(ot->srna, "normal_vector", PROP_FLOAT, PROP_XYZ);
+	RNA_def_property_array(prop, 3);
+	RNA_def_property_ui_text(prop, "Copied Normal", "Normal vector of copied face or loop");
 }
