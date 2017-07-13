@@ -382,6 +382,20 @@ Palette *BKE_palette_get_active_from_context(const bContext *C)
 	return palette;
 }
 
+void BKE_palette_set_active_byname(const bContext *C, char *palname)
+{
+	Paint *paint = BKE_paint_get_active_from_context(C);
+	Main *bmain = CTX_data_main(C);
+
+	if (paint) {
+		Palette *palette = BLI_findstring(&bmain->palettes, palname, offsetof(ID, name));
+		if ((palette) && (paint->palette != palette)) {
+			BKE_paint_palette_set(paint, palette);
+		}
+
+	}
+}
+
 PaletteColor *BKE_palette_color_get_active(Palette *palette)
 {
 	PaletteColor *palcolor = NULL;

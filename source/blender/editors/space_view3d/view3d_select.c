@@ -44,6 +44,7 @@
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_tracking_types.h"
+#include "DNA_gpencil_types.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -1615,8 +1616,11 @@ static bool ed_object_select_pick(
 				}
 				/* set workspace mode */
 				BKE_workspace_object_mode_set(CTX_wm_workspace(C), basact->object->mode);
+				bGPdata *gpd = basact->object->gpd;
+				if (gpd) {
+					BKE_palette_set_active_byname(C, gpd->last_palette_name);
+				}
 			}
-
 		}
 
 		WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);

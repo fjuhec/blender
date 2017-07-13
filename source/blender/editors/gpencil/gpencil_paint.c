@@ -1320,6 +1320,8 @@ static void gp_init_palette(tGPsdata *p)
 			palette->active_color = 0;
 			palcolor = palette->colors.first;
 		}
+		/* save last used palette */
+		BLI_strncpy(p->gpd->last_palette_name, palette->id.name, sizeof(p->gpd->last_palette_name));
 	}
 
 	/* asign to temp tGPsdata */

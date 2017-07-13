@@ -39,6 +39,7 @@
 #include "DNA_scene_types.h"
 #include "DNA_sequence_types.h"
 #include "DNA_world_types.h"
+#include "DNA_gpencil_types.h"
 
 #include "BLI_utildefines.h"
 #include "BLI_listbase.h"
@@ -50,6 +51,7 @@
 #include "BKE_sequencer.h"
 #include "BKE_armature.h"
 #include "BKE_workspace.h"
+#include "BKE_paint.h"
 
 #include "DEG_depsgraph.h"
 
@@ -212,6 +214,10 @@ static eOLDrawState tree_element_set_active_object(
 		}
 		/* set workspace mode */
 		BKE_workspace_object_mode_set(CTX_wm_workspace(C), ob->mode);
+		bGPdata *gpd = ob->gpd;
+		if (gpd) {
+			BKE_palette_set_active_byname(C, gpd->last_palette_name);
+		}
 	}
 
 	if (ob != scene->obedit)

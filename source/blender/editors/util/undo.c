@@ -37,6 +37,7 @@
 
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
+#include "DNA_gpencil_types.h"
 
 #include "BLI_utildefines.h"
 
@@ -48,6 +49,7 @@
 #include "BKE_main.h"
 #include "BKE_screen.h"
 #include "BKE_workspace.h"
+#include "BKE_paint.h"
 
 #include "ED_armature.h"
 #include "ED_particle.h"
@@ -230,6 +232,10 @@ static int ed_undo_step(bContext *C, int step, const char *undoname)
 			}
 			/* set workspace mode */
 			BKE_workspace_object_mode_set(CTX_wm_workspace(C), obact->mode);
+			bGPdata *gpd = obact->gpd;
+			if (gpd) {
+				BKE_palette_set_active_byname(C, gpd->last_palette_name);
+			}
 		}
 	}
 

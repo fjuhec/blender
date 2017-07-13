@@ -106,6 +106,7 @@ void                 BKE_palette_make_local(struct Main *bmain, struct Palette *
 bool                 BKE_palette_is_empty(const struct Palette *palette);
 void                 BKE_palette_clear(struct Palette *palette);
 struct Palette      *BKE_palette_get_active_from_context(const struct bContext *C);
+void                 BKE_palette_set_active_byname(const struct bContext *C, char *palname);
 
 struct PaletteColor *BKE_palette_color_add(struct Palette *palette);
 struct PaletteColor *BKE_palette_color_add_name(struct Palette *palette, const char *name);
