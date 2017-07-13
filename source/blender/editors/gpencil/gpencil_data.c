@@ -102,14 +102,8 @@ static int gp_data_add_exec(bContext *C, wmOperator *op)
 		id_us_min(&gpd->id);
 		*gpd_ptr = BKE_gpencil_data_addnew(DATA_("GPencil"));
 
-		/* if not exist brushes, create a new set */
-		if (ts) {
-			if (BLI_listbase_is_empty(&ts->gp_brushes)) {
-				/* create new brushes */
-				BKE_gpencil_brush_init_presets(ts);
-			}
-		}
-
+		/* add default sets of colors and brushes */
+		ED_gpencil_add_defaults(C);
 	}
 	
 	/* notifiers */
@@ -199,13 +193,8 @@ static int gp_layer_add_exec(bContext *C, wmOperator *op)
 	if (*gpd_ptr == NULL)
 		*gpd_ptr = BKE_gpencil_data_addnew(DATA_("GPencil"));
 	
-	/* if not exist brushes, create a new set */
-	if (ts) {
-		if (BLI_listbase_is_empty(&ts->gp_brushes)) {
-			/* create new brushes */
-			BKE_gpencil_brush_init_presets(ts);
-		}
-	}
+	/* add default sets of colors and brushes */
+	ED_gpencil_add_defaults(C);
 
 	/* add new layer now */
 	BKE_gpencil_layer_addnew(*gpd_ptr, DATA_("GP_Layer"), true);
