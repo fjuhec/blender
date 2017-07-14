@@ -338,27 +338,29 @@ void DRW_select_load_id(unsigned int id)
 /** \name Textures (DRW_texture)
  * \{ */
 
-static void drw_texture_get_format(DRWTextureFormat format, GPUTextureFormat *data_type, int *channels)
+static void drw_texture_get_format(
+        DRWTextureFormat format,
+        GPUTextureFormat *r_data_type, int *r_channels)
 {
 	switch (format) {
-		case DRW_TEX_RGBA_8: *data_type = GPU_RGBA8; break;
-		case DRW_TEX_RGBA_16: *data_type = GPU_RGBA16F; break;
-		case DRW_TEX_RGB_16: *data_type = GPU_RGB16F; break;
-		case DRW_TEX_RGB_11_11_10: *data_type = GPU_R11F_G11F_B10F; break;
-		case DRW_TEX_RG_16: *data_type = GPU_RG16F; break;
-		case DRW_TEX_RG_32: *data_type = GPU_RG32F; break;
-		case DRW_TEX_R_8: *data_type = GPU_R8; break;
-		case DRW_TEX_R_16: *data_type = GPU_R16F; break;
-		case DRW_TEX_R_32: *data_type = GPU_R32F; break;
+		case DRW_TEX_RGBA_8: *r_data_type = GPU_RGBA8; break;
+		case DRW_TEX_RGBA_16: *r_data_type = GPU_RGBA16F; break;
+		case DRW_TEX_RGB_16: *r_data_type = GPU_RGB16F; break;
+		case DRW_TEX_RGB_11_11_10: *r_data_type = GPU_R11F_G11F_B10F; break;
+		case DRW_TEX_RG_16: *r_data_type = GPU_RG16F; break;
+		case DRW_TEX_RG_32: *r_data_type = GPU_RG32F; break;
+		case DRW_TEX_R_8: *r_data_type = GPU_R8; break;
+		case DRW_TEX_R_16: *r_data_type = GPU_R16F; break;
+		case DRW_TEX_R_32: *r_data_type = GPU_R32F; break;
 #if 0
 		case DRW_TEX_RGBA_32: *data_type = GPU_RGBA32F; break;
 		case DRW_TEX_RGB_8: *data_type = GPU_RGB8; break;
 		case DRW_TEX_RGB_32: *data_type = GPU_RGB32F; break;
 		case DRW_TEX_RG_8: *data_type = GPU_RG8; break;
 #endif
-		case DRW_TEX_DEPTH_16: *data_type = GPU_DEPTH_COMPONENT16; break;
-		case DRW_TEX_DEPTH_24: *data_type = GPU_DEPTH_COMPONENT24; break;
-		case DRW_TEX_DEPTH_32: *data_type = GPU_DEPTH_COMPONENT32F; break;
+		case DRW_TEX_DEPTH_16: *r_data_type = GPU_DEPTH_COMPONENT16; break;
+		case DRW_TEX_DEPTH_24: *r_data_type = GPU_DEPTH_COMPONENT24; break;
+		case DRW_TEX_DEPTH_32: *r_data_type = GPU_DEPTH_COMPONENT32F; break;
 		default :
 			/* file type not supported you must uncomment it from above */
 			BLI_assert(false);
@@ -369,21 +371,21 @@ static void drw_texture_get_format(DRWTextureFormat format, GPUTextureFormat *da
 		case DRW_TEX_RGBA_8:
 		case DRW_TEX_RGBA_16:
 		case DRW_TEX_RGBA_32:
-			*channels = 4;
+			*r_channels = 4;
 			break;
 		case DRW_TEX_RGB_8:
 		case DRW_TEX_RGB_16:
 		case DRW_TEX_RGB_32:
 		case DRW_TEX_RGB_11_11_10:
-			*channels = 3;
+			*r_channels = 3;
 			break;
 		case DRW_TEX_RG_8:
 		case DRW_TEX_RG_16:
 		case DRW_TEX_RG_32:
-			*channels = 2;
+			*r_channels = 2;
 			break;
 		default:
-			*channels = 1;
+			*r_channels = 1;
 			break;
 	}
 }
@@ -739,7 +741,8 @@ DRWShadingGroup *DRW_shgroup_material_create(struct GPUMaterial *material, DRWPa
 	for (GPUInput *input = inputs->first; input; input = input->next) {
 		/* Textures */
 		if (input->ima) {
-			GPUTexture *tex = GPU_texture_from_blender(input->ima, input->iuser, input->textarget, input->image_isdata, time, 1);
+			GPUTexture *tex = GPU_texture_from_blender(
+			        input->ima, input->iuser, input->textarget, input->image_isdata, time, 1);
 
 			if (input->bindtex) {
 				DRW_shgroup_uniform_texture(grp, input->shadername, tex);
@@ -774,6 +777,11 @@ DRWShadingGroup *DRW_shgroup_material_create(struct GPUMaterial *material, DRWPa
 					break;
 			}
 		}
+	}
+
+	GPUUniformBuffer *ubo = GPU_material_get_uniform_buffer(material);
+	if (ubo != NULL) {
+		DRW_shgroup_uniform_block(grp, GPU_UBO_BLOCK_NAME, ubo);
 	}
 
 	return grp;
@@ -1703,8 +1711,9 @@ static void draw_geometry_execute(DRWShadingGroup *shgroup, Gwn_Batch *geom)
 		GWN_batch_draw_stupid_instanced_with_batch(geom, interface->instance_batch);
 	}
 	else if (interface->instance_vbo) {
-		GWN_batch_draw_stupid_instanced(geom, interface->instance_vbo, interface->instance_count, interface->attribs_count,
-		                            interface->attribs_stride, interface->attribs_size, interface->attribs_loc);
+		GWN_batch_draw_stupid_instanced(
+		        geom, interface->instance_vbo, interface->instance_count, interface->attribs_count,
+		        interface->attribs_stride, interface->attribs_size, interface->attribs_loc);
 	}
 	else {
 		GWN_batch_draw_stupid(geom);
@@ -2084,23 +2093,25 @@ int DRW_object_is_mode_shade(const Object *ob)
 /** \name Framebuffers (DRW_framebuffer)
  * \{ */
 
-static GPUTextureFormat convert_tex_format(int fbo_format, int *channels, bool *is_depth)
+static GPUTextureFormat convert_tex_format(
+        int fbo_format,
+        int *r_channels, bool *r_is_depth)
 {
-	*is_depth = ELEM(fbo_format, DRW_TEX_DEPTH_16, DRW_TEX_DEPTH_24);
+	*r_is_depth = ELEM(fbo_format, DRW_TEX_DEPTH_16, DRW_TEX_DEPTH_24);
 
 	switch (fbo_format) {
-		case DRW_TEX_R_16:     *channels = 1; return GPU_R16F;
-		case DRW_TEX_R_32:     *channels = 1; return GPU_R32F;
-		case DRW_TEX_RG_16:    *channels = 2; return GPU_RG16F;
-		case DRW_TEX_RG_32:    *channels = 2; return GPU_RG32F;
-		case DRW_TEX_RGBA_8:   *channels = 4; return GPU_RGBA8;
-		case DRW_TEX_RGBA_16:  *channels = 4; return GPU_RGBA16F;
-		case DRW_TEX_RGBA_32:  *channels = 4; return GPU_RGBA32F;
-		case DRW_TEX_DEPTH_24: *channels = 1; return GPU_DEPTH_COMPONENT24;
-		case DRW_TEX_RGB_11_11_10: *channels = 3; return GPU_R11F_G11F_B10F;
+		case DRW_TEX_R_16:     *r_channels = 1; return GPU_R16F;
+		case DRW_TEX_R_32:     *r_channels = 1; return GPU_R32F;
+		case DRW_TEX_RG_16:    *r_channels = 2; return GPU_RG16F;
+		case DRW_TEX_RG_32:    *r_channels = 2; return GPU_RG32F;
+		case DRW_TEX_RGBA_8:   *r_channels = 4; return GPU_RGBA8;
+		case DRW_TEX_RGBA_16:  *r_channels = 4; return GPU_RGBA16F;
+		case DRW_TEX_RGBA_32:  *r_channels = 4; return GPU_RGBA32F;
+		case DRW_TEX_DEPTH_24: *r_channels = 1; return GPU_DEPTH_COMPONENT24;
+		case DRW_TEX_RGB_11_11_10: *r_channels = 3; return GPU_R11F_G11F_B10F;
 		default:
 			BLI_assert(false && "Texture format unsupported as render target!");
-			*channels = 4; return GPU_RGBA8;
+			*r_channels = 4; return GPU_RGBA8;
 	}
 }
 
@@ -2130,10 +2141,12 @@ void DRW_framebuffer_init(
 		if (!*fbotex.tex || is_temp) {
 			/* Temp textures need to be queried each frame, others not. */
 			if (is_temp) {
-				*fbotex.tex = GPU_viewport_texture_pool_query(DST.viewport, engine_type, width, height, channels, gpu_format);
+				*fbotex.tex = GPU_viewport_texture_pool_query(
+				        DST.viewport, engine_type, width, height, channels, gpu_format);
 			}
 			else if (create_fb) {
-				*fbotex.tex = GPU_texture_create_2D_custom(width, height, channels, gpu_format, NULL, NULL);
+				*fbotex.tex = GPU_texture_create_2D_custom(
+				        width, height, channels, gpu_format, NULL, NULL);
 			}
 		}
 
@@ -2258,8 +2271,10 @@ void DRW_transform_to_display(GPUTexture *tex)
 
 	bool use_ocio = false;
 
-	if (DST.draw_ctx.evil_C != NULL) {
-		use_ocio = IMB_colormanagement_setup_glsl_draw_from_space_ctx(DST.draw_ctx.evil_C, NULL, dither, false);
+	{
+		Scene *scene = DST.draw_ctx.scene;
+		use_ocio = IMB_colormanagement_setup_glsl_draw_from_space(
+		        &scene->view_settings, &scene->display_settings, NULL, dither, false);
 	}
 
 	if (!use_ocio) {
@@ -2684,7 +2699,8 @@ int DRW_draw_region_engine_info_offset(void)
 void DRW_draw_region_engine_info(void)
 {
 	const char *info_array_final[MAX_INFO_LINES + 1];
-	char info_array[MAX_INFO_LINES][GPU_INFO_SIZE]; /* This should be maxium number of engines running at the same time. */
+	/* This should be maxium number of engines running at the same time. */
+	char info_array[MAX_INFO_LINES][GPU_INFO_SIZE];
 	int i = 0;
 
 	const DRWContextState *draw_ctx = DRW_context_state_get();
@@ -2838,9 +2854,7 @@ static void DRW_engines_enable(const Scene *scene, SceneLayer *sl)
 
 	if (DRW_state_draw_support()) {
 		DRW_engines_enable_from_object_mode();
-		if ((obact == NULL) || (DRW_object_is_mode_shade(obact) != false)) {
-			DRW_engines_enable_from_mode(mode);
-		}
+		DRW_engines_enable_from_mode(mode);
 	}
 	else {
 		/* if gpencil must draw the strokes, but not the object */
