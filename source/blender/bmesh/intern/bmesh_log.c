@@ -1031,6 +1031,10 @@ void BM_log_before_all_removed(BMesh *bm, BMLog *log)
 /* Get the logged coordinates of a vertex
  *
  * Does not modify the log or the vertex */
+uint BM_log_vert_id_t(BMLog *log, BMVert *v){
+	return bm_log_vert_id_get(log, v);
+}
+
 const float *BM_log_original_vert_co(BMLog *log, BMVert *v)
 {
 	BMLogEntry *entry = log->current_entry;

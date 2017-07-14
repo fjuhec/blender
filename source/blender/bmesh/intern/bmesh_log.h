@@ -90,6 +90,8 @@ void BM_log_before_all_removed(BMesh *bm, BMLog *log);
 /* Get the logged coordinates of a vertex */
 const float *BM_log_original_vert_co(BMLog *log, BMVert *v);
 
+uint BM_log_vert_id_t(BMLog *log, BMVert *v);
+
 /* Get the logged normal of a vertex */
 const short *BM_log_original_vert_no(BMLog *log, BMVert *v);
 
