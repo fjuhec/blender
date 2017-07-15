@@ -120,6 +120,8 @@ EnumPropertyItem rna_enum_object_modifier_type_items[] = {
 	{eModifierType_Smoke, "SMOKE", ICON_MOD_SMOKE, "Smoke", ""},
 	{eModifierType_Softbody, "SOFT_BODY", ICON_MOD_SOFT, "Soft Body", ""},
 	{eModifierType_Surface, "SURFACE", ICON_MOD_PHYSICS, "Surface", ""},
+	{0, "", 0, N_("Grease Pencil"), "" },
+	{eModifierType_GpencilNoise, "GP_NOISE", ICON_RNDCURVE, "Noise", "Add noise to strokes" },
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -290,6 +292,7 @@ EnumPropertyItem rna_enum_axis_flag_xyz_items[] = {
 #include "BKE_modifier.h"
 #include "BKE_object.h"
 #include "BKE_particle.h"
+#include "BKE_gpencil.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
@@ -413,7 +416,9 @@ static StructRNA *rna_Modifier_refine(struct PointerRNA *ptr)
 			return &RNA_MeshSequenceCacheModifier;
 		case eModifierType_SurfaceDeform:
 			return &RNA_SurfaceDeformModifier;
-		/* Default */
+		case eModifierType_GpencilNoise:
+			return &RNA_GpencilNoiseModifier;
+			/* Default */
 		case eModifierType_None:
 		case eModifierType_ShapeKey:
 		case NUM_MODIFIER_TYPES:
@@ -456,6 +461,12 @@ static char *rna_Modifier_path(PointerRNA *ptr)
 static void rna_Modifier_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
 {
 	DEG_id_tag_update(ptr->id.data, OB_RECALC_DATA);
+	Object *obj = (Object *)ptr->id.data;
+	if ((obj) && (obj->type == OB_GPENCIL)) {
+		if (obj->gpd) {
+			BKE_gpencil_batch_cache_dirty(obj->gpd);
+		}
+	}
 	WM_main_add_notifier(NC_OBJECT | ND_MODIFIER, ptr->id.data);
 }
 
@@ -4749,6 +4760,45 @@ static void rna_def_modifier_surfacedeform(BlenderRNA *brna)
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 }
 
+static void rna_def_modifier_gpencilnoise(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+
+	srna = RNA_def_struct(brna, "GpencilNoiseModifier", "Modifier");
+	RNA_def_struct_ui_text(srna, "Noise Modifier", "Noise effect modifier");
+	RNA_def_struct_sdna(srna, "GpencilNoiseModifierData");
+	RNA_def_struct_ui_icon(srna, ICON_RNDCURVE);
+
+	prop = RNA_def_property(srna, "layer", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_sdna(prop, NULL, "layername");
+	RNA_def_property_ui_text(prop, "Layer", "Layer name");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "color", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_sdna(prop, NULL, "colorname");
+	RNA_def_property_ui_text(prop, "Color", "Color name");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "factor", PROP_FLOAT, PROP_TIME);
+	RNA_def_property_float_sdna(prop, NULL, "factor");
+	RNA_def_property_range(prop, 0, 30.0);
+	RNA_def_property_ui_text(prop, "Factor", "Amount of noise to apply");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "seed", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "seed");
+	RNA_def_property_range(prop, 1, 10);
+	RNA_def_property_ui_text(prop, "Seed", "Seed for random");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "passindex", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "passindex");
+	RNA_def_property_range(prop, 1, 100);
+	RNA_def_property_ui_text(prop, "Pass", "Pass index");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+}
+
 void RNA_def_modifier(BlenderRNA *brna)
 {
 	StructRNA *srna;
@@ -4867,6 +4917,7 @@ void RNA_def_modifier(BlenderRNA *brna)
 	rna_def_modifier_normaledit(brna);
 	rna_def_modifier_meshseqcache(brna);
 	rna_def_modifier_surfacedeform(brna);
+	rna_def_modifier_gpencilnoise(brna);
 }
 
 #endif

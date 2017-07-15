@@ -255,8 +255,17 @@ bool BKE_object_support_modifier_type_check(Object *ob, int modifier_type)
 	mti = modifierType_getInfo(modifier_type);
 
 	/* only geometry objects should be able to get modifiers [#25291] */
-	if (!ELEM(ob->type, OB_MESH, OB_CURVE, OB_SURF, OB_FONT, OB_LATTICE)) {
+	if (!ELEM(ob->type, OB_MESH, OB_CURVE, OB_SURF, OB_FONT, OB_LATTICE, OB_GPENCIL)) {
 		return false;
+	}
+
+	if (ob->type == OB_GPENCIL) {
+		if (mti->flags & eModifierTypeFlag_GpencilMod) {
+			return true;
+		}
+		else {
+			return false;
+		}
 	}
 
 	if (ob->type == OB_LATTICE && (mti->flags & eModifierTypeFlag_AcceptsLattice) == 0) {
@@ -264,7 +273,7 @@ bool BKE_object_support_modifier_type_check(Object *ob, int modifier_type)
 	}
 
 	if (!((mti->flags & eModifierTypeFlag_AcceptsCVs) ||
-	      (ob->type == OB_MESH && (mti->flags & eModifierTypeFlag_AcceptsMesh))))
+		(ob->type == OB_MESH && (mti->flags & eModifierTypeFlag_AcceptsMesh))))
 	{
 		return false;
 	}
@@ -277,7 +286,7 @@ void BKE_object_link_modifiers(struct Object *ob_dst, const struct Object *ob_sr
 	ModifierData *md;
 	BKE_object_free_modifiers(ob_dst);
 
-	if (!ELEM(ob_dst->type, OB_MESH, OB_CURVE, OB_SURF, OB_FONT, OB_LATTICE)) {
+	if (!ELEM(ob_dst->type, OB_MESH, OB_CURVE, OB_SURF, OB_FONT, OB_LATTICE, OB_GPENCIL)) {
 		/* only objects listed above can have modifiers and linking them to objects
 		 * which doesn't have modifiers stack is quite silly */
 		return;

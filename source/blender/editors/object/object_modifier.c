@@ -758,7 +758,6 @@ static EnumPropertyItem *modifier_add_itemf(bContext *C, PointerRNA *UNUSED(ptr)
 
 	for (a = 0; rna_enum_object_modifier_type_items[a].identifier; a++) {
 		md_item = &rna_enum_object_modifier_type_items[a];
-
 		if (md_item->identifier[0]) {
 			mti = modifierType_getInfo(md_item->value);
 

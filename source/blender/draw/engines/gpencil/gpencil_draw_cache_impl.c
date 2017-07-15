@@ -497,7 +497,7 @@ static void gpencil_add_fill_shgroup(GpencilBatchCache *cache, DRWShadingGroup *
 
 /* add stroke shading group to pass */
 static void gpencil_add_stroke_shgroup(GpencilBatchCache *cache, DRWShadingGroup *strokegrp,
-	bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf, bGPDstroke *gps, 
+	Object *ob, bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf, bGPDstroke *gps, 
 	const float opacity, const float tintcolor[4], const bool onion, const bool custonion)
 {
 	float tcolor[4];
@@ -523,10 +523,15 @@ static void gpencil_add_stroke_shgroup(GpencilBatchCache *cache, DRWShadingGroup
 		if (cache->is_dirty) {
 			/* apply modifiers */
 			bGPDstroke *gps_mod;
-			gps_mod = MEM_dupallocN(gps);
-			gps_mod->points = MEM_dupallocN(gps->points);
-			gps_mod->triangles = MEM_dupallocN(gps->triangles);
-
+			if (ob->modifiers.first) {
+				gps_mod = MEM_dupallocN(gps);
+				gps_mod->points = MEM_dupallocN(gps->points);
+				gps_mod->triangles = MEM_dupallocN(gps->triangles);
+				ED_gpencil_apply_modifiers(ob, gps_mod);
+			}
+			else {
+				gps_mod = gps;
+			}
 			gpencil_batch_cache_check_free_slots(gpd);
 			if ((gps->totpoints > 1) && (gps->palcolor->stroke_style != STROKE_STYLE_VOLUMETRIC)) {
 				cache->batch_stroke[cache->cache_idx] = DRW_gpencil_get_stroke_geom(gpf, gps_mod, sthickness, ink);
@@ -536,9 +541,11 @@ static void gpencil_add_stroke_shgroup(GpencilBatchCache *cache, DRWShadingGroup
 			}
 
 			/* free modifier temp data */
-			MEM_SAFE_FREE(gps_mod->triangles);
-			MEM_SAFE_FREE(gps_mod->points);
-			MEM_SAFE_FREE(gps_mod);
+			if (ob->modifiers.first) {
+				MEM_SAFE_FREE(gps_mod->triangles);
+				MEM_SAFE_FREE(gps_mod->points);
+				MEM_SAFE_FREE(gps_mod);
+			}
 		}
 		DRW_shgroup_call_add(strokegrp, cache->batch_stroke[cache->cache_idx], gpf->viewmatrix);
 	}
@@ -626,7 +633,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 			gpencil_add_fill_shgroup(cache, fillgrp, gpd, gpl, gpf, gps, tintcolor, onion, custonion);
 		}
 		/* stroke */
-		gpencil_add_stroke_shgroup(cache, strokegrp, gpd, gpl, gpf, gps, opacity, tintcolor, onion, custonion);
+		gpencil_add_stroke_shgroup(cache, strokegrp, ob, gpd, gpl, gpf, gps, opacity, tintcolor, onion, custonion);
 
 		/* edit points (only in edit mode) */
 		if (!onion) {

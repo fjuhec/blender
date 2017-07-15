@@ -70,6 +70,8 @@ typedef enum {
 	 * of the object, rather some of its CustomData layers.
 	 * E.g. UVProject and WeightVG modifiers. */
 	eModifierTypeType_NonGeometrical,
+	/* specila mode for grease pencil modifiers */
+	eModifierTypeType_Gpencil,
 } ModifierTypeType;
 
 typedef enum {
@@ -104,6 +106,8 @@ typedef enum {
 	/* For modifiers that use CD_PREVIEW_MCOL for preview. */
 	eModifierTypeFlag_UsesPreview = (1 << 9),
 	eModifierTypeFlag_AcceptsLattice = (1 << 10),
+	/* Grease pencil modifiers (do not change mesh, only is placeholder) */
+	eModifierTypeFlag_GpencilMod = (1 << 11),
 } ModifierTypeFlag;
 
 /* IMPORTANT! Keep ObjectWalkFunc and IDWalkFunc signatures compatible. */

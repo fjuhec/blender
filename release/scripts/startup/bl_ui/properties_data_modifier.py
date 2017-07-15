@@ -1528,6 +1528,17 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         if md.rest_source == 'BIND':
             layout.operator("object.correctivesmooth_bind", text="Unbind" if is_bind else "Bind")
 
+    def GP_NOISE(self, layout, ob, md):
+        gpd = ob.grease_pencil
+        split = layout.split()
+
+        col = split.column()
+        col.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+        col.prop(md, "passindex", text="Pass")
+
+        col = split.column()
+        col.prop(md, "factor")
+        col.prop(md, "seed", text="Seed")
 
 classes = (
     DATA_PT_modifiers,
