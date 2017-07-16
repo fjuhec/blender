@@ -1484,26 +1484,7 @@ void static gpencil_minmax(bGPdata *gpd, float min[3], float max[3])
 		}
 		for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 			for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
-				/* min */
-				if (pt->x < min[0]) {
-					min[0] = pt->x;
-				}
-				if (pt->y < min[1]) {
-					min[1] = pt->y;
-				}
-				if (pt->z < min[2]) {
-					min[2] = pt->z;
-				}
-				/* max */
-				if (pt->x > max[0]) {
-					max[0] = pt->x;
-				}
-				if (pt->y > max[1]) {
-					max[1] = pt->y;
-				}
-				if (pt->z > max[2]) {
-					max[2] = pt->z;
-				}
+				minmax_v3v3_v3(min, max, &pt->x);
 			}
 		}
 	}
