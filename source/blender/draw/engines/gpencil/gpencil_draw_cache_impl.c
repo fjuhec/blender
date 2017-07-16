@@ -44,9 +44,6 @@
 #include "draw_cache_impl.h"
 #include "gpencil_engine.h"
 
-#define ZFIGHT_INIT -2048
-#define ZFIGHT_STEP 64
-
  /* allocate cache to store GP objects */
 tGPencilObjectCache *gpencil_object_cache_allocate(tGPencilObjectCache *cache, int *gp_cache_size, int *gp_cache_used)
 {
