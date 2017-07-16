@@ -42,6 +42,9 @@
 #include "BKE_brush.h"
 #include "BKE_context.h"
 
+#include "GPU_immediate.h"
+#include "GPU_immediate_util.h"
+
 #include "WM_api.h"
 #include "WM_types.h"
 
@@ -58,45 +61,31 @@ static void hair_draw_cursor(bContext *C, int x, int y, void *UNUSED(customdata)
 	UnifiedPaintSettings *ups = &scene->toolsettings->unified_paint_settings;
 	HairEditSettings *settings = &scene->toolsettings->hair_edit;
 	Brush *brush = settings->brush;
-	
-	float final_radius;
-	float translation[2];
-	float outline_alpha, *outline_col;
-	
 	if (!brush)
 		return;
-	
-	final_radius = BKE_brush_size_get(scene, brush);
-	
+
+	float final_radius = BKE_brush_size_get(scene, brush);
+	float col[4];
+
 	/* set various defaults */
-	translation[0] = x;
-	translation[1] = y;
-	outline_alpha = 0.5;
-	outline_col = brush->add_col;
+	copy_v3_v3(col, brush->add_col);
+	col[3] = 0.5f;
 	
-	/* make lines pretty */
-	glEnable(GL_BLEND);
-	glEnable(GL_LINE_SMOOTH);
+	Gwn_VertFormat *format = immVertexFormat();
+	uint pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
 
-	/* set brush color */
-	glColor4f(outline_col[0], outline_col[1], outline_col[2], outline_alpha);
+	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
-	/* draw brush outline */
-	glTranslatef(translation[0], translation[1], 0);
+	immUniformColor4fv(col);
 
 	/* draw an inner brush */
 	if (ups->stroke_active && BKE_brush_use_size_pressure(scene, brush)) {
 		/* inner at full alpha */
-		glutil_draw_lined_arc(0.0, M_PI*2.0f, final_radius * ups->size_pressure_value, 40);
+		imm_draw_circle_wire(pos, x, y, final_radius * ups->size_pressure_value, 40);
 		/* outer at half alpha */
-		glColor4f(outline_col[0], outline_col[1], outline_col[2], outline_alpha * 0.5f);
+		immUniformColor3fvAlpha(col, col[3]*0.5f);
 	}
-	glutil_draw_lined_arc(0.0, M_PI*2.0f, final_radius, 40);
-	glTranslatef(-translation[0], -translation[1], 0);
-
-	/* restore GL state */
-	glDisable(GL_BLEND);
-	glDisable(GL_LINE_SMOOTH);
+	imm_draw_circle_wire(pos, x, y, final_radius, 40);
 }
 
 void hair_edit_cursor_start(bContext *C, int (*poll)(bContext *C))

@@ -17,10 +17,11 @@
 #ifndef __UTIL_HALF_H__
 #define __UTIL_HALF_H__
 
-#include "util_types.h"
+#include "util/util_types.h"
+#include "util/util_math.h"
 
 #ifdef __KERNEL_SSE2__
-#include "util_simd.h"
+#include "util/util_simd.h"
 #endif
 
 CCL_NAMESPACE_BEGIN
@@ -33,17 +34,21 @@ CCL_NAMESPACE_BEGIN
 
 #else
 
+/* CUDA has its own half data type, no need to define then */
+#ifndef __KERNEL_CUDA__
 typedef unsigned short half;
+#endif
+
 struct half4 { half x, y, z, w; };
 
 #ifdef __KERNEL_CUDA__
 
 ccl_device_inline void float4_store_half(half *h, float4 f, float scale)
 {
-	h[0] = __float2half_rn(f.x * scale);
-	h[1] = __float2half_rn(f.y * scale);
-	h[2] = __float2half_rn(f.z * scale);
-	h[3] = __float2half_rn(f.w * scale);
+	h[0] = __float2half(f.x * scale);
+	h[1] = __float2half(f.y * scale);
+	h[2] = __float2half(f.z * scale);
+	h[3] = __float2half(f.w * scale);
 }
 
 #else
@@ -104,6 +109,28 @@ ccl_device_inline float4 half4_to_float4(half4 h)
 	f.w = half_to_float(h.w);
 
 	return f;
+}
+
+ccl_device_inline half float_to_half(float f)
+{
+	const uint u = __float_as_uint(f);
+	/* Sign bit, shifted to it's position. */
+	uint sign_bit = u & 0x80000000;
+	sign_bit >>= 16;
+	/* Exponent. */
+	uint exponent_bits = u & 0x7f800000;
+	/* Non-sign bits. */
+	uint value_bits = u & 0x7fffffff;
+	value_bits >>= 13;  /* Align mantissa on MSB. */
+	value_bits -= 0x1c000;  /* Adjust bias. */
+	/* Flush-to-zero. */
+	value_bits = (exponent_bits < 0x38800000) ? 0 : value_bits;
+	/* Clamp-to-max. */
+	value_bits = (exponent_bits > 0x47000000) ? 0x7bff : value_bits;
+	/* Denormals-as-zero. */
+	value_bits = (exponent_bits == 0 ? 0 : value_bits);
+	/* Re-insert sign bit and return. */
+	return (value_bits | sign_bit);
 }
 
 #endif

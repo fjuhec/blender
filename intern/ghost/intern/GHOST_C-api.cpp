@@ -406,12 +406,13 @@ GHOST_TSuccess GHOST_GetButtonState(GHOST_SystemHandle systemhandle,
 }
 
 
+#ifdef WITH_INPUT_NDOF
 void GHOST_setNDOFDeadZone(float deadzone)
 {
 	GHOST_ISystem *system = GHOST_ISystem::getSystem();
 	system->setNDOFDeadZone(deadzone);
 }
-
+#endif
 
 void GHOST_setAcceptDragOperation(GHOST_WindowHandle windowhandle, GHOST_TInt8 canAccept)
 {
@@ -911,6 +912,12 @@ float GHOST_GetNativePixelSize(GHOST_WindowHandle windowhandle)
 	if (window)
 		return window->getNativePixelSize();
 	return 1.0f;
+}
+
+GHOST_TUns16 GHOST_GetDPIHint(GHOST_WindowHandle windowhandle)
+{
+	GHOST_IWindow *window = (GHOST_IWindow *)windowhandle;
+	return window->getDPIHint();
 }
 
 #ifdef WITH_INPUT_IME

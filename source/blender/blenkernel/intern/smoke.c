@@ -126,7 +126,7 @@ void smoke_initWaveletBlenderRNA(struct WTURBULENCE *UNUSED(wt), float *UNUSED(s
 void smoke_initBlenderRNA(struct FLUID_3D *UNUSED(fluid), float *UNUSED(alpha), float *UNUSED(beta), float *UNUSED(dt_factor), float *UNUSED(vorticity),
                           int *UNUSED(border_colli), float *UNUSED(burning_rate), float *UNUSED(flame_smoke), float *UNUSED(flame_smoke_color),
                           float *UNUSED(flame_vorticity), float *UNUSED(flame_ignition_temp), float *UNUSED(flame_max_temp)) {}
-struct DerivedMesh *smokeModifier_do(SmokeModifierData *UNUSED(smd), Scene *UNUSED(scene), Object *UNUSED(ob), DerivedMesh *UNUSED(dm)) { return NULL; }
+struct DerivedMesh *smokeModifier_do(SmokeModifierData *UNUSED(smd), Scene *UNUSED(scene), SceneLayer *UNUSED(sl), Object *UNUSED(ob), DerivedMesh *UNUSED(dm)) { return NULL; }
 float smoke_get_velocity_at(struct Object *UNUSED(ob), float UNUSED(position[3]), float UNUSED(velocity[3])) { return 0.0f; }
 
 #endif /* WITH_SMOKE */
@@ -360,6 +360,10 @@ static void smokeModifier_freeDomain(SmokeModifierData *smd)
 		BKE_ptcache_free_list(&(smd->domain->ptcaches[0]));
 		smd->domain->point_cache[0] = NULL;
 
+		if (smd->domain->coba) {
+			MEM_freeN(smd->domain->coba);
+		}
+
 		MEM_freeN(smd->domain);
 		smd->domain = NULL;
 	}
@@ -536,6 +540,17 @@ void smokeModifier_createType(struct SmokeModifierData *smd)
 #endif
 			smd->domain->data_depth = 0;
 			smd->domain->cache_file_format = PTCACHE_FILE_PTCACHE;
+
+			smd->domain->display_thickness = 1.0f;
+			smd->domain->slice_method = MOD_SMOKE_SLICE_VIEW_ALIGNED;
+			smd->domain->axis_slice_method = AXIS_SLICE_FULL;
+			smd->domain->slice_per_voxel = 5.0f;
+			smd->domain->slice_depth = 0.5f;
+			smd->domain->slice_axis = 0;
+			smd->domain->vector_scale = 1.0f;
+
+			smd->domain->coba = NULL;
+			smd->domain->coba_field = FLUID_FIELD_DENSITY;
 		}
 		else if (smd->type & MOD_SMOKE_TYPE_FLOW)
 		{
@@ -629,6 +644,19 @@ void smokeModifier_copy(struct SmokeModifierData *smd, struct SmokeModifierData 
 		tsmd->domain->openvdb_comp = smd->domain->openvdb_comp;
 		tsmd->domain->data_depth = smd->domain->data_depth;
 		tsmd->domain->cache_file_format = smd->domain->cache_file_format;
+
+		tsmd->domain->slice_method = smd->domain->slice_method;
+		tsmd->domain->axis_slice_method = smd->domain->axis_slice_method;
+		tsmd->domain->slice_per_voxel = smd->domain->slice_per_voxel;
+		tsmd->domain->slice_depth = smd->domain->slice_depth;
+		tsmd->domain->slice_axis = smd->domain->slice_axis;
+		tsmd->domain->draw_velocity = smd->domain->draw_velocity;
+		tsmd->domain->vector_draw_type = smd->domain->vector_draw_type;
+		tsmd->domain->vector_scale = smd->domain->vector_scale;
+
+		if (smd->domain->coba) {
+			tsmd->domain->coba = MEM_dupallocN(smd->domain->coba);
+		}
 	}
 	else if (tsmd->flow) {
 		tsmd->flow->psys = smd->flow->psys;
@@ -665,16 +693,16 @@ void smokeModifier_copy(struct SmokeModifierData *smd, struct SmokeModifierData 
 #ifdef WITH_SMOKE
 
 // forward decleration
-static void smoke_calc_transparency(SmokeDomainSettings *sds, Scene *scene);
+static void smoke_calc_transparency(SmokeDomainSettings *sds, SceneLayer *sl);
 static float calc_voxel_transp(float *result, float *input, int res[3], int *pixel, float *tRay, float correct);
 
-static int get_lamp(Scene *scene, float *light)
+static int get_lamp(SceneLayer *sl, float *light)
 {
 	Base *base_tmp = NULL;
 	int found_lamp = 0;
 
 	// try to find a lamp, preferably local
-	for (base_tmp = scene->base.first; base_tmp; base_tmp = base_tmp->next) {
+	for (base_tmp = FIRSTBASE_NEW; base_tmp; base_tmp = base_tmp->next) {
 		if (base_tmp->object->type == OB_LAMP) {
 			Lamp *la = base_tmp->object->data;
 
@@ -730,15 +758,14 @@ static void obstacles_from_derivedmesh_task_cb(void *userdata, const int z)
 			/* find the nearest point on the mesh */
 			if (BLI_bvhtree_find_nearest(data->tree->tree, ray_start, &nearest, data->tree->nearest_callback, data->tree) != -1) {
 				const MLoopTri *lt = &data->looptri[nearest.index];
-				float weights[4];
+				float weights[3];
 				int v1, v2, v3;
 
 				/* calculate barycentric weights for nearest point */
 				v1 = data->mloop[lt->tri[0]].v;
 				v2 = data->mloop[lt->tri[1]].v;
 				v3 = data->mloop[lt->tri[2]].v;
-				interp_weights_face_v3(
-				            weights, data->mvert[v1].co, data->mvert[v2].co, data->mvert[v3].co, NULL, nearest.co);
+				interp_weights_tri_v3(weights, data->mvert[v1].co, data->mvert[v2].co, data->mvert[v3].co, nearest.co);
 
 				// DG TODO
 				if (data->has_velocity)
@@ -1426,7 +1453,7 @@ static void sample_derivedmesh(
 
 	/* find the nearest point on the mesh */
 	if (BLI_bvhtree_find_nearest(treeData->tree, ray_start, &nearest, treeData->nearest_callback, treeData) != -1) {
-		float weights[4];
+		float weights[3];
 		int v1, v2, v3, f_index = nearest.index;
 		float n1[3], n2[3], n3[3], hit_normal[3];
 
@@ -1443,7 +1470,7 @@ static void sample_derivedmesh(
 		v1 = mloop[mlooptri[f_index].tri[0]].v;
 		v2 = mloop[mlooptri[f_index].tri[1]].v;
 		v3 = mloop[mlooptri[f_index].tri[2]].v;
-		interp_weights_face_v3(weights, mvert[v1].co, mvert[v2].co, mvert[v3].co, NULL, nearest.co);
+		interp_weights_tri_v3(weights, mvert[v1].co, mvert[v2].co, mvert[v3].co, nearest.co);
 
 		if (sfs->flags & MOD_SMOKE_FLOW_INITVELOCITY && velocity_map) {
 			/* apply normal directional velocity */
@@ -2656,7 +2683,7 @@ static DerivedMesh *createDomainGeometry(SmokeDomainSettings *sds, Object *ob)
 	return result;
 }
 
-static void smokeModifier_process(SmokeModifierData *smd, Scene *scene, Object *ob, DerivedMesh *dm)
+static void smokeModifier_process(SmokeModifierData *smd, Scene *scene, SceneLayer *sl, Object *ob, DerivedMesh *dm)
 {
 	if ((smd->type & MOD_SMOKE_TYPE_FLOW))
 	{
@@ -2737,19 +2764,18 @@ static void smokeModifier_process(SmokeModifierData *smd, Scene *scene, Object *
 			return;
 		}
 
+		/* only calculate something when we advanced a single frame */
+		/* don't simulate if viewing start frame, but scene frame is not real start frame */
+		bool can_simulate = (framenr == (int)smd->time + 1) && (framenr == scene->r.cfra);
+
 		/* try to read from cache */
-		if (BKE_ptcache_read(&pid, (float)framenr) == PTCACHE_READ_EXACT) {
+		if (BKE_ptcache_read(&pid, (float)framenr, can_simulate) == PTCACHE_READ_EXACT) {
 			BKE_ptcache_validate(cache, framenr);
 			smd->time = framenr;
 			return;
 		}
 
-		/* only calculate something when we advanced a single frame */
-		if (framenr != (int)smd->time + 1)
-			return;
-
-		/* don't simulate if viewing start frame, but scene frame is not real start frame */
-		if (framenr != scene->r.cfra)
+		if (!can_simulate)
 			return;
 
 #ifdef DEBUG_TIME
@@ -2784,7 +2810,7 @@ static void smokeModifier_process(SmokeModifierData *smd, Scene *scene, Object *
 		}
 
 		// create shadows before writing cache so they get stored
-		smoke_calc_transparency(sds, scene);
+		smoke_calc_transparency(sds, sl);
 
 		if (sds->wt && sds->total_cells > 1) {
 			smoke_turbulence_step(sds->wt, sds->fluid);
@@ -2801,13 +2827,13 @@ static void smokeModifier_process(SmokeModifierData *smd, Scene *scene, Object *
 	}
 }
 
-struct DerivedMesh *smokeModifier_do(SmokeModifierData *smd, Scene *scene, Object *ob, DerivedMesh *dm)
+struct DerivedMesh *smokeModifier_do(SmokeModifierData *smd, Scene *scene, SceneLayer *sl, Object *ob, DerivedMesh *dm)
 {
 	/* lock so preview render does not read smoke data while it gets modified */
 	if ((smd->type & MOD_SMOKE_TYPE_DOMAIN) && smd->domain)
 		BLI_rw_mutex_lock(smd->domain->fluid_mutex, THREAD_LOCK_WRITE);
 
-	smokeModifier_process(smd, scene, ob, dm);
+	smokeModifier_process(smd, scene, sl, ob, dm);
 
 	if ((smd->type & MOD_SMOKE_TYPE_DOMAIN) && smd->domain)
 		BLI_rw_mutex_unlock(smd->domain->fluid_mutex);
@@ -2922,7 +2948,7 @@ static void bresenham_linie_3D(int x1, int y1, int z1, int x2, int y2, int z2, f
 	cb(result, input, res, pixel, tRay, correct);
 }
 
-static void smoke_calc_transparency(SmokeDomainSettings *sds, Scene *scene)
+static void smoke_calc_transparency(SmokeDomainSettings *sds, SceneLayer *sl)
 {
 	float bv[6] = {0};
 	float light[3];
@@ -2930,7 +2956,7 @@ static void smoke_calc_transparency(SmokeDomainSettings *sds, Scene *scene)
 	float *density = smoke_get_density(sds->fluid);
 	float correct = -7.0f * sds->dx;
 
-	if (!get_lamp(scene, light)) return;
+	if (!get_lamp(sl, light)) return;
 
 	/* convert light pos to sim cell space */
 	mul_m4_v3(sds->imat, light);
@@ -3052,9 +3078,15 @@ float smoke_get_velocity_at(struct Object *ob, float position[3], float velocity
 int smoke_get_data_flags(SmokeDomainSettings *sds)
 {
 	int flags = 0;
-	if (smoke_has_heat(sds->fluid)) flags |= SM_ACTIVE_HEAT;
-	if (smoke_has_fuel(sds->fluid)) flags |= SM_ACTIVE_FIRE;
-	if (smoke_has_colors(sds->fluid)) flags |= SM_ACTIVE_COLORS;
+
+	if (sds->fluid) {
+		if (smoke_has_heat(sds->fluid))
+			flags |= SM_ACTIVE_HEAT;
+		if (smoke_has_fuel(sds->fluid))
+			flags |= SM_ACTIVE_FIRE;
+		if (smoke_has_colors(sds->fluid))
+			flags |= SM_ACTIVE_COLORS;
+	}
 
 	return flags;
 }

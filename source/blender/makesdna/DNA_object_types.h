@@ -65,6 +65,21 @@ typedef struct bDeformGroup {
 	/* need this flag for locking weights */
 	char flag, pad[7];
 } bDeformGroup;
+
+/* Face Maps*/
+typedef struct bFaceMap {
+	struct bFaceMap *next, *prev;
+	char name[64];  /* MAX_VGROUP_NAME */
+} bFaceMap;
+
+/* Object Runtime display data */
+typedef struct ObjectEngineData {
+	struct ObjectEngineData *next, *prev;
+	struct DrawEngineType *engine_type;
+	void *storage;
+	void (*free)(void *storage);
+} ObjectEngineData;
+
 #define MAX_VGROUP_NAME 64
 
 /* bDeformGroup->flag */
@@ -142,7 +157,8 @@ typedef struct Object {
 	ListBase effect  DNA_DEPRECATED;             // XXX deprecated... keep for readfile
 	ListBase defbase;   /* list of bDeformGroup (vertex groups) names and flag only */
 	ListBase modifiers; /* list of ModifierData structures */
-
+	ListBase fmaps;     /* list of facemaps */
+	
 	int mode;           /* Local object mode */
 	int restore_mode;   /* Keep track of what mode to return to after toggling a mode */
 
@@ -223,7 +239,10 @@ typedef struct Object {
 	float jump_speed;
 	float fall_speed;
 	unsigned char max_jumps;
-	char pad2[3];
+	char pad2;
+
+	/* Depsgraph */
+	short base_flag; /* used by depsgraph, flushed from base */
 
 	/** Collision mask settings */
 	unsigned short col_group, col_mask;
@@ -248,6 +267,8 @@ typedef struct Object {
 
 	short index;			/* custom index, for renderpasses */
 	unsigned short actdef;	/* current deformation group, note: index starts at 1 */
+	unsigned short actfmap;	/* current face map, note: index starts at 1 */
+	unsigned char pad5[6];
 	float col[4];			/* object color */
 
 	int gameflag;
@@ -299,6 +320,17 @@ typedef struct Object {
 	LodLevel *currentlod;
 
 	struct PreviewImage *preview;
+
+	struct IDProperty *base_collection_properties; /* used by depsgraph, flushed from base */
+
+	ListBase drawdata;		/* runtime, ObjectEngineData */
+	int deg_update_flag; /* what has been updated in this object */
+	int select_color;
+
+	/* Mesh structure createrd during object evaluaiton.
+	 * It has all modifiers applied.
+	 */
+	struct Mesh *mesh_evaluated;
 } Object;
 
 /* Warning, this is not used anymore because hooks are now modifiers */
@@ -331,10 +363,12 @@ typedef struct DupliObject {
 
 	/* persistent identifier for a dupli object, for inter-frame matching of
 	 * objects with motion blur, or inter-update matching for syncing */
-	int persistent_id[8]; /* MAX_DUPLI_RECUR */
+	int persistent_id[16]; /* 2*MAX_DUPLI_RECUR */
 
 	/* particle this dupli was generated from */
 	struct ParticleSystem *particle_system;
+	unsigned int random_id;
+	unsigned int pad;
 } DupliObject;
 
 /* **************** OBJECT ********************* */
@@ -355,6 +389,7 @@ enum {
 	OB_CAMERA     = 11,
 
 	OB_SPEAKER    = 12,
+	OB_LIGHTPROBE = 13,
 
 /*	OB_WAVE       = 21, */
 	OB_LATTICE    = 22,
@@ -375,10 +410,10 @@ enum {
 
 /* is this ID type used as object data */
 #define OB_DATA_SUPPORT_ID(_id_type) \
-	(ELEM(_id_type, ID_ME, ID_CU, ID_MB, ID_LA, ID_SPK, ID_CA, ID_LT, ID_AR))
+	(ELEM(_id_type, ID_ME, ID_CU, ID_MB, ID_LA, ID_SPK, ID_LP, ID_CA, ID_LT, ID_AR))
 
 #define OB_DATA_SUPPORT_ID_CASE \
-	ID_ME: case ID_CU: case ID_MB: case ID_LA: case ID_SPK: case ID_CA: case ID_LT: case ID_AR
+	ID_ME: case ID_CU: case ID_MB: case ID_LA: case ID_SPK: case ID_LP: case ID_CA: case ID_LT: case ID_AR
 
 /* partype: first 4 bits: type */
 enum {
@@ -595,6 +630,11 @@ enum {
 enum {
 	OB_DEPS_EXTRA_OB_RECALC     = 1 << 0,
 	OB_DEPS_EXTRA_DATA_RECALC   = 1 << 1,
+};
+
+/* ob->deg_update_flag */
+enum {
+	DEG_RUNTIME_DATA_UPDATE     = 1 << 0,
 };
 
 /* ob->scavisflag */

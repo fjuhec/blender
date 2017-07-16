@@ -49,7 +49,9 @@
 
 using OpenSubdiv::Osd::GLMeshInterface;
 
-extern "C" char datatoc_gpu_shader_opensubd_display_glsl[];
+extern "C" char datatoc_gpu_shader_opensubdiv_vertex_glsl[];
+extern "C" char datatoc_gpu_shader_opensubdiv_geometry_glsl[];
+extern "C" char datatoc_gpu_shader_opensubdiv_fragment_glsl[];
 
 /* TODO(sergey): This is bit of bad level calls :S */
 extern "C" {
@@ -115,7 +117,7 @@ static Transform g_transform;
 struct OpenSubdiv_GLMeshFVarData
 {
 	OpenSubdiv_GLMeshFVarData() :
-		texture_buffer(0) {
+		texture_buffer(0), offset_buffer(0) {
 	}
 
 	~OpenSubdiv_GLMeshFVarData()
@@ -206,25 +208,23 @@ struct OpenSubdiv_GLMeshFVarData
 namespace {
 
 GLuint compileShader(GLenum shaderType,
-                     const char *section,
                      const char *version,
-                     const char *define)
+                     const char *define,
+                     const char *source)
 {
-	char sdefine[64];
-	sprintf(sdefine, "#define %s\n", section);
-
 	const char *sources[] = {
 		version,
 		define,
-		sdefine,
 #ifdef SUPPORT_COLOR_MATERIAL
 		"#define SUPPORT_COLOR_MATERIAL\n",
+#else
+		"",
 #endif
-		datatoc_gpu_shader_opensubd_display_glsl
+		source,
 	};
 
 	GLuint shader = glCreateShader(shaderType);
-	glShaderSource(shader, 5, sources, NULL);
+	glShaderSource(shader, 4, sources, NULL);
 	glCompileShader(shader);
 
 	GLint status;
@@ -232,10 +232,10 @@ GLuint compileShader(GLenum shaderType,
 	if (status == GL_FALSE) {
 		GLchar emsg[1024];
 		glGetShaderInfoLog(shader, sizeof(emsg), 0, emsg);
-		fprintf(stderr, "Error compiling GLSL %s: %s\n", section, emsg);
+		fprintf(stderr, "Error compiling GLSL: %s\n", emsg);
 		fprintf(stderr, "Version: %s\n", version);
 		fprintf(stderr, "Defines: %s\n", define);
-		fprintf(stderr, "Source: %s\n", datatoc_gpu_shader_opensubd_display_glsl);
+		fprintf(stderr, "Source: %s\n", source);
 		return 0;
 	}
 
@@ -245,23 +245,23 @@ GLuint compileShader(GLenum shaderType,
 GLuint linkProgram(const char *version, const char *define)
 {
 	GLuint vertexShader = compileShader(GL_VERTEX_SHADER,
-	                                    "VERTEX_SHADER",
 	                                    version,
-	                                    define);
+	                                    define,
+	                                    datatoc_gpu_shader_opensubdiv_vertex_glsl);
 	if (vertexShader == 0) {
 		return 0;
 	}
 	GLuint geometryShader = compileShader(GL_GEOMETRY_SHADER,
-	                                      "GEOMETRY_SHADER",
 	                                      version,
-	                                      define);
+	                                      define,
+	                                      datatoc_gpu_shader_opensubdiv_geometry_glsl);
 	if (geometryShader == 0) {
 		return 0;
 	}
 	GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER,
-	                                      "FRAGMENT_SHADER",
 	                                      version,
-	                                      define);
+	                                      define,
+	                                      datatoc_gpu_shader_opensubdiv_fragment_glsl );
 	if (fragmentShader == 0) {
 		return 0;
 	}
@@ -274,24 +274,6 @@ GLuint linkProgram(const char *version, const char *define)
 
 	glBindAttribLocation(program, 0, "position");
 	glBindAttribLocation(program, 1, "normal");
-
-
-	if (!GLEW_VERSION_3_2) {
-		/* provide input/output layout info */
-		glProgramParameteriEXT(program,
-		                       GL_GEOMETRY_INPUT_TYPE_EXT,
-		                       GL_LINES_ADJACENCY_EXT);
-
-		bool wireframe = strstr(define, "WIREFRAME") != NULL;
-
-		glProgramParameteriEXT(program,
-		                       GL_GEOMETRY_OUTPUT_TYPE_EXT,
-		                       wireframe ? GL_LINE_STRIP : GL_TRIANGLE_STRIP);
-
-		glProgramParameteriEXT(program,
-		                       GL_GEOMETRY_VERTICES_OUT_EXT,
-		                       8);
-	}
 
 	glLinkProgram(program);
 
@@ -314,17 +296,26 @@ GLuint linkProgram(const char *version, const char *define)
 	                      glGetUniformBlockIndex(program, "Lighting"),
 	                      0);
 
-	glProgramUniform1i(program,
-	                   glGetUniformLocation(program, "texture_buffer"),
-	                   0);  /* GL_TEXTURE0 */
+	if (GLEW_VERSION_4_1) {
+		glProgramUniform1i(program,
+		                   glGetUniformLocation(program, "texture_buffer"),
+		                   0);  /* GL_TEXTURE0 */
 
-	glProgramUniform1i(program,
-	                   glGetUniformLocation(program, "FVarDataOffsetBuffer"),
-	                   30);  /* GL_TEXTURE30 */
+		glProgramUniform1i(program,
+		                   glGetUniformLocation(program, "FVarDataOffsetBuffer"),
+		                   30);  /* GL_TEXTURE30 */
 
-	glProgramUniform1i(program,
-	                   glGetUniformLocation(program, "FVarDataBuffer"),
-	                   31);  /* GL_TEXTURE31 */
+		glProgramUniform1i(program,
+		                   glGetUniformLocation(program, "FVarDataBuffer"),
+		                   31);  /* GL_TEXTURE31 */
+	}
+	else {
+		glUseProgram(program);
+		glUniform1i(glGetUniformLocation(program, "texture_buffer"), 0);  /* GL_TEXTURE0 */
+		glUniform1i(glGetUniformLocation(program, "FVarDataOffsetBuffer"), 30);  /* GL_TEXTURE30 */
+		glUniform1i(glGetUniformLocation(program, "FVarDataBuffer"), 31);  /* GL_TEXTURE31 */
+		glUseProgram(0);
+	}
 
 	return program;
 }
@@ -353,10 +344,8 @@ void bindProgram(OpenSubdiv_GLMesh *gl_mesh, int program)
 	glBindBufferBase(GL_UNIFORM_BUFFER, 0, g_lighting_ub);
 
 	/* Color */
-	GLboolean use_lighting;
-	glGetBooleanv(GL_LIGHTING, &use_lighting);
-
-	if (use_lighting) {
+	{
+		/* TODO: stop using glGetMaterial */
 		float color[4];
 		glGetMaterialfv(GL_FRONT, GL_DIFFUSE, color);
 		glUniform4fv(glGetUniformLocation(program, "diffuse"), 1, color);
@@ -366,11 +355,6 @@ void bindProgram(OpenSubdiv_GLMesh *gl_mesh, int program)
 
 		glGetMaterialfv(GL_FRONT, GL_SHININESS, color);
 		glUniform1f(glGetUniformLocation(program, "shininess"), color[0]);
-	}
-	else {
-		float color[4];
-		glGetFloatv(GL_CURRENT_COLOR, color);
-		glUniform4fv(glGetUniformLocation(program, "diffuse"), 1, color);
 	}
 
 	/* Face-vertex data */
@@ -409,11 +393,10 @@ bool openSubdiv_osdGLDisplayInit(void)
 {
 	static bool need_init = true;
 	static bool init_success = false;
-	if (need_init) {
 
-		if (!openSubdiv_supportGPUDisplay()) {
-			return false;
-		}
+	if (need_init) {
+		/* TODO: update OSD drawing to OpenGL 3.3 core, then remove following line */
+		return false;
 
 		const char *version = "";
 		if (GLEW_VERSION_3_2) {
@@ -538,6 +521,7 @@ void openSubdiv_osdGLMeshDisplayPrepare(int use_osd_glsl,
 			g_lighting_data.num_enabled++;
 		}
 
+		/* TODO: stop using glGetLight */
 		glGetLightfv(GL_LIGHT0 + i,
 		             GL_POSITION,
 		             g_lighting_data.lights[i].position);
@@ -635,31 +619,24 @@ static GLuint prepare_patchDraw(OpenSubdiv_GLMesh *gl_mesh,
 		GLboolean use_texture_2d, use_lighting;
 		glGetIntegerv(GL_SHADE_MODEL, &model);
 		glGetBooleanv(GL_TEXTURE_2D, &use_texture_2d);
-		glGetBooleanv(GL_LIGHTING, &use_lighting);
+
 		if (model == GL_FLAT) {
 			if (use_texture_2d) {
-				program = use_lighting
-				                  ? g_flat_fill_texture2d_program
-				                  : g_flat_fill_texture2d_shadeless_program;
+				program = g_flat_fill_texture2d_program;
 			}
 			else {
-				program = use_lighting
-				                  ? g_flat_fill_solid_program
-				                  : g_flat_fill_solid_shadeless_program;
+				program = g_flat_fill_solid_program;
 			}
 		}
 		else {
 			if (use_texture_2d) {
-				program = use_lighting
-				                  ? g_smooth_fill_texture2d_program
-				                  : g_smooth_fill_texture2d_shadeless_program;
+				program = g_smooth_fill_texture2d_program;
 			}
 			else {
-				program = use_lighting
-				                  ? g_smooth_fill_solid_program
-				                  : g_smooth_fill_solid_shadeless_program;
+				program = g_smooth_fill_solid_program;
 			}
 		}
+
 	}
 	else {
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);

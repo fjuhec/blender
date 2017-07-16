@@ -30,16 +30,9 @@
 
 #pragma once
 
-#include "intern/depsgraph_types.h"
-
-struct FCurve;
-
 namespace DEG {
 
 struct Depsgraph;
-
-/* Get unique identifier for FCurves and Drivers */
-string deg_fcurve_id_name(const FCurve *fcu);
 
 void deg_graph_build_finalize(struct Depsgraph *graph);
 

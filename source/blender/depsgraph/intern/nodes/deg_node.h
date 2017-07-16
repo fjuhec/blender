@@ -32,6 +32,8 @@
 
 #include "intern/depsgraph_types.h"
 
+#include "BLI_utildefines.h"
+
 struct ID;
 struct GHash;
 struct Scene;
@@ -57,7 +59,7 @@ struct DepsNode {
 	};
 
 	/* Identifier - mainly for debugging purposes. */
-	string name;
+	const char *name;
 
 	/* Structural type of node. */
 	eDepsNode_Type type;
@@ -78,8 +80,9 @@ struct DepsNode {
 	/* Nodes which depend on this one. */
 	Relations outlinks;
 
-	/* Generic tag for traversal algorithms */
+	/* Generic tags for traversal algorithms. */
 	int done;
+	int tag;
 
 	/* Methods. */
 
@@ -90,7 +93,7 @@ struct DepsNode {
 	string full_identifier() const;
 
 	virtual void init(const ID * /*id*/,
-	                  const string &/*subdata*/) {}
+	                  const char * /*subdata*/) {}
 
 	virtual void tag_update(Depsgraph * /*graph*/) {}
 
@@ -124,59 +127,34 @@ struct TimeSourceDepsNode : public DepsNode {
 	DEG_DEPSNODE_DECLARE;
 };
 
-/* Root Node. */
-struct RootDepsNode : public DepsNode {
-	RootDepsNode();
-	~RootDepsNode();
-
-	TimeSourceDepsNode *add_time_source(const string &name = "");
-
-	/* scene that this corresponds to */
-	Scene *scene;
-
-	/* Entrypoint node for time-changed. */
-	TimeSourceDepsNode *time_source;
-
-	DEG_DEPSNODE_DECLARE;
-};
-
 /* ID-Block Reference */
 struct IDDepsNode : public DepsNode {
 	struct ComponentIDKey {
-		ComponentIDKey(eDepsNode_Type type, const string &name = "")
-		    : type(type), name(name) {}
-
-		bool operator== (const ComponentIDKey &other) const
-		{
-			return type == other.type && name == other.name;
-		}
+		ComponentIDKey(eDepsNode_Type type, const char *name = "");
+		bool operator==(const ComponentIDKey &other) const;
 
 		eDepsNode_Type type;
-		string name;
+		const char *name;
 	};
 
-	void init(const ID *id, const string &subdata);
+	void init(const ID *id, const char *subdata);
 	~IDDepsNode();
 
 	ComponentDepsNode *find_component(eDepsNode_Type type,
-	                                  const string &name = "") const;
+	                                  const char *name = "") const;
 	ComponentDepsNode *add_component(eDepsNode_Type type,
-	                                 const string &name = "");
-	void remove_component(eDepsNode_Type type, const string &name = "");
-	void clear_components();
+	                                 const char *name = "");
 
 	void tag_update(Depsgraph *graph);
 
-	void finalize_build();
+	void finalize_build(Depsgraph *graph);
 
 	/* ID Block referenced. */
-	ID *id;
+	ID *id_orig;
+	ID *id_cow;
 
 	/* Hash to make it faster to look up components. */
 	GHash *components;
-
-	/* Layers of this node with accumulated layers of it's output relations. */
-	unsigned int layers;
 
 	/* Additional flags needed for scene evaluation.
 	 * TODO(sergey): Only needed for until really granular updates
@@ -186,41 +164,6 @@ struct IDDepsNode : public DepsNode {
 
 	DEG_DEPSNODE_DECLARE;
 };
-
-/* Subgraph Reference. */
-struct SubgraphDepsNode : public DepsNode {
-	void init(const ID *id, const string &subdata);
-	~SubgraphDepsNode();
-
-	/* Instanced graph. */
-	Depsgraph *graph;
-
-	/* ID-block at root of subgraph (if applicable). */
-	ID *root_id;
-
-	/* Number of nodes which use/reference this subgraph - if just 1, it may be
-	 * possible to merge into main,
-	 */
-	size_t num_users;
-
-	/* (eSubgraphRef_Flag) assorted settings for subgraph node. */
-	int flag;
-
-	DEG_DEPSNODE_DECLARE;
-};
-
-/* Flags for subgraph node */
-typedef enum eSubgraphRef_Flag {
-	/* Subgraph referenced is shared with another reference, so shouldn't
-	 * free on exit.
-	 */
-	SUBGRAPH_FLAG_SHARED      = (1 << 0),
-
-	/* Node is first reference to subgraph, so it can be freed when we are
-	 * removed.
-	 */
-	SUBGRAPH_FLAG_FIRSTREF    = (1 << 1),
-} eSubgraphRef_Flag;
 
 void deg_register_base_depsnodes();
 

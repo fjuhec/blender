@@ -38,6 +38,7 @@
 #include "DNA_listBase.h"	
 #include "DNA_screen_types.h"
 #include "DNA_windowmanager_types.h"
+#include "DNA_workspace_types.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -51,12 +52,16 @@
 
 #include "BKE_blender.h"
 #include "BKE_context.h"
+#include "BKE_icons.h"
 #include "BKE_library.h"
 #include "BKE_global.h"
 #include "BKE_main.h"
+#include "BKE_screen.h"
+#include "BKE_workspace.h"
 
 
 #include "RNA_access.h"
+#include "RNA_define.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -66,17 +71,22 @@
 #include "wm_subwindow.h"
 #include "wm_event_system.h"
 
+#include "ED_scene.h"
 #include "ED_screen.h"
 #include "ED_fileselect.h"
 
 #include "UI_interface.h"
+#include "UI_interface_icons.h"
 
 #include "PIL_time.h"
 
 #include "GPU_draw.h"
 #include "GPU_extensions.h"
 #include "GPU_init_exit.h"
-#include "GPU_glew.h"
+#include "GPU_immediate.h"
+#include "BLF_api.h"
+
+#include "UI_resources.h"
 
 /* for assert */
 #ifndef NDEBUG
@@ -212,6 +222,7 @@ void wm_window_free(bContext *C, wmWindowManager *wm, wmWindow *win)
 
 	wm_ghostwindow_destroy(win);
 
+	BKE_workspace_instance_hook_free(G.main, win->workspace_hook);
 	MEM_freeN(win->stereo3d_format);
 
 	MEM_freeN(win);
@@ -232,35 +243,60 @@ static int find_free_winid(wmWindowManager *wm)
 /* don't change context itself */
 wmWindow *wm_window_new(bContext *C)
 {
+	Main *bmain = CTX_data_main(C);
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *win = MEM_callocN(sizeof(wmWindow), "window");
-	
+
 	BLI_addtail(&wm->windows, win);
 	win->winid = find_free_winid(wm);
 
 	win->stereo3d_format = MEM_callocN(sizeof(Stereo3dFormat), "Stereo 3D Format (window)");
+	win->workspace_hook = BKE_workspace_instance_hook_create(bmain);
 
 	return win;
 }
 
+/**
+ * A higher level version of copy that tests the new window can be added.
+ */
+static wmWindow *wm_window_new_test(bContext *C)
+{
+	wmWindow *win = wm_window_new(C);
+
+	WM_check(C);
+
+	if (win->ghostwin) {
+		WM_event_add_notifier(C, NC_WINDOW | NA_ADDED, NULL);
+		return win;
+	}
+	else {
+		wmWindowManager *wm = CTX_wm_manager(C);
+		wm_window_close(C, wm, win);
+		return NULL;
+	}
+}
 
 /* part of wm_window.c api */
-wmWindow *wm_window_copy(bContext *C, wmWindow *win_src)
+wmWindow *wm_window_copy(bContext *C, wmWindow *win_src, const bool duplicate_layout)
 {
 	wmWindow *win_dst = wm_window_new(C);
-	
+	WorkSpace *workspace = WM_window_get_active_workspace(win_src);
+	WorkSpaceLayout *layout_old = WM_window_get_active_layout(win_src);
+	Scene *scene = WM_window_get_active_scene(win_src);
+	WorkSpaceLayout *layout_new;
+	bScreen *new_screen;
+
 	win_dst->posx = win_src->posx + 10;
 	win_dst->posy = win_src->posy;
 	win_dst->sizex = win_src->sizex;
 	win_dst->sizey = win_src->sizey;
-	
-	/* duplicate assigns to window */
-	win_dst->screen = ED_screen_duplicate(win_dst, win_src->screen);
-	BLI_strncpy(win_dst->screenname, win_dst->screen->id.name + 2, sizeof(win_dst->screenname));
-	win_dst->screen->winid = win_dst->winid;
 
-	win_dst->screen->do_refresh = true;
-	win_dst->screen->do_draw = true;
+	win_dst->scene = scene;
+	WM_window_set_active_workspace(win_dst, workspace);
+	layout_new = duplicate_layout ? ED_workspace_layout_duplicate(workspace, layout_old, win_dst) : layout_old;
+	WM_window_set_active_layout(win_dst, workspace, layout_new);
+	new_screen = WM_window_get_active_screen(win_dst);
+	BLI_strncpy(win_dst->screenname, new_screen->id.name + 2, sizeof(win_dst->screenname));
 
 	win_dst->drawmethod = U.wmdrawmethod;
 
@@ -275,12 +311,12 @@ wmWindow *wm_window_copy(bContext *C, wmWindow *win_src)
  * A higher level version of copy that tests the new window can be added.
  * (called from the operator directly)
  */
-wmWindow *wm_window_copy_test(bContext *C, wmWindow *win_src)
+wmWindow *wm_window_copy_test(bContext *C, wmWindow *win_src, const bool duplicate_layout)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *win_dst;
 
-	win_dst = wm_window_copy(C, win_src);
+	win_dst = wm_window_copy(C, win_src, duplicate_layout);
 
 	WM_check(C);
 
@@ -304,14 +340,14 @@ void wm_window_close(bContext *C, wmWindowManager *wm, wmWindow *win)
 	for (tmpwin = wm->windows.first; tmpwin; tmpwin = tmpwin->next) {
 		if (tmpwin == win)
 			continue;
-		if (tmpwin->screen->temp == 0)
+		if (WM_window_is_temp_screen(tmpwin) == false)
 			break;
 	}
 
 	if (tmpwin == NULL)
 		do_exit = 1;
 	
-	if ((U.uiflag & USER_QUIT_PROMPT) && !wm->file_saved) {
+	if ((U.uiflag & USER_QUIT_PROMPT) && !wm->file_saved && !G.background) {
 		if (do_exit) {
 			if (!GHOST_confirmQuit(win->ghostwin))
 				return;
@@ -323,8 +359,10 @@ void wm_window_close(bContext *C, wmWindowManager *wm, wmWindow *win)
 		WM_exit(C);
 	}
 	else {
-		bScreen *screen = win->screen;
-		
+		bScreen *screen = WM_window_get_active_screen(win);
+		WorkSpace *workspace = WM_window_get_active_workspace(win);
+		WorkSpaceLayout *layout = BKE_workspace_active_layout_get(win->workspace_hook);
+
 		BLI_remlink(&wm->windows, win);
 		
 		wm_draw_window_clear(win);
@@ -335,8 +373,8 @@ void wm_window_close(bContext *C, wmWindowManager *wm, wmWindow *win)
 
 		/* for regular use this will _never_ be NULL,
 		 * however we may be freeing an improperly initialized window. */
-		if (win->screen) {
-			ED_screen_exit(C, win, win->screen);
+		if (screen) {
+			ED_screen_exit(C, win, screen);
 		}
 		
 		wm_window_free(C, wm, win);
@@ -344,14 +382,16 @@ void wm_window_close(bContext *C, wmWindowManager *wm, wmWindow *win)
 		/* if temp screen, delete it after window free (it stops jobs that can access it) */
 		if (screen && screen->temp) {
 			Main *bmain = CTX_data_main(C);
-			BKE_libblock_free(bmain, screen);
+
+			BLI_assert(BKE_workspace_layout_screen_get(layout) == screen);
+			BKE_workspace_layout_remove(bmain, workspace, layout);
 		}
-	}		
+	}
 }
 
 void wm_window_title(wmWindowManager *wm, wmWindow *win)
 {
-	if (win->screen && win->screen->temp) {
+	if (WM_window_is_temp_screen(win)) {
 		/* nothing to do for 'temp' windows,
 		 * because WM_window_open_temp always sets window title  */
 	}
@@ -374,14 +414,41 @@ void wm_window_title(wmWindowManager *wm, wmWindow *win)
 	}
 }
 
-static float wm_window_get_virtual_pixelsize(void)
+void WM_window_set_dpi(wmWindow *win)
 {
-	return ((U.virtual_pixel == VIRTUAL_PIXEL_NATIVE) ? 1.0f : 2.0f);
-}
+	int auto_dpi = GHOST_GetDPIHint(win->ghostwin);
 
-float wm_window_pixelsize(wmWindow *win)
-{
-	return (GHOST_GetNativePixelSize(win->ghostwin) * wm_window_get_virtual_pixelsize());
+	/* Lazily init UI scale size, preserving backwards compatibility by
+	 * computing UI scale from ratio of previous DPI and auto DPI */
+	if (U.ui_scale == 0) {
+		int virtual_pixel = (U.virtual_pixel == VIRTUAL_PIXEL_NATIVE) ? 1 : 2;
+
+		if (U.dpi == 0) {
+			U.ui_scale = virtual_pixel;
+		}
+		else {
+			U.ui_scale = (virtual_pixel * U.dpi * 96.0f) / (auto_dpi * 72.0f);
+		}
+
+		CLAMP(U.ui_scale, 0.25f, 4.0f);
+	}
+
+	/* Blender's UI drawing assumes DPI 72 as a good default following macOS
+	 * while Windows and Linux use DPI 96. GHOST assumes a default 96 so we
+	 * remap the DPI to Blender's convention. */
+	int dpi = auto_dpi * U.ui_scale * (72.0 / 96.0f);
+
+	/* Automatically set larger pixel size for high DPI. */
+	int pixelsize = MAX2(1, dpi / 54);
+
+	/* Set user preferences globals for drawing, and for forward compatibility. */
+	U.pixelsize = GHOST_GetNativePixelSize(win->ghostwin) * pixelsize;
+	U.dpi = dpi / pixelsize;
+	U.virtual_pixel = (pixelsize == 1) ? VIRTUAL_PIXEL_NATIVE : VIRTUAL_PIXEL_DOUBLE;
+	U.widget_unit = (U.pixelsize * U.dpi * 20 + 36) / 72;
+
+	/* update font drawing */
+	BLF_default_dpi(U.pixelsize * U.dpi);
 }
 
 /* belongs to below */
@@ -456,10 +523,8 @@ static void wm_window_ghostwindow_add(wmWindowManager *wm, const char *title, wm
 			glClear(GL_COLOR_BUFFER_BIT);
 		}
 		
-		/* displays with larger native pixels, like Macbook. Used to scale dpi with */
 		/* needed here, because it's used before it reads userdef */
-		U.pixelsize = wm_window_pixelsize(win);
-		BKE_blender_userdef_refresh();
+		WM_window_set_dpi(win);
 		
 		wm_window_swap_buffers(win);
 		
@@ -618,22 +683,36 @@ wmWindow *WM_window_open(bContext *C, const rcti *rect)
  * \param type: WM_WINDOW_RENDER, WM_WINDOW_USERPREFS...
  * \return the window or NULL.
  */
-wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
+wmWindow *WM_window_open_temp(bContext *C, int x, int y, int sizex, int sizey, int type)
 {
+	Main *bmain = CTX_data_main(C);
 	wmWindow *win_prev = CTX_wm_window(C);
 	wmWindow *win;
+	bScreen *screen;
 	ScrArea *sa;
 	Scene *scene = CTX_data_scene(C);
 	const char *title;
-	rcti rect = *rect_init;
-	const short px_virtual = (short)wm_window_get_virtual_pixelsize();
+
+	/* convert to native OS window coordinates */
+	const float native_pixel_size = GHOST_GetNativePixelSize(win_prev->ghostwin);
+	x /= native_pixel_size;
+	y /= native_pixel_size;
+	sizex /= native_pixel_size;
+	sizey /= native_pixel_size;
+
+	/* calculate postition */
+	rcti rect;
+	rect.xmin = x + win_prev->posx - sizex / 2;
+	rect.ymin = y + win_prev->posy - sizey / 2;
+	rect.xmax = rect.xmin + sizex;
+	rect.ymax = rect.ymin + sizey;
 
 	/* changes rect to fit within desktop */
 	wm_window_check_position(&rect);
 	
 	/* test if we have a temp screen already */
 	for (win = CTX_wm_manager(C)->windows.first; win; win = win->next)
-		if (win->screen->temp)
+		if (WM_window_is_temp_screen(win))
 			break;
 	
 	/* add new window? */
@@ -644,27 +723,36 @@ wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
 		win->posy = rect.ymin;
 	}
 
-	/* multiply with virtual pixelsize, ghost handles native one (e.g. for retina) */
-	win->sizex = BLI_rcti_size_x(&rect) * px_virtual;
-	win->sizey = BLI_rcti_size_y(&rect) * px_virtual;
+	screen = WM_window_get_active_screen(win);
+
+	win->sizex = BLI_rcti_size_x(&rect);
+	win->sizey = BLI_rcti_size_y(&rect);
 
 	if (win->ghostwin) {
 		wm_window_set_size(win, win->sizex, win->sizey);
 		wm_window_raise(win);
 	}
-	
-	if (win->screen == NULL) {
-		/* add new screen */
-		win->screen = ED_screen_add(win, scene, "temp");
-	}
-	else {
-		/* switch scene for rendering */
-		if (win->screen->scene != scene)
-			ED_screen_set_scene(C, win->screen, scene);
+
+	if (WM_window_get_active_workspace(win) == NULL) {
+		WorkSpace *workspace = WM_window_get_active_workspace(win_prev);
+		WM_window_set_active_workspace(win, workspace);
 	}
 
-	win->screen->temp = 1; 
-	
+	if (screen == NULL) {
+		/* add new screen layout */
+		WorkSpace *workspace = WM_window_get_active_workspace(win);
+		WorkSpaceLayout *layout = ED_workspace_layout_add(workspace, win, "temp");
+
+		screen = BKE_workspace_layout_screen_get(layout);
+		WM_window_set_active_layout(win, workspace, layout);
+	}
+
+	if (WM_window_get_active_scene(win) != scene) {
+		WM_window_change_active_scene(bmain, C, win, scene);
+	}
+
+	screen->temp = 1;
+
 	/* make window active, and validate/resize */
 	CTX_wm_window_set(C, win);
 	WM_check(C);
@@ -676,7 +764,7 @@ wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
 	 */
 
 	/* ensure it shows the right spacetype editor */
-	sa = win->screen->areabase.first;
+	sa = screen->areabase.first;
 	CTX_wm_area_set(C, sa);
 	
 	if (type == WM_WINDOW_RENDER) {
@@ -686,7 +774,7 @@ wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
 		ED_area_newspace(C, sa, SPACE_USERPREF, false);
 	}
 	
-	ED_screen_set(C, win->screen);
+	ED_screen_change(C, screen);
 	ED_screen_refresh(CTX_wm_manager(C), win); /* test scale */
 	
 	if (sa->spacetype == SPACE_IMAGE)
@@ -722,17 +810,104 @@ int wm_window_close_exec(bContext *C, wmOperator *UNUSED(op))
 	return OPERATOR_FINISHED;
 }
 
-/* operator callback */
-int wm_window_duplicate_exec(bContext *C, wmOperator *UNUSED(op))
+static WorkSpaceLayout *wm_window_new_find_layout(wmOperator *op, WorkSpace *workspace)
 {
-	wmWindow *win_src = CTX_wm_window(C);
-	bool ok;
+	ListBase *listbase = BKE_workspace_layouts_get(workspace);
+	const int layout_id = RNA_enum_get(op->ptr, "screen");
+	int i = 0;
 
-	ok = (wm_window_copy_test(C, win_src) != NULL);
+	for (WorkSpaceLayout *layout = listbase->first; layout; layout = layout->next) {
+		if (i++ == layout_id) {
+			return layout;
+		}
+	}
 
-	return ok ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
+	BLI_assert(0);
+	return NULL;
 }
 
+/* new window operator callback */
+int wm_window_new_exec(bContext *C, wmOperator *op)
+{
+	wmWindow *win_src = CTX_wm_window(C);
+	WorkSpace *workspace = WM_window_get_active_workspace(win_src);
+	WorkSpaceLayout *layout_new = wm_window_new_find_layout(op, workspace);
+	bScreen *screen_new = BKE_workspace_layout_screen_get(layout_new);
+	wmWindow *win_dst;
+
+	if ((win_dst = wm_window_new_test(C))) {
+		if (screen_new->winid) {
+			/* layout/screen is already used, duplicate it */
+			layout_new = ED_workspace_layout_duplicate(workspace, layout_new, win_dst);
+			screen_new = BKE_workspace_layout_screen_get(layout_new);
+		}
+		/* New window with a different screen but same workspace */
+		WM_window_set_active_workspace(win_dst, workspace);
+		WM_window_set_active_screen(win_dst, workspace, screen_new);
+		win_dst->scene = win_src->scene;
+		screen_new->winid = win_dst->winid;
+		CTX_wm_window_set(C, win_dst);
+		ED_screen_refresh(CTX_wm_manager(C), win_dst);
+	}
+
+	return (win_dst != NULL) ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
+}
+
+int wm_window_new_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+{
+	wmWindow *win = CTX_wm_window(C);
+	WorkSpace *workspace = WM_window_get_active_workspace(win);
+	ListBase *listbase = BKE_workspace_layouts_get(workspace);
+
+	if (BLI_listbase_count_ex(listbase, 2) == 1) {
+		RNA_enum_set(op->ptr, "screen", 0);
+		return wm_window_new_exec(C, op);
+	}
+	else {
+		return WM_enum_search_invoke_previews(C, op, 6, 2);
+	}
+}
+
+struct EnumPropertyItem *wm_window_new_screen_itemf(
+        bContext *C, struct PointerRNA *UNUSED(ptr), struct PropertyRNA *UNUSED(prop), bool *r_free)
+{
+	wmWindow *win = CTX_wm_window(C);
+	WorkSpace *workspace = WM_window_get_active_workspace(win);
+	ListBase *listbase = BKE_workspace_layouts_get(workspace);
+	EnumPropertyItem *item = NULL;
+	EnumPropertyItem tmp = {0, "", 0, "", ""};
+	int value = 0, totitem = 0;
+	int count_act_screens = 0;
+	/* XXX setting max number of windows to 20. We'd need support
+	 * for dynamic strings in EnumPropertyItem.name to avoid this. */
+	static char active_screens[20][MAX_NAME + 12];
+
+	for (WorkSpaceLayout *layout = listbase->first; layout; layout = layout->next) {
+		bScreen *screen = BKE_workspace_layout_screen_get(layout);
+		const char *layout_name = BKE_workspace_layout_name_get(layout);
+
+		if (screen->winid) {
+			BLI_snprintf(active_screens[count_act_screens], sizeof(*active_screens), "%s (Duplicate)", layout_name);
+			tmp.name = active_screens[count_act_screens++];
+		}
+		else {
+			tmp.name = layout_name;
+		}
+
+		tmp.value = value;
+		tmp.identifier = layout_name;
+		UI_id_icon_render(C, CTX_data_scene(C), &screen->id, true, false);
+		tmp.icon = BKE_icon_id_ensure(&screen->id);
+
+		RNA_enum_item_add(&item, &totitem, &tmp);
+		value++;
+	}
+
+	RNA_enum_item_end(&item, &totitem);
+	*r_free = true;
+
+	return item;
+}
 
 /* fullscreen operator callback */
 int wm_window_fullscreen_toggle_exec(bContext *C, wmOperator *UNUSED(op))
@@ -832,11 +1007,13 @@ void wm_window_make_drawable(wmWindowManager *wm, wmWindow *win)
 		if (G.debug & G_DEBUG_EVENTS) {
 			printf("%s: set drawable %d\n", __func__, win->winid);
 		}
+
+		immDeactivate();
 		GHOST_ActivateWindowDrawingContext(win->ghostwin);
-		
+		immActivate();
+
 		/* this can change per window */
-		U.pixelsize = wm_window_pixelsize(win);
-		BKE_blender_userdef_refresh();
+		WM_window_set_dpi(win);
 	}
 }
 
@@ -1033,8 +1210,10 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 
 				/* stop screencast if resize */
 				if (type == GHOST_kEventWindowSize) {
-					WM_jobs_stop(wm, win->screen, NULL);
+					WM_jobs_stop(wm, WM_window_get_active_screen(win), NULL);
 				}
+
+				WM_window_set_dpi(win);
 				
 				/* win32: gives undefined window size when minimized */
 				if (state != GHOST_kWindowStateMinimized) {
@@ -1066,6 +1245,8 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 					    win->posx != posx ||
 					    win->posy != posy)
 					{
+						const bScreen *screen = WM_window_get_active_screen(win);
+
 						win->sizex = sizex;
 						win->sizey = sizey;
 						win->posx = posx;
@@ -1102,6 +1283,7 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 					
 						wm_window_make_drawable(wm, win);
 						wm_draw_window_clear(win);
+						BKE_icon_changed(screen->id.icon_id);
 						WM_event_add_notifier(C, NC_SCREEN | NA_EDITED, NULL);
 						WM_event_add_notifier(C, NC_WINDOW | NA_EDITED, NULL);
 						
@@ -1118,7 +1300,18 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 				}
 				break;
 			}
-				
+
+			case GHOST_kEventWindowDPIHintChanged:
+			{
+				WM_window_set_dpi(win);
+				/* font's are stored at each DPI level, without this we can easy load 100's of fonts */
+				BLF_cache_clear();
+
+				WM_main_add_notifier(NC_WINDOW, NULL);      /* full redraw */
+				WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);    /* refresh region sizes */
+				break;
+			}
+
 			case GHOST_kEventOpenMainFile:
 			{
 				PointerRNA props_ptr;
@@ -1197,23 +1390,26 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 			}
 			case GHOST_kEventNativeResolutionChange:
 			{
-				// printf("change, pixel size %f\n", GHOST_GetNativePixelSize(win->ghostwin));
-				
-				U.pixelsize = wm_window_pixelsize(win);
-				BKE_blender_userdef_refresh();
+				// only update if the actual pixel size changes
+				float prev_pixelsize = U.pixelsize;
+				WM_window_set_dpi(win);
 
-				// close all popups since they are positioned with the pixel
-				// size baked in and it's difficult to correct them
-				wmWindow *oldWindow = CTX_wm_window(C);
-				CTX_wm_window_set(C, win);
-				UI_popup_handlers_remove_all(C, &win->modalhandlers);
-				CTX_wm_window_set(C, oldWindow);
+				if (U.pixelsize != prev_pixelsize) {
+					BKE_icon_changed(WM_window_get_active_screen(win)->id.icon_id);
 
-				wm_window_make_drawable(wm, win);
-				wm_draw_window_clear(win);
+					// close all popups since they are positioned with the pixel
+					// size baked in and it's difficult to correct them
+					wmWindow *oldWindow = CTX_wm_window(C);
+					CTX_wm_window_set(C, win);
+					UI_popup_handlers_remove_all(C, &win->modalhandlers);
+					CTX_wm_window_set(C, oldWindow);
 
-				WM_event_add_notifier(C, NC_SCREEN | NA_EDITED, NULL);
-				WM_event_add_notifier(C, NC_WINDOW | NA_EDITED, NULL);
+					wm_window_make_drawable(wm, win);
+					wm_draw_window_clear(win);
+
+					WM_event_add_notifier(C, NC_SCREEN | NA_EDITED, NULL);
+					WM_event_add_notifier(C, NC_WINDOW | NA_EDITED, NULL);
+				}
 
 				break;
 			}
@@ -1704,6 +1900,86 @@ int WM_window_pixels_y(wmWindow *win)
 bool WM_window_is_fullscreen(wmWindow *win)
 {
 	return win->windowstate == GHOST_kWindowStateFullScreen;
+}
+
+/**
+ * Some editor data may need to be synced with scene data (3D View camera and layers).
+ * This function ensures data is synced for editors in visible workspaces and their visible layouts.
+ */
+void WM_windows_scene_data_sync(const ListBase *win_lb, Scene *scene)
+{
+	for (wmWindow *win = win_lb->first; win; win = win->next) {
+		if (WM_window_get_active_scene(win) == scene) {
+			ED_workspace_scene_data_sync(win->workspace_hook, scene);
+		}
+	}
+}
+
+Scene *WM_windows_scene_get_from_screen(const wmWindowManager *wm, const bScreen *screen)
+{
+	for (wmWindow *win = wm->windows.first; win; win = win->next) {
+		if (WM_window_get_active_screen(win) == screen) {
+			return WM_window_get_active_scene(win);
+		}
+	}
+
+	return NULL;
+}
+
+Scene *WM_window_get_active_scene(const wmWindow *win)
+{
+	return win->scene;
+}
+
+/**
+ * \warning Only call outside of area/region loops
+ */
+void WM_window_change_active_scene(Main *bmain, bContext *C, wmWindow *win, Scene *scene_new)
+{
+	const bScreen *screen = WM_window_get_active_screen(win);
+
+	ED_scene_exit(C);
+	win->scene = scene_new;
+	ED_scene_changed_update(bmain, C, scene_new, screen);
+}
+
+WorkSpace *WM_window_get_active_workspace(const wmWindow *win)
+{
+	return BKE_workspace_active_get(win->workspace_hook);
+}
+void WM_window_set_active_workspace(wmWindow *win, WorkSpace *workspace)
+{
+	BKE_workspace_active_set(win->workspace_hook, workspace);
+}
+
+WorkSpaceLayout *WM_window_get_active_layout(const wmWindow *win)
+{
+	const WorkSpace *workspace = WM_window_get_active_workspace(win);
+	return (LIKELY(workspace != NULL) ? BKE_workspace_active_layout_get(win->workspace_hook): NULL);
+}
+void WM_window_set_active_layout(wmWindow *win, WorkSpace *workspace, WorkSpaceLayout *layout)
+{
+	BKE_workspace_hook_layout_for_workspace_set(win->workspace_hook, workspace, layout);
+}
+
+/**
+ * Get the active screen of the active workspace in \a win.
+ */
+bScreen *WM_window_get_active_screen(const wmWindow *win)
+{
+	const WorkSpace *workspace = WM_window_get_active_workspace(win);
+	/* May be NULL in rare cases like closing Blender */
+	return (LIKELY(workspace != NULL) ? BKE_workspace_active_screen_get(win->workspace_hook) : NULL);
+}
+void WM_window_set_active_screen(wmWindow *win, WorkSpace *workspace, bScreen *screen)
+{
+	BKE_workspace_active_screen_set(win->workspace_hook, workspace, screen);
+}
+
+bool WM_window_is_temp_screen(const wmWindow *win)
+{
+	const bScreen *screen = WM_window_get_active_screen(win);
+	return (screen && screen->temp != 0);
 }
 
 

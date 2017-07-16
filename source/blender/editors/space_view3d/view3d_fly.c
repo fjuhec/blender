@@ -26,8 +26,10 @@
 
 /* defines VIEW3D_OT_fly modal operator */
 
-//#define NDOF_FLY_DEBUG
-//#define NDOF_FLY_DRAW_TOOMUCH  /* is this needed for ndof? - commented so redraw doesnt thrash - campbell */
+#ifdef WITH_INPUT_NDOF
+//#  define NDOF_FLY_DEBUG
+//#  define NDOF_FLY_DRAW_TOOMUCH  /* is this needed for ndof? - commented so redraw doesnt thrash - campbell */
+#endif /* WITH_INPUT_NDOF */
 
 #include "DNA_object_types.h"
 
@@ -53,6 +55,8 @@
 
 #include "UI_interface.h"
 #include "UI_resources.h"
+
+#include "GPU_immediate.h"
 
 #include "view3d_intern.h"  /* own include */
 
@@ -203,7 +207,10 @@ typedef struct FlyInfo {
 	int mval[2]; /* latest 2D mouse values */
 	int center_mval[2]; /* center mouse values */
 	float width, height; /* camera viewport dimensions */
+
+#ifdef WITH_INPUT_NDOF
 	wmNDOFMotionData *ndof;  /* latest 3D mouse values */
+#endif
 
 	/* fly state state */
 	float speed; /* the speed the view is moving per redraw */
@@ -252,36 +259,45 @@ static void drawFlyPixel(const struct bContext *UNUSED(C), ARegion *UNUSED(ar), 
 	x2 = xoff + 0.55f * fly->width;
 	y2 = yoff + 0.55f * fly->height;
 
-	UI_ThemeColor(TH_VIEW_OVERLAY);
-	glBegin(GL_LINES);
-	/* bottom left */
-	glVertex2f(x1, y1);
-	glVertex2f(x1, y1 + 5);
+	Gwn_VertFormat *format = immVertexFormat();
+	unsigned int pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
 
-	glVertex2f(x1, y1);
-	glVertex2f(x1 + 5, y1);
+	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+
+	immUniformThemeColor(TH_VIEW_OVERLAY);
+
+	immBegin(GWN_PRIM_LINES, 16);
+
+	/* bottom left */
+	immVertex2f(pos, x1, y1);
+	immVertex2f(pos, x1, y1 + 5);
+
+	immVertex2f(pos, x1, y1);
+	immVertex2f(pos, x1 + 5, y1);
 
 	/* top right */
-	glVertex2f(x2, y2);
-	glVertex2f(x2, y2 - 5);
+	immVertex2f(pos, x2, y2);
+	immVertex2f(pos, x2, y2 - 5);
 
-	glVertex2f(x2, y2);
-	glVertex2f(x2 - 5, y2);
+	immVertex2f(pos, x2, y2);
+	immVertex2f(pos, x2 - 5, y2);
 
 	/* top left */
-	glVertex2f(x1, y2);
-	glVertex2f(x1, y2 - 5);
+	immVertex2f(pos, x1, y2);
+	immVertex2f(pos, x1, y2 - 5);
 
-	glVertex2f(x1, y2);
-	glVertex2f(x1 + 5, y2);
+	immVertex2f(pos, x1, y2);
+	immVertex2f(pos, x1 + 5, y2);
 
 	/* bottom right */
-	glVertex2f(x2, y1);
-	glVertex2f(x2, y1 + 5);
+	immVertex2f(pos, x2, y1);
+	immVertex2f(pos, x2, y1 + 5);
 
-	glVertex2f(x2, y1);
-	glVertex2f(x2 - 5, y1);
-	glEnd();
+	immVertex2f(pos, x2, y1);
+	immVertex2f(pos, x2 - 5, y1);
+
+	immEnd();
+	immUnbindProgram();
 }
 
 static void fly_update_header(bContext *C, wmOperator *op, FlyInfo *fly)
@@ -381,7 +397,10 @@ static bool initFlyInfo(bContext *C, FlyInfo *fly, wmOperator *op, const wmEvent
 	fly->timer = WM_event_add_timer(CTX_wm_manager(C), win, TIMER, 0.01f);
 
 	copy_v2_v2_int(fly->mval, event->mval);
+
+#ifdef WITH_INPUT_NDOF
 	fly->ndof = NULL;
+#endif
 
 	fly->time_lastdraw = fly->time_lastwheel = PIL_check_seconds_timer();
 
@@ -449,8 +468,10 @@ static int flyEnd(bContext *C, FlyInfo *fly)
 
 	rv3d->rflag &= ~RV3D_NAVIGATING;
 
+#ifdef WITH_INPUT_NDOF
 	if (fly->ndof)
 		MEM_freeN(fly->ndof);
+#endif
 
 	if (fly->state == FLY_CONFIRM) {
 		MEM_freeN(fly);
@@ -469,6 +490,7 @@ static void flyEvent(bContext *C, wmOperator *op, FlyInfo *fly, const wmEvent *e
 	else if (event->type == MOUSEMOVE) {
 		copy_v2_v2_int(fly->mval, event->mval);
 	}
+#ifdef WITH_INPUT_NDOF
 	else if (event->type == NDOF_MOTION) {
 		/* do these automagically get delivered? yes. */
 		// puts("ndof motion detected in fly mode!");
@@ -478,15 +500,15 @@ static void flyEvent(bContext *C, wmOperator *op, FlyInfo *fly, const wmEvent *e
 		switch (incoming_ndof->progress) {
 			case P_STARTING:
 				/* start keeping track of 3D mouse position */
-#ifdef NDOF_FLY_DEBUG
+#  ifdef NDOF_FLY_DEBUG
 				puts("start keeping track of 3D mouse position");
-#endif
+#  endif
 				/* fall-through */
 			case P_IN_PROGRESS:
 				/* update 3D mouse position */
-#ifdef NDOF_FLY_DEBUG
+#  ifdef NDOF_FLY_DEBUG
 				putchar('.'); fflush(stdout);
-#endif
+#  endif
 				if (fly->ndof == NULL) {
 					// fly->ndof = MEM_mallocN(sizeof(wmNDOFMotionData), tag_name);
 					fly->ndof = MEM_dupallocN(incoming_ndof);
@@ -498,9 +520,9 @@ static void flyEvent(bContext *C, wmOperator *op, FlyInfo *fly, const wmEvent *e
 				break;
 			case P_FINISHING:
 				/* stop keeping track of 3D mouse position */
-#ifdef NDOF_FLY_DEBUG
+#  ifdef NDOF_FLY_DEBUG
 				puts("stop keeping track of 3D mouse position");
-#endif
+#  endif
 				if (fly->ndof) {
 					MEM_freeN(fly->ndof);
 					// free(fly->ndof);
@@ -513,6 +535,7 @@ static void flyEvent(bContext *C, wmOperator *op, FlyInfo *fly, const wmEvent *e
 				break; /* should always be one of the above 3 */
 		}
 	}
+#endif /* WITH_INPUT_NDOF */
 	/* handle modal keymap first */
 	else if (event->type == EVT_MODAL_MAP) {
 		switch (event->val) {
@@ -959,6 +982,7 @@ static int flyApply(bContext *C, FlyInfo *fly)
 	return OPERATOR_FINISHED;
 }
 
+#ifdef WITH_INPUT_NDOF
 static void flyApply_ndof(bContext *C, FlyInfo *fly)
 {
 	Object *lock_ob = ED_view3d_cameracontrol_object_get(fly->v3d_camera_control);
@@ -977,6 +1001,7 @@ static void flyApply_ndof(bContext *C, FlyInfo *fly)
 		}
 	}
 }
+#endif /* WITH_INPUT_NDOF */
 
 static int fly_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
@@ -1023,12 +1048,15 @@ static int fly_modal(bContext *C, wmOperator *op, const wmEvent *event)
 
 	flyEvent(C, op, fly, event);
 
+#ifdef WITH_INPUT_NDOF
 	if (fly->ndof) { /* 3D mouse overrules [2D mouse + timer] */
 		if (event->type == NDOF_MOTION) {
 			flyApply_ndof(C, fly);
 		}
 	}
-	else if (event->type == TIMER && event->customdata == fly->timer) {
+	else
+#endif /* WITH_INPUT_NDOF */
+	if (event->type == TIMER && event->customdata == fly->timer) {
 		flyApply(C, fly);
 	}
 

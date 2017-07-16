@@ -25,12 +25,15 @@
 
 set(INC
 	.
+	manipulators
+	manipulators/intern
 	../blenfont
 	../blenkernel
 	../blenlib
 	../blenloader
 	../blentranslation
 	../compositor
+	../depsgraph
 	../editors/include
 	../gpu
 	../imbuf
@@ -68,6 +71,12 @@ set(SRC
 	intern/wm_subwindow.c
 	intern/wm_window.c
 	intern/wm_stereo.c
+	manipulators/intern/wm_manipulator.c
+	manipulators/intern/wm_manipulator_group.c
+	manipulators/intern/wm_manipulator_group_type.c
+	manipulators/intern/wm_manipulator_map.c
+	manipulators/intern/wm_manipulator_target_props.c
+	manipulators/intern/wm_manipulator_type.c
 
 	WM_api.h
 	WM_keymap.h
@@ -80,6 +89,11 @@ set(SRC
 	wm_files.h
 	wm_subwindow.h
 	wm_window.h
+	manipulators/WM_manipulator_api.h
+	manipulators/WM_manipulator_types.h
+	manipulators/wm_manipulator_fn.h
+	manipulators/wm_manipulator_wmapi.h
+	manipulators/intern/wm_manipulator_intern.h
 )
 
 if(WITH_AUDASPACE)
@@ -128,10 +142,6 @@ if(WITH_PYTHON)
 		../python
 	)
 	add_definitions(-DWITH_PYTHON)
-
-	if(WITH_PYTHON_SECURITY)
-		add_definitions(-DWITH_PYTHON_SECURITY)
-	endif()
 endif()
 
 if(WITH_GAMEENGINE)
@@ -144,6 +154,10 @@ endif()
 
 if(WITH_OPENSUBDIV)
 	add_definitions(-DWITH_OPENSUBDIV)
+endif()
+
+if(WITH_INPUT_NDOF)
+	add_definitions(-DWITH_INPUT_NDOF)
 endif()
 
 if(WIN32)

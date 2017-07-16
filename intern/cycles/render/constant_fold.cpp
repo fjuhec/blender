@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include "constant_fold.h"
-#include "graph.h"
+#include "render/constant_fold.h"
+#include "render/graph.h"
 
-#include "util_foreach.h"
-#include "util_logging.h"
+#include "util/util_foreach.h"
+#include "util/util_logging.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -89,6 +89,19 @@ void ConstantFolder::make_zero() const
 	}
 }
 
+void ConstantFolder::make_one() const
+{
+	if(output->type() == SocketType::FLOAT) {
+		make_constant(1.0f);
+	}
+	else if(SocketType::is_float3(output->type())) {
+		make_constant(make_float3(1.0f, 1.0f, 1.0f));
+	}
+	else {
+		assert(0);
+	}
+}
+
 void ConstantFolder::bypass(ShaderOutput *new_output) const
 {
 	assert(new_output);
@@ -146,6 +159,14 @@ bool ConstantFolder::try_bypass_or_make_constant(ShaderInput *input, bool clamp)
 	else if(!clamp) {
 		bypass(input->link);
 		return true;
+	}
+	else {
+		/* disconnect other inputs if we can't fully bypass due to clamp */
+		foreach(ShaderInput *other, node->inputs) {
+			if(other != input && other->link) {
+				graph->disconnect(other);
+			}
+		}
 	}
 
 	return false;
@@ -321,6 +342,15 @@ void ConstantFolder::fold_math(NodeMath type, bool clamp) const
 				make_zero();
 			}
 			break;
+		case NODE_MATH_POWER:
+			/* 1 ^ X == X ^ 0 == 1 */
+			if(is_one(value1_in) || is_zero(value2_in)) {
+				make_one();
+			}
+			/* X ^ 1 == X */
+			else if(is_one(value2_in)) {
+				try_bypass_or_make_constant(value1_in, clamp);
+			}
 		default:
 			break;
 	}

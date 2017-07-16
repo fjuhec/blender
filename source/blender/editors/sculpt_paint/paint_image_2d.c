@@ -45,12 +45,13 @@
 #include "BLI_task.h"
 
 #include "BKE_context.h"
-#include "BKE_depsgraph.h"
 #include "BKE_brush.h"
 #include "BKE_image.h"
 #include "BKE_paint.h"
 #include "BKE_report.h"
 #include "BKE_texture.h"
+
+#include "DEG_depsgraph.h"
 
 #include "ED_paint.h"
 #include "ED_screen.h"
@@ -1355,7 +1356,7 @@ void paint_2d_redraw(const bContext *C, void *ps, bool final)
 
 		/* compositor listener deals with updating */
 		WM_event_add_notifier(C, NC_IMAGE | NA_EDITED, s->image);
-		DAG_id_tag_update(&s->image->id, 0);
+		DEG_id_tag_update(&s->image->id, 0);
 	}
 	else {
 		if (!s->sima || !s->sima->lock)
@@ -1489,7 +1490,8 @@ void paint_2d_bucket_fill(
 		float image_init[2];
 		int minx = ibuf->x, miny = ibuf->y, maxx = 0, maxy = 0;
 		float pixel_color[4];
-		float threshold_sq = br->fill_threshold * br->fill_threshold;
+		/* We are comparing to sum of three squared values (assumed in range [0,1]), so need to multiply... */
+		float threshold_sq = br->fill_threshold * br->fill_threshold * 3;
 
 		UI_view2d_region_to_view(s->v2d, mouse_init[0], mouse_init[1], &image_init[0], &image_init[1]);
 

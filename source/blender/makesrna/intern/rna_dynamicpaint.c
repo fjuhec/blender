@@ -55,9 +55,10 @@ EnumPropertyItem rna_enum_prop_dynamicpaint_type_items[] = {
 #ifdef RNA_RUNTIME
 
 #include "BKE_context.h"
-#include "BKE_depsgraph.h"
 #include "BKE_particle.h"
 
+#include "DEG_depsgraph.h"
+#include "DEG_depsgraph_build.h"
 
 static char *rna_DynamicPaintCanvasSettings_path(PointerRNA *ptr)
 {
@@ -98,7 +99,7 @@ static char *rna_DynamicPaintSurface_path(PointerRNA *ptr)
 
 static void rna_DynamicPaint_redoModifier(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
 {
-	DAG_id_tag_update(ptr->id.data, OB_RECALC_DATA);
+	DEG_id_tag_update(ptr->id.data, OB_RECALC_DATA);
 }
 
 static void rna_DynamicPaintSurfaces_updateFrames(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
@@ -160,7 +161,7 @@ static void rna_DynamicPaintSurfaces_changeFormat(Main *bmain, Scene *scene, Poi
 static void rna_DynamicPaint_reset_dependency(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
 	rna_DynamicPaintSurface_reset(bmain, scene, ptr);
-	DAG_relations_tag_update(bmain);
+	DEG_relations_tag_update(bmain);
 }
 
 static PointerRNA rna_PaintSurface_active_get(PointerRNA *ptr)
@@ -651,9 +652,9 @@ static void rna_def_canvas_surface(BlenderRNA *brna)
 	func = RNA_def_function(srna, "output_exists", "rna_DynamicPaint_is_output_exists");
 	RNA_def_function_ui_description(func, "Checks if surface output layer of given name exists");
 	parm = RNA_def_pointer(func, "object", "Object", "", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 	parm = RNA_def_int(func, "index", 0, 0, 1, "Index", "", 0, 1);
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	/* return type */
 	parm = RNA_def_boolean(func, "exists", 0, "", "");
 	RNA_def_function_return(func, parm);

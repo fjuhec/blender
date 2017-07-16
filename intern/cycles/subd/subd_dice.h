@@ -22,8 +22,8 @@
  * DiagSplit. For more algorithm details, see the DiagSplit paper or the
  * ARB_tessellation_shader OpenGL extension, Section 2.X.2. */
 
-#include "util_types.h"
-#include "util_vector.h"
+#include "util/util_types.h"
+#include "util/util_vector.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -49,7 +49,7 @@ struct SubdParams {
 
 		test_steps = 3;
 		split_threshold = 1;
-		dicing_rate = 0.1f;
+		dicing_rate = 1.0f;
 		max_level = 12;
 		camera = NULL;
 	}

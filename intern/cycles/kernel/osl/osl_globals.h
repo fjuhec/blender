@@ -21,10 +21,10 @@
 
 #include <OSL/oslexec.h>
 
-#include "util_map.h"
-#include "util_param.h"
-#include "util_thread.h"
-#include "util_vector.h"
+#include "util/util_map.h"
+#include "util/util_param.h"
+#include "util/util_thread.h"
+#include "util/util_vector.h"
 
 #ifndef WIN32
 using std::isfinite;
@@ -54,6 +54,7 @@ struct OSLGlobals {
 	vector<OSL::ShaderGroupRef> surface_state;
 	vector<OSL::ShaderGroupRef> volume_state;
 	vector<OSL::ShaderGroupRef> displacement_state;
+	vector<OSL::ShaderGroupRef> bump_state;
 	OSL::ShaderGroupRef background_state;
 
 	/* attributes */

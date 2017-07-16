@@ -32,20 +32,24 @@
 
 #include "intern/depsgraph_types.h"
 
-struct Base;
 struct CacheFile;
 struct bGPdata;
 struct ListBase;
 struct GHash;
 struct ID;
+struct Image;
 struct FCurve;
 struct Group;
 struct Key;
+struct LayerCollection;
 struct Main;
 struct Material;
+struct Mask;
 struct MTex;
+struct MovieClip;
 struct bNodeTree;
 struct Object;
+struct Probe;
 struct bPoseChannel;
 struct bConstraint;
 struct Scene;
@@ -58,8 +62,6 @@ namespace DEG {
 
 struct Depsgraph;
 struct DepsNode;
-struct RootDepsNode;
-struct SubgraphDepsNode;
 struct IDDepsNode;
 struct TimeSourceDepsNode;
 struct ComponentDepsNode;
@@ -69,59 +71,70 @@ struct DepsgraphNodeBuilder {
 	DepsgraphNodeBuilder(Main *bmain, Depsgraph *graph);
 	~DepsgraphNodeBuilder();
 
-	RootDepsNode *add_root_node();
+	void begin_build(Main *bmain);
+
+	ID *get_cow_id(const ID *id_orig) const;
+
+	template<typename T>
+	T *get_cow_datablock(const T *orig) const {
+		return (T *)get_cow_id(&orig->id);
+	}
+
 	IDDepsNode *add_id_node(ID *id);
-	TimeSourceDepsNode *add_time_source(ID *id);
+	TimeSourceDepsNode *add_time_source();
 
 	ComponentDepsNode *add_component_node(ID *id,
 	                                      eDepsNode_Type comp_type,
-	                                      const string& comp_name = "");
+	                                      const char *comp_name = "");
 
 	OperationDepsNode *add_operation_node(ComponentDepsNode *comp_node,
-	                                      eDepsOperation_Type optype,
-	                                      DepsEvalOperationCb op,
+	                                      const DepsEvalOperationCb& op,
 	                                      eDepsOperation_Code opcode,
-	                                      const string& description = "");
+	                                      const char *name = "",
+	                                      int name_tag = -1);
 	OperationDepsNode *add_operation_node(ID *id,
 	                                      eDepsNode_Type comp_type,
-	                                      const string& comp_name,
-	                                      eDepsOperation_Type optype,
-	                                      DepsEvalOperationCb op,
+	                                      const char *comp_name,
+	                                      const DepsEvalOperationCb& op,
 	                                      eDepsOperation_Code opcode,
-	                                      const string& description = "");
+	                                      const char *name = "",
+	                                      int name_tag = -1);
 	OperationDepsNode *add_operation_node(ID *id,
 	                                      eDepsNode_Type comp_type,
-	                                      eDepsOperation_Type optype,
-	                                      DepsEvalOperationCb op,
+	                                      const DepsEvalOperationCb& op,
 	                                      eDepsOperation_Code opcode,
-	                                      const string& description = "");
+	                                      const char *name = "",
+	                                      int name_tag = -1);
 
 	bool has_operation_node(ID *id,
 	                        eDepsNode_Type comp_type,
-	                        const string& comp_name,
+	                        const char *comp_name,
 	                        eDepsOperation_Code opcode,
-	                        const string& description = "");
+	                        const char *name = "",
+	                        int name_tag = -1);
 
 	OperationDepsNode *find_operation_node(ID *id,
 	                                       eDepsNode_Type comp_type,
-	                                       const string &comp_name,
+	                                       const char *comp_name,
 	                                       eDepsOperation_Code opcode,
-	                                       const string &description = "");
+	                                       const char *name = "",
+	                                       int name_tag = -1);
 
 	OperationDepsNode *find_operation_node(ID *id,
 	                                       eDepsNode_Type comp_type,
 	                                       eDepsOperation_Code opcode,
-	                                       const string &description = "");
+	                                       const char *name = "",
+	                                       int name_tag = -1);
 
 	void build_scene(Main *bmain, Scene *scene);
-	SubgraphDepsNode *build_subgraph(Group *group);
-	void build_group(Scene *scene, Base *base, Group *group);
-	void build_object(Scene *scene, Base *base, Object *ob);
+	void build_group(Scene *scene, Group *group);
+	void build_object(Scene *scene, Object *ob);
 	void build_object_transform(Scene *scene, Object *ob);
 	void build_object_constraints(Scene *scene, Object *ob);
-	void build_pose_constraints(Object *ob, bPoseChannel *pchan);
+	void build_pose_constraints(Scene *scene, Object *ob, bPoseChannel *pchan);
 	void build_rigidbody(Scene *scene);
 	void build_particles(Scene *scene, Object *ob);
+	void build_cloth(Scene *scene, Object *object);
 	void build_animdata(ID *id);
 	OperationDepsNode *build_driver(ID *id, FCurve *fcurve);
 	void build_ik_pose(Scene *scene,
@@ -138,15 +151,30 @@ struct DepsgraphNodeBuilder {
 	void build_obdata_geom(Scene *scene, Object *ob);
 	void build_camera(Object *ob);
 	void build_lamp(Object *ob);
-	void build_nodetree(DepsNode *owner_node, bNodeTree *ntree);
-	void build_material(DepsNode *owner_node, Material *ma);
-	void build_texture(DepsNode *owner_node, Tex *tex);
-	void build_texture_stack(DepsNode *owner_node, MTex **texture_stack);
+	void build_nodetree(bNodeTree *ntree);
+	void build_material(Material *ma);
+	void build_texture(Tex *tex);
+	void build_texture_stack(MTex **texture_stack);
+	void build_image(Image *image);
 	void build_world(World *world);
 	void build_compositor(Scene *scene);
 	void build_gpencil(bGPdata *gpd);
 	void build_cachefile(CacheFile *cache_file);
+	void build_mask(Mask *mask);
+	void build_movieclip(MovieClip *clip);
+	void build_lightprobe(Object *object);
 
+	struct LayerCollectionState {
+		int index;
+		LayerCollection *parent;
+	};
+	void build_layer_collection(Scene *scene,
+	                            LayerCollection *layer_collection,
+	                            LayerCollectionState *state);
+	void build_layer_collections(Scene *scene,
+	                             ListBase *layer_collections,
+	                             LayerCollectionState *state);
+	void build_scene_layer_collections(Scene *scene);
 protected:
 	Main *m_bmain;
 	Depsgraph *m_graph;

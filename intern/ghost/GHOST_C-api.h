@@ -43,7 +43,7 @@ extern "C" {
  * Creates a "handle" for a C++ GHOST object.
  * A handle is just an opaque pointer to an empty struct.
  * In the API the pointer is casted to the actual C++ class.
- * \param name Name of the handle to create.
+ * The 'name' argument to the macro is the name of the handle to create.
  */
 
 GHOST_DECLARE_HANDLE(GHOST_SystemHandle);
@@ -433,6 +433,7 @@ extern GHOST_TSuccess GHOST_GetButtonState(GHOST_SystemHandle systemhandle,
                                            GHOST_TButtonMask mask,
                                            int *isDown);
 
+#ifdef WITH_INPUT_NDOF
 /***************************************************************************************
  * Access to 3D mouse.
  ***************************************************************************************/
@@ -442,6 +443,7 @@ extern GHOST_TSuccess GHOST_GetButtonState(GHOST_SystemHandle systemhandle,
  * \param deadzone Deadzone of the 3D mouse (both for rotation and pan) relative to full range
  */
 extern void GHOST_setNDOFDeadZone(float deadzone);
+#endif
 
 
 /***************************************************************************************
@@ -904,6 +906,11 @@ extern int GHOST_UseNativePixels(void);
  * If window was opened using native pixel size, it returns scaling factor.
  */
 extern float GHOST_GetNativePixelSize(GHOST_WindowHandle windowhandle);
+
+/**
+ * Returns the suggested DPI for this window.
+ */
+extern GHOST_TUns16 GHOST_GetDPIHint(GHOST_WindowHandle windowhandle);
 
 /**
  * Enable IME attached to the given window, i.e. allows user-input

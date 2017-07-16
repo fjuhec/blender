@@ -119,9 +119,10 @@
 #include "GPU_draw.h"
 #include "GPU_init_exit.h"
 
-#include "BKE_depsgraph.h"
 #include "BKE_sound.h"
 #include "COM_compositor.h"
+
+#include "DEG_depsgraph.h"
 
 #ifdef WITH_OPENSUBDIV
 #  include "BKE_subsurf.h"
@@ -164,24 +165,27 @@ void WM_init(bContext *C, int argc, const char **argv)
 	wm_operatortype_init();
 	WM_menutype_init();
 	WM_uilisttype_init();
+	wm_manipulatortype_init();
+	wm_manipulatorgrouptype_init();
 
 	BKE_undo_callback_wm_kill_jobs_set(wm_undo_kill_callback);
 
 	BKE_library_callback_free_window_manager_set(wm_close_and_free);   /* library.c */
 	BKE_library_callback_free_notifier_reference_set(WM_main_remove_notifier_reference);   /* library.c */
+	BKE_region_callback_free_manipulatormap_set(wm_manipulatormap_remove); /* screen.c */
 	BKE_library_callback_remap_editor_id_reference_set(WM_main_remap_editor_id_reference);   /* library.c */
 	BKE_blender_callback_test_break_set(wm_window_testbreak); /* blender.c */
 	BKE_spacedata_callback_id_remap_set(ED_spacedata_id_remap); /* screen.c */
-	DAG_editors_update_cb(ED_render_id_flush_update,
-	                      ED_render_scene_update,
-	                      ED_render_scene_update_pre); /* depsgraph.c */
+	DEG_editors_set_update_cb(ED_render_id_flush_update,
+	                          ED_render_scene_update,
+	                          ED_render_scene_update_pre);
 	
 	ED_spacetypes_init();   /* editors/space_api/spacetype.c */
 	
 	ED_file_init();         /* for fsmenu */
 	ED_node_init_butfuncs();
 	
-	BLF_init(11, U.dpi); /* Please update source/gamengine/GamePlayer/GPG_ghost.cpp if you change this */
+	BLF_init(); /* Please update source/gamengine/GamePlayer/GPG_ghost.cpp if you change this */
 	BLT_lang_init();
 
 	/* Enforce loading the UI for the initial homefile */
@@ -192,14 +196,17 @@ void WM_init(bContext *C, int argc, const char **argv)
 	wm_init_reports(C);
 
 	/* get the default database, plus a wm */
-	wm_homefile_read(C, NULL, G.factory_startup, NULL);
+	wm_homefile_read(C, NULL, G.factory_startup, false, NULL, NULL);
 	
 
 	BLT_lang_set(NULL);
 
 	if (!G.background) {
+
+#ifdef WITH_INPUT_NDOF
 		/* sets 3D mouse deadzone */
 		WM_ndof_deadzone_set(U.ndof_deadzone);
+#endif
 
 		GPU_init();
 
@@ -441,8 +448,6 @@ void WM_exit_ext(bContext *C, const bool do_python)
 {
 	wmWindowManager *wm = C ? CTX_wm_manager(C) : NULL;
 
-	BKE_sound_exit();
-
 	/* first wrap up running stuff, we assume only the active WM is running */
 	/* modal handlers are on window level freed, others too? */
 	/* note; same code copied in wm_files.c */
@@ -475,7 +480,7 @@ void WM_exit_ext(bContext *C, const bool do_python)
 			CTX_wm_window_set(C, win);  /* needed by operator close callbacks */
 			WM_event_remove_handlers(C, &win->handlers);
 			WM_event_remove_handlers(C, &win->modalhandlers);
-			ED_screen_exit(C, win, win->screen);
+			ED_screen_exit(C, win, WM_window_get_active_screen(win));
 		}
 	}
 
@@ -524,8 +529,12 @@ void WM_exit_ext(bContext *C, const bool do_python)
 	ANIM_fmodifiers_copybuf_free();
 	ED_gpencil_anim_copybuf_free();
 	ED_gpencil_strokes_copybuf_free();
-	ED_clipboard_posebuf_free();
 	BKE_node_clipboard_clear();
+
+	/* free manipulator-maps after freeing blender, so no deleted data get accessed during cleaning up of areas */
+	wm_manipulatormaptypes_free();
+	wm_manipulatorgrouptype_free();
+	wm_manipulatortype_free();
 
 	BLF_exit();
 
@@ -572,7 +581,7 @@ void WM_exit_ext(bContext *C, const bool do_python)
 	ED_file_exit(); /* for fsmenu */
 
 	UI_exit();
-	BKE_blender_userdef_free();
+	BKE_blender_userdef_free_data(&U);
 
 	RNA_exit(); /* should be after BPY_python_end so struct python slots are cleared */
 	
@@ -588,6 +597,10 @@ void WM_exit_ext(bContext *C, const bool do_python)
 	DNA_sdna_current_free();
 
 	BLI_threadapi_exit();
+
+	/* No need to call this early, rather do it late so that other pieces of Blender using sound may exit cleanly,
+	 * see also T50676. */
+	BKE_sound_exit();
 
 	BKE_blender_atexit();
 

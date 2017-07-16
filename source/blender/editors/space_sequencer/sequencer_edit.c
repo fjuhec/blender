@@ -562,7 +562,7 @@ int seq_effect_find_selected(Scene *scene, Sequence *activeseq, int type, Sequen
 			}
 			if (seq1 == NULL) seq1 = seq2;
 			if (seq3 == NULL) seq3 = seq2;
-			/* fall-through */
+			ATTR_FALLTHROUGH;
 		case 2:
 			if (seq1 == NULL || seq2 == NULL) {
 				*error_str = N_("2 selected sequence strips are needed");
@@ -1256,7 +1256,6 @@ typedef struct SlipData {
 	int num_seq;
 	bool slow;
 	int slow_offset; /* offset at the point where offset was turned on */
-	void *draw_handle;
 	NumInput num_input;
 } SlipData;
 
@@ -1289,21 +1288,6 @@ static void transseq_restore(TransSeq *ts, Sequence *seq)
 	seq->anim_startofs = ts->anim_startofs;
 	seq->anim_endofs = ts->anim_endofs;
 	seq->len = ts->len;
-}
-
-static void draw_slip_extensions(const bContext *C, ARegion *ar, void *data)
-{
-	Scene *scene = CTX_data_scene(C);
-	SlipData *td = data;
-	int i;
-
-	for (i = 0; i < td->num_seq; i++) {
-		Sequence *seq = td->seq_array[i];
-
-		if ((seq->type != SEQ_TYPE_META) && td->trim[i]) {
-			draw_sequence_extensions(scene, ar, seq);
-		}
-	}
 }
 
 static int slip_add_sequences_rec(ListBase *seqbasep, Sequence **seq_array, bool *trim, int offset, bool do_trim)
@@ -1354,7 +1338,6 @@ static int sequencer_slip_invoke(bContext *C, wmOperator *op, const wmEvent *eve
 	SlipData *data;
 	Scene *scene = CTX_data_scene(C);
 	Editing *ed = BKE_sequencer_editing_get(scene, false);
-	ARegion *ar = CTX_wm_region(C);
 	float mouseloc[2];
 	int num_seq, i;
 	View2D *v2d = UI_view2d_fromcontext(C);
@@ -1383,8 +1366,6 @@ static int sequencer_slip_invoke(bContext *C, wmOperator *op, const wmEvent *eve
 	for (i = 0; i < num_seq; i++) {
 		transseq_backup(data->ts + i, data->seq_array[i]);
 	}
-
-	data->draw_handle = ED_region_draw_cb_activate(ar->type, draw_slip_extensions, data, REGION_DRAW_POST_VIEW);
 
 	UI_view2d_region_to_view(v2d, event->mval[0], event->mval[1], &mouseloc[0], &mouseloc[1]);
 
@@ -1527,7 +1508,6 @@ static int sequencer_slip_modal(bContext *C, wmOperator *op, const wmEvent *even
 	Scene *scene = CTX_data_scene(C);
 	SlipData *data = (SlipData *)op->customdata;
 	ScrArea *sa = CTX_wm_area(C);
-	ARegion *ar = CTX_wm_region(C);
 	const bool has_numInput = hasNumInput(&data->num_input);
 	bool handled = true;
 
@@ -1585,7 +1565,6 @@ static int sequencer_slip_modal(bContext *C, wmOperator *op, const wmEvent *even
 		case RETKEY:
 		case SPACEKEY:
 		{
-			ED_region_draw_cb_exit(ar->type, data->draw_handle);
 			MEM_freeN(data->seq_array);
 			MEM_freeN(data->trim);
 			MEM_freeN(data->ts);
@@ -1613,8 +1592,6 @@ static int sequencer_slip_modal(bContext *C, wmOperator *op, const wmEvent *even
 				BKE_sequence_reload_new_file(scene, seq, false);
 				BKE_sequence_calc(scene, seq);
 			}
-
-			ED_region_draw_cb_exit(ar->type, data->draw_handle);
 
 			MEM_freeN(data->seq_array);
 			MEM_freeN(data->ts);
@@ -3352,6 +3329,9 @@ static int sequencer_swap_data_exec(bContext *C, wmOperator *op)
 	if (seq_act->sound) BKE_sound_add_scene_sound_defaults(scene, seq_act);
 	if (seq_other->sound) BKE_sound_add_scene_sound_defaults(scene, seq_other);
 
+	BKE_sequence_invalidate_cache(scene, seq_act);
+	BKE_sequence_invalidate_cache(scene, seq_other);
+
 	WM_event_add_notifier(C, NC_SCENE | ND_SEQUENCER, scene);
 
 	return OPERATOR_FINISHED;
@@ -3509,7 +3489,7 @@ static int sequencer_enable_proxies_exec(bContext *C, wmOperator *op)
 	bool proxy_50 = RNA_boolean_get(op->ptr, "proxy_50");
 	bool proxy_75 = RNA_boolean_get(op->ptr, "proxy_75");
 	bool proxy_100 = RNA_boolean_get(op->ptr, "proxy_100");
-	bool override = RNA_boolean_get(op->ptr, "override");
+	bool overwrite = RNA_boolean_get(op->ptr, "overwrite");
 	bool turnon = true;
 
 	if (ed == NULL || !(proxy_25 || proxy_50 || proxy_75 || proxy_100)) {
@@ -3545,7 +3525,7 @@ static int sequencer_enable_proxies_exec(bContext *C, wmOperator *op)
 				else 
 					seq->strip->proxy->build_size_flags &= ~SEQ_PROXY_IMAGE_SIZE_100;
 				
-				if (!override)
+				if (!overwrite)
 					seq->strip->proxy->build_flags |= SEQ_PROXY_SKIP_EXISTING;
 				else 
 					seq->strip->proxy->build_flags &= ~SEQ_PROXY_SKIP_EXISTING;
@@ -3577,7 +3557,7 @@ void SEQUENCER_OT_enable_proxies(wmOperatorType *ot)
 	RNA_def_boolean(ot->srna, "proxy_50", false, "50%", "");
 	RNA_def_boolean(ot->srna, "proxy_75", false, "75%", "");
 	RNA_def_boolean(ot->srna, "proxy_100", false, "100%", "");
-	RNA_def_boolean(ot->srna, "override", false, "Override", "");
+	RNA_def_boolean(ot->srna, "overwrite", false, "Overwrite", "");
 }
 
 /* change ops */

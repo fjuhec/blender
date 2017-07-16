@@ -32,6 +32,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_bitmap.h"
+#include "BLI_bitmap_draw_2d.h"
 #include "BLI_listbase.h"
 #include "BLI_linklist.h"
 #include "BLI_linklist_stack.h"
@@ -294,7 +295,7 @@ bool EDBM_backbuf_border_mask_init(ViewContext *vc, const int mcords[][2], short
 	lasso_mask_data.px = dr_mask;
 	lasso_mask_data.width = (xmax - xmin) + 1;
 
-	fill_poly_v2i_n(
+	BLI_bitmap_draw_2d_poly_v2i_n(
 	       xmin, ymin, xmax + 1, ymax + 1,
 	       mcords, tot,
 	       edbm_mask_lasso_px_cb, &lasso_mask_data);
@@ -445,6 +446,9 @@ BMVert *EDBM_vert_find_nearest_ex(
 		unsigned int index;
 		BMVert *eve;
 		
+		/* No afterqueue (yet), so we check it now, otherwise the bm_xxxofs indices are bad. */
+		ED_view3d_backbuf_validate(vc);
+
 		index = ED_view3d_backbuf_sample_rect(
 		        vc, vc->mval, dist_px, bm_wireoffs, 0xFFFFFF, &dist_test);
 		eve = index ? BM_vert_at_index_find_or_table(bm, index - 1) : NULL;
@@ -629,7 +633,8 @@ BMEdge *EDBM_edge_find_nearest_ex(
 		float dist_test = 0.0f;
 		unsigned int index;
 		BMEdge *eed;
-		
+
+		/* No afterqueue (yet), so we check it now, otherwise the bm_xxxofs indices are bad. */
 		ED_view3d_backbuf_validate(vc);
 
 		index = ED_view3d_backbuf_sample_rect(vc, vc->mval, dist_px, bm_solidoffs, bm_wireoffs, &dist_test);
@@ -984,13 +989,13 @@ static EnumPropertyItem prop_similar_types[] = {
 #endif
 
 	{SIMFACE_MATERIAL, "MATERIAL", 0, "Material", ""},
-	{SIMFACE_IMAGE, "IMAGE", 0, "Image", ""},
 	{SIMFACE_AREA, "AREA", 0, "Area", ""},
 	{SIMFACE_SIDES, "SIDES", 0, "Polygon Sides", ""},
 	{SIMFACE_PERIMETER, "PERIMETER", 0, "Perimeter", ""},
 	{SIMFACE_NORMAL, "NORMAL", 0, "Normal", ""},
 	{SIMFACE_COPLANAR, "COPLANAR", 0, "Co-planar", ""},
 	{SIMFACE_SMOOTH, "SMOOTH", 0, "Flat/Smooth", ""},
+	{SIMFACE_FACEMAP, "FACE_MAP", 0, "Face-Map", ""},
 #ifdef WITH_FREESTYLE
 	{SIMFACE_FREESTYLE, "FREESTYLE_FACE", 0, "Freestyle Face Marks", ""},
 #endif
@@ -1168,7 +1173,7 @@ static EnumPropertyItem *select_similar_type_itemf(bContext *C, PointerRNA *UNUS
 #ifdef WITH_FREESTYLE
 			const int a_end = SIMFACE_FREESTYLE;
 #else
-			const int a_end = SIMFACE_SMOOTH;
+			const int a_end = SIMFACE_FACEMAP;
 #endif
 			for (a = SIMFACE_MATERIAL; a <= a_end; a++) {
 				RNA_enum_items_add_value(&item, &totitem, prop_similar_types, a);

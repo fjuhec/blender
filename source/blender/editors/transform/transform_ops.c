@@ -160,11 +160,12 @@ EnumPropertyItem rna_enum_transform_mode_types[] =
 
 static int select_orientation_exec(bContext *C, wmOperator *op)
 {
+	View3D *v3d = CTX_wm_view3d(C);
 	int orientation = RNA_enum_get(op->ptr, "orientation");
 
-	BIF_selectTransformOrientationValue(C, orientation);
+	BIF_selectTransformOrientationValue(v3d, orientation);
 	
-	WM_event_add_notifier(C, NC_SPACE | ND_SPACE_VIEW3D, CTX_wm_view3d(C));
+	WM_event_add_notifier(C, NC_SPACE | ND_SPACE_VIEW3D, v3d);
 
 	return OPERATOR_FINISHED;
 }
@@ -206,10 +207,9 @@ static void TRANSFORM_OT_select_orientation(struct wmOperatorType *ot)
 static int delete_orientation_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	View3D *v3d = CTX_wm_view3d(C);
-	int selected_index = (v3d->twmode - V3D_MANIP_CUSTOM);
 
-	BIF_removeTransformOrientationIndex(C, selected_index);
-	
+	BIF_removeTransformOrientationIndex(C, v3d->custom_orientation_index);
+
 	WM_event_add_notifier(C, NC_SPACE | ND_SPACE_VIEW3D, v3d);
 	WM_event_add_notifier(C, NC_SCENE | NA_EDITED, CTX_data_scene(C));
 
@@ -223,18 +223,12 @@ static int delete_orientation_invoke(bContext *C, wmOperator *op, const wmEvent 
 
 static int delete_orientation_poll(bContext *C)
 {
-	int selected_index = -1;
 	View3D *v3d = CTX_wm_view3d(C);
-	
+
 	if (ED_operator_areaactive(C) == 0)
 		return 0;
-	
-	
-	if (v3d) {
-		selected_index = (v3d->twmode - V3D_MANIP_CUSTOM);
-	}
-	
-	return selected_index >= 0;
+
+	return (v3d->twmode >= V3D_MANIP_CUSTOM) && (v3d->custom_orientation_index != -1);
 }
 
 static void TRANSFORM_OT_delete_orientation(struct wmOperatorType *ot)
@@ -386,7 +380,7 @@ static int transform_modal(bContext *C, wmOperator *op, const wmEvent *event)
 	TransInfo *t = op->customdata;
 	const enum TfmMode mode_prev = t->mode;
 
-#if 0
+#if defined(WITH_INPUT_NDOF) && 0
 	// stable 2D mouse coords map to different 3D coords while the 3D mouse is active
 	// in other words, 2D deltas are no longer good enough!
 	// disable until individual 'transformers' behave better
@@ -569,6 +563,9 @@ void Transform_Properties(struct wmOperatorType *ot, int flags)
 		// Add confirm method all the time. At the end because it's not really that important and should be hidden only in log, not in keymap edit
 		/*prop =*/ RNA_def_boolean(ot->srna, "release_confirm", 0, "Confirm on Release", "Always confirm operation when releasing button");
 		//RNA_def_property_flag(prop, PROP_HIDDEN);
+
+		prop = RNA_def_boolean(ot->srna, "use_accurate", 0, "Accurate", "Use accurate transformation");
+		RNA_def_property_flag(prop, PROP_HIDDEN);
 	}
 }
 

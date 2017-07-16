@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 
-#include "background.h"
-#include "camera.h"
-#include "device.h"
-#include "graph.h"
-#include "integrator.h"
-#include "light.h"
-#include "mesh.h"
-#include "nodes.h"
-#include "object.h"
-#include "osl.h"
-#include "scene.h"
-#include "shader.h"
-#include "svm.h"
-#include "tables.h"
+#include "render/background.h"
+#include "render/camera.h"
+#include "device/device.h"
+#include "render/graph.h"
+#include "render/integrator.h"
+#include "render/light.h"
+#include "render/mesh.h"
+#include "render/nodes.h"
+#include "render/object.h"
+#include "render/osl.h"
+#include "render/scene.h"
+#include "render/shader.h"
+#include "render/svm.h"
+#include "render/tables.h"
 
-#include "util_foreach.h"
+#include "util/util_foreach.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -48,6 +48,16 @@ static float beckmann_table_slope_max()
 {
 	return 6.0;
 }
+
+
+/* MSVC 2015 needs this ugly hack to prevent a codegen bug on x86
+ * see T50176 for details
+ */
+#if defined(_MSC_VER) && (_MSC_VER == 1900)
+#  define MSVC_VOLATILE volatile
+#else
+#  define MSVC_VOLATILE
+#endif
 
 /* Paper used: Importance Sampling Microfacet-Based BSDFs with the
  * Distribution of Visible Normals. Supplemental Material 2/2.
@@ -72,7 +82,7 @@ static void beckmann_table_rows(float *table, int row_from, int row_to)
 		slope_x[0] = (double)-beckmann_table_slope_max();
 		CDF_P22_omega_i[0] = 0;
 
-		for(int index_slope_x = 1; index_slope_x < DATA_TMP_SIZE; ++index_slope_x) {
+		for(MSVC_VOLATILE int index_slope_x = 1; index_slope_x < DATA_TMP_SIZE; ++index_slope_x) {
 			/* slope_x */
 			slope_x[index_slope_x] = (double)(-beckmann_table_slope_max() + 2.0f * beckmann_table_slope_max() * index_slope_x/(DATA_TMP_SIZE - 1.0f));
 
@@ -115,6 +125,8 @@ static void beckmann_table_rows(float *table, int row_from, int row_to)
 		}
 	}
 }
+
+#undef MSVC_VOLATILE
 
 static void beckmann_table_build(vector<float>& table)
 {
@@ -194,6 +206,28 @@ Shader::~Shader()
 	delete graph_bump;
 }
 
+bool Shader::is_constant_emission(float3 *emission)
+{
+	ShaderInput *surf = graph->output()->input("Surface");
+
+	if(!surf->link || surf->link->parent->type != EmissionNode::node_type) {
+		return false;
+	}
+
+	EmissionNode *node = (EmissionNode*) surf->link->parent;
+
+	assert(node->input("Color"));
+	assert(node->input("Strength"));
+
+	if(node->input("Color")->link || node->input("Strength")->link) {
+		return false;
+	}
+
+	*emission = node->color*node->strength;
+
+	return true;
+}
+
 void Shader::set_graph(ShaderGraph *graph_)
 {
 	/* do this here already so that we can detect if mesh or object attributes
@@ -207,6 +241,10 @@ void Shader::set_graph(ShaderGraph *graph_)
 	delete graph_bump;
 	graph = graph_;
 	graph_bump = NULL;
+
+	/* Store info here before graph optimization to make sure that
+	 * nodes that get optimized away still count. */
+	has_volume_connected = (graph->output()->input("Volume")->link != NULL);
 }
 
 void Shader::tag_update(Scene *scene)
@@ -220,6 +258,16 @@ void Shader::tag_update(Scene *scene)
 	 * done in the shader manager device update. */
 	if(use_mis && has_surface_emission)
 		scene->light_manager->need_update = true;
+
+	/* Special handle of background MIS light for now: for some reason it
+	 * has use_mis set to false. We are quite close to release now, so
+	 * better to be safe.
+	 */
+	if(this == scene->default_background &&
+	   scene->light_manager->has_background_light(scene))
+	{
+		scene->light_manager->need_update = true;
+	}
 
 	/* quick detection of which kind of shaders we have to avoid loading
 	 * e.g. surface attributes when there is only a volume shader. this could
@@ -240,6 +288,10 @@ void Shader::tag_update(Scene *scene)
 	attributes.clear();
 	foreach(ShaderNode *node, graph->nodes)
 		node->attributes(this, &attributes);
+
+	if(has_displacement && displacement_method == DISPLACE_BOTH) {
+		attributes.add(ATTR_STD_POSITION_UNDISPLACED);
+	}
 	
 	/* compare if the attributes changed, mesh manager will check
 	 * need_update_attributes, update the relevant meshes and clear it. */
@@ -283,11 +335,14 @@ ShaderManager *ShaderManager::create(Scene *scene, int shadingsystem)
 	(void)shadingsystem;  /* Ignored when built without OSL. */
 
 #ifdef WITH_OSL
-	if(shadingsystem == SHADINGSYSTEM_OSL)
+	if(shadingsystem == SHADINGSYSTEM_OSL) {
 		manager = new OSLShaderManager();
+	}
 	else
 #endif
+	{
 		manager = new SVMShaderManager();
+	}
 	
 	add_default(scene);
 
@@ -296,6 +351,8 @@ ShaderManager *ShaderManager::create(Scene *scene, int shadingsystem)
 
 uint ShaderManager::get_attribute_id(ustring name)
 {
+	thread_scoped_spin_lock lock(attribute_lock_);
+
 	/* get a unique id for each name, for SVM attribute lookup */
 	AttributeIDMap::iterator it = unique_attribute_id.find(name);
 
@@ -312,14 +369,11 @@ uint ShaderManager::get_attribute_id(AttributeStandard std)
 	return (uint)std;
 }
 
-int ShaderManager::get_shader_id(Shader *shader, Mesh *mesh, bool smooth)
+int ShaderManager::get_shader_id(Shader *shader, bool smooth)
 {
 	/* get a shader id to pass to the kernel */
-	int id = shader->id*2;
-	
-	/* index depends bump since this setting is not in the shader */
-	if(mesh && shader->displacement_method != DISPLACE_TRUE)
-		id += 1;
+	int id = shader->id;
+
 	/* smooth flag */
 	if(smooth)
 		id |= SHADER_SMOOTH_NORMAL;
@@ -368,7 +422,7 @@ void ShaderManager::device_update_common(Device *device,
 	if(scene->shaders.size() == 0)
 		return;
 
-	uint shader_flag_size = scene->shaders.size()*4;
+	uint shader_flag_size = scene->shaders.size()*SHADER_SIZE;
 	uint *shader_flag = dscene->shader_flag.resize(shader_flag_size);
 	uint i = 0;
 	bool has_volumes = false;
@@ -385,15 +439,14 @@ void ShaderManager::device_update_common(Device *device,
 			flag |= SD_HAS_VOLUME;
 			has_volumes = true;
 
-			/* in this case we can assume transparent surface */
-			if(!shader->has_surface)
-				flag |= SD_HAS_ONLY_VOLUME;
-
 			/* todo: this could check more fine grained, to skip useless volumes
 			 * enclosed inside an opaque bsdf.
 			 */
 			flag |= SD_HAS_TRANSPARENT_SHADOW;
 		}
+		/* in this case we can assume transparent surface */
+		if(shader->has_volume_connected && !shader->has_surface)
+			flag |= SD_HAS_ONLY_VOLUME;
 		if(shader->heterogeneous_volume && shader->has_volume_spatial_varying)
 			flag |= SD_HETEROGENEOUS_VOLUME;
 		if(shader->has_bssrdf_bump)
@@ -406,17 +459,24 @@ void ShaderManager::device_update_common(Device *device,
 			flag |= SD_VOLUME_CUBIC;
 		if(shader->graph_bump)
 			flag |= SD_HAS_BUMP;
+		if(shader->displacement_method != DISPLACE_BUMP)
+			flag |= SD_HAS_DISPLACEMENT;
+
+		/* shader with bump mapping */
+		if(shader->displacement_method != DISPLACE_TRUE && shader->graph_bump)
+			flag |= SD_HAS_BSSRDF_BUMP;
+
+		/* constant emission check */
+		float3 constant_emission = make_float3(0.0f, 0.0f, 0.0f);
+		if(shader->is_constant_emission(&constant_emission))
+			flag |= SD_HAS_CONSTANT_EMISSION;
 
 		/* regular shader */
 		shader_flag[i++] = flag;
 		shader_flag[i++] = shader->pass_id;
-
-		/* shader with bump mapping */
-		if(shader->graph_bump)
-			flag |= SD_HAS_BSSRDF_BUMP;
-
-		shader_flag[i++] = flag;
-		shader_flag[i++] = shader->pass_id;
+		shader_flag[i++] = __float_as_int(constant_emission.x);
+		shader_flag[i++] = __float_as_int(constant_emission.y);
+		shader_flag[i++] = __float_as_int(constant_emission.z);
 
 		has_transparent_shadow |= (flag & SD_HAS_TRANSPARENT_SHADOW) != 0;
 	}
@@ -527,9 +587,15 @@ void ShaderManager::get_requested_graph_features(ShaderGraph *graph,
 			if(CLOSURE_IS_VOLUME(bsdf_node->closure)) {
 				requested_features->nodes_features |= NODE_FEATURE_VOLUME;
 			}
+			else if(CLOSURE_IS_PRINCIPLED(bsdf_node->closure)) {
+				requested_features->use_principled = true;
+			}
 		}
 		if(node->has_surface_bssrdf()) {
 			requested_features->use_subsurface = true;
+		}
+		if(node->has_surface_transparent()) {
+			requested_features->use_transparent = true;
 		}
 	}
 }
@@ -551,6 +617,9 @@ void ShaderManager::get_requested_features(Scene *scene,
 		ShaderNode *output_node = shader->graph->output();
 		if(output_node->input("Displacement")->link != NULL) {
 			requested_features->nodes_features |= NODE_FEATURE_BUMP;
+			if(shader->displacement_method == DISPLACE_BOTH && requested_features->experimental) {
+				requested_features->nodes_features |= NODE_FEATURE_BUMP_STATE;
+			}
 		}
 		/* On top of volume nodes, also check if we need volume sampling because
 		 * e.g. an Emission node would slip through the NODE_FEATURE_VOLUME check */

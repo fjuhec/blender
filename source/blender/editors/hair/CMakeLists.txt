@@ -25,6 +25,7 @@ set(INC
 	../../blenkernel
 	../../blenlib
 	../../bmesh
+	../../depsgraph
 	../../gpu
 	../../makesdna
 	../../makesrna

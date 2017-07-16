@@ -49,12 +49,12 @@ void BKE_material_free(struct Material *ma);
 void BKE_material_free_ex(struct Material *ma, bool do_id_user);
 void test_object_materials(struct Object *ob, struct ID *id);
 void test_all_objects_materials(struct Main *bmain, struct ID *id);
-void BKE_material_resize_object(struct Object *ob, const short totcol, bool do_id_user);
+void BKE_material_resize_object(struct Main *bmain, struct Object *ob, const short totcol, bool do_id_user);
 void BKE_material_init(struct Material *ma);
 void BKE_material_remap_object(struct Object *ob, const unsigned int *remap);
 void BKE_material_remap_object_calc(struct  Object *ob_dst, struct Object *ob_src, short *remap_src_to_dst);
 struct Material *BKE_material_add(struct Main *bmain, const char *name);
-struct Material *BKE_material_copy(struct Main *bmain, struct Material *ma);
+struct Material *BKE_material_copy(struct Main *bmain, const struct Material *ma);
 struct Material *localize_material(struct Material *ma);
 struct Material *give_node_material(struct Material *ma); /* returns node material or self */
 void BKE_material_make_local(struct Main *bmain, struct Material *ma, const bool lib_local);
@@ -86,14 +86,18 @@ short BKE_object_material_slot_find_index(struct Object *ob, struct Material *ma
 bool  BKE_object_material_slot_add(struct Object *ob);
 bool  BKE_object_material_slot_remove(struct Object *ob);
 
+struct Image  *BKE_object_material_edit_image_get(struct Object *ob, short mat_nr);
+struct Image **BKE_object_material_edit_image_get_array(struct Object *ob);
+bool           BKE_object_material_edit_image_set(struct Object *ob, short mat_nr, struct Image *image);
+
 void BKE_texpaint_slot_refresh_cache(struct Scene *scene, struct Material *ma);
 void BKE_texpaint_slots_refresh_object(struct Scene *scene, struct Object *ob);
 
 /* rna api */
-void BKE_material_resize_id(struct ID *id, short totcol, bool do_id_user);
-void BKE_material_append_id(struct ID *id, struct Material *ma);
-struct Material *BKE_material_pop_id(struct ID *id, int index, bool update_data); /* index is an int because of RNA */
-void BKE_material_clear_id(struct ID *id, bool update_data);
+void BKE_material_resize_id(struct Main *bmain, struct ID *id, short totcol, bool do_id_user);
+void BKE_material_append_id(struct Main *bmain, struct ID *id, struct Material *ma);
+struct Material *BKE_material_pop_id(struct Main *bmain, struct ID *id, int index, bool update_data); /* index is an int because of RNA */
+void BKE_material_clear_id(struct Main *bmain, struct ID *id, bool update_data);
 /* rendering */
 
 void init_render_material(struct Material *, int, float *);
@@ -113,9 +117,6 @@ void clear_matcopybuf(void);
 void free_matcopybuf(void);
 void copy_matcopybuf(struct Material *ma);
 void paste_matcopybuf(struct Material *ma);
-
-/* handle backward compatibility for tface/materials called from doversion */	
-int do_version_tface(struct Main *main);
 
 #ifdef __cplusplus
 }

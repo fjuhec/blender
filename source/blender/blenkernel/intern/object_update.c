@@ -32,6 +32,7 @@
 #include "DNA_group_types.h"
 #include "DNA_key_types.h"
 #include "DNA_material_types.h"
+#include "DNA_mesh_types.h"
 #include "DNA_scene_types.h"
 
 #include "BLI_blenlib.h"
@@ -43,7 +44,7 @@
 #include "BKE_armature.h"
 #include "BKE_action.h"
 #include "BKE_constraint.h"
-#include "BKE_depsgraph.h"
+#include "BKE_curve.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_animsys.h"
 #include "BKE_displist.h"
@@ -51,20 +52,20 @@
 #include "BKE_key.h"
 #include "BKE_lamp.h"
 #include "BKE_lattice.h"
+#include "BKE_library.h"
 #include "BKE_editmesh.h"
 #include "BKE_object.h"
 #include "BKE_particle.h"
+#include "BKE_pointcache.h"
 #include "BKE_scene.h"
 #include "BKE_material.h"
+#include "BKE_mesh.h"
 #include "BKE_image.h"
 
+#include "MEM_guardedalloc.h"
 #include "DEG_depsgraph.h"
 
-#ifdef WITH_LEGACY_DEPSGRAPH
-#  define DEBUG_PRINT if (!DEG_depsgraph_use_legacy() && G.debug & G_DEBUG_DEPSGRAPH) printf
-#else
-#  define DEBUG_PRINT if (G.debug & G_DEBUG_DEPSGRAPH) printf
-#endif
+#define DEBUG_PRINT if (G.debug & G_DEBUG_DEPSGRAPH) printf
 
 static ThreadMutex material_lock = BLI_MUTEX_INITIALIZER;
 
@@ -142,18 +143,6 @@ void BKE_object_eval_done(EvaluationContext *UNUSED(eval_ctx), Object *ob)
 	/* Set negative scale flag in object. */
 	if (is_negative_m4(ob->obmat)) ob->transflag |= OB_NEG_SCALE;
 	else ob->transflag &= ~OB_NEG_SCALE;
-}
-
-void BKE_object_eval_modifier(struct EvaluationContext *eval_ctx,
-                              struct Scene *scene,
-                              struct Object *ob,
-                              struct ModifierData *md)
-{
-	DEBUG_PRINT("%s on %s\n", __func__, ob->id.name);
-	(void) eval_ctx;  /* Ignored. */
-	(void) scene;  /* Ignored. */
-	(void) ob;  /* Ignored. */
-	(void) md;  /* Ignored. */
 }
 
 void BKE_object_handle_data_update(EvaluationContext *eval_ctx,
@@ -345,5 +334,78 @@ void BKE_object_eval_uber_data(EvaluationContext *eval_ctx,
 	BLI_assert(ob->type != OB_ARMATURE);
 	BKE_object_handle_data_update(eval_ctx, scene, ob);
 
+	switch (ob->type) {
+		case OB_MESH:
+			BKE_mesh_batch_cache_dirty(ob->data, BKE_MESH_BATCH_DIRTY_ALL);
+			break;
+		case OB_LATTICE:
+			BKE_lattice_batch_cache_dirty(ob->data, BKE_LATTICE_BATCH_DIRTY_ALL);
+			break;
+		case OB_CURVE:
+		case OB_FONT:
+		case OB_SURF:
+			BKE_curve_batch_cache_dirty(ob->data, BKE_CURVE_BATCH_DIRTY_ALL);
+			break;
+	}
+
+#ifdef WITH_COPY_ON_WRITE
+	if (ob->type == OB_MESH) {
+		/* Quick hack to convert evaluated derivedMesh to Mesh. */
+		DerivedMesh *dm = ob->derivedFinal;
+		if (dm != NULL) {
+			Mesh *mesh = (Mesh *)ob->data;
+			Mesh *new_mesh = BKE_libblock_alloc_notest(ID_ME);
+			BKE_mesh_init(new_mesh);
+			/* Copy ID name so GS(new_mesh->id) works correct later on. */
+			BLI_strncpy(new_mesh->id.name, mesh->id.name, sizeof(new_mesh->id.name));
+			/* Copy materials so render engines can access them. */
+			new_mesh->mat = MEM_dupallocN(mesh->mat);
+			new_mesh->totcol = mesh->totcol;
+			DM_to_mesh(dm, new_mesh, ob, ob->lastDataMask, true);
+			new_mesh->edit_btmesh = mesh->edit_btmesh;
+			/* Store result mesh as derived_mesh of object. This way we have
+			 * explicit  way to query final object evaluated data and know for sure
+			 * who owns the newly created mesh datablock.
+			 */
+			ob->mesh_evaluated = new_mesh;
+			/* TODO(sergey): This is kind of compatibility thing, so all render
+			 * engines can use object->data for mesh data for display. This is
+			 * something what we might want to change in the future.
+			 */
+			ob->data = new_mesh;
+			/* Save some memory by throwing DerivedMesh away. */
+			/* NOTE: Watch out, some tools might need it!
+			 * So keep around for now..
+			 */
+		}
+#if 0
+		if (ob->derivedFinal != NULL) {
+			ob->derivedFinal->needsFree = 1;
+			ob->derivedFinal->release(ob->derivedFinal);
+			ob->derivedFinal = NULL;
+		}
+		if (ob->derivedDeform != NULL) {
+			ob->derivedDeform->needsFree = 1;
+			ob->derivedDeform->release(ob->derivedDeform);
+			ob->derivedDeform = NULL;
+		}
+#endif
+	}
+#endif
+
 	ob->recalc &= ~(OB_RECALC_DATA | OB_RECALC_TIME);
+}
+
+void BKE_object_eval_cloth(EvaluationContext *UNUSED(eval_ctx), Scene *scene, Object *object)
+{
+	DEBUG_PRINT("%s on %s\n", __func__, object->id.name);
+	BKE_ptcache_object_reset(scene, object, PTCACHE_RESET_DEPSGRAPH);
+}
+
+void BKE_object_eval_update_shading(EvaluationContext *UNUSED(eval_ctx), Object *object)
+{
+	DEBUG_PRINT("%s on %s\n", __func__, object->id.name);
+	if (object->type == OB_MESH) {
+		BKE_mesh_batch_cache_dirty(object->data, BKE_MESH_BATCH_DIRTY_SHADING);
+	}
 }

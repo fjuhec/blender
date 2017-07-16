@@ -146,6 +146,10 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         layout.row().prop(md, "offset_type", expand=True)
 
     def BOOLEAN(self, layout, ob, md):
+        if not bpy.app.build_options.mod_boolean:
+            layout.label("Built without Boolean modifier")
+            return
+
         split = layout.split()
 
         col = split.column()
@@ -336,6 +340,9 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col = split.column(align=True)
         col.label(text="Direction:")
         col.prop(md, "direction", text="")
+        if md.direction in {'X', 'Y', 'Z', 'RGB_TO_XYZ'}:
+            col.label(text="Space:")
+            col.prop(md, "space", text="")
         col.label(text="Vertex Group:")
         col.prop_search(md, "vertex_group", ob, "vertex_groups", text="")
 
@@ -348,7 +355,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
             col.prop(md, "texture_coords_object", text="")
         elif md.texture_coords == 'UV' and ob.type == 'MESH':
             col.label(text="UV Map:")
-            col.prop_search(md, "uv_layer", ob.data, "uv_textures", text="")
+            col.prop_search(md, "uv_layer", ob.data, "uv_layers", text="")
 
         layout.separator()
 
@@ -380,7 +387,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         sub.active = bool(md.vertex_group)
         sub.prop(md, "protect")
         col.label(text="Particle UV")
-        col.prop_search(md, "particle_uv", ob.data, "uv_textures", text="")
+        col.prop_search(md, "particle_uv", ob.data, "uv_layers", text="")
 
         col = split.column()
         col.prop(md, "use_edge_cut")
@@ -561,6 +568,14 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col.label(text="Textures:")
         col.prop(md, "use_mirror_u", text="U")
         col.prop(md, "use_mirror_v", text="V")
+
+        col = layout.column(align=True)
+
+        if md.use_mirror_u:
+            col.prop(md, "mirror_offset_u")
+
+        if md.use_mirror_v:
+            col.prop(md, "mirror_offset_v")
 
         col = layout.column()
 
@@ -900,9 +915,13 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         split = layout.split()
         col = split.column()
 
-        engine = bpy.context.scene.render.engine
-        if engine == "CYCLES" and md == ob.modifiers[-1] and bpy.context.scene.cycles.feature_set == "EXPERIMENTAL":
-            col.label(text="Preview:")
+        scene = bpy.context.scene
+        engine = scene.render.engine
+        show_adaptive_options = (engine == "CYCLES" and md == ob.modifiers[-1] and
+                                 scene.cycles.feature_set == "EXPERIMENTAL")
+
+        if show_adaptive_options:
+            col.label(text="View:")
             col.prop(md, "levels", text="Levels")
             col.label(text="Render:")
             col.prop(ob.cycles, "use_adaptive_subdivision", text="Adaptive")
@@ -917,13 +936,45 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
 
         col = split.column()
         col.label(text="Options:")
-        col.prop(md, "use_subsurf_uv")
+
+        sub = col.column()
+        sub.active = (not show_adaptive_options) or (not ob.cycles.use_adaptive_subdivision)
+        sub.prop(md, "use_subsurf_uv")
+
         col.prop(md, "show_only_control_edges")
         if hasattr(md, "use_opensubdiv"):
             col.prop(md, "use_opensubdiv")
 
+        if show_adaptive_options and ob.cycles.use_adaptive_subdivision:
+            col = layout.column(align=True)
+            col.scale_y = 0.6
+            col.separator()
+            col.label("Final Dicing Rate:")
+            col.separator()
+
+            render = max(scene.cycles.dicing_rate * ob.cycles.dicing_rate, 0.1)
+            preview = max(scene.cycles.preview_dicing_rate * ob.cycles.dicing_rate, 0.1)
+            col.label("Render %.2f px, Preview %.2f px" % (render, preview))
+
     def SURFACE(self, layout, ob, md):
         layout.label(text="Settings are inside the Physics tab")
+
+    def SURFACE_DEFORM(self, layout, ob, md):
+        col = layout.column()
+        col.active = not md.is_bound
+
+        col.prop(md, "target")
+        col.prop(md, "falloff")
+
+        layout.separator()
+
+        col = layout.column()
+
+        if md.is_bound:
+            col.operator("object.surfacedeform_bind", text="Unbind")
+        else:
+            col.active = md.target is not None
+            col.operator("object.surfacedeform_bind", text="Bind")
 
     def UV_PROJECT(self, layout, ob, md):
         split = layout.split()
@@ -934,11 +985,10 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
 
         col = split.column()
         col.label(text="UV Map:")
-        col.prop_search(md, "uv_layer", ob.data, "uv_textures", text="")
+        col.prop_search(md, "uv_layer", ob.data, "uv_layers", text="")
 
         split = layout.split()
         col = split.column()
-        col.prop(md, "use_image_override")
         col.prop(md, "projector_count", text="Projectors")
         for proj in md.projectors:
             col.prop(proj, "object", text="")
@@ -992,7 +1042,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         if md.texture_coords == 'OBJECT':
             layout.prop(md, "texture_coords_object", text="Object")
         elif md.texture_coords == 'UV' and ob.type == 'MESH':
-            layout.prop_search(md, "uv_layer", ob.data, "uv_textures")
+            layout.prop_search(md, "uv_layer", ob.data, "uv_layers")
 
     def WAVE(self, layout, ob, md):
         split = layout.split()
@@ -1038,7 +1088,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col.template_ID(md, "texture", new="texture.new")
         layout.prop(md, "texture_coords")
         if md.texture_coords == 'UV' and ob.type == 'MESH':
-            layout.prop_search(md, "uv_layer", ob.data, "uv_textures")
+            layout.prop_search(md, "uv_layer", ob.data, "uv_layers")
         elif md.texture_coords == 'OBJECT':
             layout.prop(md, "texture_coords_object")
 
@@ -1055,6 +1105,10 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col.prop(md, "narrowness", slider=True)
 
     def REMESH(self, layout, ob, md):
+        if not bpy.app.build_options.mod_remesh:
+            layout.label("Built without Remesh modifier")
+            return
+
         layout.prop(md, "mode")
 
         row = layout.row()
@@ -1101,7 +1155,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
                 if md.mask_tex_mapping == 'OBJECT':
                     layout.prop(md, "mask_tex_map_object", text="Object")
                 elif md.mask_tex_mapping == 'UV' and ob.type == 'MESH':
-                    layout.prop_search(md, "mask_tex_uv_layer", ob.data, "uv_textures")
+                    layout.prop_search(md, "mask_tex_uv_layer", ob.data, "uv_layers")
 
     def VERTEX_WEIGHT_EDIT(self, layout, ob, md):
         split = layout.split()
@@ -1270,7 +1324,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
 
         col = split.column()
         col.label(text="UV Map:")
-        col.prop_search(md, "uv_layer", ob.data, "uv_textures", text="")
+        col.prop_search(md, "uv_layer", ob.data, "uv_layers", text="")
 
     def WIREFRAME(self, layout, ob, md):
         has_vgroup = bool(md.vertex_group)
@@ -1290,7 +1344,9 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop(md, "thickness_vertex_group", text="Factor")
 
         col.prop(md, "use_crease", text="Crease Edges")
-        col.prop(md, "crease_weight", text="Crease Weight")
+        row = col.row()
+        row.active = md.use_crease
+        row.prop(md, "crease_weight", text="Crease Weight")
 
         col = split.column()
 
@@ -1473,5 +1529,11 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
             layout.operator("object.correctivesmooth_bind", text="Unbind" if is_bind else "Bind")
 
 
+classes = (
+    DATA_PT_modifiers,
+)
+
 if __name__ == "__main__":  # only for live edit.
-    bpy.utils.register_module(__name__)
+    from bpy.utils import register_class
+    for cls in classes:
+        register_class(cls)

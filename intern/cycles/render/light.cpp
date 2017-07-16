@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
-#include "background.h"
-#include "device.h"
-#include "integrator.h"
-#include "film.h"
-#include "light.h"
-#include "mesh.h"
-#include "object.h"
-#include "scene.h"
-#include "shader.h"
+#include "render/background.h"
+#include "device/device.h"
+#include "render/integrator.h"
+#include "render/film.h"
+#include "render/light.h"
+#include "render/mesh.h"
+#include "render/object.h"
+#include "render/scene.h"
+#include "render/shader.h"
 
-#include "util_foreach.h"
-#include "util_progress.h"
-#include "util_logging.h"
+#include "util/util_foreach.h"
+#include "util/util_progress.h"
+#include "util/util_logging.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -43,8 +43,8 @@ static void shade_background_pixels(Device *device, DeviceScene *dscene, int res
 
 	for(int y = 0; y < height; y++) {
 		for(int x = 0; x < width; x++) {
-			float u = x/(float)width;
-			float v = y/(float)height;
+			float u = (x + 0.5f)/width;
+			float v = (y + 0.5f)/height;
 
 			uint4 in = make_uint4(__float_as_int(u), __float_as_int(v), 0, 0);
 			d_input_data[x + y*width] = in;
@@ -57,9 +57,9 @@ static void shade_background_pixels(Device *device, DeviceScene *dscene, int res
 
 	device->const_copy_to("__data", &dscene->data, sizeof(dscene->data));
 
-	device->mem_alloc(d_input, MEM_READ_ONLY);
+	device->mem_alloc("shade_background_pixels_input", d_input, MEM_READ_ONLY);
 	device->mem_copy_to(d_input);
-	device->mem_alloc(d_output, MEM_WRITE_ONLY);
+	device->mem_alloc("shade_background_pixels_output", d_output, MEM_WRITE_ONLY);
 
 	DeviceTask main_task(DeviceTask::SHADER);
 	main_task.shader_input = d_input.device_pointer;
@@ -106,6 +106,7 @@ NODE_DEFINE(Light)
 
 	static NodeEnum type_enum;
 	type_enum.insert("point", LIGHT_POINT);
+	type_enum.insert("distant", LIGHT_DISTANT);
 	type_enum.insert("background", LIGHT_BACKGROUND);
 	type_enum.insert("area", LIGHT_AREA);
 	type_enum.insert("spot", LIGHT_SPOT);
@@ -125,6 +126,8 @@ NODE_DEFINE(Light)
 
 	SOCKET_FLOAT(spot_angle, "Spot Angle", M_PI_4_F);
 	SOCKET_FLOAT(spot_smooth, "Spot Smooth", 0.0f);
+
+	SOCKET_TRANSFORM(tfm, "Transform", transform_identity());
 
 	SOCKET_BOOLEAN(cast_shadow, "Cast Shadow", true);
 	SOCKET_BOOLEAN(use_mis, "Use Mis", false);
@@ -177,6 +180,16 @@ LightManager::~LightManager()
 {
 }
 
+bool LightManager::has_background_light(Scene *scene)
+{
+	foreach(Light *light, scene->lights) {
+		if(light->type == LIGHT_BACKGROUND) {
+			return true;
+		}
+	}
+	return false;
+}
+
 void LightManager::disable_ineffective_light(Device *device, Scene *scene)
 {
 	/* Make all lights enabled by default, and perform some preliminary checks
@@ -211,6 +224,10 @@ void LightManager::disable_ineffective_light(Device *device, Scene *scene)
 
 bool LightManager::object_usable_as_light(Object *object) {
 	Mesh *mesh = object->mesh;
+	/* Skip objects with NaNs */
+	if (!object->bounds.valid()) {
+		return false;
+	}
 	/* Skip if we are not visible for BSDFs. */
 	if(!(object->visibility & (PATH_RAY_DIFFUSE|PATH_RAY_GLOSSY|PATH_RAY_TRANSMIT))) {
 		return false;
@@ -298,9 +315,6 @@ void LightManager::device_update_distribution(Device *device, DeviceScene *dscen
 		Transform tfm = object->tfm;
 		int object_id = j;
 		int shader_flag = 0;
-
-		if(transform_applied)
-			object_id = ~object_id;
 
 		if(!(object->visibility & PATH_RAY_DIFFUSE)) {
 			shader_flag |= SHADER_EXCLUDE_DIFFUSE;
@@ -667,7 +681,6 @@ void LightManager::device_update_points(Device *device,
 			light_data[light_index*LIGHT_SIZE + 1] = make_float4(__int_as_float(shader_id), radius, invarea, 0.0f);
 			light_data[light_index*LIGHT_SIZE + 2] = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 			light_data[light_index*LIGHT_SIZE + 3] = make_float4(samples, 0.0f, 0.0f, 0.0f);
-			light_data[light_index*LIGHT_SIZE + 4] = make_float4(max_bounces, 0.0f, 0.0f, 0.0f);
 		}
 		else if(light->type == LIGHT_DISTANT) {
 			shader_id &= ~SHADER_AREA_LIGHT;
@@ -688,7 +701,6 @@ void LightManager::device_update_points(Device *device,
 			light_data[light_index*LIGHT_SIZE + 1] = make_float4(__int_as_float(shader_id), radius, cosangle, invarea);
 			light_data[light_index*LIGHT_SIZE + 2] = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 			light_data[light_index*LIGHT_SIZE + 3] = make_float4(samples, 0.0f, 0.0f, 0.0f);
-			light_data[light_index*LIGHT_SIZE + 4] = make_float4(max_bounces, 0.0f, 0.0f, 0.0f);
 		}
 		else if(light->type == LIGHT_BACKGROUND) {
 			uint visibility = scene->background->visibility;
@@ -717,7 +729,6 @@ void LightManager::device_update_points(Device *device,
 			light_data[light_index*LIGHT_SIZE + 1] = make_float4(__int_as_float(shader_id), 0.0f, 0.0f, 0.0f);
 			light_data[light_index*LIGHT_SIZE + 2] = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 			light_data[light_index*LIGHT_SIZE + 3] = make_float4(samples, 0.0f, 0.0f, 0.0f);
-			light_data[light_index*LIGHT_SIZE + 4] = make_float4(max_bounces, 0.0f, 0.0f, 0.0f);
 		}
 		else if(light->type == LIGHT_AREA) {
 			float3 axisu = light->axisu*(light->sizeu*light->size);
@@ -735,7 +746,6 @@ void LightManager::device_update_points(Device *device,
 			light_data[light_index*LIGHT_SIZE + 1] = make_float4(__int_as_float(shader_id), axisu.x, axisu.y, axisu.z);
 			light_data[light_index*LIGHT_SIZE + 2] = make_float4(invarea, axisv.x, axisv.y, axisv.z);
 			light_data[light_index*LIGHT_SIZE + 3] = make_float4(samples, dir.x, dir.y, dir.z);
-			light_data[light_index*LIGHT_SIZE + 4] = make_float4(max_bounces, 0.0f, 0.0f, 0.0f);
 		}
 		else if(light->type == LIGHT_SPOT) {
 			shader_id &= ~SHADER_AREA_LIGHT;
@@ -755,8 +765,14 @@ void LightManager::device_update_points(Device *device,
 			light_data[light_index*LIGHT_SIZE + 1] = make_float4(__int_as_float(shader_id), radius, invarea, spot_angle);
 			light_data[light_index*LIGHT_SIZE + 2] = make_float4(spot_smooth, dir.x, dir.y, dir.z);
 			light_data[light_index*LIGHT_SIZE + 3] = make_float4(samples, 0.0f, 0.0f, 0.0f);
-			light_data[light_index*LIGHT_SIZE + 4] = make_float4(max_bounces, 0.0f, 0.0f, 0.0f);
 		}
+
+		light_data[light_index*LIGHT_SIZE + 4] = make_float4(max_bounces, 0.0f, 0.0f, 0.0f);
+
+		Transform tfm = light->tfm;
+		Transform itfm = transform_inverse(tfm);
+		memcpy(&light_data[light_index*LIGHT_SIZE + 5], &tfm, sizeof(float4)*3);
+		memcpy(&light_data[light_index*LIGHT_SIZE + 8], &itfm, sizeof(float4)*3);
 
 		light_index++;
 	}
@@ -783,6 +799,11 @@ void LightManager::device_update_points(Device *device,
 		light_data[light_index*LIGHT_SIZE + 2] = make_float4(invarea, axisv.x, axisv.y, axisv.z);
 		light_data[light_index*LIGHT_SIZE + 3] = make_float4(-1, dir.x, dir.y, dir.z);
 		light_data[light_index*LIGHT_SIZE + 4] = make_float4(-1, 0.0f, 0.0f, 0.0f);
+
+		Transform tfm = light->tfm;
+		Transform itfm = transform_inverse(tfm);
+		memcpy(&light_data[light_index*LIGHT_SIZE + 5], &tfm, sizeof(float4)*3);
+		memcpy(&light_data[light_index*LIGHT_SIZE + 8], &itfm, sizeof(float4)*3);
 
 		light_index++;
 	}

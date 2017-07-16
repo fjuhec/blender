@@ -119,8 +119,8 @@ static int view3d_pastebuffer_exec(bContext *C, wmOperator *op)
 
 	if (RNA_boolean_get(op->ptr, "autoselect"))
 		flag |= FILE_AUTOSELECT;
-	if (RNA_boolean_get(op->ptr, "active_layer"))
-		flag |= FILE_ACTIVELAY;
+	if (RNA_boolean_get(op->ptr, "active_collection"))
+		flag |= FILE_ACTIVE_COLLECTION;
 
 	BLI_make_file_string("/", str, BKE_tempdir_base(), "copybuffer.blend");
 	if (BKE_copybuffer_paste(C, str, flag, op->reports)) {
@@ -152,7 +152,7 @@ static void VIEW3D_OT_pastebuffer(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
 	RNA_def_boolean(ot->srna, "autoselect", true, "Select", "Select pasted objects");
-	RNA_def_boolean(ot->srna, "active_layer", true, "Active Layer", "Put pasted objects on the active layer");
+	RNA_def_boolean(ot->srna, "active_collection", true, "Active Collection", "Put pasted objects on the active collection");
 }
 
 /* ************************** registration **********************************/
@@ -164,10 +164,12 @@ void view3d_operatortypes(void)
 	WM_operatortype_append(VIEW3D_OT_zoom);
 	WM_operatortype_append(VIEW3D_OT_zoom_camera_1_to_1);
 	WM_operatortype_append(VIEW3D_OT_dolly);
+#ifdef WITH_INPUT_NDOF
 	WM_operatortype_append(VIEW3D_OT_ndof_orbit_zoom);
 	WM_operatortype_append(VIEW3D_OT_ndof_orbit);
 	WM_operatortype_append(VIEW3D_OT_ndof_pan);
 	WM_operatortype_append(VIEW3D_OT_ndof_all);
+#endif /* WITH_INPUT_NDOF */
 	WM_operatortype_append(VIEW3D_OT_view_all);
 	WM_operatortype_append(VIEW3D_OT_viewnumpad);
 	WM_operatortype_append(VIEW3D_OT_view_orbit);
@@ -191,7 +193,6 @@ void view3d_operatortypes(void)
 	WM_operatortype_append(VIEW3D_OT_render_border);
 	WM_operatortype_append(VIEW3D_OT_clear_render_border);
 	WM_operatortype_append(VIEW3D_OT_zoom_border);
-	WM_operatortype_append(VIEW3D_OT_manipulator);
 	WM_operatortype_append(VIEW3D_OT_enable_manipulator);
 	WM_operatortype_append(VIEW3D_OT_cursor3d);
 	WM_operatortype_append(VIEW3D_OT_select_lasso);
@@ -199,7 +200,6 @@ void view3d_operatortypes(void)
 	WM_operatortype_append(VIEW3D_OT_camera_to_view);
 	WM_operatortype_append(VIEW3D_OT_camera_to_view_selected);
 	WM_operatortype_append(VIEW3D_OT_object_as_camera);
-	WM_operatortype_append(VIEW3D_OT_localview);
 	WM_operatortype_append(VIEW3D_OT_game_start);
 	WM_operatortype_append(VIEW3D_OT_fly);
 	WM_operatortype_append(VIEW3D_OT_walk);
@@ -238,13 +238,6 @@ void view3d_keymap(wmKeyConfig *keyconf)
 	/* only for region 3D window */
 	keymap = WM_keymap_find(keyconf, "3D View", SPACE_VIEW3D, 0);
 
-	kmi = WM_keymap_verify_item(keymap, "VIEW3D_OT_manipulator", LEFTMOUSE, KM_PRESS, KM_ANY, 0);
-	RNA_boolean_set(kmi->ptr, "release_confirm", true);
-	/*
-	 * Doesn't work with KM_SHIFT, have to use KM_ANY and filter in invoke
-	 * */
-	// WM_keymap_verify_item(keymap, "VIEW3D_OT_manipulator", LEFTMOUSE, KM_PRESS, KM_SHIFT, 0);
-	
 	WM_keymap_verify_item(keymap, "VIEW3D_OT_cursor3d", ACTIONMOUSE, KM_PRESS, 0, 0);
 	
 	WM_keymap_verify_item(keymap, "VIEW3D_OT_rotate", MIDDLEMOUSE, KM_PRESS, 0, 0);
@@ -360,10 +353,8 @@ void view3d_keymap(wmKeyConfig *keyconf)
 	kmi = WM_keymap_add_item(keymap, "VIEW3D_OT_viewnumpad", PAD7, KM_PRESS, KM_SHIFT | KM_CTRL, 0);
 	RNA_enum_set(kmi->ptr, "type", RV3D_VIEW_BOTTOM);
 	RNA_boolean_set(kmi->ptr, "align_active", true);
-
-	WM_keymap_add_item(keymap, "VIEW3D_OT_localview", PADSLASHKEY, KM_PRESS, 0, 0);
 	
-	/* NDOF: begin */
+#ifdef WITH_INPUT_NDOF
 	/* note: positioned here so keymaps show keyboard keys if assigned */
 	/* 3D mouse */
 	WM_keymap_add_item(keymap, "VIEW3D_OT_ndof_orbit_zoom", NDOF_MOTION, 0, 0, 0);
@@ -392,8 +383,7 @@ void view3d_keymap(wmKeyConfig *keyconf)
 	kmi = WM_keymap_add_item(keymap, "VIEW3D_OT_viewnumpad", NDOF_BUTTON_TOP, KM_PRESS, KM_SHIFT, 0);
 	RNA_enum_set(kmi->ptr, "type", RV3D_VIEW_TOP);
 	RNA_boolean_set(kmi->ptr, "align_active", true);
-	/* NDOF: end */
-	
+#endif /* WITH_INPUT_NDOF */
 
 	/* layers, shift + alt are properties set in invoke() */
 	RNA_int_set(WM_keymap_add_item(keymap, "VIEW3D_OT_layers", ACCENTGRAVEKEY, KM_PRESS, 0, 0)->ptr, "nr", 0);

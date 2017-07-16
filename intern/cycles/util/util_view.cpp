@@ -17,11 +17,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "util_opengl.h"
-#include "util_string.h"
-#include "util_time.h"
-#include "util_version.h"
-#include "util_view.h"
+#include "util/util_opengl.h"
+#include "util/util_string.h"
+#include "util/util_time.h"
+#include "util/util_version.h"
+#include "util/util_view.h"
 
 #ifdef __APPLE__
 #include <GLUT/glut.h>
@@ -252,7 +252,7 @@ void view_main_loop(const char *title, int width, int height,
 	glutInitDisplayMode(GLUT_RGB|GLUT_DOUBLE|GLUT_DEPTH);
 	glutCreateWindow(title);
 
-	mxMakeCurrentContext(mxCreateContext());
+	glewInit();
 
 	view_reshape(width, height);
 

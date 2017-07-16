@@ -60,7 +60,6 @@
 #include "BKE_anim.h"
 #include "BKE_constraint.h"
 #include "BKE_curve.h"
-#include "BKE_depsgraph.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_deform.h"
 #include "BKE_displist.h"
@@ -87,6 +86,7 @@ bArmature *BKE_armature_add(Main *bmain, const char *name)
 	arm->deformflag = ARM_DEF_VGROUP | ARM_DEF_ENVELOPE;
 	arm->flag = ARM_COL_CUSTOM; /* custom bone-group colors */
 	arm->layer = 1;
+	arm->ghostsize = 1;
 	return arm;
 }
 
@@ -149,7 +149,7 @@ void BKE_armature_make_local(Main *bmain, bArmature *arm, const bool lib_local)
 	BKE_id_make_local_generic(bmain, &arm->id, true, lib_local);
 }
 
-static void copy_bonechildren(Bone *newBone, Bone *oldBone, Bone *actBone, Bone **newActBone)
+static void copy_bonechildren(Bone *newBone, const Bone *oldBone, const Bone *actBone, Bone **newActBone)
 {
 	Bone *curBone, *newChildBone;
 
@@ -171,7 +171,7 @@ static void copy_bonechildren(Bone *newBone, Bone *oldBone, Bone *actBone, Bone 
 	}
 }
 
-bArmature *BKE_armature_copy(Main *bmain, bArmature *arm)
+bArmature *BKE_armature_copy(Main *bmain, const bArmature *arm)
 {
 	bArmature *newArm;
 	Bone *oldBone, *newBone;
@@ -981,6 +981,11 @@ void armature_deform_verts(Object *armOb, Object *target, DerivedMesh *dm, float
 		return;
 	}
 
+	if ((armOb->pose->flag & POSE_RECALC) != 0) {
+		printf("ERROR! Trying to evaluate influence of armature '%s' which needs Pose recalc!", armOb->id.name);
+		BLI_assert(0);
+	}
+
 	invert_m4_m4(obinv, target->obmat);
 	copy_m4_m4(premat, target->obmat);
 	mul_m4_m4m4(postmat, obinv, armOb->obmat);
@@ -1036,6 +1041,17 @@ void armature_deform_verts(Object *armOb, Object *target, DerivedMesh *dm, float
 			if (use_dverts) {
 				defnrToPC = MEM_callocN(sizeof(*defnrToPC) * defbase_tot, "defnrToBone");
 				defnrToPCIndex = MEM_callocN(sizeof(*defnrToPCIndex) * defbase_tot, "defnrToIndex");
+				/* TODO(sergey): Some considerations here:
+				 *
+				 * - Make it more generic function, maybe even keep together with chanhash.
+				 * - Check whether keeping this consistent across frames gives speedup.
+				 * - Don't use hash for small armatures.
+				 */
+				GHash *idx_hash = BLI_ghash_ptr_new("pose channel index by name");
+				int pchan_index = 0;
+				for (pchan = armOb->pose->chanbase.first; pchan != NULL; pchan = pchan->next, ++pchan_index) {
+					BLI_ghash_insert(idx_hash, pchan, SET_INT_IN_POINTER(pchan_index));
+				}
 				for (i = 0, dg = target->defbase.first; dg; i++, dg = dg->next) {
 					defnrToPC[i] = BKE_pose_channel_find_name(armOb->pose, dg->name);
 					/* exclude non-deforming bones */
@@ -1044,10 +1060,11 @@ void armature_deform_verts(Object *armOb, Object *target, DerivedMesh *dm, float
 							defnrToPC[i] = NULL;
 						}
 						else {
-							defnrToPCIndex[i] = BLI_findindex(&armOb->pose->chanbase, defnrToPC[i]);
+							defnrToPCIndex[i] = GET_INT_FROM_POINTER(BLI_ghash_lookup(idx_hash, defnrToPC[i]));
 						}
 					}
 				}
+				BLI_ghash_free(idx_hash, NULL, NULL);
 			}
 		}
 	}
@@ -1794,6 +1811,7 @@ static void pose_proxy_synchronize(Object *ob, Object *from, int layer_protected
 			
 			/* copy posechannel to temp, but restore important pointers */
 			pchanw = *pchanp;
+			pchanw.bone = pchan->bone;
 			pchanw.prev = pchan->prev;
 			pchanw.next = pchan->next;
 			pchanw.parent = pchan->parent;
@@ -1959,13 +1977,6 @@ void BKE_pose_rebuild(Object *ob, bArmature *arm)
 	}
 
 	BKE_pose_update_constraint_flags(ob->pose); /* for IK detection for example */
-
-#ifdef WITH_LEGACY_DEPSGRAPH
-	/* the sorting */
-	/* Sorting for new dependnecy graph is done on the scene graph level. */
-	if (counter > 1)
-		DAG_pose_sort(ob);
-#endif
 
 	ob->pose->flag &= ~POSE_RECALC;
 	ob->pose->flag |= POSE_WAS_REBUILT;

@@ -17,8 +17,8 @@
 #ifndef __SUBD_PATCH_TABLE_H__
 #define __SUBD_PATCH_TABLE_H__
 
-#include "util_types.h"
-#include "util_vector.h"
+#include "util/util_types.h"
+#include "util/util_vector.h"
 
 #ifdef WITH_OPENSUBDIV
 #ifdef _MSC_VER
@@ -43,7 +43,7 @@ namespace Far { struct PatchTable; }
 #define PATCH_NODE_SIZE 1
 
 struct PackedPatchTable {
-	vector<uint> table;
+	array<uint> table;
 
 	size_t num_arrays;
 	size_t num_indices;

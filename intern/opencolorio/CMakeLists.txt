@@ -27,6 +27,7 @@ set(INC
 	.
 	../glew-mx
 	../guardedalloc
+	../gawain
 	../../source/blender/blenlib
 )
 
@@ -59,13 +60,14 @@ if(WITH_OPENCOLORIO)
 		ocio_impl_glsl.cc
 	)
 
-	if(WIN32 AND NOT MINGW)
+	if(WIN32)
 		list(APPEND INC_SYS
 			${BOOST_INCLUDE_DIR}
 		)
 	endif()
 
 	data_to_c_simple(gpu_shader_display_transform.glsl SRC)
+	data_to_c_simple(gpu_shader_display_transform_vertex.glsl SRC)
 endif()
 
 

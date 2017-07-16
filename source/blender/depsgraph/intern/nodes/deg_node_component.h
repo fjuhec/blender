@@ -53,50 +53,38 @@ struct ComponentDepsNode : public DepsNode {
 	struct OperationIDKey
 	{
 		eDepsOperation_Code opcode;
-		string name;
+		const char *name;
+		int name_tag;
 
+		OperationIDKey();
+		OperationIDKey(eDepsOperation_Code opcode);
+		OperationIDKey(eDepsOperation_Code opcode,
+		               const char *name,
+		               int name_tag);
 
-		OperationIDKey() :
-			opcode(DEG_OPCODE_OPERATION), name("")
-		{}
-		OperationIDKey(eDepsOperation_Code opcode) :
-			opcode(opcode), name("")
-		{}
-		OperationIDKey(eDepsOperation_Code opcode, const string &name) :
-		   opcode(opcode), name(name)
-		{}
-
-		string identifier() const
-		{
-			char codebuf[5];
-			BLI_snprintf(codebuf, sizeof(codebuf), "%d", opcode);
-
-			return string("OperationIDKey(") + codebuf + ", " + name + ")";
-		}
-
-		bool operator==(const OperationIDKey &other) const
-		{
-			return (opcode == other.opcode) && (name == other.name);
-		}
+		string identifier() const;
+		bool operator==(const OperationIDKey &other) const;
 	};
 
 	/* Typedef for container of operations */
 	ComponentDepsNode();
 	~ComponentDepsNode();
 
-	void init(const ID *id, const string &subdata);
+	void init(const ID *id, const char *subdata);
 
 	string identifier() const;
 
 	/* Find an existing operation, will throw an assert() if it does not exist. */
 	OperationDepsNode *find_operation(OperationIDKey key) const;
 	OperationDepsNode *find_operation(eDepsOperation_Code opcode,
-	                                  const string &name) const;
+	                                  const char *name,
+	                                  int name_tag) const;
 
 	/* Check operation exists and return it. */
 	OperationDepsNode *has_operation(OperationIDKey key) const;
 	OperationDepsNode *has_operation(eDepsOperation_Code opcode,
-	                                 const string &name) const;
+	                                 const char *name,
+	                                 int name_tag) const;
 
 	/**
 	 * Create a new node for representing an operation and add this to graph
@@ -111,12 +99,18 @@ struct ComponentDepsNode : public DepsNode {
 	 * \param op: The operation to perform
 	 * \param name: Identifier for operation - used to find/locate it again
 	 */
-	OperationDepsNode *add_operation(eDepsOperation_Type optype,
-	                                 DepsEvalOperationCb op,
+	OperationDepsNode *add_operation(const DepsEvalOperationCb& op,
 	                                 eDepsOperation_Code opcode,
-	                                 const string &name);
+	                                 const char *name,
+	                                 int name_tag);
 
-	void remove_operation(eDepsOperation_Code opcode, const string &name);
+	/* Entry/exit operations management.
+	 *
+	 * Use those instead of direct set since this will perform sanity checks.
+	 */
+	void set_entry_operation(OperationDepsNode *op_node);
+	void set_exit_operation(OperationDepsNode *op_node);
+
 	void clear_operations();
 
 	void tag_update(Depsgraph *graph);
@@ -137,7 +131,7 @@ struct ComponentDepsNode : public DepsNode {
 	OperationDepsNode *get_entry_operation();
 	OperationDepsNode *get_exit_operation();
 
-	void finalize_build();
+	void finalize_build(Depsgraph *graph);
 
 	IDDepsNode *owner;
 
@@ -157,9 +151,6 @@ struct ComponentDepsNode : public DepsNode {
 	OperationDepsNode *exit_operation;
 
 	// XXX: a poll() callback to check if component's first node can be started?
-
-	/* Temporary bitmask, used during graph construction. */
-	unsigned int layers;
 };
 
 /* ---------------------------------------- */
@@ -194,7 +185,7 @@ struct PoseComponentDepsNode : public ComponentDepsNode {
 
 /* Bone Component */
 struct BoneComponentDepsNode : public ComponentDepsNode {
-	void init(const ID *id, const string &subdata);
+	void init(const ID *id, const char *subdata);
 
 	struct bPoseChannel *pchan;     /* the bone that this component represents */
 
@@ -210,6 +201,14 @@ struct ShadingComponentDepsNode : public ComponentDepsNode {
 };
 
 struct CacheComponentDepsNode : public ComponentDepsNode {
+	DEG_DEPSNODE_DECLARE;
+};
+
+struct LayerCollectionsDepsNode : public ComponentDepsNode {
+	DEG_DEPSNODE_DECLARE;
+};
+
+struct CopyOnWriteDepsNode : public ComponentDepsNode {
 	DEG_DEPSNODE_DECLARE;
 };
 

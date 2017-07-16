@@ -26,13 +26,14 @@ from mathutils import Vector
 def GlobalBB_LQ(bb_world):
 
     # Initialize the variables with the 8th vertex
-    left, right, front, back, down, up = (bb_world[7][0],
-                                          bb_world[7][0],
-                                          bb_world[7][1],
-                                          bb_world[7][1],
-                                          bb_world[7][2],
-                                          bb_world[7][2],
-                                          )
+    left, right, front, back, down, up = (
+        bb_world[7][0],
+        bb_world[7][0],
+        bb_world[7][1],
+        bb_world[7][1],
+        bb_world[7][2],
+        bb_world[7][2],
+    )
 
     # Test against the other 7 verts
     for i in range(7):
@@ -365,6 +366,7 @@ class AlignObjects(Operator):
             )
     align_mode = EnumProperty(
             name="Align Mode:",
+            description="Side of object to use for alignment",
             items=(('OPT_1', "Negative Sides", ""),
                    ('OPT_2', "Centers", ""),
                    ('OPT_3', "Positive Sides", ""),
@@ -373,10 +375,11 @@ class AlignObjects(Operator):
             )
     relative_to = EnumProperty(
             name="Relative To:",
-            items=(('OPT_1', "Scene Origin", ""),
-                   ('OPT_2', "3D Cursor", ""),
-                   ('OPT_3', "Selection", ""),
-                   ('OPT_4', "Active", ""),
+            description="Reference location to align to",
+            items=(('OPT_1', "Scene Origin", "Use the Scene Origin as the position for the selected objects to align to"),
+                   ('OPT_2', "3D Cursor", "Use the 3D cursor as the position for the selected objects to align to"),
+                   ('OPT_3', "Selection", "Use the selected objects as the position for the selected objects to align to"),
+                   ('OPT_4', "Active", "Use the active object as the position for the selected objects to align to"),
                    ),
             default='OPT_4',
             )
@@ -396,16 +399,23 @@ class AlignObjects(Operator):
 
     def execute(self, context):
         align_axis = self.align_axis
-        ret = align_objects(context,
-                            'X' in align_axis,
-                            'Y' in align_axis,
-                            'Z' in align_axis,
-                            self.align_mode,
-                            self.relative_to,
-                            self.bb_quality)
+        ret = align_objects(
+            context,
+            'X' in align_axis,
+            'Y' in align_axis,
+            'Z' in align_axis,
+            self.align_mode,
+            self.relative_to,
+            self.bb_quality,
+        )
 
         if not ret:
             self.report({'WARNING'}, "No objects with bound-box selected")
             return {'CANCELLED'}
         else:
             return {'FINISHED'}
+
+
+classes = (
+    AlignObjects,
+)

@@ -46,10 +46,11 @@
 #include "BKE_brush.h"
 #include "BKE_cdderivedmesh.h"
 #include "BKE_context.h"
-#include "BKE_depsgraph.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_editstrands.h"
 #include "BKE_paint.h"
+
+#include "DEG_depsgraph.h"
 
 #include "bmesh.h"
 
@@ -191,7 +192,7 @@ static int hair_edit_toggle_exec(bContext *C, wmOperator *op)
 		WM_event_add_notifier(C, NC_SCENE|ND_MODE|NS_MODE_HAIR, NULL);
 	}
 
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 
 	return OPERATOR_FINISHED;
 }
@@ -214,28 +215,26 @@ void HAIR_OT_hair_edit_toggle(wmOperatorType *ot)
 
 /* ==== brush stroke ==== */
 
-void hair_init_viewdata(bContext *C, HairViewData *viewdata)
+void hair_init_viewcontext(bContext *C, ViewContext *vc)
 {
 	View3D *v3d;
 	bool has_zbuf;
 	
-	view3d_set_viewcontext(C, &viewdata->vc);
+	view3d_set_viewcontext(C, vc);
 	
-	v3d = viewdata->vc.v3d;
+	v3d = vc->v3d;
 	has_zbuf = (v3d->drawtype > OB_WIRE) && (v3d->flag & V3D_ZBUF_SELECT);
-	
-	view3d_get_transformation(viewdata->vc.ar, viewdata->vc.rv3d, NULL, &viewdata->mats);
 	
 	if (has_zbuf) {
 		if (v3d->flag & V3D_INVALID_BACKBUF) {
 			/* needed or else the draw matrix can be incorrect */
 			view3d_operator_needs_opengl(C);
 			
-			ED_view3d_backbuf_validate(&viewdata->vc);
+			ED_view3d_backbuf_validate(vc);
 			/* we may need to force an update here by setting the rv3d as dirty
 			 * for now it seems ok, but take care!:
 			 * rv3d->depths->dirty = 1; */
-			ED_view3d_depth_update(viewdata->vc.ar);
+			ED_view3d_depth_update(vc->ar);
 		}
 	}
 }
@@ -314,7 +313,7 @@ static bool hair_stroke_apply(bContext *C, wmOperator *op, PointerRNA *itemptr)
 	/* low-pass filter to smooth out jittery pixel increments in the direction */
 	interp_v2_v2v2(stroke->smoothdir, mdelta, stroke->smoothdir, smoothfac);
 	
-	hair_init_viewdata(C, &tool_data.viewdata);
+	hair_init_viewcontext(C, &tool_data.vc);
 	tool_data.scene = scene;
 	tool_data.ob = ob;
 	tool_data.edit = edit;
@@ -325,7 +324,7 @@ static bool hair_stroke_apply(bContext *C, wmOperator *op, PointerRNA *itemptr)
 	tool_data.mdepth = stroke->zfac;
 	
 	zvec[0] = 0.0f; zvec[1] = 0.0f; zvec[2] = stroke->zfac;
-	ED_view3d_win_to_3d(ar, zvec, mouse, tool_data.loc);
+	ED_view3d_win_to_3d(tool_data.vc.v3d, ar, zvec, mouse, tool_data.loc);
 	ED_view3d_win_to_delta(ar, stroke->smoothdir, tool_data.delta, stroke->zfac);
 	/* tools work in object space */
 	mul_m4_v3(tool_data.imat, tool_data.loc);
@@ -368,7 +367,7 @@ static int hair_stroke_exec(bContext *C, wmOperator *op)
 	RNA_END;
 	
 	if (updated) {
-		DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 		WM_event_add_notifier(C, NC_OBJECT|ND_MODIFIER, ob);
 	}
 	
@@ -398,7 +397,7 @@ static void hair_stroke_apply_event(bContext *C, wmOperator *op, const wmEvent *
 	updated |= hair_stroke_apply(C, op, &itemptr);
 
 	if (updated) {
-		DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 		WM_event_add_notifier(C, NC_OBJECT|ND_MODIFIER, ob);
 	}
 	else {

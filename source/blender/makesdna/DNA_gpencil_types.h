@@ -126,7 +126,7 @@ typedef enum eGPDpalettecolor_Flag {
 	PC_COLOR_LOCKED = (1 << 2),
 	/* do onion skinning */
 	PC_COLOR_ONIONSKIN = (1 << 3),
-	/* "volumetric" strokes (i.e. GLU Quadric discs in 3D) */
+	/* "volumetric" strokes */
 	PC_COLOR_VOLUMETRIC = (1 << 4),
 	/* Use High quality fill */
 	PC_COLOR_HQ_FILL = (1 << 5)
@@ -244,6 +244,7 @@ typedef struct bGPDlayer {
 	float inverse[4][4];    /* inverse matrix (only used if parented) */
 	char parsubstr[64];     /* String describing subobject info, MAX_ID_NAME-2 */
 	short partype, pad;
+	
 	float tintcolor[4];     /* Color used to tint layer, alpha value is used as factor */
 	float opacity;          /* Opacity of the layer */
 } bGPDlayer;
@@ -270,12 +271,14 @@ typedef enum eGPDlayer_Flag {
 	GP_LAYER_GHOST_PREVCOL	= (1 << 8),
 	/* use custom color for ghosts after current frame */
 	GP_LAYER_GHOST_NEXTCOL	= (1 << 9),
-	/* "volumetric" strokes (i.e. GLU Quadric discs in 3D) */
+	/* "volumetric" strokes */
 	GP_LAYER_VOLUMETRIC		= (1 << 10),
 	/* Use high quality fill (instead of buggy legacy OpenGL Fill) */
 	GP_LAYER_HQ_FILL        = (1 << 11),
 	/* Unlock color */
-	GP_LAYER_UNLOCK_COLOR = (1 << 12)
+	GP_LAYER_UNLOCK_COLOR 	= (1 << 12),
+	/* always show onion skins (i.e. even during renders/animation playback) */
+	GP_LAYER_GHOST_ALWAYS	= (1 << 13),
 } eGPDlayer_Flag;
 
 /* Grease-Pencil Annotations - 'DataBlock' */
@@ -295,12 +298,12 @@ typedef struct bGPdata {
 	short sbuffer_sflag;		/* flags for stroke that cache represents */
 	void *sbuffer;				/* stroke buffer (can hold GP_STROKE_BUFFER_MAX) */
 	float scolor[4];            /* buffer color using palettes */
+	float sfill[4];             /* buffer fill color */
 	char  pad[6];               /* padding for compiler alignment error */
 	short sflag;                /* settings for palette color */
 
-	/* saved paletes and brushes */
+	/* saved palettes */
 	ListBase palettes;
-	//ListBase brushes;
 } bGPdata;
 
 /* bGPdata->flag */
@@ -337,7 +340,7 @@ typedef enum eGPdata_Flag {
 	/* Convenience/cache flag to make it easier to quickly toggle onion skinning on/off */
 	GP_DATA_SHOW_ONIONSKINS = (1 << 9),
 	/* Draw a green and red point to indicate start and end of the stroke */
-	GP_DATA_SHOW_DIRECTION = (1 << 10)   
+	GP_DATA_SHOW_DIRECTION = (1 << 10)
 } eGPdata_Flag;
 
 #endif /*  __DNA_GPENCIL_TYPES_H__ */

@@ -79,7 +79,8 @@ static void shader_get_from_context(const bContext *C, bNodeTreeType *UNUSED(tre
 {
 	SpaceNode *snode = CTX_wm_space_node(C);
 	Scene *scene = CTX_data_scene(C);
-	Object *ob = OBACT;
+	SceneLayer *sl = CTX_data_scene_layer(C);
+	Object *ob = OBACT_NEW;
 	
 	if ((snode->shaderfrom == SNODE_SHADER_OBJECT) ||
 	    (BKE_scene_use_new_shading_nodes(scene) == false))
@@ -327,7 +328,8 @@ static void ntree_shader_link_builtin_group_normal(
 	/* Need to update tree so all node instances nodes gets proper sockets. */
 	bNode *group_input_node = ntreeFindType(group_ntree, NODE_GROUP_INPUT);
 	node_group_verify(ntree, group_node, &group_ntree->id);
-	node_group_input_verify(group_ntree, group_input_node, &group_ntree->id);
+	if (group_input_node)
+		node_group_input_verify(group_ntree, group_input_node, &group_ntree->id);
 	ntreeUpdateTree(G.main, group_ntree);
 	/* Assumes sockets are always added at the end. */
 	bNodeSocket *group_node_normal_socket = group_node->inputs.last;
@@ -370,7 +372,7 @@ static void ntree_shader_link_builtin_group_normal(
 		                                 group_displacement_socket);
 		ntreeUpdateTree(G.main, group_ntree);
 	}
-	else {
+	else if (group_input_node) {
 		/* Connect group node normal input. */
 		nodeAddLink(ntree,
 		            node_from, socket_from,

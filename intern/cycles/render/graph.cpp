@@ -14,17 +14,18 @@
  * limitations under the License.
  */
 
-#include "attribute.h"
-#include "graph.h"
-#include "nodes.h"
-#include "shader.h"
-#include "constant_fold.h"
+#include "render/attribute.h"
+#include "render/graph.h"
+#include "render/nodes.h"
+#include "render/scene.h"
+#include "render/shader.h"
+#include "render/constant_fold.h"
 
-#include "util_algorithm.h"
-#include "util_debug.h"
-#include "util_foreach.h"
-#include "util_queue.h"
-#include "util_logging.h"
+#include "util/util_algorithm.h"
+#include "util/util_debug.h"
+#include "util/util_foreach.h"
+#include "util/util_queue.h"
+#include "util/util_logging.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -148,8 +149,9 @@ void ShaderNode::attributes(Shader *shader, AttributeRequestSet *attributes)
 
 bool ShaderNode::equals(const ShaderNode& other)
 {
-	if (type != other.type || bump != other.bump)
+	if(type != other.type || bump != other.bump) {
 		return false;
+	}
 
 	assert(inputs.size() == other.inputs.size());
 
@@ -194,6 +196,7 @@ bool ShaderNode::equals(const ShaderNode& other)
 ShaderGraph::ShaderGraph()
 {
 	finalized = false;
+	simplified = false;
 	num_node_ids = 0;
 	add(new OutputNode());
 }
@@ -206,6 +209,8 @@ ShaderGraph::~ShaderGraph()
 ShaderNode *ShaderGraph::add(ShaderNode *node)
 {
 	assert(!finalized);
+	simplified = false;
+
 	node->id = num_node_ids++;
 	nodes.push_back(node);
 	return node;
@@ -232,6 +237,8 @@ ShaderGraph *ShaderGraph::copy()
 	newgraph->clear_nodes();
 	foreach(ShaderNode *node, nodes)
 		newgraph->add(nodes_copy[node]);
+
+	newgraph->simplified = simplified;
 
 	return newgraph;
 }
@@ -272,6 +279,7 @@ void ShaderGraph::connect(ShaderOutput *from, ShaderInput *to)
 void ShaderGraph::disconnect(ShaderOutput *from)
 {
 	assert(!finalized);
+	simplified = false;
 
 	foreach(ShaderInput *sock, from->links) {
 		sock->link = NULL;
@@ -284,6 +292,7 @@ void ShaderGraph::disconnect(ShaderInput *to)
 {
 	assert(!finalized);
 	assert(to->link);
+	simplified = false;
 
 	ShaderOutput *from = to->link;
 
@@ -293,6 +302,8 @@ void ShaderGraph::disconnect(ShaderInput *to)
 
 void ShaderGraph::relink(ShaderNode *node, ShaderOutput *from, ShaderOutput *to)
 {
+	simplified = false;
+
 	/* Copy because disconnect modifies this list */
 	vector<ShaderInput*> outputs = from->links;
 
@@ -309,10 +320,21 @@ void ShaderGraph::relink(ShaderNode *node, ShaderOutput *from, ShaderOutput *to)
 	}
 }
 
+void ShaderGraph::simplify(Scene *scene)
+{
+	if(!simplified) {
+		default_inputs(scene->shader_manager->use_osl());
+		clean(scene);
+		refine_bump_nodes();
+
+		simplified = true;
+	}
+}
+
 void ShaderGraph::finalize(Scene *scene,
                            bool do_bump,
-                           bool do_osl,
-                           bool do_simplify)
+                           bool do_simplify,
+                           bool bump_in_object_space)
 {
 	/* before compiling, the shader graph may undergo a number of modifications.
 	 * currently we set default geometry shader inputs, and create automatic bump
@@ -320,12 +342,10 @@ void ShaderGraph::finalize(Scene *scene,
 	 * modified afterwards. */
 
 	if(!finalized) {
-		clean(scene);
-		default_inputs(do_osl);
-		refine_bump_nodes();
+		simplify(scene);
 
 		if(do_bump)
-			bump_from_displacement();
+			bump_from_displacement(bump_in_object_space);
 
 		ShaderInput *surface_in = output()->input("Surface");
 		ShaderInput *volume_in = output()->input("Volume");
@@ -403,7 +423,8 @@ void ShaderGraph::copy_nodes(ShaderNodeSet& nodes, ShaderNodeMap& nnodemap)
 /* Graph simplification */
 /* ******************** */
 
-/* Step 1: Remove proxy nodes.
+/* Remove proxy nodes.
+ *
  * These only exists temporarily when exporting groups, and we must remove them
  * early so that node->attributes() and default links do not see them.
  */
@@ -473,7 +494,8 @@ void ShaderGraph::remove_proxy_nodes()
 	}
 }
 
-/* Step 2: Constant folding.
+/* Constant folding.
+ *
  * Try to constant fold some nodes, and pipe result directly to
  * the input socket of connected nodes.
  */
@@ -481,6 +503,8 @@ void ShaderGraph::constant_fold()
 {
 	ShaderNodeSet done, scheduled;
 	queue<ShaderNode*> traverse_queue;
+
+	bool has_displacement = (output()->input("Displacement")->link != NULL);
 
 	/* Schedule nodes which doesn't have any dependencies. */
 	foreach(ShaderNode *node, nodes) {
@@ -519,9 +543,20 @@ void ShaderGraph::constant_fold()
 			node->constant_fold(folder);
 		}
 	}
+
+	/* Folding might have removed all nodes connected to the displacement output
+	 * even tho there is displacement to be applied, so add in a value node if
+	 * that happens to ensure there is still a valid graph for displacement.
+	 */
+	if(has_displacement && !output()->input("Displacement")->link) {
+		ValueNode *value = (ValueNode*)add(new ValueNode());
+		value->value = output()->displacement;
+
+		connect(value->output("Value"), output()->input("Displacement"));
+	}
 }
 
-/* Step 3: Simplification. */
+/* Simplification. */
 void ShaderGraph::simplify_settings(Scene *scene)
 {
 	foreach(ShaderNode *node, nodes) {
@@ -529,7 +564,7 @@ void ShaderGraph::simplify_settings(Scene *scene)
 	}
 }
 
-/* Step 4: Deduplicate nodes with same settings. */
+/* Deduplicate nodes with same settings. */
 void ShaderGraph::deduplicate_nodes()
 {
 	/* NOTES:
@@ -583,13 +618,13 @@ void ShaderGraph::deduplicate_nodes()
 		/* Try to merge this node with another one. */
 		ShaderNode *merge_with = NULL;
 		foreach(ShaderNode *other_node, candidates[node->type->name]) {
-			if (node != other_node && node->equals(*other_node)) {
+			if(node != other_node && node->equals(*other_node)) {
 				merge_with = other_node;
 				break;
 			}
 		}
 		/* If found an equivalent, merge; otherwise keep node for later merges */
-		if (merge_with != NULL) {
+		if(merge_with != NULL) {
 			for(int i = 0; i < node->outputs.size(); ++i) {
 				relink(node, node->outputs[i], merge_with->outputs[i]);
 			}
@@ -602,6 +637,48 @@ void ShaderGraph::deduplicate_nodes()
 
 	if(num_deduplicated > 0) {
 		VLOG(1) << "Deduplicated " << num_deduplicated << " nodes.";
+	}
+}
+
+/* Check whether volume output has meaningful nodes, otherwise
+ * disconnect the output.
+ */
+void ShaderGraph::verify_volume_output()
+{
+	/* Check whether we can optimize the whole volume graph out. */
+	ShaderInput *volume_in = output()->input("Volume");
+	if(volume_in->link == NULL) {
+		return;
+	}
+	bool has_valid_volume = false;
+	ShaderNodeSet scheduled;
+	queue<ShaderNode*> traverse_queue;
+	/* Schedule volume output. */
+	traverse_queue.push(volume_in->link->parent);
+	scheduled.insert(volume_in->link->parent);
+	/* Traverse down the tree. */
+	while(!traverse_queue.empty()) {
+		ShaderNode *node = traverse_queue.front();
+		traverse_queue.pop();
+		/* Node is fully valid for volume, can't optimize anything out. */
+		if(node->has_volume_support()) {
+			has_valid_volume = true;
+			break;
+		}
+		foreach(ShaderInput *input, node->inputs) {
+			if(input->link == NULL) {
+				continue;
+			}
+			if(scheduled.find(input->link->parent) != scheduled.end()) {
+				continue;
+			}
+			traverse_queue.push(input->link->parent);
+			scheduled.insert(input->link->parent);
+		}
+	}
+	if(!has_valid_volume) {
+		VLOG(1) << "Disconnect meaningless volume output.";
+		disconnect(volume_in->link);
 	}
 }
 
@@ -633,16 +710,11 @@ void ShaderGraph::clean(Scene *scene)
 {
 	/* Graph simplification */
 
-	/* 1: Remove proxy nodes was already done. */
-
-	/* 2: Constant folding. */
+	/* NOTE: Remove proxy nodes was already done. */
 	constant_fold();
-
-	/* 3: Simplification. */
 	simplify_settings(scene);
-
-	/* 4: De-duplication. */
 	deduplicate_nodes();
+	verify_volume_output();
 
 	/* we do two things here: find cycles and break them, and remove unused
 	 * nodes that don't feed into the output. how cycles are broken is
@@ -793,7 +865,7 @@ void ShaderGraph::refine_bump_nodes()
 	}
 }
 
-void ShaderGraph::bump_from_displacement()
+void ShaderGraph::bump_from_displacement(bool use_object_space)
 {
 	/* generate bump mapping automatically from displacement. bump mapping is
 	 * done using a 3-tap filter, computing the displacement at the center,
@@ -842,7 +914,8 @@ void ShaderGraph::bump_from_displacement()
 	ShaderNode *set_normal = add(new SetNormalNode());
 	
 	/* add bump node and connect copied graphs to it */
-	ShaderNode *bump = add(new BumpNode());
+	BumpNode *bump = (BumpNode*)add(new BumpNode());
+	bump->use_object_space = use_object_space;
 
 	ShaderOutput *out = displacement_in->link;
 	ShaderOutput *out_center = nodes_center[out->parent]->output(out->name());
@@ -856,27 +929,8 @@ void ShaderGraph::bump_from_displacement()
 	/* connect the bump out to the set normal in: */
 	connect(bump->output("Normal"), set_normal->input("Direction"));
 
-	/* connect bump output to normal input nodes that aren't set yet. actually
-	 * this will only set the normal input to the geometry node that we created
-	 * and connected to all other normal inputs already. */
-	foreach(ShaderNode *node, nodes) {
-		/* Don't connect normal to the bump node we're coming from,
-		 * otherwise it'll be a cycle in graph.
-		 */
-		if(node == bump) {
-			continue;
-		}
-		foreach(ShaderInput *input, node->inputs) {
-			if(!input->link && (input->flags() & SocketType::LINK_NORMAL))
-				connect(set_normal->output("Normal"), input);
-		}
-	}
-
-	/* for displacement bump, clear the normal input in case the above loop
-	 * connected the setnormal out to the bump normalin */
-	ShaderInput *bump_normal_in = bump->input("Normal");
-	if(bump_normal_in)
-		bump_normal_in->link = NULL;
+	/* connect to output node */
+	connect(set_normal->output("Normal"), output()->input("Normal"));
 
 	/* finally, add the copied nodes to the graph. we can't do this earlier
 	 * because we would create dependency cycles in the above loop */
@@ -982,6 +1036,9 @@ int ShaderGraph::get_num_closures()
 		}
 		else if(CLOSURE_IS_BSDF_MULTISCATTER(closure_type)) {
 			num_closures += 2;
+		}
+		else if(CLOSURE_IS_PRINCIPLED(closure_type)) {
+			num_closures += 8;
 		}
 		else {
 			++num_closures;

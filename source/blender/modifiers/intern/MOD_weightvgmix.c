@@ -43,7 +43,6 @@
 #include "BKE_modifier.h"
 #include "BKE_texture.h"          /* Texture masking. */
 
-#include "depsgraph_private.h"
 #include "DEG_depsgraph_build.h"
 
 #include "MEM_guardedalloc.h"
@@ -175,14 +174,14 @@ static bool dependsOnTime(ModifierData *md)
 static void foreachObjectLink(ModifierData *md, Object *ob, ObjectWalkFunc walk, void *userData)
 {
 	WeightVGMixModifierData *wmd = (WeightVGMixModifierData *) md;
-	walk(userData, ob, &wmd->mask_tex_map_obj, IDWALK_NOP);
+	walk(userData, ob, &wmd->mask_tex_map_obj, IDWALK_CB_NOP);
 }
 
 static void foreachIDLink(ModifierData *md, Object *ob, IDWalkFunc walk, void *userData)
 {
 	WeightVGMixModifierData *wmd = (WeightVGMixModifierData *) md;
 
-	walk(userData, ob, (ID **)&wmd->mask_texture, IDWALK_USER);
+	walk(userData, ob, (ID **)&wmd->mask_texture, IDWALK_CB_USER);
 
 	foreachObjectLink(md, ob, (ObjectWalkFunc)walk, userData);
 }
@@ -190,26 +189,6 @@ static void foreachIDLink(ModifierData *md, Object *ob, IDWalkFunc walk, void *u
 static void foreachTexLink(ModifierData *md, Object *ob, TexWalkFunc walk, void *userData)
 {
 	walk(userData, ob, md, "mask_texture");
-}
-
-static void updateDepgraph(ModifierData *md, DagForest *forest,
-                           struct Main *UNUSED(bmain),
-                           struct Scene *UNUSED(scene),
-                           Object *UNUSED(ob), DagNode *obNode)
-{
-	WeightVGMixModifierData *wmd = (WeightVGMixModifierData *) md;
-	DagNode *curNode;
-
-	if (wmd->mask_tex_map_obj && wmd->mask_tex_mapping == MOD_DISP_MAP_OBJECT) {
-		curNode = dag_get_node(forest, wmd->mask_tex_map_obj);
-
-		dag_add_relation(forest, curNode, obNode, DAG_RL_DATA_DATA | DAG_RL_OB_DATA,
-		                 "WeightVGMix Modifier");
-	}
-
-	if (wmd->mask_tex_mapping == MOD_DISP_MAP_GLOBAL)
-		dag_add_relation(forest, obNode, obNode, DAG_RL_DATA_DATA | DAG_RL_OB_DATA,
-		                 "WeightVGMix Modifier");
 }
 
 static void updateDepsgraph(ModifierData *md,
@@ -282,8 +261,7 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob, DerivedMesh *der
 		if (wmd->mix_set != MOD_WVG_SET_ALL)
 			return dm;
 		/* Else, add a valid data layer! */
-		dvert = CustomData_add_layer_named(&dm->vertData, CD_MDEFORMVERT, CD_CALLOC,
-		                                   NULL, numVerts, wmd->defgrp_name_a);
+		dvert = CustomData_add_layer(&dm->vertData, CD_MDEFORMVERT, CD_CALLOC, NULL, numVerts);
 		/* Ultimate security check. */
 		if (!dvert)
 			return dm;
@@ -439,7 +417,6 @@ ModifierTypeInfo modifierType_WeightVGMix = {
 	/* requiredDataMask */  requiredDataMask,
 	/* freeData */          freeData,
 	/* isDisabled */        isDisabled,
-	/* updateDepgraph */    updateDepgraph,
 	/* updateDepsgraph */   updateDepsgraph,
 	/* dependsOnTime */     dependsOnTime,
 	/* dependsOnNormals */  NULL,

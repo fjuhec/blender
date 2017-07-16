@@ -79,7 +79,7 @@ class RENDER_PT_render(RenderButtonsPanel, Panel):
 
 class RENDER_PT_dimensions(RenderButtonsPanel, Panel):
     bl_label = "Dimensions"
-    COMPAT_ENGINES = {'BLENDER_RENDER'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE'}
 
     _frame_rate_args_prev = None
     _preset_class = None
@@ -335,7 +335,7 @@ class RENDER_PT_post_processing(RenderButtonsPanel, Panel):
 class RENDER_PT_stamp(RenderButtonsPanel, Panel):
     bl_label = "Metadata"
     bl_options = {'DEFAULT_CLOSED'}
-    COMPAT_ENGINES = {'BLENDER_RENDER'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE'}
 
     def draw(self, context):
         layout = self.layout
@@ -345,7 +345,9 @@ class RENDER_PT_stamp(RenderButtonsPanel, Panel):
         layout.prop(rd, "use_stamp")
         col = layout.column()
         col.active = rd.use_stamp
-        col.prop(rd, "stamp_font_size", text="Font Size")
+        row = col.row()
+        row.prop(rd, "stamp_font_size", text="Font Size")
+        row.prop(rd, "use_stamp_labels", text="Draw labels")
 
         row = col.row()
         row.column().prop(rd, "stamp_foreground", slider=True)
@@ -375,13 +377,13 @@ class RENDER_PT_stamp(RenderButtonsPanel, Panel):
         sub.active = rd.use_stamp_note
         sub.prop(rd, "stamp_note_text", text="")
         if rd.use_sequencer:
-            layout.label("Sequencer")
+            layout.label("Sequencer:")
             layout.prop(rd, "use_stamp_strip_meta")
 
 
 class RENDER_PT_output(RenderButtonsPanel, Panel):
     bl_label = "Output"
-    COMPAT_ENGINES = {'BLENDER_RENDER'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE'}
 
     def draw(self, context):
         layout = self.layout
@@ -459,31 +461,42 @@ class RENDER_PT_encoding(RenderButtonsPanel, Panel):
 
         split = layout.split()
         split.prop(rd.ffmpeg, "format")
-        if ffmpeg.format in {'AVI', 'QUICKTIME', 'MKV', 'OGG', 'MPEG4'}:
-            split.prop(ffmpeg, "codec")
-            if ffmpeg.codec == 'H264':
-                row = layout.row()
-                row.label()
-                row.prop(ffmpeg, "use_lossless_output")
-        elif rd.ffmpeg.format == 'H264':
-            split.prop(ffmpeg, "use_lossless_output")
-        else:
-            split.label()
+        split.prop(ffmpeg, "use_autosplit")
 
+        layout.separator()
+
+        needs_codec = ffmpeg.format in {'AVI', 'QUICKTIME', 'MKV', 'OGG', 'MPEG4'}
+        if needs_codec:
+            layout.prop(ffmpeg, "codec")
+
+        if ffmpeg.codec in {'DNXHD'}:
+            layout.prop(ffmpeg, "use_lossless_output")
+
+        # Output quality
+        if needs_codec and ffmpeg.codec in {'H264', 'MPEG4'}:
+            layout.prop(ffmpeg, "constant_rate_factor")
+
+        # Encoding speed
+        layout.prop(ffmpeg, "ffmpeg_preset")
+        # I-frames
+        layout.prop(ffmpeg, "gopsize")
+        # B-Frames
         row = layout.row()
-        row.prop(ffmpeg, "video_bitrate")
-        row.prop(ffmpeg, "gopsize")
+        row.prop(ffmpeg, "use_max_b_frames", text='Max B-frames')
+        pbox = row.split()
+        pbox.prop(ffmpeg, "max_b_frames", text='')
+        pbox.enabled = ffmpeg.use_max_b_frames
 
         split = layout.split()
-
+        split.enabled = ffmpeg.constant_rate_factor == 'NONE'
         col = split.column()
         col.label(text="Rate:")
+        col.prop(ffmpeg, "video_bitrate")
         col.prop(ffmpeg, "minrate", text="Minimum")
         col.prop(ffmpeg, "maxrate", text="Maximum")
         col.prop(ffmpeg, "buffersize", text="Buffer")
 
         col = split.column()
-        col.prop(ffmpeg, "use_autosplit")
         col.label(text="Mux:")
         col.prop(ffmpeg, "muxrate", text="Rate")
         col.prop(ffmpeg, "packetsize", text="Packet Size")
@@ -495,6 +508,7 @@ class RENDER_PT_encoding(RenderButtonsPanel, Panel):
             layout.prop(ffmpeg, "audio_codec", text="Audio Codec")
 
         row = layout.row()
+        row.enabled = ffmpeg.audio_codec != 'NONE'
         row.prop(ffmpeg, "audio_bitrate")
         row.prop(ffmpeg, "audio_volume", slider=True)
 
@@ -570,5 +584,155 @@ class RENDER_PT_bake(RenderButtonsPanel, Panel):
             sub.prop(rd, "bake_user_scale", text="User Scale")
 
 
+class RENDER_PT_clay_layer_settings(RenderButtonsPanel, Panel):
+    bl_label = "Clay Layer Settings"
+    COMPAT_ENGINES = {'BLENDER_CLAY'}
+
+    def draw(self, context):
+        layout = self.layout
+        props = context.scene.layer_properties['BLENDER_CLAY']
+
+        col = layout.column()
+        col.prop(props, "ssao_samples")
+
+
+class RENDER_PT_clay_collection_settings(RenderButtonsPanel, Panel):
+    bl_label = "Clay Collection Settings"
+    COMPAT_ENGINES = {'BLENDER_CLAY'}
+
+    def draw(self, context):
+        layout = self.layout
+        props = context.scene.collection_properties['BLENDER_CLAY']
+
+        col = layout.column()
+        col.template_icon_view(props, "matcap_icon")
+        col.prop(props, "matcap_rotation")
+        col.prop(props, "matcap_hue")
+        col.prop(props, "matcap_saturation")
+        col.prop(props, "matcap_value")
+        col.prop(props, "ssao_factor_cavity")
+        col.prop(props, "ssao_factor_edge")
+        col.prop(props, "ssao_distance")
+        col.prop(props, "ssao_attenuation")
+        col.prop(props, "hair_brightness_randomness")
+
+
+class RENDER_PT_eevee_poststack_settings(RenderButtonsPanel, Panel):
+    bl_label = "Post Process Stack"
+    COMPAT_ENGINES = {'BLENDER_EEVEE'}
+
+    @classmethod
+    def poll(cls, context):
+        scene = context.scene
+        return scene and (scene.render.engine in cls.COMPAT_ENGINES)
+
+    def draw(self, context):
+        layout = self.layout
+        scene = context.scene
+        props = scene.layer_properties['BLENDER_EEVEE']
+
+        col = layout.column()
+        col.prop(props, "gtao_enable")
+        col.prop(props, "motion_blur_enable")
+        col.prop(props, "dof_enable")
+        col.prop(props, "bloom_enable")
+
+
+class RENDER_PT_eevee_postprocess_settings(RenderButtonsPanel, Panel):
+    bl_label = "Post Process Settings"
+    COMPAT_ENGINES = {'BLENDER_EEVEE'}
+
+    @classmethod
+    def poll(cls, context):
+        scene = context.scene
+        return scene and (scene.render.engine in cls.COMPAT_ENGINES)
+
+    def draw(self, context):
+        layout = self.layout
+        scene = context.scene
+        props = scene.layer_properties['BLENDER_EEVEE']
+
+        col = layout.column()
+
+        col.label("Ambient Occlusion:")
+        col.prop(props, "gtao_use_bent_normals")
+        col.prop(props, "gtao_samples")
+        col.prop(props, "gtao_distance")
+        col.prop(props, "gtao_factor")
+        col.separator()
+
+        col.label("Motion Blur:")
+        col.prop(props, "motion_blur_samples")
+        col.prop(props, "motion_blur_shutter")
+        col.separator()
+
+        col.label("Depth of Field:")
+        col.prop(props, "bokeh_max_size")
+        col.prop(props, "bokeh_threshold")
+        col.separator()
+
+        col.label("Bloom:")
+        col.prop(props, "bloom_threshold")
+        col.prop(props, "bloom_knee")
+        col.prop(props, "bloom_radius")
+        col.prop(props, "bloom_intensity")
+
+
+class RENDER_PT_eevee_volumetric(RenderButtonsPanel, Panel):
+    bl_label = "Volumetric"
+    COMPAT_ENGINES = {'BLENDER_EEVEE'}
+
+    @classmethod
+    def poll(cls, context):
+        scene = context.scene
+        return scene and (scene.render.engine in cls.COMPAT_ENGINES)
+
+    def draw_header(self, context):
+        scene = context.scene
+        props = scene.layer_properties['BLENDER_EEVEE']
+        self.layout.prop(props, "volumetric_enable", text="")
+
+    def draw(self, context):
+        layout = self.layout
+        scene = context.scene
+        props = scene.layer_properties['BLENDER_EEVEE']
+
+        layout.active = props.volumetric_enable
+        col = layout.column()
+        col.prop(props, "volumetric_start")
+        col.prop(props, "volumetric_end")
+        col.prop(props, "volumetric_samples")
+        col.prop(props, "volumetric_sample_distribution")
+        col.prop(props, "volumetric_lights")
+        col.prop(props, "volumetric_light_clamp")
+        col.prop(props, "volumetric_shadows")
+        col.prop(props, "volumetric_shadow_samples")
+        col.prop(props, "volumetric_colored_transmittance")
+
+
+classes = (
+    RENDER_MT_presets,
+    RENDER_MT_ffmpeg_presets,
+    RENDER_MT_framerate_presets,
+    RENDER_PT_render,
+    RENDER_PT_dimensions,
+    RENDER_PT_antialiasing,
+    RENDER_PT_motion_blur,
+    RENDER_PT_shading,
+    RENDER_PT_performance,
+    RENDER_PT_post_processing,
+    RENDER_PT_stamp,
+    RENDER_PT_output,
+    RENDER_PT_encoding,
+    RENDER_PT_bake,
+    RENDER_PT_clay_layer_settings,
+    RENDER_PT_clay_collection_settings,
+    RENDER_PT_eevee_poststack_settings,
+    RENDER_PT_eevee_postprocess_settings,
+    RENDER_PT_eevee_volumetric,
+)
+
 if __name__ == "__main__":  # only for live edit.
-    bpy.utils.register_module(__name__)
+    from bpy.utils import register_class
+    for cls in classes:
+        register_class(cls)

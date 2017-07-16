@@ -45,17 +45,20 @@
 
 #include "BKE_context.h"
 #include "BKE_curve.h"
-#include "BKE_depsgraph.h"
 #include "BKE_displist.h"
 #include "BKE_fcurve.h"
 #include "BKE_global.h"
 #include "BKE_key.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_report.h"
 #include "BKE_animsys.h"
 #include "BKE_action.h"
 #include "BKE_modifier.h"
+
+#include "DEG_depsgraph.h"
+#include "DEG_depsgraph_build.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -90,14 +93,6 @@ typedef struct {
 	int actnu;
 	int flag;
 } UndoCurve;
-
-/* Definitions needed for shape keys */
-typedef struct {
-	void *orig_cv;
-	int key_index, nu_index, pt_index, vertex_index;
-	bool switched;
-	Nurb *orig_nu;
-} CVKeyIndex;
 
 void selectend_nurb(Object *obedit, enum eEndPoint_Types selfirst, bool doswap, bool selstatus);
 static void adduplicateflagNurb(Object *obedit, ListBase *newnurb, const short flag, const bool split);
@@ -138,9 +133,9 @@ void printknots(Object *obedit)
 
 /* ********************* Shape keys *************** */
 
-static CVKeyIndex *init_cvKeyIndex(void *cv, int key_index, int nu_index, int pt_index, int vertex_index, Nurb *orig_nu)
+static CVKeyIndex *init_cvKeyIndex(void *cv, int key_index, int nu_index, int pt_index, int vertex_index)
 {
-	CVKeyIndex *cvIndex = MEM_callocN(sizeof(CVKeyIndex), "init_cvKeyIndex");
+	CVKeyIndex *cvIndex = MEM_callocN(sizeof(CVKeyIndex), __func__);
 
 	cvIndex->orig_cv = cv;
 	cvIndex->key_index = key_index;
@@ -148,7 +143,6 @@ static CVKeyIndex *init_cvKeyIndex(void *cv, int key_index, int nu_index, int pt
 	cvIndex->pt_index = pt_index;
 	cvIndex->vertex_index = vertex_index;
 	cvIndex->switched = false;
-	cvIndex->orig_nu = orig_nu;
 
 	return cvIndex;
 }
@@ -174,7 +168,12 @@ static void init_editNurb_keyIndex(EditNurb *editnurb, ListBase *origBase)
 			origbezt = orignu->bezt;
 			pt_index = 0;
 			while (a--) {
-				keyIndex = init_cvKeyIndex(origbezt, key_index, nu_index, pt_index, vertex_index, orignu);
+				/* We cannot keep *any* reference to curve obdata,
+				 * it might be replaced and freed while editcurve remain in use (in viewport render case e.g.).
+				 * Note that we could use a pool to avoid lots of malloc's here, but... not really a problem for now. */
+				BezTriple *origbezt_cpy = MEM_mallocN(sizeof(*origbezt), __func__);
+				*origbezt_cpy = *origbezt;
+				keyIndex = init_cvKeyIndex(origbezt_cpy, key_index, nu_index, pt_index, vertex_index);
 				BLI_ghash_insert(gh, bezt, keyIndex);
 				key_index += 12;
 				vertex_index += 3;
@@ -189,7 +188,12 @@ static void init_editNurb_keyIndex(EditNurb *editnurb, ListBase *origBase)
 			origbp = orignu->bp;
 			pt_index = 0;
 			while (a--) {
-				keyIndex = init_cvKeyIndex(origbp, key_index, nu_index, pt_index, vertex_index, orignu);
+				/* We cannot keep *any* reference to curve obdata,
+				 * it might be replaced and freed while editcurve remain in use (in viewport render case e.g.).
+				 * Note that we could use a pool to avoid lots of malloc's here, but... not really a problem for now. */
+				BPoint *origbp_cpy = MEM_mallocN(sizeof(*origbp_cpy), __func__);
+				*origbp_cpy = *origbp;
+				keyIndex = init_cvKeyIndex(origbp_cpy, key_index, nu_index, pt_index, vertex_index);
 				BLI_ghash_insert(gh, bp, keyIndex);
 				key_index += 4;
 				bp++;
@@ -250,23 +254,22 @@ static int getKeyIndexOrig_keyIndex(EditNurb *editnurb, void *cv)
 	return index->key_index;
 }
 
-static void keyIndex_delCV(EditNurb *editnurb, const void *cv)
+static void keyIndex_delBezt(EditNurb *editnurb, BezTriple *bezt)
 {
 	if (!editnurb->keyindex) {
 		return;
 	}
 
-	BLI_ghash_remove(editnurb->keyindex, cv, NULL, MEM_freeN);
-}
-
-static void keyIndex_delBezt(EditNurb *editnurb, BezTriple *bezt)
-{
-	keyIndex_delCV(editnurb, bezt);
+	BKE_curve_editNurb_keyIndex_delCV(editnurb->keyindex, bezt);
 }
 
 static void keyIndex_delBP(EditNurb *editnurb, BPoint *bp)
 {
-	keyIndex_delCV(editnurb, bp);
+	if (!editnurb->keyindex) {
+		return;
+	}
+
+	BKE_curve_editNurb_keyIndex_delCV(editnurb->keyindex, bp);
 }
 
 static void keyIndex_delNurb(EditNurb *editnurb, Nurb *nu)
@@ -282,7 +285,7 @@ static void keyIndex_delNurb(EditNurb *editnurb, Nurb *nu)
 		a = nu->pntsu;
 
 		while (a--) {
-			BLI_ghash_remove(editnurb->keyindex, bezt, NULL, MEM_freeN);
+			BKE_curve_editNurb_keyIndex_delCV(editnurb->keyindex, bezt);
 			bezt++;
 		}
 	}
@@ -291,7 +294,7 @@ static void keyIndex_delNurb(EditNurb *editnurb, Nurb *nu)
 		a = nu->pntsu * nu->pntsv;
 
 		while (a--) {
-			BLI_ghash_remove(editnurb->keyindex, bp, NULL, MEM_freeN);
+			BKE_curve_editNurb_keyIndex_delCV(editnurb->keyindex, bp);
 			bp++;
 		}
 	}
@@ -535,6 +538,7 @@ static GHash *dupli_keyIndexHash(GHash *keyindex)
 		CVKeyIndex *newIndex = MEM_mallocN(sizeof(CVKeyIndex), "dupli_keyIndexHash index");
 
 		memcpy(newIndex, index, sizeof(CVKeyIndex));
+		newIndex->orig_cv = MEM_dupallocN(index->orig_cv);
 
 		BLI_ghash_insert(gh, cv, newIndex);
 	}
@@ -624,7 +628,7 @@ static void calc_keyHandles(ListBase *nurb, float *key)
 	}
 }
 
-static void calc_shapeKeys(Object *obedit)
+static void calc_shapeKeys(Object *obedit, ListBase *newnurbs)
 {
 	Curve *cu = (Curve *)obedit->data;
 
@@ -636,7 +640,7 @@ static void calc_shapeKeys(Object *obedit)
 		KeyBlock *actkey = BLI_findlink(&cu->key->block, editnurb->shapenr - 1);
 		BezTriple *bezt, *oldbezt;
 		BPoint *bp, *oldbp;
-		Nurb *nu;
+		Nurb *nu, *newnu;
 		int totvert = BKE_nurbList_verts_count(&editnurb->nurbs);
 
 		float (*ofs)[3] = NULL;
@@ -706,20 +710,25 @@ static void calc_shapeKeys(Object *obedit)
 
 		currkey = cu->key->block.first;
 		while (currkey) {
-			int apply_offset = (ofs && (currkey != actkey) && (editnurb->shapenr - 1 == currkey->relative));
+			const bool apply_offset = (ofs && (currkey != actkey) && (editnurb->shapenr - 1 == currkey->relative));
 
 			float *fp = newkey = MEM_callocN(cu->key->elemsize * totvert,  "currkey->data");
 			ofp = oldkey = currkey->data;
 
 			nu = editnurb->nurbs.first;
+			/* We need to restore to original curve into newnurb, *not* editcurve's nurbs.
+			 * Otherwise, in case we update obdata *without* leaving editmode (e.g. viewport render), we would
+			 * invalidate editcurve. */
+			newnu = newnurbs->first;
 			i = 0;
 			while (nu) {
 				if (currkey == actkey) {
-					int restore = actkey != cu->key->refkey;
+					const bool restore = actkey != cu->key->refkey;
 
 					if (nu->bezt) {
 						bezt = nu->bezt;
 						a = nu->pntsu;
+						BezTriple *newbezt = newnu->bezt;
 						while (a--) {
 							int j;
 							oldbezt = getKeyIndexOrig_bezt(editnurb, bezt);
@@ -728,7 +737,7 @@ static void calc_shapeKeys(Object *obedit)
 								copy_v3_v3(fp, bezt->vec[j]);
 
 								if (restore && oldbezt) {
-									copy_v3_v3(bezt->vec[j], oldbezt->vec[j]);
+									copy_v3_v3(newbezt->vec[j], oldbezt->vec[j]);
 								}
 
 								fp += 3;
@@ -736,16 +745,18 @@ static void calc_shapeKeys(Object *obedit)
 							fp[0] = bezt->alfa;
 
 							if (restore && oldbezt) {
-								bezt->alfa = oldbezt->alfa;
+								newbezt->alfa = oldbezt->alfa;
 							}
 
 							fp += 3; ++i; /* alphas */
 							bezt++;
+							newbezt++;
 						}
 					}
 					else {
 						bp = nu->bp;
 						a = nu->pntsu * nu->pntsv;
+						BPoint *newbp = newnu->bp;
 						while (a--) {
 							oldbp = getKeyIndexOrig_bp(editnurb, bp);
 
@@ -754,12 +765,13 @@ static void calc_shapeKeys(Object *obedit)
 							fp[3] = bp->alfa;
 
 							if (restore && oldbp) {
-								copy_v3_v3(bp->vec, oldbp->vec);
-								bp->alfa = oldbp->alfa;
+								copy_v3_v3(newbp->vec, oldbp->vec);
+								newbp->alfa = oldbp->alfa;
 							}
 
 							fp += 4;
 							bp++;
+							newbp++;
 							i += 2;
 						}
 					}
@@ -1204,9 +1216,13 @@ void ED_curve_editnurb_load(Object *obedit)
 			}
 		}
 
+		/* We have to pass also new copied nurbs, since we want to restore original curve (without edited shapekey)
+		 * on obdata, but *not* on editcurve itself (ED_curve_editnurb_load call does not always implies freeing
+		 * of editcurve, e.g. when called to generate render data...). */
+		calc_shapeKeys(obedit, &newnurb);
+
 		cu->nurb = newnurb;
 
-		calc_shapeKeys(obedit);
 		ED_curve_updateAnimPaths(obedit->data);
 
 		BKE_nurbList_free(&oldnurb);
@@ -1227,13 +1243,11 @@ void ED_curve_editnurb_make(Object *obedit)
 		if (actkey) {
 			// XXX strcpy(G.editModeTitleExtra, "(Key) ");
 			undo_editmode_clear();
-			BKE_keyblock_convert_to_curve(actkey, cu, &cu->nurb);
 		}
 
 		if (editnurb) {
 			BKE_nurbList_free(&editnurb->nurbs);
-			BKE_curve_editNurb_keyIndex_free(editnurb);
-			editnurb->keyindex = NULL;
+			BKE_curve_editNurb_keyIndex_free(&editnurb->keyindex);
 		}
 		else {
 			editnurb = MEM_callocN(sizeof(EditNurb), "editnurb");
@@ -1248,12 +1262,16 @@ void ED_curve_editnurb_make(Object *obedit)
 			nu = nu->next;
 		}
 
-		if (actkey)
-			editnurb->shapenr = obedit->shapenr;
-
 		/* animation could be added in editmode even if there was no animdata in
 		 * object mode hence we always need CVs index be created */
 		init_editNurb_keyIndex(editnurb, &cu->nurb);
+
+		if (actkey) {
+			editnurb->shapenr = obedit->shapenr;
+			/* Apply shapekey to new nurbs of editnurb, not those of original curve (and *after* we generated keyIndex),
+			 * else we do not have valid 'original' data to properly restore curve when leaving editmode. */
+			BKE_keyblock_convert_to_curve(actkey, cu, &editnurb->nurbs);
+		}
 	}
 }
 
@@ -1270,6 +1288,7 @@ static int separate_exec(bContext *C, wmOperator *op)
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
+	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *oldob, *newob;
 	Base *oldbase, *newbase;
 	Curve *oldcu, *newcu;
@@ -1297,8 +1316,8 @@ static int separate_exec(bContext *C, wmOperator *op)
 	}
 
 	/* 2. duplicate the object and data */
-	newbase = ED_object_add_duplicate(bmain, scene, oldbase, 0); /* 0 = fully linked */
-	DAG_relations_tag_update(bmain);
+	newbase = ED_object_add_duplicate(bmain, scene, sl, oldbase, 0); /* 0 = fully linked */
+	DEG_relations_tag_update(bmain);
 
 	newob = newbase->object;
 	newcu = newob->data = BKE_curve_copy(bmain, oldcu);
@@ -1309,8 +1328,7 @@ static int separate_exec(bContext *C, wmOperator *op)
 	ED_curve_editnurb_make(newob);
 	newedit = newcu->editnurb;
 	BKE_nurbList_free(&newedit->nurbs);
-	BKE_curve_editNurb_keyIndex_free(newedit);
-	newedit->keyindex = NULL;
+	BKE_curve_editNurb_keyIndex_free(&newedit->keyindex);
 	BLI_movelisttolist(&newedit->nurbs, &newnurb);
 
 	/* 4. put old object out of editmode and delete separated geometry */
@@ -1318,8 +1336,8 @@ static int separate_exec(bContext *C, wmOperator *op)
 	ED_curve_editnurb_free(newob);
 	curve_delete_segments(oldob, true);
 
-	DAG_id_tag_update(&oldob->id, OB_RECALC_DATA);  /* this is the original one */
-	DAG_id_tag_update(&newob->id, OB_RECALC_DATA);  /* this is the separated one */
+	DEG_id_tag_update(&oldob->id, OB_RECALC_DATA);  /* this is the original one */
+	DEG_id_tag_update(&newob->id, OB_RECALC_DATA);  /* this is the separated one */
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, oldob->data);
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, newob);
@@ -1367,7 +1385,7 @@ static int curve_split_exec(bContext *C, wmOperator *op)
 			WM_event_add_notifier(C, NC_OBJECT | ND_KEYS, obedit);
 
 		WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-		DAG_id_tag_update(obedit->data, 0);
+		DEG_id_tag_update(obedit->data, 0);
 	}
 	else {
 		BKE_report(op->reports, RPT_ERROR, "Cannot split current selection");
@@ -2313,7 +2331,7 @@ static int switch_direction_exec(bContext *C, wmOperator *UNUSED(op))
 	if (ED_curve_updateAnimPaths(obedit->data))
 		WM_event_add_notifier(C, NC_OBJECT | ND_KEYS, obedit);
 
-	DAG_id_tag_update(obedit->data, 0);
+	DEG_id_tag_update(obedit->data, 0);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
 
 	return OPERATOR_FINISHED;
@@ -2361,7 +2379,7 @@ static int set_goal_weight_exec(bContext *C, wmOperator *op)
 		}
 	}
 
-	DAG_id_tag_update(obedit->data, 0);
+	DEG_id_tag_update(obedit->data, 0);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
 
 	return OPERATOR_FINISHED;
@@ -2414,7 +2432,7 @@ static int set_radius_exec(bContext *C, wmOperator *op)
 	}
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DAG_id_tag_update(obedit->data, 0);
+	DEG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
 }
@@ -2566,7 +2584,7 @@ static int smooth_exec(bContext *C, wmOperator *UNUSED(op))
 	}
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DAG_id_tag_update(obedit->data, 0);
+	DEG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
 }
@@ -2757,7 +2775,7 @@ static int curve_smooth_weight_exec(bContext *C, wmOperator *UNUSED(op))
 	curve_smooth_value(editnurb, offsetof(BezTriple, weight), offsetof(BPoint, weight));
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DAG_id_tag_update(obedit->data, 0);
+	DEG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
 }
@@ -2785,7 +2803,7 @@ static int curve_smooth_radius_exec(bContext *C, wmOperator *UNUSED(op))
 	curve_smooth_value(editnurb, offsetof(BezTriple, radius), offsetof(BPoint, radius));
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DAG_id_tag_update(obedit->data, 0);
+	DEG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
 }
@@ -2813,7 +2831,7 @@ static int curve_smooth_tilt_exec(bContext *C, wmOperator *UNUSED(op))
 	curve_smooth_value(editnurb, offsetof(BezTriple, alfa), offsetof(BPoint, alfa));
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DAG_id_tag_update(obedit->data, 0);
+	DEG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
 }
@@ -2885,7 +2903,7 @@ static int hide_exec(bContext *C, wmOperator *op)
 		}
 	}
 
-	DAG_id_tag_update(obedit->data, 0);
+	DEG_id_tag_update(obedit->data, 0);
 	WM_event_add_notifier(C, NC_GEOM | ND_SELECT, obedit->data);
 	BKE_curve_nurb_vert_active_validate(obedit->data);
 
@@ -2947,7 +2965,7 @@ static int reveal_exec(bContext *C, wmOperator *UNUSED(op))
 		}
 	}
 
-	DAG_id_tag_update(obedit->data, 0);
+	DEG_id_tag_update(obedit->data, 0);
 	WM_event_add_notifier(C, NC_GEOM | ND_SELECT, obedit->data);
 
 	return OPERATOR_FINISHED;
@@ -3366,7 +3384,7 @@ static int subdivide_exec(bContext *C, wmOperator *op)
 		WM_event_add_notifier(C, NC_OBJECT | ND_KEYS, obedit);
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DAG_id_tag_update(obedit->data, 0);
+	DEG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
 }
@@ -3561,7 +3579,7 @@ static int set_spline_type_exec(bContext *C, wmOperator *op)
 		if (ED_curve_updateAnimPaths(obedit->data))
 			WM_event_add_notifier(C, NC_OBJECT | ND_KEYS, obedit);
 
-		DAG_id_tag_update(obedit->data, 0);
+		DEG_id_tag_update(obedit->data, 0);
 		WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
 
 		if (changed_size) {
@@ -3615,7 +3633,7 @@ static int set_handle_type_exec(bContext *C, wmOperator *op)
 	BKE_nurbList_handles_set(editnurb, RNA_enum_get(op->ptr, "type"));
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DAG_id_tag_update(obedit->data, 0);
+	DEG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
 }
@@ -3660,7 +3678,7 @@ static int curve_normals_make_consistent_exec(bContext *C, wmOperator *op)
 	BKE_nurbList_handles_recalculate(editnurb, calc_length, SELECT);
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DAG_id_tag_update(obedit->data, 0);
+	DEG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
 }
@@ -4048,7 +4066,7 @@ static int merge_nurb(bContext *C, wmOperator *op)
 	BKE_curve_nurb_active_set(obedit->data, NULL);
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DAG_id_tag_update(obedit->data, 0);
+	DEG_id_tag_update(obedit->data, 0);
 	
 	return OPERATOR_FINISHED;
 }
@@ -4146,7 +4164,7 @@ static int make_segment_exec(bContext *C, wmOperator *op)
 				 */
 
 				bp = nu->bp;
-				if (bp[nu->pntsu - 1].f1 & SELECT)  {
+				if (bp[nu->pntsu - 1].f1 & SELECT) {
 					if (nu2 == NULL) {
 						nu2 = nu;
 					}
@@ -4255,7 +4273,7 @@ static int make_segment_exec(bContext *C, wmOperator *op)
 		WM_event_add_notifier(C, NC_OBJECT | ND_KEYS, obedit);
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DAG_id_tag_update(obedit->data, 0);
+	DEG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
 }
@@ -4499,7 +4517,7 @@ static int spin_exec(bContext *C, wmOperator *op)
 		WM_event_add_notifier(C, NC_OBJECT | ND_KEYS, obedit);
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DAG_id_tag_update(obedit->data, 0);
+	DEG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
 }
@@ -4954,7 +4972,7 @@ static int add_vertex_exec(bContext *C, wmOperator *op)
 		}
 
 		WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-		DAG_id_tag_update(obedit->data, 0);
+		DEG_id_tag_update(obedit->data, 0);
 
 		return OPERATOR_FINISHED;
 	}
@@ -4993,13 +5011,13 @@ static int add_vertex_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 			copy_v3_v3(location, ED_view3d_cursor3d_get(vc.scene, vc.v3d));
 		}
 
-		ED_view3d_win_to_3d_int(vc.ar, location, event->mval, location);
+		ED_view3d_win_to_3d_int(vc.v3d, vc.ar, location, event->mval, location);
 
 		if (use_proj) {
 			const float mval[2] = {UNPACK2(event->mval)};
 
 			struct SnapObjectContext *snap_context = ED_transform_snap_object_context_create_view3d(
-			        CTX_data_main(C), vc.scene, 0,
+			        CTX_data_main(C), vc.scene, vc.scene_layer, 0,
 			        vc.ar, vc.v3d);
 
 			ED_transform_snap_object_project_view3d_mixed(
@@ -5109,7 +5127,7 @@ static int curve_extrude_exec(bContext *C, wmOperator *UNUSED(op))
 		}
 
 		WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-		DAG_id_tag_update(obedit->data, 0);
+		DEG_id_tag_update(obedit->data, 0);
 	}
 
 	return OPERATOR_FINISHED;
@@ -5208,7 +5226,7 @@ static int toggle_cyclic_exec(bContext *C, wmOperator *op)
 	}
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DAG_id_tag_update(obedit->data, 0);
+	DEG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
 }
@@ -5726,7 +5744,7 @@ static int curve_delete_exec(bContext *C, wmOperator *op)
 		if (ED_curve_updateAnimPaths(obedit->data)) WM_event_add_notifier(C, NC_OBJECT | ND_KEYS, obedit);
 
 		WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-		DAG_id_tag_update(obedit->data, 0);
+		DEG_id_tag_update(obedit->data, 0);
 
 		return retval;
 	}
@@ -5836,6 +5854,7 @@ static int curve_dissolve_exec(bContext *C, wmOperator *UNUSED(op))
 					BLI_assert(points_stride + dims == points + (points_len * dims));
 
 					float tan_l[3], tan_r[3], error_sq_dummy;
+					unsigned int error_index_dummy;
 
 					sub_v3_v3v3(tan_l, bezt_prev->vec[1], bezt_prev->vec[2]);
 					normalize_v3(tan_l);
@@ -5846,7 +5865,7 @@ static int curve_dissolve_exec(bContext *C, wmOperator *UNUSED(op))
 					        points, points_len, NULL, dims, FLT_EPSILON,
 					        tan_l, tan_r,
 					        bezt_prev->vec[2], bezt_next->vec[0],
-					        &error_sq_dummy);
+					        &error_sq_dummy, &error_index_dummy);
 
 					if (!ELEM(bezt_prev->h2, HD_FREE, HD_ALIGN)) {
 						bezt_prev->h2 = (bezt_prev->h2 == HD_VECT) ? HD_FREE : HD_ALIGN;
@@ -5869,7 +5888,7 @@ static int curve_dissolve_exec(bContext *C, wmOperator *UNUSED(op))
 		if (ED_curve_updateAnimPaths(obedit->data)) WM_event_add_notifier(C, NC_OBJECT | ND_KEYS, obedit);
 
 		WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-		DAG_id_tag_update(obedit->data, 0);
+		DEG_id_tag_update(obedit->data, 0);
 	}
 
 	return OPERATOR_FINISHED;
@@ -5910,7 +5929,7 @@ static int shade_smooth_exec(bContext *C, wmOperator *op)
 	}
 	
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DAG_id_tag_update(obedit->data, 0);
+	DEG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
 }
@@ -6024,7 +6043,7 @@ int join_curve_exec(bContext *C, wmOperator *op)
 					}
 				}
 			
-				ED_base_object_free_and_unlink(bmain, scene, base);
+				ED_base_object_free_and_unlink(bmain, scene, base->object);
 			}
 		}
 	}
@@ -6033,9 +6052,12 @@ int join_curve_exec(bContext *C, wmOperator *op)
 	cu = ob->data;
 	BLI_movelisttolist(&cu->nurb, &tempbase);
 	
-	DAG_relations_tag_update(bmain);   // because we removed object(s), call before editmode!
+	/* Account for mixed 2D/3D curves when joining */
+	BKE_curve_curve_dimension_update(cu);
 
-	DAG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA);
+	DEG_relations_tag_update(bmain);   // because we removed object(s), call before editmode!
+
+	DEG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA);
 
 	WM_event_add_notifier(C, NC_SCENE | ND_OB_ACTIVE, scene);
 
@@ -6075,7 +6097,7 @@ static int clear_tilt_exec(bContext *C, wmOperator *UNUSED(op))
 	}
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DAG_id_tag_update(obedit->data, 0);
+	DEG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
 }
@@ -6110,7 +6132,7 @@ static void undoCurve_to_editCurve(void *ucu, void *UNUSED(edata), void *cu_v)
 	BKE_nurbList_free(editbase);
 
 	if (undoCurve->undoIndex) {
-		BLI_ghash_free(editnurb->keyindex, NULL, MEM_freeN);
+		BKE_curve_editNurb_keyIndex_free(&editnurb->keyindex);
 		editnurb->keyindex = dupli_keyIndexHash(undoCurve->undoIndex);
 	}
 
@@ -6188,8 +6210,7 @@ static void free_undoCurve(void *ucv)
 
 	BKE_nurbList_free(&undoCurve->nubase);
 
-	if (undoCurve->undoIndex)
-		BLI_ghash_free(undoCurve->undoIndex, NULL, MEM_freeN);
+	BKE_curve_editNurb_keyIndex_free(&undoCurve->undoIndex);
 
 	free_fcurves(&undoCurve->fcurves);
 	free_fcurves(&undoCurve->drivers);

@@ -23,12 +23,12 @@
 # support reloading sub-modules
 if "bpy" in locals():
     from importlib import reload
-    for val in _modules_loaded:
-        reload(val)
+    _modules_loaded[:] = [reload(val) for val in _modules_loaded]
     del reload
 
 _modules = [
     "properties_animviz",
+    "properties_collection",
     "properties_constraint",
     "properties_data_armature",
     "properties_data_bone",
@@ -40,6 +40,7 @@ _modules = [
     "properties_data_mesh",
     "properties_data_metaball",
     "properties_data_modifier",
+    "properties_data_lightprobe",
     "properties_data_speaker",
     "properties_game",
     "properties_mask_common",
@@ -94,7 +95,10 @@ del _namespace
 
 
 def register():
-    bpy.utils.register_module(__name__)
+    from bpy.utils import register_class
+    for mod in _modules_loaded:
+        for cls in mod.classes:
+            register_class(cls)
 
     # space_userprefs.py
     from bpy.props import StringProperty, EnumProperty
@@ -143,8 +147,11 @@ def register():
 
 
 def unregister():
-    bpy.utils.unregister_module(__name__)
-
+    from bpy.utils import unregister_class
+    for mod in reversed(_modules_loaded):
+        for cls in reversed(mod.classes):
+            if cls.is_registered:
+                unregister_class(cls)
 
 # Define a default UIList, when a list does not need any custom drawing...
 # Keep in sync with its #defined name in UI_interface.h

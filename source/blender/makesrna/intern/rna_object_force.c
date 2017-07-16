@@ -94,10 +94,13 @@ static EnumPropertyItem empty_vortex_shape_items[] = {
 #include "DNA_modifier_types.h"
 #include "DNA_texture_types.h"
 
+#include "BKE_collection.h"
 #include "BKE_context.h"
 #include "BKE_modifier.h"
 #include "BKE_pointcache.h"
-#include "BKE_depsgraph.h"
+
+#include "DEG_depsgraph.h"
+#include "DEG_depsgraph_build.h"
 
 #include "ED_object.h"
 
@@ -115,7 +118,7 @@ static void rna_Cache_change(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerR
 
 	BKE_ptcache_ids_from_object(&pidlist, ob, NULL, 0);
 
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 
 	for (pid = pidlist.first; pid; pid = pid->next) {
 		if (pid->cache == cache)
@@ -184,7 +187,7 @@ static void rna_Cache_idname_change(Main *UNUSED(bmain), Scene *UNUSED(scene), P
 
 		BKE_ptcache_load_external(pid);
 
-		DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 		WM_main_add_notifier(NC_OBJECT | ND_POINTCACHE, ob);
 	}
 	else {
@@ -499,7 +502,7 @@ static void rna_FieldSettings_update(Main *UNUSED(bmain), Scene *UNUSED(scene), 
 			part->pd2->tex = NULL;
 		}
 
-		DAG_id_tag_update(&part->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME | PSYS_RECALC_RESET);
+		DEG_id_tag_update(&part->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME | PSYS_RECALC_RESET);
 		WM_main_add_notifier(NC_OBJECT | ND_DRAW, NULL);
 
 	}
@@ -511,7 +514,7 @@ static void rna_FieldSettings_update(Main *UNUSED(bmain), Scene *UNUSED(scene), 
 			ob->pd->tex = NULL;
 		}
 
-		DAG_id_tag_update(&ob->id, OB_RECALC_OB);
+		DEG_id_tag_update(&ob->id, OB_RECALC_OB);
 		WM_main_add_notifier(NC_OBJECT | ND_DRAW, ob);
 	}
 }
@@ -547,7 +550,7 @@ static void rna_FieldSettings_type_set(PointerRNA *ptr, int value)
 static void rna_FieldSettings_dependency_update(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
 	if (particle_id_check(ptr)) {
-		DAG_id_tag_update((ID *)ptr->id.data, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME | PSYS_RECALC_RESET);
+		DEG_id_tag_update((ID *)ptr->id.data, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME | PSYS_RECALC_RESET);
 	}
 	else {
 		Object *ob = (Object *)ptr->id.data;
@@ -563,12 +566,12 @@ static void rna_FieldSettings_dependency_update(Main *bmain, Scene *scene, Point
 
 		rna_FieldSettings_shape_update(bmain, scene, ptr);
 
-		DAG_relations_tag_update(bmain);
+		DEG_relations_tag_update(bmain);
 
 		if (ob->type == OB_CURVE && ob->pd->forcefield == PFIELD_GUIDE)
-			DAG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
+			DEG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 		else
-			DAG_id_tag_update(&ob->id, OB_RECALC_OB);
+			DEG_id_tag_update(&ob->id, OB_RECALC_OB);
 
 		WM_main_add_notifier(NC_OBJECT | ND_DRAW, ob);
 	}
@@ -605,23 +608,23 @@ static void rna_EffectorWeight_update(Main *UNUSED(bmain), Scene *UNUSED(scene),
 
 	if (id && GS(id->name) == ID_SCE) {
 		Scene *scene = (Scene *)id;
-		Base *base;
-
-		for (base = scene->base.first; base; base = base->next) {
-			BKE_ptcache_object_reset(scene, base->object, PTCACHE_RESET_DEPSGRAPH);
+		FOREACH_SCENE_OBJECT(scene, ob)
+		{
+			BKE_ptcache_object_reset(scene, ob, PTCACHE_RESET_DEPSGRAPH);
 		}
+		FOREACH_SCENE_OBJECT_END
 	}
 	else {
-		DAG_id_tag_update(id, OB_RECALC_DATA | PSYS_RECALC_RESET);
+		DEG_id_tag_update(id, OB_RECALC_DATA | PSYS_RECALC_RESET);
 		WM_main_add_notifier(NC_OBJECT | ND_DRAW, NULL);
 	}
 }
 
 static void rna_EffectorWeight_dependency_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *ptr)
 {
-	DAG_relations_tag_update(bmain);
+	DEG_relations_tag_update(bmain);
 
-	DAG_id_tag_update((ID *)ptr->id.data, OB_RECALC_DATA | PSYS_RECALC_RESET);
+	DEG_id_tag_update((ID *)ptr->id.data, OB_RECALC_DATA | PSYS_RECALC_RESET);
 
 	WM_main_add_notifier(NC_OBJECT | ND_DRAW, NULL);
 }
@@ -718,7 +721,7 @@ static void rna_CollisionSettings_update(Main *UNUSED(bmain), Scene *UNUSED(scen
 {
 	Object *ob = (Object *)ptr->id.data;
 
-	DAG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
+	DEG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 	WM_main_add_notifier(NC_OBJECT | ND_DRAW, ob);
 }
 
@@ -726,10 +729,15 @@ static void rna_softbody_update(Main *UNUSED(bmain), Scene *UNUSED(scene), Point
 {
 	Object *ob = (Object *)ptr->id.data;
 
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_main_add_notifier(NC_OBJECT | ND_MODIFIER, ob);
 }
 
+static void rna_softbody_dependency_update(Main *bmain, Scene *scene, PointerRNA *ptr)
+{
+	DEG_relations_tag_update(bmain);
+	rna_softbody_update(bmain, scene, ptr);
+}
 
 static EnumPropertyItem *rna_Effector_shape_itemf(bContext *UNUSED(C), PointerRNA *ptr,
                                                   PropertyRNA *UNUSED(prop), bool *UNUSED(r_free))
@@ -1270,7 +1278,7 @@ static void rna_def_field(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "falloff_power", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_float_sdna(prop, NULL, "f_power");
 	RNA_def_property_range(prop, 0.0f, 10.0f);
-	RNA_def_property_ui_text(prop, "Falloff Power", "Falloff power (real gravitational falloff = 2)");
+	RNA_def_property_ui_text(prop, "Falloff Power", "");
 	RNA_def_property_update(prop, 0, "rna_FieldSettings_update");
 	
 	prop = RNA_def_property(srna, "distance_min", PROP_FLOAT, PROP_NONE);
@@ -1378,7 +1386,7 @@ static void rna_def_field(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "use_absorption", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", PFIELD_VISIBILITY);
 	RNA_def_property_ui_text(prop, "Absorption", "Force gets absorbed by collision objects");
-	RNA_def_property_update(prop, 0, "rna_FieldSettings_update");
+	RNA_def_property_update(prop, 0, "rna_FieldSettings_dependency_update");
 
 	prop = RNA_def_property(srna, "use_multiple_springs", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", PFIELD_MULTIPLE_SPRINGS);
@@ -1389,6 +1397,11 @@ static void rna_def_field(BlenderRNA *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", PFIELD_SMOKE_DENSITY);
 	RNA_def_property_ui_text(prop, "Apply Density", "Adjust force strength based on smoke density");
 	RNA_def_property_update(prop, 0, "rna_FieldSettings_update");
+	prop = RNA_def_property(srna, "use_gravity_falloff", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", PFIELD_GRAVITATION);
+	RNA_def_property_ui_text(prop, "Gravity Falloff", "Multiply force by 1/distance²");
+	RNA_def_property_update(prop, 0, "rna_FieldSettings_update");
+
 	
 	/* Pointer */
 	
@@ -1855,7 +1868,7 @@ static void rna_def_softbody(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "collision_group", PROP_POINTER, PROP_NONE);
 	RNA_def_property_flag(prop, PROP_EDITABLE);
 	RNA_def_property_ui_text(prop, "Collision Group", "Limit colliders to this Group");
-	RNA_def_property_update(prop, 0, "rna_softbody_update");
+	RNA_def_property_update(prop, 0, "rna_softbody_dependency_update");
 
 	prop = RNA_def_property(srna, "effector_weights", PROP_POINTER, PROP_NONE);
 	RNA_def_property_pointer_sdna(prop, NULL, "effector_weights");

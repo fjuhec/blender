@@ -73,38 +73,6 @@
 #define MENU_PADDING		(int)(0.2f * UI_UNIT_Y)
 #define MENU_BORDER			(int)(0.3f * U.widget_unit)
 
-static int rna_property_enum_step(const bContext *C, PointerRNA *ptr, PropertyRNA *prop, int direction)
-{
-	EnumPropertyItem *item_array;
-	int totitem;
-	bool free;
-	int value;
-	int i, i_init;
-	int step = (direction < 0) ? -1 : 1;
-	int step_tot = 0;
-
-	RNA_property_enum_items((bContext *)C, ptr, prop, &item_array, &totitem, &free);
-	value = RNA_property_enum_get(ptr, prop);
-	i = RNA_enum_from_value(item_array, value);
-	i_init = i;
-
-	do {
-		i = mod_i(i + step, totitem);
-		if (item_array[i].identifier[0]) {
-			step_tot += step;
-		}
-	} while ((i != i_init) && (step_tot != direction));
-
-	if (i != i_init) {
-		value = item_array[i].value;
-	}
-
-	if (free) {
-		MEM_freeN(item_array);
-	}
-
-	return value;
-}
 
 bool ui_but_menu_step_poll(const uiBut *but)
 {
@@ -122,7 +90,8 @@ int ui_but_menu_step(uiBut *but, int direction)
 			return but->menu_step_func(but->block->evil_C, direction, but->poin);
 		}
 		else {
-			return rna_property_enum_step(but->block->evil_C, &but->rnapoin, but->rnaprop, direction);
+			const int curval = RNA_property_enum_get(&but->rnapoin, but->rnaprop);
+			return RNA_property_enum_step(but->block->evil_C, &but->rnapoin, but->rnaprop, curval, direction);
 		}
 	}
 
@@ -148,6 +117,9 @@ static ARegion *ui_region_temp_add(bScreen *sc)
 static void ui_region_temp_remove(bContext *C, bScreen *sc, ARegion *ar)
 {
 	wmWindow *win = CTX_wm_window(C);
+
+	BLI_assert(ar->regiontype == RGN_TYPE_TEMPORARY);
+	BLI_assert(BLI_findindex(&sc->regionbase, ar) != -1);
 	if (win)
 		wm_draw_region_clear(win, ar);
 
@@ -225,6 +197,7 @@ static void ui_tooltip_region_draw_cb(const bContext *UNUSED(C), ARegion *ar)
 	uiWidgetColors *theme = ui_tooltip_get_theme();
 	rcti bbox = data->bbox;
 	float tip_colors[UI_TIP_LC_MAX][3];
+	unsigned char drawcol[4] = {0, 0, 0, 255}; /* to store color in while drawing (alpha is always 255) */
 
 	float *main_color    = tip_colors[UI_TIP_LC_MAIN]; /* the color from the theme */
 	float *value_color   = tip_colors[UI_TIP_LC_VALUE];
@@ -291,9 +264,9 @@ static void ui_tooltip_region_draw_cb(const bContext *UNUSED(C), ARegion *ar)
 			fstyle_header.shadowalpha = 1.0f;
 			fstyle_header.word_wrap = true;
 
+			rgb_float_to_uchar(drawcol, tip_colors[UI_TIP_LC_MAIN]);
 			UI_fontstyle_set(&fstyle_header);
-			glColor3fv(tip_colors[UI_TIP_LC_MAIN]);
-			UI_fontstyle_draw(&fstyle_header, &bbox, data->header);
+			UI_fontstyle_draw(&fstyle_header, &bbox, data->header, drawcol);
 
 			/* offset to the end of the last line */
 			xofs = data->line_geom[i].x_pos;
@@ -301,9 +274,9 @@ static void ui_tooltip_region_draw_cb(const bContext *UNUSED(C), ARegion *ar)
 			bbox.xmin += xofs;
 			bbox.ymax -= yofs;
 
-			glColor3fv(tip_colors[UI_TIP_LC_ACTIVE]);
+			rgb_float_to_uchar(drawcol, tip_colors[UI_TIP_LC_ACTIVE]);
 			fstyle_header.shadow = 0;
-			UI_fontstyle_draw(&fstyle_header, &bbox, data->active_info);
+			UI_fontstyle_draw(&fstyle_header, &bbox, data->active_info, drawcol);
 
 			/* undo offset */
 			bbox.xmin -= xofs;
@@ -311,14 +284,15 @@ static void ui_tooltip_region_draw_cb(const bContext *UNUSED(C), ARegion *ar)
 		}
 		else if (data->format[i].style == UI_TIP_STYLE_MONO) {
 			uiFontStyle fstyle_mono = data->fstyle;
+
 			fstyle_mono.uifont_id = blf_mono_font;
 			fstyle_mono.word_wrap = true;
 
 			UI_fontstyle_set(&fstyle_mono);
 			/* XXX, needed because we dont have mono in 'U.uifonts' */
 			BLF_size(fstyle_mono.uifont_id, fstyle_mono.points * U.pixelsize, U.dpi);
-			glColor3fv(tip_colors[data->format[i].color_id]);
-			UI_fontstyle_draw(&fstyle_mono, &bbox, data->lines[i]);
+			rgb_float_to_uchar(drawcol, tip_colors[data->format[i].color_id]);
+			UI_fontstyle_draw(&fstyle_mono, &bbox, data->lines[i], drawcol);
 		}
 		else {
 			uiFontStyle fstyle_normal = data->fstyle;
@@ -327,8 +301,8 @@ static void ui_tooltip_region_draw_cb(const bContext *UNUSED(C), ARegion *ar)
 
 			/* draw remaining data */
 			UI_fontstyle_set(&fstyle_normal);
-			glColor3fv(tip_colors[data->format[i].color_id]);
-			UI_fontstyle_draw(&fstyle_normal, &bbox, data->lines[i]);
+			rgb_float_to_uchar(drawcol, tip_colors[data->format[i].color_id]);
+			UI_fontstyle_draw(&fstyle_normal, &bbox, data->lines[i], drawcol);
 		}
 
 		bbox.ymax -= data->lineh * data->line_geom[i].lines;
@@ -484,20 +458,30 @@ static uiTooltipData *ui_tooltip_data_from_button(bContext *C, uiBut *but)
 		}
 
 		MEM_freeN(str);
+	}
 
-		/* second check if we are disabled - why */
-		if (but->flag & UI_BUT_DISABLED) {
-			const char *poll_msg;
+	/* button is disabled, we may be able to tell user why */
+	if (but->flag & UI_BUT_DISABLED) {
+		const char *disabled_msg = NULL;
+
+		/* if operator poll check failed, it can give pretty precise info why */
+		if (but->optype) {
 			CTX_wm_operator_poll_msg_set(C, NULL);
 			WM_operator_poll_context(C, but->optype, but->opcontext);
-			poll_msg = CTX_wm_operator_poll_msg_get(C);
-			if (poll_msg) {
-				BLI_snprintf(data->lines[data->totline], sizeof(data->lines[0]), TIP_("Disabled: %s"), poll_msg);
-				data->format[data->totline].color_id = UI_TIP_LC_ALERT;
-				data->totline++;
-			}
+			disabled_msg = CTX_wm_operator_poll_msg_get(C);
+		}
+		/* alternatively, buttons can store some reasoning too */
+		else if (but->disabled_info) {
+			disabled_msg = TIP_(but->disabled_info);
+		}
+
+		if (disabled_msg && disabled_msg[0]) {
+			BLI_snprintf(data->lines[data->totline], sizeof(data->lines[0]), TIP_("Disabled: %s"), disabled_msg);
+			data->format[data->totline].color_id = UI_TIP_LC_ALERT;
+			data->totline++;
 		}
 	}
+
 	if ((U.flag & USER_TOOLTIPS_PYTHON) == 0 && !but->optype && rna_struct.strinfo) {
 		if (rna_prop.strinfo) {
 			/* Struct and prop */
@@ -829,7 +813,7 @@ int UI_searchbox_size_y(void)
 
 int UI_searchbox_size_x(void)
 {
-	return 10 * UI_UNIT_X;
+	return 12 * UI_UNIT_X;
 }
 
 int UI_search_items_find_index(uiSearchItems *items, const char *name)
@@ -872,7 +856,7 @@ static void ui_searchbox_select(bContext *C, ARegion *ar, uiBut *but, int step)
 		}
 		else {
 			/* only let users step into an 'unset' state for unlink buttons */
-			data->active = (but->flag & UI_BUT_SEARCH_UNLINK) ? -1 : 0;
+			data->active = (but->flag & UI_BUT_VALUE_CLEAR) ? -1 : 0;
 		}
 	}
 	
@@ -943,8 +927,8 @@ bool ui_searchbox_apply(uiBut *but, ARegion *ar)
 
 		return true;
 	}
-	else if (but->flag & UI_BUT_SEARCH_UNLINK) {
-		/* It is valid for _UNLINK flavor to have no active element (it's a valid way to unlink). */
+	else if (but->flag & UI_BUT_VALUE_CLEAR) {
+		/* It is valid for _VALUE_CLEAR flavor to have no active element (it's a valid way to unlink). */
 		but->editstr[0] = '\0';
 
 		return true;
@@ -1080,7 +1064,7 @@ int ui_searchbox_autocomplete(bContext *C, ARegion *ar, uiBut *but, char *str)
 	return match;
 }
 
-static void ui_searchbox_region_draw_cb(const bContext *UNUSED(C), ARegion *ar)
+static void ui_searchbox_region_draw_cb(const bContext *C, ARegion *ar)
 {
 	uiSearchboxData *data = ar->regiondata;
 	
@@ -1098,6 +1082,9 @@ static void ui_searchbox_region_draw_cb(const bContext *UNUSED(C), ARegion *ar)
 		if (data->preview) {
 			/* draw items */
 			for (a = 0; a < data->items.totitem; a++) {
+				/* ensure icon is up-to-date */
+				ui_icon_ensure_deferred(C, data->items.icons[a], data->preview);
+
 				ui_searchbox_butrect(&rect, data, a);
 				
 				/* widget itself */
@@ -1380,6 +1367,7 @@ static void ui_searchbox_region_draw_cb__operator(const bContext *UNUSED(C), ARe
 			rect_pre.xmax = rect_post.xmin = rect.xmin + ((rect.xmax - rect.xmin) / 4);
 
 			/* widget itself */
+			/* NOTE: i18n messages extracting tool does the same, please keep it in sync. */
 			{
 				wmOperatorType *ot = data->items.pointers[a];
 
@@ -1400,7 +1388,8 @@ static void ui_searchbox_region_draw_cb__operator(const bContext *UNUSED(C), ARe
 				}
 
 				rect_pre.xmax += 4;  /* sneaky, avoid showing ugly margin */
-				ui_draw_menu_item(&data->fstyle, &rect_pre, text_pre, data->items.icons[a], state, false);
+				ui_draw_menu_item(&data->fstyle, &rect_pre, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, text_pre),
+				                  data->items.icons[a], state, false);
 				ui_draw_menu_item(&data->fstyle, &rect_post, data->items.names[a], 0, state, data->use_sep);
 			}
 
@@ -1709,6 +1698,28 @@ static void ui_block_region_draw(const bContext *C, ARegion *ar)
 
 	for (block = ar->uiblocks.first; block; block = block->next)
 		UI_block_draw(C, block);
+}
+
+/**
+ * Use to refresh centered popups on screen resizing (for splash).
+ */
+static void ui_block_region_popup_window_listener(
+        bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar, wmNotifier *wmn, const Scene *UNUSED(scene))
+{
+	switch (wmn->category) {
+		case NC_WINDOW:
+		{
+			switch (wmn->action) {
+				case NA_EDITED:
+				{
+					/* window resize */
+					ED_region_tag_refresh_ui(ar);
+					break;
+				}
+			}
+			break;
+		}
+	}
 }
 
 static void ui_popup_block_clip(wmWindow *window, uiBlock *block)
@@ -2022,6 +2033,11 @@ uiPopupBlockHandle *ui_popup_block_create(
 	block = ui_popup_block_refresh(C, handle, butregion, but);
 	handle = block->handle;
 
+	/* keep centered on window resizing */
+	if ((block->bounds_type == UI_BLOCK_BOUNDS_POPUP_CENTER) && handle->can_refresh) {
+		type.listener = ui_block_region_popup_window_listener;
+	}
+
 	return handle;
 }
 
@@ -2091,9 +2107,11 @@ static void ui_update_color_picker_buts_rgb(uiBlock *block, ColorPicker *cpicker
 			continue;
 
 		if (bt->rnaprop) {
-			
 			ui_but_v3_set(bt, rgb);
 			
+			/* original button that created the color picker already does undo
+			 * push, so disable it on RNA buttons in the color picker block */
+			UI_but_flag_disable(bt, UI_BUT_UNDO);
 		}
 		else if (STREQ(bt->str, "Hex: ")) {
 			float rgb_gamma[3];
@@ -3304,7 +3322,7 @@ void UI_popup_block_invoke(bContext *C, uiBlockCreateFunc func, void *arg)
 	UI_popup_block_invoke_ex(C, func, arg, NULL, WM_OP_INVOKE_DEFAULT);
 }
 
-void UI_popup_block_ex(bContext *C, uiBlockCreateFunc func, uiBlockHandleFunc popup_func, uiBlockCancelFunc cancel_func, void *arg)
+void UI_popup_block_ex(bContext *C, uiBlockCreateFunc func, uiBlockHandleFunc popup_func, uiBlockCancelFunc cancel_func, void *arg, wmOperator *op)
 {
 	wmWindow *window = CTX_wm_window(C);
 	uiPopupBlockHandle *handle;
@@ -3313,6 +3331,7 @@ void UI_popup_block_ex(bContext *C, uiBlockCreateFunc func, uiBlockHandleFunc po
 	handle->popup = true;
 	handle->retvalue = 1;
 
+	handle->popup_op = op;
 	handle->popup_arg = arg;
 	handle->popup_func = popup_func;
 	handle->cancel_func = cancel_func;
@@ -3347,11 +3366,13 @@ void UI_popup_block_close(bContext *C, wmWindow *win, uiBlock *block)
 	/* if loading new .blend while popup is open, window will be NULL */
 	if (block->handle) {
 		if (win) {
+			const bScreen *screen = WM_window_get_active_screen(win);
+
 			UI_popup_handlers_remove(&win->modalhandlers, block->handle);
 			ui_popup_block_free(C, block->handle);
 
 			/* In the case we have nested popups, closing one may need to redraw another, see: T48874 */
-			for (ARegion *ar = win->screen->regionbase.first; ar; ar = ar->next) {
+			for (ARegion *ar = screen->regionbase.first; ar; ar = ar->next) {
 				ED_region_tag_refresh_ui(ar);
 			}
 		}

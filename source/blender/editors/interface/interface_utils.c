@@ -120,17 +120,17 @@ uiBut *uiDefAutoButR(uiBlock *block, PointerRNA *ptr, PropertyRNA *prop, int ind
 				but = uiDefButR_prop(block, UI_BTYPE_TEXT, 0, name, x1, y1, x2, y2, ptr, prop, index, 0, 0, -1, -1, NULL);
 
 			if (RNA_property_flag(prop) & PROP_TEXTEDIT_UPDATE) {
-				UI_but_flag_enable(but, UI_BUT_TEXTEDIT_UPDATE);
+				/* TEXTEDIT_UPDATE is usally used for search buttons. For these we also want
+				 * the 'x' icon to clear search string, so setting VALUE_CLEAR flag, too. */
+				UI_but_flag_enable(but, UI_BUT_TEXTEDIT_UPDATE | UI_BUT_VALUE_CLEAR);
 			}
 			break;
 		case PROP_POINTER:
 		{
-			PointerRNA pptr;
-
-			pptr = RNA_property_pointer_get(ptr, prop);
-			if (!pptr.type)
-				pptr.type = RNA_property_pointer_type(ptr, prop);
-			icon = RNA_struct_ui_icon(pptr.type);
+			if (icon == 0) {
+				PointerRNA pptr = RNA_property_pointer_get(ptr, prop);
+				icon = RNA_struct_ui_icon(pptr.type ? pptr.type : RNA_property_pointer_type(ptr, prop));
+			}
 			if (icon == ICON_DOT)
 				icon = 0;
 
@@ -215,8 +215,90 @@ int uiDefAutoButsRNA(
 	return tot;
 }
 
-/***************************** ID Utilities *******************************/
+/* *** RNA collection search menu *** */
 
+typedef struct CollItemSearch {
+	struct CollItemSearch *next, *prev;
+	void *data;
+	char *name;
+	int index;
+	int iconid;
+} CollItemSearch;
+
+static int sort_search_items_list(const void *a, const void *b)
+{
+	const CollItemSearch *cis1 = a;
+	const CollItemSearch *cis2 = b;
+
+	if (BLI_strcasecmp(cis1->name, cis2->name) > 0)
+		return 1;
+	else
+		return 0;
+}
+
+void ui_rna_collection_search_cb(const struct bContext *C, void *arg, const char *str, uiSearchItems *items)
+{
+	uiRNACollectionSearch *data = arg;
+	char *name;
+	int i = 0, iconid = 0, flag = RNA_property_flag(data->target_prop);
+	ListBase *items_list = MEM_callocN(sizeof(ListBase), "items_list");
+	CollItemSearch *cis;
+	const bool skip_filter = !(data->but_changed && *data->but_changed);
+
+	/* build a temporary list of relevant items first */
+	RNA_PROP_BEGIN (&data->search_ptr, itemptr, data->search_prop)
+	{
+
+		if (flag & PROP_ID_SELF_CHECK)
+			if (itemptr.data == data->target_ptr.id.data)
+				continue;
+
+		/* use filter */
+		if (RNA_property_type(data->target_prop) == PROP_POINTER) {
+			if (RNA_property_pointer_poll(&data->target_ptr, data->target_prop, &itemptr) == 0)
+				continue;
+		}
+
+		name = RNA_struct_name_get_alloc(&itemptr, NULL, 0, NULL); /* could use the string length here */
+		iconid = 0;
+		if (itemptr.type && RNA_struct_is_ID(itemptr.type)) {
+			iconid = ui_id_icon_get(C, itemptr.data, false);
+		}
+
+		if (name) {
+			if (skip_filter || BLI_strcasestr(name, str)) {
+				cis = MEM_callocN(sizeof(CollItemSearch), "CollectionItemSearch");
+				cis->data = itemptr.data;
+				cis->name = MEM_dupallocN(name);
+				cis->index = i;
+				cis->iconid = iconid;
+				BLI_addtail(items_list, cis);
+			}
+			MEM_freeN(name);
+		}
+
+		i++;
+	}
+	RNA_PROP_END;
+
+	BLI_listbase_sort(items_list, sort_search_items_list);
+
+	/* add search items from temporary list */
+	for (cis = items_list->first; cis; cis = cis->next) {
+		if (UI_search_item_add(items, cis->name, cis->data, cis->iconid) == false) {
+			break;
+		}
+	}
+
+	for (cis = items_list->first; cis; cis = cis->next) {
+		MEM_freeN(cis->name);
+	}
+	BLI_freelistN(items_list);
+	MEM_freeN(items_list);
+}
+
+
+/***************************** ID Utilities *******************************/ 
 int UI_icon_from_id(ID *id)
 {
 	Object *ob;
@@ -380,6 +462,17 @@ uiButStore *UI_butstore_create(uiBlock *block)
 
 void UI_butstore_free(uiBlock *block, uiButStore *bs_handle)
 {
+	/* Workaround for button store being moved into new block,
+	 * which then can't use the previous buttons state ('ui_but_update_from_old_block' fails to find a match),
+	 * keeping the active button in the old block holding a reference to the button-state in the new block: see T49034.
+	 *
+	 * Ideally we would manage moving the 'uiButStore', keeping a correct state.
+	 * All things considered this is the most straightforward fix - Campbell.
+	 */
+	if (block != bs_handle->block && bs_handle->block != NULL) {
+		block = bs_handle->block;
+	}
+
 	BLI_freelistN(&bs_handle->items);
 	BLI_remlink(&block->butstore, bs_handle);
 

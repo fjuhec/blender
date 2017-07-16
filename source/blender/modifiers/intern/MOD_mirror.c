@@ -45,7 +45,6 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "depsgraph_private.h"
 #include "DEG_depsgraph_build.h"
 
 static void initData(ModifierData *md)
@@ -72,22 +71,7 @@ static void foreachObjectLink(
 {
 	MirrorModifierData *mmd = (MirrorModifierData *) md;
 
-	walk(userData, ob, &mmd->mirror_ob, IDWALK_NOP);
-}
-
-static void updateDepgraph(ModifierData *md, DagForest *forest,
-                           struct Main *UNUSED(bmain),
-                           struct Scene *UNUSED(scene),
-                           Object *UNUSED(ob),
-                           DagNode *obNode)
-{
-	MirrorModifierData *mmd = (MirrorModifierData *) md;
-
-	if (mmd->mirror_ob) {
-		DagNode *latNode = dag_get_node(forest, mmd->mirror_ob);
-
-		dag_add_relation(forest, latNode, obNode, DAG_RL_OB_DATA, "Mirror Modifier");
-	}
+	walk(userData, ob, &mmd->mirror_ob, IDWALK_CB_NOP);
 }
 
 static void updateDepsgraph(ModifierData *md,
@@ -274,8 +258,8 @@ static DerivedMesh *doMirrorOnAxis(MirrorModifierData *mmd,
 			int j = maxLoops;
 			dmloopuv += j; /* second set of loops only */
 			for (; j-- > 0; dmloopuv++) {
-				if (do_mirr_u) dmloopuv->uv[0] = 1.0f - dmloopuv->uv[0];
-				if (do_mirr_v) dmloopuv->uv[1] = 1.0f - dmloopuv->uv[1];
+				if (do_mirr_u) dmloopuv->uv[0] = 1.0f - dmloopuv->uv[0] + mmd->uv_offset[0];
+				if (do_mirr_v) dmloopuv->uv[1] = 1.0f - dmloopuv->uv[1] + mmd->uv_offset[1];
 			}
 		}
 	}
@@ -375,7 +359,6 @@ ModifierTypeInfo modifierType_Mirror = {
 	/* requiredDataMask */  NULL,
 	/* freeData */          NULL,
 	/* isDisabled */        NULL,
-	/* updateDepgraph */    updateDepgraph,
 	/* updateDepsgraph */   updateDepsgraph,
 	/* dependsOnTime */     NULL,
 	/* dependsOnNormals */	NULL,

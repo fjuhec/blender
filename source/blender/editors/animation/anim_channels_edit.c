@@ -34,7 +34,6 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BKE_depsgraph.h"
 #include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
 #include "BLI_listbase.h"
@@ -57,6 +56,9 @@
 #include "BKE_context.h"
 #include "BKE_mask.h"
 #include "BKE_global.h"
+#include "BKE_scene.h"
+
+#include "DEG_depsgraph_build.h"
 
 #include "UI_view2d.h"
 
@@ -133,6 +135,7 @@ void ANIM_set_active_channel(bAnimContext *ac, void *data, eAnimCont_Types datat
 			case ANIMTYPE_DSLINESTYLE:
 			case ANIMTYPE_DSSPK:
 			case ANIMTYPE_DSGPENCIL:
+			case ANIMTYPE_DSMCLIP:
 			{
 				/* need to verify that this data is valid for now */
 				if (ale->adt) {
@@ -190,6 +193,7 @@ void ANIM_set_active_channel(bAnimContext *ac, void *data, eAnimCont_Types datat
 			case ANIMTYPE_DSNTREE:
 			case ANIMTYPE_DSTEX:
 			case ANIMTYPE_DSGPENCIL:
+			case ANIMTYPE_DSMCLIP:
 			{
 				/* need to verify that this data is valid for now */
 				if (ale && ale->adt) {
@@ -291,6 +295,7 @@ void ANIM_deselect_anim_channels(bAnimContext *ac, void *data, eAnimCont_Types d
 				case ANIMTYPE_DSLINESTYLE:
 				case ANIMTYPE_DSSPK:
 				case ANIMTYPE_DSGPENCIL:
+				case ANIMTYPE_DSMCLIP:
 				{
 					if ((ale->adt) && (ale->adt->flag & ADT_UI_SELECTED))
 						sel = ACHANNEL_SETFLAG_CLEAR;
@@ -387,6 +392,7 @@ void ANIM_deselect_anim_channels(bAnimContext *ac, void *data, eAnimCont_Types d
 			case ANIMTYPE_DSLINESTYLE:
 			case ANIMTYPE_DSSPK:
 			case ANIMTYPE_DSGPENCIL:
+			case ANIMTYPE_DSMCLIP:
 			{
 				/* need to verify that this data is valid for now */
 				if (ale->adt) {
@@ -435,7 +441,11 @@ void ANIM_flush_setting_anim_channels(bAnimContext *ac, ListBase *anim_data, bAn
 	/* sanity check */
 	if (ELEM(NULL, anim_data, anim_data->first))
 		return;
-	
+
+	if (setting == ACHANNEL_SETTING_ALWAYS_VISIBLE) {
+		return;
+	}
+
 	/* find the channel that got changed */
 	for (ale = anim_data->first; ale; ale = ale->next) {
 		/* compare data, and type as main way of identifying the channel */
@@ -1712,7 +1722,7 @@ static int animchannels_delete_exec(bContext *C, wmOperator *UNUSED(op))
 	
 	/* send notifier that things have changed */
 	WM_event_add_notifier(C, NC_ANIMATION | ND_ANIMCHAN | NA_EDITED, NULL);
-	DAG_relations_tag_update(CTX_data_main(C));
+	DEG_relations_tag_update(CTX_data_main(C));
 
 	return OPERATOR_FINISHED;
 }
@@ -2141,7 +2151,7 @@ static void ANIM_OT_channels_clean_empty(wmOperatorType *ot)
 	/* identifiers */
 	ot->name = "Remove Empty Animation Data";
 	ot->idname = "ANIM_OT_channels_clean_empty";
-	ot->description = "Delete all empty animation data containers from visible datablocks";
+	ot->description = "Delete all empty animation data containers from visible data-blocks";
 	
 	/* api callbacks */
 	ot->exec = animchannels_clean_empty_exec;
@@ -2674,31 +2684,31 @@ static int mouse_anim_channels(bContext *C, bAnimContext *ac, int channel_index,
 		{
 			bDopeSheet *ads = (bDopeSheet *)ac->data;
 			Scene *sce = (Scene *)ads->source;
-			Base *base = (Base *)ale->data;
+			BaseLegacy *base = (BaseLegacy *)ale->data;
 			Object *ob = base->object;
 			AnimData *adt = ob->adt;
 			
 			/* set selection status */
 			if (selectmode == SELECT_INVERT) {
 				/* swap select */
-				base->flag ^= SELECT;
-				ob->flag = base->flag;
+				base->flag_legacy ^= SELECT;
+				BKE_scene_base_flag_sync_from_base(base);
 				
 				if (adt) adt->flag ^= ADT_UI_SELECTED;
 			}
 			else {
-				Base *b;
+				BaseLegacy *b;
 				
 				/* deselect all */
 				/* TODO: should this deselect all other types of channels too? */
 				for (b = sce->base.first; b; b = b->next) {
-					b->flag &= ~SELECT;
-					b->object->flag = b->flag;
+					b->flag_legacy &= ~SELECT;
+					BKE_scene_base_flag_sync_from_base(b);
 					if (b->object->adt) b->object->adt->flag &= ~(ADT_UI_SELECTED | ADT_UI_ACTIVE);
 				}
 				
 				/* select object now */
-				base->flag |= SELECT;
+				base->flag_legacy |= SELECT;
 				ob->flag |= SELECT;
 				if (adt) adt->flag |= ADT_UI_SELECTED;
 			}
@@ -2734,6 +2744,7 @@ static int mouse_anim_channels(bContext *C, bAnimContext *ac, int channel_index,
 		case ANIMTYPE_DSLINESTYLE:
 		case ANIMTYPE_DSSPK:
 		case ANIMTYPE_DSGPENCIL:
+		case ANIMTYPE_DSMCLIP:
 		{
 			/* sanity checking... */
 			if (ale->adt) {

@@ -33,6 +33,7 @@
 #include <stdlib.h>
 #include <GL/glew.h>
 
+#include <opensubdiv/version.h>
 #include <opensubdiv/osd/glMesh.h>
 
 /* CPU Backend */
@@ -73,6 +74,16 @@
 #include "opensubdiv_topology_refiner.h"
 
 #include "MEM_guardedalloc.h"
+
+#include <string>
+#include <vector>
+
+using std::string;
+using std::vector;
+
+#define STRINGIFY_ARG(x) "" #x
+#define STRINGIFY_APPEND(a, b) "" a #b
+#define STRINGIFY(x) STRINGIFY_APPEND("", x)
 
 /* **************** Types declaration **************** */
 
@@ -146,6 +157,38 @@ typedef Mesh<GLVertexBuffer,
 
 namespace {
 
+#if !defined(OPENSUBDIV_VERSION_NUMBER) && !defined(OPENSUBDIV_VERSION_MINOR)
+void stringSplit(vector<string>* tokens,
+                 const string& str,
+                 const string& separators,
+                 bool skip_empty) {
+	size_t token_start = 0, token_length = 0;
+	for (size_t i = 0; i < str.length(); ++i) {
+		const char ch = str[i];
+		if (separators.find(ch) == string::npos) {
+			/* Append non-separator char to a token. */
+			++token_length;
+		} else {
+			/* Append current token to the list (if any). */
+			if (token_length > 0 || !skip_empty) {
+				string token = str.substr(token_start, token_length);
+				tokens->push_back(token);
+			}
+			/* Re-set token pointers, */
+			token_start = i + 1;
+			token_length = 0;
+		}
+	}
+	/* Append token which might be at the end of the string. */
+	if ((token_length != 0) ||
+	    (!skip_empty && token_start > 0 &&
+	     separators.find(str[token_start-1]) != string::npos)) {
+		string token = str.substr(token_start, token_length);
+		tokens->push_back(token);
+	}
+}
+#endif
+
 struct FVarVertex {
 	float u, v;
 	void Clear() {
@@ -165,7 +208,7 @@ static void interpolate_fvar_data(OpenSubdiv::Far::TopologyRefiner& refiner,
 	const int max_level = refiner.GetMaxLevel();
 	size_t fvar_data_offset = 0, values_offset = 0;
 	for (int channel = 0; channel < refiner.GetNumFVarChannels(); ++channel) {
-		const int num_values = refiner.GetLevel(0).GetNumFVarValues(0) * 2,
+		const int num_values = refiner.GetLevel(0).GetNumFVarValues(channel) * 2,
 		          num_values_max = refiner.GetLevel(max_level).GetNumFVarValues(channel),
 		          num_values_total = refiner.GetNumFVarValuesTotal(channel);
 		if (num_values_total <= 0) {
@@ -369,15 +412,29 @@ const struct OpenSubdiv_TopologyRefinerDescr *openSubdiv_getGLMeshTopologyRefine
 	return gl_mesh->topology_refiner;
 }
 
-int openSubdiv_supportGPUDisplay(void)
+int openSubdiv_getVersionHex(void)
 {
-	// TODO: simplify extension check once Blender adopts GL 3.2
-	return openSubdiv_gpu_legacy_support() &&
-	       (GLEW_VERSION_3_2 ||
-	       (GLEW_VERSION_3_1 && GLEW_EXT_geometry_shader4) ||
-	       (GLEW_VERSION_3_0 &&
-	        GLEW_EXT_geometry_shader4 &&
-	        GLEW_ARB_uniform_buffer_object &&
-	        (GLEW_ARB_texture_buffer_object || GLEW_EXT_texture_buffer_object)));
-	/* also ARB_explicit_attrib_location? */
+#if defined(OPENSUBDIV_VERSION_NUMBER)
+	return OPENSUBDIV_VERSION_NUMBER;
+#elif defined(OPENSUBDIV_VERSION_MAJOR)
+	return OPENSUBDIV_VERSION_MAJOR * 10000 +
+	       OPENSUBDIV_VERSION_MINOR * 100 +
+	       OPENSUBDIV_VERSION_PATCH;
+#elif defined(OPENSUBDIV_VERSION)
+	const char* version = STRINGIFY(OPENSUBDIV_VERSION);
+	if (version[0] == 'v') {
+		version += 1;
+	}
+	int major = 0, minor = 0, patch = 0;
+	vector<string> tokens;
+	stringSplit(&tokens, version, "_", true);
+	if (tokens.size() == 3) {
+		major = atoi(tokens[0].c_str());
+		minor = atoi(tokens[1].c_str());
+		patch = atoi(tokens[2].c_str());
+	}
+	return major * 10000 + minor * 100 + patch;
+#else
+	return 0;
+#endif
 }

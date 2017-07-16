@@ -19,7 +19,7 @@ CCL_NAMESPACE_BEGIN
 ccl_device_inline void path_state_init(KernelGlobals *kg,
                                        ShaderData *stack_sd,
                                        ccl_addr_space PathState *state,
-                                       ccl_addr_space RNG *rng,
+                                       RNG *rng,
                                        int sample,
                                        ccl_addr_space Ray *ray)
 {
@@ -35,6 +35,16 @@ ccl_device_inline void path_state_init(KernelGlobals *kg,
 	state->transmission_bounce = 0;
 	state->transparent_bounce = 0;
 
+#ifdef __DENOISING_FEATURES__
+	if(kernel_data.film.pass_denoising_data) {
+		state->flag |= PATH_RAY_STORE_SHADOW_INFO;
+		state->denoising_feature_weight = 1.0f;
+	}
+	else {
+		state->denoising_feature_weight = 0.0f;
+	}
+#endif  /* __DENOISING_FEATURES__ */
+
 	state->min_ray_pdf = FLT_MAX;
 	state->ray_pdf = 0.0f;
 #ifdef __LAMP_MIS__
@@ -45,14 +55,18 @@ ccl_device_inline void path_state_init(KernelGlobals *kg,
 	state->volume_bounce = 0;
 
 	if(kernel_data.integrator.use_volumes) {
-		/* initialize volume stack with volume we are inside of */
-		kernel_volume_stack_init(kg, stack_sd, ray, state->volume_stack);
-		/* seed RNG for cases where we can't use stratified samples */
+		/* Initialize volume stack with volume we are inside of. */
+		kernel_volume_stack_init(kg, stack_sd, state, ray, state->volume_stack);
+		/* Seed RNG for cases where we can't use stratified samples .*/
 		state->rng_congruential = lcg_init(*rng + sample*0x51633e2d);
 	}
 	else {
 		state->volume_stack[0].shader = SHADER_NONE;
 	}
+#endif
+
+#ifdef __SHADOW_TRICKS__
+	state->catcher_object = OBJECT_NONE;
 #endif
 }
 
@@ -124,6 +138,12 @@ ccl_device_inline void path_state_next(KernelGlobals *kg, ccl_addr_space PathSta
 
 	/* random number generator next bounce */
 	state->rng_offset += PRNG_BOUNCE_NUM;
+
+#ifdef __DENOISING_FEATURES__
+	if((state->denoising_feature_weight == 0.0f) && !(state->flag & PATH_RAY_SHADOW_CATCHER)) {
+		state->flag &= ~PATH_RAY_STORE_SHADOW_INFO;
+	}
+#endif
 }
 
 ccl_device_inline uint path_state_ray_visibility(KernelGlobals *kg, PathState *state)

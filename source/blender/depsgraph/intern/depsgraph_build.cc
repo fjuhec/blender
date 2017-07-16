@@ -32,21 +32,31 @@
 
 #include "MEM_guardedalloc.h"
 
-extern "C" {
-#include "DNA_cachefile_types.h"
-#include "DNA_object_types.h"
-#include "DNA_scene_types.h"
+// #define DEBUG_TIME
 
 #include "BLI_utildefines.h"
 #include "BLI_ghash.h"
 
+#ifdef DEBUG_TIME
+#  include "PIL_time.h"
+#  include "PIL_time_utildefines.h"
+#endif
+
+extern "C" {
+#include "DNA_cachefile_types.h"
+#include "DNA_object_types.h"
+#include "DNA_scene_types.h"
+#include "DNA_object_force.h"
+
 #include "BKE_main.h"
+#include "BKE_collision.h"
+#include "BKE_effect.h"
+#include "BKE_modifier.h"
+} /* extern "C" */
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_debug.h"
 #include "DEG_depsgraph_build.h"
-
-} /* extern "C" */
 
 #include "builder/deg_builder.h"
 #include "builder/deg_builder_cycle.h"
@@ -70,29 +80,29 @@ static DEG::eDepsNode_Type deg_build_scene_component_type(
         eDepsSceneComponentType component)
 {
 	switch (component) {
-		case DEG_SCENE_COMP_PARAMETERS:     return DEG::DEPSNODE_TYPE_PARAMETERS;
-		case DEG_SCENE_COMP_ANIMATION:      return DEG::DEPSNODE_TYPE_ANIMATION;
-		case DEG_SCENE_COMP_SEQUENCER:      return DEG::DEPSNODE_TYPE_SEQUENCER;
+		case DEG_SCENE_COMP_PARAMETERS:     return DEG::DEG_NODE_TYPE_PARAMETERS;
+		case DEG_SCENE_COMP_ANIMATION:      return DEG::DEG_NODE_TYPE_ANIMATION;
+		case DEG_SCENE_COMP_SEQUENCER:      return DEG::DEG_NODE_TYPE_SEQUENCER;
 	}
-	return DEG::DEPSNODE_TYPE_UNDEFINED;
+	return DEG::DEG_NODE_TYPE_UNDEFINED;
 }
 
 static DEG::eDepsNode_Type deg_build_object_component_type(
         eDepsObjectComponentType component)
 {
 	switch (component) {
-		case DEG_OB_COMP_PARAMETERS:        return DEG::DEPSNODE_TYPE_PARAMETERS;
-		case DEG_OB_COMP_PROXY:             return DEG::DEPSNODE_TYPE_PROXY;
-		case DEG_OB_COMP_ANIMATION:         return DEG::DEPSNODE_TYPE_ANIMATION;
-		case DEG_OB_COMP_TRANSFORM:         return DEG::DEPSNODE_TYPE_TRANSFORM;
-		case DEG_OB_COMP_GEOMETRY:          return DEG::DEPSNODE_TYPE_GEOMETRY;
-		case DEG_OB_COMP_EVAL_POSE:         return DEG::DEPSNODE_TYPE_EVAL_POSE;
-		case DEG_OB_COMP_BONE:              return DEG::DEPSNODE_TYPE_BONE;
-		case DEG_OB_COMP_EVAL_PARTICLES:    return DEG::DEPSNODE_TYPE_EVAL_PARTICLES;
-		case DEG_OB_COMP_SHADING:           return DEG::DEPSNODE_TYPE_SHADING;
-		case DEG_OB_COMP_CACHE:             return DEG::DEPSNODE_TYPE_CACHE;
+		case DEG_OB_COMP_PARAMETERS:        return DEG::DEG_NODE_TYPE_PARAMETERS;
+		case DEG_OB_COMP_PROXY:             return DEG::DEG_NODE_TYPE_PROXY;
+		case DEG_OB_COMP_ANIMATION:         return DEG::DEG_NODE_TYPE_ANIMATION;
+		case DEG_OB_COMP_TRANSFORM:         return DEG::DEG_NODE_TYPE_TRANSFORM;
+		case DEG_OB_COMP_GEOMETRY:          return DEG::DEG_NODE_TYPE_GEOMETRY;
+		case DEG_OB_COMP_EVAL_POSE:         return DEG::DEG_NODE_TYPE_EVAL_POSE;
+		case DEG_OB_COMP_BONE:              return DEG::DEG_NODE_TYPE_BONE;
+		case DEG_OB_COMP_EVAL_PARTICLES:    return DEG::DEG_NODE_TYPE_EVAL_PARTICLES;
+		case DEG_OB_COMP_SHADING:           return DEG::DEG_NODE_TYPE_SHADING;
+		case DEG_OB_COMP_CACHE:             return DEG::DEG_NODE_TYPE_CACHE;
 	}
-	return DEG::DEPSNODE_TYPE_UNDEFINED;
+	return DEG::DEG_NODE_TYPE_UNDEFINED;
 }
 
 static DEG::DepsNodeHandle *get_handle(DepsNodeHandle *handle)
@@ -110,7 +120,6 @@ void DEG_add_scene_relation(DepsNodeHandle *handle,
 	DEG::DepsNodeHandle *deg_handle = get_handle(handle);
 	deg_handle->builder->add_node_handle_relation(comp_key,
 	                                              deg_handle,
-	                                              DEG::DEPSREL_TYPE_GEOMETRY_EVAL,
 	                                              description);
 }
 
@@ -124,7 +133,6 @@ void DEG_add_object_relation(DepsNodeHandle *handle,
 	DEG::DepsNodeHandle *deg_handle = get_handle(handle);
 	deg_handle->builder->add_node_handle_relation(comp_key,
 	                                              deg_handle,
-	                                              DEG::DEPSREL_TYPE_GEOMETRY_EVAL,
 	                                              description);
 }
 
@@ -138,7 +146,6 @@ void DEG_add_object_cache_relation(DepsNodeHandle *handle,
 	DEG::DepsNodeHandle *deg_handle = get_handle(handle);
 	deg_handle->builder->add_node_handle_relation(comp_key,
 	                                              deg_handle,
-	                                              DEG::DEPSREL_TYPE_CACHE,
 	                                              description);
 }
 
@@ -156,8 +163,14 @@ void DEG_add_bone_relation(DepsNodeHandle *handle,
 	 */
 	deg_handle->builder->add_node_handle_relation(comp_key,
 	                                              deg_handle,
-	                                              DEG::DEPSREL_TYPE_GEOMETRY_EVAL,
 	                                              description);
+}
+
+struct Depsgraph *DEG_get_graph_from_handle(struct DepsNodeHandle *handle)
+{
+	DEG::DepsNodeHandle *deg_handle = get_handle(handle);
+	DEG::DepsgraphRelationBuilder *relation_builder = deg_handle->builder;
+	return reinterpret_cast<Depsgraph *>(relation_builder->getGraph());
 }
 
 void DEG_add_special_eval_flag(Depsgraph *graph, ID *id, short flag)
@@ -186,33 +199,26 @@ void DEG_add_special_eval_flag(Depsgraph *graph, ID *id, short flag)
  */
 void DEG_graph_build_from_scene(Depsgraph *graph, Main *bmain, Scene *scene)
 {
+#ifdef DEBUG_TIME
+	TIMEIT_START(DEG_graph_build_from_scene);
+#endif
+
 	DEG::Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(graph);
 
 	/* 1) Generate all the nodes in the graph first */
 	DEG::DepsgraphNodeBuilder node_builder(bmain, deg_graph);
-	/* create root node for scene first
-	 * - this way it should be the first in the graph,
-	 *   reflecting its role as the entrypoint
-	 */
-	node_builder.add_root_node();
+	node_builder.begin_build(bmain);
 	node_builder.build_scene(bmain, scene);
 
 	/* 2) Hook up relationships between operations - to determine evaluation
 	 *    order.
 	 */
 	DEG::DepsgraphRelationBuilder relation_builder(deg_graph);
-	/* Hook scene up to the root node as entrypoint to graph. */
-	/* XXX what does this relation actually mean?
-	 * it doesnt add any operations anyway and is not clear what part of the
-	 * scene is to be connected.
-	 */
-#if 0
-	relation_builder.add_relation(RootKey(),
-	                              IDKey(scene),
-	                              DEPSREL_TYPE_ROOT_TO_ACTIVE,
-	                              "Root to Active Scene");
-#endif
+	relation_builder.begin_build(bmain);
 	relation_builder.build_scene(bmain, scene);
+#ifdef WITH_COPY_ON_WRITE
+	relation_builder.build_copy_on_write_relations();
+#endif
 
 	/* Detect and solve cycles. */
 	DEG::deg_graph_detect_cycles(deg_graph);
@@ -235,6 +241,10 @@ void DEG_graph_build_from_scene(Depsgraph *graph, Main *bmain, Scene *scene)
 		abort();
 	}
 #endif
+
+#ifdef DEBUG_TIME
+	TIMEIT_END(DEG_graph_build_from_scene);
+#endif
 }
 
 /* Tag graph relations for update. */
@@ -251,8 +261,8 @@ void DEG_relations_tag_update(Main *bmain)
 	     scene != NULL;
 	     scene = (Scene *)scene->id.next)
 	{
-		if (scene->depsgraph != NULL) {
-			DEG_graph_tag_relations_update(scene->depsgraph);
+		if (scene->depsgraph_legacy != NULL) {
+			DEG_graph_tag_relations_update(scene->depsgraph_legacy);
 		}
 	}
 }
@@ -262,14 +272,14 @@ void DEG_relations_tag_update(Main *bmain)
  */
 void DEG_scene_relations_update(Main *bmain, Scene *scene)
 {
-	if (scene->depsgraph == NULL) {
+	if (scene->depsgraph_legacy == NULL) {
 		/* Rebuild graph from scratch and exit. */
-		scene->depsgraph = DEG_graph_new();
-		DEG_graph_build_from_scene(scene->depsgraph, bmain, scene);
+		scene->depsgraph_legacy = DEG_graph_new();
+		DEG_graph_build_from_scene(scene->depsgraph_legacy, bmain, scene);
 		return;
 	}
 
-	DEG::Depsgraph *graph = reinterpret_cast<DEG::Depsgraph *>(scene->depsgraph);
+	DEG::Depsgraph *graph = reinterpret_cast<DEG::Depsgraph *>(scene->depsgraph_legacy);
 	if (!graph->need_update) {
 		/* Graph is up to date, nothing to do. */
 		return;
@@ -291,16 +301,93 @@ void DEG_scene_relations_update(Main *bmain, Scene *scene)
 /* Rebuild dependency graph only for a given scene. */
 void DEG_scene_relations_rebuild(Main *bmain, Scene *scene)
 {
-	if (scene->depsgraph != NULL) {
-		DEG_graph_tag_relations_update(scene->depsgraph);
+	if (scene->depsgraph_legacy != NULL) {
+		DEG_graph_tag_relations_update(scene->depsgraph_legacy);
 	}
 	DEG_scene_relations_update(bmain, scene);
 }
 
 void DEG_scene_graph_free(Scene *scene)
 {
-	if (scene->depsgraph) {
-		DEG_graph_free(scene->depsgraph);
-		scene->depsgraph = NULL;
+	if (scene->depsgraph_legacy) {
+		DEG_graph_free(scene->depsgraph_legacy);
+		scene->depsgraph_legacy = NULL;
 	}
+}
+
+void DEG_add_collision_relations(DepsNodeHandle *handle,
+                                 Scene *scene,
+                                 Object *ob,
+                                 Group *group,
+                                 unsigned int modifier_type,
+                                 DEG_CollobjFilterFunction fn,
+                                 bool dupli,
+                                 const char *name)
+{
+	unsigned int numcollobj;
+	Object **collobjs = get_collisionobjects_ext(scene, ob, group, &numcollobj, modifier_type, dupli);
+
+	for (unsigned int i = 0; i < numcollobj; i++) {
+		Object *ob1 = collobjs[i];
+
+		if (!fn || fn(ob1, modifiers_findByType(ob1, (ModifierType)modifier_type))) {
+			DEG_add_object_relation(handle, ob1, DEG_OB_COMP_TRANSFORM, name);
+			DEG_add_object_relation(handle, ob1, DEG_OB_COMP_GEOMETRY, name);
+		}
+	}
+
+	if (collobjs)
+		MEM_freeN(collobjs);
+}
+
+void DEG_add_forcefield_relations(DepsNodeHandle *handle,
+                                  Scene *scene,
+                                  Object *ob,
+                                  EffectorWeights *effector_weights,
+                                  bool add_absorption,
+                                  int skip_forcefield,
+                                  const char *name)
+{
+	ListBase *effectors = pdInitEffectors(scene, ob, NULL, effector_weights, false);
+
+	if (effectors) {
+		for (EffectorCache *eff = (EffectorCache*)effectors->first; eff; eff = eff->next) {
+			if (eff->ob != ob && eff->pd->forcefield != skip_forcefield) {
+				DEG_add_object_relation(handle, eff->ob, DEG_OB_COMP_TRANSFORM, name);
+
+				if (eff->psys) {
+					DEG_add_object_relation(handle, eff->ob, DEG_OB_COMP_EVAL_PARTICLES, name);
+
+					/* TODO: remove this when/if EVAL_PARTICLES is sufficient
+					 * for up to date particles.
+					 */
+					DEG_add_object_relation(handle, eff->ob, DEG_OB_COMP_GEOMETRY, name);
+				}
+
+				if (eff->pd->forcefield == PFIELD_SMOKEFLOW && eff->pd->f_source) {
+					DEG_add_object_relation(handle,
+					                        eff->pd->f_source,
+					                        DEG_OB_COMP_TRANSFORM,
+					                        "Smoke Force Domain");
+					DEG_add_object_relation(handle,
+					                        eff->pd->f_source,
+					                        DEG_OB_COMP_GEOMETRY,
+					                        "Smoke Force Domain");
+				}
+
+				if (add_absorption && (eff->pd->flag & PFIELD_VISIBILITY)) {
+					DEG_add_collision_relations(handle,
+					                            scene,
+					                            ob,
+					                            NULL,
+					                            eModifierType_Collision,
+					                            NULL,
+					                            true,
+					                            "Force Absorption");
+				}
+			}
+		}
+	}
+
+	pdEndEffectors(&effectors);
 }

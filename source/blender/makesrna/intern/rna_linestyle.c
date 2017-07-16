@@ -27,6 +27,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "BLI_utildefines.h"
+#include "BLI_string_utils.h"
+
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
 
@@ -98,7 +101,8 @@ EnumPropertyItem rna_enum_linestyle_geometry_modifier_type_items[] = {
 
 #include "BKE_linestyle.h"
 #include "BKE_texture.h"
-#include "BKE_depsgraph.h"
+
+#include "DEG_depsgraph.h"
 
 #include "ED_node.h"
 
@@ -320,7 +324,7 @@ static void rna_LineStyle_update(Main *UNUSED(bmain), Scene *UNUSED(scene), Poin
 {
 	FreestyleLineStyle *linestyle = ptr->id.data;
 
-	DAG_id_tag_update(&linestyle->id, 0);
+	DEG_id_tag_update(&linestyle->id, 0);
 	WM_main_add_notifier(NC_LINESTYLE, linestyle);
 }
 
@@ -344,7 +348,7 @@ static LineStyleModifier *rna_LineStyle_color_modifier_add(FreestyleLineStyle *l
 		return NULL;
 	}
 
-	DAG_id_tag_update(&linestyle->id, 0);
+	DEG_id_tag_update(&linestyle->id, 0);
 	WM_main_add_notifier(NC_LINESTYLE, linestyle);
 
 	return modifier;
@@ -362,7 +366,7 @@ static void rna_LineStyle_color_modifier_remove(FreestyleLineStyle *linestyle, R
 
 	RNA_POINTER_INVALIDATE(modifier_ptr);
 
-	DAG_id_tag_update(&linestyle->id, 0);
+	DEG_id_tag_update(&linestyle->id, 0);
 	WM_main_add_notifier(NC_LINESTYLE, linestyle);
 }
 
@@ -376,7 +380,7 @@ static LineStyleModifier *rna_LineStyle_alpha_modifier_add(FreestyleLineStyle *l
 		return NULL;
 	}
 
-	DAG_id_tag_update(&linestyle->id, 0);
+	DEG_id_tag_update(&linestyle->id, 0);
 	WM_main_add_notifier(NC_LINESTYLE, linestyle);
 
 	return modifier;
@@ -394,7 +398,7 @@ static void rna_LineStyle_alpha_modifier_remove(FreestyleLineStyle *linestyle, R
 
 	RNA_POINTER_INVALIDATE(modifier_ptr);
 
-	DAG_id_tag_update(&linestyle->id, 0);
+	DEG_id_tag_update(&linestyle->id, 0);
 	WM_main_add_notifier(NC_LINESTYLE, linestyle);
 }
 
@@ -408,7 +412,7 @@ static LineStyleModifier *rna_LineStyle_thickness_modifier_add(FreestyleLineStyl
 		return NULL;
 	}
 
-	DAG_id_tag_update(&linestyle->id, 0);
+	DEG_id_tag_update(&linestyle->id, 0);
 	WM_main_add_notifier(NC_LINESTYLE, linestyle);
 
 	return modifier;
@@ -426,7 +430,7 @@ static void rna_LineStyle_thickness_modifier_remove(FreestyleLineStyle *linestyl
 
 	RNA_POINTER_INVALIDATE(modifier_ptr);
 
-	DAG_id_tag_update(&linestyle->id, 0);
+	DEG_id_tag_update(&linestyle->id, 0);
 	WM_main_add_notifier(NC_LINESTYLE, linestyle);
 }
 
@@ -440,7 +444,7 @@ static LineStyleModifier *rna_LineStyle_geometry_modifier_add(FreestyleLineStyle
 		return NULL;
 	}
 
-	DAG_id_tag_update(&linestyle->id, 0);
+	DEG_id_tag_update(&linestyle->id, 0);
 	WM_main_add_notifier(NC_LINESTYLE, linestyle);
 
 	return modifier;
@@ -458,7 +462,7 @@ static void rna_LineStyle_geometry_modifier_remove(FreestyleLineStyle *linestyle
 
 	RNA_POINTER_INVALIDATE(modifier_ptr);
 
-	DAG_id_tag_update(&linestyle->id, 0);
+	DEG_id_tag_update(&linestyle->id, 0);
 	WM_main_add_notifier(NC_LINESTYLE, linestyle);
 }
 
@@ -1447,9 +1451,9 @@ static void rna_def_freestyle_color_modifiers(BlenderRNA *brna, PropertyRNA *cpr
 	RNA_def_function_ui_description(func, "Add a color modifier to line style");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_string(func, "name", "ColorModifier", 0, "", "New name for the color modifier (not unique)");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_enum(func, "type", rna_enum_linestyle_color_modifier_type_items, 0, "", "Color modifier type to add");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_pointer(func, "modifier", "LineStyleColorModifier", "", "Newly added color modifier");
 	RNA_def_function_return(func, parm);
 
@@ -1457,8 +1461,8 @@ static void rna_def_freestyle_color_modifiers(BlenderRNA *brna, PropertyRNA *cpr
 	RNA_def_function_ui_description(func, "Remove a color modifier from line style");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_pointer(func, "modifier", "LineStyleColorModifier", "", "Color modifier to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
 }
 
 static void rna_def_freestyle_alpha_modifiers(BlenderRNA *brna, PropertyRNA *cprop)
@@ -1476,9 +1480,9 @@ static void rna_def_freestyle_alpha_modifiers(BlenderRNA *brna, PropertyRNA *cpr
 	RNA_def_function_ui_description(func, "Add a alpha modifier to line style");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_string(func, "name", "AlphaModifier", 0, "", "New name for the alpha modifier (not unique)");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_enum(func, "type", rna_enum_linestyle_alpha_modifier_type_items, 0, "", "Alpha modifier type to add");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_pointer(func, "modifier", "LineStyleAlphaModifier", "", "Newly added alpha modifier");
 	RNA_def_function_return(func, parm);
 
@@ -1486,8 +1490,8 @@ static void rna_def_freestyle_alpha_modifiers(BlenderRNA *brna, PropertyRNA *cpr
 	RNA_def_function_ui_description(func, "Remove a alpha modifier from line style");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_pointer(func, "modifier", "LineStyleAlphaModifier", "", "Alpha modifier to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
 }
 
 static void rna_def_freestyle_thickness_modifiers(BlenderRNA *brna, PropertyRNA *cprop)
@@ -1499,15 +1503,16 @@ static void rna_def_freestyle_thickness_modifiers(BlenderRNA *brna, PropertyRNA 
 	RNA_def_property_srna(cprop, "LineStyleThicknessModifiers");
 	srna = RNA_def_struct(brna, "LineStyleThicknessModifiers", NULL);
 	RNA_def_struct_sdna(srna, "FreestyleLineStyle");
-	RNA_def_struct_ui_text(srna, "Thickness Modifiers", "Thickness modifiers for changing line thicknesss");
+	RNA_def_struct_ui_text(srna, "Thickness Modifiers", "Thickness modifiers for changing line thickness");
 
 	func = RNA_def_function(srna, "new", "rna_LineStyle_thickness_modifier_add");
 	RNA_def_function_ui_description(func, "Add a thickness modifier to line style");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_string(func, "name", "ThicknessModifier", 0, "", "New name for the thickness modifier (not unique)");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
-	parm = RNA_def_enum(func, "type", rna_enum_linestyle_thickness_modifier_type_items, 0, "", "Thickness modifier type to add");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+	parm = RNA_def_enum(func, "type", rna_enum_linestyle_thickness_modifier_type_items, 0,
+	                    "", "Thickness modifier type to add");
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_pointer(func, "modifier", "LineStyleThicknessModifier", "", "Newly added thickness modifier");
 	RNA_def_function_return(func, parm);
 
@@ -1515,8 +1520,8 @@ static void rna_def_freestyle_thickness_modifiers(BlenderRNA *brna, PropertyRNA 
 	RNA_def_function_ui_description(func, "Remove a thickness modifier from line style");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_pointer(func, "modifier", "LineStyleThicknessModifier", "", "Thickness modifier to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
 }
 
 static void rna_def_freestyle_geometry_modifiers(BlenderRNA *brna, PropertyRNA *cprop)
@@ -1528,15 +1533,16 @@ static void rna_def_freestyle_geometry_modifiers(BlenderRNA *brna, PropertyRNA *
 	RNA_def_property_srna(cprop, "LineStyleGeometryModifiers");
 	srna = RNA_def_struct(brna, "LineStyleGeometryModifiers", NULL);
 	RNA_def_struct_sdna(srna, "FreestyleLineStyle");
-	RNA_def_struct_ui_text(srna, "Geometry Modifiers", "Geometry modifiers for changing line geometrys");
+	RNA_def_struct_ui_text(srna, "Geometry Modifiers", "Geometry modifiers for changing line geometries");
 
 	func = RNA_def_function(srna, "new", "rna_LineStyle_geometry_modifier_add");
 	RNA_def_function_ui_description(func, "Add a geometry modifier to line style");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_string(func, "name", "GeometryModifier", 0, "", "New name for the geometry modifier (not unique)");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
-	parm = RNA_def_enum(func, "type", rna_enum_linestyle_geometry_modifier_type_items, 0, "", "Geometry modifier type to add");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+	parm = RNA_def_enum(func, "type", rna_enum_linestyle_geometry_modifier_type_items, 0,
+	                    "", "Geometry modifier type to add");
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_pointer(func, "modifier", "LineStyleGeometryModifier", "", "Newly added geometry modifier");
 	RNA_def_function_return(func, parm);
 
@@ -1544,8 +1550,8 @@ static void rna_def_freestyle_geometry_modifiers(BlenderRNA *brna, PropertyRNA *
 	RNA_def_function_ui_description(func, "Remove a geometry modifier from line style");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_pointer(func, "modifier", "LineStyleGeometryModifier", "", "Geometry modifier to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
 }
 
 static void rna_def_linestyle(BlenderRNA *brna)
@@ -1615,6 +1621,7 @@ static void rna_def_linestyle(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "panel", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_bitflag_sdna(prop, NULL, "panel");
 	RNA_def_property_enum_items(prop, panel_items);
+	RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
 	RNA_def_property_ui_text(prop, "Panel", "Select the property panel to be shown");
 
 	prop = RNA_def_property(srna, "color", PROP_FLOAT, PROP_COLOR);

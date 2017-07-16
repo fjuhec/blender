@@ -40,6 +40,8 @@ struct bGPdata;
 struct bGPDstroke;
 struct bGPDspoint;
 
+struct GHash;
+
 struct ARegion;
 struct View2D;
 struct wmOperatorType;
@@ -69,63 +71,23 @@ typedef struct GP_SpaceConversion {
 	float mat[4][4];     /* transform matrix on the strokes (introduced in [b770964]) */
 } GP_SpaceConversion;
 
-
-/**
- * Check whether a given stroke segment is inside a circular brush
- *
- * \param mval     The current screen-space coordinates (midpoint) of the brush
- * \param mvalo    The previous screen-space coordinates (midpoint) of the brush (NOT CURRENTLY USED)
- * \param rad      The radius of the brush
- *
- * \param x0, y0   The screen-space x and y coordinates of the start of the stroke segment
- * \param x1, y1   The screen-space x and y coordinates of the end of the stroke segment
- */
 bool gp_stroke_inside_circle(const int mval[2], const int UNUSED(mvalo[2]),
                              int rad, int x0, int y0, int x1, int y1);
 
-
-/**
- * Init settings for stroke point space conversions
- *
- * \param[out] r_gsc  The space conversion settings struct, populated with necessary params
- */
 void gp_point_conversion_init(struct bContext *C, GP_SpaceConversion *r_gsc);
 
-/**
- * Convert a Grease Pencil coordinate (i.e. can be 2D or 3D) to screenspace (2D)
- *
- * \param[out] r_x  The screen-space x-coordinate of the point
- * \param[out] r_y  The screen-space y-coordinate of the point
- */
 void gp_point_to_xy(GP_SpaceConversion *settings, struct bGPDstroke *gps, struct bGPDspoint *pt,
                     int *r_x, int *r_y);
 
-/**
- * Convert point to parent space
- *
- * \param pt         Original point
- * \param diff_mat   Matrix with the difference between original parent matrix
- * \param[out] r_pt  Pointer to new point after apply matrix
- */
+void gp_point_to_xy_fl(GP_SpaceConversion *gsc, bGPDstroke *gps, bGPDspoint *pt,
+                       float *r_x, float *r_y);
+
 void gp_point_to_parent_space(bGPDspoint *pt, float diff_mat[4][4], bGPDspoint *r_pt);
-/**
- * Change points position relative to parent object
- */
+
 void gp_apply_parent(bGPDlayer *gpl, bGPDstroke *gps);
-/**
- * Change point position relative to parent object
- */
+
 void gp_apply_parent_point(bGPDlayer *gpl, bGPDspoint *pt);
 
-/**
- * Convert a screenspace point to a 3D Grease Pencil coordinate.
- *
- * For use with editing tools where it is easier to perform the operations in 2D,
- * and then later convert the transformed points back to 3D.
- *
- * \param screeN_co    The screenspace 2D coordinates to convert to 
- * \param[out] r_out  The resulting 3D coordinates of the input point
- */
 bool gp_point_xy_to_3d(GP_SpaceConversion *gsc, struct Scene *scene, const float screen_co[2], float r_out[3]);
 
 /* Poll Callbacks ------------------------------------ */
@@ -143,48 +105,18 @@ int gp_brush_crt_presets_poll(bContext *C);
 
 extern ListBase gp_strokes_copypastebuf;
 
+/* Build a map for converting between old colornames and destination-color-refs */
+struct GHash *gp_copybuf_validate_colormap(bGPdata *gpd);
+
 /* Stroke Editing ------------------------------------ */
 
 void gp_stroke_delete_tagged_points(bGPDframe *gpf, bGPDstroke *gps, bGPDstroke *next_stroke, int tag_flags);
 
 
-/**
- * Apply smooth to stroke point 
- * \param gps              Stroke to smooth
- * \param i                Point index
- * \param inf              Amount of smoothing to apply
- * \param affect_pressure  Apply smoothing to pressure values too?
- */
 bool gp_smooth_stroke(bGPDstroke *gps, int i, float inf, bool affect_pressure);
-
-/**
-* Apply smooth for strength to stroke point
-* \param gps              Stroke to smooth
-* \param i                Point index
-* \param inf              Amount of smoothing to apply
-*/
 bool gp_smooth_stroke_strength(bGPDstroke *gps, int i, float inf);
-
-/**
-* Apply smooth for thickness to stroke point (use pressure)
-* \param gps              Stroke to smooth
-* \param i                Point index
-* \param inf              Amount of smoothing to apply
-*/
 bool gp_smooth_stroke_thickness(bGPDstroke *gps, int i, float inf);
-
-/**
- * Subdivide a stroke once, by adding points at the midpoint between each pair of points
- * \param gps           Stroke data
- * \param new_totpoints Total number of points (after subdividing)
- */
 void gp_subdivide_stroke(bGPDstroke *gps, const int new_totpoints);
-
-/**
-* Add randomness to stroke
-* \param gps           Stroke data
-* \param brsuh         Brush data
-*/
 void gp_randomize_stroke(bGPDstroke *gps, bGPDbrush *brush);
 
 /* Layers Enums -------------------------------------- */
@@ -199,6 +131,7 @@ EnumPropertyItem *ED_gpencil_brushes_enum_itemf(bContext *C, PointerRNA *UNUSED(
 /* Enums of GP palettes */
 EnumPropertyItem *ED_gpencil_palettes_enum_itemf(bContext *C, PointerRNA *UNUSED(ptr), PropertyRNA *UNUSED(prop),
                                                  bool *r_free);
+
 /* ***************************************************** */
 /* Operator Defines */
 
@@ -213,6 +146,9 @@ typedef enum eGPencil_PaintModes {
 	GP_PAINTMODE_DRAW_STRAIGHT,
 	GP_PAINTMODE_DRAW_POLY
 } eGPencil_PaintModes;
+
+/* maximum sizes of gp-session buffer */
+#define GP_STROKE_BUFFER_MAX    5000
 
 /* stroke editing ----- */
 
@@ -246,6 +182,7 @@ void GPENCIL_OT_snap_to_cursor(struct wmOperatorType *ot);
 void GPENCIL_OT_snap_cursor_to_selected(struct wmOperatorType *ot);
 void GPENCIL_OT_snap_cursor_to_center(struct wmOperatorType *ot);
 
+void GPENCIL_OT_reproject(struct wmOperatorType *ot);
 
 /* stroke sculpting -- */
 
@@ -270,6 +207,8 @@ void GPENCIL_OT_unlock_all(struct wmOperatorType *ot);
 void GPENCIL_OT_layer_isolate(struct wmOperatorType *ot);
 void GPENCIL_OT_layer_merge(struct wmOperatorType *ot);
 
+void GPENCIL_OT_blank_frame_add(struct wmOperatorType *ot);
+
 void GPENCIL_OT_active_frame_delete(struct wmOperatorType *ot);
 void GPENCIL_OT_active_frames_delete_all(struct wmOperatorType *ot);
 
@@ -287,6 +226,7 @@ void GPENCIL_OT_stroke_apply_thickness(struct wmOperatorType *ot);
 void GPENCIL_OT_stroke_cyclical_set(struct wmOperatorType *ot);
 void GPENCIL_OT_stroke_join(struct wmOperatorType *ot);
 void GPENCIL_OT_stroke_flip(struct wmOperatorType *ot);
+void GPENCIL_OT_stroke_subdivide(struct wmOperatorType *ot);
 
 void GPENCIL_OT_brush_add(struct wmOperatorType *ot);
 void GPENCIL_OT_brush_remove(struct wmOperatorType *ot);
@@ -300,10 +240,10 @@ void GPENCIL_OT_palette_add(struct wmOperatorType *ot);
 void GPENCIL_OT_palette_remove(struct wmOperatorType *ot);
 void GPENCIL_OT_palette_change(struct wmOperatorType *ot);
 void GPENCIL_OT_palette_lock_layer(struct wmOperatorType *ot);
+
 void GPENCIL_OT_palettecolor_add(struct wmOperatorType *ot);
 void GPENCIL_OT_palettecolor_remove(struct wmOperatorType *ot);
 void GPENCIL_OT_palettecolor_isolate(struct wmOperatorType *ot);
-
 void GPENCIL_OT_palettecolor_hide(struct wmOperatorType *ot);
 void GPENCIL_OT_palettecolor_reveal(struct wmOperatorType *ot);
 void GPENCIL_OT_palettecolor_lock_all(struct wmOperatorType *ot);
@@ -318,7 +258,13 @@ void gpencil_undo_init(struct bGPdata *gpd);
 void gpencil_undo_push(struct bGPdata *gpd);
 void gpencil_undo_finish(void);
 
-/******************************************************* */
+/* interpolation ---------- */
+
+void GPENCIL_OT_interpolate(struct wmOperatorType *ot);
+void GPENCIL_OT_interpolate_sequence(struct wmOperatorType *ot);
+void GPENCIL_OT_interpolate_reverse(struct wmOperatorType *ot);
+
+/* ****************************************************** */
 /* FILTERED ACTION DATA - TYPES  ---> XXX DEPRECEATED OLD ANIM SYSTEM CODE! */
 
 /* XXX - TODO: replace this with the modern bAnimListElem... */
@@ -340,7 +286,7 @@ typedef struct bActListElem {
 	short  ownertype;  /* type of owner */
 } bActListElem;
 
-/******************************************************* */
+/* ****************************************************** */
 /* FILTER ACTION DATA - METHODS/TYPES */
 
 /* filtering flags  - under what circumstances should a channel be added */
@@ -362,6 +308,9 @@ typedef enum ACTCONT_TYPES {
 	ACTCONT_SHAPEKEY,
 	ACTCONT_GPENCIL
 } ACTCONT_TYPES;
+
+/* ****************************************************** */
+/* Stroke Iteration Utilities */
 
 /**
 * Iterate over all editable strokes in the current context,
@@ -397,5 +346,7 @@ typedef enum ACTCONT_TYPES {
 	}                              \
 	CTX_DATA_END;                  \
 } (void)0
+
+/* ****************************************************** */
 
 #endif /* __GPENCIL_INTERN_H__ */

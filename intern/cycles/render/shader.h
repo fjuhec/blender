@@ -19,20 +19,20 @@
 
 #ifdef WITH_OSL
 /* So no context pollution happens from indirectly included windows.h */
-#  include "util_windows.h"
+#  include "util/util_windows.h"
 #  include <OSL/oslexec.h>
 #endif
 
-#include "attribute.h"
-#include "kernel_types.h"
+#include "render/attribute.h"
+#include "kernel/kernel_types.h"
 
-#include "node.h"
+#include "graph/node.h"
 
-#include "util_map.h"
-#include "util_param.h"
-#include "util_string.h"
-#include "util_thread.h"
-#include "util_types.h"
+#include "util/util_map.h"
+#include "util/util_param.h"
+#include "util/util_string.h"
+#include "util/util_thread.h"
+#include "util/util_types.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -82,7 +82,7 @@ enum DisplacementMethod {
 
 class Shader : public Node {
 public:
-	NODE_DECLARE;
+	NODE_DECLARE
 
 	int pass_id;
 
@@ -104,6 +104,15 @@ public:
 	/* synchronization */
 	bool need_update;
 	bool need_update_attributes;
+
+	/* If the shader has only volume components, the surface is assumed to
+	 * be transparent.
+	 * However, graph optimization might remove the volume subgraph, but
+	 * since the user connected something to the volume output the surface
+	 * should still be transparent.
+	 * Therefore, has_volume_connected stores whether some volume subtree
+	 * was connected before optimization. */
+	bool has_volume_connected;
 
 	/* information about shader after compiling */
 	bool has_surface;
@@ -139,6 +148,10 @@ public:
 	Shader();
 	~Shader();
 
+	/* Checks whether the shader consists of just a emission node with fixed inputs that's connected directly to the output.
+	 * If yes, it sets the content of emission to the constant value (color * strength), which is then used for speeding up light evaluation. */
+	bool is_constant_emission(float3* emission);
+
 	void set_graph(ShaderGraph *graph);
 	void tag_update(Scene *scene);
 	void tag_used(Scene *scene);
@@ -173,7 +186,7 @@ public:
 	uint get_attribute_id(AttributeStandard std);
 
 	/* get shader id for mesh faces */
-	int get_shader_id(Shader *shader, Mesh *mesh = NULL, bool smooth = false);
+	int get_shader_id(Shader *shader, bool smooth = false);
 
 	/* add default shaders to scene, to use as default for things that don't
 	 * have any shader assigned explicitly */
@@ -198,6 +211,8 @@ protected:
 
 	void get_requested_graph_features(ShaderGraph *graph,
 	                                  DeviceRequestedFeatures *requested_features);
+
+	thread_spin_lock attribute_lock_;
 };
 
 CCL_NAMESPACE_END

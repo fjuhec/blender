@@ -35,6 +35,7 @@
 
 #include "DNA_screen_types.h"
 #include "DNA_scene_types.h"
+#include "DNA_workspace_types.h"
 
 EnumPropertyItem rna_enum_region_type_items[] = {
 	{RGN_TYPE_WINDOW, "WINDOW", 0, "Window", ""},
@@ -56,7 +57,9 @@ EnumPropertyItem rna_enum_region_type_items[] = {
 #ifdef RNA_RUNTIME
 
 #include "BKE_global.h"
-#include "BKE_depsgraph.h"
+#include "BKE_workspace.h"
+
+#include "DEG_depsgraph.h"
 
 #include "UI_view2d.h"
 
@@ -64,40 +67,6 @@ EnumPropertyItem rna_enum_region_type_items[] = {
 #  include "BPY_extern.h"
 #endif
 
-static void rna_Screen_scene_set(PointerRNA *ptr, PointerRNA value)
-{
-	bScreen *sc = (bScreen *)ptr->data;
-
-	if (value.data == NULL)
-		return;
-
-	sc->newscene = value.data;
-}
-
-static void rna_Screen_scene_update(bContext *C, PointerRNA *ptr)
-{
-	bScreen *sc = (bScreen *)ptr->data;
-
-	/* exception: must use context so notifier gets to the right window  */
-	if (sc->newscene) {
-#ifdef WITH_PYTHON
-		BPy_BEGIN_ALLOW_THREADS;
-#endif
-
-		ED_screen_set_scene(C, sc, sc->newscene);
-
-#ifdef WITH_PYTHON
-		BPy_END_ALLOW_THREADS;
-#endif
-
-		WM_event_add_notifier(C, NC_SCENE | ND_SCENEBROWSE, sc->newscene);
-
-		if (G.debug & G_DEBUG)
-			printf("scene set %p\n", sc->newscene);
-
-		sc->newscene = NULL;
-	}
-}
 
 static void rna_Screen_redraw_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
 {
@@ -107,12 +76,49 @@ static void rna_Screen_redraw_update(Main *UNUSED(bmain), Scene *UNUSED(scene), 
 	ED_screen_animation_timer_update(screen, screen->redraws_flag, SPACE_TIME);
 }
 
-
 static int rna_Screen_is_animation_playing_get(PointerRNA *UNUSED(ptr))
 {
 	/* can be NULL on file load, T42619 */
 	wmWindowManager *wm = G.main->wm.first;
 	return wm ? (ED_screen_animation_playing(wm) != NULL) : 0;
+}
+
+static void rna_Screen_layout_name_get(PointerRNA *ptr, char *value)
+{
+	const bScreen *screen = ptr->data;
+	const WorkSpaceLayout *layout = BKE_workspace_layout_find_global(G.main, screen, NULL);
+
+	if (layout) {
+		const char *name = BKE_workspace_layout_name_get(layout);
+		strcpy(value, name);
+	}
+	else {
+		value[0] = '\0';
+	}
+}
+
+static int rna_Screen_layout_name_length(PointerRNA *ptr)
+{
+	const bScreen *screen = ptr->data;
+	const WorkSpaceLayout *layout = BKE_workspace_layout_find_global(G.main, screen, NULL);
+
+	if (layout) {
+		const char *name = BKE_workspace_layout_name_get(layout);
+		return strlen(name);
+	}
+
+	return 0;
+}
+
+static void rna_Screen_layout_name_set(PointerRNA *ptr, const char *value)
+{
+	bScreen *screen = ptr->data;
+	WorkSpace *workspace;
+	WorkSpaceLayout *layout = BKE_workspace_layout_find_global(G.main, screen, &workspace);
+
+	if (layout) {
+		BKE_workspace_layout_name_set(workspace, layout, value);
+	}
 }
 
 static int rna_Screen_fullscreen_get(PointerRNA *ptr)
@@ -152,7 +158,7 @@ static void rna_Area_type_update(bContext *C, PointerRNA *ptr)
 
 	/* XXX this call still use context, so we trick it to work in the right context */
 	for (win = wm->windows.first; win; win = win->next) {
-		if (sc == win->screen) {
+		if (sc == WM_window_get_active_screen(win)) {
 			wmWindow *prevwin = CTX_wm_window(C);
 			ScrArea *prevsa = CTX_wm_area(C);
 			ARegion *prevar = CTX_wm_region(C);
@@ -166,7 +172,7 @@ static void rna_Area_type_update(bContext *C, PointerRNA *ptr)
 
 			/* It is possible that new layers becomes visible. */
 			if (sa->spacetype == SPACE_VIEW3D) {
-				DAG_on_visible_update(CTX_data_main(C), false);
+				DEG_on_visible_update(CTX_data_main(C), false);
 			}
 
 			CTX_wm_window_set(C, prevwin);
@@ -285,22 +291,22 @@ static void rna_def_view2d_api(StructRNA *srna)
 	func = RNA_def_function(srna, "region_to_view", "rna_View2D_region_to_view");
 	RNA_def_function_ui_description(func, "Transform region coordinates to 2D view");
 	parm = RNA_def_int(func, "x", 0, INT_MIN, INT_MAX, "x", "Region x coordinate", -10000, 10000);
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_int(func, "y", 0, INT_MIN, INT_MAX, "y", "Region y coordinate", -10000, 10000);
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_float_array(func, "result", 2, view_default, -FLT_MAX, FLT_MAX, "Result", "View coordinates", -10000.0f, 10000.0f);
-	RNA_def_property_flag(parm, PROP_THICK_WRAP);
+	RNA_def_parameter_flags(parm, PROP_THICK_WRAP, 0);
 	RNA_def_function_output(func, parm);
 
 	func = RNA_def_function(srna, "view_to_region", "rna_View2D_view_to_region");
 	RNA_def_function_ui_description(func, "Transform 2D view coordinates to region");
 	parm = RNA_def_float(func, "x", 0.0f, -FLT_MAX, FLT_MAX, "x", "2D View x coordinate", -10000.0f, 10000.0f);
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_float(func, "y", 0.0f, -FLT_MAX, FLT_MAX, "y", "2D View y coordinate", -10000.0f, 10000.0f);
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	RNA_def_boolean(func, "clip", 1, "Clip", "Clip coordinates to the visible region");
 	parm = RNA_def_int_array(func, "result", 2, region_default, INT_MIN, INT_MAX, "Result", "Region coordinates", -10000, 10000);
-	RNA_def_property_flag(parm, PROP_THICK_WRAP);
+	RNA_def_parameter_flags(parm, PROP_THICK_WRAP, 0);
 	RNA_def_function_output(func, parm);
 }
 
@@ -377,13 +383,11 @@ static void rna_def_screen(BlenderRNA *brna)
 	RNA_def_struct_ui_text(srna, "Screen", "Screen data-block, defining the layout of areas in a window");
 	RNA_def_struct_ui_icon(srna, ICON_SPLITSCREEN);
 
-	/* pointers */
-	prop = RNA_def_property(srna, "scene", PROP_POINTER, PROP_NONE);
-	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_NEVER_NULL);
-	RNA_def_property_pointer_funcs(prop, NULL, "rna_Screen_scene_set", NULL, NULL);
-	RNA_def_property_ui_text(prop, "Scene", "Active scene to be edited in the screen");
-	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
-	RNA_def_property_update(prop, 0, "rna_Screen_scene_update");
+	prop = RNA_def_property(srna, "layout_name", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_funcs(prop, "rna_Screen_layout_name_get", "rna_Screen_layout_name_length",
+	                              "rna_Screen_layout_name_set");
+	RNA_def_property_ui_text(prop, "Layout Name", "The name of the layout that refers to the screen");
+	RNA_def_struct_name_property(srna, prop);
 
 	/* collections */
 	prop = RNA_def_property(srna, "areas", PROP_COLLECTION, PROP_NONE);

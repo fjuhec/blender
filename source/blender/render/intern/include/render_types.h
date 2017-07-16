@@ -185,6 +185,8 @@ struct Render {
 	/* shadow counter, detect shadow-reuse for shaders */
 	int shadowsamplenr[BLENDER_MAX_THREADS];
 	
+	struct Depsgraph *depsgraph;
+
 	/* main, scene, and its full copy of renderdata and world */
 	struct Main *main;
 	Scene *scene;
@@ -335,7 +337,7 @@ typedef struct ObjectRen {
 	char (*mcol)[MAX_CUSTOMDATA_LAYER_NAME];
 	int  actmtface, actmcol, bakemtface;
 
-	char tangent_mask; /* which tangent layer should be calculated */
+	short tangent_mask; /* which tangent layer should be calculated */
 
 	float obmat[4][4];	/* only used in convertblender.c, for instancing */
 
@@ -382,6 +384,8 @@ typedef struct ObjectInstanceRen {
 	float part_co[3];
 	float part_vel[3];
 	float part_avel[3];
+
+	unsigned int random_id;
 } ObjectInstanceRen;
 
 /* ------------------------------------------------------------------------- */

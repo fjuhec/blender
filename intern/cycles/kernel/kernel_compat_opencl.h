@@ -33,11 +33,13 @@
 /* in opencl all functions are device functions, so leave this empty */
 #define ccl_device
 #define ccl_device_inline ccl_device
+#define ccl_device_forceinline ccl_device
 #define ccl_device_noinline ccl_device ccl_noinline
 #define ccl_may_alias
 #define ccl_constant __constant
 #define ccl_global __global
 #define ccl_local __local
+#define ccl_local_param __local
 #define ccl_private __private
 #define ccl_restrict restrict
 #define ccl_align(n) __attribute__((aligned(n)))
@@ -47,6 +49,17 @@
 #else
 #  define ccl_addr_space
 #endif
+
+#define ATTR_FALLTHROUGH
+
+#define ccl_local_id(d) get_local_id(d)
+#define ccl_global_id(d) get_global_id(d)
+
+#define ccl_local_size(d) get_local_size(d)
+#define ccl_global_size(d) get_global_size(d)
+
+#define ccl_group_id(d) get_group_id(d)
+#define ccl_num_groups(d) get_num_groups(d)
 
 /* Selective nodes compilation. */
 #ifndef __NODES_MAX_GROUP__
@@ -132,8 +145,8 @@
 /* define NULL */
 #define NULL 0
 
-#include "util_half.h"
-#include "util_types.h"
+#include "util/util_half.h"
+#include "util/util_types.h"
 
 #endif /* __KERNEL_COMPAT_OPENCL_H__ */
 

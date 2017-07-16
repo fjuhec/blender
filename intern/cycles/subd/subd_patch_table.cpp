@@ -25,10 +25,10 @@
  *
  */
 
-#include "subd_patch_table.h"
-#include "kernel_types.h"
+#include "subd/subd_patch_table.h"
+#include "kernel/kernel_types.h"
 
-#include "util_math.h"
+#include "util/util_math.h"
 
 #ifdef WITH_OPENSUBDIV
 #include <opensubdiv/far/patchTable.h>
@@ -46,7 +46,7 @@ struct PatchMapQuadNode {
 	/* sets all the children to point to the patch of index */
 	void set_child(int index)
 	{
-		for (int i = 0; i < 4; i++) {
+		for(int i = 0; i < 4; i++) {
 			children[i] = index | PATCH_MAP_NODE_IS_SET | PATCH_MAP_NODE_IS_LEAF;
 		}
 	}
@@ -214,7 +214,7 @@ void PackedPatchTable::pack(Far::PatchTable* patch_table, int offset)
 	}
 
 	table.resize(total_size());
-	uint* data = &table[0];
+	uint* data = table.data();
 
 	uint* array = data;
 	uint* index = array + num_arrays * PATCH_ARRAY_SIZE;
@@ -259,7 +259,7 @@ void PackedPatchTable::pack(Far::PatchTable* patch_table, int offset)
 
 void PackedPatchTable::copy_adjusting_offsets(uint* dest, int doffset)
 {
-	uint* src = &table[0];
+	uint* src = table.data();
 
 	/* arrays */
 	for(int i = 0; i < num_arrays; i++) {

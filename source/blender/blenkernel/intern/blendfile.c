@@ -32,6 +32,7 @@
 
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
+#include "DNA_workspace_types.h"
 
 #include "BLI_listbase.h"
 #include "BLI_string.h"
@@ -48,11 +49,13 @@
 #include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_ipo.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
+#include "BKE_workspace.h"
 
 #include "BLO_readfile.h"
 #include "BLO_writefile.h"
@@ -93,7 +96,7 @@ static bool wm_scene_is_visible(wmWindowManager *wm, Scene *scene)
 {
 	wmWindow *win;
 	for (win = wm->windows.first; win; win = win->next) {
-		if (win->screen->scene == scene) {
+		if (win->scene == scene) {
 			return true;
 		}
 	}
@@ -121,7 +124,12 @@ static void setup_app_data(
 		LOAD_UNDO,
 	} mode;
 
-	if (BLI_listbase_is_empty(&bfd->main->screen)) {
+	/* may happen with library files - UNDO file should never have NULL cursccene... */
+	if (ELEM(NULL, bfd->curscreen, bfd->curscene)) {
+		BKE_report(reports, RPT_WARNING, "Library file, loading empty scene");
+		mode = LOAD_UI_OFF;
+	}
+	else if (BLI_listbase_is_empty(&bfd->main->screen)) {
 		mode = LOAD_UNDO;
 	}
 	else if (G.fileflags & G_FILE_NO_UI) {
@@ -129,14 +137,6 @@ static void setup_app_data(
 	}
 	else {
 		mode = LOAD_UI;
-	}
-
-	if (mode != LOAD_UNDO) {
-		/* may happen with library files */
-		if (ELEM(NULL, bfd->curscreen, bfd->curscene)) {
-			BKE_report(reports, RPT_WARNING, "Library file, loading empty scene");
-			mode = LOAD_UI_OFF;
-		}
 	}
 
 	/* Free all render results, without this stale data gets displayed after loading files */
@@ -165,17 +165,22 @@ static void setup_app_data(
 		 * (otherwise we'd be undoing on an off-screen scene which isn't acceptable).
 		 * see: T43424
 		 */
+		wmWindow *win;
 		bScreen *curscreen = NULL;
+		SceneLayer *cur_render_layer;
 		bool track_undo_scene;
 
 		/* comes from readfile.c */
 		SWAP(ListBase, G.main->wm, bfd->main->wm);
+		SWAP(ListBase, G.main->workspaces, bfd->main->workspaces);
 		SWAP(ListBase, G.main->screen, bfd->main->screen);
 
-		/* we re-use current screen */
+		/* we re-use current window and screen */
+		win = CTX_wm_window(C);
 		curscreen = CTX_wm_screen(C);
-		/* but use new Scene pointer */
+		/* but use Scene pointer from new file */
 		curscene = bfd->curscene;
+		cur_render_layer = bfd->cur_render_layer;
 
 		track_undo_scene = (mode == LOAD_UNDO && curscreen && curscene && bfd->main->wm.first);
 
@@ -186,32 +191,31 @@ static void setup_app_data(
 		if (curscene == NULL) {
 			curscene = BKE_scene_add(bfd->main, "Empty");
 		}
+		if (cur_render_layer == NULL) {
+			/* fallback to scene layer */
+			cur_render_layer = BKE_scene_layer_from_scene_get(curscene);
+		}
 
 		if (track_undo_scene) {
 			/* keep the old (free'd) scene, let 'blo_lib_link_screen_restore'
 			 * replace it with 'curscene' if its needed */
 		}
-		else {
-			/* and we enforce curscene to be in current screen */
-			if (curscreen) {
-				/* can run in bgmode */
-				curscreen->scene = curscene;
-			}
+		/* and we enforce curscene to be in current screen */
+		else if (win) { /* can run in bgmode */
+			win->scene = curscene;
 		}
 
 		/* BKE_blender_globals_clear will free G.main, here we can still restore pointers */
-		blo_lib_link_screen_restore(bfd->main, curscreen, curscene);
-		/* curscreen might not be set when loading without ui (see T44217) so only re-assign if available */
-		if (curscreen) {
-			curscene = curscreen->scene;
+		blo_lib_link_restore(bfd->main, CTX_wm_manager(C), curscene, cur_render_layer);
+		if (win) {
+			curscene = win->scene;
 		}
 
 		if (track_undo_scene) {
 			wmWindowManager *wm = bfd->main->wm.first;
 			if (wm_scene_is_visible(wm, bfd->curscene) == false) {
 				curscene = bfd->curscene;
-				curscreen->scene = curscene;
-				BKE_screen_view3d_scene_sync(curscreen);
+				BKE_screen_view3d_scene_sync(curscreen, curscene);
 			}
 		}
 	}
@@ -230,7 +234,7 @@ static void setup_app_data(
 	if (bfd->user) {
 
 		/* only here free userdef themes... */
-		BKE_blender_userdef_free();
+		BKE_blender_userdef_free_data(&U);
 
 		U = *bfd->user;
 
@@ -265,12 +269,14 @@ static void setup_app_data(
 
 	/* this can happen when active scene was lib-linked, and doesn't exist anymore */
 	if (CTX_data_scene(C) == NULL) {
+		wmWindow *win = CTX_wm_window(C);
+
 		/* in case we don't even have a local scene, add one */
 		if (!G.main->scene.first)
 			BKE_scene_add(G.main, "Empty");
 
 		CTX_data_scene_set(C, G.main->scene.first);
-		CTX_wm_screen(C)->scene = CTX_data_scene(C);
+		win->scene = CTX_data_scene(C);
 		curscene = CTX_data_scene(C);
 	}
 
@@ -319,12 +325,10 @@ static void setup_app_data(
 		wmWindowManager *wm = G.main->wm.first;
 
 		if (wm) {
-			wmWindow *win;
-
-			for (win = wm->windows.first; win; win = win->next) {
-				if (win->screen && win->screen->scene) /* zealous check... */
-					if (win->screen->scene != curscene)
-						BKE_scene_set_background(G.main, win->screen->scene);
+			for (wmWindow *win = wm->windows.first; win; win = win->next) {
+				if (win->scene && win->scene != curscene) {
+					BKE_scene_set_background(G.main, win->scene);
+				}
 			}
 		}
 	}
@@ -352,17 +356,23 @@ static int handle_subversion_warning(Main *main, ReportList *reports)
 	return 1;
 }
 
-int BKE_blendfile_read(bContext *C, const char *filepath, ReportList *reports)
+int BKE_blendfile_read(
+        bContext *C, const char *filepath,
+        ReportList *reports, int skip_flags)
 {
 	BlendFileData *bfd;
 	int retval = BKE_BLENDFILE_READ_OK;
 
-	if (strstr(filepath, BLENDER_STARTUP_FILE) == NULL) /* don't print user-pref loading */
-		printf("read blend: %s\n", filepath);
+	/* don't print user-pref loading */
+	if (strstr(filepath, BLENDER_STARTUP_FILE) == NULL) {
+		printf("Read blend: %s\n", filepath);
+	}
 
-	bfd = BLO_read_from_file(filepath, reports);
+	bfd = BLO_read_from_file(filepath, reports, skip_flags);
 	if (bfd) {
-		if (bfd->user) retval = BKE_BLENDFILE_READ_OK_USERPREFS;
+		if (bfd->user) {
+			retval = BKE_BLENDFILE_READ_OK_USERPREFS;
+		}
 
 		if (0 == handle_subversion_warning(bfd->main, reports)) {
 			BKE_main_free(bfd->main);
@@ -382,11 +392,11 @@ int BKE_blendfile_read(bContext *C, const char *filepath, ReportList *reports)
 
 bool BKE_blendfile_read_from_memory(
         bContext *C, const void *filebuf, int filelength,
-        ReportList *reports, bool update_defaults)
+        ReportList *reports, int skip_flags, bool update_defaults)
 {
 	BlendFileData *bfd;
 
-	bfd = BLO_read_from_memory(filebuf, filelength, reports);
+	bfd = BLO_read_from_memory(filebuf, filelength, reports, skip_flags);
 	if (bfd) {
 		if (update_defaults)
 			BLO_update_defaults_startup_blend(bfd->main);
@@ -402,17 +412,17 @@ bool BKE_blendfile_read_from_memory(
 /* memfile is the undo buffer */
 bool BKE_blendfile_read_from_memfile(
         bContext *C, struct MemFile *memfile,
-        ReportList *reports)
+        ReportList *reports, int skip_flags)
 {
 	BlendFileData *bfd;
 
-	bfd = BLO_read_from_memfile(CTX_data_main(C), G.main->name, memfile, reports);
+	bfd = BLO_read_from_memfile(CTX_data_main(C), G.main->name, memfile, reports, skip_flags);
 	if (bfd) {
 		/* remove the unused screens and wm */
 		while (bfd->main->wm.first)
-			BKE_libblock_free_ex(bfd->main, bfd->main->wm.first, true);
+			BKE_libblock_free(bfd->main, bfd->main->wm.first);
 		while (bfd->main->screen.first)
-			BKE_libblock_free_ex(bfd->main, bfd->main->screen.first, true);
+			BKE_libblock_free(bfd->main, bfd->main->screen.first);
 
 		setup_app_data(C, bfd, "<memory1>", reports);
 	}
@@ -423,32 +433,76 @@ bool BKE_blendfile_read_from_memfile(
 	return (bfd != NULL);
 }
 
+/**
+ * Utility to make a file 'empty' used for startup to optionally give an empty file.
+ * Handy for tests.
+ */
+void BKE_blendfile_read_make_empty(bContext *C)
+{
+	Main *bmain = CTX_data_main(C);
+
+	ListBase *lbarray[MAX_LIBARRAY];
+	ID *id;
+	int a;
+
+	a = set_listbasepointers(bmain, lbarray);
+	while (a--) {
+		id = lbarray[a]->first;
+		if (id != NULL) {
+			if (ELEM(GS(id->name), ID_SCE, ID_SCR, ID_WM)) {
+				continue;
+			}
+			while ((id = lbarray[a]->first)) {
+				BKE_libblock_delete(bmain, id);
+			}
+		}
+	}
+}
+
 /* only read the userdef from a .blend */
-int BKE_blendfile_read_userdef(const char *filepath, ReportList *reports)
+UserDef *BKE_blendfile_userdef_read(const char *filepath, ReportList *reports)
 {
 	BlendFileData *bfd;
-	int retval = BKE_BLENDFILE_READ_FAIL;
+	UserDef *userdef = NULL;
 
-	bfd = BLO_read_from_file(filepath, reports);
+	bfd = BLO_read_from_file(filepath, reports, BLO_READ_SKIP_ALL & ~BLO_READ_SKIP_USERDEF);
 	if (bfd) {
 		if (bfd->user) {
-			retval = BKE_BLENDFILE_READ_OK_USERPREFS;
-
-			/* only here free userdef themes... */
-			BKE_blender_userdef_free();
-
-			U = *bfd->user;
-			MEM_freeN(bfd->user);
+			userdef = bfd->user;
 		}
 		BKE_main_free(bfd->main);
 		MEM_freeN(bfd);
 	}
 
-	return retval;
+	return userdef;
 }
 
+
+UserDef *BKE_blendfile_userdef_read_from_memory(
+        const void *filebuf, int filelength,
+        ReportList *reports)
+{
+	BlendFileData *bfd;
+	UserDef *userdef = NULL;
+
+	bfd = BLO_read_from_memory(filebuf, filelength, reports, BLO_READ_SKIP_ALL & ~BLO_READ_SKIP_USERDEF);
+	if (bfd) {
+		if (bfd->user) {
+			userdef = bfd->user;
+		}
+		BKE_main_free(bfd->main);
+		MEM_freeN(bfd);
+	}
+	else {
+		BKE_reports_prepend(reports, "Loading failed: ");
+	}
+
+	return userdef;
+}
+
+
 /* only write the userdef in a .blend */
-int BKE_blendfile_write_userdef(const char *filepath, ReportList *reports)
+int BKE_blendfile_userdef_write(const char *filepath, ReportList *reports)
 {
 	Main *mainb = MEM_callocN(sizeof(Main), "empty main");
 	int retval = 0;
@@ -460,6 +514,49 @@ int BKE_blendfile_write_userdef(const char *filepath, ReportList *reports)
 	MEM_freeN(mainb);
 
 	return retval;
+}
+
+WorkspaceConfigFileData *BKE_blendfile_workspace_config_read(const char *filepath, ReportList *reports)
+{
+	BlendFileData *bfd;
+	WorkspaceConfigFileData *workspace_config = NULL;
+
+	bfd = BLO_read_from_file(filepath, reports, BLO_READ_SKIP_USERDEF);
+	if (bfd) {
+		workspace_config = MEM_mallocN(sizeof(*workspace_config), __func__);
+		workspace_config->main = bfd->main;
+		workspace_config->workspaces = bfd->main->workspaces;
+
+		MEM_freeN(bfd);
+	}
+
+	return workspace_config;
+}
+
+bool BKE_blendfile_workspace_config_write(Main *bmain, const char *filepath, ReportList *reports)
+{
+	int fileflags = G.fileflags & ~(G_FILE_NO_UI | G_FILE_AUTOPLAY | G_FILE_HISTORY);
+	bool retval = false;
+
+	BKE_blendfile_write_partial_begin(bmain);
+
+	for (WorkSpace *workspace = bmain->workspaces.first; workspace; workspace = workspace->id.next) {
+		BKE_blendfile_write_partial_tag_ID(&workspace->id, true);
+	}
+
+	if (BKE_blendfile_write_partial(bmain, filepath, fileflags, reports)) {
+		retval = true;
+	}
+
+	BKE_blendfile_write_partial_end(bmain);
+
+	return retval;
+}
+
+void BKE_blendfile_workspace_config_data_free(WorkspaceConfigFileData *workspace_config)
+{
+	BKE_main_free(workspace_config->main);
+	MEM_freeN(workspace_config);
 }
 
 /** \} */
@@ -510,6 +607,10 @@ bool BKE_blendfile_write_partial(
 
 	void     *path_list_backup = NULL;
 	const int path_list_flag = (BKE_BPATH_TRAVERSE_SKIP_LIBRARY | BKE_BPATH_TRAVERSE_SKIP_MULTIFILE);
+
+	/* This is needed to be able to load that file as a real one later
+	 * (otherwise main->name will not be set at read time). */
+	BLI_strncpy(bmain_dst->name, bmain_src->name, sizeof(bmain_dst->name));
 
 	if (write_flags & G_FILE_RELATIVE_REMAP) {
 		path_list_backup = BKE_bpath_list_backup(bmain_src, path_list_flag);

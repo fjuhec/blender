@@ -47,13 +47,14 @@
 #include "DNA_object_types.h"
 
 #include "BKE_mball.h"
-#include "BKE_depsgraph.h"
 #include "BKE_main.h"
+
+#include "DEG_depsgraph.h"
 
 #include "WM_types.h"
 #include "WM_api.h"
 
-static int rna_Meta_texspace_editable(PointerRNA *ptr)
+static int rna_Meta_texspace_editable(PointerRNA *ptr, const char **UNUSED(r_info))
 {
 	MetaBall *mb = (MetaBall *)ptr->data;
 	return (mb->texflag & MB_AUTOSPACE) ? 0 : PROP_EDITABLE;
@@ -103,7 +104,7 @@ static void rna_MetaBall_update_data(Main *bmain, Scene *scene, PointerRNA *ptr)
 			if (ob->data == mb)
 				BKE_mball_properties_copy(scene, ob);
 	
-		DAG_id_tag_update(&mb->id, 0);
+		DEG_id_tag_update(&mb->id, 0);
 		WM_main_add_notifier(NC_GEOM | ND_DATA, mb);
 	}
 }
@@ -121,7 +122,7 @@ static MetaElem *rna_MetaBall_elements_new(MetaBall *mb, int type)
 
 	/* cheating way for importers to avoid slow updates */
 	if (mb->id.us > 0) {
-		DAG_id_tag_update(&mb->id, 0);
+		DEG_id_tag_update(&mb->id, 0);
 		WM_main_add_notifier(NC_GEOM | ND_DATA, &mb->id);
 	}
 
@@ -142,7 +143,7 @@ static void rna_MetaBall_elements_remove(MetaBall *mb, ReportList *reports, Poin
 
 	/* cheating way for importers to avoid slow updates */
 	if (mb->id.us > 0) {
-		DAG_id_tag_update(&mb->id, 0);
+		DEG_id_tag_update(&mb->id, 0);
 		WM_main_add_notifier(NC_GEOM | ND_DATA, &mb->id);
 	}
 }
@@ -153,7 +154,7 @@ static void rna_MetaBall_elements_clear(MetaBall *mb)
 
 	/* cheating way for importers to avoid slow updates */
 	if (mb->id.us > 0) {
-		DAG_id_tag_update(&mb->id, 0);
+		DEG_id_tag_update(&mb->id, 0);
 		WM_main_add_notifier(NC_GEOM | ND_DATA, &mb->id);
 	}
 }
@@ -280,8 +281,8 @@ static void rna_def_metaball_elements(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_ui_description(func, "Remove an element from the metaball");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_pointer(func, "element", "MetaElement", "", "The element to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
 
 	func = RNA_def_function(srna, "clear", "rna_MetaBall_elements_clear");
 	RNA_def_function_ui_description(func, "Remove all elements from the metaball");

@@ -1,8 +1,5 @@
 /*
- * Adapted from code Copyright 2009-2010 NVIDIA Corporation,
- * and code copyright 2009-2012 Intel Corporation
- *
- * Modifications Copyright 2011-2014, Blender Foundation.
+ * Copyright 2011-2013 Blender Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -105,13 +102,9 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 	/* Offsets to select the side that becomes the lower or upper bound. */
 	int near_x, near_y, near_z;
 	int far_x, far_y, far_z;
-
-	if(idir.x >= 0.0f) { near_x = 0; far_x = 1; } else { near_x = 1; far_x = 0; }
-	if(idir.y >= 0.0f) { near_y = 2; far_y = 3; } else { near_y = 3; far_y = 2; }
-	if(idir.z >= 0.0f) { near_z = 4; far_z = 5; } else { near_z = 5; far_z = 4; }
-
-	IsectPrecalc isect_precalc;
-	triangle_intersect_precalc(dir, &isect_precalc);
+	qbvh_near_far_idx_calc(idir,
+	                       &near_x, &near_y, &near_z,
+	                       &far_x, &far_y, &far_z);
 
 	/* Traversal loop. */
 	do {
@@ -119,11 +112,17 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 			/* Traverse internal nodes. */
 			while(node_addr >= 0 && node_addr != ENTRYPOINT_SENTINEL) {
 				float4 inodes = kernel_tex_fetch(__bvh_nodes, node_addr+0);
+				(void)inodes;
 
 				if(UNLIKELY(node_dist > isect->t)
-#ifdef __VISIBILITY_FLAG__
-				   || (__float_as_uint(inodes.x) & visibility) == 0)
+#if BVH_FEATURE(BVH_MOTION)
+				   || UNLIKELY(ray->time < inodes.y)
+				   || UNLIKELY(ray->time > inodes.z)
 #endif
+#ifdef __VISIBILITY_FLAG__
+				   || (__float_as_uint(inodes.x) & visibility) == 0
+#endif
+				 )
 				{
 					/* Pop. */
 					node_addr = traversal_stack[stack_ptr].addr;
@@ -135,7 +134,7 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 				int child_mask;
 				ssef dist;
 
-				BVH_DEBUG_NEXT_STEP();
+				BVH_DEBUG_NEXT_NODE();
 
 #if BVH_FEATURE(BVH_HAIR_MINIMUM_WIDTH)
 				if(difl != 0.0f) {
@@ -330,12 +329,12 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 					switch(type & PRIMITIVE_ALL) {
 						case PRIMITIVE_TRIANGLE: {
 							for(; prim_addr < prim_addr2; prim_addr++) {
-								BVH_DEBUG_NEXT_STEP();
+								BVH_DEBUG_NEXT_INTERSECTION();
 								kernel_assert(kernel_tex_fetch(__prim_type, prim_addr) == type);
 								if(triangle_intersect(kg,
-								                      &isect_precalc,
 								                      isect,
 								                      P,
+								                      dir,
 								                      visibility,
 								                      object,
 								                      prim_addr)) {
@@ -351,7 +350,7 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 #if BVH_FEATURE(BVH_MOTION)
 						case PRIMITIVE_MOTION_TRIANGLE: {
 							for(; prim_addr < prim_addr2; prim_addr++) {
-								BVH_DEBUG_NEXT_STEP();
+								BVH_DEBUG_NEXT_INTERSECTION();
 								kernel_assert(kernel_tex_fetch(__prim_type, prim_addr) == type);
 								if(motion_triangle_intersect(kg,
 								                             isect,
@@ -375,8 +374,9 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 						case PRIMITIVE_CURVE:
 						case PRIMITIVE_MOTION_CURVE: {
 							for(; prim_addr < prim_addr2; prim_addr++) {
-								BVH_DEBUG_NEXT_STEP();
-								kernel_assert(kernel_tex_fetch(__prim_type, prim_addr) == type);
+								BVH_DEBUG_NEXT_INTERSECTION();
+								const uint curve_type = kernel_tex_fetch(__prim_type, prim_addr);
+								kernel_assert((curve_type & PRIMITIVE_ALL) == (type & PRIMITIVE_ALL));
 								bool hit;
 								if(kernel_data.curve.curveflags & CURVE_KN_INTERPOLATE) {
 									hit = bvh_cardinal_curve_intersect(kg,
@@ -387,7 +387,7 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 									                                   object,
 									                                   prim_addr,
 									                                   ray->time,
-									                                   type,
+									                                   curve_type,
 									                                   lcg_state,
 									                                   difl,
 									                                   extmax);
@@ -401,7 +401,7 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 									                          object,
 									                          prim_addr,
 									                          ray->time,
-									                          type,
+									                          curve_type,
 									                          lcg_state,
 									                          difl,
 									                          extmax);
@@ -430,9 +430,9 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 					qbvh_instance_push(kg, object, ray, &P, &dir, &idir, &isect->t, &node_dist);
 #  endif
 
-					if(idir.x >= 0.0f) { near_x = 0; far_x = 1; } else { near_x = 1; far_x = 0; }
-					if(idir.y >= 0.0f) { near_y = 2; far_y = 3; } else { near_y = 3; far_y = 2; }
-					if(idir.z >= 0.0f) { near_z = 4; far_z = 5; } else { near_z = 5; far_z = 4; }
+					qbvh_near_far_idx_calc(idir,
+					                       &near_x, &near_y, &near_z,
+					                       &far_x, &far_y, &far_z);
 					tfar = ssef(isect->t);
 #  if BVH_FEATURE(BVH_HAIR)
 					dir4 = sse3f(ssef(dir.x), ssef(dir.y), ssef(dir.z));
@@ -445,8 +445,6 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 #  if BVH_FEATURE(BVH_HAIR) || !defined(__KERNEL_AVX2__)
 					org4 = sse3f(ssef(P.x), ssef(P.y), ssef(P.z));
 #  endif
-
-					triangle_intersect_precalc(dir, &isect_precalc);
 
 					++stack_ptr;
 					kernel_assert(stack_ptr < BVH_QSTACK_SIZE);
@@ -467,14 +465,14 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 
 			/* Instance pop. */
 #  if BVH_FEATURE(BVH_MOTION)
-			bvh_instance_motion_pop(kg, object, ray, &P, &dir, &idir, &isect->t, &ob_itfm);
+			isect->t = bvh_instance_motion_pop(kg, object, ray, &P, &dir, &idir, isect->t, &ob_itfm);
 #  else
-			bvh_instance_pop(kg, object, ray, &P, &dir, &idir, &isect->t);
+			isect->t = bvh_instance_pop(kg, object, ray, &P, &dir, &idir, isect->t);
 #  endif
 
-			if(idir.x >= 0.0f) { near_x = 0; far_x = 1; } else { near_x = 1; far_x = 0; }
-			if(idir.y >= 0.0f) { near_y = 2; far_y = 3; } else { near_y = 3; far_y = 2; }
-			if(idir.z >= 0.0f) { near_z = 4; far_z = 5; } else { near_z = 5; far_z = 4; }
+			qbvh_near_far_idx_calc(idir,
+			                       &near_x, &near_y, &near_z,
+			                       &far_x, &far_y, &far_z);
 			tfar = ssef(isect->t);
 #  if BVH_FEATURE(BVH_HAIR)
 			dir4 = sse3f(ssef(dir.x), ssef(dir.y), ssef(dir.z));
@@ -487,8 +485,6 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 #  if BVH_FEATURE(BVH_HAIR) || !defined(__KERNEL_AVX2__)
 			org4 = sse3f(ssef(P.x), ssef(P.y), ssef(P.z));
 #  endif
-
-			triangle_intersect_precalc(dir, &isect_precalc);
 
 			object = OBJECT_NONE;
 			node_addr = traversal_stack[stack_ptr].addr;

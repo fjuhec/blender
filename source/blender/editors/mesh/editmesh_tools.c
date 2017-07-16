@@ -47,14 +47,17 @@
 #include "BLI_rand.h"
 #include "BLI_sort_utils.h"
 
+#include "BKE_layer.h"
 #include "BKE_material.h"
 #include "BKE_context.h"
 #include "BKE_deform.h"
-#include "BKE_depsgraph.h"
 #include "BKE_report.h"
 #include "BKE_texture.h"
 #include "BKE_main.h"
 #include "BKE_editmesh.h"
+
+#include "DEG_depsgraph.h"
+#include "DEG_depsgraph_build.h"
 
 #include "BLT_translation.h"
 
@@ -306,7 +309,7 @@ void EMBM_project_snap_verts(bContext *C, ARegion *ar, BMEditMesh *em)
 	ED_view3d_init_mats_rv3d(obedit, ar->regiondata);
 
 	struct SnapObjectContext *snap_context = ED_transform_snap_object_context_create_view3d(
-	        CTX_data_main(C), CTX_data_scene(C), SNAP_OBJECT_USE_CACHE,
+	        CTX_data_main(C), CTX_data_scene(C), CTX_data_scene_layer(C), 0,
 	        ar, CTX_wm_view3d(C));
 
 	BM_ITER_MESH (eve, &iter, em->bm, BM_VERTS_OF_MESH) {
@@ -684,27 +687,38 @@ static void edbm_add_edge_face_exec__tricky_finalize_sel(BMesh *bm, BMElem *ele_
 	/* now we need to find the edge that isnt connected to this element */
 	BM_select_history_clear(bm);
 
+	/* Notes on hidden geometry:
+	 * - un-hide the face since its possible hidden was copied when copying surrounding face attributes.
+	 * - un-hide before adding to select history
+	 *   since we may extend into an existing, hidden vert/edge.
+	 */
+
+	BM_elem_flag_disable(f, BM_ELEM_HIDDEN);
+	BM_face_select_set(bm, f, false);
+
 	if (ele_desel->head.htype == BM_VERT) {
 		BMLoop *l = BM_face_vert_share_loop(f, (BMVert *)ele_desel);
 		BLI_assert(f->len == 3);
-		BM_face_select_set(bm, f, false);
 		BM_vert_select_set(bm, (BMVert *)ele_desel, false);
-
 		BM_edge_select_set(bm, l->next->e, true);
 		BM_select_history_store(bm, l->next->e);
 	}
 	else {
 		BMLoop *l = BM_face_edge_share_loop(f, (BMEdge *)ele_desel);
 		BLI_assert(f->len == 4 || f->len == 3);
-		BM_face_select_set(bm, f, false);
+
 		BM_edge_select_set(bm, (BMEdge *)ele_desel, false);
 		if (f->len == 4) {
-			BM_edge_select_set(bm, l->next->next->e, true);
-			BM_select_history_store(bm, l->next->next->e);
+			BMEdge *e_active = l->next->next->e;
+			BM_elem_flag_disable(e_active, BM_ELEM_HIDDEN);
+			BM_edge_select_set(bm, e_active, true);
+			BM_select_history_store(bm, e_active);
 		}
 		else {
-			BM_vert_select_set(bm, l->next->next->v, true);
-			BM_select_history_store(bm, l->next->next->v);
+			BMVert *v_active = l->next->next->v;
+			BM_elem_flag_disable(v_active, BM_ELEM_HIDDEN);
+			BM_vert_select_set(bm, v_active, true);
+			BM_select_history_store(bm, v_active);
 		}
 	}
 }
@@ -758,6 +772,14 @@ static int edbm_add_edge_face_exec(bContext *C, wmOperator *op)
 	else
 #endif
 	{
+		/* Newly created faces may include existing hidden edges,
+		 * copying face data from surrounding, may have copied hidden face flag too.
+		 *
+		 * Important that faces use flushing since 'edges.out' wont include hidden edges that already existed.
+		 */
+		BMO_slot_buffer_hflag_disable(em->bm, bmop.slots_out, "faces.out", BM_FACE, BM_ELEM_HIDDEN, true);
+		BMO_slot_buffer_hflag_disable(em->bm, bmop.slots_out, "edges.out", BM_EDGE, BM_ELEM_HIDDEN, false);
+
 		BMO_slot_buffer_hflag_enable(em->bm, bmop.slots_out, "faces.out", BM_FACE, BM_ELEM_SELECT, true);
 		BMO_slot_buffer_hflag_enable(em->bm, bmop.slots_out, "edges.out", BM_EDGE, BM_ELEM_SELECT, true);
 	}
@@ -1561,6 +1583,18 @@ static int edbm_edge_rotate_selected_exec(bContext *C, wmOperator *op)
 	/* edges may rotate into hidden vertices, if this does _not_ run we get an ilogical state */
 	BMO_slot_buffer_hflag_disable(em->bm, bmop.slots_out, "edges.out", BM_EDGE, BM_ELEM_HIDDEN, true);
 	BMO_slot_buffer_hflag_enable(em->bm, bmop.slots_out, "edges.out", BM_EDGE, BM_ELEM_SELECT, true);
+
+	const int tot_rotate = BMO_slot_buffer_count(bmop.slots_out, "edges.out");
+	const int tot_failed = tot - tot_rotate;
+	if (tot_failed != 0) {
+		/* If some edges fail to rotate, we need to re-select them,
+		 * otherwise we can end up with invalid selection
+		 * (unselected edge between 2 selected faces). */
+		BM_mesh_elem_hflag_enable_test(em->bm, BM_EDGE, BM_ELEM_SELECT, true, false, BM_ELEM_TAG);
+
+		BKE_reportf(op->reports, RPT_WARNING, "Unable to rotate %d edge(s)", tot_failed);
+	}
+
 	EDBM_selectmode_flush(em);
 
 	if (!EDBM_op_finish(em, &bmop, op, true)) {
@@ -2417,7 +2451,7 @@ static void shape_propagate(BMEditMesh *em, wmOperator *op)
 	//TAG Mesh Objects that share this data
 	for (base = scene->base.first; base; base = base->next) {
 		if (base->object && base->object->data == me) {
-			DAG_id_tag_update(&base->object->id, OB_RECALC_DATA);
+			DEG_id_tag_update(&base->object->id, OB_RECALC_DATA);
 		}
 	}
 #endif
@@ -2979,7 +3013,7 @@ enum {
 	MESH_SEPARATE_LOOSE    = 2,
 };
 
-static Base *mesh_separate_tagged(Main *bmain, Scene *scene, Base *base_old, BMesh *bm_old)
+static Base *mesh_separate_tagged(Main *bmain, Scene *scene, SceneLayer *sl, Base *base_old, BMesh *bm_old)
 {
 	Base *base_new;
 	Object *obedit = base_old->object;
@@ -3000,11 +3034,11 @@ static Base *mesh_separate_tagged(Main *bmain, Scene *scene, Base *base_old, BMe
 	CustomData_bmesh_init_pool(&bm_new->ldata, bm_mesh_allocsize_default.totloop, BM_LOOP);
 	CustomData_bmesh_init_pool(&bm_new->pdata, bm_mesh_allocsize_default.totface, BM_FACE);
 
-	base_new = ED_object_add_duplicate(bmain, scene, base_old, USER_DUP_MESH);
+	base_new = ED_object_add_duplicate(bmain, scene, sl, base_old, USER_DUP_MESH);
 	/* DAG_relations_tag_update(bmain); */ /* normally would call directly after but in this case delay recalc */
 	assign_matarar(base_new->object, give_matarar(obedit), *give_totcolp(obedit)); /* new in 2.5 */
 
-	ED_base_object_select(base_new, BA_SELECT);
+	ED_object_base_select(base_new, BA_SELECT);
 
 	BMO_op_callf(bm_old, (BMO_FLAG_DEFAULTS & ~BMO_FLAG_RESPECT_HIDE),
 	             "duplicate geom=%hvef dest=%p", BM_ELEM_TAG, bm_new);
@@ -3026,7 +3060,7 @@ static Base *mesh_separate_tagged(Main *bmain, Scene *scene, Base *base_old, BMe
 	return base_new;
 }
 
-static bool mesh_separate_selected(Main *bmain, Scene *scene, Base *base_old, BMesh *bm_old)
+static bool mesh_separate_selected(Main *bmain, Scene *scene, SceneLayer *sl, Base *base_old, BMesh *bm_old)
 {
 	/* we may have tags from previous operators */
 	BM_mesh_elem_hflag_disable_all(bm_old, BM_FACE | BM_EDGE | BM_VERT, BM_ELEM_TAG, false);
@@ -3034,7 +3068,7 @@ static bool mesh_separate_selected(Main *bmain, Scene *scene, Base *base_old, BM
 	/* sel -> tag */
 	BM_mesh_elem_hflag_enable_test(bm_old, BM_FACE | BM_EDGE | BM_VERT, BM_ELEM_TAG, true, false, BM_ELEM_SELECT);
 
-	return (mesh_separate_tagged(bmain, scene, base_old, bm_old) != NULL);
+	return (mesh_separate_tagged(bmain, scene, sl, base_old, bm_old) != NULL);
 }
 
 /* flush a hflag to from verts to edges/faces */
@@ -3080,7 +3114,7 @@ static void bm_mesh_hflag_flush_vert(BMesh *bm, const char hflag)
  * \note This could be used for split-by-material for non mesh types.
  * \note This could take material data from another object or args.
  */
-static void mesh_separate_material_assign_mat_nr(Object *ob, const short mat_nr)
+static void mesh_separate_material_assign_mat_nr(Main *bmain, Object *ob, const short mat_nr)
 {
 	ID *obdata = ob->data;
 
@@ -3116,22 +3150,24 @@ static void mesh_separate_material_assign_mat_nr(Object *ob, const short mat_nr)
 			ma_obdata = NULL;
 		}
 
-		BKE_material_clear_id(obdata, true);
-		BKE_material_resize_object(ob, 1, true);
-		BKE_material_resize_id(obdata, 1, true);
+		BKE_material_clear_id(bmain, obdata, true);
+		BKE_material_resize_object(bmain, ob, 1, true);
+		BKE_material_resize_id(bmain, obdata, 1, true);
 
 		ob->mat[0] = ma_ob;
+		id_us_plus((ID *)ma_ob);
 		ob->matbits[0] = matbit;
 		(*matarar)[0] = ma_obdata;
+		id_us_plus((ID *)ma_obdata);
 	}
 	else {
-		BKE_material_clear_id(obdata, true);
-		BKE_material_resize_object(ob, 0, true);
-		BKE_material_resize_id(obdata, 0, true);
+		BKE_material_clear_id(bmain, obdata, true);
+		BKE_material_resize_object(bmain, ob, 0, true);
+		BKE_material_resize_id(bmain, obdata, 0, true);
 	}
 }
 
-static bool mesh_separate_material(Main *bmain, Scene *scene, Base *base_old, BMesh *bm_old)
+static bool mesh_separate_material(Main *bmain, Scene *scene, SceneLayer *sl, Base *base_old, BMesh *bm_old)
 {
 	BMFace *f_cmp, *f;
 	BMIter iter;
@@ -3162,7 +3198,7 @@ static bool mesh_separate_material(Main *bmain, Scene *scene, Base *base_old, BM
 
 		/* leave the current object with some materials */
 		if (tot == bm_old->totface) {
-			mesh_separate_material_assign_mat_nr(base_old->object, mat_nr);
+			mesh_separate_material_assign_mat_nr(bmain, base_old->object, mat_nr);
 
 			/* since we're in editmode, must set faces here */
 			BM_ITER_MESH (f, &iter, bm_old, BM_FACES_OF_MESH) {
@@ -3172,9 +3208,9 @@ static bool mesh_separate_material(Main *bmain, Scene *scene, Base *base_old, BM
 		}
 
 		/* Move selection into a separate object */
-		base_new = mesh_separate_tagged(bmain, scene, base_old, bm_old);
+		base_new = mesh_separate_tagged(bmain, scene, sl, base_old, bm_old);
 		if (base_new) {
-			mesh_separate_material_assign_mat_nr(base_new->object, mat_nr);
+			mesh_separate_material_assign_mat_nr(bmain, base_new->object, mat_nr);
 		}
 
 		result |= (base_new != NULL);
@@ -3183,7 +3219,7 @@ static bool mesh_separate_material(Main *bmain, Scene *scene, Base *base_old, BM
 	return result;
 }
 
-static bool mesh_separate_loose(Main *bmain, Scene *scene, Base *base_old, BMesh *bm_old)
+static bool mesh_separate_loose(Main *bmain, Scene *scene, SceneLayer *sl, Base *base_old, BMesh *bm_old)
 {
 	int i;
 	BMEdge *e;
@@ -3236,7 +3272,7 @@ static bool mesh_separate_loose(Main *bmain, Scene *scene, Base *base_old, BMesh
 		bm_mesh_hflag_flush_vert(bm_old, BM_ELEM_TAG);
 
 		/* Move selection into a separate object */
-		result |= (mesh_separate_tagged(bmain, scene, base_old, bm_old) != NULL);
+		result |= (mesh_separate_tagged(bmain, scene, sl, base_old, bm_old) != NULL);
 	}
 
 	return result;
@@ -3246,6 +3282,7 @@ static int edbm_separate_exec(bContext *C, wmOperator *op)
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
+	SceneLayer *sl = CTX_data_scene_layer(C);
 	const int type = RNA_enum_get(op->ptr, "type");
 	int retval = 0;
 	
@@ -3266,13 +3303,13 @@ static int edbm_separate_exec(bContext *C, wmOperator *op)
 		/* editmode separate */
 		switch (type) {
 			case MESH_SEPARATE_SELECTED:
-				retval = mesh_separate_selected(bmain, scene, base, em->bm);
+			    retval = mesh_separate_selected(bmain, scene, sl, base, em->bm);
 				break;
 			case MESH_SEPARATE_MATERIAL:
-				retval = mesh_separate_material(bmain, scene, base, em->bm);
+			    retval = mesh_separate_material(bmain, scene, sl, base, em->bm);
 				break;
 			case MESH_SEPARATE_LOOSE:
-				retval = mesh_separate_loose(bmain, scene, base, em->bm);
+			    retval = mesh_separate_loose(bmain, scene, sl, base, em->bm);
 				break;
 			default:
 				BLI_assert(0);
@@ -3307,10 +3344,10 @@ static int edbm_separate_exec(bContext *C, wmOperator *op)
 
 					switch (type) {
 						case MESH_SEPARATE_MATERIAL:
-							retval_iter = mesh_separate_material(bmain, scene, base_iter, bm_old);
+						    retval_iter = mesh_separate_material(bmain, scene, sl, base_iter, bm_old);
 							break;
 						case MESH_SEPARATE_LOOSE:
-							retval_iter = mesh_separate_loose(bmain, scene, base_iter, bm_old);
+						    retval_iter = mesh_separate_loose(bmain, scene, sl, base_iter, bm_old);
 							break;
 						default:
 							BLI_assert(0);
@@ -3320,7 +3357,7 @@ static int edbm_separate_exec(bContext *C, wmOperator *op)
 					if (retval_iter) {
 						BM_mesh_bm_to_me(bm_old, me, (&(struct BMeshToMeshParams){0}));
 
-						DAG_id_tag_update(&me->id, OB_RECALC_DATA);
+						DEG_id_tag_update(&me->id, OB_RECALC_DATA);
 						WM_event_add_notifier(C, NC_GEOM | ND_DATA, me);
 					}
 
@@ -3335,7 +3372,7 @@ static int edbm_separate_exec(bContext *C, wmOperator *op)
 
 	if (retval) {
 		/* delay depsgraph recalc until all objects are duplicated */
-		DAG_relations_tag_update(bmain);
+		DEG_relations_tag_update(bmain);
 		WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, NULL);
 
 		return OPERATOR_FINISHED;
@@ -5202,8 +5239,10 @@ static int edbm_noise_exec(bContext *C, wmOperator *op)
 	else {
 		BM_ITER_MESH (eve, &iter, em->bm, BM_VERTS_OF_MESH) {
 			if (BM_elem_flag_test(eve, BM_ELEM_SELECT)) {
-				float tin, dum;
-				externtex(ma->mtex[0], eve->co, &tin, &dum, &dum, &dum, &dum, 0, NULL, false, false);
+				float tin = 0.0f, dum;
+				if (ma->mtex[ma->texact] != NULL) {
+					externtex(ma->mtex[ma->texact], eve->co, &tin, &dum, &dum, &dum, &dum, 0, NULL, false, false);
+				}
 				eve->co[2] += fac * tin;
 			}
 		}
@@ -5851,7 +5890,7 @@ static int edbm_mark_freestyle_edge_exec(bContext *C, wmOperator *op)
 		}
 	}
 
-	DAG_id_tag_update(obedit->data, OB_RECALC_DATA);
+	DEG_id_tag_update(obedit->data, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
 
 	return OPERATOR_FINISHED;
@@ -5915,7 +5954,7 @@ static int edbm_mark_freestyle_face_exec(bContext *C, wmOperator *op)
 		}
 	}
 
-	DAG_id_tag_update(obedit->data, OB_RECALC_DATA);
+	DEG_id_tag_update(obedit->data, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
 
 	return OPERATOR_FINISHED;

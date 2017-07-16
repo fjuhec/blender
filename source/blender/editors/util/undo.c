@@ -102,7 +102,7 @@ void ED_undo_push(bContext *C, const char *str)
 	else if (obact && obact->mode & OB_MODE_PARTICLE_EDIT) {
 		if (U.undosteps == 0) return;
 
-		PE_undo_push(CTX_data_scene(C), str);
+		PE_undo_push(CTX_data_scene(C), CTX_data_scene_layer(C), str);
 	}
 	else if (obact && obact->mode & OB_MODE_HAIR_EDIT) {
 		undo_push_strands(C, str);
@@ -124,6 +124,7 @@ static int ed_undo_step(bContext *C, int step, const char *undoname)
 	wmWindow *win = CTX_wm_window(C);
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
+	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *obedit = CTX_data_edit_object(C);
 	Object *obact = CTX_data_active_object(C);
 	ScrArea *sa = CTX_wm_area(C);
@@ -184,9 +185,9 @@ static int ed_undo_step(bContext *C, int step, const char *undoname)
 		}
 		else if (obact && obact->mode & OB_MODE_PARTICLE_EDIT) {
 			if (step == 1)
-				PE_undo(scene);
+				PE_undo(scene, sl);
 			else
-				PE_redo(scene);
+				PE_redo(scene, sl);
 		}
 		else if (obact && obact->mode & OB_MODE_HAIR_EDIT) {
 			if (undoname)
@@ -229,6 +230,19 @@ static int ed_undo_step(bContext *C, int step, const char *undoname)
 	return OPERATOR_FINISHED;
 }
 
+void ED_undo_grouped_push(bContext *C, const char *str)
+{
+	/* do nothing if previous undo task is the same as this one (or from the same undo group) */
+	const char *last_undo = BKE_undo_get_name_last();
+
+	if (last_undo && STREQ(str, last_undo)) {
+		return;
+	}
+
+	/* push as usual */
+	ED_undo_push(C, str);
+}
+
 void ED_undo_pop(bContext *C)
 {
 	ed_undo_step(C, 1, NULL);
@@ -242,6 +256,16 @@ void ED_undo_push_op(bContext *C, wmOperator *op)
 {
 	/* in future, get undo string info? */
 	ED_undo_push(C, op->type->name);
+}
+
+void ED_undo_grouped_push_op(bContext *C, wmOperator *op)
+{
+	if (op->type->undo_group[0] != '\0') {
+		ED_undo_grouped_push(C, op->type->undo_group);
+	}
+	else {
+		ED_undo_grouped_push(C, op->type->name);
+	}
 }
 
 void ED_undo_pop_op(bContext *C, wmOperator *op)
@@ -286,7 +310,7 @@ bool ED_undo_is_valid(const bContext *C, const char *undoname)
 				return 1;
 		}
 		else if (obact && obact->mode & OB_MODE_PARTICLE_EDIT) {
-			return PE_undo_is_valid(CTX_data_scene(C));
+			return PE_undo_is_valid(CTX_data_scene(C), CTX_data_scene_layer(C));
 		}
 		
 		if (U.uiflag & USER_GLOBALUNDO) {
@@ -316,6 +340,19 @@ static int ed_redo_exec(bContext *C, wmOperator *UNUSED(op))
 	return ed_undo_step(C, -1, NULL);
 }
 
+static int ed_undo_redo_exec(bContext *C, wmOperator *UNUSED(op))
+{
+	wmOperator *last_op = WM_operator_last_redo(C);
+	const int ret = ED_undo_operator_repeat(C, last_op);
+	return ret ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
+}
+
+static int ed_undo_redo_poll(bContext *C)
+{
+	wmOperator *last_op = WM_operator_last_redo(C);
+	return last_op && ED_operator_screenactive(C) && 
+		WM_operator_check_ui_enabled(C, last_op->type->name);
+}
 
 /* ********************** */
 
@@ -358,6 +395,17 @@ void ED_OT_redo(wmOperatorType *ot)
 	ot->poll = ED_operator_screenactive;
 }
 
+void ED_OT_undo_redo(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Undo and Redo";
+	ot->description = "Undo and redo previous action";
+	ot->idname = "ED_OT_undo_redo";
+	
+	/* api callbacks */
+	ot->exec = ed_undo_redo_exec;
+	ot->poll = ed_undo_redo_poll;
+}
 
 /* ui callbacks should call this rather than calling WM_operator_repeat() themselves */
 int ED_undo_operator_repeat(bContext *C, struct wmOperator *op)
@@ -390,6 +438,9 @@ int ED_undo_operator_repeat(bContext *C, struct wmOperator *op)
 
 			if (G.debug & G_DEBUG)
 				printf("redo_cb: operator redo %s\n", op->type->name);
+
+			WM_operator_free_all_after(wm, op);
+
 			ED_undo_pop_op(C, op);
 
 			if (op->type->check) {
@@ -504,7 +555,7 @@ static EnumPropertyItem *rna_undo_itemf(bContext *C, int undosys, int *totitem)
 		const char *name = NULL;
 		
 		if (undosys == UNDOSYSTEM_PARTICLE) {
-			name = PE_undo_get_name(CTX_data_scene(C), i, &active);
+			name = PE_undo_get_name(CTX_data_scene(C), CTX_data_scene_layer(C), i, &active);
 		}
 		else if (undosys == UNDOSYSTEM_EDITMODE) {
 			name = undo_editmode_get_name(C, i, &active);
@@ -587,7 +638,7 @@ static int undo_history_exec(bContext *C, wmOperator *op)
 		int item = RNA_int_get(op->ptr, "item");
 		
 		if (undosys == UNDOSYSTEM_PARTICLE) {
-			PE_undo_number(CTX_data_scene(C), item);
+			PE_undo_number(CTX_data_scene(C), CTX_data_scene_layer(C), item);
 		}
 		else if (undosys == UNDOSYSTEM_EDITMODE) {
 			undo_editmode_number(C, item + 1);

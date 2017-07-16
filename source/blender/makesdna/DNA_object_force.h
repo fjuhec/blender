@@ -112,6 +112,12 @@ typedef struct PartDeflect {
 	float f_noise;		/* noise of force						*/
 	int seed;			/* noise random seed					*/
 
+	/* Display Size */
+	float drawvec1[4]; /* Runtime only : start of the curve or draw scale */
+	float drawvec2[4]; /* Runtime only : end of the curve */
+	float drawvec_falloff_min[3], pad1; /* Runtime only */
+	float drawvec_falloff_max[3], pad2; /* Runtime only */
+
 	struct Object *f_source; /* force source object */
 } PartDeflect;
 
@@ -372,6 +378,7 @@ typedef struct SoftBody {
 #define PFIELD_DO_ROTATION		(1<<15)
 #define PFIELD_GUIDE_PATH_WEIGHT (1<<16)	/* apply curve weights */
 #define PFIELD_SMOKE_DENSITY    (1<<17)		/* multiply smoke force by density */
+#define PFIELD_GRAVITATION		(1<<18)             /* used for (simple) force */
 
 /* pd->falloff */
 #define PFIELD_FALL_SPHERE		0

@@ -35,30 +35,19 @@ if(WIN32 AND NOT UNIX)
 	string(SUBSTRING ${BLENDER_VERSION} 0 1 bver1)
 	string(SUBSTRING ${BLENDER_VERSION} 2 1 bver2)
 	string(SUBSTRING ${BLENDER_VERSION} 3 1 bver3)
-	if(MINGW)
-		add_definitions(
-			-DWINDRES
-			-DBLEN_VER_RC_STR_M=${BLENDER_VERSION}
-			-DBLEN_VER_RC_1=${bver1}
-			-DBLEN_VER_RC_2=${bver2}
-			-DBLEN_VER_RC_3=${bver3}
-			-DBLEN_VER_RC_4=0
-		)
-	else()
-		add_definitions(
-			-DBLEN_VER_RC_STR=${BLENDER_VERSION}
-			-DBLEN_VER_RC_1=${bver1}
-			-DBLEN_VER_RC_2=${bver2}
-			-DBLEN_VER_RC_3=${bver3}
-			-DBLEN_VER_RC_4=0
-		)
-	endif()
+	add_definitions(
+		-DBLEN_VER_RC_STR=${BLENDER_VERSION}
+		-DBLEN_VER_RC_1=${bver1}
+		-DBLEN_VER_RC_2=${bver2}
+		-DBLEN_VER_RC_3=${bver3}
+		-DBLEN_VER_RC_4=0
+	)
 
 	add_executable(
 			blenderplayer ${EXETYPE}
 			bad_level_call_stubs/stubs.c
 			${CMAKE_SOURCE_DIR}/release/windows/icons/winblender.rc)
-
+	WINDOWS_SIGN_TARGET(blenderplayer)
 	install(TARGETS blenderplayer
 			COMPONENT Blenderplayer
 			DESTINATION ".")
@@ -138,6 +127,7 @@ endif()
 		bf_intern_moto 
 		bf_nodes
 		bf_gpu
+		bf_intern_gawain
 		bf_imbuf
 		bf_avi 
 		ge_logic_network 
@@ -176,10 +166,16 @@ endif()
 		extern_rangetree
 		extern_wcwidth
 		bf_intern_libmv
-		extern_glog
-		extern_gflags
 		extern_sdlew
 	)
+
+	if(NOT WITH_SYSTEM_GLOG)
+		list(APPEND BLENDER_SORTED_LIBS extern_glog)
+	endif()
+
+	if(NOT WITH_SYSTEM_GFLAGS)
+		list(APPEND BLENDER_SORTED_LIBS extern_gflags)
+	endif()
 
 	if(WITH_MOD_CLOTH_ELTOPO)
 		list(APPEND BLENDER_SORTED_LIBS extern_eltopo)

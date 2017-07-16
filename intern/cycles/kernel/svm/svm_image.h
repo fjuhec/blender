@@ -18,7 +18,7 @@ CCL_NAMESPACE_BEGIN
 
 /* Float4 textures on various devices. */
 #if defined(__KERNEL_CPU__)
-#  define TEX_NUM_FLOAT4_IMAGES	TEX_NUM_FLOAT4_CPU
+#  define TEX_NUM_FLOAT4_IMAGES		TEX_NUM_FLOAT4_CPU
 #elif defined(__KERNEL_CUDA__)
 #  if __CUDA_ARCH__ < 300
 #    define TEX_NUM_FLOAT4_IMAGES	TEX_NUM_FLOAT4_CUDA
@@ -29,144 +29,12 @@ CCL_NAMESPACE_BEGIN
 #  define TEX_NUM_FLOAT4_IMAGES	TEX_NUM_FLOAT4_OPENCL
 #endif
 
-#ifdef __KERNEL_OPENCL__
-
-/* For OpenCL all images are packed in a single array, and we do manual lookup
- * and interpolation. */
-
-ccl_device_inline float4 svm_image_texture_read(KernelGlobals *kg, int id, int offset)
-{
-	if(id >= TEX_NUM_FLOAT4_IMAGES) {
-		uchar4 r = kernel_tex_fetch(__tex_image_byte4_packed, offset);
-		float f = 1.0f/255.0f;
-		return make_float4(r.x*f, r.y*f, r.z*f, r.w*f);
-	}
-	else {
-		return kernel_tex_fetch(__tex_image_float4_packed, offset);
-	}
-}
-
-ccl_device_inline int svm_image_texture_wrap_periodic(int x, int width)
-{
-	x %= width;
-	if(x < 0)
-		x += width;
-	return x;
-}
-
-ccl_device_inline int svm_image_texture_wrap_clamp(int x, int width)
-{
-	return clamp(x, 0, width-1);
-}
-
-ccl_device_inline float svm_image_texture_frac(float x, int *ix)
-{
-	int i = float_to_int(x) - ((x < 0.0f)? 1: 0);
-	*ix = i;
-	return x - (float)i;
-}
-
-ccl_device float4 svm_image_texture(KernelGlobals *kg, int id, float x, float y, uint srgb, uint use_alpha)
-{
-	uint4 info = kernel_tex_fetch(__tex_image_packed_info, id);
-	uint width = info.x;
-	uint height = info.y;
-	uint offset = info.z;
-
-	/* Image Options */
-	uint interpolation = (info.w & (1 << 0)) ? INTERPOLATION_CLOSEST : INTERPOLATION_LINEAR;
-	uint extension;
-	if(info.w & (1 << 1))
-		extension = EXTENSION_REPEAT;
-	else if(info.w & (1 << 2))
-		extension = EXTENSION_EXTEND;
-	else
-		extension = EXTENSION_CLIP;
-
-	float4 r;
-	int ix, iy, nix, niy;
-	if(interpolation == INTERPOLATION_CLOSEST) {
-		svm_image_texture_frac(x*width, &ix);
-		svm_image_texture_frac(y*height, &iy);
-
-		if(extension == EXTENSION_REPEAT) {
-			ix = svm_image_texture_wrap_periodic(ix, width);
-			iy = svm_image_texture_wrap_periodic(iy, height);
-		}
-		else if(extension == EXTENSION_CLIP) {
-			if(x < 0.0f || y < 0.0f || x > 1.0f || y > 1.0f)
-				return make_float4(0.0f, 0.0f, 0.0f, 0.0f);
-		}
-		else { /* EXTENSION_EXTEND */
-			ix = svm_image_texture_wrap_clamp(ix, width);
-			iy = svm_image_texture_wrap_clamp(iy, height);
-		}
-
-		r = svm_image_texture_read(kg, id, offset + ix + iy*width);
-	}
-	else { /* INTERPOLATION_LINEAR */
-		float tx = svm_image_texture_frac(x*width - 0.5f, &ix);
-		float ty = svm_image_texture_frac(y*height - 0.5f, &iy);
-
-		if(extension == EXTENSION_REPEAT) {
-			ix = svm_image_texture_wrap_periodic(ix, width);
-			iy = svm_image_texture_wrap_periodic(iy, height);
-
-			nix = svm_image_texture_wrap_periodic(ix+1, width);
-			niy = svm_image_texture_wrap_periodic(iy+1, height);
-		}
-		else {
-			if(extension == EXTENSION_CLIP) {
-				if(x < 0.0f || y < 0.0f || x > 1.0f || y > 1.0f) {
-					return make_float4(0.0f, 0.0f, 0.0f, 0.0f);
-				}
-			}
-			nix = svm_image_texture_wrap_clamp(ix+1, width);
-			niy = svm_image_texture_wrap_clamp(iy+1, height);
-			ix = svm_image_texture_wrap_clamp(ix, width);
-			iy = svm_image_texture_wrap_clamp(iy, height);
-		}
-
-		r = (1.0f - ty)*(1.0f - tx)*svm_image_texture_read(kg, id, offset + ix + iy*width);
-		r += (1.0f - ty)*tx*svm_image_texture_read(kg, id, offset + nix + iy*width);
-		r += ty*(1.0f - tx)*svm_image_texture_read(kg, id, offset + ix + niy*width);
-		r += ty*tx*svm_image_texture_read(kg, id, offset + nix + niy*width);
-	}
-
-	if(use_alpha && r.w != 1.0f && r.w != 0.0f) {
-		float invw = 1.0f/r.w;
-		r.x *= invw;
-		r.y *= invw;
-		r.z *= invw;
-
-		if(id >= TEX_NUM_FLOAT4_IMAGES) {
-			r.x = min(r.x, 1.0f);
-			r.y = min(r.y, 1.0f);
-			r.z = min(r.z, 1.0f);
-		}
-	}
-
-	if(srgb) {
-		r.x = color_srgb_to_scene_linear(r.x);
-		r.y = color_srgb_to_scene_linear(r.y);
-		r.z = color_srgb_to_scene_linear(r.z);
-	}
-
-	return r;
-}
-
-#else
-
 ccl_device float4 svm_image_texture(KernelGlobals *kg, int id, float x, float y, uint srgb, uint use_alpha)
 {
 #ifdef __KERNEL_CPU__
-#  ifdef __KERNEL_SSE2__
-	ssef r_ssef;
-	float4 &r = (float4 &)r_ssef;
-	r = kernel_tex_image_interp(id, x, y);
-#  else
 	float4 r = kernel_tex_image_interp(id, x, y);
-#  endif
+#elif defined(__KERNEL_OPENCL__)
+	float4 r = kernel_tex_image_interp(kg, id, x, y);
 #else
 	float4 r;
 
@@ -270,61 +138,47 @@ ccl_device float4 svm_image_texture(KernelGlobals *kg, int id, float x, float y,
 		case 86: r = kernel_tex_image_interp(__tex_image_byte4_086, x, y); break;
 		case 87: r = kernel_tex_image_interp(__tex_image_byte4_087, x, y); break;
 		case 88: r = kernel_tex_image_interp(__tex_image_byte4_088, x, y); break;
-		case 89: r = kernel_tex_image_interp(__tex_image_byte4_089, x, y); break;
 		default:
 			kernel_assert(0);
 			return make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 	}
 #  else
 	CUtexObject tex = kernel_tex_fetch(__bindless_mapping, id);
-	if(id < 2048) /* TODO(dingto): Make this a variable */
+	/* float4, byte4 and half4 */
+	const int texture_type = kernel_tex_type(id);
+	if(texture_type == IMAGE_DATA_TYPE_FLOAT4 ||
+	   texture_type == IMAGE_DATA_TYPE_BYTE4 ||
+	   texture_type == IMAGE_DATA_TYPE_HALF4)
+	{
 		r = kernel_tex_image_interp_float4(tex, x, y);
+	}
+	/* float, byte and half */
 	else {
 		float f = kernel_tex_image_interp_float(tex, x, y);
-		r = make_float4(f, f, f, 1.0);
+		r = make_float4(f, f, f, 1.0f);
 	}
 #  endif
 #endif
 
-#ifdef __KERNEL_SSE2__
-	float alpha = r.w;
+	const float alpha = r.w;
 
 	if(use_alpha && alpha != 1.0f && alpha != 0.0f) {
-		r_ssef = r_ssef / ssef(alpha);
-		if(id >= TEX_NUM_FLOAT4_IMAGES)
-			r_ssef = min(r_ssef, ssef(1.0f));
-		r.w = alpha;
-	}
-
-	if(srgb) {
-		r_ssef = color_srgb_to_scene_linear(r_ssef);
-		r.w = alpha;
-	}
-#else
-	if(use_alpha && r.w != 1.0f && r.w != 0.0f) {
-		float invw = 1.0f/r.w;
-		r.x *= invw;
-		r.y *= invw;
-		r.z *= invw;
-
-		if(id >= TEX_NUM_FLOAT4_IMAGES) {
-			r.x = min(r.x, 1.0f);
-			r.y = min(r.y, 1.0f);
-			r.z = min(r.z, 1.0f);
+		r /= alpha;
+		const int texture_type = kernel_tex_type(id);
+		if(texture_type == IMAGE_DATA_TYPE_BYTE4 ||
+		   texture_type == IMAGE_DATA_TYPE_BYTE)
+		{
+			r = min(r, make_float4(1.0f, 1.0f, 1.0f, 1.0f));
 		}
+		r.w = alpha;
 	}
 
 	if(srgb) {
-		r.x = color_srgb_to_scene_linear(r.x);
-		r.y = color_srgb_to_scene_linear(r.y);
-		r.z = color_srgb_to_scene_linear(r.z);
+		r = color_srgb_to_scene_linear_v4(r);
 	}
-#endif
 
 	return r;
 }
-
-#endif
 
 /* Remap coordnate from 0..1 box to -1..-1 */
 ccl_device_inline float3 texco_remap_square(float3 co)
@@ -364,11 +218,10 @@ ccl_device void svm_node_tex_image(KernelGlobals *kg, ShaderData *sd, float *sta
 ccl_device void svm_node_tex_image_box(KernelGlobals *kg, ShaderData *sd, float *stack, uint4 node)
 {
 	/* get object space normal */
-	float3 N = ccl_fetch(sd, N);
+	float3 N = sd->N;
 
-	N = ccl_fetch(sd, N);
-	if(ccl_fetch(sd, object) != OBJECT_NONE)
-		object_inverse_normal_transform(kg, sd, &N);
+	N = sd->N;
+	object_inverse_normal_transform(kg, sd, &N);
 
 	/* project from direction vector to barycentric coordinates in triangles */
 	N.x = fabsf(N.x);
@@ -464,8 +317,8 @@ ccl_device void svm_node_tex_environment(KernelGlobals *kg, ShaderData *sd, floa
 	float3 co = stack_load_float3(stack, co_offset);
 	float2 uv;
 
-	co = normalize(co);
-	
+	co = safe_normalize(co);
+
 	if(projection == 0)
 		uv = direction_to_equirectangular(co);
 	else

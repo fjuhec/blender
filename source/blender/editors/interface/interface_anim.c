@@ -43,6 +43,8 @@
 #include "BKE_global.h"
 #include "BKE_nla.h"
 
+#include "DEG_depsgraph_build.h"
+
 #include "ED_keyframing.h"
 
 #include "UI_interface.h"
@@ -99,6 +101,10 @@ void ui_but_anim_flag(uiBut *but, float cfra)
 	}
 }
 
+/**
+ * \a str can be NULL to only perform check if \a but has an expression at all.
+ * \return if button has an expression.
+ */
 bool ui_but_anim_expression_get(uiBut *but, char *str, size_t maxlen)
 {
 	FCurve *fcu;
@@ -111,7 +117,9 @@ bool ui_but_anim_expression_get(uiBut *but, char *str, size_t maxlen)
 		driver = fcu->driver;
 
 		if (driver && driver->type == DRIVER_TYPE_PYTHON) {
-			BLI_strncpy(str, driver->expression, maxlen);
+			if (str) {
+				BLI_strncpy(str, driver->expression, maxlen);
+			}
 			return true;
 		}
 	}
@@ -179,7 +187,7 @@ bool ui_but_anim_expression_create(uiBut *but, const char *str)
 	id = (ID *)but->rnapoin.id.data;
 	if ((id == NULL) || (GS(id->name) == ID_MA) || (GS(id->name) == ID_TE)) {
 		if (G.debug & G_DEBUG)
-			printf("ERROR: create expression failed - invalid id-datablock for adding drivers (%p)\n", id);
+			printf("ERROR: create expression failed - invalid data-block for adding drivers (%p)\n", id);
 		return false;
 	}
 	
@@ -204,6 +212,7 @@ bool ui_but_anim_expression_create(uiBut *but, const char *str)
 
 			/* updates */
 			driver->flag |= DRIVER_FLAG_RECOMPILE;
+			DEG_relations_tag_update(CTX_data_main(C));
 			WM_event_add_notifier(C, NC_ANIMATION | ND_KEYFRAME, NULL);
 			ok = true;
 		}
@@ -272,36 +281,6 @@ void ui_but_anim_autokey(bContext *C, uiBut *but, Scene *scene, float cfra)
 	}
 }
 
-void ui_but_anim_insert_keyframe(bContext *C)
-{
-	/* this operator calls UI_context_active_but_prop_get */
-	WM_operator_name_call(C, "ANIM_OT_keyframe_insert_button", WM_OP_INVOKE_DEFAULT, NULL);
-}
-
-void ui_but_anim_delete_keyframe(bContext *C)
-{
-	/* this operator calls UI_context_active_but_prop_get */
-	WM_operator_name_call(C, "ANIM_OT_keyframe_delete_button", WM_OP_INVOKE_DEFAULT, NULL);
-}
-
-void ui_but_anim_clear_keyframe(bContext *C)
-{
-	/* this operator calls UI_context_active_but_prop_get */
-	WM_operator_name_call(C, "ANIM_OT_keyframe_clear_button", WM_OP_INVOKE_DEFAULT, NULL);
-}
-
-void ui_but_anim_add_driver(bContext *C)
-{
-	/* this operator calls UI_context_active_but_prop_get */
-	WM_operator_name_call(C, "ANIM_OT_driver_button_add", WM_OP_INVOKE_DEFAULT, NULL);
-}
-
-void ui_but_anim_remove_driver(bContext *C)
-{
-	/* this operator calls UI_context_active_but_prop_get */
-	WM_operator_name_call(C, "ANIM_OT_driver_button_remove", WM_OP_INVOKE_DEFAULT, NULL);
-}
-
 void ui_but_anim_copy_driver(bContext *C)
 {
 	/* this operator calls UI_context_active_but_prop_get */
@@ -312,16 +291,4 @@ void ui_but_anim_paste_driver(bContext *C)
 {
 	/* this operator calls UI_context_active_but_prop_get */
 	WM_operator_name_call(C, "ANIM_OT_paste_driver_button", WM_OP_INVOKE_DEFAULT, NULL);
-}
-
-void ui_but_anim_add_keyingset(bContext *C)
-{
-	/* this operator calls UI_context_active_but_prop_get */
-	WM_operator_name_call(C, "ANIM_OT_keyingset_button_add", WM_OP_INVOKE_DEFAULT, NULL);
-}
-
-void ui_but_anim_remove_keyingset(bContext *C)
-{
-	/* this operator calls UI_context_active_but_prop_get */
-	WM_operator_name_call(C, "ANIM_OT_keyingset_button_remove", WM_OP_INVOKE_DEFAULT, NULL);
 }

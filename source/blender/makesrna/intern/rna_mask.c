@@ -54,8 +54,9 @@
 
 #include "DNA_movieclip_types.h"
 
-#include "BKE_depsgraph.h"
 #include "BKE_mask.h"
+
+#include "DEG_depsgraph.h"
 
 #include "BLI_math.h"
 
@@ -68,7 +69,7 @@ static void rna_Mask_update_data(Main *UNUSED(bmain), Scene *UNUSED(scene), Poin
 	Mask *mask = ptr->id.data;
 
 	WM_main_add_notifier(NC_MASK | ND_DATA, mask);
-	DAG_id_tag_update( &mask->id, 0);
+	DEG_id_tag_update( &mask->id, 0);
 }
 
 static void rna_Mask_update_parent(Main *bmain, Scene *scene, PointerRNA *ptr)
@@ -448,7 +449,7 @@ static void rna_MaskLayer_spline_remove(ID *id, MaskLayer *mask_layer, ReportLis
 
 	RNA_POINTER_INVALIDATE(spline_ptr);
 
-	DAG_id_tag_update(&mask->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&mask->id, OB_RECALC_DATA);
 }
 
 static void rna_Mask_start_frame_set(PointerRNA *ptr, int value)
@@ -522,7 +523,7 @@ static void rna_MaskSpline_points_add(ID *id, MaskSpline *spline, int count)
 	}
 
 	WM_main_add_notifier(NC_MASK | ND_DATA, mask);
-	DAG_id_tag_update(&mask->id, 0);
+	DEG_id_tag_update(&mask->id, 0);
 }
 
 static void rna_MaskSpline_point_remove(ID *id, MaskSpline *spline, ReportList *reports, PointerRNA *point_ptr)
@@ -582,7 +583,7 @@ static void rna_MaskSpline_point_remove(ID *id, MaskSpline *spline, ReportList *
 	BKE_mask_layer_shape_changed_remove(layer, BKE_mask_layer_shape_spline_to_index(layer, spline) + point_index, 1);
 
 	WM_main_add_notifier(NC_MASK | ND_DATA, mask);
-	DAG_id_tag_update(&mask->id, 0);
+	DEG_id_tag_update(&mask->id, 0);
 
 	RNA_POINTER_INVALIDATE(point_ptr);
 }
@@ -632,13 +633,13 @@ static void rna_def_maskParent(BlenderRNA *brna)
 
 	/* parent */
 	prop = RNA_def_property(srna, "parent", PROP_STRING, PROP_NONE);
-	RNA_def_property_ui_text(prop, "Parent", "Name of parent object in specified data block to which parenting happens");
+	RNA_def_property_ui_text(prop, "Parent", "Name of parent object in specified data-block to which parenting happens");
 	RNA_def_property_string_maxlength(prop, MAX_ID_NAME - 2);
 	RNA_def_property_update(prop, 0, "rna_Mask_update_parent");
 
 	/* sub_parent */
 	prop = RNA_def_property(srna, "sub_parent", PROP_STRING, PROP_NONE);
-	RNA_def_property_ui_text(prop, "Sub Parent", "Name of parent sub-object in specified data block to which parenting happens");
+	RNA_def_property_ui_text(prop, "Sub Parent", "Name of parent sub-object in specified data-block to which parenting happens");
 	RNA_def_property_string_maxlength(prop, MAX_ID_NAME - 2);
 	RNA_def_property_update(prop, 0, "rna_Mask_update_parent");
 }
@@ -778,8 +779,8 @@ static void rna_def_mask_splines(BlenderRNA *brna)
 	RNA_def_function_ui_description(func, "Remove a spline from a layer");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_pointer(func, "spline", "MaskSpline", "", "The spline to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
 
 	/* active spline */
 	prop = RNA_def_property(srna, "active", PROP_POINTER, PROP_NONE);
@@ -818,8 +819,8 @@ static void rna_def_maskSplinePoints(BlenderRNA *brna)
 	RNA_def_function_ui_description(func, "Remove a point from a spline");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_pointer(func, "point", "MaskSplinePoint", "", "The point to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
 }
 
 static void rna_def_maskSpline(BlenderRNA *brna)
@@ -1014,8 +1015,8 @@ static void rna_def_masklayers(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove layer from this mask");
 	parm = RNA_def_pointer(func, "layer", "MaskLayer", "", "Shape to be removed");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
 
 	/* clear all layers */
 	func = RNA_def_function(srna, "clear", "rna_Mask_layers_clear");

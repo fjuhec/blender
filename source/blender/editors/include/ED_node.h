@@ -75,7 +75,7 @@ void ED_init_custom_node_socket_type(struct bNodeSocketType *stype);
 void ED_init_standard_node_socket_type(struct bNodeSocketType *stype);
 void ED_init_node_socket_type_virtual(struct bNodeSocketType *stype);
 void ED_node_sample_set(const float col[4]);
-void ED_node_draw_snap(struct View2D *v2d, const float cent[2], float size, NodeBorder border);
+void ED_node_draw_snap(struct View2D *v2d, const float cent[2], float size, NodeBorder border, unsigned pos);
 
 /* node_draw.c */
 void ED_node_tree_update(const struct bContext *C);
@@ -107,7 +107,7 @@ void ED_node_composite_job(const struct bContext *C, struct bNodeTree *nodetree,
 void ED_operatormacros_node(void);
 
 /* node_view.c */
-bool ED_space_node_color_sample(struct Scene *scene, struct SpaceNode *snode, struct ARegion *ar, int mval[2], float r_col[3]);
+bool ED_space_node_color_sample(struct SpaceNode *snode, struct ARegion *ar, int mval[2], float r_col[3]);
 
 #endif /* __ED_NODE_H__ */
 

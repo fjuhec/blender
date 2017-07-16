@@ -33,6 +33,7 @@
 #include <stddef.h>
 
 #include "BLI_utildefines.h"
+#include "BLI_ghash.h"
 #include "BLI_string.h"
 #include "BLI_linklist.h"
 #include "BLI_path_util.h"
@@ -331,6 +332,7 @@ static PyObject *bpy_lib_exit(BPy_Library *self, PyObject *UNUSED(args))
 	Main *bmain = CTX_data_main(BPy_GetContext());
 	Main *mainl = NULL;
 	int err = 0;
+	const bool do_append = ((self->flag & FILE_LINK) == 0);
 
 	BKE_main_id_tag_all(bmain, LIB_TAG_PRE_EXISTING, true);
 
@@ -340,7 +342,7 @@ static PyObject *bpy_lib_exit(BPy_Library *self, PyObject *UNUSED(args))
 	{
 		int idcode_step = 0, idcode;
 		while ((idcode = BKE_idcode_iter_step(&idcode_step))) {
-			if (BKE_idcode_is_linkable(idcode)) {
+			if (BKE_idcode_is_linkable(idcode) && (idcode != ID_WS || do_append)) {
 				const char *name_plural = BKE_idcode_to_name_plural(idcode);
 				PyObject *ls = PyDict_GetItemString(self->dict, name_plural);
 				// printf("lib: %s\n", name_plural);
@@ -405,14 +407,16 @@ static PyObject *bpy_lib_exit(BPy_Library *self, PyObject *UNUSED(args))
 		BLO_blendhandle_close(self->blo_handle);
 		self->blo_handle = NULL;
 
+		GHash *old_to_new_ids = BLI_ghash_ptr_new(__func__);
+
 		/* copied from wm_operator.c */
 		{
 			/* mark all library linked objects to be updated */
 			BKE_main_lib_objects_recalc_all(bmain);
 
 			/* append, rather than linking */
-			if ((self->flag & FILE_LINK) == 0) {
-				BKE_library_make_local(bmain, lib, true, false);
+			if (do_append) {
+				BKE_library_make_local(bmain, lib, old_to_new_ids, true, false);
 			}
 		}
 
@@ -424,7 +428,7 @@ static PyObject *bpy_lib_exit(BPy_Library *self, PyObject *UNUSED(args))
 		{
 			int idcode_step = 0, idcode;
 			while ((idcode = BKE_idcode_iter_step(&idcode_step))) {
-				if (BKE_idcode_is_linkable(idcode)) {
+				if (BKE_idcode_is_linkable(idcode) && (idcode != ID_WS || do_append)) {
 					const char *name_plural = BKE_idcode_to_name_plural(idcode);
 					PyObject *ls = PyDict_GetItemString(self->dict, name_plural);
 					if (ls && PyList_Check(ls)) {
@@ -439,6 +443,7 @@ static PyObject *bpy_lib_exit(BPy_Library *self, PyObject *UNUSED(args))
 								ID *id;
 
 								id = PyCapsule_GetPointer(item, NULL);
+								id = BLI_ghash_lookup_default(old_to_new_ids, id, id);
 								Py_DECREF(item);
 
 								RNA_id_pointer_create(id, &id_ptr);
@@ -452,6 +457,7 @@ static PyObject *bpy_lib_exit(BPy_Library *self, PyObject *UNUSED(args))
 		}
 #endif  /* USE_RNA_DATABLOCKS */
 
+		BLI_ghash_free(old_to_new_ids, NULL, NULL);
 		Py_RETURN_NONE;
 	}
 }

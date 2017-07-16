@@ -161,7 +161,7 @@ typedef struct ThemeUI {
 	/* Interface Elements (buttons, menus, icons) */
 	uiWidgetColors wcol_regular, wcol_tool, wcol_text;
 	uiWidgetColors wcol_radio, wcol_option, wcol_toggle;
-	uiWidgetColors wcol_num, wcol_numslider;
+	uiWidgetColors wcol_num, wcol_numslider, wcol_tab;
 	uiWidgetColors wcol_menu, wcol_pulldown, wcol_menu_back, wcol_menu_item, wcol_tooltip;
 	uiWidgetColors wcol_box, wcol_scroll, wcol_progress, wcol_list_item, wcol_pie_menu;
 	
@@ -240,9 +240,9 @@ typedef struct ThemeSpace {
 	char wire[4], wire_edit[4], select[4];
 	char lamp[4], speaker[4], empty[4], camera[4];
 	char active[4], group[4], group_active[4], transform[4];
-	char vertex[4], vertex_select[4], vertex_unreferenced[4];
+	char vertex[4], vertex_select[4], vertex_bevel[4], vertex_unreferenced[4];
 	char edge[4], edge_select[4];
-	char edge_seam[4], edge_sharp[4], edge_facesel[4], edge_crease[4];
+	char edge_seam[4], edge_sharp[4], edge_facesel[4], edge_crease[4], edge_bevel[4];
 	char face[4], face_select[4];	/* solid faces */
 	char face_dot[4];				/*  selected color */
 	char extra_edge_len[4], extra_edge_angle[4], extra_face_angle[4], extra_face_area[4];
@@ -467,13 +467,18 @@ typedef struct UserDef {
 	int audioformat;
 	int audiochannels;
 
-	int scrollback; /* console scrollback limit */
-	int dpi;		/* range 48-128? */
-	char node_margin; /* node insert offset (aka auto-offset) margin, but might be useful for later stuff as well */
+	int scrollback;     /* console scrollback limit */
+	int dpi;            /* range 48-128? */
+	float ui_scale;     /* interface scale */
+	int pad1;
+	char node_margin;   /* node insert offset (aka auto-offset) margin, but might be useful for later stuff as well */
 	char pad2;
 	short transopts;
 	short menuthreshold1, menuthreshold2;
-	
+
+	/* startup template */
+	char app_template[64];
+
 	struct ListBase themes;
 	struct ListBase uifonts;
 	struct ListBase uistyles;
@@ -489,7 +494,8 @@ typedef struct UserDef {
 	short gp_settings;
 	short tb_leftmouse, tb_rightmouse;
 	struct SolidLight light[3];
-	short tw_hotspot, tw_flag, tw_handlesize, tw_size;
+	short manipulator_flag, manipulator_size;
+	int pad3;
 	short textimeout, texcollectrate;
 	short wmdrawmethod; /* removed wmpad */
 	short dragthreshold;
@@ -497,7 +503,6 @@ typedef struct UserDef {
 	int prefetchframes;
 	float pad_rot_angle; /* control the rotation step of the view when PAD2, PAD4, PAD6&PAD8 is use */
 	short frameserverport;
-	short pad4;
 	short obcenter_dia;
 	short rvisize;			/* rotating view icon size */
 	short rvibright;		/* rotating view icon brightness */
@@ -509,6 +514,8 @@ typedef struct UserDef {
 	char  ipo_new;			/* interpolation mode for newly added F-Curves */
 	char  keyhandles_new;	/* handle types for newly added keyframes */
 	char  gpu_select_method;
+	char  gpu_select_pick_deph;
+	char  pad4;
 	char  view_frame_type;
 
 	int view_frame_keyframes; /* number of keyframes to zoom around current frame */
@@ -593,7 +600,7 @@ typedef enum eUserPref_Flag {
 /*	USER_AUTOGRABGRID		= (1 << 1),	deprecated */
 /*	USER_AUTOROTGRID		= (1 << 2),	deprecated */
 /*	USER_AUTOSIZEGRID		= (1 << 3),	deprecated */
-	USER_SCENEGLOBAL		= (1 << 4),
+/*	USER_SCENEGLOBAL         = (1 << 4), deprecated */
 	USER_TRACKBALL			= (1 << 5),
 /*	USER_DUPLILINK		= (1 << 6),	deprecated */
 /*	USER_FSCOLLUM			= (1 << 7),	deprecated */
@@ -782,13 +789,16 @@ typedef enum eText_Draw_Options {
 	USER_TEXT_DISABLE_AA	= (1 << 0),
 } eText_Draw_Options;
 
-/* tw_flag (transform widget) */
-
 /* gp_settings (Grease Pencil Settings) */
 typedef enum eGP_UserdefSettings {
 	GP_PAINT_DOSMOOTH		= (1 << 0),
 	GP_PAINT_DOSIMPLIFY		= (1 << 1),
 } eGP_UserdefSettings;
+
+enum {
+	USER_MANIPULATOR_DRAW        = (1 << 0),
+	USER_MANIPULATOR_SHADED      = (1 << 1),
+};
 
 /* color picker types */
 typedef enum eColorPicker_Types {
@@ -867,14 +877,6 @@ typedef enum eNdof_Flag {
 
 #define NDOF_PIXELS_PER_SECOND 600.0f
 
-/* compute_device_type */
-typedef enum eCompute_Device_Type {
-	USER_COMPUTE_DEVICE_NONE	= 0,
-	USER_COMPUTE_DEVICE_OPENCL	= 1,
-	USER_COMPUTE_DEVICE_CUDA	= 2,
-} eCompute_Device_Type;
-
-	
 typedef enum eMultiSample_Type {
 	USER_MULTISAMPLE_NONE	= 0,
 	USER_MULTISAMPLE_2	= 2,

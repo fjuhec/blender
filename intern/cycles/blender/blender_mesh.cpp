@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 
- 
-#include "mesh.h"
-#include "object.h"
-#include "scene.h"
-#include "camera.h"
+#include "render/mesh.h"
+#include "render/object.h"
+#include "render/scene.h"
+#include "render/camera.h"
 
-#include "blender_sync.h"
-#include "blender_session.h"
-#include "blender_util.h"
+#include "blender/blender_sync.h"
+#include "blender/blender_session.h"
+#include "blender/blender_util.h"
 
-#include "subd_patch.h"
-#include "subd_split.h"
+#include "subd/subd_patch.h"
+#include "subd/subd_split.h"
 
-#include "util_foreach.h"
-#include "util_logging.h"
-#include "util_math.h"
+#include "util/util_algorithm.h"
+#include "util/util_foreach.h"
+#include "util/util_logging.h"
+#include "util/util_math.h"
 
 #include "mikktspace.h"
 
@@ -292,7 +292,7 @@ static void create_mesh_volume_attribute(BL::Object& b_ob,
 
 	if(!b_domain)
 		return;
-	
+
 	Attribute *attr = mesh->attributes.add(std);
 	VoxelAttribute *volume_data = attr->data_voxel();
 	bool is_float, is_linear;
@@ -355,7 +355,7 @@ static void attr_create_vertex_color(Scene *scene,
 				int n = p->loop_total();
 				for(int i = 0; i < n; i++) {
 					float3 color = get_float3(l->data[p->loop_start() + i].color());
-					*(cdata++) = color_float_to_byte(color_srgb_to_scene_linear(color));
+					*(cdata++) = color_float_to_byte(color_srgb_to_scene_linear_v3(color));
 				}
 			}
 		}
@@ -379,11 +379,11 @@ static void attr_create_vertex_color(Scene *scene,
 				face_split_tri_indices(nverts[i], face_flags[i], tri_a, tri_b);
 
 				uchar4 colors[4];
-				colors[0] = color_float_to_byte(color_srgb_to_scene_linear(get_float3(c->color1())));
-				colors[1] = color_float_to_byte(color_srgb_to_scene_linear(get_float3(c->color2())));
-				colors[2] = color_float_to_byte(color_srgb_to_scene_linear(get_float3(c->color3())));
+				colors[0] = color_float_to_byte(color_srgb_to_scene_linear_v3(get_float3(c->color1())));
+				colors[1] = color_float_to_byte(color_srgb_to_scene_linear_v3(get_float3(c->color2())));
+				colors[2] = color_float_to_byte(color_srgb_to_scene_linear_v3(get_float3(c->color3())));
 				if(nverts[i] == 4) {
-					colors[3] = color_float_to_byte(color_srgb_to_scene_linear(get_float3(c->color4())));
+					colors[3] = color_float_to_byte(color_srgb_to_scene_linear_v3(get_float3(c->color4())));
 				}
 
 				cdata[0] = colors[tri_a[0]];
@@ -417,7 +417,7 @@ static void attr_create_uv_map(Scene *scene,
 		int i = 0;
 
 		for(b_mesh.uv_layers.begin(l); l != b_mesh.uv_layers.end(); ++l, ++i) {
-			bool active_render = b_mesh.uv_textures[i].active_render();
+			bool active_render = b_mesh.uv_layers[i].active_render();
 			AttributeStandard std = (active_render)? ATTR_STD_UV: ATTR_STD_NONE;
 			ustring name = ustring(l->name().c_str());
 
@@ -525,69 +525,180 @@ static void attr_create_uv_map(Scene *scene,
 }
 
 /* Create vertex pointiness attributes. */
+
+/* Compare vertices by sum of their coordinates. */
+class VertexAverageComparator {
+public:
+	VertexAverageComparator(const array<float3>& verts)
+	        : verts_(verts) {
+	}
+
+	bool operator()(const int& vert_idx_a, const int& vert_idx_b)
+	{
+		const float3 &vert_a = verts_[vert_idx_a];
+		const float3 &vert_b = verts_[vert_idx_b];
+		if(vert_a == vert_b) {
+			/* Special case for doubles, so we ensure ordering. */
+			return vert_idx_a > vert_idx_b;
+		}
+		const float x1 = vert_a.x + vert_a.y + vert_a.z;
+		const float x2 = vert_b.x + vert_b.y + vert_b.z;
+		return x1 < x2;
+	}
+
+protected:
+	const array<float3>& verts_;
+};
+
 static void attr_create_pointiness(Scene *scene,
                                    Mesh *mesh,
                                    BL::Mesh& b_mesh,
                                    bool subdivision)
 {
-	if(mesh->need_attribute(scene, ATTR_STD_POINTINESS)) {
-		const int numverts = b_mesh.vertices.length();
-		AttributeSet& attributes = (subdivision)? mesh->subd_attributes: mesh->attributes;
-		Attribute *attr = attributes.add(ATTR_STD_POINTINESS);
-		float *data = attr->data_float();
-		int *counter = new int[numverts];
-		float *raw_data = new float[numverts];
-		float3 *edge_accum = new float3[numverts];
-
-		/* Calculate pointiness using single ring neighborhood. */
-		memset(counter, 0, sizeof(int) * numverts);
-		memset(raw_data, 0, sizeof(float) * numverts);
-		memset(edge_accum, 0, sizeof(float3) * numverts);
-		BL::Mesh::edges_iterator e;
-		int i = 0;
-		for(b_mesh.edges.begin(e); e != b_mesh.edges.end(); ++e, ++i) {
-			int v0 = b_mesh.edges[i].vertices()[0],
-			    v1 = b_mesh.edges[i].vertices()[1];
-			float3 co0 = get_float3(b_mesh.vertices[v0].co()),
-			       co1 = get_float3(b_mesh.vertices[v1].co());
-			float3 edge = normalize(co1 - co0);
-			edge_accum[v0] += edge;
-			edge_accum[v1] += -edge;
-			++counter[v0];
-			++counter[v1];
-		}
-		i = 0;
-		BL::Mesh::vertices_iterator v;
-		for(b_mesh.vertices.begin(v); v != b_mesh.vertices.end(); ++v, ++i) {
-			if(counter[i] > 0) {
-				float3 normal = get_float3(b_mesh.vertices[i].normal());
-				float angle = safe_acosf(dot(normal, edge_accum[i] / counter[i]));
-				raw_data[i] = angle * M_1_PI_F;
+	if(!mesh->need_attribute(scene, ATTR_STD_POINTINESS)) {
+		return;
+	}
+	const int num_verts = b_mesh.vertices.length();
+	if(num_verts == 0) {
+		return;
+	}
+	/* STEP 1: Find out duplicated vertices and point duplicates to a single
+	 *         original vertex.
+	 */
+	vector<int> sorted_vert_indeices(num_verts);
+	for(int vert_index = 0; vert_index < num_verts; ++vert_index) {
+		sorted_vert_indeices[vert_index] = vert_index;
+	}
+	VertexAverageComparator compare(mesh->verts);
+	sort(sorted_vert_indeices.begin(), sorted_vert_indeices.end(), compare);
+	/* This array stores index of the original vertex for the given vertex
+	 * index.
+	 */
+	vector<int> vert_orig_index(num_verts);
+	for(int sorted_vert_index = 0;
+	    sorted_vert_index < num_verts;
+	    ++sorted_vert_index)
+	{
+		const int vert_index = sorted_vert_indeices[sorted_vert_index];
+		const float3 &vert_co = mesh->verts[vert_index];
+		bool found = false;
+		for(int other_sorted_vert_index = sorted_vert_index + 1;
+		    other_sorted_vert_index < num_verts;
+		    ++other_sorted_vert_index)
+		{
+			const int other_vert_index =
+			        sorted_vert_indeices[other_sorted_vert_index];
+			const float3 &other_vert_co = mesh->verts[other_vert_index];
+			/* We are too far away now, we wouldn't have duplicate. */
+			if((other_vert_co.x + other_vert_co.y + other_vert_co.z) -
+			   (vert_co.x + vert_co.y + vert_co.z) > 3 * FLT_EPSILON)
+			{
+				break;
 			}
-			else {
-				raw_data[i] = 0.0f;
+			/* Found duplicate. */
+			if(len_squared(other_vert_co - vert_co) < FLT_EPSILON) {
+				found = true;
+				vert_orig_index[vert_index] = other_vert_index;
+				break;
 			}
 		}
-
-		/* Blur vertices to approximate 2 ring neighborhood. */
-		memset(counter, 0, sizeof(int) * numverts);
-		memcpy(data, raw_data, sizeof(float) * numverts);
-		i = 0;
-		for(b_mesh.edges.begin(e); e != b_mesh.edges.end(); ++e, ++i) {
-			int v0 = b_mesh.edges[i].vertices()[0],
-			    v1 = b_mesh.edges[i].vertices()[1];
-			data[v0] += raw_data[v1];
-			data[v1] += raw_data[v0];
-			++counter[v0];
-			++counter[v1];
+		if(!found) {
+			vert_orig_index[vert_index] = vert_index;
 		}
-		for(i = 0; i < numverts; ++i) {
-			data[i] /= counter[i] + 1;
+	}
+	/* Make sure we always points to the very first orig vertex. */
+	for(int vert_index = 0; vert_index < num_verts; ++vert_index) {
+		int orig_index = vert_orig_index[vert_index];
+		while(orig_index != vert_orig_index[orig_index]) {
+			orig_index = vert_orig_index[orig_index];
 		}
-
-		delete [] counter;
-		delete [] raw_data;
-		delete [] edge_accum;
+		vert_orig_index[vert_index] = orig_index;
+	}
+	sorted_vert_indeices.free_memory();
+	/* STEP 2: Calculate vertex normals taking into account their possible
+	 *         duplicates which gets "welded" together.
+	 */
+	vector<float3> vert_normal(num_verts, make_float3(0.0f, 0.0f, 0.0f));
+	/* First we accumulate all vertex normals in the original index. */
+	for(int vert_index = 0; vert_index < num_verts; ++vert_index) {
+		const float3 normal = get_float3(b_mesh.vertices[vert_index].normal());
+		const int orig_index = vert_orig_index[vert_index];
+		vert_normal[orig_index] += normal;
+	}
+	/* Then we normalize the accumulated result and flush it to all duplicates
+	 * as well.
+	 */
+	for(int vert_index = 0; vert_index < num_verts; ++vert_index) {
+		const int orig_index = vert_orig_index[vert_index];
+		vert_normal[vert_index] = normalize(vert_normal[orig_index]);
+	}
+	/* STEP 3: Calculate pointiness using single ring neighborhood. */
+	vector<int> counter(num_verts, 0);
+	vector<float> raw_data(num_verts, 0.0f);
+	vector<float3> edge_accum(num_verts, make_float3(0.0f, 0.0f, 0.0f));
+	BL::Mesh::edges_iterator e;
+	EdgeMap visited_edges;
+	int edge_index = 0;
+	memset(&counter[0], 0, sizeof(int) * counter.size());
+	for(b_mesh.edges.begin(e); e != b_mesh.edges.end(); ++e, ++edge_index) {
+		const int v0 = vert_orig_index[b_mesh.edges[edge_index].vertices()[0]],
+		          v1 = vert_orig_index[b_mesh.edges[edge_index].vertices()[1]];
+		if(visited_edges.exists(v0, v1)) {
+			continue;
+		}
+		visited_edges.insert(v0, v1);
+		float3 co0 = get_float3(b_mesh.vertices[v0].co()),
+		       co1 = get_float3(b_mesh.vertices[v1].co());
+		float3 edge = normalize(co1 - co0);
+		edge_accum[v0] += edge;
+		edge_accum[v1] += -edge;
+		++counter[v0];
+		++counter[v1];
+	}
+	for(int vert_index = 0; vert_index < num_verts; ++vert_index) {
+		const int orig_index = vert_orig_index[vert_index];
+		if(orig_index != vert_index) {
+			/* Skip duplicates, they'll be overwritten later on. */
+			continue;
+		}
+		if(counter[vert_index] > 0) {
+			const float3 normal = vert_normal[vert_index];
+			const float angle =
+			        safe_acosf(dot(normal,
+			                       edge_accum[vert_index] / counter[vert_index]));
+			raw_data[vert_index] = angle * M_1_PI_F;
+		}
+		else {
+			raw_data[vert_index] = 0.0f;
+		}
+	}
+	/* STEP 3: Blur vertices to approximate 2 ring neighborhood. */
+	AttributeSet& attributes = (subdivision)? mesh->subd_attributes: mesh->attributes;
+	Attribute *attr = attributes.add(ATTR_STD_POINTINESS);
+	float *data = attr->data_float();
+	memcpy(data, &raw_data[0], sizeof(float) * raw_data.size());
+	memset(&counter[0], 0, sizeof(int) * counter.size());
+	edge_index = 0;
+	visited_edges.clear();
+	for(b_mesh.edges.begin(e); e != b_mesh.edges.end(); ++e, ++edge_index) {
+		const int v0 = vert_orig_index[b_mesh.edges[edge_index].vertices()[0]],
+		          v1 = vert_orig_index[b_mesh.edges[edge_index].vertices()[1]];
+		if(visited_edges.exists(v0, v1)) {
+			continue;
+		}
+		visited_edges.insert(v0, v1);
+		data[v0] += raw_data[v1];
+		data[v1] += raw_data[v0];
+		++counter[v0];
+		++counter[v1];
+	}
+	for(int vert_index = 0; vert_index < num_verts; ++vert_index) {
+		data[vert_index] /= counter[vert_index] + 1;
+	}
+	/* STEP 4: Copy attribute to the duplicated vertices. */
+	for(int vert_index = 0; vert_index < num_verts; ++vert_index) {
+		const int orig_index = vert_orig_index[vert_index];
+		data[vert_index] = data[orig_index];
 	}
 }
 
@@ -597,8 +708,8 @@ static void create_mesh(Scene *scene,
                         Mesh *mesh,
                         BL::Mesh& b_mesh,
                         const vector<Shader*>& used_shaders,
-                        bool subdivision=false,
-                        bool subdivide_uvs=true)
+                        bool subdivision = false,
+                        bool subdivide_uvs = true)
 {
 	/* count vertices and faces */
 	int numverts = b_mesh.vertices.length();
@@ -606,7 +717,7 @@ static void create_mesh(Scene *scene,
 	int numtris = 0;
 	int numcorners = 0;
 	int numngons = 0;
-	bool use_loop_normals = b_mesh.use_auto_smooth();
+	bool use_loop_normals = b_mesh.use_auto_smooth() && (mesh->subdivision_type != Mesh::SUBDIVISION_CATMULL_CLARK);
 
 	BL::Mesh::vertices_iterator v;
 	BL::Mesh::tessfaces_iterator f;
@@ -656,9 +767,6 @@ static void create_mesh(Scene *scene,
 			generated[i++] = get_float3(v->undeformed_co())*size - loc;
 	}
 
-	/* Create needed vertex attributes. */
-	attr_create_pointiness(scene, mesh, b_mesh, subdivision);
-
 	/* create faces */
 	vector<int> nverts(numfaces);
 	vector<int> face_flags(numfaces, FACE_FLAG_NONE);
@@ -671,28 +779,19 @@ static void create_mesh(Scene *scene,
 			int shader = clamp(f->material_index(), 0, used_shaders.size()-1);
 			bool smooth = f->use_smooth() || use_loop_normals;
 
-			/* split vertices if normal is different
-			 *
-			 * note all vertex attributes must have been set here so we can split
-			 * and copy attributes in split_vertex without remapping later */
 			if(use_loop_normals) {
 				BL::Array<float, 12> loop_normals = f->split_normals();
-
 				for(int i = 0; i < n; i++) {
-					float3 loop_N = make_float3(loop_normals[i * 3], loop_normals[i * 3 + 1], loop_normals[i * 3 + 2]);
-
-					if(N[vi[i]] != loop_N) {
-						int new_vi = mesh->split_vertex(vi[i]);
-
-						/* set new normal and vertex index */
-						N = attr_N->data_float3();
-						N[new_vi] = loop_N;
-						vi[i] = new_vi;
-					}
+					N[vi[i]] = make_float3(loop_normals[i * 3],
+					                       loop_normals[i * 3 + 1],
+					                       loop_normals[i * 3 + 2]);
 				}
 			}
 
-			/* create triangles */
+			/* Create triangles.
+			 *
+			 * NOTE: Autosmooth is already taken care about.
+			 */
 			if(n == 4) {
 				if(is_zero(cross(mesh->verts[vi[1]] - mesh->verts[vi[0]], mesh->verts[vi[2]] - mesh->verts[vi[0]])) ||
 				   is_zero(cross(mesh->verts[vi[2]] - mesh->verts[vi[0]], mesh->verts[vi[3]] - mesh->verts[vi[0]])))
@@ -722,26 +821,10 @@ static void create_mesh(Scene *scene,
 			int shader = clamp(p->material_index(), 0, used_shaders.size()-1);
 			bool smooth = p->use_smooth() || use_loop_normals;
 
-			vi.reserve(n);
+			vi.resize(n);
 			for(int i = 0; i < n; i++) {
+				/* NOTE: Autosmooth is already taken care about. */
 				vi[i] = b_mesh.loops[p->loop_start() + i].vertex_index();
-
-				/* split vertices if normal is different
-				 *
-				 * note all vertex attributes must have been set here so we can split
-				 * and copy attributes in split_vertex without remapping later */
-				if(use_loop_normals) {
-					float3 loop_N = get_float3(b_mesh.loops[p->loop_start() + i].normal());
-
-					if(N[vi[i]] != loop_N) {
-						int new_vi = mesh->split_vertex(vi[i]);
-
-						/* set new normal and vertex index */
-						N = attr_N->data_float3();
-						N[new_vi] = loop_N;
-						vi[i] = new_vi;
-					}
-				}
 			}
 
 			/* create subd faces */
@@ -752,6 +835,7 @@ static void create_mesh(Scene *scene,
 	/* Create all needed attributes.
 	 * The calculate functions will check whether they're needed or not.
 	 */
+	attr_create_pointiness(scene, mesh, b_mesh, subdivision);
 	attr_create_vertex_color(scene, mesh, b_mesh, nverts, face_flags, subdivision);
 	attr_create_uv_map(scene, mesh, b_mesh, nverts, face_flags, subdivision, subdivide_uvs);
 
@@ -806,7 +890,10 @@ static void create_subd_mesh(Scene *scene,
 	}
 
 	/* set subd params */
-	SubdParams sdparams(mesh);
+	if(!mesh->subd_params) {
+		mesh->subd_params = new SubdParams(mesh);
+	}
+	SubdParams& sdparams = *mesh->subd_params;
 
 	PointerRNA cobj = RNA_pointer_get(&b_ob.ptr, "cycles");
 
@@ -816,10 +903,6 @@ static void create_subd_mesh(Scene *scene,
 	scene->camera->update();
 	sdparams.camera = scene->camera;
 	sdparams.objecttoworld = get_transform(b_ob.matrix_world());
-
-	/* tesselate */
-	DiagSplit dsplit(sdparams);
-	mesh->tessellate(&dsplit);
 }
 
 /* Sync */
@@ -848,7 +931,7 @@ static void sync_mesh_fluid_motion(BL::Object& b_ob, Scene *scene, Mesh *mesh)
 
 	/* Only export previous and next frame, we don't have any in between data. */
 	float motion_times[2] = {-1.0f, 1.0f};
-	for (int step = 0; step < 2; step++) {
+	for(int step = 0; step < 2; step++) {
 		float relative_time = motion_times[step] * scene->motion_shutter_time() * 0.5f;
 		float3 *mP = attr_mP->data_float3() + step*mesh->verts.size();
 
@@ -862,6 +945,7 @@ static void sync_mesh_fluid_motion(BL::Object& b_ob, Scene *scene, Mesh *mesh)
 }
 
 Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
+                             BL::Object& b_ob_instance,
                              bool object_updated,
                              bool hide_tris)
 {
@@ -875,7 +959,7 @@ Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
 
 	/* test if we can instance or if the object is modified */
 	BL::ID b_ob_data = b_ob.data();
-	BL::ID key = (BKE_object_is_modified(b_ob))? b_ob: b_ob_data;
+	BL::ID key = (BKE_object_is_modified(b_ob))? b_ob_instance: b_ob_data;
 	BL::Material material_override = render_layer.material_override;
 
 	/* find shader indices */
@@ -898,7 +982,7 @@ Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
 		else
 			used_shaders.push_back(scene->default_surface);
 	}
-	
+
 	/* test if we need to sync */
 	int requested_geometry_flags = Mesh::GEOMETRY_NONE;
 	if(render_layer.use_surfaces) {
@@ -933,12 +1017,12 @@ Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
 	/* ensure we only sync instanced meshes once */
 	if(mesh_synced.find(mesh) != mesh_synced.end())
 		return mesh;
-	
+
 	mesh_synced.insert(mesh);
 
 	/* create derived mesh */
 	array<int> oldtriangle = mesh->triangles;
-	
+
 	/* compares curve_keys rather than strands in order to handle quick hair
 	 * adjustments in dynamic BVH - other methods could probably do this better*/
 	array<float3> oldcurve_keys = mesh->curve_keys;
@@ -960,27 +1044,22 @@ Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
 
 		bool need_undeformed = mesh->need_attribute(scene, ATTR_STD_GENERATED);
 
-		mesh->subdivision_type = Mesh::SUBDIVISION_NONE;
+		mesh->subdivision_type = object_subdivision_type(b_ob, preview, experimental);
 
-		PointerRNA cobj = RNA_pointer_get(&b_ob.ptr, "cycles");
-
-		if(cobj.data && b_ob.modifiers.length() > 0 && experimental) {
-			BL::Modifier mod = b_ob.modifiers[b_ob.modifiers.length()-1];
-			bool enabled = preview ? mod.show_viewport() : mod.show_render();
-
-			if(enabled && mod.type() == BL::Modifier::type_SUBSURF && RNA_int_get(&cobj, "use_adaptive_subdivision")) {
-				BL::SubsurfModifier subsurf(mod);
-
-				if(subsurf.subdivision_type() == BL::SubsurfModifier::subdivision_type_CATMULL_CLARK) {
-					mesh->subdivision_type = Mesh::SUBDIVISION_CATMULL_CLARK;
-				}
-				else {
-					mesh->subdivision_type = Mesh::SUBDIVISION_LINEAR;
-				}
-			}
+		/* Disable adaptive subdivision while baking as the baking system
+		 * currently doesnt support the topology and will crash.
+		 */
+		if(scene->bake_manager->get_baking()) {
+			mesh->subdivision_type = Mesh::SUBDIVISION_NONE;
 		}
 
-		BL::Mesh b_mesh = object_to_mesh(b_data, b_ob, b_scene, true, !preview, need_undeformed, mesh->subdivision_type);
+		BL::Mesh b_mesh = object_to_mesh(b_data,
+		                                 b_ob,
+		                                 b_scene,
+		                                 true,
+		                                 !preview,
+		                                 need_undeformed,
+		                                 mesh->subdivision_type);
 
 		if(b_mesh) {
 			if(render_layer.use_surfaces && !hide_tris) {
@@ -1032,7 +1111,7 @@ Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
 		if(memcmp(&oldcurve_radius[0], &mesh->curve_radius[0], sizeof(float)*oldcurve_radius.size()) != 0)
 			rebuild = true;
 	}
-	
+
 	mesh->tag_update(scene, rebuild);
 
 	return mesh;
@@ -1061,7 +1140,7 @@ void BlenderSync::sync_mesh_motion(BL::Object& b_ob,
 	if(scene->need_motion() == Scene::MOTION_BLUR) {
 		if(!mesh->use_motion_blur)
 			return;
-		
+
 		/* see if this mesh needs motion data at this time */
 		vector<float> object_times = object->motion_times();
 		bool found = false;
@@ -1088,24 +1167,30 @@ void BlenderSync::sync_mesh_motion(BL::Object& b_ob,
 	}
 
 	/* skip empty meshes */
-	size_t numverts = mesh->verts.size();
-	size_t numkeys = mesh->curve_keys.size();
+	const size_t numverts = mesh->verts.size();
+	const size_t numkeys = mesh->curve_keys.size();
 
 	if(!numverts && !numkeys)
 		return;
-	
+
 	/* skip objects without deforming modifiers. this is not totally reliable,
 	 * would need a more extensive check to see which objects are animated */
 	BL::Mesh b_mesh(PointerRNA_NULL);
 
 	/* fluid motion is exported immediate with mesh, skip here */
 	BL::DomainFluidSettings b_fluid_domain = object_fluid_domain_find(b_ob);
-	if (b_fluid_domain)
+	if(b_fluid_domain)
 		return;
 
 	if(ccl::BKE_object_is_deform_modified(b_ob, b_scene, preview)) {
 		/* get derived mesh */
-		b_mesh = object_to_mesh(b_data, b_ob, b_scene, true, !preview, false, false);
+		b_mesh = object_to_mesh(b_data,
+		                        b_ob,
+		                        b_scene,
+		                        true,
+		                        !preview,
+		                        false,
+		                        Mesh::SUBDIVISION_NONE);
 	}
 
 	if(!b_mesh) {
@@ -1141,13 +1226,12 @@ void BlenderSync::sync_mesh_motion(BL::Object& b_ob,
 
 	/* TODO(sergey): Perform preliminary check for number of verticies. */
 	if(numverts) {
-		/* find attributes */
+		/* Find attributes. */
 		Attribute *attr_mP = mesh->attributes.find(ATTR_STD_MOTION_VERTEX_POSITION);
 		Attribute *attr_mN = mesh->attributes.find(ATTR_STD_MOTION_VERTEX_NORMAL);
 		Attribute *attr_N = mesh->attributes.find(ATTR_STD_VERTEX_NORMAL);
 		bool new_attribute = false;
-
-		/* add new attributes if they don't exist already */
+		/* Add new attributes if they don't exist already. */
 		if(!attr_mP) {
 			attr_mP = mesh->attributes.add(ATTR_STD_MOTION_VERTEX_POSITION);
 			if(attr_N)
@@ -1155,31 +1239,32 @@ void BlenderSync::sync_mesh_motion(BL::Object& b_ob,
 
 			new_attribute = true;
 		}
-
-		/* load vertex data from mesh */
+		/* Load vertex data from mesh. */
 		float3 *mP = attr_mP->data_float3() + time_index*numverts;
 		float3 *mN = (attr_mN)? attr_mN->data_float3() + time_index*numverts: NULL;
-
+		/* NOTE: We don't copy more that existing amount of vertices to prevent
+		 * possible memory corruption.
+		 */
 		BL::Mesh::vertices_iterator v;
 		int i = 0;
-
 		for(b_mesh.vertices.begin(v); v != b_mesh.vertices.end() && i < numverts; ++v, ++i) {
 			mP[i] = get_float3(v->co());
 			if(mN)
 				mN[i] = get_float3(v->normal());
 		}
-
-		/* in case of new attribute, we verify if there really was any motion */
 		if(new_attribute) {
+			/* In case of new attribute, we verify if there really was any motion. */
 			if(b_mesh.vertices.length() != numverts ||
 			   memcmp(mP, &mesh->verts[0], sizeof(float3)*numverts) == 0)
 			{
 				/* no motion, remove attributes again */
 				if(b_mesh.vertices.length() != numverts) {
-					VLOG(1) << "Topology differs, disabling motion blur.";
+					VLOG(1) << "Topology differs, disabling motion blur for object "
+					        << b_ob.name();
 				}
 				else {
-					VLOG(1) << "No actual deformation motion for object " << b_ob.name();
+					VLOG(1) << "No actual deformation motion for object "
+					        << b_ob.name();
 				}
 				mesh->attributes.remove(ATTR_STD_MOTION_VERTEX_POSITION);
 				if(attr_mN)
@@ -1191,11 +1276,20 @@ void BlenderSync::sync_mesh_motion(BL::Object& b_ob,
 				 * they had no motion, but we need them anyway now */
 				float3 *P = &mesh->verts[0];
 				float3 *N = (attr_N)? attr_N->data_float3(): NULL;
-
 				for(int step = 0; step < time_index; step++) {
 					memcpy(attr_mP->data_float3() + step*numverts, P, sizeof(float3)*numverts);
 					if(attr_mN)
 						memcpy(attr_mN->data_float3() + step*numverts, N, sizeof(float3)*numverts);
+				}
+			}
+		}
+		else {
+			if(b_mesh.vertices.length() != numverts) {
+				VLOG(1) << "Topology differs, discarding motion blur for object "
+				        << b_ob.name() << " at time " << time_index;
+				memcpy(mP, &mesh->verts[0], sizeof(float3)*numverts);
+				if(mN != NULL) {
+					memcpy(mN, attr_N->data_float3(), sizeof(float3)*numverts);
 				}
 			}
 		}
@@ -1210,4 +1304,3 @@ void BlenderSync::sync_mesh_motion(BL::Object& b_ob,
 }
 
 CCL_NAMESPACE_END
-

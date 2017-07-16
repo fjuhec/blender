@@ -47,8 +47,14 @@ static void rna_Curve_transform(Curve *cu, float *mat, int shape_keys)
 {
 	BKE_curve_transform(cu, (float (*)[4])mat, shape_keys);
 
-	DAG_id_tag_update(&cu->id, 0);
+	DEG_id_tag_update(&cu->id, 0);
 }
+
+static void rna_Curve_update_gpu_tag(Curve *cu)
+{
+	BKE_curve_batch_cache_dirty(cu, BKE_CURVE_BATCH_DIRTY_ALL);
+}
+
 #else
 
 void RNA_api_curve(StructRNA *srna)
@@ -59,7 +65,7 @@ void RNA_api_curve(StructRNA *srna)
 	func = RNA_def_function(srna, "transform", "rna_Curve_transform");
 	RNA_def_function_ui_description(func, "Transform curve by a matrix");
 	parm = RNA_def_float_matrix(func, "matrix", 4, 4, NULL, 0.0f, 0.0f, "", "Matrix", 0.0f, 0.0f);
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	RNA_def_boolean(func, "shape_keys", 0, "", "Transform Shape Keys");
 
 	func = RNA_def_function(srna, "validate_material_indices", "BKE_curve_material_index_validate");
@@ -67,6 +73,8 @@ void RNA_api_curve(StructRNA *srna)
 	                                "has had invalid indices corrected (to default 0)");
 	parm = RNA_def_boolean(func, "result", 0, "Result", "");
 	RNA_def_function_return(func, parm);
+
+	RNA_def_function(srna, "update_gpu_tag", "rna_Curve_update_gpu_tag");
 }
 
 #endif

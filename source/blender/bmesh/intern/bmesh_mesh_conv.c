@@ -101,42 +101,6 @@
 /* XXX stupid hack: linker otherwise strips bmesh_strands_conv.c because it is not used inside bmesh */
 void *__dummy_hack__ = &BM_strands_count_psys_keys;
 
-/**
- * Currently this is only used for Python scripts
- * which may fail to keep matching UV/TexFace layers.
- *
- * \note This should only perform any changes in exceptional cases,
- * if we need this to be faster we could inline #BM_data_layer_add and only
- * call #update_data_blocks once at the end.
- */
-void BM_mesh_cd_validate(BMesh *bm)
-{
-	int totlayer_mtex = CustomData_number_of_layers(&bm->pdata, CD_MTEXPOLY);
-	int totlayer_uv = CustomData_number_of_layers(&bm->ldata, CD_MLOOPUV);
-
-	if (LIKELY(totlayer_mtex == totlayer_uv)) {
-		/* pass */
-	}
-	else if (totlayer_mtex < totlayer_uv) {
-		const int uv_index_first = CustomData_get_layer_index(&bm->ldata, CD_MLOOPUV);
-		do {
-			const char *from_name =  bm->ldata.layers[uv_index_first + totlayer_mtex].name;
-			BM_data_layer_add_named(bm, &bm->pdata, CD_MTEXPOLY, from_name);
-			CustomData_set_layer_unique_name(&bm->pdata, totlayer_mtex);
-		} while (totlayer_uv != ++totlayer_mtex);
-	}
-	else if (totlayer_uv < totlayer_mtex) {
-		const int mtex_index_first = CustomData_get_layer_index(&bm->pdata, CD_MTEXPOLY);
-		do {
-			const char *from_name = bm->pdata.layers[mtex_index_first + totlayer_uv].name;
-			BM_data_layer_add_named(bm, &bm->ldata, CD_MLOOPUV, from_name);
-			CustomData_set_layer_unique_name(&bm->ldata, totlayer_uv);
-		} while (totlayer_mtex != ++totlayer_uv);
-	}
-
-	BLI_assert(totlayer_mtex == totlayer_uv);
-}
-
 void BM_mesh_cd_flag_ensure(BMesh *bm, Mesh *mesh, const char cd_flag)
 {
 	const char cd_flag_all = BM_mesh_cd_flag_from_bmesh(bm) | cd_flag;
@@ -238,7 +202,7 @@ void BM_mesh_bm_from_me(
 	BMEdge *e, **etable = NULL;
 	BMFace *f;
 	float (*keyco)[3] = NULL;
-	int totuv, totloops, i, j;
+	int totloops, i, j;
 	CustomDataMask mask = CD_MASK_BMESH | params->cd_mask_extra;
 
 	/* free custom data */
@@ -269,13 +233,6 @@ void BM_mesh_bm_from_me(
 	CustomData_copy(&me->edata, &bm->edata, mask, CD_CALLOC, 0);
 	CustomData_copy(&me->ldata, &bm->ldata, mask, CD_CALLOC, 0);
 	CustomData_copy(&me->pdata, &bm->pdata, mask, CD_CALLOC, 0);
-
-	/* make sure uv layer names are consisten */
-	totuv = CustomData_number_of_layers(&bm->pdata, CD_MTEXPOLY);
-	for (i = 0; i < totuv; i++) {
-		int li = CustomData_get_layer_index_n(&bm->pdata, CD_MTEXPOLY, i);
-		CustomData_set_layer_name(&bm->ldata, CD_MLOOPUV, i, bm->pdata.layers[li].name);
-	}
 
 	if ((params->active_shapekey != 0) && (me->key != NULL)) {
 		actkey = BLI_findlink(&me->key->block, params->active_shapekey - 1);
@@ -949,6 +906,10 @@ void BM_mesh_bm_to_me(
 				/* propagate edited basis offsets to other shapes */
 				if (apply_offset) {
 					add_v3_v3(fp, *ofs_pt++);
+					/* Apply back new coordinates of offsetted shapekeys into BMesh.
+					 * Otherwise, in case we call again BM_mesh_bm_to_me on same BMesh, we'll apply diff from previous
+					 * call to BM_mesh_bm_to_me, to shapekey values from *original creation of the BMesh*. See T50524. */
+					copy_v3_v3(BM_ELEM_CD_GET_VOID_P(eve, cd_shape_offset), fp);
 				}
 
 				fp += 3;

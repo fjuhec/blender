@@ -48,8 +48,9 @@
 #include "BKE_main.h"
 #include "BKE_animsys.h"
 #include "BKE_context.h"
-#include "BKE_depsgraph.h"
 #include "BKE_report.h"
+
+#include "DEG_depsgraph.h"
 
 #include "ED_keyframing.h"
 #include "ED_screen.h"
@@ -296,6 +297,12 @@ static int add_keyingset_button_exec(bContext *C, wmOperator *op)
 	int index = 0, pflag = 0;
 	const bool all = RNA_boolean_get(op->ptr, "all");
 	
+	/* try to add to keyingset using property retrieved from UI */
+	if (!UI_context_active_but_prop_get(C, &ptr, &prop, &index)) {
+		/* pass event on if no active button found */
+		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
+	}
+	
 	/* verify the Keying Set to use:
 	 *	- use the active one for now (more control over this can be added later)
 	 *	- add a new one if it doesn't exist 
@@ -325,9 +332,6 @@ static int add_keyingset_button_exec(bContext *C, wmOperator *op)
 	else {
 		ks = BLI_findlink(&scene->keyingsets, scene->active_keyingset - 1);
 	}
-	
-	/* try to add to keyingset using property retrieved from UI */
-	UI_context_active_but_prop_get(C, &ptr, &prop, &index);
 	
 	/* check if property is able to be added */
 	if (ptr.id.data && ptr.data && prop && RNA_property_animateable(&ptr, prop)) {
@@ -396,6 +400,12 @@ static int remove_keyingset_button_exec(bContext *C, wmOperator *op)
 	short success = 0;
 	int index = 0;
 	
+	/* try to add to keyingset using property retrieved from UI */
+	if (UI_context_active_but_prop_get(C, &ptr, &prop, &index)) {
+		/* pass event on if no active button found */
+		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
+	}
+	
 	/* verify the Keying Set to use:
 	 *	- use the active one for now (more control over this can be added later)
 	 *	- return error if it doesn't exist
@@ -412,9 +422,6 @@ static int remove_keyingset_button_exec(bContext *C, wmOperator *op)
 		ks = BLI_findlink(&scene->keyingsets, scene->active_keyingset - 1);
 	}
 	
-	/* try to add to keyingset using property retrieved from UI */
-	UI_context_active_but_prop_get(C, &ptr, &prop, &index);
-
 	if (ptr.id.data && ptr.data && prop) {
 		path = RNA_path_from_ID_to_property(&ptr, prop);
 		
@@ -1043,7 +1050,7 @@ int ANIM_apply_keyingset(bContext *C, ListBase *dsources, bAction *act, KeyingSe
 				Object *ob = (Object *)ksp->id;
 				
 				// XXX: only object transforms?
-				DAG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
+				DEG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 				break;
 			}
 		}

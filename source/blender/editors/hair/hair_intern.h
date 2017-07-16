@@ -71,20 +71,15 @@ bool ED_hair_object_apply_particle_edit(struct Object *ob);
 
 /* ==== Hair Brush ==== */
 
-typedef struct HairViewData {
-	ViewContext vc;
-	bglMats mats;
-} HairViewData;
+void hair_init_viewcontext(struct bContext *C, struct ViewContext *vc);
 
-void hair_init_viewdata(struct bContext *C, struct HairViewData *viewdata);
-
-bool hair_test_depth(struct HairViewData *viewdata, const float co[3], const int screen_co[2]);
-bool hair_test_vertex_inside_circle(struct HairViewData *viewdata, const float mval[2], float radsq,
+bool hair_test_depth(struct ViewContext *vc, const float co[3], const int screen_co[2]);
+bool hair_test_vertex_inside_circle(struct ViewContext *vc, const float mval[2], float radsq,
                              struct BMVert *v, float *r_dist);
-bool hair_test_edge_inside_circle(struct HairViewData *viewdata, const float mval[2], float radsq,
+bool hair_test_edge_inside_circle(struct ViewContext *vc, const float mval[2], float radsq,
                                   struct BMVert *v1, struct BMVert *v2, float *r_dist, float *r_lambda);
-bool hair_test_vertex_inside_rect(struct HairViewData *viewdata, struct rcti *rect, struct BMVert *v);
-bool hair_test_vertex_inside_lasso(struct HairViewData *viewdata, const int mcoords[][2], short moves, struct BMVert *v);
+bool hair_test_vertex_inside_rect(struct ViewContext *vc, struct rcti *rect, struct BMVert *v);
+bool hair_test_vertex_inside_lasso(struct ViewContext *vc, const int mcoords[][2], short moves, struct BMVert *v);
 
 typedef struct HairToolData {
 	/* context */
@@ -92,7 +87,7 @@ typedef struct HairToolData {
 	struct Object *ob;
 	struct BMEditStrands *edit;
 	struct HairEditSettings *settings;
-	HairViewData viewdata;
+	ViewContext vc;
 	
 	/* view space */
 	float mval[2];      /* mouse coordinates */

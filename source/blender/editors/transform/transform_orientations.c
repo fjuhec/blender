@@ -38,11 +38,12 @@
 #include "DNA_screen_types.h"
 #include "DNA_space_types.h"
 #include "DNA_view3d_types.h"
+#include "DNA_workspace_types.h"
 
 #include "BLI_math.h"
 #include "BLI_listbase.h"
 #include "BLI_string.h"
-#include "BLI_path_util.h"
+#include "BLI_string_utils.h"
 #include "BLI_utildefines.h"
 
 #include "BKE_action.h"
@@ -52,6 +53,7 @@
 #include "BKE_report.h"
 #include "BKE_main.h"
 #include "BKE_screen.h"
+#include "BKE_workspace.h"
 
 #include "BLT_translation.h"
 
@@ -63,14 +65,16 @@
 
 void BIF_clearTransformOrientation(bContext *C)
 {
+	WorkSpace *workspace = CTX_wm_workspace(C);
+	ListBase *transform_orientations = BKE_workspace_transform_orientations_get(workspace);
 	View3D *v3d = CTX_wm_view3d(C);
 
-	ListBase *transform_spaces = &CTX_data_scene(C)->transform_spaces;
-	BLI_freelistN(transform_spaces);
+	BLI_freelistN(transform_orientations);
 	
 	// Need to loop over all view3d
-	if (v3d && v3d->twmode >= V3D_MANIP_CUSTOM) {
-		v3d->twmode = V3D_MANIP_GLOBAL; /* fallback to global	*/
+	if (v3d && v3d->twmode == V3D_MANIP_CUSTOM) {
+		v3d->twmode = V3D_MANIP_GLOBAL; /* fallback to global */
+		v3d->custom_orientation_index = -1;
 	}
 }
 
@@ -318,23 +322,24 @@ void BIF_createTransformOrientation(bContext *C, ReportList *reports,
 TransformOrientation *addMatrixSpace(bContext *C, float mat[3][3],
                                      const char *name, const bool overwrite)
 {
-	ListBase *transform_spaces = &CTX_data_scene(C)->transform_spaces;
 	TransformOrientation *ts = NULL;
+	WorkSpace *workspace = CTX_wm_workspace(C);
+	ListBase *transform_orientations = BKE_workspace_transform_orientations_get(workspace);
 	char name_unique[sizeof(ts->name)];
 
 	if (overwrite) {
-		ts = findOrientationName(transform_spaces, name);
+		ts = findOrientationName(transform_orientations, name);
 	}
 	else {
 		BLI_strncpy(name_unique, name, sizeof(name_unique));
-		uniqueOrientationName(transform_spaces, name_unique);
+		uniqueOrientationName(transform_orientations, name_unique);
 		name = name_unique;
 	}
 
 	/* if not, create a new one */
 	if (ts == NULL) {
 		ts = MEM_callocN(sizeof(TransformOrientation), "UserTransSpace from matrix");
-		BLI_addtail(transform_spaces, ts);
+		BLI_addtail(transform_orientations, ts);
 		BLI_strncpy(ts->name, name, sizeof(ts->name));
 	}
 
@@ -346,70 +351,55 @@ TransformOrientation *addMatrixSpace(bContext *C, float mat[3][3],
 
 void BIF_removeTransformOrientation(bContext *C, TransformOrientation *target)
 {
-	Scene *scene = CTX_data_scene(C);
-	ListBase *transform_spaces = &scene->transform_spaces;
-	const int i = BLI_findindex(transform_spaces, target);
-
-	if (i != -1) {
-		Main *bmain = CTX_data_main(C);
-		BKE_screen_view3d_main_twmode_remove(&bmain->screen, scene, i);
-		BLI_freelinkN(transform_spaces, target);
-	}
+	BKE_workspace_transform_orientation_remove(CTX_wm_workspace(C), target);
 }
 
 void BIF_removeTransformOrientationIndex(bContext *C, int index)
 {
-	ListBase *transform_spaces = &CTX_data_scene(C)->transform_spaces;
-	TransformOrientation *ts = BLI_findlink(transform_spaces, index);
-
-	if (ts) {
-		BIF_removeTransformOrientation(C, ts);
-	}
+	TransformOrientation *target = BKE_workspace_transform_orientation_find(CTX_wm_workspace(C), index);
+	BIF_removeTransformOrientation(C, target);
 }
 
 void BIF_selectTransformOrientation(bContext *C, TransformOrientation *target)
 {
-	ListBase *transform_spaces = &CTX_data_scene(C)->transform_spaces;
-	const int i = BLI_findindex(transform_spaces, target);
+	int index = BKE_workspace_transform_orientation_get_index(CTX_wm_workspace(C), target);
+	View3D *v3d = CTX_wm_view3d(C);
 
-	if (i != -1) {
-		View3D *v3d = CTX_wm_view3d(C);
-		v3d->twmode = V3D_MANIP_CUSTOM + i;
-	}
+	BLI_assert(index != -1);
+
+	v3d->twmode = V3D_MANIP_CUSTOM;
+	v3d->custom_orientation_index = index;
 }
 
-void BIF_selectTransformOrientationValue(bContext *C, int orientation)
+/**
+ * Activate a transform orientation in a 3D view based on an enum value.
+ *
+ * \param orientation: If this is #V3D_MANIP_CUSTOM or greater, the custom transform orientation
+ *                     with index \a orientation - #V3D_MANIP_CUSTOM gets activated.
+ */
+void BIF_selectTransformOrientationValue(View3D *v3d, int orientation)
 {
-	View3D *v3d = CTX_wm_view3d(C);
-	if (v3d) /* currently using generic poll */
-		v3d->twmode = orientation;
+	const bool is_custom = orientation >= V3D_MANIP_CUSTOM;
+
+	v3d->twmode = is_custom ? V3D_MANIP_CUSTOM : orientation;
+	v3d->custom_orientation_index = is_custom ? (orientation - V3D_MANIP_CUSTOM) : -1;
 }
 
 int BIF_countTransformOrientation(const bContext *C)
 {
-	ListBase *transform_spaces = &CTX_data_scene(C)->transform_spaces;
-	return BLI_listbase_count(transform_spaces);
+	WorkSpace *workspace = CTX_wm_workspace(C);
+	ListBase *transform_orientations = BKE_workspace_transform_orientations_get(workspace);
+	return BLI_listbase_count(transform_orientations);
 }
 
-bool applyTransformOrientation(const bContext *C, float mat[3][3], char *r_name, int index)
+bool applyTransformOrientation(const TransformOrientation *ts, float r_mat[3][3], char *r_name)
 {
-	ListBase *transform_spaces = &CTX_data_scene(C)->transform_spaces;
-	TransformOrientation *ts = BLI_findlink(transform_spaces, index);
-
-	BLI_assert(index >= 0);
-
-	if (ts) {
-		if (r_name) {
-			BLI_strncpy(r_name, ts->name, MAX_NAME);
-		}
-
-		copy_m3_m3(mat, ts->mat);
-		return true;
+	if (r_name) {
+		BLI_strncpy(r_name, ts->name, MAX_NAME);
 	}
-	else {
-		/* invalid index, can happen sometimes */
-		return false;
-	}
+	copy_m3_m3(r_mat, ts->mat);
+
+	return true;
 }
 
 static int count_bone_select(bArmature *arm, ListBase *lb, const bool do_it)
@@ -451,18 +441,18 @@ void initTransformOrientation(bContext *C, TransInfo *t)
 
 		case V3D_MANIP_GIMBAL:
 			unit_m3(t->spacemtx);
-			if (gimbal_axis(ob, t->spacemtx)) {
+			if (ob && gimbal_axis(ob, t->spacemtx)) {
 				BLI_strncpy(t->spacename, IFACE_("gimbal"), sizeof(t->spacename));
 				break;
 			}
-			/* fall-through */  /* no gimbal fallthrough to normal */
+			ATTR_FALLTHROUGH;  /* no gimbal fallthrough to normal */
 		case V3D_MANIP_NORMAL:
 			if (obedit || (ob && ob->mode & OB_MODE_POSE)) {
 				BLI_strncpy(t->spacename, IFACE_("normal"), sizeof(t->spacename));
 				ED_getTransformOrientationMatrix(C, t->spacemtx, t->around);
 				break;
 			}
-			/* fall-through */  /* we define 'normal' as 'local' in Object mode */
+			ATTR_FALLTHROUGH;  /* we define 'normal' as 'local' in Object mode */
 		case V3D_MANIP_LOCAL:
 			BLI_strncpy(t->spacename, IFACE_("local"), sizeof(t->spacename));
 		
@@ -492,8 +482,10 @@ void initTransformOrientation(bContext *C, TransInfo *t)
 				unit_m3(t->spacemtx);
 			}
 			break;
-		default: /* V3D_MANIP_CUSTOM */
-			if (applyTransformOrientation(C, t->spacemtx, t->spacename, t->current_orientation - V3D_MANIP_CUSTOM)) {
+		case V3D_MANIP_CUSTOM:
+			BLI_strncpy(t->spacename, t->custom_orientation->name, sizeof(t->spacename));
+
+			if (applyTransformOrientation(t->custom_orientation, t->spacemtx, t->spacename)) {
 				/* pass */
 			}
 			else {
@@ -586,10 +578,10 @@ static unsigned int bm_mesh_faces_select_get_n(BMesh *bm, BMVert **elems, const 
 
 int getTransformOrientation_ex(const bContext *C, float normal[3], float plane[3], const short around)
 {
-	Scene *scene = CTX_data_scene(C);
+	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *obedit = CTX_data_edit_object(C);
 	Base *base;
-	Object *ob = OBACT;
+	Object *ob = OBACT_NEW;
 	int result = ORIENTATION_NONE;
 	const bool activeOnly = (around == V3D_AROUND_ACTIVE);
 
@@ -817,14 +809,20 @@ int getTransformOrientation_ex(const bContext *C, float normal[3], float plane[3
 		else if (ELEM(obedit->type, OB_CURVE, OB_SURF)) {
 			Curve *cu = obedit->data;
 			Nurb *nu = NULL;
-			BezTriple *bezt = NULL;
 			int a;
 			ListBase *nurbs = BKE_curve_editNurbs_get(cu);
 
-			if (activeOnly && BKE_curve_nurb_vert_active_get(cu, &nu, (void *)&bezt)) {
+			void *vert_act = NULL;
+			if (activeOnly && BKE_curve_nurb_vert_active_get(cu, &nu, &vert_act)) {
 				if (nu->type == CU_BEZIER) {
+					BezTriple *bezt = vert_act;
 					BKE_nurb_bezt_calc_normal(nu, bezt, normal);
 					BKE_nurb_bezt_calc_plane(nu, bezt, plane);
+				}
+				else {
+					BPoint *bp = vert_act;
+					BKE_nurb_bpoint_calc_normal(nu, bp, normal);
+					BKE_nurb_bpoint_calc_plane(nu, bp, plane);
 				}
 			}
 			else {
@@ -833,7 +831,7 @@ int getTransformOrientation_ex(const bContext *C, float normal[3], float plane[3
 				for (nu = nurbs->first; nu; nu = nu->next) {
 					/* only bezier has a normal */
 					if (nu->type == CU_BEZIER) {
-						bezt = nu->bezt;
+						BezTriple *bezt = nu->bezt;
 						a = nu->pntsu;
 						while (a--) {
 							short flag = 0;
@@ -883,6 +881,36 @@ int getTransformOrientation_ex(const bContext *C, float normal[3], float plane[3
 #undef SEL_F3
 
 							bezt++;
+						}
+					}
+					else if (nu->bp && (nu->pntsv == 1)) {
+						BPoint *bp = nu->bp;
+						a = nu->pntsu;
+						while (a--) {
+							if (bp->f1 & SELECT) {
+								float tvec[3];
+
+								BPoint *bp_prev = BKE_nurb_bpoint_get_prev(nu, bp);
+								BPoint *bp_next = BKE_nurb_bpoint_get_next(nu, bp);
+
+								const bool is_prev_sel = bp_prev && (bp_prev->f1 & SELECT);
+								const bool is_next_sel = bp_next && (bp_next->f1 & SELECT);
+								if (is_prev_sel == false && is_next_sel == false) {
+									/* Isolated, add based on surrounding */
+									BKE_nurb_bpoint_calc_normal(nu, bp, tvec);
+									add_v3_v3(normal, tvec);
+								}
+								else if (is_next_sel) {
+									/* A segment, add the edge normal */
+									sub_v3_v3v3(tvec, bp->vec, bp_next->vec	);
+									normalize_v3(tvec);
+									add_v3_v3(normal, tvec);
+								}
+
+								BKE_nurb_bpoint_calc_plane(nu, bp, tvec);
+								add_v3_v3(plane, tvec);
+							}
+							bp++;
 						}
 					}
 				}
@@ -1016,16 +1044,16 @@ int getTransformOrientation_ex(const bContext *C, float normal[3], float plane[3
 	}
 	else {
 		/* we need the one selected object, if its not active */
-		View3D *v3d = CTX_wm_view3d(C);
-		ob = OBACT;
-		if (ob && (ob->flag & SELECT)) {
+		base = BASACT_NEW;
+		ob = OBACT_NEW;
+		if (base && ((base->flag & BASE_SELECTED) != 0)) {
 			/* pass */
 		}
 		else {
 			/* first selected */
 			ob = NULL;
-			for (base = scene->base.first; base; base = base->next) {
-				if (TESTBASELIB(v3d, base)) {
+			for (base = sl->object_bases.first; base; base = base->next) {
+				if (TESTBASELIB_NEW(base)) {
 					ob = base->object;
 					break;
 				}

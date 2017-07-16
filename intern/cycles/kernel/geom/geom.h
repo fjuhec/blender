@@ -1,6 +1,5 @@
 /*
- * Adapted from code Copyright 2009-2010 NVIDIA Corporation
- * Modifications Copyright 2011, Blender Foundation.
+ * Copyright 2011-2013 Blender Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +14,19 @@
  * limitations under the License.
  */
 
-#include "geom_attribute.h"
-#include "geom_object.h"
-#include "geom_patch.h"
-#include "geom_triangle.h"
-#include "geom_subd_triangle.h"
-#include "geom_triangle_intersect.h"
-#include "geom_motion_triangle.h"
-#include "geom_motion_curve.h"
-#include "geom_curve.h"
-#include "geom_volume.h"
-#include "geom_primitive.h"
+#include "kernel/geom/geom_attribute.h"
+#include "kernel/geom/geom_object.h"
+#ifdef __PATCH_EVAL__
+#  include "kernel/geom/geom_patch.h"
+#endif
+#include "kernel/geom/geom_triangle.h"
+#include "kernel/geom/geom_subd_triangle.h"
+#include "kernel/geom/geom_triangle_intersect.h"
+#include "kernel/geom/geom_motion_triangle.h"
+#include "kernel/geom/geom_motion_triangle_intersect.h"
+#include "kernel/geom/geom_motion_triangle_shader.h"
+#include "kernel/geom/geom_motion_curve.h"
+#include "kernel/geom/geom_curve.h"
+#include "kernel/geom/geom_volume.h"
+#include "kernel/geom/geom_primitive.h"
 

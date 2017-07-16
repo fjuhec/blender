@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include "mesh.h"
-#include "object.h"
-#include "particles.h"
+#include "render/mesh.h"
+#include "render/object.h"
+#include "render/particles.h"
 
-#include "blender_sync.h"
-#include "blender_util.h"
+#include "blender/blender_sync.h"
+#include "blender/blender_util.h"
 
-#include "util_foreach.h"
+#include "util/util_foreach.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -35,6 +35,8 @@ bool BlenderSync::sync_dupli_particle(BL::Object& b_ob,
 	BL::ParticleSystem b_psys = b_dup.particle_system();
 	if(!b_psys)
 		return false;
+
+	object->hide_on_missing_motion = true;
 
 	/* test if we need particle data */
 	if(!object->mesh->need_attribute(scene, ATTR_STD_PARTICLE))

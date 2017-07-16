@@ -29,6 +29,7 @@ set(INC
 	../blenkernel
 	../blenlib
 	../blentranslation
+	../depsgraph
 	../imbuf
 	../makesdna
 	../makesrna
@@ -53,6 +54,7 @@ set(SRC
 	intern/versioning_250.c
 	intern/versioning_260.c
 	intern/versioning_270.c
+	intern/versioning_280.c
 	intern/versioning_defaults.c
 	intern/versioning_legacy.c
 	intern/writefile.c
@@ -67,6 +69,12 @@ set(SRC
 
 if(WITH_BUILDINFO)
 	add_definitions(-DWITH_BUILDINFO)
+endif()
+
+if(WITH_PYTHON)
+	if(WITH_PYTHON_SECURITY)
+		add_definitions(-DWITH_PYTHON_SECURITY)
+	endif()
 endif()
 
 if(WITH_INTERNATIONAL)

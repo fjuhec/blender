@@ -56,7 +56,6 @@
 #include "BKE_appdir.h"
 #include "BKE_brush.h"
 #include "BKE_context.h"
-#include "BKE_depsgraph.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
 #include "BKE_main.h"
@@ -65,6 +64,8 @@
 #include "BLO_undofile.h"
 #include "BLO_readfile.h"
 #include "BLO_writefile.h"
+
+#include "DEG_depsgraph.h"
 
 /* -------------------------------------------------------------------- */
 
@@ -108,9 +109,9 @@ static int read_undosave(bContext *C, UndoElem *uel)
 	G.fileflags |= G_FILE_NO_UI;
 
 	if (UNDO_DISK)
-		success = (BKE_blendfile_read(C, uel->str, NULL) != BKE_BLENDFILE_READ_FAIL);
+		success = (BKE_blendfile_read(C, uel->str, NULL, 0) != BKE_BLENDFILE_READ_FAIL);
 	else
-		success = BKE_blendfile_read_from_memfile(C, &uel->memfile, NULL);
+		success = BKE_blendfile_read_from_memfile(C, &uel->memfile, NULL, 0);
 
 	/* restore */
 	BLI_strncpy(G.main->name, mainstr, sizeof(G.main->name)); /* restore */
@@ -118,7 +119,7 @@ static int read_undosave(bContext *C, UndoElem *uel)
 
 	if (success) {
 		/* important not to update time here, else non keyed tranforms are lost */
-		DAG_on_visible_update(G.main, false);
+		DEG_on_visible_update(G.main, false);
 	}
 
 	return success;
@@ -319,6 +320,13 @@ const char *BKE_undo_get_name(int nr, bool *r_active)
 	return NULL;
 }
 
+/* return the name of the last item */
+const char *BKE_undo_get_name_last(void)
+{
+	UndoElem *uel = undobase.last;
+	return (uel ? uel->name : NULL);
+}
+
 /**
  * Saves .blend using undo buffer.
  *
@@ -382,7 +390,7 @@ bool BKE_undo_save_file(const char *filename)
 Main *BKE_undo_get_main(Scene **r_scene)
 {
 	Main *mainp = NULL;
-	BlendFileData *bfd = BLO_read_from_memfile(G.main, G.main->name, &curundo->memfile, NULL);
+	BlendFileData *bfd = BLO_read_from_memfile(G.main, G.main->name, &curundo->memfile, NULL, BLO_READ_SKIP_NONE);
 
 	if (bfd) {
 		mainp = bfd->main;

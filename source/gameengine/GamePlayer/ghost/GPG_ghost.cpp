@@ -68,7 +68,6 @@ extern "C"
 
 #include "BKE_appdir.h"
 #include "BKE_blender.h"
-#include "BKE_depsgraph.h"
 #include "BKE_global.h"
 #include "BKE_icons.h"
 #include "BKE_image.h"
@@ -80,6 +79,8 @@ extern "C"
 #include "BKE_material.h"
 #include "BKE_text.h"
 #include "BKE_sound.h"
+
+#include "DEG_depsgraph.h"
 
 #include "IMB_imbuf.h"
 #include "IMB_moviecache.h"
@@ -355,7 +356,7 @@ static BlendFileData *load_game_data(const char *progname, char *filename = NULL
 			BLI_strncpy(bfd->main->name, progname, sizeof(bfd->main->name));
 		}
 	} else {
-		bfd= BLO_read_from_file(progname, &reports);
+		bfd= BLO_read_from_file(progname, &reports, BLO_READ_SKIP_NONE);
 	}
 	
 	if (!bfd && filename) {
@@ -509,14 +510,14 @@ int main(
 	IMB_init();
 	BKE_images_init();
 	BKE_modifier_init();
-	DAG_init();
+	DEG_register_node_types();
 
 #ifdef WITH_FFMPEG
 	IMB_ffmpeg_init();
 #endif
 
 	// Setup builtin font for BLF (mostly copied from creator.c, wm_init_exit.c and interface_style.c)
-	BLF_init(11, U.dpi);
+	BLF_init();
 	BLT_lang_init();
 	BLT_lang_set("");
 
@@ -1148,7 +1149,7 @@ int main(
 								MEM_freeN(python_code);
 							}
 							else {
-								fprintf(stderr, "ERROR: cannot yield control to Python: no Python text data block named '%s'\n", python_main);
+								fprintf(stderr, "ERROR: cannot yield control to Python: no Python text data-block named '%s'\n", python_main);
 							}
 						}
 						else {
@@ -1201,7 +1202,7 @@ int main(
 
 	IMB_exit();
 	BKE_images_exit();
-	DAG_exit();
+	DEG_free_node_types();
 	IMB_moviecache_destruct();
 
 	SYS_DeleteSystem(syshandle);

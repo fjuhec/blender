@@ -59,9 +59,27 @@ GHOST_ContextCGL::GHOST_ContextCGL(
         int contextResetNotificationStrategy)
     : GHOST_Context(stereoVisual, numOfAASamples),
       m_openGLView(openGLView),
-      m_openGLContext(nil)
+      m_openGLContext(nil),
+      m_debug(contextFlags)
 {
 	assert(openGLView != nil);
+
+	// for now be very strict about OpenGL version requested
+	switch (contextMajorVersion) {
+		case 2:
+			assert(contextMinorVersion == 1);
+			assert(contextProfileMask == 0);
+			m_coreProfile = false;
+			break;
+		case 3:
+			// Apple didn't implement 3.0 or 3.1
+			assert(contextMinorVersion == 2);
+			assert(contextProfileMask == GL_CONTEXT_CORE_PROFILE_BIT);
+			m_coreProfile = true;
+			break;
+		default:
+			assert(false);
+	}
 }
 
 
@@ -141,9 +159,6 @@ GHOST_TSuccess GHOST_ContextCGL::activateDrawingContext()
 	if (m_openGLContext != nil) {
 		NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 		[m_openGLContext makeCurrentContext];
-
-		activateGLEW();
-
 		[pool drain];
 		return GHOST_kSuccess;
 	}
@@ -169,32 +184,33 @@ GHOST_TSuccess GHOST_ContextCGL::updateDrawingContext()
 
 static void makeAttribList(
         std::vector<NSOpenGLPixelFormatAttribute>& attribs,
+        bool coreProfile, 
         bool stereoVisual,
         int numOfAASamples,
         bool needAlpha,
-        bool needStencil)
+        bool needStencil,
+        bool softwareGL)
 {
+	attribs.clear();
+
+	attribs.push_back(NSOpenGLPFAOpenGLProfile);
+	attribs.push_back(coreProfile ? NSOpenGLProfileVersion3_2Core : NSOpenGLProfileVersionLegacy);
+	
 	// Pixel Format Attributes for the windowed NSOpenGLContext
 	attribs.push_back(NSOpenGLPFADoubleBuffer);
 
-	// Force software OpenGL, for debugging
-	/* XXX jwilkins: fixed this to work on Intel macs? useful feature for Windows and Linux too?
-	 * Maybe a command line flag is better... */
-	if (getenv("BLENDER_SOFTWAREGL")) {
+	if (softwareGL) {
 		attribs.push_back(NSOpenGLPFARendererID);
 		attribs.push_back(kCGLRendererGenericFloatID);
 	}
 	else {
 		attribs.push_back(NSOpenGLPFAAccelerated);
+		attribs.push_back(NSOpenGLPFANoRecovery);
 	}
 
-	/* Removed to allow 10.4 builds, and 2 GPUs rendering is not used anyway */
-	//attribs.push_back(NSOpenGLPFAAllowOfflineRenderers);
+	attribs.push_back(NSOpenGLPFAAllowOfflineRenderers); // for automatic GPU switching
 
 	attribs.push_back(NSOpenGLPFADepthSize);
-	attribs.push_back((NSOpenGLPixelFormatAttribute) 32);
-
-	attribs.push_back(NSOpenGLPFAAccumSize);
 	attribs.push_back((NSOpenGLPixelFormatAttribute) 32);
 
 	if (stereoVisual)
@@ -219,13 +235,21 @@ static void makeAttribList(
 
 		attribs.push_back(NSOpenGLPFASamples);
 		attribs.push_back((NSOpenGLPixelFormatAttribute) numOfAASamples);
-
-		attribs.push_back(NSOpenGLPFANoRecovery);
 	}
 
 	attribs.push_back((NSOpenGLPixelFormatAttribute) 0);
 }
 
+// TODO(merwin): make this available to all platforms
+static void getVersion(int *major, int *minor)
+{
+#if 1 // legacy GL
+	sscanf((const char*)glGetString(GL_VERSION), "%d.%d", major, minor);
+#else // 3.0+
+	glGetIntegerv(GL_MAJOR_VERSION, major);
+	glGetIntegerv(GL_MINOR_VERSION, minor);
+#endif
+}
 
 GHOST_TSuccess GHOST_ContextCGL::initializeDrawingContext()
 {
@@ -248,9 +272,12 @@ GHOST_TSuccess GHOST_ContextCGL::initializeDrawingContext()
 	static const bool needStencil = false;
 #endif
 
-	makeAttribList(attribs, m_stereoVisual, m_numOfAASamples, needAlpha, needStencil);
-
+	static bool softwareGL = getenv("BLENDER_SOFTWAREGL"); // command-line argument would be better
+	GLint major = 0, minor = 0;
 	NSOpenGLPixelFormat *pixelFormat;
+	// TODO: keep pixel format for subsequent windows/contexts instead of recreating each time
+
+	makeAttribList(attribs, m_coreProfile, m_stereoVisual, m_numOfAASamples, needAlpha, needStencil, softwareGL);
 
 	pixelFormat = [[NSOpenGLPixelFormat alloc] initWithAttributes:&attribs[0]];
 
@@ -261,7 +288,7 @@ GHOST_TSuccess GHOST_ContextCGL::initializeDrawingContext()
 		// (Now that I think about it, does WGL really require the code that it has for finding a lesser match?)
 
 		attribs.clear();
-		makeAttribList(attribs, m_stereoVisual, 0, needAlpha, needStencil);
+		makeAttribList(attribs, m_coreProfile, m_stereoVisual, 0, needAlpha, needStencil, softwareGL);
 		pixelFormat = [[NSOpenGLPixelFormat alloc] initWithAttributes:&attribs[0]];
 	}
 
@@ -282,25 +309,47 @@ GHOST_TSuccess GHOST_ContextCGL::initializeDrawingContext()
 		}
 	}
 
-	[m_openGLView setPixelFormat:pixelFormat];
+	m_openGLContext = [[NSOpenGLContext alloc] initWithFormat:pixelFormat shareContext:s_sharedOpenGLContext];
+	[pixelFormat release];
 
-	m_openGLContext = [[NSOpenGLContext alloc] initWithFormat:pixelFormat shareContext:s_sharedOpenGLContext]; // +1 refCount to pixelFormat
+	[m_openGLContext makeCurrentContext];
 
-	if (m_openGLContext == nil)
-		goto error;
+	getVersion(&major, &minor);
+	if (m_debug) {
+		fprintf(stderr, "OpenGL version %d.%d%s\n", major, minor, softwareGL ? " (software)" : "");
+		fprintf(stderr, "Renderer: %s\n", glGetString(GL_RENDERER));
+	}
 
-	if (s_sharedCount == 0)
-		s_sharedOpenGLContext = m_openGLContext;
-	
-	[pixelFormat release]; // -1 refCount to pixelFormat
-	
-	s_sharedCount++;
+	if (major < 2 || (major == 2 && minor < 1)) {
+		// fall back to software renderer if GL < 2.1
+		fprintf(stderr, "OpenGL 2.1 is not supported on your hardware, falling back to software");
+		softwareGL = true;
+
+		// discard hardware GL context
+		[NSOpenGLContext clearCurrentContext];
+		[m_openGLContext release];
+
+		// create software GL context
+		makeAttribList(attribs, m_coreProfile, m_stereoVisual, m_numOfAASamples, needAlpha, needStencil, softwareGL);
+		pixelFormat = [[NSOpenGLPixelFormat alloc] initWithAttributes:&attribs[0]];
+		m_openGLContext = [[NSOpenGLContext alloc] initWithFormat:pixelFormat shareContext:s_sharedOpenGLContext];
+		[pixelFormat release];
+
+		[m_openGLContext makeCurrentContext];
+
+		getVersion(&major, &minor);
+		if (m_debug) {
+			fprintf(stderr, "OpenGL version %d.%d%s\n", major, minor, softwareGL ? " (software)" : "");
+			fprintf(stderr, "Renderer: %s\n", glGetString(GL_RENDERER));
+		}
+	}
 
 #ifdef GHOST_MULTITHREADED_OPENGL
 	//Switch openGL to multhreaded mode
 	CGLContextObj cglCtx = (CGLContextObj)[tmpOpenGLContext CGLContextObj];
 	if (CGLEnable(cglCtx, kCGLCEMPEngine) == kCGLNoError)
-		printf("\nSwitched openGL to multithreaded mode\n");
+		if (m_debug)
+			fprintf(stderr, "\nSwitched OpenGL to multithreaded mode\n");
 #endif
 
 #ifdef GHOST_WAIT_FOR_VSYNC
@@ -311,10 +360,16 @@ GHOST_TSuccess GHOST_ContextCGL::initializeDrawingContext()
 	}
 #endif
 
+	initContextGLEW();
+
 	[m_openGLView setOpenGLContext:m_openGLContext];
 	[m_openGLContext setView:m_openGLView];
 
-	initContextGLEW();
+	if (s_sharedCount == 0)
+		s_sharedOpenGLContext = m_openGLContext;
+	
+	s_sharedCount++;
+
 
 	initClearGL();
 	[m_openGLContext flushBuffer];

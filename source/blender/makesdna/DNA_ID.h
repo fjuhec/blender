@@ -82,8 +82,6 @@ enum {
 	IDP_FLOAT            = 2,
 	IDP_ARRAY            = 5,
 	IDP_GROUP            = 6,
-	/* the ID link property type hasn't been implemented yet, this will require
-	 * some cleanup of blenkernel, most likely. */
 	IDP_ID               = 7,
 	IDP_DOUBLE           = 8,
 	IDP_IDPARRAY         = 9,
@@ -96,6 +94,17 @@ enum {
 enum {
 	IDP_STRING_SUB_UTF8  = 0,  /* default */
 	IDP_STRING_SUB_BYTE  = 1,  /* arbitrary byte array, _not_ null terminated */
+};
+
+/* IDP_GROUP */
+enum {
+	IDP_GROUP_SUB_NONE              = 0,  /* default */
+	IDP_GROUP_SUB_MODE_OBJECT       = 1,  /* object mode settings */
+	IDP_GROUP_SUB_MODE_EDIT         = 2,  /* mesh edit mode settings */
+	IDP_GROUP_SUB_ENGINE_RENDER     = 3,  /* render engine settings */
+	IDP_GROUP_SUB_OVERRIDE          = 4,  /* data override */
+	IDP_GROUP_SUB_MODE_PAINT_WEIGHT = 5,  /* weight paint mode settings */
+	IDP_GROUP_SUB_MODE_PAINT_VERTEX = 6,  /* vertex paint mode settings */
 };
 
 /*->flag*/
@@ -155,8 +164,9 @@ typedef struct Library {
 	
 	struct PackedFile *packedfile;
 
+	/* Temp data needed by read/write code. */
 	int temp_index;
-	int _pad;
+	short versionfile, subversionfile;  /* see BLENDER_VERSION, BLENDER_SUBVERSION, needed for do_versions */
 } Library;
 
 enum eIconSizes {
@@ -172,6 +182,13 @@ enum ePreviewImage_Flag {
 	PRV_USER_EDITED      = (1 << 1),  /* if user-edited, do not auto-update this anymore! */
 };
 
+/* for PreviewImage->tag */
+enum  {
+	PRV_TAG_DEFFERED           = (1 << 0),  /* Actual loading of preview is deffered. */
+	PRV_TAG_DEFFERED_RENDERING = (1 << 1),  /* Deffered preview is being loaded. */
+	PRV_TAG_DEFFERED_DELETE    = (1 << 2),  /* Deffered preview should be deleted asap. */
+};
+
 typedef struct PreviewImage {
 	/* All values of 2 are really NUM_ICON_SIZES */
 	unsigned int w[2];
@@ -184,12 +201,12 @@ typedef struct PreviewImage {
 	struct GPUTexture *gputexture[2];
 	int icon_id;  /* Used by previews outside of ID context. */
 
-	char pad[3];
-	char use_deferred;  /* for now a mere bool, if we add more deferred loading methods we can switch to bitflag. */
+	short tag;  /* Runtime data. */
+	char pad[2];
 } PreviewImage;
 
 #define PRV_DEFERRED_DATA(prv) \
-	(CHECK_TYPE_INLINE(prv, PreviewImage *), BLI_assert((prv)->use_deferred), (void *)((prv) + 1))
+	(CHECK_TYPE_INLINE(prv, PreviewImage *), BLI_assert((prv)->tag & PRV_TAG_DEFFERED), (void *)((prv) + 1))
 
 /**
  * Defines for working with IDs.
@@ -248,6 +265,8 @@ typedef enum ID_Type {
 	ID_PAL  = MAKE_ID2('P', 'L'), /* Palette */
 	ID_PC   = MAKE_ID2('P', 'C'), /* PaintCurve  */
 	ID_CF   = MAKE_ID2('C', 'F'), /* CacheFile */
+	ID_WS   = MAKE_ID2('W', 'S'), /* WorkSpace */
+	ID_LP   = MAKE_ID2('L', 'P'), /* LightProbe */
 } ID_Type;
 
 /* Only used as 'placeholder' in .blend files for directly linked datablocks. */
@@ -269,8 +288,9 @@ typedef enum ID_Type {
 
 #define ID_FAKE_USERS(id) ((((ID *)id)->flag & LIB_FAKEUSER) ? 1 : 0)
 #define ID_REAL_USERS(id) (((ID *)id)->us - ID_FAKE_USERS(id))
+#define ID_EXTRA_USERS(id) (((ID *)id)->tag & LIB_TAG_EXTRAUSER ? 1 : 0)
 
-#define ID_CHECK_UNDO(id) ((GS((id)->name) != ID_SCR) && (GS((id)->name) != ID_WM))
+#define ID_CHECK_UNDO(id) ((GS((id)->name) != ID_SCR) && (GS((id)->name) != ID_WM) && (GS((id)->name) != ID_WS))
 
 #define ID_BLEND_PATH(_bmain, _id) ((_id)->lib ? (_id)->lib->filepath : (_bmain)->name)
 
@@ -283,9 +303,9 @@ typedef enum ID_Type {
 #endif
 #define GS(a)	(CHECK_TYPE_ANY(a, char *, const char *, char [66], const char[66]), (*((const short *)(a))))
 
-#define ID_NEW(a)		if (      (a) && (a)->id.newid ) (a) = (void *)(a)->id.newid
-#define ID_NEW_US(a)	if (      (a)->id.newid)       { (a) = (void *)(a)->id.newid;       (a)->id.us++; }
-#define ID_NEW_US2(a)	if (((ID *)a)->newid)          { (a) = ((ID  *)a)->newid;     ((ID *)a)->us++;    }
+#define ID_NEW_SET(_id, _idn) \
+	(((ID *)(_id))->newid = (ID *)(_idn), ((ID *)(_id))->newid->tag |= LIB_TAG_NEW, (void *)((ID *)(_id))->newid)
+#define ID_NEW_REMAP(a) if ((a) && (a)->id.newid) (a) = (void *)(a)->id.newid
 
 /* id->flag (persitent). */
 enum {
@@ -329,7 +349,8 @@ enum {
 	/* tag datablock has having actually increased usercount for the extra virtual user. */
 	LIB_TAG_EXTRAUSER_SET   = 1 << 7,
 
-	/* RESET_AFTER_USE tag newly duplicated/copied IDs. */
+	/* RESET_AFTER_USE tag newly duplicated/copied IDs.
+	 * Also used internally in readfile.c to mark datablocks needing do_versions. */
 	LIB_TAG_NEW             = 1 << 8,
 	/* RESET_BEFORE_USE free test flag.
      * TODO make it a RESET_AFTER_USE too. */
@@ -379,9 +400,11 @@ enum {
 	FILTER_ID_WO        = (1 << 26),
 	FILTER_ID_PA        = (1 << 27),
 	FILTER_ID_CF        = (1 << 28),
+	FILTER_ID_WS        = (1 << 29),
+	FILTER_ID_LP        = (1 << 31),
 };
 
-/* IMPORTANT: this enum matches the order currently use in set_lisbasepointers,
+/* IMPORTANT: this enum matches the order currently use in set_listbasepointers,
  * keep them in sync! */
 enum {
 	INDEX_ID_LI = 0,
@@ -410,12 +433,14 @@ enum {
 	INDEX_ID_BR,
 	INDEX_ID_PA,
 	INDEX_ID_SPK,
+	INDEX_ID_LP,
 	INDEX_ID_WO,
 	INDEX_ID_MC,
 	INDEX_ID_SCR,
 	INDEX_ID_OB,
 	INDEX_ID_LS,
 	INDEX_ID_SCE,
+	INDEX_ID_WS,
 	INDEX_ID_WM,
 	INDEX_ID_MSK,
 	INDEX_ID_NULL,

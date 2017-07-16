@@ -76,7 +76,9 @@
 #include "RE_pipeline.h"
 #include "RE_shader_ext.h"
 
+#include "GPU_lamp.h"
 #include "GPU_material.h"
+#include "GPU_uniformbuffer.h"
 
 
 int sh_node_poll_default(struct bNodeType *ntype, struct bNodeTree *ntree);

@@ -53,8 +53,6 @@
 #include "BKE_modifier.h"
 #include "BKE_pointcache.h"
 
-#include "depsgraph_private.h"
-
 #include "MOD_util.h"
 
 static void initData(ModifierData *md) 
@@ -117,28 +115,6 @@ static void deformVerts(ModifierData *md, Object *ob, DerivedMesh *derivedData, 
 	dm->release(dm);
 }
 
-static void updateDepgraph(ModifierData *md, DagForest *forest,
-                           struct Main *UNUSED(bmain),
-                           Scene *scene, Object *ob, DagNode *obNode)
-{
-	ClothModifierData *clmd = (ClothModifierData *) md;
-	
-	Base *base;
-	
-	if (clmd) {
-		for (base = scene->base.first; base; base = base->next) {
-			Object *ob1 = base->object;
-			if (ob1 != ob) {
-				CollisionModifierData *coll_clmd = (CollisionModifierData *)modifiers_findByType(ob1, eModifierType_Collision);
-				if (coll_clmd) {
-					DagNode *curNode = dag_get_node(forest, ob1);
-					dag_add_relation(forest, curNode, obNode, DAG_RL_DATA_DATA | DAG_RL_OB_DATA, "Cloth Collision");
-				}
-			}
-		}
-	}
-}
-
 static void updateDepsgraph(ModifierData *md,
                             struct Main *UNUSED(bmain),
                             struct Scene *scene,
@@ -147,16 +123,10 @@ static void updateDepsgraph(ModifierData *md,
 {
 	ClothModifierData *clmd = (ClothModifierData *)md;
 	if (clmd != NULL) {
-		Base *base;
-		for (base = scene->base.first; base; base = base->next) {
-			Object *ob1 = base->object;
-			if (ob1 != ob) {
-				CollisionModifierData *coll_clmd = (CollisionModifierData *)modifiers_findByType(ob1, eModifierType_Collision);
-				if (coll_clmd) {
-					DEG_add_object_relation(node, ob1, DEG_OB_COMP_TRANSFORM, "Cloth Modifier");
-				}
-			}
-		}
+		/* Actual code uses get_collisionobjects */
+		DEG_add_collision_relations(node, scene, ob, clmd->coll_parms->group, eModifierType_Collision, NULL, true, "Cloth Collision");
+
+		DEG_add_forcefield_relations(node, scene, ob, clmd->sim_parms->effector_weights, true, 0, "Cloth Field");
 	}
 }
 
@@ -242,11 +212,11 @@ static void foreachIDLink(ModifierData *md, Object *ob,
 	ClothModifierData *clmd = (ClothModifierData *) md;
 
 	if (clmd->coll_parms) {
-		walk(userData, ob, (ID **)&clmd->coll_parms->group, IDWALK_NOP);
+		walk(userData, ob, (ID **)&clmd->coll_parms->group, IDWALK_CB_NOP);
 	}
 
 	if (clmd->sim_parms && clmd->sim_parms->effector_weights) {
-		walk(userData, ob, (ID **)&clmd->sim_parms->effector_weights->group, IDWALK_NOP);
+		walk(userData, ob, (ID **)&clmd->sim_parms->effector_weights->group, IDWALK_CB_NOP);
 	}
 }
 
@@ -270,7 +240,6 @@ ModifierTypeInfo modifierType_Cloth = {
 	/* requiredDataMask */  requiredDataMask,
 	/* freeData */          freeData,
 	/* isDisabled */        NULL,
-	/* updateDepgraph */    updateDepgraph,
 	/* updateDepsgraph */   updateDepsgraph,
 	/* dependsOnTime */     dependsOnTime,
 	/* dependsOnNormals */	NULL,

@@ -1,14 +1,6 @@
 
 set(INC
-	.
-	../bvh
-	../device
-	../graph
-	../kernel
-	../kernel/svm
-	../render
-	../subd
-	../util
+	..
 )
 set(INC_SYS
 )
@@ -43,18 +35,15 @@ if(WITH_CYCLES_OSL)
 	list(APPEND LIBRARIES cycles_kernel_osl)
 endif()
 
-if(CYCLES_STANDALONE_REPOSITORY)
-	if(WITH_CYCLES_LOGGING)
-		list(APPEND LIBRARIES
-			${GLOG_LIBRARIES}
-			${GFLAGS_LIBRARIES}
-		)
-	endif()
-else()
+if(NOT CYCLES_STANDALONE_REPOSITORY)
 	list(APPEND LIBRARIES bf_intern_glew_mx bf_intern_guardedalloc)
-	if(WITH_CYCLES_LOGGING)
-		list(APPEND LIBRARIES extern_glog extern_gflags)
-	endif()
+endif()
+
+if(WITH_CYCLES_LOGGING)
+	list(APPEND LIBRARIES
+		${GLOG_LIBRARIES}
+		${GFLAGS_LIBRARIES}
+	)
 endif()
 
 if(WITH_CYCLES_STANDALONE AND WITH_CYCLES_STANDALONE_GUI)
@@ -87,6 +76,9 @@ macro(cycles_target_link_libraries target)
 	target_link_libraries(${target} ${LIBRARIES})
 	if(WITH_CYCLES_OSL)
 		target_link_libraries(${target} ${OSL_LIBRARIES} ${LLVM_LIBRARIES})
+	endif()
+	if(WITH_CYCLES_OPENSUBDIV)
+		target_link_libraries(${target} ${OPENSUBDIV_LIBRARIES})
 	endif()
 	target_link_libraries(
 		${target}

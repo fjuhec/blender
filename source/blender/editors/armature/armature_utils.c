@@ -34,14 +34,16 @@
 
 #include "BLI_blenlib.h"
 #include "BLI_math.h"
+#include "BLI_string_utils.h"
 
 #include "BKE_armature.h"
 #include "BKE_context.h"
 #include "BKE_deform.h"
-#include "BKE_depsgraph.h"
 #include "BKE_global.h"
 #include "BKE_idprop.h"
 #include "BKE_main.h"
+
+#include "DEG_depsgraph.h"
 
 #include "ED_armature.h"
 #include "ED_util.h"
@@ -262,7 +264,7 @@ EditBone *ED_armature_bone_get_mirrored(const ListBase *edbo, EditBone *ebo)
 	if (ebo == NULL)
 		return NULL;
 	
-	BKE_deform_flip_side_name(name_flip, ebo->name, false);
+	BLI_string_flip_side_name(name_flip, ebo->name, false, sizeof(name_flip));
 	
 	if (!STREQ(name_flip, ebo->name)) {
 		return ED_armature_bone_find_name(edbo, name_flip);
@@ -671,7 +673,7 @@ void ED_armature_from_edit(bArmature *arm)
 		}
 	}
 	
-	DAG_id_tag_update(&arm->id, 0);
+	DEG_id_tag_update(&arm->id, 0);
 }
 
 void ED_armature_edit_free(struct bArmature *arm)

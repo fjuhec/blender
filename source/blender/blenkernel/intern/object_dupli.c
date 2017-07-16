@@ -49,7 +49,6 @@
 
 #include "BKE_animsys.h"
 #include "BKE_DerivedMesh.h"
-#include "BKE_depsgraph.h"
 #include "BKE_font.h"
 #include "BKE_group.h"
 #include "BKE_global.h"
@@ -62,8 +61,10 @@
 #include "BKE_editmesh.h"
 #include "BKE_anim.h"
 
+#include "DEG_depsgraph.h"
 
 #include "BLI_strict_flags.h"
+#include "BLI_hash.h"
 
 /* Dupli-Geometry */
 
@@ -76,7 +77,6 @@ typedef struct DupliContext {
 	Scene *scene;
 	Object *object;
 	float space_mat[4][4];
-	unsigned int lay;
 
 	int persistent_id[MAX_DUPLI_RECUR];
 	int level;
@@ -109,7 +109,6 @@ static void init_context(DupliContext *r_ctx, EvaluationContext *eval_ctx, Scene
 		copy_m4_m4(r_ctx->space_mat, space_mat);
 	else
 		unit_m4(r_ctx->space_mat);
-	r_ctx->lay = ob->lay;
 	r_ctx->level = 0;
 
 	r_ctx->gen = get_dupli_generator(r_ctx);
@@ -180,6 +179,23 @@ static DupliObject *make_dupli(const DupliContext *ctx,
 	if (ob->type == OB_MBALL)
 		dob->no_draw = true;
 
+	/* random number */
+	/* the logic here is designed to match Cycles */
+	dob->random_id = BLI_hash_string(dob->ob->id.name + 2);
+
+	if (dob->persistent_id[0] != INT_MAX) {
+		for (i = 0; i < MAX_DUPLI_RECUR * 2; i++) {
+			dob->random_id = BLI_hash_int_2d(dob->random_id, (unsigned int)dob->persistent_id[i]);
+		}
+	}
+	else {
+		dob->random_id = BLI_hash_int_2d(dob->random_id, 0);
+	}
+
+	if (ctx->object != ob) {
+		dob->random_id ^= BLI_hash_int(BLI_hash_string(ctx->object->id.name + 2));
+	}
+
 	return dob;
 }
 
@@ -221,31 +237,39 @@ static void make_child_duplis(const DupliContext *ctx, void *userdata, MakeChild
 
 	if (ctx->group) {
 		unsigned int lay = ctx->group->layer;
+		int groupid = 0;
 		GroupObject *go;
-		for (go = ctx->group->gobject.first; go; go = go->next) {
+		for (go = ctx->group->gobject.first; go; go = go->next, groupid++) {
 			Object *ob = go->ob;
 
 			if ((ob->lay & lay) && ob != obedit && is_child(ob, parent)) {
+				DupliContext pctx;
+				copy_dupli_context(&pctx, ctx, ctx->object, NULL, groupid, false);
+
 				/* mballs have a different dupli handling */
 				if (ob->type != OB_MBALL)
 					ob->flag |= OB_DONE;  /* doesnt render */
 
-				make_child_duplis_cb(ctx, userdata, ob);
+				make_child_duplis_cb(&pctx, userdata, ob);
 			}
 		}
 	}
 	else {
 		unsigned int lay = ctx->scene->lay;
-		Base *base;
-		for (base = ctx->scene->base.first; base; base = base->next) {
+		int baseid = 0;
+		BaseLegacy *base;
+		for (base = ctx->scene->base.first; base; base = base->next, baseid++) {
 			Object *ob = base->object;
 
 			if ((base->lay & lay) && ob != obedit && is_child(ob, parent)) {
+				DupliContext pctx;
+				copy_dupli_context(&pctx, ctx, ctx->object, NULL, baseid, false);
+
 				/* mballs have a different dupli handling */
 				if (ob->type != OB_MBALL)
 					ob->flag |= OB_DONE;  /* doesnt render */
 
-				make_child_duplis_cb(ctx, userdata, ob);
+				make_child_duplis_cb(&pctx, userdata, ob);
 			}
 		}
 	}
@@ -521,10 +545,15 @@ static void make_duplis_verts(const DupliContext *ctx)
 		BMEditMesh *em = BKE_editmesh_from_object(parent);
 		CustomDataMask dm_mask = (use_texcoords ? CD_MASK_BAREMESH | CD_MASK_ORCO : CD_MASK_BAREMESH);
 
-		if (em)
+		if (ctx->eval_ctx->mode == DAG_EVAL_RENDER) {
+			vdd.dm = mesh_create_derived_render(scene, parent, dm_mask);
+		}
+		else if (em) {
 			vdd.dm = editbmesh_get_derived_cage(scene, parent, em, dm_mask);
-		else
+		}
+		else {
 			vdd.dm = mesh_get_derived_final(scene, parent, dm_mask);
+		}
 		vdd.edit_btmesh = me->edit_btmesh;
 
 		if (use_texcoords)
@@ -634,8 +663,7 @@ static void make_duplis_font(const DupliContext *ctx)
 				float rmat[4][4];
 
 				zero_v3(obmat[3]);
-				unit_m4(rmat);
-				rotate_m4(rmat, 'Z', -ct->rot);
+				axis_angle_to_mat4_single(rmat, 'Z', -ct->rot);
 				mul_m4_m4m4(obmat, obmat, rmat);
 			}
 
@@ -785,10 +813,15 @@ static void make_duplis_faces(const DupliContext *ctx)
 		BMEditMesh *em = BKE_editmesh_from_object(parent);
 		CustomDataMask dm_mask = (use_texcoords ? CD_MASK_BAREMESH | CD_MASK_ORCO | CD_MASK_MLOOPUV : CD_MASK_BAREMESH);
 
-		if (em)
+		if (ctx->eval_ctx->mode == DAG_EVAL_RENDER) {
+			fdd.dm = mesh_create_derived_render(scene, parent, dm_mask);
+		}
+		else if (em) {
 			fdd.dm = editbmesh_get_derived_cage(scene, parent, em, dm_mask);
-		else
+		}
+		else {
 			fdd.dm = mesh_get_derived_final(scene, parent, dm_mask);
+		}
 
 		if (use_texcoords) {
 			CustomData *ml_data = fdd.dm->getLoopDataLayout(fdd.dm);

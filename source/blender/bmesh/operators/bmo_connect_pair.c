@@ -48,7 +48,7 @@
  *   - store a heap of paths which are being scanned (#PathContext.states).
  *   - continuously search the shortest path in the heap.
  *   - never step over the same element twice (tag elements as #ELE_TOUCHED).
- *     this avoids going into an eternal loop of there are many possible branches (see T45582).
+ *     this avoids going into an eternal loop if there are many possible branches (see T45582).
  *   - when running into a branch, create a new #PathLinkState state and add to the heap.
  *   - when the target is reached, finish - since none of the other paths can be shorter then the one just found.
  * - if the connection can't be found - fail.
@@ -82,13 +82,13 @@
 
 
 #define ELE_TOUCH_TEST_VERT(v) BMO_vert_flag_test(pc->bm_bmoflag, v, ELE_TOUCHED)
-// #define ELE_TOUCH_MARK_VERT(v) BMO_vert_flag_enable(pc->bm_bmoflag, (BMElemF *)e, ELE_TOUCHED)
+// #define ELE_TOUCH_MARK_VERT(v) BMO_vert_flag_enable(pc->bm_bmoflag, (BMElemF *)v, ELE_TOUCHED)
 
-// #define ELE_TOUCH_TEST_EDGE(v) BMO_edge_flag_test(pc->bm_bmoflag, v, ELE_TOUCHED)
-// #define ELE_TOUCH_MARK_EDGE(v) BMO_edge_flag_enable(pc->bm_bmoflag, (BMElemF *)e, ELE_TOUCHED)
+#define ELE_TOUCH_TEST_EDGE(e) BMO_edge_flag_test(pc->bm_bmoflag, e, ELE_TOUCHED)
+// #define ELE_TOUCH_MARK_EDGE(e) BMO_edge_flag_enable(pc->bm_bmoflag, (BMElemF *)e, ELE_TOUCHED)
 
-// #define ELE_TOUCH_TEST_FACE(v) BMO_face_flag_test(pc->bm_bmoflag, v, ELE_TOUCHED)
-// #define ELE_TOUCH_MARK_FACE(v) BMO_face_flag_enable(pc->bm_bmoflag, (BMElemF *)e, ELE_TOUCHED)
+// #define ELE_TOUCH_TEST_FACE(f) BMO_face_flag_test(pc->bm_bmoflag, f, ELE_TOUCHED)
+// #define ELE_TOUCH_MARK_FACE(f) BMO_face_flag_enable(pc->bm_bmoflag, (BMElemF *)f, ELE_TOUCHED)
 
 // #define DEBUG_PRINT
 
@@ -363,7 +363,7 @@ static PathLinkState *state_step__face_edges(
 				BMElem *ele_next_from = (BMElem *)l_iter->f;
 
 				if (FACE_WALK_TEST((BMFace *)ele_next_from) &&
-				    (ELE_TOUCH_TEST_VERT((BMVert *)ele_next) == false))
+				    (ELE_TOUCH_TEST_EDGE((BMEdge *)ele_next) == false))
 				{
 					min_dist_dir_update(mddir, dist_dir);
 					mddir->dist_min[index] = dist_test;
@@ -530,8 +530,8 @@ static void bm_vert_pair_to_matrix(BMVert *v_pair[2], float r_unit_mat[3][3])
 		float basis_nor_b[3];
 
 		/* align normal to direction */
-		project_plane_v3_v3v3(basis_nor_a, v_pair[0]->no, basis_dir);
-		project_plane_v3_v3v3(basis_nor_b, v_pair[1]->no, basis_dir);
+		project_plane_normalized_v3_v3v3(basis_nor_a, v_pair[0]->no, basis_dir);
+		project_plane_normalized_v3_v3v3(basis_nor_b, v_pair[1]->no, basis_dir);
 
 		/* don't normalize before combining so as normals approach the direction, they have less effect (T46784). */
 
@@ -569,7 +569,7 @@ static void bm_vert_pair_to_matrix(BMVert *v_pair[2], float r_unit_mat[3][3])
 				float angle_cos_test;
 
 				/* project basis dir onto the normal to find its closest angle */
-				project_plane_v3_v3v3(basis_dir_proj, basis_dir, l->f->no);
+				project_plane_normalized_v3_v3v3(basis_dir_proj, basis_dir, l->f->no);
 
 				if (normalize_v3(basis_dir_proj) > eps) {
 					angle_cos_test = dot_v3v3(basis_dir_proj, basis_dir);
@@ -586,7 +586,7 @@ static void bm_vert_pair_to_matrix(BMVert *v_pair[2], float r_unit_mat[3][3])
 		 * note: we could add the directions,
 		 * but this more often gives 45d rotated matrix, so just use the best one. */
 		copy_v3_v3(basis_nor, axis_pair[axis_pair[0].angle_cos < axis_pair[1].angle_cos].nor);
-		project_plane_v3_v3v3(basis_nor, basis_nor, basis_dir);
+		project_plane_normalized_v3_v3v3(basis_nor, basis_nor, basis_dir);
 
 		cross_v3_v3v3(basis_tmp, basis_dir, basis_nor);
 
@@ -661,7 +661,7 @@ void bmo_connect_vert_pair_exec(BMesh *bm, BMOperator *op)
 	while (!BLI_heap_is_empty(pc.states)) {
 
 #ifdef DEBUG_PRINT
-		printf("\n%s: stepping %d\n", __func__, BLI_heap_size(pc.states));
+		printf("\n%s: stepping %u\n", __func__, BLI_heap_size(pc.states));
 #endif
 
 		while (!BLI_heap_is_empty(pc.states)) {

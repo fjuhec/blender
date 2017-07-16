@@ -36,33 +36,5 @@
 #  include <boost/foreach.hpp>
 #  define foreach BOOST_FOREACH
 #else
-#pragma message("No available foreach() implementation. Using stub instead, disabling new depsgraph")
-
-#ifndef WITH_LEGACY_DEPSGRAPH
-#  error "Unable to build new depsgraph and legacy one is disabled."
+#  error "Depsgraph requires either Boost or C++11 for range-based loops."
 #endif
-
-#define DISABLE_NEW_DEPSGRAPH
-
-#  define foreach(x, y) for (x; false; (void)y)
-#endif
-
-#define GHASH_FOREACH_BEGIN(type, var, what) \
-	do { \
-		GHashIterator gh_iter##var; \
-		GHASH_ITER(gh_iter##var, what) { \
-			type var = reinterpret_cast<type>(BLI_ghashIterator_getValue(&gh_iter##var)); \
-
-#define GHASH_FOREACH_END() \
-		} \
-	} while(0)
-
-#define GSET_FOREACH_BEGIN(type, var, what) \
-	do { \
-		GSetIterator gh_iter##var; \
-		GSET_ITER(gh_iter##var, what) { \
-			type var = reinterpret_cast<type>(BLI_gsetIterator_getKey(&gh_iter##var)); \
-
-#define GSET_FOREACH_END() \
-		} \
-	} while(0)

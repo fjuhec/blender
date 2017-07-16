@@ -161,13 +161,13 @@ enum {
 	UI_BUT_NODE_LINK       = (1 << 8),
 	UI_BUT_NODE_ACTIVE     = (1 << 9),
 	UI_BUT_DRAG_LOCK       = (1 << 10),
-	UI_BUT_DISABLED        = (1 << 11),
+	UI_BUT_DISABLED        = (1 << 11),  /* grayed out and uneditable */
 	UI_BUT_COLOR_LOCK      = (1 << 12),
 	UI_BUT_ANIMATED        = (1 << 13),
 	UI_BUT_ANIMATED_KEY    = (1 << 14),
 	UI_BUT_DRIVEN          = (1 << 15),
 	UI_BUT_REDALERT        = (1 << 16),
-	UI_BUT_INACTIVE        = (1 << 17),
+	UI_BUT_INACTIVE        = (1 << 17),  /* grayed out but still editable */
 	UI_BUT_LAST_ACTIVE     = (1 << 18),
 	UI_BUT_UNDO            = (1 << 19),
 	UI_BUT_IMMEDIATE       = (1 << 20),
@@ -181,7 +181,7 @@ enum {
 	UI_BUT_HAS_SEP_CHAR    = (1 << 27),  /* but->str contains UI_SEP_CHAR, used for key shortcuts */
 	UI_BUT_UPDATE_DELAY    = (1 << 28),  /* don't run updates while dragging (needed in rare cases). */
 	UI_BUT_TEXTEDIT_UPDATE = (1 << 29),  /* when widget is in textedit mode, update value on each char stroke */
-	UI_BUT_SEARCH_UNLINK   = (1 << 30),  /* show unlink for search button */
+	UI_BUT_VALUE_CLEAR     = (1 << 30),  /* show 'x' icon to clear/unlink value of text or search button */
 };
 
 #define UI_PANEL_WIDTH          340
@@ -217,7 +217,6 @@ enum {
 /* scale fixed button widths by this to account for DPI */
 
 #define UI_DPI_FAC ((U.pixelsize * (float)U.dpi) / 72.0f)
-#define UI_DPI_WINDOW_FAC (((float)U.dpi) / 72.0f)
 /* 16 to copy ICON_DEFAULT_HEIGHT */
 #define UI_DPI_ICON_SIZE ((float)16 * UI_DPI_FAC)
 
@@ -256,6 +255,7 @@ typedef enum {
 	UI_BTYPE_CHECKBOX               = (13 << 9),  /* similar to toggle, display a 'tick' */
 	UI_BTYPE_CHECKBOX_N             = (14 << 9),
 	UI_BTYPE_COLOR                  = (15 << 9),
+	UI_BTYPE_TAB                    = (16 << 9),
 	UI_BTYPE_SCROLL                 = (18 << 9),
 	UI_BTYPE_BLOCK                  = (19 << 9),
 	UI_BTYPE_LABEL                  = (20 << 9),
@@ -308,18 +308,22 @@ typedef enum {
  * Functions to draw various shapes, taking theme settings into account.
  * Used for code that draws its own UI style elements. */
 
-void UI_draw_roundbox(float minx, float miny, float maxx, float maxy, float rad);
 void UI_draw_roundbox_corner_set(int type);
-int  UI_draw_roundbox_corner_get(void);
-void UI_draw_roundbox_unfilled(float minx, float miny, float maxx, float maxy, float rad);
-void UI_draw_box_shadow(unsigned char alpha, float minx, float miny, float maxx, float maxy);
-void UI_draw_roundbox_gl_mode(int mode, float minx, float miny, float maxx, float maxy, float rad);
-void UI_draw_roundbox_shade_x(int mode, float minx, float miny, float maxx, float maxy, float rad, float shadetop, float shadedown);
-void UI_draw_roundbox_shade_y(int mode, float minx, float miny, float maxx, float maxy, float rad, float shadeLeft, float shadeRight);
-void UI_draw_text_underline(int pos_x, int pos_y, int len, int height);
+void UI_draw_roundbox_aa(bool filled, float minx, float miny, float maxx, float maxy, float rad, const float color[4]);
+void UI_draw_roundbox_4fv(bool filled, float minx, float miny, float maxx, float maxy, float rad, const float col[4]);
+void UI_draw_roundbox_3ubAlpha(bool filled, float minx, float miny, float maxx, float maxy, float rad, const unsigned char col[3], unsigned char alpha);
+void UI_draw_roundbox_3fvAlpha(bool filled, float minx, float miny, float maxx, float maxy, float rad, const float col[3], float alpha);
+void UI_draw_roundbox_shade_x(bool filled, float minx, float miny, float maxx, float maxy, float rad, float shadetop, float shadedown, const float col[4]);
 
-void UI_draw_safe_areas(
-        float x1, float x2, float y1, float y2,
+#if 0 /* unused */
+int  UI_draw_roundbox_corner_get(void);
+void UI_draw_roundbox_shade_y(bool filled, float minx, float miny, float maxx, float maxy, float rad, float shadeleft, float shaderight, const float col[4]);
+#endif
+
+void UI_draw_box_shadow(unsigned char alpha, float minx, float miny, float maxx, float maxy);
+void UI_draw_text_underline(int pos_x, int pos_y, int len, int height, const float color[4]);
+
+void UI_draw_safe_areas(uint pos, float x1, float x2, float y1, float y2,
         const float title_aspect[2], const float action_aspect[2]);
 
 /* state for scrolldrawing */
@@ -393,6 +397,8 @@ struct uiLayout *UI_popup_menu_layout(uiPopupMenu *head);
 void UI_popup_menu_reports(struct bContext *C, struct ReportList *reports) ATTR_NONNULL();
 int UI_popup_menu_invoke(struct bContext *C, const char *idname, struct ReportList *reports) ATTR_NONNULL(1, 2);
 
+void UI_popup_menu_retval_set(const uiBlock *block, const int retval, const bool enable);
+
 /* Pie menus */
 typedef struct uiPieMenu uiPieMenu;
 
@@ -419,7 +425,7 @@ typedef void (*uiBlockCancelFunc)(struct bContext *C, void *arg1);
 
 void UI_popup_block_invoke(struct bContext *C, uiBlockCreateFunc func, void *arg);
 void UI_popup_block_invoke_ex(struct bContext *C, uiBlockCreateFunc func, void *arg, const char *opname, int opcontext);
-void UI_popup_block_ex(struct bContext *C, uiBlockCreateFunc func, uiBlockHandleFunc popup_func, uiBlockCancelFunc cancel_func, void *arg);
+void UI_popup_block_ex(struct bContext *C, uiBlockCreateFunc func, uiBlockHandleFunc popup_func, uiBlockCancelFunc cancel_func, void *arg, struct wmOperator *op);
 /* void uiPupBlockOperator(struct bContext *C, uiBlockCreateFunc func, struct wmOperator *op, int opcontext); */ /* UNUSED */
 
 void UI_popup_block_close(struct bContext *C, struct wmWindow *win, uiBlock *block);
@@ -785,7 +791,6 @@ void UI_popup_handlers_remove_all(struct bContext *C, struct ListBase *handlers)
 void UI_init(void);
 void UI_init_userdef(void);
 void UI_reinit_font(void);
-void UI_reinit_gl_state(void);
 void UI_exit(void);
 
 /* Layout
@@ -850,9 +855,6 @@ enum {
 	UI_CNR_ALL          = (UI_CNR_TOP_LEFT | UI_CNR_TOP_RIGHT | UI_CNR_BOTTOM_RIGHT | UI_CNR_BOTTOM_LEFT)
 };
 
-/* not apart of the corner flags but mixed in some functions  */
-#define UI_RB_ALPHA (UI_CNR_ALL + 1)
-
 uiLayout *UI_block_layout(uiBlock *block, int dir, int type, int x, int y, int size, int em, int padding, struct uiStyle *style);
 void UI_block_layout_set_current(uiBlock *block, uiLayout *layout);
 void UI_block_layout_resolve(uiBlock *block, int *x, int *y);
@@ -910,6 +912,17 @@ void uiTemplateIDPreview(uiLayout *layout, struct bContext *C, struct PointerRNA
                          const char *newop, const char *openop, const char *unlinkop, int rows, int cols);
 void uiTemplateAnyID(uiLayout *layout, struct PointerRNA *ptr, const char *propname, 
                      const char *proptypename, const char *text);
+void uiTemplateSearch(
+        uiLayout *layout, struct bContext *C,
+        struct PointerRNA *ptr, const char *propname,
+        struct PointerRNA *searchptr, const char *searchpropname,
+        const char *newop, const char *unlinkop);
+void uiTemplateSearchPreview(
+        uiLayout *layout, struct bContext *C,
+        struct PointerRNA *ptr, const char *propname,
+        struct PointerRNA *searchptr, const char *searchpropname,
+        const char *newop, const char *unlinkop,
+        const int rows, const int cols);
 void uiTemplatePathBuilder(uiLayout *layout, struct PointerRNA *ptr, const char *propname, 
                            struct PointerRNA *root_ptr, const char *text);
 uiLayout *uiTemplateModifier(uiLayout *layout, struct bContext *C, struct PointerRNA *ptr);
@@ -943,6 +956,11 @@ void uiTemplateHeader3D(uiLayout *layout, struct bContext *C);
 void uiTemplateEditModeSelection(uiLayout *layout, struct bContext *C);
 void uiTemplateReportsBanner(uiLayout *layout, struct bContext *C);
 void uiTemplateKeymapItemProperties(uiLayout *layout, struct PointerRNA *ptr);
+void uiTemplateOverrideProperty(
+        uiLayout *layout, struct PointerRNA *collection_props_ptr, struct PointerRNA *scene_props_ptr,
+        const char *propname,
+        const char *name, const char *text_ctxt, int translate, int icon,
+        const char *custom_template);
 void uiTemplateComponentMenu(uiLayout *layout, struct PointerRNA *ptr, const char *propname, const char *name);
 void uiTemplateNodeSocket(uiLayout *layout, struct bContext *C, float *color);
 void uiTemplateCacheFile(uiLayout *layout, struct bContext *C, struct PointerRNA *ptr, const char *propname);
@@ -1025,7 +1043,7 @@ bool UI_context_copy_to_selected_list(
 
 /* Helpers for Operators */
 uiBut *UI_context_active_but_get(const struct bContext *C);
-void UI_context_active_but_prop_get(
+uiBut *UI_context_active_but_prop_get(
         const struct bContext *C,
         struct PointerRNA *r_ptr, struct PropertyRNA **r_prop, int *r_index);
 void UI_context_active_but_prop_handle(struct bContext *C);
@@ -1040,20 +1058,22 @@ void UI_context_active_but_prop_get_templateID(
 
 /* Styled text draw */
 void UI_fontstyle_set(const struct uiFontStyle *fs);
-void UI_fontstyle_draw_ex(
-        const struct uiFontStyle *fs, const struct rcti *rect, const char *str,
-        size_t len, float *r_xofs, float *r_yofs);
-void UI_fontstyle_draw(const struct uiFontStyle *fs, const struct rcti *rect, const char *str);
-void UI_fontstyle_draw_rotated(const struct uiFontStyle *fs, const struct rcti *rect, const char *str);
-void UI_fontstyle_draw_simple(const struct uiFontStyle *fs, float x, float y, const char *str);
+void UI_fontstyle_draw_ex(const struct uiFontStyle *fs, const struct rcti *rect, const char *str,
+                          const unsigned char col[4], size_t len, float *r_xofs, float *r_yofs);
+void UI_fontstyle_draw(const struct uiFontStyle *fs, const struct rcti *rect, const char *str,
+                       const unsigned char col[4]);
+void UI_fontstyle_draw_rotated(const struct uiFontStyle *fs, const struct rcti *rect, const char *str,
+                               const unsigned char col[4]);
+void UI_fontstyle_draw_simple(const struct uiFontStyle *fs, float x, float y, const char *str,
+                              const unsigned char col[4]);
 void UI_fontstyle_draw_simple_backdrop(
         const struct uiFontStyle *fs, float x, float y, const char *str,
-        const unsigned char fg[4], const unsigned char bg[4]);
+        const float col_fg[4], const float col_bg[4]);
 
 int UI_fontstyle_string_width(const struct uiFontStyle *fs, const char *str);
 int UI_fontstyle_height_max(const struct uiFontStyle *fs);
 
-void UI_draw_icon_tri(float x, float y, char dir);
+void UI_draw_icon_tri(float x, float y, char dir, const float[4]);
 
 struct uiStyle *UI_style_get(void);		/* use for fonts etc */
 struct uiStyle *UI_style_get_dpi(void);	/* DPI scaled settings for drawing */

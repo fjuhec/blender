@@ -42,9 +42,10 @@
 #include "BKE_context.h"
 #include "BKE_movieclip.h"
 #include "BKE_tracking.h"
-#include "BKE_depsgraph.h"
 #include "BKE_report.h"
 #include "BKE_sound.h"
+
+#include "DEG_depsgraph.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -875,8 +876,7 @@ static int slide_marker_modal(bContext *C, wmOperator *op, const wmEvent *event)
 			if (ELEM(event->type, LEFTSHIFTKEY, RIGHTSHIFTKEY)) {
 				data->accurate = event->val == KM_PRESS;
 			}
-
-			/* fall-through */
+			ATTR_FALLTHROUGH;
 		case MOUSEMOVE:
 			mdelta[0] = event->mval[0] - data->mval[0];
 			mdelta[1] = event->mval[1] - data->mval[1];
@@ -906,7 +906,7 @@ static int slide_marker_modal(bContext *C, wmOperator *op, const wmEvent *event)
 				}
 
 				WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, NULL);
-				DAG_id_tag_update(&sc->clip->id, 0);
+				DEG_id_tag_update(&sc->clip->id, 0);
 			}
 			else if (data->area == TRACK_AREA_PAT) {
 				if (data->action == SLIDE_ACTION_SIZE) {
@@ -1201,7 +1201,7 @@ static int disable_markers_exec(bContext *C, wmOperator *op)
 		}
 	}
 
-	DAG_id_tag_update(&clip->id, 0);
+	DEG_id_tag_update(&clip->id, 0);
 
 	WM_event_add_notifier(C, NC_MOVIECLIP | NA_EVALUATED, clip);
 
@@ -1509,8 +1509,10 @@ static int join_tracks_exec(bContext *C, wmOperator *op)
 	SpaceClip *sc = CTX_wm_space_clip(C);
 	MovieClip *clip = ED_space_clip_get_clip(sc);
 	MovieTracking *tracking = &clip->tracking;
+	MovieTrackingStabilization *stab = &tracking->stabilization;
 	ListBase *tracksbase = BKE_tracking_get_active_tracks(tracking);
 	ListBase *plane_tracks_base = BKE_tracking_get_active_plane_tracks(tracking);
+	bool update_stabilization = false;
 
 	MovieTrackingTrack *act_track = BKE_tracking_track_get_active(tracking);
 	if (act_track == NULL) {
@@ -1528,8 +1530,25 @@ static int join_tracks_exec(bContext *C, wmOperator *op)
 		if (TRACK_VIEW_SELECTED(sc, track) && track != act_track) {
 			BKE_tracking_tracks_join(tracking, act_track, track);
 
-			if (tracking->stabilization.rot_track == track) {
-				tracking->stabilization.rot_track = act_track;
+			if (track->flag & TRACK_USE_2D_STAB) {
+				update_stabilization = true;
+				if ((act_track->flag & TRACK_USE_2D_STAB) == 0) {
+					act_track->flag |= TRACK_USE_2D_STAB;
+				}
+				else {
+					stab->tot_track--;
+				}
+				BLI_assert(0 <= stab->tot_track);
+			}
+			if (track->flag & TRACK_USE_2D_STAB_ROT) {
+				update_stabilization = true;
+				if ((act_track->flag & TRACK_USE_2D_STAB_ROT) == 0) {
+					act_track->flag |= TRACK_USE_2D_STAB_ROT;
+				}
+				else {
+					stab->tot_rot_track--;
+				}
+				BLI_assert(0 <= stab->tot_rot_track);
 			}
 
 			for (MovieTrackingPlaneTrack *plane_track = plane_tracks_base->first;
@@ -1549,6 +1568,10 @@ static int join_tracks_exec(bContext *C, wmOperator *op)
 			BKE_tracking_track_free(track);
 			BLI_freelinkN(tracksbase, track);
 		}
+	}
+
+	if (update_stabilization) {
+		WM_event_add_notifier(C, NC_MOVIECLIP | ND_DISPLAY, clip);
 	}
 
 	GSetIterator gs_iter;

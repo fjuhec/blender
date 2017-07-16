@@ -169,7 +169,7 @@ void DNA_sdna_free(SDNA *sdna)
 	}
 
 	MEM_freeN((void *)sdna->names);
-	MEM_freeN(sdna->types);
+	MEM_freeN((void *)sdna->types);
 	MEM_freeN(sdna->structs);
 
 #ifdef WITH_DNA_GHASH
@@ -1292,6 +1292,11 @@ int DNA_elem_offset(SDNA *sdna, const char *stype, const char *vartype, const ch
 	const char * const cp = find_elem(sdna, vartype, name, spo, NULL, NULL);
 	BLI_assert(SDNAnr != -1);
 	return (int)((intptr_t)cp);
+}
+
+bool DNA_struct_find(const SDNA *sdna, const char *stype)
+{
+	return DNA_struct_find_nr(sdna, stype) != -1;
 }
 
 bool DNA_struct_elem_find(const SDNA *sdna, const char *stype, const char *vartype, const char *name)

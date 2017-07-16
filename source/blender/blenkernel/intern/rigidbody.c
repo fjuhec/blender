@@ -46,6 +46,7 @@
 #  include "RBI_api.h"
 #endif
 
+#include "DNA_ID.h"
 #include "DNA_group_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
@@ -54,7 +55,6 @@
 #include "DNA_scene_types.h"
 
 #include "BKE_cdderivedmesh.h"
-#include "BKE_depsgraph.h"
 #include "BKE_effect.h"
 #include "BKE_global.h"
 #include "BKE_library.h"
@@ -65,12 +65,21 @@
 #include "BKE_rigidbody.h"
 #include "BKE_scene.h"
 
-#ifdef WITH_BULLET
-
 /* ************************************** */
 /* Memory Management */
 
 /* Freeing Methods --------------------- */
+
+#ifndef WITH_BULLET
+
+static void RB_dworld_remove_constraint(void *UNUSED(world), void *UNUSED(con)) {}
+static void RB_dworld_remove_body(void *UNUSED(world), void *UNUSED(body)) {}
+static void RB_dworld_delete(void *UNUSED(world)) {}
+static void RB_body_delete(void *UNUSED(body)) {}
+static void RB_shape_delete(void *UNUSED(shape)) {}
+static void RB_constraint_delete(void *UNUSED(con)) {}
+
+#endif
 
 /* Free rigidbody world */
 void BKE_rigidbody_free_world(RigidBodyWorld *rbw)
@@ -165,6 +174,8 @@ void BKE_rigidbody_free_constraint(Object *ob)
 	ob->rigidbody_constraint = NULL;
 }
 
+#ifdef WITH_BULLET
+
 /* Copying Methods --------------------- */
 
 /* These just copy the data, clearing out references to physics objects.
@@ -172,7 +183,7 @@ void BKE_rigidbody_free_constraint(Object *ob)
  * be added to relevant groups later...
  */
 
-RigidBodyOb *BKE_rigidbody_copy_object(Object *ob)
+RigidBodyOb *BKE_rigidbody_copy_object(const Object *ob)
 {
 	RigidBodyOb *rboN = NULL;
 
@@ -192,7 +203,7 @@ RigidBodyOb *BKE_rigidbody_copy_object(Object *ob)
 	return rboN;
 }
 
-RigidBodyCon *BKE_rigidbody_copy_constraint(Object *ob)
+RigidBodyCon *BKE_rigidbody_copy_constraint(const Object *ob)
 {
 	RigidBodyCon *rbcN = NULL;
 
@@ -209,13 +220,6 @@ RigidBodyCon *BKE_rigidbody_copy_constraint(Object *ob)
 
 	/* return new copy of settings */
 	return rbcN;
-}
-
-/* preserve relationships between constraints and rigid bodies after duplication */
-void BKE_rigidbody_relink_constraint(RigidBodyCon *rbc)
-{
-	ID_NEW(rbc->ob1);
-	ID_NEW(rbc->ob2);
 }
 
 /* ************************************** */
@@ -804,8 +808,20 @@ static void rigidbody_validate_sim_constraint(RigidBodyWorld *rbw, Object *ob, b
 					RB_constraint_set_stiffness_6dof_spring(rbc->physics_constraint, RB_LIMIT_LIN_Z, rbc->spring_stiffness_z);
 					RB_constraint_set_damping_6dof_spring(rbc->physics_constraint, RB_LIMIT_LIN_Z, rbc->spring_damping_z);
 
+					RB_constraint_set_spring_6dof_spring(rbc->physics_constraint, RB_LIMIT_ANG_X, rbc->flag & RBC_FLAG_USE_SPRING_ANG_X);
+					RB_constraint_set_stiffness_6dof_spring(rbc->physics_constraint, RB_LIMIT_ANG_X, rbc->spring_stiffness_ang_x);
+					RB_constraint_set_damping_6dof_spring(rbc->physics_constraint, RB_LIMIT_ANG_X, rbc->spring_damping_ang_x);
+
+					RB_constraint_set_spring_6dof_spring(rbc->physics_constraint, RB_LIMIT_ANG_Y, rbc->flag & RBC_FLAG_USE_SPRING_ANG_Y);
+					RB_constraint_set_stiffness_6dof_spring(rbc->physics_constraint, RB_LIMIT_ANG_Y, rbc->spring_stiffness_ang_y);
+					RB_constraint_set_damping_6dof_spring(rbc->physics_constraint, RB_LIMIT_ANG_Y, rbc->spring_damping_ang_y);
+
+					RB_constraint_set_spring_6dof_spring(rbc->physics_constraint, RB_LIMIT_ANG_Z, rbc->flag & RBC_FLAG_USE_SPRING_ANG_Z);
+					RB_constraint_set_stiffness_6dof_spring(rbc->physics_constraint, RB_LIMIT_ANG_Z, rbc->spring_stiffness_ang_z);
+					RB_constraint_set_damping_6dof_spring(rbc->physics_constraint, RB_LIMIT_ANG_Z, rbc->spring_damping_ang_z);
+
 					RB_constraint_set_equilibrium_6dof_spring(rbc->physics_constraint);
-					/* fall-through */
+					ATTR_FALLTHROUGH;
 				case RBC_TYPE_6DOF:
 					if (rbc->type == RBC_TYPE_6DOF) /* a litte awkward but avoids duplicate code for limits */
 						rbc->physics_constraint = RB_constraint_new_6dof(loc, rot, rb1, rb2);
@@ -950,24 +966,21 @@ RigidBodyWorld *BKE_rigidbody_world_copy(RigidBodyWorld *rbw)
 
 void BKE_rigidbody_world_groups_relink(RigidBodyWorld *rbw)
 {
-	if (rbw->group && rbw->group->id.newid)
-		rbw->group = (Group *)rbw->group->id.newid;
-	if (rbw->constraints && rbw->constraints->id.newid)
-		rbw->constraints = (Group *)rbw->constraints->id.newid;
-	if (rbw->effector_weights->group && rbw->effector_weights->group->id.newid)
-		rbw->effector_weights->group = (Group *)rbw->effector_weights->group->id.newid;
+	ID_NEW_REMAP(rbw->group);
+	ID_NEW_REMAP(rbw->constraints);
+	ID_NEW_REMAP(rbw->effector_weights->group);
 }
 
 void BKE_rigidbody_world_id_loop(RigidBodyWorld *rbw, RigidbodyWorldIDFunc func, void *userdata)
 {
-	func(rbw, (ID **)&rbw->group, userdata, IDWALK_NOP);
-	func(rbw, (ID **)&rbw->constraints, userdata, IDWALK_NOP);
-	func(rbw, (ID **)&rbw->effector_weights->group, userdata, IDWALK_NOP);
+	func(rbw, (ID **)&rbw->group, userdata, IDWALK_CB_NOP);
+	func(rbw, (ID **)&rbw->constraints, userdata, IDWALK_CB_NOP);
+	func(rbw, (ID **)&rbw->effector_weights->group, userdata, IDWALK_CB_NOP);
 
 	if (rbw->objects) {
 		int i;
 		for (i = 0; i < rbw->numbodies; i++) {
-			func(rbw, (ID **)&rbw->objects[i], userdata, IDWALK_NOP);
+			func(rbw, (ID **)&rbw->objects[i], userdata, IDWALK_CB_NOP);
 		}
 	}
 }
@@ -1072,9 +1085,15 @@ RigidBodyCon *BKE_rigidbody_create_constraint(Scene *scene, Object *ob, short ty
 	rbc->spring_damping_x = 0.5f;
 	rbc->spring_damping_y = 0.5f;
 	rbc->spring_damping_z = 0.5f;
+	rbc->spring_damping_ang_x = 0.5f;
+	rbc->spring_damping_ang_y = 0.5f;
+	rbc->spring_damping_ang_z = 0.5f;
 	rbc->spring_stiffness_x = 10.0f;
 	rbc->spring_stiffness_y = 10.0f;
 	rbc->spring_stiffness_z = 10.0f;
+	rbc->spring_stiffness_ang_x = 10.0f;
+	rbc->spring_stiffness_ang_y = 10.0f;
+	rbc->spring_stiffness_ang_z = 10.0f;
 
 	rbc->motor_lin_max_impulse = 1.0f;
 	rbc->motor_lin_target_velocity = 1.0f;
@@ -1466,24 +1485,60 @@ void BKE_rigidbody_sync_transforms(RigidBodyWorld *rbw, Object *ob, float ctime)
 void BKE_rigidbody_aftertrans_update(Object *ob, float loc[3], float rot[3], float quat[4], float rotAxis[3], float rotAngle)
 {
 	RigidBodyOb *rbo = ob->rigidbody_object;
+	bool correct_delta = !(rbo->flag & RBO_FLAG_KINEMATIC || rbo->type == RBO_TYPE_PASSIVE);
 
 	/* return rigid body and object to their initial states */
 	copy_v3_v3(rbo->pos, ob->loc);
 	copy_v3_v3(ob->loc, loc);
 
+	if (correct_delta) {
+		add_v3_v3(rbo->pos, ob->dloc);
+	}
+
 	if (ob->rotmode > 0) {
-		eulO_to_quat(rbo->orn, ob->rot, ob->rotmode);
+		float qt[4];
+		eulO_to_quat(qt, ob->rot, ob->rotmode);
+
+		if (correct_delta) {
+			float dquat[4];
+			eulO_to_quat(dquat, ob->drot, ob->rotmode);
+
+			mul_qt_qtqt(rbo->orn, dquat, qt);
+		}
+		else {
+			copy_qt_qt(rbo->orn, qt);
+		}
+
 		copy_v3_v3(ob->rot, rot);
 	}
 	else if (ob->rotmode == ROT_MODE_AXISANGLE) {
-		axis_angle_to_quat(rbo->orn, ob->rotAxis, ob->rotAngle);
+		float qt[4];
+		axis_angle_to_quat(qt, ob->rotAxis, ob->rotAngle);
+
+		if (correct_delta) {
+			float dquat[4];
+			axis_angle_to_quat(dquat, ob->drotAxis, ob->drotAngle);
+
+			mul_qt_qtqt(rbo->orn, dquat, qt);
+		}
+		else {
+			copy_qt_qt(rbo->orn, qt);
+		}
+
 		copy_v3_v3(ob->rotAxis, rotAxis);
 		ob->rotAngle = rotAngle;
 	}
 	else {
-		copy_qt_qt(rbo->orn, ob->quat);
+		if (correct_delta) {
+			mul_qt_qtqt(rbo->orn, ob->dquat, ob->quat);
+		}
+		else {
+			copy_qt_qt(rbo->orn, ob->quat);
+		}
+
 		copy_qt_qt(ob->quat, quat);
 	}
+
 	if (rbo->physics_object) {
 		/* allow passive objects to return to original transform */
 		if (rbo->type == RBO_TYPE_PASSIVE)
@@ -1495,8 +1550,9 @@ void BKE_rigidbody_aftertrans_update(Object *ob, float loc[3], float rot[3], flo
 
 void BKE_rigidbody_cache_reset(RigidBodyWorld *rbw)
 {
-	if (rbw)
+	if (rbw) {
 		rbw->pointcache->flag |= PTCACHE_OUTDATED;
+	}
 }
 
 /* ------------------ */
@@ -1543,12 +1599,8 @@ void BKE_rigidbody_do_simulation(Scene *scene, float ctime)
 	BKE_ptcache_id_time(&pid, scene, ctime, &startframe, &endframe, NULL);
 	cache = rbw->pointcache;
 
-	if (ctime <= startframe) {
-		rbw->ltime = startframe;
-		return;
-	}
 	/* make sure we don't go out of cache frame range */
-	else if (ctime > endframe) {
+	if (ctime > endframe) {
 		ctime = endframe;
 	}
 
@@ -1560,14 +1612,19 @@ void BKE_rigidbody_do_simulation(Scene *scene, float ctime)
 
 	/* try to read from cache */
 	// RB_TODO deal with interpolated, old and baked results
-	if (BKE_ptcache_read(&pid, ctime)) {
+	bool can_simulate = (ctime == rbw->ltime + 1) && !(cache->flag & PTCACHE_BAKED);
+
+	if (cache->flag & PTCACHE_OUTDATED || cache->last_exact == 0) {
+		rbw->ltime = cache->startframe;
+	}
+
+	if (BKE_ptcache_read(&pid, ctime, can_simulate)) {
 		BKE_ptcache_validate(cache, (int)ctime);
-		rbw->ltime = ctime;
 		return;
 	}
 
 	/* advance simulation, we can only step one frame forward */
-	if (ctime == rbw->ltime + 1 && !(cache->flag & PTCACHE_BAKED)) {
+	if (ctime == rbw->ltime + 1) {
 		/* write cache for first frame when on second frame */
 		if (rbw->ltime == startframe && (cache->flag & PTCACHE_OUTDATED || cache->last_exact == 0)) {
 			BKE_ptcache_write(&pid, startframe);
@@ -1600,12 +1657,8 @@ void BKE_rigidbody_do_simulation(Scene *scene, float ctime)
 #  pragma GCC diagnostic ignored "-Wunused-parameter"
 #endif
 
-void BKE_rigidbody_free_world(RigidBodyWorld *rbw) {}
-void BKE_rigidbody_free_object(Object *ob) {}
-void BKE_rigidbody_free_constraint(Object *ob) {}
-struct RigidBodyOb *BKE_rigidbody_copy_object(Object *ob) { return NULL; }
-struct RigidBodyCon *BKE_rigidbody_copy_constraint(Object *ob) { return NULL; }
-void BKE_rigidbody_relink_constraint(RigidBodyCon *rbc) {}
+struct RigidBodyOb *BKE_rigidbody_copy_object(const Object *ob) { return NULL; }
+struct RigidBodyCon *BKE_rigidbody_copy_constraint(const Object *ob) { return NULL; }
 void BKE_rigidbody_validate_sim_world(Scene *scene, RigidBodyWorld *rbw, bool rebuild) {}
 void BKE_rigidbody_calc_volume(Object *ob, float *r_vol) { if (r_vol) *r_vol = 0.0f; }
 void BKE_rigidbody_calc_center_of_mass(Object *ob, float r_center[3]) { zero_v3(r_center); }
@@ -1634,7 +1687,7 @@ void BKE_rigidbody_do_simulation(Scene *scene, float ctime) {}
 /* -------------------- */
 /* Depsgraph evaluation */
 
-void BKE_rigidbody_rebuild_sim(EvaluationContext *UNUSED(eval_ctx),
+void BKE_rigidbody_rebuild_sim(struct EvaluationContext *UNUSED(eval_ctx),
                                Scene *scene)
 {
 	float ctime = BKE_scene_frame_get(scene);
@@ -1649,7 +1702,7 @@ void BKE_rigidbody_rebuild_sim(EvaluationContext *UNUSED(eval_ctx),
 	}
 }
 
-void BKE_rigidbody_eval_simulation(EvaluationContext *UNUSED(eval_ctx),
+void BKE_rigidbody_eval_simulation(struct EvaluationContext *UNUSED(eval_ctx),
                                    Scene *scene)
 {
 	float ctime = BKE_scene_frame_get(scene);
@@ -1664,7 +1717,7 @@ void BKE_rigidbody_eval_simulation(EvaluationContext *UNUSED(eval_ctx),
 	}
 }
 
-void BKE_rigidbody_object_sync_transforms(EvaluationContext *UNUSED(eval_ctx),
+void BKE_rigidbody_object_sync_transforms(struct EvaluationContext *UNUSED(eval_ctx),
                                           Scene *scene,
                                           Object *ob)
 {

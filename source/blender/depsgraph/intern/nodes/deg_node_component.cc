@@ -31,11 +31,12 @@
 #include "intern/nodes/deg_node_component.h"
 
 #include <stdio.h>
-#include <string.h>
+#include <cstring>  /* required for STREQ later on. */
+
+#include "BLI_utildefines.h"
+#include "BLI_ghash.h"
 
 extern "C" {
-#include "BLI_utildefines.h"
-
 #include "DNA_object_types.h"
 
 #include "BKE_action.h"
@@ -44,7 +45,6 @@ extern "C" {
 #include "intern/nodes/deg_node_operation.h"
 #include "intern/depsgraph_intern.h"
 #include "util/deg_util_foreach.h"
-#include "util/deg_util_hash.h"
 
 namespace DEG {
 
@@ -53,12 +53,50 @@ namespace DEG {
 
 /* Standard Component Methods ============================= */
 
+ComponentDepsNode::OperationIDKey::OperationIDKey()
+        : opcode(DEG_OPCODE_OPERATION),
+          name(""),
+          name_tag(-1)
+{
+}
+
+ComponentDepsNode::OperationIDKey::OperationIDKey(eDepsOperation_Code opcode)
+        : opcode(opcode),
+          name(""),
+          name_tag(-1)
+{
+}
+
+ComponentDepsNode::OperationIDKey::OperationIDKey(eDepsOperation_Code opcode,
+                                                 const char *name,
+                                                 int name_tag)
+        : opcode(opcode),
+          name(name),
+          name_tag(name_tag)
+{
+}
+
+string ComponentDepsNode::OperationIDKey::identifier() const
+{
+	char codebuf[5];
+	BLI_snprintf(codebuf, sizeof(codebuf), "%d", opcode);
+	return string("OperationIDKey(") + codebuf + ", " + name + ")";
+}
+
+bool ComponentDepsNode::OperationIDKey::operator==(
+        const OperationIDKey &other) const
+{
+	return (opcode == other.opcode) &&
+		(STREQ(name, other.name)) &&
+		(name_tag == other.name_tag);
+}
+
 static unsigned int comp_node_hash_key(const void *key_v)
 {
 	const ComponentDepsNode::OperationIDKey *key =
 	        reinterpret_cast<const ComponentDepsNode::OperationIDKey *>(key_v);
-	return hash_combine(BLI_ghashutil_uinthash(key->opcode),
-	                    BLI_ghashutil_strhash_p(key->name.c_str()));
+	return BLI_ghashutil_combine_hash(BLI_ghashutil_uinthash(key->opcode),
+	                                  BLI_ghashutil_strhash_p(key->name));
 }
 
 static bool comp_node_hash_key_cmp(const void *a, const void *b)
@@ -85,8 +123,7 @@ static void comp_node_hash_value_free(void *value_v)
 
 ComponentDepsNode::ComponentDepsNode() :
     entry_operation(NULL),
-    exit_operation(NULL),
-    layers(0)
+    exit_operation(NULL)
 {
 	operations_map = BLI_ghash_new(comp_node_hash_key,
 	                               comp_node_hash_key_cmp,
@@ -95,7 +132,7 @@ ComponentDepsNode::ComponentDepsNode() :
 
 /* Initialize 'component' node - from pointer data given */
 void ComponentDepsNode::init(const ID * /*id*/,
-                             const string & /*subdata*/)
+                             const char * /*subdata*/)
 {
 	/* hook up eval context? */
 	// XXX: maybe this needs a special API?
@@ -114,15 +151,12 @@ ComponentDepsNode::~ComponentDepsNode()
 
 string ComponentDepsNode::identifier() const
 {
-	string &idname = this->owner->name;
+	string idname = this->owner->name;
 
 	char typebuf[16];
 	sprintf(typebuf, "(%d)", type);
 
-	char layers[16];
-	sprintf(layers, "%u", this->layers);
-
-	return string(typebuf) + name + " : " + idname + " (Layers: " + layers + ")";
+	return string(typebuf) + name + " : " + idname;
 }
 
 OperationDepsNode *ComponentDepsNode::find_operation(OperationIDKey key) const
@@ -139,9 +173,11 @@ OperationDepsNode *ComponentDepsNode::find_operation(OperationIDKey key) const
 	}
 }
 
-OperationDepsNode *ComponentDepsNode::find_operation(eDepsOperation_Code opcode, const string &name) const
+OperationDepsNode *ComponentDepsNode::find_operation(eDepsOperation_Code opcode,
+                                                     const char *name,
+                                                     int name_tag) const
 {
-	OperationIDKey key(opcode, name);
+	OperationIDKey key(opcode, name, name_tag);
 	return find_operation(key);
 }
 
@@ -151,33 +187,26 @@ OperationDepsNode *ComponentDepsNode::has_operation(OperationIDKey key) const
 }
 
 OperationDepsNode *ComponentDepsNode::has_operation(eDepsOperation_Code opcode,
-                                                    const string &name) const
+                                                    const char *name,
+                                                    int name_tag) const
 {
-	OperationIDKey key(opcode, name);
+	OperationIDKey key(opcode, name, name_tag);
 	return has_operation(key);
 }
 
-OperationDepsNode *ComponentDepsNode::add_operation(eDepsOperation_Type optype, DepsEvalOperationCb op, eDepsOperation_Code opcode, const string &name)
+OperationDepsNode *ComponentDepsNode::add_operation(const DepsEvalOperationCb& op,
+                                                    eDepsOperation_Code opcode,
+                                                    const char *name,
+                                                    int name_tag)
 {
-	OperationDepsNode *op_node = has_operation(opcode, name);
+	OperationDepsNode *op_node = has_operation(opcode, name, name_tag);
 	if (!op_node) {
-		DepsNodeFactory *factory = deg_get_node_factory(DEPSNODE_TYPE_OPERATION);
-		op_node = (OperationDepsNode *)factory->create_node(this->owner->id, "", name);
+		DepsNodeFactory *factory = deg_get_node_factory(DEG_NODE_TYPE_OPERATION);
+		op_node = (OperationDepsNode *)factory->create_node(this->owner->id_orig, "", name);
 
 		/* register opnode in this component's operation set */
-		OperationIDKey *key = OBJECT_GUARDED_NEW(OperationIDKey, opcode, name);
+		OperationIDKey *key = OBJECT_GUARDED_NEW(OperationIDKey, opcode, name, name_tag);
 		BLI_ghash_insert(operations_map, key, op_node);
-
-		/* set as entry/exit node of component (if appropriate) */
-		if (optype == DEPSOP_TYPE_INIT) {
-			BLI_assert(this->entry_operation == NULL);
-			this->entry_operation = op_node;
-		}
-		else if (optype == DEPSOP_TYPE_POST) {
-			// XXX: review whether DEPSOP_TYPE_OUT is better than DEPSOP_TYPE_POST, or maybe have both?
-			BLI_assert(this->exit_operation == NULL);
-			this->exit_operation = op_node;
-		}
 
 		/* set backlink */
 		op_node->owner = this;
@@ -190,21 +219,22 @@ OperationDepsNode *ComponentDepsNode::add_operation(eDepsOperation_Type optype, 
 
 	/* attach extra data */
 	op_node->evaluate = op;
-	op_node->optype = optype;
 	op_node->opcode = opcode;
 	op_node->name = name;
 
 	return op_node;
 }
 
-void ComponentDepsNode::remove_operation(eDepsOperation_Code opcode, const string &name)
+void ComponentDepsNode::set_entry_operation(OperationDepsNode *op_node)
 {
-	/* unregister */
-	OperationIDKey key(opcode, name);
-	BLI_ghash_remove(operations_map,
-	                 &key,
-	                 comp_node_hash_key_free,
-	                 comp_node_hash_key_free);
+	BLI_assert(entry_operation == NULL);
+	entry_operation = op_node;
+}
+
+void ComponentDepsNode::set_exit_operation(OperationDepsNode *op_node)
+{
+	BLI_assert(exit_operation == NULL);
+	exit_operation = op_node;
 }
 
 void ComponentDepsNode::clear_operations()
@@ -285,7 +315,7 @@ OperationDepsNode *ComponentDepsNode::get_exit_operation()
 	return NULL;
 }
 
-void ComponentDepsNode::finalize_build()
+void ComponentDepsNode::finalize_build(Depsgraph * /*graph*/)
 {
 	operations.reserve(BLI_ghash_size(operations_map));
 	GHASH_FOREACH_BEGIN(OperationDepsNode *, op_node, operations_map)
@@ -301,43 +331,43 @@ void ComponentDepsNode::finalize_build()
 
 /* Parameter Component Defines ============================ */
 
-DEG_DEPSNODE_DEFINE(ParametersComponentDepsNode, DEPSNODE_TYPE_PARAMETERS, "Parameters Component");
+DEG_DEPSNODE_DEFINE(ParametersComponentDepsNode, DEG_NODE_TYPE_PARAMETERS, "Parameters Component");
 static DepsNodeFactoryImpl<ParametersComponentDepsNode> DNTI_PARAMETERS;
 
 /* Animation Component Defines ============================ */
 
-DEG_DEPSNODE_DEFINE(AnimationComponentDepsNode, DEPSNODE_TYPE_ANIMATION, "Animation Component");
+DEG_DEPSNODE_DEFINE(AnimationComponentDepsNode, DEG_NODE_TYPE_ANIMATION, "Animation Component");
 static DepsNodeFactoryImpl<AnimationComponentDepsNode> DNTI_ANIMATION;
 
 /* Transform Component Defines ============================ */
 
-DEG_DEPSNODE_DEFINE(TransformComponentDepsNode, DEPSNODE_TYPE_TRANSFORM, "Transform Component");
+DEG_DEPSNODE_DEFINE(TransformComponentDepsNode, DEG_NODE_TYPE_TRANSFORM, "Transform Component");
 static DepsNodeFactoryImpl<TransformComponentDepsNode> DNTI_TRANSFORM;
 
 /* Proxy Component Defines ================================ */
 
-DEG_DEPSNODE_DEFINE(ProxyComponentDepsNode, DEPSNODE_TYPE_PROXY, "Proxy Component");
+DEG_DEPSNODE_DEFINE(ProxyComponentDepsNode, DEG_NODE_TYPE_PROXY, "Proxy Component");
 static DepsNodeFactoryImpl<ProxyComponentDepsNode> DNTI_PROXY;
 
 /* Geometry Component Defines ============================= */
 
-DEG_DEPSNODE_DEFINE(GeometryComponentDepsNode, DEPSNODE_TYPE_GEOMETRY, "Geometry Component");
+DEG_DEPSNODE_DEFINE(GeometryComponentDepsNode, DEG_NODE_TYPE_GEOMETRY, "Geometry Component");
 static DepsNodeFactoryImpl<GeometryComponentDepsNode> DNTI_GEOMETRY;
 
 /* Sequencer Component Defines ============================ */
 
-DEG_DEPSNODE_DEFINE(SequencerComponentDepsNode, DEPSNODE_TYPE_SEQUENCER, "Sequencer Component");
+DEG_DEPSNODE_DEFINE(SequencerComponentDepsNode, DEG_NODE_TYPE_SEQUENCER, "Sequencer Component");
 static DepsNodeFactoryImpl<SequencerComponentDepsNode> DNTI_SEQUENCER;
 
 /* Pose Component ========================================= */
 
-DEG_DEPSNODE_DEFINE(PoseComponentDepsNode, DEPSNODE_TYPE_EVAL_POSE, "Pose Eval Component");
+DEG_DEPSNODE_DEFINE(PoseComponentDepsNode, DEG_NODE_TYPE_EVAL_POSE, "Pose Eval Component");
 static DepsNodeFactoryImpl<PoseComponentDepsNode> DNTI_EVAL_POSE;
 
 /* Bone Component ========================================= */
 
 /* Initialize 'bone component' node - from pointer data given */
-void BoneComponentDepsNode::init(const ID *id, const string &subdata)
+void BoneComponentDepsNode::init(const ID *id, const char *subdata)
 {
 	/* generic component-node... */
 	ComponentDepsNode::init(id, subdata);
@@ -350,27 +380,36 @@ void BoneComponentDepsNode::init(const ID *id, const string &subdata)
 
 	/* bone-specific node data */
 	Object *ob = (Object *)id;
-	this->pchan = BKE_pose_channel_find_name(ob->pose, subdata.c_str());
+	this->pchan = BKE_pose_channel_find_name(ob->pose, subdata);
 }
 
-DEG_DEPSNODE_DEFINE(BoneComponentDepsNode, DEPSNODE_TYPE_BONE, "Bone Component");
+DEG_DEPSNODE_DEFINE(BoneComponentDepsNode, DEG_NODE_TYPE_BONE, "Bone Component");
 static DepsNodeFactoryImpl<BoneComponentDepsNode> DNTI_BONE;
 
 /* Particles Component Defines ============================ */
 
-DEG_DEPSNODE_DEFINE(ParticlesComponentDepsNode, DEPSNODE_TYPE_EVAL_PARTICLES, "Particles Component");
+DEG_DEPSNODE_DEFINE(ParticlesComponentDepsNode, DEG_NODE_TYPE_EVAL_PARTICLES, "Particles Component");
 static DepsNodeFactoryImpl<ParticlesComponentDepsNode> DNTI_EVAL_PARTICLES;
 
 /* Shading Component Defines ============================ */
 
-DEG_DEPSNODE_DEFINE(ShadingComponentDepsNode, DEPSNODE_TYPE_SHADING, "Shading Component");
+DEG_DEPSNODE_DEFINE(ShadingComponentDepsNode, DEG_NODE_TYPE_SHADING, "Shading Component");
 static DepsNodeFactoryImpl<ShadingComponentDepsNode> DNTI_SHADING;
 
 /* Cache Component Defines ============================ */
 
-DEG_DEPSNODE_DEFINE(CacheComponentDepsNode, DEPSNODE_TYPE_CACHE, "Cache Component");
+DEG_DEPSNODE_DEFINE(CacheComponentDepsNode, DEG_NODE_TYPE_CACHE, "Cache Component");
 static DepsNodeFactoryImpl<CacheComponentDepsNode> DNTI_CACHE;
 
+/* Layer Collections Defines ============================ */
+
+DEG_DEPSNODE_DEFINE(LayerCollectionsDepsNode, DEG_NODE_TYPE_LAYER_COLLECTIONS, "Layer Collections Component");
+static DepsNodeFactoryImpl<LayerCollectionsDepsNode> DNTI_LAYER_COLLECTIONS;
+
+/* Copy-on-write Defines ============================ */
+
+DEG_DEPSNODE_DEFINE(CopyOnWriteDepsNode, DEG_NODE_TYPE_COPY_ON_WRITE, "Copy-on-Write Component");
+static DepsNodeFactoryImpl<CopyOnWriteDepsNode> DNTI_COPY_ON_WRITE;
 
 /* Node Types Register =================================== */
 
@@ -390,6 +429,10 @@ void deg_register_component_depsnodes()
 	deg_register_node_typeinfo(&DNTI_SHADING);
 
 	deg_register_node_typeinfo(&DNTI_CACHE);
+
+	deg_register_node_typeinfo(&DNTI_LAYER_COLLECTIONS);
+
+	deg_register_node_typeinfo(&DNTI_COPY_ON_WRITE);
 }
 
 }  // namespace DEG

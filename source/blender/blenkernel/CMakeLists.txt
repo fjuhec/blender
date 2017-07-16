@@ -30,6 +30,7 @@ set(INC
 	../blenloader
 	../blentranslation
 	../depsgraph
+	../draw
 	../gpu
 	../ikplugin
 	../imbuf
@@ -85,6 +86,7 @@ set(SRC
 	intern/camera.c
 	intern/cdderivedmesh.c
 	intern/cloth.c
+	intern/collection.c
 	intern/collision.c
 	intern/colortools.c
 	intern/constraint.c
@@ -95,12 +97,12 @@ set(SRC
 	intern/customdata_file.c
 	intern/data_transfer.c
 	intern/deform.c
-	intern/depsgraph.c
 	intern/displist.c
 	intern/dynamicpaint.c
 	intern/editderivedmesh.c
 	intern/editmesh.c
 	intern/editmesh_bvh.c
+	intern/editmesh_tangent.c
 	intern/editstrands.c
 	intern/effect.c
 	intern/fcurve.c
@@ -135,6 +137,7 @@ set(SRC
 	intern/mesh_mapping.c
 	intern/mesh_remap.c
 	intern/mesh_sample.c
+	intern/mesh_tangent.c
 	intern/mesh_validate.c
 	intern/modifier.c
 	intern/modifiers_bmesh.c
@@ -143,6 +146,7 @@ set(SRC
 	intern/nla.c
 	intern/node.c
 	intern/object.c
+	intern/object_facemap.c
 	intern/object_deform.c
 	intern/object_dupli.c
 	intern/object_update.c
@@ -158,6 +162,8 @@ set(SRC
 	intern/pbvh_bmesh.c
 	intern/pointcache.c
 	intern/property.c
+	intern/layer.c
+	intern/lightprobe.c
 	intern/report.c
 	intern/rigidbody.c
 	intern/sca.c
@@ -186,6 +192,7 @@ set(SRC
 	intern/tracking_stabilize.c
 	intern/tracking_util.c
 	intern/unit.c
+	intern/workspace.c
 	intern/world.c
 	intern/writeavi.c
 	intern/writeframeserver.c
@@ -215,6 +222,7 @@ set(SRC
 	BKE_ccg.h
 	BKE_cdderivedmesh.h
 	BKE_cloth.h
+	BKE_collection.h
 	BKE_collision.h
 	BKE_colortools.h
 	BKE_constraint.h
@@ -225,12 +233,12 @@ set(SRC
 	BKE_customdata_file.h
 	BKE_data_transfer.h
 	BKE_deform.h
-	BKE_depsgraph.h
 	BKE_displist.h
 	BKE_dynamicpaint.h
 	BKE_editstrands.h
 	BKE_editmesh.h
 	BKE_editmesh_bvh.h
+	BKE_editmesh_tangent.h
 	BKE_effect.h
 	BKE_fcurve.h
 	BKE_fluidsim.h
@@ -261,12 +269,14 @@ set(SRC
 	BKE_mesh_mapping.h
 	BKE_mesh_remap.h
 	BKE_mesh_sample.h
+	BKE_mesh_tangent.h
 	BKE_modifier.h
 	BKE_movieclip.h
 	BKE_multires.h
 	BKE_nla.h
 	BKE_node.h
 	BKE_object.h
+	BKE_object_facemap.h
 	BKE_object_deform.h
 	BKE_ocean.h
 	BKE_outliner_treehash.h
@@ -276,6 +286,8 @@ set(SRC
 	BKE_pbvh.h
 	BKE_pointcache.h
 	BKE_property.h
+	BKE_layer.h
+	BKE_lightprobe.h
 	BKE_report.h
 	BKE_rigidbody.h
 	BKE_sca.h
@@ -295,11 +307,11 @@ set(SRC
 	BKE_tracking.h
 	BKE_unit.h
 	BKE_utildefines.h
+	BKE_workspace.h
 	BKE_world.h
 	BKE_writeavi.h
 	BKE_writeframeserver.h
 
-	depsgraph_private.h
 	nla_private.h
 	tracking_private.h
 	intern/CCGSubSurf.h
@@ -539,8 +551,8 @@ endif()
 #	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /WX")
 #endif()
 
-if(WITH_LEGACY_DEPSGRAPH)
-	add_definitions(-DWITH_LEGACY_DEPSGRAPH)
+if(WITH_DEPSGRAPH_COPY_ON_WRITE)
+	add_definitions(-DWITH_COPY_ON_WRITE)
 endif()
 
 blender_add_lib(bf_blenkernel "${SRC}" "${INC}" "${INC_SYS}")

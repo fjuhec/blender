@@ -48,9 +48,10 @@
 #include "RNA_define.h"
 #include "RNA_access.h"
 
-#include "BKE_depsgraph.h"
 #include "BKE_context.h"
 #include "BKE_mball.h"
+
+#include "DEG_depsgraph.h"
 
 #include "ED_mball.h"
 #include "ED_screen.h"
@@ -433,7 +434,7 @@ static int duplicate_metaelems_exec(bContext *C, wmOperator *UNUSED(op))
 			ml = ml->prev;
 		}
 		WM_event_add_notifier(C, NC_GEOM | ND_DATA, mb);
-		DAG_id_tag_update(obedit->data, 0);
+		DEG_id_tag_update(obedit->data, 0);
 	}
 
 	return OPERATOR_FINISHED;
@@ -475,7 +476,7 @@ static int delete_metaelems_exec(bContext *C, wmOperator *UNUSED(op))
 			ml = next;
 		}
 		WM_event_add_notifier(C, NC_GEOM | ND_DATA, mb);
-		DAG_id_tag_update(obedit->data, 0);
+		DEG_id_tag_update(obedit->data, 0);
 	}
 
 	return OPERATOR_FINISHED;
@@ -515,7 +516,7 @@ static int hide_metaelems_exec(bContext *C, wmOperator *op)
 			ml = ml->next;
 		}
 		WM_event_add_notifier(C, NC_GEOM | ND_DATA, mb);
-		DAG_id_tag_update(obedit->data, 0);
+		DEG_id_tag_update(obedit->data, 0);
 	}
 
 	return OPERATOR_FINISHED;
@@ -556,7 +557,7 @@ static int reveal_metaelems_exec(bContext *C, wmOperator *UNUSED(op))
 			ml = ml->next;
 		}
 		WM_event_add_notifier(C, NC_GEOM | ND_DATA, mb);
-		DAG_id_tag_update(obedit->data, 0);
+		DEG_id_tag_update(obedit->data, 0);
 	}
 	
 	return OPERATOR_FINISHED;
@@ -592,12 +593,9 @@ bool ED_mball_select_pick(bContext *C, const int mval[2], bool extend, bool dese
 
 	view3d_set_viewcontext(C, &vc);
 
-	rect.xmin = mval[0] - 12;
-	rect.xmax = mval[0] + 12;
-	rect.ymin = mval[1] - 12;
-	rect.ymax = mval[1] + 12;
+	BLI_rcti_init_pt_radius(&rect, mval, 12);
 
-	hits = view3d_opengl_select(&vc, buffer, MAXPICKBUF, &rect, true);
+	hits = view3d_opengl_select(&vc, buffer, MAXPICKBUF, &rect, VIEW3D_SELECT_PICK_NEAREST);
 
 	/* does startelem exist? */
 	ml = mb->editelems->first;

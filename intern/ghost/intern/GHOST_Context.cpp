@@ -38,7 +38,7 @@
 #  include <tchar.h>
 #
 #  ifndef ERROR_PROFILE_DOES_NOT_MATCH_DEVICE
-#    define ERROR_PROFILE_DOES_NOT_MATCH_DEVICE 0x7E7 // Mingw64 headers may have had this
+#    define ERROR_PROFILE_DOES_NOT_MATCH_DEVICE 0x7E7
 #  endif
 #endif
 
@@ -143,11 +143,7 @@ bool win32_chk(bool result, const char *file, int line, const char *text)
 
 void GHOST_Context::initContextGLEW()
 {
-	mxDestroyContext(m_mxContext); // no-op if m_mxContext is NULL
-
-	mxMakeCurrentContext(mxCreateContext());
-
-	m_mxContext = mxGetCurrentContext();
+	GLEW_CHK(glewInit());
 }
 
 

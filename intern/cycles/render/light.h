@@ -17,12 +17,12 @@
 #ifndef __LIGHT_H__
 #define __LIGHT_H__
 
-#include "kernel_types.h"
+#include "kernel/kernel_types.h"
 
-#include "node.h"
+#include "graph/node.h"
 
-#include "util_types.h"
-#include "util_vector.h"
+#include "util/util_types.h"
+#include "util/util_vector.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -49,6 +49,8 @@ public:
 	float sizeu;
 	float3 axisv;
 	float sizev;
+
+	Transform tfm;
 
 	int map_resolution;
 
@@ -90,6 +92,9 @@ public:
 	void device_free(Device *device, DeviceScene *dscene);
 
 	void tag_update(Scene *scene);
+
+	/* Check whether there is a background light. */
+	bool has_background_light(Scene *scene);
 
 protected:
 	/* Optimization: disable light which is either unsupported or

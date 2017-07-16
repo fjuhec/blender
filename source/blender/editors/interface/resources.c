@@ -53,6 +53,8 @@
 
 #include "BIF_gl.h"
 
+#include "BLF_api.h"
+
 #include "UI_interface.h"
 #include "UI_interface_icons.h"
 
@@ -305,6 +307,8 @@ const unsigned char *UI_ThemeGetColorPtr(bTheme *btheme, int spacetype, int colo
 					cp = ts->vertex; break;
 				case TH_VERTEX_SELECT:
 					cp = ts->vertex_select; break;
+				case TH_VERTEX_BEVEL:
+					cp = ts->vertex_bevel; break;
 				case TH_VERTEX_UNREFERENCED:
 					cp = ts->vertex_unreferenced; break;
 				case TH_VERTEX_SIZE:
@@ -321,6 +325,8 @@ const unsigned char *UI_ThemeGetColorPtr(bTheme *btheme, int spacetype, int colo
 					cp = ts->edge_sharp; break;
 				case TH_EDGE_CREASE:
 					cp = ts->edge_crease; break;
+				case TH_EDGE_BEVEL:
+					cp = ts->edge_bevel; break;
 				case TH_EDITMESH_ACTIVE:
 					cp = ts->editmesh_active; break;
 				case TH_EDGE_FACESEL:
@@ -898,12 +904,14 @@ void ui_theme_init_default(void)
 	rgba_char_args_set(btheme->tv3d.transform, 0xff, 0xff, 0xff, 255);
 	rgba_char_args_set(btheme->tv3d.vertex, 0, 0, 0, 255);
 	rgba_char_args_set(btheme->tv3d.vertex_select, 255, 133, 0, 255);
+	rgba_char_args_set(btheme->tv3d.vertex_bevel, 0, 165, 255, 255);
 	rgba_char_args_set(btheme->tv3d.vertex_unreferenced, 0, 0, 0, 255);
 	btheme->tv3d.vertex_size = 3;
 	btheme->tv3d.outline_width = 1;
 	rgba_char_args_set(btheme->tv3d.edge,       0x0, 0x0, 0x0, 255);
 	rgba_char_args_set(btheme->tv3d.edge_select, 255, 160, 0, 255);
 	rgba_char_args_set(btheme->tv3d.edge_seam, 219, 37, 18, 255);
+	rgba_char_args_set(btheme->tv3d.edge_bevel, 0, 165, 255, 255);
 	rgba_char_args_set(btheme->tv3d.edge_facesel, 75, 75, 75, 255);
 	rgba_char_args_set(btheme->tv3d.face,       0, 0, 0, 18);
 	rgba_char_args_set(btheme->tv3d.face_select, 255, 133, 0, 60);
@@ -961,6 +969,10 @@ void ui_theme_init_default(void)
 	btheme->tv3d.gradients.show_grad = false;
 
 	rgba_char_args_set(btheme->tv3d.clipping_border_3d, 50, 50, 50, 255);
+
+	rgba_char_args_set(btheme->tv3d.time_keyframe, 0xDD, 0xD7, 0x00, 0xFF);
+	rgba_char_args_set(btheme->tv3d.time_gp_keyframe, 0xB5, 0xE6, 0x1D, 0xFF);
+
 	/* space buttons */
 	/* to have something initialized */
 	btheme->tbuts = btheme->tv3d;
@@ -1041,10 +1053,8 @@ void ui_theme_init_default(void)
 	rgba_char_args_set(btheme->tfile.text,  250, 250, 250, 255);
 	rgba_char_args_set(btheme->tfile.text_hi, 15, 15, 15, 255);
 //	rgba_char_args_set(btheme->tfile.panel, 145, 145, 145, 255);  /* bookmark/ui regions */
-	rgba_char_args_set(btheme->tfile.active, 130, 130, 130, 255); /* selected files */
 	rgba_char_args_set(btheme->tfile.hilite, 255, 140, 25, 255);  /* selected files */
-	
-	rgba_char_args_set(btheme->tfile.grid,  250, 250, 250, 255);
+
 	rgba_char_args_set(btheme->tfile.image, 250, 250, 250, 255);
 	rgba_char_args_set(btheme->tfile.movie, 250, 250, 250, 255);
 	rgba_char_args_set(btheme->tfile.scene, 250, 250, 250, 255);
@@ -1150,8 +1160,8 @@ void ui_theme_init_default(void)
 	rgba_char_args_set_fl(btheme->ttime.grid,   0.36, 0.36, 0.36, 1.0);
 	rgba_char_args_set(btheme->ttime.shade1,  173, 173, 173, 255);      /* sliders */
 	
-	rgba_char_args_set(btheme->ttime.time_keyframe, 0xDD, 0xD7, 0x00, 1.0);
-	rgba_char_args_set(btheme->ttime.time_gp_keyframe, 0xB5, 0xE6, 0x1D, 1.0);
+	rgba_char_args_set(btheme->ttime.time_keyframe, 0xDD, 0xD7, 0x00, 0xFF);
+	rgba_char_args_set(btheme->ttime.time_gp_keyframe, 0xB5, 0xE6, 0x1D, 0xFF);
 	
 	/* space node, re-uses syntax and console color storage */
 	btheme->tnode = btheme->tv3d;
@@ -1264,24 +1274,16 @@ void UI_ThemeColor4(int colorid)
 	
 	cp = UI_ThemeGetColorPtr(theme_active, theme_spacetype, colorid);
 	glColor4ubv(cp);
-
 }
 
 /* set the color with offset for shades */
 void UI_ThemeColorShade(int colorid, int offset)
 {
-	int r, g, b;
-	const unsigned char *cp;
-	
-	cp = UI_ThemeGetColorPtr(theme_active, theme_spacetype, colorid);
-	r = offset + (int) cp[0];
-	CLAMP(r, 0, 255);
-	g = offset + (int) cp[1];
-	CLAMP(g, 0, 255);
-	b = offset + (int) cp[2];
-	CLAMP(b, 0, 255);
-	glColor4ub(r, g, b, cp[3]);
+	unsigned char col[4];
+	UI_GetThemeColorShade4ubv(colorid, offset, col);
+	glColor4ubv(col);
 }
+
 void UI_ThemeColorShadeAlpha(int colorid, int coloffset, int alphaoffset)
 {
 	int r, g, b, a;
@@ -1296,7 +1298,29 @@ void UI_ThemeColorShadeAlpha(int colorid, int coloffset, int alphaoffset)
 	CLAMP(b, 0, 255);
 	a = alphaoffset + (int) cp[3];
 	CLAMP(a, 0, 255);
+
 	glColor4ub(r, g, b, a);
+}
+
+void UI_GetThemeColorShadeAlpha4ubv(int colorid, int coloffset, int alphaoffset, unsigned char col[4])
+{
+	int r, g, b, a;
+	const unsigned char *cp;
+	
+	cp = UI_ThemeGetColorPtr(theme_active, theme_spacetype, colorid);
+	r = coloffset + (int) cp[0];
+	CLAMP(r, 0, 255);
+	g = coloffset + (int) cp[1];
+	CLAMP(g, 0, 255);
+	b = coloffset + (int) cp[2];
+	CLAMP(b, 0, 255);
+	a = alphaoffset + (int) cp[3];
+	CLAMP(a, 0, 255);
+
+	col[0] = r;
+	col[1] = g;
+	col[2] = b;
+	col[3] = a;
 }
 
 void UI_GetThemeColorBlend3ubv(int colorid1, int colorid2, float fac, unsigned char col[3])
@@ -1310,6 +1334,19 @@ void UI_GetThemeColorBlend3ubv(int colorid1, int colorid2, float fac, unsigned c
 	col[0] = floorf((1.0f - fac) * cp1[0] + fac * cp2[0]);
 	col[1] = floorf((1.0f - fac) * cp1[1] + fac * cp2[1]);
 	col[2] = floorf((1.0f - fac) * cp1[2] + fac * cp2[2]);
+}
+
+void UI_GetThemeColorBlend3f(int colorid1, int colorid2, float fac, float r_col[3])
+{
+	const unsigned char *cp1, *cp2;
+
+	cp1 = UI_ThemeGetColorPtr(theme_active, theme_spacetype, colorid1);
+	cp2 = UI_ThemeGetColorPtr(theme_active, theme_spacetype, colorid2);
+
+	CLAMP(fac, 0.0f, 1.0f);
+	r_col[0] = ((1.0f - fac) * cp1[0] + fac * cp2[0]) / 255.0f;
+	r_col[1] = ((1.0f - fac) * cp1[1] + fac * cp2[1]) / 255.0f;
+	r_col[2] = ((1.0f - fac) * cp1[2] + fac * cp2[2]) / 255.0f;
 }
 
 /* blend between to theme colors, and set it */
@@ -1364,6 +1401,12 @@ void UI_ThemeColorBlendShadeAlpha(int colorid1, int colorid2, float fac, int off
 	glColor4ub(r, g, b, a);
 }
 
+void UI_FontThemeColor(int fontid, int colorid)
+{
+	unsigned char color[4];
+	UI_GetThemeColor4ubv(colorid, color);
+	BLF_color4ubv(fontid, color);
+}
 
 /* get individual values, not scaled */
 float UI_GetThemeValuef(int colorid)
@@ -1460,6 +1503,111 @@ void UI_GetThemeColorShade3ubv(int colorid, int offset, unsigned char col[3])
 	col[0] = r;
 	col[1] = g;
 	col[2] = b;
+}
+
+void UI_GetThemeColorBlendShade3ubv(int colorid1, int colorid2, float fac, int offset, unsigned char col[3])
+{
+	const unsigned char *cp1, *cp2;
+
+	cp1 = UI_ThemeGetColorPtr(theme_active, theme_spacetype, colorid1);
+	cp2 = UI_ThemeGetColorPtr(theme_active, theme_spacetype, colorid2);
+
+	CLAMP(fac, 0.0f, 1.0f);
+
+	float blend[3];
+	blend[0] = offset + floorf((1.0f - fac) * cp1[0] + fac * cp2[0]);
+	blend[1] = offset + floorf((1.0f - fac) * cp1[1] + fac * cp2[1]);
+	blend[2] = offset + floorf((1.0f - fac) * cp1[2] + fac * cp2[2]);
+
+	F3TOCHAR3(blend, col);
+}
+
+void UI_GetThemeColorShade4ubv(int colorid, int offset, unsigned char col[4])
+{
+	int r, g, b;
+	const unsigned char *cp;
+
+	cp = UI_ThemeGetColorPtr(theme_active, theme_spacetype, colorid);
+	r = offset + (int) cp[0];
+	CLAMP(r, 0, 255);
+	g = offset + (int) cp[1];
+	CLAMP(g, 0, 255);
+	b = offset + (int) cp[2];
+	CLAMP(b, 0, 255);
+
+	col[0] = r;
+	col[1] = g;
+	col[2] = b;
+	col[3] = cp[3];
+}
+
+void UI_GetThemeColorShadeAlpha4fv(int colorid, int coloffset, int alphaoffset, float col[4])
+{
+	int r, g, b, a;
+	const unsigned char *cp;
+
+	cp = UI_ThemeGetColorPtr(theme_active, theme_spacetype, colorid);
+
+	r = coloffset + (int) cp[0];
+	CLAMP(r, 0, 255);
+	g = coloffset + (int) cp[1];
+	CLAMP(g, 0, 255);
+	b = coloffset + (int) cp[2];
+	CLAMP(b, 0, 255);
+	a = alphaoffset + (int) cp[3];
+	CLAMP(b, 0, 255);
+
+	col[0] = ((float)r) / 255.0f;
+	col[1] = ((float)g) / 255.0f;
+	col[2] = ((float)b) / 255.0f;
+	col[3] = ((float)a) / 255.0f;
+}
+
+void UI_GetThemeColorBlendShade3fv(int colorid1, int colorid2, float fac, int offset, float col[3])
+{
+	int r, g, b;
+	const unsigned char *cp1, *cp2;
+
+	cp1 = UI_ThemeGetColorPtr(theme_active, theme_spacetype, colorid1);
+	cp2 = UI_ThemeGetColorPtr(theme_active, theme_spacetype, colorid2);
+
+	CLAMP(fac, 0.0f, 1.0f);
+
+	r = offset + floorf((1.0f - fac) * cp1[0] + fac * cp2[0]);
+	CLAMP(r, 0, 255);
+	g = offset + floorf((1.0f - fac) * cp1[1] + fac * cp2[1]);
+	CLAMP(g, 0, 255);
+	b = offset + floorf((1.0f - fac) * cp1[2] + fac * cp2[2]);
+	CLAMP(b, 0, 255);
+
+	col[0] = ((float)r) / 255.0f;
+	col[1] = ((float)g) / 255.0f;
+	col[2] = ((float)b) / 255.0f;
+}
+
+void UI_GetThemeColorBlendShade4fv(int colorid1, int colorid2, float fac, int offset, float col[4])
+{
+	int r, g, b, a;
+	const unsigned char *cp1, *cp2;
+
+	cp1 = UI_ThemeGetColorPtr(theme_active, theme_spacetype, colorid1);
+	cp2 = UI_ThemeGetColorPtr(theme_active, theme_spacetype, colorid2);
+
+	CLAMP(fac, 0.0f, 1.0f);
+
+	r = offset + floorf((1.0f - fac) * cp1[0] + fac * cp2[0]);
+	CLAMP(r, 0, 255);
+	g = offset + floorf((1.0f - fac) * cp1[1] + fac * cp2[1]);
+	CLAMP(g, 0, 255);
+	b = offset + floorf((1.0f - fac) * cp1[2] + fac * cp2[2]);
+	CLAMP(b, 0, 255);
+	a = offset + floorf((1.0f - fac) * cp1[3] + fac * cp2[3]);
+	CLAMP(a, 0, 255);
+
+	col[0] = ((float)r) / 255.0f;
+	col[1] = ((float)g) / 255.0f;
+	col[2] = ((float)b) / 255.0f;
+	col[3] = ((float)a) / 255.0f;
 }
 
 /* get the color, in char pointer */
@@ -1650,11 +1798,9 @@ void init_userdef_do_versions(void)
 		U.savetime = 1;
 // XXX		error(STRINGIFY(BLENDER_STARTUP_FILE)" is buggy, please consider removing it.\n");
 	}
-	/* transform widget settings */
-	if (U.tw_hotspot == 0) {
-		U.tw_hotspot = 14;
-		U.tw_size = 25;          /* percentage of window size */
-		U.tw_handlesize = 16;    /* percentage of widget radius */
+	if (U.manipulator_size == 0) {
+		U.manipulator_size = 75;
+		U.manipulator_flag |= USER_MANIPULATOR_DRAW;
 	}
 	if (U.pad_rot_angle == 0.0f)
 		U.pad_rot_angle = 15.0f;
@@ -2492,9 +2638,6 @@ void init_userdef_do_versions(void)
 	
 	if (!USER_VERSION_ATLEAST(269, 9)) {
 		bTheme *btheme;
-		
-		U.tw_size = U.tw_size * 5.0f;
-		
 		/* Action Editor (and NLA Editor) - Keyframe Colors */
 		/* Graph Editor - larger vertex size defaults */
 		for (btheme = U.themes.first; btheme; btheme = btheme->next) {
@@ -2630,8 +2773,8 @@ void init_userdef_do_versions(void)
 			btheme->tnode.gp_vertex_size = 3;
 			
 			/* Timeline Keyframe Indicators */
-			rgba_char_args_set(btheme->ttime.time_keyframe, 0xDD, 0xD7, 0x00, 1.0);
-			rgba_char_args_set(btheme->ttime.time_gp_keyframe, 0xB5, 0xE6, 0x1D, 1.0);
+			rgba_char_args_set(btheme->ttime.time_keyframe, 0xDD, 0xD7, 0x00, 0xFF);
+			rgba_char_args_set(btheme->ttime.time_gp_keyframe, 0xB5, 0xE6, 0x1D, 0xFF);
 		}
 	}
 
@@ -2711,8 +2854,8 @@ void init_userdef_do_versions(void)
 		bTheme *btheme;
 		for (btheme = U.themes.first; btheme; btheme = btheme->next) {
 			/* 3dView Keyframe Indicators */
-			rgba_char_args_set(btheme->tv3d.time_keyframe, 0xDD, 0xD7, 0x00, 1.0);
-			rgba_char_args_set(btheme->tv3d.time_gp_keyframe, 0xB5, 0xE6, 0x1D, 1.0);
+			rgba_char_args_set(btheme->tv3d.time_keyframe, 0xDD, 0xD7, 0x00, 0xFF);
+			rgba_char_args_set(btheme->tv3d.time_gp_keyframe, 0xB5, 0xE6, 0x1D, 0xFF);
 		}
 	}
 
@@ -2734,12 +2877,48 @@ void init_userdef_do_versions(void)
 		}
 	}
 
+	if (!USER_VERSION_ATLEAST(278, 2)) {
+		bTheme *btheme;
+		for (btheme = U.themes.first; btheme; btheme = btheme->next) {
+			rgba_char_args_set(btheme->tv3d.vertex_bevel, 0, 165, 255, 255);
+			rgba_char_args_set(btheme->tv3d.edge_bevel, 0, 165, 255, 255);
+		}
+	}
+
+	if (!USER_VERSION_ATLEAST(278, 3)) {
+		for (bTheme *btheme = U.themes.first; btheme; btheme = btheme->next) {
+			/* Keyframe Indicators (were using wrong alpha) */
+			btheme->tv3d.time_keyframe[3] = btheme->tv3d.time_gp_keyframe[3] = 255;
+			btheme->ttime.time_keyframe[3] = btheme->ttime.time_gp_keyframe[3] = 255;
+		}
+	}
+	if (!USER_VERSION_ATLEAST(280, 1)) {
+		/* interface_widgets.c */
+		struct uiWidgetColors wcol_tab = {
+			{255, 255, 255, 255},
+			{83, 83, 83, 255},
+			{114, 114, 114, 255},
+			{90, 90, 90, 255},
+
+			{0, 0, 0, 255},
+			{0, 0, 0, 255},
+
+			0,
+			0, 0
+		};
+
+		for (bTheme *btheme = U.themes.first; btheme; btheme = btheme->next) {
+			btheme->tui.wcol_tab = wcol_tab;
+		}
+	}
+
 	/**
 	 * Include next version bump.
 	 *
 	 * (keep this block even if it becomes empty).
 	 */
 	{
+		
 	}
 
 	if (U.pixelsize == 0.0f)

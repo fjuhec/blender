@@ -20,6 +20,7 @@
 import bpy
 from bpy.types import Panel
 from rna_prop_ui import PropertyPanel
+from bpy_extras.node_utils import find_node_input, find_output_node
 
 
 class WorldButtonsPanel:
@@ -36,7 +37,7 @@ class WorldButtonsPanel:
 class WORLD_PT_context_world(WorldButtonsPanel, Panel):
     bl_label = ""
     bl_options = {'HIDE_HEADER'}
-    COMPAT_ENGINES = {'BLENDER_RENDER'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE'}
 
     @classmethod
     def poll(cls, context):
@@ -175,7 +176,7 @@ class WORLD_PT_gather(WorldButtonsPanel, Panel):
 
         layout.active = light.use_ambient_occlusion or light.use_environment_light or light.use_indirect_light
 
-        layout.prop(light, "gather_method", expand=True)
+        layout.row().prop(light, "gather_method", expand=True)
 
         split = layout.split()
 
@@ -244,9 +245,56 @@ class WORLD_PT_mist(WorldButtonsPanel, Panel):
 
 
 class WORLD_PT_custom_props(WorldButtonsPanel, PropertyPanel, Panel):
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_EEVEE'}
     _context_path = "world"
     _property_type = bpy.types.World
 
+
+class EEVEE_WORLD_PT_surface(WorldButtonsPanel, Panel):
+    bl_label = "Surface"
+    bl_context = "world"
+    COMPAT_ENGINES = {'BLENDER_EEVEE'}
+
+    @classmethod
+    def poll(cls, context):
+        engine = context.scene.render.engine
+        return context.world and (engine in cls.COMPAT_ENGINES)
+
+    def draw(self, context):
+        layout = self.layout
+
+        world = context.world
+
+        layout.prop(world, "use_nodes", icon='NODETREE')
+        layout.separator()
+
+        if world.use_nodes:
+            ntree = world.node_tree
+            node = find_output_node(ntree, 'OUTPUT_WORLD')
+
+            if not node:
+                layout.label(text="No output node")
+            else:
+                input = find_node_input(node, 'Surface')
+                layout.template_node_view(ntree, node, input)
+        else:
+            layout.prop(world, "horizon_color", text="Color")
+
+
+classes = (
+    WORLD_PT_context_world,
+    WORLD_PT_preview,
+    WORLD_PT_world,
+    WORLD_PT_ambient_occlusion,
+    WORLD_PT_environment_lighting,
+    WORLD_PT_indirect_lighting,
+    WORLD_PT_gather,
+    WORLD_PT_mist,
+    WORLD_PT_custom_props,
+    EEVEE_WORLD_PT_surface,
+)
+
 if __name__ == "__main__":  # only for live edit.
-    bpy.utils.register_module(__name__)
+    from bpy.utils import register_class
+    for cls in classes:
+        register_class(cls)

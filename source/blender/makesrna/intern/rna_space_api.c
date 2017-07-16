@@ -31,6 +31,9 @@
 
 #ifdef RNA_RUNTIME
 
+#include "BKE_global.h"
+
+#include "ED_screen.h"
 #include "ED_text.h"
 
 static void rna_RegionView3D_update(ID *id, RegionView3D *rv3d)
@@ -43,11 +46,10 @@ static void rna_RegionView3D_update(ID *id, RegionView3D *rv3d)
 	area_region_from_regiondata(sc, rv3d, &sa, &ar);
 
 	if (sa && ar && sa->spacetype == SPACE_VIEW3D) {
-		View3D *v3d;
+		View3D *v3d = sa->spacedata.first;
+		Scene *scene = ED_screen_scene_find(sc, G.main->wm.first);
 
-		v3d = (View3D *)sa->spacedata.first;
-
-		ED_view3d_update_viewmat(sc->scene, v3d, ar, NULL, NULL);
+		ED_view3d_update_viewmat(scene, v3d, ar, NULL, NULL, NULL);
 	}
 }
 
@@ -84,9 +86,9 @@ void RNA_api_space_node(StructRNA *srna)
 	RNA_def_function_ui_description(func, "Set the cursor location using region coordinates");
 	RNA_def_function_flag(func, FUNC_USE_CONTEXT);
 	parm = RNA_def_int(func, "x", 0, INT_MIN, INT_MAX, "x", "Region x coordinate", -10000, 10000);
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_int(func, "y", 0, INT_MIN, INT_MAX, "y", "Region y coordinate", -10000, 10000);
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 }
 
 void RNA_api_space_text(StructRNA *srna)
@@ -98,9 +100,9 @@ void RNA_api_space_text(StructRNA *srna)
 	RNA_def_function_ui_description(func, "Retrieve the region position from the given line and character position");
 	RNA_def_function_flag(func, FUNC_USE_SELF_ID);
 	parm = RNA_def_int(func, "line", 0, INT_MIN, INT_MAX, "Line", "Line index", 0, INT_MAX);
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_int(func, "column", 0, INT_MIN, INT_MAX, "Column", "Column index", 0, INT_MAX);
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_int_array(func, "result", 2, NULL, -1, INT_MAX, "", "Region coordinates", -1, INT_MAX);
 	RNA_def_function_output(func, parm);
 }

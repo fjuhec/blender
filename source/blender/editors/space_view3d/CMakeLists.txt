@@ -25,6 +25,7 @@ set(INC
 	../../blenlib
 	../../blentranslation
 	../../bmesh
+	../../draw
 	../../gpu
 	../../imbuf
 	../../makesdna
@@ -53,11 +54,13 @@ set(SRC
 	view3d_buttons.c
 	view3d_camera_control.c
 	view3d_draw.c
+	view3d_draw_legacy.c
 	view3d_edit.c
 	view3d_fly.c
 	view3d_walk.c
 	view3d_header.c
 	view3d_iterators.c
+	view3d_manipulators.c
 	view3d_ops.c
 	view3d_project.c
 	view3d_ruler.c
@@ -91,8 +94,8 @@ if(WITH_FREESTYLE)
 	add_definitions(-DWITH_FREESTYLE)
 endif()
 
-if(WITH_LEGACY_DEPSGRAPH)
-	add_definitions(-DWITH_LEGACY_DEPSGRAPH)
+if(WITH_MOD_SMOKE)
+	add_definitions(-DWITH_SMOKE)
 endif()
 
 blender_add_lib(bf_editor_space_view3d "${SRC}" "${INC}" "${INC_SYS}")

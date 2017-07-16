@@ -62,9 +62,9 @@
 #include "BKE_animsys.h"  /* <------ should this be here?, needed for sequencer update */
 #include "BKE_camera.h"
 #include "BKE_colortools.h"
-#include "BKE_depsgraph.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_library_remap.h"
 #include "BKE_main.h"
@@ -74,8 +74,11 @@
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_sequencer.h"
+#include "BKE_sound.h"
 #include "BKE_writeavi.h"  /* <------ should be replaced once with generic movie module */
 #include "BKE_object.h"
+
+#include "DEG_depsgraph.h"
 
 #include "PIL_time.h"
 #include "IMB_colormanagement.h"
@@ -238,9 +241,9 @@ void RE_FreeRenderResult(RenderResult *res)
 	render_result_free(res);
 }
 
-float *RE_RenderLayerGetPass(volatile RenderLayer *rl, int passtype, const char *viewname)
+float *RE_RenderLayerGetPass(volatile RenderLayer *rl, const char *name, const char *viewname)
 {
-	RenderPass *rpass = RE_pass_find_by_type(rl, passtype, viewname);
+	RenderPass *rpass = RE_pass_find_by_name(rl, name, viewname);
 	return rpass ? rpass->rect : NULL;
 }
 
@@ -381,13 +384,13 @@ void RE_AcquireResultImageViews(Render *re, RenderResult *rr)
 			if (rl) {
 				if (rv->rectf == NULL) {
 					for (rview = (RenderView *)rr->views.first; rview; rview = rview->next) {
-						rview->rectf = RE_RenderLayerGetPass(rl, SCE_PASS_COMBINED, rview->name);
+						rview->rectf = RE_RenderLayerGetPass(rl, RE_PASSNAME_COMBINED, rview->name);
 					}
 				}
 
 				if (rv->rectz == NULL) {
 					for (rview = (RenderView *)rr->views.first; rview; rview = rview->next) {
-						rview->rectz = RE_RenderLayerGetPass(rl, SCE_PASS_Z, rview->name);
+						rview->rectz = RE_RenderLayerGetPass(rl, RE_PASSNAME_Z, rview->name);
 					}
 				}
 			}
@@ -441,10 +444,10 @@ void RE_AcquireResultImage(Render *re, RenderResult *rr, const int view_id)
 
 			if (rl) {
 				if (rv->rectf == NULL)
-					rr->rectf = RE_RenderLayerGetPass(rl, SCE_PASS_COMBINED, rv->name);
+					rr->rectf = RE_RenderLayerGetPass(rl, RE_PASSNAME_COMBINED, rv->name);
 
 				if (rv->rectz == NULL)
-					rr->rectz = RE_RenderLayerGetPass(rl, SCE_PASS_Z, rv->name);
+					rr->rectz = RE_RenderLayerGetPass(rl, RE_PASSNAME_Z, rv->name);
 			}
 
 			rr->have_combined = (rv->rectf != NULL);
@@ -549,6 +552,7 @@ void RE_FreeRender(Render *re)
 	/* main dbase can already be invalid now, some database-free code checks it */
 	re->main = NULL;
 	re->scene = NULL;
+	re->depsgraph = NULL;
 	
 	RE_Database_Free(re);	/* view render can still have full database */
 	free_sample_tables(re);
@@ -722,14 +726,14 @@ void RE_InitState(Render *re, Render *source, RenderData *rd,
 		re->r.size = source->r.size;
 	}
 
+	re_init_resolution(re, source, winx, winy, disprect);
+
 	/* disable border if it's a full render anyway */
 	if (re->r.border.xmin == 0.0f && re->r.border.xmax == 1.0f &&
 	    re->r.border.ymin == 0.0f && re->r.border.ymax == 1.0f)
 	{
 		re->r.mode &= ~R_BORDER;
 	}
-
-	re_init_resolution(re, source, winx, winy, disprect);
 
 	if (re->rectx < 1 || re->recty < 1 || (BKE_imtype_is_movie(rd->im_format.imtype) &&
 	                                       (re->rectx < 16 || re->recty < 16) ))
@@ -841,7 +845,7 @@ static void render_result_rescale(Render *re)
 	if (src_rectf == NULL) {
 		RenderLayer *rl = render_get_active_layer(re, re->result);
 		if (rl != NULL) {
-			src_rectf = RE_RenderLayerGetPass(rl, SCE_PASS_COMBINED, NULL);
+			src_rectf = RE_RenderLayerGetPass(rl, RE_PASSNAME_COMBINED, NULL);
 		}
 	}
 
@@ -860,7 +864,7 @@ static void render_result_rescale(Render *re)
 				RenderLayer *rl;
 				rl = render_get_active_layer(re, re->result);
 				if (rl != NULL) {
-					dst_rectf = RE_RenderLayerGetPass(rl, SCE_PASS_COMBINED, NULL);
+					dst_rectf = RE_RenderLayerGetPass(rl, RE_PASSNAME_COMBINED, NULL);
 				}
 			}
 
@@ -1654,7 +1658,7 @@ static void merge_renderresult_blur(RenderResult *rr, RenderResult *brr, float b
 		/* passes are allocated in sync */
 		rpass1 = rl1->passes.first;
 		for (rpass = rl->passes.first; rpass && rpass1; rpass = rpass->next, rpass1 = rpass1->next) {
-			if ((rpass->passtype & SCE_PASS_COMBINED) && key_alpha)
+			if (STREQ(rpass->name, RE_PASSNAME_COMBINED) && key_alpha)
 				addblur_rect_key(rr, rpass->rect, rpass1->rect, blurfac);
 			else
 				addblur_rect(rr, rpass->rect, rpass1->rect, blurfac, rpass->channels);
@@ -1697,7 +1701,7 @@ static void do_render_blur_3d(Render *re)
 	
 	/* make sure motion blur changes get reset to current frame */
 	if ((re->r.scemode & (R_NO_FRAME_UPDATE|R_BUTS_PREVIEW|R_VIEWPORT_PREVIEW))==0) {
-		BKE_scene_update_for_newframe(re->eval_ctx, re->main, re->scene, re->lay);
+		BKE_scene_update_for_newframe(re->eval_ctx, re->main, re->scene);
 	}
 	
 	/* weak... the display callback wants an active renderlayer pointer... */
@@ -1854,6 +1858,8 @@ static void render_result_uncrop(Render *re)
 
 			rres = render_result_new(re, &re->disprect, 0, RR_USE_MEM, RR_ALL_LAYERS, RR_ALL_VIEWS);
 
+			render_result_clone_passes(re, rres, NULL);
+
 			render_result_merge(rres, re->result);
 			render_result_free(re->result);
 			re->result = rres;
@@ -1931,6 +1937,7 @@ static void render_scene(Render *re, Scene *sce, int cfra)
 
 	/* still unsure entity this... */
 	resc->main = re->main;
+	resc->depsgraph = re->depsgraph;
 	resc->scene = sce;
 	resc->lay = sce->lay;
 	resc->scene_color_manage = BKE_scene_check_color_management_enabled(sce);
@@ -2011,14 +2018,14 @@ bool RE_allow_render_generic_object(Object *ob)
 #define DEPSGRAPH_WORKAROUND_HACK
 
 #ifdef DEPSGRAPH_WORKAROUND_HACK
-static void tag_dependend_objects_for_render(Scene *scene, int renderlay)
+static void tag_dependend_objects_for_render(Scene *scene, int UNUSED(renderlay))
 {
 	Scene *sce_iter;
 	Base *base;
 	for (SETLOOPER(scene, sce_iter, base)) {
 		Object *object = base->object;
 
-		if ((base->lay & renderlay) == 0) {
+		if ((base->flag & BASE_VISIBLED) == 0) {
 			continue;
 		}
 
@@ -2038,22 +2045,22 @@ static void tag_dependend_objects_for_render(Scene *scene, int renderlay)
 					if (md->type == eModifierType_Boolean) {
 						BooleanModifierData *bmd = (BooleanModifierData *)md;
 						if (bmd->object && bmd->object->type == OB_MESH) {
-							DAG_id_tag_update(&bmd->object->id, OB_RECALC_DATA);
+							DEG_id_tag_update(&bmd->object->id, OB_RECALC_DATA);
 						}
 					}
 					else if (md->type == eModifierType_Array) {
 						ArrayModifierData *amd = (ArrayModifierData *)md;
 						if (amd->start_cap && amd->start_cap->type == OB_MESH) {
-							DAG_id_tag_update(&amd->start_cap->id, OB_RECALC_DATA);
+							DEG_id_tag_update(&amd->start_cap->id, OB_RECALC_DATA);
 						}
 						if (amd->end_cap && amd->end_cap->type == OB_MESH) {
-							DAG_id_tag_update(&amd->end_cap->id, OB_RECALC_DATA);
+							DEG_id_tag_update(&amd->end_cap->id, OB_RECALC_DATA);
 						}
 					}
 					else if (md->type == eModifierType_Shrinkwrap) {
 						ShrinkwrapModifierData *smd = (ShrinkwrapModifierData *)md;
 						if (smd->target  && smd->target->type == OB_MESH) {
-							DAG_id_tag_update(&smd->target->id, OB_RECALC_DATA);
+							DEG_id_tag_update(&smd->target->id, OB_RECALC_DATA);
 						}
 					}
 				}
@@ -2587,7 +2594,7 @@ static void do_render_composite_fields_blur_3d(Render *re)
 				R.i.cfra = re->i.cfra;
 				
 				if (update_newframe)
-					BKE_scene_update_for_newframe(re->eval_ctx, re->main, re->scene, re->lay);
+					BKE_scene_update_for_newframe(re->eval_ctx, re->main, re->scene);
 				
 				if (re->r.scemode & R_FULL_SAMPLE)
 					do_merge_fullsample(re, ntree);
@@ -3059,6 +3066,13 @@ bool RE_is_rendering_allowed(Scene *scene, Object *camera_override, ReportList *
 	}
 #endif
 
+	if (RE_seq_render_active(scene, &scene->r)) {
+		if (scene->r.mode & R_BORDER) {
+			BKE_report(reports, RPT_ERROR, "Border rendering is not supported by sequencer");
+			return false;
+		}
+	}
+
 	/* layer flag tests */
 	if (!render_scene_has_layers_to_render(scene)) {
 		BKE_report(reports, RPT_ERROR, "All render layers are disabled");
@@ -3432,7 +3446,7 @@ bool RE_WriteRenderViewsMovie(
 		ok = mh->append_movie(movie_ctx_arr[0], rd, preview ? scene->r.psfra : scene->r.sfra, scene->r.cfra, (int *) ibuf_arr[2]->rect,
 		                      ibuf_arr[2]->x, ibuf_arr[2]->y, "", reports);
 
-		for (i = 0; i < 2; i++) {
+		for (i = 0; i < 3; i++) {
 			/* imbuf knows which rects are not part of ibuf */
 			IMB_freeImBuf(ibuf_arr[i]);
 		}
@@ -3632,19 +3646,8 @@ void RE_BlenderAnim(Render *re, Main *bmain, Scene *scene, Object *camera_overri
 			render_initialize_from_main(re, &rd, bmain, scene, NULL, camera_override, lay_override, 1, 0);
 
 			if (nfra != scene->r.cfra) {
-				/*
-				 * Skip this frame, but update for physics and particles system.
-				 * From convertblender.c:
-				 * in localview, lamps are using normal layers, objects only local bits.
-				 */
-				unsigned int updatelay;
-
-				if (re->lay & 0xFF000000)
-					updatelay = re->lay & 0xFF000000;
-				else
-					updatelay = re->lay;
-
-				BKE_scene_update_for_newframe(re->eval_ctx, bmain, scene, updatelay);
+				/* Skip this frame, but update for physics and particles system. */
+				BKE_scene_update_for_newframe(re->eval_ctx, bmain, scene);
 				continue;
 			}
 			else
@@ -3784,6 +3787,7 @@ void RE_BlenderAnim(Render *re, Main *bmain, Scene *scene, Object *camera_overri
 	re->flag &= ~R_ANIMATION;
 
 	BLI_callback_exec(re->main, (ID *)scene, G.is_break ? BLI_CB_EVT_RENDER_CANCEL : BLI_CB_EVT_RENDER_COMPLETE);
+	BKE_sound_reset_scene_specs(scene);
 
 	/* UGLY WARNING */
 	G.is_rendering = false;
@@ -3792,6 +3796,8 @@ void RE_BlenderAnim(Render *re, Main *bmain, Scene *scene, Object *camera_overri
 void RE_PreviewRender(Render *re, Main *bmain, Scene *sce)
 {
 	Object *camera;
+	/* TODO(sergey): Get proper scene layer here. */
+	SceneLayer *scene_layer = BKE_scene_layer_context_active_ex_PLACEHOLDER(bmain, sce);
 	int winx, winy;
 
 	winx = (sce->r.size * sce->r.xsch) / 100;
@@ -3805,6 +3811,7 @@ void RE_PreviewRender(Render *re, Main *bmain, Scene *sce)
 	re->scene = sce;
 	re->scene_color_manage = BKE_scene_check_color_management_enabled(sce);
 	re->lay = sce->lay;
+	re->depsgraph = BKE_scene_get_depsgraph(sce, scene_layer);
 
 	camera = RE_GetCamera(re);
 	RE_SetCamera(re, camera);
@@ -3878,7 +3885,7 @@ void RE_layer_load_from_file(RenderLayer *layer, ReportList *reports, const char
 
 	/* multiview: since the API takes no 'view', we use the first combined pass found */
 	for (rpass = layer->passes.first; rpass; rpass = rpass->next)
-		if (rpass->passtype == SCE_PASS_COMBINED)
+		if (STREQ(rpass->name, RE_PASSNAME_COMBINED))
 			break;
 
 	if (rpass == NULL)
@@ -4004,13 +4011,12 @@ bool RE_layers_have_name(struct RenderResult *rr)
 	return false;
 }
 
-RenderPass *RE_pass_find_by_type(volatile RenderLayer *rl, int passtype, const char *viewname)
+RenderPass *RE_pass_find_by_name(volatile RenderLayer *rl, const char *name, const char *viewname)
 {
 	RenderPass *rp = NULL;
 
 	for (rp = rl->passes.last; rp; rp = rp->prev) {
-		if (rp->passtype == passtype) {
-
+		if (STREQ(rp->name, name)) {
 			if (viewname == NULL || viewname[0] == '\0')
 				break;
 			else if (STREQ(rp->view, viewname))
@@ -4018,6 +4024,50 @@ RenderPass *RE_pass_find_by_type(volatile RenderLayer *rl, int passtype, const c
 		}
 	}
 	return rp;
+}
+
+/* Only provided for API compatibility, don't use this in new code! */
+RenderPass *RE_pass_find_by_type(volatile RenderLayer *rl, int passtype, const char *viewname)
+{
+#define CHECK_PASS(NAME) \
+	if (passtype == SCE_PASS_ ## NAME) \
+		return RE_pass_find_by_name(rl, RE_PASSNAME_ ## NAME, viewname);
+
+	CHECK_PASS(COMBINED);
+	CHECK_PASS(Z);
+	CHECK_PASS(VECTOR);
+	CHECK_PASS(NORMAL);
+	CHECK_PASS(UV);
+	CHECK_PASS(RGBA);
+	CHECK_PASS(EMIT);
+	CHECK_PASS(DIFFUSE);
+	CHECK_PASS(SPEC);
+	CHECK_PASS(SHADOW);
+	CHECK_PASS(AO);
+	CHECK_PASS(ENVIRONMENT);
+	CHECK_PASS(INDIRECT);
+	CHECK_PASS(REFLECT);
+	CHECK_PASS(REFRACT);
+	CHECK_PASS(INDEXOB);
+	CHECK_PASS(INDEXMA);
+	CHECK_PASS(MIST);
+	CHECK_PASS(RAYHITS);
+	CHECK_PASS(DIFFUSE_DIRECT);
+	CHECK_PASS(DIFFUSE_INDIRECT);
+	CHECK_PASS(DIFFUSE_COLOR);
+	CHECK_PASS(GLOSSY_DIRECT);
+	CHECK_PASS(GLOSSY_INDIRECT);
+	CHECK_PASS(GLOSSY_COLOR);
+	CHECK_PASS(TRANSM_DIRECT);
+	CHECK_PASS(TRANSM_INDIRECT);
+	CHECK_PASS(TRANSM_COLOR);
+	CHECK_PASS(SUBSURFACE_DIRECT);
+	CHECK_PASS(SUBSURFACE_INDIRECT);
+	CHECK_PASS(SUBSURFACE_COLOR);
+
+#undef CHECK_PASS
+
+	return NULL;
 }
 
 /* create a renderlayer and renderpass for grease pencil layer */
@@ -4037,7 +4087,7 @@ RenderPass *RE_create_gp_pass(RenderResult *rr, const char *layername, const cha
 	}
 	
 	/* clear previous pass if exist or the new image will be over previous one*/
-	RenderPass *rp = RE_pass_find_by_type(rl, SCE_PASS_COMBINED, viewname);
+	RenderPass *rp = RE_pass_find_by_name(rl, RE_PASSNAME_COMBINED, viewname);
 	if (rp) {
 		if (rp->rect) {
 			MEM_freeN(rp->rect);
@@ -4045,5 +4095,5 @@ RenderPass *RE_create_gp_pass(RenderResult *rr, const char *layername, const cha
 		BLI_freelinkN(&rl->passes, rp);
 	}
 	/* create a totally new pass */
-	return gp_add_pass(rr, rl, 4, SCE_PASS_COMBINED, viewname);
+	return gp_add_pass(rr, rl, 4, RE_PASSNAME_COMBINED, viewname);
 }

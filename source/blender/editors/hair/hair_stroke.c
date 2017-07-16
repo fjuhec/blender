@@ -61,22 +61,20 @@
 
 #include "hair_intern.h"
 
-bool hair_test_depth(HairViewData *viewdata, const float co[3], const int screen_co[2])
+bool hair_test_depth(ViewContext *vc, const float co[3], const int screen_co[2])
 {
-	View3D *v3d = viewdata->vc.v3d;
-	ViewDepths *vd = viewdata->vc.rv3d->depths;
+	View3D *v3d = vc->v3d;
+	ViewDepths *vd = vc->rv3d->depths;
 	const bool has_zbuf = (v3d->drawtype > OB_WIRE) && (v3d->flag & V3D_ZBUF_SELECT);
 	
-	double ux, uy, uz;
+	float uco[3];
 	float depth;
 	
 	/* nothing to do */
 	if (!has_zbuf)
 		return true;
 	
-	gluProject(co[0], co[1], co[2],
-	           viewdata->mats.modelview, viewdata->mats.projection, viewdata->mats.viewport,
-	           &ux, &uy, &uz);
+	ED_view3d_project(vc->ar, co, uco);
 	
 	/* check if screen_co is within bounds because brush_cut uses out of screen coords */
 	if (screen_co[0] >= 0 && screen_co[0] < vd->w && screen_co[1] >= 0 && screen_co[1] < vd->h) {
@@ -84,15 +82,15 @@ bool hair_test_depth(HairViewData *viewdata, const float co[3], const int screen
 		/* we know its not clipped */
 		depth = vd->depths[screen_co[1] * vd->w + screen_co[0]];
 		
-		return ((float)uz - 0.00001f <= depth);
+		return ((float)uco[2] - 0.00001f <= depth);
 	}
 	
 	return false;
 }
 
-bool hair_test_vertex_inside_circle(HairViewData *viewdata, const float mval[2], float radsq, BMVert *v, float *r_dist)
+bool hair_test_vertex_inside_circle(ViewContext *vc, const float mval[2], float radsq, BMVert *v, float *r_dist)
 {
-	float (*obmat)[4] = viewdata->vc.obact->obmat;
+	float (*obmat)[4] = vc->obact->obmat;
 	float co_world[3];
 	float dx, dy, distsq;
 	int screen_co[2];
@@ -100,7 +98,7 @@ bool hair_test_vertex_inside_circle(HairViewData *viewdata, const float mval[2],
 	mul_v3_m4v3(co_world, obmat, v->co);
 	
 	/* TODO, should this check V3D_PROJ_TEST_CLIP_BB too? */
-	if (ED_view3d_project_int_global(viewdata->vc.ar, co_world, screen_co, V3D_PROJ_TEST_CLIP_WIN) != V3D_PROJ_RET_OK)
+	if (ED_view3d_project_int_global(vc->ar, co_world, screen_co, V3D_PROJ_TEST_CLIP_WIN) != V3D_PROJ_RET_OK)
 		return false;
 	
 	dx = mval[0] - (float)screen_co[0];
@@ -110,7 +108,7 @@ bool hair_test_vertex_inside_circle(HairViewData *viewdata, const float mval[2],
 	if (distsq > radsq)
 		return false;
 	
-	if (hair_test_depth(viewdata, v->co, screen_co)) {
+	if (hair_test_depth(vc, v->co, screen_co)) {
 		*r_dist = sqrtf(distsq);
 		return true;
 	}
@@ -118,9 +116,9 @@ bool hair_test_vertex_inside_circle(HairViewData *viewdata, const float mval[2],
 		return false;
 }
 
-bool hair_test_edge_inside_circle(HairViewData *viewdata, const float mval[2], float radsq, BMVert *v1, BMVert *v2, float *r_dist, float *r_lambda)
+bool hair_test_edge_inside_circle(ViewContext *vc, const float mval[2], float radsq, BMVert *v1, BMVert *v2, float *r_dist, float *r_lambda)
 {
-	float (*obmat)[4] = viewdata->vc.obact->obmat;
+	float (*obmat)[4] = vc->obact->obmat;
 	float world_co1[3], world_co2[3];
 	float dx, dy, distsq;
 	int screen_co1[2], screen_co2[2], screen_cp[2];
@@ -130,9 +128,9 @@ bool hair_test_edge_inside_circle(HairViewData *viewdata, const float mval[2], f
 	mul_v3_m4v3(world_co2, obmat, v2->co);
 	
 	/* TODO, should this check V3D_PROJ_TEST_CLIP_BB too? */
-	if (ED_view3d_project_int_global(viewdata->vc.ar, world_co1, screen_co1, V3D_PROJ_TEST_CLIP_WIN) != V3D_PROJ_RET_OK)
+	if (ED_view3d_project_int_global(vc->ar, world_co1, screen_co1, V3D_PROJ_TEST_CLIP_WIN) != V3D_PROJ_RET_OK)
 		return false;
-	if (ED_view3d_project_int_global(viewdata->vc.ar, world_co2, screen_co2, V3D_PROJ_TEST_CLIP_WIN) != V3D_PROJ_RET_OK)
+	if (ED_view3d_project_int_global(vc->ar, world_co2, screen_co2, V3D_PROJ_TEST_CLIP_WIN) != V3D_PROJ_RET_OK)
 		return false;
 	
 	screen_co1f[0] = screen_co1[0];
@@ -156,7 +154,7 @@ bool hair_test_edge_inside_circle(HairViewData *viewdata, const float mval[2], f
 	
 	screen_cp[0] = screen_cpf[0];
 	screen_cp[1] = screen_cpf[1];
-	if (hair_test_depth(viewdata, world_cp, screen_cp)) {
+	if (hair_test_depth(vc, world_cp, screen_cp)) {
 		*r_dist = sqrtf(distsq);
 		*r_lambda = lambda;
 		return true;
@@ -165,43 +163,43 @@ bool hair_test_edge_inside_circle(HairViewData *viewdata, const float mval[2], f
 		return false;
 }
 
-bool hair_test_vertex_inside_rect(HairViewData *viewdata, rcti *rect, BMVert *v)
+bool hair_test_vertex_inside_rect(ViewContext *vc, rcti *rect, BMVert *v)
 {
-	float (*obmat)[4] = viewdata->vc.obact->obmat;
+	float (*obmat)[4] = vc->obact->obmat;
 	float co_world[3];
 	int screen_co[2];
 	
 	mul_v3_m4v3(co_world, obmat, v->co);
 	
 	/* TODO, should this check V3D_PROJ_TEST_CLIP_BB too? */
-	if (ED_view3d_project_int_global(viewdata->vc.ar, co_world, screen_co, V3D_PROJ_TEST_CLIP_WIN) != V3D_PROJ_RET_OK)
+	if (ED_view3d_project_int_global(vc->ar, co_world, screen_co, V3D_PROJ_TEST_CLIP_WIN) != V3D_PROJ_RET_OK)
 		return false;
 	
 	if (!BLI_rcti_isect_pt_v(rect, screen_co))
 		return false;
 	
-	if (hair_test_depth(viewdata, v->co, screen_co))
+	if (hair_test_depth(vc, v->co, screen_co))
 		return true;
 	else
 		return false;
 }
 
-bool hair_test_vertex_inside_lasso(HairViewData *viewdata, const int mcoords[][2], short moves, BMVert *v)
+bool hair_test_vertex_inside_lasso(ViewContext *vc, const int mcoords[][2], short moves, BMVert *v)
 {
-	float (*obmat)[4] = viewdata->vc.obact->obmat;
+	float (*obmat)[4] = vc->obact->obmat;
 	float co_world[3];
 	int screen_co[2];
 	
 	mul_v3_m4v3(co_world, obmat, v->co);
 	
 	/* TODO, should this check V3D_PROJ_TEST_CLIP_BB too? */
-	if (ED_view3d_project_int_global(viewdata->vc.ar, co_world, screen_co, V3D_PROJ_TEST_CLIP_WIN) != V3D_PROJ_RET_OK)
+	if (ED_view3d_project_int_global(vc->ar, co_world, screen_co, V3D_PROJ_TEST_CLIP_WIN) != V3D_PROJ_RET_OK)
 		return false;
 	
 	if (!BLI_lasso_is_point_inside(mcoords, moves, screen_co[0], screen_co[1], IS_CLIPPED))
 		return false;
 	
-	if (hair_test_depth(viewdata, v->co, screen_co))
+	if (hair_test_depth(vc, v->co, screen_co))
 		return true;
 	else
 		return false;
@@ -231,7 +229,7 @@ static int UNUSED_FUNCTION(hair_tool_apply_vertex)(HairToolData *data, VertexToo
 		ED_strands_mirror_cache_begin(data->edit, 0, false, false, hair_use_mirror_topology(data->ob));
 	
 	BM_ITER_MESH(v, &iter, bm, BM_VERTS_OF_MESH) {
-		if (!hair_test_vertex_inside_circle(&data->viewdata, data->mval, radsq, v, &dist))
+		if (!hair_test_vertex_inside_circle(&data->vc, data->mval, radsq, v, &dist))
 			continue;
 		
 		factor = 1.0f - dist / rad;
@@ -279,7 +277,7 @@ static int hair_tool_apply_strand_edges(HairToolData *data, EdgeToolCb cb, void 
 		if (k > 0) {
 			float dist, lambda;
 			
-			if (hair_test_edge_inside_circle(&data->viewdata, data->mval, radsq, vprev, v, &dist, &lambda)) {
+			if (hair_test_edge_inside_circle(&data->vc, data->mval, radsq, vprev, v, &dist, &lambda)) {
 				float factor = 1.0f - dist / rad;
 				if (factor > threshold) {
 					cb(data, userdata, vprev, v, factor, lambda);
@@ -426,7 +424,7 @@ static void grow_hair(BMEditStrands *edit, MeshSample *sample)
 static bool hair_add_ray_cb(void *vdata, float ray_start[3], float ray_end[3])
 {
 	HairToolData *data = vdata;
-	ViewContext *vc = &data->viewdata.vc;
+	ViewContext *vc = &data->vc;
 	
 	ED_view3d_win_to_segment(vc->ar, vc->v3d, data->mval, ray_start, ray_end, true);
 	

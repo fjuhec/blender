@@ -98,12 +98,8 @@ BMEditStrands *BKE_editstrands_from_object(Object *ob)
 	return NULL;
 }
 
-void BKE_editstrands_update_linked_customdata(BMEditStrands *es)
+void BKE_editstrands_update_linked_customdata(BMEditStrands *UNUSED(es))
 {
-	BMesh *bm = es->base.bm;
-	
-	/* this is done for BMEditMesh, but should never exist for strands */
-	BLI_assert(!CustomData_has_layer(&bm->pdata, CD_MTEXPOLY));
 }
 
 /*does not free the BMEditStrands struct itself*/

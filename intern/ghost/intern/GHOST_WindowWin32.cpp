@@ -92,6 +92,7 @@ GHOST_WindowWin32::GHOST_WindowWin32(GHOST_SystemWin32 *system,
       m_tablet(0),
       m_maxPressure(0),
       m_normal_state(GHOST_kWindowStateNormal),
+	  m_user32(NULL),
       m_parentWindowHwnd(parentwindowhwnd),
       m_debug_context(is_debug)
 {
@@ -353,7 +354,7 @@ GHOST_WindowWin32::~GHOST_WindowWin32()
 			// Release our reference of the DropTarget and it will delete itself eventually.
 			m_dropTarget->Release();
 		}
-
+		::SetWindowLongPtr(m_hWnd, GWLP_USERDATA, NULL);
 		::DestroyWindow(m_hWnd);
 		m_hWnd = 0;
 	}
@@ -610,101 +611,72 @@ GHOST_TSuccess GHOST_WindowWin32::invalidate()
 GHOST_Context *GHOST_WindowWin32::newDrawingContext(GHOST_TDrawingContextType type)
 {
 	if (type == GHOST_kDrawingContextTypeOpenGL) {
-#if !defined(WITH_GL_EGL)
+		GHOST_Context *context;
 
 #if defined(WITH_GL_PROFILE_CORE)
-		GHOST_Context *context = new GHOST_ContextWGL(
-		        m_wantStereoVisual,
-		        m_wantAlphaBackground,
-		        m_wantNumOfAASamples,
-		        m_hWnd,
-		        m_hDC,
-		        WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
-		        3, 2,
-		        GHOST_OPENGL_WGL_CONTEXT_FLAGS,
-		        GHOST_OPENGL_WGL_RESET_NOTIFICATION_STRATEGY);
-#elif defined(WITH_GL_PROFILE_ES20)
-		GHOST_Context *context = new GHOST_ContextWGL(
-		        m_wantStereoVisual,
-		        m_wantAlphaBackground,
-		        m_wantNumOfAASamples,
-		        m_hWnd,
-		        m_hDC,
-		        WGL_CONTEXT_ES2_PROFILE_BIT_EXT,
-		        2, 0,
-		        GHOST_OPENGL_WGL_CONTEXT_FLAGS,
-		        GHOST_OPENGL_WGL_RESET_NOTIFICATION_STRATEGY);
+		GHOST_TUns8 major, minor;
+
+		if (GHOST_ContextWGL::getMaximumSupportedOpenGLVersion(
+		    m_hWnd,
+		    m_wantStereoVisual,
+		    m_wantAlphaBackground,
+		    m_wantNumOfAASamples,
+		    WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+		    m_debug_context,
+		    &major, &minor))
+		{
+			context = new GHOST_ContextWGL(
+			    m_wantStereoVisual,
+			    m_wantAlphaBackground,
+			    m_wantNumOfAASamples,
+			    m_hWnd,
+			    m_hDC,
+			    WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+			    major, minor,
+			    (m_debug_context ? WGL_CONTEXT_DEBUG_BIT_ARB : 0),
+			    GHOST_OPENGL_WGL_RESET_NOTIFICATION_STRATEGY);
+
+			if (context->initializeDrawingContext()) {
+				return context;
+			}
+			else {
+				delete context;
+			}
+		}
+		else {
+			MessageBox(
+			        m_hWnd,
+			        "Blender requires a graphics driver with at least OpenGL 3.3 support.\n\n"
+			        "The program will now close.",
+			        "Blender - Unsupported Graphics Driver!",
+			        MB_OK | MB_ICONERROR);
+			exit(0);
+			return NULL;
+		}
+
 #elif defined(WITH_GL_PROFILE_COMPAT)
-		GHOST_Context *context = new GHOST_ContextWGL(
+		// ask for 2.1 context, driver gives any GL version >= 2.1 (hopefully the latest compatibility profile)
+		// 2.1 ignores the profile bit & is incompatible with core profile
+		context = new GHOST_ContextWGL(
 		        m_wantStereoVisual,
 		        m_wantAlphaBackground,
 		        m_wantNumOfAASamples,
 		        m_hWnd,
 		        m_hDC,
-#if 1
-		        0, // profile bit
-		        2, 1, // GL version requested
-#else
-		        // switch to this for Blender 2.8 development
-		        WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
-		        3, 2,
-#endif
-		        GHOST_OPENGL_WGL_CONTEXT_FLAGS,
+		        0, // no profile bit
+		        2, 1,
+		        (m_debug_context ? WGL_CONTEXT_DEBUG_BIT_ARB : 0),
 		        GHOST_OPENGL_WGL_RESET_NOTIFICATION_STRATEGY);
 #else
-#  error
+#  error // must specify either core or compat at build time
 #endif
 
-#else
-
-#if defined(WITH_GL_PROFILE_CORE)
-		GHOST_Context *context = new GHOST_ContextEGL(
-		        m_wantStereoVisual,
-		        m_wantNumOfAASamples,
-		        m_hWnd,
-		        m_hDC,
-		        EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
-		        3, 2,
-		        GHOST_OPENGL_EGL_CONTEXT_FLAGS,
-		        GHOST_OPENGL_EGL_RESET_NOTIFICATION_STRATEGY,
-		        EGL_OPENGL_API);
-#elif defined(WITH_GL_PROFILE_ES20)
-		GHOST_Context *context = new GHOST_ContextEGL(
-		        m_wantStereoVisual,
-		        m_wantNumOfAASamples,
-		        m_hWnd,
-		        m_hDC,
-		        0, // profile bit
-		        2, 0,
-		        GHOST_OPENGL_EGL_CONTEXT_FLAGS,
-		        GHOST_OPENGL_EGL_RESET_NOTIFICATION_STRATEGY,
-		        EGL_OPENGL_ES_API);
-#elif defined(WITH_GL_PROFILE_COMPAT)
-		GHOST_Context *context = new GHOST_ContextEGL(
-		        m_wantStereoVisual,
-		        m_wantNumOfAASamples,
-		        m_hWnd,
-		        m_hDC,
-#if 1
-		        0, // profile bit
-		        2, 1, // GL version requested
-#else
-		        // switch to this for Blender 2.8 development
-		        EGL_CONTEXT_OPENGL_COMPATIBILITY_PROFILE_BIT,
-		        3, 2,
-#endif
-		        GHOST_OPENGL_EGL_CONTEXT_FLAGS,
-		        GHOST_OPENGL_EGL_RESET_NOTIFICATION_STRATEGY,
-		        EGL_OPENGL_API);
-#else
-#  error
-#endif
-
-#endif
-		if (context->initializeDrawingContext())
+		if (context->initializeDrawingContext()) {
 			return context;
-		else
+		}
+		else {
 			delete context;
+		}
 	}
 
 	return NULL;
@@ -963,6 +935,23 @@ void GHOST_WindowWin32::bringTabletContextToFront()
 			fpWTOverlap(m_tablet, TRUE);
 		}
 	}
+}
+
+GHOST_TUns16 GHOST_WindowWin32::getDPIHint()
+{
+	if (!m_user32) {
+		m_user32 = ::LoadLibrary("user32.dll");
+	}
+
+	if (m_user32) {
+		GHOST_WIN32_GetDpiForWindow fpGetDpiForWindow = (GHOST_WIN32_GetDpiForWindow) ::GetProcAddress(m_user32, "GetDpiForWindow");
+
+		if (fpGetDpiForWindow) {
+			return fpGetDpiForWindow(this->m_hWnd);
+		}
+	}
+
+	return USER_DEFAULT_SCREEN_DPI;
 }
 
 /** Reverse the bits in a GHOST_TUns8 */

@@ -68,6 +68,8 @@
 #include "BKE_nla.h"
 #include "BKE_context.h"
 
+#include "GPU_immediate.h"
+
 #include "UI_interface.h"
 #include "UI_interface_icons.h"
 #include "UI_resources.h"
@@ -76,7 +78,6 @@
 #include "ED_keyframing.h"
 
 #include "BIF_gl.h"
-#include "BIF_glutil.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -119,11 +120,10 @@ static void acf_generic_root_backdrop(bAnimContext *ac, bAnimListElem *ale, floa
 	
 	/* set backdrop drawing color */
 	acf->get_backdrop_color(ac, ale, color);
-	glColor3fv(color);
 	
 	/* rounded corners on LHS only - top only when expanded, but bottom too when collapsed */
 	UI_draw_roundbox_corner_set((expanded) ? UI_CNR_TOP_LEFT : (UI_CNR_TOP_LEFT | UI_CNR_BOTTOM_LEFT));
-	UI_draw_roundbox_gl_mode(GL_POLYGON, offset,  yminc, v2d->cur.xmax + EXTRA_SCROLL_PAD, ymaxc, 8);
+	UI_draw_roundbox_3fvAlpha(true, offset,  yminc, v2d->cur.xmax + EXTRA_SCROLL_PAD, ymaxc, 8, color, 1.0f);
 }
 
 
@@ -141,13 +141,19 @@ static void acf_generic_dataexpand_backdrop(bAnimContext *ac, bAnimListElem *ale
 	View2D *v2d = &ac->ar->v2d;
 	short offset = (acf->get_offset) ? acf->get_offset(ac, ale) : 0;
 	float color[3];
-	
+
+	unsigned int pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
+
 	/* set backdrop drawing color */
 	acf->get_backdrop_color(ac, ale, color);
-	glColor3fv(color);
-	
+
+	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+	immUniformColor3fv(color);
+
 	/* no rounded corner - just rectangular box */
-	glRectf(offset, yminc,  v2d->cur.xmax + EXTRA_SCROLL_PAD, ymaxc);
+	immRectf(pos, offset, yminc,  v2d->cur.xmax + EXTRA_SCROLL_PAD, ymaxc);
+
+	immUnbindProgram();
 }
 
 /* helper method to test if group colors should be drawn */
@@ -224,13 +230,19 @@ static void acf_generic_channel_backdrop(bAnimContext *ac, bAnimListElem *ale, f
 	View2D *v2d = &ac->ar->v2d;
 	short offset = (acf->get_offset) ? acf->get_offset(ac, ale) : 0;
 	float color[3];
+
+	unsigned int pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
 	
 	/* set backdrop drawing color */
 	acf->get_backdrop_color(ac, ale, color);
-	glColor3fv(color);
+
+	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+	immUniformColor3fv(color);
 	
 	/* no rounded corners - just rectangular box */
-	glRectf(offset, yminc,  v2d->cur.xmax + EXTRA_SCROLL_PAD, ymaxc);
+	immRectf(pos, offset, yminc,  v2d->cur.xmax + EXTRA_SCROLL_PAD, ymaxc);
+
+	immUnbindProgram();
 }
 
 /* Indention + Offset ------------------------------------------- */
@@ -390,7 +402,10 @@ static bool acf_generic_dataexpand_setting_valid(bAnimContext *ac, bAnimListElem
 		/* select is ok for most "ds*" channels (e.g. dsmat) */
 		case ACHANNEL_SETTING_SELECT:
 			return true;
-			
+
+		case ACHANNEL_SETTING_ALWAYS_VISIBLE:
+			return true;
+
 		/* other flags are never supported */
 		default:
 			return false;
@@ -418,14 +433,13 @@ static void acf_summary_backdrop(bAnimContext *ac, bAnimListElem *ale, float ymi
 	
 	/* set backdrop drawing color */
 	acf->get_backdrop_color(ac, ale, color);
-	glColor3fv(color);
 	
 	/* rounded corners on LHS only 
 	 *	- top and bottom 
 	 *	- special hack: make the top a bit higher, since we are first... 
 	 */
 	UI_draw_roundbox_corner_set(UI_CNR_TOP_LEFT | UI_CNR_BOTTOM_LEFT);
-	UI_draw_roundbox_gl_mode(GL_POLYGON, 0,  yminc - 2, v2d->cur.xmax + EXTRA_SCROLL_PAD, ymaxc, 8);
+	UI_draw_roundbox_3fvAlpha(true, 0,  yminc - 2, v2d->cur.xmax + EXTRA_SCROLL_PAD, ymaxc, 8, color, 1.0f);
 }
 
 /* name for summary entries */
@@ -529,7 +543,10 @@ static bool acf_scene_setting_valid(bAnimContext *ac, bAnimListElem *UNUSED(ale)
 		case ACHANNEL_SETTING_SELECT:
 		case ACHANNEL_SETTING_EXPAND:
 			return true;
-			
+
+		case ACHANNEL_SETTING_ALWAYS_VISIBLE:
+			return false;
+
 		default:
 			return false;
 	}
@@ -555,7 +572,7 @@ static int acf_scene_setting_flag(bAnimContext *UNUSED(ac), eAnimChannel_Setting
 		case ACHANNEL_SETTING_VISIBLE: /* visible (only in Graph Editor) */
 			*neg = true;
 			return ADT_CURVES_NOT_VISIBLE;
-			
+
 		default: /* unsupported */
 			return 0;
 	}
@@ -611,7 +628,7 @@ static bAnimChannelType ACF_SCENE =
 
 static int acf_object_icon(bAnimListElem *ale)
 {
-	Base *base = (Base *)ale->data;
+	BaseLegacy *base = (BaseLegacy *)ale->data;
 	Object *ob = base->object;
 	
 	/* icon depends on object-type */
@@ -646,7 +663,7 @@ static int acf_object_icon(bAnimListElem *ale)
 /* name for object */
 static void acf_object_name(bAnimListElem *ale, char *name)
 {
-	Base *base = (Base *)ale->data;
+	BaseLegacy *base = (BaseLegacy *)ale->data;
 	Object *ob = base->object;
 	
 	/* just copy the name... */
@@ -666,7 +683,7 @@ static bool acf_object_name_prop(bAnimListElem *ale, PointerRNA *ptr, PropertyRN
 /* check if some setting exists for this channel */
 static bool acf_object_setting_valid(bAnimContext *ac, bAnimListElem *ale, eAnimChannel_Settings setting)
 {
-	Base *base = (Base *)ale->data;
+	BaseLegacy *base = (BaseLegacy *)ale->data;
 	Object *ob = base->object;
 	
 	switch (setting) {
@@ -682,7 +699,10 @@ static bool acf_object_setting_valid(bAnimContext *ac, bAnimListElem *ale, eAnim
 		case ACHANNEL_SETTING_SELECT:
 		case ACHANNEL_SETTING_EXPAND:
 			return true;
-			
+
+		case ACHANNEL_SETTING_ALWAYS_VISIBLE:
+			return ((ac) && (ac->spacetype == SPACE_IPO) && (ob->adt));
+
 		default:
 			return false;
 	}
@@ -708,7 +728,10 @@ static int acf_object_setting_flag(bAnimContext *UNUSED(ac), eAnimChannel_Settin
 		case ACHANNEL_SETTING_VISIBLE: /* visible (only in Graph Editor) */
 			*neg = true;
 			return ADT_CURVES_NOT_VISIBLE;
-			
+
+		case ACHANNEL_SETTING_ALWAYS_VISIBLE:
+			return ADT_CURVES_ALWAYS_VISIBLE;
+
 		default: /* unsupported */
 			return 0;
 	}
@@ -717,7 +740,7 @@ static int acf_object_setting_flag(bAnimContext *UNUSED(ac), eAnimChannel_Settin
 /* get pointer to the setting */
 static void *acf_object_setting_ptr(bAnimListElem *ale, eAnimChannel_Settings setting, short *type)
 {
-	Base *base = (Base *)ale->data;
+	BaseLegacy *base = (BaseLegacy *)ale->data;
 	Object *ob = base->object;
 	
 	/* clear extra return data first */
@@ -732,6 +755,7 @@ static void *acf_object_setting_ptr(bAnimListElem *ale, eAnimChannel_Settings se
 			
 		case ACHANNEL_SETTING_MUTE: /* mute (only in NLA) */
 		case ACHANNEL_SETTING_VISIBLE: /* visible (for Graph Editor only) */
+		case ACHANNEL_SETTING_ALWAYS_VISIBLE:
 			if (ob->adt)
 				return GET_ACF_FLAG_PTR(ob->adt->flag, type);
 			return NULL;
@@ -801,11 +825,10 @@ static void acf_group_backdrop(bAnimContext *ac, bAnimListElem *ale, float yminc
 	
 	/* set backdrop drawing color */
 	acf->get_backdrop_color(ac, ale, color);
-	glColor3fv(color);
 	
 	/* rounded corners on LHS only - top only when expanded, but bottom too when collapsed */
 	UI_draw_roundbox_corner_set(expanded ? UI_CNR_TOP_LEFT : (UI_CNR_TOP_LEFT | UI_CNR_BOTTOM_LEFT));
-	UI_draw_roundbox_gl_mode(GL_POLYGON, offset,  yminc, v2d->cur.xmax + EXTRA_SCROLL_PAD, ymaxc, 8);
+	UI_draw_roundbox_3fvAlpha(true, offset,  yminc, v2d->cur.xmax + EXTRA_SCROLL_PAD, ymaxc, 8, color, 1.0f);
 }
 
 /* name for group entries */
@@ -839,7 +862,10 @@ static bool acf_group_setting_valid(bAnimContext *ac, bAnimListElem *UNUSED(ale)
 		/* conditionally supported */
 		case ACHANNEL_SETTING_VISIBLE: /* Only available in Graph Editor */
 			return (ac->spacetype == SPACE_IPO);
-			
+
+		case ACHANNEL_SETTING_ALWAYS_VISIBLE:
+			return (ac->spacetype == SPACE_IPO);
+
 		default: /* always supported */
 			return true;
 	}
@@ -879,7 +905,10 @@ static int acf_group_setting_flag(bAnimContext *ac, eAnimChannel_Settings settin
 		case ACHANNEL_SETTING_VISIBLE: /* visibility - graph editor */
 			*neg = 1;
 			return AGRP_NOTVISIBLE;
-			
+
+		case ACHANNEL_SETTING_ALWAYS_VISIBLE:
+			return ADT_CURVES_ALWAYS_VISIBLE;
+
 		default:
 			/* this shouldn't happen */
 			return 0;
@@ -965,7 +994,10 @@ static bool acf_fcurve_setting_valid(bAnimContext *ac, bAnimListElem *ale, eAnim
 				
 		case ACHANNEL_SETTING_VISIBLE: /* Only available in Graph Editor */
 			return (ac->spacetype == SPACE_IPO);
-			
+
+		case ACHANNEL_SETTING_ALWAYS_VISIBLE:
+			return false;
+
 		/* always available */
 		default:
 			return true;
@@ -1049,11 +1081,10 @@ static void acf_nla_controls_backdrop(bAnimContext *ac, bAnimListElem *ale, floa
 	
 	/* set backdrop drawing color */
 	acf->get_backdrop_color(ac, ale, color);
-	glColor3fv(color);
 	
-	/* rounded corners on LHS only - top only when expanded, but bottom too when collapsed */
+	/* rounded corners on LHS only - top only when expanded, but bottom too when collapsed */	
 	UI_draw_roundbox_corner_set(expanded ? UI_CNR_TOP_LEFT : (UI_CNR_TOP_LEFT | UI_CNR_BOTTOM_LEFT));
-	UI_draw_roundbox_gl_mode(GL_POLYGON, offset,  yminc, v2d->cur.xmax + EXTRA_SCROLL_PAD, ymaxc, 5);
+	UI_draw_roundbox_3fvAlpha(true, offset,  yminc, v2d->cur.xmax + EXTRA_SCROLL_PAD, ymaxc, 5, color, 1.0f);
 }
 
 /* name for nla controls expander entries */
@@ -1685,7 +1716,10 @@ static int acf_dscam_setting_flag(bAnimContext *UNUSED(ac), eAnimChannel_Setting
 			
 		case ACHANNEL_SETTING_SELECT: /* selected */
 			return ADT_UI_SELECTED;
-		
+
+		case ACHANNEL_SETTING_ALWAYS_VISIBLE:
+			return ADT_CURVES_ALWAYS_VISIBLE;
+
 		default: /* unsupported */
 			return 0;
 	}
@@ -1706,6 +1740,7 @@ static void *acf_dscam_setting_ptr(bAnimListElem *ale, eAnimChannel_Settings set
 		case ACHANNEL_SETTING_SELECT: /* selected */
 		case ACHANNEL_SETTING_MUTE: /* muted (for NLA only) */
 		case ACHANNEL_SETTING_VISIBLE: /* visible (for Graph Editor only) */
+		case ACHANNEL_SETTING_ALWAYS_VISIBLE:
 			if (ca->adt)
 				return GET_ACF_FLAG_PTR(ca->adt->flag, type);
 			return NULL;
@@ -1992,7 +2027,7 @@ static int acf_dspart_setting_flag(bAnimContext *UNUSED(ac), eAnimChannel_Settin
 	
 	switch (setting) {
 		case ACHANNEL_SETTING_EXPAND: /* expanded */
-			return PART_DS_EXPAND;
+			return 0;
 			
 		case ACHANNEL_SETTING_MUTE: /* mute (only in NLA) */
 			return ADT_NLA_EVAL_OFF;
@@ -2010,22 +2045,18 @@ static int acf_dspart_setting_flag(bAnimContext *UNUSED(ac), eAnimChannel_Settin
 }
 
 /* get pointer to the setting */
-static void *acf_dspart_setting_ptr(bAnimListElem *ale, eAnimChannel_Settings setting, short *type)
+static void *acf_dspart_setting_ptr(bAnimListElem *UNUSED(ale), eAnimChannel_Settings setting, short *type)
 {
-	ParticleSettings *part = (ParticleSettings *)ale->data;
-	
 	/* clear extra return data first */
 	*type = 0;
 	
 	switch (setting) {
 		case ACHANNEL_SETTING_EXPAND: /* expanded */
-			return GET_ACF_FLAG_PTR(part->flag, type);
+			return NULL;
 			
 		case ACHANNEL_SETTING_SELECT: /* selected */
 		case ACHANNEL_SETTING_MUTE: /* muted (for NLA only) */
 		case ACHANNEL_SETTING_VISIBLE: /* visible (for Graph Editor only) */
-			if (part->adt)
-				return GET_ACF_FLAG_PTR(part->adt->flag, type);
 			return NULL;
 		
 		default: /* unsupported */
@@ -2680,6 +2711,84 @@ static bAnimChannelType ACF_DSGPENCIL =
 	acf_dsgpencil_setting_ptr               /* pointer for setting */
 };
 
+/* World Expander  ------------------------------------------- */
+
+// TODO: just get this from RNA?
+static int acf_dsmclip_icon(bAnimListElem *UNUSED(ale))
+{
+	return ICON_SEQUENCE;
+}
+
+/* get the appropriate flag(s) for the setting when it is valid  */
+static int acf_dsmclip_setting_flag(bAnimContext *UNUSED(ac), eAnimChannel_Settings setting, bool *neg)
+{
+	/* clear extra return data first */
+	*neg = false;
+
+	switch (setting) {
+		case ACHANNEL_SETTING_EXPAND: /* expanded */
+			return MCLIP_DATA_EXPAND;
+
+		case ACHANNEL_SETTING_MUTE: /* mute (only in NLA) */
+			return ADT_NLA_EVAL_OFF;
+
+		case ACHANNEL_SETTING_VISIBLE: /* visible (only in Graph Editor) */
+			*neg = true;
+			return ADT_CURVES_NOT_VISIBLE;
+
+		case ACHANNEL_SETTING_SELECT: /* selected */
+			return ADT_UI_SELECTED;
+
+		default: /* unsupported */
+			return 0;
+	}
+}
+
+/* get pointer to the setting */
+static void *acf_dsmclip_setting_ptr(bAnimListElem *ale, eAnimChannel_Settings setting, short *type)
+{
+	MovieClip *clip = (MovieClip *)ale->data;
+
+	/* clear extra return data first */
+	*type = 0;
+
+	switch (setting) {
+		case ACHANNEL_SETTING_EXPAND: /* expanded */
+			return GET_ACF_FLAG_PTR(clip->flag, type);
+
+		case ACHANNEL_SETTING_SELECT: /* selected */
+		case ACHANNEL_SETTING_MUTE: /* muted (for NLA only) */
+		case ACHANNEL_SETTING_VISIBLE: /* visible (for Graph Editor only) */
+			if (clip->adt != NULL) {
+				return GET_ACF_FLAG_PTR(clip->adt->flag, type);
+			}
+			return NULL;
+
+		default: /* unsupported */
+			return NULL;
+	}
+}
+
+/* world expander type define */
+static bAnimChannelType ACF_DSMCLIP =
+{
+	"Movieclip Expander",           /* type name */
+	ACHANNEL_ROLE_EXPANDER,         /* role */
+
+	acf_generic_dataexpand_color,    /* backdrop color */
+	acf_generic_dataexpand_backdrop, /* backdrop */
+	acf_generic_indention_1,         /* indent level */
+	acf_generic_basic_offset,        /* offset */
+
+	acf_generic_idblock_name,        /* name */
+	acf_generic_idfill_name_prop,    /* name prop */
+	acf_dsmclip_icon,                /* icon */
+
+	acf_generic_dataexpand_setting_valid,   /* has setting */
+	acf_dsmclip_setting_flag,               /* flag for setting */
+	acf_dsmclip_setting_ptr                 /* pointer for setting */
+};
+
 /* ShapeKey Entry  ------------------------------------------- */
 
 /* name for ShapeKey */
@@ -3316,24 +3425,20 @@ static void acf_nlaaction_backdrop(bAnimContext *ac, bAnimListElem *ale, float y
 	 */
 	nla_action_get_color(adt, (bAction *)ale->data, color);
 	
-	if (adt && (adt->flag & ADT_NLA_EDIT_ON)) {
-		/* Yes, the color vector has 4 components, BUT we only want to be using 3 of them! */
-		glColor3fv(color);
-	}
-	else {
-		float alpha = (adt && (adt->flag & ADT_NLA_SOLO_TRACK)) ? 0.3f : 1.0f;
-		glColor4f(color[0], color[1], color[2], alpha);
-	}
-	
-	/* only on top left corner, to show that this channel sits on top of the preceding ones 
+	if (adt && (adt->flag & ADT_NLA_EDIT_ON))
+		color[3] = 1.0f;
+	else
+		color[3] = (adt && (adt->flag & ADT_NLA_SOLO_TRACK)) ? 0.3f : 1.0f;
+
+	/* only on top left corner, to show that this channel sits on top of the preceding ones
 	 * while still linking into the action line strip to the right
 	 */
 	UI_draw_roundbox_corner_set(UI_CNR_TOP_LEFT);
-	
+
 	/* draw slightly shifted up vertically to look like it has more separation from other channels,
 	 * but we then need to slightly shorten it so that it doesn't look like it overlaps
 	 */
-	UI_draw_roundbox_gl_mode(GL_POLYGON, offset,  yminc + NLACHANNEL_SKIP, (float)v2d->cur.xmax, ymaxc + NLACHANNEL_SKIP - 1, 8);
+	UI_draw_roundbox_4fv(true, offset,  yminc + NLACHANNEL_SKIP, (float)v2d->cur.xmax, ymaxc + NLACHANNEL_SKIP - 1, 8, color);
 }
 
 /* name for nla action entries */
@@ -3485,6 +3590,7 @@ static void ANIM_init_channel_typeinfo_data(void)
 		animchannelTypeInfo[type++] = &ACF_DSLINESTYLE;  /* LineStyle Channel */
 		animchannelTypeInfo[type++] = &ACF_DSSPK;        /* Speaker Channel */
 		animchannelTypeInfo[type++] = &ACF_DSGPENCIL;    /* GreasePencil Channel */
+		animchannelTypeInfo[type++] = &ACF_DSMCLIP;      /* MovieClip Channel */
 		
 		animchannelTypeInfo[type++] = &ACF_SHAPEKEY;     /* ShapeKey */
 		
@@ -3749,23 +3855,35 @@ void ANIM_channel_draw(bAnimContext *ac, bAnimListElem *ale, float yminc, float 
 	 *	- in Grease Pencil mode, color swatches for layer color
 	 */
 	if (ac->sl) {
-		if ((ac->spacetype == SPACE_IPO) && acf->has_setting(ac, ale, ACHANNEL_SETTING_VISIBLE)) {
+		if ((ac->spacetype == SPACE_IPO) &&
+		    (acf->has_setting(ac, ale, ACHANNEL_SETTING_VISIBLE) ||
+		     acf->has_setting(ac, ale, ACHANNEL_SETTING_ALWAYS_VISIBLE)))
+		{
 			/* for F-Curves, draw color-preview of curve behind checkbox */
 			if (ELEM(ale->type, ANIMTYPE_FCURVE, ANIMTYPE_NLACURVE)) {
 				FCurve *fcu = (FCurve *)ale->data;
+				unsigned int pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
+
+				immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 				
 				/* F-Curve channels need to have a special 'color code' box drawn, which is colored with whatever 
 				 * color the curve has stored 
 				 */
-				glColor3fv(fcu->color);
+				immUniformColor3fv(fcu->color);
 				
 				/* just a solid color rect
 				 */
-				glRectf(offset, yminc, offset + ICON_WIDTH, ymaxc);
+				immRectf(pos, offset, yminc, offset + ICON_WIDTH, ymaxc);
+
+				immUnbindProgram();
 			}
-			
 			/* icon is drawn as widget now... */
-			offset += ICON_WIDTH; 
+			if (acf->has_setting(ac, ale, ACHANNEL_SETTING_VISIBLE)) {
+				offset += ICON_WIDTH;
+			}
+			if (acf->has_setting(ac, ale, ACHANNEL_SETTING_ALWAYS_VISIBLE)) {
+				offset += ICON_WIDTH;
+			}
 		}
 		else if ((ac->spacetype == SPACE_NLA) && acf->has_setting(ac, ale, ACHANNEL_SETTING_SOLO)) {
 			/* just skip - drawn as widget now */
@@ -3782,27 +3900,39 @@ void ANIM_channel_draw(bAnimContext *ac, bAnimListElem *ale, float yminc, float 
 	if (acf->name && !achannel_is_being_renamed(ac, acf, channel_index)) {
 		const uiFontStyle *fstyle = UI_FSTYLE_WIDGET;
 		char name[ANIM_CHAN_NAME_SIZE]; /* hopefully this will be enough! */
-		
+		unsigned char col[4];
+
 		/* set text color */
 		/* XXX: if active, highlight differently? */
+
 		if (selected)
-			UI_ThemeColor(TH_TEXT_HI);
+			UI_GetThemeColor4ubv(TH_TEXT_HI, col);
 		else
-			UI_ThemeColor(TH_TEXT);
-		
+			UI_GetThemeColor4ubv(TH_TEXT, col);
+
 		/* get name */
 		acf->name(ale, name);
 		
 		offset += 3;
-		UI_fontstyle_draw_simple(fstyle, offset, ytext, name);
+		UI_fontstyle_draw_simple(fstyle, offset, ytext, name, col);
 		
 		/* draw red underline if channel is disabled */
 		if (ELEM(ale->type, ANIMTYPE_FCURVE, ANIMTYPE_NLACURVE) && (ale->flag & FCURVE_DISABLED)) {
+			unsigned int pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
+
+			immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+
 			/* FIXME: replace hardcoded color here, and check on extents! */
-			glColor3f(1.0f, 0.0f, 0.0f);
-			glLineWidth(2.0);
-			fdrawline((float)(offset), yminc,
-			          (float)(v2d->cur.xmax), yminc);
+			immUniformColor3f(1.0f, 0.0f, 0.0f);
+
+			glLineWidth(2.0f);
+
+			immBegin(GWN_PRIM_LINES, 2);
+			immVertex2f(pos, (float)offset, yminc);
+			immVertex2f(pos, (float)v2d->cur.xmax, yminc);
+			immEnd();
+
+			immUnbindProgram();
 		}
 	}
 
@@ -3816,10 +3946,13 @@ void ANIM_channel_draw(bAnimContext *ac, bAnimListElem *ale, float yminc, float 
 		short draw_sliders = 0;
 		float ymin_ofs = 0.0f;
 		float color[3];
+		unsigned int pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
+
+		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 		
 		/* get and set backdrop color */
 		acf->get_backdrop_color(ac, ale, color);
-		glColor3fv(color);
+		immUniformColor3fv(color);
 		
 		/* check if we need to show the sliders */
 		if ((ac->sl) && ELEM(ac->spacetype, SPACE_ACTION, SPACE_IPO)) {
@@ -3877,7 +4010,9 @@ void ANIM_channel_draw(bAnimContext *ac, bAnimListElem *ale, float yminc, float 
 		 *	- starts from the point where the first toggle/slider starts, 
 		 *	- ends past the space that might be reserved for a scroller
 		 */
-		glRectf(v2d->cur.xmax - (float)offset, yminc + ymin_ofs, v2d->cur.xmax + EXTRA_SCROLL_PAD, ymaxc);
+		immRectf(pos, v2d->cur.xmax - (float)offset, yminc + ymin_ofs, v2d->cur.xmax + EXTRA_SCROLL_PAD, ymaxc);
+
+		immUnbindProgram();
 	}
 }
 
@@ -3901,7 +4036,12 @@ static void achannel_setting_flush_widget_cb(bContext *C, void *ale_npoin, void 
 	
 	/* send notifiers before doing anything else... */
 	WM_event_add_notifier(C, NC_ANIMATION | ND_ANIMCHAN | NA_EDITED, NULL);
-	
+
+	/* verify that we have a channel to operate on. */
+	if (!ale_setting) {
+		return;
+	}
+
 	if (ale_setting->type == ANIMTYPE_GPLAYER)
 		WM_event_add_notifier(C, NC_GPENCIL | ND_DATA, NULL);
 	
@@ -3909,17 +4049,13 @@ static void achannel_setting_flush_widget_cb(bContext *C, void *ale_npoin, void 
 	if (ANIM_animdata_get_context(C, &ac) == 0)
 		return;
 	
-	/* verify that we have a channel to operate on, and that it has all we need */
-	if (ale_setting) {
-		/* check if the setting is on... */
-		on = ANIM_channel_setting_get(&ac, ale_setting, setting);
-		
-		/* on == -1 means setting not found... */
-		if (on == -1)
-			return;
-	}
-	else
+	/* check if the setting is on... */
+	on = ANIM_channel_setting_get(&ac, ale_setting, setting);
+
+	/* on == -1 means setting not found... */
+	if (on == -1) {
 		return;
+	}
 	
 	/* get all channels that can possibly be chosen - but ignore hierarchy */
 	filter = ANIMFILTER_DATA_VISIBLE | ANIMFILTER_LIST_CHANNELS;
@@ -4109,6 +4245,11 @@ static void draw_setting_widget(bAnimContext *ac, bAnimListElem *ale, const bAni
 				tooltip = TIP_("Channels are visible in Graph Editor for editing");
 			break;
 
+		case ACHANNEL_SETTING_ALWAYS_VISIBLE:
+			icon = ICON_UNPINNED;
+			tooltip = TIP_("Channels are visible in Graph Editor for editing");
+			break;
+
 		case ACHANNEL_SETTING_MOD_OFF:  /* modifiers disabled */
 			icon = ICON_MODIFIER;
 			usetoggle = false;
@@ -4124,7 +4265,7 @@ static void draw_setting_widget(bAnimContext *ac, bAnimListElem *ale, const bAni
 		case ACHANNEL_SETTING_SOLO: /* NLA Tracks only */
 			//icon = ((enabled) ? ICON_SOLO_OFF : ICON_SOLO_ON);
 			icon = ICON_SOLO_OFF;
-			tooltip = TIP_("NLA Track is the only one evaluated in this Animation Data block, with all others muted");
+			tooltip = TIP_("NLA Track is the only one evaluated in this animation data-block, with all others muted");
 			break;
 		
 		/* --- */
@@ -4218,6 +4359,7 @@ static void draw_setting_widget(bAnimContext *ac, bAnimListElem *ale, const bAni
 				case ACHANNEL_SETTING_MUTE: /* General - muting flags */
 				case ACHANNEL_SETTING_PINNED: /* NLA Actions - 'map/nomap' */
 				case ACHANNEL_SETTING_MOD_OFF:
+				case ACHANNEL_SETTING_ALWAYS_VISIBLE:
 					UI_but_funcN_set(but, achannel_setting_flush_widget_cb, MEM_dupallocN(ale), SET_INT_IN_POINTER(setting));
 					break;
 					
@@ -4281,10 +4423,20 @@ void ANIM_channel_draw_widgets(const bContext *C, bAnimContext *ac, bAnimListEle
 	 *	- in Grease Pencil mode, color swatches for layer color
 	 */
 	if (ac->sl) {
-		if ((ac->spacetype == SPACE_IPO) && acf->has_setting(ac, ale, ACHANNEL_SETTING_VISIBLE)) {
+		if ((ac->spacetype == SPACE_IPO) &&
+		    (acf->has_setting(ac, ale, ACHANNEL_SETTING_VISIBLE) ||
+		     acf->has_setting(ac, ale, ACHANNEL_SETTING_ALWAYS_VISIBLE)))
+		{
+			/* pin toggle  */
+			if (acf->has_setting(ac, ale, ACHANNEL_SETTING_ALWAYS_VISIBLE)) {
+				draw_setting_widget(ac, ale, acf, block, offset, ymid, ACHANNEL_SETTING_ALWAYS_VISIBLE);
+				offset += ICON_WIDTH;
+			}
 			/* visibility toggle  */
-			draw_setting_widget(ac, ale, acf, block, offset, ymid, ACHANNEL_SETTING_VISIBLE);
-			offset += ICON_WIDTH; 
+			if (acf->has_setting(ac, ale, ACHANNEL_SETTING_VISIBLE)) {
+				draw_setting_widget(ac, ale, acf, block, offset, ymid, ACHANNEL_SETTING_VISIBLE);
+				offset += ICON_WIDTH;
+			}
 		}
 		else if ((ac->spacetype == SPACE_NLA) && acf->has_setting(ac, ale, ACHANNEL_SETTING_SOLO)) {
 			/* 'solo' setting for NLA Tracks */

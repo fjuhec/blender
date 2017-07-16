@@ -159,12 +159,12 @@ static KeyBlock *bm_set_shapekey_from_psys(BMesh *bm, ParticleSystem *psys, int 
 #endif
 
 /* create vertex and edge data for BMesh based on particle hair keys */
-static void bm_make_particles(BMesh *bm, Object *ob, ParticleSystem *psys, struct DerivedMesh *emitter_dm, float (*keyco)[3], int cd_shape_keyindex_offset)
+static void bm_make_particles(BMesh *bm, Object *ob, ParticleSystem *psys, struct DerivedMesh *emitter_dm, float (*keyco)[3], int UNUSED(cd_shape_keyindex_offset))
 {
 //	KeyBlock *block;
 	ParticleData *pa;
 	HairKey *hkey;
-	int p, k, j;
+	int p, k;
 	
 	int vindex, eindex;
 	BMVert *v = NULL, *v_prev;
@@ -265,9 +265,9 @@ static void bm_make_particles(BMesh *bm, Object *ob, ParticleSystem *psys, struc
  * \brief ParticleSystem -> BMesh
  */
 void BM_strands_bm_from_psys(BMesh *bm, Object *ob, ParticleSystem *psys, struct DerivedMesh *emitter_dm,
-                             const bool set_key, int act_key_nr)
+                             const bool set_key, int UNUSED(act_key_nr))
 {
-	KeyBlock *actkey;
+	/*KeyBlock *actkey;*/
 	float (*keyco)[3] = NULL;
 	int totvert, totedge;
 	
@@ -507,7 +507,7 @@ static void make_particle_hair(BMesh *bm, BMVert *root, Object *ob, ParticleSyst
 void BM_strands_bm_to_psys(BMesh *bm, Object *ob, ParticleSystem *psys, struct DerivedMesh *emitter_dm, struct BVHTreeFromMesh *emitter_bvhtree)
 {
 	ParticleData *particles, *oldparticles;
-	int ototpart, ototkey, ntotpart;
+	int ototpart, ntotpart;
 	
 	BMVert *root;
 	BMIter iter;
@@ -515,7 +515,6 @@ void BM_strands_bm_to_psys(BMesh *bm, Object *ob, ParticleSystem *psys, struct D
 	int p;
 	
 	ototpart = psys->totpart;
-	ototkey = BM_strands_count_psys_keys(psys);
 	
 	ntotpart = BM_strands_count(bm);
 	
@@ -711,11 +710,11 @@ void BM_strands_bm_to_psys(BMesh *bm, Object *ob, ParticleSystem *psys, struct D
 #endif
 
 	if (oldparticles) {
-		ParticleData *pa;
-		int p;
-		for (p = 0, pa = oldparticles; p < ototpart; ++p, ++pa)
-			if (pa->hair)
-				MEM_freeN(pa->hair);
+		ParticleData *opa;
+		int op;
+		for (op = 0, opa = oldparticles; op < ototpart; ++op, ++opa)
+			if (opa->hair)
+				MEM_freeN(opa->hair);
 		MEM_freeN(oldparticles);
 	}
 }

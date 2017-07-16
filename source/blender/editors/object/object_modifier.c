@@ -54,7 +54,6 @@
 #include "BKE_animsys.h"
 #include "BKE_curve.h"
 #include "BKE_context.h"
-#include "BKE_depsgraph.h"
 #include "BKE_displist.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_effect.h"
@@ -74,6 +73,9 @@
 #include "BKE_particle.h"
 #include "BKE_softbody.h"
 #include "BKE_editmesh.h"
+
+#include "DEG_depsgraph.h"
+#include "DEG_depsgraph_build.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -98,12 +100,12 @@ ModifierData *ED_object_modifier_add(ReportList *reports, Main *bmain, Scene *sc
 	ModifierData *md = NULL, *new_md = NULL;
 	const ModifierTypeInfo *mti = modifierType_getInfo(type);
 	
-	/* only geometry objects should be able to get modifiers [#25291] */
-	if (!ELEM(ob->type, OB_MESH, OB_CURVE, OB_SURF, OB_FONT, OB_LATTICE)) {
+	/* Check compatibility of modifier [T25291, T50373]. */
+	if (!BKE_object_support_modifier_type_check(ob, type)) {
 		BKE_reportf(reports, RPT_WARNING, "Modifiers cannot be added to object '%s'", ob->id.name + 2);
 		return NULL;
 	}
-	
+
 	if (mti->flags & eModifierTypeFlag_Single) {
 		if (modifiers_findByType(ob, type)) {
 			BKE_report(reports, RPT_WARNING, "Only one modifier of this type is allowed");
@@ -171,8 +173,8 @@ ModifierData *ED_object_modifier_add(ReportList *reports, Main *bmain, Scene *sc
 		}
 	}
 
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
-	DAG_relations_tag_update(bmain);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_relations_tag_update(bmain);
 
 	return new_md;
 }
@@ -253,7 +255,7 @@ bool ED_object_multires_update_totlevels_cb(Object *ob, void *totlevel_v)
 	for (md = ob->modifiers.first; md; md = md->next) {
 		if (md->type == eModifierType_Multires) {
 			multires_set_tot_level(ob, (MultiresModifierData *)md, totlevel);
-			DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+			DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 		}
 	}
 	return false;
@@ -320,7 +322,7 @@ static bool object_modifier_remove(Main *bmain, Object *ob, ModifierData *md,
 		ob->mode &= ~OB_MODE_PARTICLE_EDIT;
 	}
 
-	DAG_relations_tag_update(bmain);
+	DEG_relations_tag_update(bmain);
 
 	BLI_remlink(&ob->modifiers, md);
 	modifier_free(md);
@@ -341,8 +343,8 @@ bool ED_object_modifier_remove(ReportList *reports, Main *bmain, Object *ob, Mod
 		return 0;
 	}
 
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
-	DAG_relations_tag_update(bmain);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_relations_tag_update(bmain);
 
 	return 1;
 }
@@ -365,8 +367,8 @@ void ED_object_modifier_clear(Main *bmain, Object *ob)
 		md = next_md;
 	}
 
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
-	DAG_relations_tag_update(bmain);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_relations_tag_update(bmain);
 }
 
 int ED_object_modifier_move_up(ReportList *reports, Object *ob, ModifierData *md)
@@ -411,7 +413,7 @@ int ED_object_modifier_move_down(ReportList *reports, Object *ob, ModifierData *
 	return 1;
 }
 
-int ED_object_modifier_convert(ReportList *UNUSED(reports), Main *bmain, Scene *scene, Object *ob, ModifierData *md)
+int ED_object_modifier_convert(ReportList *UNUSED(reports), Main *bmain, Scene *scene, SceneLayer *sl, Object *ob, ModifierData *md)
 {
 	Object *obn;
 	ParticleSystem *psys;
@@ -463,7 +465,7 @@ int ED_object_modifier_convert(ReportList *UNUSED(reports), Main *bmain, Scene *
 	if (totvert == 0) return 0;
 
 	/* add new mesh */
-	obn = BKE_object_add(bmain, scene, OB_MESH, NULL);
+	obn = BKE_object_add(bmain, scene, sl, OB_MESH, NULL);
 	me = obn->data;
 	
 	me->totvert = totvert;
@@ -515,7 +517,7 @@ int ED_object_modifier_convert(ReportList *UNUSED(reports), Main *bmain, Scene *
 		}
 	}
 
-	DAG_relations_tag_update(bmain);
+	DEG_relations_tag_update(bmain);
 
 	return 1;
 }
@@ -643,7 +645,7 @@ static int modifier_apply_obdata(ReportList *reports, Scene *scene, Object *ob, 
 
 		MEM_freeN(vertexCos);
 
-		DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	}
 	else {
 		BKE_report(reports, RPT_ERROR, "Cannot apply modifier for this object type");
@@ -793,7 +795,7 @@ void OBJECT_OT_modifier_add(wmOperatorType *ot)
 
 	/* identifiers */
 	ot->name = "Add Modifier";
-	ot->description = "Add a modifier to the active object";
+	ot->description = "Add a procedural operation/effect to the active object";
 	ot->idname = "OBJECT_OT_modifier_add";
 	
 	/* api callbacks */
@@ -872,7 +874,7 @@ ModifierData *edit_modifier_property_get(wmOperator *op, Object *ob, int type)
 static int modifier_remove_exec(bContext *C, wmOperator *op)
 {
 	Main *bmain = CTX_data_main(C);
-	Scene *scene = CTX_data_scene(C);
+	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *ob = ED_object_active_context(C);
 	ModifierData *md = edit_modifier_property_get(op, ob, 0);
 	int mode_orig = ob->mode;
@@ -885,7 +887,7 @@ static int modifier_remove_exec(bContext *C, wmOperator *op)
 	/* if cloth/softbody was removed, particle mode could be cleared */
 	if (mode_orig & OB_MODE_PARTICLE_EDIT)
 		if ((ob->mode & OB_MODE_PARTICLE_EDIT) == 0)
-			if (scene->basact && scene->basact->object == ob)
+			if (sl->basact && sl->basact->object == ob)
 				WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_MODE_OBJECT, NULL);
 	
 	return OPERATOR_FINISHED;
@@ -924,7 +926,7 @@ static int modifier_move_up_exec(bContext *C, wmOperator *op)
 	if (!md || !ED_object_modifier_move_up(op->reports, ob, md))
 		return OPERATOR_CANCELLED;
 
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 	
 	return OPERATOR_FINISHED;
@@ -963,7 +965,7 @@ static int modifier_move_down_exec(bContext *C, wmOperator *op)
 	if (!md || !ED_object_modifier_move_down(op->reports, ob, md))
 		return OPERATOR_CANCELLED;
 
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 	
 	return OPERATOR_FINISHED;
@@ -1005,7 +1007,7 @@ static int modifier_apply_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 	
 	return OPERATOR_FINISHED;
@@ -1048,13 +1050,14 @@ static int modifier_convert_exec(bContext *C, wmOperator *op)
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
+	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *ob = ED_object_active_context(C);
 	ModifierData *md = edit_modifier_property_get(op, ob, 0);
 	
-	if (!md || !ED_object_modifier_convert(op->reports, bmain, scene, ob, md))
+	if (!md || !ED_object_modifier_convert(op->reports, bmain, scene, sl, ob, md))
 		return OPERATOR_CANCELLED;
 
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 	
 	return OPERATOR_FINISHED;
@@ -1093,7 +1096,7 @@ static int modifier_copy_exec(bContext *C, wmOperator *op)
 	if (!md || !ED_object_modifier_copy(op->reports, ob, md))
 		return OPERATOR_CANCELLED;
 
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 	
 	return OPERATOR_FINISHED;
@@ -1187,7 +1190,7 @@ static int multires_subdivide_exec(bContext *C, wmOperator *op)
 	                     ED_object_multires_update_totlevels_cb,
 	                     &mmd->totlvl);
 
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 
 	if (ob->mode & OB_MODE_SCULPT) {
@@ -1256,7 +1259,7 @@ static int multires_reshape_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 
 	return OPERATOR_FINISHED;
@@ -1404,7 +1407,7 @@ static int multires_base_apply_exec(bContext *C, wmOperator *op)
 	
 	multiresModifier_base_apply(mmd, ob);
 
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 	
 	return OPERATOR_FINISHED;
@@ -1484,7 +1487,6 @@ static int skin_root_mark_exec(bContext *C, wmOperator *UNUSED(op))
 	Object *ob = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(ob);
 	BMesh *bm = em->bm;
-	const int cd_vert_skin_offset = CustomData_get_offset(&bm->vdata, CD_MVERT_SKIN);
 	BMVert *bm_vert;
 	BMIter bm_iter;
 	GSet *visited;
@@ -1492,6 +1494,8 @@ static int skin_root_mark_exec(bContext *C, wmOperator *UNUSED(op))
 	visited = BLI_gset_ptr_new(__func__);
 
 	BKE_mesh_ensure_skin_customdata(ob->data);
+
+	const int cd_vert_skin_offset = CustomData_get_offset(&bm->vdata, CD_MVERT_SKIN);
 
 	BM_ITER_MESH (bm_vert, &bm_iter, bm, BM_VERTS_OF_MESH) {
 		if (BM_elem_flag_test(bm_vert, BM_ELEM_SELECT) &&
@@ -1509,7 +1513,7 @@ static int skin_root_mark_exec(bContext *C, wmOperator *UNUSED(op))
 
 	BLI_gset_free(visited, NULL);
 
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 	
 	return OPERATOR_FINISHED;
@@ -1564,7 +1568,7 @@ static int skin_loose_mark_clear_exec(bContext *C, wmOperator *op)
 		}
 	}
 
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 	
 	return OPERATOR_FINISHED;
@@ -1614,7 +1618,7 @@ static int skin_radii_equalize_exec(bContext *C, wmOperator *UNUSED(op))
 		}
 	}
 
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 	
 	return OPERATOR_FINISHED;
@@ -1683,7 +1687,7 @@ static void skin_armature_bone_create(Object *skin_ob,
 	}
 }
 
-static Object *modifier_skin_armature_create(Main *bmain, Scene *scene, Object *skin_ob)
+static Object *modifier_skin_armature_create(Main *bmain, Scene *scene, SceneLayer *sl, Object *skin_ob)
 {
 	BLI_bitmap *edges_visited;
 	DerivedMesh *deform_dm;
@@ -1706,7 +1710,7 @@ static Object *modifier_skin_armature_create(Main *bmain, Scene *scene, Object *
 	                     NULL,
 	                     me->totvert);
 	
-	arm_ob = BKE_object_add(bmain, scene, OB_ARMATURE, NULL);
+	arm_ob = BKE_object_add(bmain, scene, sl, OB_ARMATURE, NULL);
 	BKE_object_transform_copy(arm_ob, skin_ob);
 	arm = arm_ob->data;
 	arm->layer = 1;
@@ -1765,6 +1769,7 @@ static int skin_armature_create_exec(bContext *C, wmOperator *op)
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
+	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *ob = CTX_data_active_object(C), *arm_ob;
 	Mesh *me = ob->data;
 	ModifierData *skin_md;
@@ -1776,7 +1781,7 @@ static int skin_armature_create_exec(bContext *C, wmOperator *op)
 	}
 
 	/* create new armature */
-	arm_ob = modifier_skin_armature_create(bmain, scene, ob);
+	arm_ob = modifier_skin_armature_create(bmain, scene, sl, ob);
 
 	/* add a modifier to connect the new armature to the mesh */
 	arm_md = (ArmatureModifierData *)modifier_new(eModifierType_Armature);
@@ -1786,8 +1791,8 @@ static int skin_armature_create_exec(bContext *C, wmOperator *op)
 
 		arm_md->object = arm_ob;
 		arm_md->deformflag = ARM_DEF_VGROUP | ARM_DEF_QUATERNION;
-		DAG_relations_tag_update(bmain);
-		DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+		DEG_relations_tag_update(bmain);
+		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	}
 
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
@@ -1854,7 +1859,7 @@ static int correctivesmooth_bind_exec(bContext *C, wmOperator *op)
 		csmd->bind_coords_num = (unsigned int)-1;
 	}
 
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 
 	return OPERATOR_FINISHED;
@@ -1923,7 +1928,7 @@ static int meshdeform_bind_exec(bContext *C, wmOperator *op)
 		mmd->totcagevert = 0;
 		mmd->totinfluence = 0;
 		
-		DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 		WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 	}
 	else {
@@ -1997,7 +2002,7 @@ static int explode_refresh_exec(bContext *C, wmOperator *op)
 
 	emd->flag |= eExplodeFlag_CalcFaces;
 
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 	
 	return OPERATOR_FINISHED;
@@ -2142,7 +2147,7 @@ static int ocean_bake_exec(bContext *C, wmOperator *op)
 	
 	if (free) {
 		omd->refresh |= MOD_OCEAN_REFRESH_CLEAR_CACHE;
-		DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 		WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 		return OPERATOR_FINISHED;
 	}
@@ -2192,7 +2197,7 @@ static int ocean_bake_exec(bContext *C, wmOperator *op)
 	
 	scene->r.cfra = cfra;
 	
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 #endif
 	
@@ -2265,7 +2270,7 @@ static int laplaciandeform_bind_exec(bContext *C, wmOperator *op)
 	else {
 		lmd->flag |= MOD_LAPLACIANDEFORM_BIND;
 	}
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 	return OPERATOR_FINISHED;
 }
@@ -2290,6 +2295,59 @@ void OBJECT_OT_laplaciandeform_bind(wmOperatorType *ot)
 	ot->invoke = laplaciandeform_bind_invoke;
 	ot->exec = laplaciandeform_bind_exec;
 	
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_INTERNAL;
+	edit_modifier_properties(ot);
+}
+
+/************************ sdef bind operator *********************/
+
+static int surfacedeform_bind_poll(bContext *C)
+{
+	return edit_modifier_poll_generic(C, &RNA_SurfaceDeformModifier, 0);
+}
+
+static int surfacedeform_bind_exec(bContext *C, wmOperator *op)
+{
+	Object *ob = ED_object_active_context(C);
+	SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *)edit_modifier_property_get(op, ob, eModifierType_SurfaceDeform);
+
+	if (!smd)
+		return OPERATOR_CANCELLED;
+
+	if (smd->flags & MOD_SDEF_BIND) {
+		smd->flags &= ~MOD_SDEF_BIND;
+	}
+	else if (smd->target) {
+		smd->flags |= MOD_SDEF_BIND;
+	}
+
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
+
+	return OPERATOR_FINISHED;
+}
+
+static int surfacedeform_bind_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+{
+	if (edit_modifier_invoke_properties(C, op))
+		return surfacedeform_bind_exec(C, op);
+	else
+		return OPERATOR_CANCELLED;
+}
+
+void OBJECT_OT_surfacedeform_bind(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Surface Deform Bind";
+	ot->description = "Bind mesh to target in surface deform modifier";
+	ot->idname = "OBJECT_OT_surfacedeform_bind";
+
+	/* api callbacks */
+	ot->poll = surfacedeform_bind_poll;
+	ot->invoke = surfacedeform_bind_invoke;
+	ot->exec = surfacedeform_bind_exec;
+
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_INTERNAL;
 	edit_modifier_properties(ot);

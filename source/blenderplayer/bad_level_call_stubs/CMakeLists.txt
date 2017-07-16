@@ -35,11 +35,12 @@ set(INC
 	../../blender/blenloader
 	../../blender/makesdna
 	../../blender/makesrna
+	../../../intern/glew-mx
 	../../../intern/guardedalloc
 )
 
 set(INC_SYS
-	
+	${GLEW_INCLUDE_PATH}
 )
 
 set(SRC
@@ -68,6 +69,10 @@ endif()
 
 if(WITH_FREESTYLE)
 	add_definitions(-DWITH_FREESTYLE)
+endif()
+
+if(WITH_INPUT_NDOF)
+	add_definitions(-DWITH_INPUT_NDOF)
 endif()
 
 blender_add_lib_nolist(blenkernel_blc "${SRC}" "${INC}" "${INC_SYS}")

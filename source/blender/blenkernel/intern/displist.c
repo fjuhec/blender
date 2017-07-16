@@ -48,7 +48,6 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_global.h"
-#include "BKE_depsgraph.h"
 #include "BKE_displist.h"
 #include "BKE_cdderivedmesh.h"
 #include "BKE_object.h"
@@ -62,6 +61,9 @@
 #include "BKE_modifier.h"
 
 #include "BLI_sys_types.h" // for intptr_t support
+
+#include "DEG_depsgraph.h"
+#include "DEG_depsgraph_query.h"
 
 static void boundbox_displist_object(Object *ob);
 
@@ -167,10 +169,12 @@ void BKE_displist_normals_add(ListBase *lb)
 			if (dl->nors == NULL) {
 				dl->nors = MEM_callocN(sizeof(float) * 3, "dlnors");
 
-				if (dl->verts[2] < 0.0f)
+				if (dl->flag & DL_BACK_CURVE) {
 					dl->nors[2] = -1.0f;
-				else
+				}
+				else {
 					dl->nors[2] = 1.0f;
+				}
 			}
 		}
 		else if (dl->type == DL_SURF) {
@@ -469,6 +473,7 @@ void BKE_displist_fill(ListBase *dispbase, ListBase *to, const float normal_proj
 	sf_arena = BLI_memarena_new(BLI_SCANFILL_ARENA_SIZE, __func__);
 
 	while (cont) {
+		int dl_flag_accum = 0;
 		cont = 0;
 		totvert = 0;
 		nextcol = 0;
@@ -514,6 +519,7 @@ void BKE_displist_fill(ListBase *dispbase, ListBase *to, const float normal_proj
 						nextcol = 1;
 					}
 				}
+				dl_flag_accum |= dl->flag;
 			}
 			dl = dl->next;
 		}
@@ -526,6 +532,7 @@ void BKE_displist_fill(ListBase *dispbase, ListBase *to, const float normal_proj
 			if (tot) {
 				dlnew = MEM_callocN(sizeof(DispList), "filldisplist");
 				dlnew->type = DL_INDEX3;
+				dlnew->flag = (dl_flag_accum & (DL_BACK_CURVE | DL_FRONT_CURVE));
 				dlnew->col = colnr;
 				dlnew->nr = totvert;
 				dlnew->parts = tot;
@@ -603,6 +610,7 @@ static void bevels_to_filledpoly(Curve *cu, ListBase *dispbase)
 					dlnew->nr = dl->parts;
 					dlnew->parts = 1;
 					dlnew->type = DL_POLY;
+					dlnew->flag = DL_BACK_CURVE;
 					dlnew->col = dl->col;
 					dlnew->charidx = dl->charidx;
 
@@ -623,6 +631,7 @@ static void bevels_to_filledpoly(Curve *cu, ListBase *dispbase)
 					dlnew->nr = dl->parts;
 					dlnew->parts = 1;
 					dlnew->type = DL_POLY;
+					dlnew->flag = DL_FRONT_CURVE;
 					dlnew->col = dl->col;
 					dlnew->charidx = dl->charidx;
 
@@ -819,7 +828,7 @@ static void curve_calc_modifiers_pre(Scene *scene, Object *ob, ListBase *nurb,
 	if (editmode)
 		required_mode |= eModifierMode_Editmode;
 
-	if (cu->editnurb == NULL) {
+	if (!editmode) {
 		keyVerts = BKE_key_evaluate_object(ob, &numVerts);
 
 		if (keyVerts) {
@@ -1731,8 +1740,9 @@ static void do_makeDispListCurveTypes(Scene *scene, Object *ob, ListBase *dispba
 		}
 
 		if (!for_orco) {
+			/* TODO(sergey): How do we get depsgraph here? */
 			if ((cu->flag & CU_PATH) ||
-			    DAG_get_eval_flags_for_object(scene, ob) & DAG_EVAL_NEED_CURVE_PATH)
+			    DEG_get_eval_flags_for_id(scene->depsgraph_legacy, &ob->id) & DAG_EVAL_NEED_CURVE_PATH)
 			{
 				calc_curvepath(ob, &nubase);
 			}

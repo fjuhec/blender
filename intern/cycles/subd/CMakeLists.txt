@@ -1,11 +1,6 @@
 
 set(INC
-	.
-	../graph
-	../kernel
-	../kernel/svm
-	../render
-	../util
+	..
 )
 
 set(INC_SYS
@@ -22,6 +17,7 @@ set(SRC
 set(SRC_HEADERS
 	subd_dice.h
 	subd_patch.h
+	subd_patch_table.h
 	subd_split.h
 )
 

@@ -57,10 +57,14 @@
 #include "UI_interface.h"
 #include "UI_resources.h"
 
+#include "GPU_immediate.h"
+
 #include "view3d_intern.h"  /* own include */
 
-//#define NDOF_WALK_DEBUG
-//#define NDOF_WALK_DRAW_TOOMUCH  /* is this needed for ndof? - commented so redraw doesnt thrash - campbell */
+#ifdef WITH_INPUT_NDOF
+//#  define NDOF_WALK_DEBUG
+//#  define NDOF_WALK_DRAW_TOOMUCH  /* is this needed for ndof? - commented so redraw doesnt thrash - campbell */
+#endif
 
 #define USE_TABLET_SUPPORT
 
@@ -245,6 +249,7 @@ typedef struct WalkInfo {
 	View3D *v3d;
 	ARegion *ar;
 	Scene *scene;
+	SceneLayer *scene_layer;
 
 	wmTimer *timer; /* needed for redraws */
 
@@ -254,7 +259,10 @@ typedef struct WalkInfo {
 	int prev_mval[2]; /* previous 2D mouse values */
 	int center_mval[2]; /* center mouse values */
 	int moffset[2];
+
+#ifdef WITH_INPUT_NDOF
 	wmNDOFMotionData *ndof;  /* latest 3D mouse values */
+#endif
 
 	/* walk state state */
 	float base_speed; /* the base speed without run/slow down modifications */
@@ -333,24 +341,33 @@ static void drawWalkPixel(const struct bContext *UNUSED(C), ARegion *ar, void *a
 		yoff = walk->ar->winy / 2;
 	}
 
-	UI_ThemeColor(TH_VIEW_OVERLAY);
-	glBegin(GL_LINES);
+	Gwn_VertFormat *format = immVertexFormat();
+	unsigned int pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_I32, 2, GWN_FETCH_INT_TO_FLOAT);
+
+	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+
+	immUniformThemeColor(TH_VIEW_OVERLAY);
+
+	immBegin(GWN_PRIM_LINES, 8);
+
 	/* North */
-	glVertex2i(xoff, yoff + inner_length);
-	glVertex2i(xoff, yoff + outter_length);
+	immVertex2i(pos, xoff, yoff + inner_length);
+	immVertex2i(pos, xoff, yoff + outter_length);
 
 	/* East */
-	glVertex2i(xoff + inner_length, yoff);
-	glVertex2i(xoff + outter_length, yoff);
+	immVertex2i(pos, xoff + inner_length, yoff);
+	immVertex2i(pos, xoff + outter_length, yoff);
 
 	/* South */
-	glVertex2i(xoff, yoff - inner_length);
-	glVertex2i(xoff, yoff - outter_length);
+	immVertex2i(pos, xoff, yoff - inner_length);
+	immVertex2i(pos, xoff, yoff - outter_length);
 
 	/* West */
-	glVertex2i(xoff - inner_length, yoff);
-	glVertex2i(xoff - outter_length, yoff);
-	glEnd();
+	immVertex2i(pos, xoff - inner_length, yoff);
+	immVertex2i(pos, xoff - outter_length, yoff);
+
+	immEnd();
+	immUnbindProgram();
 }
 
 static void walk_update_header(bContext *C, wmOperator *op, WalkInfo *walk)
@@ -495,6 +512,7 @@ static bool initWalkInfo(bContext *C, WalkInfo *walk, wmOperator *op)
 	walk->v3d = CTX_wm_view3d(C);
 	walk->ar = CTX_wm_region(C);
 	walk->scene = CTX_data_scene(C);
+	walk->scene_layer = CTX_data_scene_layer(C);
 
 #ifdef NDOF_WALK_DEBUG
 	puts("\n-- walk begin --");
@@ -572,7 +590,9 @@ static bool initWalkInfo(bContext *C, WalkInfo *walk, wmOperator *op)
 
 	walk->timer = WM_event_add_timer(CTX_wm_manager(C), win, TIMER, 0.01f);
 
+#ifdef WITH_INPUT_NDOF
 	walk->ndof = NULL;
+#endif
 
 	walk->time_lastdraw = PIL_check_seconds_timer();
 
@@ -581,7 +601,7 @@ static bool initWalkInfo(bContext *C, WalkInfo *walk, wmOperator *op)
 	walk->rv3d->rflag |= RV3D_NAVIGATING;
 
 	walk->snap_context = ED_transform_snap_object_context_create_view3d(
-	        CTX_data_main(C), walk->scene, SNAP_OBJECT_USE_CACHE,
+	        CTX_data_main(C), walk->scene, walk->scene_layer, 0,
 	        walk->ar, walk->v3d);
 
 	walk->v3d_camera_control = ED_view3d_cameracontrol_acquire(
@@ -639,8 +659,10 @@ static int walkEnd(bContext *C, WalkInfo *walk)
 
 	rv3d->rflag &= ~RV3D_NAVIGATING;
 
+#ifdef WITH_INPUT_NDOF
 	if (walk->ndof)
 		MEM_freeN(walk->ndof);
+#endif
 
 	/* restore the cursor */
 	WM_cursor_modal_restore(win);
@@ -743,6 +765,7 @@ static void walkEvent(bContext *C, wmOperator *op, WalkInfo *walk, const wmEvent
 			}
 		}
 	}
+#ifdef WITH_INPUT_NDOF
 	else if (event->type == NDOF_MOTION) {
 		/* do these automagically get delivered? yes. */
 		// puts("ndof motion detected in walk mode!");
@@ -752,15 +775,15 @@ static void walkEvent(bContext *C, wmOperator *op, WalkInfo *walk, const wmEvent
 		switch (incoming_ndof->progress) {
 			case P_STARTING:
 				/* start keeping track of 3D mouse position */
-#ifdef NDOF_WALK_DEBUG
+#  ifdef NDOF_WALK_DEBUG
 				puts("start keeping track of 3D mouse position");
-#endif
+#  endif
 				/* fall-through */
 			case P_IN_PROGRESS:
 				/* update 3D mouse position */
-#ifdef NDOF_WALK_DEBUG
+#  ifdef NDOF_WALK_DEBUG
 				putchar('.'); fflush(stdout);
-#endif
+#  endif
 				if (walk->ndof == NULL) {
 					// walk->ndof = MEM_mallocN(sizeof(wmNDOFMotionData), tag_name);
 					walk->ndof = MEM_dupallocN(incoming_ndof);
@@ -772,9 +795,9 @@ static void walkEvent(bContext *C, wmOperator *op, WalkInfo *walk, const wmEvent
 				break;
 			case P_FINISHING:
 				/* stop keeping track of 3D mouse position */
-#ifdef NDOF_WALK_DEBUG
+#  ifdef NDOF_WALK_DEBUG
 				puts("stop keeping track of 3D mouse position");
-#endif
+#  endif
 				if (walk->ndof) {
 					MEM_freeN(walk->ndof);
 					// free(walk->ndof);
@@ -789,6 +812,7 @@ static void walkEvent(bContext *C, wmOperator *op, WalkInfo *walk, const wmEvent
 				break; /* should always be one of the above 3 */
 		}
 	}
+#endif /* WITH_INPUT_NDOF */
 	/* handle modal keymap first */
 	else if (event->type == EVT_MODAL_MAP) {
 		switch (event->val) {
@@ -1323,6 +1347,7 @@ static int walkApply(bContext *C, wmOperator *op, WalkInfo *walk)
 #undef WALK_BOOST_FACTOR
 }
 
+#ifdef WITH_INPUT_NDOF
 static void walkApply_ndof(bContext *C, WalkInfo *walk)
 {
 	Object *lock_ob = ED_view3d_cameracontrol_object_get(walk->v3d_camera_control);
@@ -1341,6 +1366,7 @@ static void walkApply_ndof(bContext *C, WalkInfo *walk)
 		}
 	}
 }
+#endif /* WITH_INPUT_NDOF */
 
 /****** walk operator ******/
 static int walk_invoke(bContext *C, wmOperator *op, const wmEvent *event)
@@ -1388,12 +1414,15 @@ static int walk_modal(bContext *C, wmOperator *op, const wmEvent *event)
 
 	walkEvent(C, op, walk, event);
 
+#ifdef WITH_INPUT_NDOF
 	if (walk->ndof) { /* 3D mouse overrules [2D mouse + timer] */
 		if (event->type == NDOF_MOTION) {
 			walkApply_ndof(C, walk);
 		}
 	}
-	else if (event->type == TIMER && event->customdata == walk->timer) {
+	else
+#endif /* WITH_INPUT_NDOF */
+	if (event->type == TIMER && event->customdata == walk->timer) {
 		walkApply(C, op, walk);
 	}
 

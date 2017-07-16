@@ -54,7 +54,6 @@
 #include "BKE_camera.h"
 #include "BKE_context.h"
 #include "BKE_colortools.h"
-#include "BKE_depsgraph.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
 #include "BKE_library.h"
@@ -65,6 +64,8 @@
 #include "BKE_sequencer.h"
 #include "BKE_screen.h"
 #include "BKE_scene.h"
+
+#include "DEG_depsgraph.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -81,6 +82,7 @@
 #include "IMB_colormanagement.h"
 #include "IMB_imbuf_types.h"
 
+#include "GPU_shader.h"
 
 #include "BIF_gl.h"
 #include "BIF_glutil.h"
@@ -116,6 +118,7 @@ typedef struct RenderJob {
 	ScrArea *sa;
 	ColorManagedViewSettings view_settings;
 	ColorManagedDisplaySettings display_settings;
+	bool supports_glsl_draw;
 	bool interface_locked;
 } RenderJob;
 
@@ -210,7 +213,7 @@ static void image_buffer_rect_update(RenderJob *rj, RenderResult *rr, ImBuf *ibu
 			}
 			else {
 				if (rr->renlay == NULL) return;
-				rectf = RE_RenderLayerGetPass(rr->renlay, SCE_PASS_COMBINED, viewname);
+				rectf = RE_RenderLayerGetPass(rr->renlay, RE_PASSNAME_COMBINED, viewname);
 			}
 		}
 		if (rectf == NULL) return;
@@ -305,6 +308,7 @@ static int screen_render_exec(bContext *C, wmOperator *op)
 	}
 
 	re = RE_NewRender(scene->id.name);
+	RE_SetDepsgraph(re, CTX_data_depsgraph(C));
 	lay_override = (v3d && v3d->lay != scene->lay) ? v3d->lay : 0;
 
 	G.is_break = false;
@@ -488,8 +492,9 @@ static void render_image_update_pass_and_layer(RenderJob *rj, RenderResult *rr, 
 	for (wm = rj->main->wm.first; wm && matched_sa == NULL; wm = wm->id.next) { /* only 1 wm */
 		wmWindow *win;
 		for (win = wm->windows.first; win && matched_sa == NULL; win = win->next) {
-			ScrArea *sa;
-			for (sa = win->screen->areabase.first; sa; sa = sa->next) {
+			const bScreen *screen = WM_window_get_active_screen(win);
+
+			for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
 				if (sa->spacetype == SPACE_IMAGE) {
 					SpaceImage *sima = sa->spacedata.first;
 					// sa->spacedata might be empty when toggling fullscreen mode.
@@ -569,6 +574,7 @@ static void image_rect_update(void *rjv, RenderResult *rr, volatile rcti *renrec
 		 * operate with.
 		 */
 		if (rr->do_exr_tile ||
+		    !rj->supports_glsl_draw ||
 		    ibuf->channels == 1 ||
 		    U.image_draw_method != IMAGE_DRAW_METHOD_GLSL)
 		{
@@ -614,8 +620,9 @@ static void render_image_restore_layer(RenderJob *rj)
 	for (wm = rj->main->wm.first; wm; wm = wm->id.next) { /* only 1 wm */
 		wmWindow *win;
 		for (win = wm->windows.first; win; win = win->next) {
-			ScrArea *sa;
-			for (sa = win->screen->areabase.first; sa; sa = sa->next) {
+			const bScreen *screen = WM_window_get_active_screen(win);
+
+			for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
 				if (sa == rj->sa) {
 					if (sa->spacetype == SPACE_IMAGE) {
 						SpaceImage *sima = sa->spacedata.first;
@@ -716,7 +723,7 @@ static void render_endjob(void *rjv)
 			scene->lay_updated = 0;
 		}
 
-		DAG_on_visible_update(G.main, false);
+		DEG_on_visible_update(G.main, false);
 	}
 }
 
@@ -780,7 +787,7 @@ static void screen_render_cancel(bContext *C, wmOperator *op)
 	WM_jobs_kill_type(wm, scene, WM_JOB_TYPE_RENDER);
 }
 
-static void clean_viewport_memory(Main *bmain, Scene *scene, int renderlay)
+static void clean_viewport_memory(Main *bmain, Scene *scene)
 {
 	Object *object;
 	Scene *sce_iter;
@@ -791,7 +798,7 @@ static void clean_viewport_memory(Main *bmain, Scene *scene, int renderlay)
 	}
 
 	for (SETLOOPER(scene, sce_iter, base)) {
-		if ((base->lay & renderlay) == 0) {
+		if ((base->flag & BASE_VISIBLED) == 0) {
 			continue;
 		}
 		if (RE_allow_render_generic_object(base->object)) {
@@ -904,6 +911,7 @@ static int screen_render_invoke(bContext *C, wmOperator *op, const wmEvent *even
 	rj->orig_layer = 0;
 	rj->last_layer = 0;
 	rj->sa = sa;
+	rj->supports_glsl_draw = IMB_colormanagement_support_glsl_draw(&scene->view_settings);
 
 	BKE_color_managed_display_settings_copy(&rj->display_settings, &scene->display_settings);
 	BKE_color_managed_view_settings_copy(&rj->view_settings, &scene->view_settings);
@@ -927,8 +935,6 @@ static int screen_render_invoke(bContext *C, wmOperator *op, const wmEvent *even
 
 	/* Lock the user interface depending on render settings. */
 	if (scene->r.use_lock_interface) {
-		int renderlay = rj->lay_override ? rj->lay_override : scene->lay;
-
 		WM_set_locked_interface(CTX_wm_manager(C), true);
 
 		/* Set flag interface need to be unlocked.
@@ -942,7 +948,7 @@ static int screen_render_invoke(bContext *C, wmOperator *op, const wmEvent *even
 		rj->interface_locked = true;
 
 		/* Clean memory used by viewport? */
-		clean_viewport_memory(rj->main, scene, renderlay);
+		clean_viewport_memory(rj->main, scene);
 	}
 
 	/* setup job */
@@ -968,6 +974,7 @@ static int screen_render_invoke(bContext *C, wmOperator *op, const wmEvent *even
 	RE_current_scene_update_cb(re, rj, current_scene_update);
 	RE_stats_draw_cb(re, rj, image_renderinfo_cb);
 	RE_progress_cb(re, rj, render_progress_update);
+	RE_SetDepsgraph(re, CTX_data_depsgraph(C));
 
 	rj->re = re;
 	G.is_break = false;
@@ -1539,11 +1546,10 @@ void render_view3d_draw(RenderEngine *engine, const bContext *C)
 		if (force_fallback == false) {
 			if (IMB_colormanagement_setup_glsl_draw(&scene->view_settings, &scene->display_settings, dither, true)) {
 				glEnable(GL_BLEND);
-				glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-				glPixelZoom(scale_x, scale_y);
-				glaDrawPixelsTex(xof, yof, rres.rectx, rres.recty,
-				                 GL_RGBA, GL_FLOAT, GL_NEAREST, rres.rectf);
-				glPixelZoom(1.0f, 1.0f);
+				IMMDrawPixelsTexState state = immDrawPixelsTexSetup(GPU_SHADER_2D_IMAGE_COLOR);
+				immDrawPixelsTex(&state, xof, yof, rres.rectx, rres.recty,
+				                 GL_RGBA, GL_FLOAT, GL_NEAREST, rres.rectf,
+				                 scale_x, scale_y, NULL);;
 				glDisable(GL_BLEND);
 
 				IMB_colormanagement_finish_glsl_draw();
@@ -1560,12 +1566,11 @@ void render_view3d_draw(RenderEngine *engine, const bContext *C)
 			                                              4, dither, &scene->view_settings, &scene->display_settings);
 
 			glEnable(GL_BLEND);
-			glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-			glPixelZoom(scale_x, scale_y);
-			glaDrawPixelsAuto(xof, yof, rres.rectx, rres.recty,
-			                  GL_RGBA, GL_UNSIGNED_BYTE,
-			                  GL_NEAREST, display_buffer);
-			glPixelZoom(1.0f, 1.0f);
+			IMMDrawPixelsTexState state = immDrawPixelsTexSetup(GPU_SHADER_2D_IMAGE_COLOR);
+			immDrawPixelsTex(&state, xof, yof, rres.rectx, rres.recty,
+			                 GL_RGBA, GL_UNSIGNED_BYTE,
+			                 GL_NEAREST, display_buffer,
+			                 scale_x, scale_y, NULL);
 			glDisable(GL_BLEND);
 
 			MEM_freeN(display_buffer);

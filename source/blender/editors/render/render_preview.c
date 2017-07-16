@@ -69,6 +69,7 @@
 #include "BKE_image.h"
 #include "BKE_icons.h"
 #include "BKE_lamp.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_library_remap.h"
 #include "BKE_main.h"
@@ -78,6 +79,9 @@
 #include "BKE_texture.h"
 #include "BKE_world.h"
 
+#include "DEG_depsgraph.h"
+#include "DEG_depsgraph_build.h"
+
 #include "IMB_imbuf.h"
 #include "IMB_imbuf_types.h"
 #include "IMB_thumbs.h"
@@ -85,6 +89,7 @@
 #include "BIF_gl.h"
 #include "BIF_glutil.h"
 
+#include "GPU_shader.h"
 
 #include "RE_pipeline.h"
 #include "RE_engine.h"
@@ -94,6 +99,7 @@
 
 #include "ED_datafiles.h"
 #include "ED_render.h"
+#include "ED_screen.h"
 
 #ifndef NDEBUG
 /* Used for database init assert(). */
@@ -196,7 +202,7 @@ static Main *load_main_from_memory(const void *blend, int blend_size)
 	BlendFileData *bfd;
 
 	G.fileflags |= G_FILE_NO_UI;
-	bfd = BLO_read_from_memory(blend, blend_size, NULL);
+	bfd = BLO_read_from_memory(blend, blend_size, NULL, BLO_READ_SKIP_NONE);
 	if (bfd) {
 		bmain = bfd->main;
 
@@ -269,20 +275,62 @@ static Scene *preview_get_scene(Main *pr_main)
 	return pr_main->scene.first;
 }
 
+static const char *preview_layer_name(const char pr_type)
+{
+	switch (pr_type) {
+		case MA_FLAT:
+			return "Flat";
+		case MA_SPHERE:
+			return "Sphere";
+		case MA_CUBE:
+			return "Cube";
+		case MA_MONKEY:
+			return "Monkey";
+		case MA_SPHERE_A:
+			return "World Sphere";
+		case MA_TEXTURE:
+			return "Texture";
+		case MA_LAMP:
+			return "Lamp";
+		case MA_SKY:
+			return "Sky";
+		case MA_HAIR:
+			return "Hair";
+		case MA_ATMOS:
+			return "Atmosphere";
+		default:
+			BLI_assert(!"Unknown preview type");
+			return "";
+	}
+}
+
+static void set_preview_layer(SceneLayer *scene_layer, char pr_type)
+{
+	LayerCollection *lc;
+	const char *collection_name = preview_layer_name(pr_type);
+	for (lc = scene_layer->layer_collections.first; lc; lc = lc->next) {
+		if (STREQ(lc->scene_collection->name, collection_name)) {
+			lc->flag = COLLECTION_VISIBLE;
+		}
+		else {
+			lc->flag = 0;
+		}
+	}
+}
 
 /* call this with a pointer to initialize preview scene */
 /* call this with NULL to restore assigned ID pointers in preview scene */
 static Scene *preview_prepare_scene(Main *bmain, Scene *scene, ID *id, int id_type, ShaderPreview *sp)
 {
 	Scene *sce;
-	Base *base;
 	Main *pr_main = sp->pr_main;
 
 	memcpy(pr_main->name, bmain->name, sizeof(pr_main->name));
 
 	sce = preview_get_scene(pr_main);
 	if (sce) {
-		
+		SceneLayer *scene_layer = BKE_scene_layer_from_scene_get(sce);
+
 		/* this flag tells render to not execute depsgraph or ipos etc */
 		sce->r.scemode |= R_BUTS_PREVIEW;
 		/* set world always back, is used now */
@@ -357,26 +405,34 @@ static Scene *preview_prepare_scene(Main *bmain, Scene *scene, ID *id, int id_ty
 					/* this only works in a specific case where the preview.blend contains
 					 * an object starting with 'c' which has a material linked to it (not the obdata)
 					 * and that material has a fake shadow texture in the active texture slot */
-					for (base = sce->base.first; base; base = base->next) {
-						if (base->object->id.name[2] == 'c') {
-							Material *shadmat = give_current_material(base->object, base->object->actcol);
+					for (Base *base = scene_layer->object_bases.first; base; base = base->next) {
+						Object *ob = base->object;
+						if (ob->id.name[2] == 'c') {
+							Material *shadmat = give_current_material(ob, ob->actcol);
 							if (shadmat) {
-								if (mat->mode2 & MA_CASTSHADOW) shadmat->septex = 0;
-								else shadmat->septex |= 1;
+								if (mat->mode2 & MA_CASTSHADOW) {
+									shadmat->septex = 0;
+								}
+								else {
+									shadmat->septex |= 1;
+								}
 							}
 						}
 					}
 					
 					/* turn off bounce lights for volume, 
 					 * doesn't make much visual difference and slows it down too */
-					for (base = sce->base.first; base; base = base->next) {
-						if (base->object->type == OB_LAMP) {
+					for (Base *base = scene_layer->object_bases.first; base; base = base->next) {
+						Object *ob = base->object;
+						if (ob->type == OB_LAMP) {
 							/* if doesn't match 'Lamp.002' --> main key light */
-							if (!STREQ(base->object->id.name + 2, "Lamp.002")) {
-								if (mat->material_type == MA_TYPE_VOLUME)
-									base->object->restrictflag |= OB_RESTRICT_RENDER;
-								else
-									base->object->restrictflag &= ~OB_RESTRICT_RENDER;
+							if (!STREQ(ob->id.name + 2, "Lamp.002")) {
+								if (mat->material_type == MA_TYPE_VOLUME) {
+									base->flag &= ~BASE_VISIBLED;
+								}
+								else {
+									base->flag |= BASE_VISIBLED;
+								}
 							}
 						}
 					}
@@ -389,10 +445,10 @@ static Scene *preview_prepare_scene(Main *bmain, Scene *scene, ID *id, int id_ty
 				
 				if (sp->pr_method == PR_ICON_RENDER) {
 					if (mat->material_type == MA_TYPE_HALO) {
-						sce->lay = 1 << MA_FLAT;
+						set_preview_layer(scene_layer, MA_FLAT);
 					}
 					else {
-						sce->lay = 1 << MA_SPHERE_A;
+						set_preview_layer(scene_layer, MA_SPHERE_A);
 
 						/* same as above, use current scene world to light sphere */
 						if (BKE_scene_use_new_shading_nodes(scene))
@@ -400,7 +456,8 @@ static Scene *preview_prepare_scene(Main *bmain, Scene *scene, ID *id, int id_ty
 					}
 				}
 				else {
-					sce->lay = 1 << mat->pr_type;
+					set_preview_layer(scene_layer, mat->pr_type);
+
 					if (mat->nodetree && sp->pr_method == PR_NODE_RENDER) {
 						/* two previews, they get copied by wmJob */
 						BKE_node_preview_init_tree(mat->nodetree, sp->sizex, sp->sizey, true);
@@ -413,7 +470,7 @@ static Scene *preview_prepare_scene(Main *bmain, Scene *scene, ID *id, int id_ty
 				
 			}
 			
-			for (base = sce->base.first; base; base = base->next) {
+			for (Base *base = scene_layer->object_bases.first; base; base = base->next) {
 				if (base->object->id.name[2] == 'p') {
 					/* copy over object color, in case material uses it */
 					copy_v4_v4(base->object->col, sp->col);
@@ -427,7 +484,7 @@ static Scene *preview_prepare_scene(Main *bmain, Scene *scene, ID *id, int id_ty
 							(*matar)[actcol] = mat;
 					}
 					else if (base->object->type == OB_LAMP) {
-						base->object->restrictflag &= ~OB_RESTRICT_RENDER;
+						base->flag |= BASE_VISIBLED;
 					}
 				}
 			}
@@ -440,9 +497,9 @@ static Scene *preview_prepare_scene(Main *bmain, Scene *scene, ID *id, int id_ty
 				sp->texcopy = tex;
 				BLI_addtail(&pr_main->tex, tex);
 			}
-			sce->lay = 1 << MA_TEXTURE;
+			set_preview_layer(scene_layer, MA_TEXTURE);
 			
-			for (base = sce->base.first; base; base = base->next) {
+			for (Base *base = scene_layer->object_bases.first; base; base = base->next) {
 				if (base->object->id.name[2] == 't') {
 					Material *mat = give_current_material(base->object, base->object->actcol);
 					if (mat && mat->mtex[0]) {
@@ -481,21 +538,23 @@ static Scene *preview_prepare_scene(Main *bmain, Scene *scene, ID *id, int id_ty
 				BLI_addtail(&pr_main->lamp, la);
 			}
 
-			sce->lay = 1 << MA_LAMP;
-
 			if (!BKE_scene_use_new_shading_nodes(scene)) {
 				if (la && la->type == LA_SUN && (la->sun_effect_type & LA_SUN_EFFECT_SKY)) {
-					sce->lay = 1 << MA_ATMOS;
+					set_preview_layer(scene_layer, MA_ATMOS);
 					sce->world = scene->world;
 					sce->camera = (Object *)BLI_findstring(&pr_main->object, "CameraAtmo", offsetof(ID, name) + 2);
 				}
 				else {
 					sce->world = NULL;
 					sce->camera = (Object *)BLI_findstring(&pr_main->object, "Camera", offsetof(ID, name) + 2);
+					set_preview_layer(scene_layer, MA_LAMP);
 				}
 			}
+			else {
+				set_preview_layer(scene_layer, MA_LAMP);
+			}
 				
-			for (base = sce->base.first; base; base = base->next) {
+			for (Base *base = scene_layer->object_bases.first; base; base = base->next) {
 				if (base->object->id.name[2] == 'p') {
 					if (base->object->type == OB_LAMP)
 						base->object->data = la;
@@ -517,7 +576,7 @@ static Scene *preview_prepare_scene(Main *bmain, Scene *scene, ID *id, int id_ty
 				BLI_addtail(&pr_main->world, wrld);
 			}
 
-			sce->lay = 1 << MA_SKY;
+			set_preview_layer(scene_layer, MA_SKY);
 			sce->world = wrld;
 
 			if (wrld && wrld->nodetree && sp->pr_method == PR_NODE_RENDER) {
@@ -526,7 +585,12 @@ static Scene *preview_prepare_scene(Main *bmain, Scene *scene, ID *id, int id_ty
 				BKE_node_preview_init_tree(origwrld->nodetree, sp->sizex, sp->sizey, true);
 			}
 		}
-		
+
+		/* TODO(sergey): Use proper flag for tagging here. */
+		DEG_id_tag_update(&sce->id, 0);
+		DEG_relations_tag_update(pr_main);
+		BKE_scene_update_tagged(pr_main->eval_ctx, pr_main, sce);
+
 		return sce;
 	}
 	
@@ -593,7 +657,9 @@ static bool ed_preview_draw_rect(ScrArea *sa, int split, int first, rcti *rect, 
 				if (re)
 					RE_AcquiredResultGet32(re, &rres, (unsigned int *)rect_byte, 0);
 
-				glaDrawPixelsSafe(fx, fy, rres.rectx, rres.recty, rres.rectx, GL_RGBA, GL_UNSIGNED_BYTE, rect_byte);
+				IMMDrawPixelsTexState state = immDrawPixelsTexSetup(GPU_SHADER_2D_IMAGE_COLOR);
+				immDrawPixelsTex(&state, fx, fy, rres.rectx, rres.recty, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST, rect_byte,
+				                 1.0f, 1.0f, NULL);
 				
 				MEM_freeN(rect_byte);
 				
@@ -863,8 +929,6 @@ static void shader_preview_free(void *customdata)
 		
 		/* get rid of copied world */
 		BLI_remlink(&pr_main->world, sp->worldcopy);
-		/* T32865 - we need to unlink the texture copies, unlike for materials */
-		BKE_libblock_relink_ex(pr_main, sp->worldcopy, NULL, NULL, true);
 		BKE_world_free(sp->worldcopy);
 		
 		properties = IDP_GetProperties((ID *)sp->worldcopy, false);
@@ -881,7 +945,6 @@ static void shader_preview_free(void *customdata)
 		
 		/* get rid of copied lamp */
 		BLI_remlink(&pr_main->lamp, sp->lampcopy);
-		BKE_libblock_relink_ex(pr_main, sp->lampcopy, NULL, NULL, true);
 		BKE_lamp_free(sp->lampcopy);
 		
 		properties = IDP_GetProperties((ID *)sp->lampcopy, false);
@@ -1025,6 +1088,12 @@ static void icon_preview_startjob(void *customdata, short *stop, short *do_updat
 
 			*do_update = true;
 		}
+		else if (idtype == ID_SCR) {
+			bScreen *screen = (bScreen *)id;
+
+			ED_screen_preview_render(screen, sp->sizex, sp->sizey, sp->pr_rect);
+			*do_update = true;
+		}
 		else {
 			/* re-use shader job */
 			shader_preview_startjob(customdata, stop, do_update);
@@ -1083,13 +1152,19 @@ static void icon_preview_add_size(IconPreview *ip, unsigned int *rect, int sizex
 static void icon_preview_startjob_all_sizes(void *customdata, short *stop, short *do_update, float *progress)
 {
 	IconPreview *ip = (IconPreview *)customdata;
-	IconPreviewSize *cur_size = ip->sizes.first;
+	IconPreviewSize *cur_size;
 	const bool use_new_shading = BKE_scene_use_new_shading_nodes(ip->scene);
 
-	while (cur_size) {
+	for (cur_size = ip->sizes.first; cur_size; cur_size = cur_size->next) {
 		PreviewImage *prv = ip->owner;
+
+		if (prv->tag & PRV_TAG_DEFFERED_DELETE) {
+			/* Non-thread-protected reading is not an issue here. */
+			continue;
+		}
+
 		ShaderPreview *sp = MEM_callocN(sizeof(ShaderPreview), "Icon ShaderPreview");
-		const bool is_render = !prv->use_deferred;
+		const bool is_render = !(prv->tag & PRV_TAG_DEFFERED);
 
 		/* construct shader preview from image size and previewcustomdata */
 		sp->scene = ip->scene;
@@ -1120,8 +1195,6 @@ static void icon_preview_startjob_all_sizes(void *customdata, short *stop, short
 
 		common_preview_startjob(sp, stop, do_update, progress);
 		shader_preview_free(sp);
-
-		cur_size = cur_size->next;
 	}
 }
 
@@ -1150,6 +1223,15 @@ static void icon_preview_endjob(void *customdata)
 		}
 #endif
 	}
+
+	if (ip->owner) {
+		PreviewImage *prv_img = ip->owner;
+		prv_img->tag &= ~PRV_TAG_DEFFERED_RENDERING;
+		if (prv_img->tag & PRV_TAG_DEFFERED_DELETE) {
+			BLI_assert(prv_img->tag & PRV_TAG_DEFFERED);
+			BKE_previewimg_cached_release_pointer(prv_img);
+		}
+	}
 }
 
 static void icon_preview_free(void *customdata)
@@ -1170,7 +1252,7 @@ void ED_preview_icon_render(Main *bmain, Scene *scene, ID *id, unsigned int *rec
 
 	ip.bmain = bmain;
 	ip.scene = scene;
-	ip.owner = id;
+	ip.owner = BKE_previewimg_id_ensure(id);
 	ip.id = id;
 
 	icon_preview_add_size(&ip, rect, sizex, sizey);
@@ -1207,6 +1289,14 @@ void ED_preview_icon_job(const bContext *C, void *owner, ID *id, unsigned int *r
 	ip->id = id;
 
 	icon_preview_add_size(ip, rect, sizex, sizey);
+
+	/* Special threading hack: warn main code that this preview is being rendered and cannot be freed... */
+	{
+		PreviewImage *prv_img = owner;
+		if (prv_img->tag & PRV_TAG_DEFFERED) {
+			prv_img->tag |= PRV_TAG_DEFFERED_RENDERING;
+		}
+	}
 
 	/* setup job */
 	WM_jobs_customdata_set(wm_job, ip, icon_preview_free);

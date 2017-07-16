@@ -42,8 +42,6 @@
 #include "BKE_texture.h"
 #include "BKE_colortools.h"
 
-#include "depsgraph_private.h"
-
 #include "RE_shader_ext.h"
 
 #include "MOD_util.h"
@@ -65,6 +63,10 @@ static void copyData(ModifierData *md, ModifierData *target)
 {
 	WarpModifierData *wmd = (WarpModifierData *) md;
 	WarpModifierData *twmd = (WarpModifierData *) target;
+
+	if (twmd->curfalloff != NULL) {
+		curvemapping_free(twmd->curfalloff);
+	}
 
 	modifier_copyData_generic(md, target);
 
@@ -116,16 +118,16 @@ static void foreachObjectLink(ModifierData *md, Object *ob, ObjectWalkFunc walk,
 {
 	WarpModifierData *wmd = (WarpModifierData *) md;
 
-	walk(userData, ob, &wmd->object_from, IDWALK_NOP);
-	walk(userData, ob, &wmd->object_to, IDWALK_NOP);
-	walk(userData, ob, &wmd->map_object, IDWALK_NOP);
+	walk(userData, ob, &wmd->object_from, IDWALK_CB_NOP);
+	walk(userData, ob, &wmd->object_to, IDWALK_CB_NOP);
+	walk(userData, ob, &wmd->map_object, IDWALK_CB_NOP);
 }
 
 static void foreachIDLink(ModifierData *md, Object *ob, IDWalkFunc walk, void *userData)
 {
 	WarpModifierData *wmd = (WarpModifierData *) md;
 
-	walk(userData, ob, (ID **)&wmd->texture, IDWALK_USER);
+	walk(userData, ob, (ID **)&wmd->texture, IDWALK_CB_USER);
 
 	foreachObjectLink(md, ob, (ObjectWalkFunc)walk, userData);
 }
@@ -133,27 +135,6 @@ static void foreachIDLink(ModifierData *md, Object *ob, IDWalkFunc walk, void *u
 static void foreachTexLink(ModifierData *md, Object *ob, TexWalkFunc walk, void *userData)
 {
 	walk(userData, ob, md, "texture");
-}
-
-static void updateDepgraph(ModifierData *md, DagForest *forest,
-                           struct Main *UNUSED(bmain),
-                           struct Scene *UNUSED(scene),
-                           Object *UNUSED(ob), DagNode *obNode)
-{
-	WarpModifierData *wmd = (WarpModifierData *) md;
-
-	if (wmd->object_from && wmd->object_to) {
-		DagNode *fromNode = dag_get_node(forest, wmd->object_from);
-		DagNode *toNode = dag_get_node(forest, wmd->object_to);
-
-		dag_add_relation(forest, fromNode, obNode, DAG_RL_DATA_DATA | DAG_RL_OB_DATA, "Warp Modifier1");
-		dag_add_relation(forest, toNode, obNode, DAG_RL_DATA_DATA | DAG_RL_OB_DATA, "Warp Modifier2");
-	}
-
-	if ((wmd->texmapping == MOD_DISP_MAP_OBJECT) && wmd->map_object) {
-		DagNode *curNode = dag_get_node(forest, wmd->map_object);
-		dag_add_relation(forest, curNode, obNode, DAG_RL_DATA_DATA | DAG_RL_OB_DATA, "Warp Modifier3");
-	}
 }
 
 static void updateDepsgraph(ModifierData *md,
@@ -387,7 +368,6 @@ ModifierTypeInfo modifierType_Warp = {
 	/* requiredDataMask */  requiredDataMask,
 	/* freeData */          freeData,
 	/* isDisabled */        isDisabled,
-	/* updateDepgraph */    updateDepgraph,
 	/* updateDepsgraph */   updateDepsgraph,
 	/* dependsOnTime */     dependsOnTime,
 	/* dependsOnNormals */  NULL,

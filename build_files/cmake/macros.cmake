@@ -359,7 +359,6 @@ function(setup_liblinks
 	target_link_libraries(
 		${target}
 		${PNG_LIBRARIES}
-		${ZLIB_LIBRARIES}
 		${FREETYPE_LIBRARY}
 	)
 
@@ -416,15 +415,8 @@ function(setup_liblinks
 	if(WITH_OPENCOLORIO)
 		target_link_libraries(${target} ${OPENCOLORIO_LIBRARIES})
 	endif()
-	if(WITH_OPENSUBDIV)
-		if(WIN32 AND NOT UNIX)
-			file_list_suffix(OPENSUBDIV_LIBRARIES_DEBUG "${OPENSUBDIV_LIBRARIES}" "_d")
-			target_link_libraries_debug(${target} "${OPENSUBDIV_LIBRARIES_DEBUG}")
-			target_link_libraries_optimized(${target} "${OPENSUBDIV_LIBRARIES}")
-			unset(OPENSUBDIV_LIBRARIES_DEBUG)
-		else()
+	if(WITH_OPENSUBDIV OR WITH_CYCLES_OPENSUBDIV)
 			target_link_libraries(${target} ${OPENSUBDIV_LIBRARIES})
-		endif()
 	endif()
 	if(WITH_OPENVDB)
 		target_link_libraries(${target} ${OPENVDB_LIBRARIES} ${TBB_LIBRARIES})
@@ -499,6 +491,12 @@ function(setup_liblinks
 			target_link_libraries(${target} ${NDOF_LIBRARIES})
 		endif()
 	endif()
+	if(WITH_SYSTEM_GLOG)
+		target_link_libraries(${target} ${GLOG_LIBRARIES})
+	endif()
+	if(WITH_SYSTEM_GFLAGS)
+		target_link_libraries(${target} ${GFLAGS_LIBRARIES})
+	endif()
 
 	# We put CLEW and CUEW here because OPENSUBDIV_LIBRARIES dpeends on them..
 	if(WITH_CYCLES OR WITH_COMPOSITOR OR WITH_OPENSUBDIV)
@@ -510,11 +508,17 @@ function(setup_liblinks
 		endif()
 	endif()
 
+	target_link_libraries(
+		${target}
+		${ZLIB_LIBRARIES}
+	)
+
 	#system libraries with no dependencies such as platform link libs or opengl should go last
 	target_link_libraries(${target}
 			${BLENDER_GL_LIBRARIES})
 
-	target_link_libraries(${target} ${PLATFORM_LINKLIBS} ${CMAKE_DL_LIBS})
+	#target_link_libraries(${target} ${PLATFORM_LINKLIBS} ${CMAKE_DL_LIBS})
+	target_link_libraries(${target} ${PLATFORM_LINKLIBS})
 endfunction()
 
 
@@ -575,6 +579,7 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		bf_editor_curve
 		bf_editor_gpencil
 		bf_editor_interface
+		bf_editor_manipulator_library
 		bf_editor_mesh
 		bf_editor_metaball
 		bf_editor_object
@@ -582,6 +587,7 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		bf_editor_physics
 		bf_editor_hair
 		bf_editor_render
+		bf_editor_scene
 		bf_editor_screen
 		bf_editor_sculpt_paint
 		bf_editor_sound
@@ -598,13 +604,17 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		bf_freestyle
 		bf_ikplugin
 		bf_modifiers
+		bf_alembic
 		bf_bmesh
 		bf_gpu
+		bf_draw
 		bf_blenloader
 		bf_blenkernel
 		bf_physics
 		bf_nodes
 		bf_rna
+		bf_editor_manipulator_library  # rna -> manipulator bad-level calls
+		bf_python
 		bf_imbuf
 		bf_blenlib
 		bf_depsgraph
@@ -616,7 +626,6 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		bf_imbuf_openimageio
 		bf_imbuf_dds
 		bf_collada
-		bf_alembic
 		bf_intern_elbeem
 		bf_intern_memutil
 		bf_intern_guardedalloc
@@ -657,16 +666,23 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		cycles_util
 		cycles_subd
 		bf_intern_opencolorio
+		bf_intern_gawain
 		bf_intern_eigen
 		extern_rangetree
 		extern_wcwidth
 		bf_intern_libmv
-		extern_glog
-		extern_gflags
 		extern_sdlew
 
 		bf_intern_glew_mx
 	)
+
+	if(NOT WITH_SYSTEM_GLOG)
+		list(APPEND BLENDER_SORTED_LIBS extern_glog)
+	endif()
+
+	if(NOT WITH_SYSTEM_GFLAGS)
+		list(APPEND BLENDER_SORTED_LIBS extern_gflags)
+	endif()
 
 	if(WITH_COMPOSITOR)
 		# added for opencl compositor
@@ -742,7 +758,7 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		list(APPEND BLENDER_SORTED_LIBS bf_intern_gpudirect)
 	endif()
 
-	if(WITH_OPENSUBDIV)
+	if(WITH_OPENSUBDIV OR WITH_CYCLES_OPENSUBDIV)
 		list(APPEND BLENDER_SORTED_LIBS bf_intern_opensubdiv)
 	endif()
 
@@ -1238,17 +1254,6 @@ endfunction()
 # hacks to override initial project settings
 # these macros must be called directly before/after project(Blender)
 macro(blender_project_hack_pre)
-	# ----------------
-	# MINGW HACK START
-	# ignore system set flag, use our own
-	# must be before project(...)
-	# if the user wants to add their own its ok after first run.
-	if(DEFINED CMAKE_C_STANDARD_LIBRARIES)
-		set(_reset_standard_libraries OFF)
-	else()
-		set(_reset_standard_libraries ON)
-	endif()
-
 	# ------------------
 	# GCC -O3 HACK START
 	# needed because O3 can cause problems but
@@ -1267,25 +1272,6 @@ endmacro()
 
 
 macro(blender_project_hack_post)
-	# --------------
-	# MINGW HACK END
-	if(_reset_standard_libraries)
-		# Must come after projecINCt(...)
-		#
-		# MINGW workaround for -ladvapi32 being included which surprisingly causes
-		# string formatting of floats, eg: printf("%.*f", 3, value). to crash blender
-		# with a meaningless stack trace. by overriding this flag we ensure we only
-		# have libs we define.
-		set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "" FORCE)
-		set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "" FORCE)
-		mark_as_advanced(
-			CMAKE_C_STANDARD_LIBRARIES
-			CMAKE_CXX_STANDARD_LIBRARIES
-		)
-	endif()
-	unset(_reset_standard_libraries)
-
-
 	# ----------------
 	# GCC -O3 HACK END
 	if(_reset_standard_cflags_rel)
@@ -1575,3 +1561,26 @@ macro(openmp_delayload
 			endif(WITH_OPENMP)
 		endif(MSVC)
 endmacro()
+
+MACRO(WINDOWS_SIGN_TARGET target)
+	if(WITH_WINDOWS_CODESIGN)
+		if(!SIGNTOOL_EXE)
+			error("Codesigning is enabled, but signtool is not found")
+		else()
+			if(WINDOWS_CODESIGN_PFX_PASSWORD)
+				set(CODESIGNPASSWORD /p ${WINDOWS_CODESIGN_PFX_PASSWORD})
+			else()
+				if($ENV{PFXPASSWORD})
+					set(CODESIGNPASSWORD /p $ENV{PFXPASSWORD})
+				else()
+					message(FATAL_ERROR "WITH_WINDOWS_CODESIGN is on but WINDOWS_CODESIGN_PFX_PASSWORD not set, and environment variable PFXPASSWORD not found, unable to sign code.")
+				endif()
+			endif()
+			add_custom_command(TARGET ${target}
+				POST_BUILD
+				COMMAND ${SIGNTOOL_EXE} sign /f ${WINDOWS_CODESIGN_PFX} ${CODESIGNPASSWORD} $<TARGET_FILE:${target}>
+				VERBATIM
+			)
+		endif()
+	endif()
+ENDMACRO()

@@ -39,7 +39,7 @@ class PhysicButtonsPanel:
 
 class PHYSICS_PT_field(PhysicButtonsPanel, Panel):
     bl_label = "Force Fields"
-    COMPAT_ENGINES = {'BLENDER_RENDER'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
 
     @classmethod
     def poll(cls, context):
@@ -128,7 +128,7 @@ class PHYSICS_PT_field(PhysicButtonsPanel, Panel):
         if field.type not in {'NONE', 'GUIDE'}:
 
             layout.label(text="Falloff:")
-            layout.prop(field, "falloff_type", expand=True)
+            layout.row().prop(field, "falloff_type", expand=True)
 
             basic_force_field_falloff_ui(self, context, field)
 
@@ -177,7 +177,7 @@ class PHYSICS_PT_field(PhysicButtonsPanel, Panel):
 
 class PHYSICS_PT_collision(PhysicButtonsPanel, Panel):
     bl_label = "Collision"
-    COMPAT_ENGINES = {'BLENDER_RENDER'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
 
     @classmethod
     def poll(cls, context):
@@ -228,5 +228,13 @@ class PHYSICS_PT_collision(PhysicButtonsPanel, Panel):
             col.label(text="Force Fields:")
             col.prop(settings, "absorption", text="Absorption")
 
+
+classes = (
+    PHYSICS_PT_field,
+    PHYSICS_PT_collision,
+)
+
 if __name__ == "__main__":  # only for live edit.
-    bpy.utils.register_module(__name__)
+    from bpy.utils import register_class
+    for cls in classes:
+        register_class(cls)

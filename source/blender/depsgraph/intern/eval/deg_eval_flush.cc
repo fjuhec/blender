@@ -33,17 +33,17 @@
 #include "intern/eval/deg_eval_flush.h"
 
 // TODO(sergey): Use some sort of wrapper.
-#include <queue>
-
-extern "C" {
-#include "DNA_object_types.h"
+#include <deque>
 
 #include "BLI_utildefines.h"
 #include "BLI_task.h"
 #include "BLI_ghash.h"
 
-#include "DEG_depsgraph.h"
+extern "C" {
+#include "DNA_object_types.h"
 } /* extern "C" */
+
+#include "DEG_depsgraph.h"
 
 #include "intern/nodes/deg_node.h"
 #include "intern/nodes/deg_node_component.h"
@@ -71,7 +71,7 @@ void lib_id_recalc_data_tag(Main *bmain, ID *id)
 
 }  /* namespace */
 
-typedef std::queue<OperationDepsNode *> FlushQueue;
+typedef std::deque<OperationDepsNode *> FlushQueue;
 
 static void flush_init_func(void *data_v, int i)
 {
@@ -120,26 +120,106 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 	 * NOTE: Count how many nodes we need to handle - entry nodes may be
 	 *       component nodes which don't count for this purpose!
 	 */
-	GSET_FOREACH_BEGIN(OperationDepsNode *, node, graph->entry_tags)
+	GSET_FOREACH_BEGIN(OperationDepsNode *, op_node, graph->entry_tags)
 	{
-		queue.push(node);
-		node->scheduled = true;
+		if ((op_node->flag & DEPSOP_FLAG_SKIP_FLUSH) == 0) {
+			queue.push_back(op_node);
+			op_node->scheduled = true;
+		}
 	}
 	GSET_FOREACH_END();
 
+	int num_flushed_objects = 0;
 	while (!queue.empty()) {
 		OperationDepsNode *node = queue.front();
-		queue.pop();
+		queue.pop_front();
 
 		for (;;) {
 			node->flag |= DEPSOP_FLAG_NEEDS_UPDATE;
 
 			ComponentDepsNode *comp_node = node->owner;
 			IDDepsNode *id_node = comp_node->owner;
+
+			/* TODO(sergey): Do we need to pass original or evaluated ID here? */
+			ID *id = id_node->id_orig;
+			if (id_node->done == 0) {
+				deg_editors_id_update(bmain, id);
+				lib_id_recalc_tag(bmain, id);
+				/* TODO(sergey): For until we've got proper data nodes in the graph. */
+				lib_id_recalc_data_tag(bmain, id);
+
+#ifdef WITH_COPY_ON_WRITE
+				/* Currently this is needed to get ob->mesh to be replaced with
+				 * original mesh (rather than being evaluated_mesh).
+				 *
+				 * TODO(sergey): This is something we need to avoid.
+				 */
+				ComponentDepsNode *cow_comp =
+				        id_node->find_component(DEG_NODE_TYPE_COPY_ON_WRITE);
+				cow_comp->tag_update(graph);
+#endif
+			}
+
+			if (comp_node->done == 0) {
+				Object *object = NULL;
+				if (GS(id->name) == ID_OB) {
+					object = (Object *)id;
+					if (id_node->done == 0) {
+						++num_flushed_objects;
+					}
+				}
+				foreach (OperationDepsNode *op, comp_node->operations) {
+					op->flag |= DEPSOP_FLAG_NEEDS_UPDATE;
+				}
+				if (object != NULL) {
+					/* This code is used to preserve those areas which does
+					 * direct object update,
+					 *
+					 * Plus it ensures visibility changes and relations and
+					 * layers visibility update has proper flags to work with.
+					 */
+					switch (comp_node->type) {
+						case DEG_NODE_TYPE_UNDEFINED:
+						case DEG_NODE_TYPE_OPERATION:
+						case DEG_NODE_TYPE_TIMESOURCE:
+						case DEG_NODE_TYPE_ID_REF:
+						case DEG_NODE_TYPE_PARAMETERS:
+						case DEG_NODE_TYPE_SEQUENCER:
+						case DEG_NODE_TYPE_LAYER_COLLECTIONS:
+						case DEG_NODE_TYPE_COPY_ON_WRITE:
+							/* Ignore, does not translate to object component. */
+							break;
+						case DEG_NODE_TYPE_ANIMATION:
+							object->recalc |= OB_RECALC_TIME;
+							break;
+						case DEG_NODE_TYPE_TRANSFORM:
+							object->recalc |= OB_RECALC_OB;
+							break;
+						case DEG_NODE_TYPE_GEOMETRY:
+						case DEG_NODE_TYPE_EVAL_POSE:
+						case DEG_NODE_TYPE_BONE:
+						case DEG_NODE_TYPE_EVAL_PARTICLES:
+						case DEG_NODE_TYPE_SHADING:
+						case DEG_NODE_TYPE_CACHE:
+						case DEG_NODE_TYPE_PROXY:
+							object->recalc |= OB_RECALC_DATA;
+							break;
+					}
+
+					/* TODO : replace with more granular flags */
+					object->deg_update_flag |= DEG_RUNTIME_DATA_UPDATE;
+				}
+			}
+
 			id_node->done = 1;
 			comp_node->done = 1;
 
 			/* Flush to nodes along links... */
+			/* TODO(sergey): This is mainly giving speedup due ot less queue pushes, which
+			 * reduces number of memory allocations.
+			 *
+			 * We should try solve the allocation issue instead of doing crazy things here.
+			 */
 			if (node->outlinks.size() == 1) {
 				OperationDepsNode *to_node = (OperationDepsNode *)node->outlinks[0]->to;
 				if (to_node->scheduled == false) {
@@ -154,7 +234,7 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 				foreach (DepsRelation *rel, node->outlinks) {
 					OperationDepsNode *to_node = (OperationDepsNode *)rel->to;
 					if (to_node->scheduled == false) {
-						queue.push(to_node);
+						queue.push_front(to_node);
 						to_node->scheduled = true;
 					}
 				}
@@ -162,52 +242,7 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 			}
 		}
 	}
-
-	GHASH_FOREACH_BEGIN(DEG::IDDepsNode *, id_node, graph->id_hash)
-	{
-		if (id_node->done == 1) {
-			ID *id = id_node->id;
-			Object *object = NULL;
-
-			if (GS(id->name) == ID_OB) {
-				object = (Object *)id;
-			}
-
-			deg_editors_id_update(bmain, id_node->id);
-
-			lib_id_recalc_tag(bmain, id_node->id);
-			/* TODO(sergey): For until we've got proper data nodes in the graph. */
-			lib_id_recalc_data_tag(bmain, id_node->id);
-
-			GHASH_FOREACH_BEGIN(const ComponentDepsNode *, comp_node, id_node->components)
-			{
-				if (comp_node->done) {
-					foreach (OperationDepsNode *op, comp_node->operations) {
-						op->flag |= DEPSOP_FLAG_NEEDS_UPDATE;
-					}
-					if (object != NULL) {
-						/* This code is used to preserve those areas which does
-						 * direct object update,
-						 *
-						 * Plus it ensures visibility changes and relations and
-						 * layers visibility update has proper flags to work with.
-						 */
-						if (comp_node->type == DEPSNODE_TYPE_ANIMATION) {
-							object->recalc |= OB_RECALC_TIME;
-						}
-						else if (comp_node->type == DEPSNODE_TYPE_TRANSFORM) {
-							object->recalc |= OB_RECALC_OB;
-						}
-						else {
-							object->recalc |= OB_RECALC_DATA;
-						}
-					}
-				}
-			}
-			GHASH_FOREACH_END();
-		}
-	}
-	GHASH_FOREACH_END();
+	DEG_DEBUG_PRINTF("Update flushed to %d objects\n", num_flushed_objects);
 }
 
 static void graph_clear_func(void *data_v, int i)

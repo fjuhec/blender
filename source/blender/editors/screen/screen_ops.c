@@ -48,11 +48,13 @@
 #include "DNA_meta_types.h"
 #include "DNA_mask_types.h"
 #include "DNA_node_types.h"
+#include "DNA_workspace_types.h"
 #include "DNA_userdef_types.h"
 
 #include "BKE_context.h"
 #include "BKE_customdata.h"
 #include "BKE_global.h"
+#include "BKE_icons.h"
 #include "BKE_main.h"
 #include "BKE_object.h"
 #include "BKE_report.h"
@@ -61,6 +63,7 @@
 #include "BKE_editmesh.h"
 #include "BKE_sound.h"
 #include "BKE_mask.h"
+#include "BKE_workspace.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -442,6 +445,17 @@ int ED_operator_posemode(bContext *C)
 	return 0;
 }
 
+int ED_operator_posemode_local(bContext *C)
+{
+	if (ED_operator_posemode(C)) {
+		Object *ob = BKE_object_pose_armature_get(CTX_data_active_object(C));
+		bArmature *arm = ob->data;
+		return !(ID_IS_LINKED_DATABLOCK(&ob->id) ||
+		         ID_IS_LINKED_DATABLOCK(&arm->id));
+	}
+	return false;
+}
+
 /* wrapper for ED_space_image_show_uvedit */
 int ED_operator_uvedit(bContext *C)
 {
@@ -560,8 +574,8 @@ int ED_operator_mask(bContext *C)
 			case SPACE_IMAGE:
 			{
 				SpaceImage *sima = sa->spacedata.first;
-				Scene *scene = CTX_data_scene(C);
-				return ED_space_image_check_show_maskedit(scene, sima);
+				SceneLayer *sl = CTX_data_scene_layer(C);
+				return ED_space_image_check_show_maskedit(sl, sima);
 			}
 		}
 	}
@@ -966,13 +980,17 @@ static void SCREEN_OT_area_swap(wmOperatorType *ot)
 /* operator callback */
 static int area_dupli_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
-	wmWindow *newwin, *win;
-	bScreen *newsc, *sc;
+	wmWindow *newwin, *win = CTX_wm_window(C);
+	Scene *scene;
+	WorkSpace *workspace = WM_window_get_active_workspace(win);
+	WorkSpaceLayout *layout_old = WM_window_get_active_layout(win);
+	WorkSpaceLayout *layout_new;
+	bScreen *newsc;
 	ScrArea *sa;
 	rcti rect;
 	
 	win = CTX_wm_window(C);
-	sc = CTX_wm_screen(C);
+	scene = CTX_data_scene(C);
 	sa = CTX_wm_area(C);
 	
 	/* XXX hrmf! */
@@ -998,11 +1016,15 @@ static int area_dupli_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 	}
 
 	*newwin->stereo3d_format = *win->stereo3d_format;
-	
+
+	newwin->scene = scene;
+
+	WM_window_set_active_workspace(newwin, workspace);
 	/* allocs new screen and adds to newly created window, using window size */
-	newsc = ED_screen_add(newwin, CTX_data_scene(C), sc->id.name + 2);
-	newwin->screen = newsc;
-	
+	layout_new = ED_workspace_layout_add(workspace, newwin, BKE_workspace_layout_name_get(layout_old));
+	newsc = BKE_workspace_layout_screen_get(layout_new);
+	WM_window_set_active_layout(newwin, workspace, layout_new);
+
 	/* copy area to new screen */
 	ED_area_data_copy((ScrArea *)newsc->areabase.first, sa, true);
 
@@ -1209,6 +1231,8 @@ static void area_move_apply_do(bContext *C, int origval, int delta, int dir, int
 		}
 
 		WM_event_add_notifier(C, NC_SCREEN | NA_EDITED, NULL); /* redraw everything */
+		/* Update preview thumbnail */
+		BKE_icon_changed(sc->id.icon_id);
 	}
 }
 
@@ -1497,7 +1521,9 @@ static int area_split_apply(bContext *C, wmOperator *op)
 		ED_area_tag_redraw(sd->narea);
 
 		WM_event_add_notifier(C, NC_SCREEN | NA_EDITED, NULL);
-		
+		/* Update preview thumbnail */
+		BKE_icon_changed(sc->id.icon_id);
+
 		return 1;
 	}
 	
@@ -1698,7 +1724,7 @@ static int area_split_modal(bContext *C, wmOperator *op, const wmEvent *event)
 					}
 				}
 				
-				CTX_wm_window(C)->screen->do_draw = true;
+				CTX_wm_screen(C)->do_draw = true;
 
 			}
 			
@@ -2068,12 +2094,11 @@ static void areas_do_frame_follow(bContext *C, bool middle)
 	bScreen *scr = CTX_wm_screen(C);
 	Scene *scene = CTX_data_scene(C);
 	wmWindowManager *wm = CTX_wm_manager(C);
-	wmWindow *window;
-	for (window = wm->windows.first; window; window = window->next) {
-		ScrArea *sa;
-		for (sa = window->screen->areabase.first; sa; sa = sa->next) {
-			ARegion *ar;
-			for (ar = sa->regionbase.first; ar; ar = ar->next) {
+	for (wmWindow *window = wm->windows.first; window; window = window->next) {
+		const bScreen *screen = WM_window_get_active_screen(window);
+
+		for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
+			for (ARegion *ar = sa->regionbase.first; ar; ar = ar->next) {
 				/* do follow here if editor type supports it */
 				if ((scr->redraws_flag & TIME_FOLLOW)) {
 					if ((ar->regiontype == RGN_TYPE_WINDOW &&
@@ -2136,7 +2161,8 @@ static void SCREEN_OT_frame_offset(wmOperatorType *ot)
 	ot->exec = frame_offset_exec;
 	
 	ot->poll = ED_operator_screenactive_norender;
-	ot->flag = 0;
+	ot->flag = OPTYPE_UNDO_GROUPED;
+	ot->undo_group = "FRAME_CHANGE";
 	
 	/* rna */
 	RNA_def_int(ot->srna, "delta", 0, INT_MIN, INT_MAX, "Delta", "", INT_MIN, INT_MAX);
@@ -2189,7 +2215,8 @@ static void SCREEN_OT_frame_jump(wmOperatorType *ot)
 	ot->exec = frame_jump_exec;
 	
 	ot->poll = ED_operator_screenactive_norender;
-	ot->flag = OPTYPE_UNDO;
+	ot->flag = OPTYPE_UNDO_GROUPED;
+	ot->undo_group = "FRAME_CHANGE";
 	
 	/* rna */
 	RNA_def_boolean(ot->srna, "end", 0, "Last Frame", "Jump to the last frame of the frame range");
@@ -2295,7 +2322,8 @@ static void SCREEN_OT_keyframe_jump(wmOperatorType *ot)
 	ot->exec = keyframe_jump_exec;
 	
 	ot->poll = ED_operator_screenactive_norender;
-	ot->flag = OPTYPE_UNDO;
+	ot->flag = OPTYPE_UNDO_GROUPED;
+	ot->undo_group = "FRAME_CHANGE";
 	
 	/* properties */
 	RNA_def_boolean(ot->srna, "next", true, "Next Keyframe", "");
@@ -2357,7 +2385,8 @@ static void SCREEN_OT_marker_jump(wmOperatorType *ot)
 	ot->exec = marker_jump_exec;
 
 	ot->poll = ED_operator_screenactive_norender;
-	ot->flag = OPTYPE_UNDO;
+	ot->flag = OPTYPE_UNDO_GROUPED;
+	ot->undo_group = "FRAME_CHANGE";
 
 	/* properties */
 	RNA_def_boolean(ot->srna, "next", true, "Next Marker", "");
@@ -2365,64 +2394,16 @@ static void SCREEN_OT_marker_jump(wmOperatorType *ot)
 
 /* ************** switch screen operator ***************************** */
 
-static bool screen_set_is_ok(bScreen *screen, bScreen *screen_prev)
-{
-	return ((screen->winid == 0) &&
-	        /* in typical usage these should have a nonzero winid
-	         * (all temp screens should be used, or closed & freed). */
-	        (screen->temp == false) &&
-	        (screen->state == SCREENNORMAL) &&
-	        (screen != screen_prev) &&
-	        (screen->id.name[2] != '.' || !(U.uiflag & USER_HIDE_DOT)));
-}
-
 /* function to be called outside UI context, or for redo */
 static int screen_set_exec(bContext *C, wmOperator *op)
 {
-	Main *bmain = CTX_data_main(C);
-	bScreen *screen = CTX_wm_screen(C);
-	bScreen *screen_prev = screen;
-	
-	ScrArea *sa = CTX_wm_area(C);
-	int tot = BLI_listbase_count(&bmain->screen);
+	WorkSpace *workspace = CTX_wm_workspace(C);
 	int delta = RNA_int_get(op->ptr, "delta");
-	
-	/* temp screens are for userpref or render display */
-	if (screen->temp || (sa && sa->full && sa->full->temp)) {
-		return OPERATOR_CANCELLED;
-	}
-	
-	if (delta == 1) {
-		while (tot--) {
-			screen = screen->id.next;
-			if (screen == NULL) screen = bmain->screen.first;
-			if (screen_set_is_ok(screen, screen_prev)) {
-				break;
-			}
-		}
-	}
-	else if (delta == -1) {
-		while (tot--) {
-			screen = screen->id.prev;
-			if (screen == NULL) screen = bmain->screen.last;
-			if (screen_set_is_ok(screen, screen_prev)) {
-				break;
-			}
-		}
-	}
-	else {
-		screen = NULL;
-	}
-	
-	if (screen && screen_prev != screen) {
-		/* return to previous state before switching screens */
-		if (sa && sa->full) {
-			ED_screen_full_restore(C, sa); /* may free 'screen_prev' */
-		}
-		
-		ED_screen_set(C, screen);
+
+	if (ED_workspace_layout_cycle(workspace, delta, C)) {
 		return OPERATOR_FINISHED;
 	}
+
 	return OPERATOR_CANCELLED;
 }
 
@@ -2793,7 +2774,7 @@ static int screen_area_options_invoke(bContext *C, wmOperator *op, const wmEvent
 	bScreen *sc = CTX_wm_screen(C);
 	uiPopupMenu *pup;
 	uiLayout *layout;
-	PointerRNA ptr1, ptr2;
+	PointerRNA ptr;
 	ScrEdge *actedge;
 	const int winsize_x = WM_window_pixels_x(win);
 	const int winsize_y = WM_window_pixels_y(win);
@@ -2805,22 +2786,17 @@ static int screen_area_options_invoke(bContext *C, wmOperator *op, const wmEvent
 	pup = UI_popup_menu_begin(C, RNA_struct_ui_name(op->type->srna), ICON_NONE);
 	layout = UI_popup_menu_layout(pup);
 	
-	WM_operator_properties_create(&ptr1, "SCREEN_OT_area_join");
-	
-	/* mouse cursor on edge, '4' can fail on wide edges... */
-	RNA_int_set(&ptr1, "min_x", event->x + 4);
-	RNA_int_set(&ptr1, "min_y", event->y + 4);
-	RNA_int_set(&ptr1, "max_x", event->x - 4);
-	RNA_int_set(&ptr1, "max_y", event->y - 4);
-	
-	WM_operator_properties_create(&ptr2, "SCREEN_OT_area_split");
-	
+	ptr = uiItemFullO(layout, "SCREEN_OT_area_split", NULL, ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, UI_ITEM_O_RETURN_PROPS);
 	/* store initial mouse cursor position */
-	RNA_int_set(&ptr2, "mouse_x", event->x);
-	RNA_int_set(&ptr2, "mouse_y", event->y);
-	
-	uiItemFullO(layout, "SCREEN_OT_area_split", NULL, ICON_NONE, ptr2.data, WM_OP_INVOKE_DEFAULT, 0);
-	uiItemFullO(layout, "SCREEN_OT_area_join", NULL, ICON_NONE, ptr1.data, WM_OP_INVOKE_DEFAULT, 0);
+	RNA_int_set(&ptr, "mouse_x", event->x);
+	RNA_int_set(&ptr, "mouse_y", event->y);
+
+	ptr = uiItemFullO(layout, "SCREEN_OT_area_join", NULL, ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+	/* mouse cursor on edge, '4' can fail on wide edges... */
+	RNA_int_set(&ptr, "min_x", event->x + 4);
+	RNA_int_set(&ptr, "min_y", event->y + 4);
+	RNA_int_set(&ptr, "max_x", event->x - 4);
+	RNA_int_set(&ptr, "max_y", event->y - 4);
 	
 	UI_popup_menu_end(C, pup);
 	
@@ -2888,10 +2864,23 @@ static void SCREEN_OT_spacedata_cleanup(wmOperatorType *ot)
 
 static int repeat_last_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	wmOperator *lastop = CTX_wm_manager(C)->operators.last;
-	
-	if (lastop)
+	wmWindowManager *wm = CTX_wm_manager(C);
+	wmOperator *lastop = wm->operators.last;
+
+	/* Seek last registered operator */
+	while (lastop) {
+		if (lastop->type->flag & OPTYPE_REGISTER) {
+			break;
+		}
+		else {
+			lastop = lastop->prev;
+		}
+	}
+
+	if (lastop) {
+		WM_operator_free_all_after(wm, lastop);
 		WM_operator_repeat(C, lastop);
+	}
 	
 	return OPERATOR_CANCELLED;
 }
@@ -2926,8 +2915,9 @@ static int repeat_history_invoke(bContext *C, wmOperator *op, const wmEvent *UNU
 	layout = UI_popup_menu_layout(pup);
 	
 	for (i = items - 1, lastop = wm->operators.last; lastop; lastop = lastop->prev, i--)
-		if (WM_operator_repeat_check(C, lastop))
+		if ((lastop->type->flag & OPTYPE_REGISTER) && WM_operator_repeat_check(C, lastop)) {
 			uiItemIntO(layout, RNA_struct_ui_name(lastop->type->srna), ICON_NONE, op->type->idname, "index", i);
+		}
 	
 	UI_popup_menu_end(C, pup);
 	
@@ -3268,7 +3258,7 @@ static int header_toggle_menus_exec(bContext *C, wmOperator *UNUSED(op))
 	sa->flag = sa->flag ^ HEADER_NO_PULLDOWN;
 
 	ED_area_tag_redraw(sa);
-	WM_event_add_notifier(C, NC_SCREEN | NA_EDITED, NULL);	
+	WM_event_add_notifier(C, NC_SCREEN | NA_EDITED, NULL);
 
 	return OPERATOR_FINISHED;
 }
@@ -3565,7 +3555,9 @@ static int screen_animation_step(bContext *C, wmOperator *UNUSED(op), const wmEv
 		ED_update_for_newframe(bmain, scene, 1);
 
 		for (window = wm->windows.first; window; window = window->next) {
-			for (sa = window->screen->areabase.first; sa; sa = sa->next) {
+			const bScreen *win_screen = WM_window_get_active_screen(window);
+
+			for (sa = win_screen->areabase.first; sa; sa = sa->next) {
 				ARegion *ar;
 				for (ar = sa->regionbase.first; ar; ar = ar->next) {
 					bool redraw = false;
@@ -3639,11 +3631,11 @@ static void SCREEN_OT_animation_step(wmOperatorType *ot)
 /* find window that owns the animation timer */
 bScreen *ED_screen_animation_playing(const wmWindowManager *wm)
 {
-	wmWindow *win;
+	for (wmWindow *win = wm->windows.first; win; win = win->next) {
+		bScreen *screen = WM_window_get_active_screen(win);
 
-	for (win = wm->windows.first; win; win = win->next) {
-		if (win->screen->animtimer || win->screen->scrubbing) {
-			return win->screen;
+		if (screen->animtimer || screen->scrubbing) {
+			return screen;
 		}
 	}
 
@@ -3652,11 +3644,11 @@ bScreen *ED_screen_animation_playing(const wmWindowManager *wm)
 
 bScreen *ED_screen_animation_no_scrub(const wmWindowManager *wm)
 {
-	wmWindow *win;
+	for (wmWindow *win = wm->windows.first; win; win = win->next) {
+		bScreen *screen = WM_window_get_active_screen(win);
 
-	for (win = wm->windows.first; win; win = win->next) {
-		if (win->screen->animtimer) {
-			return win->screen;
+		if (screen->animtimer) {
+			return screen;
 		}
 	}
 
@@ -3732,7 +3724,7 @@ static int screen_animation_cancel_exec(bContext *C, wmOperator *op)
 	bScreen *screen = ED_screen_animation_playing(CTX_wm_manager(C));
 
 	if (screen) {
-		if (RNA_boolean_get(op->ptr, "restore_frame")) {
+		if (RNA_boolean_get(op->ptr, "restore_frame") && screen->animtimer) {
 			ScreenAnimData *sad = screen->animtimer->customdata;
 			Scene *scene = CTX_data_scene(C);
 
@@ -3859,22 +3851,11 @@ static void SCREEN_OT_back_to_previous(struct wmOperatorType *ot)
 
 static int userpref_show_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
-	wmWindow *win = CTX_wm_window(C);
-	rcti rect;
-	int sizex, sizey;
-	
-	sizex = 800 * UI_DPI_WINDOW_FAC;
-	sizey = 480 * UI_DPI_WINDOW_FAC;
-	
-	/* some magic to calculate postition */
-	/* pixelsize: mouse coords are in U.pixelsize units :/ */
-	rect.xmin = (event->x / U.pixelsize) + win->posx - sizex / 2;
-	rect.ymin = (event->y / U.pixelsize) + win->posy - sizey / 2;
-	rect.xmax = rect.xmin + sizex;
-	rect.ymax = rect.ymin + sizey;
+	int sizex = 800 * UI_DPI_FAC;
+	int sizey = 480 * UI_DPI_FAC;
 	
 	/* changes context! */
-	if (WM_window_open_temp(C, &rect, WM_WINDOW_USERPREFS) != NULL) {
+	if (WM_window_open_temp(C, event->x, event->y, sizex, sizey, WM_WINDOW_USERPREFS) != NULL) {
 		return OPERATOR_FINISHED;
 	}
 	else {
@@ -3901,11 +3882,13 @@ static void SCREEN_OT_userpref_show(struct wmOperatorType *ot)
 static int screen_new_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	wmWindow *win = CTX_wm_window(C);
-	bScreen *sc = CTX_wm_screen(C);
-	
-	sc = ED_screen_duplicate(win, sc);
-	WM_event_add_notifier(C, NC_SCREEN | ND_SCREENBROWSE, sc);
-	
+	WorkSpace *workspace = BKE_workspace_active_get(win->workspace_hook);
+	WorkSpaceLayout *layout_old = BKE_workspace_active_layout_get(win->workspace_hook);
+	WorkSpaceLayout *layout_new;
+
+	layout_new = ED_workspace_layout_duplicate(workspace, layout_old, win);
+	WM_event_add_notifier(C, NC_SCREEN | ND_LAYOUTBROWSE, layout_new);
+
 	return OPERATOR_FINISHED;
 }
 
@@ -3926,9 +3909,11 @@ static void SCREEN_OT_new(wmOperatorType *ot)
 static int screen_delete_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	bScreen *sc = CTX_wm_screen(C);
-	
-	WM_event_add_notifier(C, NC_SCREEN | ND_SCREENDELETE, sc);
-	
+	WorkSpace *workspace = CTX_wm_workspace(C);
+	WorkSpaceLayout *layout = BKE_workspace_layout_find(workspace, sc);
+
+	WM_event_add_notifier(C, NC_SCREEN | ND_LAYOUTDELETE, layout);
+
 	return OPERATOR_FINISHED;
 }
 
@@ -3941,95 +3926,6 @@ static void SCREEN_OT_delete(wmOperatorType *ot)
 	
 	/* api callbacks */
 	ot->exec = screen_delete_exec;
-}
-
-/********************* new scene operator *********************/
-
-static int scene_new_exec(bContext *C, wmOperator *op)
-{
-	Scene *newscene, *scene = CTX_data_scene(C);
-	Main *bmain = CTX_data_main(C);
-	int type = RNA_enum_get(op->ptr, "type");
-
-	if (type == SCE_COPY_NEW) {
-		newscene = BKE_scene_add(bmain, DATA_("Scene"));
-	}
-	else { /* different kinds of copying */
-		newscene = BKE_scene_copy(bmain, scene, type);
-
-		/* these can't be handled in blenkernel currently, so do them here */
-		if (type == SCE_COPY_LINK_DATA) {
-			ED_object_single_users(bmain, newscene, false, true);
-		}
-		else if (type == SCE_COPY_FULL) {
-			ED_editors_flush_edits(C, false);
-			ED_object_single_users(bmain, newscene, true, true);
-		}
-	}
-	
-	ED_screen_set_scene(C, CTX_wm_screen(C), newscene);
-	
-	WM_event_add_notifier(C, NC_SCENE | ND_SCENEBROWSE, newscene);
-	
-	return OPERATOR_FINISHED;
-}
-
-static void SCENE_OT_new(wmOperatorType *ot)
-{
-	static EnumPropertyItem type_items[] = {
-		{SCE_COPY_NEW, "NEW", 0, "New", "Add new scene"},
-		{SCE_COPY_EMPTY, "EMPTY", 0, "Copy Settings", "Make a copy without any objects"},
-		{SCE_COPY_LINK_OB, "LINK_OBJECTS", 0, "Link Objects", "Link to the objects from the current scene"},
-		{SCE_COPY_LINK_DATA, "LINK_OBJECT_DATA", 0, "Link Object Data", "Copy objects linked to data from the current scene"},
-		{SCE_COPY_FULL, "FULL_COPY", 0, "Full Copy", "Make a full copy of the current scene"},
-		{0, NULL, 0, NULL, NULL}};
-	
-	/* identifiers */
-	ot->name = "New Scene";
-	ot->description = "Add new scene by type";
-	ot->idname = "SCENE_OT_new";
-	
-	/* api callbacks */
-	ot->exec = scene_new_exec;
-	ot->invoke = WM_menu_invoke;
-	
-	/* flags */
-	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-	
-	/* properties */
-	ot->prop = RNA_def_enum(ot->srna, "type", type_items, 0, "Type", "");
-}
-
-/********************* delete scene operator *********************/
-
-static int scene_delete_exec(bContext *C, wmOperator *UNUSED(op))
-{
-	Scene *scene = CTX_data_scene(C);
-
-	if (ED_screen_delete_scene(C, scene) == false) {
-		return OPERATOR_CANCELLED;
-	}
-
-	if (G.debug & G_DEBUG)
-		printf("scene delete %p\n", scene);
-
-	WM_event_add_notifier(C, NC_SCENE | NA_REMOVED, scene);
-
-	return OPERATOR_FINISHED;
-}
-
-static void SCENE_OT_delete(wmOperatorType *ot)
-{
-	/* identifiers */
-	ot->name = "Delete Scene";
-	ot->description = "Delete active scene";
-	ot->idname = "SCENE_OT_delete";
-	
-	/* api callbacks */
-	ot->exec = scene_delete_exec;
-	
-	/* flags */
-	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
 /* ***************** region alpha blending ***************** */
@@ -4174,6 +4070,89 @@ static void SCREEN_OT_region_blend(wmOperatorType *ot)
 	/* properties */
 }
 
+/* ******************** space context cycling operator ******************** */
+
+/* SCREEN_OT_space_context_cycle direction */
+enum {
+	SPACE_CONTEXT_CYCLE_PREV,
+	SPACE_CONTEXT_CYCLE_NEXT,
+};
+
+static EnumPropertyItem space_context_cycle_direction[] = {
+	{SPACE_CONTEXT_CYCLE_PREV, "PREV", 0, "Previous", ""},
+	{SPACE_CONTEXT_CYCLE_NEXT, "NEXT", 0, "Next", ""},
+	{0, NULL, 0, NULL, NULL}
+};
+
+static int space_context_cycle_poll(bContext *C)
+{
+	ScrArea *sa = CTX_wm_area(C);
+	/* sa might be NULL if called out of window bounds */
+	return (sa && ELEM(sa->spacetype, SPACE_BUTS, SPACE_USERPREF));
+}
+
+/**
+ * Helper to get the correct RNA pointer/property pair for changing
+ * the display context of active space type in \a sa.
+ */
+static void context_cycle_prop_get(
+        bScreen *screen, const ScrArea *sa,
+        PointerRNA *r_ptr, PropertyRNA **r_prop)
+{
+	const char *propname;
+
+	switch (sa->spacetype) {
+		case SPACE_BUTS:
+			RNA_pointer_create(&screen->id, &RNA_SpaceProperties, sa->spacedata.first, r_ptr);
+			propname = "context";
+			break;
+		case SPACE_USERPREF:
+			RNA_pointer_create(NULL, &RNA_UserPreferences, &U, r_ptr);
+			propname = "active_section";
+			break;
+		default:
+			BLI_assert(0);
+			propname = "";
+	}
+
+	*r_prop = RNA_struct_find_property(r_ptr, propname);
+}
+
+static int space_context_cycle_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+{
+	const int direction = RNA_enum_get(op->ptr, "direction");
+
+	PointerRNA ptr;
+	PropertyRNA *prop;
+	context_cycle_prop_get(CTX_wm_screen(C), CTX_wm_area(C), &ptr, &prop);
+
+	const int old_context = RNA_property_enum_get(&ptr, prop);
+	const int new_context = RNA_property_enum_step(
+	                  C, &ptr, prop, old_context,
+	                  direction == SPACE_CONTEXT_CYCLE_PREV ? -1 : 1);
+	RNA_property_enum_set(&ptr, prop, new_context);
+	RNA_property_update(C, &ptr, prop);
+
+	return OPERATOR_FINISHED;
+}
+
+static void SCREEN_OT_space_context_cycle(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Cycle Space Context";
+	ot->description = "Cycle through the editor context by activating the next/previous one";
+	ot->idname = "SCREEN_OT_space_context_cycle";
+
+	/* api callbacks */
+	ot->invoke = space_context_cycle_invoke;
+	ot->poll = space_context_cycle_poll;
+
+	ot->flag = 0;
+
+	RNA_def_enum(ot->srna, "direction", space_context_cycle_direction, SPACE_CONTEXT_CYCLE_NEXT, "Direction",
+	             "Direction to cycle through");
+}
+
 
 /* ****************  Assigning operatortypes to global list, adding handlers **************** */
 
@@ -4209,6 +4188,7 @@ void ED_operatortypes_screen(void)
 	WM_operatortype_append(SCREEN_OT_screencast);
 	WM_operatortype_append(SCREEN_OT_userpref_show);
 	WM_operatortype_append(SCREEN_OT_region_blend);
+	WM_operatortype_append(SCREEN_OT_space_context_cycle);
 	
 	/*frame changes*/
 	WM_operatortype_append(SCREEN_OT_frame_offset);
@@ -4219,17 +4199,16 @@ void ED_operatortypes_screen(void)
 	WM_operatortype_append(SCREEN_OT_animation_step);
 	WM_operatortype_append(SCREEN_OT_animation_play);
 	WM_operatortype_append(SCREEN_OT_animation_cancel);
-	
+
 	/* new/delete */
 	WM_operatortype_append(SCREEN_OT_new);
 	WM_operatortype_append(SCREEN_OT_delete);
-	WM_operatortype_append(SCENE_OT_new);
-	WM_operatortype_append(SCENE_OT_delete);
-	
+
 	/* tools shared by more space types */
 	WM_operatortype_append(ED_OT_undo);
 	WM_operatortype_append(ED_OT_undo_push);
 	WM_operatortype_append(ED_OT_redo);
+	WM_operatortype_append(ED_OT_undo_redo);
 	WM_operatortype_append(ED_OT_undo_history);
 
 	WM_operatortype_append(ED_OT_flush_edits);
@@ -4331,7 +4310,12 @@ void ED_keymap_screen(wmKeyConfig *keyconf)
 
 	WM_keymap_add_item(keymap, "SCREEN_OT_screenshot", F3KEY, KM_PRESS, KM_CTRL, 0);
 	WM_keymap_add_item(keymap, "SCREEN_OT_screencast", F3KEY, KM_PRESS, KM_ALT, 0);
-	
+
+	kmi = WM_keymap_add_item(keymap, "SCREEN_OT_space_context_cycle", TABKEY, KM_PRESS, KM_CTRL, 0);
+	RNA_enum_set(kmi->ptr, "direction", SPACE_CONTEXT_CYCLE_NEXT);
+	kmi = WM_keymap_add_item(keymap, "SCREEN_OT_space_context_cycle", TABKEY, KM_PRESS, KM_CTRL | KM_SHIFT, 0);
+	RNA_enum_set(kmi->ptr, "direction", SPACE_CONTEXT_CYCLE_PREV);
+
 	/* tests */
 	WM_keymap_add_item(keymap, "SCREEN_OT_region_quadview", QKEY, KM_PRESS, KM_CTRL | KM_ALT, 0);
 	WM_keymap_verify_item(keymap, "SCREEN_OT_repeat_history", F3KEY, KM_PRESS, 0, 0);

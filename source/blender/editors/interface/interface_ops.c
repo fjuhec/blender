@@ -42,14 +42,19 @@
 #include "BLT_lang.h"
 
 #include "BKE_context.h"
+#include "BKE_idprop.h"
+#include "BKE_layer.h"
 #include "BKE_screen.h"
 #include "BKE_global.h"
 #include "BKE_node.h"
 #include "BKE_text.h" /* for UI_OT_reports_to_text */
 #include "BKE_report.h"
 
+#include "DEG_depsgraph.h"
+
 #include "RNA_access.h"
 #include "RNA_define.h"
+#include "RNA_types.h"
 
 #include "UI_interface.h"
 
@@ -113,19 +118,33 @@ static int copy_data_path_button_poll(bContext *C)
 	return 0;
 }
 
-static int copy_data_path_button_exec(bContext *C, wmOperator *UNUSED(op))
+static int copy_data_path_button_exec(bContext *C, wmOperator *op)
 {
 	PointerRNA ptr;
 	PropertyRNA *prop;
 	char *path;
 	int index;
 
+	const bool full_path = RNA_boolean_get(op->ptr, "full_path");
+
 	/* try to create driver using property retrieved from UI */
 	UI_context_active_but_prop_get(C, &ptr, &prop, &index);
 
-	if (ptr.id.data && ptr.data && prop) {
-		path = RNA_path_from_ID_to_property(&ptr, prop);
-		
+	if (ptr.id.data != NULL) {
+
+		if (full_path) {
+
+			if (prop) {
+				path = RNA_path_full_property_py_ex(&ptr, prop, index, true);
+			}
+			else {
+				path = RNA_path_full_struct_py(&ptr);
+			}
+		}
+		else {
+			path = RNA_path_from_ID_to_property(&ptr, prop);
+		}
+
 		if (path) {
 			WM_clipboard_text_set(path, false);
 			MEM_freeN(path);
@@ -138,6 +157,8 @@ static int copy_data_path_button_exec(bContext *C, wmOperator *UNUSED(op))
 
 static void UI_OT_copy_data_path_button(wmOperatorType *ot)
 {
+	PropertyRNA *prop;
+
 	/* identifiers */
 	ot->name = "Copy Data Path";
 	ot->idname = "UI_OT_copy_data_path_button";
@@ -149,6 +170,10 @@ static void UI_OT_copy_data_path_button(wmOperatorType *ot)
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER;
+
+	/* properties */
+	prop = RNA_def_boolean(ot->srna, "full_path", false, "full_path", "Copy full data path");
+	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
 static int copy_python_command_button_poll(bContext *C)
@@ -303,6 +328,125 @@ static void UI_OT_unset_property_button(wmOperatorType *ot)
 	/* callbacks */
 	ot->poll = ED_operator_regionactive;
 	ot->exec = unset_property_button_exec;
+
+	/* flags */
+	ot->flag = OPTYPE_UNDO;
+}
+
+/* Use/Unuse Property Button Operator ------------------------ */
+
+static int use_property_button_exec(bContext *C, wmOperator *UNUSED(op))
+{
+	PointerRNA ptr, scene_props_ptr;
+	PropertyRNA *prop;
+	IDProperty *props;
+
+	uiBut *but = UI_context_active_but_get(C);
+
+	prop = but->rnaprop;
+	ptr = but->rnapoin;
+	props = (IDProperty *)ptr.data;
+	/* XXX Using existing data struct to pass another RNAPointer */
+	scene_props_ptr = but->rnasearchpoin;
+
+	const char *identifier = RNA_property_identifier(prop);
+	if (IDP_GetPropertyFromGroup(props, identifier)) {
+		return OPERATOR_CANCELLED;
+	}
+
+	int array_len = RNA_property_array_length(&scene_props_ptr, prop);
+	bool is_array = array_len != 0;
+
+	switch (RNA_property_type(prop)) {
+		case PROP_FLOAT:
+		{
+			if (is_array) {
+				float values[RNA_MAX_ARRAY_LENGTH];
+				RNA_property_float_get_array(&scene_props_ptr, prop, values);
+				BKE_collection_engine_property_add_float_array(props, identifier, values, array_len);
+			}
+			else {
+				float value = RNA_property_float_get(&scene_props_ptr, prop);
+				BKE_collection_engine_property_add_float(props, identifier, value);
+			}
+			break;
+		}
+		case PROP_ENUM:
+		{
+			int value = RNA_enum_get(&scene_props_ptr, identifier);
+			BKE_collection_engine_property_add_int(props, identifier, value);
+			break;
+		}
+		case PROP_INT:
+		{
+			int value = RNA_int_get(&scene_props_ptr, identifier);
+			BKE_collection_engine_property_add_int(props, identifier, value);
+			break;
+		}
+		case PROP_BOOLEAN:
+		{
+			int value = RNA_boolean_get(&scene_props_ptr, identifier);
+			BKE_collection_engine_property_add_bool(props, identifier, value);
+			break;
+		}
+		case PROP_STRING:
+		case PROP_POINTER:
+		case PROP_COLLECTION:
+		default:
+			break;
+	}
+
+	/* TODO(sergey): Use proper flag for tagging here. */
+	DEG_id_tag_update((ID *)CTX_data_scene(C), 0);
+
+	return OPERATOR_FINISHED;
+}
+
+static void UI_OT_use_property_button(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Use property";
+	ot->idname = "UI_OT_use_property_button";
+	ot->description = "Create a property";
+
+	/* callbacks */
+	ot->poll = ED_operator_regionactive;
+	ot->exec = use_property_button_exec;
+
+	/* flags */
+	ot->flag = OPTYPE_UNDO;
+}
+
+static int unuse_property_button_exec(bContext *C, wmOperator *UNUSED(op))
+{
+	PointerRNA ptr;
+	PropertyRNA *prop;
+	int index;
+
+	/* try to unset the nominated property */
+	UI_context_active_but_prop_get(C, &ptr, &prop, &index);
+	const char *identifier = RNA_property_identifier(prop);
+
+	IDProperty *props = (IDProperty *)ptr.data;
+	IDProperty *prop_to_remove = IDP_GetPropertyFromGroup(props, identifier);
+	IDP_FreeFromGroup(props, prop_to_remove);
+
+	/* TODO(sergey): Use proper flag for tagging here. */
+	DEG_id_tag_update((ID *)CTX_data_scene(C), 0);
+
+	return OPERATOR_FINISHED;
+}
+
+static void UI_OT_unuse_property_button(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Unuse property";
+	ot->idname = "UI_OT_unuse_property_button";
+	ot->description = "Remove a property";
+
+	/* callbacks */
+	ot->poll = ED_operator_regionactive;
+	ot->exec = unuse_property_button_exec;
 
 	/* flags */
 	ot->flag = OPTYPE_UNDO;
@@ -719,6 +863,7 @@ static int editsource_text_edit(
 
 	if (text == NULL) {
 		text = BKE_text_load(bmain, filepath, bmain->name);
+		id_us_ensure_real(&text->id);
 	}
 
 	if (text == NULL) {
@@ -1083,7 +1228,6 @@ static void UI_OT_drop_color(wmOperatorType *ot)
 }
 
 
-
 /* ********************************************************* */
 /* Registration */
 
@@ -1094,6 +1238,8 @@ void ED_operatortypes_ui(void)
 	WM_operatortype_append(UI_OT_copy_python_command_button);
 	WM_operatortype_append(UI_OT_reset_default_button);
 	WM_operatortype_append(UI_OT_unset_property_button);
+	WM_operatortype_append(UI_OT_use_property_button);
+	WM_operatortype_append(UI_OT_unuse_property_button);
 	WM_operatortype_append(UI_OT_copy_to_selected_button);
 	WM_operatortype_append(UI_OT_reports_to_textblock);  /* XXX: temp? */
 	WM_operatortype_append(UI_OT_drop_color);
@@ -1112,12 +1258,35 @@ void ED_operatortypes_ui(void)
 
 /**
  * \brief User Interface Keymap
- *
- * For now only modal maps here, since UI uses special ui-handlers instead of operators.
  */
 void ED_keymap_ui(wmKeyConfig *keyconf)
 {
-	WM_keymap_find(keyconf, "User Interface", 0, 0);
+	wmKeyMap *keymap = WM_keymap_find(keyconf, "User Interface", 0, 0);
+	wmKeyMapItem *kmi;
+
+	/* eyedroppers - notice they all have the same shortcut, but pass the event
+	 * through until a suitable eyedropper for the active button is found */
+	WM_keymap_add_item(keymap, "UI_OT_eyedropper_color", EKEY, KM_PRESS, 0, 0);
+	WM_keymap_add_item(keymap, "UI_OT_eyedropper_id", EKEY, KM_PRESS, 0, 0);
+	WM_keymap_add_item(keymap, "UI_OT_eyedropper_depth", EKEY, KM_PRESS, 0, 0);
+
+	/* Copy Data Path */
+	WM_keymap_add_item(keymap, "UI_OT_copy_data_path_button", CKEY, KM_PRESS, KM_CTRL | KM_SHIFT, 0);
+	kmi = WM_keymap_add_item(keymap, "UI_OT_copy_data_path_button", CKEY, KM_PRESS, KM_CTRL | KM_SHIFT | KM_ALT, 0);
+	RNA_boolean_set(kmi->ptr, "full_path", true);
+
+	/* keyframes */
+	WM_keymap_add_item(keymap, "ANIM_OT_keyframe_insert_button", IKEY, KM_PRESS, 0, 0);
+	WM_keymap_add_item(keymap, "ANIM_OT_keyframe_delete_button", IKEY, KM_PRESS, KM_ALT, 0);
+	WM_keymap_add_item(keymap, "ANIM_OT_keyframe_clear_button", IKEY, KM_PRESS, KM_SHIFT | KM_ALT, 0);
+
+	/* drivers */
+	WM_keymap_add_item(keymap, "ANIM_OT_driver_button_add", DKEY, KM_PRESS, KM_CTRL, 0);
+	WM_keymap_add_item(keymap, "ANIM_OT_driver_button_remove", DKEY, KM_PRESS, KM_CTRL | KM_ALT, 0);
+
+	/* keyingsets */
+	WM_keymap_add_item(keymap, "ANIM_OT_keyingset_button_add", KKEY, KM_PRESS, 0, 0);
+	WM_keymap_add_item(keymap, "ANIM_OT_keyingset_button_remove", KKEY, KM_PRESS, KM_ALT, 0);
 
 	eyedropper_modal_keymap(keyconf);
 }

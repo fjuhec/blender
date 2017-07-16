@@ -78,6 +78,7 @@
 #include "BKE_particle.h"
 #include "BKE_global.h"
 
+#include "BKE_collection.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_object.h"
 #include "BKE_material.h"
@@ -88,7 +89,6 @@
 #include "BKE_modifier.h"
 #include "BKE_scene.h"
 #include "BKE_bvhutils.h"
-#include "BKE_depsgraph.h"
 
 #include "PIL_time.h"
 
@@ -1000,7 +1000,7 @@ void reset_particle(ParticleSimulationData *sim, ParticleData *pa, float dtime, 
 	part=psys->part;
 	
 	/* get precise emitter matrix if particle is born */
-	if (part->type!=PART_HAIR && dtime > 0.f && pa->time < cfra && pa->time >= sim->psys->cfra) {
+	if (part->type != PART_HAIR && dtime > 0.f && pa->time < cfra && pa->time >= sim->psys->cfra) {
 		evaluate_emitter_anim(sim->scene, sim->ob, pa->time);
 
 		psys->flag |= PSYS_OB_ANIM_RESTORE;
@@ -1183,7 +1183,7 @@ static void set_keyed_keys(ParticleSimulationData *sim)
 				key->time = pa->time;
 		}
 
-		if (psys->flag & PSYS_KEYED_TIMING && pt->duration!=0.0f)
+		if (psys->flag & PSYS_KEYED_TIMING && pt->duration != 0.0f)
 			k++;
 
 		ksim.psys->flag |= keyed_flag;
@@ -2180,7 +2180,7 @@ static void basic_rotate(ParticleSettings *part, ParticleData *pa, float dfra, f
  * The algorithm is roughly:
  *  1. Use a BVH tree to search for faces that a particle may collide with.
  *  2. Use Newton's method to find the exact time at which the collision occurs.
- *     http://en.wikipedia.org/wiki/Newton's_method
+ *     https://en.wikipedia.org/wiki/Newton's_method
  *
  ************************************************/
 #define COLLISION_MIN_RADIUS 0.001f
@@ -2896,7 +2896,6 @@ static void psys_update_path_cache(ParticleSimulationData *sim, float cfra, cons
 	ParticleSystem *psys = sim->psys;
 	ParticleSettings *part = psys->part;
 	ParticleEditSettings *pset = &sim->scene->toolsettings->particle;
-	Base *base;
 	int distr=0, alloc=0, skip=0;
 
 	if ((psys->part->childtype && psys->totchild != psys_get_tot_child(sim->scene, psys)) || psys->recalc&PSYS_RECALC_RESET)
@@ -2941,8 +2940,9 @@ static void psys_update_path_cache(ParticleSimulationData *sim, float cfra, cons
 
 
 	/* particle instance modifier with "path" option need cached paths even if particle system doesn't */
-	for (base = sim->scene->base.first; base; base= base->next) {
-		ModifierData *md = modifiers_findByType(base->object, eModifierType_ParticleInstance);
+	FOREACH_SCENE_OBJECT(sim->scene, ob)
+	{
+		ModifierData *md = modifiers_findByType(ob, eModifierType_ParticleInstance);
 		if (md) {
 			ParticleInstanceModifierData *pimd = (ParticleInstanceModifierData *)md;
 			if (pimd->flag & eParticleInstanceFlag_Path && pimd->ob == sim->ob && pimd->psys == (psys - (ParticleSystem*)sim->ob->particlesystem.first)) {
@@ -2951,6 +2951,7 @@ static void psys_update_path_cache(ParticleSimulationData *sim, float cfra, cons
 			}
 		}
 	}
+	FOREACH_SCENE_OBJECT_END
 
 	if (!skip) {
 		psys_cache_paths(sim, cfra, use_render_params);
@@ -3925,7 +3926,7 @@ static void system_step(ParticleSimulationData *sim, float cfra, const bool use_
 
 /* 2. try to read from the cache */
 	if (pid) {
-		int cache_result = BKE_ptcache_read(pid, cache_cfra);
+		int cache_result = BKE_ptcache_read(pid, cache_cfra, true);
 
 		if (ELEM(cache_result, PTCACHE_READ_EXACT, PTCACHE_READ_INTERPOLATED)) {
 			cached_step(sim, cfra);
@@ -4320,6 +4321,8 @@ void particle_system_update(Scene *scene, Object *ob, ParticleSystem *psys, cons
 	/* save matrix for duplicators, at rendertime the actual dupliobject's matrix is used so don't update! */
 	if (psys->renderdata==0)
 		invert_m4_m4(psys->imat, ob->obmat);
+
+	BKE_particle_batch_cache_dirty(psys, BKE_PARTICLE_BATCH_DIRTY_ALL);
 }
 
 /* ID looper */
@@ -4328,27 +4331,29 @@ void BKE_particlesystem_id_loop(ParticleSystem *psys, ParticleSystemIDFunc func,
 {
 	ParticleTarget *pt;
 
-	func(psys, (ID **)&psys->part, userdata, IDWALK_USER | IDWALK_NEVER_NULL);
-	func(psys, (ID **)&psys->target_ob, userdata, IDWALK_NOP);
-	func(psys, (ID **)&psys->parent, userdata, IDWALK_NOP);
+	func(psys, (ID **)&psys->part, userdata, IDWALK_CB_USER | IDWALK_CB_NEVER_NULL);
+	func(psys, (ID **)&psys->target_ob, userdata, IDWALK_CB_NOP);
+	func(psys, (ID **)&psys->parent, userdata, IDWALK_CB_NOP);
 
 	for (pt = psys->targets.first; pt; pt = pt->next) {
-		func(psys, (ID **)&pt->ob, userdata, IDWALK_NOP);
+		func(psys, (ID **)&pt->ob, userdata, IDWALK_CB_NOP);
 	}
 
-	if (psys->part->phystype == PART_PHYS_BOIDS) {
+	/* Even though psys->part should never be NULL, this can happen as an exception during deletion.
+	 * See ID_REMAP_SKIP/FORCE/FLAG_NEVER_NULL_USAGE in BKE_library_remap. */
+	if (psys->part && psys->part->phystype == PART_PHYS_BOIDS) {
 		ParticleData *pa;
 		int p;
 
 		for (p = 0, pa = psys->particles; p < psys->totpart; p++, pa++) {
-			func(psys, (ID **)&pa->boid->ground, userdata, IDWALK_NOP);
+			func(psys, (ID **)&pa->boid->ground, userdata, IDWALK_CB_NOP);
 		}
 	}
 }
 
 /* **** Depsgraph evaluation **** */
 
-void BKE_particle_system_eval(EvaluationContext *UNUSED(eval_ctx),
+void BKE_particle_system_eval(struct EvaluationContext *UNUSED(eval_ctx),
                               Scene *scene,
                               Object *ob,
                               ParticleSystem *psys)

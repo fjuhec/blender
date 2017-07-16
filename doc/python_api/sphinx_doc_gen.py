@@ -26,16 +26,16 @@ API dump in RST files
 ---------------------
   Run this script from Blender's root path once you have compiled Blender
 
-    ./blender.bin --background -noaudio --python doc/python_api/sphinx_doc_gen.py
+    blender --background --factory-startup -noaudio --python doc/python_api/sphinx_doc_gen.py
 
   This will generate python files in doc/python_api/sphinx-in/
-  providing ./blender.bin is or links to the blender executable
+  providing ./blender is or links to the blender executable
 
   To choose sphinx-in directory:
-    ./blender.bin --background --python doc/python_api/sphinx_doc_gen.py -- --output ../python_api
+    blender --background --factory-startup --python doc/python_api/sphinx_doc_gen.py -- --output ../python_api
 
   For quick builds:
-    ./blender.bin --background --python doc/python_api/sphinx_doc_gen.py -- --partial bmesh.*
+    blender --background --factory-startup --python doc/python_api/sphinx_doc_gen.py -- --partial bmesh.*
 
 
 Sphinx: HTML generation
@@ -45,8 +45,6 @@ Sphinx: HTML generation
 
     cd doc/python_api
     sphinx-build sphinx-in sphinx-out
-
-  This requires sphinx 1.0.7 to be installed.
 
 
 Sphinx: PDF generation
@@ -68,7 +66,7 @@ except ImportError:
     import sys
     sys.exit()
 
-import rna_info     # Blender module
+import rna_info  # Blender module
 
 
 def rna_info_BuildRNAInfo_cache():
@@ -86,7 +84,7 @@ import shutil
 import logging
 
 from platform import platform
-PLATFORM = platform().split('-')[0].lower()    # 'linux', 'darwin', 'windows'
+PLATFORM = platform().split('-')[0].lower()  # 'linux', 'darwin', 'windows'
 
 SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -208,12 +206,12 @@ BPY_LOGGER.setLevel(logging.DEBUG)
 """
 # for quick rebuilds
 rm -rf /b/doc/python_api/sphinx-* && \
-./blender.bin -b -noaudio --factory-startup -P doc/python_api/sphinx_doc_gen.py && \
+./blender -b -noaudio --factory-startup -P doc/python_api/sphinx_doc_gen.py && \
 sphinx-build doc/python_api/sphinx-in doc/python_api/sphinx-out
 
 or
 
-./blender.bin -b -noaudio --factory-startup -P doc/python_api/sphinx_doc_gen.py -- -f -B
+./blender -b -noaudio --factory-startup -P doc/python_api/sphinx_doc_gen.py -- -f -B
 """
 
 # Switch for quick testing so doc-builds don't take so long
@@ -334,6 +332,9 @@ except ImportError:
 # to avoid having to match Blender's source tree.
 EXTRA_SOURCE_FILES = (
     "../../../release/scripts/templates_py/bmesh_simple.py",
+    "../../../release/scripts/templates_py/manipulator_operator.py",
+    "../../../release/scripts/templates_py/manipulator_operator_target.py",
+    "../../../release/scripts/templates_py/manipulator_simple.py",
     "../../../release/scripts/templates_py/operator_simple.py",
     "../../../release/scripts/templates_py/ui_panel_simple.py",
     "../../../release/scripts/templates_py/ui_previews_custom_icon.py",
@@ -343,6 +344,8 @@ EXTRA_SOURCE_FILES = (
     "../examples/bge.texture.py",
     "../examples/bmesh.ops.1.py",
     "../examples/bpy.app.translations.py",
+    "../static/favicon.ico",
+    "../static/blender_logo.svg",
 )
 
 
@@ -364,8 +367,6 @@ INFO_DOCS = (
      "Blender/Python Quickstart: new to Blender/scripting and want to get your feet wet?"),
     ("info_overview.rst",
      "Blender/Python API Overview: a more complete explanation of Python integration"),
-    ("info_tutorial_addon.rst",
-     "Blender/Python Addon Tutorial: a step by step guide on how to write an addon from scratch"),
     ("info_api_reference.rst",
      "Blender/Python API Reference Usage: examples of how to use the API reference docs"),
     ("info_best_practice.rst",
@@ -420,7 +421,7 @@ MODULE_GROUPING = {
 
 blender_version_strings = [str(v) for v in bpy.app.version]
 
-# converting bytes to strings, due to #30154
+# converting bytes to strings, due to T30154
 BLENDER_REVISION = str(bpy.app.build_hash, 'utf_8')
 BLENDER_DATE = str(bpy.app.build_date, 'utf_8')
 
@@ -429,9 +430,9 @@ if BLENDER_REVISION != "Unknown":
     BLENDER_VERSION_DOTS += " " + BLENDER_REVISION          # '2.62.1 SHA1'
 
 BLENDER_VERSION_PATH = "_".join(blender_version_strings)    # '2_62_1'
-if bpy.app.version_cycle == "release":
-    BLENDER_VERSION_PATH = "%s%s_release" % ("_".join(blender_version_strings[:2]),
-                                             bpy.app.version_char)   # '2_62_release'
+if bpy.app.version_cycle in {"rc", "release"}:
+    # '2_62a_release'
+    BLENDER_VERSION_PATH = "%s%s_release" % ("_".join(blender_version_strings[:2]), bpy.app.version_char)
 
 # --------------------------DOWNLOADABLE FILES----------------------------------
 
@@ -1014,6 +1015,9 @@ context_type_map = {
     "active_bone": ("EditBone", False),
     "active_gpencil_frame": ("GreasePencilLayer", True),
     "active_gpencil_layer": ("GPencilLayer", True),
+    "active_gpencil_brush": ("GPencilSculptBrush", False),
+    "active_gpencil_palette": ("GPencilPalette", True),
+    "active_gpencil_palettecolor": ("GPencilPaletteColor", True),
     "active_node": ("Node", False),
     "active_object": ("Object", False),
     "active_operator": ("Operator", False),
@@ -1023,6 +1027,7 @@ context_type_map = {
     "brush": ("Brush", False),
     "camera": ("Camera", False),
     "cloth": ("ClothModifier", False),
+    "collection": ("LayerCollection", False),
     "collision": ("CollisionModifier", False),
     "curve": ("Curve", False),
     "dynamic_paint": ("DynamicPaintModifier", False),
@@ -1043,6 +1048,7 @@ context_type_map = {
     "image_paint_object": ("Object", False),
     "lamp": ("Lamp", False),
     "lattice": ("Lattice", False),
+    "lightprobe": ("LightProbe", False),
     "line_style": ("FreestyleLineStyle", False),
     "material": ("Material", False),
     "material_slot": ("MaterialSlot", False),
@@ -1054,6 +1060,7 @@ context_type_map = {
     "particle_system": ("ParticleSystem", False),
     "particle_system_editable": ("ParticleSystem", False),
     "pose_bone": ("PoseBone", False),
+    "render_layer": ("SceneLayer", False),
     "scene": ("Scene", False),
     "sculpt_object": ("Object", False),
     "selectable_bases": ("ObjectBase", True),
@@ -1564,9 +1571,9 @@ def pyrna2sphinx(basepath):
 
     # operators
     def write_ops():
-        API_BASEURL = "http://svn.blender.org/svnroot/bf-blender/trunk/blender/release/scripts"
-        API_BASEURL_ADDON = "http://svn.blender.org/svnroot/bf-extensions/trunk/py/scripts"
-        API_BASEURL_ADDON_CONTRIB = "http://svn.blender.org/svnroot/bf-extensions/contrib/py/scripts"
+        API_BASEURL = "https://developer.blender.org/diffusion/B/browse/master/release/scripts "
+        API_BASEURL_ADDON = "https://developer.blender.org/diffusion/BA"
+        API_BASEURL_ADDON_CONTRIB = "https://developer.blender.org/diffusion/BAC"
 
         op_modules = {}
         for op in ops.values():
@@ -1612,10 +1619,8 @@ def pyrna2sphinx(basepath):
                     else:
                         url_base = API_BASEURL
 
-                    fw("   :file: `%s <%s/%s>`_:%d\n\n" % (location[0],
-                                                           url_base,
-                                                           location[0],
-                                                           location[1]))
+                    fw("   :file: `%s\\:%d <%s/%s$%d>`_\n\n" %
+                       (location[0], location[1], url_base, location[0], location[1]))
 
             file.close()
 
@@ -1631,6 +1636,9 @@ def write_sphinx_conf_py(basepath):
     file = open(filepath, "w", encoding="utf-8")
     fw = file.write
 
+    fw("import sys, os\n\n")
+    fw("extensions = ['sphinx.ext.intersphinx']\n\n")
+    fw("intersphinx_mapping = {'blender_manual': ('https://docs.blender.org/manual/en/dev/', None)}\n\n")
     fw("project = 'Blender'\n")
     # fw("master_doc = 'index'\n")
     fw("copyright = u'Blender Foundation'\n")
@@ -1642,16 +1650,21 @@ def write_sphinx_conf_py(basepath):
 
     if ARGS.sphinx_theme == "blender-org":
         fw("html_theme_path = ['../']\n")
-        # copied with the theme, exclude else we get an error [#28873]
-        fw("html_favicon = 'favicon.ico'\n")    # in <theme>/static/
 
     # not helpful since the source is generated, adds to upload size.
     fw("html_copy_source = False\n")
-    fw("\n")
+    fw("html_show_sphinx = False\n")
+    fw("html_split_index = True\n")
+    fw("html_extra_path = ['__/static/favicon.ico', '__/static/blender_logo.svg']\n")
+    fw("html_favicon = '__/static/favicon.ico'\n")
+    fw("html_logo = '__/static/blender_logo.svg'\n\n")
 
     # needed for latex, pdf gen
+    fw("latex_elements = {\n")
+    fw("  'papersize': 'a4paper',\n")
+    fw("}\n\n")
+
     fw("latex_documents = [ ('contents', 'contents.tex', 'Blender Index', 'Blender Foundation', 'manual'), ]\n")
-    fw("latex_paper_size = 'a4paper'\n")
     file.close()
 
 
@@ -1690,6 +1703,9 @@ def write_rst_contents(basepath):
         for info, info_desc in INFO_DOCS:
             fw("   %s <%s>\n\n" % (info_desc, info))
         fw("\n")
+        fw("- :ref:`Blender/Python Add-on Tutorial: a step by step guide on")
+        fw(" how to write an add-on from scratch <blender_manual:advanced_scripting_addon_tutorial>`\n")
+        fw("\n")
 
     fw(title_string("Application Modules", "=", double=True))
     fw(".. toctree::\n")
@@ -1706,8 +1722,6 @@ def write_rst_contents(basepath):
         "bpy.utils.previews",
         "bpy.path",
         "bpy.app",
-        "bpy.app.handlers",
-        "bpy.app.translations",
 
         # C modules
         "bpy.props",
@@ -1722,19 +1736,9 @@ def write_rst_contents(basepath):
     fw("   :maxdepth: 1\n\n")
 
     standalone_modules = (
-        # mathutils
-        "mathutils",
-        "mathutils.geometry",
-        "mathutils.bvhtree", "mathutils.kdtree",
-        "mathutils.interpolate",
-        "mathutils.noise",
-        # misc
-        "freestyle", "bgl", "blf",
-        "gpu", "gpu.offscreen",
-        "aud", "bpy_extras",
-        "idprop.types",
-        # bmesh, submodules are in own page
-        "bmesh",
+        # submodules are added in parent page
+        "mathutils", "freestyle", "bgl", "blf", "gpu",
+        "aud", "bpy_extras", "idprop.types", "bmesh",
     )
 
     for mod in standalone_modules:

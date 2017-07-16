@@ -52,10 +52,10 @@
 #include "DNA_node_types.h"
 #include "DNA_packedFile_types.h"
 #include "DNA_scene_types.h"
+#include "DNA_screen_types.h"
 
 #include "BKE_colortools.h"
 #include "BKE_context.h"
-#include "BKE_depsgraph.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_icons.h"
 #include "BKE_image.h"
@@ -68,6 +68,8 @@
 #include "BKE_screen.h"
 #include "BKE_sound.h"
 #include "BKE_scene.h"
+
+#include "DEG_depsgraph.h"
 
 #include "GPU_draw.h"
 #include "GPU_buffers.h"
@@ -122,7 +124,7 @@ static void sima_zoom_set(SpaceImage *sima, ARegion *ar, float zoom, const float
 		width *= sima->zoom;
 		height *= sima->zoom;
 
-		if ((width < 4) && (height < 4))
+		if ((width < 4) && (height < 4) && sima->zoom < oldzoom)
 			sima->zoom = oldzoom;
 		else if (BLI_rcti_size_x(&ar->winrct) <= sima->zoom)
 			sima->zoom = oldzoom;
@@ -656,6 +658,7 @@ void IMAGE_OT_view_zoom(wmOperatorType *ot)
 	RNA_def_property_flag(prop, PROP_HIDDEN);
 }
 
+#ifdef WITH_INPUT_NDOF
 /********************** NDOF operator *********************/
 
 /* Combined pan/zoom from a 3D mouse device.
@@ -705,6 +708,7 @@ void IMAGE_OT_view_ndof(wmOperatorType *ot)
 	/* flags */
 	ot->flag = OPTYPE_LOCK_BYPASS;
 }
+#endif /* WITH_INPUT_NDOF */
 
 /********************** view all operator *********************/
 
@@ -789,6 +793,7 @@ static int image_view_selected_exec(bContext *C, wmOperator *UNUSED(op))
 	SpaceImage *sima;
 	ARegion *ar;
 	Scene *scene;
+	SceneLayer *sl;
 	Object *obedit;
 	Image *ima;
 
@@ -796,6 +801,7 @@ static int image_view_selected_exec(bContext *C, wmOperator *UNUSED(op))
 	sima = CTX_wm_space_image(C);
 	ar = CTX_wm_region(C);
 	scene = CTX_data_scene(C);
+	sl = CTX_data_scene_layer(C);
 	obedit = CTX_data_edit_object(C);
 
 	ima = ED_space_image(sima);
@@ -807,7 +813,7 @@ static int image_view_selected_exec(bContext *C, wmOperator *UNUSED(op))
 			return OPERATOR_CANCELLED;
 		}
 	}
-	else if (ED_space_image_check_show_maskedit(scene, sima)) {
+	else if (ED_space_image_check_show_maskedit(sl, sima)) {
 		if (!ED_mask_selected_minmax(C, min, max)) {
 			return OPERATOR_CANCELLED;
 		}
@@ -1064,6 +1070,7 @@ typedef struct ImageOpenData {
 typedef struct ImageFrameRange {
 	struct ImageFrameRange *next, *prev;
 	ListBase frames;
+	/**  The full path of the first file in the list of image files */
 	char filepath[FILE_MAX];
 } ImageFrameRange;
 
@@ -1089,12 +1096,12 @@ static void image_open_cancel(bContext *UNUSED(C), wmOperator *op)
 /**
  * \brief Get a list of frames from the list of image files matching the first file name sequence pattern
  * \param ptr [in] the RNA pointer containing the "directory" entry and "files" collection
- * \param frames [out] the list of frame numbers found in the files matching the first one by name
- * \param path [out] the full path of the first file in the list of image files
+ * \param frames_all [out] the list of frame numbers found in the files matching the first one by name
  */
 static void image_sequence_get_frame_ranges(PointerRNA *ptr, ListBase *frames_all)
 {
 	char dir[FILE_MAXDIR];
+	const bool do_frame_range = RNA_boolean_get(ptr, "use_sequence_detection");
 	ImageFrameRange *frame_range = NULL;
 
 	RNA_string_get(ptr, "directory", dir);
@@ -1110,7 +1117,8 @@ static void image_sequence_get_frame_ranges(PointerRNA *ptr, ListBase *frames_al
 		frame->framenr = BLI_stringdec(filename, head, tail, &digits);
 
 		/* still in the same sequence */
-		if ((frame_range != NULL) &&
+		if (do_frame_range &&
+		    (frame_range != NULL) &&
 		    (STREQLEN(base_head, head, FILE_MAX)) &&
 		    (STREQLEN(base_tail, tail, FILE_MAX)))
 		{
@@ -1216,7 +1224,7 @@ static Image *image_open_single(
 static int image_open_exec(bContext *C, wmOperator *op)
 {
 	Main *bmain = CTX_data_main(C);
-	SpaceImage *sima = CTX_wm_space_image(C); /* XXX other space types can call */
+	ScrArea *sa = CTX_wm_area(C);
 	Scene *scene = CTX_data_scene(C);
 	Object *obedit = CTX_data_edit_object(C);
 	ImageUser *iuser = NULL;
@@ -1295,9 +1303,20 @@ static int image_open_exec(bContext *C, wmOperator *op)
 	if (iod->iuser) {
 		iuser = iod->iuser;
 	}
-	else if (sima) {
+	else if (sa->spacetype == SPACE_IMAGE) {
+		SpaceImage *sima = sa->spacedata.first;
 		ED_space_image_set(sima, scene, obedit, ima);
 		iuser = &sima->iuser;
+	}
+	else if (sa->spacetype == SPACE_VIEW3D) {
+		View3D *v3d = sa->spacedata.first;
+
+		for (BGpic *bgpic = v3d->bgpicbase.first; bgpic; bgpic = bgpic->next) {
+			if (bgpic->ima == ima) {
+				iuser = &bgpic->iuser;
+				break;
+			}
+		}
 	}
 	else {
 		Tex *tex = CTX_data_pointer_get_type(C, "texture", &RNA_Texture).data;
@@ -1311,7 +1330,11 @@ static int image_open_exec(bContext *C, wmOperator *op)
 		iuser->frames = frame_seq_len;
 		iuser->sfra = 1;
 		iuser->framenr = 1;
-		iuser->offset = frame_ofs - 1;
+		if (ima->source == IMA_SRC_MOVIE) {
+			iuser->offset = 0;
+		} else {
+			iuser->offset = frame_ofs - 1;
+		}
 		iuser->fie_ima = 2;
 		iuser->scene = scene;
 		BKE_image_init_imageuser(ima, iuser);
@@ -1434,6 +1457,9 @@ void IMAGE_OT_open(wmOperatorType *ot)
 	        ot, FILE_TYPE_FOLDER | FILE_TYPE_IMAGE | FILE_TYPE_MOVIE, FILE_SPECIAL, FILE_OPENFILE,
 	        WM_FILESEL_FILEPATH | WM_FILESEL_DIRECTORY | WM_FILESEL_FILES | WM_FILESEL_RELPATH,
 	        FILE_DEFAULTDISPLAY, FILE_SORT_ALPHA);
+
+	RNA_def_boolean(ot->srna, "use_sequence_detection", true, "Detect Sequences",
+	                "Automatically detect animated sequences in selected images (based on file names)");
 }
 
 /******************** Match movie length operator ********************/
@@ -1461,7 +1487,10 @@ static int image_match_len_exec(bContext *C, wmOperator *UNUSED(op))
 	if (!ima || !iuser || !BKE_image_has_anim(ima))
 		return OPERATOR_CANCELLED;
 
-	iuser->frames = IMB_anim_get_duration(((ImageAnim *) ima->anims.first)->anim, IMB_TC_RECORD_RUN);
+	struct anim *anim = ((ImageAnim *)ima->anims.first)->anim;
+	if (!anim)
+		return OPERATOR_CANCELLED;
+	iuser->frames = IMB_anim_get_duration(anim, IMB_TC_RECORD_RUN);
 	BKE_image_user_frame_calc(iuser, scene->r.cfra, 0);
 
 	return OPERATOR_FINISHED;
@@ -1606,18 +1635,26 @@ static int save_image_options_init(SaveImageOptions *simopts, SpaceImage *sima, 
 			/* imtype */
 			simopts->im_format = scene->r.im_format;
 			is_depth_set = true;
+			if (!BKE_image_is_multiview(ima)) {
+				/* In case multiview is disabled, render settings would be invalid for render result in this area. */
+				simopts->im_format.stereo3d_format = *ima->stereo3d_format;
+				simopts->im_format.views_format = ima->views_format;
+			}
 		}
 		else {
 			if (ima->source == IMA_SRC_GENERATED) {
 				simopts->im_format.imtype = R_IMF_IMTYPE_PNG;
 				simopts->im_format.compress = ibuf->foptions.quality;
+				simopts->im_format.planes = ibuf->planes;
 			}
 			else {
 				BKE_imbuf_to_image_format(&simopts->im_format, ibuf);
 			}
-		}
 
-		simopts->im_format.planes = ibuf->planes;
+			/* use the multiview image settings as the default */
+			simopts->im_format.stereo3d_format = *ima->stereo3d_format;
+			simopts->im_format.views_format = ima->views_format;
+		}
 
 		//simopts->subimtype = scene->r.subimtype; /* XXX - this is lame, we need to make these available too! */
 
@@ -1657,10 +1694,6 @@ static int save_image_options_init(SaveImageOptions *simopts, SpaceImage *sima, 
 				BLI_path_abs(simopts->filepath, is_prev_save ? G.ima : G.main->name);
 			}
 		}
-
-		/* use the multiview image settings as the default */
-		simopts->im_format.stereo3d_format = *ima->stereo3d_format;
-		simopts->im_format.views_format = ima->views_format;
 
 		/* color management */
 		BKE_color_managed_display_settings_copy(&simopts->im_format.display_settings, &scene->display_settings);
@@ -1869,7 +1902,6 @@ static bool save_image_doit(bContext *C, SpaceImage *sima, wmOperator *op, SaveI
 			}
 			else {
 				colormanaged_ibuf = IMB_colormanagement_imbuf_for_write(ibuf, save_as_render, true, &imf->view_settings, &imf->display_settings, imf);
-				IMB_metadata_copy(colormanaged_ibuf, ibuf);
 				ok = BKE_imbuf_write_as(colormanaged_ibuf, simopts->filepath, imf, save_copy);
 				save_imbuf_post(ibuf, colormanaged_ibuf);
 			}
@@ -2316,7 +2348,7 @@ static int image_reload_exec(bContext *C, wmOperator *UNUSED(op))
 	
 	// XXX other users?
 	BKE_image_signal(ima, (sima) ? &sima->iuser : NULL, IMA_SIGNAL_RELOAD);
-	DAG_id_tag_update(&ima->id, 0);
+	DEG_id_tag_update(&ima->id, 0);
 
 	WM_event_add_notifier(C, NC_IMAGE | NA_EDITED, ima);
 	
@@ -2540,7 +2572,7 @@ void IMAGE_OT_new(wmOperatorType *ot)
 	ot->flag = OPTYPE_UNDO;
 
 	/* properties */
-	RNA_def_string(ot->srna, "name", IMA_DEF_NAME, MAX_ID_NAME - 2, "Name", "Image datablock name");
+	RNA_def_string(ot->srna, "name", IMA_DEF_NAME, MAX_ID_NAME - 2, "Name", "Image data-block name");
 	prop = RNA_def_int(ot->srna, "width", 1024, 1, INT_MAX, "Width", "Image width", 1, 16384);
 	RNA_def_property_subtype(prop, PROP_PIXEL);
 	prop = RNA_def_int(ot->srna, "height", 1024, 1, INT_MAX, "Height", "Image height", 1, 16384);
@@ -2841,7 +2873,7 @@ void IMAGE_OT_unpack(wmOperatorType *ot)
 	
 	/* properties */
 	RNA_def_enum(ot->srna, "method", rna_enum_unpack_method_items, PF_USE_LOCAL, "Method", "How to unpack");
-	RNA_def_string(ot->srna, "id", NULL, MAX_ID_NAME - 2, "Image Name", "Image datablock name to unpack"); /* XXX, weark!, will fail with library, name collisions */
+	RNA_def_string(ot->srna, "id", NULL, MAX_ID_NAME - 2, "Image Name", "Image data-block name to unpack"); /* XXX, weark!, will fail with library, name collisions */
 }
 
 /******************** sample image operator ********************/
@@ -2879,11 +2911,9 @@ static void image_sample_draw(const bContext *C, ARegion *ar, void *arg_info)
 	}
 }
 
-/* Returns color in the display space, matching ED_space_node_color_sample(). */
-bool ED_space_image_color_sample(Scene *scene, SpaceImage *sima, ARegion *ar, int mval[2], float r_col[3])
+/* Returns color in linear space, matching ED_space_node_color_sample(). */
+bool ED_space_image_color_sample(SpaceImage *sima, ARegion *ar, int mval[2], float r_col[3])
 {
-	const char *display_device = scene->display_settings.display_device;
-	struct ColorManagedDisplay *display = IMB_colormanagement_display_get_named(display_device);
 	void *lock;
 	ImBuf *ibuf = ED_space_image_acquire_buffer(sima, &lock);
 	float fx, fy;
@@ -2915,10 +2945,6 @@ bool ED_space_image_color_sample(Scene *scene, SpaceImage *sima, ARegion *ar, in
 			IMB_colormanagement_colorspace_to_scene_linear_v3(r_col, ibuf->rect_colorspace);
 			ret = true;
 		}
-	}
-
-	if (ret) {
-		IMB_colormanagement_scene_linear_to_display_v3(r_col, display);
 	}
 
 	ED_space_image_release_buffer(sima, ibuf, lock);

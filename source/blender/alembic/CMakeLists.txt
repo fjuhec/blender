@@ -28,25 +28,25 @@ set(INC
 	../blenkernel
 	../blenlib
 	../blenloader
+	../bmesh
+	../depsgraph
 	../editors/include
 	../makesdna
 	../makesrna
 	../windowmanager
 	../../../intern/guardedalloc
+	../../../intern/utfconv
 )
 
 set(INC_SYS
 	${ALEMBIC_INCLUDE_DIRS}
+	${BOOST_INCLUDE_DIR}
 	${HDF5_INCLUDE_DIRS}
 	${OPENEXR_INCLUDE_DIRS}
 )
-if(APPLE OR WIN32)
-	list(APPEND INC_SYS
-		${BOOST_INCLUDE_DIR}
-	)
-endif()
 
 set(SRC
+	intern/abc_archive.cc
 	intern/abc_camera.cc
 	intern/abc_customdata.cc
 	intern/abc_curves.cc
@@ -61,6 +61,7 @@ set(SRC
 	intern/alembic_capi.cc
 
 	ABC_alembic.h
+	intern/abc_archive.h
 	intern/abc_camera.h
 	intern/abc_customdata.h
 	intern/abc_curves.h

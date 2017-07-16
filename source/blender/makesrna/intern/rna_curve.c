@@ -124,8 +124,10 @@ static const EnumPropertyItem curve2d_fill_mode_items[] = {
 #include "DNA_object_types.h"
 
 #include "BKE_curve.h"
-#include "BKE_depsgraph.h"
 #include "BKE_main.h"
+
+#include "DEG_depsgraph.h"
+#include "DEG_depsgraph_build.h"
 
 #include "WM_api.h"
 
@@ -221,7 +223,7 @@ static void rna_Curve_texspace_set(Main *UNUSED(bmain), Scene *UNUSED(scene), Po
 		BKE_curve_texspace_calc(cu);
 }
 
-static int rna_Curve_texspace_editable(PointerRNA *ptr)
+static int rna_Curve_texspace_editable(PointerRNA *ptr, const char **UNUSED(r_info))
 {
 	Curve *cu = (Curve *)ptr->data;
 	return (cu->texflag & CU_AUTOSPACE) ? 0 : PROP_EDITABLE;
@@ -338,7 +340,7 @@ static void rna_BPoint_array_begin(CollectionPropertyIterator *iter, PointerRNA 
 
 static void rna_Curve_update_data_id(Main *UNUSED(bmain), Scene *UNUSED(scene), ID *id)
 {
-	DAG_id_tag_update(id, 0);
+	DEG_id_tag_update(id, 0);
 	WM_main_add_notifier(NC_GEOM | ND_DATA, id);
 }
 
@@ -349,7 +351,7 @@ static void rna_Curve_update_data(Main *bmain, Scene *scene, PointerRNA *ptr)
 
 static void rna_Curve_update_deps(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
-	DAG_relations_tag_update(bmain);
+	DEG_relations_tag_update(bmain);
 	rna_Curve_update_data(bmain, scene, ptr);
 }
 
@@ -638,7 +640,7 @@ static void rna_Curve_spline_remove(Curve *cu, ReportList *reports, PointerRNA *
 	BKE_nurb_free(nu);
 	RNA_POINTER_INVALIDATE(nu_ptr);
 
-	DAG_id_tag_update(&cu->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&cu->id, OB_RECALC_DATA);
 	WM_main_add_notifier(NC_GEOM | ND_DATA, NULL);
 }
 
@@ -648,7 +650,7 @@ static void rna_Curve_spline_clear(Curve *cu)
 
 	BKE_nurbList_free(nurbs);
 
-	DAG_id_tag_update(&cu->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&cu->id, OB_RECALC_DATA);
 	WM_main_add_notifier(NC_GEOM | ND_DATA, NULL);
 }
 
@@ -1257,8 +1259,8 @@ static void rna_def_curve_spline_points(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_ui_description(func, "Remove a spline from a curve");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_pointer(func, "spline", "Spline", "", "The spline to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
 #endif
 }
 
@@ -1273,7 +1275,7 @@ static void rna_def_curve_spline_bezpoints(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_property_srna(cprop, "SplineBezierPoints");
 	srna = RNA_def_struct(brna, "SplineBezierPoints", NULL);
 	RNA_def_struct_sdna(srna, "Nurb");
-	RNA_def_struct_ui_text(srna, "Spline Bezier Points", "Collection of spline bezirt points");
+	RNA_def_struct_ui_text(srna, "Spline Bezier Points", "Collection of spline Bezier points");
 
 	func = RNA_def_function(srna, "add", "rna_Curve_spline_bezpoints_add");
 	RNA_def_function_ui_description(func, "Add a number of points to this spline");
@@ -1285,8 +1287,8 @@ static void rna_def_curve_spline_bezpoints(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_ui_description(func, "Remove a spline from a curve");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_pointer(func, "spline", "Spline", "", "The spline to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
 #endif
 }
 
@@ -1307,7 +1309,7 @@ static void rna_def_curve_splines(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "new", "rna_Curve_spline_new");
 	RNA_def_function_ui_description(func, "Add a new spline to the curve");
 	parm = RNA_def_enum(func, "type", curve_type_items, CU_POLY, "", "type for the new spline");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_pointer(func, "spline", "Spline", "", "The newly created spline");
 	RNA_def_function_return(func, parm);
 
@@ -1315,8 +1317,8 @@ static void rna_def_curve_splines(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_ui_description(func, "Remove a spline from a curve");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_pointer(func, "spline", "Spline", "", "The spline to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
 
 	func = RNA_def_function(srna, "clear", "rna_Curve_spline_clear");
 	RNA_def_function_ui_description(func, "Remove all splines from a curve");

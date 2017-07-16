@@ -43,9 +43,10 @@
 #include "BKE_armature.h"
 #include "BKE_context.h"
 #include "BKE_deform.h"
-#include "BKE_depsgraph.h"
 #include "BKE_object.h"
 #include "BKE_report.h"
+
+#include "DEG_depsgraph.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -580,7 +581,7 @@ static void pose_copy_menu(Scene *scene)
 			BKE_pose_tag_recalc(bmain, ob->pose);
 	}
 	
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA); // and all its relations
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA); // and all its relations
 	
 	BIF_undo_push("Copy Pose Attributes");
 	
@@ -593,23 +594,27 @@ static int pose_flip_names_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Object *ob = BKE_object_pose_armature_get(CTX_data_active_object(C));
 	bArmature *arm;
-	
+
 	/* paranoia checks */
 	if (ELEM(NULL, ob, ob->pose)) 
 		return OPERATOR_CANCELLED;
+
 	arm = ob->data;
-	
-	/* loop through selected bones, auto-naming them */
+
+	ListBase bones_names = {NULL};
+
 	CTX_DATA_BEGIN (C, bPoseChannel *, pchan, selected_pose_bones)
 	{
-		char name_flip[MAXBONENAME];
-		BKE_deform_flip_side_name(name_flip, pchan->name, true);
-		ED_armature_bone_rename(arm, pchan->name, name_flip);
+		BLI_addtail(&bones_names, BLI_genericNodeN(pchan->name));
 	}
 	CTX_DATA_END;
+
+	ED_armature_bones_flip_names(arm, &bones_names);
+
+	BLI_freelistN(&bones_names);
 	
 	/* since we renamed stuff... */
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 
 	/* note, notifier might evolve */
 	WM_event_add_notifier(C, NC_OBJECT | ND_POSE, ob);
@@ -626,7 +631,7 @@ void POSE_OT_flip_names(wmOperatorType *ot)
 	
 	/* api callbacks */
 	ot->exec = pose_flip_names_exec;
-	ot->poll = ED_operator_posemode;
+	ot->poll = ED_operator_posemode_local;
 	
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -656,7 +661,7 @@ static int pose_autoside_names_exec(bContext *C, wmOperator *op)
 	CTX_DATA_END;
 	
 	/* since we renamed stuff... */
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 
 	/* note, notifier might evolve */
 	WM_event_add_notifier(C, NC_OBJECT | ND_POSE, ob);
@@ -705,7 +710,7 @@ static int pose_bone_rotmode_exec(bContext *C, wmOperator *op)
 	CTX_DATA_END;
 	
 	/* notifiers and updates */
-	DAG_id_tag_update((ID *)ob, OB_RECALC_DATA);
+	DEG_id_tag_update((ID *)ob, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, ob);
 	
 	return OPERATOR_FINISHED;
@@ -1162,7 +1167,7 @@ static int pose_flip_quats_exec(bContext *C, wmOperator *UNUSED(op))
 	CTX_DATA_END;
 	
 	/* notifiers and updates */
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, ob);
 	
 	return OPERATOR_FINISHED;

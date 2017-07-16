@@ -156,7 +156,7 @@ BLI_INLINE void mesh_sample_weights_from_loc(MeshSample *sample, DerivedMesh *dm
 	float w[4];
 	int tri[3];
 	
-	interp_weights_face_v3_index(tri, w, v1, v2, v3, v4, loc);
+	interp_weights_quad_v3_index(tri, w, v1, v2, v3, v4, loc);
 	
 	sample->orig_verts[0] = index[tri[0]];
 	sample->orig_verts[1] = index[tri[1]];
@@ -700,7 +700,7 @@ bool BKE_mesh_sample_from_particle(MeshSample *sample, ParticleSystem *psys, Der
 	}
 	
 	/* test both triangles of the face */
-	interp_weights_face_v3(w, co1, co2, co3, NULL, vec);
+	interp_weights_quad_v3(w, co1, co2, co3, NULL, vec);
 	if (w[0] <= 1.0f && w[1] <= 1.0f && w[2] <= 1.0f) {
 		sample->orig_verts[0] = mface->v1;
 		sample->orig_verts[1] = mface->v2;
@@ -710,7 +710,7 @@ bool BKE_mesh_sample_from_particle(MeshSample *sample, ParticleSystem *psys, Der
 		return true;
 	}
 	else if (mface->v4) {
-		interp_weights_face_v3(w, co3, co4, co1, NULL, vec);
+		interp_weights_quad_v3(w, co3, co4, co1, NULL, vec);
 		sample->orig_verts[0] = mface->v3;
 		sample->orig_verts[1] = mface->v4;
 		sample->orig_verts[2] = mface->v1;
@@ -744,7 +744,7 @@ bool BKE_mesh_sample_to_particle(MeshSample *sample, ParticleSystem *UNUSED(psys
 		pa->num = nearest.index;
 		pa->num_dmcache = DMCACHE_NOTFOUND;
 		
-		interp_weights_face_v3(pa->fuv, co1, co2, co3, co4, vec);
+		interp_weights_quad_v3(pa->fuv, co1, co2, co3, co4, vec);
 		pa->foffset = 0.0f; /* XXX any sensible way to reconstruct this? */
 		
 		return true;

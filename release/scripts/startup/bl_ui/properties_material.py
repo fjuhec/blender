@@ -21,7 +21,7 @@ import bpy
 from bpy.types import Menu, Panel, UIList
 from rna_prop_ui import PropertyPanel
 from bpy.app.translations import pgettext_iface as iface_
-
+from bpy_extras.node_utils import find_node_input, find_output_node
 
 def active_node_mat(mat):
     # TODO, 2.4x has a pipeline section, for 2.5 we need to communicate
@@ -71,6 +71,7 @@ class MATERIAL_MT_specials(Menu):
 
 
 class MATERIAL_UL_matslots(UIList):
+
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         # assert(isinstance(item, bpy.types.MaterialSlot)
         # ob = data
@@ -123,9 +124,10 @@ class MATERIAL_PT_context_material(MaterialButtonsPanel, Panel):
         ob = context.object
         slot = context.material_slot
         space = context.space_data
-        is_sortable = (len(ob.material_slots) > 1)
 
         if ob:
+            is_sortable = (len(ob.material_slots) > 1)
+
             rows = 1
             if is_sortable:
                 rows = 4
@@ -169,7 +171,7 @@ class MATERIAL_PT_context_material(MaterialButtonsPanel, Panel):
             split.separator()
 
         if mat:
-            layout.prop(mat, "type", expand=True)
+            layout.row().prop(mat, "type", expand=True)
             if mat.use_nodes:
                 row = layout.row()
                 row.label(text="", icon='NODETREE')
@@ -744,7 +746,7 @@ class MATERIAL_PT_strand(MaterialButtonsPanel, Panel):
         col.prop(tan, "width_fade")
         ob = context.object
         if ob and ob.type == 'MESH':
-            col.prop_search(tan, "uv_layer", ob.data, "uv_textures", text="")
+            col.prop_search(tan, "uv_layer", ob.data, "uv_layers", text="")
         else:
             col.prop(tan, "uv_layer", text="")
         col.separator()
@@ -793,17 +795,15 @@ class MATERIAL_PT_options(MaterialButtonsPanel, Panel):
         row.prop(mat, "use_light_group_local", text="Local")
 
         col = split.column()
-        col.prop(mat, "use_face_texture")
-        sub = col.column()
-        sub.active = mat.use_face_texture
-        sub.prop(mat, "use_face_texture_alpha")
-        col.separator()
         col.prop(mat, "use_vertex_color_paint")
         col.prop(mat, "use_vertex_color_light")
         col.prop(mat, "use_object_color")
         col.prop(mat, "use_uv_project")
         if simple_material(base_mat):
             col.prop(mat, "pass_index")
+
+        col.label("Edit Image")
+        col.template_ID(mat, "edit_image")
 
 
 class MATERIAL_PT_shadow(MaterialButtonsPanel, Panel):
@@ -990,7 +990,7 @@ class MATERIAL_PT_volume_transp(VolumeButtonsPanel, Panel):
 
         mat = context.material  # don't use node material
 
-        layout.prop(mat, "transparency_method", expand=True)
+        layout.row().prop(mat, "transparency_method", expand=True)
 
 
 class MATERIAL_PT_volume_integration(VolumeButtonsPanel, Panel):
@@ -1052,5 +1052,172 @@ class MATERIAL_PT_custom_props(MaterialButtonsPanel, PropertyPanel, Panel):
     _context_path = "material"
     _property_type = bpy.types.Material
 
+
+class EEVEE_MATERIAL_PT_context_material(MaterialButtonsPanel, Panel):
+    bl_label = ""
+    bl_context = "material"
+    bl_options = {'HIDE_HEADER'}
+    COMPAT_ENGINES = {'BLENDER_EEVEE'}
+
+    @classmethod
+    def poll(cls, context):
+        engine = context.scene.render.engine
+        return (context.material or context.object) and (engine in cls.COMPAT_ENGINES)
+
+    def draw(self, context):
+        layout = self.layout
+
+        mat = context.material
+        ob = context.object
+        slot = context.material_slot
+        space = context.space_data
+
+        if ob:
+            is_sortable = len(ob.material_slots) > 1
+            rows = 1
+            if (is_sortable):
+                rows = 4
+
+            row = layout.row()
+
+            row.template_list("MATERIAL_UL_matslots", "", ob, "material_slots", ob, "active_material_index", rows=rows)
+
+            col = row.column(align=True)
+            col.operator("object.material_slot_add", icon='ZOOMIN', text="")
+            col.operator("object.material_slot_remove", icon='ZOOMOUT', text="")
+
+            col.menu("MATERIAL_MT_specials", icon='DOWNARROW_HLT', text="")
+
+            if is_sortable:
+                col.separator()
+
+                col.operator("object.material_slot_move", icon='TRIA_UP', text="").direction = 'UP'
+                col.operator("object.material_slot_move", icon='TRIA_DOWN', text="").direction = 'DOWN'
+
+            if ob.mode == 'EDIT':
+                row = layout.row(align=True)
+                row.operator("object.material_slot_assign", text="Assign")
+                row.operator("object.material_slot_select", text="Select")
+                row.operator("object.material_slot_deselect", text="Deselect")
+
+        split = layout.split(percentage=0.65)
+
+        if ob:
+            split.template_ID(ob, "active_material", new="material.new")
+            row = split.row()
+
+            if slot:
+                row.prop(slot, "link", text="")
+            else:
+                row.label()
+        elif mat:
+            split.template_ID(space, "pin_id")
+            split.separator()
+
+
+def panel_node_draw(layout, ntree, output_type):
+    node = find_output_node(ntree, output_type)
+
+    if node:
+        input = find_node_input(node, 'Surface')
+        layout.template_node_view(ntree, node, input)
+        return True
+
+    return False
+
+
+class EEVEE_MATERIAL_PT_surface(MaterialButtonsPanel, Panel):
+    bl_label = "Surface"
+    bl_context = "material"
+    COMPAT_ENGINES = {'BLENDER_EEVEE'}
+
+    @classmethod
+    def poll(cls, context):
+        engine = context.scene.render.engine
+        return context.material and (engine in cls.COMPAT_ENGINES)
+
+    def draw(self, context):
+        layout = self.layout
+
+        mat = context.material
+
+        layout.prop(mat, "use_nodes", icon='NODETREE')
+        layout.separator()
+
+        if mat.use_nodes:
+            if not panel_node_draw(layout, mat.node_tree, 'OUTPUT_EEVEE_MATERIAL'):
+                layout.label(text="No output node")
+        else:
+            raym = mat.raytrace_mirror
+            layout.prop(mat, "diffuse_color", text="Base Color")
+            layout.prop(raym, "reflect_factor", text="Metallic")
+            layout.prop(mat, "specular_intensity", text="Specular")
+            layout.prop(raym, "gloss_factor", text="Roughness")
+
+
+class EEVEE_MATERIAL_PT_options(MaterialButtonsPanel, Panel):
+    bl_label = "Options"
+    bl_context = "material"
+    COMPAT_ENGINES = {'BLENDER_EEVEE'}
+
+    @classmethod
+    def poll(cls, context):
+        engine = context.scene.render.engine
+        return context.material and (engine in cls.COMPAT_ENGINES)
+
+    def draw(self, context):
+        layout = self.layout
+
+        mat = context.material
+
+        layout.prop(mat, "blend_method")
+
+        if mat.blend_method != "OPAQUE":
+            layout.prop(mat, "transparent_shadow_method")
+
+            row = layout.row()
+            row.active = ((mat.blend_method == "CLIP") or (mat.transparent_shadow_method == "CLIP"))
+            layout.prop(mat, "alpha_threshold")
+
+        if mat.blend_method not in {"OPAQUE", "CLIP", "HASHED"}:
+            layout.prop(mat, "transparent_hide_backside")
+
+
+
+classes = (
+    MATERIAL_MT_sss_presets,
+    MATERIAL_MT_specials,
+    MATERIAL_UL_matslots,
+    MATERIAL_PT_context_material,
+    MATERIAL_PT_preview,
+    MATERIAL_PT_pipeline,
+    MATERIAL_PT_diffuse,
+    MATERIAL_PT_specular,
+    MATERIAL_PT_shading,
+    MATERIAL_PT_transp,
+    MATERIAL_PT_mirror,
+    MATERIAL_PT_sss,
+    MATERIAL_PT_halo,
+    MATERIAL_PT_flare,
+    MATERIAL_PT_game_settings,
+    MATERIAL_PT_physics,
+    MATERIAL_PT_strand,
+    MATERIAL_PT_options,
+    MATERIAL_PT_shadow,
+    MATERIAL_PT_transp_game,
+    MATERIAL_PT_volume_density,
+    MATERIAL_PT_volume_shading,
+    MATERIAL_PT_volume_lighting,
+    MATERIAL_PT_volume_transp,
+    MATERIAL_PT_volume_integration,
+    MATERIAL_PT_volume_options,
+    MATERIAL_PT_custom_props,
+    EEVEE_MATERIAL_PT_context_material,
+    EEVEE_MATERIAL_PT_surface,
+    EEVEE_MATERIAL_PT_options,
+)
+
 if __name__ == "__main__":  # only for live edit.
-    bpy.utils.register_module(__name__)
+    from bpy.utils import register_class
+    for cls in classes:
+        register_class(cls)

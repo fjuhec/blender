@@ -56,7 +56,6 @@
 #include "BKE_animsys.h"
 #include "BKE_action.h"
 #include "BKE_armature.h"
-#include "BKE_depsgraph.h"
 #include "BKE_fcurve.h"
 #include "BKE_idcode.h"
 #include "BKE_nla.h"
@@ -65,6 +64,9 @@
 #include "BKE_report.h"
 #include "BKE_key.h"
 #include "BKE_material.h"
+
+#include "DEG_depsgraph.h"
+#include "DEG_depsgraph_build.h"
 
 #include "ED_anim_api.h"
 #include "ED_keyframing.h"
@@ -155,7 +157,7 @@ bAction *verify_adt_action(ID *id, short add)
 
 		/* tag depsgraph to be rebuilt to include time dependency */
 		/* XXX: we probably should have bmain passed down, but that involves altering too many API's */
-		DAG_relations_tag_update(G.main);
+		DEG_relations_tag_update(G.main);
 	}
 		
 	/* return the action */
@@ -1616,7 +1618,7 @@ static int clear_anim_v3d_exec(bContext *C, wmOperator *UNUSED(op))
 				/* delete F-Curve completely */
 				if (can_delete) {
 					ANIM_fcurve_delete_from_animdata(NULL, adt, fcu);
-					DAG_id_tag_update(&ob->id, OB_RECALC_OB);
+					DEG_id_tag_update(&ob->id, OB_RECALC_OB);
 					changed = true;
 				}
 			}
@@ -1723,7 +1725,7 @@ static int delete_key_v3d_exec(bContext *C, wmOperator *op)
 		else
 			BKE_reportf(op->reports, RPT_ERROR, "No keyframes removed from Object '%s'", id->name + 2);
 		
-		DAG_id_tag_update(&ob->id, OB_RECALC_OB);
+		DEG_id_tag_update(&ob->id, OB_RECALC_OB);
 	}
 	CTX_DATA_END;
 	
@@ -1771,8 +1773,10 @@ static int insert_key_button_exec(bContext *C, wmOperator *op)
 	flag = ANIM_get_keyframing_flags(scene, 1);
 	
 	/* try to insert keyframe using property retrieved from UI */
-	but = UI_context_active_but_get(C);
-	UI_context_active_but_prop_get(C, &ptr, &prop, &index);
+	if (!(but = UI_context_active_but_prop_get(C, &ptr, &prop, &index))) {
+		/* pass event on if no active button found */
+		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
+	}
 	
 	if ((ptr.id.data && ptr.data && prop) && RNA_property_animateable(&ptr, prop)) {
 		if (ptr.type == &RNA_NlaStrip) {
@@ -1873,7 +1877,10 @@ static int delete_key_button_exec(bContext *C, wmOperator *op)
 	const bool all = RNA_boolean_get(op->ptr, "all");
 	
 	/* try to insert keyframe using property retrieved from UI */
-	UI_context_active_but_prop_get(C, &ptr, &prop, &index);
+	if (!UI_context_active_but_prop_get(C, &ptr, &prop, &index)) {
+		/* pass event on if no active button found */
+		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
+	}
 
 	if (ptr.id.data && ptr.data && prop) {
 		if (ptr.type == &RNA_NlaStrip) {
@@ -1973,7 +1980,10 @@ static int clear_key_button_exec(bContext *C, wmOperator *op)
 	const bool all = RNA_boolean_get(op->ptr, "all");
 
 	/* try to insert keyframe using property retrieved from UI */
-	UI_context_active_but_prop_get(C, &ptr, &prop, &index);
+	if (!UI_context_active_but_prop_get(C, &ptr, &prop, &index)) {
+		/* pass event on if no active button found */
+		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
+	}
 
 	if (ptr.id.data && ptr.data && prop) {
 		path = RNA_path_from_ID_to_property(&ptr, prop);

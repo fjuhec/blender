@@ -73,7 +73,7 @@ struct AnimData *BKE_animdata_copy(struct AnimData *adt, const bool do_action);
 bool BKE_animdata_copy_id(struct ID *id_to, struct ID *id_from, const bool do_action);
 
 /* Copy AnimData Actions */
-void BKE_animdata_copy_id_action(struct ID *id);
+void BKE_animdata_copy_id_action(struct ID *id, const bool set_newid);
 
 /* Merge copies of data from source AnimData block */
 typedef enum eAnimData_MergeCopy_Modes {
@@ -88,12 +88,6 @@ typedef enum eAnimData_MergeCopy_Modes {
 } eAnimData_MergeCopy_Modes;
 
 void BKE_animdata_merge_copy(struct ID *dst_id, struct ID *src_id, eAnimData_MergeCopy_Modes action_mode, bool fix_drivers);
-
-/* Make Local */
-void BKE_animdata_make_local(struct AnimData *adt);
-
-/* Re-Assign ID's */
-void BKE_animdata_relink(struct AnimData *adt);
 
 /* ************************************* */
 /* KeyingSets API */
@@ -153,7 +147,7 @@ char *BKE_animdata_driver_path_hack(struct bContext *C, struct PointerRNA *ptr, 
                                     char *base_path);
 
 /* ************************************* */
-/* Batch AnimData API */
+/* Gwn_Batch AnimData API */
 
 /* Define for callback looper used in BKE_animdata_main_cb */
 typedef void (*ID_AnimData_Edit_Callback)(struct ID *id, struct AnimData *adt, void *user_data);

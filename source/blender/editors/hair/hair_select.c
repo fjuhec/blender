@@ -43,8 +43,9 @@
 #include "DNA_view3d_types.h"
 
 #include "BKE_context.h"
-#include "BKE_depsgraph.h"
 #include "BKE_editstrands.h"
+
+#include "DEG_depsgraph.h"
 
 #include "bmesh.h"
 
@@ -254,7 +255,7 @@ void HAIR_OT_select_all(wmOperatorType *ot)
 /************************ mouse select operator ************************/
 
 typedef struct DistanceVertexCirleData {
-	HairViewData viewdata;
+	ViewContext vc;
 	float mval[2];
 	float radsq;
 } DistanceVertexCirleData;
@@ -263,7 +264,7 @@ static bool distance_vertex_circle(void *userdata, struct BMVert *v, float *dist
 {
 	DistanceVertexCirleData *data = userdata;
 	
-	return hair_test_vertex_inside_circle(&data->viewdata, data->mval, data->radsq, v, dist);
+	return hair_test_vertex_inside_circle(&data->vc, data->mval, data->radsq, v, dist);
 }
 
 static void closest_vertex_select(void *UNUSED(userdata), struct BMVert *v, int action)
@@ -286,7 +287,7 @@ int ED_hair_mouse_select(bContext *C, const int mval[2], bool extend, bool desel
 		hair_deselect_all(edit);
 	}
 	
-	hair_init_viewdata(C, &data.viewdata);
+	hair_init_viewcontext(C, &data.vc);
 	data.mval[0] = mval[0];
 	data.mval[1] = mval[1];
 	data.radsq = select_radius * select_radius;
@@ -333,7 +334,7 @@ static int select_linked_exec(bContext *C, wmOperator *op)
 	
 	RNA_int_get_array(op->ptr, "location", location);
 	
-	hair_init_viewdata(C, &data.viewdata);
+	hair_init_viewcontext(C, &data.vc);
 	data.mval[0] = location[0];
 	data.mval[1] = location[1];
 	data.radsq = select_radius * select_radius;
@@ -376,7 +377,7 @@ void HAIR_OT_select_linked(wmOperatorType *ot)
 /************************ border select operator ************************/
 
 typedef struct PollVertexRectData {
-	HairViewData viewdata;
+	ViewContext vc;
 	rcti rect;
 } PollVertexRectData;
 
@@ -384,7 +385,7 @@ static bool poll_vertex_inside_rect(void *userdata, struct BMVert *v)
 {
 	PollVertexRectData *data = userdata;
 	
-	return hair_test_vertex_inside_rect(&data->viewdata, &data->rect, v);
+	return hair_test_vertex_inside_rect(&data->vc, &data->rect, v);
 }
 
 int ED_hair_border_select(bContext *C, rcti *rect, bool select, bool extend)
@@ -400,7 +401,7 @@ int ED_hair_border_select(bContext *C, rcti *rect, bool select, bool extend)
 	if (!extend && select)
 		hair_deselect_all(edit);
 	
-	hair_init_viewdata(C, &data.viewdata);
+	hair_init_viewcontext(C, &data.vc);
 	data.rect = *rect;
 	
 	if (extend)
@@ -420,7 +421,7 @@ int ED_hair_border_select(bContext *C, rcti *rect, bool select, bool extend)
 /************************ circle select operator ************************/
 
 typedef struct PollVertexCirleData {
-	HairViewData viewdata;
+	ViewContext vc;
 	float mval[2];
 	float radsq;
 } PollVertexCirleData;
@@ -430,7 +431,7 @@ static bool poll_vertex_inside_circle(void *userdata, struct BMVert *v)
 	PollVertexCirleData *data = userdata;
 	float dist;
 	
-	return hair_test_vertex_inside_circle(&data->viewdata, data->mval, data->radsq, v, &dist);
+	return hair_test_vertex_inside_circle(&data->vc, data->mval, data->radsq, v, &dist);
 }
 
 int ED_hair_circle_select(bContext *C, bool select, const int mval[2], float radius)
@@ -447,7 +448,7 @@ int ED_hair_circle_select(bContext *C, bool select, const int mval[2], float rad
 	if (!edit)
 		return 0;
 	
-	hair_init_viewdata(C, &data.viewdata);
+	hair_init_viewcontext(C, &data.vc);
 	data.mval[0] = mval[0];
 	data.mval[1] = mval[1];
 	data.radsq = radius * radius;
@@ -460,7 +461,7 @@ int ED_hair_circle_select(bContext *C, bool select, const int mval[2], float rad
 /************************ lasso select operator ************************/
 
 typedef struct PollVertexLassoData {
-	HairViewData viewdata;
+	ViewContext vc;
 	const int (*mcoords)[2];
 	short moves;
 } PollVertexLassoData;
@@ -469,7 +470,7 @@ static bool poll_vertex_inside_lasso(void *userdata, struct BMVert *v)
 {
 	PollVertexLassoData *data = userdata;
 	
-	return hair_test_vertex_inside_lasso(&data->viewdata, data->mcoords, data->moves, v);
+	return hair_test_vertex_inside_lasso(&data->vc, data->mcoords, data->moves, v);
 }
 
 int ED_hair_lasso_select(bContext *C, const int mcoords[][2], const short moves, bool extend, bool select)
@@ -485,7 +486,7 @@ int ED_hair_lasso_select(bContext *C, const int mcoords[][2], const short moves,
 	if (!extend && select)
 		hair_deselect_all(edit);
 	
-	hair_init_viewdata(C, &data.viewdata);
+	hair_init_viewcontext(C, &data.vc);
 	data.mcoords = mcoords;
 	data.moves = moves;
 	

@@ -17,12 +17,15 @@
 #ifndef __BLENDER_UTIL_H__
 #define __BLENDER_UTIL_H__
 
-#include "util_map.h"
-#include "util_path.h"
-#include "util_set.h"
-#include "util_transform.h"
-#include "util_types.h"
-#include "util_vector.h"
+#include "render/mesh.h"
+
+#include "util/util_algorithm.h"
+#include "util/util_map.h"
+#include "util/util_path.h"
+#include "util/util_set.h"
+#include "util/util_transform.h"
+#include "util/util_types.h"
+#include "util/util_vector.h"
 
 /* Hacks to hook into Blender API
  * todo: clean this up ... */
@@ -46,25 +49,24 @@ static inline BL::Mesh object_to_mesh(BL::BlendData& data,
                                       bool apply_modifiers,
                                       bool render,
                                       bool calc_undeformed,
-                                      bool subdivision)
+                                      Mesh::SubdivisionType subdivision_type)
 {
 	bool subsurf_mod_show_render;
 	bool subsurf_mod_show_viewport;
 
-	if(subdivision) {
+	if(subdivision_type != Mesh::SUBDIVISION_NONE) {
 		BL::Modifier subsurf_mod = object.modifiers[object.modifiers.length()-1];
 
 		subsurf_mod_show_render = subsurf_mod.show_render();
-		subsurf_mod_show_viewport = subsurf_mod.show_render();
+		subsurf_mod_show_viewport = subsurf_mod.show_viewport();
 
 		subsurf_mod.show_render(false);
 		subsurf_mod.show_viewport(false);
-
 	}
 
 	BL::Mesh me = data.meshes.new_from_object(scene, object, apply_modifiers, (render)? 2: 1, false, calc_undeformed);
 
-	if(subdivision) {
+	if(subdivision_type != Mesh::SUBDIVISION_NONE) {
 		BL::Modifier subsurf_mod = object.modifiers[object.modifiers.length()-1];
 
 		subsurf_mod.show_render(subsurf_mod_show_render);
@@ -73,9 +75,14 @@ static inline BL::Mesh object_to_mesh(BL::BlendData& data,
 
 	if((bool)me) {
 		if(me.use_auto_smooth()) {
-			me.calc_normals_split();
+			if(subdivision_type == Mesh::SUBDIVISION_CATMULL_CLARK) {
+				me.calc_normals_split();
+			}
+			else {
+				me.split_faces(false);
+			}
 		}
-		if(!subdivision) {
+		if(subdivision_type == Mesh::SUBDIVISION_NONE) {
 			me.calc_tessface(true);
 		}
 	}
@@ -167,22 +174,19 @@ static inline void curvemapping_color_to_array(BL::CurveMapping& cumap,
 
 	if(rgb_curve) {
 		BL::CurveMap mapI = cumap.curves[3];
-
 		for(int i = 0; i < size; i++) {
-			float t = min_x + (float)i/(float)(size-1) * range_x;
-
-			data[i][0] = mapR.evaluate(mapI.evaluate(t));
-			data[i][1] = mapG.evaluate(mapI.evaluate(t));
-			data[i][2] = mapB.evaluate(mapI.evaluate(t));
+			const float t = min_x + (float)i/(float)(size-1) * range_x;
+			data[i] = make_float3(mapR.evaluate(mapI.evaluate(t)),
+			                      mapG.evaluate(mapI.evaluate(t)),
+			                      mapB.evaluate(mapI.evaluate(t)));
 		}
 	}
 	else {
 		for(int i = 0; i < size; i++) {
 			float t = min_x + (float)i/(float)(size-1) * range_x;
-
-			data[i][0] = mapR.evaluate(t);
-			data[i][1] = mapG.evaluate(t);
-			data[i][2] = mapB.evaluate(t);
+			data[i] = make_float3(mapR.evaluate(t),
+			                      mapG.evaluate(t),
+			                      mapB.evaluate(t));
 		}
 	}
 }
@@ -295,7 +299,7 @@ static inline uint get_layer(const BL::Array<int, 20>& array)
 	for(uint i = 0; i < 20; i++)
 		if(array[i])
 			layer |= (1 << i);
-	
+
 	return layer;
 }
 
@@ -430,7 +434,7 @@ static inline string get_string(PointerRNA& ptr, const char *name)
 	string str(cstr);
 	if(cstr != cstrbuf)
 		MEM_freeN(cstr);
-	
+
 	return str;
 }
 
@@ -447,7 +451,7 @@ static inline string blender_absolute_path(BL::BlendData& b_data,
 {
 	if(path.size() >= 2 && path[0] == '/' && path[1] == '/') {
 		string dirname;
-		
+
 		if(b_id.library()) {
 			BL::ID b_library_id(b_id.library());
 			dirname = blender_absolute_path(b_data,
@@ -540,7 +544,7 @@ static inline BL::SmokeDomainSettings object_smoke_domain_find(BL::Object& b_ob)
 				return b_smd.domain_settings();
 		}
 	}
-	
+
 	return BL::SmokeDomainSettings(PointerRNA_NULL);
 }
 
@@ -559,6 +563,29 @@ static inline BL::DomainFluidSettings object_fluid_domain_find(BL::Object b_ob)
 	}
 
 	return BL::DomainFluidSettings(PointerRNA_NULL);
+}
+
+static inline Mesh::SubdivisionType object_subdivision_type(BL::Object& b_ob, bool preview, bool experimental)
+{
+	PointerRNA cobj = RNA_pointer_get(&b_ob.ptr, "cycles");
+
+	if(cobj.data && b_ob.modifiers.length() > 0 && experimental) {
+		BL::Modifier mod = b_ob.modifiers[b_ob.modifiers.length()-1];
+		bool enabled = preview ? mod.show_viewport() : mod.show_render();
+
+		if(enabled && mod.type() == BL::Modifier::type_SUBSURF && RNA_boolean_get(&cobj, "use_adaptive_subdivision")) {
+			BL::SubsurfModifier subsurf(mod);
+
+			if(subsurf.subdivision_type() == BL::SubsurfModifier::subdivision_type_CATMULL_CLARK) {
+				return Mesh::SUBDIVISION_CATMULL_CLARK;
+			}
+			else {
+				return Mesh::SUBDIVISION_LINEAR;
+			}
+		}
+	}
+
+	return Mesh::SUBDIVISION_NONE;
 }
 
 /* ID Map
@@ -698,7 +725,7 @@ protected:
 
 /* Object Key */
 
-enum { OBJECT_PERSISTENT_ID_SIZE = 8 };
+enum { OBJECT_PERSISTENT_ID_SIZE = 16 };
 
 struct ObjectKey {
 	void *parent;
@@ -757,7 +784,35 @@ struct ParticleSystemKey {
 	}
 };
 
+class EdgeMap {
+public:
+	EdgeMap() {
+	}
+
+	void clear() {
+		edges_.clear();
+	}
+
+	void insert(int v0, int v1) {
+		get_sorted_verts(v0, v1);
+		edges_.insert(std::pair<int, int>(v0, v1));
+	}
+
+	bool exists(int v0, int v1) {
+		get_sorted_verts(v0, v1);
+		return edges_.find(std::pair<int, int>(v0, v1)) != edges_.end();
+	}
+
+protected:
+	void get_sorted_verts(int& v0, int& v1) {
+		if(v0 > v1) {
+			swap(v0, v1);
+		}
+	}
+
+	set< std::pair<int, int> > edges_;
+};
+
 CCL_NAMESPACE_END
 
 #endif /* __BLENDER_UTIL_H__ */
-

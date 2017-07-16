@@ -17,8 +17,8 @@
 #ifndef __CONSTANT_FOLD_H__
 #define __CONSTANT_FOLD_H__
 
-#include "util_types.h"
-#include "svm_types.h"
+#include "util/util_types.h"
+#include "kernel/svm/svm_types.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -43,6 +43,7 @@ public:
 	void make_constant_clamp(float value, bool clamp) const;
 	void make_constant_clamp(float3 value, bool clamp) const;
 	void make_zero() const;
+	void make_one() const;
 
 	/* Bypass node, relinking to another output socket. */
 	void bypass(ShaderOutput *output) const;

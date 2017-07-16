@@ -119,6 +119,7 @@ struct ImBuf;
 /* exported types for WM */
 #include "wm_cursors.h"
 #include "wm_event_types.h"
+#include "manipulators/WM_manipulator_types.h"
 
 /* ************** wmOperatorType ************************ */
 
@@ -138,6 +139,7 @@ enum {
 	OPTYPE_INTERNAL     = (1 << 6),
 
 	OPTYPE_LOCK_BYPASS  = (1 << 7),  /* Allow operator to run when interface is locked */
+	OPTYPE_UNDO_GROUPED = (1 << 8),  /* Special type of undo which doesn't store itself multiple times */
 };
 
 /* context to call operator in for WM_operator_name_call */
@@ -222,7 +224,7 @@ typedef struct wmNotifier {
 #define NOTE_CATEGORY		0xFF000000
 #define	NC_WM				(1<<24)
 #define	NC_WINDOW			(2<<24)
-#define	NC_SCREEN			(3<<24)
+#define NC_SCREEN			(3<<24)
 #define	NC_SCENE			(4<<24)
 #define	NC_OBJECT			(5<<24)
 #define	NC_MATERIAL			(6<<24)
@@ -256,15 +258,16 @@ typedef struct wmNotifier {
 #define ND_JOB				(5<<16)
 #define ND_UNDO				(6<<16)
 
-	/* NC_SCREEN screen */
-#define ND_SCREENBROWSE		(1<<16)
-#define ND_SCREENDELETE		(2<<16)
+	/* NC_SCREEN */
+#define ND_LAYOUTBROWSE		(1<<16)
+#define ND_LAYOUTDELETE		(2<<16)
 #define ND_SCREENCAST		(3<<16)
 #define ND_ANIMPLAY			(4<<16)
 #define ND_GPENCIL			(5<<16)
 #define ND_EDITOR_CHANGED	(6<<16) /*sent to new editors after switching to them*/
-#define ND_SCREENSET		(7<<16)
+#define ND_LAYOUTSET		(7<<16)
 #define ND_SKETCH			(8<<16)
+#define ND_WORKSPACE_SET	(9<<16)
 
 	/* NC_SCENE Scene */
 #define ND_SCENEBROWSE		(1<<16)
@@ -486,6 +489,7 @@ typedef enum {  /* motion progress, for modal handlers */
 	P_FINISHED
 } wmProgress;
 
+#ifdef WITH_INPUT_NDOF
 typedef struct wmNDOFMotionData {
 	/* awfully similar to GHOST_TEventNDOFMotionData... */
 	/* Each component normally ranges from -1 to +1, but can exceed that.
@@ -497,6 +501,7 @@ typedef struct wmNDOFMotionData {
 	float dt; /* time since previous NDOF Motion event */
 	wmProgress progress; /* is this the first event, the last, or one of many in between? */
 } wmNDOFMotionData;
+#endif /* WITH_INPUT_NDOF */
 
 typedef struct wmTimer {
 	struct wmTimer *next, *prev;
@@ -521,6 +526,7 @@ typedef struct wmOperatorType {
 	const char *idname;		/* unique identifier */
 	const char *translation_context;
 	const char *description;	/* tooltips and python docs */
+	const char *undo_group;	/* identifier to group operators together */
 
 	/* this callback executes the operator without any interactive input,
 	 * parameters may be provided through operator properties. cannot use
@@ -539,7 +545,15 @@ typedef struct wmOperatorType {
 	 * canceled due to some external reason, cancel is called
 	 * - see defines below for return values */
 	int (*invoke)(struct bContext *, struct wmOperator *, const struct wmEvent *) ATTR_WARN_UNUSED_RESULT;
+
+	/* Called when a modal operator is canceled (not used often).
+	 * Internal cleanup can be done here if needed. */
 	void (*cancel)(struct bContext *, struct wmOperator *);
+
+	/* Modal is used for operators which continuously run, eg:
+	 * fly mode, knife tool, circle select are all examples of modal operators.
+	 * Modal operators can handle events which would normally access other operators,
+	 * they keep running until they don't return `OPERATOR_RUNNING_MODAL`. */
 	int (*modal)(struct bContext *, struct wmOperator *, const struct wmEvent *) ATTR_WARN_UNUSED_RESULT;
 
 	/* verify if the operator can be executed in the current context, note

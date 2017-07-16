@@ -28,7 +28,10 @@ class INFO_HT_header(Header):
         layout = self.layout
 
         window = context.window
+        workspace = context.workspace
+        screen = context.screen
         scene = context.scene
+        layer = context.render_layer
         rd = scene.render
 
         row = layout.row(align=True)
@@ -36,14 +39,26 @@ class INFO_HT_header(Header):
 
         INFO_MT_editor_menus.draw_collapsible(context, layout)
 
-        if window.screen.show_fullscreen:
+        layout.separator()
+
+        if screen.show_fullscreen:
             layout.operator("screen.back_to_previous", icon='SCREEN_BACK', text="Back to Previous")
             layout.separator()
         else:
-            layout.template_ID(context.window, "screen", new="screen.new", unlink="screen.delete")
-            layout.template_ID(context.screen, "scene", new="scene.new", unlink="scene.delete")
+            layout.template_ID(window, "workspace", new="workspace.workspace_add_menu", unlink="workspace.workspace_delete")
+            layout.template_search_preview(window, "screen", workspace, "screens", new="screen.new", unlink="screen.delete", rows=2, cols=6)
+
+        if hasattr(workspace, 'object_mode'):
+            act_mode_item = bpy.types.Object.bl_rna.properties['mode'].enum_items[workspace.object_mode]
+        else:
+            act_mode_item = bpy.types.Object.bl_rna.properties['mode'].enum_items[layer.objects.active.mode]
+        layout.operator_menu_enum("object.mode_set", "mode", text=act_mode_item.name, icon=act_mode_item.icon)
+
+        layout.template_search(workspace, "render_layer", scene, "render_layers")
 
         layout.separator()
+
+        layout.template_ID(window, "scene", new="scene.new", unlink="scene.delete")
 
         if rd.has_multiple_engines:
             layout.prop(rd, "engine", text="")
@@ -69,7 +84,7 @@ class INFO_HT_header(Header):
             return
 
         row.operator("wm.splash", text="", icon='BLENDER', emboss=False)
-        row.label(text=scene.statistics(), translate=False)
+        row.label(text=scene.statistics(context.render_layer), translate=False)
 
 
 class INFO_MT_editor_menus(Menu):
@@ -126,6 +141,18 @@ class INFO_MT_file(Menu):
         layout.operator_context = 'INVOKE_AREA'
         layout.operator("wm.save_homefile", icon='SAVE_PREFS')
         layout.operator("wm.read_factory_settings", icon='LOAD_FACTORY')
+
+        if any(bpy.utils.app_template_paths()):
+            app_template = context.user_preferences.app_template
+            if app_template:
+                layout.operator(
+                    "wm.read_factory_settings",
+                    text="Load Factory Template Settings",
+                    icon='LOAD_FACTORY',
+                ).app_template = app_template
+            del app_template
+
+        layout.menu("USERPREF_MT_app_templates", icon='FILE_BLEND')
 
         layout.separator()
 
@@ -281,7 +308,7 @@ class INFO_MT_window(Menu):
 
         layout = self.layout
 
-        layout.operator("wm.window_duplicate")
+        layout.operator("wm.window_new")
         layout.operator("wm.window_fullscreen_toggle", icon='FULLSCREEN_ENTER')
 
         layout.separator()
@@ -306,7 +333,7 @@ class INFO_MT_help(Menu):
 
         layout.operator(
                 "wm.url_open", text="Manual", icon='HELP',
-                ).url = "https://www.blender.org/manual"
+                ).url = "https://docs.blender.org/manual/en/dev/"
         layout.operator(
                 "wm.url_open", text="Release Log", icon='URL',
                 ).url = "http://wiki.blender.org/index.php/Dev:Ref/Release_Notes/%d.%d" % bpy.app.version[:2]
@@ -340,5 +367,23 @@ class INFO_MT_help(Menu):
 
         layout.operator("wm.splash", icon='BLENDER')
 
+
+classes = (
+    INFO_HT_header,
+    INFO_MT_editor_menus,
+    INFO_MT_file,
+    INFO_MT_file_import,
+    INFO_MT_file_export,
+    INFO_MT_file_external_data,
+    INFO_MT_file_previews,
+    INFO_MT_game,
+    INFO_MT_render,
+    INFO_MT_opengl_render,
+    INFO_MT_window,
+    INFO_MT_help,
+)
+
 if __name__ == "__main__":  # only for live edit.
-    bpy.utils.register_module(__name__)
+    from bpy.utils import register_class
+    for cls in classes:
+        register_class(cls)

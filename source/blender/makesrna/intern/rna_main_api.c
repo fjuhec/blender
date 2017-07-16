@@ -78,12 +78,15 @@
 #include "BKE_paint.h"
 #include "BKE_font.h"
 #include "BKE_node.h"
-#include "BKE_depsgraph.h"
 #include "BKE_speaker.h"
+#include "BKE_lightprobe.h"
 #include "BKE_movieclip.h"
 #include "BKE_mask.h"
 #include "BKE_gpencil.h"
 #include "BKE_linestyle.h"
+#include "BKE_workspace.h"
+
+#include "DEG_depsgraph_query.h"
 
 #include "DNA_armature_types.h"
 #include "DNA_camera_types.h"
@@ -93,6 +96,7 @@
 #include "DNA_mesh_types.h"
 #include "DNA_speaker_types.h"
 #include "DNA_sound_types.h"
+#include "DNA_lightprobe_types.h"
 #include "DNA_text_types.h"
 #include "DNA_texture_types.h"
 #include "DNA_group_types.h"
@@ -114,6 +118,15 @@
 #ifdef WITH_PYTHON
 #  include "BPY_extern.h"
 #endif
+
+#include "WM_api.h"
+
+
+static void rna_idname_validate(const char *name, char *r_name)
+{
+	BLI_strncpy(r_name, name, MAX_ID_NAME - 2);
+	BLI_utf8_invalid_strip(r_name, strlen(r_name));
+}
 
 
 static void rna_Main_ID_remove(Main *bmain, ReportList *reports, PointerRNA *id_ptr, int do_unlink)
@@ -137,14 +150,20 @@ static void rna_Main_ID_remove(Main *bmain, ReportList *reports, PointerRNA *id_
 
 static Camera *rna_Main_cameras_new(Main *bmain, const char *name)
 {
-	ID *id = BKE_camera_add(bmain, name);
+	char safe_name[MAX_ID_NAME - 2];
+	rna_idname_validate(name, safe_name);
+
+	ID *id = BKE_camera_add(bmain, safe_name);
 	id_us_min(id);
 	return (Camera *)id;
 }
 
 static Scene *rna_Main_scenes_new(Main *bmain, const char *name)
 {
-	return BKE_scene_add(bmain, name);
+	char safe_name[MAX_ID_NAME - 2];
+	rna_idname_validate(name, safe_name);
+
+	return BKE_scene_add(bmain, safe_name);
 }
 static void rna_Main_scenes_remove(Main *bmain, bContext *C, ReportList *reports, PointerRNA *scene_ptr, int do_unlink)
 {
@@ -156,14 +175,15 @@ static void rna_Main_scenes_remove(Main *bmain, bContext *C, ReportList *reports
 	    (scene_new = scene->id.next))
 	{
 		if (do_unlink) {
-			bScreen *sc = CTX_wm_screen(C);
-			if (sc->scene == scene) {
+			wmWindow *win = CTX_wm_window(C);
+
+			if (WM_window_get_active_scene(win) == scene) {
 
 #ifdef WITH_PYTHON
 				BPy_BEGIN_ALLOW_THREADS;
 #endif
 
-				ED_screen_set_scene(C, sc, scene_new);
+				WM_window_change_active_scene(bmain, C, win, scene_new);
 
 #ifdef WITH_PYTHON
 				BPy_END_ALLOW_THREADS;
@@ -180,6 +200,9 @@ static void rna_Main_scenes_remove(Main *bmain, bContext *C, ReportList *reports
 
 static Object *rna_Main_objects_new(Main *bmain, ReportList *reports, const char *name, ID *data)
 {
+	char safe_name[MAX_ID_NAME - 2];
+	rna_idname_validate(name, safe_name);
+
 	Object *ob;
 	int type = OB_EMPTY;
 	if (data) {
@@ -223,7 +246,7 @@ static Object *rna_Main_objects_new(Main *bmain, ReportList *reports, const char
 		id_us_plus(data);
 	}
 
-	ob = BKE_object_add_only_object(bmain, type, name);
+	ob = BKE_object_add_only_object(bmain, type, safe_name);
 	id_us_min(&ob->id);
 
 	ob->data = data;
@@ -234,7 +257,10 @@ static Object *rna_Main_objects_new(Main *bmain, ReportList *reports, const char
 
 static Material *rna_Main_materials_new(Main *bmain, const char *name)
 {
-	ID *id = (ID *)BKE_material_add(bmain, name);
+	char safe_name[MAX_ID_NAME - 2];
+	rna_idname_validate(name, safe_name);
+
+	ID *id = (ID *)BKE_material_add(bmain, safe_name);
 	id_us_min(id);
 	return (Material *)id;
 }
@@ -245,20 +271,27 @@ static EnumPropertyItem *rna_Main_nodetree_type_itemf(bContext *UNUSED(C), Point
 }
 static struct bNodeTree *rna_Main_nodetree_new(Main *bmain, const char *name, int type)
 {
+	char safe_name[MAX_ID_NAME - 2];
+	rna_idname_validate(name, safe_name);
+
 	bNodeTreeType *typeinfo = rna_node_tree_type_from_enum(type);
 	if (typeinfo) {
-		bNodeTree *ntree = ntreeAddTree(bmain, name, typeinfo->idname);
+		bNodeTree *ntree = ntreeAddTree(bmain, safe_name, typeinfo->idname);
 
 		id_us_min(&ntree->id);
 		return ntree;
 	}
-	else
+	else {
 		return NULL;
+	}
 }
 
 static Mesh *rna_Main_meshes_new(Main *bmain, const char *name)
 {
-	Mesh *me = BKE_mesh_add(bmain, name);
+	char safe_name[MAX_ID_NAME - 2];
+	rna_idname_validate(name, safe_name);
+
+	Mesh *me = BKE_mesh_add(bmain, safe_name);
 	id_us_min(&me->id);
 	return me;
 }
@@ -286,7 +319,10 @@ Mesh *rna_Main_meshes_new_from_object(
 
 static Lamp *rna_Main_lamps_new(Main *bmain, const char *name, int type)
 {
-	Lamp *lamp = BKE_lamp_add(bmain, name);
+	char safe_name[MAX_ID_NAME - 2];
+	rna_idname_validate(name, safe_name);
+
+	Lamp *lamp = BKE_lamp_add(bmain, safe_name);
 	lamp->type = type;
 	id_us_min(&lamp->id);
 	return lamp;
@@ -294,8 +330,11 @@ static Lamp *rna_Main_lamps_new(Main *bmain, const char *name, int type)
 
 static Image *rna_Main_images_new(Main *bmain, const char *name, int width, int height, int alpha, int float_buffer, int stereo3d)
 {
+	char safe_name[MAX_ID_NAME - 2];
+	rna_idname_validate(name, safe_name);
+
 	float color[4] = {0.0, 0.0, 0.0, 1.0};
-	Image *image = BKE_image_add_generated(bmain, width, height, name, alpha ? 32 : 24, float_buffer, 0, color, stereo3d);
+	Image *image = BKE_image_add_generated(bmain, width, height, safe_name, alpha ? 32 : 24, float_buffer, 0, color, stereo3d);
 	id_us_min(&image->id);
 	return image;
 }
@@ -322,21 +361,30 @@ static Image *rna_Main_images_load(Main *bmain, ReportList *reports, const char 
 
 static Lattice *rna_Main_lattices_new(Main *bmain, const char *name)
 {
-	Lattice *lt = BKE_lattice_add(bmain, name);
+	char safe_name[MAX_ID_NAME - 2];
+	rna_idname_validate(name, safe_name);
+
+	Lattice *lt = BKE_lattice_add(bmain, safe_name);
 	id_us_min(&lt->id);
 	return lt;
 }
 
 static Curve *rna_Main_curves_new(Main *bmain, const char *name, int type)
 {
-	Curve *cu = BKE_curve_add(bmain, name, type);
+	char safe_name[MAX_ID_NAME - 2];
+	rna_idname_validate(name, safe_name);
+
+	Curve *cu = BKE_curve_add(bmain, safe_name, type);
 	id_us_min(&cu->id);
 	return cu;
 }
 
 static MetaBall *rna_Main_metaballs_new(Main *bmain, const char *name)
 {
-	MetaBall *mb = BKE_mball_add(bmain, name);
+	char safe_name[MAX_ID_NAME - 2];
+	rna_idname_validate(name, safe_name);
+
+	MetaBall *mb = BKE_mball_add(bmain, safe_name);
 	id_us_min(&mb->id);
 	return mb;
 }
@@ -364,7 +412,10 @@ static VFont *rna_Main_fonts_load(Main *bmain, ReportList *reports, const char *
 
 static Tex *rna_Main_textures_new(Main *bmain, const char *name, int type)
 {
-	Tex *tex = BKE_texture_add(bmain, name);
+	char safe_name[MAX_ID_NAME - 2];
+	rna_idname_validate(name, safe_name);
+
+	Tex *tex = BKE_texture_add(bmain, safe_name);
 	BKE_texture_type_set(tex, type);
 	id_us_min(&tex->id);
 	return tex;
@@ -372,26 +423,38 @@ static Tex *rna_Main_textures_new(Main *bmain, const char *name, int type)
 
 static Brush *rna_Main_brushes_new(Main *bmain, const char *name, int mode)
 {
-	Brush *brush = BKE_brush_add(bmain, name, mode);
+	char safe_name[MAX_ID_NAME - 2];
+	rna_idname_validate(name, safe_name);
+
+	Brush *brush = BKE_brush_add(bmain, safe_name, mode);
 	id_us_min(&brush->id);
 	return brush;
 }
 
 static World *rna_Main_worlds_new(Main *bmain, const char *name)
 {
-	World *world = add_world(bmain, name);
+	char safe_name[MAX_ID_NAME - 2];
+	rna_idname_validate(name, safe_name);
+
+	World *world = add_world(bmain, safe_name);
 	id_us_min(&world->id);
 	return world;
 }
 
 static Group *rna_Main_groups_new(Main *bmain, const char *name)
 {
-	return BKE_group_add(bmain, name);
+	char safe_name[MAX_ID_NAME - 2];
+	rna_idname_validate(name, safe_name);
+
+	return BKE_group_add(bmain, safe_name);
 }
 
 static Speaker *rna_Main_speakers_new(Main *bmain, const char *name)
 {
-	Speaker *speaker = BKE_speaker_add(bmain, name);
+	char safe_name[MAX_ID_NAME - 2];
+	rna_idname_validate(name, safe_name);
+
+	Speaker *speaker = BKE_speaker_add(bmain, safe_name);
 	id_us_min(&speaker->id);
 	return speaker;
 }
@@ -413,7 +476,10 @@ static bSound *rna_Main_sounds_load(Main *bmain, const char *name, int check_exi
 
 static Text *rna_Main_texts_new(Main *bmain, const char *name)
 {
-	return BKE_text_add(bmain, name);
+	char safe_name[MAX_ID_NAME - 2];
+	rna_idname_validate(name, safe_name);
+
+	return BKE_text_add(bmain, safe_name);
 }
 
 static Text *rna_Main_texts_load(Main *bmain, ReportList *reports, const char *filepath, int is_internal)
@@ -432,28 +498,40 @@ static Text *rna_Main_texts_load(Main *bmain, ReportList *reports, const char *f
 
 static bArmature *rna_Main_armatures_new(Main *bmain, const char *name)
 {
-	bArmature *arm = BKE_armature_add(bmain, name);
+	char safe_name[MAX_ID_NAME - 2];
+	rna_idname_validate(name, safe_name);
+
+	bArmature *arm = BKE_armature_add(bmain, safe_name);
 	id_us_min(&arm->id);
 	return arm;
 }
 
 static bAction *rna_Main_actions_new(Main *bmain, const char *name)
 {
-	bAction *act = add_empty_action(bmain, name);
+	char safe_name[MAX_ID_NAME - 2];
+	rna_idname_validate(name, safe_name);
+
+	bAction *act = add_empty_action(bmain, safe_name);
 	id_fake_user_clear(&act->id);
 	return act;
 }
 
 static ParticleSettings *rna_Main_particles_new(Main *bmain, const char *name)
 {
-	ParticleSettings *part = psys_new_settings(name, bmain);
+	char safe_name[MAX_ID_NAME - 2];
+	rna_idname_validate(name, safe_name);
+
+	ParticleSettings *part = psys_new_settings(safe_name, bmain);
 	id_us_min(&part->id);
 	return part;
 }
 
 static Palette *rna_Main_palettes_new(Main *bmain, const char *name)
 {
-	Palette *palette = BKE_palette_add(bmain, name);
+	char safe_name[MAX_ID_NAME - 2];
+	rna_idname_validate(name, safe_name);
+
+	Palette *palette = BKE_palette_add(bmain, safe_name);
 	id_us_min(&palette->id);
 	return (Palette *)palette;
 }
@@ -481,18 +559,30 @@ static MovieClip *rna_Main_movieclip_load(Main *bmain, ReportList *reports, cons
 
 static Mask *rna_Main_mask_new(Main *bmain, const char *name)
 {
-	Mask *mask;
+	char safe_name[MAX_ID_NAME - 2];
+	rna_idname_validate(name, safe_name);
 
-	mask = BKE_mask_new(bmain, name);
-
-	return mask;
+	return BKE_mask_new(bmain, safe_name);
 }
 
 static FreestyleLineStyle *rna_Main_linestyles_new(Main *bmain, const char *name)
 {
-	FreestyleLineStyle *linestyle = BKE_linestyle_new(bmain, name);
+	char safe_name[MAX_ID_NAME - 2];
+	rna_idname_validate(name, safe_name);
+
+	FreestyleLineStyle *linestyle = BKE_linestyle_new(bmain, safe_name);
 	id_us_min(&linestyle->id);
 	return linestyle;
+}
+
+static LightProbe *rna_Main_lightprobe_new(Main *bmain, const char *name)
+{
+	char safe_name[MAX_ID_NAME - 2];
+	rna_idname_validate(name, safe_name);
+
+	LightProbe *probe = BKE_lightprobe_add(bmain, safe_name);
+	id_us_min(&probe->id);
+	return probe;
 }
 
 /* tag and is_updated functions, all the same */
@@ -501,7 +591,7 @@ static FreestyleLineStyle *rna_Main_linestyles_new(Main *bmain, const char *name
 		BKE_main_id_tag_listbase(&bmain->_listbase_name, LIB_TAG_DOIT, value);     \
 	}                                                                              \
 	static int rna_Main_##_func_name##_is_updated_get(PointerRNA *ptr) {           \
-		return DAG_id_type_tagged(ptr->data, _id_type) != 0;                       \
+		return DEG_id_type_tagged(ptr->data, _id_type) != 0;                       \
 	}
 
 RNA_MAIN_ID_TAG_FUNCS_DEF(cameras, camera, ID_CA)
@@ -536,6 +626,9 @@ RNA_MAIN_ID_TAG_FUNCS_DEF(movieclips, movieclip, ID_MC)
 RNA_MAIN_ID_TAG_FUNCS_DEF(masks, mask, ID_MSK)
 RNA_MAIN_ID_TAG_FUNCS_DEF(linestyle, linestyle, ID_LS)
 RNA_MAIN_ID_TAG_FUNCS_DEF(cachefiles, cachefiles, ID_CF)
+RNA_MAIN_ID_TAG_FUNCS_DEF(paintcurves, paintcurves, ID_PC)
+RNA_MAIN_ID_TAG_FUNCS_DEF(workspaces, workspaces, ID_WS)
+RNA_MAIN_ID_TAG_FUNCS_DEF(lightprobes, lightprobe, ID_LP)
 
 #undef RNA_MAIN_ID_TAG_FUNCS_DEF
 
@@ -552,7 +645,7 @@ void RNA_api_main(StructRNA *UNUSED(srna))
 	func = RNA_def_function(srna, "add_image", "rna_Main_add_image");
 	RNA_def_function_ui_description(func, "Add a new image");
 	parm = RNA_def_string_file_path(func, "filepath", NULL, 0, "", "File path to load image from");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_pointer(func, "image", "Image", "", "New image");
 	RNA_def_function_return(func, parm);
 #endif
@@ -573,7 +666,7 @@ void RNA_def_main_cameras(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "new", "rna_Main_cameras_new");
 	RNA_def_function_ui_description(func, "Add a new camera to the main database");
 	parm = RNA_def_string(func, "name", "Camera", 0, "", "New name for the data-block");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	/* return type */
 	parm = RNA_def_pointer(func, "camera", "Camera", "", "New camera data-block");
 	RNA_def_function_return(func, parm);
@@ -582,15 +675,15 @@ void RNA_def_main_cameras(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove a camera from the current blendfile");
 	parm = RNA_def_pointer(func, "camera", "Camera", "", "Camera to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-	RNA_def_boolean(func, "do_unlink", false, "",
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "",
 	                "Unlink all usages of this camera before deleting it "
 	                "(WARNING: will also delete objects instancing that camera data)");
 
 	func = RNA_def_function(srna, "tag", "rna_Main_cameras_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -612,7 +705,7 @@ void RNA_def_main_scenes(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "new", "rna_Main_scenes_new");
 	RNA_def_function_ui_description(func, "Add a new scene to the main database");
 	parm = RNA_def_string(func, "name", "Scene", 0, "", "New name for the data-block");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	/* return type */
 	parm = RNA_def_pointer(func, "scene", "Scene", "", "New scene data-block");
 	RNA_def_function_return(func, parm);
@@ -621,13 +714,13 @@ void RNA_def_main_scenes(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_CONTEXT | FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove a scene from the current blendfile");
 	parm = RNA_def_pointer(func, "scene", "Scene", "", "Scene to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-	RNA_def_boolean(func, "do_unlink", false, "", "Unlink all usages of this scene before deleting it");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "", "Unlink all usages of this scene before deleting it");
 
 	func = RNA_def_function(srna, "tag", "rna_Main_scenes_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -650,9 +743,9 @@ void RNA_def_main_objects(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Add a new object to the main database");
 	parm = RNA_def_string(func, "name", "Object", 0, "", "New name for the data-block");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_pointer(func, "object_data", "ID", "", "Object data or None for an empty object");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	/* return type */
 	parm = RNA_def_pointer(func, "object", "Object", "", "New object data-block");
@@ -662,13 +755,13 @@ void RNA_def_main_objects(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_ui_description(func, "Remove a object from the current blendfile");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_pointer(func, "object", "Object", "", "Object to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-	RNA_def_boolean(func, "do_unlink", false, "", "Unlink all usages of this object before deleting it");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "", "Unlink all usages of this object before deleting it");
 
 	func = RNA_def_function(srna, "tag", "rna_Main_objects_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -690,7 +783,7 @@ void RNA_def_main_materials(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "new", "rna_Main_materials_new");
 	RNA_def_function_ui_description(func, "Add a new material to the main database");
 	parm = RNA_def_string(func, "name", "Material", 0, "", "New name for the data-block");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	/* return type */
 	parm = RNA_def_pointer(func, "material", "Material", "", "New material data-block");
 	RNA_def_function_return(func, parm);
@@ -699,13 +792,13 @@ void RNA_def_main_materials(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove a material from the current blendfile");
 	parm = RNA_def_pointer(func, "material", "Material", "", "Material to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-	RNA_def_boolean(func, "do_unlink", false, "", "Unlink all usages of this material before deleting it");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "", "Unlink all usages of this material before deleting it");
 
 	func = RNA_def_function(srna, "tag", "rna_Main_materials_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -731,10 +824,10 @@ void RNA_def_main_node_groups(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "new", "rna_Main_nodetree_new");
 	RNA_def_function_ui_description(func, "Add a new node tree to the main database");
 	parm = RNA_def_string(func, "name", "NodeGroup", 0, "", "New name for the data-block");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_enum(func, "type", dummy_items, 0, "Type", "The type of node_group to add");
 	RNA_def_property_enum_funcs(parm, NULL, NULL, "rna_Main_nodetree_type_itemf");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	/* return type */
 	parm = RNA_def_pointer(func, "tree", "NodeTree", "", "New node tree data-block");
 	RNA_def_function_return(func, parm);
@@ -743,13 +836,13 @@ void RNA_def_main_node_groups(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove a node tree from the current blendfile");
 	parm = RNA_def_pointer(func, "tree", "NodeTree", "", "Node tree to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-	RNA_def_boolean(func, "do_unlink", false, "", "Unlink all usages of this node tree before deleting it");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "", "Unlink all usages of this node tree before deleting it");
 
 	func = RNA_def_function(srna, "tag", "rna_Main_node_groups_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -776,7 +869,7 @@ void RNA_def_main_meshes(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "new", "rna_Main_meshes_new");
 	RNA_def_function_ui_description(func, "Add a new mesh to the main database");
 	parm = RNA_def_string(func, "name", "Mesh", 0, "", "New name for the data-block");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	/* return type */
 	parm = RNA_def_pointer(func, "mesh", "Mesh", "", "New mesh data-block");
 	RNA_def_function_return(func, parm);
@@ -785,13 +878,13 @@ void RNA_def_main_meshes(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_ui_description(func, "Add a new mesh created from object with modifiers applied");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_pointer(func, "scene", "Scene", "", "Scene within which to evaluate modifiers");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 	parm = RNA_def_pointer(func, "object", "Object", "", "Object to create mesh from");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 	parm = RNA_def_boolean(func, "apply_modifiers", 0, "", "Apply modifiers");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_enum(func, "settings", mesh_type_items, 0, "", "Modifier settings to apply");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	RNA_def_boolean(func, "calc_tessface", true, "Calculate Tessellation", "Calculate tessellation faces");
 	RNA_def_boolean(func, "calc_undeformed", false, "Calculate Undeformed", "Calculate undeformed vertex coordinates");
 	parm = RNA_def_pointer(func, "mesh", "Mesh", "",
@@ -802,15 +895,15 @@ void RNA_def_main_meshes(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove a mesh from the current blendfile");
 	parm = RNA_def_pointer(func, "mesh", "Mesh", "", "Mesh to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-	RNA_def_boolean(func, "do_unlink", false, "",
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "",
 	                "Unlink all usages of this mesh before deleting it "
 	                "(WARNING: will also delete objects instancing that mesh data)");
 
 	func = RNA_def_function(srna, "tag", "rna_Main_meshes_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -831,9 +924,9 @@ void RNA_def_main_lamps(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "new", "rna_Main_lamps_new");
 	RNA_def_function_ui_description(func, "Add a new lamp to the main database");
 	parm = RNA_def_string(func, "name", "Lamp", 0, "", "New name for the data-block");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_enum(func, "type", rna_enum_lamp_type_items, 0, "Type", "The type of texture to add");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	/* return type */
 	parm = RNA_def_pointer(func, "lamp", "Lamp", "", "New lamp data-block");
 	RNA_def_function_return(func, parm);
@@ -842,15 +935,15 @@ void RNA_def_main_lamps(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove a lamp from the current blendfile");
 	parm = RNA_def_pointer(func, "lamp", "Lamp", "", "Lamp to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-	RNA_def_boolean(func, "do_unlink", false, "",
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "",
 	                "Unlink all usages of this lamp before deleting it "
 	                "(WARNING: will also delete objects instancing that lamp data)");
 
 	func = RNA_def_function(srna, "tag", "rna_Main_lamps_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -871,7 +964,7 @@ void RNA_def_main_libraries(BlenderRNA *brna, PropertyRNA *cprop)
 
 	func = RNA_def_function(srna, "tag", "rna_Main_libraries_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -892,7 +985,7 @@ void RNA_def_main_screens(BlenderRNA *brna, PropertyRNA *cprop)
 
 	func = RNA_def_function(srna, "tag", "rna_Main_screens_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -913,7 +1006,7 @@ void RNA_def_main_window_managers(BlenderRNA *brna, PropertyRNA *cprop)
 
 	func = RNA_def_function(srna, "tag", "rna_Main_window_managers_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -934,11 +1027,11 @@ void RNA_def_main_images(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "new", "rna_Main_images_new");
 	RNA_def_function_ui_description(func, "Add a new image to the main database");
 	parm = RNA_def_string(func, "name", "Image", 0, "", "New name for the data-block");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_int(func, "width", 1024, 1, INT_MAX, "", "Width of the image", 1, INT_MAX);
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_int(func, "height", 1024, 1, INT_MAX, "", "Height of the image", 1, INT_MAX);
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	RNA_def_boolean(func, "alpha", 0, "Alpha", "Use alpha channel");
 	RNA_def_boolean(func, "float_buffer", 0, "Float Buffer", "Create an image with floating point color");
 	RNA_def_boolean(func, "stereo3d", 0, "Stereo 3D", "Create left and right views");
@@ -950,7 +1043,7 @@ void RNA_def_main_images(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Load a new image into the main database");
 	parm = RNA_def_string_file_path(func, "filepath", "File Path", 0, "", "path of the file to load");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	RNA_def_boolean(func, "check_existing", false, "", "Using existing data-block if this file is already loaded");
 	/* return type */
 	parm = RNA_def_pointer(func, "image", "Image", "", "New image data-block");
@@ -960,13 +1053,13 @@ void RNA_def_main_images(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove an image from the current blendfile");
 	parm = RNA_def_pointer(func, "image", "Image", "", "Image to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-	RNA_def_boolean(func, "do_unlink", false, "", "Unlink all usages of this image before deleting it");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "", "Unlink all usages of this image before deleting it");
 
 	func = RNA_def_function(srna, "tag", "rna_Main_images_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -988,7 +1081,7 @@ void RNA_def_main_lattices(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "new", "rna_Main_lattices_new");
 	RNA_def_function_ui_description(func, "Add a new lattice to the main database");
 	parm = RNA_def_string(func, "name", "Lattice", 0, "", "New name for the data-block");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	/* return type */
 	parm = RNA_def_pointer(func, "lattice", "Lattice", "", "New lattices data-block");
 	RNA_def_function_return(func, parm);
@@ -997,15 +1090,15 @@ void RNA_def_main_lattices(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove a lattice from the current blendfile");
 	parm = RNA_def_pointer(func, "lattice", "Lattice", "", "Lattice to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-	RNA_def_boolean(func, "do_unlink", false, "",
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "",
 	                "Unlink all usages of this lattice before deleting it "
 	                "(WARNING: will also delete objects instancing that lattice data)");
 
 	func = RNA_def_function(srna, "tag", "rna_Main_lattices_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -1026,9 +1119,9 @@ void RNA_def_main_curves(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "new", "rna_Main_curves_new");
 	RNA_def_function_ui_description(func, "Add a new curve to the main database");
 	parm = RNA_def_string(func, "name", "Curve", 0, "", "New name for the data-block");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_enum(func, "type", rna_enum_object_type_curve_items, 0, "Type", "The type of curve to add");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	/* return type */
 	parm = RNA_def_pointer(func, "curve", "Curve", "", "New curve data-block");
 	RNA_def_function_return(func, parm);
@@ -1037,15 +1130,15 @@ void RNA_def_main_curves(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove a curve from the current blendfile");
 	parm = RNA_def_pointer(func, "curve", "Curve", "", "Curve to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-	RNA_def_boolean(func, "do_unlink", false, "",
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "",
 	                "Unlink all usages of this curve before deleting it "
 	                "(WARNING: will also delete objects instancing that curve data)");
 
 	func = RNA_def_function(srna, "tag", "rna_Main_curves_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -1066,7 +1159,7 @@ void RNA_def_main_metaballs(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "new", "rna_Main_metaballs_new");
 	RNA_def_function_ui_description(func, "Add a new metaball to the main database");
 	parm = RNA_def_string(func, "name", "MetaBall", 0, "", "New name for the data-block");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	/* return type */
 	parm = RNA_def_pointer(func, "metaball", "MetaBall", "", "New metaball data-block");
 	RNA_def_function_return(func, parm);
@@ -1075,15 +1168,15 @@ void RNA_def_main_metaballs(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove a metaball from the current blendfile");
 	parm = RNA_def_pointer(func, "metaball", "MetaBall", "", "Metaball to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-	RNA_def_boolean(func, "do_unlink", false, "",
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "",
 	                "Unlink all usages of this metaball before deleting it "
 	                "(WARNING: will also delete objects instancing that metaball data)");
 
 	func = RNA_def_function(srna, "tag", "rna_Main_metaballs_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -1105,7 +1198,7 @@ void RNA_def_main_fonts(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Load a new font into the main database");
 	parm = RNA_def_string_file_path(func, "filepath", "File Path", 0, "", "path of the font to load");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	RNA_def_boolean(func, "check_existing", false, "", "Using existing data-block if this file is already loaded");
 	/* return type */
 	parm = RNA_def_pointer(func, "vfont", "VectorFont", "", "New font data-block");
@@ -1115,13 +1208,13 @@ void RNA_def_main_fonts(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove a font from the current blendfile");
 	parm = RNA_def_pointer(func, "vfont", "VectorFont", "", "Font to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-	RNA_def_boolean(func, "do_unlink", false, "", "Unlink all usages of this font before deleting it");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "", "Unlink all usages of this font before deleting it");
 
 	func = RNA_def_function(srna, "tag", "rna_Main_fonts_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -1142,9 +1235,9 @@ void RNA_def_main_textures(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "new", "rna_Main_textures_new");
 	RNA_def_function_ui_description(func, "Add a new texture to the main database");
 	parm = RNA_def_string(func, "name", "Texture", 0, "", "New name for the data-block");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_enum(func, "type", rna_enum_texture_type_items, 0, "Type", "The type of texture to add");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	/* return type */
 	parm = RNA_def_pointer(func, "texture", "Texture", "", "New texture data-block");
 	RNA_def_function_return(func, parm);
@@ -1153,13 +1246,13 @@ void RNA_def_main_textures(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove a texture from the current blendfile");
 	parm = RNA_def_pointer(func, "texture", "Texture", "", "Texture to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-	RNA_def_boolean(func, "do_unlink", false, "", "Unlink all usages of this texture before deleting it");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "", "Unlink all usages of this texture before deleting it");
 
 	func = RNA_def_function(srna, "tag", "rna_Main_textures_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -1180,7 +1273,7 @@ void RNA_def_main_brushes(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "new", "rna_Main_brushes_new");
 	RNA_def_function_ui_description(func, "Add a new brush to the main database");
 	parm = RNA_def_string(func, "name", "Brush", 0, "", "New name for the data-block");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_enum(func, "mode", rna_enum_object_mode_items, OB_MODE_TEXTURE_PAINT, "", "Paint Mode for the new brush");
 	/* return type */
 	parm = RNA_def_pointer(func, "brush", "Brush", "", "New brush data-block");
@@ -1190,13 +1283,13 @@ void RNA_def_main_brushes(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove a brush from the current blendfile");
 	parm = RNA_def_pointer(func, "brush", "Brush", "", "Brush to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-	RNA_def_boolean(func, "do_unlink", false, "", "Unlink all usages of this brush before deleting it");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "", "Unlink all usages of this brush before deleting it");
 
 	func = RNA_def_function(srna, "tag", "rna_Main_brushes_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -1218,7 +1311,7 @@ void RNA_def_main_worlds(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "new", "rna_Main_worlds_new");
 	RNA_def_function_ui_description(func, "Add a new world to the main database");
 	parm = RNA_def_string(func, "name", "World", 0, "", "New name for the data-block");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	/* return type */
 	parm = RNA_def_pointer(func, "world", "World", "", "New world data-block");
 	RNA_def_function_return(func, parm);
@@ -1227,13 +1320,13 @@ void RNA_def_main_worlds(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove a world from the current blendfile");
 	parm = RNA_def_pointer(func, "world", "World", "", "World to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-	RNA_def_boolean(func, "do_unlink", false, "", "Unlink all usages of this world before deleting it");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "", "Unlink all usages of this world before deleting it");
 
 	func = RNA_def_function(srna, "tag", "rna_Main_worlds_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -1255,7 +1348,7 @@ void RNA_def_main_groups(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "new", "rna_Main_groups_new");
 	RNA_def_function_ui_description(func, "Add a new group to the main database");
 	parm = RNA_def_string(func, "name", "Group", 0, "", "New name for the data-block");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	/* return type */
 	parm = RNA_def_pointer(func, "group", "Group", "", "New group data-block");
 	RNA_def_function_return(func, parm);
@@ -1264,13 +1357,13 @@ void RNA_def_main_groups(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_ui_description(func, "Remove a group from the current blendfile");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_pointer(func, "group", "Group", "", "Group to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-	RNA_def_boolean(func, "do_unlink", false, "", "Unlink all usages of this group before deleting it");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "", "Unlink all usages of this group before deleting it");
 
 	func = RNA_def_function(srna, "tag", "rna_Main_groups_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -1292,7 +1385,7 @@ void RNA_def_main_speakers(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "new", "rna_Main_speakers_new");
 	RNA_def_function_ui_description(func, "Add a new speaker to the main database");
 	parm = RNA_def_string(func, "name", "Speaker", 0, "", "New name for the data-block");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	/* return type */
 	parm = RNA_def_pointer(func, "speaker", "Speaker", "", "New speaker data-block");
 	RNA_def_function_return(func, parm);
@@ -1301,15 +1394,15 @@ void RNA_def_main_speakers(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove a speaker from the current blendfile");
 	parm = RNA_def_pointer(func, "speaker", "Speaker", "", "Speaker to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-	RNA_def_boolean(func, "do_unlink", false, "",
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "",
 	                "Unlink all usages of this speaker before deleting it "
 	                "(WARNING: will also delete objects instancing that speaker data)");
 
 	func = RNA_def_function(srna, "tag", "rna_Main_speakers_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -1331,7 +1424,7 @@ void RNA_def_main_texts(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "new", "rna_Main_texts_new");
 	RNA_def_function_ui_description(func, "Add a new text to the main database");
 	parm = RNA_def_string(func, "name", "Text", 0, "", "New name for the data-block");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	/* return type */
 	parm = RNA_def_pointer(func, "text", "Text", "", "New text data-block");
 	RNA_def_function_return(func, parm);
@@ -1340,16 +1433,16 @@ void RNA_def_main_texts(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_ui_description(func, "Remove a text from the current blendfile");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_pointer(func, "text", "Text", "", "Text to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-	RNA_def_boolean(func, "do_unlink", false, "", "Unlink all usages of this text before deleting it");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "", "Unlink all usages of this text before deleting it");
 
 	/* load func */
 	func = RNA_def_function(srna, "load", "rna_Main_texts_load");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Add a new text to the main database from a file");
 	parm = RNA_def_string_file_path(func, "filepath", "Path", FILE_MAX, "", "path for the data-block");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_boolean(func, "internal", 0, "Make internal", "Make text file internal after loading");
 	/* return type */
 	parm = RNA_def_pointer(func, "text", "Text", "", "New text data-block");
@@ -1357,7 +1450,7 @@ void RNA_def_main_texts(BlenderRNA *brna, PropertyRNA *cprop)
 
 	func = RNA_def_function(srna, "tag", "rna_Main_texts_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -1380,7 +1473,7 @@ void RNA_def_main_sounds(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "load", "rna_Main_sounds_load");
 	RNA_def_function_ui_description(func, "Add a new sound to the main database from a file");
 	parm = RNA_def_string_file_path(func, "filepath", "Path", FILE_MAX, "", "path for the data-block");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	RNA_def_boolean(func, "check_existing", false, "", "Using existing data-block if this file is already loaded");
 	/* return type */
 	parm = RNA_def_pointer(func, "sound", "Sound", "", "New text data-block");
@@ -1390,13 +1483,13 @@ void RNA_def_main_sounds(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove a sound from the current blendfile");
 	parm = RNA_def_pointer(func, "sound", "Sound", "", "Sound to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-	RNA_def_boolean(func, "do_unlink", false, "", "Unlink all usages of this sound before deleting it");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "", "Unlink all usages of this sound before deleting it");
 
 	func = RNA_def_function(srna, "tag", "rna_Main_sounds_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -1418,7 +1511,7 @@ void RNA_def_main_armatures(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "new", "rna_Main_armatures_new");
 	RNA_def_function_ui_description(func, "Add a new armature to the main database");
 	parm = RNA_def_string(func, "name", "Armature", 0, "", "New name for the data-block");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	/* return type */
 	parm = RNA_def_pointer(func, "armature", "Armature", "", "New armature data-block");
 	RNA_def_function_return(func, parm);
@@ -1427,15 +1520,15 @@ void RNA_def_main_armatures(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove a armature from the current blendfile");
 	parm = RNA_def_pointer(func, "armature", "Armature", "", "Armature to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-	RNA_def_boolean(func, "do_unlink", false, "",
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "",
 	                "Unlink all usages of this armature before deleting it "
 	                "(WARNING: will also delete objects instancing that armature data)");
 
 	func = RNA_def_function(srna, "tag", "rna_Main_armatures_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -1456,7 +1549,7 @@ void RNA_def_main_actions(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "new", "rna_Main_actions_new");
 	RNA_def_function_ui_description(func, "Add a new action to the main database");
 	parm = RNA_def_string(func, "name", "Action", 0, "", "New name for the data-block");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	/* return type */
 	parm = RNA_def_pointer(func, "action", "Action", "", "New action data-block");
 	RNA_def_function_return(func, parm);
@@ -1465,13 +1558,13 @@ void RNA_def_main_actions(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove a action from the current blendfile");
 	parm = RNA_def_pointer(func, "action", "Action", "", "Action to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-	RNA_def_boolean(func, "do_unlink", false, "", "Unlink all usages of this action before deleting it");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "", "Unlink all usages of this action before deleting it");
 
 	func = RNA_def_function(srna, "tag", "rna_Main_actions_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -1492,7 +1585,7 @@ void RNA_def_main_particles(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "new", "rna_Main_particles_new");
 	RNA_def_function_ui_description(func, "Add a new particle settings instance to the main database");
 	parm = RNA_def_string(func, "name", "ParticleSettings", 0, "", "New name for the data-block");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	/* return type */
 	parm = RNA_def_pointer(func, "particle", "ParticleSettings", "", "New particle settings data-block");
 	RNA_def_function_return(func, parm);
@@ -1501,18 +1594,19 @@ void RNA_def_main_particles(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove a particle settings instance from the current blendfile");
 	parm = RNA_def_pointer(func, "particle", "ParticleSettings", "", "Particle Settings to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-	RNA_def_boolean(func, "do_unlink", false, "", "Unlink all usages of those particle settings before deleting them");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "", "Unlink all usages of those particle settings before deleting them");
 
 	func = RNA_def_function(srna, "tag", "rna_Main_particles_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_boolean_funcs(prop, "rna_Main_particles_is_updated_get", NULL);
 }
+
 void RNA_def_main_palettes(BlenderRNA *brna, PropertyRNA *cprop)
 {
 	StructRNA *srna;
@@ -1528,7 +1622,7 @@ void RNA_def_main_palettes(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "new", "rna_Main_palettes_new");
 	RNA_def_function_ui_description(func, "Add a new palette to the main database");
 	parm = RNA_def_string(func, "name", "Palette", 0, "", "New name for the data-block");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	/* return type */
 	parm = RNA_def_pointer(func, "palette", "Palette", "", "New palette data-block");
 	RNA_def_function_return(func, parm);
@@ -1537,13 +1631,13 @@ void RNA_def_main_palettes(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove a palette from the current blendfile");
 	parm = RNA_def_pointer(func, "palette", "Palette", "", "Palette to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-	RNA_def_boolean(func, "do_unlink", false, "", "Unlink all usages of this palette before deleting it");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "", "Unlink all usages of this palette before deleting it");
 
 	func = RNA_def_function(srna, "tag", "rna_Main_palettes_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -1551,18 +1645,43 @@ void RNA_def_main_palettes(BlenderRNA *brna, PropertyRNA *cprop)
 }
 void RNA_def_main_cachefiles(BlenderRNA *brna, PropertyRNA *cprop)
 {
+	StructRNA *srna;
+	FunctionRNA *func;
+	PropertyRNA *parm;
+	PropertyRNA *prop;
+
 	RNA_def_property_srna(cprop, "BlendDataCacheFiles");
-	StructRNA *srna = RNA_def_struct(brna, "BlendDataCacheFiles", NULL);
+	srna = RNA_def_struct(brna, "BlendDataCacheFiles", NULL);
 	RNA_def_struct_sdna(srna, "Main");
 	RNA_def_struct_ui_text(srna, "Main Cache Files", "Collection of cache files");
 
-	FunctionRNA *func = RNA_def_function(srna, "tag", "rna_Main_cachefiles_tag");
-	PropertyRNA *parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	func = RNA_def_function(srna, "tag", "rna_Main_cachefiles_tag");
+	parm = RNA_def_boolean(func, "value", 0, "Value", "");
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
-	PropertyRNA *prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
+	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_boolean_funcs(prop, "rna_Main_cachefiles_is_updated_get", NULL);
+}
+void RNA_def_main_paintcurves(BlenderRNA *brna, PropertyRNA *cprop)
+{
+	StructRNA *srna;
+	FunctionRNA *func;
+	PropertyRNA *parm;
+	PropertyRNA *prop;
+
+	RNA_def_property_srna(cprop, "BlendDataPaintCurves");
+	srna = RNA_def_struct(brna, "BlendDataPaintCurves", NULL);
+	RNA_def_struct_sdna(srna, "Main");
+	RNA_def_struct_ui_text(srna, "Main Paint Curves", "Collection of paint curves");
+
+	func = RNA_def_function(srna, "tag", "rna_Main_paintcurves_tag");
+	parm = RNA_def_boolean(func, "value", 0, "Value", "");
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+
+	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_boolean_funcs(prop, "rna_Main_paintcurves_is_updated_get", NULL);
 }
 void RNA_def_main_gpencil(BlenderRNA *brna, PropertyRNA *cprop)
 {
@@ -1578,12 +1697,12 @@ void RNA_def_main_gpencil(BlenderRNA *brna, PropertyRNA *cprop)
 
 	func = RNA_def_function(srna, "tag", "rna_Main_gpencil_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	func = RNA_def_function(srna, "new", "BKE_gpencil_data_addnew");
 	RNA_def_function_flag(func, FUNC_NO_SELF);
 	parm = RNA_def_string(func, "name", "GreasePencil", 0, "", "New name for the data-block");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	/* return type */
 	parm = RNA_def_pointer(func, "grease_pencil", "GreasePencil", "", "New grease pencil data-block");
 	RNA_def_function_return(func, parm);
@@ -1592,9 +1711,9 @@ void RNA_def_main_gpencil(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove a grease pencil instance from the current blendfile");
 	parm = RNA_def_pointer(func, "grease_pencil", "GreasePencil", "", "Grease Pencil to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-	RNA_def_boolean(func, "do_unlink", false, "", "Unlink all usages of this grease pencil before deleting it");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "", "Unlink all usages of this grease pencil before deleting it");
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -1615,15 +1734,15 @@ void RNA_def_main_movieclips(BlenderRNA *brna, PropertyRNA *cprop)
 
 	func = RNA_def_function(srna, "tag", "rna_Main_movieclips_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	func = RNA_def_function(srna, "remove", "rna_Main_ID_remove");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove a movie clip from the current blendfile.");
 	parm = RNA_def_pointer(func, "clip", "MovieClip", "", "Movie clip to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-	RNA_def_boolean(func, "do_unlink", false, "", "Unlink all usages of this movie clip before deleting it");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "", "Unlink all usages of this movie clip before deleting it");
 
 	/* load func */
 	func = RNA_def_function(srna, "load", "rna_Main_movieclip_load");
@@ -1633,7 +1752,7 @@ void RNA_def_main_movieclips(BlenderRNA *brna, PropertyRNA *cprop)
 	        "(while ``check_existing`` is disabled for consistency with other load functions, "
 	        "behavior with multiple movie-clips using the same file may incorrectly generate proxies)");
 	parm = RNA_def_string_file_path(func, "filepath", "Path", FILE_MAX, "", "path for the data-block");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	RNA_def_boolean(func, "check_existing", false, "", "Using existing data-block if this file is already loaded");
 	/* return type */
 	parm = RNA_def_pointer(func, "clip", "MovieClip", "", "New movie clip data-block");
@@ -1658,7 +1777,7 @@ void RNA_def_main_masks(BlenderRNA *brna, PropertyRNA *cprop)
 
 	func = RNA_def_function(srna, "tag", "rna_Main_masks_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	/* new func */
 	func = RNA_def_function(srna, "new", "rna_Main_mask_new");
@@ -1673,9 +1792,9 @@ void RNA_def_main_masks(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove a masks from the current blendfile.");
 	parm = RNA_def_pointer(func, "mask", "Mask", "", "Mask to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-	RNA_def_boolean(func, "do_unlink", false, "", "Unlink all usages of this mask before deleting it");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "", "Unlink all usages of this mask before deleting it");
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -1696,12 +1815,12 @@ void RNA_def_main_linestyles(BlenderRNA *brna, PropertyRNA *cprop)
 
 	func = RNA_def_function(srna, "tag", "rna_Main_linestyle_tag");
 	parm = RNA_def_boolean(func, "value", 0, "Value", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	func = RNA_def_function(srna, "new", "rna_Main_linestyles_new");
 	RNA_def_function_ui_description(func, "Add a new line style instance to the main database");
 	parm = RNA_def_string(func, "name", "FreestyleLineStyle", 0, "", "New name for the data-block");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	/* return type */
 	parm = RNA_def_pointer(func, "linestyle", "FreestyleLineStyle", "", "New line style data-block");
 	RNA_def_function_return(func, parm);
@@ -1710,13 +1829,73 @@ void RNA_def_main_linestyles(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Remove a line style instance from the current blendfile");
 	parm = RNA_def_pointer(func, "linestyle", "FreestyleLineStyle", "", "Line style to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-	RNA_def_boolean(func, "do_unlink", false, "", "Unlink all usages of this line style before deleting it");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "", "Unlink all usages of this line style before deleting it");
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_boolean_funcs(prop, "rna_Main_linestyle_is_updated_get", NULL);
+}
+
+void RNA_def_main_workspaces(BlenderRNA *brna, PropertyRNA *cprop)
+{
+	StructRNA *srna;
+	FunctionRNA *func;
+	PropertyRNA *parm;
+	PropertyRNA *prop;
+
+	RNA_def_property_srna(cprop, "BlendDataWorkSpaces");
+	srna = RNA_def_struct(brna, "BlendDataWorkSpaces", NULL);
+	RNA_def_struct_sdna(srna, "Main");
+	RNA_def_struct_ui_text(srna, "Main Workspaces", "Collection of workspaces");
+
+	func = RNA_def_function(srna, "tag", "rna_Main_workspaces_tag");
+	parm = RNA_def_boolean(func, "value", 0, "Value", "");
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+
+	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_boolean_funcs(prop, "rna_Main_workspaces_is_updated_get", NULL);
+}
+
+void RNA_def_main_lightprobes(BlenderRNA *brna, PropertyRNA *cprop)
+{
+	StructRNA *srna;
+	FunctionRNA *func;
+	PropertyRNA *parm;
+	PropertyRNA *prop;
+
+	RNA_def_property_srna(cprop, "BlendDataProbes");
+	srna = RNA_def_struct(brna, "BlendDataProbes", NULL);
+	RNA_def_struct_sdna(srna, "Main");
+	RNA_def_struct_ui_text(srna, "Main Light Probes", "Collection of light probes");
+
+	func = RNA_def_function(srna, "new", "rna_Main_lightprobe_new");
+	RNA_def_function_ui_description(func, "Add a new probe to the main database");
+	parm = RNA_def_string(func, "name", "Probe", 0, "", "New name for the data-block");
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+	/* return type */
+	parm = RNA_def_pointer(func, "lightprobe", "LightProbe", "", "New light probe data-block");
+	RNA_def_function_return(func, parm);
+
+	func = RNA_def_function(srna, "remove", "rna_Main_ID_remove");
+	RNA_def_function_flag(func, FUNC_USE_REPORTS);
+	RNA_def_function_ui_description(func, "Remove a probe from the current blendfile");
+	parm = RNA_def_pointer(func, "lightprobe", "LightProbe", "", "Probe to remove");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_boolean(func, "do_unlink", true, "",
+	                "Unlink all usages of this probe before deleting it "
+	                "(WARNING: will also delete objects instancing that light probe data)");
+
+	func = RNA_def_function(srna, "tag", "rna_Main_lightprobes_tag");
+	parm = RNA_def_boolean(func, "value", 0, "Value", "");
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+
+	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_boolean_funcs(prop, "rna_Main_lightprobes_is_updated_get", NULL);
 }
 
 #endif

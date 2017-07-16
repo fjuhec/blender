@@ -20,31 +20,31 @@
 #include <algorithm>
 #include <iterator>
 
-#include "node_xml.h"
+#include "graph/node_xml.h"
 
-#include "background.h"
-#include "camera.h"
-#include "film.h"
-#include "graph.h"
-#include "integrator.h"
-#include "light.h"
-#include "mesh.h"
-#include "nodes.h"
-#include "object.h"
-#include "osl.h"
-#include "shader.h"
-#include "scene.h"
+#include "render/background.h"
+#include "render/camera.h"
+#include "render/film.h"
+#include "render/graph.h"
+#include "render/integrator.h"
+#include "render/light.h"
+#include "render/mesh.h"
+#include "render/nodes.h"
+#include "render/object.h"
+#include "render/osl.h"
+#include "render/shader.h"
+#include "render/scene.h"
 
-#include "subd_patch.h"
-#include "subd_split.h"
+#include "subd/subd_patch.h"
+#include "subd/subd_split.h"
 
-#include "util_debug.h"
-#include "util_foreach.h"
-#include "util_path.h"
-#include "util_transform.h"
-#include "util_xml.h"
+#include "util/util_debug.h"
+#include "util/util_foreach.h"
+#include "util/util_path.h"
+#include "util/util_transform.h"
+#include "util/util_xml.h"
 
-#include "cycles_xml.h"
+#include "app/cycles_xml.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -57,14 +57,12 @@ struct XMLReadState : public XMLReader {
 	Shader *shader;		/* current shader */
 	string base;		/* base path to current file*/
 	float dicing_rate;	/* current dicing rate */
-	Mesh::DisplacementMethod displacement_method;
 
 	XMLReadState()
 	  : scene(NULL),
 	    smooth(false),
 	    shader(NULL),
-	    dicing_rate(0.0f),
-	    displacement_method(Mesh::DISPLACE_BUMP)
+	    dicing_rate(1.0f)
 	{
 		tfm = transform_identity();
 	}
@@ -199,6 +197,9 @@ static void xml_read_camera(XMLReadState& state, pugi::xml_node node)
 	xml_read_int(&cam->width, node, "width");
 	xml_read_int(&cam->height, node, "height");
 
+	cam->full_width = cam->width;
+	cam->full_height = cam->height;
+
 	xml_read_node(state, cam, node);
 
 	cam->matrix = state.tfm;
@@ -208,17 +209,6 @@ static void xml_read_camera(XMLReadState& state, pugi::xml_node node)
 }
 
 /* Shader */
-
-static string xml_socket_name(const char *name)
-{
-	string sname = name;
-	size_t i;
-
-	while((i = sname.find(" ")) != string::npos)
-		sname.replace(i, 1, "");
-	
-	return sname;
-}
 
 static void xml_read_shader_graph(XMLReadState& state, Shader *shader, pugi::xml_node graph_node)
 {
@@ -254,7 +244,7 @@ static void xml_read_shader_graph(XMLReadState& state, Shader *shader, pugi::xml
 					ShaderNode *fromnode = (ShaderNode*)graph_reader.node_map[from_node_name];
 
 					foreach(ShaderOutput *out, fromnode->outputs)
-						if(string_iequals(xml_socket_name(out->name().c_str()), from_socket_name.c_str()))
+						if(string_iequals(out->socket_type.name.string(), from_socket_name.string()))
 							output = out;
 
 					if(!output)
@@ -267,7 +257,7 @@ static void xml_read_shader_graph(XMLReadState& state, Shader *shader, pugi::xml
 					ShaderNode *tonode = (ShaderNode*)graph_reader.node_map[to_node_name];
 
 					foreach(ShaderInput *in, tonode->inputs)
-						if(string_iequals(xml_socket_name(in->name().c_str()), to_socket_name.c_str()))
+						if(string_iequals(in->socket_type.name.string(), to_socket_name.string()))
 							input = in;
 
 					if(!input)
@@ -405,9 +395,7 @@ static void xml_read_mesh(const XMLReadState& state, pugi::xml_node node)
 	int shader = 0;
 	bool smooth = state.smooth;
 
-	mesh->displacement_method = state.displacement_method;
-
-	/* read vertices and polygons, RIB style */
+	/* read vertices and polygons */
 	vector<float3> P;
 	vector<float> UV;
 	vector<int> verts, nverts;
@@ -416,53 +404,14 @@ static void xml_read_mesh(const XMLReadState& state, pugi::xml_node node)
 	xml_read_int_array(verts, node, "verts");
 	xml_read_int_array(nverts, node, "nverts");
 
-#if 0
 	if(xml_equal_string(node, "subdivision", "catmull-clark")) {
-		/* create subd mesh */
-		SubdMesh sdmesh;
-
-		/* create subd vertices */
-		for(size_t i = 0; i < P.size(); i++)
-			sdmesh.add_vert(P[i]);
-
-		/* create subd faces */
-		int index_offset = 0;
-
-		for(size_t i = 0; i < nverts.size(); i++) {
-			if(nverts[i] == 4) {
-				int v0 = verts[index_offset + 0];
-				int v1 = verts[index_offset + 1];
-				int v2 = verts[index_offset + 2];
-				int v3 = verts[index_offset + 3];
-
-				sdmesh.add_face(v0, v1, v2, v3);
-			}
-			else {
-				for(int j = 0; j < nverts[i]-2; j++) {
-					int v0 = verts[index_offset];
-					int v1 = verts[index_offset + j + 1];
-					int v2 = verts[index_offset + j + 2];
-
-					sdmesh.add_face(v0, v1, v2);
-				}
-			}
-
-			index_offset += nverts[i];
-		}
-
-		/* finalize subd mesh */
-		sdmesh.finish();
-
-		/* parameters */
-		SubdParams sdparams(mesh, shader, smooth);
-		xml_read_float(&sdparams.dicing_rate, node, "dicing_rate");
-
-		DiagSplit dsplit(sdparams);
-		sdmesh.tessellate(&dsplit);
+		mesh->subdivision_type = Mesh::SUBDIVISION_CATMULL_CLARK;
 	}
-	else
-#endif
-	{
+	else if(xml_equal_string(node, "subdivision", "linear")) {
+		mesh->subdivision_type = Mesh::SUBDIVISION_LINEAR;
+	}
+
+	if(mesh->subdivision_type == Mesh::SUBDIVISION_NONE) {
 		/* create vertices */
 		mesh->verts = P;
 
@@ -517,69 +466,66 @@ static void xml_read_mesh(const XMLReadState& state, pugi::xml_node node)
 			}
 		}
 	}
+	else {
+		/* create vertices */
+		mesh->verts = P;
 
-	/* temporary for test compatibility */
-	mesh->attributes.remove(ATTR_STD_VERTEX_NORMAL);
-}
-
-/* Patch */
-
-static void xml_read_patch(const XMLReadState& state, pugi::xml_node node)
-{
-	/* read patch */
-	Patch *patch = NULL;
-
-	vector<float3> P;
-	xml_read_float3_array(P, node, "P");
-
-	if(xml_equal_string(node, "type", "bilinear")) {
-		/* bilinear patch */
-		if(P.size() == 4) {
-			LinearQuadPatch *bpatch = new LinearQuadPatch();
-
-			for(int i = 0; i < 4; i++)
-				P[i] = transform_point(&state.tfm, P[i]);
-			memcpy(bpatch->hull, &P[0], sizeof(bpatch->hull));
-
-			patch = bpatch;
+		size_t num_ngons = 0;
+		size_t num_corners = 0;
+		for(size_t i = 0; i < nverts.size(); i++) {
+			num_ngons += (nverts[i] == 4) ? 0 : 1;
+			num_corners += nverts[i];
 		}
-		else
-			fprintf(stderr, "Invalid number of control points for bilinear patch.\n");
-	}
-	else if(xml_equal_string(node, "type", "bicubic")) {
-		/* bicubic patch */
-		if(P.size() == 16) {
-			BicubicPatch *bpatch = new BicubicPatch();
+		mesh->reserve_subd_faces(nverts.size(), num_ngons, num_corners);
 
-			for(int i = 0; i < 16; i++)
-				P[i] = transform_point(&state.tfm, P[i]);
-			memcpy(bpatch->hull, &P[0], sizeof(bpatch->hull));
+		/* create subd_faces */
+		int index_offset = 0;
 
-			patch = bpatch;
+		for(size_t i = 0; i < nverts.size(); i++) {
+			mesh->add_subd_face(&verts[index_offset], nverts[i], shader, smooth);
+			index_offset += nverts[i];
 		}
-		else
-			fprintf(stderr, "Invalid number of control points for bicubic patch.\n");
-	}
-	else
-		fprintf(stderr, "Unknown patch type.\n");
 
-	if(patch) {
-		/* add mesh */
-		Mesh *mesh = xml_add_mesh(state.scene, transform_identity());
+		/* uv map */
+		if(xml_read_float_array(UV, node, "UV")) {
+			ustring name = ustring("UVMap");
+			Attribute *attr = mesh->subd_attributes.add(ATTR_STD_UV, name);
+			float3 *fdata = attr->data_float3();
 
-		mesh->used_shaders.push_back(state.shader);
+#if 0
+			if(subdivide_uvs) {
+				attr->flags |= ATTR_SUBDIVIDED;
+			}
+#endif
 
-		/* split */
-		SubdParams sdparams(mesh);
+			index_offset = 0;
+			for(size_t i = 0; i < nverts.size(); i++) {
+				for(int j = 0; j < nverts[i]; j++) {
+					*(fdata++) = make_float3(UV[index_offset++]);
+				}
+			}
+		}
+
+		/* setup subd params */
+		if(!mesh->subd_params) {
+			mesh->subd_params = new SubdParams(mesh);
+		}
+		SubdParams& sdparams = *mesh->subd_params;
+
+		sdparams.dicing_rate = state.dicing_rate;
 		xml_read_float(&sdparams.dicing_rate, node, "dicing_rate");
+		sdparams.dicing_rate = std::max(0.1f, sdparams.dicing_rate);
 
-		DiagSplit dsplit(sdparams);
-		dsplit.split_quad(patch);
+		state.scene->camera->update();
+		sdparams.camera = state.scene->camera;
+		sdparams.objecttoworld = state.tfm;
+	}
 
-		delete patch;
-
-		/* temporary for test compatibility */
-		mesh->attributes.remove(ATTR_STD_VERTEX_NORMAL);
+	/* we don't yet support arbitrary attributes, for now add vertex
+	 * coordinates as generated coordinates if requested */
+	if(mesh->need_attribute(state.scene, ATTR_STD_GENERATED)) {
+		Attribute *attr = mesh->attributes.add(ATTR_STD_GENERATED);
+		memcpy(attr->data_float3(), mesh->verts.data(), sizeof(float3)*mesh->verts.size());
 	}
 }
 
@@ -653,14 +599,6 @@ static void xml_read_state(XMLReadState& state, pugi::xml_node node)
 		state.smooth = true;
 	else if(xml_equal_string(node, "interpolation", "flat"))
 		state.smooth = false;
-
-	/* read displacement method */
-	if(xml_equal_string(node, "displacement_method", "true"))
-		state.displacement_method = Mesh::DISPLACE_TRUE;
-	else if(xml_equal_string(node, "displacement_method", "bump"))
-		state.displacement_method = Mesh::DISPLACE_BUMP;
-	else if(xml_equal_string(node, "displacement_method", "both"))
-		state.displacement_method = Mesh::DISPLACE_BOTH;
 }
 
 /* Scene */
@@ -687,9 +625,6 @@ static void xml_read_scene(XMLReadState& state, pugi::xml_node scene_node)
 		}
 		else if(string_iequals(node.name(), "mesh")) {
 			xml_read_mesh(state, node);
-		}
-		else if(string_iequals(node.name(), "patch")) {
-			xml_read_patch(state, node);
 		}
 		else if(string_iequals(node.name(), "light")) {
 			xml_read_light(state, node);
@@ -751,7 +686,7 @@ void xml_read_file(Scene *scene, const char *filepath)
 	state.tfm = transform_identity();
 	state.shader = scene->default_surface;
 	state.smooth = false;
-	state.dicing_rate = 0.1f;
+	state.dicing_rate = 1.0f;
 	state.base = path_dirname(filepath);
 
 	xml_read_include(state, path_filename(filepath));

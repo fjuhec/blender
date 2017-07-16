@@ -64,7 +64,6 @@
 #include "BKE_camera.h"
 #include "BKE_context.h"
 #include "BKE_colortools.h"
-#include "BKE_depsgraph.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_idprop.h"
 #include "BKE_brush.h"
@@ -79,6 +78,8 @@
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_texture.h"
+
+#include "DEG_depsgraph.h"
 
 #include "UI_interface.h"
 
@@ -371,6 +372,8 @@ typedef struct ProjPaintState {
 	 */
 	const MLoopUV **dm_mloopuv;
 	const MLoopUV **dm_mloopuv_clone;    /* other UV map, use for cloning between layers */
+
+	bool use_colormanagement;
 } ProjPaintState;
 
 typedef union pixelPointer {
@@ -1623,7 +1626,12 @@ static ProjPixel *project_paint_uvpixel_init(
 						unsigned char rgba_ub[4];
 						float rgba[4];
 						project_face_pixel(lt_other_tri_uv, ibuf_other, w, rgba_ub, NULL);
-						srgb_to_linearrgb_uchar4(rgba, rgba_ub);
+						if (ps->use_colormanagement) {
+							srgb_to_linearrgb_uchar4(rgba, rgba_ub);
+						}
+						else {
+							rgba_uchar_to_float(rgba, rgba_ub);
+						}
 						straight_to_premul_v4_v4(((ProjPixelClone *)projPixel)->clonepx.f, rgba);
 					}
 				}
@@ -1632,7 +1640,12 @@ static ProjPixel *project_paint_uvpixel_init(
 						float rgba[4];
 						project_face_pixel(lt_other_tri_uv, ibuf_other, w, NULL, rgba);
 						premul_to_straight_v4(rgba);
-						linearrgb_to_srgb_uchar3(((ProjPixelClone *)projPixel)->clonepx.ch, rgba);
+						if (ps->use_colormanagement) {
+							linearrgb_to_srgb_uchar3(((ProjPixelClone *)projPixel)->clonepx.ch, rgba);
+						}
+						else {
+							rgb_float_to_uchar(((ProjPixelClone *)projPixel)->clonepx.ch, rgba);
+						}
 						((ProjPixelClone *)projPixel)->clonepx.ch[3] =  rgba[3] * 255;
 					}
 					else { /* char to char */
@@ -3475,7 +3488,7 @@ static void proj_paint_layer_clone_init(
 
 	/* use clone mtface? */
 	if (ps->do_layer_clone) {
-		const int layer_num = CustomData_get_clone_layer(&((Mesh *)ps->ob->data)->pdata, CD_MTEXPOLY);
+		const int layer_num = CustomData_get_clone_layer(&((Mesh *)ps->ob->data)->ldata, CD_MLOOPUV);
 
 		ps->dm_mloopuv_clone = MEM_mallocN(ps->dm_totpoly * sizeof(MLoopUV *), "proj_paint_mtfaces");
 
@@ -3700,8 +3713,12 @@ static void project_paint_prepare_all_faces(
 				}
 
 				/* don't allow using the same inage for painting and stencilling */
-				if (slot->ima == ps->stencil_ima)
+				if (slot->ima == ps->stencil_ima) {
+					/* While this shouldn't be used, face-winding reads all polys.
+					 * It's less trouble to set all faces to valid UV's, avoiding NULL checks all over. */
+					ps->dm_mloopuv[lt->poly] = mloopuv_base;
 					continue;
+				}
 				
 				tpage = slot->ima;
 			}
@@ -3834,7 +3851,7 @@ static void project_paint_begin(
 
 	if (ps->do_layer_stencil || ps->do_stencil_brush) {
 		//int layer_num = CustomData_get_stencil_layer(&ps->dm->loopData, CD_MLOOPUV);
-		int layer_num = CustomData_get_stencil_layer(&((Mesh *)ps->ob->data)->pdata, CD_MTEXPOLY);
+		int layer_num = CustomData_get_stencil_layer(&((Mesh *)ps->ob->data)->ldata, CD_MLOOPUV);
 		if (layer_num != -1)
 			ps->dm_mloopuv_stencil = CustomData_get_layer_n(&ps->dm->loopData, CD_MLOOPUV, layer_num);
 
@@ -3922,7 +3939,7 @@ static void project_paint_end(ProjPaintState *ps)
 		ProjPaintImage *projIma;
 		for (a = 0, projIma = ps->projImages; a < ps->image_tot; a++, projIma++) {
 			BKE_image_release_ibuf(projIma->ima, projIma->ibuf, NULL);
-			DAG_id_tag_update(&projIma->ima->id, 0);
+			DEG_id_tag_update(&projIma->ima->id, 0);
 		}
 	}
 
@@ -4359,7 +4376,12 @@ static void do_projectpaint_draw(
 	if (ps->is_texbrush) {
 		mul_v3_v3v3(rgb, texrgb, ps->paint_color_linear);
 		/* TODO(sergey): Support texture paint color space. */
-		linearrgb_to_srgb_v3_v3(rgb, rgb);
+		if (ps->use_colormanagement) {
+			linearrgb_to_srgb_v3_v3(rgb, rgb);
+		}
+		else {
+			copy_v3_v3(rgb, rgb);
+		}
 	}
 	else {
 		copy_v3_v3(rgb, ps->paint_color);
@@ -4957,11 +4979,21 @@ static void paint_proj_stroke_ps(
 	/* handle gradient and inverted stroke color here */
 	if (ps->tool == PAINT_TOOL_DRAW) {
 		paint_brush_color_get(scene, brush, false, ps->mode == BRUSH_STROKE_INVERT, distance, pressure,  ps->paint_color, NULL);
-		srgb_to_linearrgb_v3_v3(ps->paint_color_linear, ps->paint_color);
+		if (ps->use_colormanagement) {
+			srgb_to_linearrgb_v3_v3(ps->paint_color_linear, ps->paint_color);
+		}
+		else {
+			copy_v3_v3(ps->paint_color_linear, ps->paint_color);
+		}
 	}
 	else if (ps->tool == PAINT_TOOL_FILL) {
 		copy_v3_v3(ps->paint_color, BKE_brush_color_get(scene, brush));
-		srgb_to_linearrgb_v3_v3(ps->paint_color_linear, ps->paint_color);
+		if (ps->use_colormanagement) {
+			srgb_to_linearrgb_v3_v3(ps->paint_color_linear, ps->paint_color);
+		}
+		else {
+			copy_v3_v3(ps->paint_color_linear, ps->paint_color);
+		}
 	}
 	else if (ps->tool == PAINT_TOOL_MASK) {
 		ps->stencil_value = brush->weight;
@@ -4990,6 +5022,7 @@ void paint_proj_stroke(
 	/* clone gets special treatment here to avoid going through image initialization */
 	if (ps_handle->is_clone_cursor_pick) {
 		Scene *scene = ps_handle->scene;
+		struct Depsgraph *graph = CTX_data_depsgraph(C);
 		View3D *v3d = CTX_wm_view3d(C);
 		ARegion *ar = CTX_wm_region(C);
 		float *cursor = ED_view3d_cursor3d_get(scene, v3d);
@@ -4997,8 +5030,9 @@ void paint_proj_stroke(
 
 		view3d_operator_needs_opengl(C);
 
-		if (!ED_view3d_autodist(scene, ar, v3d, mval_i, cursor, false, NULL))
+		if (!ED_view3d_autodist(graph, ar, v3d, mval_i, cursor, false, NULL)) {
 			return;
+		}
 
 		ED_region_tag_redraw(ar);
 
@@ -5112,7 +5146,9 @@ static void project_state_init(bContext *C, Object *ob, ProjPaintState *ps, int 
 	ps->normal_angle_inner__cos = cosf(ps->normal_angle_inner);
 
 	ps->dither = settings->imapaint.dither;
-	
+
+	ps->use_colormanagement = BKE_scene_check_color_management_enabled(CTX_data_scene(C));
+
 	return;
 }
 
@@ -5174,7 +5210,7 @@ void *paint_proj_new_stroke(bContext *C, Object *ob, const float mouse[2], int m
 
 		project_state_init(C, ob, ps, mode);
 
-		if (ps->ob == NULL || !(ps->ob->lay & ps->v3d->lay)) {
+		if (ps->ob == NULL) {
 			ps_handle->ps_views_tot = i + 1;
 			goto fail;
 		}
@@ -5276,11 +5312,12 @@ static int texture_paint_camera_project_exec(bContext *C, wmOperator *op)
 {
 	Image *image = BLI_findlink(&CTX_data_main(C)->image, RNA_enum_get(op->ptr, "image"));
 	Scene *scene = CTX_data_scene(C);
+	SceneLayer *sl = CTX_data_scene_layer(C);
 	ProjPaintState ps = {NULL};
 	int orig_brush_size;
 	IDProperty *idgroup;
 	IDProperty *view_data = NULL;
-	Object *ob = OBACT;
+	Object *ob = OBACT_NEW;
 	bool uvs, mat, tex;
 
 	if (ob == NULL || ob->type != OB_MESH) {
@@ -5409,6 +5446,7 @@ static int texture_paint_image_from_view_exec(bContext *C, wmOperator *op)
 	char filename[FILE_MAX];
 
 	Scene *scene = CTX_data_scene(C);
+	SceneLayer *sl = CTX_data_scene_layer(C);
 	ToolSettings *settings = scene->toolsettings;
 	int w = settings->imapaint.screen_grab_size[0];
 	int h = settings->imapaint.screen_grab_size[1];
@@ -5423,7 +5461,7 @@ static int texture_paint_image_from_view_exec(bContext *C, wmOperator *op)
 	if (h > maxsize) h = maxsize;
 
 	ibuf = ED_view3d_draw_offscreen_imbuf(
-	        scene, CTX_wm_view3d(C), CTX_wm_region(C),
+	        scene, sl, CTX_wm_view3d(C), CTX_wm_region(C),
 	        w, h, IB_rect, false, R_ALPHAPREMUL, 0, false, NULL,
 	        NULL, NULL, err_out);
 	if (!ibuf) {
@@ -5557,7 +5595,7 @@ bool BKE_paint_proj_mesh_data_check(Scene *scene, Object *ob, bool *uvs, bool *m
 	}
 	
 	me = BKE_mesh_from_object(ob);
-	layernum = CustomData_number_of_layers(&me->pdata, CD_MTEXPOLY);
+	layernum = CustomData_number_of_layers(&me->ldata, CD_MLOOPUV);
 
 	if (layernum == 0) {
 		hasuvs = false;
@@ -5682,21 +5720,16 @@ static bool proj_paint_add_slot(bContext *C, wmOperator *op)
 			/* successful creation of mtex layer, now create set */
 			if (mtex) {
 				int type = MAP_COL;
-				int type_id = 0;
+				char imagename_buff[MAX_ID_NAME - 2];
+				const char *imagename = DATA_("Diffuse Color");
 
 				if (op) {
-					int i;
 					type = RNA_enum_get(op->ptr, "type");
-
-					for (i = 0; i < ARRAY_SIZE(layer_type_items); i++) {
-						if (layer_type_items[i].value == type) {
-							type_id = i;
-							break;
-						}
-					}
+					RNA_string_get(op->ptr, "name", imagename_buff);
+					imagename = imagename_buff;
 				}
 
-				mtex->tex = BKE_texture_add(bmain, DATA_(layer_type_items[type_id].name));
+				mtex->tex = BKE_texture_add(bmain, imagename);
 				mtex->mapto = type;
 
 				if (mtex->tex) {
@@ -5711,7 +5744,7 @@ static bool proj_paint_add_slot(bContext *C, wmOperator *op)
 			BKE_texpaint_slot_refresh_cache(scene, ma);
 			BKE_image_signal(ima, NULL, IMA_SIGNAL_USER_NEW_IMAGE);
 			WM_event_add_notifier(C, NC_IMAGE | NA_ADDED, ima);
-			DAG_id_tag_update(&ma->id, 0);
+			DEG_id_tag_update(&ma->id, 0);
 			ED_area_tag_redraw(CTX_wm_area(C));
 			
 			BKE_paint_proj_mesh_data_check(scene, ob, NULL, NULL, NULL, NULL);
@@ -5783,7 +5816,7 @@ void PAINT_OT_add_texture_paint_slot(wmOperatorType *ot)
 	/* properties */
 	prop = RNA_def_enum(ot->srna, "type", layer_type_items, 0, "Type", "Merge method to use");
 	RNA_def_property_flag(prop, PROP_HIDDEN);
-	RNA_def_string(ot->srna, "name", IMA_DEF_NAME, MAX_ID_NAME - 2, "Name", "Image datablock name");
+	RNA_def_string(ot->srna, "name", IMA_DEF_NAME, MAX_ID_NAME - 2, "Name", "Image data-block name");
 	prop = RNA_def_int(ot->srna, "width", 1024, 1, INT_MAX, "Width", "Image width", 1, 16384);
 	RNA_def_property_subtype(prop, PROP_PIXEL);
 	prop = RNA_def_int(ot->srna, "height", 1024, 1, INT_MAX, "Height", "Image height", 1, 16384);
@@ -5827,7 +5860,7 @@ static int texture_paint_delete_texture_paint_slot_exec(bContext *C, wmOperator 
 	ma->mtex[slot->index] = NULL;
 	
 	BKE_texpaint_slot_refresh_cache(scene, ma);
-	DAG_id_tag_update(&ma->id, 0);
+	DEG_id_tag_update(&ma->id, 0);
 	WM_event_add_notifier(C, NC_MATERIAL, ma);
 	/* we need a notifier for data change since we change the displayed modifier uvs */
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, ob->data);
@@ -5885,7 +5918,7 @@ static int add_simple_uvs_exec(bContext *C, wmOperator *UNUSED(op))
 
 	BKE_paint_proj_mesh_data_check(scene, ob, NULL, NULL, NULL, NULL);
 	
-	DAG_id_tag_update(ob->data, 0);
+	DEG_id_tag_update(ob->data, 0);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, ob->data);
 	WM_event_add_notifier(C, NC_SCENE | ND_TOOLSETTINGS, scene);
 	return OPERATOR_FINISHED;

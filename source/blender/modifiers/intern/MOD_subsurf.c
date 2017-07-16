@@ -46,9 +46,11 @@
 
 
 #include "BKE_cdderivedmesh.h"
-#include "BKE_depsgraph.h"
 #include "BKE_scene.h"
 #include "BKE_subsurf.h"
+
+#include "DEG_depsgraph.h"
+#include "DEG_depsgraph_query.h"
 
 #include "MOD_modifiertypes.h"
 
@@ -130,7 +132,11 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 		if (U.opensubdiv_compute_type == USER_OPENSUBDIV_COMPUTE_NONE) {
 			modifier_setError(md, "OpenSubdiv is disabled in User Preferences");
 		}
-		else if ((DAG_get_eval_flags_for_object(md->scene, ob) & DAG_EVAL_NEED_CPU) == 0) {
+		else if ((ob->mode & (OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT | OB_MODE_TEXTURE_PAINT)) != 0) {
+			modifier_setError(md, "OpenSubdiv is not supported in paint modes");
+		}
+		/* TODO(sergey): How do we get depsgraph here? */
+		else if ((DEG_get_eval_flags_for_id(md->scene->depsgraph_legacy, &ob->id) & DAG_EVAL_NEED_CPU) == 0) {
 			subsurf_flags |= SUBSURF_USE_GPU_BACKEND;
 			do_cddm_convert = false;
 		}
@@ -143,11 +149,15 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 	result = subsurf_make_derived_from_derived(derivedData, smd, NULL, subsurf_flags);
 	result->cd_flag = derivedData->cd_flag;
 
-	if (do_cddm_convert) {
+	{
 		DerivedMesh *cddm = CDDM_copy(result);
 		result->release(result);
 		result = cddm;
 	}
+
+#ifndef WITH_OPESUBDIV
+	(void) do_cddm_convert;
+#endif
 
 	return result;
 }
@@ -208,7 +218,6 @@ ModifierTypeInfo modifierType_Subsurf = {
 	/* requiredDataMask */  NULL,
 	/* freeData */          freeData,
 	/* isDisabled */        isDisabled,
-	/* updateDepgraph */    NULL,
 	/* updateDepsgraph */   NULL,
 	/* dependsOnTime */     NULL,
 	/* dependsOnNormals */	dependsOnNormals,
