@@ -114,6 +114,7 @@ set(SRC
 	intern/MOD_weightvg_util.h
 
 	intern/MOD_gpencilnoise.c
+	intern/MOD_gpencilsubdiv.c
 )
 
 if(WITH_ALEMBIC)

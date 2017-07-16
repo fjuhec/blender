@@ -290,5 +290,6 @@ void modifier_type_init(ModifierTypeInfo *types[])
 	INIT_TYPE(SurfaceDeform);
 
 	INIT_TYPE(GpencilNoise);
+	INIT_TYPE(GpencilSubdiv);
 #undef INIT_TYPE
 }

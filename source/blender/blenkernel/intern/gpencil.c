@@ -1640,6 +1640,73 @@ void ED_gpencil_noise_modifier(GpencilNoiseModifierData *mmd, bGPDlayer *gpl, bG
 	}
 }
 
+/* subdivide stroke to get more control points */
+void ED_gpencil_subdiv_modifier(GpencilSubdivModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
+{
+	bGPDspoint *temp_points;
+	int totnewpoints, oldtotpoints;
+	int i2;
+
+	if (gps->totpoints < 2) {
+		return;
+	}
+	/* omit if filter by layer */
+	if (mmd->layername[0] != '\0') {
+		if (!STREQ(mmd->layername, gpl->info)) {
+			return;
+		}
+	}
+	/* verify pass */
+	if (gps->palcolor->index != mmd->passindex) {
+		return;
+	}
+
+	/* loop as many times as levels */
+	for (int s = 0; s < mmd->level; s++) {
+		totnewpoints = gps->totpoints - 1;
+		/* duplicate points in a temp area */
+		temp_points = MEM_dupallocN(gps->points);
+		oldtotpoints = gps->totpoints;
+
+		/* resize the points arrys */
+		gps->totpoints += totnewpoints;
+		gps->points = MEM_recallocN(gps->points, sizeof(*gps->points) * gps->totpoints);
+		gps->flag |= GP_STROKE_RECALC_CACHES;
+
+		/* move points from last to first to new place */
+		i2 = gps->totpoints - 1;
+		for (int i = oldtotpoints - 1; i > 0; i--) {
+			bGPDspoint *pt = &temp_points[i];
+			bGPDspoint *pt_final = &gps->points[i2];
+
+			copy_v3_v3(&pt_final->x, &pt->x);
+			pt_final->pressure = pt->pressure;
+			pt_final->strength = pt->strength;
+			pt_final->time = pt->time;
+			pt_final->flag = pt->flag;
+			i2 -= 2;
+		}
+		/* interpolate mid points */
+		i2 = 1;
+		for (int i = 0; i < oldtotpoints - 1; i++) {
+			bGPDspoint *pt = &temp_points[i];
+			bGPDspoint *next = &temp_points[i + 1];
+			bGPDspoint *pt_final = &gps->points[i2];
+
+			/* add a half way point */
+			interp_v3_v3v3(&pt_final->x, &pt->x, &next->x, 0.5f);
+			pt_final->pressure = interpf(pt->pressure, next->pressure, 0.5f);
+			pt_final->strength = interpf(pt->strength, next->strength, 0.5f);
+			CLAMP(pt_final->strength, GPENCIL_STRENGTH_MIN, 1.0f);
+			pt_final->time = interpf(pt->time, next->time, 0.5f);
+			i2 += 2;
+		}
+
+		/* free temp memory */
+		MEM_SAFE_FREE(temp_points);
+	}
+}
+
 /* apply stroke modifiers */
 void ED_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
 {
@@ -1649,9 +1716,13 @@ void ED_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
 		if (((md->mode & eModifierMode_Realtime) && ((G.f & G_RENDER_OGL) == 0)) ||
 			((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL))) {
 			switch (md->type) {
-				// Noise Modifier
+			// Noise Modifier
 			case eModifierType_GpencilNoise:
 				ED_gpencil_noise_modifier((GpencilNoiseModifierData *)md, gpl, gps);
+				break;
+				// Noise Modifier
+			case eModifierType_GpencilSubdiv:
+				ED_gpencil_subdiv_modifier((GpencilSubdivModifierData *)md, gpl, gps);
 				break;
 			default:
 				break;

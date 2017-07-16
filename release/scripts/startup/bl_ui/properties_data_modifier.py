@@ -1549,6 +1549,19 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop(md, "affect_strength", text="Strength", icon='COLOR', toggle=True)
         row.prop(md, "affect_thickness", text="Thickness", icon='LINE_DATA', toggle=True)
 
+    def GP_SUBDIV(self, layout, ob, md):
+        gpd = ob.grease_pencil
+        split = layout.split()
+
+        col = split.column()
+        row = col.row(align=True)
+        row.prop(md, "level")
+        col.prop(md, "passindex", text="Pass")
+
+        col = split.column()
+        col.label("Layer:")
+        col.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+
 classes = (
     DATA_PT_modifiers,
 )

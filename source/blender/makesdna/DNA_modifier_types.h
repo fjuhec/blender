@@ -88,6 +88,7 @@ typedef enum ModifierType {
 	eModifierType_MeshSequenceCache = 52,
 	eModifierType_SurfaceDeform     = 53,
 	eModifierType_GpencilNoise      = 54,
+	eModifierType_GpencilSubdiv     = 55,
 	NUM_MODIFIER_TYPES
 } ModifierType;
 
@@ -1622,12 +1623,22 @@ typedef struct GpencilNoiseModifierData {
 	char pad[4];
 } GpencilNoiseModifierData;
 
-typedef enum eGpencilNoise_Flag {
+typedef enum eGpencilSubdiv_Flag {
 	GP_NOISE_USE_RANDOM     = (1 << 0),
 	GP_NOISE_MOD_LOCATION   = (1 << 1),
 	GP_NOISE_MOD_STRENGTH   = (1 << 2),
 	GP_NOISE_MOD_THICKNESS  = (1 << 3),
-} eGpencilNoise_Flag;
+} eGpencilSubdiv_Flag;
+
+
+typedef struct GpencilSubdivModifierData {
+	ModifierData modifier;
+	char layername[64];          /* layer name */
+	int passindex;               /* custom index for passes */
+	int flag;                    /* flags */
+	int level;                   /* factor of subdivision */
+	char pad[4];
+} GpencilSubdivModifierData;
 
 #define MOD_MESHSEQ_READ_ALL \
 	(MOD_MESHSEQ_READ_VERT | MOD_MESHSEQ_READ_POLY | MOD_MESHSEQ_READ_UV | MOD_MESHSEQ_READ_COLOR)
