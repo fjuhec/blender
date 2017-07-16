@@ -1616,12 +1616,18 @@ enum {
 typedef struct GpencilNoiseModifierData {
 	ModifierData modifier;
 	char layername[64];          /* layer name */
-	char colorname[64];          /* color name */
 	int passindex;               /* custom index for passes */
-	int seed;                    /* random seed */
+	int flag;                    /* several flags */
 	float factor;                /* factor of noise */
 	char pad[4];
 } GpencilNoiseModifierData;
+
+typedef enum eGpencilNoise_Flag {
+	GP_NOISE_USE_RANDOM     = (1 << 0),
+	GP_NOISE_MOD_LOCATION   = (1 << 1),
+	GP_NOISE_MOD_STRENGTH   = (1 << 2),
+	GP_NOISE_MOD_THICKNESS  = (1 << 3),
+} eGpencilNoise_Flag;
 
 #define MOD_MESHSEQ_READ_ALL \
 	(MOD_MESHSEQ_READ_VERT | MOD_MESHSEQ_READ_POLY | MOD_MESHSEQ_READ_UV | MOD_MESHSEQ_READ_COLOR)

@@ -31,18 +31,25 @@
 #include <stdio.h>
 
 #include "DNA_scene_types.h"
+#include "DNA_object_types.h"
+#include "DNA_gpencil_types.h"
 
 #include "BLI_utildefines.h"
+#include "BKE_DerivedMesh.h"
+#include "BKE_gpencil.h"
 
 #include "MOD_modifiertypes.h"
+#include "BKE_gpencil.h"
 
 static void initData(ModifierData *md)
 {
 	GpencilNoiseModifierData *gpmd = (GpencilNoiseModifierData *)md;
 	gpmd->passindex = 0;
-	gpmd->seed = 1;     
+	gpmd->flag |= GP_NOISE_MOD_LOCATION;
 	gpmd->factor = 0.5f;
+	gpmd->layername[0] = '\0';
 
+	BKE_gpencil_batch_cache_alldirty();
 }
 
 static void copyData(ModifierData *md, ModifierData *target)
@@ -51,6 +58,28 @@ static void copyData(ModifierData *md, ModifierData *target)
 	GpencilNoiseModifierData *tsmd = (GpencilNoiseModifierData *)target;
 
 	modifier_copyData_generic(md, target);
+}
+
+static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
+	DerivedMesh *UNUSED(dm),
+	ModifierApplyFlag UNUSED(flag))
+{
+	GpencilNoiseModifierData *mmd = (GpencilNoiseModifierData *)md;
+	bGPdata *gpd;
+	if ((!ob) || (!ob->gpd)) {
+		return;
+	}
+	gpd = ob->gpd;
+
+	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+				ED_gpencil_noise_modifier((GpencilNoiseModifierData *)md, gpl, gps);
+			}
+		}
+	}
+
+	return NULL;
 }
 
 ModifierTypeInfo modifierType_GpencilNoise = {
@@ -65,7 +94,7 @@ ModifierTypeInfo modifierType_GpencilNoise = {
 	/* deformMatrices */    NULL,
 	/* deformVertsEM */     NULL,
 	/* deformMatricesEM */  NULL,
-	/* applyModifier */     NULL,
+	/* applyModifier */     applyModifier,
 	/* applyModifierEM */   NULL,
 	/* initData */          initData,
 	/* requiredDataMask */  NULL,

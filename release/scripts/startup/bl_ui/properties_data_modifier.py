@@ -1533,12 +1533,21 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         split = layout.split()
 
         col = split.column()
-        col.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+        row = col.row(align=True)
+        row.prop(md, "factor")
+        row.prop(md, "random", text="", icon="TIME", toggle=True)
         col.prop(md, "passindex", text="Pass")
 
         col = split.column()
-        col.prop(md, "factor")
-        col.prop(md, "seed", text="Seed")
+        col.label("Layer:")
+        col.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+
+        row = layout.row(align=True)
+        row.label("Affect:")
+        row = layout.row(align=True)
+        row.prop(md, "affect_position", text="Position", icon='MESH_DATA', toggle=True)
+        row.prop(md, "affect_strength", text="Strength", icon='COLOR', toggle=True)
+        row.prop(md, "affect_thickness", text="Thickness", icon='LINE_DATA', toggle=True)
 
 classes = (
     DATA_PT_modifiers,

@@ -43,6 +43,7 @@ struct Main;
 struct PaletteColor;
 struct BoundBox;
 struct Object;
+struct GpencilNoiseModifierData;
 
 /* ------------ Grease-Pencil API ------------------ */
 
@@ -130,5 +131,9 @@ void BKE_gpencil_palettecolor_delete_allstrokes(struct PaletteColor *palcolor);
 
 /* object boundbox */
 struct BoundBox *BKE_gpencil_boundbox_get(struct Object *ob);
+
+/* modifiers */
+void ED_gpencil_stroke_modifiers(struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
+void ED_gpencil_noise_modifier(struct GpencilNoiseModifierData *mmd, struct bGPDlayer *gpl, struct bGPDstroke *gps);
 
 #endif /*  __BKE_GPENCIL_H__ */

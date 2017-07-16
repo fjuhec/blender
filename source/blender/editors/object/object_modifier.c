@@ -73,6 +73,7 @@
 #include "BKE_particle.h"
 #include "BKE_softbody.h"
 #include "BKE_editmesh.h"
+#include "BKE_gpencil.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
@@ -327,6 +328,11 @@ static bool object_modifier_remove(Main *bmain, Object *ob, ModifierData *md,
 	BLI_remlink(&ob->modifiers, md);
 	modifier_free(md);
 	BKE_object_free_derived_caches(ob);
+
+	/* if grease pencil, need refresh cache */
+	if (ob->type == OB_GPENCIL) {
+		BKE_gpencil_batch_cache_dirty(ob->gpd);
+	}
 
 	return 1;
 }
@@ -647,6 +653,10 @@ static int modifier_apply_obdata(ReportList *reports, Scene *scene, Object *ob, 
 
 		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	}
+	else if (ELEM(ob->type, OB_GPENCIL)) {
+		mti->applyModifier(md, ob, NULL, 0);
+		return 1;
+	}
 	else {
 		BKE_report(reports, RPT_ERROR, "Cannot apply modifier for this object type");
 		return 0;
@@ -676,6 +686,13 @@ int ED_object_modifier_apply(ReportList *reports, Scene *scene, Object *ob, Modi
 	if (scene->obedit) {
 		BKE_report(reports, RPT_ERROR, "Modifiers cannot be applied in edit mode");
 		return 0;
+	}
+	else if (ob->type == OB_GPENCIL) {
+		modifier_apply_obdata(reports, scene, ob, md);
+		BLI_remlink(&ob->modifiers, md);
+		modifier_free(md);
+		BKE_object_free_derived_caches(ob);
+		return 1;
 	}
 	else if (((ID *) ob->data)->us > 1) {
 		BKE_report(reports, RPT_ERROR, "Modifiers cannot be applied to multi-user data");

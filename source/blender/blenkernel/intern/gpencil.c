@@ -40,6 +40,7 @@
 #include "BLI_utildefines.h"
 #include "BLI_math_vector.h"
 #include "BLI_string_utils.h"
+#include "BLI_rand.h"
 
 #include "BLT_translation.h"
 
@@ -48,6 +49,7 @@
 #include "DNA_userdef_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_object_types.h"
+#include "DNA_modifier_types.h"
 
 #include "BKE_action.h"
 #include "BKE_animsys.h"
@@ -64,14 +66,14 @@ void(*BKE_gpencil_batch_cache_free_cb)(bGPdata *gpd) = NULL;
 
 void BKE_gpencil_batch_cache_dirty(bGPdata *gpd)
 {
-	if (gpd->batch_cache) {
+	if ((gpd) && (gpd->batch_cache)) {
 		BKE_gpencil_batch_cache_dirty_cb(gpd);
 	}
 }
 
 void BKE_gpencil_batch_cache_free(bGPdata *gpd)
 {
-	if (gpd->batch_cache) {
+	if ((gpd) && (gpd->batch_cache)) {
 		BKE_gpencil_batch_cache_free_cb(gpd);
 	}
 }
@@ -1540,4 +1542,139 @@ BoundBox *BKE_gpencil_boundbox_get(Object *ob)
 	boundbox_gpencil(ob);
 
 	return ob->bb;
+}
+
+/********************  Modifiers **********************************/
+/* calculate stroke normal using some points */
+static void ED_gpencil_stroke_normal(const bGPDstroke *gps, float r_normal[3])
+{
+	if (gps->totpoints < 3) {
+		zero_v3(r_normal);
+		return;
+	}
+
+	bGPDspoint *points = gps->points;
+	int totpoints = gps->totpoints;
+
+	const bGPDspoint *pt0 = &points[0];
+	const bGPDspoint *pt1 = &points[1];
+	const bGPDspoint *pt3 = &points[(int)(totpoints * 0.75)];
+
+	float vec1[3];
+	float vec2[3];
+
+	/* initial vector (p0 -> p1) */
+	sub_v3_v3v3(vec1, &pt1->x, &pt0->x);
+
+	/* point vector at 3/4 */
+	sub_v3_v3v3(vec2, &pt3->x, &pt0->x);
+
+	/* vector orthogonal to polygon plane */
+	cross_v3_v3v3(r_normal, vec1, vec2);
+
+	/* Normalize vector */
+	normalize_v3(r_normal);
+}
+
+/* calculate a noise base on stroke direction */
+void ED_gpencil_noise_modifier(GpencilNoiseModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
+{
+	bGPDspoint *pt0, *pt1;
+	float shift, vran, vdir;
+	float normal[3];
+	float vec1[3], vec2[3];
+
+	/* Need three points or more */
+	if (gps->totpoints < 3) {
+		return;
+	}
+	/* omit if filter by layer */
+	if (mmd->layername[0] != '\0') {
+		if (!STREQ(mmd->layername, gpl->info)) {
+			return;
+		}
+	}
+	/* verify pass */
+	if (gps->palcolor->index != mmd->passindex) {
+		return;
+	}
+
+	/* calculate stroke normal*/
+	ED_gpencil_stroke_normal(gps, normal);
+
+	/* move points (starting in point 2) */
+	for (int i = 1; i < gps->totpoints - 1; i++) {
+		pt0 = &gps->points[i - 1];
+		pt1 = &gps->points[i];
+		/* initial vector (p0 -> p1) */
+		sub_v3_v3v3(vec1, &pt1->x, &pt0->x);
+		vran = len_v3(vec1);
+		/* vector orthogonal to normal */
+		cross_v3_v3v3(vec2, vec1, normal);
+		normalize_v3(vec2);
+		/* use random noise */
+		if (mmd->flag & GP_NOISE_USE_RANDOM) {
+			vran = BLI_frand();
+			vdir = BLI_frand();
+		}
+		else {
+			vran = 1.0f;
+			vdir = i % 2;
+		}
+
+		/* apply randomness to location of the point */
+		if (mmd->flag & GP_NOISE_MOD_LOCATION) {
+			/* factor is too sensitive, so need divide */
+			shift = vran * mmd->factor / 10.0f;
+			if (vdir > 0.5f) {
+				mul_v3_fl(vec2, shift);
+			}
+			else {
+				mul_v3_fl(vec2, shift * -1.0f);
+			}
+			add_v3_v3(&pt1->x, vec2);
+		}
+
+		/* apply randomness to thickness */
+		if (mmd->flag & GP_NOISE_MOD_THICKNESS) {
+			if (vdir > 0.5f) {
+				pt1->pressure -= pt1->pressure * vran * mmd->factor;
+			}
+			else {
+				pt1->pressure += pt1->pressure * vran * mmd->factor;;
+			}
+			CLAMP_MIN(pt1->pressure, GPENCIL_STRENGTH_MIN);
+		}
+
+		/* apply randomness to color strength */
+		if (mmd->flag & GP_NOISE_MOD_STRENGTH) {
+			if (vdir > 0.5f) {
+				pt1->strength -= pt1->strength * vran * mmd->factor;
+			}
+			else {
+				pt1->strength += pt1->strength * vran * mmd->factor;
+			}
+			CLAMP_MIN(pt1->strength, GPENCIL_STRENGTH_MIN);
+		}
+	}
+}
+
+/* apply stroke modifiers */
+void ED_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
+{
+	ModifierData *md;
+
+	for (md = ob->modifiers.first; md; md = md->next) {
+		if (((md->mode & eModifierMode_Realtime) && ((G.f & G_RENDER_OGL) == 0)) ||
+			((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL))) {
+			switch (md->type) {
+				// Noise Modifier
+			case eModifierType_GpencilNoise:
+				ED_gpencil_noise_modifier((GpencilNoiseModifierData *)md, gpl, gps);
+				break;
+			default:
+				break;
+			}
+		}
+	}
 }

@@ -461,6 +461,10 @@ static char *rna_Modifier_path(PointerRNA *ptr)
 static void rna_Modifier_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
 {
 	DEG_id_tag_update(ptr->id.data, OB_RECALC_DATA);
+	/* update grease pencil cache. This could be moved to desgraph, but it has no sense to
+	 * repeat this process in any blender area, when only is needed here. This approach can be less
+	 * cleaner, but faster.
+	 */
 	Object *obj = (Object *)ptr->id.data;
 	if ((obj) && (obj->type == OB_GPENCIL)) {
 		if (obj->gpd) {
@@ -4775,26 +4779,35 @@ static void rna_def_modifier_gpencilnoise(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Layer", "Layer name");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
-	prop = RNA_def_property(srna, "color", PROP_STRING, PROP_NONE);
-	RNA_def_property_string_sdna(prop, NULL, "colorname");
-	RNA_def_property_ui_text(prop, "Color", "Color name");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
 	prop = RNA_def_property(srna, "factor", PROP_FLOAT, PROP_TIME);
 	RNA_def_property_float_sdna(prop, NULL, "factor");
 	RNA_def_property_range(prop, 0, 30.0);
 	RNA_def_property_ui_text(prop, "Factor", "Amount of noise to apply");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
-	prop = RNA_def_property(srna, "seed", PROP_INT, PROP_NONE);
-	RNA_def_property_int_sdna(prop, NULL, "seed");
-	RNA_def_property_range(prop, 1, 10);
-	RNA_def_property_ui_text(prop, "Seed", "Seed for random");
+	prop = RNA_def_property(srna, "random", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_NOISE_USE_RANDOM);
+	RNA_def_property_ui_text(prop, "Random", "Use random values");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "affect_position", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_NOISE_MOD_LOCATION);
+	RNA_def_property_ui_text(prop, "Affect Position", "The modifier affects the position of the point");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "affect_strength", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_NOISE_MOD_STRENGTH);
+	RNA_def_property_ui_text(prop, "Affect Strength", "The modifier affects the color strength of the point");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "affect_thickness", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_NOISE_MOD_THICKNESS);
+	RNA_def_property_ui_text(prop, "Affect Thickness", "The modifier affects the thickness of the point");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
 	prop = RNA_def_property(srna, "passindex", PROP_INT, PROP_NONE);
 	RNA_def_property_int_sdna(prop, NULL, "passindex");
-	RNA_def_property_range(prop, 1, 100);
+	RNA_def_property_range(prop, 0, 100);
 	RNA_def_property_ui_text(prop, "Pass", "Pass index");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }

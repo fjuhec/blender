@@ -1443,34 +1443,3 @@ void ED_gpencil_toggle_brush_cursor(bContext *C, bool enable)
 			gp_brush_drawcursor, NULL);
 	}
 }
-
-/* calculate stroke normal using some points */
-void ED_gpencil_stroke_normal(const bGPDstroke *gps, float r_normal[3])
-{
-	if (gps->totpoints < 3) {
-		zero_v3(r_normal);
-		return;
-	}
-
-	bGPDspoint *points = gps->points;
-	int totpoints = gps->totpoints;
-
-	const bGPDspoint *pt0 = &points[0];
-	const bGPDspoint *pt1 = &points[1];
-	const bGPDspoint *pt3 = &points[(int)(totpoints * 0.75)];
-
-	float vec1[3];
-	float vec2[3];
-
-	/* initial vector (p0 -> p1) */
-	sub_v3_v3v3(vec1, &pt1->x, &pt0->x);
-
-	/* point vector at 3/4 */
-	sub_v3_v3v3(vec2, &pt3->x, &pt0->x);
-
-	/* vector orthogonal to polygon plane */
-	cross_v3_v3v3(r_normal, vec1, vec2);
-
-	/* Normalize vector */
-	normalize_v3(r_normal);
-}

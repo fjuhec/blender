@@ -29,6 +29,7 @@
 #include "GPU_batch.h"
 
 struct tGPspoint;
+struct ModifierData;
 
  /* TODO: these could be system parameter in userprefs screen */
 #define GPENCIL_CACHE_BLOCK_SIZE 8 
@@ -180,7 +181,5 @@ bool gpencil_can_draw_stroke(const struct bGPDstroke *gps, const bool onion);
 
 struct tGPencilObjectCache *gpencil_object_cache_allocate(struct tGPencilObjectCache *cache, int *gp_cache_size, int *gp_cache_used);
 void gpencil_object_cache_add(struct tGPencilObjectCache *cache, struct Object *ob, int *gp_cache_used);
-
-void ED_gpencil_apply_modifiers(struct Object *ob, struct bGPDstroke *gps);
 
 #endif /* __GPENCIL_ENGINE_H__ */

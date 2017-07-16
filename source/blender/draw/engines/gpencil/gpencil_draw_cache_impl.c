@@ -502,6 +502,7 @@ static void gpencil_add_stroke_shgroup(GpencilBatchCache *cache, DRWShadingGroup
 {
 	float tcolor[4];
 	float ink[4];
+	bool is_edit = (bool)(gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE));
 
 	/* set color using palette, tint color and opacity */
 	if (!onion) {
@@ -523,11 +524,12 @@ static void gpencil_add_stroke_shgroup(GpencilBatchCache *cache, DRWShadingGroup
 		if (cache->is_dirty) {
 			/* apply modifiers */
 			bGPDstroke *gps_mod;
-			if (ob->modifiers.first) {
+			if ((ob->modifiers.first) && (!is_edit)) {
+			//if (ob->modifiers.first) {
 				gps_mod = MEM_dupallocN(gps);
 				gps_mod->points = MEM_dupallocN(gps->points);
 				gps_mod->triangles = MEM_dupallocN(gps->triangles);
-				ED_gpencil_apply_modifiers(ob, gps_mod);
+				ED_gpencil_stroke_modifiers(ob, gpl, gps_mod);
 			}
 			else {
 				gps_mod = gps;
@@ -541,7 +543,7 @@ static void gpencil_add_stroke_shgroup(GpencilBatchCache *cache, DRWShadingGroup
 			}
 
 			/* free modifier temp data */
-			if (ob->modifiers.first) {
+			if ((ob->modifiers.first) && (!is_edit)) {
 				MEM_SAFE_FREE(gps_mod->triangles);
 				MEM_SAFE_FREE(gps_mod->points);
 				MEM_SAFE_FREE(gps_mod);
