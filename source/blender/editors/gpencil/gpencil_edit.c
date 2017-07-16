@@ -177,6 +177,8 @@ static int gpencil_editmode_toggle_exec(bContext *C, wmOperator *op)
 	BKE_workspace_object_mode_set(workspace, mode);
 	/* setup other modes */
 	gpencil_setup_modes(C, gpd, mode);
+	/* set cache as dirty */
+	BKE_gpencil_batch_cache_dirty(gpd);
 
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | ND_GPENCIL_EDITMODE, NULL);
 	WM_event_add_notifier(C, NC_SCENE | ND_MODE, NULL);
@@ -254,6 +256,8 @@ static int gpencil_paintmode_toggle_exec(bContext *C, wmOperator *op)
 	BKE_workspace_object_mode_set(workspace, mode);
 	/* setup other modes */
 	gpencil_setup_modes(C, gpd, mode);
+	/* set cache as dirty */
+	BKE_gpencil_batch_cache_dirty(gpd);
 
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | ND_GPENCIL_EDITMODE, NULL);
 	WM_event_add_notifier(C, NC_SCENE | ND_MODE, NULL);
@@ -331,6 +335,8 @@ static int gpencil_sculptmode_toggle_exec(bContext *C, wmOperator *op)
 	BKE_workspace_object_mode_set(workspace, mode);
 	/* setup other modes */
 	gpencil_setup_modes(C, gpd, mode);
+	/* set cache as dirty */
+	BKE_gpencil_batch_cache_dirty(gpd);
 
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | ND_GPENCIL_EDITMODE, NULL);
 	WM_event_add_notifier(C, NC_SCENE | ND_MODE, NULL);
