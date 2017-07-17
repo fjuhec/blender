@@ -4757,7 +4757,7 @@ void BKE_constraints_copy_ex(ListBase *dst, const ListBase *src, const int flag,
 				cti->copy_data(con, srccon);
 
 			/* Fix usercounts for all referenced data that need it. */
-			if (cti->id_looper && (flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
+			if (cti->id_looper && (flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
 				cti->id_looper(con, con_fix_copied_refs_cb, NULL);
 			}
 

@@ -119,7 +119,7 @@ FreestyleLineStyle *BKE_linestyle_new(struct Main *bmain, const char *name)
 {
 	FreestyleLineStyle *linestyle;
 
-	linestyle = (FreestyleLineStyle *)BKE_libblock_alloc(bmain, ID_LS, name);
+	linestyle = (FreestyleLineStyle *)BKE_libblock_alloc(bmain, ID_LS, name, 0);
 
 	BKE_linestyle_init(linestyle);
 
@@ -167,7 +167,7 @@ void BKE_linestyle_copy_data(
         struct Main *bmain, FreestyleLineStyle *linestyle_dst, const FreestyleLineStyle *linestyle_src, const int flag)
 {
 	/* We never handle usercount here for own data. */
-	const int flag_subdata = flag | LIB_ID_COPY_NO_USER_REFCOUNT;
+	const int flag_subdata = flag | LIB_ID_CREATE_NO_USER_REFCOUNT;
 
 	for (int a = 0; a < MAX_MTEX; a++) {
 		if (linestyle_src->mtex[a]) {
@@ -371,7 +371,7 @@ LineStyleModifier *BKE_linestyle_color_modifier_copy(
 			LineStyleColorModifier_DistanceFromObject *p = (LineStyleColorModifier_DistanceFromObject *)m;
 			LineStyleColorModifier_DistanceFromObject *q = (LineStyleColorModifier_DistanceFromObject *)new_m;
 			q->target = p->target;
-			if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
+			if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
 				id_us_plus((ID *)q->target);
 			}
 			q->color_ramp = MEM_dupallocN(p->color_ramp);
@@ -887,7 +887,7 @@ LineStyleModifier *BKE_linestyle_thickness_modifier_copy(
 			LineStyleThicknessModifier_DistanceFromObject *p = (LineStyleThicknessModifier_DistanceFromObject *)m;
 			LineStyleThicknessModifier_DistanceFromObject *q = (LineStyleThicknessModifier_DistanceFromObject *)new_m;
 			q->target = p->target;
-			if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
+			if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
 				id_us_plus((ID *)q->target);
 			}
 			q->curve = curvemapping_copy(p->curve);

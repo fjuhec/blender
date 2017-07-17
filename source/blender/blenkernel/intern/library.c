@@ -499,7 +499,7 @@ static int id_copy_libmanagement_cb(void *user_data, ID *id_self, ID **id_pointe
 	}
 
 	/* Increase used IDs refcount if needed and required. */
-	if ((data->flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0 && (cb_flag & IDWALK_CB_USER)) {
+	if ((data->flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0 && (cb_flag & IDWALK_CB_USER)) {
 		id_us_plus(id);
 	}
 
@@ -649,7 +649,7 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 
 	/* Do not make new copy local in case we are copying outside of main...
 	 * XXX TODO: is this behavior OK, or should we need own flag to control that? */
-	if ((flag & LIB_ID_COPY_NO_MAIN) == 0) {
+	if ((flag & LIB_ID_CREATE_NO_MAIN) == 0) {
 		BKE_id_copy_ensure_local(bmain, id, *r_newid);
 	}
 
@@ -755,6 +755,101 @@ bool id_single_user(bContext *C, ID *id, PointerRNA *ptr, PropertyRNA *prop)
 	}
 	
 	return false;
+}
+
+static int libblock_management_us_plus(void *UNUSED(user_data), ID *UNUSED(id_self), ID **id_pointer, int cb_flag)
+{
+	if (cb_flag & IDWALK_CB_USER) {
+		id_us_plus(*id_pointer);
+	}
+	if (cb_flag & IDWALK_CB_USER_ONE) {
+		id_us_ensure_real(*id_pointer);
+	}
+
+	return IDWALK_RET_NOP;
+}
+
+static int libblock_management_us_min(void *UNUSED(user_data), ID *UNUSED(id_self), ID **id_pointer, int cb_flag)
+{
+	if (cb_flag & IDWALK_CB_USER) {
+		id_us_min(*id_pointer);
+	}
+	/* We can do nothing in IDWALK_CB_USER_ONE case! */
+
+	return IDWALK_RET_NOP;
+}
+
+/** Add a 'NO_MAIN' datablock to given main (also sets usercounts of its IDs if needed). */
+void BKE_libblock_management_main_add(Main *bmain, void *idv)
+{
+	ID *id = idv;
+
+	BLI_assert(bmain != NULL);
+	if ((id->tag & LIB_TAG_NO_MAIN) == 0) {
+		return;
+	}
+
+	if ((id->tag & LIB_TAG_NOT_ALLOCATED) != 0) {
+		/* We cannot add non-allocated ID to Main! */
+		return;
+	}
+
+	/* We cannot allow non-userrefcounting IDs in Main database! */
+	if ((id->tag & LIB_TAG_NO_USER_REFCOUNT) != 0) {
+		BKE_library_foreach_ID_link(bmain, id, libblock_management_us_plus, NULL, IDWALK_NOP);
+	}
+
+	ListBase *lb = which_libbase(bmain, GS(id->name));
+	BKE_main_lock(bmain);
+	BLI_addtail(lb, id);
+	new_id(lb, id, NULL);
+	/* alphabetic insertion: is in new_id */
+	id->tag &= ~(LIB_TAG_NO_MAIN | LIB_TAG_NO_USER_REFCOUNT);
+	BKE_main_unlock(bmain);
+}
+
+/** Remove a datablock from given main (set it to 'NO_MAIN' status). */
+void BKE_libblock_management_main_remove(Main *bmain, void *idv)
+{
+	ID *id = idv;
+
+	BLI_assert(bmain != NULL);
+	if ((id->tag & LIB_TAG_NO_MAIN) != 0) {
+		return;
+	}
+
+	/* For now, allow userrefcounting IDs to get out of Main - can be handy in some cases... */
+
+	ListBase *lb = which_libbase(bmain, GS(id->name));
+	BKE_main_lock(bmain);
+	BLI_remlink(lb, id);
+	id->tag |= LIB_TAG_NO_MAIN;
+	BKE_main_unlock(bmain);
+}
+
+void BKE_libblock_management_usercounts_set(Main *bmain, void *idv)
+{
+	ID *id = idv;
+
+	if ((id->tag & LIB_TAG_NO_USER_REFCOUNT) == 0) {
+		return;
+	}
+
+	BKE_library_foreach_ID_link(bmain, id, libblock_management_us_plus, NULL, IDWALK_NOP);
+	id->tag &= ~LIB_TAG_NO_USER_REFCOUNT;
+}
+
+void BKE_libblock_management_usercounts_clear(Main *bmain, void *idv)
+{
+	ID *id = idv;
+
+	/* We do not allow IDs in Main database to not be userrefcounting. */
+	if ((id->tag & LIB_TAG_NO_USER_REFCOUNT) != 0 || (id->tag & LIB_TAG_NO_MAIN) != 0) {
+		return;
+	}
+
+	BKE_library_foreach_ID_link(bmain, id, libblock_management_us_min, NULL, IDWALK_NOP);
+	id->tag |= LIB_TAG_NO_USER_REFCOUNT;
 }
 
 ListBase *which_libbase(Main *mainlib, short type)
@@ -1066,24 +1161,43 @@ void *BKE_libblock_alloc_notest(short type)
  * The user count is set to 1, all other content (apart from name and links) being
  * initialized to zero.
  */
-void *BKE_libblock_alloc(Main *bmain, short type, const char *name)
+void *BKE_libblock_alloc(Main *bmain, short type, const char *name, const int flag)
 {
 	ID *id = NULL;
-	ListBase *lb = which_libbase(bmain, type);
+
+	BLI_assert((flag & LIB_ID_CREATE_NO_ALLOCATE) == 0);
 	
 	id = BKE_libblock_alloc_notest(type);
+
+	if ((flag & LIB_ID_CREATE_NO_MAIN) != 0) {
+		id->tag |= LIB_TAG_NO_MAIN;
+	}
+	if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) != 0) {
+		id->tag |= LIB_TAG_NO_USER_REFCOUNT;
+	}
+
 	if (id) {
-		BKE_main_lock(bmain);
-		BLI_addtail(lb, id);
-		id->us = 1;
 		id->icon_id = 0;
 		*( (short *)id->name) = type;
-		new_id(lb, id, name);
-		/* alphabetic insertion: is in new_id */
-		BKE_main_unlock(bmain);
+		if ((flag & LIB_ID_FREE_NO_USER_REFCOUNT) == 0) {
+			id->us = 1;
+		}
+		if ((flag & LIB_ID_CREATE_NO_MAIN) == 0) {
+			ListBase *lb = which_libbase(bmain, type);
+
+			BKE_main_lock(bmain);
+			BLI_addtail(lb, id);
+			new_id(lb, id, name);
+			/* alphabetic insertion: is in new_id */
+			BKE_main_unlock(bmain);
+
+			/* TODO to be removed from here! */
+			if ((flag & LIB_ID_CREATE_NO_DEG_TAG) == 0) {
+				DAG_id_type_tag(bmain, type);
+			}
+		}
 	}
-	/* TODO to be removed from here! */
-	DAG_id_type_tag(bmain, type);
+
 	return id;
 }
 
@@ -1216,83 +1330,62 @@ static void id_copy_animdata(Main *bmain, ID *id, const bool do_action)
 	}
 }
 
-/* material nodes use this since they are not treated as libdata */
-void BKE_libblock_copy_data(Main *bmain, ID *id, const ID *id_from, const int flag)
-{
-	if (id_from->properties)
-		id->properties = IDP_CopyProperty_ex(id_from->properties, flag);
-
-	/* XXX Again... We need a way to control what we copy in a much more refined way.
-	 * Wa cannot always copy this, some internal copying will die on it! */
-	/* For now, upper level code will have to do that itself when required. */
-#if 0
-	if (id_from->override != NULL) {
-		BKE_override_copy(id, id_from);
-	}
-#endif
-
-	/* the duplicate should get a copy of the animdata */
-	id_copy_animdata(bmain, id, (flag & LIB_ID_COPY_ACTIONS) != 0);
-}
-
 void BKE_libblock_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag)
 {
-	ID *idn = *r_newid;
+	ID *new_id = *r_newid;
 
 	/* Grrrrrrrrr... Not adding 'root' nodetrees to bmain.... grrrrrrrrrrrrrrrrrrrr! */
 	/* This is taken from original ntree copy code, might be weak actually? */
 	const bool use_nodetree_alloc_exception = ((GS(id->name) == ID_NT) && (bmain != NULL) &&
 	                                           (BLI_findindex(&bmain->nodetree, id) < 0));
 
-	BLI_assert((flag & LIB_ID_COPY_NO_MAIN) != 0 || bmain != NULL);
-	BLI_assert((flag & LIB_ID_COPY_NO_MAIN) != 0 || (flag & LIB_ID_COPY_NO_ALLOCATE) == 0);
-	BLI_assert((flag & LIB_ID_COPY_NO_MAIN) == 0 || (flag & LIB_ID_COPY_NO_USER_REFCOUNT) != 0);
+	BLI_assert((flag & LIB_ID_CREATE_NO_MAIN) != 0 || bmain != NULL);
+	BLI_assert((flag & LIB_ID_CREATE_NO_MAIN) != 0 || (flag & LIB_ID_CREATE_NO_ALLOCATE) == 0);
+	BLI_assert((flag & LIB_ID_CREATE_NO_MAIN) == 0 || (flag & LIB_ID_CREATE_NO_USER_REFCOUNT) != 0);
 
-	if ((flag & LIB_ID_COPY_NO_ALLOCATE) != 0) {
+	if ((flag & LIB_ID_CREATE_NO_ALLOCATE) != 0) {
 		/* r_newid already contains pointer to allocated memory. */
 		/* TODO do we want to memset(0) whole mem before filling it? */
-		BLI_strncpy(idn->name, id->name, sizeof(idn->name));
-		idn->us = 1;
+		BLI_strncpy(new_id->name, id->name, sizeof(new_id->name));
+		new_id->us = 0;
+		new_id->tag |= LIB_TAG_NOT_ALLOCATED | LIB_TAG_NO_MAIN | LIB_TAG_NO_USER_REFCOUNT;
 		/* TODO Do we want/need to copy more from ID struct itself? */
 	}
-	else if ((flag & LIB_ID_COPY_NO_MAIN) != 0 || use_nodetree_alloc_exception) {
-		/* Allocate r_newid but do not register it in Main database. */
-		idn = BKE_libblock_alloc_notest(GS(id->name));
-		BLI_strncpy(idn->name, id->name, sizeof(idn->name));
-		idn->us = 1;
-	}
 	else {
-		idn = BKE_libblock_alloc(bmain, GS(id->name), id->name + 2);
+		new_id = BKE_libblock_alloc(bmain, GS(id->name), id->name + 2, flag | (use_nodetree_alloc_exception ? LIB_ID_CREATE_NO_MAIN : 0));
 	}
-	BLI_assert(idn != NULL);
+	BLI_assert(new_id != NULL);
 
-	const size_t id_len = BKE_libblock_get_alloc_info(GS(idn->name), NULL);
+	const size_t id_len = BKE_libblock_get_alloc_info(GS(new_id->name), NULL);
 	const size_t id_offset = sizeof(ID);
 	if ((int)id_len - (int)id_offset > 0) { /* signed to allow neg result */ /* XXX ????? */
 		const char *cp = (const char *)id;
-		char *cpn = (char *)idn;
+		char *cpn = (char *)new_id;
 
 		memcpy(cpn + id_offset, cp + id_offset, id_len - id_offset);
 	}
 
-	/* TODO we can remove that one later and bring its code here. */
-	BKE_libblock_copy_data(bmain, idn, id, flag);
-
-	if ((flag & LIB_ID_COPY_NO_MAIN) != 0) {
-		idn->tag |= LIB_TAG_FREE_NO_MAIN;
-	}
-	if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) != 0) {
-		idn->tag |= LIB_TAG_FREE_NO_USER_REFCOUNT;
-	}
-	if ((flag & LIB_ID_COPY_NO_ALLOCATE) != 0) {
-		idn->tag |= LIB_TAG_FREE_NOT_ALLOCATED;
+	if (id->properties) {
+		new_id->properties = IDP_CopyProperty_ex(id->properties, flag);
 	}
 
-	if ((flag & LIB_ID_COPY_NO_DEG_TAG) == 0 && (flag & LIB_ID_COPY_NO_MAIN) == 0) {
-		DAG_id_type_tag(bmain, GS(idn->name));
+	/* XXX Again... We need a way to control what we copy in a much more refined way.
+	 * We cannot always copy this, some internal copying will die on it! */
+	/* For now, upper level code will have to do that itself when required. */
+#if 0
+	if (id->override != NULL) {
+		BKE_override_copy(new_id, id);
+	}
+#endif
+
+	/* the duplicate should get a copy of the animdata */
+	id_copy_animdata(bmain, new_id, (flag & LIB_ID_COPY_ACTIONS) != 0 && (flag & LIB_ID_CREATE_NO_MAIN) == 0);
+
+	if ((flag & LIB_ID_CREATE_NO_DEG_TAG) == 0 && (flag & LIB_ID_CREATE_NO_MAIN) == 0) {
+		DAG_id_type_tag(bmain, GS(new_id->name));
 	}
 
-	*r_newid = idn;
+	*r_newid = new_id;
 }
 
 /* used everywhere in blenkernel */
@@ -1309,7 +1402,7 @@ void *BKE_libblock_copy_nolib(const ID *id, const bool do_action)
 {
 	ID *idn;
 
-	BKE_libblock_copy_ex(NULL, id, &idn, LIB_ID_COPY_NO_MAIN | LIB_ID_COPY_NO_USER_REFCOUNT | (do_action ? LIB_ID_COPY_ACTIONS : 0));
+	BKE_libblock_copy_ex(NULL, id, &idn, LIB_ID_CREATE_NO_MAIN | LIB_ID_CREATE_NO_USER_REFCOUNT | (do_action ? LIB_ID_COPY_ACTIONS : 0));
 
 	return idn;
 }

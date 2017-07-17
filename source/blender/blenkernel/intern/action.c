@@ -88,7 +88,7 @@ bAction *add_empty_action(Main *bmain, const char name[])
 {
 	bAction *act;
 	
-	act = BKE_libblock_alloc(bmain, ID_AC, name);
+	act = BKE_libblock_alloc(bmain, ID_AC, name, 0);
 	
 	return act;
 }	
@@ -563,7 +563,7 @@ void BKE_pose_copy_data_ex(bPose **dst, const bPose *src, const int flag, const 
 	outPose->avs = src->avs;
 	
 	for (pchan = outPose->chanbase.first; pchan; pchan = pchan->next) {
-		if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
+		if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
 			id_us_plus((ID *)pchan->custom);
 		}
 

@@ -202,7 +202,7 @@ static void tracking_tracks_copy(ListBase *tracks_dst, const ListBase *tracks_sr
 		if (track_src->markers) {
 			track_dst->markers = MEM_dupallocN(track_src->markers);
 		}
-		if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
+		if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
 			id_us_plus(&track_dst->gpd->id);
 		}
 		BLI_addtail(tracks_dst, track_dst);
@@ -228,7 +228,7 @@ static void tracking_plane_tracks_copy(
 		for (int i = 0; i < plane_track_dst->point_tracksnr; i++) {
 			plane_track_dst->point_tracks[i] = BLI_ghash_lookup(tracks_mapping, plane_track_src->point_tracks[i]);
 		}
-		if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
+		if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
 			id_us_plus(&plane_track_dst->image->id);
 		}
 		BLI_addtail(plane_tracks_dst, plane_track_dst);

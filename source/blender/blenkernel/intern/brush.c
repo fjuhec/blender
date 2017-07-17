@@ -152,7 +152,7 @@ Brush *BKE_brush_add(Main *bmain, const char *name, short ob_mode)
 {
 	Brush *brush;
 
-	brush = BKE_libblock_alloc(bmain, ID_BR, name);
+	brush = BKE_libblock_alloc(bmain, ID_BR, name, 0);
 
 	BKE_brush_init(brush);
 

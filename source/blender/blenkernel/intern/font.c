@@ -109,7 +109,7 @@ void BKE_vfont_free(struct VFont *vf)
 void BKE_vfont_copy_data(Main *UNUSED(bmain), VFont *vfont_dst, const VFont *UNUSED(vfont_src), const int flag)
 {
 	/* We never handle usercount here for own data. */
-	const int flag_subdata = flag | LIB_ID_COPY_NO_USER_REFCOUNT;
+	const int flag_subdata = flag | LIB_ID_CREATE_NO_USER_REFCOUNT;
 
 	/* Just to be sure, should not have any value actually after reading time. */
 	vfont_dst->temp_pf = NULL;
@@ -266,7 +266,7 @@ VFont *BKE_vfont_load(Main *bmain, const char *filepath)
 
 		vfd = BLI_vfontdata_from_freetypefont(pf);
 		if (vfd) {
-			vfont = BKE_libblock_alloc(bmain, ID_VF, filename);
+			vfont = BKE_libblock_alloc(bmain, ID_VF, filename, 0);
 			vfont->data = vfd;
 
 			/* if there's a font name, use it for the ID name */

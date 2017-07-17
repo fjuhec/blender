@@ -83,7 +83,7 @@ bSound *BKE_sound_new_file(struct Main *bmain, const char *filepath)
 
 	BLI_path_abs(str, path);
 
-	sound = BKE_libblock_alloc(bmain, ID_SO, BLI_path_basename(filepath));
+	sound = BKE_libblock_alloc(bmain, ID_SO, BLI_path_basename(filepath), 0);
 	BLI_strncpy(sound->name, filepath, FILE_MAX);
 	/* sound->type = SOUND_TYPE_FILE; */ /* XXX unused currently */
 

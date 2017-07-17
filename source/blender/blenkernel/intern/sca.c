@@ -374,7 +374,7 @@ bActuator *copy_actuator(bActuator *act, const int flag)
 		case ACT_SHAPEACTION:
 		{
 			bActionActuator *aa = (bActionActuator *)act->data;
-			if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
+			if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
 				id_us_plus((ID *)aa->act);
 			}
 			break;
@@ -382,7 +382,7 @@ bActuator *copy_actuator(bActuator *act, const int flag)
 		case ACT_SOUND:
 		{
 			bSoundActuator *sa = (bSoundActuator *)act->data;
-			if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
+			if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
 				id_us_plus((ID *)sa->sound);
 			}
 			break;

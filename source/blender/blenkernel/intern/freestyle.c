@@ -118,7 +118,7 @@ static void copy_lineset(FreestyleLineSet *new_lineset, FreestyleLineSet *linese
 	new_lineset->group = lineset->group;
 	strcpy(new_lineset->name, lineset->name);
 
-	if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
+	if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
 		id_us_plus((ID *)new_lineset->linestyle);
 		id_us_plus((ID *)new_lineset->group);
 	}

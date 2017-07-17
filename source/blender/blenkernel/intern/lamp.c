@@ -109,7 +109,7 @@ Lamp *BKE_lamp_add(Main *bmain, const char *name)
 {
 	Lamp *la;
 
-	la =  BKE_libblock_alloc(bmain, ID_LA, name);
+	la =  BKE_libblock_alloc(bmain, ID_LA, name, 0);
 
 	BKE_lamp_init(la);
 

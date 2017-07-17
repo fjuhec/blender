@@ -5435,7 +5435,7 @@ static Sequence *seq_dupli(Scene *scene, Scene *scene_to, Sequence *seq, int dup
 		if (seq->scene_sound)
 			seqn->scene_sound = BKE_sound_add_scene_sound_defaults(sce_audio, seqn);
 
-		if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
+		if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
 			id_us_plus((ID *)seqn->sound);
 		}
 	}

@@ -968,7 +968,7 @@ bNode *BKE_node_copy_ex(bNodeTree *ntree, bNode *node_src, const int flag)
 		link_dst->tosock = link_dst->tosock->new_sock;
 	}
 
-	if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
+	if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
 		id_us_plus(node_dst->id);
 	}
 
@@ -995,7 +995,7 @@ bNode *BKE_node_copy_ex(bNodeTree *ntree, bNode *node_src, const int flag)
 
 bNode *nodeCopyNode(bNodeTree *ntree, bNode *node)
 {
-	return BKE_node_copy_ex(ntree, node, LIB_ID_COPY_NO_USER_REFCOUNT);
+	return BKE_node_copy_ex(ntree, node, LIB_ID_CREATE_NO_USER_REFCOUNT);
 }
 
 /* also used via rna api, so we check for proper input output direction */
@@ -1192,7 +1192,7 @@ bNodeTree *ntreeAddTree(Main *bmain, const char *name, const char *idname)
 	 * node groups and other tree types are created as library data.
 	 */
 	if (bmain) {
-		ntree = BKE_libblock_alloc(bmain, ID_NT, name);
+		ntree = BKE_libblock_alloc(bmain, ID_NT, name, 0);
 	}
 	else {
 		ntree = MEM_callocN(sizeof(bNodeTree), "new node tree");
@@ -1226,9 +1226,9 @@ void BKE_node_tree_copy_data(Main *UNUSED(bmain), bNodeTree *ntree_dst, const bN
 	bNodeLink *link_dst;
 
 	/* We never handle usercount here for own data. */
-	const int flag_subdata = flag | LIB_ID_COPY_NO_USER_REFCOUNT;
+	const int flag_subdata = flag | LIB_ID_CREATE_NO_USER_REFCOUNT;
 
-	if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
+	if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
 		id_us_plus((ID *)ntree_dst->gpd);
 	}
 
@@ -1304,7 +1304,7 @@ void BKE_node_tree_copy_data(Main *UNUSED(bmain), bNodeTree *ntree_dst, const bN
 bNodeTree *ntreeCopyTree_ex(const bNodeTree *ntree, Main *bmain, const bool do_id_user)
 {
 	bNodeTree *ntree_copy;
-	BKE_id_copy_ex(bmain, (ID *)ntree, (ID **)&ntree_copy, do_id_user ? 0 : LIB_ID_COPY_NO_USER_REFCOUNT, false);
+	BKE_id_copy_ex(bmain, (ID *)ntree, (ID **)&ntree_copy, do_id_user ? 0 : LIB_ID_CREATE_NO_USER_REFCOUNT, false);
 	return ntree_copy;
 }
 bNodeTree *ntreeCopyTree(Main *bmain, const bNodeTree *ntree)
@@ -2000,7 +2000,7 @@ bNodeTree *ntreeLocalize(bNodeTree *ntree)
 		 * Note: previews are not copied here.
 		 */
 		BKE_id_copy_ex(G.main, (ID *)ntree, (ID **)&ltree,
-		               LIB_ID_COPY_NO_MAIN | LIB_ID_COPY_NO_USER_REFCOUNT | LIB_ID_COPY_NO_PREVIEW, false);
+		               LIB_ID_CREATE_NO_MAIN | LIB_ID_CREATE_NO_USER_REFCOUNT | LIB_ID_COPY_NO_PREVIEW, false);
 		ltree->flag |= NTREE_IS_LOCALIZED;
 
 		for (node = ltree->nodes.first; node; node = node->next) {

@@ -66,7 +66,7 @@ void BKE_cachefiles_exit(void)
 
 void *BKE_cachefile_add(Main *bmain, const char *name)
 {
-	CacheFile *cache_file = BKE_libblock_alloc(bmain, ID_CF, name);
+	CacheFile *cache_file = BKE_libblock_alloc(bmain, ID_CF, name, 0);
 
 	BKE_cachefile_init(cache_file);
 
