@@ -414,7 +414,7 @@ bool ED_gpencil_stroke_can_use_direct(const ScrArea *sa, const bGPDstroke *gps)
 	/* filter stroke types by flags + spacetype */
 	if (gps->flag & GP_STROKE_3DSPACE) {
 		/* 3D strokes - only in 3D view */
-		return (sa->spacetype == SPACE_VIEW3D);
+		return ((sa->spacetype == SPACE_VIEW3D) || (sa->spacetype == SPACE_BUTS));
 	}
 	else if (gps->flag & GP_STROKE_2DIMAGE) {
 		/* Special "image" strokes - only in Image Editor */
