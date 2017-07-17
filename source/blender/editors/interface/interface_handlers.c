@@ -938,6 +938,21 @@ static void ui_apply_but_TEX(bContext *C, uiBut *but, uiHandleButtonData *data)
 	data->applied = true;
 }
 
+static void ui_apply_but_TAB(bContext *C, uiBut *but, uiHandleButtonData *data)
+{
+	if (data->str) {
+		ui_apply_but_TEX(C, but, data);
+		return;
+	}
+
+	ui_but_value_set(but, but->hardmax);
+
+	ui_apply_but_func(C, but);
+
+	data->retval = but->retval;
+	data->applied = true;
+}
+
 static void ui_apply_but_NUM(bContext *C, uiBut *but, uiHandleButtonData *data)
 {
 	if (data->str) {
@@ -2113,8 +2128,10 @@ static void ui_apply_but(bContext *C, uiBlock *block, uiBut *but, uiHandleButton
 			break;
 		case UI_BTYPE_ROW:
 		case UI_BTYPE_LISTROW:
-		case UI_BTYPE_TAB:
 			ui_apply_but_ROW(C, block, but, data);
+			break;
+		case UI_BTYPE_TAB:
+			ui_apply_but_TAB(C, but, data);
 			break;
 		case UI_BTYPE_SCROLL:
 		case UI_BTYPE_GRIP:
@@ -3858,13 +3875,27 @@ static int ui_do_but_KEYEVT(
 	return WM_UI_HANDLER_CONTINUE;
 }
 
-static int ui_do_but_TAB(bContext *C, uiBut *but, uiHandleButtonData *data, const wmEvent *event)
+static int ui_do_but_TAB(bContext *C, uiBlock *block, uiBut *but, uiHandleButtonData *data, const wmEvent *event)
 {
 	if (data->state == BUTTON_STATE_HIGHLIGHT) {
-		if (ELEM(event->type, LEFTMOUSE, PADENTER, RETKEY) && event->val == KM_RELEASE) {
-			button_activate_state(C, but, BUTTON_STATE_EXIT);
-			return WM_UI_HANDLER_CONTINUE;
+		if ((event->type == LEFTMOUSE) &&
+		    ((event->val == KM_DBL_CLICK) || event->ctrl))
+		{
+			button_activate_state(C, but, BUTTON_STATE_TEXT_EDITING);
+			return WM_UI_HANDLER_BREAK;
 		}
+		else if (ELEM(event->type, LEFTMOUSE, PADENTER, RETKEY) && (event->val == KM_CLICK)) {
+			button_activate_state(C, but, BUTTON_STATE_EXIT);
+			return WM_UI_HANDLER_BREAK;
+		}
+	}
+	else if (data->state == BUTTON_STATE_TEXT_EDITING) {
+		ui_do_but_textedit(C, block, but, data, event);
+		return WM_UI_HANDLER_BREAK;
+	}
+	else if (data->state == BUTTON_STATE_TEXT_SELECTING) {
+		ui_do_but_textedit_select(C, block, but, data, event);
+		return WM_UI_HANDLER_BREAK;
 	}
 
 	return WM_UI_HANDLER_CONTINUE;
@@ -7132,7 +7163,7 @@ static int ui_do_button(bContext *C, uiBlock *block, uiBut *but, const wmEvent *
 			retval = ui_do_but_HOTKEYEVT(C, but, data, event);
 			break;
 		case UI_BTYPE_TAB:
-			retval = ui_do_but_TAB(C, but, data, event);
+			retval = ui_do_but_TAB(C, block, but, data, event);
 			break;
 		case UI_BTYPE_BUT_TOGGLE:
 		case UI_BTYPE_TOGGLE:

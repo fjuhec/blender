@@ -2189,12 +2189,7 @@ void ui_but_string_get_ex(uiBut *but, char *str, const size_t maxlen, const int 
 			MEM_freeN((void *)buf);
 		}
 	}
-	else if (but->type == UI_BTYPE_TEXT) {
-		/* string */
-		BLI_strncpy(str, but->poin, maxlen);
-		return;
-	}
-	else if (but->type == UI_BTYPE_SEARCH_MENU) {
+	else if (ELEM(but->type, UI_BTYPE_TEXT, UI_BTYPE_SEARCH_MENU, UI_BTYPE_TAB)) {
 		/* string */
 		BLI_strncpy(str, but->poin, maxlen);
 		return;
@@ -2430,7 +2425,7 @@ bool ui_but_string_set(bContext *C, uiBut *but, const char *str)
 
 		return true;
 	}
-	else if (but->type == UI_BTYPE_SEARCH_MENU) {
+	else if (ELEM(but->type, UI_BTYPE_SEARCH_MENU, UI_BTYPE_TAB)) {
 		/* string */
 		BLI_strncpy(but->poin, str, but->hardmax);
 		return true;

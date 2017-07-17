@@ -249,6 +249,15 @@ static void id_search_call_cb(bContext *C, void *arg_template, void *item)
 	}
 }
 
+static void id_rename_cb(bContext *C, void *arg, char *origstr)
+{
+	ID *id = arg;
+
+	if (origstr && !STREQ(id->name + 2, origstr)) {
+		BLI_libblock_ensure_unique_name(CTX_data_main(C), id->name);
+	}
+}
+
 /* ID Search browse menu, do the search */
 static void id_search_cb(const bContext *C, void *arg_template, const char *str, uiSearchItems *items)
 {
@@ -712,8 +721,12 @@ static void template_ID_tabs(
 
 		but = uiDefButR_prop(
 		        block, UI_BTYPE_TAB, 0, id_name, 0, 0, but_width, UI_UNIT_Y,
-		        &template->ptr, template->prop, 0, 0.0f, 0.0f, 0.0f, 0.0f, "");
+		        &template->ptr, template->prop, 0, 0.0f,
+		        sizeof(id->name) - 2, 0.0f, 0.0f, "");
 		UI_but_funcN_set(but, id_search_call_cb, MEM_dupallocN(template), id);
+		but->poin = &id->name[2];
+
+		UI_but_func_rename_set(but, id_rename_cb, id);
 		if (active_ptr.data == id) {
 			UI_but_flag_enable(but, UI_SELECT);
 		}
