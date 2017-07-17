@@ -1556,6 +1556,21 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col = split.column()
         row = col.row(align=True)
         row.prop(md, "level")
+        row.prop(md, "simple", text="", icon="PARTICLE_POINT")
+        col.prop(md, "passindex", text="Pass")
+
+
+        col = split.column()
+        col.label("Layer:")
+        col.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+
+    def GP_THICK(self, layout, ob, md):
+        gpd = ob.grease_pencil
+        split = layout.split()
+
+        col = split.column()
+        row = col.row(align=True)
+        row.prop(md, "thickness")
         col.prop(md, "passindex", text="Pass")
 
         col = split.column()

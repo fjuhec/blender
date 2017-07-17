@@ -122,7 +122,8 @@ EnumPropertyItem rna_enum_object_modifier_type_items[] = {
 	{eModifierType_Surface, "SURFACE", ICON_MOD_PHYSICS, "Surface", ""},
 	{0, "", 0, N_("Grease Pencil"), "" },
 	{eModifierType_GpencilNoise, "GP_NOISE", ICON_RNDCURVE, "Noise", "Add noise to strokes" },
-	{eModifierType_GpencilSubdiv, "GP_SUBDIV", ICON_PARTICLE_POINT, "Subdivide", "Add more control points to strokes" },
+	{eModifierType_GpencilSubdiv, "GP_SUBDIV", ICON_MOD_SUBSURF, "Subdivide", "Subdivide stroke adding more control points to strokes" },
+	{eModifierType_GpencilThick, "GP_THICK", ICON_MAN_ROT, "Thickness", "Change stroke thickness" },
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -421,6 +422,8 @@ static StructRNA *rna_Modifier_refine(struct PointerRNA *ptr)
 			return &RNA_GpencilNoiseModifier;
 		case eModifierType_GpencilSubdiv:
 			return &RNA_GpencilSubdivModifier;
+		case eModifierType_GpencilThick:
+			return &RNA_GpencilThickModifier;
 		/* Default */
 		case eModifierType_None:
 		case eModifierType_ShapeKey:
@@ -4823,7 +4826,7 @@ static void rna_def_modifier_gpencilsubdiv(BlenderRNA *brna)
 	srna = RNA_def_struct(brna, "GpencilSubdivModifier", "Modifier");
 	RNA_def_struct_ui_text(srna, "Subdivision Modifier", "Subdivide Stroke modifier");
 	RNA_def_struct_sdna(srna, "GpencilSubdivModifierData");
-	RNA_def_struct_ui_icon(srna, ICON_PARTICLE_POINT);
+	RNA_def_struct_ui_icon(srna, ICON_MOD_SUBSURF);
 
 	prop = RNA_def_property(srna, "layer", PROP_STRING, PROP_NONE);
 	RNA_def_property_string_sdna(prop, NULL, "layername");
@@ -4834,6 +4837,39 @@ static void rna_def_modifier_gpencilsubdiv(BlenderRNA *brna)
 	RNA_def_property_int_sdna(prop, NULL, "level");
 	RNA_def_property_range(prop, 1, 5);
 	RNA_def_property_ui_text(prop, "Level", "Number of subdivisions");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "simple", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SUBDIV_SIMPLE);
+	RNA_def_property_ui_text(prop, "Simple", "The modifier only add control points");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "passindex", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "passindex");
+	RNA_def_property_range(prop, 0, 100);
+	RNA_def_property_ui_text(prop, "Pass", "Pass index");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+}
+
+static void rna_def_modifier_gpencilthick(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+
+	srna = RNA_def_struct(brna, "GpencilThickModifier", "Modifier");
+	RNA_def_struct_ui_text(srna, "Subsurf Modifier", "Subdivide and Smooth Stroke modifier");
+	RNA_def_struct_sdna(srna, "GpencilThickModifierData");
+	RNA_def_struct_ui_icon(srna, ICON_MAN_ROT);
+
+	prop = RNA_def_property(srna, "layer", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_sdna(prop, NULL, "layername");
+	RNA_def_property_ui_text(prop, "Layer", "Layer name");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "thickness", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "thickness");
+	RNA_def_property_range(prop, -100, 500);
+	RNA_def_property_ui_text(prop, "Thickness", "Factor of thickness change");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
 	prop = RNA_def_property(srna, "passindex", PROP_INT, PROP_NONE);
@@ -4963,6 +4999,7 @@ void RNA_def_modifier(BlenderRNA *brna)
 	rna_def_modifier_surfacedeform(brna);
 	rna_def_modifier_gpencilnoise(brna);
 	rna_def_modifier_gpencilsubdiv(brna);
+	rna_def_modifier_gpencilthick(brna);
 }
 
 #endif

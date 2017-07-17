@@ -24,7 +24,7 @@
  *
  */
 
-/** \file blender/modifiers/intern/MOD_gpencilsubdiv.c
+/** \file blender/modifiers/intern/MOD_gpencilsubsurf.c
  *  \ingroup modifiers
  */
 
@@ -43,10 +43,9 @@
 
 static void initData(ModifierData *md)
 {
-	GpencilSubdivModifierData *gpmd = (GpencilSubdivModifierData *)md;
+	GpencilThickModifierData *gpmd = (GpencilThickModifierData *)md;
 	gpmd->passindex = 0;
-	gpmd->flag |= GP_SUBDIV_SIMPLE;
-	gpmd->level = 1;
+	gpmd->thickness = 0;
 	gpmd->layername[0] = '\0';
 
 	BKE_gpencil_batch_cache_alldirty();
@@ -54,8 +53,8 @@ static void initData(ModifierData *md)
 
 static void copyData(ModifierData *md, ModifierData *target)
 {
-	GpencilSubdivModifierData *smd = (GpencilSubdivModifierData *)md;
-	GpencilSubdivModifierData *tsmd = (GpencilSubdivModifierData *)target;
+	GpencilThickModifierData *smd = (GpencilThickModifierData *)md;
+	GpencilThickModifierData *tsmd = (GpencilThickModifierData *)target;
 
 	modifier_copyData_generic(md, target);
 }
@@ -64,7 +63,7 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 	DerivedMesh *UNUSED(dm),
 	ModifierApplyFlag UNUSED(flag))
 {
-	GpencilSubdivModifierData *mmd = (GpencilSubdivModifierData *)md;
+	GpencilThickModifierData *mmd = (GpencilThickModifierData *)md;
 	bGPdata *gpd;
 	if ((!ob) || (!ob->gpd)) {
 		return NULL;
@@ -74,7 +73,7 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-				ED_gpencil_subdiv_modifier((GpencilSubdivModifierData *)md, gpl, gps);
+				ED_gpencil_thick_modifier((GpencilThickModifierData *)md, gpl, gps);
 			}
 		}
 	}
@@ -82,10 +81,10 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 	return NULL;
 }
 
-ModifierTypeInfo modifierType_GpencilSubdiv = {
-	/* name */              "GP_Subdiv",
-	/* structName */        "GpencilSubdivModifierData",
-	/* structSize */        sizeof(GpencilSubdivModifierData),
+ModifierTypeInfo modifierType_GpencilThick = {
+	/* name */              "GP_Thickness",
+	/* structName */        "GpencilThickModifierData",
+	/* structSize */        sizeof(GpencilThickModifierData),
 	/* type */             	eModifierTypeType_Gpencil,
 	/* flags */             eModifierTypeFlag_GpencilMod,
 

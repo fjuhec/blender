@@ -89,6 +89,7 @@ extern ModifierTypeInfo modifierType_SurfaceDeform;
 
 extern ModifierTypeInfo modifierType_GpencilNoise;
 extern ModifierTypeInfo modifierType_GpencilSubdiv;
+extern ModifierTypeInfo modifierType_GpencilThick;
 
 /* MOD_util.c */
 void modifier_type_init(ModifierTypeInfo *types[]);

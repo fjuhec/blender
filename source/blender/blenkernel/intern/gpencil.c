@@ -1526,6 +1526,28 @@ BoundBox *BKE_gpencil_boundbox_get(Object *ob)
 }
 
 /********************  Modifiers **********************************/
+/* verify if valid layer and pass index */
+static bool is_stroke_affected_by_modifier(char *mlayername, int mpassindex, int minpoints, bGPDlayer *gpl, bGPDstroke *gps)
+{
+	/* omit if filter by layer */
+	if (mlayername[0] != '\0') {
+		if (!STREQ(mlayername, gpl->info)) {
+			return false;
+		}
+	}
+	/* verify pass */
+	if (gps->palcolor->index != mpassindex) {
+		return false;
+	}
+
+	/* need to have a minimum number of points */
+	if ((minpoints > 0) && (gps->totpoints < minpoints)) {
+		return false;
+	}
+
+	return true;;
+}
+
 /* calculate stroke normal using some points */
 static void ED_gpencil_stroke_normal(const bGPDstroke *gps, float r_normal[3])
 {
@@ -1565,18 +1587,7 @@ void ED_gpencil_noise_modifier(GpencilNoiseModifierData *mmd, bGPDlayer *gpl, bG
 	float normal[3];
 	float vec1[3], vec2[3];
 
-	/* Need three points or more */
-	if (gps->totpoints < 3) {
-		return;
-	}
-	/* omit if filter by layer */
-	if (mmd->layername[0] != '\0') {
-		if (!STREQ(mmd->layername, gpl->info)) {
-			return;
-		}
-	}
-	/* verify pass */
-	if (gps->palcolor->index != mmd->passindex) {
+	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps)) {
 		return;
 	}
 
@@ -1647,17 +1658,7 @@ void ED_gpencil_subdiv_modifier(GpencilSubdivModifierData *mmd, bGPDlayer *gpl, 
 	int totnewpoints, oldtotpoints;
 	int i2;
 
-	if (gps->totpoints < 2) {
-		return;
-	}
-	/* omit if filter by layer */
-	if (mmd->layername[0] != '\0') {
-		if (!STREQ(mmd->layername, gpl->info)) {
-			return;
-		}
-	}
-	/* verify pass */
-	if (gps->palcolor->index != mmd->passindex) {
+	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 2, gpl, gps)) {
 		return;
 	}
 
@@ -1707,6 +1708,16 @@ void ED_gpencil_subdiv_modifier(GpencilSubdivModifierData *mmd, bGPDlayer *gpl, 
 	}
 }
 
+/* subdivision surface */
+void ED_gpencil_thick_modifier(GpencilThickModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
+{
+	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 0, gpl, gps)) {
+		return;
+	}
+
+	gps->thickness += mmd->thickness;
+}
+
 /* apply stroke modifiers */
 void ED_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
 {
@@ -1720,9 +1731,13 @@ void ED_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
 			case eModifierType_GpencilNoise:
 				ED_gpencil_noise_modifier((GpencilNoiseModifierData *)md, gpl, gps);
 				break;
-				// Noise Modifier
+			// Subdiv Modifier
 			case eModifierType_GpencilSubdiv:
 				ED_gpencil_subdiv_modifier((GpencilSubdivModifierData *)md, gpl, gps);
+				break;
+			// Subdiv Surface
+			case eModifierType_GpencilThick:
+				ED_gpencil_thick_modifier((GpencilThickModifierData *)md, gpl, gps);
 				break;
 			default:
 				break;

@@ -67,7 +67,7 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 	GpencilNoiseModifierData *mmd = (GpencilNoiseModifierData *)md;
 	bGPdata *gpd;
 	if ((!ob) || (!ob->gpd)) {
-		return;
+		return NULL;
 	}
 	gpd = ob->gpd;
 

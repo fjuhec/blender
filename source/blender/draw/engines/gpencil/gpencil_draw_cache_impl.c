@@ -494,11 +494,12 @@ static void gpencil_add_fill_shgroup(GpencilBatchCache *cache, DRWShadingGroup *
 
 /* add stroke shading group to pass */
 static void gpencil_add_stroke_shgroup(GpencilBatchCache *cache, DRWShadingGroup *strokegrp,
-	Object *ob, bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf, bGPDstroke *gps, 
+	Object *ob, bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf, bGPDstroke *gps,
 	const float opacity, const float tintcolor[4], const bool onion, const bool custonion)
 {
 	float tcolor[4];
 	float ink[4];
+	short sthickness;
 	bool is_edit = (bool)(gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE));
 
 	/* set color using palette, tint color and opacity */
@@ -516,40 +517,39 @@ static void gpencil_add_stroke_shgroup(GpencilBatchCache *cache, DRWShadingGroup
 			copy_v4_v4(ink, tcolor);
 		}
 	}
-	short sthickness = gps->thickness + gpl->thickness;
-	if (sthickness > 0) {
-		if (cache->is_dirty) {
-			/* apply modifiers */
-			bGPDstroke *gps_mod;
-			if ((ob->modifiers.first) && (!is_edit)) {
-			//if (ob->modifiers.first) {
-				gps_mod = MEM_dupallocN(gps);
-				gps_mod->points = MEM_dupallocN(gps->points);
-				gps_mod->triangles = MEM_dupallocN(gps->triangles);
-				ED_gpencil_stroke_modifiers(ob, gpl, gps_mod);
-			}
-			else {
-				gps_mod = gps;
-			}
-			gpencil_batch_cache_check_free_slots(gpd);
-			if ((gps->totpoints > 1) && (gps->palcolor->stroke_style != STROKE_STYLE_VOLUMETRIC)) {
-				cache->batch_stroke[cache->cache_idx] = DRW_gpencil_get_stroke_geom(gpf, gps_mod, sthickness, ink);
-			}
-			else {
-				cache->batch_stroke[cache->cache_idx] = DRW_gpencil_get_point_geom(gps_mod, sthickness, ink);
-			}
 
-			/* free modifier temp data */
-			if ((ob->modifiers.first) && (!is_edit)) {
-				MEM_SAFE_FREE(gps_mod->triangles);
-				MEM_SAFE_FREE(gps_mod->points);
-				MEM_SAFE_FREE(gps_mod);
-			}
+	if (cache->is_dirty) {
+		/* apply modifiers */
+		bGPDstroke *gps_mod;
+		if ((ob->modifiers.first) && (!is_edit)) {
+			gps_mod = MEM_dupallocN(gps);
+			gps_mod->points = MEM_dupallocN(gps->points);
+			gps_mod->triangles = MEM_dupallocN(gps->triangles);
+			gps_mod->palcolor = MEM_dupallocN(gps->palcolor);
+			ED_gpencil_stroke_modifiers(ob, gpl, gps_mod);
 		}
-		DRW_shgroup_call_add(strokegrp, cache->batch_stroke[cache->cache_idx], gpf->viewmatrix);
+		else {
+			gps_mod = gps;
+		}
+		sthickness = gps_mod->thickness + gpl->thickness;
+		CLAMP_MIN(sthickness, 1);
+		gpencil_batch_cache_check_free_slots(gpd);
+		if ((gps_mod->totpoints > 1) && (gps_mod->palcolor->stroke_style != STROKE_STYLE_VOLUMETRIC)) {
+			cache->batch_stroke[cache->cache_idx] = DRW_gpencil_get_stroke_geom(gpf, gps_mod, sthickness, ink);
+		}
+		else {
+			cache->batch_stroke[cache->cache_idx] = DRW_gpencil_get_point_geom(gps_mod, sthickness, ink);
+		}
+		/* free modifier temp data */
+		if ((ob->modifiers.first) && (!is_edit)) {
+			MEM_SAFE_FREE(gps_mod->triangles);
+			MEM_SAFE_FREE(gps_mod->points);
+			MEM_SAFE_FREE(gps_mod->palcolor);
+			MEM_SAFE_FREE(gps_mod);
+		}
 	}
+	DRW_shgroup_call_add(strokegrp, cache->batch_stroke[cache->cache_idx], gpf->viewmatrix);
 }
-
 /* add edit points shading group to pass */
 static void gpencil_add_editpoints_shgroup(GPENCIL_StorageList *stl, GpencilBatchCache *cache, ToolSettings *ts,
 	Object *ob, bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf, bGPDstroke *gps) {

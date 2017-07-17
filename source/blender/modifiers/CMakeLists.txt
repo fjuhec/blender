@@ -115,6 +115,7 @@ set(SRC
 
 	intern/MOD_gpencilnoise.c
 	intern/MOD_gpencilsubdiv.c
+	intern/MOD_gpencilsubsurf.c
 )
 
 if(WITH_ALEMBIC)
