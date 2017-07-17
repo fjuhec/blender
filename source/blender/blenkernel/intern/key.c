@@ -107,7 +107,7 @@ Key *BKE_key_add(ID *id)    /* common function */
 	Key *key;
 	char *el;
 	
-	key = BKE_libblock_alloc(G.main, ID_KE, "Key");
+	key = BKE_libblock_alloc(G.main, ID_KE, "Key", 0);
 	
 	key->type = KEY_NORMAL;
 	key->from = id;

@@ -270,7 +270,7 @@ Lattice *BKE_lattice_add(Main *bmain, const char *name)
 {
 	Lattice *lt;
 
-	lt = BKE_libblock_alloc(bmain, ID_LT, name);
+	lt = BKE_libblock_alloc(bmain, ID_LT, name, 0);
 
 	BKE_lattice_init(lt);
 

@@ -952,7 +952,7 @@ RigidBodyWorld *BKE_rigidbody_world_copy(RigidBodyWorld *rbw, const int flag)
 	if (rbw->effector_weights) {
 		rbw_copy->effector_weights = MEM_dupallocN(rbw->effector_weights);
 	}
-	if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
+	if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
 		id_us_plus((ID *)rbw_copy->group);
 		id_us_plus((ID *)rbw_copy->constraints);
 	}

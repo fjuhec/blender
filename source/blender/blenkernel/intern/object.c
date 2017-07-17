@@ -670,7 +670,7 @@ Object *BKE_object_add_only_object(Main *bmain, int type, const char *name)
 	if (!name)
 		name = get_obdata_defname(type);
 
-	ob = BKE_libblock_alloc(bmain, ID_OB, name);
+	ob = BKE_libblock_alloc(bmain, ID_OB, name, 0);
 
 	/* default object vars */
 	ob->type = type;
@@ -957,7 +957,7 @@ ParticleSystem *BKE_object_copy_particlesystem(ParticleSystem *psys, const int f
 		psysn->clmd->point_cache = psysn->pointcache;
 	}
 
-	if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
+	if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
 		id_us_plus((ID *)psysn->part);
 	}
 
@@ -1113,7 +1113,7 @@ void BKE_object_copy_data(Main *UNUSED(bmain), Object *ob_dst, const Object *ob_
 	ModifierData *md;
 
 	/* We never handle usercount here for own data. */
-	const int flag_subdata = flag | LIB_ID_COPY_NO_USER_REFCOUNT;
+	const int flag_subdata = flag | LIB_ID_CREATE_NO_USER_REFCOUNT;
 
 	if (ob_src->totcol) {
 		ob_dst->mat = MEM_dupallocN(ob_src->mat);

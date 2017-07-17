@@ -309,7 +309,7 @@ PaintCurve *BKE_paint_curve_add(Main *bmain, const char *name)
 {
 	PaintCurve *pc;
 
-	pc = BKE_libblock_alloc(bmain, ID_PC, name);
+	pc = BKE_libblock_alloc(bmain, ID_PC, name, 0);
 
 	return pc;
 }
@@ -395,7 +395,7 @@ Palette *BKE_palette_add(Main *bmain, const char *name)
 {
 	Palette *palette;
 
-	palette = BKE_libblock_alloc(bmain, ID_PAL, name);
+	palette = BKE_libblock_alloc(bmain, ID_PAL, name, 0);
 
 	/* enable fake user by default */
 	id_fake_user_set(&palette->id);
@@ -556,7 +556,7 @@ void BKE_paint_copy(Paint *src, Paint *tar, const int flag)
 	tar->brush = src->brush;
 	tar->cavity_curve = curvemapping_copy(src->cavity_curve);
 
-	if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
+	if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
 		id_us_plus((ID *)tar->brush);
 		id_us_plus((ID *)tar->palette);
 	}

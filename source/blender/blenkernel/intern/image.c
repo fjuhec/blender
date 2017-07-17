@@ -382,7 +382,7 @@ static Image *image_alloc(Main *bmain, const char *name, short source, short typ
 {
 	Image *ima;
 
-	ima = BKE_libblock_alloc(bmain, ID_IM, name);
+	ima = BKE_libblock_alloc(bmain, ID_IM, name, 0);
 	if (ima) {
 		image_init(ima, source, type);
 	}

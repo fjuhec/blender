@@ -588,7 +588,7 @@ static MovieClip *movieclip_alloc(Main *bmain, const char *name)
 {
 	MovieClip *clip;
 
-	clip = BKE_libblock_alloc(bmain, ID_MC, name);
+	clip = BKE_libblock_alloc(bmain, ID_MC, name, 0);
 
 	clip->aspx = clip->aspy = 1.0f;
 
@@ -1499,7 +1499,7 @@ void BKE_movieclip_free(MovieClip *clip)
 void BKE_movieclip_copy_data(Main *UNUSED(bmain), MovieClip *clip_dst, const MovieClip *clip_src, const int flag)
 {
 	/* We never handle usercount here for own data. */
-	const int flag_subdata = flag | LIB_ID_COPY_NO_USER_REFCOUNT;
+	const int flag_subdata = flag | LIB_ID_CREATE_NO_USER_REFCOUNT;
 
 	clip_dst->anim = NULL;
 	clip_dst->cache = NULL;

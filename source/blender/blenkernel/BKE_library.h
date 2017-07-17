@@ -52,24 +52,24 @@ struct PropertyRNA;
 
 size_t BKE_libblock_get_alloc_info(short type, const char **name);
 void *BKE_libblock_alloc_notest(short type);
-void *BKE_libblock_alloc(struct Main *bmain, short type, const char *name) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
+void *BKE_libblock_alloc(struct Main *bmain, short type, const char *name, const int flag) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 void  BKE_libblock_init_empty(struct ID *id);
 
 /**
- * New copy logic options.
+ * New ID creation/copying options.
  */
 enum {
-	/* *** Generic options (should be handled by all ID types copying). *** */
-	/* Create copy outside of any main database - similar to 'localize' functions of materials etc. */
-	LIB_ID_COPY_NO_MAIN            = 1 << 0,
-	/* Do not affect user refcount of datablocks used by copied one.
-	 * Implies LIB_ID_COPY_NO_MAIN. */
-	LIB_ID_COPY_NO_USER_REFCOUNT   = 1 << 1,
+	/* *** Generic options (should be handled by all ID types copying, ID creation, etc.). *** */
+	/* Create datablock outside of any main database - similar to 'localize' functions of materials etc. */
+	LIB_ID_CREATE_NO_MAIN            = 1 << 0,
+	/* Do not affect user refcount of datablocks used by new one (which also gets zero usercount then).
+	 * Implies LIB_ID_CREATE_NO_MAIN. */
+	LIB_ID_CREATE_NO_USER_REFCOUNT   = 1 << 1,
 	/* Assume given 'newid' already points to allocated memory for whole datablock (ID + data) - USE WITH CAUTION!
-	 * Implies LIB_ID_COPY_NO_MAIN. */
-	LIB_ID_COPY_NO_ALLOCATE        = 1 << 2,
+	 * Implies LIB_ID_CREATE_NO_MAIN. */
+	LIB_ID_CREATE_NO_ALLOCATE        = 1 << 2,
 
-	LIB_ID_COPY_NO_DEG_TAG         = 1 << 8,  /* Do not tag duplicated ID for update in depsgraph. */
+	LIB_ID_CREATE_NO_DEG_TAG         = 1 << 8,  /* Do not tag new ID for update in depsgraph. */
 
 	/* Specific options to some ID types or usages, may be ignored by unrelated ID copying functions. */
 	LIB_ID_COPY_NO_PROXY_CLEAR     = 1 << 16,  /* Object only, needed by make_local code. */
@@ -83,8 +83,6 @@ void BKE_libblock_copy_ex(struct Main *bmain, const struct ID *id, struct ID **r
 void *BKE_libblock_copy(struct Main *bmain, const struct ID *id) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 /* "Deprecated" old API. */
 void *BKE_libblock_copy_nolib(const struct ID *id, const bool do_action) ATTR_NONNULL();
-
-void  BKE_libblock_copy_data(struct Main *bmain, struct ID *id, const struct ID *id_from, const int flag);
 
 void  BKE_libblock_rename(struct Main *bmain, struct ID *id, const char *name) ATTR_NONNULL();
 void  BLI_libblock_ensure_unique_name(struct Main *bmain, const char *name) ATTR_NONNULL();
@@ -119,6 +117,12 @@ void BKE_id_free(struct Main *bmain, void *idv);
 void  BKE_libblock_free_ex(struct Main *bmain, void *idv, const bool do_id_user, const bool do_ui_user) ATTR_NONNULL();
 void  BKE_libblock_free(struct Main *bmain, void *idv) ATTR_NONNULL();
 void  BKE_libblock_free_us(struct Main *bmain, void *idv) ATTR_NONNULL();
+
+void BKE_libblock_management_main_add(struct Main *bmain, void *idv);
+void BKE_libblock_management_main_remove(struct Main *bmain, void *idv);
+
+void BKE_libblock_management_usercounts_set(struct Main *bmain, void *idv);
+void BKE_libblock_management_usercounts_clear(struct Main *bmain, void *idv);
 
 /* TODO should be named "BKE_id_delete()". */
 void  BKE_libblock_delete(struct Main *bmain, void *idv) ATTR_NONNULL();

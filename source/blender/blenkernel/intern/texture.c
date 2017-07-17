@@ -707,7 +707,7 @@ Tex *BKE_texture_add(Main *bmain, const char *name)
 {
 	Tex *tex;
 
-	tex = BKE_libblock_alloc(bmain, ID_TE, name);
+	tex = BKE_libblock_alloc(bmain, ID_TE, name, 0);
 	
 	BKE_texture_default(tex);
 	
@@ -857,7 +857,7 @@ MTex *BKE_texture_mtex_add_id(ID *id, int slot)
 void BKE_texture_copy_data(Main *bmain, Tex *tex_dst, const Tex *tex_src, const int flag)
 {
 	/* We never handle usercount here for own data. */
-	const int flag_subdata = flag | LIB_ID_COPY_NO_USER_REFCOUNT;
+	const int flag_subdata = flag | LIB_ID_CREATE_NO_USER_REFCOUNT;
 
 	if (!BKE_texture_is_image_user(tex_src)) {
 		tex_dst->ima = NULL;
@@ -919,17 +919,17 @@ Tex *BKE_texture_localize(Tex *tex)
 	
 	if (texn->coba) texn->coba = MEM_dupallocN(texn->coba);
 	if (texn->env) {
-		texn->env = BKE_texture_envmap_copy(texn->env, LIB_ID_COPY_NO_USER_REFCOUNT);
+		texn->env = BKE_texture_envmap_copy(texn->env, LIB_ID_CREATE_NO_USER_REFCOUNT);
 		id_us_min(&texn->env->ima->id);
 	}
-	if (texn->pd) texn->pd = BKE_texture_pointdensity_copy(texn->pd, LIB_ID_COPY_NO_USER_REFCOUNT);
+	if (texn->pd) texn->pd = BKE_texture_pointdensity_copy(texn->pd, LIB_ID_CREATE_NO_USER_REFCOUNT);
 	if (texn->vd) {
 		texn->vd = MEM_dupallocN(texn->vd);
 		if (texn->vd->dataset)
 			texn->vd->dataset = MEM_dupallocN(texn->vd->dataset);
 	}
 	if (texn->ot) {
-		texn->ot = BKE_texture_ocean_copy(tex->ot, LIB_ID_COPY_NO_USER_REFCOUNT);
+		texn->ot = BKE_texture_ocean_copy(tex->ot, LIB_ID_CREATE_NO_USER_REFCOUNT);
 	}
 	
 	texn->preview = NULL;
@@ -1303,7 +1303,7 @@ EnvMap *BKE_texture_envmap_copy(const EnvMap *env, const int flag)
 	for (a = 0; a < 6; a++) {
 		envn->cube[a] = NULL;
 	}
-	if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
+	if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
 		id_us_plus((ID *)envn->ima);
 	}
 

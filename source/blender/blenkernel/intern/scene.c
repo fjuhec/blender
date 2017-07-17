@@ -165,7 +165,7 @@ static void remove_sequencer_fcurves(Scene *sce)
 void BKE_scene_copy_data(Main *bmain, Scene *sce_dst, const Scene *sce_src, const int flag)
 {
 	/* We never handle usercount here for own data. */
-	const int flag_subdata = flag | LIB_ID_COPY_NO_USER_REFCOUNT;
+	const int flag_subdata = flag | LIB_ID_CREATE_NO_USER_REFCOUNT;
 
 	sce_dst->ed = NULL;
 	sce_dst->theDag = NULL;
@@ -936,7 +936,7 @@ Scene *BKE_scene_add(Main *bmain, const char *name)
 {
 	Scene *sce;
 
-	sce = BKE_libblock_alloc(bmain, ID_SCE, name);
+	sce = BKE_libblock_alloc(bmain, ID_SCE, name, 0);
 	id_us_min(&sce->id);
 	id_us_ensure_real(&sce->id);
 

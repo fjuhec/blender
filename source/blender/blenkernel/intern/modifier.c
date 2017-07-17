@@ -289,7 +289,7 @@ void modifier_copyData_ex(ModifierData *md, ModifierData *target, const int flag
 		mti->copyData(md, target);
 	}
 
-	if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
+	if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
 		if (mti->foreachIDLink) {
 			mti->foreachIDLink(target, NULL, modifier_copy_data_id_us_cb, NULL);
 		}

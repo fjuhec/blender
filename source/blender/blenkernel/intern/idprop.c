@@ -450,7 +450,7 @@ static IDProperty *IDP_CopyID(const IDProperty *prop, const int flag)
 	newp = idp_generic_copy(prop, flag);
 
 	newp->data.pointer = prop->data.pointer;
-	if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) == 0) {
+	if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
 		id_us_plus(IDP_Id(newp));
 	}
 

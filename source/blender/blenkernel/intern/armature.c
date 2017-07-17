@@ -83,7 +83,7 @@ bArmature *BKE_armature_add(Main *bmain, const char *name)
 {
 	bArmature *arm;
 
-	arm = BKE_libblock_alloc(bmain, ID_AR, name);
+	arm = BKE_libblock_alloc(bmain, ID_AR, name, 0);
 	arm->deformflag = ARM_DEF_VGROUP | ARM_DEF_ENVELOPE;
 	arm->flag = ARM_COL_CUSTOM; /* custom bone-group colors */
 	arm->layer = 1;
@@ -190,7 +190,7 @@ void BKE_armature_copy_data(Main *UNUSED(bmain), bArmature *arm_dst, const bArma
 	Bone *bone_dst_act = NULL;
 
 	/* We never handle usercount here for own data. */
-	const int flag_subdata = flag | LIB_ID_COPY_NO_USER_REFCOUNT;
+	const int flag_subdata = flag | LIB_ID_CREATE_NO_USER_REFCOUNT;
 
 	BLI_duplicatelist(&arm_dst->bonebase, &arm_src->bonebase);
 

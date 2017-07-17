@@ -86,7 +86,7 @@ void *BKE_camera_add(Main *bmain, const char *name)
 {
 	Camera *cam;
 
-	cam =  BKE_libblock_alloc(bmain, ID_CA, name);
+	cam =  BKE_libblock_alloc(bmain, ID_CA, name, 0);
 
 	BKE_camera_init(cam);
 

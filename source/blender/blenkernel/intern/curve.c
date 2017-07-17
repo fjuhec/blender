@@ -179,7 +179,7 @@ Curve *BKE_curve_add(Main *bmain, const char *name, int type)
 {
 	Curve *cu;
 
-	cu = BKE_libblock_alloc(bmain, ID_CU, name);
+	cu = BKE_libblock_alloc(bmain, ID_CU, name, 0);
 	cu->type = type;
 
 	BKE_curve_init(cu);
