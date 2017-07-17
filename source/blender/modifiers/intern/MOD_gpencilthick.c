@@ -24,7 +24,7 @@
  *
  */
 
-/** \file blender/modifiers/intern/MOD_gpencilsubsurf.c
+/** \file blender/modifiers/intern/MOD_gpencilthick.c
  *  \ingroup modifiers
  */
 
