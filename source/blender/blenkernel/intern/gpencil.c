@@ -1703,8 +1703,25 @@ void ED_gpencil_subdiv_modifier(GpencilSubdivModifierData *mmd, bGPDlayer *gpl, 
 			i2 += 2;
 		}
 
-		/* free temp memory */
 		MEM_SAFE_FREE(temp_points);
+
+		/* move points to smooth stroke (not simple flag )*/
+		if ((mmd->flag & GP_SUBDIV_SIMPLE) == 0) {
+			/* duplicate points in a temp area with the new subdivide data */
+			temp_points = MEM_dupallocN(gps->points);
+
+			/* extreme points are not changed */
+			for (int i = 0; i < gps->totpoints - 2; i++) {
+				bGPDspoint *pt = &temp_points[i];
+				bGPDspoint *next = &temp_points[i + 1];
+				bGPDspoint *pt_final = &gps->points[i + 1];
+
+				/* move point */
+				interp_v3_v3v3(&pt_final->x, &pt->x, &next->x, 0.5f);
+			}
+			/* free temp memory */
+			MEM_SAFE_FREE(temp_points);
+		}
 	}
 }
 
