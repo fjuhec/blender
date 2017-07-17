@@ -3468,12 +3468,12 @@ static void widget_roundbut(uiWidgetColors *wcol, rcti *rect, int UNUSED(state),
 	widgetbase_draw(&wtb, wcol);
 }
 
-static void widget_tab(uiBut *but, uiWidgetColors *wcol, rcti *rect, int UNUSED(state), int roundboxalign)
+static void widget_tab(uiWidgetColors *wcol, rcti *rect, int state, int roundboxalign)
 {
 	const uiStyle *style = UI_style_get();
 	const float rad = 0.25f * U.widget_unit;
 	const int fontid = style->widget.uifont_id;
-	const bool is_active = (but->flag & UI_SELECT);
+	const bool is_active = (state & UI_SELECT);
 
 /* Draw shaded outline - Disabled for now, seems incorrect and also looks nicer without it imho ;) */
 //#define USE_TAB_SHADED_HIGHLIGHT
@@ -3607,7 +3607,7 @@ static uiWidgetType *widget_type(uiWidgetTypeEnum type)
 			break;
 
 		case UI_WTYPE_TAB:
-			wt.custom = widget_tab;
+			wt.draw = widget_tab;
 			wt.wcol_theme = &btheme->tui.wcol_tab;
 			break;
 
