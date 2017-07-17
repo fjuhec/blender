@@ -106,6 +106,23 @@ void BKE_vfont_free(struct VFont *vf)
 	}
 }
 
+void BKE_vfont_copy_data(Main *UNUSED(bmain), VFont *vfont_dst, const VFont *UNUSED(vfont_src), const int flag)
+{
+	/* We never handle usercount here for own data. */
+	const int flag_subdata = flag | LIB_ID_COPY_NO_USER_REFCOUNT;
+
+	/* Just to be sure, should not have any value actually after reading time. */
+	vfont_dst->temp_pf = NULL;
+
+	if (vfont_dst->packedfile) {
+		vfont_dst->packedfile = dupPackedFile(vfont_dst->packedfile);
+	}
+
+	if (vfont_dst->data) {
+		vfont_dst->data = BLI_vfontdata_copy(vfont_dst->data, flag_subdata);
+	}
+}
+
 static void *builtin_font_data = NULL;
 static int builtin_font_size = 0;
 
