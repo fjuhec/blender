@@ -64,6 +64,7 @@
 #include "GPU_material.h"
 #include "GPU_shader.h"
 #include "GPU_texture.h"
+#include "GPU_uniformbuffer.h"
 
 #include "gpu_codegen.h"
 #include "gpu_lamp_private.h"
@@ -133,6 +134,7 @@ struct GPUMaterial {
 	bool bound;
 
 	bool is_opensubdiv;
+	GPUUniformBuffer *ubo; /* UBOs for shader uniforms. */
 };
 
 /* Forward declaration so shade_light_textures() can use this, while still keeping the code somewhat organized */
@@ -250,21 +252,10 @@ void GPU_material_free(ListBase *gpumaterial)
 		if (material->pass)
 			GPU_pass_free(material->pass);
 
-		for (LinkData *nlink = material->lamps.first; nlink; nlink = nlink->next) {
-			GPULamp *lamp = nlink->data;
-
-			if (material->ma) {
-				Material *ma = material->ma;
-				
-				LinkData *next = NULL;
-				for (LinkData *mlink = lamp->materials.first; mlink; mlink = next) {
-					next = mlink->next;
-					if (mlink->data == ma)
-						BLI_freelinkN(&lamp->materials, mlink);
-				}
-			}
+		if (material->ubo != NULL) {
+			GPU_uniformbuffer_free(material->ubo);
 		}
-		
+
 		BLI_freelistN(&material->lamps);
 
 		MEM_freeN(material);
@@ -442,6 +433,30 @@ GPUMatType GPU_Material_get_type(GPUMaterial *material)
 GPUPass *GPU_material_get_pass(GPUMaterial *material)
 {
 	return material->pass;
+}
+
+GPUUniformBuffer *GPU_material_get_uniform_buffer(GPUMaterial *material)
+{
+	return material->ubo;
+}
+
+/**
+ * Create dynamic UBO from parameters
+ * \param ListBase of BLI_genericNodeN(GPUInput)
+ */
+void GPU_material_create_uniform_buffer(GPUMaterial *material, ListBase *inputs)
+{
+	material->ubo = GPU_uniformbuffer_dynamic_create(inputs, NULL);
+}
+
+void GPU_material_uniform_buffer_tag_dirty(ListBase *gpumaterials)
+{
+	for (LinkData *link = gpumaterials->first; link; link = link->next) {
+		GPUMaterial *material = link->data;
+		if (material->ubo != NULL) {
+			GPU_uniformbuffer_tag_dirty(material->ubo);
+		}
+	}
 }
 
 void GPU_material_vertex_attributes(GPUMaterial *material, GPUVertexAttribs *attribs)
@@ -904,14 +919,12 @@ static void shade_one_light(GPUShadeInput *shi, GPUShadeResult *shr, GPULamp *la
 				}
 				
 				add_user_list(&mat->lamps, lamp);
-				add_user_list(&lamp->materials, shi->gpumat->ma);
 				return;
 			}
 		}
 	}
 	else if ((mat->scene->gm.flag & GAME_GLSL_NO_SHADOWS) && (lamp->mode & LA_ONLYSHADOW)) {
 		add_user_list(&mat->lamps, lamp);
-		add_user_list(&lamp->materials, shi->gpumat->ma);
 		return;
 	}
 	else
@@ -978,7 +991,6 @@ static void shade_one_light(GPUShadeInput *shi, GPUShadeResult *shr, GPULamp *la
 	}
 
 	add_user_list(&mat->lamps, lamp);
-	add_user_list(&lamp->materials, shi->gpumat->ma);
 }
 
 static void material_lights(GPUShadeInput *shi, GPUShadeResult *shr)
@@ -2148,7 +2160,7 @@ GPUMaterial *GPU_material_from_nodetree(
 	if (mat->outlink) {
 		outlink = mat->outlink;
 		mat->pass = GPU_generate_pass_new(
-		        &mat->nodes, outlink, &mat->attribs, vert_code, geom_code, frag_lib, defines);
+		        mat, &mat->nodes, outlink, &mat->attribs, vert_code, geom_code, frag_lib, defines);
 	}
 
 	/* note that even if building the shader fails in some way, we still keep
@@ -2289,7 +2301,6 @@ GPUNodeLink *GPU_lamp_get_data(
 
 	/* ensure shadow buffer and lamp textures will be updated */
 	add_user_list(&mat->lamps, lamp);
-	add_user_list(&lamp->materials, mat->ma);
 
 	return visifac;
 }

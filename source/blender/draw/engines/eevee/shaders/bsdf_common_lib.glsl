@@ -10,16 +10,28 @@
 
 uniform mat4 ProjectionMatrix;
 uniform mat4 ViewMatrixInverse;
-uniform mat4 ViewMatrix;
 uniform vec4 viewvecs[2];
+#ifndef SHADOW_SHADER
+uniform mat4 ViewMatrix;
+#else
+layout(std140) uniform shadow_render_block {
+	mat4 ShadowMatrix[6];
+	mat4 FaceViewMatrix[6];
+	vec4 lampPosition;
+	int layer;
+	float exponent;
+};
+
+flat in int shFace; /* Shadow layer we are rendering to. */
+#define ViewMatrix      FaceViewMatrix[shFace]
+#endif
 
 #define cameraForward   normalize(ViewMatrixInverse[2].xyz)
 #define cameraPos       ViewMatrixInverse[3].xyz
 
+
 /* ------- Structures -------- */
 #ifdef VOLUMETRICS
-
-#define NODETREE_EXEC
 
 struct Closure {
 	vec3 absorption;
@@ -49,12 +61,48 @@ Closure closure_add(Closure cl1, Closure cl2)
 	cl.anisotropy = (cl1.anisotropy + cl2.anisotropy) / 2.0; /* Average phase (no multi lobe) */
 	return cl;
 }
+#else
 
-Closure nodetree_exec(void); /* Prototype */
+struct Closure {
+	vec3 radiance;
+	float opacity;
+};
 
+#define CLOSURE_DEFAULT Closure(vec3(0.0), 1.0)
+
+Closure closure_mix(Closure cl1, Closure cl2, float fac)
+{
+	Closure cl;
+	cl.radiance = mix(cl1.radiance, cl2.radiance, fac);
+	cl.opacity = mix(cl1.opacity, cl2.opacity, fac);
+	return cl;
+}
+
+Closure closure_add(Closure cl1, Closure cl2)
+{
+	Closure cl;
+	cl.radiance = cl1.radiance + cl2.radiance;
+	cl.opacity = cl1.opacity + cl2.opacity;
+	return cl;
+}
 
 #endif /* VOLUMETRICS */
 
+Closure nodetree_exec(void); /* Prototype */
+
+/* TODO find a better place */
+#ifdef USE_MULTIPLY
+
+out vec4 fragColor;
+
+#define NODETREE_EXEC
+void main()
+{
+	Closure cl = nodetree_exec();
+	fragColor = vec4(mix(vec3(1.0), cl.radiance, cl.opacity), 1.0);
+}
+
+#endif
 
 struct LightData {
 	vec4 position_influence;      /* w : InfluenceRadius */

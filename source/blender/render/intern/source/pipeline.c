@@ -64,6 +64,7 @@
 #include "BKE_colortools.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_library_remap.h"
 #include "BKE_main.h"
@@ -725,14 +726,14 @@ void RE_InitState(Render *re, Render *source, RenderData *rd,
 		re->r.size = source->r.size;
 	}
 
+	re_init_resolution(re, source, winx, winy, disprect);
+
 	/* disable border if it's a full render anyway */
 	if (re->r.border.xmin == 0.0f && re->r.border.xmax == 1.0f &&
 	    re->r.border.ymin == 0.0f && re->r.border.ymax == 1.0f)
 	{
 		re->r.mode &= ~R_BORDER;
 	}
-
-	re_init_resolution(re, source, winx, winy, disprect);
 
 	if (re->rectx < 1 || re->recty < 1 || (BKE_imtype_is_movie(rd->im_format.imtype) &&
 	                                       (re->rectx < 16 || re->recty < 16) ))
@@ -3795,6 +3796,8 @@ void RE_BlenderAnim(Render *re, Main *bmain, Scene *scene, Object *camera_overri
 void RE_PreviewRender(Render *re, Main *bmain, Scene *sce)
 {
 	Object *camera;
+	/* TODO(sergey): Get proper scene layer here. */
+	SceneLayer *scene_layer = BKE_scene_layer_context_active_ex_PLACEHOLDER(bmain, sce);
 	int winx, winy;
 
 	winx = (sce->r.size * sce->r.xsch) / 100;
@@ -3808,7 +3811,7 @@ void RE_PreviewRender(Render *re, Main *bmain, Scene *sce)
 	re->scene = sce;
 	re->scene_color_manage = BKE_scene_check_color_management_enabled(sce);
 	re->lay = sce->lay;
-	re->depsgraph = sce->depsgraph;
+	re->depsgraph = BKE_scene_get_depsgraph(sce, scene_layer);
 
 	camera = RE_GetCamera(re);
 	RE_SetCamera(re, camera);

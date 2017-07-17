@@ -297,6 +297,7 @@ void DRW_shgroup_call_dynamic_add_array(DRWShadingGroup *shgroup, const void *at
 void DRW_shgroup_set_instance_count(DRWShadingGroup *shgroup, int count);
 
 void DRW_shgroup_state_enable(DRWShadingGroup *shgroup, DRWState state);
+void DRW_shgroup_state_disable(DRWShadingGroup *shgroup, DRWState state);
 void DRW_shgroup_attrib_float(DRWShadingGroup *shgroup, const char *name, int size);
 
 void DRW_shgroup_uniform_texture(DRWShadingGroup *shgroup, const char *name, const struct GPUTexture *tex);
@@ -318,6 +319,7 @@ void DRW_shgroup_uniform_mat4(DRWShadingGroup *shgroup, const char *name, const 
 /* Passes */
 DRWPass *DRW_pass_create(const char *name, DRWState state);
 void DRW_pass_foreach_shgroup(DRWPass *pass, void (*callback)(void *userData, DRWShadingGroup *shgrp), void *userData);
+void DRW_pass_sort_shgroup_z(DRWPass *pass);
 
 /* Viewport */
 typedef enum {
@@ -354,7 +356,8 @@ void DRW_lamp_engine_data_free(struct LampEngineData *led);
 
 /* Settings */
 bool DRW_object_is_renderable(struct Object *ob);
-bool DRW_object_is_flat_normal(struct Object *ob);
+bool DRW_object_is_flat_normal(const struct Object *ob);
+int  DRW_object_is_mode_shade(const struct Object *ob);
 
 /* Draw commands */
 void DRW_draw_pass(DRWPass *pass);
@@ -398,7 +401,7 @@ typedef struct DRWContextState {
 	struct View3D *v3d;     /* 'CTX_wm_view3d(C)' */
 
 	struct Scene *scene;    /* 'CTX_data_scene(C)' */
-	struct SceneLayer *sl;  /* 'CTX_data_scene_layer(C)' */
+	struct SceneLayer *scene_layer;  /* 'CTX_data_scene_layer(C)' */
 
 	/* Use 'scene->obedit' for edit-mode */
 	struct Object *obact;   /* 'OBACT_NEW' */
@@ -408,7 +411,6 @@ typedef struct DRWContextState {
 	const struct bContext *evil_C;
 } DRWContextState;
 
-void DRW_context_state_init(const struct bContext *C, DRWContextState *r_draw_ctx);
 const DRWContextState *DRW_context_state_get(void);
 
 #endif /* __DRW_RENDER_H__ */

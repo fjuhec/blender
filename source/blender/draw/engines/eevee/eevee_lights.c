@@ -196,6 +196,33 @@ void EEVEE_lights_cache_shcaster_add(EEVEE_SceneLayerData *sldata, EEVEE_PassLis
 		DRW_shgroup_call_dynamic_add_empty(grp);
 }
 
+void EEVEE_lights_cache_shcaster_material_add(
+	EEVEE_SceneLayerData *sldata, EEVEE_PassList *psl, struct GPUMaterial *gpumat, struct Gwn_Batch *geom, float (*obmat)[4], float *alpha_threshold)
+{
+	DRWShadingGroup *grp = DRW_shgroup_material_instance_create(gpumat, psl->shadow_cube_pass, geom);
+
+	if (grp == NULL) return;
+
+	DRW_shgroup_uniform_block(grp, "shadow_render_block", sldata->shadow_render_ubo);
+	DRW_shgroup_uniform_mat4(grp, "ShadowModelMatrix", (float *)obmat);
+
+	if (alpha_threshold != NULL)
+		DRW_shgroup_uniform_float(grp, "alphaThreshold", alpha_threshold, 1);
+
+	for (int i = 0; i < 6; ++i)
+		DRW_shgroup_call_dynamic_add_empty(grp);
+
+	grp = DRW_shgroup_material_instance_create(gpumat, psl->shadow_cascade_pass, geom);
+	DRW_shgroup_uniform_block(grp, "shadow_render_block", sldata->shadow_render_ubo);
+	DRW_shgroup_uniform_mat4(grp, "ShadowModelMatrix", (float *)obmat);
+
+	if (alpha_threshold != NULL)
+		DRW_shgroup_uniform_float(grp, "alphaThreshold", alpha_threshold, 1);
+
+	for (int i = 0; i < MAX_CASCADE_NUM; ++i)
+		DRW_shgroup_call_dynamic_add_empty(grp);
+}
+
 void EEVEE_lights_cache_finish(EEVEE_SceneLayerData *sldata)
 {
 	EEVEE_LampsInfo *linfo = sldata->lamps;
@@ -726,13 +753,19 @@ void EEVEE_draw_shadows(EEVEE_SceneLayerData *sldata, EEVEE_PassList *psl)
 			srd->layer = i;
 			srd->exponent = la->bleedexp;
 			copy_v3_v3(srd->position, ob->obmat[3]);
-			for (int j = 0; j < 6; ++j) {
+			for (int j = 0; j < 6; j++) {
+				float tmp[4][4];
+
+				unit_m4(tmp);
+				negate_v3_v3(tmp[3], ob->obmat[3]);
+				mul_m4_m4m4(srd->viewmat[j], cubefacemat[j], tmp);
+
 				copy_m4_m4(srd->shadowmat[j], evscd->viewprojmat[j]);
 			}
 			DRW_uniformbuffer_update(sldata->shadow_render_ubo, &linfo->shadow_render_data);
 
 			DRW_framebuffer_bind(sldata->shadow_cube_target_fb);
-			DRW_framebuffer_clear(true, true, false, clear_color, 1.0);
+			DRW_framebuffer_clear(true, true, false, clear_color, 1.0f);
 			/* Render shadow cube */
 			DRW_draw_pass(psl->shadow_cube_pass);
 

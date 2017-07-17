@@ -1700,11 +1700,12 @@ static void node_free_node_ex(bNodeTree *ntree, bNode *node, bool remove_animdat
 			ntreeTexEndExecTree(ntree->execdata);
 			ntree->execdata = NULL;
 		}
-		
-		if (node->typeinfo->freefunc)
-			node->typeinfo->freefunc(node);
 	}
-	
+
+	if (node->typeinfo->freefunc) {
+		node->typeinfo->freefunc(node);
+	}
+
 	for (sock = node->inputs.first; sock; sock = nextsock) {
 		nextsock = sock->next;
 		node_socket_free(ntree, sock, node);
@@ -2024,7 +2025,7 @@ bNodeTree *ntreeLocalize(bNodeTree *ntree)
 
 		for (node = ntree->nodes.first; node; node = node->next) {
 			/* store new_node pointer to original */
-			node->new_node->new_node = node;
+			node->new_node->original = node;
 		}
 
 		if (ntree->typeinfo->localize)

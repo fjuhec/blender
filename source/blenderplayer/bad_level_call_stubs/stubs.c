@@ -379,7 +379,7 @@ void WM_manipulator_target_property_def_rna_ptr(struct wmManipulator *mpr, const
 void WM_manipulatorgrouptype_remove_ptr(struct wmManipulatorGroupType *wt) RET_NONE
 void WM_manipulatormaptype_group_unlink(struct bContext *C, struct Main *bmain, struct wmManipulatorMapType *mmap_type, const struct wmManipulatorGroupType *wgt) RET_NONE
 void WM_manipulatortype_append_ptr(void (*mnpfunc)(struct wmManipulatorType *, void *), void *userdata) RET_NONE
-void WM_manipulatortype_remove_ptr(struct wmManipulatorType *wt) RET_NONE
+void WM_manipulatortype_remove_ptr(struct bContext *C, struct Main *bmain, struct wmManipulatorType *wt) RET_NONE
 
 void ED_manipulator_draw_preset_box(const struct wmManipulator *mpr, float mat[4][4], int select_id) RET_NONE
 void ED_manipulator_draw_preset_arrow(const struct wmManipulator *mpr, float mat[4][4], int axis, int select_id) RET_NONE
@@ -610,7 +610,6 @@ SnapObjectContext *ED_transform_snap_object_context_create_view3d(
 void ED_transform_snap_object_context_destroy(SnapObjectContext *sctx) RET_NONE
 bool ED_transform_snap_object_project_ray_ex(
         struct SnapObjectContext *sctx,
-        const unsigned short snap_to,
         const struct SnapObjectParams *params,
         const float ray_start[3], const float ray_normal[3], float *ray_depth,
         /* return args */
