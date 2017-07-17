@@ -1577,6 +1577,22 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col.label("Layer:")
         col.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
 
+    def GP_TINT(self, layout, ob, md):
+        gpd = ob.grease_pencil
+        split = layout.split()
+
+        col = split.column()
+        col.prop(md, "color")
+        col.prop(md, "factor")
+
+        col = split.column()
+        col.label("Layer:")
+        col.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+        col.prop(md, "passindex", text="Pass")
+
+        row = layout.row()
+        row.prop(md, "create_colors")
+
 classes = (
     DATA_PT_modifiers,
 )

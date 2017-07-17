@@ -46,6 +46,7 @@ struct Object;
 struct GpencilNoiseModifierData;
 struct GpencilSubdivModifierData;
 struct GpencilThickModifierData;
+struct GpencilTintModifierData;
 
 /* ------------ Grease-Pencil API ------------------ */
 
@@ -139,5 +140,6 @@ void ED_gpencil_stroke_modifiers(struct Object *ob, struct bGPDlayer *gpl, struc
 void ED_gpencil_noise_modifier(struct GpencilNoiseModifierData *mmd, struct bGPDlayer *gpl, struct bGPDstroke *gps);
 void ED_gpencil_subdiv_modifier(struct GpencilSubdivModifierData *mmd, struct bGPDlayer *gpl, struct bGPDstroke *gps);
 void ED_gpencil_thick_modifier(struct GpencilThickModifierData *mmd, struct bGPDlayer *gpl, struct bGPDstroke *gps);
+void ED_gpencil_tint_modifier(struct GpencilTintModifierData *mmd, struct bGPDlayer *gpl, struct bGPDstroke *gps);
 
 #endif /*  __BKE_GPENCIL_H__ */

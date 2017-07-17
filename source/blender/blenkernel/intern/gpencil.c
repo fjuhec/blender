@@ -1725,7 +1725,7 @@ void ED_gpencil_subdiv_modifier(GpencilSubdivModifierData *mmd, bGPDlayer *gpl, 
 	}
 }
 
-/* subdivision surface */
+/* change stroke thickness */
 void ED_gpencil_thick_modifier(GpencilThickModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
 {
 	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 0, gpl, gps)) {
@@ -1733,6 +1733,16 @@ void ED_gpencil_thick_modifier(GpencilThickModifierData *mmd, bGPDlayer *gpl, bG
 	}
 
 	gps->thickness += mmd->thickness;
+}
+
+/* tint strokes */
+void ED_gpencil_tint_modifier(GpencilTintModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
+{
+	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 0, gpl, gps)) {
+		return;
+	}
+	interp_v3_v3v3(gps->palcolor->rgb, gps->palcolor->rgb, mmd->rgb, mmd->factor);
+	interp_v3_v3v3(gps->palcolor->fill, gps->palcolor->fill, mmd->rgb, mmd->factor);
 }
 
 /* apply stroke modifiers */
@@ -1752,9 +1762,13 @@ void ED_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
 			case eModifierType_GpencilSubdiv:
 				ED_gpencil_subdiv_modifier((GpencilSubdivModifierData *)md, gpl, gps);
 				break;
-			// Subdiv Surface
+			// Thickness
 			case eModifierType_GpencilThick:
 				ED_gpencil_thick_modifier((GpencilThickModifierData *)md, gpl, gps);
+				break;
+			// Tint
+			case eModifierType_GpencilTint:
+				ED_gpencil_tint_modifier((GpencilTintModifierData *)md, gpl, gps);
 				break;
 			default:
 				break;

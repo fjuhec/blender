@@ -89,7 +89,8 @@ typedef enum ModifierType {
 	eModifierType_SurfaceDeform     = 53,
 	eModifierType_GpencilNoise      = 54,
 	eModifierType_GpencilSubdiv     = 55,
-	eModifierType_GpencilThick    = 56,
+	eModifierType_GpencilThick      = 56,
+	eModifierType_GpencilTint       = 57,
 	NUM_MODIFIER_TYPES
 } ModifierType;
 
@@ -1653,6 +1654,19 @@ typedef struct GpencilThickModifierData {
 	int thickness;               /* Thickness change */
 	char pad[4];
 } GpencilThickModifierData;
+
+typedef struct GpencilTintModifierData {
+	ModifierData modifier;
+	char layername[64];          /* layer name */
+	int passindex;               /* custom index for passes */
+	int flag;                    /* flags */
+	float rgb[3];                /* Tint color */
+	float factor;                /* Mix factor */
+} GpencilTintModifierData;
+
+typedef enum eGpencilTint_Flag {
+	GP_TINT_CREATE_COLORS = (1 << 0),
+} eGpencilTint_Flag;
 
 #define MOD_MESHSEQ_READ_ALL \
 	(MOD_MESHSEQ_READ_VERT | MOD_MESHSEQ_READ_POLY | MOD_MESHSEQ_READ_UV | MOD_MESHSEQ_READ_COLOR)
