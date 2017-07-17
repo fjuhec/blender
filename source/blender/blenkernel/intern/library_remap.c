@@ -850,21 +850,21 @@ void BKE_id_free_ex(Main *bmain, void *idv, int flag, const bool use_flag_from_i
 	ID *id = idv;
 
 	if (use_flag_from_idtag) {
-		if ((id->tag & LIB_TAG_FREE_NO_MAIN) != 0) {
+		if ((id->tag & LIB_TAG_NO_MAIN) != 0) {
 			flag |= LIB_ID_FREE_NO_MAIN;
 		}
 		else {
 			flag &= ~LIB_ID_FREE_NO_MAIN;
 		}
 
-		if ((id->tag & LIB_TAG_FREE_NO_USER_REFCOUNT) != 0) {
+		if ((id->tag & LIB_TAG_NO_USER_REFCOUNT) != 0) {
 			flag |= LIB_ID_FREE_NO_USER_REFCOUNT;
 		}
 		else {
 			flag &= ~LIB_ID_FREE_NO_USER_REFCOUNT;
 		}
 
-		if ((id->tag & LIB_TAG_FREE_NOT_ALLOCATED) != 0) {
+		if ((id->tag & LIB_TAG_NOT_ALLOCATED) != 0) {
 			flag |= LIB_ID_FREE_NOT_ALLOCATED;
 		}
 		else {

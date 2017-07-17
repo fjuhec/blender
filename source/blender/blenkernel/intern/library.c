@@ -1206,13 +1206,13 @@ void BKE_libblock_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int fla
 	BKE_libblock_copy_data(bmain, idn, id, flag);
 
 	if ((flag & LIB_ID_COPY_NO_MAIN) != 0) {
-		idn->tag |= LIB_TAG_FREE_NO_MAIN;
+		idn->tag |= LIB_TAG_NO_MAIN;
 	}
 	if ((flag & LIB_ID_COPY_NO_USER_REFCOUNT) != 0) {
-		idn->tag |= LIB_TAG_FREE_NO_USER_REFCOUNT;
+		idn->tag |= LIB_TAG_NO_USER_REFCOUNT;
 	}
 	if ((flag & LIB_ID_COPY_NO_ALLOCATE) != 0) {
-		idn->tag |= LIB_TAG_FREE_NOT_ALLOCATED;
+		idn->tag |= LIB_TAG_NOT_ALLOCATED;
 	}
 
 	if ((flag & LIB_ID_COPY_NO_DEG_TAG) == 0 && (flag & LIB_ID_COPY_NO_MAIN) == 0) {
