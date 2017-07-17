@@ -519,12 +519,14 @@ static void gpencil_add_stroke_shgroup(GpencilBatchCache *cache, DRWShadingGroup
 
 	sthickness = gps->thickness + gpl->thickness;
 	CLAMP_MIN(sthickness, 1);
-	gpencil_batch_cache_check_free_slots(gpd);
-	if ((gps->totpoints > 1) && (gps->palcolor->stroke_style != STROKE_STYLE_VOLUMETRIC)) {
-		cache->batch_stroke[cache->cache_idx] = DRW_gpencil_get_stroke_geom(gpf, gps, sthickness, ink);
-	}
-	else {
-		cache->batch_stroke[cache->cache_idx] = DRW_gpencil_get_point_geom(gps, sthickness, ink);
+	if (cache->is_dirty) {
+		gpencil_batch_cache_check_free_slots(gpd);
+		if ((gps->totpoints > 1) && (gps->palcolor->stroke_style != STROKE_STYLE_VOLUMETRIC)) {
+			cache->batch_stroke[cache->cache_idx] = DRW_gpencil_get_stroke_geom(gpf, gps, sthickness, ink);
+		}
+		else {
+			cache->batch_stroke[cache->cache_idx] = DRW_gpencil_get_point_geom(gps, sthickness, ink);
+		}
 	}
 	DRW_shgroup_call_add(strokegrp, cache->batch_stroke[cache->cache_idx], gpf->viewmatrix);
 }
