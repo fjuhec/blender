@@ -46,6 +46,7 @@ static void initData(ModifierData *md)
 	GpencilNoiseModifierData *gpmd = (GpencilNoiseModifierData *)md;
 	gpmd->passindex = 0;
 	gpmd->flag |= GP_NOISE_MOD_LOCATION;
+	gpmd->flag |= GP_NOISE_FULL_STROKE;
 	gpmd->factor = 0.5f;
 	gpmd->layername[0] = '\0';
 	gpmd->step = 1;

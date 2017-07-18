@@ -1583,7 +1583,7 @@ static void ED_gpencil_stroke_normal(const bGPDstroke *gps, float r_normal[3])
 void ED_gpencil_noise_modifier(GpencilNoiseModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
 {
 	bGPDspoint *pt0, *pt1;
-	float shift, vran, vdir;
+	float shift, vran, vdir, vfull;
 	float normal[3];
 	float vec1[3], vec2[3];
 	Scene *scene = NULL;
@@ -1596,6 +1596,8 @@ void ED_gpencil_noise_modifier(GpencilNoiseModifierData *mmd, bGPDlayer *gpl, bG
 
 	scene = mmd->modifier.scene;
 	sc_frame = CFRA;
+	zero_v3(vec2);
+	vfull = BLI_frand();
 
 	/* calculate stroke normal*/
 	ED_gpencil_stroke_normal(gps, normal);
@@ -1614,9 +1616,16 @@ void ED_gpencil_noise_modifier(GpencilNoiseModifierData *mmd, bGPDlayer *gpl, bG
 		if (mmd->flag & GP_NOISE_USE_RANDOM) {
 			sc_diff = abs(mmd->scene_frame - sc_frame);
 			/* only recalc if the gp frame change or the number of scene frames is bigger than step */
-			if ((!gpl->actframe) || (mmd->gp_frame != gpl->actframe->framenum) || (sc_diff >= mmd->step)) {
+			if ((!gpl->actframe) || (mmd->gp_frame != gpl->actframe->framenum) || 
+				(sc_diff >= mmd->step) || (mmd->step == 1)) 
+			{
 				vran = mmd->vrand1 = BLI_frand();
-				vdir = mmd->vrand2 = BLI_frand();
+				if (mmd->flag & GP_NOISE_FULL_STROKE) {
+					vdir = mmd->vrand2 = vfull;
+				}
+				else {
+					vdir = mmd->vrand2 = BLI_frand();
+				}
 				mmd->gp_frame = gpl->actframe->framenum;
 				mmd->scene_frame = sc_frame;
 			}
@@ -1627,7 +1636,12 @@ void ED_gpencil_noise_modifier(GpencilNoiseModifierData *mmd, bGPDlayer *gpl, bG
 		}
 		else {
 			vran = 1.0f;
-			vdir = i % 2;
+			if (mmd->flag & GP_NOISE_FULL_STROKE) {
+				vdir = gps->totpoints % 2;
+			}
+			else {
+				vdir = i % 2;
+			}
 			mmd->gp_frame = -999999;
 		}
 
@@ -1650,7 +1664,7 @@ void ED_gpencil_noise_modifier(GpencilNoiseModifierData *mmd, bGPDlayer *gpl, bG
 				pt1->pressure -= pt1->pressure * vran * mmd->factor;
 			}
 			else {
-				pt1->pressure += pt1->pressure * vran * mmd->factor;;
+				pt1->pressure += pt1->pressure * vran * mmd->factor;
 			}
 			CLAMP_MIN(pt1->pressure, GPENCIL_STRENGTH_MIN);
 		}

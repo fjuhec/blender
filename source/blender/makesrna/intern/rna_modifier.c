@@ -4814,6 +4814,11 @@ static void rna_def_modifier_gpencilnoise(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Affect Thickness", "The modifier affects the thickness of the point");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
+	prop = RNA_def_property(srna, "full_stroke", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_NOISE_FULL_STROKE);
+	RNA_def_property_ui_text(prop, "Full Stroke", "The noise moves the stroke as a whole, not point by point");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
 	prop = RNA_def_property(srna, "passindex", PROP_INT, PROP_NONE);
 	RNA_def_property_int_sdna(prop, NULL, "passindex");
 	RNA_def_property_range(prop, 0, 100);

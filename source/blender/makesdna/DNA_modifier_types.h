@@ -1633,6 +1633,7 @@ typedef enum eGpencilNoise_Flag {
 	GP_NOISE_MOD_LOCATION   = (1 << 1),
 	GP_NOISE_MOD_STRENGTH   = (1 << 2),
 	GP_NOISE_MOD_THICKNESS  = (1 << 3),
+	GP_NOISE_FULL_STROKE    = (1 << 4),
 } eGpencilNoise_Flag;
 
 
