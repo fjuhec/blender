@@ -218,7 +218,7 @@ class ClaudeJobCheckCredentials(ClaudeJob):
             return user_id
 
         try:
-            user_id = await pillar.refresh_pillar_credentials(required_roles)
+            user_id = await pillar.refresh_pillar_credentials(REQUIRED_ROLES_FOR_CLAUDE)
         except pillar.NotSubscribedToCloudError:
             print('Not subscribed.')
             return None
