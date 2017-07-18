@@ -1622,7 +1622,10 @@ typedef struct GpencilNoiseModifierData {
 	int passindex;               /* custom index for passes */
 	int flag;                    /* several flags */
 	float factor;                /* factor of noise */
-	char pad[4];
+	int step;                    /* how many frames before recalculate randoms */
+	int gp_frame;                /* last gp frame used */
+	int scene_frame;             /* last scene frame used */
+	float vrand1, vrand2;        /* random values */
 } GpencilNoiseModifierData;
 
 typedef enum eGpencilNoise_Flag {

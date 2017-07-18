@@ -35,11 +35,11 @@
 #include "DNA_gpencil_types.h"
 
 #include "BLI_utildefines.h"
+
 #include "BKE_DerivedMesh.h"
 #include "BKE_gpencil.h"
 
 #include "MOD_modifiertypes.h"
-#include "BKE_gpencil.h"
 
 static void initData(ModifierData *md)
 {
@@ -48,6 +48,11 @@ static void initData(ModifierData *md)
 	gpmd->flag |= GP_NOISE_MOD_LOCATION;
 	gpmd->factor = 0.5f;
 	gpmd->layername[0] = '\0';
+	gpmd->step = 1;
+	gpmd->scene_frame = -999999;
+	gpmd->gp_frame = -999999;
+	gpmd->vrand1 = 1.0;
+	gpmd->vrand2 = 1.0;
 
 	BKE_gpencil_batch_cache_alldirty();
 }

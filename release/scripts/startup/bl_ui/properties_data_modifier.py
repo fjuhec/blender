@@ -1536,11 +1536,14 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row = col.row(align=True)
         row.prop(md, "factor")
         row.prop(md, "random", text="", icon="TIME", toggle=True)
-        col.prop(md, "passindex", text="Pass")
+        row = col.row()
+        row.enabled = md.random
+        row.prop(md, "step")
 
         col = split.column()
         col.label("Layer:")
         col.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+        col.prop(md, "passindex", text="Pass")
 
         row = layout.row(align=True)
         row.label("Affect:")

@@ -4819,6 +4819,12 @@ static void rna_def_modifier_gpencilnoise(BlenderRNA *brna)
 	RNA_def_property_range(prop, 0, 100);
 	RNA_def_property_ui_text(prop, "Pass", "Pass index");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "step", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "step");
+	RNA_def_property_range(prop, 1, 100);
+	RNA_def_property_ui_text(prop, "Step", "Number of frames before recalculate random values again");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
 static void rna_def_modifier_gpencilsubdiv(BlenderRNA *brna)

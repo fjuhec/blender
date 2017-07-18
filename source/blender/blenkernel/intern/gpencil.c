@@ -1586,10 +1586,16 @@ void ED_gpencil_noise_modifier(GpencilNoiseModifierData *mmd, bGPDlayer *gpl, bG
 	float shift, vran, vdir;
 	float normal[3];
 	float vec1[3], vec2[3];
+	Scene *scene = NULL;
+	int sc_frame = 0;
+	int sc_diff = 0;
 
 	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps)) {
 		return;
 	}
+
+	scene = mmd->modifier.scene;
+	sc_frame = CFRA;
 
 	/* calculate stroke normal*/
 	ED_gpencil_stroke_normal(gps, normal);
@@ -1606,12 +1612,23 @@ void ED_gpencil_noise_modifier(GpencilNoiseModifierData *mmd, bGPDlayer *gpl, bG
 		normalize_v3(vec2);
 		/* use random noise */
 		if (mmd->flag & GP_NOISE_USE_RANDOM) {
-			vran = BLI_frand();
-			vdir = BLI_frand();
+			sc_diff = abs(mmd->scene_frame - sc_frame);
+			/* only recalc if the gp frame change or the number of scene frames is bigger than step */
+			if ((!gpl->actframe) || (mmd->gp_frame != gpl->actframe->framenum) || (sc_diff >= mmd->step)) {
+				vran = mmd->vrand1 = BLI_frand();
+				vdir = mmd->vrand2 = BLI_frand();
+				mmd->gp_frame = gpl->actframe->framenum;
+				mmd->scene_frame = sc_frame;
+			}
+			else {
+				vran = mmd->vrand1;
+				vdir = mmd->vrand2;
+			}
 		}
 		else {
 			vran = 1.0f;
 			vdir = i % 2;
+			mmd->gp_frame = -999999;
 		}
 
 		/* apply randomness to location of the point */
