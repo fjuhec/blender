@@ -830,7 +830,7 @@ void ED_screen_ensure_updated(wmWindowManager *wm, wmWindow *win, bScreen *scree
 	else {
 		ED_screen_areas_iter(win, screen, area) {
 			if (area->flag & AREA_FLAG_REGION_SIZE_UPDATE) {
-				screen_area_update_region_sizes(win, area);
+				screen_area_update_region_sizes(wm, win, area);
 				break;
 			}
 		}

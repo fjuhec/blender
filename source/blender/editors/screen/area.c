@@ -1480,7 +1480,7 @@ static void ed_default_handlers(wmWindowManager *wm, ScrArea *sa, ListBase *hand
 	}
 }
 
-void screen_area_update_region_sizes(wmWindow *win, ScrArea *area)
+void screen_area_update_region_sizes(wmWindowManager *wm, wmWindow *win, ScrArea *area)
 {
 	rcti rect = area->totrct;
 
@@ -1488,6 +1488,11 @@ void screen_area_update_region_sizes(wmWindow *win, ScrArea *area)
 	region_rect_recursive(win, area, area->regionbase.first, &rect, 0, false);
 	for (ARegion *ar = area->regionbase.first; ar; ar = ar->next) {
 		region_subwindow(win, ar, false);
+
+		/* region size may have changed, init does necessary adjustments */
+		if (ar->type->init) {
+			ar->type->init(wm, ar);
+		}
 	}
 
 	/* XXX hack to force drawing */
@@ -2138,6 +2143,7 @@ void ED_region_header(const bContext *C, ARegion *ar)
 	int maxco, xco, yco;
 	int headery = ED_area_headersize();
 	const int start_ofs = 0.4f * UI_UNIT_X;
+	bool region_layout_based = ar->flag & RGN_RESIZE_LAYOUT_BASED;
 
 	/* clear */
 	UI_ThemeClearColor((ED_screen_area_active(C) || (ar->regiontype != RGN_TYPE_HEADER)) ? TH_BACK : TH_HEADERDESEL);
@@ -2171,7 +2177,7 @@ void ED_region_header(const bContext *C, ARegion *ar)
 		if (xco > maxco)
 			maxco = xco;
 
-		if (ar->flag & RGN_RESIZE_LAYOUT_BASED) {
+		if (region_layout_based) {
 			ScrArea *sa = CTX_wm_area(C);
 
 			ar->sizex = maxco + start_ofs;
@@ -2185,7 +2191,7 @@ void ED_region_header(const bContext *C, ARegion *ar)
 	}
 
 	/* always as last  */
-	UI_view2d_totRect_set(&ar->v2d, maxco + UI_UNIT_X + 80, headery);
+	UI_view2d_totRect_set(&ar->v2d, maxco + (region_layout_based ? UI_UNIT_X + 80 : 0), headery);
 
 	/* restore view matrix? */
 	UI_view2d_view_restore(C);
