@@ -5864,7 +5864,7 @@ static void fill_tube(Mesh *me, float *left, float *right, int totl, int totr, i
 		if (totr > 1) {
 			a = right[r_u_pos_i * 4 + 7];
 			b = right[r_u_pos_i * 4 + 3];
-			f = (step_r * (float)(u_steps - u) - a) / (b - a);
+			f = (step_r * (float)(u_steps - u - 1) - a) / (b - a);
 			interp_v3_v3v3(v2, &right[r_u_pos_i * 4 + 4], &right[r_u_pos_i * 4], f);
 		} else {
 			copy_v3_v3(v2, &right[0]);
@@ -6236,8 +6236,13 @@ static void add_ss_tinter(SilhouetteData *sil, SpineBranch *branch, Mesh *me, fl
 
 		v_start = me->totvert;
 
-		branch->e_start_arr[s * 2] = me->totedge;
-		branch->e_start_arr[s * 2 + 1] = 1;
+		/* TODO: Maybe origin of a bug. if (cyclic_offset > 0) {
+			branch->e_start_arr[(s + 2) % 3 * 2] = me->totedge;
+			branch->e_start_arr[(s + 2) % 3 * 2 + 1] = 1;
+		} else {*/
+			branch->e_start_arr[s * 2] = me->totedge;
+			branch->e_start_arr[s * 2 + 1] = 1;
+		/*}*/
 
 		calc_vert_half(me,
 					   &sa[b_start[s]],
@@ -6574,7 +6579,7 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 	mul_v3_fl(z_vec, depth);
 
 	int w_steps = v_steps / 2 + 2;
-	float smoothness = 0.5f;//sil->smoothness;
+	float smoothness = sil->smoothness;
 
 	for (int i = 0; i < spine->totbranches; i++) {
 		a_branch = spine->branches[i];
@@ -6591,6 +6596,7 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 					add_ss_tinter(sil, a_branch, me, z_vec, depth, v_steps, w_steps, smoothness);
 					break;
 			}
+			//debug_branch(a_branch, 0x00ff00);
 		}
 	}
 
@@ -6649,7 +6655,7 @@ static void sculpt_silhouette_stroke_done(bContext *UNUSED(C), wmOperator *op)
 		float v1[3], v2[3];
 		copy_v3_v3(v1, &sil->current_stroke->points[i * 3 - 3]);
 		copy_v3_v3(v2, &sil->current_stroke->points[i * 3]);
-		bl_debug_draw_edge_add(v1,v2);
+		//bl_debug_draw_edge_add(v1,v2);
 	}
 #endif
 	
