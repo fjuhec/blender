@@ -299,7 +299,6 @@ static void GPENCIL_draw_scene(void *vedata)
 	DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
 	float clearcol[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 	int init_grp, end_grp;
-	bool is_drawing_session = false;
 
 	/* attach temp textures */
 	DRW_framebuffer_texture_attach(fbl->temp_color_fb, e_data.temp_fbcolor_depth_tx, 0, 0);
@@ -312,58 +311,42 @@ static void GPENCIL_draw_scene(void *vedata)
 		qsort(stl->g_data->gp_object_cache, stl->g_data->gp_cache_used, 
 			sizeof(tGPencilObjectCache), gpencil_object_cache_compare_zdepth);
 
-
 		for (int i = 0; i < stl->g_data->gp_cache_used; ++i) {
 			Object *ob = stl->g_data->gp_object_cache[i].ob;
-			if (!is_drawing_session) {
-				is_drawing_session = (bool)(ob->gpd->sbuffer_size > 0);
-			}
 			init_grp = stl->g_data->gp_object_cache[i].init_grp;
 			end_grp = stl->g_data->gp_object_cache[i].end_grp;
+			/* Render stroke in separated framebuffer */
+			DRW_framebuffer_bind(fbl->temp_color_fb);
+			DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
+
+			/* Stroke Pass: DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH
+			 * draw only a subset that usually start with a fill and end with stroke because the
+			 * shading groups are created by pairs */
+			if (G.debug_value == 668) {
+				printf("GPENCIL_draw_scene: %s %d->%d\n", ob->id.name, init_grp, end_grp);
+			}
+
 			if (end_grp >= init_grp) {
-				/* Render stroke in separated framebuffer */
-				DRW_framebuffer_bind(fbl->temp_color_fb);
-				DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
-
-				/* Stroke Pass: DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH
-				 * draw only a subset that usually start with a fill and end with stroke because the
-				 * shading groups are created by pairs */
-				if (G.debug_value == 668) {
-					printf("GPENCIL_draw_scene: %s %d->%d\n", ob->id.name, init_grp, end_grp);
-				}
-
 				DRW_draw_pass_subset(psl->stroke_pass,
 					stl->shgroups[init_grp].shgrps_fill != NULL ? stl->shgroups[init_grp].shgrps_fill : stl->shgroups[init_grp].shgrps_stroke,
 					stl->shgroups[end_grp].shgrps_stroke);
-
-				/* Combine with scene buffer */
-				DRW_framebuffer_bind(dfbl->default_fb);
-
-				/* Mix Pass: DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS */
-				DRW_draw_pass(psl->mix_pass);
 			}
+			/* Current buffer drawing */
+			if (ob->gpd->sbuffer_size > 0) {
+				DRW_draw_pass(psl->drawing_pass);
+			}
+
+			/* Combine with scene buffer */
+			DRW_framebuffer_bind(dfbl->default_fb);
+
+			/* Mix Pass: DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS */
+			DRW_draw_pass(psl->mix_pass);
 		}
 		/* edit points */
 		DRW_draw_pass(psl->edit_pass);
-
 	}
 	/* free memory */
 	MEM_SAFE_FREE(stl->g_data->gp_object_cache);
-
-	/* current drawing buffer 
-	 * Need to use the mix_pass in order to get the same color while drawing. If the pass is not mixed with the
-	 * same pass than strokes, there is a change in the color between drawing stroke and final stroke due the process
-	 * to mix. This is slower, but needed and while drawing the time delay is negligible
-	*/
-	if (is_drawing_session) {
-		DRW_framebuffer_bind(fbl->temp_color_fb);
-		DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
-
-		DRW_draw_pass(psl->drawing_pass);
-
-		DRW_framebuffer_bind(dfbl->default_fb);
-		DRW_draw_pass(psl->mix_pass);
-	}
 
 	/* detach temp textures */
 	DRW_framebuffer_texture_detach(e_data.temp_fbcolor_depth_tx);
