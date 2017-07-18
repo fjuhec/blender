@@ -3799,7 +3799,6 @@ static void do_vpaint_brush_draw_task_cb_ex(
 							        data->vp, lcol[l_index],
 							        ss->modes.vwpaint.previous_color[l_index], color_final,
 							        final_alpha, 255 * brush_strength, use_alpha, alpha_paint);
-							printf("%c, %c, %c\n", lcol[l_index], lcol[l_index + 1], lcol[l_index + 2]);
 						}
 					}
 				}
