@@ -142,6 +142,28 @@ void BKE_override_free(struct IDOverride **override)
 	*override = NULL;
 }
 
+/** Create an overriden local copy of linked reference. */
+ID *BKE_override_create_from(Main *bmain, ID *reference_id)
+{
+	BLI_assert(reference_id != NULL);
+	BLI_assert(reference_id->lib != NULL);
+
+	ID *local_id;
+
+	if (!id_copy(bmain, reference_id, (ID **)&local_id, false)) {
+		return NULL;
+	}
+	id_us_min(local_id);
+
+	/* Remapping *before* defining override (this will have to be fixed btw, remapping of ref pointer...). */
+	BKE_libblock_remap(bmain, reference_id, local_id, ID_REMAP_SKIP_INDIRECT_USAGE);
+
+	BKE_override_init(local_id, reference_id);
+	local_id->flag |= LIB_AUTOOVERRIDE;
+
+	return local_id;
+}
+
 /**
  * Find override property from given RNA path, if it exists.
  */

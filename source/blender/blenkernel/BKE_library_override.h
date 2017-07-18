@@ -43,6 +43,8 @@ void BKE_override_copy(struct ID *dst_id, const struct ID *src_id);
 void BKE_override_clear(struct IDOverride *override);
 void BKE_override_free(struct IDOverride **override);
 
+struct ID *BKE_override_create_from(struct Main *bmain, struct ID *reference_id);
+
 struct IDOverrideProperty *BKE_override_property_find(struct IDOverride *override, const char *rna_path);
 struct IDOverrideProperty *BKE_override_property_get(struct IDOverride *override, const char *rna_path, bool *r_created);
 void BKE_override_property_delete(struct IDOverride *override, struct IDOverrideProperty *override_property);

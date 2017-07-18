@@ -2406,15 +2406,7 @@ static int make_override_exec(bContext *C, wmOperator *UNUSED(op))
 	Main *bmain = CTX_data_main(C);
 	Object *locobj, *refobj = CTX_data_active_object(C);
 
-	/* Note that we most likely want to do this in a more BKE generic function later, but for now will do for testing. */
-
-	id_copy(bmain, &refobj->id, (ID **)&locobj, false);
-
-	/* Remapping *before* defining override (this will have to be fixed btw, remapping of ref pointer...). */
-	BKE_libblock_remap(bmain, refobj, locobj, ID_REMAP_SKIP_INDIRECT_USAGE);
-
-	BKE_override_init(&locobj->id, &refobj->id);
-	locobj->id.flag |= LIB_AUTOOVERRIDE;
+	locobj = (Object *)BKE_override_create_from(bmain, &refobj->id);
 
 	WM_event_add_notifier(C, NC_WINDOW, NULL);
 

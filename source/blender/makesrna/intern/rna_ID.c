@@ -95,6 +95,7 @@ EnumPropertyItem rna_enum_id_type_items[] = {
 #include "BKE_idprop.h"
 #include "BKE_library.h"
 #include "BKE_library_query.h"
+#include "BKE_library_override.h"
 #include "BKE_library_remap.h"
 #include "BKE_animsys.h"
 #include "BKE_material.h"
@@ -177,7 +178,7 @@ short RNA_type_to_ID_code(StructRNA *type)
 
 StructRNA *ID_code_to_RNA_type(short idcode)
 {
-	switch (idcode) {
+	switch ((ID_Type)(idcode)) {
 		case ID_AC: return &RNA_Action;
 		case ID_AR: return &RNA_Armature;
 		case ID_BR: return &RNA_Brush;
@@ -291,6 +292,15 @@ static ID *rna_ID_copy(ID *id, Main *bmain)
 	}
 	
 	return NULL;
+}
+
+static ID *rna_ID_override_create(ID *id, Main *bmain)
+{
+	if (id->lib == NULL) {
+		return NULL;
+	}
+
+	return BKE_override_create_from(bmain, id);
 }
 
 static void rna_ID_update_tag(ID *id, ReportList *reports, int flag)
@@ -739,9 +749,9 @@ static PointerRNA rna_IDPreview_get(PointerRNA *ptr)
 static PointerRNA rna_ID_override_reference_get(PointerRNA *ptr)
 {
 	ID *id = (ID *)ptr->data;
-	ID *reference = id->override ? id->override->reference : NULL;
+	ID *reference = (id && id->override) ? id->override->reference : NULL;
 
-	return rna_pointer_inherit_refine(ptr, ID_code_to_RNA_type(GS(reference->name)), reference);
+	return reference ? rna_pointer_inherit_refine(ptr, ID_code_to_RNA_type(GS(reference->name)), reference) : PointerRNA_NULL;
 }
 
 #else
@@ -1021,6 +1031,12 @@ static void rna_def_ID(BlenderRNA *brna)
 	RNA_def_function_ui_description(func, "Create a copy of this data-block (not supported for all data-blocks)");
 	RNA_def_function_flag(func, FUNC_USE_MAIN);
 	parm = RNA_def_pointer(func, "id", "ID", "", "New copy of the ID");
+	RNA_def_function_return(func, parm);
+
+	func = RNA_def_function(srna, "override_create", "rna_ID_override_create");
+	RNA_def_function_ui_description(func, "Create an overridden local copy of this linked data-block (not supported for all data-blocks)");
+	RNA_def_function_flag(func, FUNC_USE_MAIN);
+	parm = RNA_def_pointer(func, "id", "ID", "", "New overridden local copy of the ID");
 	RNA_def_function_return(func, parm);
 
 	func = RNA_def_function(srna, "user_clear", "rna_ID_user_clear");
