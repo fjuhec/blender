@@ -127,6 +127,10 @@ extern void bl_debug_draw_quad_add(const float v0[3], const float v1[3], const f
 extern void bl_debug_draw_edge_add(const float v0[3], const float v1[3]);
 extern void bl_debug_color_set(const unsigned int col);
 
+static void bl_debug_draw_medge_add(Mesh *me, int e){
+	bl_debug_draw_edge_add(me->mvert[me->medge[e].v1].co, me->mvert[me->medge[e].v2].co);
+}
+
 static void bl_debug_draw_point(const float pos[3],const float thickness)
 {
 	float h = thickness*0.5;
@@ -6212,7 +6216,7 @@ static void add_ss_tinter(SilhouetteData *sil, SpineBranch *branch, Mesh *me, fl
 		}
 	}
 
-	u_steps = 3;
+	u_steps = 5;
 	zero_v3(center);
 	for (int s = 0; s < 3; s++) {
 		copy_v3_v3(&center_s[s * 3], &sa[b_start[s]]);
@@ -6404,7 +6408,7 @@ static void add_ss_tinter(SilhouetteData *sil, SpineBranch *branch, Mesh *me, fl
 		me->mloop[me->totloop - 1].v = me->medge[e_start_center + s * (u_steps / 2) + u_steps / 2 - 1].v1;
 		me->mloop[me->totloop - 1].e = e_start_center + s * (u_steps / 2) + u_steps / 2 - 1;
 
-		me->mloop[me->totloop - 2].v = me->medge[e_t_sign[s * 2 + 1]].v2;
+		me->mloop[me->totloop - 2].v = me->medge[e_start_inner[(s + 2) % 3] - 1 + stride_le * ((u_steps / 2))].v2;
 		me->mloop[me->totloop - 2].e = e_t_sign[s * 2 + 1];
 
 		me->mloop[me->totloop - 3].v = me->medge[e_start_inner[(s + 2) % 3] - 1 + stride_le * ((u_steps / 2))].v1;
