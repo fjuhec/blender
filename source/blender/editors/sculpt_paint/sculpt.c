@@ -5855,7 +5855,11 @@ static void fill_tube(Mesh *me, float *left, float *right, int totl, int totr, i
 		if (totl > 1) {
 			a = left[l_u_pos_i * 4 - 1];
 			b = left[l_u_pos_i * 4 + 3];
-			f = (step_l * (float)u - a) / (b - a);
+			if (a != b) {
+				f = (step_l * (float)u - a) / (b - a);
+			} else {
+				f = 0.0f;
+			}
 			interp_v3_v3v3(v1, &left[l_u_pos_i * 4 - 4], &left[l_u_pos_i * 4], f);
 		} else {
 			copy_v3_v3(v1, &left[0]);
@@ -5864,7 +5868,11 @@ static void fill_tube(Mesh *me, float *left, float *right, int totl, int totr, i
 		if (totr > 1) {
 			a = right[r_u_pos_i * 4 + 7];
 			b = right[r_u_pos_i * 4 + 3];
-			f = (step_r * (float)(u_steps - u - 1) - a) / (b - a);
+			if (a != b) {
+				f = (step_r * (float)(u_steps - u - 1) - a) / (b - a);
+			} else {
+				f = 0.0f;
+			}
 			interp_v3_v3v3(v2, &right[r_u_pos_i * 4 + 4], &right[r_u_pos_i * 4], f);
 		} else {
 			copy_v3_v3(v2, &right[0]);
@@ -6040,7 +6048,11 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 
 		a = cap_p[u_pos_i * 4 - 1];
 		b = cap_p[u_pos_i * 4 + 3];
-		f = (cap_pos - a) / (b - a);
+		if (a != b) {
+			f = (cap_pos - a) / (b - a);
+		} else {
+			f = 0.0f;
+		}
 		interp_v3_v3v3(v1, &cap_p[u_pos_i * 4 - 4], &cap_p[u_pos_i * 4], f);
 
 		calc_vert_quarter(me,
@@ -6278,7 +6290,11 @@ static void add_ss_tinter(SilhouetteData *sil, SpineBranch *branch, Mesh *me, fl
 			} else {
 				a = sa[b_start[s] + pos_i_sa * 4 - 1];
 				b = sa[b_start[s] + pos_i_sa * 4 + 3];
-				f = (step_length * (float)u - a) / (b - a);
+				if (a != b) {
+					f = (step_length * (float)u - a) / (b - a);
+				} else {
+					f = 0.0f;
+				}
 				interp_v3_v3v3(v1, &sa[b_start[s] + pos_i_sa * 4 - 4], &sa[b_start[s] + pos_i_sa * 4], f);
 			}
 
@@ -6475,6 +6491,7 @@ static void add_ss_tube(SilhouetteData *sil, SpineBranch *branch, Mesh *me, floa
 		branch->e_start_arr = MEM_callocN(sizeof(int) * 4,"edge startposition array");
 		branch->flag |= BRANCH_EDGE_GEN;
 	}
+
 	fill_tube(me, left, right, totl, totr, u_steps, z_vec, v_steps, w_steps, w_fact, branch->e_start_arr);
 
 	BLI_array_free(left);
@@ -6588,15 +6605,23 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 			switch (r_forks) {
 				case 1:
 					add_ss_cap(sil, a_branch, me, z_vec, depth, v_steps, w_steps, smoothness);
+#ifdef DEBUG_DRAW
+					debug_branch(a_branch, 0x00ff00);
+#endif
 					break;
 				case 2:
 					add_ss_tube(sil, a_branch, me, z_vec, depth, v_steps, w_steps, smoothness);
+#ifdef DEBUG_DRAW
+					debug_branch(a_branch, 0xff0000);
+#endif
 					break;
 				case 3:
 					add_ss_tinter(sil, a_branch, me, z_vec, depth, v_steps, w_steps, smoothness);
+#ifdef DEBUG_DRAW
+					debug_branch(a_branch, 0x0000ff);
+#endif
 					break;
 			}
-			//debug_branch(a_branch, 0x00ff00);
 		}
 	}
 
