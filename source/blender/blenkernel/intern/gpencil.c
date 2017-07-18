@@ -1595,7 +1595,8 @@ void ED_gpencil_noise_modifier(GpencilNoiseModifierData *mmd, bGPDlayer *gpl, bG
 	}
 
 	scene = mmd->modifier.scene;
-	sc_frame = CFRA;
+	sc_frame = (scene) ? CFRA : 0;
+
 	zero_v3(vec2);
 	vfull = BLI_frand();
 
