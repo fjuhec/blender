@@ -104,7 +104,7 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 }
 
 ModifierTypeInfo modifierType_GpencilTint = {
-	/* name */              "GP_Tint",
+	/* name */              "Tint",
 	/* structName */        "GpencilTintModifierData",
 	/* structSize */        sizeof(GpencilTintModifierData),
 	/* type */             	eModifierTypeType_Gpencil,

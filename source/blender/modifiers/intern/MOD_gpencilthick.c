@@ -82,7 +82,7 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 }
 
 ModifierTypeInfo modifierType_GpencilThick = {
-	/* name */              "GP_Thickness",
+	/* name */              "Thickness",
 	/* structName */        "GpencilThickModifierData",
 	/* structSize */        sizeof(GpencilThickModifierData),
 	/* type */             	eModifierTypeType_Gpencil,

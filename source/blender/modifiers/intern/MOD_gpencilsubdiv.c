@@ -83,7 +83,7 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 }
 
 ModifierTypeInfo modifierType_GpencilSubdiv = {
-	/* name */              "GP_Subdiv",
+	/* name */              "Subdivision",
 	/* structName */        "GpencilSubdivModifierData",
 	/* structSize */        sizeof(GpencilSubdivModifierData),
 	/* type */             	eModifierTypeType_Gpencil,

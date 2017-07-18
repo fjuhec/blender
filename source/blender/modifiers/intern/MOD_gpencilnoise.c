@@ -83,7 +83,7 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 }
 
 ModifierTypeInfo modifierType_GpencilNoise = {
-	/* name */              "GP_Noise",
+	/* name */              "Noise",
 	/* structName */        "GpencilNoiseModifierData",
 	/* structSize */        sizeof(GpencilNoiseModifierData),
 	/* type */             	eModifierTypeType_Gpencil,
