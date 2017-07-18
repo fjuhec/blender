@@ -615,6 +615,7 @@ extern StructRNA RNA_SurfaceModifier;
 extern StructRNA RNA_GpencilNoiseModifier;
 extern StructRNA RNA_GpencilSubdivModifier;
 extern StructRNA RNA_GpencilThickModifier;
+extern StructRNA RNA_GpencilTintModifier;
 extern StructRNA RNA_TexMapping;
 extern StructRNA RNA_Text;
 extern StructRNA RNA_TextBox;
