@@ -2697,7 +2697,8 @@ PyDoc_STRVAR(BPy_EnumProperty_doc,
 "      :icon: An icon string identifier or integer icon value\n"
 "         (e.g. returned by :class:`bpy.types.UILayout.icon`)\n"
 "      :number: Unique value used as the identifier for this item (stored in file data).\n"
-"         Use when the identifier may need to change.\n"
+"         Use when the identifier may need to change. If the *ENUM_FLAG* option is used,\n"
+"         the values are bitmasks and should be powers of two.\n"
 "\n"
 "      When an item only contains 4 items they define ``(identifier, name, description, number)``.\n"
 "\n"
@@ -2862,8 +2863,8 @@ PyDoc_STRVAR(BPy_PointerProperty_doc,
                               "name=\"\", "
                               "description=\"\", "
                               "options={'ANIMATABLE'}, "
-                              "update=None,\n"
-                              "poll=None)\n"
+                              "poll=None, "
+                              "update=None)\n"
 "\n"
 "   Returns a new pointer property definition.\n"
 "\n"
@@ -3001,7 +3002,7 @@ PyObject *BPy_CollectionProperty(PyObject *self, PyObject *args, PyObject *kw)
 }
 
 PyDoc_STRVAR(BPy_RemoveProperty_doc,
-".. function:: RemoveProperty(cls, attr="")\n"
+".. function:: RemoveProperty(cls, attr)\n"
 "\n"
 "   Removes a dynamically defined property.\n"
 "\n"

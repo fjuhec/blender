@@ -311,7 +311,7 @@ void BKE_id_expand_local(Main *bmain, ID *id)
 /**
  * Ensure new (copied) ID is fully made local.
  */
-void BKE_id_copy_ensure_local(Main *bmain, ID *old_id, ID *new_id)
+void BKE_id_copy_ensure_local(Main *bmain, const ID *old_id, ID *new_id)
 {
 	if (ID_IS_LINKED(old_id)) {
 		BKE_id_expand_local(bmain, new_id);
@@ -492,7 +492,7 @@ bool id_make_local(Main *bmain, ID *id, const bool test, const bool lib_local)
  * Invokes the appropriate copy method for the block and returns the result in
  * newid, unless test. Returns true if the block can be copied.
  */
-bool id_copy(Main *bmain, ID *id, ID **newid, bool test)
+bool id_copy(Main *bmain, const ID *id, ID **newid, bool test)
 {
 	if (!test) {
 		*newid = NULL;
@@ -1096,7 +1096,7 @@ void BKE_libblock_copy_data(ID *id, const ID *id_from, const bool do_action)
 }
 
 /* used everywhere in blenkernel */
-void *BKE_libblock_copy(Main *bmain, ID *id)
+void *BKE_libblock_copy(Main *bmain, const ID *id)
 {
 	ID *idn;
 	size_t idn_len;
@@ -1118,7 +1118,7 @@ void *BKE_libblock_copy(Main *bmain, ID *id)
 	return idn;
 }
 
-void *BKE_libblock_copy_nolib(ID *id, const bool do_action)
+void *BKE_libblock_copy_nolib(const ID *id, const bool do_action)
 {
 	ID *idn;
 	size_t idn_len;

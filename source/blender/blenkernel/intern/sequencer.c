@@ -2082,7 +2082,7 @@ void BKE_sequencer_proxy_set(struct Sequence *seq, bool value)
 		}
 	}
 	else {
-		seq->flag ^= SEQ_USE_PROXY;
+		seq->flag &= ~SEQ_USE_PROXY;
 	}	
 }
 
@@ -5183,6 +5183,7 @@ Sequence *BKE_sequencer_add_sound_strip(bContext *C, ListBase *seqbasep, SeqLoad
 	sound = BKE_sound_new_file(bmain, seq_load->path); /* handles relative paths */
 
 	if (sound->playback_handle == NULL) {
+		BKE_libblock_free(bmain, sound);
 #if 0
 		if (op)
 			BKE_report(op->reports, RPT_ERROR, "Unsupported audio format");
