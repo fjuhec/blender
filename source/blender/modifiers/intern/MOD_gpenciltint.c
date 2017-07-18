@@ -72,16 +72,27 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 		return NULL;
 	}
 	gpd = ob->gpd;
-	GHash *gh = BLI_ghash_str_new("GP_Tint modifier");
+	GHash *gh_layer = BLI_ghash_str_new("GP_Tint Layer modifier");
+	GHash *gh_color;
+
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+				/* create a new set of colors */
 				if (mmd->flag & GP_TINT_CREATE_COLORS) {
-					/* TODO: add support for same name in two palettes */
-					PaletteColor *newpalcolor = BLI_ghash_lookup(gh, gps->palcolor->info);
+					
+					/* look for palette */
+					gh_color = (GHash *)BLI_ghash_lookup(gh_layer, gps->palette->id.name);
+					if (gh_color == NULL) {
+						gh_color = BLI_ghash_str_new("GP_Tint Color modifier");
+						BLI_ghash_insert(gh_layer, gps->palette->id.name, gh_color);
+					}
+
+					/* look for color */
+					PaletteColor *newpalcolor = (PaletteColor *) BLI_ghash_lookup(gh_color, gps->palcolor->info);
 					if (newpalcolor == NULL) {
 						newpalcolor = BKE_palette_color_copy(gps->palette, gps->palcolor);
-						BLI_ghash_insert(gh, gps->palcolor->info, newpalcolor);
+						BLI_ghash_insert(gh_color, gps->palcolor->info, newpalcolor);
 					}
 
 					if (newpalcolor) {
@@ -94,10 +105,21 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 			}
 		}
 	}
-	/* free hash buffer */
-	if (gh) {
-		BLI_ghash_free(gh, NULL, NULL);
-		gh = NULL;
+	/* free hash buffers */
+	GHashIterator *ihash = BLI_ghashIterator_new(gh_layer);
+	while (!BLI_ghashIterator_done(ihash)) {
+		GHash *gh = BLI_ghashIterator_getValue(ihash);
+		if (gh) {
+			BLI_ghash_free(gh, NULL, NULL);
+			gh = NULL;
+		}
+		BLI_ghashIterator_step(ihash);
+	}
+	BLI_ghashIterator_free(ihash);
+
+	if (gh_layer) {
+		BLI_ghash_free(gh_layer, NULL, NULL);
+		gh_layer = NULL;
 	}
 
 	return NULL;
