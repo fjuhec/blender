@@ -1539,10 +1539,8 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row = col.row()
         row.enabled = md.random
         row.prop(md, "step")
-
-        row = col.row()
-        row.enabled = bool(md.step == 1 or md.random is False)
-        row.prop(md, "full_stroke")
+        col.prop(md, "full_stroke")
+        col.prop(md, "move_extreme")
 
         col = split.column()
         col.label("Layer:")

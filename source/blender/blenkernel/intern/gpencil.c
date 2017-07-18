@@ -1583,7 +1583,7 @@ static void ED_gpencil_stroke_normal(const bGPDstroke *gps, float r_normal[3])
 void ED_gpencil_noise_modifier(GpencilNoiseModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
 {
 	bGPDspoint *pt0, *pt1;
-	float shift, vran, vdir, vfull;
+	float shift, vran, vdir;
 	float normal[3];
 	float vec1[3], vec2[3];
 	Scene *scene = NULL;
@@ -1598,15 +1598,26 @@ void ED_gpencil_noise_modifier(GpencilNoiseModifierData *mmd, bGPDlayer *gpl, bG
 	sc_frame = (scene) ? CFRA : 0;
 
 	zero_v3(vec2);
-	vfull = BLI_frand();
 
 	/* calculate stroke normal*/
 	ED_gpencil_stroke_normal(gps, normal);
 
-	/* move points (starting in point 2) */
-	for (int i = 1; i < gps->totpoints - 1; i++) {
-		pt0 = &gps->points[i - 1];
-		pt1 = &gps->points[i];
+	/* move points */
+	for (int i = 0; i < gps->totpoints; i++) {
+		if (((i == 0) || (i == gps->totpoints - 1)) && ((mmd->flag & GP_NOISE_MOVE_EXTREME) == 0))
+		{
+			continue;
+		}
+
+		/* last point is special */
+		if (i == gps->totpoints) {
+			pt0 = &gps->points[i - 2];
+			pt1 = &gps->points[i - 1];
+		}
+		else {
+			pt0 = &gps->points[i - 1];
+			pt1 = &gps->points[i];
+		}
 		/* initial vector (p0 -> p1) */
 		sub_v3_v3v3(vec1, &pt1->x, &pt0->x);
 		vran = len_v3(vec1);
@@ -1618,21 +1629,22 @@ void ED_gpencil_noise_modifier(GpencilNoiseModifierData *mmd, bGPDlayer *gpl, bG
 			sc_diff = abs(mmd->scene_frame - sc_frame);
 			/* only recalc if the gp frame change or the number of scene frames is bigger than step */
 			if ((!gpl->actframe) || (mmd->gp_frame != gpl->actframe->framenum) || 
-				(sc_diff >= mmd->step) || (mmd->step == 1)) 
+				(sc_diff >= mmd->step)) 
 			{
 				vran = mmd->vrand1 = BLI_frand();
-				if (mmd->flag & GP_NOISE_FULL_STROKE) {
-					vdir = mmd->vrand2 = vfull;
-				}
-				else {
-					vdir = mmd->vrand2 = BLI_frand();
-				}
+				vdir = mmd->vrand2 = BLI_frand();
 				mmd->gp_frame = gpl->actframe->framenum;
 				mmd->scene_frame = sc_frame;
 			}
 			else {
 				vran = mmd->vrand1;
-				vdir = mmd->vrand2;
+				if (mmd->flag & GP_NOISE_FULL_STROKE) {
+					vdir = mmd->vrand2;
+				}
+				else {
+					int f = (mmd->vrand2 * 10.0f) + i;
+					vdir = f % 2;
+				}
 			}
 		}
 		else {
