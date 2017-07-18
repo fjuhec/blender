@@ -6294,15 +6294,7 @@ static int edbm_point_normals_exec(bContext *C, wmOperator *op)
 		BMIter viter;
 		int i = 0;
 
-		zero_v3(center);
-		BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
-			if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
-				add_v3_v3(center, v->co);
-				i++;
-			}
-		}
-		mul_v3_fl(center, 1.0f / (float)i);
-
+		copy_v3_v3(center, obedit->loc);
 		for (i = 0; i < ld->totloop; i++, t++) {
 			t->loc = center;
 		}
@@ -6310,13 +6302,37 @@ static int edbm_point_normals_exec(bContext *C, wmOperator *op)
 
 	prop = RNA_struct_find_property(op->ptr, "target_location");
 	RNA_property_float_get_array(op->ptr, prop, target);
-
 	apply_point_normals(C, op, NULL, target);
 
 	EDBM_update_generic(em, true, false);
 	point_normals_free(C, op, align);
 
 	return OPERATOR_FINISHED;
+}
+
+static void edbm_point_normals_ui(bContext *UNUSED(C), wmOperator *op)
+{
+	uiLayout *layout = op->layout, *row, *col;
+	PointerRNA ptr;
+
+	const bool align = RNA_boolean_get(op->ptr, "align");
+
+	RNA_pointer_create(NULL, op->type->srna, op->properties, &ptr);
+
+	uiItemR(layout, &ptr, "point_away", 0, NULL, ICON_NONE);
+
+	uiItemR(layout, &ptr, "align", 0, NULL, ICON_NONE);
+	row = uiLayoutRow(layout, false);
+
+	if (align) {
+		col = uiLayoutColumn(row, false);
+		uiItemR(col, &ptr, "target_location", UI_ITEM_R_EXPAND, "", ICON_NONE);
+		uiItemR(row, &ptr, "target_location", 0, "", ICON_NONE);
+	}
+	else {
+		col = uiLayoutColumn(layout, false);
+		uiItemR(col, &ptr, "target_location", UI_ITEM_R_EXPAND, "", ICON_NONE);
+	}
 }
 
 void MESH_OT_point_normals(struct wmOperatorType *ot)
@@ -6330,6 +6346,7 @@ void MESH_OT_point_normals(struct wmOperatorType *ot)
 	ot->exec = edbm_point_normals_exec;
 	ot->invoke = edbm_point_normals_invoke;
 	ot->modal = edbm_point_normals_modal;
+	ot->ui = edbm_point_normals_ui;
 	ot->poll = ED_operator_editmesh_auto_smooth;
 
 	/* flags */
@@ -6342,9 +6359,10 @@ void MESH_OT_point_normals(struct wmOperatorType *ot)
 	prop = RNA_def_boolean(ot->srna, "align", false, "Align", "Align normal with mouse location");
 	RNA_def_property_flag(prop, PROP_HIDDEN);
 
-	prop = RNA_def_property(ot->srna, "target_location", PROP_FLOAT, PROP_XYZ);
+	prop = RNA_def_property(ot->srna, "target_location", PROP_FLOAT, PROP_DIRECTION);
 	RNA_def_property_array(prop, 3);
-	RNA_def_property_ui_text(prop, "Target Location", "Target location where normals will point");
+	RNA_def_property_flag(prop, PROP_ANIMATABLE);
+	RNA_def_property_ui_text(prop, "Target", "Target location where normals will point");
 }
 
 /********************** Split/Merge Loop Normals **********************/
