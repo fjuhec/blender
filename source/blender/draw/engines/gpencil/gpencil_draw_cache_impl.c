@@ -29,6 +29,8 @@
 #include "BKE_global.h"
 #include "BKE_gpencil.h"
 #include "BKE_image.h"
+#include "BKE_paint.h"
+
 #include "ED_gpencil.h"
 #include "ED_view3d.h"
 
@@ -614,6 +616,10 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 		if ((ob->modifiers.first) && (!is_edit)) {
 			PaletteColor *newpalcolor = MEM_dupallocN(gps->palcolor);
 			if (newpalcolor) {
+				/* need to recover original color to avoid tint again over tinted color */
+				PaletteColor *palcolor = BKE_palette_color_getbyname(gps->palette, gps->colorname);
+				copy_v4_v4(newpalcolor->rgb, palcolor->rgb);
+				copy_v4_v4(newpalcolor->fill, palcolor->fill);
 				gps->palcolor = newpalcolor;
 				BLI_addtail(&tmp_colors, gps->palcolor);
 			}
