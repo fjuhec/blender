@@ -1636,6 +1636,8 @@ typedef enum eGpencilNoise_Flag {
 	GP_NOISE_MOD_THICKNESS  = (1 << 3),
 	GP_NOISE_FULL_STROKE    = (1 << 4),
 	GP_NOISE_MOVE_EXTREME   = (1 << 5),
+	GP_NOISE_INVERSE_LAYER  = (1 << 6),
+	GP_NOISE_INVERSE_PASS   = (1 << 7),
 } eGpencilNoise_Flag;
 
 
@@ -1649,7 +1651,9 @@ typedef struct GpencilSubdivModifierData {
 } GpencilSubdivModifierData;
 
 typedef enum eGpencilSubdiv_Flag {
-	GP_SUBDIV_SIMPLE      = (1 << 0),
+	GP_SUBDIV_SIMPLE        = (1 << 0),
+	GP_SUBDIV_INVERSE_LAYER = (1 << 1),
+	GP_SUBDIV_INVERSE_PASS  = (1 << 2),
 } eGpencilSubdiv_Flag;
 
 typedef struct GpencilThickModifierData {
@@ -1660,6 +1664,11 @@ typedef struct GpencilThickModifierData {
 	int thickness;               /* Thickness change */
 	char pad[4];
 } GpencilThickModifierData;
+
+typedef enum eGpencilThick_Flag {
+	GP_THICK_INVERSE_LAYER = (1 << 0),
+	GP_THICK_INVERSE_PASS  = (1 << 1),
+} eGpencilThick_Flag;
 
 typedef struct GpencilTintModifierData {
 	ModifierData modifier;
@@ -1672,6 +1681,8 @@ typedef struct GpencilTintModifierData {
 
 typedef enum eGpencilTint_Flag {
 	GP_TINT_CREATE_COLORS = (1 << 0),
+	GP_TINT_INVERSE_LAYER = (1 << 1),
+	GP_TINT_INVERSE_PASS  = (1 << 2),
 } eGpencilTint_Flag;
 
 typedef struct GpencilArrayModifierData {
@@ -1686,8 +1697,10 @@ typedef struct GpencilArrayModifierData {
 } GpencilArrayModifierData;
 
 typedef enum eGpencilArray_Flag {
-	GP_ARRAY_RANDOM_SIZE = (1 << 0),
-	GP_ARRAY_RANDOM_ROT  = (1 << 1),
+	GP_ARRAY_RANDOM_SIZE   = (1 << 0),
+	GP_ARRAY_RANDOM_ROT    = (1 << 1),
+	GP_ARRAY_INVERSE_LAYER = (1 << 1),
+	GP_ARRAY_INVERSE_PASS  = (1 << 2),
 } eGpencilArray_Flag;
 
 #define MOD_MESHSEQ_READ_ALL \

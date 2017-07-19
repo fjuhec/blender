@@ -4838,6 +4838,16 @@ static void rna_def_modifier_gpencilnoise(BlenderRNA *brna)
 	RNA_def_property_range(prop, 1, 100);
 	RNA_def_property_ui_text(prop, "Step", "Number of frames before recalculate random values again");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_layers", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_NOISE_INVERSE_LAYER);
+	RNA_def_property_ui_text(prop, "Inverse Layers", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_pass", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_NOISE_INVERSE_PASS);
+	RNA_def_property_ui_text(prop, "Inverse Pass", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
 static void rna_def_modifier_gpencilsubdiv(BlenderRNA *brna)
@@ -4871,6 +4881,16 @@ static void rna_def_modifier_gpencilsubdiv(BlenderRNA *brna)
 	RNA_def_property_range(prop, 0, 100);
 	RNA_def_property_ui_text(prop, "Pass", "Pass index");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_layers", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SUBDIV_INVERSE_LAYER);
+	RNA_def_property_ui_text(prop, "Inverse Layers", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_pass", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SUBDIV_INVERSE_PASS);
+	RNA_def_property_ui_text(prop, "Inverse Pass", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
 static void rna_def_modifier_gpencilthick(BlenderRNA *brna)
@@ -4898,6 +4918,16 @@ static void rna_def_modifier_gpencilthick(BlenderRNA *brna)
 	RNA_def_property_int_sdna(prop, NULL, "passindex");
 	RNA_def_property_range(prop, 0, 100);
 	RNA_def_property_ui_text(prop, "Pass", "Pass index");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_layers", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_THICK_INVERSE_LAYER);
+	RNA_def_property_ui_text(prop, "Inverse Layers", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_pass", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_THICK_INVERSE_PASS);
+	RNA_def_property_ui_text(prop, "Inverse Pass", "Inverse filter");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
@@ -4939,6 +4969,16 @@ static void rna_def_modifier_gpenciltint(BlenderRNA *brna)
 	RNA_def_property_range(prop, 0, 100);
 	RNA_def_property_ui_text(prop, "Pass", "Pass index");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_layers", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_TINT_INVERSE_LAYER);
+	RNA_def_property_ui_text(prop, "Inverse Layers", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_pass", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_TINT_INVERSE_PASS);
+	RNA_def_property_ui_text(prop, "Inverse Pass", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
 static void rna_def_modifier_gpencilarray(BlenderRNA *brna)
@@ -4975,6 +5015,15 @@ static void rna_def_modifier_gpencilarray(BlenderRNA *brna)
 	RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
+	prop = RNA_def_property(srna, "inverse_layers", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_ARRAY_INVERSE_LAYER);
+	RNA_def_property_ui_text(prop, "Inverse Layers", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_pass", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_ARRAY_INVERSE_PASS);
+	RNA_def_property_ui_text(prop, "Inverse Pass", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
 void RNA_def_modifier(BlenderRNA *brna)

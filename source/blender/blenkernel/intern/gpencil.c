@@ -1527,17 +1527,31 @@ BoundBox *BKE_gpencil_boundbox_get(Object *ob)
 
 /********************  Modifiers **********************************/
 /* verify if valid layer and pass index */
-static bool is_stroke_affected_by_modifier(char *mlayername, int mpassindex, int minpoints, bGPDlayer *gpl, bGPDstroke *gps)
+static bool is_stroke_affected_by_modifier(char *mlayername, int mpassindex, int minpoints, bGPDlayer *gpl, bGPDstroke *gps, int inv1, int inv2)
 {
 	/* omit if filter by layer */
 	if (mlayername[0] != '\0') {
-		if (!STREQ(mlayername, gpl->info)) {
-			return false;
+		if (inv1 == 0) {
+			if (!STREQ(mlayername, gpl->info)) {
+				return false;
+			}
+		}
+		else {
+			if (STREQ(mlayername, gpl->info)) {
+				return false;
+			}
 		}
 	}
 	/* verify pass */
-	if (gps->palcolor->index != mpassindex) {
-		return false;
+	if (inv2 == 0) {
+		if (gps->palcolor->index != mpassindex) {
+			return false;
+		}
+	}
+	else {
+		if (gps->palcolor->index == mpassindex) {
+			return false;
+		}
 	}
 
 	/* need to have a minimum number of points */
@@ -1590,7 +1604,8 @@ void ED_gpencil_noise_modifier(GpencilNoiseModifierData *mmd, bGPDlayer *gpl, bG
 	int sc_frame = 0;
 	int sc_diff = 0;
 
-	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps)) {
+	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps, 
+		(int) mmd->flag & GP_NOISE_INVERSE_LAYER, (int)mmd->flag & GP_NOISE_INVERSE_PASS)) {
 		return;
 	}
 
@@ -1702,7 +1717,8 @@ void ED_gpencil_subdiv_modifier(GpencilSubdivModifierData *mmd, bGPDlayer *gpl, 
 	int totnewpoints, oldtotpoints;
 	int i2;
 
-	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 2, gpl, gps)) {
+	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
+		(int)mmd->flag & GP_SUBDIV_INVERSE_LAYER, (int)mmd->flag & GP_SUBDIV_INVERSE_PASS)) {
 		return;
 	}
 
@@ -1772,7 +1788,8 @@ void ED_gpencil_subdiv_modifier(GpencilSubdivModifierData *mmd, bGPDlayer *gpl, 
 /* change stroke thickness */
 void ED_gpencil_thick_modifier(GpencilThickModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
 {
-	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 0, gpl, gps)) {
+	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
+		(int)mmd->flag & GP_THICK_INVERSE_LAYER, (int)mmd->flag & GP_THICK_INVERSE_PASS)) {
 		return;
 	}
 
@@ -1782,9 +1799,11 @@ void ED_gpencil_thick_modifier(GpencilThickModifierData *mmd, bGPDlayer *gpl, bG
 /* tint strokes */
 void ED_gpencil_tint_modifier(GpencilTintModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
 {
-	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 0, gpl, gps)) {
+	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
+		(int)mmd->flag & GP_TINT_INVERSE_LAYER, (int)mmd->flag & GP_TINT_INVERSE_PASS)) {
 		return;
 	}
+
 	interp_v3_v3v3(gps->palcolor->rgb, gps->palcolor->rgb, mmd->rgb, mmd->factor);
 	interp_v3_v3v3(gps->palcolor->fill, gps->palcolor->fill, mmd->rgb, mmd->factor);
 }
@@ -1796,9 +1815,11 @@ void ED_gpencil_array_modifier(int id, GpencilArrayModifierData *mmd, bGPDlayer 
 	bGPDstroke *gps_dst, *old_gps;
 	float offset[3];
 
-	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 0, gpl, gps)) {
+	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
+		(int)mmd->flag & GP_ARRAY_INVERSE_LAYER, (int)mmd->flag & GP_ARRAY_INVERSE_PASS)) {
 		return;
 	}
+
 	/* if temp do not apply if was created by previous modifier to avoid infinite loop */
 	if (gps->flag & GP_STROKE_TEMP) {
 		if (gps->mod_idx <= id) {

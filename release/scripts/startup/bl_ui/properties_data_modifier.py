@@ -1544,8 +1544,12 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
 
         col = split.column()
         col.label("Layer:")
-        col.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
-        col.prop(md, "passindex", text="Pass")
+        row = col.row(align=True)
+        row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+        row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
+        row = col.row(align=True)
+        row.prop(md, "passindex", text="Pass")
+        row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
 
         row = layout.row(align=True)
         row.label("Affect:")
@@ -1562,12 +1566,15 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row = col.row(align=True)
         row.prop(md, "level")
         row.prop(md, "simple", text="", icon="PARTICLE_POINT")
-        col.prop(md, "passindex", text="Pass")
-
+        row = col.row(align=True)
+        row.prop(md, "passindex", text="Pass")
+        row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
 
         col = split.column()
         col.label("Layer:")
-        col.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+        row = col.row(align=True)
+        row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+        row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
 
     def GP_THICK(self, layout, ob, md):
         gpd = ob.grease_pencil
@@ -1576,11 +1583,15 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col = split.column()
         row = col.row(align=True)
         row.prop(md, "thickness")
-        col.prop(md, "passindex", text="Pass")
+        row = col.row(align=True)
+        row.prop(md, "passindex", text="Pass")
+        row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
 
         col = split.column()
         col.label("Layer:")
-        col.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+        row = col.row(align=True)
+        row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+        row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
 
     def GP_TINT(self, layout, ob, md):
         gpd = ob.grease_pencil
@@ -1592,8 +1603,12 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
 
         col = split.column()
         col.label("Layer:")
-        col.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
-        col.prop(md, "passindex", text="Pass")
+        row = col.row(align=True)
+        row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+        row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
+        row = col.row(align=True)
+        row.prop(md, "passindex", text="Pass")
+        row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
 
         row = layout.row()
         row.prop(md, "create_colors")
@@ -1608,8 +1623,12 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
 
         col = split.column()
         col.label("Layer:")
-        col.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
-        col.prop(md, "passindex", text="Pass")
+        row = col.row(align=True)
+        row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+        row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
+        row = col.row(align=True)
+        row.prop(md, "passindex", text="Pass")
+        row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
 
 classes = (
     DATA_PT_modifiers,
