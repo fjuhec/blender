@@ -180,6 +180,8 @@ typedef struct bGPDstroke {
 	PaletteColor *palcolor; /* current palette color */
 	/* temporary layer name only used during copy/paste to put the stroke in the original layer */
 	char tmp_layerinfo[128];
+	int mod_idx;            /* index of modifier for temp strokes */
+	char pad2[4];
 } bGPDstroke;
 
 /* bGPDstroke->flag */
@@ -198,6 +200,8 @@ typedef enum eGPDstroke_Flag {
 	GP_STROKE_RECALC_COLOR = (1 << 5),
 	/* Flag used to indicate that stroke is closed and draw edge between last and first point */
 	GP_STROKE_CYCLIC = (1 << 7),
+	/* Flag used to indicate that stroke was created by modifier and is temp */
+	GP_STROKE_TEMP = (1 << 8),
 	/* only for use with stroke-buffer (while drawing eraser) */
 	GP_STROKE_ERASER		= (1 << 15)
 } eGPDstroke_Flag;

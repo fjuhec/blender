@@ -564,10 +564,9 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 
 	DRWShadingGroup *fillgrp;
 	DRWShadingGroup *strokegrp;
-	bGPDstroke *gps_mod;
 	float viewmatrix[4][4];
-	bool is_edit = (bool)(gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE));
-	bool is_mod = false;
+	bool is_edit = (bool)((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE)) || (onion));
+	ListBase tmp_colors = { NULL, NULL };
 
 	/* get parent matrix and save as static data */
 	ED_gpencil_parent_location(ob, gpd, gpl, viewmatrix);
@@ -612,39 +611,29 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 		strokegrp = stl->shgroups[id].shgrps_stroke;
 
 		/* apply modifiers */
-		if ((cache->is_dirty) && (ob->modifiers.first) && (!is_edit)) {
-			gps_mod = MEM_dupallocN(gps);
-			gps_mod->points = MEM_dupallocN(gps->points);
-			gps_mod->triangles = MEM_dupallocN(gps->triangles);
-			gps_mod->palcolor = MEM_dupallocN(gps->palcolor);
-			ED_gpencil_stroke_modifiers(ob, gpl, gps_mod);
-			is_mod = true;
-		}
-		else {
-			gps_mod = gps;
-			is_mod = false;
+		if ((ob->modifiers.first) && (!is_edit)) {
+			PaletteColor *newpalcolor = MEM_dupallocN(gps->palcolor);
+			if (newpalcolor) {
+				gps->palcolor = newpalcolor;
+				BLI_addtail(&tmp_colors, gps->palcolor);
+			}
+			ED_gpencil_stroke_modifiers(ob, gpl, gpf, gps);
 		}
 		/* fill */
 		if (fillgrp) {
-			gpencil_add_fill_shgroup(cache, fillgrp, gpd, gpl, gpf, gps_mod, tintcolor, onion, custonion);
+			gpencil_add_fill_shgroup(cache, fillgrp, gpd, gpl, gpf, gps, tintcolor, onion, custonion);
 		}
 		/* stroke */
-		gpencil_add_stroke_shgroup(cache, strokegrp, ob, gpd, gpl, gpf, gps_mod, opacity, tintcolor, onion, custonion);
+		gpencil_add_stroke_shgroup(cache, strokegrp, ob, gpd, gpl, gpf, gps, opacity, tintcolor, onion, custonion);
 
 		/* edit points (only in edit mode) */
 		if (!onion) {
 			gpencil_add_editpoints_shgroup(stl, cache, ts, ob, gpd, gpl, gpf, gps);
 		}
-		/* free modifier temp data */
-		if (is_mod) {
-			MEM_SAFE_FREE(gps_mod->triangles);
-			MEM_SAFE_FREE(gps_mod->points);
-			MEM_SAFE_FREE(gps_mod->palcolor);
-			MEM_SAFE_FREE(gps_mod);
-		}
-
 		++cache->cache_idx;
 	}
+	/* free modifier temp data */
+	BLI_freelistN(&tmp_colors);
 }
 
  /* draw stroke in drawing buffer */
@@ -767,6 +756,10 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 /* helper for populate a complete grease pencil datablock */
 void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene *scene, Object *ob, ToolSettings *ts, bGPdata *gpd)
 {
+	bGPDframe *temp_gpf = NULL;
+	bool is_edit = (bool)(gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE));
+	bool is_mod = false;
+
 	if (G.debug_value == 668) {
 		printf("DRW_gpencil_populate_datablock: %s\n", gpd->id.name);
 	}
@@ -782,13 +775,28 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 		bGPDframe *gpf = BKE_gpencil_layer_getframe(gpl, CFRA, 0);
 		if (gpf == NULL)
 			continue;
+		if ((ob->modifiers.first) && (!is_edit)) {
+			temp_gpf = BKE_gpencil_frame_duplicate(gpf);
+			is_mod = true;
+		}
+		else {
+			temp_gpf = gpf; 
+			is_mod = false;
+		}
+		
 		/* draw onion skins */
 		if ((gpl->flag & GP_LAYER_ONIONSKIN) || (gpl->flag & GP_LAYER_GHOST_ALWAYS))
 		{
-			gpencil_draw_onionskins(cache, e_data, vedata, ts, ob, gpd, gpl, gpf);
+			gpencil_draw_onionskins(cache, e_data, vedata, ts, ob, gpd, gpl, temp_gpf);
 		}
 		/* draw normal strokes */
-		gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gpf, gpl->opacity, gpl->tintcolor, false, false);
+		gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, temp_gpf, gpl->opacity, gpl->tintcolor, false, false);
+		
+		/* free temp_gpf*/
+		if (is_mod) {
+			BKE_gpencil_free_strokes(temp_gpf);
+			MEM_SAFE_FREE(temp_gpf);
+		}
 	}
 	cache->is_dirty = false;
 }

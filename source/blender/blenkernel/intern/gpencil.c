@@ -1789,11 +1789,49 @@ void ED_gpencil_tint_modifier(GpencilTintModifierData *mmd, bGPDlayer *gpl, bGPD
 	interp_v3_v3v3(gps->palcolor->fill, gps->palcolor->fill, mmd->rgb, mmd->factor);
 }
 
+/* array modifier */
+void ED_gpencil_array_modifier(int id, GpencilArrayModifierData *mmd, bGPDlayer *gpl, bGPDframe *gpf, bGPDstroke *gps)
+{
+	bGPDspoint *pt;
+	bGPDstroke *gps_dst, *old_gps;
+	float offset[3];
+
+	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 0, gpl, gps)) {
+		return;
+	}
+	/* if temp do not apply if was created by previous modifier to avoid infinite loop */
+	if (gps->flag & GP_STROKE_TEMP) {
+		if (gps->mod_idx <= id) {
+			return;
+		}
+	}
+
+	old_gps = gps;
+	for (int e = 0; e < mmd->count; ++e) {
+		/* duplicate stroke */
+		gps_dst = MEM_dupallocN(gps);
+		gps_dst->flag |= GP_STROKE_TEMP;
+		gps_dst->points = MEM_dupallocN(gps->points);
+		gps_dst->triangles = MEM_dupallocN(gps->triangles);
+		gps_dst->mod_idx = id;
+
+		BLI_insertlinkafter(&gpf->strokes, old_gps, gps_dst);
+		old_gps = gps_dst;
+
+		mul_v3_v3fl(offset, mmd->offset, e + 1);
+		/* move points */
+		for (int i = 0; i < gps->totpoints; ++i) {
+			pt = &gps_dst->points[i];
+			add_v3_v3(&pt->x, offset);
+		}
+	}
+}
+
 /* apply stroke modifiers */
-void ED_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
+void ED_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *gpf, bGPDstroke *gps)
 {
 	ModifierData *md;
-
+	int id = 0;
 	for (md = ob->modifiers.first; md; md = md->next) {
 		if (((md->mode & eModifierMode_Realtime) && ((G.f & G_RENDER_OGL) == 0)) ||
 			((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL))) {
@@ -1814,9 +1852,14 @@ void ED_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
 			case eModifierType_GpencilTint:
 				ED_gpencil_tint_modifier((GpencilTintModifierData *)md, gpl, gps);
 				break;
+				// Tint
+			case eModifierType_GpencilArray:
+				ED_gpencil_array_modifier(id, (GpencilArrayModifierData *)md, gpl, gpf, gps);
+				break;
 			default:
 				break;
 			}
 		}
+		++id;
 	}
 }

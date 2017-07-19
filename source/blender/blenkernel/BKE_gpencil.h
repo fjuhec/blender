@@ -47,6 +47,7 @@ struct GpencilNoiseModifierData;
 struct GpencilSubdivModifierData;
 struct GpencilThickModifierData;
 struct GpencilTintModifierData;
+struct GpencilArrayModifierData;
 
 /* ------------ Grease-Pencil API ------------------ */
 
@@ -136,10 +137,11 @@ void BKE_gpencil_palettecolor_delete_allstrokes(struct PaletteColor *palcolor);
 struct BoundBox *BKE_gpencil_boundbox_get(struct Object *ob);
 
 /* modifiers */
-void ED_gpencil_stroke_modifiers(struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
+void ED_gpencil_stroke_modifiers(struct Object *ob, struct bGPDlayer *gpl, struct bGPDframe *gpf, struct bGPDstroke *gps);
 void ED_gpencil_noise_modifier(struct GpencilNoiseModifierData *mmd, struct bGPDlayer *gpl, struct bGPDstroke *gps);
 void ED_gpencil_subdiv_modifier(struct GpencilSubdivModifierData *mmd, struct bGPDlayer *gpl, struct bGPDstroke *gps);
 void ED_gpencil_thick_modifier(struct GpencilThickModifierData *mmd, struct bGPDlayer *gpl, struct bGPDstroke *gps);
 void ED_gpencil_tint_modifier(struct GpencilTintModifierData *mmd, struct bGPDlayer *gpl, struct bGPDstroke *gps);
+void ED_gpencil_array_modifier(int id, struct GpencilArrayModifierData *mmd, struct bGPDlayer *gpl, struct bGPDframe *gpf, struct bGPDstroke *gps);
 
 #endif /*  __BKE_GPENCIL_H__ */

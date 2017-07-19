@@ -121,6 +121,7 @@ EnumPropertyItem rna_enum_object_modifier_type_items[] = {
 	{eModifierType_Softbody, "SOFT_BODY", ICON_MOD_SOFT, "Soft Body", ""},
 	{eModifierType_Surface, "SURFACE", ICON_MOD_PHYSICS, "Surface", ""},
 	{0, "", 0, N_("Grease Pencil"), "" },
+	{eModifierType_GpencilArray, "GP_ARRAY", ICON_MOD_ARRAY, "Array", "Array of strokes" },
 	{eModifierType_GpencilNoise, "GP_NOISE", ICON_RNDCURVE, "Noise", "Add noise to strokes" },
 	{eModifierType_GpencilSubdiv, "GP_SUBDIV", ICON_MOD_SUBSURF, "Subdivide", "Subdivide stroke adding more control points to strokes" },
 	{eModifierType_GpencilThick, "GP_THICK", ICON_MAN_ROT, "Thickness", "Change stroke thickness" },
@@ -427,6 +428,8 @@ static StructRNA *rna_Modifier_refine(struct PointerRNA *ptr)
 			return &RNA_GpencilThickModifier;
 		case eModifierType_GpencilTint:
 			return &RNA_GpencilTintModifier;
+		case eModifierType_GpencilArray:
+			return &RNA_GpencilArrayModifier;
 			/* Default */
 		case eModifierType_None:
 		case eModifierType_ShapeKey:
@@ -4898,7 +4901,6 @@ static void rna_def_modifier_gpencilthick(BlenderRNA *brna)
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
-
 static void rna_def_modifier_gpenciltint(BlenderRNA *brna)
 {
 	StructRNA *srna;
@@ -4937,6 +4939,42 @@ static void rna_def_modifier_gpenciltint(BlenderRNA *brna)
 	RNA_def_property_range(prop, 0, 100);
 	RNA_def_property_ui_text(prop, "Pass", "Pass index");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+}
+
+static void rna_def_modifier_gpencilarray(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+
+	srna = RNA_def_struct(brna, "GpencilArrayModifier", "Modifier");
+	RNA_def_struct_ui_text(srna, "Array Modifier", "Array of Strokes modifier");
+	RNA_def_struct_sdna(srna, "GpencilArrayModifierData");
+	RNA_def_struct_ui_icon(srna, ICON_MOD_ARRAY);
+
+	prop = RNA_def_property(srna, "layer", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_sdna(prop, NULL, "layername");
+	RNA_def_property_ui_text(prop, "Layer", "Layer name");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "passindex", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "passindex");
+	RNA_def_property_range(prop, 0, 100);
+	RNA_def_property_ui_text(prop, "Pass", "Pass index");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "count", PROP_INT, PROP_NONE);
+	RNA_def_property_range(prop, 1, INT_MAX);
+	RNA_def_property_ui_range(prop, 1, 1000, 1, -1);
+	RNA_def_property_ui_text(prop, "Count", "Number of duplicates to make");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	/* Offset parameters */
+	prop = RNA_def_property(srna, "constant_offset_displace", PROP_FLOAT, PROP_TRANSLATION);
+	RNA_def_property_float_sdna(prop, NULL, "offset");
+	RNA_def_property_ui_text(prop, "Constant Offset Displacement", "Value for the distance between arrayed items");
+	RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
 }
 
 void RNA_def_modifier(BlenderRNA *brna)
@@ -5061,6 +5099,7 @@ void RNA_def_modifier(BlenderRNA *brna)
 	rna_def_modifier_gpencilsubdiv(brna);
 	rna_def_modifier_gpencilthick(brna);
 	rna_def_modifier_gpenciltint(brna);
+	rna_def_modifier_gpencilarray(brna);
 }
 
 #endif

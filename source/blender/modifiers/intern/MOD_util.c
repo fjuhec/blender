@@ -293,5 +293,6 @@ void modifier_type_init(ModifierTypeInfo *types[])
 	INIT_TYPE(GpencilSubdiv);
 	INIT_TYPE(GpencilThick);
 	INIT_TYPE(GpencilTint);
+	INIT_TYPE(GpencilArray);
 #undef INIT_TYPE
 }

@@ -1598,6 +1598,19 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row = layout.row()
         row.prop(md, "create_colors")
 
+    def GP_ARRAY(self, layout, ob, md):
+        gpd = ob.grease_pencil
+        layout.prop(md, "count")
+
+        split = layout.split()
+        col = split.column()
+        col.prop(md, "constant_offset_displace", text="")
+
+        col = split.column()
+        col.label("Layer:")
+        col.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+        col.prop(md, "passindex", text="Pass")
+
 classes = (
     DATA_PT_modifiers,
 )
