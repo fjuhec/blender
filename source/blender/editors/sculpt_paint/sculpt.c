@@ -5835,7 +5835,7 @@ static int cmpfunc (const void * a, const void * b)
 }
 
 /* Generate the Tube shape for branches with two ends. */
-static void fill_tube(Mesh *me, float *left, float *right, int totl, int totr, int u_steps, float z_vec[3], int v_steps, int w_steps, float smoothness, int *r_edge_loop_ends)
+static void fill_tube(Mesh *me, float *left, float *right, int totl, int totr, int u_steps, float z_vec[3], int v_steps, int w_steps, float smoothness, int *r_edge_loop_ends, bool n_g_flip)
 {
 	float step_l = left[totl * 4 - 1] / (float)u_steps;
 	float step_r = right[totr * 4 - 1] / (float)u_steps;
@@ -5889,7 +5889,7 @@ static void fill_tube(Mesh *me, float *left, float *right, int totl, int totr, i
 		/* v1 left, v2 right, v3 center bottom, v4 center top */
 		calc_vert_half(me, v1, v2, v3, v4, v_steps, w_steps, smoothness);
 	}
-	generate_mesh_grid_f_e(me, u_steps, v_steps * 2 + w_steps, v_start, false);
+	generate_mesh_grid_f_e(me, u_steps, v_steps * 2 + w_steps, v_start, n_g_flip);
 	r_edge_loop_ends[0] = e_start;
 	r_edge_loop_ends[1] = 2;
 	r_edge_loop_ends[2] = me->totedge - v_steps * 2 - w_steps + 1;
@@ -5917,7 +5917,7 @@ static int get_cyclic_offset(SpineBranch *branch)
 }
 
 /* Generate the Cap for branches with one ends. */
-static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float z_vec[3], float depth, int v_steps, int w_steps, float smoothness)
+static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float z_vec[3], float depth, int v_steps, int w_steps, float smoothness, bool n_g_flip)
 {
 	float *cap_p = NULL;
 	float v1[3], m_center[3], m_center_up[3], left_ref[3], right_ref[3];
@@ -5997,7 +5997,7 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 
 		if (totl >= 1 && totr >= 1) {
 			u_steps = fmax(2.0f, fmax(left[totl * 4 - 1], right[totr * 4 - 1]) / (float)(2 * depth / v_steps));
-			fill_tube(me, left, right, totl, totr, u_steps, z_vec, v_steps, w_steps, smoothness, e_start_tube);
+			fill_tube(me, left, right, totl, totr, u_steps, z_vec, v_steps, w_steps, smoothness, e_start_tube, n_g_flip);
 			copy_v3_v3(left_ref, &left[totl * 4 - 4]);
 			copy_v3_v3(right_ref, &right[0]);
 			cap_length = totlength - left[totl * 4 - 1] - right[totr * 4 - 1];
@@ -6071,7 +6071,7 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 		cap_pos += step_size;
 	}
 	e_cap_start_b = me->totedge;
-	generate_mesh_grid_f_e(me, w_steps, v_steps, v_start, false);
+	generate_mesh_grid_f_e(me, w_steps, v_steps, v_start, n_g_flip);
 	e_cap_start_c = me->totedge;
 
 	bridge_loops(me,
@@ -6081,7 +6081,7 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 				 false,
 				 1,
 				 2,
-				 true);
+				 !n_g_flip);
 
 	e_corner_a = me->totedge - 1;
 
@@ -6092,7 +6092,7 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 				 false,
 				 1,
 				 2 * v_steps - 1,
-				 true);
+				 !n_g_flip);
 
 	e_corner_b = me->totedge - 1;
 
@@ -6103,7 +6103,7 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 				 true,
 				 1,
 				 1,
-				 true);
+				 !n_g_flip);
 
 	ED_mesh_loops_add(me, NULL, 6);
 	ED_mesh_polys_add(me, NULL, 2);
@@ -6111,11 +6111,11 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 	me->mloop[me->totloop - 6].v = me->medge[e_cap_start_a + v_steps - 1].v1;
 	me->mloop[me->totloop - 6].e = e_cap_start_a + v_steps - 1;
 
-	me->mloop[me->totloop - 4].v = me->medge[e_corner_a + 1].v1;
-	me->mloop[me->totloop - 4].e = e_corner_a + 1;
+	me->mloop[me->totloop - (n_g_flip ? 5 : 4)].v = me->medge[e_corner_a + 1].v1;
+	me->mloop[me->totloop - (n_g_flip ? 5 : 4)].e = e_corner_a + 1;
 
-	me->mloop[me->totloop - 5].v = me->medge[e_corner_a].v2;
-	me->mloop[me->totloop - 5].e = e_corner_a;
+	me->mloop[me->totloop - (n_g_flip ? 4 : 5)].v = me->medge[e_corner_a].v2;
+	me->mloop[me->totloop - (n_g_flip ? 4 : 5)].e = e_corner_a;
 
 	me->mpoly[me->totpoly - 2].loopstart = me->totloop - 6;
 	me->mpoly[me->totpoly - 2].totloop = 3;
@@ -6127,11 +6127,11 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 	me->mloop[me->totloop - 3].v = me->medge[e_cap_start_a + v_steps + w_steps - 1].v1;
 	me->mloop[me->totloop - 3].e = e_cap_start_a + v_steps + w_steps - 1;
 
-	me->mloop[me->totloop - 1].v = me->medge[e_corner_b + 1].v1;
-	me->mloop[me->totloop - 1].e = e_corner_b + 1;
+	me->mloop[me->totloop - (n_g_flip ? 2 : 1)].v = me->medge[e_corner_b + 1].v1;
+	me->mloop[me->totloop - (n_g_flip ? 2 : 1)].e = e_corner_b + 1;
 
-	me->mloop[me->totloop - 2].v = me->medge[e_corner_b].v2;
-	me->mloop[me->totloop - 2].e = e_corner_b;
+	me->mloop[me->totloop - (n_g_flip ? 1 : 2)].v = me->medge[e_corner_b].v2;
+	me->mloop[me->totloop - (n_g_flip ? 1 : 2)].e = e_corner_b;
 
 	me->mpoly[me->totpoly - 1].loopstart = me->totloop - 3;
 	me->mpoly[me->totpoly - 1].totloop = 3;
@@ -6150,7 +6150,7 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 					 false,
 					 1,
 					 1,
-					 false);
+					 n_g_flip);
 		branch->e_start_arr[0] = e_start_tube[0];
 		branch->e_start_arr[1] = e_start_tube[1];
 	}
@@ -6179,7 +6179,7 @@ static int calc_branch_orientation(Spine *spine, SpineBranch *branch, float poin
 }
 
 /* Generate a T-Intersection for branches with three ends. */
-static void add_ss_tinter(SilhouetteData *sil, Spine *spine, SpineBranch *branch, Mesh *me, float z_vec[3], float depth, int v_steps, int w_steps, float smoothness)
+static void add_ss_tinter(SilhouetteData *sil, Spine *spine, SpineBranch *branch, Mesh *me, float z_vec[3], float depth, int v_steps, int w_steps, float smoothness, bool n_g_flip)
 {
 	float *sa = NULL;
 	int b_start[3] = {0,0,0}, b_tot[3] = {0,0,0};
@@ -6365,7 +6365,7 @@ static void add_ss_tinter(SilhouetteData *sil, Spine *spine, SpineBranch *branch
 		me->medge[e_start_center + (s + 1) * (u_steps / 2) - 1].flag = 0;
 
 		e_start_inner[s] = me->totedge;
-		generate_mesh_grid_f_e(me, u_steps - 2, v_steps + w_steps / 2, v_start, false);
+		generate_mesh_grid_f_e(me, u_steps - 2, v_steps + w_steps / 2, v_start, n_g_flip);
 	}
 
 	for(int s = 0; s < 3; s++){
@@ -6377,7 +6377,7 @@ static void add_ss_tinter(SilhouetteData *sil, Spine *spine, SpineBranch *branch
 					 false,
 					 2,
 					 1,
-					 false);
+					 n_g_flip);
 
 		e_end_a = me->totedge;
 		bridge_loops(me,
@@ -6387,12 +6387,12 @@ static void add_ss_tinter(SilhouetteData *sil, Spine *spine, SpineBranch *branch
 					 true,
 					 1,
 					 1,
-					 true);
+					 !n_g_flip);
 		e_end_b = me->totedge;
 
 		int e_side_a, e_side_b;
-		e_side_a = add_quad(me, e_start[s] + v_steps + w_steps / 2, e_start_center + s * (u_steps / 2), e_end_b - 1, true);
-		e_side_b = add_quad(me, e_start[s] + v_steps + w_steps / 2 - 1, e_end_a - 1, e_start_center + s * (u_steps / 2), true);
+		e_side_a = add_quad(me, e_start[s] + v_steps + w_steps / 2, e_start_center + s * (u_steps / 2), e_end_b - 1, !n_g_flip);
+		e_side_b = add_quad(me, e_start[s] + v_steps + w_steps / 2 - 1, e_end_a - 1, e_start_center + s * (u_steps / 2), !n_g_flip);
 		stride_le = (2 * (v_steps + w_steps / 2) - 1);
 
 		for (int u = 1; u < u_steps / 2 - 1; u++) {
@@ -6400,19 +6400,19 @@ static void add_ss_tinter(SilhouetteData *sil, Spine *spine, SpineBranch *branch
 								e_side_b,
 								e_start_inner[s] - 1 + stride_le * u,
 								e_start_center + s * (u_steps / 2) + u,
-								true);
+								!n_g_flip);
 			e_side_a = add_quad(me,
 								e_side_a,
 								e_start_inner[(s + 2) % 3] - 1 + stride_le * (u_steps - 2 - u),
 								e_start_center + s * (u_steps / 2) + u,
-								false);
+								n_g_flip);
 		}
 
 		e_t_sign[s * 2] = add_quad(me,
 				 e_side_b,
 				 e_start_inner[s] - 1 + stride_le * ((u_steps / 2) - 1),
 				 e_start_center + s * (u_steps / 2) + u_steps / 2 - 1,
-				 true);
+				 !n_g_flip);
 
 		e_t_sign[s * 2 + 1] = e_side_a;
 	}
@@ -6422,14 +6422,14 @@ static void add_ss_tinter(SilhouetteData *sil, Spine *spine, SpineBranch *branch
 		me->mloop[me->totloop - 4].v = me->medge[e_t_sign[(s + 2) % 3 * 2]].v1;
 		me->mloop[me->totloop - 4].e = e_t_sign[(s + 2) % 3 * 2];
 
-		me->mloop[me->totloop - 1].v = me->medge[e_start_center + s * (u_steps / 2) + u_steps / 2 - 1].v1;
-		me->mloop[me->totloop - 1].e = e_start_center + s * (u_steps / 2) + u_steps / 2 - 1;
+		me->mloop[me->totloop - (n_g_flip ? 3 : 1)].v = me->medge[e_start_center + s * (u_steps / 2) + u_steps / 2 - 1].v1;
+		me->mloop[me->totloop - (n_g_flip ? 3 : 1)].e = e_start_center + s * (u_steps / 2) + u_steps / 2 - 1;
 
 		me->mloop[me->totloop - 2].v = me->medge[e_start_inner[(s + 2) % 3] - 1 + stride_le * ((u_steps / 2))].v2;
 		me->mloop[me->totloop - 2].e = e_t_sign[s * 2 + 1];
 
-		me->mloop[me->totloop - 3].v = me->medge[e_start_inner[(s + 2) % 3] - 1 + stride_le * ((u_steps / 2))].v1;
-		me->mloop[me->totloop - 3].e = e_start_inner[(s + 2) % 3] - 1 + stride_le * ((u_steps / 2));
+		me->mloop[me->totloop - (n_g_flip ? 1 : 3)].v = me->medge[e_start_inner[(s + 2) % 3] - 1 + stride_le * ((u_steps / 2))].v1;
+		me->mloop[me->totloop - (n_g_flip ? 1 : 3)].e = e_start_inner[(s + 2) % 3] - 1 + stride_le * ((u_steps / 2));
 
 		ED_mesh_polys_add(me, NULL, 1);
 		me->mpoly[me->totpoly - 1].loopstart = me->totloop - 4;
@@ -6442,7 +6442,7 @@ static void add_ss_tinter(SilhouetteData *sil, Spine *spine, SpineBranch *branch
 	BLI_array_free(sa);
 }
 
-static void add_ss_tube(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float z_vec[3], float depth, int v_steps, int w_steps, float w_fact)
+static void add_ss_tube(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float z_vec[3], float depth, int v_steps, int w_steps, float w_fact, bool n_g_flip)
 {
 	/* x y z l (accumulative length)*/
 	float *left = NULL, *right = NULL;
@@ -6513,7 +6513,7 @@ static void add_ss_tube(SilhouetteData *sil, SpineBranch *branch, Mesh *me, floa
 		branch->flag |= BRANCH_EDGE_GEN;
 	}
 
-	fill_tube(me, left, right, totl, totr, u_steps, z_vec, v_steps, w_steps, w_fact, branch->e_start_arr);
+	fill_tube(me, left, right, totl, totr, u_steps, z_vec, v_steps, w_steps, w_fact, branch->e_start_arr, n_g_flip);
 
 	BLI_array_free(left);
 	BLI_array_free(right);
@@ -6532,7 +6532,7 @@ static int r_branch_count(Spine *spine, SpineBranch *b)
 }
 
 /* TODO: T-Intersections are sometimes misordered! Connects the different Branches if they have the BRANCH_EDGE_GEN flag set. */
-static void bridge_all_parts_rec(Mesh *me, Spine *spine, SpineBranch *active_branch, SpineBranch *prev_branch, int verts_per_loop)
+static void bridge_all_parts_rec(Mesh *me, Spine *spine, SpineBranch *active_branch, SpineBranch *prev_branch, int verts_per_loop, bool n_g_flip)
 {
 	int b_fork_off, a_fork_off = 0;
 	float dist_a, dist_b;
@@ -6550,6 +6550,7 @@ static void bridge_all_parts_rec(Mesh *me, Spine *spine, SpineBranch *active_bra
 					}
 				}
 
+				/* TODO: Might fail with thin geometry */
 				dist_a = len_v3v3(me->mvert[me->medge[active_branch->e_start_arr[a_fork_off * 2]].v1].co, me->mvert[me->medge[comp->e_start_arr[b_fork_off * 2]].v1].co);
 				dist_b = len_v3v3(me->mvert[me->medge[active_branch->e_start_arr[a_fork_off * 2]].v1].co, me->mvert[me->medge[comp->e_start_arr[b_fork_off * 2] + (verts_per_loop - 1) * comp->e_start_arr[b_fork_off * 2 + 1]].v2].co);
 
@@ -6561,7 +6562,7 @@ static void bridge_all_parts_rec(Mesh *me, Spine *spine, SpineBranch *active_bra
 								 true,
 								 active_branch->e_start_arr[a_fork_off * 2 + 1],
 								 comp->e_start_arr[b_fork_off * 2 + 1],
-								 false);
+								 n_g_flip);
 				} else {
 					bridge_loops(me,
 								 active_branch->e_start_arr[a_fork_off * 2],
@@ -6570,10 +6571,10 @@ static void bridge_all_parts_rec(Mesh *me, Spine *spine, SpineBranch *active_bra
 								 false,
 								 active_branch->e_start_arr[a_fork_off * 2 + 1],
 								 comp->e_start_arr[b_fork_off * 2 + 1],
-								 true);
+								 !n_g_flip);
 				}
 			}
-			bridge_all_parts_rec(me, spine, comp, active_branch, verts_per_loop);
+			bridge_all_parts_rec(me, spine, comp, active_branch, verts_per_loop, n_g_flip);
 		}
 		if (comp) {
 			a_fork_off ++;
@@ -6581,7 +6582,7 @@ static void bridge_all_parts_rec(Mesh *me, Spine *spine, SpineBranch *active_bra
 	}
 }
 
-static void bridge_all_parts(Mesh *me, Spine *spine, int verts_per_loop)
+static void bridge_all_parts(Mesh *me, Spine *spine, int verts_per_loop, bool n_g_flip)
 {
 	SpineBranch *active_branch = NULL;
 	for (int i = 0; i < spine->totbranches; i++) {
@@ -6595,7 +6596,14 @@ static void bridge_all_parts(Mesh *me, Spine *spine, int verts_per_loop)
 		/* No Branches in the spine. Should not happen. */
 		return;
 	}
-	bridge_all_parts_rec(me, spine, active_branch, NULL, verts_per_loop);
+	bridge_all_parts_rec(me, spine, active_branch, NULL, verts_per_loop, n_g_flip);
+}
+
+static bool calc_stroke_normal_ori(SilhouetteStroke *stroke, float z_vec[3]) {
+	float n[3];
+	/*TODO: stroke points to multidimensional array*/
+	cross_poly_v3(n, (float (*)[3])stroke->points, stroke->totvert);
+	return dot_v3v3(n, z_vec) <= 0;
 }
 
 /* Generates a 3D shape from a stroke. */
@@ -6605,10 +6613,13 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 	float depth = sil->depth;
 	int ss_level = 3;
 	int v_steps = (1 << ss_level) + 2;
+	bool n_ori = false;
 	/* TODO: RNA Init*/
 
 	copy_v3_v3(z_vec, sil->z_vec);
 	normalize_v3(z_vec);
+
+	n_ori = calc_stroke_normal_ori(stroke, z_vec);
 
 	//Generate spine
 	Spine *spine = silhouette_generate_spine(sil, stroke);
@@ -6625,19 +6636,19 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 			int r_forks = r_branch_count(spine, a_branch);
 			switch (r_forks) {
 				case 1:
-					add_ss_cap(sil, a_branch, me, z_vec, depth, v_steps, w_steps, smoothness);
+					add_ss_cap(sil, a_branch, me, z_vec, depth, v_steps, w_steps, smoothness, n_ori);
 #ifdef DEBUG_DRAW
 					debug_branch(a_branch, 0x00ff00);
 #endif
 					break;
 				case 2:
-					add_ss_tube(sil, a_branch, me, z_vec, depth, v_steps, w_steps, smoothness);
+					add_ss_tube(sil, a_branch, me, z_vec, depth, v_steps, w_steps, smoothness, n_ori);
 #ifdef DEBUG_DRAW
 					debug_branch(a_branch, 0xff0000);
 #endif
 					break;
 				case 3:
-					add_ss_tinter(sil, spine, a_branch, me, z_vec, depth, v_steps, w_steps, smoothness);
+					add_ss_tinter(sil, spine, a_branch, me, z_vec, depth, v_steps, w_steps, smoothness, n_ori);
 #ifdef DEBUG_DRAW
 					debug_branch(a_branch, 0x0000ff);
 #endif
@@ -6646,7 +6657,7 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 		}
 	}
 
-	bridge_all_parts(me, spine, v_steps * 2 + w_steps);
+	bridge_all_parts(me, spine, v_steps * 2 + w_steps, n_ori);
 
 	free_spine(spine);
 
