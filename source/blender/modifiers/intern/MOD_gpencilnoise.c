@@ -47,6 +47,7 @@ static void initData(ModifierData *md)
 	gpmd->passindex = 0;
 	gpmd->flag |= GP_NOISE_MOD_LOCATION;
 	gpmd->flag |= GP_NOISE_FULL_STROKE;
+	gpmd->flag |= GP_NOISE_USE_RANDOM;
 	gpmd->factor = 0.5f;
 	gpmd->layername[0] = '\0';
 	gpmd->step = 1;
