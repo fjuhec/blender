@@ -5344,7 +5344,7 @@ static SpineBranch *new_spine_branch(int idx, int max_alloc, int hull_max)
 	/*TODO: way to big, maybe shrink if done creating or dynamic arrays?*/
 	branch->points = MEM_callocN(sizeof(float) * 3 * max_alloc, __func__);
 	branch->hull_points = MEM_callocN(sizeof(int) * hull_max * 2 * 3, "Spine Hull");
-	branch->terminal_points = MEM_callocN(sizeof(int) * hull_max * 2, "Spine terminal");
+	branch->terminal_points = MEM_callocN(sizeof(int) * 3 * 2, "Spine terminal");
 
 	branch->idx = idx;
 	return branch;
@@ -5374,7 +5374,7 @@ static SpineBranch *spine_branchoff(Spine *spine, SpineBranch *current_branch, i
 	SpineBranch *new_branch = new_spine_branch(spine->totbranches, max_alloc, hull_max);
 	spine->branches[spine->totbranches] = new_branch;
 
-	current_branch->terminal_points[current_branch->totforks * 2    ] = current_branch->totpoints;
+	current_branch->terminal_points[current_branch->totforks * 2    ] = current_branch->totpoints - 1;
 	current_branch->terminal_points[current_branch->totforks * 2 + 1] = spine->totbranches;
 
 	copy_v3_v3(&new_branch->points[0], &current_branch->points[current_branch->totpoints * 3 - 3]);
@@ -6158,8 +6158,28 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 	BLI_array_free(cap_p);
 }
 
+static int calc_branch_orientation(Spine *spine, SpineBranch *branch, float point[3], int f_s)
+{
+	int s = 0;
+	float last_dist = len_v3v3(&spine->branches[branch->terminal_points[1]]->points[spine->branches[branch->terminal_points[1]]->totpoints * 3 - 3], point);
+	if (spine->branches[branch->terminal_points[3]]->totpoints < 2 || spine->branches[branch->terminal_points[5]]->totpoints < 2) {
+		return f_s;
+	}
+	float curr_dist = len_v3v3(&spine->branches[branch->terminal_points[3]]->points[3], point);
+	if(last_dist > curr_dist){
+		last_dist = curr_dist;
+		s = 1;
+	}
+	curr_dist = len_v3v3(&spine->branches[branch->terminal_points[5]]->points[3], point);
+	if(last_dist > curr_dist){
+		last_dist = curr_dist;
+		s = 2;
+	}
+	return s;
+}
+
 /* Generate a T-Intersection for branches with three ends. */
-static void add_ss_tinter(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float z_vec[3], float depth, int v_steps, int w_steps, float smoothness)
+static void add_ss_tinter(SilhouetteData *sil, Spine *spine, SpineBranch *branch, Mesh *me, float z_vec[3], float depth, int v_steps, int w_steps, float smoothness)
 {
 	float *sa = NULL;
 	int b_start[3] = {0,0,0}, b_tot[3] = {0,0,0};
@@ -6173,6 +6193,7 @@ static void add_ss_tinter(SilhouetteData *sil, SpineBranch *branch, Mesh *me, fl
 	int v_start, v_start_center;
 	int e_start[3], e_start_center, e_start_inner[3], e_t_sign[6];
 	int stride_le;
+	int ori;
 	BLI_array_declare(sa);
 
 	/* calc and sort hullpoints for the three sides */
@@ -6252,13 +6273,9 @@ static void add_ss_tinter(SilhouetteData *sil, SpineBranch *branch, Mesh *me, fl
 
 		v_start = me->totvert;
 
-		/* TODO: Maybe origin of a bug. if (cyclic_offset > 0) {
-			branch->e_start_arr[(s + 2) % 3 * 2] = me->totedge;
-			branch->e_start_arr[(s + 2) % 3 * 2 + 1] = 1;
-		} else {*/
-			branch->e_start_arr[s * 2] = me->totedge;
-			branch->e_start_arr[s * 2 + 1] = 1;
-		/*}*/
+		ori = calc_branch_orientation(spine, branch, &center_s[s * 3], s);
+		branch->e_start_arr[ori * 2] = me->totedge;
+		branch->e_start_arr[ori * 2 + 1] = 1;
 
 		calc_vert_half(me,
 					   &sa[b_start[s]],
@@ -6620,7 +6637,7 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 #endif
 					break;
 				case 3:
-					add_ss_tinter(sil, a_branch, me, z_vec, depth, v_steps, w_steps, smoothness);
+					add_ss_tinter(sil, spine, a_branch, me, z_vec, depth, v_steps, w_steps, smoothness);
 #ifdef DEBUG_DRAW
 					debug_branch(a_branch, 0x0000ff);
 #endif
