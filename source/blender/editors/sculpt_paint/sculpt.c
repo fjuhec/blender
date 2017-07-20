@@ -5155,7 +5155,7 @@ static void silhouette_set_ref_plane(SilhouetteData *sil)
 static void sculpt_silhouette_stroke_update(bContext *C, float mouse[2], SilhouetteData *sil)
 {
 	float anchor[3];
-	silhouette_set_ref_plane( C, sil);
+	silhouette_set_ref_plane(sil);
 	SilhouetteStroke *stroke = sil->current_stroke;
 
 	sil->last_mouse_pos[0] = mouse[0];
@@ -6736,7 +6736,7 @@ static int sculpt_silhouette_exec(bContext *C, wmOperator *op)
 	SilhouetteData *sil = op->customdata;
 	if (!sil) {
 		sil = silhouette_data_new(C);
-		silhouette_set_ref_plane(C, sil);
+		silhouette_set_ref_plane(sil);
 		op->customdata = sil;
 	}
 
@@ -6755,7 +6755,7 @@ static int sculpt_silhouette_modal(bContext *C, wmOperator *op, const wmEvent *e
 	if (event->val == KM_RELEASE) {
 		sculpt_silhouette_clean_draw(C, op);
 		if (sil->state == SIL_DRAWING) {
-			silhouette_set_ref_plane(C, sil);
+			silhouette_set_ref_plane(sil);
 			return sculpt_silhouette_exec(C, op);
 		}
 		return OPERATOR_FINISHED;
