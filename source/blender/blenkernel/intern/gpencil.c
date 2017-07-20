@@ -1888,9 +1888,7 @@ void ED_gpencil_array_modifier(int id, GpencilArrayModifierData *mmd, bGPDlayer 
 	bGPDspoint *pt;
 	bGPDstroke *gps_dst, *old_gps;
 	float offset[3], zerov3[3];
-	float minv[3], maxv[3], centroid[3];
 	float mat[4][4];
-	int i;
 	zero_v3(zerov3);
 
 	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
@@ -1901,18 +1899,11 @@ void ED_gpencil_array_modifier(int id, GpencilArrayModifierData *mmd, bGPDlayer 
 	/* if temp do not apply if modifier is before current */
 	if (gps->flag & GP_STROKE_TEMP) {
 		if (gps->mod_idx <= id) {
-			return false;
+			return;
 		}
 	}
 
 	old_gps = gps;
-	/* get centroid */
-	INIT_MINMAX(minv, maxv);
-	for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
-		minmax_v3v3_v3(minv, maxv, &pt->x);
-	}
-	add_v3_v3v3(centroid, minv, maxv);
-	mul_v3_fl(centroid, 0.5f);
 
 	for (int e = 0; e < mmd->count; ++e) {
 		/* duplicate stroke */
@@ -1934,9 +1925,7 @@ void ED_gpencil_array_modifier(int id, GpencilArrayModifierData *mmd, bGPDlayer 
 		/* move points */
 		for (int i = 0; i < gps->totpoints; ++i) {
 			pt = &gps_dst->points[i];
-			//sub_v3_v3(&pt->x, centroid);
-			//mul_m4_v3(mat, &pt->x);
-			//add_v3_v3v3(&pt->x, offset, centroid);
+			mul_m4_v3(mat, &pt->x);
 			add_v3_v3(&pt->x, offset);
 		}
 	}
