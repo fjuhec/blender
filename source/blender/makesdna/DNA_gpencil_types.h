@@ -258,6 +258,7 @@ typedef struct bGPDlayer {
 	
 	float tintcolor[4];     /* Color used to tint layer, alpha value is used as factor */
 	float opacity;          /* Opacity of the layer */
+	bGPDframe *derived_gpf; /* runtime data created by modifiers */
 } bGPDlayer;
 
 /* bGPDlayer->flag */
