@@ -48,6 +48,9 @@ static void initData(ModifierData *md)
 	gpmd->layername[0] = '\0';
 	gpmd->count = 1;
 	gpmd->offset[0] = 1.0f;
+	gpmd->scale[0] = 1.0f;
+	gpmd->scale[1] = 1.0f;
+	gpmd->scale[2] = 1.0f;
 
 	BKE_gpencil_batch_cache_alldirty();
 }

@@ -1619,6 +1619,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
 
         split = layout.split()
         col = split.column()
+        col.label("Offset:")
         col.prop(md, "constant_offset_displace", text="")
 
         col = split.column()
@@ -1629,6 +1630,16 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row = col.row(align=True)
         row.prop(md, "passindex", text="Pass")
         row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
+
+        row = layout.row()
+        split = row.split()
+        col = split.column()
+        col.label("Rotation:")
+        col.prop(md, "rotation", text="")
+
+        col = split.column()
+        col.label("Scale:")
+        col.prop(md, "scale", text="")
 
 classes = (
     DATA_PT_modifiers,

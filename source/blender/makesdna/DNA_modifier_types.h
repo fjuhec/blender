@@ -1693,6 +1693,8 @@ typedef struct GpencilArrayModifierData {
 	float rnd_size;              /* random size factor */
 	float rnd_rot;               /* random size factor */
 	float offset[3];             /* Location increments */
+	float rot[3];                /* Rotation changes */
+	float scale[3];              /* Scale changes */
 	int count;                   /* number of elements in array */
 } GpencilArrayModifierData;
 
