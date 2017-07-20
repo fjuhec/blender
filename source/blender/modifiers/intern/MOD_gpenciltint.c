@@ -101,7 +101,7 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 					}
 				}
 
-				ED_gpencil_tint_modifier((GpencilTintModifierData *)md, gpl, gps);
+				ED_gpencil_tint_modifier(-1, (GpencilTintModifierData *)md, gpl, gps);
 			}
 		}
 	}

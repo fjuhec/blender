@@ -60,6 +60,9 @@
 #include "BKE_main.h"
 #include "BKE_object.h"
 
+#define GP_MOD_DUPLI_ON 1
+#define GP_MOD_DUPLI_OFF 0
+
  /* Draw Engine */
 void(*BKE_gpencil_batch_cache_dirty_cb)(bGPdata *gpd) = NULL;
 void(*BKE_gpencil_batch_cache_free_cb)(bGPdata *gpd) = NULL;
@@ -113,6 +116,28 @@ bool BKE_gpencil_free_strokes(bGPDframe *gpf)
 	BLI_listbase_clear(&gpf->strokes);
 
 	return changed;
+}
+
+/* Free strokes and colors belonging to a gp-frame */
+bool BKE_gpencil_free_layer_temp_data(bGPDlayer *gpl)
+{
+	bGPDstroke *gps_next;
+	bGPDframe *gpf = gpl->derived_gpf;
+	if (!gpf) {
+		return false;
+	}
+
+	/* free strokes */
+	for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps_next) {
+		gps_next = gps->next;
+		MEM_SAFE_FREE(gps->palcolor);
+		BKE_gpencil_free_stroke(gps);
+	}
+	BLI_listbase_clear(&gpf->strokes);
+
+	MEM_SAFE_FREE(gpf);
+
+	return true;
 }
 
 /* Free all of a gp-layer's frames */
@@ -200,10 +225,10 @@ void BKE_gpencil_free_brushes(ListBase *list)
 void BKE_gpencil_free_layers(ListBase *list)
 {
 	bGPDlayer *gpl_next;
-	
+
 	/* error checking */
 	if (list == NULL) return;
-	
+
 	/* delete layers */
 	for (bGPDlayer *gpl = list->first; gpl; gpl = gpl_next) {
 		gpl_next = gpl->next;
@@ -214,6 +239,21 @@ void BKE_gpencil_free_layers(ListBase *list)
 	}
 }
 
+/* Free all of the gp-layers temp data*/
+static void BKE_gpencil_free_layers_temp_data(ListBase *list)
+{
+	bGPDlayer *gpl_next;
+
+	/* error checking */
+	if (list == NULL) return;
+	/* delete layers */
+	for (bGPDlayer *gpl = list->first; gpl; gpl = gpl_next) {
+		gpl_next = gpl->next;
+
+		BKE_gpencil_free_layer_temp_data(gpl);
+	}
+}
+
 /** Free (or release) any data used by this grease pencil (does not free the gpencil itself). */
 void BKE_gpencil_free(bGPdata *gpd, bool free_all)
 {
@@ -221,6 +261,9 @@ void BKE_gpencil_free(bGPdata *gpd, bool free_all)
 	BKE_animdata_free(&gpd->id, false);
 
 	/* free layers */
+	if (free_all) {
+		BKE_gpencil_free_layers_temp_data(&gpd->layers);
+	}
 	BKE_gpencil_free_layers(&gpd->layers);
 
 	/* free all data */
@@ -710,6 +753,35 @@ bGPDframe *BKE_gpencil_frame_duplicate(const bGPDframe *gpf_src)
 	return gpf_dst;
 }
 
+/* make a copy of a given gpencil frame and copy colors too */
+bGPDframe *BKE_gpencil_frame_color_duplicate(const bGPDframe *gpf_src)
+{
+	bGPDstroke *gps_dst;
+	bGPDframe *gpf_dst;
+
+	/* error checking */
+	if (gpf_src == NULL) {
+		return NULL;
+	}
+
+	/* make a copy of the source frame */
+	gpf_dst = MEM_dupallocN(gpf_src);
+	gpf_dst->prev = gpf_dst->next = NULL;
+
+	/* copy strokes */
+	BLI_listbase_clear(&gpf_dst->strokes);
+	for (bGPDstroke *gps_src = gpf_src->strokes.first; gps_src; gps_src = gps_src->next) {
+		/* make copy of source stroke */
+		gps_dst = MEM_dupallocN(gps_src);
+		gps_dst->points = MEM_dupallocN(gps_src->points);
+		gps_dst->triangles = MEM_dupallocN(gps_src->triangles);
+		gps_dst->palcolor = MEM_dupallocN(gps_src->palcolor);
+		BLI_addtail(&gpf_dst->strokes, gps_dst);
+	}
+	/* return new frame */
+	return gpf_dst;
+}
+
 /* make a copy of a given gpencil brush */
 bGPDbrush *BKE_gpencil_brush_duplicate(const bGPDbrush *brush_src)
 {
@@ -1117,6 +1189,7 @@ void BKE_gpencil_layer_delete(bGPdata *gpd, bGPDlayer *gpl)
 	
 	/* free layer */
 	BKE_gpencil_free_frames(gpl);
+	BKE_gpencil_free_layer_temp_data(gpl);
 	BLI_freelinkN(&gpd->layers, gpl);
 }
 
@@ -1527,7 +1600,8 @@ BoundBox *BKE_gpencil_boundbox_get(Object *ob)
 
 /********************  Modifiers **********************************/
 /* verify if valid layer and pass index */
-static bool is_stroke_affected_by_modifier(char *mlayername, int mpassindex, int minpoints, bGPDlayer *gpl, bGPDstroke *gps, int inv1, int inv2)
+static bool is_stroke_affected_by_modifier(char *mlayername, int mpassindex, int minpoints, 
+	bGPDlayer *gpl, bGPDstroke *gps, int inv1, int inv2)
 {
 	/* omit if filter by layer */
 	if (mlayername[0] != '\0') {
@@ -1559,11 +1633,11 @@ static bool is_stroke_affected_by_modifier(char *mlayername, int mpassindex, int
 		return false;
 	}
 
-	return true;;
+	return true;
 }
 
 /* calculate stroke normal using some points */
-static void ED_gpencil_stroke_normal(const bGPDstroke *gps, float r_normal[3])
+void ED_gpencil_stroke_normal(const bGPDstroke *gps, float r_normal[3])
 {
 	if (gps->totpoints < 3) {
 		zero_v3(r_normal);
@@ -1594,7 +1668,7 @@ static void ED_gpencil_stroke_normal(const bGPDstroke *gps, float r_normal[3])
 }
 
 /* calculate a noise base on stroke direction */
-void ED_gpencil_noise_modifier(GpencilNoiseModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
+void ED_gpencil_noise_modifier(int UNUSED(id), GpencilNoiseModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
 {
 	bGPDspoint *pt0, *pt1;
 	float shift, vran, vdir;
@@ -1711,7 +1785,7 @@ void ED_gpencil_noise_modifier(GpencilNoiseModifierData *mmd, bGPDlayer *gpl, bG
 }
 
 /* subdivide stroke to get more control points */
-void ED_gpencil_subdiv_modifier(GpencilSubdivModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
+void ED_gpencil_subdiv_modifier(int UNUSED(id), GpencilSubdivModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
 {
 	bGPDspoint *temp_points;
 	int totnewpoints, oldtotpoints;
@@ -1786,7 +1860,7 @@ void ED_gpencil_subdiv_modifier(GpencilSubdivModifierData *mmd, bGPDlayer *gpl, 
 }
 
 /* change stroke thickness */
-void ED_gpencil_thick_modifier(GpencilThickModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
+void ED_gpencil_thick_modifier(int UNUSED(id), GpencilThickModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
 {
 	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
 		(int)mmd->flag & GP_THICK_INVERSE_LAYER, (int)mmd->flag & GP_THICK_INVERSE_PASS)) {
@@ -1797,7 +1871,7 @@ void ED_gpencil_thick_modifier(GpencilThickModifierData *mmd, bGPDlayer *gpl, bG
 }
 
 /* tint strokes */
-void ED_gpencil_tint_modifier(GpencilTintModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
+void ED_gpencil_tint_modifier(int UNUSED(id), GpencilTintModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
 {
 	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
 		(int)mmd->flag & GP_TINT_INVERSE_LAYER, (int)mmd->flag & GP_TINT_INVERSE_PASS)) {
@@ -1813,71 +1887,97 @@ void ED_gpencil_array_modifier(int id, GpencilArrayModifierData *mmd, bGPDlayer 
 {
 	bGPDspoint *pt;
 	bGPDstroke *gps_dst, *old_gps;
-	float offset[3];
+	float offset[3], zerov3[3];
+	float minv[3], maxv[3], centroid[3];
+	float mat[4][4];
+	int i;
+	zero_v3(zerov3);
 
 	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
 		(int)mmd->flag & GP_ARRAY_INVERSE_LAYER, (int)mmd->flag & GP_ARRAY_INVERSE_PASS)) {
 		return;
 	}
 
-	/* if temp do not apply if was created by previous modifier to avoid infinite loop */
+	/* if temp do not apply if modifier is before current */
 	if (gps->flag & GP_STROKE_TEMP) {
 		if (gps->mod_idx <= id) {
-			return;
+			return false;
 		}
 	}
 
 	old_gps = gps;
+	/* get centroid */
+	INIT_MINMAX(minv, maxv);
+	for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+		minmax_v3v3_v3(minv, maxv, &pt->x);
+	}
+	add_v3_v3v3(centroid, minv, maxv);
+	mul_v3_fl(centroid, 0.5f);
+
 	for (int e = 0; e < mmd->count; ++e) {
 		/* duplicate stroke */
 		gps_dst = MEM_dupallocN(gps);
-		gps_dst->flag |= GP_STROKE_TEMP;
+		if (id > -1) {
+			gps_dst->palcolor = MEM_dupallocN(gps->palcolor);
+		}
 		gps_dst->points = MEM_dupallocN(gps->points);
 		gps_dst->triangles = MEM_dupallocN(gps->triangles);
+		gps_dst->flag |= GP_STROKE_TEMP;
 		gps_dst->mod_idx = id;
 
 		BLI_insertlinkafter(&gpf->strokes, old_gps, gps_dst);
 		old_gps = gps_dst;
 
 		mul_v3_v3fl(offset, mmd->offset, e + 1);
+		loc_eul_size_to_mat4(mat, zerov3, mmd->rot, mmd->scale);
+
 		/* move points */
 		for (int i = 0; i < gps->totpoints; ++i) {
 			pt = &gps_dst->points[i];
+			//sub_v3_v3(&pt->x, centroid);
+			//mul_m4_v3(mat, &pt->x);
+			//add_v3_v3v3(&pt->x, offset, centroid);
 			add_v3_v3(&pt->x, offset);
 		}
 	}
 }
 
 /* apply stroke modifiers */
-void ED_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *gpf, bGPDstroke *gps)
+void ED_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *gpf, bGPDstroke *gps, int duplimode)
 {
 	ModifierData *md;
 	int id = 0;
 	for (md = ob->modifiers.first; md; md = md->next) {
 		if (((md->mode & eModifierMode_Realtime) && ((G.f & G_RENDER_OGL) == 0)) ||
 			((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL))) {
-			switch (md->type) {
-			// Noise Modifier
-			case eModifierType_GpencilNoise:
-				ED_gpencil_noise_modifier((GpencilNoiseModifierData *)md, gpl, gps);
+			switch (duplimode) {
+			case GP_MOD_DUPLI_OFF:
+				switch (md->type) {
+					// Noise Modifier
+				case eModifierType_GpencilNoise:
+					ED_gpencil_noise_modifier(id, (GpencilNoiseModifierData *)md, gpl, gps);
+					break;
+					// Subdiv Modifier
+				case eModifierType_GpencilSubdiv:
+					ED_gpencil_subdiv_modifier(id, (GpencilSubdivModifierData *)md, gpl, gps);
+					break;
+					// Thickness
+				case eModifierType_GpencilThick:
+					ED_gpencil_thick_modifier(id, (GpencilThickModifierData *)md, gpl, gps);
+					break;
+					// Tint
+				case eModifierType_GpencilTint:
+					ED_gpencil_tint_modifier(id, (GpencilTintModifierData *)md, gpl, gps);
+					break;
+				}
 				break;
-			// Subdiv Modifier
-			case eModifierType_GpencilSubdiv:
-				ED_gpencil_subdiv_modifier((GpencilSubdivModifierData *)md, gpl, gps);
-				break;
-			// Thickness
-			case eModifierType_GpencilThick:
-				ED_gpencil_thick_modifier((GpencilThickModifierData *)md, gpl, gps);
-				break;
-			// Tint
-			case eModifierType_GpencilTint:
-				ED_gpencil_tint_modifier((GpencilTintModifierData *)md, gpl, gps);
-				break;
-				// Tint
-			case eModifierType_GpencilArray:
-				ED_gpencil_array_modifier(id, (GpencilArrayModifierData *)md, gpl, gpf, gps);
-				break;
-			default:
+			case GP_MOD_DUPLI_ON:
+				switch (md->type) {
+					// Array
+				case eModifierType_GpencilArray:
+					ED_gpencil_array_modifier(id, (GpencilArrayModifierData *)md, gpl, gpf, gps);
+					break;
+				}
 				break;
 			}
 		}

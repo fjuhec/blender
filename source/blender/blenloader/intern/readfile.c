@@ -6604,6 +6604,7 @@ static void direct_link_gpencil(FileData *fd, bGPdata *gpd)
 		/* relink frames */
 		link_list(fd, &gpl->frames);
 		gpl->actframe = newdataadr(fd, gpl->actframe);
+		gpl->derived_gpf = NULL;
 		
 		for (gpf = gpl->frames.first; gpf; gpf = gpf->next) {
 			/* relink strokes (and their points) */

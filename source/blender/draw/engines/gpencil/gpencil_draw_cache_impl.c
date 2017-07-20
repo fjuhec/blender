@@ -29,7 +29,6 @@
 #include "BKE_global.h"
 #include "BKE_gpencil.h"
 #include "BKE_image.h"
-#include "BKE_paint.h"
 
 #include "ED_gpencil.h"
 #include "ED_view3d.h"
@@ -613,17 +612,11 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 		strokegrp = stl->shgroups[id].shgrps_stroke;
 
 		/* apply modifiers */
-		if ((ob->modifiers.first) && (!is_edit)) {
-			PaletteColor *newpalcolor = MEM_dupallocN(gps->palcolor);
-			if (newpalcolor) {
-				/* need to recover original color to avoid tint again over tinted color */
-				PaletteColor *palcolor = BKE_palette_color_getbyname(gps->palette, gps->colorname);
-				copy_v4_v4(newpalcolor->rgb, palcolor->rgb);
-				copy_v4_v4(newpalcolor->fill, palcolor->fill);
-				gps->palcolor = newpalcolor;
-				BLI_addtail(&tmp_colors, gps->palcolor);
-			}
-			ED_gpencil_stroke_modifiers(ob, gpl, gpf, gps);
+		if ((cache->is_dirty) && (ob->modifiers.first) && (!is_edit)) {
+			/* first need to create all geometry */
+			ED_gpencil_stroke_modifiers(ob, gpl, gpf, gps, GP_MOD_DUPLI_ON);
+			/* second apply modifiers to all strokes */
+			ED_gpencil_stroke_modifiers(ob, gpl, gpf, gps, GP_MOD_DUPLI_OFF);
 		}
 		/* fill */
 		if (fillgrp) {
@@ -638,8 +631,6 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 		}
 		++cache->cache_idx;
 	}
-	/* free modifier temp data */
-	BLI_freelistN(&tmp_colors);
 }
 
  /* draw stroke in drawing buffer */
@@ -764,7 +755,6 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 {
 	bGPDframe *temp_gpf = NULL;
 	bool is_edit = (bool)(gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE));
-	bool is_mod = false;
 
 	if (G.debug_value == 668) {
 		printf("DRW_gpencil_populate_datablock: %s\n", gpd->id.name);
@@ -782,12 +772,16 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 		if (gpf == NULL)
 			continue;
 		if ((ob->modifiers.first) && (!is_edit)) {
-			temp_gpf = BKE_gpencil_frame_duplicate(gpf);
-			is_mod = true;
+			if (cache->is_dirty) {
+				/* first clear temp data */
+				BKE_gpencil_free_layer_temp_data(gpl);
+				/* create new data */
+				gpl->derived_gpf = BKE_gpencil_frame_color_duplicate(gpf);
+			}
+			temp_gpf = gpl->derived_gpf;
 		}
 		else {
 			temp_gpf = gpf; 
-			is_mod = false;
 		}
 		
 		/* draw onion skins */
@@ -797,12 +791,6 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 		}
 		/* draw normal strokes */
 		gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, temp_gpf, gpl->opacity, gpl->tintcolor, false, false);
-		
-		/* free temp_gpf*/
-		if (is_mod) {
-			BKE_gpencil_free_strokes(temp_gpf);
-			MEM_SAFE_FREE(temp_gpf);
-		}
 	}
 	cache->is_dirty = false;
 }

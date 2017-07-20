@@ -81,7 +81,7 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-				ED_gpencil_noise_modifier((GpencilNoiseModifierData *)md, gpl, gps);
+				ED_gpencil_noise_modifier(-1, (GpencilNoiseModifierData *)md, gpl, gps);
 			}
 		}
 	}

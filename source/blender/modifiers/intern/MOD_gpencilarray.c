@@ -77,7 +77,13 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-				ED_gpencil_array_modifier(-1, (GpencilArrayModifierData *)md, gpl, gpf, gps);
+				if (gps->flag & GP_STROKE_TEMP) {
+					gps->flag &= ~GP_STROKE_TEMP;
+					gps->mod_idx = 0;
+				}
+				else {
+					ED_gpencil_array_modifier(-1, (GpencilArrayModifierData *)md, gpl, gpf, gps);
+				}
 			}
 		}
 	}
