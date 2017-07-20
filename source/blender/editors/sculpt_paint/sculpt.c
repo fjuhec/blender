@@ -118,9 +118,9 @@
 #include "BLI_alloca.h"
 #include "BLI_array.h"
 
-#define DEBUG_DRAW
+/*#define DEBUG_DRAW*/
 #ifdef DEBUG_DRAW
-// static void bl_debug_draw(void);
+/* static void bl_debug_draw(void);*/
 /* add these locally when using these functions for testing */
 extern void bl_debug_draw_quad_clear(void);
 extern void bl_debug_draw_quad_add(const float v0[3], const float v1[3], const float v2[3], const float v3[3]);
@@ -5054,6 +5054,7 @@ typedef struct SilhouetteData {
 
 	float depth;			/* Depth or thickness of the generated shape */
 	float smoothness;		/* Smoothness of the generated shape */
+	int resolution;			/* Subdivision of the shape*/
 	float anchor[3];		/* Origin point of the reference plane */
 	float z_vec[3];			/* Orientation of the reference plane */
 } SilhouetteData;
@@ -5078,11 +5079,15 @@ static SilhouetteStroke *silhouette_stroke_new(int max_verts)
 	return stroke;
 }
 
-static SilhouetteData *silhouette_data_new(bContext *C, wmOperator *op, bool rna_full)
+static SilhouetteData *silhouette_data_new(bContext *C)
 {
 	SilhouetteData *sil = MEM_callocN(sizeof(SilhouetteData), "SilhouetteData");
 	Object *obedit = CTX_data_edit_object(C);
 	Scene *scene = CTX_data_scene(C);
+	Sculpt *sd = CTX_data_tool_settings(C)->sculpt;
+	View3D *v3d = CTX_wm_view3d(C);
+	const float *fp = ED_view3d_cursor3d_get(scene, v3d);
+
 	sil->ar = CTX_wm_region(C);
 	sil->current_stroke = silhouette_stroke_new(1024);
 	view3d_set_viewcontext(C, &sil->vc);
@@ -5092,14 +5097,11 @@ static SilhouetteData *silhouette_data_new(bContext *C, wmOperator *op, bool rna
 	sil->add_col[2] = 0.39;
 
 	/*Load RNA Data if present */
-	sil->smoothness = RNA_float_get(op->ptr, "smoothness");
-	sil->depth = RNA_float_get(op->ptr, "depth");
-	if (rna_full) {
-		RNA_float_get_array(op->ptr, "z_vec", sil->z_vec);
-		RNA_float_get_array(op->ptr, "anchor", sil->anchor);
-		RNA_float_get_array(op->ptr, "points", sil->current_stroke->points);
-		sil->current_stroke->totvert = RNA_int_get(op->ptr, "totvert");
-	}
+	sil->smoothness = sd->silhouette_smoothness / 100.0f;
+	sil->depth = sd->silhouette_depth;
+	sil->resolution = sd->silhouette_resolution;
+
+	copy_v3_v3(sil->anchor, fp);
 
 	sil->scene = scene;
 	sil->ob = obedit;
@@ -5145,24 +5147,22 @@ static void silhouette_stroke_add_point(SilhouetteData *sil, SilhouetteStroke *s
 }
 
 /* Set reference plane, 3D plane which is drawn on in 2D */
-static void silhouette_set_ref_plane(const bContext *C, SilhouetteData *sil)
+static void silhouette_set_ref_plane(SilhouetteData *sil)
 {
-	Scene *scene = CTX_data_scene(C);
-	View3D *v3d = CTX_wm_view3d(C);
-	const float *fp = ED_view3d_cursor3d_get(scene, v3d);
-
-	ED_view3d_global_to_vector(sil->ar->regiondata, (float[3]){0.0f,0.0f,0.0f}, sil->z_vec);
-	copy_v3_v3(sil->anchor, fp);
+	ED_view3d_global_to_vector(sil->ar->regiondata, sil->anchor, sil->z_vec);
 }
 
 static void sculpt_silhouette_stroke_update(bContext *C, float mouse[2], SilhouetteData *sil)
 {
+	float anchor[3];
 	silhouette_set_ref_plane( C, sil);
 	SilhouetteStroke *stroke = sil->current_stroke;
 
 	sil->last_mouse_pos[0] = mouse[0];
 	sil->last_mouse_pos[1] = mouse[1];
 	silhouette_stroke_add_point(sil, stroke, sil->last_mouse_pos);
+	interp_v3_v3v3(anchor, sil->anchor, &stroke->points[stroke->totvert * 3 - 3], 1 / stroke->totvert);
+	copy_v3_v3(sil->anchor, anchor);
 	ED_region_tag_redraw(sil->ar);
 	copy_v2_v2(sil->last_mouse_pos,mouse);
 }
@@ -5552,7 +5552,7 @@ static void calc_vert_quarter(Mesh *me, float a[3], float b[3], float c[3], int 
 	float inv_smooth = 1.0f - smoothness;
 	float v1[3], v2[3], v3[3], v4[3], v5[3], up[3], side[3], d[3];
 	float f_sin, f_cos;
-	int s_steps_w = inv_smooth * (w_h_steps + 1);
+	int s_steps_w = inv_smooth * w_h_steps;
 	int s_steps_v = inv_smooth * v_steps;
 	int s_steps_c = v_steps - s_steps_v + w_h_steps - s_steps_w;
 
@@ -5562,7 +5562,9 @@ static void calc_vert_quarter(Mesh *me, float a[3], float b[3], float c[3], int 
 	add_v3_v3v3(d, a, up);
 	mul_v3_fl(up, 1.0f / (float)v_steps);
 	sub_v3_v3v3(side, a, b);
-	mul_v3_fl(side, 1.0f / (float)(w_h_steps + 1));
+	if (w_h_steps > 0) {
+		mul_v3_fl(side, 1.0f / (float)(w_h_steps));
+	}
 	mul_v3_v3fl(v2, side, s_steps_w);
 	add_v3_v3(v2, c);
 
@@ -6340,7 +6342,7 @@ static void add_ss_tinter(SilhouetteData *sil, Spine *spine, SpineBranch *branch
 				interp_v3_v3v3(v4, center, &center_s[(s + 1) % 3 * 3], f);
 				add_v3_v3v3(v2, v4, z_vec);
 			}
-			
+
 			calc_vert_quarter(me, v1, v4, v2, v_steps, w_h_steps, smoothness, false);
 		}
 
@@ -6448,7 +6450,6 @@ static void add_ss_tube(SilhouetteData *sil, SpineBranch *branch, Mesh *me, floa
 	float *left = NULL, *right = NULL;
 	int totl = 0, totr = 0;
 	int u_steps = 0;
-	//int square_uv_steps;
 	bool f_swap = false;
 	int cyclic_offset = 0, n_i = 0;
 	BLI_array_declare(left);
@@ -6552,7 +6553,7 @@ static void bridge_all_parts_rec(Mesh *me, Spine *spine, SpineBranch *active_bra
 
 				/* TODO: Might fail with thin geometry */
 				dist_a = len_v3v3(me->mvert[me->medge[active_branch->e_start_arr[a_fork_off * 2]].v1].co, me->mvert[me->medge[comp->e_start_arr[b_fork_off * 2]].v1].co);
-				dist_b = len_v3v3(me->mvert[me->medge[active_branch->e_start_arr[a_fork_off * 2]].v1].co, me->mvert[me->medge[comp->e_start_arr[b_fork_off * 2] + (verts_per_loop - 1) * comp->e_start_arr[b_fork_off * 2 + 1]].v2].co);
+				dist_b = len_v3v3(me->mvert[me->medge[active_branch->e_start_arr[a_fork_off * 2]].v1].co, me->mvert[me->medge[comp->e_start_arr[b_fork_off * 2] + (verts_per_loop - 2) * comp->e_start_arr[b_fork_off * 2 + 1]].v2].co);
 
 				if (dist_a > dist_b) {
 					bridge_loops(me,
@@ -6611,7 +6612,7 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 {
 	float z_vec[3] = {0.0f,0.0f,1.0f};
 	float depth = sil->depth;
-	int ss_level = 3;
+	int ss_level = sil->resolution;
 	int v_steps = (1 << ss_level) + 2;
 	bool n_ori = false;
 	/* TODO: RNA Init*/
@@ -6621,7 +6622,7 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 
 	n_ori = calc_stroke_normal_ori(stroke, z_vec);
 
-	//Generate spine
+	/* Generate spine */
 	Spine *spine = silhouette_generate_spine(sil, stroke);
 	SpineBranch *a_branch;
 
@@ -6712,7 +6713,7 @@ static void sculpt_silhouette_stroke_done(bContext *UNUSED(C), wmOperator *op)
 		float v1[3], v2[3];
 		copy_v3_v3(v1, &sil->current_stroke->points[i * 3 - 3]);
 		copy_v3_v3(v2, &sil->current_stroke->points[i * 3]);
-		//bl_debug_draw_edge_add(v1,v2);
+		/*bl_debug_draw_edge_add(v1,v2);*/
 	}
 #endif
 	
@@ -6734,9 +6735,11 @@ static int sculpt_silhouette_exec(bContext *C, wmOperator *op)
 {
 	SilhouetteData *sil = op->customdata;
 	if (!sil) {
-		sil = silhouette_data_new(C, op, true);
+		sil = silhouette_data_new(C);
+		silhouette_set_ref_plane(C, sil);
 		op->customdata = sil;
 	}
+
 	sculpt_silhouette_calc_mesh(C, op);
 	sculpt_silhouette_stroke_done(C, op);
 
@@ -6746,18 +6749,13 @@ static int sculpt_silhouette_exec(bContext *C, wmOperator *op)
 static int sculpt_silhouette_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	float mouse[2];
-	float z_vec[3];
 	SilhouetteData *sil = op->customdata;
 	copy_v2_fl2(mouse, event->mval[0], event->mval[1]);
 	printf(".");
 	if (event->val == KM_RELEASE) {
 		sculpt_silhouette_clean_draw(C, op);
 		if (sil->state == SIL_DRAWING) {
-			/*RNA_float_set_array(op->ptr, "points", sil->current_stroke->points);*/
-			RNA_int_set(op->ptr,"totvert", sil->current_stroke->totvert);
-			ED_view3d_global_to_vector(sil->ar->regiondata, (float[3]){0.0f,0.0f,0.0f}, z_vec);
-			RNA_float_set_array(op->ptr, "z_vec", z_vec);
-			RNA_float_set_array(op->ptr, "anchor", sil->anchor);
+			silhouette_set_ref_plane(C, sil);
 			return sculpt_silhouette_exec(C, op);
 		}
 		return OPERATOR_FINISHED;
@@ -6808,7 +6806,7 @@ static int sculpt_silhouette_invoke(bContext *C, wmOperator *op, const wmEvent *
 
 	SilhouetteData *sil_data;
 
-	sil_data = silhouette_data_new(C, op, false);
+	sil_data = silhouette_data_new(C);
 
 	op->customdata = sil_data;
 
@@ -6848,31 +6846,6 @@ static void SCULPT_OT_silhouette_draw(wmOperatorType *ot)
 
 	/* flags */
 	ot->flag = OPTYPE_BLOCKING | OPTYPE_REGISTER | OPTYPE_UNDO;
-
-	/* properties */
-	prop = RNA_def_int(ot->srna, "ss_level", 3, 1, 16, "Subsurface Level", "", 1, 8);
-	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
-
-	prop = RNA_def_float(ot->srna, "depth", 1.5f, 0.0f, 100000000.0f,
-						 "Depth", "Shape depth", 0.0f, 100.0f);
-	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
-
-	prop = RNA_def_float(ot->srna, "smoothness", 0.75f, 0.0f, 1.0f,
-						 "Smoothness", "Smoothness factor", 0.0f, 1.0f);
-	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
-
-	/* TODO: RNA points max size 30 */
-	/*prop = RNA_def_float_vector(ot->srna, "points", 3 * 1024, NULL, -FLT_MAX, FLT_MAX, "3D Points", "Stroke Mouse locations", -FLT_MAX, FLT_MAX);
-	RNA_def_property_flag(prop, PROP_HIDDEN);*/
-
-	prop = RNA_def_int(ot->srna, "totvert", 0, 0, INT_MAX, "stroke point count", "", 0, INT_MAX);
-	RNA_def_property_flag(prop, PROP_HIDDEN);
-
-	prop = RNA_def_float_vector(ot->srna, "z_vec", 3, NULL, -FLT_MAX, FLT_MAX, "Z Vector", "Silhouette orientation", -FLT_MAX, FLT_MAX);
-	RNA_def_property_flag(prop, PROP_HIDDEN);
-
-	prop = RNA_def_float_vector(ot->srna, "anchor", 3, NULL, -FLT_MAX, FLT_MAX, "Anchor", "Silhouette position", -FLT_MAX, FLT_MAX);
-	RNA_def_property_flag(prop, PROP_HIDDEN);
 }
 /* end Silhouette */
 

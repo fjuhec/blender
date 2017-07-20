@@ -104,6 +104,10 @@ void BLO_update_defaults_startup_blend(Main *bmain)
 				sculpt->paint.symmetry_flags |= PAINT_SYMM_X;
 				sculpt->flags |= SCULPT_DYNTOPO_COLLAPSE;
 				sculpt->detail_size = 12;
+
+				sculpt->silhouette_smoothness = 50.0f;
+				sculpt->silhouette_depth = 1.0f;
+				sculpt->silhouette_resolution = 3;
 			}
 			
 			if (ts->gp_sculpt.brush[0].size == 0) {

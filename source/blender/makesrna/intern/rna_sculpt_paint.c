@@ -644,6 +644,24 @@ static void rna_def_sculpt(BlenderRNA  *brna)
 	RNA_def_property_flag(prop, PROP_EDITABLE);
 	RNA_def_property_ui_text(prop, "Orientation", "Object whose Z axis defines orientation of gravity");
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
+
+	prop = RNA_def_property(srna, "silhouette_smoothness", PROP_FLOAT, PROP_PERCENTAGE);
+	RNA_def_property_ui_range(prop, 0.0, 100.0, 1.0, 0.1);
+	RNA_def_property_ui_text(prop, "Smoothness Factor", "Smoothness of generated silhouette");
+	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
+
+	prop = RNA_def_property(srna, "silhouette_depth", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_default(prop, 1.0f);
+	RNA_def_property_range(prop, 0.0001, FLT_MAX);
+	RNA_def_property_ui_range(prop, 0.001, 1000.0, 10, 2);
+	RNA_def_property_ui_text(prop, "Depth", "Depth or thickness of the generated silhouette");
+	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
+
+	prop = RNA_def_property(srna, "silhouette_resolution", PROP_INT, PROP_UNSIGNED);
+	RNA_def_property_int_default(prop, 3);
+	RNA_def_property_ui_range(prop, 1, 8, 0, -1);
+	RNA_def_property_ui_text(prop, "Subsurf resolution", "Subdivision of the generated geometry");
+	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 }
 
 

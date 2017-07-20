@@ -1141,7 +1141,11 @@ typedef struct Sculpt {
 	/* scale for constant detail size */
 	float constant_detail; /* Constant detail resolution (Blender unit / constant_detail) */
 	float detail_percent;
-	float pad;
+
+	/* silhouette settings */
+	float silhouette_smoothness;
+	float silhouette_depth;
+	int silhouette_resolution;
 
 	struct Object *gravity_object;
 } Sculpt;

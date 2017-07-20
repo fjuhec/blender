@@ -1649,6 +1649,27 @@ class VIEW3D_PT_sculpt_symmetry(Panel, View3DPaintPanel):
         layout.column().prop(sculpt, "tile_offset", text="Tile Offset")
 
 
+class VIEW3D_PT_sculpt_silhouette(Panel, View3DPaintPanel):
+    bl_category = "Tools"
+    bl_label = "Silhouette"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        return (context.sculpt_object and context.tool_settings.sculpt)
+
+    def draw(self, context):
+        layout = self.layout
+
+        sculpt = context.tool_settings.sculpt
+
+        col = layout.column(align=False)
+        col.label(text="Shape:")
+        col.prop(sculpt, "silhouette_smoothness", text="Smoothness", slider=True)
+        col.prop(sculpt, "silhouette_depth", text="Depth")
+        col.prop(sculpt, "silhouette_resolution", text="Resolution")
+
+
 class VIEW3D_PT_tools_brush_appearance(Panel, View3DPaintPanel):
     bl_category = "Options"
     bl_label = "Appearance"
@@ -2049,6 +2070,7 @@ classes = (
     VIEW3D_PT_sculpt_dyntopo,
     VIEW3D_PT_sculpt_options,
     VIEW3D_PT_sculpt_symmetry,
+    VIEW3D_PT_sculpt_silhouette,
     VIEW3D_PT_tools_brush_appearance,
     VIEW3D_PT_tools_weightpaint,
     VIEW3D_PT_tools_weightpaint_options,
