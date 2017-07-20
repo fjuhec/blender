@@ -22,12 +22,4 @@
 #       as a startup module!
 
 
-from . import (engine, operators, ui)
-
-
-classes = engine.classes + operators.classes + ui.classes
-
-
-if __name__ == "__main__":  # only for live edit.
-    for cls in classes:
-        bpy.utils.register_class(cls)
+classes = ()
