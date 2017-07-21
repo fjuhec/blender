@@ -660,7 +660,7 @@ static int modifier_apply_obdata(ReportList *reports, const bContext *C, Scene *
 		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	}
 	else if (ELEM(ob->type, OB_GPENCIL)) {
-		mti->applyModifier(md, ob, NULL, 0);
+		mti->applyModifier(md, C, ob, NULL, 0);
 		if (ob->gpd) {
 			BKE_gpencil_batch_cache_dirty(ob->gpd);
 		}
@@ -697,7 +697,7 @@ int ED_object_modifier_apply(ReportList *reports, const bContext *C, Scene *scen
 		return 0;
 	}
 	else if (ob->type == OB_GPENCIL) {
-		modifier_apply_obdata(reports, scene, ob, md);
+		modifier_apply_obdata(reports, C, scene, ob, md);
 		BLI_remlink(&ob->modifiers, md);
 		modifier_free(md);
 		BKE_object_free_derived_caches(ob);
