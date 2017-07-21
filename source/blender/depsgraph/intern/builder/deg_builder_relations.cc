@@ -324,7 +324,7 @@ void DepsgraphRelationBuilder::add_collision_relations(const OperationKey &key, 
 
 void DepsgraphRelationBuilder::add_forcefield_relations(const OperationKey &key, Scene *scene, Object *ob, ParticleSystem *psys, EffectorWeights *eff, bool add_absorption, const char *name)
 {
-	ListBase *effectors = pdInitEffectors(scene, ob, psys, eff, false);
+	ListBase *effectors = pdInitEffectors(NULL, scene, ob, psys, eff, false);
 
 	if (effectors) {
 		for (EffectorCache *eff = (EffectorCache *)effectors->first; eff; eff = eff->next) {
@@ -343,7 +343,7 @@ void DepsgraphRelationBuilder::add_forcefield_relations(const OperationKey &key,
 					add_relation(mod_key, key, name);
 				}
 				else if (eff->psys != psys) {
-					OperationKey eff_key(&eff->ob->id, DEG_NODE_TYPE_EVAL_PARTICLES, DEG_OPCODE_PSYS_EVAL, eff->psys->name);
+					OperationKey eff_key(&eff->ob->id, DEG_NODE_TYPE_EVAL_PARTICLES, DEG_OPCODE_PARTICLE_SYSTEM_EVAL, eff->psys->name);
 					add_relation(eff_key, key, name);
 				}
 			}
@@ -423,7 +423,7 @@ void DepsgraphRelationBuilder::build_object(Main *bmain, Scene *scene, Object *o
 	OperationKey parent_transform_key(&ob->id, DEG_NODE_TYPE_TRANSFORM, DEG_OPCODE_TRANSFORM_PARENT);
 	OperationKey final_transform_key(&ob->id, DEG_NODE_TYPE_TRANSFORM, DEG_OPCODE_TRANSFORM_FINAL);
 
-	OperationKey ob_ubereval_key(&ob->id, DEG_NODE_TYPE_TRANSFORM, DEG_OPCODE_OBJECT_UBEREVAL);
+	OperationKey ob_ubereval_key(&ob->id, DEG_NODE_TYPE_TRANSFORM, DEG_OPCODE_TRANSFORM_OBJECT_UBEREVAL);
 
 	/* parenting */
 	if (ob->parent != NULL) {
@@ -521,7 +521,7 @@ void DepsgraphRelationBuilder::build_object(Main *bmain, Scene *scene, Object *o
 					build_proxy_rig(ob);
 				}
 				else {
-					build_rig(scene, ob);
+					build_rig(bmain, scene, ob);
 				}
 				break;
 
@@ -1136,7 +1136,7 @@ void DepsgraphRelationBuilder::build_world(World *world)
 	if (world->nodetree != NULL) {
 		build_nodetree(world->nodetree);
 		ComponentKey ntree_key(&world->nodetree->id, DEG_NODE_TYPE_PARAMETERS);
-		ComponentKey world_key(world_id, DEG_NODE_TYPE_PARAMETERS);
+		ComponentKey world_key(world_id, DEG_NODE_TYPE_SHADING);
 		add_relation(ntree_key, world_key, "NTree->World Parameters");
 	}
 }
@@ -1173,7 +1173,7 @@ void DepsgraphRelationBuilder::build_rigidbody(Scene *scene)
 			 *    XXX: there's probably a difference between passive and active
 			 *         - passive don't change, so may need to know full transform...
 			 */
-			OperationKey rbo_key(&ob->id, DEG_NODE_TYPE_TRANSFORM, DEG_OPCODE_TRANSFORM_RIGIDBODY);
+			OperationKey rbo_key(&ob->id, DEG_NODE_TYPE_TRANSFORM, DEG_OPCODE_RIGIDBODY_TRANSFORM_COPY);
 
 			eDepsOperation_Code trans_opcode = ob->parent ? DEG_OPCODE_TRANSFORM_PARENT : DEG_OPCODE_TRANSFORM_LOCAL;
 			OperationKey trans_op(&ob->id, DEG_NODE_TYPE_TRANSFORM, trans_opcode);
@@ -1202,7 +1202,7 @@ void DepsgraphRelationBuilder::build_rigidbody(Scene *scene)
 				 */
 				OperationKey uber_key(&ob->id,
 				                      DEG_NODE_TYPE_TRANSFORM,
-				                      DEG_OPCODE_OBJECT_UBEREVAL);
+				                      DEG_OPCODE_TRANSFORM_OBJECT_UBEREVAL);
 				add_relation(rbo_key, uber_key, "RBO Sync -> Uber (Temp)");
 			}
 
@@ -1225,8 +1225,8 @@ void DepsgraphRelationBuilder::build_rigidbody(Scene *scene)
 			 * constraint affects the physics sim for these objects
 			 */
 			ComponentKey trans_key(&ob->id, DEG_NODE_TYPE_TRANSFORM);
-			OperationKey ob1_key(&rbc->ob1->id, DEG_NODE_TYPE_TRANSFORM, DEG_OPCODE_TRANSFORM_RIGIDBODY);
-			OperationKey ob2_key(&rbc->ob2->id, DEG_NODE_TYPE_TRANSFORM, DEG_OPCODE_TRANSFORM_RIGIDBODY);
+			OperationKey ob1_key(&rbc->ob1->id, DEG_NODE_TYPE_TRANSFORM, DEG_OPCODE_RIGIDBODY_TRANSFORM_COPY);
+			OperationKey ob2_key(&rbc->ob2->id, DEG_NODE_TYPE_TRANSFORM, DEG_OPCODE_RIGIDBODY_TRANSFORM_COPY);
 
 			/* - constrained-objects sync depends on the constraint-holder */
 			add_relation(trans_key, ob1_key, "RigidBodyConstraint -> RBC.Object_1");
@@ -1244,25 +1244,53 @@ void DepsgraphRelationBuilder::build_particles(Scene *scene, Object *ob)
 	OperationKey obdata_ubereval_key(&ob->id,
 	                                 DEG_NODE_TYPE_GEOMETRY,
 	                                 DEG_OPCODE_GEOMETRY_UBEREVAL);
+	OperationKey eval_init_key(&ob->id,
+	                           DEG_NODE_TYPE_EVAL_PARTICLES,
+	                           DEG_OPCODE_PARTICLE_SYSTEM_EVAL_INIT);
+	/* TODO(sergey): Are all particle systems depends on time?
+	 * Hair without dynamics i.e.
+	 */
+	add_relation(time_src_key, eval_init_key, "TimeSrc -> PSys");
 
 	/* particle systems */
 	LINKLIST_FOREACH (ParticleSystem *, psys, &ob->particlesystem) {
 		ParticleSettings *part = psys->part;
 
-		/* particle settings */
-		build_animdata(&part->id);
+		/* Build particle settings relations.
+		 *
+		 * NOTE: The call itself ensures settings are only build once.
+		 */
+		build_particle_settings(part);
 
-		/* this particle system */
-		OperationKey psys_key(&ob->id, DEG_NODE_TYPE_EVAL_PARTICLES, DEG_OPCODE_PSYS_EVAL, psys->name);
+		/* This particle system. */
+		OperationKey psys_key(&ob->id,
+		                      DEG_NODE_TYPE_EVAL_PARTICLES,
+		                      DEG_OPCODE_PARTICLE_SYSTEM_EVAL,
+		                      psys->name);
+
+		/* Update particle system when settings changes. */
+		OperationKey particle_settings_key(&part->id,
+		                                   DEG_NODE_TYPE_PARAMETERS,
+		                                   DEG_OPCODE_PARTICLE_SETTINGS_EVAL);
+		OperationKey particle_settings_recalc_clear_key(
+		        &part->id,
+		        DEG_NODE_TYPE_PARAMETERS,
+		        DEG_OPCODE_PARTICLE_SETTINGS_RECALC_CLEAR);
+		OperationKey psys_settings_key(&ob->id,
+		                               DEG_NODE_TYPE_EVAL_PARTICLES,
+		                               DEG_OPCODE_PARTICLE_SETTINGS_EVAL,
+		                               psys->name);
+		add_relation(particle_settings_key, psys_settings_key, "Particle Settings Change");
+		add_relation(psys_settings_key, psys_key, "Particle Settings Update");
+		add_relation(psys_key,
+		             particle_settings_recalc_clear_key,
+		             "Particle Settings Recalc Clear");
 
 		/* XXX: if particle system is later re-enabled, we must do full rebuild? */
 		if (!psys_check_enabled(ob, psys, G.is_rendering))
 			continue;
 
-		/* TODO(sergey): Are all particle systems depends on time?
-		 * Hair without dynamics i.e.
-		 */
-		add_relation(time_src_key, psys_key, "TimeSrc -> PSys");
+		add_relation(eval_init_key, psys_key, "Init -> PSys");
 
 		/* TODO(sergey): Currently particle update is just a placeholder,
 		 * hook it to the ubereval node so particle system is getting updated
@@ -1272,14 +1300,32 @@ void DepsgraphRelationBuilder::build_particles(Scene *scene, Object *ob)
 
 		/* collisions */
 		if (part->type != PART_HAIR) {
-			add_collision_relations(psys_key, scene, ob, part->collision_group, true, "Particle Collision");
+			add_collision_relations(psys_key,
+			                        scene,
+			                        ob,
+			                        part->collision_group,
+			                        true,
+			                        "Particle Collision");
 		}
-		else if ((psys->flag & PSYS_HAIR_DYNAMICS) && psys->clmd && psys->clmd->coll_parms) {
-			add_collision_relations(psys_key, scene, ob, psys->clmd->coll_parms->group, true, "Hair Collision");
+		else if ((psys->flag & PSYS_HAIR_DYNAMICS) &&
+		         psys->clmd != NULL &&
+		         psys->clmd->coll_parms != NULL) {
+			add_collision_relations(psys_key,
+			                        scene,
+			                        ob,
+			                        psys->clmd->coll_parms->group,
+			                        true,
+			                        "Hair Collision");
 		}
 
 		/* effectors */
-		add_forcefield_relations(psys_key, scene, ob, psys, part->effector_weights, part->type == PART_HAIR, "Particle Field");
+		add_forcefield_relations(psys_key,
+		                         scene,
+		                         ob,
+		                         psys,
+		                         part->effector_weights,
+		                         part->type == PART_HAIR,
+		                         "Particle Field");
 
 		/* boids */
 		if (part->boids) {
@@ -1314,8 +1360,27 @@ void DepsgraphRelationBuilder::build_particles(Scene *scene, Object *ob)
 	ComponentKey transform_key(&ob->id, DEG_NODE_TYPE_TRANSFORM);
 	add_relation(transform_key, obdata_ubereval_key, "Partcile Eval");
 
-	/* pointcache */
-	// TODO...
+	/* TODO(sergey): Do we need a point cache operations here? */
+}
+
+void DepsgraphRelationBuilder::build_particle_settings(ParticleSettings *part)
+{
+	ID *part_id = &part->id;
+	if (part_id->tag & LIB_TAG_DOIT) {
+		return;
+	}
+	part_id->tag |= LIB_TAG_DOIT;
+
+	/* Animation data relations. */
+	build_animdata(&part->id);
+
+	OperationKey eval_key(part_id,
+	                      DEG_NODE_TYPE_PARAMETERS,
+	                      DEG_OPCODE_PARTICLE_SETTINGS_EVAL);
+	OperationKey recalc_clear_key(part_id,
+	                             DEG_NODE_TYPE_PARAMETERS,
+	                             DEG_OPCODE_PARTICLE_SETTINGS_RECALC_CLEAR);
+	add_relation(eval_key, recalc_clear_key, "Particle Settings Clear Recalc");
 }
 
 void DepsgraphRelationBuilder::build_cloth(Scene * /*scene*/,
@@ -1452,8 +1517,7 @@ void DepsgraphRelationBuilder::build_obdata_geom(Main *bmain, Scene *scene, Obje
 				if (ob->type == OB_MESH) {
 					OperationKey material_key(&ma->id,
 					                          DEG_NODE_TYPE_SHADING,
-					                          DEG_OPCODE_PLACEHOLDER,
-					                          "Material Update");
+					                          DEG_OPCODE_MATERIAL_UPDATE);
 					OperationKey shading_key(&ob->id, DEG_NODE_TYPE_SHADING, DEG_OPCODE_SHADING);
 					add_relation(material_key, shading_key, "Material Update");
 				}
@@ -1639,8 +1703,7 @@ void DepsgraphRelationBuilder::build_nodetree(bNodeTree *ntree)
 
 	OperationKey parameters_key(ntree_id,
 	                            DEG_NODE_TYPE_PARAMETERS,
-	                            DEG_OPCODE_PLACEHOLDER,
-	                            "Parameters Eval");
+	                            DEG_OPCODE_PARAMETERS_EVAL);
 
 	/* nodetree's nodes... */
 	LINKLIST_FOREACH (bNode *, bnode, &ntree->nodes) {
@@ -1659,8 +1722,7 @@ void DepsgraphRelationBuilder::build_nodetree(bNodeTree *ntree)
 				}
 				OperationKey group_parameters_key(&group_ntree->id,
 				                                  DEG_NODE_TYPE_PARAMETERS,
-				                                  DEG_OPCODE_PLACEHOLDER,
-				                                  "Parameters Eval");
+				                                  DEG_OPCODE_PARAMETERS_EVAL);
 				add_relation(group_parameters_key, parameters_key, "Group Node");
 			}
 		}
@@ -1692,12 +1754,10 @@ void DepsgraphRelationBuilder::build_material(Material *ma)
 		build_nodetree(ma->nodetree);
 		OperationKey ntree_key(&ma->nodetree->id,
 		                       DEG_NODE_TYPE_PARAMETERS,
-		                       DEG_OPCODE_PLACEHOLDER,
-		                       "Parameters Eval");
+		                       DEG_OPCODE_PARAMETERS_EVAL);
 		OperationKey material_key(&ma->id,
 		                          DEG_NODE_TYPE_SHADING,
-		                          DEG_OPCODE_PLACEHOLDER,
-		                          "Material Update");
+		                          DEG_OPCODE_MATERIAL_UPDATE);
 		add_relation(ntree_key, material_key, "Material's NTree");
 	}
 }

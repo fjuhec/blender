@@ -65,6 +65,7 @@ struct Main;
 
 struct PointerRNA;
 struct PropertyRNA;
+struct SceneLayer;
 
 /* Dependency graph evaluation context
  *
@@ -74,6 +75,8 @@ struct PropertyRNA;
 typedef struct EvaluationContext {
 	int mode;
 	float ctime;
+
+	struct SceneLayer *scene_layer;
 } EvaluationContext;
 
 typedef enum eEvaluationMode {
@@ -136,13 +139,6 @@ void DEG_graph_on_visible_update(struct Main *bmain, struct Scene *scene);
 /* Update all dependency graphs when visible scenes/layers changes. */
 void DEG_on_visible_update(struct Main *bmain, const bool do_time);
 
-/* Tag node(s) associated with changed data for later updates */
-void DEG_graph_id_tag_update(struct Main *bmain,
-                             Depsgraph *graph,
-                             struct ID *id);
-void DEG_graph_data_tag_update(Depsgraph *graph, const struct PointerRNA *ptr);
-void DEG_graph_property_tag_update(Depsgraph *graph, const struct PointerRNA *ptr, const struct PropertyRNA *prop);
-
 /* Tag given ID for an update in all the dependency graphs. */
 enum {
 	/* Object transformation changed, corresponds to OB_RECALC_OB. */
@@ -164,6 +160,11 @@ enum {
 
 	/* Update copy on write component without flushing down the road. */
 	DEG_TAG_COPY_ON_WRITE = (1 << 8),
+
+	/* Tag shading components for update.
+	 * Only parameters of material changed).
+	 */
+	DEG_TAG_SHADING_UPDATE  = (1 << 9),
 };
 void DEG_id_tag_update(struct ID *id, int flag);
 void DEG_id_tag_update_ex(struct Main *bmain,

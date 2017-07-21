@@ -528,9 +528,12 @@ int ED_object_modifier_convert(ReportList *UNUSED(reports), Main *bmain, Scene *
 	return 1;
 }
 
-static int modifier_apply_shape(ReportList *reports, Scene *scene, Object *ob, ModifierData *md)
+static int modifier_apply_shape(ReportList *reports, const bContext *C, Scene *scene, Object *ob, ModifierData *md)
 {
 	const ModifierTypeInfo *mti = modifierType_getInfo(md->type);
+	EvaluationContext eval_ctx;
+
+	CTX_data_eval_ctx(C, &eval_ctx);
 
 	md->scene = scene;
 
@@ -561,7 +564,7 @@ static int modifier_apply_shape(ReportList *reports, Scene *scene, Object *ob, M
 			return 0;
 		}
 		
-		dm = mesh_create_derived_for_modifier(scene, ob, md, 0);
+		dm = mesh_create_derived_for_modifier(&eval_ctx, scene, ob, md, 0);
 		if (!dm) {
 			BKE_report(reports, RPT_ERROR, "Modifier is disabled or returned error, skipping apply");
 			return 0;
@@ -588,9 +591,12 @@ static int modifier_apply_shape(ReportList *reports, Scene *scene, Object *ob, M
 	return 1;
 }
 
-static int modifier_apply_obdata(ReportList *reports, Scene *scene, Object *ob, ModifierData *md)
+static int modifier_apply_obdata(ReportList *reports, const bContext *C, Scene *scene, Object *ob, ModifierData *md)
 {
 	const ModifierTypeInfo *mti = modifierType_getInfo(md->type);
+	EvaluationContext eval_ctx;
+
+	CTX_data_eval_ctx(C, &eval_ctx);
 
 	md->scene = scene;
 
@@ -614,13 +620,13 @@ static int modifier_apply_obdata(ReportList *reports, Scene *scene, Object *ob, 
 			multires_force_update(ob);
 
 		if (mmd && mmd->totlvl && mti->type == eModifierTypeType_OnlyDeform) {
-			if (!multiresModifier_reshapeFromDeformMod(scene, mmd, ob, md)) {
+			if (!multiresModifier_reshapeFromDeformMod(&eval_ctx, scene, mmd, ob, md)) {
 				BKE_report(reports, RPT_ERROR, "Multires modifier returned error, skipping apply");
 				return 0;
 			}
 		}
 		else {
-			dm = mesh_create_derived_for_modifier(scene, ob, md, 1);
+			dm = mesh_create_derived_for_modifier(&eval_ctx, scene, ob, md, 1);
 			if (!dm) {
 				BKE_report(reports, RPT_ERROR, "Modifier returned error, skipping apply");
 				return 0;
@@ -646,7 +652,7 @@ static int modifier_apply_obdata(ReportList *reports, Scene *scene, Object *ob, 
 		BKE_report(reports, RPT_INFO, "Applied modifier only changed CV points, not tessellated/bevel vertices");
 
 		vertexCos = BKE_curve_nurbs_vertexCos_get(&cu->nurb, &numVerts);
-		mti->deformVerts(md, ob, NULL, vertexCos, numVerts, 0);
+		mti->deformVerts(md, &eval_ctx, ob, NULL, vertexCos, numVerts, 0);
 		BK_curve_nurbs_vertexCos_apply(&cu->nurb, vertexCos);
 
 		MEM_freeN(vertexCos);
@@ -675,14 +681,14 @@ static int modifier_apply_obdata(ReportList *reports, Scene *scene, Object *ob, 
 			if (psys->part->type != PART_HAIR)
 				continue;
 
-			psys_apply_hair_lattice(scene, ob, psys);
+			psys_apply_hair_lattice(&eval_ctx, scene, ob, psys);
 		}
 	}
 
 	return 1;
 }
 
-int ED_object_modifier_apply(ReportList *reports, Scene *scene, Object *ob, ModifierData *md, int mode)
+int ED_object_modifier_apply(ReportList *reports, const bContext *C, Scene *scene, Object *ob, ModifierData *md, int mode)
 {
 	int prev_mode;
 
@@ -717,13 +723,13 @@ int ED_object_modifier_apply(ReportList *reports, Scene *scene, Object *ob, Modi
 	md->mode |= eModifierMode_Realtime;
 
 	if (mode == MODIFIER_APPLY_SHAPE) {
-		if (!modifier_apply_shape(reports, scene, ob, md)) {
+		if (!modifier_apply_shape(reports, C, scene, ob, md)) {
 			md->mode = prev_mode;
 			return 0;
 		}
 	}
 	else {
-		if (!modifier_apply_obdata(reports, scene, ob, md)) {
+		if (!modifier_apply_obdata(reports, C, scene, ob, md)) {
 			md->mode = prev_mode;
 			return 0;
 		}
@@ -1037,7 +1043,7 @@ static int modifier_apply_exec(bContext *C, wmOperator *op)
 	ModifierData *md = edit_modifier_property_get(op, ob, 0);
 	int apply_as = RNA_enum_get(op->ptr, "apply_as");
 
-	if (!md || !ED_object_modifier_apply(op->reports, scene, ob, md, apply_as)) {
+	if (!md || !ED_object_modifier_apply(op->reports, C, scene, ob, md, apply_as)) {
 		return OPERATOR_CANCELLED;
 	}
 
@@ -1269,7 +1275,10 @@ static int multires_reshape_exec(bContext *C, wmOperator *op)
 {
 	Object *ob = ED_object_active_context(C), *secondob = NULL;
 	Scene *scene = CTX_data_scene(C);
+	EvaluationContext eval_ctx;
 	MultiresModifierData *mmd = (MultiresModifierData *)edit_modifier_property_get(op, ob, eModifierType_Multires);
+
+	CTX_data_eval_ctx(C, &eval_ctx);
 
 	if (!mmd)
 		return OPERATOR_CANCELLED;
@@ -1293,7 +1302,7 @@ static int multires_reshape_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
-	if (!multiresModifier_reshape(scene, mmd, ob, secondob)) {
+	if (!multiresModifier_reshape(&eval_ctx, scene, mmd, ob, secondob)) {
 		BKE_report(op->reports, RPT_ERROR, "Objects do not have the same number of vertices");
 		return OPERATOR_CANCELLED;
 	}
@@ -1726,8 +1735,10 @@ static void skin_armature_bone_create(Object *skin_ob,
 	}
 }
 
-static Object *modifier_skin_armature_create(Main *bmain, Scene *scene, SceneLayer *sl, Object *skin_ob)
+static Object *modifier_skin_armature_create(const bContext *C, Scene *scene, SceneLayer *sl, Object *skin_ob)
 {
+	Main *bmain = CTX_data_main(C);
+	EvaluationContext eval_ctx;
 	BLI_bitmap *edges_visited;
 	DerivedMesh *deform_dm;
 	MVert *mvert;
@@ -1739,7 +1750,9 @@ static Object *modifier_skin_armature_create(Main *bmain, Scene *scene, SceneLay
 	int *emap_mem;
 	int v;
 
-	deform_dm = mesh_get_derived_deform(scene, skin_ob, CD_MASK_BAREMESH);
+	CTX_data_eval_ctx(C, &eval_ctx);
+
+	deform_dm = mesh_get_derived_deform(&eval_ctx, scene, skin_ob, CD_MASK_BAREMESH);
 	mvert = deform_dm->getVertArray(deform_dm);
 
 	/* add vertex weights to original mesh */
@@ -1820,7 +1833,7 @@ static int skin_armature_create_exec(bContext *C, wmOperator *op)
 	}
 
 	/* create new armature */
-	arm_ob = modifier_skin_armature_create(bmain, scene, sl, ob);
+	arm_ob = modifier_skin_armature_create(C, scene, sl, ob);
 
 	/* add a modifier to connect the new armature to the mesh */
 	arm_md = (ArmatureModifierData *)modifier_new(eModifierType_Armature);
@@ -1940,8 +1953,11 @@ static int meshdeform_bind_exec(bContext *C, wmOperator *op)
 {
 	Scene *scene = CTX_data_scene(C);
 	Object *ob = ED_object_active_context(C);
+	EvaluationContext eval_ctx;
 	MeshDeformModifierData *mmd = (MeshDeformModifierData *)edit_modifier_property_get(op, ob, eModifierType_MeshDeform);
 	
+	CTX_data_eval_ctx(C, &eval_ctx);
+
 	if (!mmd)
 		return OPERATOR_CANCELLED;
 
@@ -1979,17 +1995,17 @@ static int meshdeform_bind_exec(bContext *C, wmOperator *op)
 		mmd->modifier.mode |= eModifierMode_Realtime;
 
 		if (ob->type == OB_MESH) {
-			dm = mesh_create_derived_view(scene, ob, 0);
+			dm = mesh_create_derived_view(&eval_ctx, scene, ob, 0);
 			dm->release(dm);
 		}
 		else if (ob->type == OB_LATTICE) {
-			BKE_lattice_modifiers_calc(scene, ob);
+			BKE_lattice_modifiers_calc(&eval_ctx, scene, ob);
 		}
 		else if (ob->type == OB_MBALL) {
-			BKE_displist_make_mball(CTX_data_main(C)->eval_ctx, scene, ob);
+			BKE_displist_make_mball(&eval_ctx, scene, ob);
 		}
 		else if (ELEM(ob->type, OB_CURVE, OB_SURF, OB_FONT)) {
-			BKE_displist_make_curveTypes(scene, ob, 0);
+			BKE_displist_make_curveTypes(&eval_ctx, scene, ob, 0);
 		}
 
 		mmd->bindfunc = NULL;

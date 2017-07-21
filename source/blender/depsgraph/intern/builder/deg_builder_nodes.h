@@ -50,6 +50,7 @@ struct MTex;
 struct MovieClip;
 struct bNodeTree;
 struct Object;
+struct ParticleSettings;
 struct Probe;
 struct bPoseChannel;
 struct bConstraint;
@@ -72,14 +73,21 @@ struct DepsgraphNodeBuilder {
 	DepsgraphNodeBuilder(Main *bmain, Depsgraph *graph);
 	~DepsgraphNodeBuilder();
 
-	void begin_build(Main *bmain);
-
 	ID *get_cow_id(const ID *id_orig) const;
-
 	template<typename T>
 	T *get_cow_datablock(const T *orig) const {
 		return (T *)get_cow_id(&orig->id);
 	}
+	template<typename T>
+	T *get_orig_datablock(const T *cow) const {
+#ifdef WITH_COPY_ON_WRITE
+		return (T *)cow->id.newid;
+#else
+		return (T *)cow;
+#endif
+	}
+
+	void begin_build(Main *bmain);
 
 	IDDepsNode *add_id_node(ID *id);
 	TimeSourceDepsNode *add_time_source();
@@ -135,6 +143,7 @@ struct DepsgraphNodeBuilder {
 	void build_pose_constraints(Scene *scene, Object *ob, bPoseChannel *pchan);
 	void build_rigidbody(Scene *scene);
 	void build_particles(Scene *scene, Object *ob);
+	void build_particle_settings(ParticleSettings *part);
 	void build_cloth(Scene *scene, Object *object);
 	void build_animdata(ID *id);
 	OperationDepsNode *build_driver(ID *id, FCurve *fcurve);

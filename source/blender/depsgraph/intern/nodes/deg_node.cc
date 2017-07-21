@@ -128,8 +128,8 @@ IDDepsNode::ComponentIDKey::ComponentIDKey(eDepsNode_Type type,
 
 bool IDDepsNode::ComponentIDKey::operator== (const ComponentIDKey &other) const
 {
-    return type == other.type &&
-           STREQ(name, other.name);
+	return type == other.type &&
+		STREQ(name, other.name);
 }
 
 static unsigned int id_deps_node_hash_key(const void *key_v)
@@ -182,6 +182,7 @@ void IDDepsNode::init(const ID *id, const char *UNUSED(subdata))
 	id_cow = (ID *)BKE_libblock_alloc_notest(GS(id->name));
 	DEG_COW_PRINT("Create shallow copy for %s: id_orig=%p id_cow=%p\n",
 	              id_orig->name, id_orig, id_cow);
+	deg_tag_copy_on_write_id(id_cow, id_orig);
 #else
 	id_cow = id_orig;
 #endif
@@ -190,6 +191,15 @@ void IDDepsNode::init(const ID *id, const char *UNUSED(subdata))
 /* Free 'id' node. */
 IDDepsNode::~IDDepsNode()
 {
+	destroy();
+}
+
+void IDDepsNode::destroy()
+{
+	if (id_orig == NULL) {
+		return;
+	}
+
 	BLI_ghash_free(components,
 	               id_deps_node_hash_key_free,
 	               id_deps_node_hash_value_free);
@@ -201,6 +211,8 @@ IDDepsNode::~IDDepsNode()
 	DEG_COW_PRINT("Destroy CoW for %s: id_orig=%p id_cow=%p\n",
 	              id_orig->name, id_orig, id_cow);
 #endif
+	/* Tag that the node is freed. */
+	id_orig = NULL;
 }
 
 ComponentDepsNode *IDDepsNode::find_component(eDepsNode_Type type,
@@ -243,9 +255,15 @@ void IDDepsNode::tag_update(Depsgraph *graph)
 			/* TODO(sergey): For until we properly handle granular flags for DEG_id_tag_update()
 			 * we skip flushing here to keep Luca happy.
 			 */
-			if (GS(id_orig->name) != ID_MA) {
+			if (GS(id_orig->name) != ID_MA &&
+			    GS(id_orig->name) != ID_WO)
+			{
 				do_component_tag = false;
 			}
+		}
+		else if (comp_node->type == DEG_NODE_TYPE_EVAL_PARTICLES) {
+			/* Only do explicit particle settings tagging. */
+			do_component_tag = false;
 		}
 		if (do_component_tag) {
 			comp_node->tag_update(graph);

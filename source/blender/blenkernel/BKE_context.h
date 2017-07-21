@@ -71,6 +71,7 @@ struct SpaceText;
 struct SpaceImage;
 struct SpaceClip;
 struct ID;
+struct EvaluationContext;
 
 /* Structs */
 
@@ -311,6 +312,8 @@ int CTX_data_available_palettes(const bContext *C, ListBase *list);
 int CTX_data_available_palettecolors(const bContext *C, ListBase *list);
 
 struct Depsgraph *CTX_data_depsgraph(const bContext *C);
+
+void CTX_data_eval_ctx(const bContext *C, struct EvaluationContext *eval_ctx);
 
 #ifdef __cplusplus
 }

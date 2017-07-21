@@ -53,17 +53,19 @@ struct IDDepsNode;
 /* Get fully expanded (ready for use) copy-on-write datablock for the given
  * original datablock.
  */
-ID *deg_expand_copy_on_write_datablock(const Depsgraph *depsgraph,
-                                       const IDDepsNode *id_node);
-ID *deg_expand_copy_on_write_datablock(const struct Depsgraph *depsgraph,
-                                       struct ID *id_orig);
+ID *deg_expand_copy_on_write_datablock(struct Depsgraph *depsgraph,
+                                       const IDDepsNode *id_node,
+                                       bool create_placeholders);
+ID *deg_expand_copy_on_write_datablock(struct Depsgraph *depsgraph,
+                                       struct ID *id_orig,
+                                       bool create_placeholders);
 
 /* Makes sure given CoW datablock is brought back to state of the original
  * datablock.
  */
-ID *deg_update_copy_on_write_datablock(const Depsgraph *depsgraph,
+ID *deg_update_copy_on_write_datablock(/*const*/ struct Depsgraph *depsgraph,
                                        const IDDepsNode *id_node);
-ID *deg_update_copy_on_write_datablock(const struct Depsgraph *depsgraph,
+ID *deg_update_copy_on_write_datablock(/*const*/ struct Depsgraph *depsgraph,
                                        struct ID *id_orig);
 
 /* Helper function which frees memory used by copy-on-written databnlock. */
@@ -72,13 +74,22 @@ void deg_free_copy_on_write_datablock(struct ID *id_cow);
 /* Callback function for depsgraph operation node which ensures copy-on-write
  * datablock is ready for use by further evaluation routines.
  */
-void deg_evaluate_copy_on_write(struct EvaluationContext *eval_ctx,
-                                const struct Depsgraph *depsgraph,
+void deg_evaluate_copy_on_write(const struct EvaluationContext *eval_ctx,
+                                /*const*/ struct Depsgraph *depsgraph,
                                 const struct IDDepsNode *id_node);
 
 /* Check that given ID is propely expanded and does not have any shallow
  * copies inside.
   */
 bool deg_validate_copy_on_write_datablock(ID *id_cow);
+
+/* Tag given ID block as being copy-on-wtritten. */
+void deg_tag_copy_on_write_id(struct ID *id_cow, const struct ID *id_orig);
+
+/* Check whether ID datablock is expanded.
+ *
+ * TODO(sergey): Make it an inline function or a macro.
+ */
+bool deg_copy_on_write_is_expanded(const struct ID *id_cow);
 
 }  // namespace DEG
