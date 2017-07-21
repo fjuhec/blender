@@ -6608,7 +6608,7 @@ static bool calc_stroke_normal_ori(SilhouetteStroke *stroke, float z_vec[3]) {
 }
 
 /* Generates a 3D shape from a stroke. */
-static void silhouette_create_shape_mesh(bContext *UNUSED(C), Mesh *me, SilhouetteData *sil, SilhouetteStroke *stroke)
+static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *sil, SilhouetteStroke *stroke)
 {
 	float z_vec[3] = {0.0f,0.0f,1.0f};
 	float depth = sil->depth;
@@ -6662,7 +6662,7 @@ static void silhouette_create_shape_mesh(bContext *UNUSED(C), Mesh *me, Silhouet
 
 	free_spine(spine);
 
-	/*ED_mesh_update(me, C, 1, 1);*/
+	ED_mesh_update(me, C, 1, 1);
 }
 
 /* Adds additional points to the stroke if start and end are far apart. */

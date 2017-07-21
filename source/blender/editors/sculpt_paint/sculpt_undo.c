@@ -69,6 +69,7 @@
 #include "paint_intern.h"
 #include "sculpt_intern.h"
 #include "BKE_object.h"
+#include "ED_mesh.h"
 
 /************************** Undo *************************/
 
@@ -463,40 +464,55 @@ static void sculpt_undo_silhouette_restore(bContext *C, Object *ob, SculptUndoNo
 		CustomData_realloc(&me->ldata, me->totloop - unode->bm_enter_totloop);
 		CustomData_realloc(&me->pdata, me->totpoly - unode->bm_enter_totpoly);
 
-		BKE_mesh_update_customdata_pointers(me, true);
+		BKE_mesh_update_customdata_pointers(me, false);
 
 		me->totvert = me->totvert - unode->bm_enter_totvert;
 		me->totedge = me->totedge - unode->bm_enter_totedge;
 		me->totloop = me->totloop - unode->bm_enter_totloop;
 		me->totpoly = me->totpoly - unode->bm_enter_totpoly;
 
+		BKE_mesh_calc_edges(me, false, true);
+		BKE_mesh_tessface_clear(me);
+		BKE_mesh_calc_normals(me);
+		DAG_id_tag_update(&me->id, 0);
+		WM_event_add_notifier(C, NC_GEOM | ND_DATA, me);
+
 		BKE_object_free_derived_caches(ob);
 	} else {
 		unode->applied = true;
-		/* TODO: Add Redo
-		 printf("Redo it!\n");
 
-		CustomData_realloc(&me->vdata, me->totvert + unode->bm_enter_totvert);
-		CustomData_realloc(&me->edata, me->totedge + unode->bm_enter_totedge);
-		CustomData_realloc(&me->ldata, me->totloop + unode->bm_enter_totloop);
-		CustomData_realloc(&me->pdata, me->totpoly + unode->bm_enter_totpoly);
+		int v_start_n, e_start_n, l_start_n, p_start_n;
 
-		CustomData_copy_data(&unode->bm_enter_vdata, &me->vdata, 0,
-						me->totvert, unode->bm_enter_totvert);
-		CustomData_copy_data(&unode->bm_enter_edata, &me->edata, 0,
-							 me->totedge, unode->bm_enter_totedge);
-		CustomData_copy_data(&unode->bm_enter_ldata, &me->ldata, 0,
-							 me->totloop, unode->bm_enter_totloop);
-		CustomData_copy_data(&unode->bm_enter_pdata, &me->pdata, 0,
-							 me->totpoly, unode->bm_enter_totpoly);
+		v_start_n = me->totvert;
+		e_start_n = me->totedge;
+		l_start_n = me->totloop;
+		p_start_n = me->totpoly;
 
-		me->totvert += unode->bm_enter_totvert;
-		me->totloop += unode->bm_enter_totloop;
-		me->totpoly += unode->bm_enter_totpoly;
-		me->totedge += unode->bm_enter_totedge;
+		ED_mesh_vertices_add(me, NULL, unode->bm_enter_totvert);
+		ED_mesh_edges_add(me, NULL, unode->bm_enter_totedge);
+		ED_mesh_loops_add(me, NULL, unode->bm_enter_totloop);
+		ED_mesh_polys_add(me, NULL, unode->bm_enter_totpoly);
+
+		CustomData_copy_data(&unode->bm_enter_vdata, &me->vdata, v_start_n, v_start_n, unode->bm_enter_totvert);
+		CustomData_copy_data(&unode->bm_enter_edata, &me->edata, e_start_n, e_start_n, unode->bm_enter_totedge);
+		CustomData_copy_data(&unode->bm_enter_ldata, &me->ldata, l_start_n, l_start_n, unode->bm_enter_totloop);
+		CustomData_copy_data(&unode->bm_enter_pdata, &me->pdata, p_start_n, p_start_n, unode->bm_enter_totpoly);
+
+		/* TODO: Not a full copy:
+		CustomData_copy_data(&unode->bm_enter_vdata, &me->vdata, 0, v_start_n, unode->bm_enter_totvert);
+		CustomData_copy_data(&unode->bm_enter_edata, &me->edata, 0, e_start_n, unode->bm_enter_totedge);
+		CustomData_copy_data(&unode->bm_enter_ldata, &me->ldata, 0, l_start_n, unode->bm_enter_totloop);
+		CustomData_copy_data(&unode->bm_enter_pdata, &me->pdata, 0, p_start_n, unode->bm_enter_totpoly);*/
 
 		BKE_mesh_update_customdata_pointers(me, true);
-		BKE_object_free_derived_caches(ob);*/
+
+		BKE_mesh_calc_edges(me, false, true);
+		BKE_mesh_tessface_clear(me);
+		BKE_mesh_calc_normals(me);
+		DAG_id_tag_update(&me->id, 0);
+		WM_event_add_notifier(C, NC_GEOM | ND_DATA, me);
+
+		BKE_object_free_derived_caches(ob);
 	}
 }
 
@@ -957,11 +973,21 @@ SculptUndoNode *sculpt_undo_silhouette_push(Object *ob, int v_start, int e_start
 
 		/* Store a copy of the silhouettes current vertices, loops, and
 		 * polys. TODO: Add bridge edges and deleted existing geometry later */
-		/*TODO: Not a full copy is possible*/
-		CustomData_copy_data(&me->vdata, &unode->bm_enter_vdata, v_start, 0, me->totvert - v_start);
-		CustomData_copy_data(&me->edata, &unode->bm_enter_edata, e_start, 0, me->totedge - e_start);
-		CustomData_copy_data(&me->ldata, &unode->bm_enter_ldata, l_start, 0, me->totloop - l_start);
-		CustomData_copy_data(&me->pdata, &unode->bm_enter_pdata, p_start, 0, me->totpoly - p_start);
+		CustomData_copy(&me->vdata, &unode->bm_enter_vdata, CD_MASK_MESH,
+						CD_DUPLICATE, me->totvert);
+		CustomData_copy(&me->edata, &unode->bm_enter_edata, CD_MASK_MESH,
+						CD_DUPLICATE, me->totedge);
+		CustomData_copy(&me->ldata, &unode->bm_enter_ldata, CD_MASK_MESH,
+						CD_DUPLICATE, me->totloop);
+		CustomData_copy(&me->pdata, &unode->bm_enter_pdata, CD_MASK_MESH,
+						CD_DUPLICATE, me->totpoly);
+
+		/*TODO: Not a full copy:
+		CustomData_copy_data(&me->vdata, &unode->bm_enter_vdata, me->totvert - unode->bm_enter_totvert, 0, unode->bm_enter_totvert);
+		CustomData_copy_data(&me->edata, &unode->bm_enter_edata, me->totedge - unode->bm_enter_totedge, 0, unode->bm_enter_totedge);
+		CustomData_copy_data(&me->ldata, &unode->bm_enter_ldata, me->totloop - unode->bm_enter_totloop, 0, unode->bm_enter_totloop);
+		CustomData_copy_data(&me->pdata, &unode->bm_enter_pdata, me->totpoly - unode->bm_enter_totpoly, 0, unode->bm_enter_totpoly);*/
+
 		unode->bm_enter_totvert = me->totvert - v_start;
 		unode->bm_enter_totedge = me->totedge - e_start;
 		unode->bm_enter_totloop = me->totloop - l_start;
