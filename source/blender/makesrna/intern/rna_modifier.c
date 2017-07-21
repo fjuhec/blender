@@ -5027,6 +5027,28 @@ static void rna_def_modifier_gpencilarray(BlenderRNA *brna)
 	RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
+	prop = RNA_def_property(srna, "random_rot", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_ARRAY_RANDOM_ROT);
+	RNA_def_property_ui_text(prop, "Random Rotation", "Use random factors for rotation");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "rot_factor", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "rnd_rot");
+	RNA_def_property_ui_text(prop, "Rotation Factor", "Random factor for rotation");
+	RNA_def_property_range(prop, -10.0, 10.0);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "random_scale", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_ARRAY_RANDOM_SIZE);
+	RNA_def_property_ui_text(prop, "Random Scale", "Use random factors for scale");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "scale_factor", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "rnd_size");
+	RNA_def_property_ui_text(prop, "Scale Factor", "Random factor for scale");
+	RNA_def_property_range(prop, -10.0, 10.0);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
 	prop = RNA_def_property(srna, "inverse_layers", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_ARRAY_INVERSE_LAYER);
 	RNA_def_property_ui_text(prop, "Inverse Layers", "Inverse filter");

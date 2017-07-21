@@ -51,6 +51,11 @@ static void initData(ModifierData *md)
 	gpmd->scale[0] = 1.0f;
 	gpmd->scale[1] = 1.0f;
 	gpmd->scale[2] = 1.0f;
+	gpmd->rnd_rot = 0.5f;
+	gpmd->rnd_size = 0.5f;
+	/* fill random values */
+	ED_gpencil_fill_random_array(gpmd->rnd, 20);
+	gpmd->rnd[0] = 1;
 
 	BKE_gpencil_batch_cache_alldirty();
 }
@@ -76,15 +81,7 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
-			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-				if (gps->flag & GP_STROKE_TEMP) {
-					gps->flag &= ~GP_STROKE_TEMP;
-					gps->mod_idx = 0;
-				}
-				else {
-					ED_gpencil_array_modifier(-1, (GpencilArrayModifierData *)md, gpl, gpf, gps);
-				}
-			}
+			ED_gpencil_array_modifier(-1, (GpencilArrayModifierData *)md, gpl, gpf);
 		}
 	}
 

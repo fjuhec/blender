@@ -1696,13 +1696,14 @@ typedef struct GpencilArrayModifierData {
 	float rot[3];                /* Rotation changes */
 	float scale[3];              /* Scale changes */
 	int count;                   /* number of elements in array */
+	float rnd[20];               /* (first element is the index) random values */
 } GpencilArrayModifierData;
 
 typedef enum eGpencilArray_Flag {
 	GP_ARRAY_RANDOM_SIZE   = (1 << 0),
 	GP_ARRAY_RANDOM_ROT    = (1 << 1),
-	GP_ARRAY_INVERSE_LAYER = (1 << 1),
-	GP_ARRAY_INVERSE_PASS  = (1 << 2),
+	GP_ARRAY_INVERSE_LAYER = (1 << 2),
+	GP_ARRAY_INVERSE_PASS  = (1 << 3),
 } eGpencilArray_Flag;
 
 #define MOD_MESHSEQ_READ_ALL \

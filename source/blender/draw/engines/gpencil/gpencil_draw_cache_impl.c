@@ -573,6 +573,18 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 	ED_gpencil_parent_location(ob, gpd, gpl, viewmatrix);
 	copy_m4_m4(gpf->viewmatrix, viewmatrix);
 
+	/* reset modifiers */
+	if ((cache->is_dirty) && (ob->modifiers.first) && (!is_edit)) {
+		ED_gpencil_reset_modifiers(ob);
+	}
+	
+	/* apply geometry modifiers */
+	if ((cache->is_dirty) && (ob->modifiers.first) && (!is_edit)) {
+		if (ED_gpencil_has_geometry_modifiers(ob)) {
+			ED_gpencil_geometry_modifiers(ob, gpl, gpf);
+		}
+	}
+
 	for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 		/* check if stroke can be drawn */
 		if (gpencil_can_draw_stroke(gps, onion) == false) {
@@ -611,12 +623,9 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 		fillgrp = stl->shgroups[id].shgrps_fill;
 		strokegrp = stl->shgroups[id].shgrps_stroke;
 
-		/* apply modifiers */
+		/* apply modifiers (only modify geometry, but not create ) */
 		if ((cache->is_dirty) && (ob->modifiers.first) && (!is_edit)) {
-			/* first need to create all geometry */
-			ED_gpencil_stroke_modifiers(ob, gpl, gpf, gps, GP_MOD_DUPLI_ON);
-			/* second apply modifiers to all strokes */
-			ED_gpencil_stroke_modifiers(ob, gpl, gpf, gps, GP_MOD_DUPLI_OFF);
+			ED_gpencil_stroke_modifiers(ob, gpl, gpf, gps);
 		}
 		/* fill */
 		if (fillgrp) {

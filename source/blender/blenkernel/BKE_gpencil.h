@@ -49,9 +49,6 @@ struct GpencilThickModifierData;
 struct GpencilTintModifierData;
 struct GpencilArrayModifierData;
 
-#define GP_MOD_DUPLI_ON 1
-#define GP_MOD_DUPLI_OFF 0
-
 /* ------------ Grease-Pencil API ------------------ */
 
 void BKE_gpencil_free_stroke(struct bGPDstroke *gps);
@@ -142,12 +139,16 @@ void BKE_gpencil_palettecolor_delete_allstrokes(struct PaletteColor *palcolor);
 struct BoundBox *BKE_gpencil_boundbox_get(struct Object *ob);
 
 /* modifiers */
-void ED_gpencil_stroke_modifiers(struct Object *ob, struct bGPDlayer *gpl, struct bGPDframe *gpf, struct bGPDstroke *gps, int duplimode);
+void ED_gpencil_reset_modifiers(struct Object *ob);
+bool ED_gpencil_has_geometry_modifiers(struct Object *ob);
+void ED_gpencil_stroke_modifiers(struct Object *ob, struct bGPDlayer *gpl, struct bGPDframe *gpf, struct bGPDstroke *gps);
+void ED_gpencil_geometry_modifiers(struct Object *ob, struct bGPDlayer *gpl, struct bGPDframe *gpf);
+void ED_gpencil_fill_random_array(float *ar, int count);
 void ED_gpencil_stroke_normal(const struct bGPDstroke *gps, float r_normal[3]);
 void ED_gpencil_noise_modifier(int id, struct GpencilNoiseModifierData *mmd, struct bGPDlayer *gpl, struct bGPDstroke *gps);
 void ED_gpencil_subdiv_modifier(int id, struct GpencilSubdivModifierData *mmd, struct bGPDlayer *gpl, struct bGPDstroke *gps);
 void ED_gpencil_thick_modifier(int id, struct GpencilThickModifierData *mmd, struct bGPDlayer *gpl, struct bGPDstroke *gps);
 void ED_gpencil_tint_modifier(int id, struct GpencilTintModifierData *mmd, struct bGPDlayer *gpl, struct bGPDstroke *gps);
-void ED_gpencil_array_modifier(int id, struct GpencilArrayModifierData *mmd, struct bGPDlayer *gpl, struct bGPDframe *gpf, struct bGPDstroke *gps);
+void ED_gpencil_array_modifier(int id, struct GpencilArrayModifierData *mmd, struct bGPDlayer *gpl, struct bGPDframe *gpf);
 
 #endif /*  __BKE_GPENCIL_H__ */

@@ -1636,10 +1636,18 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col = split.column()
         col.label("Rotation:")
         col.prop(md, "rotation", text="")
+        col.separator()
+        row = col.row(align=True)
+        row.prop(md, "random_rot", text="", icon="TIME", toggle=True)
+        row.prop(md, "rot_factor", text="")
 
         col = split.column()
         col.label("Scale:")
         col.prop(md, "scale", text="")
+        col.separator()
+        row = col.row(align=True)
+        row.prop(md, "random_scale", text="", icon="TIME", toggle=True)
+        row.prop(md, "scale_factor", text="")
 
 classes = (
     DATA_PT_modifiers,
