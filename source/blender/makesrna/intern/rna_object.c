@@ -865,6 +865,9 @@ static void rna_Object_particle_update(Main *UNUSED(bmain), Scene *scene, Pointe
 #if 0
 	Object *ob = (Object *)ptr->id.data;
 	PE_current_changed(NULL, scene, ob);
+#else
+	(void) scene;
+	(void) ptr;
 #endif
 }
 
