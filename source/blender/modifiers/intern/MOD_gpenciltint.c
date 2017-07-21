@@ -37,6 +37,7 @@
 #include "BLI_utildefines.h"
 #include "BLI_ghash.h"
 
+#include "BKE_global.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_gpencil.h"
 #include "BKE_paint.h"
@@ -50,6 +51,7 @@ static void initData(ModifierData *md)
 	gpmd->passindex = 0;
 	gpmd->factor = 0;
 	gpmd->layername[0] = '\0';
+	gpmd->flag |= GP_TINT_CREATE_COLORS;
 
 	BKE_gpencil_batch_cache_alldirty();
 }
@@ -68,6 +70,7 @@ static DerivedMesh *applyModifier(ModifierData *md, struct EvaluationContext *UN
 {
 	GpencilTintModifierData *mmd = (GpencilTintModifierData *)md;
 	bGPdata *gpd;
+	Palette *newpalette = NULL;
 	if ((!ob) || (!ob->gpd)) {
 		return NULL;
 	}
@@ -91,7 +94,10 @@ static DerivedMesh *applyModifier(ModifierData *md, struct EvaluationContext *UN
 					/* look for color */
 					PaletteColor *newpalcolor = (PaletteColor *) BLI_ghash_lookup(gh_color, gps->palcolor->info);
 					if (newpalcolor == NULL) {
-						newpalcolor = BKE_palette_color_copy(gps->palette, gps->palcolor);
+						if (!newpalette) {
+							newpalette = BKE_palette_add(G.main, "Palette");
+						}
+						newpalcolor = BKE_palette_color_copy(newpalette, gps->palcolor);
 						BLI_ghash_insert(gh_color, gps->palcolor->info, newpalcolor);
 					}
 
