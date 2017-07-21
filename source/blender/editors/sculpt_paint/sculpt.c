@@ -1743,7 +1743,7 @@ static void do_smooth_brush_bmesh_task_cb_ex(
 			}
 			else {
 				float avg[3], val[3];
-				if(ss->cache->first_time) printf("%d ", BM_elem_index_get( vd.bm_vert));
+				//if(ss->cache->first_time) printf("%d ", BM_elem_index_get( vd.bm_vert));
 				bmesh_neighbor_average(avg, vd.bm_vert);
 				sub_v3_v3v3(val, avg, vd.co);
 
@@ -1912,6 +1912,8 @@ static void smooth(
 	PBVHType type = BKE_pbvh_type(ss->pbvh);
 	int iteration, count;
 	float last;
+
+	if (ss->cache->first_time) printf("%d\n", type);
 
 	CLAMP(bstrength, 0.0f, 1.0f);
 
@@ -3345,7 +3347,7 @@ int find_connect_bmesh(const BMLog *bml,const BMVert *vert, short *ch, const uin
 		}
 
 	}*/
-	const int vfcount = BM_vert_face_count_ex(vert, 3);
+	const int vfcount = BM_vert_face_count_ex(vert, 2);
 	BMIter iter;
 	BMLoop *l;
 	int i, total = 0;
@@ -3392,14 +3394,21 @@ static void do_topo_grab_brush_task_cb_ex(
 	copy_v3_v3(test.normal, ray_normal);
 	//if (ss->cache->first_time){ printf("\n"); }
 	PBVHType type = BKE_pbvh_type(ss->pbvh);
-
+	//BLI_mutex_init(&data->mutex);
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
 		sculpt_orig_vert_data_update(&orig_data, &vd);
 		
 		if (sculpt_brush_test(&test, orig_data.co)){
+
+			
+
 			float valx[3];
 			if (ss->cache->first_time){
+				if (type == PBVH_GRIDS){
+					printf("%d %.3f %.3f\n", vd.vert_indices[vd.i], vd.co[0], vd.co[1]);
+					
+				}
 				/*
 				if (ss->cache->first_time) {
 					if (ss->bm) copy_v3_v3(valx, BM_log_original_vert_co(ss->bm_log, vd.bm_vert));
@@ -3440,9 +3449,13 @@ static void do_topo_grab_brush_task_cb_ex(
 					}
 			}			
 			else{
+				//if (type == PBVH_GRIDS) return 0;
+
+				
+
 				int vert_m;
 				if (type == PBVH_FACES) vert_m = vd.vert_indices[vd.i];
-				else vert_m = BM_elem_index_get(vd.bm_vert);
+				else vert_m = BM_log_vert_id_t(ss->bm_log, vd.bm_vert); //BM_elem_index_get(vd.bm_vert);
 				if (check_topo_connected(vert_m, c_ver, cn[4]) != -1) {
 					const float fade = bstrength * tex_strength(
 						ss, brush, orig_data.co, test.dist, orig_data.no, NULL, vd.mask ? *vd.mask : 0.0f,
@@ -3450,7 +3463,7 @@ static void do_topo_grab_brush_task_cb_ex(
 
 					//printf("%d, ", cn[2]);
 					mul_v3_v3fl(proxy[vd.i], grab_delta, fade);
-					if (vd.mvert) {
+					if (vd.mvert && type==PBVH_GRIDS) {
 						vd.mvert->flag |= ME_VERT_PBVH_UPDATE;
 						vd.mvert->flag |= SELECT;
 					}
@@ -3460,6 +3473,7 @@ static void do_topo_grab_brush_task_cb_ex(
 		}
 	}
 	BKE_pbvh_vertex_iter_end;
+	//BLI_mutex_end(&data->mutex);
 	//PBVHType type = BKE_pbvh_type(ss->pbvh);
 
 	//BLI_mutex_init(&data->mutex);
@@ -3486,7 +3500,7 @@ static void do_topo_grab_brush_task_cb_ex(
 					//printf("%ud %d %.3f %.3f %.3f \n", ver_b[ir], ver[ir], cor[ir][0], cor[ir][1], cor[ir][2]);
 				}
 
-				//d[0] = 1000.0f;
+				d[0] = 1000.0f;
 				short ch1[VERLEN] = {0};
 				print_array_i(ver_b, cn[1]);
 				find_connect_bmesh(ss->bm_log, vx, ch1, ver_b, cn[1]);
@@ -3496,7 +3510,7 @@ static void do_topo_grab_brush_task_cb_ex(
 				int k = 0;
 				loop(ir, 0, cn[1], 1){
 					if (ch1[ir]){
-						c_ver[cn[4] + k] = ver[ir];
+						c_ver[cn[4] + k] = ver_b[ir];
 						k++;
 					}
 				}
@@ -3521,10 +3535,10 @@ static void do_topo_grab_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int tot
 	if (ss->cache->normal_weight > 0.0f) {
 		sculpt_project_v3_normal_align(ss, ss->cache->normal_weight, grab_delta);
 	}
-	if (!ss->pmap) {printf("NO!"); return;}
+	//if (!ss->pmap) {printf("NO!"); return;}
 
 	PBVHType type = BKE_pbvh_type(ss->pbvh);
-	//if (type == PBVH_BMESH) return 0;  //removing dyntopo for now
+	//if (type == PBVH_GRIDS) { printf("GRIDS");  return 0; }  //removing dyntopo for now
 
 	SculptThreadedTaskData data = {
 		.sd = sd, .ob = ob, .brush = brush, .nodes = nodes,

@@ -863,7 +863,7 @@ void BKE_sculpt_update_mesh_elements(Scene *scene, Sculpt *sd, Object *ob,
 		ss->multires = mmd;
 		ss->totvert = dm->getNumVerts(dm);
 		ss->totpoly = dm->getNumPolys(dm);
-		ss->mvert = NULL;
+		ss->mvert = NULL; // dm->getVertArray(dm);
 		ss->mpoly = NULL;
 		ss->mloop = NULL;
 	}
