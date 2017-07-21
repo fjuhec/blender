@@ -70,6 +70,7 @@ typedef enum SculptUndoType {
 	SCULPT_UNDO_DYNTOPO_BEGIN,
 	SCULPT_UNDO_DYNTOPO_END,
 	SCULPT_UNDO_DYNTOPO_SYMMETRIZE,
+	SCULPT_UNDO_SILHOUETTE
 } SculptUndoType;
 
 typedef struct SculptUndoNode {
@@ -99,6 +100,7 @@ typedef struct SculptUndoNode {
 	BLI_bitmap **grid_hidden;
 
 	/* bmesh */
+	/* Reused for Silhouette undonode. TODO: Maybe separate?*/
 	struct BMLogEntry *bm_entry;
 	bool applied;
 	CustomData bm_enter_vdata;
@@ -116,6 +118,7 @@ typedef struct SculptUndoNode {
 
 SculptUndoNode *sculpt_undo_push_node(Object *ob, PBVHNode *node, SculptUndoType type);
 SculptUndoNode *sculpt_undo_get_node(PBVHNode *node);
+SculptUndoNode *sculpt_undo_silhouette_push(Object *ob, int v_start, int e_start, int l_start, int p_start);
 void sculpt_undo_push_begin(const char *name);
 void sculpt_undo_push_end(const struct bContext *C);
 

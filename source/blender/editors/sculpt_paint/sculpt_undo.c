@@ -68,6 +68,7 @@
 #include "bmesh.h"
 #include "paint_intern.h"
 #include "sculpt_intern.h"
+#include "BKE_object.h"
 
 /************************** Undo *************************/
 
@@ -446,6 +447,59 @@ static int sculpt_undo_bmesh_restore(bContext *C,
 	return false;
 }
 
+static void sculpt_undo_silhouette_restore(bContext *C, Object *ob, SculptUndoNode *unode)
+{
+	Mesh *me = ob->data;
+	if(unode->applied){
+		unode->applied = false;
+
+		CustomData_free_elem(&me->vdata, me->totvert - unode->bm_enter_totvert, unode->bm_enter_totvert);
+		CustomData_free_elem(&me->edata, me->totedge - unode->bm_enter_totedge, unode->bm_enter_totedge);
+		CustomData_free_elem(&me->ldata, me->totloop - unode->bm_enter_totloop, unode->bm_enter_totloop);
+		CustomData_free_elem(&me->pdata, me->totpoly - unode->bm_enter_totpoly, unode->bm_enter_totpoly);
+
+		CustomData_realloc(&me->vdata, me->totvert - unode->bm_enter_totvert);
+		CustomData_realloc(&me->edata, me->totedge - unode->bm_enter_totedge);
+		CustomData_realloc(&me->ldata, me->totloop - unode->bm_enter_totloop);
+		CustomData_realloc(&me->pdata, me->totpoly - unode->bm_enter_totpoly);
+
+		BKE_mesh_update_customdata_pointers(me, true);
+
+		me->totvert = me->totvert - unode->bm_enter_totvert;
+		me->totedge = me->totedge - unode->bm_enter_totedge;
+		me->totloop = me->totloop - unode->bm_enter_totloop;
+		me->totpoly = me->totpoly - unode->bm_enter_totpoly;
+
+		BKE_object_free_derived_caches(ob);
+	} else {
+		unode->applied = true;
+		/* TODO: Add Redo
+		 printf("Redo it!\n");
+
+		CustomData_realloc(&me->vdata, me->totvert + unode->bm_enter_totvert);
+		CustomData_realloc(&me->edata, me->totedge + unode->bm_enter_totedge);
+		CustomData_realloc(&me->ldata, me->totloop + unode->bm_enter_totloop);
+		CustomData_realloc(&me->pdata, me->totpoly + unode->bm_enter_totpoly);
+
+		CustomData_copy_data(&unode->bm_enter_vdata, &me->vdata, 0,
+						me->totvert, unode->bm_enter_totvert);
+		CustomData_copy_data(&unode->bm_enter_edata, &me->edata, 0,
+							 me->totedge, unode->bm_enter_totedge);
+		CustomData_copy_data(&unode->bm_enter_ldata, &me->ldata, 0,
+							 me->totloop, unode->bm_enter_totloop);
+		CustomData_copy_data(&unode->bm_enter_pdata, &me->pdata, 0,
+							 me->totpoly, unode->bm_enter_totpoly);
+
+		me->totvert += unode->bm_enter_totvert;
+		me->totloop += unode->bm_enter_totloop;
+		me->totpoly += unode->bm_enter_totpoly;
+		me->totedge += unode->bm_enter_totedge;
+
+		BKE_mesh_update_customdata_pointers(me, true);
+		BKE_object_free_derived_caches(ob);*/
+	}
+}
+
 static void sculpt_undo_restore(bContext *C, ListBase *lb)
 {
 	Scene *scene = CTX_data_scene(C);
@@ -516,6 +570,12 @@ static void sculpt_undo_restore(bContext *C, ListBase *lb)
 			case SCULPT_UNDO_DYNTOPO_END:
 			case SCULPT_UNDO_DYNTOPO_SYMMETRIZE:
 				BLI_assert(!"Dynamic topology should've already been handled");
+				break;
+			case SCULPT_UNDO_SILHOUETTE:
+				sculpt_undo_silhouette_restore(C, ob, unode);
+				rebuild = true;
+				partial_update = false;
+				return;
 				break;
 		}
 	}
@@ -711,6 +771,8 @@ static SculptUndoNode *sculpt_undo_alloc_node(Object *ob, PBVHNode *node,
 		case SCULPT_UNDO_DYNTOPO_SYMMETRIZE:
 			BLI_assert(!"Dynamic topology should've already been handled");
 			break;
+		case SCULPT_UNDO_SILHOUETTE:
+			break;
 	}
 	
 	BLI_addtail(lb, unode);
@@ -868,12 +930,50 @@ static SculptUndoNode *sculpt_undo_bmesh_push(Object *ob,
 			case SCULPT_UNDO_DYNTOPO_BEGIN:
 			case SCULPT_UNDO_DYNTOPO_END:
 			case SCULPT_UNDO_DYNTOPO_SYMMETRIZE:
+			case SCULPT_UNDO_SILHOUETTE:
 				break;
 		}
 	}
 
 	return unode;
 }
+
+SculptUndoNode *sculpt_undo_silhouette_push(Object *ob, int v_start, int e_start, int l_start, int p_start)
+{
+	/* list is manipulated by multiple threads, so we lock */
+	BLI_lock_thread(LOCK_CUSTOM1);
+
+	ListBase *lb = undo_paint_push_get_list(UNDO_PAINT_MESH);
+	SculptUndoNode *unode = lb->first;
+
+	if (!lb->first) {
+		unode = MEM_callocN(sizeof(*unode), __func__);
+
+		BLI_strncpy(unode->idname, ob->id.name, sizeof(unode->idname));
+		unode->type = SCULPT_UNDO_SILHOUETTE;
+		unode->applied = true;
+
+		Mesh *me = ob->data;
+
+		/* Store a copy of the silhouettes current vertices, loops, and
+		 * polys. TODO: Add bridge edges and deleted existing geometry later */
+		/*TODO: Not a full copy is possible*/
+		CustomData_copy_data(&me->vdata, &unode->bm_enter_vdata, v_start, 0, me->totvert - v_start);
+		CustomData_copy_data(&me->edata, &unode->bm_enter_edata, e_start, 0, me->totedge - e_start);
+		CustomData_copy_data(&me->ldata, &unode->bm_enter_ldata, l_start, 0, me->totloop - l_start);
+		CustomData_copy_data(&me->pdata, &unode->bm_enter_pdata, p_start, 0, me->totpoly - p_start);
+		unode->bm_enter_totvert = me->totvert - v_start;
+		unode->bm_enter_totedge = me->totedge - e_start;
+		unode->bm_enter_totloop = me->totloop - l_start;
+		unode->bm_enter_totpoly = me->totpoly - p_start;
+
+		BLI_addtail(lb, unode);
+	}
+
+	BLI_unlock_thread(LOCK_CUSTOM1);
+	return unode;
+}
+
 
 SculptUndoNode *sculpt_undo_push_node(Object *ob, PBVHNode *node,
                                       SculptUndoType type)
@@ -896,6 +996,10 @@ SculptUndoNode *sculpt_undo_push_node(Object *ob, PBVHNode *node,
 		return unode;
 	}
 	else if ((unode = sculpt_undo_get_node(node))) {
+		BLI_unlock_thread(LOCK_CUSTOM1);
+		return unode;
+	} else if (ELEM(type,SCULPT_UNDO_SILHOUETTE)) {
+		/* TODO:Remove? Should not reach. */
 		BLI_unlock_thread(LOCK_CUSTOM1);
 		return unode;
 	}
@@ -934,6 +1038,8 @@ SculptUndoNode *sculpt_undo_push_node(Object *ob, PBVHNode *node,
 		case SCULPT_UNDO_DYNTOPO_END:
 		case SCULPT_UNDO_DYNTOPO_SYMMETRIZE:
 			BLI_assert(!"Dynamic topology should've already been handled");
+			break;
+		case SCULPT_UNDO_SILHOUETTE:/*TODO: Store data?*/
 			break;
 	}
 

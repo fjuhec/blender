@@ -5152,7 +5152,7 @@ static void silhouette_set_ref_plane(SilhouetteData *sil)
 	ED_view3d_global_to_vector(sil->ar->regiondata, sil->anchor, sil->z_vec);
 }
 
-static void sculpt_silhouette_stroke_update(bContext *C, float mouse[2], SilhouetteData *sil)
+static void sculpt_silhouette_stroke_update(float mouse[2], SilhouetteData *sil)
 {
 	float anchor[3];
 	silhouette_set_ref_plane(sil);
@@ -6608,7 +6608,7 @@ static bool calc_stroke_normal_ori(SilhouetteStroke *stroke, float z_vec[3]) {
 }
 
 /* Generates a 3D shape from a stroke. */
-static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *sil, SilhouetteStroke *stroke)
+static void silhouette_create_shape_mesh(bContext *UNUSED(C), Mesh *me, SilhouetteData *sil, SilhouetteStroke *stroke)
 {
 	float z_vec[3] = {0.0f,0.0f,1.0f};
 	float depth = sil->depth;
@@ -6662,7 +6662,7 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 
 	free_spine(spine);
 
-	ED_mesh_update(me, C, 1, 1);
+	/*ED_mesh_update(me, C, 1, 1);*/
 }
 
 /* Adds additional points to the stroke if start and end are far apart. */
@@ -6695,20 +6695,21 @@ static void sculpt_silhouette_calc_mesh(bContext *C, wmOperator *op)
 	Mesh *me = ob->data;
 
 	SilhouetteStroke *stroke = sil->current_stroke;
+
 	stroke_smooth_cap(stroke, 0.3f);
 
 	silhouette_create_shape_mesh(C, me, sil, stroke);
 
-	/* Rebuild mesh caches 
+	/* Rebuild mesh caches
 	 * TODO: Proper PBVH etc. */
 	BKE_object_free_derived_caches(ob);
 }
 
 static void sculpt_silhouette_stroke_done(bContext *UNUSED(C), wmOperator *op)
 {
+#ifdef DEBUG_DRAW
 	SilhouetteData *sil = op->customdata;
 
-#ifdef DEBUG_DRAW
 	for (int i = 1; i < sil->current_stroke->totvert; i ++) {
 		float v1[3], v2[3];
 		copy_v3_v3(v1, &sil->current_stroke->points[i * 3 - 3]);
@@ -6733,15 +6734,29 @@ static void sculpt_silhouette_clean_draw(bContext *C, wmOperator *op)
 
 static int sculpt_silhouette_exec(bContext *C, wmOperator *op)
 {
+	int v_start, e_start, l_start, p_start;
 	SilhouetteData *sil = op->customdata;
+	Object *ob = CTX_data_active_object(C);
+	Mesh *me = ob->data;
+
 	if (!sil) {
 		sil = silhouette_data_new(C);
 		silhouette_set_ref_plane(sil);
 		op->customdata = sil;
 	}
 
-	sculpt_silhouette_calc_mesh(C, op);
-	sculpt_silhouette_stroke_done(C, op);
+	if (sil->current_stroke->totvert > 2) {
+		sculpt_undo_push_begin("draw Silhouette");
+		v_start = me->totvert;
+		e_start = me->totedge;
+		l_start = me->totloop;
+		p_start = me->totpoly;
+		sculpt_silhouette_calc_mesh(C, op);
+		sculpt_silhouette_stroke_done(C, op);
+
+		sculpt_undo_silhouette_push(ob, v_start, e_start, l_start, p_start);
+		sculpt_undo_push_end(C);
+	}
 
 	return OPERATOR_FINISHED;
 }
@@ -6761,7 +6776,7 @@ static int sculpt_silhouette_modal(bContext *C, wmOperator *op, const wmEvent *e
 		return OPERATOR_FINISHED;
 	} else {
 		if (sil->state == SIL_DRAWING) {
-			sculpt_silhouette_stroke_update(C,mouse,op->customdata);
+			sculpt_silhouette_stroke_update(mouse, op->customdata);
 		}
 		return OPERATOR_RUNNING_MODAL;
 	}
@@ -6830,8 +6845,6 @@ static int sculpt_silhouette_poll(bContext *UNUSED(C))
 
 static void SCULPT_OT_silhouette_draw(wmOperatorType *ot)
 {
-	PropertyRNA *prop;
-
 	/* identifiers */
 	ot->name = "Draw Silhouette";
 	ot->idname = "SCULPT_OT_silhouette_draw";
@@ -6845,7 +6858,7 @@ static void SCULPT_OT_silhouette_draw(wmOperatorType *ot)
 	ot->cancel = sculpt_silhouette_stroke_done;
 
 	/* flags */
-	ot->flag = OPTYPE_BLOCKING | OPTYPE_REGISTER | OPTYPE_UNDO;
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 /* end Silhouette */
 
