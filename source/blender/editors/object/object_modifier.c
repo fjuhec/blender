@@ -655,6 +655,9 @@ static int modifier_apply_obdata(ReportList *reports, Scene *scene, Object *ob, 
 	}
 	else if (ELEM(ob->type, OB_GPENCIL)) {
 		mti->applyModifier(md, ob, NULL, 0);
+		if (ob->gpd) {
+			BKE_gpencil_batch_cache_dirty(ob->gpd);
+		}
 		return 1;
 	}
 	else {
