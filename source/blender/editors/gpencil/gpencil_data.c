@@ -1493,7 +1493,7 @@ static int gp_convert_old_palettes_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Main *bmain = CTX_data_main(C);
 	for (bGPdata *gpd = bmain->gpencil.first; gpd; gpd = gpd->id.next) {
-		BKE_gpencil_move_animdata_to_palettes(gpd);
+		BKE_gpencil_move_animdata_to_palettes(C, gpd);
 	}
 	/* notifiers */
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);

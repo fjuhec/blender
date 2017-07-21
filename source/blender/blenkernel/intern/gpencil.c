@@ -51,6 +51,7 @@
 #include "DNA_object_types.h"
 #include "DNA_modifier_types.h"
 
+#include "BKE_context.h"
 #include "BKE_action.h"
 #include "BKE_animsys.h"
 #include "BKE_global.h"
@@ -1400,14 +1401,14 @@ void BKE_gpencil_palettecolor_changename(PaletteColor *palcolor, bGPdata *gpd, c
 }
 
 /* Delete all strokes of the color for all gpd datablocks */
-void BKE_gpencil_palettecolor_delete_allstrokes(PaletteColor *palcolor)
+void BKE_gpencil_palettecolor_delete_allstrokes(bContext *C, PaletteColor *palcolor)
 {
 	bGPdata *gpd;
 	bGPDlayer *gpl;
 	bGPDframe *gpf;
 	bGPDstroke *gps, *gpsn;
 
-	Main *bmain = G.main;
+	Main *bmain = CTX_data_main(C);
 
 	for (gpd = bmain->gpencil.first; gpd; gpd = gpd->id.next) {
 		for (gpl = gpd->layers.first; gpl; gpl = gpl->next) {
@@ -1472,9 +1473,9 @@ static bool UNUSED_FUNCTION(gp_animpath_matches_basepath)(const char path[], con
 }
 
 /* Transfer the animation data from bGPDpalette to Palette */
-void BKE_gpencil_move_animdata_to_palettes(bGPdata *gpd)
+void BKE_gpencil_move_animdata_to_palettes(bContext *C, bGPdata *gpd)
 {
-	Main *bmain = G.main;
+	Main *bmain = CTX_data_main(C);
 	Palette *palette = NULL;
 	AnimData *srcAdt = NULL, *dstAdt = NULL;
 	FCurve *fcu = NULL;
