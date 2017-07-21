@@ -1910,11 +1910,11 @@ void ED_gpencil_array_modifier(int id, GpencilArrayModifierData *mmd, bGPDlayer 
 	bGPDspoint *pt;
 	bGPDstroke *gps_dst;
 	struct tGPencilStrokeCache *stroke_cache, *p = NULL;
-	float offset[3], zerov3[3], rot[3], scale[3];
+	float offset[3], rot[3], scale[3];
 	float mat[4][4];
 	float factor;
 	int ri;
-	zero_v3(zerov3);
+
 	/* create cache for sorting */
 	int totstrokes = BLI_listbase_count(&gpf->strokes);
 	int cachesize =  totstrokes * mmd->count;
@@ -1974,13 +1974,12 @@ void ED_gpencil_array_modifier(int id, GpencilArrayModifierData *mmd, bGPDlayer 
 				mmd->rnd[0] = 1;
 			}
 
-			loc_eul_size_to_mat4(mat, zerov3, rot, scale);
+			loc_eul_size_to_mat4(mat, offset, rot, scale);
 
 			/* move points */
 			for (int i = 0; i < gps->totpoints; ++i) {
 				pt = &gps_dst->points[i];
 				mul_m4_v3(mat, &pt->x);
-				add_v3_v3(&pt->x, offset);
 			}
 			++idx;
 		}
