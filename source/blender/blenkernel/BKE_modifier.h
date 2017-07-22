@@ -71,7 +71,7 @@ typedef enum {
 	 * of the object, rather some of its CustomData layers.
 	 * E.g. UVProject and WeightVG modifiers. */
 	eModifierTypeType_NonGeometrical,
-	/* specila mode for grease pencil modifiers */
+	/* special mode for grease pencil modifiers */
 	eModifierTypeType_Gpencil,
 } ModifierTypeType;
 
