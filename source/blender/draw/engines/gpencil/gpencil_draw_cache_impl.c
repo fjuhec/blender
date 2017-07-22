@@ -35,6 +35,7 @@
 
 #include "DNA_gpencil_types.h"
 #include "DNA_view3d_types.h"
+#include "DNA_modifier_types.h"
 
  /* If builtin shaders are needed */
 #include "GPU_shader.h"
@@ -830,4 +831,42 @@ struct GPUTexture *DRW_gpencil_create_blank_texture(int width, int height)
 	MEM_freeN(final_rect);
 
 	return tex;
+}
+
+/* create instances using duplication modifiers */
+void gpencil_dupli_modifiers(GPENCIL_StorageList *stl, Object *ob)
+{
+	ModifierData *md;
+	GpencilDupliModifierData *mmd;
+	Object *newob = NULL;
+	int x, y, z;
+	int xyz[3];
+	float mat[4][4];
+
+	for (md = ob->modifiers.first; md; md = md->next) {
+		if (md->type == eModifierType_GpencilDupli) {
+			mmd = (GpencilDupliModifierData *)md;
+			/* reset random */
+			mmd->rnd[0] = 1;
+			for (x = 0; x < mmd->count[0]; ++x) {
+				for (y = 0; y < mmd->count[1]; ++y) {
+					for (z = 0; z < mmd->count[2]; ++z) {
+						ARRAY_SET_ITEMS(xyz, x, y, z);
+						if ((x == 0) && (y == 0) && (z == 0)) {
+							continue;
+						}
+
+						ED_gpencil_dupli_modifier(0, mmd, ob, xyz, mat);
+						/* add object to cache */
+						newob = MEM_dupallocN(ob);
+						newob->mode = -1; /* use this mark to delete later */
+						mul_m4_m4m4(newob->obmat, mat, ob->obmat);
+						stl->g_data->gp_object_cache = gpencil_object_cache_allocate(stl->g_data->gp_object_cache, &stl->g_data->gp_cache_size, &stl->g_data->gp_cache_used);
+						gpencil_object_cache_add(stl->g_data->gp_object_cache, newob, &stl->g_data->gp_cache_used);
+					}
+				}
+			}
+		}
+	}
+
 }

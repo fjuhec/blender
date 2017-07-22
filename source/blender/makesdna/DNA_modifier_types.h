@@ -92,6 +92,7 @@ typedef enum ModifierType {
 	eModifierType_GpencilThick      = 56,
 	eModifierType_GpencilTint       = 57,
 	eModifierType_GpencilArray      = 58,
+	eModifierType_GpencilDupli      = 59,
 	NUM_MODIFIER_TYPES
 } ModifierType;
 
@@ -1705,6 +1706,24 @@ typedef enum eGpencilArray_Flag {
 	GP_ARRAY_INVERSE_LAYER = (1 << 2),
 	GP_ARRAY_INVERSE_PASS  = (1 << 3),
 } eGpencilArray_Flag;
+
+typedef struct GpencilDupliModifierData {
+	ModifierData modifier;
+	int count[3];                /* number of elements in array */
+	int flag;                    /* several flags */
+	float offset[3];             /* Location increments */
+	float rnd_size;              /* random size factor */
+	float rnd_rot;               /* random size factor */
+	float rot[3];                /* Rotation changes */
+	float scale[3];              /* Scale changes */
+	float rnd[20];               /* (first element is the index) random values */
+	char pad[4];
+} GpencilDupliModifierData;
+
+typedef enum eGpencilDupli_Flag {
+	GP_DUPLI_RANDOM_SIZE = (1 << 0),
+	GP_DUPLI_RANDOM_ROT = (1 << 1),
+} eGpencilDupli_Flag;
 
 #define MOD_MESHSEQ_READ_ALL \
 	(MOD_MESHSEQ_READ_VERT | MOD_MESHSEQ_READ_POLY | MOD_MESHSEQ_READ_UV | MOD_MESHSEQ_READ_COLOR)

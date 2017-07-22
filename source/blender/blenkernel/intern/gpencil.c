@@ -1997,6 +1997,50 @@ void ED_gpencil_array_modifier(int id, GpencilArrayModifierData *mmd, bGPDlayer 
 	MEM_SAFE_FREE(stroke_cache);
 }
 
+/* duplication modifier */
+void ED_gpencil_dupli_modifier(int UNUSED(id), GpencilDupliModifierData *mmd, Object *UNUSED(ob), int elem_idx[3], float r_mat[4][4])
+{
+	float offset[3], rot[3], scale[3];
+	float factor;
+	int ri;
+
+	offset[0] = mmd->offset[0] * elem_idx[0];
+	offset[1] = mmd->offset[1] * elem_idx[1];
+	offset[2] = mmd->offset[2] * elem_idx[2];
+
+	//offset[0] = mmd->offset[0] + (mmd->offset[0] * elem_idx[0]);
+	//offset[1] = mmd->offset[1] + (mmd->offset[1] * elem_idx[1]);
+	//offset[2] = mmd->offset[2] + (mmd->offset[2] * elem_idx[2]);
+
+	ri = mmd->rnd[0];
+	/* rotation */
+	if (mmd->flag & GP_DUPLI_RANDOM_ROT) {
+		factor = mmd->rnd_rot * mmd->rnd[ri];
+		mul_v3_v3fl(rot, mmd->rot, factor);
+		add_v3_v3(rot, mmd->rot);
+	}
+	else {
+		copy_v3_v3(rot, mmd->rot);
+	}
+	/* scale */
+	if (mmd->flag & GP_DUPLI_RANDOM_SIZE) {
+		factor = mmd->rnd_size * mmd->rnd[ri];
+		mul_v3_v3fl(scale, mmd->scale, factor);
+		add_v3_v3(scale, mmd->scale);
+	}
+	else {
+		copy_v3_v3(scale, mmd->scale);
+	}
+	/* move random index */
+	++mmd->rnd[0];
+	if (mmd->rnd[0] > 19) {
+		mmd->rnd[0] = 1;
+	}
+	/* calculate matrix */
+	loc_eul_size_to_mat4(r_mat, offset, rot, scale);
+
+}
+
 /* reset modifiers */
 void ED_gpencil_reset_modifiers(Object *ob)
 {

@@ -122,6 +122,7 @@ EnumPropertyItem rna_enum_object_modifier_type_items[] = {
 	{eModifierType_Surface, "SURFACE", ICON_MOD_PHYSICS, "Surface", ""},
 	{0, "", 0, N_("Grease Pencil"), "" },
 	{eModifierType_GpencilArray, "GP_ARRAY", ICON_MOD_ARRAY, "Array", "Array of strokes" },
+	{eModifierType_GpencilDupli, "GP_DUPLI", ICON_GROUP_VERTEX, "Duplication", "Create grid of duplicate instances" },
 	{eModifierType_GpencilNoise, "GP_NOISE", ICON_RNDCURVE, "Noise", "Add noise to strokes" },
 	{eModifierType_GpencilSubdiv, "GP_SUBDIV", ICON_MOD_SUBSURF, "Subdivide", "Subdivide stroke adding more control points to strokes" },
 	{eModifierType_GpencilThick, "GP_THICK", ICON_MAN_ROT, "Thickness", "Change stroke thickness" },
@@ -430,6 +431,8 @@ static StructRNA *rna_Modifier_refine(struct PointerRNA *ptr)
 			return &RNA_GpencilTintModifier;
 		case eModifierType_GpencilArray:
 			return &RNA_GpencilArrayModifier;
+		case eModifierType_GpencilDupli:
+			return &RNA_GpencilDupliModifier;
 			/* Default */
 		case eModifierType_None:
 		case eModifierType_ShapeKey:
@@ -5017,7 +5020,7 @@ static void rna_def_modifier_gpencilarray(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "rotation", PROP_FLOAT, PROP_EULER);
 	RNA_def_property_float_sdna(prop, NULL, "rot");
-	RNA_def_property_ui_text(prop, "Constant Offset Displacement", "Value for chages in rotation");
+	RNA_def_property_ui_text(prop, "Rotation", "Value for chages in rotation");
 	RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
@@ -5057,6 +5060,63 @@ static void rna_def_modifier_gpencilarray(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "inverse_pass", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_ARRAY_INVERSE_PASS);
 	RNA_def_property_ui_text(prop, "Inverse Pass", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+}
+
+static void rna_def_modifier_gpencildupli(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+
+	srna = RNA_def_struct(brna, "GpencilDupliModifier", "Modifier");
+	RNA_def_struct_ui_text(srna, "Duplication Modifier", "Create grid of duplicate instances");
+	RNA_def_struct_sdna(srna, "GpencilDupliModifierData");
+	RNA_def_struct_ui_icon(srna, ICON_GROUP_VERTEX);
+
+	prop = RNA_def_property(srna, "count", PROP_INT, PROP_XYZ);
+	RNA_def_property_range(prop, 1, INT_MAX);
+	RNA_def_property_ui_text(prop, "Count", "Number of items");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	/* Offset parameters */
+	prop = RNA_def_property(srna, "offset", PROP_FLOAT, PROP_TRANSLATION);
+	RNA_def_property_float_sdna(prop, NULL, "offset");
+	RNA_def_property_ui_text(prop, "Offset", "Value for the distance between items");
+	RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "rotation", PROP_FLOAT, PROP_EULER);
+	RNA_def_property_float_sdna(prop, NULL, "rot");
+	RNA_def_property_ui_text(prop, "Rotation", "Value for chages in rotation");
+	RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "scale", PROP_FLOAT, PROP_XYZ);
+	RNA_def_property_float_sdna(prop, NULL, "scale");
+	RNA_def_property_ui_text(prop, "Scale", "Value for changes in scale");
+	RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "random_rot", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_DUPLI_RANDOM_ROT);
+	RNA_def_property_ui_text(prop, "Random Rotation", "Use random factors for rotation");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "rot_factor", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "rnd_rot");
+	RNA_def_property_ui_text(prop, "Rotation Factor", "Random factor for rotation");
+	RNA_def_property_range(prop, -10.0, 10.0);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "random_scale", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_DUPLI_RANDOM_SIZE);
+	RNA_def_property_ui_text(prop, "Random Scale", "Use random factors for scale");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "scale_factor", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "rnd_size");
+	RNA_def_property_ui_text(prop, "Scale Factor", "Random factor for scale");
+	RNA_def_property_range(prop, -10.0, 10.0);
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
@@ -5183,6 +5243,7 @@ void RNA_def_modifier(BlenderRNA *brna)
 	rna_def_modifier_gpencilthick(brna);
 	rna_def_modifier_gpenciltint(brna);
 	rna_def_modifier_gpencilarray(brna);
+	rna_def_modifier_gpencildupli(brna);
 }
 
 #endif

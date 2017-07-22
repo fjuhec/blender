@@ -224,7 +224,8 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 		stl->g_data->gp_object_cache = gpencil_object_cache_allocate(stl->g_data->gp_object_cache, &stl->g_data->gp_cache_size, &stl->g_data->gp_cache_used);
 		/* add for drawing later */
 		gpencil_object_cache_add(stl->g_data->gp_object_cache, ob, &stl->g_data->gp_cache_used);
-		
+		/* generate duplicated instances using dupli modifiers */		
+		gpencil_dupli_modifiers(stl, ob);
 		/* draw current painting strokes */
 		DRW_gpencil_populate_buffer_strokes(vedata, ts, ob->gpd);
 	}
@@ -346,6 +347,14 @@ static void GPENCIL_draw_scene(void *vedata)
 		DRW_draw_pass(psl->edit_pass);
 	}
 	/* free memory */
+	/* clear temp objects */
+	for (int i = 0; i < stl->g_data->gp_cache_used; ++i) {
+		Object *ob = stl->g_data->gp_object_cache[i].ob;
+		if (ob->mode == -1) {
+			MEM_SAFE_FREE(ob);
+		}
+	}
+
 	MEM_SAFE_FREE(stl->g_data->gp_object_cache);
 
 	/* detach temp textures */
