@@ -700,7 +700,7 @@ bool BKE_mesh_sample_from_particle(MeshSample *sample, ParticleSystem *psys, Der
 	}
 	
 	/* test both triangles of the face */
-	interp_weights_quad_v3(w, co1, co2, co3, NULL, vec);
+	interp_weights_tri_v3(w, co1, co2, co3, vec);
 	if (w[0] <= 1.0f && w[1] <= 1.0f && w[2] <= 1.0f) {
 		sample->orig_verts[0] = mface->v1;
 		sample->orig_verts[1] = mface->v2;
@@ -710,7 +710,7 @@ bool BKE_mesh_sample_from_particle(MeshSample *sample, ParticleSystem *psys, Der
 		return true;
 	}
 	else if (mface->v4) {
-		interp_weights_quad_v3(w, co3, co4, co1, NULL, vec);
+		interp_weights_tri_v3(w, co3, co4, co1, vec);
 		sample->orig_verts[0] = mface->v3;
 		sample->orig_verts[1] = mface->v4;
 		sample->orig_verts[2] = mface->v1;

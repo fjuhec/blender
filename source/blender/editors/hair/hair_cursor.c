@@ -86,6 +86,8 @@ static void hair_draw_cursor(bContext *C, int x, int y, void *UNUSED(customdata)
 		immUniformColor3fvAlpha(col, col[3]*0.5f);
 	}
 	imm_draw_circle_wire(pos, x, y, final_radius, 40);
+
+	immUnbindProgram();
 }
 
 void hair_edit_cursor_start(bContext *C, int (*poll)(bContext *C))

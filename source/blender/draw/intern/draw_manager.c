@@ -2820,6 +2820,9 @@ static void DRW_engines_enable_from_mode(int mode)
 		case CTX_MODE_PARTICLE:
 			use_drw_engine(&draw_engine_particle_type);
 			break;
+		case CTX_MODE_HAIR:
+			use_drw_engine(&draw_engine_edit_strands_type);
+			break;
 		case CTX_MODE_OBJECT:
 			break;
 		default:
@@ -3512,6 +3515,7 @@ void DRW_engines_register(void)
 	DRW_engine_register(&draw_engine_edit_lattice_type);
 	DRW_engine_register(&draw_engine_edit_mesh_type);
 	DRW_engine_register(&draw_engine_edit_metaball_type);
+	DRW_engine_register(&draw_engine_edit_strands_type);
 	DRW_engine_register(&draw_engine_edit_surface_type);
 	DRW_engine_register(&draw_engine_edit_text_type);
 	DRW_engine_register(&draw_engine_paint_texture_type);
@@ -3535,6 +3539,9 @@ void DRW_engines_register(void)
 		/* BKE: particle.c */
 		extern void *BKE_particle_batch_cache_dirty_cb;
 		extern void *BKE_particle_batch_cache_free_cb;
+		/* BKE: editstrands.c */
+		extern void *BKE_editstrands_batch_cache_dirty_cb;
+		extern void *BKE_editstrands_batch_cache_free_cb;
 
 		BKE_curve_batch_cache_dirty_cb = DRW_curve_batch_cache_dirty;
 		BKE_curve_batch_cache_free_cb = DRW_curve_batch_cache_free;
@@ -3547,6 +3554,9 @@ void DRW_engines_register(void)
 
 		BKE_particle_batch_cache_dirty_cb = DRW_particle_batch_cache_dirty;
 		BKE_particle_batch_cache_free_cb = DRW_particle_batch_cache_free;
+
+		BKE_editstrands_batch_cache_dirty_cb = DRW_editstrands_batch_cache_dirty;
+		BKE_editstrands_batch_cache_free_cb = DRW_editstrands_batch_cache_free;
 	}
 }
 

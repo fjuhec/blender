@@ -66,7 +66,7 @@
 #include "hair_intern.h"
 #include "paint_intern.h"
 
-#define USE_PARTICLES 0
+#define USE_PARTICLES 1
 
 int hair_edit_poll(bContext *C)
 {

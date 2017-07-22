@@ -64,6 +64,8 @@ BMEditStrands *BKE_editstrands_create(BMesh *bm, DerivedMesh *root_dm)
 	es->base.bm = bm;
 	es->root_dm = CDDM_copy(root_dm);
 	
+	BKE_editstrands_batch_cache_dirty(es, BKE_STRANDS_BATCH_DIRTY_ALL);
+	
 	return es;
 }
 
@@ -75,6 +77,8 @@ BMEditStrands *BKE_editstrands_copy(BMEditStrands *es)
 	es_copy->base.bm = BM_mesh_copy(es->base.bm);
 	es_copy->root_dm = CDDM_copy(es->root_dm);
 	
+	BKE_editstrands_batch_cache_dirty(es_copy, BKE_STRANDS_BATCH_DIRTY_ALL);
+	
 	return es_copy;
 }
 
@@ -83,7 +87,7 @@ BMEditStrands *BKE_editstrands_copy(BMEditStrands *es)
  */
 BMEditStrands *BKE_editstrands_from_object(Object *ob)
 {
-	if (ob->type == OB_MESH) {
+	if (ob && ob->type == OB_MESH) {
 		Mesh *me = ob->data;
 		if (me->edit_strands)
 			return me->edit_strands;
@@ -105,13 +109,15 @@ void BKE_editstrands_update_linked_customdata(BMEditStrands *UNUSED(es))
 /*does not free the BMEditStrands struct itself*/
 void BKE_editstrands_free(BMEditStrands *es)
 {
+	BKE_editstrands_batch_cache_free(es);
+	
 	if (es->base.bm)
 		BM_mesh_free(es->base.bm);
 	if (es->root_dm)
 		es->root_dm->release(es->root_dm);
 }
 
-/* === constraints === */
+/* === Constraints === */
 
 BMEditStrandsLocations BKE_editstrands_get_locations(BMEditStrands *edit)
 {
@@ -139,6 +145,8 @@ void BKE_editstrands_solve_constraints(Object *ob, BMEditStrands *es, BMEditStra
 	BKE_editstrands_ensure(es);
 	
 	BPH_strands_solve_constraints(ob, es, orig);
+	
+	BKE_editstrands_batch_cache_dirty(es, BKE_STRANDS_BATCH_DIRTY_ALL);
 }
 
 static void editstrands_calc_segment_lengths(BMesh *bm)
@@ -170,7 +178,7 @@ void BKE_editstrands_ensure(BMEditStrands *es)
 }
 
 
-/* === particle conversion === */
+/* === Particle Conversion === */
 
 BMesh *BKE_editstrands_particles_to_bmesh(Object *ob, ParticleSystem *psys)
 {
@@ -214,7 +222,7 @@ void BKE_editstrands_particles_from_bmesh(Object *ob, ParticleSystem *psys)
 }
 
 
-/* === mesh conversion === */
+/* === Mesh Conversion === */
 
 BMesh *BKE_editstrands_mesh_to_bmesh(Object *ob, Mesh *me)
 {
@@ -257,4 +265,22 @@ void BKE_editstrands_mesh_from_bmesh(Object *ob)
 	 * are exceptions like file save that will not cause this, and we want to
 	 * avoid ending up with an invalid derived mesh then */
 	BKE_object_free_derived_caches(ob);
+}
+
+/* === Draw Cache === */
+void (*BKE_editstrands_batch_cache_dirty_cb)(BMEditStrands *es, int mode) = NULL;
+void (*BKE_editstrands_batch_cache_free_cb)(BMEditStrands *es) = NULL;
+
+void BKE_editstrands_batch_cache_dirty(BMEditStrands *es, int mode)
+{
+	if (es->batch_cache) {
+		BKE_editstrands_batch_cache_dirty_cb(es, mode);
+	}
+}
+
+void BKE_editstrands_batch_cache_free(BMEditStrands *es)
+{
+	if (es->batch_cache) {
+		BKE_editstrands_batch_cache_free_cb(es);
+	}
 }

@@ -57,6 +57,7 @@ typedef struct BMEditStrands {
 	unsigned int vertex_glbuf;
 	unsigned int elem_glbuf;
 	unsigned int dot_glbuf;
+	void *batch_cache;
 } BMEditStrands;
 
 /* BMEditStrands->flag */
@@ -70,7 +71,7 @@ struct BMEditStrands *BKE_editstrands_from_object(struct Object *ob);
 void BKE_editstrands_update_linked_customdata(struct BMEditStrands *es);
 void BKE_editstrands_free(struct BMEditStrands *es);
 
-/* === constraints === */
+/* === Constraints === */
 
 /* Stores vertex locations for temporary reference:
  * Vertex locations get modified by tools, but then need to be corrected
@@ -83,13 +84,20 @@ void BKE_editstrands_free_locations(BMEditStrandsLocations locs);
 void BKE_editstrands_solve_constraints(struct Object *ob, struct BMEditStrands *es, BMEditStrandsLocations orig);
 void BKE_editstrands_ensure(struct BMEditStrands *es);
 
-/* === particle conversion === */
+/* === Particle Conversion === */
 
 struct BMesh *BKE_editstrands_particles_to_bmesh(struct Object *ob, struct ParticleSystem *psys);
 void BKE_editstrands_particles_from_bmesh(struct Object *ob, struct ParticleSystem *psys);
 
-/* === mesh conversion === */
+/* === Mesh Conversion === */
 struct BMesh *BKE_editstrands_mesh_to_bmesh(struct Object *ob, struct Mesh *me);
 void BKE_editstrands_mesh_from_bmesh(struct Object *ob);
+
+/* === Draw Cache === */
+enum {
+	BKE_STRANDS_BATCH_DIRTY_ALL = 0,
+};
+void BKE_editstrands_batch_cache_dirty(struct BMEditStrands *es, int mode);
+void BKE_editstrands_batch_cache_free(struct BMEditStrands *es);
 
 #endif

@@ -60,6 +60,7 @@ set(SRC
 	intern/draw_cache_impl_lattice.c
 	intern/draw_cache_impl_mesh.c
 	intern/draw_cache_impl_particles.c
+	intern/draw_cache_impl_strands.c
 	intern/draw_common.c
 	intern/draw_manager.c
 	intern/draw_manager_text.c
@@ -69,6 +70,7 @@ set(SRC
 	modes/edit_lattice_mode.c
 	modes/edit_mesh_mode.c
 	modes/edit_metaball_mode.c
+	modes/edit_strands_mode.c
 	modes/edit_surface_mode.c
 	modes/edit_text_mode.c
 	modes/object_mode.c

@@ -1046,7 +1046,7 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_SceneLayerData *sl
 	}
 
 	if (ob->type == OB_MESH) {
-		if (ob != draw_ctx->scene->obedit) {
+		if (ob != draw_ctx->scene->obedit && !(ob->mode & OB_MODE_HAIR_EDIT)) {
 			material_hash = stl->g_data->hair_material_hash;
 
 			for (ModifierData *md = ob->modifiers.first; md; md = md->next) {

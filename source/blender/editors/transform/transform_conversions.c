@@ -2096,8 +2096,8 @@ static void StrandVertsToTransData(TransInfo *t, TransData *td,
 
 static void createTransStrandVerts(TransInfo *t)
 {
-	Scene *scene = t->scene;
-	Object *ob = OBACT;
+	SceneLayer *sl = t->scene_layer;
+	Object *ob = OBACT_NEW;
 	BMEditStrands *edit = BKE_editstrands_from_object(ob);
 	BMesh *bm = edit->base.bm;
 	TransData *tob = NULL;
@@ -2262,8 +2262,8 @@ cleanup:
 
 void flushTransStrands(TransInfo *t)
 {
-	Scene *scene = t->scene;
-	Object *ob = OBACT;
+	SceneLayer *sl = t->scene_layer;
+	Object *ob = OBACT_NEW;
 	BMEditStrands *edit = BKE_editstrands_from_object(ob);
 	BMEditStrandsLocations origlocs = t->custom.type.data;
 	
@@ -6697,9 +6697,7 @@ void special_aftertrans_update(bContext *C, TransInfo *t)
 	{
 		/* do nothing */
 	}
-	else if ((t->scene->basact) &&
-	         (ob = t->scene->basact->object) &&
-	         (ob->mode & OB_MODE_HAIR_EDIT) &&
+	else if ((ob->mode & OB_MODE_HAIR_EDIT) &&
 	         BKE_editstrands_from_object(ob))
 	{
 		/* do nothing */
