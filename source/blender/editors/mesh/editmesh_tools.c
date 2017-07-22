@@ -6290,8 +6290,6 @@ static int edbm_point_normals_exec(bContext *C, wmOperator *op)
 		float *center = MEM_mallocN(sizeof(*center) * 3, "__func__");
 		LoopNormalData *ld = op->customdata;
 		TransDataLoopNormal *t = ld->normal;
-		BMVert *v;
-		BMIter viter;
 		int i = 0;
 
 		copy_v3_v3(center, obedit->loc);

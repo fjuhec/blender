@@ -973,7 +973,8 @@ static BMOpDefine bmo_connect_verts_def = {
 	bmo_connect_verts_exec,
 	(BMO_OPTYPE_FLAG_UNTAN_MULTIRES |
 	 BMO_OPTYPE_FLAG_NORMALS_CALC |
-	 BMO_OPTYPE_FLAG_SELECT_FLUSH),
+	 BMO_OPTYPE_FLAG_SELECT_FLUSH | 
+	 BMO_OPTYPE_FLAG_INVALIDATE_CLNOR_ALL),
 };
 
 /*
@@ -1041,7 +1042,8 @@ static BMOpDefine bmo_connect_vert_pair_def = {
 	bmo_connect_vert_pair_exec,
 	(BMO_OPTYPE_FLAG_UNTAN_MULTIRES |
 	 BMO_OPTYPE_FLAG_NORMALS_CALC |
-	 BMO_OPTYPE_FLAG_SELECT_FLUSH),
+	 BMO_OPTYPE_FLAG_SELECT_FLUSH | 
+	 BMO_OPTYPE_FLAG_INVALIDATE_CLNOR_ALL),
 };
 
 

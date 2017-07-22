@@ -1529,6 +1529,14 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         if md.rest_source == 'BIND':
             layout.operator("object.correctivesmooth_bind", text="Unbind" if is_bind else "Bind")
 
+    def WEIGHTED_NORMAL(self, layout, ob, md):
+        col = layout.column()
+        col.label("Weighting Mode:")
+        col.prop(md, "mode", text="")
+
+        layout.prop(md, "weight", text="Weight")
+        layout.prop(md, "thresh", text="Threshold")
+
 
 classes = (
     DATA_PT_modifiers,
