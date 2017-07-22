@@ -211,10 +211,6 @@ typedef struct StrokeCache {
 	float bstrength;
 	float normal_weight;  /* from brush (with optional override) */
 
-	/* Just Topo things! */
-
-	int *d_count;
-	int *v_index;
 
 	/* The rest is temporary storage that isn't saved as a property */
 
@@ -681,10 +677,9 @@ typedef struct SculptBrushTest {
 	float foot[3];
 	float radius;
 
-
+	float s_no[3];
 	float no[3];
 
-	BMVert* mv;
 } SculptBrushTest;
 
 static void sculpt_brush_test_init(SculptSession *ss, SculptBrushTest *test)
@@ -695,7 +690,7 @@ static void sculpt_brush_test_init(SculptSession *ss, SculptBrushTest *test)
 	copy_v3_v3(test->true_location, ss->cache->true_location);
 	copy_v3_v3(test->normal, ss->cache->view_normal);
 	test->radius_squared = ss->cache->radius_squared;
-
+	copy_v3_v3(test->s_no, ss->cache->sculpt_normal);
 	copy_v3_v3(test->location, ss->cache->location);
 	test->dist = 0.0f;   /* just for initialize */
 	copy_v3_v3(test->no, ss->cache->view_normal);
@@ -3236,9 +3231,9 @@ static void do_clip_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode)
 
 void mulv3_v3fl(float r[3], const short a[3], float f)
 {
-	r[0] = a[0] * f;
-	r[1] = a[1] * f;
-	r[2] = a[2] * f;
+	r[0] = (float)a[0] * f;
+	r[1] = (float)a[1] * f;
+	r[2] = (float)a[2] * f;
 }
 
 
@@ -3406,7 +3401,7 @@ static void do_topo_grab_brush_task_cb_ex(
 			float valx[3];
 			if (ss->cache->first_time){
 				if (type == PBVH_GRIDS){
-					printf("%d %.3f %.3f\n", vd.vert_indices[vd.i], vd.co[0], vd.co[1]);
+					//printf("%d %.3f %.3f\n", vd.vert_indices[vd.i], vd.co[0], vd.co[1]);
 					
 				}
 				/*
@@ -3418,7 +3413,24 @@ static void do_topo_grab_brush_task_cb_ex(
 				if (type == PBVH_FACES){
 					//printf("%d ", vd.vert_indices[vd.i]);
 					ver[cn[1]] = vd.vert_indices[vd.i];
-					float distsq = dist_squared_to_line_direction_v3v3(vd.co, test.true_location, test.normal);
+					printf(" %.3f %.3f %.3f   %d %d %d \n", test.s_no[0], test.s_no[1], test.s_no[2],
+						vd.no[0], vd.no[1], vd.no[2]);
+
+					float vvno[3] = {1.0f,1.0f,1.0f};
+					//mulv3_v3fl(vvno,vd.no,1.0f);
+
+					//float length = dot_v3v3(vvno, vvno);
+					
+					//mul_v3_v3fl(vvno, vvno, sqrt(1 / length));
+
+					//normalize_v3()
+					//normal_short_to_float_v3(vvno, vd.no);
+
+					copy_v3_v3(vvno, test.true_location);
+					normalize_v3(vvno);
+
+					printf("  %.3f %.3f %.3f \n", vvno[0], vvno[1], vvno[2]);
+					float distsq = dist_squared_to_line_direction_v3v3(vd.co, test.true_location, vvno);
 					if (distsq < d[0]){
 						d[0] = distsq;
 						cn[2] = ver[cn[1]];
@@ -3432,13 +3444,14 @@ static void do_topo_grab_brush_task_cb_ex(
 						copy_v3_v3(valx, BM_log_original_vert_co(ss->bm_log, vd.bm_vert));
 						ver_b[cn[1]] = BM_log_vert_id_t(ss->bm_log, vd.bm_vert);
 							
-						copy_v3_v3(cor[cn[1]], valx);
+						//copy_v3_v3(cor[cn[1]], valx);
 
 						ver[cn[1]] = BM_elem_index_get( vd.bm_vert);
-						
-						printf("%u     %.3f %.3f %.3f %.3f \n", ver_b[cn[1]], cor[cn[1]][0], cor[cn[1]][1], vd.co[0], vd.co[1]);
+						float vk[3] = { 0.0f };
+						//printf("%u   %.3f %.3f %.3f \n", ver_b[cn[1]], vd.fno[0], vd.fno[1], vd.fno[2]);
+						//printf("  %d %d %d \n", vd.no[0], vd.no[1], vd.no[2]);
 
-						float distsq = dist_squared_to_line_direction_v3v3(vd.co, test.true_location, test.normal);
+						float distsq = dist_squared_to_line_direction_v3v3(vd.co, test.true_location, vk);
 						if (distsq < d[0]){
 							d[0] = distsq;
 							cn[2] = ver_b[cn[1]];
@@ -3506,7 +3519,7 @@ static void do_topo_grab_brush_task_cb_ex(
 				find_connect_bmesh(ss->bm_log, vx, ch1, ver_b, cn[1]);
 				//printf("\n");
 				//loop(i, 0, cn[1], 1) ch1[i] = 1;
-				printf(" \nBV: %f %f %d    %f\n", vx->co[0], vx->co[1], cn[2], d[0]);
+				//printf(" \nBV: %f %f %d    %f\n", vx->co[0], vx->co[1], cn[2], d[0]);
 				int k = 0;
 				loop(ir, 0, cn[1], 1){
 					if (ch1[ir]){
@@ -3538,7 +3551,8 @@ static void do_topo_grab_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int tot
 	//if (!ss->pmap) {printf("NO!"); return;}
 
 	PBVHType type = BKE_pbvh_type(ss->pbvh);
-	//if (type == PBVH_GRIDS) { printf("GRIDS");  return 0; }  //removing dyntopo for now
+	if (type == PBVH_GRIDS) { //printf("GRIDS");  
+		return 0; }  //removing dyntopo for now
 
 	SculptThreadedTaskData data = {
 		.sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
