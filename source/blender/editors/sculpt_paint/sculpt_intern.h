@@ -342,6 +342,15 @@ typedef struct StrokeCache {
 
 } StrokeCache;
 
+/*Color lock Vpaint*/
+
+typedef struct ColorLock {
+	bool lock_red;
+	bool lock_green;
+	bool lock_blue;
+	bool lock_alpha;
+}ColorLock;
+
 void sculpt_cache_free(StrokeCache *cache);
 
 SculptUndoNode *sculpt_undo_push_node(Object *ob, PBVHNode *node, SculptUndoType type);

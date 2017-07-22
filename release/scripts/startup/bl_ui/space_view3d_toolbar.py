@@ -1165,6 +1165,16 @@ class VIEW3D_PT_tools_brush(Panel, View3DPaintPanel):
             # row.prop(brush, "jitter", slider=True)
             # row.prop(brush, "use_pressure_jitter", toggle=True, text="")
             col.separator()
+            #color lock
+            col.label(text="Lock Color:")
+            row= col.row(align= True)
+            toolsettings = context.tool_settings
+            vpaint = toolsettings.vertex_paint
+            row.prop(vpaint,"color_lock_r",text="R",toggle= True)
+            row.prop(vpaint,"color_lock_g",text="G",toggle= True)
+            row.prop(vpaint,"color_lock_b",text="B",toggle= True)
+            row.prop(vpaint,"color_lock_a",text="A",toggle= True)
+            col.separator()
             col.prop(brush, "vertex_tool", text="Blend")
             col.prop(brush,"use_accumulate")
             col.prop(brush,"use_alpha_vpaint")

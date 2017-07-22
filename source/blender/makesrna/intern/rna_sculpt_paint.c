@@ -669,6 +669,26 @@ static void rna_def_vertex_paint(BlenderRNA *brna)
 	RNA_def_struct_ui_text(srna, "Vertex Paint", "Properties of vertex and weight paint mode");
 
 	/* vertex paint only */
+	prop = RNA_def_property(srna, "color_lock_a", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", VP_LOCK_A);
+	RNA_def_property_ui_text(prop, "Lock A", "Lock alpha");
+	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
+
+	prop = RNA_def_property(srna, "color_lock_b", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", VP_LOCK_B);
+	RNA_def_property_ui_text(prop, "Lock B", "Lock Blue color");
+	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
+
+	prop = RNA_def_property(srna, "color_lock_g", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", VP_LOCK_G);
+	RNA_def_property_ui_text(prop, "Lock G", "Lock Green color");
+	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
+
+	prop = RNA_def_property(srna, "color_lock_r", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", VP_LOCK_R);
+	RNA_def_property_ui_text(prop, "Lock R", "Lock Red color");
+	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
+
 	prop = RNA_def_property(srna, "use_occlude", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", VP_OCCLUDE);
 	RNA_def_property_ui_text(prop, "Occlude", "Only paint onto the vertices directly under the brush (slower)");

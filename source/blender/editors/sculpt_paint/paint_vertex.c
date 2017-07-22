@@ -569,7 +569,7 @@ void vpaint_dogamma(Scene *scene)
 #endif
 
 BLI_INLINE unsigned int mcol_blend(unsigned int col1, unsigned int col2, int fac,
-									const bool use_alpha, const unsigned char alpha_value)
+									const bool use_alpha, const unsigned char alpha_value, ColorLock *lock)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac;
@@ -583,7 +583,12 @@ BLI_INLINE unsigned int mcol_blend(unsigned int col1, unsigned int col2, int fac
 
 	if (fac >= 255) {
 		cp = (unsigned char *)&col2;
-		cp[3] = use_alpha ? alpha_value : cp[3];
+		cp1 = (unsigned char *)&col1;
+		cp[3] = use_alpha ? alpha_value : cp[3] ;
+		cp[0] = lock->lock_red   ? cp1[0] : cp[0];
+		cp[1] = lock->lock_green ? cp1[1] : cp[1];
+		cp[2] = lock->lock_blue  ? cp1[2] : cp[2];
+		cp[3] = lock->lock_alpha ? cp1[3] : cp[3];
 		return col2;
 	}
 
@@ -604,16 +609,16 @@ BLI_INLINE unsigned int mcol_blend(unsigned int col1, unsigned int col2, int fac
 	int b2 = cp2[2] * cp2[2];
 	int a2 = cp2[3] * cp2[3];
 
-	cp[0] = (unsigned char)round(sqrt(divide_round_i((mfac * r1 + fac * r2), 255)));
-	cp[1] = (unsigned char)round(sqrt(divide_round_i((mfac * g1 + fac * g2), 255)));
-	cp[2] = (unsigned char)round(sqrt(divide_round_i((mfac * b1 + fac * b2), 255)));
-	cp[3] = (unsigned char)round(sqrt(divide_round_i((mfac * a1 + fac * a2), 255)));
+	cp[0] = lock->lock_red?    cp1[0] : (unsigned char)round(sqrt(divide_round_i((mfac * r1 + fac * r2), 255)));
+	cp[1] = lock->lock_green ? cp1[1] : (unsigned char)round(sqrt(divide_round_i((mfac * g1 + fac * g2), 255)));
+	cp[2] = lock->lock_blue ?  cp1[2] : (unsigned char)round(sqrt(divide_round_i((mfac * b1 + fac * b2), 255)));
+	cp[3] = lock->lock_alpha ? cp1[3] : (unsigned char)round(sqrt(divide_round_i((mfac * a1 + fac * a2), 255)));
 
 	return col;
 }
 
 BLI_INLINE unsigned int mcol_add(unsigned int col1, unsigned int col2, int fac,
-								 const bool use_alpha, const unsigned char alpha_value)
+								 const bool use_alpha, const unsigned char alpha_value, ColorLock *lock)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int temp;
@@ -630,19 +635,19 @@ BLI_INLINE unsigned int mcol_add(unsigned int col1, unsigned int col2, int fac,
 	cp  = (unsigned char *)&col;
 
 	temp = cp1[0] + divide_round_i((fac * cp2[0]), 255);
-	cp[0] = (temp > 254) ? 255 : temp;
+	cp[0] = lock->lock_red ? cp1[0] : ((temp > 254) ? 255 : temp);
 	temp = cp1[1] + divide_round_i((fac * cp2[1]), 255);
-	cp[1] = (temp > 254) ? 255 : temp;
+	cp[1] = lock->lock_green ? cp1[1] : ((temp > 254) ? 255 : temp);
 	temp = cp1[2] + divide_round_i((fac * cp2[2]), 255);
-	cp[2] = (temp > 254) ? 255 : temp;
+	cp[2] = lock->lock_blue ? cp1[2] : ((temp > 254) ? 255 : temp);
 	temp = cp1[3] + divide_round_i((fac * cp2[3]), 255);
-	cp[3] = (temp > 254) ? 255 : temp;
+	cp[3] = lock->lock_alpha ? cp1[3] : ((temp > 254) ? 255 : temp);
 	
 	return col;
 }
 
 BLI_INLINE unsigned int mcol_sub(unsigned int col1, unsigned int col2, int fac,
-								 const bool use_alpha, const unsigned char alpha_value)
+								 const bool use_alpha, const unsigned char alpha_value, ColorLock *lock)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int temp;
@@ -659,19 +664,19 @@ BLI_INLINE unsigned int mcol_sub(unsigned int col1, unsigned int col2, int fac,
 	cp  = (unsigned char *)&col;
 
 	temp = cp1[0] - divide_round_i((fac * cp2[0]), 255);
-	cp[0] = (temp < 0) ? 0 : temp;
+	cp[0] = lock->lock_red ? cp1[0] : ((temp < 0) ? 0 : temp);
 	temp = cp1[1] - divide_round_i((fac * cp2[1]), 255);
-	cp[1] = (temp < 0) ? 0 : temp;
+	cp[1] = lock->lock_green ? cp1[1] : ((temp < 0) ? 0 : temp);
 	temp = cp1[2] - divide_round_i((fac * cp2[2]), 255);
-	cp[2] = (temp < 0) ? 0 : temp;
+	cp[2] = lock->lock_blue ? cp1[2] : ((temp < 0) ? 0 : temp);
 	temp = cp1[3] - divide_round_i((fac * cp2[3]), 255);
-	cp[3] = (temp < 0) ? 0 : temp;
+	cp[3] = lock->lock_alpha ? cp1[3] : ((temp < 0) ? 0 : temp);
 
 	return col;
 }
 
 BLI_INLINE unsigned int mcol_mul(unsigned int col1, unsigned int col2, int fac,
-								 const bool use_alpha, const unsigned char alpha_value)
+								 const bool use_alpha, const unsigned char alpha_value, ColorLock *lock)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac;
@@ -690,16 +695,16 @@ BLI_INLINE unsigned int mcol_mul(unsigned int col1, unsigned int col2, int fac,
 	cp  = (unsigned char *)&col;
 
 	/* first mul, then blend the fac */
-	cp[0] = divide_round_i(mfac * cp1[0] * 255 + fac * cp2[0] * cp1[0], 255 * 255);
-	cp[1] = divide_round_i(mfac * cp1[1] * 255 + fac * cp2[1] * cp1[1], 255 * 255);
-	cp[2] = divide_round_i(mfac * cp1[2] * 255 + fac * cp2[2] * cp1[2], 255 * 255);
-	cp[3] = divide_round_i(mfac * cp1[3] * 255 + fac * cp2[3] * cp1[3], 255 * 255);
+	cp[0] = lock->lock_red   ? cp1[0] : (divide_round_i(mfac * cp1[0] * 255 + fac * cp2[0] * cp1[0], 255 * 255));
+	cp[1] = lock->lock_green ? cp1[1] : (divide_round_i(mfac * cp1[1] * 255 + fac * cp2[1] * cp1[1], 255 * 255));
+	cp[2] = lock->lock_blue  ? cp1[2] : (divide_round_i(mfac * cp1[2] * 255 + fac * cp2[2] * cp1[2], 255 * 255));
+	cp[3] = lock->lock_alpha ? cp1[3] : (divide_round_i(mfac * cp1[3] * 255 + fac * cp2[3] * cp1[3], 255 * 255));
 
 	return col;
 }
 
 BLI_INLINE unsigned int mcol_lighten(unsigned int col1, unsigned int col2, int fac,
-									 const bool use_alpha, const unsigned char alpha_value)
+									 const bool use_alpha, const unsigned char alpha_value, ColorLock *lock)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac;
@@ -728,16 +733,16 @@ BLI_INLINE unsigned int mcol_lighten(unsigned int col1, unsigned int col2, int f
 		return col1;
 	}
 
-	cp[0] = divide_round_i(mfac * cp1[0] + fac * cp2[0], 255);
-	cp[1] = divide_round_i(mfac * cp1[1] + fac * cp2[1], 255);
-	cp[2] = divide_round_i(mfac * cp1[2] + fac * cp2[2], 255);
-	cp[3] = divide_round_i(mfac * cp1[3] + fac * cp2[3], 255);
+	cp[0] = lock->lock_red   ? cp1[0] : (divide_round_i(mfac * cp1[0] + fac * cp2[0], 255));
+	cp[1] = lock->lock_green ? cp1[2] : (divide_round_i(mfac * cp1[1] + fac * cp2[1], 255));
+	cp[2] = lock->lock_blue  ? cp1[3] : (divide_round_i(mfac * cp1[2] + fac * cp2[2], 255));
+	cp[3] = lock->lock_alpha ? cp1[4] : (divide_round_i(mfac * cp1[3] + fac * cp2[3], 255));
 
 	return col;
 }
 
 BLI_INLINE unsigned int mcol_darken(unsigned int col1, unsigned int col2, int fac,
-									const bool use_alpha, const unsigned char alpha_value)
+									const bool use_alpha, const unsigned char alpha_value, ColorLock *lock)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac;
@@ -750,7 +755,12 @@ BLI_INLINE unsigned int mcol_darken(unsigned int col1, unsigned int col2, int fa
 	}
 	else if (fac >= 255) {
 		cp = (unsigned char *)&col2;
+		cp1 = (unsigned char *)&col1;
 		cp[3] = use_alpha ? alpha_value : cp[3];
+		cp[0] = lock->lock_red   ? cp1[0] : cp[0];
+		cp[1] = lock->lock_green ? cp1[1] : cp[1];
+		cp[2] = lock->lock_blue  ? cp1[2] : cp[2];
+		cp[3] = lock->lock_alpha ? cp1[3] : cp[3];
 		return col2;
 	}
 
@@ -766,15 +776,15 @@ BLI_INLINE unsigned int mcol_darken(unsigned int col1, unsigned int col2, int fa
 		return col1;
 	}
 
-	cp[0] = divide_round_i((mfac * cp1[0] + fac * cp2[0]), 255);
-	cp[1] = divide_round_i((mfac * cp1[1] + fac * cp2[1]), 255);
-	cp[2] = divide_round_i((mfac * cp1[2] + fac * cp2[2]), 255);
-	cp[3] = divide_round_i((mfac * cp1[3] + fac * cp2[3]), 255);
+	cp[0] = lock->lock_red   ? cp1[0] : (divide_round_i((mfac * cp1[0] + fac * cp2[0]), 255));
+	cp[1] = lock->lock_green ? cp1[1] : (divide_round_i((mfac * cp1[1] + fac * cp2[1]), 255));
+	cp[2] = lock->lock_blue	 ? cp1[2] : (divide_round_i((mfac * cp1[2] + fac * cp2[2]), 255));
+	cp[3] = lock->lock_alpha ? cp1[3] : (divide_round_i((mfac * cp1[3] + fac * cp2[3]), 255));
 	return col;
 }
 
 BLI_INLINE unsigned int mcol_colordodge(unsigned int col1, unsigned int col2, int fac,
-										const bool use_alpha, const unsigned char alpha_value)
+										const bool use_alpha, const unsigned char alpha_value, ColorLock *lock)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac,temp;
@@ -793,18 +803,18 @@ BLI_INLINE unsigned int mcol_colordodge(unsigned int col1, unsigned int col2, in
 	cp = (unsigned char *)&col;
 
 	temp = (cp2[0] == 255) ? 255 : min_ii((cp1[0] * 225) / (255 - cp2[0]), 255);
-	cp[0] = (mfac * cp1[0] + temp * fac) / 255;
+	cp[0] = lock->lock_red ? cp1[0] : ((mfac * cp1[0] + temp * fac) / 255);
 	temp = (cp2[1] == 255) ? 255 : min_ii((cp1[1] * 225) / (255 - cp2[1]), 255);
-	cp[1] = (mfac * cp1[1] + temp * fac) / 255;
+	cp[1] = lock->lock_green ? cp1[1] : ((mfac * cp1[1] + temp * fac) / 255);
 	temp = (cp2[2] == 255) ? 255 : min_ii((cp1[2] * 225 )/ (255 - cp2[2]), 255);
-	cp[2] = (mfac * cp1[2] + temp * fac) / 255;
+	cp[2] = lock->lock_blue ? cp1[2] : ((mfac * cp1[2] + temp * fac) / 255);
 	temp = (cp2[3] == 255) ? 255 : min_ii((cp1[3] * 225) / (255 - cp2[3]), 255);
-	cp[3] = (mfac * cp1[3] + temp * fac) / 255;
+	cp[3] = lock->lock_alpha ? cp1[3] : ((mfac * cp1[3] + temp * fac) / 255);
 	return col;
 }
 
 BLI_INLINE unsigned int mcol_difference(unsigned int col1, unsigned int col2, int fac,
-										const bool use_alpha, const unsigned char alpha_value)
+										const bool use_alpha, const unsigned char alpha_value, ColorLock *lock)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac, temp;
@@ -823,18 +833,18 @@ BLI_INLINE unsigned int mcol_difference(unsigned int col1, unsigned int col2, in
 	cp = (unsigned char *)&col;
 
 	temp = abs(cp1[0] - cp2[0]);
-	cp[0] = (mfac * cp1[0] + temp * fac) / 255;
+	cp[0] = lock->lock_red   ? cp1[0] : ((mfac * cp1[0] + temp * fac) / 255);
 	temp = abs(cp1[1] - cp2[1]);
-	cp[1] = (mfac * cp1[1] + temp * fac) / 255;
+	cp[1] = lock->lock_green ? cp1[1] : ((mfac * cp1[1] + temp * fac) / 255);
 	temp = abs(cp1[2] - cp2[2]);
-	cp[2] = (mfac * cp1[2] + temp * fac) / 255;
+	cp[2] = lock->lock_blue  ? cp1[2] : ((mfac * cp1[2] + temp * fac) / 255);
 	temp = abs(cp1[3] - cp2[3]);
-	cp[3] = (mfac * cp1[3] + temp * fac) / 255;
+	cp[3] = lock->lock_alpha ? cp1[3] : ((mfac * cp1[3] + temp * fac) / 255);
 	return col;
 }
 
 BLI_INLINE unsigned int mcol_screen(unsigned int col1, unsigned int col2, int fac,
-									const bool use_alpha, const unsigned char alpha_value)
+									const bool use_alpha, const unsigned char alpha_value, ColorLock *lock)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac, temp;
@@ -853,18 +863,18 @@ BLI_INLINE unsigned int mcol_screen(unsigned int col1, unsigned int col2, int fa
 	cp = (unsigned char *)&col;
 
 	temp = max_ii(255 - (((255 - cp1[0]) * (255 - cp2[0])) / 255), 0);
-	cp[0] = (mfac * cp1[0] + temp * fac) / 255;
+	cp[0] = lock->lock_red   ? cp1[0] : ((mfac * cp1[0] + temp * fac) / 255);
 	temp = max_ii(255 - (((255 - cp1[1]) * (255 - cp2[1])) / 255), 0);
-	cp[1] = (mfac * cp1[1] + temp * fac) / 255;
+	cp[1] = lock->lock_green ? cp1[1] : ((mfac * cp1[1] + temp * fac) / 255);
 	temp = max_ii(255 - (((255 - cp1[2]) * (255 - cp2[2])) / 255), 0);
-	cp[2] = (mfac * cp1[2] + temp * fac) / 255;
+	cp[2] = lock->lock_blue  ? cp1[2] : ((mfac * cp1[2] + temp * fac) / 255);
 	temp = max_ii(255 - (((255 - cp1[3]) * (255 - cp2[3])) / 255), 0);
-	cp[3] = (mfac * cp1[3] + temp * fac) / 255;
+	cp[3] = lock->lock_alpha ? cp1[3] : ((mfac * cp1[3] + temp * fac) / 255);
 	return col;
 }
 
 BLI_INLINE unsigned int mcol_hardlight(unsigned int col1, unsigned int col2, int fac,
-									const bool use_alpha, const unsigned char alpha_value)
+									const bool use_alpha, const unsigned char alpha_value, ColorLock *lock)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac, temp;
@@ -885,7 +895,8 @@ BLI_INLINE unsigned int mcol_hardlight(unsigned int col1, unsigned int col2, int
 	int i = 0;
 
 	for (i = 0; i < 4; i++) {
-		
+		if ((&lock->lock_red)[i])
+			continue;
 		if (cp2[i] > 127) {
 			temp = 255 - ((255 - 2 * (cp2[i] - 127)) * (255 - cp1[i]) / 255);
 		}
@@ -898,7 +909,7 @@ BLI_INLINE unsigned int mcol_hardlight(unsigned int col1, unsigned int col2, int
 }
 
 BLI_INLINE unsigned int mcol_overlay(unsigned int col1, unsigned int col2, int fac,
-									const bool use_alpha, const unsigned char alpha_value)
+									const bool use_alpha, const unsigned char alpha_value, ColorLock *lock)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac, temp;
@@ -919,6 +930,8 @@ BLI_INLINE unsigned int mcol_overlay(unsigned int col1, unsigned int col2, int f
 	int i = 0;
 
 	for (i = 0; i < 4; i++) {
+		if ((&lock->lock_red)[i])
+			continue;
 
 		if (cp1[i] > 127) {
 			temp = 255 - ((255 - 2 * (cp1[i] - 127)) * (255 - cp2[i]) / 255);
@@ -932,7 +945,7 @@ BLI_INLINE unsigned int mcol_overlay(unsigned int col1, unsigned int col2, int f
 }
 
 BLI_INLINE unsigned int mcol_softlight(unsigned int col1, unsigned int col2, int fac,
-										const bool use_alpha, const unsigned char alpha_value)
+										const bool use_alpha, const unsigned char alpha_value, ColorLock *lock)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac, temp;
@@ -953,6 +966,8 @@ BLI_INLINE unsigned int mcol_softlight(unsigned int col1, unsigned int col2, int
 	int i = 0;
 
 	for (i = 0; i < 4; i++) {
+		if ((&lock->lock_red)[i])
+			continue;
 
 		if (cp1[i] < 127) {
 			temp = ((2 * ((cp2[i] / 2) + 64)) * cp1[i]) / 255;
@@ -966,7 +981,7 @@ BLI_INLINE unsigned int mcol_softlight(unsigned int col1, unsigned int col2, int
 }
 
 BLI_INLINE unsigned int mcol_exclusion(unsigned int col1, unsigned int col2, int fac,
-									   const bool use_alpha, const unsigned char alpha_value)
+									   const bool use_alpha, const unsigned char alpha_value, ColorLock *lock)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac, temp;
@@ -987,6 +1002,9 @@ BLI_INLINE unsigned int mcol_exclusion(unsigned int col1, unsigned int col2, int
 	int i = 0;
 
 	for (i = 0; i < 4; i++) {
+		if ((&lock->lock_red)[i])
+			continue;
+
 		temp = 127 - ((2 * (cp1[i] - 127) * (cp2[i] - 127)) / 255);
 		cp[i] = (temp * fac + cp1[i] * mfac) / 255;
 	}
@@ -994,7 +1012,7 @@ BLI_INLINE unsigned int mcol_exclusion(unsigned int col1, unsigned int col2, int
 }
 
 BLI_INLINE unsigned int mcol_luminocity(unsigned int col1, unsigned int col2, int fac,
-										const bool use_alpha, const unsigned char alpha_value)
+										const bool use_alpha, const unsigned char alpha_value, ColorLock *lock)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac;
@@ -1022,15 +1040,15 @@ BLI_INLINE unsigned int mcol_luminocity(unsigned int col1, unsigned int col2, in
 
 	hsv_to_rgb(h1, s1, v1, &r, &g, &b);
 
-	cp[0] = ((int)(r * 255.0f) * fac + mfac * cp1[0]) / 255;
-	cp[1] = ((int)(g * 255.0f) * fac + mfac * cp1[1]) / 255;
-	cp[2] = ((int)(b * 255.0f) * fac + mfac * cp1[2]) / 255;
-	cp[3] = ((int)(cp2[3]) * fac + mfac * cp1[3]) / 255;
+	cp[0] = lock->lock_red	 ? cp1[0] : (((int)(r * 255.0f) * fac + mfac * cp1[0]) / 255);
+	cp[1] = lock->lock_green ? cp1[1] : (((int)(g * 255.0f) * fac + mfac * cp1[1]) / 255);
+	cp[2] = lock->lock_blue  ? cp1[2] : (((int)(b * 255.0f) * fac + mfac * cp1[2]) / 255);
+	cp[3] = lock->lock_alpha ? cp1[3] : (((int)(cp2[3]) * fac + mfac * cp1[3]) / 255);
 	return col;
 }
 
 BLI_INLINE unsigned int mcol_saturation(unsigned int col1, unsigned int col2, int fac,
-										const bool use_alpha, const unsigned char alpha_value)
+										const bool use_alpha, const unsigned char alpha_value, ColorLock *lock)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac;
@@ -1060,15 +1078,15 @@ BLI_INLINE unsigned int mcol_saturation(unsigned int col1, unsigned int col2, in
 
 	hsv_to_rgb(h1, s1, v1, &r, &g, &b);
 
-	cp[0] = ((int)(r * 255.0f) * fac + mfac * cp1[0]) / 255;
-	cp[1] = ((int)(g * 255.0f) * fac + mfac * cp1[1]) / 255;
-	cp[2] = ((int)(b * 255.0f) * fac + mfac * cp1[2]) / 255;
-	cp[3] = ((int)(cp2[3]) * fac + mfac * cp1[3]) / 255;
+	cp[0] = lock->lock_red   ? cp1[0] : (((int)(r * 255.0f) * fac + mfac * cp1[0]) / 255);
+	cp[1] = lock->lock_green ? cp1[1] : (((int)(g * 255.0f) * fac + mfac * cp1[1]) / 255);
+	cp[2] = lock->lock_blue  ? cp1[2] : (((int)(b * 255.0f) * fac + mfac * cp1[2]) / 255);
+	cp[3] = lock->lock_alpha ? cp1[3] : (((int)(cp2[3]) * fac + mfac * cp1[3]) / 255);
 	return col;
 }
 
 BLI_INLINE unsigned int mcol_hue(unsigned int col1, unsigned int col2, int fac,
-								const bool use_alpha, const unsigned char alpha_value)
+								const bool use_alpha, const unsigned char alpha_value, ColorLock *lock)
 {
 	unsigned char *cp1, *cp2, *cp;
 	int mfac;
@@ -1096,10 +1114,10 @@ BLI_INLINE unsigned int mcol_hue(unsigned int col1, unsigned int col2, int fac,
 
 	hsv_to_rgb(h1, s1, v1, &r, &g, &b);
 
-	cp[0] = ((int)(r * 255.0f) * fac + mfac * cp1[0]) / 255;
-	cp[1] = ((int)(g * 255.0f) * fac + mfac * cp1[1]) / 255;
-	cp[2] = ((int)(b * 255.0f) * fac + mfac * cp1[2]) / 255;
-	cp[3] = ((int)(cp2[3]) * fac + mfac * cp1[3]) / 255;
+	cp[0] = lock->lock_red   ? cp1[0] : (((int)(r * 255.0f) * fac + mfac * cp1[0]) / 255);
+	cp[1] = lock->lock_green ? cp1[1] : (((int)(g * 255.0f) * fac + mfac * cp1[1]) / 255);
+	cp[2] = lock->lock_blue  ? cp1[2] : (((int)(b * 255.0f) * fac + mfac * cp1[2]) / 255);
+	cp[3] = lock->lock_alpha ? cp1[3] : (((int)(cp2[3]) * fac + mfac * cp1[3]) / 255);
 	return col;
 }
 
@@ -1107,32 +1125,40 @@ BLI_INLINE unsigned int mcol_hue(unsigned int col1, unsigned int col2, int fac,
 /* wpaint has 'wpaint_blend_tool' */
 static unsigned int vpaint_blend_tool(const int tool, const unsigned int col,
                                       const unsigned int paintcol, const int alpha_i,
-									  const bool use_alpha, const unsigned char alpha_value)
+									  const bool use_alpha, const unsigned char alpha_value, ColorLock *lock)
 {
 	switch (tool) {
 		case PAINT_BLEND_MIX:
-		case PAINT_BLEND_BLUR:       return mcol_blend(col, paintcol, alpha_i, use_alpha, alpha_value);
-		case PAINT_BLEND_AVERAGE:    return mcol_blend(col, paintcol, alpha_i, use_alpha, alpha_value);
-		case PAINT_BLEND_SMEAR:      return mcol_blend(col, paintcol, alpha_i, use_alpha, alpha_value);
-		case PAINT_BLEND_ADD:        return mcol_add(col, paintcol, alpha_i, use_alpha, alpha_value);
-		case PAINT_BLEND_SUB:        return mcol_sub(col, paintcol, alpha_i, use_alpha, alpha_value);
-		case PAINT_BLEND_MUL:        return mcol_mul(col, paintcol, alpha_i, use_alpha, alpha_value);
-		case PAINT_BLEND_LIGHTEN:    return mcol_lighten(col, paintcol, alpha_i, use_alpha, alpha_value);
-		case PAINT_BLEND_DARKEN:     return mcol_darken(col, paintcol, alpha_i, use_alpha, alpha_value);
-		case PAINT_BLEND_COLORDODGE: return mcol_colordodge(col, paintcol, alpha_i, use_alpha, alpha_value);
-		case PAINT_BLEND_DIFFERENCE: return mcol_difference(col, paintcol, alpha_i, use_alpha, alpha_value);
-		case PAINT_BLEND_SCREEN:     return mcol_screen(col, paintcol, alpha_i, use_alpha, alpha_value);
-		case PAINT_BLEND_HARDLIGHT:  return mcol_hardlight(col, paintcol, alpha_i, use_alpha, alpha_value);
-		case PAINT_BLEND_OVERLAY:	 return mcol_overlay(col, paintcol, alpha_i, use_alpha, alpha_value);
-		case PAINT_BLEND_SOFTLIGHT:  return mcol_softlight(col, paintcol, alpha_i, use_alpha, alpha_value);
-		case PAINT_BLEND_EXCLUSION:  return mcol_exclusion(col, paintcol, alpha_i, use_alpha, alpha_value);
-		case PAINT_BLEND_LUMINOCITY: return mcol_luminocity(col, paintcol, alpha_i, use_alpha, alpha_value);
-		case PAINT_BLEND_SATURATION: return mcol_saturation(col, paintcol, alpha_i, use_alpha, alpha_value);
-		case PAINT_BLEND_HUE:        return mcol_hue(col, paintcol, alpha_i, use_alpha, alpha_value);
+		case PAINT_BLEND_BLUR:       return mcol_blend(col, paintcol, alpha_i, use_alpha, alpha_value, lock);
+		case PAINT_BLEND_AVERAGE:    return mcol_blend(col, paintcol, alpha_i, use_alpha, alpha_value, lock);
+		case PAINT_BLEND_SMEAR:      return mcol_blend(col, paintcol, alpha_i, use_alpha, alpha_value, lock);
+		case PAINT_BLEND_ADD:        return mcol_add(col, paintcol, alpha_i, use_alpha, alpha_value, lock);
+		case PAINT_BLEND_SUB:        return mcol_sub(col, paintcol, alpha_i, use_alpha, alpha_value, lock);
+		case PAINT_BLEND_MUL:        return mcol_mul(col, paintcol, alpha_i, use_alpha, alpha_value, lock);
+		case PAINT_BLEND_LIGHTEN:    return mcol_lighten(col, paintcol, alpha_i, use_alpha, alpha_value, lock);
+		case PAINT_BLEND_DARKEN:     return mcol_darken(col, paintcol, alpha_i, use_alpha, alpha_value, lock);
+		case PAINT_BLEND_COLORDODGE: return mcol_colordodge(col, paintcol, alpha_i, use_alpha, alpha_value, lock);
+		case PAINT_BLEND_DIFFERENCE: return mcol_difference(col, paintcol, alpha_i, use_alpha, alpha_value, lock);
+		case PAINT_BLEND_SCREEN:     return mcol_screen(col, paintcol, alpha_i, use_alpha, alpha_value, lock);
+		case PAINT_BLEND_HARDLIGHT:  return mcol_hardlight(col, paintcol, alpha_i, use_alpha, alpha_value, lock);
+		case PAINT_BLEND_OVERLAY:	 return mcol_overlay(col, paintcol, alpha_i, use_alpha, alpha_value, lock);
+		case PAINT_BLEND_SOFTLIGHT:  return mcol_softlight(col, paintcol, alpha_i, use_alpha, alpha_value, lock);
+		case PAINT_BLEND_EXCLUSION:  return mcol_exclusion(col, paintcol, alpha_i, use_alpha, alpha_value, lock);
+		case PAINT_BLEND_LUMINOCITY: return mcol_luminocity(col, paintcol, alpha_i, use_alpha, alpha_value, lock);
+		case PAINT_BLEND_SATURATION: return mcol_saturation(col, paintcol, alpha_i, use_alpha, alpha_value, lock);
+		case PAINT_BLEND_HUE:        return mcol_hue(col, paintcol, alpha_i, use_alpha, alpha_value, lock);
 		default:
 			BLI_assert(0);
 			return 0;
 	}
+}
+
+static void initialise_color_lock(VPaint *vp, ColorLock *lock)
+{
+	lock->lock_red   = vp->flag & VP_LOCK_R;
+	lock->lock_green = vp->flag & VP_LOCK_G;
+	lock->lock_blue  = vp->flag & VP_LOCK_B;
+	lock->lock_alpha = vp->flag & VP_LOCK_A;
 }
 
 /* wpaint has 'wpaint_blend' */
@@ -1144,17 +1170,20 @@ static unsigned int vpaint_blend(
 {
 	Brush *brush = BKE_paint_brush(&vp->paint);
 	const int tool = brush->vertexpaint_tool;
+	ColorLock lock;
+
+	initialise_color_lock(vp, &lock);
 
 	unsigned char *cp = (unsigned char *)&paintcol;
 	cp[3] = use_alpha ? alpha_value : 255;
-	col = vpaint_blend_tool(tool, col, paintcol, alpha_i, use_alpha, alpha_value);
+	col = vpaint_blend_tool(tool, col, paintcol, alpha_i, use_alpha, alpha_value, &lock);
 
 	/* if no spray, clip color adding with colorig & orig alpha */
 	if ((vp->flag & VP_SPRAY) == 0) {
 		unsigned int testcol, a;
 		char *cp, *ct, *co;
 		
-		testcol = vpaint_blend_tool(tool, colorig, paintcol, brush_alpha_value_i, use_alpha, alpha_value);
+		testcol = vpaint_blend_tool(tool, colorig, paintcol, brush_alpha_value_i, use_alpha, alpha_value, &lock);
 		
 		cp = (char *)&col;
 		ct = (char *)&testcol;

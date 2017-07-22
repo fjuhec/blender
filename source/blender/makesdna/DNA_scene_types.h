@@ -1176,7 +1176,12 @@ enum {
 	VP_SPRAY        = (1 << 4),
 	// VP_MIRROR_X  = (1 << 5),  /* deprecated in 2.5x use (me->editflag & ME_EDIT_MIRROR_X) */
 	VP_OCCLUDE      = (1 << 6),
-	VP_ONLYVGROUP   = (1 << 7)   /* weight paint only */
+	VP_ONLYVGROUP   = (1 << 7),  /* weight paint only */
+	/*color lock vpaint only*/
+	VP_LOCK_R       = (1 << 8),
+	VP_LOCK_G       = (1 << 9),
+	VP_LOCK_B	    = (1 << 10),
+	VP_LOCK_A	    = (1 << 11),
 };
 
 /* ------------------------------------------- */
