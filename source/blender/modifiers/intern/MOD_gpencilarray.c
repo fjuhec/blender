@@ -127,7 +127,7 @@ static DerivedMesh *applyModifier(ModifierData *md, struct EvaluationContext *UN
 	Base *base_new = NULL;
 	int xyz[3], sh;
 	float mat[4][4], finalmat[4][4];
-	float loc[3], rot[3], size[3];
+	float rot[3];
 
 	if ((!ob) || (!ob->gpd)) {
 		return NULL;
