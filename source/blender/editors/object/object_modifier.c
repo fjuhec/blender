@@ -665,7 +665,7 @@ static int modifier_apply_obdata(ReportList *reports, const bContext *C, Scene *
 			GpencilArrayModifierData *mmd = (GpencilArrayModifierData *)md;
 			mmd->C = (void *) C;
 		}
-		mti->applyModifier(md, C, ob, NULL, 0);
+		mti->applyModifier(md, &eval_ctx, ob, NULL, 0);
 		if (ob->gpd) {
 			BKE_gpencil_batch_cache_dirty(ob->gpd);
 		}
