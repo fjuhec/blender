@@ -37,6 +37,9 @@
 struct AnimData;
 struct CurveMapping;
 
+/* TODO: add size as userprefs parameter */
+#define GP_OBGPENCIL_DEFAULT_SIZE  0.5f 
+
 /* Grease-Pencil Annotations - 'Stroke Point'
  *	-> Coordinates may either be 2d or 3d depending on settings at the time
  * 	-> Coordinates of point on stroke, in proportions of window size
