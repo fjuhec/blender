@@ -1654,9 +1654,16 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col = split.column()
         col.prop(md, "count")
 
+        split = layout.split()
         col = split.column()
         col.label("Offset:")
         col.prop(md, "offset", text="")
+
+        col = split.column()
+        col.label("Shift:")
+        col.prop(md, "shift", text="")
+        row = col.row(align=True)
+        row.prop(md, "lock_axis", expand=True)
 
         row = layout.row()
         split = row.split()

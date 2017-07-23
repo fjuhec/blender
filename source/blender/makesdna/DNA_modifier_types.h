@@ -1712,12 +1712,15 @@ typedef struct GpencilDupliModifierData {
 	int count[3];                /* number of elements in array */
 	int flag;                    /* several flags */
 	float offset[3];             /* Location increments */
+	float shift[3];              /* shift increment */
 	float rnd_size;              /* random size factor */
 	float rnd_rot;               /* random size factor */
 	float rot[3];                /* Rotation changes */
 	float scale[3];              /* Scale changes */
 	float rnd[20];               /* (first element is the index) random values */
+	int  lock_axis;              /* lock shift to one axis */
 	char pad[4];
+	void *C;                     /* bContext used only for apply */
 } GpencilDupliModifierData;
 
 typedef enum eGpencilDupli_Flag {

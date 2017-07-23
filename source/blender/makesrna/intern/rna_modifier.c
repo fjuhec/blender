@@ -285,6 +285,13 @@ EnumPropertyItem rna_enum_axis_flag_xyz_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
+EnumPropertyItem rna_enum_gpencil_lockshift_items[] = {
+	{ GP_LOCKAXIS_X, "GP_LOCKAXIS_X", 0, "X", "Use X axis" },
+	{ GP_LOCKAXIS_Y, "GP_LOCKAXIS_Y", 0, "Y", "Use Y axis" },
+	{ GP_LOCKAXIS_Z, "GP_LOCKAXIS_Z", 0, "Z", "Use Z axis" },
+	{ 0, NULL, 0, NULL, NULL }
+};
+
 #ifdef RNA_RUNTIME
 
 #include "DNA_particle_types.h"
@@ -5083,6 +5090,19 @@ static void rna_def_modifier_gpencildupli(BlenderRNA *brna)
 	RNA_def_property_float_sdna(prop, NULL, "offset");
 	RNA_def_property_ui_text(prop, "Offset", "Value for the distance between items");
 	RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "shift", PROP_FLOAT, PROP_TRANSLATION);
+	RNA_def_property_float_sdna(prop, NULL, "shift");
+	RNA_def_property_ui_text(prop, "Shift", "Shiftness value");
+	RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "lock_axis", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "lock_axis");
+	RNA_def_property_enum_items(prop, rna_enum_gpencil_lockshift_items);
+	//RNA_def_property_flag(prop, PROP_ENUM_FLAG);
+	RNA_def_property_ui_text(prop, "Axis", "");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
 	prop = RNA_def_property(srna, "rotation", PROP_FLOAT, PROP_EULER);

@@ -2008,10 +2008,6 @@ void ED_gpencil_dupli_modifier(int UNUSED(id), GpencilDupliModifierData *mmd, Ob
 	offset[1] = mmd->offset[1] * elem_idx[1];
 	offset[2] = mmd->offset[2] * elem_idx[2];
 
-	//offset[0] = mmd->offset[0] + (mmd->offset[0] * elem_idx[0]);
-	//offset[1] = mmd->offset[1] + (mmd->offset[1] * elem_idx[1]);
-	//offset[2] = mmd->offset[2] + (mmd->offset[2] * elem_idx[2]);
-
 	ri = mmd->rnd[0];
 	/* rotation */
 	if (mmd->flag & GP_DUPLI_RANDOM_ROT) {

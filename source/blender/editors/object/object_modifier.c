@@ -660,6 +660,11 @@ static int modifier_apply_obdata(ReportList *reports, const bContext *C, Scene *
 		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	}
 	else if (ELEM(ob->type, OB_GPENCIL)) {
+		/* dupli modifier need to have bContext */
+		if (md->type = eModifierType_GpencilDupli) {
+			GpencilDupliModifierData *mmd = (GpencilDupliModifierData *)md;
+			mmd->C = C;
+		}
 		mti->applyModifier(md, C, ob, NULL, 0);
 		if (ob->gpd) {
 			BKE_gpencil_batch_cache_dirty(ob->gpd);

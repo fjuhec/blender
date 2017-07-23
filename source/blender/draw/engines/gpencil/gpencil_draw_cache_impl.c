@@ -839,7 +839,7 @@ void gpencil_dupli_modifiers(GPENCIL_StorageList *stl, Object *ob)
 	ModifierData *md;
 	GpencilDupliModifierData *mmd;
 	Object *newob = NULL;
-	int x, y, z;
+	int x, y, z, e;
 	int xyz[3];
 	float mat[4][4];
 
@@ -861,6 +861,18 @@ void gpencil_dupli_modifiers(GPENCIL_StorageList *stl, Object *ob)
 						newob = MEM_dupallocN(ob);
 						newob->mode = -1; /* use this mark to delete later */
 						mul_m4_m4m4(newob->obmat, mat, ob->obmat);
+						/* apply shift */
+						e = x;
+						if (mmd->lock_axis & GP_LOCKAXIS_Y) {
+							e = y;
+						}
+						if (mmd->lock_axis & GP_LOCKAXIS_Z) {
+							e = z;
+						}
+						newob->obmat[3][0] += mmd->shift[0] * e;
+						newob->obmat[3][1] += mmd->shift[1] * e;
+						newob->obmat[3][2] += mmd->shift[2] * e;
+
 						stl->g_data->gp_object_cache = gpencil_object_cache_allocate(stl->g_data->gp_object_cache, &stl->g_data->gp_cache_size, &stl->g_data->gp_cache_used);
 						gpencil_object_cache_add(stl->g_data->gp_object_cache, newob, &stl->g_data->gp_cache_used);
 					}
