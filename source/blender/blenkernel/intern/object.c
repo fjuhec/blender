@@ -120,6 +120,7 @@
 #include "BKE_material.h"
 #include "BKE_camera.h"
 #include "BKE_image.h"
+#include "BKE_gpencil.h"
 
 #include "DEG_depsgraph.h"
 
@@ -1216,6 +1217,8 @@ Object *BKE_object_copy_ex(Main *bmain, const Object *ob, bool copy_caches)
 	
 	obn->derivedDeform = NULL;
 	obn->derivedFinal = NULL;
+	/* grease pencil: clean derived data */
+	BKE_gpencil_free_derived_frames(obn->gpd);
 
 	BLI_listbase_clear(&obn->gpulamp);
 	BLI_listbase_clear(&obn->pc_ids);

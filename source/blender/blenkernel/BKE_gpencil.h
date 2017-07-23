@@ -57,6 +57,7 @@ bool BKE_gpencil_free_strokes(struct bGPDframe *gpf);
 bool BKE_gpencil_free_layer_temp_data(struct bGPDlayer *gpl);
 void BKE_gpencil_free_frames(struct bGPDlayer *gpl);
 void BKE_gpencil_free_layers(struct ListBase *list);
+void BKE_gpencil_free_derived_frames(struct bGPdata *gpd);
 void BKE_gpencil_free_brushes(struct ListBase *list);
 void BKE_gpencil_free_palettes(struct ListBase *list);
 void BKE_gpencil_free(struct bGPdata *gpd, bool free_all);

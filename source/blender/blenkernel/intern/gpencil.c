@@ -258,6 +258,16 @@ static void BKE_gpencil_free_layers_temp_data(ListBase *list)
 	}
 }
 
+/* Free temp gpf derived frames */
+void BKE_gpencil_free_derived_frames(bGPdata *gpd)
+{
+	/* error checking */
+	if (gpd == NULL) return;
+	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+		gpl->derived_gpf = NULL;
+	}
+}
+
 /** Free (or release) any data used by this grease pencil (does not free the gpencil itself). */
 void BKE_gpencil_free(bGPdata *gpd, bool free_all)
 {
