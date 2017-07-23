@@ -866,12 +866,13 @@ void gpencil_array_modifiers(GPENCIL_StorageList *stl, Object *ob)
 							if ((x == 0) && (y == 0) && (z == 0)) {
 								continue;
 							}
-
 							ED_gpencil_array_modifier(0, mmd, ob, xyz, mat);
 							/* add object to cache */
 							newob = MEM_dupallocN(ob);
 							newob->mode = -1; /* use this mark to delete later */
 							mul_m4_m4m4(newob->obmat, mat, ob->obmat);
+							/* apply scale */
+							ARRAY_SET_ITEMS(newob->size, mat[0][0], mat[1][1], mat[2][2]);
 							/* apply shift */
 							sh = x;
 							if (mmd->lock_axis == GP_LOCKAXIS_Y) {

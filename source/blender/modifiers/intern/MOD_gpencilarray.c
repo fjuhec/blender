@@ -47,6 +47,7 @@
 #include "BKE_collection.h"
 
 #include "DEG_depsgraph.h"
+#include "DEG_depsgraph_build.h"
 
 #include "MOD_modifiertypes.h"
 
@@ -83,6 +84,35 @@ static void copyData(ModifierData *md, ModifierData *target)
 	modifier_copyData_generic(md, target);
 }
 
+/* helper to create a new object */
+static Object *object_add_type(bContext *C,	int type, const char *name)
+{
+	Main *bmain = CTX_data_main(C);
+	Scene *scene = CTX_data_scene(C);
+	SceneLayer *sl = CTX_data_scene_layer(C);
+	Object *ob;
+	EvaluationContext eval_ctx;
+	const float loc[3] = { 0, 0, 0 };
+	const float rot[3] = { 0, 0, 0 };
+
+	CTX_data_eval_ctx(C, &eval_ctx);
+
+	ob = BKE_object_add(bmain, scene, sl, type, name);
+	copy_v3_v3(ob->loc, loc);
+	copy_v3_v3(ob->rot, rot);
+
+	BKE_object_where_is_calc(&eval_ctx, scene, ob);
+
+	DEG_id_type_tag(bmain, ID_OB);
+	DEG_relations_tag_update(bmain);
+	DEG_id_tag_update(&scene->id, 0);
+
+	/* define size */
+	BKE_object_obdata_size_init(ob, GP_OBGPENCIL_DEFAULT_SIZE);
+
+	return ob;
+}
+
 static DerivedMesh *applyModifier(ModifierData *md, struct EvaluationContext *UNUSED(eval_ctx), Object *ob,
 	DerivedMesh *UNUSED(dm),
 	ModifierApplyFlag UNUSED(flag))
@@ -95,8 +125,9 @@ static DerivedMesh *applyModifier(ModifierData *md, struct EvaluationContext *UN
 	SceneCollection *sc = CTX_data_scene_collection(C);
 	Object *newob = NULL;
 	Base *base_new = NULL;
-	int xyz[3];
-	float mat[4][4];
+	int xyz[3], sh;
+	float mat[4][4], finalmat[4][4];
+	float loc[3], rot[3], size[3];
 
 	if ((!ob) || (!ob->gpd)) {
 		return NULL;
@@ -111,24 +142,29 @@ static DerivedMesh *applyModifier(ModifierData *md, struct EvaluationContext *UN
 				if ((x == 0) && (y == 0) && (z == 0)) {
 					continue;
 				}
-#if 0
 				ED_gpencil_array_modifier(0, mmd, ob, xyz, mat);
-				newob = BKE_object_add(bmain, scene, sl, OB_GPENCIL, ob->id.name);
-				//newob = BKE_object_add_only_object(bmain, OB_GPENCIL, ob->id.name);
+				mul_m4_m4m4(finalmat, mat, ob->obmat);
+
+				newob = object_add_type(C, OB_GPENCIL, md->name);
 				newob->gpd = ob->gpd;
-				//BKE_collection_object_add(scene, sc, newob);
-				base_new = BKE_scene_layer_base_find(sl, newob);
-
-				//BKE_object_apply_mat4(newob, newob->obmat, false, false);
-
-				////mul_m4_m4m4(newob->obmat, mat, ob->obmat);
-				//DEG_id_tag_update(&newob->id, OB_RECALC_OB);
-				BKE_scene_object_base_flag_sync_from_base(base_new);
-#endif
+				/* moves to new origin */
+				sh = x;
+				if (mmd->lock_axis == GP_LOCKAXIS_Y) {
+					sh = y;
+				}
+				if (mmd->lock_axis == GP_LOCKAXIS_Z) {
+					sh = z;
+				}
+				madd_v3_v3fl(finalmat[3], mmd->shift, sh);
+				copy_v3_v3(newob->loc, finalmat[3]);
+				/* apply rotation */
+				mat4_to_eul(rot, finalmat);
+				copy_v3_v3(newob->rot, rot);
+				/* apply scale */
+				ARRAY_SET_ITEMS(newob->size, finalmat[0][0], finalmat[1][1], finalmat[2][2]);
 			}
 		}
 	}
-	//DEG_relations_tag_update(bmain);
 	return NULL;
 }
 
