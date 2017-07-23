@@ -839,10 +839,18 @@ void gpencil_array_modifiers(GPENCIL_StorageList *stl, Object *ob)
 	ModifierData *md;
 	GpencilArrayModifierData *mmd;
 	Object *newob = NULL;
+	bGPdata *gpd = NULL;
 	int x, y, z;
 	int xyz[3];
 	int sh;
 	float mat[4][4];
+
+	if ((ob) && (ob->gpd)) {
+		gpd = ob->gpd;
+		if (gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE)) {
+			return;
+		}
+	}
 
 	for (md = ob->modifiers.first; md; md = md->next) {
 		if (((md->mode & eModifierMode_Realtime) && ((G.f & G_RENDER_OGL) == 0)) ||
