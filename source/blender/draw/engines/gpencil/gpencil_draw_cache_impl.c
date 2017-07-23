@@ -880,10 +880,7 @@ void gpencil_array_modifiers(GPENCIL_StorageList *stl, Object *ob)
 							if (mmd->lock_axis == GP_LOCKAXIS_Z) {
 								sh = z;
 							}
-							newob->obmat[3][0] += mmd->shift[0] * sh;
-							newob->obmat[3][1] += mmd->shift[1] * sh;
-							newob->obmat[3][2] += mmd->shift[2] * sh;
-
+							madd_v3_v3fl(newob->obmat[3], mmd->shift, sh);
 							stl->g_data->gp_object_cache = gpencil_object_cache_allocate(stl->g_data->gp_object_cache, &stl->g_data->gp_cache_size, &stl->g_data->gp_cache_used);
 							gpencil_object_cache_add(stl->g_data->gp_object_cache, newob, &stl->g_data->gp_cache_used);
 						}
