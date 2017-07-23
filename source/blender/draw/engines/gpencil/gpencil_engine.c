@@ -224,8 +224,8 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 		stl->g_data->gp_object_cache = gpencil_object_cache_allocate(stl->g_data->gp_object_cache, &stl->g_data->gp_cache_size, &stl->g_data->gp_cache_used);
 		/* add for drawing later */
 		gpencil_object_cache_add(stl->g_data->gp_object_cache, ob, &stl->g_data->gp_cache_used);
-		/* generate duplicated instances using dupli modifiers */		
-		gpencil_dupli_modifiers(stl, ob);
+		/* generate duplicated instances using array modifiers */		
+		gpencil_array_modifiers(stl, ob);
 		/* draw current painting strokes */
 		DRW_gpencil_populate_buffer_strokes(vedata, ts, ob->gpd);
 	}

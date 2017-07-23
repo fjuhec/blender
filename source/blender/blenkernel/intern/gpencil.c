@@ -1904,8 +1904,8 @@ static int gpencil_stroke_cache_compare(const void *a1, const void *a2)
 	return 0;
 }
 
-/* array modifier */
-void ED_gpencil_array_modifier(int id, GpencilArrayModifierData *mmd, bGPDlayer *gpl, bGPDframe *gpf)
+/* dupli modifier */
+void ED_gpencil_dupli_modifier(int id, GpencilDupliModifierData *mmd, bGPDlayer *gpl, bGPDframe *gpf)
 {
 	bGPDspoint *pt;
 	bGPDstroke *gps_dst;
@@ -1931,7 +1931,7 @@ void ED_gpencil_array_modifier(int id, GpencilArrayModifierData *mmd, bGPDlayer 
 	for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 		++stroke;
 		if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
-			(int)mmd->flag & GP_ARRAY_INVERSE_LAYER, (int)mmd->flag & GP_ARRAY_INVERSE_PASS)) {
+			(int)mmd->flag & GP_DUPLI_INVERSE_LAYER, (int)mmd->flag & GP_DUPLI_INVERSE_PASS)) {
 			continue;
 		}
 
@@ -1951,7 +1951,7 @@ void ED_gpencil_array_modifier(int id, GpencilArrayModifierData *mmd, bGPDlayer 
 			mul_v3_v3fl(offset, mmd->offset, e + 1);
 			ri = mmd->rnd[0];
 			/* rotation */
-			if (mmd->flag & GP_ARRAY_RANDOM_ROT) {
+			if (mmd->flag & GP_DUPLI_RANDOM_ROT) {
 				factor = mmd->rnd_rot * mmd->rnd[ri];
 				mul_v3_v3fl(rot, mmd->rot, factor);
 				add_v3_v3(rot, mmd->rot);
@@ -1960,7 +1960,7 @@ void ED_gpencil_array_modifier(int id, GpencilArrayModifierData *mmd, bGPDlayer 
 				copy_v3_v3(rot, mmd->rot);
 			}
 			/* scale */
-			if (mmd->flag & GP_ARRAY_RANDOM_SIZE) {
+			if (mmd->flag & GP_DUPLI_RANDOM_SIZE) {
 				factor = mmd->rnd_size * mmd->rnd[ri];
 				mul_v3_v3fl(scale, mmd->scale, factor);
 				add_v3_v3(scale, mmd->scale);
@@ -1997,8 +1997,8 @@ void ED_gpencil_array_modifier(int id, GpencilArrayModifierData *mmd, bGPDlayer 
 	MEM_SAFE_FREE(stroke_cache);
 }
 
-/* duplication modifier */
-void ED_gpencil_dupli_modifier(int UNUSED(id), GpencilDupliModifierData *mmd, Object *UNUSED(ob), int elem_idx[3], float r_mat[4][4])
+/* array modifier */
+void ED_gpencil_array_modifier(int UNUSED(id), GpencilArrayModifierData *mmd, Object *UNUSED(ob), int elem_idx[3], float r_mat[4][4])
 {
 	float offset[3], rot[3], scale[3];
 	float factor;
@@ -2010,7 +2010,7 @@ void ED_gpencil_dupli_modifier(int UNUSED(id), GpencilDupliModifierData *mmd, Ob
 
 	ri = mmd->rnd[0];
 	/* rotation */
-	if (mmd->flag & GP_DUPLI_RANDOM_ROT) {
+	if (mmd->flag & GP_ARRAY_RANDOM_ROT) {
 		factor = mmd->rnd_rot * mmd->rnd[ri];
 		mul_v3_v3fl(rot, mmd->rot, factor);
 		add_v3_v3(rot, mmd->rot);
@@ -2019,7 +2019,7 @@ void ED_gpencil_dupli_modifier(int UNUSED(id), GpencilDupliModifierData *mmd, Ob
 		copy_v3_v3(rot, mmd->rot);
 	}
 	/* scale */
-	if (mmd->flag & GP_DUPLI_RANDOM_SIZE) {
+	if (mmd->flag & GP_ARRAY_RANDOM_SIZE) {
 		factor = mmd->rnd_size * mmd->rnd[ri];
 		mul_v3_v3fl(scale, mmd->scale, factor);
 		add_v3_v3(scale, mmd->scale);
@@ -2041,12 +2041,12 @@ void ED_gpencil_dupli_modifier(int UNUSED(id), GpencilDupliModifierData *mmd, Ob
 void ED_gpencil_reset_modifiers(Object *ob)
 {
 	ModifierData *md;
-	GpencilArrayModifierData *arr;
+	GpencilDupliModifierData *arr;
 
 	for (md = ob->modifiers.first; md; md = md->next) {
 		switch (md->type) {
-		case eModifierType_GpencilArray:
-			arr = (GpencilArrayModifierData *) md;
+		case eModifierType_GpencilDupli:
+			arr = (GpencilDupliModifierData *) md;
 			arr->rnd[0] = 1;
 			break;
 		}
@@ -2058,7 +2058,7 @@ bool ED_gpencil_has_geometry_modifiers(Object *ob)
 {
 	ModifierData *md;
 	for (md = ob->modifiers.first; md; md = md->next) {
-		if (md->type == eModifierType_GpencilArray) {
+		if (md->type == eModifierType_GpencilDupli) {
 			return true;
 		}
 	}
@@ -2106,8 +2106,8 @@ void ED_gpencil_geometry_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *gpf)
 			((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL))) {
 			switch (md->type) {
 				// Array
-			case eModifierType_GpencilArray:
-				ED_gpencil_array_modifier(id, (GpencilArrayModifierData *)md, gpl, gpf);
+			case eModifierType_GpencilDupli:
+				ED_gpencil_dupli_modifier(id, (GpencilDupliModifierData *)md, gpl, gpf);
 				break;
 			}
 		}

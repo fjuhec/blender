@@ -833,48 +833,52 @@ struct GPUTexture *DRW_gpencil_create_blank_texture(int width, int height)
 	return tex;
 }
 
-/* create instances using duplication modifiers */
-void gpencil_dupli_modifiers(GPENCIL_StorageList *stl, Object *ob)
+/* create instances using array modifiers */
+void gpencil_array_modifiers(GPENCIL_StorageList *stl, Object *ob)
 {
 	ModifierData *md;
-	GpencilDupliModifierData *mmd;
+	GpencilArrayModifierData *mmd;
 	Object *newob = NULL;
-	int x, y, z, e;
+	int x, y, z;
 	int xyz[3];
+	int sh;
 	float mat[4][4];
 
 	for (md = ob->modifiers.first; md; md = md->next) {
-		if (md->type == eModifierType_GpencilDupli) {
-			mmd = (GpencilDupliModifierData *)md;
-			/* reset random */
-			mmd->rnd[0] = 1;
-			for (x = 0; x < mmd->count[0]; ++x) {
-				for (y = 0; y < mmd->count[1]; ++y) {
-					for (z = 0; z < mmd->count[2]; ++z) {
-						ARRAY_SET_ITEMS(xyz, x, y, z);
-						if ((x == 0) && (y == 0) && (z == 0)) {
-							continue;
-						}
+		if (((md->mode & eModifierMode_Realtime) && ((G.f & G_RENDER_OGL) == 0)) ||
+			((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL))) {
+			if (md->type == eModifierType_GpencilArray) {
+				mmd = (GpencilArrayModifierData *)md;
+				/* reset random */
+				mmd->rnd[0] = 1;
+				for (x = 0; x < mmd->count[0]; ++x) {
+					for (y = 0; y < mmd->count[1]; ++y) {
+						for (z = 0; z < mmd->count[2]; ++z) {
+							ARRAY_SET_ITEMS(xyz, x, y, z);
+							if ((x == 0) && (y == 0) && (z == 0)) {
+								continue;
+							}
 
-						ED_gpencil_dupli_modifier(0, mmd, ob, xyz, mat);
-						/* add object to cache */
-						newob = MEM_dupallocN(ob);
-						newob->mode = -1; /* use this mark to delete later */
-						mul_m4_m4m4(newob->obmat, mat, ob->obmat);
-						/* apply shift */
-						e = x;
-						if (mmd->lock_axis & GP_LOCKAXIS_Y) {
-							e = y;
-						}
-						if (mmd->lock_axis & GP_LOCKAXIS_Z) {
-							e = z;
-						}
-						newob->obmat[3][0] += mmd->shift[0] * e;
-						newob->obmat[3][1] += mmd->shift[1] * e;
-						newob->obmat[3][2] += mmd->shift[2] * e;
+							ED_gpencil_array_modifier(0, mmd, ob, xyz, mat);
+							/* add object to cache */
+							newob = MEM_dupallocN(ob);
+							newob->mode = -1; /* use this mark to delete later */
+							mul_m4_m4m4(newob->obmat, mat, ob->obmat);
+							/* apply shift */
+							sh = x;
+							if (mmd->lock_axis == GP_LOCKAXIS_Y) {
+								sh = y;
+							}
+							if (mmd->lock_axis == GP_LOCKAXIS_Z) {
+								sh = z;
+							}
+							newob->obmat[3][0] = newob->obmat[3][0] + mmd->shift[0] * sh;
+							newob->obmat[3][1] += mmd->shift[1] * sh;
+							newob->obmat[3][2] += mmd->shift[2] * sh;
 
-						stl->g_data->gp_object_cache = gpencil_object_cache_allocate(stl->g_data->gp_object_cache, &stl->g_data->gp_cache_size, &stl->g_data->gp_cache_used);
-						gpencil_object_cache_add(stl->g_data->gp_object_cache, newob, &stl->g_data->gp_cache_used);
+							stl->g_data->gp_object_cache = gpencil_object_cache_allocate(stl->g_data->gp_object_cache, &stl->g_data->gp_cache_size, &stl->g_data->gp_cache_used);
+							gpencil_object_cache_add(stl->g_data->gp_object_cache, newob, &stl->g_data->gp_cache_used);
+						}
 					}
 				}
 			}

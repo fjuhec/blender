@@ -121,8 +121,8 @@ EnumPropertyItem rna_enum_object_modifier_type_items[] = {
 	{eModifierType_Softbody, "SOFT_BODY", ICON_MOD_SOFT, "Soft Body", ""},
 	{eModifierType_Surface, "SURFACE", ICON_MOD_PHYSICS, "Surface", ""},
 	{0, "", 0, N_("Grease Pencil"), "" },
-	{eModifierType_GpencilArray, "GP_ARRAY", ICON_MOD_ARRAY, "Array", "Array of strokes" },
-	{eModifierType_GpencilDupli, "GP_DUPLI", ICON_GROUP_VERTEX, "Duplication", "Create grid of duplicate instances" },
+	{eModifierType_GpencilArray, "GP_ARRAY", ICON_MOD_ARRAY, "Array", "Create grid of duplicate instances" },
+	{eModifierType_GpencilDupli, "GP_DUPLI", ICON_GROUP_VERTEX, "Duplication", "Create duplication of strokes" },
 	{eModifierType_GpencilNoise, "GP_NOISE", ICON_RNDCURVE, "Noise", "Add noise to strokes" },
 	{eModifierType_GpencilSubdiv, "GP_SUBDIV", ICON_MOD_SUBSURF, "Subdivide", "Subdivide stroke adding more control points to strokes" },
 	{eModifierType_GpencilThick, "GP_THICK", ICON_MAN_ROT, "Thickness", "Change stroke thickness" },
@@ -4997,88 +4997,9 @@ static void rna_def_modifier_gpencilarray(BlenderRNA *brna)
 	PropertyRNA *prop;
 
 	srna = RNA_def_struct(brna, "GpencilArrayModifier", "Modifier");
-	RNA_def_struct_ui_text(srna, "Array Modifier", "Array of Strokes modifier");
+	RNA_def_struct_ui_text(srna, "Array Modifier", "Create grid of duplicate instances");
 	RNA_def_struct_sdna(srna, "GpencilArrayModifierData");
 	RNA_def_struct_ui_icon(srna, ICON_MOD_ARRAY);
-
-	prop = RNA_def_property(srna, "layer", PROP_STRING, PROP_NONE);
-	RNA_def_property_string_sdna(prop, NULL, "layername");
-	RNA_def_property_ui_text(prop, "Layer", "Layer name");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-	prop = RNA_def_property(srna, "passindex", PROP_INT, PROP_NONE);
-	RNA_def_property_int_sdna(prop, NULL, "passindex");
-	RNA_def_property_range(prop, 0, 100);
-	RNA_def_property_ui_text(prop, "Pass", "Pass index");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-	prop = RNA_def_property(srna, "count", PROP_INT, PROP_NONE);
-	RNA_def_property_range(prop, 1, INT_MAX);
-	RNA_def_property_ui_range(prop, 1, 1000, 1, -1);
-	RNA_def_property_ui_text(prop, "Count", "Number of duplicates to make");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-	/* Offset parameters */
-	prop = RNA_def_property(srna, "constant_offset_displace", PROP_FLOAT, PROP_TRANSLATION);
-	RNA_def_property_float_sdna(prop, NULL, "offset");
-	RNA_def_property_ui_text(prop, "Constant Offset Displacement", "Value for the distance between arrayed items");
-	RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-	prop = RNA_def_property(srna, "rotation", PROP_FLOAT, PROP_EULER);
-	RNA_def_property_float_sdna(prop, NULL, "rot");
-	RNA_def_property_ui_text(prop, "Rotation", "Value for chages in rotation");
-	RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-	prop = RNA_def_property(srna, "scale", PROP_FLOAT, PROP_XYZ);
-	RNA_def_property_float_sdna(prop, NULL, "scale");
-	RNA_def_property_ui_text(prop, "Scale", "Value for changes in scale");
-	RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-	prop = RNA_def_property(srna, "random_rot", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_ARRAY_RANDOM_ROT);
-	RNA_def_property_ui_text(prop, "Random Rotation", "Use random factors for rotation");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-	prop = RNA_def_property(srna, "rot_factor", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_sdna(prop, NULL, "rnd_rot");
-	RNA_def_property_ui_text(prop, "Rotation Factor", "Random factor for rotation");
-	RNA_def_property_range(prop, -10.0, 10.0);
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-	prop = RNA_def_property(srna, "random_scale", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_ARRAY_RANDOM_SIZE);
-	RNA_def_property_ui_text(prop, "Random Scale", "Use random factors for scale");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-	prop = RNA_def_property(srna, "scale_factor", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_sdna(prop, NULL, "rnd_size");
-	RNA_def_property_ui_text(prop, "Scale Factor", "Random factor for scale");
-	RNA_def_property_range(prop, -10.0, 10.0);
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-	prop = RNA_def_property(srna, "inverse_layers", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_ARRAY_INVERSE_LAYER);
-	RNA_def_property_ui_text(prop, "Inverse Layers", "Inverse filter");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-	prop = RNA_def_property(srna, "inverse_pass", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_ARRAY_INVERSE_PASS);
-	RNA_def_property_ui_text(prop, "Inverse Pass", "Inverse filter");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-}
-
-static void rna_def_modifier_gpencildupli(BlenderRNA *brna)
-{
-	StructRNA *srna;
-	PropertyRNA *prop;
-
-	srna = RNA_def_struct(brna, "GpencilDupliModifier", "Modifier");
-	RNA_def_struct_ui_text(srna, "Duplication Modifier", "Create grid of duplicate instances");
-	RNA_def_struct_sdna(srna, "GpencilDupliModifierData");
-	RNA_def_struct_ui_icon(srna, ICON_GROUP_VERTEX);
 
 	prop = RNA_def_property(srna, "count", PROP_INT, PROP_XYZ);
 	RNA_def_property_range(prop, 1, INT_MAX);
@@ -5118,6 +5039,75 @@ static void rna_def_modifier_gpencildupli(BlenderRNA *brna)
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
 	prop = RNA_def_property(srna, "random_rot", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_ARRAY_RANDOM_ROT);
+	RNA_def_property_ui_text(prop, "Random Rotation", "Use random factors for rotation");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "rot_factor", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "rnd_rot");
+	RNA_def_property_ui_text(prop, "Rotation Factor", "Random factor for rotation");
+	RNA_def_property_range(prop, -10.0, 10.0);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "random_scale", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_ARRAY_RANDOM_SIZE);
+	RNA_def_property_ui_text(prop, "Random Scale", "Use random factors for scale");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "scale_factor", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "rnd_size");
+	RNA_def_property_ui_text(prop, "Scale Factor", "Random factor for scale");
+	RNA_def_property_range(prop, -10.0, 10.0);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+}
+
+static void rna_def_modifier_gpencildupli(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+
+	srna = RNA_def_struct(brna, "GpencilDupliModifier", "Modifier");
+	RNA_def_struct_ui_text(srna, "Duplication Modifier", "Create array of duplicate strokes");
+	RNA_def_struct_sdna(srna, "GpencilDupliModifierData");
+	RNA_def_struct_ui_icon(srna, ICON_GROUP_VERTEX);
+
+	prop = RNA_def_property(srna, "layer", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_sdna(prop, NULL, "layername");
+	RNA_def_property_ui_text(prop, "Layer", "Layer name");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "passindex", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "passindex");
+	RNA_def_property_range(prop, 0, 100);
+	RNA_def_property_ui_text(prop, "Pass", "Pass index");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "count", PROP_INT, PROP_NONE);
+	RNA_def_property_range(prop, 1, INT_MAX);
+	RNA_def_property_ui_range(prop, 1, 1000, 1, -1);
+	RNA_def_property_ui_text(prop, "Count", "Number of duplicates to make");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	/* Offset parameters */
+	prop = RNA_def_property(srna, "constant_offset_displace", PROP_FLOAT, PROP_TRANSLATION);
+	RNA_def_property_float_sdna(prop, NULL, "offset");
+	RNA_def_property_ui_text(prop, "Constant Offset Displacement", "Value for the distance between arrayed items");
+	RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "rotation", PROP_FLOAT, PROP_EULER);
+	RNA_def_property_float_sdna(prop, NULL, "rot");
+	RNA_def_property_ui_text(prop, "Rotation", "Value for chages in rotation");
+	RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "scale", PROP_FLOAT, PROP_XYZ);
+	RNA_def_property_float_sdna(prop, NULL, "scale");
+	RNA_def_property_ui_text(prop, "Scale", "Value for changes in scale");
+	RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "random_rot", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_DUPLI_RANDOM_ROT);
 	RNA_def_property_ui_text(prop, "Random Rotation", "Use random factors for rotation");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
@@ -5137,6 +5127,16 @@ static void rna_def_modifier_gpencildupli(BlenderRNA *brna)
 	RNA_def_property_float_sdna(prop, NULL, "rnd_size");
 	RNA_def_property_ui_text(prop, "Scale Factor", "Random factor for scale");
 	RNA_def_property_range(prop, -10.0, 10.0);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_layers", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_DUPLI_INVERSE_LAYER);
+	RNA_def_property_ui_text(prop, "Inverse Layers", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_pass", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_DUPLI_INVERSE_PASS);
+	RNA_def_property_ui_text(prop, "Inverse Pass", "Inverse filter");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 

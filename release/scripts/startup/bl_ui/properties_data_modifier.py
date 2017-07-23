@@ -1614,22 +1614,20 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop(md, "create_colors")
 
     def GP_ARRAY(self, layout, ob, md):
-        gpd = ob.grease_pencil
-        layout.prop(md, "count")
+        split = layout.split()
+        col = split.column()
+        col.prop(md, "count")
 
         split = layout.split()
         col = split.column()
         col.label("Offset:")
-        col.prop(md, "constant_offset_displace", text="")
+        col.prop(md, "offset", text="")
 
         col = split.column()
-        col.label("Layer:")
+        col.label("Shift:")
+        col.prop(md, "shift", text="")
         row = col.row(align=True)
-        row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
-        row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
-        row = col.row(align=True)
-        row.prop(md, "passindex", text="Pass")
-        row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
+        row.prop(md, "lock_axis", expand=True)
 
         row = layout.row()
         split = row.split()
@@ -1650,20 +1648,22 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop(md, "scale_factor", text="")
 
     def GP_DUPLI(self, layout, ob, md):
-        split = layout.split()
-        col = split.column()
-        col.prop(md, "count")
+        gpd = ob.grease_pencil
+        layout.prop(md, "count")
 
         split = layout.split()
         col = split.column()
         col.label("Offset:")
-        col.prop(md, "offset", text="")
+        col.prop(md, "constant_offset_displace", text="")
 
         col = split.column()
-        col.label("Shift:")
-        col.prop(md, "shift", text="")
+        col.label("Layer:")
         row = col.row(align=True)
-        row.prop(md, "lock_axis", expand=True)
+        row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+        row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
+        row = col.row(align=True)
+        row.prop(md, "passindex", text="Pass")
+        row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
 
         row = layout.row()
         split = row.split()

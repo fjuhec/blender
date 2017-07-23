@@ -1688,27 +1688,6 @@ typedef enum eGpencilTint_Flag {
 
 typedef struct GpencilArrayModifierData {
 	ModifierData modifier;
-	char layername[64];          /* layer name */
-	int passindex;               /* custom index for passes */
-	int flag;                    /* several flags */
-	float rnd_size;              /* random size factor */
-	float rnd_rot;               /* random size factor */
-	float offset[3];             /* Location increments */
-	float rot[3];                /* Rotation changes */
-	float scale[3];              /* Scale changes */
-	int count;                   /* number of elements in array */
-	float rnd[20];               /* (first element is the index) random values */
-} GpencilArrayModifierData;
-
-typedef enum eGpencilArray_Flag {
-	GP_ARRAY_RANDOM_SIZE   = (1 << 0),
-	GP_ARRAY_RANDOM_ROT    = (1 << 1),
-	GP_ARRAY_INVERSE_LAYER = (1 << 2),
-	GP_ARRAY_INVERSE_PASS  = (1 << 3),
-} eGpencilArray_Flag;
-
-typedef struct GpencilDupliModifierData {
-	ModifierData modifier;
 	int count[3];                /* number of elements in array */
 	int flag;                    /* several flags */
 	float offset[3];             /* Location increments */
@@ -1721,11 +1700,32 @@ typedef struct GpencilDupliModifierData {
 	int  lock_axis;              /* lock shift to one axis */
 	char pad[4];
 	void *C;                     /* bContext used only for apply */
+} GpencilArrayModifierData;
+
+typedef enum eGpencilArray_Flag {
+	GP_ARRAY_RANDOM_SIZE = (1 << 0),
+	GP_ARRAY_RANDOM_ROT = (1 << 1),
+} eGpencilArray_Flag;
+
+typedef struct GpencilDupliModifierData {
+	ModifierData modifier;
+	char layername[64];          /* layer name */
+	int passindex;               /* custom index for passes */
+	int flag;                    /* several flags */
+	float rnd_size;              /* random size factor */
+	float rnd_rot;               /* random size factor */
+	float offset[3];             /* Location increments */
+	float rot[3];                /* Rotation changes */
+	float scale[3];              /* Scale changes */
+	int count;                   /* number of elements in array */
+	float rnd[20];               /* (first element is the index) random values */
 } GpencilDupliModifierData;
 
 typedef enum eGpencilDupli_Flag {
-	GP_DUPLI_RANDOM_SIZE = (1 << 0),
-	GP_DUPLI_RANDOM_ROT = (1 << 1),
+	GP_DUPLI_RANDOM_SIZE   = (1 << 0),
+	GP_DUPLI_RANDOM_ROT    = (1 << 1),
+	GP_DUPLI_INVERSE_LAYER = (1 << 2),
+	GP_DUPLI_INVERSE_PASS  = (1 << 3),
 } eGpencilDupli_Flag;
 
 #define MOD_MESHSEQ_READ_ALL \

@@ -150,7 +150,7 @@ void ED_gpencil_noise_modifier(int id, struct GpencilNoiseModifierData *mmd, str
 void ED_gpencil_subdiv_modifier(int id, struct GpencilSubdivModifierData *mmd, struct bGPDlayer *gpl, struct bGPDstroke *gps);
 void ED_gpencil_thick_modifier(int id, struct GpencilThickModifierData *mmd, struct bGPDlayer *gpl, struct bGPDstroke *gps);
 void ED_gpencil_tint_modifier(int id, struct GpencilTintModifierData *mmd, struct bGPDlayer *gpl, struct bGPDstroke *gps);
-void ED_gpencil_array_modifier(int id, struct GpencilArrayModifierData *mmd, struct bGPDlayer *gpl, struct bGPDframe *gpf);
-void ED_gpencil_dupli_modifier(int id, struct GpencilDupliModifierData *mmd, struct Object *ob, int elem_idx[3], float r_mat[4][4]);
+void ED_gpencil_array_modifier(int id, struct GpencilArrayModifierData *mmd, struct Object *ob, int elem_idx[3], float r_mat[4][4]);
+void ED_gpencil_dupli_modifier(int id, struct GpencilDupliModifierData *mmd, struct bGPDlayer *gpl, struct bGPDframe *gpf);
 
 #endif /*  __BKE_GPENCIL_H__ */
