@@ -663,7 +663,7 @@ static int modifier_apply_obdata(ReportList *reports, const bContext *C, Scene *
 		/* array modifier need to have bContext */
 		if (md->type = eModifierType_GpencilArray) {
 			GpencilArrayModifierData *mmd = (GpencilArrayModifierData *)md;
-			mmd->C = C;
+			mmd->C = (void *) C;
 		}
 		mti->applyModifier(md, C, ob, NULL, 0);
 		if (ob->gpd) {
