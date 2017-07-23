@@ -96,6 +96,7 @@ void BKE_editstrands_mesh_from_bmesh(struct Object *ob);
 /* === Draw Cache === */
 enum {
 	BKE_STRANDS_BATCH_DIRTY_ALL = 0,
+	BKE_STRANDS_BATCH_DIRTY_SELECT = 1,
 };
 void BKE_editstrands_batch_cache_dirty(struct BMEditStrands *es, int mode);
 void BKE_editstrands_batch_cache_free(struct BMEditStrands *es);

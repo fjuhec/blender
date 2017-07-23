@@ -96,7 +96,9 @@ typedef bool (*PollVertexCb)(void *userdata, struct BMVert *v);
 typedef bool (*DistanceVertexCb)(void *userdata, struct BMVert *v, float *dist);
 typedef void (*ActionVertexCb)(void *userdata, struct BMVert *v, int action);
 
-static int hair_select_verts_filter(BMEditStrands *edit, HairEditSelectMode select_mode, int action, PollVertexCb cb, void *userdata)
+static int hair_select_verts_filter(bContext *C, Object *ob, BMEditStrands *edit,
+                                    HairEditSelectMode select_mode, int action,
+                                    PollVertexCb cb, void *userdata)
 {
 	BMesh *bm = edit->base.bm;
 	
@@ -133,10 +135,15 @@ static int hair_select_verts_filter(BMEditStrands *edit, HairEditSelectMode sele
 	
 	BM_mesh_select_mode_flush(bm);
 	
+	if (tot > 0) {
+		BKE_editstrands_batch_cache_dirty(edit, BKE_STRANDS_BATCH_DIRTY_SELECT);
+		WM_event_add_notifier(C, NC_GEOM | ND_SELECT, ob->data);
+	}
+	
 	return tot;
 }
 
-static bool hair_select_verts_closest(BMEditStrands *edit, HairEditSelectMode select_mode, int action, DistanceVertexCb cb, ActionVertexCb action_cb, void *userdata)
+static bool hair_select_verts_closest(bContext *C, Object *ob, BMEditStrands *edit, HairEditSelectMode select_mode, int action, DistanceVertexCb cb, ActionVertexCb action_cb, void *userdata)
 {
 	BMesh *bm = edit->base.bm;
 	
@@ -182,6 +189,10 @@ static bool hair_select_verts_closest(BMEditStrands *edit, HairEditSelectMode se
 		action_cb(userdata, closest_v, action);
 		
 		BM_mesh_select_mode_flush(bm);
+		
+		BKE_editstrands_batch_cache_dirty(edit, BKE_STRANDS_BATCH_DIRTY_SELECT);
+		WM_event_add_notifier(C, NC_GEOM | ND_SELECT, ob->data);
+		
 		return true;
 	}
 	else
@@ -228,9 +239,7 @@ static int select_all_exec(bContext *C, wmOperator *op)
 			action = SEL_DESELECT;
 	}
 	
-	hair_select_verts_filter(edit, settings->select_mode, action, poll_vertex_all, NULL);
-	
-	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW | NA_SELECTED, ob);
+	hair_select_verts_filter(C, ob, edit, settings->select_mode, action, poll_vertex_all, NULL);
 	
 	return OPERATOR_FINISHED;
 }
@@ -299,9 +308,7 @@ int ED_hair_mouse_select(bContext *C, const int mval[2], bool extend, bool desel
 	else
 		action = SEL_INVERT;
 	
-	hair_select_verts_closest(edit, settings->select_mode, action, distance_vertex_circle, closest_vertex_select, &data);
-	
-	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW | NA_SELECTED, ob);
+	hair_select_verts_closest(C, ob, edit, settings->select_mode, action, distance_vertex_circle, closest_vertex_select, &data);
 	
 	return OPERATOR_FINISHED;
 }
@@ -341,9 +348,7 @@ static int select_linked_exec(bContext *C, wmOperator *op)
 	
 	action = RNA_boolean_get(op->ptr, "deselect") ? SEL_DESELECT : SEL_SELECT;
 	
-	hair_select_verts_closest(edit, settings->select_mode, action, distance_vertex_circle, linked_vertices_select, &data);
-	
-	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW | NA_SELECTED, ob);
+	hair_select_verts_closest(C, ob, edit, settings->select_mode, action, distance_vertex_circle, linked_vertices_select, &data);
 	
 	return OPERATOR_FINISHED;
 }
@@ -411,9 +416,7 @@ int ED_hair_border_select(bContext *C, rcti *rect, bool select, bool extend)
 	else
 		action = SEL_DESELECT;
 	
-	hair_select_verts_filter(edit, settings->select_mode, action, poll_vertex_inside_rect, &data);
-	
-	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW | NA_SELECTED, ob);
+	hair_select_verts_filter(C, ob, edit, settings->select_mode, action, poll_vertex_inside_rect, &data);
 	
 	return OPERATOR_FINISHED;
 }
@@ -453,7 +456,7 @@ int ED_hair_circle_select(bContext *C, bool select, const int mval[2], float rad
 	data.mval[1] = mval[1];
 	data.radsq = radius * radius;
 	
-	tot = hair_select_verts_filter(edit, settings->select_mode, action, poll_vertex_inside_circle, &data);
+	tot = hair_select_verts_filter(C, ob, edit, settings->select_mode, action, poll_vertex_inside_circle, &data);
 	
 	return tot;
 }
@@ -497,9 +500,7 @@ int ED_hair_lasso_select(bContext *C, const int mcoords[][2], const short moves,
 	else
 		action = SEL_DESELECT;
 	
-	hair_select_verts_filter(edit, settings->select_mode, action, poll_vertex_inside_lasso, &data);
-	
-	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW | NA_SELECTED, ob);
+	hair_select_verts_filter(C, ob, edit, settings->select_mode, action, poll_vertex_inside_lasso, &data);
 	
 	return OPERATOR_FINISHED;
 }

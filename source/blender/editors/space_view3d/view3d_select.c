@@ -2874,7 +2874,6 @@ static int view3d_circle_select_exec(bContext *C, wmOperator *op)
 		}
 		else if (obact->mode & OB_MODE_HAIR_EDIT) {
 			ED_hair_circle_select(C, select, mval, (float)radius);
-			WM_event_add_notifier(C, NC_GEOM | ND_SELECT, obact->data);
 		}
 		else {
 			return PE_circle_select(C, select, mval, (float)radius);

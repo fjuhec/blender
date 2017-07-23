@@ -46,7 +46,7 @@
 
 typedef enum VertexDrawFlags
 {
-	STRANDS_VERTEX_SELECT = 1,
+	STRANDS_VERTEX_SELECT = (1 << 0),
 } VertexDrawFlags;
 
 typedef struct StrandsBatchCache {
@@ -120,6 +120,7 @@ void DRW_editstrands_batch_cache_dirty(BMEditStrands *es, int mode)
 	}
 	switch (mode) {
 		case BKE_STRANDS_BATCH_DIRTY_ALL:
+		case BKE_STRANDS_BATCH_DIRTY_SELECT:
 			cache->is_dirty = true;
 			break;
 		default:
@@ -163,7 +164,7 @@ static void editstrands_batch_cache_ensure_pos(BMEditStrands *es, StrandsBatchCa
 	/* initialize vertex format */
 	if (format.attrib_ct == 0) {
 		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
-		flag_id = GWN_vertformat_attr_add(&format, "flags", GWN_COMP_U8, 1, GWN_FETCH_INT);
+		flag_id = GWN_vertformat_attr_add(&format, "flag", GWN_COMP_U8, 1, GWN_FETCH_INT);
 	}
 	
 	BMesh *bm = es->base.bm;

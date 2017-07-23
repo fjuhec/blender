@@ -39,6 +39,10 @@
 
 extern GlobalsUboStorage ts;
 
+extern char datatoc_edit_strands_vert_glsl[];
+extern char datatoc_gpu_shader_point_varying_color_frag_glsl[];
+extern char datatoc_gpu_shader_3D_smooth_color_frag_glsl[];
+
 /* *********** LISTS *********** */
 /* All lists are per viewport specific datas.
  * They are all free when viewport changes engines
@@ -78,6 +82,15 @@ typedef struct EDIT_STRANDS_Data {
 
 /* *********** STATIC *********** */
 
+static struct {
+	/* Custom shaders :
+	 * Add sources to source/blender/draw/modes/shaders
+	 * init in EDIT_STRANDS_engine_init();
+	 * free in EDIT_STRANDS_engine_free(); */
+	struct GPUShader *edit_point_shader;
+	struct GPUShader *edit_wire_shader;
+} e_data = {NULL}; /* Engine data */
+
 typedef struct EDIT_STRANDS_PrivateData {
 	/* resulting curve as 'wire' for fast editmode drawing */
 	DRWShadingGroup *wires_shgrp;
@@ -87,6 +100,56 @@ typedef struct EDIT_STRANDS_PrivateData {
 } EDIT_STRANDS_PrivateData; /* Transient data */
 
 /* *********** FUNCTIONS *********** */
+
+/* Init Textures, Framebuffers, Storage and Shaders.
+ * It is called for every frames.
+ * (Optional) */
+static void EDIT_STRANDS_engine_init(void *vedata)
+{
+	EDIT_STRANDS_StorageList *stl = ((EDIT_STRANDS_Data *)vedata)->stl;
+
+	UNUSED_VARS(stl);
+
+	/* Init Framebuffers like this: order is attachment order (for color texs) */
+	/*
+	 * DRWFboTexture tex[2] = {{&txl->depth, DRW_TEX_DEPTH_24, 0},
+	 *                         {&txl->color, DRW_TEX_RGBA_8, DRW_TEX_FILTER}};
+	 */
+
+	/* DRW_framebuffer_init takes care of checking if
+	 * the framebuffer is valid and has the right size*/
+	/*
+	 * float *viewport_size = DRW_viewport_size_get();
+	 * DRW_framebuffer_init(&fbl->occlude_wire_fb,
+	 *                     (int)viewport_size[0], (int)viewport_size[1],
+	 *                     tex, 2);
+	 */
+
+	if (!e_data.edit_point_shader) {
+		e_data.edit_point_shader = DRW_shader_create(
+		                               datatoc_edit_strands_vert_glsl,
+		                               NULL,
+		                               datatoc_gpu_shader_point_varying_color_frag_glsl,
+		                               NULL);
+	}
+
+	if (!e_data.edit_wire_shader) {
+		e_data.edit_wire_shader = DRW_shader_create(
+		                              datatoc_edit_strands_vert_glsl,
+		                              NULL,
+		                              datatoc_gpu_shader_3D_smooth_color_frag_glsl,
+		                              NULL);
+	}
+}
+
+/* Cleanup when destroying the engine.
+ * This is not per viewport ! only when quitting blender.
+ * Mostly used for freeing shaders */
+static void EDIT_STRANDS_engine_free(void)
+{
+	DRW_SHADER_FREE_SAFE(e_data.edit_point_shader);
+	DRW_SHADER_FREE_SAFE(e_data.edit_wire_shader);
+}
 
 /* Here init all passes and shading groups
  * Assume that all Passes are NULL */
@@ -100,16 +163,14 @@ static void EDIT_STRANDS_cache_init(void *vedata)
 		stl->g_data = MEM_mallocN(sizeof(*stl->g_data), __func__);
 	}
 
-	GPUShader *point_shader = GPU_shader_get_builtin_shader(GPU_SHADER_3D_POINT_UNIFORM_SIZE_UNIFORM_COLOR_AA);
-	GPUShader *wire_shader = GPU_shader_get_builtin_shader(GPU_SHADER_3D_UNIFORM_COLOR);
-
 	{
 		/* Strand wires */
 		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS | DRW_STATE_BLEND;
 		psl->wires = DRW_pass_create("Strand Wire Verts Pass", state);
 		
-		stl->g_data->wires_shgrp = DRW_shgroup_create(wire_shader, psl->wires);
+		stl->g_data->wires_shgrp = DRW_shgroup_create(e_data.edit_wire_shader, psl->wires);
 		DRW_shgroup_uniform_vec4(stl->g_data->wires_shgrp, "color", ts.colorWireEdit, 1);
+		DRW_shgroup_uniform_vec4(stl->g_data->wires_shgrp, "colorSelect", ts.colorEdgeSelect, 1);
 	}
 
 	{
@@ -117,9 +178,10 @@ static void EDIT_STRANDS_cache_init(void *vedata)
 		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS | DRW_STATE_BLEND;
 		psl->tips = DRW_pass_create("Strand Tip Verts Pass", state);
 		
-		stl->g_data->tips_shgrp = DRW_shgroup_create(point_shader, psl->tips);
+		stl->g_data->tips_shgrp = DRW_shgroup_create(e_data.edit_point_shader, psl->tips);
 		DRW_shgroup_uniform_vec4(stl->g_data->tips_shgrp, "color", ts.colorVertex, 1);
-		DRW_shgroup_uniform_float(stl->g_data->tips_shgrp, "size", &ts.sizeVertex, 1);
+		DRW_shgroup_uniform_vec4(stl->g_data->tips_shgrp, "colorSelect", ts.colorVertexSelect, 1);
+		DRW_shgroup_uniform_float(stl->g_data->tips_shgrp, "sizeVertex", &ts.sizeVertex, 1);
 	}
 
 	{
@@ -127,9 +189,10 @@ static void EDIT_STRANDS_cache_init(void *vedata)
 		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS | DRW_STATE_BLEND;
 		psl->roots = DRW_pass_create("Strand Root Verts Pass", state);
 		
-		stl->g_data->roots_shgrp = DRW_shgroup_create(point_shader, psl->roots);
+		stl->g_data->roots_shgrp = DRW_shgroup_create(e_data.edit_point_shader, psl->roots);
 		DRW_shgroup_uniform_vec4(stl->g_data->roots_shgrp, "color", ts.colorVertex, 1);
-		DRW_shgroup_uniform_float(stl->g_data->roots_shgrp, "size", &ts.sizeVertex, 1);
+		DRW_shgroup_uniform_vec4(stl->g_data->roots_shgrp, "colorSelect", ts.colorVertexSelect, 1);
+		DRW_shgroup_uniform_float(stl->g_data->roots_shgrp, "sizeVertex", &ts.sizeVertex, 1);
 	}
 
 	{
@@ -137,9 +200,10 @@ static void EDIT_STRANDS_cache_init(void *vedata)
 		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS | DRW_STATE_BLEND;
 		psl->points = DRW_pass_create("Strand Interior Verts Pass", state);
 		
-		stl->g_data->points_shgrp = DRW_shgroup_create(point_shader, psl->points);
+		stl->g_data->points_shgrp = DRW_shgroup_create(e_data.edit_point_shader, psl->points);
 		DRW_shgroup_uniform_vec4(stl->g_data->points_shgrp, "color", ts.colorVertex, 1);
-		DRW_shgroup_uniform_float(stl->g_data->points_shgrp, "size", &ts.sizeVertex, 1);
+		DRW_shgroup_uniform_vec4(stl->g_data->points_shgrp, "colorSelect", ts.colorVertexSelect, 1);
+		DRW_shgroup_uniform_float(stl->g_data->points_shgrp, "sizeVertex", &ts.sizeVertex, 1);
 	}
 }
 
@@ -233,8 +297,8 @@ DrawEngineType draw_engine_edit_strands_type = {
 	NULL, NULL,
 	N_("EditStrandsMode"),
 	&STRANDS_data_size,
-	NULL,
-	NULL,
+	EDIT_STRANDS_engine_init,
+	EDIT_STRANDS_engine_free,
 	&EDIT_STRANDS_cache_init,
 	&EDIT_STRANDS_cache_populate,
 	&EDIT_STRANDS_cache_finish,
