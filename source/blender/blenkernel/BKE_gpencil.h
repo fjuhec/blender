@@ -139,6 +139,7 @@ void BKE_gpencil_palettecolor_delete_allstrokes(struct bContext *C, struct Palet
 
 /* object boundbox */
 struct BoundBox *BKE_gpencil_boundbox_get(struct Object *ob);
+void BKE_gpencil_centroid_3D(struct bGPdata *gpd, float r_centroid[3]);
 
 /* modifiers */
 void ED_gpencil_reset_modifiers(struct Object *ob);

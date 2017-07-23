@@ -1013,52 +1013,63 @@ static int object_origin_set_exec(bContext *C, wmOperator *op)
 			}
 			else if (ob->type == OB_GPENCIL) {
 				bGPdata *gpd = ob->gpd;
+				float gpcenter[3];
+				if (gpd) {
+					if (centermode == ORIGIN_TO_GEOMETRY) {
+						zero_v3(gpcenter);
+						BKE_gpencil_centroid_3D(gpd, gpcenter);
+						add_v3_v3(gpcenter, ob->obmat[3]);
+					}
+					if (centermode == ORIGIN_TO_CURSOR) {
+						copy_v3_v3(gpcenter, cursor);
+					}
+					if ((centermode == ORIGIN_TO_GEOMETRY) || (centermode == ORIGIN_TO_CURSOR)) {
+						bGPDspoint *pt;
+						float imat[3][3], bmat[3][3];
+						float offset_global[3];
+						float offset_local[3];
+						int i;
 
-				if ((gpd) && (centermode == ORIGIN_TO_CURSOR)) {
-					bGPDspoint *pt;
-					float imat[3][3], bmat[3][3];
-					float offset_global[3];
-					float offset_local[3];
-					int i;
+						sub_v3_v3v3(offset_global, gpcenter, ob->obmat[3]);
+						copy_m3_m4(bmat, obact->obmat);
+						invert_m3_m3(imat, bmat);
+						mul_m3_v3(imat, offset_global);
+						mul_v3_m3v3(offset_local, imat, offset_global);
 
-					sub_v3_v3v3(offset_global, cursor, ob->obmat[3]);
-					copy_m3_m4(bmat, obact->obmat);
-					invert_m3_m3(imat, bmat);
-					mul_m3_v3(imat, offset_global);
-					mul_v3_m3v3(offset_local, imat, offset_global);
+						float diff_mat[4][4];
+						float inverse_diff_mat[4][4];
 
-					float diff_mat[4][4];
-					float inverse_diff_mat[4][4];
+						/* recalculate all strokes (all layers are considered without evaluating lock attributtes) */
+						for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+							/* calculate difference matrix */
+							ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);
+							/* undo matrix */
+							invert_m4_m4(inverse_diff_mat, diff_mat);
+							for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+								for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+									/* skip strokes that are invalid for current view */
+									if (ED_gpencil_stroke_can_use(C, gps) == false)
+										continue;
 
-					/* recalculate all strokes (all layers are considered without evaluating lock attributtes) */
-					for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
-						/* calculate difference matrix */
-						ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);
-						/* undo matrix */
-						invert_m4_m4(inverse_diff_mat, diff_mat);
-						for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
-							for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-								/* skip strokes that are invalid for current view */
-								if (ED_gpencil_stroke_can_use(C, gps) == false)
-									continue;
-
-								for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
-									float mpt[3];
-									mul_v3_m4v3(mpt, inverse_diff_mat, &pt->x);
-									sub_v3_v3(mpt, offset_local);
-									mul_v3_m4v3(&pt->x, diff_mat, mpt);
+									for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+										float mpt[3];
+										mul_v3_m4v3(mpt, inverse_diff_mat, &pt->x);
+										sub_v3_v3(mpt, offset_local);
+										mul_v3_m4v3(&pt->x, diff_mat, mpt);
+									}
 								}
 							}
 						}
-					}
-					BKE_gpencil_batch_cache_dirty(gpd);
+						BKE_gpencil_batch_cache_dirty(gpd);
 
-					tot_change++;
-					ob->id.tag |= LIB_TAG_DOIT;
-					do_inverse_offset = true;
-				}
-				else {
-					BKE_report(op->reports, RPT_WARNING, "Grease Pencil Object does not support this set origin option");
+						tot_change++;
+						copy_v3_v3(ob->loc, gpcenter);
+						ob->id.tag |= LIB_TAG_DOIT;
+						do_inverse_offset = true;
+					}
+					else {
+						BKE_report(op->reports, RPT_WARNING, "Grease Pencil Object does not support this set origin option");
+					}
 				}
 			}
 

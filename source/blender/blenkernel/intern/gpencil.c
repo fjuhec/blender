@@ -1563,6 +1563,7 @@ void static gpencil_minmax(bGPdata *gpd, float min[3], float max[3])
 	int i;
 	bGPDspoint *pt;
 	bGPDframe *gpf;
+	INIT_MINMAX(min, max);
 
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		gpf= gpl->actframe;
@@ -1575,6 +1576,14 @@ void static gpencil_minmax(bGPdata *gpd, float min[3], float max[3])
 			}
 		}
 	}
+}
+
+void BKE_gpencil_centroid_3D(bGPdata *gpd, float r_centroid[3])
+{
+	float min[3], max[3], tot[3];
+	gpencil_minmax(gpd, min, max);
+	add_v3_v3v3(tot, min, max);
+	mul_v3_v3fl(r_centroid, tot, 0.5f);
 }
 
 /* create bounding box values */
