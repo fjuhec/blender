@@ -35,7 +35,6 @@
 #include "DNA_gpencil_types.h"
 
 #include "BLI_utildefines.h"
-#include "BLI_ghash.h"
 
 #include "BKE_global.h"
 #include "BKE_DerivedMesh.h"
@@ -49,10 +48,8 @@ static void initData(ModifierData *md)
 {
 	GpencilOpacityModifierData *gpmd = (GpencilOpacityModifierData *)md;
 	gpmd->passindex = 0;
-	gpmd->factor = 1;
-	gpmd->size = 1.0f;
+	gpmd->factor = 1.0f;
 	gpmd->layername[0] = '\0';
-	gpmd->target = NULL;
 
 	BKE_gpencil_batch_cache_alldirty();
 }
@@ -71,64 +68,18 @@ static DerivedMesh *applyModifier(ModifierData *md, struct EvaluationContext *UN
 {
 	GpencilOpacityModifierData *mmd = (GpencilOpacityModifierData *)md;
 	bGPdata *gpd;
-	Palette *newpalette = NULL;
+
 	if ((!ob) || (!ob->gpd)) {
 		return NULL;
 	}
 	gpd = ob->gpd;
-	GHash *gh_layer = BLI_ghash_str_new("GP_Opacity Layer modifier");
-	GHash *gh_color;
-
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-				/* create a new set of colors */
-				if (mmd->flag & GP_TINT_CREATE_COLORS) {
-					
-					/* look for palette */
-					gh_color = (GHash *)BLI_ghash_lookup(gh_layer, gps->palette->id.name);
-					if (gh_color == NULL) {
-						gh_color = BLI_ghash_str_new("GP_Opacity Color modifier");
-						BLI_ghash_insert(gh_layer, gps->palette->id.name, gh_color);
-					}
-
-					/* look for color */
-					PaletteColor *newpalcolor = (PaletteColor *) BLI_ghash_lookup(gh_color, gps->palcolor->info);
-					if (newpalcolor == NULL) {
-						if (!newpalette) {
-							newpalette = BKE_palette_add(G.main, "Palette");
-						}
-						newpalcolor = BKE_palette_color_copy(newpalette, gps->palcolor);
-						BLI_ghash_insert(gh_color, gps->palcolor->info, newpalcolor);
-					}
-
-					if (newpalcolor) {
-						BLI_strncpy(gps->colorname, newpalcolor->info, sizeof(gps->colorname));
-						gps->palcolor = newpalcolor;
-					}
-				}
-
 				ED_gpencil_opacity_modifier(-1, (GpencilOpacityModifierData *)md, gpl, gps);
 			}
 		}
 	}
-	/* free hash buffers */
-	GHashIterator *ihash = BLI_ghashIterator_new(gh_layer);
-	while (!BLI_ghashIterator_done(ihash)) {
-		GHash *gh = BLI_ghashIterator_getValue(ihash);
-		if (gh) {
-			BLI_ghash_free(gh, NULL, NULL);
-			gh = NULL;
-		}
-		BLI_ghashIterator_step(ihash);
-	}
-	BLI_ghashIterator_free(ihash);
-
-	if (gh_layer) {
-		BLI_ghash_free(gh_layer, NULL, NULL);
-		gh_layer = NULL;
-	}
-
 	return NULL;
 }
 

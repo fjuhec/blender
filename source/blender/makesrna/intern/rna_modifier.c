@@ -5012,30 +5012,13 @@ static void rna_def_modifier_gpencilopacity(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "factor", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_float_sdna(prop, NULL, "factor");
 	RNA_def_property_range(prop, 0, 1.0);
-	RNA_def_property_ui_text(prop, "Factor", "Factor for mixing color");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-	prop = RNA_def_property(srna, "falloff", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_sdna(prop, NULL, "falloff");
-	RNA_def_property_range(prop, 0, 1.0);
-	RNA_def_property_ui_text(prop, "Falloff", "Factor for gradient");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-	prop = RNA_def_property(srna, "size", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_sdna(prop, NULL, "size");
-	RNA_def_property_range(prop, 0, FLT_MAX);
-	RNA_def_property_ui_text(prop, "Size", "Size of view area");
+	RNA_def_property_ui_text(prop, "Factor", "Factor of opacity");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
 	prop = RNA_def_property(srna, "passindex", PROP_INT, PROP_NONE);
 	RNA_def_property_int_sdna(prop, NULL, "passindex");
 	RNA_def_property_range(prop, 0, 100);
 	RNA_def_property_ui_text(prop, "Pass", "Pass index");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-	prop = RNA_def_property(srna, "box_mode", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_OPACITY_BOX_MODE);
-	RNA_def_property_ui_text(prop, "Box", "Use rectangle shape for view area");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
 	prop = RNA_def_property(srna, "inverse_layers", PROP_BOOLEAN, PROP_NONE);
@@ -5047,14 +5030,6 @@ static void rna_def_modifier_gpencilopacity(BlenderRNA *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_OPACITY_INVERSE_PASS);
 	RNA_def_property_ui_text(prop, "Inverse Pass", "Inverse filter");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-	prop = RNA_def_property(srna, "target", PROP_POINTER, PROP_NONE);
-	RNA_def_property_pointer_sdna(prop, NULL, "target");
-	RNA_def_property_ui_text(prop, "Target", "Target object");
-	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_SELF_CHECK);
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-	//RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
-
 }
 
 static void rna_def_modifier_gpencilarray(BlenderRNA *brna)

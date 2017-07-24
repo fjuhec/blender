@@ -1615,21 +1615,11 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
 
     def GP_OPACITY(self, layout, ob, md):
         gpd = ob.grease_pencil
-        row = layout.row()
-        row.prop(md, "factor")
-
         split = layout.split()
+
         col = split.column()
-        col.label("Target:")
-        col.prop(md, "target", text="")
-        is_obj = md.target is not None
-        row = col.row()
-        row.enabled = is_obj
-        row.prop(md, "size")
-        row = col.row()
-        row.enabled = is_obj
-        row.prop(md, "falloff")
-        row.prop(md, "box_mode")
+        col.label("Opacity:")
+        col.prop(md, "factor")
 
         col = split.column()
         col.label("Layer:")

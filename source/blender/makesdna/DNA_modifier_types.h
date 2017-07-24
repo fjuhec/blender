@@ -1689,20 +1689,16 @@ typedef enum eGpencilTint_Flag {
 
 typedef struct GpencilOpacityModifierData {
 	ModifierData modifier;
-	struct Object *target;       /* target */
 	char layername[64];          /* layer name */
 	int passindex;               /* custom index for passes */
 	int flag;                    /* flags */
 	float factor;                /* Main Opacity factor */
-	float size;                  /* radius of focal area */
-	float falloff;               /* decay of opacity factor */
 	char pad[4];
 } GpencilOpacityModifierData;
 
 typedef enum eGpencilOpacity_Flag {
 	GP_OPACITY_INVERSE_LAYER  = (1 << 0),
 	GP_OPACITY_INVERSE_PASS   = (1 << 1),
-	GP_OPACITY_BOX_MODE       = (1 << 2),
 } eGpencilOpacity_Flag;
 
 typedef struct GpencilArrayModifierData {
