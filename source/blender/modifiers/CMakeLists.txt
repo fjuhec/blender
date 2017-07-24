@@ -117,6 +117,7 @@ set(SRC
 	intern/MOD_gpencilsubdiv.c
 	intern/MOD_gpencilthick.c
 	intern/MOD_gpenciltint.c
+	intern/MOD_gpencilcolor.c
 	intern/MOD_gpencilarray.c
 	intern/MOD_gpencildupli.c
 	intern/MOD_gpencilopacity.c

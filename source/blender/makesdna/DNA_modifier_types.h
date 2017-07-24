@@ -94,6 +94,7 @@ typedef enum ModifierType {
 	eModifierType_GpencilArray      = 58,
 	eModifierType_GpencilDupli      = 59,
 	eModifierType_GpencilOpacity    = 60,
+	eModifierType_GpencilColor      = 61,
 	NUM_MODIFIER_TYPES
 } ModifierType;
 
@@ -1686,6 +1687,21 @@ typedef enum eGpencilTint_Flag {
 	GP_TINT_INVERSE_LAYER = (1 << 1),
 	GP_TINT_INVERSE_PASS  = (1 << 2),
 } eGpencilTint_Flag;
+
+typedef struct GpencilColorModifierData {
+	ModifierData modifier;
+	char layername[64];          /* layer name */
+	int passindex;               /* custom index for passes */
+	int flag;                    /* flags */
+	float hsv[3];                /* hsv factors */
+	char pad[4];
+} GpencilColorModifierData;
+
+typedef enum eGpencilColor_Flag {
+	GP_COLOR_CREATE_COLORS = (1 << 0),
+	GP_COLOR_INVERSE_LAYER = (1 << 1),
+	GP_COLOR_INVERSE_PASS = (1 << 2),
+} eGpencilColor_Flag;
 
 typedef struct GpencilOpacityModifierData {
 	ModifierData modifier;

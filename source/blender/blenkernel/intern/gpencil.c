@@ -39,6 +39,7 @@
 #include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
 #include "BLI_math_vector.h"
+#include "BLI_math_color.h"
 #include "BLI_string_utils.h"
 #include "BLI_rand.h"
 
@@ -1916,6 +1917,27 @@ void ED_gpencil_tint_modifier(int UNUSED(id), GpencilTintModifierData *mmd, bGPD
 	CLAMP3(gps->palcolor->fill, 0.0f, 1.0f);
 }
 
+/* color correction strokes */
+void ED_gpencil_color_modifier(int UNUSED(id), GpencilColorModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
+{
+	float hsv[3];
+	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
+		(int)mmd->flag & GP_COLOR_INVERSE_LAYER, (int)mmd->flag & GP_COLOR_INVERSE_PASS)) {
+		return;
+	}
+
+	rgb_to_hsv_v(gps->palcolor->rgb, hsv);
+	add_v3_v3(hsv, mmd->hsv);
+	hsv_to_rgb_v(hsv, gps->palcolor->rgb);
+
+	rgb_to_hsv_v(gps->palcolor->fill, hsv);
+	add_v3_v3(hsv, mmd->hsv);
+	hsv_to_rgb_v(hsv, gps->palcolor->fill);
+
+	CLAMP3(gps->palcolor->rgb, 0.0f, 1.0f);
+	CLAMP3(gps->palcolor->fill, 0.0f, 1.0f);
+}
+
 /* opacity strokes */
 void ED_gpencil_opacity_modifier(int UNUSED(id), GpencilOpacityModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
 {
@@ -1935,7 +1957,7 @@ void ED_gpencil_opacity_modifier(int UNUSED(id), GpencilOpacityModifierData *mmd
 	/* if opacity > 1.0, affect the strength of the stroke */
 	if (mmd->factor > 1.0f) {
 		for (int i = 0; i < gps->totpoints; ++i) {
-			bGPDspoint *pt = &gps->points[i];
+			pt = &gps->points[i];
 			pt->strength += (mmd->factor - 1.0f);
 			CLAMP(pt->strength, 0.0f, 1.0f);
 		}
@@ -2139,9 +2161,13 @@ void ED_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *gpf, bGP
 			case eModifierType_GpencilTint:
 				ED_gpencil_tint_modifier(id, (GpencilTintModifierData *)md, gpl, gps);
 				break;
-				// Tint
+				// Opacity
 			case eModifierType_GpencilOpacity:
 				ED_gpencil_opacity_modifier(id, (GpencilOpacityModifierData *)md, gpl, gps);
+				break;
+				// Color Correction
+			case eModifierType_GpencilColor:
+				ED_gpencil_color_modifier(id, (GpencilColorModifierData *)md, gpl, gps);
 				break;
 			}
 		}

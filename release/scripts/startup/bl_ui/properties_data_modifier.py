@@ -1613,6 +1613,28 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row = layout.row()
         row.prop(md, "create_colors")
 
+    def GP_COLOR(self, layout, ob, md):
+        gpd = ob.grease_pencil
+        split = layout.split()
+
+        col = split.column()
+        col.label("Color:")
+        col.prop(md, "hue", text="H")
+        col.prop(md, "saturation", text="S")
+        col.prop(md, "value", text="V")
+
+        col = split.column()
+        col.label("Layer:")
+        row = col.row(align=True)
+        row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+        row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
+        row = col.row(align=True)
+        row.prop(md, "passindex", text="Pass")
+        row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
+
+        row = layout.row()
+        row.prop(md, "create_colors")
+
     def GP_OPACITY(self, layout, ob, md):
         gpd = ob.grease_pencil
         split = layout.split()

@@ -47,6 +47,7 @@ struct GpencilNoiseModifierData;
 struct GpencilSubdivModifierData;
 struct GpencilThickModifierData;
 struct GpencilTintModifierData;
+struct GpencilColorModifierData;
 struct GpencilArrayModifierData;
 struct GpencilDupliModifierData;
 struct GpencilOpacityModifierData;
@@ -153,6 +154,7 @@ void ED_gpencil_noise_modifier(int id, struct GpencilNoiseModifierData *mmd, str
 void ED_gpencil_subdiv_modifier(int id, struct GpencilSubdivModifierData *mmd, struct bGPDlayer *gpl, struct bGPDstroke *gps);
 void ED_gpencil_thick_modifier(int id, struct GpencilThickModifierData *mmd, struct bGPDlayer *gpl, struct bGPDstroke *gps);
 void ED_gpencil_tint_modifier(int id, struct GpencilTintModifierData *mmd, struct bGPDlayer *gpl, struct bGPDstroke *gps);
+void ED_gpencil_color_modifier(int id, struct GpencilColorModifierData *mmd, struct bGPDlayer *gpl, struct bGPDstroke *gps);
 void ED_gpencil_array_modifier(int id, struct GpencilArrayModifierData *mmd, struct Object *ob, int elem_idx[3], float r_mat[4][4]);
 void ED_gpencil_dupli_modifier(int id, struct GpencilDupliModifierData *mmd, struct bGPDlayer *gpl, struct bGPDframe *gpf);
 void ED_gpencil_opacity_modifier(int id, struct GpencilOpacityModifierData *mmd, struct bGPDlayer *gpl, struct bGPDstroke *gps);

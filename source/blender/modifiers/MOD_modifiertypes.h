@@ -91,6 +91,7 @@ extern ModifierTypeInfo modifierType_GpencilNoise;
 extern ModifierTypeInfo modifierType_GpencilSubdiv;
 extern ModifierTypeInfo modifierType_GpencilThick;
 extern ModifierTypeInfo modifierType_GpencilTint;
+extern ModifierTypeInfo modifierType_GpencilColor;
 extern ModifierTypeInfo modifierType_GpencilArray;
 extern ModifierTypeInfo modifierType_GpencilDupli;
 extern ModifierTypeInfo modifierType_GpencilOpacity;
