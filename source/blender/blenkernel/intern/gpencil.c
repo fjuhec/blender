@@ -1912,6 +1912,19 @@ void ED_gpencil_tint_modifier(int UNUSED(id), GpencilTintModifierData *mmd, bGPD
 	interp_v3_v3v3(gps->palcolor->fill, gps->palcolor->fill, mmd->rgb, mmd->factor);
 }
 
+/* opacity strokes */
+void ED_gpencil_opacity_modifier(int UNUSED(id), GpencilOpacityModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
+{
+	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
+		(int)mmd->flag & GP_OPACITY_INVERSE_LAYER, (int)mmd->flag & GP_OPACITY_INVERSE_PASS)) {
+		return;
+	}
+
+	gps->palcolor->rgb[3] = gps->palcolor->rgb[3] * mmd->factor;
+	gps->palcolor->fill[3] = gps->palcolor->fill[3] * mmd->factor;
+
+}
+
 /* helper function to sort strokes using qsort */
 static int gpencil_stroke_cache_compare(const void *a1, const void *a2)
 {
@@ -2108,6 +2121,10 @@ void ED_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *gpf, bGP
 				// Tint
 			case eModifierType_GpencilTint:
 				ED_gpencil_tint_modifier(id, (GpencilTintModifierData *)md, gpl, gps);
+				break;
+				// Tint
+			case eModifierType_GpencilOpacity:
+				ED_gpencil_opacity_modifier(id, (GpencilOpacityModifierData *)md, gpl, gps);
 				break;
 			}
 		}

@@ -1613,6 +1613,33 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row = layout.row()
         row.prop(md, "create_colors")
 
+    def GP_OPACITY(self, layout, ob, md):
+        gpd = ob.grease_pencil
+        row = layout.row()
+        row.prop(md, "factor")
+
+        split = layout.split()
+        col = split.column()
+        col.label("Target:")
+        col.prop(md, "target", text="")
+        is_obj = md.target is not None
+        row = col.row()
+        row.enabled = is_obj
+        row.prop(md, "size")
+        row = col.row()
+        row.enabled = is_obj
+        row.prop(md, "falloff")
+        row.prop(md, "box_mode")
+
+        col = split.column()
+        col.label("Layer:")
+        row = col.row(align=True)
+        row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+        row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
+        row = col.row(align=True)
+        row.prop(md, "passindex", text="Pass")
+        row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
+
     def GP_ARRAY(self, layout, ob, md):
         split = layout.split()
         col = split.column()

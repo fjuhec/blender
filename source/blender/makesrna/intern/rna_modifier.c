@@ -127,6 +127,7 @@ EnumPropertyItem rna_enum_object_modifier_type_items[] = {
 	{eModifierType_GpencilSubdiv, "GP_SUBDIV", ICON_MOD_SUBSURF, "Subdivide", "Subdivide stroke adding more control points to strokes" },
 	{eModifierType_GpencilThick, "GP_THICK", ICON_MAN_ROT, "Thickness", "Change stroke thickness" },
 	{eModifierType_GpencilTint, "GP_TINT", ICON_COLOR, "Tint", "Tint strokes with new color" },
+	{eModifierType_GpencilOpacity, "GP_OPACITY", ICON_MOD_MASK, "Opacity", "Opacity of the strokes" },
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -440,6 +441,8 @@ static StructRNA *rna_Modifier_refine(struct PointerRNA *ptr)
 			return &RNA_GpencilArrayModifier;
 		case eModifierType_GpencilDupli:
 			return &RNA_GpencilDupliModifier;
+		case eModifierType_GpencilOpacity:
+			return &RNA_GpencilOpacityModifier;
 			/* Default */
 		case eModifierType_None:
 		case eModifierType_ShapeKey:
@@ -4991,6 +4994,69 @@ static void rna_def_modifier_gpenciltint(BlenderRNA *brna)
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
+static void rna_def_modifier_gpencilopacity(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+
+	srna = RNA_def_struct(brna, "GpencilOpacityModifier", "Modifier");
+	RNA_def_struct_ui_text(srna, "Opacity Modifier", "Opacity of Strokes modifier");
+	RNA_def_struct_sdna(srna, "GpencilOpacityModifierData");
+	RNA_def_struct_ui_icon(srna, ICON_MOD_MASK);
+
+	prop = RNA_def_property(srna, "layer", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_sdna(prop, NULL, "layername");
+	RNA_def_property_ui_text(prop, "Layer", "Layer name");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "factor", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "factor");
+	RNA_def_property_range(prop, 0, 1.0);
+	RNA_def_property_ui_text(prop, "Factor", "Factor for mixing color");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "falloff", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "falloff");
+	RNA_def_property_range(prop, 0, 1.0);
+	RNA_def_property_ui_text(prop, "Falloff", "Factor for gradient");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "size", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "size");
+	RNA_def_property_range(prop, 0, FLT_MAX);
+	RNA_def_property_ui_text(prop, "Size", "Size of view area");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "passindex", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "passindex");
+	RNA_def_property_range(prop, 0, 100);
+	RNA_def_property_ui_text(prop, "Pass", "Pass index");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "box_mode", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_OPACITY_BOX_MODE);
+	RNA_def_property_ui_text(prop, "Box", "Use rectangle shape for view area");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_layers", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_OPACITY_INVERSE_LAYER);
+	RNA_def_property_ui_text(prop, "Inverse Layers", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_pass", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_OPACITY_INVERSE_PASS);
+	RNA_def_property_ui_text(prop, "Inverse Pass", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "target", PROP_POINTER, PROP_NONE);
+	RNA_def_property_pointer_sdna(prop, NULL, "target");
+	RNA_def_property_ui_text(prop, "Target", "Target object");
+	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_SELF_CHECK);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+	//RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
+
+}
+
 static void rna_def_modifier_gpencilarray(BlenderRNA *brna)
 {
 	StructRNA *srna;
@@ -5264,6 +5330,7 @@ void RNA_def_modifier(BlenderRNA *brna)
 	rna_def_modifier_gpenciltint(brna);
 	rna_def_modifier_gpencilarray(brna);
 	rna_def_modifier_gpencildupli(brna);
+	rna_def_modifier_gpencilopacity(brna);
 }
 
 #endif
