@@ -1600,7 +1600,6 @@ static void boundbox_gpencil(Object *ob)
 	bb = ob->bb;
 	gpd= ob->gpd;
 
-	INIT_MINMAX(min, max);
 	gpencil_minmax(gpd, min, max);
 	BKE_boundbox_init_from_minmax(bb, min, max);
 
