@@ -154,6 +154,7 @@ static int sculpt_brush_needs_normal(const Brush *brush, float normal_weight)
 	             SCULPT_TOOL_BLOB,
 	             SCULPT_TOOL_CREASE,
 	             SCULPT_TOOL_DRAW,
+				 SCULPT_TOOL_TOPO_GRAB,
 	             SCULPT_TOOL_LAYER,
 	             SCULPT_TOOL_NUDGE,
 	             SCULPT_TOOL_ROTATE,
@@ -237,6 +238,7 @@ typedef struct StrokeCache {
 	int mirror_symmetry_pass; /* the symmetry pass we are currently on between 0 and 7*/
 	float true_view_normal[3];
 	float view_normal[3];
+	float mesh_normal[3][3];
 
 	/* sculpt_normal gets calculated by calc_sculpt_normal(), then the
 	 * sculpt_normal_symm gets updated quickly with the usual symmetry
@@ -677,6 +679,7 @@ typedef struct SculptBrushTest {
 	float foot[3];
 	float radius;
 
+	float *m_no[3];
 	float s_no[3];
 	float no[3];
 
@@ -691,6 +694,8 @@ static void sculpt_brush_test_init(SculptSession *ss, SculptBrushTest *test)
 	copy_v3_v3(test->normal, ss->cache->view_normal);
 	test->radius_squared = ss->cache->radius_squared;
 	copy_v3_v3(test->s_no, ss->cache->sculpt_normal);
+	//copy_v3_v3(test->m_no[0], ss->cache->mesh_normal[0]);
+	//copy_v3_v3(test->m_no[1], ss->cache->mesh_normal[1]);
 	copy_v3_v3(test->location, ss->cache->location);
 	test->dist = 0.0f;   /* just for initialize */
 	copy_v3_v3(test->no, ss->cache->view_normal);
@@ -1115,6 +1120,112 @@ static void calc_area_normal(
 	}
 }
 
+static void calc_mesh_normal_task_cb(void *userdata, const int n)
+{
+	SculptThreadedTaskData *data = userdata;
+	SculptSession *ss = data->ob->sculpt;
+	float(*area_nos)[3] = data->area_nos;
+	float(*area_cos)[3] = data->area_cos;
+
+	PBVHVertexIter vd;
+	SculptBrushTest test;
+
+	float private_co[2][3] = { { 0.0f } };
+	float private_no[3][3] = { { 0.0f } };
+	int   private_count[2] = { 0 };
+
+	sculpt_brush_test_init(ss, &test);
+
+	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
+	{
+		
+		if (sculpt_brush_test_fast(&test, vd.co)) {
+			const float *co;
+			const short *no_s;  /* bm_vert only */
+
+			float no_buf[3];
+			const float *no;
+			int flip_index;
+
+			
+				if (vd.no) {
+					normal_short_to_float_v3(no_buf, vd.no);
+					no = no_buf;
+				}
+				else {
+					no = vd.fno;
+				}
+			
+			add_v3_v3(private_no[2], no);
+			flip_index = (dot_v3v3(ss->cache->view_normal, no) <= 0.0f);
+			if (area_cos)
+				add_v3_v3(private_co[flip_index], co);
+			if (area_nos)
+				add_v3_v3(private_no[flip_index], no);
+			private_count[flip_index] += 1;
+		}
+	}
+	BKE_pbvh_vertex_iter_end;
+	
+
+	BLI_mutex_lock(&data->mutex);
+
+	/* for flatten center */
+	if (area_cos) {
+		add_v3_v3(area_cos[0], private_co[0]);
+		add_v3_v3(area_cos[1], private_co[1]);
+	}
+
+	/* for area normal */
+	if (area_nos) {
+		add_v3_v3(area_nos[0], private_no[0]);
+		add_v3_v3(area_nos[1], private_no[1]);
+	}
+	add_v3_v3(area_nos[2], private_no[2]);
+
+	/* weights */
+	data->count[0] += private_count[0];
+	data->count[1] += private_count[1];
+
+	BLI_mutex_unlock(&data->mutex);
+}
+
+static void calc_mesh_normal(
+Sculpt *sd, Object *ob,
+PBVHNode **nodes, int totnode,
+float rarea_no[][3])
+{
+	const Brush *brush = BKE_paint_brush(&sd->paint);
+	SculptSession *ss = ob->sculpt;
+	const bool has_bm_orco = ss->bm && sculpt_stroke_is_dynamic_topology(ss, brush);
+	int n;
+
+	/* 0=towards view, 1=flipped */
+	float area_nos[3][3] = { { 0.0f } };
+
+	int count[2] = { 0 };
+
+	SculptThreadedTaskData data = {
+		.sd = sd, .ob = ob, .nodes = nodes, .totnode = totnode,
+		.has_bm_orco = has_bm_orco, .area_cos = NULL, .area_nos = area_nos, .count = count,
+	};
+	BLI_mutex_init(&data.mutex);
+
+	BLI_task_parallel_range(
+		0, totnode, &data, calc_mesh_normal_task_cb,
+		((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT));
+
+	BLI_mutex_end(&data.mutex);
+
+	/* for area normal */
+	for (n = 0; n < 3; n++) {
+		normalize_v3_v3(rarea_no[n], area_nos[n]);
+		//mul_v3_fl(area_nos[n], 1 / count[n]);
+		//copy_v3_v3(rarea_no[n], area_nos[n]);
+		
+	}
+}
+
 /* this calculates flatten center and area normal together,
  * amortizing the memory bandwidth and loop overhead to calculate both at the same time */
 static void calc_area_normal_and_center(
@@ -1447,6 +1558,15 @@ static void update_sculpt_normal(Sculpt *sd, Object *ob,
 		flip_v3(cache->sculpt_normal_symm, cache->mirror_symmetry_pass);
 		mul_m4_v3(cache->symm_rot_mat, cache->sculpt_normal_symm);
 	}
+}
+
+static void update_mesh_area_normal(Sculpt *sd, Object *ob,
+	PBVHNode **nodes, int totnode)
+{
+	const Brush *brush = BKE_paint_brush(&sd->paint);
+	StrokeCache *cache = ob->sculpt->cache;
+	
+	if (cache->first_time) calc_mesh_normal(sd, ob, nodes, totnode, cache->mesh_normal);
 }
 
 static void calc_local_y(ViewContext *vc, const float center[3], float y[3])
@@ -3247,6 +3367,9 @@ static void print_array_i(int *a, int len){
 	printf("] ");
 }
 
+#define print_vd(ar) printf("[ %.3f %.3f %.3f ]  ",ar[0],ar[1],ar[2]);
+#define print_vd2(ar,i) printf("[ %.3f %.3f %.3f ]  ",ar[i][0],ar[i][1],ar[i][2]);
+
 int check_present(int a, int *array, int len){
 	loop(i, 0, len, 1){
 		if (array[i] == a)
@@ -3380,13 +3503,13 @@ static void do_topo_grab_brush_task_cb_ex(
 	proxy = BKE_pbvh_node_add_proxy(ss->pbvh, data->nodes[n])->co;
 
 	sculpt_brush_test_init(ss, &test);
-	
+	/*
 	float ray_normal[3], rays[3], raye[3];
 	ED_view3d_win_to_segment(test.vc->ar, test.vc->v3d, ss->cache->mouse, rays, raye, true);
 	sub_v3_v3v3(ray_normal, raye, rays);
 	normalize_v3(ray_normal);
 
-	copy_v3_v3(test.normal, ray_normal);
+	copy_v3_v3(test.normal, ray_normal);*/
 	//if (ss->cache->first_time){ printf("\n"); }
 	PBVHType type = BKE_pbvh_type(ss->pbvh);
 	//BLI_mutex_init(&data->mutex);
@@ -3413,8 +3536,8 @@ static void do_topo_grab_brush_task_cb_ex(
 				if (type == PBVH_FACES){
 					//printf("%d ", vd.vert_indices[vd.i]);
 					ver[cn[1]] = vd.vert_indices[vd.i];
-					printf(" %.3f %.3f %.3f   %d %d %d \n", test.s_no[0], test.s_no[1], test.s_no[2],
-						vd.no[0], vd.no[1], vd.no[2]);
+					//printf(" %.3f %.3f %.3f   %d %d %d \n", test.s_no[0], test.s_no[1], test.s_no[2],
+					//	vd.no[0], vd.no[1], vd.no[2]);
 
 					float vvno[3] = {1.0f,1.0f,1.0f};
 					//mulv3_v3fl(vvno,vd.no,1.0f);
@@ -3426,11 +3549,13 @@ static void do_topo_grab_brush_task_cb_ex(
 					//normalize_v3()
 					//normal_short_to_float_v3(vvno, vd.no);
 
-					copy_v3_v3(vvno, test.true_location);
+					copy_v3_v3(vvno, test.location);
 					normalize_v3(vvno);
-
-					printf("  %.3f %.3f %.3f \n", vvno[0], vvno[1], vvno[2]);
-					float distsq = dist_squared_to_line_direction_v3v3(vd.co, test.true_location, vvno);
+					print_vd(test.true_location);
+					print_vd(vvno);
+					printf("\n");
+					//printf("  %.3f %.3f %.3f \n", vvno[0], vvno[1], vvno[2]);
+					float distsq = dist_squared_to_line_direction_v3v3(vd.co, test.true_location, test.normal);
 					if (distsq < d[0]){
 						d[0] = distsq;
 						cn[2] = ver[cn[1]];
@@ -3503,6 +3628,7 @@ static void do_topo_grab_brush_task_cb_ex(
 					k++;
 				}
 			}
+			printf("\n");
 			cn[1] = 0;
 			cn[4] = cn[4] + k;
 		}else
@@ -3924,6 +4050,16 @@ static void do_brush_action(Sculpt *sd, Object *ob, Brush *brush, UnifiedPaintSe
 
 		if (brush->mtex.brush_map_mode == MTEX_MAP_MODE_AREA)
 			update_brush_local_mat(sd, ob);
+
+		if (ELEM(brush->sculpt_tool, SCULPT_TOOL_TOPO_GRAB)){
+			update_mesh_area_normal(sd, ob, nodes, totnode);
+			printf("It is: ");
+			print_vd2(ss->cache->mesh_normal,0);
+			print_vd2(ss->cache->mesh_normal, 1);
+			print_vd2(ss->cache->mesh_normal, 2);
+			printf(" * \n");
+		}
+		
 
 		/* Apply one type of brush action */
 		switch (brush->sculpt_tool) {
