@@ -1911,6 +1911,9 @@ void ED_gpencil_tint_modifier(int UNUSED(id), GpencilTintModifierData *mmd, bGPD
 
 	interp_v3_v3v3(gps->palcolor->rgb, gps->palcolor->rgb, mmd->rgb, mmd->factor);
 	interp_v3_v3v3(gps->palcolor->fill, gps->palcolor->fill, mmd->rgb, mmd->factor);
+
+	CLAMP3(gps->palcolor->rgb, 0.0f, 1.0f);
+	CLAMP3(gps->palcolor->fill, 0.0f, 1.0f);
 }
 
 /* opacity strokes */
@@ -1924,6 +1927,8 @@ void ED_gpencil_opacity_modifier(int UNUSED(id), GpencilOpacityModifierData *mmd
 	gps->palcolor->rgb[3] = gps->palcolor->rgb[3] * mmd->factor;
 	gps->palcolor->fill[3] = gps->palcolor->fill[3] * mmd->factor;
 
+	CLAMP(gps->palcolor->rgb[3], 0.0f, 1.0f);
+	CLAMP(gps->palcolor->fill[3], 0.0f, 1.0f);
 }
 
 /* helper function to sort strokes using qsort */
