@@ -81,33 +81,33 @@ static DerivedMesh *applyModifier(ModifierData *md, struct EvaluationContext *UN
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-				/* create a new set of colors */
-				if (mmd->flag & GP_COLOR_CREATE_COLORS) {
-					
-					/* look for palette */
-					gh_color = (GHash *)BLI_ghash_lookup(gh_layer, gps->palette->id.name);
-					if (gh_color == NULL) {
-						gh_color = BLI_ghash_str_new("GP_Color Correction modifier");
-						BLI_ghash_insert(gh_layer, gps->palette->id.name, gh_color);
-					}
+				/* look for palette */
+				gh_color = (GHash *)BLI_ghash_lookup(gh_layer, gps->palette->id.name);
+				if (gh_color == NULL) {
+					gh_color = BLI_ghash_str_new("GP_Color Correction modifier");
+					BLI_ghash_insert(gh_layer, gps->palette->id.name, gh_color);
+				}
 
-					/* look for color */
-					PaletteColor *newpalcolor = (PaletteColor *) BLI_ghash_lookup(gh_color, gps->palcolor->info);
-					if (newpalcolor == NULL) {
+				/* look for color */
+				PaletteColor *newpalcolor = (PaletteColor *)BLI_ghash_lookup(gh_color, gps->palcolor->info);
+				if (newpalcolor == NULL) {
+					if (mmd->flag & GP_COLOR_CREATE_COLORS) {
 						if (!newpalette) {
 							newpalette = BKE_palette_add(G.main, "Palette");
 						}
 						newpalcolor = BKE_palette_color_copy(newpalette, gps->palcolor);
-						BLI_ghash_insert(gh_color, gps->palcolor->info, newpalcolor);
-					}
-
-					if (newpalcolor) {
 						BLI_strncpy(gps->colorname, newpalcolor->info, sizeof(gps->colorname));
 						gps->palcolor = newpalcolor;
 					}
+					else {
+						newpalcolor = gps->palcolor;
+					}
+					BLI_ghash_insert(gh_color, gps->palcolor->info, newpalcolor);
+					ED_gpencil_color_modifier(-1, (GpencilColorModifierData *)md, gpl, gps);
 				}
-
-				ED_gpencil_color_modifier(-1, (GpencilColorModifierData *)md, gpl, gps);
+				else {
+					gps->palcolor = newpalcolor;
+				}
 			}
 		}
 	}

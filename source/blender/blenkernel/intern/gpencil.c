@@ -1894,7 +1894,7 @@ void ED_gpencil_subdiv_modifier(int UNUSED(id), GpencilSubdivModifierData *mmd, 
 /* change stroke thickness */
 void ED_gpencil_thick_modifier(int UNUSED(id), GpencilThickModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
 {
-	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
+	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 1, gpl, gps,
 		(int)mmd->flag & GP_THICK_INVERSE_LAYER, (int)mmd->flag & GP_THICK_INVERSE_PASS)) {
 		return;
 	}
@@ -1905,7 +1905,7 @@ void ED_gpencil_thick_modifier(int UNUSED(id), GpencilThickModifierData *mmd, bG
 /* tint strokes */
 void ED_gpencil_tint_modifier(int UNUSED(id), GpencilTintModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
 {
-	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
+	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 1, gpl, gps,
 		(int)mmd->flag & GP_TINT_INVERSE_LAYER, (int)mmd->flag & GP_TINT_INVERSE_PASS)) {
 		return;
 	}
@@ -1920,22 +1920,25 @@ void ED_gpencil_tint_modifier(int UNUSED(id), GpencilTintModifierData *mmd, bGPD
 /* color correction strokes */
 void ED_gpencil_color_modifier(int UNUSED(id), GpencilColorModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
 {
+	PaletteColor *palcolor;
 	float hsv[3];
-	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
+	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 1, gpl, gps,
 		(int)mmd->flag & GP_COLOR_INVERSE_LAYER, (int)mmd->flag & GP_COLOR_INVERSE_PASS)) {
 		return;
 	}
 
-	rgb_to_hsv_v(gps->palcolor->rgb, hsv);
-	add_v3_v3(hsv, mmd->hsv);
-	hsv_to_rgb_v(hsv, gps->palcolor->rgb);
+	palcolor = gps->palcolor;
 
-	rgb_to_hsv_v(gps->palcolor->fill, hsv);
+	rgb_to_hsv_v(palcolor->rgb, hsv);
 	add_v3_v3(hsv, mmd->hsv);
-	hsv_to_rgb_v(hsv, gps->palcolor->fill);
+	hsv_to_rgb_v(hsv, palcolor->rgb);
 
-	CLAMP3(gps->palcolor->rgb, 0.0f, 1.0f);
-	CLAMP3(gps->palcolor->fill, 0.0f, 1.0f);
+	rgb_to_hsv_v(palcolor->fill, hsv);
+	add_v3_v3(hsv, mmd->hsv);
+	hsv_to_rgb_v(hsv, palcolor->fill);
+
+	CLAMP3(palcolor->rgb, 0.0f, 1.0f);
+	CLAMP3(palcolor->fill, 0.0f, 1.0f);
 }
 
 /* opacity strokes */
@@ -1943,7 +1946,7 @@ void ED_gpencil_opacity_modifier(int UNUSED(id), GpencilOpacityModifierData *mmd
 {
 	bGPDspoint *pt;
 
-	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
+	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 1, gpl, gps,
 		(int)mmd->flag & GP_OPACITY_INVERSE_LAYER, (int)mmd->flag & GP_OPACITY_INVERSE_PASS)) {
 		return;
 	}
@@ -2001,7 +2004,7 @@ void ED_gpencil_dupli_modifier(int id, GpencilDupliModifierData *mmd, bGPDlayer 
 	int idx = 0;
 	for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 		++stroke;
-		if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
+		if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 1, gpl, gps,
 			(int)mmd->flag & GP_DUPLI_INVERSE_LAYER, (int)mmd->flag & GP_DUPLI_INVERSE_PASS)) {
 			continue;
 		}
