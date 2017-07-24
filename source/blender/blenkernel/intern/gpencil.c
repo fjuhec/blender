@@ -1647,14 +1647,16 @@ static bool is_stroke_affected_by_modifier(char *mlayername, int mpassindex, int
 		}
 	}
 	/* verify pass */
-	if (inv2 == 0) {
-		if (gps->palcolor->index != mpassindex) {
-			return false;
+	if (mpassindex > 0) {
+		if (inv2 == 0) {
+			if (gps->palcolor->index != mpassindex) {
+				return false;
+			}
 		}
-	}
-	else {
-		if (gps->palcolor->index == mpassindex) {
-			return false;
+		else {
+			if (gps->palcolor->index == mpassindex) {
+				return false;
+			}
 		}
 	}
 
