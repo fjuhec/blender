@@ -315,7 +315,7 @@ EnumPropertyItem rna_enum_gpencil_lockshift_items[] = {
 #  include "ABC_alembic.h"
 #endif
 
-static void rna_GPencilOpacity_factor_range(PointerRNA *ptr, float *min, float *max,
+static void rna_GPencil_factor_range(PointerRNA *ptr, float *min, float *max,
 	float *softmin, float *softmax)
 {
 	*min = 0.0f;
@@ -5024,22 +5024,22 @@ static void rna_def_modifier_gpencilcolor(BlenderRNA *brna)
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
 	prop = RNA_def_property(srna, "hue", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_range(prop, -1.0, 1.0);
-	RNA_def_property_ui_range(prop, -1.0, 1.0, 0.1, 3);
+	RNA_def_property_range(prop, 0.0, 2.0);
+	RNA_def_property_ui_range(prop, 0.0, 2.0, 0.1, 3);
 	RNA_def_property_float_sdna(prop, NULL, "hsv[0]");
 	RNA_def_property_ui_text(prop, "Hue", "Color Hue");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
 	prop = RNA_def_property(srna, "saturation", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_range(prop, -1.0, 1.0);
-	RNA_def_property_ui_range(prop, -1.0, 1.0, 0.1, 3);
+	RNA_def_property_range(prop, 0.0, 2.0);
+	RNA_def_property_ui_range(prop, 0.0, 2.0, 0.1, 3);
 	RNA_def_property_float_sdna(prop, NULL, "hsv[1]");
 	RNA_def_property_ui_text(prop, "Saturation", "Color Saturation");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
 	prop = RNA_def_property(srna, "value", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_range(prop, -1.0, 1.0);
-	RNA_def_property_ui_range(prop, -1.0, 1.0, 0.1, 3);
+	RNA_def_property_range(prop, 0.0, 2.0);
+	RNA_def_property_ui_range(prop, 0.0, 2.0, 0.1, 3);
 	RNA_def_property_float_sdna(prop, NULL, "hsv[2]");
 	RNA_def_property_ui_text(prop, "Value", "Color Value");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
@@ -5083,7 +5083,7 @@ static void rna_def_modifier_gpencilopacity(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "factor", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_float_sdna(prop, NULL, "factor");
-	RNA_def_property_float_funcs(prop, NULL, NULL, "rna_GPencilOpacity_factor_range");
+	RNA_def_property_float_funcs(prop, NULL, NULL, "rna_GPencil_factor_range");
 	RNA_def_property_ui_range(prop, 0, 2.0, 0.1, 3);
 	RNA_def_property_ui_text(prop, "Factor", "Factor of opacity");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");

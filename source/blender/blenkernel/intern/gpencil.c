@@ -1921,24 +1921,26 @@ void ED_gpencil_tint_modifier(int UNUSED(id), GpencilTintModifierData *mmd, bGPD
 void ED_gpencil_color_modifier(int UNUSED(id), GpencilColorModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
 {
 	PaletteColor *palcolor;
-	float hsv[3];
+	float hsv[3], factor[3];
 	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 1, gpl, gps,
 		(int)mmd->flag & GP_COLOR_INVERSE_LAYER, (int)mmd->flag & GP_COLOR_INVERSE_PASS)) {
 		return;
 	}
 
 	palcolor = gps->palcolor;
+	copy_v3_v3(factor, mmd->hsv);
+	add_v3_fl(factor, -1.0f);
 
 	rgb_to_hsv_v(palcolor->rgb, hsv);
-	add_v3_v3(hsv, mmd->hsv);
+	add_v3_v3(hsv, factor);
+	CLAMP3(hsv, 0.0f, 1.0f);
 	hsv_to_rgb_v(hsv, palcolor->rgb);
 
 	rgb_to_hsv_v(palcolor->fill, hsv);
-	add_v3_v3(hsv, mmd->hsv);
+	add_v3_v3(hsv, factor);
+	CLAMP3(hsv, 0.0f, 1.0f);
 	hsv_to_rgb_v(hsv, palcolor->fill);
 
-	CLAMP3(palcolor->rgb, 0.0f, 1.0f);
-	CLAMP3(palcolor->fill, 0.0f, 1.0f);
 }
 
 /* opacity strokes */
