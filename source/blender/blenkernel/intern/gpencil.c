@@ -1919,6 +1919,8 @@ void ED_gpencil_tint_modifier(int UNUSED(id), GpencilTintModifierData *mmd, bGPD
 /* opacity strokes */
 void ED_gpencil_opacity_modifier(int UNUSED(id), GpencilOpacityModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
 {
+	bGPDspoint *pt;
+
 	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
 		(int)mmd->flag & GP_OPACITY_INVERSE_LAYER, (int)mmd->flag & GP_OPACITY_INVERSE_PASS)) {
 		return;
@@ -1929,6 +1931,15 @@ void ED_gpencil_opacity_modifier(int UNUSED(id), GpencilOpacityModifierData *mmd
 
 	CLAMP(gps->palcolor->rgb[3], 0.0f, 1.0f);
 	CLAMP(gps->palcolor->fill[3], 0.0f, 1.0f);
+
+	/* if opacity > 1.0, affect the strength of the stroke */
+	if (mmd->factor > 1.0f) {
+		for (int i = 0; i < gps->totpoints; ++i) {
+			bGPDspoint *pt = &gps->points[i];
+			pt->strength += (mmd->factor - 1.0f);
+			CLAMP(pt->strength, 0.0f, 1.0f);
+		}
+	}
 }
 
 /* helper function to sort strokes using qsort */

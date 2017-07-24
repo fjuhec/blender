@@ -314,6 +314,16 @@ EnumPropertyItem rna_enum_gpencil_lockshift_items[] = {
 #  include "ABC_alembic.h"
 #endif
 
+static void rna_GPencilOpacity_factor_range(PointerRNA *ptr, float *min, float *max,
+	float *softmin, float *softmax)
+{
+	*min = 0.0f;
+	*max = 2.0f;
+
+	*softmin = 0.0f;
+	*softmax = 1.0f;
+}
+
 static void rna_UVProject_projectors_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
 {
 	UVProjectModifierData *uvp = (UVProjectModifierData *)ptr->data;
@@ -5011,7 +5021,7 @@ static void rna_def_modifier_gpencilopacity(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "factor", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_float_sdna(prop, NULL, "factor");
-	RNA_def_property_range(prop, 0, 1.0);
+	RNA_def_property_float_funcs(prop, NULL, NULL, "rna_GPencilOpacity_factor_range");
 	RNA_def_property_ui_text(prop, "Factor", "Factor of opacity");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
