@@ -6611,14 +6611,15 @@ static int edbm_copy_paste_normal_exec(bContext *C, wmOperator *op)
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 	BMesh *bm = em->bm;
 
-	const bool copy = RNA_boolean_get(op->ptr, "copy");
+	const bool copy = RNA_boolean_get(op->ptr, "copy"),
+		  absolute = RNA_boolean_get(op->ptr, "absolute");
 
 	BM_lnorspace_update(bm);
 	LoopNormalData *ld = BM_loop_normal_init(bm);
 	TransDataLoopNormal *tld = ld->normal;
 	int i = 0;
 
-	if (copy) {
+	if (copy && (op->flag & OP_IS_INVOKE)) {
 		bool join =  ld->totloop > 0 ? true : false;
 		for (; i < ld->totloop; i++, tld++) {
 			if (!compare_v3v3(ld->normal->nloc, tld->nloc, 1e-4f))
@@ -6640,22 +6641,37 @@ static int edbm_copy_paste_normal_exec(bContext *C, wmOperator *op)
 			BKE_report(op->reports, RPT_ERROR, "Invalid Selection");
 			return OPERATOR_CANCELLED;
 		}
+		op->flag &= ~OP_IS_INVOKE;			//required to make target editable from ui
 	}
-	else {
+	else if (!copy){
 		float normal_val[3];
 		RNA_float_get_array(op->ptr, "normal_vector", normal_val);
-		if (is_zero_v3(normal_val)) {
-			BKE_reportf(op->reports, RPT_ERROR, "Buffer is empty");
-			return OPERATOR_CANCELLED;
-		}
 
 		for (i = 0; i < ld->totloop; i++, tld++) {
-			BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], normal_val, tld->clnors_data);
+			if (absolute) {
+				float abs_normal[3];
+				copy_v3_v3(abs_normal, tld->loc);
+				negate_v3(abs_normal);
+				add_v3_v3(abs_normal, normal_val);
+				normalize_v3(abs_normal);
+
+				BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], abs_normal, tld->clnors_data);
+			}
+			else {
+				BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], normal_val, tld->clnors_data);
+			}
 		}
 	}
 
+	MEM_freeN(ld->normal);
+	MEM_freeN(ld);
 	EDBM_update_generic(em, true, false);
 	return OPERATOR_FINISHED;
+}
+
+static int edbm_copy_paste_normal_invoke(bContext *C, wmOperator *op, wmEvent *event)
+{
+	return edbm_copy_paste_normal_exec(C, op);
 }
 
 void MESH_OT_copy_normal(struct wmOperatorType *ot)
@@ -6667,6 +6683,7 @@ void MESH_OT_copy_normal(struct wmOperatorType *ot)
 
 	/* api callbacks */
 	ot->exec = edbm_copy_paste_normal_exec;
+	ot->invoke = edbm_copy_paste_normal_invoke;
 	ot->poll = ED_operator_editmesh_auto_smooth;
 
 	/* flags */
@@ -6675,7 +6692,9 @@ void MESH_OT_copy_normal(struct wmOperatorType *ot)
 	ot->prop = RNA_def_boolean(ot->srna, "copy", 1, "Copy Normal", "Copy normal of mesh");
 	RNA_def_property_flag(ot->prop, PROP_HIDDEN);
 
-	PropertyRNA *prop = RNA_def_property(ot->srna, "normal_vector", PROP_FLOAT, PROP_XYZ);
+	PropertyRNA *prop = RNA_def_boolean(ot->srna, "absolute", 0, "Absolute", "Absolute value to copy");
+
+	prop = RNA_def_property(ot->srna, "normal_vector", PROP_FLOAT, PROP_XYZ);
 	RNA_def_property_array(prop, 3);
 	RNA_def_property_ui_text(prop, "Copied Normal", "Normal vector of copied face or loop");
 }
