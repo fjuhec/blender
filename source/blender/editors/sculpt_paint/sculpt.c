@@ -3419,6 +3419,8 @@ loop(i,0,10,1){
 BLI_array_free(arr);
 
 */
+//int *arrx = NULL;
+
 
 static void init_zero(int *a, int len){ loop(i, 0, len, 1)  a[i] = 0; }
 
@@ -3586,7 +3588,7 @@ static void do_topo_grab_brush_task_cb_ex(
 						//printf("%u   %.3f %.3f %.3f \n", ver_b[cn[1]], vd.fno[0], vd.fno[1], vd.fno[2]);
 						//printf("  %d %d %d \n", vd.no[0], vd.no[1], vd.no[2]);
 
-						float distsq = dist_squared_to_line_direction_v3v3(vd.co, test.true_location, vk);
+						float distsq = dist_squared_to_line_direction_v3v3(vd.co, center_v, test.normal);
 						if (distsq < d[0]){
 							d[0] = distsq;
 							cn[2] = ver_b[cn[1]];
@@ -3623,7 +3625,7 @@ static void do_topo_grab_brush_task_cb_ex(
 	BKE_pbvh_vertex_iter_end;
 	//BLI_mutex_end(&data->mutex);
 	//PBVHType type = BKE_pbvh_type(ss->pbvh);
-
+	BLI_mutex_lock(&data->mutex);
 	//BLI_mutex_init(&data->mutex);
 	if (ss->cache->first_time){
 		if (type == PBVH_FACES){
@@ -3669,7 +3671,7 @@ static void do_topo_grab_brush_task_cb_ex(
 		
 		
 	}
-
+	BLI_mutex_unlock(&data->mutex);
 	//BLI_mutex_end(&data->mutex);
 }
 
@@ -4029,6 +4031,7 @@ static void do_brush_action_task_cb(void *userdata, const int n)
 	BKE_pbvh_node_mark_update(data->nodes[n]);
 }
 
+int *arrx = NULL;
 static void do_brush_action(Sculpt *sd, Object *ob, Brush *brush, UnifiedPaintSettings *ups)
 {
 	SculptSession *ss = ob->sculpt;
@@ -4063,12 +4066,29 @@ static void do_brush_action(Sculpt *sd, Object *ob, Brush *brush, UnifiedPaintSe
 
 		if (ELEM(brush->sculpt_tool, SCULPT_TOOL_TOPO_GRAB)&&ss->cache->first_time){
 			update_mesh_area_normal(sd, ob, nodes, totnode);
-			//printf("It is: ");
+			printf("It is: ");
 			//print_vd2(ss->cache->mesh_normal,0);
 			//print_vd2(ss->cache->mesh_normal, 1);
 			//print_vd2(ss->cache->mesh_normal, 2);
 			//print_vd(ss->cache->central_v);
 			//printf(" * \n");
+			
+			BLI_array_declare(arrx);
+			int i;
+			for (i = 0; i < 10;i++){
+				BLI_array_grow_one(arrx);
+				arrx[i] = i * 2;
+
+			}
+
+			printf("\n[ ");
+			for (i = 0; i < 10; i++){
+				printf("%d ", arrx[i]);
+			}
+			printf("] ");
+
+			BLI_array_free(arrx);
+			printf(" * \n");
 		}
 		
 
