@@ -3403,8 +3403,6 @@ int check_topo_connected(int vert, int *vert_array, int totvert){
 int ver[VERLEN] = { 0 };
 uint ver_b[VERLEN] = { 0 };
 int c_ver[VERLEN] = { 0 };
-float c_cor[VERLEN][3] = { 0 };
-float cor[VERLEN][3] = { 0 };
 int cn[6] = { 0 };
 float d[3] = { 0.0f };
 BMVert *vx;
@@ -4031,7 +4029,7 @@ static void do_brush_action_task_cb(void *userdata, const int n)
 	BKE_pbvh_node_mark_update(data->nodes[n]);
 }
 
-int *arrx = NULL;
+//int *arrx = NULL;
 static void do_brush_action(Sculpt *sd, Object *ob, Brush *brush, UnifiedPaintSettings *ups)
 {
 	SculptSession *ss = ob->sculpt;
@@ -4073,6 +4071,7 @@ static void do_brush_action(Sculpt *sd, Object *ob, Brush *brush, UnifiedPaintSe
 			//print_vd(ss->cache->central_v);
 			//printf(" * \n");
 			
+			int *arrx = NULL;
 			BLI_array_declare(arrx);
 			int i;
 			for (i = 0; i < 10;i++){
@@ -4086,7 +4085,7 @@ static void do_brush_action(Sculpt *sd, Object *ob, Brush *brush, UnifiedPaintSe
 				printf("%d ", arrx[i]);
 			}
 			printf("] ");
-
+			//MEM_freeN(arrx);
 			BLI_array_free(arrx);
 			printf(" * \n");
 		}
