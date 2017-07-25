@@ -265,7 +265,13 @@ void BKE_gpencil_free_derived_frames(bGPdata *gpd)
 	/* error checking */
 	if (gpd == NULL) return;
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
-		gpl->derived_gpf = NULL;
+		if (gpl->derived_gpf) {
+			for (bGPDstroke *gps = gpl->derived_gpf->strokes.first; gps; gps = gps->next) {
+				MEM_SAFE_FREE(gps->palcolor);
+			}
+			BKE_gpencil_free_strokes(gpl->derived_gpf);
+			MEM_SAFE_FREE(gpl->derived_gpf);
+		}
 	}
 }
 
