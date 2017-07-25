@@ -867,6 +867,7 @@ bGPDlayer *BKE_gpencil_layer_duplicate(const bGPDlayer *gpl_src)
 	/* make a copy of source layer */
 	gpl_dst = MEM_dupallocN(gpl_src);
 	gpl_dst->prev = gpl_dst->next = NULL;
+	gpl_dst->derived_gpf = NULL;
 	
 	/* copy frames */
 	BLI_listbase_clear(&gpl_dst->frames);
