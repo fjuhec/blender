@@ -5193,6 +5193,7 @@ typedef struct SpineBranch{
 	int *terminal_points;	/* Description of the connected branches. Per fork 2 ints (point,branch_idx) */
 	BranchState flag;
 	int *e_start_arr;		/* Edges on the ends are stored (used primarly for bridging) */
+	int fs_bs_offset;		/* Frontside edge offset to backside*/
 }SpineBranch;
 
 /* Main Tree Container */
@@ -5937,7 +5938,13 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 	int cyclic_offset = 0, n_i = 0;
 	int e_cap_start_a, e_cap_start_b, e_cap_start_c;
 	int e_corner_a, e_corner_b;
+	int cap_end_flip_e_start, cap_end_flip_start_a_l, cap_end_flip_start_b_l;
+	int cap_end_flip_start_a_r, cap_end_flip_start_b_r;
 	BLI_array_declare(cap_p);
+
+	if (!flip_side) {
+		branch->fs_bs_offset = me->totedge;
+	}
 
 	/* calc and sort hullpoints for the three sides */
 	qsort (branch->hull_points, branch->tot_hull_points, sizeof(int), cmpfunc);
@@ -5972,6 +5979,8 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 	int u_steps;
 	int e_start_tube[8];
 	int totl = 0, totr = 0;
+	int e_flip_start;
+	int e_flip_offset = 0;	/* carry edgecount difference in both sides to refrence opposing edges by subtracting totedge - flip offset. Only valid if flip_side = true*/
 
 	/* If the cap is big enough a tube is added between the cap and the last branch. */
 	if (totlength > step_size * w_steps) {
@@ -6008,10 +6017,32 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 
 		if (totl >= 1 && totr >= 1) {
 			u_steps = fmax(2.0f, fmax(left[totl * 4 - 1], right[totr * 4 - 1]) / (float)(2 * depth / v_steps));
+			e_flip_start = me->totedge;
 			fill_tube(me, left, right, totl, totr, u_steps, z_vec, v_steps, w_steps, smoothness, e_start_tube, n_g_flip, flip_side);
 			copy_v3_v3(left_ref, &left[totl * 4 - 4]);
 			copy_v3_v3(right_ref, &right[0]);
 			cap_length = totlength - left[totl * 4 - 1] - right[totr * 4 - 1];
+
+			if (flip_side) {
+				bridge_loops(me,
+							 e_flip_start + 1,
+							 e_flip_start - branch->fs_bs_offset + 1,
+							 u_steps,
+							 false,
+							 ((v_steps - 1) * 2 + w_steps) * 2 - 1,
+							 (v_steps * 2 + w_steps) * 2 - 1,
+							 !n_g_flip);
+
+				bridge_loops(me,
+							 e_flip_start + ((v_steps - 1) * 2 + w_steps) * 2 - 2,
+							 e_flip_start - branch->fs_bs_offset + (v_steps * 2 + w_steps) * 2 - 2,
+							 u_steps,
+							 false,
+							 ((v_steps - 1) * 2 + w_steps) * 2 - 1,
+							 (v_steps * 2 + w_steps) * 2 - 1,
+							 n_g_flip);
+				e_flip_offset += u_steps * 2 - 2;
+			}
 		}
 		BLI_array_free(left);
 		BLI_array_free(right);
@@ -6041,6 +6072,7 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 				   smoothness,
 				   flip_side);
 
+	/*TODO connect to flipside */
 	ED_mesh_edges_add(me, NULL, v_steps * 2 + w_steps - 1 - (flip_side ? 2 : 0));
 	for(int v = 0; v < v_steps * 2 + w_steps - 1 - (flip_side ? 2 : 0); v++){
 		me->medge[e_cap_start_a + v].v1 = v_start + v;
@@ -6049,6 +6081,8 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 		me->medge[e_cap_start_a + v].bweight = 0;
 		me->medge[e_cap_start_a + v].flag = 0;
 	}
+
+	e_flip_offset += 2;
 
 	cap_pos += step_size;
 
@@ -6088,6 +6122,19 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 	generate_mesh_grid_f_e(me, w_steps, v_steps - (flip_side ? 1 : 0), v_start, n_g_flip);
 	e_cap_start_c = me->totedge;
 
+	if (flip_side) {
+		cap_end_flip_e_start = me->totedge;
+		bridge_loops(me,
+					 e_cap_start_b + 1,
+					 e_cap_start_b - branch->fs_bs_offset + e_flip_offset + 1,
+					 w_steps,
+					 false,
+					 v_steps * 2 - 3,
+					 v_steps * 2 - 1,
+					 !n_g_flip);
+		e_flip_offset += w_steps - 1;
+	}
+
 	bridge_loops(me,
 				 e_cap_start_a,
 				 e_cap_start_b,
@@ -6098,6 +6145,8 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 				 !n_g_flip);
 
 	e_corner_a = me->totedge - 1;
+	cap_end_flip_start_a_l = me->totedge - v_steps + 1;
+	cap_end_flip_start_b_l = me->totedge - v_steps + 1 - branch->fs_bs_offset + e_flip_offset;
 
 	bridge_loops(me,
 				 e_cap_start_a + v_steps - (flip_side ? 1 : 0),
@@ -6118,6 +6167,8 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 				 1,
 				 1,
 				 !n_g_flip);
+	cap_end_flip_start_a_r = me->totedge - 1;
+	cap_end_flip_start_b_r = me->totedge - branch->fs_bs_offset + e_flip_offset + 1;
 
 	ED_mesh_loops_add(me, NULL, 6);
 	ED_mesh_polys_add(me, NULL, 2);
@@ -6169,6 +6220,13 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 		branch->e_start_arr[flip_side ? 3 : 1] = e_start_tube[flip_side ? 5 : 1];
 	}
 
+	if (!flip_side) {
+		branch->fs_bs_offset = me->totedge - branch->fs_bs_offset;
+	} else {
+		add_quad(me, cap_end_flip_e_start, cap_end_flip_start_a_l, cap_end_flip_start_b_l, !n_g_flip);
+		add_quad(me, cap_end_flip_e_start + w_steps - 1, cap_end_flip_start_a_r, cap_end_flip_start_b_r, n_g_flip);
+	}
+
 	BLI_array_free(cap_p);
 }
 
@@ -6208,7 +6266,14 @@ static void add_ss_tinter(SilhouetteData *sil, Spine *spine, SpineBranch *branch
 	int e_start[3], e_start_center, e_start_inner[3], e_t_sign[6];
 	int stride_le;
 	int ori;
+	int e_flip_offset = 0;	/* carry edgecount difference in both sides to refrence opposing edges by subtracting totedge - flip offset. Only valid if flip_side = true*/
+	int e_flip_start[3];
+	int e_flip_q_l[3], e_flip_q_r[3];
 	BLI_array_declare(sa);
+
+	if (!flip_side) {
+		branch->fs_bs_offset = me->totedge;
+	}
 
 	/* calc and sort hullpoints for the three sides */
 	qsort (branch->hull_points, branch->tot_hull_points, sizeof(int), cmpfunc);
@@ -6312,6 +6377,8 @@ static void add_ss_tinter(SilhouetteData *sil, Spine *spine, SpineBranch *branch
 			me->medge[e_start[s] + v].flag = 0;
 		}
 
+		e_flip_offset += 2;
+
 		v_start = me->totvert;
 
 		for (int u = 1; u < u_steps - 1; u++) {
@@ -6381,6 +6448,20 @@ static void add_ss_tinter(SilhouetteData *sil, Spine *spine, SpineBranch *branch
 
 		e_start_inner[s] = me->totedge;
 		generate_mesh_grid_f_e(me, u_steps - 2, v_steps - (flip_side ? 1 : 0) + w_steps / 2, v_start, n_g_flip);
+
+		if (flip_side) {
+			e_flip_start[s] = me->totedge;
+			bridge_loops(me,
+						 e_start_inner[s] + 1,
+						 e_start_inner[s] - branch->fs_bs_offset + e_flip_offset + 1,
+						 u_steps - 2,
+						 false,
+						 (v_steps - 1 + w_steps / 2) * 2 - 1,
+						 (v_steps + w_steps / 2) * 2 - 1,
+						 !n_g_flip);
+
+			e_flip_offset += u_steps - 3;
+		}
 	}
 
 	for(int s = 0; s < 3; s++){
@@ -6393,6 +6474,13 @@ static void add_ss_tinter(SilhouetteData *sil, Spine *spine, SpineBranch *branch
 					 2,
 					 1,
 					 n_g_flip);
+		e_flip_offset += 1;
+
+		if (flip_side) {
+			e_flip_q_l[0] = e_flip_start[s];
+			e_flip_q_l[1] = me->totedge - (v_steps + w_steps / 2) + 1;
+			e_flip_q_l[2] = me->totedge - (v_steps + w_steps / 2) - branch->fs_bs_offset + e_flip_offset;
+		}
 
 		e_end_a = me->totedge;
 		bridge_loops(me,
@@ -6403,6 +6491,13 @@ static void add_ss_tinter(SilhouetteData *sil, Spine *spine, SpineBranch *branch
 					 1,
 					 1,
 					 !n_g_flip);
+
+		if (flip_side) {
+			e_flip_q_r[0] = e_flip_start[(s + 2) % 3] + u_steps - 3;
+			e_flip_q_r[1] = me->totedge - (v_steps + w_steps / 2) + 1;
+			e_flip_q_r[2] = me->totedge - (v_steps + w_steps / 2) + 1 - branch->fs_bs_offset + e_flip_offset;
+		}
+
 		e_end_b = me->totedge;
 
 		int e_side_a, e_side_b;
@@ -6430,6 +6525,20 @@ static void add_ss_tinter(SilhouetteData *sil, Spine *spine, SpineBranch *branch
 				 !n_g_flip);
 
 		e_t_sign[s * 2 + 1] = e_side_a;
+
+		if (flip_side) {
+			add_quad(me,
+					 e_flip_q_l[0],
+					 e_flip_q_l[1],
+					 e_flip_q_l[2],
+					 !n_g_flip);
+			add_quad(me,
+					 e_flip_q_r[0],
+					 e_flip_q_r[1],
+					 e_flip_q_r[2],
+					 n_g_flip);
+			e_flip_offset -= 1;
+		}
 	}
 
 	for(int s = 0; s < 3; s++){
@@ -6454,6 +6563,11 @@ static void add_ss_tinter(SilhouetteData *sil, Spine *spine, SpineBranch *branch
 		me->mpoly[me->totpoly - 1].pad = 0;
 
 	}
+
+	if (!flip_side) {
+		branch->fs_bs_offset = me->totedge - branch->fs_bs_offset;
+	}
+
 	BLI_array_free(sa);
 }
 
@@ -6465,9 +6579,13 @@ static void add_ss_tube(SilhouetteData *sil, SpineBranch *branch, Mesh *me, floa
 	int u_steps = 0;
 	bool f_swap = false;
 	int cyclic_offset = 0, n_i = 0;
+	int e_start = 0;
 	BLI_array_declare(left);
 	BLI_array_declare(right);
 
+	if (!flip_side) {
+		branch->fs_bs_offset = me->totedge;
+	}
 	/* Calc and sort Hullpoints to left and right side */
 	qsort (branch->hull_points, branch->tot_hull_points, sizeof(int), cmpfunc);
 
@@ -6527,7 +6645,31 @@ static void add_ss_tube(SilhouetteData *sil, SpineBranch *branch, Mesh *me, floa
 		branch->flag |= BRANCH_EDGE_GEN;
 	}
 
+	e_start = me->totedge;
+
 	fill_tube(me, left, right, totl, totr, u_steps, z_vec, v_steps, w_steps, w_fact, branch->e_start_arr, n_g_flip, flip_side);
+
+	if (flip_side) {
+		bridge_loops(me,
+					 e_start + 1,
+					 e_start - branch->fs_bs_offset + 1,
+					 u_steps,
+					 false,
+					 ((v_steps - 1) * 2 + w_steps) * 2 - 1,
+					 (v_steps * 2 + w_steps) * 2 - 1,
+					 !n_g_flip);
+
+		bridge_loops(me,
+					 e_start + ((v_steps - 1) * 2 + w_steps) * 2 - 2,
+					 e_start - branch->fs_bs_offset + (v_steps * 2 + w_steps) * 2 - 2,
+					 u_steps,
+					 false,
+					 ((v_steps - 1) * 2 + w_steps) * 2 - 1,
+					 (v_steps * 2 + w_steps) * 2 - 1,
+					 n_g_flip);
+	} else {
+		branch->fs_bs_offset = me->totedge - branch->fs_bs_offset;
+	}
 
 	BLI_array_free(left);
 	BLI_array_free(right);
@@ -6775,7 +6917,7 @@ static int sculpt_silhouette_exec(bContext *C, wmOperator *op)
 		op->customdata = sil;
 	}
 
-	if (sil->current_stroke->totvert > 2) {
+	if (sil->current_stroke->totvert > 3) {
 		sculpt_undo_push_begin("draw Silhouette");
 		v_start = me->totvert;
 		e_start = me->totedge;
