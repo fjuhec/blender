@@ -760,7 +760,7 @@ static bool gp_brush_randomize_apply(tGP_BrushEditData *gso, bGPDstroke *gps, in
 			}
 			else {
 				/* ERROR */
-				BLI_assert("3D stroke being sculpted in non-3D view");
+				BLI_assert(!"3D stroke being sculpted in non-3D view");
 			}
 		}
 		else {

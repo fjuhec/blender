@@ -170,7 +170,7 @@ struct wmManipulatorMapType_Params {
  * Flags for individual manipulators. */
 enum {
 	WM_MANIPULATOR_DRAW_HOVER  = (1 << 0), /* draw *only* while hovering */
-	WM_MANIPULATOR_DRAW_ACTIVE = (1 << 1), /* draw while dragging */
+	WM_MANIPULATOR_DRAW_MODAL  = (1 << 1), /* draw while dragging */
 	WM_MANIPULATOR_DRAW_VALUE  = (1 << 2), /* draw an indicator for the current value while dragging */
 	WM_MANIPULATOR_HIDDEN      = (1 << 3),
 };
@@ -178,7 +178,7 @@ enum {
 /* wmManipulator.state */
 enum {
 	WM_MANIPULATOR_STATE_HIGHLIGHT   = (1 << 0), /* while hovered */
-	WM_MANIPULATOR_STATE_ACTIVE      = (1 << 1), /* while dragging */
+	WM_MANIPULATOR_STATE_MODAL       = (1 << 1), /* while dragging */
 	WM_MANIPULATOR_STATE_SELECT      = (1 << 2),
 };
 
@@ -327,6 +327,10 @@ enum eManipulatorMapTypeUpdateFlags {
 	/* A new type has been added, needs to be initialized for all views. */
 	WM_MANIPULATORMAPTYPE_UPDATE_INIT = (1 << 0),
 	WM_MANIPULATORMAPTYPE_UPDATE_REMOVE = (1 << 1),
+
+	/* Needed because keymap may be registered before and after window initialization.
+	 * So we need to keep track of keymap initialization separately. */
+	WM_MANIPULATORMAPTYPE_KEYMAP_INIT = (1 << 2),
 };
 
 /**
@@ -345,6 +349,8 @@ enum {
 	WM_MANIPULATORGROUPTYPE_SELECT  = (1 << 3),
 	/* The manipulator group is to be kept (not removed on loading a new file for eg). */
 	WM_MANIPULATORGROUPTYPE_PERSISTENT = (1 << 4),
+	/* Show all other manipulators when interacting. */
+	WM_MANIPULATORGROUPTYPE_DRAW_MODAL_ALL = (1 << 5),
 };
 
 

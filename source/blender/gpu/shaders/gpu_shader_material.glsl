@@ -2663,6 +2663,8 @@ void node_bsdf_diffuse(vec4 color, float roughness, vec3 N, out Closure result)
 {
 #ifdef EEVEE_ENGINE
 	vec3 L = eevee_surface_diffuse_lit(N, vec3(1.0), 1.0);
+	vec3 vN = normalize(mat3(ViewMatrix) * N);
+	result = Closure(L * color.rgb, 1.0, vec4(0.0), normal_encode(N, viewCameraVec), -1);
 #else
 	/* ambient light */
 	vec3 L = vec3(0.2);
@@ -2675,15 +2677,19 @@ void node_bsdf_diffuse(vec4 color, float roughness, vec3 N, out Closure result)
 		float bsdf = max(dot(N, light_position), 0.0);
 		L += light_diffuse * bsdf;
 	}
-#endif
 
 	result = Closure(L * color.rgb, 1.0);
+#endif
 }
 
-void node_bsdf_glossy(vec4 color, float roughness, vec3 N, out Closure result)
+void node_bsdf_glossy(vec4 color, float roughness, vec3 N, float ssr_id, out Closure result)
 {
 #ifdef EEVEE_ENGINE
-	vec3 L = eevee_surface_glossy_lit(N, vec3(1.0), roughness, 1.0);
+	vec3 ssr_spec;
+	roughness = sqrt(roughness);
+	vec3 L = eevee_surface_glossy_lit(N, vec3(1.0), roughness, 1.0, int(ssr_id), ssr_spec);
+	vec3 vN = normalize(mat3(ViewMatrix) * N);
+	result = Closure(L * color.rgb, 1.0, vec4(ssr_spec * color.rgb, roughness), normal_encode(vN, viewCameraVec), int(ssr_id));
 #else
 	/* ambient light */
 	vec3 L = vec3(0.2);
@@ -2702,9 +2708,9 @@ void node_bsdf_glossy(vec4 color, float roughness, vec3 N, out Closure result)
 		bsdf += 0.5 * max(dot(N, light_position), 0.0);
 		L += light_specular * bsdf;
 	}
-#endif
 
 	result = Closure(L * color.rgb, 1.0);
+#endif
 }
 
 void node_bsdf_anisotropic(
@@ -2724,6 +2730,7 @@ void node_bsdf_toon(vec4 color, float size, float tsmooth, vec3 N, out Closure r
 	node_bsdf_diffuse(color, 0.0, N, result);
 }
 
+#ifndef EEVEE_ENGINE
 void node_bsdf_principled(vec4 base_color, float subsurface, vec3 subsurface_radius, vec4 subsurface_color, float metallic, float specular,
 	float specular_tint, float roughness, float anisotropic, float anisotropic_rotation, float sheen, float sheen_tint, float clearcoat,
 	float clearcoat_roughness, float ior, float transmission, float transmission_roughness, vec3 N, vec3 CN, vec3 T, vec3 I, out Closure result)
@@ -2821,16 +2828,19 @@ void node_bsdf_principled(vec4 base_color, float subsurface, vec3 subsurface_rad
 
 	result = Closure(L, 1.0);
 }
+#endif
 
 void node_bsdf_principled_simple(vec4 base_color, float subsurface, vec3 subsurface_radius, vec4 subsurface_color, float metallic, float specular,
 	float specular_tint, float roughness, float anisotropic, float anisotropic_rotation, float sheen, float sheen_tint, float clearcoat,
-	float clearcoat_roughness, float ior, float transmission, float transmission_roughness, vec3 N, vec3 CN, vec3 T, vec3 I, out Closure result)
+	float clearcoat_roughness, float ior, float transmission, float transmission_roughness, vec3 N, vec3 CN, vec3 T, vec3 I, float ssr_id, out Closure result)
 {
 #ifdef EEVEE_ENGINE
-	vec3 diffuse, f0;
+	vec3 diffuse, f0, ssr_spec;
 	convert_metallic_to_specular_tinted(base_color.rgb, metallic, specular, specular_tint, diffuse, f0);
 
-	result = Closure(eevee_surface_lit(N, diffuse, f0, roughness, 1.0), 1.0);
+	vec3 L = eevee_surface_lit(N, diffuse, f0, roughness, 1.0, int(ssr_id), ssr_spec);
+	vec3 vN = normalize(mat3(ViewMatrix) * N);
+	result = Closure(L, 1.0, vec4(ssr_spec, roughness), normal_encode(vN, viewCameraVec), int(ssr_id));
 #else
 	node_bsdf_principled(base_color, subsurface, subsurface_radius, subsurface_color, metallic, specular,
 		specular_tint, roughness, anisotropic, anisotropic_rotation, sheen, sheen_tint, clearcoat,
@@ -2840,10 +2850,10 @@ void node_bsdf_principled_simple(vec4 base_color, float subsurface, vec3 subsurf
 
 void node_bsdf_principled_clearcoat(vec4 base_color, float subsurface, vec3 subsurface_radius, vec4 subsurface_color, float metallic, float specular,
 	float specular_tint, float roughness, float anisotropic, float anisotropic_rotation, float sheen, float sheen_tint, float clearcoat,
-	float clearcoat_roughness, float ior, float transmission, float transmission_roughness, vec3 N, vec3 CN, vec3 T, vec3 I, out Closure result)
+	float clearcoat_roughness, float ior, float transmission, float transmission_roughness, vec3 N, vec3 CN, vec3 T, vec3 I, float ssr_id, out Closure result)
 {
 #ifdef EEVEE_ENGINE
-	vec3 diffuse, f0;
+	vec3 diffuse, f0, ssr_spec;
 	convert_metallic_to_specular_tinted(base_color.rgb, metallic, specular, specular_tint, diffuse, f0);
 
 	clearcoat *= 0.25;
@@ -2865,13 +2875,16 @@ void node_bsdf_principled_clearcoat(vec4 base_color, float subsurface, vec3 subs
 		N = tangent_to_world(Ht, N, Y, X);
 
 		if (dot(N, cameraVec) > 0) {
-			surface_color.rgb += eevee_surface_clearcoat_lit(N, diffuse, f0, sqrt(min(ax, ay)), CN, clearcoat, clearcoat_roughness, 1.0);
+			surface_color.rgb += eevee_surface_clearcoat_lit(N, diffuse, f0, sqrt(min(ax, ay)), CN, clearcoat, clearcoat_roughness, 1.0, ssr_id);
 			surface_color.a += 1.0;
 		}
 	}
 	result = Closure(surface_color.rgb / surface_color.a, 1.0);
 #else
-	result = Closure(eevee_surface_clearcoat_lit(N, diffuse, f0, roughness, CN, clearcoat, clearcoat_roughness, 1.0), 1.0);
+
+	vec3 L = eevee_surface_clearcoat_lit(N, diffuse, f0, roughness, CN, clearcoat, clearcoat_roughness, 1.0, int(ssr_id), ssr_spec);
+	vec3 vN = normalize(mat3(ViewMatrix) * N);
+	result = Closure(L, 1.0, vec4(ssr_spec, roughness), normal_encode(vN, viewCameraVec), int(ssr_id));
 #endif
 
 #else
@@ -2905,6 +2918,8 @@ void node_subsurface_scattering(
 	node_bsdf_diffuse(color, 0.0, N, result);
 }
 
+/* Unsupported for now */
+#ifndef EEVEE_ENGINE
 void node_bsdf_hair(vec4 color, float offset, float roughnessu, float roughnessv, vec3 tangent, out Closure result)
 {
 	result = Closure(color.rgb, color.a);
@@ -2919,6 +2934,8 @@ void node_ambient_occlusion(vec4 color, out Closure result)
 {
 	result = Closure(color.rgb, color.a);
 }
+#endif /* EEVEE_ENGINE */
+
 #endif /* VOLUMETRICS */
 
 /* emission */
@@ -2927,7 +2944,11 @@ void node_emission(vec4 color, float strength, vec3 N, out Closure result)
 {
 #ifndef VOLUMETRICS
 	color *= strength;
+#ifdef EEVEE_ENGINE
+	result = Closure(color.rgb, color.a, vec4(0.0), normal_encode(N, viewCameraVec), -1);
+#else
 	result = Closure(color.rgb, color.a);
+#endif
 #else
 	result = Closure(vec3(0.0), vec3(0.0), color.rgb * strength, 0.0);
 #endif
@@ -2952,7 +2973,11 @@ void node_background(vec4 color, float strength, out Closure result)
 {
 #ifndef VOLUMETRICS
 	color *= strength;
+#ifdef EEVEE_ENGINE
+	result = Closure(color.rgb, color.a, vec4(0.0), vec2(0.0), -1);
+#else
 	result = Closure(color.rgb, color.a);
+#endif
 #else
 	result = CLOSURE_DEFAULT;
 #endif
@@ -3995,7 +4020,11 @@ uniform float backgroundAlpha;
 void node_output_world(Closure surface, Closure volume, out Closure result)
 {
 #ifndef VOLUMETRICS
+#ifdef EEVEE_ENGINE
+	result = Closure(surface.radiance, backgroundAlpha, vec4(0.0), vec2(0.0), -1);
+#else
 	result = Closure(surface.radiance, backgroundAlpha);
+#endif
 #else
 	result = volume;
 #endif /* VOLUMETRICS */
@@ -4013,29 +4042,31 @@ void world_normals_get(out vec3 N)
 void node_eevee_metallic(
         vec4 basecol, float metallic, float specular, float roughness, vec4 emissive, float transp, vec3 normal,
         float clearcoat, float clearcoat_roughness, vec3 clearcoat_normal,
-        float occlusion, out Closure result)
+        float occlusion, float ssr_id, out Closure result)
 {
-	vec3 diffuse, f0;
+	vec3 diffuse, f0, ssr_spec;
 	convert_metallic_to_specular(basecol.rgb, metallic, specular, diffuse, f0);
 
-	result = Closure(eevee_surface_lit(normal, diffuse, f0, roughness, occlusion) + emissive.rgb, 1.0 - transp);
+	vec3 L = eevee_surface_lit(normal, diffuse, f0, roughness, occlusion, int(ssr_id), ssr_spec);
+	vec3 vN = normalize(mat3(ViewMatrix) * normal);
+	result = Closure(L + emissive.rgb, 1.0 - transp, vec4(ssr_spec, roughness), normal_encode(vN, viewCameraVec), int(ssr_id));
 }
 
 void node_eevee_specular(
         vec4 diffuse, vec4 specular, float roughness, vec4 emissive, float transp, vec3 normal,
         float clearcoat, float clearcoat_roughness, vec3 clearcoat_normal,
-        float occlusion, out Closure result)
+        float occlusion, float ssr_id, out Closure result)
 {
-	result = Closure(eevee_surface_lit(normal, diffuse.rgb, specular.rgb, roughness, occlusion) + emissive.rgb, 1.0 - transp);
+	vec3 ssr_spec;
+
+	vec3 L = eevee_surface_lit(normal, diffuse.rgb, specular.rgb, roughness, occlusion, int(ssr_id), ssr_spec);
+	vec3 vN = normalize(mat3(ViewMatrix) * normal);
+	result = Closure(L + emissive.rgb, 1.0 - transp, vec4(ssr_spec, roughness), normal_encode(vN, viewCameraVec), int(ssr_id));
 }
 
 void node_output_eevee_material(Closure surface, out Closure result)
 {
-#if defined(USE_ALPHA_HASH) || defined(USE_ALPHA_CLIP) || defined(USE_ALPHA_BLEND)
 	result = surface;
-#else
-	result = Closure(surface.radiance, length(viewPosition));
-#endif
 }
 
 #endif /* EEVEE_ENGINE */

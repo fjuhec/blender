@@ -202,6 +202,20 @@ bool wm_manipulatorgroup_is_visible_in_drawstep(const wmManipulatorGroup *mgroup
 	}
 }
 
+bool wm_manipulatorgroup_is_any_selected(const wmManipulatorGroup *mgroup)
+{
+	if (mgroup->type->flag & WM_MANIPULATORGROUPTYPE_SELECT) {
+		for (const wmManipulator *mpr = mgroup->manipulators.first; mpr; mpr = mpr->next) {
+			if (mpr->state & WM_MANIPULATOR_STATE_SELECT) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+/** \} */
+
 /** \name Manipulator operators
  *
  * Basic operators for manipulator interaction with user configurable keymaps.
@@ -274,7 +288,7 @@ void MANIPULATORGROUP_OT_manipulator_select(wmOperatorType *ot)
 
 typedef struct ManipulatorTweakData {
 	wmManipulatorMap *mmap;
-	wmManipulator *active;
+	wmManipulator *mpr_modal;
 
 	int init_event; /* initial event type */
 	int flag;       /* tweak flags */
@@ -283,17 +297,17 @@ typedef struct ManipulatorTweakData {
 static void manipulator_tweak_finish(bContext *C, wmOperator *op, const bool cancel)
 {
 	ManipulatorTweakData *mtweak = op->customdata;
-	if (mtweak->active->type->exit) {
-		mtweak->active->type->exit(C, mtweak->active, cancel);
+	if (mtweak->mpr_modal->type->exit) {
+		mtweak->mpr_modal->type->exit(C, mtweak->mpr_modal, cancel);
 	}
-	wm_manipulatormap_active_set(mtweak->mmap, C, NULL, NULL);
+	wm_manipulatormap_modal_set(mtweak->mmap, C, NULL, NULL);
 	MEM_freeN(mtweak);
 }
 
 static int manipulator_tweak_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	ManipulatorTweakData *mtweak = op->customdata;
-	wmManipulator *mpr = mtweak->active;
+	wmManipulator *mpr = mtweak->mpr_modal;
 
 	if (mpr == NULL) {
 		BLI_assert(0);
@@ -361,7 +375,7 @@ static int manipulator_tweak_invoke(bContext *C, wmOperator *op, const wmEvent *
 
 
 	/* activate highlighted manipulator */
-	wm_manipulatormap_active_set(mmap, C, event, mpr);
+	wm_manipulatormap_modal_set(mmap, C, event, mpr);
 
 	/* XXX temporary workaround for modal manipulator operator
 	 * conflicting with modal operator attached to manipulator */
@@ -374,8 +388,8 @@ static int manipulator_tweak_invoke(bContext *C, wmOperator *op, const wmEvent *
 
 	ManipulatorTweakData *mtweak = MEM_mallocN(sizeof(ManipulatorTweakData), __func__);
 
-	mtweak->init_event = event->type;
-	mtweak->active = mmap->mmap_context.highlight;
+	mtweak->init_event = WM_userdef_event_type_from_keymap_type(event->type);
+	mtweak->mpr_modal = mmap->mmap_context.highlight;
 	mtweak->mmap = mmap;
 	mtweak->flag = 0;
 
@@ -480,6 +494,7 @@ wmKeyMap *WM_manipulatorgroup_keymap_common_select(
 	wmKeyMap *km = WM_keymap_find(config, wgt->name, wgt->mmap_params.spaceid, wgt->mmap_params.regionid);
 
 	WM_keymap_add_item(km, "MANIPULATORGROUP_OT_manipulator_tweak", ACTIONMOUSE, KM_PRESS, KM_ANY, 0);
+	WM_keymap_add_item(km, "MANIPULATORGROUP_OT_manipulator_tweak", EVT_TWEAK_S, KM_ANY, 0, 0);
 	manipulatorgroup_tweak_modal_keymap(config, wgt->name);
 
 	wmKeyMapItem *kmi = WM_keymap_add_item(km, "MANIPULATORGROUP_OT_manipulator_select", SELECTMOUSE, KM_PRESS, 0, 0);
@@ -553,13 +568,18 @@ wmManipulatorGroupTypeRef *WM_manipulatormaptype_group_link_ptr(
 	return wgt_ref;
 }
 
-void WM_manipulatormaptype_group_init_runtime(
-        const Main *bmain, wmManipulatorMapType *mmap_type,
+void WM_manipulatormaptype_group_init_runtime_keymap(
+        const Main *bmain,
         wmManipulatorGroupType *wgt)
 {
 	/* init keymap - on startup there's an extra call to init keymaps for 'permanent' manipulator-groups */
 	wm_manipulatorgrouptype_setup_keymap(wgt, ((wmWindowManager *)bmain->wm.first)->defaultconf);
+}
 
+void WM_manipulatormaptype_group_init_runtime(
+        const Main *bmain, wmManipulatorMapType *mmap_type,
+        wmManipulatorGroupType *wgt)
+{
 	/* now create a manipulator for all existing areas */
 	for (bScreen *sc = bmain->screen.first; sc; sc = sc->id.next) {
 		for (ScrArea *sa = sc->areabase.first; sa; sa = sa->next) {
@@ -632,8 +652,13 @@ void WM_manipulatormaptype_group_unlink(
 void wm_manipulatorgrouptype_setup_keymap(
         wmManipulatorGroupType *wgt, wmKeyConfig *keyconf)
 {
-	wgt->keymap = wgt->setup_keymap(wgt, keyconf);
-	wgt->keyconf = keyconf;
+	/* Use flag since setup_keymap may return NULL,
+	 * in that case we better not keep calling it. */
+	if (wgt->type_update_flag & WM_MANIPULATORMAPTYPE_KEYMAP_INIT) {
+		wgt->keymap = wgt->setup_keymap(wgt, keyconf);
+		wgt->keyconf = keyconf;
+		wgt->type_update_flag &= ~WM_MANIPULATORMAPTYPE_KEYMAP_INIT;
+	}
 }
 
 /** \} */ /* wmManipulatorGroupType */
