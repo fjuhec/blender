@@ -707,6 +707,11 @@ int ED_object_modifier_apply(ReportList *reports, const bContext *C, Scene *scen
 			return 0;
 		}
 
+		if (((ID *)ob->gpd)->us > 1) {
+			BKE_report(reports, RPT_ERROR, "Modifiers cannot be applied to multi-user data");
+			return 0;
+		}
+
 		modifier_apply_obdata(reports, C, scene, ob, md);
 		BLI_remlink(&ob->modifiers, md);
 		modifier_free(md);
