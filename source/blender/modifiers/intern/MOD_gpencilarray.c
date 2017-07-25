@@ -142,6 +142,7 @@ static DerivedMesh *applyModifier(ModifierData *md, struct EvaluationContext *UN
 
 				/* create a new object and new gp datablock */
 				newob = object_add_type(C, OB_GPENCIL, md->name, ob);
+				id_us_min((ID *)ob->gpd);
 				newob->gpd = BKE_gpencil_data_duplicate(bmain, ob->gpd, false);
 				/* remove array on destination object */
 				fmd = (ModifierData *) BLI_findstring(&newob->modifiers, md->name, offsetof(ModifierData, name));
