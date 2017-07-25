@@ -85,30 +85,24 @@ static void copyData(ModifierData *md, ModifierData *target)
 }
 
 /* helper to create a new object */
-static Object *object_add_type(bContext *C,	int type, const char *name)
+static Object *object_add_type(bContext *C,	int type, const char *name, Object *from_ob)
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
 	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *ob;
-	EvaluationContext eval_ctx;
 	const float loc[3] = { 0, 0, 0 };
 	const float rot[3] = { 0, 0, 0 };
 
-	CTX_data_eval_ctx(C, &eval_ctx);
+	ob = BKE_object_copy(bmain, from_ob);
+	BKE_collection_object_add_from(scene, from_ob, ob);
 
-	ob = BKE_object_add(bmain, scene, sl, type, name);
 	copy_v3_v3(ob->loc, loc);
 	copy_v3_v3(ob->rot, rot);
-
-	BKE_object_where_is_calc(&eval_ctx, scene, ob);
 
 	DEG_id_type_tag(bmain, ID_OB);
 	DEG_relations_tag_update(bmain);
 	DEG_id_tag_update(&scene->id, 0);
-
-	/* define size */
-	BKE_object_obdata_size_init(ob, GP_OBGPENCIL_DEFAULT_SIZE);
 
 	return ob;
 }
@@ -118,6 +112,7 @@ static DerivedMesh *applyModifier(ModifierData *md, struct EvaluationContext *UN
 	ModifierApplyFlag UNUSED(flag))
 {
 	GpencilArrayModifierData *mmd = (GpencilArrayModifierData *)md;
+	ModifierData *fmd;
 	bContext *C = (bContext *)mmd->C;
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
@@ -145,8 +140,15 @@ static DerivedMesh *applyModifier(ModifierData *md, struct EvaluationContext *UN
 				ED_gpencil_array_modifier(0, mmd, ob, xyz, mat);
 				mul_m4_m4m4(finalmat, mat, ob->obmat);
 
-				newob = object_add_type(C, OB_GPENCIL, md->name);
-				newob->gpd = ob->gpd;
+				/* create a new object and new gp datablock */
+				newob = object_add_type(C, OB_GPENCIL, md->name, ob);
+				newob->gpd = BKE_gpencil_data_duplicate(bmain, ob->gpd, false);
+				/* remove array on destination object */
+				fmd = (ModifierData *) BLI_findstring(&newob->modifiers, md->name, offsetof(ModifierData, name));
+				if (fmd) {
+					BLI_remlink(&newob->modifiers, fmd);
+					modifier_free(fmd);
+				}
 				/* moves to new origin */
 				sh = x;
 				if (mmd->lock_axis == GP_LOCKAXIS_Y) {
