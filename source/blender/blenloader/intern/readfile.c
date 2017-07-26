@@ -6587,7 +6587,7 @@ static void direct_link_gpencil(FileData *fd, bGPdata *gpd)
 	direct_link_animdata(fd, gpd->adt);
 
 	/* clear drawing cache */
-	gpd->batch_cache = NULL;
+	gpd->batch_cache_data = NULL;
 
 	/* relink palettes */
 	link_list(fd, &gpd->palettes);

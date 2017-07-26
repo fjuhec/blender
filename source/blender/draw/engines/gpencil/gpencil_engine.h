@@ -176,8 +176,6 @@ struct Gwn_Batch *DRW_gpencil_get_buffer_point_geom(struct bGPdata *gpd, float m
 
 struct GPUTexture *DRW_gpencil_create_blank_texture(int width, int height);
 
-void gpencil_batch_cache_clear(struct bGPdata *gpd);
-
 bool gpencil_can_draw_stroke(const struct bGPDstroke *gps, const bool onion);
 
 struct tGPencilObjectCache *gpencil_object_cache_allocate(struct tGPencilObjectCache *cache, int *gp_cache_size, int *gp_cache_used);

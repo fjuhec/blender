@@ -75,14 +75,14 @@ void(*BKE_gpencil_batch_cache_free_cb)(bGPdata *gpd) = NULL;
 
 void BKE_gpencil_batch_cache_dirty(bGPdata *gpd)
 {
-	if ((gpd) && (gpd->batch_cache)) {
+	if (gpd) {
 		BKE_gpencil_batch_cache_dirty_cb(gpd);
 	}
 }
 
 void BKE_gpencil_batch_cache_free(bGPdata *gpd)
 {
-	if ((gpd) && (gpd->batch_cache)) {
+	if (gpd) {
 		BKE_gpencil_batch_cache_free_cb(gpd);
 	}
 }
@@ -247,6 +247,9 @@ void BKE_gpencil_free_layers(ListBase *list)
 /* clear all runtime derived data */
 static void BKE_gpencil_clear_derived(bGPDlayer *gpl)
 {
+	if (gpl->derived_data == NULL) {
+		return;
+	}
 	GHashIterator *ihash = BLI_ghashIterator_new(gpl->derived_data);
 	while (!BLI_ghashIterator_done(ihash)) {
 		bGPDframe *gpf = (bGPDframe *) BLI_ghashIterator_getValue(ihash);
@@ -750,7 +753,7 @@ bGPdata *BKE_gpencil_data_addnew(const char name[])
 	 */
 	gpd->flag |= GP_DATA_VIEWALIGN;
 	gpd->xray_mode = GP_XRAY_3DSPACE;
-	gpd->batch_cache = NULL;
+	gpd->batch_cache_data = NULL;
 	
 	return gpd;
 }
@@ -918,7 +921,7 @@ bGPdata *BKE_gpencil_data_duplicate(Main *bmain, const bGPdata *gpd_src, bool in
 	else {
 		/* make a copy when others use this */
 		gpd_dst = BKE_libblock_copy(bmain, &gpd_src->id);
-		gpd_dst->batch_cache = NULL;
+		gpd_dst->batch_cache_data = NULL;
 	}
 	
 	/* copy layers */

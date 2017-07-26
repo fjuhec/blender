@@ -327,7 +327,7 @@ typedef struct bGPdata {
 	/* saved palettes */
 	ListBase palettes DNA_DEPRECATED;
 	/* drawing manager cache */
-	void *batch_cache;
+	struct GHash *batch_cache_data;
 	char last_palette_name[66]; /* name of the last palette used */
 	char pad[6];
 } bGPdata;

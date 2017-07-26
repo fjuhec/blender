@@ -93,10 +93,21 @@ void gpencil_object_cache_add(tGPencilObjectCache *cache, Object *ob, int *gp_ca
 	++*gp_cache_used;
 }
 
-/* verify if cache is valid */
-static bool gpencil_batch_cache_valid(bGPdata *gpd, int cfra)
+static GpencilBatchCache *gpencil_batch_get_element(Object *ob)
 {
-	GpencilBatchCache *cache = gpd->batch_cache;
+	bGPdata *gpd = ob->gpd;
+	if (gpd->batch_cache_data == NULL) {
+		gpd->batch_cache_data = BLI_ghash_str_new("GP batch cache data");
+		return NULL;
+	}
+
+	return (GpencilBatchCache *) BLI_ghash_lookup(gpd->batch_cache_data, ob->id.name);
+}
+
+/* verify if cache is valid */
+static bool gpencil_batch_cache_valid(Object *ob, bGPdata *gpd, int cfra)
+{
+	GpencilBatchCache *cache = gpencil_batch_get_element(ob);
 
 	if (cache == NULL) {
 		return false;
@@ -124,9 +135,8 @@ static bool gpencil_batch_cache_valid(bGPdata *gpd, int cfra)
 }
 
 /* resize the cache to the number of slots */
-static void gpencil_batch_cache_resize(bGPdata *gpd, int slots)
+static void gpencil_batch_cache_resize(GpencilBatchCache *cache, int slots)
 {
-	GpencilBatchCache *cache = gpd->batch_cache;
 	cache->cache_size = slots;
 	cache->batch_stroke = MEM_recallocN(cache->batch_stroke, sizeof(struct Gwn_Batch) * slots);
 	cache->batch_fill = MEM_recallocN(cache->batch_fill, sizeof(struct Gwn_Batch) * slots);
@@ -134,27 +144,28 @@ static void gpencil_batch_cache_resize(bGPdata *gpd, int slots)
 }
 
 /* check size and increase if no free slots */
-static void gpencil_batch_cache_check_free_slots(bGPdata *gpd)
+static void gpencil_batch_cache_check_free_slots(Object *ob, bGPdata *gpd)
 {
-	GpencilBatchCache *cache = gpd->batch_cache;
+	GpencilBatchCache *cache = gpencil_batch_get_element(ob);
 
 	/* the memory is reallocated by chunks, not for one slot only to improve speed */
 	if (cache->cache_idx >= cache->cache_size)
 	{
 		cache->cache_size += GPENCIL_MIN_BATCH_SLOTS_CHUNK;
-		gpencil_batch_cache_resize(gpd, cache->cache_size);
+		gpencil_batch_cache_resize(cache, cache->cache_size);
 	}
 }
 /* cache init */
-static void gpencil_batch_cache_init(bGPdata *gpd, int cfra)
+static void gpencil_batch_cache_init(Object *ob, bGPdata *gpd, int cfra)
 {
 	if (G.debug_value == 668) {
 		printf("gpencil_batch_cache_init: %s\n", gpd->id.name);
 	}
-	GpencilBatchCache *cache = gpd->batch_cache;
+	GpencilBatchCache *cache = gpencil_batch_get_element(ob);
 
 	if (!cache) {
-		cache = gpd->batch_cache = MEM_callocN(sizeof(*cache), __func__);
+		cache = MEM_callocN(sizeof(*cache), __func__);
+		BLI_ghash_insert(gpd->batch_cache_data, ob->id.name, cache);
 	}
 	else {
 		memset(cache, 0, sizeof(*cache));
@@ -174,9 +185,8 @@ static void gpencil_batch_cache_init(bGPdata *gpd, int cfra)
 }
 
 /*  clear cache */
-void gpencil_batch_cache_clear(bGPdata *gpd)
+static void gpencil_batch_cache_clear(GpencilBatchCache *cache, bGPdata *gpd)
 {
-	GpencilBatchCache *cache = gpd->batch_cache;
 	if (!cache) {
 		return;
 	}
@@ -199,16 +209,23 @@ void gpencil_batch_cache_clear(bGPdata *gpd)
 		MEM_SAFE_FREE(cache->batch_fill);
 		MEM_SAFE_FREE(cache->batch_edit);
 	}
+	/*TODO: Remove hash entry? */
 }
 
 /* get cache */
-static GpencilBatchCache *gpencil_batch_cache_get(bGPdata *gpd, int cfra)
+static GpencilBatchCache *gpencil_batch_cache_get(Object *ob, int cfra)
 {
-	if (!gpencil_batch_cache_valid(gpd, cfra)) {
-		gpencil_batch_cache_clear(gpd);
-		gpencil_batch_cache_init(gpd, cfra);
+	bGPdata *gpd = ob->gpd;
+
+	if (!gpencil_batch_cache_valid(ob, gpd, cfra)) {
+		GpencilBatchCache *cache = gpencil_batch_get_element(ob);
+		if (cache) {
+			gpencil_batch_cache_clear(cache, gpd);
+		}
+		gpencil_batch_cache_init(ob, gpd, cfra);
 	}
-	return gpd->batch_cache;
+
+	return gpencil_batch_get_element(ob);
 }
 
  /* create shading group for filling */
@@ -463,7 +480,7 @@ DRWShadingGroup *DRW_gpencil_shgroup_drawing_fill_create(DRWPass *pass, GPUShade
 
 /* add fill shading group to pass */
 static void gpencil_add_fill_shgroup(GpencilBatchCache *cache, DRWShadingGroup *fillgrp, 
-	bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf, bGPDstroke *gps, 
+	Object *ob, bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf, bGPDstroke *gps,
 	const float tintcolor[4], const bool onion, const bool custonion)
 {
 	if (gps->totpoints >= 3) {
@@ -486,7 +503,7 @@ static void gpencil_add_fill_shgroup(GpencilBatchCache *cache, DRWShadingGroup *
 				}
 			}
 			if (cache->is_dirty) {
-				gpencil_batch_cache_check_free_slots(gpd);
+				gpencil_batch_cache_check_free_slots(ob, gpd);
 				cache->batch_fill[cache->cache_idx] = DRW_gpencil_get_fill_geom(gps, color);
 			}
 			DRW_shgroup_call_add(fillgrp, cache->batch_fill[cache->cache_idx], gpf->viewmatrix);
@@ -522,7 +539,7 @@ static void gpencil_add_stroke_shgroup(GpencilBatchCache *cache, DRWShadingGroup
 	sthickness = gps->thickness + gpl->thickness;
 	CLAMP_MIN(sthickness, 1);
 	if (cache->is_dirty) {
-		gpencil_batch_cache_check_free_slots(gpd);
+		gpencil_batch_cache_check_free_slots(ob, gpd);
 		if ((gps->totpoints > 1) && (gps->palcolor->stroke_style != STROKE_STYLE_VOLUMETRIC)) {
 			cache->batch_stroke[cache->cache_idx] = DRW_gpencil_get_stroke_geom(gpf, gps, sthickness, ink);
 		}
@@ -543,7 +560,7 @@ static void gpencil_add_editpoints_shgroup(GPENCIL_StorageList *stl, GpencilBatc
 		if (gps->flag & GP_STROKE_SELECT) {
 			if ((gpl->flag & GP_LAYER_UNLOCK_COLOR) || ((gps->palcolor->flag & PC_COLOR_LOCKED) == 0)) {
 				if (cache->is_dirty) {
-					gpencil_batch_cache_check_free_slots(gpd);
+					gpencil_batch_cache_check_free_slots(ob, gpd);
 					cache->batch_edit[cache->cache_idx] = DRW_gpencil_get_edit_geom(gps, ts->gp_sculpt.alpha, gpd->flag);
 				}
 				if (cache->batch_edit[cache->cache_idx]) {
@@ -630,7 +647,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 		}
 		/* fill */
 		if (fillgrp) {
-			gpencil_add_fill_shgroup(cache, fillgrp, gpd, gpl, gpf, gps, tintcolor, onion, custonion);
+			gpencil_add_fill_shgroup(cache, fillgrp, ob, gpd, gpl, gpf, gps, tintcolor, onion, custonion);
 		}
 		/* stroke */
 		gpencil_add_stroke_shgroup(cache, strokegrp, ob, gpd, gpl, gpf, gps, opacity, tintcolor, onion, custonion);
@@ -770,7 +787,7 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 		printf("DRW_gpencil_populate_datablock: %s\n", gpd->id.name);
 	}
 	
-	GpencilBatchCache *cache = gpencil_batch_cache_get(gpd, CFRA);
+	GpencilBatchCache *cache = gpencil_batch_cache_get(ob, CFRA);
 	cache->cache_idx = 0;
 	/* draw normal strokes */
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
@@ -816,17 +833,40 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 
 void DRW_gpencil_batch_cache_dirty(bGPdata *gpd)
 {
-	GpencilBatchCache *cache = gpd->batch_cache;
-	if (cache == NULL) {
+	if (gpd->batch_cache_data == NULL) {
 		return;
 	}
-	cache->is_dirty = true;
+
+	GHashIterator *ihash = BLI_ghashIterator_new(gpd->batch_cache_data);
+	while (!BLI_ghashIterator_done(ihash)) {
+		GpencilBatchCache *cache = (GpencilBatchCache *)BLI_ghashIterator_getValue(ihash);
+		if (cache) {
+			cache->is_dirty = true;
+		}
+		BLI_ghashIterator_step(ihash);
+	}
+	BLI_ghashIterator_free(ihash);
 }
 
 void DRW_gpencil_batch_cache_free(bGPdata *gpd)
 {
-	gpencil_batch_cache_clear(gpd);
-	MEM_SAFE_FREE(gpd->batch_cache);
+	if (gpd->batch_cache_data == NULL) {
+		return;
+	}
+
+	GHashIterator *ihash = BLI_ghashIterator_new(gpd->batch_cache_data);
+	while (!BLI_ghashIterator_done(ihash)) {
+		GpencilBatchCache *cache = (GpencilBatchCache *)BLI_ghashIterator_getValue(ihash);
+		if (cache) {
+			gpencil_batch_cache_clear(cache, gpd);
+		}
+		BLI_ghashIterator_step(ihash);
+	}
+	BLI_ghashIterator_free(ihash);
+
+	/* free hash */
+	BLI_ghash_free(gpd->batch_cache_data, NULL, NULL);
+	gpd->batch_cache_data = NULL;
 }
 
 struct GPUTexture *DRW_gpencil_create_blank_texture(int width, int height)
