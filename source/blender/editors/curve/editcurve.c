@@ -6225,7 +6225,7 @@ void undo_push_curve(bContext *C, const char *name)
 
 void ED_curve_beztcpy(EditNurb *editnurb, BezTriple *dst, BezTriple *src, int count)
 {
-	memcpy(dst, src, count * sizeof(BezTriple));
+	memmove(dst, src, count * sizeof(BezTriple));
 	keyIndex_updateBezt(editnurb, src, dst, count);
 }
 
@@ -6319,7 +6319,7 @@ void CURVE_OT_match_texture_space(wmOperatorType *ot)
 
 
 
-/******************** Extend curve operator ********************/
+/******************** Extend/Intersect curve operator ********************/
 
 static void get_selected_bezier_splines(ListBase* spline_list, ListBase *nubase, int *r_number_splines, bool return_cyclic)
 {
@@ -6782,8 +6782,8 @@ void CURVE_OT_extend_curve(wmOperatorType *ot)
 {
 
 	/* identifiers */
-	ot->name = "Extend";
-	ot->description = "Extend selected vertex/vertices to nearest intersection";
+	ot->name = "Intersect";
+	ot->description = "Intersect selected vertex/vertices to nearest intersection";
 	ot->idname = "CURVE_OT_extend_curve";
 
 	/* api callbacks */
@@ -8035,11 +8035,11 @@ void CURVE_OT_offset_curve(wmOperatorType *ot)
 	RNA_def_float(ot->srna, "distance", 1.0f, -100.0f, OBJECT_ADD_SIZE_MAXF, "Offset distance", "", -10.0f, 10.0f);
 }
 
-/******************** Batch Extend operator ********************/
+/******************** Batch Extend/Extend operator ********************/
 
 static int batch_extend_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	/* main function of the batch extend function */
+	/* main function of the batch extend/extend function */
 	Object *obedit = CTX_data_edit_object(C);
 	ListBase *nubase = object_editcurve_get(obedit);
 	Nurb *nu;
@@ -8101,7 +8101,7 @@ static int batch_extend_exec(bContext *C, wmOperator *UNUSED(op))
 void CURVE_OT_batch_extend(wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name = "Batch Extend";
+	ot->name = "Extend";
 	ot->description = "Extend all the selected vertices up to their intersections";
 	ot->idname = "CURVE_OT_batch_extend";
 
