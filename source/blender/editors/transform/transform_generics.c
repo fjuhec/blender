@@ -1193,7 +1193,7 @@ void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 	}
 	
 	/* GPencil editing context */
-	if ((gpd) && (gpd->flag & GP_DATA_STROKE_EDITMODE)) {
+	if ((gpd) && (gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_PAINTMODE | GP_DATA_STROKE_SCULPTMODE))) {
 		t->options |= CTX_GPENCIL_STROKES;
 	}
 
