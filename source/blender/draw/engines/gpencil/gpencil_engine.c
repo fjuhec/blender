@@ -238,36 +238,13 @@ static void GPENCIL_cache_finish(void *vedata)
 	Scene *scene = draw_ctx->scene;
 	ToolSettings *ts = scene->toolsettings;
 
-	stl->g_data->gpd_in_cache = BLI_ghash_str_new("GP datablock");
-
 	/* Draw all pending objects */
 	if (stl->g_data->gp_cache_used > 0) {
 		for (int i = 0; i < stl->g_data->gp_cache_used; ++i) {
 			Object *ob = stl->g_data->gp_object_cache[i].ob;
 			/* save init shading group */
 			stl->g_data->gp_object_cache[i].init_grp = stl->storage->shgroup_id;
-			
-#if 0
-			/* if use modifiers in several objects, always dirty */
-			if ((ob->modifiers.first) && (((ID *)ob->gpd)->us > 1)) {
-				ob->gpd->flag |= GP_DATA_CACHE_IS_DIRTY;
-				ob->gpd->flag &= ~GP_DATA_CACHE_REUSE;
-			}
-			else {
-				/* add to hash to avoid duplicate geometry cache*/
-				if (!BLI_ghash_lookup(stl->g_data->gpd_in_cache, ob->gpd->id.name)) {
-					BLI_ghash_insert(stl->g_data->gpd_in_cache, ob->gpd->id.name, ob->gpd);
-					if (ob->gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE)) {
-						ob->gpd->flag |= GP_DATA_CACHE_IS_DIRTY;
-						ob->gpd->flag &= ~GP_DATA_CACHE_REUSE;
-					}
-				}
-				else {
-					ob->gpd->flag &= ~GP_DATA_CACHE_IS_DIRTY;
-					ob->gpd->flag |= GP_DATA_CACHE_REUSE;
-				}
-			}
-#endif
+
 			/* fill shading groups */
 			DRW_gpencil_populate_datablock(&e_data, vedata, scene, ob, ts, ob->gpd);
 
@@ -279,13 +256,6 @@ static void GPENCIL_cache_finish(void *vedata)
 			}
 		}
 	}
-
-	/* free hash buffer */
-	if (stl->g_data->gpd_in_cache) {
-		BLI_ghash_free(stl->g_data->gpd_in_cache, NULL, NULL);
-		stl->g_data->gpd_in_cache = NULL;
-	}
-	MEM_SAFE_FREE(stl->g_data->gpd_in_cache);
 }
 
 /* helper function to sort inverse gpencil objects using qsort */

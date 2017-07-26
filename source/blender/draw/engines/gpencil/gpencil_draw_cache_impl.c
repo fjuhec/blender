@@ -119,10 +119,6 @@ static bool gpencil_batch_cache_valid(Object *ob, bGPdata *gpd, int cfra)
 		return false;
 	}
 
-	if (gpd->flag & GP_DATA_CACHE_REUSE) {
-		return true;
-	}
-
 	if (gpd->flag & GP_DATA_CACHE_IS_DIRTY) {
 		return false;
 	}
