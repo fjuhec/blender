@@ -781,14 +781,23 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 		bGPDframe *gpf = BKE_gpencil_layer_getframe(gpl, CFRA, 0);
 		if (gpf == NULL)
 			continue;
+		/* create GHash if need */
+		if (gpl->derived_data == NULL) {
+			gpl->derived_data = (GHash *) BLI_ghash_str_new(gpl->info);
+		}
+
 		if ((ob->modifiers.first) && (!is_edit)) {
-			if (cache->is_dirty) {
+			bGPDframe *derived_gpf;
+			derived_gpf = (bGPDframe *) BLI_ghash_lookup(gpl->derived_data, ob->id.name);
+			if (derived_gpf != NULL) {
 				/* first clear temp data */
-				BKE_gpencil_free_layer_temp_data(gpl);
-				/* create new data */
-				gpl->derived_gpf = BKE_gpencil_frame_color_duplicate(gpf);
+				BLI_ghash_remove(gpl->derived_data, ob->id.name, NULL, NULL);
+				BKE_gpencil_free_layer_temp_data(gpl, derived_gpf);
 			}
-			temp_gpf = gpl->derived_gpf;
+			/* create new data */
+			derived_gpf = BKE_gpencil_frame_color_duplicate(gpf);
+			BLI_ghash_insert(gpl->derived_data, ob->id.name, derived_gpf);
+			temp_gpf = derived_gpf;
 		}
 		else {
 			temp_gpf = gpf; 

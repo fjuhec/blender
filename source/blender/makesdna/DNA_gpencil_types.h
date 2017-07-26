@@ -36,6 +36,7 @@
 
 struct AnimData;
 struct CurveMapping;
+struct GHash;
 
 /* TODO: add size as userprefs parameter */
 #define GP_OBGPENCIL_DEFAULT_SIZE  0.5f 
@@ -257,7 +258,7 @@ typedef struct bGPDlayer {
 	
 	float tintcolor[4];     /* Color used to tint layer, alpha value is used as factor */
 	float opacity;          /* Opacity of the layer */
-	bGPDframe *derived_gpf; /* runtime data created by modifiers */
+	struct GHash *derived_data;     /* runtime data created by modifiers */
 } bGPDlayer;
 
 /* bGPDlayer->flag */

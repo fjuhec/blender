@@ -247,19 +247,27 @@ static void GPENCIL_cache_finish(void *vedata)
 			/* save init shading group */
 			stl->g_data->gp_object_cache[i].init_grp = stl->storage->shgroup_id;
 			
-			/* add to hash to avoid duplicate geometry cache*/
-			if (!BLI_ghash_lookup(stl->g_data->gpd_in_cache, ob->gpd->id.name)) {
-				BLI_ghash_insert(stl->g_data->gpd_in_cache, ob->gpd->id.name, ob->gpd);
-				if (ob->gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE)) {
-					ob->gpd->flag |= GP_DATA_CACHE_IS_DIRTY;
-					ob->gpd->flag &= ~GP_DATA_CACHE_REUSE;
-				}
+#if 0
+			/* if use modifiers in several objects, always dirty */
+			if ((ob->modifiers.first) && (((ID *)ob->gpd)->us > 1)) {
+				ob->gpd->flag |= GP_DATA_CACHE_IS_DIRTY;
+				ob->gpd->flag &= ~GP_DATA_CACHE_REUSE;
 			}
 			else {
-				ob->gpd->flag &= ~GP_DATA_CACHE_IS_DIRTY;
-				ob->gpd->flag |= GP_DATA_CACHE_REUSE;
+				/* add to hash to avoid duplicate geometry cache*/
+				if (!BLI_ghash_lookup(stl->g_data->gpd_in_cache, ob->gpd->id.name)) {
+					BLI_ghash_insert(stl->g_data->gpd_in_cache, ob->gpd->id.name, ob->gpd);
+					if (ob->gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE)) {
+						ob->gpd->flag |= GP_DATA_CACHE_IS_DIRTY;
+						ob->gpd->flag &= ~GP_DATA_CACHE_REUSE;
+					}
+				}
+				else {
+					ob->gpd->flag &= ~GP_DATA_CACHE_IS_DIRTY;
+					ob->gpd->flag |= GP_DATA_CACHE_REUSE;
+				}
 			}
-
+#endif
 			/* fill shading groups */
 			DRW_gpencil_populate_datablock(&e_data, vedata, scene, ob, ts, ob->gpd);
 

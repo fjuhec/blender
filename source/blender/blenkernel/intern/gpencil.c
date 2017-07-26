@@ -42,6 +42,7 @@
 #include "BLI_math_color.h"
 #include "BLI_string_utils.h"
 #include "BLI_rand.h"
+#include "BLI_ghash.h"
 
 #include "BLT_translation.h"
 
@@ -124,23 +125,22 @@ bool BKE_gpencil_free_strokes(bGPDframe *gpf)
 }
 
 /* Free strokes and colors belonging to a gp-frame */
-bool BKE_gpencil_free_layer_temp_data(bGPDlayer *gpl)
+bool BKE_gpencil_free_layer_temp_data(bGPDlayer *gpl, bGPDframe *derived_gpf)
 {
 	bGPDstroke *gps_next;
-	bGPDframe *gpf = gpl->derived_gpf;
-	if (!gpf) {
+	if (!derived_gpf) {
 		return false;
 	}
 
 	/* free strokes */
-	for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps_next) {
+	for (bGPDstroke *gps = derived_gpf->strokes.first; gps; gps = gps_next) {
 		gps_next = gps->next;
 		MEM_SAFE_FREE(gps->palcolor);
 		BKE_gpencil_free_stroke(gps);
 	}
-	BLI_listbase_clear(&gpf->strokes);
+	BLI_listbase_clear(&derived_gpf->strokes);
 
-	MEM_SAFE_FREE(gpf);
+	MEM_SAFE_FREE(derived_gpf);
 
 	return true;
 }
@@ -244,6 +244,20 @@ void BKE_gpencil_free_layers(ListBase *list)
 	}
 }
 
+/* clear all runtime derived data */
+static void BKE_gpencil_clear_derived(bGPDlayer *gpl)
+{
+	GHashIterator *ihash = BLI_ghashIterator_new(gpl->derived_data);
+	while (!BLI_ghashIterator_done(ihash)) {
+		bGPDframe *gpf = (bGPDframe *) BLI_ghashIterator_getValue(ihash);
+		if (gpf) {
+			BKE_gpencil_free_layer_temp_data(gpl, gpf);
+		}
+		BLI_ghashIterator_step(ihash);
+	}
+	BLI_ghashIterator_free(ihash);
+}
+
 /* Free all of the gp-layers temp data*/
 static void BKE_gpencil_free_layers_temp_data(ListBase *list)
 {
@@ -254,8 +268,10 @@ static void BKE_gpencil_free_layers_temp_data(ListBase *list)
 	/* delete layers */
 	for (bGPDlayer *gpl = list->first; gpl; gpl = gpl_next) {
 		gpl_next = gpl->next;
+		BKE_gpencil_clear_derived(gpl);
 
-		BKE_gpencil_free_layer_temp_data(gpl);
+		BLI_ghash_free(gpl->derived_data, NULL, NULL);
+		gpl->derived_data = NULL;
 	}
 }
 
@@ -265,13 +281,10 @@ void BKE_gpencil_free_derived_frames(bGPdata *gpd)
 	/* error checking */
 	if (gpd == NULL) return;
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
-		if (gpl->derived_gpf) {
-			for (bGPDstroke *gps = gpl->derived_gpf->strokes.first; gps; gps = gps->next) {
-				MEM_SAFE_FREE(gps->palcolor);
-			}
-			BKE_gpencil_free_strokes(gpl->derived_gpf);
-			MEM_SAFE_FREE(gpl->derived_gpf);
-		}
+		BKE_gpencil_clear_derived(gpl);
+
+		BLI_ghash_free(gpl->derived_data, NULL, NULL);
+		gpl->derived_data = NULL;
 	}
 }
 
@@ -867,7 +880,7 @@ bGPDlayer *BKE_gpencil_layer_duplicate(const bGPDlayer *gpl_src)
 	/* make a copy of source layer */
 	gpl_dst = MEM_dupallocN(gpl_src);
 	gpl_dst->prev = gpl_dst->next = NULL;
-	gpl_dst->derived_gpf = NULL;
+	gpl_dst->derived_data = NULL;
 	
 	/* copy frames */
 	BLI_listbase_clear(&gpl_dst->frames);
@@ -1211,7 +1224,12 @@ void BKE_gpencil_layer_delete(bGPdata *gpd, bGPDlayer *gpl)
 	
 	/* free layer */
 	BKE_gpencil_free_frames(gpl);
-	BKE_gpencil_free_layer_temp_data(gpl);
+	
+	/* free derived data */
+	BKE_gpencil_clear_derived(gpl);
+	BLI_ghash_free(gpl->derived_data, NULL, NULL);
+	gpl->derived_data = NULL;
+
 	BLI_freelinkN(&gpd->layers, gpl);
 }
 
