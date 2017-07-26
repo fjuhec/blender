@@ -209,7 +209,8 @@ static void gpencil_batch_cache_clear(GpencilBatchCache *cache, bGPdata *gpd)
 		MEM_SAFE_FREE(cache->batch_fill);
 		MEM_SAFE_FREE(cache->batch_edit);
 	}
-	/*TODO: Remove hash entry? */
+
+	MEM_SAFE_FREE(cache);
 }
 
 /* get cache */
