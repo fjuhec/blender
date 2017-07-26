@@ -863,8 +863,10 @@ void DRW_gpencil_batch_cache_free(bGPdata *gpd)
 	BLI_ghashIterator_free(ihash);
 
 	/* free hash */
-	BLI_ghash_free(gpd->batch_cache_data, NULL, NULL);
-	gpd->batch_cache_data = NULL;
+	if (gpd->batch_cache_data) {
+		BLI_ghash_free(gpd->batch_cache_data, NULL, NULL);
+		gpd->batch_cache_data = NULL;
+	}
 }
 
 struct GPUTexture *DRW_gpencil_create_blank_texture(int width, int height)

@@ -273,8 +273,10 @@ static void BKE_gpencil_free_layers_temp_data(ListBase *list)
 		gpl_next = gpl->next;
 		BKE_gpencil_clear_derived(gpl);
 
-		BLI_ghash_free(gpl->derived_data, NULL, NULL);
-		gpl->derived_data = NULL;
+		if (gpl->derived_data) {
+			BLI_ghash_free(gpl->derived_data, NULL, NULL);
+			gpl->derived_data = NULL;
+		}
 	}
 }
 
@@ -286,8 +288,10 @@ void BKE_gpencil_free_derived_frames(bGPdata *gpd)
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		BKE_gpencil_clear_derived(gpl);
 
-		BLI_ghash_free(gpl->derived_data, NULL, NULL);
-		gpl->derived_data = NULL;
+		if (gpl->derived_data) {
+			BLI_ghash_free(gpl->derived_data, NULL, NULL);
+			gpl->derived_data = NULL;
+		}
 	}
 }
 
@@ -1230,8 +1234,10 @@ void BKE_gpencil_layer_delete(bGPdata *gpd, bGPDlayer *gpl)
 	
 	/* free derived data */
 	BKE_gpencil_clear_derived(gpl);
-	BLI_ghash_free(gpl->derived_data, NULL, NULL);
-	gpl->derived_data = NULL;
+	if (gpl->derived_data) {
+		BLI_ghash_free(gpl->derived_data, NULL, NULL);
+		gpl->derived_data = NULL;
+	}
 
 	BLI_freelinkN(&gpd->layers, gpl);
 }
