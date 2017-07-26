@@ -5194,6 +5194,7 @@ typedef struct SpineBranch{
 	BranchState flag;
 	int *e_start_arr;		/* Edges on the ends are stored (used primarly for bridging) */
 	int fs_bs_offset;		/* Frontside edge offset to backside*/
+	int *e_flip_side_ends;	/* Front and backside connecting edges of each part*/
 }SpineBranch;
 
 /* Main Tree Container */
@@ -5294,6 +5295,7 @@ static void free_spine_branch(SpineBranch *branch)
 	}
 	if (branch->flag & BRANCH_EDGE_GEN) {
 		MEM_freeN(branch->e_start_arr);
+		MEM_freeN(branch->e_flip_side_ends);
 	}
 	MEM_freeN(branch);
 }
@@ -5833,6 +5835,52 @@ static int add_quad(Mesh *me, int edge_b, int edge_a, int edge_c, bool flip)
 	return e_start;
 }
 
+static void add_face(Mesh *me, int e1, int e2, int e3, int e4, int l_start, int p_start, bool flip){
+	int comp_v1;
+
+	if (me->medge[e1].v1 == me->medge[e2].v1 || me->medge[e1].v1 == me->medge[e2].v2) {
+		comp_v1 = me->medge[e1].v1;
+		me->mloop[l_start].v = me->medge[e1].v2;
+		me->mloop[l_start].e = e1;
+	} else {
+		comp_v1 = me->medge[e1].v2;
+		me->mloop[l_start].v = me->medge[e1].v1;
+		me->mloop[l_start].e = e1;
+	}
+	if (me->medge[e2].v1 == comp_v1) {
+		me->mloop[l_start + (flip ? 3 : 1)].v = me->medge[e2].v1;
+		comp_v1 = me->medge[e2].v2;
+	} else {
+		me->mloop[l_start + (flip ? 3 : 1)].v = me->medge[e2].v2;
+		comp_v1 = me->medge[e2].v1;
+	}
+	me->mloop[l_start + (flip ? 3 : 1)].e = e2;
+
+	if (me->medge[e3].v1 == comp_v1) {
+		me->mloop[l_start + 2].v = me->medge[e3].v1;
+		comp_v1 = me->medge[e3].v2;
+	} else {
+		me->mloop[l_start + 2].v = me->medge[e3].v2;
+		comp_v1 = me->medge[e3].v1;
+	}
+	me->mloop[l_start + 2].e = e3;
+
+	if (me->medge[e4].v1 == comp_v1) {
+		me->mloop[l_start + (flip ? 1 : 3)].v = me->medge[e4].v1;
+		comp_v1 = me->medge[e4].v2;
+	} else {
+		me->mloop[l_start + (flip ? 1 : 3)].v = me->medge[e4].v2;
+		comp_v1 = me->medge[e4].v1;
+	}
+	me->mloop[l_start + (flip ? 1 : 3)].e = e4;
+
+	me->mpoly[p_start].totloop = 4;
+	me->mpoly[p_start].loopstart = l_start;
+	me->mpoly[p_start].mat_nr = 0;
+	me->mpoly[p_start].flag = 0;
+	me->mpoly[p_start].pad = 0;
+}
+
 /* TODO: is there a sort function already?*/
 static int cmpfunc (const void * a, const void * b)
 {
@@ -5939,7 +5987,8 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 	int e_cap_start_a, e_cap_start_b, e_cap_start_c;
 	int e_corner_a, e_corner_b;
 	int cap_end_flip_e_start, cap_end_flip_start_a_l, cap_end_flip_start_b_l;
-	int cap_end_flip_start_a_r, cap_end_flip_start_b_r;
+	int cap_end_flip_start_a_r, cap_end_flip_start_b_r, e_cap_tube_start, e_cap_tube_end;
+	int e_flip_tube_end[2];
 	BLI_array_declare(cap_p);
 
 	if (!flip_side) {
@@ -5964,7 +6013,8 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 	}
 
 	if (!(branch->flag & BRANCH_EDGE_GEN)) {
-		branch->e_start_arr = MEM_callocN(sizeof(int) * 4,"edge startposition array");
+		branch->e_start_arr = MEM_callocN(sizeof(int) * 4, "edge startposition array");
+		branch->e_flip_side_ends = MEM_callocN(sizeof(int) * 2, "fs bs edges");
 		branch->flag |= BRANCH_EDGE_GEN;
 	}
 
@@ -6024,6 +6074,7 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 			cap_length = totlength - left[totl * 4 - 1] - right[totr * 4 - 1];
 
 			if (flip_side) {
+				branch->e_flip_side_ends[0] = me->totedge;
 				bridge_loops(me,
 							 e_flip_start + 1,
 							 e_flip_start - branch->fs_bs_offset + 1,
@@ -6032,7 +6083,8 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 							 ((v_steps - 1) * 2 + w_steps) * 2 - 1,
 							 (v_steps * 2 + w_steps) * 2 - 1,
 							 !n_g_flip);
-
+				branch->e_flip_side_ends[1] = me->totedge;
+				e_flip_tube_end[0] = me->totedge - 1;
 				bridge_loops(me,
 							 e_flip_start + ((v_steps - 1) * 2 + w_steps) * 2 - 2,
 							 e_flip_start - branch->fs_bs_offset + (v_steps * 2 + w_steps) * 2 - 2,
@@ -6041,6 +6093,7 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 							 ((v_steps - 1) * 2 + w_steps) * 2 - 1,
 							 (v_steps * 2 + w_steps) * 2 - 1,
 							 n_g_flip);
+				e_flip_tube_end[1] = me->totedge - 1;
 				e_flip_offset += u_steps * 2 - 2;
 			}
 		}
@@ -6208,6 +6261,7 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 		branch->e_start_arr[flip_side ? 2 : 0] = e_cap_start_a;
 		branch->e_start_arr[flip_side ? 3 : 1] = 1;
 	} else {
+		e_cap_tube_start = me->totedge;
 		bridge_loops(me,
 					 e_cap_start_a,
 					 e_start_tube[flip_side ? 6 : 2],
@@ -6216,6 +6270,8 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 					 1,
 					 1,
 					 n_g_flip);
+		e_cap_tube_end = me->totedge - 1;
+		e_flip_offset += 2;
 		branch->e_start_arr[flip_side ? 2 : 0] = e_start_tube[flip_side ? 4 : 0];
 		branch->e_start_arr[flip_side ? 3 : 1] = e_start_tube[flip_side ? 5 : 1];
 	}
@@ -6225,6 +6281,30 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 	} else {
 		add_quad(me, cap_end_flip_e_start, cap_end_flip_start_a_l, cap_end_flip_start_b_l, !n_g_flip);
 		add_quad(me, cap_end_flip_e_start + w_steps - 1, cap_end_flip_start_a_r, cap_end_flip_start_b_r, n_g_flip);
+		if (totlength <= step_size * w_steps || totl == 0 || totr == 0) {
+			branch->e_flip_side_ends[0] = me->totedge - 2;
+			branch->e_flip_side_ends[1] = me->totedge - 1;
+		} else {
+			ED_mesh_loops_add(me, NULL, 8);
+			ED_mesh_polys_add(me, NULL, 2);
+			add_face(me,
+					 e_flip_tube_end[0],
+					 e_cap_tube_start - branch->fs_bs_offset + e_flip_offset,
+					 me->totedge - 2,
+					 e_cap_tube_start,
+					 me->totloop - 8,
+					 me->totpoly - 2,
+					 n_g_flip);
+
+			add_face(me,
+					 e_flip_tube_end[1],
+					 e_cap_tube_end - branch->fs_bs_offset + e_flip_offset + 2,
+					 me->totedge - 1,
+					 e_cap_tube_end,
+					 me->totloop - 4,
+					 me->totpoly - 1,
+					 !n_g_flip);
+		}
 	}
 
 	BLI_array_free(cap_p);
@@ -6265,7 +6345,7 @@ static void add_ss_tinter(SilhouetteData *sil, Spine *spine, SpineBranch *branch
 	int v_start, v_start_center;
 	int e_start[3], e_start_center, e_start_inner[3], e_t_sign[6];
 	int stride_le;
-	int ori;
+	int ori[3];
 	int e_flip_offset = 0;	/* carry edgecount difference in both sides to refrence opposing edges by subtracting totedge - flip offset. Only valid if flip_side = true*/
 	int e_flip_start[3];
 	int e_flip_q_l[3], e_flip_q_r[3];
@@ -6337,6 +6417,7 @@ static void add_ss_tinter(SilhouetteData *sil, Spine *spine, SpineBranch *branch
 
 	if (!(branch->flag & BRANCH_EDGE_GEN)) {
 		branch->e_start_arr = MEM_callocN(sizeof(int) * 12,"edge startposition array");
+		branch->e_flip_side_ends = MEM_callocN(sizeof(int) * 6, "fs bs edges");
 		branch->flag |= BRANCH_EDGE_GEN;
 	}
 
@@ -6352,9 +6433,9 @@ static void add_ss_tinter(SilhouetteData *sil, Spine *spine, SpineBranch *branch
 
 		v_start = me->totvert;
 
-		ori = calc_branch_orientation(spine, branch, &center_s[s * 3], s);
-		branch->e_start_arr[(flip_side ? 6 : 0) + ori * 2] = me->totedge;
-		branch->e_start_arr[(flip_side ? 6 : 0) + ori * 2 + 1] = 1;
+		ori[s] = calc_branch_orientation(spine, branch, &center_s[s * 3], s);
+		branch->e_start_arr[(flip_side ? 6 : 0) + ori[s] * 2] = me->totedge;
+		branch->e_start_arr[(flip_side ? 6 : 0) + ori[s] * 2 + 1] = 1;
 
 		calc_vert_half(me,
 					   &sa[b_start[s]],
@@ -6527,11 +6608,13 @@ static void add_ss_tinter(SilhouetteData *sil, Spine *spine, SpineBranch *branch
 		e_t_sign[s * 2 + 1] = e_side_a;
 
 		if (flip_side) {
+			branch->e_flip_side_ends[ori[s] * 2] = me->totedge;
 			add_quad(me,
 					 e_flip_q_l[0],
 					 e_flip_q_l[1],
 					 e_flip_q_l[2],
 					 !n_g_flip);
+			branch->e_flip_side_ends[ori[s] * 2 + 1] = me->totedge;
 			add_quad(me,
 					 e_flip_q_r[0],
 					 e_flip_q_r[1],
@@ -6642,6 +6725,7 @@ static void add_ss_tube(SilhouetteData *sil, SpineBranch *branch, Mesh *me, floa
 
 	if (!(branch->flag & BRANCH_EDGE_GEN)) {
 		branch->e_start_arr = MEM_callocN(sizeof(int) * 8, "edge startposition array");
+		branch->e_flip_side_ends = MEM_callocN(sizeof(int) * 4, "fs bs edges");
 		branch->flag |= BRANCH_EDGE_GEN;
 	}
 
@@ -6650,6 +6734,7 @@ static void add_ss_tube(SilhouetteData *sil, SpineBranch *branch, Mesh *me, floa
 	fill_tube(me, left, right, totl, totr, u_steps, z_vec, v_steps, w_steps, w_fact, branch->e_start_arr, n_g_flip, flip_side);
 
 	if (flip_side) {
+		branch->e_flip_side_ends[0] = me->totedge;
 		bridge_loops(me,
 					 e_start + 1,
 					 e_start - branch->fs_bs_offset + 1,
@@ -6658,7 +6743,8 @@ static void add_ss_tube(SilhouetteData *sil, SpineBranch *branch, Mesh *me, floa
 					 ((v_steps - 1) * 2 + w_steps) * 2 - 1,
 					 (v_steps * 2 + w_steps) * 2 - 1,
 					 !n_g_flip);
-
+		branch->e_flip_side_ends[1] = me->totedge;
+		branch->e_flip_side_ends[2] = me->totedge - 1;
 		bridge_loops(me,
 					 e_start + ((v_steps - 1) * 2 + w_steps) * 2 - 2,
 					 e_start - branch->fs_bs_offset + (v_steps * 2 + w_steps) * 2 - 2,
@@ -6667,6 +6753,7 @@ static void add_ss_tube(SilhouetteData *sil, SpineBranch *branch, Mesh *me, floa
 					 ((v_steps - 1) * 2 + w_steps) * 2 - 1,
 					 (v_steps * 2 + w_steps) * 2 - 1,
 					 n_g_flip);
+		branch->e_flip_side_ends[3] = me->totedge - 1;
 	} else {
 		branch->fs_bs_offset = me->totedge - branch->fs_bs_offset;
 	}
@@ -6688,20 +6775,16 @@ static int r_branch_count(Spine *spine, SpineBranch *b)
 }
 
 /* TODO: T-Intersections are sometimes misordered! Connects the different Branches if they have the BRANCH_EDGE_GEN flag set. */
-static void bridge_all_parts_rec(Mesh *me, Spine *spine, SpineBranch *active_branch, SpineBranch *prev_branch, int verts_per_loop, bool n_g_flip, bool flip_side)
+static void bridge_all_parts_rec(Mesh *me, Spine *spine, SpineBranch *active_branch, SpineBranch *prev_branch, int verts_per_loop, bool n_g_flip)
 {
-	int b_fork_off, a_fork_off;
+	int b_fork_off, a_fork_off, a_fork_off_inv, b_fork_off_inv, comp_e_start, comp_e_start_flip;
 	float dist_a, dist_b;
-	if (flip_side) {
-		a_fork_off = active_branch->totforks;
-	} else {
-		a_fork_off = 0;
-	}
+	a_fork_off = 0;
 	for (int i = 0; i < active_branch->totforks; i++) {
 		SpineBranch *comp = spine->branches[active_branch->terminal_points[i * 2 + 1]];
 		if (comp && comp != prev_branch) {
 			if (active_branch->flag & BRANCH_EDGE_GEN && comp->flag & BRANCH_EDGE_GEN) {
-				b_fork_off = (flip_side ? comp->totforks : 0);
+				b_fork_off = 0;
 				for (int sb = 0; sb < comp->totforks; sb++) {
 					if (spine->branches[comp->terminal_points[sb * 2 + 1]]) {
 						if (comp->terminal_points[sb * 2 + 1] == active_branch->idx) {
@@ -6713,7 +6796,7 @@ static void bridge_all_parts_rec(Mesh *me, Spine *spine, SpineBranch *active_bra
 
 				/* TODO: Might fail with thin geometry */
 				dist_a = len_v3v3(me->mvert[me->medge[active_branch->e_start_arr[a_fork_off * 2]].v1].co, me->mvert[me->medge[comp->e_start_arr[b_fork_off * 2]].v1].co);
-				dist_b = len_v3v3(me->mvert[me->medge[active_branch->e_start_arr[a_fork_off * 2]].v1].co, me->mvert[me->medge[comp->e_start_arr[b_fork_off * 2] + (verts_per_loop - 2 - (flip_side ? 2 : 0)) * comp->e_start_arr[b_fork_off * 2 + 1]].v2].co);
+				dist_b = len_v3v3(me->mvert[me->medge[active_branch->e_start_arr[a_fork_off * 2]].v1].co, me->mvert[me->medge[comp->e_start_arr[b_fork_off * 2] + (verts_per_loop - 2 - 0) * comp->e_start_arr[b_fork_off * 2 + 1]].v2].co);
 
 				/* TODO: Tube bug inverse?
 				if (comp->hull_points[0] == 0) {
@@ -6721,27 +6804,54 @@ static void bridge_all_parts_rec(Mesh *me, Spine *spine, SpineBranch *active_bra
 					bl_debug_draw_medge_add(me, comp->e_start_arr[b_fork_off * 2] + comp->e_start_arr[b_fork_off * 2 + 1] * (verts_per_loop - 2));
 					bl_debug_color_set(0x000000);
 				}*/
+				a_fork_off_inv = a_fork_off * 2 + active_branch->totforks * 2;
+				b_fork_off_inv = b_fork_off * 2 + comp->totforks * 2;
 				if (dist_a > dist_b) {
-					bridge_loops(me,
-								 active_branch->e_start_arr[a_fork_off * 2],
-								 comp->e_start_arr[b_fork_off * 2] + comp->e_start_arr[b_fork_off * 2 + 1] * (verts_per_loop - 2 - (flip_side ? 2 : 0)),
-								 verts_per_loop - (flip_side ? 2 : 0),
-								 true,
-								 active_branch->e_start_arr[a_fork_off * 2 + 1],
-								 comp->e_start_arr[b_fork_off * 2 + 1],
-								 n_g_flip ^ flip_side);
+					comp_e_start = comp->e_start_arr[b_fork_off * 2] + comp->e_start_arr[b_fork_off * 2 + 1] * (verts_per_loop - 2);
+					comp_e_start_flip = comp->e_start_arr[b_fork_off_inv] + comp->e_start_arr[b_fork_off_inv + 1] * (verts_per_loop - 4);
 				} else {
-					bridge_loops(me,
-								 active_branch->e_start_arr[a_fork_off * 2],
-								 comp->e_start_arr[b_fork_off * 2],
-								 verts_per_loop - (flip_side ? 2 : 0),
-								 false,
-								 active_branch->e_start_arr[a_fork_off * 2 + 1],
-								 comp->e_start_arr[b_fork_off * 2 + 1],
-								 !n_g_flip ^ flip_side);
+					comp_e_start = comp->e_start_arr[b_fork_off * 2];
+					comp_e_start_flip = comp->e_start_arr[b_fork_off_inv];
 				}
+				bridge_loops(me,
+							 active_branch->e_start_arr[a_fork_off * 2],
+							 comp_e_start,
+							 verts_per_loop,
+							 (dist_a > dist_b),
+							 active_branch->e_start_arr[a_fork_off * 2 + 1],
+							 comp->e_start_arr[b_fork_off * 2 + 1],
+							 !n_g_flip ^ (dist_a > dist_b));
+
+				bridge_loops(me,
+							 active_branch->e_start_arr[a_fork_off_inv],
+							 comp_e_start_flip,
+							 verts_per_loop - 2,
+							 (dist_a > dist_b),
+							 active_branch->e_start_arr[a_fork_off_inv + 1],
+							 comp->e_start_arr[b_fork_off_inv + 1],
+							 n_g_flip ^ (dist_a > dist_b));
+
+				ED_mesh_loops_add(me, NULL, 8);
+				ED_mesh_polys_add(me, NULL, 2);
+				add_face(me,
+						 me->totedge - 1,
+						 active_branch->e_flip_side_ends[a_fork_off * 2 + 1],
+						 me->totedge - verts_per_loop + 1,
+						 comp->e_flip_side_ends[b_fork_off * 2 + ((dist_a > dist_b) ? 0 : 1)],
+						 me->totloop - 8,
+						 me->totpoly - 2,
+						 n_g_flip ^ (dist_a > dist_b));
+
+				add_face(me,
+						 me->totedge - verts_per_loop + 2,
+						 active_branch->e_flip_side_ends[a_fork_off * 2],
+						 me->totedge - verts_per_loop * 2 + 2,
+						 comp->e_flip_side_ends[b_fork_off * 2 + ((dist_a > dist_b) ? 1 : 0)],
+						 me->totloop - 4,
+						 me->totpoly - 1,
+						 !n_g_flip ^ (dist_a > dist_b));
 			}
-			bridge_all_parts_rec(me, spine, comp, active_branch, verts_per_loop, n_g_flip, flip_side);
+			bridge_all_parts_rec(me, spine, comp, active_branch, verts_per_loop, n_g_flip);
 		}
 		if (comp) {
 			a_fork_off ++;
@@ -6749,7 +6859,7 @@ static void bridge_all_parts_rec(Mesh *me, Spine *spine, SpineBranch *active_bra
 	}
 }
 
-static void bridge_all_parts(Mesh *me, Spine *spine, int verts_per_loop, bool n_g_flip, bool flip_side)
+static void bridge_all_parts(Mesh *me, Spine *spine, int verts_per_loop, bool n_g_flip)
 {
 	SpineBranch *active_branch = NULL;
 	for (int i = 0; i < spine->totbranches; i++) {
@@ -6763,7 +6873,7 @@ static void bridge_all_parts(Mesh *me, Spine *spine, int verts_per_loop, bool n_
 		/* No Branches in the spine. Should not happen. */
 		return;
 	}
-	bridge_all_parts_rec(me, spine, active_branch, NULL, verts_per_loop, n_g_flip, flip_side);
+	bridge_all_parts_rec(me, spine, active_branch, NULL, verts_per_loop, n_g_flip);
 }
 
 static bool calc_stroke_normal_ori(SilhouetteStroke *stroke, float z_vec[3]) {
@@ -6829,8 +6939,7 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 		}
 	}
 
-	bridge_all_parts(me, spine, v_steps * 2 + w_steps, n_ori, false);
-	bridge_all_parts(me, spine, v_steps * 2 + w_steps, n_ori, true);
+	bridge_all_parts(me, spine, v_steps * 2 + w_steps, n_ori);
 
 	free_spine(spine);
 
