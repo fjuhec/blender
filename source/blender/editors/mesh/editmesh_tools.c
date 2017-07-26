@@ -41,6 +41,7 @@
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 
+#include "BLI_bitmap.h"
 #include "BLI_listbase.h"
 #include "BLI_linklist.h"
 #include "BLI_linklist_stack.h"
@@ -6669,7 +6670,7 @@ static int edbm_copy_paste_normal_exec(bContext *C, wmOperator *op)
 	return OPERATOR_FINISHED;
 }
 
-static int edbm_copy_paste_normal_invoke(bContext *C, wmOperator *op, wmEvent *event)
+static int edbm_copy_paste_normal_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	return edbm_copy_paste_normal_exec(C, op);
 }
@@ -6697,4 +6698,85 @@ void MESH_OT_copy_normal(struct wmOperatorType *ot)
 	prop = RNA_def_property(ot->srna, "normal_vector", PROP_FLOAT, PROP_XYZ);
 	RNA_def_property_array(prop, 3);
 	RNA_def_property_ui_text(prop, "Copied Normal", "Normal vector of copied face or loop");
+}
+
+static int edbm_set_normals_from_faces_exec(bContext *C, wmOperator *op)
+{
+	Object *obedit = CTX_data_edit_object(C);
+	BMEditMesh *em = BKE_editmesh_from_object(obedit);
+	BMesh *bm = em->bm;
+	BMFace *f;
+	BMVert *v;
+	BMEdge *e;
+	BMLoop *l;
+	BMIter fiter, viter, eiter, liter;
+	int index;
+
+	const bool keep_sharp = RNA_boolean_get(op->ptr, "keep_sharp");
+	BLI_bitmap *faces_sharp = BLI_BITMAP_NEW(bm->totface, __func__);
+
+	BM_lnorspace_update(bm);
+	BM_mesh_elem_index_ensure(bm, BM_ALL);
+
+	BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
+		bool all_edge_mark = true;
+		BM_ITER_ELEM(e, &eiter, f, BM_EDGES_OF_FACE) {
+			if (BM_elem_flag_test(e, BM_ELEM_SMOOTH))
+				all_edge_mark = false;
+		}
+		if (all_edge_mark) {
+			BLI_BITMAP_ENABLE(faces_sharp, BM_elem_index_get(f));
+		}
+	}
+
+	float(*vnors)[3] = MEM_callocN(sizeof(*vnors) * bm->totvert, "__func__");
+	BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
+		if (BM_elem_flag_test(f, BM_ELEM_SELECT)) {
+			BM_ITER_ELEM(v, &viter, f, BM_VERTS_OF_FACE) {
+				int v_index = BM_elem_index_get(v);
+				add_v3_v3(vnors[v_index], f->no);
+			}
+		}
+	}
+	for (int i = 0; i < bm->totvert; i++) {
+		if (!is_zero_v3(vnors[i]))
+			normalize_v3(vnors[i]);
+	}
+
+	int cd_clnors_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
+
+	BM_ITER_MESH_INDEX(v, &viter, bm, BM_VERTS_OF_MESH, index) {
+		BM_ITER_ELEM(l, &liter, v, BM_LOOPS_OF_VERT) {
+			if (keep_sharp && BLI_BITMAP_TEST(faces_sharp, BM_elem_index_get(l->f)))
+				continue;
+
+			if (!is_zero_v3(vnors[index])) {
+				short *clnors = BM_ELEM_CD_GET_VOID_P(l, cd_clnors_offset);
+				int l_index = BM_elem_index_get(l);
+				BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[l_index], vnors[index], clnors);
+			}
+		 }
+	}
+	MEM_freeN(faces_sharp);
+	MEM_freeN(vnors);
+	EDBM_update_generic(em, true, false);
+
+	return OPERATOR_FINISHED;
+}
+
+void MESH_OT_set_normals_from_faces(struct wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Set Normals from faces";
+	ot->description = "Set the custom vertex normals from the selected faces ones";
+	ot->idname = "MESH_OT_set_normals_from_faces";
+
+	/* api callbacks */
+	ot->exec = edbm_set_normals_from_faces_exec;
+	ot->poll = ED_operator_editmesh_auto_smooth;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	ot->prop = RNA_def_boolean(ot->srna, "keep_sharp", 0, "Keep Sharp Edges", "Do not set sharp edges to face");
 }

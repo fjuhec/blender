@@ -1616,8 +1616,7 @@ enum {
 typedef struct WeightedNormalModifierData {
 	ModifierData modifier;
 
-	short weight;
-	short mode;
+	short weight, mode;
 	float thresh;
 } WeightedNormalModifierData;
 

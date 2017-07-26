@@ -196,6 +196,7 @@ void ED_operatortypes_mesh(void)
 	WM_operatortype_append(MESH_OT_merge_loop_normals);
 	WM_operatortype_append(MESH_OT_split_loop_normals);
 	WM_operatortype_append(MESH_OT_copy_normal);
+	WM_operatortype_append(MESH_OT_set_normals_from_faces);
 
 #ifdef WITH_GAMEENGINE
 	WM_operatortype_append(MESH_OT_navmesh_make);
