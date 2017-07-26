@@ -3497,7 +3497,7 @@ static void print_array_i(int *a, int len){
 #define print_vd(ar) printf("[ %.3f %.3f %.3f ]  ",ar[0],ar[1],ar[2]);
 #define print_vd2(ar,i) printf("[ %.3f %.3f %.3f ]  ",ar[i][0],ar[i][1],ar[i][2]);
 
-int check_present(int a, int *array, int len){
+int check_present(int a,const int *array, int len){
 	loop(i, 0, len, 1){
 		if (array[i] == a)
 			return i;
@@ -3505,7 +3505,7 @@ int check_present(int a, int *array, int len){
 	return -1;
 }
 
-int check_present_un(uint a, uint *array, int len){
+int check_present_un(uint a,const uint *array, int len){
 	loop(i, 0, len, 1){
 		if (array[i] == a)
 			return i;
@@ -3567,7 +3567,7 @@ int find_connect_mesh(SculptSession *ss, int vert, short *ch, int *vert_index, i
 	return 0;
 }
 //BM_log_vert_id_t(ss->bm_log, vd.bm_vert);
-int find_connect_bmesh(const BMLog *bml,const BMVert *vert, short *ch, const uint *vert_index, int len){
+int find_connect_bmesh(const BMLog *bml, BMVert *vert, short *ch, const uint *vert_index, int len){
 	int p = check_present_un(BM_log_vert_id_t(bml, vert), vert_index, len);
 	if (p == -1 || ch[p] == 1){
 		return 0;
@@ -3642,6 +3642,8 @@ static void do_topo_grab_brush_task_cb_ex(
 	//BLI_mutex_init(&data->mutex);
 	copy_v3_v3(test.normal, ss->cache->mesh_normal[2]);
 	copy_v3_v3(center_v,ss->cache->mesh_v);
+	uint bmn[2];
+	bmn[0] = ss->cache->bm_id[0];
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
 		sculpt_orig_vert_data_update(&orig_data, &vd);
@@ -3771,10 +3773,11 @@ static void do_topo_grab_brush_task_cb_ex(
 				loop(ir, 0, cn[1], 1){
 					//printf("%ud %d %.3f %.3f %.3f \n", ver_b[ir], ver[ir], cor[ir][0], cor[ir][1], cor[ir][2]);
 				}
-				printf(" bV = %d ", BM_log_vert_id_t(ss->bm_log, vx));
+				printf(" bV = %d %d\n", BM_log_vert_id_t(ss->bm_log, vx), 
+					ss->cache->bm_id[0]);
 				d[0] = 1000.0f;
 				short ch1[VERLEN] = {0};
-				print_array_i(ver_b, cn[1]);
+				//print_array_i(ver_b, cn[1]);
 				find_connect_bmesh(ss->bm_log, vx, ch1, ver_b, cn[1]);
 				//printf("\n");
 				//loop(i, 0, cn[1], 1) ch1[i] = 1;
