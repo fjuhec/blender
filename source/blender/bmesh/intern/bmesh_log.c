@@ -1035,6 +1035,10 @@ uint BM_log_vert_id_t(BMLog *log, BMVert *v){
 	return bm_log_vert_id_get(log, v);
 }
 
+BMVert *BM_log_id_vert_t(BMLog *log, uint id){
+	return bm_log_vert_from_id(log, id);
+}
+
 const float *BM_log_original_vert_co(BMLog *log, BMVert *v)
 {
 	BMLogEntry *entry = log->current_entry;

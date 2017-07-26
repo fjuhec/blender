@@ -240,6 +240,11 @@ typedef struct StrokeCache {
 	float view_normal[3];
 	float mesh_normal[3][3];
 	float central_v[3];
+	float mesh_v[3];
+	
+	int m_id[2];
+	uint bm_id[2];
+
 
 	/* sculpt_normal gets calculated by calc_sculpt_normal(), then the
 	 * sculpt_normal_symm gets updated quickly with the usual symmetry
@@ -518,6 +523,11 @@ typedef struct SculptThreadedTaskData {
 	int *v_index;
 	int *t_index;
 	float *t_dis;
+
+	int *mid;
+	uint *bmid;
+
+	float *dis;
 	/* 0=towards view, 1=flipped */
 	float (*area_cos)[3];
 	float (*area_nos)[3];
@@ -1575,6 +1585,115 @@ static void update_mesh_area_normal(Sculpt *sd, Object *ob,
 	
 	if (cache->first_time) 
 		calc_mesh_normal(sd, ob, nodes, totnode, cache->mesh_normal,cache->central_v);
+}
+
+
+static void calc_central_vertex_cb(void *userdata, const int n)
+{
+	SculptThreadedTaskData *data = userdata;
+	SculptSession *ss = data->ob->sculpt;
+	float(*cent_cos)[3] = data->area_cos;
+	float *dist = data->dis;
+	float ds[2] = { 1000.0f, 0.0f };
+	PBVHVertexIter vd;
+	SculptBrushTest test;
+	float *cp = ss->cache->central_v;
+	float private_co[3] = { 0.0f };
+	int   private_count[2] = { 0 };
+
+	int *mid = data->mid;
+	uint *bmid = data->bmid;
+
+	int a = 0;
+	uint b = 0;
+
+	PBVHType type = BKE_pbvh_type(ss->pbvh);
+
+	sculpt_brush_test_init(ss, &test);
+
+	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
+	{
+
+		if (sculpt_brush_test_fast(&test, vd.co)) {
+
+
+			float dx = len_squared_v3v3(cp,vd.co);
+			if (dx < ds[0]){
+				ds[0] = dx;
+				copy_v3_v3(private_co, vd.co);
+				//if (type == PBVH_FACES) mvt = vd.mvert;
+				//else if (type == PBVH_BMESH) bmvt = vd.bm_vert;
+				if (vd.mverts) { printf("m"); a = vd.vert_indices[vd.i]; }
+				else
+					if (vd.bm_vert) { printf("b"); b = BM_log_vert_id_t(ss->bm_log, vd.bm_vert); }
+			}
+
+		}
+	}
+	BKE_pbvh_vertex_iter_end;
+
+
+	BLI_mutex_lock(&data->mutex);
+
+	//float dx = len_squared_v3v3(cp, vd.co);
+	if (dist[0] > ds[0]){
+		dist[0] = ds[0];
+		copy_v3_v3(cent_cos, private_co);
+		mid[0] = a;
+		if (mid[0]) printf("e");
+		bmid[0] = b;
+		if (bmid[0]) printf("f");
+	}
+
+	BLI_mutex_unlock(&data->mutex);
+}
+
+static void calc_central_vertex(
+	Sculpt *sd, Object *ob,
+	PBVHNode **nodes, int totnode, float rarea_co[3], float dis[2],
+	int mm[2],uint bmm[2])
+{
+	const Brush *brush = BKE_paint_brush(&sd->paint);
+	SculptSession *ss = ob->sculpt;
+	const bool has_bm_orco = ss->bm && sculpt_stroke_is_dynamic_topology(ss, brush);
+	int n;
+
+	float cent_cos[3] = { 0.0f };
+	int md[2] = { 0 };
+	uint bmd[2] = { 0 };
+	
+
+	int count[2] = { 0 };
+	float dist[2] = { 1000.0f, 0.0f };
+	SculptThreadedTaskData data = {
+		.sd = sd, .ob = ob, .nodes = nodes, .totnode = totnode,
+		.has_bm_orco = has_bm_orco, .area_cos = cent_cos, .count = count, .dis = dist,
+		.mid = md, .bmid = bmd,
+	};
+	BLI_mutex_init(&data.mutex);
+
+	BLI_task_parallel_range(
+		0, totnode, &data, calc_central_vertex_cb,
+		((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT));
+
+	BLI_mutex_end(&data.mutex);
+
+	
+	copy_v3_v3(rarea_co, cent_cos);
+	mm[0] = md[0];
+	if (mm[0]) { printf("g"); }
+	bmm[0] = bmd[0];
+	if (bmm[0]) { printf("h"); }
+}
+static void update_mesh_central_vertex(Sculpt *sd, Object *ob,
+	PBVHNode **nodes, int totnode)
+{
+	const Brush *brush = BKE_paint_brush(&sd->paint);
+	StrokeCache *cache = ob->sculpt->cache;
+	float dis[2] = { 1000.0f, 0.0f };
+	printf(" r %d ", BKE_pbvh_type(ob->sculpt->pbvh));
+	if (cache->first_time)
+		calc_central_vertex(sd, ob, nodes, totnode, cache->mesh_v, dis, cache->m_id,cache->bm_id);
 }
 
 static void calc_local_y(ViewContext *vc, const float center[3], float y[3])
@@ -3522,7 +3641,7 @@ static void do_topo_grab_brush_task_cb_ex(
 	PBVHType type = BKE_pbvh_type(ss->pbvh);
 	//BLI_mutex_init(&data->mutex);
 	copy_v3_v3(test.normal, ss->cache->mesh_normal[2]);
-	copy_v3_v3(center_v,ss->cache->central_v);
+	copy_v3_v3(center_v,ss->cache->mesh_v);
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
 		sculpt_orig_vert_data_update(&orig_data, &vd);
@@ -3561,9 +3680,9 @@ static void do_topo_grab_brush_task_cb_ex(
 
 					copy_v3_v3(vvno, test.location);
 					normalize_v3(vvno);
-					print_vd(center_v);
-					print_vd(vvno);
-					printf("\n");
+					//print_vd(center_v);
+					//print_vd(vvno);
+					//printf("\n");
 					//printf("  %.3f %.3f %.3f \n", vvno[0], vvno[1], vvno[2]);
 					float distsq = dist_squared_to_line_direction_v3v3(vd.co, center_v, test.normal);
 					if (distsq < d[0]){
@@ -3578,7 +3697,10 @@ static void do_topo_grab_brush_task_cb_ex(
 
 						copy_v3_v3(valx, BM_log_original_vert_co(ss->bm_log, vd.bm_vert));
 						ver_b[cn[1]] = BM_log_vert_id_t(ss->bm_log, vd.bm_vert);
-							
+						
+						//BM_log_id_vert_t
+
+
 						//copy_v3_v3(cor[cn[1]], valx);
 
 						ver[cn[1]] = BM_elem_index_get( vd.bm_vert);
@@ -3628,6 +3750,7 @@ static void do_topo_grab_brush_task_cb_ex(
 	if (ss->cache->first_time){
 		if (type == PBVH_FACES){
 			d[0] = 1000.0f;
+			printf(" V = %d ",cn[2]);
 			short ch1[VERLEN] = { 0 };
 			find_connect_mesh(ss, cn[2], ch1, ver, cn[1]);
 			//printf(" V: %d\n", cn[2]);
@@ -3648,7 +3771,7 @@ static void do_topo_grab_brush_task_cb_ex(
 				loop(ir, 0, cn[1], 1){
 					//printf("%ud %d %.3f %.3f %.3f \n", ver_b[ir], ver[ir], cor[ir][0], cor[ir][1], cor[ir][2]);
 				}
-
+				printf(" bV = %d ", BM_log_vert_id_t(ss->bm_log, vx));
 				d[0] = 1000.0f;
 				short ch1[VERLEN] = {0};
 				print_array_i(ver_b, cn[1]);
@@ -4064,30 +4187,38 @@ static void do_brush_action(Sculpt *sd, Object *ob, Brush *brush, UnifiedPaintSe
 
 		if (ELEM(brush->sculpt_tool, SCULPT_TOOL_TOPO_GRAB)&&ss->cache->first_time){
 			update_mesh_area_normal(sd, ob, nodes, totnode);
+			update_mesh_central_vertex(sd, ob, nodes, totnode);
+
 			printf("It is: ");
 			//print_vd2(ss->cache->mesh_normal,0);
 			//print_vd2(ss->cache->mesh_normal, 1);
 			//print_vd2(ss->cache->mesh_normal, 2);
 			//print_vd(ss->cache->central_v);
 			//printf(" * \n");
-			
+			print_vd(ss->cache->central_v);
+			print_vd(ss->cache->mesh_v);
+
+			//if (ss->cache->m_id[0])
+			printf(" %d Y N ", ss->cache->m_id[0]);
+			printf(" %d Y N \n", ss->cache->bm_id[0]);
+			//if (ss->cache->bm_id[0]) printf("N Y \n");
+
+
+			/*
 			int *arrx = NULL;
+
 			BLI_array_declare(arrx);
 			int i;
-			for (i = 0; i < 10;i++){
+			loop(i,0,10,1){
 				BLI_array_grow_one(arrx);
 				arrx[i] = i * 2;
 
 			}
-
-			printf("\n[ ");
-			for (i = 0; i < 10; i++){
-				printf("%d ", arrx[i]);
-			}
-			printf("] ");
+			print_array_i(arrx, 10);
 			//MEM_freeN(arrx);
 			BLI_array_free(arrx);
 			printf(" * \n");
+			*/
 		}
 		
 
