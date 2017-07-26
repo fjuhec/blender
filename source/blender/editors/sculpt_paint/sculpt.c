@@ -3752,7 +3752,7 @@ static void do_topo_grab_brush_task_cb_ex(
 	if (ss->cache->first_time){
 		if (type == PBVH_FACES){
 			d[0] = 1000.0f;
-			printf(" V = %d ",cn[2]);
+			//printf(" V = %d ",cn[2]);
 			short ch1[VERLEN] = { 0 };
 			find_connect_mesh(ss, cn[2], ch1, ver, cn[1]);
 			//printf(" V: %d\n", cn[2]);
@@ -3763,7 +3763,7 @@ static void do_topo_grab_brush_task_cb_ex(
 					k++;
 				}
 			}
-			printf("\n");
+			//printf("\n");
 			cn[1] = 0;
 			cn[4] = cn[4] + k;
 		}else
@@ -3773,12 +3773,13 @@ static void do_topo_grab_brush_task_cb_ex(
 				loop(ir, 0, cn[1], 1){
 					//printf("%ud %d %.3f %.3f %.3f \n", ver_b[ir], ver[ir], cor[ir][0], cor[ir][1], cor[ir][2]);
 				}
-				printf(" bV = %d %d\n", BM_log_vert_id_t(ss->bm_log, vx), 
-					ss->cache->bm_id[0]);
+				//printf(" bV = %d %d\n", BM_log_vert_id_t(ss->bm_log, vx), 
+				//	ss->cache->bm_id[0]);
 				d[0] = 1000.0f;
 				short ch1[VERLEN] = {0};
 				//print_array_i(ver_b, cn[1]);
-				find_connect_bmesh(ss->bm_log, vx, ch1, ver_b, cn[1]);
+				BMVert *vm = BM_log_id_vert_t(ss->bm_log,bmn[0]);
+				find_connect_bmesh(ss->bm_log, vm, ch1, ver_b, cn[1]);
 				//printf("\n");
 				//loop(i, 0, cn[1], 1) ch1[i] = 1;
 				//printf(" \nBV: %f %f %d    %f\n", vx->co[0], vx->co[1], cn[2], d[0]);
@@ -4192,18 +4193,18 @@ static void do_brush_action(Sculpt *sd, Object *ob, Brush *brush, UnifiedPaintSe
 			update_mesh_area_normal(sd, ob, nodes, totnode);
 			update_mesh_central_vertex(sd, ob, nodes, totnode);
 
-			printf("It is: ");
+			//printf("It is: ");
 			//print_vd2(ss->cache->mesh_normal,0);
 			//print_vd2(ss->cache->mesh_normal, 1);
 			//print_vd2(ss->cache->mesh_normal, 2);
 			//print_vd(ss->cache->central_v);
 			//printf(" * \n");
-			print_vd(ss->cache->central_v);
-			print_vd(ss->cache->mesh_v);
+			//print_vd(ss->cache->central_v);
+			//print_vd(ss->cache->mesh_v);
 
 			//if (ss->cache->m_id[0])
-			printf(" %d Y N ", ss->cache->m_id[0]);
-			printf(" %d Y N \n", ss->cache->bm_id[0]);
+			//printf(" %d Y N ", ss->cache->m_id[0]);
+			//printf(" %d Y N \n", ss->cache->bm_id[0]);
 			//if (ss->cache->bm_id[0]) printf("N Y \n");
 
 
