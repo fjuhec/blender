@@ -152,12 +152,14 @@ static void gpencil_batch_cache_check_free_slots(Object *ob, bGPdata *gpd)
 	}
 }
 /* cache init */
-static void gpencil_batch_cache_init(Object *ob, bGPdata *gpd, int cfra)
+static void gpencil_batch_cache_init(Object *ob, int cfra)
 {
-	if (G.debug_value == 668) {
-		printf("gpencil_batch_cache_init: %s\n", gpd->id.name);
-	}
 	GpencilBatchCache *cache = gpencil_batch_get_element(ob);
+	bGPdata *gpd = ob->gpd;
+
+	if (G.debug_value == 668) {
+		printf("gpencil_batch_cache_init: %s\n", ob->id.name);
+	}
 
 	if (!cache) {
 		cache = MEM_callocN(sizeof(*cache), __func__);
@@ -219,7 +221,7 @@ static GpencilBatchCache *gpencil_batch_cache_get(Object *ob, int cfra)
 		if (cache) {
 			gpencil_batch_cache_clear(cache, gpd);
 		}
-		gpencil_batch_cache_init(ob, gpd, cfra);
+		gpencil_batch_cache_init(ob, cfra);
 	}
 
 	return gpencil_batch_get_element(ob);
