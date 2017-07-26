@@ -220,6 +220,7 @@ static GpencilBatchCache *gpencil_batch_cache_get(Object *ob, int cfra)
 		GpencilBatchCache *cache = gpencil_batch_get_element(ob);
 		if (cache) {
 			gpencil_batch_cache_clear(cache, gpd);
+			BLI_ghash_remove(gpd->batch_cache_data, ob->id.name, NULL, NULL);
 		}
 		gpencil_batch_cache_init(ob, cfra);
 	}
@@ -779,7 +780,7 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 /* helper for populate a complete grease pencil datablock */
 void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene *scene, Object *ob, ToolSettings *ts, bGPdata *gpd)
 {
-	bGPDframe *temp_gpf = NULL;
+	bGPDframe *derived_gpf = NULL;
 	bool is_edit = (bool)(gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE));
 
 	if (G.debug_value == 668) {
@@ -799,33 +800,31 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 			continue;
 		/* create GHash if need */
 		if (gpl->derived_data == NULL) {
-			gpl->derived_data = (GHash *) BLI_ghash_str_new(gpl->info);
+			gpl->derived_data = (GHash *)BLI_ghash_str_new(gpl->info);
 		}
 
-		if ((ob->modifiers.first) && (!is_edit)) {
-			bGPDframe *derived_gpf;
-			derived_gpf = (bGPDframe *) BLI_ghash_lookup(gpl->derived_data, ob->id.name);
+		derived_gpf = (bGPDframe *)BLI_ghash_lookup(gpl->derived_data, ob->id.name);
+		if (derived_gpf == NULL) {
+			cache->is_dirty = true;
+		}
+		if (cache->is_dirty) {
 			if (derived_gpf != NULL) {
 				/* first clear temp data */
-				BLI_ghash_remove(gpl->derived_data, ob->id.name, NULL, NULL);
 				BKE_gpencil_free_layer_temp_data(gpl, derived_gpf);
+				BLI_ghash_remove(gpl->derived_data, ob->id.name, NULL, NULL);
 			}
 			/* create new data */
 			derived_gpf = BKE_gpencil_frame_color_duplicate(gpf);
 			BLI_ghash_insert(gpl->derived_data, ob->id.name, derived_gpf);
-			temp_gpf = derived_gpf;
 		}
-		else {
-			temp_gpf = gpf; 
-		}
-		
+
 		/* draw onion skins */
 		if ((gpl->flag & GP_LAYER_ONIONSKIN) || (gpl->flag & GP_LAYER_GHOST_ALWAYS))
 		{
-			gpencil_draw_onionskins(cache, e_data, vedata, ts, ob, gpd, gpl, temp_gpf);
+			gpencil_draw_onionskins(cache, e_data, vedata, ts, ob, gpd, gpl, derived_gpf);
 		}
 		/* draw normal strokes */
-		gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, temp_gpf, gpl->opacity, gpl->tintcolor, false, false);
+		gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, derived_gpf, gpl->opacity, gpl->tintcolor, false, false);
 	}
 	cache->is_dirty = false;
 }
