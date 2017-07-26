@@ -3757,6 +3757,8 @@ static void ccgDM_drawMappedFaces(DerivedMesh *dm,
 		if (mloopcol) {
 			cp = (unsigned char *)mloopcol;
 			mloopcol += gridFaces * gridFaces * numVerts * 4;
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		}
 
 		if (lnors) {
@@ -3796,16 +3798,16 @@ static void ccgDM_drawMappedFaces(DerivedMesh *dm,
 								float *c = CCG_grid_elem_co(&key, faceGridData, x + 1, y + 1);
 								float *d = CCG_grid_elem_co(&key, faceGridData, x, y + 1);
 
-								if (cp) glColor3ubv(&cp[4]);
+								if (cp) glColor4ubv(&cp[4]);
 								glNormal3fv(ln[1]);
 								glVertex3fv(d);
-								if (cp) glColor3ubv(&cp[8]);
+								if (cp) glColor4ubv(&cp[8]);
 								glNormal3fv(ln[2]);
 								glVertex3fv(c);
-								if (cp) glColor3ubv(&cp[12]);
+								if (cp) glColor4ubv(&cp[12]);
 								glNormal3fv(ln[3]);
 								glVertex3fv(b);
-								if (cp) glColor3ubv(&cp[0]);
+								if (cp) glColor4ubv(&cp[0]);
 								glNormal3fv(ln[0]);
 								glVertex3fv(a);
 
@@ -3823,10 +3825,10 @@ static void ccgDM_drawMappedFaces(DerivedMesh *dm,
 								a = CCG_grid_elem(&key, faceGridData, x, y + 0);
 								b = CCG_grid_elem(&key, faceGridData, x, y + 1);
 	
-								if (cp) glColor3ubv(&cp[0]);
+								if (cp) glColor4ubv(&cp[0]);
 								glNormal3fv(CCG_elem_no(&key, a));
 								glVertex3fv(CCG_elem_co(&key, a));
-								if (cp) glColor3ubv(&cp[4]);
+								if (cp) glColor4ubv(&cp[4]);
 								glNormal3fv(CCG_elem_no(&key, b));
 								glVertex3fv(CCG_elem_co(&key, b));
 
@@ -3838,10 +3840,10 @@ static void ccgDM_drawMappedFaces(DerivedMesh *dm,
 							a = CCG_grid_elem(&key, faceGridData, x, y + 0);
 							b = CCG_grid_elem(&key, faceGridData, x, y + 1);
 
-							if (cp) glColor3ubv(&cp[12]);
+							if (cp) glColor4ubv(&cp[12]);
 							glNormal3fv(CCG_elem_no(&key, a));
 							glVertex3fv(CCG_elem_co(&key, a));
-							if (cp) glColor3ubv(&cp[8]);
+							if (cp) glColor4ubv(&cp[8]);
 							glNormal3fv(CCG_elem_no(&key, b));
 							glVertex3fv(CCG_elem_co(&key, b));
 
@@ -3861,13 +3863,13 @@ static void ccgDM_drawMappedFaces(DerivedMesh *dm,
 
 								ccgDM_glNormalFast(a, b, c, d);
 	
-								if (cp) glColor3ubv(&cp[4]);
+								if (cp) glColor4ubv(&cp[4]);
 								glVertex3fv(d);
-								if (cp) glColor3ubv(&cp[8]);
+								if (cp) glColor4ubv(&cp[8]);
 								glVertex3fv(c);
-								if (cp) glColor3ubv(&cp[12]);
+								if (cp) glColor4ubv(&cp[12]);
 								glVertex3fv(b);
-								if (cp) glColor3ubv(&cp[0]);
+								if (cp) glColor4ubv(&cp[0]);
 								glVertex3fv(a);
 
 								if (cp) cp += 16;
@@ -3879,6 +3881,9 @@ static void ccgDM_drawMappedFaces(DerivedMesh *dm,
 				if (draw_option == DM_DRAW_OPTION_STIPPLE)
 					GPU_basic_shader_bind(GPU_SHADER_USE_COLOR);
 			}
+		}
+		if (mloopcol) {
+			glDisable(GL_BLEND);
 		}
 	}
 }
