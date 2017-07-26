@@ -166,7 +166,7 @@ void wm_manipulatorgroup_intersectable_manipulators_to_list(const wmManipulatorG
 void wm_manipulatorgroup_ensure_initialized(wmManipulatorGroup *mgroup, const bContext *C)
 {
 	/* prepare for first draw */
-	if (UNLIKELY((mgroup->flag & WM_MANIPULATORGROUP_INITIALIZED) == 0)) {
+	if (UNLIKELY((mgroup->init_flag & WM_MANIPULATORGROUP_INITIALIZED) == 0)) {
 		mgroup->type->setup(C, mgroup);
 
 		/* Not ideal, initialize keymap here, needed for RNA runtime generated manipulators. */
@@ -177,7 +177,7 @@ void wm_manipulatorgroup_ensure_initialized(wmManipulatorGroup *mgroup, const bC
 			BLI_assert(wgt->keymap != NULL);
 		}
 
-		mgroup->flag |= WM_MANIPULATORGROUP_INITIALIZED;
+		mgroup->init_flag |= WM_MANIPULATORGROUP_INITIALIZED;
 	}
 }
 
@@ -226,7 +226,7 @@ static int manipulator_select_invoke(bContext *C, wmOperator *op, const wmEvent 
 {
 	ARegion *ar = CTX_wm_region(C);
 	wmManipulatorMap *mmap = ar->manipulator_map;
-	wmManipulator ***sel = &mmap->mmap_context.selected;
+	wmManipulatorMapSelectState *msel = &mmap->mmap_context.select;
 	wmManipulator *highlight = mmap->mmap_context.highlight;
 
 	bool extend = RNA_boolean_get(op->ptr, "extend");
@@ -235,8 +235,8 @@ static int manipulator_select_invoke(bContext *C, wmOperator *op, const wmEvent 
 
 	/* deselect all first */
 	if (extend == false && deselect == false && toggle == false) {
-		wm_manipulatormap_deselect_all(mmap, sel);
-		BLI_assert(*sel == NULL && mmap->mmap_context.selected_len == 0);
+		wm_manipulatormap_deselect_all(mmap);
+		BLI_assert(msel->items == NULL && msel->len == 0);
 	}
 
 	if (highlight) {
@@ -249,11 +249,11 @@ static int manipulator_select_invoke(bContext *C, wmOperator *op, const wmEvent 
 		}
 
 		if (deselect) {
-			if (is_selected && wm_manipulator_deselect(mmap, highlight)) {
+			if (is_selected && WM_manipulator_select_set(mmap, highlight, false)) {
 				redraw = true;
 			}
 		}
-		else if (wm_manipulator_select(C, mmap, highlight)) {
+		else if (wm_manipulator_select_and_highlight(C, mmap, highlight)) {
 			redraw = true;
 		}
 
