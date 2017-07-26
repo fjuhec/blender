@@ -106,6 +106,7 @@ bool debug_flags_sync_from_scene(BL::Scene b_scene)
 	}
 	/* Synchronize other OpenCL flags. */
 	flags.opencl.debug = get_boolean(cscene, "debug_use_opencl_debug");
+	flags.opencl.mem_limit = ((size_t)get_int(cscene, "debug_opencl_mem_limit"))*1024*1024;
 	flags.opencl.single_program = get_boolean(cscene, "debug_opencl_kernel_single_program");
 	return flags.opencl.device_type != opencl_device_type ||
 	       flags.opencl.kernel_type != opencl_kernel_type;
@@ -809,6 +810,14 @@ void *CCL_python_module_init()
 	Py_INCREF(Py_False);
 	PyModule_AddStringConstant(mod, "osl_version", "unknown");
 	PyModule_AddStringConstant(mod, "osl_version_string", "unknown");
+#endif
+
+#ifdef WITH_CYCLES_DEBUG
+	PyModule_AddObject(mod, "with_cycles_debug", Py_True);
+	Py_INCREF(Py_True);
+#else
+	PyModule_AddObject(mod, "with_cycles_debug", Py_False);
+	Py_INCREF(Py_False);
 #endif
 
 #ifdef WITH_NETWORK

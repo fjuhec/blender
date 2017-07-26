@@ -505,8 +505,6 @@ void ED_node_composit_default(const bContext *C, struct Scene *sce)
 	nodeAddLink(sce->nodetree, in, fromsock, out, tosock);
 	
 	ntreeUpdateTree(CTX_data_main(C), sce->nodetree);
-	
-	// XXX ntreeCompositForceHidden(sce->nodetree);
 }
 
 /* assumes nothing being done in ntree yet, sets the default in/out node */
@@ -582,16 +580,10 @@ void snode_set_context(const bContext *C)
 		}
 	}
 	
-	if (snode->nodetree != ntree || snode->id != id || snode->from != from || snode->treepath.last == NULL) {
+	if (snode->nodetree != ntree || snode->id != id || snode->from != from ||
+	    (snode->treepath.last == NULL && ntree))
+	{
 		ED_node_tree_start(snode, ntree, id, from);
-	}
-	
-	/* XXX Legacy hack to update render layer node outputs.
-	 * This should be handled by the depsgraph eventually ...
-	 */
-	if (ED_node_is_compositor(snode) && snode->nodetree) {
-		/* update output sockets based on available layers */
-		ntreeCompositForceHidden(snode->nodetree);
 	}
 }
 
@@ -2094,7 +2086,7 @@ static int node_clipboard_paste_exec(bContext *C, wmOperator *op)
 	/* make sure all clipboard nodes would be valid in the target tree */
 	all_nodes_valid = true;
 	for (node = clipboard_nodes_lb->first; node; node = node->next) {
-		if (!node->typeinfo->poll_instance(node, ntree)) {
+		if (!node->typeinfo->poll_instance || !node->typeinfo->poll_instance(node, ntree)) {
 			all_nodes_valid = false;
 			BKE_reportf(op->reports, RPT_ERROR, "Cannot add node %s into node tree %s", node->name, ntree->id.name + 2);
 		}

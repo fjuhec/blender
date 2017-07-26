@@ -1511,20 +1511,68 @@ float BM_loop_calc_face_angle(const BMLoop *l)
  * Calculate the normal at this loop corner or fallback to the face normal on straight lines.
  *
  * \param l The loop to calculate the normal at
+ * \param epsilon: Value to avoid numeric errors (1e-5f works well).
  * \param r_normal Resulting normal
  */
-void BM_loop_calc_face_normal(const BMLoop *l, float r_normal[3])
+float BM_loop_calc_face_normal_safe_ex(const BMLoop *l, const float epsilon_sq, float r_normal[3])
 {
-	if (normal_tri_v3(r_normal,
-	                  l->prev->v->co,
-	                  l->v->co,
-	                  l->next->v->co) != 0.0f)
-	{
-		/* pass */
+	/* Note: we cannot use result of normal_tri_v3 here to detect colinear vectors (vertex on a straight line)
+	 * from zero value, because it does not normalize both vectors before making crossproduct.
+	 * Instead of adding two costly normalize computations, just check ourselves for colinear case. */
+	/* Note: FEPSILON might need some finer tweaking at some point? Seems to be working OK for now though. */
+	float v1[3], v2[3], v_tmp[3];
+	sub_v3_v3v3(v1, l->prev->v->co, l->v->co);
+	sub_v3_v3v3(v2, l->next->v->co, l->v->co);
+
+	const float fac =
+	        ((v2[0] == 0.0f) ?
+	        ((v2[1] == 0.0f) ?
+	        ((v2[2] == 0.0f) ?  0.0f : v1[2] / v2[2]) : v1[1] / v2[1]) : v1[0] / v2[0]);
+
+	mul_v3_v3fl(v_tmp, v2, fac);
+	sub_v3_v3(v_tmp, v1);
+	if (fac != 0.0f && !is_zero_v3(v1) && len_squared_v3(v_tmp) > epsilon_sq) {
+		/* Not co-linear, we can compute crossproduct and normalize it into normal. */
+		cross_v3_v3v3(r_normal, v1, v2);
+		return normalize_v3(r_normal);
 	}
 	else {
 		copy_v3_v3(r_normal, l->f->no);
+		return 0.0f;
 	}
+}
+
+/**
+ * #BM_loop_calc_face_normal_safe_ex with pre-defined sane epsilon.
+ *
+ * Since this doesn't scale baed on triangle size, fixed value works well.
+ */
+float BM_loop_calc_face_normal_safe(const BMLoop *l, float r_normal[3])
+{
+	return BM_loop_calc_face_normal_safe_ex(l, 1e-5f, r_normal);
+}
+
+/**
+ * \brief BM_loop_calc_face_normal
+ *
+ * Calculate the normal at this loop corner or fallback to the face normal on straight lines.
+ *
+ * \param l The loop to calculate the normal at
+ * \param r_normal Resulting normal
+ * \return The length of the cross product (double the area).
+ */
+float BM_loop_calc_face_normal(const BMLoop *l, float r_normal[3])
+{
+	float v1[3], v2[3];
+	sub_v3_v3v3(v1, l->prev->v->co, l->v->co);
+	sub_v3_v3v3(v2, l->next->v->co, l->v->co);
+
+	cross_v3_v3v3(r_normal, v1, v2);
+	const float len = normalize_v3(r_normal);
+	if (UNLIKELY(len == 0.0f)) {
+		copy_v3_v3(r_normal, l->f->no);
+	}
+	return len;
 }
 
 /**
@@ -2326,7 +2374,7 @@ static void bm_mesh_calc_volume_face(const BMFace *f, float *r_vol)
 {
 	const int tottri = f->len - 2;
 	BMLoop **loops = BLI_array_alloca(loops, f->len);
-	unsigned int (*index)[3] = BLI_array_alloca(index, tottri);
+	uint (*index)[3] = BLI_array_alloca(index, tottri);
 	int j;
 
 	BM_face_calc_tessellation(f, false, loops, index);
@@ -2395,8 +2443,8 @@ int BM_mesh_calc_face_groups(
 
 	int group_curr = 0;
 
-	unsigned int tot_faces = 0;
-	unsigned int tot_touch = 0;
+	uint tot_faces = 0;
+	uint tot_touch = 0;
 
 	BMFace **stack;
 	STACK_DECLARE(stack);
@@ -2553,8 +2601,8 @@ int BM_mesh_calc_edge_groups(
 
 	int group_curr = 0;
 
-	unsigned int tot_edges = 0;
-	unsigned int tot_touch = 0;
+	uint tot_edges = 0;
+	uint tot_touch = 0;
 
 	BMEdge **stack;
 	STACK_DECLARE(stack);

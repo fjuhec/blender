@@ -90,7 +90,7 @@ struct ImportSettings {
 
 	/* Length and frame offset of file sequences. */
 	int sequence_len;
-	int offset;
+	int sequence_offset;
 
 	/* From MeshSeqCacheModifierData.read_flag */
 	int read_flag;
@@ -107,7 +107,7 @@ struct ImportSettings {
 	    , is_sequence(false)
 	    , set_frame_range(false)
 	    , sequence_len(1)
-	    , offset(0)
+	    , sequence_offset(0)
 	    , read_flag(0)
 	    , validate_meshes(false)
 	    , cache_file(NULL)
@@ -143,6 +143,8 @@ protected:
 	 * modifiers and/or constraints. */
 	int m_refcount;
 
+	bool m_inherits_xform;
+
 public:
 	AbcObjectReader *parent_reader;
 
@@ -167,18 +169,19 @@ public:
 	const std::string & name() const { return m_name; }
 	const std::string & object_name() const { return m_object_name; }
 	const std::string & data_name() const { return m_data_name; }
+	bool inherits_xform() const { return m_inherits_xform; }
 
 	virtual bool valid() const = 0;
+	virtual bool accepts_object_type(const Alembic::AbcCoreAbstract::ObjectHeader &alembic_header,
+	                                 const Object *const ob,
+	                                 const char **err_str) const = 0;
 
-	virtual void readObjectData(Main *bmain, float time) = 0;
+	virtual void readObjectData(Main *bmain, const Alembic::Abc::ISampleSelector &sample_sel) = 0;
 
-	virtual DerivedMesh *read_derivedmesh(DerivedMesh *dm, const float time, int read_flag, const char **err_str)
-	{
-		(void)time;
-		(void)read_flag;
-		(void)err_str;
-		return dm;
-	}
+	virtual DerivedMesh *read_derivedmesh(DerivedMesh *dm,
+	                                      const Alembic::Abc::ISampleSelector &sample_sel,
+	                                      int read_flag,
+	                                      const char **err_str);
 
 	/** Reads the object matrix and sets up an object transform if animated. */
 	void setupObjectTransform(const float time);
@@ -194,6 +197,9 @@ public:
 
 	void read_matrix(float r_mat[4][4], const float time,
 	                 const float scale, bool &is_constant);
+
+protected:
+	void determine_inherits_xform();
 };
 
 Imath::M44d get_matrix(const Alembic::AbcGeom::IXformSchema &schema, const float time);

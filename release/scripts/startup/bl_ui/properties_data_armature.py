@@ -57,7 +57,7 @@ class DATA_PT_skeleton(ArmatureButtonsPanel, Panel):
 
         arm = context.armature
 
-        layout.prop(arm, "pose_position", expand=True)
+        layout.row().prop(arm, "pose_position", expand=True)
 
         col = layout.column()
         col.label(text="Layers:")
@@ -80,7 +80,7 @@ class DATA_PT_display(ArmatureButtonsPanel, Panel):
         ob = context.object
         arm = context.armature
 
-        layout.prop(arm, "draw_type", expand=True)
+        layout.row().prop(arm, "draw_type", expand=True)
 
         split = layout.split()
 
@@ -178,6 +178,10 @@ class DATA_PT_pose_library(ArmatureButtonsPanel, Panel):
         layout.template_ID(ob, "pose_library", new="poselib.new", unlink="poselib.unlink")
 
         if poselib:
+            # warning about poselib being in an invalid state
+            if len(poselib.fcurves) > 0 and len(poselib.pose_markers) == 0:
+                layout.label(icon='ERROR', text="Error: Potentially corrupt library, run 'Sanitize' operator to fix")
+
             # list of poses in pose library
             row = layout.row()
             row.template_list("UI_UL_list", "pose_markers", poselib, "pose_markers",
@@ -215,7 +219,7 @@ class DATA_PT_ghost(ArmatureButtonsPanel, Panel):
 
         arm = context.armature
 
-        layout.prop(arm, "ghost_type", expand=True)
+        layout.row().prop(arm, "ghost_type", expand=True)
 
         split = layout.split()
 
@@ -252,11 +256,11 @@ class DATA_PT_iksolver_itasc(ArmatureButtonsPanel, Panel):
         layout.prop(ob.pose, "ik_solver")
 
         if itasc:
-            layout.prop(itasc, "mode", expand=True)
+            layout.row().prop(itasc, "mode", expand=True)
             simulation = (itasc.mode == 'SIMULATION')
             if simulation:
                 layout.label(text="Reiteration:")
-                layout.prop(itasc, "reiteration_method", expand=True)
+                layout.row().prop(itasc, "reiteration_method", expand=True)
 
             row = layout.row()
             row.active = not simulation or itasc.reiteration_method != 'NEVER'

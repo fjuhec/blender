@@ -61,12 +61,15 @@ private:
 	SplitKernelFunction *kernel_do_volume;
 	SplitKernelFunction *kernel_queue_enqueue;
 	SplitKernelFunction *kernel_indirect_background;
+	SplitKernelFunction *kernel_shader_setup;
+	SplitKernelFunction *kernel_shader_sort;
 	SplitKernelFunction *kernel_shader_eval;
 	SplitKernelFunction *kernel_holdout_emission_blurring_pathtermination_ao;
 	SplitKernelFunction *kernel_subsurface_scatter;
 	SplitKernelFunction *kernel_direct_lighting;
 	SplitKernelFunction *kernel_shadow_blocked_ao;
 	SplitKernelFunction *kernel_shadow_blocked_dl;
+	SplitKernelFunction *kernel_enqueue_inactive;
 	SplitKernelFunction *kernel_next_iteration_setup;
 	SplitKernelFunction *kernel_indirect_subsurface;
 	SplitKernelFunction *kernel_buffer_update;
@@ -78,16 +81,16 @@ private:
 	 */
 	device_memory split_data;
 	device_vector<uchar> ray_state;
-	device_memory queue_index; /* Array of size num_queues * sizeof(int) that tracks the size of each queue. */
+	device_only_memory<int> queue_index; /* Array of size num_queues that tracks the size of each queue. */
 
 	/* Flag to make sceneintersect and lampemission kernel use queues. */
-	device_memory use_queues_flag;
+	device_only_memory<char> use_queues_flag;
 
 	/* Approximate time it takes to complete one sample */
 	double avg_time_per_sample;
 
 	/* Work pool with respect to each work group. */
-	device_memory work_pool_wgs;
+	device_only_memory<unsigned int> work_pool_wgs;
 
 	/* clos_max value for which the kernels have been loaded currently. */
 	int current_max_closure;
@@ -122,7 +125,8 @@ public:
 	                                            device_memory& use_queues_flag,
 	                                            device_memory& work_pool_wgs) = 0;
 
-	virtual SplitKernelFunction* get_split_kernel_function(string kernel_name, const DeviceRequestedFeatures&) = 0;
+	virtual SplitKernelFunction* get_split_kernel_function(const string& kernel_name,
+	                                                       const DeviceRequestedFeatures&) = 0;
 	virtual int2 split_kernel_local_size() = 0;
 	virtual int2 split_kernel_global_size(device_memory& kg, device_memory& data, DeviceTask *task) = 0;
 };

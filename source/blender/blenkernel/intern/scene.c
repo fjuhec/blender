@@ -188,7 +188,9 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 		scen = BKE_libblock_copy(bmain, &sce->id);
 		BLI_duplicatelist(&(scen->base), &(sce->base));
 		
-		id_us_plus((ID *)scen->world);
+		if (type != SCE_COPY_FULL) {
+			id_us_plus((ID *)scen->world);
+		}
 		id_us_plus((ID *)scen->set);
 		/* id_us_plus((ID *)scen->gm.dome.warptext); */  /* XXX Not refcounted? see readfile.c */
 
@@ -233,11 +235,15 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 		/* copy Freestyle settings */
 		new_srl = scen->r.layers.first;
 		for (srl = sce->r.layers.first; srl; srl = srl->next) {
+			if (new_srl->prop != NULL) {
+				new_srl->prop = IDP_CopyProperty(new_srl->prop);
+			}
 			BKE_freestyle_config_copy(&new_srl->freestyleConfig, &srl->freestyleConfig);
 			if (type == SCE_COPY_FULL) {
 				for (lineset = new_srl->freestyleConfig.linesets.first; lineset; lineset = lineset->next) {
 					if (lineset->linestyle) {
-						id_us_plus((ID *)lineset->linestyle);
+						/* Has been incremented by BKE_freestyle_config_copy(). */
+						id_us_min(&lineset->linestyle->id);
 						lineset->linestyle = BKE_linestyle_copy(bmain, lineset->linestyle);
 					}
 				}
@@ -282,11 +288,19 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 			ts->sculpt = MEM_dupallocN(ts->sculpt);
 			BKE_paint_copy(&ts->sculpt->paint, &ts->sculpt->paint);
 		}
+		if (ts->uvsculpt) {
+			ts->uvsculpt = MEM_dupallocN(ts->uvsculpt);
+			BKE_paint_copy(&ts->uvsculpt->paint, &ts->uvsculpt->paint);
+		}
 
 		BKE_paint_copy(&ts->imapaint.paint, &ts->imapaint.paint);
 		ts->imapaint.paintcursor = NULL;
 		id_us_plus((ID *)ts->imapaint.stencil);
+		id_us_plus((ID *)ts->imapaint.clone);
+		id_us_plus((ID *)ts->imapaint.canvas);
 		ts->particle.paintcursor = NULL;
+		ts->particle.scene = NULL;
+		ts->particle.object = NULL;
 		
 		/* duplicate Grease Pencil Drawing Brushes */
 		BLI_listbase_clear(&ts->gp_brushes);
@@ -330,7 +344,6 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 	/* world */
 	if (type == SCE_COPY_FULL) {
 		if (scen->world) {
-			id_us_plus((ID *)scen->world);
 			scen->world = BKE_world_copy(bmain, scen->world);
 			BKE_animdata_copy_id_action((ID *)scen->world, false);
 		}
@@ -416,11 +429,15 @@ void BKE_scene_free(Scene *sce)
 		MEM_freeN(sce->r.ffcodecdata.properties);
 		sce->r.ffcodecdata.properties = NULL;
 	}
-	
+
 	for (srl = sce->r.layers.first; srl; srl = srl->next) {
+		if (srl->prop != NULL) {
+			IDP_FreeProperty(srl->prop);
+			MEM_freeN(srl->prop);
+		}
 		BKE_freestyle_config_free(&srl->freestyleConfig);
 	}
-	
+
 	BLI_freelistN(&sce->markers);
 	BLI_freelistN(&sce->transform_spaces);
 	BLI_freelistN(&sce->r.layers);
@@ -2063,6 +2080,11 @@ bool BKE_scene_remove_render_layer(Main *bmain, Scene *scene, SceneRenderLayer *
 
 	BKE_freestyle_config_free(&srl->freestyleConfig);
 
+	if (srl->prop) {
+		IDP_FreeProperty(srl->prop);
+		MEM_freeN(srl->prop);
+	}
+
 	BLI_remlink(&scene->r.layers, srl);
 	MEM_freeN(srl);
 
@@ -2125,7 +2147,7 @@ bool BKE_scene_remove_render_view(Scene *scene, SceneRenderView *srv)
 
 int get_render_subsurf_level(const RenderData *r, int lvl, bool for_render)
 {
-	if (r->mode & R_SIMPLIFY)  {
+	if (r->mode & R_SIMPLIFY) {
 		if (for_render)
 			return min_ii(r->simplify_subsurf_render, lvl);
 		else

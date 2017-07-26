@@ -1067,6 +1067,7 @@ typedef struct ImageOpenData {
 typedef struct ImageFrameRange {
 	struct ImageFrameRange *next, *prev;
 	ListBase frames;
+	/**  The full path of the first file in the list of image files */
 	char filepath[FILE_MAX];
 } ImageFrameRange;
 
@@ -1092,12 +1093,12 @@ static void image_open_cancel(bContext *UNUSED(C), wmOperator *op)
 /**
  * \brief Get a list of frames from the list of image files matching the first file name sequence pattern
  * \param ptr [in] the RNA pointer containing the "directory" entry and "files" collection
- * \param frames [out] the list of frame numbers found in the files matching the first one by name
- * \param path [out] the full path of the first file in the list of image files
+ * \param frames_all [out] the list of frame numbers found in the files matching the first one by name
  */
 static void image_sequence_get_frame_ranges(PointerRNA *ptr, ListBase *frames_all)
 {
 	char dir[FILE_MAXDIR];
+	const bool do_frame_range = RNA_boolean_get(ptr, "use_sequence_detection");
 	ImageFrameRange *frame_range = NULL;
 
 	RNA_string_get(ptr, "directory", dir);
@@ -1113,7 +1114,8 @@ static void image_sequence_get_frame_ranges(PointerRNA *ptr, ListBase *frames_al
 		frame->framenr = BLI_stringdec(filename, head, tail, &digits);
 
 		/* still in the same sequence */
-		if ((frame_range != NULL) &&
+		if (do_frame_range &&
+		    (frame_range != NULL) &&
 		    (STREQLEN(base_head, head, FILE_MAX)) &&
 		    (STREQLEN(base_tail, tail, FILE_MAX)))
 		{
@@ -1167,6 +1169,7 @@ static int image_sequence_get_len(ListBase *frames, int *ofs)
 		}
 		return frame_curr - (*ofs);
 	}
+	*ofs = 0;
 	return 0;
 }
 
@@ -1325,7 +1328,11 @@ static int image_open_exec(bContext *C, wmOperator *op)
 		iuser->frames = frame_seq_len;
 		iuser->sfra = 1;
 		iuser->framenr = 1;
-		iuser->offset = frame_ofs - 1;
+		if (ima->source == IMA_SRC_MOVIE) {
+			iuser->offset = 0;
+		} else {
+			iuser->offset = frame_ofs - 1;
+		}
 		iuser->fie_ima = 2;
 		iuser->scene = scene;
 		BKE_image_init_imageuser(ima, iuser);
@@ -1448,6 +1455,9 @@ void IMAGE_OT_open(wmOperatorType *ot)
 	        ot, FILE_TYPE_FOLDER | FILE_TYPE_IMAGE | FILE_TYPE_MOVIE, FILE_SPECIAL, FILE_OPENFILE,
 	        WM_FILESEL_FILEPATH | WM_FILESEL_DIRECTORY | WM_FILESEL_FILES | WM_FILESEL_RELPATH,
 	        FILE_DEFAULTDISPLAY, FILE_SORT_ALPHA);
+
+	RNA_def_boolean(ot->srna, "use_sequence_detection", true, "Detect Sequences",
+	                "Automatically detect animated sequences in selected images (based on file names)");
 }
 
 /******************** Match movie length operator ********************/
@@ -1890,7 +1900,6 @@ static bool save_image_doit(bContext *C, SpaceImage *sima, wmOperator *op, SaveI
 			}
 			else {
 				colormanaged_ibuf = IMB_colormanagement_imbuf_for_write(ibuf, save_as_render, true, &imf->view_settings, &imf->display_settings, imf);
-				IMB_metadata_copy(colormanaged_ibuf, ibuf);
 				ok = BKE_imbuf_write_as(colormanaged_ibuf, simopts->filepath, imf, save_copy);
 				save_imbuf_post(ibuf, colormanaged_ibuf);
 			}
@@ -2900,11 +2909,9 @@ static void image_sample_draw(const bContext *C, ARegion *ar, void *arg_info)
 	}
 }
 
-/* Returns color in the display space, matching ED_space_node_color_sample(). */
-bool ED_space_image_color_sample(Scene *scene, SpaceImage *sima, ARegion *ar, int mval[2], float r_col[3])
+/* Returns color in linear space, matching ED_space_node_color_sample(). */
+bool ED_space_image_color_sample(SpaceImage *sima, ARegion *ar, int mval[2], float r_col[3])
 {
-	const char *display_device = scene->display_settings.display_device;
-	struct ColorManagedDisplay *display = IMB_colormanagement_display_get_named(display_device);
 	void *lock;
 	ImBuf *ibuf = ED_space_image_acquire_buffer(sima, &lock);
 	float fx, fy;
@@ -2936,10 +2943,6 @@ bool ED_space_image_color_sample(Scene *scene, SpaceImage *sima, ARegion *ar, in
 			IMB_colormanagement_colorspace_to_scene_linear_v3(r_col, ibuf->rect_colorspace);
 			ret = true;
 		}
-	}
-
-	if (ret) {
-		IMB_colormanagement_scene_linear_to_display_v3(r_col, display);
 	}
 
 	ED_space_image_release_buffer(sima, ibuf, lock);

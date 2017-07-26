@@ -375,9 +375,14 @@ void wm_window_title(wmWindowManager *wm, wmWindow *win)
 	}
 }
 
-static void wm_window_set_dpi(wmWindow *win)
+void WM_window_set_dpi(wmWindow *win)
 {
 	int auto_dpi = GHOST_GetDPIHint(win->ghostwin);
+
+	/* Clamp auto DPI to 96, since our font/interface drawing does not work well
+	 * with lower sizes. The main case we are interested in supporting is higher
+	 * DPI. If a smaller UI is desired it is still possible to adjust UI scale. */
+	auto_dpi = MAX2(auto_dpi, 96);
 
 	/* Lazily init UI scale size, preserving backwards compatibility by
 	 * computing UI scale from ratio of previous DPI and auto DPI */
@@ -406,8 +411,10 @@ static void wm_window_set_dpi(wmWindow *win)
 	U.pixelsize = GHOST_GetNativePixelSize(win->ghostwin) * pixelsize;
 	U.dpi = dpi / pixelsize;
 	U.virtual_pixel = (pixelsize == 1) ? VIRTUAL_PIXEL_NATIVE : VIRTUAL_PIXEL_DOUBLE;
+	U.widget_unit = (U.pixelsize * U.dpi * 20 + 36) / 72;
 
-	BKE_blender_userdef_refresh();
+	/* update font drawing */
+	BLF_default_dpi(U.pixelsize * U.dpi);
 }
 
 /* belongs to below */
@@ -483,7 +490,7 @@ static void wm_window_ghostwindow_add(wmWindowManager *wm, const char *title, wm
 		}
 		
 		/* needed here, because it's used before it reads userdef */
-		wm_window_set_dpi(win);
+		WM_window_set_dpi(win);
 		
 		wm_window_swap_buffers(win);
 		
@@ -642,14 +649,27 @@ wmWindow *WM_window_open(bContext *C, const rcti *rect)
  * \param type: WM_WINDOW_RENDER, WM_WINDOW_USERPREFS...
  * \return the window or NULL.
  */
-wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
+wmWindow *WM_window_open_temp(bContext *C, int x, int y, int sizex, int sizey, int type)
 {
 	wmWindow *win_prev = CTX_wm_window(C);
 	wmWindow *win;
 	ScrArea *sa;
 	Scene *scene = CTX_data_scene(C);
 	const char *title;
-	rcti rect = *rect_init;
+
+	/* convert to native OS window coordinates */
+	const float native_pixel_size = GHOST_GetNativePixelSize(win_prev->ghostwin);
+	x /= native_pixel_size;
+	y /= native_pixel_size;
+	sizex /= native_pixel_size;
+	sizey /= native_pixel_size;
+
+	/* calculate postition */
+	rcti rect;
+	rect.xmin = x + win_prev->posx - sizex / 2;
+	rect.ymin = y + win_prev->posy - sizey / 2;
+	rect.xmax = rect.xmin + sizex;
+	rect.ymax = rect.ymin + sizey;
 
 	/* changes rect to fit within desktop */
 	wm_window_check_position(&rect);
@@ -857,7 +877,7 @@ void wm_window_make_drawable(wmWindowManager *wm, wmWindow *win)
 		GHOST_ActivateWindowDrawingContext(win->ghostwin);
 		
 		/* this can change per window */
-		wm_window_set_dpi(win);
+		WM_window_set_dpi(win);
 	}
 }
 
@@ -1057,7 +1077,7 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 					WM_jobs_stop(wm, win->screen, NULL);
 				}
 
-				wm_window_set_dpi(win);
+				WM_window_set_dpi(win);
 				
 				/* win32: gives undefined window size when minimized */
 				if (state != GHOST_kWindowStateMinimized) {
@@ -1144,11 +1164,10 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 
 			case GHOST_kEventWindowDPIHintChanged:
 			{
-				wm_window_set_dpi(win);
+				WM_window_set_dpi(win);
 				/* font's are stored at each DPI level, without this we can easy load 100's of fonts */
 				BLF_cache_clear();
 
-				BKE_blender_userdef_refresh();
 				WM_main_add_notifier(NC_WINDOW, NULL);      /* full redraw */
 				WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);    /* refresh region sizes */
 				break;
@@ -1234,7 +1253,7 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 			{
 				// only update if the actual pixel size changes
 				float prev_pixelsize = U.pixelsize;
-				wm_window_set_dpi(win);
+				WM_window_set_dpi(win);
 
 				if (U.pixelsize != prev_pixelsize) {
 					// close all popups since they are positioned with the pixel

@@ -611,7 +611,7 @@ void WORLD_OT_new(wmOperatorType *ot)
 	/* identifiers */
 	ot->name = "New World";
 	ot->idname = "WORLD_OT_new";
-	ot->description = "Add a new world";
+	ot->description = "Create a new world Data-Block";
 	
 	/* api callbacks */
 	ot->exec = new_world_exec;
@@ -1818,7 +1818,7 @@ static void paste_mtex_copybuf(ID *id)
 			mtex = &(((FreestyleLineStyle *)id)->mtex[(int)((FreestyleLineStyle *)id)->texact]);
 			break;
 		default:
-			BLI_assert("invalid id type");
+			BLI_assert(!"invalid id type");
 			return;
 	}
 	
