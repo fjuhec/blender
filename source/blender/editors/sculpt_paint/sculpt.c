@@ -5556,7 +5556,7 @@ static void calc_vert_quarter(Mesh *me, float a[3], float b[3], float c[3], int 
 	float v1[3], v2[3], v3[3], v4[3], v5[3], up[3], side[3], d[3];
 	float f_sin, f_cos;
 	int s_steps_w = inv_smooth * w_h_steps;
-	int s_steps_v = inv_smooth * v_steps;
+	int s_steps_v = fmax(1, inv_smooth * v_steps);
 	int s_steps_c = v_steps - s_steps_v + w_h_steps - s_steps_w;
 
 	ED_mesh_vertices_add(me, NULL, v_steps + w_h_steps - (flip_side ? 1 : 0));
