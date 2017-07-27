@@ -1569,9 +1569,12 @@ static void rna_RenderSettings_engine_set(PointerRNA *ptr, int value)
 {
 	RenderData *rd = (RenderData *)ptr->data;
 	RenderEngineType *type = BLI_findlink(&R_engines, value);
+	Scene *scene = (Scene *)ptr->id.data;
 
 	if (type)
 		BLI_strncpy_utf8(rd->engine, type->idname, sizeof(rd->engine));
+
+	DEG_id_tag_update(&scene->id, DEG_TAG_COPY_ON_WRITE);
 }
 
 static EnumPropertyItem *rna_RenderSettings_engine_itemf(
@@ -2622,6 +2625,13 @@ RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(volumetric_light_clamp)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(volumetric_shadows)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(volumetric_shadow_samples)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(volumetric_colored_transmittance)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(ssr_enable)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(ssr_halfres)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(ssr_ray_count)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(ssr_stride)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(ssr_thickness)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(ssr_border_fade)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(ssr_firefly_fac)
 
 /* object engine */
 RNA_LAYER_MODE_OBJECT_GET_SET_BOOL(show_wire)
@@ -6175,6 +6185,62 @@ static void rna_def_scene_layer_engine_settings_eevee(BlenderRNA *brna)
 	RNA_define_verify_sdna(0); /* not in sdna */
 
 	/* see RNA_LAYER_ENGINE_GET_SET macro */
+
+	/* Screen Space Reflection */
+	prop = RNA_def_property(srna, "ssr_enable", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_funcs(prop, "rna_LayerEngineSettings_Eevee_ssr_enable_get",
+	                               "rna_LayerEngineSettings_Eevee_ssr_enable_set");
+	RNA_def_property_ui_text(prop, "Screen Space Reflections", "Enable screen space reflection");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
+
+	prop = RNA_def_property(srna, "ssr_halfres", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_funcs(prop, "rna_LayerEngineSettings_Eevee_ssr_halfres_get",
+	                               "rna_LayerEngineSettings_Eevee_ssr_halfres_set");
+	RNA_def_property_ui_text(prop, "Half Res Trace", "Raytrace at a lower resolution");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
+
+	prop = RNA_def_property(srna, "ssr_stride", PROP_INT, PROP_PIXEL);
+	RNA_def_property_int_funcs(prop, "rna_LayerEngineSettings_Eevee_ssr_stride_get",
+	                               "rna_LayerEngineSettings_Eevee_ssr_stride_set", NULL);
+	RNA_def_property_ui_text(prop, "Stride", "Step size between two raymarching samples");
+	RNA_def_property_range(prop, 1, 32);
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
+
+	prop = RNA_def_property(srna, "ssr_ray_count", PROP_INT, PROP_NONE);
+	RNA_def_property_int_funcs(prop, "rna_LayerEngineSettings_Eevee_ssr_ray_count_get",
+	                               "rna_LayerEngineSettings_Eevee_ssr_ray_count_set", NULL);
+	RNA_def_property_ui_text(prop, "Samples", "Number of rays to trace per pixels");
+	RNA_def_property_range(prop, 1, 4);
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
+
+	prop = RNA_def_property(srna, "ssr_thickness", PROP_FLOAT, PROP_DISTANCE);
+	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Eevee_ssr_thickness_get",
+	                               "rna_LayerEngineSettings_Eevee_ssr_thickness_set", NULL);
+	RNA_def_property_ui_text(prop, "Thickness", "Pixel thickness used to detect intersection");
+	RNA_def_property_range(prop, 1e-6f, FLT_MAX);
+	RNA_def_property_ui_range(prop, 0.001f, FLT_MAX, 5, 3);
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
+
+	prop = RNA_def_property(srna, "ssr_border_fade", PROP_FLOAT, PROP_FACTOR);
+	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Eevee_ssr_border_fade_get",
+	                               "rna_LayerEngineSettings_Eevee_ssr_border_fade_set", NULL);
+	RNA_def_property_ui_text(prop, "Edge Fading", "Screen percentage used to fade the SSR");
+	RNA_def_property_range(prop, 0.0f, 0.5f);
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
+
+	prop = RNA_def_property(srna, "ssr_firefly_fac", PROP_FLOAT, PROP_FACTOR);
+	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Eevee_ssr_firefly_fac_get",
+	                               "rna_LayerEngineSettings_Eevee_ssr_firefly_fac_set", NULL);
+	RNA_def_property_ui_text(prop, "Clamp", "Smoothly clamp pixel intensity to remove noise");
+	RNA_def_property_range(prop, 0.0f, 1.0f);
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
 
 	/* Volumetrics */
 	prop = RNA_def_property(srna, "volumetric_enable", PROP_BOOLEAN, PROP_NONE);

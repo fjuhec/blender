@@ -63,7 +63,9 @@
 #include "../manipulator_geometry.h"
 #include "../manipulator_library_intern.h"
 
-static void manipulator_grab_modal(bContext *C, wmManipulator *mpr, const wmEvent *event, const int flag);
+static void manipulator_grab_modal(
+        bContext *C, wmManipulator *mpr, const wmEvent *event,
+        eWM_ManipulatorTweak tweak_flag);
 
 typedef struct GrabInteraction {
 	float init_mval[2];
@@ -176,17 +178,19 @@ static void manipulator_grab_draw_select(const bContext *C, wmManipulator *mpr, 
 
 static void manipulator_grab_draw(const bContext *C, wmManipulator *mpr)
 {
-	const bool active = mpr->state & WM_MANIPULATOR_STATE_ACTIVE;
-	const bool highlight = (mpr->state & WM_MANIPULATOR_STATE_HIGHLIGHT) != 0;
+	const bool is_modal = mpr->state & WM_MANIPULATOR_STATE_MODAL;
+	const bool is_highlight = (mpr->state & WM_MANIPULATOR_STATE_HIGHLIGHT) != 0;
 
-	(void)active;
+	(void)is_modal;
 
 	glEnable(GL_BLEND);
-	grab3d_draw_intern(C, mpr, false, highlight);
+	grab3d_draw_intern(C, mpr, false, is_highlight);
 	glDisable(GL_BLEND);
 }
 
-static void manipulator_grab_modal(bContext *C, wmManipulator *mpr, const wmEvent *event, const int UNUSED(flag))
+static void manipulator_grab_modal(
+        bContext *C, wmManipulator *mpr, const wmEvent *event,
+        eWM_ManipulatorTweak UNUSED(tweak_flag))
 {
 	GrabInteraction *inter = mpr->interaction_data;
 

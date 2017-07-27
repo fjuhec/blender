@@ -71,7 +71,9 @@
 /* to use custom dials exported to geom_dial_manipulator.c */
 // #define USE_MANIPULATOR_CUSTOM_DIAL
 
-static void manipulator_dial_modal(bContext *C, wmManipulator *mpr, const wmEvent *event, const int flag);
+static void manipulator_dial_modal(
+        bContext *C, wmManipulator *mpr, const wmEvent *event,
+        eWM_ManipulatorTweak tweak_flag);
 
 typedef struct DialInteraction {
 	float init_mval[2];
@@ -286,7 +288,7 @@ static void dial_draw_intern(
 
 	/* draw rotation indicator arc first */
 	if ((mpr->flag & WM_MANIPULATOR_DRAW_VALUE) &&
-	    (mpr->state & WM_MANIPULATOR_STATE_ACTIVE))
+	    (mpr->state & WM_MANIPULATOR_STATE_MODAL))
 	{
 		const float co_outer[4] = {0.0f, DIAL_WIDTH, 0.0f}; /* coordinate at which the arc drawing will be started */
 
@@ -351,11 +353,11 @@ static void manipulator_dial_draw_select(const bContext *C, wmManipulator *mpr, 
 
 static void manipulator_dial_draw(const bContext *C, wmManipulator *mpr)
 {
-	const bool active = mpr->state & WM_MANIPULATOR_STATE_ACTIVE;
-	const bool highlight = (mpr->state & WM_MANIPULATOR_STATE_HIGHLIGHT) != 0;
+	const bool is_modal = mpr->state & WM_MANIPULATOR_STATE_MODAL;
+	const bool is_highlight = (mpr->state & WM_MANIPULATOR_STATE_HIGHLIGHT) != 0;
 	float clip_plane_buf[4];
 	const int draw_options = RNA_enum_get(mpr->ptr, "draw_options");
-	float *clip_plane = (!active && (draw_options & ED_MANIPULATOR_DIAL_DRAW_FLAG_CLIP)) ? clip_plane_buf : NULL;
+	float *clip_plane = (!is_modal && (draw_options & ED_MANIPULATOR_DIAL_DRAW_FLAG_CLIP)) ? clip_plane_buf : NULL;
 
 	/* enable clipping if needed */
 	if (clip_plane) {
@@ -370,7 +372,7 @@ static void manipulator_dial_draw(const bContext *C, wmManipulator *mpr)
 	}
 
 	glEnable(GL_BLEND);
-	dial_draw_intern(C, mpr, false, highlight, clip_plane);
+	dial_draw_intern(C, mpr, false, is_highlight, clip_plane);
 	glDisable(GL_BLEND);
 
 	if (clip_plane) {
@@ -378,7 +380,9 @@ static void manipulator_dial_draw(const bContext *C, wmManipulator *mpr)
 	}
 }
 
-static void manipulator_dial_modal(bContext *C, wmManipulator *mpr, const wmEvent *event, const int UNUSED(flag))
+static void manipulator_dial_modal(
+        bContext *C, wmManipulator *mpr, const wmEvent *event,
+        eWM_ManipulatorTweak UNUSED(tweak_flag))
 {
 	const float co_outer[4] = {0.0f, DIAL_WIDTH, 0.0f}; /* coordinate at which the arc drawing will be started */
 	float angle_ofs, angle_delta;

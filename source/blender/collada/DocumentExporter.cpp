@@ -179,7 +179,7 @@ static COLLADABU::NativeString make_temp_filepath(const char *name, const char *
 // COLLADA allows this through multiple <channel>s in <animation>.
 // For this to work, we need to know objects that use a certain action.
 
-int DocumentExporter::exportCurrentScene(Scene *sce)
+int DocumentExporter::exportCurrentScene(EvaluationContext *eval_ctx, Scene *sce)
 {
 	PointerRNA sceneptr, unit_settings;
 	PropertyRNA *system; /* unused , *scale; */
@@ -285,19 +285,19 @@ int DocumentExporter::exportCurrentScene(Scene *sce)
 	// <library_geometries>
 	if (bc_has_object_type(export_set, OB_MESH)) {
 		GeometryExporter ge(writer, this->export_settings);
-		ge.exportGeom(sce);
+		ge.exportGeom(eval_ctx, sce);
 	}
 
 	// <library_animations>
 	AnimationExporter ae(writer, this->export_settings);
-	bool has_animations = ae.exportAnimations(sce);
+	bool has_animations = ae.exportAnimations(eval_ctx, sce);
 
 	// <library_controllers>
 	ArmatureExporter arm_exporter(writer, this->export_settings);
 	ControllerExporter controller_exporter(writer, this->export_settings);
 	if (bc_has_object_type(export_set, OB_ARMATURE) || this->export_settings->include_shapekeys) 
 	{
-		controller_exporter.export_controllers(sce);
+		controller_exporter.export_controllers(eval_ctx, sce);
 	}
 
 	// <library_visual_scenes>
@@ -316,7 +316,7 @@ int DocumentExporter::exportCurrentScene(Scene *sce)
 		se.setExportTransformationType(this->export_settings->export_transformation_type);
 	}
 
-	se.exportScene(sce);
+	se.exportScene(eval_ctx, sce);
 	
 	// <scene>
 	std::string scene_name(translate_id(id_name(sce)));

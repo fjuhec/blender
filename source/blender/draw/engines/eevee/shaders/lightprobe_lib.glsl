@@ -60,6 +60,28 @@ struct GridData {
 #define g_resolution    resolution_offset.xyz
 #define g_offset        resolution_offset.w
 
+#ifndef MAX_PROBE
+#define MAX_PROBE 1
+#endif
+#ifndef MAX_GRID
+#define MAX_GRID 1
+#endif
+#ifndef MAX_PLANAR
+#define MAX_PLANAR 1
+#endif
+
+layout(std140) uniform probe_block {
+	CubeData probes_data[MAX_PROBE];
+};
+
+layout(std140) uniform grid_block {
+	GridData grids_data[MAX_GRID];
+};
+
+layout(std140) uniform planar_block {
+	PlanarData planars_data[MAX_PLANAR];
+};
+
 /* ----------- Functions --------- */
 
 float probe_attenuation_cube(CubeData pd, vec3 W)
@@ -142,20 +164,14 @@ vec3 probe_evaluate_world_spec(vec3 R, float roughness)
 
 vec3 probe_evaluate_planar(
         float id, PlanarData pd, vec3 W, vec3 N, vec3 V,
-        float rand, vec3 camera_pos, float roughness,
+        float rand, float roughness,
         inout float fade)
 {
-	/* Sample reflection depth. */
-	vec4 refco = pd.reflectionmat * vec4(W, 1.0);
-	refco.xy /= refco.w;
-	float ref_depth = textureLod(probePlanars, vec3(refco.xy, id), 0.0).a;
-
-	/* Find view vector / reflection plane intersection. (dist_to_plane is negative) */
-	float dist_to_plane = line_plane_intersect_dist(camera_pos, V, pd.pl_plane_eq);
-	vec3 point_on_plane = camera_pos + V * dist_to_plane;
+	/* Find view vector / reflection plane intersection. */
+	vec3 point_on_plane = line_plane_intersect(W, V, pd.pl_plane_eq);
 
 	/* How far the pixel is from the plane. */
-	ref_depth = ref_depth + dist_to_plane;
+	float ref_depth = 1.0; /* TODO parameter */
 
 	/* Compute distorded reflection vector based on the distance to the reflected object.
 	 * In other words find intersection between reflection vector and the sphere center
@@ -166,7 +182,7 @@ vec3 probe_evaluate_planar(
 	vec3 ref_pos = point_on_plane + proj_ref;
 
 	/* Reproject to find texture coords. */
-	refco = pd.reflectionmat * vec4(ref_pos, 1.0);
+	vec4 refco = pd.reflectionmat * vec4(ref_pos, 1.0);
 	refco.xy /= refco.w;
 
 	/* Distance to roughness */

@@ -59,15 +59,17 @@ struct wmManipulatorMapType_Params;
 
 struct wmManipulator *WM_manipulator_new_ptr(
         const struct wmManipulatorType *wt, struct wmManipulatorGroup *mgroup,
-        const char *name, struct PointerRNA *properties);
+        struct PointerRNA *properties);
 struct wmManipulator *WM_manipulator_new(
         const char *idname, struct wmManipulatorGroup *mgroup,
-        const char *name, struct PointerRNA *properties);
+        struct PointerRNA *properties);
 void WM_manipulator_free(
         ListBase *manipulatorlist, struct wmManipulatorMap *mmap, struct wmManipulator *mpr,
         struct bContext *C);
 
 void WM_manipulator_name_set(struct wmManipulatorGroup *mgroup, struct wmManipulator *mpr, const char *name);
+
+bool WM_manipulator_select_set(struct wmManipulatorMap *mmap, struct wmManipulator *mpr, bool select);
 
 struct PointerRNA *WM_manipulator_set_operator(
         struct wmManipulator *, struct wmOperatorType *ot, struct IDProperty *properties);
@@ -206,6 +208,10 @@ void WM_manipulatormap_draw(struct wmManipulatorMap *mmap, const struct bContext
 void WM_manipulatormap_add_handlers(struct ARegion *ar, struct wmManipulatorMap *mmap);
 bool WM_manipulatormap_select_all(struct bContext *C, struct wmManipulatorMap *mmap, const int action);
 bool WM_manipulatormap_cursor_set(const struct wmManipulatorMap *mmap, struct wmWindow *win);
+bool WM_manipulatormap_is_any_selected(const struct wmManipulatorMap *mmap);
+bool WM_manipulatormap_minmax(
+        const struct wmManipulatorMap *mmap, bool use_hidden, bool use_select,
+        float r_min[3], float r_max[3]);
 
 /* -------------------------------------------------------------------- */
 /* wmManipulatorMapType */
@@ -228,6 +234,9 @@ struct wmManipulatorGroupTypeRef *WM_manipulatormaptype_group_link_ptr(
         struct wmManipulatorMapType *mmap_type,
         struct wmManipulatorGroupType *wgt);
 
+void WM_manipulatormaptype_group_init_runtime_keymap(
+        const struct Main *bmain,
+        struct wmManipulatorGroupType *wgt);
 void WM_manipulatormaptype_group_init_runtime(
         const struct Main *bmain, struct wmManipulatorMapType *mmap_type,
         struct wmManipulatorGroupType *wgt);
@@ -238,7 +247,9 @@ void WM_manipulatormaptype_group_unlink(
 void WM_manipulatormaptype_group_free(struct wmManipulatorGroupTypeRef *wgt);
 
 /* -------------------------------------------------------------------- */
-/* Manipulator Add/Remove (High level API) */
+/* ManipulatorGroup */
+
+/* Add/Remove (High level API) */
 
 void WM_manipulator_group_add_ptr_ex(
         struct wmManipulatorGroupType *wgt,
@@ -260,5 +271,8 @@ void WM_manipulator_group_remove_ptr_delayed_ex(
 void WM_manipulator_group_remove_ptr_delayed(
         struct wmManipulatorGroupType *wgt);
 void WM_manipulator_group_remove_delayed(const char *idname);
+
+/* Utilities */
+void WM_manipulator_group_is_any_selected(const char *idname);
 
 #endif  /* __WM_MANIPULATOR_API_H__ */

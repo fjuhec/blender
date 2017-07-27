@@ -103,12 +103,22 @@ typedef struct EEVEE_PassList {
 	struct DRWPass *dof_down;
 	struct DRWPass *dof_scatter;
 	struct DRWPass *dof_resolve;
-	struct DRWPass *minmaxz_downlevel;
-	struct DRWPass *minmaxz_downdepth;
-	struct DRWPass *minmaxz_copydepth;
 	struct DRWPass *volumetric_integrate_ps;
 	struct DRWPass *volumetric_resolve_ps;
 	struct DRWPass *volumetric_resolve_transmit_ps;
+	struct DRWPass *ssr_raytrace;
+	struct DRWPass *ssr_resolve;
+	struct DRWPass *color_downsample_ps;
+
+	/* HiZ */
+	struct DRWPass *minz_downlevel_ps;
+	struct DRWPass *maxz_downlevel_ps;
+	struct DRWPass *minz_downdepth_ps;
+	struct DRWPass *maxz_downdepth_ps;
+	struct DRWPass *minz_downdepth_layer_ps;
+	struct DRWPass *maxz_downdepth_layer_ps;
+	struct DRWPass *minz_copydepth_ps;
+	struct DRWPass *maxz_copydepth_ps;
 
 	struct DRWPass *depth_pass;
 	struct DRWPass *depth_pass_cull;
@@ -122,7 +132,7 @@ typedef struct EEVEE_PassList {
 
 typedef struct EEVEE_FramebufferList {
 	/* Effects */
-	struct GPUFrameBuffer *minmaxz_fb;
+	struct GPUFrameBuffer *downsample_fb;
 	struct GPUFrameBuffer *effect_fb;
 	struct GPUFrameBuffer *bloom_blit_fb;
 	struct GPUFrameBuffer *bloom_down_fb[MAX_BLOOM_STEP];
@@ -131,10 +141,12 @@ typedef struct EEVEE_FramebufferList {
 	struct GPUFrameBuffer *dof_scatter_far_fb;
 	struct GPUFrameBuffer *dof_scatter_near_fb;
 	struct GPUFrameBuffer *volumetric_fb;
+	struct GPUFrameBuffer *screen_tracing_fb;
 
 	struct GPUFrameBuffer *planarref_fb;
 
 	struct GPUFrameBuffer *main;
+	struct GPUFrameBuffer *double_buffer;
 } EEVEE_FramebufferList;
 
 typedef struct EEVEE_TextureList {
@@ -149,9 +161,16 @@ typedef struct EEVEE_TextureList {
 	struct GPUTexture *bloom_downsample[MAX_BLOOM_STEP]; /* R16_G16_B16 */
 	struct GPUTexture *bloom_upsample[MAX_BLOOM_STEP-1]; /* R16_G16_B16 */
 
+	struct GPUTexture *ssr_normal_input;
+	struct GPUTexture *ssr_specrough_input;
+
 	struct GPUTexture *planar_pool;
+	struct GPUTexture *planar_depth;
+
+	struct GPUTexture *maxzbuffer;
 
 	struct GPUTexture *color; /* R16_G16_B16 */
+	struct GPUTexture *color_double_buffer;
 } EEVEE_TextureList;
 
 typedef struct EEVEE_StorageList {
@@ -280,6 +299,7 @@ typedef struct EEVEE_LightProbesInfo {
 	int shres;
 	int shnbr;
 	bool specular_toggle;
+	bool ssr_toggle;
 	/* List of probes in the scene. */
 	/* XXX This is fragile, can get out of sync quickly. */
 	struct Object *probes_cube_ref[MAX_PROBE];
@@ -299,6 +319,16 @@ enum {
 /* ************ EFFECTS DATA ************* */
 typedef struct EEVEE_EffectsInfo {
 	int enabled_effects;
+
+	/* SSR */
+	bool use_ssr;
+	bool reflection_trace_full;
+	bool ssr_use_normalization;
+	int ssr_ray_count;
+	float ssr_firefly_fac;
+	float ssr_border_fac;
+	float ssr_stride;
+	float ssr_thickness;
 
 	/* Ambient Occlusion */
 	bool use_ao, use_bent_normals;
@@ -339,6 +369,8 @@ enum {
 	EFFECT_BLOOM               = (1 << 1),
 	EFFECT_DOF                 = (1 << 2),
 	EFFECT_VOLUMETRIC          = (1 << 3),
+	EFFECT_SSR                 = (1 << 4),
+	EFFECT_DOUBLE_BUFFER       = (1 << 5), /* Not really an effect but a feature */
 };
 
 /* ************** SCENE LAYER DATA ************** */
@@ -428,13 +460,17 @@ typedef struct EEVEE_PrivateData {
 	struct DRWShadingGroup *planar_downsample;
 	struct GHash *material_hash;
 	struct GHash *hair_material_hash;
-	struct GPUTexture *minmaxz;
+	struct GPUTexture *minzbuffer;
+	struct GPUTexture *ssr_hit_output[4];
 	struct GPUTexture *volumetric;
 	struct GPUTexture *volumetric_transmit;
 	float background_alpha; /* TODO find a better place for this. */
 	float viewvecs[2][4];
 	/* For planar probes */
 	float texel_size[2];
+	/* For double buffering */
+	bool valid_double_buffer;
+	float prev_persmat[4][4];
 } EEVEE_PrivateData; /* Transient data */
 
 /* eevee_data.c */
@@ -484,8 +520,10 @@ void EEVEE_lightprobes_free(void);
 /* eevee_effects.c */
 void EEVEE_effects_init(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_effects_cache_init(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata);
-void EEVEE_create_minmax_buffer(EEVEE_Data *vedata, struct GPUTexture *depth_src);
+void EEVEE_create_minmax_buffer(EEVEE_Data *vedata, struct GPUTexture *depth_src, int layer);
+void EEVEE_downsample_buffer(EEVEE_Data *vedata, struct GPUFrameBuffer *fb_src, struct GPUTexture *texture_src, int level);
 void EEVEE_effects_do_volumetrics(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata);
+void EEVEE_effects_do_ssr(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_draw_effects(EEVEE_Data *vedata);
 void EEVEE_effects_free(void);
 

@@ -83,6 +83,8 @@ static wmManipulatorGroupType *wm_manipulatorgrouptype_append__begin(void)
 {
 	wmManipulatorGroupType *wgt = MEM_callocN(sizeof(wmManipulatorGroupType), "manipulatorgrouptype");
 
+	wgt->type_update_flag |= WM_MANIPULATORMAPTYPE_KEYMAP_INIT;
+
 	return wgt;
 }
 static void wm_manipulatorgrouptype_append__end(wmManipulatorGroupType *wgt)
@@ -92,7 +94,12 @@ static void wm_manipulatorgrouptype_append__end(wmManipulatorGroupType *wgt)
 
 	/* if not set, use default */
 	if (wgt->setup_keymap == NULL) {
-		wgt->setup_keymap = WM_manipulatorgroup_keymap_common;
+		if (wgt->flag & WM_MANIPULATORGROUPTYPE_SELECT) {
+			wgt->setup_keymap = WM_manipulatorgroup_keymap_common_select;
+		}
+		else {
+			wgt->setup_keymap = WM_manipulatorgroup_keymap_common;
+		}
 	}
 
 	BLI_ghash_insert(global_manipulatorgrouptype_hash, (void *)wgt->idname, wgt);

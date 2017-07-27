@@ -560,7 +560,6 @@ void DepsgraphNodeBuilder::build_animdata(ID *id)
  */
 OperationDepsNode *DepsgraphNodeBuilder::build_driver(ID *id, FCurve *fcu)
 {
-	ChannelDriver *driver = fcu->driver;
 	ID *id_cow = get_cow_id(id);
 
 	/* Create data node for this driver */
@@ -582,11 +581,6 @@ OperationDepsNode *DepsgraphNodeBuilder::build_driver(ID *id, FCurve *fcu)
 		                               DEG_OPCODE_DRIVER,
 		                               fcu->rna_path ? fcu->rna_path : "",
 		                               fcu->array_index);
-	}
-
-	/* tag "scripted expression" drivers as needing Python (due to GIL issues, etc.) */
-	if (driver->type == DRIVER_TYPE_PYTHON) {
-		driver_op->flag |= DEPSOP_FLAG_USES_PYTHON;
 	}
 
 	/* return driver node created */
@@ -711,6 +705,13 @@ void DepsgraphNodeBuilder::build_particles(Scene *scene, Object *ob)
 	Scene *scene_cow = get_cow_datablock(scene);
 	Object *ob_cow = get_cow_datablock(ob);
 
+	add_operation_node(psys_comp,
+	                   function_bind(BKE_particle_system_eval_init,
+	                                 _1,
+	                                 scene_cow,
+	                                 ob_cow),
+	                   DEG_OPCODE_PARTICLE_SYSTEM_EVAL_INIT);
+
 	/* particle systems */
 	LINKLIST_FOREACH (ParticleSystem *, psys, &ob->particlesystem) {
 		ParticleSettings *part = psys->part;
@@ -731,11 +732,7 @@ void DepsgraphNodeBuilder::build_particles(Scene *scene, Object *ob)
 
 		/* Particle system evaluation. */
 		add_operation_node(psys_comp,
-		                   function_bind(BKE_particle_system_eval,
-		                                 _1,
-		                                 scene_cow,
-		                                 ob_cow,
-		                                 psys),
+		                   NULL,
 		                   DEG_OPCODE_PARTICLE_SYSTEM_EVAL,
 		                   psys->name);
 	}
@@ -1059,6 +1056,12 @@ void DepsgraphNodeBuilder::build_nodetree(bNodeTree *ntree)
 	                             DEG_OPCODE_PARAMETERS_EVAL);
 	op_node->set_as_exit();
 
+	/* Shading update. */
+	add_operation_node(ntree_id,
+	                   DEG_NODE_TYPE_SHADING,
+	                   NULL,
+	                   DEG_OPCODE_MATERIAL_UPDATE);
+
 	/* nodetree's nodes... */
 	LINKLIST_FOREACH (bNode *, bnode, &ntree->nodes) {
 		ID *id = bnode->id;
@@ -1096,6 +1099,7 @@ void DepsgraphNodeBuilder::build_material(Material *ma)
 	/* material itself */
 	add_id_node(ma_id);
 
+	/* Shading update. */
 	add_operation_node(ma_id,
 	                   DEG_NODE_TYPE_SHADING,
 	                   function_bind(BKE_material_eval, _1, ma),

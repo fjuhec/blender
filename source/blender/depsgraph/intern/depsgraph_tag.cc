@@ -108,8 +108,8 @@ void lib_id_recalc_tag_flag(Main *bmain, ID *id, int flag)
 	 * after relations update and after layer visibility changes.
 	 */
 	if (flag) {
-		short idtype = GS(id->name);
-		if (idtype == ID_OB) {
+		short id_type = GS(id->name);
+		if (id_type == ID_OB) {
 			Object *object = (Object *)id;
 			object->recalc |= (flag & OB_RECALC_ALL);
 		}
@@ -151,9 +151,9 @@ void id_tag_update_object_transform(Depsgraph *graph, IDDepsNode *id_node)
 /* Tag corresponding to OB_RECALC_DATA. */
 void id_tag_update_object_data(Depsgraph *graph, IDDepsNode *id_node)
 {
-	const short idtype = GS(id_node->id_orig->name);
+	const short id_type = GS(id_node->id_orig->name);
 	ComponentDepsNode *data_comp = NULL;
-	switch (idtype) {
+	switch (id_type) {
 		case ID_OB:
 		{
 			const Object *object = (Object *)id_node->id_orig;
@@ -190,14 +190,22 @@ void id_tag_update_object_data(Depsgraph *graph, IDDepsNode *id_node)
 	/* Special legacy compatibility code, tag data ID for update when object
 	 * is tagged for data update.
 	 */
-	if (idtype == ID_OB) {
+	if (id_type == ID_OB) {
 		Object *object = (Object *)id_node->id_orig;
 		ID *data_id = (ID *)object->data;
 		if (data_id != NULL) {
 			IDDepsNode *data_id_node = graph->find_id_node(data_id);
-			BLI_assert(data_id_node != NULL);
+			// BLI_assert(data_id_node != NULL);
 			/* TODO(sergey): Do we want more granular tags here? */
-			data_id_node->tag_update(graph);
+			/* TODO(sergey): Hrm, during some operations it's possible to have
+			 * object node existing but not it's data. For example, when making
+			 * objects local. This is valid situation, but how can we distinguish
+			 * that from someone trying to do stupid things with dependency
+			 * graph?
+			 */
+			if (data_id_node != NULL) {
+				data_id_node->tag_update(graph);
+			}
 		}
 	}
 }
@@ -232,6 +240,21 @@ void id_tag_update_particle(Depsgraph *graph, IDDepsNode *id_node, int tag)
 		return;
 	}
 	particle_comp->tag_update(graph);
+}
+
+void id_tag_update_shading(Depsgraph *graph, IDDepsNode *id_node)
+{
+	ComponentDepsNode *shading_comp =
+	        id_node->find_component(DEG_NODE_TYPE_SHADING);
+	if (shading_comp == NULL) {
+#ifdef STRICT_COMPONENT_TAGGING
+		DEG_ERROR_PRINTF("ERROR: Unable to find shading component for %s\n",
+		                 id_node->id_orig->name);
+		BLI_assert(!"This is not supposed to happen!");
+#endif
+		return;
+	}
+	shading_comp->tag_update(graph);
 }
 
 #ifdef WITH_COPY_ON_WRITE
@@ -272,6 +295,9 @@ void deg_graph_id_tag_update(Main *bmain, Depsgraph *graph, ID *id, int flag)
 	if (flag & PSYS_RECALC) {
 		id_tag_update_particle(graph, id_node, flag);
 	}
+	if (flag & DEG_TAG_SHADING_UPDATE) {
+		id_tag_update_shading(graph, id_node);
+	}
 #ifdef WITH_COPY_ON_WRITE
 	if (flag & DEG_TAG_COPY_ON_WRITE) {
 		id_tag_update_copy_on_write(graph, id_node);
@@ -298,8 +324,8 @@ void deg_graph_on_visible_update(Main *bmain, Scene *scene, Depsgraph *graph)
 	/* Make sure objects are up to date. */
 	GHASH_FOREACH_BEGIN(DEG::IDDepsNode *, id_node, graph->id_hash)
 	{
-		const short idtype = GS(id_node->id_orig->name);
-		if (idtype != ID_OB) {
+		const short id_type = GS(id_node->id_orig->name);
+		if (id_type != ID_OB) {
 			/* Ignore non-object nodes on visibility changes. */
 			continue;
 		}
@@ -310,7 +336,7 @@ void deg_graph_on_visible_update(Main *bmain, Scene *scene, Depsgraph *graph)
 		 *
 		 * TODO(sergey): Need to generalize this somehow.
 		 */
-		if (idtype == ID_OB) {
+		if (id_type == ID_OB) {
 			Object *object = (Object *)id_node->id_orig;
 			flag |= OB_RECALC_OB;
 			if (ELEM(object->type, OB_MESH,
@@ -352,9 +378,9 @@ void DEG_id_tag_update_ex(Main *bmain, ID *id, int flag)
 }
 
 /* Tag given ID type for update. */
-void DEG_id_type_tag(Main *bmain, short idtype)
+void DEG_id_type_tag(Main *bmain, short id_type)
 {
-	if (idtype == ID_NT) {
+	if (id_type == ID_NT) {
 		/* Stupid workaround so parent datablocks of nested nodetree get looped
 		 * over when we loop over tagged datablock types.
 		 */
@@ -365,7 +391,7 @@ void DEG_id_type_tag(Main *bmain, short idtype)
 		DEG_id_type_tag(bmain, ID_SCE);
 	}
 
-	bmain->id_tag_update[BKE_idcode_to_index(idtype)] = 1;
+	bmain->id_tag_update[BKE_idcode_to_index(id_type)] = 1;
 }
 
 /* Recursively push updates out to all nodes dependent on this,
