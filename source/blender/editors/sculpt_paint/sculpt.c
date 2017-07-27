@@ -100,6 +100,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define MM 6000
+static void print_array_i(int *a, int len);
+int find_connect_bmesh(const BMLog *bml, BMVert *vert, short *ch, const uint *vert_index, int len);
+
 /** \name Tool Capabilities
  *
  * Avoid duplicate checks, internal logic only,
@@ -244,7 +248,8 @@ typedef struct StrokeCache {
 	
 	int m_id[2];
 	uint bm_id[2];
-
+	uint bver[MM];
+	uint bver_f[MM];
 
 	/* sculpt_normal gets calculated by calc_sculpt_normal(), then the
 	 * sculpt_normal_symm gets updated quickly with the usual symmetry
@@ -520,10 +525,11 @@ typedef struct SculptThreadedTaskData {
 	float *area_co;
 	float (*mat)[4];
 	float (*vertCos)[3];
-	int *v_index;
+	uint *v_index;
 	int *t_index;
 	float *t_dis;
 
+	int *cn;
 	int *mid;
 	uint *bmid;
 
@@ -1601,6 +1607,8 @@ static void calc_central_vertex_cb(void *userdata, const int n)
 	float private_co[3] = { 0.0f };
 	int   private_count[2] = { 0 };
 
+	uint *v_i = data->v_index;
+	int *cn = data->cn;
 	int *mid = data->mid;
 	uint *bmid = data->bmid;
 
@@ -1616,6 +1624,8 @@ static void calc_central_vertex_cb(void *userdata, const int n)
 
 		if (sculpt_brush_test_fast(&test, vd.co)) {
 
+			if (type == PBVH_BMESH)
+				v_i[cn[0]++] = BM_log_vert_id_t(ss->bm_log, vd.bm_vert);
 
 			float dx = len_squared_v3v3(cp,vd.co);
 			if (dx < ds[0]){
@@ -1623,9 +1633,11 @@ static void calc_central_vertex_cb(void *userdata, const int n)
 				copy_v3_v3(private_co, vd.co);
 				//if (type == PBVH_FACES) mvt = vd.mvert;
 				//else if (type == PBVH_BMESH) bmvt = vd.bm_vert;
-				if (vd.mverts) { printf("m"); a = vd.vert_indices[vd.i]; }
+				if (vd.mverts) { //printf("m");
+				a = vd.vert_indices[vd.i]; }
 				else
-					if (vd.bm_vert) { printf("b"); b = BM_log_vert_id_t(ss->bm_log, vd.bm_vert); }
+					if (vd.bm_vert) { //printf("b");
+				b = BM_log_vert_id_t(ss->bm_log, vd.bm_vert); }
 			}
 
 		}
@@ -1635,14 +1647,15 @@ static void calc_central_vertex_cb(void *userdata, const int n)
 
 	BLI_mutex_lock(&data->mutex);
 
+	//print_array_i(v_i, cn[0]);
 	//float dx = len_squared_v3v3(cp, vd.co);
 	if (dist[0] > ds[0]){
 		dist[0] = ds[0];
 		copy_v3_v3(cent_cos, private_co);
 		mid[0] = a;
-		if (mid[0]) printf("e");
+		//if (mid[0]) printf("e");
 		bmid[0] = b;
-		if (bmid[0]) printf("f");
+		//if (bmid[0]) printf("f");
 	}
 
 	BLI_mutex_unlock(&data->mutex);
@@ -1651,7 +1664,7 @@ static void calc_central_vertex_cb(void *userdata, const int n)
 static void calc_central_vertex(
 	Sculpt *sd, Object *ob,
 	PBVHNode **nodes, int totnode, float rarea_co[3], float dis[2],
-	int mm[2],uint bmm[2])
+	int mm[2],uint bmm[2], uint *b_ls)
 {
 	const Brush *brush = BKE_paint_brush(&sd->paint);
 	SculptSession *ss = ob->sculpt;
@@ -1661,14 +1674,14 @@ static void calc_central_vertex(
 	float cent_cos[3] = { 0.0f };
 	int md[2] = { 0 };
 	uint bmd[2] = { 0 };
-	
-
+	uint b_ls_temp[MM] = { 0 };
+	int cn[1] = { 0 };
 	int count[2] = { 0 };
 	float dist[2] = { 1000.0f, 0.0f };
 	SculptThreadedTaskData data = {
 		.sd = sd, .ob = ob, .nodes = nodes, .totnode = totnode,
 		.has_bm_orco = has_bm_orco, .area_cos = cent_cos, .count = count, .dis = dist,
-		.mid = md, .bmid = bmd,
+		.mid = md, .bmid = bmd, .v_index = b_ls_temp, .cn = cn,
 	};
 	BLI_mutex_init(&data.mutex);
 
@@ -1678,12 +1691,13 @@ static void calc_central_vertex(
 
 	BLI_mutex_end(&data.mutex);
 
-	
+	for (int i = 0; i < cn[0];i++) b_ls[i] = b_ls_temp[i];
+	mm[1] = cn[0];
 	copy_v3_v3(rarea_co, cent_cos);
 	mm[0] = md[0];
-	if (mm[0]) { printf("g"); }
+	//if (mm[0]) { printf("g"); }
 	bmm[0] = bmd[0];
-	if (bmm[0]) { printf("h"); }
+	//if (bmm[0]) { printf("h"); }
 }
 static void update_mesh_central_vertex(Sculpt *sd, Object *ob,
 	PBVHNode **nodes, int totnode)
@@ -1693,7 +1707,33 @@ static void update_mesh_central_vertex(Sculpt *sd, Object *ob,
 	float dis[2] = { 1000.0f, 0.0f };
 	printf(" r %d ", BKE_pbvh_type(ob->sculpt->pbvh));
 	if (cache->first_time)
-		calc_central_vertex(sd, ob, nodes, totnode, cache->mesh_v, dis, cache->m_id,cache->bm_id);
+		calc_central_vertex(sd, ob, nodes, totnode, cache->mesh_v, dis, cache->m_id,cache->bm_id,
+		cache->bver);
+	printf("\n-- This is: -- %d  %d  ", cache->bm_id[0], cache->m_id[1]);
+	print_array_i(cache->bver, cache->m_id[1]);
+	printf("-- \n");
+	
+	if (BKE_pbvh_type(ob->sculpt->pbvh) == PBVH_BMESH){
+		SculptSession *ss = ob->sculpt;
+		short ch1[MM] = { 0 };
+		//print_array_i(ver_b, cn[1]);
+		BMVert *vm = BM_log_id_vert_t(ss->bm_log, cache->bm_id[0]);
+		find_connect_bmesh(ss->bm_log, vm, ch1, cache->bver, cache->m_id[1]);
+		//printf("\n");
+		//loop(i, 0, cn[1], 1) ch1[i] = 1;
+		//printf(" \nBV: %f %f %d    %f\n", vx->co[0], vx->co[1], cn[2], d[0]);
+		int k = 0;
+		for (int ir = 0; ir < cache->m_id[1]; ir++){
+			if (ch1[ir]){
+				cache->bver_f[k++] = cache->bver[ir];
+				//c_ver[cn[4] + k] = ver_b[ir];
+				//k++;
+			}
+		}
+		cache->m_id[1] = k;
+		//cn[1] = 0;
+		//cn[4] = cn[4] + k;
+	}
 }
 
 static void calc_local_y(ViewContext *vc, const float center[3], float y[3])
@@ -3517,6 +3557,10 @@ int check_topo_connected(int vert, int *vert_array, int totvert){
 	return check_present(vert, vert_array, totvert);
 }
 
+int check_btopo_connected(uint vert, uint *vert_array, int totvert){
+	return check_present_un(vert, vert_array, totvert);
+}
+
 #define VERLEN 50000
 
 int ver[VERLEN] = { 0 };
@@ -3643,6 +3687,8 @@ static void do_topo_grab_brush_task_cb_ex(
 	copy_v3_v3(test.normal, ss->cache->mesh_normal[2]);
 	copy_v3_v3(center_v,ss->cache->mesh_v);
 	uint bmn[2];
+	uint *cver;
+	int *cenver;
 	bmn[0] = ss->cache->bm_id[0];
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
@@ -3658,6 +3704,7 @@ static void do_topo_grab_brush_task_cb_ex(
 					//printf("%d %.3f %.3f\n", vd.vert_indices[vd.i], vd.co[0], vd.co[1]);
 					
 				}
+				//printf("\n  F  \n");
 				/*
 				if (ss->cache->first_time) {
 					if (ss->bm) copy_v3_v3(valx, BM_log_original_vert_co(ss->bm_log, vd.bm_vert));
@@ -3723,12 +3770,20 @@ static void do_topo_grab_brush_task_cb_ex(
 			else{
 				//if (type == PBVH_GRIDS) return 0;
 
-				
+				//printf("G");
+				int check = -1;
+				//int vert_m;
+				if (type == PBVH_FACES) {
+					int vert_m = vd.vert_indices[vd.i];
+					check = check_topo_connected(vert_m, c_ver, cn[4]);
+				}
+				else if (type == PBVH_BMESH) {
+					uint vert_m = BM_log_vert_id_t(ss->bm_log, vd.bm_vert); //BM_elem_index_get(vd.bm_vert);
+					check = check_btopo_connected(vert_m, c_ver, cn[4]);
+				}
 
-				int vert_m;
-				if (type == PBVH_FACES) vert_m = vd.vert_indices[vd.i];
-				else vert_m = BM_log_vert_id_t(ss->bm_log, vd.bm_vert); //BM_elem_index_get(vd.bm_vert);
-				if (check_topo_connected(vert_m, c_ver, cn[4]) != -1) {
+
+				if (check != -1) {
 					const float fade = bstrength * tex_strength(
 						ss, brush, orig_data.co, test.dist, orig_data.no, NULL, vd.mask ? *vd.mask : 0.0f,
 						thread_id);
@@ -3767,7 +3822,9 @@ static void do_topo_grab_brush_task_cb_ex(
 			cn[1] = 0;
 			cn[4] = cn[4] + k;
 		}else
+			
 			if (type == PBVH_BMESH){
+				
 				//do nothing
 
 				loop(ir, 0, cn[1], 1){
@@ -3792,9 +3849,11 @@ static void do_topo_grab_brush_task_cb_ex(
 				}
 				cn[1] = 0;
 				cn[4] = cn[4] + k;
-			}
+			
 		
-		
+				//cver = ss->cache->bver_f;
+				//cenver = ss->cache->m_id;
+		}
 	}
 	BLI_mutex_unlock(&data->mutex);
 	//BLI_mutex_end(&data->mutex);
@@ -4192,6 +4251,10 @@ static void do_brush_action(Sculpt *sd, Object *ob, Brush *brush, UnifiedPaintSe
 		if (ELEM(brush->sculpt_tool, SCULPT_TOOL_TOPO_GRAB)&&ss->cache->first_time){
 			update_mesh_area_normal(sd, ob, nodes, totnode);
 			update_mesh_central_vertex(sd, ob, nodes, totnode);
+
+			printf("\n\n-- This is 2: -- %d  %d  ", ss->cache->bm_id[0], ss->cache->m_id[1]);
+			print_array_i(ss->cache->bver_f, ss->cache->m_id[1]);
+			printf("-- \n\n");
 
 			//printf("It is: ");
 			//print_vd2(ss->cache->mesh_normal,0);
