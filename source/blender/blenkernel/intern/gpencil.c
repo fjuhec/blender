@@ -60,8 +60,10 @@
 #include "BKE_gpencil.h"
 #include "BKE_colortools.h"
 #include "BKE_library.h"
+#include "BKE_lattice.h"
 #include "BKE_main.h"
 #include "BKE_object.h"
+#include "BKE_modifier.h"
 
  /* used to save gpencil objects */
 typedef struct tGPencilStrokeCache {
@@ -2147,6 +2149,66 @@ void ED_gpencil_array_modifier(int UNUSED(id), GpencilArrayModifierData *mmd, Ob
 
 }
 
+/* verify if use this lattice */
+bool ED_gpencil_use_this_lattice(Object *ob, Object *UNUSED(lattice))
+{
+	ModifierData *md = modifiers_findByType(ob, eModifierType_GpencilLattice);
+	if (md) {
+		return true;
+	}
+#if 0
+	GpencilLatticeModifierData *mmd = NULL;
+	if (md) {
+		mmd = (GpencilLatticeModifierData *)md;
+		if (lattice == mmd->object) {
+			return true;
+		}
+	}
+#endif
+	return false;
+}
+
+/* init lattice deform data */
+void ED_gpencil_lattice_init(Object *ob)
+{
+	ModifierData *md = modifiers_findByType(ob, eModifierType_GpencilLattice);
+	if (md) {
+		GpencilLatticeModifierData *mmd = (GpencilLatticeModifierData *)md;
+		Object *latob = NULL;
+
+		latob = mmd->object;
+		if ((!latob) || (latob->type != OB_LATTICE)) {
+			return;
+		}
+		if (mmd->cache_data) {
+			end_latt_deform((LatticeDeformData *)mmd->cache_data);
+		}
+
+		/* init deform data */
+		mmd->cache_data = (LatticeDeformData *)init_latt_deform(latob, ob);
+	}
+}
+
+/* apply lattice to stroke */
+void ED_gpencil_lattice_modifier(int UNUSED(id), GpencilLatticeModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
+{
+	bGPDspoint *pt;
+
+	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 1, gpl, gps,
+		(int)mmd->flag & GP_LATTICE_INVERSE_LAYER, (int)mmd->flag & GP_LATTICE_INVERSE_PASS)) {
+		return;
+	}
+
+	if (mmd->cache_data == NULL) {
+		return;
+	}
+
+	for (int i = 0; i < gps->totpoints; i++) {
+		pt = &gps->points[i];
+		calc_latt_deform((LatticeDeformData *)mmd->cache_data, &pt->x, mmd->strength);
+	}
+}
+
 /* reset modifiers */
 void ED_gpencil_reset_modifiers(Object *ob)
 {
@@ -2207,6 +2269,10 @@ void ED_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *gpf, bGP
 				// Color Correction
 			case eModifierType_GpencilColor:
 				ED_gpencil_color_modifier(id, (GpencilColorModifierData *)md, gpl, gps);
+				break;
+				// Lattice
+			case eModifierType_GpencilLattice:
+				ED_gpencil_lattice_modifier(id, (GpencilLatticeModifierData *)md, gpl, gps);
 				break;
 			}
 		}

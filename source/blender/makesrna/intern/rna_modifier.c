@@ -125,6 +125,7 @@ EnumPropertyItem rna_enum_object_modifier_type_items[] = {
 	{eModifierType_GpencilDupli, "GP_DUPLI", ICON_GROUP_VERTEX, "Duplication", "Create duplication of strokes" },
 	{eModifierType_GpencilNoise, "GP_NOISE", ICON_RNDCURVE, "Noise", "Add noise to strokes" },
 	{eModifierType_GpencilSubdiv, "GP_SUBDIV", ICON_MOD_SUBSURF, "Subdivide", "Subdivide stroke adding more control points to strokes" },
+	{eModifierType_GpencilLattice, "GP_LATTICE", ICON_MOD_LATTICE, "Lattice", "Change stroke using lattice to deform" },
 	{eModifierType_GpencilThick, "GP_THICK", ICON_MAN_ROT, "Thickness", "Change stroke thickness" },
 	{eModifierType_GpencilTint, "GP_TINT", ICON_COLOR, "Tint", "Tint strokes with new color" },
 	{eModifierType_GpencilColor, "GP_COLOR", ICON_GROUP_VCOL, "Hue/Saturation", "Apply changes to color" },
@@ -456,6 +457,8 @@ static StructRNA *rna_Modifier_refine(struct PointerRNA *ptr)
 			return &RNA_GpencilDupliModifier;
 		case eModifierType_GpencilOpacity:
 			return &RNA_GpencilOpacityModifier;
+		case eModifierType_GpencilLattice:
+			return &RNA_GpencilLatticeModifier;
 			/* Default */
 		case eModifierType_None:
 		case eModifierType_ShapeKey:
@@ -632,6 +635,7 @@ RNA_MOD_OBJECT_SET(NormalEdit, target, OB_EMPTY);
 RNA_MOD_OBJECT_SET(Shrinkwrap, target, OB_MESH);
 RNA_MOD_OBJECT_SET(Shrinkwrap, auxTarget, OB_MESH);
 RNA_MOD_OBJECT_SET(SurfaceDeform, target, OB_MESH);
+RNA_MOD_OBJECT_SET(GpencilLattice, object, OB_LATTICE);
 
 static void rna_HookModifier_object_set(PointerRNA *ptr, PointerRNA value)
 {
@@ -4925,7 +4929,7 @@ static void rna_def_modifier_gpencilthick(BlenderRNA *brna)
 	PropertyRNA *prop;
 
 	srna = RNA_def_struct(brna, "GpencilThickModifier", "Modifier");
-	RNA_def_struct_ui_text(srna, "Subsurf Modifier", "Subdivide and Smooth Stroke modifier");
+	RNA_def_struct_ui_text(srna, "Thick Modifier", "Subdivide and Smooth Stroke modifier");
 	RNA_def_struct_sdna(srna, "GpencilThickModifierData");
 	RNA_def_struct_ui_icon(srna, ICON_MAN_ROT);
 
@@ -5254,6 +5258,50 @@ static void rna_def_modifier_gpencildupli(BlenderRNA *brna)
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
+static void rna_def_modifier_gpencillattice(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+
+	srna = RNA_def_struct(brna, "GpencilLatticeModifier", "Modifier");
+	RNA_def_struct_ui_text(srna, "Lattice Modifier", "Change stroke using lattice to deform modifier");
+	RNA_def_struct_sdna(srna, "GpencilLatticeModifierData");
+	RNA_def_struct_ui_icon(srna, ICON_MOD_LATTICE);
+
+	prop = RNA_def_property(srna, "layer", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_sdna(prop, NULL, "layername");
+	RNA_def_property_ui_text(prop, "Layer", "Layer name");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "passindex", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "passindex");
+	RNA_def_property_range(prop, 0, 100);
+	RNA_def_property_ui_text(prop, "Pass", "Pass index");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_layers", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_LATTICE_INVERSE_LAYER);
+	RNA_def_property_ui_text(prop, "Inverse Layers", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_pass", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_LATTICE_INVERSE_PASS);
+	RNA_def_property_ui_text(prop, "Inverse Pass", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "object", PROP_POINTER, PROP_NONE);
+	RNA_def_property_ui_text(prop, "Object", "Lattice object to deform with");
+	RNA_def_property_pointer_funcs(prop, NULL, "rna_GpencilLatticeModifier_object_set", NULL, "rna_Lattice_object_poll");
+	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_SELF_CHECK);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "strength", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_range(prop, -FLT_MAX, FLT_MAX);
+	RNA_def_property_ui_range(prop, 0, 1, 10, 2);
+	RNA_def_property_ui_text(prop, "Strength", "Strength of modifier effect");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+}
+
 void RNA_def_modifier(BlenderRNA *brna)
 {
 	StructRNA *srna;
@@ -5380,6 +5428,7 @@ void RNA_def_modifier(BlenderRNA *brna)
 	rna_def_modifier_gpencilarray(brna);
 	rna_def_modifier_gpencildupli(brna);
 	rna_def_modifier_gpencilopacity(brna);
+	rna_def_modifier_gpencillattice(brna);
 }
 
 #endif

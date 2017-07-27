@@ -121,6 +121,7 @@ set(SRC
 	intern/MOD_gpencilarray.c
 	intern/MOD_gpencildupli.c
 	intern/MOD_gpencilopacity.c
+	intern/MOD_gpencillattice.c
 )
 
 if(WITH_ALEMBIC)

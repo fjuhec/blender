@@ -29,6 +29,7 @@
 #include "BKE_global.h"
 #include "BKE_gpencil.h"
 #include "BKE_image.h"
+#include "BKE_lattice.h"
 
 #include "ED_gpencil.h"
 #include "ED_view3d.h"
@@ -591,11 +592,11 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 	ED_gpencil_parent_location(ob, gpd, gpl, viewmatrix);
 	copy_m4_m4(gpf->viewmatrix, viewmatrix);
 
-	/* reset modifiers */
+	/* initialization steps */
 	if ((cache->is_dirty) && (ob->modifiers.first) && (!is_edit)) {
 		ED_gpencil_reset_modifiers(ob);
 	}
-	
+
 	/* apply geometry modifiers */
 	if ((cache->is_dirty) && (ob->modifiers.first) && (!is_edit)) {
 		if (ED_gpencil_has_geometry_modifiers(ob)) {
@@ -780,15 +781,28 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 /* helper for populate a complete grease pencil datablock */
 void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene *scene, Object *ob, ToolSettings *ts, bGPdata *gpd)
 {
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	Object *obact = draw_ctx->obact;
 	bGPDframe *derived_gpf = NULL;
 	bool is_edit = (bool)(gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE));
 
 	if (G.debug_value == 668) {
 		printf("DRW_gpencil_populate_datablock: %s\n", gpd->id.name);
 	}
-	
+	/* TODO: can be moved to desgraph? */
+	if ((obact) && (obact->type == OB_LATTICE) && (ob->modifiers.first)) {
+		if (ED_gpencil_use_this_lattice(ob, obact)) {
+			BKE_gpencil_batch_cache_dirty(gpd);
+		}
+	}
+
 	GpencilBatchCache *cache = gpencil_batch_cache_get(ob, CFRA);
 	cache->cache_idx = 0;
+
+	/* init general modifiers data */
+	if ((cache->is_dirty) && (ob->modifiers.first) && (!is_edit)) {
+		ED_gpencil_lattice_init(ob);
+	}
 	/* draw normal strokes */
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		/* don't draw layer if hidden */

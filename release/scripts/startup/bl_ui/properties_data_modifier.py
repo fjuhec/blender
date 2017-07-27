@@ -1722,6 +1722,26 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop(md, "random_scale", text="", icon="TIME", toggle=True)
         row.prop(md, "scale_factor", text="")
 
+    def GP_LATTICE(self, layout, ob, md):
+        gpd = ob.grease_pencil
+        split = layout.split()
+
+        col = split.column()
+        col.label(text="Object:")
+        col.prop(md, "object", text="")
+
+        col = split.column()
+        col.label("Layer:")
+        row = col.row(align=True)
+        row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+        row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
+        row = col.row(align=True)
+        row.prop(md, "passindex", text="Pass")
+        row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
+
+        layout.separator()
+        layout.prop(md, "strength", slider=True)
+
 classes = (
     DATA_PT_modifiers,
 )

@@ -51,6 +51,7 @@ struct GpencilColorModifierData;
 struct GpencilArrayModifierData;
 struct GpencilDupliModifierData;
 struct GpencilOpacityModifierData;
+struct GpencilLatticeModifierData;
 
 /* ------------ Grease-Pencil API ------------------ */
 
@@ -158,5 +159,9 @@ void ED_gpencil_color_modifier(int id, struct GpencilColorModifierData *mmd, str
 void ED_gpencil_array_modifier(int id, struct GpencilArrayModifierData *mmd, struct Object *ob, int elem_idx[3], float r_mat[4][4]);
 void ED_gpencil_dupli_modifier(int id, struct GpencilDupliModifierData *mmd, struct bGPDlayer *gpl, struct bGPDframe *gpf);
 void ED_gpencil_opacity_modifier(int id, struct GpencilOpacityModifierData *mmd, struct bGPDlayer *gpl, struct bGPDstroke *gps);
+
+bool ED_gpencil_use_this_lattice(struct Object *ob, struct Object *lattice);
+void ED_gpencil_lattice_init(struct Object *ob);
+void ED_gpencil_lattice_modifier(int id, struct GpencilLatticeModifierData *mmd, struct bGPDlayer *gpl, struct bGPDstroke *gps);
 
 #endif /*  __BKE_GPENCIL_H__ */

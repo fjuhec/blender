@@ -95,6 +95,7 @@ extern ModifierTypeInfo modifierType_GpencilColor;
 extern ModifierTypeInfo modifierType_GpencilArray;
 extern ModifierTypeInfo modifierType_GpencilDupli;
 extern ModifierTypeInfo modifierType_GpencilOpacity;
+extern ModifierTypeInfo modifierType_GpencilLattice;
 
 /* MOD_util.c */
 void modifier_type_init(ModifierTypeInfo *types[]);

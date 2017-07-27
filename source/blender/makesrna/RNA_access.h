@@ -620,6 +620,7 @@ extern StructRNA RNA_GpencilColorModifier;
 extern StructRNA RNA_GpencilArrayModifier;
 extern StructRNA RNA_GpencilDupliModifier;
 extern StructRNA RNA_GpencilOpacityModifier;
+extern StructRNA RNA_GpencilLatticeModifier;
 extern StructRNA RNA_TexMapping;
 extern StructRNA RNA_Text;
 extern StructRNA RNA_TextBox;
