@@ -684,7 +684,7 @@ static bool ui_but_update_from_old_block(const bContext *C, uiBlock *block, uiBu
 
 	if (oldbut->active) {
 		/* flags from the buttons we want to refresh, may want to add more here... */
-		const int flag_copy = UI_BUT_REDALERT;
+		const int flag_copy = UI_BUT_REDALERT | UI_HAS_ICON;
 
 		found_active = true;
 
@@ -1165,6 +1165,8 @@ static void ui_menu_block_set_keymaps(const bContext *C, uiBlock *block)
 	uiBut *but;
 	char buf[128];
 
+	BLI_assert(block->flag & UI_BLOCK_LOOP);
+
 	/* only do it before bounding */
 	if (block->rect.xmin != block->rect.xmax)
 		return;
@@ -1179,6 +1181,9 @@ static void ui_menu_block_set_keymaps(const bContext *C, uiBlock *block)
 	}
 	else {
 		for (but = block->buttons.first; but; but = but->next) {
+			if (but->dt != UI_EMBOSS_PULLDOWN) {
+				continue;
+			}
 
 			if (ui_but_event_operator_string(C, but, buf, sizeof(buf))) {
 				ui_but_add_shortcut(but, buf, false);
