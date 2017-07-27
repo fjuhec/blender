@@ -142,10 +142,10 @@ void DepsgraphNodeBuilder::build_rig(Scene *scene, Object *object)
 	Scene *scene_cow = get_cow_datablock(scene);
 	IDDepsNode *object_id_node = add_id_node(&object->id);
 	Object *object_cow = (Object *)deg_expand_copy_on_write_datablock(
-	        m_graph, object_id_node);
+	        m_graph, object_id_node, true);
 	IDDepsNode *armature_id_node = add_id_node(&armature->id);
 	bArmature *armature_cow = (bArmature *)deg_expand_copy_on_write_datablock(
-	        m_graph, armature_id_node);
+	        m_graph, armature_id_node, true);
 #else
 	Scene *scene_cow = scene;
 	Object *object_cow = object;
@@ -259,14 +259,12 @@ void DepsgraphNodeBuilder::build_rig(Scene *scene, Object *object)
 		                             function_bind(BKE_pose_bone_done, _1, pchan),
 		                             DEG_OPCODE_BONE_DONE);
 		op_node->set_as_exit();
-
-		/* constraints */
+		/* Build constraints. */
 		if (pchan->constraints.first != NULL) {
 			build_pose_constraints(scene, object, pchan);
 		}
-
 		/**
-		 * IK Solvers...
+		 * IK Solvers.
 		 *
 		 * - These require separate processing steps are pose-level
 		 *   to be executed between chains of bones (i.e. once the
@@ -290,6 +288,11 @@ void DepsgraphNodeBuilder::build_rig(Scene *scene, Object *object)
 				default:
 					break;
 			}
+		}
+		/* Custom shape. */
+		/* NOTE: Custom shape datablock is already remapped to CoW version. */
+		if (pchan->custom != NULL) {
+			build_object(scene, get_orig_datablock(pchan->custom));
 		}
 	}
 }

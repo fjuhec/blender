@@ -92,8 +92,7 @@ SceneLayer *DEG_get_evaluated_scene_layer(Depsgraph *graph)
 {
 	Scene *scene = DEG_get_evaluated_scene(graph);
 	if (scene != NULL) {
-		DEG::Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(graph);
-		return BKE_scene_layer_context_active_ex_PLACEHOLDER(deg_graph->bmain, scene);
+		return BKE_scene_layer_context_active_PLACEHOLDER(scene);
 	}
 	return NULL;
 }
@@ -105,8 +104,16 @@ Object *DEG_get_evaluated_object(Depsgraph *depsgraph, Object *object)
 
 ID *DEG_get_evaluated_id(struct Depsgraph *depsgraph, ID *id)
 {
-	DEG::Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(depsgraph);
-	return deg_graph->get_cow_id(id);
+	/* TODO(sergey): This is a duplicate of Depsgraph::get_cow_id(),
+	 * but here we never do assert, since we don't know nature of the
+	 * incoming ID datablock.
+	 */
+	DEG::Depsgraph *deg_graph = (DEG::Depsgraph *)depsgraph;
+	DEG::IDDepsNode *id_node = deg_graph->find_id_node(id);
+	if (id_node == NULL) {
+		return id;
+	}
+	return id_node->id_cow;
 }
 
 /* ************************ DAG ITERATORS ********************* */

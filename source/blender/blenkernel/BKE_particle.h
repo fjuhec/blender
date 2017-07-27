@@ -473,6 +473,11 @@ typedef struct ParticleRenderData {
 
 struct EvaluationContext;
 
+void BKE_particle_system_settings_eval(struct EvaluationContext *eval_ctx,
+                                       struct ParticleSystem *psys);
+void BKE_particle_system_settings_recalc_clear(struct EvaluationContext *UNUSED(eval_ctx),
+                                               struct ParticleSettings *particle_settings);
+
 void BKE_particle_system_eval(struct EvaluationContext *eval_ctx,
                               struct Scene *scene,
                               struct Object *ob,

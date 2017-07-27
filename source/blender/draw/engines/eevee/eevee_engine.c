@@ -97,16 +97,31 @@ static void EEVEE_cache_populate(void *vedata, Object *ob)
 		const bool cast_shadow = true;
 
 		if (cast_shadow) {
-			BLI_addtail(&sldata->shadow_casters, BLI_genericNodeN(ob));
-			EEVEE_ObjectEngineData *oedata = EEVEE_object_data_get(ob);
-			oedata->need_update = ((ob->deg_update_flag & DEG_RUNTIME_DATA_UPDATE) != 0);
+			if ((ob->base_flag & BASE_FROMDUPLI) != 0) {
+				/* TODO: Special case for dupli objects because we cannot save the object pointer. */
+			}
+			else {
+				BLI_addtail(&sldata->shadow_casters, BLI_genericNodeN(ob));
+				EEVEE_ObjectEngineData *oedata = EEVEE_object_data_get(ob);
+				oedata->need_update = ((ob->deg_update_flag & DEG_RUNTIME_DATA_UPDATE) != 0);
+			}
 		}
 	}
 	else if (ob->type == OB_LIGHTPROBE) {
-		EEVEE_lightprobes_cache_add(sldata, ob);
+		if ((ob->base_flag & BASE_FROMDUPLI) != 0) {
+			/* TODO: Special case for dupli objects because we cannot save the object pointer. */
+		}
+		else {
+			EEVEE_lightprobes_cache_add(sldata, ob);
+		}
 	}
 	else if (ob->type == OB_LAMP) {
-		EEVEE_lights_cache_add(sldata, ob);
+		if ((ob->base_flag & BASE_FROMDUPLI) != 0) {
+			/* TODO: Special case for dupli objects because we cannot save the object pointer. */
+		}
+		else {
+			EEVEE_lights_cache_add(sldata, ob);
+		}
 	}
 }
 
