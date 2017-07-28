@@ -114,7 +114,7 @@ struct Depsgraph {
 	TimeSourceDepsNode *find_time_source() const;
 
 	IDDepsNode *find_id_node(const ID *id) const;
-	IDDepsNode *add_id_node(ID *id, bool do_tag = true);
+	IDDepsNode *add_id_node(ID *id, bool do_tag = true, ID *id_cow_hint = NULL);
 	void clear_id_nodes();
 
 	/* Add new relationship between two nodes. */
@@ -136,11 +136,6 @@ struct Depsgraph {
 
 	/* For given original ID get ID which is created by CoW system. */
 	ID *get_cow_id(const ID *id_orig) const;
-
-	/* Similar to above, but for the cases when there is no ID node we create
-	 * one.
-	 */
-	ID *ensure_cow_id(ID *id_orig);
 
 	/* Core Graph Functionality ........... */
 

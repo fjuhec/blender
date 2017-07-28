@@ -1268,8 +1268,11 @@ Depsgraph *CTX_data_depsgraph(const bContext *C)
 
 void CTX_data_eval_ctx(const bContext *C, EvaluationContext *eval_ctx)
 {
-	BLI_assert(C);
+	BLI_assert(C != NULL);
 
-	*eval_ctx = *CTX_data_main(C)->eval_ctx;
-	eval_ctx->scene_layer = CTX_data_scene_layer(C);
+	Scene *scene = CTX_data_scene(C);
+	SceneLayer *scene_layer = CTX_data_scene_layer(C);
+	DEG_evaluation_context_init_from_scene(eval_ctx,
+	                                       scene, scene_layer,
+	                                       DAG_EVAL_VIEWPORT);
 }

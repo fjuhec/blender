@@ -1833,6 +1833,7 @@ static void OBJECT_draw_scene(void *vedata)
 	float clearcol[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 
 	if (DRW_state_is_fbo()) {
+		DRW_stats_group_start("Outlines");
 		/* attach temp textures */
 		DRW_framebuffer_texture_attach(fbl->outlines, e_data.outlines_depth_tx, 0, 0);
 		DRW_framebuffer_texture_attach(fbl->outlines, e_data.outlines_color_tx, 0, 0);
@@ -1842,6 +1843,7 @@ static void OBJECT_draw_scene(void *vedata)
 		DRW_framebuffer_bind(fbl->outlines);
 		DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
 		DRW_draw_pass(psl->outlines);
+
 
 		/* detach textures */
 		DRW_framebuffer_texture_detach(e_data.outlines_depth_tx);
@@ -1875,6 +1877,7 @@ static void OBJECT_draw_scene(void *vedata)
 
 		/* restore main framebuffer */
 		DRW_framebuffer_bind(dfbl->default_fb);
+		DRW_stats_group_end();
 	}
 
 	/* This needs to be drawn after the oultine */
