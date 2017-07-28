@@ -79,6 +79,7 @@ extern "C" {
 }
 
 #include "intern/depsgraph.h"
+#include "intern/builder/deg_builder_nodes.h"
 #include "intern/nodes/deg_node.h"
 
 namespace DEG {
@@ -361,6 +362,10 @@ static bool check_datablock_expanded_at_construction(const ID *id_orig)
 static bool check_datablocks_copy_on_writable(const ID *id_orig)
 {
 	const short id_type = GS(id_orig->name);
+	/* We shouldn't bother if copied ID is same as original one. */
+	if (!deg_copy_on_write_is_needed(id_orig)) {
+		return false;
+	}
 	return !ELEM(id_type, ID_BR,
 	                      ID_LS,
 	                      ID_AC,
@@ -374,7 +379,7 @@ static bool check_datablocks_copy_on_writable(const ID *id_orig)
 
 struct RemapCallbackUserData {
 	/* Dependency graph for which remapping is happening. */
-	Depsgraph *depsgraph;
+	const Depsgraph *depsgraph;
 	/* Temporarily allocated memory for copying purposes. This ID will
 	 * be discarded after expanding is done, so need to make sure temp_id
 	 * is replaced with proper real_id.
@@ -391,6 +396,7 @@ struct RemapCallbackUserData {
 	 *
 	 * This happens when expansion happens a ta construction time.
 	 */
+	DepsgraphNodeBuilder *node_builder;
 	bool create_placeholders;
 };
 
@@ -400,7 +406,7 @@ int foreach_libblock_remap_callback(void *user_data_v,
                                     int /*cb_flag*/)
 {
 	RemapCallbackUserData *user_data = (RemapCallbackUserData *)user_data_v;
-	Depsgraph *depsgraph = user_data->depsgraph;
+	const Depsgraph *depsgraph = user_data->depsgraph;
 	if (*id_p != NULL) {
 		ID *id_orig = *id_p;
 		if (id_orig == user_data->temp_id) {
@@ -431,7 +437,7 @@ int foreach_libblock_remap_callback(void *user_data_v,
 					}
 				}
 				else {
-					id_cow = depsgraph->ensure_cow_id(id_orig);
+					id_cow = user_data->node_builder->ensure_cow_id(id_orig);
 				}
 			}
 			else {
@@ -637,18 +643,31 @@ int foreach_libblock_validate_callback(void *user_data,
  *
  * NOTE: Expects that CoW datablock is empty.
  */
-ID *deg_expand_copy_on_write_datablock(Depsgraph *depsgraph,
+ID *deg_expand_copy_on_write_datablock(const Depsgraph *depsgraph,
                                        const IDDepsNode *id_node,
+                                       DepsgraphNodeBuilder *node_builder,
                                        bool create_placeholders)
 {
 	BLI_assert(!create_placeholders ||
 	           check_datablock_expanded_at_construction(id_node->id_orig));
 	const ID *id_orig = id_node->id_orig;
 	ID *id_cow = id_node->id_cow;
+	/* No need to expand such datablocks, their copied ID is same as original
+	 * one already.
+	 */
+	if (!deg_copy_on_write_is_needed(id_orig)) {
+		return id_cow;
+	}
 	DEG_COW_PRINT("Expanding datablock for %s: id_orig=%p id_cow=%p\n",
 	              id_orig->name, id_orig, id_cow);
 	/* Sanity checks. */
-	BLI_assert(check_datablock_expanded(id_cow) == false);
+	/* NOTE: Disabled for now, conflicts when re-using evaluated datablock when
+	 * rebuilding dependencies.
+	 */
+	if (check_datablock_expanded(id_cow) && create_placeholders) {
+		deg_free_copy_on_write_datablock(id_cow);
+	}
+	// BLI_assert(check_datablock_expanded(id_cow) == false);
 	/* Copy data from original ID to a copied version. */
 	/* TODO(sergey): Avoid doing full ID copy somehow, make Mesh to reference
 	 * original geometry arrays for until those are modified.
@@ -671,8 +690,8 @@ ID *deg_expand_copy_on_write_datablock(Depsgraph *depsgraph,
 	 * or cases where we want to do something smarter than simple datablock
 	 * copy.
 	 */
-	const short type = GS(id_orig->name);
-	switch (type) {
+	const short id_type = GS(id_orig->name);
+	switch (id_type) {
 		case ID_SCE:
 		{
 			Scene *new_scene = scene_copy_no_main((Scene *)id_orig);
@@ -721,6 +740,7 @@ ID *deg_expand_copy_on_write_datablock(Depsgraph *depsgraph,
 	user_data.depsgraph = depsgraph;
 	user_data.temp_id = newid;
 	user_data.real_id = id_cow;
+	user_data.node_builder = node_builder;
 	user_data.create_placeholders = create_placeholders;
 	BKE_library_foreach_ID_link(NULL,
 	                            id_cow,
@@ -739,22 +759,29 @@ ID *deg_expand_copy_on_write_datablock(Depsgraph *depsgraph,
 }
 
 /* NOTE: Depsgraph is supposed to have ID node already. */
-ID *deg_expand_copy_on_write_datablock(Depsgraph *depsgraph,
+ID *deg_expand_copy_on_write_datablock(const Depsgraph *depsgraph,
                                        ID *id_orig,
+                                       DepsgraphNodeBuilder *node_builder,
                                        bool create_placeholders)
 {
 	DEG::IDDepsNode *id_node = depsgraph->find_id_node(id_orig);
 	BLI_assert(id_node != NULL);
 	return deg_expand_copy_on_write_datablock(depsgraph,
 	                                          id_node,
+	                                          node_builder,
 	                                          create_placeholders);
 }
 
-ID *deg_update_copy_on_write_datablock(/*const*/ Depsgraph *depsgraph,
+ID *deg_update_copy_on_write_datablock(const Depsgraph *depsgraph,
                                        const IDDepsNode *id_node)
 {
 	const ID *id_orig = id_node->id_orig;
+	const short id_type = GS(id_orig->name);
 	ID *id_cow = id_node->id_cow;
+	/* Similar to expansion, no need to do anything here. */
+	if (!deg_copy_on_write_is_needed(id_orig)) {
+		return id_cow;
+	}
 	/* Special case for datablocks which are expanded at the dependency graph
 	 * construction time. This datablocks must never change pointers of their
 	 * nested data since it is used for function bindings.
@@ -773,8 +800,9 @@ ID *deg_update_copy_on_write_datablock(/*const*/ Depsgraph *depsgraph,
 	 */
 	ListBase gpumaterial_backup;
 	ListBase *gpumaterial_ptr = NULL;
+	Mesh *mesh_evaluated = NULL;
 	if (check_datablock_expanded(id_cow)) {
-		switch (GS(id_orig->name)) {
+		switch (id_type) {
 			case ID_MA:
 			{
 				Material *material = (Material *)id_cow;
@@ -787,6 +815,23 @@ ID *deg_update_copy_on_write_datablock(/*const*/ Depsgraph *depsgraph,
 				gpumaterial_ptr = &world->gpumaterial;
 				break;
 			}
+			case ID_OB:
+			{
+				Object *object = (Object *)id_cow;
+				/* Store evaluated mesh, make sure we don't free it. */
+				mesh_evaluated = object->mesh_evaluated;
+				object->mesh_evaluated = NULL;
+				/* Currently object update will override actual object->data
+				 * to an evaluated version. Need to make sure we don't have
+				 * data set to evaluated one before free anything.
+				 */
+				if (mesh_evaluated != NULL) {
+					if (object->data == mesh_evaluated) {
+						object->data = mesh_evaluated->id.newid;
+					}
+				}
+				break;
+			}
 		}
 		if (gpumaterial_ptr != NULL) {
 			gpumaterial_backup = *gpumaterial_ptr;
@@ -794,16 +839,28 @@ ID *deg_update_copy_on_write_datablock(/*const*/ Depsgraph *depsgraph,
 		}
 	}
 	deg_free_copy_on_write_datablock(id_cow);
-	deg_expand_copy_on_write_datablock(depsgraph, id_node, false);
+	deg_expand_copy_on_write_datablock(depsgraph, id_node);
 	/* Restore GPU materials. */
 	if (gpumaterial_ptr != NULL) {
 		*gpumaterial_ptr = gpumaterial_backup;
+	}
+	if (id_type == ID_OB) {
+		if (mesh_evaluated != NULL) {
+			Object *object = (Object *)id_cow;
+			object->mesh_evaluated = mesh_evaluated;
+			/* Do same thing as object update: override actual object data
+			 * pointer with evaluated datablock.
+			 */
+			if (object->type == OB_MESH) {
+				object->data = mesh_evaluated;
+			}
+		}
 	}
 	return id_cow;
 }
 
 /* NOTE: Depsgraph is supposed to have ID node already. */
-ID *deg_update_copy_on_write_datablock(/*const*/ Depsgraph *depsgraph,
+ID *deg_update_copy_on_write_datablock(const Depsgraph *depsgraph,
                                        ID *id_orig)
 {
 	DEG::IDDepsNode *id_node = depsgraph->find_id_node(id_orig);
@@ -868,7 +925,7 @@ void deg_free_copy_on_write_datablock(ID *id_cow)
 }
 
 void deg_evaluate_copy_on_write(const EvaluationContext * /*eval_ctx*/,
-                                /*const*/ Depsgraph *depsgraph,
+                                const Depsgraph *depsgraph,
                                 const IDDepsNode *id_node)
 {
 	DEBUG_PRINT("%s on %s\n", __func__, id_node->id_orig->name);
@@ -897,9 +954,15 @@ void deg_tag_copy_on_write_id(ID *id_cow, const ID *id_orig)
 	id_cow->newid = (ID *)id_orig;
 }
 
-bool deg_copy_on_write_is_expanded(const struct ID *id_cow)
+bool deg_copy_on_write_is_expanded(const ID *id_cow)
 {
 	return check_datablock_expanded(id_cow);
+}
+
+bool deg_copy_on_write_is_needed(const ID *id_orig)
+{
+	const short id_type = GS(id_orig->name);
+	return !ELEM(id_type, ID_IM);
 }
 
 }  // namespace DEG

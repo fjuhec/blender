@@ -1717,6 +1717,21 @@ void DepsgraphRelationBuilder::build_lamp(Object *ob)
 
 	/* textures */
 	build_texture_stack(la->mtex);
+
+#ifdef WITH_COPY_ON_WRITE
+	/* Make sure copy on write of lamp data is always properly updated for
+	 * visible lamps.
+	 */
+	OperationKey ob_copy_on_write_key(&ob->id,
+	                                  DEG_NODE_TYPE_COPY_ON_WRITE,
+	                                  DEG_OPCODE_COPY_ON_WRITE);
+	OperationKey lamp_copy_on_write_key(lamp_id,
+	                                    DEG_NODE_TYPE_COPY_ON_WRITE,
+	                                    DEG_OPCODE_COPY_ON_WRITE);
+	add_relation(lamp_copy_on_write_key,
+	             ob_copy_on_write_key,
+	             "Evaluation Order");
+#endif
 }
 
 void DepsgraphRelationBuilder::build_nodetree(bNodeTree *ntree)
@@ -1902,7 +1917,7 @@ void DepsgraphRelationBuilder::build_copy_on_write_relations(IDDepsNode *id_node
 	                               DEG_NODE_TYPE_COPY_ON_WRITE,
 	                               DEG_OPCODE_COPY_ON_WRITE);
 	/* XXX: This is a quick hack to make Alt-A to work. */
-	add_relation(time_source_key, copy_on_write_key, "Fluxgate capacitor hack");
+	// add_relation(time_source_key, copy_on_write_key, "Fluxgate capacitor hack");
 	/* Resat of code is using rather low level trickery, so need to get some
 	 * explicit pointers.
 	 */
