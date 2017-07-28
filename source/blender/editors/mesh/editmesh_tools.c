@@ -6793,26 +6793,12 @@ static int edbm_set_normals_from_faces_exec(bContext *C, wmOperator *op)
 	BMFace *f;
 	BMVert *v;
 	BMEdge *e;
-	BMLoop *l;
-	BMIter fiter, viter, eiter, liter;
-	int index;
+	BMIter fiter, viter, eiter;
 
 	const bool keep_sharp = RNA_boolean_get(op->ptr, "keep_sharp");
-	BLI_bitmap *faces_sharp = BLI_BITMAP_NEW(bm->totface, __func__);
 
 	BM_lnorspace_update(bm);
 	BM_mesh_elem_index_ensure(bm, BM_ALL);
-
-	BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
-		bool all_edge_mark = true;
-		BM_ITER_ELEM(e, &eiter, f, BM_EDGES_OF_FACE) {
-			if (BM_elem_flag_test(e, BM_ELEM_SMOOTH))
-				all_edge_mark = false;
-		}
-		if (all_edge_mark) {
-			BLI_BITMAP_ENABLE(faces_sharp, BM_elem_index_get(f));
-		}
-	}
 
 	float(*vnors)[3] = MEM_callocN(sizeof(*vnors) * bm->totvert, "__func__");
 	BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
@@ -6830,19 +6816,24 @@ static int edbm_set_normals_from_faces_exec(bContext *C, wmOperator *op)
 
 	int cd_clnors_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
 
-	BM_ITER_MESH_INDEX(v, &viter, bm, BM_VERTS_OF_MESH, index) {
-		BM_ITER_ELEM(l, &liter, v, BM_LOOPS_OF_VERT) {
-			if (keep_sharp && BLI_BITMAP_TEST(faces_sharp, BM_elem_index_get(l->f)))
-				continue;
+	BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
+		BM_ITER_ELEM(e, &eiter, f, BM_EDGES_OF_FACE) {
+			if (!keep_sharp || BM_elem_flag_test(e, BM_ELEM_SMOOTH)
+					&& BM_elem_flag_test(e, BM_ELEM_SELECT)) {
 
-			if (!is_zero_v3(vnors[index])) {
-				short *clnors = BM_ELEM_CD_GET_VOID_P(l, cd_clnors_offset);
-				int l_index = BM_elem_index_get(l);
-				BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[l_index], vnors[index], clnors);
+				BM_ITER_ELEM(v, &viter, e, BM_VERTS_OF_EDGE) {
+					BMLoop *l = BM_face_vert_share_loop(f, v);
+					int loop_index = BM_elem_index_get(l);
+					int v_index = BM_elem_index_get(l->v);
+					if (!is_zero_v3(vnors[v_index])) {
+						short *clnors = BM_ELEM_CD_GET_VOID_P(l, cd_clnors_offset);
+						BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[loop_index], vnors[v_index], clnors);
+					}
+				}
 			}
-		 }
+		}
 	}
-	MEM_freeN(faces_sharp);
+
 	MEM_freeN(vnors);
 	EDBM_update_generic(em, true, false);
 

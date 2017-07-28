@@ -129,6 +129,7 @@ static void WeightedNormal_FaceArea(
 
 	for (int mp_index = 0; mp_index < numPoly; mp_index++) {
 		face_area[mp_index].val = BKE_mesh_calc_poly_area(&mpoly[mp_index], &mloop[mpoly[mp_index].loopstart], mvert);
+		face_area[mp_index].val *= (mpoly[mp_index].flag ^ (1 << 0));
 		face_area[mp_index].index = mp_index;
 	}
 
@@ -154,7 +155,8 @@ static void WeightedNormal_CornerAngle(WeightedNormalModifierData *wnmd, Object 
 
 		for (int i = l_start; i < l_start + mpoly[mp_index].totloop; i++) {
 			corner_angle[i].val = (float)M_PI - index_angle[i];
-			corner_angle[i].index = i;
+			corner_angle[i].val *= (mpoly[mp_index].flag ^ (1 << 0));
+			corner_angle[i].index = i; 
 			index_angle[i] = (float)mp_index;
 		}
 	}
@@ -183,6 +185,7 @@ static void WeightedNormal_FacewithAngle(WeightedNormalModifierData *wnmd, Objec
 
 		for (int i = l_start; i < l_start + mpoly[mp_index].totloop; i++) {
 			combined[i].val = ((float)M_PI - index_angle[i]) * face_area;		// in this case val is product of corner angle and face area
+			combined[i].val *= (mpoly[mp_index].flag ^ (1 << 0));
 			combined[i].index = i;
 			index_angle[i] = (float)mp_index;
 		}
