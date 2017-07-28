@@ -2903,7 +2903,7 @@ void init_userdef_do_versions(void)
 			btheme->ttime.time_keyframe[3] = btheme->ttime.time_gp_keyframe[3] = 255;
 		}
 	}
-	if (!USER_VERSION_ATLEAST(280, 1)) {
+	if (!USER_VERSION_ATLEAST(280, 2)) {
 		/* interface_widgets.c */
 		struct uiWidgetColors wcol_tab = {
 			{60, 60, 60, 255},

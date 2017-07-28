@@ -324,7 +324,7 @@ void do_versions_after_linking_280(Main *main)
 		do_version_workspaces_after_lib_link(main);
 	}
 
-	{
+	if (!MAIN_VERSION_ATLEAST(main, 280, 2)) {
 		const float dpi_fac = (U.pixelsize * (float)U.dpi / 72.0f); /* UI_DPI_FAC */
 		const short size_y = 2 * HEADERY;
 
