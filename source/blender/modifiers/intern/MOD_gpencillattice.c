@@ -35,15 +35,15 @@
 #include "DNA_gpencil_types.h"
 
 #include "BLI_utildefines.h"
+
 #include "BKE_DerivedMesh.h"
 #include "BKE_gpencil.h"
 #include "BKE_lattice.h"
+#include "BKE_library_query.h"
 
 #include "MEM_guardedalloc.h"
 
 #include "MOD_modifiertypes.h"
-
-#include "DEG_depsgraph.h"
 
 static void initData(ModifierData *md)
 {
@@ -116,6 +116,15 @@ static bool isDisabled(ModifierData *md, int UNUSED(userRenderParams))
 	return !mmd->object;
 }
 
+static void foreachObjectLink(
+	ModifierData *md, Object *ob,
+	ObjectWalkFunc walk, void *userData)
+{
+	GpencilLatticeModifierData *mmd = (GpencilLatticeModifierData *)md;
+
+	walk(userData, ob, &mmd->object, IDWALK_CB_NOP);
+}
+
 ModifierTypeInfo modifierType_GpencilLattice = {
 	/* name */              "Lattice",
 	/* structName */        "GpencilLatticeModifierData",
@@ -137,7 +146,7 @@ ModifierTypeInfo modifierType_GpencilLattice = {
 	/* updateDepsgraph */   NULL,
 	/* dependsOnTime */     NULL,
 	/* dependsOnNormals */	NULL,
-	/* foreachObjectLink */ NULL,
+	/* foreachObjectLink */ foreachObjectLink,
 	/* foreachIDLink */     NULL,
 	/* foreachTexLink */    NULL,
 };
