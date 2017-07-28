@@ -4774,8 +4774,8 @@ static void rna_def_modifier_weightednormal(BlenderRNA *brna)
 	RNA_def_struct_ui_icon(srna, ICON_MOD_NORMALEDIT);
 
 	prop = RNA_def_property(srna, "weight", PROP_INT, PROP_NONE);
-	RNA_def_property_range(prop, 2, 15);
-	RNA_def_property_ui_range(prop, 2, 15, 1, -1);
+	RNA_def_property_range(prop, 0, 20);
+	RNA_def_property_ui_range(prop, 0, 20, 1, -1);
 	RNA_def_property_ui_text(prop, "Weight", "Weights given to Face Normal for each mode");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 

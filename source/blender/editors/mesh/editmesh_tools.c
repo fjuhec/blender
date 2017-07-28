@@ -6368,12 +6368,16 @@ void MESH_OT_point_normals(struct wmOperatorType *ot)
 
 enum {
 	MERGE_LOOP_AVERAGE = 1,
-	SPLIT_LOOP_TO_FACE = 2,
-	SPLIT_LOOP_KEEP = 3
+	MERGE_LOOP_FACE_AREA = 2,
+	MERGE_LOOP_CORNER_ANGLE = 3,
+	SPLIT_LOOP_TO_FACE = 4,
+	SPLIT_LOOP_KEEP = 5,
 };
 
 static EnumPropertyItem merge_loop_method_items[] = {
 	{ MERGE_LOOP_AVERAGE, "Average", 0, "Average", "Take Average of Loop Normals" },
+	{ MERGE_LOOP_FACE_AREA, "Face Area", 0, "Face Area", "Merge Loops by Face Area"},
+	{ MERGE_LOOP_CORNER_ANGLE, "Corner Angle", 0, "Corner Angle", "Merge Loops by Angle of Loop" },
 	{ 0, NULL, 0, NULL, NULL }
 };
 
@@ -6383,14 +6387,27 @@ static EnumPropertyItem split_loop_method_items[] = {
 	{ 0, NULL, 0, NULL, NULL }
 };
 
-static bool merge_loop_average(bContext *C, wmOperator *op, LoopNormalData *ld)
+static bool merge_loop(bContext *C, wmOperator *op, LoopNormalData *ld)
 {
 	Object *obedit = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 	BMesh *bm = em->bm;
+	BMFace *f;
+	BMLoop *l;
+	BMIter fiter, liter;
+	void **ltable;
 
 	TransDataLoopNormal *tld = ld->normal;
+	const int merge_type = RNA_enum_get(op->ptr, "merge_type");
+
 	BLI_SMALLSTACK_DECLARE(clnors, short *);
+
+	ltable = MEM_mallocN(sizeof(void *) * bm->totloop, "__func__");		/* temp loop index table */
+	BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
+		BM_ITER_ELEM(l, &liter, f, BM_LOOPS_OF_FACE) {
+			ltable[BM_elem_index_get(l)] = l;
+		}
+	}
 
 	for (int i = 0; i < ld->totloop; i++, tld++) {
 		if (tld->loop_index == -1)
@@ -6410,7 +6427,23 @@ static bool merge_loop_average(bContext *C, wmOperator *op, LoopNormalData *ld)
 				TransDataLoopNormal *temp = ld->normal;
 				for (int j = 0; j < ld->totloop; j++, temp++) {
 					if (loop_index == temp->loop_index) {
-						add_v3_v3(avg_normal, temp->nloc);
+						if (merge_type == MERGE_LOOP_AVERAGE) {
+							add_v3_v3(avg_normal, temp->nloc);
+						}
+						else {
+							BMLoop *l = ltable[loop_index];
+							float val;
+							if (merge_type == MERGE_LOOP_FACE_AREA) {
+								val = BM_face_calc_area(l->f);
+							}
+							else if (merge_type == MERGE_LOOP_CORNER_ANGLE) {
+								val = BM_loop_calc_face_angle(l);
+							}
+							float f_nor[3];
+							copy_v3_v3(f_nor, l->f->no);
+							mul_v3_fl(f_nor, val);
+							add_v3_v3(avg_normal, f_nor);
+						}
 						BLI_SMALLSTACK_PUSH(clnors, temp->clnors_data);
 						temp->loop_index = -1;
 					}
@@ -6430,6 +6463,8 @@ static bool merge_loop_average(bContext *C, wmOperator *op, LoopNormalData *ld)
 			}
 		}
 	}
+	MEM_freeN(ltable);
+
 	return true;
 }
 
@@ -6499,15 +6534,7 @@ static int edbm_split_merge_loop_normals_exec(bContext *C, wmOperator *op)
 	bool handled = false;
 	
 	if (merge) {
-		switch (type) {
-			case MERGE_LOOP_AVERAGE:
-				handled = merge_loop_average(C, op, ld);
-				break;
-
-			default:
-				BLI_assert(0);
-				break;
-		}
+		handled = merge_loop(C, op, ld);
 	}
 	else {
 		switch (type) {
@@ -6569,40 +6596,98 @@ void MESH_OT_split_loop_normals(struct wmOperatorType *ot)
 }
 
 /********************** Average Loop Normals **********************/
-/*
+
 enum {
 	LOOP_AVERAGE = 1,
-	FACE_AVERAGE = 2,
-	AREA_AVERAGE = 3,
+	FACE_AREA_AVERAGE = 2,
+	ANGLE_AVERAGE = 3,
 };
 
 static EnumPropertyItem average_method_items[] = {
-	{ LOOP_AVERAGE, "Loop Average", 0, "Loop Average", "Take Average of Loop Normals" },
-	{ FACE_AVERAGE, "Face Average", 0, "Face Average", "Take Average of Face Normals"},
+	{ LOOP_AVERAGE, "Loop", 0, "Loop", "Take Average of vert Normals" },
+	{ FACE_AREA_AVERAGE, "Face Area", 0, "Face Area", "Set all vert normals by Face Area"},
+	{ ANGLE_AVERAGE, "Corner Angle", 0, "Corner Angle", "Set all vert normals by Corner Angle" },
 	{ 0, NULL, 0, NULL, NULL }
 };
 
 static int edbm_average_loop_normals_exec(bContext *C, wmOperator *op)
 {
-	return OPERATOR_CANCELLED;
+	Object *obedit = CTX_data_edit_object(C);
+	BMEditMesh *em = BKE_editmesh_from_object(obedit);
+	BMesh *bm = em->bm;
+	BMVert *v;
+	BMLoop *l;
+	BMIter viter, liter;
+	int index;
+
+	BM_lnorspace_update(bm);
+	LoopNormalData *ld = BM_loop_normal_init(bm);
+
+	const int average_type = RNA_enum_get(op->ptr, "average_type");
+	int cd_clnors_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
+
+	float(*vnors)[3] = MEM_callocN(sizeof(*vnors) * bm->totvert, "__func__");
+
+	BM_ITER_MESH_INDEX(v, &viter, bm, BM_VERTS_OF_MESH, index) {
+		if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
+			BM_ITER_ELEM(l, &liter, v, BM_LOOPS_OF_VERT) {
+
+				float custom_normal[3];
+				int l_index = BM_elem_index_get(l);
+				short *clnors_data = BM_ELEM_CD_GET_VOID_P(l, cd_clnors_offset);
+				BKE_lnor_space_custom_data_to_normal(bm->lnor_spacearr->lspacearr[l_index], clnors_data, custom_normal);
+
+				if (average_type == FACE_AREA_AVERAGE) {
+					copy_v3_v3(custom_normal, l->f->no);
+					float face_area = BM_face_calc_area(l->f);
+					mul_v3_fl(custom_normal, face_area);
+				}
+				else if (average_type == ANGLE_AVERAGE)
+					copy_v3_v3(custom_normal, l->f->no); {
+					float face_angle = BM_loop_calc_face_angle(l);
+					mul_v3_fl(custom_normal, face_angle);
+				}
+				add_v3_v3(vnors[index], custom_normal);
+			}
+		}
+	}
+
+	for (int i = 0; i < bm->totvert; i++) {
+		if (!is_zero_v3(vnors[i]))
+			normalize_v3(vnors[i]);
+	}
+
+	BM_ITER_MESH_INDEX(v, &viter, bm, BM_VERTS_OF_MESH, index) {
+		if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
+			BM_ITER_ELEM(l, &liter, v, BM_LOOPS_OF_VERT) {
+				int l_index = BM_elem_index_get(l);
+				short *clnors_data = BM_ELEM_CD_GET_VOID_P(l, cd_clnors_offset);
+				BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[l_index], vnors[index], clnors_data);
+			}
+		}
+	}
+
+	EDBM_update_generic(em, true, false);
+
+	return OPERATOR_FINISHED;
 }
 
 void MESH_OT_average_loop_normals(struct wmOperatorType *ot)
 {
-	/* identifiers *
-	ot->name = "Average Loop normals";
+	/* identifiers */
+	ot->name = "Average";
 	ot->description = "Average loop normals of selected vertices";
-	ot->idname = "MESH_ot_average_loop_normals";
+	ot->idname = "MESH_OT_average_loop_normals";
 
-	/* api callbacks *
+	/* api callbacks */
 	ot->exec = edbm_average_loop_normals_exec;
 	ot->poll = ED_operator_editmesh_auto_smooth;
 
-	/* flags *
+	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-	ot->prop = RNA_def_enum(ot->srna, "type", average_method_items, LOOP_AVERAGE, "Type", "Averaging method");
-}*/
+	ot->prop = RNA_def_enum(ot->srna, "average_type", average_method_items, LOOP_AVERAGE, "Type", "Averaging method");
+}
 
 /********************** Copy/Paste Loop Normals **********************/
 

@@ -234,6 +234,7 @@ void MESH_OT_merge_loop_normals(struct wmOperatorType *ot);
 void MESH_OT_split_loop_normals(struct wmOperatorType *ot);
 void MESH_OT_copy_normal(struct wmOperatorType *ot);
 void MESH_OT_set_normals_from_faces(struct wmOperatorType *ot);
+void MESH_OT_average_loop_normals(struct wmOperatorType *ot);
 
 #ifdef WITH_FREESTYLE
 void MESH_OT_mark_freestyle_edge(struct wmOperatorType *ot);
