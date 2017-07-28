@@ -42,7 +42,6 @@
 #include "BKE_paint.h"
 
 #include "MOD_modifiertypes.h"
-#include "BKE_gpencil.h"
 
 static void initData(ModifierData *md)
 {

@@ -39,7 +39,6 @@
 #include "BKE_gpencil.h"
 
 #include "MOD_modifiertypes.h"
-#include "BKE_gpencil.h"
 
 static void initData(ModifierData *md)
 {
