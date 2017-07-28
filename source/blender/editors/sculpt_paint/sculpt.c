@@ -118,6 +118,7 @@
 #include "BLI_alloca.h"
 #include "BLI_array.h"
 
+#define SILHOUETTE_STROKE_STORE_CHUNK 512
 /*#define DEBUG_DRAW*/
 #ifdef DEBUG_DRAW
 /* static void bl_debug_draw(void);*/
@@ -141,6 +142,47 @@ static void bl_debug_draw_point(const float pos[3],const float thickness)
 	bl_debug_draw_quad_add(v1,v2,v3,v4);
 }
 #endif
+
+typedef struct {
+	float bmin[3], bmax[3];
+} BB;
+
+/*	init data:
+ * 	Silhouette Data */
+typedef struct SilhouetteStroke {
+	float *points;
+	float *points_v2;
+	int totvert;
+	int max_verts;
+	BB bb;
+} SilhouetteStroke;
+
+typedef enum {
+	SIL_INIT = 0,
+	SIL_DRAWING = 1,
+	SIL_OP = 2
+} SilhouetteState;
+
+typedef struct SilhouetteData {
+	ARegion *ar;        	/* region that Silhouette started drawn in */
+	void *draw_handle;  	/* for drawing preview loop */
+	ViewContext vc;
+	SilhouetteStroke *current_stroke;
+	Object *ob;
+	BMEditMesh *em;			/*Triangulated stroke for spine generation*/
+	Scene *scene;
+
+	float add_col[3];		/* preview color */
+	float last_mouse_pos[2];
+
+	SilhouetteState state;	/* Operator state */
+
+	float depth;			/* Depth or thickness of the generated shape */
+	float smoothness;		/* Smoothness of the generated shape */
+	int resolution;			/* Subdivision of the shape*/
+	float anchor[3];		/* Origin point of the reference plane */
+	float z_vec[3];			/* Orientation of the reference plane */
+} SilhouetteData;
 
 /** \name Tool Capabilities
  *
@@ -548,6 +590,7 @@ typedef struct SculptThreadedTaskData {
 	float strength;
 	bool smooth_mask;
 	bool has_bm_orco;
+	SilhouetteData *sil;
 
 	SculptProjectVector *spvc;
 	float *offset;
@@ -5024,40 +5067,23 @@ static void SCULPT_OT_set_persistent_base(wmOperatorType *ot)
 
 /****************** Topology tools Silhouette ******************/
 
-/*	init data:
- * 	Silhouette Data */
-typedef struct SilhouetteStroke {
-	float *points;
-	int totvert;
-	int max_verts;
-}SilhouetteStroke;
+/* Axis-aligned bounding box (Same as in pbvh_intern.h)*/
 
-typedef enum {
-	SIL_INIT = 0,
-	SIL_DRAWING = 1,
-	SIL_OP = 2
-} SilhouetteState;
+/* TODO: import BB functions */
+/* Expand the bounding box to include a new coordinate */
+static void BB_expand(BB *bb, const float co[3])
+{
+	for (int i = 0; i < 3; ++i) {
+		bb->bmin[i] = min_ff(bb->bmin[i], co[i]);
+		bb->bmax[i] = max_ff(bb->bmax[i], co[i]);
+	}
+}
 
-typedef struct SilhouetteData {
-	ARegion *ar;        	/* region that Silhouette started drawn in */
-	void *draw_handle;  	/* for drawing preview loop */
-	ViewContext vc;
-	SilhouetteStroke *current_stroke;
-	Object *ob;
-	BMEditMesh *em;			/*Triangulated stroke for spine generation*/
-	Scene *scene;
-
-	float add_col[3];		/* preview color */
-	float last_mouse_pos[2];
-
-	SilhouetteState state;	/* Operator state */
-
-	float depth;			/* Depth or thickness of the generated shape */
-	float smoothness;		/* Smoothness of the generated shape */
-	int resolution;			/* Subdivision of the shape*/
-	float anchor[3];		/* Origin point of the reference plane */
-	float z_vec[3];			/* Orientation of the reference plane */
-} SilhouetteData;
+static void BB_reset(BB *bb)
+{
+	bb->bmin[0] = bb->bmin[1] = bb->bmin[2] = FLT_MAX;
+	bb->bmax[0] = bb->bmax[1] = bb->bmax[2] = -FLT_MAX;
+}
 
 static void silhouette_stroke_free(SilhouetteStroke *stroke)
 {
@@ -5069,13 +5095,14 @@ static void silhouette_stroke_free(SilhouetteStroke *stroke)
 	}
 }
 
-static SilhouetteStroke *silhouette_stroke_new(int max_verts)
+static SilhouetteStroke *silhouette_stroke_new()
 {
 	SilhouetteStroke *stroke = MEM_callocN(sizeof(SilhouetteStroke), "SilhouetteStroke");
-	stroke->points = 0;
-	stroke->points = MEM_callocN(sizeof(float) * 3 * max_verts,"SilhouetteStrokePoints");/* TODO: Dynamic length */
+	stroke->points = MEM_callocN(sizeof(float) * 3 * SILHOUETTE_STROKE_STORE_CHUNK,"SilhouetteStrokePoints");
+	stroke->points_v2 = MEM_callocN(sizeof(float) * 2 * SILHOUETTE_STROKE_STORE_CHUNK,"SilhouetteStrokePoints");
 	stroke->totvert = 0;
-	stroke->max_verts = max_verts;
+	stroke->max_verts = SILHOUETTE_STROKE_STORE_CHUNK;
+	BB_reset(&stroke->bb);
 	return stroke;
 }
 
@@ -5089,7 +5116,7 @@ static SilhouetteData *silhouette_data_new(bContext *C)
 	const float *fp = ED_view3d_cursor3d_get(scene, v3d);
 
 	sil->ar = CTX_wm_region(C);
-	sil->current_stroke = silhouette_stroke_new(1024);
+	sil->current_stroke = silhouette_stroke_new();
 	view3d_set_viewcontext(C, &sil->vc);
 
 	sil->add_col[0] = 1.00; /* add mode color is light red */
@@ -5125,25 +5152,33 @@ static void silhoute_stroke_point_to_3d(SilhouetteData *sil, int point, float r_
 	/*ED_view3d_win_to_3d(sil->vc.v3d, sil->ar, sil->anchor, &sil->current_stroke->points[point], r_v);*/
 }
 
+#if 0
 /* TODO: Add dynamic memory allocation */
 static void silhouette_stroke_add_3Dpoint(SilhouetteStroke *stroke, float point[3])
 {
-	if (stroke->totvert < stroke->max_verts) {
-		copy_v3_v3(&stroke->points[stroke->totvert * 3], point);
-		stroke->totvert ++;
-	} else {
-		printf("Stroke reached maximum vert count.\n");
+	if (stroke->totvert >= stroke->max_verts) {
+		stroke->max_verts += SILHOUETTE_STROKE_STORE_CHUNK;
+		stroke->points = MEM_reallocN(stroke->points, sizeof(float) * 3 * stroke->max_verts);
+		stroke->points_v2 = MEM_reallocN(stroke->points_v2, sizeof(float) * 2 * stroke->max_verts);
 	}
+
+	copy_v3_v3(&stroke->points[stroke->totvert * 3], point);
+	stroke->totvert ++;
 }
+#endif
 
 static void silhouette_stroke_add_point(SilhouetteData *sil, SilhouetteStroke *stroke, float point[2])
 {
-	if (stroke->totvert < stroke->max_verts) {
-		ED_view3d_win_to_3d(sil->vc.v3d, sil->ar, sil->anchor, point, &sil->current_stroke->points[stroke->totvert * 3]);
-		stroke->totvert ++;
-	} else {
-		printf("Stroke reached maximum vert count.\n");
+	if (stroke->totvert >= stroke->max_verts) {
+		stroke->max_verts += SILHOUETTE_STROKE_STORE_CHUNK;
+		stroke->points = MEM_reallocN(stroke->points, sizeof(float) * 3 * stroke->max_verts);
+		stroke->points_v2 = MEM_reallocN(stroke->points_v2, sizeof(float) * 2 * stroke->max_verts);
 	}
+
+	copy_v2_v2(&stroke->points_v2[stroke->totvert * 2], point);
+	ED_view3d_win_to_3d(sil->vc.v3d, sil->ar, sil->anchor, point, &sil->current_stroke->points[stroke->totvert * 3]);
+	BB_expand(&stroke->bb, &sil->current_stroke->points[stroke->totvert * 3]);
+	stroke->totvert ++;
 }
 
 /* Set reference plane, 3D plane which is drawn on in 2D */
@@ -5202,6 +5237,31 @@ typedef struct Spine{
 	int totbranches;
 	SpineBranch **branches; /* All branches. Can contain Null pointers if branches got removed*/
 }Spine;
+
+typedef struct {
+	SculptSession *ss;
+	BB *bb_target;
+	bool original;
+} SculptSearchBBData;
+
+/* Search nodes to integrate another BB into (used for silhouette)*/
+static bool sculpt_search_BB_cb(PBVHNode *node, void *data_v)
+{
+	SculptSearchBBData *data = data_v;
+	BB *bb_target = data->bb_target;
+	float bb_min[3], bb_max[3];
+	int i;
+
+	BKE_pbvh_node_get_BB(node, bb_min, bb_max);
+
+	/* min is inclusive max is exclusive? BB*/
+	for (i = 0; i < 3; ++i) {
+		if(bb_target->bmin[i] >= bb_max[i] || bb_target->bmax[i] < bb_min[i]){
+			return false;
+		}
+	}
+	return true;
+}
 
 static int get_adjacent_faces(BMFace *f, BMFace **ad_f, BMFace *last_f)
 {
@@ -6947,25 +7007,73 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 }
 
 /* Adds additional points to the stroke if start and end are far apart. */
-static void stroke_smooth_cap(SilhouetteStroke *stroke, float max_dist)
+static void stroke_smooth_cap(SilhouetteData *sil, SilhouetteStroke *stroke, float max_dist)
 {
-	float v1[3], v2[3], dv[3];
+	float v1[2], v2[2], dv[2];
 	float length = 0;
-	copy_v3_v3(v1, &stroke->points[0]);
-	copy_v3_v3(v2, &stroke->points[stroke->totvert * 3 - 3]);
+	copy_v2_v2(v1, &stroke->points_v2[0]);
+	copy_v2_v2(v2, &stroke->points_v2[stroke->totvert * 2 - 2]);
 
-	sub_v3_v3v3(dv,v1,v2);
-	length = len_v3(dv);
+	sub_v2_v2v2(dv,v1,v2);
+	length = len_v2(dv);
 
 	if (length > max_dist) {
 		int steps = floorf(length / (float)max_dist);
-		mul_v3_fl(dv, 1.0f / (float)steps);
+		mul_v2_fl(dv, 1.0f / (float)steps);
 		for (int i = 1; i < steps; i++) {
-			mul_v3_v3fl(v1, dv, i);
-			add_v3_v3(v1, v2);
-			silhouette_stroke_add_3Dpoint(stroke, v1);
+			mul_v2_v2fl(v1, dv, i);
+			add_v2_v2(v1, v2);
+			silhouette_stroke_add_point(sil, stroke, v1);
 		}
 	}
+}
+
+/* Calculate the intersections with existing geometry. Used to connect the new Silhouette to the old mesh
+ * Fillets are the smooth transition from one part to another.
+ */
+static void do_calc_fillet_line_task_cb_ex(
+										   void *userdata, void *UNUSED(userdata_chunk), const int n, const int UNUSED(thread_id))
+{
+	SculptThreadedTaskData *data = userdata;
+	SculptSession *ss = data->ob->sculpt;
+	SilhouetteData *sil = data->sil;
+
+	PBVHVertexIter vd;
+	float (*proxy)[3];
+	float point[2];
+
+	proxy = BKE_pbvh_node_add_proxy(ss->pbvh, data->nodes[n])->co;
+
+	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
+	{
+		/* get the interior vertices of the 2d drawn silhouette and all relevant vertices */
+		ED_view3d_project_float_v2_m4(sil->ar, vd.co, point, data->mat);
+		if (isect_point_poly_v2(point, (float(*)[2])sil->current_stroke->points_v2, sil->current_stroke->totvert, false)){
+#ifdef DEBUG_DRAW
+			bl_debug_color_set(0xff0000);
+			bl_debug_draw_point(vd.co, 0.2f);
+			bl_debug_color_set(0x000000);
+#endif
+		}
+	}
+	BKE_pbvh_vertex_iter_end;
+}
+
+static void do_calc_fillet_line(Object *ob, SilhouetteData *silhouette, PBVHNode **nodes, int totnode)
+{
+	float projmat[4][4];
+	/* calc the projection matrix used to convert 3d vertice in 2d space */
+	ED_view3d_ob_project_mat_get(silhouette->ar->regiondata, ob, projmat);
+
+	/* threaded loop over nodes */
+	SculptThreadedTaskData data = {
+		.ob = ob, .nodes = nodes,
+		.sil = silhouette, .mat = projmat
+	};
+
+	BLI_task_parallel_range_ex(
+							   0, totnode, &data, NULL, 0, do_calc_fillet_line_task_cb_ex,
+							   (totnode > SCULPT_THREADED_LIMIT), false);
 }
 
 static void sculpt_silhouette_calc_mesh(bContext *C, wmOperator *op)
@@ -6974,10 +7082,27 @@ static void sculpt_silhouette_calc_mesh(bContext *C, wmOperator *op)
 	Object *ob = CTX_data_active_object(C);
 	SilhouetteData *sil = op->customdata;
 	Mesh *me = ob->data;
+	/*Sculpt *sd = CTX_data_tool_settings(C)->sculpt;*/
+	SculptSession *ss = ob->sculpt;
+	SculptSearchBBData data;
+	PBVHNode **nodes = NULL;
 
 	SilhouetteStroke *stroke = sil->current_stroke;
 
-	stroke_smooth_cap(stroke, 0.3f);
+	stroke_smooth_cap(sil, stroke, 10.0f);
+
+	int totnode;
+
+	data.ss = ss;
+	data.bb_target = &stroke->bb;
+	/* get the pbvh nodes intersecting the silhouette BB */
+	BKE_pbvh_search_gather(ss->pbvh, sculpt_search_BB_cb, &data, &nodes, &totnode);
+
+	/* Only act if some verts are inside the silhouette drawn */
+	if (totnode) {
+		printf("Connect to geometry\n");
+		do_calc_fillet_line(ob, sil, nodes, totnode);
+	}
 
 	silhouette_create_shape_mesh(C, me, sil, stroke);
 
