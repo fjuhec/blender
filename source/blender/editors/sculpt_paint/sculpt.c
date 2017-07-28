@@ -5184,7 +5184,10 @@ static void silhouette_stroke_add_point(SilhouetteData *sil, SilhouetteStroke *s
 /* Set reference plane, 3D plane which is drawn on in 2D */
 static void silhouette_set_ref_plane(SilhouetteData *sil)
 {
-	ED_view3d_global_to_vector(sil->ar->regiondata, sil->anchor, sil->z_vec);
+	/*Get the view vector. Same as ED_view3d_global_to_vector from the center of screen or orthographic*/
+	negate_v3_v3(sil->z_vec, sil->vc.rv3d->viewinv[2]);
+	normalize_v3(sil->z_vec);
+	/*ED_view3d_global_to_vector(sil->ar->regiondata, sil->anchor, sil->z_vec);*/
 }
 
 static void sculpt_silhouette_stroke_update(float mouse[2], SilhouetteData *sil)
@@ -6978,21 +6981,21 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 					add_ss_cap(sil, a_branch, me, z_vec, depth, v_steps, w_steps, smoothness, n_ori, false);
 					add_ss_cap(sil, a_branch, me, inv_z_vec, depth, v_steps, w_steps, smoothness, !n_ori, true);
 #ifdef DEBUG_DRAW
-					debug_branch(a_branch, 0x00ff00);
+					/*debug_branch(a_branch, 0x00ff00);*/
 #endif
 					break;
 				case 2:
 					add_ss_tube(sil, a_branch, me, z_vec, depth, v_steps, w_steps, smoothness, n_ori, false);
 					add_ss_tube(sil, a_branch, me, inv_z_vec, depth, v_steps, w_steps, smoothness, !n_ori, true);
 #ifdef DEBUG_DRAW
-					debug_branch(a_branch, 0xff0000);
+					/*debug_branch(a_branch, 0xff0000);*/
 #endif
 					break;
 				case 3:
 					add_ss_tinter(sil, spine, a_branch, me, z_vec, depth, v_steps, w_steps, smoothness, n_ori, false);
 					add_ss_tinter(sil, spine, a_branch, me, inv_z_vec, depth, v_steps, w_steps, smoothness, !n_ori, true);
 #ifdef DEBUG_DRAW
-					debug_branch(a_branch, 0x0000ff);
+					/*debug_branch(a_branch, 0x0000ff);*/
 #endif
 					break;
 			}
@@ -7041,19 +7044,25 @@ static void do_calc_fillet_line_task_cb_ex(
 	PBVHVertexIter vd;
 	float (*proxy)[3];
 	float point[2];
+	float sil_plane[4];
+
+	plane_from_point_normal_v3(sil_plane, sil->anchor, sil->z_vec);
 
 	proxy = BKE_pbvh_node_add_proxy(ss->pbvh, data->nodes[n])->co;
 
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
-		/* get the interior vertices of the 2d drawn silhouette and all relevant vertices */
-		ED_view3d_project_float_v2_m4(sil->ar, vd.co, point, data->mat);
-		if (isect_point_poly_v2(point, (float(*)[2])sil->current_stroke->points_v2, sil->current_stroke->totvert, false)){
-#ifdef DEBUG_DRAW
-			bl_debug_color_set(0xff0000);
-			bl_debug_draw_point(vd.co, 0.2f);
-			bl_debug_color_set(0x000000);
-#endif
+		/* get the interior vertices of the 2d drawn silhouette and all relevant vertices 
+		 * Ignores smoothness, assuming the smoothness blures the fillets anyways it should be ok. */
+		if (dist_squared_to_plane_v3(vd.co, sil_plane) <= sil->depth) {
+			ED_view3d_project_float_v2_m4(sil->ar, vd.co, point, data->mat);
+			if (isect_point_poly_v2(point, (float(*)[2])sil->current_stroke->points_v2, sil->current_stroke->totvert, false)){
+	#ifdef DEBUG_DRAW
+				bl_debug_color_set(0xff0000);
+				bl_debug_draw_point(vd.co, 0.2f);
+				bl_debug_color_set(0x000000);
+	#endif
+			}
 		}
 	}
 	BKE_pbvh_vertex_iter_end;
