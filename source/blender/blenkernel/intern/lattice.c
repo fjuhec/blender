@@ -63,6 +63,7 @@
 #include "BKE_main.h"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
+#include "BKE_gpencil.h"
 
 #include "BKE_deform.h"
 
@@ -1225,6 +1226,10 @@ void BKE_lattice_translate(Lattice *lt, float offset[3], bool do_keys)
 void BKE_lattice_eval_geometry(struct EvaluationContext *UNUSED(eval_ctx),
                                Lattice *UNUSED(latt))
 {
+	/* set grease pencil caches to dirty. Maybe we could verify if the lattice is used 
+	 * or not, but this is slower than set all as dirty 
+	 */
+	BKE_gpencil_batch_cache_alldirty();
 }
 
 /* Draw Engine */

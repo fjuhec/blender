@@ -61,6 +61,7 @@
 #include "BKE_material.h"
 #include "BKE_mesh.h"
 #include "BKE_image.h"
+#include "BKE_gpencil.h"
 
 #include "MEM_guardedalloc.h"
 #include "DEG_depsgraph.h"
@@ -323,6 +324,15 @@ void BKE_object_eval_uber_transform(EvaluationContext *UNUSED(eval_ctx),
 	ob->recalc &= ~(OB_RECALC_OB | OB_RECALC_TIME);
 	if (ob->data == NULL) {
 		ob->recalc &= ~OB_RECALC_DATA;
+	}
+
+	/* additional updates */
+	switch (ob->type) {
+		case OB_LATTICE:
+		{
+			BKE_gpencil_batch_cache_alldirty();
+			break;
+		}
 	}
 }
 
