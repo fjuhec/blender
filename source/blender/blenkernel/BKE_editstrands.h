@@ -52,24 +52,43 @@ typedef struct BMEditStrands {
 	/* Scalp mesh for fixing root vertices */
 	struct DerivedMesh *root_dm;
 	
+	/* Hair fibers (optional) */
+	struct HairFiber *hair_fibers;
+	int hair_totfibers;
+	unsigned int hair_seed;
+	
 	int flag;
 	
-	unsigned int vertex_glbuf;
-	unsigned int elem_glbuf;
-	unsigned int dot_glbuf;
+	unsigned int vertex_glbuf; // legacy gpu code
+	unsigned int elem_glbuf; // legacy gpu code
+	unsigned int dot_glbuf; // legacy gpu code
 	void *batch_cache;
+	void *texture;
 } BMEditStrands;
 
 /* BMEditStrands->flag */
 typedef enum BMEditStrandsFlag {
-	BM_STRANDS_DIRTY_SEGLEN     = 1,
+	BM_STRANDS_DIRTY_SEGLEN     = (1 << 0),
+	BM_STRANDS_DIRTY_ROOTS      = (1 << 1),
 } BMEditStrandsFlag;
 
 struct BMEditStrands *BKE_editstrands_create(struct BMesh *bm, struct DerivedMesh *root_dm);
 struct BMEditStrands *BKE_editstrands_copy(struct BMEditStrands *es);
+struct BMEditStrands *BKE_editstrands_from_object_particles(struct Object *ob, struct ParticleSystem **r_psys);
 struct BMEditStrands *BKE_editstrands_from_object(struct Object *ob);
 void BKE_editstrands_update_linked_customdata(struct BMEditStrands *es);
 void BKE_editstrands_free(struct BMEditStrands *es);
+
+/* === Hair Fibers === */
+
+bool BKE_editstrands_hair_ensure(struct BMEditStrands *es);
+void BKE_editstrands_hair_free(struct BMEditStrands *es);
+
+int* BKE_editstrands_hair_get_fiber_lengths(struct BMEditStrands *es);
+void BKE_editstrands_hair_get_texture_buffer(struct BMEditStrands *es, void **texbuffer, int *r_size,
+                                             int *strand_map_start,
+                                             int *strand_vertex_start,
+                                             int *fiber_start);
 
 /* === Constraints === */
 

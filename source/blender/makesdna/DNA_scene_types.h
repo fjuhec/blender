@@ -1128,6 +1128,12 @@ typedef enum HairEditSelectMode {
 	HAIR_SELECT_TIP     = 2,
 } HairEditSelectMode;
 
+/* HairEditSettings->hair_draw_mode */
+typedef enum HairEditDrawMode {
+	HAIR_DRAW_NONE = 0,
+	HAIR_DRAW_FIBERS = 1,
+} HairEditDrawMode;
+
 /* HairEditSettings->flag */
 typedef enum HairEditFlag {
 	HAIR_EDIT_SHOW_BRUSH    = (1 << 0),
@@ -1136,7 +1142,10 @@ typedef enum HairEditFlag {
 
 typedef struct HairEditSettings {
 	int flag;
-	int select_mode;
+	short select_mode;
+	short hair_draw_mode;
+	float hair_draw_size;
+	int pad;
 	
 	struct Brush *brush;
 	struct Object *shape_object;

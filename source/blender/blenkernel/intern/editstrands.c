@@ -48,6 +48,7 @@
 #include "BKE_DerivedMesh.h"
 #include "BKE_editstrands.h"
 #include "BKE_effect.h"
+#include "BKE_hair.h"
 #include "BKE_mesh_sample.h"
 #include "BKE_object.h"
 #include "BKE_particle.h"
@@ -83,6 +84,25 @@ BMEditStrands *BKE_editstrands_copy(BMEditStrands *es)
 }
 
 /**
+ * \brief Return the BMEditStrands for a given object's particle systems
+ */
+BMEditStrands *BKE_editstrands_from_object_particles(Object *ob, ParticleSystem **r_psys)
+{
+	ParticleSystem *psys = psys_get_current(ob);
+	if (psys && psys->hairedit) {
+		if (r_psys) {
+			*r_psys = psys;
+		}
+		return psys->hairedit;
+	}
+	
+	if (r_psys) {
+		*r_psys = NULL;
+	}
+	return NULL;
+}
+
+/**
  * \brief Return the BMEditStrands for a given object
  */
 BMEditStrands *BKE_editstrands_from_object(Object *ob)
@@ -93,13 +113,7 @@ BMEditStrands *BKE_editstrands_from_object(Object *ob)
 			return me->edit_strands;
 	}
 	
-	{
-		ParticleSystem *psys = psys_get_current(ob);
-		if (psys && psys->hairedit)
-			return psys->hairedit;
-	}
-	
-	return NULL;
+	return BKE_editstrands_from_object_particles(ob, NULL);
 }
 
 void BKE_editstrands_update_linked_customdata(BMEditStrands *UNUSED(es))
@@ -110,11 +124,129 @@ void BKE_editstrands_update_linked_customdata(BMEditStrands *UNUSED(es))
 void BKE_editstrands_free(BMEditStrands *es)
 {
 	BKE_editstrands_batch_cache_free(es);
+	BKE_editstrands_hair_free(es);
 	
 	if (es->base.bm)
 		BM_mesh_free(es->base.bm);
 	if (es->root_dm)
 		es->root_dm->release(es->root_dm);
+}
+
+/* === Hair fibers === */
+
+typedef struct EditStrandsView {
+	StrandsView base;
+	BMEditStrands *edit;
+} EditStrandsView;
+
+static int get_num_strands(const StrandsView *strands_)
+{
+	const EditStrandsView *strands = (EditStrandsView *)strands_;
+	BMesh *bm = strands->edit->base.bm;
+	return BM_strands_count(bm);
+}
+
+static int get_num_verts(const StrandsView *strands_)
+{
+	const EditStrandsView *strands = (EditStrandsView *)strands_;
+	BMesh *bm = strands->edit->base.bm;
+	return bm->totvert;
+}
+
+static void get_strand_lengths(const StrandsView* strands_, int *r_lengths)
+{
+	const EditStrandsView *strands = (EditStrandsView *)strands_;
+	BMesh *bm = strands->edit->base.bm;
+	BMVert *v;
+	BMIter iter;
+	int i;
+	
+	int *length = r_lengths;
+	BM_ITER_STRANDS_INDEX(v, &iter, bm, BM_STRANDS_OF_MESH, i) {
+		*length = BM_strands_keys_count(v);
+		++length;
+	}
+}
+
+static void get_strand_roots(const StrandsView* strands_, struct MeshSample *r_roots)
+{
+	const EditStrandsView *strands = (EditStrandsView *)strands_;
+	BMesh *bm = strands->edit->base.bm;
+	BMVert *v;
+	BMIter iter;
+	int i;
+	
+	MeshSample *root = r_roots;
+	BM_ITER_STRANDS_INDEX(v, &iter, bm, BM_STRANDS_OF_MESH, i) {
+		BM_elem_meshsample_data_named_get(&bm->vdata, v, CD_MSURFACE_SAMPLE, CD_HAIR_ROOT_LOCATION, root);
+		++root;
+	}
+}
+
+static void get_strand_vertices(const StrandsView* strands_, float (*verts)[3])
+{
+	const EditStrandsView *strands = (EditStrandsView *)strands_;
+	BMesh *bm = strands->edit->base.bm;
+	BMVert *vert;
+	BMIter iter;
+	
+	float (*co)[3] = verts;
+	BM_ITER_MESH(vert, &iter, bm, BM_VERTS_OF_MESH) {
+		copy_v3_v3(*co, vert->co);
+		++co;
+	}
+}
+
+static EditStrandsView editstrands_get_view(BMEditStrands *edit)
+{
+	EditStrandsView strands;
+	strands.base.get_num_strands = get_num_strands;
+	strands.base.get_num_verts = get_num_verts;
+	strands.base.get_strand_lengths = get_strand_lengths;
+	strands.base.get_strand_roots = get_strand_roots;
+	strands.base.get_strand_vertices = get_strand_vertices;
+	strands.edit = edit;
+	return strands;
+}
+
+bool BKE_editstrands_hair_ensure(BMEditStrands *es)
+{
+	if (!es->root_dm || es->hair_totfibers == 0) {
+		BKE_editstrands_hair_free(es);
+		return false;
+	}
+	
+	if (!es->hair_fibers) {
+		EditStrandsView strands = editstrands_get_view(es);
+		es->hair_fibers = BKE_hair_fibers_create(&strands.base, es->root_dm, es->hair_totfibers, es->hair_seed);
+	}
+	
+	return true;
+}
+
+void BKE_editstrands_hair_free(BMEditStrands *es)
+{
+	if (es->hair_fibers)
+	{
+		MEM_freeN(es->hair_fibers);
+		es->hair_fibers = NULL;
+	}
+}
+
+int* BKE_editstrands_hair_get_fiber_lengths(BMEditStrands *es)
+{
+	EditStrandsView strands = editstrands_get_view(es);
+	return BKE_hair_get_fiber_lengths(es->hair_fibers, es->hair_totfibers, &strands.base);
+}
+
+void BKE_editstrands_hair_get_texture_buffer(BMEditStrands *es, void **r_texbuffer, int *r_size,
+                                             int *r_strand_map_start,
+                                             int *r_strand_vertex_start,
+                                             int *r_fiber_start)
+{
+	EditStrandsView strands = editstrands_get_view(es);
+	BKE_hair_get_texture_buffer(&strands.base, es->root_dm, es->hair_fibers, es->hair_totfibers,
+	                            r_texbuffer, r_size, r_strand_map_start, r_strand_vertex_start, r_fiber_start);
 }
 
 /* === Constraints === */

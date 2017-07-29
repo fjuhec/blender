@@ -35,11 +35,16 @@
 #include "BLI_math_vector.h"
 #include "BLI_ghash.h"
 
+#include "DNA_scene_types.h"
+
 #include "BKE_editstrands.h"
 
 #include "GPU_batch.h"
+#include "GPU_texture.h"
 
+#include "draw_common.h"
 #include "draw_cache_impl.h"  /* own include */
+#include "DRW_render.h"
 
 /* ---------------------------------------------------------------------- */
 /* Strands Gwn_Batch Cache */
@@ -60,6 +65,16 @@ typedef struct StrandsBatchCache {
 	Gwn_Batch *roots;
 	Gwn_Batch *points;
 
+	struct {
+		Gwn_VertBuf *verts;
+		Gwn_IndexBuf *segments;
+
+		Gwn_Batch *fibers;
+		bool use_ribbons;
+
+		DRWHairFiberTextureBuffer texbuffer;
+	} hair;
+
 	int segment_count;
 	int point_count;
 
@@ -79,10 +94,7 @@ static bool editstrands_batch_cache_valid(BMEditStrands *es)
 		return false;
 	}
 
-	if (cache->is_dirty == false) {
-		return true;
-	}
-	else {
+	if (cache->is_dirty) {
 		return false;
 	}
 
@@ -92,14 +104,14 @@ static bool editstrands_batch_cache_valid(BMEditStrands *es)
 static void editstrands_batch_cache_init(BMEditStrands *es)
 {
 	StrandsBatchCache *cache = es->batch_cache;
-
+	
 	if (!cache) {
 		cache = es->batch_cache = MEM_callocN(sizeof(*cache), __func__);
 	}
 	else {
 		memset(cache, 0, sizeof(*cache));
 	}
-
+	
 	cache->is_dirty = false;
 }
 
@@ -128,20 +140,48 @@ void DRW_editstrands_batch_cache_dirty(BMEditStrands *es, int mode)
 	}
 }
 
+static void editstrands_batch_cache_clear_hair(BMEditStrands *es)
+{
+	StrandsBatchCache *cache = es->batch_cache;
+	
+	if (es->texture) {
+		GPU_texture_free(es->texture);
+		es->texture = NULL;
+	}
+	
+	if (cache) {
+		GWN_BATCH_DISCARD_SAFE(cache->hair.fibers);
+		GWN_VERTBUF_DISCARD_SAFE(cache->hair.verts);
+		GWN_INDEXBUF_DISCARD_SAFE(cache->hair.segments);
+		
+		{
+			DRWHairFiberTextureBuffer *buffer = &cache->hair.texbuffer;
+			if (buffer->data) {
+				MEM_freeN(buffer->data);
+				buffer->data = NULL;
+			}
+			buffer->fiber_start = 0;
+			buffer->strand_map_start = 0;
+			buffer->strand_vertex_start = 0;
+			buffer->size = 0;
+		}
+	}
+}
+
 static void editstrands_batch_cache_clear(BMEditStrands *es)
 {
 	StrandsBatchCache *cache = es->batch_cache;
-	if (!cache) {
-		return;
+	
+	editstrands_batch_cache_clear_hair(es);
+	
+	if (cache) {
+		GWN_BATCH_DISCARD_SAFE(cache->wires);
+		GWN_BATCH_DISCARD_SAFE(cache->points);
+		GWN_BATCH_DISCARD_SAFE(cache->tips);
+		GWN_BATCH_DISCARD_SAFE(cache->roots);
+		GWN_VERTBUF_DISCARD_SAFE(cache->pos);
+		GWN_INDEXBUF_DISCARD_SAFE(cache->segments);
 	}
-
-	GWN_BATCH_DISCARD_SAFE(cache->wires);
-	GWN_BATCH_DISCARD_SAFE(cache->points);
-	GWN_BATCH_DISCARD_SAFE(cache->tips);
-	GWN_BATCH_DISCARD_SAFE(cache->roots);
-
-	GWN_VERTBUF_DISCARD_SAFE(cache->pos);
-	GWN_INDEXBUF_DISCARD_SAFE(cache->segments);
 }
 
 void DRW_editstrands_batch_cache_free(BMEditStrands *es)
@@ -155,11 +195,11 @@ static void editstrands_batch_cache_ensure_pos(BMEditStrands *es, StrandsBatchCa
 	if (cache->pos) {
 		return;
 	}
-
-	static Gwn_VertFormat format = { 0 };
-	static unsigned pos_id, flag_id;
 	
 	GWN_VERTBUF_DISCARD_SAFE(cache->pos);
+	
+	static Gwn_VertFormat format = { 0 };
+	static unsigned pos_id, flag_id;
 	
 	/* initialize vertex format */
 	if (format.attrib_ct == 0) {
@@ -320,4 +360,130 @@ Gwn_Batch *DRW_editstrands_batch_cache_get_points(BMEditStrands *es)
 	}
 
 	return cache->points;
+}
+
+static void editstrands_batch_cache_ensure_hair_fibers(BMEditStrands *es, StrandsBatchCache *cache, bool use_ribbons)
+{
+	GWN_VERTBUF_DISCARD_SAFE(cache->hair.verts);
+	GWN_INDEXBUF_DISCARD_SAFE(cache->hair.segments);
+	
+	int *fiber_lengths = BKE_editstrands_hair_get_fiber_lengths(es);
+	int totpoint = 0;
+	for (int i = 0; i < es->hair_totfibers; ++i) {
+		totpoint += fiber_lengths[i];
+	}
+	const int totseg = totpoint - es->hair_totfibers;
+	
+	static Gwn_VertFormat format = { 0 };
+	static unsigned curve_param_id, fiber_index_id;
+	
+	/* initialize vertex format */
+	if (format.attrib_ct == 0) {
+		fiber_index_id = GWN_vertformat_attr_add(&format, "fiber_index", GWN_COMP_I32, 1, GWN_FETCH_INT);
+		curve_param_id = GWN_vertformat_attr_add(&format, "curve_param", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
+	}
+	
+	cache->hair.verts = GWN_vertbuf_create_with_format(&format);
+
+	Gwn_IndexBufBuilder elb;
+	{
+		Gwn_PrimType prim_type;
+		unsigned prim_ct, vert_ct;
+		if (use_ribbons) {
+			prim_type = GWN_PRIM_TRIS;
+			prim_ct = 2 * totseg;
+			vert_ct = 2 * totpoint;
+		}
+		else {
+			prim_type = GWN_PRIM_LINES;
+			prim_ct = totseg;
+			vert_ct = totpoint;
+		}
+		
+		GWN_vertbuf_data_alloc(cache->hair.verts, vert_ct);
+		GWN_indexbuf_init(&elb, prim_type, prim_ct, vert_ct);
+	}
+	
+	int vi = 0;
+	for (int i = 0; i < es->hair_totfibers; ++i) {
+		const int fiblen = fiber_lengths[i];
+		const float da = fiblen > 1 ? 1.0f / (fiblen-1) : 0.0f;
+		
+		float a = 0.0f;
+		for (int k = 0; k < fiblen; ++k) {
+			if (use_ribbons) {
+				GWN_vertbuf_attr_set(cache->hair.verts, fiber_index_id, vi, &i);
+				GWN_vertbuf_attr_set(cache->hair.verts, curve_param_id, vi, &a);
+				GWN_vertbuf_attr_set(cache->hair.verts, fiber_index_id, vi+1, &i);
+				GWN_vertbuf_attr_set(cache->hair.verts, curve_param_id, vi+1, &a);
+				
+				if (k > 0) {
+					GWN_indexbuf_add_tri_verts(&elb, vi-2, vi-1, vi+1);
+					GWN_indexbuf_add_tri_verts(&elb, vi+1, vi, vi-2);
+				}
+				
+				vi += 2;
+			}
+			else {
+				GWN_vertbuf_attr_set(cache->hair.verts, fiber_index_id, vi, &i);
+				GWN_vertbuf_attr_set(cache->hair.verts, curve_param_id, vi, &a);
+				
+				if (k > 0) {
+					GWN_indexbuf_add_line_verts(&elb, vi-1, vi);
+				}
+				
+				vi += 1;
+			}
+			
+			a += da;
+		}
+	}
+	
+	MEM_freeN(fiber_lengths);
+	
+	cache->hair.segments = GWN_indexbuf_build(&elb);
+}
+
+static void editstrands_batch_cache_ensure_hair_fiber_texbuffer(BMEditStrands *es, StrandsBatchCache *cache, bool UNUSED(use_ribbons))
+{
+	DRWHairFiberTextureBuffer *buffer = &cache->hair.texbuffer;
+	
+	void *data;
+	// Offsets in bytes
+	int b_size, b_strand_map_start, b_strand_vertex_start, b_fiber_start;
+	BKE_editstrands_hair_get_texture_buffer(es, &data, &b_size,
+	                                        &b_strand_map_start, &b_strand_vertex_start, &b_fiber_start);
+	
+	buffer->data = data;
+	// Convert to element size as texture offsets
+	static const int elemsize = 8;
+	buffer->size = b_size / elemsize;
+	buffer->strand_map_start = b_strand_map_start / elemsize;
+	buffer->strand_vertex_start = b_strand_vertex_start / elemsize;
+	buffer->fiber_start = b_fiber_start / elemsize;
+}
+
+Gwn_Batch *DRW_editstrands_batch_cache_get_hair_fibers(BMEditStrands *es, bool use_ribbons,
+                                                       const DRWHairFiberTextureBuffer **r_buffer)
+{
+	StrandsBatchCache *cache = editstrands_batch_cache_get(es);
+
+	if (cache->hair.use_ribbons != use_ribbons) {
+		editstrands_batch_cache_clear_hair(es);
+	}
+
+	if (cache->hair.fibers == NULL) {
+		editstrands_batch_cache_ensure_hair_fibers(es, cache, use_ribbons);
+		
+		Gwn_PrimType prim_type = use_ribbons ? GWN_PRIM_TRIS : GWN_PRIM_LINES;
+		cache->hair.fibers = GWN_batch_create(prim_type, cache->hair.verts, cache->hair.segments);
+		cache->hair.use_ribbons = use_ribbons;
+
+		editstrands_batch_cache_ensure_hair_fiber_texbuffer(es, cache, use_ribbons);
+	}
+
+	if (r_buffer) {
+		*r_buffer = &cache->hair.texbuffer;
+	}
+	return cache->hair.fibers;
 }

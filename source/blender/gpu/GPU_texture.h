@@ -106,10 +106,10 @@ typedef enum GPUTextureFormat {
 
 	/* Texture only format */
 	GPU_RGB16F,
+	GPU_RGB32F,
 #if 0
 	GPU_RGBA16_SNORM,
 	GPU_RGBA8_SNORM,
-	GPU_RGB32F,
 	GPU_RGB32I,
 	GPU_RGB32UI,
 	GPU_RGB16_SNORM,

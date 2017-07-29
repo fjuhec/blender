@@ -33,6 +33,7 @@ struct CurveCache;
 struct ParticleSystem;
 struct ModifierData;
 struct BMEditStrands;
+struct DRWHairFiberTextureBuffer;
 
 struct Curve;
 struct Lattice;
@@ -111,5 +112,7 @@ struct Gwn_Batch *DRW_editstrands_batch_cache_get_wires(struct BMEditStrands *es
 struct Gwn_Batch *DRW_editstrands_batch_cache_get_tips(struct BMEditStrands *es);
 struct Gwn_Batch *DRW_editstrands_batch_cache_get_roots(struct BMEditStrands *es);
 struct Gwn_Batch *DRW_editstrands_batch_cache_get_points(struct BMEditStrands *es);
+struct Gwn_Batch *DRW_editstrands_batch_cache_get_hair_fibers(struct BMEditStrands *es, bool use_ribbons,
+                                                              const struct DRWHairFiberTextureBuffer **r_buffer);
 
 #endif /* __DRAW_CACHE_IMPL_H__ */

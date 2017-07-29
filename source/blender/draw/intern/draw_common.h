@@ -128,4 +128,13 @@ void DRW_shgroup_armature_edit(
 bool DRW_pose_mode_armature(
     struct Object *ob, struct Object *active_ob);
 
+/* hair drawing */
+typedef struct DRWHairFiberTextureBuffer {
+	void *data;
+	int strand_map_start;
+	int strand_vertex_start;
+	int fiber_start;
+	int size;
+} DRWHairFiberTextureBuffer;
+
 #endif /* __DRAW_COMMON_H__ */

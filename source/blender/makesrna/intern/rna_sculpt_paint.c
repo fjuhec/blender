@@ -1164,6 +1164,12 @@ static void rna_def_hair_edit(BlenderRNA *brna)
 		{HAIR_SELECT_TIP, "TIP", ICON_PARTICLE_TIP, "Tip", "Tip select mode"},
 		{0, NULL, 0, NULL, NULL}
 	};
+	
+	static EnumPropertyItem hair_draw_mode_items[] = {
+		{HAIR_DRAW_NONE, "NONE", ICON_NONE, "None", "Don't show hair while editing"},
+		{HAIR_DRAW_FIBERS, "FIBERS", ICON_STRANDS, "Fibers", "Draw hair fibers"},
+		{0, NULL, 0, NULL, NULL}
+	};
 
 	srna = RNA_def_struct(brna, "HairEdit", NULL);
 	RNA_def_struct_sdna(srna, "HairEditSettings");
@@ -1182,9 +1188,22 @@ static void rna_def_hair_edit(BlenderRNA *brna)
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 
 	prop = RNA_def_property(srna, "select_mode", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_bitflag_sdna(prop, NULL, "select_mode");
+	RNA_def_property_enum_sdna(prop, NULL, "select_mode");
 	RNA_def_property_enum_items(prop, select_mode_items);
 	RNA_def_property_ui_text(prop, "Selection Mode", "Hair selection mode");
+	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_HairEdit_update");
+
+	prop = RNA_def_property(srna, "hair_draw_mode", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "hair_draw_mode");
+	RNA_def_property_enum_items(prop, hair_draw_mode_items);
+	RNA_def_property_ui_text(prop, "Hair Draw Mode", "Draw mode for edited hair results");
+	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_HairEdit_update");
+
+	prop = RNA_def_property(srna, "hair_draw_size", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "hair_draw_size");
+	RNA_def_property_range(prop, 0.0f, FLT_MAX);
+	RNA_def_property_ui_range(prop, 0.0f, 10.0f, 1.0f, 1);
+	RNA_def_property_ui_text(prop, "Hair Draw Size", "Width of hair fibers in pixels (0 will draw as lines");
 	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_HairEdit_update");
 
 	prop = RNA_def_property(srna, "shape_object", PROP_POINTER, PROP_NONE);

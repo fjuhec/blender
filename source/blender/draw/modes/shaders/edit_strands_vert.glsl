@@ -14,12 +14,6 @@ out vec4 finalColor;
 
 #define VERTEX_SELECTED (1 << 0)
 
-/* project to screen space */
-vec2 proj(vec4 pos)
-{
-	return (0.5 * (pos.xy / pos.w) + 0.5) * viewportSize;
-}
-
 void main()
 {
 	gl_Position = ModelViewProjectionMatrix * vec4(pos, 1.0);

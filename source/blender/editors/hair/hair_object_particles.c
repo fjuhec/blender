@@ -74,6 +74,8 @@ bool ED_hair_object_init_particle_edit(Scene *scene, Object *ob)
 				dm = NULL;
 			
 			psys->hairedit = BKE_editstrands_create(bm, dm);
+			psys->hairedit->hair_totfibers = psys->totchild;
+			psys->hairedit->hair_seed = psys->seed;
 		}
 		return true;
 	}
