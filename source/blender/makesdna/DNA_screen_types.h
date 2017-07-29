@@ -295,7 +295,11 @@ enum {
 	HEADER_NO_PULLDOWN           = (1 << 0),
 	AREA_FLAG_DRAWJOINTO         = (1 << 1),
 	AREA_FLAG_DRAWJOINFROM       = (1 << 2),
-	AREA_TEMP_INFO               = (1 << 3),
+#ifdef DNA_DEPRECATED_ALLOW
+	AREA_TEMP_INFO               = (1 << 3), /* versioned to make slot reusable */
+#endif
+	/* update size of regions within the area */
+	AREA_FLAG_REGION_SIZE_UPDATE = (1 << 3),
 	AREA_FLAG_DRAWSPLIT_H        = (1 << 4),
 	AREA_FLAG_DRAWSPLIT_V        = (1 << 5),
 	/* used to check if we should switch back to prevspace (of a different type) */
@@ -304,8 +308,6 @@ enum {
 	AREA_FLAG_STACKED_FULLSCREEN = (1 << 7),
 	/* update action zones (even if the mouse is not intersecting them) */
 	AREA_FLAG_ACTIONZONES_UPDATE = (1 << 8),
-	/* update size of regions within the area */
-	AREA_FLAG_REGION_SIZE_UPDATE = (1 << 9),
 };
 
 #define EDGEWIDTH	1

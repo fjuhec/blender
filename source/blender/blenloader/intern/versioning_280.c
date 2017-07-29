@@ -376,6 +376,8 @@ void do_versions_after_linking_280(Main *main)
 
 					MEM_freeN(area);
 				}
+				/* AREA_TEMP_INFO is deprecated from now on, it should only be set for info areas
+				 * which are deleted above, so don't need to unset it. Its slot/bit can be reused */
 			}
 		}
 	}

@@ -1270,7 +1270,6 @@ void ED_screen_update_after_scene_change(const bScreen *screen, Scene *scene_new
 ScrArea *ED_screen_full_newspace(bContext *C, ScrArea *sa, int type)
 {
 	wmWindow *win = CTX_wm_window(C);
-	bScreen *screen = CTX_wm_screen(C);
 	ScrArea *newsa = NULL;
 
 	if (!sa || sa->full == NULL) {
@@ -1278,18 +1277,7 @@ ScrArea *ED_screen_full_newspace(bContext *C, ScrArea *sa, int type)
 	}
 	
 	if (!newsa) {
-		if (sa->full && (screen->state == SCREENMAXIMIZED)) {
-			/* if this has been called from the temporary info header generated in
-			 * temp fullscreen layouts, find the correct fullscreen area to change
-			 * to create a new space inside */
-			for (newsa = screen->areabase.first; newsa; newsa = newsa->next) {
-				if (!(sa->flag & AREA_TEMP_INFO))
-					break;
-			}
-		}
-		else {
-			newsa = sa;
-		}
+		newsa = sa;
 	}
 
 	BLI_assert(newsa);
@@ -1419,7 +1407,6 @@ ScrArea *ED_screen_state_toggle(bContext *C, wmWindow *win, ScrArea *sa, const s
 		}
 
 		ED_area_data_swap(old, sa);
-		if (sa->flag & AREA_TEMP_INFO) sa->flag &= ~AREA_TEMP_INFO;
 		old->full = NULL;
 
 		/* animtimer back */
@@ -1442,6 +1429,8 @@ ScrArea *ED_screen_state_toggle(bContext *C, wmWindow *win, ScrArea *sa, const s
 		ScrArea *newa;
 		char newname[MAX_ID_NAME - 2];
 
+		BLI_assert(ELEM(state, SCREENMAXIMIZED, SCREENFULL));
+
 		oldscreen = WM_window_get_active_screen(win);
 
 		oldscreen->state = state;
@@ -1460,49 +1449,29 @@ ScrArea *ED_screen_state_toggle(bContext *C, wmWindow *win, ScrArea *sa, const s
 
 		/* use random area when we have no active one, e.g. when the
 		 * mouse is outside of the window and we open a file browser */
-		if (!sa)
+		if (!sa) {
 			sa = oldscreen->areabase.first;
-
-		if (state == SCREENMAXIMIZED) {
-			/* returns the top small area */
-			newa = area_split(sc, (ScrArea *)sc->areabase.first, 'h', 0.99f, 1);
-			ED_area_newspace(C, newa, SPACE_INFO, false);
-
-			/* copy area */
-			newa = newa->prev;
-			ED_area_data_swap(newa, sa);
-			sa->flag |= AREA_TEMP_INFO;
-
-			sa->full = oldscreen;
-			newa->full = oldscreen;
-			newa->next->full = oldscreen; // XXX
 		}
-		else if (state == SCREENFULL) {
-			newa = (ScrArea *)sc->areabase.first;
 
-			/* copy area */
-			ED_area_data_swap(newa, sa);
-			newa->flag = sa->flag; /* mostly for AREA_FLAG_WASFULLSCREEN */
+		newa = (ScrArea *)sc->areabase.first;
 
+		/* copy area */
+		ED_area_data_swap(newa, sa);
+		newa->flag = sa->flag; /* mostly for AREA_FLAG_WASFULLSCREEN */
+
+		if (state == SCREENFULL) {
 			/* temporarily hide the side panels/header */
 			for (ar = newa->regionbase.first; ar; ar = ar->next) {
 				ar->flagfullscreen = ar->flag;
 
-				if (ELEM(ar->regiontype,
-				         RGN_TYPE_UI,
-				         RGN_TYPE_HEADER,
-				         RGN_TYPE_TOOLS))
-				{
+				if (ELEM(ar->regiontype, RGN_TYPE_UI, RGN_TYPE_HEADER, RGN_TYPE_TOOLS)){
 					ar->flag |= RGN_FLAG_HIDDEN;
 				}
 			}
+		}
 
-			sa->full = oldscreen;
-			newa->full = oldscreen;
-		}
-		else {
-			BLI_assert(false);
-		}
+		sa->full = oldscreen;
+		newa->full = oldscreen;
 
 		ED_screen_change(C, sc);
 	}
