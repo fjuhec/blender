@@ -1152,10 +1152,11 @@ static void region_rect_recursive(wmWindow *win, ScrArea *sa, ARegion *ar, rcti 
 	/* user errors */
 	if (ar->next == NULL && alignment != RGN_ALIGN_QSPLIT)
 		alignment = RGN_ALIGN_NONE;
-	
+
 	/* prefsize, for header we stick to exception (prevent dpi rounding error) */
-	prefsizex = UI_DPI_FAC * (ar->sizex > 1 ? ar->sizex + 0.5f : ar->type->prefsizex);
-	
+	const float sizex_dpi_fac = (ar->flag & RGN_SIZEX_DPI_APPLIED) ? 1.0f : UI_DPI_FAC;
+	prefsizex = sizex_dpi_fac * ((ar->sizex > 1) ? ar->sizex + 0.5f : ar->type->prefsizex);
+
 	if (ar->regiontype == RGN_TYPE_HEADER) {
 		prefsizey = ED_area_headersize();
 	}
@@ -1482,10 +1483,16 @@ static void ed_default_handlers(wmWindowManager *wm, ScrArea *sa, ListBase *hand
 
 void screen_area_update_region_sizes(wmWindowManager *wm, wmWindow *win, ScrArea *area)
 {
-	rcti rect = area->totrct;
+	const int size_x = WM_window_pixels_x(win);
+	const int size_y = WM_window_pixels_y(win);
+	rcti rect;
+
+	area_calc_totrct(area, size_x, size_y);
 
 	/* region rect sizes */
+	rect = area->totrct;
 	region_rect_recursive(win, area, area->regionbase.first, &rect, 0, false);
+
 	for (ARegion *ar = area->regionbase.first; ar; ar = ar->next) {
 		region_subwindow(win, ar, false);
 
@@ -1495,8 +1502,6 @@ void screen_area_update_region_sizes(wmWindowManager *wm, wmWindow *win, ScrArea
 		}
 	}
 
-	/* XXX hack to force drawing */
-	ED_area_tag_redraw(area);
 	area->flag &= ~AREA_FLAG_REGION_SIZE_UPDATE;
 }
 
@@ -2177,13 +2182,15 @@ void ED_region_header(const bContext *C, ARegion *ar)
 		if (xco > maxco)
 			maxco = xco;
 
-		if (region_layout_based) {
+		if (region_layout_based && (ar->sizex != (maxco + start_ofs))) {
+			/* region size is layout based and needs to be updated */
 			ScrArea *sa = CTX_wm_area(C);
 
 			ar->sizex = maxco + start_ofs;
 			UI_view2d_region_reinit(&ar->v2d, V2D_COMMONVIEW_HEADER, ar->sizex, ar->winy);
 
 			sa->flag |= AREA_FLAG_REGION_SIZE_UPDATE;
+			ar->flag |= RGN_SIZEX_DPI_APPLIED;
 			ar->flag &= ~RGN_RESIZE_LAYOUT_BASED;
 		}
 		UI_block_end(C, block);
@@ -2191,7 +2198,7 @@ void ED_region_header(const bContext *C, ARegion *ar)
 	}
 
 	/* always as last  */
-	UI_view2d_totRect_set(&ar->v2d, maxco + (region_layout_based ? UI_UNIT_X + 80 : 0), headery);
+	UI_view2d_totRect_set(&ar->v2d, maxco + (region_layout_based ? 0 : UI_UNIT_X + 80), headery);
 
 	/* restore view matrix? */
 	UI_view2d_view_restore(C);

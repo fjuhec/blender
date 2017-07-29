@@ -828,10 +828,24 @@ void ED_screen_ensure_updated(wmWindowManager *wm, wmWindow *win, bScreen *scree
 		ED_screen_refresh(wm, win);
 	}
 	else {
+		const int screen_size_x = WM_window_screen_pixels_x(win);
+		const int screen_size_y = WM_window_screen_pixels_y(win);
+		bool has_updated = false;
+
+		screen_test_scale(win, screen, screen_size_x, screen_size_y);
+
 		ED_screen_areas_iter(win, screen, area) {
 			if (area->flag & AREA_FLAG_REGION_SIZE_UPDATE) {
-				screen_area_update_region_sizes(wm, win, area);
+				has_updated = true;
 				break;
+			}
+		}
+
+		if (has_updated) {
+			ED_screen_areas_iter(win, screen, area) {
+				screen_area_update_region_sizes(wm, win, area);
+				/* XXX hack to force drawing */
+				ED_area_tag_redraw(area);
 			}
 		}
 	}

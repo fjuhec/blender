@@ -421,7 +421,10 @@ enum {
 	/* Force delayed reinit of region size data, so that region size is calculated
 	 * just big enough to show all its content (if enough space is available).
 	 * Note that only ED_region_header supports this right now. */
-	RGN_RESIZE_LAYOUT_BASED = (1 << 2),
+	RGN_RESIZE_LAYOUT_BASED     = (1 << 2),
+	/* The region width stored in ARegion.sizex already has the DPI
+	 * factor applied, skip applying it again (in region_rect_recursive) */
+	RGN_SIZEX_DPI_APPLIED       = (1 << 3),
 };
 
 /* region do_draw */
