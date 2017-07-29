@@ -1421,7 +1421,7 @@ void uiTemplateOperatorRedo(uiLayout *layout, bContext *C)
 	if (op) {
 		uiBlock *block = uiLayoutGetBlock(layout);
 
-		uiLayoutOperatorButs(C, layout, op, NULL, '\0', UI_LAYOUT_OP_COMPACT);
+		uiLayoutOperatorButs(C, layout, op, NULL, '\0', UI_LAYOUT_OP_SHOW_REDO_BUT | UI_LAYOUT_OP_COMPACT);
 		UI_block_func_handle_set(block, ED_undo_operator_repeat_cb_evt, op);
 	}
 }

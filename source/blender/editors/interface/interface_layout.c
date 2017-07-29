@@ -3506,13 +3506,18 @@ void uiLayoutOperatorButs(
         bool (*check_prop)(struct PointerRNA *, struct PropertyRNA *),
         const char label_align, const short flag)
 {
+	const char *op_title = RNA_struct_ui_name(op->type->srna);
+
 	if (!op->properties) {
 		IDPropertyTemplate val = {0};
 		op->properties = IDP_New(IDP_GROUP, &val, "wmOperatorProperties");
 	}
 
-	if (flag & UI_LAYOUT_OP_SHOW_TITLE) {
-		uiItemL(layout, RNA_struct_ui_name(op->type->srna), ICON_NONE);
+	if ((flag & UI_LAYOUT_OP_SHOW_REDO_BUT) == UI_LAYOUT_OP_SHOW_REDO_BUT) {
+		uiItemFullO(layout, "SCREEN_OT_repeat_last", op_title, ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, 0);
+	}
+	else if (flag & UI_LAYOUT_OP_SHOW_TITLE) {
+		uiItemL(layout, op_title, ICON_NONE);
 	}
 
 	/* poll() on this operator may still fail, at the moment there is no nice feedback when this happens

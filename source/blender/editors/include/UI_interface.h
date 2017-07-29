@@ -838,9 +838,10 @@ void UI_exit(void);
 #define UI_ITEM_R_COMPACT       (1 << 9)
 
 /* uiLayoutOperatorButs flags */
-#define UI_LAYOUT_OP_SHOW_TITLE (1 << 0)
-#define UI_LAYOUT_OP_SHOW_EMPTY (1 << 1)
-#define UI_LAYOUT_OP_COMPACT    (1 << 2)
+#define UI_LAYOUT_OP_SHOW_TITLE    (1 << 0)
+#define UI_LAYOUT_OP_SHOW_REDO_BUT (UI_LAYOUT_OP_SHOW_TITLE | (1 << 1))
+#define UI_LAYOUT_OP_SHOW_EMPTY    (1 << 2)
+#define UI_LAYOUT_OP_COMPACT       (1 << 3)
 
 /* used for transp checkers */
 #define UI_ALPHA_CHECKER_DARK 100
