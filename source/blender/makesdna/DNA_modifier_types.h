@@ -1616,7 +1616,9 @@ enum {
 typedef struct WeightedNormalModifierData {
 	ModifierData modifier;
 
-	short weight, mode;
+	char defgrp_name[64];
+	char mode, flag;
+	short weight;
 	float thresh;
 } WeightedNormalModifierData;
 
@@ -1625,6 +1627,12 @@ enum {
 	MOD_WEIGHTEDNORMAL_MODE_FACE = 0,
 	MOD_WEIGHTEDNORMAL_MODE_ANGLE = 1,
 	MOD_WEIGHTEDNORMAL_MODE_FACE_ANGLE = 2,
+};
+
+/* WeightedNormalModifierData.flag */
+enum {
+	MOD_WEIGHTEDNORMAL_KEEP_SHARP = (1 << 0),
+	MOD_WEIGHTEDNORMAL_INVERT_VGROUP = (1 << 1),
 };
 
 #define MOD_MESHSEQ_READ_ALL \

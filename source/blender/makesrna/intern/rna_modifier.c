@@ -504,6 +504,7 @@ RNA_MOD_VGROUP_NAME_SET(WeightVGMix, defgrp_name_b);
 RNA_MOD_VGROUP_NAME_SET(WeightVGMix, mask_defgrp_name);
 RNA_MOD_VGROUP_NAME_SET(WeightVGProximity, defgrp_name);
 RNA_MOD_VGROUP_NAME_SET(WeightVGProximity, mask_defgrp_name);
+RNA_MOD_VGROUP_NAME_SET(WeightedNormal, defgrp_name);
 RNA_MOD_VGROUP_NAME_SET(Wireframe, defgrp_name);
 
 static void rna_ExplodeModifier_vgroup_get(PointerRNA *ptr, char *value)
@@ -4788,6 +4789,22 @@ static void rna_def_modifier_weightednormal(BlenderRNA *brna)
 	RNA_def_property_range(prop, 0, 5);
 	RNA_def_property_ui_range(prop, 0, 5, 1, 2);
 	RNA_def_property_ui_text(prop, "Thresh", "Threshold value for different weights to be considered equal");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "keep_sharp", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", MOD_WEIGHTEDNORMAL_KEEP_SHARP);
+	RNA_def_property_ui_text(prop, "Keep Sharp Edges", "Do not edit normals of sharp edges");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "vertex_group", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_sdna(prop, NULL, "defgrp_name");
+	RNA_def_property_ui_text(prop, "Vertex Group", "Vertex group name for modifying the selected areas");
+	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_WeightedNormalModifier_defgrp_name_set");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "invert_vertex_group", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", MOD_WEIGHTEDNORMAL_INVERT_VGROUP);
+	RNA_def_property_ui_text(prop, "Invert", "Invert vertex group influence");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
