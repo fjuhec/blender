@@ -2830,6 +2830,10 @@ static void write_gpencil(WriteData *wd, bGPdata *gpd)
 				writelist(wd, DATA, bGPDstroke, &gpf->strokes);
 				for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 					writestruct(wd, DATA, bGPDspoint, gps->totpoints, gps->points);
+					for (int i = 0; i < gps->totpoints; ++i) {
+						bGPDspoint *pt = &gps->points[i];
+						writestruct(wd, DATA, bGPDweight, pt->totweight, pt->weights);
+					}
 				}
 			}
 		}

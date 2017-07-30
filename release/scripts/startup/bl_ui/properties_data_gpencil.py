@@ -23,7 +23,8 @@ from bl_ui.properties_grease_pencil_common import (
         GreasePencilDataPanel,
         GreasePencilLayerOptionPanel,
         GreasePencilOnionPanel,
-        GreasePencilParentLayerPanel
+        GreasePencilParentLayerPanel,
+        GreasePencilVertexGroupPanel,
         )
 
 
@@ -86,6 +87,11 @@ class DATA_PT_gpencilparentpanel(GreasePencilParentLayerPanel, Panel):
 
     # NOTE: this is just a wrapper around the generic GP Panel
 
+class DATA_PT_gpencilvertexpanel(GreasePencilVertexGroupPanel, Panel):
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = "data"
+    bl_label = "Vertex Groups"
 
 class DATA_PT_gpencil_display(DataButtonsPanel, Panel):
     bl_label = "Display"
@@ -115,6 +121,7 @@ classes = (
     DATA_PT_gpencil_datapanel,
     DATA_PT_gpencil_onionpanel,
     DATA_PT_gpencil_layeroptionpanel,
+    DATA_PT_gpencilvertexpanel,
     DATA_PT_gpencilparentpanel,
     DATA_PT_gpencil_display,
 )

@@ -928,6 +928,7 @@ static void gp_brush_clone_add(bContext *C, tGP_BrushEditData *gso)
 			new_stroke = MEM_dupallocN(gps);
 			
 			new_stroke->points = MEM_dupallocN(gps->points);
+			BKE_gpencil_stroke_weights_duplicate(gps, new_stroke);
 			new_stroke->triangles = MEM_dupallocN(gps->triangles);
 			
 			new_stroke->next = new_stroke->prev = NULL;

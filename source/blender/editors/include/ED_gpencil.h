@@ -213,4 +213,10 @@ void ED_gp_get_drawing_reference(struct ToolSettings *ts, struct View3D *v3d, st
 /* set sculpt cursor */
 void ED_gpencil_toggle_brush_cursor(struct bContext *C, bool enable);
 
+/* vertex groups */
+void ED_gpencil_vgroup_assign(struct bContext *C, struct Object *ob, float weight);
+void ED_gpencil_vgroup_remove(struct bContext *C, struct Object *ob);
+void ED_gpencil_vgroup_select(struct bContext *C, struct Object *ob);
+void ED_gpencil_vgroup_deselect(struct bContext *C, struct Object *ob);
+
 #endif /*  __ED_GPENCIL_H__ */

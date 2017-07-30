@@ -464,7 +464,15 @@ static void gp_duplicate_points(const bGPDstroke *gps, ListBase *new_strokes, co
 				gpsd->points = MEM_callocN(sizeof(bGPDspoint) * len, "gps stroke points copy");
 				memcpy(gpsd->points, gps->points + start_idx, sizeof(bGPDspoint) * len);
 				gpsd->totpoints = len;
-				
+				/* Copy weights */
+				int e = start_idx;
+				for (int i = 0; i < gpsd->totpoints; ++i) {
+					bGPDspoint *pt = &gps->points[e];
+					bGPDspoint *new_pt = &gpsd->points[i];
+					new_pt->weights = MEM_dupallocN(pt->weights);
+					++e;
+				}
+
 				/* add to temp buffer */
 				gpsd->next = gpsd->prev = NULL;
 				BLI_addtail(new_strokes, gpsd);
@@ -514,6 +522,7 @@ static int gp_duplicate_exec(bContext *C, wmOperator *op)
 					gpsd = MEM_dupallocN(gps);
 					BLI_strncpy(gpsd->tmp_layerinfo, gpl->info, sizeof(gpsd->tmp_layerinfo));
 					gpsd->points = MEM_dupallocN(gps->points);
+					BKE_gpencil_stroke_weights_duplicate(gps, gpsd);
 
 					/* triangle information - will be calculated on next redraw */
 					gpsd->flag |= GP_STROKE_RECALC_CACHES;
@@ -600,7 +609,10 @@ void ED_gpencil_strokes_copybuf_free(void)
 	for (gps = gp_strokes_copypastebuf.first; gps; gps = gpsn) {
 		gpsn = gps->next;
 		
-		if (gps->points)    MEM_freeN(gps->points);
+		if (gps->points) {
+			BKE_gpencil_free_stroke_weights(gps);
+			MEM_freeN(gps->points);
+		}
 		if (gps->triangles) MEM_freeN(gps->triangles);
 
 		BLI_freelinkN(&gp_strokes_copypastebuf, gps);
@@ -691,7 +703,8 @@ static int gp_strokes_copy_exec(bContext *C, wmOperator *op)
 					gpsd = MEM_dupallocN(gps);
 					BLI_strncpy(gpsd->tmp_layerinfo, gpl->info, sizeof(gpsd->tmp_layerinfo)); /* saves original layer name */
 					gpsd->points = MEM_dupallocN(gps->points);
-					
+					BKE_gpencil_stroke_weights_duplicate(gps, gpsd);
+
 					/* triangles cache - will be recalculated on next redraw */
 					gpsd->flag |= GP_STROKE_RECALC_CACHES;
 					gpsd->tot_triangles = 0;
@@ -859,7 +872,8 @@ static int gp_strokes_paste_exec(bContext *C, wmOperator *op)
 				new_stroke->tmp_layerinfo[0] = '\0';
 				
 				new_stroke->points = MEM_dupallocN(gps->points);
-				
+				BKE_gpencil_stroke_weights_duplicate(gps, new_stroke);
+
 				new_stroke->flag |= GP_STROKE_RECALC_CACHES;
 				new_stroke->triangles = NULL;
 				
@@ -1250,7 +1264,10 @@ static int gp_delete_selected_strokes(bContext *C)
 			/* free stroke if selected */
 			if (gps->flag & GP_STROKE_SELECT) {
 				/* free stroke memory arrays, then stroke itself */
-				if (gps->points) MEM_freeN(gps->points);
+				if (gps->points) { 
+					BKE_gpencil_free_stroke_weights(gps);
+					MEM_freeN(gps->points); 
+				}
 				if (gps->triangles) MEM_freeN(gps->triangles);
 				BLI_freelinkN(&gpf->strokes, gps);
 
@@ -1316,7 +1333,10 @@ static int gp_dissolve_selected_points(bContext *C)
 				/* if no points are left, we simply delete the entire stroke */
 				if (tot <= 0) {
 					/* remove the entire stroke */
-					MEM_freeN(gps->points);
+					if (gps->points) {
+						BKE_gpencil_free_stroke_weights(gps);
+						MEM_freeN(gps->points);
+					}
 					if (gps->triangles) {
 						MEM_freeN(gps->triangles);
 					}
@@ -1331,13 +1351,17 @@ static int gp_dissolve_selected_points(bContext *C)
 					for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
 						if ((pt->flag & GP_SPOINT_SELECT) == 0) {
 							*npt = *pt;
+							 npt->weights = MEM_dupallocN(pt->weights);
 							npt++;
 						}
 					}
 					
 					/* free the old buffer */
-					MEM_freeN(gps->points);
-					
+					if (gps->points) {
+						BKE_gpencil_free_stroke_weights(gps);
+						MEM_freeN(gps->points);
+					}
+
 					/* save the new buffer */
 					gps->points = new_points;
 					gps->totpoints = tot;
@@ -1444,10 +1468,17 @@ void gp_stroke_delete_tagged_points(bGPDframe *gpf, bGPDstroke *gps, bGPDstroke 
 			/* Compute new buffer size (+ 1 needed as the endpoint index is "inclusive") */
 			new_stroke->totpoints = island->end_idx - island->start_idx + 1;
 			new_stroke->points    = MEM_callocN(sizeof(bGPDspoint) * new_stroke->totpoints, "gp delete stroke fragment");
-			
+
 			/* Copy over the relevant points */
 			memcpy(new_stroke->points, gps->points + island->start_idx, sizeof(bGPDspoint) * new_stroke->totpoints);
-			
+			/* Copy weights */
+			int e = island->start_idx;
+			for (int i = 0; i < new_stroke->totpoints; ++i) {
+				bGPDspoint *pt = &gps->points[e];
+				bGPDspoint *new_pt = &new_stroke->points[i];
+				new_pt->weights = MEM_dupallocN(pt->weights);
+				++e;
+			}
 			
 			/* Each island corresponds to a new stroke. We must adjust the 
 			 * timings of these new strokes:
@@ -1484,7 +1515,10 @@ void gp_stroke_delete_tagged_points(bGPDframe *gpf, bGPDstroke *gps, bGPDstroke 
 	MEM_freeN(islands);
 	
 	/* Delete the old stroke */
-	MEM_freeN(gps->points);
+	if (gps->points) {
+		BKE_gpencil_free_stroke_weights(gps);
+		MEM_freeN(gps->points);
+	}
 	if (gps->triangles) {
 		MEM_freeN(gps->triangles);
 	}
@@ -2183,6 +2217,7 @@ static int gp_stroke_join_exec(bContext *C, wmOperator *op)
 					if (new_stroke == NULL) {
 						new_stroke = MEM_dupallocN(stroke_a);
 						new_stroke->points = MEM_dupallocN(stroke_a->points);
+						BKE_gpencil_stroke_weights_duplicate(stroke_a, new_stroke);
 						new_stroke->triangles = NULL;
 						new_stroke->tot_triangles = 0;
 						new_stroke->flag |= GP_STROKE_RECALC_CACHES;
@@ -2492,7 +2527,7 @@ static int gp_stroke_subdivide_exec(bContext *C, wmOperator *op)
 				/* duplicate points in a temp area */
 				temp_points = MEM_dupallocN(gps->points);
 				oldtotpoints = gps->totpoints;
-
+// TODO
 				/* resize the points arrys */
 				gps->totpoints += totnewpoints;
 				gps->points = MEM_recallocN(gps->points, sizeof(*gps->points) * gps->totpoints);
@@ -2510,6 +2545,8 @@ static int gp_stroke_subdivide_exec(bContext *C, wmOperator *op)
 					pt_final->strength = pt->strength;
 					pt_final->time = pt->time;
 					pt_final->flag = pt->flag;
+					pt_final->totweight = 0;
+					pt_final->weights = NULL;
 					++i2;
 
 					/* if next point is selected add a half way point */
@@ -2525,6 +2562,9 @@ static int gp_stroke_subdivide_exec(bContext *C, wmOperator *op)
 								CLAMP(pt_final->strength, GPENCIL_STRENGTH_MIN, 1.0f);
 								pt_final->time = interpf(pt->time, next->time, 0.5f);
 								pt_final->flag |= GP_SPOINT_SELECT;
+								pt_final->totweight = 0;
+								pt_final->weights = NULL;
+
 								++i2;
 							}
 						}

@@ -43,6 +43,7 @@ struct Main;
 struct PaletteColor;
 struct BoundBox;
 struct Object;
+struct bDeformGroup;
 struct GpencilNoiseModifierData;
 struct GpencilSubdivModifierData;
 struct GpencilThickModifierData;
@@ -55,6 +56,8 @@ struct GpencilLatticeModifierData;
 
 /* ------------ Grease-Pencil API ------------------ */
 
+void BKE_gpencil_free_point_weights(struct bGPDspoint *pt);
+void BKE_gpencil_free_stroke_weights(struct bGPDstroke *gps);
 void BKE_gpencil_free_stroke(struct bGPDstroke *gps);
 bool BKE_gpencil_free_strokes(struct bGPDframe *gpf);
 bool BKE_gpencil_free_layer_temp_data(struct bGPDlayer *gpl, struct bGPDframe *derived_gpf);
@@ -143,6 +146,13 @@ void BKE_gpencil_palettecolor_delete_allstrokes(struct bContext *C, struct Palet
 /* object boundbox */
 struct BoundBox *BKE_gpencil_boundbox_get(struct Object *ob);
 void BKE_gpencil_centroid_3D(struct bGPdata *gpd, float r_centroid[3]);
+
+/* vertex groups */
+float BKE_gpencil_vgroup_use_index(struct bGPDspoint *pt, int index);
+void BKE_gpencil_vgroup_remove(struct Object *ob, struct bDeformGroup *defgroup);
+struct bGPDweight *BKE_gpencil_vgroup_add_point_weight(struct bGPDspoint *pt, int index, float weight);
+bool BKE_gpencil_vgroup_remove_point_weight(struct bGPDspoint *pt, int index);
+void BKE_gpencil_stroke_weights_duplicate(struct bGPDstroke *gps_src, struct bGPDstroke *gps_dst);
 
 /* modifiers */
 void ED_gpencil_reset_modifiers(struct Object *ob);

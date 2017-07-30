@@ -2457,18 +2457,32 @@ static int vertex_group_poll(bContext *C)
 	Object *ob = ED_object_context(C);
 	ID *data = (ob) ? ob->data : NULL;
 
-	return (ob && !ID_IS_LINKED_DATABLOCK(ob) &&
-	        data && !ID_IS_LINKED_DATABLOCK(data) &&
-	        OB_TYPE_SUPPORT_VGROUP(ob->type) &&
-	        ob->defbase.first);
+	if ((ob) && (ob->type == OB_GPENCIL)) {
+		return (ob && !ID_IS_LINKED_DATABLOCK(ob) &&
+			!ID_IS_LINKED_DATABLOCK(ob->gpd) &&
+			OB_TYPE_SUPPORT_VGROUP(ob->type) &&
+			ob->defbase.first);
+	}
+	else {
+		return (ob && !ID_IS_LINKED_DATABLOCK(ob) &&
+			data && !ID_IS_LINKED_DATABLOCK(data) &&
+			OB_TYPE_SUPPORT_VGROUP(ob->type) &&
+			ob->defbase.first);
+	}
 }
 
 static int vertex_group_supported_poll(bContext *C)
 {
 	Object *ob = ED_object_context(C);
 	ID *data = (ob) ? ob->data : NULL;
-	return (ob && !ID_IS_LINKED_DATABLOCK(ob) && OB_TYPE_SUPPORT_VGROUP(ob->type) &&
-	        data && !ID_IS_LINKED_DATABLOCK(data));
+	if ((ob) && (ob->type == OB_GPENCIL)) {
+		return (ob && !ID_IS_LINKED_DATABLOCK(ob) && OB_TYPE_SUPPORT_VGROUP(ob->type) &&
+			!ID_IS_LINKED_DATABLOCK(ob->gpd));
+	}
+	else {
+		return (ob && !ID_IS_LINKED_DATABLOCK(ob) && OB_TYPE_SUPPORT_VGROUP(ob->type) &&
+			data && !ID_IS_LINKED_DATABLOCK(data));
+	}
 }
 
 static int vertex_group_mesh_poll(bContext *C)

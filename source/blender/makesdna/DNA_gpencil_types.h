@@ -41,6 +41,12 @@ struct GHash;
 /* TODO: add size as userprefs parameter */
 #define GP_OBGPENCIL_DEFAULT_SIZE  0.5f 
 
+/* information of vertex group weight */
+typedef struct bGPDweight {
+	int index;              /* vertex group index */
+	float factor;      /* weight factor */
+} bGPDweight;
+
 /* Grease-Pencil Annotations - 'Stroke Point'
  *	-> Coordinates may either be 2d or 3d depending on settings at the time
  * 	-> Coordinates of point on stroke, in proportions of window size
@@ -52,6 +58,9 @@ typedef struct bGPDspoint {
 	float strength;			/* color strength (used for alpha factor) */
 	float time;				/* seconds since start of stroke */
 	int flag;				/* additional options (NOTE: can shrink this field down later if needed) */
+
+	int totweight;          /* number of vertexgroups used */
+	bGPDweight *weights;    /* vertex weight data */
 } bGPDspoint;
 
 /* bGPDspoint->flag */

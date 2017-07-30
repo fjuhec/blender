@@ -1562,3 +1562,150 @@ void GPENCIL_OT_convert_scene_to_object(wmOperatorType *ot)
 	ot->exec = gp_convert_scene_to_object_exec;
 	ot->poll = gp_convert_scene_to_object_poll;
 }
+
+/**** Vertex Groups ****/
+static int gpencil_vertex_group_poll(bContext *C)
+{
+	Object *ob = CTX_data_active_object(C);
+
+	if ((ob) && (ob->type == OB_GPENCIL)) {
+		return (!ID_IS_LINKED_DATABLOCK(ob) &&
+			!ID_IS_LINKED_DATABLOCK(ob->gpd) &&
+			ob->defbase.first && (ob->mode == OB_MODE_GPENCIL_EDIT));
+	}
+	else {
+		return false;
+	}
+}
+
+static int gpencil_vertex_group_assign_exec(bContext *C, wmOperator *UNUSED(op))
+{
+	ToolSettings *ts = CTX_data_tool_settings(C);
+	Object *ob = CTX_data_active_object(C);
+
+	/* sanity checks */
+	if (ELEM(NULL, ts, ob, ob->gpd))
+		return OPERATOR_CANCELLED;
+
+	ED_gpencil_vgroup_assign(C, ob, ts->vgroup_weight);
+
+	/* notifiers */
+	BKE_gpencil_batch_cache_dirty(ob->gpd);
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED | ND_SPACE_PROPERTIES, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void GPENCIL_OT_vertex_group_assign(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Assign to Vertex Group";
+	ot->idname = "GPENCIL_OT_vertex_group_assign";
+	ot->description = "Assign the selected vertices to the active vertex group";
+
+	/* api callbacks */
+	ot->poll = gpencil_vertex_group_poll;
+	ot->exec = gpencil_vertex_group_assign_exec;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+/* remove point from vertex group */
+static int gpencil_vertex_group_remove_from_exec(bContext *C, wmOperator *op)
+{
+	Object *ob = CTX_data_active_object(C);
+
+	/* sanity checks */
+	if (ELEM(NULL, ob, ob->gpd))
+		return OPERATOR_CANCELLED;
+
+	ED_gpencil_vgroup_remove(C, ob);
+
+	/* notifiers */
+	BKE_gpencil_batch_cache_dirty(ob->gpd);
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED | ND_SPACE_PROPERTIES, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void GPENCIL_OT_vertex_group_remove_from(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Remove from Vertex Group";
+	ot->idname = "GPENCIL_OT_vertex_group_remove_from";
+	ot->description = "Remove the selected vertices from active or all vertex group(s)";
+
+	/* api callbacks */
+	ot->poll = gpencil_vertex_group_poll;
+	ot->exec = gpencil_vertex_group_remove_from_exec;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+}
+
+static int gpencil_vertex_group_select_exec(bContext *C, wmOperator *UNUSED(op))
+{
+	Object *ob = CTX_data_active_object(C);
+
+	/* sanity checks */
+	if (ELEM(NULL, ob, ob->gpd))
+		return OPERATOR_CANCELLED;
+
+	ED_gpencil_vgroup_select(C, ob);
+
+	/* notifiers */
+	BKE_gpencil_batch_cache_dirty(ob->gpd);
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED | ND_SPACE_PROPERTIES, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void GPENCIL_OT_vertex_group_select(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Select Vertex Group";
+	ot->idname = "GPENCIL_OT_vertex_group_select";
+	ot->description = "Select all the vertices assigned to the active vertex group";
+
+	/* api callbacks */
+	ot->poll = gpencil_vertex_group_poll;
+	ot->exec = gpencil_vertex_group_select_exec;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+static int gpencil_vertex_group_deselect_exec(bContext *C, wmOperator *UNUSED(op))
+{
+	Object *ob = CTX_data_active_object(C);
+
+	/* sanity checks */
+	if (ELEM(NULL, ob, ob->gpd))
+		return OPERATOR_CANCELLED;
+
+	ED_gpencil_vgroup_deselect(C, ob);
+
+	/* notifiers */
+	BKE_gpencil_batch_cache_dirty(ob->gpd);
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED | ND_SPACE_PROPERTIES, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void GPENCIL_OT_vertex_group_deselect(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Deselect Vertex Group";
+	ot->idname = "GPENCIL_OT_vertex_group_deselect";
+	ot->description = "Deselect all selected vertices assigned to the active vertex group";
+
+	/* api callbacks */
+	ot->poll = gpencil_vertex_group_poll;
+	ot->exec = gpencil_vertex_group_deselect_exec;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+

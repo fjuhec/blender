@@ -1443,3 +1443,86 @@ void ED_gpencil_toggle_brush_cursor(bContext *C, bool enable)
 			gp_brush_drawcursor, NULL);
 	}
 }
+
+/* assign points to vertex group */
+void ED_gpencil_vgroup_assign(bContext *C, Object *ob, float weight)
+{
+	bGPDspoint *pt;
+	const int def_nr = ob->actdef - 1;
+	if (!BLI_findlink(&ob->defbase, def_nr))
+		return;
+
+	CTX_DATA_BEGIN(C, bGPDstroke *, gps, editable_gpencil_strokes)
+	{
+		if (gps->flag & GP_STROKE_SELECT) {
+			for (int i = 0; i < gps->totpoints; ++i) {
+				pt = &gps->points[i];
+				if (pt->flag & GP_SPOINT_SELECT) {
+					BKE_gpencil_vgroup_add_point_weight(pt, def_nr, weight);
+				}
+			}
+		}
+	}
+	CTX_DATA_END;
+}
+
+/* remove points from vertex group */
+void ED_gpencil_vgroup_remove(bContext *C, Object *ob)
+{
+	bGPDspoint *pt;
+	const int def_nr = ob->actdef - 1;
+	if (!BLI_findlink(&ob->defbase, def_nr))
+		return;
+
+	CTX_DATA_BEGIN(C, bGPDstroke *, gps, editable_gpencil_strokes)
+	{
+		for (int i = 0; i < gps->totpoints; ++i) {
+			pt = &gps->points[i];
+			if ((pt->flag & GP_SPOINT_SELECT) && (pt->totweight > 0)) {
+				BKE_gpencil_vgroup_remove_point_weight(pt, def_nr);
+			}
+		}
+	}
+	CTX_DATA_END;
+}
+
+/* select points of vertex group */
+void ED_gpencil_vgroup_select(bContext *C, Object *ob)
+{
+	bGPDspoint *pt;
+	const int def_nr = ob->actdef - 1;
+	if (!BLI_findlink(&ob->defbase, def_nr))
+		return;
+
+	CTX_DATA_BEGIN(C, bGPDstroke *, gps, editable_gpencil_strokes)
+	{
+		for (int i = 0; i < gps->totpoints; ++i) {
+			pt = &gps->points[i];
+			if (BKE_gpencil_vgroup_use_index(pt, def_nr) > -1.0f) {
+				pt->flag |= GP_SPOINT_SELECT;
+				gps->flag |= GP_STROKE_SELECT;
+			}
+		}
+	}
+	CTX_DATA_END;
+}
+/* unselect points of vertex group */
+void ED_gpencil_vgroup_deselect(bContext *C, Object *ob)
+{
+	bGPDspoint *pt;
+	const int def_nr = ob->actdef - 1;
+	if (!BLI_findlink(&ob->defbase, def_nr))
+		return;
+
+	CTX_DATA_BEGIN(C, bGPDstroke *, gps, editable_gpencil_strokes)
+	{
+		for (int i = 0; i < gps->totpoints; ++i) {
+			pt = &gps->points[i];
+			if (BKE_gpencil_vgroup_use_index(pt, def_nr) > -1.0f) {
+				pt->flag &= ~GP_SPOINT_SELECT;
+				gps->flag |= GP_STROKE_SELECT;
+			}
+		}
+	}
+	CTX_DATA_END;
+}

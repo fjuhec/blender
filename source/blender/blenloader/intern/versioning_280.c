@@ -525,6 +525,23 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 				}
 			}
 		}
+		/* init grease pencil vertex groups */
+		if (!DNA_struct_elem_find(fd->filesdna, "bGPDweight", "int", "index")) {
+			for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
+				for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+					for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+						for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+							for (int i = 0; i < gps->totpoints; ++i) {
+								bGPDspoint *pt = &gps->points[i];
+								pt->totweight = 0;
+								pt->weights = NULL;
+							}
+						}
+					}
+				}
+			}
+		}
+
 
 	}
 

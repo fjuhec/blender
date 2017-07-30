@@ -819,6 +819,8 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 			pt->strength = ptc->strength;
 			CLAMP(pt->strength, GPENCIL_STRENGTH_MIN, 1.0f);
 			pt->time = ptc->time;
+			pt->totweight = 0;
+			pt->weights = NULL;
 			
 			pt++;
 		}
@@ -841,6 +843,9 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 			pt->strength = ptc->strength;
 			CLAMP(pt->strength, GPENCIL_STRENGTH_MIN, 1.0f);
 			pt->time = ptc->time;
+			pt->totweight = 0;
+			pt->weights = NULL;
+
 		}
 	}
 	else if (p->paintmode == GP_PAINTMODE_DRAW_POLY) {
@@ -860,6 +865,9 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 		pt->strength = ptc->strength;
 		CLAMP(pt->strength, GPENCIL_STRENGTH_MIN, 1.0f);
 		pt->time = ptc->time;
+		pt->totweight = 0;
+		pt->weights = NULL;
+
 	}
 	else {
 		float *depth_arr = NULL;
@@ -936,6 +944,8 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 			pt->strength = ptc->strength;
 			CLAMP(pt->strength, GPENCIL_STRENGTH_MIN, 1.0f);
 			pt->time = ptc->time;
+			pt->totweight = 0;
+			pt->weights = NULL;
 		}
 
 		/* subdivide the stroke */
@@ -1078,8 +1088,10 @@ static void gp_stroke_eraser_dostroke(tGPsdata *p,
 
 	if (gps->totpoints == 0) {
 		/* just free stroke */
-		if (gps->points)
+		if (gps->points) {
+			BKE_gpencil_free_stroke_weights(gps);
 			MEM_freeN(gps->points);
+		}
 		if (gps->triangles)
 			MEM_freeN(gps->triangles);
 		BLI_freelinkN(&gpf->strokes, gps);
@@ -1097,7 +1109,10 @@ static void gp_stroke_eraser_dostroke(tGPsdata *p,
 				if (len_v2v2_int(mval, pc1) <= radius) {
 					/* free stroke */
 					// XXX: pressure sensitive eraser should apply here too?
-					MEM_freeN(gps->points);
+					if (gps->points) {
+						BKE_gpencil_free_stroke_weights(gps);
+						MEM_freeN(gps->points);
+					}
 					if (gps->triangles)
 						MEM_freeN(gps->triangles);
 					BLI_freelinkN(&gpf->strokes, gps);

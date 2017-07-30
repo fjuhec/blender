@@ -1209,6 +1209,57 @@ class GreasePencilParentLayerPanel:
         if parent and gpl.parent_type == 'BONE' and parent.type == 'ARMATURE':
             sub.prop_search(gpl, "parent_bone", parent.data, "bones", text="")
 
+class GPENCIL_UL_vgroups(UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        # assert(isinstance(item, bpy.types.VertexGroup))
+        vgroup = item
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            layout.prop(vgroup, "name", text="", emboss=False, icon_value=icon)
+            # icon = 'LOCKED' if vgroup.lock_weight else 'UNLOCKED'
+            # layout.prop(vgroup, "lock_weight", text="", icon=icon, emboss=False)
+        elif self.layout_type == 'GRID':
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon_value=icon)
+
+class GreasePencilVertexGroupPanel:
+    bl_label = "Vertex Groups"
+    bl_region_type = 'UI'
+
+    @classmethod
+    def poll(cls, context):
+        obj = context.object
+        return obj and obj.type == 'GPENCIL'
+
+    def draw(self, context):
+        layout = self.layout
+
+        ob = context.object
+        group = ob.vertex_groups.active
+
+        rows = 2
+        if group:
+            rows = 4
+
+        row = layout.row()
+        row.template_list("GPENCIL_UL_vgroups", "", ob, "vertex_groups", ob.vertex_groups, "active_index", rows=rows)
+
+        col = row.column(align=True)
+        col.operator("object.vertex_group_add", icon='ZOOMIN', text="")
+        col.operator("object.vertex_group_remove", icon='ZOOMOUT', text="").all = False
+
+        if ob.vertex_groups:  # and (ob.mode == 'EDIT' or (ob.mode == 'WEIGHT_PAINT' and ob.type == 'MESH' and ob.data.use_paint_mask_vertex)):
+            row = layout.row()
+
+            sub = row.row(align=True)
+            sub.operator("gpencil.vertex_group_assign", text="Assign")
+            sub.operator("gpencil.vertex_group_remove_from", text="Remove")
+
+            sub = row.row(align=True)
+            sub.operator("gpencil.vertex_group_select", text="Select")
+            sub.operator("gpencil.vertex_group_deselect", text="Deselect")
+
+            layout.prop(context.tool_settings, "vertex_group_weight", text="Weight")
+
 
 class GreasePencilPaletteColorPanel:
     # subclass must set
@@ -1505,6 +1556,7 @@ classes = (
     GPENCIL_MT_layer_specials,
     GPENCIL_MT_brush_specials,
     GPENCIL_MT_palettecolor_specials,
+    GPENCIL_UL_vgroups
 )
 
 if __name__ == "__main__":  # only for live edit.

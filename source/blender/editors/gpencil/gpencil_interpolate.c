@@ -120,6 +120,8 @@ static void gp_interpolate_update_points(bGPDstroke *gps_from, bGPDstroke *gps_t
 		pt->pressure = interpf(prev->pressure, next->pressure, factor);
 		pt->strength = interpf(prev->strength, next->strength, factor);
 		CLAMP(pt->strength, GPENCIL_STRENGTH_MIN, 1.0f);
+		pt->totweight = 0;
+		pt->weights = NULL;
 	}
 }
 
@@ -285,6 +287,7 @@ static void gp_interpolate_set_points(bContext *C, tGPDinterpolate *tgpi)
 			/* create new stroke */
 			new_stroke = MEM_dupallocN(gps_from);
 			new_stroke->points = MEM_dupallocN(gps_from->points);
+			BKE_gpencil_stroke_weights_duplicate(gps_from, new_stroke);
 			new_stroke->triangles = MEM_dupallocN(gps_from->triangles);
 			
 			if (valid) {
@@ -570,6 +573,7 @@ static int gpencil_interpolate_modal(bContext *C, wmOperator *op, const wmEvent 
 					/* make copy of source stroke, then adjust pointer to points too */
 					gps_dst = MEM_dupallocN(gps_src);
 					gps_dst->points = MEM_dupallocN(gps_src->points);
+					BKE_gpencil_stroke_weights_duplicate(gps_src, gps_dst);
 					gps_dst->triangles = MEM_dupallocN(gps_src->triangles);
 					gps_dst->flag |= GP_STROKE_RECALC_CACHES;
 					BLI_addtail(&gpf_dst->strokes, gps_dst);
@@ -990,10 +994,17 @@ static int gpencil_interpolate_seq_exec(bContext *C, wmOperator *op)
 				/* create new stroke */
 				new_stroke = MEM_dupallocN(gps_from);
 				new_stroke->points = MEM_dupallocN(gps_from->points);
+				BKE_gpencil_stroke_weights_duplicate(gps_from, new_stroke);
 				new_stroke->triangles = MEM_dupallocN(gps_from->triangles);
 				
 				/* if destination stroke is smaller, resize new_stroke to size of gps_to stroke */
 				if (gps_from->totpoints > gps_to->totpoints) {
+					/* free weights of removed points */
+					for (int i = gps_to->totpoints; i < gps_from->totpoints; ++i) {
+						bGPDspoint *pt = &gps_from->points[i];
+						BKE_gpencil_free_point_weights(pt);
+					}
+
 					new_stroke->points = MEM_recallocN(new_stroke->points, sizeof(*new_stroke->points) * gps_to->totpoints);
 					new_stroke->totpoints = gps_to->totpoints;
 					new_stroke->tot_triangles = 0;

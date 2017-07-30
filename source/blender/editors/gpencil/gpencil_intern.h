@@ -275,6 +275,12 @@ void GPENCIL_OT_interpolate_reverse(struct wmOperatorType *ot);
 
 void GPENCIL_OT_convert_old_palettes(struct wmOperatorType *ot);
 
+/* vertex groups */
+void GPENCIL_OT_vertex_group_assign(struct wmOperatorType *ot);
+void GPENCIL_OT_vertex_group_remove_from(struct wmOperatorType *ot);
+void GPENCIL_OT_vertex_group_select(struct wmOperatorType *ot);
+void GPENCIL_OT_vertex_group_deselect(struct wmOperatorType *ot);
+
 /* ****************************************************** */
 /* FILTERED ACTION DATA - TYPES  ---> XXX DEPRECEATED OLD ANIM SYSTEM CODE! */
 

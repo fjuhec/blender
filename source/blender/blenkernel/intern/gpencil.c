@@ -93,6 +93,25 @@ void BKE_gpencil_batch_cache_free(bGPdata *gpd)
 /* GENERAL STUFF */
 
 /* --------- Memory Management ------------ */
+/* clean vertex groups weights */
+void BKE_gpencil_free_point_weights(bGPDspoint *pt)
+{
+	if (pt == NULL) {
+		return;
+	}
+	MEM_SAFE_FREE(pt->weights);
+}
+
+void BKE_gpencil_free_stroke_weights(bGPDstroke *gps)
+{
+	if (gps == NULL) {
+		return;
+	}
+	for (int i = 0; i < gps->totpoints; ++i) {
+		bGPDspoint *pt = &gps->points[i];
+		BKE_gpencil_free_point_weights(pt);
+	}
+}
 
 /* free stroke, doesn't unlink from any listbase */
 void BKE_gpencil_free_stroke(bGPDstroke *gps)
@@ -100,10 +119,11 @@ void BKE_gpencil_free_stroke(bGPDstroke *gps)
 	if (gps == NULL) {
 		return;
 	}
-
 	/* free stroke memory arrays, then stroke itself */
-	if (gps->points)
+	if (gps->points) {
+		BKE_gpencil_free_stroke_weights(gps);
 		MEM_freeN(gps->points);
+	}
 	if (gps->triangles)
 		MEM_freeN(gps->triangles);
 
@@ -765,6 +785,19 @@ bGPdata *BKE_gpencil_data_addnew(const char name[])
 }
 
 /* -------- Data Duplication ---------- */
+/* make a copy of a given gpencil point weights*/
+void BKE_gpencil_stroke_weights_duplicate(bGPDstroke *gps_src, bGPDstroke *gps_dst)
+{
+	if (gps_src == NULL) {
+		return;
+	}
+	for (int i = 0; i < gps_src->totpoints; ++i) {
+		bGPDspoint *pt_dst = &gps_dst->points[i];
+		bGPDspoint *pt_src = &gps_src->points[i];
+		pt_dst->weights = MEM_dupallocN(pt_src->weights);
+	}
+}
+
 
 /* make a copy of a given gpencil frame */
 bGPDframe *BKE_gpencil_frame_duplicate(const bGPDframe *gpf_src)
@@ -787,6 +820,8 @@ bGPDframe *BKE_gpencil_frame_duplicate(const bGPDframe *gpf_src)
 		/* make copy of source stroke, then adjust pointer to points too */
 		gps_dst = MEM_dupallocN(gps_src);
 		gps_dst->points = MEM_dupallocN(gps_src->points);
+		BKE_gpencil_stroke_weights_duplicate(gps_src, gps_dst);
+
 		gps_dst->triangles = MEM_dupallocN(gps_src->triangles);
 		gps_dst->flag |= GP_STROKE_RECALC_CACHES;
 		BLI_addtail(&gpf_dst->strokes, gps_dst);
@@ -817,6 +852,8 @@ bGPDframe *BKE_gpencil_frame_color_duplicate(const bGPDframe *gpf_src)
 		/* make copy of source stroke */
 		gps_dst = MEM_dupallocN(gps_src);
 		gps_dst->points = MEM_dupallocN(gps_src->points);
+		BKE_gpencil_stroke_weights_duplicate(gps_src, gps_dst);
+
 		gps_dst->triangles = MEM_dupallocN(gps_src->triangles);
 		gps_dst->palcolor = MEM_dupallocN(gps_src->palcolor);
 		BLI_addtail(&gpf_dst->strokes, gps_dst);
@@ -985,7 +1022,10 @@ void BKE_gpencil_frame_delete_laststroke(bGPDlayer *gpl, bGPDframe *gpf)
 		return;
 	
 	/* free the stroke and its data */
-	MEM_freeN(gps->points);
+	if (gps->points) {
+		BKE_gpencil_free_stroke_weights(gps);
+		MEM_freeN(gps->points);
+	}
 	MEM_freeN(gps->triangles);
 	BLI_freelinkN(&gpf->strokes, gps);
 	
@@ -1464,7 +1504,10 @@ void BKE_gpencil_palettecolor_delete_allstrokes(bContext *C, PaletteColor *palco
 					gpsn = gps->next;
 
 					if (gps->palcolor == palcolor) {
-						if (gps->points) MEM_freeN(gps->points);
+						if (gps->points) {
+							BKE_gpencil_free_stroke_weights(gps);
+							MEM_freeN(gps->points);
+						}
 						if (gps->triangles) MEM_freeN(gps->triangles);
 						BLI_freelinkN(&gpf->strokes, gps);
 					}
@@ -1655,6 +1698,93 @@ BoundBox *BKE_gpencil_boundbox_get(Object *ob)
 	boundbox_gpencil(ob);
 
 	return ob->bb;
+}
+/********************  Vertex Groups **********************************/
+/* remove a vertex group */
+void BKE_gpencil_vgroup_remove(Object *ob, bDeformGroup *defgroup)
+{
+	/* Remove points data */
+
+	/* Remove the group */
+	BLI_freelinkN(&ob->defbase, defgroup);
+}
+
+/* add a new weight */
+bGPDweight *BKE_gpencil_vgroup_add_point_weight(bGPDspoint *pt, int index, float weight)
+{
+	bGPDweight *new_gpw = NULL;
+	bGPDweight *tmp_gpw;
+
+	/* need to verify if was used before to update */
+	for (int i = 0; i < pt->totweight; ++i) {
+		tmp_gpw = &pt->weights[i];
+		if (tmp_gpw->index == index) {
+			tmp_gpw->factor = weight;
+			return tmp_gpw;
+		}
+	}
+
+	++pt->totweight;
+	if (pt->totweight == 1) {
+		pt->weights = MEM_callocN(sizeof(bGPDweight), "gp_weight");
+	}
+	else {
+		pt->weights = MEM_reallocN(pt->weights, sizeof(bGPDweight) * pt->totweight);
+	}
+	new_gpw = &pt->weights[pt->totweight - 1];
+	new_gpw->index = index;
+	new_gpw->factor = weight;
+
+	return new_gpw;
+}
+
+/* return the weight if use index  or -1*/
+float BKE_gpencil_vgroup_use_index(bGPDspoint *pt, int index)
+{
+	bGPDweight *gpw;
+	for (int i = 0; i < pt->totweight; ++i) {
+		gpw = &pt->weights[i];
+		if (gpw->index == index) {
+			return gpw->factor;
+		}
+	}
+	return -1.0f;
+}
+
+/* add a new weight */
+bool BKE_gpencil_vgroup_remove_point_weight(bGPDspoint *pt, int index)
+{
+	int e = 0;
+
+	if (BKE_gpencil_vgroup_use_index(pt, index) < 0.0f) {
+		return false;
+	}
+
+	/* if the array get empty, exit */
+	if (pt->totweight == 1) {
+		pt->totweight = 0;
+		MEM_SAFE_FREE(pt->weights);
+		return true;
+	}
+
+	// realloc weights 
+	bGPDweight *tmp = MEM_dupallocN(pt->weights);
+	MEM_SAFE_FREE(pt->weights);
+	pt->weights = MEM_callocN(sizeof(bGPDweight) * pt->totweight - 1, "gp_weights");
+
+	for (int x = 0; x < pt->totweight; ++x) {
+		bGPDweight *gpw = &tmp[e];
+		bGPDweight *final_gpw = &pt->weights[e];
+		if (gpw->index != index) {
+			final_gpw->index = gpw->index;
+			final_gpw->factor = gpw->factor;
+			++e;
+		}
+	}
+	MEM_SAFE_FREE(tmp);
+	--pt->totweight;
+
+	return true;
 }
 
 /********************  Modifiers **********************************/
@@ -1887,6 +2017,8 @@ void ED_gpencil_subdiv_modifier(int UNUSED(id), GpencilSubdivModifierData *mmd, 
 			pt_final->strength = pt->strength;
 			pt_final->time = pt->time;
 			pt_final->flag = pt->flag;
+			pt_final->totweight = pt->totweight;
+			pt_final->weights = pt->weights;
 			i2 -= 2;
 		}
 		/* interpolate mid points */
@@ -1902,6 +2034,8 @@ void ED_gpencil_subdiv_modifier(int UNUSED(id), GpencilSubdivModifierData *mmd, 
 			pt_final->strength = interpf(pt->strength, next->strength, 0.5f);
 			CLAMP(pt_final->strength, GPENCIL_STRENGTH_MIN, 1.0f);
 			pt_final->time = interpf(pt->time, next->time, 0.5f);
+			pt_final->totweight = 0;
+			pt_final->weights = NULL;
 			i2 += 2;
 		}
 
@@ -2054,6 +2188,8 @@ void ED_gpencil_dupli_modifier(int id, GpencilDupliModifierData *mmd, bGPDlayer 
 				gps_dst->palcolor = MEM_dupallocN(gps->palcolor);
 			}
 			gps_dst->points = MEM_dupallocN(gps->points);
+			BKE_gpencil_stroke_weights_duplicate(gps, gps_dst);
+
 			gps_dst->triangles = MEM_dupallocN(gps->triangles);
 
 			/* add to array for sorting later */

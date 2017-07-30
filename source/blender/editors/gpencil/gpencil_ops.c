@@ -588,6 +588,13 @@ void ED_operatortypes_gpencil(void)
 	/* conversion of old palettes */
 	WM_operatortype_append(GPENCIL_OT_convert_old_palettes);
 
+	/* vertex groups */
+	WM_operatortype_append(GPENCIL_OT_vertex_group_assign);
+	WM_operatortype_append(GPENCIL_OT_vertex_group_remove_from);
+	WM_operatortype_append(GPENCIL_OT_vertex_group_select);
+	WM_operatortype_append(GPENCIL_OT_vertex_group_deselect);
+
+
 	/* Editing (Time) --------------- */
 	
 	/* Interpolation */
