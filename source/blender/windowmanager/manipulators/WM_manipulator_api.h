@@ -63,12 +63,14 @@ struct wmManipulator *WM_manipulator_new_ptr(
 struct wmManipulator *WM_manipulator_new(
         const char *idname, struct wmManipulatorGroup *mgroup,
         struct PointerRNA *properties);
-void WM_manipulator_free(
+void WM_manipulator_free(struct wmManipulator *mpr);
+void WM_manipulator_unlink(
         ListBase *manipulatorlist, struct wmManipulatorMap *mmap, struct wmManipulator *mpr,
         struct bContext *C);
 
 void WM_manipulator_name_set(struct wmManipulatorGroup *mgroup, struct wmManipulator *mpr, const char *name);
 
+bool WM_manipulator_select_unlink(struct wmManipulatorMap *mmap, struct wmManipulator *mpr);
 bool WM_manipulator_select_set(struct wmManipulatorMap *mmap, struct wmManipulator *mpr, bool select);
 
 struct PointerRNA *WM_manipulator_set_operator(
@@ -204,7 +206,8 @@ struct wmManipulatorMap *WM_manipulatormap_new_from_type(
         const struct wmManipulatorMapType_Params *mmap_params);
 const struct ListBase *WM_manipulatormap_group_list(struct wmManipulatorMap *mmap);
 void WM_manipulatormap_tag_refresh(struct wmManipulatorMap *mmap);
-void WM_manipulatormap_draw(struct wmManipulatorMap *mmap, const struct bContext *C, const int drawstep);
+void WM_manipulatormap_draw(
+        struct wmManipulatorMap *mmap, const struct bContext *C, const eWM_ManipulatorMapDrawStep drawstep);
 void WM_manipulatormap_add_handlers(struct ARegion *ar, struct wmManipulatorMap *mmap);
 bool WM_manipulatormap_select_all(struct bContext *C, struct wmManipulatorMap *mmap, const int action);
 bool WM_manipulatormap_cursor_set(const struct wmManipulatorMap *mmap, struct wmWindow *win);
