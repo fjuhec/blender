@@ -102,7 +102,7 @@ static DerivedMesh *applyModifier(ModifierData *md, struct EvaluationContext *UN
 						newpalcolor = gps->palcolor;
 					}
 					BLI_ghash_insert(gh_color, gps->palcolor->info, newpalcolor);
-					ED_gpencil_color_modifier(-1, (GpencilColorModifierData *)md, gpl, gps);
+					ED_gpencil_color_modifier(-1, (GpencilColorModifierData *)md, ob, gpl, gps);
 				}
 				else {
 					gps->palcolor = newpalcolor;

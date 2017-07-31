@@ -1547,6 +1547,12 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row = col.row(align=True)
         row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
         row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
+
+        col.label("Vertex Group:")
+        row = col.row(align=True)
+        row.prop_search(md, "vertex_group", ob, "vertex_groups", text="")
+        row.prop(md, "inverse_vertex", text="", icon="ARROW_LEFTRIGHT")
+
         row = col.row(align=True)
         row.prop(md, "passindex", text="Pass")
         row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
@@ -1592,6 +1598,11 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row = col.row(align=True)
         row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
         row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
+
+        col.label("Vertex Group:")
+        row = col.row(align=True)
+        row.prop_search(md, "vertex_group", ob, "vertex_groups", text="")
+        row.prop(md, "inverse_vertex", text="", icon="ARROW_LEFTRIGHT")
 
     def GP_TINT(self, layout, ob, md):
         gpd = ob.grease_pencil
@@ -1648,6 +1659,12 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row = col.row(align=True)
         row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
         row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
+
+        col.label("Vertex Group:")
+        row = col.row(align=True)
+        row.prop_search(md, "vertex_group", ob, "vertex_groups", text="")
+        row.prop(md, "inverse_vertex", text="", icon="ARROW_LEFTRIGHT")
+
         row = col.row(align=True)
         row.prop(md, "passindex", text="Pass")
         row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
@@ -1735,6 +1752,12 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row = col.row(align=True)
         row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
         row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
+
+        col.label("Vertex Group:")
+        row = col.row(align=True)
+        row.prop_search(md, "vertex_group", ob, "vertex_groups", text="")
+        row.prop(md, "inverse_vertex", text="", icon="ARROW_LEFTRIGHT")
+
         row = col.row(align=True)
         row.prop(md, "passindex", text="Pass")
         row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")

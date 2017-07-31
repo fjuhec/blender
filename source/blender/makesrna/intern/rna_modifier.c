@@ -560,6 +560,10 @@ RNA_MOD_VGROUP_NAME_SET(WeightVGMix, mask_defgrp_name);
 RNA_MOD_VGROUP_NAME_SET(WeightVGProximity, defgrp_name);
 RNA_MOD_VGROUP_NAME_SET(WeightVGProximity, mask_defgrp_name);
 RNA_MOD_VGROUP_NAME_SET(Wireframe, defgrp_name);
+RNA_MOD_VGROUP_NAME_SET(GpencilNoise, vgname);
+RNA_MOD_VGROUP_NAME_SET(GpencilThick, vgname);
+RNA_MOD_VGROUP_NAME_SET(GpencilOpacity, vgname);
+RNA_MOD_VGROUP_NAME_SET(GpencilLattice, vgname);
 
 static void rna_ExplodeModifier_vgroup_get(PointerRNA *ptr, char *value)
 {
@@ -4821,6 +4825,12 @@ static void rna_def_modifier_gpencilnoise(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Layer", "Layer name");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
+	prop = RNA_def_property(srna, "vertex_group", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_sdna(prop, NULL, "vgname");
+	RNA_def_property_ui_text(prop, "Vertex Group", "Vertex group name for modulating the deform");
+	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_GpencilNoiseModifier_vgname_set");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
 	prop = RNA_def_property(srna, "factor", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_float_sdna(prop, NULL, "factor");
 	RNA_def_property_range(prop, 0, 30.0);
@@ -4877,6 +4887,11 @@ static void rna_def_modifier_gpencilnoise(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "inverse_pass", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_NOISE_INVERSE_PASS);
 	RNA_def_property_ui_text(prop, "Inverse Pass", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_vertex", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_NOISE_INVERSE_VGROUP);
+	RNA_def_property_ui_text(prop, "Inverse VertexGroup", "Inverse filter");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
@@ -4938,6 +4953,12 @@ static void rna_def_modifier_gpencilthick(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Layer", "Layer name");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
+	prop = RNA_def_property(srna, "vertex_group", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_sdna(prop, NULL, "vgname");
+	RNA_def_property_ui_text(prop, "Vertex Group", "Vertex group name for modulating the deform");
+	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_GpencilThickModifier_vgname_set");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
 	prop = RNA_def_property(srna, "thickness", PROP_INT, PROP_NONE);
 	RNA_def_property_int_sdna(prop, NULL, "thickness");
 	RNA_def_property_range(prop, -100, 500);
@@ -4958,6 +4979,11 @@ static void rna_def_modifier_gpencilthick(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "inverse_pass", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_THICK_INVERSE_PASS);
 	RNA_def_property_ui_text(prop, "Inverse Pass", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_vertex", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_THICK_INVERSE_VGROUP);
+	RNA_def_property_ui_text(prop, "Inverse VertexGroup", "Inverse filter");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
@@ -5085,6 +5111,12 @@ static void rna_def_modifier_gpencilopacity(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Layer", "Layer name");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
+	prop = RNA_def_property(srna, "vertex_group", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_sdna(prop, NULL, "vgname");
+	RNA_def_property_ui_text(prop, "Vertex Group", "Vertex group name for modulating the deform");
+	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_GpencilOpacityModifier_vgname_set");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
 	prop = RNA_def_property(srna, "factor", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_float_sdna(prop, NULL, "factor");
 	RNA_def_property_float_funcs(prop, NULL, NULL, "rna_GPencil_factor_range");
@@ -5106,6 +5138,11 @@ static void rna_def_modifier_gpencilopacity(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "inverse_pass", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_OPACITY_INVERSE_PASS);
 	RNA_def_property_ui_text(prop, "Inverse Pass", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_vertex", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_OPACITY_INVERSE_VGROUP);
+	RNA_def_property_ui_text(prop, "Inverse VertexGroup", "Inverse filter");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
@@ -5273,6 +5310,12 @@ static void rna_def_modifier_gpencillattice(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Layer", "Layer name");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
+	prop = RNA_def_property(srna, "vertex_group", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_sdna(prop, NULL, "vgname");
+	RNA_def_property_ui_text(prop, "Vertex Group", "Vertex group name for modulating the deform");
+	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_GpencilLatticeModifier_vgname_set");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
 	prop = RNA_def_property(srna, "passindex", PROP_INT, PROP_NONE);
 	RNA_def_property_int_sdna(prop, NULL, "passindex");
 	RNA_def_property_range(prop, 0, 100);
@@ -5287,6 +5330,11 @@ static void rna_def_modifier_gpencillattice(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "inverse_pass", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_LATTICE_INVERSE_PASS);
 	RNA_def_property_ui_text(prop, "Inverse Pass", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_vertex", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_LATTICE_INVERSE_VGROUP);
+	RNA_def_property_ui_text(prop, "Inverse VertexGroup", "Inverse filter");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
 	prop = RNA_def_property(srna, "object", PROP_POINTER, PROP_NONE);

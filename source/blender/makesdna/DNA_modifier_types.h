@@ -1624,6 +1624,7 @@ enum {
 typedef struct GpencilNoiseModifierData {
 	ModifierData modifier;
 	char layername[64];          /* layer name */
+	char vgname[64];             /* optional vertexgroup name, MAX_VGROUP_NAME */
 	int passindex;               /* custom index for passes */
 	int flag;                    /* several flags */
 	float factor;                /* factor of noise */
@@ -1642,6 +1643,7 @@ typedef enum eGpencilNoise_Flag {
 	GP_NOISE_MOVE_EXTREME   = (1 << 5),
 	GP_NOISE_INVERSE_LAYER  = (1 << 6),
 	GP_NOISE_INVERSE_PASS   = (1 << 7),
+	GP_NOISE_INVERSE_VGROUP = (1 << 8)
 } eGpencilNoise_Flag;
 
 
@@ -1663,6 +1665,7 @@ typedef enum eGpencilSubdiv_Flag {
 typedef struct GpencilThickModifierData {
 	ModifierData modifier;
 	char layername[64];          /* layer name */
+	char vgname[64];             /* optional vertexgroup name, MAX_VGROUP_NAME */
 	int passindex;               /* custom index for passes */
 	int flag;                    /* flags */
 	int thickness;               /* Thickness change */
@@ -1670,8 +1673,9 @@ typedef struct GpencilThickModifierData {
 } GpencilThickModifierData;
 
 typedef enum eGpencilThick_Flag {
-	GP_THICK_INVERSE_LAYER = (1 << 0),
-	GP_THICK_INVERSE_PASS  = (1 << 1),
+	GP_THICK_INVERSE_LAYER  = (1 << 0),
+	GP_THICK_INVERSE_PASS   = (1 << 1),
+	GP_THICK_INVERSE_VGROUP = (1 << 2),
 } eGpencilThick_Flag;
 
 typedef struct GpencilTintModifierData {
@@ -1684,9 +1688,9 @@ typedef struct GpencilTintModifierData {
 } GpencilTintModifierData;
 
 typedef enum eGpencilTint_Flag {
-	GP_TINT_CREATE_COLORS = (1 << 0),
-	GP_TINT_INVERSE_LAYER = (1 << 1),
-	GP_TINT_INVERSE_PASS  = (1 << 2),
+	GP_TINT_CREATE_COLORS  = (1 << 0),
+	GP_TINT_INVERSE_LAYER  = (1 << 1),
+	GP_TINT_INVERSE_PASS   = (1 << 2),
 } eGpencilTint_Flag;
 
 typedef struct GpencilColorModifierData {
@@ -1699,14 +1703,15 @@ typedef struct GpencilColorModifierData {
 } GpencilColorModifierData;
 
 typedef enum eGpencilColor_Flag {
-	GP_COLOR_CREATE_COLORS = (1 << 0),
-	GP_COLOR_INVERSE_LAYER = (1 << 1),
-	GP_COLOR_INVERSE_PASS = (1 << 2),
+	GP_COLOR_CREATE_COLORS  = (1 << 0),
+	GP_COLOR_INVERSE_LAYER  = (1 << 1),
+	GP_COLOR_INVERSE_PASS   = (1 << 2),
 } eGpencilColor_Flag;
 
 typedef struct GpencilOpacityModifierData {
 	ModifierData modifier;
 	char layername[64];          /* layer name */
+	char vgname[64];             /* optional vertexgroup name, MAX_VGROUP_NAME */
 	int passindex;               /* custom index for passes */
 	int flag;                    /* flags */
 	float factor;                /* Main Opacity factor */
@@ -1716,6 +1721,7 @@ typedef struct GpencilOpacityModifierData {
 typedef enum eGpencilOpacity_Flag {
 	GP_OPACITY_INVERSE_LAYER  = (1 << 0),
 	GP_OPACITY_INVERSE_PASS   = (1 << 1),
+	GP_OPACITY_INVERSE_VGROUP = (1 << 2),
 } eGpencilOpacity_Flag;
 
 typedef struct GpencilArrayModifierData {
@@ -1754,16 +1760,17 @@ typedef struct GpencilDupliModifierData {
 } GpencilDupliModifierData;
 
 typedef enum eGpencilDupli_Flag {
-	GP_DUPLI_RANDOM_SIZE   = (1 << 0),
-	GP_DUPLI_RANDOM_ROT    = (1 << 1),
-	GP_DUPLI_INVERSE_LAYER = (1 << 2),
-	GP_DUPLI_INVERSE_PASS  = (1 << 3),
+	GP_DUPLI_RANDOM_SIZE    = (1 << 0),
+	GP_DUPLI_RANDOM_ROT     = (1 << 1),
+	GP_DUPLI_INVERSE_LAYER  = (1 << 2),
+	GP_DUPLI_INVERSE_PASS   = (1 << 3),
 } eGpencilDupli_Flag;
 
 typedef struct GpencilLatticeModifierData {
 	ModifierData modifier;
 	struct Object *object;
 	char layername[64];          /* layer name */
+	char vgname[64];             /* optional vertexgroup name, MAX_VGROUP_NAME */
 	int passindex;               /* custom index for passes */
 	int flag;                    /* flags */
 	float strength;
@@ -1772,8 +1779,9 @@ typedef struct GpencilLatticeModifierData {
 } GpencilLatticeModifierData;
 
 typedef enum eGpencilLattice_Flag {
-	GP_LATTICE_INVERSE_LAYER = (1 << 0),
-	GP_LATTICE_INVERSE_PASS = (1 << 1),
+	GP_LATTICE_INVERSE_LAYER  = (1 << 0),
+	GP_LATTICE_INVERSE_PASS   = (1 << 1),
+	GP_LATTICE_INVERSE_VGROUP = (1 << 2),
 } eGpencilLattice_Flag;
 
 #define MOD_MESHSEQ_READ_ALL \

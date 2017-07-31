@@ -1796,7 +1796,7 @@ void ED_gpencil_fill_random_array(float *ar, int count)
 }
 
 /* verify if valid layer and pass index */
-static bool is_stroke_affected_by_modifier(char *mlayername, int mpassindex, int minpoints, 
+static bool is_stroke_affected_by_modifier(char *mlayername, int mpassindex, int minpoints,
 	bGPDlayer *gpl, bGPDstroke *gps, int inv1, int inv2)
 {
 	/* omit if filter by layer */
@@ -1825,13 +1825,52 @@ static bool is_stroke_affected_by_modifier(char *mlayername, int mpassindex, int
 			}
 		}
 	}
-
 	/* need to have a minimum number of points */
 	if ((minpoints > 0) && (gps->totpoints < minpoints)) {
 		return false;
 	}
 
 	return true;
+}
+
+/* verify if valid vertex group *and return weight */
+static float is_point_affected_by_modifier(bGPDspoint *pt, int inverse, int vindex)
+{
+	float weight = 1.0f;
+
+	if (vindex >= 0) {
+		weight = BKE_gpencil_vgroup_use_index(pt, vindex);
+		if ((weight >= 0.0f) && (inverse == 1)) {
+			return -1.0f;
+		}
+
+		if ((weight < 0.0f) && (inverse == 0)) {
+			return -1.0f;
+		}
+
+		/* if inverse, weight is always 1 */
+		if ((weight < 0.0f) && (inverse == 1)) {
+			return 1.0f;
+		}
+
+	}
+
+	return weight;
+}
+
+/* get the vertex group index or -1 if empty */
+static int get_vertex_group_index(Object *ob, char *vgname)
+{
+	int vindex = -1;
+	/* get vertex group index */
+	if (vgname[0] != '\0') {
+		bDeformGroup *defgrp = BLI_findstring(&ob->defbase, vgname, offsetof(bDeformGroup, name));
+		if (defgrp) {
+			vindex = BLI_findindex(&ob->defbase, defgrp);
+		}
+	}
+	
+	return vindex;
 }
 
 /* calculate stroke normal using some points */
@@ -1866,7 +1905,7 @@ void ED_gpencil_stroke_normal(const bGPDstroke *gps, float r_normal[3])
 }
 
 /* calculate a noise base on stroke direction */
-void ED_gpencil_noise_modifier(int UNUSED(id), GpencilNoiseModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
+void ED_gpencil_noise_modifier(int UNUSED(id), GpencilNoiseModifierData *mmd, Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
 {
 	bGPDspoint *pt0, *pt1;
 	float shift, vran, vdir;
@@ -1875,6 +1914,8 @@ void ED_gpencil_noise_modifier(int UNUSED(id), GpencilNoiseModifierData *mmd, bG
 	Scene *scene = NULL;
 	int sc_frame = 0;
 	int sc_diff = 0;
+	int vindex = get_vertex_group_index(ob, mmd->vgname);
+	float weight = 1.0f;
 
 	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps, 
 		(int) mmd->flag & GP_NOISE_INVERSE_LAYER, (int)mmd->flag & GP_NOISE_INVERSE_PASS)) {
@@ -1905,6 +1946,12 @@ void ED_gpencil_noise_modifier(int UNUSED(id), GpencilNoiseModifierData *mmd, bG
 			pt0 = &gps->points[i - 1];
 			pt1 = &gps->points[i];
 		}
+		/* verify vertex group */
+		weight = is_point_affected_by_modifier(pt0, (int)(!(mmd->flag & GP_NOISE_INVERSE_VGROUP) == 0), vindex);
+		if (weight < 0) {
+			continue;
+		}
+
 		/* initial vector (p0 -> p1) */
 		sub_v3_v3v3(vec1, &pt1->x, &pt0->x);
 		vran = len_v3(vec1);
@@ -1948,7 +1995,7 @@ void ED_gpencil_noise_modifier(int UNUSED(id), GpencilNoiseModifierData *mmd, bG
 		/* apply randomness to location of the point */
 		if (mmd->flag & GP_NOISE_MOD_LOCATION) {
 			/* factor is too sensitive, so need divide */
-			shift = vran * mmd->factor / 10.0f;
+			shift = (vran * mmd->factor / 10.0f) * weight;
 			if (vdir > 0.5f) {
 				mul_v3_fl(vec2, shift);
 			}
@@ -1983,13 +2030,13 @@ void ED_gpencil_noise_modifier(int UNUSED(id), GpencilNoiseModifierData *mmd, bG
 }
 
 /* subdivide stroke to get more control points */
-void ED_gpencil_subdiv_modifier(int UNUSED(id), GpencilSubdivModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
+void ED_gpencil_subdiv_modifier(int UNUSED(id), GpencilSubdivModifierData *mmd, Object *UNUSED(ob), bGPDlayer *gpl, bGPDstroke *gps)
 {
 	bGPDspoint *temp_points;
 	int totnewpoints, oldtotpoints;
 	int i2;
 
-	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
+	if (!is_stroke_affected_by_modifier(mmd->layername,mmd->passindex, 3, gpl, gps,
 		(int)mmd->flag & GP_SUBDIV_INVERSE_LAYER, (int)mmd->flag & GP_SUBDIV_INVERSE_PASS)) {
 		return;
 	}
@@ -2062,18 +2109,33 @@ void ED_gpencil_subdiv_modifier(int UNUSED(id), GpencilSubdivModifierData *mmd, 
 }
 
 /* change stroke thickness */
-void ED_gpencil_thick_modifier(int UNUSED(id), GpencilThickModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
+void ED_gpencil_thick_modifier(int UNUSED(id), GpencilThickModifierData *mmd, Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
 {
-	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 1, gpl, gps,
+	bGPDspoint *pt;
+	int vindex = get_vertex_group_index(ob, mmd->vgname);
+	float weight = 1.0f;
+
+	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
 		(int)mmd->flag & GP_THICK_INVERSE_LAYER, (int)mmd->flag & GP_THICK_INVERSE_PASS)) {
 		return;
 	}
 
-	gps->thickness += mmd->thickness;
+	for (int i = 0; i < gps->totpoints; ++i) {
+		pt = &gps->points[i];
+		/* verify vertex group */
+		weight = is_point_affected_by_modifier(pt, (int)(!(mmd->flag & GP_THICK_INVERSE_VGROUP) == 0), vindex);
+		if (weight < 0) {
+			continue;
+		}
+
+		pt->pressure += mmd->thickness * weight;
+		CLAMP(pt->strength, 0.0f, 1.0f);
+	}
+
 }
 
 /* tint strokes */
-void ED_gpencil_tint_modifier(int UNUSED(id), GpencilTintModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
+void ED_gpencil_tint_modifier(int UNUSED(id), GpencilTintModifierData *mmd, Object *UNUSED(ob), bGPDlayer *gpl, bGPDstroke *gps)
 {
 	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 1, gpl, gps,
 		(int)mmd->flag & GP_TINT_INVERSE_LAYER, (int)mmd->flag & GP_TINT_INVERSE_PASS)) {
@@ -2088,7 +2150,7 @@ void ED_gpencil_tint_modifier(int UNUSED(id), GpencilTintModifierData *mmd, bGPD
 }
 
 /* color correction strokes */
-void ED_gpencil_color_modifier(int UNUSED(id), GpencilColorModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
+void ED_gpencil_color_modifier(int UNUSED(id), GpencilColorModifierData *mmd, Object *UNUSED(ob), bGPDlayer *gpl, bGPDstroke *gps)
 {
 	PaletteColor *palcolor;
 	float hsv[3], factor[3];
@@ -2114,11 +2176,13 @@ void ED_gpencil_color_modifier(int UNUSED(id), GpencilColorModifierData *mmd, bG
 }
 
 /* opacity strokes */
-void ED_gpencil_opacity_modifier(int UNUSED(id), GpencilOpacityModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
+void ED_gpencil_opacity_modifier(int UNUSED(id), GpencilOpacityModifierData *mmd, Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
 {
 	bGPDspoint *pt;
+	int vindex = get_vertex_group_index(ob, mmd->vgname);
+	float weight = 1.0f;
 
-	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 1, gpl, gps,
+	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
 		(int)mmd->flag & GP_OPACITY_INVERSE_LAYER, (int)mmd->flag & GP_OPACITY_INVERSE_PASS)) {
 		return;
 	}
@@ -2129,11 +2193,16 @@ void ED_gpencil_opacity_modifier(int UNUSED(id), GpencilOpacityModifierData *mmd
 	CLAMP(gps->palcolor->rgb[3], 0.0f, 1.0f);
 	CLAMP(gps->palcolor->fill[3], 0.0f, 1.0f);
 
-	/* if opacity > 1.0, affect the strength of the stroke */
-	if (mmd->factor > 1.0f) {
+	/* if opacity < 1.0, affect the strength of the stroke */
+	if (mmd->factor < 1.0f) {
 		for (int i = 0; i < gps->totpoints; ++i) {
 			pt = &gps->points[i];
-			pt->strength += (mmd->factor - 1.0f);
+			/* verify vertex group */
+			weight = is_point_affected_by_modifier(pt, (int)(!(mmd->flag & GP_OPACITY_INVERSE_VGROUP) == 0), vindex);
+			if (weight < 0) {
+				continue;
+			}
+			pt->strength += ((mmd->factor * weight) - 1.0f);
 			CLAMP(pt->strength, 0.0f, 1.0f);
 		}
 	}
@@ -2151,7 +2220,7 @@ static int gpencil_stroke_cache_compare(const void *a1, const void *a2)
 }
 
 /* dupli modifier */
-void ED_gpencil_dupli_modifier(int id, GpencilDupliModifierData *mmd, bGPDlayer *gpl, bGPDframe *gpf)
+void ED_gpencil_dupli_modifier(int id, GpencilDupliModifierData *mmd, Object *UNUSED(ob), bGPDlayer *gpl, bGPDframe *gpf)
 {
 	bGPDspoint *pt;
 	bGPDstroke *gps_dst;
@@ -2326,11 +2395,13 @@ void ED_gpencil_lattice_init(Object *ob)
 }
 
 /* apply lattice to stroke */
-void ED_gpencil_lattice_modifier(int UNUSED(id), GpencilLatticeModifierData *mmd, bGPDlayer *gpl, bGPDstroke *gps)
+void ED_gpencil_lattice_modifier(int UNUSED(id), GpencilLatticeModifierData *mmd, Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
 {
 	bGPDspoint *pt;
+	int vindex = get_vertex_group_index(ob, mmd->vgname);
+	float weight = 1.0f;
 
-	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 1, gpl, gps,
+	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
 		(int)mmd->flag & GP_LATTICE_INVERSE_LAYER, (int)mmd->flag & GP_LATTICE_INVERSE_PASS)) {
 		return;
 	}
@@ -2341,7 +2412,13 @@ void ED_gpencil_lattice_modifier(int UNUSED(id), GpencilLatticeModifierData *mmd
 
 	for (int i = 0; i < gps->totpoints; i++) {
 		pt = &gps->points[i];
-		calc_latt_deform((LatticeDeformData *)mmd->cache_data, &pt->x, mmd->strength);
+		/* verify vertex group */
+		weight = is_point_affected_by_modifier(pt, (int)(!(mmd->flag & GP_LATTICE_INVERSE_VGROUP) == 0), vindex);
+		if (weight < 0) {
+			continue;
+		}
+
+		calc_latt_deform((LatticeDeformData *)mmd->cache_data, &pt->x, mmd->strength * weight);
 	}
 }
 
@@ -2384,31 +2461,31 @@ void ED_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *gpf, bGP
 			switch (md->type) {
 				// Noise Modifier
 			case eModifierType_GpencilNoise:
-				ED_gpencil_noise_modifier(id, (GpencilNoiseModifierData *)md, gpl, gps);
+				ED_gpencil_noise_modifier(id, (GpencilNoiseModifierData *)md, ob, gpl, gps);
 				break;
 				// Subdiv Modifier
 			case eModifierType_GpencilSubdiv:
-				ED_gpencil_subdiv_modifier(id, (GpencilSubdivModifierData *)md, gpl, gps);
+				ED_gpencil_subdiv_modifier(id, (GpencilSubdivModifierData *)md, ob, gpl, gps);
 				break;
 				// Thickness
 			case eModifierType_GpencilThick:
-				ED_gpencil_thick_modifier(id, (GpencilThickModifierData *)md, gpl, gps);
+				ED_gpencil_thick_modifier(id, (GpencilThickModifierData *)md, ob, gpl, gps);
 				break;
 				// Tint
 			case eModifierType_GpencilTint:
-				ED_gpencil_tint_modifier(id, (GpencilTintModifierData *)md, gpl, gps);
+				ED_gpencil_tint_modifier(id, (GpencilTintModifierData *)md, ob, gpl, gps);
 				break;
 				// Opacity
 			case eModifierType_GpencilOpacity:
-				ED_gpencil_opacity_modifier(id, (GpencilOpacityModifierData *)md, gpl, gps);
+				ED_gpencil_opacity_modifier(id, (GpencilOpacityModifierData *)md, ob, gpl, gps);
 				break;
 				// Color Correction
 			case eModifierType_GpencilColor:
-				ED_gpencil_color_modifier(id, (GpencilColorModifierData *)md, gpl, gps);
+				ED_gpencil_color_modifier(id, (GpencilColorModifierData *)md, ob, gpl, gps);
 				break;
 				// Lattice
 			case eModifierType_GpencilLattice:
-				ED_gpencil_lattice_modifier(id, (GpencilLatticeModifierData *)md, gpl, gps);
+				ED_gpencil_lattice_modifier(id, (GpencilLatticeModifierData *)md, ob, gpl, gps);
 				break;
 			}
 		}
@@ -2427,7 +2504,7 @@ void ED_gpencil_geometry_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *gpf)
 			switch (md->type) {
 				// Array
 			case eModifierType_GpencilDupli:
-				ED_gpencil_dupli_modifier(id, (GpencilDupliModifierData *)md, gpl, gpf);
+				ED_gpencil_dupli_modifier(id, (GpencilDupliModifierData *)md, ob, gpl, gpf);
 				break;
 			}
 		}

@@ -80,7 +80,7 @@ static DerivedMesh *applyModifier(ModifierData *md, struct EvaluationContext *UN
 
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
-			ED_gpencil_dupli_modifier(-1, (GpencilDupliModifierData *)md, gpl, gpf);
+			ED_gpencil_dupli_modifier(-1, (GpencilDupliModifierData *)md, ob, gpl, gpf);
 		}
 	}
 
