@@ -29,6 +29,7 @@
 
 
 #include "BLI_polyfill2d.h"
+#include "BLI_math_color.h"
 
 #include "DNA_gpencil_types.h"
 #include "DNA_screen_types.h"
@@ -610,6 +611,20 @@ Gwn_Batch *DRW_gpencil_get_fill_geom(bGPDstroke *gps, const float color[4])
 /* Draw selected verts for strokes being edited */
 Gwn_Batch *DRW_gpencil_get_edit_geom(bGPDstroke *gps, float alpha, short dflag)
 {
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	Scene *scene = draw_ctx->scene;
+	Object *ob = draw_ctx->obact;
+	bGPdata *gpd = ob->gpd;
+	ToolSettings *ts = scene->toolsettings;
+	GP_BrushEdit_Settings *gset = &scene->toolsettings->gp_sculpt;
+	int brush_index = gset->brushtype;
+	bool is_weight_paint = (gpd) && (brush_index >= GP_EDITBRUSH_TYPE_WEIGHT) && (gpd->flag & GP_DATA_STROKE_SCULPTMODE);
+
+	int vgindex = ob->actdef - 1;
+	if (!BLI_findlink(&ob->defbase, vgindex)) {
+		vgindex = -1;
+	}
+
 	/* Get size of verts:
 	* - The selected state needs to be larger than the unselected state so that
 	*   they stand out more.
@@ -652,25 +667,36 @@ Gwn_Batch *DRW_gpencil_get_edit_geom(bGPDstroke *gps, float alpha, short dflag)
 	int idx = 0;
 	float fcolor[4];
 	float fsize = 0;
-
 	for (int i = 0; i < gps->totpoints; i++, pt++) {
-		if (show_direction_hint && i == 0) {
-			/* start point in green bigger */
-			ARRAY_SET_ITEMS(fcolor, 0.0f, 1.0f, 0.0f, 1.0f);
-			fsize = vsize + 4;
-		}
-		else if (show_direction_hint && (i == gps->totpoints - 1)) {
-			/* end point in red smaller */
-			ARRAY_SET_ITEMS(fcolor, 1.0f, 0.0f, 0.0f, 1.0f);
-			fsize = vsize + 1;
-		}
-		else if (pt->flag & GP_SPOINT_SELECT) {
+		/* weight paint */
+		if (is_weight_paint) {
+			float weight = BKE_gpencil_vgroup_use_index(pt, vgindex);
+			CLAMP(weight, 0.0f, 1.0f);
+			float hue = 2.0f * (1.0f - weight) / 3.0f;
+			hsv_to_rgb(hue, 1.0f, 1.0f, &selectColor[0], &selectColor[1], &selectColor[2]);
+			selectColor[3] = 1.0f;
 			copy_v4_v4(fcolor, selectColor);
-			fsize = vsize;
+			fsize = vsize + 3;
 		}
 		else {
-			copy_v4_v4(fcolor, palcolor->rgb);
-			fsize = bsize;
+			if (show_direction_hint && i == 0) {
+				/* start point in green bigger */
+				ARRAY_SET_ITEMS(fcolor, 0.0f, 1.0f, 0.0f, 1.0f);
+				fsize = vsize + 4;
+			}
+			else if (show_direction_hint && (i == gps->totpoints - 1)) {
+				/* end point in red smaller */
+				ARRAY_SET_ITEMS(fcolor, 1.0f, 0.0f, 0.0f, 1.0f);
+				fsize = vsize + 1;
+			}
+			else if (pt->flag & GP_SPOINT_SELECT) {
+				copy_v4_v4(fcolor, selectColor);
+				fsize = vsize;
+			}
+			else {
+				copy_v4_v4(fcolor, palcolor->rgb);
+				fsize = bsize;
+			}
 		}
 
 		GWN_vertbuf_attr_set(vbo, color_id, idx, fcolor);

@@ -426,6 +426,7 @@ static void init_brush_icons(void)
 	INIT_BRUSH_ICON(ICON_GPBRUSH_PINCH, gp_brush_pinch);
 	INIT_BRUSH_ICON(ICON_GPBRUSH_RANDOMIZE, gp_brush_randomize);
 	INIT_BRUSH_ICON(ICON_GPBRUSH_CLONE, gp_brush_clone);
+	INIT_BRUSH_ICON(ICON_GPBRUSH_WEIGHT, gp_brush_weight);
 
 #undef INIT_BRUSH_ICON
 }

@@ -556,9 +556,13 @@ static void gpencil_add_editpoints_shgroup(GPENCIL_StorageList *stl, GpencilBatc
 	if ((gpl->flag & GP_LAYER_LOCKED) == 0 && (gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE)))
 	{
 		const DRWContextState *draw_ctx = DRW_context_state_get();
+		Scene *scene = draw_ctx->scene;
 		Object *obact = draw_ctx->obact;
+		GP_BrushEdit_Settings *gset = &scene->toolsettings->gp_sculpt;
+		int brush_index = gset->brushtype;
+		bool is_weight_paint = (gpd) && (brush_index >= GP_EDITBRUSH_TYPE_WEIGHT) && (gpd->flag & GP_DATA_STROKE_SCULPTMODE);
 
-		if (gps->flag & GP_STROKE_SELECT) {
+		if ((gps->flag & GP_STROKE_SELECT) || (is_weight_paint)) {
 			if ((gpl->flag & GP_LAYER_UNLOCK_COLOR) || ((gps->palcolor->flag & PC_COLOR_LOCKED) == 0)) {
 				if (cache->is_dirty) {
 					gpencil_batch_cache_check_free_slots(ob, gpd);

@@ -1195,6 +1195,9 @@ typedef enum eGP_EditBrush_Types {
 	GP_EDITBRUSH_TYPE_CLONE     = 8,
 	GP_EDITBRUSH_TYPE_SUBDIVIDE = 9,
 	GP_EDITBRUSH_TYPE_SIMPLIFY  = 10,
+	/* add any sculpt brush above this value */
+	GP_EDITBRUSH_TYPE_WEIGHT    = 11,
+	/* add any weight paint brush below this value. Do no mix brushes */
 
 	/* !!! Update GP_EditBrush_Data brush[###]; below !!! */
 	TOT_GP_EDITBRUSH_TYPES
@@ -1239,7 +1242,7 @@ typedef enum eGP_EditBrush_Flag {
 
 /* GPencil Stroke Sculpting Settings */
 typedef struct GP_BrushEdit_Settings {
-	GP_EditBrush_Data brush[11];  /* TOT_GP_EDITBRUSH_TYPES */
+	GP_EditBrush_Data brush[12];  /* TOT_GP_EDITBRUSH_TYPES */
 	void *paintcursor;            /* runtime */
 	
 	int brushtype;                /* eGP_EditBrush_Types */

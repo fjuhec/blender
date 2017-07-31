@@ -143,46 +143,83 @@ void BLO_update_defaults_startup_blend(Main *bmain)
 			if (ts->gp_sculpt.brush[0].size == 0) {
 				GP_BrushEdit_Settings *gset = &ts->gp_sculpt;
 				GP_EditBrush_Data *brush;
+				float curcolor[3], curcolor_add[3], curcolor_sub[3];
+				ARRAY_SET_ITEMS(curcolor, 1.0f, 1.0f, 1.0f);
+				ARRAY_SET_ITEMS(curcolor_add, 1.0f, 0.6f, 0.6f);
+				ARRAY_SET_ITEMS(curcolor_sub, 0.6f, 0.6f, 1.0f);
+
 				
 				brush = &gset->brush[GP_EDITBRUSH_TYPE_SMOOTH];
 				brush->size = 25;
 				brush->strength = 0.3f;
 				brush->flag = GP_EDITBRUSH_FLAG_USE_FALLOFF | GP_EDITBRUSH_FLAG_SMOOTH_PRESSURE;
-				
+				brush->flag |= GP_EDITBRUSH_FLAG_ENABLE_CURSOR;
+				copy_v3_v3(brush->curcolor_add, curcolor_add);
+				copy_v3_v3(brush->curcolor_sub, curcolor_sub);
+
 				brush = &gset->brush[GP_EDITBRUSH_TYPE_THICKNESS];
 				brush->size = 25;
 				brush->strength = 0.5f;
 				brush->flag = GP_EDITBRUSH_FLAG_USE_FALLOFF;
-				
+				brush->flag |= GP_EDITBRUSH_FLAG_ENABLE_CURSOR;
+				copy_v3_v3(brush->curcolor_add, curcolor_add);
+				copy_v3_v3(brush->curcolor_sub, curcolor_sub);
+
 				brush = &gset->brush[GP_EDITBRUSH_TYPE_STRENGTH];
 				brush->size = 25;
 				brush->strength = 0.5f;
 				brush->flag = GP_EDITBRUSH_FLAG_USE_FALLOFF;
+				brush->flag |= GP_EDITBRUSH_FLAG_ENABLE_CURSOR;
+				copy_v3_v3(brush->curcolor_add, curcolor_add);
+				copy_v3_v3(brush->curcolor_sub, curcolor_sub);
 
 				brush = &gset->brush[GP_EDITBRUSH_TYPE_GRAB];
 				brush->size = 50;
 				brush->strength = 0.3f;
 				brush->flag = GP_EDITBRUSH_FLAG_USE_FALLOFF;
-				
+				brush->flag |= GP_EDITBRUSH_FLAG_ENABLE_CURSOR;
+				copy_v3_v3(brush->curcolor_add, curcolor_add);
+				copy_v3_v3(brush->curcolor_sub, curcolor_sub);
+
 				brush = &gset->brush[GP_EDITBRUSH_TYPE_PUSH];
 				brush->size = 25;
 				brush->strength = 0.3f;
 				brush->flag = GP_EDITBRUSH_FLAG_USE_FALLOFF;
-				
+				brush->flag |= GP_EDITBRUSH_FLAG_ENABLE_CURSOR;
+				copy_v3_v3(brush->curcolor_add, curcolor_add);
+				copy_v3_v3(brush->curcolor_sub, curcolor_sub);
+
 				brush = &gset->brush[GP_EDITBRUSH_TYPE_TWIST];
 				brush->size = 50;
 				brush->strength = 0.3f; // XXX?
 				brush->flag = GP_EDITBRUSH_FLAG_USE_FALLOFF;
-				
+				brush->flag |= GP_EDITBRUSH_FLAG_ENABLE_CURSOR;
+				copy_v3_v3(brush->curcolor_add, curcolor_add);
+				copy_v3_v3(brush->curcolor_sub, curcolor_sub);
+
 				brush = &gset->brush[GP_EDITBRUSH_TYPE_PINCH];
 				brush->size = 50;
 				brush->strength = 0.5f; // XXX?
 				brush->flag = GP_EDITBRUSH_FLAG_USE_FALLOFF;
-				
+				brush->flag |= GP_EDITBRUSH_FLAG_ENABLE_CURSOR;
+				copy_v3_v3(brush->curcolor_add, curcolor_add);
+				copy_v3_v3(brush->curcolor_sub, curcolor_sub);
+
 				brush = &gset->brush[GP_EDITBRUSH_TYPE_RANDOMIZE];
 				brush->size = 25;
 				brush->strength = 0.5f;
 				brush->flag = GP_EDITBRUSH_FLAG_USE_FALLOFF;
+				brush->flag |= GP_EDITBRUSH_FLAG_ENABLE_CURSOR;
+				copy_v3_v3(brush->curcolor_add, curcolor_add);
+				copy_v3_v3(brush->curcolor_sub, curcolor_sub);
+
+				brush = &gset->brush[GP_EDITBRUSH_TYPE_WEIGHT];
+				brush->size = 25;
+				brush->strength = 0.5f;
+				brush->flag = GP_EDITBRUSH_FLAG_USE_FALLOFF;
+				brush->flag |= GP_EDITBRUSH_FLAG_ENABLE_CURSOR;
+				copy_v3_v3(brush->curcolor_add, curcolor_add);
+				copy_v3_v3(brush->curcolor_sub, curcolor_sub);
 			}
 			
 			ts->gpencil_v3d_align = GP_PROJECT_VIEWSPACE;

@@ -59,6 +59,7 @@
 #include "BKE_library.h"
 #include "BKE_report.h"
 #include "BKE_screen.h"
+#include "BKE_object_deform.h"
 
 #include "UI_interface.h"
 
@@ -89,7 +90,8 @@ typedef struct tGP_BrushEditData {
 	/* Current editor/region/etc. */
 	/* NOTE: This stuff is mainly needed to handle 3D view projection stuff... */
 	Scene *scene;
-	
+	Object *object;
+
 	ScrArea *sa;
 	ARegion *ar;
 	
@@ -140,6 +142,7 @@ typedef struct tGP_BrushEditData {
 	/* Timer for in-place accumulation of brush effect */
 	wmTimer *timer;
 	bool timerTick; /* is this event from a timer */
+	int vrgroup;    /* active vertex group */
 } tGP_BrushEditData;
 
 
@@ -800,6 +803,60 @@ static bool gp_brush_randomize_apply(tGP_BrushEditData *gso, bGPDstroke *gps, in
 	return true;
 }
 
+/* Weight Paint Brush */
+
+/* Change weight paint for vertex groups */
+static bool gp_brush_weight_apply(tGP_BrushEditData *gso, bGPDstroke *gps, int i,
+	const int radius, const int co[2])
+{
+	bGPDspoint *pt = gps->points + i;
+	float inf;
+
+	/* Compute strength of effect
+	* - We divide the strength by 10, so that users can set "sane" values.
+	*   Otherwise, good default values are in the range of 0.093
+	*/
+	inf = gp_brush_influence_calc(gso, radius, co) / 10.0f;
+
+	/* need a vertex group */
+	if (gso->vrgroup == -1) {
+		if (gso->object) {
+			BKE_object_defgroup_add(gso->object);
+			gso->vrgroup = 0;
+		}
+	}
+	/* get current weight */
+	float curweight = 0.0f;
+	for (int i = 0; i < pt->totweight; ++i) {
+		bGPDweight *gpw = &pt->weights[i];
+		if (gpw->index == gso->vrgroup) {
+			curweight = gpw->factor;
+			break;
+		}
+	}
+
+	if (gp_brush_invert_check(gso)) {
+		/* reduce weight */
+		curweight -= inf;
+		CLAMP(curweight, 0.0f, 1.0f);
+		BKE_gpencil_vgroup_add_point_weight(pt, gso->vrgroup, curweight);
+	}
+	else {
+		/* increase weight */
+		curweight += inf;
+		CLAMP(curweight, 0.0f, 1.0f);
+		BKE_gpencil_vgroup_add_point_weight(pt, gso->vrgroup, curweight);
+	}
+
+	/* weight should stay within [0.0, 1.0]	*/
+	if (pt->pressure < 0.0f)
+		pt->pressure = 0.0f;
+
+	return true;
+}
+
+
+
 /* ************************************************ */
 /* Non Callback-Based Brushes */
 
@@ -1050,6 +1107,8 @@ static void gpsculpt_brush_header_set(bContext *C, tGP_BrushEditData *gso)
 static bool gpsculpt_brush_init(bContext *C, wmOperator *op)
 {
 	Scene *scene = CTX_data_scene(C);
+	Object *ob = CTX_data_active_object(C);
+
 	tGP_BrushEditData *gso;
 	
 	/* setup operator data */
@@ -1070,7 +1129,16 @@ static bool gpsculpt_brush_init(bContext *C, wmOperator *op)
 	gso->cfra = INT_MAX; /* NOTE: So that first stroke will get handled in init_stroke() */
 	
 	gso->scene = scene;
-	
+	gso->object = ob;
+	if (ob) {
+		gso->vrgroup = ob->actdef - 1;
+		if (!BLI_findlink(&ob->defbase, gso->vrgroup)) {
+			gso->vrgroup = -1;
+		}
+	}
+	else {
+		gso->vrgroup = - 1;
+	}
 	gso->sa = CTX_wm_area(C);
 	gso->ar = CTX_wm_region(C);
 	
@@ -1442,6 +1510,13 @@ static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 					changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_randomize_apply);
 					break;
 				}
+
+				case GP_EDITBRUSH_TYPE_WEIGHT: /* Adjust vertex group weight */
+				{
+					changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_weight_apply);
+					break;
+				}
+
 
 				default:
 					printf("ERROR: Unknown type of GPencil Sculpt brush - %u\n", gso->brush_type);

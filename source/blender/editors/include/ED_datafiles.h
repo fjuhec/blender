@@ -268,5 +268,8 @@ extern char datatoc_gp_brush_randomize_png[];
 extern int datatoc_gp_brush_clone_png_size;
 extern char datatoc_gp_brush_clone_png[];
 
+extern int datatoc_gp_brush_weight_png_size;
+extern char datatoc_gp_brush_weight_png[];
+
 #endif /* __ED_DATAFILES_H__ */
 
