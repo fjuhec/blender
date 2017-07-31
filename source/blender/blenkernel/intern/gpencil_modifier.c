@@ -645,21 +645,23 @@ bool BKE_gpencil_use_this_lattice(Object *ob, Object *UNUSED(lattice))
 /* init lattice deform data */
 void BKE_gpencil_lattice_init(Object *ob)
 {
-	ModifierData *md = modifiers_findByType(ob, eModifierType_GpencilLattice);
-	if (md) {
-		GpencilLatticeModifierData *mmd = (GpencilLatticeModifierData *)md;
-		Object *latob = NULL;
+	ModifierData *md;
+	for (md = ob->modifiers.first; md; md = md->next) {
+		if (md->type == eModifierType_GpencilLattice) {
+			GpencilLatticeModifierData *mmd = (GpencilLatticeModifierData *)md;
+			Object *latob = NULL;
 
-		latob = mmd->object;
-		if ((!latob) || (latob->type != OB_LATTICE)) {
-			return;
-		}
-		if (mmd->cache_data) {
-			end_latt_deform((LatticeDeformData *)mmd->cache_data);
-		}
+			latob = mmd->object;
+			if ((!latob) || (latob->type != OB_LATTICE)) {
+				return;
+			}
+			if (mmd->cache_data) {
+				end_latt_deform((LatticeDeformData *)mmd->cache_data);
+			}
 
-		/* init deform data */
-		mmd->cache_data = (LatticeDeformData *)init_latt_deform(latob, ob);
+			/* init deform data */
+			mmd->cache_data = (LatticeDeformData *)init_latt_deform(latob, ob);
+		}
 	}
 }
 
