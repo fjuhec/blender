@@ -53,7 +53,7 @@ static void initData(ModifierData *md)
 	gpmd->rnd_rot = 0.5f;
 	gpmd->rnd_size = 0.5f;
 	/* fill random values */
-	ED_gpencil_fill_random_array(gpmd->rnd, 20);
+	BKE_gpencil_fill_random_array(gpmd->rnd, 20);
 	gpmd->rnd[0] = 1;
 
 	BKE_gpencil_batch_cache_alldirty();
@@ -80,7 +80,7 @@ static DerivedMesh *applyModifier(ModifierData *md, struct EvaluationContext *UN
 
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
-			ED_gpencil_dupli_modifier(-1, (GpencilDupliModifierData *)md, ob, gpl, gpf);
+			BKE_gpencil_dupli_modifier(-1, (GpencilDupliModifierData *)md, ob, gpl, gpf);
 		}
 	}
 

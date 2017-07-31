@@ -594,13 +594,13 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 
 	/* initialization steps */
 	if ((cache->is_dirty) && (ob->modifiers.first) && (!is_edit)) {
-		ED_gpencil_reset_modifiers(ob);
+		BKE_gpencil_reset_modifiers(ob);
 	}
 
 	/* apply geometry modifiers */
 	if ((cache->is_dirty) && (ob->modifiers.first) && (!is_edit)) {
-		if (ED_gpencil_has_geometry_modifiers(ob)) {
-			ED_gpencil_geometry_modifiers(ob, gpl, gpf);
+		if (BKE_gpencil_has_geometry_modifiers(ob)) {
+			BKE_gpencil_geometry_modifiers(ob, gpl, gpf);
 		}
 	}
 
@@ -644,7 +644,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 
 		/* apply modifiers (only modify geometry, but not create ) */
 		if ((cache->is_dirty) && (ob->modifiers.first) && (!is_edit)) {
-			ED_gpencil_stroke_modifiers(ob, gpl, gpf, gps);
+			BKE_gpencil_stroke_modifiers(ob, gpl, gpf, gps);
 		}
 		/* fill */
 		if (fillgrp) {
@@ -793,7 +793,7 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 
 	/* init general modifiers data */
 	if ((cache->is_dirty) && (ob->modifiers.first) && (!is_edit)) {
-		ED_gpencil_lattice_init(ob);
+		BKE_gpencil_lattice_init(ob);
 	}
 	/* draw normal strokes */
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
@@ -921,7 +921,7 @@ void gpencil_array_modifiers(GPENCIL_StorageList *stl, Object *ob)
 							if ((x == 0) && (y == 0) && (z == 0)) {
 								continue;
 							}
-							ED_gpencil_array_modifier(0, mmd, ob, xyz, mat);
+							BKE_gpencil_array_modifier(0, mmd, ob, xyz, mat);
 							/* add object to cache */
 							newob = MEM_dupallocN(ob);
 							newob->mode = -1; /* use this mark to delete later */

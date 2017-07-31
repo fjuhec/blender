@@ -73,7 +73,7 @@ static DerivedMesh *applyModifier(ModifierData *md, struct EvaluationContext *UN
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-				ED_gpencil_thick_modifier(-1, (GpencilThickModifierData *)md, ob, gpl, gps);
+				BKE_gpencil_thick_modifier(-1, (GpencilThickModifierData *)md, ob, gpl, gps);
 			}
 		}
 	}

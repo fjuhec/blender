@@ -70,7 +70,7 @@ static void initData(ModifierData *md)
 	gpmd->rnd_size = 0.5f;
 	gpmd->lock_axis |= GP_LOCKAXIS_X;
 	/* fill random values */
-	ED_gpencil_fill_random_array(gpmd->rnd, 20);
+	BKE_gpencil_fill_random_array(gpmd->rnd, 20);
 	gpmd->rnd[0] = 1;
 
 	BKE_gpencil_batch_cache_alldirty();
@@ -137,7 +137,7 @@ static DerivedMesh *applyModifier(ModifierData *md, struct EvaluationContext *UN
 				if ((x == 0) && (y == 0) && (z == 0)) {
 					continue;
 				}
-				ED_gpencil_array_modifier(0, mmd, ob, xyz, mat);
+				BKE_gpencil_array_modifier(0, mmd, ob, xyz, mat);
 				mul_m4_m4m4(finalmat, mat, ob->obmat);
 
 				/* create a new object and new gp datablock */

@@ -155,23 +155,23 @@ bool BKE_gpencil_vgroup_remove_point_weight(struct bGPDspoint *pt, int index);
 void BKE_gpencil_stroke_weights_duplicate(struct bGPDstroke *gps_src, struct bGPDstroke *gps_dst);
 
 /* modifiers */
-void ED_gpencil_reset_modifiers(struct Object *ob);
-bool ED_gpencil_has_geometry_modifiers(struct Object *ob);
-void ED_gpencil_stroke_modifiers(struct Object *ob, struct bGPDlayer *gpl, struct bGPDframe *gpf, struct bGPDstroke *gps);
-void ED_gpencil_geometry_modifiers(struct Object *ob, struct bGPDlayer *gpl, struct bGPDframe *gpf);
-void ED_gpencil_fill_random_array(float *ar, int count);
-void ED_gpencil_stroke_normal(const struct bGPDstroke *gps, float r_normal[3]);
-void ED_gpencil_noise_modifier(int id, struct GpencilNoiseModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
-void ED_gpencil_subdiv_modifier(int id, struct GpencilSubdivModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
-void ED_gpencil_thick_modifier(int id, struct GpencilThickModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
-void ED_gpencil_tint_modifier(int id, struct GpencilTintModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
-void ED_gpencil_color_modifier(int id, struct GpencilColorModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
-void ED_gpencil_array_modifier(int id, struct GpencilArrayModifierData *mmd, struct Object *ob, int elem_idx[3], float r_mat[4][4]);
-void ED_gpencil_dupli_modifier(int id, struct GpencilDupliModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDframe *gpf);
-void ED_gpencil_opacity_modifier(int id, struct GpencilOpacityModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
+void BKE_gpencil_reset_modifiers(struct Object *ob);
+bool BKE_gpencil_has_geometry_modifiers(struct Object *ob);
+void BKE_gpencil_stroke_modifiers(struct Object *ob, struct bGPDlayer *gpl, struct bGPDframe *gpf, struct bGPDstroke *gps);
+void BKE_gpencil_geometry_modifiers(struct Object *ob, struct bGPDlayer *gpl, struct bGPDframe *gpf);
+void BKE_gpencil_fill_random_array(float *ar, int count);
+void BKE_gpencil_stroke_normal(const struct bGPDstroke *gps, float r_normal[3]);
+void BKE_gpencil_noise_modifier(int id, struct GpencilNoiseModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
+void BKE_gpencil_subdiv_modifier(int id, struct GpencilSubdivModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
+void BKE_gpencil_thick_modifier(int id, struct GpencilThickModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
+void BKE_gpencil_tint_modifier(int id, struct GpencilTintModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
+void BKE_gpencil_color_modifier(int id, struct GpencilColorModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
+void BKE_gpencil_array_modifier(int id, struct GpencilArrayModifierData *mmd, struct Object *ob, int elem_idx[3], float r_mat[4][4]);
+void BKE_gpencil_dupli_modifier(int id, struct GpencilDupliModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDframe *gpf);
+void BKE_gpencil_opacity_modifier(int id, struct GpencilOpacityModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
 
-bool ED_gpencil_use_this_lattice(struct Object *ob, struct Object *lattice);
-void ED_gpencil_lattice_init(struct Object *ob);
-void ED_gpencil_lattice_modifier(int id, struct GpencilLatticeModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
+bool BKE_gpencil_use_this_lattice(struct Object *ob, struct Object *lattice);
+void BKE_gpencil_lattice_init(struct Object *ob);
+void BKE_gpencil_lattice_modifier(int id, struct GpencilLatticeModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
 
 #endif /*  __BKE_GPENCIL_H__ */
