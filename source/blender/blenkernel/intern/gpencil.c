@@ -1694,7 +1694,33 @@ BoundBox *BKE_gpencil_boundbox_get(Object *ob)
 /* remove a vertex group */
 void BKE_gpencil_vgroup_remove(Object *ob, bDeformGroup *defgroup)
 {
+	bGPdata *gpd = ob->gpd;
+	bGPDspoint *pt = NULL;
+	bGPDweight *gpw = NULL;
+	const int def_nr = BLI_findindex(&ob->defbase, defgroup);
+
 	/* Remove points data */
+	if (gpd) {
+		for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+			for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+				for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+					for (int i = 0; i < gps->totpoints; ++i) {
+						pt = &gps->points[i];
+						for (int i2 = 0; i2 < pt->totweight; ++i2) {
+							gpw = &pt->weights[i2];
+							if (gpw->index == def_nr) {
+								BKE_gpencil_vgroup_remove_point_weight(pt, def_nr);
+							}
+							/* if index is greater, must be moved one back */
+							if (gpw->index > def_nr) {
+								--gpw->index;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 
 	/* Remove the group */
 	BLI_freelinkN(&ob->defbase, defgroup);
