@@ -91,11 +91,24 @@ wmManipulatorGroup *wm_manipulatorgroup_new_from_type(
 void wm_manipulatorgroup_free(bContext *C, wmManipulatorGroup *mgroup)
 {
 	wmManipulatorMap *mmap = mgroup->parent_mmap;
+
+	/* Similar to WM_manipulator_unlink, but only to keep mmap state correct,
+	 * we don't want to run callbacks. */
+	if (mmap->mmap_context.highlight && mmap->mmap_context.highlight->parent_mgroup == mgroup) {
+		wm_manipulatormap_highlight_set(mmap, C, NULL, 0);
+	}
+	if (mmap->mmap_context.modal && mmap->mmap_context.modal->parent_mgroup == mgroup) {
+		wm_manipulatormap_modal_set(mmap, C, NULL, NULL);
+	}
+
 	for (wmManipulator *mpr = mgroup->manipulators.first, *mpr_next; mpr; mpr = mpr_next) {
 		mpr_next = mpr->next;
-		WM_manipulator_free(&mgroup->manipulators, mmap, mpr, C);
+		if (mmap->mmap_context.select.len) {
+			WM_manipulator_select_unlink(mmap, mpr);
+		}
+		WM_manipulator_free(mpr);
 	}
-	BLI_assert(BLI_listbase_is_empty(&mgroup->manipulators));
+	BLI_listbase_clear(&mgroup->manipulators);
 
 #ifdef WITH_PYTHON
 	if (mgroup->py_instance) {
@@ -187,7 +200,8 @@ bool wm_manipulatorgroup_is_visible(const wmManipulatorGroup *mgroup, const bCon
 	return (!mgroup->type->poll || mgroup->type->poll(C, mgroup->type));
 }
 
-bool wm_manipulatorgroup_is_visible_in_drawstep(const wmManipulatorGroup *mgroup, const int drawstep)
+bool wm_manipulatorgroup_is_visible_in_drawstep(
+        const wmManipulatorGroup *mgroup, const eWM_ManipulatorMapDrawStep drawstep)
 {
 	switch (drawstep) {
 		case WM_MANIPULATORMAP_DRAWSTEP_2D:
@@ -237,6 +251,7 @@ static int manipulator_select_invoke(bContext *C, wmOperator *op, const wmEvent 
 	if (extend == false && deselect == false && toggle == false) {
 		wm_manipulatormap_deselect_all(mmap);
 		BLI_assert(msel->items == NULL && msel->len == 0);
+		UNUSED_VARS_NDEBUG(msel);
 	}
 
 	if (highlight) {

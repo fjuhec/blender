@@ -39,7 +39,9 @@ struct GHashIterator;
 /* wmManipulator */
 
 
-bool wm_manipulator_select_set_ex(struct wmManipulatorMap *mmap, struct wmManipulator *mpr, bool select, bool use_array);
+bool wm_manipulator_select_set_ex(
+        struct wmManipulatorMap *mmap, struct wmManipulator *mpr, bool select,
+        bool use_array, bool use_callback);
 bool wm_manipulator_select_and_highlight(bContext *C, struct wmManipulatorMap *mmap, struct wmManipulator *mpr);
 
 void wm_manipulator_calculate_scale(struct wmManipulator *mpr, const bContext *C);
@@ -74,7 +76,8 @@ void wm_manipulatorgroup_intersectable_manipulators_to_list(
         const struct wmManipulatorGroup *mgroup, struct ListBase *listbase);
 void wm_manipulatorgroup_ensure_initialized(struct wmManipulatorGroup *mgroup, const struct bContext *C);
 bool wm_manipulatorgroup_is_visible(const struct wmManipulatorGroup *mgroup, const struct bContext *C);
-bool wm_manipulatorgroup_is_visible_in_drawstep(const struct wmManipulatorGroup *mgroup, const int drawstep);
+bool wm_manipulatorgroup_is_visible_in_drawstep(
+        const struct wmManipulatorGroup *mgroup, const eWM_ManipulatorMapDrawStep drawstep);
 
 void wm_manipulatorgrouptype_setup_keymap(
         struct wmManipulatorGroupType *wgt, struct wmKeyConfig *keyconf);
@@ -89,7 +92,6 @@ typedef struct wmManipulatorMapSelectState {
 } wmManipulatorMapSelectState;
 
 struct wmManipulatorMap {
-	struct wmManipulatorMap *next, *prev;
 
 	struct wmManipulatorMapType *type;
 	ListBase groups;  /* wmManipulatorGroup */

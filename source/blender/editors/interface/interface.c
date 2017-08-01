@@ -685,7 +685,7 @@ static bool ui_but_update_from_old_block(const bContext *C, uiBlock *block, uiBu
 
 	if (oldbut->active) {
 		/* flags from the buttons we want to refresh, may want to add more here... */
-		const int flag_copy = UI_BUT_REDALERT;
+		const int flag_copy = UI_BUT_REDALERT | UI_HAS_ICON;
 
 		found_active = true;
 
@@ -2218,9 +2218,9 @@ void ui_but_string_get_ex(uiBut *but, char *str, const size_t maxlen, const int 
 				ui_get_but_string_unit(but, str, maxlen, value, false, float_precision);
 			}
 			else {
-				const int prec = (float_precision == -1) ? ui_but_calc_float_precision(but, value) : float_precision;
+				int prec = (float_precision == -1) ? ui_but_calc_float_precision(but, value) : float_precision;
 				if (use_exp_float) {
-					const int l10 = (int)log10(fabs(value));
+					const int l10 = (value == 0.0f) ? 0 : (int)log10(fabs(value));
 					if (l10 < -6 || l10 > 12) {
 						BLI_snprintf(str, maxlen, "%.*g", prec, value);
 						if (r_use_exp_float) {
@@ -2228,7 +2228,9 @@ void ui_but_string_get_ex(uiBut *but, char *str, const size_t maxlen, const int 
 						}
 					}
 					else {
-						BLI_snprintf(str, maxlen, "%.*f", prec - l10 + (int)(l10 < 0), value);
+						prec -= l10 + (int)(l10 < 0);
+						CLAMP(prec, 0, UI_PRECISION_FLOAT_MAX);
+						BLI_snprintf(str, maxlen, "%.*f", prec, value);
 					}
 				}
 				else {

@@ -99,13 +99,15 @@ EnumPropertyItem rna_enum_exr_codec_items[] = {
 };
 #endif
 
-EnumPropertyItem uv_sculpt_relaxation_items[] = {
+#ifndef RNA_RUNTIME
+static EnumPropertyItem uv_sculpt_relaxation_items[] = {
 	{UV_SCULPT_TOOL_RELAX_LAPLACIAN, "LAPLACIAN", 0, "Laplacian", "Use Laplacian method for relaxation"},
 	{UV_SCULPT_TOOL_RELAX_HC, "HC", 0, "HC", "Use HC method for relaxation"},
 	{0, NULL, 0, NULL, NULL}
 };
+#endif
 
-EnumPropertyItem uv_sculpt_tool_items[] = {
+EnumPropertyItem rna_enum_uv_sculpt_tool_items[] = {
 	{UV_SCULPT_TOOL_PINCH, "PINCH", 0, "Pinch", "Pinch UVs"},
 	{UV_SCULPT_TOOL_RELAX, "RELAX", 0, "Relax", "Relax UVs"},
 	{UV_SCULPT_TOOL_GRAB, "GRAB", 0, "Grab", "Grab UVs"},
@@ -180,11 +182,13 @@ EnumPropertyItem rna_enum_snap_node_element_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
-EnumPropertyItem snap_uv_element_items[] = {
+#ifndef RNA_RUNTIME
+static EnumPropertyItem snap_uv_element_items[] = {
 	{SCE_SNAP_MODE_INCREMENT, "INCREMENT", ICON_SNAP_INCREMENT, "Increment", "Snap to increments of grid"},
 	{SCE_SNAP_MODE_VERTEX, "VERTEX", ICON_SNAP_VERTEX, "Vertex", "Snap to vertices"},
 	{0, NULL, 0, NULL, NULL}
 };
+#endif
 
 EnumPropertyItem rna_enum_curve_fit_method_items[] = {
 	{CURVE_PAINT_FIT_METHOD_REFIT, "REFIT", 0, "Refit", "Incrementally re-fit the curve (high quality)"},
@@ -270,12 +274,14 @@ EnumPropertyItem rna_enum_curve_fit_method_items[] = {
 	R_IMF_ENUM_TIFF                                                           \
 
 
-EnumPropertyItem image_only_type_items[] = {
+#ifdef RNA_RUNTIME
+static EnumPropertyItem image_only_type_items[] = {
 
 	IMAGE_TYPE_ITEMS_IMAGE_ONLY
 
 	{0, NULL, 0, NULL, NULL}
 };
+#endif
 
 EnumPropertyItem rna_enum_image_type_items[] = {
 	{0, "", 0, N_("Image"), NULL},
@@ -413,7 +419,8 @@ EnumPropertyItem rna_enum_bake_pass_filter_type_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
-EnumPropertyItem rna_enum_gpencil_interpolation_mode_items[] = {
+#ifndef RNA_RUNTIME
+static EnumPropertyItem rna_enum_gpencil_interpolation_mode_items[] = {
 	/* interpolation */
 	{0, "", 0, N_("Interpolation"), "Standard transitions between keyframes"},
 	{GP_IPO_LINEAR,   "LINEAR", ICON_IPO_LINEAR, "Linear", "Straight-line interpolation between A and B (i.e. no ease in/out)"},
@@ -436,6 +443,8 @@ EnumPropertyItem rna_enum_gpencil_interpolation_mode_items[] = {
 	
 	{0, NULL, 0, NULL, NULL}
 };
+
+#endif
 
 EnumPropertyItem rna_enum_layer_collection_mode_settings_type_items[] = {
 	{COLLECTION_MODE_OBJECT, "OBJECT", 0, "Object", ""},
@@ -2628,7 +2637,8 @@ RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(volumetric_colored_transmittance)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(ssr_enable)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(ssr_halfres)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(ssr_ray_count)
-RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(ssr_stride)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(ssr_quality)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(ssr_max_roughness)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(ssr_thickness)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(ssr_border_fade)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(ssr_firefly_fac)
@@ -3560,7 +3570,7 @@ static void rna_def_tool_settings(BlenderRNA  *brna)
 
 	prop = RNA_def_property(srna, "uv_sculpt_tool", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "uv_sculpt_tool");
-	RNA_def_property_enum_items(prop, uv_sculpt_tool_items);
+	RNA_def_property_enum_items(prop, rna_enum_uv_sculpt_tool_items);
 	RNA_def_property_ui_text(prop, "UV Sculpt Tools", "Select Tools for the UV sculpt brushes");
 
 	prop = RNA_def_property(srna, "uv_relax_method", PROP_ENUM, PROP_NONE);
@@ -6201,11 +6211,19 @@ static void rna_def_scene_layer_engine_settings_eevee(BlenderRNA *brna)
 	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
 
-	prop = RNA_def_property(srna, "ssr_stride", PROP_INT, PROP_PIXEL);
-	RNA_def_property_int_funcs(prop, "rna_LayerEngineSettings_Eevee_ssr_stride_get",
-	                               "rna_LayerEngineSettings_Eevee_ssr_stride_set", NULL);
-	RNA_def_property_ui_text(prop, "Stride", "Step size between two raymarching samples");
-	RNA_def_property_range(prop, 1, 32);
+	prop = RNA_def_property(srna, "ssr_quality", PROP_FLOAT, PROP_FACTOR);
+	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Eevee_ssr_quality_get",
+	                               "rna_LayerEngineSettings_Eevee_ssr_quality_set", NULL);
+	RNA_def_property_ui_text(prop, "Trace Quality", "Quality of the screen space raytracing");
+	RNA_def_property_range(prop, 0.0f, 1.0f);
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
+
+	prop = RNA_def_property(srna, "ssr_max_roughness", PROP_FLOAT, PROP_FACTOR);
+	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Eevee_ssr_max_roughness_get",
+	                               "rna_LayerEngineSettings_Eevee_ssr_max_roughness_set", NULL);
+	RNA_def_property_ui_text(prop, "Max Roughness", "Do not raytrace reflections for roughness above this value");
+	RNA_def_property_range(prop, 0.0f, 1.0f);
 	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
 
@@ -6234,11 +6252,11 @@ static void rna_def_scene_layer_engine_settings_eevee(BlenderRNA *brna)
 	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
 
-	prop = RNA_def_property(srna, "ssr_firefly_fac", PROP_FLOAT, PROP_FACTOR);
+	prop = RNA_def_property(srna, "ssr_firefly_fac", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Eevee_ssr_firefly_fac_get",
 	                               "rna_LayerEngineSettings_Eevee_ssr_firefly_fac_set", NULL);
-	RNA_def_property_ui_text(prop, "Clamp", "Smoothly clamp pixel intensity to remove noise");
-	RNA_def_property_range(prop, 0.0f, 1.0f);
+	RNA_def_property_ui_text(prop, "Clamp", "Clamp pixel intensity to remove noise (0 to disabled)");
+	RNA_def_property_range(prop, 0.0f, FLT_MAX);
 	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
 

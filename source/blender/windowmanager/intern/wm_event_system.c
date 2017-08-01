@@ -1116,6 +1116,9 @@ bool WM_operator_last_properties_store(wmOperator *UNUSED(op))
 
 #endif
 
+/**
+ * Also used for exec when 'event' is NULL.
+ */
 static int wm_operator_invoke(
         bContext *C, wmOperatorType *ot, wmEvent *event,
         PointerRNA *properties, ReportList *reports, const bool poll_only)
@@ -1131,7 +1134,9 @@ static int wm_operator_invoke(
 		wmOperator *op = wm_operator_create(wm, ot, properties, reports); /* if reports == NULL, they'll be initialized */
 		const bool is_nested_call = (wm->op_undo_depth != 0);
 		
-		op->flag |= OP_IS_INVOKE;
+		if (event != NULL) {
+			op->flag |= OP_IS_INVOKE;
+		}
 
 		/* initialize setting from previous run */
 		if (!is_nested_call) { /* not called by py script */
@@ -2194,6 +2199,10 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 				ARegion *region = CTX_wm_region(C);
 				wmManipulatorMap *mmap = handler->manipulator_map;
 				wmManipulator *mpr = wm_manipulatormap_highlight_get(mmap);
+
+				if (region->manipulator_map != handler->manipulator_map) {
+					WM_manipulatormap_tag_refresh(handler->manipulator_map);
+				}
 
 				wm_manipulatormap_handler_context(C, handler);
 				wm_region_mouse_co(C, event);
