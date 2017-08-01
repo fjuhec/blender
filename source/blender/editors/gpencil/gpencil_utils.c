@@ -1347,8 +1347,14 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *UNUSED(customda
 {
 	Scene *scene = CTX_data_scene(C);
 	GP_BrushEdit_Settings *gset = &scene->toolsettings->gp_sculpt;
-	GP_EditBrush_Data *brush = &gset->brush[gset->brushtype];
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	GP_EditBrush_Data *brush = NULL;
+	if ((gpd) && (gpd->flag & GP_DATA_STROKE_WEIGHTMODE)) {
+		brush = &gset->brush[gset->weighttype];
+	}
+	else {
+		brush = &gset->brush[gset->brushtype];
+	}
 	bGPDbrush *paintbrush;
 
 	/* default radius and color */
@@ -1381,7 +1387,7 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *UNUSED(customda
 	}
 
 	/* for sculpt use sculpt brush size */
-	if (gpd->flag & GP_DATA_STROKE_SCULPTMODE) {
+	if (gpd->flag & (GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)) {
 		if (brush) {
 			if ((brush->flag & GP_EDITBRUSH_FLAG_ENABLE_CURSOR) == 0) {
 				return;

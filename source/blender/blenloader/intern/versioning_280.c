@@ -501,6 +501,16 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 		}
 
 		/* grease pencil sculpt and paint cursors */
+		if (!DNA_struct_elem_find(fd->filesdna, "GP_BrushEdit_Settings", "int", "weighttype")) {
+			for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+				/* sculpt brushes */
+				GP_BrushEdit_Settings *gset = &scene->toolsettings->gp_sculpt;
+				if (gset) {
+					gset->weighttype = GP_EDITBRUSH_TYPE_WEIGHT;
+				}
+			}
+		}
+
 		if (!DNA_struct_elem_find(fd->filesdna, "bGPDbrush", "float", "curcolor[3]")) {
 			float curcolor[3], curcolor_add[3], curcolor_sub[3];
 			ARRAY_SET_ITEMS(curcolor, 1.0f, 1.0f, 1.0f);

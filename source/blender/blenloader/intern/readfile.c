@@ -4895,6 +4895,7 @@ static void lib_link_object(FileData *fd, Main *main)
 					ob->gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
 					ob->gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
 					ob->gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
+					ob->gpd->flag &= ~GP_DATA_STROKE_WEIGHTMODE;
 				}
 			}
 			ob->duplilist = NULL;

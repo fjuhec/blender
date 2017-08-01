@@ -114,7 +114,7 @@ static bool gpencil_batch_cache_valid(Object *ob, bGPdata *gpd, int cfra)
 		return false;
 	}
 
-	cache->is_editmode = gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE);
+	cache->is_editmode = gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE);
 
 	if (cfra != cache->cache_frame) {
 		return false;
@@ -175,7 +175,7 @@ static void gpencil_batch_cache_init(Object *ob, int cfra)
 	cache->batch_fill = MEM_callocN(sizeof(struct Gwn_Batch) * cache->cache_size, "Gpencil_Batch_Fill");
 	cache->batch_edit = MEM_callocN(sizeof(struct Gwn_Batch) * cache->cache_size, "Gpencil_Batch_Edit");
 
-	cache->is_editmode = gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE);
+	cache->is_editmode = gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE);
 	gpd->flag &= ~GP_DATA_CACHE_IS_DIRTY;
 
 	cache->cache_idx = 0;
@@ -553,14 +553,12 @@ static void gpencil_add_stroke_shgroup(GpencilBatchCache *cache, DRWShadingGroup
 /* add edit points shading group to pass */
 static void gpencil_add_editpoints_shgroup(GPENCIL_StorageList *stl, GpencilBatchCache *cache, ToolSettings *ts,
 	Object *ob, bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf, bGPDstroke *gps) {
-	if ((gpl->flag & GP_LAYER_LOCKED) == 0 && (gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE)))
+	if ((gpl->flag & GP_LAYER_LOCKED) == 0 && (gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)))
 	{
 		const DRWContextState *draw_ctx = DRW_context_state_get();
 		Scene *scene = draw_ctx->scene;
 		Object *obact = draw_ctx->obact;
-		GP_BrushEdit_Settings *gset = &scene->toolsettings->gp_sculpt;
-		int brush_index = gset->brushtype;
-		bool is_weight_paint = (gpd) && (brush_index >= GP_EDITBRUSH_TYPE_WEIGHT) && (gpd->flag & GP_DATA_STROKE_SCULPTMODE);
+		bool is_weight_paint = (gpd) && (gpd->flag & GP_DATA_STROKE_WEIGHTMODE);
 
 		if ((gps->flag & GP_STROKE_SELECT) || (is_weight_paint)) {
 			if ((gpl->flag & GP_LAYER_UNLOCK_COLOR) || ((gps->palcolor->flag & PC_COLOR_LOCKED) == 0)) {
@@ -589,7 +587,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 	DRWShadingGroup *fillgrp;
 	DRWShadingGroup *strokegrp;
 	float viewmatrix[4][4];
-	bool is_edit = (bool)((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE)) || (onion));
+	bool is_edit = (bool)((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)) || (onion));
 	ListBase tmp_colors = { NULL, NULL };
 
 	/* get parent matrix and save as static data */
@@ -786,7 +784,7 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene *scene, Object *ob, ToolSettings *ts, bGPdata *gpd)
 {
 	bGPDframe *derived_gpf = NULL;
-	bool is_edit = (bool)(gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE));
+	bool is_edit = (bool)(gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE));
 
 	if (G.debug_value == 668) {
 		printf("DRW_gpencil_populate_datablock: %s\n", gpd->id.name);
@@ -906,7 +904,7 @@ void gpencil_array_modifiers(GPENCIL_StorageList *stl, Object *ob)
 
 	if ((ob) && (ob->gpd)) {
 		gpd = ob->gpd;
-		if (gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE)) {
+		if (gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)) {
 			return;
 		}
 	}

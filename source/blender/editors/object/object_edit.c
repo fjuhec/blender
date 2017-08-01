@@ -1412,7 +1412,7 @@ static EnumPropertyItem *object_mode_set_itemsf(bContext *C, PointerRNA *UNUSED(
 			    (ELEM(input->value, OB_MODE_SCULPT, OB_MODE_VERTEX_PAINT,
 			           OB_MODE_WEIGHT_PAINT, OB_MODE_TEXTURE_PAINT) && (ob->type == OB_MESH)) ||
 				(ELEM(input->value, OB_MODE_GPENCIL_EDIT, OB_MODE_GPENCIL_PAINT, 
-					  OB_MODE_GPENCIL_SCULPT) && (ob->type == OB_GPENCIL)) ||
+					  OB_MODE_GPENCIL_SCULPT, OB_MODE_GPENCIL_WEIGHT) && (ob->type == OB_GPENCIL)) ||
 			    (input->value == OB_MODE_OBJECT))
 			{
 				RNA_enum_item_add(&item, &totitem, input);
@@ -1454,6 +1454,8 @@ static const char *object_mode_op_string(int mode)
 		return "GPENCIL_OT_paintmode_toggle";
 	if (mode == OB_MODE_GPENCIL_SCULPT)
 		return "GPENCIL_OT_sculptmode_toggle";
+	if (mode == OB_MODE_GPENCIL_WEIGHT)
+		return "GPENCIL_OT_weightmode_toggle";
 	return NULL;
 }
 
@@ -1490,7 +1492,7 @@ static bool object_mode_compat_test(Object *ob, ObjectMode mode)
 					return true;
 				break;
 			case OB_GPENCIL:
-				if (mode & (OB_MODE_GPENCIL_EDIT | OB_MODE_GPENCIL_PAINT | OB_MODE_GPENCIL_SCULPT))
+				if (mode & (OB_MODE_GPENCIL_EDIT | OB_MODE_GPENCIL_PAINT | OB_MODE_GPENCIL_SCULPT | OB_MODE_GPENCIL_WEIGHT))
 				{
 					return true;
 				}
@@ -1568,6 +1570,9 @@ static int object_mode_set_exec(bContext *C, wmOperator *op)
 				if (ob->mode == OB_MODE_GPENCIL_SCULPT) {
 					WM_operator_name_call(C, "GPENCIL_OT_sculptmode_toggle", WM_OP_EXEC_REGION_WIN, NULL);
 				}
+				if (ob->mode == OB_MODE_GPENCIL_WEIGHT) {
+					WM_operator_name_call(C, "GPENCIL_OT_weightmode_toggle", WM_OP_EXEC_REGION_WIN, NULL);
+				}
 				return OPERATOR_FINISHED;
 			}
 			if (mode == OB_MODE_GPENCIL_EDIT) {
@@ -1583,6 +1588,11 @@ static int object_mode_set_exec(bContext *C, wmOperator *op)
 			if (mode == OB_MODE_GPENCIL_SCULPT) {
 				ob->restore_mode = ob->mode;
 				WM_operator_name_call(C, "GPENCIL_OT_sculptmode_toggle", WM_OP_EXEC_REGION_WIN, NULL);
+				return OPERATOR_FINISHED;
+			}
+			if (mode == OB_MODE_GPENCIL_WEIGHT) {
+				ob->restore_mode = ob->mode;
+				WM_operator_name_call(C, "GPENCIL_OT_weightmode_toggle", WM_OP_EXEC_REGION_WIN, NULL);
 				return OPERATOR_FINISHED;
 			}
 		}

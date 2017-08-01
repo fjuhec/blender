@@ -64,7 +64,8 @@ class VIEW3D_PT_tools_transform(View3DPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        if context.active_object and context.active_object.mode in ('GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT'):
+        is_gpmode = context.active_object.mode in ('GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT', 'GPENCIL_WEIGHT')
+        if context.active_object and is_gpmode:
             return False
         else:
             return True
@@ -88,7 +89,8 @@ class VIEW3D_PT_tools_object(View3DPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        if context.active_object and context.active_object.mode in ('GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT'):
+        is_gpmode = context.active_object.mode in ('GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT', 'GPENCIL_WEIGHT')
+        if context.active_object and is_gpmode:
             return False
         else:
             return True
@@ -142,7 +144,8 @@ class VIEW3D_PT_tools_add_object(View3DPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        if context.active_object and context.active_object.mode in ('GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT'):
+        is_gpmode = context.active_object.mode in ('GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT', 'GPENCIL_WEIGHT')
+        if context.active_object and is_gpmode:
             return False
         else:
             return True
@@ -245,7 +248,8 @@ class VIEW3D_PT_tools_relations(View3DPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        if context.active_object and context.active_object.mode in ('GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT'):
+        is_gpmode = context.active_object.mode in ('GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT', 'GPENCIL_WEIGHT')
+        if context.active_object and is_gpmode:
             return False
         else:
             return True
@@ -287,7 +291,8 @@ class VIEW3D_PT_tools_animation(View3DPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        if context.active_object and context.active_object.mode in ('GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT'):
+        is_gpmode = context.active_object.mode in ('GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT', 'GPENCIL_WEIGHT')
+        if context.active_object and is_gpmode:
             return False
         else:
             return True
@@ -321,7 +326,8 @@ class VIEW3D_PT_tools_rigid_body(View3DPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        if context.active_object and context.active_object.mode in ('GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT'):
+        is_gpmode = context.active_object.mode in ('GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT', 'GPENCIL_WEIGHT')
+        if context.active_object and is_gpmode:
             return False
         else:
             return True

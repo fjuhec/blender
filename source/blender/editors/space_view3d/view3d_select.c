@@ -1610,6 +1610,9 @@ static bool ed_object_select_pick(
 				else if (basact->object->mode == OB_MODE_GPENCIL_SCULPT) {
 					ED_gpencil_toggle_brush_cursor(C, true);
 				}
+				else if (basact->object->mode == OB_MODE_GPENCIL_WEIGHT) {
+					ED_gpencil_toggle_brush_cursor(C, true);
+				}
 				else {
 					/* TODO: maybe is better use restore */
 					ED_gpencil_toggle_brush_cursor(C, false);

@@ -85,6 +85,33 @@
 #include "gpencil_intern.h"
 
 /* ************************************************ */
+/* verify if is using the right brush */
+static void gpencil_verify_brush_type(bContext *C, int newmode)
+{
+	ToolSettings *ts = CTX_data_tool_settings(C);
+	GP_BrushEdit_Settings *gset = &ts->gp_sculpt;
+
+	switch (newmode)
+	{
+	case OB_MODE_GPENCIL_SCULPT:
+		gset->flag &= ~GP_BRUSHEDIT_FLAG_WEIGHT_MODE;
+		if ((gset->brushtype < 0) && (gset->brushtype >= GP_EDITBRUSH_TYPE_WEIGHT)) {
+			gset->brushtype = 0;
+		}
+		break;
+	case OB_MODE_GPENCIL_WEIGHT:
+		gset->flag |= GP_BRUSHEDIT_FLAG_WEIGHT_MODE;
+		if ((gset->weighttype < GP_EDITBRUSH_TYPE_WEIGHT) && (gset->weighttype >= TOT_GP_EDITBRUSH_TYPES)) {
+			gset->weighttype = GP_EDITBRUSH_TYPE_WEIGHT;
+		}
+		break;
+	default:
+		break;
+	}
+
+}
+
+
 /* setup modes and cursor */
 static void gpencil_setup_modes(bContext *C, bGPdata *gpd, int newmode)
 {
@@ -98,18 +125,30 @@ static void gpencil_setup_modes(bContext *C, bGPdata *gpd, int newmode)
 		gpd->flag |= GP_DATA_STROKE_EDITMODE;
 		gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
 		gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
+		gpd->flag &= ~GP_DATA_STROKE_WEIGHTMODE;
 		ED_gpencil_toggle_brush_cursor(C, false);
 		break;
 	case OB_MODE_GPENCIL_PAINT:
 		gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
 		gpd->flag |= GP_DATA_STROKE_PAINTMODE;
 		gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
+		gpd->flag &= ~GP_DATA_STROKE_WEIGHTMODE;
 		ED_gpencil_toggle_brush_cursor(C, true);
 		break;
 	case OB_MODE_GPENCIL_SCULPT:
 		gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
 		gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
 		gpd->flag |= GP_DATA_STROKE_SCULPTMODE;
+		gpd->flag &= ~GP_DATA_STROKE_WEIGHTMODE;
+		gpencil_verify_brush_type(C, OB_MODE_GPENCIL_SCULPT);
+		ED_gpencil_toggle_brush_cursor(C, true);
+		break;
+	case OB_MODE_GPENCIL_WEIGHT:
+		gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
+		gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
+		gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
+		gpd->flag |= GP_DATA_STROKE_WEIGHTMODE;
+		gpencil_verify_brush_type(C, OB_MODE_GPENCIL_WEIGHT);
 		ED_gpencil_toggle_brush_cursor(C, true);
 		break;
 	default:
@@ -282,7 +321,7 @@ void GPENCIL_OT_paintmode_toggle(wmOperatorType *ot)
 	RNA_def_int(ot->srna, "back", 0, 0, 1, "back", "1 to back previous mode", 0, 1);
 }
 
-/* Stroke Scupt Mode Management */
+/* Stroke Sculpt Mode Management */
 
 static int gpencil_sculptmode_toggle_poll(bContext *C)
 {
@@ -354,6 +393,85 @@ void GPENCIL_OT_sculptmode_toggle(wmOperatorType *ot)
 	/* callbacks */
 	ot->exec = gpencil_sculptmode_toggle_exec;
 	ot->poll = gpencil_sculptmode_toggle_poll;
+
+	/* flags */
+	ot->flag = OPTYPE_UNDO | OPTYPE_REGISTER;
+	/* properties */
+	RNA_def_int(ot->srna, "back", 0, 0, 1, "back", "1 to back previous mode", 0, 1);
+}
+
+/* Stroke Weight Paint Mode Management */
+
+static int gpencil_weightmode_toggle_poll(bContext *C)
+{
+	/* if using gpencil object, use this gpd */
+	Object *ob = CTX_data_active_object(C);
+	if ((ob) && (ob->type == OB_GPENCIL)) {
+		return ob->gpd != NULL;
+	}
+	return ED_gpencil_data_get_active(C) != NULL;
+}
+
+static int gpencil_weightmode_toggle_exec(bContext *C, wmOperator *op)
+{
+	const int back = RNA_int_get(op->ptr, "back");
+
+	WorkSpace *workspace = CTX_wm_workspace(C);
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	bool is_object = false;
+	int mode;
+	/* if using a gpencil object, use this datablock */
+	Object *ob = CTX_data_active_object(C);
+	if ((ob) && (ob->type == OB_GPENCIL)) {
+		gpd = ob->gpd;
+		is_object = true;
+	}
+
+	if (gpd == NULL)
+		return OPERATOR_CANCELLED;
+
+	/* Just toggle weightmode flag... */
+	gpd->flag ^= GP_DATA_STROKE_WEIGHTMODE;
+	/* set mode */
+	if (gpd->flag & GP_DATA_STROKE_WEIGHTMODE) {
+		mode = OB_MODE_GPENCIL_WEIGHT;
+	}
+	else {
+		mode = OB_MODE_OBJECT;
+	}
+
+	if (is_object) {
+		/* try to back previous mode */
+		if ((ob->restore_mode) && ((gpd->flag & GP_DATA_STROKE_WEIGHTMODE) == 0) && (back == 1)) {
+			mode = ob->restore_mode;
+		}
+		ob->restore_mode = ob->mode;
+		ob->mode = mode;
+	}
+
+	/* set workspace mode */
+	BKE_workspace_object_mode_set(workspace, mode);
+	/* setup other modes */
+	gpencil_setup_modes(C, gpd, mode);
+	/* set cache as dirty */
+	BKE_gpencil_batch_cache_dirty(gpd);
+
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | ND_GPENCIL_EDITMODE, NULL);
+	WM_event_add_notifier(C, NC_SCENE | ND_MODE, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void GPENCIL_OT_weightmode_toggle(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Strokes Weight Mode Toggle";
+	ot->idname = "GPENCIL_OT_weightmode_toggle";
+	ot->description = "Enter/Exit weight paint mode for Grease Pencil strokes";
+
+	/* callbacks */
+	ot->exec = gpencil_weightmode_toggle_exec;
+	ot->poll = gpencil_weightmode_toggle_poll;
 
 	/* flags */
 	ot->flag = OPTYPE_UNDO | OPTYPE_REGISTER;

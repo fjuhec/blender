@@ -722,6 +722,7 @@ typedef enum ObjectMode {
 	OB_MODE_GPENCIL_EDIT  = 1 << 7,  
 	OB_MODE_GPENCIL_PAINT = 1 << 8,  
 	OB_MODE_GPENCIL_SCULPT= 1 << 9,  
+	OB_MODE_GPENCIL_WEIGHT= 1 << 10,
 } ObjectMode;
 
 /* any mode where the brush system is used */

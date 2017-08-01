@@ -1245,10 +1245,16 @@ typedef struct GP_BrushEdit_Settings {
 	GP_EditBrush_Data brush[12];  /* TOT_GP_EDITBRUSH_TYPES */
 	void *paintcursor;            /* runtime */
 	
-	int brushtype;                /* eGP_EditBrush_Types */
+	int brushtype;                /* eGP_EditBrush_Types (sculpt) */
 	int flag;                     /* eGP_BrushEdit_SettingsFlag */
 	int lock_axis;                /* lock drawing to one axis */
 	float alpha;                  /* alpha factor for selection color */
+
+	/* weight paint is a submode of sculpt but use its own index. All weight paint
+	 * brushes must be defined at the end of the brush array.
+	 */
+	int weighttype;               /* eGP_EditBrush_Types (weight paint) */
+	char pad[4];
 } GP_BrushEdit_Settings;
 
 /* GP_BrushEdit_Settings.flag */
@@ -1261,6 +1267,8 @@ typedef enum eGP_BrushEdit_SettingsFlag {
 	GP_BRUSHEDIT_FLAG_APPLY_STRENGTH = (1 << 2),
 	/* apply brush to thickness */
 	GP_BRUSHEDIT_FLAG_APPLY_THICKNESS = (1 << 3),
+	/* apply brush to thickness */
+	GP_BRUSHEDIT_FLAG_WEIGHT_MODE = (1 << 4),
 } eGP_BrushEdit_SettingsFlag;
 
 

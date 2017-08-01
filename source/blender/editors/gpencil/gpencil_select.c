@@ -73,7 +73,7 @@ static int gpencil_select_poll(bContext *C)
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	
 	/* we just need some visible strokes, and to be in editmode or other modes only to catch event */
-	if ((gpd) && (gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_PAINTMODE | GP_DATA_STROKE_SCULPTMODE))) {
+	if ((gpd) && (gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_PAINTMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE))) {
 		/* TODO: include a check for visible strokes? */
 		if (gpd->layers.first)
 			return true;
@@ -96,7 +96,7 @@ static int gpencil_select_all_exec(bContext *C, wmOperator *op)
 	}
 	
 	/* if not edit/sculpt mode, the event is catched but not processed */
-	if ((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE)) == 0) {
+	if ((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)) == 0) {
 		return OPERATOR_CANCELLED;
 	}
 
@@ -220,7 +220,7 @@ static int gpencil_select_linked_exec(bContext *C, wmOperator *op)
 	}
 
 	/* if not edit/sculpt mode, the event is catched but not processed */
-	if ((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE)) == 0) {
+	if ((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)) == 0) {
 		return OPERATOR_CANCELLED;
 	}
 
@@ -363,7 +363,7 @@ static int gpencil_select_grouped_exec(bContext *C, wmOperator *op)
 	eGP_SelectGrouped mode = RNA_enum_get(op->ptr, "type");
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	/* if not edit/sculpt mode, the event is catched but not processed */
-	if ((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE)) == 0) {
+	if ((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)) == 0) {
 		return OPERATOR_CANCELLED;
 	}
 
@@ -417,7 +417,7 @@ static int gpencil_select_first_exec(bContext *C, wmOperator *op)
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	/* if not edit/sculpt mode, the event is catched but not processed */
-	if ((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE)) == 0) {
+	if ((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)) == 0) {
 		return OPERATOR_CANCELLED;
 	}
 
@@ -483,7 +483,7 @@ static int gpencil_select_last_exec(bContext *C, wmOperator *op)
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	/* if not edit/sculpt mode, the event is catched but not processed */
-	if ((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE)) == 0) {
+	if ((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)) == 0) {
 		return OPERATOR_CANCELLED;
 	}
 
@@ -549,7 +549,7 @@ static int gpencil_select_more_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	/* if not edit/sculpt mode, the event is catched but not processed */
-	if ((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE)) == 0) {
+	if ((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)) == 0) {
 		return OPERATOR_CANCELLED;
 	}
 
@@ -625,7 +625,7 @@ static int gpencil_select_less_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	/* if not edit/sculpt mode, the event is catched but not processed */
-	if ((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE)) == 0) {
+	if ((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)) == 0) {
 		return OPERATOR_CANCELLED;
 	}
 
@@ -794,7 +794,7 @@ static int gpencil_circle_select_exec(bContext *C, wmOperator *op)
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	/* if not edit/sculpt mode, the event is catched but not processed */
-	if ((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE)) == 0) {
+	if ((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)) == 0) {
 		return OPERATOR_CANCELLED;
 	}
 
@@ -877,7 +877,7 @@ static int gpencil_border_select_exec(bContext *C, wmOperator *op)
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	/* if not edit/sculpt mode, the event is catched but not processed */
-	if ((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE)) == 0) {
+	if ((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)) == 0) {
 		return OPERATOR_CANCELLED;
 	}
 
@@ -992,7 +992,7 @@ static int gpencil_lasso_select_exec(bContext *C, wmOperator *op)
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	/* if not edit/sculpt mode, the event is catched but not processed */
-	if ((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE)) == 0) {
+	if ((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)) == 0) {
 		return OPERATOR_CANCELLED;
 	}
 

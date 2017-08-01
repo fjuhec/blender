@@ -2349,6 +2349,7 @@ static int gpencil_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event
 			/* disable other GP modes */
 			p->gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
 			p->gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
+			p->gpd->flag &= ~GP_DATA_STROKE_WEIGHTMODE;
 			ob->mode = OB_MODE_GPENCIL_PAINT;
 			/* set workspace mode */
 			BKE_workspace_object_mode_set(workspace, ob->mode);

@@ -616,9 +616,7 @@ Gwn_Batch *DRW_gpencil_get_edit_geom(bGPDstroke *gps, float alpha, short dflag)
 	Object *ob = draw_ctx->obact;
 	bGPdata *gpd = ob->gpd;
 	ToolSettings *ts = scene->toolsettings;
-	GP_BrushEdit_Settings *gset = &scene->toolsettings->gp_sculpt;
-	int brush_index = gset->brushtype;
-	bool is_weight_paint = (gpd) && (brush_index >= GP_EDITBRUSH_TYPE_WEIGHT) && (gpd->flag & GP_DATA_STROKE_SCULPTMODE);
+	bool is_weight_paint = (gpd) && (gpd->flag & GP_DATA_STROKE_WEIGHTMODE);
 
 	int vgindex = ob->actdef - 1;
 	if (!BLI_findlink(&ob->defbase, vgindex)) {

@@ -72,7 +72,8 @@ EnumPropertyItem rna_enum_object_mode_items[] = {
 	{OB_MODE_PARTICLE_EDIT, "PARTICLE_EDIT", ICON_PARTICLEMODE, "Particle Edit", ""},
 	{OB_MODE_GPENCIL_EDIT, "GPENCIL_EDIT", ICON_GREASEPENCIL, "Edit Mode", "Edit Grease Pencil Strokes"},
 	{OB_MODE_GPENCIL_SCULPT, "GPENCIL_SCULPT", ICON_SCULPTMODE_HLT, "Sculpt Mode", "Sculpt Grease Pencil Strokes"},
-	{ OB_MODE_GPENCIL_PAINT, "GPENCIL_PAINT", ICON_GPENCIL_STROKE_PAINT, "Stroke Paint", "Paint Grease Pencil Strokes" },
+	{OB_MODE_GPENCIL_PAINT, "GPENCIL_PAINT", ICON_GPENCIL_STROKE_PAINT, "Stroke Paint", "Paint Grease Pencil Strokes" },
+	{OB_MODE_GPENCIL_WEIGHT, "GPENCIL_WEIGHT", ICON_WPAINT_HLT, "Weight Paint", "Grease Pencil Weight Paint Strokes" },
 	{0, NULL, 0, NULL, NULL}
 };
 

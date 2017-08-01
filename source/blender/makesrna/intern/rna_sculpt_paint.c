@@ -70,7 +70,11 @@ EnumPropertyItem rna_enum_gpencil_sculpt_brush_items[] = {
 	{GP_EDITBRUSH_TYPE_PINCH, "PINCH", ICON_GPBRUSH_PINCH, "Pinch", "Pull points towards the midpoint of the brush"},
 	{GP_EDITBRUSH_TYPE_RANDOMIZE, "RANDOMIZE", ICON_GPBRUSH_RANDOMIZE, "Randomize", "Introduce jitter/randomness into strokes"},
 	{GP_EDITBRUSH_TYPE_CLONE, "CLONE", ICON_GPBRUSH_CLONE, "Clone", "Paste copies of the strokes stored on the clipboard"},
-	{GP_EDITBRUSH_TYPE_WEIGHT, "WEIGHT", ICON_GPBRUSH_WEIGHT, "Weight", "Weight Paint for Vertex Groups" },
+	{ 0, NULL, 0, NULL, NULL }
+};
+
+EnumPropertyItem rna_enum_gpencil_weight_brush_items[] = {
+	{ GP_EDITBRUSH_TYPE_WEIGHT, "WEIGHT", ICON_GPBRUSH_WEIGHT, "Weight", "Weight Paint for Vertex Groups" },
 	{ 0, NULL, 0, NULL, NULL }
 };
 
@@ -411,10 +415,15 @@ static PointerRNA rna_GPencilSculptSettings_brush_get(PointerRNA *ptr)
 {
 	GP_BrushEdit_Settings *gset = (GP_BrushEdit_Settings *)ptr->data;
 	GP_EditBrush_Data *brush = NULL;
-	
-	if ((gset->brushtype >= 0) && (gset->brushtype < TOT_GP_EDITBRUSH_TYPES))
-		brush = &gset->brush[gset->brushtype];
 
+	if ((gset) && (gset->flag & GP_BRUSHEDIT_FLAG_WEIGHT_MODE)) {
+		if ((gset->weighttype >= GP_EDITBRUSH_TYPE_WEIGHT) && (gset->weighttype < TOT_GP_EDITBRUSH_TYPES))
+			brush = &gset->brush[gset->weighttype];
+	}
+	else {
+		if ((gset->brushtype >= 0) && (gset->brushtype < GP_EDITBRUSH_TYPE_WEIGHT))
+			brush = &gset->brush[gset->brushtype];
+	}
 	return rna_pointer_inherit_refine(ptr, &RNA_GPencilSculptBrush, brush);
 }
 
@@ -1049,6 +1058,12 @@ static void rna_def_gpencil_sculpt(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Tool", "");
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, "rna_GPencil_update");
 	
+	prop = RNA_def_property(srna, "weight_tool", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "weighttype");
+	RNA_def_property_enum_items(prop, rna_enum_gpencil_weight_brush_items);
+	RNA_def_property_ui_text(prop, "Tool", "Tool for weight painting");
+	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, "rna_GPencil_update");
+
 	prop = RNA_def_property(srna, "brush", PROP_POINTER, PROP_NONE);
 	RNA_def_property_struct_type(prop, "GPencilSculptBrush");
 	RNA_def_property_pointer_funcs(prop, "rna_GPencilSculptSettings_brush_get", NULL, NULL, NULL);

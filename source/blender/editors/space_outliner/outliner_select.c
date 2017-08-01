@@ -208,6 +208,10 @@ static eOLDrawState tree_element_set_active_object(
 			WM_cursor_modal_set(CTX_wm_window(C), BC_CROSSCURSOR);
 			ED_gpencil_toggle_brush_cursor(C, true);
 		}
+		else if (ob->mode == OB_MODE_GPENCIL_WEIGHT) {
+			WM_cursor_modal_set(CTX_wm_window(C), BC_CROSSCURSOR);
+			ED_gpencil_toggle_brush_cursor(C, true);
+		}
 		else {
 			WM_cursor_modal_set(CTX_wm_window(C), CURSOR_STD);
 			ED_gpencil_toggle_brush_cursor(C, false);

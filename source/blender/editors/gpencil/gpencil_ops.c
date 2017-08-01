@@ -121,12 +121,26 @@ static int gp_stroke_sculptmode_poll(bContext *C)
 
 	/* if not gpencil object and not view3d, need sculpt keys if edit mode */
 	if (sa->spacetype != SPACE_VIEW3D) {
-		return (gpd && (gpd->flag & GP_DATA_STROKE_EDITMODE));
+		return ((gpd) && (gpd->flag & GP_DATA_STROKE_EDITMODE));
 	}
 	else {
-		if (ob && (ob->type == OB_GPENCIL)) {
-			return (gpd && (gpd->flag & GP_DATA_STROKE_SCULPTMODE));
+		/* weight paint is a submode of sculpt */
+		if ((ob) && (ob->type == OB_GPENCIL)) {
+			return ((gpd) && (gpd->flag & (GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)));
 		}
+	}
+
+	return 0;
+}
+
+/* Poll callback for stroke weight paint mode */
+static int gp_stroke_weightmode_poll(bContext *C)
+{
+	bGPdata *gpd = CTX_data_gpencil_data(C);
+	Object *ob = CTX_data_active_object(C);
+
+	if ((ob) && (ob->type == OB_GPENCIL)) {
+		return (gpd && (gpd->flag & GP_DATA_STROKE_WEIGHTMODE));
 	}
 
 	return 0;
@@ -222,6 +236,31 @@ static void ed_keymap_gpencil_sculpt(wmKeyMap *keymap)
 	/* FKEY = Sculpt Brush Size */
 	kmi = WM_keymap_add_item(keymap, "WM_OT_radial_control", FKEY, KM_PRESS, 0, 0);
 	RNA_string_set(kmi->ptr, "data_path_primary", "tool_settings.gpencil_sculpt.brush.size");
+
+
+}
+
+static void ed_keymap_gpencil_weight(wmKeyMap *keymap)
+{
+	wmKeyMapItem *kmi;
+
+
+	/* Brush-Based Editing:
+	*   EKEY + LMB                          = Single stroke, draw immediately
+	*        + Other Modifiers (Ctrl/Shift) = Invert, Smooth, etc.
+	*
+	* For the modal version, use D+E -> Sculpt
+	*/
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_brush_paint", LEFTMOUSE, KM_PRESS, 0, 0);
+	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
+
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_brush_paint", LEFTMOUSE, KM_PRESS, KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
+	/*RNA_boolean_set(kmi->ptr, "use_invert", true);*/
+
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_brush_paint", LEFTMOUSE, KM_PRESS, KM_SHIFT, 0);
+	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
+	/*RNA_boolean_set(kmi->ptr, "use_smooth", true);*/
 }
 
 /* Stroke Editing Keymap - Only when editmode is enabled */
@@ -485,6 +524,43 @@ static void ed_keymap_gpencil_sculpting(wmKeyConfig *keyconf)
 	RNA_int_set(kmi->ptr, "back", 1);
 }
 
+/* Stroke Weight Paint Keymap - Only when weight is enabled */
+static void ed_keymap_gpencil_weightpainting(wmKeyConfig *keyconf)
+{
+	wmKeyMap *keymap = WM_keymap_find(keyconf, "Grease Pencil Stroke Weight Mode", 0, 0);
+	wmKeyMapItem *kmi;
+
+	/* set poll callback - so that this keymap only gets enabled when stroke sculptmode is enabled */
+	keymap->poll = gp_stroke_weightmode_poll;
+
+	/* Exit WeightMode */
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_editmode_toggle", TABKEY, KM_PRESS, 0, 0);
+	RNA_int_set(kmi->ptr, "back", 1);
+
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_weightmode_toggle", TABKEY, KM_PRESS, KM_CTRL, 0);
+	RNA_int_set(kmi->ptr, "back", 1);
+
+	/* Selection */
+	ed_keymap_gpencil_selection(keymap);
+
+	/* sculpt */
+	ed_keymap_gpencil_weight(keymap);
+
+	/* Shift-FKEY = Sculpt Strength */
+	kmi = WM_keymap_add_item(keymap, "WM_OT_radial_control", FKEY, KM_PRESS, KM_SHIFT, 0);
+	RNA_string_set(kmi->ptr, "data_path_primary", "tool_settings.gpencil_sculpt.weight_brush.strength");
+
+	/* FKEY = Sculpt Brush Size */
+	kmi = WM_keymap_add_item(keymap, "WM_OT_radial_control", FKEY, KM_PRESS, 0, 0);
+	RNA_string_set(kmi->ptr, "data_path_primary", "tool_settings.gpencil_sculpt.weight_brush.size");
+
+	/* Enter EditMode */
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_editmode_toggle", TABKEY, KM_PRESS, KM_SHIFT, 0);
+	RNA_int_set(kmi->ptr, "back", 1);
+	/* Enter PaintMode */
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_paintmode_toggle", DKEY, KM_PRESS, 0, 0);
+	RNA_int_set(kmi->ptr, "back", 1);
+}
 /* ==================== */
 
 void ED_keymap_gpencil(wmKeyConfig *keyconf)
@@ -493,6 +569,7 @@ void ED_keymap_gpencil(wmKeyConfig *keyconf)
 	ed_keymap_gpencil_editing(keyconf);
 	ed_keymap_gpencil_painting(keyconf);
 	ed_keymap_gpencil_sculpting(keyconf);
+	ed_keymap_gpencil_weightpainting(keyconf);
 }
 
 /* ****************************************** */
@@ -508,6 +585,7 @@ void ED_operatortypes_gpencil(void)
 	WM_operatortype_append(GPENCIL_OT_editmode_toggle);
 	WM_operatortype_append(GPENCIL_OT_paintmode_toggle);
 	WM_operatortype_append(GPENCIL_OT_sculptmode_toggle);
+	WM_operatortype_append(GPENCIL_OT_weightmode_toggle);
 	WM_operatortype_append(GPENCIL_OT_selection_opacity_toggle);
 
 	WM_operatortype_append(GPENCIL_OT_select);

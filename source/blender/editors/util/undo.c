@@ -227,6 +227,9 @@ static int ed_undo_step(bContext *C, int step, const char *undoname)
 			else if (obact->mode == OB_MODE_GPENCIL_SCULPT) {
 				ED_gpencil_toggle_brush_cursor(C, true);
 			}
+			else if (obact->mode == OB_MODE_GPENCIL_WEIGHT) {
+				ED_gpencil_toggle_brush_cursor(C, true);
+			}
 			else {
 				ED_gpencil_toggle_brush_cursor(C, false);
 			}

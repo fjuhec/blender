@@ -184,10 +184,18 @@ static GP_BrushEdit_Settings *gpsculpt_get_settings(Scene *scene)
 }
 
 /* Get the active brush */
-static GP_EditBrush_Data *gpsculpt_get_brush(Scene *scene)
+static GP_EditBrush_Data *gpsculpt_get_brush(Scene *scene, Object *ob)
 {
 	GP_BrushEdit_Settings *gset = &scene->toolsettings->gp_sculpt;
-	return &gset->brush[gset->brushtype];
+	GP_EditBrush_Data *brush = NULL;
+	if ((ob) && (ob->mode == OB_MODE_GPENCIL_WEIGHT)) {
+		brush = &gset->brush[gset->weighttype];
+	}
+	else {
+		brush = &gset->brush[gset->brushtype];
+	}
+
+	return brush;
 }
 
 /* Brush Operations ------------------------------- */
@@ -838,15 +846,14 @@ static bool gp_brush_weight_apply(tGP_BrushEditData *gso, bGPDstroke *gps, int i
 	if (gp_brush_invert_check(gso)) {
 		/* reduce weight */
 		curweight -= inf;
-		CLAMP(curweight, 0.0f, 1.0f);
-		BKE_gpencil_vgroup_add_point_weight(pt, gso->vrgroup, curweight);
 	}
 	else {
 		/* increase weight */
 		curweight += inf;
-		CLAMP(curweight, 0.0f, 1.0f);
-		BKE_gpencil_vgroup_add_point_weight(pt, gso->vrgroup, curweight);
 	}
+
+	CLAMP(curweight, 0.0f, 1.0f);
+	BKE_gpencil_vgroup_add_point_weight(pt, gso->vrgroup, curweight);
 
 	/* weight should stay within [0.0, 1.0]	*/
 	if (pt->pressure < 0.0f)
@@ -1117,10 +1124,14 @@ static bool gpsculpt_brush_init(bContext *C, wmOperator *op)
 	
 	/* store state */
 	gso->settings = gpsculpt_get_settings(scene);
-	gso->brush = gpsculpt_get_brush(scene);
+	gso->brush = gpsculpt_get_brush(scene, ob);
 	
-	gso->brush_type = gso->settings->brushtype;
-	
+	if ((ob) && (ob->mode == OB_MODE_GPENCIL_WEIGHT)) {
+		gso->brush_type = gso->settings->weighttype;
+	}
+	else {
+		gso->brush_type = gso->settings->brushtype;
+	}
 	
 	gso->is_painting = false;
 	gso->first = true;
