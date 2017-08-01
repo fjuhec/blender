@@ -435,32 +435,34 @@ class GreasePencilStrokeSculptPanel:
         row.prop(brush, "strength", slider=True)
         row.prop(brush, "use_pressure_strength", text="")
         col.prop(brush, "use_falloff")
-        if tool in {'SMOOTH', 'RANDOMIZE'}:
+
+        if gpd.is_stroke_sculpt_mode:
+            if tool in {'SMOOTH', 'RANDOMIZE'}:
+                row = layout.row(align=True)
+                row.prop(settings, "affect_position", text="Position", icon='MESH_DATA', toggle=True)
+                row.prop(settings, "affect_strength", text="Strength", icon='COLOR', toggle=True)
+                row.prop(settings, "affect_thickness", text="Thickness", icon='LINE_DATA', toggle=True)
+
+            layout.separator()
+
+            if tool == 'THICKNESS':
+                layout.row().prop(brush, "direction", expand=True)
+            elif tool == 'PINCH':
+                row = layout.row(align=True)
+                row.prop_enum(brush, "direction", 'ADD', text="Pinch")
+                row.prop_enum(brush, "direction", 'SUBTRACT', text="Inflate")
+            elif settings.tool == 'TWIST':
+                row = layout.row(align=True)
+                row.prop_enum(brush, "direction", 'SUBTRACT', text="CW")
+                row.prop_enum(brush, "direction", 'ADD', text="CCW")
+
             row = layout.row(align=True)
-            row.prop(settings, "affect_position", text="Position", icon='MESH_DATA', toggle=True)
-            row.prop(settings, "affect_strength", text="Strength", icon='COLOR', toggle=True)
-            row.prop(settings, "affect_thickness", text="Thickness", icon='LINE_DATA', toggle=True)
-
-        layout.separator()
-
-        if tool == 'THICKNESS':
-            layout.row().prop(brush, "direction", expand=True)
-        elif tool == 'PINCH':
+            row.prop(settings, "use_select_mask")
             row = layout.row(align=True)
-            row.prop_enum(brush, "direction", 'ADD', text="Pinch")
-            row.prop_enum(brush, "direction", 'SUBTRACT', text="Inflate")
-        elif settings.tool == 'TWIST':
-            row = layout.row(align=True)
-            row.prop_enum(brush, "direction", 'SUBTRACT', text="CW")
-            row.prop_enum(brush, "direction", 'ADD', text="CCW")
+            row.prop(settings, "selection_alpha", slider=True)
 
-        row = layout.row(align=True)
-        row.prop(settings, "use_select_mask")
-        row = layout.row(align=True)
-        row.prop(settings, "selection_alpha", slider=True)
-
-        if tool == 'SMOOTH':
-            layout.prop(brush, "affect_pressure")
+            if tool == 'SMOOTH':
+                layout.prop(brush, "affect_pressure")
 
 
 class GreasePencilAppearancePanel:
