@@ -62,8 +62,6 @@ typedef struct EDIT_STRANDS_PassList {
 	struct DRWPass *tips;
 	struct DRWPass *roots;
 	struct DRWPass *points;
-
-	struct DRWPass *hair_fibers;
 } EDIT_STRANDS_PassList;
 
 typedef struct EDIT_STRANDS_StorageList {
@@ -106,9 +104,6 @@ typedef struct EDIT_STRANDS_PrivateData {
 	DRWShadingGroup *tips_shgrp;
 	DRWShadingGroup *roots_shgrp;
 	DRWShadingGroup *points_shgrp;
-
-	/* BMEditStrands -> EditStrandsShadingGroupData */
-	GHash *edit_strands_map;
 } EDIT_STRANDS_PrivateData; /* Transient data */
 
 /* *********** FUNCTIONS *********** */
@@ -152,22 +147,6 @@ static void EDIT_STRANDS_engine_init(void *vedata)
 		                              datatoc_gpu_shader_3D_smooth_color_frag_glsl,
 		                              NULL);
 	}
-	
-	if (!e_data.hair_fiber_line_shader) {
-		e_data.hair_fiber_line_shader = DRW_shader_create(
-		                                    datatoc_hair_vert_glsl,
-		                                    NULL,
-		                                    datatoc_hair_frag_glsl,
-		                                    "#define SHADING_KAJIYA\n");
-	}
-	
-	if (!e_data.hair_fiber_ribbon_shader) {
-		e_data.hair_fiber_ribbon_shader = DRW_shader_create(
-		                                      datatoc_hair_vert_glsl,
-		                                      NULL,
-		                                      datatoc_hair_frag_glsl,
-		                                      "#define SHADING_KAJIYA\n#define FIBER_RIBBON\n");
-	}
 }
 
 /* Cleanup when destroying the engine.
@@ -177,8 +156,6 @@ static void EDIT_STRANDS_engine_free(void)
 {
 	DRW_SHADER_FREE_SAFE(e_data.edit_point_shader);
 	DRW_SHADER_FREE_SAFE(e_data.edit_wire_shader);
-	DRW_SHADER_FREE_SAFE(e_data.hair_fiber_line_shader);
-	DRW_SHADER_FREE_SAFE(e_data.hair_fiber_ribbon_shader);
 }
 
 /* Here init all passes and shading groups
@@ -192,9 +169,6 @@ static void EDIT_STRANDS_cache_init(void *vedata)
 		/* Alloc transient pointers */
 		stl->g_data = MEM_mallocN(sizeof(*stl->g_data), __func__);
 	}
-	
-	/* initialize on first use */
-	stl->g_data->edit_strands_map = NULL;
 	
 	{
 		/* Strand wires */
@@ -238,12 +212,6 @@ static void EDIT_STRANDS_cache_init(void *vedata)
 		DRW_shgroup_uniform_vec4(stl->g_data->points_shgrp, "colorSelect", ts.colorVertexSelect, 1);
 		DRW_shgroup_uniform_float(stl->g_data->points_shgrp, "sizeVertex", &ts.sizeVertex, 1);
 	}
-	
-	{
-		/* Hair Fibers */
-		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS | DRW_STATE_BLEND;
-		psl->hair_fibers = DRW_pass_create("Strand Hair Fibers Pass", state);
-	}
 }
 
 static void edit_strands_add_ob_to_pass(
@@ -285,6 +253,7 @@ static void edit_strands_add_ob_to_pass(
 	}
 }
 
+#if 0
 static void edit_strands_ensure_texture(BMEditStrands *edit, DRWShadingGroup *grp, const DRWHairFiberTextureBuffer *buffer)
 {
 	if (!edit->texture) {
@@ -364,11 +333,11 @@ static void edit_strands_hair_add_ob_to_pass(
 		            ob->obmat);
 	}
 }
+#endif
 
 /* Add geometry to shadingGroups. Execute for each objects */
 static void EDIT_STRANDS_cache_populate(void *vedata, Object *ob)
 {
-	EDIT_STRANDS_PassList *psl = ((EDIT_STRANDS_Data *)vedata)->psl;
 	EDIT_STRANDS_StorageList *stl = ((EDIT_STRANDS_Data *)vedata)->stl;
 
 	BMEditStrands *edit = BKE_editstrands_from_object(ob);
@@ -383,8 +352,6 @@ static void EDIT_STRANDS_cache_populate(void *vedata, Object *ob)
 		edit_strands_add_ob_to_pass(scene, ob, edit,
 		            stl->g_data->tips_shgrp, stl->g_data->roots_shgrp,
 		            stl->g_data->points_shgrp, stl->g_data->wires_shgrp);
-		
-		edit_strands_hair_add_ob_to_pass(stl, psl, scene, ob, edit);
 	}
 }
 
@@ -402,19 +369,11 @@ static void EDIT_STRANDS_cache_finish(void *vedata)
 static void EDIT_STRANDS_draw_scene(void *vedata)
 {
 	EDIT_STRANDS_PassList *psl = ((EDIT_STRANDS_Data *)vedata)->psl;
-	EDIT_STRANDS_StorageList *stl = ((EDIT_STRANDS_Data *)vedata)->stl;
 
 	DRW_draw_pass(psl->wires);
 	DRW_draw_pass(psl->points);
 	DRW_draw_pass(psl->roots);
 	DRW_draw_pass(psl->tips);
-	
-	DRW_draw_pass(psl->hair_fibers);
-	
-	/* Release instance cache */
-	if (stl->g_data->edit_strands_map) {
-		BLI_ghash_free(stl->g_data->edit_strands_map, NULL, MEM_freeN);
-	}
 	
 	/* If you changed framebuffer, double check you rebind
 	 * the default one with its textures attached before finishing */

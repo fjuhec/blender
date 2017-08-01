@@ -60,23 +60,24 @@ enum {
 
 /* Material shader variations */
 enum {
-	VAR_MAT_MESH     = (1 << 0),
-	VAR_MAT_PROBE    = (1 << 1),
-	VAR_MAT_HAIR     = (1 << 2),
-	VAR_MAT_AO       = (1 << 3),
-	VAR_MAT_FLAT     = (1 << 4),
-	VAR_MAT_BENT     = (1 << 5),
-	VAR_MAT_BLEND    = (1 << 6),
+	VAR_MAT_MESH         = (1 << 0),
+	VAR_MAT_PROBE        = (1 << 1),
+	VAR_MAT_HAIR         = (1 << 2),
+	VAR_MAT_AO           = (1 << 3),
+	VAR_MAT_FLAT         = (1 << 4),
+	VAR_MAT_BENT         = (1 << 5),
+	VAR_MAT_BLEND        = (1 << 6),
+	VAR_MAT_HAIR_FIBERS  = (1 << 7),
 	/* Max number of variation */
 	/* IMPORTANT : Leave it last and set
 	 * it's value accordingly. */
-	VAR_MAT_MAX      = (1 << 7),
+	VAR_MAT_MAX          = (1 << 8),
 	/* These are options that are not counted in VAR_MAT_MAX
 	 * because they are not cumulative with the others above. */
-	VAR_MAT_CLIP     = (1 << 8),
-	VAR_MAT_HASH     = (1 << 9),
-	VAR_MAT_MULT     = (1 << 10),
-	VAR_MAT_SHADOW   = (1 << 11),
+	VAR_MAT_CLIP         = (1 << 9),
+	VAR_MAT_HASH         = (1 << 10),
+	VAR_MAT_MULT         = (1 << 11),
+	VAR_MAT_SHADOW       = (1 << 12),
 };
 
 typedef struct EEVEE_PassList {
@@ -424,6 +425,10 @@ typedef struct EEVEE_PrivateData {
 	struct DRWShadingGroup *depth_shgrp_cull;
 	struct DRWShadingGroup *depth_shgrp_clip;
 	struct DRWShadingGroup *depth_shgrp_clip_cull;
+	struct DRWShadingGroup *depth_shgrp_hair_fibers;
+	struct DRWShadingGroup *depth_shgrp_hair_fibers_cull;
+	struct DRWShadingGroup *depth_shgrp_hair_fibers_clip;
+	struct DRWShadingGroup *depth_shgrp_hair_fibers_clip_cull;
 	struct DRWShadingGroup *cube_display_shgrp;
 	struct DRWShadingGroup *planar_downsample;
 	struct GHash *material_hash;
@@ -456,7 +461,7 @@ struct GPUMaterial *EEVEE_material_world_volume_get(
 struct GPUMaterial *EEVEE_material_mesh_get(
         struct Scene *scene, Material *ma, bool use_ao, bool use_bent_normals, bool use_blend, bool use_multiply);
 struct GPUMaterial *EEVEE_material_mesh_depth_get(struct Scene *scene, Material *ma, bool use_hashed_alpha, bool is_shadow);
-struct GPUMaterial *EEVEE_material_hair_get(struct Scene *scene, Material *ma, bool use_ao, bool use_bent_normals);
+struct GPUMaterial *EEVEE_material_hair_get(struct Scene *scene, Material *ma, bool use_fibers, bool use_ao, bool use_bent_normals);
 void EEVEE_materials_free(void);
 void EEVEE_draw_default_passes(EEVEE_PassList *psl);
 

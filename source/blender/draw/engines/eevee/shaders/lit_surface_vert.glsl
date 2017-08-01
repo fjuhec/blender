@@ -7,8 +7,13 @@ uniform mat3 WorldNormalMatrix;
 uniform mat3 NormalMatrix;
 #endif
 
+#ifndef HAIR_SHADER_FIBERS
 in vec3 pos;
 in vec3 nor;
+#else
+in int fiber_index;
+in float curve_param;
+#endif
 
 out vec3 worldPosition;
 out vec3 viewPosition;
@@ -25,7 +30,17 @@ out vec3 viewNormal;
 #endif
 
 void main() {
+#ifndef HAIR_SHADER_FIBERS
 	gl_Position = ModelViewProjectionMatrix * vec4(pos, 1.0);
+#else
+	vec3 pos;
+	vec3 nor;
+	vec2 view_offset;
+	hair_fiber_get_vertex(fiber_index, curve_param, ModelViewMatrix, pos, nor, view_offset);
+	gl_Position = ModelViewProjectionMatrix * vec4(pos, 1.0);
+	gl_Position.xy += view_offset * gl_Position.w;
+#endif
+
 	viewPosition = (ModelViewMatrix * vec4(pos, 1.0)).xyz;
 	worldPosition = (ModelMatrix * vec4(pos, 1.0)).xyz;
 	viewNormal = normalize(NormalMatrix * nor);
