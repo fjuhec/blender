@@ -54,12 +54,14 @@ static EnumPropertyItem parent_type_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
-EnumPropertyItem rna_enum_gpencil_xraymodes_items[] = {
+#ifndef RNA_RUNTIME
+static EnumPropertyItem rna_enum_gpencil_xraymodes_items[] = {
 	{ GP_XRAY_FRONT, "FRONT", 0, "Front", "Draw all strokes in front" },
 	{ GP_XRAY_3DSPACE, "3DSPACE", 0, "3DSpace", "Draw strokes relative to other objects in 3D space" },
 	{ GP_XRAY_BACK, "BACK", 0, "Back", "Draw all strokes on back" },
 	{ 0, NULL, 0, NULL, NULL }
 };
+#endif
 
 #ifdef RNA_RUNTIME
 

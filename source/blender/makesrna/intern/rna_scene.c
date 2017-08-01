@@ -444,6 +444,8 @@ static EnumPropertyItem rna_enum_gpencil_interpolation_mode_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
+#endif
+
 /* loaded dynamic only defined as dummy */
 EnumPropertyItem rna_enum_gpencil_drawing_brushes_items[] = {
 	{ 0, "BASIC", ICON_BRUSH_SCULPT_DRAW, "Basic", "Basic drawing brush" },
