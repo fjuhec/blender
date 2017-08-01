@@ -1920,7 +1920,7 @@ static struct uiWidgetColors wcol_list_item = {
 };
 
 struct uiWidgetColors wcol_tab = {
-	{255, 255, 255, 255},
+	{60, 60, 60, 255},
 	{83, 83, 83, 255},
 	{114, 114, 114, 255},
 	{90, 90, 90, 255},
