@@ -93,9 +93,6 @@ static struct {
 	 * free in EDIT_STRANDS_engine_free(); */
 	struct GPUShader *edit_point_shader;
 	struct GPUShader *edit_wire_shader;
-
-	struct GPUShader *hair_fiber_line_shader;
-	struct GPUShader *hair_fiber_ribbon_shader;
 } e_data = {NULL}; /* Engine data */
 
 typedef struct EDIT_STRANDS_PrivateData {
@@ -252,88 +249,6 @@ static void edit_strands_add_ob_to_pass(
 		}
 	}
 }
-
-#if 0
-static void edit_strands_ensure_texture(BMEditStrands *edit, DRWShadingGroup *grp, const DRWHairFiberTextureBuffer *buffer)
-{
-	if (!edit->texture) {
-		edit->texture = DRW_texture_create_1D(buffer->size, DRW_TEX_RG_32, 0, buffer->data);
-	}
-	
-	DRW_shgroup_uniform_buffer(grp, "strand_data", (GPUTexture**)(&edit->texture));
-	DRW_shgroup_uniform_int(grp, "strand_map_start", &buffer->strand_map_start, 1);
-	DRW_shgroup_uniform_int(grp, "strand_vertex_start", &buffer->strand_vertex_start, 1);
-	DRW_shgroup_uniform_int(grp, "fiber_start", &buffer->fiber_start, 1);
-}
-
-/* per-image shading groups for image-type empty objects */
-struct EditStrandsShadingGroupData {
-	DRWShadingGroup *fiber_lines_shgrp;
-	DRWShadingGroup *fiber_ribbons_shgrp;
-};
-
-static void edit_strands_hair_add_ob_to_pass(
-        EDIT_STRANDS_StorageList *stl, EDIT_STRANDS_PassList *psl,
-        Scene *scene, Object *ob, BMEditStrands *edit)
-{
-	HairEditSettings *tsettings = &scene->toolsettings->hair_edit;
-	const bool use_fibers = tsettings->hair_draw_mode == HAIR_DRAW_FIBERS && BKE_editstrands_hair_ensure(edit);
-	const bool use_ribbons = use_fibers && tsettings->hair_draw_size > 0;
-	
-	if (stl->g_data->edit_strands_map == NULL) {
-		stl->g_data->edit_strands_map = BLI_ghash_ptr_new(__func__);
-	}
-
-	struct EditStrandsShadingGroupData *edit_strands_data;
-	void **val_p;
-	if (BLI_ghash_ensure_p(stl->g_data->edit_strands_map, edit, &val_p)) {
-		edit_strands_data = *val_p;
-	}
-	else {
-		*val_p = edit_strands_data = MEM_mallocN(sizeof(*edit_strands_data), __func__);
-		
-		if (use_fibers) {
-			const DRWHairFiberTextureBuffer *buffer;
-			struct Gwn_Batch *geom = DRW_cache_editstrands_get_hair_fibers(edit, use_ribbons, &buffer);
-			GPUShader *shader = use_ribbons ? e_data.hair_fiber_ribbon_shader : e_data.hair_fiber_line_shader;
-			
-			DRWShadingGroup *grp = DRW_shgroup_instance_create(shader, psl->hair_fibers, geom);
-			DRW_shgroup_attrib_float(grp, "InstanceModelMatrix", 16);
-			
-			// TODO placeholder colors
-			static const float ambient[4] = { 0.2, 0.2, 0.2, 1.0 };
-			static const float diffuse[4] = { 0.8, 0.8, 0.8, 1.0 };
-			static const float specular[4] = { 1.0, 1.0, 1.0, 1.0 };
-			DRW_shgroup_uniform_vec4(grp, "ambient", ambient, 1);
-			DRW_shgroup_uniform_vec4(grp, "diffuse", diffuse, 1);
-			DRW_shgroup_uniform_vec4(grp, "specular", specular, 1);
-			
-			DRW_shgroup_uniform_vec2(grp, "viewport_size", DRW_viewport_size_get(), 1);
-			DRW_shgroup_uniform_float(grp, "ribbon_width", &tsettings->hair_draw_size, 1);
-			
-			if (use_ribbons) {
-				edit_strands_data->fiber_ribbons_shgrp = grp;
-			}
-			else {
-				edit_strands_data->fiber_lines_shgrp = grp;
-			}
-			
-			edit_strands_ensure_texture(edit, grp, buffer);
-		}
-	}
-	
-	if (use_ribbons) {
-		DRW_shgroup_call_dynamic_add(
-		            edit_strands_data->fiber_ribbons_shgrp,
-		            ob->obmat);
-	}
-	else {
-		DRW_shgroup_call_dynamic_add(
-		            edit_strands_data->fiber_lines_shgrp,
-		            ob->obmat);
-	}
-}
-#endif
 
 /* Add geometry to shadingGroups. Execute for each objects */
 static void EDIT_STRANDS_cache_populate(void *vedata, Object *ob)
