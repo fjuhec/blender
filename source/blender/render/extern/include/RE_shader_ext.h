@@ -142,7 +142,7 @@ typedef struct ShadeInput {
 	float tangents[8][4]; /* 8 = MAX_MTFACE */
 
 	ShadeInputUV uv[8];   /* 8 = MAX_MTFACE */
-	ShadeInputCol col[8]; /* 8 = MAX_MCOL */
+	ShadeInputCol col[64]; /* 64 = MAX_MCOL */
 	int totuv, totcol, actuv, actcol;
 	
 	/* dx/dy OSA coordinates */
