@@ -1202,8 +1202,8 @@ static void rna_def_hair_edit(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "hair_draw_size", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_float_sdna(prop, NULL, "hair_draw_size");
 	RNA_def_property_range(prop, 0.0f, FLT_MAX);
-	RNA_def_property_ui_range(prop, 0.0f, 10.0f, 1.0f, 1);
-	RNA_def_property_ui_text(prop, "Hair Draw Size", "Width of hair fibers in pixels (0 will draw as lines");
+	RNA_def_property_ui_range(prop, 1.0f, 10.0f, 1.0f, 1);
+	RNA_def_property_ui_text(prop, "Hair Draw Size", "Width of hair fibers in pixels");
 	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_HairEdit_update");
 
 	prop = RNA_def_property(srna, "shape_object", PROP_POINTER, PROP_NONE);
