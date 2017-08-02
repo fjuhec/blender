@@ -442,8 +442,8 @@ int ED_mesh_color_add(Mesh *me, const char *name, const bool active_set)
 		}
 
 		if (me->mloopcol) {
-			CustomData_add_layer_named(&me->ldata, CD_MLOOPCOL, CD_DUPLICATE, me->mloopcol, me->totloop, name);
-			CustomData_add_layer_named(&me->fdata, CD_MCOL, CD_DUPLICATE, me->mcol, me->totface, name);
+			CustomData_add_layer_named(&me->ldata, CD_MLOOPCOL, CD_DEFAULT, me->mloopcol, me->totloop, name);
+			CustomData_add_layer_named(&me->fdata, CD_MCOL, CD_DEFAULT, me->mcol, me->totface, name);
 		}
 		else {
 			CustomData_add_layer_named(&me->ldata, CD_MLOOPCOL, CD_DEFAULT, NULL, me->totloop, name);
