@@ -1674,6 +1674,8 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 	SceneLayer *sl = draw_ctx->scene_layer;
 	View3D *v3d = draw_ctx->v3d;
 	int theme_id = TH_UNDEFINED;
+	const bool is_edited = (ob == scene->obedit) ||
+	                       ((ob == draw_ctx->obact) && (ob->mode & OB_MODE_ALL_BRUSH));
 
 	//CollectionEngineSettings *ces_mode_ob = BKE_layer_collection_engine_evaluated_get(ob, COLLECTION_MODE_OBJECT, "");
 
@@ -1681,8 +1683,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 	bool do_outlines = ((ob->base_flag & BASE_SELECTED) != 0);
 
 	if (do_outlines) {
-		Object *obedit = scene->obedit;
-		if (ob != obedit && !((ob == draw_ctx->obact) && (ob->mode & OB_MODE_ALL_PAINT))) {
+		if (!is_edited) {
 			struct Gwn_Batch *geom = DRW_cache_object_surface_get(ob);
 			if (geom) {
 				theme_id = DRW_object_wire_theme_get(ob, sl, NULL);
@@ -1699,8 +1700,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 		{
 			Mesh *me = ob->data;
 			if (me->totpoly == 0) {
-				Object *obedit = scene->obedit;
-				if (ob != obedit) {
+				if (!is_edited) {
 					struct Gwn_Batch *geom = DRW_cache_mesh_edges_get(ob);
 					if (geom) {
 						if (theme_id == TH_UNDEFINED) {
@@ -1720,8 +1720,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 			break;
 		case OB_LATTICE:
 		{
-			Object *obedit = scene->obedit;
-			if (ob != obedit) {
+			if (!is_edited) {
 				struct Gwn_Batch *geom = DRW_cache_lattice_wire_get(ob, false);
 				if (theme_id == TH_UNDEFINED) {
 					theme_id = DRW_object_wire_theme_get(ob, sl, NULL);
@@ -1735,8 +1734,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 
 		case OB_CURVE:
 		{
-			Object *obedit = scene->obedit;
-			if (ob != obedit) {
+			if (!is_edited) {
 				struct Gwn_Batch *geom = DRW_cache_curve_edge_wire_get(ob);
 				if (theme_id == TH_UNDEFINED) {
 					theme_id = DRW_object_wire_theme_get(ob, sl, NULL);
