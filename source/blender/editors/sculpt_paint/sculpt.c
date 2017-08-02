@@ -118,8 +118,13 @@
 #include "BLI_alloca.h"
 #include "BLI_array.h"
 
-#define SILHOUETTE_STROKE_STORE_CHUNK 512
-/*#define DEBUG_DRAW*/
+#define SIL_STROKE_STORE_CHUNK 512
+/* Fillet Blur determines the fuzziness wether a vert is intersecting or not.
+ * Important for example if two shapes with the same thickness intersect. */
+#define SIL_FILLET_BLUR_MAX 0.3f
+#define SIL_FILLET_BLUR_MIN 0.001f
+
+#define DEBUG_DRAW
 #ifdef DEBUG_DRAW
 /* static void bl_debug_draw(void);*/
 /* add these locally when using these functions for testing */
@@ -182,6 +187,7 @@ typedef struct SilhouetteData {
 	int resolution;			/* Subdivision of the shape*/
 	float anchor[3];		/* Origin point of the reference plane */
 	float z_vec[3];			/* Orientation of the reference plane */
+	MeshElemMap *emap;		/* Original Mesh vert -> edges map */
 } SilhouetteData;
 
 /** \name Tool Capabilities
@@ -5098,10 +5104,10 @@ static void silhouette_stroke_free(SilhouetteStroke *stroke)
 static SilhouetteStroke *silhouette_stroke_new()
 {
 	SilhouetteStroke *stroke = MEM_callocN(sizeof(SilhouetteStroke), "SilhouetteStroke");
-	stroke->points = MEM_callocN(sizeof(float) * 3 * SILHOUETTE_STROKE_STORE_CHUNK,"SilhouetteStrokePoints");
-	stroke->points_v2 = MEM_callocN(sizeof(float) * 2 * SILHOUETTE_STROKE_STORE_CHUNK,"SilhouetteStrokePoints");
+	stroke->points = MEM_callocN(sizeof(float) * 3 * SIL_STROKE_STORE_CHUNK,"SilhouetteStrokePoints");
+	stroke->points_v2 = MEM_callocN(sizeof(float) * 2 * SIL_STROKE_STORE_CHUNK,"SilhouetteStrokePoints");
 	stroke->totvert = 0;
-	stroke->max_verts = SILHOUETTE_STROKE_STORE_CHUNK;
+	stroke->max_verts = SIL_STROKE_STORE_CHUNK;
 	BB_reset(&stroke->bb);
 	return stroke;
 }
@@ -5157,7 +5163,7 @@ static void silhoute_stroke_point_to_3d(SilhouetteData *sil, int point, float r_
 static void silhouette_stroke_add_3Dpoint(SilhouetteStroke *stroke, float point[3])
 {
 	if (stroke->totvert >= stroke->max_verts) {
-		stroke->max_verts += SILHOUETTE_STROKE_STORE_CHUNK;
+		stroke->max_verts += SIL_STROKE_STORE_CHUNK;
 		stroke->points = MEM_reallocN(stroke->points, sizeof(float) * 3 * stroke->max_verts);
 		stroke->points_v2 = MEM_reallocN(stroke->points_v2, sizeof(float) * 2 * stroke->max_verts);
 	}
@@ -5170,7 +5176,7 @@ static void silhouette_stroke_add_3Dpoint(SilhouetteStroke *stroke, float point[
 static void silhouette_stroke_add_point(SilhouetteData *sil, SilhouetteStroke *stroke, float point[2])
 {
 	if (stroke->totvert >= stroke->max_verts) {
-		stroke->max_verts += SILHOUETTE_STROKE_STORE_CHUNK;
+		stroke->max_verts += SIL_STROKE_STORE_CHUNK;
 		stroke->points = MEM_reallocN(stroke->points, sizeof(float) * 3 * stroke->max_verts);
 		stroke->points_v2 = MEM_reallocN(stroke->points_v2, sizeof(float) * 2 * stroke->max_verts);
 	}
@@ -7031,46 +7037,175 @@ static void stroke_smooth_cap(SilhouetteData *sil, SilhouetteStroke *stroke, flo
 	}
 }
 
+static void remove_connected_from_edgehash(MeshElemMap *emap, GHash *edgeHash, int v) {
+	for (int e = 0; e < emap[v].count; e++) {
+		BLI_ghash_remove(edgeHash, emap[v].indices[e], NULL, NULL);
+	}
+}
+
+static bool has_cross_border_neighbour(Mesh *me, GHash *vertHash, GHash *edgeHash, MeshElemMap *emap, int edge, int l_v_edge, int depth) {
+	int v_edge;
+
+	v_edge = me->medge[edge].v1 == l_v_edge ? me->medge[edge].v2 : me->medge[edge].v1;
+
+	if (depth == 0) {
+		return BLI_ghash_haskey(vertHash, SET_INT_IN_POINTER(v_edge));
+	} else {
+		if(!BLI_ghash_haskey(vertHash, SET_INT_IN_POINTER(v_edge))){
+			for (int e = 0; e < emap[v_edge].count; e++) {
+				if(emap[v_edge].indices[e] != edge) {
+					if(has_cross_border_neighbour(me, vertHash, edgeHash, emap, emap[v_edge].indices[e], v_edge, depth - 1)){
+						return true;
+					}
+				}
+			}
+		} else {
+			BLI_ghash_remove(edgeHash, edge, NULL, NULL);
+		}
+	}
+	return false;
+}
+
+/* Get the adjacent edge which connects the edges within the edgeHash. Used to create multiple ordered loops
+ * v_edge is the endpoint off curr_edge from which to branch off
+ * TODO: One wide strips might get cutoff */
+static int get_adjacent_edge(Mesh *me, MeshElemMap *emap, int curr_edge, int v_edge, GHash *edgeHash, GHash *vertHash)
+{
+	for (int e = 0; e < emap[v_edge].count; e++) {
+		if(emap[v_edge].indices[e] != curr_edge && has_cross_border_neighbour(me, vertHash, edgeHash, emap, emap[v_edge].indices[e], v_edge, 1)) {
+			return emap[v_edge].indices[e];
+		}
+	}
+	for (int e = 0; e < emap[v_edge].count; e++) {
+		if(emap[v_edge].indices[e] != curr_edge && has_cross_border_neighbour(me, vertHash, edgeHash, emap, emap[v_edge].indices[e], v_edge, 2)) {
+			return emap[v_edge].indices[e];
+		}
+	}
+	/*End Of Loop. Shouldn't happen with two manifold meshes*/
+	return -1;
+}
+
 /* Calculate the intersections with existing geometry. Used to connect the new Silhouette to the old mesh
  * Fillets are the smooth transition from one part to another.
  */
-static void do_calc_fillet_line_task_cb_ex(
-										   void *userdata, void *UNUSED(userdata_chunk), const int n, const int UNUSED(thread_id))
+static void do_calc_fillet_line_task_cb_ex(void *userdata, void *UNUSED(userdata_chunk), const int n, const int UNUSED(thread_id))
 {
 	SculptThreadedTaskData *data = userdata;
 	SculptSession *ss = data->ob->sculpt;
 	SilhouetteData *sil = data->sil;
+	Mesh *me = data->ob->data;
+	PBVHNode *curr_node = data->nodes[n];
 
 	PBVHVertexIter vd;
-	float (*proxy)[3];
 	float point[2];
 	float sil_plane[4];
+	float fuzz;
+	MEdge e_comp;
+	int v_i, vd_i;
+	GHash *vertHash = BLI_ghash_int_new("vertices within intersection");
+	GHash *edgeHash = BLI_ghash_int_new("edges on the intersection");
+	int *edge_ring_fillet = NULL;
+	BLI_array_declare(edge_ring_fillet);
+	int comp_v;
+
+	/*GHashIterState state;*/
+	GHashIterator gh_iter;
+	int curr_edge = -1, last_edge = -1, start_edge = -1, tmp_curr_edge = -1;
 
 	plane_from_point_normal_v3(sil_plane, sil->anchor, sil->z_vec);
 
-	proxy = BKE_pbvh_node_add_proxy(ss->pbvh, data->nodes[n])->co;
-
-	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
+	/* TODO: Is this a unique vert iteration? If not edges might be added twice by different threads */
+	BKE_pbvh_vertex_iter_begin(ss->pbvh, curr_node, vd, PBVH_ITER_UNIQUE)
 	{
 		/* get the interior vertices of the 2d drawn silhouette and all relevant vertices 
 		 * Ignores smoothness, assuming the smoothness blures the fillets anyways it should be ok. */
-		if (dist_squared_to_plane_v3(vd.co, sil_plane) <= sil->depth) {
-			ED_view3d_project_float_v2_m4(sil->ar, vd.co, point, data->mat);
-			if (isect_point_poly_v2(point, (float(*)[2])sil->current_stroke->points_v2, sil->current_stroke->totvert, false)){
-	#ifdef DEBUG_DRAW
-				bl_debug_color_set(0xff0000);
-				bl_debug_draw_point(vd.co, 0.2f);
-				bl_debug_color_set(0x000000);
-	#endif
+		fuzz = SIL_FILLET_BLUR_MIN + sil->smoothness * 0.01f * SIL_FILLET_BLUR_MAX;
+		if (dist_squared_to_plane_v3(vd.co, sil_plane) <= sil->depth + fuzz) {
+			if (!BLI_ghash_haskey(vertHash, SET_INT_IN_POINTER(vd.vert_indices[vd.i]))) {
+				ED_view3d_project_float_v2_m4(sil->ar, vd.co, point, data->mat);
+				if (isect_point_poly_v2(point, (float(*)[2])sil->current_stroke->points_v2, sil->current_stroke->totvert, false)){
+					if (!BLI_ghash_haskey(vertHash, SET_INT_IN_POINTER(vd.vert_indices[vd.i]))) {
+						BLI_ghash_insert(vertHash, SET_INT_IN_POINTER(vd.vert_indices[vd.i]), SET_INT_IN_POINTER(vd.vert_indices[vd.i]));
+						vd_i = vd.vert_indices[vd.i];
+						for (int e = 0; e < sil->emap[vd_i].count; e++){
+							e_comp = me->medge[sil->emap[vd_i].indices[e]];
+							v_i = e_comp.v1 == vd_i ? e_comp.v2 : e_comp.v1;
+							if (!BLI_ghash_haskey(vertHash, SET_INT_IN_POINTER(v_i)))
+							{
+								ED_view3d_project_float_v2_m4(sil->ar, me->mvert[v_i].co, point, data->mat);
+								if (!isect_point_poly_v2(point, (float(*)[2])sil->current_stroke->points_v2, sil->current_stroke->totvert, false) || dist_squared_to_plane_v3(me->mvert[v_i].co, sil_plane) > sil->depth + fuzz) {
+									BLI_ghash_insert(edgeHash, SET_INT_IN_POINTER(sil->emap[vd_i].indices[e]), SET_INT_IN_POINTER(sil->emap[vd_i].indices[e]));
+								}
+							}
+						}
+					}
+				}
 			}
 		}
 	}
 	BKE_pbvh_vertex_iter_end;
+
+	/* TODO: Workaround, do a BLI_ghash_pop style while loop
+	 * TODO: A adjacency search might fail if there is not a single path to be searched, shouldn't be a problem on first thought though.
+	 * Breaker is a anti crash method in case the algorithm gets caught in an endless loop. Shouldn't happen!*/
+	int breaker;
+	do {
+		breaker = me->totedge;
+		BLI_ghashIterator_init(&gh_iter, edgeHash);
+		if(!BLI_ghashIterator_done(&gh_iter)){
+			start_edge = BLI_ghashIterator_getValue(&gh_iter);
+			BLI_ghash_remove(edgeHash, start_edge, NULL, NULL);
+			comp_v = BLI_ghash_haskey(vertHash, SET_INT_IN_POINTER(me->medge[start_edge].v1)) ? me->medge[start_edge].v2 : me->medge[start_edge].v1;
+			BLI_assert(!BLI_ghash_haskey(vertHash, SET_INT_IN_POINTER(comp_v)));
+			start_edge = get_adjacent_edge(me, sil->emap, start_edge, comp_v, edgeHash, vertHash);
+			if(start_edge >= 0) {
+				curr_edge = start_edge;
+				last_edge = -1;
+
+				while(!(curr_edge == start_edge && last_edge != -1) && curr_edge != -1 && breaker > 0) {
+					BLI_array_append(edge_ring_fillet, curr_edge);
+					if(last_edge == -1) {
+						comp_v = me->medge[start_edge].v1;
+					} else {
+						if (me->medge[curr_edge].v1 == me->medge[last_edge].v1 || me->medge[curr_edge].v1 == me->medge[last_edge].v2) {
+							comp_v = me->medge[curr_edge].v2;
+						} else {
+							comp_v = me->medge[curr_edge].v1;
+						}
+					}
+					remove_connected_from_edgehash(sil->emap, edgeHash, comp_v);
+					tmp_curr_edge = get_adjacent_edge(me, sil->emap, curr_edge, comp_v, edgeHash, vertHash);
+					last_edge = curr_edge;
+					curr_edge = tmp_curr_edge;
+					breaker --;
+				}
+				BLI_assert(breaker > 0);
+			}
+		}
+		printf("Found a cut loop!\n");
+	} while (!BLI_ghashIterator_done(&gh_iter));
+
+#ifdef DEBUG_DRAW
+	for(int i = 0; i < BLI_array_count(edge_ring_fillet); i++) {
+		bl_debug_color_set(0xff00ff);
+		bl_debug_draw_medge_add(me, edge_ring_fillet[i]);
+		bl_debug_color_set(0x000000);
+	}
+#endif
+	BLI_array_free(edge_ring_fillet);
+	BLI_ghash_free(vertHash, NULL, NULL);
+	BLI_ghash_free(edgeHash, NULL, NULL);
 }
 
 static void do_calc_fillet_line(Object *ob, SilhouetteData *silhouette, PBVHNode **nodes, int totnode)
 {
+	Mesh *me = ob->data;
 	float projmat[4][4];
+	MeshElemMap *emap;
+	int *emap_mem;
+
+	BKE_mesh_vert_edge_map_create(&emap, &emap_mem, me->medge, me->totvert, me->totedge);
+	silhouette->emap = emap;
 	/* calc the projection matrix used to convert 3d vertice in 2d space */
 	ED_view3d_ob_project_mat_get(silhouette->ar->regiondata, ob, projmat);
 
@@ -7082,7 +7217,10 @@ static void do_calc_fillet_line(Object *ob, SilhouetteData *silhouette, PBVHNode
 
 	BLI_task_parallel_range_ex(
 							   0, totnode, &data, NULL, 0, do_calc_fillet_line_task_cb_ex,
-							   (totnode > SCULPT_THREADED_LIMIT), false);
+							   (totnode > SCULPT_THREADED_LIMIT) & false, false);
+
+	MEM_freeN(emap);
+	MEM_freeN(emap_mem);
 }
 
 static void sculpt_silhouette_calc_mesh(bContext *C, wmOperator *op)
