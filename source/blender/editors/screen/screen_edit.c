@@ -679,6 +679,7 @@ static void screen_test_scale(const wmWindow *win, bScreen *sc, int winsize_x, i
 		}
 	}
 
+	/* Global areas have a fixed size that only changes with the DPI. Here we ensure that exactly this size is set. */
 	for (ScrArea *area = win->global_areas.first; area; area = area->next) {
 		short px = (short)U.pixelsize;
 
@@ -1102,11 +1103,7 @@ void ED_screen_global_areas_create(const bContext *C, wmWindow *win)
 		sa->v2 = MEM_callocN(sizeof(*sa->v2), __func__);
 		sa->v3 = MEM_callocN(sizeof(*sa->v3), __func__);
 		sa->v4 = MEM_callocN(sizeof(*sa->v4), __func__);
-
-		sa->v1->vec.x = sa->v2->vec.x = 0;
-		sa->v3->vec.x = sa->v4->vec.x = win->sizex;
-		sa->v1->vec.y = sa->v4->vec.y = win->sizey - size_y * UI_DPI_FAC;
-		sa->v2->vec.y = sa->v3->vec.y = win->sizey;
+		/* Actual coordinates of area verts are set later (screen_test_scale) */
 
 		sa->spacetype = sa->butspacetype = SPACE_TOPBAR;
 		sa->fixed_height = size_y;

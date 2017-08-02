@@ -325,7 +325,6 @@ void do_versions_after_linking_280(Main *main)
 	}
 
 	if (!MAIN_VERSION_ATLEAST(main, 280, 2)) {
-		const float dpi_fac = (U.pixelsize * (float)U.dpi / 72.0f); /* UI_DPI_FAC */
 		const short size_y = 2 * HEADERY;
 
 		for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
@@ -342,11 +341,7 @@ void do_versions_after_linking_280(Main *main)
 					sa->v2 = MEM_callocN(sizeof(*sa->v2), "do_version topbar vert");
 					sa->v3 = MEM_callocN(sizeof(*sa->v3), "do_version topbar vert");
 					sa->v4 = MEM_callocN(sizeof(*sa->v4), "do_version topbar vert");
-
-					sa->v1->vec.x = sa->v2->vec.x = 0;
-					sa->v3->vec.x = sa->v4->vec.x = win->sizex;
-					sa->v1->vec.y = sa->v4->vec.y = win->sizey - size_y * dpi_fac;
-					sa->v2->vec.y = sa->v3->vec.y = win->sizey;
+					/* Actual coordinates of area verts are set later (screen_test_scale) */
 
 					sa->spacetype = sa->butspacetype = SPACE_TOPBAR;
 					sa->fixed_height = size_y;
