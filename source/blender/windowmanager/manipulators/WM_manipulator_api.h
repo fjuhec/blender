@@ -178,9 +178,12 @@ void WM_manipulator_target_property_value_set_array(
         struct bContext *C, const struct wmManipulator *mpr, struct wmManipulatorProperty *mpr_prop,
         const float *value);
 
-void WM_manipulator_target_property_range_get(
+bool WM_manipulator_target_property_range_get(
         const struct wmManipulator *mpr, struct wmManipulatorProperty *mpr_prop,
         float range[2]);
+
+int WM_manipulator_target_property_array_length(
+        const struct wmManipulator *mpr, struct wmManipulatorProperty *mpr_prop);
 
 /* definitions */
 const struct wmManipulatorPropertyType *WM_manipulatortype_target_property_find(
