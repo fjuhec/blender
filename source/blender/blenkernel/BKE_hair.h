@@ -68,9 +68,11 @@ struct HairFiber* BKE_hair_fibers_create(const struct StrandsView *strands,
 int* BKE_hair_get_fiber_lengths(const struct HairFiber *fibers, int totfibers,
                                  const struct StrandsView *strands);
 
+void BKE_hair_get_texture_buffer_size(const struct StrandsView *strands, int totfibers,
+                                      int *r_size, int *r_strand_map_start,
+                                      int *r_strand_vertex_start, int *r_fiber_start);
 void BKE_hair_get_texture_buffer(const struct StrandsView *strands, struct DerivedMesh *scalp,
                                  const struct HairFiber *fibers, int totfibers,
-                                 void **r_texbuffer, int *r_size, int *r_strand_map_start,
-                                 int *r_strand_vertex_start, int *r_fiber_start);
+                                 void *texbuffer);
 
 #endif

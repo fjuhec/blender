@@ -62,6 +62,7 @@ set(SRC
 	intern/draw_cache_impl_particles.c
 	intern/draw_cache_impl_strands.c
 	intern/draw_common.c
+	intern/draw_hair.c
 	intern/draw_manager.c
 	intern/draw_manager_text.c
 	intern/draw_view.c

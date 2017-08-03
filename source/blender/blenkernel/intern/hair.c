@@ -374,60 +374,60 @@ static void hair_get_fiber_buffer(const HairFiber *fibers, int totfibers, Derive
 	}
 }
 
+void BKE_hair_get_texture_buffer_size(const StrandsView *strands, int totfibers,
+                                      int *r_size, int *r_strand_map_start,
+                                      int *r_strand_vertex_start, int *r_fiber_start)
+{
+	const int totstrands = strands->get_num_strands(strands);
+	const int totverts = strands->get_num_verts(strands);
+	*r_strand_map_start = 0;
+	*r_strand_vertex_start = *r_strand_map_start + totstrands * sizeof(HairStrandMapTextureBuffer);
+	*r_fiber_start = *r_strand_vertex_start + totverts * sizeof(HairStrandVertexTextureBuffer);
+	*r_size = *r_fiber_start + totfibers * sizeof(HairFiberTextureBuffer);
+}
+
 void BKE_hair_get_texture_buffer(const StrandsView *strands, DerivedMesh *scalp,
                                  const HairFiber *fibers, int totfibers,
-                                 void **r_texbuffer, int *r_size, int *r_strand_map_start,
-                                 int *r_strand_vertex_start, int *r_fiber_start)
+                                 void *buffer)
 {
 	const int totstrands = strands->get_num_strands(strands);
 	const int totverts = strands->get_num_verts(strands);
 	const int strand_map_start = 0;
 	const int strand_vertex_start = strand_map_start + totstrands * sizeof(HairStrandMapTextureBuffer);
 	const int fiber_start = strand_vertex_start + totverts * sizeof(HairStrandVertexTextureBuffer);
-	const int size = fiber_start + totfibers * sizeof(HairFiberTextureBuffer);
 	
-	void *buffer = MEM_mallocN(size, "hair texture buffer");
+	int *lengths = MEM_mallocN(sizeof(int) * totstrands, "strand lengths");
+	MeshSample *roots = MEM_mallocN(sizeof(MeshSample) * totstrands, "strand roots");
+	float (*positions)[3] = MEM_mallocN(sizeof(float[3]) * totverts, "strand vertex positions");
 	
-	{
-		int *lengths = MEM_mallocN(sizeof(int) * totstrands, "strand lengths");
-		MeshSample *roots = MEM_mallocN(sizeof(MeshSample) * totstrands, "strand roots");
-		float (*positions)[3] = MEM_mallocN(sizeof(float[3]) * totverts, "strand vertex positions");
+	strands->get_strand_lengths(strands, lengths);
+	strands->get_strand_roots(strands, roots);
+	strands->get_strand_vertices(strands, positions);
+	
+	HairStrandMapTextureBuffer *smap = (HairStrandMapTextureBuffer*)((char*)buffer + strand_map_start);
+	HairStrandVertexTextureBuffer *svert = (HairStrandVertexTextureBuffer*)((char*)buffer + strand_vertex_start);
+	unsigned int vertex_start = 0;
+	for (int i = 0; i < totstrands; ++i) {
+		const unsigned int len = lengths[i];
+		smap->vertex_start = vertex_start;
+		smap->vertex_count = len;
 		
-		strands->get_strand_lengths(strands, lengths);
-		strands->get_strand_roots(strands, roots);
-		strands->get_strand_vertices(strands, positions);
-		
-		HairStrandMapTextureBuffer *smap = (HairStrandMapTextureBuffer*)((char*)buffer + strand_map_start);
-		HairStrandVertexTextureBuffer *svert = (HairStrandVertexTextureBuffer*)((char*)buffer + strand_vertex_start);
-		unsigned int vertex_start = 0;
-		for (int i = 0; i < totstrands; ++i) {
-			const unsigned int len = lengths[i];
-			smap->vertex_start = vertex_start;
-			smap->vertex_count = len;
-			
-			{
-				float pos[3];
-				float matrix[3][3];
-				BKE_mesh_sample_eval(scalp, &roots[i], pos, matrix[2], matrix[0]);
-				cross_v3_v3v3(matrix[1], matrix[2], matrix[0]);
-				hair_strand_calc_verts(positions + vertex_start, len, matrix, svert);
-			}
-			
-			vertex_start += len;
-			++smap;
-			svert += len;
+		{
+			float pos[3];
+			float matrix[3][3];
+			BKE_mesh_sample_eval(scalp, &roots[i], pos, matrix[2], matrix[0]);
+			cross_v3_v3v3(matrix[1], matrix[2], matrix[0]);
+			hair_strand_calc_verts(positions + vertex_start, len, matrix, svert);
 		}
 		
-		MEM_freeN(lengths);
-		MEM_freeN(roots);
-		MEM_freeN(positions);
+		vertex_start += len;
+		++smap;
+		svert += len;
 	}
 	
-	hair_get_fiber_buffer(fibers, totfibers, scalp, (HairFiberTextureBuffer*)((char*)buffer + fiber_start));
+	MEM_freeN(lengths);
+	MEM_freeN(roots);
+	MEM_freeN(positions);
 	
-	*r_strand_map_start = strand_map_start;
-	*r_strand_vertex_start = strand_vertex_start;
-	*r_fiber_start = fiber_start;
-	*r_texbuffer = buffer;
-	*r_size = size;
+	hair_get_fiber_buffer(fibers, totfibers, scalp, (HairFiberTextureBuffer*)((char*)buffer + fiber_start));
 }

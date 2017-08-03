@@ -85,10 +85,11 @@ bool BKE_editstrands_hair_ensure(struct BMEditStrands *es);
 void BKE_editstrands_hair_free(struct BMEditStrands *es);
 
 int* BKE_editstrands_hair_get_fiber_lengths(struct BMEditStrands *es);
-void BKE_editstrands_hair_get_texture_buffer(struct BMEditStrands *es, void **texbuffer, int *r_size,
-                                             int *strand_map_start,
-                                             int *strand_vertex_start,
-                                             int *fiber_start);
+void BKE_editstrands_hair_get_texture_buffer_size(struct BMEditStrands *es, int *r_size,
+                                                  int *r_strand_map_start,
+                                                  int *r_strand_vertex_start,
+                                                  int *r_fiber_start);
+void BKE_editstrands_hair_get_texture_buffer(struct BMEditStrands *es, void *texbuffer);
 
 /* === Constraints === */
 

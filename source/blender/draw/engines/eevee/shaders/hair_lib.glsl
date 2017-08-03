@@ -1,8 +1,8 @@
-#ifdef HAIR_SHADER
+#ifdef HAIR_SHADER_FIBERS
 
 #define FIBER_RIBBON
 
-uniform sampler1D strand_data;
+uniform sampler2D strand_data;
 uniform int strand_map_start;
 uniform int strand_vertex_start;
 uniform int fiber_start;
@@ -12,6 +12,12 @@ uniform vec2 viewport_size;
 #define M_PI 3.1415926535897932384626433832795
 
 #define INDEX_INVALID -1
+
+vec2 read_texdata(int offset)
+{
+	ivec2 offset2 = ivec2(offset % HAIR_SHADER_TEX_WIDTH, offset / HAIR_SHADER_TEX_WIDTH);
+	return texelFetch(strand_data, offset2, 0).rg;
+}
 
 mat3 mat3_from_vectors(vec3 nor, vec3 tang)
 {
@@ -23,7 +29,7 @@ mat3 mat3_from_vectors(vec3 nor, vec3 tang)
 void get_strand_data(int index, out int start, out int count)
 {
 	int offset = strand_map_start + index;
-	vec4 a = texelFetch(strand_data, offset, 0);
+	vec2 a = read_texdata(offset);
 
 	start = floatBitsToInt(a.r);
 	count = floatBitsToInt(a.g);
@@ -32,11 +38,11 @@ void get_strand_data(int index, out int start, out int count)
 void get_strand_vertex(int index, out vec3 co, out vec3 nor, out vec3 tang)
 {
 	int offset = strand_vertex_start + index * 5;
-	vec4 a = texelFetch(strand_data, offset, 0);
-	vec4 b = texelFetch(strand_data, offset + 1, 0);
-	vec4 c = texelFetch(strand_data, offset + 2, 0);
-	vec4 d = texelFetch(strand_data, offset + 3, 0);
-	vec4 e = texelFetch(strand_data, offset + 4, 0);
+	vec2 a = read_texdata(offset);
+	vec2 b = read_texdata(offset + 1);
+	vec2 c = read_texdata(offset + 2);
+	vec2 d = read_texdata(offset + 3);
+	vec2 e = read_texdata(offset + 4);
 
 	co = vec3(a.rg, b.r);
 	nor = vec3(b.g, c.rg);
@@ -46,8 +52,8 @@ void get_strand_vertex(int index, out vec3 co, out vec3 nor, out vec3 tang)
 void get_strand_root(int index, out vec3 co)
 {
 	int offset = strand_vertex_start + index * 5;
-	vec4 a = texelFetch(strand_data, offset, 0);
-	vec4 b = texelFetch(strand_data, offset + 1, 0);
+	vec2 a = read_texdata(offset);
+	vec2 b = read_texdata(offset + 1);
 
 	co = vec3(a.rg, b.r);
 }
@@ -55,12 +61,12 @@ void get_strand_root(int index, out vec3 co)
 void get_fiber_data(int fiber_index, out ivec4 parent_index, out vec4 parent_weight, out vec3 pos)
 {
 	int offset = fiber_start + fiber_index * 6;
-	vec4 a = texelFetch(strand_data, offset, 0);
-	vec4 b = texelFetch(strand_data, offset + 1, 0);
-	vec4 c = texelFetch(strand_data, offset + 2, 0);
-	vec4 d = texelFetch(strand_data, offset + 3, 0);
-	vec4 e = texelFetch(strand_data, offset + 4, 0);
-	vec4 f = texelFetch(strand_data, offset + 5, 0);
+	vec2 a = read_texdata(offset);
+	vec2 b = read_texdata(offset + 1);
+	vec2 c = read_texdata(offset + 2);
+	vec2 d = read_texdata(offset + 3);
+	vec2 e = read_texdata(offset + 4);
+	vec2 f = read_texdata(offset + 5);
 
 	parent_index = ivec4(floatBitsToInt(a.rg), floatBitsToInt(b.rg));
 	parent_weight = vec4(c.rg, d.rg);
@@ -168,4 +174,4 @@ void hair_fiber_get_vertex(int fiber_index, float curve_param, mat4 ModelViewMat
 #endif
 }
 
-#endif /*HAIR_SHADER*/
+#endif /*HAIR_SHADER_FIBERS*/

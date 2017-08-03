@@ -29,7 +29,9 @@
 struct DRWPass;
 struct DRWShadingGroup;
 struct Gwn_Batch;
+struct GPUTexture;
 struct Object;
+struct Scene;
 struct SceneLayer;
 
 /* Used as ubo but colors can be directly referenced as well */
@@ -134,7 +136,13 @@ typedef struct DRWHairFiberTextureBuffer {
 	int strand_map_start;
 	int strand_vertex_start;
 	int fiber_start;
-	int size;
+	int width;
+	int height;
 } DRWHairFiberTextureBuffer;
+
+const char* DRW_hair_shader_defines(void);
+
+void DRW_hair_shader_uniforms(struct DRWShadingGroup *shgrp, struct Scene *scene,
+                              struct GPUTexture **fibertex, const struct DRWHairFiberTextureBuffer *texbuffer);
 
 #endif /* __DRAW_COMMON_H__ */

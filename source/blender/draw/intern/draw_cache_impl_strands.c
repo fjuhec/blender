@@ -40,6 +40,7 @@
 #include "BKE_editstrands.h"
 
 #include "GPU_batch.h"
+#include "GPU_extensions.h"
 #include "GPU_texture.h"
 
 #include "draw_common.h"
@@ -163,7 +164,8 @@ static void editstrands_batch_cache_clear_hair(BMEditStrands *es)
 			buffer->fiber_start = 0;
 			buffer->strand_map_start = 0;
 			buffer->strand_vertex_start = 0;
-			buffer->size = 0;
+			buffer->width = 0;
+			buffer->height = 0;
 		}
 	}
 }
@@ -447,17 +449,26 @@ static void editstrands_batch_cache_ensure_hair_fibers(BMEditStrands *es, Strand
 static void editstrands_batch_cache_ensure_hair_fiber_texbuffer(BMEditStrands *es, StrandsBatchCache *cache, bool UNUSED(use_ribbons))
 {
 	DRWHairFiberTextureBuffer *buffer = &cache->hair.texbuffer;
+	static const int elemsize = 8;
+	const int width = GPU_max_texture_size();
+	const int align = width * elemsize;
 	
-	void *data;
 	// Offsets in bytes
 	int b_size, b_strand_map_start, b_strand_vertex_start, b_fiber_start;
-	BKE_editstrands_hair_get_texture_buffer(es, &data, &b_size,
-	                                        &b_strand_map_start, &b_strand_vertex_start, &b_fiber_start);
+	BKE_editstrands_hair_get_texture_buffer_size(es, &b_size, 
+	        &b_strand_map_start, &b_strand_vertex_start, &b_fiber_start);
+	// Pad for alignment
+	b_size += align - b_size % align;
 	
-	buffer->data = data;
 	// Convert to element size as texture offsets
-	static const int elemsize = 8;
-	buffer->size = b_size / elemsize;
+	const int size = b_size / elemsize;
+	const int height = size / width;
+	
+	buffer->data = MEM_mallocN(b_size, "hair fiber texture buffer");
+	BKE_editstrands_hair_get_texture_buffer(es, buffer->data);
+	
+	buffer->width = width;
+	buffer->height = height;
 	buffer->strand_map_start = b_strand_map_start / elemsize;
 	buffer->strand_vertex_start = b_strand_vertex_start / elemsize;
 	buffer->fiber_start = b_fiber_start / elemsize;

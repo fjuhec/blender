@@ -196,7 +196,7 @@ static char *eevee_get_defines(int options)
 		BLI_dynstr_appendf(ds, "#define HAIR_SHADER\n");
 	}
 	if ((options & VAR_MAT_HAIR_FIBERS) != 0) {
-		BLI_dynstr_appendf(ds, "#define HAIR_SHADER_FIBERS\n");
+		BLI_dynstr_append(ds, DRW_hair_shader_defines());
 	}
 	if ((options & VAR_MAT_PROBE) != 0) {
 		BLI_dynstr_appendf(ds, "#define PROBE_CAPTURE\n");
@@ -381,12 +381,15 @@ void EEVEE_materials_init(EEVEE_StorageList *stl)
 		        "#define CLIP_PLANES\n");
 
 		e_data.default_prepass_hair_fiber_sh = DRW_shader_create(
-		        hair_fiber_vert_str, NULL, datatoc_prepass_frag_glsl,
-		        "#define HAIR_SHADER\n#define HAIR_SHADER_FIBERS\n");
+		        hair_fiber_vert_str, NULL, datatoc_prepass_frag_glsl, DRW_hair_shader_defines());
 
-		e_data.default_prepass_hair_fiber_clip_sh = DRW_shader_create(
-		        hair_fiber_vert_str, NULL, datatoc_prepass_frag_glsl,
-		        "#define HAIR_SHADER\n#define HAIR_SHADER_FIBERS\n#define CLIP_PLANES\n");
+		{
+			char defines[256];
+			BLI_snprintf(defines, sizeof(defines), "#define CLIP_PLANES\n%s",
+			             DRW_hair_shader_defines());
+			e_data.default_prepass_hair_fiber_clip_sh = DRW_shader_create(
+			        hair_fiber_vert_str, NULL, datatoc_prepass_frag_glsl, defines);
+		}
 
 		MEM_freeN(frag_str);
 		MEM_freeN(hair_fiber_vert_str);
@@ -1122,11 +1125,8 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_SceneLayerData *sl
 						bool use_fibers = false;
 						float mat[4][4];
 						struct Gwn_Batch *hair_geom = NULL;
+						const DRWHairFiberTextureBuffer *fiber_buffer = NULL;
 						GPUTexture **fiber_texture = NULL;
-						const float *ribbon_width = NULL;
-						const int *strand_map_start = NULL;
-						const int *strand_vertex_start = NULL;
-						const int *fiber_start = NULL;
 
 						if (ob->mode & OB_MODE_HAIR_EDIT) {
 							BMEditStrands *edit = psys->hairedit;
@@ -1136,16 +1136,12 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_SceneLayerData *sl
 								use_fibers = true;
 								copy_m4_m4(mat, ob->obmat);
 								
-								const DRWHairFiberTextureBuffer *buffer = NULL;
-								hair_geom = DRW_cache_editstrands_get_hair_fibers(edit, true, &buffer);
-								if (!edit->texture) {
-									edit->texture = DRW_texture_create_1D(buffer->size, DRW_TEX_RG_32, 0, buffer->data);
-								}
+								hair_geom = DRW_cache_editstrands_get_hair_fibers(edit, true, &fiber_buffer);
 								
-								ribbon_width = &tsettings->hair_draw_size;
-								strand_map_start = &buffer->strand_map_start;
-								strand_vertex_start = &buffer->strand_vertex_start;
-								fiber_start = &buffer->fiber_start;
+								if (!edit->texture) {
+									edit->texture = DRW_texture_create_2D(fiber_buffer->width, fiber_buffer->height,
+									                                      DRW_TEX_RG_32, 0, fiber_buffer->data);
+								}
 								fiber_texture = (GPUTexture **)(&edit->texture);
 							}
 						}
@@ -1169,24 +1165,13 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_SceneLayerData *sl
 								DRW_shgroup_call_add(stl->g_data->depth_shgrp_clip, hair_geom, mat);
 							}
 							else {
-								DRWShadingGroup *depth_shgrp = stl->g_data->depth_shgrp_hair_fibers;
-								DRWShadingGroup *depth_clip_shgrp = stl->g_data->depth_shgrp_hair_fibers_clip;
-								DRW_shgroup_call_add(depth_shgrp, hair_geom, mat);
-								DRW_shgroup_call_add(depth_clip_shgrp, hair_geom, mat);
+								DRW_shgroup_call_add(stl->g_data->depth_shgrp_hair_fibers, hair_geom, mat);
+								DRW_hair_shader_uniforms(stl->g_data->depth_shgrp_hair_fibers, scene,
+								                         fiber_texture, fiber_buffer);
 								
-								DRW_shgroup_uniform_vec2(depth_shgrp, "viewport_size", DRW_viewport_size_get(), 1);
-								DRW_shgroup_uniform_vec2(depth_clip_shgrp, "viewport_size", DRW_viewport_size_get(), 1);
-								DRW_shgroup_uniform_float(depth_shgrp, "ribbon_width", ribbon_width, 1);
-								DRW_shgroup_uniform_float(depth_clip_shgrp, "ribbon_width", ribbon_width, 1);
-								
-								DRW_shgroup_uniform_buffer(depth_shgrp, "strand_data", fiber_texture);
-								DRW_shgroup_uniform_buffer(depth_clip_shgrp, "strand_data", fiber_texture);
-								DRW_shgroup_uniform_int(depth_shgrp, "strand_map_start", strand_map_start, 1);
-								DRW_shgroup_uniform_int(depth_clip_shgrp, "strand_map_start", strand_map_start, 1);
-								DRW_shgroup_uniform_int(depth_shgrp, "strand_vertex_start", strand_vertex_start, 1);
-								DRW_shgroup_uniform_int(depth_clip_shgrp, "strand_vertex_start", strand_vertex_start, 1);
-								DRW_shgroup_uniform_int(depth_shgrp, "fiber_start", fiber_start, 1);
-								DRW_shgroup_uniform_int(depth_clip_shgrp, "fiber_start", fiber_start, 1);
+								DRW_shgroup_call_add(stl->g_data->depth_shgrp_hair_fibers_clip, hair_geom, mat);
+								DRW_hair_shader_uniforms(stl->g_data->depth_shgrp_hair_fibers_clip, scene,
+								                         fiber_texture, fiber_buffer);
 							}
 							
 							DRWShadingGroup *shgrp = BLI_ghash_lookup(material_hash, (const void *)ma);
@@ -1233,13 +1218,8 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_SceneLayerData *sl
 								DRW_shgroup_call_add(shgrp, hair_geom, mat);
 								
 								if (use_fibers) {
-									DRW_shgroup_uniform_vec2(shgrp, "viewport_size", DRW_viewport_size_get(), 1);
-									DRW_shgroup_uniform_float(shgrp, "ribbon_width", ribbon_width, 1);
-									
-									DRW_shgroup_uniform_buffer(shgrp, "strand_data", fiber_texture);
-									DRW_shgroup_uniform_int(shgrp, "strand_map_start", strand_map_start, 1);
-									DRW_shgroup_uniform_int(shgrp, "strand_vertex_start", strand_vertex_start, 1);
-									DRW_shgroup_uniform_int(shgrp, "fiber_start", fiber_start, 1);
+									DRW_hair_shader_uniforms(shgrp, scene,
+									                         fiber_texture, fiber_buffer);
 								}
 							}
 						}
