@@ -78,6 +78,7 @@ struct bGPDframe *BKE_gpencil_frame_addnew(struct bGPDlayer *gpl, int cframe);
 struct bGPDframe *BKE_gpencil_frame_addcopy(struct bGPDlayer *gpl, int cframe);
 struct bGPDlayer *BKE_gpencil_layer_addnew(struct bGPdata *gpd, const char *name, bool setactive);
 struct bGPdata   *BKE_gpencil_data_addnew(const char name[]);
+void BKE_gpencil_create_monkey(struct bContext *C, struct bGPdata *gpd);
 
 struct bGPDframe *BKE_gpencil_frame_duplicate(const struct bGPDframe *gpf_src);
 struct bGPDframe *BKE_gpencil_frame_color_duplicate(const struct bGPDframe *gpf_src);

@@ -44,6 +44,7 @@ extern EnumPropertyItem rna_enum_id_type_items[];
 
 extern EnumPropertyItem rna_enum_object_mode_items[];
 extern EnumPropertyItem rna_enum_object_empty_drawtype_items[];
+extern EnumPropertyItem rna_enum_object_gpencil_type_items[];
 extern EnumPropertyItem rna_enum_metaelem_type_items[];
 
 extern EnumPropertyItem rna_enum_proportional_falloff_items[];

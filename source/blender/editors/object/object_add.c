@@ -996,10 +996,10 @@ void OBJECT_OT_drop_named_image(wmOperatorType *ot)
 }
 
 /********************* Add Gpencil Operator ********************/
-
 static int object_gpencil_add_exec(bContext *C, wmOperator *op)
 {
 	Object *ob;
+	int type = RNA_enum_get(op->ptr, "type");
 	unsigned int layer;
 	float loc[3], rot[3];
 
@@ -1016,12 +1016,20 @@ static int object_gpencil_add_exec(bContext *C, wmOperator *op)
 	/* add a grease pencil datablock */	
 	ob->gpd = BKE_gpencil_data_addnew("GPencil");
 	ED_gpencil_add_defaults(C);
+	/* if type is monkey, create a 2D Suzanne */
+	if (type == GP_MONKEY) {
+		BKE_gpencil_create_monkey(C, ob->gpd);
+		float rot[3];
+		ED_object_rotation_from_view(C, rot, 'Y');
+		copy_v3_v3(ob->rot, rot);
+	}
 
 	return OPERATOR_FINISHED;
 }
 
 void OBJECT_OT_gpencil_add(wmOperatorType *ot)
 {
+
 	/* identifiers */
 	ot->name = "Add Gpencil";
 	ot->description = "Add an grease pencil object to the scene";
@@ -1037,6 +1045,8 @@ void OBJECT_OT_gpencil_add(wmOperatorType *ot)
 	/* properties */
 	ED_object_add_unit_props(ot);
 	ED_object_add_generic_props(ot, false);
+
+	ot->prop = RNA_def_enum(ot->srna, "type", rna_enum_object_gpencil_type_items, 0, "Type", "");
 }
 
 /********************* Add Lamp Operator ********************/

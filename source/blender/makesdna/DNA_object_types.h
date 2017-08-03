@@ -509,6 +509,12 @@ enum {
 	OB_EMPTY_IMAGE   = 8,
 };
 
+/* gpencil add types */
+enum {
+	GP_EMPTY = 0,
+	GP_MONKEY = 1
+};
+
 /* boundtype */
 enum {
 	OB_BOUND_BOX           = 0,

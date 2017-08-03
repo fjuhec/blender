@@ -89,6 +89,11 @@ EnumPropertyItem rna_enum_object_empty_drawtype_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
+EnumPropertyItem rna_enum_object_gpencil_type_items[] = {
+	{ GP_EMPTY, "EMPTY", ICON_OUTLINER_OB_GPENCIL, "Empty", "" },
+	{ GP_MONKEY, "MONKEY", ICON_MONKEY, "Monkey", "" },
+	{ 0, NULL, 0, NULL, NULL }
+};
 
 static EnumPropertyItem parent_type_items[] = {
 	{PAROBJECT, "OBJECT", 0, "Object", "The object is parented to an object"},
