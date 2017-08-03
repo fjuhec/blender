@@ -324,7 +324,7 @@ struct ParticleSystemModifierData *psys_get_modifier(struct Object *ob, struct P
 struct ModifierData *object_add_particle_system(struct Scene *scene, struct Object *ob, const char *name);
 void object_remove_particle_system(struct Scene *scene, struct Object *ob);
 struct ParticleSettings *psys_new_settings(const char *name, struct Main *main);
-struct ParticleSettings *BKE_particlesettings_copy(struct Main *bmain, struct ParticleSettings *part);
+struct ParticleSettings *BKE_particlesettings_copy(struct Main *bmain, const struct ParticleSettings *part);
 void BKE_particlesettings_make_local(struct Main *bmain, struct ParticleSettings *part, const bool lib_local);
 
 void psys_reset(struct ParticleSystem *psys, int mode);
@@ -473,9 +473,8 @@ typedef struct ParticleRenderData {
 
 struct EvaluationContext;
 
-void BKE_particle_system_eval(struct EvaluationContext *eval_ctx,
-                              struct Scene *scene,
-                              struct Object *ob,
-                              struct ParticleSystem *psys);
+void BKE_particle_system_eval_init(struct EvaluationContext *eval_ctx,
+                                   struct Scene *scene,
+                                   struct Object *ob);
 
 #endif
