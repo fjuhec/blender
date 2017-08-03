@@ -233,26 +233,24 @@ void BKE_editstrands_hair_free(BMEditStrands *es)
 	}
 }
 
-int* BKE_editstrands_hair_get_fiber_lengths(BMEditStrands *es)
+int* BKE_editstrands_hair_get_fiber_lengths(BMEditStrands *es, int subdiv)
 {
 	EditStrandsView strands = editstrands_get_view(es);
-	return BKE_hair_get_fiber_lengths(es->hair_fibers, es->hair_totfibers, &strands.base);
+	return BKE_hair_get_fiber_lengths(es->hair_fibers, es->hair_totfibers, &strands.base, subdiv);
 }
 
-void BKE_editstrands_hair_get_texture_buffer_size(BMEditStrands *es, int *r_size,
-                                                  int *r_strand_map_start,
-                                                  int *r_strand_vertex_start,
-                                                  int *r_fiber_start)
+void BKE_editstrands_hair_get_texture_buffer_size(BMEditStrands *es, int subdiv, int *r_size,
+                                                  int *r_strand_map_start, int *r_strand_vertex_start, int *r_fiber_start)
 {
 	EditStrandsView strands = editstrands_get_view(es);
-	BKE_hair_get_texture_buffer_size(&strands.base, es->hair_totfibers,
-	                                 r_size, r_strand_map_start, r_strand_vertex_start, r_fiber_start);
+	BKE_hair_get_texture_buffer_size(&strands.base, es->hair_totfibers, subdiv, r_size,
+	                                 r_strand_map_start, r_strand_vertex_start, r_fiber_start);
 }
 
-void BKE_editstrands_hair_get_texture_buffer(BMEditStrands *es, void *texbuffer)
+void BKE_editstrands_hair_get_texture_buffer(BMEditStrands *es, int subdiv, void *texbuffer)
 {
 	EditStrandsView strands = editstrands_get_view(es);
-	BKE_hair_get_texture_buffer(&strands.base, es->root_dm, es->hair_fibers, es->hair_totfibers, texbuffer);
+	BKE_hair_get_texture_buffer(&strands.base, es->root_dm, es->hair_fibers, es->hair_totfibers, subdiv, texbuffer);
 }
 
 /* === Constraints === */

@@ -2610,8 +2610,8 @@ Gwn_Batch *DRW_cache_editstrands_get_wires(struct BMEditStrands *es)
 	return DRW_editstrands_batch_cache_get_wires(es);
 }
 
-Gwn_Batch *DRW_cache_editstrands_get_hair_fibers(struct BMEditStrands *es, bool use_ribbons,
+Gwn_Batch *DRW_cache_editstrands_get_hair_fibers(struct BMEditStrands *es, bool use_ribbons, int subdiv,
                                                  const struct DRWHairFiberTextureBuffer **r_buffer)
 {
-	return DRW_editstrands_batch_cache_get_hair_fibers(es, use_ribbons, r_buffer);
+	return DRW_editstrands_batch_cache_get_hair_fibers(es, use_ribbons, subdiv, r_buffer);
 }

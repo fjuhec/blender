@@ -1145,7 +1145,7 @@ typedef struct HairEditSettings {
 	short select_mode;
 	short hair_draw_mode;
 	float hair_draw_size;
-	int pad;
+	int hair_draw_subdiv;
 	
 	struct Brush *brush;
 	struct Object *shape_object;

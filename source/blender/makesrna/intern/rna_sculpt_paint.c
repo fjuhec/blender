@@ -1206,6 +1206,13 @@ static void rna_def_hair_edit(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Hair Draw Size", "Width of hair fibers in pixels");
 	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_HairEdit_update");
 
+	prop = RNA_def_property(srna, "hair_draw_subdivision", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "hair_draw_subdiv");
+	RNA_def_property_range(prop, 0, INT_MAX);
+	RNA_def_property_ui_range(prop, 0, 5, 1, -1);
+	RNA_def_property_ui_text(prop, "Hair Draw Subdivision", "Subdivide hair fibers");
+	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_HairEdit_update");
+
 	prop = RNA_def_property(srna, "shape_object", PROP_POINTER, PROP_NONE);
 	RNA_def_property_flag(prop, PROP_EDITABLE);
 	RNA_def_property_ui_text(prop, "Shape Object", "Outer shape to use for tools");

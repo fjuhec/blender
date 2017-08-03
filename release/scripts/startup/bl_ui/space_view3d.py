@@ -57,6 +57,7 @@ class VIEW3D_HT_header(Header):
                 row.prop(toolsettings.hair_edit, "hair_draw_mode", text="", expand=True)
                 if toolsettings.hair_edit.hair_draw_mode == 'FIBERS':
                     row.prop(toolsettings.hair_edit, "hair_draw_size", text="Size")
+                    row.prop(toolsettings.hair_edit, "hair_draw_subdivision", text="Subdivide")
 
             # Occlude geometry
             if ((view.viewport_shade not in {'BOUNDBOX', 'WIREFRAME'} and (mode == 'PARTICLE_EDIT' or (mode == 'EDIT' and obj.type == 'MESH'))) or

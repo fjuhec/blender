@@ -364,12 +364,12 @@ Gwn_Batch *DRW_editstrands_batch_cache_get_points(BMEditStrands *es)
 	return cache->points;
 }
 
-static void editstrands_batch_cache_ensure_hair_fibers(BMEditStrands *es, StrandsBatchCache *cache, bool use_ribbons)
+static void editstrands_batch_cache_ensure_hair_fibers(BMEditStrands *es, StrandsBatchCache *cache, bool use_ribbons, int subdiv)
 {
 	GWN_VERTBUF_DISCARD_SAFE(cache->hair.verts);
 	GWN_INDEXBUF_DISCARD_SAFE(cache->hair.segments);
 	
-	int *fiber_lengths = BKE_editstrands_hair_get_fiber_lengths(es);
+	int *fiber_lengths = BKE_editstrands_hair_get_fiber_lengths(es, subdiv);
 	int totpoint = 0;
 	for (int i = 0; i < es->hair_totfibers; ++i) {
 		totpoint += fiber_lengths[i];
@@ -446,7 +446,7 @@ static void editstrands_batch_cache_ensure_hair_fibers(BMEditStrands *es, Strand
 	cache->hair.segments = GWN_indexbuf_build(&elb);
 }
 
-static void editstrands_batch_cache_ensure_hair_fiber_texbuffer(BMEditStrands *es, StrandsBatchCache *cache, bool UNUSED(use_ribbons))
+static void editstrands_batch_cache_ensure_hair_fiber_texbuffer(BMEditStrands *es, StrandsBatchCache *cache, bool UNUSED(use_ribbons), int subdiv)
 {
 	DRWHairFiberTextureBuffer *buffer = &cache->hair.texbuffer;
 	static const int elemsize = 8;
@@ -455,7 +455,7 @@ static void editstrands_batch_cache_ensure_hair_fiber_texbuffer(BMEditStrands *e
 	
 	// Offsets in bytes
 	int b_size, b_strand_map_start, b_strand_vertex_start, b_fiber_start;
-	BKE_editstrands_hair_get_texture_buffer_size(es, &b_size, 
+	BKE_editstrands_hair_get_texture_buffer_size(es, subdiv, &b_size, 
 	        &b_strand_map_start, &b_strand_vertex_start, &b_fiber_start);
 	// Pad for alignment
 	b_size += align - b_size % align;
@@ -465,7 +465,7 @@ static void editstrands_batch_cache_ensure_hair_fiber_texbuffer(BMEditStrands *e
 	const int height = size / width;
 	
 	buffer->data = MEM_mallocN(b_size, "hair fiber texture buffer");
-	BKE_editstrands_hair_get_texture_buffer(es, buffer->data);
+	BKE_editstrands_hair_get_texture_buffer(es, subdiv, buffer->data);
 	
 	buffer->width = width;
 	buffer->height = height;
@@ -474,7 +474,7 @@ static void editstrands_batch_cache_ensure_hair_fiber_texbuffer(BMEditStrands *e
 	buffer->fiber_start = b_fiber_start / elemsize;
 }
 
-Gwn_Batch *DRW_editstrands_batch_cache_get_hair_fibers(BMEditStrands *es, bool use_ribbons,
+Gwn_Batch *DRW_editstrands_batch_cache_get_hair_fibers(BMEditStrands *es, bool use_ribbons, int subdiv,
                                                        const DRWHairFiberTextureBuffer **r_buffer)
 {
 	StrandsBatchCache *cache = editstrands_batch_cache_get(es);
@@ -484,13 +484,13 @@ Gwn_Batch *DRW_editstrands_batch_cache_get_hair_fibers(BMEditStrands *es, bool u
 	}
 
 	if (cache->hair.fibers == NULL) {
-		editstrands_batch_cache_ensure_hair_fibers(es, cache, use_ribbons);
+		editstrands_batch_cache_ensure_hair_fibers(es, cache, use_ribbons, subdiv);
 		
 		Gwn_PrimType prim_type = use_ribbons ? GWN_PRIM_TRIS : GWN_PRIM_LINES;
 		cache->hair.fibers = GWN_batch_create(prim_type, cache->hair.verts, cache->hair.segments);
 		cache->hair.use_ribbons = use_ribbons;
 
-		editstrands_batch_cache_ensure_hair_fiber_texbuffer(es, cache, use_ribbons);
+		editstrands_batch_cache_ensure_hair_fiber_texbuffer(es, cache, use_ribbons, subdiv);
 	}
 
 	if (r_buffer) {

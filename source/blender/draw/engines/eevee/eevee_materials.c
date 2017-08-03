@@ -1136,7 +1136,7 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_SceneLayerData *sl
 								use_fibers = true;
 								copy_m4_m4(mat, ob->obmat);
 								
-								hair_geom = DRW_cache_editstrands_get_hair_fibers(edit, true, &fiber_buffer);
+								hair_geom = DRW_cache_editstrands_get_hair_fibers(edit, true, tsettings->hair_draw_subdiv, &fiber_buffer);
 								
 								if (!edit->texture) {
 									edit->texture = DRW_texture_create_2D(fiber_buffer->width, fiber_buffer->height,
