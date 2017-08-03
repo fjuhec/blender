@@ -137,7 +137,8 @@ class GreasePencilDrawingToolsPanel:
             col.prop(gpd, "use_stroke_edit_mode", text="Enable Editing", icon='EDIT', toggle=True)
 
         if is_3d_view:
-            is_gpmode = context.active_object.mode in ('GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT')
+            is_gpmode = context.active_object and \
+                        context.active_object.mode in ('GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT')
             if context.active_object is None or is_gpmode is False:
                 col.label(text="Tools:")
                 col.operator("view3d.ruler")
@@ -475,7 +476,8 @@ class GreasePencilAppearancePanel:
         if context.gpencil_data is None:
             return False
 
-        is_gpmode = context.active_object.mode in ('GPENCIL_PAINT', 'GPENCIL_SCULPT', 'GPENCIL_WEIGHT')
+        is_gpmode = context.active_object and \
+                    context.active_object.mode in ('GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT')
         if context.active_object and is_gpmode:
             return True
         else:
