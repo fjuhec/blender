@@ -2827,7 +2827,7 @@ static void do_wpaint_brush_blur_task_cb_ex(
 			const float grid_alpha = ccgdm ? 1.0f / vd.gridsize : 1.0f;
 			const char v_flag = data->me->mvert[v_index].flag;
 			/* If the vertex is selected */
-			if (!(use_face_sel || use_vert_sel) || v_flag & SELECT || non_occlude) {
+			if (!(use_face_sel || use_vert_sel) || v_flag & SELECT || (non_occlude && !use_vert_sel)) {
 				/* Get the average poly weight */
 				int total_hit_loops = 0;
 				float weight_final = 0.0f;
@@ -2911,7 +2911,7 @@ static void do_wpaint_brush_smear_task_cb_ex(
 					const char v_flag = data->me->mvert[v_index].flag;
 
 					/* If the vertex is selected */
-					if (!(use_face_sel || use_vert_sel) || v_flag & SELECT || non_occlude) {
+					if (!(use_face_sel || use_vert_sel) || v_flag & SELECT || (non_occlude && !use_vert_sel)) {
 						/* Minimum dot product between brush direction and current
 						 * to neighbor direction is 0.0, meaning orthogonal. */
 						float stroke_dot_max = 0.0f;
@@ -3000,7 +3000,7 @@ static void do_wpaint_brush_draw_task_cb_ex(
 
 			const char v_flag = data->me->mvert[v_index].flag;
 			/* If the vertex is selected */
-			if (!(use_face_sel || use_vert_sel) || v_flag & SELECT || non_occlude) {
+			if (!(use_face_sel || use_vert_sel) || v_flag & SELECT || (non_occlude && !use_vert_sel)) {
 				const float view_dot = (vd.no && !non_occlude) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
 				if (view_dot > 0.0f) {
 					const float brush_fade = BKE_brush_curve_strength(brush, sqrtf(test.dist), cache->radius);
@@ -3790,7 +3790,7 @@ static void do_vpaint_brush_draw_task_cb_ex(
 			const bool v_flag = data->me->mvert[v_index].flag;
 
 			/* If the vertex is selected for painting. */
-			if (!(use_face_sel || use_vert_sel) || v_flag & SELECT || non_occlude) {
+			if (!(use_face_sel || use_vert_sel) || v_flag & SELECT || (non_occlude && !use_vert_sel)) {
 				/* Calc the dot prod. between ray norm on surf and current vert
 				 * (ie splash prevention factor), and only paint front facing verts. */
 			    float view_dot = (vd.no && !non_occlude) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
@@ -3887,7 +3887,7 @@ static void do_vpaint_brush_blur_task_cb_ex(
 				const float brush_fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
 
 				/* If the vertex is selected for painting. */
-				if (!(use_face_sel || use_vert_sel) || v_flag & SELECT || non_occlude) {
+				if (!(use_face_sel || use_vert_sel) || v_flag & SELECT || (non_occlude && !use_vert_sel)) {
 					/* Get the average poly color */
 					unsigned int color_final = 0;
 					int total_hit_loops = 0;
@@ -3991,7 +3991,7 @@ static void do_vpaint_brush_smear_task_cb_ex(
 				const bool v_flag = data->me->mvert[v_index].flag;
 
 				/* if the vertex is selected for painting. */
-				if (!(use_face_sel || use_vert_sel) || v_flag & SELECT || non_occlude) {
+				if (!(use_face_sel || use_vert_sel) || v_flag & SELECT || (non_occlude && !use_vert_sel)) {
 					/* Calc the dot prod. between ray norm on surf and current vert
 					(ie splash prevention factor), and only paint front facing verts. */
 					const float view_dot = (vd.no && !non_occlude) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
