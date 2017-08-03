@@ -220,7 +220,9 @@ ccl_device_inline void path_radiance_init(PathRadiance *L, int use_light_pass)
 #ifdef __SHADOW_TRICKS__
 	L->path_total = make_float3(0.0f, 0.0f, 0.0f);
 	L->path_total_shaded = make_float3(0.0f, 0.0f, 0.0f);
-	L->shadow_color = make_float3(0.0f, 0.0f, 0.0f);
+	L->shadow_background_color = make_float3(0.0f, 0.0f, 0.0f);
+	L->shadow_radiance_sum = make_float3(0.0f, 0.0f, 0.0f);
+	L->shadow_throughput = 0.0f;
 #endif
 
 #ifdef __DENOISING_FEATURES__
@@ -621,25 +623,43 @@ ccl_device_inline void path_radiance_accum_sample(PathRadiance *L, PathRadiance 
 {
 	float fac = 1.0f/num_samples;
 
+#ifdef __SPLIT_KERNEL__
+#  define safe_float3_add(f, v) \
+	do { \
+		ccl_global float *p = (ccl_global float*)(&(f)); \
+		atomic_add_and_fetch_float(p+0, (v).x); \
+		atomic_add_and_fetch_float(p+1, (v).y); \
+		atomic_add_and_fetch_float(p+2, (v).z); \
+	} while(0)
+#else
+#  define safe_float3_add(f, v) (f) += (v)
+#endif  /* __SPLIT_KERNEL__ */
+
 #ifdef __PASSES__
-	L->direct_diffuse += L_sample->direct_diffuse*fac;
-	L->direct_glossy += L_sample->direct_glossy*fac;
-	L->direct_transmission += L_sample->direct_transmission*fac;
-	L->direct_subsurface += L_sample->direct_subsurface*fac;
-	L->direct_scatter += L_sample->direct_scatter*fac;
+	safe_float3_add(L->direct_diffuse, L_sample->direct_diffuse*fac);
+	safe_float3_add(L->direct_glossy, L_sample->direct_glossy*fac);
+	safe_float3_add(L->direct_transmission, L_sample->direct_transmission*fac);
+	safe_float3_add(L->direct_subsurface, L_sample->direct_subsurface*fac);
+	safe_float3_add(L->direct_scatter, L_sample->direct_scatter*fac);
 
-	L->indirect_diffuse += L_sample->indirect_diffuse*fac;
-	L->indirect_glossy += L_sample->indirect_glossy*fac;
-	L->indirect_transmission += L_sample->indirect_transmission*fac;
-	L->indirect_subsurface += L_sample->indirect_subsurface*fac;
-	L->indirect_scatter += L_sample->indirect_scatter*fac;
+	safe_float3_add(L->indirect_diffuse, L_sample->indirect_diffuse*fac);
+	safe_float3_add(L->indirect_glossy, L_sample->indirect_glossy*fac);
+	safe_float3_add(L->indirect_transmission, L_sample->indirect_transmission*fac);
+	safe_float3_add(L->indirect_subsurface, L_sample->indirect_subsurface*fac);
+	safe_float3_add(L->indirect_scatter, L_sample->indirect_scatter*fac);
 
-	L->background += L_sample->background*fac;
-	L->ao += L_sample->ao*fac;
-	L->shadow += L_sample->shadow*fac;
+	safe_float3_add(L->background, L_sample->background*fac);
+	safe_float3_add(L->ao, L_sample->ao*fac);
+	safe_float3_add(L->shadow, L_sample->shadow*fac);
+#  ifdef __SPLIT_KERNEL__
+	atomic_add_and_fetch_float(&L->mist, L_sample->mist*fac);
+#  else
 	L->mist += L_sample->mist*fac;
-#endif
-	L->emission += L_sample->emission * fac;
+#  endif  /* __SPLIT_KERNEL__ */
+#endif  /* __PASSES__ */
+	safe_float3_add(L->emission, L_sample->emission*fac);
+
+#undef safe_float3_add
 }
 
 #ifdef __SHADOW_TRICKS__
@@ -662,11 +682,12 @@ ccl_device_inline float3 path_radiance_sum_shadowcatcher(KernelGlobals *kg,
 	const float shadow = path_radiance_sum_shadow(L);
 	float3 L_sum;
 	if(kernel_data.background.transparent) {
-		*alpha = 1.0f-shadow;
-		L_sum = make_float3(0.0f, 0.0f, 0.0f);
+		*alpha = 1.0f - L->shadow_throughput * shadow;
+		L_sum = L->shadow_radiance_sum;
 	}
 	else {
-		L_sum = L->shadow_color * shadow;
+		L_sum = L->shadow_background_color * L->shadow_throughput * shadow +
+		        L->shadow_radiance_sum;
 	}
 	return L_sum;
 }

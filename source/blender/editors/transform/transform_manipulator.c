@@ -619,7 +619,7 @@ static int calc_manipulator_stats(const bContext *C)
 					break;
 				}
 				/* if not gimbal, fall through to normal */
-				/* fall-through */
+				ATTR_FALLTHROUGH;
 			}
 			case V3D_MANIP_NORMAL:
 			{
@@ -630,7 +630,7 @@ static int calc_manipulator_stats(const bContext *C)
 					break;
 				}
 				/* no break we define 'normal' as 'local' in Object mode */
-				/* fall-through */
+				ATTR_FALLTHROUGH;
 			}
 			case V3D_MANIP_LOCAL:
 			{
@@ -1755,7 +1755,7 @@ static int manipulator_selectbuf(Scene *scene, ScrArea *sa, ARegion *ar, const i
 
 	hits = GPU_select_end();
 
-	if (do_passes) {
+	if (do_passes && (hits > 0)) {
 		GPU_select_begin(buffer, 64, &rect, GPU_SELECT_NEAREST_SECOND_PASS, hits);
 
 		/* do the drawing */

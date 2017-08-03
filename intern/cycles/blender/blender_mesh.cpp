@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
- 
 #include "render/mesh.h"
 #include "render/object.h"
 #include "render/scene.h"
@@ -51,8 +50,7 @@ enum {
  * Two triangles has vertex indices in the original Blender-side face.
  * If face is already a quad tri_b will not be initialized.
  */
-inline void face_split_tri_indices(const int num_verts,
-                                   const int face_flag,
+inline void face_split_tri_indices(const int face_flag,
                                    int tri_a[3],
                                    int tri_b[3])
 {
@@ -60,21 +58,19 @@ inline void face_split_tri_indices(const int num_verts,
 		tri_a[0] = 0;
 		tri_a[1] = 1;
 		tri_a[2] = 3;
-		if(num_verts == 4) {
-			tri_b[0] = 2;
-			tri_b[1] = 3;
-			tri_b[2] = 1;
-		}
+
+		tri_b[0] = 2;
+		tri_b[1] = 3;
+		tri_b[2] = 1;
 	}
 	else /*if(face_flag & FACE_FLAG_DIVIDE_13)*/ {
 		tri_a[0] = 0;
 		tri_a[1] = 1;
 		tri_a[2] = 2;
-		if(num_verts == 4) {
-			tri_b[0] = 0;
-			tri_b[1] = 2;
-			tri_b[2] = 3;
-		}
+
+		tri_b[0] = 0;
+		tri_b[1] = 2;
+		tri_b[2] = 3;
 	}
 }
 
@@ -251,7 +247,7 @@ static void mikk_compute_tangents(BL::Mesh& b_mesh,
 
 	for(int i = 0; i < nverts.size(); i++) {
 		int tri_a[3], tri_b[3];
-		face_split_tri_indices(nverts[i], face_flags[i], tri_a, tri_b);
+		face_split_tri_indices(face_flags[i], tri_a, tri_b);
 
 		tangent[0] = float4_to_float3(userdata.tangent[i*4 + tri_a[0]]);
 		tangent[1] = float4_to_float3(userdata.tangent[i*4 + tri_a[1]]);
@@ -293,7 +289,7 @@ static void create_mesh_volume_attribute(BL::Object& b_ob,
 
 	if(!b_domain)
 		return;
-	
+
 	Attribute *attr = mesh->attributes.add(std);
 	VoxelAttribute *volume_data = attr->data_voxel();
 	bool is_float, is_linear;
@@ -377,7 +373,7 @@ static void attr_create_vertex_color(Scene *scene,
 
 			for(l->data.begin(c); c != l->data.end(); ++c, ++i) {
 				int tri_a[3], tri_b[3];
-				face_split_tri_indices(nverts[i], face_flags[i], tri_a, tri_b);
+				face_split_tri_indices(face_flags[i], tri_a, tri_b);
 
 				uchar4 colors[4];
 				colors[0] = color_float_to_byte(color_srgb_to_scene_linear_v3(get_float3(c->color1())));
@@ -470,7 +466,7 @@ static void attr_create_uv_map(Scene *scene,
 
 				for(l->data.begin(t); t != l->data.end(); ++t, ++i) {
 					int tri_a[3], tri_b[3];
-					face_split_tri_indices(nverts[i], face_flags[i], tri_a, tri_b);
+					face_split_tri_indices(face_flags[i], tri_a, tri_b);
 
 					float3 uvs[4];
 					uvs[0] = get_float3(t->uv1());
@@ -982,7 +978,7 @@ Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
 		else
 			used_shaders.push_back(scene->default_surface);
 	}
-	
+
 	/* test if we need to sync */
 	int requested_geometry_flags = Mesh::GEOMETRY_NONE;
 	if(render_layer.use_surfaces) {
@@ -1017,12 +1013,12 @@ Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
 	/* ensure we only sync instanced meshes once */
 	if(mesh_synced.find(mesh) != mesh_synced.end())
 		return mesh;
-	
+
 	mesh_synced.insert(mesh);
 
 	/* create derived mesh */
 	array<int> oldtriangle = mesh->triangles;
-	
+
 	/* compares curve_keys rather than strands in order to handle quick hair
 	 * adjustments in dynamic BVH - other methods could probably do this better*/
 	array<float3> oldcurve_keys = mesh->curve_keys;
@@ -1111,7 +1107,7 @@ Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
 		if(memcmp(&oldcurve_radius[0], &mesh->curve_radius[0], sizeof(float)*oldcurve_radius.size()) != 0)
 			rebuild = true;
 	}
-	
+
 	mesh->tag_update(scene, rebuild);
 
 	return mesh;
@@ -1140,7 +1136,7 @@ void BlenderSync::sync_mesh_motion(BL::Object& b_ob,
 	if(scene->need_motion() == Scene::MOTION_BLUR) {
 		if(!mesh->use_motion_blur)
 			return;
-		
+
 		/* see if this mesh needs motion data at this time */
 		vector<float> object_times = object->motion_times();
 		bool found = false;
@@ -1172,7 +1168,7 @@ void BlenderSync::sync_mesh_motion(BL::Object& b_ob,
 
 	if(!numverts && !numkeys)
 		return;
-	
+
 	/* skip objects without deforming modifiers. this is not totally reliable,
 	 * would need a more extensive check to see which objects are animated */
 	BL::Mesh b_mesh(PointerRNA_NULL);

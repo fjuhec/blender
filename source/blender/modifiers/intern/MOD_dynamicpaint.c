@@ -36,12 +36,14 @@
 
 #include "BKE_cdderivedmesh.h"
 #include "BKE_dynamicpaint.h"
+#include "BKE_library.h"
 #include "BKE_library_query.h"
 #include "BKE_modifier.h"
 
 #include "depsgraph_private.h"
 #include "DEG_depsgraph_build.h"
 
+#include "MOD_modifiertypes.h"
 
 static void initData(ModifierData *md) 
 {
@@ -58,6 +60,15 @@ static void copyData(ModifierData *md, ModifierData *target)
 	DynamicPaintModifierData *tpmd = (DynamicPaintModifierData *)target;
 	
 	dynamicPaint_Modifier_copy(pmd, tpmd);
+
+	if (tpmd->canvas) {
+		for (DynamicPaintSurface *surface = tpmd->canvas->surfaces.first; surface; surface = surface->next) {
+			id_us_plus((ID *)surface->init_texture);
+		}
+	}
+	if (tpmd->brush) {
+		id_us_plus((ID *)tpmd->brush->mat);
+	}
 }
 
 static void freeData(ModifierData *md)

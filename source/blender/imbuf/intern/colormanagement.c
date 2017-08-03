@@ -63,6 +63,7 @@
 #include "BKE_context.h"
 #include "BKE_image.h"
 #include "BKE_main.h"
+#include "BKE_sequencer.h"
 
 #include "RNA_define.h"
 
@@ -214,7 +215,7 @@ typedef struct ColormanageCacheKey {
 	int display;         /* display device name */
 } ColormanageCacheKey;
 
-typedef struct ColormnaageCacheData {
+typedef struct ColormanageCacheData {
 	int flag;        /* view flags of cached buffer */
 	int look;        /* Additional artistics transform */
 	float exposure;  /* exposure value cached buffer is calculated with */
@@ -222,12 +223,12 @@ typedef struct ColormnaageCacheData {
 	float dither;    /* dither value cached buffer is calculated with */
 	CurveMapping *curve_mapping;  /* curve mapping used for cached buffer */
 	int curve_mapping_timestamp;  /* time stamp of curve mapping used for cached buffer */
-} ColormnaageCacheData;
+} ColormanageCacheData;
 
 typedef struct ColormanageCache {
 	struct MovieCache *moviecache;
 
-	ColormnaageCacheData *data;
+	ColormanageCacheData *data;
 } ColormanageCache;
 
 static struct MovieCache *colormanage_moviecache_get(const ImBuf *ibuf)
@@ -238,7 +239,7 @@ static struct MovieCache *colormanage_moviecache_get(const ImBuf *ibuf)
 	return ibuf->colormanage_cache->moviecache;
 }
 
-static ColormnaageCacheData *colormanage_cachedata_get(const ImBuf *ibuf)
+static ColormanageCacheData *colormanage_cachedata_get(const ImBuf *ibuf)
 {
 	if (!ibuf->colormanage_cache)
 		return NULL;
@@ -281,7 +282,7 @@ static struct MovieCache *colormanage_moviecache_ensure(ImBuf *ibuf)
 	return ibuf->colormanage_cache->moviecache;
 }
 
-static void colormanage_cachedata_set(ImBuf *ibuf, ColormnaageCacheData *data)
+static void colormanage_cachedata_set(ImBuf *ibuf, ColormanageCacheData *data)
 {
 	if (!ibuf->colormanage_cache)
 		ibuf->colormanage_cache = MEM_callocN(sizeof(ColormanageCache), "imbuf colormanage cache");
@@ -361,7 +362,7 @@ static unsigned char *colormanage_cache_get(ImBuf *ibuf, const ColormanageCacheV
 	cache_ibuf = colormanage_cache_get_ibuf(ibuf, &key, cache_handle);
 
 	if (cache_ibuf) {
-		ColormnaageCacheData *cache_data;
+		ColormanageCacheData *cache_data;
 
 		BLI_assert(cache_ibuf->x == ibuf->x &&
 		           cache_ibuf->y == ibuf->y);
@@ -402,7 +403,7 @@ static void colormanage_cache_put(ImBuf *ibuf, const ColormanageCacheViewSetting
 {
 	ColormanageCacheKey key;
 	ImBuf *cache_ibuf;
-	ColormnaageCacheData *cache_data;
+	ColormanageCacheData *cache_data;
 	int view_flag = 1 << (view_settings->view - 1);
 	struct MovieCache *moviecache = colormanage_moviecache_ensure(ibuf);
 	CurveMapping *curve_mapping = view_settings->curve_mapping;
@@ -421,7 +422,7 @@ static void colormanage_cache_put(ImBuf *ibuf, const ColormanageCacheViewSetting
 	cache_ibuf->flags |= IB_rect;
 
 	/* store data which is needed to check whether cached buffer could be used for color managed display settings */
-	cache_data = MEM_callocN(sizeof(ColormnaageCacheData), "color manage cache imbuf data");
+	cache_data = MEM_callocN(sizeof(ColormanageCacheData), "color manage cache imbuf data");
 	cache_data->look = view_settings->look;
 	cache_data->exposure = view_settings->exposure;
 	cache_data->gamma = view_settings->gamma;
@@ -710,7 +711,7 @@ void colormanage_cache_free(ImBuf *ibuf)
 	}
 
 	if (ibuf->colormanage_cache) {
-		ColormnaageCacheData *cache_data = colormanage_cachedata_get(ibuf);
+		ColormanageCacheData *cache_data = colormanage_cachedata_get(ibuf);
 		struct MovieCache *moviecache = colormanage_moviecache_get(ibuf);
 
 		if (cache_data) {
@@ -1112,6 +1113,7 @@ void IMB_colormanagement_check_file_config(Main *bmain)
 	for (scene = bmain->scene.first; scene; scene = scene->id.next) {
 		ColorManagedColorspaceSettings *sequencer_colorspace_settings;
 
+		/* check scene color management settings */
 		colormanage_check_display_settings(&scene->display_settings, "scene", default_display);
 		colormanage_check_view_settings(&scene->display_settings, &scene->view_settings, "scene");
 
@@ -1122,6 +1124,15 @@ void IMB_colormanagement_check_file_config(Main *bmain)
 		if (sequencer_colorspace_settings->name[0] == '\0') {
 			BLI_strncpy(sequencer_colorspace_settings->name, global_role_default_sequencer, MAX_COLORSPACE_NAME);
 		}
+
+		/* check sequencer strip input color space settings */
+		Sequence *seq;
+		SEQ_BEGIN (scene->ed, seq) {
+			if (seq->strip) {
+				colormanage_check_colorspace_settings(&seq->strip->colorspace_settings, "sequencer strip");
+			}
+		}
+		SEQ_END
 	}
 
 	/* ** check input color space settings ** */

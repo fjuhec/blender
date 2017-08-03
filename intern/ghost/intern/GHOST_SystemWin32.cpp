@@ -890,26 +890,7 @@ bool GHOST_SystemWin32::processNDOF(RAWINPUT const &raw)
 	// send motion. Mark as 'sent' so motion will always get dispatched.
 	eventSent = true;
 
-#if defined(_MSC_VER) || defined(FREE_WINDOWS64)
-	// using Microsoft compiler & header files
-	// they invented the RawInput API, so this version is (probably) correct.
-	// MinGW64 also works fine with this
 	BYTE const *data = raw.data.hid.bRawData;
-	// struct RAWHID {
-	// DWORD dwSizeHid;
-	// DWORD dwCount;
-	// BYTE  bRawData[1];
-	// };
-#else
-	// MinGW's definition (below) doesn't agree, so we need a slight
-	// workaround until it's fixed
-	BYTE const *data = &raw.data.hid.bRawData;
-	// struct RAWHID {
-	// DWORD dwSizeHid;
-	// DWORD dwCount;
-	// BYTE bRawData; // <== isn't this s'posed to be a BYTE*?
-	// };
-#endif
 
 	BYTE packetType = data[0];
 	switch (packetType) {
@@ -960,6 +941,8 @@ LRESULT WINAPI GHOST_SystemWin32::s_wndProc(HWND hwnd, UINT msg, WPARAM wParam, 
 	GHOST_ASSERT(system, "GHOST_SystemWin32::s_wndProc(): system not initialized");
 
 	if (hwnd) {
+#if 0
+		// Disabled due to bug in Intel drivers, see T51959
 		if(msg == WM_NCCREATE) {
 			// Tell Windows to automatically handle scaling of non-client areas
 			// such as the caption bar. EnableNonClientDpiScaling was introduced in Windows 10
@@ -973,6 +956,7 @@ LRESULT WINAPI GHOST_SystemWin32::s_wndProc(HWND hwnd, UINT msg, WPARAM wParam, 
 				}
 			}
 		}
+#endif
 
 		GHOST_WindowWin32 *window = (GHOST_WindowWin32 *)::GetWindowLongPtr(hwnd, GWLP_USERDATA);
 		if (window) {
