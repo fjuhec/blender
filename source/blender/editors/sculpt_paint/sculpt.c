@@ -119,6 +119,8 @@
 #include "BLI_array.h"
 
 #define SIL_STROKE_STORE_CHUNK 512
+/* Store bias is used to bias a close estimate since resizing is more expensive than bigger array on first allocate*/
+#define STORE_ESTIMATE_BIAS 0.1f
 /* Fillet Blur determines the fuzziness wether a vert is intersecting or not.
  * Important for example if two shapes with the same thickness intersect. */
 #define SIL_FILLET_BLUR_MAX 0.3f
@@ -162,6 +164,66 @@ typedef struct SilhouetteStroke {
 	BB bb;
 } SilhouetteStroke;
 
+#ifdef DEBUG_DRAW
+void bl_debug_draw_BB_add(BB *bb,const unsigned int col){
+	float v1[3],v2[3],v3[3],v4[3];
+	float xd[3], yd[3], zd[3];
+
+	bl_debug_color_set(col);
+
+	xd[0] = bb->bmax[0]-bb->bmin[0];
+	xd[1] = 0.0f;
+	xd[2] = 0.0f;
+
+	yd[0] = 0.0f;
+	yd[1] = bb->bmax[1]-bb->bmin[1];
+	yd[2] = 0.0f;
+
+	zd[0] = 0.0f;
+	zd[1] = 0.0f;
+	zd[2] = bb->bmax[2]-bb->bmin[2];
+
+	copy_v3_v3(v1,bb->bmin);
+	copy_v3_v3(v2,bb->bmin);
+	add_v3_v3(v2,xd);
+	add_v3_v3v3(v3,v1,yd);
+	add_v3_v3v3(v4,v2,yd);
+
+	bl_debug_draw_edge_add(v1,v2);
+	bl_debug_draw_edge_add(v1,v3);
+	bl_debug_draw_edge_add(v2,v4);
+
+	copy_v3_v3(v1,v3);
+	copy_v3_v3(v2,v4);
+	add_v3_v3v3(v3,v1,zd);
+	add_v3_v3v3(v4,v2,zd);
+
+	bl_debug_draw_edge_add(v1,v2);
+	bl_debug_draw_edge_add(v1,v3);
+	bl_debug_draw_edge_add(v2,v4);
+
+	copy_v3_v3(v1,v3);
+	copy_v3_v3(v2,v4);
+	sub_v3_v3v3(v3,v1,yd);
+	sub_v3_v3v3(v4,v2,yd);
+
+	bl_debug_draw_edge_add(v1,v2);
+	bl_debug_draw_edge_add(v1,v3);
+	bl_debug_draw_edge_add(v2,v4);
+
+	copy_v3_v3(v1,v3);
+	copy_v3_v3(v2,v4);
+	sub_v3_v3v3(v3,v1,zd);
+	sub_v3_v3v3(v4,v2,zd);
+
+	bl_debug_draw_edge_add(v1,v2);
+	bl_debug_draw_edge_add(v1,v3);
+	bl_debug_draw_edge_add(v2,v4);
+	
+}
+#endif
+
+
 typedef enum {
 	SIL_INIT = 0,
 	SIL_DRAWING = 1,
@@ -182,12 +244,21 @@ typedef struct SilhouetteData {
 
 	SilhouetteState state;	/* Operator state */
 
-	float depth;			/* Depth or thickness of the generated shape */
-	float smoothness;		/* Smoothness of the generated shape */
-	int resolution;			/* Subdivision of the shape*/
-	float anchor[3];		/* Origin point of the reference plane */
-	float z_vec[3];			/* Orientation of the reference plane */
-	MeshElemMap *emap;		/* Original Mesh vert -> edges map */
+	float depth;					/* Depth or thickness of the generated shape */
+	float smoothness;				/* Smoothness of the generated shape */
+	int resolution;					/* Subdivision of the shape*/
+	float anchor[3];				/* Origin point of the reference plane */
+	float z_vec[3];					/* Orientation of the reference plane */
+	MeshElemMap *emap;				/* Original Mesh vert -> edges map */
+	GHash *i_edges;					/* Edges crossing the both shapes. (only orig mesh)*/
+	int *fillet_ring_orig;			/* ring_edges to connect to in the orig mesh */
+	int *fillet_ring_orig_start;	/* start positions to each individual ring */
+	int *fillet_ring_new;			/* ring_edges to connect to in the new mesh */
+	int *fillet_ring_new_start;		/* start positions to each individual ring */
+	int num_rings, fillet_ring_tot;
+	int *inter_edges;				/* edges crossing the two shapes */
+	int num_inter_edges;			/* number of edges crossing */
+	BB *fillet_ring_bbs;				/* every ring gets a Bounding box to check intersection with branches */
 } SilhouetteData;
 
 /** \name Tool Capabilities
@@ -597,6 +668,8 @@ typedef struct SculptThreadedTaskData {
 	bool smooth_mask;
 	bool has_bm_orco;
 	SilhouetteData *sil;
+	int *v_to_rm; /* Shared array handle access with mutex! */
+	int num_v_to_rm;
 
 	SculptProjectVector *spvc;
 	float *offset;
@@ -5091,6 +5164,19 @@ static void BB_reset(BB *bb)
 	bb->bmax[0] = bb->bmax[1] = bb->bmax[2] = -FLT_MAX;
 }
 
+static bool bb_intersect(BB *bb1, BB *bb2) {
+	int i;
+
+	/* min is inclusive max is exclusive? BB*/
+	for (i = 0; i < 3; ++i) {
+		if(bb1->bmin[i] >= bb2->bmax[i] || bb1->bmax[i] < bb2->bmin[i]){
+			return false;
+		}
+	}
+
+	return true;
+}
+
 static void silhouette_stroke_free(SilhouetteStroke *stroke)
 {
 	if (stroke) {
@@ -5136,6 +5222,14 @@ static SilhouetteData *silhouette_data_new(bContext *C)
 
 	copy_v3_v3(sil->anchor, fp);
 
+	/* Intersection variables */
+	sil->fillet_ring_orig = NULL;
+	sil->fillet_ring_orig_start = NULL;
+	sil->fillet_ring_new = NULL;
+	sil->fillet_ring_new_start = NULL;
+	sil->inter_edges = NULL;
+	sil->fillet_ring_bbs = NULL;
+
 	sil->scene = scene;
 	sil->ob = obedit;
 	sil->state = SIL_INIT;
@@ -5148,6 +5242,25 @@ static void silhouette_data_free(struct wmOperator *op)
 	data = op->customdata;
 	if (data) {
 		silhouette_stroke_free(data->current_stroke);
+
+		if (data->inter_edges) {
+			MEM_freeN(data->inter_edges);
+		}
+		if (data->fillet_ring_orig) {
+			MEM_freeN(data->fillet_ring_orig);
+		}
+		if (data->fillet_ring_orig_start) {
+			MEM_freeN(data->fillet_ring_orig_start);
+		}
+		if (data->fillet_ring_new) {
+			MEM_freeN(data->fillet_ring_new);
+		}
+		if (data->fillet_ring_new_start) {
+			MEM_freeN(data->fillet_ring_new_start);
+		}
+		if (data->fillet_ring_bbs) {
+			MEM_freeN(data->fillet_ring_bbs);
+		}
 		MEM_SAFE_FREE(data);
 	}
 }
@@ -5239,6 +5352,7 @@ typedef struct SpineBranch{
 	int *e_start_arr;		/* Edges on the ends are stored (used primarly for bridging) */
 	int fs_bs_offset;		/* Frontside edge offset to backside*/
 	int *e_flip_side_ends;	/* Front and backside connecting edges of each part*/
+	bool intersecting;
 }SpineBranch;
 
 /* Main Tree Container */
@@ -7037,52 +7151,220 @@ static void stroke_smooth_cap(SilhouetteData *sil, SilhouetteStroke *stroke, flo
 	}
 }
 
-static void remove_connected_from_edgehash(MeshElemMap *emap, GHash *edgeHash, int v) {
+static void remove_connected_from_edgehash(MeshElemMap *emap, GHash *edge_hash, int v) {
 	for (int e = 0; e < emap[v].count; e++) {
-		BLI_ghash_remove(edgeHash, emap[v].indices[e], NULL, NULL);
+		BLI_ghash_remove(edge_hash, emap[v].indices[e], NULL, NULL);
 	}
 }
 
-static bool has_cross_border_neighbour(Mesh *me, GHash *vertHash, GHash *edgeHash, MeshElemMap *emap, int edge, int l_v_edge, int depth) {
+static bool has_cross_border_neighbour(Mesh *me, GHash *vert_hash, GHash *edge_hash, MeshElemMap *emap, int edge, int l_v_edge, int depth) {
 	int v_edge;
 
 	v_edge = me->medge[edge].v1 == l_v_edge ? me->medge[edge].v2 : me->medge[edge].v1;
 
 	if (depth == 0) {
-		return BLI_ghash_haskey(vertHash, SET_INT_IN_POINTER(v_edge));
+		return BLI_ghash_haskey(vert_hash, SET_INT_IN_POINTER(v_edge));
 	} else {
-		if(!BLI_ghash_haskey(vertHash, SET_INT_IN_POINTER(v_edge))){
+		if(!BLI_ghash_haskey(vert_hash, SET_INT_IN_POINTER(v_edge))){
 			for (int e = 0; e < emap[v_edge].count; e++) {
 				if(emap[v_edge].indices[e] != edge) {
-					if(has_cross_border_neighbour(me, vertHash, edgeHash, emap, emap[v_edge].indices[e], v_edge, depth - 1)){
+					if(has_cross_border_neighbour(me, vert_hash, edge_hash, emap, emap[v_edge].indices[e], v_edge, depth - 1)){
 						return true;
 					}
 				}
 			}
 		} else {
-			BLI_ghash_remove(edgeHash, edge, NULL, NULL);
+			BLI_ghash_remove(edge_hash, edge, NULL, NULL);
 		}
 	}
 	return false;
 }
 
-/* Get the adjacent edge which connects the edges within the edgeHash. Used to create multiple ordered loops
+/* Get the adjacent edge which connects the edges within the edge_hash. Used to create multiple ordered loops
  * v_edge is the endpoint off curr_edge from which to branch off
  * TODO: One wide strips might get cutoff */
-static int get_adjacent_edge(Mesh *me, MeshElemMap *emap, int curr_edge, int v_edge, GHash *edgeHash, GHash *vertHash)
+static int get_adjacent_edge(Mesh *me, MeshElemMap *emap, int curr_edge, int v_edge, GHash *edge_hash, GHash *vert_hash)
 {
 	for (int e = 0; e < emap[v_edge].count; e++) {
-		if(emap[v_edge].indices[e] != curr_edge && has_cross_border_neighbour(me, vertHash, edgeHash, emap, emap[v_edge].indices[e], v_edge, 1)) {
+		if(emap[v_edge].indices[e] != curr_edge && has_cross_border_neighbour(me, vert_hash, edge_hash, emap, emap[v_edge].indices[e], v_edge, 1)) {
 			return emap[v_edge].indices[e];
 		}
 	}
 	for (int e = 0; e < emap[v_edge].count; e++) {
-		if(emap[v_edge].indices[e] != curr_edge && has_cross_border_neighbour(me, vertHash, edgeHash, emap, emap[v_edge].indices[e], v_edge, 2)) {
+		if(emap[v_edge].indices[e] != curr_edge && has_cross_border_neighbour(me, vert_hash, edge_hash, emap, emap[v_edge].indices[e], v_edge, 2)) {
 			return emap[v_edge].indices[e];
 		}
 	}
 	/*End Of Loop. Shouldn't happen with two manifold meshes*/
 	return -1;
+}
+
+#if 0
+/*static void add_from_map(const int v, MeshElemMap *map, int *data, int *num, int *max)
+{
+	int count = map[v].count;
+	if (count > 0) {
+		if (num + count > max) {
+			*max += fmax(STORE_ESTIMATE_RESIZE, count);
+			data = MEM_reallocN(data, sizeof(int) * (*max));
+		}
+		for (int i = 0; i < count; i++) {
+			data[(*num)] = map[v].indices[i];
+			*num = *num + 1;
+		}
+	}
+}
+
+static int *allocate_estimate(int r_num, const int count, float factor)
+{
+	r_num = (int)(count * (factor + STORE_ESTIMATE_BIAS));
+	return MEM_callocN(sizeof(int) * r_num, __func__);
+}*/
+
+/* Doesn't work external pointers to the vert/edge/loop/poly structure break 
+ * Is there another way than converting to bmesh?
+ */
+
+static void remove_verts_from_mesh(Mesh *me, int *v_to_rm, int num_v_to_rm, MeshElemMap *emap, MeshElemMap *lmap, MeshElemMap *pmap){
+	int *v_rd_table, *e_rd_table, *l_rd_table, *p_rd_table;
+	int sum = 0, next_del = 0, next_del_pos = 0;
+
+	v_rd_table = MEM_callocN(sizeof(int) * me->totvert, "Vertex redirect table");
+
+	/* Prefix Sum / Scan to calculate new positions for vertices. Multithreading?*/
+	next_del = v_to_rm[0];
+	for (int i = 0; i < me->totvert; i++) {
+		if (i == next_del) {
+			if (next_del_pos + 1 < num_v_to_rm) {
+				next_del_pos ++;
+				next_del = v_to_rm[next_del_pos];
+			}
+			v_rd_table[i] = -1;
+		} else {
+			v_rd_table[i] = sum;
+			sum ++;
+		}
+	}
+
+	/*int *e_to_rm = NULL, *l_to_rm = NULL, *p_to_rm = NULL;
+	int num_e_to_rm = 0, num_l_to_rm = 0, num_p_to_rm = 0;
+	int max_e_to_rm = 0, max_l_to_rm = 0, max_p_to_rm = 0;*/
+
+
+	/*e_to_rm = allocate_estimate(max_e_to_rm, num_v_to_rm, 4.0f);
+	l_to_rm = allocate_estimate(max_l_to_rm, num_v_to_rm, 4.0f);
+	p_to_rm = allocate_estimate(max_p_to_rm, num_v_to_rm, 1.0f);
+
+	for (int i = 0; i < num_v_to_rm; i++) {
+		add_from_map(v_to_rm[i], emap, e_to_rm, &num_e_to_rm, &max_e_to_rm);
+		add_from_map(v_to_rm[i], lmap, l_to_rm, &num_e_to_rm, &max_e_to_rm);
+		add_from_map(v_to_rm[i], pmap, p_to_rm, &num_e_to_rm, &max_e_to_rm);
+	}*/
+
+	BKE_mesh_update_customdata_pointers(me, false);
+
+	/*me->totvert = me->totvert - unode->bm_enter_totvert;
+	me->totedge = me->totedge - unode->bm_enter_totedge;
+	me->totloop = me->totloop - unode->bm_enter_totloop;
+	me->totpoly = me->totpoly - unode->bm_enter_totpoly;*/
+
+	MEM_freeN(e_to_rm);
+	MEM_freeN(l_to_rm);
+	MEM_freeN(p_to_rm);
+}
+
+#endif
+
+static void calc_ring_bbs(SilhouetteData *sil, Mesh *me)
+{
+	int len, edge;
+	BB *curr;
+	sil->fillet_ring_bbs = MEM_callocN(sizeof(BB) * sil->num_rings, "ring bb mem");
+
+	for (int r = 0; r < sil->num_rings; r++) {
+		len = r + 1 < sil->num_rings ? sil->fillet_ring_new_start[r + 1] - sil->fillet_ring_new_start[r] : sil->fillet_ring_tot - sil->fillet_ring_new_start[r];
+		curr = &sil->fillet_ring_bbs[r];
+		BB_reset(curr);
+		for (int e = 0; e < len; e++) {
+			edge = sil->fillet_ring_new[sil->fillet_ring_new_start[r] + e];
+			BB_expand(curr, me->mvert[me->medge[edge].v1].co);
+			BB_expand(curr, me->mvert[me->medge[edge].v2].co);
+		}
+	}
+}
+
+static bool next_to_in_ring(int e1, int p_to_e2, int *ring, int min, int max)
+{
+	if (ring[p_to_e2] == e1) {
+		return true;
+	}
+	if (p_to_e2 + 1 < max && ring[p_to_e2 + 1] == e1) {
+		return true;
+	}
+	if (p_to_e2 - 1 > min && ring[p_to_e2 - 1] == e1) {
+		return true;
+	}
+	return false;
+}
+
+static void join_node_separated_rings(SilhouetteData *sil, Mesh *me)
+{
+	/*int *merged_ring_arr = NULL;
+	int *merged_start = NULL;
+	int merged_tot = 0, merged_num = 0;*/
+	int r1_start, r2_start, r1_tot, r2_tot;
+	MEdge e1_c, e2_c;
+	int r1_e_s1 = -1, r1_e_s2 = -1, r2_e_s1 = -1, r2_e_s2 = -1;
+
+	printf("Joining rings. In total %i rings to check.\n", sil->num_rings);
+	for (int r1 = 0; r1 < sil->num_rings - 1; r1++) {
+		for (int r2 = r1 + 1; r2 < sil->num_rings; r2++) {
+			if (bb_intersect(&sil->fillet_ring_bbs[r1], &sil->fillet_ring_bbs[r2])) {
+				r1_start = sil->fillet_ring_new_start[r1];
+				r2_start = sil->fillet_ring_new_start[r2];
+				r1_tot = sil->fillet_ring_new_start[r1 + 1] - r1_start;
+				r2_tot = r2 + 1 < sil->num_rings ? sil->fillet_ring_new_start[r2 + 1] - r2_start : sil->fillet_ring_tot - r2_start;
+				for (int e1 = 0; e1 < r1_tot; e1++) {
+					e1_c = me->medge[sil->fillet_ring_new[r1_start + e1]];
+					for (int e2 = 0; e2 < r2_tot; e2++) {
+						e2_c = me->medge[sil->fillet_ring_new[r2_start + e2]];
+						if (e1_c.v1 == e2_c.v1 || e1_c.v1 == e2_c.v2 || e1_c.v2 == e2_c.v1 || e1_c.v2 == e2_c.v2) {
+							if (r1_e_s1 == -1) {
+								r1_e_s1 = sil->fillet_ring_new[r1_start + e1];
+								r2_e_s1 = sil->fillet_ring_new[r2_start + e2];
+							} else {
+								if (!next_to_in_ring(r1_e_s1, r1_start + e1, sil->fillet_ring_new, r1_start + r1_tot, r1_start)) {
+									r1_e_s2 = sil->fillet_ring_new[r1_start + e1];
+									r2_e_s2 = sil->fillet_ring_new[r2_start + e2];
+									/* Found start and endpoint of the two ring intersections */
+#ifdef DEBUG_DRAW
+									bl_debug_color_set(0xffffff);
+									bl_debug_draw_point(me->mvert[me->medge[r1_e_s1].v1].co, 0.2f);
+									bl_debug_color_set(0x000000);
+									bl_debug_draw_point(me->mvert[me->medge[r1_e_s2].v1].co, 0.2f);
+									bl_debug_color_set(0x000000);
+#endif
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+static void prep_int_shared_mem(int **mem, int *r_num, int *r_start, int len, const char *str)
+{
+	if (!mem) {
+		*r_start = 0;
+		*mem = MEM_callocN(sizeof(int) * len, str);
+		*r_num = len;
+	} else {
+		*r_start = *r_num;
+		*r_num = *r_num + len;
+		*mem = MEM_reallocN(*mem, sizeof(int) * (*r_num));
+	}
 }
 
 /* Calculate the intersections with existing geometry. Used to connect the new Silhouette to the old mesh
@@ -7102,11 +7384,15 @@ static void do_calc_fillet_line_task_cb_ex(void *userdata, void *UNUSED(userdata
 	float fuzz;
 	MEdge e_comp;
 	int v_i, vd_i;
-	GHash *vertHash = BLI_ghash_int_new("vertices within intersection");
-	GHash *edgeHash = BLI_ghash_int_new("edges on the intersection");
+	GHash *vert_hash = BLI_ghash_int_new("vertices within intersection");
+	GHash *edge_hash = BLI_ghash_int_new("edges on the intersection");
 	int *edge_ring_fillet = NULL;
+	int *ring_start = NULL;
+	int v_rm_start_in_shared_arr = 0, int_e_start_in_shared_arr = 0, fillet_edge_ring_start_shared_arr = 0, fillet_ring_start_start_shared_arr = 0;
+	int r_size;
 	BLI_array_declare(edge_ring_fillet);
-	int comp_v;
+	BLI_array_declare(ring_start);
+	int comp_v, idx;
 
 	/*GHashIterState state;*/
 	GHashIterator gh_iter;
@@ -7121,20 +7407,20 @@ static void do_calc_fillet_line_task_cb_ex(void *userdata, void *UNUSED(userdata
 		 * Ignores smoothness, assuming the smoothness blures the fillets anyways it should be ok. */
 		fuzz = SIL_FILLET_BLUR_MIN + sil->smoothness * 0.01f * SIL_FILLET_BLUR_MAX;
 		if (dist_squared_to_plane_v3(vd.co, sil_plane) <= sil->depth + fuzz) {
-			if (!BLI_ghash_haskey(vertHash, SET_INT_IN_POINTER(vd.vert_indices[vd.i]))) {
+			if (!BLI_ghash_haskey(vert_hash, SET_INT_IN_POINTER(vd.vert_indices[vd.i]))) {
 				ED_view3d_project_float_v2_m4(sil->ar, vd.co, point, data->mat);
 				if (isect_point_poly_v2(point, (float(*)[2])sil->current_stroke->points_v2, sil->current_stroke->totvert, false)){
-					if (!BLI_ghash_haskey(vertHash, SET_INT_IN_POINTER(vd.vert_indices[vd.i]))) {
-						BLI_ghash_insert(vertHash, SET_INT_IN_POINTER(vd.vert_indices[vd.i]), SET_INT_IN_POINTER(vd.vert_indices[vd.i]));
+					if (!BLI_ghash_haskey(vert_hash, SET_INT_IN_POINTER(vd.vert_indices[vd.i]))) {
+						BLI_ghash_insert(vert_hash, SET_INT_IN_POINTER(vd.vert_indices[vd.i]), SET_INT_IN_POINTER(vd.vert_indices[vd.i]));
 						vd_i = vd.vert_indices[vd.i];
 						for (int e = 0; e < sil->emap[vd_i].count; e++){
 							e_comp = me->medge[sil->emap[vd_i].indices[e]];
 							v_i = e_comp.v1 == vd_i ? e_comp.v2 : e_comp.v1;
-							if (!BLI_ghash_haskey(vertHash, SET_INT_IN_POINTER(v_i)))
+							if (!BLI_ghash_haskey(vert_hash, SET_INT_IN_POINTER(v_i)))
 							{
 								ED_view3d_project_float_v2_m4(sil->ar, me->mvert[v_i].co, point, data->mat);
 								if (!isect_point_poly_v2(point, (float(*)[2])sil->current_stroke->points_v2, sil->current_stroke->totvert, false) || dist_squared_to_plane_v3(me->mvert[v_i].co, sil_plane) > sil->depth + fuzz) {
-									BLI_ghash_insert(edgeHash, SET_INT_IN_POINTER(sil->emap[vd_i].indices[e]), SET_INT_IN_POINTER(sil->emap[vd_i].indices[e]));
+									BLI_ghash_insert(edge_hash, SET_INT_IN_POINTER(sil->emap[vd_i].indices[e]), SET_INT_IN_POINTER(sil->emap[vd_i].indices[e]));
 								}
 							}
 						}
@@ -7145,20 +7431,40 @@ static void do_calc_fillet_line_task_cb_ex(void *userdata, void *UNUSED(userdata
 	}
 	BKE_pbvh_vertex_iter_end;
 
+	/* Finished writing all vertices which are within the intersection and need to be removed.
+	 * write them to the shared array. Lock the mutex to avoid collisions */
+	BLI_mutex_lock(&data->mutex);
+	prep_int_shared_mem(&data->v_to_rm, &data->num_v_to_rm, &v_rm_start_in_shared_arr, BLI_ghash_size(vert_hash), "verts to remove");
+	prep_int_shared_mem(&sil->inter_edges, &sil->num_inter_edges, &int_e_start_in_shared_arr, BLI_ghash_size(edge_hash), "edges on transition");
+	BLI_mutex_unlock(&data->mutex);
+
+	/* Copy vertice data over. No need for mutex since data ranges are separate */
+	GHASH_ITER_INDEX (gh_iter, vert_hash, idx) {
+		data->v_to_rm[v_rm_start_in_shared_arr + idx] = BLI_ghashIterator_getKey(&gh_iter);
+	}
+
+	/* Copy edge data over. No need for mutex since data ranges are separate */
+	GHASH_ITER_INDEX (gh_iter, edge_hash, idx) {
+		sil->inter_edges[int_e_start_in_shared_arr + idx] = BLI_ghashIterator_getKey(&gh_iter);
+	}
+
 	/* TODO: Workaround, do a BLI_ghash_pop style while loop
 	 * TODO: A adjacency search might fail if there is not a single path to be searched, shouldn't be a problem on first thought though.
 	 * Breaker is a anti crash method in case the algorithm gets caught in an endless loop. Shouldn't happen!*/
 	int breaker;
+	int debug_test_v;
 	do {
 		breaker = me->totedge;
-		BLI_ghashIterator_init(&gh_iter, edgeHash);
+		BLI_ghashIterator_init(&gh_iter, edge_hash);
 		if(!BLI_ghashIterator_done(&gh_iter)){
 			start_edge = BLI_ghashIterator_getValue(&gh_iter);
-			BLI_ghash_remove(edgeHash, start_edge, NULL, NULL);
-			comp_v = BLI_ghash_haskey(vertHash, SET_INT_IN_POINTER(me->medge[start_edge].v1)) ? me->medge[start_edge].v2 : me->medge[start_edge].v1;
-			BLI_assert(!BLI_ghash_haskey(vertHash, SET_INT_IN_POINTER(comp_v)));
-			start_edge = get_adjacent_edge(me, sil->emap, start_edge, comp_v, edgeHash, vertHash);
+			BLI_ghash_remove(edge_hash, start_edge, NULL, NULL);
+			comp_v = BLI_ghash_haskey(vert_hash, SET_INT_IN_POINTER(me->medge[start_edge].v1)) ? me->medge[start_edge].v2 : me->medge[start_edge].v1;
+			debug_test_v = comp_v;
+			BLI_assert(!BLI_ghash_haskey(vert_hash, SET_INT_IN_POINTER(comp_v)));
+			start_edge = get_adjacent_edge(me, sil->emap, start_edge, comp_v, edge_hash, vert_hash);
 			if(start_edge >= 0) {
+				BLI_array_append(ring_start, BLI_array_count(edge_ring_fillet));
 				curr_edge = start_edge;
 				last_edge = -1;
 
@@ -7173,28 +7479,63 @@ static void do_calc_fillet_line_task_cb_ex(void *userdata, void *UNUSED(userdata
 							comp_v = me->medge[curr_edge].v1;
 						}
 					}
-					remove_connected_from_edgehash(sil->emap, edgeHash, comp_v);
-					tmp_curr_edge = get_adjacent_edge(me, sil->emap, curr_edge, comp_v, edgeHash, vertHash);
+					remove_connected_from_edgehash(sil->emap, edge_hash, comp_v);
+					tmp_curr_edge = get_adjacent_edge(me, sil->emap, curr_edge, comp_v, edge_hash, vert_hash);
 					last_edge = curr_edge;
 					curr_edge = tmp_curr_edge;
 					breaker --;
 				}
+				printf("Found a cut loop!\n");
 				BLI_assert(breaker > 0);
+				/* TODO: Bug shouldn't reach but does on some occasion.*/
+				if (breaker == 0) {
+					BLI_array_empty(edge_ring_fillet);
+#ifdef DEBUG_DRAW
+
+					bl_debug_color_set(0x00ff00);
+					bl_debug_draw_point(me->mvert[debug_test_v].co, 0.2f);
+					bl_debug_draw_medge_add(me, start_edge);
+					bl_debug_color_set(0x000000);
+#endif
+				}
 			}
 		}
-		printf("Found a cut loop!\n");
 	} while (!BLI_ghashIterator_done(&gh_iter));
 
+	/* Prep ring memory*/
+	BLI_mutex_lock(&data->mutex);
+	prep_int_shared_mem(&sil->fillet_ring_new, &sil->fillet_ring_tot, &fillet_edge_ring_start_shared_arr, BLI_array_count(edge_ring_fillet), "edges on transition");
+	prep_int_shared_mem(&sil->fillet_ring_new_start, &sil->num_rings, &fillet_ring_start_start_shared_arr, BLI_array_count(ring_start), "start of individual rings");
+	BLI_mutex_unlock(&data->mutex);
+
+	/* Copy ring memory */
+	for (int i = 0; i < BLI_array_count(edge_ring_fillet); i++) {
+		sil->fillet_ring_new[fillet_edge_ring_start_shared_arr + i] = edge_ring_fillet[i];
+	}
+	/* Offset start pointers to account chunks beforehand */
+	for (int i = 0; i < BLI_array_count(ring_start); i++) {
+		sil->fillet_ring_new_start[fillet_ring_start_start_shared_arr + i] = ring_start[i] + fillet_edge_ring_start_shared_arr;
+	}
+
+	/*TODO: merge rings from multiple threads / nodes*/
 #ifdef DEBUG_DRAW
-	for(int i = 0; i < BLI_array_count(edge_ring_fillet); i++) {
-		bl_debug_color_set(0xff00ff);
-		bl_debug_draw_medge_add(me, edge_ring_fillet[i]);
-		bl_debug_color_set(0x000000);
+	for(int r = 0; r < BLI_array_count(ring_start); r++) {
+		r_size = r < BLI_array_count(ring_start) - 1 ? ring_start[r + 1] - ring_start[r] : BLI_array_count(edge_ring_fillet) - ring_start[r];
+		for(int i = 0; i < r_size; i++) {
+			if(i == 0){
+				bl_debug_color_set(0x00ffff);
+			} else {
+				bl_debug_color_set(0xff00ff);
+			}
+			bl_debug_draw_medge_add(me, edge_ring_fillet[ring_start[r] + i]);
+			bl_debug_color_set(0x000000);
+		}
 	}
 #endif
+	BLI_array_free(ring_start);
 	BLI_array_free(edge_ring_fillet);
-	BLI_ghash_free(vertHash, NULL, NULL);
-	BLI_ghash_free(edgeHash, NULL, NULL);
+	BLI_ghash_free(vert_hash, NULL, NULL);
+	BLI_ghash_free(edge_hash, NULL, NULL);
 }
 
 static void do_calc_fillet_line(Object *ob, SilhouetteData *silhouette, PBVHNode **nodes, int totnode)
@@ -7202,22 +7543,69 @@ static void do_calc_fillet_line(Object *ob, SilhouetteData *silhouette, PBVHNode
 	Mesh *me = ob->data;
 	float projmat[4][4];
 	MeshElemMap *emap;
+	MeshElemMap *lmap;
+	MeshElemMap *pmap;
 	int *emap_mem;
+	int *lmap_mem;
+	int *pmap_mem;
+	int *v_remove = NULL;
+	RegionView3D *rv3d;
+	View3D *v3d;
+	/*rctf viewplane;
+	float clipend;
+	float clipnear;*/
+
+	rv3d = silhouette->ar->regiondata;
+	v3d = silhouette->vc.v3d;
 
 	BKE_mesh_vert_edge_map_create(&emap, &emap_mem, me->medge, me->totvert, me->totedge);
+	BKE_mesh_edge_loop_map_create(&lmap, &lmap_mem, me->medge, me->totedge, me->mpoly, me->totpoly, me->mloop, me->totloop);
+	BKE_mesh_edge_poly_map_create(&pmap, &pmap_mem, me->medge, me->totedge, me->mpoly, me->totpoly, me->mloop, me->totloop);
 	silhouette->emap = emap;
 	/* calc the projection matrix used to convert 3d vertice in 2d space */
+	mul_m4_m4m4(projmat, (float (*)[4])rv3d->persmat, ob->obmat);
+	/* TODO: Orthographic projection:
 	ED_view3d_ob_project_mat_get(silhouette->ar->regiondata, ob, projmat);
+
+	float vmat[4][4], winmat[4][4];;
+
+
+	mul_m4_m4m4(vmat, (float (*)[4])rv3d->viewmat, ob->obmat);
+	mul_m4_m4m4(projmat, (float (*)[4])rv3d->persmat, ob->obmat);
+
+	ED_view3d_viewplane_get(v3d, rv3d, silhouette->ar->winx, silhouette->ar->winy, &viewplane, &clipnear, &clipend, NULL);
+	orthographic_m4(winmat, viewplane.xmin, viewplane.xmax, viewplane.ymin, viewplane.ymax, -clipend, clipend);
+
+	mul_m4_m4m4(vmat, (float (*)[4])rv3d->viewmat, ob->obmat);
+	mul_m4_m4m4(projmat, winmat, vmat);*/
 
 	/* threaded loop over nodes */
 	SculptThreadedTaskData data = {
 		.ob = ob, .nodes = nodes,
-		.sil = silhouette, .mat = projmat
+		.sil = silhouette, .mat = projmat, .v_to_rm = v_remove
 	};
 
 	BLI_task_parallel_range_ex(
 							   0, totnode, &data, NULL, 0, do_calc_fillet_line_task_cb_ex,
-							   (totnode > SCULPT_THREADED_LIMIT) & false, false);
+							   (totnode > SCULPT_THREADED_LIMIT), false);
+
+	calc_ring_bbs(silhouette, me);
+
+#ifdef DEBUG_DRAW
+	for (int r = 0; r < silhouette->num_rings; r ++) {
+		bl_debug_draw_BB_add(&silhouette->fillet_ring_bbs[r], 0x0000ff);
+	}
+#endif
+
+	/*TODO: Join multiple parts together when totnode > 1.*/
+	join_node_separated_rings(silhouette, me);
+
+	if (v_remove) {
+#if 0
+		remove_verts_from_mesh(me, v_remove, data.num_v_to_rm, emap, lmap, pmap);
+#endif
+		MEM_freeN(v_remove);
+	}
 
 	MEM_freeN(emap);
 	MEM_freeN(emap_mem);
