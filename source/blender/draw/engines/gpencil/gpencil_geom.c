@@ -705,3 +705,86 @@ Gwn_Batch *DRW_gpencil_get_edit_geom(bGPDstroke *gps, float alpha, short dflag)
 
 	return GWN_batch_create(GWN_PRIM_POINTS, vbo, NULL);
 }
+
+/* Draw lines for strokes being edited */
+Gwn_Batch *DRW_gpencil_get_edlin_geom(bGPDstroke *gps, float alpha, short dflag)
+{
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	Scene *scene = draw_ctx->scene;
+	Object *ob = draw_ctx->obact;
+	bGPdata *gpd = ob->gpd;
+	ToolSettings *ts = scene->toolsettings;
+	bool is_weight_paint = (gpd) && (gpd->flag & GP_DATA_STROKE_WEIGHTMODE);
+
+	int vgindex = ob->actdef - 1;
+	if (!BLI_findlink(&ob->defbase, vgindex)) {
+		vgindex = -1;
+	}
+
+	/* Get size of verts:
+	* - The selected state needs to be larger than the unselected state so that
+	*   they stand out more.
+	* - We use the theme setting for size of the unselected verts
+	*/
+	float bsize = UI_GetThemeValuef(TH_GP_VERTEX_SIZE);
+	float vsize;
+	if ((int)bsize > 8) {
+		vsize = 10.0f;
+		bsize = 8.0f;
+	}
+	else {
+		vsize = bsize + 2;
+	}
+
+	/* for now, we assume that the base color of the points is not too close to the real color */
+	/* set color using palette */
+	PaletteColor *palcolor = gps->palcolor;
+
+	float selectColor[4];
+	UI_GetThemeColor3fv(TH_GP_VERTEX_SELECT, selectColor);
+	selectColor[3] = alpha;
+	float linecolor[4];
+	ARRAY_SET_ITEMS(linecolor, 0.5f, 0.5f, 0.5f, 0.5f);
+
+
+	static Gwn_VertFormat format = { 0 };
+	static unsigned int pos_id, color_id, size_id;
+	if (format.attrib_ct == 0) {
+		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
+		color_id = GWN_vertformat_attr_add(&format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
+	}
+
+	Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
+	GWN_vertbuf_data_alloc(vbo, gps->totpoints);
+
+	/* Draw all the stroke lines (selected or not) */
+	bGPDspoint *pt = gps->points;
+	int idx = 0;
+	float fcolor[4];
+	float fsize = 0;
+	for (int i = 0; i < gps->totpoints; i++, pt++) {
+		/* weight paint */
+		if (is_weight_paint) {
+			float weight = BKE_gpencil_vgroup_use_index(pt, vgindex);
+			CLAMP(weight, 0.0f, 1.0f);
+			float hue = 2.0f * (1.0f - weight) / 3.0f;
+			hsv_to_rgb(hue, 1.0f, 1.0f, &selectColor[0], &selectColor[1], &selectColor[2]);
+			selectColor[3] = 1.0f;
+			copy_v4_v4(fcolor, selectColor);
+		}
+		else {
+			if (pt->flag & GP_SPOINT_SELECT) {
+				copy_v4_v4(fcolor, selectColor);
+			}
+			else {
+				copy_v4_v4(fcolor, linecolor);
+			}
+		}
+
+		GWN_vertbuf_attr_set(vbo, color_id, idx, fcolor);
+		GWN_vertbuf_attr_set(vbo, pos_id, idx, &pt->x);
+		++idx;
+	}
+
+	return GWN_batch_create(GWN_PRIM_LINE_STRIP, vbo, NULL);
+}

@@ -107,6 +107,7 @@ typedef struct GPENCIL_Data {
 /* *********** STATIC *********** */
 typedef struct g_data {
 	struct DRWShadingGroup *shgrps_edit_volumetric;
+	struct DRWShadingGroup *shgrps_edit_line;
 	struct DRWShadingGroup *shgrps_drawing_stroke;
 	struct DRWShadingGroup *shgrps_drawing_fill;
 
@@ -124,6 +125,7 @@ typedef struct GPENCIL_e_data {
 	struct GPUShader *gpencil_stroke_sh;
 	struct GPUShader *gpencil_point_sh;
 	struct GPUShader *gpencil_volumetric_sh;
+	struct GPUShader *gpencil_line_sh;
 	struct GPUShader *gpencil_drawing_fill_sh;
 	struct GPUShader *gpencil_fullscreen_sh;
 	/* temp depth texture */
@@ -142,6 +144,7 @@ typedef struct GpencilBatchCache {
 	Gwn_Batch **batch_stroke;
 	Gwn_Batch **batch_fill;
 	Gwn_Batch **batch_edit;
+	Gwn_Batch **batch_edlin;
 
 	/* settings to determine if cache is invalid */
 	bool is_dirty;
@@ -158,6 +161,7 @@ struct DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(struct GPENCIL_e_data 
 struct DRWShadingGroup *DRW_gpencil_shgroup_point_create(struct GPENCIL_e_data *e_data, struct GPENCIL_Data *vedata, struct DRWPass *pass, struct GPUShader *shader, struct Object *ob,
 	                                                     struct bGPdata *gpd, struct PaletteColor *palcolor, int id);
 struct DRWShadingGroup *DRW_gpencil_shgroup_point_volumetric_create(struct DRWPass *pass, struct GPUShader *shader);
+struct DRWShadingGroup *DRW_gpencil_shgroup_line_create(struct DRWPass *pass, struct GPUShader *shader);
 struct DRWShadingGroup *DRW_gpencil_shgroup_edit_volumetric_create(struct DRWPass *pass, struct GPUShader *shader);
 struct DRWShadingGroup *DRW_gpencil_shgroup_drawing_fill_create(struct DRWPass *pass, struct GPUShader *shader);
 
@@ -168,6 +172,7 @@ struct Gwn_Batch *DRW_gpencil_get_point_geom(struct bGPDstroke *gps, short thick
 struct Gwn_Batch *DRW_gpencil_get_stroke_geom(struct bGPDframe *gpf, struct bGPDstroke *gps, short thickness, const float ink[4]);
 struct Gwn_Batch *DRW_gpencil_get_fill_geom(struct bGPDstroke *gps, const float color[4]);
 struct Gwn_Batch *DRW_gpencil_get_edit_geom(struct bGPDstroke *gps, float alpha, short dflag);
+struct Gwn_Batch *DRW_gpencil_get_edlin_geom(struct bGPDstroke *gps, float alpha, short dflag);
 struct Gwn_Batch *DRW_gpencil_get_buffer_stroke_geom(struct bGPdata *gpd, float matrix[4][4], short thickness);
 struct Gwn_Batch *DRW_gpencil_get_buffer_fill_geom(const struct tGPspoint *points, int totpoints, float ink[4]);
 struct Gwn_Batch *DRW_gpencil_get_buffer_point_geom(struct bGPdata *gpd, float matrix[4][4], short thickness);

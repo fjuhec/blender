@@ -138,6 +138,7 @@ static void gpencil_batch_cache_resize(GpencilBatchCache *cache, int slots)
 	cache->batch_stroke = MEM_recallocN(cache->batch_stroke, sizeof(struct Gwn_Batch) * slots);
 	cache->batch_fill = MEM_recallocN(cache->batch_fill, sizeof(struct Gwn_Batch) * slots);
 	cache->batch_edit = MEM_recallocN(cache->batch_edit, sizeof(struct Gwn_Batch) * slots);
+	cache->batch_edlin = MEM_recallocN(cache->batch_edlin, sizeof(struct Gwn_Batch) * slots);
 }
 
 /* check size and increase if no free slots */
@@ -174,6 +175,7 @@ static void gpencil_batch_cache_init(Object *ob, int cfra)
 	cache->batch_stroke = MEM_callocN(sizeof(struct Gwn_Batch) * cache->cache_size, "Gpencil_Batch_Stroke");
 	cache->batch_fill = MEM_callocN(sizeof(struct Gwn_Batch) * cache->cache_size, "Gpencil_Batch_Fill");
 	cache->batch_edit = MEM_callocN(sizeof(struct Gwn_Batch) * cache->cache_size, "Gpencil_Batch_Edit");
+	cache->batch_edlin = MEM_callocN(sizeof(struct Gwn_Batch) * cache->cache_size, "Gpencil_Batch_Edlin");
 
 	cache->is_editmode = gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE);
 	gpd->flag &= ~GP_DATA_CACHE_IS_DIRTY;
@@ -203,10 +205,12 @@ static void gpencil_batch_cache_clear(GpencilBatchCache *cache, bGPdata *gpd)
 		BATCH_DISCARD_ALL_SAFE(cache->batch_stroke[i]);
 		BATCH_DISCARD_ALL_SAFE(cache->batch_fill[i]);
 		BATCH_DISCARD_ALL_SAFE(cache->batch_edit[i]);
-	}
+		BATCH_DISCARD_ALL_SAFE(cache->batch_edlin[i]);
+		}
 		MEM_SAFE_FREE(cache->batch_stroke);
 		MEM_SAFE_FREE(cache->batch_fill);
 		MEM_SAFE_FREE(cache->batch_edit);
+		MEM_SAFE_FREE(cache->batch_edlin);
 	}
 
 	MEM_SAFE_FREE(cache);
@@ -298,6 +302,15 @@ static DRWShadingGroup *DRW_gpencil_shgroup_fill_create(GPENCIL_e_data *e_data, 
 DRWShadingGroup *DRW_gpencil_shgroup_point_volumetric_create(DRWPass *pass, GPUShader *shader)
 {
 	/* e_data.gpencil_volumetric_sh */
+	DRWShadingGroup *grp = DRW_shgroup_create(shader, pass);
+
+	return grp;
+}
+
+/* create shading group for edit lines */
+DRWShadingGroup *DRW_gpencil_shgroup_line_create(DRWPass *pass, GPUShader *shader)
+{
+	/* e_data.gpencil_line_sh */
 	DRWShadingGroup *grp = DRW_shgroup_create(shader, pass);
 
 	return grp;
@@ -560,6 +573,17 @@ static void gpencil_add_editpoints_shgroup(GPENCIL_StorageList *stl, GpencilBatc
 		Object *obact = draw_ctx->obact;
 		bool is_weight_paint = (gpd) && (gpd->flag & GP_DATA_STROKE_WEIGHTMODE);
 
+		/* line of the original stroke */
+		if (cache->is_dirty) {
+			gpencil_batch_cache_check_free_slots(ob, gpd);
+			cache->batch_edlin[cache->cache_idx] = DRW_gpencil_get_edlin_geom(gps, ts->gp_sculpt.alpha, gpd->flag);
+		}
+		if (cache->batch_edlin[cache->cache_idx]) {
+			if ((obact) && (obact == ob)) {
+				DRW_shgroup_call_add(stl->g_data->shgrps_edit_line, cache->batch_edlin[cache->cache_idx], gpf->viewmatrix);
+			}
+		}
+		/* edit points */
 		if ((gps->flag & GP_STROKE_SELECT) || (is_weight_paint)) {
 			if ((gpl->flag & GP_LAYER_UNLOCK_COLOR) || ((gps->palcolor->flag & PC_COLOR_LOCKED) == 0)) {
 				if (cache->is_dirty) {

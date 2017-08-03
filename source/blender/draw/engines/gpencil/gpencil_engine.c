@@ -94,6 +94,11 @@ static void GPENCIL_engine_init(void *vedata)
 		e_data.gpencil_volumetric_sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_POINT_VARYING_SIZE_VARYING_COLOR);
 	}
 
+	/* used for edit lines for edit modes */
+	if (!e_data.gpencil_line_sh) {
+		e_data.gpencil_line_sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_FLAT_COLOR);
+	}
+
 	/* used to filling during drawing */
 	if (!e_data.gpencil_drawing_fill_sh) {
 		e_data.gpencil_drawing_fill_sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_SMOOTH_COLOR);
@@ -164,6 +169,7 @@ static void GPENCIL_cache_init(void *vedata)
 		/* edit pass */
 		psl->edit_pass = DRW_pass_create("Gpencil Edit Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND);
 		stl->g_data->shgrps_edit_volumetric = DRW_gpencil_shgroup_edit_volumetric_create(psl->edit_pass, e_data.gpencil_volumetric_sh);
+		stl->g_data->shgrps_edit_line = DRW_gpencil_shgroup_edit_volumetric_create(psl->edit_pass, e_data.gpencil_line_sh);
 		/* drawing buffer pass */
 		const DRWContextState *draw_ctx = DRW_context_state_get();
 		Palette *palette = BKE_palette_get_active_from_context(draw_ctx->evil_C);
