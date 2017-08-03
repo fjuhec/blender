@@ -32,6 +32,8 @@
 #include "BKE_deform.h"
 #include "BKE_mesh.h"
 
+#include "BLI_bitmap.h"
+#include "BLI_linklist_stack.h"
 #include "BLI_math.h"
 
 #include "bmesh_class.h"
@@ -78,8 +80,9 @@ static void apply_weights_vertex_normal(WeightedNormalModifierData *wnmd, Object
 			for (; ml_index < ml_index_end; ml_index++) {
 
 				int mv_index = mloop[ml_index].v;
+				const bool vert_of_group = has_vgroup && dvert[mv_index].dw != NULL && dvert[mv_index].dw->def_nr == defgrp_index;
 
-				if ( ((dvert && dvert[mv_index].dw) ^ use_invert_vgroup) || !dvert/* && keep_sharp)*/) {
+				if ( ((vert_of_group) ^ use_invert_vgroup) || !dvert) {
 					float wnor[3];
 
 					if (!cur_val[mv_index]) {			/* if cur_val is 0 init it to present value */
@@ -103,8 +106,9 @@ static void apply_weights_vertex_normal(WeightedNormalModifierData *wnmd, Object
 			float wnor[3];
 			int ml_index = mode_pair[i].index;
 			int mv_index = mloop[ml_index].v;
+			const bool vert_of_group = has_vgroup && dvert[mv_index].dw != NULL && dvert[mv_index].dw->def_nr == defgrp_index;
 
-			if (((dvert && dvert[mv_index].dw) ^ use_invert_vgroup) || (!dvert && keep_sharp)) {
+			if (((vert_of_group) ^ use_invert_vgroup) || !dvert) {
 				if (!cur_val[mv_index]) {
 					cur_val[mv_index] = mode_pair[i].val;
 				}
@@ -133,36 +137,156 @@ static void apply_weights_vertex_normal(WeightedNormalModifierData *wnmd, Object
 	}
 	else {
 		float(*loop_normal)[3] = MEM_callocN(sizeof(*loop_normal) * numLoops, "__func__");
+		int *loops_to_poly = MEM_mallocN(sizeof(*loops_to_poly) * numLoops, "__func__");
+		int numSharpVerts = 0;
+
+		BLI_bitmap *sharp_verts = BLI_BITMAP_NEW(numVerts, "__func__");
+		int *loops_per_vert = MEM_callocN(sizeof(*loops_per_vert) * numVerts, "__func__");
 
 		for (int mp_index = 0; mp_index < numPoly; mp_index++) {
 			int ml_index = mpoly[mp_index].loopstart;
 			const int ml_index_end = ml_index + mpoly[mp_index].totloop;
 
 			for (int i = ml_index; i < ml_index_end; i++) {
+				if ((medge[mloop[i].e].flag & ME_SHARP) && !BLI_BITMAP_TEST(sharp_verts, mloop[i].v)) {
+					numSharpVerts++;
+					BLI_BITMAP_ENABLE(sharp_verts, mloop[i].v);
+				}
+				loops_per_vert[mloop[i].v]++;
+				loops_to_poly[i] = mp_index;
 				copy_v3_v3(loop_normal[i], custom_normal[mloop[i].v]);
 			}
 		}
 
 		if (keep_sharp) {
+			void **loops_of_vert = MEM_mallocN(sizeof(loops_of_vert) * numSharpVerts, "__func__");
+			int cur = 0;
+
 			for (int mp_index = 0; mp_index < numPoly; mp_index++) {
 				int ml_index = mpoly[mp_index].loopstart;
 				const int ml_index_end = ml_index + mpoly[mp_index].totloop;
 
-				for (int i = ml_index; i < ml_index_end; i++) {
-					if (medge[mloop[i].e].flag & ME_SHARP) {
-						int other_v = BKE_mesh_edge_other_vert(&medge[mloop[i].e], mloop[i].v);
+				for (int i = ml_index, k = 0; i < ml_index_end; i++) {
 
-						int other_loop_index = poly_find_loop_from_vert(&mpoly[mp_index], &mloop[ml_index], other_v);
-						if (other_loop_index != -1) {
-							zero_v3(loop_normal[i]);
-							zero_v3(loop_normal[ml_index + other_loop_index]);
+					if (BLI_BITMAP_TEST(sharp_verts, mloop[i].v)) {
+
+						bool found = false;
+						for (k = 0; k < cur; k++) {
+							int v_index = *(int *)loops_of_vert[k];
+							if (mloop[i].v == v_index) {
+								found = true;
+								break;
+							}
+						}
+						if (found) {
+							int *loops = loops_of_vert[k];
+							while (*loops != -1) {
+								loops++;
+							}
+							*loops = i;
+						}
+						else {
+							int *loops;
+							loops_of_vert[k] = loops = MEM_callocN(sizeof(*loops) * (loops_per_vert[mloop[i].v] + 1), "__func__");
+							memset(loops, -1, sizeof(*loops) * (loops_per_vert[mloop[i].v] + 1));
+							loops[0] = mloop[i].v;
+							loops[1] = i;
+							cur++;
 						}
 					}
 				}
 			}
+			MEM_freeN(sharp_verts);
+			for (int i = 0; i < numSharpVerts; i++) {
+				int *loops = loops_of_vert[i];
+				int totloop = loops_per_vert[*loops];
+				loops++;
+				int *base_loop = loops;
+
+				BLI_SMALLSTACK_DECLARE(loop_nors, float *);
+
+				float avg_normal[3] = { 0 }, min_normal[3] = { 0 };
+				int min = 0, stack = 0, sharp_edges = 0;
+				bool check = (medge[mloop[*loops].e].flag & ME_SHARP) ? false : true;
+
+				for (int k = 0; k < totloop; k++) {
+					MPoly mp = mpoly[loops_to_poly[*loops]];
+					MLoop *prev_loop = (*loops - 1 >= mp.loopstart ? &mloop[*loops - 1] : &mloop[mp.loopstart + mp.totloop - 1]),
+						*next_loop = (*loops + 1 <= mp.loopstart + mp.totloop ? &mloop[*loops + 1] : &mloop[mp.loopstart]),
+						*vert_loop;
+
+					int other_v1 = BKE_mesh_edge_other_vert(&medge[prev_loop->e], prev_loop->v),
+						other_v2 = BKE_mesh_edge_other_vert(&medge[next_loop->e], next_loop->v);
+
+					if (other_v1 == mloop[*loops].v) {
+						vert_loop = prev_loop;
+					}
+					else if (other_v2 == mloop[*loops].v) {
+						vert_loop = next_loop;
+					}
+					if (medge[mloop[*loops].e].flag & ME_SHARP) {
+						sharp_edges++;
+						check = false;
+					}
+					if (check) {
+						stack++;
+						BLI_SMALLSTACK_PUSH(loop_nors, loop_normal[*loops]);
+						add_v3_v3(min_normal, polynors[loops_to_poly[*loops]]);
+						min = stack;
+					}
+					else {
+						if ((medge[mloop[*loops].e].flag & ME_SHARP)) {
+							normalize_v3(avg_normal);
+							while (stack > min) {
+								float *normal = BLI_SMALLSTACK_POP(loop_nors);
+								copy_v3_v3(normal, avg_normal);
+								stack--;
+							}
+							zero_v3(avg_normal);
+						}
+						stack++;
+						BLI_SMALLSTACK_PUSH(loop_nors, loop_normal[*loops]);
+						add_v3_v3(avg_normal, polynors[loops_to_poly[*loops]]);
+					}
+					
+					for (int j = 0, *l_index = base_loop; j < totloop; j++, l_index++) {
+						if (loops == l_index || *l_index == -1)
+							continue;
+						MPoly *mp = &mpoly[loops_to_poly[*l_index]];
+						bool has_poly = false;
+
+						for (int ml_index = mp->loopstart; ml_index < mp->loopstart + mp->totloop; ml_index++) {
+							if (mloop[ml_index].e == vert_loop->e) {
+								*loops = -1;
+								loops = l_index;
+								has_poly = true;
+								break;
+							}
+						}
+						if (has_poly) {
+							break;
+						}
+					}
+				}
+				if (!BLI_SMALLSTACK_IS_EMPTY(loop_nors)) {
+					float *normal;
+					add_v3_v3(avg_normal, min_normal);
+					normalize_v3(avg_normal);
+					while ((normal = BLI_SMALLSTACK_POP(loop_nors))) {
+						copy_v3_v3(normal, avg_normal);
+					}
+				}
+			}
+			for (int i = 0; i < numSharpVerts; i++) {
+				MEM_freeN(loops_of_vert[i]);
+			}
+			MEM_freeN(loops_of_vert);
 		}
 		BKE_mesh_normals_loop_custom_set(mvert, numVerts, medge, numEdges,
 			mloop, loop_normal, numLoops, mpoly, polynors, numPoly, clnors);
+		MEM_freeN(loops_to_poly);
+		MEM_freeN(loop_normal);
+		MEM_freeN(loops_per_vert);
 	}
 		
 	MEM_freeN(custom_normal);
@@ -176,10 +300,11 @@ static void WeightedNormal_FaceArea(
 	int defgrp_index, const bool use_invert_vgroup, const float weight)
 {
 	pair *face_area = MEM_mallocN(sizeof(*face_area) * numPoly, "__func__");
+	const bool bool_weights = (wnmd->flag & MOD_WEIGHTEDNORMAL_BOOL_WEIGHTS) != 0;
 
 	for (int mp_index = 0; mp_index < numPoly; mp_index++) {
 		face_area[mp_index].val = BKE_mesh_calc_poly_area(&mpoly[mp_index], &mloop[mpoly[mp_index].loopstart], mvert);
-		if (mpoly[mp_index].flag & ME_SMOOTH) {
+		if (bool_weights && (mpoly[mp_index].flag & ME_SMOOTH)) {
 			face_area[mp_index].val = 0;
 		}
 		face_area[mp_index].index = mp_index;
@@ -200,6 +325,7 @@ static void WeightedNormal_CornerAngle(WeightedNormalModifierData *wnmd, Object 
 {
 	pair *corner_angle = MEM_mallocN(sizeof(*corner_angle) * numLoops, "__func__");
 	float *index_angle = MEM_mallocN(sizeof(*index_angle) * numLoops, "__func__");
+	const bool bool_weights = (wnmd->flag & MOD_WEIGHTEDNORMAL_BOOL_WEIGHTS) != 0;
 	/* index_angle is first used to calculate corner angle and is then used to store poly index for each loop */
 
 	for (int mp_index = 0; mp_index < numPoly; mp_index++) {
@@ -208,7 +334,7 @@ static void WeightedNormal_CornerAngle(WeightedNormalModifierData *wnmd, Object 
 
 		for (int i = l_start; i < l_start + mpoly[mp_index].totloop; i++) {
 			corner_angle[i].val = (float)M_PI - index_angle[i];
-			if (mpoly[mp_index].flag & ME_SMOOTH) {
+			if (bool_weights && (mpoly[mp_index].flag & ME_SMOOTH)) {
 				corner_angle[i].val = 0;
 			}
 			corner_angle[i].index = i; 
@@ -232,6 +358,7 @@ static void WeightedNormal_FacewithAngle(WeightedNormalModifierData *wnmd, Objec
 {
 	pair *combined = MEM_mallocN(sizeof(*combined) * numLoops, "__func__");
 	float *index_angle = MEM_mallocN(sizeof(*index_angle) * numLoops, "__func__");
+	const bool bool_weights = (wnmd->flag & MOD_WEIGHTEDNORMAL_BOOL_WEIGHTS) != 0;
 
 	for (int mp_index = 0; mp_index < numPoly; mp_index++) {
 		int l_start = mpoly[mp_index].loopstart;
@@ -241,7 +368,7 @@ static void WeightedNormal_FacewithAngle(WeightedNormalModifierData *wnmd, Objec
 
 		for (int i = l_start; i < l_start + mpoly[mp_index].totloop; i++) {
 			combined[i].val = ((float)M_PI - index_angle[i]) * face_area;		// in this case val is product of corner angle and face area
-			if (mpoly[mp_index].flag & ME_SMOOTH) {
+			if (bool_weights && (mpoly[mp_index].flag & ME_SMOOTH)) {
 				combined[i].val = 0;
 			}
 			combined[i].index = i;
