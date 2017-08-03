@@ -725,10 +725,18 @@ bool BKE_gpencil_has_geometry_modifiers(Object *ob)
 void BKE_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *gpf, bGPDstroke *gps)
 {
 	ModifierData *md;
+	bGPdata *gpd = ob->gpd;
+	bool is_edit = (bool)((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)));
+
 	int id = 0;
 	for (md = ob->modifiers.first; md; md = md->next) {
 		if (((md->mode & eModifierMode_Realtime) && ((G.f & G_RENDER_OGL) == 0)) ||
 			((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL))) {
+
+			if (((md->mode & eModifierMode_Editmode) == 0) && (is_edit)) {
+				continue;
+			}
+
 			switch (md->type) {
 				// Noise Modifier
 			case eModifierType_GpencilNoise:
@@ -768,10 +776,18 @@ void BKE_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *gpf, bG
 void BKE_gpencil_geometry_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *gpf)
 {
 	ModifierData *md;
+	bGPdata *gpd = ob->gpd;
+	bool is_edit = (bool)((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)));
+
 	int id = 0;
 	for (md = ob->modifiers.first; md; md = md->next) {
 		if (((md->mode & eModifierMode_Realtime) && ((G.f & G_RENDER_OGL) == 0)) ||
 			((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL))) {
+
+			if (((md->mode & eModifierMode_Editmode) == 0) && (is_edit)) {
+				continue;
+			}
+
 			switch (md->type) {
 				// Array
 			case eModifierType_GpencilDupli:

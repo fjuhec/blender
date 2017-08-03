@@ -86,7 +86,7 @@ ModifierTypeInfo modifierType_GpencilThick = {
 	/* structName */        "GpencilThickModifierData",
 	/* structSize */        sizeof(GpencilThickModifierData),
 	/* type */             	eModifierTypeType_Gpencil,
-	/* flags */             eModifierTypeFlag_GpencilMod,
+	/* flags */             eModifierTypeFlag_GpencilMod | eModifierTypeFlag_SupportsEditmode,
 
 	/* copyData */          copyData,
 	/* deformVerts */       NULL,

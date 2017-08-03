@@ -135,7 +135,7 @@ ModifierTypeInfo modifierType_GpencilColor = {
 	/* structName */        "GpencilColorModifierData",
 	/* structSize */        sizeof(GpencilColorModifierData),
 	/* type */             	eModifierTypeType_Gpencil,
-	/* flags */             eModifierTypeFlag_GpencilMod,
+	/* flags */             eModifierTypeFlag_GpencilMod | eModifierTypeFlag_SupportsEditmode,
 
 	/* copyData */          copyData,
 	/* deformVerts */       NULL,

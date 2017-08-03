@@ -578,35 +578,35 @@ static void gpencil_add_editpoints_shgroup(GPENCIL_StorageList *stl, GpencilBatc
 
 /* main function to draw strokes */
 static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_data, void *vedata, ToolSettings *ts, Object *ob,
-	bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf,
+	bGPdata *gpd, bGPDlayer *gpl, bGPDframe *src_gpf, bGPDframe *derived_gpf,
 	const float opacity, const float tintcolor[4], const bool onion, const bool custonion)
 {
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
-
+	bGPDstroke *gps, *src_gps;
 	DRWShadingGroup *fillgrp;
 	DRWShadingGroup *strokegrp;
 	float viewmatrix[4][4];
-	bool is_edit = (bool)((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)) || (onion));
 	ListBase tmp_colors = { NULL, NULL };
 
 	/* get parent matrix and save as static data */
 	ED_gpencil_parent_location(ob, gpd, gpl, viewmatrix);
-	copy_m4_m4(gpf->viewmatrix, viewmatrix);
+	copy_m4_m4(derived_gpf->viewmatrix, viewmatrix);
 
 	/* initialization steps */
-	if ((cache->is_dirty) && (ob->modifiers.first) && (!is_edit)) {
+	if ((cache->is_dirty) && (ob->modifiers.first) && (!onion)) {
 		BKE_gpencil_reset_modifiers(ob);
 	}
 
 	/* apply geometry modifiers */
-	if ((cache->is_dirty) && (ob->modifiers.first) && (!is_edit)) {
+	if ((cache->is_dirty) && (ob->modifiers.first) && (!onion)) {
 		if (BKE_gpencil_has_geometry_modifiers(ob)) {
-			BKE_gpencil_geometry_modifiers(ob, gpl, gpf);
+			BKE_gpencil_geometry_modifiers(ob, gpl, derived_gpf);
 		}
 	}
-
-	for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+	int gps_idx = -1;
+	for (gps = derived_gpf->strokes.first, src_gps = src_gpf->strokes.first; gps; gps = gps->next, src_gps = src_gps->next) {
+		++gps_idx;
 		/* check if stroke can be drawn */
 		if (gpencil_can_draw_stroke(gps, onion) == false) {
 			continue;
@@ -645,20 +645,21 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 		strokegrp = stl->shgroups[id].shgrps_stroke;
 
 		/* apply modifiers (only modify geometry, but not create ) */
-		if ((cache->is_dirty) && (ob->modifiers.first) && (!is_edit)) {
-			BKE_gpencil_stroke_modifiers(ob, gpl, gpf, gps);
+		if ((cache->is_dirty) && (ob->modifiers.first) && (!onion)) {
+			BKE_gpencil_stroke_modifiers(ob, gpl, derived_gpf, gps);
 		}
 		/* fill */
 		if (fillgrp) {
-			gpencil_add_fill_shgroup(cache, fillgrp, ob, gpd, gpl, gpf, gps, tintcolor, onion, custonion);
+			gpencil_add_fill_shgroup(cache, fillgrp, ob, gpd, gpl, derived_gpf, gps, tintcolor, onion, custonion);
 		}
 		/* stroke */
-		gpencil_add_stroke_shgroup(cache, strokegrp, ob, gpd, gpl, gpf, gps, opacity, tintcolor, onion, custonion);
+		gpencil_add_stroke_shgroup(cache, strokegrp, ob, gpd, gpl, derived_gpf, gps, opacity, tintcolor, onion, custonion);
 
 		/* edit points (only in edit mode) */
 		if (!onion) {
-			gpencil_add_editpoints_shgroup(stl, cache, ts, ob, gpd, gpl, gpf, gps);
+			gpencil_add_editpoints_shgroup(stl, cache, ts, ob, gpd, gpl, derived_gpf, src_gps);
 		}
+
 		++cache->cache_idx;
 	}
 }
@@ -729,7 +730,7 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 				/* alpha decreases with distance from curframe index */
 				float fac = 1.0f - ((float)(gpf->framenum - gf->framenum) / (float)(gpl->gstep + 1));
 				color[3] = alpha * fac * 0.66f;
-				gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gf, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_PREVCOL);
+				gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gf, gf, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_PREVCOL);
 			}
 			else
 				break;
@@ -739,7 +740,7 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 		/* draw the strokes for the ghost frames (at half of the alpha set by user) */
 		if (gpf->prev) {
 			color[3] = (alpha / 7);
-			gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gpf->prev, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_PREVCOL);
+			gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gpf->prev, gpf->prev, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_PREVCOL);
 		}
 	}
 	else {
@@ -762,7 +763,7 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 				/* alpha decreases with distance from curframe index */
 				float fac = 1.0f - ((float)(gf->framenum - gpf->framenum) / (float)(gpl->gstep_next + 1));
 				color[3] = alpha * fac * 0.66f;
-				gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gf, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_NEXTCOL);
+				gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gf, gf, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_NEXTCOL);
 			}
 			else
 				break;
@@ -772,7 +773,7 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 		/* draw the strokes for the ghost frames (at half of the alpha set by user) */
 		if (gpf->next) {
 			color[3] = (alpha / 4);
-			gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gpf->next, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_NEXTCOL);
+			gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gpf->next, gpf->next, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_NEXTCOL);
 		}
 	}
 	else {
@@ -794,7 +795,7 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 	cache->cache_idx = 0;
 
 	/* init general modifiers data */
-	if ((cache->is_dirty) && (ob->modifiers.first) && (!is_edit)) {
+	if ((cache->is_dirty) && (ob->modifiers.first)) {
 		BKE_gpencil_lattice_init(ob);
 	}
 	/* draw normal strokes */
@@ -832,7 +833,8 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 			gpencil_draw_onionskins(cache, e_data, vedata, ts, ob, gpd, gpl, derived_gpf);
 		}
 		/* draw normal strokes */
-		gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, derived_gpf, gpl->opacity, gpl->tintcolor, false, false);
+		gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gpf, derived_gpf, 
+			gpl->opacity, gpl->tintcolor, false, false);
 	}
 	cache->is_dirty = false;
 }

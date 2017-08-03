@@ -92,7 +92,7 @@ ModifierTypeInfo modifierType_GpencilDupli = {
 	/* structName */        "GpencilDupliModifierData",
 	/* structSize */        sizeof(GpencilDupliModifierData),
 	/* type */             	eModifierTypeType_Gpencil,
-	/* flags */             eModifierTypeFlag_GpencilMod,
+	/* flags */             eModifierTypeFlag_GpencilMod | eModifierTypeFlag_SupportsEditmode,
 
 	/* copyData */          copyData,
 	/* deformVerts */       NULL,
