@@ -267,7 +267,6 @@ static void apply_weights_vertex_normal(WeightedNormalModifierData *wnmd, Object
 					}
 				}
 			}
-			MEM_freeN(sharp_verts);
 			for (int i = 0; i < numSharpVerts; i++) {
 				int *loops = loops_of_vert[i];
 				int totloop = loops_per_vert[*loops];
@@ -359,6 +358,7 @@ static void apply_weights_vertex_normal(WeightedNormalModifierData *wnmd, Object
 		}
 		BKE_mesh_normals_loop_custom_set(mvert, numVerts, medge, numEdges,
 			mloop, loop_normal, numLoops, mpoly, polynors, numPoly, clnors);
+		MEM_freeN(sharp_verts);
 		MEM_freeN(loops_to_poly);
 		MEM_freeN(loop_normal);
 		MEM_freeN(loops_per_vert);
