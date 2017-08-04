@@ -1828,7 +1828,7 @@ static bGPDstroke *gpencil_add_stroke(bGPDframe *gpf, Palette *palette, PaletteC
 	gps->thickness = thickness;
 	gps->inittime = 0;
 	/* enable recalculation flag by default */
-	gps->flag = GP_STROKE_RECALC_CACHES;
+	gps->flag = GP_STROKE_RECALC_CACHES | GP_STROKE_3DSPACE;
 
 	gps->totpoints = totpoints;
 	gps->points = MEM_callocN(sizeof(bGPDspoint) * gps->totpoints, "gp_stroke_points");
