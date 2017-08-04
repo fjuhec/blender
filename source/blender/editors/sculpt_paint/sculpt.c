@@ -7296,21 +7296,43 @@ static void calc_ring_bbs(SilhouetteData *sil, Mesh *me)
 	}
 }
 
-static bool next_to_in_ring(int e1, int p_to_e2, int *ring, int min, int max)
+/* We calculate a start and an endpoint of the two node ends intersecting. Now we need to determine the right side on which the intersection happens 
+ * Returning the points in correct order (positive looping results in inner side);
+ */
+static void order_positive_is_inside(Mesh *me, SilhouetteData *sil, MeshElemMap *emap, int *r11, int *r12, int r1_start, int r1_tot, int r2_start, int r2_tot)
 {
-	if (ring[p_to_e2] == e1) {
-		return true;
+	int dist_1;
+	int center;
+	int comp_v1, comp_v2;
+	int comp_e;
+	int tmp_swap;
+	if (*r11 > *r12) {
+		dist_1 = r1_tot - *r11 + *r12;
+	} else {
+		dist_1 = *r12 - *r11;
 	}
-	if (p_to_e2 + 1 < max && ring[p_to_e2 + 1] == e1) {
-		return true;
+
+	center = r1_start + (*r11 + (dist_1 / 2)) % r1_tot;
+	comp_v1 = me->medge[sil->fillet_ring_new[center]].v2;
+
+	for (int e = 0; e < emap[comp_v1].count; e++) {
+		comp_e = emap[comp_v1].indices[e];
+		if (comp_e != sil->fillet_ring_new[center] && comp_e != sil->fillet_ring_new[center + 1] && comp_e != sil->fillet_ring_new[center - 1]) {
+			comp_v2 = me->medge[comp_e].v1 == comp_v1 ? me->medge[comp_e].v2 : me->medge[comp_e].v1;
+			for (int e_l = 0; e_l < r2_tot; e_l ++) {
+				if (me->medge[sil->fillet_ring_new[r2_start + e_l]].v2 == comp_v2) {
+					return;
+				}
+			}
+		}
 	}
-	if (p_to_e2 - 1 > min && ring[p_to_e2 - 1] == e1) {
-		return true;
-	}
-	return false;
+	tmp_swap = *r11;
+	*r11 = *r12;
+	*r12 = tmp_swap;
+	return;
 }
 
-static void join_node_separated_rings(SilhouetteData *sil, Mesh *me)
+static void join_node_separated_rings(SilhouetteData *sil, Mesh *me, MeshElemMap *emap)
 {
 	/*int *merged_ring_arr = NULL;
 	int *merged_start = NULL;
@@ -7327,32 +7349,54 @@ static void join_node_separated_rings(SilhouetteData *sil, Mesh *me)
 				r2_start = sil->fillet_ring_new_start[r2];
 				r1_tot = sil->fillet_ring_new_start[r1 + 1] - r1_start;
 				r2_tot = r2 + 1 < sil->num_rings ? sil->fillet_ring_new_start[r2 + 1] - r2_start : sil->fillet_ring_tot - r2_start;
+				r1_e_s1 = -1, r1_e_s2 = -1, r2_e_s1 = -1, r2_e_s2 = -1;
 				for (int e1 = 0; e1 < r1_tot; e1++) {
 					e1_c = me->medge[sil->fillet_ring_new[r1_start + e1]];
 					for (int e2 = 0; e2 < r2_tot; e2++) {
 						e2_c = me->medge[sil->fillet_ring_new[r2_start + e2]];
 						if (e1_c.v1 == e2_c.v1 || e1_c.v1 == e2_c.v2 || e1_c.v2 == e2_c.v1 || e1_c.v2 == e2_c.v2) {
 							if (r1_e_s1 == -1) {
-								r1_e_s1 = sil->fillet_ring_new[r1_start + e1];
-								r2_e_s1 = sil->fillet_ring_new[r2_start + e2];
+								r1_e_s1 = e1;
+								r2_e_s1 = e2;
 							} else {
-								if (!next_to_in_ring(r1_e_s1, r1_start + e1, sil->fillet_ring_new, r1_start + r1_tot, r1_start)) {
-									r1_e_s2 = sil->fillet_ring_new[r1_start + e1];
-									r2_e_s2 = sil->fillet_ring_new[r2_start + e2];
+								if (abs(r1_e_s1 - e1) > 3) {
+									r1_e_s2 = e1;
+									r2_e_s2 = e2;
 									/* Found start and endpoint of the two ring intersections */
+									order_positive_is_inside(me, sil, emap, &r1_e_s1, &r1_e_s2, r1_start, r1_tot, r2_start, r2_tot);
+									order_positive_is_inside(me, sil, emap, &r2_e_s1, &r2_e_s2, r2_start, r2_tot, r1_start, r1_tot);
 #ifdef DEBUG_DRAW
 									bl_debug_color_set(0xffffff);
-									bl_debug_draw_point(me->mvert[me->medge[r1_e_s1].v1].co, 0.2f);
+									bl_debug_draw_point(me->mvert[me->medge[sil->fillet_ring_new[r1_start + r1_e_s1]].v1].co, 0.2f);
 									bl_debug_color_set(0x000000);
-									bl_debug_draw_point(me->mvert[me->medge[r1_e_s2].v1].co, 0.2f);
+									bl_debug_draw_point(me->mvert[me->medge[sil->fillet_ring_new[r1_start + r1_e_s2]].v1].co, 0.3f);
 									bl_debug_color_set(0x000000);
-#endif
+
+									bl_debug_color_set(0x00ff00);
+									for (int e_ins = 0; e_ins < r1_tot; e_ins ++) {
+										if((r1_e_s1 + e_ins) % r1_tot == r1_e_s2) {
+											bl_debug_color_set(0x000000);
+											break;
+										}
+										bl_debug_draw_medge_add(me, sil->fillet_ring_new[r1_start + (r1_e_s1 + e_ins) % r1_tot]);
+									}
+									bl_debug_color_set(0x000000);
+#endif	
+									/* TODO: Is this a bad coding practise?
+									 * Maybe:
+									 * e1 = r1_tot;
+									 * e2 = r2_tot;
+									 * r2++;
+									 */
+									goto next_ring;
 								}
 							}
 						}
 					}
 				}
 			}
+			/* Continue with the next ring */
+			next_ring:;
 		}
 	}
 }
@@ -7601,7 +7645,7 @@ static void do_calc_fillet_line(Object *ob, SilhouetteData *silhouette, PBVHNode
 #endif
 
 	/*TODO: Join multiple parts together when totnode > 1.*/
-	join_node_separated_rings(silhouette, me);
+	join_node_separated_rings(silhouette, me, emap);
 
 	if (v_remove) {
 #if 0
