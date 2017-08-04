@@ -47,6 +47,22 @@
 #include "draw_cache_impl.h"  /* own include */
 #include "DRW_render.h"
 
+// timing
+//#define DEBUG_TIME
+#ifdef DEBUG_TIME
+#  include "PIL_time_utildefines.h"
+#else
+#  define TIMEIT_START(var)
+#  define TIMEIT_VALUE(var)
+#  define TIMEIT_VALUE_PRINT(var)
+#  define TIMEIT_END(var)
+#  define TIMEIT_BENCH(expr, id) (expr)
+#  define TIMEIT_BLOCK_INIT(var)
+#  define TIMEIT_BLOCK_START(var)
+#  define TIMEIT_BLOCK_END(var)
+#  define TIMEIT_BLOCK_STATS(var)
+#endif
+
 /* ---------------------------------------------------------------------- */
 /* Strands Gwn_Batch Cache */
 
@@ -366,6 +382,8 @@ Gwn_Batch *DRW_editstrands_batch_cache_get_points(BMEditStrands *es)
 
 static void editstrands_batch_cache_ensure_hair_fibers(BMEditStrands *es, StrandsBatchCache *cache, bool use_ribbons, int subdiv)
 {
+	TIMEIT_START(editstrands_batch_cache_ensure_hair_fibers);
+
 	GWN_VERTBUF_DISCARD_SAFE(cache->hair.verts);
 	GWN_INDEXBUF_DISCARD_SAFE(cache->hair.segments);
 	
@@ -389,6 +407,7 @@ static void editstrands_batch_cache_ensure_hair_fibers(BMEditStrands *es, Strand
 
 	Gwn_IndexBufBuilder elb;
 	{
+		TIMEIT_START(data_alloc);
 		Gwn_PrimType prim_type;
 		unsigned prim_ct, vert_ct;
 		if (use_ribbons) {
@@ -404,8 +423,12 @@ static void editstrands_batch_cache_ensure_hair_fibers(BMEditStrands *es, Strand
 		
 		GWN_vertbuf_data_alloc(cache->hair.verts, vert_ct);
 		GWN_indexbuf_init(&elb, prim_type, prim_ct, vert_ct);
+		TIMEIT_END(data_alloc);
 	}
 	
+	TIMEIT_START(data_fill);
+	TIMEIT_BLOCK_INIT(GWN_vertbuf_attr_set);
+	TIMEIT_BLOCK_INIT(GWN_indexbuf_add_tri_verts);
 	int vi = 0;
 	for (int i = 0; i < es->hair_totfibers; ++i) {
 		const int fiblen = fiber_lengths[i];
@@ -414,14 +437,18 @@ static void editstrands_batch_cache_ensure_hair_fibers(BMEditStrands *es, Strand
 		float a = 0.0f;
 		for (int k = 0; k < fiblen; ++k) {
 			if (use_ribbons) {
+				TIMEIT_BLOCK_START(GWN_vertbuf_attr_set);
 				GWN_vertbuf_attr_set(cache->hair.verts, fiber_index_id, vi, &i);
 				GWN_vertbuf_attr_set(cache->hair.verts, curve_param_id, vi, &a);
 				GWN_vertbuf_attr_set(cache->hair.verts, fiber_index_id, vi+1, &i);
 				GWN_vertbuf_attr_set(cache->hair.verts, curve_param_id, vi+1, &a);
+				TIMEIT_BLOCK_END(GWN_vertbuf_attr_set);
 				
 				if (k > 0) {
+					TIMEIT_BLOCK_START(GWN_indexbuf_add_tri_verts);
 					GWN_indexbuf_add_tri_verts(&elb, vi-2, vi-1, vi+1);
 					GWN_indexbuf_add_tri_verts(&elb, vi+1, vi, vi-2);
+					TIMEIT_BLOCK_END(GWN_indexbuf_add_tri_verts);
 				}
 				
 				vi += 2;
@@ -440,10 +467,19 @@ static void editstrands_batch_cache_ensure_hair_fibers(BMEditStrands *es, Strand
 			a += da;
 		}
 	}
+	TIMEIT_BLOCK_STATS(GWN_vertbuf_attr_set);
+	TIMEIT_BLOCK_STATS(GWN_indexbuf_add_tri_verts);
+#ifdef DEBUG_TIME
+	printf("Total GWN time: %f\n", _timeit_var_GWN_vertbuf_attr_set + _timeit_var_GWN_indexbuf_add_tri_verts);
+#endif
+	fflush(stdout);
+	TIMEIT_END(data_fill);
 	
 	MEM_freeN(fiber_lengths);
 	
-	cache->hair.segments = GWN_indexbuf_build(&elb);
+	TIMEIT_BENCH(cache->hair.segments = GWN_indexbuf_build(&elb), indexbuf_build);
+
+	TIMEIT_END(editstrands_batch_cache_ensure_hair_fibers);
 }
 
 static void editstrands_batch_cache_ensure_hair_fiber_texbuffer(BMEditStrands *es, StrandsBatchCache *cache, bool UNUSED(use_ribbons), int subdiv)
@@ -479,22 +515,30 @@ Gwn_Batch *DRW_editstrands_batch_cache_get_hair_fibers(BMEditStrands *es, bool u
 {
 	StrandsBatchCache *cache = editstrands_batch_cache_get(es);
 
+	TIMEIT_START(DRW_editstrands_batch_cache_get_hair_fibers);
+
 	if (cache->hair.use_ribbons != use_ribbons) {
-		editstrands_batch_cache_clear_hair(es);
+		TIMEIT_BENCH(editstrands_batch_cache_clear_hair(es), editstrands_batch_cache_clear_hair);
 	}
 
 	if (cache->hair.fibers == NULL) {
-		editstrands_batch_cache_ensure_hair_fibers(es, cache, use_ribbons, subdiv);
+		TIMEIT_BENCH(editstrands_batch_cache_ensure_hair_fibers(es, cache, use_ribbons, subdiv),
+		             editstrands_batch_cache_ensure_hair_fibers);
 		
 		Gwn_PrimType prim_type = use_ribbons ? GWN_PRIM_TRIS : GWN_PRIM_LINES;
-		cache->hair.fibers = GWN_batch_create(prim_type, cache->hair.verts, cache->hair.segments);
+		TIMEIT_BENCH(cache->hair.fibers = GWN_batch_create(prim_type, cache->hair.verts, cache->hair.segments),
+		             GWN_batch_create);
 		cache->hair.use_ribbons = use_ribbons;
 
-		editstrands_batch_cache_ensure_hair_fiber_texbuffer(es, cache, use_ribbons, subdiv);
+		TIMEIT_BENCH(editstrands_batch_cache_ensure_hair_fiber_texbuffer(es, cache, use_ribbons, subdiv),
+		             editstrands_batch_cache_ensure_hair_fiber_texbuffer);
 	}
 
 	if (r_buffer) {
 		*r_buffer = &cache->hair.texbuffer;
 	}
+
+	TIMEIT_END(DRW_editstrands_batch_cache_get_hair_fibers);
+
 	return cache->hair.fibers;
 }
