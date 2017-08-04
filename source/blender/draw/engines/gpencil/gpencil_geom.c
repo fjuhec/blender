@@ -741,10 +741,10 @@ Gwn_Batch *DRW_gpencil_get_edlin_geom(bGPDstroke *gps, float alpha, short dflag)
 	PaletteColor *palcolor = gps->palcolor;
 
 	float selectColor[4];
-	UI_GetThemeColor3fv(TH_GP_VERTEX_SELECT, selectColor);
+	UI_GetThemeColor3fv(BKE_gpencil_palettecolor_addnew, selectColor);
 	selectColor[3] = alpha;
 	float linecolor[4];
-	ARRAY_SET_ITEMS(linecolor, 0.5f, 0.5f, 0.5f, 0.5f);
+	ARRAY_SET_ITEMS(linecolor, 0.6f, 0.6f, 0.6f, 0.3f);
 
 
 	static Gwn_VertFormat format = { 0 };
