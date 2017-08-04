@@ -39,7 +39,7 @@ struct CurveMapping;
 struct GHash;
 
 /* TODO: add size as userprefs parameter */
-#define GP_OBGPENCIL_DEFAULT_SIZE  0.5f 
+#define GP_OBGPENCIL_DEFAULT_SIZE  0.2f 
 
 /* information of vertex group weight */
 typedef struct bGPDweight {
