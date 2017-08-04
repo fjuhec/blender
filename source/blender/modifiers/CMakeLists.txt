@@ -115,6 +115,7 @@ set(SRC
 
 	intern/MOD_gpencilnoise.c
 	intern/MOD_gpencilsubdiv.c
+	intern/MOD_gpencilsimplify.c
 	intern/MOD_gpencilthick.c
 	intern/MOD_gpenciltint.c
 	intern/MOD_gpencilcolor.c

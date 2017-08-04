@@ -661,11 +661,11 @@ static int modifier_apply_obdata(ReportList *reports, const bContext *C, Scene *
 	}
 	else if (ELEM(ob->type, OB_GPENCIL)) {
 		/* some modifier need to have bContext */
-		if (md->type = eModifierType_GpencilArray) {
+		if (md->type == eModifierType_GpencilArray) {
 			GpencilArrayModifierData *mmd = (GpencilArrayModifierData *)md;
 			mmd->C = (void *) C;
 		}
-		if (md->type = eModifierType_GpencilLattice) {
+		if (md->type == eModifierType_GpencilLattice) {
 			GpencilLatticeModifierData *mmd = (GpencilLatticeModifierData *)md;
 			mmd->C = (void *)C;
 		}

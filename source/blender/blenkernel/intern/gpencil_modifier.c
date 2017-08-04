@@ -55,6 +55,15 @@ typedef struct tGPencilStrokeCache {
 	int idx;
 } tGPencilStrokeCache;
 
+/* temp data for simplify modifier */
+typedef struct tbGPDspoint {
+	float p2d[2];
+} tbGPDspoint;
+
+typedef struct tbGPDstroke {
+	tbGPDspoint *points2d;
+	int buf_size;
+} tbGPDstroke;
 
 /* fill an array with random numbers */
 void BKE_gpencil_fill_random_array(float *ar, int count)
@@ -66,11 +75,11 @@ void BKE_gpencil_fill_random_array(float *ar, int count)
 
 /* verify if valid layer and pass index */
 static bool is_stroke_affected_by_modifier(char *mlayername, int mpassindex, int minpoints,
-	bGPDlayer *gpl, bGPDstroke *gps, int inv1, int inv2)
+	bGPDlayer *gpl, bGPDstroke *gps, bool inv1, bool inv2)
 {
 	/* omit if filter by layer */
 	if (mlayername[0] != '\0') {
-		if (inv1 == 0) {
+		if (inv1 == false) {
 			if (!STREQ(mlayername, gpl->info)) {
 				return false;
 			}
@@ -83,7 +92,7 @@ static bool is_stroke_affected_by_modifier(char *mlayername, int mpassindex, int
 	}
 	/* verify pass */
 	if (mpassindex > 0) {
-		if (inv2 == 0) {
+		if (inv2 == false) {
 			if (gps->palcolor->index != mpassindex) {
 				return false;
 			}
@@ -187,7 +196,7 @@ void BKE_gpencil_noise_modifier(int UNUSED(id), GpencilNoiseModifierData *mmd, O
 	float weight = 1.0f;
 
 	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps, 
-		(int) mmd->flag & GP_NOISE_INVERSE_LAYER, (int)mmd->flag & GP_NOISE_INVERSE_PASS)) {
+		(bool) mmd->flag & GP_NOISE_INVERSE_LAYER, (bool)mmd->flag & GP_NOISE_INVERSE_PASS)) {
 		return;
 	}
 
@@ -306,7 +315,7 @@ void BKE_gpencil_subdiv_modifier(int UNUSED(id), GpencilSubdivModifierData *mmd,
 	int i2;
 
 	if (!is_stroke_affected_by_modifier(mmd->layername,mmd->passindex, 3, gpl, gps,
-		(int)mmd->flag & GP_SUBDIV_INVERSE_LAYER, (int)mmd->flag & GP_SUBDIV_INVERSE_PASS)) {
+		(bool)mmd->flag & GP_SUBDIV_INVERSE_LAYER, (bool)mmd->flag & GP_SUBDIV_INVERSE_PASS)) {
 		return;
 	}
 
@@ -385,7 +394,7 @@ void BKE_gpencil_thick_modifier(int UNUSED(id), GpencilThickModifierData *mmd, O
 	float weight = 1.0f;
 
 	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
-		(int)mmd->flag & GP_THICK_INVERSE_LAYER, (int)mmd->flag & GP_THICK_INVERSE_PASS)) {
+		(bool)mmd->flag & GP_THICK_INVERSE_LAYER, (bool)mmd->flag & GP_THICK_INVERSE_PASS)) {
 		return;
 	}
 
@@ -407,7 +416,7 @@ void BKE_gpencil_thick_modifier(int UNUSED(id), GpencilThickModifierData *mmd, O
 void BKE_gpencil_tint_modifier(int UNUSED(id), GpencilTintModifierData *mmd, Object *UNUSED(ob), bGPDlayer *gpl, bGPDstroke *gps)
 {
 	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 1, gpl, gps,
-		(int)mmd->flag & GP_TINT_INVERSE_LAYER, (int)mmd->flag & GP_TINT_INVERSE_PASS)) {
+		(bool)mmd->flag & GP_TINT_INVERSE_LAYER, (bool)mmd->flag & GP_TINT_INVERSE_PASS)) {
 		return;
 	}
 
@@ -424,7 +433,7 @@ void BKE_gpencil_color_modifier(int UNUSED(id), GpencilColorModifierData *mmd, O
 	PaletteColor *palcolor;
 	float hsv[3], factor[3];
 	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 1, gpl, gps,
-		(int)mmd->flag & GP_COLOR_INVERSE_LAYER, (int)mmd->flag & GP_COLOR_INVERSE_PASS)) {
+		(bool)mmd->flag & GP_COLOR_INVERSE_LAYER, (bool)mmd->flag & GP_COLOR_INVERSE_PASS)) {
 		return;
 	}
 
@@ -452,7 +461,7 @@ void BKE_gpencil_opacity_modifier(int UNUSED(id), GpencilOpacityModifierData *mm
 	float weight = 1.0f;
 
 	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
-		(int)mmd->flag & GP_OPACITY_INVERSE_LAYER, (int)mmd->flag & GP_OPACITY_INVERSE_PASS)) {
+		(bool)mmd->flag & GP_OPACITY_INVERSE_LAYER, (bool)mmd->flag & GP_OPACITY_INVERSE_PASS)) {
 		return;
 	}
 
@@ -515,7 +524,7 @@ void BKE_gpencil_dupli_modifier(int id, GpencilDupliModifierData *mmd, Object *U
 	for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 		++stroke;
 		if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 1, gpl, gps,
-			(int)mmd->flag & GP_DUPLI_INVERSE_LAYER, (int)mmd->flag & GP_DUPLI_INVERSE_PASS)) {
+			(bool)mmd->flag & GP_DUPLI_INVERSE_LAYER, (bool)mmd->flag & GP_DUPLI_INVERSE_PASS)) {
 			continue;
 		}
 
@@ -673,7 +682,7 @@ void BKE_gpencil_lattice_modifier(int UNUSED(id), GpencilLatticeModifierData *mm
 	float weight = 1.0f;
 
 	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
-		(int)mmd->flag & GP_LATTICE_INVERSE_LAYER, (int)mmd->flag & GP_LATTICE_INVERSE_PASS)) {
+		(bool)mmd->flag & GP_LATTICE_INVERSE_LAYER, (bool)mmd->flag & GP_LATTICE_INVERSE_PASS)) {
 		return;
 	}
 
@@ -746,6 +755,10 @@ void BKE_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *gpf, bG
 			case eModifierType_GpencilSubdiv:
 				BKE_gpencil_subdiv_modifier(id, (GpencilSubdivModifierData *)md, ob, gpl, gps);
 				break;
+				// Simplify Modifier
+			case eModifierType_GpencilSimplify:
+				BKE_gpencil_simplify_modifier(id, (GpencilSimplifyModifierData *)md, ob, gpl, gps);
+				break;
 				// Thickness
 			case eModifierType_GpencilThick:
 				BKE_gpencil_thick_modifier(id, (GpencilThickModifierData *)md, ob, gpl, gps);
@@ -797,4 +810,176 @@ void BKE_gpencil_geometry_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *gpf)
 		}
 		++id;
 	}
+}
+
+/* Get points of stroke always flat to view not affected by camera view or view position */
+static void gpencil_stroke_2d_idx_flat(const bGPDspoint *points, int totpoints, tbGPDspoint *points2d)
+{
+	const bGPDspoint *pt0 = &points[0];
+	const bGPDspoint *pt1 = &points[1];
+	const bGPDspoint *pt3 = &points[(int)(totpoints * 0.75)];
+
+	float locx[3];
+	float locy[3];
+	float loc3[3];
+	float normal[3];
+
+	/* local X axis (p0 -> p1) */
+	sub_v3_v3v3(locx, &pt1->x, &pt0->x);
+
+	/* point vector at 3/4 */
+	sub_v3_v3v3(loc3, &pt3->x, &pt0->x);
+
+	/* vector orthogonal to polygon plane */
+	cross_v3_v3v3(normal, locx, loc3);
+
+	/* local Y axis (cross to normal/x axis) */
+	cross_v3_v3v3(locy, normal, locx);
+
+	/* Normalize vectors */
+	normalize_v3(locx);
+	normalize_v3(locy);
+
+	/* Get all points in local space */
+	for (int i = 0; i < totpoints; i++) {
+		const bGPDspoint *pt = &points[i];
+		float loc[3];
+
+		/* Get local space using first point as origin */
+		sub_v3_v3v3(loc, &pt->x, &pt0->x);
+		
+		tbGPDspoint *point = &points2d[i];
+		point->p2d[0] = dot_v3v3(loc, locx);
+		point->p2d[1] = dot_v3v3(loc, locy);
+	}
+
+}
+
+/* --------------------------------------------------------------------------
+ * Reduces a series of points to a simplified version, but
+ * maintains the general shape of the series
+ *
+ * Ramer - Douglas - Peucker algorithm
+ * by http ://en.wikipedia.org/wiki/Ramer-Douglas-Peucker_algorithm
+ * -------------------------------------------------------------------------- */
+void gpencil_rdp_stroke(bGPDstroke *gps, tbGPDstroke *tgps, float epsilon)
+{
+	tbGPDspoint *old_points2d = tgps->points2d;
+	int totpoints = tgps->buf_size;
+	char *marked = NULL;
+	char work;
+	int i;
+
+	int start = 1;
+	int end = tgps->buf_size - 2;
+
+	marked = MEM_callocN(totpoints, "GP marked array");
+	marked[start] = 1;
+	marked[end] = 1;
+
+	work = 1;
+	int totmarked = 0;
+	/* while still reducing */
+	while (work) {
+		int ls, le;
+		work = 0;
+
+		ls = start;
+		le = start + 1;
+
+		/* while not over interval */
+		while (ls < end) {
+			int max_i = 0;
+			float v1[2];
+			float max_dist = epsilon;
+
+			/* find the next marked point */
+			while (marked[le] == 0) {
+				le++;
+			}
+
+			/* perpendicular vector to ls-le */
+			v1[1] = old_points2d[le].p2d[0] - old_points2d[ls].p2d[0];
+			v1[0] = old_points2d[ls].p2d[1] - old_points2d[le].p2d[1];
+
+			for (i = ls + 1; i < le; i++) {
+				float mul;
+				float dist;
+				float v2[2];
+
+				v2[0] = old_points2d[i].p2d[0] - old_points2d[ls].p2d[0];
+				v2[1] = old_points2d[i].p2d[1] - old_points2d[ls].p2d[1];
+
+				if (v2[0] == 0 && v2[1] == 0) {
+					continue;
+				}
+
+				mul = (float)(v1[0] * v2[0] + v1[1] * v2[1]) / (float)(v2[0] * v2[0] + v2[1] * v2[1]);
+
+				dist = mul * mul * (v2[0] * v2[0] + v2[1] * v2[1]);
+
+				if (dist > max_dist) {
+					max_dist = dist;
+					max_i = i;
+				}
+			}
+
+			if (max_i != 0) {
+				work = 1;
+				marked[max_i] = 1;
+				++totmarked;
+			}
+
+			ls = le;
+			le = ls + 1;
+		}
+	}
+
+	/* adding points marked */
+	bGPDspoint *old_points = MEM_dupallocN(gps->points);
+	
+	/* resize gps */
+	gps->flag |= GP_STROKE_RECALC_CACHES;
+	gps->tot_triangles = 0;
+
+	int x = 0;
+	for (int i = 0; i < totpoints; ++i) {
+		bGPDspoint *old_pt = &old_points[i];
+		bGPDspoint *pt = &gps->points[x];
+		if ((marked[i]) || (i == 0) || (i == totpoints - 1)) {
+			memcpy(pt, old_pt, sizeof(bGPDspoint));
+			++x;
+		}
+		else {
+			BKE_gpencil_free_point_weights(old_pt);
+		}
+	}
+
+	gps->totpoints = x;
+
+	MEM_SAFE_FREE(old_points);
+	MEM_SAFE_FREE(marked);
+}
+
+ /* simplify stroke using Ramer-Douglas-Peucker algorithm */
+void BKE_gpencil_simplify_modifier(int UNUSED(id), GpencilSimplifyModifierData *mmd, Object *UNUSED(ob), bGPDlayer *gpl, bGPDstroke *gps)
+{
+	int direction = 0;
+
+	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 4, gpl, gps,
+		(bool)mmd->flag & GP_SIMPLIFY_INVERSE_LAYER, (bool)mmd->flag & GP_SIMPLIFY_INVERSE_PASS)) {
+		return;
+	}
+
+	/* first create temp data and convert points to 2D */
+	tbGPDstroke *tgps = MEM_mallocN(sizeof(tbGPDstroke), "GP Stroke temp");
+	tgps->points2d = MEM_mallocN(sizeof(tbGPDspoint) * gps->totpoints, "GP Stroke temp 2d points");
+	tgps->buf_size = gps->totpoints;
+
+	gpencil_stroke_2d_idx_flat(gps->points, gps->totpoints, tgps->points2d);
+	
+	gpencil_rdp_stroke(gps, tgps, mmd->factor);
+
+	MEM_SAFE_FREE(tgps->points2d);
+	MEM_SAFE_FREE(tgps);
 }

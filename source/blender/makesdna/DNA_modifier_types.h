@@ -96,6 +96,7 @@ typedef enum ModifierType {
 	eModifierType_GpencilOpacity    = 60,
 	eModifierType_GpencilColor      = 61,
 	eModifierType_GpencilLattice    = 62,
+	eModifierType_GpencilSimplify   = 63,
 	NUM_MODIFIER_TYPES
 } ModifierType;
 
@@ -1784,6 +1785,20 @@ typedef enum eGpencilLattice_Flag {
 	GP_LATTICE_INVERSE_PASS   = (1 << 1),
 	GP_LATTICE_INVERSE_VGROUP = (1 << 2),
 } eGpencilLattice_Flag;
+
+typedef struct GpencilSimplifyModifierData {
+	ModifierData modifier;
+	char layername[64];          /* layer name */
+	int passindex;               /* custom index for passes */
+	int flag;                    /* flags */
+	float factor;                /* factor of simplify */
+	char pad[4];
+} GpencilSimplifyModifierData;
+
+typedef enum eGpencilSimplify_Flag {
+	GP_SIMPLIFY_INVERSE_LAYER = (1 << 0),
+	GP_SIMPLIFY_INVERSE_PASS = (1 << 1),
+} eGpencilSimplify_Flag;
 
 #define MOD_MESHSEQ_READ_ALL \
 	(MOD_MESHSEQ_READ_VERT | MOD_MESHSEQ_READ_POLY | MOD_MESHSEQ_READ_UV | MOD_MESHSEQ_READ_COLOR)

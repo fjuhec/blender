@@ -1582,6 +1582,23 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
         row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
 
+    def GP_SIMPLIFY(self, layout, ob, md):
+        gpd = ob.grease_pencil
+        split = layout.split()
+
+        col = split.column()
+        row = col.row(align=True)
+        row.prop(md, "factor")
+        row = col.row(align=True)
+        row.prop(md, "passindex", text="Pass")
+        row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
+
+        col = split.column()
+        col.label("Layer:")
+        row = col.row(align=True)
+        row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+        row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
+
     def GP_THICK(self, layout, ob, md):
         gpd = ob.grease_pencil
         split = layout.split()

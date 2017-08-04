@@ -89,6 +89,7 @@ extern ModifierTypeInfo modifierType_SurfaceDeform;
 
 extern ModifierTypeInfo modifierType_GpencilNoise;
 extern ModifierTypeInfo modifierType_GpencilSubdiv;
+extern ModifierTypeInfo modifierType_GpencilSimplify;
 extern ModifierTypeInfo modifierType_GpencilThick;
 extern ModifierTypeInfo modifierType_GpencilTint;
 extern ModifierTypeInfo modifierType_GpencilColor;
