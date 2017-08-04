@@ -143,6 +143,9 @@ static void apply_weights_vertex_normal(WeightedNormalModifierData *wnmd, Object
 		BLI_bitmap *sharp_verts = BLI_BITMAP_NEW(numVerts, "__func__");
 		int *loops_per_vert = MEM_callocN(sizeof(*loops_per_vert) * numVerts, "__func__");
 
+		BKE_mesh_normals_loop_split(mvert, numVerts, medge, numEdges, mloop, loop_normal, numLoops, mpoly, polynors,
+			numPoly, true, (float)M_PI, NULL, clnors, loops_to_poly);
+
 		for (int mp_index = 0; mp_index < numPoly; mp_index++) {
 			int ml_index = mpoly[mp_index].loopstart;
 			const int ml_index_end = ml_index + mpoly[mp_index].totloop;
@@ -154,7 +157,9 @@ static void apply_weights_vertex_normal(WeightedNormalModifierData *wnmd, Object
 				}
 				loops_per_vert[mloop[i].v]++;
 				loops_to_poly[i] = mp_index;
-				copy_v3_v3(loop_normal[i], custom_normal[mloop[i].v]);
+				if (!is_zero_v3(custom_normal[mloop[i].v])) {
+					copy_v3_v3(loop_normal[i], custom_normal[mloop[i].v]);
+				}
 			}
 		}
 
@@ -212,7 +217,7 @@ static void apply_weights_vertex_normal(WeightedNormalModifierData *wnmd, Object
 				for (int k = 0; k < totloop; k++) {
 					MPoly mp = mpoly[loops_to_poly[*loops]];
 					MLoop *prev_loop = (*loops - 1 >= mp.loopstart ? &mloop[*loops - 1] : &mloop[mp.loopstart + mp.totloop - 1]),
-						*next_loop = (*loops + 1 <= mp.loopstart + mp.totloop ? &mloop[*loops + 1] : &mloop[mp.loopstart]),
+						*next_loop = (*loops + 1 < mp.loopstart + mp.totloop ? &mloop[*loops + 1] : &mloop[mp.loopstart]),
 						*vert_loop;
 
 					int other_v1 = BKE_mesh_edge_other_vert(&medge[prev_loop->e], prev_loop->v),

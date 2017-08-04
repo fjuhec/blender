@@ -4775,8 +4775,8 @@ static void rna_def_modifier_weightednormal(BlenderRNA *brna)
 	RNA_def_struct_ui_icon(srna, ICON_MOD_NORMALEDIT);
 
 	prop = RNA_def_property(srna, "weight", PROP_INT, PROP_NONE);
-	RNA_def_property_range(prop, 0, 20);
-	RNA_def_property_ui_range(prop, 0, 20, 1, -1);
+	RNA_def_property_range(prop, 1, 20);
+	RNA_def_property_ui_range(prop, 1, 20, 1, -1);
 	RNA_def_property_ui_text(prop, "Weight", "Weights given to Face Normal for each mode");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
@@ -4809,7 +4809,7 @@ static void rna_def_modifier_weightednormal(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "boolean_weights", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", MOD_WEIGHTEDNORMAL_BOOL_WEIGHTS);
-	RNA_def_property_ui_text(prop, "Boolean Weights", "Use Smooth/Sharp flags as boolean weights");
+	RNA_def_property_ui_text(prop, "Boolean Weights", "Sets weight of smooth faces to 0. Weight of flat faces remains unchanged.");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
