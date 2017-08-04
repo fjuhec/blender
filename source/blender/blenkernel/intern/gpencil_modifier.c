@@ -60,11 +60,6 @@ typedef struct tbGPDspoint {
 	float p2d[2];
 } tbGPDspoint;
 
-typedef struct tbGPDstroke {
-	tbGPDspoint *points2d;
-	int buf_size;
-} tbGPDstroke;
-
 /* fill an array with random numbers */
 void BKE_gpencil_fill_random_array(float *ar, int count)
 {
@@ -862,16 +857,16 @@ static void gpencil_stroke_2d_idx_flat(const bGPDspoint *points, int totpoints, 
  * Ramer - Douglas - Peucker algorithm
  * by http ://en.wikipedia.org/wiki/Ramer-Douglas-Peucker_algorithm
  * -------------------------------------------------------------------------- */
-void gpencil_rdp_stroke(bGPDstroke *gps, tbGPDstroke *tgps, float epsilon)
+void gpencil_rdp_stroke(bGPDstroke *gps, tbGPDspoint *points2d, float epsilon)
 {
-	tbGPDspoint *old_points2d = tgps->points2d;
-	int totpoints = tgps->buf_size;
+	tbGPDspoint *old_points2d =points2d;
+	int totpoints = gps->totpoints;
 	char *marked = NULL;
 	char work;
 	int i;
 
 	int start = 1;
-	int end = tgps->buf_size - 2;
+	int end = gps->totpoints - 2;
 
 	marked = MEM_callocN(totpoints, "GP marked array");
 	marked[start] = 1;
@@ -972,14 +967,11 @@ void BKE_gpencil_simplify_modifier(int UNUSED(id), GpencilSimplifyModifierData *
 	}
 
 	/* first create temp data and convert points to 2D */
-	tbGPDstroke *tgps = MEM_mallocN(sizeof(tbGPDstroke), "GP Stroke temp");
-	tgps->points2d = MEM_mallocN(sizeof(tbGPDspoint) * gps->totpoints, "GP Stroke temp 2d points");
-	tgps->buf_size = gps->totpoints;
+	tbGPDspoint *points2d = MEM_mallocN(sizeof(tbGPDspoint) * gps->totpoints, "GP Stroke temp 2d points");
 
-	gpencil_stroke_2d_idx_flat(gps->points, gps->totpoints, tgps->points2d);
+	gpencil_stroke_2d_idx_flat(gps->points, gps->totpoints, points2d);
 	
-	gpencil_rdp_stroke(gps, tgps, mmd->factor);
+	gpencil_rdp_stroke(gps, points2d, mmd->factor);
 
-	MEM_SAFE_FREE(tgps->points2d);
-	MEM_SAFE_FREE(tgps);
+	MEM_SAFE_FREE(points2d);
 }
