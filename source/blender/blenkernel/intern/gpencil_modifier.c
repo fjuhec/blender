@@ -697,6 +697,177 @@ void BKE_gpencil_lattice_modifier(int UNUSED(id), GpencilLatticeModifierData *mm
 	}
 }
 
+
+/* Get points of stroke always flat to view not affected by camera view or view position */
+static void gpencil_stroke_project_2d(const bGPDspoint *points, int totpoints, tbGPDspoint *points2d)
+{
+	const bGPDspoint *pt0 = &points[0];
+	const bGPDspoint *pt1 = &points[1];
+	const bGPDspoint *pt3 = &points[(int)(totpoints * 0.75)];
+
+	float locx[3];
+	float locy[3];
+	float loc3[3];
+	float normal[3];
+
+	/* local X axis (p0 -> p1) */
+	sub_v3_v3v3(locx, &pt1->x, &pt0->x);
+
+	/* point vector at 3/4 */
+	sub_v3_v3v3(loc3, &pt3->x, &pt0->x);
+
+	/* vector orthogonal to polygon plane */
+	cross_v3_v3v3(normal, locx, loc3);
+
+	/* local Y axis (cross to normal/x axis) */
+	cross_v3_v3v3(locy, normal, locx);
+
+	/* Normalize vectors */
+	normalize_v3(locx);
+	normalize_v3(locy);
+
+	/* Get all points in local space */
+	for (int i = 0; i < totpoints; i++) {
+		const bGPDspoint *pt = &points[i];
+		float loc[3];
+
+		/* Get local space using first point as origin */
+		sub_v3_v3v3(loc, &pt->x, &pt0->x);
+
+		tbGPDspoint *point = &points2d[i];
+		point->p2d[0] = dot_v3v3(loc, locx);
+		point->p2d[1] = dot_v3v3(loc, locy);
+	}
+
+}
+
+/* --------------------------------------------------------------------------
+* Reduces a series of points to a simplified version, but
+* maintains the general shape of the series
+*
+* Ramer - Douglas - Peucker algorithm
+* by http ://en.wikipedia.org/wiki/Ramer-Douglas-Peucker_algorithm
+* -------------------------------------------------------------------------- */
+void gpencil_rdp_stroke(bGPDstroke *gps, tbGPDspoint *points2d, float epsilon)
+{
+	tbGPDspoint *old_points2d = points2d;
+	int totpoints = gps->totpoints;
+	char *marked = NULL;
+	char work;
+	int i;
+
+	int start = 1;
+	int end = gps->totpoints - 2;
+
+	marked = MEM_callocN(totpoints, "GP marked array");
+	marked[start] = 1;
+	marked[end] = 1;
+
+	work = 1;
+	int totmarked = 0;
+	/* while still reducing */
+	while (work) {
+		int ls, le;
+		work = 0;
+
+		ls = start;
+		le = start + 1;
+
+		/* while not over interval */
+		while (ls < end) {
+			int max_i = 0;
+			float v1[2];
+			/* divided to get more control */
+			float max_dist = epsilon / 10.0f;
+
+			/* find the next marked point */
+			while (marked[le] == 0) {
+				le++;
+			}
+
+			/* perpendicular vector to ls-le */
+			v1[1] = old_points2d[le].p2d[0] - old_points2d[ls].p2d[0];
+			v1[0] = old_points2d[ls].p2d[1] - old_points2d[le].p2d[1];
+
+			for (i = ls + 1; i < le; i++) {
+				float mul;
+				float dist;
+				float v2[2];
+
+				v2[0] = old_points2d[i].p2d[0] - old_points2d[ls].p2d[0];
+				v2[1] = old_points2d[i].p2d[1] - old_points2d[ls].p2d[1];
+
+				if (v2[0] == 0 && v2[1] == 0) {
+					continue;
+				}
+
+				mul = (float)(v1[0] * v2[0] + v1[1] * v2[1]) / (float)(v2[0] * v2[0] + v2[1] * v2[1]);
+
+				dist = mul * mul * (v2[0] * v2[0] + v2[1] * v2[1]);
+
+				if (dist > max_dist) {
+					max_dist = dist;
+					max_i = i;
+				}
+			}
+
+			if (max_i != 0) {
+				work = 1;
+				marked[max_i] = 1;
+				++totmarked;
+			}
+
+			ls = le;
+			le = ls + 1;
+		}
+	}
+
+	/* adding points marked */
+	bGPDspoint *old_points = MEM_dupallocN(gps->points);
+
+	/* resize gps */
+	gps->flag |= GP_STROKE_RECALC_CACHES;
+	gps->tot_triangles = 0;
+
+	int x = 0;
+	for (int i = 0; i < totpoints; ++i) {
+		bGPDspoint *old_pt = &old_points[i];
+		bGPDspoint *pt = &gps->points[x];
+		if ((marked[i]) || (i == 0) || (i == totpoints - 1)) {
+			memcpy(pt, old_pt, sizeof(bGPDspoint));
+			++x;
+		}
+		else {
+			BKE_gpencil_free_point_weights(old_pt);
+		}
+	}
+
+	gps->totpoints = x;
+
+	MEM_SAFE_FREE(old_points);
+	MEM_SAFE_FREE(marked);
+}
+
+/* simplify stroke using Ramer-Douglas-Peucker algorithm */
+void BKE_gpencil_simplify_modifier(int UNUSED(id), GpencilSimplifyModifierData *mmd, Object *UNUSED(ob), bGPDlayer *gpl, bGPDstroke *gps)
+{
+	int direction = 0;
+
+	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 4, gpl, gps,
+		(bool)mmd->flag & GP_SIMPLIFY_INVERSE_LAYER, (bool)mmd->flag & GP_SIMPLIFY_INVERSE_PASS)) {
+		return;
+	}
+
+	/* first create temp data and convert points to 2D */
+	tbGPDspoint *points2d = MEM_mallocN(sizeof(tbGPDspoint) * gps->totpoints, "GP Stroke temp 2d points");
+
+	gpencil_stroke_project_2d(gps->points, gps->totpoints, points2d);
+
+	gpencil_rdp_stroke(gps, points2d, mmd->factor);
+
+	MEM_SAFE_FREE(points2d);
+}
+
 /* reset modifiers */
 void BKE_gpencil_reset_modifiers(Object *ob)
 {
@@ -805,174 +976,4 @@ void BKE_gpencil_geometry_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *gpf)
 		}
 		++id;
 	}
-}
-
-/* Get points of stroke always flat to view not affected by camera view or view position */
-static void gpencil_stroke_project_2d(const bGPDspoint *points, int totpoints, tbGPDspoint *points2d)
-{
-	const bGPDspoint *pt0 = &points[0];
-	const bGPDspoint *pt1 = &points[1];
-	const bGPDspoint *pt3 = &points[(int)(totpoints * 0.75)];
-
-	float locx[3];
-	float locy[3];
-	float loc3[3];
-	float normal[3];
-
-	/* local X axis (p0 -> p1) */
-	sub_v3_v3v3(locx, &pt1->x, &pt0->x);
-
-	/* point vector at 3/4 */
-	sub_v3_v3v3(loc3, &pt3->x, &pt0->x);
-
-	/* vector orthogonal to polygon plane */
-	cross_v3_v3v3(normal, locx, loc3);
-
-	/* local Y axis (cross to normal/x axis) */
-	cross_v3_v3v3(locy, normal, locx);
-
-	/* Normalize vectors */
-	normalize_v3(locx);
-	normalize_v3(locy);
-
-	/* Get all points in local space */
-	for (int i = 0; i < totpoints; i++) {
-		const bGPDspoint *pt = &points[i];
-		float loc[3];
-
-		/* Get local space using first point as origin */
-		sub_v3_v3v3(loc, &pt->x, &pt0->x);
-		
-		tbGPDspoint *point = &points2d[i];
-		point->p2d[0] = dot_v3v3(loc, locx);
-		point->p2d[1] = dot_v3v3(loc, locy);
-	}
-
-}
-
-/* --------------------------------------------------------------------------
- * Reduces a series of points to a simplified version, but
- * maintains the general shape of the series
- *
- * Ramer - Douglas - Peucker algorithm
- * by http ://en.wikipedia.org/wiki/Ramer-Douglas-Peucker_algorithm
- * -------------------------------------------------------------------------- */
-void gpencil_rdp_stroke(bGPDstroke *gps, tbGPDspoint *points2d, float epsilon)
-{
-	tbGPDspoint *old_points2d =points2d;
-	int totpoints = gps->totpoints;
-	char *marked = NULL;
-	char work;
-	int i;
-
-	int start = 1;
-	int end = gps->totpoints - 2;
-
-	marked = MEM_callocN(totpoints, "GP marked array");
-	marked[start] = 1;
-	marked[end] = 1;
-
-	work = 1;
-	int totmarked = 0;
-	/* while still reducing */
-	while (work) {
-		int ls, le;
-		work = 0;
-
-		ls = start;
-		le = start + 1;
-
-		/* while not over interval */
-		while (ls < end) {
-			int max_i = 0;
-			float v1[2];
-			/* divided to get more control */
-			float max_dist = epsilon / 10.0f;
-
-			/* find the next marked point */
-			while (marked[le] == 0) {
-				le++;
-			}
-
-			/* perpendicular vector to ls-le */
-			v1[1] = old_points2d[le].p2d[0] - old_points2d[ls].p2d[0];
-			v1[0] = old_points2d[ls].p2d[1] - old_points2d[le].p2d[1];
-
-			for (i = ls + 1; i < le; i++) {
-				float mul;
-				float dist;
-				float v2[2];
-
-				v2[0] = old_points2d[i].p2d[0] - old_points2d[ls].p2d[0];
-				v2[1] = old_points2d[i].p2d[1] - old_points2d[ls].p2d[1];
-
-				if (v2[0] == 0 && v2[1] == 0) {
-					continue;
-				}
-
-				mul = (float)(v1[0] * v2[0] + v1[1] * v2[1]) / (float)(v2[0] * v2[0] + v2[1] * v2[1]);
-
-				dist = mul * mul * (v2[0] * v2[0] + v2[1] * v2[1]);
-
-				if (dist > max_dist) {
-					max_dist = dist;
-					max_i = i;
-				}
-			}
-
-			if (max_i != 0) {
-				work = 1;
-				marked[max_i] = 1;
-				++totmarked;
-			}
-
-			ls = le;
-			le = ls + 1;
-		}
-	}
-
-	/* adding points marked */
-	bGPDspoint *old_points = MEM_dupallocN(gps->points);
-	
-	/* resize gps */
-	gps->flag |= GP_STROKE_RECALC_CACHES;
-	gps->tot_triangles = 0;
-
-	int x = 0;
-	for (int i = 0; i < totpoints; ++i) {
-		bGPDspoint *old_pt = &old_points[i];
-		bGPDspoint *pt = &gps->points[x];
-		if ((marked[i]) || (i == 0) || (i == totpoints - 1)) {
-			memcpy(pt, old_pt, sizeof(bGPDspoint));
-			++x;
-		}
-		else {
-			BKE_gpencil_free_point_weights(old_pt);
-		}
-	}
-
-	gps->totpoints = x;
-
-	MEM_SAFE_FREE(old_points);
-	MEM_SAFE_FREE(marked);
-}
-
- /* simplify stroke using Ramer-Douglas-Peucker algorithm */
-void BKE_gpencil_simplify_modifier(int UNUSED(id), GpencilSimplifyModifierData *mmd, Object *UNUSED(ob), bGPDlayer *gpl, bGPDstroke *gps)
-{
-	int direction = 0;
-
-	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 4, gpl, gps,
-		(bool)mmd->flag & GP_SIMPLIFY_INVERSE_LAYER, (bool)mmd->flag & GP_SIMPLIFY_INVERSE_PASS)) {
-		return;
-	}
-
-	/* first create temp data and convert points to 2D */
-	tbGPDspoint *points2d = MEM_mallocN(sizeof(tbGPDspoint) * gps->totpoints, "GP Stroke temp 2d points");
-
-	gpencil_stroke_project_2d(gps->points, gps->totpoints, points2d);
-	
-	gpencil_rdp_stroke(gps, points2d, mmd->factor);
-
-	MEM_SAFE_FREE(points2d);
 }
