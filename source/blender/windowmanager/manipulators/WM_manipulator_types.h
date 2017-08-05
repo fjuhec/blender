@@ -160,6 +160,10 @@ struct wmManipulator {
 	 *   besides this it's up to the manipulators internal code how the
 	 *   rotation components are used for drawing and interaction.
 	 */
+
+	/* The space this manipulator is being modified in. */
+	float matrix_space[4][4];
+	/* Transformation of this manipulator. */
 	float matrix_basis[4][4];
 	/* custom offset from origin */
 	float matrix_offset[4][4];
@@ -367,14 +371,11 @@ typedef struct wmManipulatorGroup {
  * Pass a value of this enum to #WM_manipulatormap_draw to tell it what to draw.
  */
 typedef enum eWM_ManipulatorMapDrawStep {
-	/* Draw 2D manipulator-groups (ManipulatorGroupType.is_3d == false) */
+	/** Draw 2D manipulator-groups (#WM_MANIPULATORGROUPTYPE_3D not set). */
 	WM_MANIPULATORMAP_DRAWSTEP_2D = 0,
-	/* Draw 3D manipulator-groups (ManipulatorGroupType.is_3d == true) */
+	/** Draw 3D manipulator-groups (#WM_MANIPULATORGROUPTYPE_3D set). */
 	WM_MANIPULATORMAP_DRAWSTEP_3D,
-	/* Draw only depth culled manipulators (WM_MANIPULATOR_SCENE_DEPTH flag).
-	 * Note that these are expected to be 3D manipulators too. */
-	WM_MANIPULATORMAP_DRAWSTEP_IN_SCENE,
 } eWM_ManipulatorMapDrawStep;
-#define WM_MANIPULATORMAP_DRAWSTEP_MAX 3
+#define WM_MANIPULATORMAP_DRAWSTEP_MAX 2
 
 #endif  /* __WM_MANIPULATOR_TYPES_H__ */
