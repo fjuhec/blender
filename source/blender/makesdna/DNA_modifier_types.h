@@ -97,6 +97,7 @@ typedef enum ModifierType {
 	eModifierType_GpencilColor      = 61,
 	eModifierType_GpencilLattice    = 62,
 	eModifierType_GpencilSimplify   = 63,
+	eModifierType_GpencilBlur       = 64,
 	NUM_MODIFIER_TYPES
 } ModifierType;
 
@@ -1799,6 +1800,14 @@ typedef enum eGpencilSimplify_Flag {
 	GP_SIMPLIFY_INVERSE_LAYER = (1 << 0),
 	GP_SIMPLIFY_INVERSE_PASS = (1 << 1),
 } eGpencilSimplify_Flag;
+
+typedef struct GpencilBlurModifierData {
+	ModifierData modifier;
+	float resolution[2];
+	float radius[2];
+	int flag;                    /* flags */
+	char pad[4];
+} GpencilBlurModifierData;
 
 #define MOD_MESHSEQ_READ_ALL \
 	(MOD_MESHSEQ_READ_VERT | MOD_MESHSEQ_READ_POLY | MOD_MESHSEQ_READ_UV | MOD_MESHSEQ_READ_COLOR)

@@ -1782,6 +1782,13 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         layout.separator()
         layout.prop(md, "strength", slider=True)
 
+    def GP_BLUR(self, layout, ob, md):
+        split = layout.split()
+
+        col = split.column()
+        col.label(text="Factor:")
+        col.prop(md, "factor", text="")
+
 classes = (
     DATA_PT_modifiers,
 )

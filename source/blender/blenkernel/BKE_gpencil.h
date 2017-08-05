@@ -55,6 +55,8 @@ struct GpencilDupliModifierData;
 struct GpencilOpacityModifierData;
 struct GpencilLatticeModifierData;
 
+struct GpencilBlurModifierData;
+
 /* ------------ Grease-Pencil API ------------------ */
 
 void BKE_gpencil_free_point_weights(struct bGPDspoint *pt);

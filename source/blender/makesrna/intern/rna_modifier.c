@@ -131,6 +131,8 @@ EnumPropertyItem rna_enum_object_modifier_type_items[] = {
 	{eModifierType_GpencilTint, "GP_TINT", ICON_COLOR, "Tint", "Tint strokes with new color" },
 	{eModifierType_GpencilColor, "GP_COLOR", ICON_GROUP_VCOL, "Hue/Saturation", "Apply changes to color" },
 	{eModifierType_GpencilOpacity, "GP_OPACITY", ICON_MOD_MASK, "Opacity", "Opacity of the strokes" },
+	{ 0, "", 0, N_("VFX"), "" },
+	{eModifierType_GpencilBlur, "GP_BLUR", ICON_MOD_ARRAY, "Blur", "Apply Gaussian Blur to object" },
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -462,6 +464,8 @@ static StructRNA *rna_Modifier_refine(struct PointerRNA *ptr)
 			return &RNA_GpencilOpacityModifier;
 		case eModifierType_GpencilLattice:
 			return &RNA_GpencilLatticeModifier;
+		case eModifierType_GpencilBlur:
+			return &RNA_GpencilBlurModifier;
 			/* Default */
 		case eModifierType_None:
 		case eModifierType_ShapeKey:
@@ -5392,6 +5396,25 @@ static void rna_def_modifier_gpencillattice(BlenderRNA *brna)
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
+static void rna_def_modifier_gpencilblur(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+
+	srna = RNA_def_struct(brna, "GpencilBlurModifier", "Modifier");
+	RNA_def_struct_ui_text(srna, "Blur Modifier", "Gaussian Blur modifier");
+	RNA_def_struct_sdna(srna, "GpencilBlurModifierData");
+	RNA_def_struct_ui_icon(srna, ICON_MAN_ROT);
+
+	//prop = RNA_def_property(srna, "factor", PROP_FLOAT, PROP_NONE);
+	prop = RNA_def_property(srna, "factor", PROP_FLOAT, PROP_XYZ);
+	RNA_def_property_float_sdna(prop, NULL, "radius");
+	RNA_def_property_range(prop, 0, 100.0);
+	RNA_def_property_ui_range(prop, 0, 100.0, 1.0f, 3);
+	RNA_def_property_ui_text(prop, "Factor", "Factor of Blur");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+}
+
 void RNA_def_modifier(BlenderRNA *brna)
 {
 	StructRNA *srna;
@@ -5520,6 +5543,7 @@ void RNA_def_modifier(BlenderRNA *brna)
 	rna_def_modifier_gpencildupli(brna);
 	rna_def_modifier_gpencilopacity(brna);
 	rna_def_modifier_gpencillattice(brna);
+	rna_def_modifier_gpencilblur(brna);
 }
 
 #endif
