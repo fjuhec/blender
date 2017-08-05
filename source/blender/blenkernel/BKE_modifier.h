@@ -109,6 +109,8 @@ typedef enum {
 	eModifierTypeFlag_AcceptsLattice = (1 << 10),
 	/* Grease pencil modifiers (do not change mesh, only is placeholder) */
 	eModifierTypeFlag_GpencilMod = (1 << 11),
+	/* Grease pencil VFX modifiers cannot be applied */
+	eModifierTypeFlag_GpencilVFX = (1 << 12),
 } ModifierTypeFlag;
 
 /* IMPORTANT! Keep ObjectWalkFunc and IDWalkFunc signatures compatible. */

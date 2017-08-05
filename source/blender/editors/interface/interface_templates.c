@@ -1230,14 +1230,16 @@ static uiLayout *draw_modifier(
 				}
 			}
 			else {
-				uiLayoutSetOperatorContext(row, WM_OP_INVOKE_DEFAULT);
-				uiItemEnumO(row, "OBJECT_OT_modifier_apply", CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Apply"),
-				            0, "apply_as", MODIFIER_APPLY_DATA);
-				
-				if (modifier_isSameTopology(md) && !modifier_isNonGeometrical(md)) {
-					uiItemEnumO(row, "OBJECT_OT_modifier_apply",
-					            CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Apply as Shape Key"),
-					            0, "apply_as", MODIFIER_APPLY_SHAPE);
+				if ((mti->flags & eModifierTypeFlag_GpencilVFX) == 0) {
+					uiLayoutSetOperatorContext(row, WM_OP_INVOKE_DEFAULT);
+					uiItemEnumO(row, "OBJECT_OT_modifier_apply", CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Apply"),
+						0, "apply_as", MODIFIER_APPLY_DATA);
+
+					if (modifier_isSameTopology(md) && !modifier_isNonGeometrical(md)) {
+						uiItemEnumO(row, "OBJECT_OT_modifier_apply",
+							CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Apply as Shape Key"),
+							0, "apply_as", MODIFIER_APPLY_SHAPE);
+					}
 				}
 			}
 			
@@ -1247,8 +1249,10 @@ static uiLayout *draw_modifier(
 			if (!ELEM(md->type, eModifierType_Fluidsim, eModifierType_Softbody, eModifierType_ParticleSystem,
 			           eModifierType_Cloth, eModifierType_Smoke))
 			{
-				uiItemO(row, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Copy"), ICON_NONE,
-				        "OBJECT_OT_modifier_copy");
+				if ((mti->flags & eModifierTypeFlag_GpencilVFX) == 0) {
+					uiItemO(row, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Copy"), ICON_NONE,
+						"OBJECT_OT_modifier_copy");
+				}
 			}
 		}
 		
