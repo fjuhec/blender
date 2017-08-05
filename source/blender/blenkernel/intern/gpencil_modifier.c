@@ -808,7 +808,7 @@ void BKE_gpencil_geometry_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *gpf)
 }
 
 /* Get points of stroke always flat to view not affected by camera view or view position */
-static void gpencil_stroke_2d_idx_flat(const bGPDspoint *points, int totpoints, tbGPDspoint *points2d)
+static void gpencil_stroke_project_2d(const bGPDspoint *points, int totpoints, tbGPDspoint *points2d)
 {
 	const bGPDspoint *pt0 = &points[0];
 	const bGPDspoint *pt1 = &points[1];
@@ -969,7 +969,7 @@ void BKE_gpencil_simplify_modifier(int UNUSED(id), GpencilSimplifyModifierData *
 	/* first create temp data and convert points to 2D */
 	tbGPDspoint *points2d = MEM_mallocN(sizeof(tbGPDspoint) * gps->totpoints, "GP Stroke temp 2d points");
 
-	gpencil_stroke_2d_idx_flat(gps->points, gps->totpoints, points2d);
+	gpencil_stroke_project_2d(gps->points, gps->totpoints, points2d);
 	
 	gpencil_rdp_stroke(gps, points2d, mmd->factor);
 
