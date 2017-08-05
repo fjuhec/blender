@@ -46,6 +46,8 @@ struct GPENCIL_StorageList;
 typedef struct tGPencilObjectCache {
 	struct Object *ob;
 	int init_grp, end_grp;
+	DRWShadingGroup *init_vfx_sh;
+	DRWShadingGroup *end_vfx_sh;
 	float zdepth;
 } tGPencilObjectCache;
 
@@ -72,6 +74,7 @@ typedef struct GPENCIL_Storage {
 	int xray;
 	int keep_size;
 	float obj_scale;
+	float blur1[2], blur2[2];
 } GPENCIL_Storage;
 
 typedef struct GPENCIL_StorageList {
@@ -85,6 +88,7 @@ typedef struct GPENCIL_PassList {
 	struct DRWPass *edit_pass;
 	struct DRWPass *drawing_pass;
 	struct DRWPass *mix_pass;
+	struct DRWPass *vfx_pass;
 } GPENCIL_PassList;
 
 typedef struct GPENCIL_FramebufferList {
@@ -128,6 +132,7 @@ typedef struct GPENCIL_e_data {
 	struct GPUShader *gpencil_line_sh;
 	struct GPUShader *gpencil_drawing_fill_sh;
 	struct GPUShader *gpencil_fullscreen_sh;
+	struct GPUShader *gpencil_vfx_blur_sh;
 	/* temp depth texture */
 	struct GPUTexture *temp_fbcolor_depth_tx;
 	struct GPUTexture *temp_fbcolor_color_tx;

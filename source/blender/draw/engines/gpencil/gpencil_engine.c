@@ -45,6 +45,7 @@ extern char datatoc_gpencil_zdepth_mix_frag_glsl[];
 extern char datatoc_gpencil_point_vert_glsl[];
 extern char datatoc_gpencil_point_geom_glsl[];
 extern char datatoc_gpencil_point_frag_glsl[];
+extern char datatoc_gpencil_gaussian_blur_frag_glsl[];
 
 /* *********** STATIC *********** */
 static GPENCIL_e_data e_data = {NULL}; /* Engine data */
@@ -109,6 +110,8 @@ static void GPENCIL_engine_init(void *vedata)
 	}
 
 	unit_m4(stl->storage->unit_matrix);
+	ARRAY_SET_ITEMS(stl->storage->blur1, 1.0f, 0.0f); /* horz */
+	ARRAY_SET_ITEMS(stl->storage->blur2, 0.0f, 1.0f); /* vert */
 
 	/* blank texture used if no texture defined for fill shader */
 	if (!e_data.gpencil_blank_texture) {
@@ -124,6 +127,8 @@ static void GPENCIL_engine_free(void)
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_stroke_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_point_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_fullscreen_sh);
+	DRW_SHADER_FREE_SAFE(e_data.gpencil_vfx_blur_sh);
+
 	DRW_TEXTURE_FREE_SAFE(e_data.gpencil_blank_texture);
 }
 
@@ -159,6 +164,9 @@ static void GPENCIL_cache_init(void *vedata)
 	/* full screen for mix zdepth*/
 	if (!e_data.gpencil_fullscreen_sh) {
 		e_data.gpencil_fullscreen_sh = DRW_shader_create_fullscreen(datatoc_gpencil_zdepth_mix_frag_glsl, NULL);
+	}
+	if (!e_data.gpencil_vfx_blur_sh) {
+		e_data.gpencil_vfx_blur_sh = DRW_shader_create_fullscreen(datatoc_gpencil_gaussian_blur_frag_glsl, NULL);
 	}
 
 	{
@@ -211,15 +219,20 @@ static void GPENCIL_cache_init(void *vedata)
 		DRW_shgroup_call_add(mix_shgrp, quad, NULL);
 		DRW_shgroup_uniform_buffer(mix_shgrp, "strokeColor", &e_data.temp_fbcolor_color_tx);
 		DRW_shgroup_uniform_buffer(mix_shgrp, "strokeDepth", &e_data.temp_fbcolor_depth_tx);
+
+		/* VFX pass */
+		psl->vfx_pass = DRW_pass_create("GPencil VFX Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 	}
 }
 
 static void GPENCIL_cache_populate(void *vedata, Object *ob)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
+	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
 	ToolSettings *ts = scene->toolsettings;
+	tGPencilObjectCache *cache;
 
 	/* object datablock (this is not draw now) */
 	if (ob->type == OB_GPENCIL && ob->gpd) {
@@ -234,6 +247,26 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 		gpencil_array_modifiers(stl, ob);
 		/* draw current painting strokes */
 		DRW_gpencil_populate_buffer_strokes(vedata, ts, ob->gpd);
+
+		/* VFX pass */
+		struct Gwn_Batch *vfxquad = DRW_cache_fullscreen_quad_get();
+		cache = &stl->g_data->gp_object_cache[stl->g_data->gp_cache_used - 1];
+
+		/* horizontal blur */
+		DRWShadingGroup *vfx_shgrp = DRW_shgroup_create(e_data.gpencil_vfx_blur_sh, psl->vfx_pass);
+		DRW_shgroup_call_add(vfx_shgrp, vfxquad, NULL);
+		DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data.temp_fbcolor_color_tx);
+		DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data.temp_fbcolor_depth_tx);
+		DRW_shgroup_uniform_vec2(vfx_shgrp, "dir", stl->storage->blur1, 1);
+		cache->init_vfx_sh = vfx_shgrp;
+
+		/* vertical blur */
+		vfx_shgrp = DRW_shgroup_create(e_data.gpencil_vfx_blur_sh, psl->vfx_pass);
+		DRW_shgroup_call_add(vfx_shgrp, vfxquad, NULL);
+		DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data.temp_fbcolor_color_tx);
+		DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data.temp_fbcolor_depth_tx);
+		DRW_shgroup_uniform_vec2(vfx_shgrp, "dir", stl->storage->blur2, 1);
+		cache->end_vfx_sh = vfx_shgrp;
 	}
 }
 
@@ -284,6 +317,7 @@ static void GPENCIL_draw_scene(void *vedata)
 	DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
 	float clearcol[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 	int init_grp, end_grp;
+	tGPencilObjectCache *cache;
 
 	/* attach temp textures */
 	DRW_framebuffer_texture_attach(fbl->temp_color_fb, e_data.temp_fbcolor_depth_tx, 0, 0);
@@ -297,9 +331,10 @@ static void GPENCIL_draw_scene(void *vedata)
 			sizeof(tGPencilObjectCache), gpencil_object_cache_compare_zdepth);
 
 		for (int i = 0; i < stl->g_data->gp_cache_used; ++i) {
-			Object *ob = stl->g_data->gp_object_cache[i].ob;
-			init_grp = stl->g_data->gp_object_cache[i].init_grp;
-			end_grp = stl->g_data->gp_object_cache[i].end_grp;
+			cache = &stl->g_data->gp_object_cache[i];
+			Object *ob = cache->ob;
+			init_grp = cache->init_grp;
+			end_grp = cache->end_grp;
 			/* Render stroke in separated framebuffer */
 			DRW_framebuffer_bind(fbl->temp_color_fb);
 			DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
@@ -321,6 +356,12 @@ static void GPENCIL_draw_scene(void *vedata)
 				DRW_draw_pass(psl->drawing_pass);
 			}
 
+			/* vfx pass */
+			if ((cache->init_vfx_sh) && (cache->init_vfx_sh)) {
+				DRW_draw_pass_subset(psl->vfx_pass,
+					cache->init_vfx_sh,
+					cache->end_vfx_sh);
+			}
 			/* Combine with scene buffer */
 			DRW_framebuffer_bind(dfbl->default_fb);
 

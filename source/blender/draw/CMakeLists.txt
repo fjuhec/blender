@@ -211,6 +211,7 @@ data_to_c_simple(engines/gpencil/shaders/gpencil_zdepth_mix_frag.glsl SRC)
 data_to_c_simple(engines/gpencil/shaders/gpencil_point_vert.glsl SRC)
 data_to_c_simple(engines/gpencil/shaders/gpencil_point_geom.glsl SRC)
 data_to_c_simple(engines/gpencil/shaders/gpencil_point_frag.glsl SRC)
+data_to_c_simple(engines/gpencil/shaders/gpencil_gaussian_blur_frag.glsl SRC)
 
 list(APPEND INC
 )
