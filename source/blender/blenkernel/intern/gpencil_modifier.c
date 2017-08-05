@@ -886,7 +886,8 @@ void gpencil_rdp_stroke(bGPDstroke *gps, tbGPDspoint *points2d, float epsilon)
 		while (ls < end) {
 			int max_i = 0;
 			float v1[2];
-			float max_dist = epsilon;
+			/* divided to get more control */
+			float max_dist = epsilon / 10.0f;
 
 			/* find the next marked point */
 			while (marked[le] == 0) {
