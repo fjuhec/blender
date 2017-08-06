@@ -33,6 +33,8 @@ struct ModifierData;
 struct GPENCIL_StorageList;
 
  /* TODO: these could be system parameter in userprefs screen */
+#define GPENCIL_MAX_GP_OBJ 256 
+
 #define GPENCIL_CACHE_BLOCK_SIZE 8 
 #define GPENCIL_MAX_SHGROUPS 65536
 #define GPENCIL_MIN_BATCH_SLOTS_CHUNK 8
@@ -42,10 +44,10 @@ struct GPENCIL_StorageList;
 #define GPENCIL_COLOR_PATTERN 2
 
  /* *********** OBJECTS CACHE *********** */
-typedef struct tGPencilVFXBlur {
+typedef struct GPencilVFXBlur {
 	float x;
 	float y;
-} tGPencilVFXBlur;
+} GPencilVFXBlur;
 
  /* used to save gpencil objects */
 typedef struct tGPencilObjectCache {
@@ -57,6 +59,10 @@ typedef struct tGPencilObjectCache {
 } tGPencilObjectCache;
 
   /* *********** LISTS *********** */
+typedef struct GPENCIL_vfx {
+	GPencilVFXBlur vfx_blur;
+} GPENCIL_vfx;
+
 typedef struct GPENCIL_shgroup {
 	int s_clamp;
 	int stroke_style;
@@ -67,9 +73,6 @@ typedef struct GPENCIL_shgroup {
 	int fill_style;
 	int keep_size;
 	float obj_scale;
-	/* vfx data */
-	tGPencilVFXBlur vfx_blur;
-
 	struct DRWShadingGroup *shgrps_fill;
 	struct DRWShadingGroup *shgrps_stroke;
 } GPENCIL_shgroup;
@@ -89,6 +92,7 @@ typedef struct GPENCIL_StorageList {
 	struct GPENCIL_Storage *storage;
 	struct g_data *g_data;
 	struct GPENCIL_shgroup *shgroups;
+	struct GPENCIL_vfx *vfx;
 } GPENCIL_StorageList;
 
 typedef struct GPENCIL_PassList {
@@ -199,6 +203,6 @@ void gpencil_object_cache_add(struct tGPencilObjectCache *cache, struct Object *
 
 void gpencil_array_modifiers(struct GPENCIL_StorageList *stl, struct Object *ob);
 
-void DRW_gpencil_vfx_blur(struct GPENCIL_e_data *e_data, struct GPENCIL_Data *vedata, struct Object *ob, struct tGPencilObjectCache *cache);
+void DRW_gpencil_vfx_blur(int ob_idx, struct GPENCIL_e_data *e_data, struct GPENCIL_Data *vedata, struct Object *ob, struct tGPencilObjectCache *cache);
 
 #endif /* __GPENCIL_ENGINE_H__ */

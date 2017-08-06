@@ -67,7 +67,7 @@ static ModifierData *modifier_available(Object *ob, ModifierType type)
  * The effect is done using two shading groups because is faster to apply horizontal
  * and vertical in different operations.
  */
-void DRW_gpencil_vfx_blur(GPENCIL_e_data *e_data, GPENCIL_Data *vedata, Object *ob, tGPencilObjectCache *cache)
+void DRW_gpencil_vfx_blur(int ob_idx, GPENCIL_e_data *e_data, GPENCIL_Data *vedata, Object *ob, tGPencilObjectCache *cache)
 {
 	ModifierData *md = modifier_available(ob, eModifierType_GpencilBlur);
 	if (md == NULL) {
@@ -79,9 +79,8 @@ void DRW_gpencil_vfx_blur(GPENCIL_e_data *e_data, GPENCIL_Data *vedata, Object *
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	const float *viewport_size = DRW_viewport_size_get();
-	int id = cache->init_grp;
-	stl->shgroups[id].vfx_blur.x = mmd->radius[0];
-	stl->shgroups[id].vfx_blur.y = mmd->radius[1] * (viewport_size[1] / viewport_size[0]);
+	stl->vfx[ob_idx].vfx_blur.x = mmd->radius[0];
+	stl->vfx[ob_idx].vfx_blur.y = mmd->radius[1] * (viewport_size[1] / viewport_size[0]);
 
 	struct Gwn_Batch *vfxquad = DRW_cache_fullscreen_quad_get();
 	/* horizontal blur */
@@ -90,7 +89,7 @@ void DRW_gpencil_vfx_blur(GPENCIL_e_data *e_data, GPENCIL_Data *vedata, Object *
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->temp_fbcolor_color_tx);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->temp_fbcolor_depth_tx);
 	DRW_shgroup_uniform_vec2(vfx_shgrp, "dir", stl->storage->blur1, 1);
-	DRW_shgroup_uniform_float(vfx_shgrp, "blur", &stl->shgroups[id].vfx_blur.x, 1);
+	DRW_shgroup_uniform_float(vfx_shgrp, "blur", &stl->vfx[ob_idx].vfx_blur.x, 1);
 
 	/* set first effect sh */
 	if (cache->init_vfx_sh == NULL) {
@@ -103,7 +102,7 @@ void DRW_gpencil_vfx_blur(GPENCIL_e_data *e_data, GPENCIL_Data *vedata, Object *
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->temp_fbcolor_color_tx);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->temp_fbcolor_depth_tx);
 	DRW_shgroup_uniform_vec2(vfx_shgrp, "dir", stl->storage->blur2, 1);
-	DRW_shgroup_uniform_float(vfx_shgrp, "blur", &stl->shgroups[id].vfx_blur.y, 1);
+	DRW_shgroup_uniform_float(vfx_shgrp, "blur", &stl->vfx[ob_idx].vfx_blur.y, 1);
 
 	/* set last effect sh */
 	cache->end_vfx_sh = vfx_shgrp;
