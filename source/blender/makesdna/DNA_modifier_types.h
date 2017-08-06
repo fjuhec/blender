@@ -98,6 +98,7 @@ typedef enum ModifierType {
 	eModifierType_GpencilLattice    = 62,
 	eModifierType_GpencilSimplify   = 63,
 	eModifierType_GpencilBlur       = 64,
+	eModifierType_GpencilWave       = 65,
 	NUM_MODIFIER_TYPES
 } ModifierType;
 
@@ -1807,6 +1808,16 @@ typedef struct GpencilBlurModifierData {
 	int flag;                    /* flags */
 	char pad[4];
 } GpencilBlurModifierData;
+
+typedef struct GpencilWaveModifierData {
+	ModifierData modifier;
+	float amplitude;
+	float period;
+	float phase;
+	int orientation;
+	int flag;                    /* flags */
+	char pad[4];
+} GpencilWaveModifierData;
 
 #define MOD_MESHSEQ_READ_ALL \
 	(MOD_MESHSEQ_READ_VERT | MOD_MESHSEQ_READ_POLY | MOD_MESHSEQ_READ_UV | MOD_MESHSEQ_READ_COLOR)

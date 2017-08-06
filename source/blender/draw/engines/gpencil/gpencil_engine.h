@@ -49,6 +49,13 @@ typedef struct GPencilVFXBlur {
 	float y;
 } GPencilVFXBlur;
 
+typedef struct GPencilVFXWave {
+	int orientation;
+	float amplitude;
+	float period;
+	float phase;
+} GPencilVFXWave;
+
  /* used to save gpencil objects */
 typedef struct tGPencilObjectCache {
 	struct Object *ob;
@@ -61,6 +68,7 @@ typedef struct tGPencilObjectCache {
   /* *********** LISTS *********** */
 typedef struct GPENCIL_vfx {
 	GPencilVFXBlur vfx_blur;
+	GPencilVFXWave vfx_wave;
 } GPENCIL_vfx;
 
 typedef struct GPENCIL_shgroup {
@@ -145,6 +153,7 @@ typedef struct GPENCIL_e_data {
 	struct GPUShader *gpencil_drawing_fill_sh;
 	struct GPUShader *gpencil_fullscreen_sh;
 	struct GPUShader *gpencil_vfx_blur_sh;
+	struct GPUShader *gpencil_vfx_wave_sh;
 	/* temp depth texture */
 	struct GPUTexture *temp_fbcolor_depth_tx;
 	struct GPUTexture *temp_fbcolor_color_tx;
@@ -204,5 +213,6 @@ void gpencil_object_cache_add(struct tGPencilObjectCache *cache, struct Object *
 void gpencil_array_modifiers(struct GPENCIL_StorageList *stl, struct Object *ob);
 
 void DRW_gpencil_vfx_blur(int ob_idx, struct GPENCIL_e_data *e_data, struct GPENCIL_Data *vedata, struct Object *ob, struct tGPencilObjectCache *cache);
+void DRW_gpencil_vfx_wave(int ob_idx, struct GPENCIL_e_data *e_data, struct GPENCIL_Data *vedata, struct Object *ob, struct tGPencilObjectCache *cache);
 
 #endif /* __GPENCIL_ENGINE_H__ */

@@ -46,6 +46,7 @@ extern char datatoc_gpencil_point_vert_glsl[];
 extern char datatoc_gpencil_point_geom_glsl[];
 extern char datatoc_gpencil_point_frag_glsl[];
 extern char datatoc_gpencil_gaussian_blur_frag_glsl[];
+extern char datatoc_gpencil_wave_frag_glsl[];
 
 /* *********** STATIC *********** */
 static GPENCIL_e_data e_data = {NULL}; /* Engine data */
@@ -128,6 +129,7 @@ static void GPENCIL_engine_free(void)
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_point_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_fullscreen_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_vfx_blur_sh);
+	DRW_SHADER_FREE_SAFE(e_data.gpencil_vfx_wave_sh);
 
 	DRW_TEXTURE_FREE_SAFE(e_data.gpencil_blank_texture);
 }
@@ -171,6 +173,9 @@ static void GPENCIL_cache_init(void *vedata)
 	}
 	if (!e_data.gpencil_vfx_blur_sh) {
 		e_data.gpencil_vfx_blur_sh = DRW_shader_create_fullscreen(datatoc_gpencil_gaussian_blur_frag_glsl, NULL);
+	}
+	if (!e_data.gpencil_vfx_wave_sh) {
+		e_data.gpencil_vfx_wave_sh = DRW_shader_create_fullscreen(datatoc_gpencil_wave_frag_glsl, NULL);
 	}
 
 	{
@@ -280,6 +285,7 @@ static void GPENCIL_cache_finish(void *vedata)
 			/* VFX pass */
 			cache = &stl->g_data->gp_object_cache[i];
 			DRW_gpencil_vfx_blur(i, &e_data, vedata, ob, cache);
+			DRW_gpencil_vfx_wave(i, &e_data, vedata, ob, cache);
 		}
 	}
 }

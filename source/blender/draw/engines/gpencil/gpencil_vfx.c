@@ -107,3 +107,40 @@ void DRW_gpencil_vfx_blur(int ob_idx, GPENCIL_e_data *e_data, GPENCIL_Data *veda
 	/* set last effect sh */
 	cache->end_vfx_sh = vfx_shgrp;
 }
+
+/* Wave Distorsion VFX */
+void DRW_gpencil_vfx_wave(int ob_idx, GPENCIL_e_data *e_data, GPENCIL_Data *vedata, Object *ob, tGPencilObjectCache *cache)
+{
+	ModifierData *md = modifier_available(ob, eModifierType_GpencilWave);
+	if (md == NULL) {
+		return;
+	}
+
+	GpencilWaveModifierData *mmd = (GpencilWaveModifierData *)md;
+
+	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
+	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
+	stl->vfx[ob_idx].vfx_wave.amplitude = mmd->amplitude;
+	stl->vfx[ob_idx].vfx_wave.period = mmd->period;
+	stl->vfx[ob_idx].vfx_wave.phase = mmd->phase;
+	stl->vfx[ob_idx].vfx_wave.orientation = mmd->orientation;
+
+	struct Gwn_Batch *vfxquad = DRW_cache_fullscreen_quad_get();
+
+	DRWShadingGroup *vfx_shgrp = DRW_shgroup_create(e_data->gpencil_vfx_wave_sh, psl->vfx_pass);
+	DRW_shgroup_call_add(vfx_shgrp, vfxquad, NULL);
+	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->temp_fbcolor_color_tx);
+	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->temp_fbcolor_depth_tx);
+	DRW_shgroup_uniform_float(vfx_shgrp, "amplitude", &stl->vfx[ob_idx].vfx_wave.amplitude, 1);
+	DRW_shgroup_uniform_float(vfx_shgrp, "period", &stl->vfx[ob_idx].vfx_wave.period, 1);
+	DRW_shgroup_uniform_float(vfx_shgrp, "phase", &stl->vfx[ob_idx].vfx_wave.phase, 1);
+	DRW_shgroup_uniform_int(vfx_shgrp, "orientation", &stl->vfx[ob_idx].vfx_wave.orientation, 1);
+
+	/* set first effect sh */
+	if (cache->init_vfx_sh == NULL) {
+		cache->init_vfx_sh = vfx_shgrp;
+	}
+
+	/* set last effect sh */
+	cache->end_vfx_sh = vfx_shgrp;
+}

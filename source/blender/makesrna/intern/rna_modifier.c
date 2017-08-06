@@ -133,6 +133,7 @@ EnumPropertyItem rna_enum_object_modifier_type_items[] = {
 	{eModifierType_GpencilOpacity, "GP_OPACITY", ICON_MOD_MASK, "Opacity", "Opacity of the strokes" },
 	{ 0, "", 0, N_("VFX"), "" },
 	{eModifierType_GpencilBlur, "GP_BLUR", ICON_SOLO_ON, "Gaussian Blur", "Apply Gaussian Blur to object" },
+	{eModifierType_GpencilWave, "GP_WAVE", ICON_SOLO_ON, "Wave Distorsion", "Apply Sinusoidal Deformation" },
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -466,6 +467,8 @@ static StructRNA *rna_Modifier_refine(struct PointerRNA *ptr)
 			return &RNA_GpencilLatticeModifier;
 		case eModifierType_GpencilBlur:
 			return &RNA_GpencilBlurModifier;
+		case eModifierType_GpencilWave:
+			return &RNA_GpencilWaveModifier;
 			/* Default */
 		case eModifierType_None:
 		case eModifierType_ShapeKey:
@@ -5413,6 +5416,47 @@ static void rna_def_modifier_gpencilblur(BlenderRNA *brna)
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
+static void rna_def_modifier_gpencilwave(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+
+	static EnumPropertyItem prop_gpencil_wave_type_items[] = {
+		{ 0, "HORIZONTAL", 0, "Horizontal", "" },
+		{ 1, "VERTICAL", 0, "Vertical", "" },
+		{ 0, NULL, 0, NULL, NULL }
+	};
+
+	srna = RNA_def_struct(brna, "GpencilWaveModifier", "Modifier");
+	RNA_def_struct_ui_text(srna, "Wave Deformation Modifier", "Wave Deformation modifier");
+	RNA_def_struct_sdna(srna, "GpencilWaveModifierData");
+	RNA_def_struct_ui_icon(srna, ICON_SOLO_ON);
+
+	prop = RNA_def_property(srna, "orientation", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "orientation");
+	RNA_def_property_enum_items(prop, prop_gpencil_wave_type_items);
+	RNA_def_property_ui_text(prop, "Orientation", "Direction of the wave");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "amplitude", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "amplitude");
+	RNA_def_property_range(prop, 0, FLT_MAX);
+	RNA_def_property_ui_text(prop, "Amplitude", "Amplitude of Wave");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "period", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "period");
+	RNA_def_property_range(prop, 0, FLT_MAX);
+	RNA_def_property_ui_text(prop, "Period", "Period of Wave");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "phase", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "phase");
+	RNA_def_property_range(prop, -FLT_MAX, FLT_MAX);
+	RNA_def_property_ui_text(prop, "Phase", "Phase Shift of Wave");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+}
+
 void RNA_def_modifier(BlenderRNA *brna)
 {
 	StructRNA *srna;
@@ -5542,6 +5586,7 @@ void RNA_def_modifier(BlenderRNA *brna)
 	rna_def_modifier_gpencilopacity(brna);
 	rna_def_modifier_gpencillattice(brna);
 	rna_def_modifier_gpencilblur(brna);
+	rna_def_modifier_gpencilwave(brna);
 }
 
 #endif
