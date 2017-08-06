@@ -305,7 +305,6 @@ typedef struct HairFiberTextureBuffer {
 	unsigned int parent_index[4];
 	float parent_weight[4];
 	float root_position[3];
-	/* pad for 128 byt alignment */
 	int pad;
 } HairFiberTextureBuffer;
 BLI_STATIC_ASSERT_ALIGN(HairFiberTextureBuffer, 8)
