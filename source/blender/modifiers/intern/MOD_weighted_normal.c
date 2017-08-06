@@ -29,10 +29,8 @@
 #include "DNA_object_types.h"
 
 #include "BKE_cdderivedmesh.h"
-#include "BKE_deform.h"
 #include "BKE_mesh.h"
 
-#include "BLI_bitmap.h"
 #include "BLI_math.h"
 #include "BLI_stack.h"
 
@@ -40,6 +38,10 @@
 
 #include "MOD_modifiertypes.h"
 #include "MOD_util.h"
+
+#define INDEX_UNSET INT_MIN
+#define INDEX_INVALID -1
+#define IS_EDGE_SHARP(_e2l) (ELEM((_e2l)[1], INDEX_UNSET, INDEX_INVALID))
 
 typedef struct pair {
 	float val;		/* contains mode based value (face area/ corner angle) */
@@ -72,22 +74,57 @@ static int sort_by_index(const void *p1, const void *p2)
 		return 0;
 }
 
-static void apply_weights_sharp_loops(WeightedNormalModifierData *wnmd, int *loop_index, int size, pair *mode_pair,
-	float (*loop_normal)[3], int *loops_to_poly, float (*polynors)[3])
+/* Copied function used to fan around the current vertex */
+static void loop_manifold_fan_around_vert_next(
+	const MLoop *mloops, const MPoly *mpolys,
+	const int *loop_to_poly, const int *e2lfan_curr, const uint mv_pivot_index,
+	const MLoop **r_mlfan_curr, int *r_mlfan_curr_index, int *r_mlfan_vert_index, int *r_mpfan_curr_index)
 {
+	const MLoop *mlfan_next;
+	const MPoly *mpfan_next;
+	*r_mlfan_curr_index = (e2lfan_curr[0] == *r_mlfan_curr_index) ? e2lfan_curr[1] : e2lfan_curr[0];
+	*r_mpfan_curr_index = loop_to_poly[*r_mlfan_curr_index];
+
+	BLI_assert(*r_mlfan_curr_index >= 0);
+	BLI_assert(*r_mpfan_curr_index >= 0);
+
+	mlfan_next = &mloops[*r_mlfan_curr_index];
+	mpfan_next = &mpolys[*r_mpfan_curr_index];
+	if (((*r_mlfan_curr)->v == mlfan_next->v && (*r_mlfan_curr)->v == mv_pivot_index) ||
+		((*r_mlfan_curr)->v != mlfan_next->v && (*r_mlfan_curr)->v != mv_pivot_index))
+	{
+		*r_mlfan_vert_index = *r_mlfan_curr_index;
+		if (--(*r_mlfan_curr_index) < mpfan_next->loopstart) {
+			*r_mlfan_curr_index = mpfan_next->loopstart + mpfan_next->totloop - 1;
+		}
+	}
+	else {
+		if (++(*r_mlfan_curr_index) >= mpfan_next->loopstart + mpfan_next->totloop) {
+			*r_mlfan_curr_index = mpfan_next->loopstart;
+		}
+		*r_mlfan_vert_index = *r_mlfan_curr_index;
+	}
+	*r_mlfan_curr = &mloops[*r_mlfan_curr_index];
+}
+
+static void apply_weights_sharp_loops(WeightedNormalModifierData *wnmd, int *loop_index, int size, pair *mode_pair,
+	float(*loop_normal)[3], int *loops_to_poly, float(*polynors)[3])
+{
+	float weight = (float)wnmd->weight / 10.0f;
+
 	for (int i = 0; i < size - 1; i++) {
 		for (int j = 0; j < size - i - 1; j++) {
 			if (wnmd->mode == MOD_WEIGHTEDNORMAL_MODE_FACE
-				&& mode_pair[loops_to_poly[loop_index[j]]].val > mode_pair[loops_to_poly[loop_index[j + 1]]].val) {
-					int temp = loop_index[j];
-					loop_index[j] = loop_index[j + 1];
-					loop_index[j + 1] = temp;
+				&& mode_pair[loops_to_poly[loop_index[j]]].val < mode_pair[loops_to_poly[loop_index[j + 1]]].val) {
+				int temp = loop_index[j];
+				loop_index[j] = loop_index[j + 1];
+				loop_index[j + 1] = temp;
 			}
-			else if (wnmd->mode == MOD_WEIGHTEDNORMAL_MODE_ANGLE || wnmd->mode == MOD_WEIGHTEDNORMAL_MODE_FACE_ANGLE
-				&& mode_pair[loop_index[j]].val > mode_pair[loop_index[j + 1]].val) {
-					int temp = loop_index[j];
-					loop_index[j] = loop_index[j + 1];
-					loop_index[j + 1] = temp;
+			else if ((wnmd->mode == MOD_WEIGHTEDNORMAL_MODE_ANGLE || wnmd->mode == MOD_WEIGHTEDNORMAL_MODE_FACE_ANGLE)
+				&& mode_pair[loop_index[j]].val < mode_pair[loop_index[j + 1]].val) {
+				int temp = loop_index[j];
+				loop_index[j] = loop_index[j + 1];
+				loop_index[j + 1] = temp;
 			}
 		}
 	}
@@ -110,9 +147,15 @@ static void apply_weights_sharp_loops(WeightedNormalModifierData *wnmd, int *loo
 			vertcount++;
 			cur_val = mode_pair[j].val;
 		}
-		float n_weight = pow(wnmd->weight, vertcount);
+		float n_weight = pow(weight, vertcount);
 
-		copy_v3_v3(wnor, polynors[mode_pair[j].index]);
+		if (wnmd->mode == MOD_WEIGHTEDNORMAL_MODE_FACE) {
+			copy_v3_v3(wnor, polynors[mode_pair[j].index]);
+		}
+		else if (wnmd->mode == MOD_WEIGHTEDNORMAL_MODE_ANGLE || wnmd->mode == MOD_WEIGHTEDNORMAL_MODE_FACE_ANGLE) {
+			copy_v3_v3(wnor, polynors[loops_to_poly[j]]);
+		}
+
 		mul_v3_fl(wnor, mode_pair[j].val * (1.0f / n_weight));
 		add_v3_v3(custom_normal, wnor);
 	}
@@ -120,6 +163,54 @@ static void apply_weights_sharp_loops(WeightedNormalModifierData *wnmd, int *loo
 
 	for (int i = 0; i < size; i++) {
 		copy_v3_v3(loop_normal[loop_index[i]], custom_normal);
+	}
+}
+
+/* Modified version of loop_split_worker_do which sets custom_normals without considering smoothness of faces or loop normal space array
+   Used only to work on sharp edges */
+static void loop_split_worker(WeightedNormalModifierData *wnmd, pair *mode_pair, MLoop *ml_curr, MLoop *ml_prev, int ml_curr_index,
+		int ml_prev_index, int *e2l_prev, int mp_index, float (*loop_normal)[3], int *loops_to_poly, float (*polynors)[3], MEdge *medge,
+		MLoop *mloop, MPoly *mpoly, int (*edge_to_loops)[2])
+{
+	if (e2l_prev) {
+		int *e2lfan_curr = e2l_prev;
+		MLoop *mlfan_curr = ml_prev;
+		int mlfan_curr_index = ml_prev_index;
+		int mlfan_vert_index = ml_curr_index;
+		int mpfan_curr_index = mp_index;
+
+		BLI_Stack *loop_index = BLI_stack_new(sizeof(int), "__func__");
+
+		while (true) {
+			const unsigned int mv_pivot_index = ml_curr->v;
+			const MEdge *me_curr = &medge[mlfan_curr->e];
+			const MEdge *me_org = &medge[ml_curr->e];
+
+			BLI_stack_push(loop_index, &mlfan_vert_index);
+
+			if (IS_EDGE_SHARP(e2lfan_curr) || (me_curr == me_org)) {
+				break;
+			}
+
+			loop_manifold_fan_around_vert_next(
+				mloop, mpoly, loops_to_poly, e2lfan_curr, mv_pivot_index,
+				&mlfan_curr, &mlfan_curr_index, &mlfan_vert_index, &mpfan_curr_index);
+
+			e2lfan_curr = edge_to_loops[mlfan_curr->e];
+		}
+
+		int *index = MEM_mallocN(sizeof(*index) * BLI_stack_count(loop_index), "__func__");
+		int cur = 0;
+		while (!BLI_stack_is_empty(loop_index)) {
+			BLI_stack_pop(loop_index, &index[cur]);
+			cur++;
+		}
+		apply_weights_sharp_loops(wnmd, index, cur, mode_pair, loop_normal, loops_to_poly, polynors);
+		MEM_freeN(index);
+		BLI_stack_free(loop_index);
+	}
+	else {
+		copy_v3_v3(loop_normal[ml_curr_index], polynors[loops_to_poly[ml_curr_index]]);
 	}
 }
 
@@ -199,10 +290,6 @@ static void apply_weights_vertex_normal(WeightedNormalModifierData *wnmd, Object
 	else {
 		float(*loop_normal)[3] = MEM_callocN(sizeof(*loop_normal) * numLoops, "__func__");
 		int *loops_to_poly = MEM_mallocN(sizeof(*loops_to_poly) * numLoops, "__func__");
-		int numSharpVerts = 0;
-
-		BLI_bitmap *sharp_verts = BLI_BITMAP_NEW(numVerts, "__func__");
-		int *loops_per_vert = MEM_callocN(sizeof(*loops_per_vert) * numVerts, "__func__");
 
 		BKE_mesh_normals_loop_split(mvert, numVerts, medge, numEdges, mloop, loop_normal, numLoops, mpoly, polynors,
 			numPoly, true, (float)M_PI, NULL, clnors, loops_to_poly);
@@ -212,11 +299,6 @@ static void apply_weights_vertex_normal(WeightedNormalModifierData *wnmd, Object
 			const int ml_index_end = ml_index + mpoly[mp_index].totloop;
 
 			for (int i = ml_index; i < ml_index_end; i++) {
-				if ((medge[mloop[i].e].flag & ME_SHARP) && !BLI_BITMAP_TEST(sharp_verts, mloop[i].v)) {
-					numSharpVerts++;
-					BLI_BITMAP_ENABLE(sharp_verts, mloop[i].v);
-				}
-				loops_per_vert[mloop[i].v]++;
 				loops_to_poly[i] = mp_index;
 				if (!is_zero_v3(custom_normal[mloop[i].v])) {
 					copy_v3_v3(loop_normal[i], custom_normal[mloop[i].v]);
@@ -225,143 +307,73 @@ static void apply_weights_vertex_normal(WeightedNormalModifierData *wnmd, Object
 		}
 
 		if (keep_sharp) {
-			void **loops_of_vert = MEM_mallocN(sizeof(loops_of_vert) * numSharpVerts, "__func__");
-			int cur = 0;
+			int (*edge_to_loops)[2] = MEM_callocN(sizeof(*edge_to_loops) * numEdges, "__func__");
 
 			if (wnmd->mode == MOD_WEIGHTEDNORMAL_MODE_FACE) {
 				qsort(mode_pair, numPoly, sizeof(*mode_pair), sort_by_index);
 			}
 			else {
 				qsort(mode_pair, numLoops, sizeof(*mode_pair), sort_by_index);
-
 			}
-			for (int mp_index = 0; mp_index < numPoly; mp_index++) {
-				int ml_index = mpoly[mp_index].loopstart;
-				const int ml_index_end = ml_index + mpoly[mp_index].totloop;
 
-				for (int i = ml_index, k = 0; i < ml_index_end; i++) {
+			MPoly *mp;
+			int mp_index;
+			for (mp = mpoly, mp_index = 0; mp_index < numPoly; mp++, mp_index++) {
+				int ml_curr_index = mp->loopstart;
+				const int ml_last_index = (ml_curr_index + mp->totloop) - 1;
 
-					if (BLI_BITMAP_TEST(sharp_verts, mloop[i].v)) {
-						bool found = false;
-						for (k = 0; k < cur; k++) {
-							if (mloop[i].v == *(int *)loops_of_vert[k]) {
-								found = true;
-								break;
-							}
-						}
-						if (found) {
-							int *loops = loops_of_vert[k];
-							while (*loops != -1) {
-								loops++;
-							}
-							*loops = i;
+				MLoop *ml_curr = &mloop[ml_curr_index];
+
+				for (; ml_curr_index <= ml_last_index; ml_curr++, ml_curr_index++) {
+					int *e2l = edge_to_loops[ml_curr->e];
+
+					if ((e2l[0] | e2l[1]) == 0) {
+						e2l[0] = ml_curr_index;
+						e2l[1] = INDEX_UNSET;		/* Not considering smoothness of faces, UNSET if first loop encountered on this edge */
+					}
+					else if (e2l[1] == INDEX_UNSET) {
+						if ((medge[ml_curr->e].flag & ME_SHARP) || ml_curr->v == mloop[e2l[0]].v) {
+							e2l[1] = INDEX_INVALID;
 						}
 						else {
-							int *loops;
-							loops_of_vert[k] = loops = MEM_callocN(sizeof(*loops) * (loops_per_vert[mloop[i].v] + 1), "__func__");
-							memset(loops, -1, sizeof(*loops) * (loops_per_vert[mloop[i].v] + 1));
-							loops[0] = mloop[i].v;
-							loops[1] = i;
-							cur++;
+							e2l[1] = ml_curr_index;
 						}
 					}
 				}
 			}
-			for (int i = 0; i < numSharpVerts; i++) {
-				int *loops = loops_of_vert[i];
-				int totloop = loops_per_vert[*loops];
-				loops++;
-				int *base_loop = loops;
 
-				BLI_Stack *loop_index = BLI_stack_new(sizeof(int), "__func__");
+			for (mp = mpoly, mp_index = 0; mp_index < numPoly; mp++, mp_index++) {
+				const int ml_last_index = (mp->loopstart + mp->totloop) - 1;
+				int ml_curr_index = mp->loopstart;
+				int ml_prev_index = ml_last_index;
 
-				int min = 0, stack = 0;
-				bool check = true;
+				MLoop *ml_curr = &mloop[ml_curr_index];
+				MLoop *ml_prev = &mloop[ml_prev_index];
 
-				for (int k = 0; k < totloop; k++) {
-					MPoly mp = mpoly[loops_to_poly[*loops]];
-					MLoop *prev_loop = (*loops - 1 >= mp.loopstart ? &mloop[*loops - 1] : &mloop[mp.loopstart + mp.totloop - 1]),
-						*next_loop = (*loops + 1 < mp.loopstart + mp.totloop ? &mloop[*loops + 1] : &mloop[mp.loopstart]),
-						*vert_loop;
+				for (; ml_curr_index <= ml_last_index; ml_curr++, ml_curr_index++) {
+					int *e2l_curr = edge_to_loops[ml_curr->e];
+					int *e2l_prev = edge_to_loops[ml_prev->e];
 
-					int other_v1 = BKE_mesh_edge_other_vert(&medge[prev_loop->e], prev_loop->v),
-						other_v2 = BKE_mesh_edge_other_vert(&medge[next_loop->e], next_loop->v);
-
-					if (other_v1 == mloop[*loops].v) {
-						vert_loop = prev_loop;
-					}
-					else if (other_v2 == mloop[*loops].v) {
-						vert_loop = next_loop;
-					}
-					if (medge[mloop[*loops].e].flag & ME_SHARP) {
-						check = false;
-					}
-					cur_val[mloop[*loops].v] = 0;
-					vertcount[mloop[*loops].v] = 0;
-
-					if (check) {
-						stack++;
-						BLI_stack_push(loop_index, loops);
-						min = stack;
-					}
-					else {
-						if ((medge[mloop[*loops].e].flag & ME_SHARP)) {
-							int *index = MEM_mallocN(sizeof(index) * (stack - min), "__func__");
-							cur = 0;
-							while (stack > min) {
-								BLI_stack_pop(loop_index, &index[cur]);
-								cur++;
-								stack--;
-							}
-							apply_weights_sharp_loops(wnmd, index, cur, mode_pair, loop_normal, loops_to_poly, polynors);
-							MEM_freeN(index);
+					if (IS_EDGE_SHARP(e2l_curr)) {
+						if (IS_EDGE_SHARP(e2l_curr) && IS_EDGE_SHARP(e2l_prev)) {
+							loop_split_worker(wnmd, mode_pair, ml_curr, ml_prev, ml_curr_index, -1, NULL, mp_index, loop_normal,
+								loops_to_poly, polynors, medge,	mloop, mpoly, edge_to_loops);
 						}
-						stack++;
-						BLI_stack_push(loop_index, loops);
-					}
-
-					for (int j = 0, *l_index = base_loop; j < totloop; j++, l_index++) {
-						if (loops == l_index || *l_index == -1)
-							continue;
-						MPoly *mp = &mpoly[loops_to_poly[*l_index]];
-						bool has_poly = false;
-
-						for (int ml_index = mp->loopstart; ml_index < mp->loopstart + mp->totloop; ml_index++) {
-							if (mloop[ml_index].e == vert_loop->e) {
-								*loops = -1;
-								loops = l_index;
-								has_poly = true;
-								break;
-							}
-						}
-						if (has_poly) {
-							break;
+						else {
+							loop_split_worker(wnmd, mode_pair, ml_curr, ml_prev, ml_curr_index, ml_prev_index, e2l_prev, mp_index,
+								loop_normal, loops_to_poly, polynors, medge, mloop, mpoly, edge_to_loops);
 						}
 					}
+					ml_prev = ml_curr;
+					ml_prev_index = ml_curr_index;
 				}
-				if (!BLI_stack_is_empty(loop_index)) {
-					int *index = MEM_mallocN(sizeof(index) * BLI_stack_count(loop_index), "__func__");
-					cur = 0;
-					while (!BLI_stack_is_empty(loop_index)) {
-						BLI_stack_pop(loop_index, &index[cur]);
-						cur++;
-					}
-					apply_weights_sharp_loops(wnmd, index, cur, mode_pair, loop_normal, loops_to_poly, polynors);
-					MEM_freeN(index);
-				}
-				BLI_stack_free(loop_index);
 			}
-			for (int i = 0; i < numSharpVerts; i++) {
-				MEM_freeN(loops_of_vert[i]);
-			}
-			MEM_freeN(loops_of_vert);
+			MEM_freeN(edge_to_loops);
 		}
 		BKE_mesh_normals_loop_custom_set(mvert, numVerts, medge, numEdges,
 			mloop, loop_normal, numLoops, mpoly, polynors, numPoly, clnors);
-		MEM_freeN(sharp_verts);
 		MEM_freeN(loops_to_poly);
 		MEM_freeN(loop_normal);
-		MEM_freeN(loops_per_vert);
 	}
 
 	MEM_freeN(vertcount);
