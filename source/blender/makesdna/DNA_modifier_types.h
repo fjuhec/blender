@@ -1803,8 +1803,7 @@ typedef enum eGpencilSimplify_Flag {
 
 typedef struct GpencilBlurModifierData {
 	ModifierData modifier;
-	float resolution[2];
-	float radius[2];
+	int radius[2];
 	int flag;                    /* flags */
 	char pad[4];
 } GpencilBlurModifierData;

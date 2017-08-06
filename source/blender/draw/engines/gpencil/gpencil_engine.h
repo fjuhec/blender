@@ -42,6 +42,11 @@ struct GPENCIL_StorageList;
 #define GPENCIL_COLOR_PATTERN 2
 
  /* *********** OBJECTS CACHE *********** */
+typedef struct tGPencilVFXBlur {
+	float x;
+	float y;
+} tGPencilVFXBlur;
+
  /* used to save gpencil objects */
 typedef struct tGPencilObjectCache {
 	struct Object *ob;
@@ -62,6 +67,9 @@ typedef struct GPENCIL_shgroup {
 	int fill_style;
 	int keep_size;
 	float obj_scale;
+	/* vfx data */
+	tGPencilVFXBlur vfx_blur;
+
 	struct DRWShadingGroup *shgrps_fill;
 	struct DRWShadingGroup *shgrps_stroke;
 } GPENCIL_shgroup;
@@ -190,5 +198,7 @@ struct tGPencilObjectCache *gpencil_object_cache_allocate(struct tGPencilObjectC
 void gpencil_object_cache_add(struct tGPencilObjectCache *cache, struct Object *ob, int *gp_cache_used);
 
 void gpencil_array_modifiers(struct GPENCIL_StorageList *stl, struct Object *ob);
+
+void DRW_gpencil_vfx_blur(struct GPENCIL_e_data *e_data, struct GPENCIL_Data *vedata, struct Object *ob, struct tGPencilObjectCache *cache);
 
 #endif /* __GPENCIL_ENGINE_H__ */

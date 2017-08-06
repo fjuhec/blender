@@ -132,7 +132,7 @@ EnumPropertyItem rna_enum_object_modifier_type_items[] = {
 	{eModifierType_GpencilColor, "GP_COLOR", ICON_GROUP_VCOL, "Hue/Saturation", "Apply changes to color" },
 	{eModifierType_GpencilOpacity, "GP_OPACITY", ICON_MOD_MASK, "Opacity", "Opacity of the strokes" },
 	{ 0, "", 0, N_("VFX"), "" },
-	{eModifierType_GpencilBlur, "GP_BLUR", ICON_MOD_ARRAY, "Blur", "Apply Gaussian Blur to object" },
+	{eModifierType_GpencilBlur, "GP_BLUR", ICON_SOLO_ON, "Gaussian Blur", "Apply Gaussian Blur to object" },
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -5402,15 +5402,13 @@ static void rna_def_modifier_gpencilblur(BlenderRNA *brna)
 	PropertyRNA *prop;
 
 	srna = RNA_def_struct(brna, "GpencilBlurModifier", "Modifier");
-	RNA_def_struct_ui_text(srna, "Blur Modifier", "Gaussian Blur modifier");
+	RNA_def_struct_ui_text(srna, "Gaussian Blur Modifier", "Gaussian Blur modifier");
 	RNA_def_struct_sdna(srna, "GpencilBlurModifierData");
-	RNA_def_struct_ui_icon(srna, ICON_MAN_ROT);
+	RNA_def_struct_ui_icon(srna, ICON_SOLO_ON);
 
-	//prop = RNA_def_property(srna, "factor", PROP_FLOAT, PROP_NONE);
-	prop = RNA_def_property(srna, "factor", PROP_FLOAT, PROP_XYZ);
-	RNA_def_property_float_sdna(prop, NULL, "radius");
-	RNA_def_property_range(prop, 0, 100.0);
-	RNA_def_property_ui_range(prop, 0, 100.0, 1.0f, 3);
+	prop = RNA_def_property(srna, "factor", PROP_INT, PROP_PIXEL);
+	RNA_def_property_int_sdna(prop, NULL, "radius");
+	RNA_def_property_range(prop, 0, INT_MAX);
 	RNA_def_property_ui_text(prop, "Factor", "Factor of Blur");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }

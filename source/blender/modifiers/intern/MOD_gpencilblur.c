@@ -43,18 +43,9 @@
 static void initData(ModifierData *md)
 {
 	GpencilBlurModifierData *gpmd = (GpencilBlurModifierData *)md;
-	ARRAY_SET_ITEMS(gpmd->radius, 1.0f, 1.0f);
-	ARRAY_SET_ITEMS(gpmd->resolution, 1024.0f, 1024.0f);
+	ARRAY_SET_ITEMS(gpmd->radius, 0.0f, 0.0f);
 
 	BKE_gpencil_batch_cache_alldirty();
-}
-
-static void copyData(ModifierData *md, ModifierData *target)
-{
-	GpencilBlurModifierData *smd = (GpencilBlurModifierData *)md;
-	GpencilBlurModifierData *tsmd = (GpencilBlurModifierData *)target;
-
-	modifier_copyData_generic(md, target);
 }
 
 ModifierTypeInfo modifierType_GpencilBlur = {
@@ -65,7 +56,7 @@ ModifierTypeInfo modifierType_GpencilBlur = {
 	/* flags */             eModifierTypeFlag_GpencilMod | eModifierTypeFlag_SupportsEditmode 
 							| eModifierTypeFlag_GpencilVFX | eModifierTypeFlag_Single,
 
-	/* copyData */          copyData,
+	/* copyData */          NULL,
 	/* deformVerts */       NULL,
 	/* deformMatrices */    NULL,
 	/* deformVertsEM */     NULL,

@@ -232,7 +232,6 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
 	ToolSettings *ts = scene->toolsettings;
-	tGPencilObjectCache *cache;
 
 	/* object datablock (this is not draw now) */
 	if (ob->type == OB_GPENCIL && ob->gpd) {
@@ -247,26 +246,6 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 		gpencil_array_modifiers(stl, ob);
 		/* draw current painting strokes */
 		DRW_gpencil_populate_buffer_strokes(vedata, ts, ob->gpd);
-
-		/* VFX pass */
-		struct Gwn_Batch *vfxquad = DRW_cache_fullscreen_quad_get();
-		cache = &stl->g_data->gp_object_cache[stl->g_data->gp_cache_used - 1];
-
-		/* horizontal blur */
-		DRWShadingGroup *vfx_shgrp = DRW_shgroup_create(e_data.gpencil_vfx_blur_sh, psl->vfx_pass);
-		DRW_shgroup_call_add(vfx_shgrp, vfxquad, NULL);
-		DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data.temp_fbcolor_color_tx);
-		DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data.temp_fbcolor_depth_tx);
-		DRW_shgroup_uniform_vec2(vfx_shgrp, "dir", stl->storage->blur1, 1);
-		cache->init_vfx_sh = vfx_shgrp;
-
-		/* vertical blur */
-		vfx_shgrp = DRW_shgroup_create(e_data.gpencil_vfx_blur_sh, psl->vfx_pass);
-		DRW_shgroup_call_add(vfx_shgrp, vfxquad, NULL);
-		DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data.temp_fbcolor_color_tx);
-		DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data.temp_fbcolor_depth_tx);
-		DRW_shgroup_uniform_vec2(vfx_shgrp, "dir", stl->storage->blur2, 1);
-		cache->end_vfx_sh = vfx_shgrp;
 	}
 }
 
@@ -276,6 +255,7 @@ static void GPENCIL_cache_finish(void *vedata)
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
 	ToolSettings *ts = scene->toolsettings;
+	tGPencilObjectCache *cache;
 
 	/* Draw all pending objects */
 	if (stl->g_data->gp_cache_used > 0) {
@@ -293,6 +273,9 @@ static void GPENCIL_cache_finish(void *vedata)
 				printf("GPENCIL_cache_finish: %s %d->%d\n", ob->id.name, 
 					stl->g_data->gp_object_cache[i].init_grp, stl->g_data->gp_object_cache[i].end_grp);
 			}
+			/* VFX pass */
+			cache = &stl->g_data->gp_object_cache[i];
+			DRW_gpencil_vfx_blur(&e_data, vedata, ob, cache);
 		}
 	}
 }

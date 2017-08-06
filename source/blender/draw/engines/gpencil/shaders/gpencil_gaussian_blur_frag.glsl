@@ -4,9 +4,7 @@ out vec4 FragColor;
 uniform sampler2D strokeColor;
 uniform sampler2D strokeDepth;
 
-/* next 2 fields must be uniforms, now, valuer are only for testing */
-float resolution = 100.0;
-float radius = 300.0;
+uniform float blur;
 uniform vec2 dir;
 
 void main()
@@ -15,7 +13,6 @@ void main()
 	float stroke_depth = texelFetch(strokeDepth, uv, 0).r;
 	gl_FragDepth = stroke_depth;
 
-	float blur = radius/resolution; 
 	float hstep = dir.x;
     float vstep = dir.y;
 	vec4 outcolor = vec4(0.0);
