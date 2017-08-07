@@ -948,6 +948,11 @@ class GPENCIL_MT_palettecolor_specials(Menu):
         layout.operator("palette.palettecolor_select", icon='COLOR', text="Select Strokes")
         layout.operator("gpencil.stroke_change_color", icon='MAN_TRANS', text="Move to Color")
 
+        layout.separator()
+
+        layout.operator("gpencil.stroke_lock_color", icon='BORDER_RECT', text="Lock Unselected")
+        layout.operator("palette.lock_layer", icon='COLOR', text="Lock Unused")
+
 
 class GreasePencilDataPanel:
     bl_label = "Grease Pencil Layers"
@@ -1355,12 +1360,6 @@ class GreasePencilPaletteColorPanel:
                 sub = col.column(align=True)
                 sub.operator("palette.palettecolor_isolate", icon='LOCKED', text="").affect_visibility = False
                 sub.operator("palette.palettecolor_isolate", icon='RESTRICT_VIEW_OFF', text="").affect_visibility = True
-
-                row = layout.row()
-                sub = row.row(align=True)
-                sub.label(text="Lock:") # based on other stuff...
-                sub.operator("gpencil.stroke_lock_color", icon='BORDER_RECT', text="")
-                sub.operator("palette.lock_layer", icon='COLOR', text="")
 
             row = layout.row()
             row.operator_menu_enum("gpencil.stroke_change_palette", text="Change Palette...", property="type")
