@@ -1480,6 +1480,10 @@ class GreasePencilPaletteFillPanel:
         col = row.column(align=True)
         col.enabled = not pcolor.lock
         col.prop(pcolor, "fill_style", text="")
+
+        row = layout.row()
+        col = row.column(align=True)
+        
         if pcolor.fill_style != 'TEXTURE':
             col.prop(pcolor, "fill_color", text="")
             col.prop(pcolor, "fill_alpha", text="Opacity", slider=True)
