@@ -7202,39 +7202,142 @@ static int get_adjacent_edge(Mesh *me, MeshElemMap *emap, int curr_edge, int v_e
 	return -1;
 }
 
-#if 0
-/*static void add_from_map(const int v, MeshElemMap *map, int *data, int *num, int *max)
+/*TODO:Remove Temp debug function*/
+static char *cd_type_name(int t)
 {
-	int count = map[v].count;
-	if (count > 0) {
-		if (num + count > max) {
-			*max += fmax(STORE_ESTIMATE_RESIZE, count);
-			data = MEM_reallocN(data, sizeof(int) * (*max));
-		}
-		for (int i = 0; i < count; i++) {
-			data[(*num)] = map[v].indices[i];
-			*num = *num + 1;
+	char *name = "";
+	switch(t) {
+		case -1 : name = "CD_AUTO_FROM_NAME	 ";break;
+		case  0 : name = "CD_MVERT         	 ";break;
+		case  1 : name = "CD_MSTICKY       	 ";break;  /* DEPRECATED */
+		case  2 : name = "CD_MDEFORMVERT   	 ";break;
+		case  3 : name = "CD_MEDGE         	 ";break;
+		case  4 : name = "CD_MFACE         	 ";break;
+		case  5 : name = "CD_MTFACE        	 ";break;
+		case  6 : name = "CD_MCOL          	 ";break;
+		case  7 : name = "CD_ORIGINDEX     	 ";break;
+		case  8 : name = "CD_NORMAL          ";break;
+			/*	CD_POLYINDEX        = 9, */
+		case 10 : name = "CD_PROP_FLT        ";break;
+		case 11 : name = "CD_PROP_INT        ";break;
+		case 12 : name = "CD_PROP_STR        ";break;
+		case 13 : name = "CD_ORIGSPACE       ";break;  /* for modifier stack face location mapping */
+		case 14 : name = "CD_ORCO            ";break;
+		case 15 : name = "CD_MTEXPOLY        ";break;
+		case 16 : name = "CD_MLOOPUV         ";break;
+		case 17 : name = "CD_MLOOPCOL        ";break;
+		case 18 : name = "CD_TANGENT         ";break;
+		case 19 : name = "CD_MDISPS          ";break;
+		case 20 : name = "CD_PREVIEW_MCOL    ";break;  /* for displaying weightpaint colors */
+			/*	CD_ID_MCOL          = 21, */
+		case 22 : name = "CD_TEXTURE_MLOOPCOL";break;
+		case 23 : name = "CD_CLOTH_ORCO      ";break;
+		case 24 : name = "CD_RECAST          ";break;
+
+			/* BMESH ONLY START */
+		case 25 : name = "CD_MPOLY           ";break;
+		case 26 : name = "CD_MLOOP           ";break;
+		case 27 : name = "CD_SHAPE_KEYINDEX  ";break;
+		case 28 : name = "CD_SHAPEKEY        ";break;
+		case 29 : name = "CD_BWEIGHT         ";break;
+		case 30 : name = "CD_CREASE          ";break;
+		case 31 : name = "CD_ORIGSPACE_MLOOP ";break;
+		case 32 : name = "CD_PREVIEW_MLOOPCOL";break;
+		case 33 : name = "CD_BM_ELEM_PYPTR   ";break;
+			/* BMESH ONLY END */
+		case 34 : name = "CD_PAINT_MASK      ";break;
+		case 35 : name = "CD_GRID_PAINT_MASK ";break;
+		case 36 : name = "CD_MVERT_SKIN      ";break;
+		case 37 : name = "CD_FREESTYLE_EDGE  ";break;
+		case 38 : name = "CD_FREESTYLE_FACE  ";break;
+		case 39 : name = "CD_MLOOPTANGENT    ";break;
+		case 40 : name = "CD_TESSLOOPNORMAL  ";break;
+		case 41 : name = "CD_CUSTOMLOOPNORMAL";break;
+
+		case 42 : name = "CD_NUMTYPES        ";break;
+		default: name = "No Name";
+	}
+	return name;
+}
+
+#if 0
+static void debug_cd(Mesh *me)
+{
+	char *name = "";
+	printf("Debugging Custom Data:\n\n");
+	printf("%i Customdata Layers in vdata\n", CustomData_number_of_layers_typemask(&me->vdata, CD_MASK_EVERYTHING));
+	printf("%i Customdata Layers in edata\n", CustomData_number_of_layers_typemask(&me->edata, CD_MASK_EVERYTHING));
+	printf("%i Customdata Layers in ldata\n", CustomData_number_of_layers_typemask(&me->ldata, CD_MASK_EVERYTHING));
+	printf("%i Customdata Layers in pdata\n", CustomData_number_of_layers_typemask(&me->pdata, CD_MASK_EVERYTHING));
+	for (int i = 0; i < CustomData_number_of_layers_typemask(&me->vdata, CD_MASK_EVERYTHING); i++) {
+		name = cd_type_name(me->vdata.layers[i].type);
+		printf("Layer found with name %s\n", name);
+	}
+	for (int i = 0; i < CustomData_number_of_layers_typemask(&me->edata, CD_MASK_EVERYTHING); i++) {
+		name = cd_type_name(me->edata.layers[i].type);
+		printf("Layer found with name %s\n", name);
+	}
+	for (int i = 0; i < CustomData_number_of_layers_typemask(&me->ldata, CD_MASK_EVERYTHING); i++) {
+		name = cd_type_name(me->ldata.layers[i].type);
+		printf("Layer found with name %s\n", name);
+	}
+	for (int i = 0; i < CustomData_number_of_layers_typemask(&me->pdata, CD_MASK_EVERYTHING); i++) {
+		name = cd_type_name(me->pdata.layers[i].type);
+		printf("Layer found with name %s\n", name);
+	}
+}
+#endif
+
+/* Copy customdata from source to destination. Layers need to be matching!
+ * redirect_map needs to be the new positions ofelements in the dest array. -1 marks elements which do not get copied over. */
+static void CustomData_copy_partial(const struct CustomData *source, struct CustomData *dest, CustomDataMask mask, int *redirect_map, int tot_elem)
+{
+	int num_layers_to_copy;
+	int d_size;
+	CustomDataLayer *curr_l, *dest_l;
+	char *name;
+
+	num_layers_to_copy = CustomData_number_of_layers_typemask(source, mask);
+
+	for (int l = 0; l < num_layers_to_copy; l++) {
+		curr_l = &source->layers[l];
+		dest_l = &dest->layers[l];
+		if (CD_TYPE_AS_MASK(curr_l->type) & mask) {
+			for (int i = 0; i < tot_elem; i++) {
+				if(redirect_map[i] != -1) {
+					d_size = CustomData_sizeof(curr_l->type);
+					memcpy(dest_l->data + redirect_map[i] * d_size, curr_l->data + i * d_size, d_size);
+				}
+			}
+			name = cd_type_name(curr_l->type);
+			printf("Layer %s copied %i values of size %i.\n", name, tot_elem, CustomData_sizeof(curr_l->type));
 		}
 	}
 }
 
-static int *allocate_estimate(int r_num, const int count, float factor)
-{
-	r_num = (int)(count * (factor + STORE_ESTIMATE_BIAS));
-	return MEM_callocN(sizeof(int) * r_num, __func__);
-}*/
-
-/* Doesn't work external pointers to the vert/edge/loop/poly structure break 
- * Is there another way than converting to bmesh?
- */
-
-static void remove_verts_from_mesh(Mesh *me, int *v_to_rm, int num_v_to_rm, MeshElemMap *emap, MeshElemMap *lmap, MeshElemMap *pmap){
+/* Function used to remove vertices from a basic mesh
+ * Can be optimised easily be introucing multithreading
+ * Parts and ideas how multithreading can be introduced are marked with "MT:"
+ * TODO: Add Multithreading */
+static void remove_verts_from_mesh(Mesh *me, int *v_to_rm, int num_v_to_rm){
 	int *v_rd_table, *e_rd_table, *l_rd_table, *p_rd_table;
-	int sum = 0, next_del = 0, next_del_pos = 0;
+	int next_del = 0, next_del_pos = 0;
+	MEdge e;
+	MLoop l;
+	MPoly p;
 
+	int n_totvert, n_totedge, n_totloop, n_totpoly;
+
+	CustomData vdata, edata, ldata, pdata;
+
+	/* MT: Prefix Sum / Scan to calculate new positions for vertices.
+	 * Calculating the new positions with the vertices removed
+	 */
 	v_rd_table = MEM_callocN(sizeof(int) * me->totvert, "Vertex redirect table");
 
-	/* Prefix Sum / Scan to calculate new positions for vertices. Multithreading?*/
+	qsort(v_to_rm, num_v_to_rm, sizeof(int), cmpfunc);
+
+	n_totvert = 0;
 	next_del = v_to_rm[0];
 	for (int i = 0; i < me->totvert; i++) {
 		if (i == next_del) {
@@ -7244,39 +7347,94 @@ static void remove_verts_from_mesh(Mesh *me, int *v_to_rm, int num_v_to_rm, Mesh
 			}
 			v_rd_table[i] = -1;
 		} else {
-			v_rd_table[i] = sum;
-			sum ++;
+			v_rd_table[i] = n_totvert;
+			n_totvert ++;
 		}
 	}
 
-	/*int *e_to_rm = NULL, *l_to_rm = NULL, *p_to_rm = NULL;
-	int num_e_to_rm = 0, num_l_to_rm = 0, num_p_to_rm = 0;
-	int max_e_to_rm = 0, max_l_to_rm = 0, max_p_to_rm = 0;*/
+	/* MT: parallelize loop, !shared access to sum value
+	 * Calculate new edge positions + remap vertice pointer
+	 */
+	e_rd_table = MEM_callocN(sizeof(int) * me->totedge, "Edge redirect table");
+	n_totedge = 0;
+	for (int i = 0; i < me->totedge; i++) {
+		e = me->medge[i];
+		if(v_rd_table[e.v1] == -1 || v_rd_table[e.v2] == -1) {
+			e_rd_table[i] = -1;
+		} else {
+			e.v1 = v_rd_table[e.v1];
+			e.v2 = v_rd_table[e.v2];
+			me->medge[i] = e;
+			e_rd_table[i] = n_totedge;
+			n_totedge ++;
+		}
+	}
+
+	/* MT: same as above
+	 * Calculate new loop positions + remap edge pointers */
+	l_rd_table = MEM_callocN(sizeof(int) * me->totloop, "Loop redirect table");
+	n_totloop = 0;
+	for (int i = 0; i < me->totloop; i++) {
+		l = me->mloop[i];
+		if(v_rd_table[l.v] == -1 || e_rd_table[l.e] == -1) {
+			l_rd_table[i] = -1;
+		} else {
+			l.v = v_rd_table[l.v];
+			l.e = e_rd_table[l.e];
+			me->mloop[i] = l;
+			l_rd_table[i] = n_totloop;
+			n_totloop ++;
+		}
+	}
+
+	/* MT: same as above
+	 * Calculate new poly positions + remap pointers */
+	p_rd_table = MEM_callocN(sizeof(int) * me->totpoly, "Poly redirect table");
+	n_totpoly = 0;
+	for (int i = 0; i < me->totpoly; i++) {
+		p = me->mpoly[i];
+		for(int l = p.loopstart; l < p.loopstart + p.totloop; l++){
+			if(l_rd_table[l] == -1) {
+				p_rd_table[i] = -1;
+				/* TODO: Bad practise? easily solved other way*/
+				goto skip_poly;
+			}
+		}
+		me->mpoly[i].loopstart = l_rd_table[me->mpoly[i].loopstart];
+		p_rd_table[i] = n_totpoly;
+		n_totpoly ++;
+		skip_poly:;
+	}
+
+	/*Redirection tables are done. Continue to copy and allocate new Customdata blocks*/
+	CustomData_copy(&me->vdata, &vdata, CD_MASK_EVERYTHING, CD_CALLOC, n_totvert);
+	CustomData_copy(&me->edata, &edata, CD_MASK_EVERYTHING, CD_CALLOC, n_totedge);
+	CustomData_copy(&me->ldata, &ldata, CD_MASK_EVERYTHING, CD_CALLOC, n_totloop);
+	CustomData_copy(&me->pdata, &pdata, CD_MASK_EVERYTHING, CD_CALLOC, n_totpoly);
+
+	CustomData_copy_partial(&me->vdata, &vdata, CD_MASK_EVERYTHING, v_rd_table, me->totvert);
+	CustomData_copy_partial(&me->edata, &edata, CD_MASK_EVERYTHING, e_rd_table, me->totedge);
+	CustomData_copy_partial(&me->ldata, &ldata, CD_MASK_EVERYTHING, l_rd_table, me->totloop);
+	CustomData_copy_partial(&me->pdata, &pdata, CD_MASK_EVERYTHING, p_rd_table, me->totpoly);
+
+	CustomData_free(&me->vdata, me->totvert);
+	CustomData_free(&me->edata, me->totedge);
+	CustomData_free(&me->ldata, me->totloop);
+	CustomData_free(&me->pdata, me->totpoly);
+
+	me->vdata = vdata;
+	me->edata = edata;
+	me->ldata = ldata;
+	me->pdata = pdata;
+
+	me->totvert = n_totvert;
+	me->totedge = n_totedge;
+	me->totloop = n_totloop;
+	me->totpoly = n_totpoly;
 
 
-	/*e_to_rm = allocate_estimate(max_e_to_rm, num_v_to_rm, 4.0f);
-	l_to_rm = allocate_estimate(max_l_to_rm, num_v_to_rm, 4.0f);
-	p_to_rm = allocate_estimate(max_p_to_rm, num_v_to_rm, 1.0f);
-
-	for (int i = 0; i < num_v_to_rm; i++) {
-		add_from_map(v_to_rm[i], emap, e_to_rm, &num_e_to_rm, &max_e_to_rm);
-		add_from_map(v_to_rm[i], lmap, l_to_rm, &num_e_to_rm, &max_e_to_rm);
-		add_from_map(v_to_rm[i], pmap, p_to_rm, &num_e_to_rm, &max_e_to_rm);
-	}*/
-
-	BKE_mesh_update_customdata_pointers(me, false);
-
-	/*me->totvert = me->totvert - unode->bm_enter_totvert;
-	me->totedge = me->totedge - unode->bm_enter_totedge;
-	me->totloop = me->totloop - unode->bm_enter_totloop;
-	me->totpoly = me->totpoly - unode->bm_enter_totpoly;*/
-
-	MEM_freeN(e_to_rm);
-	MEM_freeN(l_to_rm);
-	MEM_freeN(p_to_rm);
+	BKE_mesh_update_customdata_pointers(me, true);
 }
-
-#endif
 
 static void calc_ring_bbs(SilhouetteData *sil, Mesh *me)
 {
@@ -7332,53 +7490,74 @@ static void order_positive_is_inside(Mesh *me, SilhouetteData *sil, MeshElemMap 
 	return;
 }
 
+typedef enum MergeRingFlag {
+	ADDED_TO_MERGE = 1,
+} MergeRingFlag;
+
+
+typedef struct MergeRingInfo {
+	int r1;
+	int r2;
+	int r1_start;
+	int r2_start;
+	int r1_tot;
+	int r2_tot;
+	int r1_e_a;
+	int r1_e_b;
+	int r2_e_a;
+	int r2_e_b;
+	int flag;
+} MergeRingInfo;
+
 static void join_node_separated_rings(SilhouetteData *sil, Mesh *me, MeshElemMap *emap)
 {
-	/*int *merged_ring_arr = NULL;
-	int *merged_start = NULL;
-	int merged_tot = 0, merged_num = 0;*/
-	int r1_start, r2_start, r1_tot, r2_tot;
+	MergeRingInfo *merge_info = NULL;
+	int *merged_to_one = NULL;
 	MEdge e1_c, e2_c;
-	int r1_e_s1 = -1, r1_e_s2 = -1, r2_e_s1 = -1, r2_e_s2 = -1;
+	MergeRingInfo t_m_info;
+
+	BLI_array_declare(merge_info);
 
 	printf("Joining rings. In total %i rings to check.\n", sil->num_rings);
 	for (int r1 = 0; r1 < sil->num_rings - 1; r1++) {
 		for (int r2 = r1 + 1; r2 < sil->num_rings; r2++) {
 			if (bb_intersect(&sil->fillet_ring_bbs[r1], &sil->fillet_ring_bbs[r2])) {
-				r1_start = sil->fillet_ring_new_start[r1];
-				r2_start = sil->fillet_ring_new_start[r2];
-				r1_tot = sil->fillet_ring_new_start[r1 + 1] - r1_start;
-				r2_tot = r2 + 1 < sil->num_rings ? sil->fillet_ring_new_start[r2 + 1] - r2_start : sil->fillet_ring_tot - r2_start;
-				r1_e_s1 = -1, r1_e_s2 = -1, r2_e_s1 = -1, r2_e_s2 = -1;
-				for (int e1 = 0; e1 < r1_tot; e1++) {
-					e1_c = me->medge[sil->fillet_ring_new[r1_start + e1]];
-					for (int e2 = 0; e2 < r2_tot; e2++) {
-						e2_c = me->medge[sil->fillet_ring_new[r2_start + e2]];
+				t_m_info.r1_start = sil->fillet_ring_new_start[r1];
+				t_m_info.r2_start = sil->fillet_ring_new_start[r2];
+				t_m_info.r1_tot = sil->fillet_ring_new_start[r1 + 1] - t_m_info.r1_start;
+				t_m_info.r2_tot = r2 + 1 < sil->num_rings ? sil->fillet_ring_new_start[r2 + 1] - t_m_info.r2_start : sil->fillet_ring_tot - t_m_info.r2_start;
+				t_m_info.r1_e_a = -1, t_m_info.r1_e_b = -1, t_m_info.r2_e_a = -1, t_m_info.r2_e_b = -1;
+				for (int e1 = 0; e1 < t_m_info.r1_tot; e1++) {
+					e1_c = me->medge[sil->fillet_ring_new[t_m_info.r1_start + e1]];
+					for (int e2 = 0; e2 < t_m_info.r2_tot; e2++) {
+						e2_c = me->medge[sil->fillet_ring_new[t_m_info.r2_start + e2]];
 						if (e1_c.v1 == e2_c.v1 || e1_c.v1 == e2_c.v2 || e1_c.v2 == e2_c.v1 || e1_c.v2 == e2_c.v2) {
-							if (r1_e_s1 == -1) {
-								r1_e_s1 = e1;
-								r2_e_s1 = e2;
+							if (t_m_info.r1_e_a == -1) {
+								t_m_info.r1_e_a = e1;
+								t_m_info.r2_e_a = e2;
 							} else {
-								if (abs(r1_e_s1 - e1) > 3) {
-									r1_e_s2 = e1;
-									r2_e_s2 = e2;
+								if (abs(t_m_info.r1_e_a - e1) > 3) {
+									t_m_info.r1_e_b = e1;
+									t_m_info.r2_e_b = e2;
 									/* Found start and endpoint of the two ring intersections */
-									order_positive_is_inside(me, sil, emap, &r1_e_s1, &r1_e_s2, r1_start, r1_tot, r2_start, r2_tot);
-									order_positive_is_inside(me, sil, emap, &r2_e_s1, &r2_e_s2, r2_start, r2_tot, r1_start, r1_tot);
+									order_positive_is_inside(me, sil, emap, &t_m_info.r1_e_a, &t_m_info.r1_e_b, t_m_info.r1_start, t_m_info.r1_tot, t_m_info.r2_start, t_m_info.r2_tot);
+									order_positive_is_inside(me, sil, emap, &t_m_info.r2_e_a, &t_m_info.r2_e_b, t_m_info.r2_start, t_m_info.r2_tot, t_m_info.r1_start, t_m_info.r1_tot);
+
+									BLI_array_append(merge_info, t_m_info);
 #ifdef DEBUG_DRAW
 									bl_debug_color_set(0xffffff);
-									bl_debug_draw_point(me->mvert[me->medge[sil->fillet_ring_new[r1_start + r1_e_s1]].v1].co, 0.2f);
+									bl_debug_draw_point(me->mvert[me->medge[sil->fillet_ring_new[t_m_info.r1_start + t_m_info.r1_e_a]].v1].co, 0.2f);
 									bl_debug_color_set(0x000000);
-									bl_debug_draw_point(me->mvert[me->medge[sil->fillet_ring_new[r1_start + r1_e_s2]].v1].co, 0.3f);
+									bl_debug_draw_point(me->mvert[me->medge[sil->fillet_ring_new[t_m_info.r1_start + t_m_info.r1_e_b]].v1].co, 0.3f);
 									bl_debug_color_set(0x000000);
 
 									bl_debug_color_set(0x00ff00);
-									for (int e_ins = 0; e_ins < r1_tot; e_ins ++) {
-										if((r1_e_s1 + e_ins) % r1_tot == r1_e_s2) {
+									for (int e_ins = 0; e_ins < t_m_info.r1_tot; e_ins ++) {
+										if((t_m_info.r1_e_a + e_ins) % t_m_info.r1_tot == t_m_info.r1_e_b) {
 											bl_debug_color_set(0x000000);
 											break;
 										}
-										bl_debug_draw_medge_add(me, sil->fillet_ring_new[r1_start + (r1_e_s1 + e_ins) % r1_tot]);
+										bl_debug_draw_medge_add(me, sil->fillet_ring_new[t_m_info.r1_start + (t_m_info.r1_e_a + e_ins) % t_m_info.r1_tot]);
 									}
 									bl_debug_color_set(0x000000);
 #endif	
@@ -7399,6 +7578,21 @@ static void join_node_separated_rings(SilhouetteData *sil, Mesh *me, MeshElemMap
 			next_ring:;
 		}
 	}
+
+	BLI_array_declare(merged_to_one);
+	for (int i = 0; i < BLI_array_count(merge_info); i++) {
+		if (!merge_info[i].flag & ADDED_TO_MERGE) {
+			BLI_array_append(merged_to_one, merge_info[0].r1);
+			merge_info[0].flag |= ADDED_TO_MERGE;
+			for (int j = i; j < BLI_array_count(merge_info); j++) {
+				for (int k = 0; k < BLI_array_count(merged_to_one); k++) {
+
+				}
+			}
+		}
+	}
+	BLI_array_free(merged_to_one);
+	BLI_array_free(merge_info);
 }
 
 static void prep_int_shared_mem(int **mem, int *r_num, int *r_start, int len, const char *str)
@@ -7483,17 +7677,17 @@ static void do_calc_fillet_line_task_cb_ex(void *userdata, void *UNUSED(userdata
 	BLI_mutex_lock(&data->mutex);
 	prep_int_shared_mem(&data->v_to_rm, &data->num_v_to_rm, &v_rm_start_in_shared_arr, BLI_ghash_size(vert_hash), "verts to remove");
 	prep_int_shared_mem(&sil->inter_edges, &sil->num_inter_edges, &int_e_start_in_shared_arr, BLI_ghash_size(edge_hash), "edges on transition");
-	BLI_mutex_unlock(&data->mutex);
 
-	/* Copy vertice data over. No need for mutex since data ranges are separate */
+	/* Copy vertice data over.*/
 	GHASH_ITER_INDEX (gh_iter, vert_hash, idx) {
 		data->v_to_rm[v_rm_start_in_shared_arr + idx] = BLI_ghashIterator_getKey(&gh_iter);
 	}
 
-	/* Copy edge data over. No need for mutex since data ranges are separate */
+	/* Copy edge data over. */
 	GHASH_ITER_INDEX (gh_iter, edge_hash, idx) {
 		sil->inter_edges[int_e_start_in_shared_arr + idx] = BLI_ghashIterator_getKey(&gh_iter);
 	}
+	BLI_mutex_unlock(&data->mutex);
 
 	/* TODO: Workaround, do a BLI_ghash_pop style while loop
 	 * TODO: A adjacency search might fail if there is not a single path to be searched, shouldn't be a problem on first thought though.
@@ -7553,7 +7747,6 @@ static void do_calc_fillet_line_task_cb_ex(void *userdata, void *UNUSED(userdata
 	BLI_mutex_lock(&data->mutex);
 	prep_int_shared_mem(&sil->fillet_ring_new, &sil->fillet_ring_tot, &fillet_edge_ring_start_shared_arr, BLI_array_count(edge_ring_fillet), "edges on transition");
 	prep_int_shared_mem(&sil->fillet_ring_new_start, &sil->num_rings, &fillet_ring_start_start_shared_arr, BLI_array_count(ring_start), "start of individual rings");
-	BLI_mutex_unlock(&data->mutex);
 
 	/* Copy ring memory */
 	for (int i = 0; i < BLI_array_count(edge_ring_fillet); i++) {
@@ -7563,6 +7756,7 @@ static void do_calc_fillet_line_task_cb_ex(void *userdata, void *UNUSED(userdata
 	for (int i = 0; i < BLI_array_count(ring_start); i++) {
 		sil->fillet_ring_new_start[fillet_ring_start_start_shared_arr + i] = ring_start[i] + fillet_edge_ring_start_shared_arr;
 	}
+	BLI_mutex_unlock(&data->mutex);
 
 	/*TODO: merge rings from multiple threads / nodes*/
 #ifdef DEBUG_DRAW
@@ -7590,11 +7784,7 @@ static void do_calc_fillet_line(Object *ob, SilhouetteData *silhouette, PBVHNode
 	Mesh *me = ob->data;
 	float projmat[4][4];
 	MeshElemMap *emap;
-	MeshElemMap *lmap;
-	MeshElemMap *pmap;
 	int *emap_mem;
-	int *lmap_mem;
-	int *pmap_mem;
 	int *v_remove = NULL;
 	RegionView3D *rv3d;
 	View3D *v3d;
@@ -7606,8 +7796,6 @@ static void do_calc_fillet_line(Object *ob, SilhouetteData *silhouette, PBVHNode
 	v3d = silhouette->vc.v3d;
 
 	BKE_mesh_vert_edge_map_create(&emap, &emap_mem, me->medge, me->totvert, me->totedge);
-	BKE_mesh_edge_loop_map_create(&lmap, &lmap_mem, me->medge, me->totedge, me->mpoly, me->totpoly, me->mloop, me->totloop);
-	BKE_mesh_edge_poly_map_create(&pmap, &pmap_mem, me->medge, me->totedge, me->mpoly, me->totpoly, me->mloop, me->totloop);
 	silhouette->emap = emap;
 	/* calc the projection matrix used to convert 3d vertice in 2d space */
 	mul_m4_m4m4(projmat, (float (*)[4])rv3d->persmat, ob->obmat);
@@ -7636,6 +7824,8 @@ static void do_calc_fillet_line(Object *ob, SilhouetteData *silhouette, PBVHNode
 							   0, totnode, &data, NULL, 0, do_calc_fillet_line_task_cb_ex,
 							   (totnode > SCULPT_THREADED_LIMIT), false);
 
+	v_remove = data.v_to_rm;
+
 	calc_ring_bbs(silhouette, me);
 
 #ifdef DEBUG_DRAW
@@ -7648,9 +7838,8 @@ static void do_calc_fillet_line(Object *ob, SilhouetteData *silhouette, PBVHNode
 	join_node_separated_rings(silhouette, me, emap);
 
 	if (v_remove) {
-#if 0
-		remove_verts_from_mesh(me, v_remove, data.num_v_to_rm, emap, lmap, pmap);
-#endif
+		printf("Removing vertices/edges/loops/polys from mesh.\n");
+		remove_verts_from_mesh(me, v_remove, data.num_v_to_rm);
 		MEM_freeN(v_remove);
 	}
 
@@ -7690,6 +7879,13 @@ static void sculpt_silhouette_calc_mesh(bContext *C, wmOperator *op)
 
 	/* Rebuild mesh caches
 	 * TODO: Proper PBVH etc. */
+
+	BKE_mesh_calc_edges(me, false, true);
+	BKE_mesh_tessface_clear(me);
+	BKE_mesh_calc_normals(me);
+	DAG_id_tag_update(&me->id, 0);
+	WM_event_add_notifier(C, NC_GEOM | ND_DATA, me);
+
 	BKE_object_free_derived_caches(ob);
 }
 
@@ -7733,8 +7929,9 @@ static int sculpt_silhouette_exec(bContext *C, wmOperator *op)
 		op->customdata = sil;
 	}
 
+	/*TODO: Add undo for fillets etc*/
 	if (sil->current_stroke->totvert > 3) {
-		sculpt_undo_push_begin("draw Silhouette");
+		/*sculpt_undo_push_begin("draw Silhouette");*/
 		v_start = me->totvert;
 		e_start = me->totedge;
 		l_start = me->totloop;
@@ -7742,8 +7939,8 @@ static int sculpt_silhouette_exec(bContext *C, wmOperator *op)
 		sculpt_silhouette_calc_mesh(C, op);
 		sculpt_silhouette_stroke_done(C, op);
 
-		sculpt_undo_silhouette_push(ob, v_start, e_start, l_start, p_start);
-		sculpt_undo_push_end(C);
+		/*sculpt_undo_silhouette_push(ob, v_start, e_start, l_start, p_start);
+		sculpt_undo_push_end(C);*/
 	}
 
 	return OPERATOR_FINISHED;
