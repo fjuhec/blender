@@ -480,6 +480,12 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob, DerivedMesh *dm,
 	WeightedNormalModifierData *wnmd = (WeightedNormalModifierData *)md;
 
 	Mesh *me = ob->data;
+
+	if (!(me->flag & ME_AUTOSMOOTH)) {
+		modifier_setError((ModifierData *)wnmd, "Enable 'Auto Smooth' option in mesh settings");
+		return dm;
+	}
+
 	int numPoly = dm->getNumPolys(dm);
 	int numVerts = dm->getNumVerts(dm);
 	int numEdges = dm->getNumEdges(dm);
@@ -505,11 +511,6 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob, DerivedMesh *dm,
 
 	short(*clnors)[2];
 
-	if (!(me->flag & ME_AUTOSMOOTH)) {
-		modifier_setError((ModifierData *)wnmd, "Enable 'Auto Smooth' option in mesh settings");
-		return dm;
-	}
-
 	clnors = CustomData_duplicate_referenced_layer(&dm->loopData, CD_CUSTOMLOOPNORMAL, numLoops);
 	if (!clnors) {
 		DM_add_loop_layer(dm, CD_CUSTOMLOOPNORMAL, CD_CALLOC, NULL);
@@ -532,6 +533,7 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob, DerivedMesh *dm,
 				numLoops, mpoly, numPoly, polynors, dvert, defgrp_index, use_invert_vgroup, weight);
 			break;
 	}
+
 	if (free_polynors) {
 		MEM_freeN(polynors);
 	}
