@@ -2724,3 +2724,53 @@ void GPENCIL_OT_stroke_subdivide(wmOperatorType *ot)
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 
 }
+
+/* ** simplify stroke *** */
+static int gp_stroke_simplify_exec(bContext *C, wmOperator *op)
+{
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	float factor = RNA_float_get(op->ptr, "factor");
+
+	/* sanity checks */
+	if (ELEM(NULL, gpd))
+		return OPERATOR_CANCELLED;
+
+	/* Go through each editable + selected stroke */
+	GP_EDITABLE_STROKES_BEGIN(C, gpl, gps)
+	{
+		if (gps->flag & GP_STROKE_SELECT) {
+			/* simplify stroke using Ramer-Douglas-Peucker algorithm */
+			BKE_gpencil_simplify_stroke(gpl, gps, factor);
+		}
+	}
+	GP_EDITABLE_STROKES_END;
+
+	/* notifiers */
+	BKE_gpencil_batch_cache_dirty(gpd);
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void GPENCIL_OT_stroke_simplify(wmOperatorType *ot)
+{
+	PropertyRNA *prop;
+
+	/* identifiers */
+	ot->name = "Simplify Stroke";
+	ot->idname = "GPENCIL_OT_stroke_simplify";
+	ot->description = "Simplify selected stroked reducing number of points";
+
+	/* api callbacks */
+	ot->exec = gp_stroke_simplify_exec;
+	ot->poll = gp_active_layer_poll;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_BLOCKING;
+
+	/* properties */
+	prop = RNA_def_float(ot->srna, "factor", 0.0f, 0.0f, 100.0f, "Factor", "", 0.0f, 100.0f);
+	/* avoid re-using last var */
+	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+
+}

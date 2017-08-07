@@ -220,6 +220,7 @@ class GreasePencilStrokeEditPanel:
         layout.separator()
         col = layout.column(align=True)
         col.operator("gpencil.stroke_subdivide", text="Subdivide")
+        col.operator("gpencil.stroke_simplify", text="Simplify")
         col.operator("gpencil.stroke_join", text="Join").type = 'JOIN'
         col.operator("gpencil.stroke_join", text="Join & Copy").type = 'JOINCOPY'
         col.operator("gpencil.stroke_flip", text="Flip Direction")
@@ -811,6 +812,7 @@ class GPENCIL_MT_gpencil_edit_specials(Menu):
         layout.operator_context = 'INVOKE_REGION_WIN'
 
         layout.operator("gpencil.stroke_subdivide", text="Subdivide")
+        layout.operator("gpencil.stroke_simplify", text="Simplify")
 
         layout.separator()
 
