@@ -108,12 +108,14 @@ typedef struct GPENCIL_PassList {
 	struct DRWPass *edit_pass;
 	struct DRWPass *drawing_pass;
 	struct DRWPass *mix_pass;
+	struct DRWPass *mix_vfx_pass;
 	struct DRWPass *vfx_pass;
 } GPENCIL_PassList;
 
 typedef struct GPENCIL_FramebufferList {
 	struct GPUFrameBuffer *fb;
 	struct GPUFrameBuffer *temp_color_fb;
+	struct GPUFrameBuffer *vfx_color_fb;
 } GPENCIL_FramebufferList;
 
 typedef struct GPENCIL_TextureList {
@@ -157,6 +159,10 @@ typedef struct GPENCIL_e_data {
 	/* temp depth texture */
 	struct GPUTexture *temp_fbcolor_depth_tx;
 	struct GPUTexture *temp_fbcolor_color_tx;
+	
+	struct GPUTexture *vfx_fbcolor_depth_tx;
+	struct GPUTexture *vfx_fbcolor_color_tx;
+
 	struct GPUTexture *gpencil_blank_texture;
 } GPENCIL_e_data; /* Engine data */
 
@@ -212,7 +218,6 @@ void gpencil_object_cache_add(struct tGPencilObjectCache *cache, struct Object *
 
 void gpencil_array_modifiers(struct GPENCIL_StorageList *stl, struct Object *ob);
 
-void DRW_gpencil_vfx_blur(int ob_idx, struct GPENCIL_e_data *e_data, struct GPENCIL_Data *vedata, struct Object *ob, struct tGPencilObjectCache *cache);
-void DRW_gpencil_vfx_wave(int ob_idx, struct GPENCIL_e_data *e_data, struct GPENCIL_Data *vedata, struct Object *ob, struct tGPencilObjectCache *cache);
+void DRW_gpencil_vfx_modifiers(int ob_idx, struct GPENCIL_e_data *e_data, struct GPENCIL_Data *vedata, struct Object *ob, struct tGPencilObjectCache *cache);
 
 #endif /* __GPENCIL_ENGINE_H__ */
