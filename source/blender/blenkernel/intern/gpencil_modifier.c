@@ -851,8 +851,6 @@ void gpencil_rdp_stroke(bGPDstroke *gps, tbGPDspoint *points2d, float epsilon)
 /* simplify stroke using Ramer-Douglas-Peucker algorithm */
 void BKE_gpencil_simplify_modifier(int UNUSED(id), GpencilSimplifyModifierData *mmd, Object *UNUSED(ob), bGPDlayer *gpl, bGPDstroke *gps)
 {
-	int direction = 0;
-
 	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 4, gpl, gps,
 		(bool)mmd->flag & GP_SIMPLIFY_INVERSE_LAYER, (bool)mmd->flag & GP_SIMPLIFY_INVERSE_PASS)) {
 		return;
