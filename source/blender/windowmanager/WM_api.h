@@ -42,9 +42,6 @@
 #include "WM_keymap.h"
 #include "BLI_compiler_attrs.h"
 
-/* Include external manipulator API's */
-#include "manipulators/WM_manipulator_api.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -68,6 +65,7 @@ struct ImBuf;
 struct ImageFormatData;
 struct ARegion;
 struct ScrArea;
+struct Main;
 
 #ifdef WITH_INPUT_NDOF
 struct wmNDOFMotionData;
@@ -165,6 +163,7 @@ float		WM_cursor_pressure	(const struct wmWindow *win);
 
 			/* event map */
 int			WM_userdef_event_map(int kmitype);
+int			WM_userdef_event_type_from_keymap_type(int kmitype);
 
 			/* handlers */
 
@@ -212,8 +211,9 @@ struct wmEventHandler *WM_event_add_dropbox_handler(ListBase *handlers, ListBase
 
 			/* mouse */
 void		WM_event_add_mousemove(struct bContext *C);
-bool        WM_modal_tweak_exit(const struct wmEvent *event, int tweak_event);
+bool		WM_event_is_modal_tweak_exit(const struct wmEvent *event, int tweak_event);
 bool		WM_event_is_absolute(const struct wmEvent *event);
+bool		WM_event_is_last_mousemove(const struct wmEvent *event);
 
 #ifdef WITH_INPUT_NDOF
 			/* 3D mouse */

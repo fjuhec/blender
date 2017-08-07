@@ -99,13 +99,15 @@ EnumPropertyItem rna_enum_exr_codec_items[] = {
 };
 #endif
 
-EnumPropertyItem uv_sculpt_relaxation_items[] = {
+#ifndef RNA_RUNTIME
+static EnumPropertyItem uv_sculpt_relaxation_items[] = {
 	{UV_SCULPT_TOOL_RELAX_LAPLACIAN, "LAPLACIAN", 0, "Laplacian", "Use Laplacian method for relaxation"},
 	{UV_SCULPT_TOOL_RELAX_HC, "HC", 0, "HC", "Use HC method for relaxation"},
 	{0, NULL, 0, NULL, NULL}
 };
+#endif
 
-EnumPropertyItem uv_sculpt_tool_items[] = {
+EnumPropertyItem rna_enum_uv_sculpt_tool_items[] = {
 	{UV_SCULPT_TOOL_PINCH, "PINCH", 0, "Pinch", "Pinch UVs"},
 	{UV_SCULPT_TOOL_RELAX, "RELAX", 0, "Relax", "Relax UVs"},
 	{UV_SCULPT_TOOL_GRAB, "GRAB", 0, "Grab", "Grab UVs"},
@@ -180,11 +182,13 @@ EnumPropertyItem rna_enum_snap_node_element_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
-EnumPropertyItem snap_uv_element_items[] = {
+#ifndef RNA_RUNTIME
+static EnumPropertyItem snap_uv_element_items[] = {
 	{SCE_SNAP_MODE_INCREMENT, "INCREMENT", ICON_SNAP_INCREMENT, "Increment", "Snap to increments of grid"},
 	{SCE_SNAP_MODE_VERTEX, "VERTEX", ICON_SNAP_VERTEX, "Vertex", "Snap to vertices"},
 	{0, NULL, 0, NULL, NULL}
 };
+#endif
 
 EnumPropertyItem rna_enum_curve_fit_method_items[] = {
 	{CURVE_PAINT_FIT_METHOD_REFIT, "REFIT", 0, "Refit", "Incrementally re-fit the curve (high quality)"},
@@ -270,12 +274,14 @@ EnumPropertyItem rna_enum_curve_fit_method_items[] = {
 	R_IMF_ENUM_TIFF                                                           \
 
 
-EnumPropertyItem image_only_type_items[] = {
+#ifdef RNA_RUNTIME
+static EnumPropertyItem image_only_type_items[] = {
 
 	IMAGE_TYPE_ITEMS_IMAGE_ONLY
 
 	{0, NULL, 0, NULL, NULL}
 };
+#endif
 
 EnumPropertyItem rna_enum_image_type_items[] = {
 	{0, "", 0, N_("Image"), NULL},
@@ -413,7 +419,8 @@ EnumPropertyItem rna_enum_bake_pass_filter_type_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
-EnumPropertyItem rna_enum_gpencil_interpolation_mode_items[] = {
+#ifndef RNA_RUNTIME
+static EnumPropertyItem rna_enum_gpencil_interpolation_mode_items[] = {
 	/* interpolation */
 	{0, "", 0, N_("Interpolation"), "Standard transitions between keyframes"},
 	{GP_IPO_LINEAR,   "LINEAR", ICON_IPO_LINEAR, "Linear", "Straight-line interpolation between A and B (i.e. no ease in/out)"},
@@ -436,6 +443,8 @@ EnumPropertyItem rna_enum_gpencil_interpolation_mode_items[] = {
 	
 	{0, NULL, 0, NULL, NULL}
 };
+
+#endif
 
 EnumPropertyItem rna_enum_layer_collection_mode_settings_type_items[] = {
 	{COLLECTION_MODE_OBJECT, "OBJECT", 0, "Object", ""},
@@ -1569,9 +1578,12 @@ static void rna_RenderSettings_engine_set(PointerRNA *ptr, int value)
 {
 	RenderData *rd = (RenderData *)ptr->data;
 	RenderEngineType *type = BLI_findlink(&R_engines, value);
+	Scene *scene = (Scene *)ptr->id.data;
 
 	if (type)
 		BLI_strncpy_utf8(rd->engine, type->idname, sizeof(rd->engine));
+
+	DEG_id_tag_update(&scene->id, DEG_TAG_COPY_ON_WRITE);
 }
 
 static EnumPropertyItem *rna_RenderSettings_engine_itemf(
@@ -2622,6 +2634,14 @@ RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(volumetric_light_clamp)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(volumetric_shadows)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(volumetric_shadow_samples)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(volumetric_colored_transmittance)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(ssr_enable)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(ssr_halfres)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(ssr_ray_count)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(ssr_quality)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(ssr_max_roughness)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(ssr_thickness)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(ssr_border_fade)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(ssr_firefly_fac)
 
 /* object engine */
 RNA_LAYER_MODE_OBJECT_GET_SET_BOOL(show_wire)
@@ -3554,7 +3574,7 @@ static void rna_def_tool_settings(BlenderRNA  *brna)
 
 	prop = RNA_def_property(srna, "uv_sculpt_tool", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "uv_sculpt_tool");
-	RNA_def_property_enum_items(prop, uv_sculpt_tool_items);
+	RNA_def_property_enum_items(prop, rna_enum_uv_sculpt_tool_items);
 	RNA_def_property_ui_text(prop, "UV Sculpt Tools", "Select Tools for the UV sculpt brushes");
 
 	prop = RNA_def_property(srna, "uv_relax_method", PROP_ENUM, PROP_NONE);
@@ -6179,6 +6199,70 @@ static void rna_def_scene_layer_engine_settings_eevee(BlenderRNA *brna)
 	RNA_define_verify_sdna(0); /* not in sdna */
 
 	/* see RNA_LAYER_ENGINE_GET_SET macro */
+
+	/* Screen Space Reflection */
+	prop = RNA_def_property(srna, "ssr_enable", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_funcs(prop, "rna_LayerEngineSettings_Eevee_ssr_enable_get",
+	                               "rna_LayerEngineSettings_Eevee_ssr_enable_set");
+	RNA_def_property_ui_text(prop, "Screen Space Reflections", "Enable screen space reflection");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
+
+	prop = RNA_def_property(srna, "ssr_halfres", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_funcs(prop, "rna_LayerEngineSettings_Eevee_ssr_halfres_get",
+	                               "rna_LayerEngineSettings_Eevee_ssr_halfres_set");
+	RNA_def_property_ui_text(prop, "Half Res Trace", "Raytrace at a lower resolution");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
+
+	prop = RNA_def_property(srna, "ssr_quality", PROP_FLOAT, PROP_FACTOR);
+	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Eevee_ssr_quality_get",
+	                               "rna_LayerEngineSettings_Eevee_ssr_quality_set", NULL);
+	RNA_def_property_ui_text(prop, "Trace Quality", "Quality of the screen space raytracing");
+	RNA_def_property_range(prop, 0.0f, 1.0f);
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
+
+	prop = RNA_def_property(srna, "ssr_max_roughness", PROP_FLOAT, PROP_FACTOR);
+	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Eevee_ssr_max_roughness_get",
+	                               "rna_LayerEngineSettings_Eevee_ssr_max_roughness_set", NULL);
+	RNA_def_property_ui_text(prop, "Max Roughness", "Do not raytrace reflections for roughness above this value");
+	RNA_def_property_range(prop, 0.0f, 1.0f);
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
+
+	prop = RNA_def_property(srna, "ssr_ray_count", PROP_INT, PROP_NONE);
+	RNA_def_property_int_funcs(prop, "rna_LayerEngineSettings_Eevee_ssr_ray_count_get",
+	                               "rna_LayerEngineSettings_Eevee_ssr_ray_count_set", NULL);
+	RNA_def_property_ui_text(prop, "Samples", "Number of rays to trace per pixels");
+	RNA_def_property_range(prop, 1, 4);
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
+
+	prop = RNA_def_property(srna, "ssr_thickness", PROP_FLOAT, PROP_DISTANCE);
+	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Eevee_ssr_thickness_get",
+	                               "rna_LayerEngineSettings_Eevee_ssr_thickness_set", NULL);
+	RNA_def_property_ui_text(prop, "Thickness", "Pixel thickness used to detect intersection");
+	RNA_def_property_range(prop, 1e-6f, FLT_MAX);
+	RNA_def_property_ui_range(prop, 0.001f, FLT_MAX, 5, 3);
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
+
+	prop = RNA_def_property(srna, "ssr_border_fade", PROP_FLOAT, PROP_FACTOR);
+	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Eevee_ssr_border_fade_get",
+	                               "rna_LayerEngineSettings_Eevee_ssr_border_fade_set", NULL);
+	RNA_def_property_ui_text(prop, "Edge Fading", "Screen percentage used to fade the SSR");
+	RNA_def_property_range(prop, 0.0f, 0.5f);
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
+
+	prop = RNA_def_property(srna, "ssr_firefly_fac", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Eevee_ssr_firefly_fac_get",
+	                               "rna_LayerEngineSettings_Eevee_ssr_firefly_fac_set", NULL);
+	RNA_def_property_ui_text(prop, "Clamp", "Clamp pixel intensity to remove noise (0 to disabled)");
+	RNA_def_property_range(prop, 0.0f, FLT_MAX);
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
 
 	/* Volumetrics */
 	prop = RNA_def_property(srna, "volumetric_enable", PROP_BOOLEAN, PROP_NONE);

@@ -54,6 +54,7 @@ BlenderSync::BlenderSync(BL::RenderEngine& b_engine,
   b_data(b_data),
   b_depsgraph(b_depsgraph),
   b_scene(b_scene),
+  b_scene_layer(b_engine.scene_layer()),
   shader_map(&scene->shaders),
   object_map(&scene->objects),
   mesh_map(&scene->meshes),
@@ -236,7 +237,6 @@ void BlenderSync::sync_integrator()
 	Integrator *integrator = scene->integrator;
 	Integrator previntegrator = *integrator;
 
-	integrator->min_bounce = get_int(cscene, "min_bounces");
 	integrator->max_bounce = get_int(cscene, "max_bounces");
 
 	integrator->max_diffuse_bounce = get_int(cscene, "diffuse_bounces");
@@ -245,7 +245,6 @@ void BlenderSync::sync_integrator()
 	integrator->max_volume_bounce = get_int(cscene, "volume_bounces");
 
 	integrator->transparent_max_bounce = get_int(cscene, "transparent_max_bounces");
-	integrator->transparent_min_bounce = get_int(cscene, "transparent_min_bounces");
 	integrator->transparent_shadows = get_boolean(cscene, "use_transparent_shadows");
 
 	integrator->volume_max_steps = get_int(cscene, "volume_max_steps");

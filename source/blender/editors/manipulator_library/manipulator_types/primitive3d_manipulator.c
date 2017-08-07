@@ -27,6 +27,8 @@
  *
  * \brief Manipulator with primitive drawing type (plane, cube, etc.).
  * Currently only plane primitive supported without own handling, use with operator only.
+ *
+ * TODO: use matrix_space
  */
 
 #include "BIF_gl.h"
@@ -133,9 +135,9 @@ static void manipulator_primitive_draw_intern(
 
 static void manipulator_primitive_draw_select(
         const bContext *UNUSED(C), wmManipulator *mpr,
-        int selectionbase)
+        int select_id)
 {
-	GPU_select_load_id(selectionbase);
+	GPU_select_load_id(select_id);
 	manipulator_primitive_draw_intern(mpr, true, false);
 }
 
@@ -148,7 +150,7 @@ static void manipulator_primitive_draw(const bContext *UNUSED(C), wmManipulator 
 
 static void manipulator_primitive_setup(wmManipulator *mpr)
 {
-	mpr->flag |= WM_MANIPULATOR_DRAW_ACTIVE;
+	mpr->flag |= WM_MANIPULATOR_DRAW_MODAL;
 }
 
 static void manipulator_primitive_invoke(

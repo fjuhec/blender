@@ -745,7 +745,7 @@ static void viewops_data_create_ex(
 		negate_v3_v3(fallback_depth_pt, rv3d->ofs);
 
 		vod->use_dyn_ofs = ED_view3d_autodist(
-		        graph, vod->ar, vod->v3d,
+		        C, graph, vod->ar, vod->v3d,
 		        event->mval, vod->dyn_ofs, true, fallback_depth_pt);
 	}
 	else {
@@ -3069,6 +3069,8 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 	SceneLayer *sl = CTX_data_scene_layer(C);
 	bGPdata *gpd = CTX_data_gpencil_data(C);
 	const bool is_gp_edit = ((gpd) && (gpd->flag & GP_DATA_STROKE_EDITMODE));
+	const bool is_face_map = ((is_gp_edit == false) && ar->manipulator_map &&
+	                          WM_manipulatormap_is_any_selected(ar->manipulator_map));
 	Object *ob = OBACT_NEW;
 	Object *obedit = CTX_data_edit_object(C);
 	float min[3], max[3];
@@ -3080,8 +3082,7 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 	const int smooth_viewtx = WM_operator_smooth_viewtx_get(op);
 
 	INIT_MINMAX(min, max);
-
-	if (is_gp_edit) {
+	if (is_gp_edit || is_face_map) {
 		ob = NULL;
 	}
 
@@ -3112,6 +3113,9 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 			}
 		}
 		CTX_DATA_END;
+	}
+	else if (is_face_map) {
+		ok = WM_manipulatormap_minmax(ar->manipulator_map, true, true, min, max);
 	}
 	else if (obedit) {
 		ok = ED_view3d_minmax_verts(obedit, min, max);    /* only selected */
@@ -3324,7 +3328,7 @@ static int viewcenter_pick_invoke(bContext *C, wmOperator *op, const wmEvent *ev
 
 		view3d_operator_needs_opengl(C);
 
-		if (ED_view3d_autodist(graph, ar, v3d, event->mval, new_ofs, false, NULL)) {
+		if (ED_view3d_autodist(C, graph, ar, v3d, event->mval, new_ofs, false, NULL)) {
 			/* pass */
 		}
 		else {
@@ -3610,7 +3614,7 @@ static int view3d_zoom_border_exec(bContext *C, wmOperator *op)
 	ED_view3d_dist_range_get(v3d, dist_range);
 
 	/* Get Z Depths, needed for perspective, nice for ortho */
-	ED_view3d_draw_depth(CTX_data_depsgraph(C), ar, v3d, true);
+	ED_view3d_draw_depth(C, CTX_data_depsgraph(C), ar, v3d, true);
 	
 	{
 		/* avoid allocating the whole depth buffer */
@@ -4712,7 +4716,7 @@ void ED_view3d_cursor3d_position(bContext *C, float fp[3], const int mval[2])
 	if (U.uiflag & USER_ZBUF_CURSOR) {  /* maybe this should be accessed some other way */
 		struct Depsgraph *graph = CTX_data_depsgraph(C);
 		view3d_operator_needs_opengl(C);
-		if (ED_view3d_autodist(graph, ar, v3d, mval, fp, true, NULL)) {
+		if (ED_view3d_autodist(C, graph, ar, v3d, mval, fp, true, NULL)) {
 			depth_used = true;
 		}
 	}
@@ -4741,13 +4745,20 @@ void ED_view3d_cursor3d_update(bContext *C, const int mval[2])
 		ARegion *ar = CTX_wm_region(C);
 		RegionView3D *rv3d = ar->regiondata;
 
-		float co_curr[2], co_prev[2];
+		if (U.uiflag & USER_LOCK_CURSOR_ADJUST) {
 
-		if ((ED_view3d_project_float_global(ar, fp_prev, co_prev, V3D_PROJ_TEST_NOP) == V3D_PROJ_RET_OK) &&
-		    (ED_view3d_project_float_global(ar, fp_curr, co_curr, V3D_PROJ_TEST_NOP) == V3D_PROJ_RET_OK))
-		{
-			rv3d->ofs_lock[0] += (co_curr[0] - co_prev[0]) / (ar->winx * 0.5f);
-			rv3d->ofs_lock[1] += (co_curr[1] - co_prev[1]) / (ar->winy * 0.5f);
+			float co_curr[2], co_prev[2];
+
+			if ((ED_view3d_project_float_global(ar, fp_prev, co_prev, V3D_PROJ_TEST_NOP) == V3D_PROJ_RET_OK) &&
+				(ED_view3d_project_float_global(ar, fp_curr, co_curr, V3D_PROJ_TEST_NOP) == V3D_PROJ_RET_OK))
+			{
+				rv3d->ofs_lock[0] += (co_curr[0] - co_prev[0]) / (ar->winx * 0.5f);
+				rv3d->ofs_lock[1] += (co_curr[1] - co_prev[1]) / (ar->winy * 0.5f);
+			}
+		}
+		else {
+			/* Cursor may be outside of the view, prevent it getting 'lost', see: T40353 & T45301 */
+			zero_v2(rv3d->ofs_lock);
 		}
 	}
 
@@ -4889,7 +4900,7 @@ static float view_autodist_depth_margin(ARegion *ar, const int mval[2], int marg
  * \param fallback_depth_pt: Use this points depth when no depth can be found.
  */
 bool ED_view3d_autodist(
-        struct Depsgraph *graph, ARegion *ar, View3D *v3d,
+        const bContext *C, struct Depsgraph *graph, ARegion *ar, View3D *v3d,
         const int mval[2], float mouse_worldloc[3],
         const bool alphaoverride, const float fallback_depth_pt[3])
 {
@@ -4899,7 +4910,7 @@ bool ED_view3d_autodist(
 	bool depth_ok = false;
 
 	/* Get Z Depths, needed for perspective, nice for ortho */
-	ED_view3d_draw_depth(graph, ar, v3d, alphaoverride);
+	ED_view3d_draw_depth(C, graph, ar, v3d, alphaoverride);
 
 	/* Attempt with low margin's first */
 	i = 0;
@@ -4928,18 +4939,18 @@ bool ED_view3d_autodist(
 }
 
 void ED_view3d_autodist_init(
-        struct Depsgraph *graph,
+        const bContext *C, struct Depsgraph *graph,
         ARegion *ar, View3D *v3d, int mode)
 {
 	/* Get Z Depths, needed for perspective, nice for ortho */
 	switch (mode) {
 		case 0:
-			ED_view3d_draw_depth(graph, ar, v3d, true);
+			ED_view3d_draw_depth(C, graph, ar, v3d, true);
 			break;
 		case 1:
 		{
 			Scene *scene = DEG_get_evaluated_scene(graph);
-			ED_view3d_draw_depth_gpencil(scene, ar, v3d);
+			ED_view3d_draw_depth_gpencil(C, scene, ar, v3d);
 			break;
 		}
 	}
@@ -5144,6 +5155,7 @@ void ED_view3d_from_object(Object *ob, float ofs[3], float quat[4], float *dist,
 void ED_view3d_to_object(Object *ob, const float ofs[3], const float quat[4], const float dist)
 {
 	float mat[4][4];
+
 	ED_view3d_to_m4(mat, ofs, quat, dist);
 	BKE_object_apply_mat4(ob, mat, true, true);
 }

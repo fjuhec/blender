@@ -65,12 +65,14 @@ static int hair_follicles_generate_exec(bContext *C, wmOperator *op)
 	Scene *scene = CTX_data_scene(C);
 	Object *ob = ED_object_active_context(C);
 	HairModifierData *hmd = (HairModifierData *)edit_modifier_property_get(op, ob, eModifierType_Hair);
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
 	
 	if (!hmd)
 		return OPERATOR_CANCELLED;
 	
 	CustomDataMask mask = CD_MASK_BAREMESH;
-	DerivedMesh *scalp = mesh_get_derived_final(scene, ob, mask);
+	DerivedMesh *scalp = mesh_get_derived_final(&eval_ctx, scene, ob, mask);
 	if (!scalp)
 		return OPERATOR_CANCELLED;
 	

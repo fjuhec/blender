@@ -94,8 +94,8 @@ static void freeData(ModifierData *md)
 	}
 }
 
-static DerivedMesh *applyModifier(ModifierData *md, Object *UNUSED(ob),
-                                  DerivedMesh *dm,
+static DerivedMesh *applyModifier(ModifierData *md, struct EvaluationContext *UNUSED(eval_ctx),
+                                  Object *UNUSED(ob), DerivedMesh *dm,
                                   ModifierApplyFlag UNUSED(flag))
 {
 	HairModifierData *hmd = (HairModifierData *) md;

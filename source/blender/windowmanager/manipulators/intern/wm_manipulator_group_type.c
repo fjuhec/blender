@@ -90,9 +90,16 @@ static void wm_manipulatorgrouptype_append__end(wmManipulatorGroupType *wgt)
 	BLI_assert(wgt->name != NULL);
 	BLI_assert(wgt->idname != NULL);
 
+	wgt->type_update_flag |= WM_MANIPULATORMAPTYPE_KEYMAP_INIT;
+
 	/* if not set, use default */
 	if (wgt->setup_keymap == NULL) {
-		wgt->setup_keymap = WM_manipulatorgroup_keymap_common;
+		if (wgt->flag & WM_MANIPULATORGROUPTYPE_SELECT) {
+			wgt->setup_keymap = WM_manipulatorgroup_keymap_common_select;
+		}
+		else {
+			wgt->setup_keymap = WM_manipulatorgroup_keymap_common;
+		}
 	}
 
 	BLI_ghash_insert(global_manipulatorgrouptype_hash, (void *)wgt->idname, wgt);

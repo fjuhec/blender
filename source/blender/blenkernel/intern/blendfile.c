@@ -218,6 +218,13 @@ static void setup_app_data(
 				BKE_screen_view3d_scene_sync(curscreen, curscene);
 			}
 		}
+
+		/* We need to tag this here because events may be handled immediately after.
+		 * only the current screen is important because we wont have to handle
+		 * events from multiple screens at once.*/
+		{
+			BKE_screen_manipulator_tag_refresh(curscreen);
+		}
 	}
 
 	/* free G.main Main database */
@@ -332,11 +339,20 @@ static void setup_app_data(
 			}
 		}
 	}
+
+	/* Setting scene might require having a dependency graph, with copy on write
+	 * we need to make sure we ensure scene has correct color management before
+	 * constructing dependency graph.
+	 */
+	if (mode != LOAD_UNDO) {
+		IMB_colormanagement_check_file_config(G.main);
+	}
+
 	BKE_scene_set_background(G.main, curscene);
 
 	if (mode != LOAD_UNDO) {
+		/* TODO(sergey): Can this be also move above? */
 		RE_FreeAllPersistentData();
-		IMB_colormanagement_check_file_config(G.main);
 	}
 
 	MEM_freeN(bfd);

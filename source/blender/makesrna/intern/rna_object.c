@@ -859,9 +859,14 @@ static void rna_Object_active_particle_system_index_set(PointerRNA *ptr, int val
 
 static void rna_Object_particle_update(Main *UNUSED(bmain), Scene *scene, PointerRNA *ptr)
 {
+	/* TODO: Disabled for now, because bContext is not available. */
+#if 0
 	Object *ob = (Object *)ptr->id.data;
-
-	PE_current_changed(scene, ob);
+	PE_current_changed(NULL, scene, ob);
+#else
+	(void) scene;
+	(void) ptr;
+#endif
 }
 
 /* rotation - axis-angle */
@@ -1774,6 +1779,11 @@ static void rna_def_face_map(BlenderRNA *brna)
 	/* update data because modifiers may use [#24761] */
 	RNA_def_property_update(prop, NC_GEOM | ND_DATA | NA_RENAME, "rna_Object_internal_update_data");
 	
+	prop = RNA_def_property(srna, "select", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", SELECT);
+	RNA_def_property_ui_text(prop, "Select", "Face-map selection state (for tools to use)");
+	/* important not to use a notifier here, creates a feedback loop! */
+
 	prop = RNA_def_property(srna, "index", PROP_INT, PROP_UNSIGNED);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_int_funcs(prop, "rna_FaceMap_index_get", NULL, NULL);

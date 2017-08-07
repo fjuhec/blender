@@ -809,7 +809,6 @@ static bool pchan_autoik_adjust(bPoseChannel *pchan, short chainlen)
 /* change the chain-length of auto-ik */
 void transform_autoik_update(TransInfo *t, short mode)
 {
-	const short old_len = t->settings->autoik_chainlen;
 	short *chainlen = &t->settings->autoik_chainlen;
 	bPoseChannel *pchan;
 
@@ -820,12 +819,13 @@ void transform_autoik_update(TransInfo *t, short mode)
 	}
 	else if (mode == -1) {
 		/* mode==-1 is from WHEELMOUSEUP... decreases len */
-		if (*chainlen > 0) (*chainlen)--;
-	}
-
-	/* IK length did not change, skip any updates. */
-	if (old_len == *chainlen) {
-		return;
+		if (*chainlen > 0) {
+			(*chainlen)--;
+		}
+		else {
+			/* IK length did not change, skip updates. */
+			return;
+		}
 	}
 
 	/* sanity checks (don't assume t->poseobj is set, or that it is an armature) */
@@ -850,6 +850,7 @@ static void pose_grab_with_ik_clear(Object *ob)
 	bKinematicConstraint *data;
 	bPoseChannel *pchan;
 	bConstraint *con, *next;
+	bool relations_changed = false;
 
 	for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
 		/* clear all temporary lock flags */
@@ -863,6 +864,8 @@ static void pose_grab_with_ik_clear(Object *ob)
 			if (con->type == CONSTRAINT_TYPE_KINEMATIC) {
 				data = con->data;
 				if (data->flag & CONSTRAINT_IK_TEMP) {
+					relations_changed = true;
+
 					/* iTaSC needs clear for removed constraints */
 					BIK_clear_data(ob->pose);
 
@@ -878,8 +881,10 @@ static void pose_grab_with_ik_clear(Object *ob)
 		}
 	}
 
-	/* TODO(sergey): Consider doing partial update only. */
-	DEG_relations_tag_update(G.main);
+	if (relations_changed) {
+		/* TODO(sergey): Consider doing partial update only. */
+		DEG_relations_tag_update(G.main);
+	}
 }
 
 /* adds the IK to pchan - returns if added */
@@ -2047,7 +2052,7 @@ void flushTransParticles(TransInfo *t)
 			point->flag |= PEP_EDIT_RECALC;
 	}
 
-	PE_update_object(scene, sl, OBACT_NEW, 1);
+	PE_update_object(t->context, scene, sl, OBACT_NEW, 1);
 }
 
 
@@ -2678,6 +2683,7 @@ static void createTransEditVerts(TransInfo *t)
 {
 	TransData *tob = NULL;
 	TransDataExtension *tx = NULL;
+	EvaluationContext eval_ctx;
 	BMEditMesh *em = BKE_editmesh_from_object(t->obedit);
 	Mesh *me = t->obedit->data;
 	BMesh *bm = em->bm;
@@ -2695,6 +2701,10 @@ static void createTransEditVerts(TransInfo *t)
 	struct TransIslandData *island_info = NULL;
 	int island_info_tot;
 	int *island_vert_map = NULL;
+
+	DEG_evaluation_context_init_from_scene(&eval_ctx,
+	                                       t->scene, t->scene_layer,
+	                                       DAG_EVAL_VIEWPORT);
 
 	/* Even for translation this is needed because of island-orientation, see: T51651. */
 	const bool is_island_center = (t->around == V3D_AROUND_LOCAL_ORIGINS);
@@ -2778,7 +2788,7 @@ static void createTransEditVerts(TransInfo *t)
 		if (modifiers_isCorrectableDeformed(t->scene, t->obedit)) {
 			/* check if we can use deform matrices for modifier from the
 			 * start up to stack, they are more accurate than quats */
-			totleft = BKE_crazyspace_get_first_deform_matrices_editbmesh(t->scene, t->obedit, em, &defmats, &defcos);
+			totleft = BKE_crazyspace_get_first_deform_matrices_editbmesh(&eval_ctx, t->scene, t->obedit, em, &defmats, &defcos);
 		}
 
 		/* if we still have more modifiers, also do crazyspace
@@ -2791,7 +2801,7 @@ static void createTransEditVerts(TransInfo *t)
 		if (totleft > 0)
 #endif
 		{
-			mappedcos = BKE_crazyspace_get_mapped_editverts(t->scene, t->obedit);
+			mappedcos = BKE_crazyspace_get_mapped_editverts(&eval_ctx, t->scene, t->obedit);
 			quats = MEM_mallocN(em->bm->totvert * sizeof(*quats), "crazy quats");
 			BKE_crazyspace_set_quats_editmesh(em, defcos, mappedcos, quats, !prop_mode);
 			if (mappedcos)
@@ -5617,6 +5627,9 @@ static void ObjectToTransData(TransInfo *t, TransData *td, Object *ob)
 	Scene *scene = t->scene;
 	bool constinv;
 	bool skip_invert = false;
+	EvaluationContext eval_ctx;
+
+	CTX_data_eval_ctx(t->context, &eval_ctx);
 
 	if (t->mode != TFM_DUMMY && ob->rigidbody_object) {
 		float rot[3][3], scale[3];
@@ -5664,11 +5677,11 @@ static void ObjectToTransData(TransInfo *t, TransData *td, Object *ob)
 
 	if (skip_invert == false && constinv == false) {
 		ob->transflag |= OB_NO_CONSTRAINTS;  /* BKE_object_where_is_calc_time checks this */
-		BKE_object_where_is_calc(t->scene, ob);
+		BKE_object_where_is_calc(&eval_ctx, t->scene, ob);
 		ob->transflag &= ~OB_NO_CONSTRAINTS;
 	}
 	else
-		BKE_object_where_is_calc(t->scene, ob);
+		BKE_object_where_is_calc(&eval_ctx, t->scene, ob);
 
 	td->ob = ob;
 
@@ -5759,10 +5772,14 @@ static void set_trans_object_base_flags(TransInfo *t)
 	DEG_scene_relations_update(G.main, t->scene);
 
 	/* handle pending update events, otherwise they got copied below */
+	EvaluationContext eval_ctx;
+	DEG_evaluation_context_init_from_scene(&eval_ctx,
+	                                       t->scene, t->scene_layer,
+	                                       DAG_EVAL_VIEWPORT);
 	for (base = sl->object_bases.first; base; base = base->next) {
 		if (base->object->recalc & OB_RECALC_ALL) {
 			/* TODO(sergey): Ideally, it's not needed. */
-			BKE_object_handle_update(G.main->eval_ctx, t->scene, base->object);
+			BKE_object_handle_update(&eval_ctx, t->scene, base->object);
 		}
 	}
 
@@ -6149,7 +6166,7 @@ void autokeyframe_pose_cb_func(bContext *C, Scene *scene, View3D *v3d, Object *o
 		 */
 		if (C && (ob->pose->avs.path_bakeflag & MOTIONPATH_BAKE_HAS_PATHS)) {
 			//ED_pose_clear_paths(C, ob); // XXX for now, don't need to clear
-			ED_pose_recalculate_paths(scene, ob);
+			ED_pose_recalculate_paths(C, scene, ob);
 		}
 	}
 	else {
@@ -6167,27 +6184,23 @@ static void special_aftertrans_update__movieclip(bContext *C, TransInfo *t)
 {
 	SpaceClip *sc = t->sa->spacedata.first;
 	MovieClip *clip = ED_space_clip_get_clip(sc);
-	MovieTrackingPlaneTrack *plane_track;
 	ListBase *plane_tracks_base = BKE_tracking_get_active_plane_tracks(&clip->tracking);
-	int framenr = ED_space_clip_get_clip_frame_number(sc);
-
-	for (plane_track = plane_tracks_base->first;
+	const int framenr = ED_space_clip_get_clip_frame_number(sc);
+	/* Update coordinates of modified plane tracks. */
+	for (MovieTrackingPlaneTrack *plane_track = plane_tracks_base->first;
 	     plane_track;
 	     plane_track = plane_track->next)
 	{
 		bool do_update = false;
-
 		if (plane_track->flag & PLANE_TRACK_HIDDEN) {
 			continue;
 		}
-
 		do_update |= PLANE_TRACK_VIEW_SELECTED(plane_track) != 0;
 		if (do_update == false) {
 			if ((plane_track->flag & PLANE_TRACK_AUTOKEY) == 0) {
 				int i;
 				for (i = 0; i < plane_track->point_tracksnr; i++) {
 					MovieTrackingTrack *track = plane_track->point_tracks[i];
-
 					if (TRACK_VIEW_SELECTED(sc, track)) {
 						do_update = true;
 						break;
@@ -6195,15 +6208,14 @@ static void special_aftertrans_update__movieclip(bContext *C, TransInfo *t)
 				}
 			}
 		}
-
 		if (do_update) {
 			BKE_tracking_track_plane_from_existing_motion(plane_track, framenr);
 		}
 	}
-
-	if (t->scene->nodetree) {
-		/* tracks can be used for stabilization nodes,
-		 * flush update for such nodes */
+	if (t->scene->nodetree != NULL) {
+		/* Tracks can be used for stabilization nodes,
+		 * flush update for such nodes.
+		 */
 		nodeUpdateID(t->scene->nodetree, &clip->id);
 		WM_event_add_notifier(C, NC_SCENE | ND_NODES, NULL);
 	}
@@ -6309,10 +6321,13 @@ static void special_aftertrans_update__mesh(bContext *UNUSED(C), TransInfo *t)
  * */
 void special_aftertrans_update(bContext *C, TransInfo *t)
 {
+	EvaluationContext eval_ctx;
 	Object *ob;
 //	short redrawipo=0, resetslowpar=1;
 	const bool canceled = (t->state == TRANS_CANCEL);
 	const bool duplicate = (t->mode == TFM_TIME_DUPLICATE);
+
+	CTX_data_eval_ctx(C, &eval_ctx);
 	
 	/* early out when nothing happened */
 	if (t->total == 0 || t->mode == TFM_DUMMY)
@@ -6652,7 +6667,7 @@ void special_aftertrans_update(bContext *C, TransInfo *t)
 			 * we need to update the pose otherwise no updates get called during
 			 * transform and the auto-ik is not applied. see [#26164] */
 			struct Object *pose_ob = t->poseobj;
-			BKE_pose_where_is(t->scene, pose_ob);
+			BKE_pose_where_is(&eval_ctx, t->scene, pose_ob);
 		}
 
 		/* set BONE_TRANSFORM flags for autokey, manipulator draw might have changed them */

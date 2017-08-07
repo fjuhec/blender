@@ -50,7 +50,9 @@
 #include "DEG_depsgraph_build.h"
 
 #include "MEM_guardedalloc.h"
+
 #include "MOD_weightvg_util.h"
+#include "MOD_modifiertypes.h"
 
 //#define USE_TIMEIT
 
@@ -372,8 +374,8 @@ static bool isDisabled(ModifierData *md, int UNUSED(useRenderParams))
 	return (wmd->proximity_ob_target == NULL);
 }
 
-static DerivedMesh *applyModifier(ModifierData *md, Object *ob, DerivedMesh *derivedData,
-                                  ModifierApplyFlag UNUSED(flag))
+static DerivedMesh *applyModifier(ModifierData *md, struct EvaluationContext *UNUSED(eval_ctx), Object *ob,
+                                  DerivedMesh *derivedData, ModifierApplyFlag UNUSED(flag))
 {
 	WeightVGProximityModifierData *wmd = (WeightVGProximityModifierData *) md;
 	DerivedMesh *dm = derivedData;

@@ -54,23 +54,6 @@ extern "C" {
 
 namespace DEG {
 
-namespace {
-
-// TODO(sergey): De-duplicate with depsgraph_tag,cc
-void lib_id_recalc_tag(Main *bmain, ID *id)
-{
-	id->tag |= LIB_TAG_ID_RECALC;
-	DEG_id_type_tag(bmain, GS(id->name));
-}
-
-void lib_id_recalc_data_tag(Main *bmain, ID *id)
-{
-	id->tag |= LIB_TAG_ID_RECALC_DATA;
-	DEG_id_type_tag(bmain, GS(id->name));
-}
-
-}  /* namespace */
-
 typedef std::deque<OperationDepsNode *> FlushQueue;
 
 static void flush_init_func(void *data_v, int i)
@@ -122,10 +105,8 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 	 */
 	GSET_FOREACH_BEGIN(OperationDepsNode *, op_node, graph->entry_tags)
 	{
-		if ((op_node->flag & DEPSOP_FLAG_SKIP_FLUSH) == 0) {
-			queue.push_back(op_node);
-			op_node->scheduled = true;
-		}
+		queue.push_back(op_node);
+		op_node->scheduled = true;
 	}
 	GSET_FOREACH_END();
 
@@ -169,6 +150,14 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 					}
 				}
 				foreach (OperationDepsNode *op, comp_node->operations) {
+					/* We don't want to flush tags in "upstream" direction for
+					 * certain types of operations.
+					 *
+					 * TODO(sergey): Need a more generic solution for this.
+					 */
+					if (op->opcode == DEG_OPCODE_PARTICLE_SETTINGS_EVAL) {
+						continue;
+					}
 					op->flag |= DEPSOP_FLAG_NEEDS_UPDATE;
 				}
 				if (object != NULL) {

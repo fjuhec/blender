@@ -77,6 +77,7 @@ struct bContext {
 		struct ScrArea *area;
 		struct ARegion *region;
 		struct ARegion *menu;
+		struct wmManipulatorGroup *manipulator_group;
 		struct bContextStore *store;
 		const char *operator_poll_msg; /* reason for poll failing */
 	} wm;
@@ -671,6 +672,11 @@ struct ARegion *CTX_wm_menu(const bContext *C)
 	return C->wm.menu;
 }
 
+struct wmManipulatorGroup *CTX_wm_manipulator_group(const bContext *C)
+{
+	return C->wm.manipulator_group;
+}
+
 struct ReportList *CTX_wm_reports(const bContext *C)
 {
 	if (C->wm.manager)
@@ -870,6 +876,11 @@ void CTX_wm_menu_set(bContext *C, ARegion *menu)
 	C->wm.menu = menu;
 }
 
+void CTX_wm_manipulator_group_set(bContext *C, struct wmManipulatorGroup *mgroup)
+{
+	C->wm.manipulator_group = mgroup;
+}
+
 void CTX_wm_operator_poll_msg_set(bContext *C, const char *msg)
 {
 	C->wm.operator_poll_msg = msg;
@@ -916,7 +927,7 @@ SceneLayer *CTX_data_scene_layer(const bContext *C)
 		return sl;
 	}
 	else {
-		return BKE_scene_layer_context_active_ex_PLACEHOLDER(CTX_data_main(C), CTX_data_scene(C));
+		return BKE_scene_layer_from_workspace_get(CTX_wm_workspace(C));
 	}
 }
 
@@ -1230,4 +1241,15 @@ Depsgraph *CTX_data_depsgraph(const bContext *C)
 	Scene *scene = CTX_data_scene(C);
 	SceneLayer *scene_layer = CTX_data_scene_layer(C);
 	return BKE_scene_get_depsgraph(scene, scene_layer);
+}
+
+void CTX_data_eval_ctx(const bContext *C, EvaluationContext *eval_ctx)
+{
+	BLI_assert(C != NULL);
+
+	Scene *scene = CTX_data_scene(C);
+	SceneLayer *scene_layer = CTX_data_scene_layer(C);
+	DEG_evaluation_context_init_from_scene(eval_ctx,
+	                                       scene, scene_layer,
+	                                       DAG_EVAL_VIEWPORT);
 }

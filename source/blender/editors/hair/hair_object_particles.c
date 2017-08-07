@@ -58,7 +58,7 @@ bool ED_hair_object_has_hair_particle_data(Object *ob)
 	return false;
 }
 
-bool ED_hair_object_init_particle_edit(Scene *scene, Object *ob)
+bool ED_hair_object_init_particle_edit(struct EvaluationContext *eval_ctx, Scene *scene, Object *ob)
 {
 	ParticleSystem *psys = psys_get_current(ob);
 	BMesh *bm;
@@ -69,7 +69,7 @@ bool ED_hair_object_init_particle_edit(Scene *scene, Object *ob)
 			bm = BKE_editstrands_particles_to_bmesh(ob, psys);
 			
 			if (ob->type == OB_MESH || ob->derivedFinal)
-				dm = ob->derivedFinal ? ob->derivedFinal : mesh_get_derived_final(scene, ob, CD_MASK_BAREMESH);
+				dm = ob->derivedFinal ? ob->derivedFinal : mesh_get_derived_final(eval_ctx, scene, ob, CD_MASK_BAREMESH);
 			else
 				dm = NULL;
 			

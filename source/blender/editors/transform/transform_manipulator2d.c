@@ -134,8 +134,8 @@ static ManipulatorGroup2D *manipulatorgroup2d_init(wmManipulatorGroup *mgroup)
 
 	ManipulatorGroup2D *man = MEM_callocN(sizeof(ManipulatorGroup2D), __func__);
 
-	man->translate_x = WM_manipulator_new_ptr(wt_arrow, mgroup, "translate_x", NULL);
-	man->translate_y = WM_manipulator_new_ptr(wt_arrow, mgroup, "translate_y", NULL);
+	man->translate_x = WM_manipulator_new_ptr(wt_arrow, mgroup, NULL);
+	man->translate_y = WM_manipulator_new_ptr(wt_arrow, mgroup, NULL);
 
 	return man;
 }
@@ -168,7 +168,8 @@ BLI_INLINE void manipulator2d_origin_to_region(ARegion *ar, float *r_origin)
  * Custom handler for manipulator widgets
  */
 static void manipulator2d_modal(
-        bContext *C, wmManipulator *widget, const wmEvent *UNUSED(event), const int UNUSED(flag))
+        bContext *C, wmManipulator *widget, const wmEvent *UNUSED(event),
+        eWM_ManipulatorTweak UNUSED(tweak_flag))
 {
 	ARegion *ar = CTX_wm_region(C);
 	float origin[3];

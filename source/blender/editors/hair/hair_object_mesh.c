@@ -47,7 +47,7 @@
 
 #include "hair_intern.h"
 
-bool ED_hair_object_init_mesh_edit(Scene *UNUSED(scene), Object *ob)
+bool ED_hair_object_init_mesh_edit(struct EvaluationContext *UNUSED(eval_ctx), Scene *UNUSED(scene), Object *ob)
 {
 	if (ob->type == OB_MESH) {
 		Mesh *me = ob->data;

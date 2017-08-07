@@ -51,9 +51,9 @@
 #include "BKE_particle.h"
 #include "BKE_scene.h"
 
-
 #include "MEM_guardedalloc.h"
 
+#include "MOD_modifiertypes.h"
 
 static void initData(ModifierData *md)
 {
@@ -786,8 +786,8 @@ static DerivedMesh *cutEdges(ExplodeModifierData *emd, DerivedMesh *dm)
 	return splitdm;
 }
 static DerivedMesh *explodeMesh(ExplodeModifierData *emd,
-                                ParticleSystemModifierData *psmd, Scene *scene, Object *ob,
-                                DerivedMesh *to_explode)
+                                ParticleSystemModifierData *psmd, struct EvaluationContext *eval_ctx, Scene *scene,
+                                Object *ob, DerivedMesh *to_explode)
 {
 	DerivedMesh *explode, *dm = to_explode;
 	MFace *mf = NULL, *mface;
@@ -812,6 +812,7 @@ static DerivedMesh *explodeMesh(ExplodeModifierData *emd,
 	mface = dm->getTessFaceArray(dm);
 	totpart = psmd->psys->totpart;
 
+	sim.eval_ctx = eval_ctx;
 	sim.scene = scene;
 	sim.ob = ob;
 	sim.psys = psmd->psys;
@@ -993,8 +994,8 @@ static ParticleSystemModifierData *findPrecedingParticlesystem(Object *ob, Modif
 	}
 	return psmd;
 }
-static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
-                                  DerivedMesh *derivedData,
+static DerivedMesh *applyModifier(ModifierData *md, struct EvaluationContext *eval_ctx,
+                                  Object *ob, DerivedMesh *derivedData,
                                   ModifierApplyFlag UNUSED(flag))
 {
 	DerivedMesh *dm = derivedData;
@@ -1028,7 +1029,7 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 		if (emd->flag & eExplodeFlag_EdgeCut) {
 			int *facepa = emd->facepa;
 			DerivedMesh *splitdm = cutEdges(emd, dm);
-			DerivedMesh *explode = explodeMesh(emd, psmd, md->scene, ob, splitdm);
+			DerivedMesh *explode = explodeMesh(emd, psmd, eval_ctx, md->scene, ob, splitdm);
 
 			MEM_freeN(emd->facepa);
 			emd->facepa = facepa;
@@ -1036,7 +1037,7 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 			return explode;
 		}
 		else
-			return explodeMesh(emd, psmd, md->scene, ob, derivedData);
+			return explodeMesh(emd, psmd, eval_ctx, md->scene, ob, derivedData);
 	}
 	return derivedData;
 }

@@ -162,6 +162,8 @@ static int hair_edit_toggle_exec(bContext *C, wmOperator *op)
 	Object *ob = CTX_data_active_object(C);
 	const int mode_flag = OB_MODE_HAIR_EDIT;
 	const bool is_mode_set = (ob->mode & mode_flag) != 0;
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
 
 	if (!is_mode_set) {
 		if (!ED_object_mode_compat_set(C, ob, mode_flag, op->reports)) {
@@ -171,9 +173,9 @@ static int hair_edit_toggle_exec(bContext *C, wmOperator *op)
 
 	if (!is_mode_set) {
 #if USE_PARTICLES
-			ED_hair_object_init_particle_edit(scene, ob);
+			ED_hair_object_init_particle_edit(&eval_ctx, scene, ob);
 #else
-			ED_hair_object_init_mesh_edit(scene, ob);
+			ED_hair_object_init_mesh_edit(&eval_ctx, scene, ob);
 #endif
 		ob->mode |= mode_flag;
 		
@@ -230,7 +232,7 @@ void hair_init_viewcontext(bContext *C, ViewContext *vc)
 			/* needed or else the draw matrix can be incorrect */
 			view3d_operator_needs_opengl(C);
 			
-			ED_view3d_backbuf_validate(vc);
+			ED_view3d_backbuf_validate(C, vc);
 			/* we may need to force an update here by setting the rv3d as dirty
 			 * for now it seems ok, but take care!:
 			 * rv3d->depths->dirty = 1; */

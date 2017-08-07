@@ -40,6 +40,7 @@ struct ARegion;
 struct bContext;
 struct wmOperatorType;
 struct rcti;
+struct EvaluationContext;
 
 struct Object;
 
@@ -60,12 +61,12 @@ void HAIR_OT_select_linked(struct wmOperatorType *ot);
 void HAIR_OT_stroke(struct wmOperatorType *ot);
 
 /* hair_object_mesh.c */
-bool ED_hair_object_init_mesh_edit(struct Scene *scene, struct Object *ob);
+bool ED_hair_object_init_mesh_edit(struct EvaluationContext *eval_ctx, struct Scene *scene, struct Object *ob);
 bool ED_hair_object_apply_mesh_edit(struct Object *ob);
 
 /* hair_object_particles.c */
 bool ED_hair_object_has_hair_particle_data(struct Object *ob);
-bool ED_hair_object_init_particle_edit(struct Scene *scene, struct Object *ob);
+bool ED_hair_object_init_particle_edit(struct EvaluationContext *eval_ctx, struct Scene *scene, struct Object *ob);
 bool ED_hair_object_apply_particle_edit(struct Object *ob);
 
 

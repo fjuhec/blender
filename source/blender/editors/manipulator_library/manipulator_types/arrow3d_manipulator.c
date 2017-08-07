@@ -36,6 +36,8 @@
  * - `matrix[0]` is derived from Y and Z.
  * - `matrix[1]` is 'up' for manipulator types that have an up.
  * - `matrix[2]` is the arrow direction (for all arrowes).
+ *
+ * TODO: use matrix_space
  */
 
 #include "BIF_gl.h"
@@ -220,9 +222,9 @@ static void arrow_draw_intern(ArrowManipulator3D *arrow, const bool select, cons
 
 static void manipulator_arrow_draw_select(
         const bContext *UNUSED(C), wmManipulator *mpr,
-        int selectionbase)
+        int select_id)
 {
-	GPU_select_load_id(selectionbase);
+	GPU_select_load_id(select_id);
 	arrow_draw_intern((ArrowManipulator3D *)mpr, true, false);
 }
 
@@ -235,7 +237,9 @@ static void manipulator_arrow_draw(const bContext *UNUSED(C), wmManipulator *mpr
  * Calculate arrow offset independent from prop min value,
  * meaning the range will not be offset by min value first.
  */
-static void manipulator_arrow_modal(bContext *C, wmManipulator *mpr, const wmEvent *event, const int flag)
+static void manipulator_arrow_modal(
+        bContext *C, wmManipulator *mpr, const wmEvent *event,
+        eWM_ManipulatorTweak tweak_flag)
 {
 	ArrowManipulator3D *arrow = (ArrowManipulator3D *)mpr;
 	ManipulatorInteraction *inter = mpr->interaction_data;
@@ -267,7 +271,7 @@ static void manipulator_arrow_modal(bContext *C, wmManipulator *mpr, const wmEve
 
 	/* first determine if view vector is really close to the direction. If it is, we use
 	 * vertical movement to determine offset, just like transform system does */
-	if (RAD2DEG(acos(dot_v3v3(viewvec, arrow->manipulator.matrix_basis[2]))) > 5.0f) {
+	if (RAD2DEGF(acosf(dot_v3v3(viewvec, arrow->manipulator.matrix_basis[2]))) > 5.0f) {
 		/* multiply to projection space */
 		mul_m4_v4(rv3d->persmat, orig_origin);
 		mul_v4_fl(orig_origin, 1.0f / orig_origin[3]);
@@ -314,13 +318,13 @@ static void manipulator_arrow_modal(bContext *C, wmManipulator *mpr, const wmEve
 		const float plane_offset = dot_v3v3(plane, offset);
 		const float plane_dir = dot_v3v3(plane, arrow->manipulator.matrix_basis[2]);
 		const float fac = (plane_dir != 0.0f) ? (plane_offset / plane_dir) : 0.0f;
-		facdir = (fac < 0.0) ? -1.0 : 1.0;
+		facdir = (fac < 0.0f) ? -1.0f : 1.0f;
 		if (isfinite(fac)) {
 			mul_v3_v3fl(offset, arrow->manipulator.matrix_basis[2], fac);
 		}
 	}
 	else {
-		facdir = (m_diff[1] < 0.0) ? -1.0 : 1.0;
+		facdir = (m_diff[1] < 0.0f) ? -1.0f : 1.0f;
 	}
 
 
@@ -334,7 +338,7 @@ static void manipulator_arrow_modal(bContext *C, wmManipulator *mpr, const wmEve
 		const int draw_options = RNA_enum_get(arrow->manipulator.ptr, "draw_options");
 		const bool constrained = (draw_options & ED_MANIPULATOR_ARROW_STYLE_CONSTRAINED) != 0;
 		const bool inverted = (draw_options & ED_MANIPULATOR_ARROW_STYLE_INVERTED) != 0;
-		const bool use_precision = (flag & WM_MANIPULATOR_TWEAK_PRECISE) != 0;
+		const bool use_precision = (tweak_flag & WM_MANIPULATOR_TWEAK_PRECISE) != 0;
 		float value = manipulator_value_from_offset(data, inter, ofs_new, constrained, inverted, use_precision);
 
 		WM_manipulator_target_property_value_set(C, mpr, mpr_prop, value);
@@ -356,7 +360,7 @@ static void manipulator_arrow_setup(wmManipulator *mpr)
 {
 	ArrowManipulator3D *arrow = (ArrowManipulator3D *)mpr;
 
-	arrow->manipulator.flag |= WM_MANIPULATOR_DRAW_ACTIVE;
+	arrow->manipulator.flag |= WM_MANIPULATOR_DRAW_MODAL;
 
 	arrow->data.range_fac = 1.0f;
 }

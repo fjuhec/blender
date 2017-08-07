@@ -49,18 +49,19 @@ static void EEVEE_engine_init(void *ved)
 	EEVEE_StorageList *stl = ((EEVEE_Data *)vedata)->stl;
 	EEVEE_SceneLayerData *sldata = EEVEE_scene_layer_data_get();
 
-	DRWFboTexture tex = {&txl->color, DRW_TEX_RGB_11_11_10, DRW_TEX_FILTER};
-
-	const float *viewport_size = DRW_viewport_size_get();
-	DRW_framebuffer_init(&fbl->main, &draw_engine_eevee_type,
-	                    (int)viewport_size[0], (int)viewport_size[1],
-	                    &tex, 1);
-
 	if (!stl->g_data) {
 		/* Alloc transient pointers */
 		stl->g_data = MEM_mallocN(sizeof(*stl->g_data), __func__);
 	}
 	stl->g_data->background_alpha = 1.0f;
+	stl->g_data->valid_double_buffer = (txl->color_double_buffer != NULL);
+
+	DRWFboTexture tex = {&txl->color, DRW_TEX_RGB_11_11_10, DRW_TEX_FILTER | DRW_TEX_MIPMAP};
+
+	const float *viewport_size = DRW_viewport_size_get();
+	DRW_framebuffer_init(&fbl->main, &draw_engine_eevee_type,
+	                    (int)viewport_size[0], (int)viewport_size[1],
+	                    &tex, 1);
 
 	EEVEE_materials_init(stl);
 	EEVEE_lights_init(sldata);
@@ -97,16 +98,31 @@ static void EEVEE_cache_populate(void *vedata, Object *ob)
 		const bool cast_shadow = true;
 
 		if (cast_shadow) {
-			BLI_addtail(&sldata->shadow_casters, BLI_genericNodeN(ob));
-			EEVEE_ObjectEngineData *oedata = EEVEE_object_data_get(ob);
-			oedata->need_update = ((ob->deg_update_flag & DEG_RUNTIME_DATA_UPDATE) != 0);
+			if ((ob->base_flag & BASE_FROMDUPLI) != 0) {
+				/* TODO: Special case for dupli objects because we cannot save the object pointer. */
+			}
+			else {
+				BLI_addtail(&sldata->shadow_casters, BLI_genericNodeN(ob));
+				EEVEE_ObjectEngineData *oedata = EEVEE_object_data_get(ob);
+				oedata->need_update = ((ob->deg_update_flag & DEG_RUNTIME_DATA_UPDATE) != 0);
+			}
 		}
 	}
 	else if (ob->type == OB_LIGHTPROBE) {
-		EEVEE_lightprobes_cache_add(sldata, ob);
+		if ((ob->base_flag & BASE_FROMDUPLI) != 0) {
+			/* TODO: Special case for dupli objects because we cannot save the object pointer. */
+		}
+		else {
+			EEVEE_lightprobes_cache_add(sldata, ob);
+		}
 	}
 	else if (ob->type == OB_LAMP) {
-		EEVEE_lights_cache_add(sldata, ob);
+		if ((ob->base_flag & BASE_FROMDUPLI) != 0) {
+			/* TODO: Special case for dupli objects because we cannot save the object pointer. */
+		}
+		else {
+			EEVEE_lights_cache_add(sldata, ob);
+		}
 	}
 }
 
@@ -128,44 +144,72 @@ static void EEVEE_draw_scene(void *vedata)
 	/* Default framebuffer and texture */
 	DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
 
-	/* Refresh shadows */
-	EEVEE_draw_shadows(sldata, psl);
+	/* Number of iteration: needed for all temporal effect (SSR, TAA)
+	 * when using opengl render. */
+	int loop_ct = DRW_state_is_image_render() ? 4 : 1;
 
-	/* Refresh Probes */
-	EEVEE_lightprobes_refresh(sldata, vedata);
+	while (loop_ct--) {
+		/* Refresh shadows */
+		DRW_stats_group_start("Shadows");
+		EEVEE_draw_shadows(sldata, psl);
+		DRW_stats_group_end();
 
-	/* Attach depth to the hdr buffer and bind it */	
-	DRW_framebuffer_texture_detach(dtxl->depth);
-	DRW_framebuffer_texture_attach(fbl->main, dtxl->depth, 0, 0);
-	DRW_framebuffer_bind(fbl->main);
-	DRW_framebuffer_clear(false, true, false, NULL, 1.0f);
+		/* Refresh Probes */
+		DRW_stats_group_start("Probes Refresh");
+		EEVEE_lightprobes_refresh(sldata, vedata);
+		DRW_stats_group_end();
 
-	DRW_draw_pass(psl->background_pass);
+		/* Attach depth to the hdr buffer and bind it */
+		DRW_framebuffer_texture_detach(dtxl->depth);
+		DRW_framebuffer_texture_attach(fbl->main, dtxl->depth, 0, 0);
+		DRW_framebuffer_bind(fbl->main);
+		DRW_framebuffer_clear(false, true, false, NULL, 1.0f);
 
-	/* Depth prepass */
-	DRW_draw_pass(psl->depth_pass);
-	DRW_draw_pass(psl->depth_pass_cull);
+		/* Depth prepass */
+		DRW_stats_group_start("Prepass");
+		DRW_draw_pass(psl->depth_pass);
+		DRW_draw_pass(psl->depth_pass_cull);
+		DRW_stats_group_end();
 
-	/* Create minmax texture */
-	EEVEE_create_minmax_buffer(vedata, dtxl->depth);
+		DRW_draw_pass(psl->background_pass);
 
-	/* Restore main FB */
-	DRW_framebuffer_bind(fbl->main);
+		/* Create minmax texture */
+		DRW_stats_group_start("Main MinMax buffer");
+		EEVEE_create_minmax_buffer(vedata, dtxl->depth, -1);
+		DRW_stats_group_end();
 
-	/* Shading pass */
-	DRW_draw_pass(psl->probe_display);
-	EEVEE_draw_default_passes(psl);
-	DRW_draw_pass(psl->material_pass);
+		/* Restore main FB */
+		DRW_framebuffer_bind(fbl->main);
 
-	/* Volumetrics */
-	EEVEE_effects_do_volumetrics(sldata, vedata);
+		/* Shading pass */
+		DRW_stats_group_start("Shading");
+		EEVEE_draw_default_passes(psl);
+		DRW_draw_pass(psl->material_pass);
+		DRW_stats_group_end();
 
-	/* Transparent */
-	DRW_pass_sort_shgroup_z(psl->transparent_pass);
-	DRW_draw_pass(psl->transparent_pass);
+		/* Screen Space Reflections */
+		DRW_stats_group_start("SSR");
+		EEVEE_effects_do_ssr(sldata, vedata);
+		DRW_stats_group_end();
 
-	/* Post Process */
-	EEVEE_draw_effects(vedata);
+		DRW_draw_pass(psl->probe_display);
+
+		/* Volumetrics */
+		DRW_stats_group_start("Volumetrics");
+		EEVEE_effects_do_volumetrics(sldata, vedata);
+		DRW_stats_group_end();
+
+		/* Transparent */
+		DRW_pass_sort_shgroup_z(psl->transparent_pass);
+		DRW_stats_group_start("Transparent");
+		DRW_draw_pass(psl->transparent_pass);
+		DRW_stats_group_end();
+
+		/* Post Process */
+		DRW_stats_group_start("Post FX");
+		EEVEE_draw_effects(vedata);
+		DRW_stats_group_end();
+	}
 }
 
 static void EEVEE_engine_free(void)
@@ -190,6 +234,15 @@ static void EEVEE_scene_layer_settings_create(RenderEngine *UNUSED(engine), IDPr
 	BLI_assert(props &&
 	           props->type == IDP_GROUP &&
 	           props->subtype == IDP_GROUP_SUB_ENGINE_RENDER);
+
+	BKE_collection_engine_property_add_bool(props, "ssr_enable", false);
+	BKE_collection_engine_property_add_bool(props, "ssr_halfres", true);
+	BKE_collection_engine_property_add_int(props, "ssr_ray_count", 1);
+	BKE_collection_engine_property_add_float(props, "ssr_quality", 0.25f);
+	BKE_collection_engine_property_add_float(props, "ssr_max_roughness", 0.5f);
+	BKE_collection_engine_property_add_float(props, "ssr_thickness", 0.2f);
+	BKE_collection_engine_property_add_float(props, "ssr_border_fade", 0.075f);
+	BKE_collection_engine_property_add_float(props, "ssr_firefly_fac", 0.0f);
 
 	BKE_collection_engine_property_add_bool(props, "volumetric_enable", false);
 	BKE_collection_engine_property_add_float(props, "volumetric_start", 0.1f);

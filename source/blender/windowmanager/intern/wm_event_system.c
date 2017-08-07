@@ -335,7 +335,7 @@ void wm_event_do_notifiers(bContext *C)
 				}
 			}
 			if (ELEM(note->category, NC_SCENE, NC_OBJECT, NC_GEOM, NC_WM)) {
-				SceneLayer *sl = BKE_scene_layer_context_active_PLACEHOLDER(scene);
+				SceneLayer *sl = CTX_data_scene_layer(C);
 				ED_info_stats_clear(sl);
 				WM_event_add_notifier(C, NC_SPACE | ND_SPACE_INFO, NULL);
 			}
@@ -642,6 +642,16 @@ void WM_report_banner_show(void)
 bool WM_event_is_absolute(const wmEvent *event)
 {
 	return (event->tablet_data != NULL);
+}
+
+bool WM_event_is_last_mousemove(const wmEvent *event)
+{
+	while ((event = event->next)) {
+		if (ELEM(event->type, MOUSEMOVE, INBETWEEN_MOUSEMOVE)) {
+			return false;
+		}
+	}
+	return true;
 }
 
 #ifdef WITH_INPUT_NDOF
@@ -1108,6 +1118,9 @@ bool WM_operator_last_properties_store(wmOperator *UNUSED(op))
 
 #endif
 
+/**
+ * Also used for exec when 'event' is NULL.
+ */
 static int wm_operator_invoke(
         bContext *C, wmOperatorType *ot, wmEvent *event,
         PointerRNA *properties, ReportList *reports, const bool poll_only)
@@ -1123,7 +1136,9 @@ static int wm_operator_invoke(
 		wmOperator *op = wm_operator_create(wm, ot, properties, reports); /* if reports == NULL, they'll be initialized */
 		const bool is_nested_call = (wm->op_undo_depth != 0);
 		
-		op->flag |= OP_IS_INVOKE;
+		if (event != NULL) {
+			op->flag |= OP_IS_INVOKE;
+		}
 
 		/* initialize setting from previous run */
 		if (!is_nested_call) { /* not called by py script */
@@ -1574,6 +1589,36 @@ int WM_userdef_event_map(int kmitype)
 	return kmitype;
 }
 
+/**
+ * Use so we can check if 'wmEvent.type' is released in modal operators.
+ *
+ * An alternative would be to add a 'wmEvent.type_nokeymap'... or similar.
+ */
+int WM_userdef_event_type_from_keymap_type(int kmitype)
+{
+	switch (kmitype) {
+		case SELECTMOUSE:
+			return (U.flag & USER_LMOUSESELECT) ? LEFTMOUSE : RIGHTMOUSE;
+		case ACTIONMOUSE:
+			return (U.flag & USER_LMOUSESELECT) ? RIGHTMOUSE : LEFTMOUSE;
+		case EVT_TWEAK_S:
+			return (U.flag & USER_LMOUSESELECT) ? LEFTMOUSE : RIGHTMOUSE;
+		case EVT_TWEAK_A:
+			return (U.flag & USER_LMOUSESELECT) ? RIGHTMOUSE : LEFTMOUSE;
+		case EVT_TWEAK_L:
+			return LEFTMOUSE;
+		case EVT_TWEAK_M:
+			return MIDDLEMOUSE;
+		case EVT_TWEAK_R:
+			return RIGHTMOUSE;
+		case WHEELOUTMOUSE:
+			return (U.uiflag & USER_WHEELZOOMDIR) ? WHEELUPMOUSE : WHEELDOWNMOUSE;
+		case WHEELINMOUSE:
+			return (U.uiflag & USER_WHEELZOOMDIR) ? WHEELDOWNMOUSE : WHEELUPMOUSE;
+	}
+
+	return kmitype;
+}
 
 static int wm_eventmatch(const wmEvent *winevent, wmKeyMapItem *kmi)
 {
@@ -2152,54 +2197,120 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 				wmManipulatorMap *mmap = handler->manipulator_map;
 				wmManipulator *mpr = wm_manipulatormap_highlight_get(mmap);
 
+				if (region->manipulator_map != handler->manipulator_map) {
+					WM_manipulatormap_tag_refresh(handler->manipulator_map);
+				}
+
 				wm_manipulatormap_handler_context(C, handler);
 				wm_region_mouse_co(C, event);
 
 				/* handle manipulator highlighting */
-				if (event->type == MOUSEMOVE && !wm_manipulatormap_active_get(mmap)) {
+				if (event->type == MOUSEMOVE && !wm_manipulatormap_modal_get(mmap)) {
 					int part;
 					mpr = wm_manipulatormap_highlight_find(mmap, C, event, &part);
 					wm_manipulatormap_highlight_set(mmap, C, mpr, part);
 				}
 				/* handle user configurable manipulator-map keymap */
-				else if (mpr) {
-					/* get user customized keymap from default one */
-					const wmManipulatorGroup *highlightgroup = mpr->parent_mgroup;
-					const wmKeyMap *keymap = WM_keymap_active(wm, highlightgroup->type->keymap);
-					wmKeyMapItem *kmi;
+				else {
+					/* Either we operate on a single highlighted item
+					 * or groups attached to the selected manipulators.
+					 * To simplify things both cases loop over an array of items. */
+					wmManipulatorGroup *mgroup_first;
+					bool is_mgroup_single;
 
-					PRINT("%s:   checking '%s' ...", __func__, keymap->idname);
+					if (ISMOUSE(event->type)) {
+						/* Keep mpr set as-is, just fake single selection. */
+						if (mpr) {
+							mgroup_first = mpr->parent_mgroup;
+						}
+						else {
+							mgroup_first = NULL;
+						}
+						is_mgroup_single = true;
+					}
+					else {
+						if (WM_manipulatormap_is_any_selected(mmap)) {
+							const ListBase *groups = WM_manipulatormap_group_list(mmap);
+							mgroup_first = groups->first;
+						}
+						else {
+							mgroup_first = NULL;
+						}
+						is_mgroup_single = false;
+					}
 
-					if (!keymap->poll || keymap->poll(C)) {
-						PRINT("pass\n");
-						for (kmi = keymap->items.first; kmi; kmi = kmi->next) {
-							if (wm_eventmatch(event, kmi)) {
-								wmOperator *op = handler->op;
+					/* Don't use from now on. */
+					mpr = NULL;
 
-								PRINT("%s:     item matched '%s'\n", __func__, kmi->idname);
+					for (wmManipulatorGroup *mgroup = mgroup_first; mgroup; mgroup = mgroup->next) {
+						/* get user customized keymap from default one */
 
-								/* weak, but allows interactive callback to not use rawkey */
-								event->keymap_idname = kmi->idname;
+						if ((is_mgroup_single == false) &&
+						    /* We might want to change the logic here and use some kind of manipulator edit-mode.
+						     * For now just use keymap when a selection exists. */
+						    wm_manipulatorgroup_is_any_selected(mgroup) == false)
+						{
+							continue;
+						}
 
-								/* handler->op is called later, we want keymap op to be triggered here */
-								handler->op = NULL;
-								action |= wm_handler_operator_call(C, handlers, handler, event, kmi->ptr);
-								handler->op = op;
+						const wmKeyMap *keymap = WM_keymap_active(wm, mgroup->type->keymap);
+						wmKeyMapItem *kmi;
 
-								if (action & WM_HANDLER_BREAK) {
-									if (action & WM_HANDLER_HANDLED) {
-										if (G.debug & (G_DEBUG_EVENTS | G_DEBUG_HANDLERS))
-											printf("%s:       handled - and pass on! '%s'\n", __func__, kmi->idname);
+						PRINT("%s:   checking '%s' ...", __func__, keymap->idname);
+
+						if (!keymap->poll || keymap->poll(C)) {
+							PRINT("pass\n");
+							for (kmi = keymap->items.first; kmi; kmi = kmi->next) {
+								if (wm_eventmatch(event, kmi)) {
+									wmOperator *op = handler->op;
+
+									PRINT("%s:     item matched '%s'\n", __func__, kmi->idname);
+
+									/* weak, but allows interactive callback to not use rawkey */
+									event->keymap_idname = kmi->idname;
+
+									CTX_wm_manipulator_group_set(C, mgroup);
+
+									/* handler->op is called later, we want keymap op to be triggered here */
+									handler->op = NULL;
+									action |= wm_handler_operator_call(C, handlers, handler, event, kmi->ptr);
+									handler->op = op;
+
+									CTX_wm_manipulator_group_set(C, NULL);
+
+									if (action & WM_HANDLER_BREAK) {
+										if (G.debug & (G_DEBUG_EVENTS | G_DEBUG_HANDLERS)) {
+											printf("%s:       handled - and pass on! '%s'\n",
+											       __func__, kmi->idname);
+										}
+										break;
 									}
 									else {
-										PRINT("%s:       un-handled '%s'\n", __func__, kmi->idname);
+										if (action & WM_HANDLER_HANDLED) {
+											if (G.debug & (G_DEBUG_EVENTS | G_DEBUG_HANDLERS)) {
+												printf("%s:       handled - and pass on! '%s'\n",
+												       __func__, kmi->idname);
+											}
+										}
+										else {
+											PRINT("%s:       un-handled '%s'\n",
+											      __func__, kmi->idname);
+										}
 									}
 								}
 							}
 						}
-					}
-					else {
-						PRINT("fail\n");
+						else {
+							PRINT("fail\n");
+						}
+
+						if (action & WM_HANDLER_BREAK) {
+							break;
+						}
+
+						if (is_mgroup_single) {
+							break;
+						}
 					}
 				}
 
@@ -2701,7 +2812,7 @@ void WM_event_add_fileselect(bContext *C, wmOperator *op)
 	wmWindow *win = CTX_wm_window(C);
 
 	/* only allow 1 file selector open per window */
-	for (handler = win->handlers.first; handler; handler = handlernext) {
+	for (handler = win->modalhandlers.first; handler; handler = handlernext) {
 		handlernext = handler->next;
 		
 		if (handler->type == WM_HANDLER_FILESELECT) {
@@ -2715,7 +2826,7 @@ void WM_event_add_fileselect(bContext *C, wmOperator *op)
 
 					if (sfile->op == handler->op) {
 						CTX_wm_area_set(C, sa);
-						wm_handler_fileselect_do(C, &win->handlers, handler, EVT_FILESELECT_CANCEL);
+						wm_handler_fileselect_do(C, &win->modalhandlers, handler, EVT_FILESELECT_CANCEL);
 						break;
 					}
 				}
@@ -2723,7 +2834,7 @@ void WM_event_add_fileselect(bContext *C, wmOperator *op)
 
 			/* if not found we stop the handler without changing the screen */
 			if (!sa)
-				wm_handler_fileselect_do(C, &win->handlers, handler, EVT_FILESELECT_EXTERNAL_CANCEL);
+				wm_handler_fileselect_do(C, &win->modalhandlers, handler, EVT_FILESELECT_EXTERNAL_CANCEL);
 		}
 	}
 	
@@ -2734,7 +2845,7 @@ void WM_event_add_fileselect(bContext *C, wmOperator *op)
 	handler->op_area = CTX_wm_area(C);
 	handler->op_region = CTX_wm_region(C);
 	
-	BLI_addhead(&win->handlers, handler);
+	BLI_addhead(&win->modalhandlers, handler);
 	
 	/* check props once before invoking if check is available
 	 * ensures initial properties are valid */
@@ -2784,7 +2895,8 @@ wmEventHandler *WM_event_add_modal_handler(bContext *C, wmOperator *op)
 void WM_event_modal_handler_area_replace(wmWindow *win, const ScrArea *old_area, ScrArea *new_area)
 {
 	for (wmEventHandler *handler = win->modalhandlers.first; handler; handler = handler->next) {
-		if (handler->op_area == old_area) {
+		/* fileselect handler is quite special... it needs to keep old area stored in handler, so don't change it */
+		if ((handler->op_area == old_area) && (handler->type != WM_HANDLER_FILESELECT)) {
 			handler->op_area = new_area;
 		}
 	}
@@ -2986,7 +3098,7 @@ void WM_event_add_mousemove(bContext *C)
 
 
 /* for modal callbacks, check configuration for how to interpret exit with tweaks  */
-bool WM_modal_tweak_exit(const wmEvent *event, int tweak_event)
+bool WM_event_is_modal_tweak_exit(const wmEvent *event, int tweak_event)
 {
 	/* if the release-confirm userpref setting is enabled, 
 	 * tweak events can be canceled when mouse is released

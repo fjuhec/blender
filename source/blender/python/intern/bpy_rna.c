@@ -6657,7 +6657,30 @@ PyObject *pyrna_struct_CreatePyObject(PointerRNA *ptr)
 	if (ptr->data == NULL && ptr->type == NULL) { /* Operator RNA has NULL data */
 		Py_RETURN_NONE;
 	}
-	else {
+
+	/* New in 2.8x, since not many types support instancing
+	 * we may want to use a flag to avoid looping over all classes. - campbell */
+	void **instance = ptr->data ? RNA_struct_instance(ptr) : NULL;
+	if (instance && *instance) {
+		pyrna = *instance;
+
+		/* Refine may have changed types after the first instance was created. */
+		if (ptr->type == pyrna->ptr.type) {
+			Py_INCREF(pyrna);
+			return (PyObject *)pyrna;
+		}
+		else {
+			/* Existing users will need to use 'type_recast' method. */
+			Py_DECREF(pyrna);
+			*instance = NULL;
+			/* Continue as if no instance was made */
+#if 0		/* no need to assign, will be written to next... */
+			pyrna = NULL;
+#endif
+		}
+	}
+
+	{
 		PyTypeObject *tp = (PyTypeObject *)pyrna_struct_Subtype(ptr);
 
 		if (tp) {
@@ -6676,6 +6699,12 @@ PyObject *pyrna_struct_CreatePyObject(PointerRNA *ptr)
 	if (pyrna == NULL) {
 		PyErr_SetString(PyExc_MemoryError, "couldn't create bpy_struct object");
 		return NULL;
+	}
+
+	/* Blender's instance owns a reference (to avoid Python freeing it). */
+	if (instance) {
+		*instance = pyrna;
+		Py_INCREF(pyrna);
 	}
 
 	pyrna->ptr = *ptr;
@@ -7450,7 +7479,6 @@ static int bpy_class_call(bContext *C, PointerRNA *ptr, FunctionRNA *func, Param
 	PyObject *args;
 	PyObject *ret = NULL, *py_srna = NULL, *py_class_instance = NULL, *parmitem;
 	PyTypeObject *py_class;
-	void **py_class_instance_store = NULL;
 	PropertyRNA *parm;
 	ParameterIterator iter;
 	PointerRNA funcptr;
@@ -7500,10 +7528,6 @@ static int bpy_class_call(bContext *C, PointerRNA *ptr, FunctionRNA *func, Param
 				if (*instance) {
 					py_class_instance = *instance;
 					Py_INCREF(py_class_instance);
-				}
-				else {
-					/* store the instance here once its created */
-					py_class_instance_store = instance;
 				}
 			}
 		}
@@ -7574,10 +7598,6 @@ static int bpy_class_call(bContext *C, PointerRNA *ptr, FunctionRNA *func, Param
 
 			if (py_class_instance == NULL) {
 				err = -1; /* so the error is not overridden below */
-			}
-			else if (py_class_instance_store) {
-				*py_class_instance_store = py_class_instance;
-				Py_INCREF(py_class_instance);
 			}
 		}
 	}
