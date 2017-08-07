@@ -1059,6 +1059,7 @@ class GreasePencilDataPanel:
 class GreasePencilLayerOptionPanel:
     bl_label = "Options"
     bl_region_type = 'UI'
+    bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(cls, context):
@@ -1121,6 +1122,7 @@ class GreasePencilLayerOptionPanel:
 class GreasePencilOnionPanel:
     bl_label = "Onion Skinning"
     bl_region_type = 'UI'
+    bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(cls, context):
@@ -1183,6 +1185,7 @@ class GreasePencilOnionPanel:
 class GreasePencilParentLayerPanel:
     bl_label = "Parent Layer"
     bl_region_type = 'UI'
+    bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(cls, context):
@@ -1241,6 +1244,7 @@ class GPENCIL_UL_vgroups(UIList):
 class GreasePencilVertexGroupPanel:
     bl_label = "Vertex Groups"
     bl_region_type = 'UI'
+    bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(cls, context):
@@ -1529,6 +1533,7 @@ class GreasePencilToolsPanel:
     # bl_options = {'DEFAULT_CLOSED'}
     bl_label = "Grease Pencil Settings"
     bl_region_type = 'UI'
+    bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(cls, context):

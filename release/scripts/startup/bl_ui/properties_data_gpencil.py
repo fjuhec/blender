@@ -66,6 +66,7 @@ class DATA_PT_gpencil_layeroptionpanel(GreasePencilLayerOptionPanel, Panel):
     bl_region_type = 'WINDOW'
     bl_context = "data"
     bl_label = "Options"
+    bl_options = {'DEFAULT_CLOSED'}
 
     # NOTE: this is just a wrapper around the generic GP Panel
 
@@ -75,6 +76,7 @@ class DATA_PT_gpencil_onionpanel(GreasePencilOnionPanel, Panel):
     bl_region_type = 'WINDOW'
     bl_context = "data"
     bl_label = "Onion Skinning"
+    bl_options = {'DEFAULT_CLOSED'}
 
     # NOTE: this is just a wrapper around the generic GP Panel
 
@@ -84,6 +86,7 @@ class DATA_PT_gpencilparentpanel(GreasePencilParentLayerPanel, Panel):
     bl_region_type = 'WINDOW'
     bl_context = "data"
     bl_label = "Layer Relations"
+    bl_options = {'DEFAULT_CLOSED'}
 
     # NOTE: this is just a wrapper around the generic GP Panel
 
@@ -92,9 +95,11 @@ class DATA_PT_gpencilvertexpanel(GreasePencilVertexGroupPanel, Panel):
     bl_region_type = 'WINDOW'
     bl_context = "data"
     bl_label = "Vertex Groups"
+    bl_options = {'DEFAULT_CLOSED'}
 
 class DATA_PT_gpencil_display(DataButtonsPanel, Panel):
     bl_label = "Display"
+    bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
         layout = self.layout
