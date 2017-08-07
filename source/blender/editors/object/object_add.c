@@ -1032,7 +1032,7 @@ void OBJECT_OT_gpencil_add(wmOperatorType *ot)
 
 	/* identifiers */
 	ot->name = "Add Gpencil";
-	ot->description = "Add an grease pencil object to the scene";
+	ot->description = "Add a grease pencil object to the scene";
 	ot->idname = "OBJECT_OT_gpencil_add";
 
 	/* api callbacks */
