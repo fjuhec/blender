@@ -130,6 +130,7 @@ CCL_NAMESPACE_BEGIN
 #  ifdef __KERNEL_OPENCL_APPLE__
 #    define __KERNEL_SHADING__
 #    define __KERNEL_ADV_SHADING__
+#    define __PRINCIPLED__
 #    define __CMJ__
 /* TODO(sergey): Currently experimental section is ignored here,
  * this is because megakernel in device_opencl does not support
@@ -154,6 +155,7 @@ CCL_NAMESPACE_BEGIN
 #    define __CL_USE_NATIVE__
 #    define __KERNEL_SHADING__
 #    define __KERNEL_ADV_SHADING__
+#    define __PRINCIPLED__
 #    define __CMJ__
 #  endif  /* __KERNEL_OPENCL_INTEL_CPU__ */
 
@@ -1234,7 +1236,6 @@ typedef struct KernelIntegrator {
 	int portal_offset;
 
 	/* bounces */
-	int min_bounce;
 	int max_bounce;
 
 	int max_diffuse_bounce;
@@ -1245,7 +1246,6 @@ typedef struct KernelIntegrator {
 	int ao_bounces;
 
 	/* transparent */
-	int transparent_min_bounce;
 	int transparent_max_bounce;
 	int transparent_shadows;
 
@@ -1288,7 +1288,7 @@ typedef struct KernelIntegrator {
 	float light_inv_rr_threshold;
 
 	int start_sample;
-	int pad1, pad2, pad3;
+	int pad1;
 } KernelIntegrator;
 static_assert_align(KernelIntegrator, 16);
 
