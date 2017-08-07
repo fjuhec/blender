@@ -631,8 +631,18 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 		}
 	}
 	int gps_idx = -1;
-	for (gps = derived_gpf->strokes.first, src_gps = src_gpf->strokes.first; gps; gps = gps->next, src_gps = src_gps->next) {
+
+	if (src_gpf) {
+		src_gps = src_gpf->strokes.first;
+	}
+	else {
+		src_gps = NULL;
+	}
+
+	for (gps = derived_gpf->strokes.first; gps; gps = gps->next) {
 		++gps_idx;
+
+
 		/* check if stroke can be drawn */
 		if (gpencil_can_draw_stroke(gps, onion) == false) {
 			continue;
@@ -682,8 +692,12 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 		gpencil_add_stroke_shgroup(cache, strokegrp, ob, gpd, gpl, derived_gpf, gps, opacity, tintcolor, onion, custonion);
 
 		/* edit points (only in edit mode) */
-		if (!onion) {
+		if ((!onion) && (src_gps)){
 			gpencil_add_editpoints_shgroup(stl, cache, ts, ob, gpd, gpl, derived_gpf, src_gps);
+		}
+
+		if (src_gps) {
+			src_gps = src_gps->next;
 		}
 
 		++cache->cache_idx;
