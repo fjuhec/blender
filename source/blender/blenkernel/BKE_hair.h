@@ -36,6 +36,7 @@
 
 struct HairFollicle;
 struct HairPattern;
+struct HairGroup;
 struct DerivedMesh;
 
 static const unsigned int STRAND_INDEX_NONE = 0xFFFFFFFF;
@@ -46,6 +47,13 @@ void BKE_hair_free(struct HairPattern *hair);
 
 void BKE_hair_set_num_follicles(struct HairPattern *hair, int count);
 void BKE_hair_follicles_generate(struct HairPattern *hair, struct DerivedMesh *scalp, int count, unsigned int seed);
+
+struct HairGroup* BKE_hair_group_new(struct HairPattern *hair, int type);
+void BKE_hair_group_remove(struct HairPattern *hair, struct HairGroup *group);
+struct HairGroup* BKE_hair_group_copy(struct HairPattern *hair, struct HairGroup *group);
+void BKE_hair_group_moveto(struct HairPattern *hair, struct HairGroup *group, int position);
+
+void BKE_hair_group_name_set(struct HairPattern *hair, struct HairGroup *group, const char *name);
 
 /* ================================= */
 

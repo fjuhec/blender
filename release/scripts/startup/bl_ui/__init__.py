@@ -43,6 +43,7 @@ _modules = [
     "properties_data_lightprobe",
     "properties_data_speaker",
     "properties_game",
+    "properties_hair",
     "properties_mask_common",
     "properties_material",
     "properties_object",

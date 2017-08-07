@@ -47,8 +47,24 @@ typedef struct HairFollicle {
 typedef struct HairPattern {
 	struct HairFollicle *follicles;
 	int num_follicles;
-	int pad;
+	
+	int active_group;
+	ListBase groups;
 } HairPattern;
+
+typedef struct HairGroup {
+	struct HairGroup *next, *prev;
+	
+	char name[64]; /* MAX_NAME */
+	int type;
+	
+	float max_length;
+} HairGroup;
+
+typedef enum HairGroup_Type {
+	HAIR_GROUP_TYPE_NORMALS    = 1,
+	HAIR_GROUP_TYPE_STRANDS    = 2,
+} HairGroup_Type;
 
 #ifdef __cplusplus
 }

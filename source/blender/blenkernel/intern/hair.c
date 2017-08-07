@@ -36,6 +36,7 @@
 #include "BLI_math.h"
 #include "BLI_kdtree.h"
 #include "BLI_rand.h"
+#include "BLI_string_utils.h"
 
 #include "DNA_hair_types.h"
 
@@ -43,25 +44,29 @@
 #include "BKE_mesh_sample.h"
 #include "BKE_hair.h"
 
+#include "BLT_translation.h"
+
 #include "bmesh.h"
 
 HairPattern* BKE_hair_new(void)
 {
-	HairPattern *hair = MEM_mallocN(sizeof(HairPattern), "hair");
+	HairPattern *hair = MEM_callocN(sizeof(HairPattern), "hair");
 	
-	hair->follicles = NULL;
-	hair->num_follicles = 0;
+	/* add a default hair group */
+	BKE_hair_group_new(hair, HAIR_GROUP_TYPE_NORMALS);
 	
 	return hair;
 }
 
 HairPattern* BKE_hair_copy(HairPattern *hair)
 {
-	HairPattern *newhair = MEM_dupallocN(hair);
+	HairPattern *nhair = MEM_dupallocN(hair);
 	
-	newhair->follicles = MEM_dupallocN(hair->follicles);
+	nhair->follicles = MEM_dupallocN(hair->follicles);
 	
-	return newhair;
+	BLI_duplicatelist(&nhair->groups, &hair->groups);
+	
+	return nhair;
 }
 
 void BKE_hair_free(struct HairPattern *hair)
@@ -69,6 +74,8 @@ void BKE_hair_free(struct HairPattern *hair)
 	if (hair->follicles) {
 		MEM_freeN(hair->follicles);
 	}
+	
+	BLI_freelistN(&hair->groups);
 	
 	MEM_freeN(hair);
 }
@@ -115,6 +122,67 @@ void BKE_hair_follicles_generate(HairPattern *hair, DerivedMesh *scalp, int coun
 	}
 	
 	BKE_mesh_sample_free_generator(gen);
+}
+
+HairGroup* BKE_hair_group_new(HairPattern *hair, int type)
+{
+	HairGroup *group = MEM_callocN(sizeof(HairGroup), "hair group");
+	
+	group->type = type;
+	BKE_hair_group_name_set(hair, group, DATA_("Group"));
+	
+	switch (type) {
+		case HAIR_GROUP_TYPE_NORMALS:
+			group->max_length = 0.1f;
+			break;
+		case HAIR_GROUP_TYPE_STRANDS:
+			group->max_length = 0.5f;
+			break;
+	}
+	
+	BLI_addtail(&hair->groups, group);
+	
+	return group;
+}
+
+void BKE_hair_group_remove(HairPattern *hair, HairGroup *group)
+{
+	if (!group) {
+		return;
+	}
+	BLI_assert(BLI_findindex(&hair->groups, group) >= 0);
+	
+	BLI_remlink(&hair->groups, group);
+	MEM_freeN(group);
+}
+
+HairGroup* BKE_hair_group_copy(HairPattern *hair, HairGroup *group)
+{
+	if (!group) {
+		return NULL;
+	}
+	
+	HairGroup *ngroup = MEM_dupallocN(group);
+	
+	BLI_insertlinkafter(&hair->groups, group, ngroup);
+	return ngroup;
+}
+
+void BKE_hair_group_moveto(HairPattern *hair, HairGroup *group, int position)
+{
+	if (!group) {
+		return;
+	}
+	BLI_assert(BLI_findindex(&hair->groups, group) >= 0);
+	
+	BLI_remlink(&hair->groups, group);
+	BLI_insertlinkbefore(&hair->groups, BLI_findlink(&hair->groups, position), group);
+}
+
+void BKE_hair_group_name_set(HairPattern *hair, HairGroup *group, const char *name)
+{
+	BLI_strncpy_utf8(group->name, name, sizeof(group->name));
+	BLI_uniquename(&hair->groups, group, DATA_("Group"), '.', offsetof(HairGroup, name), sizeof(group->name));
 }
 
 /* ================================= */

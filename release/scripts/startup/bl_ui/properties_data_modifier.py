@@ -1533,10 +1533,18 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
 
         col = layout.column()
         col.label(text="Follicles:")
-        row = col.row(align = True)
-        row.enabled = False
-        row.prop(hair, "num_follicles")
+        col.label(text="Count: %d" % len(hair.follicles))
         col.operator("object.hair_follicles_generate", text="Generate")
+
+        col = layout.column()
+        col.template_list("HAIR_UL_groups", "", hair, "groups", hair, "active_group_index")
+
+        layout.separator()
+
+        group = hair.active_group
+        if group:
+            col = layout.column()
+            col.prop(group, "type")
 
 
 classes = (
