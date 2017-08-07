@@ -34,7 +34,18 @@
 
 #include "BLI_utildefines.h"
 
+struct HairFollicle;
+struct HairPattern;
+
 static const unsigned int STRAND_INDEX_NONE = 0xFFFFFFFF;
+
+struct HairPattern* BKE_hair_new(void);
+struct HairPattern* BKE_hair_copy(struct HairPattern *hair);
+void BKE_hair_free(struct HairPattern *hair);
+
+void BKE_hair_set_num_follicles(struct HairPattern *hair, int num_follicles);
+
+/* ================================= */
 
 typedef struct HairFiber {
 	/* Sample on the scalp mesh for the root vertex */

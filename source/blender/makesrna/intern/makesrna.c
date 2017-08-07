@@ -3326,6 +3326,7 @@ static RNAProcessItem PROCESS_ITEMS[] = {
 	{"rna_fluidsim.c", NULL, RNA_def_fluidsim},
 	{"rna_gpencil.c", NULL, RNA_def_gpencil},
 	{"rna_group.c", NULL, RNA_def_group},
+	{"rna_hair.c", NULL, RNA_def_hair},
 	{"rna_image.c", "rna_image_api.c", RNA_def_image},
 	{"rna_key.c", NULL, RNA_def_key},
 	{"rna_lamp.c", NULL, RNA_def_lamp},

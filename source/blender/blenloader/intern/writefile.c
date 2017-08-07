@@ -121,6 +121,7 @@
 #include "DNA_group_types.h"
 #include "DNA_gpencil_types.h"
 #include "DNA_fileglobal_types.h"
+#include "DNA_hair_types.h"
 #include "DNA_key_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_lamp_types.h"
@@ -1706,6 +1707,11 @@ static void write_fmaps(WriteData *wd, ListBase *fbase)
 	}
 }
 
+static void write_hair(WriteData *wd, HairPattern *hair)
+{
+	writestruct(wd, DATA, HairPattern, hair->num_follicles, hair->follicles);
+}
+
 static void write_modifiers(WriteData *wd, ListBase *modbase)
 {
 	ModifierData *md;
@@ -1875,6 +1881,14 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
 						}
 					}
 				}
+			}
+		}
+		else if (md->type == eModifierType_Hair) {
+			HairModifierData *hmd = (HairModifierData *)md;
+			
+			if (hmd->hair) {
+				writestruct(wd, DATA, HairPattern, 1, hmd->hair);
+				write_hair(wd, hmd->hair);
 			}
 		}
 	}

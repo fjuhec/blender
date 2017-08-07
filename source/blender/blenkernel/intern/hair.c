@@ -37,11 +37,51 @@
 #include "BLI_kdtree.h"
 #include "BLI_rand.h"
 
+#include "DNA_hair_types.h"
+
 #include "BKE_DerivedMesh.h"
 #include "BKE_mesh_sample.h"
 #include "BKE_hair.h"
 
 #include "bmesh.h"
+
+HairPattern* BKE_hair_new(void)
+{
+	HairPattern *hair = MEM_mallocN(sizeof(HairPattern), "hair");
+	
+	hair->follicles = NULL;
+	hair->num_follicles = 0;
+	
+	return hair;
+}
+
+HairPattern* BKE_hair_copy(HairPattern *hair)
+{
+	HairPattern *newhair = MEM_dupallocN(hair);
+	
+	newhair->follicles = MEM_dupallocN(hair->follicles);
+	
+	return newhair;
+}
+
+void BKE_hair_free(struct HairPattern *hair)
+{
+	if (hair->follicles) {
+		MEM_freeN(hair->follicles);
+	}
+	
+	MEM_freeN(hair);
+}
+
+void BKE_hair_set_num_follicles(HairPattern *hair, int num_follicles)
+{
+	if (hair->num_follicles != num_follicles) {
+		hair->follicles = MEM_reallocN_id(hair->follicles, sizeof(HairFollicle) * num_follicles, "hair follicles");
+		hair->num_follicles = num_follicles;
+	}
+}
+
+/* ================================= */
 
 bool BKE_hair_fiber_get_location(const HairFiber *fiber, DerivedMesh *root_dm, float loc[3])
 {

@@ -1528,6 +1528,9 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         if md.rest_source == 'BIND':
             layout.operator("object.correctivesmooth_bind", text="Unbind" if is_bind else "Bind")
 
+    def HAIR(self, layout, ob, md):
+        pass
+
 
 classes = (
     DATA_PT_modifiers,

@@ -73,6 +73,7 @@
 #include "DNA_genfile.h"
 #include "DNA_group_types.h"
 #include "DNA_gpencil_types.h"
+#include "DNA_hair_types.h"
 #include "DNA_ipo_types.h"
 #include "DNA_key_types.h"
 #include "DNA_lattice_types.h"
@@ -5118,6 +5119,15 @@ static void direct_link_pose(FileData *fd, bPose *pose)
 	}
 }
 
+static void direct_link_hair(FileData *fd, HairPattern *hair)
+{
+	if (!hair) {
+		return;
+	}
+	
+	hair->follicles = newdataadr(fd, hair->follicles);
+}
+
 static void direct_link_modifiers(FileData *fd, ListBase *lb)
 {
 	ModifierData *md;
@@ -5438,6 +5448,14 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb)
 					}
 				}
 			}
+		}
+		else if (md->type == eModifierType_Hair) {
+			HairModifierData *hmd = (HairModifierData *)md;
+			
+			hmd->hair = newdataadr(fd, hmd->hair);
+			direct_link_hair(fd, hmd->hair);
+			
+			hmd->edit = NULL;
 		}
 	}
 }
