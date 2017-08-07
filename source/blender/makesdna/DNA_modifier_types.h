@@ -1626,7 +1626,6 @@ typedef struct HairModifierData {
 	struct HairPattern *hair;
 	
 	struct BMEditStrands *edit;         /* edit data (runtime) */
-	
 } HairModifierData;
 
 #endif  /* __DNA_MODIFIER_TYPES_H__ */

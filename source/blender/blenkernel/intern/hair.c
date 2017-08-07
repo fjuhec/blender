@@ -73,12 +73,48 @@ void BKE_hair_free(struct HairPattern *hair)
 	MEM_freeN(hair);
 }
 
-void BKE_hair_set_num_follicles(HairPattern *hair, int num_follicles)
+void BKE_hair_set_num_follicles(HairPattern *hair, int count)
 {
-	if (hair->num_follicles != num_follicles) {
-		hair->follicles = MEM_reallocN_id(hair->follicles, sizeof(HairFollicle) * num_follicles, "hair follicles");
-		hair->num_follicles = num_follicles;
+	if (hair->num_follicles != count) {
+		if (count > 0) {
+			if (hair->follicles) {
+				hair->follicles = MEM_reallocN_id(hair->follicles, sizeof(HairFollicle) * count, "hair follicles");
+			}
+			else {
+				hair->follicles = MEM_callocN(sizeof(HairFollicle) * count, "hair follicles");
+			}
+		}
+		else {
+			if (hair->follicles) {
+				MEM_freeN(hair->follicles);
+				hair->follicles = NULL;
+			}
+		}
+		hair->num_follicles = count;
 	}
+}
+
+void BKE_hair_follicles_generate(HairPattern *hair, DerivedMesh *scalp, int count, unsigned int seed)
+{
+	BKE_hair_set_num_follicles(hair, count);
+	if (count == 0) {
+		return;
+	}
+	
+	MeshSampleGenerator *gen = BKE_mesh_sample_gen_surface_random(scalp, seed);
+	unsigned int i;
+	
+	HairFollicle *foll = hair->follicles;
+	for (i = 0; i < count; ++i, ++foll) {
+		bool ok = BKE_mesh_sample_generate(gen, &foll->mesh_sample);
+		if (!ok) {
+			/* clear remaining samples */
+			memset(foll, 0, sizeof(HairFollicle) * (count - i));
+			break;
+		}
+	}
+	
+	BKE_mesh_sample_free_generator(gen);
 }
 
 /* ================================= */
@@ -284,7 +320,7 @@ HairFiber* BKE_hair_fibers_create(const StrandsView *strands,
 		}
 		else {
 			/* clear remaining samples */
-			memset(fiber, 0, sizeof(HairFiber) * amount - i);
+			memset(fiber, 0, sizeof(HairFiber) * (amount - i));
 			break;
 		}
 	}
