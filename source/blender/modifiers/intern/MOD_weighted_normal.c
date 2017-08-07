@@ -23,6 +23,8 @@
  *  \ingroup modifiers
  */
 
+#include "limits.h"
+
 #include "MEM_guardedalloc.h"
 
 #include "DNA_mesh_types.h"
@@ -136,7 +138,7 @@ static void apply_weights_sharp_loops(WeightedNormalModifierData *wnmd, int *loo
 		if (wnmd->mode == MOD_WEIGHTEDNORMAL_MODE_FACE) {
 			j = loops_to_poly[loop_index[i]];
 		}
-		else if (wnmd->mode == MOD_WEIGHTEDNORMAL_MODE_ANGLE || wnmd->mode == MOD_WEIGHTEDNORMAL_MODE_FACE_ANGLE) {
+		else {
 			j = loop_index[i];
 		}
 
