@@ -54,6 +54,7 @@ typedef struct GPencilVFXWave {
 	float amplitude;
 	float period;
 	float phase;
+	float wsize[2];
 } GPencilVFXWave;
 
  /* used to save gpencil objects */

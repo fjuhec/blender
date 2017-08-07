@@ -43,9 +43,9 @@
 static void initData(ModifierData *md)
 {
 	GpencilWaveModifierData *gpmd = (GpencilWaveModifierData *)md;
-	gpmd->amplitude = 6.0f;
-	gpmd->period = 0.2f;
-	gpmd->phase = 11.0f;
+	gpmd->amplitude = 10.0f;
+	gpmd->period = 20.0f;
+	gpmd->phase = 0.0f;
 	gpmd->orientation = 1;
 	
 	BKE_gpencil_batch_cache_alldirty();
