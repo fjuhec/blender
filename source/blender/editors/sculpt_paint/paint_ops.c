@@ -634,23 +634,11 @@ static int palettecolor_move_exec(bContext *C, wmOperator *op)
 	if (ELEM(NULL, palette, palcolor))
 		return OPERATOR_CANCELLED;
 
-	/* up or down? */
-	if (direction == PALETTE_COLOR_MOVE_UP) {
-		/* up */
-		BLI_remlink(&palette->colors, palcolor);
-		BLI_insertlinkbefore(&palette->colors, palcolor->prev, palcolor);
+	BLI_assert(ELEM(direction, -1, 0, 1)); /* we use value below */
+	if (BLI_listbase_link_move(&palette->colors, palcolor, direction)) {
+		palette->active_color = BLI_findindex(&palette->colors, palcolor);
+		WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 	}
-	else if (direction == PALETTE_COLOR_MOVE_DOWN) {
-		/* down */
-		BLI_remlink(&palette->colors, palcolor);
-		BLI_insertlinkafter(&palette->colors, palcolor->next, palcolor);
-	}
-	else {
-		BLI_assert(0);
-	}
-
-	/* notifiers */
-	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 
 	return OPERATOR_FINISHED;
 }
