@@ -1350,11 +1350,13 @@ class GreasePencilPaletteColorPanel:
                 sub.operator("palette.palettecolor_move", icon='TRIA_UP', text="").direction = 'UP'
                 sub.operator("palette.palettecolor_move", icon='TRIA_DOWN', text="").direction = 'DOWN'
 
-                row = layout.row()
-                sub = row.row(align=True)
-                sub.label(text="Isolate:") # based on active color only
+                col.separator()
+
+                sub = col.column(align=True)
                 sub.operator("palette.palettecolor_isolate", icon='LOCKED', text="").affect_visibility = False
                 sub.operator("palette.palettecolor_isolate", icon='RESTRICT_VIEW_OFF', text="").affect_visibility = True
+
+                row = layout.row()
                 sub = row.row(align=True)
                 sub.label(text="Lock:") # based on other stuff...
                 sub.operator("gpencil.stroke_lock_color", icon='BORDER_RECT', text="")
@@ -1483,7 +1485,7 @@ class GreasePencilPaletteFillPanel:
 
         row = layout.row()
         col = row.column(align=True)
-        
+
         if pcolor.fill_style != 'TEXTURE':
             col.prop(pcolor, "fill_color", text="")
             col.prop(pcolor, "fill_alpha", text="Opacity", slider=True)
