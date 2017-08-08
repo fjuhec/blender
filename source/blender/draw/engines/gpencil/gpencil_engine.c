@@ -203,16 +203,12 @@ static void GPENCIL_cache_init(void *vedata)
 		PaletteColor *palcolor = BKE_palette_color_get_active(palette);
 		if (palcolor) {
 			stl->storage->stroke_style = palcolor->stroke_style;
-			if (palcolor->flag & PAC_COLOR_TEXTURE) {
+			stl->storage->color_type = GPENCIL_COLOR_SOLID;
+			if (palcolor->stroke_style == STROKE_STYLE_TEXTURE) {
+				stl->storage->color_type = GPENCIL_COLOR_TEXTURE;
 				if (palcolor->flag & PAC_COLOR_PATTERN) {
 					stl->storage->color_type = GPENCIL_COLOR_PATTERN;
 				}
-				else {
-					stl->storage->color_type = GPENCIL_COLOR_TEXTURE;
-				}
-			}
-			else {
-				stl->storage->color_type = GPENCIL_COLOR_SOLID;
 			}
 		}
 		else { 
@@ -223,7 +219,7 @@ static void GPENCIL_cache_init(void *vedata)
 		psl->drawing_pass = DRW_pass_create("Gpencil Drawing Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND);
 		stl->g_data->shgrps_drawing_fill = DRW_gpencil_shgroup_drawing_fill_create(psl->drawing_pass, e_data.gpencil_drawing_fill_sh);
 
-		if (stl->storage->stroke_style != STROKE_STYLE_VOLUMETRIC) {
+		if ((palcolor) && (palcolor->flag & PAC_COLOR_DOT) == 0) {
 			stl->g_data->shgrps_drawing_stroke = DRW_gpencil_shgroup_stroke_create(&e_data, vedata, psl->drawing_pass, e_data.gpencil_stroke_sh, NULL, NULL, palcolor, -1);
 		}
 		else {

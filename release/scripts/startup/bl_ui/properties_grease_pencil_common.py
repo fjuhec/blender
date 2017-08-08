@@ -1413,22 +1413,22 @@ class GreasePencilPaletteStrokePanel:
         col.enabled = not pcolor.lock
         col.prop(pcolor, "stroke_style", text="")
 
-        row = layout.row()
-        row.enabled = not pcolor.lock and (pcolor.use_texture is False or pcolor.use_pattern is True)
-        col = row.column(align=True)
-        col.prop(pcolor, "color", text="")
-        col.prop(pcolor, "alpha", slider=True)
+        if pcolor.stroke_style == 'TEXTURE':
+            row = layout.row()
+            row.enabled = not pcolor.lock
+            col = row.column(align=True)
+            col.template_ID(pcolor, "stroke_image", open="image.open")
+            col.prop(pcolor, "use_pattern", text="Use as Pattern")
+
+        if pcolor.stroke_style == 'SOLID' or pcolor.use_pattern is True:
+            row = layout.row()
+            col = row.column(align=True)
+            col.prop(pcolor, "color", text="")
+            col.prop(pcolor, "alpha", slider=True)
 
         row = layout.row(align=True)
         row.enabled = not pcolor.lock
-        row.prop(pcolor, "use_texture", text="Texture")
-
-        row = layout.row()
-        row.enabled = not pcolor.lock
-        col = row.column(align=True)
-        col.enabled = pcolor.use_texture
-        col.template_ID(pcolor, "stroke_image", open="image.open")
-        col.prop(pcolor, "use_pattern", text="Use as Pattern")
+        row.prop(pcolor, "use_dot", text="Dots")
 
         # Options
         row = layout.row()

@@ -221,7 +221,7 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	/* stroke styles */
 	static EnumPropertyItem stroke_style_items[] = {
 		{ STROKE_STYLE_SOLID, "SOLID", 0, "Solid", "Draw strokes with solid color" },
-		{ STROKE_STYLE_VOLUMETRIC, "VOLUMETRIC", 0, "Dot", "Draw strokes with dots" },
+		{ STROKE_STYLE_TEXTURE, "TEXTURE", 0, "Texture", "Draw strokes using texture" },
 		{ 0, NULL, 0, NULL, NULL }
 	};
 
@@ -398,9 +398,9 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Flip", "Flip filling colors");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
-	prop = RNA_def_property(srna, "use_texture", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", PAC_COLOR_TEXTURE);
-	RNA_def_property_ui_text(prop, "Use Texture", "Use the texture instead of color");
+	prop = RNA_def_property(srna, "use_dot", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", PAC_COLOR_DOT);
+	RNA_def_property_ui_text(prop, "Use Dots", "Draw stroke using dots instead of lines");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
 	prop = RNA_def_property(srna, "use_pattern", PROP_BOOLEAN, PROP_NONE);
