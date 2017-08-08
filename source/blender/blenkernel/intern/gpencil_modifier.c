@@ -466,16 +466,18 @@ void BKE_gpencil_opacity_modifier(int UNUSED(id), GpencilOpacityModifierData *mm
 	CLAMP(gps->palcolor->rgb[3], 0.0f, 1.0f);
 	CLAMP(gps->palcolor->fill[3], 0.0f, 1.0f);
 
-	/* if opacity < 1.0, affect the strength of the stroke */
-	if (mmd->factor < 1.0f) {
+	/* if opacity < 1.0 or > 1.0, affect the strength of the stroke */
+	if ((mmd->factor < 1.0f) || (mmd->factor > 1.0f)) {
 		for (int i = 0; i < gps->totpoints; ++i) {
 			pt = &gps->points[i];
 			/* verify vertex group */
 			weight = is_point_affected_by_modifier(pt, (int)(!(mmd->flag & GP_OPACITY_INVERSE_VGROUP) == 0), vindex);
 			if (weight < 0) {
-				continue;
+				pt->strength += mmd->factor - 1.0f;
 			}
-			pt->strength += ((mmd->factor * weight) - 1.0f);
+			else {
+				pt->strength += ((mmd->factor * weight) - 1.0f);
+			}
 			CLAMP(pt->strength, 0.0f, 1.0f);
 		}
 	}
