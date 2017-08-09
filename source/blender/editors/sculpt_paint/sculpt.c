@@ -5361,6 +5361,7 @@ typedef struct SpineBranch{
 	int fs_bs_offset;		/* Frontside edge offset to backside*/
 	int *e_flip_side_ends;	/* Front and backside connecting edges of each part*/
 	bool intersecting;
+	BB bb;					/* Boundingbox of each branch. Used for intersection testing */
 }SpineBranch;
 
 /* Main Tree Container */
@@ -5539,6 +5540,7 @@ static SpineBranch *new_spine_branch(int idx, int max_alloc, int hull_max)
 	branch->points = MEM_callocN(sizeof(float) * 3 * max_alloc, __func__);
 	branch->hull_points = MEM_callocN(sizeof(int) * hull_max * 2 * 3, "Spine Hull");
 	branch->terminal_points = MEM_callocN(sizeof(int) * 3 * 2, "Spine terminal");
+	BB_reset(&branch->bb);
 
 	branch->idx = idx;
 	return branch;
@@ -5657,6 +5659,24 @@ static int calc_mid_spine_rec(BMFace *f, Spine *spine, SpineBranch *active_branc
 	return added_points;
 }
 
+static void calc_bb_spine(Spine *spine, SilhouetteStroke *stroke, SilhouetteData *sil)
+{
+	SpineBranch *a_b;
+	float point[3], z_vec[3];
+	for (int b = 0; b < spine->totbranches; b++) {
+		a_b = spine->branches[b];
+		if(a_b) {
+			for (int i = 0; i < a_b->tot_hull_points; i++) {
+				mul_v3_v3fl(z_vec, sil->z_vec, sil->depth);
+				add_v3_v3v3(point, &stroke->points[a_b->hull_points[i] * 3], z_vec);
+				BB_expand(&a_b->bb, point);
+				sub_v3_v3v3(point, &stroke->points[a_b->hull_points[i] * 3], z_vec);
+				BB_expand(&a_b->bb, point);
+			}
+		}
+	}
+}
+
 static Spine *silhouette_generate_spine(SilhouetteData *sil, SilhouetteStroke *stroke)
 {
 	BMesh *bm;
@@ -5724,6 +5744,9 @@ static Spine *silhouette_generate_spine(SilhouetteData *sil, SilhouetteStroke *s
 #ifdef DEBUG_DRAW
 	/*debug_spine(spine);*/
 #endif
+
+	calc_bb_spine(spine, stroke, sil);
+
 	return spine;
 }
 
@@ -7626,6 +7649,48 @@ static void join_node_separated_rings(SilhouetteData *sil, Mesh *me, MeshElemMap
 	BLI_array_free(merge_info);
 }
 #endif
+
+static void add_values_to_ring(int ring, int start, SilhouetteData *sil, int *r_ring_data)
+{
+	int ring_size;
+	bool written = false;
+	int edge;
+
+	if(sil->fillet_ring_new_start[ring + 1] < sil->num_rings) {
+		ring_size = sil->fillet_ring_new_start[ring + 1] - sil->fillet_ring_new_start[ring];
+	} else {
+		ring_size = sil->fillet_ring_tot - sil->fillet_ring_new_start[ring];
+	}
+
+	for(int i = 0; i < ring_size; i++) {
+		//edge = sil->fillet_ring_new[sil->fillet_ring_start + i];
+		//if (written && is_on_edge(sil, edge))
+	}
+}
+
+static void join_node_separated_rings(SilhouetteData *sil, Mesh *me, MeshElemMap *emap)
+{
+	int *m_ring_data;
+	int a_ring = 0;
+
+	if(!sil->num_rings) {
+		return;
+	}
+
+	m_ring_data = MEM_callocN(sil->fillet_ring_tot * sizeof(int), "merged ring data");
+
+	add_values_to_ring(a_ring, NULL, sil, m_ring_data);
+
+	for (int r1 = 1; r1 < sil->num_rings - 1; r1++) {
+		for (int r2 = r1 + 1; r2 < sil->num_rings; r2++) {
+			if (bb_intersect(&sil->fillet_ring_bbs[r1], &sil->fillet_ring_bbs[r2])) {
+
+			}
+		}
+	}
+
+	MEM_freeN(m_ring_data);
+}
 
 static void prep_int_shared_mem(int **mem, int *r_num, int *r_start, int len, const char *str)
 {
