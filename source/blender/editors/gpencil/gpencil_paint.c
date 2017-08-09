@@ -2295,7 +2295,12 @@ static int gpencil_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event
 	
 	if (G.debug & G_DEBUG)
 		printf("GPencil - Starting Drawing\n");
-	
+
+	/* support for tablets eraser pen */
+	if (gpencil_is_tablet_eraser_active(event)) {
+		RNA_enum_set(op->ptr, "mode", GP_PAINTMODE_ERASER);
+	}
+
 	/* try to initialize context data needed while drawing */
 	if (!gpencil_draw_init(C, op, event)) {
 		if (op->customdata)
