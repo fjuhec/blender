@@ -7712,10 +7712,10 @@ static void do_calc_fillet_line_task_cb_ex(void *userdata, void *UNUSED(userdata
 {
 	SculptThreadedTaskData *data = userdata;
 	SculptSession *ss = data->ob->sculpt;
+	PBVH *bvh = ss->pbvh;
 	SilhouetteData *sil = data->sil;
 	Mesh *me = data->ob->data;
 	PBVHNode *curr_node = data->nodes[n];
-
 	PBVHVertexIter vd;
 	float point[2], p_on_plane[3], delta_p[3];
 	float sil_plane[4];
@@ -7731,6 +7731,8 @@ static void do_calc_fillet_line_task_cb_ex(void *userdata, void *UNUSED(userdata
 	BLI_array_declare(edge_ring_fillet);
 	BLI_array_declare(ring_start);
 	int comp_v, idx;
+	MLoopTri *tris = NULL;
+	int tot_tris;
 
 	/*GHashIterState state;*/
 	GHashIterator gh_iter;
@@ -7772,6 +7774,10 @@ static void do_calc_fillet_line_task_cb_ex(void *userdata, void *UNUSED(userdata
 		}
 	}
 	BKE_pbvh_vertex_iter_end;
+
+
+	/*TODO: tris need to be freed somewhere!*/
+	BKE_pbvh_get_node_tris_from_verts(bvh, curr_node, vert_hash, &tris, &tot_tris);
 
 	/* Finished writing all vertices which are within the intersection and need to be removed.
 	 * write them to the shared array. Lock the mutex to avoid collisions */
@@ -8051,6 +8057,7 @@ static int sculpt_silhouette_modal(bContext *C, wmOperator *op, const wmEvent *e
 		return OPERATOR_FINISHED;
 	} else {
 		if (sil->state == SIL_DRAWING) {
+			/*TODO: Add spacing */
 			sculpt_silhouette_stroke_update(mouse, op->customdata);
 		}
 		return OPERATOR_RUNNING_MODAL;

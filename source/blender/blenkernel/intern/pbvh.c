@@ -58,6 +58,9 @@
 
 #define PBVH_THREADED_LIMIT 4
 
+/*TODO: Usefull?*/
+#define TRI_ARRAY_GROW 50
+
 typedef struct PBVHStack {
 	PBVHNode *node;
 	bool revisiting;
@@ -1559,6 +1562,39 @@ int BKE_pbvh_recalc_looptri_from_me(PBVH *pbvh, Mesh *me)
 
 	pbvh->looptri = looptri;
 	return looptri_num;
+}
+
+void BKE_pbvh_get_node_tris_from_verts(PBVH *bvh, PBVHNode *node, GHash *vert_hash, MLoopTri **r_tris, int *r_tot_tris)
+{
+
+	const int *faces = node->prim_indices;
+	const MLoop *mloop = bvh->mloop;
+	int totface = node->totprim;
+	MLoopTri *tris;
+	int r_tris_max;
+	/* Estimated that every vert has roughly two tris in a uniform mesh*/
+	tris = MEM_callocN(sizeof(MLoopTri) * BLI_ghash_size(vert_hash) * 2, "tris connected to verts");
+	r_tris_max = BLI_ghash_size(vert_hash) * 2;
+	*r_tot_tris = 0;
+
+	for (int i = 0; i < totface; i++) {
+		const MLoopTri lt = bvh->looptri[faces[i]];
+		/* TODO: Original or not etc?
+		 const int *face_verts = node->face_vert_indices[i];*/
+		for(int s = 0; s < 3; s++) {
+			if (BLI_ghash_haskey(vert_hash, SET_INT_IN_POINTER(mloop[lt.tri[s]].v))) {
+				if (*r_tot_tris >= r_tris_max) {
+					r_tris_max += TRI_ARRAY_GROW;
+					tris = MEM_reallocN(tris, sizeof(MLoopTri) * r_tris_max);
+				}
+				tris[*r_tot_tris] = lt;
+				*r_tot_tris += 1;
+				break;
+			}
+		}
+	}
+
+	*r_tris = tris;
 }
 
 PBVHNode *BKE_search_closest_pbvh_leaf_node(PBVH *pbvh, PBVHNode *p_node, float *target_bmin, float *target_bmax)
