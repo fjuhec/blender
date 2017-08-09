@@ -108,7 +108,7 @@ static void DRW_gpencil_vfx_wave(ModifierData *md, int ob_idx, GPENCIL_e_data *e
 	DRW_shgroup_uniform_float(vfx_shgrp, "period", &stl->vfx[ob_idx].vfx_wave.period, 1);
 	DRW_shgroup_uniform_float(vfx_shgrp, "phase", &stl->vfx[ob_idx].vfx_wave.phase, 1);
 	DRW_shgroup_uniform_int(vfx_shgrp, "orientation", &stl->vfx[ob_idx].vfx_wave.orientation, 1);
-	DRW_shgroup_uniform_vec2(vfx_shgrp, "wsize", &stl->vfx[ob_idx].vfx_wave.wsize, 1);
+	DRW_shgroup_uniform_vec2(vfx_shgrp, "wsize", stl->vfx[ob_idx].vfx_wave.wsize, 1);
 
 	/* set first effect sh */
 	if (cache->init_vfx_sh == NULL) {
