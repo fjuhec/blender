@@ -137,32 +137,35 @@ static void DRW_gpencil_vfx_blur(ModifierData *md, int ob_idx, GPENCIL_e_data *e
 	stl->vfx[ob_idx].vfx_blur.x = mmd->radius[0];
 	stl->vfx[ob_idx].vfx_blur.y = mmd->radius[1] * (viewport_size[1] / viewport_size[0]);
 
-	struct Gwn_Batch *vfxquad = DRW_cache_fullscreen_quad_get();
-	/* horizontal blur */
-	DRWShadingGroup *vfx_shgrp = DRW_shgroup_create(e_data->gpencil_vfx_blur_sh, psl->vfx_pass);
-	DRW_shgroup_call_add(vfx_shgrp, vfxquad, NULL);
-	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->vfx_fbcolor_color_tx);
-	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->vfx_fbcolor_depth_tx);
+	for (int i = 0; i < mmd->samples; ++i) {
 
-	DRW_shgroup_uniform_vec2(vfx_shgrp, "dir", stl->storage->blur1, 1);
-	DRW_shgroup_uniform_float(vfx_shgrp, "blur", &stl->vfx[ob_idx].vfx_blur.x, 1);
+		struct Gwn_Batch *vfxquad = DRW_cache_fullscreen_quad_get();
+		/* horizontal blur */
+		DRWShadingGroup *vfx_shgrp = DRW_shgroup_create(e_data->gpencil_vfx_blur_sh, psl->vfx_pass);
+		DRW_shgroup_call_add(vfx_shgrp, vfxquad, NULL);
+		DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->vfx_fbcolor_color_tx);
+		DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->vfx_fbcolor_depth_tx);
 
-	/* set first effect sh */
-	if (cache->init_vfx_sh == NULL) {
-		cache->init_vfx_sh = vfx_shgrp;
+		DRW_shgroup_uniform_vec2(vfx_shgrp, "dir", stl->storage->blur1, 1);
+		DRW_shgroup_uniform_float(vfx_shgrp, "blur", &stl->vfx[ob_idx].vfx_blur.x, 1);
+
+		/* set first effect sh */
+		if (cache->init_vfx_sh == NULL) {
+			cache->init_vfx_sh = vfx_shgrp;
+		}
+
+		/* vertical blur */
+		vfx_shgrp = DRW_shgroup_create(e_data->gpencil_vfx_blur_sh, psl->vfx_pass);
+		DRW_shgroup_call_add(vfx_shgrp, vfxquad, NULL);
+		DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->vfx_fbcolor_color_tx);
+		DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->vfx_fbcolor_depth_tx);
+
+		DRW_shgroup_uniform_vec2(vfx_shgrp, "dir", stl->storage->blur2, 1);
+		DRW_shgroup_uniform_float(vfx_shgrp, "blur", &stl->vfx[ob_idx].vfx_blur.y, 1);
+
+		/* set last effect sh */
+		cache->end_vfx_sh = vfx_shgrp;
 	}
-
-	/* vertical blur */
-	vfx_shgrp = DRW_shgroup_create(e_data->gpencil_vfx_blur_sh, psl->vfx_pass);
-	DRW_shgroup_call_add(vfx_shgrp, vfxquad, NULL);
-	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->vfx_fbcolor_color_tx);
-	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->vfx_fbcolor_depth_tx);
-
-	DRW_shgroup_uniform_vec2(vfx_shgrp, "dir", stl->storage->blur2, 1);
-	DRW_shgroup_uniform_float(vfx_shgrp, "blur", &stl->vfx[ob_idx].vfx_blur.y, 1);
-
-	/* set last effect sh */
-	cache->end_vfx_sh = vfx_shgrp;
 }
 
 

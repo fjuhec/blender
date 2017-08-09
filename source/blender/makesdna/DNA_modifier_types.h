@@ -1806,7 +1806,7 @@ typedef struct GpencilBlurModifierData {
 	ModifierData modifier;
 	int radius[2];
 	int flag;                    /* flags */
-	char pad[4];
+	int samples;
 } GpencilBlurModifierData;
 
 typedef struct GpencilWaveModifierData {

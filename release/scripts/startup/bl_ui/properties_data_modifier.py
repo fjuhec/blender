@@ -1789,6 +1789,11 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col.label(text="Factor:")
         col.prop(md, "factor", text="")
 
+        layout.separator()
+
+        row = col.row(align=True)
+        row.prop(md, "samples", text="Samples")
+
     def GP_WAVE(self, layout, ob, md):
         row = layout.row(align=True)
         row.prop(md, "orientation", expand=True)
