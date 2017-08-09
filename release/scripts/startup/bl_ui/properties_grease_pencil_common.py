@@ -386,6 +386,9 @@ class GreasePencilBrushPanel:
             row = layout.row(align=False)
             row.prop(context.tool_settings, "use_gpencil_draw_onback", text="Draw on Back")
 
+            row = layout.row(align=False)
+            row.prop(context.user_preferences.edit, "grease_pencil_eraser_radius", text="Eraser")
+
 
 class GreasePencilStrokeSculptPanel:
     # subclass must set
