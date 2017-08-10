@@ -40,6 +40,7 @@ struct GHash;
 
 /* TODO: add size as userprefs parameter */
 #define GP_OBGPENCIL_DEFAULT_SIZE  0.2f 
+#define GP_DEFAULT_PIX_FACTOR 40
 
 /* information of vertex group weight */
 typedef struct bGPDweight {
@@ -332,6 +333,8 @@ typedef struct bGPdata {
 	short bfill_style;          /* buffer style for filling areas (used to select shader type) */
 
 	short xray_mode;            /* xray mode for strokes */
+	int pixfactor;              /* factor to define pixel size conversion */
+	char pad1[4];
 
 	/* saved palettes */
 	ListBase palettes DNA_DEPRECATED;
