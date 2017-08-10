@@ -53,6 +53,8 @@
 #include "ED_transform.h"
 #include "ED_view3d.h"
 
+#include "UI_resources.h"
+
 #include "MEM_guardedalloc.h"
 
 #include "mesh_intern.h"  /* own include */
@@ -878,7 +880,7 @@ static void manipulator_mesh_spin_update_from_op(ManipulatorSpinGroup *man)
 		normalize_v3(man->data.rotate_up);
 
 		WM_manipulator_set_matrix_rotation_from_z_axis(man->translate_c, plane_no);
-		WM_manipulator_set_matrix_rotation_from_yz_axis(man->rotate_c, man->data.rotate_axis, plane_no);
+		WM_manipulator_set_matrix_rotation_from_yz_axis(man->rotate_c, plane_no, man->data.rotate_axis);
 
 		/* show the axis instead of mouse cursor */
 		RNA_enum_set(man->rotate_c->ptr, "draw_options",
@@ -1083,8 +1085,14 @@ static void manipulator_mesh_spin_setup(const bContext *C, wmManipulatorGroup *m
 	man->rotate_c = WM_manipulator_new_ptr(wt_dial, mgroup, NULL);
 	man->angle_z = WM_manipulator_new_ptr(wt_dial, mgroup, NULL);
 
+	UI_GetThemeColor3fv(TH_MANIPULATOR_PRIMARY, man->translate_z->color);
+	UI_GetThemeColor3fv(TH_MANIPULATOR_PRIMARY, man->translate_c->color);
+	UI_GetThemeColor3fv(TH_MANIPULATOR_SECONDARY, man->rotate_c->color);
+	UI_GetThemeColor3fv(TH_AXIS_Z, man->angle_z->color);
+
+
 	RNA_enum_set(man->translate_z->ptr, "draw_style", ED_MANIPULATOR_ARROW_STYLE_NORMAL);
-	RNA_enum_set(man->translate_c->ptr, "draw_style", ED_MANIPULATOR_GRAB_STYLE_RING);
+	RNA_enum_set(man->translate_c->ptr, "draw_style", ED_MANIPULATOR_GRAB_STYLE_RING_2D);
 
 	WM_manipulator_set_flag(man->translate_c, WM_MANIPULATOR_DRAW_VALUE, true);
 	WM_manipulator_set_flag(man->rotate_c, WM_MANIPULATOR_DRAW_VALUE, true);

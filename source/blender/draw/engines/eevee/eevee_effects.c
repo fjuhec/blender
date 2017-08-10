@@ -493,6 +493,17 @@ void EEVEE_effects_init(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata)
 	                    (int)viewport_size[0] / 2, (int)viewport_size[1] / 2,
 	                    &texmin, 1);
 
+	/* Compute Mipmap texel alignement. */
+	for (int i = 0; i < 10; ++i) {
+		float mip_size[2] = {viewport_size[0], viewport_size[1]};
+		for (int j = 0; j < i; ++j) {
+			mip_size[0] = floorf(fmaxf(1.0f, mip_size[0] / 2.0f));
+			mip_size[1] = floorf(fmaxf(1.0f, mip_size[1] / 2.0f));
+		}
+		stl->g_data->mip_ratio[i][0] = viewport_size[0] / (mip_size[0] * powf(2.0f, floorf(log2f(floorf(viewport_size[0] / mip_size[0])))));
+		stl->g_data->mip_ratio[i][1] = viewport_size[1] / (mip_size[1] * powf(2.0f, floorf(log2f(floorf(viewport_size[1] / mip_size[1])))));
+	}
+
 	/* Cannot define 2 depth texture for one framebuffer. So allocate ourself. */
 	if (txl->maxzbuffer == NULL) {
 		txl->maxzbuffer = DRW_texture_create_2D((int)viewport_size[0] / 2, (int)viewport_size[1] / 2, DRW_TEX_DEPTH_24, DRW_TEX_MIPMAP, NULL);
@@ -572,6 +583,14 @@ void EEVEE_effects_init(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata)
 
 	if (BKE_collection_engine_property_value_get_bool(props, "ssr_enable")) {
 		effects->enabled_effects |= EFFECT_SSR;
+
+		if (BKE_collection_engine_property_value_get_bool(props, "ssr_refraction")) {
+			effects->enabled_effects |= EFFECT_REFRACT;
+
+			DRWFboTexture tex = {&txl->refract_color, DRW_TEX_RGB_11_11_10, DRW_TEX_FILTER | DRW_TEX_MIPMAP};
+
+			DRW_framebuffer_init(&fbl->refract_fb, &draw_engine_eevee_type, (int)viewport_size[0], (int)viewport_size[1], &tex, 1);
+		}
 
 		/* Enable double buffering to be able to read previous frame color */
 		effects->enabled_effects |= EFFECT_DOUBLE_BUFFER;
@@ -754,6 +773,7 @@ void EEVEE_effects_cache_init(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata)
 		DRW_shgroup_uniform_buffer(grp, "maxzBuffer", &txl->maxzbuffer);
 		DRW_shgroup_uniform_buffer(grp, "minzBuffer", &stl->g_data->minzbuffer);
 		DRW_shgroup_uniform_vec4(grp, "viewvecs[0]", (float *)stl->g_data->viewvecs, 2);
+		DRW_shgroup_uniform_vec2(grp, "mipRatio[0]", (float *)stl->g_data->mip_ratio, 10);
 		DRW_shgroup_uniform_vec4(grp, "ssrParameters", &effects->ssr_quality, 1);
 		DRW_shgroup_uniform_int(grp, "rayCount", &effects->ssr_ray_count, 1);
 		DRW_shgroup_uniform_int(grp, "planar_count", &sldata->probes->num_planar, 1);
@@ -768,11 +788,12 @@ void EEVEE_effects_cache_init(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata)
 		DRW_shgroup_uniform_buffer(grp, "normalBuffer", &txl->ssr_normal_input);
 		DRW_shgroup_uniform_buffer(grp, "specroughBuffer", &txl->ssr_specrough_input);
 		DRW_shgroup_uniform_texture(grp, "utilTex", EEVEE_materials_get_util_tex());
-		DRW_shgroup_uniform_buffer(grp, "colorBuffer", &txl->color_double_buffer);
+		DRW_shgroup_uniform_buffer(grp, "prevColorBuffer", &txl->color_double_buffer);
 		DRW_shgroup_uniform_mat4(grp, "PastViewProjectionMatrix", (float *)stl->g_data->prev_persmat);
 		DRW_shgroup_uniform_vec4(grp, "viewvecs[0]", (float *)stl->g_data->viewvecs, 2);
 		DRW_shgroup_uniform_int(grp, "planar_count", &sldata->probes->num_planar, 1);
 		DRW_shgroup_uniform_int(grp, "probe_count", &sldata->probes->num_render_cube, 1);
+		DRW_shgroup_uniform_vec2(grp, "mipRatio[0]", (float *)stl->g_data->mip_ratio, 10);
 		DRW_shgroup_uniform_float(grp, "borderFadeFactor", &effects->ssr_border_fac, 1);
 		DRW_shgroup_uniform_float(grp, "maxRoughness", &effects->ssr_max_roughness, 1);
 		DRW_shgroup_uniform_float(grp, "lodCubeMax", &sldata->probes->lod_cube_max, 1);
@@ -1056,6 +1077,20 @@ void EEVEE_effects_do_volumetrics(EEVEE_SceneLayerData *sldata, EEVEE_Data *veda
 
 		/* Rebind main buffer after attach/detach operations */
 		DRW_framebuffer_bind(fbl->main);
+	}
+}
+
+void EEVEE_effects_do_refraction(EEVEE_SceneLayerData *UNUSED(sldata), EEVEE_Data *vedata)
+{
+	EEVEE_FramebufferList *fbl = vedata->fbl;
+	EEVEE_TextureList *txl = vedata->txl;
+	EEVEE_StorageList *stl = vedata->stl;
+	EEVEE_EffectsInfo *effects = stl->effects;
+
+	if ((effects->enabled_effects & EFFECT_REFRACT) != 0) {
+		DRW_framebuffer_texture_attach(fbl->refract_fb, txl->refract_color, 0, 0);
+		DRW_framebuffer_blit(fbl->main, fbl->refract_fb, false);
+		EEVEE_downsample_buffer(vedata, fbl->downsample_fb, txl->refract_color, 9);
 	}
 }
 

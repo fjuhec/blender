@@ -183,6 +183,14 @@ typedef struct ThemeUI {
 
 	/* Axis Colors */
 	char xaxis[4], yaxis[4], zaxis[4];
+
+	/* Manipulator Colors. */
+	char manipulator_hi[4];
+	char manipulator_primary[4];
+	char manipulator_secondary[4];
+	char manipulator_a[4];
+	char manipulator_b[4];
+	char pad2[4];
 } ThemeUI;
 
 /* try to put them all in one, if needed a special struct can be created as well
@@ -473,7 +481,7 @@ typedef struct UserDef {
 	int scrollback;     /* console scrollback limit */
 	int dpi;            /* range 48-128? */
 	float ui_scale;     /* interface scale */
-	int pad1;
+	int ui_line_width;  /* interface line width */
 	char node_margin;   /* node insert offset (aka auto-offset) margin, but might be useful for later stuff as well */
 	char pad2;
 	short transopts;    /* eUserpref_Translation_Flags */

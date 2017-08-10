@@ -101,20 +101,20 @@ static void arrow2d_draw_geom(wmManipulator *mpr, const float matrix[4][4], cons
 
 static void manipulator_arrow2d_draw(const bContext *UNUSED(C), wmManipulator *mpr)
 {
-	float col[4];
+	float color[4];
 
-	manipulator_color_get(mpr, mpr->state & WM_MANIPULATOR_STATE_HIGHLIGHT, col);
+	manipulator_color_get(mpr, mpr->state & WM_MANIPULATOR_STATE_HIGHLIGHT, color);
 
 	glLineWidth(mpr->line_width);
 	glEnable(GL_BLEND);
-	arrow2d_draw_geom(mpr, mpr->matrix_basis, col);
+	arrow2d_draw_geom(mpr, mpr->matrix_basis, color);
 	glDisable(GL_BLEND);
 
 	if (mpr->interaction_data) {
 		ManipulatorInteraction *inter = mpr->interaction_data;
 
 		glEnable(GL_BLEND);
-		arrow2d_draw_geom(mpr, inter->init_matrix, (const float[4]){0.5f, 0.5f, 0.5f, 0.5f});
+		arrow2d_draw_geom(mpr, inter->init_matrix_basis, (const float[4]){0.5f, 0.5f, 0.5f, 0.5f});
 		glDisable(GL_BLEND);
 	}
 }
@@ -129,7 +129,7 @@ static void manipulator_arrow2d_invoke(
 {
 	ManipulatorInteraction *inter = MEM_callocN(sizeof(ManipulatorInteraction), __func__);
 
-	copy_m4_m4(inter->init_matrix, mpr->matrix_basis);
+	copy_m4_m4(inter->init_matrix_basis, mpr->matrix_basis);
 	mpr->interaction_data = inter;
 }
 

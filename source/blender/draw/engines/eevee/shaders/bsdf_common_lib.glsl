@@ -27,6 +27,15 @@ flat in int shFace; /* Shadow layer we are rendering to. */
 #define ViewMatrix      FaceViewMatrix[shFace]
 #endif
 
+uniform vec2 mipRatio[10];
+
+/* Buffers */
+uniform sampler2D colorBuffer;
+uniform sampler2D depthBuffer;
+uniform sampler2D maxzBuffer;
+uniform sampler2D minzBuffer;
+uniform sampler2DArray planarDepth;
+
 #define cameraForward   normalize(ViewMatrixInverse[2].xyz)
 #define cameraPos       ViewMatrixInverse[3].xyz
 #define cameraVec      ((ProjectionMatrix[3][3] == 0.0) ? normalize(cameraPos - worldPosition) : cameraForward)
@@ -281,7 +290,7 @@ vec3 get_world_space_from_depth(vec2 uvcoords, float depth)
 	return (ViewMatrixInverse * vec4(get_view_space_from_depth(uvcoords, depth), 1.0)).xyz;
 }
 
-vec3 get_specular_dominant_dir(vec3 N, vec3 V, float roughness)
+vec3 get_specular_reflection_dominant_dir(vec3 N, vec3 V, float roughness)
 {
 	vec3 R = -reflect(V, N);
 	float smoothness = 1.0 - roughness;
@@ -292,6 +301,69 @@ vec3 get_specular_dominant_dir(vec3 N, vec3 V, float roughness)
 float specular_occlusion(float NV, float AO, float roughness)
 {
 	return saturate(pow(NV + AO, roughness) - 1.0 + AO);
+}
+
+/* --- Refraction utils --- */
+
+float ior_from_f0(float f0)
+{
+	float f = sqrt(f0);
+	return (-f - 1.0) / (f - 1.0);
+}
+
+float f0_from_ior(float eta)
+{
+	float A = (eta - 1.0) / (eta + 1.0);
+	return A * A;
+}
+
+vec3 get_specular_refraction_dominant_dir(vec3 N, vec3 V, float roughness, float ior)
+{
+	/* TODO: This a bad approximation. Better approximation should fit
+	 * the refracted vector and roughness into the best prefiltered reflection
+	 * lobe. */
+	/* Correct the IOR for ior < 1.0 to not see the abrupt delimitation or the TIR */
+	ior = (ior < 1.0) ? mix(ior, 1.0, roughness) : ior;
+	float eta = 1.0 / ior;
+
+	float NV = dot(N, -V);
+
+	/* Custom Refraction. */
+	float k = 1.0 - eta * eta * (1.0 - NV * NV);
+	k = max(0.0, k); /* Only this changes. */
+	vec3 R = eta * -V - (eta * NV + sqrt(k)) * N;
+
+	return R;
+}
+
+float get_btdf_lut(sampler2DArray btdf_lut_tex, float NV, float roughness, float ior)
+{
+	const vec3 lut_scale_bias_texel_size = vec3((LUT_SIZE - 1.0), 0.5, 1.5) / LUT_SIZE;
+
+	vec3 coords;
+	/* Try to compensate for the low resolution and interpolation error. */
+	coords.x = (ior > 1.0)
+	           ? (0.9 + lut_scale_bias_texel_size.z) + (0.1 - lut_scale_bias_texel_size.z) * f0_from_ior(ior)
+	           : (0.9 + lut_scale_bias_texel_size.z) * ior * ior;
+	coords.y = 1.0 - saturate(NV);
+	coords.xy *= lut_scale_bias_texel_size.x;
+	coords.xy += lut_scale_bias_texel_size.y;
+
+	const float lut_lvl_ofs = 4.0; /* First texture lvl of roughness. */
+	const float lut_lvl_scale = 16.0; /* How many lvl of roughness in the lut. */
+
+	float mip = roughness * lut_lvl_scale;
+	float mip_floor = floor(mip);
+
+	coords.z = lut_lvl_ofs + mip_floor + 1.0;
+	float btdf_high = textureLod(btdf_lut_tex, coords, 0.0).r;
+
+	coords.z -= 1.0;
+	float btdf_low = textureLod(btdf_lut_tex, coords, 0.0).r;
+
+	float btdf = (ior == 1.0) ? 1.0 : mix(btdf_low, btdf_high, mip - coords.z);
+
+	return btdf;
 }
 
 /* ---- Encode / Decode Normal buffer data ---- */
@@ -314,6 +386,32 @@ vec3 normal_decode(vec2 enc, vec3 view)
     return n;
 }
 
+/* Fresnel monochromatic, perfect mirror */
+float F_eta(float eta, float cos_theta)
+{
+	/* compute fresnel reflectance without explicitly computing
+	 * the refracted direction */
+	float c = abs(cos_theta);
+	float g = eta * eta - 1.0 + c * c;
+	float result;
+
+	if (g > 0.0) {
+		g = sqrt(g);
+		vec2 g_c = vec2(g) + vec2(c, -c);
+		float A = g_c.y / g_c.x;
+		A *= A;
+		g_c *= c;
+		float B = (g_c.y - 1.0) / (g_c.x + 1.0);
+		B *= B;
+		result = 0.5 * A * (1.0 + B);
+	}
+	else {
+		result = 1.0;  /* TIR (no refracted component) */
+	}
+
+	return result;
+}
+
 /* Fresnel */
 vec3 F_schlick(vec3 f0, float cos_theta)
 {
@@ -334,7 +432,7 @@ vec3 F_area(vec3 f0, vec2 lut)
 	return saturate(50.0 * dot(f0, vec3(0.3, 0.6, 0.1))) * fac.y + fac.x * f0;
 }
 
-/* Fresnel approximation for LTC area lights (not MRP) */
+/* Fresnel approximation for IBL */
 vec3 F_ibl(vec3 f0, vec2 lut)
 {
 	/* Unreal specular matching : if specular color is below 2% intensity,
@@ -469,7 +567,7 @@ Closure closure_add(Closure cl1, Closure cl2)
 	return cl;
 }
 
-#if defined(MESH_SHADER) && !defined(USE_ALPHA_HASH) && !defined(USE_ALPHA_CLIP) && !defined(SHADOW_SHADER)
+#if defined(MESH_SHADER) && !defined(USE_ALPHA_HASH) && !defined(USE_ALPHA_CLIP) && !defined(SHADOW_SHADER) && !defined(USE_MULTIPLY)
 layout(location = 0) out vec4 fragColor;
 layout(location = 1) out vec4 ssrNormals;
 layout(location = 2) out vec4 ssrData;

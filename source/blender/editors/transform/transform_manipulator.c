@@ -1197,6 +1197,7 @@ static void WIDGETGROUP_manipulator_setup(const bContext *UNUSED(C), wmManipulat
 				const float ofs[3] = {ofs_ax, ofs_ax, 0.0f};
 				WM_manipulator_set_scale(axis, 0.07f);
 				WM_manipulator_set_matrix_offset_location(axis, ofs);
+				WM_manipulator_set_flag(axis, WM_MANIPULATOR_DRAW_OFFSET_SCALE, true);
 				break;
 			}
 			case MAN_AXIS_TRANS_C:
@@ -1302,6 +1303,7 @@ static void WIDGETGROUP_manipulator_refresh(const bContext *C, wmManipulatorGrou
 				WM_manipulator_set_matrix_rotation_from_z_axis(axis, rv3d->twmat[aidx_norm]);
 				RNA_float_set(axis->ptr, "length", len);
 				WM_manipulator_set_matrix_offset_location(axis, start_co);
+				WM_manipulator_set_flag(axis, WM_MANIPULATOR_DRAW_OFFSET_SCALE, true);
 				break;
 			}
 			case MAN_AXIS_ROT_X:
@@ -1361,10 +1363,10 @@ static void WIDGETGROUP_manipulator_draw_prepare(const bContext *C, wmManipulato
 			continue;
 		}
 
-		float col[4], col_hi[4];
-		manipulator_get_axis_color(axis_idx, idot, col, col_hi);
-		WM_manipulator_set_color(axis, col);
-		WM_manipulator_set_color_highlight(axis, col_hi);
+		float color[4], color_hi[4];
+		manipulator_get_axis_color(axis_idx, idot, color, color_hi);
+		WM_manipulator_set_color(axis, color);
+		WM_manipulator_set_color_highlight(axis, color_hi);
 
 		switch (axis_idx) {
 			case MAN_AXIS_TRANS_C:
