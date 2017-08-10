@@ -1067,7 +1067,9 @@ static int object_origin_set_exec(bContext *C, wmOperator *op)
 						BKE_gpencil_batch_cache_dirty(gpd);
 
 						tot_change++;
-						copy_v3_v3(ob->loc, gpcenter);
+						if (centermode == ORIGIN_TO_GEOMETRY) {
+							copy_v3_v3(ob->loc, gpcenter);
+						}
 						ob->id.tag |= LIB_TAG_DOIT;
 						do_inverse_offset = true;
 					}
