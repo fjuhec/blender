@@ -460,14 +460,21 @@ void BKE_gpencil_opacity_modifier(int UNUSED(id), GpencilOpacityModifierData *mm
 		return;
 	}
 
-	gps->palcolor->rgb[3] = gps->palcolor->rgb[3] * mmd->factor;
+	gps->palcolor->rgb[3] = (gps->palcolor->rgb[3] * mmd->factor);
 	gps->palcolor->fill[3] = gps->palcolor->fill[3] * mmd->factor;
+
+	/* if factor is > 1, then force opacity */
+	if (mmd->factor > 1.0f) {
+		gps->palcolor->rgb[3] += mmd->factor - 1.0f;
+		gps->palcolor->fill[3] += mmd->factor - 1.0f;
+	}
+
 
 	CLAMP(gps->palcolor->rgb[3], 0.0f, 1.0f);
 	CLAMP(gps->palcolor->fill[3], 0.0f, 1.0f);
 
-	/* if opacity < 1.0 or > 1.0, affect the strength of the stroke */
-	if ((mmd->factor < 1.0f) || (mmd->factor > 1.0f)) {
+	/* if opacity > 1.0, affect the strength of the stroke */
+	if (mmd->factor > 1.0f) {
 		for (int i = 0; i < gps->totpoints; ++i) {
 			pt = &gps->points[i];
 			/* verify vertex group */
