@@ -218,6 +218,7 @@ class USERPREF_PT_interface(Panel):
         col = row.column()
         col.label(text="Display:")
         col.prop(view, "ui_scale", text="Scale")
+        col.prop(view, "ui_line_width", text="Line Width")
         col.prop(view, "show_tooltips")
         col.prop(view, "show_tooltips_python")
         col.prop(view, "show_object_info", text="Object Info")
@@ -249,6 +250,7 @@ class USERPREF_PT_interface(Panel):
         col = row.column()
         col.label(text="View Manipulation:")
         col.prop(view, "use_mouse_depth_cursor")
+        col.prop(view, "use_cursor_lock_adjust")
         col.prop(view, "use_mouse_depth_navigate")
         col.prop(view, "use_zoom_to_mouse")
         col.prop(view, "use_rotate_around_active")
@@ -857,6 +859,7 @@ class USERPREF_PT_theme(Panel):
             colsub.row().prop(ui_state, "inner_anim_sel")
             colsub.row().prop(ui_state, "inner_driven")
             colsub.row().prop(ui_state, "inner_driven_sel")
+            colsub.row().prop(ui_state, "blend")
 
             subsplit = row.split(percentage=0.85)
 
@@ -865,7 +868,8 @@ class USERPREF_PT_theme(Panel):
             colsub = padding.column()
             colsub.row().prop(ui_state, "inner_key")
             colsub.row().prop(ui_state, "inner_key_sel")
-            colsub.row().prop(ui_state, "blend")
+            colsub.row().prop(ui_state, "inner_overridden")
+            colsub.row().prop(ui_state, "inner_overridden_sel")
 
             col.separator()
             col.separator()

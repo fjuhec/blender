@@ -39,6 +39,9 @@ extern "C" {
 
 struct bContext;
 struct ID;
+struct IDOverride;
+struct IDOverrideProperty;
+struct IDOverridePropertyOperation;
 struct ListBase;
 struct Main;
 struct ReportList;
@@ -1022,7 +1025,7 @@ char *RNA_path_property_py(struct PointerRNA *ptr, struct PropertyRNA *prop, int
  * call RNA_struct_find_property. The names have to exist as RNA properties
  * for the type in the pointer, if they do not exist an error will be printed.
  *
- * There is no support for pointers and collections here yet, these can be 
+ * There is no support for pointers and collections here yet, these can be
  * added when ID properties support them. */
 
 int  RNA_boolean_get(PointerRNA *ptr, const char *name);
@@ -1215,13 +1218,45 @@ void _RNA_warning(const char *format, ...) ATTR_PRINTF_FORMAT(1, 2);
  * is_strict false assumes uninitialized properties are equal */
 
 typedef enum eRNAEqualsMode {
-	RNA_EQ_STRICT,          /* set/unset ignored */
-	RNA_EQ_UNSET_MATCH_ANY, /* unset property matches anything */
-	RNA_EQ_UNSET_MATCH_NONE /* unset property never matches set property */
+	RNA_EQ_STRICT,           /* set/unset ignored */
+	RNA_EQ_UNSET_MATCH_ANY,  /* unset property matches anything */
+	RNA_EQ_UNSET_MATCH_NONE, /* unset property never matches set property */
 } eRNAEqualsMode;
 
 bool RNA_property_equals(struct PointerRNA *a, struct PointerRNA *b, struct PropertyRNA *prop, eRNAEqualsMode mode);
 bool RNA_struct_equals(struct PointerRNA *a, struct PointerRNA *b, eRNAEqualsMode mode);
+
+
+/* Override. */
+
+bool RNA_struct_override_matches(struct PointerRNA *local, struct PointerRNA *reference,
+        struct IDOverride *override, const bool ignore_non_overridable, const bool ignore_overridden);
+
+bool RNA_struct_override_store(
+        struct PointerRNA *local, struct PointerRNA *reference, PointerRNA *storage, struct IDOverride *override);
+
+void RNA_property_override_apply(
+        struct PointerRNA *dst, struct PointerRNA *src, struct PointerRNA *storage, struct PropertyRNA *prop,
+        struct IDOverrideProperty *op);
+void RNA_struct_override_apply(
+        struct PointerRNA *dst, struct PointerRNA *src, struct PointerRNA *storage,
+        struct IDOverride *override);
+
+bool RNA_struct_auto_override(
+        struct PointerRNA *local, struct PointerRNA *reference, struct IDOverride *override, const char *root_path);
+
+struct IDOverrideProperty *RNA_property_override_property_find(PointerRNA *ptr, PropertyRNA *prop);
+struct IDOverrideProperty *RNA_property_override_property_get(PointerRNA *ptr, PropertyRNA *prop, bool *r_created);
+
+struct IDOverridePropertyOperation *RNA_property_override_property_operation_find(
+        PointerRNA *ptr, PropertyRNA *prop, const int index, const bool strict, bool *r_strict);
+struct IDOverridePropertyOperation *RNA_property_override_property_operation_get(
+        PointerRNA *ptr, PropertyRNA *prop, const short operation, const int index,
+        const bool strict, bool *r_strict, bool *r_created);
+
+void RNA_property_override_status(
+        PointerRNA *ptr, PropertyRNA *prop, const int index,
+        bool *r_overridable, bool *r_overridden, bool *r_mandatory, bool *r_locked);
 
 #ifdef __cplusplus
 }

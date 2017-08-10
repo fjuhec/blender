@@ -130,6 +130,7 @@
 #include "BKE_group.h"
 #include "BKE_library.h" // for which_libbase
 #include "BKE_library_idmap.h"
+#include "BKE_library_override.h"
 #include "BKE_library_query.h"
 #include "BKE_idcode.h"
 #include "BKE_idprop.h"
@@ -641,7 +642,7 @@ static Main *blo_find_main(FileData *fd, const char *filepath, const char *relab
 	
 	/* Add library datablock itself to 'main' Main, since libraries are **never** linked data.
 	 * Fixes bug where you could end with all ID_LI datablocks having the same name... */
-	lib = BKE_libblock_alloc(mainlist->first, ID_LI, "Lib");
+	lib = BKE_libblock_alloc(mainlist->first, ID_LI, "Lib", 0);
 	lib->id.us = ID_FAKE_USERS(lib);  /* Important, consistency with main ID reading code from read_libblock(). */
 	BLI_strncpy(lib->name, filepath, sizeof(lib->name));
 	BLI_strncpy(lib->filepath, name1, sizeof(lib->filepath));
@@ -2205,6 +2206,42 @@ static PreviewImage *direct_link_preview_image(FileData *fd, PreviewImage *old_p
 
 /* ************ READ ID *************** */
 
+static void lib_link_id(FileData *fd, Main *main)
+{
+	ListBase *lbarray[MAX_LIBARRAY];
+	int base_count, i;
+
+	base_count = set_listbasepointers(main, lbarray);
+
+	for (i = 0; i < base_count; i++) {
+		ListBase *lb = lbarray[i];
+		ID *id;
+
+		for (id = lb->first; id; id = id->next) {
+			if (id->override) {
+				id->override->reference = newlibadr_us(fd, id->lib, id->override->reference);
+				id->override->storage = newlibadr_us(fd, id->lib, id->override->storage);
+			}
+		}
+	}
+}
+
+static void direct_link_id_override_property_operation_cb(FileData *fd, void *data)
+{
+	IDOverridePropertyOperation *opop = data;
+
+	opop->subitem_reference_name = newdataadr(fd, opop->subitem_reference_name);
+	opop->subitem_local_name = newdataadr(fd, opop->subitem_local_name);
+}
+
+static void direct_link_id_override_property_cb(FileData *fd, void *data)
+{
+	IDOverrideProperty *op = data;
+
+	op->rna_path = newdataadr(fd, op->rna_path);
+	link_list_ex(fd, &op->operations, direct_link_id_override_property_operation_cb);
+}
+
 static void direct_link_id(FileData *fd, ID *id)
 {
 	/*link direct data of ID properties*/
@@ -2213,6 +2250,13 @@ static void direct_link_id(FileData *fd, ID *id)
 		/* this case means the data was written incorrectly, it should not happen */
 		IDP_DirectLinkGroup_OrFree(&id->properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
 	}
+
+	/* Link direct data of overrides. */
+	if (id->override) {
+		id->override = newdataadr(fd, id->override);
+		link_list_ex(fd, &id->override->properties, direct_link_id_override_property_cb);
+	}
+
 	if (id->uuid) {
 		id->uuid = newdataadr(fd, id->uuid);
 		id->uuid->ibuff = NULL;  /* Just in case... */
@@ -8538,6 +8582,8 @@ static void lib_link_all(FileData *fd, Main *main)
 {
 	oldnewmap_sort(fd);
 	
+	lib_link_id(fd, main);
+
 	/* No load UI for undo memfiles */
 	if (fd->memfile == NULL) {
 		lib_link_windowmanager(fd, main);
@@ -8760,6 +8806,12 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
 	}
 
 	BKE_main_id_tag_all(bfd->main, LIB_TAG_NEW, false);
+
+	/* Now that all our data-blocks are loaded, we can re-generate overrides from their references. */
+	if (fd->memfile == NULL) {
+		/* Do not apply in undo case! */
+		BKE_main_override_update(bfd->main);
+	}
 
 	lib_verify_nodetree(bfd->main, true);
 	fix_relpaths_library(fd->relabase, bfd->main); /* make all relative paths, relative to the open blend file */

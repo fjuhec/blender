@@ -263,7 +263,7 @@ Library *BKE_library_asset_virtual_ensure(Main *bmain, const AssetEngineType *ae
 		}
 	}
 
-	lib = BKE_libblock_alloc(bmain, ID_LI, "VirtualLib");
+	lib = BKE_libblock_alloc(bmain, ID_LI, "VirtualLib", 0);
 	BKE_library_asset_repository_init(lib, aet, "");
 	lib->flag |= LIBRARY_FLAG_VIRTUAL;
 	return lib;

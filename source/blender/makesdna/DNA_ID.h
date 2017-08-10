@@ -104,6 +104,77 @@ enum {
 
 /* add any future new id property types here.*/
 
+/* Static ID override structs. */
+
+typedef struct IDOverridePropertyOperation {
+	struct IDOverridePropertyOperation *next, *prev;
+
+	/* Type of override. */
+	short operation;
+	short flag;
+	short pad_s1[2];
+
+	/* Sub-item references, if needed (for arrays or collections only).
+	 * We need both reference and local values to allow e.g. insertion into collections (constraints, modifiers...).
+	 * In collection case, if names are defined, they are used in priority.
+	 * Names are pointers (instead of char[64]) to save some space, NULL when unset.
+	 * Indices are -1 when unset. */
+	char *subitem_reference_name;
+	char *subitem_local_name;
+	int subitem_reference_index;
+	int subitem_local_index;
+} IDOverridePropertyOperation;
+
+/* IDOverridePropertyOperation->operation. */
+enum {
+	/* Basic operations. */
+	IDOVERRIDE_OP_NOOP          =   0,  /* Special value, forbids any overriding. */
+
+	IDOVERRIDE_OP_REPLACE       =   1,  /* Fully replace local value by reference one. */
+
+	/* Numeric-only operations. */
+	IDOVERRIDE_OP_ADD           = 101,  /* Add local value to reference one. */
+	IDOVERRIDE_OP_SUBTRACT      = 102,  /* Subtract local value from reference one (needed due to unsigned values etc.). */
+	IDOVERRIDE_OP_MULTIPLY      = 103,  /* Multiply reference value by local one (more useful than diff for scales and the like). */
+
+	/* Collection-only operations. */
+	IDOVERRIDE_OP_INSERT_AFTER  = 201,  /* Insert after given reference's subitem. */
+	IDOVERRIDE_OP_INSERT_BEFORE = 202,  /* Insert before given reference's subitem. */
+	/* We can add more if needed (move, delete, ...). */
+};
+
+/* IDOverridePropertyOperation->flag. */
+enum {
+	/* Basic operations. */
+	IDOVERRIDE_FLAG_MANDATORY     =   1 << 0,  /* User cannot remove that override operation. */
+	IDOVERRIDE_FLAG_LOCKED        =   1 << 1,  /* User cannot change that override operation. */
+};
+
+/* A single overriden property, contain all operations on this one. */
+typedef struct IDOverrideProperty {
+	struct IDOverrideProperty *next, *prev;
+
+	/* Path from ID to overridden property. *Does not* include indices/names for final arrays/collections items. */
+	char *rna_path;
+
+	ListBase operations;  /* List of overriding operations (IDOverridePropertyOperation) applied to this property. */
+} IDOverrideProperty;
+
+/* Main container for all overriding data info. */
+typedef struct IDOverride {
+	struct ID *reference;  /* Reference linked ID which this one overrides. */
+	ListBase properties;  /* List of IDOverrideProperty structs. */
+
+	/* Read/write data. */
+	/* Temp ID storing extra override data (used for differential operations only currently).
+	 * Always NULL outside of read/write context. */
+	struct ID *storage;
+
+	/* Runtime data. */
+	double last_auto_run;  /* Last time auto-override detection was run, to avoid too mush overhead on that. */
+} IDOverride;
+
+
 /* About Unique identifier.
  * Each engine is free to use it as it likes - it will be the only thing passed to it by blender to identify
  * asset/variant/version (concatenating the three into a single 48 bytes one).
@@ -173,13 +244,14 @@ typedef struct ID {
 	/**
 	 * LIB_TAG_... tags (runtime only, cleared at read time).
 	 */
-	short tag;
-	short pad_s1;
+	int tag;
 	int us;
 	int icon_id;
 	IDProperty *properties;
 
+	IDOverride *override;  /* Reference linked ID which this one overrides. */
 	AssetUUID *uuid;
+	void *pad_v;
 } ID;
 
 /* Note: Those two structs are for now being runtime-stored in Library datablocks.
@@ -393,8 +465,10 @@ typedef enum ID_Type {
 
 /* id->flag (persitent). */
 enum {
-	/* Flag asset IDs (the ones who should have a valid uuid). */
-	LIB_ASSET           = 1 << 0,
+	LIB_AUTOOVERRIDE    = 1 << 0,  /* Allow automatic generation of overriding rules. */
+
+	LIB_ASSET           = 1 << 4,  /* Flag asset IDs (the ones who should have a valid uuid). */
+
 	LIB_FAKEUSER        = 1 << 9,
 };
 
@@ -432,6 +506,9 @@ enum {
 	/* RESET_NEVER tag datablock as a place-holder (because the real one could not be linked from its library e.g.). */
 	LIB_TAG_MISSING         = 1 << 6,
 
+	/* RESET_NEVER tag datablock as being up-to-date regarding its reference. */
+	LIB_TAG_OVERRIDE_OK     = 1 << 9,
+
 	/* tag datablock has having an extra user. */
 	LIB_TAG_EXTRAUSER       = 1 << 2,
 	/* tag datablock has having actually increased usercount for the extra virtual user. */
@@ -451,6 +528,13 @@ enum {
 	LIB_TAG_ID_RECALC_DATA  = 1 << 13,
 	LIB_TAG_ANIM_NO_RECALC  = 1 << 14,
 	LIB_TAG_ID_RECALC_ALL   = (LIB_TAG_ID_RECALC | LIB_TAG_ID_RECALC_DATA),
+
+	/* RESET_NEVER tag datablock for freeing etc. behavior (usually set when copying real one into temp/runtime one). */
+	LIB_TAG_NO_MAIN          = 1 << 16,  /* Datablock is not listed in Main database. */
+	LIB_TAG_NO_USER_REFCOUNT = 1 << 17,  /* Datablock does not refcount usages of other IDs. */
+	/* Datablock was not allocated by standard system (BKE_libblock_alloc), do not free its memory
+	 * (usual type-specific freeing is called though). */
+	LIB_TAG_NOT_ALLOCATED     = 1 << 18,
 };
 
 /* To filter ID types (filter_id) */

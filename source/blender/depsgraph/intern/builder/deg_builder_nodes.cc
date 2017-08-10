@@ -80,6 +80,7 @@ extern "C" {
 #include "BKE_key.h"
 #include "BKE_lattice.h"
 #include "BKE_library.h"
+#include "BKE_library_override.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_mesh.h"
@@ -162,7 +163,24 @@ DepsgraphNodeBuilder::~DepsgraphNodeBuilder()
 
 IDDepsNode *DepsgraphNodeBuilder::add_id_node(ID *id)
 {
-	return m_graph->add_id_node(id, id->name);
+	IDDepsNode *id_node = m_graph->find_id_node(id);
+
+	if (id_node == NULL) {
+		id_node = m_graph->add_id_node(id, id->name);
+
+		if (id->override != NULL && (id->flag & LIB_AUTOOVERRIDE) != 0) {
+			ComponentDepsNode *comp_node = id_node->add_component(DEG_NODE_TYPE_PARAMETERS, "override_generator");
+			comp_node->owner = id_node;
+
+			/* TDOD We most certainly do not want to run this on every deg evaluation! Especially not during animation? */
+			/* Ideally, putting this in some kind of queue (only one entry per ID in whole queue) and consuming it in a
+			 * low-priority background thread would be ideal, but we need to ensure IDs remain valid for the thread? */
+			add_operation_node(comp_node, function_bind(BKE_override_operations_create, id, false),
+			                   DEG_OPCODE_OPERATION, "override_generator", 0);
+		}
+	}
+
+	return id_node;
 }
 
 TimeSourceDepsNode *DepsgraphNodeBuilder::add_time_source()
@@ -671,6 +689,13 @@ void DepsgraphNodeBuilder::build_particles(Scene *scene, Object *ob)
 	ComponentDepsNode *psys_comp =
 	        add_component_node(&ob->id, DEG_NODE_TYPE_EVAL_PARTICLES);
 
+	add_operation_node(psys_comp,
+	                   function_bind(BKE_particle_system_eval_init,
+	                                 _1,
+	                                 scene,
+	                                 ob),
+	                   DEG_OPCODE_PSYS_EVAL_INIT);
+
 	/* particle systems */
 	LINKLIST_FOREACH (ParticleSystem *, psys, &ob->particlesystem) {
 		ParticleSettings *part = psys->part;
@@ -682,11 +707,7 @@ void DepsgraphNodeBuilder::build_particles(Scene *scene, Object *ob)
 		/* this particle system */
 		// TODO: for now, this will just be a placeholder "ubereval" node
 		add_operation_node(psys_comp,
-		                   function_bind(BKE_particle_system_eval,
-		                                 _1,
-		                                 scene,
-		                                 ob,
-		                                 psys),
+		                   NULL,
 		                   DEG_OPCODE_PSYS_EVAL,
 		                   psys->name);
 	}

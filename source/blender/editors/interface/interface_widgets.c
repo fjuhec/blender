@@ -1635,6 +1635,8 @@ static struct uiWidgetStateColors wcol_state_colors = {
 	{215, 211, 75, 255},
 	{180, 0, 255, 255},
 	{153, 0, 230, 255},
+	{74, 137, 137, 255},
+	{49, 112, 112, 255},
 	0.5f, 0.0f
 };
 
@@ -1973,6 +1975,8 @@ static void widget_state(uiWidgetType *wt, int state)
 			widget_state_blend(wt->wcol.inner, wcol_state->inner_anim_sel, wcol_state->blend);
 		else if (state & UI_BUT_DRIVEN)
 			widget_state_blend(wt->wcol.inner, wcol_state->inner_driven_sel, wcol_state->blend);
+		else if (state & UI_BUT_OVERRIDEN)
+			widget_state_blend(wt->wcol.inner, wcol_state->inner_overridden_sel, wcol_state->blend);
 
 		copy_v3_v3_char(wt->wcol.text, wt->wcol.text_sel);
 		
@@ -1986,6 +1990,8 @@ static void widget_state(uiWidgetType *wt, int state)
 			widget_state_blend(wt->wcol.inner, wcol_state->inner_anim, wcol_state->blend);
 		else if (state & UI_BUT_DRIVEN)
 			widget_state_blend(wt->wcol.inner, wcol_state->inner_driven, wcol_state->blend);
+		else if (state & UI_BUT_OVERRIDEN)
+			widget_state_blend(wt->wcol.inner, wcol_state->inner_overridden, wcol_state->blend);
 
 		if (state & UI_ACTIVE) { /* mouse over? */
 			wt->wcol.inner[0] = wt->wcol.inner[0] >= 240 ? 255 : wt->wcol.inner[0] + 15;
@@ -2031,7 +2037,9 @@ static void widget_state_numslider(uiWidgetType *wt, int state)
 			widget_state_blend(wt->wcol.item, wcol_state->inner_anim_sel, blend);
 		else if (state & UI_BUT_DRIVEN)
 			widget_state_blend(wt->wcol.item, wcol_state->inner_driven_sel, blend);
-		
+		else if (state & UI_BUT_OVERRIDEN)
+			widget_state_blend(wt->wcol.item, wcol_state->inner_overridden_sel, blend);
+
 		if (state & UI_SELECT)
 			SWAP(short, wt->wcol.shadetop, wt->wcol.shadedown);
 	}
@@ -2042,6 +2050,8 @@ static void widget_state_numslider(uiWidgetType *wt, int state)
 			widget_state_blend(wt->wcol.item, wcol_state->inner_anim, blend);
 		else if (state & UI_BUT_DRIVEN)
 			widget_state_blend(wt->wcol.item, wcol_state->inner_driven, blend);
+		else if (state & UI_BUT_OVERRIDEN)
+			widget_state_blend(wt->wcol.item, wcol_state->inner_overridden, blend);
 	}
 }
 
@@ -3019,7 +3029,7 @@ static void widget_swatch(uiBut *but, uiWidgetColors *wcol, rcti *rect, int stat
 		
 	ui_but_v3_get(but, col);
 
-	if (state & (UI_BUT_ANIMATED | UI_BUT_ANIMATED_KEY | UI_BUT_DRIVEN | UI_BUT_REDALERT)) {
+	if (state & (UI_BUT_ANIMATED | UI_BUT_ANIMATED_KEY | UI_BUT_DRIVEN | UI_BUT_OVERRIDEN | UI_BUT_REDALERT)) {
 		/* draw based on state - color for keyed etc */
 		widgetbase_draw(&wtb, wcol);
 
@@ -3655,11 +3665,15 @@ void ui_draw_but(const bContext *C, ARegion *ar, uiStyle *style, uiBut *but, rct
 
 		switch (but->type) {
 			case UI_BTYPE_LABEL:
-				if (but->block->flag & UI_BLOCK_LOOP)
-					widget_draw_text_icon(&style->widgetlabel, &tui->wcol_menu_back, but, rect);
-				else {
-					wt = widget_type(UI_WTYPE_LABEL);
-					fstyle = &style->widgetlabel;
+				wt = widget_type(UI_WTYPE_LABEL);
+				fstyle = &style->widgetlabel;
+				if (but->drawflag & UI_BUT_BOX_ITEM) {
+					wt->wcol_theme = &tui->wcol_box;
+					wt->state = widget_state;
+				}
+				else if (but->block->flag & UI_BLOCK_LOOP) {
+					wt->wcol_theme = &tui->wcol_menu_back;
+					wt->state = widget_state;
 				}
 				break;
 
