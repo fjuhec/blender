@@ -1,4 +1,3 @@
-
 uniform mat4 ModelViewProjectionMatrix;
 uniform mat4 ProjectionMatrix;
 
