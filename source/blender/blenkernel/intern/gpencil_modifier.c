@@ -684,6 +684,21 @@ void BKE_gpencil_lattice_init(Object *ob)
 	}
 }
 
+/* clear lattice deform data */
+void BKE_gpencil_lattice_clear(Object *ob)
+{
+	ModifierData *md;
+	for (md = ob->modifiers.first; md; md = md->next) {
+		if (md->type == eModifierType_GpencilLattice) {
+			GpencilLatticeModifierData *mmd = (GpencilLatticeModifierData *)md;
+			if ((mmd) && (mmd->cache_data)) {
+				end_latt_deform((LatticeDeformData *)mmd->cache_data);
+				mmd->cache_data = NULL;
+			}
+		}
+	}
+}
+
 /* apply lattice to stroke */
 void BKE_gpencil_lattice_modifier(int UNUSED(id), GpencilLatticeModifierData *mmd, Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
 {

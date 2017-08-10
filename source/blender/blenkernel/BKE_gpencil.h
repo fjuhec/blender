@@ -178,6 +178,7 @@ void BKE_gpencil_simplify_stroke(struct bGPDlayer *gpl, struct bGPDstroke *gps, 
 
 bool BKE_gpencil_use_this_lattice(struct Object *ob, struct Object *lattice);
 void BKE_gpencil_lattice_init(struct Object *ob);
+void BKE_gpencil_lattice_clear(struct Object *ob);
 void BKE_gpencil_lattice_modifier(int id, struct GpencilLatticeModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
 
 #endif /*  __BKE_GPENCIL_H__ */

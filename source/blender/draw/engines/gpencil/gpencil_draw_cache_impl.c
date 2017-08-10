@@ -897,6 +897,12 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 		gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gpf, derived_gpf, 
 			gpl->opacity, gpl->tintcolor, false, false);
 	}
+
+	/* clear any lattice data */
+	if ((cache->is_dirty) && (ob->modifiers.first)) {
+		BKE_gpencil_lattice_clear(ob);
+	}
+
 	cache->is_dirty = false;
 }
 
