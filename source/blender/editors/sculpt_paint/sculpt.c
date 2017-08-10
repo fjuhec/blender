@@ -118,6 +118,13 @@
 #include "BLI_alloca.h"
 #include "BLI_array.h"
 
+#define DEBUG_TIME
+
+#ifdef DEBUG_TIME
+#  include "PIL_time.h"
+#  include "PIL_time_utildefines.h"
+#endif
+
 #define SIL_STROKE_STORE_CHUNK 512
 /* Store bias is used to bias a close estimate since resizing is more expensive than bigger array on first allocate*/
 #define STORE_ESTIMATE_BIAS 0.1f
@@ -674,6 +681,8 @@ typedef struct SculptThreadedTaskData {
 	bool smooth_mask;
 	bool has_bm_orco;
 	SilhouetteData *sil;
+	struct SpineBranch *branch;
+	int totedge;
 
 	SculptProjectVector *spvc;
 	float *offset;
@@ -7101,11 +7110,18 @@ static bool calc_stroke_normal_ori(SilhouetteStroke *stroke, float z_vec[3]) {
 	return dot_v3v3(n, z_vec) <= 0;
 }
 
-static void check_preceding_intersecting_edges(PBVH *bvh, SilhouetteData *sil, Mesh *me, SpineBranch *branch, PBVHNode **nodes, int tot_edge)
+static void do_calc_sil_intersect_task_cb_ex(void *userdata, void *UNUSED(userdata_chunk), const int n, const int UNUSED(thread_id))
 {
+	SculptThreadedTaskData *data = userdata;
+	SculptSession *ss = data->ob->sculpt;
+	PBVH *bvh = ss->pbvh;
+	SilhouetteData *sil = data->sil;
+	Mesh *me = data->ob->data;
+	PBVHNode *curr_node = data->nodes[n];
+	SpineBranch *branch = data->branch;
 	BB t_node_bb;
 	float p1[3], p2[3];
-	int e_start = me->totedge - tot_edge;
+	int e_start = me->totedge - data->totedge;
 	int tri_node_bind;
 	int tri_node_bind_tot;
 	float t_lambda;
@@ -7114,37 +7130,32 @@ static void check_preceding_intersecting_edges(PBVH *bvh, SilhouetteData *sil, M
 	MLoopTri lt;
 	BKE_pbvh_get_tri(bvh, &ltris);
 
-	printf("Checking preceding edges.\n Total edges to check: %i\n Total Triangles: %i\n Total Nodes: %i\n", tot_edge, sil->num_inter_tris, sil->num_inter_nodes);
-
 	for (int r = 0; r < sil->num_rings; r++) {
 		if (!branch || bb_intersect(&branch->bb, &sil->fillet_ring_bbs[r])) {
-			for (int n = 0; n < sil->num_inter_nodes; n++) {
-				BKE_pbvh_node_get_BB(nodes[n], (float (*))&t_node_bb.bmin, (float (*))&t_node_bb.bmax);
-				if (!branch || bb_intersect(&t_node_bb, &branch->bb)) {
+			BKE_pbvh_node_get_BB(curr_node, (float (*))&t_node_bb.bmin, (float (*))&t_node_bb.bmax);
+			if (!branch || bb_intersect(&t_node_bb, &branch->bb)) {
 #ifdef DEBUG_DRAW
-					if (branch) {
-						debug_branch(branch, 0x00ff00);
-					}
+				if (branch) {
+					debug_branch(branch, 0x00ff00);
+				}
 #endif
-					tri_node_bind = sil->tri_nodebind[n];
-					tri_node_bind_tot = n + 1 < sil->num_inter_nodes ? sil->tri_nodebind[n + 1] - sil->tri_nodebind[n] : sil->num_inter_tris - sil->tri_nodebind[n];
-					for (int e = 0; e < tot_edge; e++) {
-						copy_v3_v3(p1, me->mvert[me->medge[e_start + e].v1].co);
-						copy_v3_v3(p2, me->mvert[me->medge[e_start + e].v2].co);
-						for (int tri_i = 0; tri_i < tri_node_bind_tot; tri_i ++) {
-							lt = ltris[sil->inter_tris[tri_node_bind + tri_i]];
-
-							if (isect_line_segment_tri_v3(p1, p2,
-														  me->mvert[me->mloop[lt.tri[0]].v].co, me->mvert[me->mloop[lt.tri[1]].v].co, me->mvert[me->mloop[lt.tri[2]].v].co,
-														  &t_lambda, t_uv))
-							{
+				tri_node_bind = sil->tri_nodebind[n];
+				tri_node_bind_tot = n + 1 < sil->num_inter_nodes ? sil->tri_nodebind[n + 1] - sil->tri_nodebind[n] : sil->num_inter_tris - sil->tri_nodebind[n];
+				for (int e = 0; e < data->totedge; e++) {
+					copy_v3_v3(p1, me->mvert[me->medge[e_start + e].v1].co);
+					copy_v3_v3(p2, me->mvert[me->medge[e_start + e].v2].co);
+					for (int tri_i = 0; tri_i < tri_node_bind_tot; tri_i ++) {
+						lt = ltris[sil->inter_tris[tri_node_bind + tri_i]];
+						if (isect_line_segment_tri_v3(p1, p2,
+													  me->mvert[me->mloop[lt.tri[0]].v].co, me->mvert[me->mloop[lt.tri[1]].v].co, me->mvert[me->mloop[lt.tri[2]].v].co,
+													  &t_lambda, t_uv))
+						{
 #ifdef DEBUG_DRAW
-								bl_debug_color_set(0x000000);
-								bl_debug_draw_edge_add(p1, p2);
-								bl_debug_color_set(0x000000);
+							bl_debug_color_set(0x000000);
+							bl_debug_draw_edge_add(p1, p2);
+							bl_debug_color_set(0x000000);
 #endif
-								break;
-							}
+							break;
 						}
 					}
 				}
@@ -7154,9 +7165,33 @@ static void check_preceding_intersecting_edges(PBVH *bvh, SilhouetteData *sil, M
 	}
 }
 
+static void check_preceding_intersecting_edges(Object *ob, SilhouetteData *sil, SpineBranch *branch, PBVHNode **nodes, int tot_edge)
+{
+	printf("Checking preceding edges.\n Total edges to check: %i\n Total Triangles: %i\n Total Nodes: %i\n", tot_edge, sil->num_inter_tris, sil->num_inter_nodes);
+
+	/* threaded loop over nodes */
+	SculptThreadedTaskData data = {
+		.ob = ob, .nodes = nodes,
+		.sil = sil, .branch = branch, .totedge = tot_edge
+	};
+
+#ifdef DEBUG_TIME
+	TIMEIT_START(parallel_intersect);
+#endif
+
+	BLI_task_parallel_range_ex(
+							   0, sil->num_inter_nodes, &data, NULL, 0, do_calc_sil_intersect_task_cb_ex,
+							   (sil->num_inter_nodes > SCULPT_THREADED_LIMIT), false);
+
+#ifdef DEBUG_TIME
+	TIMEIT_END(parallel_intersect);
+#endif
+}
+
 /* Generates a 3D shape from a stroke. */
 static void silhouette_create_shape_mesh(bContext *C, Mesh *me, PBVH *bvh, SilhouetteData *sil, SilhouetteStroke *stroke, PBVHNode **nodes)
 {
+	Object *ob = CTX_data_active_object(C);
 	float z_vec[3] = {0.0f,0.0f,1.0f};
 	float inv_z_vec[3];
 	float depth = sil->depth;
@@ -7210,13 +7245,13 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, PBVH *bvh, Silho
 					break;
 			}
 
-			check_preceding_intersecting_edges(bvh, sil, me, a_branch, nodes, me->totedge - e_start);
+			check_preceding_intersecting_edges(ob, sil, a_branch, nodes, me->totedge - e_start);
 		}
 	}
 
 	e_start = me->totedge;
 	bridge_all_parts(me, spine, v_steps * 2 + w_steps, n_ori);
-	check_preceding_intersecting_edges(bvh, sil, me, NULL, nodes, me->totedge - e_start);
+	check_preceding_intersecting_edges(ob, sil, NULL, nodes, me->totedge - e_start);
 
 	free_spine(spine);
 
