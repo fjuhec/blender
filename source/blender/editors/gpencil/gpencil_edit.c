@@ -1490,7 +1490,7 @@ static int gp_dissolve_selected_points(bContext *C, eGP_DissolveMode mode)
 						}
 						break;
 					default:
-						return;
+						return false;
 						break;
 				}
 
