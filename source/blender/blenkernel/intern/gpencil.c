@@ -966,14 +966,20 @@ void BKE_gpencil_copy_data(Main *UNUSED(bmain), bGPdata *gpd_dst, const bGPdata 
 /* make a copy of a given gpencil datablock */
 bGPdata *BKE_gpencil_data_duplicate(Main *bmain, const bGPdata *gpd_src, bool internal_copy)
 {
+	const bGPDlayer *gpl_src;
+	bGPDlayer *gpl_dst;
+	bGPdata *gpd_dst;
+
 	/* Yuck and super-uber-hyper yuck!!!
 	 * Should be replaceable with a no-main copy (LIB_ID_COPY_NO_MAIN etc.), but not sure about it,
 	 * so for now keep old code for that one. */
-	if (internal_copy) {
-		const bGPDlayer *gpl_src;
-		bGPDlayer *gpl_dst;
-		bGPdata *gpd_dst;
+	 
+	/* error checking */
+	if (gpd_src == NULL) {
+		return NULL;
+	}
 
+	if (internal_copy) {
 		/* make a straight copy for undo buffers used during stroke drawing */
 		gpd_dst = MEM_dupallocN(gpd_src);
 	}
