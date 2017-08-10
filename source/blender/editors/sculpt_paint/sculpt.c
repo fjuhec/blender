@@ -258,6 +258,10 @@ typedef struct SilhouetteData {
 	int num_rings, fillet_ring_tot;
 	int *inter_edges;				/* edges crossing the two shapes */
 	int num_inter_edges;			/* number of edges crossing */
+	int *inter_tris;				/* Triangles intersecting the silhouette mesh. Points to MLooptri bvh->mloop */
+	int num_inter_tris;
+	int *tri_nodebind;				/* offsets in inter_tri arr to address node specific tris. */
+	int num_inter_nodes;
 	int *v_to_rm;
 	int num_v_to_rm;
 	BB *fillet_ring_bbs;				/* every ring gets a Bounding box to check intersection with branches */
@@ -7097,8 +7101,61 @@ static bool calc_stroke_normal_ori(SilhouetteStroke *stroke, float z_vec[3]) {
 	return dot_v3v3(n, z_vec) <= 0;
 }
 
+static void check_preceding_intersecting_edges(PBVH *bvh, SilhouetteData *sil, Mesh *me, SpineBranch *branch, PBVHNode **nodes, int tot_edge)
+{
+	BB t_node_bb;
+	float p1[3], p2[3];
+	int e_start = me->totedge - tot_edge;
+	int tri_node_bind;
+	int tri_node_bind_tot;
+	float t_lambda;
+	float t_uv[2];
+	const MLoopTri *ltris;
+	MLoopTri lt;
+	BKE_pbvh_get_tri(bvh, &ltris);
+
+	printf("Checking preceding edges.\n Total edges to check: %i\n Total Triangles: %i\n Total Nodes: %i\n", tot_edge, sil->num_inter_tris, sil->num_inter_nodes);
+
+	for (int r = 0; r < sil->num_rings; r++) {
+		if (!branch || bb_intersect(&branch->bb, &sil->fillet_ring_bbs[r])) {
+			for (int n = 0; n < sil->num_inter_nodes; n++) {
+				BKE_pbvh_node_get_BB(nodes[n], (float (*))&t_node_bb.bmin, (float (*))&t_node_bb.bmax);
+				if (!branch || bb_intersect(&t_node_bb, &branch->bb)) {
+#ifdef DEBUG_DRAW
+					if (branch) {
+						debug_branch(branch, 0x00ff00);
+					}
+#endif
+					tri_node_bind = sil->tri_nodebind[n];
+					tri_node_bind_tot = n + 1 < sil->num_inter_nodes ? sil->tri_nodebind[n + 1] - sil->tri_nodebind[n] : sil->num_inter_tris - sil->tri_nodebind[n];
+					for (int e = 0; e < tot_edge; e++) {
+						copy_v3_v3(p1, me->mvert[me->medge[e_start + e].v1].co);
+						copy_v3_v3(p2, me->mvert[me->medge[e_start + e].v2].co);
+						for (int tri_i = 0; tri_i < tri_node_bind_tot; tri_i ++) {
+							lt = ltris[sil->inter_tris[tri_node_bind + tri_i]];
+
+							if (isect_line_segment_tri_v3(p1, p2,
+														  me->mvert[me->mloop[lt.tri[0]].v].co, me->mvert[me->mloop[lt.tri[1]].v].co, me->mvert[me->mloop[lt.tri[2]].v].co,
+														  &t_lambda, t_uv))
+							{
+#ifdef DEBUG_DRAW
+								bl_debug_color_set(0x000000);
+								bl_debug_draw_edge_add(p1, p2);
+								bl_debug_color_set(0x000000);
+#endif
+								break;
+							}
+						}
+					}
+				}
+			}
+			return;
+		}
+	}
+}
+
 /* Generates a 3D shape from a stroke. */
-static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *sil, SilhouetteStroke *stroke)
+static void silhouette_create_shape_mesh(bContext *C, Mesh *me, PBVH *bvh, SilhouetteData *sil, SilhouetteStroke *stroke, PBVHNode **nodes)
 {
 	float z_vec[3] = {0.0f,0.0f,1.0f};
 	float inv_z_vec[3];
@@ -7106,6 +7163,7 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 	int ss_level = sil->resolution;
 	int v_steps = (1 << ss_level) + 2;
 	bool n_ori = false;
+	int e_start;
 	/* TODO: RNA Init*/
 
 	copy_v3_v3(z_vec, sil->z_vec);
@@ -7127,6 +7185,7 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 		a_branch = spine->branches[i];
 		if (a_branch) {
 			int r_forks = r_branch_count(spine, a_branch);
+			e_start = me->totedge;
 			switch (r_forks) {
 				case 1:
 					add_ss_cap(sil, a_branch, me, z_vec, depth, v_steps, w_steps, smoothness, n_ori, false);
@@ -7150,10 +7209,14 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 #endif
 					break;
 			}
+
+			check_preceding_intersecting_edges(bvh, sil, me, a_branch, nodes, me->totedge - e_start);
 		}
 	}
 
+	e_start = me->totedge;
 	bridge_all_parts(me, spine, v_steps * 2 + w_steps, n_ori);
+	check_preceding_intersecting_edges(bvh, sil, me, NULL, nodes, me->totedge - e_start);
 
 	free_spine(spine);
 
@@ -7594,7 +7657,7 @@ static void join_node_separated_rings(SilhouetteData *sil, Mesh *me, MeshElemMap
 
 									BLI_array_append(merge_info, t_m_info);
 #ifdef DEBUG_DRAW
-									bl_debug_color_set(0x00ff00);
+									/*bl_debug_color_set(0x00ff00);
 									for (int e_ins = 0; e_ins < t_m_info.r1_tot; e_ins ++) {
 										if((t_m_info.r1_e_a + e_ins) % t_m_info.r1_tot == t_m_info.r1_e_b) {
 											bl_debug_color_set(0x000000);
@@ -7602,7 +7665,7 @@ static void join_node_separated_rings(SilhouetteData *sil, Mesh *me, MeshElemMap
 										}
 										bl_debug_draw_medge_add(me, sil->fillet_ring_new[t_m_info.r1_start + (t_m_info.r1_e_a + e_ins) % t_m_info.r1_tot]);
 									}
-									bl_debug_color_set(0x000000);
+									bl_debug_color_set(0x000000);*/
 #endif	
 									/* TODO: Is this a bad coding practise?
 									 * Maybe:
@@ -7726,12 +7789,12 @@ static void do_calc_fillet_line_task_cb_ex(void *userdata, void *UNUSED(userdata
 	GHash *edge_hash = BLI_ghash_int_new("edges on the intersection");
 	int *edge_ring_fillet = NULL;
 	int *ring_start = NULL;
-	int v_rm_start_in_shared_arr = 0, int_e_start_in_shared_arr = 0, fillet_edge_ring_start_shared_arr = 0, fillet_ring_start_start_shared_arr = 0;
+	int v_rm_start_in_shared_arr = 0, int_e_start_in_shared_arr = 0, fillet_edge_ring_start_shared_arr = 0, fillet_ring_start_start_shared_arr = 0, inter_tris_start_in_shared_arr = 0;
 	int r_size;
 	BLI_array_declare(edge_ring_fillet);
 	BLI_array_declare(ring_start);
 	int comp_v, idx;
-	MLoopTri *tris = NULL;
+	int *tris = NULL;
 	int tot_tris;
 
 	/*GHashIterState state;*/
@@ -7794,6 +7857,14 @@ static void do_calc_fillet_line_task_cb_ex(void *userdata, void *UNUSED(userdata
 	GHASH_ITER_INDEX (gh_iter, edge_hash, idx) {
 		sil->inter_edges[int_e_start_in_shared_arr + idx] = BLI_ghashIterator_getKey(&gh_iter);
 	}
+
+	/* Copy tris over */
+	if (tot_tris > 0) {
+		prep_int_shared_mem(&sil->inter_tris, &sil->num_inter_tris, &inter_tris_start_in_shared_arr, tot_tris, "tris in intersection");
+		memcpy(sil->inter_tris + inter_tris_start_in_shared_arr, tris, tot_tris * sizeof(int));
+	}
+	sil->tri_nodebind[n] = inter_tris_start_in_shared_arr;
+
 	BLI_mutex_unlock(&data->mutex);
 
 	/* TODO: Workaround, do a BLI_ghash_pop style while loop
@@ -7836,12 +7907,6 @@ static void do_calc_fillet_line_task_cb_ex(void *userdata, void *UNUSED(userdata
 				/* TODO: Bug shouldn't reach but does on some occasion.*/
 				if (breaker == 0) {
 					BLI_array_empty(edge_ring_fillet);
-#ifdef DEBUG_DRAW
-
-					bl_debug_color_set(0x00ff00);
-					bl_debug_draw_medge_add(me, start_edge);
-					bl_debug_color_set(0x000000);
-#endif
 				}
 			}
 		}
@@ -7869,7 +7934,7 @@ static void do_calc_fillet_line_task_cb_ex(void *userdata, void *UNUSED(userdata
 
 	/*TODO: merge rings from multiple threads / nodes*/
 #ifdef DEBUG_DRAW
-	for(int r = 0; r < BLI_array_count(ring_start); r++) {
+	/*for(int r = 0; r < BLI_array_count(ring_start); r++) {
 		r_size = r < BLI_array_count(ring_start) - 1 ? ring_start[r + 1] - ring_start[r] : BLI_array_count(edge_ring_fillet) - ring_start[r];
 		for(int i = 0; i < r_size; i++) {
 			if(i == 0){
@@ -7880,7 +7945,7 @@ static void do_calc_fillet_line_task_cb_ex(void *userdata, void *UNUSED(userdata
 			bl_debug_draw_medge_add(me, edge_ring_fillet[ring_start[r] + i]);
 			bl_debug_color_set(0x000000);
 		}
-	}
+	}*/
 #endif
 	BLI_array_free(ring_start);
 	BLI_array_free(edge_ring_fillet);
@@ -7902,6 +7967,8 @@ static void do_calc_fillet_line(Object *ob, SilhouetteData *silhouette, PBVHNode
 
 	BKE_mesh_vert_edge_map_create(&emap, &emap_mem, me->medge, me->totvert, me->totedge);
 	silhouette->emap = emap;
+	silhouette->tri_nodebind = MEM_callocN(totnode * sizeof(int), "bind nodes to triarr");
+	silhouette->num_inter_nodes = totnode;
 
 	mul_m4_m4m4(projmat, (float (*)[4])rv3d->persmat, ob->obmat);
 
@@ -7939,6 +8006,7 @@ static void sculpt_silhouette_calc_mesh(bContext *C, wmOperator *op)
 	Mesh *me = ob->data;
 	/*Sculpt *sd = CTX_data_tool_settings(C)->sculpt;*/
 	SculptSession *ss = ob->sculpt;
+	PBVH *bvh = ss->pbvh;
 	SculptSearchBBData data;
 	PBVHNode **nodes = NULL;
 
@@ -7960,12 +8028,12 @@ static void sculpt_silhouette_calc_mesh(bContext *C, wmOperator *op)
 	}
 
 #ifdef DEBUG_DRAW
-	for (int i = 0; i < sil->num_inter_edges; i++) {
+	/*for (int i = 0; i < sil->num_inter_edges; i++) {
 		bl_debug_draw_medge_add(me, sil->inter_edges[i]);
-	}
+	}*/
 #endif
 
-	silhouette_create_shape_mesh(C, me, sil, stroke);
+	silhouette_create_shape_mesh(C, me, bvh, sil, stroke, nodes);
 
 	if (sil->v_to_rm) {
 		printf("Removing vertices/edges/loops/polys from mesh.\n");

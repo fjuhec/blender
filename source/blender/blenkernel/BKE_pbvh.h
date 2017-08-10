@@ -363,7 +363,8 @@ void BKE_pbvh_node_get_bm_orco_data(
 
 bool BKE_pbvh_node_vert_update_check_any(PBVH *bvh, PBVHNode *node);
 
-void BKE_pbvh_get_node_tris_from_verts(PBVH *bvh, PBVHNode *curr_node, GHash *vert_hash, struct MLoopTri **tris, int *r_tot_tris);
+void BKE_pbvh_get_node_tris_from_verts(PBVH *bvh, PBVHNode *curr_node, GHash *vert_hash, int **tris, int *r_tot_tris);
+void BKE_pbvh_get_tri(PBVH *bvh, const struct MLoopTri **r_tri);
 //void BKE_pbvh_node_BB_reset(PBVHNode *node);
 //void BKE_pbvh_node_BB_expand(PBVHNode *node, float co[3]);
 

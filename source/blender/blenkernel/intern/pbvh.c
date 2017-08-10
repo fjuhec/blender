@@ -1564,16 +1564,21 @@ int BKE_pbvh_recalc_looptri_from_me(PBVH *pbvh, Mesh *me)
 	return looptri_num;
 }
 
-void BKE_pbvh_get_node_tris_from_verts(PBVH *bvh, PBVHNode *node, GHash *vert_hash, MLoopTri **r_tris, int *r_tot_tris)
+void BKE_pbvh_get_tri(PBVH *bvh, const struct MLoopTri **r_tri)
+{
+	*r_tri = bvh->looptri;
+}
+
+void BKE_pbvh_get_node_tris_from_verts(PBVH *bvh, PBVHNode *node, GHash *vert_hash, int **r_tris, int *r_tot_tris)
 {
 
 	const int *faces = node->prim_indices;
 	const MLoop *mloop = bvh->mloop;
 	int totface = node->totprim;
-	MLoopTri *tris;
+	int *tris;
 	int r_tris_max;
 	/* Estimated that every vert has roughly two tris in a uniform mesh*/
-	tris = MEM_callocN(sizeof(MLoopTri) * BLI_ghash_size(vert_hash) * 2, "tris connected to verts");
+	tris = MEM_callocN(sizeof(int) * BLI_ghash_size(vert_hash) * 2, "tris connected to verts");
 	r_tris_max = BLI_ghash_size(vert_hash) * 2;
 	*r_tot_tris = 0;
 
@@ -1585,9 +1590,9 @@ void BKE_pbvh_get_node_tris_from_verts(PBVH *bvh, PBVHNode *node, GHash *vert_ha
 			if (BLI_ghash_haskey(vert_hash, SET_INT_IN_POINTER(mloop[lt.tri[s]].v))) {
 				if (*r_tot_tris >= r_tris_max) {
 					r_tris_max += TRI_ARRAY_GROW;
-					tris = MEM_reallocN(tris, sizeof(MLoopTri) * r_tris_max);
+					tris = MEM_reallocN(tris, sizeof(int) * r_tris_max);
 				}
-				tris[*r_tot_tris] = lt;
+				tris[*r_tot_tris] = faces[i];
 				*r_tot_tris += 1;
 				break;
 			}
