@@ -418,14 +418,14 @@ void BKE_gpencil_tint_modifier(int UNUSED(id), GpencilTintModifierData *mmd, Obj
 	interp_v3_v3v3(gps->palcolor->rgb, gps->palcolor->rgb, mmd->rgb, mmd->factor);
 	interp_v3_v3v3(gps->palcolor->fill, gps->palcolor->fill, mmd->rgb, mmd->factor);
 
-	/* if factor is 1, the alpha must be solid to get full tint */
-	if (mmd->factor == 1.0f) {
-		gps->palcolor->rgb[3] = 1.0f;
-		gps->palcolor->fill[3] = 1.0f;
+	/* if factor is > 1, the alpha must be changed to get full tint */
+	if (mmd->factor > 1.0f) {
+		gps->palcolor->rgb[3] += mmd->factor - 1.0f;
+		gps->palcolor->fill[3] += mmd->factor - 1.0f;
 	}
 
-	CLAMP3(gps->palcolor->rgb, 0.0f, 1.0f);
-	CLAMP3(gps->palcolor->fill, 0.0f, 1.0f);
+	CLAMP4(gps->palcolor->rgb, 0.0f, 1.0f);
+	CLAMP4(gps->palcolor->fill, 0.0f, 1.0f);
 }
 
 /* color correction strokes */
