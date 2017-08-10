@@ -1355,6 +1355,15 @@ typedef enum eGP_DeleteMode {
 	GP_DELETEOP_FRAME           = 2,
 } eGP_DeleteMode;
 
+typedef enum eGP_DissolveMode {
+	/* dissolve all selected points */
+	GP_DISSOLVE_POINTS = 0,
+	/* dissolve between selected points */
+	GP_DISSOLVE_BETWEEN = 1,
+	/* dissolve unselected points */
+	GP_DISSOLVE_UNSELECT = 2,
+} eGP_DissolveMode;
+
 /* ----------------------------------- */
 
 /* Delete selected strokes */
@@ -1408,10 +1417,11 @@ static int gp_delete_selected_strokes(bContext *C)
 /* ----------------------------------- */
 
 /* Delete selected points but keep the stroke */
-static int gp_dissolve_selected_points(bContext *C)
+static int gp_dissolve_selected_points(bContext *C, eGP_DissolveMode mode)
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	bool changed = false;
+	int first, last;
 	
 	CTX_DATA_BEGIN(C, bGPDlayer *, gpl, editable_gpencil_layers)
 	{
@@ -1434,20 +1444,56 @@ static int gp_dissolve_selected_points(bContext *C)
 			if (ED_gpencil_stroke_color_use(gpl, gps) == false)
 				continue;
 			
+			/* the stroke must have at least one point selected for any operator */
 			if (gps->flag & GP_STROKE_SELECT) {
 				bGPDspoint *pt;
 				int i;
 				
 				int tot = gps->totpoints; /* number of points in new buffer */
 				
-				/* First Pass: Count how many points are selected (i.e. how many to remove) */
-				for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
-					if (pt->flag & GP_SPOINT_SELECT) {
-						/* selected point - one of the points to remove */
-						tot--;
-					}
+				/* first pass: count points to remove */
+				switch (mode) {
+					case GP_DISSOLVE_POINTS:
+						/* Count how many points are selected (i.e. how many to remove) */
+						for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+							if (pt->flag & GP_SPOINT_SELECT) {
+								/* selected point - one of the points to remove */
+								tot--;
+							}
+						}
+						break;
+					case GP_DISSOLVE_BETWEEN:
+						/* need to find first and last point selected */
+						first = -1; 
+						last = 0;
+						for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+							if (pt->flag & GP_SPOINT_SELECT) {
+								if (first < 0) {
+									first = i;
+								}
+								last = i;
+							}
+						}
+						/* count unselected points in the range */
+						for (i = first, pt = gps->points + first; i < last; i++, pt++) {
+							if ((pt->flag & GP_SPOINT_SELECT) == 0) {
+								tot--;
+							}
+						}
+						break;
+					case GP_DISSOLVE_UNSELECT:
+						/* count number of unselected points */
+						for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+							if ((pt->flag & GP_SPOINT_SELECT) == 0) {
+								tot--;
+							}
+						}
+						break;
+					default:
+						return;
+						break;
 				}
-				
+
 				/* if no points are left, we simply delete the entire stroke */
 				if (tot <= 0) {
 					/* remove the entire stroke */
@@ -1462,18 +1508,55 @@ static int gp_dissolve_selected_points(bContext *C)
 					BKE_gpencil_batch_cache_dirty(gpd);
 				}
 				else {
-					/* just copy all unselected into a smaller buffer */
+					/* just copy all points to keep into a smaller buffer */
 					bGPDspoint *new_points = MEM_callocN(sizeof(bGPDspoint) * tot, "new gp stroke points copy");
 					bGPDspoint *npt        = new_points;
-					
-					for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
-						if ((pt->flag & GP_SPOINT_SELECT) == 0) {
-							*npt = *pt;
-							 npt->weights = MEM_dupallocN(pt->weights);
-							npt++;
-						}
+
+					switch (mode) {
+						case GP_DISSOLVE_POINTS:
+							for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+								if ((pt->flag & GP_SPOINT_SELECT) == 0) {
+									*npt = *pt;
+									npt->weights = MEM_dupallocN(pt->weights);
+									npt++;
+								}
+							}
+							break;
+						case GP_DISSOLVE_BETWEEN:
+							/* copy first segment */
+							for (i = 0, pt = gps->points; i < first; i++, pt++) {
+								*npt = *pt;
+								npt->weights = MEM_dupallocN(pt->weights);
+								npt++;
+							}
+							/* copy segment (selected points) */
+							for (i = first, pt = gps->points + first; i < last; i++, pt++) {
+								if (pt->flag & GP_SPOINT_SELECT) {
+									*npt = *pt;
+									npt->weights = MEM_dupallocN(pt->weights);
+									npt++;
+								}
+							}
+							/* copy last segment */
+							for (i = last, pt = gps->points + last; i < gps->totpoints; i++, pt++) {
+								*npt = *pt;
+								npt->weights = MEM_dupallocN(pt->weights);
+								npt++;
+							}
+
+							break;
+						case GP_DISSOLVE_UNSELECT:
+							/* copy any selected point */
+							for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+								if (pt->flag & GP_SPOINT_SELECT) {
+									*npt = *pt;
+									npt->weights = MEM_dupallocN(pt->weights);
+									npt++;
+								}
+							}
+							break;
 					}
-					
+
 					/* free the old buffer */
 					if (gps->points) {
 						BKE_gpencil_free_stroke_weights(gps);
@@ -1490,6 +1573,9 @@ static int gp_dissolve_selected_points(bContext *C)
 					
 					/* deselect the stroke, since none of its selected points will still be selected */
 					gps->flag &= ~GP_STROKE_SELECT;
+					for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+						pt->flag &= ~GP_SPOINT_SELECT;
+					}
 				}
 				
 				changed = true;
@@ -1743,24 +1829,37 @@ void GPENCIL_OT_delete(wmOperatorType *ot)
 	ot->prop = RNA_def_enum(ot->srna, "type", prop_gpencil_delete_types, 0, "Type", "Method used for deleting Grease Pencil data");
 }
 
-static int gp_dissolve_exec(bContext *C, wmOperator *UNUSED(op))
+static int gp_dissolve_exec(bContext *C, wmOperator *op)
 {
-	return gp_dissolve_selected_points(C);
+	eGP_DissolveMode mode = RNA_enum_get(op->ptr, "type");
+
+	return gp_dissolve_selected_points(C, mode);
 }
 
 void GPENCIL_OT_dissolve(wmOperatorType *ot)
 {
+	static EnumPropertyItem prop_gpencil_dissolve_types[] = {
+		{ GP_DISSOLVE_POINTS, "POINTS", 0, "Dissolve", "Dissolve selected points" },
+		{ GP_DISSOLVE_BETWEEN, "BETWEEN", 0, "Dissolve Between", "Dissolve points between selected points" },
+		{ GP_DISSOLVE_UNSELECT, "UNSELECT", 0, "Dissolve Unselect", "Dissolve all unselected points" },
+		{ 0, NULL, 0, NULL, NULL }
+	};
+
 	/* identifiers */
 	ot->name = "Dissolve";
 	ot->idname = "GPENCIL_OT_dissolve";
 	ot->description = "Delete selected points without splitting strokes";
 
 	/* callbacks */
+	ot->invoke = WM_menu_invoke;
 	ot->exec = gp_dissolve_exec;
 	ot->poll = gp_stroke_edit_poll;
 
 	/* flags */
 	ot->flag = OPTYPE_UNDO | OPTYPE_REGISTER;
+
+	/* props */
+	ot->prop = RNA_def_enum(ot->srna, "type", prop_gpencil_dissolve_types, 0, "Type", "Method used for disolving Stroke points");
 }
 
 /* ****************** Snapping - Strokes <-> Cursor ************************ */

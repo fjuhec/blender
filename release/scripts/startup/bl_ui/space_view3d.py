@@ -2702,7 +2702,7 @@ class VIEW3D_MT_edit_gpencil_delete(Menu):
 
         layout.separator()
 
-        layout.operator("gpencil.dissolve")
+        layout.operator_enum("gpencil.dissolve", "type")
 
         layout.separator()
 
