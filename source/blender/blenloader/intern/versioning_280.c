@@ -551,13 +551,6 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 				}
 			}
 		}
-		/* init pixel size factor */
-		if (!DNA_struct_elem_find(fd->filesdna, "bGPDdata", "int", "pixfactor")) {
-			for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
-				gpd->pixfactor = 40;
-			}
-		}
-
 
 
 	}

@@ -107,7 +107,6 @@ class DATA_PT_gpencil_display(DataButtonsPanel, Panel):
         layout.prop(ob, "empty_draw_size", text="Size")
 
         gpd = context.gpencil_data
-
         row = layout.row()
         row.prop(gpd, "xray_mode", text="Draw Mode")
         row = layout.row()
@@ -120,9 +119,6 @@ class DATA_PT_gpencil_display(DataButtonsPanel, Panel):
         if gpl:
             row = layout.row()
             row.prop(gpl, "show_points")
-
-        row = layout.row()
-        row.prop(gpd, "pixfactor", text="Pixel Factor")
 
 
 classes = (
