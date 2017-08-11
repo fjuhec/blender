@@ -472,6 +472,9 @@ void BKE_gpencil_opacity_modifier(int UNUSED(id), GpencilOpacityModifierData *mm
 	/* if factor is > 1, then force opacity */
 	if (mmd->factor > 1.0f) {
 		gps->palcolor->rgb[3] += mmd->factor - 1.0f;
+		if (gps->palcolor->fill[3] > 1e-5) {
+			gps->palcolor->fill[3] += mmd->factor - 1.0f;
+		}
 	}
 
 
