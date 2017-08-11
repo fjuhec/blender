@@ -58,6 +58,29 @@ static ModifierData *modifier_available(Object *ob, ModifierType type)
 	return NULL;
 }
 
+/* verify if this modifier is active */
+static bool modifier_is_active(Object *ob, ModifierData *md)
+{
+	if (md == NULL) {
+		return false;
+	}
+
+	bGPdata *gpd = ob->gpd;
+	if (gpd == NULL) {
+		return false;
+	}
+
+	bool is_edit = (bool)((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)));
+	if (((md->mode & eModifierMode_Realtime) && ((G.f & G_RENDER_OGL) == 0)) ||
+		((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL)) ||
+		((md->mode & eModifierMode_Editmode) && (is_edit)))
+	{
+		return true;
+	}
+
+	return false;
+}
+
 /* Copy image as is to fill vfx texture */
 static void DRW_gpencil_vfx_copy(int ob_idx, GPENCIL_e_data *e_data, GPENCIL_Data *vedata, Object *ob, tGPencilObjectCache *cache)
 {
@@ -171,22 +194,29 @@ static void DRW_gpencil_vfx_blur(ModifierData *md, int ob_idx, GPENCIL_e_data *e
 
 void DRW_gpencil_vfx_modifiers(int ob_idx, struct GPENCIL_e_data *e_data, struct GPENCIL_Data *vedata, struct Object *ob, struct tGPencilObjectCache *cache)
 {
+	bool ready = false;
 	ModifierData *md_wave = modifier_available(ob, eModifierType_GpencilWave);
-	ModifierData *md_blur = modifier_available(ob, eModifierType_GpencilBlur);
-
-	if ((md_wave == NULL) && (md_blur == NULL)) {
-		return;
-	}
 
 	if (md_wave) {
 		DRW_gpencil_vfx_wave(md_wave, ob_idx, e_data, vedata, ob, cache);
-	}
-	else {
-		/* need to fill the texture by default */
-		DRW_gpencil_vfx_copy(ob_idx, e_data, vedata, ob, cache);
+		ready = true;
 	}
 
-	if (md_blur) {
-		DRW_gpencil_vfx_blur(md_blur, ob_idx, e_data, vedata, ob, cache);
+	/* loop VFX modifiers 
+	 * copy the original texture if wave modifier did not copy before
+	 */
+	for (ModifierData *md = ob->modifiers.first; md; md = md->next) {
+		switch (md->type) {
+			case eModifierType_GpencilBlur:
+				if (modifier_is_active(ob, md)) {
+					if (!ready) {
+						DRW_gpencil_vfx_copy(ob_idx, e_data, vedata, ob, cache);
+						ready = true;
+					}
+					DRW_gpencil_vfx_blur(md, ob_idx, e_data, vedata, ob, cache);
+				}
+				break;
+		}
 	}
+
 }
