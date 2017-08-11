@@ -410,6 +410,8 @@ void BKE_gpencil_thick_modifier(int UNUSED(id), GpencilThickModifierData *mmd, O
 /* tint strokes */
 void BKE_gpencil_tint_modifier(int UNUSED(id), GpencilTintModifierData *mmd, Object *UNUSED(ob), bGPDlayer *gpl, bGPDstroke *gps)
 {
+	bGPDspoint *pt;
+
 	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 1, gpl, gps,
 		(bool)mmd->flag & GP_TINT_INVERSE_LAYER, (bool)mmd->flag & GP_TINT_INVERSE_PASS)) {
 		return;
@@ -421,11 +423,23 @@ void BKE_gpencil_tint_modifier(int UNUSED(id), GpencilTintModifierData *mmd, Obj
 	/* if factor is > 1, the alpha must be changed to get full tint */
 	if (mmd->factor > 1.0f) {
 		gps->palcolor->rgb[3] += mmd->factor - 1.0f;
-		gps->palcolor->fill[3] += mmd->factor - 1.0f;
+		if (gps->palcolor->fill[3] > 1e-5) {
+			gps->palcolor->fill[3] += mmd->factor - 1.0f;
+		}
 	}
 
 	CLAMP4(gps->palcolor->rgb, 0.0f, 1.0f);
 	CLAMP4(gps->palcolor->fill, 0.0f, 1.0f);
+	
+	/* if factor > 1.0, affect the strength of the stroke */
+	if (mmd->factor > 1.0f) {
+		for (int i = 0; i < gps->totpoints; ++i) {
+			pt = &gps->points[i];
+			pt->strength += mmd->factor - 1.0f;
+			CLAMP(pt->strength, 0.0f, 1.0f);
+		}
+	}
+
 }
 
 /* color correction strokes */
