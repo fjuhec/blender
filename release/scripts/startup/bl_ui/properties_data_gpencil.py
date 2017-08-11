@@ -120,6 +120,9 @@ class DATA_PT_gpencil_display(DataButtonsPanel, Panel):
             row = layout.row()
             row.prop(gpl, "show_points")
 
+        row = layout.row()
+        row.prop(gpd, "pixfactor", text="Pixel Factor")
+
 
 classes = (
     DATA_PT_gpencil,
