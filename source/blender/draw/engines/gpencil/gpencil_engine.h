@@ -95,6 +95,7 @@ typedef struct GPENCIL_Storage {
 	int keep_size;
 	float obj_scale;
 	float blur1[2], blur2[2];
+	int pixfactor;
 } GPENCIL_Storage;
 
 typedef struct GPENCIL_StorageList {

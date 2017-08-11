@@ -5,6 +5,7 @@ uniform float pixsize;   /* rv3d->pixsize */
 uniform float pixelsize; /* U.pixelsize */
 uniform int keep_size;    
 uniform float objscale;
+uniform int pixfactor;
 
 in vec3 pos;
 in vec4 color;
@@ -15,7 +16,7 @@ out float finalThickness;
 
 #define TRUE 1
 
-float defaultpixsize = pixsize * pixelsize * 40.0;
+float defaultpixsize = pixsize * pixelsize * float(pixfactor);
 
 void main(void)
 {
