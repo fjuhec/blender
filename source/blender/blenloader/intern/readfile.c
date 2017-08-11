@@ -5129,6 +5129,10 @@ static void direct_link_hair(FileData *fd, HairPattern *hair)
 	hair->follicles = newdataadr(fd, hair->follicles);
 	
 	link_list(fd, &hair->groups);
+	for (HairGroup *group = hair->groups.first; group; group = group->next) {
+		group->strands_parent_index = newdataadr(fd, group->strands_parent_index);
+		group->strands_parent_weight = newdataadr(fd, group->strands_parent_weight);
+	}
 }
 
 static void direct_link_modifiers(FileData *fd, ListBase *lb)

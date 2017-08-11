@@ -140,7 +140,7 @@ static void rna_def_hair_group(BlenderRNA *brna)
 	RNA_def_struct_name_property(srna, prop);
 	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW | NA_RENAME, NULL);
 	
-	prop = RNA_def_property(srna, "max_length", PROP_FLOAT, PROP_NONE);
+	prop = RNA_def_property(srna, "normals_max_length", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_range(prop, 0.0f, FLT_MAX);
 	RNA_def_property_ui_range(prop, 0.0, 10.0, 0.1, 4);
 	RNA_def_property_ui_text(prop, "Maximum Length", "Maximum length of hair fibers in this group");

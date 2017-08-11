@@ -58,7 +58,18 @@ typedef struct HairGroup {
 	char name[64]; /* MAX_NAME */
 	int type;
 	
-	float max_length;
+	int follicle_start;
+	int num_follicles;
+	
+	/* NORMALS */
+	float normals_max_length;
+
+	/* STRANDS */
+	int (*strands_parent_index)[4];
+	float (*strands_parent_weight)[4];
+	
+	void *draw_batch_cache;
+	void *draw_texture_cache;
 } HairGroup;
 
 typedef enum HairGroup_Type {

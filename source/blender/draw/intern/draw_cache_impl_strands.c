@@ -380,6 +380,9 @@ Gwn_Batch *DRW_editstrands_batch_cache_get_points(BMEditStrands *es)
 	return cache->points;
 }
 
+/* ---------------------------------------------------------------------- */
+/* EditStrands Fibers Gwn_Batch Cache */
+
 static void editstrands_batch_cache_ensure_hair_fibers(BMEditStrands *es, StrandsBatchCache *cache, bool use_ribbons, int subdiv)
 {
 	TIMEIT_START(editstrands_batch_cache_ensure_hair_fibers);

@@ -73,27 +73,40 @@ bool BKE_hair_fiber_get_vectors(const struct HairFiber *fiber, struct DerivedMes
                                    float loc[3], float nor[3], float tang[3]);
 bool BKE_hair_fiber_get_matrix(const struct HairFiber *fiber, struct DerivedMesh *root_dm, float mat[4][4]);
 
-typedef struct StrandsView {
-	int (*get_num_strands)(const struct StrandsView* strands);
-	int (*get_num_verts)(const struct StrandsView* strands);
+typedef struct HairDrawDataInterface {
+	int (*get_num_strands)(const struct HairDrawDataInterface* hairdata);
+	int (*get_num_verts)(const struct HairDrawDataInterface* hairdata);
 	
-	void (*get_strand_lengths)(const struct StrandsView* strands, int *r_lengths);
-	void (*get_strand_roots)(const struct StrandsView* strands, struct MeshSample *r_roots);
-	void (*get_strand_vertices)(const struct StrandsView* strands, float (*positions)[3]);
-} StrandsView;
+	void (*get_strand_lengths)(const struct HairDrawDataInterface* hairdata, int *r_lengths);
+	void (*get_strand_roots)(const struct HairDrawDataInterface* hairdata, struct MeshSample *r_roots);
+	void (*get_strand_vertices)(const struct HairDrawDataInterface* hairdata, float (*r_positions)[3]);
+} HairDrawDataInterface;
 
-struct HairFiber* BKE_hair_fibers_create(const struct StrandsView *strands,
+struct HairFiber* BKE_hair_fibers_create(const struct HairDrawDataInterface *hairdata,
                                          struct DerivedMesh *scalp, unsigned int amount,
                                          unsigned int seed);
 
-int* BKE_hair_get_fiber_lengths(const struct HairFiber *fibers, int totfibers,
-                                 const struct StrandsView *strands, int subdiv);
+int* BKE_hair_strands_get_fiber_lengths(const struct HairFiber *fibers, int totfibers,
+                                        const struct HairDrawDataInterface *hairdata, int subdiv);
 
-void BKE_hair_get_texture_buffer_size(const struct StrandsView *strands, int totfibers, int subdiv,
-                                      int *r_size, int *r_strand_map_start,
-                                      int *r_strand_vertex_start, int *r_fiber_start);
-void BKE_hair_get_texture_buffer(const struct StrandsView *strands, struct DerivedMesh *scalp,
-                                 const struct HairFiber *fibers, int totfibers, int subdiv,
-                                 void *texbuffer);
+void BKE_hair_strands_get_texture_buffer_size(const struct HairDrawDataInterface *hairdata, int totfibers, int subdiv,
+                                              int *r_size, int *r_strand_map_start,
+                                              int *r_strand_vertex_start, int *r_fiber_start);
+void BKE_hair_strands_get_texture_buffer(const struct HairDrawDataInterface *hairdata, struct DerivedMesh *scalp,
+                                         const struct HairFiber *fibers, int totfibers, int subdiv,
+                                         void *texbuffer);
+
+/* === Draw Cache === */
+
+enum {
+	BKE_HAIR_BATCH_DIRTY_ALL = 0,
+};
+void BKE_hair_batch_cache_dirty(struct HairGroup *group, int mode);
+void BKE_hair_batch_cache_free(struct HairGroup *group);
+
+int* BKE_hair_get_fiber_lengths(struct HairGroup *group, int subdiv);
+void BKE_hair_group_get_texture_buffer_size(struct HairPattern *hair, struct HairGroup *group, int subdiv, int *r_size,
+                                            int *r_strand_map_start, int *r_strand_vertex_start, int *r_fiber_start);
+void BKE_hair_group_get_texture_buffer(struct HairPattern *hair, struct HairGroup *group, struct DerivedMesh *scalp, int subdiv, void *texbuffer);
 
 #endif

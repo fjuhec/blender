@@ -1712,6 +1712,16 @@ static void write_hair(WriteData *wd, HairPattern *hair)
 	writestruct(wd, DATA, HairPattern, hair->num_follicles, hair->follicles);
 	
 	writelist(wd, DATA, HairGroup, &hair->groups);
+	for (HairGroup *group = hair->groups.first; group; group = group->next) {
+		const int (*parent_index)[4] = group->strands_parent_index;
+		const float (*parent_weight)[4] = group->strands_parent_weight;
+		if (parent_index) {
+			writedata(wd, DATA, sizeof(*parent_index) * group->num_follicles, parent_index);
+		}
+		if (parent_weight) {
+			writedata(wd, DATA, sizeof(*parent_weight) * group->num_follicles, parent_weight);
+		}
+	}
 }
 
 static void write_modifiers(WriteData *wd, ListBase *modbase)

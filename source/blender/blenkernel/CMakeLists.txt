@@ -113,6 +113,7 @@ set(SRC
 	intern/gpencil.c
 	intern/group.c
 	intern/hair.c
+	intern/hair_draw.c
 	intern/icons.c
 	intern/idcode.c
 	intern/idprop.c

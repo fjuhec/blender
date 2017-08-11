@@ -135,27 +135,27 @@ void BKE_editstrands_free(BMEditStrands *es)
 /* === Hair fibers === */
 
 typedef struct EditStrandsView {
-	StrandsView base;
+	HairDrawDataInterface base;
 	BMEditStrands *edit;
 } EditStrandsView;
 
-static int get_num_strands(const StrandsView *strands_)
+static int get_num_strands(const HairDrawDataInterface *hairdata_)
 {
-	const EditStrandsView *strands = (EditStrandsView *)strands_;
+	const EditStrandsView *strands = (EditStrandsView *)hairdata_;
 	BMesh *bm = strands->edit->base.bm;
 	return BM_strands_count(bm);
 }
 
-static int get_num_verts(const StrandsView *strands_)
+static int get_num_verts(const HairDrawDataInterface *hairdata_)
 {
-	const EditStrandsView *strands = (EditStrandsView *)strands_;
+	const EditStrandsView *strands = (EditStrandsView *)hairdata_;
 	BMesh *bm = strands->edit->base.bm;
 	return bm->totvert;
 }
 
-static void get_strand_lengths(const StrandsView* strands_, int *r_lengths)
+static void get_strand_lengths(const HairDrawDataInterface* hairdata_, int *r_lengths)
 {
-	const EditStrandsView *strands = (EditStrandsView *)strands_;
+	const EditStrandsView *strands = (EditStrandsView *)hairdata_;
 	BMesh *bm = strands->edit->base.bm;
 	BMVert *v;
 	BMIter iter;
@@ -168,9 +168,9 @@ static void get_strand_lengths(const StrandsView* strands_, int *r_lengths)
 	}
 }
 
-static void get_strand_roots(const StrandsView* strands_, struct MeshSample *r_roots)
+static void get_strand_roots(const HairDrawDataInterface* hairdata_, struct MeshSample *r_roots)
 {
-	const EditStrandsView *strands = (EditStrandsView *)strands_;
+	const EditStrandsView *strands = (EditStrandsView *)hairdata_;
 	BMesh *bm = strands->edit->base.bm;
 	BMVert *v;
 	BMIter iter;
@@ -183,14 +183,14 @@ static void get_strand_roots(const StrandsView* strands_, struct MeshSample *r_r
 	}
 }
 
-static void get_strand_vertices(const StrandsView* strands_, float (*verts)[3])
+static void get_strand_vertices(const HairDrawDataInterface* hairdata_, float (*r_verts)[3])
 {
-	const EditStrandsView *strands = (EditStrandsView *)strands_;
+	const EditStrandsView *strands = (EditStrandsView *)hairdata_;
 	BMesh *bm = strands->edit->base.bm;
 	BMVert *vert;
 	BMIter iter;
 	
-	float (*co)[3] = verts;
+	float (*co)[3] = r_verts;
 	BM_ITER_MESH(vert, &iter, bm, BM_VERTS_OF_MESH) {
 		copy_v3_v3(*co, vert->co);
 		++co;
@@ -199,14 +199,14 @@ static void get_strand_vertices(const StrandsView* strands_, float (*verts)[3])
 
 static EditStrandsView editstrands_get_view(BMEditStrands *edit)
 {
-	EditStrandsView strands;
-	strands.base.get_num_strands = get_num_strands;
-	strands.base.get_num_verts = get_num_verts;
-	strands.base.get_strand_lengths = get_strand_lengths;
-	strands.base.get_strand_roots = get_strand_roots;
-	strands.base.get_strand_vertices = get_strand_vertices;
-	strands.edit = edit;
-	return strands;
+	EditStrandsView hairdata;
+	hairdata.base.get_num_strands = get_num_strands;
+	hairdata.base.get_num_verts = get_num_verts;
+	hairdata.base.get_strand_lengths = get_strand_lengths;
+	hairdata.base.get_strand_roots = get_strand_roots;
+	hairdata.base.get_strand_vertices = get_strand_vertices;
+	hairdata.edit = edit;
+	return hairdata;
 }
 
 bool BKE_editstrands_hair_ensure(BMEditStrands *es)
@@ -236,21 +236,21 @@ void BKE_editstrands_hair_free(BMEditStrands *es)
 int* BKE_editstrands_hair_get_fiber_lengths(BMEditStrands *es, int subdiv)
 {
 	EditStrandsView strands = editstrands_get_view(es);
-	return BKE_hair_get_fiber_lengths(es->hair_fibers, es->hair_totfibers, &strands.base, subdiv);
+	return BKE_hair_strands_get_fiber_lengths(es->hair_fibers, es->hair_totfibers, &strands.base, subdiv);
 }
 
 void BKE_editstrands_hair_get_texture_buffer_size(BMEditStrands *es, int subdiv, int *r_size,
                                                   int *r_strand_map_start, int *r_strand_vertex_start, int *r_fiber_start)
 {
 	EditStrandsView strands = editstrands_get_view(es);
-	BKE_hair_get_texture_buffer_size(&strands.base, es->hair_totfibers, subdiv, r_size,
+	BKE_hair_strands_get_texture_buffer_size(&strands.base, es->hair_totfibers, subdiv, r_size,
 	                                 r_strand_map_start, r_strand_vertex_start, r_fiber_start);
 }
 
 void BKE_editstrands_hair_get_texture_buffer(BMEditStrands *es, int subdiv, void *texbuffer)
 {
 	EditStrandsView strands = editstrands_get_view(es);
-	BKE_hair_get_texture_buffer(&strands.base, es->root_dm, es->hair_fibers, es->hair_totfibers, subdiv, texbuffer);
+	BKE_hair_strands_get_texture_buffer(&strands.base, es->root_dm, es->hair_fibers, es->hair_totfibers, subdiv, texbuffer);
 }
 
 /* === Constraints === */
