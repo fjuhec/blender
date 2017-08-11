@@ -57,8 +57,9 @@ typedef struct HairGroup {
 	
 	char name[64]; /* MAX_NAME */
 	int type;
+	int pad;
 	
-	int follicle_start;
+	struct HairFollicle *follicles;
 	int num_follicles;
 	
 	/* NORMALS */

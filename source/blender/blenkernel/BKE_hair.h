@@ -105,8 +105,8 @@ void BKE_hair_batch_cache_dirty(struct HairGroup *group, int mode);
 void BKE_hair_batch_cache_free(struct HairGroup *group);
 
 int* BKE_hair_get_fiber_lengths(struct HairGroup *group, int subdiv);
-void BKE_hair_group_get_texture_buffer_size(struct HairPattern *hair, struct HairGroup *group, int subdiv, int *r_size,
+void BKE_hair_group_get_texture_buffer_size(struct HairGroup *group, int subdiv, int *r_size,
                                             int *r_strand_map_start, int *r_strand_vertex_start, int *r_fiber_start);
-void BKE_hair_group_get_texture_buffer(struct HairPattern *hair, struct HairGroup *group, struct DerivedMesh *scalp, int subdiv, void *texbuffer);
+void BKE_hair_group_get_texture_buffer(struct HairGroup *group, struct DerivedMesh *scalp, int subdiv, void *texbuffer);
 
 #endif
