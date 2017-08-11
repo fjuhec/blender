@@ -110,10 +110,8 @@ static void loop_manifold_fan_around_vert_next(
 }
 
 static void apply_weights_sharp_loops(WeightedNormalModifierData *wnmd, int *loop_index, int size, pair *mode_pair,
-	float(*loop_normal)[3], int *loops_to_poly, float(*polynors)[3])
+	float(*loop_normal)[3], int *loops_to_poly, float(*polynors)[3], int weight)
 {
-	float weight = (float)wnmd->weight / 10.0f;
-
 	for (int i = 0; i < size - 1; i++) {
 		for (int j = 0; j < size - i - 1; j++) {
 			if (wnmd->mode == MOD_WEIGHTEDNORMAL_MODE_FACE
@@ -172,7 +170,7 @@ static void apply_weights_sharp_loops(WeightedNormalModifierData *wnmd, int *loo
    Used only to work on sharp edges */
 static void loop_split_worker(WeightedNormalModifierData *wnmd, pair *mode_pair, MLoop *ml_curr, MLoop *ml_prev, int ml_curr_index,
 		int ml_prev_index, int *e2l_prev, int mp_index, float (*loop_normal)[3], int *loops_to_poly, float (*polynors)[3], MEdge *medge,
-		MLoop *mloop, MPoly *mpoly, int (*edge_to_loops)[2])
+		MLoop *mloop, MPoly *mpoly, int (*edge_to_loops)[2], int weight)
 {
 	if (e2l_prev) {
 		int *e2lfan_curr = e2l_prev;
@@ -207,7 +205,7 @@ static void loop_split_worker(WeightedNormalModifierData *wnmd, pair *mode_pair,
 			BLI_stack_pop(loop_index, &index[cur]);
 			cur++;
 		}
-		apply_weights_sharp_loops(wnmd, index, cur, mode_pair, loop_normal, loops_to_poly, polynors);
+		apply_weights_sharp_loops(wnmd, index, cur, mode_pair, loop_normal, loops_to_poly, polynors, weight);
 		MEM_freeN(index);
 		BLI_stack_free(loop_index);
 	}
@@ -359,11 +357,11 @@ static void apply_weights_vertex_normal(WeightedNormalModifierData *wnmd, Object
 					if (IS_EDGE_SHARP(e2l_curr)) {
 						if (IS_EDGE_SHARP(e2l_curr) && IS_EDGE_SHARP(e2l_prev)) {
 							loop_split_worker(wnmd, mode_pair, ml_curr, ml_prev, ml_curr_index, -1, NULL, mp_index, loop_normal,
-								loops_to_poly, polynors, medge,	mloop, mpoly, edge_to_loops);
+								loops_to_poly, polynors, medge,	mloop, mpoly, edge_to_loops, weight);
 						}
 						else {
 							loop_split_worker(wnmd, mode_pair, ml_curr, ml_prev, ml_curr_index, ml_prev_index, e2l_prev, mp_index,
-								loop_normal, loops_to_poly, polynors, medge, mloop, mpoly, edge_to_loops);
+								loop_normal, loops_to_poly, polynors, medge, mloop, mpoly, edge_to_loops, weight);
 						}
 					}
 					ml_prev = ml_curr;
@@ -500,7 +498,12 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob, DerivedMesh *dm,
 
 	const bool use_invert_vgroup = (wnmd->flag & MOD_WEIGHTEDNORMAL_INVERT_VGROUP) != 0;
 	bool free_polynors = false;
+
 	float weight = ((float)wnmd->weight) / 10.0f;
+	if (weight > 1) {
+		weight = (weight - 1) * 10;
+	}
+
 	float (*polynors)[3] = dm->getPolyDataArray(dm, CD_NORMAL);
 
 	if (!polynors) {
