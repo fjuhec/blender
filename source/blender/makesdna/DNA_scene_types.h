@@ -754,7 +754,7 @@ typedef struct RenderData {
 
 	/* sequencer options */
 	char seq_prev_type;
-	char seq_rend_type;
+	char seq_rend_type;  /* UNUSED! */
 	char seq_flag; /* flag use for sequence render/draw */
 	char pad5[5];
 
@@ -1770,8 +1770,7 @@ typedef struct Scene {
 	/* use preview range */
 #define SCER_PRV_RANGE	(1<<0)
 #define SCER_LOCK_FRAME_SELECTION	(1<<1)
-	/* timeline/keyframe jumping - only selected items (on by default) */
-#define SCE_KEYS_NO_SELONLY	(1<<2)
+	/* show/use subframes (for checking motion blur) */
 #define SCER_SHOW_SUBFRAME	(1<<3)
 
 /* mode (int now) */
@@ -1811,7 +1810,7 @@ typedef struct Scene {
 #define R_USE_WS_SHADING	0x8000000 /* use world space interpretation of lighting data */
 
 /* seq_flag */
-#define R_SEQ_GL_PREV 1
+// #define R_SEQ_GL_PREV 1  // UNUSED, we just use setting from seq_prev_type now.
 // #define R_SEQ_GL_REND 2  // UNUSED, opengl render has its own operator now.
 #define R_SEQ_SOLID_TEX 4
 
@@ -2108,6 +2107,7 @@ typedef enum eVGroupSelect {
 #define SCE_DS_COLLAPSED		(1<<1)
 #define SCE_NLA_EDIT_ON			(1<<2)
 #define SCE_FRAME_DROP			(1<<3)
+#define SCE_KEYS_NO_SELONLY	    (1<<4)
 
 
 	/* return flag BKE_scene_base_iter_next functions */
