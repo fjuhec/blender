@@ -42,6 +42,7 @@
 #include "DNA_scene_types.h"
 
 #include "BLI_bitmap.h"
+#include "BLI_heap.h"
 #include "BLI_listbase.h"
 #include "BLI_linklist.h"
 #include "BLI_linklist_stack.h"
@@ -6604,7 +6605,7 @@ enum {
 };
 
 static EnumPropertyItem average_method_items[] = {
-	{ LOOP_AVERAGE, "Loop", 0, "Loop", "Take Average of vert Normals" },
+	{ LOOP_AVERAGE, "Custom Normal", 0, "Custom Normal", "Take Average of vert Normals" },
 	{ FACE_AREA_AVERAGE, "Face Area", 0, "Face Area", "Set all vert normals by Face Area"},
 	{ ANGLE_AVERAGE, "Corner Angle", 0, "Corner Angle", "Set all vert normals by Corner Angle" },
 	{ 0, NULL, 0, NULL, NULL }
@@ -6615,58 +6616,131 @@ static int edbm_average_loop_normals_exec(bContext *C, wmOperator *op)
 	Object *obedit = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 	BMesh *bm = em->bm;
-	BMVert *v;
+	BMFace *f;
+	BMEdge *e;
 	BMLoop *l;
-	BMIter viter, liter;
-	int index;
+	BMIter fiter, eiter;
 
 	BM_lnorspace_update(bm);
 	LoopNormalData *ld = BM_loop_normal_init(bm);
 
 	const int average_type = RNA_enum_get(op->ptr, "average_type");
 	int cd_clnors_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
+	float weight = (float) RNA_int_get(op->ptr, "weight"), threshold = RNA_float_get(op->ptr, "threshold");
+	const bool boolean_weights = RNA_boolean_get(op->ptr, "boolean_weights");
+	weight = weight / 10.0f;
 
-	float(*vnors)[3] = MEM_callocN(sizeof(*vnors) * bm->totvert, "__func__");
+	if (weight > 1) {
+		weight = (weight - 1) * 10;
+	}
 
-	BM_ITER_MESH_INDEX(v, &viter, bm, BM_VERTS_OF_MESH, index) {
-		if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
-			BM_ITER_ELEM(l, &liter, v, BM_LOOPS_OF_VERT) {
+	BM_ITER_MESH(e, &eiter, bm, BM_EDGES_OF_MESH) {
+		BMLoop *l_a, *l_b;
 
-				float custom_normal[3];
-				int l_index = BM_elem_index_get(l);
-				short *clnors_data = BM_ELEM_CD_GET_VOID_P(l, cd_clnors_offset);
-				BKE_lnor_space_custom_data_to_normal(bm->lnor_spacearr->lspacearr[l_index], clnors_data, custom_normal);
-
-				if (average_type == FACE_AREA_AVERAGE) {
-					copy_v3_v3(custom_normal, l->f->no);
-					float face_area = BM_face_calc_area(l->f);
-					mul_v3_fl(custom_normal, face_area);
-				}
-				else if (average_type == ANGLE_AVERAGE)
-					copy_v3_v3(custom_normal, l->f->no); {
-					float face_angle = BM_loop_calc_face_angle(l);
-					mul_v3_fl(custom_normal, face_angle);
-				}
-				add_v3_v3(vnors[index], custom_normal);
+		BM_elem_flag_disable(e, BM_ELEM_TAG);
+		if (BM_edge_loop_pair(e, &l_a, &l_b)) {
+			if (BM_elem_flag_test(e, BM_ELEM_SMOOTH) && l_a->v != l_b->v) {
+				BM_elem_flag_enable(e, BM_ELEM_TAG);
 			}
 		}
 	}
 
-	for (int i = 0; i < bm->totvert; i++) {
-		if (!is_zero_v3(vnors[i]))
-			normalize_v3(vnors[i]);
-	}
+	Heap *loop_weight = BLI_heap_new();
 
-	BM_ITER_MESH_INDEX(v, &viter, bm, BM_VERTS_OF_MESH, index) {
-		if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
-			BM_ITER_ELEM(l, &liter, v, BM_LOOPS_OF_VERT) {
-				int l_index = BM_elem_index_get(l);
-				short *clnors_data = BM_ELEM_CD_GET_VOID_P(l, cd_clnors_offset);
-				BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[l_index], vnors[index], clnors_data);
+	BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
+		BMLoop *l_curr, *l_first;
+
+		l_curr = l_first = BM_FACE_FIRST_LOOP(f);
+		do {
+			if (BM_elem_flag_test(l_curr->v, BM_ELEM_SELECT)) {
+				if (BM_elem_flag_test(l_curr->e, BM_ELEM_TAG) && (BM_elem_flag_test(l_curr, BM_ELEM_TAG) || !bm_mesh_loop_check_cyclic_smooth_fan(l_curr)))
+				{
+				}
+				else if (!BM_elem_flag_test(l_curr->e, BM_ELEM_TAG) && !BM_elem_flag_test(l_curr->prev->e, BM_ELEM_TAG))
+				{
+					int loop_index = BM_elem_index_get(l_curr);
+					short *clnors = BM_ELEM_CD_GET_VOID_P(l_curr, cd_clnors_offset);
+					BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[loop_index], f->no, clnors);
+				}
+				else {
+					BMVert *v_pivot = l_curr->v;
+					BMEdge *e_next;
+					const BMEdge *e_org = l_curr->e;
+					BMLoop *lfan_pivot, *lfan_pivot_next;
+
+					lfan_pivot = l_curr;
+					e_next = lfan_pivot->e;
+
+					while (true) {
+						lfan_pivot_next = BM_vert_step_fan_loop(lfan_pivot, &e_next);
+						if (lfan_pivot_next) {
+							BLI_assert(lfan_pivot_next->v == v_pivot);
+						}
+						else {
+							e_next = (lfan_pivot->e == e_next) ? lfan_pivot->prev->e : lfan_pivot->e;
+						}
+
+						float val = 1.0f;
+						if (average_type == FACE_AREA_AVERAGE) {
+							val = 1.0f / BM_face_calc_area(lfan_pivot->f);
+						}
+						else if (average_type == ANGLE_AVERAGE) {
+							val = 1.0f / BM_loop_calc_face_angle(lfan_pivot);
+						}
+						if (boolean_weights && BM_elem_flag_test(lfan_pivot->f, BM_ELEM_SMOOTH)) {
+							val = (float)INT_MAX;
+						}
+
+						BLI_heap_insert(loop_weight, val, lfan_pivot);
+
+						if (!BM_elem_flag_test(e_next, BM_ELEM_TAG) || (e_next == e_org)) {
+							break;
+						}
+						lfan_pivot = lfan_pivot_next;
+					}
+
+					BLI_SMALLSTACK_DECLARE(loops, BMLoop *);
+					float wnor[3], avg_normal[3] = { 0 };
+					float val = BLI_heap_node_value(BLI_heap_top(loop_weight)), count = 0;
+
+					while (!BLI_heap_is_empty(loop_weight)) {
+						float cur_val = BLI_heap_node_value(BLI_heap_top(loop_weight));
+						if (!compare_ff(val, cur_val, threshold)) {
+							count++;
+							val = cur_val;
+						}
+						l = BLI_heap_popmin(loop_weight);
+						BLI_SMALLSTACK_PUSH(loops, l);
+
+						float n_weight = pow(weight, count);
+
+						if (average_type == LOOP_AVERAGE) {
+							int l_index = BM_elem_index_get(l);
+							short *clnors = BM_ELEM_CD_GET_VOID_P(l, cd_clnors_offset);
+							BKE_lnor_space_custom_data_to_normal(bm->lnor_spacearr->lspacearr[l_index], clnors, wnor);
+						}
+						else {
+							copy_v3_v3(wnor, l->f->no);
+						}
+						mul_v3_fl(wnor, (1.0f / cur_val) * (1.0f / n_weight));
+						add_v3_v3(avg_normal, wnor);
+					}
+
+					normalize_v3(avg_normal);
+
+					while ((l = BLI_SMALLSTACK_POP(loops))) {
+						int l_index = BM_elem_index_get(l);
+						short *clnors = BM_ELEM_CD_GET_VOID_P(l, cd_clnors_offset);
+						BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[l_index], avg_normal, clnors);
+					}
+				}
 			}
-		}
+		} while ((l_curr = l_curr->next) != l_first);
 	}
 
+	BLI_heap_free(loop_weight, NULL);
+	MEM_freeN(ld->normal);
+	MEM_freeN(ld);
 	EDBM_update_generic(em, true, false);
 
 	return OPERATOR_FINISHED;
@@ -6687,6 +6761,13 @@ void MESH_OT_average_loop_normals(struct wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
 	ot->prop = RNA_def_enum(ot->srna, "average_type", average_method_items, LOOP_AVERAGE, "Type", "Averaging method");
+	RNA_def_property_flag(ot->prop, PROP_HIDDEN);
+
+	ot->prop = RNA_def_int(ot->srna, "weight", 10, 1, 20, "Weight", "Weight applied per face", 1, 20);
+
+	ot->prop = RNA_def_float(ot->srna, "threshold", 0.01f, 0, 5, "Threshold", "Threshold value for different weights to be considered equal", 0, 5);
+	
+	ot->prop = RNA_def_boolean(ot->srna, "boolean_weights", 0, "Boolean Weights", "Sets weight of smooth faces to 0. Weight of flat faces remains unchanged");
 }
 
 /********************** Copy/Paste Loop Normals **********************/

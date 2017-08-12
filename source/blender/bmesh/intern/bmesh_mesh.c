@@ -558,7 +558,7 @@ static void bm_mesh_edges_sharp_tag(
 
 /* Check whether gievn loop is part of an unknown-so-far cyclic smooth fan, or not.
  * Needed because cyclic smooth fans have no obvious 'entry point', and yet we need to walk them once, and only once. */
-static bool bm_mesh_loop_check_cyclic_smooth_fan(BMLoop *l_curr)
+bool bm_mesh_loop_check_cyclic_smooth_fan(BMLoop *l_curr)
 {
 	BMLoop *lfan_pivot_next = l_curr;
 	BMEdge *e_next = l_curr->e;
@@ -854,7 +854,7 @@ static void bm_mesh_loops_calc_normals(
 								clnors_avg[1] /= clnors_nbr;
 								/* Fix/update all clnors of this fan with computed average value. */
 								
-								/* Prints continuously when merge custom normals, so commenting -Rohan
+								/* Prints continuously when merge custom normals, so commenting
 								printf("Invalid clnors in this fan!\n");*/
 
 								while ((clnor = BLI_SMALLSTACK_POP(clnors))) {
