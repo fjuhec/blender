@@ -6367,27 +6367,6 @@ void MESH_OT_point_normals(struct wmOperatorType *ot)
 
 /********************** Split/Merge Loop Normals **********************/
 
-enum {
-	MERGE_LOOP_AVERAGE = 1,
-	MERGE_LOOP_FACE_AREA = 2,
-	MERGE_LOOP_CORNER_ANGLE = 3,
-	SPLIT_LOOP_TO_FACE = 4,
-	SPLIT_LOOP_KEEP = 5,
-};
-
-static EnumPropertyItem merge_loop_method_items[] = {
-	{ MERGE_LOOP_AVERAGE, "Average", 0, "Average", "Take Average of Loop Normals" },
-	{ MERGE_LOOP_FACE_AREA, "Face Area", 0, "Face Area", "Merge Loops by Face Area"},
-	{ MERGE_LOOP_CORNER_ANGLE, "Corner Angle", 0, "Corner Angle", "Merge Loops by Angle of Loop" },
-	{ 0, NULL, 0, NULL, NULL }
-};
-
-static EnumPropertyItem split_loop_method_items[] = {
-	{ SPLIT_LOOP_TO_FACE, "Set to face", 0, "Set to face", "Set loop normal to respective faces" },
-	{ SPLIT_LOOP_KEEP, "Keep Normal", 0, "Keep Normal", "Keep normal value after splitting" },
-	{ 0, NULL, 0, NULL, NULL }
-};
-
 static bool merge_loop(bContext *C, wmOperator *op, LoopNormalData *ld)
 {
 	Object *obedit = CTX_data_edit_object(C);
@@ -6396,19 +6375,10 @@ static bool merge_loop(bContext *C, wmOperator *op, LoopNormalData *ld)
 	BMFace *f;
 	BMLoop *l;
 	BMIter fiter, liter;
-	void **ltable;
 
 	TransDataLoopNormal *tld = ld->normal;
-	const int merge_type = RNA_enum_get(op->ptr, "merge_type");
 
 	BLI_SMALLSTACK_DECLARE(clnors, short *);
-
-	ltable = MEM_mallocN(sizeof(void *) * bm->totloop, "__func__");		/* temp loop index table */
-	BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
-		BM_ITER_ELEM(l, &liter, f, BM_LOOPS_OF_FACE) {
-			ltable[BM_elem_index_get(l)] = l;
-		}
-	}
 
 	for (int i = 0; i < ld->totloop; i++, tld++) {
 		if (tld->loop_index == -1)
@@ -6428,23 +6398,7 @@ static bool merge_loop(bContext *C, wmOperator *op, LoopNormalData *ld)
 				TransDataLoopNormal *temp = ld->normal;
 				for (int j = 0; j < ld->totloop; j++, temp++) {
 					if (loop_index == temp->loop_index) {
-						if (merge_type == MERGE_LOOP_AVERAGE) {
-							add_v3_v3(avg_normal, temp->nloc);
-						}
-						else {
-							BMLoop *l = ltable[loop_index];
-							float val;
-							if (merge_type == MERGE_LOOP_FACE_AREA) {
-								val = BM_face_calc_area(l->f);
-							}
-							else if (merge_type == MERGE_LOOP_CORNER_ANGLE) {
-								val = BM_loop_calc_face_angle(l);
-							}
-							float f_nor[3];
-							copy_v3_v3(f_nor, l->f->no);
-							mul_v3_fl(f_nor, val);
-							add_v3_v3(avg_normal, f_nor);
-						}
+						add_v3_v3(avg_normal, temp->nloc);
 						BLI_SMALLSTACK_PUSH(clnors, temp->clnors_data);
 						temp->loop_index = -1;
 					}
@@ -6464,8 +6418,6 @@ static bool merge_loop(bContext *C, wmOperator *op, LoopNormalData *ld)
 			}
 		}
 	}
-	MEM_freeN(ltable);
-
 	return true;
 }
 
@@ -6481,29 +6433,18 @@ static bool split_loop(bContext *C, wmOperator *op, LoopNormalData *ld)
 	TransDataLoopNormal *tld = ld->normal;
 	void **loops;
 
-	const int type = RNA_enum_get(op->ptr, "split_type");
-
-	if (type == SPLIT_LOOP_TO_FACE) {
-		loops = MEM_mallocN(sizeof(void *) * bm->totloop, "__func__");		/* temp loop index table */
-		BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
-			BM_ITER_ELEM(l, &liter, f, BM_LOOPS_OF_FACE) {
-				loops[BM_elem_index_get(l)] = l;
-			}
+	loops = MEM_mallocN(sizeof(void *) * bm->totloop, "__func__");		/* temp loop index table */
+	BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
+		BM_ITER_ELEM(l, &liter, f, BM_LOOPS_OF_FACE) {
+			loops[BM_elem_index_get(l)] = l;
 		}
 	}
-
 	for (int i = 0; i < ld->totloop; i++, tld++) {
-		if (type == SPLIT_LOOP_TO_FACE) {						/* set loop to face normal if split to faces */
-			BMLoop *loop_at_index = loops[tld->loop_index];
-			BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], loop_at_index->f->no, tld->clnors_data);
-		}
-		else if (type == SPLIT_LOOP_KEEP) {						/* else set to transdata normal computed */
-			BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], tld->nloc, tld->clnors_data);
-		}
+		BMLoop *loop_at_index = loops[tld->loop_index];
+		BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], loop_at_index->f->no, tld->clnors_data);
 	}
-	if (type == SPLIT_LOOP_TO_FACE) {
-		MEM_freeN(loops);
-	}
+	MEM_freeN(loops);
+
 	return true;
 }
 
@@ -6516,10 +6457,10 @@ static int edbm_split_merge_loop_normals_exec(bContext *C, wmOperator *op)
 	BMIter eiter;
 
 	BM_lnorspace_update(bm);
+
 	LoopNormalData *ld = BM_loop_normal_init(bm);
 
 	const bool merge = RNA_struct_find_property(op->ptr, "merge_type") != NULL;
-	const int type = merge ? RNA_enum_get(op->ptr, "merge_type") : RNA_enum_get(op->ptr, "split_type");
 
 	mesh_set_smooth_faces(em, merge);
 
@@ -6527,6 +6468,10 @@ static int edbm_split_merge_loop_normals_exec(bContext *C, wmOperator *op)
 		if (BM_elem_flag_test(e, BM_ELEM_SELECT)) {
 			BM_elem_flag_set(e, BM_ELEM_SMOOTH, merge);
 		}
+	}
+	if (merge == 0) {
+		Mesh *me = obedit->data;
+		me->drawflag |= ME_DRAWSHARP;
 	}
 
 	bm->spacearr_dirty |= BM_SPACEARR_DIRTY_ALL;
@@ -6538,25 +6483,15 @@ static int edbm_split_merge_loop_normals_exec(bContext *C, wmOperator *op)
 		handled = merge_loop(C, op, ld);
 	}
 	else {
-		switch (type) {
-			case SPLIT_LOOP_TO_FACE:
-				handled = split_loop(C, op, ld);
-				break;
-
-			case SPLIT_LOOP_KEEP:
-				handled = split_loop(C, op, ld);
-				break;
-
-			default:
-				BLI_assert(0);
-				break;
-		}
+		handled = split_loop(C, op, ld);
 	}
+	MEM_freeN(ld->normal);
+	MEM_freeN(ld);
+
 	if (!handled) {
 		return OPERATOR_CANCELLED;
 	}
 
-	BKE_reportf(op->reports, RPT_INFO, "Finished");
 	EDBM_update_generic(em, true, false);
 
 	return OPERATOR_FINISHED;
@@ -6576,7 +6511,8 @@ void MESH_OT_merge_loop_normals(struct wmOperatorType *ot)
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-	ot->prop = RNA_def_enum(ot->srna, "merge_type", merge_loop_method_items, MERGE_LOOP_AVERAGE, "Type", "Merge method");
+	ot->prop = RNA_def_boolean(ot->srna, "merge_type", 0, "merge", "Merge split normals");
+	RNA_def_property_flag(ot->prop, PROP_HIDDEN);
 }
 
 void MESH_OT_split_loop_normals(struct wmOperatorType *ot)
@@ -6592,8 +6528,6 @@ void MESH_OT_split_loop_normals(struct wmOperatorType *ot)
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-
-	ot->prop = RNA_def_enum(ot->srna, "split_type", split_loop_method_items, SPLIT_LOOP_TO_FACE, "Type", "Split method");
 }
 
 /********************** Average Loop Normals **********************/
@@ -6618,11 +6552,11 @@ static int edbm_average_loop_normals_exec(bContext *C, wmOperator *op)
 	BMesh *bm = em->bm;
 	BMFace *f;
 	BMEdge *e;
-	BMLoop *l;
+	BMLoop *l, *l_curr, *l_first;
 	BMIter fiter, eiter;
 
+	bm->spacearr_dirty |= BM_SPACEARR_DIRTY_ALL;
 	BM_lnorspace_update(bm);
-	LoopNormalData *ld = BM_loop_normal_init(bm);
 
 	const int average_type = RNA_enum_get(op->ptr, "average_type");
 	int cd_clnors_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
@@ -6645,10 +6579,19 @@ static int edbm_average_loop_normals_exec(bContext *C, wmOperator *op)
 		}
 	}
 
+	int index_face, index_loop = 0;
+	BM_ITER_MESH_INDEX(f, &fiter, bm, BM_FACES_OF_MESH, index_face) {
+		BM_elem_index_set(f, index_face);
+		l_curr = l_first = BM_FACE_FIRST_LOOP(f);
+		do {
+			BM_elem_index_set(l_curr, index_loop++);
+			BM_elem_flag_disable(l_curr, BM_ELEM_TAG);
+		} while ((l_curr = l_curr->next) != l_first);
+	}
+
 	Heap *loop_weight = BLI_heap_new();
 
 	BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
-		BMLoop *l_curr, *l_first;
 
 		l_curr = l_first = BM_FACE_FIRST_LOOP(f);
 		do {
@@ -6739,8 +6682,6 @@ static int edbm_average_loop_normals_exec(bContext *C, wmOperator *op)
 	}
 
 	BLI_heap_free(loop_weight, NULL);
-	MEM_freeN(ld->normal);
-	MEM_freeN(ld);
 	EDBM_update_generic(em, true, false);
 
 	return OPERATOR_FINISHED;

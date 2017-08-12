@@ -1155,8 +1155,6 @@ static void BM_lnorspace_err(BMesh *bm)
 
 	BKE_lnor_spacearr_init(temp, bm->totloop);
 
-	temp->lspacearr = MEM_callocN(sizeof(MLoopNorSpace *) * bm->totloop, "__func__");
-
 	for (int i = 0; i < bm->totloop; i++) {
 		temp->lspacearr[i] = BKE_lnor_space_create(temp);
 		memcpy(temp->lspacearr[i], bm->lnor_spacearr->lspacearr[i], sizeof(MLoopNorSpace));

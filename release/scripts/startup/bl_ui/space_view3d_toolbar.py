@@ -450,8 +450,8 @@ class VIEW3D_PT_tools_normal(View3DPanel, Panel):
 		col = layout.column(align=True)
 		col.label(text="Split/Merge: ")
 
-		col.operator_menu_enum("mesh.merge_loop_normals", "merge_type")
-		col.operator_menu_enum("mesh.split_loop_normals", "split_type")
+		col.operator("mesh.merge_loop_normals", text = "Merge Normals")
+		col.operator("mesh.split_loop_normals", text = "Split Normals")
 		
 		col = layout.column(align=True)
 		col.label(text="Average by: ")
