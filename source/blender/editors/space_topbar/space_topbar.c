@@ -243,7 +243,7 @@ void ED_spacetype_topbar(void)
 	art->draw = topbar_main_region_draw;
 	art->listener = topbar_main_region_listener;
 	art->prefsizex = UI_UNIT_X * 5; /* Mainly to avoid glitches */
-	art->keymapflag = ED_KEYMAP_UI;
+	art->keymapflag = ED_KEYMAP_UI | ED_KEYMAP_VIEW2D | ED_KEYMAP_HEADER;
 
 	BLI_addhead(&st->regiontypes, art);
 
