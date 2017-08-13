@@ -1093,6 +1093,7 @@ void BM_lnorspace_rebuild(BMesh *bm, bool preserve_clnor)
 		}
 	}
 
+	BKE_lnor_spacearr_clear(bm->lnor_spacearr);
 	BM_loops_calc_normal_vcos(bm, NULL, NULL, NULL, true, M_PI, r_lnors, bm->lnor_spacearr, NULL, cd_loop_clnors_offset, true);
 	MEM_freeN(r_lnors);
 
@@ -1154,15 +1155,10 @@ static void BM_lnorspace_err(BMesh *bm)
 	temp->lspacearr = NULL;
 
 	BKE_lnor_spacearr_init(temp, bm->totloop);
-
-	for (int i = 0; i < bm->totloop; i++) {
-		temp->lspacearr[i] = BKE_lnor_space_create(temp);
-		memcpy(temp->lspacearr[i], bm->lnor_spacearr->lspacearr[i], sizeof(MLoopNorSpace));
-	}
 	
 	int cd_loop_clnors_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
 	float(*lnors)[3] = MEM_callocN(sizeof(*lnors) * bm->totloop, "__func__");
-	BM_loops_calc_normal_vcos(bm, NULL, NULL, NULL, true, M_PI, lnors, bm->lnor_spacearr, NULL, cd_loop_clnors_offset, true);
+	BM_loops_calc_normal_vcos(bm, NULL, NULL, NULL, true, M_PI, lnors, temp, NULL, cd_loop_clnors_offset, true);
 
 	for (int i = 0; i < bm->totloop; i++) {
 		int j = 0;
@@ -1183,7 +1179,6 @@ static void BM_lnorspace_err(BMesh *bm)
 	BLI_assert(clear);
 
 	bm->spacearr_dirty &= ~BM_SPACEARR_DIRTY_ALL;
-
 }
 
 /* Marks the individual clnors to be edited, if multiple selection methods are used */
@@ -1433,7 +1428,7 @@ void bmesh_edit_end(BMesh *bm, BMOpTypeFlag type_flag)
 
 	/* compute normals, clear temp flags and flush selections */
 	if (type_flag & BMO_OPTYPE_FLAG_NORMALS_CALC) {
-		bm->spacearr_dirty |= (BM_SPACEARR_DIRTY | BM_SPACEARR_BMO_SET);
+		bm->spacearr_dirty |= (BM_SPACEARR_DIRTY_ALL);
 		BM_mesh_normals_update(bm);
 	}
 

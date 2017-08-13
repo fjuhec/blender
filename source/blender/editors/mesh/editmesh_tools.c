@@ -6059,6 +6059,7 @@ static int point_normals_mouse(bContext *C, wmOperator *op, const wmEvent *event
 	mul_v3_fl(center, 1.0f / (float)i);
 
 	ED_view3d_win_to_3d_int(v3d, ar, center, event->mval, target);
+	sub_v3_v3(target, obedit->loc);
 
 	PropertyRNA *prop = RNA_struct_find_property(op->ptr, "align");
 	RNA_def_property_clear_flag(prop, PROP_HIDDEN);
@@ -6372,9 +6373,6 @@ static bool merge_loop(bContext *C, wmOperator *op, LoopNormalData *ld)
 	Object *obedit = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 	BMesh *bm = em->bm;
-	BMFace *f;
-	BMLoop *l;
-	BMIter fiter, liter;
 
 	TransDataLoopNormal *tld = ld->normal;
 
@@ -6820,7 +6818,6 @@ static int edbm_set_normals_from_faces_exec(bContext *C, wmOperator *op)
 	const bool keep_sharp = RNA_boolean_get(op->ptr, "keep_sharp");
 
 	BM_lnorspace_update(bm);
-	BM_mesh_elem_index_ensure(bm, BM_ALL);
 
 	float(*vnors)[3] = MEM_callocN(sizeof(*vnors) * bm->totvert, "__func__");
 	BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
@@ -6841,7 +6838,7 @@ static int edbm_set_normals_from_faces_exec(bContext *C, wmOperator *op)
 	BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
 		BM_ITER_ELEM(e, &eiter, f, BM_EDGES_OF_FACE) {
 			if (!keep_sharp || BM_elem_flag_test(e, BM_ELEM_SMOOTH)
-					&& BM_elem_flag_test(e, BM_ELEM_SELECT)) {
+					/*&& BM_elem_flag_test(e, BM_ELEM_SELECT)*/) {
 
 				BM_ITER_ELEM(v, &viter, e, BM_VERTS_OF_EDGE) {
 					BMLoop *l = BM_face_vert_share_loop(f, v);
