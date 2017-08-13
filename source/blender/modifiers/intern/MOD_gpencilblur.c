@@ -43,7 +43,7 @@
 static void initData(ModifierData *md)
 {
 	GpencilBlurModifierData *gpmd = (GpencilBlurModifierData *)md;
-	ARRAY_SET_ITEMS(gpmd->radius, 0.0f, 0.0f);
+	ARRAY_SET_ITEMS(gpmd->radius, 1, 1);
 	gpmd->samples = 2;
 
 	BKE_gpencil_batch_cache_alldirty();
