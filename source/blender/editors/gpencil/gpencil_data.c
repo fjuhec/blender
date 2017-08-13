@@ -892,9 +892,9 @@ static int gp_stroke_change_palette_exec(bContext *C, wmOperator *op)
 			if ((type == GP_MOVE_PALETTE_CURRENT) && (gpf->framenum != scene->r.cfra))
 				continue;
 
-			for (bGPDstroke *gps = gpl->actframe->strokes.last; gps; gps = gps->prev) {
+			for (bGPDstroke *gps = gpf->strokes.last; gps; gps = gps->prev) {
 				/* only if selected */
-				if (((gps->flag & GP_STROKE_SELECT) == 0) || (type != GP_MOVE_PALETTE_SELECT))
+				if (((gps->flag & GP_STROKE_SELECT) == 0) && (type == GP_MOVE_PALETTE_SELECT))
 					continue;
 				/* skip strokes that are invalid for current view */
 				if (ED_gpencil_stroke_can_use(C, gps) == false)
