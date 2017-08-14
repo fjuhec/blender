@@ -79,8 +79,17 @@ void gpencil_object_cache_add(tGPencilObjectCache *cache, Object *ob, int *gp_ca
 	cache[*gp_cache_used].ob = ob;
 	cache[*gp_cache_used].init_grp = 0;
 	cache[*gp_cache_used].end_grp = -1;
-	cache[*gp_cache_used].init_vfx_sh = NULL;
-	cache[*gp_cache_used].end_vfx_sh = NULL;
+	cache[*gp_cache_used].init_vfx_wave_sh = NULL;
+	cache[*gp_cache_used].end_vfx_wave_sh = NULL;
+
+	cache[*gp_cache_used].init_vfx_blur_sh_1 = NULL;
+	cache[*gp_cache_used].end_vfx_blur_sh_1 = NULL;
+	cache[*gp_cache_used].init_vfx_blur_sh_2 = NULL;
+	cache[*gp_cache_used].end_vfx_blur_sh_2 = NULL;
+	cache[*gp_cache_used].init_vfx_blur_sh_3 = NULL;
+	cache[*gp_cache_used].end_vfx_blur_sh_3 = NULL;
+	cache[*gp_cache_used].init_vfx_blur_sh_4 = NULL;
+	cache[*gp_cache_used].end_vfx_blur_sh_4 = NULL;
 
 	/* calculate zdepth from point of view */
 	float zdepth = 0.0;

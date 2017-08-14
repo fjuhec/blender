@@ -71,14 +71,23 @@ static void GPENCIL_engine_init(void *vedata)
 		tex_color, ARRAY_SIZE(tex_color));
 
 	/* vfx */
-	DRWFboTexture vfx_color[2] = { {
-			&e_data.vfx_fbcolor_depth_tx, DRW_TEX_DEPTH_24, DRW_TEX_TEMP },
-			{ &e_data.vfx_fbcolor_color_tx, DRW_TEX_RGBA_16, DRW_TEX_TEMP }
+	DRWFboTexture vfx_color_a[2] = { {
+			&e_data.vfx_fbcolor_depth_tx_a, DRW_TEX_DEPTH_24, DRW_TEX_TEMP },
+			{ &e_data.vfx_fbcolor_color_tx_a, DRW_TEX_RGBA_16, DRW_TEX_TEMP }
 	};
 	DRW_framebuffer_init(
-		&fbl->vfx_color_fb, &draw_engine_gpencil_type,
+		&fbl->vfx_color_fb_a, &draw_engine_gpencil_type,
 		(int)viewport_size[0], (int)viewport_size[1],
-		vfx_color, ARRAY_SIZE(vfx_color));
+		vfx_color_a, ARRAY_SIZE(vfx_color_a));
+
+	DRWFboTexture vfx_color_b[2] = { {
+			&e_data.vfx_fbcolor_depth_tx_b, DRW_TEX_DEPTH_24, DRW_TEX_TEMP },
+			{ &e_data.vfx_fbcolor_color_tx_b, DRW_TEX_RGBA_16, DRW_TEX_TEMP }
+	};
+	DRW_framebuffer_init(
+		&fbl->vfx_color_fb_b, &draw_engine_gpencil_type,
+		(int)viewport_size[0], (int)viewport_size[1],
+		vfx_color_b, ARRAY_SIZE(vfx_color_b));
 
 	/* normal fill shader */
 	if (!e_data.gpencil_fill_sh) {
@@ -245,11 +254,16 @@ static void GPENCIL_cache_init(void *vedata)
 		psl->mix_vfx_pass = DRW_pass_create("GPencil Mix VFX Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 		DRWShadingGroup *mix_vfx_shgrp = DRW_shgroup_create(e_data.gpencil_fullscreen_sh, psl->mix_vfx_pass);
 		DRW_shgroup_call_add(mix_vfx_shgrp, vfxquad, NULL);
-		DRW_shgroup_uniform_buffer(mix_vfx_shgrp, "strokeColor", &e_data.vfx_fbcolor_color_tx);
-		DRW_shgroup_uniform_buffer(mix_vfx_shgrp, "strokeDepth", &e_data.vfx_fbcolor_depth_tx);
+		DRW_shgroup_uniform_buffer(mix_vfx_shgrp, "strokeColor", &e_data.vfx_fbcolor_color_tx_a);
+		DRW_shgroup_uniform_buffer(mix_vfx_shgrp, "strokeDepth", &e_data.vfx_fbcolor_depth_tx_a);
 
 		/* VFX pass */
-		psl->vfx_pass = DRW_pass_create("GPencil VFX Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+		psl->vfx_wave_pass = DRW_pass_create("GPencil VFX Wave Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+
+		psl->vfx_blur_pass_1 = DRW_pass_create("GPencil VFX Blur Pass 1", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+		psl->vfx_blur_pass_2 = DRW_pass_create("GPencil VFX Blur Pass 2", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+		psl->vfx_blur_pass_3 = DRW_pass_create("GPencil VFX Blur Pass 3", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+		psl->vfx_blur_pass_4 = DRW_pass_create("GPencil VFX Blur Pass 4", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 	}
 }
 
@@ -334,8 +348,11 @@ static void GPENCIL_draw_scene(void *vedata)
 	DRW_framebuffer_texture_attach(fbl->temp_color_fb, e_data.temp_fbcolor_depth_tx, 0, 0);
 	DRW_framebuffer_texture_attach(fbl->temp_color_fb, e_data.temp_fbcolor_color_tx, 0, 0);
 
-	DRW_framebuffer_texture_attach(fbl->vfx_color_fb, e_data.vfx_fbcolor_depth_tx, 0, 0);
-	DRW_framebuffer_texture_attach(fbl->vfx_color_fb, e_data.vfx_fbcolor_color_tx, 0, 0);
+	DRW_framebuffer_texture_attach(fbl->vfx_color_fb_a, e_data.vfx_fbcolor_depth_tx_a, 0, 0);
+	DRW_framebuffer_texture_attach(fbl->vfx_color_fb_a, e_data.vfx_fbcolor_color_tx_a, 0, 0);
+
+	DRW_framebuffer_texture_attach(fbl->vfx_color_fb_b, e_data.vfx_fbcolor_depth_tx_b, 0, 0);
+	DRW_framebuffer_texture_attach(fbl->vfx_color_fb_b, e_data.vfx_fbcolor_color_tx_b, 0, 0);
 
 	/* Draw all pending objects */
 	if (stl->g_data->gp_cache_used > 0) {
@@ -371,20 +388,45 @@ static void GPENCIL_draw_scene(void *vedata)
 			}
 
 			/* vfx pass */
-			if ((cache->init_vfx_sh) && (cache->init_vfx_sh)) {
-				DRW_framebuffer_bind(fbl->vfx_color_fb);
+			if ((cache->init_vfx_wave_sh) && (cache->init_vfx_wave_sh)) {
+				DRW_framebuffer_bind(fbl->vfx_color_fb_a);
 				DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
 
-				DRW_draw_pass_subset(psl->vfx_pass,
-					cache->init_vfx_sh,
-					cache->end_vfx_sh);
+				/* wave or copy past */
+				DRW_draw_pass_subset(psl->vfx_wave_pass,
+					cache->init_vfx_wave_sh,
+					cache->end_vfx_wave_sh);
+				/* blur passes */
+				if ((cache->init_vfx_blur_sh_1) && (cache->init_vfx_blur_sh_1)) {
+					DRW_framebuffer_bind(fbl->vfx_color_fb_b);
+					DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
+					/* pass 1 */
+					DRW_draw_pass_subset(psl->vfx_blur_pass_1,
+						cache->init_vfx_blur_sh_1,
+						cache->end_vfx_blur_sh_1);
+					/* pass 2 */
+					DRW_framebuffer_bind(fbl->vfx_color_fb_a);
+					DRW_draw_pass_subset(psl->vfx_blur_pass_2,
+						cache->init_vfx_blur_sh_2,
+						cache->end_vfx_blur_sh_2);
+					/* pass 3 */
+					DRW_framebuffer_bind(fbl->vfx_color_fb_b);
+					DRW_draw_pass_subset(psl->vfx_blur_pass_3,
+						cache->init_vfx_blur_sh_3,
+						cache->end_vfx_blur_sh_3);
+					/* pass 4 */
+					DRW_framebuffer_bind(fbl->vfx_color_fb_a);
+					DRW_draw_pass_subset(psl->vfx_blur_pass_4,
+						cache->init_vfx_blur_sh_4,
+						cache->end_vfx_blur_sh_4);
+				}
 				/* Combine with scene buffer */
 				DRW_framebuffer_bind(dfbl->default_fb);
 				/* Mix VFX Pass */
 				DRW_draw_pass(psl->mix_vfx_pass);
 			}
 			else {
-				/* Combine with scene buffer */
+				/* Combine with scene buffer withou more passes */
 				DRW_framebuffer_bind(dfbl->default_fb);
 				/* Mix Pass: DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS */
 				DRW_draw_pass(psl->mix_pass);
@@ -408,8 +450,11 @@ static void GPENCIL_draw_scene(void *vedata)
 	DRW_framebuffer_texture_detach(e_data.temp_fbcolor_depth_tx);
 	DRW_framebuffer_texture_detach(e_data.temp_fbcolor_color_tx);
 
-	DRW_framebuffer_texture_detach(e_data.vfx_fbcolor_depth_tx);
-	DRW_framebuffer_texture_detach(e_data.vfx_fbcolor_color_tx);
+	DRW_framebuffer_texture_detach(e_data.vfx_fbcolor_depth_tx_a);
+	DRW_framebuffer_texture_detach(e_data.vfx_fbcolor_color_tx_a);
+
+	DRW_framebuffer_texture_detach(e_data.vfx_fbcolor_depth_tx_b);
+	DRW_framebuffer_texture_detach(e_data.vfx_fbcolor_color_tx_b);
 
 	/* attach again default framebuffer */
 	DRW_framebuffer_bind(dfbl->default_fb);
