@@ -51,8 +51,6 @@ typedef struct BMEditStrands {
 	
 	/* Scalp mesh for fixing root vertices */
 	struct DerivedMesh *root_dm;
-	struct HairPattern *hair_pattern;
-	struct HairGroup *hair_group;
 	
 	int flag;
 	
@@ -60,7 +58,6 @@ typedef struct BMEditStrands {
 	unsigned int elem_glbuf; // legacy gpu code
 	unsigned int dot_glbuf; // legacy gpu code
 	void *batch_cache;
-	void *texture;
 } BMEditStrands;
 
 /* BMEditStrands->flag */
@@ -75,13 +72,6 @@ struct BMEditStrands *BKE_editstrands_from_object_particles(struct Object *ob, s
 struct BMEditStrands *BKE_editstrands_from_object(struct Object *ob);
 void BKE_editstrands_update_linked_customdata(struct BMEditStrands *es);
 void BKE_editstrands_free(struct BMEditStrands *es);
-
-/* === Hair Fibers === */
-
-int* BKE_editstrands_hair_get_fiber_lengths(struct BMEditStrands *es, int subdiv);
-void BKE_editstrands_hair_get_texture_buffer_size(struct BMEditStrands *es, int subdiv, int *r_size,
-                                                  int *r_strand_map_start, int *r_strand_vertex_start, int *r_fiber_start);
-void BKE_editstrands_hair_get_texture_buffer(struct BMEditStrands *es, int subdiv, void *texbuffer);
 
 /* === Constraints === */
 

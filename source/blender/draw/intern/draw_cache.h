@@ -166,9 +166,6 @@ struct Gwn_Batch *DRW_cache_editstrands_get_roots(struct BMEditStrands *es);
 struct Gwn_Batch *DRW_cache_editstrands_get_points(struct BMEditStrands *es);
 struct Gwn_Batch *DRW_cache_editstrands_get_wires(struct BMEditStrands *es);
 
-struct Gwn_Batch *DRW_cache_editstrands_get_hair_fibers(struct BMEditStrands *es, bool use_ribbons, int subdiv,
-                                                        const struct DRWHairFiberTextureBuffer **r_buffer);
-
 /* Hair */
 struct Gwn_Batch *DRW_cache_hair_get_fibers(struct HairGroup *group, int subdiv, struct DerivedMesh *scalp,
                                             const struct DRWHairFiberTextureBuffer **r_buffer);
