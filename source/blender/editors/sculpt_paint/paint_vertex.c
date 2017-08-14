@@ -329,17 +329,26 @@ bool ED_vpaint_fill(Object *ob, unsigned int paintcol)
 	}
 
 	const bool use_face_sel = (me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
+	const bool use_vert_sel = (me->editflag & ME_EDIT_PAINT_VERT_SEL) != 0;
 
 	mp = me->mpoly;
 	for (i = 0; i < me->totpoly; i++, mp++) {
-		MLoopCol *lcol = me->mloopcol + mp->loopstart;
+		MLoopCol *lcol = &me->mloopcol[mp->loopstart];
 
 		if (use_face_sel && !(mp->flag & ME_FACE_SEL))
 			continue;
 
-		for (j = 0; j < mp->totloop; j++, lcol++) {
-			*(int *)lcol = paintcol;
-		}
+		j = 0;
+		do {
+			unsigned int vidx = me->mloop[mp->loopstart + j].v;
+			const bool v_flag = me->mvert[vidx].flag;
+			if (v_flag || !use_vert_sel) {
+				*(int *)lcol = paintcol;
+			}
+			lcol++;
+			j++;
+		} while (j <= mp->totloop - 1);
+
 	}
 	
 	/* remove stale me->mcol, will be added later */
