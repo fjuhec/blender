@@ -3614,6 +3614,9 @@ void DRW_engines_register(void)
 		/* BKE: editstrands.c */
 		extern void *BKE_editstrands_batch_cache_dirty_cb;
 		extern void *BKE_editstrands_batch_cache_free_cb;
+		/* BKE: hair.c */
+		extern void *BKE_hair_batch_cache_dirty_cb;
+		extern void *BKE_hair_batch_cache_free_cb;
 
 		BKE_curve_batch_cache_dirty_cb = DRW_curve_batch_cache_dirty;
 		BKE_curve_batch_cache_free_cb = DRW_curve_batch_cache_free;
@@ -3629,6 +3632,9 @@ void DRW_engines_register(void)
 
 		BKE_editstrands_batch_cache_dirty_cb = DRW_editstrands_batch_cache_dirty;
 		BKE_editstrands_batch_cache_free_cb = DRW_editstrands_batch_cache_free;
+		
+		BKE_hair_batch_cache_dirty_cb = DRW_hair_batch_cache_dirty;
+		BKE_hair_batch_cache_free_cb = DRW_hair_batch_cache_free;
 	}
 }
 

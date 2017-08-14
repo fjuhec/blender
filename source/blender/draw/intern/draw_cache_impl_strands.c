@@ -35,6 +35,7 @@
 #include "BLI_math_vector.h"
 #include "BLI_ghash.h"
 
+#include "DNA_hair_types.h"
 #include "DNA_scene_types.h"
 
 #include "BKE_editstrands.h"
@@ -390,12 +391,13 @@ static void editstrands_batch_cache_ensure_hair_fibers(BMEditStrands *es, Strand
 	GWN_VERTBUF_DISCARD_SAFE(cache->hair.verts);
 	GWN_INDEXBUF_DISCARD_SAFE(cache->hair.segments);
 	
+	const int totfibers = es->hair_group->num_follicles;
 	int *fiber_lengths = BKE_editstrands_hair_get_fiber_lengths(es, subdiv);
 	int totpoint = 0;
-	for (int i = 0; i < es->hair_totfibers; ++i) {
+	for (int i = 0; i < totfibers; ++i) {
 		totpoint += fiber_lengths[i];
 	}
-	const int totseg = totpoint - es->hair_totfibers;
+	const int totseg = totpoint - totfibers;
 	
 	static Gwn_VertFormat format = { 0 };
 	static unsigned curve_param_id, fiber_index_id;
@@ -433,7 +435,7 @@ static void editstrands_batch_cache_ensure_hair_fibers(BMEditStrands *es, Strand
 	TIMEIT_BLOCK_INIT(GWN_vertbuf_attr_set);
 	TIMEIT_BLOCK_INIT(GWN_indexbuf_add_tri_verts);
 	int vi = 0;
-	for (int i = 0; i < es->hair_totfibers; ++i) {
+	for (int i = 0; i < totfibers; ++i) {
 		const int fiblen = fiber_lengths[i];
 		const float da = fiblen > 1 ? 1.0f / (fiblen-1) : 0.0f;
 		

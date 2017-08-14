@@ -2615,3 +2615,13 @@ Gwn_Batch *DRW_cache_editstrands_get_hair_fibers(struct BMEditStrands *es, bool 
 {
 	return DRW_editstrands_batch_cache_get_hair_fibers(es, use_ribbons, subdiv, r_buffer);
 }
+
+/* -------------------------------------------------------------------- */
+
+/** \name Hair */
+
+Gwn_Batch *DRW_cache_hair_get_fibers(struct HairGroup *group, int subdiv, struct DerivedMesh *scalp,
+                                     const struct DRWHairFiberTextureBuffer **r_buffer)
+{
+	return DRW_hair_batch_cache_get_fibers(group, subdiv, scalp, r_buffer);
+}

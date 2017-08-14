@@ -31,7 +31,9 @@ struct GPUMaterial;
 struct Object;
 struct ModifierData;
 struct BMEditStrands;
+struct HairGroup;
 struct DRWHairFiberTextureBuffer;
+struct DerivedMesh;
 
 void DRW_shape_cache_free(void);
 
@@ -166,5 +168,9 @@ struct Gwn_Batch *DRW_cache_editstrands_get_wires(struct BMEditStrands *es);
 
 struct Gwn_Batch *DRW_cache_editstrands_get_hair_fibers(struct BMEditStrands *es, bool use_ribbons, int subdiv,
                                                         const struct DRWHairFiberTextureBuffer **r_buffer);
+
+/* Hair */
+struct Gwn_Batch *DRW_cache_hair_get_fibers(struct HairGroup *group, int subdiv, struct DerivedMesh *scalp,
+                                            const struct DRWHairFiberTextureBuffer **r_buffer);
 
 #endif /* __DRAW_CACHE_H__ */

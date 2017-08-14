@@ -147,10 +147,12 @@ void deform_fiber(DeformParams params,
 
 #define FIBER_RIBBON
 
-uniform sampler2D strand_data;
+uniform sampler2D fiber_data;
+
+uniform int fiber_start;
 uniform int strand_map_start;
 uniform int strand_vertex_start;
-uniform int fiber_start;
+
 uniform float ribbon_width;
 uniform vec2 viewport_size;
 
@@ -159,7 +161,7 @@ uniform vec2 viewport_size;
 vec2 read_texdata(int offset)
 {
 	ivec2 offset2 = ivec2(offset % HAIR_SHADER_TEX_WIDTH, offset / HAIR_SHADER_TEX_WIDTH);
-	return texelFetch(strand_data, offset2, 0).rg;
+	return texelFetch(fiber_data, offset2, 0).rg;
 }
 
 mat4 mat4_from_vectors(vec3 nor, vec3 tang, vec3 co)

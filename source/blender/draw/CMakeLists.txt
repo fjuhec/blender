@@ -57,6 +57,7 @@ set(SRC
 	intern/draw_cache.c
 	intern/draw_cache_impl_curve.c
 	intern/draw_cache_impl_displist.c
+	intern/draw_cache_impl_hair.c
 	intern/draw_cache_impl_lattice.c
 	intern/draw_cache_impl_mesh.c
 	intern/draw_cache_impl_particles.c

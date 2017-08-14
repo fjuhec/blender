@@ -25,18 +25,22 @@
 
 #include "DRW_render.h"
 
-#include "DNA_world_types.h"
+#include "DNA_hair_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_view3d_types.h"
+#include "DNA_world_types.h"
 
 #include "BLI_dynstr.h"
 #include "BLI_ghash.h"
 #include "BLI_alloca.h"
 
+#include "BKE_DerivedMesh.h"
 #include "BKE_editstrands.h"
 #include "BKE_particle.h"
 #include "BKE_paint.h"
 #include "BKE_pbvh.h"
+
+#include "DEG_depsgraph.h"
 
 #include "GPU_material.h"
 #include "GPU_texture.h"
@@ -1003,6 +1007,219 @@ static void material_transparent(
 	}
 }
 
+static void material_particle_hair(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata,
+                                   Object *ob, ParticleSystem *psys, ModifierData *md)
+{
+	EEVEE_PassList *psl = ((EEVEE_Data *)vedata)->psl;
+	EEVEE_StorageList *stl = ((EEVEE_Data *)vedata)->stl;
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	Scene *scene = draw_ctx->scene;
+	GHash *material_hash = stl->g_data->hair_material_hash;
+
+	if (!psys_check_enabled(ob, psys, false)) {
+		return;
+	}
+	
+	ParticleSettings *part = psys->part;
+	bool use_hair = false;
+	bool use_fibers = false;
+	float mat[4][4];
+	struct Gwn_Batch *hair_geom = NULL;
+	const DRWHairFiberTextureBuffer *fiber_buffer = NULL;
+	GPUTexture **fiber_texture = NULL;
+	
+	if (ob->mode & OB_MODE_HAIR_EDIT) {
+		BMEditStrands *edit = psys->hairedit;
+		const HairEditSettings *tsettings = &scene->toolsettings->hair_edit;
+		if (edit &&tsettings->hair_draw_mode == HAIR_DRAW_FIBERS && edit->hair_group) {
+			use_hair = true;
+			use_fibers = true;
+			copy_m4_m4(mat, ob->obmat);
+			
+			hair_geom = DRW_cache_editstrands_get_hair_fibers(edit, true, tsettings->hair_draw_subdiv, &fiber_buffer);
+			
+			if (!edit->texture) {
+				edit->texture = DRW_texture_create_2D(fiber_buffer->width, fiber_buffer->height,
+				                                      DRW_TEX_RG_32, 0, fiber_buffer->data);
+			}
+			fiber_texture = (GPUTexture **)(&edit->texture);
+		}
+	}
+	else {
+		int draw_as = (part->draw_as == PART_DRAW_REND) ? part->ren_as : part->draw_as;
+		if (draw_as == PART_DRAW_PATH && (psys->pathcache || psys->childcache)) {
+			use_hair = true;
+			unit_m4(mat);
+			hair_geom = DRW_cache_particles_get_hair(psys, md);
+		}
+	}
+	
+	if (use_hair) {
+		Material *ma = give_current_material(ob, part->omat);
+		if (ma == NULL) {
+			ma = &defmaterial;
+		}
+		
+		if (!use_fibers) {
+			DRW_shgroup_call_add(stl->g_data->depth_shgrp, hair_geom, mat);
+			DRW_shgroup_call_add(stl->g_data->depth_shgrp_clip, hair_geom, mat);
+		}
+		else {
+			DRW_shgroup_call_add(stl->g_data->depth_shgrp_hair_fibers, hair_geom, mat);
+			DRW_hair_shader_uniforms(stl->g_data->depth_shgrp_hair_fibers, scene,
+			                         fiber_texture, fiber_buffer);
+			
+			DRW_shgroup_call_add(stl->g_data->depth_shgrp_hair_fibers_clip, hair_geom, mat);
+			DRW_hair_shader_uniforms(stl->g_data->depth_shgrp_hair_fibers_clip, scene,
+			                         fiber_texture, fiber_buffer);
+		}
+		
+		DRWShadingGroup *shgrp = BLI_ghash_lookup(material_hash, (const void *)ma);
+		if (!shgrp) {
+			float *color_p = &ma->r;
+			float *metal_p = &ma->ray_mirror;
+			float *spec_p = &ma->spec;
+			float *rough_p = &ma->gloss_mir;
+			
+			if (ma->use_nodes && ma->nodetree) {
+				struct GPUMaterial *gpumat = EEVEE_material_hair_get(scene, ma,
+				                                                     use_fibers, stl->effects->use_ao, stl->effects->use_bent_normals);
+				
+				shgrp = DRW_shgroup_material_create(gpumat, psl->material_pass);
+				if (shgrp) {
+					add_standard_uniforms(shgrp, sldata, vedata, NULL);
+					
+					BLI_ghash_insert(material_hash, ma, shgrp);
+				}
+				else {
+					/* Shader failed : pink color */
+					static float col[3] = {1.0f, 0.0f, 1.0f};
+					static float half = 0.5f;
+					
+					color_p = col;
+					metal_p = spec_p = rough_p = &half;
+				}
+			}
+			
+			/* Fallback to default shader */
+			if (shgrp == NULL) {
+				shgrp = EEVEE_default_shading_group_get(sldata, vedata, true, use_fibers,
+				                                        false, stl->effects->use_ao, stl->effects->use_bent_normals, stl->effects->use_ssr);
+				DRW_shgroup_uniform_vec3(shgrp, "basecol", color_p, 1);
+				DRW_shgroup_uniform_float(shgrp, "metallic", metal_p, 1);
+				DRW_shgroup_uniform_float(shgrp, "specular", spec_p, 1);
+				DRW_shgroup_uniform_float(shgrp, "roughness", rough_p, 1);
+				
+				BLI_ghash_insert(material_hash, ma, shgrp);
+			}
+		}
+		
+		if (shgrp) {
+			DRW_shgroup_call_add(shgrp, hair_geom, mat);
+			
+			if (use_fibers) {
+				DRW_hair_shader_uniforms(shgrp, scene,
+				                         fiber_texture, fiber_buffer);
+			}
+		}
+	}
+}
+
+static void material_hair(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata, Object *ob, HairGroup *group)
+{
+	EEVEE_PassList *psl = ((EEVEE_Data *)vedata)->psl;
+	EEVEE_StorageList *stl = ((EEVEE_Data *)vedata)->stl;
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	Scene *scene = draw_ctx->scene;
+	GHash *material_hash = stl->g_data->hair_material_hash;
+	const HairEditSettings *tsettings = &scene->toolsettings->hair_edit;
+	
+	float mat[4][4];
+	copy_m4_m4(mat, ob->obmat);
+	
+	const DRWHairFiberTextureBuffer *fiber_buffer = NULL;
+	struct Gwn_Batch *hair_geom;
+	{
+		DerivedMesh *scalp = NULL;
+		if (ob->derivedFinal) {
+			scalp = ob->derivedFinal;
+		}
+		else {
+			EvaluationContext eval_ctx = {0};
+			DEG_evaluation_context_init(&eval_ctx, DAG_EVAL_VIEWPORT);
+			scalp = mesh_get_derived_final(&eval_ctx, scene, ob, CD_MASK_BAREMESH);
+		}
+		hair_geom = DRW_cache_hair_get_fibers(group, tsettings->hair_draw_subdiv, scalp, &fiber_buffer);
+	}
+	
+	if (!group->draw_texture_cache) {
+		group->draw_texture_cache = DRW_texture_create_2D(fiber_buffer->width, fiber_buffer->height,
+		                                                  DRW_TEX_RG_32, 0, fiber_buffer->data);
+	}
+	GPUTexture **fiber_texture = (GPUTexture **)(&group->draw_texture_cache);
+
+	// TODO
+	Material *ma = NULL;/*give_current_material(ob, omat);*/
+	if (ma == NULL) {
+		ma = &defmaterial;
+	}
+	
+	DRW_shgroup_call_add(stl->g_data->depth_shgrp_hair_fibers, hair_geom, mat);
+	DRW_hair_shader_uniforms(stl->g_data->depth_shgrp_hair_fibers, scene,
+	                         fiber_texture, fiber_buffer);
+	
+	DRW_shgroup_call_add(stl->g_data->depth_shgrp_hair_fibers_clip, hair_geom, mat);
+	DRW_hair_shader_uniforms(stl->g_data->depth_shgrp_hair_fibers_clip, scene,
+	                         fiber_texture, fiber_buffer);
+	
+	DRWShadingGroup *shgrp = BLI_ghash_lookup(material_hash, (const void *)ma);
+	if (!shgrp) {
+		float *color_p = &ma->r;
+		float *metal_p = &ma->ray_mirror;
+		float *spec_p = &ma->spec;
+		float *rough_p = &ma->gloss_mir;
+		
+		if (ma->use_nodes && ma->nodetree) {
+			struct GPUMaterial *gpumat = EEVEE_material_hair_get(scene, ma,
+			        true, stl->effects->use_ao, stl->effects->use_bent_normals);
+			
+			shgrp = DRW_shgroup_material_create(gpumat, psl->material_pass);
+			if (shgrp) {
+				add_standard_uniforms(shgrp, sldata, vedata, NULL);
+				
+				BLI_ghash_insert(material_hash, ma, shgrp);
+			}
+			else {
+				/* Shader failed : pink color */
+				static float col[3] = {1.0f, 0.0f, 1.0f};
+				static float half = 0.5f;
+				
+				color_p = col;
+				metal_p = spec_p = rough_p = &half;
+			}
+		}
+		
+		/* Fallback to default shader */
+		if (shgrp == NULL) {
+			shgrp = EEVEE_default_shading_group_get(sldata, vedata, true, true,
+			        false, stl->effects->use_ao, stl->effects->use_bent_normals, stl->effects->use_ssr);
+			DRW_shgroup_uniform_vec3(shgrp, "basecol", color_p, 1);
+			DRW_shgroup_uniform_float(shgrp, "metallic", metal_p, 1);
+			DRW_shgroup_uniform_float(shgrp, "specular", spec_p, 1);
+			DRW_shgroup_uniform_float(shgrp, "roughness", rough_p, 1);
+			
+			BLI_ghash_insert(material_hash, ma, shgrp);
+		}
+	}
+	
+	if (shgrp) {
+		DRW_shgroup_call_add(shgrp, hair_geom, mat);
+		
+		DRW_hair_shader_uniforms(shgrp, scene,
+		                         fiber_texture, fiber_buffer);
+	}
+}
+
 void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_SceneLayerData *sldata, Object *ob)
 {
 	EEVEE_PassList *psl = ((EEVEE_Data *)vedata)->psl;
@@ -1132,116 +1349,15 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_SceneLayerData *sl
 
 	if (ob->type == OB_MESH) {
 		if (ob != draw_ctx->scene->obedit) {
-			material_hash = stl->g_data->hair_material_hash;
-
 			for (ModifierData *md = ob->modifiers.first; md; md = md->next) {
 				if (md->type == eModifierType_ParticleSystem) {
 					ParticleSystem *psys = ((ParticleSystemModifierData *)md)->psys;
-
-					if (psys_check_enabled(ob, psys, false)) {
-						ParticleSettings *part = psys->part;
-						bool use_hair = false;
-						bool use_fibers = false;
-						float mat[4][4];
-						struct Gwn_Batch *hair_geom = NULL;
-						const DRWHairFiberTextureBuffer *fiber_buffer = NULL;
-						GPUTexture **fiber_texture = NULL;
-
-						if (ob->mode & OB_MODE_HAIR_EDIT) {
-							BMEditStrands *edit = psys->hairedit;
-							const HairEditSettings *tsettings = &scene->toolsettings->hair_edit;
-							if (edit &&tsettings->hair_draw_mode == HAIR_DRAW_FIBERS && BKE_editstrands_hair_ensure(edit)) {
-								use_hair = true;
-								use_fibers = true;
-								copy_m4_m4(mat, ob->obmat);
-								
-								hair_geom = DRW_cache_editstrands_get_hair_fibers(edit, true, tsettings->hair_draw_subdiv, &fiber_buffer);
-								
-								if (!edit->texture) {
-									edit->texture = DRW_texture_create_2D(fiber_buffer->width, fiber_buffer->height,
-									                                      DRW_TEX_RG_32, 0, fiber_buffer->data);
-								}
-								fiber_texture = (GPUTexture **)(&edit->texture);
-							}
-						}
-						else {
-							int draw_as = (part->draw_as == PART_DRAW_REND) ? part->ren_as : part->draw_as;
-							if (draw_as == PART_DRAW_PATH && (psys->pathcache || psys->childcache)) {
-								use_hair = true;
-								unit_m4(mat);
-								hair_geom = DRW_cache_particles_get_hair(psys, md);
-							}
-						}
-						
-						if (use_hair) {
-							Material *ma = give_current_material(ob, part->omat);
-							if (ma == NULL) {
-								ma = &defmaterial;
-							}
-							
-							if (!use_fibers) {
-								DRW_shgroup_call_add(stl->g_data->depth_shgrp, hair_geom, mat);
-								DRW_shgroup_call_add(stl->g_data->depth_shgrp_clip, hair_geom, mat);
-							}
-							else {
-								DRW_shgroup_call_add(stl->g_data->depth_shgrp_hair_fibers, hair_geom, mat);
-								DRW_hair_shader_uniforms(stl->g_data->depth_shgrp_hair_fibers, scene,
-								                         fiber_texture, fiber_buffer);
-								
-								DRW_shgroup_call_add(stl->g_data->depth_shgrp_hair_fibers_clip, hair_geom, mat);
-								DRW_hair_shader_uniforms(stl->g_data->depth_shgrp_hair_fibers_clip, scene,
-								                         fiber_texture, fiber_buffer);
-							}
-							
-							DRWShadingGroup *shgrp = BLI_ghash_lookup(material_hash, (const void *)ma);
-							if (!shgrp) {
-								float *color_p = &ma->r;
-								float *metal_p = &ma->ray_mirror;
-								float *spec_p = &ma->spec;
-								float *rough_p = &ma->gloss_mir;
-								
-								if (ma->use_nodes && ma->nodetree) {
-									struct GPUMaterial *gpumat = EEVEE_material_hair_get(scene, ma,
-									        use_fibers, stl->effects->use_ao, stl->effects->use_bent_normals);
-									
-									shgrp = DRW_shgroup_material_create(gpumat, psl->material_pass);
-									if (shgrp) {
-										add_standard_uniforms(shgrp, sldata, vedata, NULL);
-										
-										BLI_ghash_insert(material_hash, ma, shgrp);
-									}
-									else {
-										/* Shader failed : pink color */
-										static float col[3] = {1.0f, 0.0f, 1.0f};
-										static float half = 0.5f;
-										
-										color_p = col;
-										metal_p = spec_p = rough_p = &half;
-									}
-								}
-								
-								/* Fallback to default shader */
-								if (shgrp == NULL) {
-									shgrp = EEVEE_default_shading_group_get(sldata, vedata, true, use_fibers,
-									        false, stl->effects->use_ao, stl->effects->use_bent_normals, stl->effects->use_ssr);
-									DRW_shgroup_uniform_vec3(shgrp, "basecol", color_p, 1);
-									DRW_shgroup_uniform_float(shgrp, "metallic", metal_p, 1);
-									DRW_shgroup_uniform_float(shgrp, "specular", spec_p, 1);
-									DRW_shgroup_uniform_float(shgrp, "roughness", rough_p, 1);
-									
-									BLI_ghash_insert(material_hash, ma, shgrp);
-								}
-							}
-							
-							if (shgrp) {
-								DRW_shgroup_call_add(shgrp, hair_geom, mat);
-								
-								if (use_fibers) {
-									DRW_hair_shader_uniforms(shgrp, scene,
-									                         fiber_texture, fiber_buffer);
-								}
-							}
-						}
+					material_particle_hair(sldata, vedata, ob, psys, md);
+				}
+				else if (md->type == eModifierType_Hair) {
+					HairModifierData *hmd = (HairModifierData *)md;
+					for (HairGroup *group = hmd->hair->groups.first; group; group = group->next) {
+						material_hair(sldata, vedata, ob, group);
 					}
 				}
 			}

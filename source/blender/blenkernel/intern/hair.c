@@ -29,6 +29,7 @@
  *  \ingroup bke
  */
 
+#include <limits.h>
 #include <string.h>
 
 #include "MEM_guardedalloc.h"
@@ -37,6 +38,7 @@
 #include "BLI_kdtree.h"
 #include "BLI_listbase.h"
 #include "BLI_rand.h"
+#include "BLI_sort.h"
 #include "BLI_string_utf8.h"
 #include "BLI_string_utils.h"
 
@@ -69,12 +71,27 @@ HairPattern* BKE_hair_copy(HairPattern *hair)
 	return nhair;
 }
 
+static void hair_group_free(HairGroup *group)
+{
+	BKE_hair_batch_cache_free(group);
+	
+	if (group->strands_parent_index) {
+		MEM_freeN(group->strands_parent_index);
+	}
+	if (group->strands_parent_weight) {
+		MEM_freeN(group->strands_parent_weight);
+	}
+}
+
 void BKE_hair_free(struct HairPattern *hair)
 {
 	if (hair->follicles) {
 		MEM_freeN(hair->follicles);
 	}
 	
+	for (HairGroup *group = hair->groups.first; group; group = group->next) {
+		hair_group_free(group);
+	}
 	BLI_freelistN(&hair->groups);
 	
 	MEM_freeN(hair);
@@ -122,6 +139,10 @@ void BKE_hair_follicles_generate(HairPattern *hair, DerivedMesh *scalp, int coun
 	}
 	
 	BKE_mesh_sample_free_generator(gen);
+	
+	BKE_hair_batch_cache_all_dirty(hair, BKE_HAIR_BATCH_DIRTY_ALL);
+	
+	BKE_hair_update_groups(hair);
 }
 
 HairGroup* BKE_hair_group_new(HairPattern *hair, int type)
@@ -152,6 +173,8 @@ void BKE_hair_group_remove(HairPattern *hair, HairGroup *group)
 	BLI_assert(BLI_findindex(&hair->groups, group) >= 0);
 	
 	BLI_remlink(&hair->groups, group);
+	
+	hair_group_free(group);
 	MEM_freeN(group);
 }
 
@@ -182,6 +205,85 @@ void BKE_hair_group_name_set(HairPattern *hair, HairGroup *group, const char *na
 {
 	BLI_strncpy_utf8(group->name, name, sizeof(group->name));
 	BLI_uniquename(&hair->groups, group, DATA_("Group"), '.', offsetof(HairGroup, name), sizeof(group->name));
+}
+
+#define HAIR_FOLLICLE_GROUP_NONE INT_MAX
+
+static void hair_claim_group_follicle(HairGroup *group, int group_index, int *follicle_group, int i)
+{
+	if (follicle_group[i] == HAIR_FOLLICLE_GROUP_NONE) {
+		follicle_group[i] = group_index;
+		++group->num_follicles;
+	}
+}
+
+static void hair_group_follicles_normals(HairPattern *hair, HairGroup *group, int group_index, int *follicle_group)
+{
+	const int num_follicles = hair->num_follicles;
+	for (int i = 0; i < num_follicles; ++i) {
+		// claim all
+		hair_claim_group_follicle(group, group_index, follicle_group, i);
+	}
+}
+
+static void hair_group_follicles_strands(HairPattern *hair, HairGroup *group, int group_index, int *follicle_group)
+{
+	// TODO
+	UNUSED_VARS(hair, group, group_index, follicle_group);
+}
+
+typedef struct HairFollicleSortContext {
+	const HairFollicle *start;
+	const int *follicle_group;
+} HairFollicleSortContext;
+
+static int cmpHairFollicleByGroup(const void *a, const void *b, void *ctx_)
+{
+	const HairFollicleSortContext *ctx = (const HairFollicleSortContext *)ctx_;
+	const size_t ia = (const HairFollicle *)a - ctx->start;
+	const size_t ib = (const HairFollicle *)b - ctx->start;
+	return ctx->follicle_group[ib] - ctx->follicle_group[ia];
+}
+
+void BKE_hair_update_groups(HairPattern *hair)
+{
+	const int num_follicles = hair->num_follicles;
+	int *follicle_group = MEM_mallocN(sizeof(int) * num_follicles, "hair follicle group index");
+	for (int i = 0; i < num_follicles; ++i) {
+		follicle_group[i] = HAIR_FOLLICLE_GROUP_NONE;
+	}
+	
+	int group_index = 0;
+	for (HairGroup *group = hair->groups.first; group; group = group->next, ++group_index) {
+		// Note: follicles array is sorted below
+		if (group->prev) {
+			group->follicles = group->prev->follicles + group->prev->num_follicles;
+		}
+		else {
+			group->follicles = hair->follicles;
+		}
+		
+		group->num_follicles = 0;
+		switch (group->type) {
+			case HAIR_GROUP_TYPE_NORMALS:
+				hair_group_follicles_normals(hair, group, group_index, follicle_group);
+				break;
+			case HAIR_GROUP_TYPE_STRANDS:
+				hair_group_follicles_strands(hair, group, group_index, follicle_group);
+				break;
+		}
+	}
+	
+	{
+		HairFollicleSortContext ctx;
+		ctx.start = hair->follicles;
+		ctx.follicle_group = follicle_group;
+		BLI_qsort_r(hair->follicles, num_follicles, sizeof(HairFollicle), cmpHairFollicleByGroup, &ctx);
+	}
+	
+	MEM_freeN(follicle_group);
+	
+	BKE_hair_batch_cache_all_dirty(hair, BKE_HAIR_BATCH_DIRTY_ALL);
 }
 
 /* ================================= */
@@ -237,6 +339,7 @@ static void get_strand_vertices(const HairDrawDataInterface* hairdata_, float (*
 static HairGroupStrandsView hair_strands_get_view(HairGroup *group)
 {
 	HairGroupStrandsView hairdata;
+	hairdata.base.group = group;
 	hairdata.base.get_num_strands = get_num_strands;
 	hairdata.base.get_num_verts = get_num_verts;
 	hairdata.base.get_strand_lengths = get_strand_lengths;
@@ -260,17 +363,23 @@ static HairGroupStrandsView hair_strands_get_view(HairGroup *group)
 	return hairdata;
 }
 
+int* BKE_hair_group_get_fiber_lengths(HairGroup *group, int subdiv)
+{
+	HairGroupStrandsView hairdata = hair_strands_get_view(group);
+	return BKE_hair_strands_get_fiber_lengths(&hairdata.base, subdiv);
+}
+
 void BKE_hair_group_get_texture_buffer_size(HairGroup *group, int subdiv,
                                             int *r_size, int *r_strand_map_start,
                                             int *r_strand_vertex_start, int *r_fiber_start)
 {
 	HairGroupStrandsView hairdata = hair_strands_get_view(group);
-	BKE_hair_strands_get_texture_buffer_size(&hairdata.base, group->num_follicles, subdiv,
+	BKE_hair_strands_get_texture_buffer_size(&hairdata.base, subdiv,
 	                                         r_size, r_strand_map_start, r_strand_vertex_start, r_fiber_start);
 }
 
-void BKE_hair_group_get_texture_buffer(HairGroup *group, DerivedMesh *scalp, int subdiv, void *buffer)
+void BKE_hair_group_get_texture_buffer(HairGroup *group, int subdiv, DerivedMesh *scalp, void *buffer)
 {
 	HairGroupStrandsView hairdata = hair_strands_get_view(group);
-	BKE_hair_strands_get_texture_buffer(&hairdata.base, scalp, NULL, 0, subdiv, buffer);
+	BKE_hair_strands_get_texture_buffer(&hairdata.base, subdiv, scalp, buffer);
 }

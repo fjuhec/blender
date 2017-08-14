@@ -51,11 +51,8 @@ typedef struct BMEditStrands {
 	
 	/* Scalp mesh for fixing root vertices */
 	struct DerivedMesh *root_dm;
-	
-	/* Hair fibers (optional) */
-	struct HairFiber *hair_fibers;
-	int hair_totfibers;
-	unsigned int hair_seed;
+	struct HairPattern *hair_pattern;
+	struct HairGroup *hair_group;
 	
 	int flag;
 	
@@ -80,9 +77,6 @@ void BKE_editstrands_update_linked_customdata(struct BMEditStrands *es);
 void BKE_editstrands_free(struct BMEditStrands *es);
 
 /* === Hair Fibers === */
-
-bool BKE_editstrands_hair_ensure(struct BMEditStrands *es);
-void BKE_editstrands_hair_free(struct BMEditStrands *es);
 
 int* BKE_editstrands_hair_get_fiber_lengths(struct BMEditStrands *es, int subdiv);
 void BKE_editstrands_hair_get_texture_buffer_size(struct BMEditStrands *es, int subdiv, int *r_size,
