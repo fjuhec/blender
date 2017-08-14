@@ -551,8 +551,7 @@ void BKE_hair_strands_get_texture_buffer_size(const HairDrawDataInterface *haird
 	                             r_size, r_strand_map_start, r_strand_vertex_start, r_fiber_start);
 }
 
-void BKE_hair_strands_get_texture_buffer(const HairDrawDataInterface *hairdata, int subdiv, DerivedMesh *scalp,
-                                         void *buffer)
+void BKE_hair_strands_get_texture_buffer(const HairDrawDataInterface *hairdata, int subdiv, void *buffer)
 {
 	const int totstrands = hairdata->get_num_strands(hairdata);
 	const int totverts_orig = hairdata->get_num_verts(hairdata);
@@ -567,11 +566,11 @@ void BKE_hair_strands_get_texture_buffer(const HairDrawDataInterface *hairdata, 
 	hairdata->get_strand_vertices(hairdata, vertco_orig);
 	hairdata->get_strand_roots(hairdata, roots);
 	
-	hair_get_strand_buffer(scalp, totstrands, totverts_orig, subdiv,
+	hair_get_strand_buffer(hairdata->scalp, totstrands, totverts_orig, subdiv,
 	                       lengths_orig, vertco_orig, roots,
 	                       (HairStrandMapTextureBuffer*)((char*)buffer + strand_map_start),
 	                       (HairStrandVertexTextureBuffer*)((char*)buffer + strand_vertex_start));
-	hair_get_fiber_buffer(hairdata->group, scalp, (HairFiberTextureBuffer*)((char*)buffer + fiber_start));
+	hair_get_fiber_buffer(hairdata->group, hairdata->scalp, (HairFiberTextureBuffer*)((char*)buffer + fiber_start));
 	
 	MEM_freeN(lengths_orig);
 	MEM_freeN(vertco_orig);

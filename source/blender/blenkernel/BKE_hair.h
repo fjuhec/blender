@@ -61,6 +61,7 @@ void BKE_hair_update_groups(struct HairPattern *hair);
 
 typedef struct HairDrawDataInterface {
 	const struct HairGroup *group;
+	struct DerivedMesh *scalp;
 	
 	int (*get_num_strands)(const struct HairDrawDataInterface* hairdata);
 	int (*get_num_verts)(const struct HairDrawDataInterface* hairdata);
@@ -74,8 +75,7 @@ int* BKE_hair_strands_get_fiber_lengths(const struct HairDrawDataInterface *hair
 void BKE_hair_strands_get_texture_buffer_size(const struct HairDrawDataInterface *hairdata, int subdiv,
                                               int *r_size, int *r_strand_map_start,
                                               int *r_strand_vertex_start, int *r_fiber_start);
-void BKE_hair_strands_get_texture_buffer(const struct HairDrawDataInterface *hairdata, int subdiv, struct DerivedMesh *scalp,
-                                         void *texbuffer);
+void BKE_hair_strands_get_texture_buffer(const struct HairDrawDataInterface *hairdata, int subdiv, void *texbuffer);
 
 /* === Draw Cache === */
 
@@ -86,9 +86,9 @@ void BKE_hair_batch_cache_dirty(struct HairGroup *group, int mode);
 void BKE_hair_batch_cache_all_dirty(struct HairPattern *hair, int mode);
 void BKE_hair_batch_cache_free(struct HairGroup *group);
 
-int* BKE_hair_group_get_fiber_lengths(struct HairGroup *group, int subdiv);
-void BKE_hair_group_get_texture_buffer_size(struct HairGroup *group, int subdiv, int *r_size,
-                                            int *r_strand_map_start, int *r_strand_vertex_start, int *r_fiber_start);
-void BKE_hair_group_get_texture_buffer(struct HairGroup *group, int subdiv, struct DerivedMesh *scalp, void *texbuffer);
+int* BKE_hair_group_get_fiber_lengths(struct HairGroup *group, struct DerivedMesh *scalp, int subdiv);
+void BKE_hair_group_get_texture_buffer_size(struct HairGroup *group, struct DerivedMesh *scalp, int subdiv,
+                                            int *r_size, int *r_strand_map_start, int *r_strand_vertex_start, int *r_fiber_start);
+void BKE_hair_group_get_texture_buffer(struct HairGroup *group, struct DerivedMesh *scalp, int subdiv, void *texbuffer);
 
 #endif

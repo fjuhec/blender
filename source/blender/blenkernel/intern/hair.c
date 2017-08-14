@@ -336,10 +336,11 @@ static void get_strand_vertices(const HairDrawDataInterface* hairdata_, float (*
 	}
 }
 
-static HairGroupStrandsView hair_strands_get_view(HairGroup *group)
+static HairGroupStrandsView hair_strands_get_view(HairGroup *group, DerivedMesh *scalp)
 {
 	HairGroupStrandsView hairdata;
 	hairdata.base.group = group;
+	hairdata.base.scalp = scalp;
 	hairdata.base.get_num_strands = get_num_strands;
 	hairdata.base.get_num_verts = get_num_verts;
 	hairdata.base.get_strand_lengths = get_strand_lengths;
@@ -363,23 +364,23 @@ static HairGroupStrandsView hair_strands_get_view(HairGroup *group)
 	return hairdata;
 }
 
-int* BKE_hair_group_get_fiber_lengths(HairGroup *group, int subdiv)
+int* BKE_hair_group_get_fiber_lengths(HairGroup *group, DerivedMesh *scalp, int subdiv)
 {
-	HairGroupStrandsView hairdata = hair_strands_get_view(group);
+	HairGroupStrandsView hairdata = hair_strands_get_view(group, scalp);
 	return BKE_hair_strands_get_fiber_lengths(&hairdata.base, subdiv);
 }
 
-void BKE_hair_group_get_texture_buffer_size(HairGroup *group, int subdiv,
+void BKE_hair_group_get_texture_buffer_size(HairGroup *group, DerivedMesh *scalp, int subdiv,
                                             int *r_size, int *r_strand_map_start,
                                             int *r_strand_vertex_start, int *r_fiber_start)
 {
-	HairGroupStrandsView hairdata = hair_strands_get_view(group);
+	HairGroupStrandsView hairdata = hair_strands_get_view(group, scalp);
 	BKE_hair_strands_get_texture_buffer_size(&hairdata.base, subdiv,
 	                                         r_size, r_strand_map_start, r_strand_vertex_start, r_fiber_start);
 }
 
-void BKE_hair_group_get_texture_buffer(HairGroup *group, int subdiv, DerivedMesh *scalp, void *buffer)
+void BKE_hair_group_get_texture_buffer(HairGroup *group, DerivedMesh *scalp, int subdiv, void *buffer)
 {
-	HairGroupStrandsView hairdata = hair_strands_get_view(group);
-	BKE_hair_strands_get_texture_buffer(&hairdata.base, subdiv, scalp, buffer);
+	HairGroupStrandsView hairdata = hair_strands_get_view(group, scalp);
+	BKE_hair_strands_get_texture_buffer(&hairdata.base, subdiv, buffer);
 }

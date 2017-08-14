@@ -171,7 +171,7 @@ void DRW_hair_batch_cache_free(HairGroup *group)
 	MEM_SAFE_FREE(group->draw_batch_cache);
 }
 
-static void hair_batch_cache_ensure_fibers(HairGroup *group, HairBatchCache *cache, int subdiv)
+static void hair_batch_cache_ensure_fibers(HairGroup *group, struct DerivedMesh *scalp, int subdiv, HairBatchCache *cache)
 {
 	TIMEIT_START(hair_batch_cache_ensure_fibers);
 
@@ -179,7 +179,7 @@ static void hair_batch_cache_ensure_fibers(HairGroup *group, HairBatchCache *cac
 	GWN_INDEXBUF_DISCARD_SAFE(cache->segments);
 	
 	const int totfibers = group->num_follicles;
-	int *fiber_lengths = BKE_hair_group_get_fiber_lengths(group, subdiv);
+	int *fiber_lengths = BKE_hair_group_get_fiber_lengths(group, scalp, subdiv);
 	int totpoint = 0;
 	for (int i = 0; i < totfibers; ++i) {
 		totpoint += fiber_lengths[i];
@@ -254,7 +254,7 @@ static void hair_batch_cache_ensure_fibers(HairGroup *group, HairBatchCache *cac
 	TIMEIT_END(hair_batch_cache_ensure_fibers);
 }
 
-static void hair_batch_cache_ensure_texbuffer(HairGroup *group, HairBatchCache *cache, int subdiv, struct DerivedMesh *scalp)
+static void hair_batch_cache_ensure_texbuffer(HairGroup *group, struct DerivedMesh *scalp, int subdiv, HairBatchCache *cache)
 {
 	DRWHairFiberTextureBuffer *buffer = &cache->texbuffer;
 	static const int elemsize = 8;
@@ -263,7 +263,7 @@ static void hair_batch_cache_ensure_texbuffer(HairGroup *group, HairBatchCache *
 	
 	// Offsets in bytes
 	int b_size, b_strand_map_start, b_strand_vertex_start, b_fiber_start;
-	BKE_hair_group_get_texture_buffer_size(group, subdiv, &b_size, 
+	BKE_hair_group_get_texture_buffer_size(group, scalp, subdiv, &b_size, 
 	        &b_strand_map_start, &b_strand_vertex_start, &b_fiber_start);
 	// Pad for alignment
 	b_size += align - b_size % align;
@@ -273,7 +273,7 @@ static void hair_batch_cache_ensure_texbuffer(HairGroup *group, HairBatchCache *
 	const int height = size / width;
 	
 	buffer->data = MEM_mallocN(b_size, "hair fiber texture buffer");
-	BKE_hair_group_get_texture_buffer(group, subdiv, scalp, buffer->data);
+	BKE_hair_group_get_texture_buffer(group, scalp, subdiv, buffer->data);
 	
 	buffer->width = width;
 	buffer->height = height;
@@ -290,13 +290,13 @@ Gwn_Batch *DRW_hair_batch_cache_get_fibers(HairGroup *group, int subdiv, struct 
 	TIMEIT_START(DRW_hair_batch_cache_get_fibers);
 
 	if (cache->fibers == NULL) {
-		TIMEIT_BENCH(hair_batch_cache_ensure_fibers(group, cache, subdiv),
+		TIMEIT_BENCH(hair_batch_cache_ensure_fibers(group, scalp, subdiv, cache),
 		             hair_batch_cache_ensure_fibers);
 		
 		TIMEIT_BENCH(cache->fibers = GWN_batch_create(GWN_PRIM_TRIS, cache->verts, cache->segments),
 		             GWN_batch_create);
 
-		TIMEIT_BENCH(hair_batch_cache_ensure_texbuffer(group, cache, subdiv, scalp),
+		TIMEIT_BENCH(hair_batch_cache_ensure_texbuffer(group, scalp, subdiv, cache),
 		             hair_batch_cache_ensure_texbuffer);
 	}
 
