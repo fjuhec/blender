@@ -390,7 +390,7 @@ static void GPENCIL_draw_scene(void *vedata)
 				DRW_framebuffer_bind(fbl->vfx_color_fb_a);
 				DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
 
-				/* wave or copy past */
+				/* wave or copy pass */
 				DRW_draw_pass_subset(psl->vfx_wave_pass,
 					cache->init_vfx_wave_sh,
 					cache->end_vfx_wave_sh);
