@@ -130,8 +130,6 @@ static void GPENCIL_engine_init(void *vedata)
 	}
 
 	unit_m4(stl->storage->unit_matrix);
-	ARRAY_SET_ITEMS(stl->storage->blur1, 1.0f, 0.0f); /* horz */
-	ARRAY_SET_ITEMS(stl->storage->blur2, 0.0f, 1.0f); /* vert */
 
 	/* blank texture used if no texture defined for fill shader */
 	if (!e_data.gpencil_blank_texture) {
