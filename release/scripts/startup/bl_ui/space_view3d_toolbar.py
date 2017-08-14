@@ -1672,6 +1672,12 @@ class VIEW3D_PT_sculpt_silhouette(Panel, View3DPaintPanel):
         col.prop(sculpt, "silhouette_smoothness", text="Smoothness", slider=True)
         col.prop(sculpt, "silhouette_depth", text="Depth")
         col.prop(sculpt, "silhouette_resolution", text="Resolution")
+        sub = col.column()
+
+        sub.row().prop(sculpt, "silhouette_add", text="Add")
+        sub.row().prop(sculpt, "silhouette_subtract", text="Subtract")
+
+        col.separator()
 
 
 class VIEW3D_PT_tools_brush_appearance(Panel, View3DPaintPanel):

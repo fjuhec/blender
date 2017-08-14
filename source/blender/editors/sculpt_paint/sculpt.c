@@ -234,7 +234,14 @@ typedef struct IntersectionData {
 	float *intersection_points;		/* exact positions where the two shapes connect */
 	GHash *edge_hash;
 	int num_intersection_points;	/* 3 times intersection point count*/
+	int first_e;
+	bool flip;
 } IntersectionData;
+
+typedef enum {
+	SILHOUETTE_DEFAULT = 0,
+	SILHOUETTE_DO_SUBTRACT = 1
+} SilhouetteToolFlags;
 
 typedef enum {
 	SIL_INIT = 0,
@@ -259,6 +266,7 @@ typedef struct SilhouetteData {
 	float depth;					/* Depth or thickness of the generated shape */
 	float smoothness;				/* Smoothness of the generated shape */
 	int resolution;					/* Subdivision of the shape*/
+	bool do_subtract;				/* Is in subtractive mode? Clipping brush functionality */
 	float anchor[3];				/* Origin point of the reference plane */
 	float z_vec[3];					/* Orientation of the reference plane */
 	MeshElemMap *emap;				/* Original Mesh vert -> edges map */
@@ -5242,7 +5250,8 @@ static SilhouetteData *silhouette_data_new(bContext *C)
 	/*Load RNA Data if present */
 	sil->smoothness = sd->silhouette_smoothness / 100.0f;
 	sil->depth = sd->silhouette_depth;
-	sil->resolution = sd->silhouette_resolution;
+	sil->resolution = sd->silhouette_resolution;;
+	sil->do_subtract = sd->silhouette_flags & SILHOUETTE_DO_SUBTRACT;
 
 	copy_v3_v3(sil->anchor, fp);
 
@@ -5253,6 +5262,12 @@ static SilhouetteData *silhouette_data_new(bContext *C)
 	sil->fillet_ring_orig_start = NULL;
 	sil->inter_edges = NULL;
 	sil->fillet_ring_bbs = NULL;
+	sil->isect_chunk = NULL;
+	sil->fillet_ring_new = NULL;
+	sil->fillet_ring_new_start = NULL;
+	sil->inter_tris = NULL;
+	sil->tri_nodebind = NULL;
+	sil->v_to_rm = NULL;
 
 	sil->scene = scene;
 	sil->ob = obedit;
@@ -5284,6 +5299,19 @@ static void silhouette_data_free(struct wmOperator *op)
 		}
 		if (data->fillet_ring_bbs) {
 			MEM_freeN(data->fillet_ring_bbs);
+		}
+		if (data->inter_tris) {
+			MEM_freeN(data->inter_tris);
+		}
+		if (data->tri_nodebind) {
+			MEM_freeN(data->tri_nodebind);
+		}
+		if (data->v_to_rm) {
+			MEM_freeN(data->v_to_rm);
+		}
+		if (data->isect_chunk) {
+			/*TODO: Free Intersection Data first! */
+			MEM_freeN(data->isect_chunk);
 		}
 		MEM_SAFE_FREE(data);
 	}
@@ -7133,6 +7161,7 @@ static IntersectionData *add_isect_chunk(SilhouetteData *sil)
 	return &sil->isect_chunk[sil->num_isect_data - 1];
 }
 
+#if 0
 static void prep_float_shared_mem(float **mem, int *r_num, int *r_start, int len, const char *str)
 {
 	if (!mem) {
@@ -7145,6 +7174,7 @@ static void prep_float_shared_mem(float **mem, int *r_num, int *r_start, int len
 		*mem = MEM_reallocN(*mem, sizeof(float) * (*r_num));
 	}
 }
+#endif
 
 static void prep_int_shared_mem(int **mem, int *r_num, int *r_start, int len, const char *str)
 {
@@ -7157,6 +7187,18 @@ static void prep_int_shared_mem(int **mem, int *r_num, int *r_start, int len, co
 		*r_num = *r_num + len;
 		*mem = MEM_reallocN(*mem, sizeof(int) * (*r_num));
 	}
+}
+
+/*TODO: Maybe add real normal calc */
+static bool shared_dir_normal(float e1[3], float e2[3], float v1[3], float v2[3], float v3[3])
+{
+	float d1[3], d2[3], n[3], e[3];
+	sub_v3_v3v3(d1, v2, v1);
+	sub_v3_v3v3(d2, v3, v1);
+	sub_v3_v3v3(e, e2, e1);
+	cross_v3_v3v3(n, d1, d2);
+
+	return dot_v3v3(n, e) > 0;
 }
 
 static void do_calc_sil_intersect_task_cb_ex(void *userdata, void *UNUSED(userdata_chunk), const int n, const int UNUSED(thread_id))
@@ -7179,7 +7221,8 @@ static void do_calc_sil_intersect_task_cb_ex(void *userdata, void *UNUSED(userda
 	BKE_pbvh_get_tri(bvh, &ltris);
 	GHash *edge_hash = BLI_ghash_int_new("edges within intersection");
 	float *int_points = NULL;
-	int int_points_shared_start;
+	bool first_e_flip;
+	int first_e;
 	IntersectionData *i_data;
 	BLI_array_declare(int_points);
 
@@ -7199,19 +7242,24 @@ static void do_calc_sil_intersect_task_cb_ex(void *userdata, void *UNUSED(userda
 					copy_v3_v3(p2, me->mvert[me->medge[e_start + e].v2].co);
 					for (int tri_i = 0; tri_i < tri_node_bind_tot; tri_i ++) {
 						lt = ltris[sil->inter_tris[tri_node_bind + tri_i]];
+						/* Maybe isect with epsilon flexibility needed? */
 						if (isect_line_segment_tri_v3(p1, p2,
 													  me->mvert[me->mloop[lt.tri[0]].v].co, me->mvert[me->mloop[lt.tri[1]].v].co, me->mvert[me->mloop[lt.tri[2]].v].co,
 													  &t_lambda, NULL))
 						{
+							if (BLI_array_count(int_points) == 0) {
+								first_e_flip = shared_dir_normal(p1, p2, me->mvert[me->mloop[lt.tri[0]].v].co, me->mvert[me->mloop[lt.tri[1]].v].co, me->mvert[me->mloop[lt.tri[2]].v].co);
+								first_e = e_start + e;
+							}
 							BLI_ghash_insert(edge_hash, SET_INT_IN_POINTER(e_start + e), SET_INT_IN_POINTER(BLI_array_count(int_points)));
 							BLI_array_grow_items(int_points, 3);
 							interp_v3_v3v3(&int_points[BLI_array_count(int_points) - 3], p1, p2, t_lambda);
 #ifdef DEBUG_DRAW
-							/*bl_debug_color_set(0x0000ff);
+							bl_debug_color_set(0x0000ff);
 							bl_debug_draw_point(&int_points[BLI_array_count(int_points) - 3], 0.05f);
 							bl_debug_color_set(0x000000);
 							bl_debug_draw_edge_add(p1, p2);
-							bl_debug_color_set(0x000000);*/
+							bl_debug_color_set(0x000000);
 #endif
 							break;
 						}
@@ -7221,6 +7269,8 @@ static void do_calc_sil_intersect_task_cb_ex(void *userdata, void *UNUSED(userda
 			BLI_mutex_lock(&data->mutex);
 			if (BLI_array_count(int_points) > 0) {
 				i_data = add_isect_chunk(sil);
+				i_data->flip = first_e_flip;
+				i_data->first_e = first_e;
 				i_data->edge_hash = edge_hash;
 				i_data->intersection_points = MEM_callocN(sizeof(float) * BLI_array_count(int_points), "exact intersecting points");
 				i_data->num_intersection_points = BLI_array_count(int_points);
@@ -7263,32 +7313,59 @@ static void check_preceding_intersecting_edges(Object *ob, SilhouetteData *sil, 
 #endif
 }
 
+static void crawl_mesh_rec (Mesh *me, MeshElemMap *emap, GHash *vert_hash, IntersectionData *i_sect_data, int num_isect_data, int orig)
+{
+	int v_c;
+	for(int e = 0; e < emap[orig].count; e++) {
+		for (int i = 0; i < num_isect_data; i++) {
+			if (BLI_ghash_haskey(i_sect_data[i].edge_hash, SET_INT_IN_POINTER(emap[orig].indices[e]))) {
+				goto next_edge;
+			}
+		}
+		v_c = me->medge[emap[orig].indices[e]].v1 == orig ? me->medge[emap[orig].indices[e]].v2 : me->medge[emap[orig].indices[e]].v1;
+		if (BLI_ghash_reinsert(vert_hash, SET_INT_IN_POINTER(v_c), SET_INT_IN_POINTER(v_c), NULL, NULL)) {
+			crawl_mesh_rec(me, emap, vert_hash, i_sect_data, num_isect_data, v_c);
+		}
+	next_edge:;
+	}
+}
+
 static void combine_intersection_data(Mesh *me, SilhouetteData *sil)
 {
 	IntersectionData *data = sil->isect_chunk;
+	MeshElemMap *emap;
+	GHash *vert_hash = BLI_ghash_int_new("vertices within intersection");
+	int *emap_mem;
 	MEdge *first_e = NULL;
-	GHashIterator gh_iter;
+	int inside_vert;
 
-	if (sil->num_isect_data > 0) {
-		for (int i = 0; i < sil->num_isect_data; i++) {
-			if (BLI_ghash_size(data[i].edge_hash) > 0) {
-				GHASH_ITER (gh_iter, data[i].edge_hash) {
-					first_e = &me->medge[(int)BLI_ghashIterator_getKey(&gh_iter)];
-#ifdef DEBUG_DRAW
-					bl_debug_color_set(0xffffff);
-					bl_debug_draw_medge_add(me, (int)BLI_ghashIterator_getKey(&gh_iter));
-					bl_debug_color_set(0x000000);
-#endif
-					break;
-				}
-			}
-			if(first_e) {
-				break;
-			}
-		}
+	if (!data) {
+		return;
 	}
 
-	/*TODO: detect which side is inside and which is outside of first_e ...*/
+	/* TODO: Maybe only generate partial map with only the silhouette inside? */
+	BKE_mesh_vert_edge_map_create(&emap, &emap_mem, me->medge, me->totvert, me->totedge);
+
+	first_e = &me->medge[data->first_e];
+
+	/*TODO: Invert for clipping functionality!*/
+	inside_vert = !data->flip ^ sil->do_subtract ? first_e->v2 : first_e->v1;
+
+	BLI_ghash_insert(vert_hash, SET_INT_IN_POINTER(inside_vert), SET_INT_IN_POINTER(inside_vert));
+
+	crawl_mesh_rec(me, emap, vert_hash, data, sil->num_isect_data, inside_vert);
+
+	GHashIterator gh_iter;
+	GHASH_ITER (gh_iter, vert_hash) {
+		int v_c = BLI_ghashIterator_getKey(&gh_iter);
+		bl_debug_color_set(0xffff00);
+		bl_debug_draw_point(me->mvert[v_c].co, 0.025f);
+		bl_debug_color_set(0x000000);
+	}
+
+
+	MEM_freeN(emap);
+	MEM_freeN(emap_mem);
 }
 
 /* Generates a 3D shape from a stroke. */
@@ -7354,9 +7431,10 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 
 	e_start = me->totedge;
 	bridge_all_parts(me, spine, v_steps * 2 + w_steps, n_ori);
-	check_preceding_intersecting_edges(ob, sil, NULL, nodes, me->totedge - e_start);
-
-	combine_intersection_data(me, sil);
+	if (sil->num_inter_nodes) {
+		check_preceding_intersecting_edges(ob, sil, NULL, nodes, me->totedge - e_start);
+		combine_intersection_data(me, sil);
+	}
 	/*printf("Joining %i isect data.\n", sil->num_isect_data);
 	for (int i = 0; i < sil->num_isect_data; i++) {
 		IntersectionData *isect_data = &sil->isect_chunk[i];
@@ -8072,7 +8150,7 @@ static void do_calc_fillet_line_task_cb_ex(void *userdata, void *UNUSED(userdata
 
 	/*TODO: merge rings from multiple threads / nodes*/
 #ifdef DEBUG_DRAW
-	/*for(int r = 0; r < BLI_array_count(ring_start); r++) {
+	for(int r = 0; r < BLI_array_count(ring_start); r++) {
 		r_size = r < BLI_array_count(ring_start) - 1 ? ring_start[r + 1] - ring_start[r] : BLI_array_count(edge_ring_fillet) - ring_start[r];
 		for(int i = 0; i < r_size; i++) {
 			if(i == 0){
@@ -8083,7 +8161,7 @@ static void do_calc_fillet_line_task_cb_ex(void *userdata, void *UNUSED(userdata
 			bl_debug_draw_medge_add(me, edge_ring_fillet[ring_start[r] + i]);
 			bl_debug_color_set(0x000000);
 		}
-	}*/
+	}
 #endif
 	BLI_array_free(ring_start);
 	BLI_array_free(edge_ring_fillet);
@@ -8177,6 +8255,7 @@ static void sculpt_silhouette_calc_mesh(bContext *C, wmOperator *op)
 		printf("Removing vertices/edges/loops/polys from mesh.\n");
 		remove_verts_from_mesh(me, sil->v_to_rm, sil->num_v_to_rm);
 		MEM_freeN(sil->v_to_rm);
+		sil->v_to_rm = NULL;
 	}
 
 	/* Rebuild mesh caches

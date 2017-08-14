@@ -1146,6 +1146,9 @@ typedef struct Sculpt {
 	float silhouette_smoothness;
 	float silhouette_depth;
 	int silhouette_resolution;
+	int silhouette_flags;
+
+	int pad;
 
 	struct Object *gravity_object;
 } Sculpt;
