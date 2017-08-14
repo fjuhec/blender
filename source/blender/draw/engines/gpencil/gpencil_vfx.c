@@ -163,7 +163,6 @@ static void DRW_gpencil_vfx_blur(ModifierData *md, int ob_idx, GPENCIL_e_data *e
 
 	struct Gwn_Batch *vfxquad = DRW_cache_fullscreen_quad_get();
 	/* === Pass 1 === */
-	/* horizontal blur */
 	vfx_shgrp = DRW_shgroup_create(e_data->gpencil_vfx_blur_sh, psl->vfx_blur_pass_1);
 	DRW_shgroup_call_add(vfx_shgrp, vfxquad, NULL);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->vfx_fbcolor_color_tx_a);
@@ -180,7 +179,6 @@ static void DRW_gpencil_vfx_blur(ModifierData *md, int ob_idx, GPENCIL_e_data *e
 	cache->end_vfx_blur_sh_1 = vfx_shgrp;
 
 	/* === Pass 2 === */
-	/* horizontal blur */
 	vfx_shgrp = DRW_shgroup_create(e_data->gpencil_vfx_blur_sh, psl->vfx_blur_pass_2);
 	DRW_shgroup_call_add(vfx_shgrp, vfxquad, NULL);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->vfx_fbcolor_color_tx_b);
@@ -197,7 +195,6 @@ static void DRW_gpencil_vfx_blur(ModifierData *md, int ob_idx, GPENCIL_e_data *e
 	cache->end_vfx_blur_sh_2 = vfx_shgrp;
 
 	/* === Pass 3 === */
-	/* horizontal blur */
 	vfx_shgrp = DRW_shgroup_create(e_data->gpencil_vfx_blur_sh, psl->vfx_blur_pass_3);
 	DRW_shgroup_call_add(vfx_shgrp, vfxquad, NULL);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->vfx_fbcolor_color_tx_a);
@@ -214,7 +211,6 @@ static void DRW_gpencil_vfx_blur(ModifierData *md, int ob_idx, GPENCIL_e_data *e
 	cache->end_vfx_blur_sh_3 = vfx_shgrp;
 
 	/* === Pass 4 === */
-	/* horizontal blur */
 	vfx_shgrp = DRW_shgroup_create(e_data->gpencil_vfx_blur_sh, psl->vfx_blur_pass_4);
 	DRW_shgroup_call_add(vfx_shgrp, vfxquad, NULL);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->vfx_fbcolor_color_tx_b);
