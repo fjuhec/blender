@@ -29,6 +29,7 @@
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
 #include "BLI_math_vector.h"
+#include "BLI_math_color.h"
 
 #include "DNA_customdata_types.h"
 #include "DNA_object_types.h"
@@ -725,18 +726,35 @@ static void PALETTE_OT_palettecolor_select(wmOperatorType *ot)
 }
 
 /* ***************** Copy Palette color ************************ */
-static int palettecolor_copy_exec(bContext *C, wmOperator *UNUSED(op))
+static int palettecolor_copy_exec(bContext *C, wmOperator *op)
 {
 	Palette *palette = BKE_palette_get_active_from_context(C);
 	PaletteColor *palcolor = BKE_palette_color_get_active(palette);
 	PaletteColor *newcolor;
+	float hsv_s[3], hsv_f[3];
+
+	/* attenuation factors 10%, 25%, 50%, 75% */
+	float factors[4] = { 0.9f, 0.75f, 0.5f, 0.25f };
+
+	int mode = RNA_enum_get(op->ptr, "type");
 
 	/* sanity checks */
 	if (ELEM(NULL, palette, palcolor))
 		return OPERATOR_CANCELLED;
-
+	
 	/* create a new color and duplicate data */
 	newcolor = BKE_palette_color_copy(palette, palcolor);
+
+	/* attenuate color */
+	if (mode > 0) {
+		rgb_to_hsv_v(newcolor->rgb, hsv_s);
+		rgb_to_hsv_v(newcolor->fill, hsv_f);
+		hsv_s[2] *= factors[mode - 1];
+		hsv_f[2] *= factors[mode - 1];
+		
+		hsv_to_rgb_v(hsv_s, newcolor->rgb);
+		hsv_to_rgb_v(hsv_f, newcolor->fill);
+	}
 
 	/* notifiers */
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
@@ -746,6 +764,15 @@ static int palettecolor_copy_exec(bContext *C, wmOperator *UNUSED(op))
 
 static void PALETTE_OT_palettecolor_copy(wmOperatorType *ot)
 {
+	static EnumPropertyItem prop_palettecolor_copy_types[] = {
+		{ 0, "COPY", ICON_PASTEDOWN, "Copy Color", "Copy current palette color" },
+		{ 1, "COPY10", ICON_PASTEDOWN, "Copy Color 10%", "Copy an attenuate version of the selected color" },
+		{ 2, "COPY25", ICON_PASTEDOWN, "Copy Color 25%", "Copy an attenuate version of the selected color" },
+		{ 3, "COPY50", ICON_PASTEDOWN, "Copy Color 50%", "Copy an attenuate version of the selected color" },
+		{ 4, "COPY75", ICON_PASTEDOWN, "Copy Color 75%", "Copy an attenuate version of the selected color" },
+		{ 0, NULL, 0, NULL, NULL }
+	};
+
 	/* identifiers */
 	ot->name = "Copy Color";
 	ot->idname = "PALETTE_OT_palettecolor_copy";
@@ -757,6 +784,9 @@ static void PALETTE_OT_palettecolor_copy(wmOperatorType *ot)
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	/* props */
+	ot->prop = RNA_def_enum(ot->srna, "type", prop_palettecolor_copy_types, 0, "Type", "Method used for copying colors");
 }
 
 
