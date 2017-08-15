@@ -6558,11 +6558,17 @@ static int edbm_average_loop_normals_exec(bContext *C, wmOperator *op)
 
 	const int average_type = RNA_enum_get(op->ptr, "average_type");
 	int cd_clnors_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
-	float weight = (float) RNA_int_get(op->ptr, "weight"), threshold = RNA_float_get(op->ptr, "threshold");
-	const bool boolean_weights = RNA_boolean_get(op->ptr, "boolean_weights");
-	weight = weight / 10.0f;
+	float absweight = (float) RNA_int_get(op->ptr, "weight"), threshold = RNA_float_get(op->ptr, "threshold");
+	const bool boolean_weights = RNA_boolean_get(op->ptr, "binary_weights");
+	float weight = absweight / 10.0f;
 
-	if (weight > 1) {
+	if (absweight == 20) {
+		weight = (float)SHRT_MAX;
+	}
+	else if (absweight == 1) {
+		weight = 1 / (float)SHRT_MAX;
+	}
+	else if (weight > 1) {
 		weight = (weight - 1) * 10;
 	}
 
@@ -6706,13 +6712,14 @@ void MESH_OT_average_loop_normals(struct wmOperatorType *ot)
 
 	ot->prop = RNA_def_float(ot->srna, "threshold", 0.01f, 0, 5, "Threshold", "Threshold value for different weights to be considered equal", 0, 5);
 	
-	ot->prop = RNA_def_boolean(ot->srna, "boolean_weights", 0, "Boolean Weights", "Sets weight of smooth faces to 0. Weight of flat faces remains unchanged");
+	ot->prop = RNA_def_boolean(ot->srna, "binary_weights", 0, "Binary Weights", "Sets weight of smooth faces to 0. Weight of flat faces remains unchanged");
 }
 
 /********************** Copy/Paste Loop Normals **********************/
 
 static int edbm_copy_paste_normal_exec(bContext *C, wmOperator *op)
 {
+
 	Object *obedit = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 	BMesh *bm = em->bm;
@@ -6726,6 +6733,12 @@ static int edbm_copy_paste_normal_exec(bContext *C, wmOperator *op)
 	int i = 0;
 
 	if (copy && (op->flag & OP_IS_INVOKE)) {
+		if (bm->totfacesel != 1 && ld->totloop != 1 && bm->totvertsel != 1) {
+			BKE_report(op->reports, RPT_ERROR, "Can only copy Split normal, Averaged vertex normal or Face normal");
+			MEM_freeN(ld->normal);
+			MEM_freeN(ld);
+			return OPERATOR_CANCELLED;
+		}
 		bool join =  ld->totloop > 0 ? true : false;
 		for (; i < ld->totloop; i++, tld++) {
 			if (!compare_v3v3(ld->normal->nloc, tld->nloc, 1e-4f))
@@ -6743,13 +6756,15 @@ static int edbm_copy_paste_normal_exec(bContext *C, wmOperator *op)
 				}
 			}
 		}
-		else {
-			BKE_report(op->reports, RPT_ERROR, "Invalid Selection");
+		else if (!join) {
+			BKE_report(op->reports, RPT_ERROR, "Can only copy Split normal, Averaged vertex normal or Face normal");
+			MEM_freeN(ld->normal);
+			MEM_freeN(ld);
 			return OPERATOR_CANCELLED;
 		}
 		op->flag &= ~OP_IS_INVOKE;			//required to make target editable from ui
 	}
-	else if (!copy){
+	else if (!copy) {
 		float normal_val[3];
 		RNA_float_get_array(op->ptr, "normal_vector", normal_val);
 
@@ -6764,6 +6779,7 @@ static int edbm_copy_paste_normal_exec(bContext *C, wmOperator *op)
 				BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], abs_normal, tld->clnors_data);
 			}
 			else {
+				normalize_v3(normal_val);
 				BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], normal_val, tld->clnors_data);
 			}
 		}
@@ -6798,11 +6814,11 @@ void MESH_OT_copy_normal(struct wmOperatorType *ot)
 	ot->prop = RNA_def_boolean(ot->srna, "copy", 1, "Copy Normal", "Copy normal of mesh");
 	RNA_def_property_flag(ot->prop, PROP_HIDDEN);
 
-	PropertyRNA *prop = RNA_def_boolean(ot->srna, "absolute", 0, "Absolute", "Absolute value to copy");
+	PropertyRNA *prop = RNA_def_boolean(ot->srna, "absolute", 0, "Absolute Coordinates", "Copy Absolute coordinates or Normal direction");
 
 	prop = RNA_def_property(ot->srna, "normal_vector", PROP_FLOAT, PROP_XYZ);
 	RNA_def_property_array(prop, 3);
-	RNA_def_property_ui_text(prop, "Copied Normal", "Normal vector of copied face or loop");
+	RNA_def_property_ui_text(prop, "Copied Normal", "Normal vector of copied face or vertex");
 }
 
 static int edbm_set_normals_from_faces_exec(bContext *C, wmOperator *op)

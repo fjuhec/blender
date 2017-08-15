@@ -1093,7 +1093,9 @@ void BM_lnorspace_rebuild(BMesh *bm, bool preserve_clnor)
 		}
 	}
 
-	BKE_lnor_spacearr_clear(bm->lnor_spacearr);
+	if (bm->spacearr_dirty & BM_SPACEARR_DIRTY_ALL) {
+		BKE_lnor_spacearr_clear(bm->lnor_spacearr);
+	}
 	BM_loops_calc_normal_vcos(bm, NULL, NULL, NULL, true, M_PI, r_lnors, bm->lnor_spacearr, NULL, cd_loop_clnors_offset, true);
 	MEM_freeN(r_lnors);
 

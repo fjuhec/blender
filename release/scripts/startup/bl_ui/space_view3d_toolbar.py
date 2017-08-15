@@ -459,7 +459,7 @@ class VIEW3D_PT_tools_normal(View3DPanel, Panel):
 		col.operator_menu_enum("mesh.average_loop_normals", "average_type")
 		
 		col = layout.column(align=True)
-		col.label(text="Copy/Paste Loop")
+		col.label(text="Copy/Paste Normal")
 		row = col.row(align=True)
 		row.operator("mesh.copy_normal", text="Copy").copy = True
 		row.operator("mesh.copy_normal", text="Paste").copy = False

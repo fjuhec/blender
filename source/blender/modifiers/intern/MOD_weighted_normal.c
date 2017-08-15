@@ -389,11 +389,11 @@ static void WeightedNormal_FaceArea(
 	int defgrp_index, const bool use_invert_vgroup, const float weight)
 {
 	pair *face_area = MEM_mallocN(sizeof(*face_area) * numPoly, "__func__");
-	const bool bool_weights = (wnmd->flag & MOD_WEIGHTEDNORMAL_BOOL_WEIGHTS) != 0;
+	const bool bin_weights = (wnmd->flag & MOD_WEIGHTEDNORMAL_BIN_WEIGHTS) != 0;
 
 	for (int mp_index = 0; mp_index < numPoly; mp_index++) {
 		face_area[mp_index].val = BKE_mesh_calc_poly_area(&mpoly[mp_index], &mloop[mpoly[mp_index].loopstart], mvert);
-		if (bool_weights && (mpoly[mp_index].flag & ME_SMOOTH)) {
+		if (bin_weights && (mpoly[mp_index].flag & ME_SMOOTH)) {
 			face_area[mp_index].val = 0;
 		}
 		face_area[mp_index].index = mp_index;
@@ -414,7 +414,7 @@ static void WeightedNormal_CornerAngle(WeightedNormalModifierData *wnmd, Object 
 {
 	pair *corner_angle = MEM_mallocN(sizeof(*corner_angle) * numLoops, "__func__");
 	float *index_angle = MEM_mallocN(sizeof(*index_angle) * numLoops, "__func__");
-	const bool bool_weights = (wnmd->flag & MOD_WEIGHTEDNORMAL_BOOL_WEIGHTS) != 0;
+	const bool bin_weights = (wnmd->flag & MOD_WEIGHTEDNORMAL_BIN_WEIGHTS) != 0;
 	/* index_angle is first used to calculate corner angle and is then used to store poly index for each loop */
 
 	for (int mp_index = 0; mp_index < numPoly; mp_index++) {
@@ -423,7 +423,7 @@ static void WeightedNormal_CornerAngle(WeightedNormalModifierData *wnmd, Object 
 
 		for (int i = l_start; i < l_start + mpoly[mp_index].totloop; i++) {
 			corner_angle[i].val = (float)M_PI - index_angle[i];
-			if (bool_weights && (mpoly[mp_index].flag & ME_SMOOTH)) {
+			if (bin_weights && (mpoly[mp_index].flag & ME_SMOOTH)) {
 				corner_angle[i].val = 0;
 			}
 			corner_angle[i].index = i; 
@@ -447,7 +447,7 @@ static void WeightedNormal_FacewithAngle(WeightedNormalModifierData *wnmd, Objec
 {
 	pair *combined = MEM_mallocN(sizeof(*combined) * numLoops, "__func__");
 	float *index_angle = MEM_mallocN(sizeof(*index_angle) * numLoops, "__func__");
-	const bool bool_weights = (wnmd->flag & MOD_WEIGHTEDNORMAL_BOOL_WEIGHTS) != 0;
+	const bool bin_weights = (wnmd->flag & MOD_WEIGHTEDNORMAL_BIN_WEIGHTS) != 0;
 
 	for (int mp_index = 0; mp_index < numPoly; mp_index++) {
 		int l_start = mpoly[mp_index].loopstart;
@@ -457,7 +457,7 @@ static void WeightedNormal_FacewithAngle(WeightedNormalModifierData *wnmd, Objec
 
 		for (int i = l_start; i < l_start + mpoly[mp_index].totloop; i++) {
 			combined[i].val = ((float)M_PI - index_angle[i]) * face_area;		// in this case val is product of corner angle and face area
-			if (bool_weights && (mpoly[mp_index].flag & ME_SMOOTH)) {
+			if (bin_weights && (mpoly[mp_index].flag & ME_SMOOTH)) {
 				combined[i].val = 0;
 			}
 			combined[i].index = i;
@@ -500,7 +500,14 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob, DerivedMesh *dm,
 	bool free_polynors = false;
 
 	float weight = ((float)wnmd->weight) / 10.0f;
-	if (weight > 1) {
+
+	if (wnmd->weight == 20) {
+		weight = (float)SHRT_MAX;
+	}
+	else if (wnmd->weight == 1) {
+		weight = 1 / (float)SHRT_MAX;
+	}
+	else if (weight > 1) {
 		weight = (weight - 1) * 10;
 	}
 
