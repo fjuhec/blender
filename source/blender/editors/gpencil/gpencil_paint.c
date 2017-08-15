@@ -609,7 +609,9 @@ static short gp_stroke_addpoint(const bContext *C, tGPsdata *p, const int mval[2
 			}
 			
 			pts = &gps->points[gps->totpoints - 1];
-			
+			pts->totweight = 0;
+			pts->weights = NULL;
+
 			/* special case for poly lines: normally,
 			 * depth is needed only when creating new stroke from buffer,
 			 * but poly lines are converting to stroke instantly,
@@ -635,6 +637,9 @@ static short gp_stroke_addpoint(const bContext *C, tGPsdata *p, const int mval[2
 			pts->pressure = pt->pressure;
 			pts->strength = pt->strength;
 			pts->time = pt->time;
+			pts->totweight = 0;
+			pts->weights = NULL;
+
 			/* force fill recalc */
 			gps->flag |= GP_STROKE_RECALC_CACHES;
 			/* drawing batch cache is dirty now */
