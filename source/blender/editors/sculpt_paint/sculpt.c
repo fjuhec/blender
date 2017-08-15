@@ -234,8 +234,6 @@ typedef struct IntersectionData {
 	float *intersection_points;		/* exact positions where the two shapes connect */
 	GHash *edge_hash;
 	int num_intersection_points;	/* 3 times intersection point count*/
-	int first_e;
-	bool flip;
 } IntersectionData;
 
 typedef enum {
@@ -7221,8 +7219,7 @@ static void do_calc_sil_intersect_task_cb_ex(void *userdata, void *UNUSED(userda
 	BKE_pbvh_get_tri(bvh, &ltris);
 	GHash *edge_hash = BLI_ghash_int_new("edges within intersection");
 	float *int_points = NULL;
-	bool first_e_flip;
-	int first_e;
+	bool e_flip_orientation;
 	IntersectionData *i_data;
 	BLI_array_declare(int_points);
 
@@ -7242,20 +7239,22 @@ static void do_calc_sil_intersect_task_cb_ex(void *userdata, void *UNUSED(userda
 					copy_v3_v3(p2, me->mvert[me->medge[e_start + e].v2].co);
 					for (int tri_i = 0; tri_i < tri_node_bind_tot; tri_i ++) {
 						lt = ltris[sil->inter_tris[tri_node_bind + tri_i]];
-						/* Maybe isect with epsilon flexibility needed? */
-						if (isect_line_segment_tri_v3(p1, p2,
+						/* TODO: Negative epsilon for better results. Still produces holes. */
+						if (isect_line_segment_tri_epsilon_v3(p1, p2,
 													  me->mvert[me->mloop[lt.tri[0]].v].co, me->mvert[me->mloop[lt.tri[1]].v].co, me->mvert[me->mloop[lt.tri[2]].v].co,
-													  &t_lambda, NULL))
+													  &t_lambda, NULL, -0.00001f))
 						{
-							if (BLI_array_count(int_points) == 0) {
-								first_e_flip = shared_dir_normal(p1, p2, me->mvert[me->mloop[lt.tri[0]].v].co, me->mvert[me->mloop[lt.tri[1]].v].co, me->mvert[me->mloop[lt.tri[2]].v].co);
-								first_e = e_start + e;
-							}
-							BLI_ghash_insert(edge_hash, SET_INT_IN_POINTER(e_start + e), SET_INT_IN_POINTER(BLI_array_count(int_points)));
+							e_flip_orientation = shared_dir_normal(p1, p2, me->mvert[me->mloop[lt.tri[0]].v].co, me->mvert[me->mloop[lt.tri[1]].v].co, me->mvert[me->mloop[lt.tri[2]].v].co);
+							/*TODO: Bad practise? Pointer is negative if edge orientation needs to be flipped to target inwards. */
+							BLI_ghash_insert(edge_hash, SET_INT_IN_POINTER(e_start + e), SET_INT_IN_POINTER(e_flip_orientation ? (BLI_array_count(int_points) + 1) : -(BLI_array_count(int_points) + 1)));
 							BLI_array_grow_items(int_points, 3);
 							interp_v3_v3v3(&int_points[BLI_array_count(int_points) - 3], p1, p2, t_lambda);
 #ifdef DEBUG_DRAW
-							bl_debug_color_set(0x0000ff);
+							if(t_lambda > 0.999999f || t_lambda < 0.000001f) {
+								bl_debug_color_set(0xff3333);
+							} else {
+								bl_debug_color_set(0x0000ff);
+							}
 							bl_debug_draw_point(&int_points[BLI_array_count(int_points) - 3], 0.05f);
 							bl_debug_color_set(0x000000);
 							bl_debug_draw_edge_add(p1, p2);
@@ -7269,17 +7268,11 @@ static void do_calc_sil_intersect_task_cb_ex(void *userdata, void *UNUSED(userda
 			BLI_mutex_lock(&data->mutex);
 			if (BLI_array_count(int_points) > 0) {
 				i_data = add_isect_chunk(sil);
-				i_data->flip = first_e_flip;
-				i_data->first_e = first_e;
 				i_data->edge_hash = edge_hash;
 				i_data->intersection_points = MEM_callocN(sizeof(float) * BLI_array_count(int_points), "exact intersecting points");
 				i_data->num_intersection_points = BLI_array_count(int_points);
 				memcpy(i_data->intersection_points, int_points, BLI_array_count(int_points) * sizeof(float));
-				//if (sil->isect_chunk)
-				//prep_float_shared_mem((float**)&sil->intersection_points, &sil->num_intersection_points, &int_points_shared_start, BLI_array_count(int_points), "exact intersecting points");
-				//memcpy(&sil->intersection_points[int_points_shared_start], int_points, BLI_array_count(int_points) * sizeof(float));
 			}
-
 			BLI_mutex_unlock(&data->mutex);
 
 			BLI_array_free(int_points);
@@ -7288,6 +7281,82 @@ static void do_calc_sil_intersect_task_cb_ex(void *userdata, void *UNUSED(userda
 	}
 	BLI_array_free(int_points);
 	BLI_ghash_free(edge_hash, NULL, NULL);
+}
+
+static void remove_connected_from_edgehash(MeshElemMap *emap, GHash *edge_hash, int v) {
+	for (int e = 0; e < emap[v].count; e++) {
+		BLI_ghash_remove(edge_hash, emap[v].indices[e], NULL, NULL);
+	}
+}
+
+static void remove_connected_from_edgehash_list(MeshElemMap *emap, GHash **edge_hash, int num_hash, int v) {
+	for (int e = 0; e < emap[v].count; e++) {
+		for(int i = 0; i < num_hash; i++) {
+			BLI_ghash_remove(edge_hash[i], emap[v].indices[e], NULL, NULL);
+		}
+	}
+}
+
+static bool has_cross_border_neighbour(Mesh *me, GHash *vert_hash, GHash *edge_hash, MeshElemMap *emap, int edge, int l_v_edge, int depth) {
+	int v_edge;
+
+	v_edge = me->medge[edge].v1 == l_v_edge ? me->medge[edge].v2 : me->medge[edge].v1;
+
+	if (depth == 0) {
+		return BLI_ghash_haskey(vert_hash, SET_INT_IN_POINTER(v_edge));
+	} else {
+		if(!BLI_ghash_haskey(vert_hash, SET_INT_IN_POINTER(v_edge))){
+			for (int e = 0; e < emap[v_edge].count; e++) {
+				if(emap[v_edge].indices[e] != edge) {
+					if(has_cross_border_neighbour(me, vert_hash, edge_hash, emap, emap[v_edge].indices[e], v_edge, depth - 1)){
+						return true;
+					}
+				}
+			}
+		} else {
+			BLI_ghash_remove(edge_hash, edge, NULL, NULL);
+		}
+	}
+	return false;
+}
+
+/* Get the adjacent edge which connects the edges within the edge_hash. Used to create multiple ordered loops
+ * v_edge is the endpoint off curr_edge from which to branch off
+ * TODO: One wide strips might get cutoff */
+static int get_adjacent_edge(Mesh *me, MeshElemMap *emap, int curr_edge, int v_edge, GHash *edge_hash, GHash *vert_hash)
+{
+	for (int e = 0; e < emap[v_edge].count; e++) {
+		if(emap[v_edge].indices[e] != curr_edge && has_cross_border_neighbour(me, vert_hash, edge_hash, emap, emap[v_edge].indices[e], v_edge, 1)) {
+			return emap[v_edge].indices[e];
+		}
+	}
+	for (int e = 0; e < emap[v_edge].count; e++) {
+		if(emap[v_edge].indices[e] != curr_edge && has_cross_border_neighbour(me, vert_hash, edge_hash, emap, emap[v_edge].indices[e], v_edge, 2)) {
+			return emap[v_edge].indices[e];
+		}
+	}
+	/*End Of Loop. Shouldn't happen with two manifold meshes*/
+	return -1;
+}
+
+static int get_adjacent_edge_from_list(Mesh *me, MeshElemMap *emap, int curr_edge, int v_edge, GHash **edge_hash, int num_hash, GHash *vert_hash)
+{
+	for (int e = 0; e < emap[v_edge].count; e++) {
+		for (int i = 0; i < num_hash; i++) {
+			if(emap[v_edge].indices[e] != curr_edge && has_cross_border_neighbour(me, vert_hash, edge_hash[i], emap, emap[v_edge].indices[e], v_edge, 1)) {
+				return emap[v_edge].indices[e];
+			}
+		}
+	}
+	for (int e = 0; e < emap[v_edge].count; e++) {
+		for (int i = 0; i < num_hash; i++) {
+			if(emap[v_edge].indices[e] != curr_edge && has_cross_border_neighbour(me, vert_hash, edge_hash[i], emap, emap[v_edge].indices[e], v_edge, 2)) {
+				return emap[v_edge].indices[e];
+			}
+		}
+	}
+	/*End Of Loop. Shouldn't happen with two manifold meshes*/
+	return -1;
 }
 
 static void check_preceding_intersecting_edges(Object *ob, SilhouetteData *sil, SpineBranch *branch, PBVHNode **nodes, int tot_edge)
@@ -7333,11 +7402,23 @@ static void crawl_mesh_rec (Mesh *me, MeshElemMap *emap, GHash *vert_hash, Inter
 static void combine_intersection_data(Mesh *me, SilhouetteData *sil)
 {
 	IntersectionData *data = sil->isect_chunk;
+	GHash **isect_ghash_dupe;
 	MeshElemMap *emap;
 	GHash *vert_hash = BLI_ghash_int_new("vertices within intersection");
 	int *emap_mem;
-	MEdge *first_e = NULL;
+	int start_edge;
 	int inside_vert;
+	GHashIterState pop_state;
+	void *tkey, *tv;
+	int first_e, comp_v, curr_edge, last_edge, tmp_curr_edge, r_size;
+
+	/*TODO: remove, while loop safety if bug occurs*/
+	int breaker;
+
+	int *edge_ring_fillet = NULL;
+	int *ring_start = NULL;
+	BLI_array_declare(edge_ring_fillet);
+	BLI_array_declare(ring_start);
 
 	if (!data) {
 		return;
@@ -7346,14 +7427,77 @@ static void combine_intersection_data(Mesh *me, SilhouetteData *sil)
 	/* TODO: Maybe only generate partial map with only the silhouette inside? */
 	BKE_mesh_vert_edge_map_create(&emap, &emap_mem, me->medge, me->totvert, me->totedge);
 
-	first_e = &me->medge[data->first_e];
+	isect_ghash_dupe = MEM_callocN(sizeof(GHash *) * sil->num_isect_data, "edge hash duplicate");
+	for (int i = 0; i < sil->num_isect_data; i++) {
+		isect_ghash_dupe[i] = BLI_ghash_copy(data[i].edge_hash, NULL, NULL);
+	}
 
-	/*TODO: Invert for clipping functionality!*/
-	inside_vert = !data->flip ^ sil->do_subtract ? first_e->v2 : first_e->v1;
+	for(int i = 0; i < sil->num_isect_data; i++) {
+		memset(&pop_state, 0, sizeof(GHashIterState));
+		while (BLI_ghash_pop(isect_ghash_dupe[i], &pop_state, &tkey, &tv)) {
+			first_e = (int) tkey;
+			inside_vert = ((int)tv > 0) ^ sil->do_subtract ? me->medge[first_e].v1 : me->medge[first_e].v2;
 
-	BLI_ghash_insert(vert_hash, SET_INT_IN_POINTER(inside_vert), SET_INT_IN_POINTER(inside_vert));
+			crawl_mesh_rec(me, emap, vert_hash, data, sil->num_isect_data, inside_vert);
 
-	crawl_mesh_rec(me, emap, vert_hash, data, sil->num_isect_data, inside_vert);
+			breaker = me->totedge;
+			comp_v = BLI_ghash_haskey(vert_hash, SET_INT_IN_POINTER(me->medge[first_e].v1)) ? me->medge[first_e].v2 : me->medge[first_e].v1;
+			BLI_assert(!BLI_ghash_haskey(vert_hash, SET_INT_IN_POINTER(comp_v)));
+			start_edge = -1;
+			start_edge = get_adjacent_edge_from_list(me, emap, first_e, comp_v, isect_ghash_dupe, sil->num_isect_data, vert_hash);
+			if(start_edge >= 0) {
+				BLI_array_append(ring_start, BLI_array_count(edge_ring_fillet));
+				curr_edge = start_edge;
+				last_edge = -1;
+
+				while(!(curr_edge == start_edge && last_edge != -1) && curr_edge != -1 && breaker > 0) {
+					BLI_array_append(edge_ring_fillet, curr_edge);
+					if(last_edge == -1) {
+						comp_v = me->medge[start_edge].v1;
+					} else {
+						if (me->medge[curr_edge].v1 == me->medge[last_edge].v1 || me->medge[curr_edge].v1 == me->medge[last_edge].v2) {
+							comp_v = me->medge[curr_edge].v2;
+						} else {
+							comp_v = me->medge[curr_edge].v1;
+						}
+					}
+					remove_connected_from_edgehash_list(emap, isect_ghash_dupe, sil->num_isect_data, comp_v);
+					tmp_curr_edge = get_adjacent_edge_from_list(me, emap, curr_edge, comp_v, isect_ghash_dupe, sil->num_isect_data, vert_hash);
+					last_edge = curr_edge;
+					curr_edge = tmp_curr_edge;
+					breaker --;
+				}
+				printf("Found a cut loop!\n");
+				BLI_assert(breaker > 0);
+				/* TODO: Bug shouldn't reach but does on some occasion.*/
+				if (breaker == 0) {
+					BLI_array_empty(edge_ring_fillet);
+				}
+			}
+		}
+	}
+
+	if (BLI_array_count(ring_start) > BLI_array_count(edge_ring_fillet)) {
+		BLI_array_empty(ring_start);
+		BLI_array_empty(edge_ring_fillet);
+	}
+
+#ifdef DEBUG_DRAW
+	for(int r = 0; r < BLI_array_count(ring_start); r++) {
+		r_size = r < BLI_array_count(ring_start) - 1 ? ring_start[r + 1] - ring_start[r] : BLI_array_count(edge_ring_fillet) - ring_start[r];
+		for(int i = 0; i < r_size; i++) {
+			if(i == 0){
+				bl_debug_color_set(0x00ffff);
+			} else {
+				bl_debug_color_set(0xff00ff);
+			}
+			bl_debug_draw_medge_add(me, edge_ring_fillet[ring_start[r] + i]);
+			bl_debug_color_set(0x000000);
+		}
+	}
+#endif
+	BLI_array_free(ring_start);
+	BLI_array_free(edge_ring_fillet);
 
 	GHashIterator gh_iter;
 	GHASH_ITER (gh_iter, vert_hash) {
@@ -7474,54 +7618,6 @@ static void stroke_smooth_cap(SilhouetteData *sil, SilhouetteStroke *stroke, flo
 			silhouette_stroke_add_point(sil, stroke, v1);
 		}
 	}
-}
-
-static void remove_connected_from_edgehash(MeshElemMap *emap, GHash *edge_hash, int v) {
-	for (int e = 0; e < emap[v].count; e++) {
-		BLI_ghash_remove(edge_hash, emap[v].indices[e], NULL, NULL);
-	}
-}
-
-static bool has_cross_border_neighbour(Mesh *me, GHash *vert_hash, GHash *edge_hash, MeshElemMap *emap, int edge, int l_v_edge, int depth) {
-	int v_edge;
-
-	v_edge = me->medge[edge].v1 == l_v_edge ? me->medge[edge].v2 : me->medge[edge].v1;
-
-	if (depth == 0) {
-		return BLI_ghash_haskey(vert_hash, SET_INT_IN_POINTER(v_edge));
-	} else {
-		if(!BLI_ghash_haskey(vert_hash, SET_INT_IN_POINTER(v_edge))){
-			for (int e = 0; e < emap[v_edge].count; e++) {
-				if(emap[v_edge].indices[e] != edge) {
-					if(has_cross_border_neighbour(me, vert_hash, edge_hash, emap, emap[v_edge].indices[e], v_edge, depth - 1)){
-						return true;
-					}
-				}
-			}
-		} else {
-			BLI_ghash_remove(edge_hash, edge, NULL, NULL);
-		}
-	}
-	return false;
-}
-
-/* Get the adjacent edge which connects the edges within the edge_hash. Used to create multiple ordered loops
- * v_edge is the endpoint off curr_edge from which to branch off
- * TODO: One wide strips might get cutoff */
-static int get_adjacent_edge(Mesh *me, MeshElemMap *emap, int curr_edge, int v_edge, GHash *edge_hash, GHash *vert_hash)
-{
-	for (int e = 0; e < emap[v_edge].count; e++) {
-		if(emap[v_edge].indices[e] != curr_edge && has_cross_border_neighbour(me, vert_hash, edge_hash, emap, emap[v_edge].indices[e], v_edge, 1)) {
-			return emap[v_edge].indices[e];
-		}
-	}
-	for (int e = 0; e < emap[v_edge].count; e++) {
-		if(emap[v_edge].indices[e] != curr_edge && has_cross_border_neighbour(me, vert_hash, edge_hash, emap, emap[v_edge].indices[e], v_edge, 2)) {
-			return emap[v_edge].indices[e];
-		}
-	}
-	/*End Of Loop. Shouldn't happen with two manifold meshes*/
-	return -1;
 }
 
 /*TODO:Remove Temp debug function*/
@@ -8015,6 +8111,8 @@ static void do_calc_fillet_line_task_cb_ex(void *userdata, void *UNUSED(userdata
 	int *tris = NULL;
 	int tot_tris;
 
+	/*TODO: Replace GHash with GSet wherever possible*/
+
 	/*GHashIterState state;*/
 	GHashIterator gh_iter;
 	int curr_edge = -1, last_edge = -1, start_edge = -1, tmp_curr_edge = -1;
@@ -8150,7 +8248,7 @@ static void do_calc_fillet_line_task_cb_ex(void *userdata, void *UNUSED(userdata
 
 	/*TODO: merge rings from multiple threads / nodes*/
 #ifdef DEBUG_DRAW
-	for(int r = 0; r < BLI_array_count(ring_start); r++) {
+	/*for(int r = 0; r < BLI_array_count(ring_start); r++) {
 		r_size = r < BLI_array_count(ring_start) - 1 ? ring_start[r + 1] - ring_start[r] : BLI_array_count(edge_ring_fillet) - ring_start[r];
 		for(int i = 0; i < r_size; i++) {
 			if(i == 0){
@@ -8161,7 +8259,7 @@ static void do_calc_fillet_line_task_cb_ex(void *userdata, void *UNUSED(userdata
 			bl_debug_draw_medge_add(me, edge_ring_fillet[ring_start[r] + i]);
 			bl_debug_color_set(0x000000);
 		}
-	}
+	}*/
 #endif
 	BLI_array_free(ring_start);
 	BLI_array_free(edge_ring_fillet);
