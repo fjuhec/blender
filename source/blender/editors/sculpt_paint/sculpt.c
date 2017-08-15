@@ -132,6 +132,8 @@
  * Important for example if two shapes with the same thickness intersect. */
 #define SIL_FILLET_BLUR_MAX 0.3f
 #define SIL_FILLET_BLUR_MIN 0.001f
+#define SIL_FILLET_INTERSECTION_EPSILON 0.00001f
+#define USE_WATERTIGHT
 
 #define DEBUG_DRAW
 #ifdef DEBUG_DRAW
@@ -7152,7 +7154,7 @@ static IntersectionData *add_isect_chunk(SilhouetteData *sil)
 	} else {
 		if (sil->num_isect_data >= sil->isect_chunk_tot) {
 			sil->isect_chunk_tot += 10;
-			sil->isect_chunk = MEM_reallocN(sizeof(IntersectionData) * sil->isect_chunk_tot, "isect data");
+			sil->isect_chunk = MEM_reallocN(sil->isect_chunk, sizeof(IntersectionData) * sil->isect_chunk_tot);
 		}
 	}
 	sil->num_isect_data ++;
@@ -7220,6 +7222,11 @@ static void do_calc_sil_intersect_task_cb_ex(void *userdata, void *UNUSED(userda
 	GHash *edge_hash = BLI_ghash_int_new("edges within intersection");
 	float *int_points = NULL;
 	bool e_flip_orientation;
+#ifdef USE_WATERTIGHT
+	float dir[3];
+	float e_length;
+	struct IsectRayPrecalc isect_precalc;
+#endif
 	IntersectionData *i_data;
 	BLI_array_declare(int_points);
 
@@ -7237,15 +7244,48 @@ static void do_calc_sil_intersect_task_cb_ex(void *userdata, void *UNUSED(userda
 				for (int e = 0; e < data->totedge; e++) {
 					copy_v3_v3(p1, me->mvert[me->medge[e_start + e].v1].co);
 					copy_v3_v3(p2, me->mvert[me->medge[e_start + e].v2].co);
+#ifdef USE_WATERTIGHT
+					sub_v3_v3v3(dir, p2, p1);
+					isect_ray_tri_watertight_v3_precalc(&isect_precalc, dir);
+					e_length = len_v3(dir);
+#endif
+
 					for (int tri_i = 0; tri_i < tri_node_bind_tot; tri_i ++) {
 						lt = ltris[sil->inter_tris[tri_node_bind + tri_i]];
-						/* TODO: Negative epsilon for better results. Still produces holes. */
+
+#ifdef USE_WATERTIGHT
+						if (isect_ray_tri_watertight_v3(
+														p1, &isect_precalc,
+														me->mvert[me->mloop[lt.tri[0]].v].co, me->mvert[me->mloop[lt.tri[1]].v].co, me->mvert[me->mloop[lt.tri[2]].v].co,
+														&t_lambda, NULL))
+						{
+							/* TODO: Epsilon needed? */
+							if (t_lambda >= 0.0f && t_lambda <= 1.0f) {
+								e_flip_orientation = shared_dir_normal(p1, p2, me->mvert[me->mloop[lt.tri[0]].v].co, me->mvert[me->mloop[lt.tri[1]].v].co, me->mvert[me->mloop[lt.tri[2]].v].co);
+								/*TODO: Bad practise? Pointer is negative if edge orientation needs to be flipped to target inwards. */
+								BLI_ghash_insert(edge_hash, SET_INT_IN_POINTER(e_start + e), SET_INT_IN_POINTER(e_flip_orientation ? (BLI_array_count(int_points) + 1) : -(BLI_array_count(int_points) + 1)));
+								BLI_array_grow_items(int_points, 3);
+								interp_v3_v3v3(&int_points[BLI_array_count(int_points) - 3], p1, p2, t_lambda);
+#ifdef DEBUG_DRAW
+								if(t_lambda > 0.999999f || t_lambda < 0.000001f) {
+									bl_debug_color_set(0xff3333);
+								} else {
+									bl_debug_color_set(0x0000ff);
+								}
+								bl_debug_draw_point(&int_points[BLI_array_count(int_points) - 3], 0.05f);
+								bl_debug_color_set(0x000000);
+								bl_debug_draw_edge_add(p1, p2);
+								bl_debug_color_set(0x000000);
+#endif
+								break;
+							}
+						}
+#else
 						if (isect_line_segment_tri_epsilon_v3(p1, p2,
 													  me->mvert[me->mloop[lt.tri[0]].v].co, me->mvert[me->mloop[lt.tri[1]].v].co, me->mvert[me->mloop[lt.tri[2]].v].co,
-													  &t_lambda, NULL, -0.00001f))
+													  &t_lambda, NULL, SIL_FILLET_INTERSECTION_EPSILON))
 						{
 							e_flip_orientation = shared_dir_normal(p1, p2, me->mvert[me->mloop[lt.tri[0]].v].co, me->mvert[me->mloop[lt.tri[1]].v].co, me->mvert[me->mloop[lt.tri[2]].v].co);
-							/*TODO: Bad practise? Pointer is negative if edge orientation needs to be flipped to target inwards. */
 							BLI_ghash_insert(edge_hash, SET_INT_IN_POINTER(e_start + e), SET_INT_IN_POINTER(e_flip_orientation ? (BLI_array_count(int_points) + 1) : -(BLI_array_count(int_points) + 1)));
 							BLI_array_grow_items(int_points, 3);
 							interp_v3_v3v3(&int_points[BLI_array_count(int_points) - 3], p1, p2, t_lambda);
@@ -7262,6 +7302,7 @@ static void do_calc_sil_intersect_task_cb_ex(void *userdata, void *UNUSED(userda
 #endif
 							break;
 						}
+#endif
 					}
 				}
 			}

@@ -4064,8 +4064,8 @@ void view3d_main_region_draw(const bContext *C, ARegion *ar)
 
 #ifdef DEBUG_DRAW
 /* debug drawing */
-#define _DEBUG_DRAW_QUAD_TOT 4096
-#define _DEBUG_DRAW_EDGE_TOT 4096
+#define _DEBUG_DRAW_QUAD_TOT 16000
+#define _DEBUG_DRAW_EDGE_TOT 16000
 static float _bl_debug_draw_quads[_DEBUG_DRAW_QUAD_TOT][4][3];
 static int   _bl_debug_draw_quads_tot = 0;
 static float _bl_debug_draw_edges[_DEBUG_DRAW_QUAD_TOT][2][3];
