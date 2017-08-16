@@ -265,7 +265,6 @@ short ED_fileselect_set_params(SpaceFile *sfile)
 	else {
 		/* default values, if no operator */
 		params->type = FILE_LOADLIB;
-		printf("NO OP\n");
 		params->flag |= FILE_HIDE_DOT;
 		params->flag &= ~FILE_DIRSEL_ONLY;
 		params->display = FILE_SHORTDISPLAY;
