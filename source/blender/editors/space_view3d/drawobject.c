@@ -1763,29 +1763,29 @@ static void draw_viewport_object_reconstruction(
 
 				/* selection outline */
 				if (selected) {
-					batch = Batch_get_sphere_wire(1);
+					batch = GPU_batch_preset_sphere_wire(1);
 
 					if ((dflag & DRAW_CONSTCOLOR) == 0) {
-						Batch_set_builtin_program(batch, GPU_SHADER_3D_UNIFORM_COLOR);
+						GWN_batch_program_set_builtin(batch, GPU_SHADER_3D_UNIFORM_COLOR);
 						GWN_batch_uniform_4f(batch, "color",
 						                ob_wire_col[0] / 255.f,
 						                ob_wire_col[1] / 255.f,
 						                ob_wire_col[2] / 255.f, 1.0f);
 					}
 					else {
-						Batch_set_builtin_program(batch, GPU_SHADER_3D_DEPTH_ONLY);
+						GWN_batch_program_set_builtin(batch, GPU_SHADER_3D_DEPTH_ONLY);
 					}
 					glLineWidth(2.0f);
 
 					GWN_batch_draw(batch);
 				}
 
-				batch = Batch_get_sphere(0);
+				batch = GPU_batch_preset_sphere(0);
 
 				if ((dflag & DRAW_CONSTCOLOR) == 0) {
 					const float light[3] = {0.0f, 0.0f, 1.0f};
 					float col[3];
-					Batch_set_builtin_program(batch, GPU_SHADER_SIMPLE_LIGHTING);
+					GWN_batch_program_set_builtin(batch, GPU_SHADER_SIMPLE_LIGHTING);
 					GWN_batch_uniform_3fv(batch, "light", light);
 
 					if (track->flag & TRACK_CUSTOMCOLOR) copy_v3_v3(col, track->color);
@@ -1793,7 +1793,7 @@ static void draw_viewport_object_reconstruction(
 					GWN_batch_uniform_4f(batch, "color", col[0], col[1], col[2], 1.0f);
 				}
 				else {
-					Batch_set_builtin_program(batch, GPU_SHADER_3D_DEPTH_ONLY);
+					GWN_batch_program_set_builtin(batch, GPU_SHADER_3D_DEPTH_ONLY);
 				}
 
 				GWN_batch_draw(batch);
@@ -4156,7 +4156,7 @@ static void draw_em_fancy_new(Scene *UNUSED(scene), ARegion *UNUSED(ar), View3D 
 	/* disable depth writes for transparent surface, so it doesn't interfere with itself */
 	glDepthMask(GL_FALSE);
 
-	Batch_set_builtin_program(surface, GPU_SHADER_3D_UNIFORM_COLOR);
+	GWN_batch_program_set_builtin(surface, GPU_SHADER_3D_UNIFORM_COLOR);
 	GWN_batch_uniform_4f(surface, "color", 1.0f, 0.5f, 0.0f, 0.5f);
 	GWN_batch_draw(surface);
 
@@ -4164,7 +4164,7 @@ static void draw_em_fancy_new(Scene *UNUSED(scene), ARegion *UNUSED(ar), View3D 
 	if (finalDM != cageDM) {
 		puts("finalDM != cageDM");
 		Gwn_Batch *finalSurface = MBC_get_all_triangles(finalDM);
-		Batch_set_builtin_program(finalSurface, GPU_SHADER_3D_UNIFORM_COLOR);
+		GWN_batch_program_set_builtin(finalSurface, GPU_SHADER_3D_UNIFORM_COLOR);
 		GWN_batch_uniform_4f(finalSurface, "color", 0.0f, 0.0f, 0.0f, 0.05f);
 		GWN_batch_draw(finalSurface);
 	}
@@ -4176,19 +4176,19 @@ static void draw_em_fancy_new(Scene *UNUSED(scene), ARegion *UNUSED(ar), View3D 
 	 * NOTE: does not help as much as desired
 	 * TODO: draw edit object last to avoid this mess
 	 */
-	Batch_set_builtin_program(surface, GPU_SHADER_3D_DEPTH_ONLY);
+	GWN_batch_program_set_builtin(surface, GPU_SHADER_3D_DEPTH_ONLY);
 	GWN_batch_draw(surface);
 
 	if (GLEW_VERSION_3_2) {
 #if 0
 		Gwn_Batch *overlay = DRW_mesh_batch_cache_get_overlay_edges(me);
-		Batch_set_builtin_program(overlay, GPU_SHADER_EDGES_OVERLAY);
+		GWN_batch_program_set_builtin(overlay, GPU_SHADER_EDGES_OVERLAY);
 		GWN_batch_uniform_2f(overlay, "viewportSize", ar->winx, ar->winy);
 		GWN_batch_draw(overlay);
 #endif
 
 #if 0 /* TODO: use this SIMPLE variant for pure triangle meshes */
-		Batch_set_builtin_program(surface, GPU_SHADER_EDGES_OVERLAY_SIMPLE);
+		GWN_batch_program_set_builtin(surface, GPU_SHADER_EDGES_OVERLAY_SIMPLE);
 		/* use these defaults:
 		 * const float edgeColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
 		 * GWN_batch_uniform_4f(surface, "fillColor", edgeColor[0], edgeColor[1], edgeColor[2], 0.0f);
@@ -4201,7 +4201,7 @@ static void draw_em_fancy_new(Scene *UNUSED(scene), ARegion *UNUSED(ar), View3D 
 	}
 	else {
 		Gwn_Batch *edges = DRW_mesh_batch_cache_get_all_edges(me);
-		Batch_set_builtin_program(edges, GPU_SHADER_3D_UNIFORM_COLOR);
+		GWN_batch_program_set_builtin(edges, GPU_SHADER_3D_UNIFORM_COLOR);
 		GWN_batch_uniform_4f(edges, "color", 0.0f, 0.0f, 0.0f, 1.0f);
 		glEnable(GL_LINE_SMOOTH);
 		glLineWidth(1.5f);
@@ -4213,7 +4213,7 @@ static void draw_em_fancy_new(Scene *UNUSED(scene), ARegion *UNUSED(ar), View3D 
 	Gwn_Batch *verts = MBC_get_all_verts(me);
 	glEnable(GL_BLEND);
 
-	Batch_set_builtin_program(verts, GPU_SHADER_3D_POINT_UNIFORM_SIZE_UNIFORM_COLOR_AA);
+	GWN_batch_program_set_builtin(verts, GPU_SHADER_3D_POINT_UNIFORM_SIZE_UNIFORM_COLOR_AA);
 	GWN_batch_uniform_4f(verts, "color", 0.0f, 0.0f, 0.0f, 1.0f);
 	GWN_batch_uniform_1f(verts, "size", UI_GetThemeValuef(TH_VERTEX_SIZE) * 1.5f);
 	GWN_batch_draw(verts);
@@ -4265,14 +4265,14 @@ static void draw_mesh_object_outline_new(View3D *v3d, RegionView3D *rv3d, Object
 		Gwn_Batch *fancy_edges = DRW_mesh_batch_cache_get_fancy_edges(me);
 
 		if (rv3d->persp == RV3D_ORTHO) {
-			Batch_set_builtin_program(fancy_edges, GPU_SHADER_EDGES_FRONT_BACK_ORTHO);
+			GWN_batch_program_set_builtin(fancy_edges, GPU_SHADER_EDGES_FRONT_BACK_ORTHO);
 			/* set eye vector, transformed to object coords */
 			float eye[3] = { 0.0f, 0.0f, 1.0f }; /* looking into the screen */
 			mul_m3_v3(gpuGetNormalMatrixInverse(NULL), eye);
 			GWN_batch_uniform_3fv(fancy_edges, "eye", eye);
 		}
 		else {
-			Batch_set_builtin_program(fancy_edges, GPU_SHADER_EDGES_FRONT_BACK_PERSP);
+			GWN_batch_program_set_builtin(fancy_edges, GPU_SHADER_EDGES_FRONT_BACK_PERSP);
 		}
 
 		GWN_batch_uniform_1b(fancy_edges, "drawFront", false);
@@ -4283,7 +4283,7 @@ static void draw_mesh_object_outline_new(View3D *v3d, RegionView3D *rv3d, Object
 		GWN_batch_draw(fancy_edges);
 #else /* alternate version that matches look of old viewport (but more efficient) */
 		Gwn_Batch *batch = MBC_get_all_edges(dm);
-		Batch_set_builtin_program(batch, GPU_SHADER_3D_UNIFORM_COLOR);
+		GWN_batch_program_set_builtin(batch, GPU_SHADER_3D_UNIFORM_COLOR);
 		GWN_batch_uniform_4fv(batch, "color", outline_color);
 		GWN_batch_draw(batch);
 #endif
@@ -4791,14 +4791,14 @@ static void draw_mesh_fancy_new(EvaluationContext *eval_ctx, Scene *scene, Scene
 		Gwn_Batch *fancy_edges = DRW_mesh_batch_cache_get_fancy_edges(me);
 
 		if (rv3d->persp == RV3D_ORTHO) {
-			Batch_set_builtin_program(fancy_edges, GPU_SHADER_EDGES_FRONT_BACK_ORTHO);
+			GWN_batch_program_set_builtin(fancy_edges, GPU_SHADER_EDGES_FRONT_BACK_ORTHO);
 			/* set eye vector, transformed to object coords */
 			float eye[3] = { 0.0f, 0.0f, 1.0f }; /* looking into the screen */
 			mul_m3_v3(gpuGetNormalMatrixInverse(NULL), eye);
 			GWN_batch_uniform_3fv(fancy_edges, "eye", eye);
 		}
 		else {
-			Batch_set_builtin_program(fancy_edges, GPU_SHADER_EDGES_FRONT_BACK_PERSP);
+			GWN_batch_program_set_builtin(fancy_edges, GPU_SHADER_EDGES_FRONT_BACK_PERSP);
 		}
 
 		float frontColor[4];
@@ -4827,7 +4827,7 @@ static void draw_mesh_fancy_new(EvaluationContext *eval_ctx, Scene *scene, Scene
 #else /* simple wireframes */
 
 		Gwn_Batch *batch = MBC_get_all_edges(dm);
-		Batch_set_builtin_program(batch, GPU_SHADER_3D_UNIFORM_COLOR);
+		GWN_batch_program_set_builtin(batch, GPU_SHADER_3D_UNIFORM_COLOR);
 
 		float color[4];
 		rgba_uchar_to_float(color, ob_wire_col);
@@ -5141,13 +5141,13 @@ static void drawDispListVerts(Gwn_PrimType prim_type, const void *data, unsigned
 
 	GWN_vertbuf_attr_fill(vbo, pos_id, data);
 
-	Gwn_Batch *batch = GWN_batch_create(prim_type, vbo, NULL);
-	Batch_set_builtin_program(batch, GPU_SHADER_3D_UNIFORM_COLOR);
+	Gwn_Batch *batch = GWN_batch_create_ex(prim_type, vbo, NULL, GWN_BATCH_OWNS_VBO);
+	GWN_batch_program_set_builtin(batch, GPU_SHADER_3D_UNIFORM_COLOR);
 	if (wire_col) {
 		GWN_batch_uniform_4f(batch, "color", wire_col[0] / 255.0f, wire_col[1] / 255.0f, wire_col[2] / 255.0f, 1.0f);
 	}
 	GWN_batch_draw(batch);
-	GWN_batch_discard_all(batch);
+	GWN_batch_discard(batch);
 }
 
 /* convert dispList with elem indices to batch, only support triangles and quads
@@ -5203,15 +5203,16 @@ static void drawDispListElem(
 		}
 	}
 
-	Gwn_Batch *batch = GWN_batch_create(GWN_PRIM_TRIS, vbo, GWN_indexbuf_build(&elb));
-	Batch_set_builtin_program(batch, GPU_SHADER_SIMPLE_LIGHTING);
+	Gwn_Batch *batch = GWN_batch_create_ex(
+	        GWN_PRIM_TRIS, vbo, GWN_indexbuf_build(&elb), GWN_BATCH_OWNS_VBO | GWN_BATCH_OWNS_INDEX);
+	GWN_batch_program_set_builtin(batch, GPU_SHADER_SIMPLE_LIGHTING);
 	if (wire_col) {
 		GWN_batch_uniform_4f(batch, "color", wire_col[0] / 255.0f, wire_col[1] / 255.0f, wire_col[2] / 255.0f, 1.0f);
 	}
 	GWN_batch_uniform_4f(batch, "color", 0.8f, 0.8f, 0.8f, 1.0f);
 	GWN_batch_uniform_3f(batch, "light", 0.0f, 0.0f, 1.0f);
 	GWN_batch_draw(batch);
-	GWN_batch_discard_all(batch);
+	GWN_batch_discard(batch);
 }
 
 /**
@@ -5654,25 +5655,25 @@ static void draw_vertex_array(Gwn_PrimType prim_type, const float *vert, const f
 		if (color) GWN_vertbuf_attr_fill_stride(vbo, col_id, stride, color);
 	}
 
-	Gwn_Batch *batch = GWN_batch_create(prim_type, vbo, NULL);
+	Gwn_Batch *batch = GWN_batch_create_ex(prim_type, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	if (nor && color) {
-		Batch_set_builtin_program(batch, GPU_SHADER_SIMPLE_LIGHTING_SMOOTH_COLOR);
+		GWN_batch_program_set_builtin(batch, GPU_SHADER_SIMPLE_LIGHTING_SMOOTH_COLOR);
 		GWN_batch_uniform_3f(batch, "light", 0.0f, 0.0f, 1.0f);
 	}
 	else if (nor) {
-		Batch_set_builtin_program(batch, GPU_SHADER_SIMPLE_LIGHTING);
+		GWN_batch_program_set_builtin(batch, GPU_SHADER_SIMPLE_LIGHTING);
 		GWN_batch_uniform_3f(batch, "light", 0.0f, 0.0f, 1.0f);
 		if (col) GWN_batch_uniform_4fv(batch, "color", col);
 	}
 	else if (color) {
-		Batch_set_builtin_program(batch, GPU_SHADER_3D_SMOOTH_COLOR);
+		GWN_batch_program_set_builtin(batch, GPU_SHADER_3D_SMOOTH_COLOR);
 	}
 	else {
-		Batch_set_builtin_program(batch, GPU_SHADER_3D_UNIFORM_COLOR);
+		GWN_batch_program_set_builtin(batch, GPU_SHADER_3D_UNIFORM_COLOR);
 		if (col) GWN_batch_uniform_4fv(batch, "color", col);
 	}
 	GWN_batch_draw(batch);
-	GWN_batch_discard_all(batch);
+	GWN_batch_discard(batch);
 }
 
 static void draw_particle_arrays_new(int draw_as, int ob_dt, int select,
@@ -6678,10 +6679,10 @@ static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 			GWN_vertbuf_attr_fill_stride(vbo, col_id, sizeof(ParticleCacheKey), path->col);
 		}
 
-		Gwn_Batch *batch = GWN_batch_create(GWN_PRIM_LINE_STRIP, vbo, NULL);
-		Batch_set_builtin_program(batch, GPU_SHADER_3D_SMOOTH_COLOR);
+		Gwn_Batch *batch = GWN_batch_create_ex(GWN_PRIM_LINE_STRIP, vbo, NULL, GWN_BATCH_OWNS_VBO);
+		GWN_batch_program_set_builtin(batch, GPU_SHADER_3D_SMOOTH_COLOR);
 		GWN_batch_draw(batch);
-		GWN_batch_discard_all(batch);
+		GWN_batch_discard(batch);
 	}
 
 	if (pathcol) { MEM_freeN(pathcol); pathcol = NULL; }
@@ -6749,10 +6750,10 @@ static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 
 				GWN_vertbuf_attr_fill(vbo, col_id, cd);
 
-				Gwn_Batch *batch = GWN_batch_create(GWN_PRIM_POINTS, vbo, NULL);
-				Batch_set_builtin_program(batch, GPU_SHADER_3D_SMOOTH_COLOR);
+				Gwn_Batch *batch = GWN_batch_create_ex(GWN_PRIM_POINTS, vbo, NULL, GWN_BATCH_OWNS_VBO);
+				GWN_batch_program_set_builtin(batch, GPU_SHADER_3D_SMOOTH_COLOR);
 				GWN_batch_draw(batch);
-				GWN_batch_discard_all(batch);
+				GWN_batch_discard(batch);
 
 				pd += pd ? 3 * point->totkey : 0;
 				cd += (timed ? 4 : 3) * point->totkey;
@@ -8085,8 +8086,8 @@ static void imm_draw_box(const float vec[8][3], bool solid, unsigned pos)
 static void imm_draw_bb(BoundBox *bb, char type, bool around_origin, const unsigned char ob_wire_col[4])
 {
 	float size[3], cent[3];
-	Gwn_Batch *sphere = Batch_get_sphere_wire(0);
-	Batch_set_builtin_program(sphere, GPU_SHADER_3D_UNIFORM_COLOR);
+	Gwn_Batch *sphere = GPU_batch_preset_sphere_wire(0);
+	GWN_batch_program_set_builtin(sphere, GPU_SHADER_3D_UNIFORM_COLOR);
 	if (ob_wire_col) GWN_batch_uniform_4f(sphere, "color", ob_wire_col[0] / 255.0f, ob_wire_col[1] / 255.0f, ob_wire_col[2] / 255.0f, 1.0f);
 	
 	BKE_boundbox_calc_size_aabb(bb, size);
@@ -9657,7 +9658,7 @@ static void bbs_mesh_solid_faces(Scene *scene, Object *ob)
 	else {
 		batch = DRW_mesh_batch_cache_get_triangles_with_select_id(me, false);
 	}
-	Batch_set_builtin_program(batch, GPU_SHADER_3D_FLAT_COLOR_U32);
+	GWN_batch_program_set_builtin(batch, GPU_SHADER_3D_FLAT_COLOR_U32);
 	GWN_batch_draw(batch);
 }
 
