@@ -5027,6 +5027,7 @@ void paint_proj_stroke(
 
 	/* clone gets special treatment here to avoid going through image initialization */
 	if (ps_handle->is_clone_cursor_pick) {
+		EvaluationContext eval_ctx;
 		Scene *scene = ps_handle->scene;
 		struct Depsgraph *graph = CTX_data_depsgraph(C);
 		View3D *v3d = CTX_wm_view3d(C);
@@ -5036,7 +5037,9 @@ void paint_proj_stroke(
 
 		view3d_operator_needs_opengl(C);
 
-		if (!ED_view3d_autodist(C, graph, ar, v3d, mval_i, cursor, false, NULL)) {
+		CTX_data_eval_ctx(C, &eval_ctx);
+
+		if (!ED_view3d_autodist(&eval_ctx, graph, ar, v3d, mval_i, cursor, false, NULL)) {
 			return;
 		}
 
@@ -5323,7 +5326,7 @@ static int texture_paint_camera_project_exec(bContext *C, wmOperator *op)
 	int orig_brush_size;
 	IDProperty *idgroup;
 	IDProperty *view_data = NULL;
-	Object *ob = OBACT_NEW;
+	Object *ob = OBACT_NEW(sl);
 	bool uvs, mat, tex;
 
 	if (ob == NULL || ob->type != OB_MESH) {

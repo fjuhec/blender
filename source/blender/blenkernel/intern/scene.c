@@ -161,55 +161,58 @@ static void remove_sequencer_fcurves(Scene *sce)
 }
 
 /* copy SceneCollection tree but keep pointing to the same objects */
-static void scene_collection_copy(SceneCollection *scn, SceneCollection *sc)
+static void scene_collection_copy(SceneCollection *sc_dst, SceneCollection *sc_src, const int flag)
 {
-	BLI_duplicatelist(&scn->objects, &sc->objects);
-	for (LinkData *link = scn->objects.first; link; link = link->next) {
-		id_us_plus(link->data);
+	BLI_duplicatelist(&sc_dst->objects, &sc_src->objects);
+	if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
+		for (LinkData *link = sc_dst->objects.first; link; link = link->next) {
+			id_us_plus(link->data);
+		}
 	}
 
-	BLI_duplicatelist(&scn->filter_objects, &sc->filter_objects);
-	for (LinkData *link = scn->filter_objects.first; link; link = link->next) {
-		id_us_plus(link->data);
+	BLI_duplicatelist(&sc_dst->filter_objects, &sc_src->filter_objects);
+	if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
+		for (LinkData *link = sc_dst->filter_objects.first; link; link = link->next) {
+			id_us_plus(link->data);
+		}
 	}
 
-	BLI_duplicatelist(&scn->scene_collections, &sc->scene_collections);
-	SceneCollection *nscn = scn->scene_collections.first; /* nested SceneCollection new */
-	for (SceneCollection *nsc = sc->scene_collections.first; nsc; nsc = nsc->next) {
-		scene_collection_copy(nscn, nsc);
-		nscn = nscn->next;
+	BLI_duplicatelist(&sc_dst->scene_collections, &sc_src->scene_collections);
+	for (SceneCollection *nsc_src = sc_src->scene_collections.first, *nsc_dst = sc_dst->scene_collections.first;
+	     nsc_src;
+	     nsc_src = nsc_src->next, nsc_dst = nsc_dst->next) {
+		scene_collection_copy(nsc_dst, nsc_src, flag);
 	}
 }
 
 /* Find the equivalent SceneCollection in the new tree */
-static SceneCollection *scene_collection_from_new_tree(SceneCollection *sc_reference, SceneCollection *scn, SceneCollection *sc)
+static SceneCollection *scene_collection_from_new_tree(SceneCollection *sc_reference, SceneCollection *sc_dst, SceneCollection *sc_src)
 {
-	if (sc == sc_reference) {
-		return scn;
+	if (sc_src == sc_reference) {
+		return sc_dst;
 	}
 
-	SceneCollection *nscn = scn->scene_collections.first; /* nested master collection new */
-	for (SceneCollection *nsc = sc->scene_collections.first; nsc; nsc = nsc->next) {
-
-		SceneCollection *found = scene_collection_from_new_tree(sc_reference, nscn, nsc);
-		if (found) {
+	for (SceneCollection *nsc_src = sc_src->scene_collections.first, *nsc_dst = sc_dst->scene_collections.first;
+	     nsc_src;
+	     nsc_src = nsc_src->next, nsc_dst = nsc_dst->next)
+	{
+		SceneCollection *found = scene_collection_from_new_tree(sc_reference, nsc_dst, nsc_src);
+		if (found != NULL) {
 			return found;
 		}
-		nscn = nscn->next;
 	}
 	return NULL;
 }
 
 /* recreate the LayerCollection tree */
-static void layer_collections_recreate(SceneLayer *sl, ListBase *lb, SceneCollection *mcn, SceneCollection *mc)
+static void layer_collections_recreate(SceneLayer *sl_dst, ListBase *lb_src, SceneCollection *mc_dst, SceneCollection *mc_src)
 {
-	for (LayerCollection *lc = lb->first; lc; lc = lc->next) {
+	for (LayerCollection *lc_src = lb_src->first; lc_src; lc_src = lc_src->next) {
+		SceneCollection *sc_dst = scene_collection_from_new_tree(lc_src->scene_collection, mc_dst, mc_src);
+		BLI_assert(sc_dst);
 
-		SceneCollection *sc = scene_collection_from_new_tree(lc->scene_collection, mcn, mc);
-		BLI_assert(sc);
-
-		/* instead of syncronizing both trees we simply re-create it */
-		BKE_collection_link(sl, sc);
+		/* instead of synchronizing both trees we simply re-create it */
+		BKE_collection_link(sl_dst, sc_dst);
 	}
 }
 
@@ -228,6 +231,7 @@ void BKE_scene_copy_data(Main *bmain, Scene *sce_dst, const Scene *sce_src, cons
 
 	sce_dst->ed = NULL;
 	sce_dst->theDag = NULL;
+	sce_dst->depsgraph_legacy = NULL;
 	sce_dst->obedit = NULL;
 	sce_dst->fps_info = NULL;
 
@@ -243,45 +247,52 @@ void BKE_scene_copy_data(Main *bmain, Scene *sce_dst, const Scene *sce_src, cons
 
 	/* layers and collections */
 	sce_dst->collection = MEM_dupallocN(sce_src->collection);
-	SceneCollection *mcn = BKE_collection_master(sce_dst);
-	SceneCollection *mc = BKE_collection_master(sce_src);
+	SceneCollection *mc_src = BKE_collection_master(sce_src);
+	SceneCollection *mc_dst = BKE_collection_master(sce_dst);
 
 	/* recursively creates a new SceneCollection tree */
-	scene_collection_copy(mcn, mc);
+	scene_collection_copy(mc_dst, mc_src, flag_subdata);
 
 	IDPropertyTemplate val = {0};
 	BLI_duplicatelist(&sce_dst->render_layers, &sce_src->render_layers);
-	SceneLayer *new_sl = sce_dst->render_layers.first;
-	for (SceneLayer *sl = sce_src->render_layers.first; sl; sl = sl->next) {
-		new_sl->stats = NULL;
-		new_sl->properties_evaluated = NULL;
-		new_sl->properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
-		IDP_MergeGroup(new_sl->properties, sl->properties, true);
+	for (SceneLayer *sl_src = sce_src->render_layers.first, *sl_dst = sce_dst->render_layers.first;
+	     sl_src;
+	     sl_src = sl_src->next, sl_dst = sl_dst->next)
+	{
+		sl_dst->stats = NULL;
+		sl_dst->properties_evaluated = NULL;
+		sl_dst->properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
+		IDP_MergeGroup_ex(sl_dst->properties, sl_src->properties, true, flag_subdata);
 
 		/* we start fresh with no overrides and no visibility flags set
 		 * instead of syncing both trees we simply unlink and relink the scene collection */
-		BLI_listbase_clear(&new_sl->layer_collections);
-		BLI_listbase_clear(&new_sl->object_bases);
-		BLI_listbase_clear(&new_sl->drawdata);
-		layer_collections_recreate(new_sl, &sl->layer_collections, mcn, mc);
+		BLI_listbase_clear(&sl_dst->layer_collections);
+		BLI_listbase_clear(&sl_dst->object_bases);
+		BLI_listbase_clear(&sl_dst->drawdata);
+		layer_collections_recreate(sl_dst, &sl_src->layer_collections, mc_dst, mc_src);
 
-		Object *active_ob = OBACT_NEW;
-		Base *new_base = new_sl->object_bases.first;
-		for (Base *base = sl->object_bases.first; base; base = base->next) {
-			new_base->flag = base->flag;
-			new_base->flag_legacy = base->flag_legacy;
+		Object *active_ob = OBACT_NEW(sl_src);
+		for (Base *base_src = sl_src->object_bases.first, *base_dst = sl_dst->object_bases.first;
+		     base_src;
+		     base_src = base_src->next, base_dst = base_dst->next)
+		{
+			base_dst->flag = base_src->flag;
+			base_dst->flag_legacy = base_src->flag_legacy;
 
-			if (new_base->object == active_ob) {
-				new_sl->basact = new_base;
+			if (base_dst->object == active_ob) {
+				sl_dst->basact = base_dst;
 			}
-
-			new_base = new_base->next;
 		}
-		new_sl = new_sl->next;
 	}
 
 	sce_dst->collection_properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
+	if (sce_src->collection_properties) {
+		IDP_MergeGroup_ex(sce_dst->collection_properties, sce_src->collection_properties, true, flag_subdata);
+	}
 	sce_dst->layer_properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
+	if (sce_src->layer_properties) {
+		IDP_MergeGroup_ex(sce_dst->layer_properties, sce_src->layer_properties, true, flag_subdata);
+	}
 
 	BLI_duplicatelist(&(sce_dst->markers), &(sce_src->markers));
 	BLI_duplicatelist(&(sce_dst->r.layers), &(sce_src->r.layers));
@@ -1186,8 +1197,9 @@ Scene *BKE_scene_set_name(Main *bmain, const char *name)
 }
 
 /* Used by metaballs, return *all* objects (including duplis) existing in the scene (including scene's sets) */
-int BKE_scene_base_iter_next(EvaluationContext *eval_ctx, SceneBaseIter *iter,
-                             Scene **scene, int val, BaseLegacy **base, Object **ob)
+int BKE_scene_base_iter_next(
+        const EvaluationContext *eval_ctx, SceneBaseIter *iter,
+        Scene **scene, int val, BaseLegacy **base, Object **ob)
 {
 	bool run_again = true;
 	
@@ -2045,6 +2057,14 @@ int BKE_render_num_threads(const RenderData *rd)
 int BKE_scene_num_threads(const Scene *scene)
 {
 	return BKE_render_num_threads(&scene->r);
+}
+
+int BKE_render_preview_pixel_size(const RenderData *r)
+{
+	if (r->preview_pixel_size == 0) {
+		return (U.pixelsize > 1.5f)? 2 : 1;
+	}
+	return r->preview_pixel_size;
 }
 
 /* Apply the needed correction factor to value, based on unit_type (only length-related are affected currently)
