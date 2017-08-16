@@ -213,10 +213,10 @@ static void gpencil_batch_cache_clear(GpencilBatchCache *cache, bGPdata *gpd)
 
 	if (cache->cache_size > 0) {
 		for (int i = 0; i < cache->cache_size; ++i) {
-		BATCH_DISCARD_ALL_SAFE(cache->batch_stroke[i]);
-		BATCH_DISCARD_ALL_SAFE(cache->batch_fill[i]);
-		BATCH_DISCARD_ALL_SAFE(cache->batch_edit[i]);
-		BATCH_DISCARD_ALL_SAFE(cache->batch_edlin[i]);
+		GWN_BATCH_DISCARD_SAFE(cache->batch_stroke[i]);
+		GWN_BATCH_DISCARD_SAFE(cache->batch_fill[i]);
+		GWN_BATCH_DISCARD_SAFE(cache->batch_edit[i]);
+		GWN_BATCH_DISCARD_SAFE(cache->batch_edlin[i]);
 		}
 		MEM_SAFE_FREE(cache->batch_stroke);
 		MEM_SAFE_FREE(cache->batch_fill);
