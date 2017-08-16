@@ -30,6 +30,7 @@
 #include "util/util_defines.h"
 
 #ifndef __KERNEL_GPU__
+#  include "util/util_optimization.h"
 #  include "util/util_simd.h"
 #endif
 

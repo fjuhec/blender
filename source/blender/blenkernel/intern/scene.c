@@ -676,7 +676,7 @@ void BKE_scene_init(Scene *sce)
 
 	sce->r.seq_prev_type = OB_SOLID;
 	sce->r.seq_rend_type = OB_SOLID;
-	sce->r.seq_flag = R_SEQ_GL_PREV;
+	sce->r.seq_flag = 0;
 
 	sce->r.threads = 1;
 
@@ -2409,6 +2409,14 @@ int BKE_render_num_threads(const RenderData *rd)
 int BKE_scene_num_threads(const Scene *scene)
 {
 	return BKE_render_num_threads(&scene->r);
+}
+
+int BKE_render_preview_pixel_size(const RenderData *r)
+{
+	if (r->preview_pixel_size == 0) {
+		return (U.pixelsize > 1.5f)? 2 : 1;
+	}
+	return r->preview_pixel_size;
 }
 
 /* Apply the needed correction factor to value, based on unit_type (only length-related are affected currently)
