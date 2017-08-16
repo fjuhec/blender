@@ -351,8 +351,7 @@ enum PathRayFlag {
 	PATH_RAY_DIFFUSE_ANCESTOR    = (1 << 16),
 	PATH_RAY_SINGLE_PASS_DONE    = (1 << 17),
 	PATH_RAY_SHADOW_CATCHER      = (1 << 18),
-	PATH_RAY_SHADOW_CATCHER_ONLY = (1 << 19),
-	PATH_RAY_STORE_SHADOW_INFO   = (1 << 20),
+	PATH_RAY_STORE_SHADOW_INFO   = (1 << 19),
 };
 
 /* Closure Label */
@@ -469,11 +468,24 @@ typedef enum DenoiseFlag {
 	DENOISING_CLEAN_ALL_PASSES       = (1 << 8)-1,
 } DenoiseFlag;
 
+#ifdef __KERNEL_DEBUG__
+/* NOTE: This is a runtime-only struct, alignment is not
+ * really important here.
+ */
+typedef struct DebugData {
+	int num_bvh_traversed_nodes;
+	int num_bvh_traversed_instances;
+	int num_bvh_intersections;
+	int num_ray_bounces;
+} DebugData;
+#endif
+
 typedef ccl_addr_space struct PathRadiance {
 #ifdef __PASSES__
 	int use_light_pass;
 #endif
 
+	float transparent;
 	float3 emission;
 #ifdef __PASSES__
 	float3 background;
@@ -529,6 +541,9 @@ typedef ccl_addr_space struct PathRadiance {
 	 */
 	float3 shadow_radiance_sum;
 	float shadow_throughput;
+
+	/* Accumulated transparency along the path after shadow catcher bounce. */
+	float shadow_transparency;
 #endif
 
 #ifdef __DENOISING_FEATURES__
@@ -536,6 +551,10 @@ typedef ccl_addr_space struct PathRadiance {
 	float3 denoising_albedo;
 	float denoising_depth;
 #endif  /* __DENOISING_FEATURES__ */
+
+#ifdef __KERNEL_DEBUG__
+	DebugData debug_data;
+#endif /* __KERNEL_DEBUG__ */
 } PathRadiance;
 
 typedef struct BsdfEval {
@@ -1342,18 +1361,6 @@ typedef struct KernelData {
 	KernelTables tables;
 } KernelData;
 static_assert_align(KernelData, 16);
-
-#ifdef __KERNEL_DEBUG__
-/* NOTE: This is a runtime-only struct, alignment is not
- * really important here.
- */
-typedef ccl_addr_space struct DebugData {
-	int num_bvh_traversed_nodes;
-	int num_bvh_traversed_instances;
-	int num_bvh_intersections;
-	int num_ray_bounces;
-} DebugData;
-#endif
 
 /* Declarations required for split kernel */
 
