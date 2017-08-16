@@ -1671,6 +1671,22 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 			CustomData_set_layer_name(&me->vdata, CD_MDEFORMVERT, 0, "");
 		}
 	}
+
+	{
+		/* Move non-op filebrowsers to 'library browsing' type/mode. */
+		for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
+			for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
+				for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
+					if (sl->spacetype == SPACE_FILE) {
+						SpaceFile *sfile = (SpaceFile *)sl;
+						if (sfile->params != NULL) {
+							sfile->params->type = FILE_LOADLIB;
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 void do_versions_after_linking_270(Main *main)
