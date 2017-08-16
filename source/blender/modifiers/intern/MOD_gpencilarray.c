@@ -107,7 +107,7 @@ static Object *object_add_type(bContext *C,	int type, const char *name, Object *
 	return ob;
 }
 
-static DerivedMesh *applyModifier(ModifierData *md, struct EvaluationContext *UNUSED(eval_ctx), Object *ob,
+static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx), Object *ob,
 	DerivedMesh *UNUSED(dm),
 	ModifierApplyFlag UNUSED(flag))
 {
