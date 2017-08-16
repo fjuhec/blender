@@ -809,7 +809,7 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 	else if (gpl->gstep == 0) {
 		/* draw the strokes for the ghost frames (at half of the alpha set by user) */
 		if (gpf->prev) {
-			color[3] = (alpha / 7);
+			color[3] = alpha * 0.7f;
 			gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gpf->prev, gpf->prev, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_PREVCOL);
 		}
 	}
@@ -842,7 +842,7 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 	else if (gpl->gstep_next == 0) {
 		/* draw the strokes for the ghost frames (at half of the alpha set by user) */
 		if (gpf->next) {
-			color[3] = (alpha / 4);
+			color[3] = alpha * 0.7f;
 			gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gpf->next, gpf->next, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_NEXTCOL);
 		}
 	}

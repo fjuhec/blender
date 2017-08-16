@@ -837,7 +837,6 @@ bGPDframe *BKE_gpencil_frame_color_duplicate(const bGPDframe *gpf_src)
 
 	/* make a copy of the source frame */
 	gpf_dst = MEM_dupallocN(gpf_src);
-	gpf_dst->prev = gpf_dst->next = NULL;
 
 	/* copy strokes */
 	BLI_listbase_clear(&gpf_dst->strokes);
