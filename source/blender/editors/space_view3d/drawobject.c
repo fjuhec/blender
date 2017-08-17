@@ -119,6 +119,8 @@
 /* prototypes */
 static void imm_draw_box(const float vec[8][3], bool solid, unsigned pos);
 
+// #define USE_MESH_DM_SELECT
+
 /* Workaround for sequencer scene render mode.
  *
  * Strips doesn't use DAG to update objects or so, which
@@ -9381,6 +9383,7 @@ void draw_object_select(
 
 /* ***************** BACKBUF SEL (BBS) ********* */
 
+#ifdef USE_MESH_DM_SELECT
 static void bbs_obmode_mesh_verts__mapFunc(void *userData, int index, const float co[3],
                                            const float UNUSED(no_f[3]), const short UNUSED(no_s[3]))
 {
@@ -9421,7 +9424,17 @@ static void bbs_obmode_mesh_verts(Object *ob, DerivedMesh *dm, int offset)
 
 	immUnbindProgram();
 }
+#else
+static void bbs_obmode_mesh_verts(Object *ob, DerivedMesh *UNUSED(dm), int offset)
+{
+	Mesh *me = ob->data;
+	Gwn_Batch *batch = DRW_mesh_batch_cache_get_verts_with_select_id(me, offset);
+	GWN_batch_program_set_builtin(batch, GPU_SHADER_3D_FLAT_COLOR_U32);
+	GWN_batch_draw(batch);
+}
+#endif
 
+#ifdef USE_MESH_DM_SELECT
 static void bbs_mesh_verts__mapFunc(void *userData, int index, const float co[3],
                                     const float UNUSED(no_f[3]), const short UNUSED(no_s[3]))
 {
@@ -9454,7 +9467,17 @@ static void bbs_mesh_verts(BMEditMesh *em, DerivedMesh *dm, int offset)
 
 	immUnbindProgram();
 }
+#else
+static void bbs_mesh_verts(BMEditMesh *em, DerivedMesh *UNUSED(dm), int offset)
+{
+	Mesh *me = em->ob->data;
+	Gwn_Batch *batch = DRW_mesh_batch_cache_get_verts_with_select_id(me, offset);
+	GWN_batch_program_set_builtin(batch, GPU_SHADER_3D_FLAT_COLOR_U32);
+	GWN_batch_draw(batch);
+}
+#endif
 
+#ifdef USE_MESH_DM_SELECT
 static void bbs_mesh_wire__mapFunc(void *userData, int index, const float v0co[3], const float v1co[3])
 {
 	drawBMOffset_userData *data = userData;
@@ -9494,7 +9517,19 @@ static void bbs_mesh_wire(BMEditMesh *em, DerivedMesh *dm, int offset)
 
 	immUnbindProgram();
 }
+#else
+static void bbs_mesh_wire(BMEditMesh *em, DerivedMesh *UNUSED(dm), int offset)
+{
+	glPointSize(UI_GetThemeValuef(TH_VERTEX_SIZE));
 
+	Mesh *me = em->ob->data;
+	Gwn_Batch *batch = DRW_mesh_batch_cache_get_edges_with_select_id(me, offset);
+	GWN_batch_program_set_builtin(batch, GPU_SHADER_3D_FLAT_COLOR_U32);
+	GWN_batch_draw(batch);
+}
+#endif
+
+#ifdef USE_MESH_DM_SELECT
 static void bbs_mesh_face(BMEditMesh *em, DerivedMesh *dm, const bool use_select)
 {
 	UNUSED_VARS(dm);
@@ -9547,7 +9582,29 @@ static void bbs_mesh_face(BMEditMesh *em, DerivedMesh *dm, const bool use_select
 
 	immUnbindProgram();
 }
+#else
+static void bbs_mesh_face(BMEditMesh *em, DerivedMesh *UNUSED(dm), const bool use_select)
+{
+	Mesh *me = em->ob->data;
+	Gwn_Batch *batch;
 
+	if (use_select) {
+		batch = DRW_mesh_batch_cache_get_triangles_with_select_id(me, true, 1);
+		GWN_batch_program_set_builtin(batch, GPU_SHADER_3D_FLAT_COLOR_U32);
+		GWN_batch_draw(batch);
+	}
+	else {
+		int selcol;
+		GPU_select_index_get(0, &selcol);
+		batch = DRW_mesh_batch_cache_get_triangles_with_select_mask(me, true);
+		GWN_batch_program_set_builtin(batch, GPU_SHADER_3D_UNIFORM_COLOR_U32);
+		GWN_batch_uniform_1i(batch, "color", selcol);
+		GWN_batch_draw(batch);
+	}
+}
+#endif
+
+#ifdef USE_MESH_DM_SELECT
 static void bbs_mesh_solid__drawCenter(void *userData, int index, const float cent[3], const float UNUSED(no[3]))
 {
 	drawBMOffset_userData *data = (drawBMOffset_userData *)userData;
@@ -9579,6 +9636,15 @@ static void bbs_mesh_face_dot(BMEditMesh *em, DerivedMesh *dm)
 
 	immUnbindProgram();
 }
+#else
+static void bbs_mesh_face_dot(BMEditMesh *em, DerivedMesh *UNUSED(dm))
+{
+	Mesh *me = em->ob->data;
+	Gwn_Batch *batch = DRW_mesh_batch_cache_get_facedots_with_select_id(me, 1);
+	GWN_batch_program_set_builtin(batch, GPU_SHADER_3D_FLAT_COLOR_U32);
+	GWN_batch_draw(batch);
+}
+#endif
 
 /* two options, facecolors or black */
 static void bbs_mesh_solid_EM(BMEditMesh *em, Scene *scene, View3D *v3d,
@@ -9614,6 +9680,7 @@ static DMDrawOption bbs_mesh_solid_hide__setDrawOpts(void *userData, int index)
 	}
 }
 
+#ifdef USE_MESH_DM_SELECT
 /* must have called GPU_framebuffer_index_set beforehand */
 static DMDrawOption bbs_mesh_solid_hide2__setDrawOpts(void *userData, int index)
 {
@@ -9646,6 +9713,31 @@ static void bbs_mesh_solid_verts(const EvaluationContext *eval_ctx, Scene *scene
 	bm_vertoffs = me->totvert + 1;
 	dm->release(dm);
 }
+#else
+static void bbs_mesh_solid_verts(const EvaluationContext *UNUSED(eval_ctx), Scene *UNUSED(scene), Object *ob)
+{
+	Mesh *me = ob->data;
+
+	/* Only draw faces to mask out verts, we don't want their selection ID's. */
+	const int G_f_orig = G.f;
+	G.f &= ~G_BACKBUFSEL;
+
+	{
+		int selcol;
+		Gwn_Batch *batch;
+		GPU_select_index_get(0, &selcol);
+		batch = DRW_mesh_batch_cache_get_triangles_with_select_mask(me, true);
+		GWN_batch_program_set_builtin(batch, GPU_SHADER_3D_UNIFORM_COLOR_U32);
+		GWN_batch_uniform_1i(batch, "color", selcol);
+		GWN_batch_draw(batch);
+	}
+
+	G.f |= (G_f_orig & G_BACKBUFSEL);
+
+	bbs_obmode_mesh_verts(ob, NULL, 1);
+	bm_vertoffs = me->totvert + 1;
+}
+#endif
 
 static void bbs_mesh_solid_faces(Scene *scene, Object *ob)
 {
@@ -9653,10 +9745,10 @@ static void bbs_mesh_solid_faces(Scene *scene, Object *ob)
 	UNUSED_VARS(scene, bbs_mesh_solid_hide__setDrawOpts, bbs_mesh_solid__setDrawOpts);
 	Gwn_Batch *batch;
 	if ((me->editflag & ME_EDIT_PAINT_FACE_SEL)) {
-		batch = DRW_mesh_batch_cache_get_triangles_with_select_id(me, true);
+		batch = DRW_mesh_batch_cache_get_triangles_with_select_id(me, true, 1);
 	}
 	else {
-		batch = DRW_mesh_batch_cache_get_triangles_with_select_id(me, false);
+		batch = DRW_mesh_batch_cache_get_triangles_with_select_id(me, false, 1);
 	}
 	GWN_batch_program_set_builtin(batch, GPU_SHADER_3D_FLAT_COLOR_U32);
 	GWN_batch_draw(batch);
