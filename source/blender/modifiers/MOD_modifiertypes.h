@@ -100,6 +100,7 @@ extern ModifierTypeInfo modifierType_GpencilLattice;
 
 extern ModifierTypeInfo modifierType_GpencilBlur;
 extern ModifierTypeInfo modifierType_GpencilWave;
+extern ModifierTypeInfo modifierType_GpencilPixel;
 
 /* MOD_util.c */
 void modifier_type_init(ModifierTypeInfo *types[]);

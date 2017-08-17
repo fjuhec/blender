@@ -134,6 +134,7 @@ EnumPropertyItem rna_enum_object_modifier_type_items[] = {
 	{ 0, "", 0, N_("VFX"), "" },
 	{eModifierType_GpencilBlur, "GP_BLUR", ICON_SOLO_ON, "Gaussian Blur", "Apply Gaussian Blur to object" },
 	{eModifierType_GpencilWave, "GP_WAVE", ICON_SOLO_ON, "Wave Distorsion", "Apply Sinusoidal Deformation" },
+	{eModifierType_GpencilPixel, "GP_PIXEL", ICON_SOLO_ON, "Pixelate", "Pixelate image" },
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -459,6 +460,8 @@ static StructRNA *rna_Modifier_refine(struct PointerRNA *ptr)
 			return &RNA_GpencilBlurModifier;
 		case eModifierType_GpencilWave:
 			return &RNA_GpencilWaveModifier;
+		case eModifierType_GpencilPixel:
+			return &RNA_GpencilPixelModifier;
 			/* Default */
 		case eModifierType_None:
 		case eModifierType_ShapeKey:
@@ -5445,6 +5448,35 @@ static void rna_def_modifier_gpencilwave(BlenderRNA *brna)
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
+static void rna_def_modifier_gpencilpixel(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+
+	srna = RNA_def_struct(brna, "GpencilPixelModifier", "Modifier");
+	RNA_def_struct_ui_text(srna, "Pixelate Modifier", "Pixelate modifier");
+	RNA_def_struct_sdna(srna, "GpencilPixelModifierData");
+	RNA_def_struct_ui_icon(srna, ICON_SOLO_ON);
+
+	prop = RNA_def_property(srna, "size", PROP_INT, PROP_PIXEL);
+	RNA_def_property_int_sdna(prop, NULL, "size");
+	RNA_def_property_range(prop, 1, INT_MAX);
+	RNA_def_property_ui_text(prop, "Size", "Pixel size");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "color", PROP_FLOAT, PROP_COLOR_GAMMA);
+	RNA_def_property_range(prop, 0.0, 1.0);
+	RNA_def_property_float_sdna(prop, NULL, "rgba");
+	RNA_def_property_array(prop, 4);
+	RNA_def_property_ui_text(prop, "Color", "Color used for lines");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "use_lines", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_PIXEL_USE_LINES);
+	RNA_def_property_ui_text(prop, "Lines", "Display lines between pixels");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+}
+
 void RNA_def_modifier(BlenderRNA *brna)
 {
 	StructRNA *srna;
@@ -5575,6 +5607,7 @@ void RNA_def_modifier(BlenderRNA *brna)
 	rna_def_modifier_gpencillattice(brna);
 	rna_def_modifier_gpencilblur(brna);
 	rna_def_modifier_gpencilwave(brna);
+	rna_def_modifier_gpencilpixel(brna);
 }
 
 #endif

@@ -1801,6 +1801,22 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col.prop(md, "period")
         col.prop(md, "phase")
 
+    def GP_PIXEL(self, layout, ob, md):
+        split = layout.split()
+
+        col = split.column()
+        col.label(text="Size:")
+        col.prop(md, "size", text="")
+
+        col.separator()
+        col.prop(md, "use_lines")
+
+        row = col.row()
+        col = row.column()
+        col.enabled = md.use_lines
+        col.prop(md, "color")
+
+
 classes = (
     DATA_PT_modifiers,
 )

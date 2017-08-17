@@ -44,6 +44,12 @@ struct GPENCIL_StorageList;
 #define GPENCIL_COLOR_PATTERN 2
 
  /* *********** OBJECTS CACHE *********** */
+typedef struct GPencilVFXPixel {
+	float size[2];
+	float rgba[4];
+	int lines;
+} GPencilVFXPixel;
+
 typedef struct GPencilVFXBlur {
 	float x;
 	float y;
@@ -63,6 +69,7 @@ typedef struct tGPencilObjectCache {
 	int init_grp, end_grp;
 	DRWShadingGroup *init_vfx_wave_sh;
 	DRWShadingGroup *end_vfx_wave_sh;
+
 	DRWShadingGroup *init_vfx_blur_sh_1;
 	DRWShadingGroup *end_vfx_blur_sh_1;
 	DRWShadingGroup *init_vfx_blur_sh_2;
@@ -71,6 +78,9 @@ typedef struct tGPencilObjectCache {
 	DRWShadingGroup *end_vfx_blur_sh_3;
 	DRWShadingGroup *init_vfx_blur_sh_4;
 	DRWShadingGroup *end_vfx_blur_sh_4;
+
+	DRWShadingGroup *init_vfx_pixel_sh;
+	DRWShadingGroup *end_vfx_pixel_sh;
 	float zdepth;
 } tGPencilObjectCache;
 
@@ -78,6 +88,7 @@ typedef struct tGPencilObjectCache {
 typedef struct GPENCIL_vfx {
 	GPencilVFXBlur vfx_blur;
 	GPencilVFXWave vfx_wave;
+	GPencilVFXPixel vfx_pixel;
 } GPENCIL_vfx;
 
 typedef struct GPENCIL_shgroup {
@@ -118,11 +129,13 @@ typedef struct GPENCIL_PassList {
 	struct DRWPass *drawing_pass;
 	struct DRWPass *mix_pass;
 	struct DRWPass *mix_vfx_pass;
+	struct DRWPass *vfx_copy_pass;
 	struct DRWPass *vfx_wave_pass;
 	struct DRWPass *vfx_blur_pass_1;
 	struct DRWPass *vfx_blur_pass_2;
 	struct DRWPass *vfx_blur_pass_3;
 	struct DRWPass *vfx_blur_pass_4;
+	struct DRWPass *vfx_pixel_pass;
 } GPENCIL_PassList;
 
 typedef struct GPENCIL_FramebufferList {
@@ -170,6 +183,7 @@ typedef struct GPENCIL_e_data {
 	struct GPUShader *gpencil_fullscreen_sh;
 	struct GPUShader *gpencil_vfx_blur_sh;
 	struct GPUShader *gpencil_vfx_wave_sh;
+	struct GPUShader *gpencil_vfx_pixel_sh;
 	/* temp depth texture */
 	struct GPUTexture *temp_fbcolor_depth_tx;
 	struct GPUTexture *temp_fbcolor_color_tx;

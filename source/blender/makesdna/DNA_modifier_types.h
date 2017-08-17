@@ -99,6 +99,7 @@ typedef enum ModifierType {
 	eModifierType_GpencilSimplify   = 63,
 	eModifierType_GpencilBlur       = 64,
 	eModifierType_GpencilWave       = 65,
+	eModifierType_GpencilPixel      = 66,
 	NUM_MODIFIER_TYPES
 } ModifierType;
 
@@ -1818,6 +1819,18 @@ typedef struct GpencilWaveModifierData {
 	int flag;                    /* flags */
 	char pad[4];
 } GpencilWaveModifierData;
+
+typedef struct GpencilPixelModifierData {
+	ModifierData modifier;
+	int size[2];
+	int flag;                    /* flags */
+	float rgba[4];
+	char pad[4];
+} GpencilPixelModifierData;
+
+typedef enum eGpencilPixel_Flag {
+	GP_PIXEL_USE_LINES = (1 << 0),
+} eGpencilPixel_Flag;
 
 #define MOD_MESHSEQ_READ_ALL \
 	(MOD_MESHSEQ_READ_VERT | MOD_MESHSEQ_READ_POLY | MOD_MESHSEQ_READ_UV | MOD_MESHSEQ_READ_COLOR)

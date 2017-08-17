@@ -47,6 +47,7 @@ extern char datatoc_gpencil_point_geom_glsl[];
 extern char datatoc_gpencil_point_frag_glsl[];
 extern char datatoc_gpencil_gaussian_blur_frag_glsl[];
 extern char datatoc_gpencil_wave_frag_glsl[];
+extern char datatoc_gpencil_pixel_frag_glsl[];
 
 /* *********** STATIC *********** */
 static GPENCIL_e_data e_data = {NULL}; /* Engine data */
@@ -147,6 +148,7 @@ static void GPENCIL_engine_free(void)
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_fullscreen_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_vfx_blur_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_vfx_wave_sh);
+	DRW_SHADER_FREE_SAFE(e_data.gpencil_vfx_pixel_sh);
 
 	DRW_TEXTURE_FREE_SAFE(e_data.gpencil_blank_texture);
 }
@@ -195,6 +197,9 @@ static void GPENCIL_cache_init(void *vedata)
 	}
 	if (!e_data.gpencil_vfx_wave_sh) {
 		e_data.gpencil_vfx_wave_sh = DRW_shader_create_fullscreen(datatoc_gpencil_wave_frag_glsl, NULL);
+	}
+	if (!e_data.gpencil_vfx_pixel_sh) {
+		e_data.gpencil_vfx_pixel_sh = DRW_shader_create_fullscreen(datatoc_gpencil_pixel_frag_glsl, NULL);
 	}
 
 	{
@@ -255,6 +260,14 @@ static void GPENCIL_cache_init(void *vedata)
 		DRW_shgroup_uniform_buffer(mix_vfx_shgrp, "strokeColor", &e_data.vfx_fbcolor_color_tx_a);
 		DRW_shgroup_uniform_buffer(mix_vfx_shgrp, "strokeDepth", &e_data.vfx_fbcolor_depth_tx_a);
 
+		/* vfx copy pass from txtb to txta */
+		vfxquad = DRW_cache_fullscreen_quad_get();
+		psl->vfx_copy_pass = DRW_pass_create("GPencil VFX Copy b to a Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+		DRWShadingGroup *vfx_copy_shgrp = DRW_shgroup_create(e_data.gpencil_fullscreen_sh, psl->vfx_copy_pass);
+		DRW_shgroup_call_add(vfx_copy_shgrp, vfxquad, NULL);
+		DRW_shgroup_uniform_buffer(vfx_copy_shgrp, "strokeColor", &e_data.vfx_fbcolor_color_tx_b);
+		DRW_shgroup_uniform_buffer(vfx_copy_shgrp, "strokeDepth", &e_data.vfx_fbcolor_depth_tx_b);
+
 		/* VFX pass */
 		psl->vfx_wave_pass = DRW_pass_create("GPencil VFX Wave Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 
@@ -262,6 +275,8 @@ static void GPENCIL_cache_init(void *vedata)
 		psl->vfx_blur_pass_2 = DRW_pass_create("GPencil VFX Blur Pass 2", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 		psl->vfx_blur_pass_3 = DRW_pass_create("GPencil VFX Blur Pass 3", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 		psl->vfx_blur_pass_4 = DRW_pass_create("GPencil VFX Blur Pass 4", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+
+		psl->vfx_pixel_pass = DRW_pass_create("GPencil VFX Pixel Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 	}
 }
 
@@ -386,7 +401,7 @@ static void GPENCIL_draw_scene(void *vedata)
 			}
 
 			/* vfx pass */
-			if ((cache->init_vfx_wave_sh) && (cache->init_vfx_wave_sh)) {
+			if ((cache->init_vfx_wave_sh) && (cache->end_vfx_wave_sh)) {
 				DRW_framebuffer_bind(fbl->vfx_color_fb_a);
 				DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
 
@@ -417,6 +432,19 @@ static void GPENCIL_draw_scene(void *vedata)
 					DRW_draw_pass_subset(psl->vfx_blur_pass_4,
 						cache->init_vfx_blur_sh_4,
 						cache->end_vfx_blur_sh_4);
+				}
+				/* pixel pass */
+				if ((cache->init_vfx_pixel_sh) && (cache->end_vfx_pixel_sh)) {
+					DRW_framebuffer_bind(fbl->vfx_color_fb_b);
+					DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
+					/* pixel pass */
+					DRW_draw_pass_subset(psl->vfx_pixel_pass,
+						cache->init_vfx_pixel_sh,
+						cache->end_vfx_pixel_sh);
+					/* copy pass from b to a */
+					DRW_framebuffer_bind(fbl->vfx_color_fb_a);
+					DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
+					DRW_draw_pass(psl->vfx_copy_pass);
 				}
 				/* Combine with scene buffer */
 				DRW_framebuffer_bind(dfbl->default_fb);
