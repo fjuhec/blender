@@ -48,9 +48,11 @@ static ModifierData *modifier_available(Object *ob, ModifierType type)
 	}
 
 	bool is_edit = (bool)((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)));
+	if (((md->mode & eModifierMode_Editmode) == 0) && (is_edit)) {
+		return NULL;
+	}
 	if (((md->mode & eModifierMode_Realtime) && ((G.f & G_RENDER_OGL) == 0)) ||
-		((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL)) ||
-		((md->mode & eModifierMode_Editmode) && (is_edit)))
+		((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL)))
 	{
 		return md;
 	}
@@ -71,9 +73,12 @@ static bool modifier_is_active(Object *ob, ModifierData *md)
 	}
 
 	bool is_edit = (bool)((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)));
+	if (((md->mode & eModifierMode_Editmode) == 0) && (is_edit)) {
+		return false;
+	}
+
 	if (((md->mode & eModifierMode_Realtime) && ((G.f & G_RENDER_OGL) == 0)) ||
-		((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL)) ||
-		((md->mode & eModifierMode_Editmode) && (is_edit)))
+		((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL)))
 	{
 		return true;
 	}
