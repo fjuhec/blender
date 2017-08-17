@@ -133,9 +133,10 @@
 #define SIL_FILLET_BLUR_MAX 0.3f
 #define SIL_FILLET_BLUR_MIN 0.001f
 #define SIL_FILLET_INTERSECTION_EPSILON 0.00001f
+#define SIL_TRIANGULATION_FACT 0.3 /* 1 = position dependent 0 = order dependent */
 /*#define USE_WATERTIGHT*/
 
-#define DEBUG_DRAW
+//#define DEBUG_DRAW
 #ifdef DEBUG_DRAW
 /* static void bl_debug_draw(void);*/
 /* add these locally when using these functions for testing */
@@ -7659,7 +7660,7 @@ static void combine_intersection_data(Mesh *me, SilhouetteData *sil)
 	}
 
 #ifdef DEBUG_DRAW
-	for(int r = 0; r < BLI_array_count(ring_start); r++) {
+	/*for(int r = 0; r < BLI_array_count(ring_start); r++) {
 		r_size = r < BLI_array_count(ring_start) - 1 ? ring_start[r + 1] - ring_start[r] : BLI_array_count(edge_ring_fillet) - ring_start[r];
 		for(int i = 0; i < r_size; i++) {
 			if(i == 0){
@@ -7670,9 +7671,10 @@ static void combine_intersection_data(Mesh *me, SilhouetteData *sil)
 			bl_debug_draw_medge_add(me, edge_ring_fillet[ring_start[r] + i]);
 			bl_debug_color_set(0x000000);
 		}
-	}
+	}*/
 #endif
 
+	/*TODO: add bbs */
 	sil->fillet_ring_new = MEM_callocN(sizeof(int) * BLI_array_count(edge_ring_fillet), "new edgerings");
 	memcpy(sil->fillet_ring_new, edge_ring_fillet, sizeof(int) * BLI_array_count(edge_ring_fillet));
 
@@ -7685,7 +7687,7 @@ static void combine_intersection_data(Mesh *me, SilhouetteData *sil)
 	order_exact_points(me, emap, data, sil, sil->num_isect_data);
 
 #ifdef DEBUG_DRAW
-	int trsize, trstart;
+	/*int trsize, trstart;
 	float v1t[3], v2t[3];
 	for(int i = 0; i < sil->num_rings_new; i++) {
 		trstart = sil->exact_isect_points_start[i];
@@ -7697,7 +7699,7 @@ static void combine_intersection_data(Mesh *me, SilhouetteData *sil)
 			bl_debug_draw_edge_add(v1t, v2t);
 			bl_debug_color_set(0x000000);
 		}
-	}
+	}*/
 #endif
 
 	BLI_array_free(ring_start);
@@ -7713,6 +7715,313 @@ static void combine_intersection_data(Mesh *me, SilhouetteData *sil)
 
 	MEM_freeN(emap);
 	MEM_freeN(emap_mem);
+}
+
+static float orient_falloff(int pa, int pb, float o_off, float *dist_a, float *dist_b, float tot_dist_a, float tot_dist_b) {
+	float val;
+	float p1, p2;
+
+	p1 = (dist_a[pa] / tot_dist_a);
+	p2 = fmod((dist_b[pb] / tot_dist_b) + o_off, 1.0f);
+
+	val = fabs(p2 - p1);
+	val = val > 0.5f ? (1.0f - val) * 2.0f : val * 2.0f;
+
+	/* Try quadratic falloff */
+	val = val * val;
+	val = val * (1.0f - SIL_TRIANGULATION_FACT) + SIL_TRIANGULATION_FACT;
+
+	return val;
+}
+
+static void find_triangulation_rec(Mesh *me, int *map,
+								   int pas, int pae,
+								   int pbs, int pbe,
+								   int *a_verts, int *b_verts,
+								   int a_size, int b_size,
+								   float orient_off,
+								   float *dist_a, float *dist_b,
+								   float tot_dist_a, float tot_dist_b)
+{
+	int pas2, pbs2;
+	float min_d = FLT_MAX;
+	int min_b = 0;
+	int min_a = 0;
+	float v1[3];
+	float d;
+
+	if (pbs == pbe) {
+		while (pas != pae) {
+			map[pas] = pbs;
+			pas = (pas + 1) % a_size;
+		}
+	} else if (pas != pae) {
+		/* Find the vert in a which is closest to ring b */
+		pas2 = (pas + 1) % a_size;
+		while (pas2 != pae) {
+			pbs2 = pbs;
+			do {
+				sub_v3_v3v3(v1, me->mvert[a_verts[pas2]].co, me->mvert[b_verts[pbs2]].co);
+				d = len_v3(v1) * orient_falloff(pas2, pbs2, orient_off, dist_a, dist_b, tot_dist_a, tot_dist_b);
+				if (d < min_d) {
+					min_d = d;
+					min_b = pbs2;
+					min_a = pas2;
+				}
+				pbs2 = (pbs2 + 1) % b_size;
+			} while (pbs2 != (pbe + 1) % b_size);
+			pas2 = (pas2 + 1) % a_size;
+		}
+		map[min_a] = min_b;
+		if (min_a != (pas + 1) % a_size) {
+			find_triangulation_rec(me, map,
+								   pas, min_a,
+								   pbs, min_b,
+								   a_verts, b_verts,
+								   a_size, b_size,
+								   orient_off,
+								   dist_a, dist_b,
+								   tot_dist_a, tot_dist_b);
+		}
+		if ((min_a + 1) % a_size != pae) {
+			find_triangulation_rec(me, map,
+								   min_a, pae,
+								   min_b, pbe,
+								   a_verts, b_verts,
+								   a_size, b_size,
+								   orient_off,
+								   dist_a, dist_b,
+								   tot_dist_a, tot_dist_b);
+		}
+	}
+}
+
+static int find_mvp(Mesh *me, int *a_verts, int a_size, int start, int tot)
+{
+	float max_dot = - 2.0f;
+	int mvp = 0;
+	float e1[3], e2[3];
+	float dot;
+	int c_pos;
+
+	c_pos = (start + tot / 2) % a_size;
+	for (int v = 0; v < tot; v++) {
+		sub_v3_v3v3(e1, me->mvert[a_verts[c_pos]].co, me->mvert[a_verts[(c_pos + a_size - 1) % a_size]].co);
+		sub_v3_v3v3(e2, me->mvert[a_verts[c_pos]].co, me->mvert[a_verts[(c_pos + 1) % a_size]].co);
+		dot = dot_v3v3(e1,e2);
+		if (max_dot < dot) {
+			max_dot = dot;
+			mvp = c_pos;
+		}
+		c_pos = (start + ((c_pos - start + 1) % tot)) % a_size;
+	}
+
+	return mvp;
+}
+
+/* Recusiveley find a triangulation, connect the two closest points and split the rings in to subrings... 
+ * a_data is bigger than b_data */
+static int *find_triangulation(Mesh *me, int *a_verts, int *b_verts, int a_size, int b_size, float *dist_a, float *dist_b, float tot_dist_a, float tot_dist_b, float *o_off_out)
+{
+	int *map;
+	float d = FLT_MAX, d2;
+	float v1[3];
+	int pas, pbs;
+	float o_off;
+	int s_pos;
+
+	map = MEM_callocN(sizeof(int) * a_size, "triangulation map");
+
+	for (int i = 0; i < a_size; i++) {
+		for (int j = 0; j < b_size; j++) {
+			sub_v3_v3v3(v1, me->mvert[a_verts[i]].co, me->mvert[b_verts[j]].co);
+			d2 = len_v3(v1);
+			if (d2 < d) {
+				pas = i;
+				pbs = j;
+				d = d2;
+			}
+		}
+	}
+#ifdef DEBUG_DRAW
+	bl_debug_color_set(0x0099ff);
+	bl_debug_draw_edge_add(me->mvert[a_verts[pas]].co, me->mvert[b_verts[pbs]].co);
+	bl_debug_color_set(0x000000);
+#endif
+
+	map[pas] = pbs;
+	o_off = 1.0f + (dist_a[pas] / tot_dist_a) - (dist_b[pbs] / tot_dist_b);
+	*o_off_out = o_off;
+	find_triangulation_rec(me, map,
+						   (pas + 1) % a_size, pas,
+						   (pbs + 1) % b_size, pbs,
+						   a_verts, b_verts,
+						   a_size, b_size,
+						   o_off,
+						   dist_a, dist_b,
+						   tot_dist_a, tot_dist_b);
+
+	s_pos = 0;
+	int active_block_start;
+	int active_block;
+	int active_block_count;
+	int active_block_mvp;
+	int t_i;
+	while (s_pos < a_size) {
+		if (map[s_pos] != map[(s_pos + 1) % a_size] && map[(s_pos + 1) % a_size] == map[(s_pos + 2) % a_size]) {
+			active_block_start = (s_pos + 1) % a_size;
+			active_block = map[active_block_start];
+			active_block_count = 1;
+			t_i = (active_block_start + 1) % a_size;
+			for(int i = 0; i < a_size; i++) {
+				if (map[t_i] == active_block) {
+					active_block_count ++;
+					t_i = (t_i + 1) % a_size;
+				} else {
+					break;
+				}
+			}
+
+			active_block_mvp = find_mvp(me, a_verts, a_size, active_block_start, active_block_count);
+			//map[active_block_mvp] = -map[active_block_mvp];
+			s_pos += active_block_count + 1;
+		} else {
+			//map[s_pos] = -map[s_pos];
+			s_pos ++;
+		}
+	}
+
+	return map;
+}
+
+static void generate_fillet_topology(Mesh *me, SilhouetteData *sil)
+{
+	int r_start, r_size;
+	int r_orig_start, r_orig_size;
+	int r_new_start, r_new_size;
+	int *a_data, *b_data; /* a_data is the bigger ring which gets decimate to the b_data ring*/
+	int a_size, b_size;
+	float v1[3], v2[3];
+	int *triangulation_map;
+	int *a_verts, *b_verts;
+	MEdge ce1, ce2;
+	int a_start_v, b_start_v;
+	int cv;
+	float *dist_a, *dist_b;
+	void *t_swap;
+	float tot_dist_a, tot_dist_b;
+
+	/*Generate the fillets from the edgerings and the exact intersection points.*/
+	if (sil->num_rings == sil->num_rings_new) {
+
+		/* Allocate a mempool to store the distances along the rings
+		 * could be reallocated for every ring but once bigger should be faster. */
+		dist_a = MEM_callocN(sizeof(float) * sil->fillet_ring_tot, "distances orig");
+		dist_b = MEM_callocN(sizeof(float) * sil->fillet_ring_tot_new, "distances new");
+
+		/* TODO: check if ring order is implied and aligned between new and orig*/
+		for (int r = 0; r < sil->num_rings; r++) {
+			r_orig_start = sil->fillet_ring_orig_start[r];
+			r_orig_size = r + 1 < sil->num_rings ? sil->fillet_ring_orig_start[r + 1] - r_orig_start : sil->fillet_ring_tot - r_orig_start;
+			r_new_start = sil->fillet_ring_new_start[r];
+			r_new_size = r + 1 < sil->num_rings ? sil->fillet_ring_new_start[r + 1] - r_new_start : sil->fillet_ring_tot_new - r_new_start;
+
+			if (r_new_size > r_orig_size) {
+				a_data = &sil->fillet_ring_new[r_new_start];
+				b_data = &sil->fillet_ring_orig[r_orig_start];
+				a_size = r_new_size;
+				b_size = r_orig_size;
+				t_swap = dist_a;
+				dist_a = dist_b;
+				dist_b = t_swap;
+			} else {
+				a_data = &sil->fillet_ring_orig[r_orig_start];
+				b_data = &sil->fillet_ring_new[r_new_start];
+				a_size = r_orig_size;
+				b_size = r_new_size;
+			}
+
+			a_verts = MEM_callocN(sizeof(int) * a_size, "verts in ring a");
+			b_verts = MEM_callocN(sizeof(int) * b_size, "verts in ring b");
+
+			ce1 = me->medge[a_data[0]];
+			ce2 = me->medge[a_data[a_size - 1]];
+			a_start_v = (ce1.v1 == ce2.v1 || ce1.v1 == ce2.v2) ? ce1.v2 : ce1.v1;
+			ce1 = me->medge[b_data[0]];
+			ce2 = me->medge[b_data[b_size - 1]];
+			b_start_v = (ce1.v1 == ce2.v1 || ce1.v1 == ce2.v2) ? ce1.v2 : ce1.v1;
+
+			a_verts[0] = a_start_v;
+			for(int i = 1; i < a_size; i++) {
+				ce1 = me->medge[a_data[i]];
+				a_verts[i] = a_verts[i - 1] == ce1.v1 ? ce1.v2 : ce1.v1;
+			}
+			b_verts[0] = b_start_v;
+			for(int i = 1; i < b_size; i++) {
+				ce1 = me->medge[b_data[i]];
+				b_verts[i] = b_verts[i - 1] == ce1.v1 ? ce1.v2 : ce1.v1;
+			}
+
+			dist_a[0] = 0.0f;
+			for (int i = 0; i < a_size; i++) {
+				ce1 = me->medge[a_data[i]];
+				sub_v3_v3v3(v1, me->mvert[ce1.v1].co, me->mvert[ce1.v2].co);
+				if (i < a_size - 1) {
+					dist_a[i + 1] = len_v3(v1) + dist_a[i];
+				} else {
+					tot_dist_a = len_v3(v1) + dist_a[i];
+				}
+			}
+			dist_b[0] = 0.0f;
+			for (int i = 0; i < b_size; i++) {
+				ce1 = me->medge[b_data[i]];
+				sub_v3_v3v3(v1, me->mvert[ce1.v1].co, me->mvert[ce1.v2].co);
+				if (i < b_size - 1) {
+					dist_b[i + 1] = len_v3(v1) + dist_b[i];
+				} else {
+					tot_dist_b = len_v3(v1) + dist_b[i];
+				}
+			}
+
+			float o_off;
+			triangulation_map = find_triangulation(me, a_verts, b_verts, a_size, b_size, dist_a, dist_b, tot_dist_a, tot_dist_b, &o_off);
+
+#ifdef DEBUG_DRAW
+
+			bl_debug_color_set(0xFFCC33);
+			for(int e = 0; e < a_size; e++) {
+				printf("TMap %i [%i]\n", e, triangulation_map[e]);
+				bl_debug_draw_edge_add(me->mvert[a_verts[e]].co, me->mvert[b_verts[triangulation_map[e]]].co);
+			}
+			bl_debug_color_set(0x000000);
+
+			for (int i = 0; i < a_size; i++) {
+				float fact = (dist_a[i] / tot_dist_a);
+				bl_debug_color_set((int)((0x0000ff) * fact) + 0x003300);
+				bl_debug_draw_medge_add(me, a_data[i]);
+				bl_debug_color_set(0x000000);
+			}
+			for (int i = 0; i < b_size; i++) {
+				float fact = fmod((dist_b[i] / tot_dist_b) + o_off,1.0f);
+				bl_debug_color_set((int)((0x0000ff) * fact));
+				bl_debug_draw_medge_add(me, b_data[i]);
+				bl_debug_color_set(0x000000);
+			}
+			r_start = sil->exact_isect_points_start[r];
+			r_size = r + 1 < sil->num_rings ? sil->exact_isect_points_start[r + 1] - r_start : sil->exact_points_tot - r_start;
+			for (int i = 0; i < r_size; i++) {
+				bl_debug_color_set(0xffffff);
+				copy_v3_v3(v1, &sil->exact_isect_points[(r_start + i) * 3]);
+				copy_v3_v3(v2, (i + 1 < r_size ? &sil->exact_isect_points[(r_start + i) * 3 + 3] : &sil->exact_isect_points[r_start * 3]));
+				bl_debug_draw_edge_add(v1, v2);
+				bl_debug_color_set(0x000000);
+			}
+#endif
+		}
+	} else {
+		printf("Couldn't transition the intersecting parts. Algorithm produced a non matching ringlayout.\n");
+		BLI_assert(false);
+	}
 }
 
 /* Generates a 3D shape from a stroke. */
@@ -7781,6 +8090,8 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 	if (sil->num_inter_nodes) {
 		check_preceding_intersecting_edges(ob, sil, NULL, nodes, me->totedge - e_start);
 		combine_intersection_data(me, sil);
+
+		generate_fillet_topology(me, sil);
 	}
 	/*printf("Joining %i isect data.\n", sil->num_isect_data);
 	for (int i = 0; i < sil->num_isect_data; i++) {
