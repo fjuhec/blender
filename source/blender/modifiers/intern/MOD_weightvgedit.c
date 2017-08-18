@@ -92,10 +92,6 @@ static void copyData(ModifierData *md, ModifierData *target)
 	modifier_copyData_generic(md, target);
 
 	twmd->cmap_curve = curvemapping_copy(wmd->cmap_curve);
-
-	if (twmd->mask_texture) {
-		id_us_plus(&twmd->mask_texture->id);
-	}
 }
 
 static CustomDataMask requiredDataMask(Object *UNUSED(ob), ModifierData *md)
@@ -167,7 +163,7 @@ static bool isDisabled(ModifierData *md, int UNUSED(useRenderParams))
 }
 
 static DerivedMesh *applyModifier(ModifierData *md,
-                                  struct EvaluationContext *UNUSED(eval_ctx),
+                                  const struct EvaluationContext *UNUSED(eval_ctx),
                                   Object *ob,
                                   DerivedMesh *derivedData,
                                   ModifierApplyFlag UNUSED(flag))

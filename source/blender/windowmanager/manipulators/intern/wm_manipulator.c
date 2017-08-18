@@ -94,6 +94,7 @@ static wmManipulator *wm_manipulator_create(
 
 	WM_manipulator_properties_sanitize(mpr->ptr, 0);
 
+	unit_m4(mpr->matrix_space);
 	unit_m4(mpr->matrix_basis);
 	unit_m4(mpr->matrix_offset);
 
@@ -335,13 +336,13 @@ void WM_manipulator_set_line_width(wmManipulator *mpr, const float line_width)
  * \param col  Normal state color.
  * \param col_hi  Highlighted state color.
  */
-void WM_manipulator_get_color(const wmManipulator *mpr, float col[4])
+void WM_manipulator_get_color(const wmManipulator *mpr, float color[4])
 {
-	copy_v4_v4(col, mpr->color);
+	copy_v4_v4(color, mpr->color);
 }
-void WM_manipulator_set_color(wmManipulator *mpr, const float col[4])
+void WM_manipulator_set_color(wmManipulator *mpr, const float color[4])
 {
-	copy_v4_v4(mpr->color, col);
+	copy_v4_v4(mpr->color, color);
 }
 
 void WM_manipulator_get_color_highlight(const wmManipulator *mpr, float color_hi[4])
@@ -445,15 +446,18 @@ void wm_manipulator_calculate_scale(wmManipulator *mpr, const bContext *C)
 		scale *= U.manipulator_size;
 		if (rv3d) {
 			/* 'ED_view3d_pixel_size' includes 'U.pixelsize', remove it. */
-			if (mpr->type->matrix_world_get) {
-				float matrix_world[4][4];
-
-				mpr->type->matrix_world_get(mpr, matrix_world);
-				scale *= ED_view3d_pixel_size(rv3d, matrix_world[3]) / U.pixelsize;
+			float matrix_world[4][4];
+			if (mpr->type->matrix_basis_get) {
+				float matrix_basis[4][4];
+				mpr->type->matrix_basis_get(mpr, matrix_basis);
+				mul_m4_m4m4(matrix_world, mpr->matrix_space, matrix_basis);
 			}
 			else {
-				scale *= ED_view3d_pixel_size(rv3d, mpr->matrix_basis[3]) / U.pixelsize;
+				mul_m4_m4m4(matrix_world, mpr->matrix_space, mpr->matrix_basis);
 			}
+
+			/* Exclude matrix_offset from scale. */
+			scale *= ED_view3d_pixel_size(rv3d, matrix_world[3]) / U.pixelsize;
 		}
 		else {
 			scale *= 0.02f;
@@ -507,6 +511,44 @@ int wm_manipulator_is_visible(wmManipulator *mpr)
 	return WM_MANIPULATOR_IS_VISIBLE_UPDATE | WM_MANIPULATOR_IS_VISIBLE_DRAW;
 }
 
+void WM_manipulator_calc_matrix_final_params(
+        const wmManipulator *mpr,
+        const struct WM_ManipulatorMatrixParams *params,
+        float r_mat[4][4])
+{
+	const float (* const matrix_space)[4]  = params->matrix_space  ? params->matrix_space  : mpr->matrix_space;
+	const float (* const matrix_basis)[4]  = params->matrix_basis  ? params->matrix_basis  : mpr->matrix_basis;
+	const float (* const matrix_offset)[4] = params->matrix_offset ? params->matrix_offset : mpr->matrix_offset;
+	const float *scale_final = params->scale_final ? params->scale_final : &mpr->scale_final;
+
+	float final_matrix[4][4];
+
+	copy_m4_m4(final_matrix, matrix_basis);
+
+	if (mpr->flag & WM_MANIPULATOR_DRAW_OFFSET_SCALE) {
+		mul_mat3_m4_fl(final_matrix, *scale_final);
+		mul_m4_m4m4(final_matrix, final_matrix, matrix_offset);
+	}
+	else {
+		mul_m4_m4m4(final_matrix, final_matrix, matrix_offset);
+		mul_mat3_m4_fl(final_matrix, *scale_final);
+	}
+
+	mul_m4_m4m4(r_mat, matrix_space, final_matrix);
+}
+
+void WM_manipulator_calc_matrix_final(const wmManipulator *mpr, float r_mat[4][4])
+{
+	WM_manipulator_calc_matrix_final_params(
+	        mpr,
+	        &((struct WM_ManipulatorMatrixParams) {
+	            .matrix_space = mpr->matrix_space,
+	            .matrix_basis = mpr->matrix_basis,
+	            .matrix_offset = mpr->matrix_offset,
+	            .scale_final = &mpr->scale_final,
+	        }), r_mat
+	);
+}
 
 /** \name Manipulator Propery Access
  *

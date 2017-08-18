@@ -717,9 +717,14 @@ static void view3d_widgets(void)
 	        &(const struct wmManipulatorMapType_Params){SPACE_VIEW3D, RGN_TYPE_WINDOW});
 
 	WM_manipulatorgrouptype_append_and_link(mmap_type, TRANSFORM_WGT_manipulator);
-	WM_manipulatorgrouptype_append_and_link(mmap_type, VIEW3D_WGT_lamp);
+	WM_manipulatorgrouptype_append_and_link(mmap_type, VIEW3D_WGT_lamp_spot);
+	WM_manipulatorgrouptype_append_and_link(mmap_type, VIEW3D_WGT_lamp_area);
+	WM_manipulatorgrouptype_append_and_link(mmap_type, VIEW3D_WGT_lamp_target);
 	WM_manipulatorgrouptype_append_and_link(mmap_type, VIEW3D_WGT_force_field);
 	WM_manipulatorgrouptype_append_and_link(mmap_type, VIEW3D_WGT_camera);
+	WM_manipulatorgrouptype_append_and_link(mmap_type, VIEW3D_WGT_camera_view);
+	WM_manipulatorgrouptype_append_and_link(mmap_type, VIEW3D_WGT_empty_image);
+	WM_manipulatorgrouptype_append_and_link(mmap_type, VIEW3D_WGT_armature_spline);
 }
 
 
@@ -859,6 +864,7 @@ static void view3d_main_region_listener(
 						BKE_screen_view3d_sync(v3d, wmn->reference);
 					}
 					ED_region_tag_redraw(ar);
+					WM_manipulatormap_tag_refresh(mmap);
 					break;
 				case ND_OB_ACTIVE:
 				case ND_OB_SELECT:

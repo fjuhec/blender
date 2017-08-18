@@ -696,7 +696,7 @@ static void OBJECT_cache_init(void *vedata)
 
 	{
 		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS | DRW_STATE_WIRE;
-		psl->outlines = DRW_pass_create("Outlines Pass", state);
+		psl->outlines = DRW_pass_create("Outlines Depth Pass", state);
 
 		GPUShader *sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_UNIFORM_COLOR);
 
@@ -725,7 +725,7 @@ static void OBJECT_cache_init(void *vedata)
 		static bool bTrue = true;
 		static bool bFalse = false;
 
-		psl->outlines_search = DRW_pass_create("Outlines Expand Pass", state);
+		psl->outlines_search = DRW_pass_create("Outlines Detect Pass", state);
 
 		DRWShadingGroup *grp = DRW_shgroup_create(e_data.outline_detect_sh, psl->outlines_search);
 		DRW_shgroup_uniform_buffer(grp, "outlineColor", &e_data.outlines_color_tx);
@@ -1571,7 +1571,7 @@ static void DRW_shgroup_object_center(OBJECT_StorageList *stl, Object *ob, Scene
 	const bool is_library = ob->id.us > 1 || ID_IS_LINKED_DATABLOCK(ob);
 	DRWShadingGroup *shgroup;
 
-	if (ob == OBACT_NEW) {
+	if (ob == OBACT_NEW(sl)) {
 		shgroup = stl->g_data->center_active;
 	}
 	else if (ob->base_flag & BASE_SELECTED) {

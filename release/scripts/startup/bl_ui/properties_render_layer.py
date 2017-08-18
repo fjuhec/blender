@@ -192,9 +192,12 @@ class RENDERLAYER_PT_eevee_postprocess_settings(RenderLayerButtonsPanel, Panel):
         col = layout.column()
         col.label("Ambient Occlusion:")
         col.template_override_property(layer_props, scene_props, "gtao_use_bent_normals")
+        col.template_override_property(layer_props, scene_props, "gtao_denoise")
+        col.template_override_property(layer_props, scene_props, "gtao_bounce")
         col.template_override_property(layer_props, scene_props, "gtao_samples")
         col.template_override_property(layer_props, scene_props, "gtao_distance")
         col.template_override_property(layer_props, scene_props, "gtao_factor")
+        col.template_override_property(layer_props, scene_props, "gtao_quality")
         col.separator()
 
         col.label("Motion Blur:")
@@ -276,6 +279,7 @@ class RENDERLAYER_PT_eevee_screen_space_reflections(RenderLayerButtonsPanel, Pan
 
         col = layout.column()
         col.template_override_property(layer_props, scene_props, "ssr_halfres")
+        col.template_override_property(layer_props, scene_props, "ssr_refraction")
         col.template_override_property(layer_props, scene_props, "ssr_ray_count")
         col.template_override_property(layer_props, scene_props, "ssr_quality")
         col.template_override_property(layer_props, scene_props, "ssr_max_roughness")

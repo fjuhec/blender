@@ -98,7 +98,7 @@ static bool dependsOnTime(ModifierData *UNUSED(md))
 	return true;
 }
 
-static void deformVerts(ModifierData *md, struct EvaluationContext *UNUSED(eval_ctx),
+static void deformVerts(ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx),
                         Object *ob, DerivedMesh *derivedData,
                         float (*vertexCos)[3],
                         int UNUSED(numVerts),
@@ -153,8 +153,6 @@ static void deformVerts(ModifierData *md, struct EvaluationContext *UNUSED(eval_
 				collmd->current_v = MEM_dupallocN(collmd->x); // inter-frame
 
 				collmd->mvert_num = mvert_num;
-				
-				DM_ensure_looptri(dm);
 
 				collmd->tri_num = dm->getNumLoopTri(dm);
 				{

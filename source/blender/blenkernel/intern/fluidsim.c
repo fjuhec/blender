@@ -65,7 +65,7 @@
 // file handling
 //-------------------------------------------------------------------------------
 
-void initElbeemMesh(struct EvaluationContext *eval_ctx, struct Scene *scene, struct Object *ob,
+void initElbeemMesh(const struct EvaluationContext *eval_ctx, struct Scene *scene, struct Object *ob,
                     int *numVertices, float **vertices,
                     int *numTriangles, int **triangles,
                     int useGlobalCoords, int modifierIndex)
@@ -79,8 +79,6 @@ void initElbeemMesh(struct EvaluationContext *eval_ctx, struct Scene *scene, str
 	int *tris;
 
 	dm = mesh_create_derived_index_render(eval_ctx, scene, ob, CD_MASK_BAREMESH, modifierIndex);
-
-	DM_ensure_looptri(dm);
 
 	mvert = dm->getVertArray(dm);
 	mloop = dm->getLoopArray(dm);

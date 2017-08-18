@@ -1001,7 +1001,7 @@ static void CalcSnapGeometry(TransInfo *t, float *UNUSED(vec))
 		float dist_px = SNAP_MIN_DISTANCE; // Use a user defined value here
 		char node_border;
 		
-		if (snapNodesTransform(t, t->mval, t->tsnap.modeSelect, loc, &dist_px, &node_border)) {
+		if (snapNodesTransform(t, t->mval, loc, &dist_px, &node_border)) {
 			copy_v2_v2(t->tsnap.snapPoint, loc);
 			t->tsnap.snapNodeBorder = node_border;
 			
@@ -1197,7 +1197,7 @@ bool snapObjectsTransform(
         float r_loc[3], float r_no[3])
 {
 	return ED_transform_snap_object_project_view3d_ex(
-	        t->context, t->tsnap.object_context,
+	        t->tsnap.object_context,
 	        t->scene->toolsettings->snap_mode,
 	        &(const struct SnapObjectParams){
 	            .snap_select = t->tsnap.modeSelect,
@@ -1211,7 +1211,7 @@ bool snapObjectsTransform(
 /******************** PEELING *********************************/
 
 bool peelObjectsSnapContext(
-        const bContext *C, SnapObjectContext *sctx,
+        SnapObjectContext *sctx,
         const float mval[2],
         const struct SnapObjectParams *params,
         const bool use_peel_object,
@@ -1220,7 +1220,7 @@ bool peelObjectsSnapContext(
 {
 	ListBase depths_peel = {0};
 	ED_transform_snap_object_project_all_view3d_ex(
-	        C, sctx,
+	        sctx,
 	        params,
 	        mval, -1.0f, false,
 	        &depths_peel);
@@ -1287,7 +1287,7 @@ bool peelObjectsTransform(
         float r_loc[3], float r_no[3], float *r_thickness)
 {
 	return peelObjectsSnapContext(
-	        t->context, t->tsnap.object_context,
+	        t->tsnap.object_context,
 	        mval,
 	        &(const struct SnapObjectParams){
 	            .snap_select = t->tsnap.modeSelect,
@@ -1397,22 +1397,11 @@ static bool snapNodes(
 }
 
 bool snapNodesTransform(
-        TransInfo *t, const int mval[2], SnapSelect snap_select,
+        TransInfo *t, const int mval[2],
         float r_loc[2], float *r_dist_px, char *r_node_border)
 {
 	return snapNodes(
-	        t->settings, t->sa->spacedata.first, t->ar, mval, snap_select,
-	        r_loc, r_dist_px, r_node_border);
-}
-
-bool snapNodesContext(
-        bContext *C, const int mval[2], SnapSelect snap_select,
-        float r_loc[2], float *r_dist_px, char *r_node_border)
-{
-	Scene *scene = CTX_data_scene(C);
-	ARegion *ar = CTX_wm_region(C);
-	return snapNodes(
-	        scene->toolsettings, CTX_wm_space_node(C), ar, mval, snap_select,
+	        t->settings, t->sa->spacedata.first, t->ar, mval, t->tsnap.modeSelect,
 	        r_loc, r_dist_px, r_node_border);
 }
 

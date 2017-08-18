@@ -299,18 +299,6 @@ static void emDM_recalcLoopTri(DerivedMesh *dm)
 	}
 }
 
-static const MLoopTri *emDM_getLoopTriArray(DerivedMesh *dm)
-{
-	if (dm->looptris.array) {
-		BLI_assert(poly_to_tri_count(dm->numPolyData, dm->numLoopData) == dm->looptris.num);
-	}
-	else {
-		dm->recalcLoopTri(dm);
-	}
-
-	return dm->looptris.array;
-}
-
 static void emDM_foreachMappedVert(
         DerivedMesh *dm,
         void (*func)(void *userData, int index, const float co[3], const float no_f[3], const short no_s[3]),
@@ -1639,8 +1627,6 @@ DerivedMesh *getEditDerivedBMesh(
 	bmdm->dm.getNumLoops = emDM_getNumLoops;
 	bmdm->dm.getNumPolys = emDM_getNumPolys;
 
-	bmdm->dm.getLoopTriArray = emDM_getLoopTriArray;
-
 	bmdm->dm.getVert = emDM_getVert;
 	bmdm->dm.getVertCo = emDM_getVertCo;
 	bmdm->dm.getVertNo = emDM_getVertNo;
@@ -2183,7 +2169,7 @@ static void cage_mapped_verts_callback(
 	}
 }
 
-float (*BKE_editmesh_vertexCos_get(struct EvaluationContext *eval_ctx, BMEditMesh *em, Scene *scene, int *r_numVerts))[3]
+float (*BKE_editmesh_vertexCos_get(const struct EvaluationContext *eval_ctx, BMEditMesh *em, Scene *scene, int *r_numVerts))[3]
 {
 	DerivedMesh *cage, *final;
 	BLI_bitmap *visit_bitmap;

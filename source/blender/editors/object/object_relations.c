@@ -247,7 +247,7 @@ static int vertex_parent_set_exec(bContext *C, wmOperator *op)
 			else {
 				Object workob;
 
-				ob->parent = BASACT_NEW->object;
+				ob->parent = BASACT_NEW(sl)->object;
 				if (v3) {
 					ob->partype = PARVERT3;
 					ob->par1 = v1 - 1;
@@ -354,7 +354,7 @@ static int make_proxy_exec(bContext *C, wmOperator *op)
 
 	if (ob) {
 		Object *newob;
-		BaseLegacy *newbase, *oldbase = BASACT_NEW;
+		BaseLegacy *newbase, *oldbase = BASACT_NEW(sl);
 		char name[MAX_ID_NAME + 4];
 
 		BLI_snprintf(name, sizeof(name), "%s_proxy", ((ID *)(gob ? gob : ob))->name + 2);
@@ -363,7 +363,7 @@ static int make_proxy_exec(bContext *C, wmOperator *op)
 		newob = BKE_object_add(bmain, scene, sl, OB_EMPTY, name);
 
 		/* set layers OK */
-		newbase = BASACT_NEW;    /* BKE_object_add sets active... */
+		newbase = BASACT_NEW(sl);    /* BKE_object_add sets active... */
 		newbase->lay = oldbase->lay;
 		newob->lay = newbase->lay;
 
@@ -1470,13 +1470,13 @@ static int make_links_data_exec(bContext *C, wmOperator *op)
 						DEG_id_tag_update(&ob_dst->id, OB_RECALC_DATA);
 						break;
 					case MAKE_LINKS_ANIMDATA:
-						BKE_animdata_copy_id((ID *)ob_dst, (ID *)ob_src, false);
+						BKE_animdata_copy_id(bmain, (ID *)ob_dst, (ID *)ob_src, false);
 						if (ob_dst->data && ob_src->data) {
 							if (ID_IS_LINKED_DATABLOCK(obdata_id)) {
 								is_lib = true;
 								break;
 							}
-							BKE_animdata_copy_id((ID *)ob_dst->data, (ID *)ob_src->data, false);
+							BKE_animdata_copy_id(bmain, (ID *)ob_dst->data, (ID *)ob_src->data, false);
 						}
 						DEG_id_tag_update(&ob_dst->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 						break;
@@ -2053,7 +2053,9 @@ void ED_object_single_users(Main *bmain, Scene *scene, const bool full, const bo
 			IDP_RelinkProperty(scene->gpd->id.properties);
 		}
 
-		IDP_RelinkProperty(scene->world->id.properties);
+		if (scene->world) {
+			IDP_RelinkProperty(scene->world->id.properties);
+		}
 
 		if (scene->clip) {
 			IDP_RelinkProperty(scene->clip->id.properties);

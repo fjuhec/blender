@@ -292,7 +292,7 @@ static void createTransTexspace(TransInfo *t)
 	ID *id;
 	short *texflag;
 
-	ob = OBACT_NEW;
+	ob = OBACT_NEW(sl);
 
 	if (ob == NULL) { // Shouldn't logically happen, but still...
 		t->total = 0;
@@ -2011,7 +2011,7 @@ void flushTransParticles(TransInfo *t)
 {
 	Scene *scene = t->scene;
 	SceneLayer *sl = t->scene_layer;
-	Object *ob = OBACT_NEW;
+	Object *ob = OBACT_NEW(sl);
 	PTCacheEdit *edit = PE_get_current(scene, sl, ob);
 	ParticleSystem *psys = edit->psys;
 	ParticleSystemModifierData *psmd = NULL;
@@ -2051,7 +2051,9 @@ void flushTransParticles(TransInfo *t)
 			point->flag |= PEP_EDIT_RECALC;
 	}
 
-	PE_update_object(t->context, scene, sl, OBACT_NEW, 1);
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(t->context, &eval_ctx);
+	PE_update_object(&eval_ctx, scene, sl, OBACT_NEW(sl), 1);
 }
 
 /* ********************* mesh ****************** */
@@ -5758,7 +5760,7 @@ void autokeyframe_ob_cb_func(bContext *C, Scene *scene, SceneLayer *sl, View3D *
 			}
 			else if (ELEM(tmode, TFM_ROTATION, TFM_TRACKBALL)) {
 				if (v3d->around == V3D_AROUND_ACTIVE) {
-					if (ob != OBACT_NEW)
+					if (ob != OBACT_NEW(sl))
 						do_loc = true;
 				}
 				else if (v3d->around == V3D_AROUND_CURSOR)
@@ -5769,7 +5771,7 @@ void autokeyframe_ob_cb_func(bContext *C, Scene *scene, SceneLayer *sl, View3D *
 			}
 			else if (tmode == TFM_RESIZE) {
 				if (v3d->around == V3D_AROUND_ACTIVE) {
-					if (ob != OBACT_NEW)
+					if (ob != OBACT_NEW(sl))
 						do_loc = true;
 				}
 				else if (v3d->around == V3D_AROUND_CURSOR)
@@ -5965,27 +5967,23 @@ static void special_aftertrans_update__movieclip(bContext *C, TransInfo *t)
 {
 	SpaceClip *sc = t->sa->spacedata.first;
 	MovieClip *clip = ED_space_clip_get_clip(sc);
-	MovieTrackingPlaneTrack *plane_track;
 	ListBase *plane_tracks_base = BKE_tracking_get_active_plane_tracks(&clip->tracking);
-	int framenr = ED_space_clip_get_clip_frame_number(sc);
-
-	for (plane_track = plane_tracks_base->first;
+	const int framenr = ED_space_clip_get_clip_frame_number(sc);
+	/* Update coordinates of modified plane tracks. */
+	for (MovieTrackingPlaneTrack *plane_track = plane_tracks_base->first;
 	     plane_track;
 	     plane_track = plane_track->next)
 	{
 		bool do_update = false;
-
 		if (plane_track->flag & PLANE_TRACK_HIDDEN) {
 			continue;
 		}
-
 		do_update |= PLANE_TRACK_VIEW_SELECTED(plane_track) != 0;
 		if (do_update == false) {
 			if ((plane_track->flag & PLANE_TRACK_AUTOKEY) == 0) {
 				int i;
 				for (i = 0; i < plane_track->point_tracksnr; i++) {
 					MovieTrackingTrack *track = plane_track->point_tracks[i];
-
 					if (TRACK_VIEW_SELECTED(sc, track)) {
 						do_update = true;
 						break;
@@ -5993,15 +5991,14 @@ static void special_aftertrans_update__movieclip(bContext *C, TransInfo *t)
 				}
 			}
 		}
-
 		if (do_update) {
 			BKE_tracking_track_plane_from_existing_motion(plane_track, framenr);
 		}
 	}
-
-	if (t->scene->nodetree) {
-		/* tracks can be used for stabilization nodes,
-		 * flush update for such nodes */
+	if (t->scene->nodetree != NULL) {
+		/* Tracks can be used for stabilization nodes,
+		 * flush update for such nodes.
+		 */
 		nodeUpdateID(t->scene->nodetree, &clip->id);
 		WM_event_add_notifier(C, NC_SCENE | ND_NODES, NULL);
 	}
@@ -8076,7 +8073,7 @@ void createTransData(bContext *C, TransInfo *t)
 {
 	Scene *scene = t->scene;
 	SceneLayer *sl = t->scene_layer;
-	Object *ob = OBACT_NEW;
+	Object *ob = OBACT_NEW(sl);
 
 	/* if tests must match recalcData for correct updates */
 	if (t->options & CTX_TEXTURE) {

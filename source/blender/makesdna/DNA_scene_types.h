@@ -754,7 +754,7 @@ typedef struct RenderData {
 
 	/* sequencer options */
 	char seq_prev_type;
-	char seq_rend_type;
+	char seq_rend_type;  /* UNUSED! */
 	char seq_flag; /* flag use for sequence render/draw */
 	char pad5[5];
 
@@ -793,13 +793,12 @@ typedef struct RenderData {
 	struct BakeData bake;
 
 	int preview_start_resolution;
+	short preview_pixel_size;
 
 	/* Type of the debug pass to use.
 	 * Only used when built with debug passes support.
 	 */
 	short debug_pass_type;
-
-	short pad;
 
 	/* MultiView */
 	ListBase views;  /* SceneRenderView */
@@ -1753,8 +1752,7 @@ typedef struct Scene {
 	/* use preview range */
 #define SCER_PRV_RANGE	(1<<0)
 #define SCER_LOCK_FRAME_SELECTION	(1<<1)
-	/* timeline/keyframe jumping - only selected items (on by default) */
-#define SCE_KEYS_NO_SELONLY	(1<<2)
+	/* show/use subframes (for checking motion blur) */
 #define SCER_SHOW_SUBFRAME	(1<<3)
 
 /* mode (int now) */
@@ -1794,7 +1792,7 @@ typedef struct Scene {
 #define R_USE_WS_SHADING	0x8000000 /* use world space interpretation of lighting data */
 
 /* seq_flag */
-#define R_SEQ_GL_PREV 1
+// #define R_SEQ_GL_PREV 1  // UNUSED, we just use setting from seq_prev_type now.
 // #define R_SEQ_GL_REND 2  // UNUSED, opengl render has its own operator now.
 #define R_SEQ_SOLID_TEX 4
 
@@ -1982,10 +1980,10 @@ extern const char *RE_engine_id_CYCLES;
 #define BASACT			(scene->basact)
 #define OBACT			(BASACT ? BASACT->object: NULL)
 
-#define FIRSTBASE_NEW	(sl)->object_bases.first
-#define LASTBASE_NEW	(sl)->object_bases.last
-#define BASACT_NEW		((sl)->basact)
-#define OBACT_NEW		(BASACT_NEW ? BASACT_NEW->object: NULL)
+#define FIRSTBASE_NEW(_sl)  ((_sl)->object_bases.first)
+#define LASTBASE_NEW(_sl)   ((_sl)->object_bases.last)
+#define BASACT_NEW(_sl)     ((_sl)->basact)
+#define OBACT_NEW(_sl)      (BASACT_NEW(_sl) ? BASACT_NEW(_sl)->object: NULL)
 
 #define V3D_CAMERA_LOCAL(v3d) ((!(v3d)->scenelock && (v3d)->camera) ? (v3d)->camera : NULL)
 #define V3D_CAMERA_SCENE(scene, v3d) ((!(v3d)->scenelock && (v3d)->camera) ? (v3d)->camera : (scene)->camera)
@@ -2091,6 +2089,7 @@ typedef enum eVGroupSelect {
 #define SCE_DS_COLLAPSED		(1<<1)
 #define SCE_NLA_EDIT_ON			(1<<2)
 #define SCE_FRAME_DROP			(1<<3)
+#define SCE_KEYS_NO_SELONLY	    (1<<4)
 
 
 	/* return flag BKE_scene_base_iter_next functions */

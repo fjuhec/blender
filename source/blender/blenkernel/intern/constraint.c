@@ -689,7 +689,7 @@ static bConstraintTypeInfo CTI_CONSTRNAME = {
 /* This function should be used for the get_target_matrix member of all 
  * constraints that are not picky about what happens to their target matrix.
  */
-static void default_get_tarmat(struct EvaluationContext *UNUSED(eval_ctx), bConstraint *con, bConstraintOb *UNUSED(cob), bConstraintTarget *ct, float UNUSED(ctime))
+static void default_get_tarmat(const struct EvaluationContext *UNUSED(eval_ctx), bConstraint *con, bConstraintOb *UNUSED(cob), bConstraintTarget *ct, float UNUSED(ctime))
 {
 	if (VALID_CONS_TARGET(ct))
 		constraint_target_to_mat4(ct->tar, ct->subtarget, ct->matrix, CONSTRAINT_SPACE_WORLD, ct->space, con->flag, con->headtail);
@@ -1155,7 +1155,7 @@ static void kinematic_flush_tars(bConstraint *con, ListBase *list, bool no_copy)
 	}
 }
 
-static void kinematic_get_tarmat(struct EvaluationContext *UNUSED(eval_ctx), bConstraint *con, bConstraintOb *cob, bConstraintTarget *ct, float UNUSED(ctime))
+static void kinematic_get_tarmat(const struct EvaluationContext *UNUSED(eval_ctx), bConstraint *con, bConstraintOb *cob, bConstraintTarget *ct, float UNUSED(ctime))
 {
 	bKinematicConstraint *data = con->data;
 	
@@ -1242,7 +1242,7 @@ static void followpath_flush_tars(bConstraint *con, ListBase *list, bool no_copy
 	}
 }
 
-static void followpath_get_tarmat(struct EvaluationContext *eval_ctx, bConstraint *con, bConstraintOb *cob, bConstraintTarget *ct, float UNUSED(ctime))
+static void followpath_get_tarmat(const struct EvaluationContext *eval_ctx, bConstraint *con, bConstraintOb *cob, bConstraintTarget *ct, float UNUSED(ctime))
 {
 	bFollowPathConstraint *data = con->data;
 	
@@ -2024,7 +2024,7 @@ static void pycon_id_looper(bConstraint *con, ConstraintIDFunc func, void *userd
 }
 
 /* Whether this approach is maintained remains to be seen (aligorith) */
-static void pycon_get_tarmat(struct EvaluationContext *eval_ctx, bConstraint *con, bConstraintOb *cob, bConstraintTarget *ct, float UNUSED(ctime))
+static void pycon_get_tarmat(const struct EvaluationContext *eval_ctx, bConstraint *con, bConstraintOb *cob, bConstraintTarget *ct, float UNUSED(ctime))
 {
 #ifdef WITH_PYTHON
 	bPythonConstraint *data = con->data;
@@ -2142,7 +2142,7 @@ static void actcon_flush_tars(bConstraint *con, ListBase *list, bool no_copy)
 	}
 }
 
-static void actcon_get_tarmat(struct EvaluationContext *UNUSED(eval_ctx), bConstraint *con, bConstraintOb *cob, bConstraintTarget *ct, float UNUSED(ctime))
+static void actcon_get_tarmat(const struct EvaluationContext *UNUSED(eval_ctx), bConstraint *con, bConstraintOb *cob, bConstraintTarget *ct, float UNUSED(ctime))
 {
 	bActionConstraint *data = con->data;
 	
@@ -3131,7 +3131,7 @@ static void clampto_flush_tars(bConstraint *con, ListBase *list, bool no_copy)
 	}
 }
 
-static void clampto_get_tarmat(struct EvaluationContext *eval_ctx, bConstraint *UNUSED(con), bConstraintOb *cob, bConstraintTarget *ct, float UNUSED(ctime))
+static void clampto_get_tarmat(const struct EvaluationContext *eval_ctx, bConstraint *UNUSED(con), bConstraintOb *cob, bConstraintTarget *ct, float UNUSED(ctime))
 {
 #ifdef CYCLIC_DEPENDENCY_WORKAROUND
 	if (VALID_CONS_TARGET(ct)) {
@@ -3474,7 +3474,7 @@ static void shrinkwrap_flush_tars(bConstraint *con, ListBase *list, bool no_copy
 }
 
 
-static void shrinkwrap_get_tarmat(struct EvaluationContext *UNUSED(eval_ctx), bConstraint *con, bConstraintOb *cob, bConstraintTarget *ct, float UNUSED(ctime))
+static void shrinkwrap_get_tarmat(const struct EvaluationContext *UNUSED(eval_ctx), bConstraint *con, bConstraintOb *cob, bConstraintTarget *ct, float UNUSED(ctime))
 {
 	bShrinkwrapConstraint *scon = (bShrinkwrapConstraint *) con->data;
 	
@@ -3806,7 +3806,7 @@ static void splineik_flush_tars(bConstraint *con, ListBase *list, bool no_copy)
 	}
 }
 
-static void splineik_get_tarmat(struct EvaluationContext *eval_ctx, bConstraint *UNUSED(con), bConstraintOb *cob, bConstraintTarget *ct, float UNUSED(ctime))
+static void splineik_get_tarmat(const struct EvaluationContext *eval_ctx, bConstraint *UNUSED(con), bConstraintOb *cob, bConstraintTarget *ct, float UNUSED(ctime))
 {
 #ifdef CYCLIC_DEPENDENCY_WORKAROUND
 	if (VALID_CONS_TARGET(ct)) {
@@ -4737,29 +4737,30 @@ static void con_fix_copied_refs_cb(bConstraint *UNUSED(con), ID **idpoin, bool i
 }
 
 /* duplicate all of the constraints in a constraint stack */
-void BKE_constraints_copy(ListBase *dst, const ListBase *src, bool do_extern)
+void BKE_constraints_copy_ex(ListBase *dst, const ListBase *src, const int flag, bool do_extern)
 {
 	bConstraint *con, *srccon;
-	
+
 	BLI_listbase_clear(dst);
 	BLI_duplicatelist(dst, src);
-	
+
 	for (con = dst->first, srccon = src->first; con && srccon; srccon = srccon->next, con = con->next) {
 		const bConstraintTypeInfo *cti = BKE_constraint_typeinfo_get(con);
-		
+
 		/* make a new copy of the constraint's data */
 		con->data = MEM_dupallocN(con->data);
-		
+
 		/* only do specific constraints if required */
 		if (cti) {
 			/* perform custom copying operations if needed */
 			if (cti->copy_data)
 				cti->copy_data(con, srccon);
-				
-			/* fix usercounts for all referenced data in referenced data */
-			if (cti->id_looper)
+
+			/* Fix usercounts for all referenced data that need it. */
+			if (cti->id_looper && (flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
 				cti->id_looper(con, con_fix_copied_refs_cb, NULL);
-			
+			}
+
 			/* for proxies we don't want to make extern */
 			if (do_extern) {
 				/* go over used ID-links for this constraint to ensure that they are valid for proxies */
@@ -4768,6 +4769,11 @@ void BKE_constraints_copy(ListBase *dst, const ListBase *src, bool do_extern)
 			}
 		}
 	}
+}
+
+void BKE_constraints_copy(ListBase *dst, const ListBase *src, bool do_extern)
+{
+	BKE_constraints_copy_ex(dst, src, 0, do_extern);
 }
 
 /* ......... */
@@ -4858,7 +4864,7 @@ bool BKE_constraints_proxylocked_owner(Object *ob, bPoseChannel *pchan)
  * None of the actual calculations of the matrices should be done here! Also, this function is
  * not to be used by any new constraints, particularly any that have multiple targets.
  */
-void BKE_constraint_target_matrix_get(struct EvaluationContext *eval_ctx, Scene *scene, bConstraint *con, int index, short ownertype, void *ownerdata, float mat[4][4], float ctime)
+void BKE_constraint_target_matrix_get(const struct EvaluationContext *eval_ctx, Scene *scene, bConstraint *con, int index, short ownertype, void *ownerdata, float mat[4][4], float ctime)
 {
 	const bConstraintTypeInfo *cti = BKE_constraint_typeinfo_get(con);
 	ListBase targets = {NULL, NULL};
@@ -4925,7 +4931,7 @@ void BKE_constraint_target_matrix_get(struct EvaluationContext *eval_ctx, Scene 
 }
 
 /* Get the list of targets required for solving a constraint */
-void BKE_constraint_targets_for_solving_get(struct EvaluationContext *eval_ctx, bConstraint *con, bConstraintOb *cob, ListBase *targets, float ctime)
+void BKE_constraint_targets_for_solving_get(const struct EvaluationContext *eval_ctx, bConstraint *con, bConstraintOb *cob, ListBase *targets, float ctime)
 {
 	const bConstraintTypeInfo *cti = BKE_constraint_typeinfo_get(con);
 	
@@ -4960,7 +4966,7 @@ void BKE_constraint_targets_for_solving_get(struct EvaluationContext *eval_ctx, 
  * BKE_constraints_make_evalob and BKE_constraints_clear_evalob should be called before and 
  * after running this function, to sort out cob
  */
-void BKE_constraints_solve(struct EvaluationContext *eval_ctx, ListBase *conlist, bConstraintOb *cob, float ctime)
+void BKE_constraints_solve(const struct EvaluationContext *eval_ctx, ListBase *conlist, bConstraintOb *cob, float ctime)
 {
 	bConstraint *con;
 	float oldmat[4][4];

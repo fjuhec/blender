@@ -71,6 +71,10 @@ typedef enum eWM_ManipulatorFlag {
 	WM_MANIPULATOR_DRAW_MODAL  = (1 << 1), /* draw while dragging */
 	WM_MANIPULATOR_DRAW_VALUE  = (1 << 2), /* draw an indicator for the current value while dragging */
 	WM_MANIPULATOR_HIDDEN      = (1 << 3),
+	/**
+	 * When set 'scale_final' value also scales the offset.
+	 * Use when offset is to avoid screen-space overlap instead of absolute positioning. */
+	WM_MANIPULATOR_DRAW_OFFSET_SCALE  = (1 << 4),
 } eWM_ManipulatorFlag;
 
 /**
@@ -160,6 +164,10 @@ struct wmManipulator {
 	 *   besides this it's up to the manipulators internal code how the
 	 *   rotation components are used for drawing and interaction.
 	 */
+
+	/* The space this manipulator is being modified in. */
+	float matrix_space[4][4];
+	/* Transformation of this manipulator. */
 	float matrix_basis[4][4];
 	/* custom offset from origin */
 	float matrix_offset[4][4];
@@ -188,9 +196,6 @@ struct wmManipulator {
 	/* over alloc target_properties after 'wmManipulatorType.struct_size' */
 };
 
-typedef void (*wmManipulatorGroupFnInit)(
-        const struct bContext *, struct wmManipulatorGroup *);
-
 /* Similar to PropertyElemRNA, but has an identifier. */
 typedef struct wmManipulatorProperty {
 	const struct wmManipulatorPropertyType *type;
@@ -206,7 +211,6 @@ typedef struct wmManipulatorProperty {
 		wmManipulatorPropertyFnSet value_set_fn;
 		wmManipulatorPropertyFnRangeGet range_get_fn;
 		wmManipulatorPropertyFnFree free_fn;
-		const struct bContext *context;
 		void *user_data;
 	} custom_func;
 } wmManipulatorProperty;
@@ -269,7 +273,7 @@ typedef struct wmManipulatorType {
 	 * - Scale isn't applied (wmManipulator.scale/user_scale).
 	 * - Offset isn't applied (wmManipulator.matrix_offset).
 	 */
-	wmManipulatorFnMatrixWorldGet matrix_world_get;
+	wmManipulatorFnMatrixWorldGet matrix_basis_get;
 
 	/* activate a manipulator state when the user clicks on it */
 	wmManipulatorFnInvoke invoke;
@@ -368,13 +372,11 @@ typedef struct wmManipulatorGroup {
  * Pass a value of this enum to #WM_manipulatormap_draw to tell it what to draw.
  */
 typedef enum eWM_ManipulatorMapDrawStep {
-	/* Draw 2D manipulator-groups (ManipulatorGroupType.is_3d == false) */
+	/** Draw 2D manipulator-groups (#WM_MANIPULATORGROUPTYPE_3D not set). */
 	WM_MANIPULATORMAP_DRAWSTEP_2D = 0,
-	/* Draw 3D manipulator-groups (ManipulatorGroupType.is_3d == true) */
+	/** Draw 3D manipulator-groups (#WM_MANIPULATORGROUPTYPE_3D set). */
 	WM_MANIPULATORMAP_DRAWSTEP_3D,
-	/* Draw only depth culled manipulators (WM_MANIPULATOR_SCENE_DEPTH flag).
-	 * Note that these are expected to be 3D manipulators too. */
-	WM_MANIPULATORMAP_DRAWSTEP_IN_SCENE,
 } eWM_ManipulatorMapDrawStep;
+#define WM_MANIPULATORMAP_DRAWSTEP_MAX 2
 
 #endif  /* __WM_MANIPULATOR_TYPES_H__ */

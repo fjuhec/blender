@@ -96,6 +96,10 @@ static DerivedMesh *navmesh_dm_createNavMeshForVisualization(DerivedMesh *dm);
 #  define ASSERT_IS_VALID_DM(dm)
 #endif
 
+
+static ThreadMutex loops_cache_lock = BLI_MUTEX_INITIALIZER;
+
+
 static void add_shapekey_layers(DerivedMesh *dm, Mesh *me, Object *ob);
 static void shapekey_layers_to_keyblocks(DerivedMesh *dm, Mesh *me, int actshape_uid);
 
@@ -238,6 +242,23 @@ static int dm_getNumLoopTri(DerivedMesh *dm)
 	return numlooptris;
 }
 
+static const MLoopTri *dm_getLoopTriArray(DerivedMesh *dm)
+{
+	if (dm->looptris.array) {
+		BLI_assert(dm->getNumLoopTri(dm) == dm->looptris.num);
+	}
+	else {
+		BLI_mutex_lock(&loops_cache_lock);
+		/* We need to ensure array is still NULL inside mutex-protected code, some other thread might have already
+		 * recomputed those looptris. */
+		if (dm->looptris.array == NULL) {
+			dm->recalcLoopTri(dm);
+		}
+		BLI_mutex_unlock(&loops_cache_lock);
+	}
+	return dm->looptris.array;
+}
+
 static CustomData *dm_getVertCData(DerivedMesh *dm)
 {
 	return &dm->vertData;
@@ -280,6 +301,8 @@ void DM_init_funcs(DerivedMesh *dm)
 	dm->dupTessFaceArray = dm_dupFaceArray;
 	dm->dupLoopArray = dm_dupLoopArray;
 	dm->dupPolyArray = dm_dupPolyArray;
+
+	dm->getLoopTriArray = dm_getLoopTriArray;
 
 	/* subtypes handle getting actual data */
 	dm->getNumLoopTri = dm_getNumLoopTri;
@@ -498,19 +521,6 @@ void DM_ensure_looptri_data(DerivedMesh *dm)
 		}
 
 		dm->looptris.num = looptris_num;
-	}
-}
-
-/**
- * The purpose of this function is that we can call:
- * `dm->getLoopTriArray(dm)` and get the array returned.
- */
-void DM_ensure_looptri(DerivedMesh *dm)
-{
-	const int numPolys =  dm->getNumPolys(dm);
-
-	if ((dm->looptris.num == 0) && (numPolys != 0)) {
-		dm->recalcLoopTri(dm);
 	}
 }
 
@@ -1126,7 +1136,7 @@ DerivedMesh *mesh_create_derived(Mesh *me, float (*vertCos)[3])
 }
 
 DerivedMesh *mesh_create_derived_for_modifier(
-        struct EvaluationContext *eval_ctx, Scene *scene, Object *ob,
+        const struct EvaluationContext *eval_ctx, Scene *scene, Object *ob,
         ModifierData *md, int build_shapekey_layers)
 {
 	Mesh *me = ob->data;
@@ -1732,7 +1742,7 @@ static void dm_ensure_display_normals(DerivedMesh *dm)
  * - apply deform modifiers and input vertexco
  */
 static void mesh_calc_modifiers(
-        struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, float (*inputVertexCos)[3],
+        const struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, float (*inputVertexCos)[3],
         const bool useRenderParams, int useDeform,
         const bool need_mapping, CustomDataMask dataMask,
         const int index, const bool useCache, const bool build_shapekey_layers,
@@ -2203,7 +2213,6 @@ static void mesh_calc_modifiers(
 		if (dataMask & CD_MASK_MFACE) {
 			DM_ensure_tessface(finaldm);
 		}
-		DM_ensure_looptri(finaldm);
 
 		/* without this, drawing ngon tri's faces will show ugly tessellated face
 		 * normals and will also have to calculate normals on the fly, try avoid
@@ -2288,7 +2297,7 @@ bool editbmesh_modifier_is_enabled(Scene *scene, ModifierData *md, DerivedMesh *
 }
 
 static void editbmesh_calc_modifiers(
-        struct EvaluationContext *eval_ctx, Scene *scene, Object *ob,
+        const struct EvaluationContext *eval_ctx, Scene *scene, Object *ob,
         BMEditMesh *em, CustomDataMask dataMask,
         /* return args */
         DerivedMesh **r_cage, DerivedMesh **r_final)
@@ -2618,7 +2627,7 @@ static bool calc_modifiers_skip_orco(Scene *scene,
 #endif
 
 static void mesh_build_data(
-        struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, CustomDataMask dataMask,
+        const struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, CustomDataMask dataMask,
         const bool build_shapekey_layers, const bool need_mapping)
 {
 	BLI_assert(ob->type == OB_MESH);
@@ -2654,7 +2663,9 @@ static void mesh_build_data(
 	BLI_assert(!(ob->derivedFinal->dirty & DM_DIRTY_NORMALS));
 }
 
-static void editbmesh_build_data(struct EvaluationContext *eval_ctx, Scene *scene, Object *obedit, BMEditMesh *em, CustomDataMask dataMask)
+static void editbmesh_build_data(
+        const struct EvaluationContext *eval_ctx, Scene *scene,
+        Object *obedit, BMEditMesh *em, CustomDataMask dataMask)
 {
 	BKE_object_free_derived_caches(obedit);
 	BKE_object_sculpt_modifiers_changed(obedit);
@@ -2721,7 +2732,7 @@ static CustomDataMask object_get_datamask(const Scene *scene, Object *ob, bool *
 }
 
 void makeDerivedMesh(
-        struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, BMEditMesh *em,
+        const struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, BMEditMesh *em,
         CustomDataMask dataMask, const bool build_shapekey_layers)
 {
 	bool need_mapping;
@@ -2737,7 +2748,8 @@ void makeDerivedMesh(
 
 /***/
 
-DerivedMesh *mesh_get_derived_final(struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, CustomDataMask dataMask)
+DerivedMesh *mesh_get_derived_final(
+        const struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, CustomDataMask dataMask)
 {
 	/* if there's no derived mesh or the last data mask used doesn't include
 	 * the data we need, rebuild the derived mesh
@@ -2756,7 +2768,7 @@ DerivedMesh *mesh_get_derived_final(struct EvaluationContext *eval_ctx, Scene *s
 	return ob->derivedFinal;
 }
 
-DerivedMesh *mesh_get_derived_deform(struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, CustomDataMask dataMask)
+DerivedMesh *mesh_get_derived_deform(const struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, CustomDataMask dataMask)
 {
 	/* if there's no derived mesh or the last data mask used doesn't include
 	 * the data we need, rebuild the derived mesh
@@ -2775,7 +2787,7 @@ DerivedMesh *mesh_get_derived_deform(struct EvaluationContext *eval_ctx, Scene *
 	return ob->derivedDeform;
 }
 
-DerivedMesh *mesh_create_derived_render(struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, CustomDataMask dataMask)
+DerivedMesh *mesh_create_derived_render(const struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, CustomDataMask dataMask)
 {
 	DerivedMesh *final;
 	
@@ -2786,7 +2798,7 @@ DerivedMesh *mesh_create_derived_render(struct EvaluationContext *eval_ctx, Scen
 	return final;
 }
 
-DerivedMesh *mesh_create_derived_index_render(struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, CustomDataMask dataMask, int index)
+DerivedMesh *mesh_create_derived_index_render(const struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, CustomDataMask dataMask, int index)
 {
 	DerivedMesh *final;
 
@@ -2798,7 +2810,7 @@ DerivedMesh *mesh_create_derived_index_render(struct EvaluationContext *eval_ctx
 }
 
 DerivedMesh *mesh_create_derived_view(
-        struct EvaluationContext *eval_ctx, Scene *scene,
+        const struct EvaluationContext *eval_ctx, Scene *scene,
         Object *ob, CustomDataMask dataMask)
 {
 	DerivedMesh *final;
@@ -2819,7 +2831,7 @@ DerivedMesh *mesh_create_derived_view(
 }
 
 DerivedMesh *mesh_create_derived_no_deform(
-        struct EvaluationContext *eval_ctx, Scene *scene, Object *ob,
+        const struct EvaluationContext *eval_ctx, Scene *scene, Object *ob,
         float (*vertCos)[3], CustomDataMask dataMask)
 {
 	DerivedMesh *final;
@@ -2832,7 +2844,7 @@ DerivedMesh *mesh_create_derived_no_deform(
 }
 
 DerivedMesh *mesh_create_derived_no_virtual(
-        struct EvaluationContext *eval_ctx, Scene *scene, Object *ob,
+        const struct EvaluationContext *eval_ctx, Scene *scene, Object *ob,
         float (*vertCos)[3], CustomDataMask dataMask)
 {
 	DerivedMesh *final;
@@ -2845,7 +2857,7 @@ DerivedMesh *mesh_create_derived_no_virtual(
 }
 
 DerivedMesh *mesh_create_derived_physics(
-        struct EvaluationContext *eval_ctx, Scene *scene, Object *ob,
+        const struct EvaluationContext *eval_ctx, Scene *scene, Object *ob,
         float (*vertCos)[3], CustomDataMask dataMask)
 {
 	DerivedMesh *final;
@@ -2858,7 +2870,7 @@ DerivedMesh *mesh_create_derived_physics(
 }
 
 DerivedMesh *mesh_create_derived_no_deform_render(
-        struct EvaluationContext *eval_ctx, Scene *scene,
+        const struct EvaluationContext *eval_ctx, Scene *scene,
         Object *ob, float (*vertCos)[3],
         CustomDataMask dataMask)
 {
@@ -2874,7 +2886,7 @@ DerivedMesh *mesh_create_derived_no_deform_render(
 /***/
 
 DerivedMesh *editbmesh_get_derived_cage_and_final(
-        struct EvaluationContext *eval_ctx, Scene *scene, Object *obedit, BMEditMesh *em,
+        const struct EvaluationContext *eval_ctx, Scene *scene, Object *obedit, BMEditMesh *em,
         CustomDataMask dataMask,
         /* return args */
         DerivedMesh **r_final)
@@ -2895,7 +2907,9 @@ DerivedMesh *editbmesh_get_derived_cage_and_final(
 	return em->derivedCage;
 }
 
-DerivedMesh *editbmesh_get_derived_cage(struct EvaluationContext *eval_ctx, Scene *scene, Object *obedit, BMEditMesh *em, CustomDataMask dataMask)
+DerivedMesh *editbmesh_get_derived_cage(
+        const struct EvaluationContext *eval_ctx, Scene *scene, Object *obedit, BMEditMesh *em,
+        CustomDataMask dataMask)
 {
 	/* if there's no derived mesh or the last data mask used doesn't include
 	 * the data we need, rebuild the derived mesh
@@ -3950,36 +3964,4 @@ MFace *DM_get_tessface_array(DerivedMesh *dm, bool *r_allocated)
 	}
 
 	return mface;
-}
-
-const MLoopTri *DM_get_looptri_array(
-        DerivedMesh *dm,
-        const MVert *mvert,
-        const MPoly *mpoly, int mpoly_len,
-        const MLoop *mloop, int mloop_len,
-        bool *r_allocated)
-{
-	const MLoopTri *looptri = dm->getLoopTriArray(dm);
-	*r_allocated = false;
-
-	if (looptri == NULL) {
-		if (mpoly_len > 0) {
-			const int looptris_num = poly_to_tri_count(mpoly_len, mloop_len);
-			MLoopTri *looptri_data;
-
-			looptri_data = MEM_mallocN(sizeof(MLoopTri) * looptris_num, __func__);
-
-			BKE_mesh_recalc_looptri(
-			        mloop, mpoly,
-			        mvert,
-			        mloop_len, mpoly_len,
-			        looptri_data);
-
-			looptri = looptri_data;
-
-			*r_allocated = true;
-		}
-	}
-
-	return looptri;
 }

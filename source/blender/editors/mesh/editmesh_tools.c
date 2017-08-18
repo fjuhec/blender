@@ -317,7 +317,7 @@ void EMBM_project_snap_verts(bContext *C, ARegion *ar, BMEditMesh *em)
 			float mval[2], co_proj[3];
 			if (ED_view3d_project_float_object(ar, eve->co, mval, V3D_PROJ_TEST_NOP) == V3D_PROJ_RET_OK) {
 				if (ED_transform_snap_object_project_view3d_mixed(
-				        C, snap_context,
+				        snap_context,
 				        SCE_SELECT_FACE,
 				        &(const struct SnapObjectParams){
 				            .snap_select = SNAP_NOT_ACTIVE,
@@ -5063,7 +5063,7 @@ static void sort_bmelem_flag(Scene *scene, Object *ob,
 	}
 
 	BM_mesh_remap(em->bm, map[0], map[1], map[2]);
-/*	DAG_id_tag_update(ob->data, 0);*/
+/*	DEG_id_tag_update(ob->data, 0);*/
 
 	for (j = 3; j--; ) {
 		if (map[j])
