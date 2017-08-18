@@ -36,6 +36,7 @@
 
 #include "BLI_utildefines.h"
 
+#include "BKE_context.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_gpencil.h"
 #include "BKE_lattice.h"
@@ -44,6 +45,8 @@
 #include "MEM_guardedalloc.h"
 
 #include "MOD_modifiertypes.h"
+
+#include "DEG_depsgraph.h"
 
 static void initData(ModifierData *md)
 {
@@ -71,9 +74,11 @@ static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationConte
 	ModifierApplyFlag UNUSED(flag))
 {
 	GpencilLatticeModifierData *mmd = (GpencilLatticeModifierData *)md;
-	LatticeDeformData *ldata = (LatticeDeformData *)mmd->cache_data;
+	LatticeDeformData *ldata = NULL;
+	Scene *scene = CTX_data_scene(mmd->C);
 	bGPdata *gpd;
 	Object *latob = NULL;
+	int oldframe = CFRA;
 
 	if ((!ob) || (!ob->gpd)) {
 		return NULL;
@@ -87,16 +92,23 @@ static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationConte
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+				CFRA = gpf->framenum;
+				DEG_id_tag_update(&latob->id, OB_RECALC_ALL);
+				/* recalculate lattice data */
+				BKE_gpencil_lattice_init(ob);
+
 				BKE_gpencil_lattice_modifier(-1, (GpencilLatticeModifierData *)md, ob, gpl, gps);
 			}
 		}
 	}
 
+	ldata = (LatticeDeformData *)mmd->cache_data;
 	if (ldata) {
 		end_latt_deform(ldata);
 		mmd->cache_data = NULL;
 	}
 
+	CFRA = oldframe;
 	return NULL;
 }
 
