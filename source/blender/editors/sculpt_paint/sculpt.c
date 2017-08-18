@@ -133,10 +133,10 @@
 #define SIL_FILLET_BLUR_MAX 0.3f
 #define SIL_FILLET_BLUR_MIN 0.001f
 #define SIL_FILLET_INTERSECTION_EPSILON 0.00001f
-#define SIL_TRIANGULATION_FACT 0.3 /* 1 = position dependent 0 = order dependent */
+#define SIL_TRIANGULATION_FACT 0.7f /* 1 = position dependent 0 = order dependent */
 /*#define USE_WATERTIGHT*/
 
-//#define DEBUG_DRAW
+#define DEBUG_DRAW
 #ifdef DEBUG_DRAW
 /* static void bl_debug_draw(void);*/
 /* add these locally when using these functions for testing */
@@ -289,6 +289,7 @@ typedef struct SilhouetteData {
 	int *v_to_rm;
 	int num_v_to_rm;
 	BB *fillet_ring_bbs;			/* every ring gets a Bounding box to check intersection with branches */
+	BB *fillet_ring_bbs_new;
 	IntersectionData *isect_chunk;
 	int num_isect_data;
 	int isect_chunk_tot;
@@ -5186,6 +5187,24 @@ static void SCULPT_OT_set_persistent_base(wmOperatorType *ot)
 
 /* TODO: import BB functions */
 /* Expand the bounding box to include a new coordinate */
+static float BB_c_dist_bb(BB *bb1, BB *bb2)
+{
+	float v1[3], v2[3];
+
+	add_v3_v3v3(v1, bb1->bmin, bb1->bmax);
+	mul_v3_fl(v1, 0.5f);
+	add_v3_v3v3(v2, bb2->bmin, bb2->bmax);
+	mul_v3_fl(v2, 0.5f);
+	sub_v3_v3(v2, v1);
+
+	return len_v3(v2);
+}
+
+static float BB_get_volume(BB *bb)
+{
+	return (bb->bmax[0] - bb->bmin[0]) * (bb->bmax[1] - bb->bmin[1]) * (bb->bmax[2] - bb->bmin[2]);
+}
+
 static void BB_expand(BB *bb, const float co[3])
 {
 	for (int i = 0; i < 3; ++i) {
@@ -7595,6 +7614,9 @@ static void combine_intersection_data(Mesh *me, SilhouetteData *sil)
 
 	int *edge_ring_fillet = NULL;
 	int *ring_start = NULL;
+	BB *new_bbs = NULL;
+	BB a_bb;
+	BLI_array_declare(new_bbs);
 	BLI_array_declare(edge_ring_fillet);
 	BLI_array_declare(ring_start);
 
@@ -7627,8 +7649,11 @@ static void combine_intersection_data(Mesh *me, SilhouetteData *sil)
 				BLI_array_append(ring_start, BLI_array_count(edge_ring_fillet));
 				curr_edge = start_edge;
 				last_edge = -1;
+				BB_reset(&a_bb);
 				while(!(curr_edge == start_edge && last_edge != -1) && curr_edge != -1 && breaker > 0) {
 					BLI_array_append(edge_ring_fillet, curr_edge);
+					BB_expand(&a_bb, me->mvert[me->medge[curr_edge].v1].co);
+					BB_expand(&a_bb, me->mvert[me->medge[curr_edge].v2].co);
 					if(last_edge == -1) {
 						comp_v = me->medge[start_edge].v1;
 					} else {
@@ -7644,6 +7669,7 @@ static void combine_intersection_data(Mesh *me, SilhouetteData *sil)
 					curr_edge = tmp_curr_edge;
 					breaker --;
 				}
+				BLI_array_append(new_bbs, a_bb);
 				printf("Found a cut loop!\n");
 				BLI_assert(breaker > 0);
 				/* TODO: Bug shouldn't reach but does on some occasion.*/
@@ -7681,6 +7707,9 @@ static void combine_intersection_data(Mesh *me, SilhouetteData *sil)
 	sil->fillet_ring_new_start = MEM_callocN(sizeof(int) * BLI_array_count(ring_start), "new edgering starts");
 	memcpy(sil->fillet_ring_new_start, ring_start, sizeof(int) * BLI_array_count(ring_start));
 
+	sil->fillet_ring_bbs_new = MEM_callocN(sizeof(BB) * BLI_array_count(ring_start), "new ring bounding box");
+	memcpy(sil->fillet_ring_bbs_new, new_bbs, sizeof(BB) * BLI_array_count(ring_start));
+
 	sil->num_rings_new = BLI_array_count(ring_start);
 	sil->fillet_ring_tot_new = BLI_array_count(edge_ring_fillet);
 
@@ -7702,6 +7731,7 @@ static void combine_intersection_data(Mesh *me, SilhouetteData *sil)
 	}*/
 #endif
 
+	BLI_array_free(new_bbs);
 	BLI_array_free(ring_start);
 	BLI_array_free(edge_ring_fillet);
 
@@ -7717,12 +7747,17 @@ static void combine_intersection_data(Mesh *me, SilhouetteData *sil)
 	MEM_freeN(emap_mem);
 }
 
-static float orient_falloff(int pa, int pb, float o_off, float *dist_a, float *dist_b, float tot_dist_a, float tot_dist_b) {
+static float orient_falloff(int pa, int pb, float o_off, bool invert, float *dist_a, float *dist_b, float tot_dist_a, float tot_dist_b) {
 	float val;
 	float p1, p2;
 
 	p1 = (dist_a[pa] / tot_dist_a);
-	p2 = fmod((dist_b[pb] / tot_dist_b) + o_off, 1.0f);
+
+	if (invert) {
+		p2 = fmod(2.0f - (dist_b[pb] / tot_dist_b) + o_off, 1.0f);
+	} else {
+		p2 = fmod((dist_b[pb] / tot_dist_b) + o_off, 1.0f);
+	}
 
 	val = fabs(p2 - p1);
 	val = val > 0.5f ? (1.0f - val) * 2.0f : val * 2.0f;
@@ -7739,7 +7774,7 @@ static void find_triangulation_rec(Mesh *me, int *map,
 								   int pbs, int pbe,
 								   int *a_verts, int *b_verts,
 								   int a_size, int b_size,
-								   float orient_off,
+								   float orient_off, bool invert,
 								   float *dist_a, float *dist_b,
 								   float tot_dist_a, float tot_dist_b)
 {
@@ -7762,14 +7797,19 @@ static void find_triangulation_rec(Mesh *me, int *map,
 			pbs2 = pbs;
 			do {
 				sub_v3_v3v3(v1, me->mvert[a_verts[pas2]].co, me->mvert[b_verts[pbs2]].co);
-				d = len_v3(v1) * orient_falloff(pas2, pbs2, orient_off, dist_a, dist_b, tot_dist_a, tot_dist_b);
+				d = len_v3(v1) * orient_falloff(pas2, pbs2, orient_off, invert, dist_a, dist_b, tot_dist_a, tot_dist_b);
 				if (d < min_d) {
 					min_d = d;
 					min_b = pbs2;
 					min_a = pas2;
 				}
-				pbs2 = (pbs2 + 1) % b_size;
-			} while (pbs2 != (pbe + 1) % b_size);
+				if (invert) {
+					pbs2 = (pbs2 + b_size - 1) % b_size;
+				} else {
+					pbs2 = (pbs2 + 1) % b_size;
+				}
+			} while ((!invert && pbs2 != (pbe + 1) % b_size) ||
+					 (invert && pbs2 != (pbe + b_size - 1) % b_size));
 			pas2 = (pas2 + 1) % a_size;
 		}
 		map[min_a] = min_b;
@@ -7779,7 +7819,7 @@ static void find_triangulation_rec(Mesh *me, int *map,
 								   pbs, min_b,
 								   a_verts, b_verts,
 								   a_size, b_size,
-								   orient_off,
+								   orient_off, invert,
 								   dist_a, dist_b,
 								   tot_dist_a, tot_dist_b);
 		}
@@ -7789,7 +7829,7 @@ static void find_triangulation_rec(Mesh *me, int *map,
 								   min_b, pbe,
 								   a_verts, b_verts,
 								   a_size, b_size,
-								   orient_off,
+								   orient_off, invert,
 								   dist_a, dist_b,
 								   tot_dist_a, tot_dist_b);
 		}
@@ -7826,9 +7866,11 @@ static int *find_triangulation(Mesh *me, int *a_verts, int *b_verts, int a_size,
 	int *map;
 	float d = FLT_MAX, d2;
 	float v1[3];
+	float n1[3], n2[3];
 	int pas, pbs;
 	float o_off;
 	int s_pos;
+	bool invert;
 
 	map = MEM_callocN(sizeof(int) * a_size, "triangulation map");
 
@@ -7843,30 +7885,45 @@ static int *find_triangulation(Mesh *me, int *a_verts, int *b_verts, int a_size,
 			}
 		}
 	}
+
+	sub_v3_v3v3(n1, me->mvert[a_verts[(pas + (int)fmin(b_size, 3)) % a_size]].co, me->mvert[a_verts[pas]].co);
+	sub_v3_v3v3(n2, me->mvert[b_verts[(pbs + (int)fmin(b_size, 3)) % b_size]].co, me->mvert[b_verts[pbs]].co);
+
+	invert = dot_v3v3(n1, n2) < 0;
+
 #ifdef DEBUG_DRAW
 	bl_debug_color_set(0x0099ff);
 	bl_debug_draw_edge_add(me->mvert[a_verts[pas]].co, me->mvert[b_verts[pbs]].co);
 	bl_debug_color_set(0x000000);
 #endif
 
+	if (invert) {
+		o_off = 1.0f + (dist_a[pas] / tot_dist_a) - (1.0f - (dist_b[pbs] / tot_dist_b));
+		*o_off_out = -o_off;
+	} else {
+		o_off = 1.0f + (dist_a[pas] / tot_dist_a) - (dist_b[pbs] / tot_dist_b);
+		*o_off_out = o_off;
+	}
+	map[(pas + 1) % a_size] = pbs;
 	map[pas] = pbs;
-	o_off = 1.0f + (dist_a[pas] / tot_dist_a) - (dist_b[pbs] / tot_dist_b);
-	*o_off_out = o_off;
 	find_triangulation_rec(me, map,
 						   (pas + 1) % a_size, pas,
-						   (pbs + 1) % b_size, pbs,
+						   (invert ? (pbs + b_size - 1) % b_size : (pbs + 1) % b_size), pbs,
 						   a_verts, b_verts,
 						   a_size, b_size,
-						   o_off,
+						   o_off, (dot_v3v3(n1, n2) < 0),
 						   dist_a, dist_b,
 						   tot_dist_a, tot_dist_b);
 
 	s_pos = 0;
+
 	int active_block_start;
 	int active_block;
 	int active_block_count;
 	int active_block_mvp;
+	float start_i, end_i;
 	int t_i;
+	float f;
 	while (s_pos < a_size) {
 		if (map[s_pos] != map[(s_pos + 1) % a_size] && map[(s_pos + 1) % a_size] == map[(s_pos + 2) % a_size]) {
 			active_block_start = (s_pos + 1) % a_size;
@@ -7877,7 +7934,26 @@ static int *find_triangulation(Mesh *me, int *a_verts, int *b_verts, int a_size,
 				if (map[t_i] == active_block) {
 					active_block_count ++;
 					t_i = (t_i + 1) % a_size;
+				} else if (map[t_i] == map[(t_i + 1) % a_size]){
+					active_block = map[t_i];
+					active_block_count ++;
+					t_i = (t_i + 1) % a_size;
 				} else {
+					start_i = map[(active_block_start + a_size - 1) % a_size];
+					end_i = map[(active_block_start + active_block_count) % a_size];
+					if (invert) {
+						if (start_i < end_i) {
+							start_i += b_size;
+						}
+					} else {
+						if (start_i > end_i) {
+							end_i += b_size;
+						}
+					}
+					for (int i = 0; i < active_block_count; i++) {
+						f = (float)i / (float)active_block_count;
+						map[(active_block_start + i) % a_size] = (int)lroundf(end_i * f + start_i * (1.0f - f)) % b_size;
+					}
 					break;
 				}
 			}
@@ -7894,6 +7970,53 @@ static int *find_triangulation(Mesh *me, int *a_verts, int *b_verts, int a_size,
 	return map;
 }
 
+static int find_complement_ring(SilhouetteData *sil, int r)
+{
+	float min_vol_d = FLT_MAX, min_d = FLT_MAX;
+	float avrg_vol = 0, avrg_d = 0;
+	int min_vol_r, min_d_r;
+	int tot = sil->num_rings;
+	float r_vol;
+	float c_vol_d, c_d;
+	BB *b1, *b2;
+
+	min_vol_r = r;
+	min_d_r = r;
+
+	b1 = &sil->fillet_ring_bbs[r];
+	r_vol = BB_get_volume(b1);
+
+	for (int i = 0; i < tot; i++) {
+		if (i != r) {
+			b2 = &sil->fillet_ring_bbs_new[i];
+			c_d = BB_c_dist_bb(b1,b2);
+			c_vol_d = fabs(BB_get_volume(b2) - r_vol);
+
+			if (min_vol_d > c_vol_d) {
+				min_vol_d = c_vol_d;
+				min_vol_r = i;
+			}
+
+			avrg_vol += c_vol_d / tot;
+
+			if (min_d > c_d) {
+				min_d = c_d;
+				min_d_r = i;
+			}
+
+			avrg_d += c_d / tot;
+		}
+	}
+
+	if (min_vol_r == min_d_r) {
+		return min_vol_r;
+	} else if ((min_vol_d / avrg_vol) > (min_d / avrg_d)){
+		return min_d_r;
+	} else {
+		return min_vol_r;
+	}
+}
+
 static void generate_fillet_topology(Mesh *me, SilhouetteData *sil)
 {
 	int r_start, r_size;
@@ -7906,34 +8029,33 @@ static void generate_fillet_topology(Mesh *me, SilhouetteData *sil)
 	int *a_verts, *b_verts;
 	MEdge ce1, ce2;
 	int a_start_v, b_start_v;
-	int cv;
 	float *dist_a, *dist_b;
-	void *t_swap;
 	float tot_dist_a, tot_dist_b;
+	int r2;
 
 	/*Generate the fillets from the edgerings and the exact intersection points.*/
 	if (sil->num_rings == sil->num_rings_new) {
 
 		/* Allocate a mempool to store the distances along the rings
 		 * could be reallocated for every ring but once bigger should be faster. */
-		dist_a = MEM_callocN(sizeof(float) * sil->fillet_ring_tot, "distances orig");
-		dist_b = MEM_callocN(sizeof(float) * sil->fillet_ring_tot_new, "distances new");
+		dist_a = MEM_callocN(sizeof(float) * (int)fmax(sil->fillet_ring_tot,sil->fillet_ring_tot_new), "distances orig");
+		dist_b = MEM_callocN(sizeof(float) * (int)fmin(sil->fillet_ring_tot,sil->fillet_ring_tot_new), "distances new");
 
 		/* TODO: check if ring order is implied and aligned between new and orig*/
 		for (int r = 0; r < sil->num_rings; r++) {
 			r_orig_start = sil->fillet_ring_orig_start[r];
 			r_orig_size = r + 1 < sil->num_rings ? sil->fillet_ring_orig_start[r + 1] - r_orig_start : sil->fillet_ring_tot - r_orig_start;
-			r_new_start = sil->fillet_ring_new_start[r];
-			r_new_size = r + 1 < sil->num_rings ? sil->fillet_ring_new_start[r + 1] - r_new_start : sil->fillet_ring_tot_new - r_new_start;
+
+			r2 = find_complement_ring(sil, r);
+
+			r_new_start = sil->fillet_ring_new_start[r2];
+			r_new_size = r2 + 1 < sil->num_rings ? sil->fillet_ring_new_start[r2 + 1] - r_new_start : sil->fillet_ring_tot_new - r_new_start;
 
 			if (r_new_size > r_orig_size) {
 				a_data = &sil->fillet_ring_new[r_new_start];
 				b_data = &sil->fillet_ring_orig[r_orig_start];
 				a_size = r_new_size;
 				b_size = r_orig_size;
-				t_swap = dist_a;
-				dist_a = dist_b;
-				dist_b = t_swap;
 			} else {
 				a_data = &sil->fillet_ring_orig[r_orig_start];
 				b_data = &sil->fillet_ring_new[r_new_start];
@@ -8002,7 +8124,12 @@ static void generate_fillet_topology(Mesh *me, SilhouetteData *sil)
 				bl_debug_color_set(0x000000);
 			}
 			for (int i = 0; i < b_size; i++) {
-				float fact = fmod((dist_b[i] / tot_dist_b) + o_off,1.0f);
+				float fact;
+				if (o_off >= 0) {
+					fact = fmod((dist_b[i] / tot_dist_b) + o_off,1.0f);
+				} else {
+					fact = fmod(2.0f - (dist_b[i] / tot_dist_b) - o_off,1.0f);
+				}
 				bl_debug_color_set((int)((0x0000ff) * fact));
 				bl_debug_draw_medge_add(me, b_data[i]);
 				bl_debug_color_set(0x000000);
