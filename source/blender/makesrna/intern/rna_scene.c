@@ -2959,6 +2959,11 @@ static void rna_def_tool_settings(BlenderRNA  *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "edge_mode_live_unwrap", 1);
 	RNA_def_property_ui_text(prop, "Live Unwrap", "Changing edges seam re-calculates UV unwrap");
 
+	prop = RNA_def_property(srna, "normal_vector", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "normal_vector");
+	RNA_def_property_ui_text(prop, "Normal Vector", "Normal Vector used to copy, add or multiply");
+	RNA_def_property_ui_range(prop, -10000.0, 10000.0, 1, 3);
+
 	/* etch-a-ton */
 	prop = RNA_def_property(srna, "use_bone_sketching", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "bone_sketching", BONE_SKETCHING);

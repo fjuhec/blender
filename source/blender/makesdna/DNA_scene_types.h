@@ -1603,6 +1603,10 @@ typedef struct ToolSettings {
 	struct CurvePaintSettings curve_paint_settings;
 
 	struct MeshStatVis statvis;
+
+	/* Normal Editing */
+	float normal_vector[3];
+	char pad[4];
 } ToolSettings;
 
 /* *************************************************************** */

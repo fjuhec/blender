@@ -6006,16 +6006,39 @@ static void apply_point_normals(bContext *C, wmOperator *op, const wmEvent *even
 	LoopNormalData *ld = op->customdata;
 	TransDataLoopNormal *tld = ld->normal;
 
-	const bool point_away = RNA_boolean_get(op->ptr, "point_away");
+	const bool point_away = RNA_boolean_get(op->ptr, "point_away"), spherize = RNA_boolean_get(op->ptr, "spherize");
+	float zero[3] = { 0 };
+
+	PropertyRNA *prop = RNA_struct_find_property(op->ptr, "strength");
+	if (spherize) {
+		RNA_def_property_clear_flag(prop, PROP_HIDDEN);
+	}
+	else {
+		RNA_def_property_flag(prop, PROP_HIDDEN);
+	}
 
 	for (int i = 0; i < ld->totloop; i++, tld++) {
-		sub_v3_v3v3(tld->nloc, target, tld->loc);
-		normalize_v3(tld->nloc);
+
+		if (spherize) {
+			float strength = RNA_float_get(op->ptr, "strength");
+			float spherized_normal[3] = { 0 };
+
+			sub_v3_v3v3(spherized_normal, target, tld->loc);
+			sub_v3_v3(spherized_normal, obedit->loc);
+			mul_v3_fl(spherized_normal, strength);
+			mul_v3_fl(tld->nloc, 1.0f - strength);
+			sub_v3_v3(tld->nloc, spherized_normal);
+		}
+		else {
+			sub_v3_v3v3(tld->nloc, target, tld->loc);
+			sub_v3_v3(tld->nloc, obedit->loc);
+		}
 
 		if (point_away) {
 			negate_v3(tld->nloc);
 		}
-		if (tld->loop_index != -1 && !is_zero_v3(tld->nloc)) {
+		if (tld->loop_index != -1 && !compare_v3v3(tld->nloc, zero, 1e-4f)) {
+			normalize_v3(tld->nloc);
 			BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], tld->nloc, tld->clnors_data);
 		}
 	}
@@ -6053,16 +6076,13 @@ static int point_normals_mouse(bContext *C, wmOperator *op, const wmEvent *event
 	BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
 		if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
 			add_v3_v3(center, v->co);
+			add_v3_v3(center, obedit->loc);
 			i++;
 		}
 	}
 	mul_v3_fl(center, 1.0f / (float)i);
 
 	ED_view3d_win_to_3d_int(v3d, ar, center, event->mval, target);
-	sub_v3_v3(target, obedit->loc);
-
-	PropertyRNA *prop = RNA_struct_find_property(op->ptr, "align");
-	RNA_def_property_clear_flag(prop, PROP_HIDDEN);
 
 	const bool align = RNA_boolean_get(op->ptr, "align");
 
@@ -6115,7 +6135,6 @@ static int edbm_point_normals_modal(bContext *C, wmOperator *op, const wmEvent *
 		if (event->type == LEFTMOUSE) {
 			ED_view3d_cursor3d_update(C, event->mval);
 			copy_v3_v3(target, ED_view3d_cursor3d_get(scene, v3d));
-			sub_v3_v3(target, obedit->loc);
 			RNA_property_float_set_array(op->ptr, prop, target);
 
 			handled = true;
@@ -6129,6 +6148,7 @@ static int edbm_point_normals_modal(bContext *C, wmOperator *op, const wmEvent *
 				return OPERATOR_CANCELLED;
 			}
 			ED_object_editmode_calc_active_center(obedit, false, target);
+			add_v3_v3(target, obedit->loc);
 			RNA_property_float_set_array(op->ptr, prop, target);
 			handled = true;
 		}
@@ -6152,6 +6172,7 @@ static int edbm_point_normals_modal(bContext *C, wmOperator *op, const wmEvent *
 					}
 				}
 				mid_v3_v3v3(target, min, max);
+				add_v3_v3(target, obedit->loc);
 				RNA_property_float_set_array(op->ptr, prop, target);
 			}
 			break;
@@ -6162,6 +6183,7 @@ static int edbm_point_normals_modal(bContext *C, wmOperator *op, const wmEvent *
 				BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
 					if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
 						add_v3_v3(target, v->co);
+						add_v3_v3(target, obedit->loc);
 						i++;
 					}
 				}
@@ -6171,14 +6193,15 @@ static int edbm_point_normals_modal(bContext *C, wmOperator *op, const wmEvent *
 
 			case V3D_AROUND_CURSOR:
 				copy_v3_v3(target, ED_view3d_cursor3d_get(scene, v3d));
-				sub_v3_v3(target, obedit->loc);
 				RNA_property_float_set_array(op->ptr, prop, target);
 				break;
 
 			case V3D_AROUND_ACTIVE:
 				if (!ED_object_editmode_calc_active_center(obedit, false, target)) {
+					point_normals_free(C, op, false);
 					return OPERATOR_CANCELLED;
 				}
+				add_v3_v3(target, obedit->loc);
 				RNA_property_float_set_array(op->ptr, prop, target);
 				break;
 
@@ -6226,7 +6249,6 @@ static int edbm_point_normals_modal(bContext *C, wmOperator *op, const wmEvent *
 		else if (ISKEYBOARD(event->type) && event->type != RIGHTALTKEY) {
 			prop = RNA_struct_find_property(op->ptr, "align");
 			RNA_property_boolean_set(op->ptr, prop, false);
-			RNA_def_property_flag(prop, PROP_HIDDEN);
 
 			point_normals_free(C, op, false);
 			return OPERATOR_CANCELLED;
@@ -6236,7 +6258,6 @@ static int edbm_point_normals_modal(bContext *C, wmOperator *op, const wmEvent *
 	if (handled || event->type == RIGHTMOUSE) {
 		prop = RNA_struct_find_property(op->ptr, "align");
 		RNA_property_boolean_set(op->ptr, prop, false);
-		RNA_def_property_flag(prop, PROP_HIDDEN);
 	}
 
 	if (handled) {
@@ -6294,8 +6315,18 @@ static int edbm_point_normals_exec(bContext *C, wmOperator *op)
 		LoopNormalData *ld = op->customdata;
 		TransDataLoopNormal *t = ld->normal;
 		int i = 0;
+		BMVert *v;
+		BMIter viter;
 
-		copy_v3_v3(center, obedit->loc);
+		zero_v3(center);
+		BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
+			if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
+				add_v3_v3(center, v->co);
+				i++;
+			}
+		}
+		mul_v3_fl(center, 1.0f / (float)i);
+
 		for (i = 0; i < ld->totloop; i++, t++) {
 			t->loc = center;
 		}
@@ -6311,31 +6342,6 @@ static int edbm_point_normals_exec(bContext *C, wmOperator *op)
 	return OPERATOR_FINISHED;
 }
 
-static void edbm_point_normals_ui(bContext *UNUSED(C), wmOperator *op)
-{
-	uiLayout *layout = op->layout, *row, *col;
-	PointerRNA ptr;
-
-	const bool align = RNA_boolean_get(op->ptr, "align");
-
-	RNA_pointer_create(NULL, op->type->srna, op->properties, &ptr);
-
-	uiItemR(layout, &ptr, "point_away", 0, NULL, ICON_NONE);
-
-	uiItemR(layout, &ptr, "align", 0, NULL, ICON_NONE);
-	row = uiLayoutRow(layout, false);
-
-	if (align) {
-		col = uiLayoutColumn(row, false);
-		uiItemR(col, &ptr, "target_location", UI_ITEM_R_EXPAND, "", ICON_NONE);
-		uiItemR(row, &ptr, "target_location", 0, "", ICON_NONE);
-	}
-	else {
-		col = uiLayoutColumn(layout, false);
-		uiItemR(col, &ptr, "target_location", UI_ITEM_R_EXPAND, "", ICON_NONE);
-	}
-}
-
 void MESH_OT_point_normals(struct wmOperatorType *ot)
 {
 	/* identifiers */
@@ -6347,23 +6353,24 @@ void MESH_OT_point_normals(struct wmOperatorType *ot)
 	ot->exec = edbm_point_normals_exec;
 	ot->invoke = edbm_point_normals_invoke;
 	ot->modal = edbm_point_normals_modal;
-	ot->ui = edbm_point_normals_ui;
 	ot->poll = ED_operator_editmesh_auto_smooth;
 
 	/* flags */
 	ot->flag = OPTYPE_BLOCKING | OPTYPE_REGISTER | OPTYPE_UNDO;
 
 	ot->prop = RNA_def_boolean(ot->srna, "point_away", false, "Point Away", "Point Away from target");
+	
+	ot->prop = RNA_def_boolean(ot->srna, "align", false, "Align", "Align normal with mouse location");
 
 	PropertyRNA *prop;
 
-	prop = RNA_def_boolean(ot->srna, "align", false, "Align", "Align normal with mouse location");
-	RNA_def_property_flag(prop, PROP_HIDDEN);
-
-	prop = RNA_def_property(ot->srna, "target_location", PROP_FLOAT, PROP_DIRECTION);
+	prop = RNA_def_property(ot->srna, "target_location", PROP_FLOAT, PROP_XYZ);
 	RNA_def_property_array(prop, 3);
-	RNA_def_property_flag(prop, PROP_ANIMATABLE);
 	RNA_def_property_ui_text(prop, "Target", "Target location where normals will point");
+
+	prop = RNA_def_boolean(ot->srna, "spherize", false, "Spherize Normal", "Add normal vector of target to custom normal with given proportion");
+
+	prop = RNA_def_float(ot->srna, "strength", 0.1, 0.0f, 1.0f, "Strength", "Ratio of spherized normal to original normal", 0.0f, 1.0f);
 }
 
 /********************** Split/Merge Loop Normals **********************/
@@ -6429,19 +6436,17 @@ static bool split_loop(bContext *C, wmOperator *op, LoopNormalData *ld)
 	BMIter fiter, liter;
 
 	TransDataLoopNormal *tld = ld->normal;
-	void **loops;
-
-	loops = MEM_mallocN(sizeof(void *) * bm->totloop, "__func__");		/* temp loop index table */
+	BMLoop **loop_at_index = MEM_mallocN(sizeof(void *) * bm->totloop, "__func__");		/* temp loop index table */
 	BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
 		BM_ITER_ELEM(l, &liter, f, BM_LOOPS_OF_FACE) {
-			loops[BM_elem_index_get(l)] = l;
+			loop_at_index[BM_elem_index_get(l)] = l;
 		}
 	}
 	for (int i = 0; i < ld->totloop; i++, tld++) {
-		BMLoop *loop_at_index = loops[tld->loop_index];
-		BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], loop_at_index->f->no, tld->clnors_data);
+		BMLoop *l_curr = loop_at_index[tld->loop_index];
+		BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], l_curr->f->no, tld->clnors_data);
 	}
-	MEM_freeN(loops);
+	MEM_freeN(loop_at_index);
 
 	return true;
 }
@@ -6559,7 +6564,7 @@ static int edbm_average_loop_normals_exec(bContext *C, wmOperator *op)
 	const int average_type = RNA_enum_get(op->ptr, "average_type");
 	int cd_clnors_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
 	float absweight = (float) RNA_int_get(op->ptr, "weight"), threshold = RNA_float_get(op->ptr, "threshold");
-	const bool boolean_weights = RNA_boolean_get(op->ptr, "binary_weights");
+	const bool binary_weights = RNA_boolean_get(op->ptr, "binary_weights");
 	float weight = absweight / 10.0f;
 
 	if (absweight == 20) {
@@ -6571,7 +6576,6 @@ static int edbm_average_loop_normals_exec(bContext *C, wmOperator *op)
 	else if (weight > 1) {
 		weight = (weight - 1) * 10;
 	}
-
 	BM_ITER_MESH(e, &eiter, bm, BM_EDGES_OF_MESH) {
 		BMLoop *l_a, *l_b;
 
@@ -6634,7 +6638,7 @@ static int edbm_average_loop_normals_exec(bContext *C, wmOperator *op)
 						else if (average_type == ANGLE_AVERAGE) {
 							val = 1.0f / BM_loop_calc_face_angle(lfan_pivot);
 						}
-						if (boolean_weights && BM_elem_flag_test(lfan_pivot->f, BM_ELEM_SMOOTH)) {
+						if (binary_weights && BM_elem_flag_test(lfan_pivot->f, BM_ELEM_SMOOTH)) {
 							val = (float)INT_MAX;
 						}
 
@@ -6715,110 +6719,157 @@ void MESH_OT_average_loop_normals(struct wmOperatorType *ot)
 	ot->prop = RNA_def_boolean(ot->srna, "binary_weights", 0, "Binary Weights", "Sets weight of smooth faces to 0. Weight of flat faces remains unchanged");
 }
 
-/********************** Copy/Paste Loop Normals **********************/
+/********************** Custom Normal Interface Tools **********************/
 
-static int edbm_copy_paste_normal_exec(bContext *C, wmOperator *op)
+enum {
+	COPY = 1,
+	PASTE = 2,
+	MULTIPLY = 3,
+	ADD = 4,
+	RESET = 5,
+};
+
+static EnumPropertyItem normal_vector_tool_items[] = {
+	{ COPY, "Copy", 0, "Copy Normal", "Copy normal to buffer" },
+	{ PASTE, "Paste", 0, "Paste Normal", "Paste normal from buffer" },
+	{ ADD, "Add", 0, "Add Normal", "Add normal vector with selection" },
+	{ MULTIPLY, "Multiply", 0, "Multiply Normal", "Multiply normal vector with selection" },
+	{ RESET, "Reset", 0, "Reset Normal", "Reset buffer and/or normal of selected element" },
+	{ 0, NULL, 0, NULL, NULL }
+};
+
+static int edbm_custom_normal_tools_exec(bContext *C, wmOperator *op)
 {
 
 	Object *obedit = CTX_data_edit_object(C);
+	Scene *scene = CTX_data_scene(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 	BMesh *bm = em->bm;
 
-	const bool copy = RNA_boolean_get(op->ptr, "copy"),
-		  absolute = RNA_boolean_get(op->ptr, "absolute");
+	int mode = RNA_enum_get(op->ptr, "mode");
+	const bool absolute = RNA_boolean_get(op->ptr, "absolute");
 
 	BM_lnorspace_update(bm);
 	LoopNormalData *ld = BM_loop_normal_init(bm);
 	TransDataLoopNormal *tld = ld->normal;
-	int i = 0;
 
-	if (copy && (op->flag & OP_IS_INVOKE)) {
-		if (bm->totfacesel != 1 && ld->totloop != 1 && bm->totvertsel != 1) {
-			BKE_report(op->reports, RPT_ERROR, "Can only copy Split normal, Averaged vertex normal or Face normal");
-			MEM_freeN(ld->normal);
-			MEM_freeN(ld);
-			return OPERATOR_CANCELLED;
+	float *normal_vector = scene->toolsettings->normal_vector;
+
+	PropertyRNA *prop = RNA_struct_find_property(op->ptr, "absolute");
+	if (mode == PASTE) {
+		if (!absolute) {
+			normalize_v3(normal_vector);
 		}
-		bool join =  ld->totloop > 0 ? true : false;
-		for (; i < ld->totloop; i++, tld++) {
-			if (!compare_v3v3(ld->normal->nloc, tld->nloc, 1e-4f))
-				join = false;
-		}
-		if (ld->totloop == 1 || join) {
-			RNA_float_set_array(op->ptr, "normal_vector", ld->normal->nloc);
-		}
-		else if (bm->totfacesel == 1) {
-			BMFace *f;
-			BMIter fiter;
-			BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
-				if (BM_elem_flag_test(f, BM_ELEM_SELECT)) {
-					RNA_float_set_array(op->ptr, "normal_vector", f->no);
+		RNA_def_property_clear_flag(prop, PROP_HIDDEN);
+	}
+	else {
+		RNA_def_property_flag(prop, PROP_HIDDEN);
+	}
+
+	switch (mode) {
+		case COPY: 
+			if (bm->totfacesel != 1 && ld->totloop != 1 && bm->totvertsel != 1) {
+				BKE_report(op->reports, RPT_ERROR, "Can only copy Split normal, Averaged vertex normal or Face normal");
+				MEM_freeN(ld->normal);
+				MEM_freeN(ld);
+				return OPERATOR_CANCELLED;
+			}
+			bool join = ld->totloop > 0 ? true : false;
+			for (int i = 0; i < ld->totloop; i++, tld++) {
+				if (!compare_v3v3(ld->normal->nloc, tld->nloc, 1e-4f))
+					join = false;
+			}
+			if (bm->totfacesel == 1) {
+				BMFace *f;
+				BMIter fiter;
+				BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
+					if (BM_elem_flag_test(f, BM_ELEM_SELECT)) {
+						copy_v3_v3(scene->toolsettings->normal_vector, f->no);
+					}
 				}
 			}
-		}
-		else if (!join) {
-			BKE_report(op->reports, RPT_ERROR, "Can only copy Split normal, Averaged vertex normal or Face normal");
-			MEM_freeN(ld->normal);
-			MEM_freeN(ld);
-			return OPERATOR_CANCELLED;
-		}
-		op->flag &= ~OP_IS_INVOKE;			//required to make target editable from ui
-	}
-	else if (!copy) {
-		float normal_val[3];
-		RNA_float_get_array(op->ptr, "normal_vector", normal_val);
-
-		for (i = 0; i < ld->totloop; i++, tld++) {
-			if (absolute) {
-				float abs_normal[3];
-				copy_v3_v3(abs_normal, tld->loc);
-				negate_v3(abs_normal);
-				add_v3_v3(abs_normal, normal_val);
-				normalize_v3(abs_normal);
-
-				BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], abs_normal, tld->clnors_data);
+			else if (ld->totloop == 1 || join) {
+				copy_v3_v3(scene->toolsettings->normal_vector, ld->normal->nloc);
 			}
-			else {
-				normalize_v3(normal_val);
-				BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], normal_val, tld->clnors_data);
+			else if (!join) {
+				BKE_report(op->reports, RPT_ERROR, "Can only copy Split normal, Averaged vertex normal or Face normal");
+				MEM_freeN(ld->normal);
+				MEM_freeN(ld);
+				return OPERATOR_CANCELLED;
 			}
-		}
+			break;
+
+		case PASTE:
+			for (int i = 0; i < ld->totloop; i++, tld++) {
+				if (absolute) {
+					float abs_normal[3];
+					copy_v3_v3(abs_normal, tld->loc);
+					negate_v3(abs_normal);
+					add_v3_v3(abs_normal, normal_vector);
+					normalize_v3(abs_normal);
+
+					BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], abs_normal, tld->clnors_data);
+				}
+				else {
+					BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], normal_vector, tld->clnors_data);
+				}
+			}
+			break;
+
+		case MULTIPLY:
+			for (int i = 0; i < ld->totloop; i++, tld++) {
+				mul_v3_v3(tld->nloc, normal_vector);
+				normalize_v3(tld->nloc);
+				BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], tld->nloc, tld->clnors_data);
+			}
+			break;
+
+		case ADD:
+			for (int i = 0; i < ld->totloop; i++, tld++) {
+				add_v3_v3(tld->nloc, normal_vector);
+				normalize_v3(tld->nloc);
+				BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], tld->nloc, tld->clnors_data);
+			}
+			break;
+
+		case RESET:
+			zero_v3(normal_vector);
+			for (int i = 0; i < ld->totloop; i++, tld++) {
+				zero_v3(tld->nloc);
+				BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], tld->nloc, tld->clnors_data);
+			}
+			break;
+
+		default:
+			BLI_assert(0);
+			break;
 	}
 
 	MEM_freeN(ld->normal);
 	MEM_freeN(ld);
+
 	EDBM_update_generic(em, true, false);
 	return OPERATOR_FINISHED;
 }
 
-static int edbm_copy_paste_normal_invoke(bContext *C, wmOperator *op, const wmEvent *event)
-{
-	return edbm_copy_paste_normal_exec(C, op);
-}
-
-void MESH_OT_copy_normal(struct wmOperatorType *ot)
+void MESH_OT_custom_normal_tools(struct wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name = "Copy normal";
-	ot->description = "Copy normal";
-	ot->idname = "MESH_OT_copy_normal";
+	ot->name = "Custom Normal Vector tools";
+	ot->description = "Normal tools using Normal Vector of Interface";
+	ot->idname = "MESH_OT_custom_normal_tools";
 
 	/* api callbacks */
-	ot->exec = edbm_copy_paste_normal_exec;
-	ot->invoke = edbm_copy_paste_normal_invoke;
+	ot->exec = edbm_custom_normal_tools_exec;
 	ot->poll = ED_operator_editmesh_auto_smooth;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-	ot->prop = RNA_def_boolean(ot->srna, "copy", 1, "Copy Normal", "Copy normal of mesh");
+	ot->prop = RNA_def_enum(ot->srna, "mode", normal_vector_tool_items, COPY, "Mode", "Mode of tools taking input from Interface");
 	RNA_def_property_flag(ot->prop, PROP_HIDDEN);
 
-	PropertyRNA *prop = RNA_def_boolean(ot->srna, "absolute", 0, "Absolute Coordinates", "Copy Absolute coordinates or Normal direction");
-
-	prop = RNA_def_property(ot->srna, "normal_vector", PROP_FLOAT, PROP_XYZ);
-	RNA_def_property_array(prop, 3);
-	RNA_def_property_ui_text(prop, "Copied Normal", "Normal vector of copied face or vertex");
+	PropertyRNA *prop = RNA_def_boolean(ot->srna, "absolute", 0, "Absolute Coordinates", "Copy Absolute coordinates or Normal vector");
 }
 
 static int edbm_set_normals_from_faces_exec(bContext *C, wmOperator *op)
@@ -6912,4 +6963,87 @@ void MESH_OT_set_normals_from_faces(struct wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
 	ot->prop = RNA_def_boolean(ot->srna, "keep_sharp", 0, "Keep Sharp Edges", "Do not set sharp edges to face");
+}
+
+static int edbm_smoothen_normals_exec(bContext *C, wmOperator *op)
+{
+	Object *obedit = CTX_data_edit_object(C);
+	BMEditMesh *em = BKE_editmesh_from_object(obedit);
+	BMesh *bm = em->bm;
+	BMFace *f;
+	BMEdge *e;
+	BMLoop *l;
+	BMIter fiter, viter, eiter, liter;
+
+	BM_lnorspace_update(bm);
+	LoopNormalData *ld = BM_loop_normal_init(bm);
+
+	BMLoop **loop_at_index = MEM_mallocN(sizeof(*loop_at_index) * bm->totloop, "__func__");
+	float(*smooth_normal)[3] = MEM_callocN(sizeof(*smooth_normal) * ld->totloop, "__func__");
+
+	BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
+		BM_ITER_ELEM(l, &liter, f, BM_LOOPS_OF_FACE) {
+			loop_at_index[BM_elem_index_get(l)] = l;
+		}
+	}
+
+	TransDataLoopNormal *tld = ld->normal;
+
+	for (int i = 0; i < ld->totloop; i++, tld++) {
+		BMLoop *l = loop_at_index[tld->loop_index];
+		float loop_normal[3];
+
+		BM_ITER_ELEM(f, &fiter, l->v, BM_FACES_OF_VERT) {
+			BMLoop *l_other;
+			BM_ITER_ELEM(l_other, &liter, f, BM_LOOPS_OF_FACE) {
+				int index_other = BM_elem_index_get(l_other);
+				short *clnors = BM_ELEM_CD_GET_VOID_P(l_other, ld->offset);
+				BKE_lnor_space_custom_data_to_normal(bm->lnor_spacearr->lspacearr[index_other], clnors, loop_normal);
+				add_v3_v3(smooth_normal[i], loop_normal);
+			}
+		}
+		normalize_v3(smooth_normal[i]);
+	}
+
+	float factor = RNA_float_get(op->ptr, "factor");
+	tld = ld->normal;
+
+	for (int i = 0; i < ld->totloop; i++, tld++) {
+		float current_normal[3];
+
+		BKE_lnor_space_custom_data_to_normal(bm->lnor_spacearr->lspacearr[tld->loop_index], tld->clnors_data, current_normal);
+
+		mul_v3_fl(current_normal, 1.0f - factor);
+		mul_v3_fl(smooth_normal[i], factor);
+		add_v3_v3(current_normal, smooth_normal[i]);
+		normalize_v3(current_normal);
+
+		BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], current_normal, tld->clnors_data);
+	}
+
+	MEM_freeN(ld->normal);
+	MEM_freeN(ld);
+	MEM_freeN(loop_at_index);
+	MEM_freeN(smooth_normal);
+
+	EDBM_update_generic(em, true, false);
+
+	return OPERATOR_FINISHED;
+}
+
+void MESH_OT_smoothen_custom_normals(struct wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Smoothen Custom Normal";
+	ot->description = "Smoothen custom normal based on adjacent vertex normals";
+	ot->idname = "MESH_OT_smoothen_custom_normals";
+
+	/* api callbacks */
+	ot->exec = edbm_smoothen_normals_exec;
+	ot->poll = ED_operator_editmesh_auto_smooth;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	ot->prop = RNA_def_float(ot->srna, "factor", 0.5f, 0.0f, 1.0f, "Factor", "Specifies weight of smooth vs original normal", 0.0f, 1.0f);
 }

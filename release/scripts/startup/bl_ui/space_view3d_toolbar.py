@@ -442,6 +442,7 @@ class VIEW3D_PT_tools_normal(View3DPanel, Panel):
 
 	def draw(self, context):
 		layout = self.layout
+		toolsettings = context.tool_settings
 
 		col = layout.column(align=True)
 		col.operator("transform.rotate_normal", text = "Rotate Normal")
@@ -459,10 +460,20 @@ class VIEW3D_PT_tools_normal(View3DPanel, Panel):
 		col.operator_menu_enum("mesh.average_loop_normals", "average_type")
 		
 		col = layout.column(align=True)
-		col.label(text="Copy/Paste Normal")
+		col.label(text="Normal Vector: ")
+		col.operator("mesh.custom_normal_tools", text="Reset").mode = "Reset"
+		col.prop(toolsettings, "normal_vector", text = '')
+
 		row = col.row(align=True)
-		row.operator("mesh.copy_normal", text="Copy").copy = True
-		row.operator("mesh.copy_normal", text="Paste").copy = False
+		row.operator("mesh.custom_normal_tools", text="Copy").mode = "Copy"
+		row.operator("mesh.custom_normal_tools", text="Paste").mode = "Paste"
+
+		row = col.row(align=True)
+		row.operator("mesh.custom_normal_tools", text = "Multiply").mode = "Multiply"
+		row.operator("mesh.custom_normal_tools", text="Add").mode = "Add"
+
+		col = layout.column(align=True)
+		col.operator("mesh.smoothen_custom_normals", text="Smoothen")
 
 
 class VIEW3D_PT_tools_uvs(View3DPanel, Panel):
