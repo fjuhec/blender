@@ -288,75 +288,141 @@ void BKE_hair_update_groups(HairPattern *hair)
 
 /* ================================= */
 
-typedef struct HairGroupStrandsView {
+typedef struct HairGroupDrawDataInterface {
 	HairDrawDataInterface base;
 	int numstrands;
 	int numverts_orig;
-} HairGroupStrandsView;
+} HairGroupDrawDataInterface;
 
 static int get_num_strands(const HairDrawDataInterface *hairdata_)
 {
-	const HairGroupStrandsView *strands = (HairGroupStrandsView *)hairdata_;
-	return strands->numstrands;
+	const HairGroupDrawDataInterface *hairdata = (HairGroupDrawDataInterface *)hairdata_;
+	return hairdata->numstrands;
 }
 
 static int get_num_verts(const HairDrawDataInterface *hairdata_)
 {
-	const HairGroupStrandsView *strands = (HairGroupStrandsView *)hairdata_;
-	return strands->numverts_orig;
+	const HairGroupDrawDataInterface *hairdata = (HairGroupDrawDataInterface *)hairdata_;
+	return hairdata->numverts_orig;
 }
 
-static void get_strand_lengths(const HairDrawDataInterface* hairdata_, int *r_lengths)
+static void get_strand_lengths_normals(const HairDrawDataInterface* hairdata_, int *r_lengths)
 {
-	const HairGroupStrandsView *strands = (HairGroupStrandsView *)hairdata_;
-	for (int i = 0; i < strands->numstrands; ++i)
+	const HairGroupDrawDataInterface *hairdata = (HairGroupDrawDataInterface *)hairdata_;
+	for (int i = 0; i < hairdata->numstrands; ++i)
+	{
+		r_lengths[i] = 2;
+	}
+}
+
+static void get_strand_roots_normals(const HairDrawDataInterface* hairdata_, struct MeshSample *r_roots)
+{
+	const HairGroupDrawDataInterface *hairdata = (HairGroupDrawDataInterface *)hairdata_;
+	DerivedMesh *scalp = hairdata->base.scalp;
+	
+	MeshSampleGenerator *gen = BKE_mesh_sample_gen_surface_vertices(scalp);
+	
+	int i = 0;
+	for (; i < hairdata->numstrands; ++i)
+	{
+		if (!BKE_mesh_sample_generate(gen, &r_roots[i])) {
+			break;
+		}
+	}
+	// clear remaining samples, if any
+	for (; i < hairdata->numstrands; ++i)
+	{
+		BKE_mesh_sample_clear(&r_roots[i]);
+	}
+	
+	BKE_mesh_sample_free_generator(gen);
+}
+
+static void get_strand_vertices_normals(const HairDrawDataInterface* hairdata_, float (*r_verts)[3])
+{
+	const HairGroupDrawDataInterface *hairdata = (HairGroupDrawDataInterface *)hairdata_;
+	DerivedMesh *scalp = hairdata->base.scalp;
+	
+	MeshSampleGenerator *gen = BKE_mesh_sample_gen_surface_vertices(scalp);
+	
+	int i = 0;
+	for (; i < hairdata->numstrands; ++i)
+	{
+		MeshSample sample;
+		if (!BKE_mesh_sample_generate(gen, &sample)) {
+			break;
+		}
+		
+		float co[3], nor[3], tang[3];
+		BKE_mesh_sample_eval(scalp, &sample, co, nor, tang);
+		
+		copy_v3_v3(r_verts[i << 1], co);
+		madd_v3_v3v3fl(r_verts[(i << 1) + 1], co, nor, hairdata->base.group->normals_max_length);
+	}
+	// clear remaining data, if any
+	for (; i < hairdata->numstrands; ++i)
+	{
+		zero_v3(r_verts[i << 1]);
+		zero_v3(r_verts[(i << 1) + 1]);
+	}
+	
+	BKE_mesh_sample_free_generator(gen);
+}
+
+static void get_strand_lengths_strands(const HairDrawDataInterface* hairdata_, int *r_lengths)
+{
+	const HairGroupDrawDataInterface *hairdata = (HairGroupDrawDataInterface *)hairdata_;
+	for (int i = 0; i < hairdata->numstrands; ++i)
 	{
 		// TODO
 		r_lengths[i] = 0;
 	}
 }
 
-static void get_strand_roots(const HairDrawDataInterface* hairdata_, struct MeshSample *r_roots)
+static void get_strand_roots_strands(const HairDrawDataInterface* hairdata_, struct MeshSample *r_roots)
 {
-	const HairGroupStrandsView *strands = (HairGroupStrandsView *)hairdata_;
-	for (int i = 0; i < strands->numstrands; ++i)
+	const HairGroupDrawDataInterface *hairdata = (HairGroupDrawDataInterface *)hairdata_;
+	for (int i = 0; i < hairdata->numstrands; ++i)
 	{
 		// TODO
 		memset(&r_roots[i], 0, sizeof(MeshSample));
 	}
 }
 
-static void get_strand_vertices(const HairDrawDataInterface* hairdata_, float (*r_verts)[3])
+static void get_strand_vertices_strands(const HairDrawDataInterface* hairdata_, float (*r_verts)[3])
 {
-	const HairGroupStrandsView *strands = (HairGroupStrandsView *)hairdata_;
-	for (int i = 0; i < strands->numverts_orig; ++i)
+	const HairGroupDrawDataInterface *hairdata = (HairGroupDrawDataInterface *)hairdata_;
+	for (int i = 0; i < hairdata->numverts_orig; ++i)
 	{
 		// TODO
 		zero_v3(r_verts[i]);
 	}
 }
 
-static HairGroupStrandsView hair_strands_get_view(HairGroup *group, DerivedMesh *scalp)
+static HairGroupDrawDataInterface hair_group_get_interface(HairGroup *group, DerivedMesh *scalp)
 {
-	HairGroupStrandsView hairdata;
+	HairGroupDrawDataInterface hairdata;
 	hairdata.base.group = group;
 	hairdata.base.scalp = scalp;
 	hairdata.base.get_num_strands = get_num_strands;
 	hairdata.base.get_num_verts = get_num_verts;
-	hairdata.base.get_strand_lengths = get_strand_lengths;
-	hairdata.base.get_strand_roots = get_strand_roots;
-	hairdata.base.get_strand_vertices = get_strand_vertices;
 	
 	switch (group->type) {
 		case HAIR_GROUP_TYPE_NORMALS: {
-			hairdata.numstrands = 0;
-			hairdata.numverts_orig = 0;
+			hairdata.numstrands = scalp->getNumVerts(scalp);
+			hairdata.numverts_orig = 2 * hairdata.numstrands;
+			hairdata.base.get_strand_lengths = get_strand_lengths_normals;
+			hairdata.base.get_strand_roots = get_strand_roots_normals;
+			hairdata.base.get_strand_vertices = get_strand_vertices_normals;
 			break;
 		}
 		case HAIR_GROUP_TYPE_STRANDS: {
 			// TODO
 			hairdata.numstrands = 0;
 			hairdata.numverts_orig = 0;
+			hairdata.base.get_strand_lengths = get_strand_lengths_strands;
+			hairdata.base.get_strand_roots = get_strand_roots_strands;
+			hairdata.base.get_strand_vertices = get_strand_vertices_strands;
 			break;
 		}
 	}
@@ -366,7 +432,7 @@ static HairGroupStrandsView hair_strands_get_view(HairGroup *group, DerivedMesh 
 
 int* BKE_hair_group_get_fiber_lengths(HairGroup *group, DerivedMesh *scalp, int subdiv)
 {
-	HairGroupStrandsView hairdata = hair_strands_get_view(group, scalp);
+	HairGroupDrawDataInterface hairdata = hair_group_get_interface(group, scalp);
 	return BKE_hair_strands_get_fiber_lengths(&hairdata.base, subdiv);
 }
 
@@ -374,13 +440,13 @@ void BKE_hair_group_get_texture_buffer_size(HairGroup *group, DerivedMesh *scalp
                                             int *r_size, int *r_strand_map_start,
                                             int *r_strand_vertex_start, int *r_fiber_start)
 {
-	HairGroupStrandsView hairdata = hair_strands_get_view(group, scalp);
+	HairGroupDrawDataInterface hairdata = hair_group_get_interface(group, scalp);
 	BKE_hair_strands_get_texture_buffer_size(&hairdata.base, subdiv,
 	                                         r_size, r_strand_map_start, r_strand_vertex_start, r_fiber_start);
 }
 
 void BKE_hair_group_get_texture_buffer(HairGroup *group, DerivedMesh *scalp, int subdiv, void *buffer)
 {
-	HairGroupStrandsView hairdata = hair_strands_get_view(group, scalp);
+	HairGroupDrawDataInterface hairdata = hair_group_get_interface(group, scalp);
 	BKE_hair_strands_get_texture_buffer(&hairdata.base, subdiv, buffer);
 }

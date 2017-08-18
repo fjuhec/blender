@@ -517,11 +517,14 @@ static void hair_get_fiber_buffer(const HairGroup *group, DerivedMesh *scalp,
 	float nor[3], tang[3];
 	switch (group->type) {
 		case HAIR_GROUP_TYPE_NORMALS: {
-			const unsigned int parent_index[4] = {STRAND_INDEX_NONE, STRAND_INDEX_NONE, STRAND_INDEX_NONE, STRAND_INDEX_NONE};
-			const float parent_weight[4] = {0.0f, 0.0f, 0.0f ,0.0f};
-			for (int i = 0; i < totfibers; ++i, ++fb) {
-				memcpy(fb->parent_index, parent_index, sizeof(fb->parent_index));
-				memcpy(fb->parent_weight, parent_weight, sizeof(fb->parent_weight));
+			HairFollicle *foll = group->follicles;
+			for (int i = 0; i < totfibers; ++i, ++fb, ++foll) {
+				for (int k = 0; k < 3; ++k) {
+					fb->parent_index[k] = foll->mesh_sample.orig_verts[k];
+					fb->parent_weight[k] = foll->mesh_sample.orig_weights[k];
+				}
+				fb->parent_index[3] = STRAND_INDEX_NONE;
+				fb->parent_weight[3] = 0.0f;
 				
 				BKE_mesh_sample_eval(scalp, &group->follicles[i].mesh_sample, fb->root_position, nor, tang);
 			}
@@ -530,11 +533,12 @@ static void hair_get_fiber_buffer(const HairGroup *group, DerivedMesh *scalp,
 		case HAIR_GROUP_TYPE_STRANDS: {
 			BLI_assert(group->strands_parent_index != NULL);
 			BLI_assert(group->strands_parent_weight != NULL);
-			for (int i = 0; i < totfibers; ++i, ++fb) {
+			HairFollicle *foll = group->follicles;
+			for (int i = 0; i < totfibers; ++i, ++fb, ++foll) {
 				memcpy(fb->parent_index, group->strands_parent_index[i], sizeof(fb->parent_index));
 				memcpy(fb->parent_weight, group->strands_parent_weight[i], sizeof(fb->parent_weight));
 				
-				BKE_mesh_sample_eval(scalp, &group->follicles[i].mesh_sample, fb->root_position, nor, tang);
+				BKE_mesh_sample_eval(scalp, &foll->mesh_sample, fb->root_position, nor, tang);
 			}
 			break;
 		}

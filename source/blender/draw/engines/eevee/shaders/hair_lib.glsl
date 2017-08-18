@@ -310,7 +310,7 @@ void hair_fiber_get_vertex(int fiber_index, float curve_param, mat4 ModelViewMat
 	deform_params.curl.radius = 0.1;
 	deform_params.curl.angle = 0.2;
 	// TODO define proper curve scale, independent of subdivision!
-	deform_fiber(deform_params, curve_param, 1.0, target_matrix, pos, nor);
+	//deform_fiber(deform_params, curve_param, 1.0, target_matrix, pos, nor);
 
 #ifdef FIBER_RIBBON
 	float ribbon_side = (float(gl_VertexID % 2) - 0.5) * ribbon_width;

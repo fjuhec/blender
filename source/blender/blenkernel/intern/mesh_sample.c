@@ -101,10 +101,10 @@ bool BKE_mesh_sample_eval(DerivedMesh *dm, const MeshSample *sample, float loc[3
 			float edge[3];
 			
 			/* XXX simply using the v1-v2 edge as a tangent vector for now ...
-		 * Eventually mikktspace generated tangents (CD_TANGENT tessface layer)
-		 * should be used for consistency, but requires well-defined tessface
-		 * indices for the mesh surface samples.
-		 */
+			 * Eventually mikktspace generated tangents (CD_TANGENT tessface layer)
+			 * should be used for consistency, but requires well-defined tessface
+			 * indices for the mesh surface samples.
+			 */
 			
 			sub_v3_v3v3(edge, v2->co, v1->co);
 			/* make edge orthogonal to nor */
@@ -138,6 +138,11 @@ bool BKE_mesh_sample_shapekey(Key *key, KeyBlock *kb, const MeshSample *sample, 
 	
 	/* TODO use optional vgroup weights to determine if a shapeky actually affects the sample */
 	return true;
+}
+
+void BKE_mesh_sample_clear(MeshSample *sample)
+{
+	memset(sample, 0, sizeof(MeshSample));
 }
 
 
@@ -181,6 +186,102 @@ static void sample_generator_init(MeshSampleGenerator *gen, GeneratorFreeFp free
 {
 	gen->free = free;
 	gen->make_sample = make_sample;
+}
+
+/* ------------------------------------------------------------------------- */
+
+typedef struct MSurfaceSampleGenerator_Vertices {
+	MeshSampleGenerator base;
+	
+	DerivedMesh *dm;
+	int (*vert_loop_map)[3];
+	int cur_vert;
+} MSurfaceSampleGenerator_Vertices;
+
+static void generator_vertices_free(MSurfaceSampleGenerator_Vertices *gen)
+{
+	if (gen->vert_loop_map) {
+		MEM_freeN(gen->vert_loop_map);
+	}
+	MEM_freeN(gen);
+}
+
+static bool generator_vertices_make_sample(MSurfaceSampleGenerator_Vertices *gen, MeshSample *sample)
+{
+	DerivedMesh *dm = gen->dm;
+	const int num_verts = dm->getNumVerts(dm);
+	const MLoop *mloops = dm->getLoopArray(dm);
+	
+	while (gen->cur_vert < num_verts) {
+		int cur_vert = gen->cur_vert++;
+		
+		const int *loops = gen->vert_loop_map[cur_vert];
+		if (loops[0] >= 0) {
+			sample->orig_poly = -1;
+			
+			sample->orig_loops[0] = (unsigned int)loops[0];
+			sample->orig_loops[1] = (unsigned int)loops[1];
+			sample->orig_loops[2] = (unsigned int)loops[2];
+			
+			sample->orig_verts[0] = mloops[loops[0]].v;
+			sample->orig_verts[1] = mloops[loops[1]].v;
+			sample->orig_verts[2] = mloops[loops[2]].v;
+			
+			sample->orig_weights[0] = 1.0f;
+			sample->orig_weights[1] = 0.0f;
+			sample->orig_weights[2] = 0.0f;
+
+			return true;
+		}
+	}
+	return false;
+}
+
+MeshSampleGenerator *BKE_mesh_sample_gen_surface_vertices(DerivedMesh *dm)
+{
+	MSurfaceSampleGenerator_Vertices *gen;
+	
+	DM_ensure_normals(dm);
+	
+	gen = MEM_callocN(sizeof(MSurfaceSampleGenerator_Vertices), "MSurfaceSampleGenerator_Vertices");
+	sample_generator_init(&gen->base, (GeneratorFreeFp)generator_vertices_free, (GeneratorMakeSampleFp)generator_vertices_make_sample);
+	
+	gen->dm = dm;
+	gen->cur_vert = 0;
+	
+	{
+		const int num_verts = dm->getNumVerts(dm);
+		int (*vert_loop_map)[3] = MEM_mallocN(sizeof(int) * 3 * (unsigned int)num_verts, "vertex loop map");
+		
+		for (int i = 0; i < num_verts; ++i) {
+			vert_loop_map[i][0] = -1;
+			vert_loop_map[i][1] = -1;
+			vert_loop_map[i][2] = -1;
+		}
+		
+		const int num_polys = dm->getNumPolys(dm);
+		const MLoop *mloops = dm->getLoopArray(dm);
+		const MPoly *mp = dm->getPolyArray(dm);
+		for (int i = 0; i < num_polys; ++i, ++mp) {
+			if (mp->totloop < 3) {
+				continue;
+			}
+			
+			const MLoop *ml = mloops + mp->loopstart;
+			for (int k = 0; k < mp->totloop; ++k, ++ml) {
+				int *vmap = vert_loop_map[ml->v];
+				if (vmap[0] < 0) {
+					vmap[0] = mp->loopstart + k;
+					vmap[1] = mp->loopstart + (k + 1) % mp->totloop;
+					vmap[2] = mp->loopstart + (k + 2) % mp->totloop;
+				}
+			}
+		}
+		
+		gen->vert_loop_map = vert_loop_map;
+	}
+	
+	return &gen->base;
 }
 
 /* ------------------------------------------------------------------------- */

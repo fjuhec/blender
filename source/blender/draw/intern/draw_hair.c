@@ -50,7 +50,9 @@ void DRW_hair_shader_uniforms(DRWShadingGroup *shgrp, Scene *scene,
 	const HairEditSettings *tsettings = &scene->toolsettings->hair_edit;
 	
 	DRW_shgroup_uniform_vec2(shgrp, "viewport_size", DRW_viewport_size_get(), 1);
-	DRW_shgroup_uniform_float(shgrp, "ribbon_width", &tsettings->hair_draw_size, 1);
+	//DRW_shgroup_uniform_float(shgrp, "ribbon_width", &tsettings->hair_draw_size, 1);
+	static float test = 2.5f;
+	DRW_shgroup_uniform_float(shgrp, "ribbon_width", &test, 1);
 	
 	DRW_shgroup_uniform_buffer(shgrp, "fiber_data", fibertex);
 	DRW_shgroup_uniform_int(shgrp, "strand_map_start", &texbuffer->strand_map_start, 1);

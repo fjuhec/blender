@@ -5132,6 +5132,9 @@ static void direct_link_hair(FileData *fd, HairPattern *hair)
 	for (HairGroup *group = hair->groups.first; group; group = group->next) {
 		group->strands_parent_index = newdataadr(fd, group->strands_parent_index);
 		group->strands_parent_weight = newdataadr(fd, group->strands_parent_weight);
+		
+		group->draw_batch_cache = NULL;
+		group->draw_texture_cache = NULL;
 	}
 }
 
