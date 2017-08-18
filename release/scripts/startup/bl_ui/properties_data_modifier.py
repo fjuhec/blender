@@ -1816,6 +1816,20 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col.enabled = md.use_lines
         col.prop(md, "color")
 
+    def GP_SWIRL(self, layout, ob, md):
+        split = layout.split()
+
+        col = split.column()
+        col.label(text="Center:")
+        col.prop(md, "center", text="")
+
+        col.separator()
+        col.prop(md, "radius")
+        col.prop(md, "angle")
+
+        col.separator()
+        col.prop(md, "transparent")
+
 
 classes = (
     DATA_PT_modifiers,

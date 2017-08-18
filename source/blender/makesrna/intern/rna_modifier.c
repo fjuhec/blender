@@ -135,6 +135,7 @@ EnumPropertyItem rna_enum_object_modifier_type_items[] = {
 	{eModifierType_GpencilBlur, "GP_BLUR", ICON_SOLO_ON, "Gaussian Blur", "Apply Gaussian Blur to object" },
 	{eModifierType_GpencilWave, "GP_WAVE", ICON_SOLO_ON, "Wave Distorsion", "Apply Sinusoidal Deformation" },
 	{eModifierType_GpencilPixel, "GP_PIXEL", ICON_SOLO_ON, "Pixelate", "Pixelate image" },
+	{eModifierType_GpencilSwirl, "GP_SWIRL", ICON_SOLO_ON, "Swirl", "Create a rotation distorsion" },
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -462,6 +463,8 @@ static StructRNA *rna_Modifier_refine(struct PointerRNA *ptr)
 			return &RNA_GpencilWaveModifier;
 		case eModifierType_GpencilPixel:
 			return &RNA_GpencilPixelModifier;
+		case eModifierType_GpencilSwirl:
+			return &RNA_GpencilSwirlModifier;
 			/* Default */
 		case eModifierType_None:
 		case eModifierType_ShapeKey:
@@ -5477,6 +5480,41 @@ static void rna_def_modifier_gpencilpixel(BlenderRNA *brna)
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
+static void rna_def_modifier_gpencilswirl(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+
+	srna = RNA_def_struct(brna, "GpencilSwirlModifier", "Modifier");
+	RNA_def_struct_ui_text(srna, "Swirl Modifier", "Swirl modifier");
+	RNA_def_struct_sdna(srna, "GpencilSwirlModifierData");
+	RNA_def_struct_ui_icon(srna, ICON_SOLO_ON);
+
+	prop = RNA_def_property(srna, "center", PROP_INT, PROP_PIXEL);
+	RNA_def_property_int_sdna(prop, NULL, "center");
+	RNA_def_property_range(prop, 0, INT_MAX);
+	RNA_def_property_ui_text(prop, "Center", "Rotation Center point");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "radius", PROP_INT, PROP_PIXEL);
+	RNA_def_property_int_sdna(prop, NULL, "radius");
+	RNA_def_property_range(prop, 0, INT_MAX);
+	RNA_def_property_ui_text(prop, "Radius", "Radius to apply");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "angle", PROP_FLOAT, PROP_ANGLE);
+	RNA_def_property_float_sdna(prop, NULL, "angle");
+	RNA_def_property_range(prop, 0, DEG2RAD(4 * 360));
+	RNA_def_property_ui_range(prop, 0, DEG2RAD(4 * 360), 5, 2);
+	RNA_def_property_ui_text(prop, "Angle", "Angle of rotation");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "transparent", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SWIRL_MAKE_TRANSPARENT);
+	RNA_def_property_ui_text(prop, "Transparent", "Make image transparent outside of radius");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+}
+
 void RNA_def_modifier(BlenderRNA *brna)
 {
 	StructRNA *srna;
@@ -5608,6 +5646,7 @@ void RNA_def_modifier(BlenderRNA *brna)
 	rna_def_modifier_gpencilblur(brna);
 	rna_def_modifier_gpencilwave(brna);
 	rna_def_modifier_gpencilpixel(brna);
+	rna_def_modifier_gpencilswirl(brna);
 }
 
 #endif

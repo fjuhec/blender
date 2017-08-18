@@ -44,6 +44,13 @@ struct GPENCIL_StorageList;
 #define GPENCIL_COLOR_PATTERN 2
 
  /* *********** OBJECTS CACHE *********** */
+typedef struct GPencilVFXSwirl {
+	float center[2];
+	float radius; 
+	float angle;
+	int transparent;
+} GPencilVFXSwirl;
+
 typedef struct GPencilVFXPixel {
 	float size[2];
 	float rgba[4];
@@ -81,6 +88,9 @@ typedef struct tGPencilObjectCache {
 
 	DRWShadingGroup *init_vfx_pixel_sh;
 	DRWShadingGroup *end_vfx_pixel_sh;
+
+	DRWShadingGroup *init_vfx_swirl_sh;
+	DRWShadingGroup *end_vfx_swirl_sh;
 	float zdepth;
 } tGPencilObjectCache;
 
@@ -89,6 +99,7 @@ typedef struct GPENCIL_vfx {
 	GPencilVFXBlur vfx_blur;
 	GPencilVFXWave vfx_wave;
 	GPencilVFXPixel vfx_pixel;
+	GPencilVFXSwirl vfx_swirl;
 } GPENCIL_vfx;
 
 typedef struct GPENCIL_shgroup {
@@ -136,6 +147,7 @@ typedef struct GPENCIL_PassList {
 	struct DRWPass *vfx_blur_pass_3;
 	struct DRWPass *vfx_blur_pass_4;
 	struct DRWPass *vfx_pixel_pass;
+	struct DRWPass *vfx_swirl_pass;
 } GPENCIL_PassList;
 
 typedef struct GPENCIL_FramebufferList {
@@ -184,6 +196,7 @@ typedef struct GPENCIL_e_data {
 	struct GPUShader *gpencil_vfx_blur_sh;
 	struct GPUShader *gpencil_vfx_wave_sh;
 	struct GPUShader *gpencil_vfx_pixel_sh;
+	struct GPUShader *gpencil_vfx_swirl_sh;
 	/* temp depth texture */
 	struct GPUTexture *temp_fbcolor_depth_tx;
 	struct GPUTexture *temp_fbcolor_color_tx;

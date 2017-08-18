@@ -94,6 +94,9 @@ void gpencil_object_cache_add(tGPencilObjectCache *cache, Object *ob, int *gp_ca
 	cache[*gp_cache_used].init_vfx_pixel_sh = NULL;
 	cache[*gp_cache_used].end_vfx_pixel_sh = NULL;
 
+	cache[*gp_cache_used].init_vfx_swirl_sh = NULL;
+	cache[*gp_cache_used].end_vfx_swirl_sh = NULL;
+
 	/* calculate zdepth from point of view */
 	float zdepth = 0.0;
 	if (rv3d->is_persp) {

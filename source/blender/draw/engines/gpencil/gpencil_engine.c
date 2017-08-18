@@ -48,6 +48,7 @@ extern char datatoc_gpencil_point_frag_glsl[];
 extern char datatoc_gpencil_gaussian_blur_frag_glsl[];
 extern char datatoc_gpencil_wave_frag_glsl[];
 extern char datatoc_gpencil_pixel_frag_glsl[];
+extern char datatoc_gpencil_swirl_frag_glsl[];
 
 /* *********** STATIC *********** */
 static GPENCIL_e_data e_data = {NULL}; /* Engine data */
@@ -149,6 +150,7 @@ static void GPENCIL_engine_free(void)
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_vfx_blur_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_vfx_wave_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_vfx_pixel_sh);
+	DRW_SHADER_FREE_SAFE(e_data.gpencil_vfx_swirl_sh);
 
 	DRW_TEXTURE_FREE_SAFE(e_data.gpencil_blank_texture);
 }
@@ -200,6 +202,9 @@ static void GPENCIL_cache_init(void *vedata)
 	}
 	if (!e_data.gpencil_vfx_pixel_sh) {
 		e_data.gpencil_vfx_pixel_sh = DRW_shader_create_fullscreen(datatoc_gpencil_pixel_frag_glsl, NULL);
+	}
+	if (!e_data.gpencil_vfx_swirl_sh) {
+		e_data.gpencil_vfx_swirl_sh = DRW_shader_create_fullscreen(datatoc_gpencil_swirl_frag_glsl, NULL);
 	}
 
 	{
@@ -277,6 +282,8 @@ static void GPENCIL_cache_init(void *vedata)
 		psl->vfx_blur_pass_4 = DRW_pass_create("GPencil VFX Blur Pass 4", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 
 		psl->vfx_pixel_pass = DRW_pass_create("GPencil VFX Pixel Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+
+		psl->vfx_swirl_pass = DRW_pass_create("GPencil VFX Swirl Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 	}
 }
 
@@ -441,6 +448,19 @@ static void GPENCIL_draw_scene(void *vedata)
 					DRW_draw_pass_subset(psl->vfx_pixel_pass,
 						cache->init_vfx_pixel_sh,
 						cache->end_vfx_pixel_sh);
+					/* copy pass from b to a */
+					DRW_framebuffer_bind(fbl->vfx_color_fb_a);
+					DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
+					DRW_draw_pass(psl->vfx_copy_pass);
+				}
+				/* swirl pass */
+				if ((cache->init_vfx_swirl_sh) && (cache->end_vfx_swirl_sh)) {
+					DRW_framebuffer_bind(fbl->vfx_color_fb_b);
+					DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
+					/* pixel pass */
+					DRW_draw_pass_subset(psl->vfx_swirl_pass,
+						cache->init_vfx_swirl_sh,
+						cache->end_vfx_swirl_sh);
 					/* copy pass from b to a */
 					DRW_framebuffer_bind(fbl->vfx_color_fb_a);
 					DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);

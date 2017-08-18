@@ -267,6 +267,43 @@ static void DRW_gpencil_vfx_pixel(ModifierData *md, int ob_idx, GPENCIL_e_data *
 	cache->end_vfx_pixel_sh = vfx_shgrp;
 }
 
+/* Swirl VFX */
+static void DRW_gpencil_vfx_swirl(ModifierData *md, int ob_idx, GPENCIL_e_data *e_data, GPENCIL_Data *vedata, Object *ob, tGPencilObjectCache *cache)
+{
+	if (md == NULL) {
+		return;
+	}
+
+	GpencilSwirlModifierData *mmd = (GpencilSwirlModifierData *)md;
+
+	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
+	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
+	DRWShadingGroup *vfx_shgrp;
+	stl->vfx[ob_idx].vfx_swirl.center[0] = mmd->center[0];
+	stl->vfx[ob_idx].vfx_swirl.center[1] = mmd->center[1];
+	stl->vfx[ob_idx].vfx_swirl.radius = mmd->radius;
+	stl->vfx[ob_idx].vfx_swirl.angle = mmd->angle;
+	stl->vfx[ob_idx].vfx_swirl.transparent = (int)mmd->flag & GP_SWIRL_MAKE_TRANSPARENT;
+
+	struct Gwn_Batch *vfxquad = DRW_cache_fullscreen_quad_get();
+	vfx_shgrp = DRW_shgroup_create(e_data->gpencil_vfx_swirl_sh, psl->vfx_swirl_pass);
+	DRW_shgroup_call_add(vfx_shgrp, vfxquad, NULL);
+	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->vfx_fbcolor_color_tx_a);
+	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->vfx_fbcolor_depth_tx_a);
+	DRW_shgroup_uniform_vec2(vfx_shgrp, "center", &stl->vfx[ob_idx].vfx_swirl.center[0], 1);
+	DRW_shgroup_uniform_float(vfx_shgrp, "radius", &stl->vfx[ob_idx].vfx_swirl.radius, 1);
+	DRW_shgroup_uniform_float(vfx_shgrp, "angle", &stl->vfx[ob_idx].vfx_swirl.angle, 1);
+	DRW_shgroup_uniform_int(vfx_shgrp, "transparent", &stl->vfx[ob_idx].vfx_swirl.transparent, 1);
+
+	/* set first effect sh */
+	if (cache->init_vfx_swirl_sh == NULL) {
+		cache->init_vfx_swirl_sh = vfx_shgrp;
+	}
+
+	/* set last effect sh */
+	cache->end_vfx_swirl_sh = vfx_shgrp;
+}
+
 void DRW_gpencil_vfx_modifiers(int ob_idx, struct GPENCIL_e_data *e_data, struct GPENCIL_Data *vedata, struct Object *ob, struct tGPencilObjectCache *cache)
 {
 	bool ready = false;
@@ -298,6 +335,15 @@ void DRW_gpencil_vfx_modifiers(int ob_idx, struct GPENCIL_e_data *e_data, struct
 						ready = true;
 					}
 					DRW_gpencil_vfx_pixel(md, ob_idx, e_data, vedata, ob, cache);
+				}
+				break;
+			case eModifierType_GpencilSwirl:
+				if (modifier_is_active(ob, md)) {
+					if (!ready) {
+						DRW_gpencil_vfx_copy(ob_idx, e_data, vedata, ob, cache);
+						ready = true;
+					}
+					DRW_gpencil_vfx_swirl(md, ob_idx, e_data, vedata, ob, cache);
 				}
 				break;
 		}
