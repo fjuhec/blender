@@ -7861,7 +7861,7 @@ static int find_mvp(Mesh *me, int *a_verts, int a_size, int start, int tot)
 
 /* Recusiveley find a triangulation, connect the two closest points and split the rings in to subrings... 
  * a_data is bigger than b_data */
-static int *find_triangulation(Mesh *me, int *a_verts, int *b_verts, int a_size, int b_size, float *dist_a, float *dist_b, float tot_dist_a, float tot_dist_b, float *o_off_out)
+static int *find_triangulation(Mesh *me, int *a_verts, int *b_verts, int a_size, int b_size, float *dist_a, float *dist_b, float tot_dist_a, float tot_dist_b, float *o_off_out, bool *r_invert)
 {
 	int *map;
 	float d = FLT_MAX, d2;
@@ -7897,6 +7897,7 @@ static int *find_triangulation(Mesh *me, int *a_verts, int *b_verts, int a_size,
 	bl_debug_color_set(0x000000);
 #endif
 
+	*r_invert = invert;
 	if (invert) {
 		o_off = 1.0f + (dist_a[pas] / tot_dist_a) - (1.0f - (dist_b[pbs] / tot_dist_b));
 		*o_off_out = -o_off;
@@ -8017,6 +8018,177 @@ static int find_complement_ring(SilhouetteData *sil, int r)
 	}
 }
 
+/* TODO: Already exists? Move to Math_geom? */
+static float closest_seg_seg_v3(float r_close[3], const float e1[3], const float e2[3], const float l1[3], const float l2[3])
+{
+	float v[3], d1[3], d2[3], po[3], r[3];
+	float mat[3][3];
+	float lambd;
+
+	sub_v3_v3v3(d1, e2, e1);
+	sub_v3_v3v3(d2, l1, l2);
+	cross_v3_v3v3(v, d1, d2);
+
+	copy_v3_v3(mat[0], d1);
+	copy_v3_v3(mat[1], v);
+	copy_v3_v3(mat[2], d2);
+
+	sub_v3_v3v3(po, l1, e1);
+
+	invert_m3(mat);
+	mul_v3_m3v3(r, mat, po);
+
+	lambd = fmax(fmin(r[0], 1.0f), 0.0f);
+
+	mul_v3_fl(d1, lambd);
+	add_v3_v3v3(r_close, e1, d1);
+
+	return lambd;
+}
+
+static void find_closest_exact_p(float e1[3], float e2[3], float *exact_p, int tot, float r[3])
+{
+	float min_d = FLT_MAX, t_d;
+	int pf;
+	float p[3], p1[3], p2[3];
+
+	pf = 0;
+	for (int i = 0; i < tot; i++) {
+		t_d = len_v3v3(e2, &exact_p[i * 3]);
+		if (t_d < min_d) {
+			copy_v3_v3(p, e2);
+			min_d = t_d;
+			pf = i;
+		}
+	}
+
+	copy_v3_v3(p1, &exact_p[pf * 3]);
+
+	if (len_v3v3(p, &exact_p[((pf + 1) % tot) * 3]) > len_v3v3(p, &exact_p[((pf + tot - 1) % tot) * 3])) {
+		copy_v3_v3(p2, &exact_p[((pf + tot - 1) % tot) * 3]);
+	} else {
+		copy_v3_v3(p2, &exact_p[((pf + 1) % tot) * 3]);
+	}
+
+	closest_seg_seg_v3(r, p1, p2, e1, e2);
+}
+
+static void gen_fillet_velp(Mesh *me,
+							 float *exact_p, int exact_p_tot,
+							 int *a_verts, int *b_verts,
+							 int *a_edges, int *b_edges,
+							 int a_size, int b_size,
+							 int *map, bool inverse)
+{
+	/*If aligned exact points are aligned to a*/
+	float v1[3], v2[3];
+	int v_start, e_start, l_pos, p_start;
+	int holes = 0, next_i, aoff, boff;
+
+	aoff = me->medge[a_edges[0]].v1 == a_verts[0] ? 0 : 1;
+	boff = me->medge[b_edges[0]].v1 == b_verts[0] ? 0 : 1;
+
+	v_start = me->totvert;
+	e_start = me->totedge;
+	ED_mesh_vertices_add(me, NULL, a_size);
+	ED_mesh_edges_add(me, NULL, a_size * 3);
+
+	for(int i = 0; i < a_size; i++) {
+		if (map[i] != map[(i + 1) % a_size]) {
+			if ((map[i] + 1) % b_size != map[(i + 1) % a_size] && (map[i] + b_size - 1) % b_size != map[(i + 1) % a_size]) {
+				if (inverse) {
+					holes += (b_size + map[i] - map[(i + 1) % a_size]) % b_size - 1;
+				} else {
+					holes += (b_size + map[(i + 1) % a_size] - map[i]) % b_size - 1;
+				}
+			}
+		}
+		copy_v3_v3(v1, me->mvert[a_verts[i]].co);
+		find_closest_exact_p(v1, me->mvert[b_verts[map[i]]].co, exact_p, exact_p_tot, v2);
+		me->mvert[v_start + i].flag = 0;
+		me->mvert[v_start + i].bweight = 0;
+		copy_v3_v3(me->mvert[v_start + i].co, v2);
+
+		me->medge[e_start + 3 * i].v1 = a_verts[i];
+		me->medge[e_start + 3 * i].v2 = v_start + i;
+		me->medge[e_start + 3 * i].crease = 0;
+		me->medge[e_start + 3 * i].bweight = 0;
+		me->medge[e_start + 3 * i].flag = 0;
+
+		me->medge[e_start + 3 * i + 1].v1 = v_start + i;
+		me->medge[e_start + 3 * i + 1].v2 = v_start + (i + 1) % a_size;
+		me->medge[e_start + 3 * i + 1].crease = 0;
+		me->medge[e_start + 3 * i + 1].bweight = 0;
+		me->medge[e_start + 3 * i + 1].flag = 0;
+
+		me->medge[e_start + 3 * i + 2].v1 = v_start + i;
+		me->medge[e_start + 3 * i + 2].v2 = b_verts[map[i]];
+		me->medge[e_start + 3 * i + 2].crease = 0;
+		me->medge[e_start + 3 * i + 2].bweight = 0;
+		me->medge[e_start + 3 * i + 2].flag = 0;
+	}
+
+	l_pos = me->totloop;
+	p_start = me->totpoly;
+	ED_mesh_loops_add(me, NULL, a_size * 7 + (b_size - holes));
+	ED_mesh_polys_add(me, NULL, a_size * 2);
+	for (int i = 0; i < a_size; i++) {
+		next_i = (i + 1) % a_size;
+		me->mloop[l_pos].v = a_verts[i];
+		me->mloop[l_pos].e = e_start + 3 * i;
+		l_pos ++;
+		me->mloop[l_pos].v = v_start + i;
+		me->mloop[l_pos].e = e_start + 3 * i + 1;
+		l_pos ++;
+		me->mloop[l_pos].v = v_start + next_i;
+		me->mloop[l_pos].e = e_start + 3 * next_i;
+		l_pos ++;
+		me->mloop[l_pos].v = a_verts[next_i];
+		me->mloop[l_pos].e = a_edges[(i + aoff) % a_size];
+		l_pos ++;
+
+		me->mpoly[p_start + i * 2].loopstart = l_pos - 4;
+		me->mpoly[p_start + i * 2].totloop = 4;
+		me->mpoly[p_start + i * 2].mat_nr = 0;
+		me->mpoly[p_start + i * 2].flag = 0;
+
+		if (map[i] == map[next_i]) {
+			/*Triangle*/
+			me->mloop[l_pos].v = v_start + i;
+			me->mloop[l_pos].e = e_start + 3 * i + 2;
+			l_pos ++;
+			me->mloop[l_pos].v = b_verts[map[i]];
+			me->mloop[l_pos].e = e_start + 3 * next_i + 2;
+			l_pos ++;
+			me->mloop[l_pos].v = v_start + next_i;
+			me->mloop[l_pos].e = e_start + 3 * i + 1;
+			l_pos ++;
+
+			me->mpoly[p_start + i * 2 + 1].loopstart = l_pos - 3;
+			me->mpoly[p_start + i * 2 + 1].totloop = 3;
+		} else {
+			/* Quad */
+			me->mloop[l_pos].v = v_start + i;
+			me->mloop[l_pos].e = e_start + 3 * i + 2;
+			l_pos ++;
+			me->mloop[l_pos].v = b_verts[map[i]];
+			me->mloop[l_pos].e = b_edges[(map[i] + boff) % a_size];
+			l_pos ++;
+			me->mloop[l_pos].v = b_verts[map[next_i]];
+			me->mloop[l_pos].e = e_start + 3 * next_i + 2;
+			l_pos ++;
+			me->mloop[l_pos].v = v_start + next_i;
+			me->mloop[l_pos].e = e_start + 3 * i + 1;
+			l_pos ++;
+
+			me->mpoly[p_start + i * 2 + 1].loopstart = l_pos - 4;
+			me->mpoly[p_start + i * 2 + 1].totloop = 4;
+		}
+		me->mpoly[p_start + i * 2 + 1].mat_nr = 0;
+		me->mpoly[p_start + i * 2 + 1].flag = 0;
+	}
+}
+
 static void generate_fillet_topology(Mesh *me, SilhouetteData *sil)
 {
 	int r_start, r_size;
@@ -8031,6 +8203,10 @@ static void generate_fillet_topology(Mesh *me, SilhouetteData *sil)
 	int a_start_v, b_start_v;
 	float *dist_a, *dist_b;
 	float tot_dist_a, tot_dist_b;
+	float o_off;
+	bool invert;
+	int exact_p_start;
+	int exact_p_tot;
 	int r2;
 
 	/*Generate the fillets from the edgerings and the exact intersection points.*/
@@ -8105,12 +8281,20 @@ static void generate_fillet_topology(Mesh *me, SilhouetteData *sil)
 				}
 			}
 
-			float o_off;
-			triangulation_map = find_triangulation(me, a_verts, b_verts, a_size, b_size, dist_a, dist_b, tot_dist_a, tot_dist_b, &o_off);
+			triangulation_map = find_triangulation(me, a_verts, b_verts, a_size, b_size, dist_a, dist_b, tot_dist_a, tot_dist_b, &o_off, &invert);
 
+			exact_p_start = sil->exact_isect_points_start[r2];
+			exact_p_tot = r2 + 1 < sil->num_rings_new ? sil->exact_isect_points_start[r2 + 1] - exact_p_start : sil->exact_points_tot - exact_p_start;
+
+			gen_fillet_velp(me, &sil->exact_isect_points[exact_p_start * 3], exact_p_tot,
+							 a_verts, b_verts,
+							 a_data, b_data,
+							 a_size, b_size,
+							 triangulation_map, invert);
+			
 #ifdef DEBUG_DRAW
 
-			bl_debug_color_set(0xFFCC33);
+			/*bl_debug_color_set(0xFFCC33);
 			for(int e = 0; e < a_size; e++) {
 				printf("TMap %i [%i]\n", e, triangulation_map[e]);
 				bl_debug_draw_edge_add(me->mvert[a_verts[e]].co, me->mvert[b_verts[triangulation_map[e]]].co);
@@ -8125,10 +8309,10 @@ static void generate_fillet_topology(Mesh *me, SilhouetteData *sil)
 			}
 			for (int i = 0; i < b_size; i++) {
 				float fact;
-				if (o_off >= 0) {
+				if (invert) {
 					fact = fmod((dist_b[i] / tot_dist_b) + o_off,1.0f);
 				} else {
-					fact = fmod(2.0f - (dist_b[i] / tot_dist_b) - o_off,1.0f);
+					fact = fmod(2.0f - (dist_b[i] / tot_dist_b) + o_off,1.0f);
 				}
 				bl_debug_color_set((int)((0x0000ff) * fact));
 				bl_debug_draw_medge_add(me, b_data[i]);
@@ -8142,7 +8326,7 @@ static void generate_fillet_topology(Mesh *me, SilhouetteData *sil)
 				copy_v3_v3(v2, (i + 1 < r_size ? &sil->exact_isect_points[(r_start + i) * 3 + 3] : &sil->exact_isect_points[r_start * 3]));
 				bl_debug_draw_edge_add(v1, v2);
 				bl_debug_color_set(0x000000);
-			}
+			}*/
 #endif
 		}
 	} else {
@@ -8217,7 +8401,6 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 	if (sil->num_inter_nodes) {
 		check_preceding_intersecting_edges(ob, sil, NULL, nodes, me->totedge - e_start);
 		combine_intersection_data(me, sil);
-
 		generate_fillet_topology(me, sil);
 	}
 	/*printf("Joining %i isect data.\n", sil->num_isect_data);
