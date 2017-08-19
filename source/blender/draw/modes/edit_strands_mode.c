@@ -42,8 +42,6 @@
 extern GlobalsUboStorage ts;
 
 extern char datatoc_edit_strands_vert_glsl[];
-extern char datatoc_hair_vert_glsl[];
-extern char datatoc_hair_frag_glsl[];
 extern char datatoc_gpu_shader_point_varying_color_frag_glsl[];
 extern char datatoc_gpu_shader_3D_smooth_color_frag_glsl[];
 
