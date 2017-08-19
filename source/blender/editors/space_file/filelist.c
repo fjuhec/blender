@@ -1850,12 +1850,12 @@ static bool filelist_file_cache_block_create(FileList *filelist, const int start
 
 		entry = filelist_file_create_entries_block(filelist, start_index, size);
 
-		for (i = 0; i < size; i++, cursor++, entry = entry->next) {
+		for (i = 0; (i < size) && (entry != NULL); i++, cursor++, entry = entry->next) {
 //			printf("%d, %p\n", i, entry);
 			cache->block_entries[cursor] = entry;
 			BLI_ghash_insert(cache->uuids, entry->uuid, entry);
 		}
-		return true;
+		return (i == size);
 	}
 	else {
 		int i, idx;
