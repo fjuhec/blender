@@ -1192,14 +1192,24 @@ class GreasePencilOnionPanel:
         row = sub.row(align=True)
         row.active = gpl.use_ghost_custom_colors
         row.prop(gpl, "before_color", text="")
-        sub.prop(gpl, "ghost_before_range", text="Before")
+
+        row = sub.row(align=True)
+        row.active = not gpl.onion_only_selected
+        row.prop(gpl, "ghost_before_range", text="Before")
 
         # - After Frames
         sub = split.column(align=True)
         row = sub.row(align=True)
         row.active = gpl.use_ghost_custom_colors
         row.prop(gpl, "after_color", text="")
-        sub.prop(gpl, "ghost_after_range", text="After")
+
+        row = sub.row(align=True)
+        row.active = not gpl.onion_only_selected
+        row.prop(gpl, "ghost_after_range", text="After")
+
+        row = layout.row(align=True)
+        row.active = gpl.use_onion_skinning
+        row.prop(gpl, "onion_only_selected", text="Only selected frames")
 
 
 class GreasePencilParentLayerPanel:

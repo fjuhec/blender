@@ -301,6 +301,9 @@ typedef enum eGPDlayer_Flag {
 	GP_LAYER_GHOST_ALWAYS	= (1 << 13),
 	/* draw new strokes using last stroke location (only in 3d view) */
 	GP_LAYER_USE_LOCATION = (1 << 14),
+	/* only onion of selected frames */
+	GP_LAYER_ONION_SELECTED = (1 << 15),
+
 } eGPDlayer_Flag;
 
 /* xray modes */
