@@ -31,6 +31,9 @@
 
 #include "DNA_gpencil_types.h"
 #include "DNA_modifier_types.h"
+#include "DNA_screen_types.h"
+
+#include "ED_view3d.h"
 
 #include "gpencil_engine.h"
 
@@ -279,8 +282,18 @@ static void DRW_gpencil_vfx_swirl(ModifierData *md, int ob_idx, GPENCIL_e_data *
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	DRWShadingGroup *vfx_shgrp;
-	stl->vfx[ob_idx].vfx_swirl.center[0] = mmd->center[0];
-	stl->vfx[ob_idx].vfx_swirl.center[1] = mmd->center[1];
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	ARegion *ar = draw_ctx->ar;
+	int co[2];
+	if (mmd->flag & GP_SWIRL_USE_OB_LOC) {
+		ED_view3d_project_int_global(ar, ob->loc, co, V3D_PROJ_TEST_NOP);
+		stl->vfx[ob_idx].vfx_swirl.center[0] = co[0];
+		stl->vfx[ob_idx].vfx_swirl.center[1] = co[1];
+	}
+	else {
+		stl->vfx[ob_idx].vfx_swirl.center[0] = mmd->center[0];
+		stl->vfx[ob_idx].vfx_swirl.center[1] = mmd->center[1];
+	}
 	stl->vfx[ob_idx].vfx_swirl.radius = mmd->radius;
 	stl->vfx[ob_idx].vfx_swirl.angle = mmd->angle;
 	stl->vfx[ob_idx].vfx_swirl.transparent = (int)mmd->flag & GP_SWIRL_MAKE_TRANSPARENT;

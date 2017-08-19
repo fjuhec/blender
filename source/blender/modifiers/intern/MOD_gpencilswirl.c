@@ -46,6 +46,7 @@ static void initData(ModifierData *md)
 	gpmd->radius = 100;
 	ARRAY_SET_ITEMS(gpmd->center, 600, 600);
 	gpmd->angle = 1.57079f; // PI/2
+	gpmd->flag |= GP_SWIRL_USE_OB_LOC;
 
 	BKE_gpencil_batch_cache_alldirty();
 }

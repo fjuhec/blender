@@ -5513,6 +5513,11 @@ static void rna_def_modifier_gpencilswirl(BlenderRNA *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SWIRL_MAKE_TRANSPARENT);
 	RNA_def_property_ui_text(prop, "Transparent", "Make image transparent outside of radius");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "use_loc", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SWIRL_USE_OB_LOC);
+	RNA_def_property_ui_text(prop, "Use Location", "Use object location as center");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
 void RNA_def_modifier(BlenderRNA *brna)

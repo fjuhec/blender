@@ -1844,6 +1844,7 @@ typedef struct GpencilSwirlModifierData {
 
 typedef enum eGpencilSwirl_Flag {
 	GP_SWIRL_MAKE_TRANSPARENT = (1 << 0),
+	GP_SWIRL_USE_OB_LOC       = (1 << 1),
 } eGpencilSwirl_Flag;
 
 #define MOD_MESHSEQ_READ_ALL \
