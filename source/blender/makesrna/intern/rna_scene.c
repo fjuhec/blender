@@ -2600,6 +2600,9 @@ static void rna_LayerEngineSettings_##_ENGINE_##_##_NAME_##_set(PointerRNA *ptr,
 #define RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(_NAME_) \
 	RNA_LAYER_ENGINE_GET_SET(float, Eevee, COLLECTION_MODE_NONE, _NAME_)
 
+#define RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT_ARRAY(_NAME_, _LEN_) \
+	RNA_LAYER_ENGINE_GET_SET_ARRAY(float, Eevee, COLLECTION_MODE_NONE, _NAME_, _LEN_)
+
 #define RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(_NAME_) \
 	RNA_LAYER_ENGINE_GET_SET(int, Eevee, COLLECTION_MODE_NONE, _NAME_)
 
@@ -2654,7 +2657,10 @@ RNA_LAYER_ENGINE_CLAY_GET_SET_FLOAT(hair_brightness_randomness)
 /* SceneLayer settings. */
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(gtao_enable)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(gtao_use_bent_normals)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(gtao_denoise)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(gtao_bounce)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(gtao_factor)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(gtao_quality)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(gtao_distance)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(gtao_samples)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(dof_enable)
@@ -2662,8 +2668,10 @@ RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(bokeh_max_size)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(bokeh_threshold)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(bloom_enable)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(bloom_threshold)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT_ARRAY(bloom_color, 3)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(bloom_knee)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(bloom_radius)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(bloom_clamp)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(bloom_intensity)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(motion_blur_enable)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(motion_blur_samples)
@@ -6425,11 +6433,33 @@ static void rna_def_scene_layer_engine_settings_eevee(BlenderRNA *brna)
 	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
 
+	prop = RNA_def_property(srna, "gtao_denoise", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_funcs(prop, "rna_LayerEngineSettings_Eevee_gtao_denoise_get",
+	                               "rna_LayerEngineSettings_Eevee_gtao_denoise_set");
+	RNA_def_property_ui_text(prop, "Denoise", "Use denoising to filter the resulting occlusion and bent normal but exhibit 2x2 pixel blocks");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
+
+	prop = RNA_def_property(srna, "gtao_bounce", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_funcs(prop, "rna_LayerEngineSettings_Eevee_gtao_bounce_get",
+	                               "rna_LayerEngineSettings_Eevee_gtao_bounce_set");
+	RNA_def_property_ui_text(prop, "Bounces Approximation", "An approximation to simulate light bounces "
+	                                                        "giving less occlusion on brighter objects");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
+
 	prop = RNA_def_property(srna, "gtao_factor", PROP_FLOAT, PROP_FACTOR);
 	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Eevee_gtao_factor_get", "rna_LayerEngineSettings_Eevee_gtao_factor_set", NULL);
 	RNA_def_property_ui_text(prop, "Factor", "Factor for ambient occlusion blending");
-	RNA_def_property_range(prop, 0, FLT_MAX);
+	RNA_def_property_range(prop, 0.0f, FLT_MAX);
 	RNA_def_property_ui_range(prop, 0.0f, 1.0f, 0.1f, 2);
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_LayerCollectionEngineSettings_update");
+
+	prop = RNA_def_property(srna, "gtao_quality", PROP_FLOAT, PROP_FACTOR);
+	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Eevee_gtao_quality_get", "rna_LayerEngineSettings_Eevee_gtao_quality_set", NULL);
+	RNA_def_property_ui_text(prop, "Trace Quality", "Quality of the horizon search");
+	RNA_def_property_range(prop, 0.0f, 1.0f);
 	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_LayerCollectionEngineSettings_update");
 
@@ -6492,6 +6522,14 @@ static void rna_def_scene_layer_engine_settings_eevee(BlenderRNA *brna)
 	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
 
+	prop = RNA_def_property(srna, "bloom_color", PROP_FLOAT, PROP_COLOR);
+	RNA_def_property_array(prop, 3);
+	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Eevee_bloom_color_get",
+	                             "rna_LayerEngineSettings_Eevee_bloom_color_set", NULL);
+	RNA_def_property_ui_text(prop, "Color", "Color applied to the bloom effect");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
+
 	prop = RNA_def_property(srna, "bloom_knee", PROP_FLOAT, PROP_FACTOR);
 	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Eevee_bloom_knee_get",
 	                             "rna_LayerEngineSettings_Eevee_bloom_knee_set", NULL);
@@ -6505,6 +6543,15 @@ static void rna_def_scene_layer_engine_settings_eevee(BlenderRNA *brna)
 	                             "rna_LayerEngineSettings_Eevee_bloom_radius_set", NULL);
 	RNA_def_property_ui_text(prop, "Radius", "Bloom spread distance");
 	RNA_def_property_range(prop, 0.0f, 100.0f);
+	RNA_def_property_ui_range(prop, 0.0f, 10.0f, 1, 3);
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");
+
+	prop = RNA_def_property(srna, "bloom_clamp", PROP_FLOAT, PROP_FACTOR);
+	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Eevee_bloom_clamp_get",
+	                             "rna_LayerEngineSettings_Eevee_bloom_clamp_set", NULL);
+	RNA_def_property_ui_text(prop, "Clamp", "Maximum intensity a bloom pixel can have");
+	RNA_def_property_range(prop, 0.0f, 1000.0f);
 	RNA_def_property_ui_range(prop, 0.0f, 10.0f, 1, 3);
 	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_SceneLayerEngineSettings_update");

@@ -482,10 +482,10 @@ static bool ntree_tag_ssr_bsdf_cb(bNode *fromnode, bNode *UNUSED(tonode), void *
 {
 	switch (fromnode->type) {
 		case SH_NODE_BSDF_ANISOTROPIC:
-		case SH_NODE_EEVEE_METALLIC:
 		case SH_NODE_EEVEE_SPECULAR:
 		case SH_NODE_BSDF_PRINCIPLED:
 		case SH_NODE_BSDF_GLOSSY:
+		case SH_NODE_BSDF_GLASS:
 			fromnode->ssr_id = (*(float *)userdata);
 			(*(float *)userdata) += 1;
 			break;

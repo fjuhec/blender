@@ -657,9 +657,12 @@ class RENDER_PT_eevee_postprocess_settings(RenderButtonsPanel, Panel):
 
         col.label("Ambient Occlusion:")
         col.prop(props, "gtao_use_bent_normals")
+        col.prop(props, "gtao_denoise")
+        col.prop(props, "gtao_bounce")
         col.prop(props, "gtao_samples")
         col.prop(props, "gtao_distance")
         col.prop(props, "gtao_factor")
+        col.prop(props, "gtao_quality")
         col.separator()
 
         col.label("Motion Blur:")
@@ -676,7 +679,9 @@ class RENDER_PT_eevee_postprocess_settings(RenderButtonsPanel, Panel):
         col.prop(props, "bloom_threshold")
         col.prop(props, "bloom_knee")
         col.prop(props, "bloom_radius")
+        col.prop(props, "bloom_color")
         col.prop(props, "bloom_intensity")
+        col.prop(props, "bloom_clamp")
 
 
 class RENDER_PT_eevee_volumetric(RenderButtonsPanel, Panel):
