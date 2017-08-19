@@ -2509,6 +2509,12 @@ static void direct_link_fcurves(FileData *fd, ListBase *list)
 		 */
 		fcu->flag &= ~FCURVE_DISABLED;
 		
+		/* TEMPORARY HACK */
+		if (fcu->flag & (1<<13)) {
+			fcu->flag &= ~(1<<13);
+			fcu->auto_smoothing = FCURVE_SMOOTH_CONT_ACCEL;
+		}
+
 		/* driver */
 		fcu->driver= newdataadr(fd, fcu->driver);
 		if (fcu->driver) {
