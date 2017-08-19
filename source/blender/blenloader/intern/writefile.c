@@ -1709,7 +1709,7 @@ static void write_fmaps(WriteData *wd, ListBase *fbase)
 
 static void write_hair(WriteData *wd, HairPattern *hair)
 {
-	writestruct(wd, DATA, HairPattern, hair->num_follicles, hair->follicles);
+	writestruct(wd, DATA, HairFollicle, hair->num_follicles, hair->follicles);
 	
 	writelist(wd, DATA, HairGroup, &hair->groups);
 	for (HairGroup *group = hair->groups.first; group; group = group->next) {

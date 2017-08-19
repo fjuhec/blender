@@ -5126,10 +5126,14 @@ static void direct_link_hair(FileData *fd, HairPattern *hair)
 		return;
 	}
 	
+	// cache the old pointer to calculate offsets for groups
+	const HairFollicle *old_follicles = hair->follicles;
 	hair->follicles = newdataadr(fd, hair->follicles);
 	
 	link_list(fd, &hair->groups);
 	for (HairGroup *group = hair->groups.first; group; group = group->next) {
+		group->follicles = hair->follicles + (int)(group->follicles - old_follicles);
+		
 		group->strands_parent_index = newdataadr(fd, group->strands_parent_index);
 		group->strands_parent_weight = newdataadr(fd, group->strands_parent_weight);
 		
