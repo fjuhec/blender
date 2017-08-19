@@ -293,7 +293,7 @@ static void createTransTexspace(TransInfo *t)
 	ID *id;
 	short *texflag;
 
-	ob = OBACT_NEW;
+	ob = OBACT_NEW(sl);
 
 	if (ob == NULL) { // Shouldn't logically happen, but still...
 		t->total = 0;
@@ -2012,7 +2012,7 @@ void flushTransParticles(TransInfo *t)
 {
 	Scene *scene = t->scene;
 	SceneLayer *sl = t->scene_layer;
-	Object *ob = OBACT_NEW;
+	Object *ob = OBACT_NEW(sl);
 	PTCacheEdit *edit = PE_get_current(scene, sl, ob);
 	ParticleSystem *psys = edit->psys;
 	ParticleSystemModifierData *psmd = NULL;
@@ -2052,7 +2052,9 @@ void flushTransParticles(TransInfo *t)
 			point->flag |= PEP_EDIT_RECALC;
 	}
 
-	PE_update_object(t->context, scene, sl, OBACT_NEW, 1);
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(t->context, &eval_ctx);
+	PE_update_object(&eval_ctx, scene, sl, OBACT_NEW(sl), 1);
 }
 
 
@@ -2102,7 +2104,7 @@ static void StrandVertsToTransData(TransInfo *t, TransData *td,
 static void createTransStrandVerts(TransInfo *t)
 {
 	SceneLayer *sl = t->scene_layer;
-	Object *ob = OBACT_NEW;
+	Object *ob = OBACT_NEW(sl);
 	BMEditStrands *edit = BKE_editstrands_from_object(ob);
 	BMesh *bm = edit->base.bm;
 	TransData *tob = NULL;
@@ -2268,7 +2270,7 @@ cleanup:
 void flushTransStrands(TransInfo *t)
 {
 	SceneLayer *sl = t->scene_layer;
-	Object *ob = OBACT_NEW;
+	Object *ob = OBACT_NEW(sl);
 	BMEditStrands *edit = BKE_editstrands_from_object(ob);
 	BMEditStrandsLocations origlocs = t->custom.type.data;
 	
@@ -5977,7 +5979,7 @@ void autokeyframe_ob_cb_func(bContext *C, Scene *scene, SceneLayer *sl, View3D *
 			}
 			else if (ELEM(tmode, TFM_ROTATION, TFM_TRACKBALL)) {
 				if (v3d->around == V3D_AROUND_ACTIVE) {
-					if (ob != OBACT_NEW)
+					if (ob != OBACT_NEW(sl))
 						do_loc = true;
 				}
 				else if (v3d->around == V3D_AROUND_CURSOR)
@@ -5988,7 +5990,7 @@ void autokeyframe_ob_cb_func(bContext *C, Scene *scene, SceneLayer *sl, View3D *
 			}
 			else if (tmode == TFM_RESIZE) {
 				if (v3d->around == V3D_AROUND_ACTIVE) {
-					if (ob != OBACT_NEW)
+					if (ob != OBACT_NEW(sl))
 						do_loc = true;
 				}
 				else if (v3d->around == V3D_AROUND_CURSOR)
@@ -8295,7 +8297,7 @@ void createTransData(bContext *C, TransInfo *t)
 {
 	Scene *scene = t->scene;
 	SceneLayer *sl = t->scene_layer;
-	Object *ob = OBACT_NEW;
+	Object *ob = OBACT_NEW(sl);
 
 	/* if tests must match recalcData for correct updates */
 	if (t->options & CTX_TEXTURE) {

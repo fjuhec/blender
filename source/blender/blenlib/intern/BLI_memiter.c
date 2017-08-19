@@ -147,7 +147,7 @@ BLI_memiter *BLI_memiter_create(uint chunk_size_min)
 		chunk_size_min -= slop_space;
 	}
 
-	mi->chunk_size_in_bytes_min = (offset_t)chunk_size_min;
+	mi->chunk_size_in_bytes_min = chunk_size_min;
 	return mi;
 }
 
@@ -192,7 +192,7 @@ void *BLI_memiter_alloc(BLI_memiter *mi, uint elem_size)
 	BLI_assert(data_curr_next <= mi->data_last);
 
 	BLI_memiter_elem *elem      = (BLI_memiter_elem *)mi->data_curr;
-	elem->size = elem_size;
+	elem->size = (offset_t)elem_size;
 	mi->data_curr = data_curr_next;
 
 #ifdef USE_TERMINATE_PARANOID

@@ -71,6 +71,10 @@ typedef enum eWM_ManipulatorFlag {
 	WM_MANIPULATOR_DRAW_MODAL  = (1 << 1), /* draw while dragging */
 	WM_MANIPULATOR_DRAW_VALUE  = (1 << 2), /* draw an indicator for the current value while dragging */
 	WM_MANIPULATOR_HIDDEN      = (1 << 3),
+	/**
+	 * When set 'scale_final' value also scales the offset.
+	 * Use when offset is to avoid screen-space overlap instead of absolute positioning. */
+	WM_MANIPULATOR_DRAW_OFFSET_SCALE  = (1 << 4),
 } eWM_ManipulatorFlag;
 
 /**
@@ -192,9 +196,6 @@ struct wmManipulator {
 	/* over alloc target_properties after 'wmManipulatorType.struct_size' */
 };
 
-typedef void (*wmManipulatorGroupFnInit)(
-        const struct bContext *, struct wmManipulatorGroup *);
-
 /* Similar to PropertyElemRNA, but has an identifier. */
 typedef struct wmManipulatorProperty {
 	const struct wmManipulatorPropertyType *type;
@@ -272,7 +273,7 @@ typedef struct wmManipulatorType {
 	 * - Scale isn't applied (wmManipulator.scale/user_scale).
 	 * - Offset isn't applied (wmManipulator.matrix_offset).
 	 */
-	wmManipulatorFnMatrixWorldGet matrix_world_get;
+	wmManipulatorFnMatrixWorldGet matrix_basis_get;
 
 	/* activate a manipulator state when the user clicks on it */
 	wmManipulatorFnInvoke invoke;

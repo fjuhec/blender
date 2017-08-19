@@ -37,6 +37,8 @@
 #include "ED_screen.h"
 #include "ED_manipulator_library.h"
 
+#include "UI_resources.h"
+
 #include "MEM_guardedalloc.h"
 
 #include "RNA_access.h"
@@ -105,37 +107,32 @@ static void WIDGETGROUP_camera_setup(const bContext *C, wmManipulatorGroup *mgro
 	/* dof distance */
 	{
 		wmManipulator *mpr;
-		const float color[4] = {1.0f, 0.3f, 0.0f, 1.0f};
-		const float color_hi[4] = {1.0f, 0.3f, 0.0f, 1.0f};
-
 		mpr = camgroup->dop_dist = WM_manipulator_new_ptr(wt_arrow, mgroup, NULL);
 		RNA_enum_set(mpr->ptr, "draw_style",  ED_MANIPULATOR_ARROW_STYLE_CROSS);
 		WM_manipulator_set_flag(mpr, WM_MANIPULATOR_DRAW_HOVER, true);
-		WM_manipulator_set_color(mpr, color);
-		WM_manipulator_set_color_highlight(mpr, color_hi);
+
+		UI_GetThemeColor3fv(TH_MANIPULATOR_A, mpr->color);
+		UI_GetThemeColor3fv(TH_MANIPULATOR_HI, mpr->color_hi);
 	}
 
 	/* focal length
 	 * - logic/calculations are similar to BKE_camera_view_frame_ex, better keep in sync */
 	{
 		wmManipulator *mpr;
-		const float color[4] = {1.0f, 1.0, 0.27f, 0.5f};
-		const float color_hi[4] = {1.0f, 1.0, 0.27f, 1.0f};
-
 		mpr = camgroup->focal_len = WM_manipulator_new_ptr(wt_arrow, mgroup, NULL);
 		RNA_enum_set(mpr->ptr, "draw_style",  ED_MANIPULATOR_ARROW_STYLE_CONE);
 		RNA_enum_set(mpr->ptr, "draw_options",  ED_MANIPULATOR_ARROW_STYLE_CONSTRAINED);
 
-		WM_manipulator_set_color(mpr, color);
-		WM_manipulator_set_color_highlight(mpr, color_hi);
+		UI_GetThemeColor3fv(TH_MANIPULATOR_PRIMARY, mpr->color);
+		UI_GetThemeColor3fv(TH_MANIPULATOR_HI, mpr->color_hi);
 		cameragroup_property_setup(mpr, ob, ca, false);
 
 		mpr = camgroup->ortho_scale = WM_manipulator_new_ptr(wt_arrow, mgroup, NULL);
 		RNA_enum_set(mpr->ptr, "draw_style",  ED_MANIPULATOR_ARROW_STYLE_CONE);
 		RNA_enum_set(mpr->ptr, "draw_options",  ED_MANIPULATOR_ARROW_STYLE_CONSTRAINED);
 
-		WM_manipulator_set_color(mpr, color);
-		WM_manipulator_set_color_highlight(mpr, color_hi);
+		UI_GetThemeColor3fv(TH_MANIPULATOR_PRIMARY, mpr->color);
+		UI_GetThemeColor3fv(TH_MANIPULATOR_HI, mpr->color_hi);
 		cameragroup_property_setup(mpr, ob, ca, true);
 	}
 }
@@ -303,6 +300,16 @@ static bool WIDGETGROUP_camera_view_poll(const bContext *C, wmManipulatorGroupTy
 	RegionView3D *rv3d = ar->regiondata;
 	Scene *scene = CTX_data_scene(C);
 	View3D *v3d = CTX_wm_view3d(C);
+
+	/* This is just so the border isn't always in the way,
+	 * stealing mouse clicks from regular usage.
+	 * We could change the rules for when to show. */
+	{
+		SceneLayer *sl = CTX_data_scene_layer(C);
+		if (scene->camera != OBACT_NEW(sl)) {
+			return false;
+		}
+	}
 
 	if (rv3d->persp == RV3D_CAMOB) {
 		if (scene->r.mode & R_BORDER) {

@@ -360,6 +360,9 @@ static struct DRWGlobalState {
 	struct DRWTextStore **text_store_p;
 
 	ListBase enabled_engines; /* RenderEngineType */
+
+	/* Profiling */
+	double cache_time;
 } DST = {NULL};
 
 static struct DRWMatrixOveride {
@@ -394,16 +397,16 @@ static void drw_texture_get_format(
 		case DRW_TEX_RGBA_16: *r_data_type = GPU_RGBA16F; break;
 		case DRW_TEX_RGB_16: *r_data_type = GPU_RGB16F; break;
 		case DRW_TEX_RGB_11_11_10: *r_data_type = GPU_R11F_G11F_B10F; break;
+		case DRW_TEX_RG_8: *r_data_type = GPU_RG8; break;
 		case DRW_TEX_RG_16: *r_data_type = GPU_RG16F; break;
 		case DRW_TEX_RG_32: *r_data_type = GPU_RG32F; break;
 		case DRW_TEX_R_8: *r_data_type = GPU_R8; break;
 		case DRW_TEX_R_16: *r_data_type = GPU_R16F; break;
 		case DRW_TEX_R_32: *r_data_type = GPU_R32F; break;
 #if 0
-		case DRW_TEX_RGBA_32: *data_type = GPU_RGBA32F; break;
-		case DRW_TEX_RGB_8: *data_type = GPU_RGB8; break;
-		case DRW_TEX_RGB_32: *data_type = GPU_RGB32F; break;
-		case DRW_TEX_RG_8: *data_type = GPU_RG8; break;
+		case DRW_TEX_RGBA_32: *r_data_type = GPU_RGBA32F; break;
+		case DRW_TEX_RGB_8: *r_data_type = GPU_RGB8; break;
+		case DRW_TEX_RGB_32: *r_data_type = GPU_RGB32F; break;
 #endif
 		case DRW_TEX_DEPTH_16: *r_data_type = GPU_DEPTH_COMPONENT16; break;
 		case DRW_TEX_DEPTH_24: *r_data_type = GPU_DEPTH_COMPONENT24; break;
@@ -906,14 +909,14 @@ void DRW_shgroup_free(struct DRWShadingGroup *shgroup)
 	BLI_freelistN(&shgroup->interface->attribs);
 
 	if (shgroup->interface->instance_vbo &&
-		(shgroup->interface->instance_batch == 0))
+	    (shgroup->interface->instance_batch == 0))
 	{
 		glDeleteBuffers(1, &shgroup->interface->instance_vbo);
 	}
 
 	MEM_freeN(shgroup->interface);
 
-	BATCH_DISCARD_ALL_SAFE(shgroup->batch_geom);
+	GWN_BATCH_DISCARD_SAFE(shgroup->batch_geom);
 }
 
 void DRW_shgroup_instance_batch(DRWShadingGroup *shgroup, struct Gwn_Batch *instances)
@@ -1254,9 +1257,9 @@ static void shgroup_dynamic_batch(DRWShadingGroup *shgroup)
 
 	/* TODO make the batch dynamic instead of freeing it every times */
 	if (shgroup->batch_geom)
-		GWN_batch_discard_all(shgroup->batch_geom);
+		GWN_batch_discard(shgroup->batch_geom);
 
-	shgroup->batch_geom = GWN_batch_create(type, vbo, NULL);
+	shgroup->batch_geom = GWN_batch_create_ex(type, vbo, NULL, GWN_BATCH_OWNS_VBO);
 }
 
 static void shgroup_dynamic_instance(DRWShadingGroup *shgroup)
@@ -2207,6 +2210,7 @@ static GPUTextureFormat convert_tex_format(
 	switch (fbo_format) {
 		case DRW_TEX_R_16:     *r_channels = 1; return GPU_R16F;
 		case DRW_TEX_R_32:     *r_channels = 1; return GPU_R32F;
+		case DRW_TEX_RG_8:     *r_channels = 2; return GPU_RG8;
 		case DRW_TEX_RG_16:    *r_channels = 2; return GPU_RG16F;
 		case DRW_TEX_RG_32:    *r_channels = 2; return GPU_RG32F;
 		case DRW_TEX_RGBA_8:   *r_channels = 4; return GPU_RGBA8;
@@ -2676,13 +2680,9 @@ static void DRW_engines_cache_init(void)
 			DST.text_store_p = &data->text_draw_cache;
 		}
 
-		PROFILE_START(stime);
-		data->cache_time = 0.0;
-
 		if (engine->cache_init) {
 			engine->cache_init(data);
 		}
-		PROFILE_END_ACCUM(data->cache_time, stime);
 	}
 }
 
@@ -2691,13 +2691,10 @@ static void DRW_engines_cache_populate(Object *ob)
 	for (LinkData *link = DST.enabled_engines.first; link; link = link->next) {
 		DrawEngineType *engine = link->data;
 		ViewportEngineData *data = DRW_viewport_engine_data_get(engine);
-		PROFILE_START(stime);
 
 		if (engine->cache_populate) {
 			engine->cache_populate(data, ob);
 		}
-
-		PROFILE_END_ACCUM(data->cache_time, stime);
 	}
 }
 
@@ -2706,13 +2703,10 @@ static void DRW_engines_cache_finish(void)
 	for (LinkData *link = DST.enabled_engines.first; link; link = link->next) {
 		DrawEngineType *engine = link->data;
 		ViewportEngineData *data = DRW_viewport_engine_data_get(engine);
-		PROFILE_START(stime);
 
 		if (engine->cache_finish) {
 			engine->cache_finish(data);
 		}
-
-		PROFILE_END_ACCUM(data->cache_time, stime);
 	}
 }
 
@@ -2952,7 +2946,7 @@ static void DRW_engines_enable_external(void)
 
 static void DRW_engines_enable(const Scene *scene, SceneLayer *sl)
 {
-	Object *obact = OBACT_NEW;
+	Object *obact = OBACT_NEW(sl);
 	const int mode = CTX_data_mode_enum_ex(scene->obedit, obact);
 	DRW_engines_enable_from_engine(scene);
 
@@ -2991,7 +2985,7 @@ static void draw_stat(rcti *rect, int u, int v, const char *txt, const int size)
 static void DRW_debug_cpu_stats(void)
 {
 	int u, v;
-	double cache_tot_time = 0.0, init_tot_time = 0.0, background_tot_time = 0.0, render_tot_time = 0.0, tot_time = 0.0;
+	double init_tot_time = 0.0, background_tot_time = 0.0, render_tot_time = 0.0, tot_time = 0.0;
 	/* local coordinate visible rect inside region, to accomodate overlapping ui */
 	rcti rect;
 	struct ARegion *ar = DST.draw_ctx.ar;
@@ -3004,8 +2998,6 @@ static void DRW_debug_cpu_stats(void)
 	/* Label row */
 	char col_label[32];
 	sprintf(col_label, "Engine");
-	draw_stat(&rect, u++, v, col_label, sizeof(col_label));
-	sprintf(col_label, "Cache");
 	draw_stat(&rect, u++, v, col_label, sizeof(col_label));
 	sprintf(col_label, "Init");
 	draw_stat(&rect, u++, v, col_label, sizeof(col_label));
@@ -3025,10 +3017,6 @@ static void DRW_debug_cpu_stats(void)
 		ViewportEngineData *data = DRW_viewport_engine_data_get(engine);
 
 		draw_stat(&rect, u++, v, engine->idname, sizeof(engine->idname));
-
-		cache_tot_time += data->cache_time;
-		sprintf(time_to_txt, "%.2fms", data->cache_time);
-		draw_stat(&rect, u++, v, time_to_txt, sizeof(time_to_txt));
 
 		init_tot_time += data->init_time;
 		sprintf(time_to_txt, "%.2fms", data->init_time);
@@ -3052,8 +3040,6 @@ static void DRW_debug_cpu_stats(void)
 	u = 0;
 	sprintf(col_label, "Sub Total");
 	draw_stat(&rect, u++, v, col_label, sizeof(col_label));
-	sprintf(time_to_txt, "%.2fms", cache_tot_time);
-	draw_stat(&rect, u++, v, time_to_txt, sizeof(time_to_txt));
 	sprintf(time_to_txt, "%.2fms", init_tot_time);
 	draw_stat(&rect, u++, v, time_to_txt, sizeof(time_to_txt));
 	sprintf(time_to_txt, "%.2fms", background_tot_time);
@@ -3061,6 +3047,13 @@ static void DRW_debug_cpu_stats(void)
 	sprintf(time_to_txt, "%.2fms", render_tot_time);
 	draw_stat(&rect, u++, v, time_to_txt, sizeof(time_to_txt));
 	sprintf(time_to_txt, "%.2fms", tot_time);
+	draw_stat(&rect, u++, v, time_to_txt, sizeof(time_to_txt));
+	v += 2;
+
+	u = 0;
+	sprintf(col_label, "Cache Time");
+	draw_stat(&rect, u++, v, col_label, sizeof(col_label));
+	sprintf(time_to_txt, "%.2fms", DST.cache_time);
 	draw_stat(&rect, u++, v, time_to_txt, sizeof(time_to_txt));
 }
 
@@ -3074,7 +3067,7 @@ static void DRW_debug_gpu_stats(void)
 
 	UI_FontThemeColor(BLF_default(), TH_TEXT_HI);
 
-	int v = BLI_listbase_count(&DST.enabled_engines) + 3;
+	int v = BLI_listbase_count(&DST.enabled_engines) + 5;
 
 	char stat_string[32];
 
@@ -3145,7 +3138,7 @@ void DRW_draw_render_loop_ex(
 	cache_is_dirty = GPU_viewport_cache_validate(DST.viewport, DRW_engines_get_hash());
 
 	DST.draw_ctx = (DRWContextState){
-		ar, rv3d, v3d, scene, sl, OBACT_NEW,
+		ar, rv3d, v3d, scene, sl, OBACT_NEW(sl),
 		/* reuse if caller sets */
 		DST.draw_ctx.evil_C,
 	};
@@ -3165,6 +3158,7 @@ void DRW_draw_render_loop_ex(
 	/* ideally only refresh when objects are added/removed */
 	/* or render properties / materials change */
 	if (cache_is_dirty) {
+		PROFILE_START(stime);
 		DRW_engines_cache_init();
 
 		DEG_OBJECT_ITER(graph, ob, DEG_OBJECT_ITER_FLAG_ALL);
@@ -3176,6 +3170,7 @@ void DRW_draw_render_loop_ex(
 		DEG_OBJECT_ITER_END
 
 		DRW_engines_cache_finish();
+		PROFILE_END_ACCUM(DST.cache_time, stime);
 	}
 
 	DRW_stats_begin();
@@ -3327,7 +3322,7 @@ void DRW_draw_select_loop(
 
 	/* Instead of 'DRW_context_state_init(C, &DST.draw_ctx)', assign from args */
 	DST.draw_ctx = (DRWContextState){
-		ar, rv3d, v3d, scene, sl, OBACT_NEW, (bContext *)NULL,
+		ar, rv3d, v3d, scene, sl, OBACT_NEW(sl), (bContext *)NULL,
 	};
 
 	DRW_viewport_var_init();
@@ -3423,7 +3418,7 @@ void DRW_draw_depth_loop(
 
 	/* Instead of 'DRW_context_state_init(C, &DST.draw_ctx)', assign from args */
 	DST.draw_ctx = (DRWContextState){
-		ar, rv3d, v3d, scene, sl, OBACT_NEW, (bContext *)NULL,
+		ar, rv3d, v3d, scene, sl, OBACT_NEW(sl), (bContext *)NULL,
 	};
 
 	DRW_viewport_var_init();

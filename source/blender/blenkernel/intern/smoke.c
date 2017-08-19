@@ -128,7 +128,7 @@ void smoke_initWaveletBlenderRNA(struct WTURBULENCE *UNUSED(wt), float *UNUSED(s
 void smoke_initBlenderRNA(struct FLUID_3D *UNUSED(fluid), float *UNUSED(alpha), float *UNUSED(beta), float *UNUSED(dt_factor), float *UNUSED(vorticity),
                           int *UNUSED(border_colli), float *UNUSED(burning_rate), float *UNUSED(flame_smoke), float *UNUSED(flame_smoke_color),
                           float *UNUSED(flame_vorticity), float *UNUSED(flame_ignition_temp), float *UNUSED(flame_max_temp)) {}
-struct DerivedMesh *smokeModifier_do(SmokeModifierData *UNUSED(smd), struct EvaluationContext *UNUSED(eval_ctx), Scene *UNUSED(scene), Object *UNUSED(ob), DerivedMesh *UNUSED(dm)) { return NULL; }
+struct DerivedMesh *smokeModifier_do(SmokeModifierData *UNUSED(smd), const struct EvaluationContext *UNUSED(eval_ctx), Scene *UNUSED(scene), Object *UNUSED(ob), DerivedMesh *UNUSED(dm)) { return NULL; }
 float smoke_get_velocity_at(struct Object *UNUSED(ob), float UNUSED(position[3]), float UNUSED(velocity[3])) { return 0.0f; }
 
 #endif /* WITH_SMOKE */
@@ -704,7 +704,7 @@ static int get_lamp(SceneLayer *sl, float *light)
 	int found_lamp = 0;
 
 	// try to find a lamp, preferably local
-	for (base_tmp = FIRSTBASE_NEW; base_tmp; base_tmp = base_tmp->next) {
+	for (base_tmp = FIRSTBASE_NEW(sl); base_tmp; base_tmp = base_tmp->next) {
 		if (base_tmp->object->type == OB_LAMP) {
 			Lamp *la = base_tmp->object->data;
 
@@ -2073,7 +2073,7 @@ BLI_INLINE void apply_inflow_fields(SmokeFlowSettings *sfs, float emission_value
 	}
 }
 
-static void update_flowsfluids(struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, SmokeDomainSettings *sds, float dt)
+static void update_flowsfluids(const struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, SmokeDomainSettings *sds, float dt)
 {
 	Object **flowobjs = NULL;
 	EmissionMap *emaps = NULL;
@@ -2489,7 +2489,7 @@ static void update_effectors_task_cb(void *userdata, const int x)
 	}
 }
 
-static void update_effectors(struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, SmokeDomainSettings *sds, float UNUSED(dt))
+static void update_effectors(const struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, SmokeDomainSettings *sds, float UNUSED(dt))
 {
 	ListBase *effectors;
 	/* make sure smoke flow influence is 0.0f */
@@ -2518,7 +2518,7 @@ static void update_effectors(struct EvaluationContext *eval_ctx, Scene *scene, O
 	pdEndEffectors(&effectors);
 }
 
-static void step(struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, SmokeModifierData *smd, DerivedMesh *domain_dm, float fps)
+static void step(const struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, SmokeModifierData *smd, DerivedMesh *domain_dm, float fps)
 {
 	SmokeDomainSettings *sds = smd->domain;
 	/* stability values copied from wturbulence.cpp */
@@ -2685,7 +2685,8 @@ static DerivedMesh *createDomainGeometry(SmokeDomainSettings *sds, Object *ob)
 	return result;
 }
 
-static void smokeModifier_process(SmokeModifierData *smd, struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, DerivedMesh *dm)
+static void smokeModifier_process(
+        SmokeModifierData *smd, const struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, DerivedMesh *dm)
 {
 	if ((smd->type & MOD_SMOKE_TYPE_FLOW))
 	{
@@ -2694,7 +2695,6 @@ static void smokeModifier_process(SmokeModifierData *smd, struct EvaluationConte
 
 		if (smd->flow->dm) smd->flow->dm->release(smd->flow->dm);
 		smd->flow->dm = CDDM_copy(dm);
-		DM_ensure_looptri(smd->flow->dm);
 
 		if (scene->r.cfra > smd->time)
 		{
@@ -2717,7 +2717,6 @@ static void smokeModifier_process(SmokeModifierData *smd, struct EvaluationConte
 				smd->coll->dm->release(smd->coll->dm);
 
 			smd->coll->dm = CDDM_copy(dm);
-			DM_ensure_looptri(smd->coll->dm);
 		}
 
 		smd->time = scene->r.cfra;
@@ -2829,7 +2828,8 @@ static void smokeModifier_process(SmokeModifierData *smd, struct EvaluationConte
 	}
 }
 
-struct DerivedMesh *smokeModifier_do(SmokeModifierData *smd, struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, DerivedMesh *dm)
+struct DerivedMesh *smokeModifier_do(
+        SmokeModifierData *smd, const struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, DerivedMesh *dm)
 {
 	/* lock so preview render does not read smoke data while it gets modified */
 	if ((smd->type & MOD_SMOKE_TYPE_DOMAIN) && smd->domain)

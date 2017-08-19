@@ -111,7 +111,7 @@ static void rect_transform_draw_corners(
 }
 
 static void rect_transform_draw_interaction(
-        const float col[4], const int highlighted,
+        const float color[4], const int highlighted,
         const float half_w, const float half_h,
         const float w, const float h, const float line_width)
 {
@@ -163,34 +163,65 @@ static void rect_transform_draw_interaction(
 			verts[3][1] = half_h - h;
 			break;
 
+		/* Only used for 3D view selection, never displayed to the user. */
+		case ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_TRANSLATE:
+			verts[0][0] = -half_w;
+			verts[0][1] = -half_h;
+
+			verts[1][0] = -half_w;
+			verts[1][1] =  half_h;
+
+			verts[2][0] =  half_w;
+			verts[2][1] =  half_h;
+
+			verts[3][0] =  half_w;
+			verts[3][1] = -half_h;
+			break;
+
 		default:
 			return;
 	}
 
 	Gwn_VertFormat *format = immVertexFormat();
-	uint pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
-	uint color = GWN_vertformat_attr_add(format, "color", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
+	struct {
+		uint pos, col;
+	} attr_id = {
+		.pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT),
+		.col = GWN_vertformat_attr_add(format, "color", GWN_COMP_F32, 3, GWN_FETCH_FLOAT),
+	};
 	immBindBuiltinProgram(GPU_SHADER_2D_FLAT_COLOR);
 
-	glLineWidth(line_width + 3.0f);
+	if (highlighted == ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_TRANSLATE) {
+		immBegin(GWN_PRIM_TRI_FAN, 4);
+		immAttrib3f(attr_id.col, 0.0f, 0.0f, 0.0f);
+		immVertex2fv(attr_id.pos, verts[0]);
+		immVertex2fv(attr_id.pos, verts[1]);
+		immVertex2fv(attr_id.pos, verts[2]);
+		immVertex2fv(attr_id.pos, verts[3]);
+		immEnd();
+	}
+	else {
+		glLineWidth(line_width + 3.0f);
 
-	immBegin(GWN_PRIM_LINE_STRIP, 3);
-	immAttrib3f(color, 0.0f, 0.0f, 0.0f);
-	immVertex2fv(pos, verts[0]);
-	immVertex2fv(pos, verts[1]);
-	immVertex2fv(pos, verts[2]);
-	immEnd();
+		immBegin(GWN_PRIM_LINE_STRIP, 3);
+		immAttrib3f(attr_id.col, 0.0f, 0.0f, 0.0f);
+		immVertex2fv(attr_id.pos, verts[0]);
+		immVertex2fv(attr_id.pos, verts[1]);
+		immVertex2fv(attr_id.pos, verts[2]);
+		immEnd();
 
-	glLineWidth(line_width);
+		glLineWidth(line_width);
 
-	immBegin(GWN_PRIM_LINE_STRIP, 3);
-	immAttrib3fv(color, col);
-	immVertex2fv(pos, verts[0]);
-	immVertex2fv(pos, verts[1]);
-	immVertex2fv(pos, verts[2]);
-	immEnd();
+		immBegin(GWN_PRIM_LINE_STRIP, 3);
+		immAttrib3fv(attr_id.col, color);
+		immVertex2fv(attr_id.pos, verts[0]);
+		immVertex2fv(attr_id.pos, verts[1]);
+		immVertex2fv(attr_id.pos, verts[2]);
+		immEnd();
+	}
 
 	immUnbindProgram();
+
 }
 
 static void manipulator_rect_transform_draw_intern(
@@ -242,16 +273,16 @@ static void manipulator_rect_transform_draw_intern(
 
 	/* corner manipulators */
 	{
-		float col[4];
-		manipulator_color_get(mpr, highlight, col);
+		float color[4];
+		manipulator_color_get(mpr, highlight, color);
 		glLineWidth(mpr->line_width);
-		rect_transform_draw_corners(&r, w, h, col);
+		rect_transform_draw_corners(&r, w, h, color);
 	}
 
 	if (select) {
 		if (transform_flag & ED_MANIPULATOR_RECT_TRANSFORM_FLAG_SCALE) {
 			int scale_parts[] = {
-			    ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_LEFT,
+				ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_LEFT,
 				ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_RIGHT,
 				ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_UP,
 				ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_DOWN,
@@ -263,11 +294,21 @@ static void manipulator_rect_transform_draw_intern(
 				        w, h, mpr->line_width);
 			}
 		}
+		if (transform_flag & ED_MANIPULATOR_RECT_TRANSFORM_FLAG_TRANSLATE) {
+			const int transform_part = ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_TRANSLATE;
+			GPU_select_load_id(select_id | transform_part);
+			rect_transform_draw_interaction(
+			        mpr->color, transform_part, half_w, half_h,
+			        w, h, mpr->line_width);
+		}
 	}
 	else {
-		rect_transform_draw_interaction(
-		        mpr->color, mpr->highlight_part, half_w, half_h,
-		        w, h, mpr->line_width);
+		/* Don't draw translate (only for selection). */
+		if (mpr->highlight_part != ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_TRANSLATE) {
+			rect_transform_draw_interaction(
+			        mpr->color, mpr->highlight_part, half_w, half_h,
+			        w, h, mpr->line_width);
+		}
 	}
 
 	glLineWidth(1.0);
@@ -572,11 +613,6 @@ static void manipulator_rect_transform_modal(
 
 	wmManipulatorProperty *mpr_prop;
 
-	mpr_prop = WM_manipulator_target_property_find(mpr, "offset");
-	if (mpr_prop->type != NULL) {
-		WM_manipulator_target_property_value_set_array(C, mpr, mpr_prop, offset);
-	}
-
 	mpr_prop = WM_manipulator_target_property_find(mpr, "scale");
 	if (mpr_prop->type != NULL) {
 		if (transform_flag & ED_MANIPULATOR_RECT_TRANSFORM_FLAG_SCALE_UNIFORM) {
@@ -593,20 +629,25 @@ static void manipulator_rect_transform_modal(
 		}
 	}
 
+	mpr_prop = WM_manipulator_target_property_find(mpr, "offset");
+	if (mpr_prop->type != NULL) {
+		WM_manipulator_target_property_value_set_array(C, mpr, mpr_prop, offset);
+	}
+
 	/* tag the region for redraw */
 	ED_region_tag_redraw(CTX_wm_region(C));
 }
 
 static void manipulator_rect_transform_property_update(wmManipulator *mpr, wmManipulatorProperty *mpr_prop)
 {
-	if (STREQ(mpr_prop->type->idname, "offset")) {
-		manipulator_rect_transform_get_prop_value(mpr, mpr_prop, mpr->matrix_offset[3]);
-	}
-	else if (STREQ(mpr_prop->type->idname, "scale")) {
+	if (STREQ(mpr_prop->type->idname, "scale")) {
 		float scale[2];
 		manipulator_rect_transform_get_prop_value(mpr, mpr_prop, scale);
 		mpr->matrix_offset[0][0] = scale[0];
 		mpr->matrix_offset[1][1] = scale[1];
+	}
+	else if (STREQ(mpr_prop->type->idname, "offset")) {
+		manipulator_rect_transform_get_prop_value(mpr, mpr_prop, mpr->matrix_offset[3]);
 	}
 	else {
 		BLI_assert(0);
@@ -623,11 +664,6 @@ static void manipulator_rect_transform_exit(bContext *C, wmManipulator *mpr, con
 	wmManipulatorProperty *mpr_prop;
 
 	/* reset properties */
-	mpr_prop = WM_manipulator_target_property_find(mpr, "offset");
-	if (mpr_prop->type != NULL) {
-		WM_manipulator_target_property_value_set_array(C, mpr, mpr_prop, data->orig_matrix_offset[3]);
-	}
-
 	mpr_prop = WM_manipulator_target_property_find(mpr, "scale");
 	if (mpr_prop->type != NULL) {
 		const float orig_scale[2] = {data->orig_matrix_offset[0][0], data->orig_matrix_offset[1][1]};
@@ -643,6 +679,11 @@ static void manipulator_rect_transform_exit(bContext *C, wmManipulator *mpr, con
 		else {
 			WM_manipulator_target_property_value_set_array(C, mpr, mpr_prop, orig_scale);
 		}
+	}
+
+	mpr_prop = WM_manipulator_target_property_find(mpr, "offset");
+	if (mpr_prop->type != NULL) {
+		WM_manipulator_target_property_value_set_array(C, mpr, mpr_prop, data->orig_matrix_offset[3]);
 	}
 
 	copy_m4_m4(mpr->matrix_offset, data->orig_matrix_offset);
@@ -662,11 +703,11 @@ static void MANIPULATOR_WT_cage_2d(wmManipulatorType *wt)
 	/* api callbacks */
 	wt->draw = manipulator_rect_transform_draw;
 	wt->draw_select = manipulator_rect_transform_draw_select;
+	wt->test_select = manipulator_rect_transform_test_select;
 	wt->setup = manipulator_rect_transform_setup;
 	wt->invoke = manipulator_rect_transform_invoke;
 	wt->property_update = manipulator_rect_transform_property_update;
 	wt->modal = manipulator_rect_transform_modal;
-	wt->test_select = manipulator_rect_transform_test_select;
 	wt->exit = manipulator_rect_transform_exit;
 	wt->cursor_get = manipulator_rect_transform_get_cursor;
 

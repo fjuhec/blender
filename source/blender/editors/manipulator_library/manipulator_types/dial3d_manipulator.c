@@ -36,8 +36,6 @@
  * - `matrix[0]` is derived from Y and Z.
  * - `matrix[1]` is 'up' when DialManipulator.use_start_y_axis is set.
  * - `matrix[2]` is the axis the dial rotates around (all dials).
- *
- * TODO: use matrix_space
  */
 
 #include "BIF_gl.h"
@@ -107,13 +105,12 @@ static void dial_calc_matrix(const wmManipulator *mpr, float mat[4][4])
 	rotation_between_vecs_to_mat3(rot, up, mpr->matrix_basis[2]);
 	copy_m4_m3(mat, rot);
 	copy_v3_v3(mat[3], mpr->matrix_basis[3]);
-	mul_mat3_m4_fl(mat, mpr->scale_final);
 }
 
 /* -------------------------------------------------------------------- */
 
 static void dial_geom_draw(
-        const wmManipulator *mpr, const float col[4], const bool select,
+        const wmManipulator *mpr, const float color[4], const bool select,
         float axis_modal_mat[4][4], float clip_plane[4])
 {
 #ifdef USE_MANIPULATOR_CUSTOM_DIAL
@@ -138,7 +135,7 @@ static void dial_geom_draw(
 		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 	}
 
-	immUniformColor4fv(col);
+	immUniformColor4fv(color);
 
 	if (filled) {
 		imm_draw_circle_fill(pos, 0, 0, 1.0, DIAL_RESOLUTION);
@@ -156,7 +153,7 @@ static void dial_geom_draw(
 /**
  * Draws a line from (0, 0, 0) to \a co_outer, at \a angle.
  */
-static void dial_ghostarc_draw_helpline(const float angle, const float co_outer[3], const float col[4])
+static void dial_ghostarc_draw_helpline(const float angle, const float co_outer[3], const float color[4])
 {
 	glLineWidth(1.0f);
 
@@ -167,7 +164,7 @@ static void dial_ghostarc_draw_helpline(const float angle, const float co_outer[
 
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
-	immUniformColor4fv(col);
+	immUniformColor4fv(color);
 
 	immBegin(GWN_PRIM_LINE_STRIP, 2);
 	immVertex3f(pos, 0.0f, 0.0f, 0.0f);
@@ -275,18 +272,23 @@ static void dial_draw_intern(
         const bContext *C, wmManipulator *mpr,
         const bool select, const bool highlight, float clip_plane[4])
 {
-	float mat[4][4];
-	float col[4];
+	float matrix_basis_adjust[4][4];
+	float matrix_final[4][4];
+	float color[4];
 
 	BLI_assert(CTX_wm_area(C)->spacetype == SPACE_VIEW3D);
 
-	manipulator_color_get(mpr, highlight, col);
+	manipulator_color_get(mpr, highlight, color);
 
-	dial_calc_matrix(mpr, mat);
+	dial_calc_matrix(mpr, matrix_basis_adjust);
+
+	WM_manipulator_calc_matrix_final_params(
+	        mpr, &((struct WM_ManipulatorMatrixParams) {
+	            .matrix_basis = (void *)matrix_basis_adjust,
+	        }), matrix_final);
 
 	gpuPushMatrix();
-	gpuMultMatrix(mat);
-	gpuMultMatrix(mpr->matrix_offset);
+	gpuMultMatrix(matrix_final);
 
 	/* draw rotation indicator arc first */
 	if ((mpr->flag & WM_MANIPULATOR_DRAW_VALUE) &&
@@ -309,8 +311,8 @@ static void dial_draw_intern(
 		for (int i = 0; i < 2; i++) {
 			dial_ghostarc_draw(mpr, angle_ofs, angle_delta, (const float [4]){0.8f, 0.8f, 0.8f, 0.4f});
 
-			dial_ghostarc_draw_helpline(angle_ofs, co_outer, col); /* starting position */
-			dial_ghostarc_draw_helpline(angle_ofs + angle_delta, co_outer, col); /* starting position + current value */
+			dial_ghostarc_draw_helpline(angle_ofs, co_outer, color); /* starting position */
+			dial_ghostarc_draw_helpline(angle_ofs + angle_delta, co_outer, color); /* starting position + current value */
 
 			if (i == 0) {
 				const int draw_options = RNA_enum_get(mpr->ptr, "draw_options");
@@ -324,7 +326,7 @@ static void dial_draw_intern(
 	}
 
 	/* draw actual dial manipulator */
-	dial_geom_draw(mpr, col, select, mat, clip_plane);
+	dial_geom_draw(mpr, color, select, matrix_basis_adjust, clip_plane);
 
 	gpuPopMatrix();
 }

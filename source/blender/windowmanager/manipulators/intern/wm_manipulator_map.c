@@ -50,6 +50,8 @@
 #include "WM_types.h"
 #include "wm_event_system.h"
 
+#include "DEG_depsgraph.h"
+
 /* own includes */
 #include "wm_manipulator_wmapi.h"
 #include "wm_manipulator_intern.h"
@@ -462,6 +464,7 @@ static int manipulator_find_intersected_3d_intern(
         ListBase *visible_manipulators, const bContext *C, const int co[2],
         const int hotspot)
 {
+	EvaluationContext eval_ctx;
 	ScrArea *sa = CTX_wm_area(C);
 	ARegion *ar = CTX_wm_region(C);
 	View3D *v3d = sa->spacedata.first;
@@ -473,7 +476,9 @@ static int manipulator_find_intersected_3d_intern(
 
 	BLI_rcti_init_pt_radius(&rect, co, hotspot);
 
-	ED_view3d_draw_setup_view(CTX_wm_window(C), C, CTX_data_scene(C), ar, v3d, NULL, NULL, &rect);
+	CTX_data_eval_ctx(C, &eval_ctx);
+
+	ED_view3d_draw_setup_view(CTX_wm_window(C), &eval_ctx, CTX_data_scene(C), ar, v3d, NULL, NULL, &rect);
 
 	if (do_passes)
 		GPU_select_begin(buffer, ARRAY_SIZE(buffer), &rect, GPU_SELECT_NEAREST_FIRST_PASS, 0);
@@ -490,7 +495,7 @@ static int manipulator_find_intersected_3d_intern(
 		GPU_select_end();
 	}
 
-	ED_view3d_draw_setup_view(CTX_wm_window(C), C, CTX_data_scene(C), ar, v3d, NULL, NULL, NULL);
+	ED_view3d_draw_setup_view(CTX_wm_window(C), &eval_ctx, CTX_data_scene(C), ar, v3d, NULL, NULL, NULL);
 
 	const GLuint *hit_near = GPU_select_buffer_near(buffer, hits);
 
@@ -835,6 +840,9 @@ void wm_manipulatormap_modal_set(
         wmManipulatorMap *mmap, bContext *C, const wmEvent *event, wmManipulator *mpr)
 {
 	if (mpr && C) {
+		/* For now only grab cursor for 3D manipulators. */
+		bool grab_cursor = (mpr->parent_mgroup->type->flag & WM_MANIPULATORGROUPTYPE_3D) != 0;
+
 		mpr->state |= WM_MANIPULATOR_STATE_MODAL;
 		mmap->mmap_context.modal = mpr;
 
@@ -862,7 +870,10 @@ void wm_manipulatormap_modal_set(
 				mpr->type->invoke(C, mpr, event);
 			}
 		}
-		WM_cursor_grab_enable(CTX_wm_window(C), true, true, NULL);
+
+		if (grab_cursor) {
+			WM_cursor_grab_enable(CTX_wm_window(C), true, true, NULL);
+		}
 	}
 	else {
 		mpr = mmap->mmap_context.modal;

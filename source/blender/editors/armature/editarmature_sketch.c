@@ -50,6 +50,8 @@
 #include "ED_transform.h"
 #include "ED_transform_snap_object_context.h"
 
+#include "DEG_depsgraph.h"
+
 #include "WM_api.h"
 #include "WM_types.h"
 
@@ -448,8 +450,8 @@ static void sk_drawPoint(SK_Point *pt, float size, float color[4])
 
 	gpuScaleUniform(sk_clampPointSize(pt, size));
 
-	batch = Batch_get_sphere(0);
-	Batch_set_builtin_program(batch, GPU_SHADER_3D_UNIFORM_COLOR);
+	batch = GPU_batch_preset_sphere(0);
+	GWN_batch_program_set_builtin(batch, GPU_SHADER_3D_UNIFORM_COLOR);
 	GWN_batch_uniform_4fv(batch, "color", color);
 
 	GWN_batch_draw(batch);
@@ -1005,7 +1007,7 @@ static int sk_getStrokeSnapPoint(bContext *C, SK_Point *pt, SK_Sketch *sketch, S
 	if (ts->snap_mode == SCE_SNAP_MODE_VOLUME) {
 		float size;
 		if (peelObjectsSnapContext(
-		        C, snap_context, mvalf,
+		        snap_context, mvalf,
 		        &(const struct SnapObjectParams){
 		            .snap_select = SNAP_NOT_SELECTED,
 		            .use_object_edit_cage = false,
@@ -1045,7 +1047,7 @@ static int sk_getStrokeSnapPoint(bContext *C, SK_Point *pt, SK_Sketch *sketch, S
 		/* try to snap to closer object */
 		{
 			if (ED_transform_snap_object_project_view3d(
-			        C, snap_context,
+			        snap_context,
 			        ts->snap_mode,
 			        &(const struct SnapObjectParams){
 			            .snap_select = SNAP_NOT_SELECTED,
@@ -1922,16 +1924,18 @@ static void sk_applyGesture(bContext *C, SK_Sketch *sketch)
 
 static bool sk_selectStroke(bContext *C, SK_Sketch *sketch, const int mval[2], const bool extend)
 {
+	EvaluationContext eval_ctx;
 	ViewContext vc;
 	rcti rect;
 	unsigned int buffer[MAXPICKBUF];
 	short hits;
 
+	CTX_data_eval_ctx(C, &eval_ctx);
 	view3d_set_viewcontext(C, &vc);
 
 	BLI_rcti_init_pt_radius(&rect, mval, 5);
 
-	hits = view3d_opengl_select(C, &vc, buffer, MAXPICKBUF, &rect, VIEW3D_SELECT_PICK_NEAREST);
+	hits = view3d_opengl_select(&eval_ctx, &vc, buffer, MAXPICKBUF, &rect, VIEW3D_SELECT_PICK_NEAREST);
 
 	if (hits > 0) {
 		int besthitresult = -1;

@@ -383,8 +383,8 @@ static void curve_draw_stroke_3d(const struct bContext *UNUSED(C), ARegion *UNUS
 		float color[3];
 		UI_GetThemeColor3fv(TH_WIRE, color);
 
-		Gwn_Batch *sphere = Batch_get_sphere(0);
-		Batch_set_builtin_program(sphere, GPU_SHADER_3D_UNIFORM_COLOR);
+		Gwn_Batch *sphere = GPU_batch_preset_sphere(0);
+		GWN_batch_program_set_builtin(sphere, GPU_SHADER_3D_UNIFORM_COLOR);
 		GWN_batch_uniform_3fv(sphere, "color", color);
 
 		/* scale to edit-mode space */
@@ -1091,10 +1091,13 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 			if ((cps->depth_mode == CURVE_PAINT_PROJECT_SURFACE) &&
 			    (v3d->drawtype > OB_WIRE))
 			{
+				EvaluationContext eval_ctx;
+				CTX_data_eval_ctx(C, &eval_ctx);
+
 				/* needed or else the draw matrix can be incorrect */
 				view3d_operator_needs_opengl(C);
 
-				ED_view3d_autodist_init(C, cdd->vc.depsgraph, cdd->vc.ar, cdd->vc.v3d, 0);
+				ED_view3d_autodist_init(&eval_ctx, cdd->vc.depsgraph, cdd->vc.ar, cdd->vc.v3d, 0);
 
 				if (cdd->vc.rv3d->depths) {
 					cdd->vc.rv3d->depths->damaged = true;

@@ -2664,7 +2664,7 @@ void node_bsdf_diffuse(vec4 color, float roughness, vec3 N, out Closure result)
 #ifdef EEVEE_ENGINE
 	vec3 L = eevee_surface_diffuse_lit(N, vec3(1.0), 1.0);
 	vec3 vN = normalize(mat3(ViewMatrix) * N);
-	result = Closure(L * color.rgb, 1.0, vec4(0.0), normal_encode(N, viewCameraVec), -1);
+	result = Closure(L * color.rgb, 1.0, vec4(0.0), normal_encode(vN, viewCameraVec), -1);
 #else
 	/* ambient light */
 	vec3 L = vec3(0.2);
@@ -2720,9 +2720,17 @@ void node_bsdf_anisotropic(
 	node_bsdf_diffuse(color, 0.0, N, result);
 }
 
-void node_bsdf_glass(vec4 color, float roughness, float ior, vec3 N, out Closure result)
+void node_bsdf_glass(vec4 color, float roughness, float ior, vec3 N, float ssr_id, out Closure result)
 {
+#ifdef EEVEE_ENGINE
+	vec3 ssr_spec;
+	roughness = sqrt(roughness);
+	vec3 L = eevee_surface_glass(N, (refractionDepth > 0.0) ? color.rgb : vec3(1.0), roughness, ior, int(ssr_id), ssr_spec);
+	vec3 vN = normalize(mat3(ViewMatrix) * N);
+	result = Closure(L * color.rgb, 1.0, vec4(ssr_spec * color.rgb, roughness), normal_encode(vN, viewCameraVec), int(ssr_id));
+#else
 	node_bsdf_diffuse(color, 0.0, N, result);
+#endif
 }
 
 void node_bsdf_toon(vec4 color, float size, float tsmooth, vec3 N, out Closure result)
@@ -2881,8 +2889,9 @@ void node_bsdf_principled_clearcoat(vec4 base_color, float subsurface, vec3 subs
 	}
 	result = Closure(surface_color.rgb / surface_color.a, 1.0);
 #else
-
+	vec3 L_trans = (transmission <= 0.0) ? vec3(0.0) : eevee_surface_glass(N, base_color.rgb * ((refractionDepth > 0.0) ? base_color.rgb : vec3(1.0)), roughness, ior, int(-2), ssr_spec);
 	vec3 L = eevee_surface_clearcoat_lit(N, diffuse, f0, roughness, CN, clearcoat, clearcoat_roughness, 1.0, int(ssr_id), ssr_spec);
+	L = mix(L, L_trans, transmission);
 	vec3 vN = normalize(mat3(ViewMatrix) * N);
 	result = Closure(L, 1.0, vec4(ssr_spec, roughness), normal_encode(vN, viewCameraVec), int(ssr_id));
 #endif
@@ -2896,7 +2905,7 @@ void node_bsdf_principled_clearcoat(vec4 base_color, float subsurface, vec3 subs
 
 void node_bsdf_translucent(vec4 color, vec3 N, out Closure result)
 {
-	node_bsdf_diffuse(color, 0.0, N, result);
+	node_bsdf_diffuse(color, 0.0, -N, result);
 }
 
 void node_bsdf_transparent(vec4 color, out Closure result)
@@ -2918,16 +2927,23 @@ void node_subsurface_scattering(
 	node_bsdf_diffuse(color, 0.0, N, result);
 }
 
+void node_bsdf_refraction(vec4 color, float roughness, float ior, vec3 N, out Closure result)
+{
+#ifdef EEVEE_ENGINE
+	color.rgb *= (refractionDepth > 0.0) ? color.rgb : vec3(1.0); /* Simulate 2 absorption event. */
+	roughness = sqrt(roughness);
+	vec3 L = eevee_surface_refraction(N, vec3(1.0), roughness, ior);
+	result = Closure(L * color.rgb, 1.0, vec4(0.0), vec2(0.0), int(-2));
+#else
+	node_bsdf_diffuse(color, 0.0, N, result);
+#endif /* EEVEE_ENGINE */
+}
+
 /* Unsupported for now */
 #ifndef EEVEE_ENGINE
 void node_bsdf_hair(vec4 color, float offset, float roughnessu, float roughnessv, vec3 tangent, out Closure result)
 {
 	result = Closure(color.rgb, color.a);
-}
-
-void node_bsdf_refraction(vec4 color, float roughness, float ior, vec3 N, out Closure result)
-{
-	node_bsdf_diffuse(color, 0.0, N, result);
 }
 
 void node_ambient_occlusion(vec4 color, out Closure result)
@@ -4039,19 +4055,6 @@ void world_normals_get(out vec3 N)
 	N = gl_FrontFacing ? worldNormal : -worldNormal;
 }
 
-void node_eevee_metallic(
-        vec4 basecol, float metallic, float specular, float roughness, vec4 emissive, float transp, vec3 normal,
-        float clearcoat, float clearcoat_roughness, vec3 clearcoat_normal,
-        float occlusion, float ssr_id, out Closure result)
-{
-	vec3 diffuse, f0, ssr_spec;
-	convert_metallic_to_specular(basecol.rgb, metallic, specular, diffuse, f0);
-
-	vec3 L = eevee_surface_lit(normal, diffuse, f0, roughness, occlusion, int(ssr_id), ssr_spec);
-	vec3 vN = normalize(mat3(ViewMatrix) * normal);
-	result = Closure(L + emissive.rgb, 1.0 - transp, vec4(ssr_spec, roughness), normal_encode(vN, viewCameraVec), int(ssr_id));
-}
-
 void node_eevee_specular(
         vec4 diffuse, vec4 specular, float roughness, vec4 emissive, float transp, vec3 normal,
         float clearcoat, float clearcoat_roughness, vec3 clearcoat_normal,
@@ -4062,11 +4065,6 @@ void node_eevee_specular(
 	vec3 L = eevee_surface_lit(normal, diffuse.rgb, specular.rgb, roughness, occlusion, int(ssr_id), ssr_spec);
 	vec3 vN = normalize(mat3(ViewMatrix) * normal);
 	result = Closure(L + emissive.rgb, 1.0 - transp, vec4(ssr_spec, roughness), normal_encode(vN, viewCameraVec), int(ssr_id));
-}
-
-void node_output_eevee_material(Closure surface, out Closure result)
-{
-	result = surface;
 }
 
 #endif /* EEVEE_ENGINE */

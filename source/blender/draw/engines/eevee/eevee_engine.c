@@ -138,6 +138,7 @@ static void EEVEE_cache_finish(void *vedata)
 static void EEVEE_draw_scene(void *vedata)
 {
 	EEVEE_PassList *psl = ((EEVEE_Data *)vedata)->psl;
+	EEVEE_StorageList *stl = ((EEVEE_Data *)vedata)->stl;
 	EEVEE_FramebufferList *fbl = ((EEVEE_Data *)vedata)->fbl;
 	EEVEE_SceneLayerData *sldata = EEVEE_scene_layer_data_get();
 
@@ -148,7 +149,18 @@ static void EEVEE_draw_scene(void *vedata)
 	 * when using opengl render. */
 	int loop_ct = DRW_state_is_image_render() ? 4 : 1;
 
+	static float rand = 0.0f;
+
+	/* XXX temp for denoising render. TODO plug number of samples here */
+	if (DRW_state_is_image_render()) {
+		rand += 1.0f / 8.0f;
+		rand = rand - floorf(rand);
+		/* Set jitter offset */
+		stl->effects->ao_offset = rand * stl->effects->ao_samples_inv;
+	}
+
 	while (loop_ct--) {
+
 		/* Refresh shadows */
 		DRW_stats_group_start("Shadows");
 		EEVEE_draw_shadows(sldata, psl);
@@ -171,18 +183,20 @@ static void EEVEE_draw_scene(void *vedata)
 		DRW_draw_pass(psl->depth_pass_cull);
 		DRW_stats_group_end();
 
-		DRW_draw_pass(psl->background_pass);
-
 		/* Create minmax texture */
 		DRW_stats_group_start("Main MinMax buffer");
 		EEVEE_create_minmax_buffer(vedata, dtxl->depth, -1);
 		DRW_stats_group_end();
+
+		/* Compute GTAO Horizons */
+		EEVEE_effects_do_gtao(sldata, vedata);
 
 		/* Restore main FB */
 		DRW_framebuffer_bind(fbl->main);
 
 		/* Shading pass */
 		DRW_stats_group_start("Shading");
+		DRW_draw_pass(psl->background_pass);
 		EEVEE_draw_default_passes(psl);
 		DRW_draw_pass(psl->material_pass);
 		DRW_stats_group_end();
@@ -194,15 +208,28 @@ static void EEVEE_draw_scene(void *vedata)
 
 		DRW_draw_pass(psl->probe_display);
 
-		/* Volumetrics */
-		DRW_stats_group_start("Volumetrics");
-		EEVEE_effects_do_volumetrics(sldata, vedata);
+		/* Prepare Refraction */
+		EEVEE_effects_do_refraction(sldata, vedata);
+
+		/* Restore main FB */
+		DRW_framebuffer_bind(fbl->main);
+
+		/* Opaque refraction */
+		DRW_stats_group_start("Opaque Refraction");
+		DRW_draw_pass(psl->refract_depth_pass);
+		DRW_draw_pass(psl->refract_depth_pass_cull);
+		DRW_draw_pass(psl->refract_pass);
 		DRW_stats_group_end();
 
 		/* Transparent */
 		DRW_pass_sort_shgroup_z(psl->transparent_pass);
 		DRW_stats_group_start("Transparent");
 		DRW_draw_pass(psl->transparent_pass);
+		DRW_stats_group_end();
+
+		/* Volumetrics */
+		DRW_stats_group_start("Volumetrics");
+		EEVEE_effects_do_volumetrics(sldata, vedata);
 		DRW_stats_group_end();
 
 		/* Post Process */
@@ -235,14 +262,16 @@ static void EEVEE_scene_layer_settings_create(RenderEngine *UNUSED(engine), IDPr
 	           props->type == IDP_GROUP &&
 	           props->subtype == IDP_GROUP_SUB_ENGINE_RENDER);
 
+
 	BKE_collection_engine_property_add_bool(props, "ssr_enable", false);
+	BKE_collection_engine_property_add_bool(props, "ssr_refraction", false);
 	BKE_collection_engine_property_add_bool(props, "ssr_halfres", true);
 	BKE_collection_engine_property_add_int(props, "ssr_ray_count", 1);
 	BKE_collection_engine_property_add_float(props, "ssr_quality", 0.25f);
 	BKE_collection_engine_property_add_float(props, "ssr_max_roughness", 0.5f);
 	BKE_collection_engine_property_add_float(props, "ssr_thickness", 0.2f);
 	BKE_collection_engine_property_add_float(props, "ssr_border_fade", 0.075f);
-	BKE_collection_engine_property_add_float(props, "ssr_firefly_fac", 0.0f);
+	BKE_collection_engine_property_add_float(props, "ssr_firefly_fac", 10.0f);
 
 	BKE_collection_engine_property_add_bool(props, "volumetric_enable", false);
 	BKE_collection_engine_property_add_float(props, "volumetric_start", 0.1f);
@@ -257,19 +286,25 @@ static void EEVEE_scene_layer_settings_create(RenderEngine *UNUSED(engine), IDPr
 
 	BKE_collection_engine_property_add_bool(props, "gtao_enable", false);
 	BKE_collection_engine_property_add_bool(props, "gtao_use_bent_normals", true);
+	BKE_collection_engine_property_add_bool(props, "gtao_denoise", true);
+	BKE_collection_engine_property_add_bool(props, "gtao_bounce", true);
 	BKE_collection_engine_property_add_float(props, "gtao_distance", 0.2f);
 	BKE_collection_engine_property_add_float(props, "gtao_factor", 1.0f);
+	BKE_collection_engine_property_add_float(props, "gtao_quality", 0.25f);
 	BKE_collection_engine_property_add_int(props, "gtao_samples", 2);
 
 	BKE_collection_engine_property_add_bool(props, "dof_enable", false);
 	BKE_collection_engine_property_add_float(props, "bokeh_max_size", 100.0f);
 	BKE_collection_engine_property_add_float(props, "bokeh_threshold", 1.0f);
 
+	float default_bloom_color[3] = {1.0f, 1.0f, 1.0f};
 	BKE_collection_engine_property_add_bool(props, "bloom_enable", false);
+	BKE_collection_engine_property_add_float_array(props, "bloom_color", default_bloom_color, 3);
 	BKE_collection_engine_property_add_float(props, "bloom_threshold", 0.8f);
 	BKE_collection_engine_property_add_float(props, "bloom_knee", 0.5f);
 	BKE_collection_engine_property_add_float(props, "bloom_intensity", 0.8f);
 	BKE_collection_engine_property_add_float(props, "bloom_radius", 6.5f);
+	BKE_collection_engine_property_add_float(props, "bloom_clamp", 1.0f);
 
 	BKE_collection_engine_property_add_bool(props, "motion_blur_enable", false);
 	BKE_collection_engine_property_add_int(props, "motion_blur_samples", 8);

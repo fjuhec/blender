@@ -428,7 +428,7 @@ MeshSampleGenerator *BKE_mesh_sample_gen_surface_random_ex(DerivedMesh *dm, unsi
 	MSurfaceSampleGenerator_Random *gen;
 	
 	DM_ensure_normals(dm);
-	DM_ensure_looptri(dm);
+	DM_ensure_looptri_data(dm);
 	
 	gen = MEM_callocN(sizeof(MSurfaceSampleGenerator_Random), "MSurfaceSampleGenerator_Random");
 	sample_generator_init(&gen->base, (GeneratorFreeFp)generator_random_free, (GeneratorMakeSampleFp)generator_random_make_sample);

@@ -275,6 +275,7 @@ class RENDER_PT_performance(RenderButtonsPanel, Panel):
 
         col.separator()
         col.prop(rd, "preview_start_resolution")
+        col.prop(rd, "preview_pixel_size", text="")
 
         col = split.column()
         col.label(text="Memory:")
@@ -656,9 +657,12 @@ class RENDER_PT_eevee_postprocess_settings(RenderButtonsPanel, Panel):
 
         col.label("Ambient Occlusion:")
         col.prop(props, "gtao_use_bent_normals")
+        col.prop(props, "gtao_denoise")
+        col.prop(props, "gtao_bounce")
         col.prop(props, "gtao_samples")
         col.prop(props, "gtao_distance")
         col.prop(props, "gtao_factor")
+        col.prop(props, "gtao_quality")
         col.separator()
 
         col.label("Motion Blur:")
@@ -675,7 +679,9 @@ class RENDER_PT_eevee_postprocess_settings(RenderButtonsPanel, Panel):
         col.prop(props, "bloom_threshold")
         col.prop(props, "bloom_knee")
         col.prop(props, "bloom_radius")
+        col.prop(props, "bloom_color")
         col.prop(props, "bloom_intensity")
+        col.prop(props, "bloom_clamp")
 
 
 class RENDER_PT_eevee_volumetric(RenderButtonsPanel, Panel):
@@ -730,6 +736,7 @@ class RENDER_PT_eevee_screen_space_reflections(RenderButtonsPanel, Panel):
         props = scene.layer_properties['BLENDER_EEVEE']
 
         col = layout.column()
+        col.prop(props, "ssr_refraction")
         col.prop(props, "ssr_halfres")
         col.prop(props, "ssr_ray_count")
         col.prop(props, "ssr_quality")

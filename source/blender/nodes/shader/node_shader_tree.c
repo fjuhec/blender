@@ -80,7 +80,7 @@ static void shader_get_from_context(const bContext *C, bNodeTreeType *UNUSED(tre
 	SpaceNode *snode = CTX_wm_space_node(C);
 	Scene *scene = CTX_data_scene(C);
 	SceneLayer *sl = CTX_data_scene_layer(C);
-	Object *ob = OBACT_NEW;
+	Object *ob = OBACT_NEW(sl);
 	
 	if ((snode->shaderfrom == SNODE_SHADER_OBJECT) ||
 	    (BKE_scene_use_new_shading_nodes(scene) == false))
@@ -482,10 +482,10 @@ static bool ntree_tag_ssr_bsdf_cb(bNode *fromnode, bNode *UNUSED(tonode), void *
 {
 	switch (fromnode->type) {
 		case SH_NODE_BSDF_ANISOTROPIC:
-		case SH_NODE_EEVEE_METALLIC:
 		case SH_NODE_EEVEE_SPECULAR:
 		case SH_NODE_BSDF_PRINCIPLED:
 		case SH_NODE_BSDF_GLOSSY:
+		case SH_NODE_BSDF_GLASS:
 			fromnode->ssr_id = (*(float *)userdata);
 			(*(float *)userdata) += 1;
 			break;

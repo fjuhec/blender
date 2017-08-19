@@ -27,8 +27,6 @@
  *
  * \brief Manipulator with primitive drawing type (plane, cube, etc.).
  * Currently only plane primitive supported without own handling, use with operator only.
- *
- * TODO: use matrix_space
  */
 
 #include "BIF_gl.h"
@@ -90,23 +88,21 @@ static void manipulator_primitive_draw_intern(
         wmManipulator *mpr, const bool UNUSED(select),
         const bool highlight)
 {
-	float col_inner[4], col_outer[4];
-	float mat[4][4];
+	float color_inner[4], color_outer[4];
+	float matrix_final[4][4];
 	const int draw_style = RNA_enum_get(mpr->ptr, "draw_style");
 
-	manipulator_color_get(mpr, highlight, col_outer);
-	copy_v4_v4(col_inner, col_outer);
-	col_inner[3] *= 0.5f;
+	manipulator_color_get(mpr, highlight, color_outer);
+	copy_v4_v4(color_inner, color_outer);
+	color_inner[3] *= 0.5f;
 
-	copy_m4_m4(mat, mpr->matrix_basis);
-	mul_mat3_m4_fl(mat, mpr->scale_final);
+	WM_manipulator_calc_matrix_final(mpr, matrix_final);
 
 	gpuPushMatrix();
-	gpuMultMatrix(mat);
+	gpuMultMatrix(matrix_final);
 
 	glEnable(GL_BLEND);
-	gpuMultMatrix(mpr->matrix_offset);
-	manipulator_primitive_draw_geom(col_inner, col_outer, draw_style);
+	manipulator_primitive_draw_geom(color_inner, color_outer, draw_style);
 	glDisable(GL_BLEND);
 
 	gpuPopMatrix();
@@ -114,19 +110,15 @@ static void manipulator_primitive_draw_intern(
 	if (mpr->interaction_data) {
 		ManipulatorInteraction *inter = mpr->interaction_data;
 
-		copy_v4_fl(col_inner, 0.5f);
-		copy_v3_fl(col_outer, 0.5f);
-		col_outer[3] = 0.8f;
-
-		copy_m4_m4(mat, inter->init_matrix);
-		mul_mat3_m4_fl(mat, inter->init_scale);
+		copy_v4_fl(color_inner, 0.5f);
+		copy_v3_fl(color_outer, 0.5f);
+		color_outer[3] = 0.8f;
 
 		gpuPushMatrix();
-		gpuMultMatrix(mat);
+		gpuMultMatrix(inter->init_matrix_final);
 
 		glEnable(GL_BLEND);
-		gpuMultMatrix(mpr->matrix_offset);
-		manipulator_primitive_draw_geom(col_inner, col_outer, draw_style);
+		manipulator_primitive_draw_geom(color_inner, color_outer, draw_style);
 		glDisable(GL_BLEND);
 
 		gpuPopMatrix();
@@ -158,8 +150,7 @@ static void manipulator_primitive_invoke(
 {
 	ManipulatorInteraction *inter = MEM_callocN(sizeof(ManipulatorInteraction), __func__);
 
-	copy_m4_m4(inter->init_matrix, mpr->matrix_basis);
-	inter->init_scale = mpr->scale_final;
+	WM_manipulator_calc_matrix_final(mpr, inter->init_matrix_final);
 
 	mpr->interaction_data = inter;
 }
