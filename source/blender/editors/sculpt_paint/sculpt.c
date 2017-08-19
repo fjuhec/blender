@@ -260,6 +260,7 @@ typedef struct SilhouetteData {
 	Scene *scene;
 
 	float add_col[3];		/* preview color */
+	float sub_col[3];
 	float last_mouse_pos[2];
 
 	SilhouetteState state;	/* Operator state */
@@ -5270,6 +5271,10 @@ static SilhouetteData *silhouette_data_new(bContext *C)
 	sil->add_col[1] = 0.39;
 	sil->add_col[2] = 0.39;
 
+	sil->sub_col[0] = 0.39; /* subtract mode color is light blue */
+	sil->sub_col[1] = 0.39;
+	sil->sub_col[2] = 1.00;
+
 	/*Load RNA Data if present */
 	sil->smoothness = sd->silhouette_smoothness / 100.0f;
 	sil->depth = sd->silhouette_depth;
@@ -9253,6 +9258,7 @@ static int sculpt_silhouette_modal(bContext *C, wmOperator *op, const wmEvent *e
 	SilhouetteData *sil = op->customdata;
 	copy_v2_fl2(mouse, event->mval[0], event->mval[1]);
 	printf(".");
+
 	if (event->val == KM_RELEASE) {
 		sculpt_silhouette_clean_draw(C, op);
 		if (sil->state == SIL_DRAWING) {
@@ -9287,7 +9293,11 @@ static void sculpt_silhouette_draw(const bContext *UNUSED(C),struct ARegion *UNU
 	glEnable(GL_LINE_SMOOTH);
 
 	/* set brush color */
-	glColor4f(sil->add_col[0],sil->add_col[1],sil->add_col[2], 0.2f);
+	if (!sil->do_subtract) {
+		glColor4f(sil->add_col[0], sil->add_col[1], sil->add_col[2], 0.2f);
+	} else {
+		glColor4f(sil->sub_col[0], sil->sub_col[1], sil->sub_col[2], 0.2f);
+	}
 
 	if (stroke->points) {
 		glBegin(GL_POLYGON);
@@ -9307,10 +9317,14 @@ static int sculpt_silhouette_invoke(bContext *C, wmOperator *op, const wmEvent *
 	printf("Drawing Silhouette\n");
 
 	SilhouetteData *sil_data;
+	int mode;
 
 	sil_data = silhouette_data_new(C);
 
 	op->customdata = sil_data;
+
+	mode = RNA_enum_get(op->ptr, "mode");
+	sil_data->do_subtract = mode == BRUSH_STROKE_INVERT;
 
 	/* Tag for UI to be drawn */
 	ED_region_tag_redraw(sil_data->ar);
@@ -9343,6 +9357,8 @@ static void SCULPT_OT_silhouette_draw(wmOperatorType *ot)
 	ot->exec = sculpt_silhouette_exec;
 	ot->poll = sculpt_silhouette_poll;
 	ot->cancel = sculpt_silhouette_stroke_done;
+
+	paint_stroke_operator_properties(ot);
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;

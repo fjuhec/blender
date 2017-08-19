@@ -1565,7 +1565,8 @@ void ED_keymap_paint(wmKeyConfig *keyconf)
 	WM_keymap_add_item(keymap, "SCULPT_OT_dynamic_topology_toggle", DKEY, KM_PRESS, KM_CTRL, 0);
 
 	/* Draw Silhouette */
-	WM_keymap_add_item(keymap, "SCULPT_OT_silhouette_draw", LEFTMOUSE, KM_PRESS, KM_ALT, 0);
+	RNA_enum_set(WM_keymap_add_item(keymap, "SCULPT_OT_silhouette_draw", LEFTMOUSE, KM_PRESS, KM_ALT, 0)->ptr, "mode", BRUSH_STROKE_NORMAL);
+	RNA_enum_set(WM_keymap_add_item(keymap, "SCULPT_OT_silhouette_draw", RIGHTMOUSE, KM_PRESS, KM_ALT, 0)->ptr, "mode", BRUSH_STROKE_INVERT);
 
 	/* Dynamic-topology detail size
 	 * 
