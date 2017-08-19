@@ -5504,8 +5504,8 @@ static void rna_def_modifier_gpencilswirl(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "angle", PROP_FLOAT, PROP_ANGLE);
 	RNA_def_property_float_sdna(prop, NULL, "angle");
-	RNA_def_property_range(prop, 0, DEG2RAD(4 * 360));
-	RNA_def_property_ui_range(prop, 0, DEG2RAD(4 * 360), 5, 2);
+	RNA_def_property_range(prop, DEG2RAD(-5 * 360), DEG2RAD(5 * 360));
+	RNA_def_property_ui_range(prop, DEG2RAD(-5 * 360), DEG2RAD(5 * 360), 5, 2);
 	RNA_def_property_ui_text(prop, "Angle", "Angle of rotation");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
