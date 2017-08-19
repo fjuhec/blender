@@ -188,7 +188,7 @@ const FModifierTypeInfo *get_fmodifier_typeinfo(const int type);
 
 /* ---------------------- */
 
-struct FModifier *add_fmodifier(ListBase *modifiers, int type);
+struct FModifier *add_fmodifier(ListBase *modifiers, int type, struct FCurve *owner_fcu);
 struct FModifier *copy_fmodifier(const struct FModifier *src);
 void copy_fmodifiers(ListBase *dst, const ListBase *src);
 bool remove_fmodifier(ListBase *modifiers, struct FModifier *fcm);

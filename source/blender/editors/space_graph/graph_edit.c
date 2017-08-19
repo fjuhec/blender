@@ -1504,7 +1504,7 @@ static void setexpo_graph_keys(bAnimContext *ac, short mode)
 				/* only add if one doesn't exist */
 				if (list_has_suitable_fmodifier(&fcu->modifiers, FMODIFIER_TYPE_CYCLES, -1) == 0) {
 					// TODO: add some more preset versions which set different extrapolation options?
-					add_fmodifier(&fcu->modifiers, FMODIFIER_TYPE_CYCLES);
+					add_fmodifier(&fcu->modifiers, FMODIFIER_TYPE_CYCLES, fcu);
 				}
 			}
 			else if (mode == CLEAR_CYCLIC_EXPO) {
@@ -1520,7 +1520,7 @@ static void setexpo_graph_keys(bAnimContext *ac, short mode)
 			}
 		}
 
-		ale->update |= ANIM_UPDATE_DEPS;
+		ale->update |= ANIM_UPDATE_DEFAULT;
 	}
 
 	ANIM_animdata_update(ac, &anim_data);
@@ -2446,7 +2446,7 @@ static int graph_fmodifier_add_exec(bContext *C, wmOperator *op)
 		FModifier *fcm;
 		
 		/* add F-Modifier of specified type to active F-Curve, and make it the active one */
-		fcm = add_fmodifier(&fcu->modifiers, type);
+		fcm = add_fmodifier(&fcu->modifiers, type, fcu);
 		if (fcm) {
 			set_active_fmodifier(&fcu->modifiers, fcm);
 		}
@@ -2455,7 +2455,7 @@ static int graph_fmodifier_add_exec(bContext *C, wmOperator *op)
 			break;
 		}
 		
-		ale->update |= ANIM_UPDATE_DEPS;
+		ale->update |= ANIM_UPDATE_DEPS | ANIM_UPDATE_HANDLES;
 	}
 	
 	ANIM_animdata_update(&ac, &anim_data);
@@ -2582,10 +2582,10 @@ static int graph_fmodifier_paste_exec(bContext *C, wmOperator *op)
 		FCurve *fcu = (FCurve *)ale->data;
 		int tot;
 		
-		tot = ANIM_fmodifiers_paste_from_buf(&fcu->modifiers, replace);
+		tot = ANIM_fmodifiers_paste_from_buf(&fcu->modifiers, replace, fcu);
 		
 		if (tot) {
-			ale->update |= ANIM_UPDATE_DEPS;
+			ale->update |= ANIM_UPDATE_DEPS | ANIM_UPDATE_HANDLES;
 			ok = true;
 		}
 	}

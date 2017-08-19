@@ -495,7 +495,10 @@ static void rna_FCurve_active_modifier_set(PointerRNA *ptr, PointerRNA value)
 
 static FModifier *rna_FCurve_modifiers_new(FCurve *fcu, int type)
 {
-	return add_fmodifier(&fcu->modifiers, type);
+	FModifier *fcm = add_fmodifier(&fcu->modifiers, type, fcu);
+	if (type == FMODIFIER_TYPE_CYCLES)
+		calchandles_fcurve(fcu);
+	return fcm;
 }
 
 static void rna_FCurve_modifiers_remove(FCurve *fcu, ReportList *reports, PointerRNA *fcm_ptr)
@@ -506,8 +509,13 @@ static void rna_FCurve_modifiers_remove(FCurve *fcu, ReportList *reports, Pointe
 		return;
 	}
 
+	bool update = (fcm->type == FMODIFIER_TYPE_CYCLES);
+
 	remove_fmodifier(&fcu->modifiers, fcm);
 	RNA_POINTER_INVALIDATE(fcm_ptr);
+
+	if (update)
+		calchandles_fcurve(fcu);
 }
 
 static void rna_FModifier_active_set(PointerRNA *ptr, int UNUSED(value))
@@ -586,10 +594,14 @@ static void rna_FModifier_blending_range(PointerRNA *ptr, float *min, float *max
 static void rna_FModifier_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
 {
 	ID *id = ptr->id.data;
+	FModifier *fcm = (FModifier *)ptr->data;
 	AnimData *adt = BKE_animdata_from_id(id);
 	DAG_id_tag_update(id, (GS(id->name) == ID_OB) ? OB_RECALC_OB : OB_RECALC_DATA);
 	if (adt != NULL) {
 		adt->recalc |= ADT_RECALC_ANIM;
+	}
+	if (fcm->curve && fcm->type == FMODIFIER_TYPE_CYCLES) {
+		calchandles_fcurve(fcm->curve);
 	}
 }
 

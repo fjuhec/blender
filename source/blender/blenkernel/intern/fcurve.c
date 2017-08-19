@@ -882,6 +882,44 @@ void fcurve_store_samples(FCurve *fcu, void *data, int start, int end, FcuSample
  * that the handles are correctly 
  */
 
+/* Checks if the F-Curve has a Cycles modifier with simple settings that warrant transition smoothing */
+static bool detect_cycle_modifier(FCurve *fcu)
+{
+	FModifier *fcm = fcu->modifiers.first;
+
+	if (!fcm || fcm->type != FMODIFIER_TYPE_CYCLES)
+		return false;
+
+	if (fcm->flag & (FMODIFIER_FLAG_DISABLED | FMODIFIER_FLAG_MUTED))
+		return false;
+
+	if (fcm->flag & (FMODIFIER_FLAG_RANGERESTRICT | FMODIFIER_FLAG_USEINFLUENCE))
+		return false;
+
+	FMod_Cycles *data = (FMod_Cycles*)fcm->data;
+
+	return data && data->after_cycles == 0 && data->before_cycles == 0 &&
+	    ELEM(data->before_mode, FCM_EXTRAPOLATE_CYCLIC, FCM_EXTRAPOLATE_CYCLIC_OFFSET) &&
+	    ELEM(data->after_mode, FCM_EXTRAPOLATE_CYCLIC, FCM_EXTRAPOLATE_CYCLIC_OFFSET);
+}
+
+/* If cyclic, set out by shifting in by the difference in position between from and to. */
+static BezTriple *cycle_offset_triple(bool cycle, BezTriple *out, const BezTriple *in, const BezTriple *from, const BezTriple *to)
+{
+	if (!cycle)
+		return NULL;
+
+	memcpy(out, in, sizeof(BezTriple));
+
+	float delta[3];
+	sub_v3_v3v3(delta, to->vec[1], from->vec[1]);
+
+	for (int i = 0; i < 3; i++)
+		add_v3_v3(out->vec[i], delta);
+
+	return out;
+}
+
 /* This function recalculates the handles of an F-Curve 
  * If the BezTriples have been rearranged, sort them first before using this.
  */
@@ -897,10 +935,16 @@ void calchandles_fcurve(FCurve *fcu)
 	 */
 	if (ELEM(NULL, fcu, fcu->bezt) || (a < 2) /*|| ELEM(fcu->ipo, BEZT_IPO_CONST, BEZT_IPO_LIN)*/) 
 		return;
-	
+
+	/* if the first modifier is Cycles, smooth the curve through the cycle */
+	BezTriple *first = &fcu->bezt[0], *last = &fcu->bezt[fcu->totvert-1];
+	BezTriple tmp;
+
+	bool cycle = detect_cycle_modifier(fcu) && BEZT_IS_AUTOH(first) && BEZT_IS_AUTOH(last);
+
 	/* get initial pointers */
 	bezt = fcu->bezt;
-	prev = NULL;
+	prev = cycle_offset_triple(cycle, &tmp, &fcu->bezt[fcu->totvert-2], last, first);
 	next = (bezt + 1);
 	
 	/* loop over all beztriples, adjusting handles */
@@ -913,7 +957,7 @@ void calchandles_fcurve(FCurve *fcu)
 		BKE_nurb_handle_calc(bezt, prev, next, true);
 		
 		/* for automatic ease in and out */
-		if (ELEM(bezt->h1, HD_AUTO, HD_AUTO_ANIM) && ELEM(bezt->h2, HD_AUTO, HD_AUTO_ANIM)) {
+		if (BEZT_IS_AUTOH(bezt) && !cycle) {
 			/* only do this on first or last beztriple */
 			if ((a == 0) || (a == fcu->totvert - 1)) {
 				/* set both handles to have same horizontal value as keyframe */
@@ -925,7 +969,8 @@ void calchandles_fcurve(FCurve *fcu)
 		
 		/* advance pointers for next iteration */
 		prev = bezt;
-		if (a == 1) next = NULL;
+		if (a == 1)
+			next = cycle_offset_triple(cycle, &tmp, &fcu->bezt[1], first, last);
 		else next++;
 		bezt++;
 	}

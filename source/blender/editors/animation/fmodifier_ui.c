@@ -90,7 +90,9 @@ static void delete_fmodifier_cb(bContext *C, void *fmods_v, void *fcm_v)
 {
 	ListBase *modifiers = (ListBase *)fmods_v;
 	FModifier *fcm = (FModifier *)fcm_v;
-	
+
+	FCurve *update_fcu = fcm->type == FMODIFIER_TYPE_CYCLES ? fcm->curve : NULL;
+
 	/* remove the given F-Modifier from the active modifier-stack */
 	remove_fmodifier(modifiers, fcm);
 
@@ -99,6 +101,9 @@ static void delete_fmodifier_cb(bContext *C, void *fmods_v, void *fcm_v)
 	/* send notifiers */
 	// XXX for now, this is the only way to get updates in all the right places... but would be nice to have a special one in this case 
 	WM_event_add_notifier(C, NC_ANIMATION | ND_KEYFRAME | NA_EDITED, NULL);
+
+	if (update_fcu)
+		calchandles_fcurve(update_fcu);
 }
 
 /* --------------- */
@@ -736,7 +741,7 @@ bool ANIM_fmodifiers_copy_to_buf(ListBase *modifiers, bool active)
 /* 'Paste' the F-Modifier(s) from the buffer to the specified list 
  *	- replace: free all the existing modifiers to leave only the pasted ones 
  */
-bool ANIM_fmodifiers_paste_from_buf(ListBase *modifiers, bool replace)
+bool ANIM_fmodifiers_paste_from_buf(ListBase *modifiers, bool replace, FCurve *curve)
 {
 	FModifier *fcm;
 	bool ok = false;
@@ -753,6 +758,8 @@ bool ANIM_fmodifiers_paste_from_buf(ListBase *modifiers, bool replace)
 	for (fcm = fmodifier_copypaste_buf.first; fcm; fcm = fcm->next) {
 		/* make a copy of it */
 		FModifier *fcmN = copy_fmodifier(fcm);
+
+		fcmN->curve = curve;
 		
 		/* make sure the new one isn't active, otherwise the list may get several actives */
 		fcmN->flag &= ~FMODIFIER_FLAG_ACTIVE;
