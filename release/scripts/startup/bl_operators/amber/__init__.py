@@ -22,10 +22,10 @@
 #       as a startup module!
 
 
-from . import (engine, operators, ui)
+from . import (repository, engine, operators, ui)
 
 
-classes = engine.classes + operators.classes + ui.classes
+classes = repository.classes + engine.classes + operators.classes + ui.classes
 
 
 if __name__ == "__main__":  # only for live edit.

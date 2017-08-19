@@ -31,6 +31,7 @@ from bpy.props import (
         BoolProperty,
         IntProperty,
         CollectionProperty,
+        PointerProperty,
         )
 
 import concurrent.futures as futures
@@ -40,7 +41,7 @@ import stat
 import time
 import random
 
-from . import utils
+from . import (repository, utils)
 
 
 #############
@@ -67,28 +68,6 @@ class AmberJobList(AmberJob):
                 repo = None
         else:
             repo = None
-        if repo is not None:
-            # Convert hexa string to array of four uint32...
-            # XXX will have to check endianess mess here, for now always use same one ('network' one).
-            repo_uuid = repo["uuid"]
-            repo["uuid"] = utils.uuid_unpack(repo_uuid)
-            new_entries = {}
-            for euuid, e in repo["entries"].items():
-                new_variants = {}
-                for vuuid, v in e["variants"].items():
-                    new_revisions = {}
-                    for ruuid, r in v["revisions"].items():
-                        new_revisions[utils.uuid_unpack(ruuid)] = r
-                    new_variants[utils.uuid_unpack(vuuid)] = v
-                    v["revisions"] = new_revisions
-                    ruuid = v["revision_default"]
-                    v["revision_default"] = utils.uuid_unpack(ruuid)
-                new_entries[utils.uuid_unpack_asset(repo_uuid, euuid)] = e
-                e["variants"] = new_variants
-                vuuid = e["variant_default"]
-                e["variant_default"] = utils.uuid_unpack(vuuid)
-            repo["entries"] = new_entries
-        #~ print(repo)
         return repo
 
     @staticmethod
@@ -228,36 +207,17 @@ class AmberJobPreviews(AmberJob):
 
 ###########################
 # Main Asset Engine class.
-class AmberTag(PropertyGroup):
-    name = StringProperty(name="Name", description="Tag name")
-    priority = IntProperty(name="Priority", default=0, description="Tag priority")
-
-    def include_update(self, context):
-        if self.use_include:
-            self.use_exclude = False
-        context.space_data.asset_engine.is_dirty_filtering = True
-    use_include = BoolProperty(name="Include", default=False, description="This tag must exist in filtered items",
-                               update=include_update)
-
-    def exclude_update(self, context):
-        if self.use_exclude:
-            self.use_include = False
-        context.space_data.asset_engine.is_dirty_filtering = True
-    use_exclude = BoolProperty(name="Exclude", default=False, description="This tag must not exist in filtered items",
-                               update=exclude_update)
-
-
 class AssetEngineAmber(AssetEngine):
     bl_label = "Amber"
     bl_version = (0 << 16) + (0 << 8) + 4  # Usual maj.min.rev version scheme...
 
-    tags = CollectionProperty(name="Tags", type=AmberTag, description="Filtering tags")
-    active_tag_index = IntProperty(name="Active Tag", options={'HIDDEN'})
+    repository_pg = PointerProperty(name="Repository", type=repository.AmberDataRepositoryPG, description="Current Amber repository")
 
     def __init__(self):
         self.executor = futures.ThreadPoolExecutor(8)  # Using threads for now, if issues arise we'll switch to process.
         self.jobs = {}
         self.repos = {}
+        self.repository = repository.AmberDataRepository()
 
         self.reset()
 
@@ -279,63 +239,65 @@ class AssetEngineAmber(AssetEngine):
         self.repo = {}
         self.dirs = []
 
+        self.repository.clear()
+
         self.sortedfiltered = []
 
     def entry_from_uuid(self, entries, euuid, vuuid, ruuid):
-        e = self.repo["entries"][euuid]
+        e = self.repository.assets[euuid]
         entry = entries.entries.add()
-        entry.uuid = euuid
-        entry.name = e["name"]
-        entry.description = e["description"]
-        entry.type = {e["file_type"]}
-        entry.blender_type = e["blen_type"]
+        entry.uuid = e.uuid
+        entry.name = e.name
+        entry.description = e.description
+        entry.type = {e.file_type}
+        entry.blender_type = e.blender_type
         act_rev = None
         if vuuid == (0, 0, 0, 0):
-            for vuuid, v in e["variants"].items():
+            for v in e.variants.values():
                 variant = entry.variants.add()
-                variant.uuid = vuuid
-                variant.name = v["name"]
-                variant.description = v["description"]
-                if vuuid == e["variant_default"]:
+                variant.uuid = v.uuid
+                variant.name = v.name
+                variant.description = v.description
+                if v == e.variant_default:
                     entry.variants.active = variant
-                for ruuid, r in v["revisions"].items():
+                for r in v.revisions.values():
                     revision = variant.revisions.add()
-                    revision.uuid = ruuid
-                    #~ revision.comment = r["comment"]
-                    revision.size = r["size"]
-                    revision.timestamp = r["timestamp"]
-                    if ruuid == v["revision_default"]:
+                    revision.uuid = r.uuid
+                    #~ revision.comment = r.comment
+                    revision.size = r.size
+                    revision.timestamp = r.timestamp
+                    if r == v.revision_default:
                         variant.revisions.active = revision
-                        if vuuid == e["variant_default"]:
+                        if v == e.variant_default:
                             act_rev = r
         else:
-            v = e["variants"][vuuid]
+            v = e.variants[vuuid]
             variant = entry.variants.add()
-            variant.uuid = vuuid
-            variant.name = v["name"]
-            variant.description = v["description"]
+            variant.uuid = v.uuid
+            variant.name = v.name
+            variant.description = v.description
             entry.variants.active = variant
             if ruuid == (0, 0, 0, 0):
-                for ruuid, r in v["revisions"].items():
+                for r in v.revisions.values():
                     revision = variant.revisions.add()
-                    revision.uuid = ruuid
-                    #~ revision.comment = r["comment"]
-                    revision.size = r["size"]
-                    revision.timestamp = r["timestamp"]
-                    if ruuid == v["revision_default"]:
+                    revision.uuid = r.uuid
+                    #~ revision.comment = r.comment
+                    revision.size = r.size
+                    revision.timestamp = r.timestamp
+                    if r == v.revision_default:
                         variant.revisions.active = revision
                         act_rev = r
             else:
-                r = v["revisions"][ruuid]
+                r = v.revisions[ruuid]
                 revision = variant.revisions.add()
-                revision.uuid = ruuid
-                #~ revision.comment = r["comment"]
-                revision.size = r["size"]
-                revision.timestamp = r["timestamp"]
+                revision.uuid = r.uuid
+                #~ revision.comment = r.comment
+                revision.size = r.size
+                revision.timestamp = r.timestamp
                 variant.revisions.active = revision
                 act_rev = r
         if act_rev:
-            entry.relpath = act_rev["path"]
+            entry.relpath = act_rev.path
 #        print("added entry for", entry.relpath)
 
     def pretty_version(self, v=None):
@@ -428,25 +390,17 @@ class AssetEngineAmber(AssetEngine):
             self.jobs[job_id] = AmberJobList(self.executor, job_id, entries.root_path)
             self.root = entries.root_path
         if self.repo:
-            uuid_repo = self.repo["uuid"]
+            self.repository.from_dict(self.repo, self.root)
+            self.repository.to_pg(self.repository_pg)
+            uuid_repo = tuple(self.repository.uuid)
             if utils.amber_repos.get(uuid_repo, None) != self.root:
                 utils.amber_repos[uuid_repo] = self.root  # XXX Not resistant to uuids collisions (use a set instead)...
                 utils.save_amber_repos()
             self.repos[uuid_repo] = self.repo
-            entries.nbr_entries = len(self.repo["entries"])
-            valid_tags = set()
-            for name, prio in sorted(self.repo["tags"].items(), key=lambda i: i[1], reverse=True):
-                tag = self.tags.get(name)
-                if tag is None:
-                    tag = self.tags.add()
-                    tag.name = name
-                tag.priority = prio
-                valid_tags.add(name)
-            for name in (set(self.tags.keys()) - valid_tags):
-                del self.tags[name]
+            entries.nbr_entries = len(self.repository.assets)
         else:
             entries.nbr_entries = len(self.dirs)
-            self.tags.clear()
+            self.repository.clear()
         return job_id
 
     def update_check(self, job_id, uuids):
@@ -486,24 +440,25 @@ class AssetEngineAmber(AssetEngine):
             repo = self.repos.get(repo_uuid, None)
             if repo is None:
                 repo = self.repos[repo_uuid] = AmberJobList.ls_repo(os.path.join(utils.amber_repos[repo_uuid], utils.AMBER_DB_NAME))
-            euuid = tuple(uuid.uuid_asset)
-            vuuid = tuple(uuid.uuid_variant)
-            ruuid = tuple(uuid.uuid_revision)
-            e = repo["entries"][euuid]
-            v = e["variants"][vuuid]
-            r = v["revisions"][ruuid]
+            self.repository.from_dict(repo, utils.amber_repos[repo_uuid])
+            euuid = uuid.uuid_asset[:]
+            vuuid = uuid.uuid_variant[:]
+            ruuid = uuid.uuid_revision[:]
+            e = self.repository.assets[euuid]
+            v = e.variants[vuuid]
+            r = v.revisions[ruuid]
 
             entry = entries.entries.add()
-            entry.type = {e["file_type"]}
-            entry.blender_type = e["blen_type"]
+            entry.type = {e.file_type}
+            entry.blender_type = e.blender_type
             # archive part not yet implemented!
             entry.relpath = os.path.join(utils.amber_repos[repo_uuid], r["path"])
 #                print("added entry for", entry.relpath)
-            entry.uuid = euuid
+            entry.uuid = e.uuid
             var = entry.variants.add()
-            var.uuid = vuuid
+            var.uuid = v.uuid
             rev = var.revisions.add()
-            rev.uuid = ruuid
+            rev.uuid = r.uuid
             var.revisions.active = rev
             entry.variants.active = var
         entries.root_path = ""
@@ -523,8 +478,8 @@ class AssetEngineAmber(AssetEngine):
                 if params.use_filter:
                     file_type = set()
                     blen_type = set()
-                    tags_incl = {t.name for t in self.tags if t.use_include}
-                    tags_excl = {t.name for t in self.tags if t.use_exclude}
+                    tags_incl = {t.name for t in self.repository_pg.tags if t.use_include}
+                    tags_excl = {t.name for t in self.repository_pg.tags if t.use_exclude}
                     if params.use_filter_image:
                         file_type.add('IMAGE')
                     if params.use_filter_blender:
@@ -545,21 +500,21 @@ class AssetEngineAmber(AssetEngine):
                         file_type.add('BLENLIB')
                         blen_type = params.filter_id
 
-                for key, val in self.repo["entries"].items():
-                    if filter_search and filter_search not in (val["name"] + val["description"]):
+                for ent in self.repository.assets.values():
+                    if filter_search and filter_search not in (ent.name + ent.description):
                         continue
                     if params.use_filter:
-                        if val["file_type"] not in file_type:
+                        if ent.file_type not in file_type:
                             continue
-                        if params.use_library_browsing and val["blen_type"] not in blen_type:
+                        if params.use_library_browsing and ent.blender_type not in blen_type:
                             continue
                         if tags_incl or tags_excl:
-                            tags = set(val["tags"])
+                            tags = set((t.name for t in ent.tags))
                             if tags_incl and ((tags_incl & tags) != tags_incl):
                                 continue
                             if tags_excl and (tags_excl & tags):
                                 continue
-                    self.sortedfiltered.append((key, val))
+                    self.sortedfiltered.append((ent.uuid[:], ent))
 
             elif self.dirs:
                 for path, size, timestamp, uuid in self.dirs:
@@ -574,13 +529,13 @@ class AssetEngineAmber(AssetEngine):
         if use_sort:
             if self.repo:
                 if params.sort_method == 'FILE_SORT_TIME':
-                    self.sortedfiltered.sort(key=lambda e: e[1]["variants"][e[1]["variant_default"]]["revisions"][e[1]["variants"][e[1]["variant_default"]]["revision_default"]]["timestamp"])
+                    self.sortedfiltered.sort(key=lambda e: e[1].variant_default.revision_default.timestamp)
                 elif params.sort_method == 'FILE_SORT_SIZE':
-                    self.sortedfiltered.sort(key=lambda e: e[1]["variants"][e[1]["variant_default"]]["revisions"][e[1]["variants"][e[1]["variant_default"]]["revision_default"]]["size"])
+                    self.sortedfiltered.sort(key=lambda e: e[1].variant_default.revision_default.size)
                 elif params.sort_method == 'FILE_SORT_EXTENSION':
-                    self.sortedfiltered.sort(key=lambda e: e[1]["blen_type"])
+                    self.sortedfiltered.sort(key=lambda e: e[1].blender_type)
                 else:
-                    self.sortedfiltered.sort(key=lambda e: e[1]["name"].lower())
+                    self.sortedfiltered.sort(key=lambda e: e[1].name.lower())
             else:
                 if params.sort_method == 'FILE_SORT_TIME':
                     self.sortedfiltered.sort(key=lambda e: e[2])
@@ -634,6 +589,5 @@ class AssetEngineAmber(AssetEngine):
 
 
 classes = (
-    AmberTag,
     AssetEngineAmber,
 )

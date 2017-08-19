@@ -86,7 +86,7 @@ def uuid_unpack_bytes(uuid_bytes):
     return struct.unpack("!iiii", uuid_bytes.ljust(16, b'\0'))
 
 
-def uuid_unpack(uuid_hexstr):
+def uuid_unpack_old(uuid_hexstr):
     return uuid_unpack_bytes(binascii.unhexlify(uuid_hexstr))
 
 
@@ -95,8 +95,11 @@ def uuid_unpack_asset(uuid_repo_hexstr, uuid_asset_hexstr):
                              binascii.unhexlify(uuid_asset_hexstr).ljust(8, b'\0'))
 
 
+def uuid_unpack(uuid_hexstr):
+    return struct.unpack("!iiii", binascii.unhexlify(uuid_hexstr).rjust(16, b'\0'))
+
+
 def uuid_pack(uuid_iv4):
-    print(uuid_iv4)
     return binascii.hexlify(struct.pack("!iiii", *uuid_iv4))
 
 

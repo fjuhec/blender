@@ -29,6 +29,7 @@ from bpy.types import (
 
 
 class AmberPanel():
+    """Base Amber asset engine panels class."""
     @classmethod
     def poll(cls, context):
         space = context.space_data
@@ -36,6 +37,16 @@ class AmberPanel():
             ae = space.asset_engine
             if ae and space.asset_engine_type == "AssetEngineAmber":
                 return True
+        return False
+
+
+class AmberPanelEditing(AmberPanel):
+    """Base Amber asset engine panels class for editing repositories."""
+    @classmethod
+    def poll(cls, context):
+        space = context.space_data
+        if space and space.type == 'FILE_BROWSER':
+            return (space.active_operator is None) and super(cls).poll(context)
         return False
 
 
@@ -81,6 +92,75 @@ class AMBER_PT_tags(Panel, AmberPanel):
     bl_region_type = 'TOOLS'
     bl_category = "Filter"
     bl_label = "Tags"
+
+    def draw(self, context):
+        ae = context.space_data.asset_engine
+
+        self.layout.template_list("AMBER_UL_tags_filter", "", ae.repository, "tags", ae.repository, "tag_index_active")
+
+
+#######################
+# Adding/editing assets
+
+class AMBER_UL_datablocks(UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        # assert(isinstance(item, bpy.types.AmberTag))
+        ae_amber = data
+        tag = item
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            split = layout.split(0.66, False)
+            split.prop(tag, "name", text="", emboss=False, icon_value=icon)
+            row = split.row(align=True)
+            sub = row.row(align=True)
+            sub.active = tag.use_include
+            sub.prop(tag, "use_include", emboss=False, text="", icon='ZOOMIN')
+            sub = row.row(align=True)
+            sub.active = tag.use_exclude
+            sub.prop(tag, "use_exclude", emboss=False, text="", icon='ZOOMOUT')
+        elif self.layout_type == 'GRID':
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon_value=icon)
+
+
+class AMBER_UL_assets(UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        # assert(isinstance(item, bpy.types.AmberTag))
+        ae_amber = data
+        tag = item
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            split = layout.split(0.66, False)
+            split.prop(tag, "name", text="", emboss=False, icon_value=icon)
+            row = split.row(align=True)
+            sub = row.row(align=True)
+            sub.active = tag.use_include
+            sub.prop(tag, "use_include", emboss=False, text="", icon='ZOOMIN')
+            sub = row.row(align=True)
+            sub.active = tag.use_exclude
+            sub.prop(tag, "use_exclude", emboss=False, text="", icon='ZOOMOUT')
+        elif self.layout_type == 'GRID':
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon_value=icon)
+
+
+class AMBER_PT_datablocks(Panel, AmberPanel):
+    bl_space_type = 'FILE_BROWSER'
+    bl_region_type = 'TOOLS'
+    bl_category = "Asset Engine"
+    bl_label = "Available Datablocks"
+
+    def draw(self, context):
+        layout = self.layout
+        space = context.space_data
+        ae = space.asset_engine
+
+        row = layout.row()
+
+
+class AMBER_PT_assets(Panel, AmberPanel):
+    bl_space_type = 'FILE_BROWSER'
+    bl_region_type = 'TOOLS'
+    bl_category = "Filter"
+    bl_label = "Existing Assets"
 
     def draw(self, context):
         ae = context.space_data.asset_engine
