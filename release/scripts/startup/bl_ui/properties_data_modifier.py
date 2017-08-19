@@ -1820,11 +1820,12 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         split = layout.split()
 
         col = split.column()
-        col.label(text="Center:")
         col.prop(md, "use_loc", text="Use Location")
+        col.label(text="Center:")
         row = col.row()
-        row.enabled = md.use_loc
-        row.prop(md, "center", text="")
+        row.enabled = not md.use_loc
+        subcol = row.column()
+        subcol.prop(md, "center", text="")
 
         col.separator()
         col.prop(md, "radius")
