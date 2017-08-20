@@ -421,7 +421,7 @@ static void grow_hair(BMEditStrands *edit, MeshSample *sample)
 	BM_mesh_elem_index_ensure(bm, BM_ALL);
 }
 
-static bool hair_add_ray_cb(void *vdata, float ray_start[3], float ray_end[3])
+static bool hair_add_ray_cb(void *vdata, void *UNUSED(thread_ctx), float ray_start[3], float ray_end[3])
 {
 	HairToolData *data = vdata;
 	ViewContext *vc = &data->vc;
@@ -441,7 +441,7 @@ static bool hair_get_surface_sample(HairToolData *data, MeshSample *sample)
 	MeshSampleGenerator *gen;
 	bool ok;
 	
-	gen = BKE_mesh_sample_gen_surface_raycast(dm, hair_add_ray_cb, data);
+	gen = BKE_mesh_sample_gen_surface_raycast(dm, NULL, NULL, hair_add_ray_cb, data);
 	ok = BKE_mesh_sample_generate(gen, sample);
 	BKE_mesh_sample_free_generator(gen);
 	

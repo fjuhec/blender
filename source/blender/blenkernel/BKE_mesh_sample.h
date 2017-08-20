@@ -36,7 +36,9 @@ struct MeshSampleGenerator;
 
 typedef struct MeshSampleGenerator MeshSampleGenerator;
 typedef float (*MeshSampleVertexWeightFp)(struct DerivedMesh *dm, struct MVert *vert, unsigned int index, void *userdata);
-typedef bool (*MeshSampleRayFp)(void *userdata, float ray_start[3], float ray_end[3]);
+typedef void* (*MeshSampleThreadContextCreateFp)(void *userdata, int start);
+typedef void (*MeshSampleThreadContextFreeFp)(void *userdata, void *thread_ctx);
+typedef bool (*MeshSampleRayFp)(void *userdata, void *thread_ctx, float ray_start[3], float ray_end[3]);
 
 /* ==== Evaluate ==== */
 
@@ -55,15 +57,32 @@ struct MeshSampleGenerator *BKE_mesh_sample_gen_surface_vertices(struct DerivedM
 /* face_weights is optional */
 struct MeshSampleGenerator *BKE_mesh_sample_gen_surface_random(struct DerivedMesh *dm, unsigned int seed);
 struct MeshSampleGenerator *BKE_mesh_sample_gen_surface_random_ex(struct DerivedMesh *dm, unsigned int seed,
-                                                                      MeshSampleVertexWeightFp vertex_weight_cb, void *userdata, bool use_facearea);
+                                                                  MeshSampleVertexWeightFp vertex_weight_cb, void *userdata, bool use_facearea);
 
-struct MeshSampleGenerator *BKE_mesh_sample_gen_surface_raycast(struct DerivedMesh *dm, MeshSampleRayFp ray_cb, void *userdata);
+struct MeshSampleGenerator *BKE_mesh_sample_gen_surface_raycast(
+        struct DerivedMesh *dm,
+        MeshSampleThreadContextCreateFp thread_context_create_cb,
+        MeshSampleThreadContextFreeFp thread_context_free_cb,
+        MeshSampleRayFp ray_cb,
+        void *userdata);
 
 struct MeshSampleGenerator *BKE_mesh_sample_gen_volume_random_bbray(struct DerivedMesh *dm, unsigned int seed, float density);
 
 void BKE_mesh_sample_free_generator(struct MeshSampleGenerator *gen);
 
+/* Generate a single sample.
+ * Not threadsafe!
+ */
 bool BKE_mesh_sample_generate(struct MeshSampleGenerator *gen, struct MeshSample *sample);
+
+/* Generate a large number of samples.
+ */
+int BKE_mesh_sample_generate_batch_ex(struct MeshSampleGenerator *gen,
+                                      void *output_buffer, int output_stride, int count,
+                                      bool use_threads);
+
+int BKE_mesh_sample_generate_batch(struct MeshSampleGenerator *gen,
+                                   MeshSample *output_buffer, int count);
 
 /* ==== Utilities ==== */
 
