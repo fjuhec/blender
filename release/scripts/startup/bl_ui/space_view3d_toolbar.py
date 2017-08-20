@@ -432,19 +432,19 @@ class VIEW3D_PT_tools_shading(View3DPanel, Panel):
         col.label(text="Normals:")
         col.operator("mesh.normals_make_consistent", text="Recalculate")
         col.operator("mesh.flip_normals", text="Flip Direction")
-        col.operator("mesh.set_normals_from_faces", text="Set From Faces")
 
 
 class VIEW3D_PT_tools_normal(View3DPanel, Panel):
 	bl_category = "Shading / UVs"
 	bl_context = "mesh_edit"
-	bl_label = "Normal Tools"
+	bl_label = "Custom Normal Tools"
 
 	def draw(self, context):
 		layout = self.layout
 		toolsettings = context.tool_settings
 
 		col = layout.column(align=True)
+		col.operator("mesh.set_normals_from_faces", text="Set From Faces")
 		col.operator("transform.rotate_normal", text = "Rotate Normal")
 		col.operator("mesh.point_normals")
 

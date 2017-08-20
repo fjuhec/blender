@@ -4775,8 +4775,8 @@ static void rna_def_modifier_weightednormal(BlenderRNA *brna)
 	RNA_def_struct_ui_icon(srna, ICON_MOD_NORMALEDIT);
 
 	prop = RNA_def_property(srna, "weight", PROP_INT, PROP_NONE);
-	RNA_def_property_range(prop, 1, 20);
-	RNA_def_property_ui_range(prop, 1, 20, 1, -1);
+	RNA_def_property_range(prop, 1, 100);
+	RNA_def_property_ui_range(prop, 1, 100, 1, -1);
 	RNA_def_property_ui_text(prop, "Weight", "Weights given to Face Normal for each mode");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
@@ -4786,8 +4786,8 @@ static void rna_def_modifier_weightednormal(BlenderRNA *brna)
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
 	prop = RNA_def_property(srna, "thresh", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_range(prop, 0, 5);
-	RNA_def_property_ui_range(prop, 0, 5, 1, 2);
+	RNA_def_property_range(prop, 0, 10);
+	RNA_def_property_ui_range(prop, 0, 10, 1, 2);
 	RNA_def_property_ui_text(prop, "Thresh", "Threshold value for different weights to be considered equal");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 

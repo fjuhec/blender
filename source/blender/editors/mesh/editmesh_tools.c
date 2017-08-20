@@ -6564,17 +6564,29 @@ static int edbm_average_loop_normals_exec(bContext *C, wmOperator *op)
 	const int average_type = RNA_enum_get(op->ptr, "average_type");
 	int cd_clnors_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
 	float absweight = (float) RNA_int_get(op->ptr, "weight"), threshold = RNA_float_get(op->ptr, "threshold");
-	const bool binary_weights = RNA_boolean_get(op->ptr, "binary_weights");
-	float weight = absweight / 10.0f;
+	float weight = absweight / 50.0f;
 
-	if (absweight == 20) {
+	if (average_type == LOOP_AVERAGE) {
+		PropertyRNA *prop = RNA_struct_find_property(op->ptr, "weight");
+		RNA_def_property_flag(prop, PROP_HIDDEN);
+		prop = RNA_struct_find_property(op->ptr, "threshold");
+		RNA_def_property_flag(prop, PROP_HIDDEN);
+	}
+	else {
+		PropertyRNA *prop = RNA_struct_find_property(op->ptr, "weight");
+		RNA_def_property_clear_flag(prop, PROP_HIDDEN);
+		prop = RNA_struct_find_property(op->ptr, "threshold");
+		RNA_def_property_clear_flag(prop, PROP_HIDDEN);
+	}
+
+	if (absweight == 100) {
 		weight = (float)SHRT_MAX;
 	}
 	else if (absweight == 1) {
 		weight = 1 / (float)SHRT_MAX;
 	}
-	else if (weight > 1) {
-		weight = (weight - 1) * 10;
+	else if ((weight - 1) * 25 > 1) {
+		weight = (weight - 1) * 25;
 	}
 	BM_ITER_MESH(e, &eiter, bm, BM_EDGES_OF_MESH) {
 		BMLoop *l_a, *l_b;
@@ -6637,9 +6649,6 @@ static int edbm_average_loop_normals_exec(bContext *C, wmOperator *op)
 						}
 						else if (average_type == ANGLE_AVERAGE) {
 							val = 1.0f / BM_loop_calc_face_angle(lfan_pivot);
-						}
-						if (binary_weights && BM_elem_flag_test(lfan_pivot->f, BM_ELEM_SMOOTH)) {
-							val = (float)INT_MAX;
 						}
 
 						BLI_heap_insert(loop_weight, val, lfan_pivot);
@@ -6712,11 +6721,9 @@ void MESH_OT_average_loop_normals(struct wmOperatorType *ot)
 	ot->prop = RNA_def_enum(ot->srna, "average_type", average_method_items, LOOP_AVERAGE, "Type", "Averaging method");
 	RNA_def_property_flag(ot->prop, PROP_HIDDEN);
 
-	ot->prop = RNA_def_int(ot->srna, "weight", 10, 1, 20, "Weight", "Weight applied per face", 1, 20);
+	ot->prop = RNA_def_int(ot->srna, "weight", 50, 1, 100, "Weight", "Weight applied per face", 1, 100);
 
-	ot->prop = RNA_def_float(ot->srna, "threshold", 0.01f, 0, 5, "Threshold", "Threshold value for different weights to be considered equal", 0, 5);
-	
-	ot->prop = RNA_def_boolean(ot->srna, "binary_weights", 0, "Binary Weights", "Sets weight of smooth faces to 0. Weight of flat faces remains unchanged");
+	ot->prop = RNA_def_float(ot->srna, "threshold", 0.01f, 0, 10, "Threshold", "Threshold value for different weights to be considered equal", 0, 5);
 }
 
 /********************** Custom Normal Interface Tools **********************/
