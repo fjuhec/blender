@@ -97,6 +97,7 @@
 #include "UI_interface.h"
 
 #include "GPU_draw.h"
+#include "GPU_glew.h"
 #include "GPU_matrix.h"
 
 #include "view3d_intern.h"  /* own include */
