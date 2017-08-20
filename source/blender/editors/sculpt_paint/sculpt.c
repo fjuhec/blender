@@ -136,7 +136,7 @@
 #define SIL_TRIANGULATION_FACT 0.7f /* 1 = position dependent 0 = order dependent */
 /*#define USE_WATERTIGHT*/
 
-#define DEBUG_DRAW
+/*#define DEBUG_DRAW*/
 #ifdef DEBUG_DRAW
 /* static void bl_debug_draw(void);*/
 /* add these locally when using these functions for testing */
@@ -8088,7 +8088,9 @@ static void gen_fillet_velp(Mesh *me,
 	/*If aligned exact points are aligned to a*/
 	float v1[3], v2[3];
 	int v_start, e_start, l_pos, p_start;
-	int holes = 0, next_i, aoff, boff;
+	int holes = 0, next_i, aoff, boff, hole, hole_edges = 0;
+	int *hole_pos = NULL;
+	BLI_array_declare(hole_pos);
 
 	aoff = me->medge[a_edges[0]].v1 == a_verts[0] ? 0 : 1;
 	boff = me->medge[b_edges[0]].v1 == b_verts[0] ? 0 : 1;
@@ -8102,9 +8104,15 @@ static void gen_fillet_velp(Mesh *me,
 		if (map[i] != map[(i + 1) % a_size]) {
 			if ((map[i] + 1) % b_size != map[(i + 1) % a_size] && (map[i] + b_size - 1) % b_size != map[(i + 1) % a_size]) {
 				if (inverse) {
-					holes += (b_size + map[i] - map[(i + 1) % a_size]) % b_size - 1;
+					hole = (b_size + map[i] - map[(i + 1) % a_size]) % b_size - 1;
+					holes += hole;
 				} else {
-					holes += (b_size + map[(i + 1) % a_size] - map[i]) % b_size - 1;
+					hole = (b_size + map[(i + 1) % a_size] - map[i]) % b_size - 1;
+					holes += hole;
+				}
+				BLI_array_append(hole_pos, i);
+				if (hole > 1) {
+					hole_edges += hole - 1;
 				}
 			}
 		}
@@ -8192,6 +8200,15 @@ static void gen_fillet_velp(Mesh *me,
 		me->mpoly[p_start + i * 2 + 1].mat_nr = 0;
 		me->mpoly[p_start + i * 2 + 1].flag = 0;
 	}
+
+	/*if (hole_edges > 0) {
+		ED_mesh_edges_add(me, NULL, hole_edges);
+	}
+
+	for (int i = 0; i < holes; i++) {
+
+	}*/
+	BLI_array_free(hole_pos);
 }
 
 static void generate_fillet_topology(Mesh *me, SilhouetteData *sil)
@@ -8553,7 +8570,7 @@ static void CustomData_copy_partial(const struct CustomData *source, struct Cust
 			for (int i = 0; i < tot_elem; i++) {
 				if(redirect_map[i] != -1) {
 					d_size = CustomData_sizeof(curr_l->type);
-					memcpy(dest_l->data + redirect_map[i] * d_size, curr_l->data + i * d_size, d_size);
+					memcpy((char *)(dest_l->data) + redirect_map[i] * d_size, curr_l->data + i * d_size, d_size);
 				}
 			}
 			name = cd_type_name(curr_l->type);
