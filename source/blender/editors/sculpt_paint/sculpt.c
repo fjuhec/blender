@@ -8570,7 +8570,7 @@ static void CustomData_copy_partial(const struct CustomData *source, struct Cust
 			for (int i = 0; i < tot_elem; i++) {
 				if(redirect_map[i] != -1) {
 					d_size = CustomData_sizeof(curr_l->type);
-					memcpy((char *)(dest_l->data) + redirect_map[i] * d_size, curr_l->data + i * d_size, d_size);
+					memcpy(((char *)dest_l->data) + redirect_map[i] * d_size, ((char* )curr_l->data) + i * d_size, d_size);
 				}
 			}
 			name = cd_type_name(curr_l->type);
