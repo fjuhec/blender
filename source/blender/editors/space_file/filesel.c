@@ -108,6 +108,13 @@ short ED_fileselect_set_params(SpaceFile *sfile)
 
 	params = sfile->params;
 
+	/* For now, always init filterid to 'all true' */
+	params->filter_id = FILTER_ID_AC | FILTER_ID_AR | FILTER_ID_BR | FILTER_ID_CA | FILTER_ID_CU | FILTER_ID_GD |
+	                    FILTER_ID_GR | FILTER_ID_IM | FILTER_ID_LA | FILTER_ID_LS | FILTER_ID_LT | FILTER_ID_MA |
+	                    FILTER_ID_MB | FILTER_ID_MC | FILTER_ID_ME | FILTER_ID_MSK | FILTER_ID_NT | FILTER_ID_OB |
+	                    FILTER_ID_PA | FILTER_ID_PAL | FILTER_ID_PC | FILTER_ID_SCE | FILTER_ID_SPK | FILTER_ID_SO |
+	                    FILTER_ID_TE | FILTER_ID_TXT | FILTER_ID_VF | FILTER_ID_WO | FILTER_ID_CF;
+
 	/* set the parameters from the operator, if it exists */
 	if (op) {
 		PropertyRNA *prop;
@@ -210,13 +217,6 @@ short ED_fileselect_set_params(SpaceFile *sfile)
 			}
 		}
 
-		/* For now, always init filterid to 'all true' */
-		params->filter_id = FILTER_ID_AC | FILTER_ID_AR | FILTER_ID_BR | FILTER_ID_CA | FILTER_ID_CU | FILTER_ID_GD |
-		                    FILTER_ID_GR | FILTER_ID_IM | FILTER_ID_LA | FILTER_ID_LS | FILTER_ID_LT | FILTER_ID_MA |
-		                    FILTER_ID_MB | FILTER_ID_MC | FILTER_ID_ME | FILTER_ID_MSK | FILTER_ID_NT | FILTER_ID_OB |
-		                    FILTER_ID_PA | FILTER_ID_PAL | FILTER_ID_PC | FILTER_ID_SCE | FILTER_ID_SPK | FILTER_ID_SO |
-		                    FILTER_ID_TE | FILTER_ID_TXT | FILTER_ID_VF | FILTER_ID_WO | FILTER_ID_CF;
-
 		if (U.uiflag & USER_HIDE_DOT) {
 			params->flag |= FILE_HIDE_DOT;
 		}
@@ -269,7 +269,7 @@ short ED_fileselect_set_params(SpaceFile *sfile)
 		params->flag &= ~FILE_DIRSEL_ONLY;
 		params->display = FILE_SHORTDISPLAY;
 		params->sort = FILE_SORT_ALPHA;
-		params->filter = 0;
+		params->filter = FILE_TYPE_FOLDER | FILE_TYPE_BLENDERLIB;
 		params->filter_glob[0] = '\0';
 	}
 
