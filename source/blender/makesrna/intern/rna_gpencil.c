@@ -64,8 +64,8 @@ static EnumPropertyItem rna_enum_gpencil_xraymodes_items[] = {
 
 static EnumPropertyItem rna_enum_gpencil_onion_modes_items[] = {
 	{ GP_ONION_MODE_ZERO, "ZERO", 0, "Previous/Next", "Previous and Next frame" },
-	{ GP_ONION_MODE_ABSOLUTE, "ABSOLUTE", 0, "Absolute", "Frames in absolute range of scene frame number" },
-	{ GP_ONION_MODE_RELATIVE, "RELATIVE", 0, "Relative", "Frames in relative range of grease pencil keyframes" },
+	{ GP_ONION_MODE_ABSOLUTE, "ABSOLUTE", 0, "Frames", "Frames in absolute range of scene frame number" },
+	{ GP_ONION_MODE_RELATIVE, "RELATIVE", 0, "Keyframes", "Frames in relative range of grease pencil keyframes" },
 	{ GP_ONION_MODE_SELECTED, "SELECTED", 0, "Selected", "Only Selected Frames" },
 	{ 0, NULL, 0, NULL, NULL }
 };
