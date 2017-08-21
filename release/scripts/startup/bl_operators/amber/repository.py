@@ -443,6 +443,26 @@ class AmberDataRepository:
         self.tags.clear()
         self.assets.clear()
 
+    @classmethod
+    def ls_repo(cls, db_path):
+        repo_dict = None
+        with open(db_path, 'r') as db_f:
+            repo_dict = json.load(db_f)
+        if isinstance(repo_dict, dict):
+            repo_ver = repo_dict.get(utils.AMBER_DBK_VERSION, "")
+            if repo_ver != cls.VERSION:
+                # Unsupported...
+                print("WARNING: unsupported Amber repository version '%s'." % repo_ver)
+                repo_dict = None
+        else:
+            repo_dict = None
+        return repo_dict
+
+    @classmethod
+    def wrt_repo(db_path, repo_dict):
+        with open(db_path, 'w') as db_f:
+            json.dump(repo_dict, db_f)
+
     def from_dict(self, repo_dict, root_path):
         self.clear()
 

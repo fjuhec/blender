@@ -83,16 +83,7 @@ def uuid_revision_gen(used_uuids, variant_uuid, number, size, time):
 
 
 def uuid_unpack_bytes(uuid_bytes):
-    return struct.unpack("!iiii", uuid_bytes.ljust(16, b'\0'))
-
-
-def uuid_unpack_old(uuid_hexstr):
-    return uuid_unpack_bytes(binascii.unhexlify(uuid_hexstr))
-
-
-def uuid_unpack_asset(uuid_repo_hexstr, uuid_asset_hexstr):
-    return uuid_unpack_bytes(binascii.unhexlify(uuid_repo_hexstr).ljust(8, b'\0') +
-                             binascii.unhexlify(uuid_asset_hexstr).ljust(8, b'\0'))
+    return struct.unpack("!iiii", uuid_bytes.rjust(16, b'\0'))
 
 
 def uuid_unpack(uuid_hexstr):

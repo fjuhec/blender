@@ -96,7 +96,7 @@ class AMBER_PT_tags(Panel, AmberPanel):
     def draw(self, context):
         ae = context.space_data.asset_engine
 
-        self.layout.template_list("AMBER_UL_tags_filter", "", ae.repository, "tags", ae.repository, "tag_index_active")
+        self.layout.template_list("AMBER_UL_tags_filter", "", ae.repository_pg, "tags", ae.repository_pg, "tag_index_active")
 
 
 #######################

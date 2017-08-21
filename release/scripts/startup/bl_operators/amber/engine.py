@@ -43,6 +43,11 @@ import random
 
 from . import (repository, utils)
 
+from .repository import (
+        AmberDataRepository,
+        AmberDataRepositoryPG,
+        )
+
 
 #############
 # Amber Jobs.
@@ -56,28 +61,13 @@ class AmberJob:
 
 class AmberJobList(AmberJob):
     @staticmethod
-    def ls_repo(db_path):
-        repo = None
-        with open(db_path, 'r') as db_f:
-            repo = json.load(db_f)
-        if isinstance(repo, dict):
-            repo_ver = repo.get(utils.AMBER_DBK_VERSION, "")
-            if repo_ver != "1.0.1":
-                # Unsupported...
-                print("WARNING: unsupported Amber repository version '%s'." % repo_ver)
-                repo = None
-        else:
-            repo = None
-        return repo
-
-    @staticmethod
     def ls(path):
         repo = None
         ret = [".."]
         tmp = os.listdir(path)
         if utils.AMBER_DB_NAME in tmp:
             # That dir is an Amber repo, we only list content define by our amber 'db'.
-            repo = AmberJobList.ls_repo(os.path.join(path, utils.AMBER_DB_NAME))
+            repo = AmberDataRepository.ls_repo(os.path.join(path, utils.AMBER_DB_NAME))
         if repo is None:
             ret += tmp
         #~ time.sleep(0.1)  # 100% Artificial Lag (c)
@@ -211,13 +201,13 @@ class AssetEngineAmber(AssetEngine):
     bl_label = "Amber"
     bl_version = (0 << 16) + (0 << 8) + 4  # Usual maj.min.rev version scheme...
 
-    repository_pg = PointerProperty(name="Repository", type=repository.AmberDataRepositoryPG, description="Current Amber repository")
+    repository_pg = PointerProperty(name="Repository", type=AmberDataRepositoryPG, description="Current Amber repository")
 
     def __init__(self):
         self.executor = futures.ThreadPoolExecutor(8)  # Using threads for now, if issues arise we'll switch to process.
         self.jobs = {}
         self.repos = {}
-        self.repository = repository.AmberDataRepository()
+        self.repository = AmberDataRepository()
 
         self.reset()
 
@@ -439,7 +429,7 @@ class AssetEngineAmber(AssetEngine):
             assert(repo_uuid in utils.amber_repos)
             repo = self.repos.get(repo_uuid, None)
             if repo is None:
-                repo = self.repos[repo_uuid] = AmberJobList.ls_repo(os.path.join(utils.amber_repos[repo_uuid], utils.AMBER_DB_NAME))
+                repo = self.repos[repo_uuid] = AmberDataRepository.ls_repo(os.path.join(utils.amber_repos[repo_uuid], utils.AMBER_DB_NAME))
             self.repository.from_dict(repo, utils.amber_repos[repo_uuid])
             euuid = uuid.uuid_asset[:]
             vuuid = uuid.uuid_variant[:]
@@ -500,21 +490,21 @@ class AssetEngineAmber(AssetEngine):
                         file_type.add('BLENLIB')
                         blen_type = params.filter_id
 
-                for ent in self.repository.assets.values():
-                    if filter_search and filter_search not in (ent.name + ent.description):
+                for asset in self.repository.assets.values():
+                    if filter_search and filter_search not in (asset.name + asset.description):
                         continue
                     if params.use_filter:
-                        if ent.file_type not in file_type:
+                        if asset.file_type not in file_type:
                             continue
-                        if params.use_library_browsing and ent.blender_type not in blen_type:
+                        if params.use_library_browsing and asset.blender_type not in blen_type:
                             continue
                         if tags_incl or tags_excl:
-                            tags = set((t.name for t in ent.tags))
+                            tags = set(asset.tags)
                             if tags_incl and ((tags_incl & tags) != tags_incl):
                                 continue
                             if tags_excl and (tags_excl & tags):
                                 continue
-                    self.sortedfiltered.append((ent.uuid[:], ent))
+                    self.sortedfiltered.append((asset.uuid[:], asset))
 
             elif self.dirs:
                 for path, size, timestamp, uuid in self.dirs:
