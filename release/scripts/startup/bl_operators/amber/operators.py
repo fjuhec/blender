@@ -83,6 +83,8 @@ class AmberOpsAssetDelete(Operator, AmberOpsEditing):
 
         repository.wrt_repo(os.path.join(ae.repository.path, utils.AMBER_DB_NAME), ae.repository.to_dict())
 
+        bpy.ops.file.refresh()
+
         return {'FINISHED'}
 
 

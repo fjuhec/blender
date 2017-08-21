@@ -372,7 +372,7 @@ class AssetEngineAmber(AssetEngine):
                 self.root = entries.root_path
             else:
                 job.update(self.repo, self.dirs)
-        elif self.root != entries.root_path:
+        elif self.root != entries.root_path or entries.nbr_entries == 0:
             self.reset()
             job_id = self.job_uuid
             self.job_uuid += 1
