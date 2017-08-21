@@ -268,6 +268,8 @@ typedef struct bGPDlayer {
 	
 	float tintcolor[4];     /* Color used to tint layer, alpha value is used as factor */
 	float opacity;          /* Opacity of the layer */
+	int onion_mode;         /* onion mode */
+	char pad2[4];
 	struct GHash *derived_data;     /* runtime data created by modifiers */
 } bGPDlayer;
 
@@ -301,9 +303,6 @@ typedef enum eGPDlayer_Flag {
 	GP_LAYER_GHOST_ALWAYS	= (1 << 13),
 	/* draw new strokes using last stroke location (only in 3d view) */
 	GP_LAYER_USE_LOCATION = (1 << 14),
-	/* only onion of selected frames */
-	GP_LAYER_ONION_SELECTED = (1 << 15),
-
 } eGPDlayer_Flag;
 
 /* xray modes */
@@ -312,6 +311,14 @@ typedef enum eGP_Xraymodes_Types {
 	GP_XRAY_3DSPACE = 1,
 	GP_XRAY_BACK  = 2
 } eGP_Xraymodes_Types;
+
+/* onion modes */
+typedef enum eGP_onion_modes_Types {
+	GP_ONION_MODE_ZERO     = 0,
+	GP_ONION_MODE_ABSOLUTE = 1,
+	GP_ONION_MODE_RELATIVE = 2,
+	GP_ONION_MODE_SELECTED = 3,
+} eGP_onion_modes_Types;
 
 /* Grease-Pencil Annotations - 'DataBlock' */
 typedef struct bGPdata {

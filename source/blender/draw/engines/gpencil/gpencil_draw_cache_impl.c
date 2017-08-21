@@ -789,9 +789,12 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 	const float default_color[3] = { UNPACK3(U.gpencil_new_layer_col) };
 	const float alpha = 1.0f;
 	float color[4];
-	bool selected = (bool)(gpl->flag & GP_LAYER_ONION_SELECTED);
+	int idx;
+	float fac = 1.0f;
 
-	/* 1) Draw Previous Frames First */
+	/* -------------------------------
+	 * 1) Draw Previous Frames First 
+	 * ------------------------------- */
 	if (gpl->flag & GP_LAYER_GHOST_PREVCOL) {
 		copy_v3_v3(color, gpl->gcolor_prev);
 	}
@@ -799,47 +802,56 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 		copy_v3_v3(color, default_color);
 	}
 
-	if ((gpl->gstep > 0) || (selected)) {
-		/* draw previous frames first */
+	if (gpl->onion_mode != GP_ONION_MODE_ZERO) {
+		idx = 0;
 		for (bGPDframe *gf = gpf->prev; gf; gf = gf->prev) {
 			/* only selected frames */
-			if ((selected) && ((gf->flag & GP_FRAME_SELECT) == 0)) {
+			if ((gpl->onion_mode == GP_ONION_MODE_SELECTED) && ((gf->flag & GP_FRAME_SELECT) == 0)) {
 				continue;
 			}
-			if (gf == gpl->actframe) {
-				continue;
+			/* absolute range */
+			if (gpl->onion_mode == GP_ONION_MODE_ABSOLUTE) {
+				if ((gpf->framenum - gf->framenum) > gpl->gstep) {
+					continue;
+				}
 			}
+			/* relative range */
+			if (gpl->onion_mode == GP_ONION_MODE_RELATIVE) {
+				++idx;
+				if (idx > gpl->gstep) {
+					continue;
+				}
 
-			/* check if frame is drawable */
-			if (((gpf->framenum - gf->framenum) <= gpl->gstep) || (selected)) {
-				/* alpha decreases with distance from curframe index */
-				if (!selected) {
-					float fac = 1.0f - ((float)(gpf->framenum - gf->framenum) / (float)(gpl->gstep + 1));
-					color[3] = alpha * fac * 0.66f;
+			}
+			/* alpha decreases with distance from curframe index */
+			if (gpl->onion_mode != GP_ONION_MODE_SELECTED) {
+				if (gpl->onion_mode == GP_ONION_MODE_ABSOLUTE) {
+					fac = 1.0f - ((float)(gpf->framenum - gf->framenum) / (float)(gpl->gstep + 1));
 				}
 				else {
-					color[3] = 0.66f;
+					fac = 1.0f - ((float)idx / (float)(gpl->gstep + 1));
 				}
-				BKE_gpencil_batch_cache_dirty(gpd);
-				gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gf, gf, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_PREVCOL);
+				color[3] = alpha * fac * 0.66f;
 			}
-			else
-				break;
+			else {
+				color[3] = 0.66f;
+			}
+			CLAMP_MIN(color[3], 0.66f);
+			/* draw */
+			BKE_gpencil_batch_cache_dirty(gpd);
+			gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gf, gf, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_PREVCOL);
 		}
 	}
-	else if (gpl->gstep == 0) {
-		/* draw the strokes for the ghost frames (at half of the alpha set by user) */
+	else {
 		if (gpf->prev) {
 			color[3] = alpha * 0.7f;
 			BKE_gpencil_batch_cache_dirty(gpd);
 			gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gpf->prev, gpf->prev, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_PREVCOL);
 		}
 	}
-	else {
-		/* don't draw - disabled */
-	}
-
-	/* 2) Now draw next frames */
+	/* -------------------------------
+	 * 2) Now draw next frames 
+	 * ------------------------------- */
 	if (gpl->flag & GP_LAYER_GHOST_NEXTCOL) {
 		copy_v3_v3(color, gpl->gcolor_next);
 	}
@@ -847,42 +859,50 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 		copy_v3_v3(color, default_color);
 	}
 
-	if ((gpl->gstep_next > 0) || (selected)) {
-		/* now draw next frames */
+	if (gpl->onion_mode != GP_ONION_MODE_ZERO) {
+		idx = 0;
 		for (bGPDframe *gf = gpf->next; gf; gf = gf->next) {
 			/* only selected frames */
-			if ((selected) && ((gf->flag & GP_FRAME_SELECT) == 0)) {
+			if ((gpl->onion_mode == GP_ONION_MODE_SELECTED) && ((gf->flag & GP_FRAME_SELECT) == 0)) {
 				continue;
 			}
-			if (gf == gpl->actframe) {
-				continue;
+			/* absolute range */
+			if (gpl->onion_mode == GP_ONION_MODE_ABSOLUTE) {
+				if ((gf->framenum - gpf->framenum) > gpl->gstep_next) {
+					continue;
+				}
 			}
-			/* check if frame is drawable */
-			if (((gf->framenum - gpf->framenum) <= gpl->gstep_next) || (selected)) {
-				if (!selected) {
-					/* alpha decreases with distance from curframe index */
-					float fac = 1.0f - ((float)(gf->framenum - gpf->framenum) / (float)(gpl->gstep_next + 1));
-					color[3] = alpha * fac * 0.66f;
+			/* relative range */
+			if (gpl->onion_mode == GP_ONION_MODE_RELATIVE) {
+				++idx;
+				if (idx > gpl->gstep) {
+					continue;
+				}
+
+			}
+			/* alpha decreases with distance from curframe index */
+			if (gpl->onion_mode != GP_ONION_MODE_SELECTED) {
+				if (gpl->onion_mode == GP_ONION_MODE_ABSOLUTE) {
+					fac = 1.0f - ((float)(gf->framenum - gpf->framenum) / (float)(gpl->gstep_next + 1));
 				}
 				else {
-					color[3] = 0.66f;
+					fac = 1.0f - ((float)idx / (float)(gpl->gstep + 1));
 				}
-				BKE_gpencil_batch_cache_dirty(gpd);
-				gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gf, gf, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_NEXTCOL);
+				color[3] = alpha * fac * 0.66f;
 			}
-			else
-				break;
+			else {
+				color[3] = 0.66f;
+			}
+			CLAMP_MIN(color[3], 0.66f);
+			BKE_gpencil_batch_cache_dirty(gpd);
+			gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gf, gf, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_NEXTCOL);
 		}
 	}
-	else if (gpl->gstep_next == 0) {
-		/* draw the strokes for the ghost frames (at half of the alpha set by user) */
+	else {
 		if (gpf->next) {
 			color[3] = alpha * 0.7f;
 			gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gpf->next, gpf->next, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_NEXTCOL);
 		}
-	}
-	else {
-		/* don't draw - disabled */
 	}
 }
 

@@ -61,6 +61,14 @@ static EnumPropertyItem rna_enum_gpencil_xraymodes_items[] = {
 	{ GP_XRAY_BACK, "BACK", 0, "Back", "Draw all strokes on back" },
 	{ 0, NULL, 0, NULL, NULL }
 };
+
+static EnumPropertyItem rna_enum_gpencil_onion_modes_items[] = {
+	{ GP_ONION_MODE_ZERO, "ZERO", 0, "Previous/Next", "Previous and Next frame" },
+	{ GP_ONION_MODE_ABSOLUTE, "ABSOLUTE", 0, "Absolute", "Frames in absolute range of scene frame number" },
+	{ GP_ONION_MODE_RELATIVE, "RELATIVE", 0, "Relative", "Frames in relative range of grease pencil keyframes" },
+	{ GP_ONION_MODE_SELECTED, "SELECTED", 0, "Selected", "Only Selected Frames" },
+	{ 0, NULL, 0, NULL, NULL }
+};
 #endif
 
 #ifdef RNA_RUNTIME
@@ -1133,9 +1141,11 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_ui_text(prop, "Is Parented", "True when the layer parent object is set");
 
-	prop = RNA_def_property(srna, "onion_only_selected", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_LAYER_ONION_SELECTED);
-	RNA_def_property_ui_text(prop, "Onion Selected", "Show onion for selected frames only");
+	/* onion modes */
+	prop = RNA_def_property(srna, "onion_mode", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "onion_mode");
+	RNA_def_property_enum_items(prop, rna_enum_gpencil_onion_modes_items);
+	RNA_def_property_ui_text(prop, "Mode", "Mode to display frames");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
 	/* Layers API */
