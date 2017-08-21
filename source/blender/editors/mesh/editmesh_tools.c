@@ -6375,6 +6375,35 @@ void MESH_OT_point_normals(struct wmOperatorType *ot)
 
 /********************** Split/Merge Loop Normals **********************/
 
+static void custom_loops_tag(BMesh *bm)
+{
+	BMFace *f;
+	BMEdge *e;
+	BMIter fiter, eiter;
+	BMLoop *l_curr, *l_first;
+
+	BM_ITER_MESH(e, &eiter, bm, BM_EDGES_OF_MESH) {
+		BMLoop *l_a, *l_b;
+
+		BM_elem_flag_disable(e, BM_ELEM_TAG);
+		if (BM_edge_loop_pair(e, &l_a, &l_b)) {
+			if (BM_elem_flag_test(e, BM_ELEM_SMOOTH) && l_a->v != l_b->v) {
+				BM_elem_flag_enable(e, BM_ELEM_TAG);
+			}
+		}
+	}
+
+	int index_face, index_loop = 0;
+	BM_ITER_MESH_INDEX(f, &fiter, bm, BM_FACES_OF_MESH, index_face) {
+		BM_elem_index_set(f, index_face);
+		l_curr = l_first = BM_FACE_FIRST_LOOP(f);
+		do {
+			BM_elem_index_set(l_curr, index_loop++);
+			BM_elem_flag_disable(l_curr, BM_ELEM_TAG);
+		} while ((l_curr = l_curr->next) != l_first);
+	}
+}
+
 static bool merge_loop(bContext *C, wmOperator *op, LoopNormalData *ld)
 {
 	Object *obedit = CTX_data_edit_object(C);
@@ -6432,22 +6461,62 @@ static bool split_loop(bContext *C, wmOperator *op, LoopNormalData *ld)
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 	BMesh *bm = em->bm;
 	BMFace *f;
-	BMLoop *l;
-	BMIter fiter, liter;
+	BMLoop *l, *l_curr, *l_first;
+	BMIter fiter;
 
-	TransDataLoopNormal *tld = ld->normal;
-	BMLoop **loop_at_index = MEM_mallocN(sizeof(void *) * bm->totloop, "__func__");		/* temp loop index table */
+	custom_loops_tag(bm);
+
+	int cd_clnors_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
 	BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
-		BM_ITER_ELEM(l, &liter, f, BM_LOOPS_OF_FACE) {
-			loop_at_index[BM_elem_index_get(l)] = l;
-		}
-	}
-	for (int i = 0; i < ld->totloop; i++, tld++) {
-		BMLoop *l_curr = loop_at_index[tld->loop_index];
-		BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], l_curr->f->no, tld->clnors_data);
-	}
-	MEM_freeN(loop_at_index);
+		l_curr = l_first = BM_FACE_FIRST_LOOP(f);
+		do {
+			if (BM_elem_flag_test(l_curr->v, BM_ELEM_SELECT) && (!BM_elem_flag_test(l_curr->e, BM_ELEM_TAG)
+				|| (!BM_elem_flag_test(l_curr, BM_ELEM_TAG) && bm_mesh_loop_check_cyclic_smooth_fan(l_curr)))) {
 
+				if (!BM_elem_flag_test(l_curr->e, BM_ELEM_TAG) && !BM_elem_flag_test(l_curr->prev->e, BM_ELEM_TAG))
+				{
+					int loop_index = BM_elem_index_get(l_curr);
+					short *clnors = BM_ELEM_CD_GET_VOID_P(l_curr, cd_clnors_offset);
+					BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[loop_index], f->no, clnors);
+				}
+				else {
+					BMVert *v_pivot = l_curr->v;
+					BMEdge *e_next;
+					const BMEdge *e_org = l_curr->e;
+					BMLoop *lfan_pivot, *lfan_pivot_next;
+
+					lfan_pivot = l_curr;
+					e_next = lfan_pivot->e;
+					BLI_SMALLSTACK_DECLARE(loops, BMLoop *);
+					float avg_normal[3] = { 0 };
+
+					while (true) {
+						lfan_pivot_next = BM_vert_step_fan_loop(lfan_pivot, &e_next);
+						if (lfan_pivot_next) {
+							BLI_assert(lfan_pivot_next->v == v_pivot);
+						}
+						else {
+							e_next = (lfan_pivot->e == e_next) ? lfan_pivot->prev->e : lfan_pivot->e;
+						}
+
+						BLI_SMALLSTACK_PUSH(loops, lfan_pivot);
+						add_v3_v3(avg_normal, lfan_pivot->f->no);
+
+						if (!BM_elem_flag_test(e_next, BM_ELEM_TAG) || (e_next == e_org)) {
+							break;
+						}
+						lfan_pivot = lfan_pivot_next;
+					}
+					normalize_v3(avg_normal);
+					while ((l = BLI_SMALLSTACK_POP(loops))) {
+						int l_index = BM_elem_index_get(l);
+						short *clnors = BM_ELEM_CD_GET_VOID_P(l, cd_clnors_offset);
+						BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[l_index], avg_normal, clnors);
+					}
+				}
+			}
+		} while ((l_curr = l_curr->next) != l_first);
+	}
 	return true;
 }
 
@@ -6554,9 +6623,8 @@ static int edbm_average_loop_normals_exec(bContext *C, wmOperator *op)
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 	BMesh *bm = em->bm;
 	BMFace *f;
-	BMEdge *e;
 	BMLoop *l, *l_curr, *l_first;
-	BMIter fiter, eiter;
+	BMIter fiter;
 
 	bm->spacearr_dirty |= BM_SPACEARR_DIRTY_ALL;
 	BM_lnorspace_update(bm);
@@ -6588,26 +6656,8 @@ static int edbm_average_loop_normals_exec(bContext *C, wmOperator *op)
 	else if ((weight - 1) * 25 > 1) {
 		weight = (weight - 1) * 25;
 	}
-	BM_ITER_MESH(e, &eiter, bm, BM_EDGES_OF_MESH) {
-		BMLoop *l_a, *l_b;
 
-		BM_elem_flag_disable(e, BM_ELEM_TAG);
-		if (BM_edge_loop_pair(e, &l_a, &l_b)) {
-			if (BM_elem_flag_test(e, BM_ELEM_SMOOTH) && l_a->v != l_b->v) {
-				BM_elem_flag_enable(e, BM_ELEM_TAG);
-			}
-		}
-	}
-
-	int index_face, index_loop = 0;
-	BM_ITER_MESH_INDEX(f, &fiter, bm, BM_FACES_OF_MESH, index_face) {
-		BM_elem_index_set(f, index_face);
-		l_curr = l_first = BM_FACE_FIRST_LOOP(f);
-		do {
-			BM_elem_index_set(l_curr, index_loop++);
-			BM_elem_flag_disable(l_curr, BM_ELEM_TAG);
-		} while ((l_curr = l_curr->next) != l_first);
-	}
+	custom_loops_tag(bm);
 
 	Heap *loop_weight = BLI_heap_new();
 
@@ -6615,11 +6665,10 @@ static int edbm_average_loop_normals_exec(bContext *C, wmOperator *op)
 
 		l_curr = l_first = BM_FACE_FIRST_LOOP(f);
 		do {
-			if (BM_elem_flag_test(l_curr->v, BM_ELEM_SELECT)) {
-				if (BM_elem_flag_test(l_curr->e, BM_ELEM_TAG) && (BM_elem_flag_test(l_curr, BM_ELEM_TAG) || !bm_mesh_loop_check_cyclic_smooth_fan(l_curr)))
-				{
-				}
-				else if (!BM_elem_flag_test(l_curr->e, BM_ELEM_TAG) && !BM_elem_flag_test(l_curr->prev->e, BM_ELEM_TAG))
+			if (BM_elem_flag_test(l_curr->v, BM_ELEM_SELECT) && (!BM_elem_flag_test(l_curr->e, BM_ELEM_TAG)
+				|| (!BM_elem_flag_test(l_curr, BM_ELEM_TAG) && bm_mesh_loop_check_cyclic_smooth_fan(l_curr)))) {
+
+				if (!BM_elem_flag_test(l_curr->e, BM_ELEM_TAG) && !BM_elem_flag_test(l_curr->prev->e, BM_ELEM_TAG))
 				{
 					int loop_index = BM_elem_index_get(l_curr);
 					short *clnors = BM_ELEM_CD_GET_VOID_P(l_curr, cd_clnors_offset);
@@ -6978,9 +7027,8 @@ static int edbm_smoothen_normals_exec(bContext *C, wmOperator *op)
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 	BMesh *bm = em->bm;
 	BMFace *f;
-	BMEdge *e;
 	BMLoop *l;
-	BMIter fiter, viter, eiter, liter;
+	BMIter fiter, liter;
 
 	BM_lnorspace_update(bm);
 	LoopNormalData *ld = BM_loop_normal_init(bm);

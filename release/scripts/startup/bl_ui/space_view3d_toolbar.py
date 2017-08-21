@@ -437,7 +437,7 @@ class VIEW3D_PT_tools_shading(View3DPanel, Panel):
 class VIEW3D_PT_tools_normal(View3DPanel, Panel):
 	bl_category = "Shading / UVs"
 	bl_context = "mesh_edit"
-	bl_label = "Custom Normal Tools"
+	bl_label = "Normal Tools"
 
 	def draw(self, context):
 		layout = self.layout
