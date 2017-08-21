@@ -321,11 +321,13 @@ class AmberDataAsset():
         self.variant_default = None
 
     @staticmethod
-    def from_dict(assets, entries_dict):
+    def from_dict(assets, entries_dict, repo_uuid):
         # For now, fully override entries.
         assets.clear()
         for uuid_hexstr, ent in entries_dict.items():
             uuid = utils.uuid_unpack(uuid_hexstr)
+            assert(uuid[:2] == repo_uuid[:2])
+
             asset = assets[uuid] = AmberDataAsset()
 
             asset.name = ent["name"]
@@ -416,6 +418,14 @@ class AmberDataRepositoryPG(PropertyGroup):
 
 
 class AmberDataRepository:
+    """
+    Amber repository main class.
+
+    Note: Remember that in Amber, first 8 bytes of asset's UUID are same as first 8 bytes of repository UUID.
+          Repository UUID's last 8 bytes shall always be NULL.
+          This allows us to store repository identifier into all assets, and ensure we have uniqueness of
+          Amber assets UUIDs (which is mandatory from Blender point of view).
+    """
     VERSION = "1.0.1"
 
     def __init__(self):
@@ -443,12 +453,13 @@ class AmberDataRepository:
             self.name = repo_dict["name"]
             self.description = repo_dict["description"]
             self.uuid = utils.uuid_unpack(repo_dict["uuid"])
+            assert(self.uuid[2:] == (0, 0))
 
             # We update tags instead of overriding them completely...
             AmberDataTagPG.from_dict(self.tags, repo_dict["tags"])
 
             # For now, fully override entries.
-            AmberDataAsset.from_dict(self.assets, repo_dict["entries"])
+            AmberDataAsset.from_dict(self.assets, repo_dict["entries"], self.uuid)
         else:
             print("Unsupported repository version: ", self.version)
             self.clear(self.storage)
@@ -459,6 +470,8 @@ class AmberDataRepository:
         repo_dict["version"] = self.VERSION
         repo_dict["name"] = self.name
         repo_dict["description"] = self.description
+
+        assert(self.uuid[2:] == (0, 0))
         repo_dict["uuid"] = utils.uuid_pack(self.uuid)
 
         repo_dict["tags"] = AmberDataTagPG.to_dict(self.tags)

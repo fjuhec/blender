@@ -435,7 +435,7 @@ class AssetEngineAmber(AssetEngine):
                   (self.pretty_version(uuids.asset_engine_version), self.pretty_version()))
 #            print(entries.entries[:])
         for uuid in uuids.uuids:
-            repo_uuid = tuple(uuid.uuid_asset)[:2] + (0, 0)
+            repo_uuid = uuid.uuid_asset[:2] + (0, 0)
             assert(repo_uuid in utils.amber_repos)
             repo = self.repos.get(repo_uuid, None)
             if repo is None:
@@ -452,7 +452,7 @@ class AssetEngineAmber(AssetEngine):
             entry.type = {e.file_type}
             entry.blender_type = e.blender_type
             # archive part not yet implemented!
-            entry.relpath = os.path.join(utils.amber_repos[repo_uuid], r["path"])
+            entry.relpath = os.path.join(utils.amber_repos[repo_uuid], r.path)
 #                print("added entry for", entry.relpath)
             entry.uuid = e.uuid
             var = entry.variants.add()
@@ -583,7 +583,7 @@ class AssetEngineAmber(AssetEngine):
 #        print(entries.entries[:])
         if self.repo:
             for uuid in uuids.uuids:
-                self.entry_from_uuid(entries, tuple(uuid.uuid_asset), tuple(uuid.uuid_variant), tuple(uuid.uuid_revision))
+                self.entry_from_uuid(entries, uuid.uuid_asset[:], uuid.uuid_variant[:], uuid.uuid_revision[:])
             return True
         return False
 
