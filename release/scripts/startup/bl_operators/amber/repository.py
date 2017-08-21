@@ -40,7 +40,6 @@ import json
 import os
 import stat
 import time
-import random
 
 from . import utils
 
@@ -97,7 +96,7 @@ class AmberDataTagPG(PropertyGroup):
             removed_tags = set(t.name for t in pg) - set(subset or tags)
             added_tags = set(subset or tags) - set(t.name for t in pg)
             for tag_name in removed_tags:
-                del pg[tag_name]
+                pg.remove(pg.find(tag_name))
             for tag_pg in pg:
                 tag_pg.priority = tags[tag_pg.name]
             for tag_name in added_tags:
@@ -148,7 +147,7 @@ class AmberDataAssetRevision():
                 "timestamp": rev.timestamp,
                 "path": rev.path,
             }
-            for rev in revisions
+            for rev in revisions.values()
         }
 
         return revisions_dict
@@ -241,7 +240,7 @@ class AmberDataAssetVariant():
                 "revisions": AmberDataAssetRevision.to_dict(var.revisions),
                 "revision_default": utils.uuid_pack(var.revision_default.uuid),
             }
-            for var in variants
+            for var in variants.values()
         }
 
         return variants_dict
@@ -354,7 +353,7 @@ class AmberDataAsset():
                 "variants": AmberDataAssetVariant.to_dict(asset.variants),
                 "variant_default": utils.uuid_pack(asset.variant_default.uuid),
             }
-            for asset in assets
+            for asset in assets.values()
         }
 
         return entries_dict
@@ -459,9 +458,9 @@ class AmberDataRepository:
         return repo_dict
 
     @classmethod
-    def wrt_repo(db_path, repo_dict):
+    def wrt_repo(cls, db_path, repo_dict):
         with open(db_path, 'w') as db_f:
-            json.dump(repo_dict, db_f)
+            json.dump(repo_dict, db_f, indent=4)
 
     def from_dict(self, repo_dict, root_path):
         self.clear()

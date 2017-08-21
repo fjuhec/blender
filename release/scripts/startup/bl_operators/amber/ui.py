@@ -46,7 +46,7 @@ class AmberPanelEditing(AmberPanel):
     def poll(cls, context):
         space = context.space_data
         if space and space.type == 'FILE_BROWSER':
-            return (space.active_operator is None) and super(cls).poll(context)
+            return (space.active_operator is None) and AmberPanel.poll(context)
         return False
 
 
@@ -158,10 +158,11 @@ class AMBER_PT_assets(Panel, AmberPanel):
     def draw(self, context):
         ae = context.space_data.asset_engine
 
-        # Note: This is *ultra-primitive*!
-        #       A good UI will most likely need new widget option anyway (template). Or maybe just some UIList...
-        #~ self.layout.props_enum(ae, "tags")
-        self.layout.template_list("AMBER_UL_assets", "", ae.repository_pg, "assets", ae.repository_pg, "asset_index_active")
+        row = self.layout.row()
+        row.template_list("AMBER_UL_assets", "", ae.repository_pg, "assets", ae.repository_pg, "asset_index_active")
+
+        col = row.column()
+        col.operator("AMBER_OT_asset_delete", text="", icon='ZOOMOUT')
 
 
 classes = (

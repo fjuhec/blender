@@ -91,7 +91,7 @@ def uuid_unpack(uuid_hexstr):
 
 
 def uuid_pack(uuid_iv4):
-    return binascii.hexlify(struct.pack("!iiii", *uuid_iv4))
+    return binascii.hexlify(struct.pack("!iiii", *uuid_iv4)).decode()
 
 
 # XXX Hack, once this becomes a real addon we'll just use addons' config system, for now store that in some own config.

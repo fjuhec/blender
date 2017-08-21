@@ -35,7 +35,6 @@ from bpy.props import (
         )
 
 import concurrent.futures as futures
-import json
 import os
 import stat
 import time
