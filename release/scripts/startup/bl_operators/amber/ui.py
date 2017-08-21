@@ -55,8 +55,8 @@ class AmberPanelEditing(AmberPanel):
 
 class AMBER_UL_tags_filter(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        # assert(isinstance(item, bpy.types.AmberTag))
-        ae_amber = data
+        # assert(isinstance(item, bpy.types.AmberDataTagPG))
+        ae_amber_repo = data
         tag = item
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             split = layout.split(0.66, False)
@@ -104,8 +104,8 @@ class AMBER_PT_tags(Panel, AmberPanel):
 
 class AMBER_UL_datablocks(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        # assert(isinstance(item, bpy.types.AmberTag))
-        ae_amber = data
+        # assert(isinstance(item, bpy.types.AmberDataTagPG))
+        ae_amber_repo = data
         tag = item
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             split = layout.split(0.66, False)
@@ -124,19 +124,12 @@ class AMBER_UL_datablocks(UIList):
 
 class AMBER_UL_assets(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        # assert(isinstance(item, bpy.types.AmberTag))
-        ae_amber = data
-        tag = item
+        # assert(isinstance(item, bpy.types.AmberDataAssetPG))
+        ae_amber_repo = data
+        asset = item
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             split = layout.split(0.66, False)
-            split.prop(tag, "name", text="", emboss=False, icon_value=icon)
-            row = split.row(align=True)
-            sub = row.row(align=True)
-            sub.active = tag.use_include
-            sub.prop(tag, "use_include", emboss=False, text="", icon='ZOOMIN')
-            sub = row.row(align=True)
-            sub.active = tag.use_exclude
-            sub.prop(tag, "use_exclude", emboss=False, text="", icon='ZOOMOUT')
+            split.prop(asset, "name", text="", emboss=False, icon_value=icon)
         elif self.layout_type == 'GRID':
             layout.alignment = 'CENTER'
             layout.label(text="", icon_value=icon)
@@ -159,7 +152,7 @@ class AMBER_PT_datablocks(Panel, AmberPanel):
 class AMBER_PT_assets(Panel, AmberPanel):
     bl_space_type = 'FILE_BROWSER'
     bl_region_type = 'TOOLS'
-    bl_category = "Filter"
+    bl_category = "Asset Engine"
     bl_label = "Existing Assets"
 
     def draw(self, context):
@@ -168,11 +161,14 @@ class AMBER_PT_assets(Panel, AmberPanel):
         # Note: This is *ultra-primitive*!
         #       A good UI will most likely need new widget option anyway (template). Or maybe just some UIList...
         #~ self.layout.props_enum(ae, "tags")
-        self.layout.template_list("AMBER_UL_tags_filter", "", ae, "tags", ae, "active_tag_index")
+        self.layout.template_list("AMBER_UL_assets", "", ae.repository_pg, "assets", ae.repository_pg, "asset_index_active")
 
 
 classes = (
     AMBER_UL_tags_filter,
     AMBER_PT_options,
     AMBER_PT_tags,
+
+    AMBER_UL_assets,
+    AMBER_PT_assets,
 )

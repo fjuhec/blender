@@ -414,7 +414,7 @@ class AmberDataRepositoryPG(PropertyGroup):
     tag_index_active = IntProperty(name="Active Tag", options={'HIDDEN'})
 
     assets = CollectionProperty(name="Assets", type=AmberDataAssetPG)
-    active_asset_index = IntProperty(name="Active Asset", options={'HIDDEN'})
+    asset_index_active = IntProperty(name="Active Asset", options={'HIDDEN'})
 
 
 class AmberDataRepository:
