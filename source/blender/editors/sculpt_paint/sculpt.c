@@ -7295,7 +7295,7 @@ static void do_calc_sil_intersect_task_cb_ex(void *userdata, void *UNUSED(userda
 								BLI_array_grow_items(int_points, 3);
 								interp_v3_v3v3(&int_points[BLI_array_count(int_points) - 3], p1, p2, t_lambda);
 #ifdef DEBUG_DRAW
-								if(t_lambda > 0.999999f || t_lambda < 0.000001f) {
+								/*if(t_lambda > 0.999999f || t_lambda < 0.000001f) {
 									bl_debug_color_set(0xff3333);
 								} else {
 									bl_debug_color_set(0x0000ff);
@@ -7303,7 +7303,7 @@ static void do_calc_sil_intersect_task_cb_ex(void *userdata, void *UNUSED(userda
 								bl_debug_draw_point(&int_points[BLI_array_count(int_points) - 3], 0.05f);
 								bl_debug_color_set(0x000000);
 								bl_debug_draw_edge_add(p1, p2);
-								bl_debug_color_set(0x000000);
+								bl_debug_color_set(0x000000);*/
 #endif
 								break;
 							}
@@ -7318,15 +7318,14 @@ static void do_calc_sil_intersect_task_cb_ex(void *userdata, void *UNUSED(userda
 							BLI_array_grow_items(int_points, 3);
 							interp_v3_v3v3(&int_points[BLI_array_count(int_points) - 3], p1, p2, t_lambda);
 #ifdef DEBUG_DRAW
-							if(t_lambda > 0.999999f || t_lambda < 0.000001f) {
+							/*if(t_lambda > 0.999999f || t_lambda < 0.000001f) {
 								bl_debug_color_set(0xff3333);
 							} else {
 								bl_debug_color_set(0x0000ff);
 							}
-							//bl_debug_draw_point(&int_points[BLI_array_count(int_points) - 3], 0.05f);
 							bl_debug_color_set(0x000000);
 							bl_debug_draw_edge_add(p1, p2);
-							bl_debug_color_set(0x000000);
+							bl_debug_color_set(0x000000);*/
 #endif
 							break;
 						}
@@ -7366,6 +7365,26 @@ static void remove_connected_from_edgehash_list(MeshElemMap *emap, GHash **edge_
 	}
 }
 
+static bool is_dead_end (Mesh *me, GHash *vert_hash, MeshElemMap *emap, int edge, int e_vert)
+{
+	int c_v;
+	MEdge *c_e;
+	int s_v = me->medge[edge].v1 == e_vert ? me->medge[edge].v2 : me->medge[edge].v1;
+
+	for (int e = 0; e < emap[s_v].count; e++) {
+		c_v = me->medge[emap[s_v].indices[e]].v1 == s_v ? me->medge[emap[s_v].indices[e]].v2 : me->medge[emap[s_v].indices[e]].v1;
+		if(!BLI_ghash_haskey(vert_hash, SET_INT_IN_POINTER(c_v))){
+			for (int e2 = 0; e2 < emap[c_v].count; e2++) {
+				c_e = &me->medge[emap[c_v].indices[e2]];
+				if (c_e->v1 == e_vert || c_e->v2 == e_vert) {
+					return false;
+				}
+			}
+		}
+	}
+	return true;
+}
+
 static bool has_cross_border_neighbour(Mesh *me, GHash *vert_hash, GHash *edge_hash, MeshElemMap *emap, int edge, int l_v_edge, int depth) {
 	int v_edge;
 
@@ -7394,9 +7413,13 @@ static bool has_cross_border_neighbour(Mesh *me, GHash *vert_hash, GHash *edge_h
  * TODO: One wide strips might get cutoff */
 static int get_adjacent_edge(Mesh *me, MeshElemMap *emap, int curr_edge, int v_edge, GHash *edge_hash, GHash *vert_hash)
 {
+	int r_edge = -1;
 	for (int e = 0; e < emap[v_edge].count; e++) {
 		if(emap[v_edge].indices[e] != curr_edge && has_cross_border_neighbour(me, vert_hash, edge_hash, emap, emap[v_edge].indices[e], v_edge, 1)) {
-			return emap[v_edge].indices[e];
+			r_edge = emap[v_edge].indices[e];
+			if (!is_dead_end(me, vert_hash, emap, r_edge, v_edge)) {
+				return r_edge;
+			}
 		}
 	}
 	for (int e = 0; e < emap[v_edge].count; e++) {
@@ -7405,15 +7428,19 @@ static int get_adjacent_edge(Mesh *me, MeshElemMap *emap, int curr_edge, int v_e
 		}
 	}
 	/*End Of Loop. Shouldn't happen with two manifold meshes*/
-	return -1;
+	return r_edge;
 }
 
 static int get_adjacent_edge_from_list(Mesh *me, MeshElemMap *emap, int curr_edge, int v_edge, GHash **edge_hash, int num_hash, GHash *vert_hash)
 {
+	int r_edge = -1;
 	for (int e = 0; e < emap[v_edge].count; e++) {
 		for (int i = 0; i < num_hash; i++) {
 			if(emap[v_edge].indices[e] != curr_edge && has_cross_border_neighbour(me, vert_hash, edge_hash[i], emap, emap[v_edge].indices[e], v_edge, 1)) {
-				return emap[v_edge].indices[e];
+				r_edge = emap[v_edge].indices[e];
+				if (!is_dead_end(me, vert_hash, emap, r_edge, v_edge)) {
+					return r_edge;
+				}
 			}
 		}
 	}
@@ -7425,7 +7452,7 @@ static int get_adjacent_edge_from_list(Mesh *me, MeshElemMap *emap, int curr_edg
 		}
 	}
 	/*End Of Loop. Shouldn't happen with two manifold meshes*/
-	return -1;
+	return r_edge;
 }
 
 static void check_preceding_intersecting_edges(Object *ob, SilhouetteData *sil, SpineBranch *branch, PBVHNode **nodes, int tot_edge)
@@ -7685,6 +7712,13 @@ static void combine_intersection_data(Mesh *me, SilhouetteData *sil)
 		}
 	}
 
+#ifdef DEBUG_DRAW
+	GHASH_ITER_INDEX (gh_iter, vert_hash, idx) {
+		bl_debug_color_set(0xffff00);
+		bl_debug_draw_point(me->mvert[(int)BLI_ghashIterator_getKey(&gh_iter)].co, 0.05f);
+		bl_debug_color_set(0x000000);
+	}
+#endif
 	if (BLI_array_count(ring_start) > BLI_array_count(edge_ring_fillet)) {
 		BLI_array_empty(ring_start);
 		BLI_array_empty(edge_ring_fillet);
@@ -7897,9 +7931,9 @@ static int *find_triangulation(Mesh *me, int *a_verts, int *b_verts, int a_size,
 	invert = dot_v3v3(n1, n2) < 0;
 
 #ifdef DEBUG_DRAW
-	bl_debug_color_set(0x0099ff);
+	/*bl_debug_color_set(0x0099ff);
 	bl_debug_draw_edge_add(me->mvert[a_verts[pas]].co, me->mvert[b_verts[pbs]].co);
-	bl_debug_color_set(0x000000);
+	bl_debug_color_set(0x000000);*/
 #endif
 
 	*r_invert = invert;
@@ -8203,7 +8237,7 @@ static void gen_fillet_velp(Mesh *me,
 				me->mloop[l_pos].e = e_start + 3 * i + 2;
 				l_pos ++;
 				me->mloop[l_pos].v = b_verts[map[i]];
-				me->mloop[l_pos].e = b_edges[(map[i] + boff) % a_size];
+				me->mloop[l_pos].e = b_edges[(map[i] + boff) % b_size];
 				l_pos ++;
 				me->mloop[l_pos].v = b_verts[map[next_i]];
 				me->mloop[l_pos].e = e_start + 3 * next_i + 2;
@@ -8437,6 +8471,21 @@ static void generate_fillet_topology(Mesh *me, SilhouetteData *sil)
 		}
 	} else {
 		printf("Couldn't transition the intersecting parts. Algorithm produced a non matching ringlayout.\n");
+#ifdef DEBUG_DRAW
+		for (int r = 0; r < sil->num_rings; r++) {
+			bl_debug_draw_BB_add(&sil->fillet_ring_bbs[r], 0x0000ff);
+		}
+		for (int r = 0; r < sil->num_rings_new; r++) {
+			bl_debug_draw_BB_add(&sil->fillet_ring_bbs_new[r], 0x00ffff);
+			int deb_start = sil->fillet_ring_new_start[r];
+			int deb_tot = r + 1 < sil->num_rings_new ? sil->fillet_ring_new_start[r + 1] - deb_start : sil->fillet_ring_tot_new - deb_start;
+			for(int j = 0; j < deb_tot; j++) {
+				bl_debug_color_set(0x0000ff * ((float)r / sil->num_rings_new));
+				bl_debug_draw_medge_add(me, sil->fillet_ring_new[deb_start + j]);
+				bl_debug_color_set(0x000000);
+			}
+		}
+#endif
 		BLI_assert(false);
 	}
 }
