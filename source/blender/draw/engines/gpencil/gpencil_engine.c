@@ -337,7 +337,9 @@ static void GPENCIL_cache_finish(void *vedata)
 			}
 			/* VFX pass */
 			cache = &stl->g_data->gp_object_cache[i];
-			DRW_gpencil_vfx_modifiers(i, &e_data, vedata, ob, cache);
+			if (ob->modifiers.first) {
+				DRW_gpencil_vfx_modifiers(i, &e_data, vedata, ob, cache);
+			}
 		}
 	}
 }
