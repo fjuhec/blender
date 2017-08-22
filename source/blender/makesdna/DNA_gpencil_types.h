@@ -314,10 +314,9 @@ typedef enum eGP_Xraymodes_Types {
 
 /* onion modes */
 typedef enum eGP_onion_modes_Types {
-	GP_ONION_MODE_ZERO     = 0,
-	GP_ONION_MODE_ABSOLUTE = 1,
-	GP_ONION_MODE_RELATIVE = 2,
-	GP_ONION_MODE_SELECTED = 3,
+	GP_ONION_MODE_ABSOLUTE = 0,
+	GP_ONION_MODE_RELATIVE = 1,
+	GP_ONION_MODE_SELECTED = 2,
 } eGP_onion_modes_Types;
 
 /* Grease-Pencil Annotations - 'DataBlock' */
