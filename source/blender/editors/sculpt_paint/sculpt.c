@@ -8078,6 +8078,15 @@ static void find_closest_exact_p(float e1[3], float e2[3], float *exact_p, int t
 	closest_seg_seg_v3(r, p1, p2, e1, e2);
 }
 
+static int cyclic_dist (int a, int b, int a_size, bool invert)
+{
+	if (invert) {
+		return (a_size + a - b) % a_size;
+	} else {
+		return (a_size + b - a) % a_size;
+	}
+}
+
 static void gen_fillet_velp(Mesh *me,
 							 float *exact_p, int exact_p_tot,
 							 int *a_verts, int *b_verts,
@@ -8087,9 +8096,11 @@ static void gen_fillet_velp(Mesh *me,
 {
 	/*If aligned exact points are aligned to a*/
 	float v1[3], v2[3];
-	int v_start, e_start, l_pos, p_start;
-	int holes = 0, next_i, aoff, boff, hole, hole_edges = 0;
+	int v_start, e_start, l_pos, p_pos, e_pos;
+	int holes = 0, next_i, aoff, boff, hole, hole_edges = 0, hole_size;
 	int *hole_pos = NULL;
+	int av, bv, cv, ae, be, ce;
+	int j;
 	BLI_array_declare(hole_pos);
 
 	aoff = me->medge[a_edges[0]].v1 == a_verts[0] ? 0 : 1;
@@ -8142,9 +8153,9 @@ static void gen_fillet_velp(Mesh *me,
 	}
 
 	l_pos = me->totloop;
-	p_start = me->totpoly;
-	ED_mesh_loops_add(me, NULL, a_size * 7 + (b_size - holes));
-	ED_mesh_polys_add(me, NULL, a_size * 2);
+	p_pos = me->totpoly;
+	ED_mesh_loops_add(me, NULL, a_size * 7 + (b_size - holes) + 6 * holes);
+	ED_mesh_polys_add(me, NULL, a_size * 2 + hole_edges + holes);
 	for (int i = 0; i < a_size; i++) {
 		next_i = (i + 1) % a_size;
 		me->mloop[l_pos].v = a_verts[i];
@@ -8160,10 +8171,12 @@ static void gen_fillet_velp(Mesh *me,
 		me->mloop[l_pos].e = a_edges[(i + aoff) % a_size];
 		l_pos ++;
 
-		me->mpoly[p_start + i * 2].loopstart = l_pos - 4;
-		me->mpoly[p_start + i * 2].totloop = 4;
-		me->mpoly[p_start + i * 2].mat_nr = 0;
-		me->mpoly[p_start + i * 2].flag = 0;
+		me->mpoly[p_pos].loopstart = l_pos - 4;
+		me->mpoly[p_pos].totloop = 4;
+		me->mpoly[p_pos].mat_nr = 0;
+		me->mpoly[p_pos].flag = 0;
+
+		p_pos ++;
 
 		if (map[i] == map[next_i]) {
 			/*Triangle*/
@@ -8177,37 +8190,108 @@ static void gen_fillet_velp(Mesh *me,
 			me->mloop[l_pos].e = e_start + 3 * i + 1;
 			l_pos ++;
 
-			me->mpoly[p_start + i * 2 + 1].loopstart = l_pos - 3;
-			me->mpoly[p_start + i * 2 + 1].totloop = 3;
-		} else {
-			/* Quad */
-			me->mloop[l_pos].v = v_start + i;
-			me->mloop[l_pos].e = e_start + 3 * i + 2;
-			l_pos ++;
-			me->mloop[l_pos].v = b_verts[map[i]];
-			me->mloop[l_pos].e = b_edges[(map[i] + boff) % a_size];
-			l_pos ++;
-			me->mloop[l_pos].v = b_verts[map[next_i]];
-			me->mloop[l_pos].e = e_start + 3 * next_i + 2;
-			l_pos ++;
-			me->mloop[l_pos].v = v_start + next_i;
-			me->mloop[l_pos].e = e_start + 3 * i + 1;
-			l_pos ++;
+			me->mpoly[p_pos].loopstart = l_pos - 3;
+			me->mpoly[p_pos].totloop = 3;
+			me->mpoly[p_pos].mat_nr = 0;
+			me->mpoly[p_pos].flag = 0;
 
-			me->mpoly[p_start + i * 2 + 1].loopstart = l_pos - 4;
-			me->mpoly[p_start + i * 2 + 1].totloop = 4;
+			p_pos ++;
+		} else {
+			if (cyclic_dist(map[i], map[next_i], b_size, inverse) <= 1) {
+				/* Quad */
+				me->mloop[l_pos].v = v_start + i;
+				me->mloop[l_pos].e = e_start + 3 * i + 2;
+				l_pos ++;
+				me->mloop[l_pos].v = b_verts[map[i]];
+				me->mloop[l_pos].e = b_edges[(map[i] + boff) % a_size];
+				l_pos ++;
+				me->mloop[l_pos].v = b_verts[map[next_i]];
+				me->mloop[l_pos].e = e_start + 3 * next_i + 2;
+				l_pos ++;
+				me->mloop[l_pos].v = v_start + next_i;
+				me->mloop[l_pos].e = e_start + 3 * i + 1;
+				l_pos ++;
+
+				me->mpoly[p_pos].loopstart = l_pos - 4;
+				me->mpoly[p_pos].totloop = 4;
+				me->mpoly[p_pos].mat_nr = 0;
+				me->mpoly[p_pos].flag = 0;
+
+				p_pos ++;
+			}
 		}
-		me->mpoly[p_start + i * 2 + 1].mat_nr = 0;
-		me->mpoly[p_start + i * 2 + 1].flag = 0;
 	}
 
-	/*if (hole_edges > 0) {
+	hole_edges += holes;
+	if (hole_edges > 0) {
+		e_pos = me->totedge;
 		ED_mesh_edges_add(me, NULL, hole_edges);
 	}
 
-	for (int i = 0; i < holes; i++) {
+	for (int i = 0; i < BLI_array_count(hole_pos); i++) {
+		hole_size = cyclic_dist(map[hole_pos[i]], map[(hole_pos[i] + 1) % a_size], b_size, inverse) - 1;
+		ae = e_start + 3 * hole_pos[i] + 2;
+		cv = me->medge[e_start + 3 * hole_pos[i] + 2].v2;
+		bv = me->medge[e_start + 3 * hole_pos[i] + 2].v1;
+		for (j = 0; j < hole_size; j++) {
+			be = b_edges[(b_size + map[hole_pos[i]] + (inverse ? -j : j + 1)) % b_size];
+			me->mloop[l_pos].v = bv;
+			me->mloop[l_pos].e = ae;
+			l_pos ++;
 
-	}*/
+			me->mloop[l_pos].v = cv;
+			me->mloop[l_pos].e = be;
+			l_pos ++;
+
+			av = me->medge[be].v1 == cv ? me->medge[be].v2 : me->medge[be].v1;
+
+			me->medge[e_pos].v1 = av;
+			me->medge[e_pos].v2 = bv;
+			me->medge[e_pos].crease = 0;
+			me->medge[e_pos].bweight = 0;
+			me->medge[e_pos].flag = 0;
+			ce = e_pos;
+			e_pos ++;
+
+			me->mloop[l_pos].v = av;
+			me->mloop[l_pos].e = ce;
+			l_pos ++;
+
+			me->mpoly[p_pos].loopstart = l_pos - 3;
+			me->mpoly[p_pos].totloop = 3;
+			me->mpoly[p_pos].mat_nr = 0;
+			me->mpoly[p_pos].flag = 0;
+
+			p_pos ++;
+
+			ae = ce;
+			cv = av;
+		}
+
+		be = b_edges[(b_size + map[hole_pos[i]] + (inverse ? -j : j + 1)) % b_size];
+		me->mloop[l_pos].v = bv;
+		me->mloop[l_pos].e = ae;
+		l_pos ++;
+
+		me->mloop[l_pos].v = av;
+		me->mloop[l_pos].e = be;
+		l_pos ++;
+
+		me->mloop[l_pos].v = me->medge[e_start + 3 * ((hole_pos[i] + 1) % a_size) + 2].v2;
+		me->mloop[l_pos].e = e_start + 3 * ((hole_pos[i] + 1) % a_size) + 2;
+		l_pos ++;
+
+		me->mloop[l_pos].v = me->medge[e_start + 3 * ((hole_pos[i] + 1) % a_size) + 2].v1;
+		me->mloop[l_pos].e = e_start + 3 * hole_pos[i] + 1;
+		l_pos ++;
+
+		me->mpoly[p_pos].loopstart = l_pos - 4;
+		me->mpoly[p_pos].totloop = 4;
+		me->mpoly[p_pos].mat_nr = 0;
+		me->mpoly[p_pos].flag = 0;
+
+		p_pos ++;
+	}
 	BLI_array_free(hole_pos);
 }
 
