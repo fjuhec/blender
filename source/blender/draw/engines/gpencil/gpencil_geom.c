@@ -106,7 +106,7 @@ Gwn_Batch *DRW_gpencil_get_point_geom(bGPDstroke *gps, short thickness, const fl
 		++idx;
 	}
 
-	return GWN_batch_create(GWN_PRIM_POINTS, vbo, NULL);
+	return GWN_batch_create_ex(GWN_PRIM_POINTS, vbo, NULL, GWN_BATCH_OWNS_VBO);
 }
 
 /* create batch geometry data for stroke shader */
@@ -157,7 +157,7 @@ Gwn_Batch *DRW_gpencil_get_stroke_geom(bGPDframe *gpf, bGPDstroke *gps, short th
 		gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[totpoints - 2], idx, pos_id, color_id, thickness_id, thickness, ink);
 	}
 
-	return GWN_batch_create(GWN_PRIM_LINE_STRIP_ADJ, vbo, NULL);
+	return GWN_batch_create_ex(GWN_PRIM_LINE_STRIP_ADJ, vbo, NULL, GWN_BATCH_OWNS_VBO);
 }
 
 /* helper to convert 2d to 3d for simple drawing buffer */
@@ -251,7 +251,7 @@ Gwn_Batch *DRW_gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], 
 	/* last adjacency point (not drawn) */
 	gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
 
-	return GWN_batch_create(GWN_PRIM_LINE_STRIP_ADJ, vbo, NULL);
+	return GWN_batch_create_ex(GWN_PRIM_LINE_STRIP_ADJ, vbo, NULL, GWN_BATCH_OWNS_VBO);
 }
 
 /* create batch geometry data for current buffer point shader */
@@ -298,7 +298,7 @@ Gwn_Batch *DRW_gpencil_get_buffer_point_geom(bGPdata *gpd, float matrix[4][4], s
 		++idx;
 	}
 
-	return GWN_batch_create(GWN_PRIM_POINTS, vbo, NULL);
+	return GWN_batch_create_ex(GWN_PRIM_POINTS, vbo, NULL, GWN_BATCH_OWNS_VBO);
 }
 
 /* create batch geometry data for current buffer fill shader */
@@ -376,7 +376,7 @@ Gwn_Batch *DRW_gpencil_get_buffer_fill_geom(const tGPspoint *points, int totpoin
 		MEM_freeN(points2d);
 	}
 
-	return GWN_batch_create(GWN_PRIM_TRIS, vbo, NULL);
+	return GWN_batch_create_ex(GWN_PRIM_TRIS, vbo, NULL, GWN_BATCH_OWNS_VBO);
 }
 
 
@@ -605,7 +605,7 @@ Gwn_Batch *DRW_gpencil_get_fill_geom(bGPDstroke *gps, const float color[4])
 		++idx;
 	}
 
-	return GWN_batch_create(GWN_PRIM_TRIS, vbo, NULL);
+	return GWN_batch_create_ex(GWN_PRIM_TRIS, vbo, NULL, GWN_BATCH_OWNS_VBO);
 }
 
 /* Draw selected verts for strokes being edited */
@@ -703,7 +703,7 @@ Gwn_Batch *DRW_gpencil_get_edit_geom(bGPDstroke *gps, float alpha, short dflag)
 		++idx;
 	}
 
-	return GWN_batch_create(GWN_PRIM_POINTS, vbo, NULL);
+	return GWN_batch_create_ex(GWN_PRIM_POINTS, vbo, NULL, GWN_BATCH_OWNS_VBO);
 }
 
 /* Draw lines for strokes being edited */
@@ -786,5 +786,5 @@ Gwn_Batch *DRW_gpencil_get_edlin_geom(bGPDstroke *gps, float alpha, short dflag)
 		++idx;
 	}
 
-	return GWN_batch_create(GWN_PRIM_LINE_STRIP, vbo, NULL);
+	return GWN_batch_create_ex(GWN_PRIM_LINE_STRIP, vbo, NULL, GWN_BATCH_OWNS_VBO);
 }
