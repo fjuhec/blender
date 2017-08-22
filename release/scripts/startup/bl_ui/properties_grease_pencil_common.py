@@ -1330,7 +1330,7 @@ class GreasePencilVertexGroupPanel:
         col.operator("object.vertex_group_add", icon='ZOOMIN', text="")
         col.operator("object.vertex_group_remove", icon='ZOOMOUT', text="").all = False
 
-        if ob.vertex_groups:  # and (ob.mode == 'EDIT' or (ob.mode == 'WEIGHT_PAINT' and ob.type == 'MESH' and ob.data.use_paint_mask_vertex)):
+        if ob.vertex_groups:
             row = layout.row()
 
             sub = row.row(align=True)
