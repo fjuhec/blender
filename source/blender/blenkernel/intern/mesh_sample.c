@@ -955,6 +955,14 @@ int BKE_mesh_sample_generate_batch_ex(MeshSampleGenerator *gen,
 			}
 		}
 		
+		if (gen->thread_context_free) {
+			MeshSampleTaskData *td = task_data;
+			for (int i = 0; i < num_tasks; ++i, ++td) {
+				if (td->thread_ctx) {
+					gen->thread_context_free(gen, td->thread_ctx);
+				}
+			}
+		}
 		MEM_freeN(task_data);
 		
 		return totresult;

@@ -13,6 +13,7 @@ if(WITH_GTESTS)
 
 	add_subdirectory(testing)
 	add_subdirectory(blenlib)
+	add_subdirectory(blenkernel)
 	add_subdirectory(guardedalloc)
 	add_subdirectory(bmesh)
 	if(WITH_ALEMBIC)
