@@ -1246,6 +1246,10 @@ bool BKE_gpencil_layer_delframe(bGPDlayer *gpl, bGPDframe *gpf)
 	changed = BKE_gpencil_free_strokes(gpf);
 	BLI_freelinkN(&gpl->frames, gpf);
 	
+	if (changed) {
+		BKE_gpencil_batch_cache_alldirty();
+	}
+
 	return changed;
 }
 
