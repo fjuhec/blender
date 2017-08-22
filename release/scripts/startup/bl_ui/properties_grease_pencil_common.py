@@ -363,8 +363,39 @@ class GreasePencilBrushPanel:
             row.prop(brush, "use_random_strength", text='', icon='RNDCURVE')
             row.prop(brush, "strength", slider=True)
             row.prop(brush, "use_strength_pressure", text='', icon='STYLUS_PRESSURE')
-            row = layout.row(align=True)
-            row.prop(brush, "random_press", slider=True)
+
+            row = layout.row(align=False)
+            row.prop(context.tool_settings, "use_gpencil_draw_onback", text="Draw on Back")
+
+
+class GreasePencilBrushOptionsPanel:
+    # subclass must set
+    # bl_space_type = 'IMAGE_EDITOR'
+    bl_label = "Brush Options"
+    bl_category = "Tools"
+    bl_region_type = 'TOOLS'
+    bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        is_3d_view = context.space_data.type == 'VIEW_3D'
+        if is_3d_view:
+            if context.gpencil_data is None:
+                return False
+
+            gpd = context.gpencil_data
+            return bool(gpd.is_stroke_paint_mode)
+        else:
+            return True
+
+    @staticmethod
+    def draw(self, context):
+        layout = self.layout
+        brush = context.active_gpencil_brush
+        if brush is not None:
+            col = layout.column(align=True)
+            col.label(text="Settings:")
+            col.prop(brush, "random_press", slider=True)
 
             row = layout.row(align=True)
             row.prop(brush, "jitter", slider=True)
@@ -373,8 +404,8 @@ class GreasePencilBrushPanel:
             row.prop(brush, "angle", slider=True)
             row.prop(brush, "angle_factor", text="Factor", slider=True)
 
-            box = layout.box()
-            col = box.column(align=True)
+            row = layout.row(align=True)
+            col = row.column(align=True)
             col.label(text="Stroke Quality:")
             col.prop(brush, "pen_smooth_factor")
             col.prop(brush, "pen_smooth_steps")
@@ -384,10 +415,9 @@ class GreasePencilBrushPanel:
             row.prop(brush, "random_subdiv", text='Randomness', slider=True)
 
             row = layout.row(align=False)
-            row.prop(context.tool_settings, "use_gpencil_draw_onback", text="Draw on Back")
-
-            row = layout.row(align=False)
-            row.prop(context.user_preferences.edit, "grease_pencil_eraser_radius", text="Eraser")
+            col = row.column(align=True)
+            col.label(text="Eraser:")
+            col.prop(context.user_preferences.edit, "grease_pencil_eraser_radius", text="Radius")
 
 
 class GreasePencilStrokeSculptPanel:
@@ -474,6 +504,7 @@ class GreasePencilAppearancePanel:
     bl_label = "Appearance"
     bl_category = "Options"
     bl_region_type = 'TOOLS'
+    bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(cls, context):

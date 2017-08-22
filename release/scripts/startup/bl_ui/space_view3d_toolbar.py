@@ -27,6 +27,7 @@ from bl_ui.properties_grease_pencil_common import (
         GreasePencilInterpolatePanel,
         GreasePencilStrokeSculptPanel,
         GreasePencilBrushPanel,
+        GreasePencilBrushOptionsPanel,
         GreasePencilBrushCurvesPanel,
         GreasePencilAppearancePanel
         )
@@ -2049,6 +2050,10 @@ class VIEW3D_PT_tools_grease_pencil_sculpt(GreasePencilStrokeSculptPanel, Panel)
 class VIEW3D_PT_tools_grease_pencil_brush(GreasePencilBrushPanel, Panel):
     bl_space_type = 'VIEW_3D'
 
+# Grease Pencil drawing brushes options
+class VIEW3D_PT_tools_grease_pencil_brush_option(GreasePencilBrushOptionsPanel, Panel):
+    bl_space_type = 'VIEW_3D'
+
 # Grease Pencil drawingcurves
 class VIEW3D_PT_tools_grease_pencil_brushcurves(GreasePencilBrushCurvesPanel, Panel):
     bl_space_type = 'VIEW_3D'
@@ -2090,6 +2095,7 @@ classes = (
     VIEW3D_PT_tools_grease_pencil_edit,
     VIEW3D_PT_tools_grease_pencil_sculpt,
     VIEW3D_PT_tools_grease_pencil_brush,
+    VIEW3D_PT_tools_grease_pencil_brush_option,
     VIEW3D_PT_tools_grease_pencil_brushcurves,
     VIEW3D_PT_tools_grease_pencil_draw,
     VIEW3D_PT_tools_relations,
