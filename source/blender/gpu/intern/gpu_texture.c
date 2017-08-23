@@ -716,23 +716,26 @@ void GPU_texture_update(GPUTexture *tex, const float *pixels)
 	BLI_assert(tex->format > -1);
 	BLI_assert(tex->components > -1);
 
-	GLenum format, internalformat, data_format;
-	internalformat = gpu_texture_get_format(tex->components, tex->format,
-	                                        &format, &data_format, &tex->depth, &tex->stencil, &tex->bytesize);
+	GLenum format, data_format;
+	gpu_texture_get_format(tex->components, tex->format, &format, &data_format, &tex->depth, &tex->stencil, &tex->bytesize);
 
 	glBindTexture(tex->target, tex->bindcode);
 
-	if (tex->target == GL_TEXTURE_2D ||
-	    tex->target == GL_TEXTURE_2D_MULTISAMPLE ||
-	    tex->target == GL_TEXTURE_1D_ARRAY)
-	{
-		glTexSubImage2D(tex->target, 0, 0, 0, tex->w, tex->h, format, data_format, pixels);
-	}
-	else if (tex->target == GL_TEXTURE_1D) {
-		glTexSubImage1D(tex->target, 0, 0, tex->w, format, data_format, pixels);
-	}
-	else { /* GL_TEXTURE_3D */
-		glTexSubImage3D(tex->target, 0, 0, 0, 0, tex->w, tex->h, tex->d, format, data_format, pixels);
+	switch (tex->target) {
+		case GL_TEXTURE_2D:
+		case GL_TEXTURE_2D_MULTISAMPLE:
+		case GL_TEXTURE_1D_ARRAY:
+			glTexSubImage2D(tex->target, 0, 0, 0, tex->w, tex->h, format, data_format, pixels);
+			break;
+		case GL_TEXTURE_1D:
+			glTexSubImage1D(tex->target, 0, 0, tex->w, format, data_format, pixels);
+			break;
+		case GL_TEXTURE_3D:
+		case GL_TEXTURE_2D_ARRAY:
+			glTexSubImage3D(tex->target, 0, 0, 0, 0, tex->w, tex->h, tex->d, format, data_format, pixels);
+			break;
+		default:
+			BLI_assert(!"tex->target mode not supported");
 	}
 
 	glBindTexture(tex->target, 0);
