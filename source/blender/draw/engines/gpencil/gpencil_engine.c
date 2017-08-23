@@ -36,6 +36,8 @@
 
 #include "gpencil_engine.h"
 
+#include "ED_screen.h"
+
 extern char datatoc_gpencil_fill_vert_glsl[];
 extern char datatoc_gpencil_fill_frag_glsl[];
 extern char datatoc_gpencil_stroke_vert_glsl[];
@@ -218,6 +220,13 @@ static void GPENCIL_cache_init(void *vedata)
 		stl->g_data->shgrps_edit_line = DRW_gpencil_shgroup_edit_volumetric_create(psl->edit_pass, e_data.gpencil_line_sh);
 		/* drawing buffer pass */
 		const DRWContextState *draw_ctx = DRW_context_state_get();
+		/* detect if playing animation */
+		stl->storage->playing = 0;
+		if (draw_ctx->evil_C) {
+			if (ED_screen_animation_playing(CTX_wm_manager(draw_ctx->evil_C))) {
+				stl->storage->playing = 1;
+			}
+		}
 		ob = draw_ctx->obact;
 		if (ob) {
 			gpd = ob->gpd;

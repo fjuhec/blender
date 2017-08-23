@@ -125,6 +125,7 @@ typedef struct GPENCIL_Storage {
 	int keep_size;
 	float obj_scale;
 	int pixfactor;
+	int playing;
 } GPENCIL_Storage;
 
 typedef struct GPENCIL_StorageList {

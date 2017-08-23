@@ -638,10 +638,49 @@ static void gpencil_add_editpoints_shgroup(GPENCIL_StorageList *stl, GpencilBatc
 	}
 }
 
+/* function to draw strokes for onion only */
+static void gpencil_draw_onion_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_data, void *vedata, Object *ob,
+	bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf, const float tintcolor[4], const bool custonion)
+{
+	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
+	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
+	int id = stl->storage->shgroup_id;
+	float viewmatrix[4][4];
+
+	/* get parent matrix and save as static data */
+	ED_gpencil_parent_location(ob, gpd, gpl, viewmatrix);
+	copy_m4_m4(gpf->viewmatrix, viewmatrix);
+
+	for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+		/* check if stroke can be drawn */
+		if (gpencil_can_draw_stroke(gps, true) == false) {
+			continue;
+		}
+		/* limit the number of shading groups */
+		if (id >= GPENCIL_MAX_SHGROUPS) {
+			continue;
+		}
+
+		stl->shgroups[id].shgrps_fill = NULL;
+		if ((gps->totpoints > 1) && ((gps->palcolor->flag & PAC_COLOR_DOT) == 0)) {
+			stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_stroke_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_stroke_sh, ob, gpd, gps->palcolor, id);
+		}
+		else {
+			stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_point_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_point_sh, ob, gpd, gps->palcolor, id);
+		}
+
+		/* stroke */
+		gpencil_add_stroke_shgroup(cache, stl->shgroups[id].shgrps_stroke, ob, gpd, gpl, gpf, gps, 1.0f, tintcolor, true, custonion);
+
+		++stl->storage->shgroup_id;
+		++cache->cache_idx;
+	}
+}
+
 /* main function to draw strokes */
 static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_data, void *vedata, ToolSettings *ts, Object *ob,
 	bGPdata *gpd, bGPDlayer *gpl, bGPDframe *src_gpf, bGPDframe *derived_gpf,
-	const float opacity, const float tintcolor[4], const bool onion, const bool custonion)
+	const float opacity, const float tintcolor[4], const bool custonion)
 {
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
@@ -649,24 +688,22 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 	DRWShadingGroup *fillgrp;
 	DRWShadingGroup *strokegrp;
 	float viewmatrix[4][4];
-	ListBase tmp_colors = { NULL, NULL };
 
 	/* get parent matrix and save as static data */
 	ED_gpencil_parent_location(ob, gpd, gpl, viewmatrix);
 	copy_m4_m4(derived_gpf->viewmatrix, viewmatrix);
 
 	/* initialization steps */
-	if ((cache->is_dirty) && (ob->modifiers.first) && (!onion)) {
+	if ((cache->is_dirty) && (ob->modifiers.first)) {
 		BKE_gpencil_reset_modifiers(ob);
 	}
 
 	/* apply geometry modifiers */
-	if ((cache->is_dirty) && (ob->modifiers.first) && (!onion)) {
+	if ((cache->is_dirty) && (ob->modifiers.first)) {
 		if (BKE_gpencil_has_geometry_modifiers(ob)) {
 			BKE_gpencil_geometry_modifiers(ob, gpl, derived_gpf);
 		}
 	}
-	int gps_idx = -1;
 
 	if (src_gpf) {
 		src_gps = src_gpf->strokes.first;
@@ -676,11 +713,8 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 	}
 
 	for (gps = derived_gpf->strokes.first; gps; gps = gps->next) {
-		++gps_idx;
-
-
 		/* check if stroke can be drawn */
-		if (gpencil_can_draw_stroke(gps, onion) == false) {
+		if (gpencil_can_draw_stroke(gps, false) == false) {
 			continue;
 		}
 		/* limit the number of shading groups */
@@ -717,18 +751,18 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 		strokegrp = stl->shgroups[id].shgrps_stroke;
 
 		/* apply modifiers (only modify geometry, but not create ) */
-		if ((cache->is_dirty) && (ob->modifiers.first) && (!onion)) {
+		if ((cache->is_dirty) && (ob->modifiers.first)) {
 			BKE_gpencil_stroke_modifiers(ob, gpl, derived_gpf, gps);
 		}
 		/* fill */
 		if (fillgrp) {
-			gpencil_add_fill_shgroup(cache, fillgrp, ob, gpd, gpl, derived_gpf, gps, tintcolor, onion, custonion);
+			gpencil_add_fill_shgroup(cache, fillgrp, ob, gpd, gpl, derived_gpf, gps, tintcolor, false, custonion);
 		}
 		/* stroke */
-		gpencil_add_stroke_shgroup(cache, strokegrp, ob, gpd, gpl, derived_gpf, gps, opacity, tintcolor, onion, custonion);
+		gpencil_add_stroke_shgroup(cache, strokegrp, ob, gpd, gpl, derived_gpf, gps, opacity, tintcolor, false, custonion);
 
 		/* edit points (only in edit mode) */
-		if ((!onion) && (src_gps)){
+		if (src_gps) {
 			gpencil_add_editpoints_shgroup(stl, cache, ts, ob, gpd, gpl, derived_gpf, src_gps);
 		}
 
@@ -837,8 +871,8 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 		}
 		CLAMP_MIN(color[3], 0.66f);
 		/* draw */
-		BKE_gpencil_batch_cache_dirty(gpd);
-		gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gf, gf, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_PREVCOL);
+		cache->is_dirty = true;
+		gpencil_draw_onion_strokes(cache, e_data, vedata, ob, gpd, gpl, gf, color, gpl->flag & GP_LAYER_GHOST_PREVCOL);
 	}
 	/* -------------------------------
 	 * 2) Now draw next frames
@@ -884,14 +918,15 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 			color[3] = 0.66f;
 		}
 		CLAMP_MIN(color[3], 0.66f);
-		BKE_gpencil_batch_cache_dirty(gpd);
-		gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gf, gf, 1.0f, color, true, gpl->flag & GP_LAYER_GHOST_NEXTCOL);
+		cache->is_dirty = true;
+		gpencil_draw_onion_strokes(cache, e_data, vedata, ob, gpd, gpl, gf, color, gpl->flag & GP_LAYER_GHOST_NEXTCOL);
 	}
 }
 
 /* helper for populate a complete grease pencil datablock */
 void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene *scene, Object *ob, ToolSettings *ts, bGPdata *gpd)
 {
+	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	bGPDframe *derived_gpf = NULL;
 	bool is_edit = (bool)(gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE));
 
@@ -899,8 +934,8 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 		printf("DRW_gpencil_populate_datablock: %s\n", gpd->id.name);
 	}
 
-	/* TODO: check if playing animation */
-	bool playing = false;
+	/* check if playing animation */
+	bool playing = (bool)stl->storage->playing;
 
 	GpencilBatchCache *cache = gpencil_batch_cache_get(ob, CFRA);
 	cache->cache_idx = 0;
@@ -937,16 +972,17 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 			derived_gpf = BKE_gpencil_frame_color_duplicate(gpf);
 			BLI_ghash_insert(gpl->derived_data, ob->id.name, derived_gpf);
 		}
-
 		/* draw onion skins */
 		if ((gpl->flag & GP_LAYER_ONIONSKIN) &&
 			((!playing) || (gpl->flag & GP_LAYER_GHOST_ALWAYS)))
 		{
-			gpencil_draw_onionskins(cache, e_data, vedata, ts, ob, gpd, gpl, derived_gpf);
+			gpencil_draw_onionskins(cache, e_data, vedata, ts, ob, gpd, gpl, gpf);
 		}
+
 		/* draw normal strokes */
-		gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gpf, derived_gpf, 
-			gpl->opacity, gpl->tintcolor, false, false);
+		gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gpf, derived_gpf,
+			gpl->opacity, gpl->tintcolor, false);
+
 	}
 
 	/* clear any lattice data */
