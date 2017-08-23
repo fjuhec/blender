@@ -236,36 +236,40 @@ static void generator_vertices_thread_context_free(const MSurfaceSampleGenerator
 	MEM_freeN(thread_ctx);
 }
 
+static bool generator_vertices_make_loop_sample(DerivedMesh *dm, const int *loops, MeshSample *sample)
+{
+	const MLoop *mloops = dm->getLoopArray(dm);
+	
+	if (loops[0] < 0) {
+		return false;
+	}
+	
+	sample->orig_poly = -1;
+	
+	sample->orig_loops[0] = (unsigned int)loops[0];
+	sample->orig_loops[1] = (unsigned int)loops[1];
+	sample->orig_loops[2] = (unsigned int)loops[2];
+	
+	sample->orig_verts[0] = mloops[loops[0]].v;
+	sample->orig_verts[1] = mloops[loops[1]].v;
+	sample->orig_verts[2] = mloops[loops[2]].v;
+	
+	sample->orig_weights[0] = 1.0f;
+	sample->orig_weights[1] = 0.0f;
+	sample->orig_weights[2] = 0.0f;
+	
+	return true;
+}
+
 static bool generator_vertices_make_sample(const MSurfaceSampleGenerator_Vertices *gen, void *thread_ctx, MeshSample *sample)
 {
 	DerivedMesh *dm = gen->dm;
 	const int num_verts = dm->getNumVerts(dm);
-	const MLoop *mloops = dm->getLoopArray(dm);
 	
 	int cur_vert = *(int *)thread_ctx;
 	bool found_vert = false;
-	while (cur_vert < num_verts) {
-		++cur_vert;
-		
-		const int *loops = gen->vert_loop_map[cur_vert];
-		if (loops[0] >= 0) {
-			sample->orig_poly = -1;
-			
-			sample->orig_loops[0] = (unsigned int)loops[0];
-			sample->orig_loops[1] = (unsigned int)loops[1];
-			sample->orig_loops[2] = (unsigned int)loops[2];
-			
-			sample->orig_verts[0] = mloops[loops[0]].v;
-			sample->orig_verts[1] = mloops[loops[1]].v;
-			sample->orig_verts[2] = mloops[loops[2]].v;
-			
-			sample->orig_weights[0] = 1.0f;
-			sample->orig_weights[1] = 0.0f;
-			sample->orig_weights[2] = 0.0f;
-
-			found_vert = true;
-			break;
-		}
+	for (; cur_vert < num_verts && !found_vert; ++cur_vert) {
+		found_vert |= generator_vertices_make_loop_sample(dm, gen->vert_loop_map[cur_vert], sample);
 	}
 	
 	*(int *)thread_ctx = cur_vert;
@@ -720,6 +724,7 @@ static void generator_volume_random_cast_ray(MVolumeSampleGenerator_Random *gen,
 	madd_v3_v3v3v3(wray.end, gen->min, ray->end, gen->extent);
 	
 	sub_v3_v3v3(dir, wray.end, wray.start);
+	normalize_v3(dir);
 	
 	gen->tothits = 0;
 	BLI_bvhtree_ray_cast_all(gen->bvhdata.tree, wray.start, dir, 0.0f, BVH_RAYCAST_DIST_MAX,
