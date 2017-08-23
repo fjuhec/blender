@@ -291,8 +291,6 @@ TEST_F(MeshSampleTest, SurfaceRaycast)
 	BKE_mesh_sample_free_generator(gen);
 }
 
-// TODO currently fails because the bbray implementation is not yet thread-safe!
-#if 0
 static const float volume_bbray_density = 0.1f;
 
 TEST_F(MeshSampleTest, VolumeBBRay)
@@ -305,4 +303,3 @@ TEST_F(MeshSampleTest, VolumeBBRay)
 	
 	BKE_mesh_sample_free_generator(gen);
 }
-#endif

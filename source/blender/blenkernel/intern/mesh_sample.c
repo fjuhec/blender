@@ -646,6 +646,11 @@ typedef struct MVolumeSampleGenerator_Random {
 	float min[3], max[3], extent[3], volume;
 	float density;
 	int max_samples_per_ray;
+} MVolumeSampleGenerator_Random;
+
+typedef struct MVolumeSampleGenerator_Random_ThreadContext {
+	const BVHTreeFromMesh *bvhdata;
+	RNG *rng;
 	
 	/* current ray intersections */
 	BVHTreeRayHit *ray_hits;
@@ -653,30 +658,13 @@ typedef struct MVolumeSampleGenerator_Random {
 	
 	/* current segment index and sample number */
 	int cur_seg, cur_tot, cur_sample;
-} MVolumeSampleGenerator_Random;
+} MVolumeSampleGenerator_Random_ThreadContext;
 
 static void generator_volume_random_free(MVolumeSampleGenerator_Random *gen)
 {
 	free_bvhtree_from_mesh(&gen->bvhdata);
 	
-	if (gen->ray_hits) {
-		MEM_freeN(gen->ray_hits);
-	}
-	
 	MEM_freeN(gen);
-}
-
-static void *generator_volume_random_thread_context_create(MVolumeSampleGenerator_Random *gen, int start)
-{
-	RNG *rng = BLI_rng_new(gen->seed);
-	// 11 RNG gets per sample
-	BLI_rng_skip(rng, start * 11);
-	return rng;
-}
-
-static void generator_volume_random_thread_context_free(MVolumeSampleGenerator_Random *UNUSED(gen), void *thread_ctx)
-{
-	BLI_rng_free(thread_ctx);
 }
 
 BLI_INLINE unsigned int hibit(unsigned int n) {
@@ -688,25 +676,52 @@ BLI_INLINE unsigned int hibit(unsigned int n) {
 	return n ^ (n >> 1);
 }
 
-static void generator_volume_hits_reserve(MVolumeSampleGenerator_Random *gen, int tothits)
+static void generator_volume_hits_reserve(MVolumeSampleGenerator_Random_ThreadContext *ctx, int tothits)
 {
-	if (tothits > gen->allochits) {
-		gen->allochits = (int)hibit((unsigned int)tothits) << 1;
-		gen->ray_hits = MEM_reallocN(gen->ray_hits, (size_t)gen->allochits * sizeof(BVHTreeRayHit));
+	if (tothits > ctx->allochits) {
+		ctx->allochits = (int)hibit((unsigned int)tothits) << 1;
+		ctx->ray_hits = MEM_reallocN(ctx->ray_hits, (size_t)ctx->allochits * sizeof(BVHTreeRayHit));
 	}
+}
+
+static void *generator_volume_random_thread_context_create(const MVolumeSampleGenerator_Random *gen, int start)
+{
+	MVolumeSampleGenerator_Random_ThreadContext *ctx = MEM_callocN(sizeof(*ctx), "thread context");
+	
+	ctx->bvhdata = &gen->bvhdata;
+	
+	ctx->rng = BLI_rng_new(gen->seed);
+	// 11 RNG gets per sample
+	BLI_rng_skip(ctx->rng, start * 11);
+	
+	generator_volume_hits_reserve(ctx, 64);
+	
+	return ctx;
+}
+
+static void generator_volume_random_thread_context_free(const MVolumeSampleGenerator_Random *UNUSED(gen), void *thread_ctx)
+{
+	MVolumeSampleGenerator_Random_ThreadContext *ctx = thread_ctx;
+	BLI_rng_free(ctx->rng);
+	
+	if (ctx->ray_hits) {
+		MEM_freeN(ctx->ray_hits);
+	}
+	
+	MEM_freeN(ctx);
 }
 
 static void generator_volume_ray_cb(void *userdata, int index, const BVHTreeRay *ray, BVHTreeRayHit *hit)
 {
-	MVolumeSampleGenerator_Random *gen = userdata;
+	MVolumeSampleGenerator_Random_ThreadContext *ctx = userdata;
 	
-	gen->bvhdata.raycast_callback(&gen->bvhdata, index, ray, hit);
+	ctx->bvhdata->raycast_callback((void *)ctx->bvhdata, index, ray, hit);
 	
 	if (hit->index >= 0) {
-		++gen->tothits;
-		generator_volume_hits_reserve(gen, gen->tothits);
+		++ctx->tothits;
+		generator_volume_hits_reserve(ctx, ctx->tothits);
 		
-		memcpy(&gen->ray_hits[gen->tothits-1], hit, sizeof(BVHTreeRayHit));
+		memcpy(&ctx->ray_hits[ctx->tothits-1], hit, sizeof(BVHTreeRayHit));
 	}
 }
 
@@ -715,38 +730,34 @@ typedef struct Ray {
 	float end[3];
 } Ray;
 
-static void generator_volume_random_cast_ray(MVolumeSampleGenerator_Random *gen, const Ray* ray)
+static void generator_volume_random_cast_ray(MVolumeSampleGenerator_Random_ThreadContext *ctx, const Ray* ray)
 {
-	Ray wray;
 	float dir[3];
 	
-	madd_v3_v3v3v3(wray.start, gen->min, ray->start, gen->extent);
-	madd_v3_v3v3v3(wray.end, gen->min, ray->end, gen->extent);
-	
-	sub_v3_v3v3(dir, wray.end, wray.start);
+	sub_v3_v3v3(dir, ray->end, ray->start);
 	normalize_v3(dir);
 	
-	gen->tothits = 0;
-	BLI_bvhtree_ray_cast_all(gen->bvhdata.tree, wray.start, dir, 0.0f, BVH_RAYCAST_DIST_MAX,
-	                         generator_volume_ray_cb, gen);
+	ctx->tothits = 0;
+	BLI_bvhtree_ray_cast_all(ctx->bvhdata->tree, ray->start, dir, 0.0f, BVH_RAYCAST_DIST_MAX,
+	                         generator_volume_ray_cb, ctx);
 	
-	gen->cur_seg = 0;
-	gen->cur_tot = 0;
-	gen->cur_sample = 0;
+	ctx->cur_seg = 0;
+	ctx->cur_tot = 0;
+	ctx->cur_sample = 0;
 }
 
-static void generator_volume_init_segment(MVolumeSampleGenerator_Random *gen)
+static void generator_volume_init_segment(const MVolumeSampleGenerator_Random *gen, MVolumeSampleGenerator_Random_ThreadContext *ctx)
 {
 	BVHTreeRayHit *a, *b;
 	float length;
 	
-	BLI_assert(gen->cur_seg + 1 < gen->tothits);
-	a = &gen->ray_hits[gen->cur_seg];
-	b = &gen->ray_hits[gen->cur_seg + 1];
+	BLI_assert(ctx->cur_seg + 1 < ctx->tothits);
+	a = &ctx->ray_hits[ctx->cur_seg];
+	b = &ctx->ray_hits[ctx->cur_seg + 1];
 	
 	length = len_v3v3(a->co, b->co);
-	gen->cur_tot = min_ii(gen->max_samples_per_ray, (int)ceilf(length * gen->density));
-	gen->cur_sample = 0;
+	ctx->cur_tot = min_ii(gen->max_samples_per_ray, (int)ceilf(length * gen->density));
+	ctx->cur_sample = 0;
 }
 
 static void generator_volume_get_ray(RNG *rng, Ray *ray)
@@ -780,37 +791,45 @@ static void generator_volume_get_ray(RNG *rng, Ray *ray)
 	add_v3_fl(ray->end, -margin);
 }
 
-static bool generator_volume_random_make_sample(MVolumeSampleGenerator_Random *gen, void *thread_ctx, MeshSample *sample)
+static void generator_volume_ray_to_bbox(const MVolumeSampleGenerator_Random *gen, Ray *ray)
 {
-	RNG *rng = thread_ctx;
+	madd_v3_v3v3v3(ray->start, gen->min, ray->start, gen->extent);
+	madd_v3_v3v3v3(ray->end, gen->min, ray->end, gen->extent);
+}
+
+static bool generator_volume_random_make_sample(const MVolumeSampleGenerator_Random *gen, void *thread_ctx, MeshSample *sample)
+{
+	MVolumeSampleGenerator_Random_ThreadContext *ctx = thread_ctx;
 	
 	Ray ray1, ray2;
 	// Do all RNG gets at the beggining for keeping consistent state
-	generator_volume_get_ray(rng, &ray1);
-	generator_volume_get_ray(rng, &ray2);
-	float t = BLI_rng_get_float(rng);
+	generator_volume_get_ray(ctx->rng, &ray1);
+	generator_volume_get_ray(ctx->rng, &ray2);
+	float t = BLI_rng_get_float(ctx->rng);
 	
-	if (gen->cur_seg + 1 >= gen->tothits) {
-		generator_volume_random_cast_ray(gen, &ray1);
-		if (gen->tothits < 2)
+	if (ctx->cur_seg + 1 >= ctx->tothits) {
+		generator_volume_ray_to_bbox(gen, &ray1);
+		generator_volume_random_cast_ray(ctx, &ray1);
+		if (ctx->tothits < 2)
 			return false;
 	}
 	
-	if (gen->cur_sample >= gen->cur_tot) {
-		gen->cur_seg += 2;
+	if (ctx->cur_sample >= ctx->cur_tot) {
+		ctx->cur_seg += 2;
 		
-		if (gen->cur_seg + 1 >= gen->tothits) {
-			generator_volume_random_cast_ray(gen, &ray2);
-			if (gen->tothits < 2)
+		if (ctx->cur_seg + 1 >= ctx->tothits) {
+			generator_volume_ray_to_bbox(gen, &ray2);
+			generator_volume_random_cast_ray(ctx, &ray2);
+			if (ctx->tothits < 2)
 				return false;
 		}
 		
-		generator_volume_init_segment(gen);
+		generator_volume_init_segment(gen, ctx);
 	}
-	BVHTreeRayHit *a = &gen->ray_hits[gen->cur_seg];
-	BVHTreeRayHit *b = &gen->ray_hits[gen->cur_seg + 1];
+	BVHTreeRayHit *a = &ctx->ray_hits[ctx->cur_seg];
+	BVHTreeRayHit *b = &ctx->ray_hits[ctx->cur_seg + 1];
 	
-	if (gen->cur_sample < gen->cur_tot) {
+	if (ctx->cur_sample < ctx->cur_tot) {
 		
 		sample->orig_verts[0] = 0;
 		sample->orig_verts[1] = 0;
@@ -818,7 +837,7 @@ static bool generator_volume_random_make_sample(MVolumeSampleGenerator_Random *g
 		
 		interp_v3_v3v3(sample->orig_weights, a->co, b->co, t);
 		
-		gen->cur_sample += 1;
+		ctx->cur_sample += 1;
 		
 		return true;
 	}
@@ -858,8 +877,6 @@ MeshSampleGenerator *BKE_mesh_sample_gen_volume_random_bbray(DerivedMesh *dm, un
 	gen->volume = gen->extent[0] * gen->extent[1] * gen->extent[2];
 	gen->density = density;
 	gen->max_samples_per_ray = max_ii(1, (int)powf(gen->volume, 1.0f/3.0f)) >> 1;
-	
-	generator_volume_hits_reserve(gen, 64);
 	
 	return &gen->base;
 }
