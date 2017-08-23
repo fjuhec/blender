@@ -973,7 +973,7 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 			BLI_ghash_insert(gpl->derived_data, ob->id.name, derived_gpf);
 		}
 		/* draw onion skins */
-		if ((gpl->flag & GP_LAYER_ONIONSKIN) &&
+		if ((!is_edit) && (gpl->flag & GP_LAYER_ONIONSKIN) &&
 			((!playing) || (gpl->flag & GP_LAYER_GHOST_ALWAYS)))
 		{
 			gpencil_draw_onionskins(cache, e_data, vedata, ts, ob, gpd, gpl, gpf);
