@@ -450,7 +450,7 @@ void update_special_pointers(const Depsgraph *depsgraph,
 		}
 		case ID_ME:
 		{
-			/* For meshes we need to update edit_brtmesh to make it to point
+			/* For meshes we need to update edit_btmesh to make it to point
 			 * to the CoW version of object.
 			 *
 			 * This is kind of confusing, because actual bmesh is not owned by
@@ -826,6 +826,12 @@ ID *deg_update_copy_on_write_datablock(const Depsgraph *depsgraph,
 			 */
 			if (object->type == OB_MESH) {
 				object->data = mesh_evaluated;
+				/* Evaluated mesh simply copied edit_btmesh pointer from
+				 * original mesh during update, need to make sure no dead
+				 * pointers are left behind.
+				 */
+				mesh_evaluated->edit_btmesh =
+				        ((Mesh *)mesh_evaluated->id.newid)->edit_btmesh;
 			}
 		}
 	}
