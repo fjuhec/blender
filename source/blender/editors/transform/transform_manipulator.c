@@ -926,7 +926,7 @@ static int calc_manipulator_stats(const bContext *C)
 	}
 
 	/* global, local or normal orientation? */
-	if (ob && totsel && !is_gp_edit) {
+	if (ob && totsel) {
 
 		switch (v3d->twmode) {
 		
