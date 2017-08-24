@@ -1269,7 +1269,7 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "pixfactor", PROP_INT, PROP_NONE);
 	RNA_def_property_int_sdna(prop, NULL, "pixfactor");
-	RNA_def_property_range(prop, 30, 200);
+	RNA_def_property_range(prop, 30, 10000);
 	RNA_def_property_ui_text(prop, "Pixel Factor", "Factor of conversion of pixel size (set bigger values for thinner lines)");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
