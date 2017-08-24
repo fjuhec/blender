@@ -7919,11 +7919,6 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 
 			/* calculate difference matrix */
 			ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);
-			if (t->current_orientation == V3D_MANIP_LOCAL) {
-				if (obact) {
-					copy_m4_m4(diff_mat, obact->obmat);
-				}
-			}
 			/* undo matrix */
 			invert_m4_m4(inverse_diff_mat, diff_mat);
 			
