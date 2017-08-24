@@ -1131,7 +1131,7 @@ static ManipulatorGroup *manipulatorgroup_init(wmManipulatorGroup *mgroup)
 /**
  * Custom handler for manipulator widgets
  */
-static void manipulator_modal(
+static int manipulator_modal(
         bContext *C, wmManipulator *widget, const wmEvent *UNUSED(event),
         eWM_ManipulatorTweak UNUSED(tweak_flag))
 {
@@ -1146,6 +1146,8 @@ static void manipulator_modal(
 	}
 
 	ED_region_tag_redraw(ar);
+
+	return OPERATOR_RUNNING_MODAL;
 }
 
 static void WIDGETGROUP_manipulator_setup(const bContext *UNUSED(C), wmManipulatorGroup *mgroup)

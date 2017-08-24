@@ -395,6 +395,9 @@ struct wmManipulatorMap *WM_manipulatormap_new_from_type(const struct wmManipula
 void WM_manipulatormaptype_group_init_runtime(
         const struct Main *bmain, struct wmManipulatorMapType *mmap_type, struct wmManipulatorGroupType *wgt) RET_NONE
 const struct ListBase *WM_manipulatormap_group_list(struct wmManipulatorMap *mmap) RET_NULL
+void WM_manipulator_calc_matrix_final(const struct wmManipulator *mpr, float r_mat[4][4]) RET_NONE
+struct wmManipulatorProperty *WM_manipulator_target_property_find(struct wmManipulator *mpr, const char *idname) RET_NULL
+bool WM_manipulator_target_property_is_valid(const struct wmManipulatorProperty *mpr_prop) RET_ZERO
 
 #ifdef WITH_INPUT_NDOF
     void WM_ndof_deadzone_set(float deadzone) RET_NONE
@@ -789,6 +792,7 @@ void WM_operatortype_append_ptr(void (*opfunc)(struct wmOperatorType *, void *),
 void WM_operatortype_append_macro_ptr(void (*opfunc)(struct wmOperatorType *, void *), void *userdata) RET_NONE
 void WM_operator_bl_idname(char *to, const char *from) RET_NONE
 void WM_operator_py_idname(char *to, const char *from) RET_NONE
+bool WM_operator_py_idname_ok_or_report(struct ReportList *reports, const char *classname, const char *idname) RET_ZERO
 int WM_operator_ui_popup(struct bContext *C, struct wmOperator *op, int width, int height) RET_ZERO
 void update_autoflags_fcurve(struct FCurve *fcu, struct bContext *C, struct ReportList *reports, struct PointerRNA *ptr) RET_NONE
 short insert_keyframe(struct ReportList *reports, struct ID *id, struct bAction *act, const char group[], const char rna_path[], int array_index, float cfra, char keytype, short flag) RET_ZERO
