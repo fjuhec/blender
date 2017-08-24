@@ -101,11 +101,11 @@ if not os.path.exists(amber_repos_path):
     with open(amber_repos_path, 'w') as ar_f:
         json.dump({}, ar_f)
 with open(amber_repos_path, 'r') as ar_f:
-    amber_repos = {uuid_unpack(uuid): path for uuid, path in json.load(ar_f).items()}
+    amber_repos = {uuid_unpack(uuid): name_path for uuid, name_path in json.load(ar_f).items()}
 assert(amber_repos != None)
 
 
 def save_amber_repos():
-    ar = {uuid_pack(uuid).decode(): path for uuid, path in amber_repos.items()}
+    ar = {uuid_pack(uuid).decode(): name_path for uuid, name_path in amber_repos.items()}
     with open(amber_repos_path, 'w') as ar_f:
         json.dump(ar, ar_f)

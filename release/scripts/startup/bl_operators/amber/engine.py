@@ -45,6 +45,7 @@ from . import (repository, utils)
 from .repository import (
         AmberDataRepository,
         AmberDataRepositoryPG,
+        AmberDataRepositoryListPG,
         )
 
 
@@ -201,6 +202,7 @@ class AssetEngineAmber(AssetEngine):
     bl_version = (0 << 16) + (0 << 8) + 4  # Usual maj.min.rev version scheme...
 
     repository_pg = PointerProperty(name="Repository", type=AmberDataRepositoryPG, description="Current Amber repository")
+    repositories_pg = PointerProperty(name="Repositories", type=AmberDataRepositoryListPG, description="Known Amber repositories")
 
     def __init__(self):
         self.executor = futures.ThreadPoolExecutor(8)  # Using threads for now, if issues arise we'll switch to process.
@@ -382,8 +384,8 @@ class AssetEngineAmber(AssetEngine):
             self.repository.from_dict(self.repo, self.root)
             self.repository.to_pg(self.repository_pg)
             uuid_repo = tuple(self.repository.uuid)
-            if utils.amber_repos.get(uuid_repo, None) != self.root:
-                utils.amber_repos[uuid_repo] = self.root  # XXX Not resistant to uuids collisions (use a set instead)...
+            if utils.amber_repos.get(uuid_repo, (None, None))[1] != self.root:
+                utils.amber_repos[uuid_repo] = (self.repository.name, self.root)  # XXX Not resistant to uuids collisions (use a set instead)...
                 utils.save_amber_repos()
             self.repos[uuid_repo] = self.repo
             entries.nbr_entries = len(self.repository.assets)
@@ -399,7 +401,7 @@ class AssetEngineAmber(AssetEngine):
                   (self.pretty_version(uuids.asset_engine_version), self.pretty_version()))
         for uuid in uuids.uuids:
             repo_uuid = uuid.uuid_asset[:2] + (0, 0)
-            if repo_uuid not in utils.amber_repos or not os.path.exists(os.path.join(utils.amber_repos[repo_uuid], utils.AMBER_DB_NAME)):
+            if repo_uuid not in utils.amber_repos or not os.path.exists(os.path.join(utils.amber_repos[repo_uuid][1], utils.AMBER_DB_NAME)):
                 uuid.is_asset_missing = True
                 continue
             # Here in theory we'd reload given repo (async process) and check for asset's status...
@@ -428,8 +430,8 @@ class AssetEngineAmber(AssetEngine):
             assert(repo_uuid in utils.amber_repos)
             repo = self.repos.get(repo_uuid, None)
             if repo is None:
-                repo = self.repos[repo_uuid] = AmberDataRepository.ls_repo(os.path.join(utils.amber_repos[repo_uuid], utils.AMBER_DB_NAME))
-            self.repository.from_dict(repo, utils.amber_repos[repo_uuid])
+                repo = self.repos[repo_uuid] = AmberDataRepository.ls_repo(os.path.join(utils.amber_repos[repo_uuid][1], utils.AMBER_DB_NAME))
+            self.repository.from_dict(repo, utils.amber_repos[repo_uuid][1])
             euuid = uuid.uuid_asset[:]
             vuuid = uuid.uuid_variant[:]
             ruuid = uuid.uuid_revision[:]
@@ -441,7 +443,7 @@ class AssetEngineAmber(AssetEngine):
             entry.type = {e.file_type}
             entry.blender_type = e.blender_type
             # archive part not yet implemented!
-            entry.relpath = os.path.join(utils.amber_repos[repo_uuid], r.path)
+            entry.relpath = os.path.join(utils.amber_repos[repo_uuid][1], r.path)
 #                print("added entry for", entry.relpath)
             entry.uuid = e.uuid
             var = entry.variants.add()

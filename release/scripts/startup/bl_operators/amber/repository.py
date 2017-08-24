@@ -527,10 +527,39 @@ class AmberDataRepository:
         AmberDataAsset.to_pg(pg.assets, self.assets, self.tags)
 
 
+class AmberDataRepositoryListPG(PropertyGroup):
+    def repositories_itemf(self, context):
+        if not hasattr(self, "repositories_items"):
+            self.repositories_items = [(utils.uuid_pack(uuid), name, path, idx) for idx, (uuid, (name, path)) in enumerate(utils.amber_repos.items())]
+        return self.repositories_items
+    def repositories_update(self, context):
+        space = context.space_data
+        if space and space.type == 'FILE_BROWSER':
+            ae = space.asset_engine
+            if ae and space.asset_engine_type == "AssetEngineAmber":
+                uuid = utils.uuid_unpack(self.repositories)
+                space.params.directory = utils.amber_repos[uuid][1]
+    repositories = EnumProperty(items=repositories_itemf, update=repositories_update,
+                                name="Current Repository", description="Active Amber asset repository")
+
+
+class AmberDataRepositoryList:
+    """
+    Amber repository main class.
+
+    Note: Remember that in Amber, first 8 bytes of asset's UUID are same as first 8 bytes of repository UUID.
+          Repository UUID's last 8 bytes shall always be NULL.
+          This allows us to store repository identifier into all assets, and ensure we have uniqueness of
+          Amber assets UUIDs (which is mandatory from Blender point of view).
+    """
+    pass
+
+
 classes = (
     AmberDataTagPG,
     AmberDataAssetRevisionPG,
     AmberDataAssetVariantPG,
     AmberDataAssetPG,
     AmberDataRepositoryPG,
+    AmberDataRepositoryListPG,
 )

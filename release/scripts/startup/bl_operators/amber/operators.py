@@ -66,6 +66,57 @@ class AmberOpsEditing(AmberOps):
         return False
 
 
+class AmberOpsRepositoryAdd(Operator, AmberOpsEditing):
+    """Create a new, empty Amber repository in current directory (WARNING! No undo!)"""
+    bl_idname = "amber.repository_add"
+    bl_label = "Add Repository"
+    bl_options = set()
+
+    def execute(self, context):
+        ae = context.space_data.asset_engine
+        if getattr(ae, "repo", None) is not None:
+            self.report({'INFO'}, "Current directory is already an Amber repository, '%s'" % ae.repository.name)
+            return {'CANCELLED'}
+
+        repository = getattr(ae, "repository", None)
+        if repository is None:
+            repository = ae.repository = AmberDataRepository()
+        repository.clear()
+
+        repository.path = context.space_data.params.directory
+
+        # TODO more default settings, probably default set of basic tags...
+
+        repository.to_pg(ae.repository_pg)
+        repository.wrt_repo(os.path.join(repository.path, utils.AMBER_DB_NAME), repository.to_dict())
+
+        bpy.ops.file.refresh()
+
+        return {'FINISHED'}
+
+
+class AmberOpsAssetAdd(Operator, AmberOpsEditing):
+    """Add an Amber asset to the repository (WARNING! No undo!)"""
+    bl_idname = "amber.asset_add"
+    bl_label = "Add Asset"
+    bl_options = set()
+
+    def execute(self, context):
+        ae = context.space_data.asset_engine
+        asset = ae.repository_pg.assets.add()
+
+        repository = getattr(ae, "repository", None)
+        if repository is None:
+            repository = ae.repository = AmberDataRepository()
+        repository.from_pg(ae.repository_pg)
+
+        repository.wrt_repo(os.path.join(ae.repository.path, utils.AMBER_DB_NAME), ae.repository.to_dict())
+
+        bpy.ops.file.refresh()
+
+        return {'FINISHED'}
+
+
 class AmberOpsAssetDelete(Operator, AmberOpsEditing):
     """Delete active Amber asset from the repository (WARNING! No undo!)"""
     bl_idname = "amber.asset_delete"
@@ -81,7 +132,7 @@ class AmberOpsAssetDelete(Operator, AmberOpsEditing):
             repository = ae.repository = AmberDataRepository()
         repository.from_pg(ae.repository_pg)
 
-        repository.wrt_repo(os.path.join(ae.repository.path, utils.AMBER_DB_NAME), ae.repository.to_dict())
+        repository.wrt_repo(os.path.join(repository.path, utils.AMBER_DB_NAME), repository.to_dict())
 
         bpy.ops.file.refresh()
 
@@ -89,5 +140,6 @@ class AmberOpsAssetDelete(Operator, AmberOpsEditing):
 
 
 classes = (
+    AmberOpsRepositoryAdd,
     AmberOpsAssetDelete,
     )
