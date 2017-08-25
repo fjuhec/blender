@@ -81,10 +81,10 @@ EnumPropertyItem rna_enum_gpencil_weight_brush_items[] = {
 
 #ifndef RNA_RUNTIME
 static EnumPropertyItem rna_enum_gpencil_lockaxis_items[] = {
-	{ GP_LOCKAXIS_NONE, "GP_LOCKAXIS_NONE", 0, "None", "" },
-	{ GP_LOCKAXIS_X, "GP_LOCKAXIS_X", 0, "X", "Project strokes to plane locked to X" },
-	{ GP_LOCKAXIS_Y, "GP_LOCKAXIS_Y", 0, "Y", "Project strokes to plane locked to Y" },
-	{ GP_LOCKAXIS_Z, "GP_LOCKAXIS_Z", 0, "Z", "Project strokes to plane locked to Z" },
+	{ GP_LOCKAXIS_NONE, "GP_LOCKAXIS_NONE", ICON_UNLOCKED, "None", "" },
+	{ GP_LOCKAXIS_X, "GP_LOCKAXIS_X", ICON_NDOF_DOM, "X", "Project strokes to plane locked to X" },
+	{ GP_LOCKAXIS_Y, "GP_LOCKAXIS_Y", ICON_NDOF_DOM, "Y", "Project strokes to plane locked to Y" },
+	{ GP_LOCKAXIS_Z, "GP_LOCKAXIS_Z", ICON_NDOF_DOM, "Z", "Project strokes to plane locked to Z" },
 	{ 0, NULL, 0, NULL, NULL }
 };
 #endif
