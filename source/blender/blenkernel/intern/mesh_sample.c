@@ -24,6 +24,8 @@
  * Sample a mesh surface or volume and evaluate samples on deformed meshes.
  */
 
+#include <limits.h>
+
 #include "MEM_guardedalloc.h"
 
 #include "DNA_key_types.h"
@@ -31,8 +33,10 @@
 #include "DNA_meshdata_types.h"
 
 #include "BLI_utildefines.h"
+#include "BLI_ghash.h"
 #include "BLI_math.h"
 #include "BLI_rand.h"
+#include "BLI_sort.h"
 #include "BLI_task.h"
 
 #include "BKE_bvhutils.h"
@@ -451,7 +455,7 @@ static bool generator_random_make_sample(const MSurfaceSampleGenerator_Random *g
 	return true;
 }
 
-BLI_INLINE float triangle_weight(DerivedMesh *dm, const MLoopTri *tri, MeshSampleVertexWeightFp vertex_weight_cb, void *userdata)
+BLI_INLINE float triangle_weight(DerivedMesh *dm, const MLoopTri *tri, const float *vert_weights, float *r_area)
 {
 	MVert *mverts = dm->getVertArray(dm);
 	MLoop *mloops = dm->getLoopArray(dm);
@@ -463,11 +467,14 @@ BLI_INLINE float triangle_weight(DerivedMesh *dm, const MLoopTri *tri, MeshSampl
 	MVert *v3 = &mverts[index3];
 	
 	float weight = area_tri_v3(v1->co, v2->co, v3->co);
+	if (r_area) {
+		*r_area = weight;
+	}
 	
-	if (vertex_weight_cb) {
-		float w1 = vertex_weight_cb(dm, v1, index1, userdata);
-		float w2 = vertex_weight_cb(dm, v2, index2, userdata);
-		float w3 = vertex_weight_cb(dm, v3, index3, userdata);
+	if (vert_weights) {
+		float w1 = vert_weights[index1];
+		float w2 = vert_weights[index2];
+		float w3 = vert_weights[index3];
 		
 		weight *= (w1 + w2 + w3) / 3.0f;
 	}
@@ -475,8 +482,64 @@ BLI_INLINE float triangle_weight(DerivedMesh *dm, const MLoopTri *tri, MeshSampl
 	return weight;
 }
 
-MeshSampleGenerator *BKE_mesh_sample_gen_surface_random_ex(DerivedMesh *dm, unsigned int seed,
-                                                           MeshSampleVertexWeightFp vertex_weight_cb, void *userdata, bool use_facearea)
+float* BKE_mesh_sample_calc_triangle_weights(DerivedMesh *dm, MeshSampleVertexWeightFp vertex_weight_cb, void *userdata, float *r_area)
+{
+	int numverts = dm->getNumVerts(dm);
+	int numtris = dm->getNumLoopTri(dm);
+	int numweights = numtris;
+	
+	float *vert_weights = NULL;
+	if (vertex_weight_cb) {
+		vert_weights = MEM_mallocN(sizeof(float) * (size_t)numverts, "mesh sample vertex weights");
+		{
+			MVert *mv = dm->getVertArray(dm);
+			for (int i = 0; i < numtris; ++i, ++mv) {
+				vert_weights[i] = vertex_weight_cb(dm, mv, (unsigned int)i, userdata);
+			}
+		}
+	}
+	
+	float *tri_weights = MEM_mallocN(sizeof(float) * (size_t)numweights, "mesh sample triangle weights");
+	/* accumulate weights */
+	float totarea = 0.0;
+	float totweight = 0.0f;
+	{
+		const MLoopTri *mt = dm->getLoopTriArray(dm);
+		for (int i = 0; i < numtris; ++i, ++mt) {
+			tri_weights[i] = totweight;
+			
+			float triarea;
+			float triweight = triangle_weight(dm, mt, vert_weights, &triarea);
+			totarea += triarea;
+			totweight += triweight;
+		}
+	}
+	
+	if (vert_weights) {
+		MEM_freeN(vert_weights);
+	}
+	
+	/* normalize */
+	if (totweight > 0.0f) {
+		float norm = 1.0f / totweight;
+		const MLoopTri *mt = dm->getLoopTriArray(dm);
+		for (int i = 0; i < numtris; ++i, ++mt) {
+			tri_weights[i] *= norm;
+		}
+	}
+	else {
+		/* invalid weights, remove to avoid invalid binary search */
+		MEM_freeN(tri_weights);
+		tri_weights = NULL;
+	}
+	
+	if (r_area) {
+		*r_area = totarea;
+	}
+	return tri_weights;
+}
+
+MeshSampleGenerator *BKE_mesh_sample_gen_surface_random_ex(DerivedMesh *dm, unsigned int seed, float *tri_weights)
 {
 	MSurfaceSampleGenerator_Random *gen;
 	
@@ -492,48 +555,21 @@ MeshSampleGenerator *BKE_mesh_sample_gen_surface_random_ex(DerivedMesh *dm, unsi
 	gen->dm = dm;
 	gen->seed = seed;
 	
-	if (use_facearea) {
-		int numtris = dm->getNumLoopTri(dm);
-		int numweights = numtris;
-		const MLoopTri *mtris = dm->getLoopTriArray(dm);
-		const MLoopTri *mt;
-		int i;
-		float totweight;
-		
-		gen->tri_weights = MEM_mallocN(sizeof(float) * (size_t)numweights, "mesh sample triangle weights");
-		
-		/* accumulate weights */
-		totweight = 0.0f;
-		for (i = 0, mt = mtris; i < numtris; ++i, ++mt) {
-			float weight = triangle_weight(dm, mt, vertex_weight_cb, userdata);
-			gen->tri_weights[i] = totweight;
-			totweight += weight;
-		}
-		
-		/* normalize */
-		if (totweight > 0.0f) {
-			float norm = 1.0f / totweight;
-			for (i = 0, mt = mtris; i < numtris; ++i, ++mt) {
-				gen->tri_weights[i] *= norm;
-			}
-		}
-		else {
-			/* invalid weights, remove to avoid invalid binary search */
-			MEM_freeN(gen->tri_weights);
-			gen->tri_weights = NULL;
-		}
+	if (tri_weights) {
+		gen->tri_weights = tri_weights;
 		
 #ifdef USE_DEBUG_COUNT
-		gen->debug_count = MEM_callocN(sizeof(int) * (size_t)numweights, "surface sample debug counts");
+		gen->debug_count = MEM_callocN(sizeof(int) * (size_t)dm->getNumLoopTri(dm), "surface sample debug counts");
 #endif
 	}
 	
 	return &gen->base;
 }
 
-MeshSampleGenerator *BKE_mesh_sample_gen_surface_random(DerivedMesh *dm, unsigned int seed)
+MeshSampleGenerator *BKE_mesh_sample_gen_surface_random(DerivedMesh *dm, unsigned int seed, MeshSampleVertexWeightFp vertex_weight_cb, void *userdata)
 {
-	return BKE_mesh_sample_gen_surface_random_ex(dm, seed, NULL, NULL, true);
+	float *tri_weights = BKE_mesh_sample_calc_triangle_weights(dm, vertex_weight_cb, userdata, NULL);
+	return BKE_mesh_sample_gen_surface_random_ex(dm, seed, tri_weights);
 }
 
 /* ------------------------------------------------------------------------- */
@@ -633,6 +669,306 @@ MeshSampleGenerator *BKE_mesh_sample_gen_surface_raycast(
 	gen->userdata = userdata;
 	
 	return &gen->base;
+}
+
+/* ------------------------------------------------------------------------- */
+
+#define MAX_CIRCLE_PACKING 0.906899682
+#define SQRT_3 1.732050808
+
+typedef struct IndexedMeshSample {
+	unsigned int orig_verts[3];
+	float orig_weights[3];
+	float co[3];
+	unsigned int cell_index;
+} IndexedMeshSample;
+
+typedef struct MSurfaceSampleGenerator_PoissonDisk {
+	MeshSampleGenerator base;
+	
+	IndexedMeshSample *uniform_samples;
+	int num_uniform_samples;
+	
+	float mindist_squared;
+	/* Size of grid cells is mindist/sqrt(3),
+	 * so that each cell contains at most one valid sample.
+	 */
+	float cellsize;
+	/* Transform mesh space to grid space */
+	float grid_scale;
+	/* offset and size of the grid */
+	int grid_offset[3];
+	int grid_size[3];
+	
+	struct GHash *cell_table;
+} MSurfaceSampleGenerator_PoissonDisk;
+
+typedef struct MSurfaceSampleGenerator_PoissonDisk_ThreadContext {
+	unsigned int trial;
+	GHashIterator iter;
+} MSurfaceSampleGenerator_PoissonDisk_ThreadContext;
+
+static void generator_poissondisk_free(MSurfaceSampleGenerator_PoissonDisk *gen)
+{
+	if (gen->cell_table) {
+		BLI_ghash_free(gen->cell_table, NULL, MEM_freeN);
+	}
+	
+	if (gen->uniform_samples) {
+		MEM_freeN(gen->uniform_samples);
+	}
+	
+	MEM_freeN(gen);
+}
+
+static void* generator_poissondisk_thread_context_create(const MSurfaceSampleGenerator_PoissonDisk *gen, int UNUSED(start))
+{
+	MSurfaceSampleGenerator_PoissonDisk_ThreadContext *ctx = MEM_mallocN(sizeof(*ctx), "thread context");
+	ctx->trial = 0;
+	BLI_ghashIterator_init(&ctx->iter, gen->cell_table);
+	return ctx;
+}
+
+static void generator_poissondisk_thread_context_free(const MSurfaceSampleGenerator_PoissonDisk *UNUSED(gen), void *thread_ctx)
+{
+	MEM_freeN(thread_ctx);
+}
+
+typedef struct MeshSampleCell {
+	unsigned int cell_index;
+	unsigned int sample_start;
+	unsigned int sample;
+} MeshSampleCell;
+
+#define SAMPLE_INDEX_INVALID 0xFFFFFFFF
+
+static bool generator_poissondisk_make_sample(const MSurfaceSampleGenerator_PoissonDisk *gen, void *thread_ctx, MeshSample *sample)
+{
+	static const unsigned int max_trials = 5;
+	
+	MSurfaceSampleGenerator_PoissonDisk_ThreadContext *ctx = thread_ctx;
+	
+	bool found_sample = false;
+	for (; ctx->trial < max_trials; ++ctx->trial) {
+		while (!BLI_ghashIterator_done(&ctx->iter)) {
+			MeshSampleCell *cell = BLI_ghashIterator_getValue(&ctx->iter);
+			BLI_ghashIterator_step(&ctx->iter);
+			
+			if (cell->sample != SAMPLE_INDEX_INVALID) {
+				continue;
+			}
+			
+			bool cell_valid = true;
+			
+			unsigned int sample_index = cell->sample_start + ctx->trial;
+			const IndexedMeshSample *isample = &gen->uniform_samples[sample_index];
+			/* Check if we ran out of sample candidates for this cell */
+			if (sample_index >= (unsigned int)gen->num_uniform_samples || isample->cell_index != cell->cell_index) {
+				cell_valid = false;
+				// TODO remove from hash table?
+				UNUSED_VARS(cell_valid);
+			}
+			else {
+				/* Check the sample candidate */
+				unsigned int idx = cell->cell_index;
+				unsigned int sx = 1;
+				unsigned int sy = sx * (unsigned int)gen->grid_size[0];
+				unsigned int sz = sy * (unsigned int)gen->grid_size[1];
+				unsigned int neighbors[] = {
+				    idx - sx - sy - sz, idx     - sy - sz, idx + sx - sy - sz,
+				    idx - sx      - sz, idx          - sz, idx + sx      - sz,
+				    idx - sx + sy - sz, idx     + sy - sz, idx + sx + sy - sz,
+				    idx - sx - sy     , idx     - sy     , idx + sx - sy     ,
+				    idx - sx          ,                    idx + sx          ,
+				    idx - sx + sy     , idx     + sy     , idx + sx + sy     ,
+				    idx - sx - sy + sz, idx     - sy + sz, idx + sx - sy + sz,
+				    idx - sx      + sz, idx          + sz, idx + sx      + sz,
+				    idx - sx + sy + sz, idx     + sy + sz, idx + sx + sy + sz,
+				};
+				int num_neighbors = ARRAY_SIZE(neighbors);
+				
+				bool conflict = false;
+				for (int i = 0; i < num_neighbors; ++i) {
+					const MeshSampleCell *ncell = BLI_ghash_lookup(gen->cell_table, &neighbors[i]);
+					if (ncell) {
+						if (ncell->sample != SAMPLE_INDEX_INVALID) {
+							const IndexedMeshSample *nsample = &gen->uniform_samples[ncell->sample];
+							if (len_squared_v3v3(isample->co, nsample->co) < gen->mindist_squared) {
+								conflict = true;
+								break;
+							}
+						}
+					}
+				}
+				if (!conflict) {
+					cell->sample = sample_index;
+					
+					memcpy(sample->orig_verts, isample->orig_verts, sizeof(sample->orig_verts));
+					memcpy(sample->orig_weights, isample->orig_weights, sizeof(sample->orig_weights));
+					memset(sample->orig_loops, 0, sizeof(sample->orig_loops));
+					sample->orig_poly = 0;
+					
+					found_sample = true;
+				}
+			}
+			
+			if (found_sample) {
+				break;
+			}
+		}
+		
+		if (found_sample) {
+			break;
+		}
+		else {
+			BLI_ghashIterator_init(&ctx->iter, gen->cell_table);
+		}
+	}
+	
+	return false;
+}
+
+int BKE_mesh_sample_poissondisk_max_samples(float mindist, float area, int max_samples)
+{
+	const double circle_area = M_PI * mindist*mindist;
+	const double usable_area = area * MAX_CIRCLE_PACKING;
+	if (circle_area * (double)max_samples < usable_area) {
+		return max_samples;
+	}
+	
+	return (int)(usable_area / circle_area);
+}
+
+static void generator_poissondisk_uniform_sample_eval(void *userdata, const int iter)
+{
+	void *(*ptrs)[3] = userdata;
+	MSurfaceSampleGenerator_PoissonDisk *gen = (*ptrs)[0];
+	const MeshSample *samples = (*ptrs)[1];
+	DerivedMesh *dm = (*ptrs)[2];
+	
+	IndexedMeshSample *isample = &gen->uniform_samples[iter];
+	const MeshSample *sample = &samples[iter];
+	
+	memcpy(isample->orig_verts, sample->orig_verts, sizeof(isample->orig_verts));
+	memcpy(isample->orig_weights, sample->orig_weights, sizeof(isample->orig_weights));
+	float nor[3], tang[3];
+	BKE_mesh_sample_eval(dm, sample, isample->co, nor, tang);
+	
+	float gridco[3];
+	mul_v3_v3fl(gridco, isample->co, gen->grid_scale);
+	int c[3];
+	c[0] = (int)floorf(gridco[0]) - gen->grid_offset[0];
+	c[1] = (int)floorf(gridco[1]) - gen->grid_offset[1];
+	c[2] = (int)floorf(gridco[2]) - gen->grid_offset[2];
+	isample->cell_index = (unsigned int)(c[0] + (c[1] + c[2] * gen->grid_size[1]) * gen->grid_size[0]);
+}
+
+static int cmp_indexed_mesh_sample(const void *a, const void *b)
+{
+	return (int)((const IndexedMeshSample *)a)->cell_index - (int)((const IndexedMeshSample *)b)->cell_index;
+}
+
+static unsigned int mesh_sample_cell_hash(const void *key)
+{
+	return *(const unsigned int *)key;
+	//return ((const MeshSampleCell *)key)->cell_index;
+}
+
+static bool mesh_sample_cell_cmp(const void *a, const void *b)
+{
+	return *(const unsigned int *)a != *(const unsigned int *)b;
+	//return ((const MeshSampleCell *)a)->cell_index != ((const MeshSampleCell *)b)->cell_index;
+}
+
+MeshSampleGenerator *BKE_mesh_sample_gen_surface_poissondisk_ex(DerivedMesh *dm, unsigned int seed, float mindist,
+                                                                int num_uniform_samples, float *tri_weights)
+{
+	MSurfaceSampleGenerator_PoissonDisk *gen;
+	
+	gen = MEM_callocN(sizeof(MSurfaceSampleGenerator_PoissonDisk), "MSurfaceSampleGenerator_PoissonDisk");
+	sample_generator_init(&gen->base,
+	                      (GeneratorFreeFp)generator_poissondisk_free,
+	                      (GeneratorThreadContextCreateFp)generator_poissondisk_thread_context_create,
+	                      (GeneratorThreadContextFreeFp)generator_poissondisk_thread_context_free,
+	                      (GeneratorMakeSampleFp)generator_poissondisk_make_sample);
+	
+	// Determine cell size
+	{
+		gen->mindist_squared = mindist * mindist;
+		gen->cellsize = mindist / SQRT_3;
+		gen->grid_scale = SQRT_3 / mindist;
+		float min[3], max[3];
+		dm->getMinMax(dm, min, max);
+		mul_v3_fl(min, gen->grid_scale);
+		mul_v3_fl(max, gen->grid_scale);
+		gen->grid_offset[0] = (int)floorf(min[0]);
+		gen->grid_offset[1] = (int)floorf(min[1]);
+		gen->grid_offset[2] = (int)floorf(min[2]);
+		gen->grid_size[0] = (int)floorf(max[0]) - gen->grid_offset[0];
+		gen->grid_size[1] = (int)floorf(max[1]) - gen->grid_offset[1];
+		gen->grid_size[2] = (int)floorf(max[2]) - gen->grid_offset[2];
+	}
+	
+	// Generate initial uniform random point set
+	if (num_uniform_samples >= 0) {
+		MeshSampleGenerator *uniform_gen = BKE_mesh_sample_gen_surface_random_ex(dm, seed, tri_weights);
+		
+		gen->uniform_samples = MEM_mallocN(sizeof(IndexedMeshSample) * (unsigned int)num_uniform_samples, "poisson disk uniform samples");
+		gen->num_uniform_samples = num_uniform_samples;
+		
+		MeshSample *samples = MEM_mallocN(sizeof(MeshSample) * (unsigned int)num_uniform_samples, "poisson disk uniform samples");
+		BKE_mesh_sample_generate_batch(uniform_gen, samples, num_uniform_samples);
+		void *ptrs[3] = { gen, samples, dm };
+		BLI_task_parallel_range(0, num_uniform_samples, &ptrs, generator_poissondisk_uniform_sample_eval, true);
+		MEM_freeN(samples);
+		
+		BKE_mesh_sample_free_generator(uniform_gen);
+	}
+	
+	// Sort points by cell hash
+	{
+		qsort(gen->uniform_samples, (size_t)num_uniform_samples, sizeof(IndexedMeshSample), cmp_indexed_mesh_sample);
+	}
+	
+	// Build a hash table for indexing cells
+	{
+		gen->cell_table = BLI_ghash_new(mesh_sample_cell_hash, mesh_sample_cell_cmp, "MeshSampleCell hash table");
+		unsigned int cur_cell_index = 0xFFFFFFFF;
+		const IndexedMeshSample *sample = gen->uniform_samples;
+		for (int i = 0; i < num_uniform_samples; ++i, ++sample) {
+			if (sample->cell_index != cur_cell_index) {
+				cur_cell_index = sample->cell_index;
+				
+				MeshSampleCell *cell = MEM_mallocN(sizeof(*cell), "MeshSampleCell");
+				cell->cell_index = cur_cell_index;
+				cell->sample_start = (unsigned int)i;
+				cell->sample = SAMPLE_INDEX_INVALID;
+				BLI_ghash_insert(gen->cell_table, &cell->cell_index, cell);
+			}
+		}
+	}
+	
+#if 0
+	for (int i = 0; i < num_uniform_samples; ++i) {
+		const IndexedMeshSample *s = &gen->uniform_samples[i];
+		printf("%d: (%.3f, %.3f, %.3f) | %d\n", i, s->co[0], s->co[1], s->co[2], (int)s->cell_hash);
+	}
+#endif
+	
+	return &gen->base;
+}
+
+MeshSampleGenerator *BKE_mesh_sample_gen_surface_poissondisk(DerivedMesh *dm, unsigned int seed, float mindist, int max_samples,
+                                                             MeshSampleVertexWeightFp vertex_weight_cb, void *userdata)
+{
+	static const int uniform_sample_ratio = 10;
+	
+	float area;
+	float *tri_weights = BKE_mesh_sample_calc_triangle_weights(dm, vertex_weight_cb, userdata, &area);
+	
+	int max_pd_samples = BKE_mesh_sample_poissondisk_max_samples(mindist, area, max_samples);
+	int num_uniform_samples = min_ii(max_pd_samples * uniform_sample_ratio, max_samples);
+	return BKE_mesh_sample_gen_surface_poissondisk_ex(dm, seed, mindist, num_uniform_samples, tri_weights);
 }
 
 /* ------------------------------------------------------------------------- */

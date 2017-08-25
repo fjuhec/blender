@@ -125,7 +125,7 @@ void BKE_hair_follicles_generate(HairPattern *hair, DerivedMesh *scalp, int coun
 		return;
 	}
 	
-	MeshSampleGenerator *gen = BKE_mesh_sample_gen_surface_random(scalp, seed);
+	MeshSampleGenerator *gen = BKE_mesh_sample_gen_surface_random(scalp, seed, NULL, NULL);
 	unsigned int i;
 	
 	HairFollicle *foll = hair->follicles;

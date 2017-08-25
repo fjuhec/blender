@@ -23,7 +23,7 @@ extern "C" {
 #include "BKE_mesh_sample.h"
 }
 
-//#define TEST_MESH_OUTPUT_FILE "mesh_dump_"
+#define TEST_MESH_OUTPUT_FILE "mesh_dump_"
 
 static const float verts[][3] = { {-1, -1, -1}, {1, -1, -1}, {-1, 1, -1}, {1, 1, -1},
                                   {-1, -1, 1},  {1, -1, 1},  {-1, 1, 1},  {1, 1, 1} };
@@ -227,7 +227,20 @@ TEST_F(MeshSampleTest, SurfaceVertices)
 
 TEST_F(MeshSampleTest, SurfaceRandom)
 {
-	MeshSampleGenerator *gen = BKE_mesh_sample_gen_surface_random(m_dm, m_seed);
+	MeshSampleGenerator *gen = BKE_mesh_sample_gen_surface_random(m_dm, m_seed, NULL, NULL);
+	ASSERT_TRUE(gen != NULL) << "No generator created";
+	
+	test_samples(gen, NULL, 0);
+	dump_samples();
+	
+	BKE_mesh_sample_free_generator(gen);
+}
+
+const float poisson_disk_mindist = 0.01f;
+
+TEST_F(MeshSampleTest, SurfacePoissonDisk)
+{
+	MeshSampleGenerator *gen = BKE_mesh_sample_gen_surface_poissondisk(m_dm, m_seed, poisson_disk_mindist, 10000000, NULL, NULL);
 	ASSERT_TRUE(gen != NULL) << "No generator created";
 	
 	test_samples(gen, NULL, 0);

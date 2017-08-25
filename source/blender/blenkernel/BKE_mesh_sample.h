@@ -52,12 +52,13 @@ void BKE_mesh_sample_clear(struct MeshSample *sample);
 
 /* ==== Sampling ==== */
 
+float* BKE_mesh_sample_calc_triangle_weights(struct DerivedMesh *dm, MeshSampleVertexWeightFp vertex_weight_cb, void *userdata, float *r_area);
+
 struct MeshSampleGenerator *BKE_mesh_sample_gen_surface_vertices(struct DerivedMesh *dm);
 
 /* face_weights is optional */
-struct MeshSampleGenerator *BKE_mesh_sample_gen_surface_random(struct DerivedMesh *dm, unsigned int seed);
-struct MeshSampleGenerator *BKE_mesh_sample_gen_surface_random_ex(struct DerivedMesh *dm, unsigned int seed,
-                                                                  MeshSampleVertexWeightFp vertex_weight_cb, void *userdata, bool use_facearea);
+struct MeshSampleGenerator *BKE_mesh_sample_gen_surface_random(struct DerivedMesh *dm, unsigned int seed, MeshSampleVertexWeightFp vertex_weight_cb, void *userdata);
+struct MeshSampleGenerator *BKE_mesh_sample_gen_surface_random_ex(struct DerivedMesh *dm, unsigned int seed, float *tri_weights);
 
 struct MeshSampleGenerator *BKE_mesh_sample_gen_surface_raycast(
         struct DerivedMesh *dm,
@@ -65,6 +66,12 @@ struct MeshSampleGenerator *BKE_mesh_sample_gen_surface_raycast(
         MeshSampleThreadContextFreeFp thread_context_free_cb,
         MeshSampleRayFp ray_cb,
         void *userdata);
+
+int BKE_mesh_sample_poissondisk_max_samples(float mindist, float area, int max_samples);
+struct MeshSampleGenerator *BKE_mesh_sample_gen_surface_poissondisk_ex(struct DerivedMesh *dm, unsigned int seed, float mindist,
+                                                                       int num_uniform_samples, float *tri_weights);
+struct MeshSampleGenerator *BKE_mesh_sample_gen_surface_poissondisk(struct DerivedMesh *dm, unsigned int seed, float mindist, int max_samples,
+                                                                    MeshSampleVertexWeightFp vertex_weight_cb, void *userdata);
 
 struct MeshSampleGenerator *BKE_mesh_sample_gen_volume_random_bbray(struct DerivedMesh *dm, unsigned int seed, float density);
 
