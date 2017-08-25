@@ -7649,7 +7649,7 @@ static bool find_next_cross_edge(Mesh *me, int c_edge, int l_c_edge, MeshElemMap
 			for (int e2 = 0; e2 < emap[vc].count; e2++) {
 				if (emap[vc].indices[e2] != c_edge && emap[vc].indices[e2] != l_c_edge) {
 					vc2 = me->medge[emap[vc].indices[e2]].v1 == vc ? me->medge[emap[vc].indices[e2]].v2 : me->medge[emap[vc].indices[e2]].v1;
-					if (!BLI_ghash_haskey(vert_hash, SET_INT_IN_POINTER(vc2))) {
+					if (!BLI_ghash_haskey(vert_hash, SET_INT_IN_POINTER(vc2)) && is_in_edgehashes(emap[vc].indices[e2], i_data, num_i_data)) {
 						for (int e3 = 0; e3 < emap[vin].count; e3++) {
 							vc3 = me->medge[emap[vex].indices[e3]].v1 == vex ? me->medge[emap[vex].indices[e3]].v2 : me->medge[emap[vex].indices[e3]].v1;
 							if (vc2 == vc3) {
@@ -7812,7 +7812,6 @@ static void find_edgering_hash(Mesh *me, SilhouetteData *sil, GHash *vert_hash,
 				add_ring(curr_ring_start, num_rings, edge_data_start, start_max);
 				do {
 					if (find_next_cross_edge(me, current_e, last_e, emap, vert_hash, i_data, num_i_data, &next_e)) {
-
 						cv_ring = BLI_ghash_haskey(vert_hash, SET_INT_IN_POINTER(me->medge[next_e].v1)) ? me->medge[next_e].v2 : me->medge[next_e].v1;
 						add_edges_to_ring(me, emap, vert_hash, lv_ring, cv_ring, edge_data, edge_tot, ring_max);
 						lv_ring = cv_ring;
@@ -9221,7 +9220,7 @@ static void do_calc_fillet_line(Object *ob, SilhouetteData *sil, PBVHNode **node
 
 #ifdef DEBUG_DRAW
 	for (int r = 0; r < sil->num_rings; r ++) {
-		bl_debug_draw_BB_add(&sil->fillet_ring_bbs[r], 0xffffff);
+		/*bl_debug_draw_BB_add(&sil->fillet_ring_bbs[r], 0xffffff);*/
 	}
 #endif
 
