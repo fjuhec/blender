@@ -8265,7 +8265,7 @@ static void gen_fillet_velp(Mesh *me,
 							 int *a_verts, int *b_verts,
 							 int *a_edges, int *b_edges,
 							 int a_size, int b_size,
-							 int *map, bool inverse)
+							 int *map, bool inverse, bool subtract)
 {
 	/*If aligned exact points are aligned to a*/
 	float v1[3], v2[3];
@@ -8334,14 +8334,14 @@ static void gen_fillet_velp(Mesh *me,
 		me->mloop[l_pos].v = a_verts[i];
 		me->mloop[l_pos].e = e_start + 3 * i;
 		l_pos ++;
-		me->mloop[l_pos].v = v_start + i;
-		me->mloop[l_pos].e = e_start + 3 * i + 1;
+		me->mloop[l_pos + (inverse != subtract ? 2 : 0)].v = v_start + i;
+		me->mloop[l_pos + (inverse != subtract ? 2 : 0)].e = e_start + 3 * i + 1;
 		l_pos ++;
 		me->mloop[l_pos].v = v_start + next_i;
 		me->mloop[l_pos].e = e_start + 3 * next_i;
 		l_pos ++;
-		me->mloop[l_pos].v = a_verts[next_i];
-		me->mloop[l_pos].e = a_edges[(i + aoff) % a_size];
+		me->mloop[l_pos - (inverse != subtract ? 2 : 0)].v = a_verts[next_i];
+		me->mloop[l_pos - (inverse != subtract ? 2 : 0)].e = a_edges[(i + aoff) % a_size];
 		l_pos ++;
 
 		me->mpoly[p_pos].loopstart = l_pos - 4;
@@ -8356,11 +8356,11 @@ static void gen_fillet_velp(Mesh *me,
 			me->mloop[l_pos].v = v_start + i;
 			me->mloop[l_pos].e = e_start + 3 * i + 2;
 			l_pos ++;
-			me->mloop[l_pos].v = b_verts[map[i]];
-			me->mloop[l_pos].e = e_start + 3 * next_i + 2;
+			me->mloop[l_pos + (inverse != subtract ? 1 : 0)].v = b_verts[map[i]];
+			me->mloop[l_pos + (inverse != subtract ? 1 : 0)].e = e_start + 3 * next_i + 2;
 			l_pos ++;
-			me->mloop[l_pos].v = v_start + next_i;
-			me->mloop[l_pos].e = e_start + 3 * i + 1;
+			me->mloop[l_pos - (inverse != subtract ? 1 : 0)].v = v_start + next_i;
+			me->mloop[l_pos - (inverse != subtract ? 1 : 0)].e = e_start + 3 * i + 1;
 			l_pos ++;
 
 			me->mpoly[p_pos].loopstart = l_pos - 3;
@@ -8375,14 +8375,14 @@ static void gen_fillet_velp(Mesh *me,
 				me->mloop[l_pos].v = v_start + i;
 				me->mloop[l_pos].e = e_start + 3 * i + 2;
 				l_pos ++;
-				me->mloop[l_pos].v = b_verts[map[i]];
-				me->mloop[l_pos].e = b_edges[(map[i] + boff) % b_size];
+				me->mloop[l_pos + (inverse != subtract ? 2 : 0)].v = b_verts[map[i]];
+				me->mloop[l_pos + (inverse != subtract ? 2 : 0)].e = b_edges[(map[i] + boff) % b_size];
 				l_pos ++;
 				me->mloop[l_pos].v = b_verts[map[next_i]];
 				me->mloop[l_pos].e = e_start + 3 * next_i + 2;
 				l_pos ++;
-				me->mloop[l_pos].v = v_start + next_i;
-				me->mloop[l_pos].e = e_start + 3 * i + 1;
+				me->mloop[l_pos - (inverse != subtract ? 2 : 0)].v = v_start + next_i;
+				me->mloop[l_pos - (inverse != subtract ? 2 : 0)].e = e_start + 3 * i + 1;
 				l_pos ++;
 
 				me->mpoly[p_pos].loopstart = l_pos - 4;
@@ -8412,8 +8412,8 @@ static void gen_fillet_velp(Mesh *me,
 			me->mloop[l_pos].e = ae;
 			l_pos ++;
 
-			me->mloop[l_pos].v = cv;
-			me->mloop[l_pos].e = be;
+			me->mloop[l_pos + (inverse != subtract ? 1 : 0)].v = cv;
+			me->mloop[l_pos + (inverse != subtract ? 1 : 0)].e = be;
 			l_pos ++;
 
 			av = me->medge[be].v1 == cv ? me->medge[be].v2 : me->medge[be].v1;
@@ -8426,8 +8426,8 @@ static void gen_fillet_velp(Mesh *me,
 			ce = e_pos;
 			e_pos ++;
 
-			me->mloop[l_pos].v = av;
-			me->mloop[l_pos].e = ce;
+			me->mloop[l_pos - (inverse != subtract ? 1 : 0)].v = av;
+			me->mloop[l_pos - (inverse != subtract ? 1 : 0)].e = ce;
 			l_pos ++;
 
 			me->mpoly[p_pos].loopstart = l_pos - 3;
@@ -8446,16 +8446,16 @@ static void gen_fillet_velp(Mesh *me,
 		me->mloop[l_pos].e = ae;
 		l_pos ++;
 
-		me->mloop[l_pos].v = av;
-		me->mloop[l_pos].e = be;
+		me->mloop[l_pos + (inverse != subtract ? 2 : 0)].v = av;
+		me->mloop[l_pos + (inverse != subtract ? 2 : 0)].e = be;
 		l_pos ++;
 
 		me->mloop[l_pos].v = me->medge[e_start + 3 * ((hole_pos[i] + 1) % a_size) + 2].v2;
 		me->mloop[l_pos].e = e_start + 3 * ((hole_pos[i] + 1) % a_size) + 2;
 		l_pos ++;
 
-		me->mloop[l_pos].v = me->medge[e_start + 3 * ((hole_pos[i] + 1) % a_size) + 2].v1;
-		me->mloop[l_pos].e = e_start + 3 * hole_pos[i] + 1;
+		me->mloop[l_pos - (inverse != subtract ? 2 : 0)].v = me->medge[e_start + 3 * ((hole_pos[i] + 1) % a_size) + 2].v1;
+		me->mloop[l_pos - (inverse != subtract ? 2 : 0)].e = e_start + 3 * hole_pos[i] + 1;
 		l_pos ++;
 
 		me->mpoly[p_pos].loopstart = l_pos - 4;
@@ -8569,7 +8569,7 @@ static void generate_fillet_topology(Mesh *me, SilhouetteData *sil)
 							 a_verts, b_verts,
 							 a_data, b_data,
 							 a_size, b_size,
-							 triangulation_map, invert);
+							 triangulation_map, invert, sil->do_subtract);
 			
 #ifdef DEBUG_DRAW
 
@@ -8640,6 +8640,7 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 	int v_steps = (1 << ss_level) + 2;
 	bool n_ori = false;
 	int e_start;
+	bool subtract = sil->do_subtract;
 	/* TODO: RNA Init*/
 
 	copy_v3_v3(z_vec, sil->z_vec);
@@ -8664,22 +8665,22 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 			e_start = me->totedge;
 			switch (r_forks) {
 				case 1:
-					add_ss_cap(sil, a_branch, me, z_vec, depth, v_steps, w_steps, smoothness, n_ori, false);
-					add_ss_cap(sil, a_branch, me, inv_z_vec, depth, v_steps, w_steps, smoothness, !n_ori, true);
+					add_ss_cap(sil, a_branch, me, z_vec, depth, v_steps, w_steps, smoothness, n_ori != subtract, false);
+					add_ss_cap(sil, a_branch, me, inv_z_vec, depth, v_steps, w_steps, smoothness, !n_ori != subtract, true);
 #ifdef DEBUG_DRAW
 					/*debug_branch(a_branch, 0x00ff00);*/
 #endif
 					break;
 				case 2:
-					add_ss_tube(sil, a_branch, me, z_vec, depth, v_steps, w_steps, smoothness, n_ori, false);
-					add_ss_tube(sil, a_branch, me, inv_z_vec, depth, v_steps, w_steps, smoothness, !n_ori, true);
+					add_ss_tube(sil, a_branch, me, z_vec, depth, v_steps, w_steps, smoothness, n_ori != subtract, false);
+					add_ss_tube(sil, a_branch, me, inv_z_vec, depth, v_steps, w_steps, smoothness, !n_ori != subtract, true);
 #ifdef DEBUG_DRAW
 					/*debug_branch(a_branch, 0xff0000);*/
 #endif
 					break;
 				case 3:
-					add_ss_tinter(sil, spine, a_branch, me, z_vec, depth, v_steps, w_steps, smoothness, n_ori, false);
-					add_ss_tinter(sil, spine, a_branch, me, inv_z_vec, depth, v_steps, w_steps, smoothness, !n_ori, true);
+					add_ss_tinter(sil, spine, a_branch, me, z_vec, depth, v_steps, w_steps, smoothness, n_ori != subtract, false);
+					add_ss_tinter(sil, spine, a_branch, me, inv_z_vec, depth, v_steps, w_steps, smoothness, !n_ori != subtract, true);
 #ifdef DEBUG_DRAW
 					/*debug_branch(a_branch, 0x0000ff);*/
 #endif
@@ -8691,7 +8692,7 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 	}
 
 	e_start = me->totedge;
-	bridge_all_parts(me, spine, v_steps * 2 + w_steps, n_ori);
+	bridge_all_parts(me, spine, v_steps * 2 + w_steps, n_ori != subtract);
 	check_preceding_intersecting_edges(ob, sil, NULL, nodes, me->totedge - e_start);
 	printf("Total %i nodes.\n", sil->num_inter_nodes);
 	if (sil->num_inter_nodes) {
