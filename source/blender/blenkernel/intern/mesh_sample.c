@@ -867,12 +867,13 @@ static void generator_poissondisk_bind(MSurfaceSampleGenerator_PoissonDisk *gen)
 		dm->getMinMax(dm, min, max);
 		mul_v3_fl(min, gen->grid_scale);
 		mul_v3_fl(max, gen->grid_scale);
-		gen->grid_offset[0] = (int)floorf(min[0]);
-		gen->grid_offset[1] = (int)floorf(min[1]);
-		gen->grid_offset[2] = (int)floorf(min[2]);
-		gen->grid_size[0] = (int)floorf(max[0]) - gen->grid_offset[0];
-		gen->grid_size[1] = (int)floorf(max[1]) - gen->grid_offset[1];
-		gen->grid_size[2] = (int)floorf(max[2]) - gen->grid_offset[2];
+		/* grid size gets an empty 1 cell margin to simplify neighbor lookups */
+		gen->grid_offset[0] = (int)floorf(min[0]) - 1;
+		gen->grid_offset[1] = (int)floorf(min[1]) - 1;
+		gen->grid_offset[2] = (int)floorf(min[2]) - 1;
+		gen->grid_size[0] = (int)floorf(max[0]) - gen->grid_offset[0] + 2;
+		gen->grid_size[1] = (int)floorf(max[1]) - gen->grid_offset[1] + 2;
+		gen->grid_size[2] = (int)floorf(max[2]) - gen->grid_offset[2] + 2;
 	}
 	
 	// Generate initial uniform random point set
