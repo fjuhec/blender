@@ -795,6 +795,49 @@ typedef struct MSurfaceSampleGenerator_PoissonDisk_ThreadContext {
 	GHashIterator iter;
 } MSurfaceSampleGenerator_PoissonDisk_ThreadContext;
 
+BLI_INLINE unsigned int poissondisk_index_from_grid(const MSurfaceSampleGenerator_PoissonDisk *gen, const int grid[3])
+{
+	return (unsigned int)(grid[0] + (grid[1] + grid[2] * gen->grid_size[1]) * gen->grid_size[0]);
+}
+
+BLI_INLINE void poissondisk_grid_from_index(const MSurfaceSampleGenerator_PoissonDisk *gen, int grid[3], unsigned int idx)
+{
+	div_t result = div((int)idx, gen->grid_size[0]);
+	grid[0] = result.rem;
+	result = div(result.quot, gen->grid_size[1]);
+	grid[1] = result.rem;
+	grid[2] = result.quot;
+}
+
+BLI_INLINE void poissondisk_loc_from_grid(const MSurfaceSampleGenerator_PoissonDisk *gen, float loc[3], const int grid[3])
+{
+	copy_v3_fl3(loc, grid[0] + gen->grid_offset[0], grid[1] + gen->grid_offset[1], grid[2] + gen->grid_offset[2]);
+	mul_v3_fl(loc, gen->cellsize);
+}
+
+BLI_INLINE void poissondisk_grid_from_loc(const MSurfaceSampleGenerator_PoissonDisk *gen, int grid[3], const float loc[3])
+{
+	float gridco[3];
+	mul_v3_v3fl(gridco, loc, gen->grid_scale);
+	grid[0] = (int)floorf(gridco[0]) - gen->grid_offset[0];
+	grid[1] = (int)floorf(gridco[1]) - gen->grid_offset[1];
+	grid[2] = (int)floorf(gridco[2]) - gen->grid_offset[2];
+}
+
+BLI_INLINE unsigned int poissondisk_index_from_loc(const MSurfaceSampleGenerator_PoissonDisk *gen, const float loc[3])
+{
+	int grid[3];
+	poissondisk_grid_from_loc(gen, grid, loc);
+	return poissondisk_index_from_grid(gen, grid);
+}
+
+BLI_INLINE void poissondisk_loc_from_index(const MSurfaceSampleGenerator_PoissonDisk *gen, float loc[3], unsigned int index)
+{
+	int grid[3];
+	poissondisk_grid_from_index(gen, grid, index);
+	poissondisk_loc_from_grid(gen, loc, grid);
+}
+
 static void generator_poissondisk_free(MSurfaceSampleGenerator_PoissonDisk *gen)
 {
 	BKE_mesh_sample_free_generator(gen->uniform_gen);
@@ -816,13 +859,7 @@ static void generator_poissondisk_uniform_sample_eval(void *userdata, const int 
 	float nor[3], tang[3];
 	BKE_mesh_sample_eval(dm, sample, isample->co, nor, tang);
 	
-	float gridco[3];
-	mul_v3_v3fl(gridco, isample->co, gen->grid_scale);
-	int c[3];
-	c[0] = (int)floorf(gridco[0]) - gen->grid_offset[0];
-	c[1] = (int)floorf(gridco[1]) - gen->grid_offset[1];
-	c[2] = (int)floorf(gridco[2]) - gen->grid_offset[2];
-	isample->cell_index = (unsigned int)(c[0] + (c[1] + c[2] * gen->grid_size[1]) * gen->grid_size[0]);
+	isample->cell_index = poissondisk_index_from_loc(gen, isample->co);
 }
 
 static int cmp_indexed_mesh_sample(const void *a, const void *b)
@@ -867,13 +904,13 @@ static void generator_poissondisk_bind(MSurfaceSampleGenerator_PoissonDisk *gen)
 		dm->getMinMax(dm, min, max);
 		mul_v3_fl(min, gen->grid_scale);
 		mul_v3_fl(max, gen->grid_scale);
-		/* grid size gets an empty 1 cell margin to simplify neighbor lookups */
-		gen->grid_offset[0] = (int)floorf(min[0]) - 1;
-		gen->grid_offset[1] = (int)floorf(min[1]) - 1;
-		gen->grid_offset[2] = (int)floorf(min[2]) - 1;
-		gen->grid_size[0] = (int)floorf(max[0]) - gen->grid_offset[0] + 2;
-		gen->grid_size[1] = (int)floorf(max[1]) - gen->grid_offset[1] + 2;
-		gen->grid_size[2] = (int)floorf(max[2]) - gen->grid_offset[2] + 2;
+		/* grid size gets an empty 2 cell margin to simplify neighbor lookups */
+		gen->grid_offset[0] = (int)floorf(min[0]) - 2;
+		gen->grid_offset[1] = (int)floorf(min[1]) - 2;
+		gen->grid_offset[2] = (int)floorf(min[2]) - 2;
+		gen->grid_size[0] = (int)floorf(max[0]) - gen->grid_offset[0] + 4;
+		gen->grid_size[1] = (int)floorf(max[1]) - gen->grid_offset[1] + 4;
+		gen->grid_size[2] = (int)floorf(max[2]) - gen->grid_offset[2] + 4;
 	}
 	
 	// Generate initial uniform random point set
@@ -954,6 +991,45 @@ static bool generator_poissondisk_make_sample(const MSurfaceSampleGenerator_Pois
 	
 	MSurfaceSampleGenerator_PoissonDisk_ThreadContext *ctx = thread_ctx;
 	
+	const int sx = 1;
+	const int sxx = sx << 1;
+	const int sy = sx * gen->grid_size[0];
+	const int syy = sy << 1;
+	const int sz = sy * gen->grid_size[1];
+	const int szz = sz << 1;
+	const int neighbors[] = {
+	                    -sxx -sy  -szz, -sxx      -szz, -sxx  +sy -szz,
+	    -sx  -syy -szz, -sx  -sy  -szz, -sx       -szz, -sx   +sy -szz, -sx  +syy -szz,
+	         -syy -szz,      -sy  -szz,           -szz,       +sy -szz,      +syy -szz,
+	    +sx  -syy -szz, +sx  -sy  -szz, +sx       -szz, +sx   +sy -szz, +sx  +syy -szz,
+	    +sxx -syy -szz, +sxx -sy  -szz, +sxx      -szz, +sxx  +sy -szz, +sxx +syy -szz,
+
+	    -sxx -syy  -sz, -sxx -sy   -sz, -sxx       -sz, -sxx  +sy  -sz, -sxx +syy  -sz,
+	    -sx  -syy  -sz, -sx  -sy   -sz, -sx        -sz, -sx   +sy  -sz, -sx  +syy  -sz,
+	         -syy  -sz,      -sy   -sz,            -sz,       +sy  -sz,      +syy  -sz,
+	    +sx  -syy  -sz, +sx  -sy   -sz, +sx        -sz, +sx   +sy  -sz, +sx  +syy  -sz,
+	    +sxx -syy  -sz, +sxx -sy   -sz, +sxx       -sz, +sxx  +sy  -sz, +sxx +syy  -sz,
+
+	    -sxx -syy     , -sxx -sy      , -sxx          , -sxx  +sy     , -sxx +syy     ,
+	    -sx  -syy     , -sx  -sy      , -sx           , -sx   +sy     , -sx  +syy     ,
+	         -syy     ,      -sy      ,                       +sy     ,      +syy     ,
+	    +sx  -syy     , +sx  -sy      , +sx           , +sx   +sy     , +sx  +syy     ,
+	    +sxx -syy     , +sxx -sy      , +sxx          , +sxx  +sy     , +sxx +syy     ,
+
+	    -sxx -syy  +sz, -sxx -sy   +sz, -sxx       +sz, -sxx  +sy  +sz, -sxx +syy  +sz,
+	    -sx  -syy  +sz, -sx  -sy   +sz, -sx        +sz, -sx   +sy  +sz, -sx  +syy  +sz,
+	         -syy  +sz,      -sy   +sz,            +sz,       +sy  +sz,      +syy  +sz,
+	    +sx  -syy  +sz, +sx  -sy   +sz, +sx        +sz, +sx   +sy  +sz, +sx  +syy  +sz,
+	    +sxx -syy  +sz, +sxx -sy   +sz, +sxx       +sz, +sxx  +sy  +sz, +sxx +syy  +sz,
+
+	    -sxx -syy +szz, -sxx -sy  +szz, -sxx      +szz, -sxx  +sy +szz, -sxx +syy +szz,
+	    -sx  -syy +szz, -sx  -sy  +szz, -sx       +szz, -sx   +sy +szz, -sx  +syy +szz,
+	         -syy +szz,      -sy  +szz,           +szz,       +sy +szz,      +syy +szz,
+	    +sx  -syy +szz, +sx  -sy  +szz, +sx       +szz, +sx   +sy +szz, +sx  +syy +szz,
+	                    +sxx -sy  +szz, +sxx      +szz, +sxx  +sy +szz,
+	};
+	const int num_neighbors = ARRAY_SIZE(neighbors);
+	
 	bool found_sample = false;
 	for (; ctx->trial < max_trials; ++ctx->trial) {
 		while (!BLI_ghashIterator_done(&ctx->iter)) {
@@ -977,28 +1053,15 @@ static bool generator_poissondisk_make_sample(const MSurfaceSampleGenerator_Pois
 			else {
 				/* Check the sample candidate */
 				unsigned int idx = cell->cell_index;
-				unsigned int sx = 1;
-				unsigned int sy = sx * (unsigned int)gen->grid_size[0];
-				unsigned int sz = sy * (unsigned int)gen->grid_size[1];
-				unsigned int neighbors[] = {
-				    idx - sx - sy - sz, idx     - sy - sz, idx + sx - sy - sz,
-				    idx - sx      - sz, idx          - sz, idx + sx      - sz,
-				    idx - sx + sy - sz, idx     + sy - sz, idx + sx + sy - sz,
-				    idx - sx - sy     , idx     - sy     , idx + sx - sy     ,
-				    idx - sx          ,                    idx + sx          ,
-				    idx - sx + sy     , idx     + sy     , idx + sx + sy     ,
-				    idx - sx - sy + sz, idx     - sy + sz, idx + sx - sy + sz,
-				    idx - sx      + sz, idx          + sz, idx + sx      + sz,
-				    idx - sx + sy + sz, idx     + sy + sz, idx + sx + sy + sz,
-				};
-				int num_neighbors = ARRAY_SIZE(neighbors);
 				
 				bool conflict = false;
 				for (int i = 0; i < num_neighbors; ++i) {
-					const MeshSampleCell *ncell = BLI_ghash_lookup(gen->cell_table, &neighbors[i]);
+					unsigned int nidx = (unsigned int)((int)idx + neighbors[i]);
+					const MeshSampleCell *ncell = BLI_ghash_lookup(gen->cell_table, &nidx);
 					if (ncell) {
 						if (ncell->sample != SAMPLE_INDEX_INVALID) {
 							const IndexedMeshSample *nsample = &gen->uniform_samples[ncell->sample];
+							BLI_assert(nsample->cell_index == ncell->cell_index);
 							if (len_squared_v3v3(isample->co, nsample->co) < gen->mindist_squared) {
 								conflict = true;
 								break;
