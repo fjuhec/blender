@@ -46,6 +46,7 @@ _modules = [
     "properties_object",
     "properties_paint_common",
     "properties_grease_pencil_common",
+    "properties_package",
     "properties_particle",
     "properties_physics_cloth",
     "properties_physics_common",
@@ -99,7 +100,7 @@ def register():
             register_class(cls)
 
     # space_userprefs.py
-    from bpy.props import StringProperty, EnumProperty
+    from bpy.props import StringProperty, EnumProperty, CollectionProperty, IntProperty
     from bpy.types import WindowManager
 
     def addon_filter_items(self, context):
@@ -120,9 +121,9 @@ def register():
         items.extend([(cat, cat, "") for cat in sorted(items_unique)])
         return items
 
-    WindowManager.addon_search = StringProperty(
+    WindowManager.package_search = StringProperty(
             name="Search",
-            description="Search within the selected filter",
+            description="Filter packages by name",
             options={'TEXTEDIT_UPDATE'},
             )
     WindowManager.addon_filter = EnumProperty(
@@ -141,6 +142,24 @@ def register():
             default={'OFFICIAL', 'COMMUNITY'},
             options={'ENUM_FLAG'},
             )
+
+    WindowManager.package_state_filter = EnumProperty(
+            items=[('AVAILABLE', "Available", "All packages in selected repositories"),
+                   ('INSTALLED', "Installed", "All installed packages"),
+                   ('UPDATES', "Updates", "All installed packages for which there is a newer version available")
+                   ],
+            name="Install filter",
+            default='AVAILABLE',
+            )
+
+    from .properties_package import RepositoryProperty
+    WindowManager.package_repositories = CollectionProperty(
+            type=RepositoryProperty,
+            name="Repositories",
+            )
+
+    WindowManager.package_active_repository = IntProperty()
+
     # done...
 
 

@@ -1314,20 +1314,385 @@ class USERPREF_MT_addons_online_resources(Menu):
                 
 
 class USERPREF_PT_packages(Panel):
+    bl_label = "Package Management"
     bl_space_type = 'USER_PREFERENCES'
-    bl_label = "Packages"
     bl_region_type = 'WINDOW'
     bl_options = {'HIDE_HEADER'}
-    
-    def draw(self, context):
-        @classmethod
-        def poll(cls, context):
-            userpref = context.user_preferences
-            return (userpref.active_section == 'PACKAGES')
-        
-        def draw(self, context):
-            pass
 
+    # log = logging.getLogger(__name__ + '.USERPREF_PT_packages')
+
+    all_packages = {}
+
+    displayed_packages = []
+    expanded_packages = []
+    preference_package = None
+
+    reindex = True
+
+    @classmethod
+    def poll(cls, context):
+        userpref = context.user_preferences
+        return (userpref.active_section == 'PACKAGES')
+
+    def draw(self, context):
+        import bpkg
+        from bpkg.types import (ConsolidatedPackage, Package)
+        layout = self.layout
+        wm = context.window_manager
+
+        mainrow = layout.row()
+        spl = mainrow.split(.2)
+        sidebar = spl.column(align=True)
+        pkgzone = spl.column()
+
+        sidebar.label("Repositories")
+        row = sidebar.row()
+        row.template_list("PACKAGE_UL_repositories", "", wm, "package_repositories", wm, "package_active_repository")
+        col = row.column(align=True)
+        col.operator("package.add_repository", text="", icon='ZOOMIN')
+        col.operator("package.remove_repository", text="", icon='ZOOMOUT')
+        sidebar.separator()
+        sidebar.operator("package.refresh", text="Check for updates")
+
+        sidebar.separator()
+        sidebar.label("Category")
+        sidebar.prop(wm, "addon_filter", text="")
+
+        sidebar.separator()
+        sidebar.label("Support level")
+        sidebar.prop(wm, "addon_support")
+
+        top = pkgzone.row()
+        spl = top.split(.6)
+        spl.prop(wm, "package_search", text="", icon='VIEWZOOM')
+        spl_r = spl.row()
+        spl_r.prop(wm, "package_state_filter", expand=True)
+
+        def filter_packages(filters: dict, packages: dict) -> list:# {{{
+            """Returns filtered and sorted list of names of packages which match filters"""
+
+            #TODO: using lower() for case-insensitive comparison doesn't work for some languages
+            def match_contains(blinfo) -> bool:
+                if blinfo['name'].lower().__contains__(filters['search'].lower()):
+                    return True
+                return False
+
+            def match_startswith(blinfo) -> bool:
+                if blinfo['name'].lower().startswith(filters['search'].lower()):
+                    return True
+                return False
+
+            def match_support(blinfo) -> bool:
+                if 'support' in blinfo:
+                    if set((blinfo['support'],)).issubset(filters['support']):
+                        return True
+                else:
+                    if {'COMMUNITY'}.issubset(filters['support']):
+                        return True
+                return False
+
+            def match_installstate(metapkg: ConsolidatedPackage) -> bool:
+                if filters['installstate'] == 'AVAILABLE':
+                    return True
+
+                if filters['installstate'] == 'INSTALLED':
+                    if metapkg.installed:
+                        return True
+
+                if filters['installstate'] == 'UPDATES':
+                    if metapkg.installed:
+                        if metapkg.get_latest_installed_version().version < metapkg.get_latest_version().version:
+                            return True
+                return False
+
+            def match_repositories(metapkg) -> bool:
+                pkg = metapkg.get_display_version()
+                for repo in pkg.repositories:
+                    if repo.name in filters['repository']:
+                        return True
+                return False
+
+            def match_category(blinfo) -> bool:
+                if filters['category'].lower() == 'all':
+                    return True
+                if 'category' not in blinfo:
+                    return False
+                if blinfo['category'].lower() == filters['category'].lower():
+                    return True
+                return False
+
+
+            # use two lists as a simple way of putting "matches from the beginning" on top
+            contains = []
+            startswith = []
+
+            for pkgname, metapkg in packages.items():
+                blinfo = metapkg.versions[0].bl_info
+                if match_repositories(metapkg)\
+                and match_category(blinfo)\
+                and match_support(blinfo)\
+                and match_installstate(metapkg):
+                    if len(filters['search']) == 0:
+                        startswith.append(pkgname)
+                        continue
+                    if match_startswith(blinfo):
+                        startswith.append(pkgname)
+                        continue
+                    if match_contains(blinfo):
+                        contains.append(pkgname)
+                        continue
+
+            return startswith + contains# }}}
+
+        def draw_package(metapkg: ConsolidatedPackage, layout: bpy.types.UILayout): #{{{
+            """Draws the given package"""
+            pkg = metapkg.get_display_version()
+
+            def draw_operators(metapkg, layout): # {{{
+                """
+                Draws install, uninstall, update, enable, disable, and preferences
+                buttons as applicable for the given package
+                """
+                pkg = metapkg.get_display_version()
+
+                if metapkg.installed:
+                    if metapkg.updateable:
+                        layout.operator(
+                                "package.install",
+                                text="Update to {}".format(utils.fmt_version(metapkg.get_latest_version().version)),
+                                ).package_name=metapkg.name
+                        layout.separator()
+
+                    #TODO: only show preferences button if addon has preferences to show
+                    if pkg.enabled:
+                        layout.operator(
+                                "wm.package_toggle_preferences",
+                                text="Preferences",
+                                ).package_name=metapkg.name
+                    layout.operator(
+                            "package.uninstall",
+                            text="Uninstall",
+                            ).package_name=metapkg.name
+                else:
+                    layout.operator(
+                            "package.install",
+                            text="Install",
+                            ).package_name=metapkg.name
+                # }}}
+
+            def fmt_version(version_number: tuple) -> str:
+                """Take version number as a tuple and format it as a string"""
+                vstr = str(version_number[0])
+                for component in version_number[1:]:
+                    vstr += "." + str(component)
+                return vstr
+
+
+            def draw_preferences(pkg: Package, layout: bpy.types.UILayout):
+                """Draw the package's preferences in the given layout"""
+                addon_preferences = context.user_preferences.addons[pkg.module_name].preferences
+                if addon_preferences is not None:
+                    draw = getattr(addon_preferences, "draw", None)
+                    if draw is not None:
+                        addon_preferences_class = type(addon_preferences)
+                        box_prefs = layout.box()
+                        box_prefs.label("Preferences:")
+                        addon_preferences_class.layout = box_prefs
+                        try:
+                            draw(context)
+                        except:
+                            import traceback
+                            traceback.print_exc()
+                            box_prefs.label(text="Error (see console)", icon='ERROR')
+                        del addon_preferences_class.layout
+
+            def collapsed(metapkg, layout):# {{{
+                """Draw collapsed version of package layout"""
+                pkg = metapkg.get_display_version()
+
+                # Only 'install' button is shown when package isn't installed,
+                # so allow more space for title/description.
+                spl = layout.split(.5 if pkg.installed else .8)
+
+                metacol = spl.column(align=True)
+
+                buttonrow = spl.row(align=True)
+                buttonrow.alignment = 'RIGHT'
+
+                l1 = metacol.row()
+                l2 = metacol.row()
+
+                draw_operators(metapkg, buttonrow)
+
+                if pkg.installed:
+                    metacol.active = pkg.enabled
+                    l1.operator("package.toggle_enabled",
+                              icon='CHECKBOX_HLT' if pkg.enabled else 'CHECKBOX_DEHLT',
+                              text="",
+                              emboss=False,
+                              ).package_name = metapkg.name
+
+                if pkg.name:
+                    l1.label(text=pkg.name)
+                if pkg.description:
+                    l2.label(text=pkg.description)
+                    l2.enabled = False #Give name more visual weight
+            # }}}
+
+
+            def expanded(metapkg, layout, layoutbox):# {{{
+                """Draw expanded version of package layout"""
+
+                pkg = metapkg.get_display_version()
+
+                metacol = layoutbox.column(align=True)
+                row1 = layout.row(align=True)
+                row1.operator("package.toggle_enabled",
+                              icon='CHECKBOX_HLT' if pkg.enabled else 'CHECKBOX_DEHLT',
+                              text="",
+                              emboss=False,
+                              ).package_name = metapkg.name
+                row1.label(pkg.name)
+
+                if metapkg.installed:
+                    metacol.active = pkg.enabled
+                    row1.active = pkg.enabled
+
+                if pkg.description:
+                    row = metacol.row()
+                    row.label(pkg.description)
+
+                def draw_metadatum(label: str, value: str, layout: bpy.types.UILayout):
+                    """Draw the given key value pair in a new row in given layout container"""
+                    row = layout.row()
+                    row.scale_y = .8
+                    spl = row.split(.15)
+                    spl.label("{}:".format(label))
+                    spl.label(value)
+
+                # don't compare against None here; we don't want to display empty arrays/strings either
+                if pkg.location:
+                    draw_metadatum("Location", pkg.location, metacol)
+                if pkg.version:
+                    draw_metadatum("Version", fmt_version(pkg.version), metacol)
+                if pkg.blender:
+                    draw_metadatum("Blender version", fmt_version(pkg.blender), metacol)
+                if pkg.category:
+                    draw_metadatum("Category", pkg.category, metacol)
+                if pkg.author:
+                    draw_metadatum("Author", pkg.author, metacol)
+                if pkg.support:
+                    draw_metadatum("Support level", pkg.support.title(), metacol)
+                if pkg.warning:
+                    draw_metadatum("Warning", pkg.warning, metacol)
+                
+                metacol.separator()
+
+                spl = layoutbox.row().split(.35)
+                urlrow = spl.row()
+                buttonrow = spl.row(align=True)
+
+                urlrow.alignment = 'LEFT'
+                if pkg.wiki_url:
+                    urlrow.operator("wm.url_open", text="Documentation", icon='HELP').url=pkg.wiki_url
+                if pkg.tracker_url:
+                    urlrow.operator("wm.url_open", text="Report a Bug", icon='URL').url=pkg.tracker_url
+
+                buttonrow.alignment = 'RIGHT'
+                draw_operators(metapkg, buttonrow)
+
+                def draw_version(layout: bpy.types.UILayout, pkg: Package):
+                    """Draw version of package"""
+                    spl = layout.split(.9)
+                    left = spl.column()
+                    right = spl.column()
+                    right.alignment = 'RIGHT'
+
+                    left.label(text=fmt_version(pkg.version))
+
+                    for repo in pkg.repositories:
+                        draw_metadatum("Repository", repo.name, left)
+
+                    if pkg.installed:
+                        right.label(text="Installed")
+
+                        draw_metadatum("Installed to", str(pkg.installed_location), left)
+
+                if len(metapkg.versions) > 1:
+                    row = pkgbox.row()
+                    row.label(text="There are multiple versions of this package:")
+                    for version in metapkg.versions:
+                        subvbox = pkgbox.box()
+                        draw_version(subvbox, version)
+
+            # }}}
+
+            is_expanded = (metapkg.name in self.expanded_packages)
+
+            pkgbox = layout.box()
+            row = pkgbox.row(align=True)
+            row.operator(
+                    "wm.package_toggle_expand",
+                    icon='TRIA_DOWN' if is_expanded else 'TRIA_RIGHT',
+                    emboss=False,
+                    ).package_name=metapkg.name
+
+            if is_expanded:
+                expanded(metapkg, row, pkgbox)
+            else:
+                collapsed(metapkg, row)# }}}
+
+            if pkg.installed and pkg.enabled and pkg.name == USERPREF_PT_packages.preference_package:
+                draw_preferences(pkg, pkgbox)
+
+
+        def center_message(layout, msg: str):
+            """draw a label in the center of an extra-tall row"""
+            row = layout.row()
+            row.label(text=msg)
+            row.alignment='CENTER'
+            row.scale_y = 10
+
+
+        if USERPREF_PT_packages.reindex:
+            bpkg.packages = bpkg.list_packages()
+            # load repositories from disk
+            repos = bpkg.get_repositories()
+            wm = bpy.context.window_manager
+            wm.package_repositories.clear()
+
+            #TODO: store repository props in .blend so enabled/disabled state can be remembered
+            for repo in repos:
+                repo_prop = wm.package_repositories.add()
+                repo_prop.name = repo.name
+                repo_prop.enabled = True  
+                repo_prop.url = repo.url
+            USERPREF_PT_packages.reindex = False
+
+
+        # global _main_has_run
+        # if not _main_has_run:
+            # TODO: read repository and installed packages synchronously for now;
+            # can't run an operator from draw code to do async monitoring
+            # main()
+
+        if len(bpkg.packages) == 0:
+            center_message(pkgzone, "No packages found")
+            return
+
+        wm = bpy.context.window_manager
+        filters = {
+                'category': wm.addon_filter,
+                'search': wm.package_search,
+                'support': wm.addon_support,
+                'repository': set([repo.name for repo in wm.package_repositories if repo.enabled]),
+                'installstate': wm.package_state_filter,
+                }
+        USERPREF_PT_packages.displayed_packages = filter_packages(filters, bpkg.packages)
+
+        for pkgname in USERPREF_PT_packages.displayed_packages:
+            row = pkgzone.row()
+            draw_package(bpkg.packages[pkgname], row)
 
 
 class USERPREF_PT_addons(Panel):
