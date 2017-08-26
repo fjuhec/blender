@@ -76,6 +76,9 @@ void RNA_init(void)
 	StructRNA *srna;
 	PropertyRNA *prop;
 
+	BLENDER_RNA.structs_map = BLI_ghash_str_new_ex(__func__, 2048);
+	BLENDER_RNA.structs_len = 0;
+
 	for (srna = BLENDER_RNA.structs.first; srna; srna = srna->cont.next) {
 		if (!srna->cont.prophash) {
 			srna->cont.prophash = BLI_ghash_str_new("RNA_init gh");
@@ -86,6 +89,8 @@ void RNA_init(void)
 				}
 			}
 		}
+		BLI_ghash_insert(BLENDER_RNA.structs_map, (void *)srna->identifier, srna);
+		BLENDER_RNA.structs_len += 1;
 	}
 }
 
@@ -513,13 +518,7 @@ static const char *rna_ensure_property_name(const PropertyRNA *prop)
 
 StructRNA *RNA_struct_find(const char *identifier)
 {
-	StructRNA *type;
-	if (identifier) {
-		for (type = BLENDER_RNA.structs.first; type; type = type->cont.next)
-			if (STREQ(type->identifier, identifier))
-				return type;
-	}
-	return NULL;
+	return BLI_ghash_lookup(BLENDER_RNA.structs_map, identifier);
 }
 
 const char *RNA_struct_identifier(const StructRNA *type)
@@ -813,6 +812,38 @@ char *RNA_struct_name_get_alloc(PointerRNA *ptr, char *fixedbuf, int fixedlen, i
 		return RNA_property_string_get_alloc(ptr, nameprop, fixedbuf, fixedlen, r_len);
 
 	return NULL;
+}
+
+bool RNA_struct_available_or_report(ReportList *reports, const char *identifier)
+{
+	const StructRNA *srna_exists = RNA_struct_find(identifier);
+	if (UNLIKELY(srna_exists != NULL)) {
+		/* Use comprehensive string construction since this is such a rare occurrence
+		 * and information here may cut down time troubleshooting. */
+		DynStr *dynstr = BLI_dynstr_new();
+		BLI_dynstr_appendf(dynstr, "Type identifier '%s' is already in use: '", identifier);
+		BLI_dynstr_append(dynstr, srna_exists->identifier);
+		int i = 0;
+		if (srna_exists->base) {
+			for (const StructRNA *base = srna_exists->base; base; base = base->base) {
+				BLI_dynstr_append(dynstr, "(");
+				BLI_dynstr_append(dynstr, base->identifier);
+				i += 1;
+			}
+			while (i--) {
+				BLI_dynstr_append(dynstr, ")");
+			}
+		}
+		BLI_dynstr_append(dynstr, "'.");
+		char *result = BLI_dynstr_get_cstring(dynstr);
+		BLI_dynstr_free(dynstr);
+		BKE_report(reports, RPT_ERROR, result);
+		MEM_freeN(result);
+		return false;
+	}
+	else {
+		return true;
+	}
 }
 
 /* Property Information */

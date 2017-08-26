@@ -595,10 +595,9 @@ static void rna_NodeTree_unregister(Main *UNUSED(bmain), StructRNA *type)
 		return;
 
 	RNA_struct_free_extension(type, &nt->ext);
+	RNA_struct_free(&BLENDER_RNA, type);
 
 	ntreeTypeFreeLink(nt);
-
-	RNA_struct_free(&BLENDER_RNA, type);
 
 	/* update while blender is running */
 	WM_main_add_notifier(NC_NODE | NA_EDITED, NULL);
@@ -631,9 +630,13 @@ static StructRNA *rna_NodeTree_register(
 
 	/* check if we have registered this tree type before, and remove it */
 	nt = ntreeTypeFind(dummynt.idname);
-	if (nt)
+	if (nt) {
 		rna_NodeTree_unregister(bmain, nt->ext.srna);
-	
+	}
+	if (!RNA_struct_available_or_report(reports, identifier)) {
+		return NULL;
+	}
+
 	/* create a new node tree type */
 	nt = MEM_callocN(sizeof(bNodeTreeType), "node tree type");
 	memcpy(nt, &dummynt, sizeof(dummynt));
@@ -1348,11 +1351,11 @@ static void rna_Node_unregister(Main *UNUSED(bmain), StructRNA *type)
 		return;
 
 	RNA_struct_free_extension(type, &nt->ext);
+	RNA_struct_free(&BLENDER_RNA, type);
 
 	/* this also frees the allocated nt pointer, no MEM_free call needed! */
 	nodeUnregisterType(nt);
 
-	RNA_struct_free(&BLENDER_RNA, type);
 
 	/* update while blender is running */
 	WM_main_add_notifier(NC_NODE | NA_EDITED, NULL);
@@ -1390,11 +1393,18 @@ static bNodeType *rna_Node_register_base(Main *bmain, ReportList *reports, Struc
 		            identifier, (int)sizeof(dummynt.idname));
 		return NULL;
 	}
+	if (!RNA_struct_available_or_report(reports, identifier)) {
+		return NULL;
+	}
 
 	/* check if we have registered this node type before, and remove it */
 	nt = nodeTypeFind(dummynt.idname);
-	if (nt)
+	if (nt) {
 		rna_Node_unregister(bmain, nt->ext.srna);
+	}
+	if (!RNA_struct_available_or_report(reports, identifier)) {
+		return NULL;
+	}
 	
 	/* create a new node type */
 	nt = MEM_callocN(sizeof(bNodeType), "node type");
@@ -1810,10 +1820,10 @@ static void rna_NodeSocket_unregister(Main *UNUSED(bmain), StructRNA *type)
 		return;
 	
 	RNA_struct_free_extension(type, &st->ext_socket);
+	RNA_struct_free(&BLENDER_RNA, type);
 
 	nodeUnregisterSocketType(st);
 
-	RNA_struct_free(&BLENDER_RNA, type);
 
 	/* update while blender is running */
 	WM_main_add_notifier(NC_NODE | NA_EDITED, NULL);

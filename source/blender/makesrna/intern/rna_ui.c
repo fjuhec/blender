@@ -177,9 +177,9 @@ static void rna_Panel_unregister(Main *UNUSED(bmain), StructRNA *type)
 		return;
 	
 	RNA_struct_free_extension(type, &pt->ext);
+	RNA_struct_free(&BLENDER_RNA, type);
 
 	BLI_freelinkN(&art->paneltypes, pt);
-	RNA_struct_free(&BLENDER_RNA, type);
 
 	/* update while blender is running */
 	WM_main_add_notifier(NC_WINDOW, NULL);
@@ -228,6 +228,9 @@ static StructRNA *rna_Panel_register(Main *bmain, ReportList *reports, void *dat
 				BLI_freelinkN(&art->paneltypes, pt);
 			break;
 		}
+	}
+	if (!RNA_struct_available_or_report(reports, identifier)) {
+		return NULL;
 	}
 	
 	/* create a new panel type */
@@ -455,10 +458,9 @@ static void rna_UIList_unregister(Main *UNUSED(bmain), StructRNA *type)
 		return;
 
 	RNA_struct_free_extension(type, &ult->ext);
+	RNA_struct_free(&BLENDER_RNA, type);
 
 	WM_uilisttype_freelink(ult);
-
-	RNA_struct_free(&BLENDER_RNA, type);
 
 	/* update while blender is running */
 	WM_main_add_notifier(NC_WINDOW, NULL);
@@ -489,8 +491,12 @@ static StructRNA *rna_UIList_register(Main *bmain, ReportList *reports, void *da
 
 	/* check if we have registered this uilist type before, and remove it */
 	ult = WM_uilisttype_find(dummyult.idname, true);
-	if (ult && ult->ext.srna)
+	if (ult && ult->ext.srna) {
 		rna_UIList_unregister(bmain, ult->ext.srna);
+	}
+	if (!RNA_struct_available_or_report(reports, identifier)) {
+		return NULL;
+	}
 
 	/* create a new menu type */
 	ult = MEM_callocN(sizeof(uiListType) + over_alloc, "python uilist");
@@ -551,9 +557,9 @@ static void rna_Header_unregister(Main *UNUSED(bmain), StructRNA *type)
 		return;
 	
 	RNA_struct_free_extension(type, &ht->ext);
+	RNA_struct_free(&BLENDER_RNA, type);
 
 	BLI_freelinkN(&art->headertypes, ht);
-	RNA_struct_free(&BLENDER_RNA, type);
 
 	/* update while blender is running */
 	WM_main_add_notifier(NC_WINDOW, NULL);
@@ -592,6 +598,9 @@ static StructRNA *rna_Header_register(Main *bmain, ReportList *reports, void *da
 				rna_Header_unregister(bmain, ht->ext.srna);
 			break;
 		}
+	}
+	if (!RNA_struct_available_or_report(reports, identifier)) {
+		return NULL;
 	}
 	
 	/* create a new header type */
@@ -673,10 +682,9 @@ static void rna_Menu_unregister(Main *UNUSED(bmain), StructRNA *type)
 		return;
 	
 	RNA_struct_free_extension(type, &mt->ext);
+	RNA_struct_free(&BLENDER_RNA, type);
 
 	WM_menutype_freelink(mt);
-
-	RNA_struct_free(&BLENDER_RNA, type);
 
 	/* update while blender is running */
 	WM_main_add_notifier(NC_WINDOW, NULL);
@@ -714,8 +722,12 @@ static StructRNA *rna_Menu_register(Main *bmain, ReportList *reports, void *data
 
 	/* check if we have registered this menu type before, and remove it */
 	mt = WM_menutype_find(dummymt.idname, true);
-	if (mt && mt->ext.srna)
+	if (mt && mt->ext.srna) {
 		rna_Menu_unregister(bmain, mt->ext.srna);
+	}
+	if (!RNA_struct_available_or_report(reports, identifier)) {
+		return NULL;
+	}
 	
 	/* create a new menu type */
 	if (_menu_descr[0]) {
