@@ -192,6 +192,8 @@ void MeshSampleTest::generate_samples_batch_threaded(MeshSampleGenerator *gen)
 
 void MeshSampleTest::test_samples(MeshSampleGenerator *gen, const MeshSample *ground_truth, int count)
 {
+	BKE_mesh_sample_generator_bind(gen, m_dm);
+	
 	if (ground_truth) {
 		EXPECT_EQ(count, m_numsamples) << "Ground truth size does not match number of samples";
 		if (count != m_numsamples) {
@@ -212,11 +214,13 @@ void MeshSampleTest::test_samples(MeshSampleGenerator *gen, const MeshSample *gr
 	
 	generate_samples_batch_threaded(gen);
 	compare_samples(ground_truth);
+	
+	BKE_mesh_sample_generator_unbind(gen);
 }
 
 TEST_F(MeshSampleTest, SurfaceVertices)
 {
-	MeshSampleGenerator *gen = BKE_mesh_sample_gen_surface_vertices(m_dm);
+	MeshSampleGenerator *gen = BKE_mesh_sample_gen_surface_vertices();
 	ASSERT_TRUE(gen != NULL) << "No generator created";
 	
 	test_samples(gen, NULL, 0);
@@ -227,7 +231,7 @@ TEST_F(MeshSampleTest, SurfaceVertices)
 
 TEST_F(MeshSampleTest, SurfaceRandom)
 {
-	MeshSampleGenerator *gen = BKE_mesh_sample_gen_surface_random(m_dm, m_seed, NULL, NULL);
+	MeshSampleGenerator *gen = BKE_mesh_sample_gen_surface_random(m_seed, true, NULL, NULL);
 	ASSERT_TRUE(gen != NULL) << "No generator created";
 	
 	test_samples(gen, NULL, 0);
@@ -240,7 +244,7 @@ const float poisson_disk_mindist = 0.01f;
 
 TEST_F(MeshSampleTest, SurfacePoissonDisk)
 {
-	MeshSampleGenerator *gen = BKE_mesh_sample_gen_surface_poissondisk(m_dm, m_seed, poisson_disk_mindist, 10000000, NULL, NULL);
+	MeshSampleGenerator *gen = BKE_mesh_sample_gen_surface_poissondisk(m_seed, poisson_disk_mindist, 10000000, NULL, NULL);
 	ASSERT_TRUE(gen != NULL) << "No generator created";
 	
 	test_samples(gen, NULL, 0);
@@ -295,7 +299,7 @@ static bool raycast_ray(void *UNUSED(userdata), void *thread_ctx, float ray_star
 TEST_F(MeshSampleTest, SurfaceRaycast)
 {
 	MeshSampleGenerator *gen = BKE_mesh_sample_gen_surface_raycast(
-	                               m_dm, raycast_thread_context_create, raycast_thread_context_free, raycast_ray, NULL);
+	                               raycast_thread_context_create, raycast_thread_context_free, raycast_ray, NULL);
 	ASSERT_TRUE(gen != NULL) << "No generator created";
 	
 	test_samples(gen, NULL, 0);
@@ -308,7 +312,7 @@ static const float volume_bbray_density = 0.1f;
 
 TEST_F(MeshSampleTest, VolumeBBRay)
 {
-	MeshSampleGenerator *gen = BKE_mesh_sample_gen_volume_random_bbray(m_dm, m_seed, volume_bbray_density);
+	MeshSampleGenerator *gen = BKE_mesh_sample_gen_volume_random_bbray(m_seed, volume_bbray_density);
 	ASSERT_TRUE(gen != NULL) << "No generator created";
 	
 	test_samples(gen, NULL, 0);

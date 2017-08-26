@@ -441,7 +441,8 @@ static bool hair_get_surface_sample(HairToolData *data, MeshSample *sample)
 	MeshSampleGenerator *gen;
 	bool ok;
 	
-	gen = BKE_mesh_sample_gen_surface_raycast(dm, NULL, NULL, hair_add_ray_cb, data);
+	gen = BKE_mesh_sample_gen_surface_raycast(NULL, NULL, hair_add_ray_cb, data);
+	BKE_mesh_sample_generator_bind(gen, dm);
 	ok = BKE_mesh_sample_generate(gen, sample);
 	BKE_mesh_sample_free_generator(gen);
 	

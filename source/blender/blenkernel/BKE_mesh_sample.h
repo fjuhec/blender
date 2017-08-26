@@ -40,6 +40,11 @@ typedef void* (*MeshSampleThreadContextCreateFp)(void *userdata, int start);
 typedef void (*MeshSampleThreadContextFreeFp)(void *userdata, void *thread_ctx);
 typedef bool (*MeshSampleRayFp)(void *userdata, void *thread_ctx, float ray_start[3], float ray_end[3]);
 
+/* ==== Utility Functions ==== */
+
+float* BKE_mesh_sample_calc_triangle_weights(struct DerivedMesh *dm, MeshSampleVertexWeightFp vertex_weight_cb, void *userdata, float *r_area);
+
+
 /* ==== Evaluate ==== */
 
 bool BKE_mesh_sample_is_volume_sample(const struct MeshSample *sample);
@@ -50,32 +55,34 @@ bool BKE_mesh_sample_shapekey(struct Key *key, struct KeyBlock *kb, const struct
 void BKE_mesh_sample_clear(struct MeshSample *sample);
 
 
-/* ==== Sampling ==== */
+/* ==== Generator Types ==== */
 
-float* BKE_mesh_sample_calc_triangle_weights(struct DerivedMesh *dm, MeshSampleVertexWeightFp vertex_weight_cb, void *userdata, float *r_area);
+struct MeshSampleGenerator *BKE_mesh_sample_gen_surface_vertices(void);
 
-struct MeshSampleGenerator *BKE_mesh_sample_gen_surface_vertices(struct DerivedMesh *dm);
-
-/* face_weights is optional */
-struct MeshSampleGenerator *BKE_mesh_sample_gen_surface_random(struct DerivedMesh *dm, unsigned int seed, MeshSampleVertexWeightFp vertex_weight_cb, void *userdata);
-struct MeshSampleGenerator *BKE_mesh_sample_gen_surface_random_ex(struct DerivedMesh *dm, unsigned int seed, float *tri_weights);
+/* vertex_weight_cb is optional */
+struct MeshSampleGenerator *BKE_mesh_sample_gen_surface_random(unsigned int seed, bool use_area_weight,
+                                                               MeshSampleVertexWeightFp vertex_weight_cb, void *userdata);
 
 struct MeshSampleGenerator *BKE_mesh_sample_gen_surface_raycast(
-        struct DerivedMesh *dm,
         MeshSampleThreadContextCreateFp thread_context_create_cb,
         MeshSampleThreadContextFreeFp thread_context_free_cb,
         MeshSampleRayFp ray_cb,
         void *userdata);
 
-int BKE_mesh_sample_poissondisk_max_samples(float mindist, float area, int max_samples);
-struct MeshSampleGenerator *BKE_mesh_sample_gen_surface_poissondisk_ex(struct DerivedMesh *dm, unsigned int seed, float mindist,
-                                                                       int num_uniform_samples, float *tri_weights);
-struct MeshSampleGenerator *BKE_mesh_sample_gen_surface_poissondisk(struct DerivedMesh *dm, unsigned int seed, float mindist, int max_samples,
+struct MeshSampleGenerator *BKE_mesh_sample_gen_surface_poissondisk(unsigned int seed, float mindist, unsigned int max_samples,
                                                                     MeshSampleVertexWeightFp vertex_weight_cb, void *userdata);
 
-struct MeshSampleGenerator *BKE_mesh_sample_gen_volume_random_bbray(struct DerivedMesh *dm, unsigned int seed, float density);
+struct MeshSampleGenerator *BKE_mesh_sample_gen_volume_random_bbray(unsigned int seed, float density);
 
 void BKE_mesh_sample_free_generator(struct MeshSampleGenerator *gen);
+
+
+/* ==== Sampling ==== */
+
+void BKE_mesh_sample_generator_bind(struct MeshSampleGenerator *gen, struct DerivedMesh *dm);
+void BKE_mesh_sample_generator_unbind(struct MeshSampleGenerator *gen);
+
+unsigned int BKE_mesh_sample_gen_get_max_samples(const struct MeshSampleGenerator *gen);
 
 /* Generate a single sample.
  * Not threadsafe!

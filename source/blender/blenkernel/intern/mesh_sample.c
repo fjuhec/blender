@@ -48,6 +48,136 @@
 
 #define DEFAULT_TASK_SIZE 1024
 
+/* ==== Utility Functions ==== */
+
+static float calc_mesh_area(DerivedMesh *dm)
+{
+	int numtris = dm->getNumLoopTri(dm);
+	MVert *mverts = dm->getVertArray(dm);
+	MLoop *mloops = dm->getLoopArray(dm);
+	
+	float totarea = 0.0;
+	const MLoopTri *tri = dm->getLoopTriArray(dm);
+	for (int i = 0; i < numtris; ++i, ++tri) {
+		unsigned int index1 = mloops[tri->tri[0]].v;
+		unsigned int index2 = mloops[tri->tri[1]].v;
+		unsigned int index3 = mloops[tri->tri[2]].v;
+		MVert *v1 = &mverts[index1];
+		MVert *v2 = &mverts[index2];
+		MVert *v3 = &mverts[index3];
+		totarea += area_tri_v3(v1->co, v2->co, v3->co);
+	}
+	
+	return totarea;
+}
+
+BLI_INLINE float triangle_weight(DerivedMesh *dm, const MLoopTri *tri, const float *vert_weights, float *r_area)
+{
+	MVert *mverts = dm->getVertArray(dm);
+	MLoop *mloops = dm->getLoopArray(dm);
+	unsigned int index1 = mloops[tri->tri[0]].v;
+	unsigned int index2 = mloops[tri->tri[1]].v;
+	unsigned int index3 = mloops[tri->tri[2]].v;
+	MVert *v1 = &mverts[index1];
+	MVert *v2 = &mverts[index2];
+	MVert *v3 = &mverts[index3];
+	
+	float weight = area_tri_v3(v1->co, v2->co, v3->co);
+	if (r_area) {
+		*r_area = weight;
+	}
+	
+	if (vert_weights) {
+		float w1 = vert_weights[index1];
+		float w2 = vert_weights[index2];
+		float w3 = vert_weights[index3];
+		
+		weight *= (w1 + w2 + w3) / 3.0f;
+	}
+	
+	return weight;
+}
+
+float* BKE_mesh_sample_calc_triangle_weights(DerivedMesh *dm, MeshSampleVertexWeightFp vertex_weight_cb, void *userdata, float *r_area)
+{
+	int numverts = dm->getNumVerts(dm);
+	int numtris = dm->getNumLoopTri(dm);
+	int numweights = numtris;
+	
+	float *vert_weights = NULL;
+	if (vertex_weight_cb) {
+		vert_weights = MEM_mallocN(sizeof(float) * (size_t)numverts, "mesh sample vertex weights");
+		{
+			MVert *mv = dm->getVertArray(dm);
+			for (int i = 0; i < numtris; ++i, ++mv) {
+				vert_weights[i] = vertex_weight_cb(dm, mv, (unsigned int)i, userdata);
+			}
+		}
+	}
+	
+	float *tri_weights = MEM_mallocN(sizeof(float) * (size_t)numweights, "mesh sample triangle weights");
+	/* accumulate weights */
+	float totarea = 0.0;
+	float totweight = 0.0f;
+	{
+		const MLoopTri *mt = dm->getLoopTriArray(dm);
+		for (int i = 0; i < numtris; ++i, ++mt) {
+			tri_weights[i] = totweight;
+			
+			float triarea;
+			float triweight = triangle_weight(dm, mt, vert_weights, &triarea);
+			totarea += triarea;
+			totweight += triweight;
+		}
+	}
+	
+	if (vert_weights) {
+		MEM_freeN(vert_weights);
+	}
+	
+	/* normalize */
+	if (totweight > 0.0f) {
+		float norm = 1.0f / totweight;
+		const MLoopTri *mt = dm->getLoopTriArray(dm);
+		for (int i = 0; i < numtris; ++i, ++mt) {
+			tri_weights[i] *= norm;
+		}
+	}
+	else {
+		/* invalid weights, remove to avoid invalid binary search */
+		MEM_freeN(tri_weights);
+		tri_weights = NULL;
+	}
+	
+	if (r_area) {
+		*r_area = totarea;
+	}
+	return tri_weights;
+}
+
+BLI_INLINE void mesh_sample_weights_from_loc(MeshSample *sample, DerivedMesh *dm, int face_index, const float loc[3])
+{
+	MFace *face = &dm->getTessFaceArray(dm)[face_index];
+	unsigned int index[4] = { face->v1, face->v2, face->v3, face->v4 };
+	MVert *mverts = dm->getVertArray(dm);
+	
+	float *v1 = mverts[face->v1].co;
+	float *v2 = mverts[face->v2].co;
+	float *v3 = mverts[face->v3].co;
+	float *v4 = face->v4 ? mverts[face->v4].co : NULL;
+	float w[4];
+	int tri[3];
+	
+	interp_weights_quad_v3_index(tri, w, v1, v2, v3, v4, loc);
+	
+	sample->orig_verts[0] = index[tri[0]];
+	sample->orig_verts[1] = index[tri[1]];
+	sample->orig_verts[2] = index[tri[2]];
+	sample->orig_weights[0] = w[tri[0]];
+	sample->orig_weights[1] = w[tri[1]];
+	sample->orig_weights[2] = w[tri[2]];
+}
+
 /* ==== Evaluate ==== */
 
 bool BKE_mesh_sample_is_volume_sample(const MeshSample *sample)
@@ -153,44 +283,32 @@ void BKE_mesh_sample_clear(MeshSample *sample)
 }
 
 
-/* ==== Sampling Utilities ==== */
-
-BLI_INLINE void mesh_sample_weights_from_loc(MeshSample *sample, DerivedMesh *dm, int face_index, const float loc[3])
-{
-	MFace *face = &dm->getTessFaceArray(dm)[face_index];
-	unsigned int index[4] = { face->v1, face->v2, face->v3, face->v4 };
-	MVert *mverts = dm->getVertArray(dm);
-	
-	float *v1 = mverts[face->v1].co;
-	float *v2 = mverts[face->v2].co;
-	float *v3 = mverts[face->v3].co;
-	float *v4 = face->v4 ? mverts[face->v4].co : NULL;
-	float w[4];
-	int tri[3];
-	
-	interp_weights_quad_v3_index(tri, w, v1, v2, v3, v4, loc);
-	
-	sample->orig_verts[0] = index[tri[0]];
-	sample->orig_verts[1] = index[tri[1]];
-	sample->orig_verts[2] = index[tri[2]];
-	sample->orig_weights[0] = w[tri[0]];
-	sample->orig_weights[1] = w[tri[1]];
-	sample->orig_weights[2] = w[tri[2]];
-}
-
-/* ==== Sampling ==== */
+/* ==== Generator Types ==== */
 
 typedef void (*GeneratorFreeFp)(struct MeshSampleGenerator *gen);
+
+typedef void (*GeneratorBindFp)(struct MeshSampleGenerator *gen);
+typedef void (*GeneratorUnbindFp)(struct MeshSampleGenerator *gen);
+
 typedef void* (*GeneratorThreadContextCreateFp)(const struct MeshSampleGenerator *gen, int start);
 typedef void (*GeneratorThreadContextFreeFp)(const struct MeshSampleGenerator *gen, void *thread_ctx);
 typedef bool (*GeneratorMakeSampleFp)(const struct MeshSampleGenerator *gen, void *thread_ctx, struct MeshSample *sample);
+typedef unsigned int (*GeneratorGetMaxSamplesFp)(const struct MeshSampleGenerator *gen);
 
 typedef struct MeshSampleGenerator
 {
 	GeneratorFreeFp free;
+	
+	GeneratorBindFp bind;
+	GeneratorUnbindFp unbind;
+	
 	GeneratorThreadContextCreateFp thread_context_create;
 	GeneratorThreadContextFreeFp thread_context_free;
 	GeneratorMakeSampleFp make_sample;
+	GeneratorGetMaxSamplesFp get_max_samples;
+	
+	/* bind target */
+	DerivedMesh *dm;
 	
 	void *default_ctx;
 	int task_size;
@@ -198,14 +316,22 @@ typedef struct MeshSampleGenerator
 
 static void sample_generator_init(MeshSampleGenerator *gen,
                                   GeneratorFreeFp free,
+                                  GeneratorBindFp bind,
+                                  GeneratorUnbindFp unbind,
                                   GeneratorThreadContextCreateFp thread_context_create,
                                   GeneratorThreadContextFreeFp thread_context_free,
-                                  GeneratorMakeSampleFp make_sample)
+                                  GeneratorMakeSampleFp make_sample,
+                                  GeneratorGetMaxSamplesFp get_max_samples)
 {
 	gen->free = free;
+	gen->bind = bind;
+	gen->unbind = unbind;
 	gen->thread_context_create = thread_context_create;
 	gen->thread_context_free = thread_context_free;
 	gen->make_sample = make_sample;
+	gen->get_max_samples = get_max_samples;
+	
+	gen->dm = NULL;
 	
 	gen->default_ctx = NULL;
 	gen->task_size = DEFAULT_TASK_SIZE;
@@ -216,16 +342,56 @@ static void sample_generator_init(MeshSampleGenerator *gen,
 typedef struct MSurfaceSampleGenerator_Vertices {
 	MeshSampleGenerator base;
 	
-	DerivedMesh *dm;
+	/* bind data */
 	int (*vert_loop_map)[3];
 } MSurfaceSampleGenerator_Vertices;
 
 static void generator_vertices_free(MSurfaceSampleGenerator_Vertices *gen)
 {
+	MEM_freeN(gen);
+}
+
+static void generator_vertices_bind(MSurfaceSampleGenerator_Vertices *gen)
+{
+	DerivedMesh *dm = gen->base.dm;
+	const int num_verts = dm->getNumVerts(dm);
+	
+	DM_ensure_normals(dm);
+	
+	int (*vert_loop_map)[3] = MEM_mallocN(sizeof(int) * 3 * (unsigned int)num_verts, "vertex loop map");
+	for (int i = 0; i < num_verts; ++i) {
+		vert_loop_map[i][0] = -1;
+		vert_loop_map[i][1] = -1;
+		vert_loop_map[i][2] = -1;
+	}
+	
+	const int num_polys = dm->getNumPolys(dm);
+	const MLoop *mloops = dm->getLoopArray(dm);
+	const MPoly *mp = dm->getPolyArray(dm);
+	for (int i = 0; i < num_polys; ++i, ++mp) {
+		if (mp->totloop < 3) {
+			continue;
+		}
+		
+		const MLoop *ml = mloops + mp->loopstart;
+		for (int k = 0; k < mp->totloop; ++k, ++ml) {
+			int *vmap = vert_loop_map[ml->v];
+			if (vmap[0] < 0) {
+				vmap[0] = mp->loopstart + k;
+				vmap[1] = mp->loopstart + (k + 1) % mp->totloop;
+				vmap[2] = mp->loopstart + (k + 2) % mp->totloop;
+			}
+		}
+	}
+	
+	gen->vert_loop_map = vert_loop_map;
+}
+
+static void generator_vertices_unbind(MSurfaceSampleGenerator_Vertices *gen)
+{
 	if (gen->vert_loop_map) {
 		MEM_freeN(gen->vert_loop_map);
 	}
-	MEM_freeN(gen);
 }
 
 static void* generator_vertices_thread_context_create(const MSurfaceSampleGenerator_Vertices *UNUSED(gen), int start)
@@ -267,7 +433,7 @@ static bool generator_vertices_make_loop_sample(DerivedMesh *dm, const int *loop
 
 static bool generator_vertices_make_sample(const MSurfaceSampleGenerator_Vertices *gen, void *thread_ctx, MeshSample *sample)
 {
-	DerivedMesh *dm = gen->dm;
+	DerivedMesh *dm = gen->base.dm;
 	const int num_verts = dm->getNumVerts(dm);
 	
 	int cur_vert = *(int *)thread_ctx;
@@ -280,52 +446,24 @@ static bool generator_vertices_make_sample(const MSurfaceSampleGenerator_Vertice
 	return found_vert;
 }
 
-MeshSampleGenerator *BKE_mesh_sample_gen_surface_vertices(DerivedMesh *dm)
+static unsigned int generator_vertices_get_max_samples(const MSurfaceSampleGenerator_Vertices *gen)
+{
+	return (unsigned int)gen->base.dm->getNumVerts(gen->base.dm);
+}
+
+MeshSampleGenerator *BKE_mesh_sample_gen_surface_vertices(void)
 {
 	MSurfaceSampleGenerator_Vertices *gen;
-	
-	DM_ensure_normals(dm);
 	
 	gen = MEM_callocN(sizeof(MSurfaceSampleGenerator_Vertices), "MSurfaceSampleGenerator_Vertices");
 	sample_generator_init(&gen->base,
 	                      (GeneratorFreeFp)generator_vertices_free,
+	                      (GeneratorBindFp)generator_vertices_bind,
+	                      (GeneratorUnbindFp) generator_vertices_unbind,
 	                      (GeneratorThreadContextCreateFp)generator_vertices_thread_context_create,
 	                      (GeneratorThreadContextFreeFp)generator_vertices_thread_context_free,
-	                      (GeneratorMakeSampleFp)generator_vertices_make_sample);
-	
-	gen->dm = dm;
-	
-	{
-		const int num_verts = dm->getNumVerts(dm);
-		int (*vert_loop_map)[3] = MEM_mallocN(sizeof(int) * 3 * (unsigned int)num_verts, "vertex loop map");
-		
-		for (int i = 0; i < num_verts; ++i) {
-			vert_loop_map[i][0] = -1;
-			vert_loop_map[i][1] = -1;
-			vert_loop_map[i][2] = -1;
-		}
-		
-		const int num_polys = dm->getNumPolys(dm);
-		const MLoop *mloops = dm->getLoopArray(dm);
-		const MPoly *mp = dm->getPolyArray(dm);
-		for (int i = 0; i < num_polys; ++i, ++mp) {
-			if (mp->totloop < 3) {
-				continue;
-			}
-			
-			const MLoop *ml = mloops + mp->loopstart;
-			for (int k = 0; k < mp->totloop; ++k, ++ml) {
-				int *vmap = vert_loop_map[ml->v];
-				if (vmap[0] < 0) {
-					vmap[0] = mp->loopstart + k;
-					vmap[1] = mp->loopstart + (k + 1) % mp->totloop;
-					vmap[2] = mp->loopstart + (k + 2) % mp->totloop;
-				}
-			}
-		}
-		
-		gen->vert_loop_map = vert_loop_map;
-	}
+	                      (GeneratorMakeSampleFp)generator_vertices_make_sample,
+	                      (GeneratorGetMaxSamplesFp)generator_vertices_get_max_samples);
 	
 	return &gen->base;
 }
@@ -337,8 +475,12 @@ MeshSampleGenerator *BKE_mesh_sample_gen_surface_vertices(DerivedMesh *dm)
 typedef struct MSurfaceSampleGenerator_Random {
 	MeshSampleGenerator base;
 	
-	DerivedMesh *dm;
 	unsigned int seed;
+	bool use_area_weight;
+	MeshSampleVertexWeightFp vertex_weight_cb;
+	void *userdata;
+	
+	/* bind data */
 	float *tri_weights;
 	float *vertex_weights;
 	
@@ -348,6 +490,26 @@ typedef struct MSurfaceSampleGenerator_Random {
 } MSurfaceSampleGenerator_Random;
 
 static void generator_random_free(MSurfaceSampleGenerator_Random *gen)
+{
+	MEM_freeN(gen);
+}
+
+static void generator_random_bind(MSurfaceSampleGenerator_Random *gen)
+{
+	DerivedMesh *dm = gen->base.dm;
+	
+	DM_ensure_normals(dm);
+	
+	if (gen->use_area_weight) {
+		gen->tri_weights = BKE_mesh_sample_calc_triangle_weights(dm, gen->vertex_weight_cb, gen->userdata, NULL);
+		
+#ifdef USE_DEBUG_COUNT
+		gen->debug_count = MEM_callocN(sizeof(int) * (size_t)dm->getNumLoopTri(dm), "surface sample debug counts");
+#endif
+	}
+}
+
+static void generator_random_unbind(MSurfaceSampleGenerator_Random *gen)
 {
 #ifdef USE_DEBUG_COUNT
 	if (gen->debug_count) {
@@ -373,7 +535,6 @@ static void generator_random_free(MSurfaceSampleGenerator_Random *gen)
 		MEM_freeN(gen->tri_weights);
 	if (gen->vertex_weights)
 		MEM_freeN(gen->vertex_weights);
-	MEM_freeN(gen);
 }
 
 static void* generator_random_thread_context_create(const MSurfaceSampleGenerator_Random *gen, int start)
@@ -416,7 +577,7 @@ BLI_INLINE int weight_array_binary_search(const float *sum, int size, float valu
 
 static bool generator_random_make_sample(const MSurfaceSampleGenerator_Random *gen, void *thread_ctx, MeshSample *sample)
 {
-	DerivedMesh *dm = gen->dm;
+	DerivedMesh *dm = gen->base.dm;
 	RNG *rng = thread_ctx;
 	const MLoop *mloops = dm->getLoopArray(dm);
 	const MLoopTri *mtris = dm->getLoopTriArray(dm);
@@ -455,121 +616,27 @@ static bool generator_random_make_sample(const MSurfaceSampleGenerator_Random *g
 	return true;
 }
 
-BLI_INLINE float triangle_weight(DerivedMesh *dm, const MLoopTri *tri, const float *vert_weights, float *r_area)
-{
-	MVert *mverts = dm->getVertArray(dm);
-	MLoop *mloops = dm->getLoopArray(dm);
-	unsigned int index1 = mloops[tri->tri[0]].v;
-	unsigned int index2 = mloops[tri->tri[1]].v;
-	unsigned int index3 = mloops[tri->tri[2]].v;
-	MVert *v1 = &mverts[index1];
-	MVert *v2 = &mverts[index2];
-	MVert *v3 = &mverts[index3];
-	
-	float weight = area_tri_v3(v1->co, v2->co, v3->co);
-	if (r_area) {
-		*r_area = weight;
-	}
-	
-	if (vert_weights) {
-		float w1 = vert_weights[index1];
-		float w2 = vert_weights[index2];
-		float w3 = vert_weights[index3];
-		
-		weight *= (w1 + w2 + w3) / 3.0f;
-	}
-	
-	return weight;
-}
-
-float* BKE_mesh_sample_calc_triangle_weights(DerivedMesh *dm, MeshSampleVertexWeightFp vertex_weight_cb, void *userdata, float *r_area)
-{
-	int numverts = dm->getNumVerts(dm);
-	int numtris = dm->getNumLoopTri(dm);
-	int numweights = numtris;
-	
-	float *vert_weights = NULL;
-	if (vertex_weight_cb) {
-		vert_weights = MEM_mallocN(sizeof(float) * (size_t)numverts, "mesh sample vertex weights");
-		{
-			MVert *mv = dm->getVertArray(dm);
-			for (int i = 0; i < numtris; ++i, ++mv) {
-				vert_weights[i] = vertex_weight_cb(dm, mv, (unsigned int)i, userdata);
-			}
-		}
-	}
-	
-	float *tri_weights = MEM_mallocN(sizeof(float) * (size_t)numweights, "mesh sample triangle weights");
-	/* accumulate weights */
-	float totarea = 0.0;
-	float totweight = 0.0f;
-	{
-		const MLoopTri *mt = dm->getLoopTriArray(dm);
-		for (int i = 0; i < numtris; ++i, ++mt) {
-			tri_weights[i] = totweight;
-			
-			float triarea;
-			float triweight = triangle_weight(dm, mt, vert_weights, &triarea);
-			totarea += triarea;
-			totweight += triweight;
-		}
-	}
-	
-	if (vert_weights) {
-		MEM_freeN(vert_weights);
-	}
-	
-	/* normalize */
-	if (totweight > 0.0f) {
-		float norm = 1.0f / totweight;
-		const MLoopTri *mt = dm->getLoopTriArray(dm);
-		for (int i = 0; i < numtris; ++i, ++mt) {
-			tri_weights[i] *= norm;
-		}
-	}
-	else {
-		/* invalid weights, remove to avoid invalid binary search */
-		MEM_freeN(tri_weights);
-		tri_weights = NULL;
-	}
-	
-	if (r_area) {
-		*r_area = totarea;
-	}
-	return tri_weights;
-}
-
-MeshSampleGenerator *BKE_mesh_sample_gen_surface_random_ex(DerivedMesh *dm, unsigned int seed, float *tri_weights)
+MeshSampleGenerator *BKE_mesh_sample_gen_surface_random(unsigned int seed, bool use_area_weight,
+                                                        MeshSampleVertexWeightFp vertex_weight_cb, void *userdata)
 {
 	MSurfaceSampleGenerator_Random *gen;
-	
-	DM_ensure_normals(dm);
 	
 	gen = MEM_callocN(sizeof(MSurfaceSampleGenerator_Random), "MSurfaceSampleGenerator_Random");
 	sample_generator_init(&gen->base,
 	                      (GeneratorFreeFp)generator_random_free,
+	                      (GeneratorBindFp)generator_random_bind,
+	                      (GeneratorUnbindFp) generator_random_unbind,
 	                      (GeneratorThreadContextCreateFp)generator_random_thread_context_create,
 	                      (GeneratorThreadContextFreeFp)generator_random_thread_context_free,
-	                      (GeneratorMakeSampleFp)generator_random_make_sample);
+	                      (GeneratorMakeSampleFp)generator_random_make_sample,
+	                      NULL);
 	
-	gen->dm = dm;
 	gen->seed = seed;
-	
-	if (tri_weights) {
-		gen->tri_weights = tri_weights;
-		
-#ifdef USE_DEBUG_COUNT
-		gen->debug_count = MEM_callocN(sizeof(int) * (size_t)dm->getNumLoopTri(dm), "surface sample debug counts");
-#endif
-	}
+	gen->use_area_weight = use_area_weight;
+	gen->vertex_weight_cb = vertex_weight_cb;
+	gen->userdata = userdata;
 	
 	return &gen->base;
-}
-
-MeshSampleGenerator *BKE_mesh_sample_gen_surface_random(DerivedMesh *dm, unsigned int seed, MeshSampleVertexWeightFp vertex_weight_cb, void *userdata)
-{
-	float *tri_weights = BKE_mesh_sample_calc_triangle_weights(dm, vertex_weight_cb, userdata, NULL);
-	return BKE_mesh_sample_gen_surface_random_ex(dm, seed, tri_weights);
 }
 
 /* ------------------------------------------------------------------------- */
@@ -577,19 +644,37 @@ MeshSampleGenerator *BKE_mesh_sample_gen_surface_random(DerivedMesh *dm, unsigne
 typedef struct MSurfaceSampleGenerator_RayCast {
 	MeshSampleGenerator base;
 	
-	DerivedMesh *dm;
-	BVHTreeFromMesh bvhdata;
-	
 	MeshSampleRayFp ray_cb;
 	MeshSampleThreadContextCreateFp thread_context_create_cb;
 	MeshSampleThreadContextFreeFp thread_context_free_cb;
 	void *userdata;
+	
+	/* bind data */
+	BVHTreeFromMesh bvhdata;
 } MSurfaceSampleGenerator_RayCast;
 
 static void generator_raycast_free(MSurfaceSampleGenerator_RayCast *gen)
 {
-	free_bvhtree_from_mesh(&gen->bvhdata);
 	MEM_freeN(gen);
+}
+
+static void generator_raycast_bind(MSurfaceSampleGenerator_RayCast *gen)
+{
+	DerivedMesh *dm = gen->base.dm;
+	
+	DM_ensure_tessface(dm);
+	
+	memset(&gen->bvhdata, 0, sizeof(gen->bvhdata));
+	
+	if (dm->getNumTessFaces(dm) == 0)
+		return;
+	
+	bvhtree_from_mesh_faces(&gen->bvhdata, dm, 0.0f, 4, 6);
+}
+
+static void generator_raycast_unbind(MSurfaceSampleGenerator_RayCast *gen)
+{
+	free_bvhtree_from_mesh(&gen->bvhdata);
 }
 
 static void* generator_raycast_thread_context_create(const MSurfaceSampleGenerator_RayCast *gen, int start)
@@ -626,7 +711,7 @@ static bool generator_raycast_make_sample(const MSurfaceSampleGenerator_RayCast 
 	if (BLI_bvhtree_ray_cast(gen->bvhdata.tree, ray_start, ray_dir, 0.0f,
 	                         &hit, gen->bvhdata.raycast_callback, (BVHTreeFromMesh *)(&gen->bvhdata)) >= 0) {
 		
-		mesh_sample_weights_from_loc(sample, gen->dm, hit.index, hit.co);
+		mesh_sample_weights_from_loc(sample, gen->base.dm, hit.index, hit.co);
 		
 		return true;
 	}
@@ -635,34 +720,23 @@ static bool generator_raycast_make_sample(const MSurfaceSampleGenerator_RayCast 
 }
 
 MeshSampleGenerator *BKE_mesh_sample_gen_surface_raycast(
-        DerivedMesh *dm, 
         MeshSampleThreadContextCreateFp thread_context_create_cb,
         MeshSampleThreadContextFreeFp thread_context_free_cb,
         MeshSampleRayFp ray_cb,
         void *userdata)
 {
 	MSurfaceSampleGenerator_RayCast *gen;
-	BVHTreeFromMesh bvhdata;
-	
-	DM_ensure_tessface(dm);
-	
-	if (dm->getNumTessFaces(dm) == 0)
-		return NULL;
-	
-	memset(&bvhdata, 0, sizeof(BVHTreeFromMesh));
-	bvhtree_from_mesh_faces(&bvhdata, dm, 0.0f, 4, 6);
-	if (!bvhdata.tree)
-		return NULL;
 	
 	gen = MEM_callocN(sizeof(MSurfaceSampleGenerator_RayCast), "MSurfaceSampleGenerator_RayCast");
 	sample_generator_init(&gen->base,
 	                      (GeneratorFreeFp)generator_raycast_free,
+	                      (GeneratorBindFp)generator_raycast_bind,
+	                      (GeneratorUnbindFp) generator_raycast_unbind,
 	                      (GeneratorThreadContextCreateFp)generator_raycast_thread_context_create,
 	                      (GeneratorThreadContextFreeFp)generator_raycast_thread_context_free,
-	                      (GeneratorMakeSampleFp)generator_raycast_make_sample);
+	                      (GeneratorMakeSampleFp)generator_raycast_make_sample,
+	                      NULL);
 	
-	gen->dm = dm;
-	memcpy(&gen->bvhdata, &bvhdata, sizeof(gen->bvhdata));
 	gen->thread_context_create_cb = thread_context_create_cb;
 	gen->thread_context_free_cb = thread_context_free_cb;
 	gen->ray_cb = ray_cb;
@@ -686,9 +760,8 @@ typedef struct IndexedMeshSample {
 typedef struct MSurfaceSampleGenerator_PoissonDisk {
 	MeshSampleGenerator base;
 	
-	IndexedMeshSample *uniform_samples;
-	int num_uniform_samples;
-	
+	MeshSampleGenerator *uniform_gen;
+	unsigned int max_samples;
 	float mindist_squared;
 	/* Size of grid cells is mindist/sqrt(3),
 	 * so that each cell contains at most one valid sample.
@@ -696,12 +769,26 @@ typedef struct MSurfaceSampleGenerator_PoissonDisk {
 	float cellsize;
 	/* Transform mesh space to grid space */
 	float grid_scale;
+	
+	/* bind data */
+
 	/* offset and size of the grid */
 	int grid_offset[3];
 	int grid_size[3];
 	
+	IndexedMeshSample *uniform_samples;
+	unsigned int num_uniform_samples;
+	
 	struct GHash *cell_table;
 } MSurfaceSampleGenerator_PoissonDisk;
+
+typedef struct MeshSampleCell {
+	unsigned int cell_index;
+	unsigned int sample_start;
+	unsigned int sample;
+} MeshSampleCell;
+
+#define SAMPLE_INDEX_INVALID 0xFFFFFFFF
 
 typedef struct MSurfaceSampleGenerator_PoissonDisk_ThreadContext {
 	unsigned int trial;
@@ -710,6 +797,134 @@ typedef struct MSurfaceSampleGenerator_PoissonDisk_ThreadContext {
 
 static void generator_poissondisk_free(MSurfaceSampleGenerator_PoissonDisk *gen)
 {
+	BKE_mesh_sample_free_generator(gen->uniform_gen);
+	MEM_freeN(gen);
+}
+
+static void generator_poissondisk_uniform_sample_eval(void *userdata, const int iter)
+{
+	void *(*ptrs)[3] = userdata;
+	MSurfaceSampleGenerator_PoissonDisk *gen = (*ptrs)[0];
+	const MeshSample *samples = (*ptrs)[1];
+	DerivedMesh *dm = (*ptrs)[2];
+	
+	IndexedMeshSample *isample = &gen->uniform_samples[iter];
+	const MeshSample *sample = &samples[iter];
+	
+	memcpy(isample->orig_verts, sample->orig_verts, sizeof(isample->orig_verts));
+	memcpy(isample->orig_weights, sample->orig_weights, sizeof(isample->orig_weights));
+	float nor[3], tang[3];
+	BKE_mesh_sample_eval(dm, sample, isample->co, nor, tang);
+	
+	float gridco[3];
+	mul_v3_v3fl(gridco, isample->co, gen->grid_scale);
+	int c[3];
+	c[0] = (int)floorf(gridco[0]) - gen->grid_offset[0];
+	c[1] = (int)floorf(gridco[1]) - gen->grid_offset[1];
+	c[2] = (int)floorf(gridco[2]) - gen->grid_offset[2];
+	isample->cell_index = (unsigned int)(c[0] + (c[1] + c[2] * gen->grid_size[1]) * gen->grid_size[0]);
+}
+
+static int cmp_indexed_mesh_sample(const void *a, const void *b)
+{
+	return (int)((const IndexedMeshSample *)a)->cell_index - (int)((const IndexedMeshSample *)b)->cell_index;
+}
+
+static unsigned int mesh_sample_cell_hash(const void *key)
+{
+	return *(const unsigned int *)key;
+	//return ((const MeshSampleCell *)key)->cell_index;
+}
+
+static bool mesh_sample_cell_cmp(const void *a, const void *b)
+{
+	return *(const unsigned int *)a != *(const unsigned int *)b;
+	//return ((const MeshSampleCell *)a)->cell_index != ((const MeshSampleCell *)b)->cell_index;
+}
+
+static unsigned int generator_poissondisk_get_max_samples(const MSurfaceSampleGenerator_PoissonDisk *gen)
+{
+	static const unsigned int hard_max = UINT_MAX;
+	
+	const double usable_area = calc_mesh_area(gen->base.dm) * MAX_CIRCLE_PACKING;
+	const double circle_area = M_PI * gen->mindist_squared;
+	if (circle_area * (double)hard_max < usable_area) {
+		return hard_max;
+	}
+	
+	return (unsigned int)(usable_area / circle_area);
+}
+
+static void generator_poissondisk_bind(MSurfaceSampleGenerator_PoissonDisk *gen)
+{
+	DerivedMesh *dm = gen->base.dm;
+	static const unsigned int uniform_sample_ratio = 10;
+	
+	// Determine cell size
+	{
+		float min[3], max[3];
+		INIT_MINMAX(min, max);
+		dm->getMinMax(dm, min, max);
+		mul_v3_fl(min, gen->grid_scale);
+		mul_v3_fl(max, gen->grid_scale);
+		gen->grid_offset[0] = (int)floorf(min[0]);
+		gen->grid_offset[1] = (int)floorf(min[1]);
+		gen->grid_offset[2] = (int)floorf(min[2]);
+		gen->grid_size[0] = (int)floorf(max[0]) - gen->grid_offset[0];
+		gen->grid_size[1] = (int)floorf(max[1]) - gen->grid_offset[1];
+		gen->grid_size[2] = (int)floorf(max[2]) - gen->grid_offset[2];
+	}
+	
+	// Generate initial uniform random point set
+	unsigned int max_pd_samples = generator_poissondisk_get_max_samples(gen);
+	gen->num_uniform_samples = MIN2(max_pd_samples * uniform_sample_ratio, gen->max_samples);
+	if (gen->num_uniform_samples > 0) {
+		BKE_mesh_sample_generator_bind(gen->uniform_gen, dm);
+		
+		gen->uniform_samples = MEM_mallocN(sizeof(IndexedMeshSample) * gen->num_uniform_samples, "poisson disk uniform samples");
+		
+		MeshSample *samples = MEM_mallocN(sizeof(MeshSample) * gen->num_uniform_samples, "poisson disk uniform samples");
+		BKE_mesh_sample_generate_batch(gen->uniform_gen, samples, (int)gen->num_uniform_samples);
+		void *ptrs[3] = { gen, samples, dm };
+		BLI_task_parallel_range(0, (int)gen->num_uniform_samples, &ptrs, generator_poissondisk_uniform_sample_eval, true);
+		MEM_freeN(samples);
+		
+		BKE_mesh_sample_generator_unbind(gen->uniform_gen);
+	}
+	
+	// Sort points by cell hash
+	{
+		qsort(gen->uniform_samples, gen->num_uniform_samples, sizeof(IndexedMeshSample), cmp_indexed_mesh_sample);
+	}
+	
+	// Build a hash table for indexing cells
+	{
+		gen->cell_table = BLI_ghash_new(mesh_sample_cell_hash, mesh_sample_cell_cmp, "MeshSampleCell hash table");
+		unsigned int cur_cell_index = 0xFFFFFFFF;
+		const IndexedMeshSample *sample = gen->uniform_samples;
+		for (unsigned int i = 0; i < gen->num_uniform_samples; ++i, ++sample) {
+			if (sample->cell_index != cur_cell_index) {
+				cur_cell_index = sample->cell_index;
+				
+				MeshSampleCell *cell = MEM_mallocN(sizeof(*cell), "MeshSampleCell");
+				cell->cell_index = cur_cell_index;
+				cell->sample_start = (unsigned int)i;
+				cell->sample = SAMPLE_INDEX_INVALID;
+				BLI_ghash_insert(gen->cell_table, &cell->cell_index, cell);
+			}
+		}
+	}
+	
+#if 0
+	for (unsigned int i = 0; i < gen->num_uniform_samples; ++i) {
+		const IndexedMeshSample *s = &gen->uniform_samples[i];
+		printf("%d: (%.3f, %.3f, %.3f) | %d\n", i, s->co[0], s->co[1], s->co[2], (int)s->cell_hash);
+	}
+#endif
+}
+
+static void generator_poissondisk_unbind(MSurfaceSampleGenerator_PoissonDisk *gen)
+{
 	if (gen->cell_table) {
 		BLI_ghash_free(gen->cell_table, NULL, MEM_freeN);
 	}
@@ -717,8 +932,6 @@ static void generator_poissondisk_free(MSurfaceSampleGenerator_PoissonDisk *gen)
 	if (gen->uniform_samples) {
 		MEM_freeN(gen->uniform_samples);
 	}
-	
-	MEM_freeN(gen);
 }
 
 static void* generator_poissondisk_thread_context_create(const MSurfaceSampleGenerator_PoissonDisk *gen, int UNUSED(start))
@@ -733,14 +946,6 @@ static void generator_poissondisk_thread_context_free(const MSurfaceSampleGenera
 {
 	MEM_freeN(thread_ctx);
 }
-
-typedef struct MeshSampleCell {
-	unsigned int cell_index;
-	unsigned int sample_start;
-	unsigned int sample;
-} MeshSampleCell;
-
-#define SAMPLE_INDEX_INVALID 0xFFFFFFFF
 
 static bool generator_poissondisk_make_sample(const MSurfaceSampleGenerator_PoissonDisk *gen, void *thread_ctx, MeshSample *sample)
 {
@@ -828,147 +1033,28 @@ static bool generator_poissondisk_make_sample(const MSurfaceSampleGenerator_Pois
 	return false;
 }
 
-int BKE_mesh_sample_poissondisk_max_samples(float mindist, float area, int max_samples)
-{
-	const double circle_area = M_PI * mindist*mindist;
-	const double usable_area = area * MAX_CIRCLE_PACKING;
-	if (circle_area * (double)max_samples < usable_area) {
-		return max_samples;
-	}
-	
-	return (int)(usable_area / circle_area);
-}
-
-static void generator_poissondisk_uniform_sample_eval(void *userdata, const int iter)
-{
-	void *(*ptrs)[3] = userdata;
-	MSurfaceSampleGenerator_PoissonDisk *gen = (*ptrs)[0];
-	const MeshSample *samples = (*ptrs)[1];
-	DerivedMesh *dm = (*ptrs)[2];
-	
-	IndexedMeshSample *isample = &gen->uniform_samples[iter];
-	const MeshSample *sample = &samples[iter];
-	
-	memcpy(isample->orig_verts, sample->orig_verts, sizeof(isample->orig_verts));
-	memcpy(isample->orig_weights, sample->orig_weights, sizeof(isample->orig_weights));
-	float nor[3], tang[3];
-	BKE_mesh_sample_eval(dm, sample, isample->co, nor, tang);
-	
-	float gridco[3];
-	mul_v3_v3fl(gridco, isample->co, gen->grid_scale);
-	int c[3];
-	c[0] = (int)floorf(gridco[0]) - gen->grid_offset[0];
-	c[1] = (int)floorf(gridco[1]) - gen->grid_offset[1];
-	c[2] = (int)floorf(gridco[2]) - gen->grid_offset[2];
-	isample->cell_index = (unsigned int)(c[0] + (c[1] + c[2] * gen->grid_size[1]) * gen->grid_size[0]);
-}
-
-static int cmp_indexed_mesh_sample(const void *a, const void *b)
-{
-	return (int)((const IndexedMeshSample *)a)->cell_index - (int)((const IndexedMeshSample *)b)->cell_index;
-}
-
-static unsigned int mesh_sample_cell_hash(const void *key)
-{
-	return *(const unsigned int *)key;
-	//return ((const MeshSampleCell *)key)->cell_index;
-}
-
-static bool mesh_sample_cell_cmp(const void *a, const void *b)
-{
-	return *(const unsigned int *)a != *(const unsigned int *)b;
-	//return ((const MeshSampleCell *)a)->cell_index != ((const MeshSampleCell *)b)->cell_index;
-}
-
-MeshSampleGenerator *BKE_mesh_sample_gen_surface_poissondisk_ex(DerivedMesh *dm, unsigned int seed, float mindist,
-                                                                int num_uniform_samples, float *tri_weights)
+MeshSampleGenerator *BKE_mesh_sample_gen_surface_poissondisk(unsigned int seed, float mindist, unsigned int max_samples,
+                                                             MeshSampleVertexWeightFp vertex_weight_cb, void *userdata)
 {
 	MSurfaceSampleGenerator_PoissonDisk *gen;
 	
 	gen = MEM_callocN(sizeof(MSurfaceSampleGenerator_PoissonDisk), "MSurfaceSampleGenerator_PoissonDisk");
 	sample_generator_init(&gen->base,
 	                      (GeneratorFreeFp)generator_poissondisk_free,
+	                      (GeneratorBindFp)generator_poissondisk_bind,
+	                      (GeneratorUnbindFp) generator_poissondisk_unbind,
 	                      (GeneratorThreadContextCreateFp)generator_poissondisk_thread_context_create,
 	                      (GeneratorThreadContextFreeFp)generator_poissondisk_thread_context_free,
-	                      (GeneratorMakeSampleFp)generator_poissondisk_make_sample);
+	                      (GeneratorMakeSampleFp)generator_poissondisk_make_sample,
+	                      (GeneratorGetMaxSamplesFp)generator_poissondisk_get_max_samples);
 	
-	// Determine cell size
-	{
-		gen->mindist_squared = mindist * mindist;
-		gen->cellsize = mindist / SQRT_3;
-		gen->grid_scale = SQRT_3 / mindist;
-		float min[3], max[3];
-		dm->getMinMax(dm, min, max);
-		mul_v3_fl(min, gen->grid_scale);
-		mul_v3_fl(max, gen->grid_scale);
-		gen->grid_offset[0] = (int)floorf(min[0]);
-		gen->grid_offset[1] = (int)floorf(min[1]);
-		gen->grid_offset[2] = (int)floorf(min[2]);
-		gen->grid_size[0] = (int)floorf(max[0]) - gen->grid_offset[0];
-		gen->grid_size[1] = (int)floorf(max[1]) - gen->grid_offset[1];
-		gen->grid_size[2] = (int)floorf(max[2]) - gen->grid_offset[2];
-	}
-	
-	// Generate initial uniform random point set
-	if (num_uniform_samples >= 0) {
-		MeshSampleGenerator *uniform_gen = BKE_mesh_sample_gen_surface_random_ex(dm, seed, tri_weights);
-		
-		gen->uniform_samples = MEM_mallocN(sizeof(IndexedMeshSample) * (unsigned int)num_uniform_samples, "poisson disk uniform samples");
-		gen->num_uniform_samples = num_uniform_samples;
-		
-		MeshSample *samples = MEM_mallocN(sizeof(MeshSample) * (unsigned int)num_uniform_samples, "poisson disk uniform samples");
-		BKE_mesh_sample_generate_batch(uniform_gen, samples, num_uniform_samples);
-		void *ptrs[3] = { gen, samples, dm };
-		BLI_task_parallel_range(0, num_uniform_samples, &ptrs, generator_poissondisk_uniform_sample_eval, true);
-		MEM_freeN(samples);
-		
-		BKE_mesh_sample_free_generator(uniform_gen);
-	}
-	
-	// Sort points by cell hash
-	{
-		qsort(gen->uniform_samples, (size_t)num_uniform_samples, sizeof(IndexedMeshSample), cmp_indexed_mesh_sample);
-	}
-	
-	// Build a hash table for indexing cells
-	{
-		gen->cell_table = BLI_ghash_new(mesh_sample_cell_hash, mesh_sample_cell_cmp, "MeshSampleCell hash table");
-		unsigned int cur_cell_index = 0xFFFFFFFF;
-		const IndexedMeshSample *sample = gen->uniform_samples;
-		for (int i = 0; i < num_uniform_samples; ++i, ++sample) {
-			if (sample->cell_index != cur_cell_index) {
-				cur_cell_index = sample->cell_index;
-				
-				MeshSampleCell *cell = MEM_mallocN(sizeof(*cell), "MeshSampleCell");
-				cell->cell_index = cur_cell_index;
-				cell->sample_start = (unsigned int)i;
-				cell->sample = SAMPLE_INDEX_INVALID;
-				BLI_ghash_insert(gen->cell_table, &cell->cell_index, cell);
-			}
-		}
-	}
-	
-#if 0
-	for (int i = 0; i < num_uniform_samples; ++i) {
-		const IndexedMeshSample *s = &gen->uniform_samples[i];
-		printf("%d: (%.3f, %.3f, %.3f) | %d\n", i, s->co[0], s->co[1], s->co[2], (int)s->cell_hash);
-	}
-#endif
+	gen->uniform_gen = BKE_mesh_sample_gen_surface_random(seed, true, vertex_weight_cb, userdata);
+	gen->max_samples = max_samples;
+	gen->mindist_squared = mindist * mindist;
+	gen->cellsize = mindist / SQRT_3;
+	gen->grid_scale = SQRT_3 / mindist;
 	
 	return &gen->base;
-}
-
-MeshSampleGenerator *BKE_mesh_sample_gen_surface_poissondisk(DerivedMesh *dm, unsigned int seed, float mindist, int max_samples,
-                                                             MeshSampleVertexWeightFp vertex_weight_cb, void *userdata)
-{
-	static const int uniform_sample_ratio = 10;
-	
-	float area;
-	float *tri_weights = BKE_mesh_sample_calc_triangle_weights(dm, vertex_weight_cb, userdata, &area);
-	
-	int max_pd_samples = BKE_mesh_sample_poissondisk_max_samples(mindist, area, max_samples);
-	int num_uniform_samples = min_ii(max_pd_samples * uniform_sample_ratio, max_samples);
-	return BKE_mesh_sample_gen_surface_poissondisk_ex(dm, seed, mindist, num_uniform_samples, tri_weights);
 }
 
 /* ------------------------------------------------------------------------- */
@@ -976,11 +1062,12 @@ MeshSampleGenerator *BKE_mesh_sample_gen_surface_poissondisk(DerivedMesh *dm, un
 typedef struct MVolumeSampleGenerator_Random {
 	MeshSampleGenerator base;
 	
-	DerivedMesh *dm;
-	BVHTreeFromMesh bvhdata;
 	unsigned int seed;
-	float min[3], max[3], extent[3], volume;
 	float density;
+	
+	/* bind data */
+	BVHTreeFromMesh bvhdata;
+	float min[3], max[3], extent[3], volume;
 	int max_samples_per_ray;
 } MVolumeSampleGenerator_Random;
 
@@ -998,9 +1085,32 @@ typedef struct MVolumeSampleGenerator_Random_ThreadContext {
 
 static void generator_volume_random_free(MVolumeSampleGenerator_Random *gen)
 {
-	free_bvhtree_from_mesh(&gen->bvhdata);
-	
 	MEM_freeN(gen);
+}
+
+static void generator_volume_random_bind(MVolumeSampleGenerator_Random *gen)
+{
+	DerivedMesh *dm = gen->base.dm;
+	
+	memset(&gen->bvhdata, 0, sizeof(gen->bvhdata));
+	
+	DM_ensure_tessface(dm);
+	
+	if (dm->getNumTessFaces(dm) == 0)
+		return;
+	
+	bvhtree_from_mesh_faces(&gen->bvhdata, dm, 0.0f, 4, 6);
+	
+	INIT_MINMAX(gen->min, gen->max);
+	dm->getMinMax(dm, gen->min, gen->max);
+	sub_v3_v3v3(gen->extent, gen->max, gen->min);
+	gen->volume = gen->extent[0] * gen->extent[1] * gen->extent[2];
+	gen->max_samples_per_ray = max_ii(1, (int)powf(gen->volume, 1.0f/3.0f)) >> 1;
+}
+
+static void generator_volume_random_unbind(MVolumeSampleGenerator_Random *gen)
+{
+	free_bvhtree_from_mesh(&gen->bvhdata);
 }
 
 BLI_INLINE unsigned int hibit(unsigned int n) {
@@ -1181,38 +1291,22 @@ static bool generator_volume_random_make_sample(const MVolumeSampleGenerator_Ran
 	return false;
 }
 
-MeshSampleGenerator *BKE_mesh_sample_gen_volume_random_bbray(DerivedMesh *dm, unsigned int seed, float density)
+MeshSampleGenerator *BKE_mesh_sample_gen_volume_random_bbray(unsigned int seed, float density)
 {
 	MVolumeSampleGenerator_Random *gen;
-	BVHTreeFromMesh bvhdata;
 	
 	gen = MEM_callocN(sizeof(MVolumeSampleGenerator_Random), "MVolumeSampleGenerator_Random");
 	sample_generator_init(&gen->base,
 	                      (GeneratorFreeFp)generator_volume_random_free,
+	                      (GeneratorBindFp)generator_volume_random_bind,
+	                      (GeneratorUnbindFp) generator_volume_random_unbind,
 	                      (GeneratorThreadContextCreateFp)generator_volume_random_thread_context_create,
 	                      (GeneratorThreadContextFreeFp)generator_volume_random_thread_context_free,
-	                      (GeneratorMakeSampleFp)generator_volume_random_make_sample);
+	                      (GeneratorMakeSampleFp)generator_volume_random_make_sample,
+	                      NULL);
 	
-	DM_ensure_tessface(dm);
-	
-	if (dm->getNumTessFaces(dm) == 0)
-		return NULL;
-	
-	memset(&bvhdata, 0, sizeof(BVHTreeFromMesh));
-	bvhtree_from_mesh_faces(&bvhdata, dm, 0.0f, 4, 6);
-	if (!bvhdata.tree)
-		return NULL;
-	
-	gen->dm = dm;
-	memcpy(&gen->bvhdata, &bvhdata, sizeof(gen->bvhdata));
 	gen->seed = seed;
-	
-	INIT_MINMAX(gen->min, gen->max);
-	dm->getMinMax(dm, gen->min, gen->max);
-	sub_v3_v3v3(gen->extent, gen->max, gen->min);
-	gen->volume = gen->extent[0] * gen->extent[1] * gen->extent[2];
 	gen->density = density;
-	gen->max_samples_per_ray = max_ii(1, (int)powf(gen->volume, 1.0f/3.0f)) >> 1;
 	
 	return &gen->base;
 }
@@ -1227,7 +1321,40 @@ void BKE_mesh_sample_free_generator(MeshSampleGenerator *gen)
 		}
 	}
 	
+	BKE_mesh_sample_generator_unbind(gen);
+	
 	gen->free(gen);
+}
+
+
+/* ==== Sampling ==== */
+
+void BKE_mesh_sample_generator_bind(MeshSampleGenerator *gen, DerivedMesh *dm)
+{
+	BLI_assert(gen->dm == NULL && "Generator already bound");
+	
+	gen->dm = dm;
+	if (gen->bind) {
+		gen->bind(gen);
+	}
+}
+
+void BKE_mesh_sample_generator_unbind(MeshSampleGenerator *gen)
+{
+	if (gen->dm) {
+		if (gen->unbind) {
+			gen->unbind(gen);
+		}
+		gen->dm = NULL;
+	}
+}
+
+unsigned int BKE_mesh_sample_gen_get_max_samples(const MeshSampleGenerator *gen)
+{
+	if (gen->get_max_samples) {
+		return gen->get_max_samples(gen);
+	}
+	return 0;
 }
 
 bool BKE_mesh_sample_generate(MeshSampleGenerator *gen, struct MeshSample *sample)

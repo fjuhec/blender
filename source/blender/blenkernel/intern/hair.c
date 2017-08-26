@@ -125,7 +125,8 @@ void BKE_hair_follicles_generate(HairPattern *hair, DerivedMesh *scalp, int coun
 		return;
 	}
 	
-	MeshSampleGenerator *gen = BKE_mesh_sample_gen_surface_random(scalp, seed, NULL, NULL);
+	MeshSampleGenerator *gen = BKE_mesh_sample_gen_surface_random(seed, true, NULL, NULL);
+	BKE_mesh_sample_generator_bind(gen, scalp);
 	unsigned int i;
 	
 	HairFollicle *foll = hair->follicles;
@@ -320,7 +321,8 @@ static void get_strand_roots_normals(const HairDrawDataInterface* hairdata_, str
 	const HairGroupDrawDataInterface *hairdata = (HairGroupDrawDataInterface *)hairdata_;
 	DerivedMesh *scalp = hairdata->base.scalp;
 	
-	MeshSampleGenerator *gen = BKE_mesh_sample_gen_surface_vertices(scalp);
+	MeshSampleGenerator *gen = BKE_mesh_sample_gen_surface_vertices();
+	BKE_mesh_sample_generator_bind(gen, scalp);
 	
 	int i = 0;
 	for (; i < hairdata->numstrands; ++i)
@@ -343,7 +345,8 @@ static void get_strand_vertices_normals(const HairDrawDataInterface* hairdata_, 
 	const HairGroupDrawDataInterface *hairdata = (HairGroupDrawDataInterface *)hairdata_;
 	DerivedMesh *scalp = hairdata->base.scalp;
 	
-	MeshSampleGenerator *gen = BKE_mesh_sample_gen_surface_vertices(scalp);
+	MeshSampleGenerator *gen = BKE_mesh_sample_gen_surface_vertices();
+	BKE_mesh_sample_generator_bind(gen, scalp);
 	
 	int i = 0;
 	for (; i < hairdata->numstrands; ++i)
