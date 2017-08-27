@@ -65,7 +65,9 @@ def _build_packagelist() -> dict: # {{{
 def list_packages():
     """Return same dict as _build_packagelist, but only re-build it when tag_reindex == True"""
     global packages
+    global tag_reindex
     if tag_reindex:
         packages = _build_packagelist()
+        tag_reindex = False
 
     return packages
