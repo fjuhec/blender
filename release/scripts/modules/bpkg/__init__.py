@@ -12,13 +12,18 @@ import logging
 tag_reindex = True
 packages = {}
 
+def get_repo_storage_path() -> Path:
+    """Return Path to the directory in which downloaded repository indices are
+    stored"""
+    import bpy
+    return Path(bpy.utils.user_resource('CONFIG', 'repositories'))
+
 def get_repositories() -> list:
     """
     Get list of downloaded repositories and update wm.package_repositories
     """
     log = logging.getLogger(__name__ + ".get_repositories")
-    import bpy
-    storage_path = Path(bpy.utils.user_resource('CONFIG', 'repositories'))
+    storage_path = get_repo_storage_path()
     repos = utils.load_repositories(storage_path)
     return repos
 
