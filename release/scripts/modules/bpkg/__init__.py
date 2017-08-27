@@ -9,8 +9,8 @@ from pathlib import Path
 from collections import OrderedDict
 import logging
 
-tag_reindex = True
-packages = {}
+_tag_reindex = True
+_packages = {}
 
 def get_repo_storage_path() -> Path:
     """Return Path to the directory in which downloaded repository indices are
@@ -27,21 +27,22 @@ def get_repositories() -> list:
     repos = utils.load_repositories(storage_path)
     return repos
 
+def get_installed_packages(refresh=False) -> list:
+    """Get list of packages installed on disk"""
+    import addon_utils
+    installed_pkgs = []
+    #TODO: just use addon_utils for now
+    for mod in addon_utils.modules(refresh=refresh):
+        pkg = types.Package.from_module(mod)
+        pkg.installed = True
+        installed_pkgs.append(pkg)
+    return installed_pkgs
+
 def _build_packagelist() -> dict: # {{{
     """Return a dict of ConsolidatedPackages from known repositories and
     installed packages, keyed by package name"""
 
     log = logging.getLogger(__name__ + "._build_packagelist")
-
-    def get_installed_packages(refresh=False) -> list:
-        """Get list of packages installed on disk"""
-        import addon_utils
-        installed_pkgs = []
-        for mod in addon_utils.modules(refresh=refresh):
-            pkg = types.Package.from_module(mod)
-            pkg.installed = True
-            installed_pkgs.append(pkg)
-        return installed_pkgs
 
     masterlist = {}
     installed_packages = get_installed_packages(refresh=True)
@@ -66,13 +67,18 @@ def _build_packagelist() -> dict: # {{{
     return masterlist
 # }}}
 
+def tag_reindex():
+    """Set flag for rebuilding package list"""
+    global _tag_reindex
+    _tag_reindex = True
 
 def list_packages():
     """Return same dict as _build_packagelist, but only re-build it when tag_reindex == True"""
-    global packages
-    global tag_reindex
-    if tag_reindex:
-        packages = _build_packagelist()
-        tag_reindex = False
+    global _packages
+    global _tag_reindex
+    if _tag_reindex:
+        _packages = _build_packagelist()
+        print("rebuilding")
+        _tag_reindex = False
 
-    return packages
+    return _packages

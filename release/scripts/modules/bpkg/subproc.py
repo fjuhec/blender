@@ -40,13 +40,20 @@ def uninstall_package(pipe_to_blender, package: Package, install_path: Path):
     """Deletes the given package's files from the install directory"""
     #TODO: move package to cache and present an "undo" button to user, to give nicer UX on misclicks
 
+    log = logging.getLogger(__name__ + ".uninstall_package")
+
     for pkgfile in [install_path / Path(p) for p in package.files]:
         if not pkgfile.exists():
             pipe_to_blender.send(messages.UninstallError("Could not find file owned by package: '%s'. Refusing to uninstall." % pkgfile))
             return None
 
-    for pkgfile in [install_path / Path(p) for p in package.files]:
-        utils.rm(pkgfile)
+    try:
+        for pkgfile in [install_path / Path(p) for p in package.files]:
+            utils.rm(pkgfile)
+    except Exception as err:
+        pipe_to_blender.send(messages.UninstallError(err))
+        log.exception(err)
+        return
 
     pipe_to_blender.send(messages.Success())
 

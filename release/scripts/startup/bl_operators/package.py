@@ -194,7 +194,7 @@ else:
                 messages.Aborted: self._subproc_aborted,
             }
 
-            package = bpkg.packages[self.package_name].get_latest_version()
+            package = bpkg.list_packages()[self.package_name].get_latest_version()
 
             import pathlib
 
@@ -221,6 +221,8 @@ else:
 
         def _subproc_success(self, success: messages.Success):
             self.report({'INFO'}, 'Package installed successfully')
+            bpkg.tag_reindex()
+            bpy.context.area.tag_redraw()
             self.quit()
 
         def _subproc_aborted(self, aborted: messages.Aborted):
@@ -278,7 +280,8 @@ else:
 
         def _subproc_success(self, success: messages.Success):
             self.report({'INFO'}, 'Package uninstalled successfully')
-            bpy.ops.package.refresh()
+            bpy.context.area.tag_redraw()
+            bpkg.tag_reindex()
             self.quit()
 
         def report_process_died(self):
@@ -496,7 +499,7 @@ else:
 
         def execute(self, context):
             import addon_utils
-            metapkg = bpkg.packages[self.package_name]
+            metapkg = bpkg.list_packages()[self.package_name]
 
 
             if not metapkg.installed:
@@ -535,7 +538,7 @@ else:
                 )
 
         def execute(self, context):
-            package = bpkg.packages[self.package_name].get_display_version()
+            package = bpkg.list_packages()[self.package_name].get_display_version()
 
             if not package.module_name:
                 self.log.error("Can't disable package without a module name")
@@ -543,7 +546,7 @@ else:
 
             ret = bpy.ops.wm.addon_disable(package.module_name)
             if ret == {'FINISHED'}:
-                bpkg.packages[self.package_name].enabled = False
+                bpkg.list_packages()[self.package_name].enabled = False
             return ret# }}}
 
 classes = (

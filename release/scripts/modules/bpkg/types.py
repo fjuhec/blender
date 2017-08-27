@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 from . import exceptions
 from . import utils
+from . import actions
 
 class Package:
     """
@@ -189,7 +190,7 @@ class Package:
         if not self.url:
             raise ValueError("Cannot download package without a URL")
         
-        return utils.download(self.url, dest, progress_callback)
+        return actions.download(self.url, dest, progress_callback)
 
     def install(self, dest_dir: Path, cache_dir: Path, progress_callback=None):
         """Downloads package to `cache_dir`, then extracts/moves package to `dest_dir`"""
@@ -202,8 +203,8 @@ class Package:
             log.debug('Download returned None, not going to install anything.')
             return
 
-        utils.install(downloaded, dest_dir)
-        # utils.rm(downloaded)
+        actions.install(downloaded, dest_dir)
+        utils.rm(downloaded)
 
     def __eq__(self, other):
         return self.name == other.name and self.version == other.version
