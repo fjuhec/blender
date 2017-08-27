@@ -4,48 +4,40 @@
 # )
 
 from . import utils
-from .types import (
-    Package,
-    ConsolidatedPackage,
-    Repository,
-    )
+from . import types
 from pathlib import Path
 from collections import OrderedDict
 import logging
-import bpy
 
+tag_reindex = True
 packages = {}
-
-def get_installed_packages(refresh=False) -> list:
-    """Get list of packages installed on disk"""
-    import addon_utils
-    installed_pkgs = []
-    for mod in addon_utils.modules(refresh=refresh):
-        pkg = Package.from_module(mod)
-        pkg.installed = True
-        installed_pkgs.append(pkg)
-    return installed_pkgs
-
-def get_repo_storage_path() -> Path:
-    return Path(bpy.utils.user_resource('CONFIG', 'repositories'))
 
 def get_repositories() -> list:
     """
     Get list of downloaded repositories and update wm.package_repositories
     """
     log = logging.getLogger(__name__ + ".get_repositories")
-    storage_path = get_repo_storage_path()
+    import bpy
+    storage_path = Path(bpy.utils.user_resource('CONFIG', 'repositories'))
     repos = utils.load_repositories(storage_path)
-    log.debug("repos: %s", repos)
-
     return repos
 
-
-def list_packages() -> OrderedDict: # {{{
-    """Make an OrderedDict of ConsolidatedPackages from known repositories +
+def _build_packagelist() -> dict: # {{{
+    """Return a dict of ConsolidatedPackages from known repositories and
     installed packages, keyed by package name"""
 
-    # log = logging.getLogger(__name__ + ".build_composite_packagelist")
+    log = logging.getLogger(__name__ + "._build_packagelist")
+
+    def get_installed_packages(refresh=False) -> list:
+        """Get list of packages installed on disk"""
+        import addon_utils
+        installed_pkgs = []
+        for mod in addon_utils.modules(refresh=refresh):
+            pkg = types.Package.from_module(mod)
+            pkg.installed = True
+            installed_pkgs.append(pkg)
+        return installed_pkgs
+
     masterlist = {}
     installed_packages = get_installed_packages(refresh=True)
     known_repositories = get_repositories()
@@ -58,14 +50,22 @@ def list_packages() -> OrderedDict: # {{{
             if pkg.name in masterlist:
                 masterlist[pkg.name].add_version(pkg)
             else:
-                masterlist[pkg.name] = ConsolidatedPackage(pkg)
+                masterlist[pkg.name] = types.ConsolidatedPackage(pkg)
 
     for pkg in installed_packages:
         if pkg.name in masterlist:
             masterlist[pkg.name].add_version(pkg)
         else:
-            masterlist[pkg.name] = ConsolidatedPackage(pkg)
+            masterlist[pkg.name] = types.ConsolidatedPackage(pkg)
 
-    # log.debug(masterlist[None].__dict__)
-    return OrderedDict(sorted(masterlist.items()))
+    return masterlist
 # }}}
+
+
+def list_packages():
+    """Return same dict as _build_packagelist, but only re-build it when tag_reindex == True"""
+    global packages
+    if tag_reindex:
+        packages = _build_packagelist()
+
+    return packages

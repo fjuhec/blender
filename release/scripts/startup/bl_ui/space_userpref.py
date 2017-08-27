@@ -1320,15 +1320,7 @@ class USERPREF_PT_packages(Panel):
     bl_region_type = 'WINDOW'
     bl_options = {'HIDE_HEADER'}
 
-    # log = logging.getLogger(__name__ + '.USERPREF_PT_packages')
-
-    all_packages = {}
-
-    displayed_packages = []
-    expanded_packages = []
-    preference_package = None
-
-    reindex = True
+    _started = False
 
     @classmethod
     def poll(cls, context):
@@ -1337,6 +1329,7 @@ class USERPREF_PT_packages(Panel):
 
     def draw(self, context):
         import bpkg
+        import bpkg.display
         from bpkg.types import (ConsolidatedPackage, Package)
         layout = self.layout
         wm = context.window_manager
@@ -1628,7 +1621,7 @@ class USERPREF_PT_packages(Panel):
 
             # }}}
 
-            is_expanded = (metapkg.name in self.expanded_packages)
+            is_expanded = (metapkg.name in bpkg.display.expanded_packages)
 
             pkgbox = layout.box()
             row = pkgbox.row(align=True)
@@ -1643,7 +1636,7 @@ class USERPREF_PT_packages(Panel):
             else:
                 collapsed(metapkg, row)# }}}
 
-            if pkg.installed and pkg.enabled and pkg.name == USERPREF_PT_packages.preference_package:
+            if pkg.installed and pkg.enabled and pkg.name == bpkg.display.preference_package:
                 draw_preferences(pkg, pkgbox)
 
 
@@ -1654,30 +1647,24 @@ class USERPREF_PT_packages(Panel):
             row.alignment='CENTER'
             row.scale_y = 10
 
-
-        if USERPREF_PT_packages.reindex:
-            bpkg.packages = bpkg.list_packages()
+        # HACK: set repository props here, probably shouldn't be in draw code
+        # don't know where it should be instead however
+        if not USERPREF_PT_packages._started:
+            USERPREF_PT_packages._started = True
             # load repositories from disk
-            repos = bpkg.get_repositories()
-            wm = bpy.context.window_manager
-            wm.package_repositories.clear()
-
             #TODO: store repository props in .blend so enabled/disabled state can be remembered
+            repos = bpkg.get_repositories()
+            wm.package_repositories.clear()
             for repo in repos:
                 repo_prop = wm.package_repositories.add()
                 repo_prop.name = repo.name
                 repo_prop.enabled = True  
                 repo_prop.url = repo.url
-            USERPREF_PT_packages.reindex = False
 
+        # TODO: read repositories and installed packages synchronously for now
+        packages = bpkg.list_packages()
 
-        # global _main_has_run
-        # if not _main_has_run:
-            # TODO: read repository and installed packages synchronously for now;
-            # can't run an operator from draw code to do async monitoring
-            # main()
-
-        if len(bpkg.packages) == 0:
+        if len(packages) == 0:
             center_message(pkgzone, "No packages found")
             return
 
@@ -1689,11 +1676,11 @@ class USERPREF_PT_packages(Panel):
                 'repository': set([repo.name for repo in wm.package_repositories if repo.enabled]),
                 'installstate': wm.package_state_filter,
                 }
-        USERPREF_PT_packages.displayed_packages = filter_packages(filters, bpkg.packages)
+        bpkg.display.displayed_packages = filter_packages(filters, packages)
 
-        for pkgname in USERPREF_PT_packages.displayed_packages:
+        for pkgname in bpkg.display.displayed_packages:
             row = pkgzone.row()
-            draw_package(bpkg.packages[pkgname], row)
+            draw_package(packages[pkgname], row)
 
 
 class USERPREF_PT_addons(Panel):

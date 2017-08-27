@@ -27,9 +27,11 @@ def download_and_install_package(pipe_to_blender, package: Package, install_path
     except exceptions.DownloadException as err:
         pipe_to_blender.send(messages.DownloadError(err))
         log.exception(err)
+        return
     except exceptions.InstallException as err:
         pipe_to_blender.send(messages.InstallError(err))
         log.exception(err)
+        return
 
     pipe_to_blender.send(messages.Success())
 
