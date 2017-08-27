@@ -1541,11 +1541,12 @@ class USERPREF_PT_packages(Panel):
 
                 metacol = layoutbox.column(align=True)
                 row1 = layout.row(align=True)
-                row1.operator("package.toggle_enabled",
-                              icon='CHECKBOX_HLT' if pkg.enabled else 'CHECKBOX_DEHLT',
-                              text="",
-                              emboss=False,
-                              ).package_name = metapkg.name
+                if metapkg.installed:
+                    row1.operator("package.toggle_enabled",
+                                  icon='CHECKBOX_HLT' if pkg.enabled else 'CHECKBOX_DEHLT',
+                                  text="",
+                                  emboss=False,
+                                  ).package_name = metapkg.name
                 row1.label(pkg.name)
 
                 if metapkg.installed:
