@@ -112,6 +112,9 @@ typedef struct tGPencilSort {
 /* Check if 'sketching sessions' are enabled */
 #define GPENCIL_SKETCH_SESSIONS_ON(scene) ((scene)->toolsettings->gpencil_flags & GP_TOOL_FLAG_PAINTSESSIONS_ON)
 
+/* Check if 'multiedit sessions' is enabled */
+#define GPENCIL_MULTIEDIT_SESSIONS_ON(gpd) ((gpd) && (gpd->flag & GP_DATA_STROKE_EDITMODE) && (gpd->flag & GP_DATA_STROKE_MULTIEDIT)) 
+
 /* ----------- Grease Pencil Tools/Context ------------- */
 
 /* Context-dependent */

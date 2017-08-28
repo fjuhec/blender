@@ -397,6 +397,8 @@ typedef enum eGPdata_Flag {
 	GP_DATA_STROKE_WEIGHTMODE = (1 << 14),
 	/* keep stroke thickness unchanged when zoom change */
 	GP_DATA_STROKE_KEEPTHICKNESS = (1 << 15),
+	/* Allow edit several frames at the same time */
+	GP_DATA_STROKE_MULTIEDIT = (1 << 16),
 } eGPdata_Flag;
 
 #endif /*  __DNA_GPENCIL_TYPES_H__ */
