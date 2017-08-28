@@ -1366,23 +1366,22 @@ class USERPREF_PT_packages(Panel):
             """Returns filtered and sorted list of names of packages which match filters"""
 
             #TODO: using lower() for case-insensitive comparison doesn't work for some languages
-            def match_contains(blinfo) -> bool:
-                if blinfo['name'].lower().__contains__(filters['search'].lower()):
+            def match_contains(pkg: Package) -> bool:
+                if pkg.name.lower().__contains__(filters['search'].lower()):
                     return True
                 return False
 
-            def match_startswith(blinfo) -> bool:
-                if blinfo['name'].lower().startswith(filters['search'].lower()):
+            def match_startswith(pkg: Package) -> bool:
+                if pkg.name.lower().startswith(filters['search'].lower()):
                     return True
                 return False
 
-            def match_support(blinfo) -> bool:
-                if 'support' in blinfo:
-                    if set((blinfo['support'],)).issubset(filters['support']):
-                        return True
-                else:
-                    if {'COMMUNITY'}.issubset(filters['support']):
-                        return True
+            def match_support(pkg: Package) -> bool:
+                if set((pkg.support,)).issubset(filters['support']):
+                    return True
+                # else:
+                #     if {'COMMUNITY'}.issubset(filters['support']):
+                #         return True
                 return False
 
             def match_installstate(metapkg: ConsolidatedPackage) -> bool:
@@ -1406,12 +1405,12 @@ class USERPREF_PT_packages(Panel):
                         return True
                 return False
 
-            def match_category(blinfo) -> bool:
+            def match_category(pkg: Package) -> bool:
                 if filters['category'].lower() == 'all':
                     return True
-                if 'category' not in blinfo:
+                if not pkg.category:
                     return False
-                if blinfo['category'].lower() == filters['category'].lower():
+                if pkg.category.lower() == filters['category'].lower():
                     return True
                 return False
 
@@ -1421,18 +1420,18 @@ class USERPREF_PT_packages(Panel):
             startswith = []
 
             for pkgname, metapkg in packages.items():
-                blinfo = metapkg.versions[0].bl_info
+                pkg = metapkg.get_display_version()
                 if match_repositories(metapkg)\
-                and match_category(blinfo)\
-                and match_support(blinfo)\
-                and match_installstate(metapkg):
+                and match_category(pkg)\
+                and match_support(pkg)\
+                and match_installstate(pkg):
                     if len(filters['search']) == 0:
                         startswith.append(pkgname)
                         continue
-                    if match_startswith(blinfo):
+                    if match_startswith(pkg):
                         startswith.append(pkgname)
                         continue
-                    if match_contains(blinfo):
+                    if match_contains(pkg):
                         contains.append(pkgname)
                         continue
 
@@ -1668,6 +1667,14 @@ class USERPREF_PT_packages(Panel):
         if len(packages) == 0:
             center_message(pkgzone, "No packages found")
             return
+
+        pkg_errors = bpkg.display.pkg_errors
+        if len(pkg_errors) > 0:
+            errbox = pkgzone.box()
+            for err in pkg_errors:
+                row = errbox.row()
+                row.label(text=err, icon='ERROR')
+
 
         wm = bpy.context.window_manager
         filters = {

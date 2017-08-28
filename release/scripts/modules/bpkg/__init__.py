@@ -5,6 +5,8 @@
 
 from . import utils
 from . import types
+from . import display
+from . import exceptions
 from pathlib import Path
 from collections import OrderedDict
 import logging
@@ -29,13 +31,19 @@ def get_repositories() -> list:
 
 def get_installed_packages(refresh=False) -> list:
     """Get list of packages installed on disk"""
+    log = logging.getLogger(__name__ + ".get_installed_packages")
     import addon_utils
     installed_pkgs = []
     #TODO: just use addon_utils for now
     for mod in addon_utils.modules(refresh=refresh):
-        pkg = types.Package.from_module(mod)
-        pkg.installed = True
-        installed_pkgs.append(pkg)
+        try:
+            pkg = types.Package.from_module(mod)
+        except exceptions.PackageException as err:
+            msg = "Error parsing package \"{}\" ({}): {}".format(mod.__name__, mod.__file__, err)
+            display.pkg_errors.append(msg)
+        else:
+            pkg.installed = True
+            installed_pkgs.append(pkg)
     return installed_pkgs
 
 def _build_packagelist() -> dict: # {{{
@@ -45,6 +53,7 @@ def _build_packagelist() -> dict: # {{{
     log = logging.getLogger(__name__ + "._build_packagelist")
 
     masterlist = {}
+    display.pkg_errors.clear()
     installed_packages = get_installed_packages(refresh=True)
     known_repositories = get_repositories()
 

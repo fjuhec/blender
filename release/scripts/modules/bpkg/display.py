@@ -6,3 +6,14 @@ displayed_packages = []
 expanded_packages = []
 # name of package who's preferences are shown
 preference_package = None
+
+
+#errors
+pkg_errors = []
+# def pkg_error(msg: str):
+#     """Add a package related error message"""
+#     _pkg_errors.append(msg)
+#
+# def pkg_errors() -> str:
+#     """Return list of error messages related to packages"""
+#     return _pkg_errors
