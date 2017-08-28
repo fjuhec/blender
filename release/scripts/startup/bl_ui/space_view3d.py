@@ -156,7 +156,8 @@ class VIEW3D_HT_header(Header):
 
             # XXX: icon
             gpl = context.active_gpencil_layer
-            layout.prop(gpl, "use_onion_skinning", text="Onion Skins", icon='PARTICLE_PATH')
+            if gpl:
+                layout.prop(gpl, "use_onion_skinning", text="Onion Skins", icon='PARTICLE_PATH')
 
             if context.gpencil_data.use_stroke_edit_mode or context.gpencil_data.is_stroke_sculpt_mode:
                 row = layout.row(align=True)
