@@ -45,7 +45,7 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
 	endif()
 endif()
 
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.5)
 
 if(NOT EXECUTABLE_OUTPUT_PATH)
 	set(FIRST_RUN TRUE)
@@ -577,6 +577,12 @@ endif()
 
 if(NOT WITH_GAMEENGINE AND WITH_PLAYER)
 	message(FATAL_ERROR "WITH_PLAYER requires WITH_GAMEENGINE")
+endif()
+
+if(NOT WITH_CXX11)
+	if(WITH_AUDASPACE AND NOT WITH_SYSTEM_AUDASPACE)
+		message(FATAL_ERROR "WITH_AUDASPACE requires WITH_CXX11")
+	endif()
 endif()
 
 if(NOT WITH_AUDASPACE)

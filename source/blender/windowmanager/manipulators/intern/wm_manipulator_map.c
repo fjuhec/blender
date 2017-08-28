@@ -560,6 +560,14 @@ wmManipulator *wm_manipulatormap_highlight_find(
 	ListBase visible_3d_manipulators = {NULL};
 
 	for (wmManipulatorGroup *mgroup = mmap->groups.first; mgroup; mgroup = mgroup->next) {
+
+		/* If it were important we could initialize here,
+		 * but this only happens when events are handled before drawing,
+		 * just skip to keep code-path for initializing manipulators simple. */
+		if ((mgroup->init_flag & WM_MANIPULATORGROUP_INIT_SETUP) == 0) {
+			continue;
+		}
+
 		if (wm_manipulatorgroup_is_visible(mgroup, C)) {
 			if (mgroup->type->flag & WM_MANIPULATORGROUPTYPE_3D) {
 				if ((mmap->update_flag[WM_MANIPULATORMAP_DRAWSTEP_3D] & MANIPULATORMAP_IS_REFRESH_CALLBACK) &&
@@ -635,21 +643,23 @@ void wm_manipulatormaps_handled_modal_update(
 
 	/* regular update for running operator */
 	if (modal_running) {
-		if (mpr && (mpr->op_data.type != NULL) &&
-		    (mpr->op_data.type == handler->op->type))
-		{
-			if (mpr->custom_modal) {
-				mpr->custom_modal(C, mpr, event, 0);
-			}
-			else if (mpr->type->modal) {
-				mpr->type->modal(C, mpr, event, 0);
+		wmManipulatorOpElem *mpop = mpr ? WM_manipulator_operator_get(mpr, mpr->highlight_part) : NULL;
+		if (mpr && mpop && (mpop->type != NULL) && (mpop->type == handler->op->type)) {
+			wmManipulatorFnModal modal_fn = mpr->custom_modal ? mpr->custom_modal : mpr->type->modal;
+			if (modal_fn != NULL) {
+				int retval = modal_fn(C, mpr, event, 0);
+				/* The manipulator is tried to the operator, we can't choose when to exit. */
+				BLI_assert(retval & OPERATOR_RUNNING_MODAL);
+				UNUSED_VARS_NDEBUG(retval);
 			}
 		}
 	}
 	/* operator not running anymore */
 	else {
 		wm_manipulatormap_highlight_set(mmap, C, NULL, 0);
-		wm_manipulatormap_modal_set(mmap, C, event, NULL);
+		if (mpr) {
+			wm_manipulatormap_modal_set(mmap, C, mpr, NULL, false);
+		}
 	}
 
 	/* restore the area */
@@ -802,7 +812,7 @@ void wm_manipulatormap_highlight_set(
 	{
 		if (mmap->mmap_context.highlight) {
 			mmap->mmap_context.highlight->state &= ~WM_MANIPULATOR_STATE_HIGHLIGHT;
-			mmap->mmap_context.highlight->highlight_part = 0;
+			mmap->mmap_context.highlight->highlight_part = -1;
 		}
 
 		mmap->mmap_context.highlight = mpr;
@@ -836,25 +846,35 @@ wmManipulator *wm_manipulatormap_highlight_get(wmManipulatorMap *mmap)
 	return mmap->mmap_context.highlight;
 }
 
+/**
+ * Caller should call exit when (enable == False).
+ */
 void wm_manipulatormap_modal_set(
-        wmManipulatorMap *mmap, bContext *C, const wmEvent *event, wmManipulator *mpr)
+        wmManipulatorMap *mmap, bContext *C, wmManipulator *mpr, const wmEvent *event, bool enable)
 {
-	if (mpr && C) {
+	if (enable) {
+		BLI_assert(mmap->mmap_context.modal == NULL);
+
 		/* For now only grab cursor for 3D manipulators. */
 		bool grab_cursor = (mpr->parent_mgroup->type->flag & WM_MANIPULATORGROUPTYPE_3D) != 0;
+		int retval = OPERATOR_RUNNING_MODAL;
+
+		if (mpr->type->invoke &&
+		    (mpr->type->modal || mpr->custom_modal))
+		{
+			retval = mpr->type->invoke(C, mpr, event);
+		}
+
+		if ((retval & OPERATOR_RUNNING_MODAL) == 0) {
+			return;
+		}
 
 		mpr->state |= WM_MANIPULATOR_STATE_MODAL;
 		mmap->mmap_context.modal = mpr;
 
-		if (mpr->op_data.type) {
-			/* first activate the manipulator itself */
-			if (mpr->type->invoke &&
-			    (mpr->type->modal || mpr->custom_modal))
-			{
-				mpr->type->invoke(C, mpr, event);
-			}
-
-			WM_operator_name_call_ptr(C, mpr->op_data.type, WM_OP_INVOKE_DEFAULT, &mpr->op_data.ptr);
+		struct wmManipulatorOpElem *mpop = WM_manipulator_operator_get(mpr, mpr->highlight_part);
+		if (mpop && mpop->type) {
+			WM_operator_name_call_ptr(C, mpop->type, WM_OP_INVOKE_DEFAULT, &mpop->ptr);
 
 			/* we failed to hook the manipulator to the operator handler or operator was cancelled, return */
 			if (!mmap->mmap_context.modal) {
@@ -863,20 +883,13 @@ void wm_manipulatormap_modal_set(
 			}
 			return;
 		}
-		else {
-			if (mpr->type->invoke &&
-			    (mpr->type->modal || mpr->custom_modal))
-			{
-				mpr->type->invoke(C, mpr, event);
-			}
-		}
 
 		if (grab_cursor) {
 			WM_cursor_grab_enable(CTX_wm_window(C), true, true, NULL);
 		}
 	}
 	else {
-		mpr = mmap->mmap_context.modal;
+		BLI_assert(ELEM(mmap->mmap_context.modal, NULL, mpr));
 
 		/* deactivate, manipulator but first take care of some stuff */
 		if (mpr) {
@@ -1033,7 +1046,9 @@ void WM_manipulatorconfig_update(struct Main *bmain)
 				     wgt_ref = wgt_ref_next)
 				{
 					wgt_ref_next = wgt_ref->next;
-					WM_manipulatormaptype_group_unlink(NULL, bmain, mmap_type, wgt_ref->type);
+					if (wgt_ref->type->type_update_flag & WM_MANIPULATORMAPTYPE_UPDATE_REMOVE) {
+						WM_manipulatormaptype_group_unlink(NULL, bmain, mmap_type, wgt_ref->type);
+					}
 				}
 			}
 		}

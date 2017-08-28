@@ -167,7 +167,7 @@ BLI_INLINE void manipulator2d_origin_to_region(ARegion *ar, float *r_origin)
 /**
  * Custom handler for manipulator widgets
  */
-static void manipulator2d_modal(
+static int manipulator2d_modal(
         bContext *C, wmManipulator *widget, const wmEvent *UNUSED(event),
         eWM_ManipulatorTweak UNUSED(tweak_flag))
 {
@@ -179,6 +179,8 @@ static void manipulator2d_modal(
 	WM_manipulator_set_matrix_location(widget, origin);
 
 	ED_region_tag_redraw(ar);
+
+	return OPERATOR_RUNNING_MODAL;
 }
 
 void ED_widgetgroup_manipulator2d_setup(const bContext *UNUSED(C), wmManipulatorGroup *mgroup)
@@ -206,7 +208,7 @@ void ED_widgetgroup_manipulator2d_setup(const bContext *UNUSED(C), wmManipulator
 		WM_manipulator_set_color_highlight(axis, color_hi);
 
 		/* assign operator */
-		PointerRNA *ptr = WM_manipulator_set_operator(axis, ot_translate, NULL);
+		PointerRNA *ptr = WM_manipulator_operator_set(axis, 0, ot_translate, NULL);
 		int constraint[3] = {0.0f};
 		constraint[(axis_idx + 1) % 2] = 1;
 		if (RNA_struct_find_property(ptr, "constraint_axis"))

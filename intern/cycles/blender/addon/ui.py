@@ -101,6 +101,8 @@ def draw_samples_info(layout, context):
     # Calculate sample values
     if integrator == 'PATH':
         aa = cscene.samples
+        if cscene.use_square_samples:
+            aa = aa * aa
     else:
         aa = cscene.aa_samples
         d = cscene.diffuse_samples
@@ -111,9 +113,19 @@ def draw_samples_info(layout, context):
         sss = cscene.subsurface_samples
         vol = cscene.volume_samples
 
+        if cscene.use_square_samples:
+            aa = aa * aa
+            d = d * d
+            g = g * g
+            t = t * t
+            ao = ao * ao
+            ml = ml * ml
+            sss = sss * sss
+            vol = vol * vol
+
     # Draw interface
     # Do not draw for progressive, when Square Samples are disabled
-    if use_branched_path(context):
+    if use_branched_path(context) or (cscene.use_square_samples and integrator == 'PATH'):
         col = layout.column(align=True)
         col.scale_y = 0.6
         col.label("Total Samples:")
@@ -146,7 +158,7 @@ class CyclesRender_PT_sampling(CyclesButtonsPanel, Panel):
         row = layout.row()
         sub = row.row()
         sub.prop(cscene, "progressive", text="")
-        sub.label()
+        row.prop(cscene, "use_square_samples")
 
         split = layout.split()
 
@@ -385,6 +397,8 @@ class CyclesRender_PT_performance(CyclesButtonsPanel, Panel):
         sub.enabled = rd.threads_mode == 'FIXED'
         sub.prop(rd, "threads")
 
+        col.separator()
+
         sub = col.column(align=True)
         sub.label(text="Tiles:")
         sub.prop(cscene, "tile_order", text="")
@@ -394,20 +408,10 @@ class CyclesRender_PT_performance(CyclesButtonsPanel, Panel):
 
         sub.prop(cscene, "use_progressive_refine")
 
-        subsub = sub.column(align=True)
-        subsub.prop(rd, "use_save_buffers")
-
-        col = split.column(align=True)
-
-        col.label(text="Viewport:")
-        col.prop(cscene, "debug_bvh_type", text="")
-        col.separator()
-        col.prop(cscene, "preview_start_resolution")
-        col.prop(rd, "preview_pixel_size", text="")
-
-        col.separator()
+        col = split.column()
 
         col.label(text="Final Render:")
+        col.prop(rd, "use_save_buffers")
         col.prop(rd, "use_persistent_data", text="Persistent Images")
 
         col.separator()
@@ -419,6 +423,12 @@ class CyclesRender_PT_performance(CyclesButtonsPanel, Panel):
         row = col.row()
         row.active = not cscene.debug_use_spatial_splits
         row.prop(cscene, "debug_bvh_time_steps")
+
+        col = layout.column()
+        col.label(text="Viewport Resolution:")
+        split = col.split()
+        split.prop(rd, "preview_pixel_size", text="")
+        split.prop(cscene, "preview_start_resolution")
 
 
 class CyclesRender_PT_layer_options(CyclesButtonsPanel, Panel):
@@ -1563,10 +1573,14 @@ class CyclesRender_PT_debug(CyclesButtonsPanel, Panel):
         col.prop(cscene, "debug_use_qbvh")
         col.prop(cscene, "debug_use_cpu_split_kernel")
 
+        col.separator()
+
         col = layout.column()
         col.label('CUDA Flags:')
         col.prop(cscene, "debug_use_cuda_adaptive_compile")
         col.prop(cscene, "debug_use_cuda_split_kernel")
+
+        col.separator()
 
         col = layout.column()
         col.label('OpenCL Flags:')
@@ -1575,6 +1589,11 @@ class CyclesRender_PT_debug(CyclesButtonsPanel, Panel):
         col.prop(cscene, "debug_opencl_kernel_single_program", text="Single Program")
         col.prop(cscene, "debug_use_opencl_debug", text="Debug")
         col.prop(cscene, "debug_opencl_mem_limit")
+
+        col.separator()
+
+        col = layout.column()
+        col.prop(cscene, "debug_bvh_type")
 
 
 class CyclesParticle_PT_CurveSettings(CyclesButtonsPanel, Panel):

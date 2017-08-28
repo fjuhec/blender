@@ -66,11 +66,6 @@
  *
  * \{ */
 
-/* wmManipulatorGroup.flag */
-enum {
-	WM_MANIPULATORGROUP_INITIALIZED = (1 << 2), /* mgroup has been initialized */
-};
-
 /**
  * Create a new manipulator-group from \a wgt.
  */
@@ -98,7 +93,7 @@ void wm_manipulatorgroup_free(bContext *C, wmManipulatorGroup *mgroup)
 		wm_manipulatormap_highlight_set(mmap, C, NULL, 0);
 	}
 	if (mmap->mmap_context.modal && mmap->mmap_context.modal->parent_mgroup == mgroup) {
-		wm_manipulatormap_modal_set(mmap, C, NULL, NULL);
+		wm_manipulatormap_modal_set(mmap, C, mmap->mmap_context.modal, NULL, false);
 	}
 
 	for (wmManipulator *mpr = mgroup->manipulators.first, *mpr_next; mpr; mpr = mpr_next) {
@@ -151,7 +146,7 @@ wmManipulator *wm_manipulatorgroup_find_intersected_mainpulator(
 {
 	for (wmManipulator *mpr = mgroup->manipulators.first; mpr; mpr = mpr->next) {
 		if (mpr->type->test_select && (mpr->flag & WM_MANIPULATOR_HIDDEN) == 0) {
-			if ((*r_part = mpr->type->test_select(C, mpr, event))) {
+			if ((*r_part = mpr->type->test_select(C, mpr, event)) != -1) {
 				return mpr;
 			}
 		}
@@ -179,7 +174,7 @@ void wm_manipulatorgroup_intersectable_manipulators_to_list(const wmManipulatorG
 void wm_manipulatorgroup_ensure_initialized(wmManipulatorGroup *mgroup, const bContext *C)
 {
 	/* prepare for first draw */
-	if (UNLIKELY((mgroup->init_flag & WM_MANIPULATORGROUP_INITIALIZED) == 0)) {
+	if (UNLIKELY((mgroup->init_flag & WM_MANIPULATORGROUP_INIT_SETUP) == 0)) {
 		mgroup->type->setup(C, mgroup);
 
 		/* Not ideal, initialize keymap here, needed for RNA runtime generated manipulators. */
@@ -190,7 +185,7 @@ void wm_manipulatorgroup_ensure_initialized(wmManipulatorGroup *mgroup, const bC
 			BLI_assert(wgt->keymap != NULL);
 		}
 
-		mgroup->init_flag |= WM_MANIPULATORGROUP_INITIALIZED;
+		mgroup->init_flag |= WM_MANIPULATORGROUP_INIT_SETUP;
 	}
 }
 
@@ -313,7 +308,7 @@ static void manipulator_tweak_finish(bContext *C, wmOperator *op, const bool can
 	if (mtweak->mpr_modal->type->exit) {
 		mtweak->mpr_modal->type->exit(C, mtweak->mpr_modal, cancel);
 	}
-	wm_manipulatormap_modal_set(mtweak->mmap, C, NULL, NULL);
+	wm_manipulatormap_modal_set(mtweak->mmap, C, mtweak->mpr_modal, NULL, false);
 	MEM_freeN(mtweak);
 }
 
@@ -359,15 +354,13 @@ static int manipulator_tweak_modal(bContext *C, wmOperator *op, const wmEvent *e
 	}
 
 	/* handle manipulator */
-	if (mpr->custom_modal) {
-		mpr->custom_modal(C, mpr, event, mtweak->flag);
-	}
-	else if (mpr->type->modal) {
-		mpr->type->modal(C, mpr, event, mtweak->flag);
-	}
+	wmManipulatorFnModal modal_fn = mpr->custom_modal ? mpr->custom_modal : mpr->type->modal;
+	int retval = modal_fn(C, mpr, event, mtweak->flag);
 
-	/* Ugly hack to send manipulator events */
-	((wmEvent *)event)->type = EVT_MANIPULATOR_UPDATE;
+	if ((retval & OPERATOR_RUNNING_MODAL) == 0) {
+		manipulator_tweak_finish(C, op, (retval & OPERATOR_CANCELLED) != 0);
+		return OPERATOR_FINISHED;
+	}
 
 	/* always return PASS_THROUGH so modal handlers
 	 * with manipulators attached can update */
@@ -388,16 +381,21 @@ static int manipulator_tweak_invoke(bContext *C, wmOperator *op, const wmEvent *
 
 
 	/* activate highlighted manipulator */
-	wm_manipulatormap_modal_set(mmap, C, event, mpr);
+	wm_manipulatormap_modal_set(mmap, C, mpr, event, true);
 
 	/* XXX temporary workaround for modal manipulator operator
 	 * conflicting with modal operator attached to manipulator */
-	if (mpr->op_data.type) {
-		if (mpr->op_data.type->modal) {
+	wmManipulatorOpElem *mpop = WM_manipulator_operator_get(mpr, mpr->highlight_part);
+	if (mpop && mpop->type) {
+		if (mpop->type->modal) {
 			return OPERATOR_FINISHED;
 		}
 	}
 
+	/* Couldn't start the manipulator. */
+	if ((mpr->state & WM_MANIPULATOR_STATE_MODAL) == 0) {
+		return OPERATOR_PASS_THROUGH;
+	}
 
 	ManipulatorTweakData *mtweak = MEM_mallocN(sizeof(ManipulatorTweakData), __func__);
 
@@ -683,7 +681,7 @@ void wm_manipulatorgrouptype_setup_keymap(
  *
  * \note In context of manipulator API these names are a bit misleading,
  * but for general use terms its OK.
- * `WM_manipulator_group_add` would be more correctly called:
+ * `WM_manipulator_group_type_add` would be more correctly called:
  * `WM_manipulatormaptype_grouptype_reference_link`
  * but for general purpose API this is too detailed & annoying.
  *
@@ -691,7 +689,7 @@ void wm_manipulatorgrouptype_setup_keymap(
  *
  * \{ */
 
-void WM_manipulator_group_add_ptr_ex(
+void WM_manipulator_group_type_add_ptr_ex(
         wmManipulatorGroupType *wgt,
         wmManipulatorMapType *mmap_type)
 {
@@ -700,62 +698,64 @@ void WM_manipulator_group_add_ptr_ex(
 	WM_manipulatorconfig_update_tag_init(mmap_type, wgt);
 }
 
-void WM_manipulator_group_add_ptr(
+void WM_manipulator_group_type_add_ptr(
         wmManipulatorGroupType *wgt)
 {
 	wmManipulatorMapType *mmap_type = WM_manipulatormaptype_ensure(&wgt->mmap_params);
-	WM_manipulator_group_add_ptr_ex(wgt, mmap_type);
+	WM_manipulator_group_type_add_ptr_ex(wgt, mmap_type);
 }
 
-void WM_manipulator_group_add(const char *idname)
+void WM_manipulator_group_type_add(const char *idname)
 {
 	wmManipulatorGroupType *wgt = WM_manipulatorgrouptype_find(idname, false);
 	BLI_assert(wgt != NULL);
-	WM_manipulator_group_add_ptr(wgt);
+	WM_manipulator_group_type_add_ptr(wgt);
 }
 
-void WM_manipulator_group_remove_ptr_ex(
+
+void WM_manipulator_group_type_remove_ptr_ex(
         struct Main *bmain, wmManipulatorGroupType *wgt,
         wmManipulatorMapType *mmap_type)
 {
 	WM_manipulatormaptype_group_unlink(NULL, bmain, mmap_type, wgt);
+	WM_manipulatorgrouptype_free_ptr(wgt);
 }
 
-void WM_manipulator_group_remove_ptr(
+void WM_manipulator_group_type_remove_ptr(
         struct Main *bmain, wmManipulatorGroupType *wgt)
 {
 	wmManipulatorMapType *mmap_type = WM_manipulatormaptype_ensure(&wgt->mmap_params);
-	WM_manipulator_group_remove_ptr_ex(bmain, wgt, mmap_type);
+	WM_manipulator_group_type_remove_ptr_ex(bmain, wgt, mmap_type);
 }
 
-void WM_manipulator_group_remove(struct Main *bmain, const char *idname)
+void WM_manipulator_group_type_remove(struct Main *bmain, const char *idname)
 {
 	wmManipulatorGroupType *wgt = WM_manipulatorgrouptype_find(idname, false);
 	BLI_assert(wgt != NULL);
-	WM_manipulator_group_remove_ptr(bmain, wgt);
+	WM_manipulator_group_type_remove_ptr(bmain, wgt);
 }
 
 /* delayed versions */
 
-void WM_manipulator_group_remove_ptr_delayed_ex(
+void WM_manipulator_group_type_remove_ptr_delayed_ex(
         wmManipulatorGroupType *wgt,
         wmManipulatorMapType *mmap_type)
 {
 	WM_manipulatorconfig_update_tag_remove(mmap_type, wgt);
 }
 
-void WM_manipulator_group_remove_ptr_delayed(
+void WM_manipulator_group_type_remove_ptr_delayed(
         wmManipulatorGroupType *wgt)
 {
 	wmManipulatorMapType *mmap_type = WM_manipulatormaptype_ensure(&wgt->mmap_params);
-	WM_manipulator_group_remove_ptr_delayed_ex(wgt, mmap_type);
+	WM_manipulator_group_type_remove_ptr_delayed_ex(wgt, mmap_type);
 }
 
-void WM_manipulator_group_remove_delayed(const char *idname)
+void WM_manipulator_group_type_remove_delayed(const char *idname)
 {
 	wmManipulatorGroupType *wgt = WM_manipulatorgrouptype_find(idname, false);
 	BLI_assert(wgt != NULL);
-	WM_manipulator_group_remove_ptr_delayed(wgt);
+	WM_manipulator_group_type_remove_ptr_delayed(wgt);
 }
 
 /** \} */

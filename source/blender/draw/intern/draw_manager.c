@@ -515,6 +515,11 @@ void DRW_texture_generate_mipmaps(GPUTexture *tex)
 	GPU_texture_unbind(tex);
 }
 
+void DRW_texture_update(GPUTexture *tex, const float *pixels)
+{
+	GPU_texture_update(tex, pixels);
+}
+
 void DRW_texture_free(GPUTexture *tex)
 {
 	GPU_texture_free(tex);
@@ -1840,10 +1845,11 @@ static void draw_geometry(DRWShadingGroup *shgroup, Gwn_Batch *geom, const float
 
 	if (ob_data != NULL) {
 		switch (GS(ob_data->name)) {
-			case OB_MESH:
+			case ID_ME:
 				BKE_mesh_texspace_get_reference((Mesh *)ob_data, NULL, &texcoloc, NULL, &texcosize);
-				/* TODO, curve, metaball? */
+				break;
 			default:
+				/* TODO, curve, metaball? */
 				break;
 		}
 	}

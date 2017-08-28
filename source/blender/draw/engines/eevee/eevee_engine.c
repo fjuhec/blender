@@ -138,7 +138,6 @@ static void EEVEE_cache_finish(void *vedata)
 static void EEVEE_draw_scene(void *vedata)
 {
 	EEVEE_PassList *psl = ((EEVEE_Data *)vedata)->psl;
-	EEVEE_StorageList *stl = ((EEVEE_Data *)vedata)->stl;
 	EEVEE_FramebufferList *fbl = ((EEVEE_Data *)vedata)->fbl;
 	EEVEE_SceneLayerData *sldata = EEVEE_scene_layer_data_get();
 
@@ -153,10 +152,11 @@ static void EEVEE_draw_scene(void *vedata)
 
 	/* XXX temp for denoising render. TODO plug number of samples here */
 	if (DRW_state_is_image_render()) {
-		rand += 1.0f / 8.0f;
+		rand += 1.0f / 16.0f;
 		rand = rand - floorf(rand);
+
 		/* Set jitter offset */
-		stl->effects->ao_offset = rand * stl->effects->ao_samples_inv;
+		EEVEE_update_util_texture(rand);
 	}
 
 	while (loop_ct--) {
@@ -297,11 +297,14 @@ static void EEVEE_scene_layer_settings_create(RenderEngine *UNUSED(engine), IDPr
 	BKE_collection_engine_property_add_float(props, "bokeh_max_size", 100.0f);
 	BKE_collection_engine_property_add_float(props, "bokeh_threshold", 1.0f);
 
+	float default_bloom_color[3] = {1.0f, 1.0f, 1.0f};
 	BKE_collection_engine_property_add_bool(props, "bloom_enable", false);
+	BKE_collection_engine_property_add_float_array(props, "bloom_color", default_bloom_color, 3);
 	BKE_collection_engine_property_add_float(props, "bloom_threshold", 0.8f);
 	BKE_collection_engine_property_add_float(props, "bloom_knee", 0.5f);
 	BKE_collection_engine_property_add_float(props, "bloom_intensity", 0.8f);
 	BKE_collection_engine_property_add_float(props, "bloom_radius", 6.5f);
+	BKE_collection_engine_property_add_float(props, "bloom_clamp", 1.0f);
 
 	BKE_collection_engine_property_add_bool(props, "motion_blur_enable", false);
 	BKE_collection_engine_property_add_int(props, "motion_blur_samples", 8);

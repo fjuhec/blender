@@ -1139,7 +1139,7 @@ static ManipulatorGroup *manipulatorgroup_init(wmManipulatorGroup *mgroup)
 /**
  * Custom handler for manipulator widgets
  */
-static void manipulator_modal(
+static int manipulator_modal(
         bContext *C, wmManipulator *widget, const wmEvent *UNUSED(event),
         eWM_ManipulatorTweak UNUSED(tweak_flag))
 {
@@ -1154,6 +1154,8 @@ static void manipulator_modal(
 	}
 
 	ED_region_tag_redraw(ar);
+
+	return OPERATOR_RUNNING_MODAL;
 }
 
 static void WIDGETGROUP_manipulator_setup(const bContext *UNUSED(C), wmManipulatorGroup *mgroup)
@@ -1230,7 +1232,7 @@ static void WIDGETGROUP_manipulator_setup(const bContext *UNUSED(C), wmManipulat
 				if (ot_store.translate == NULL) {
 					ot_store.translate = WM_operatortype_find("TRANSFORM_OT_translate", true);
 				}
-				ptr = WM_manipulator_set_operator(axis, ot_store.translate, NULL);
+				ptr = WM_manipulator_operator_set(axis, 0, ot_store.translate, NULL);
 				break;
 			case MAN_AXES_ROTATE:
 			{
@@ -1247,7 +1249,7 @@ static void WIDGETGROUP_manipulator_setup(const bContext *UNUSED(C), wmManipulat
 					}
 					ot_rotate = ot_store.rotate;
 				}
-				ptr = WM_manipulator_set_operator(axis, ot_rotate, NULL);
+				ptr = WM_manipulator_operator_set(axis, 0, ot_rotate, NULL);
 				break;
 			}
 			case MAN_AXES_SCALE:
@@ -1255,7 +1257,7 @@ static void WIDGETGROUP_manipulator_setup(const bContext *UNUSED(C), wmManipulat
 				if (ot_store.resize == NULL) {
 					ot_store.resize = WM_operatortype_find("TRANSFORM_OT_resize", true);
 				}
-				ptr = WM_manipulator_set_operator(axis, ot_store.resize, NULL);
+				ptr = WM_manipulator_operator_set(axis, 0, ot_store.resize, NULL);
 				break;
 			}
 		}

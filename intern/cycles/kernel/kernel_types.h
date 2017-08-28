@@ -242,10 +242,6 @@ CCL_NAMESPACE_BEGIN
 #  undef __DENOISING_FEATURES__
 #endif
 
-/* Random Numbers */
-
-typedef uint RNG;
-
 /* Shader Evaluation */
 
 typedef enum ShaderEvalType {
@@ -806,20 +802,6 @@ typedef ccl_addr_space struct ccl_align(16) ShaderClosure {
 	float data[10]; /* pad to 80 bytes */
 } ShaderClosure;
 
-/* Shader Context
- *
- * For OSL we recycle a fixed number of contexts for speed */
-
-typedef enum ShaderContext {
-	SHADER_CONTEXT_MAIN = 0,
-	SHADER_CONTEXT_INDIRECT = 1,
-	SHADER_CONTEXT_EMISSION = 2,
-	SHADER_CONTEXT_SHADOW = 3,
-	SHADER_CONTEXT_SSS = 4,
-	SHADER_CONTEXT_VOLUME = 5,
-	SHADER_CONTEXT_NUM = 6
-} ShaderContext;
-
 /* Shader Data
  *
  * Main shader state at a point on the surface or in a volume. All coordinates
@@ -882,7 +864,7 @@ enum ShaderDataFlag {
 	SD_VOLUME_MIS             = (1 << 23),
 	/* Use cubic interpolation for voxels. */
 	SD_VOLUME_CUBIC           = (1 << 24),
-	/* Has data connected to the displacement input. */
+	/* Has data connected to the displacement input or uses bump map. */
 	SD_HAS_BUMP               = (1 << 25),
 	/* Has true displacement. */
 	SD_HAS_DISPLACEMENT       = (1 << 26),
@@ -1023,6 +1005,7 @@ typedef struct PathState {
 	int flag;
 
 	/* random number generator state */
+	uint rng_hash;          /* per pixel hash */
 	int rng_offset;    		/* dimension offset */
 	int sample;        		/* path sample number */
 	int num_samples;		/* total number of times this path will be sampled */
@@ -1048,7 +1031,7 @@ typedef struct PathState {
 	/* volume rendering */
 #ifdef __VOLUME__
 	int volume_bounce;
-	RNG rng_congruential;
+	uint rng_congruential;
 	VolumeStack volume_stack[VOLUME_STACK_SIZE];
 #endif
 } PathState;

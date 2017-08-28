@@ -110,6 +110,7 @@ typedef struct EEVEE_PassList {
 	struct DRWPass *ssr_raytrace;
 	struct DRWPass *ssr_resolve;
 	struct DRWPass *color_downsample_ps;
+	struct DRWPass *color_downsample_cube_ps;
 
 	/* HiZ */
 	struct DRWPass *minz_downlevel_ps;
@@ -368,7 +369,8 @@ typedef struct EEVEE_EffectsInfo {
 	float source_texel_size[2];
 	float blit_texel_size[2];
 	float downsamp_texel_size[MAX_BLOOM_STEP][2];
-	float bloom_intensity;
+	float bloom_color[3];
+	float bloom_clamp;
 	float bloom_sample_scale;
 	float bloom_curve_threshold[4];
 	float unf_source_texel_size[2];
@@ -520,6 +522,7 @@ struct GPUMaterial *EEVEE_material_mesh_depth_get(struct Scene *scene, Material 
 struct GPUMaterial *EEVEE_material_hair_get(struct Scene *scene, Material *ma);
 void EEVEE_materials_free(void);
 void EEVEE_draw_default_passes(EEVEE_PassList *psl);
+void EEVEE_update_util_texture(float offset);
 
 /* eevee_lights.c */
 void EEVEE_lights_init(EEVEE_SceneLayerData *sldata);
@@ -547,6 +550,7 @@ void EEVEE_effects_init(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_effects_cache_init(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_create_minmax_buffer(EEVEE_Data *vedata, struct GPUTexture *depth_src, int layer);
 void EEVEE_downsample_buffer(EEVEE_Data *vedata, struct GPUFrameBuffer *fb_src, struct GPUTexture *texture_src, int level);
+void EEVEE_downsample_cube_buffer(EEVEE_Data *vedata, struct GPUFrameBuffer *fb_src, struct GPUTexture *texture_src, int level);
 void EEVEE_effects_do_volumetrics(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_effects_do_ssr(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_effects_do_refraction(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata);

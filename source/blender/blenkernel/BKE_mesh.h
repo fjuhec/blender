@@ -278,7 +278,8 @@ void BKE_mesh_poly_edgebitmap_insert(
 
 bool BKE_mesh_center_median(const struct Mesh *me, float r_cent[3]);
 bool BKE_mesh_center_bounds(const struct Mesh *me, float r_cent[3]);
-bool BKE_mesh_center_centroid(const struct Mesh *me, float r_cent[3]);
+bool BKE_mesh_center_of_surface(const struct Mesh *me, float r_cent[3]);
+bool BKE_mesh_center_of_volume(const struct Mesh *me, float r_cent[3]);
 
 void BKE_mesh_calc_volume(
         const struct MVert *mverts, const int mverts_num,
@@ -407,8 +408,8 @@ void BKE_mesh_eval_geometry(const struct EvaluationContext *eval_ctx,
 /* Draw Cache */
 enum {
 	BKE_MESH_BATCH_DIRTY_ALL = 0,
+	BKE_MESH_BATCH_DIRTY_MAYBE_ALL,
 	BKE_MESH_BATCH_DIRTY_SELECT,
-	BKE_MESH_BATCH_DIRTY_NOCHECK,
 	BKE_MESH_BATCH_DIRTY_SHADING,
 	BKE_MESH_BATCH_DIRTY_SCULPT_COORDS,
 };

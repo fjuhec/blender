@@ -123,7 +123,7 @@ static void manipulator_arrow2d_setup(wmManipulator *mpr)
 	mpr->flag |= WM_MANIPULATOR_DRAW_MODAL;
 }
 
-static void manipulator_arrow2d_invoke(
+static int manipulator_arrow2d_invoke(
         bContext *UNUSED(C), wmManipulator *mpr, const wmEvent *UNUSED(event))
 {
 	ManipulatorInteraction *inter = MEM_callocN(sizeof(ManipulatorInteraction), __func__);
@@ -132,6 +132,8 @@ static void manipulator_arrow2d_invoke(
 	WM_manipulator_calc_matrix_final(mpr, inter->init_matrix_final);
 
 	mpr->interaction_data = inter;
+
+	return OPERATOR_RUNNING_MODAL;
 }
 
 static int manipulator_arrow2d_test_select(
@@ -171,16 +173,20 @@ static int manipulator_arrow2d_test_select(
 
 		const float lambda_1 = line_point_factor_v2(isect_1, line_ext[0], line_ext[1]);
 		if (isect == 1) {
-			return IN_RANGE_INCL(lambda_1, 0.0f, 1.0f);
+			if (IN_RANGE_INCL(lambda_1, 0.0f, 1.0f)) {
+				return 0;
+			}
 		}
 		else {
 			BLI_assert(isect == 2);
 			const float lambda_2 = line_point_factor_v2(isect_2, line_ext[0], line_ext[1]);
-			return IN_RANGE_INCL(lambda_1, 0.0f, 1.0f) && IN_RANGE_INCL(lambda_2, 0.0f, 1.0f);
+			if (IN_RANGE_INCL(lambda_1, 0.0f, 1.0f) && IN_RANGE_INCL(lambda_2, 0.0f, 1.0f)) {
+				return 0;
+			}
 		}
 	}
 
-	return 0;
+	return -1;
 }
 
 /* -------------------------------------------------------------------- */
