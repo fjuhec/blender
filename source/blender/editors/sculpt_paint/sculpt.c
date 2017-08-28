@@ -7468,9 +7468,13 @@ static void check_preceding_intersecting_edges(Object *ob, SilhouetteData *sil, 
 	TIMEIT_START(parallel_intersect);
 #endif
 
+	BLI_mutex_init(&data.mutex);
+
 	BLI_task_parallel_range_ex(
 							   0, sil->num_inter_nodes, &data, NULL, 0, do_calc_sil_intersect_task_cb_ex,
 							   (sil->num_inter_nodes > SCULPT_THREADED_LIMIT), false);
+
+	BLI_mutex_end(&data.mutex);
 
 #ifdef DEBUG_TIME
 	TIMEIT_END(parallel_intersect);
@@ -9183,9 +9187,13 @@ static void do_calc_fillet_line(Object *ob, SilhouetteData *sil, PBVHNode **node
 		.sil = sil, .mat = projmat
 	};
 
+	BLI_mutex_init(&data.mutex);
+
 	BLI_task_parallel_range_ex(
 							   0, totnode, &data, NULL, 0, do_calc_fillet_line_task_cb_ex,
 							   (totnode > SCULPT_THREADED_LIMIT), false);
+
+	BLI_mutex_end(&data.mutex);
 
 	/* sil->l1_vert_hash now contains the interior vertices of the original geometry.
 	 isect_chunk contains only the edgehashes which cross interior and exterior verts. Now generate edgrings from this.*/
