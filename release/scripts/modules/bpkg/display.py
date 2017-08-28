@@ -7,6 +7,20 @@ expanded_packages = []
 # name of package who's preferences are shown
 preference_package = None
 
+def repository_items(self, context) -> list:
+    """Return displayed repository enum items"""
+    import bpy
+    try:
+        repos = context.window_manager.package_repositories
+    except AttributeError:
+        return []
+    repolist = []
+    for repo in repos:
+        try:
+            repolist.append((repo['name'], repo['name'], "{} ({})".format(repo['name'], repo['url'])))
+        except KeyError: # name may not be set before refresh() finishes execution, in which case leave it out
+            pass
+    return repolist
 
 #errors
 pkg_errors = []

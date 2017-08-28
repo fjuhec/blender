@@ -13,12 +13,7 @@ class RepositoryProperty(PropertyGroup):
 
 class PACKAGE_UL_repositories(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
-        layout.alignment='LEFT'
-        layout.prop(item, "enabled", text="")
-        if len(item.name) == 0:
-            layout.label(item['url'])
-        else:
-            layout.label(item.name)
+        layout.prop(item, "url", text="", emboss=False)
 
 classes = (
     RepositoryProperty,

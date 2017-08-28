@@ -1320,8 +1320,6 @@ class USERPREF_PT_packages(Panel):
     bl_region_type = 'WINDOW'
     bl_options = {'HIDE_HEADER'}
 
-    _started = False
-
     @classmethod
     def poll(cls, context):
         userpref = context.user_preferences
@@ -1339,14 +1337,18 @@ class USERPREF_PT_packages(Panel):
         sidebar = spl.column(align=True)
         pkgzone = spl.column()
 
+        sidebar.operator("package.refresh", text="Check for updates")
         sidebar.label("Repositories")
         row = sidebar.row()
-        row.template_list("PACKAGE_UL_repositories", "", wm, "package_repositories", wm, "package_active_repository")
-        col = row.column(align=True)
-        col.operator("package.add_repository", text="", icon='ZOOMIN')
-        col.operator("package.remove_repository", text="", icon='ZOOMOUT')
-        sidebar.separator()
-        sidebar.operator("package.refresh", text="Check for updates")
+        row.prop(wm, "package_repository_filter", expand=True)
+        # row.template_list("PACKAGE_UL_repositories", "", wm, "package_repositories", wm, "package_active_repository")
+        # col = row.column(align=True)
+        # col.operator("package.add_repository", text="", icon='ZOOMIN')
+        # col.operator("package.remove_repository", text="", icon='ZOOMOUT')
+        # sidebar.separator()
+
+        row = sidebar.row()
+        row.operator("package.edit_repositories")
 
         sidebar.separator()
         sidebar.label("Category")
@@ -1646,20 +1648,6 @@ class USERPREF_PT_packages(Panel):
             row.label(text=msg)
             row.alignment='CENTER'
             row.scale_y = 10
-
-        # HACK: set repository props here, probably shouldn't be in draw code
-        # don't know where it should be instead however
-        if not USERPREF_PT_packages._started:
-            USERPREF_PT_packages._started = True
-            # load repositories from disk
-            #TODO: store repository props in .blend so enabled/disabled state can be remembered
-            repos = bpkg.get_repositories()
-            wm.package_repositories.clear()
-            for repo in repos:
-                repo_prop = wm.package_repositories.add()
-                repo_prop.name = repo.name
-                repo_prop.enabled = True  
-                repo_prop.url = repo.url
 
         # TODO: read repositories and installed packages synchronously for now
         packages = bpkg.list_packages()

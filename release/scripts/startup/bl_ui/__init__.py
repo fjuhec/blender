@@ -152,6 +152,13 @@ def register():
             default='AVAILABLE',
             )
 
+    from bpkg import display
+    WindowManager.package_repository_filter = EnumProperty(
+            items=display.repository_items,
+            name="Repository filter",
+            options={'ENUM_FLAG'},
+            )
+
     from .properties_package import RepositoryProperty
     WindowManager.package_repositories = CollectionProperty(
             type=RepositoryProperty,
@@ -159,6 +166,11 @@ def register():
             )
 
     WindowManager.package_active_repository = IntProperty()
+
+    WindowManager.package_repository_tab = EnumProperty(
+            items=[('REPOSITORIES', "Repositories", "Add, remove, and edit repositories")],
+            name="Repository tab",
+            )
 
     # done...
 

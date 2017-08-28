@@ -29,6 +29,20 @@ def get_repositories() -> list:
     repos = utils.load_repositories(storage_path)
     return repos
 
+def refresh_repository_props():
+    """Create RepositoryProperty collection from repository files"""
+    #TODO: store repository props in .blend so enabled/disabled state can be remembered
+    import bpy
+    wm = bpy.context.window_manager
+    repos = get_repositories()
+    wm.package_repositories.clear()
+    for repo in repos:
+        repo_prop = wm.package_repositories.add()
+        repo_prop.name = repo.name
+        repo_prop.enabled = True  
+        repo_prop.url = repo.url
+        repo_prop.file = repo.file
+
 def get_installed_packages(refresh=False) -> list:
     """Get list of packages installed on disk"""
     log = logging.getLogger(__name__ + ".get_installed_packages")

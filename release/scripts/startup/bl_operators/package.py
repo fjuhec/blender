@@ -366,6 +366,7 @@ else:
 
         def _subproc_success(self, success: messages.Success):
             self.report({'INFO'}, 'Finished refreshing lists')
+            bpkg.refresh_repository_props()
             self.quit()
 
         def _subproc_aborted(self, aborted: messages.Aborted):
@@ -379,16 +380,16 @@ else:
             else:
                 self.log.error('Refresh process died without telling us! Exit code was 0 though')
                 self.report({'WARNING'}, 'Error refreshing package lists, but process finished OK. This is weird.')
-
-    class RepositoryProperty(bpy.types.PropertyGroup):
-        name = bpy.props.StringProperty(name="Name")
-        url = bpy.props.StringProperty(name="URL")
-        status = bpy.props.EnumProperty(name="Status", items=[
-                ("OK",        "Okay",              "FILE_TICK"),
-                ("NOTFOUND",  "Not found",         "ERROR"),
-                ("NOCONNECT", "Could not connect", "QUESTION"),
-                ])
-        enabled = bpy.props.BoolProperty(name="Enabled")
+    #
+    # class RepositoryProperty(bpy.types.PropertyGroup):
+    #     name = bpy.props.StringProperty(name="Name")
+    #     url = bpy.props.StringProperty(name="URL")
+    #     status = bpy.props.EnumProperty(name="Status", items=[
+    #             ("OK",        "Okay",              "FILE_TICK"),
+    #             ("NOTFOUND",  "Not found",         "ERROR"),
+    #             ("NOCONNECT", "Could not connect", "QUESTION"),
+    #             ])
+    #     enabled = bpy.props.BoolProperty(name="Enabled")
 
     class PACKAGE_UL_repositories(bpy.types.UIList):
         def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
@@ -435,14 +436,37 @@ else:
             except IndexError:
                 return {'CANCELLED'}
 
-            filename = bpkg.utils.format_filename(repo.name) + ".json"
+            filename = bpkg.utils.format_filename(repo['name']) + ".json"
             path = (bpkg.get_repo_storage_path() / filename)
-            if path.exists():
-                path.unlink()
-
             wm.package_repositories.remove(wm.package_active_repository)
+            if not path.exists():
+                raise ValueError("Failed find repository file")
+            path.unlink()
+            bpkg.tag_reindex()
 
             return {'FINISHED'}
+
+    class PACKAGE_OT_edit_repositories(Operator):
+        bl_idname = "package.edit_repositories"
+        bl_label = "Edit Repositories"
+
+        def execute(self, context):
+            return {'FINISHED'}
+
+        def invoke(self, context, event):
+            wm = context.window_manager
+            return wm.invoke_props_dialog(self)
+
+        def draw(self, context):
+            layout = self.layout
+            wm = context.window_manager
+
+            row = layout.row()
+            row.template_list("PACKAGE_UL_repositories", "", wm, "package_repositories", wm, "package_active_repository")
+            col = row.column(align=True)
+            col.operator("package.add_repository", text="", icon='ZOOMIN')
+            col.operator("package.remove_repository", text="", icon='ZOOMOUT')
+
 
     class WM_OT_package_toggle_expand(Operator):# {{{
         bl_idname = "wm.package_toggle_expand"
@@ -558,5 +582,6 @@ classes = (
     WM_OT_package_toggle_preferences,
     PACKAGE_OT_add_repository,
     PACKAGE_OT_remove_repository,
+    PACKAGE_OT_edit_repositories,
     PACKAGE_UL_repositories,
 )
