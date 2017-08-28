@@ -4,6 +4,7 @@
 # used to spawn the subprocess in the first place.
 try:
     import bpy
+    from bpy.types import Operator
 except ImportError:
     from bpkg import subproc
 else:
@@ -157,9 +158,10 @@ else:
             """
             raise NotImplementedError()
 
+    class PACKAGE_OT_install(Operator):
 
-    class PACKAGE_OT_install(SubprocMixin, bpy.types.Operator):
-        bl_idname = 'package.install'
+    class PACKAGE_OT_installer(SubprocMixin, Operator):
+        bl_idname = 'package.installer'
         bl_label = 'Install package'
         bl_description = 'Downloads and installs a Blender add-on package'
         bl_options = {'REGISTER'}
@@ -237,7 +239,7 @@ else:
                 self.log.error('Process died without telling us! Exit code was 0 though')
                 self.report({'WARNING'}, 'Error downloading package, but process finished OK. This is weird.')
 
-    class PACKAGE_OT_uninstall(SubprocMixin, bpy.types.Operator):
+    class PACKAGE_OT_uninstall(SubprocMixin, Operator):
         bl_idname = 'package.uninstall'
         bl_label = 'Install package'
         bl_description = "Remove installed package files from filesystem"
@@ -293,7 +295,7 @@ else:
                 self.report({'WARNING'}, 'Error downloading package, but process finished OK. This is weird.')
 
 
-    class PACKAGE_OT_refresh(SubprocMixin, bpy.types.Operator):
+    class PACKAGE_OT_refresh(SubprocMixin, Operator):
         bl_idname = "package.refresh"
         bl_label = "Refresh"
         bl_description = 'Check repositories for new and updated packages'
@@ -399,7 +401,7 @@ else:
             else:
                 layout.label(item.name)
 
-    class PACKAGE_OT_add_repository(bpy.types.Operator):
+    class PACKAGE_OT_add_repository(Operator):
         bl_idname = "package.add_repository"
         bl_label = "Add Repository"
 
@@ -424,7 +426,7 @@ else:
             context.area.tag_redraw()
             return {'FINISHED'}
 
-    class PACKAGE_OT_remove_repository(bpy.types.Operator):
+    class PACKAGE_OT_remove_repository(Operator):
         bl_idname = "package.remove_repository"
         bl_label = "Remove Repository"
 
@@ -444,7 +446,7 @@ else:
 
             return {'FINISHED'}
 
-    class WM_OT_package_toggle_expand(bpy.types.Operator):# {{{
+    class WM_OT_package_toggle_expand(Operator):# {{{
         bl_idname = "wm.package_toggle_expand"
         bl_label = ""
         bl_description = "Toggle display of extended information for given package (hold shift to collapse all other packages)"
@@ -467,7 +469,7 @@ else:
 
             return {'FINISHED'}# }}}
 
-    class WM_OT_package_toggle_preferences(bpy.types.Operator):# {{{
+    class WM_OT_package_toggle_preferences(Operator):# {{{
         bl_idname = "wm.package_toggle_preferences"
         bl_label = ""
         bl_description = "Toggle display of package preferences"
@@ -485,7 +487,7 @@ else:
                 USERPREF_PT_packages.preference_package = self.package_name
             return {'FINISHED'}# }}}
 
-    class PACKAGE_OT_toggle_enabled(bpy.types.Operator):# {{{
+    class PACKAGE_OT_toggle_enabled(Operator):# {{{
         bl_idname = "package.toggle_enabled"
         bl_label = ""
         bl_description = "Enable given package if it's disabled, and vice versa if it's enabled"
@@ -525,7 +527,7 @@ else:
 
             return {'FINISHED'}# }}}
 
-    class PACKAGE_OT_disable(bpy.types.Operator):# {{{
+    class PACKAGE_OT_disable(Operator):# {{{
         bl_idname = "package.disable"
         bl_label = ""
         bl_description = "Disable given package"
