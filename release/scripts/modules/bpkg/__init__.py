@@ -101,7 +101,6 @@ def list_packages():
     global _tag_reindex
     if _tag_reindex:
         _packages = _build_packagelist()
-        print("rebuilding")
         _tag_reindex = False
 
     return _packages
