@@ -9,6 +9,8 @@ struct Mesh* BKE_mesh_test_from_data(
         const int (*edges)[2], int numedges,
         const int *loops, const int *face_lengths, int numfaces);
 
+struct Mesh* BKE_mesh_test_from_csv(const char *filename);
+
 void BKE_mesh_test_dump_verts(struct Mesh *me, std::ostream &str);
 void BKE_mesh_test_dump_edges(struct Mesh *me, std::ostream &str);
 void BKE_mesh_test_dump_faces(struct Mesh *me, std::ostream &str);

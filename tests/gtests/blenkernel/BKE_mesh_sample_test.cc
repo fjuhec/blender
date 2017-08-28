@@ -12,13 +12,17 @@ extern "C" {
 #include "MEM_guardedalloc.h"
 
 #include "BLI_math.h"
+#include "BLI_path_util.h"
 #include "BLI_rand.h"
 
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 
+#include "BKE_appdir.h"
 #include "BKE_cdderivedmesh.h"
 #include "BKE_DerivedMesh.h"
+#include "BKE_global.h"
+#include "BKE_main.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_sample.h"
 }
@@ -47,6 +51,7 @@ public:
 	void load_mesh(const float (*verts)[3], int numverts,
 	               const int (*edges)[2], int numedges,
 	               const int *faces, const int *face_lengths, int numfaces);
+	void load_mesh(const char *filename);
 	void unload_mesh();
 	
 	void generate_samples_simple(struct MeshSampleGenerator *gen);
@@ -86,6 +91,19 @@ void MeshSampleTest::load_mesh(const float (*verts)[3], int numverts,
 	m_dm = CDDM_from_mesh(m_mesh);
 }
 
+void MeshSampleTest::load_mesh(const char *filename)
+{
+	const char *folder = BKE_appdir_folder_id(BLENDER_DATAFILES, "tests");
+	char path[FILE_MAX];
+
+	BLI_make_file_string(G.main->name, path, folder, filename);
+
+	if (path[0]) {
+		m_mesh = BKE_mesh_test_from_csv(path);
+		m_dm = CDDM_from_mesh(m_mesh);
+	}
+}
+
 void MeshSampleTest::unload_mesh()
 {
 	if (m_dm) {
@@ -101,9 +119,12 @@ void MeshSampleTest::unload_mesh()
 
 void MeshSampleTest::SetUp()
 {
-	int numverts = ARRAY_SIZE(verts);
-	int numfaces = ARRAY_SIZE(face_lengths);
-	load_mesh(verts, numverts, NULL, 0, faces, face_lengths, numfaces);
+	load_mesh("suzanne.csv");
+	if (!m_dm) {
+		int numverts = ARRAY_SIZE(verts);
+		int numfaces = ARRAY_SIZE(face_lengths);
+		load_mesh(verts, numverts, NULL, 0, faces, face_lengths, numfaces);
+	}
 	
 	m_samples = (MeshSample *)MEM_mallocN(sizeof(MeshSample) * m_numsamples, "mesh samples");
 }

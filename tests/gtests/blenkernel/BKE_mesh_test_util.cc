@@ -1,5 +1,6 @@
 /* Apache License, Version 2.0 */
 
+#include <fstream>
 #include <iostream>
 #include <iomanip>
 
@@ -210,6 +211,48 @@ Mesh* BKE_mesh_test_from_data(
 	}
 	
 	return me;
+}
+
+Mesh* BKE_mesh_test_from_csv(const char *filename)
+{
+	std::ifstream ifs (filename, std::ifstream::in);
+	
+	char delim;
+	
+	int numverts, numloops, numfaces;
+	float (*verts)[3] = NULL;
+	int *loops = NULL;
+	int *face_lengths = NULL;
+	
+	ifs >> numverts;
+	ifs >> delim;
+	verts = (float (*)[3])MEM_mallocN(sizeof(float[3]) * numverts, "verts");
+	for (int i = 0; i < numverts; ++i) {
+		ifs >> verts[i][0];
+		ifs >> delim;
+		ifs >> verts[i][1];
+		ifs >> delim;
+		ifs >> verts[i][2];
+		ifs >> delim;
+	}
+	
+	ifs >> numloops;
+	ifs >> delim;
+	loops = (int *)MEM_mallocN(sizeof(int) * numloops, "loops");
+	for (int i = 0; i < numloops; ++i) {
+		ifs >> loops[i];
+		ifs >> delim;
+	}
+	
+	ifs >> numfaces;
+	ifs >> delim;
+	face_lengths = (int *)MEM_mallocN(sizeof(int) * numfaces, "face_lengths");
+	for (int i = 0; i < numfaces; ++i) {
+		ifs >> face_lengths[i];
+		ifs >> delim;
+	}
+	
+	return BKE_mesh_test_from_data(verts, numverts, NULL, 0, loops, face_lengths, numfaces);
 }
 
 void BKE_mesh_test_dump_verts(Mesh *me, std::ostream &str)
