@@ -158,10 +158,8 @@ else:
             """
             raise NotImplementedError()
 
-    class PACKAGE_OT_install(Operator):
-
-    class PACKAGE_OT_installer(SubprocMixin, Operator):
-        bl_idname = 'package.installer'
+    class PACKAGE_OT_install(SubprocMixin, Operator):
+        bl_idname = 'package.install'
         bl_label = 'Install package'
         bl_description = 'Downloads and installs a Blender add-on package'
         bl_options = {'REGISTER'}
