@@ -1403,11 +1403,21 @@ class USERPREF_PT_packages(Panel):
                 return False
 
             def match_category(pkg: Package) -> bool:
-                if filters['category'].lower() == 'all':
+                filterstr = filters['category'].lower()
+
+                # handle special categories
+                if filterstr == 'all':
                     return True
+                if filterstr == 'user':
+                    return pkg.is_user
+                if filterstr == 'enabled':
+                    return pkg.enabled
+                if filterstr == 'disabled':
+                    return not pkg.enabled
+
                 if not pkg.category:
                     return False
-                if pkg.category.lower() == filters['category'].lower():
+                if pkg.category.lower() == filterstr:
                     return True
                 return False
 
