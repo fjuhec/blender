@@ -311,7 +311,8 @@ else:
         def poll(cls, context):
             return not cls._running
 
-        def cancel(self, context):
+        def _finish(self, context):
+            super()._finish(context)
             PACKAGE_OT_refresh._running = False
             context.area.tag_redraw()
 
