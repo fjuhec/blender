@@ -1442,101 +1442,104 @@ static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 	float diff_mat[4][4];
 	Object *obact = CTX_data_active_object(C);     
 	bGPdata *gpd = gso->gpd;
+	bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd);
 
 	CTX_DATA_BEGIN(C, bGPDlayer *, gpl, editable_gpencil_layers)
 	{
-		bGPDframe *gpf = gpl->actframe;
-		if (gpf == NULL)
-			continue;
-		
-		/* calculate difference matrix */
-		ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);
-		
-		for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-			/* skip strokes that are invalid for current view */
-			if (ED_gpencil_stroke_can_use(C, gps) == false)
-				continue;
-			/* check if the color is editable */
-			if (ED_gpencil_stroke_color_use(gpl, gps) == false) {
-				continue;
-			}
+		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+			if ((gpf == gpl->actframe) || ((gpf->flag & GP_FRAME_SELECT) && (is_multiedit))) {
 
-			switch (gso->brush_type) {
-				case GP_EDITBRUSH_TYPE_SMOOTH: /* Smooth strokes */
-				{
-					changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_smooth_apply);
-					break;
-				}
+				/* calculate difference matrix */
+				ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);
 
-				case GP_EDITBRUSH_TYPE_THICKNESS: /* Adjust stroke thickness */
-				{
-					changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_thickness_apply);
-					break;
-				}
-
-				case GP_EDITBRUSH_TYPE_STRENGTH: /* Adjust stroke color strength */
-				{
-					changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_strength_apply);
-					break;
-				}
-
-				case GP_EDITBRUSH_TYPE_GRAB: /* Grab points */
-				{
-					if (gso->first) {
-						/* First time this brush stroke is being applied:
-						 * 1) Prepare data buffers (init/clear) for this stroke
-						 * 2) Use the points now under the cursor
-						 */
-						gp_brush_grab_stroke_init(gso, gps);
-						changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_grab_store_points);
+				for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+					/* skip strokes that are invalid for current view */
+					if (ED_gpencil_stroke_can_use(C, gps) == false)
+						continue;
+					/* check if the color is editable */
+					if (ED_gpencil_stroke_color_use(gpl, gps) == false) {
+						continue;
 					}
-					else {
-						/* Apply effect to the stored points */
-						gp_brush_grab_apply_cached(gso, gps, diff_mat);
-						changed |= true;
+
+					switch (gso->brush_type) {
+					case GP_EDITBRUSH_TYPE_SMOOTH: /* Smooth strokes */
+					{
+						changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_smooth_apply);
+						break;
 					}
-					break;
+
+					case GP_EDITBRUSH_TYPE_THICKNESS: /* Adjust stroke thickness */
+					{
+						changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_thickness_apply);
+						break;
+					}
+
+					case GP_EDITBRUSH_TYPE_STRENGTH: /* Adjust stroke color strength */
+					{
+						changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_strength_apply);
+						break;
+					}
+
+					case GP_EDITBRUSH_TYPE_GRAB: /* Grab points */
+					{
+						if (gso->first) {
+							/* First time this brush stroke is being applied:
+							 * 1) Prepare data buffers (init/clear) for this stroke
+							 * 2) Use the points now under the cursor
+							 */
+							gp_brush_grab_stroke_init(gso, gps);
+							changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_grab_store_points);
+						}
+						else {
+							/* Apply effect to the stored points */
+							gp_brush_grab_apply_cached(gso, gps, diff_mat);
+							changed |= true;
+						}
+						break;
+					}
+
+					case GP_EDITBRUSH_TYPE_PUSH: /* Push points */
+					{
+						changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_push_apply);
+						break;
+					}
+
+					case GP_EDITBRUSH_TYPE_PINCH: /* Pinch points */
+					{
+						changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_pinch_apply);
+						break;
+					}
+
+					case GP_EDITBRUSH_TYPE_TWIST: /* Twist points around midpoint */
+					{
+						changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_twist_apply);
+						break;
+					}
+
+					case GP_EDITBRUSH_TYPE_RANDOMIZE: /* Apply jitter */
+					{
+						changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_randomize_apply);
+						break;
+					}
+
+					case GP_EDITBRUSH_TYPE_WEIGHT: /* Adjust vertex group weight */
+					{
+						changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_weight_apply);
+						break;
+					}
+
+
+					default:
+						printf("ERROR: Unknown type of GPencil Sculpt brush - %u\n", gso->brush_type);
+						break;
+					}
+					/* Triangulation must be calculated if changed */
+					if (changed) {
+						gps->flag |= GP_STROKE_RECALC_CACHES;
+						gps->tot_triangles = 0;
+					}
 				}
 
-				case GP_EDITBRUSH_TYPE_PUSH: /* Push points */
-				{
-					changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_push_apply);
-					break;
-				}
-
-				case GP_EDITBRUSH_TYPE_PINCH: /* Pinch points */
-				{
-					changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_pinch_apply);
-					break;
-				}
-
-				case GP_EDITBRUSH_TYPE_TWIST: /* Twist points around midpoint */
-				{
-					changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_twist_apply);
-					break;
-				}
-
-				case GP_EDITBRUSH_TYPE_RANDOMIZE: /* Apply jitter */
-				{
-					changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_randomize_apply);
-					break;
-				}
-
-				case GP_EDITBRUSH_TYPE_WEIGHT: /* Adjust vertex group weight */
-				{
-					changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_weight_apply);
-					break;
-				}
-
-
-				default:
-					printf("ERROR: Unknown type of GPencil Sculpt brush - %u\n", gso->brush_type);
-					break;
-			}
-			/* Triangulation must be calculated if changed */
-			if (changed) {
-				gps->flag |= GP_STROKE_RECALC_CACHES;
-				gps->tot_triangles = 0;
 			}
 		}
 	}

@@ -164,7 +164,6 @@ class VIEW3D_HT_header(Header):
                 row.prop(context.tool_settings.gpencil_sculpt, "use_select_mask")
                 row.prop(context.tool_settings.gpencil_sculpt, "selection_alpha", slider=True)
 
-            if context.gpencil_data.use_stroke_edit_mode:
                 gpd = context.gpencil_data
                 row = layout.row()
                 row.prop(gpd, "multiedit", text="Multi Edit", icon="FORCE_HARMONIC")
