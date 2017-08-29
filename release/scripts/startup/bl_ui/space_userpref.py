@@ -1637,15 +1637,17 @@ class USERPREF_PT_packages(Panel):
             row.scale_y = 10
 
 
+        # Things which only should be run once; initialize repository props and
+        # packages TODO: keeping it here in draw() means it's lazy loaded,
+        # perhaps it might be better to do asynchronously on startup
         if not USERPREF_PT_packages._started:
             USERPREF_PT_packages._started = True
             bpkg.refresh_repository_props()
+            bpkg.refresh_packages()
+            # Enable all repositories by default
             wm.package_repository_filter = set(repo['name'] for repo in wm.package_repositories)
 
-        # TODO: read repositories and installed packages synchronously for now
-        packages = bpkg.list_packages()
-
-        if len(packages) == 0:
+        if len(bpkg.packages) == 0:
             center_message(pkgzone, "No packages found")
             return
 
@@ -1665,11 +1667,11 @@ class USERPREF_PT_packages(Panel):
                 'repository': wm.package_repository_filter,
                 'installstate': wm.package_state_filter,
                 }
-        bpkg.display.displayed_packages = filter_packages(filters, packages)
+        bpkg.display.displayed_packages = filter_packages(filters, bpkg.packages)
 
         for pkgname in bpkg.display.displayed_packages:
             row = pkgzone.row()
-            draw_package(packages[pkgname], row)
+            draw_package(bpkg.packages[pkgname], row)
 
 
 class USERPREF_PT_addons(Panel):
