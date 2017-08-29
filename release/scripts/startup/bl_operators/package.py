@@ -36,8 +36,10 @@ else:
 
         log = logging.getLogger(__name__ + '.SubprocMixin')
         _state = 'INITIALIZING'
-        _abort_timeout = 0  # time at which we stop waiting for an abort response and just terminate the process
-        _abort_wait = 10 # how long to wait (in seconds) to forcibly terminate subprocess after quit
+        # time at which we stop waiting for an abort response and just terminate the process
+        _abort_timeout = 0
+        # how long to wait (in seconds) to forcibly terminate subprocess after quit
+        _abort_wait = 10
 
         # Mapping from message type (see bpkg.messages) to handler function.
         # Should be constructed before modal() gets called.
@@ -75,8 +77,10 @@ else:
                 return {'PASS_THROUGH'}
 
             if self._state == 'ABORTING' and time.time() > self._abort_timeout:
-                self.log.error('No response from subprocess to abort request, terminating it.')
-                self.report({'ERROR'}, 'No response from subprocess to abort request, terminating it.')
+                self.log.error(
+                    'No response from subprocess to abort request, terminating it.')
+                self.report(
+                    {'ERROR'}, 'No response from subprocess to abort request, terminating it.')
                 self.process.terminate()
                 self._finish(context)
                 return {'CANCELLED'}
@@ -120,10 +124,12 @@ else:
                 try:
                     self.process.join(timeout=self._abort_wait)
                 except multiprocessing.TimeoutError:
-                    self.log.warning('Subprocess is hanging, terminating it forcefully.')
+                    self.log.warning(
+                        'Subprocess is hanging, terminating it forcefully.')
                     self.process.terminate()
                 else:
-                    self.log.debug('Subprocess stopped with exit code %i', self.process.exitcode)
+                    self.log.debug(
+                        'Subprocess stopped with exit code %i', self.process.exitcode)
 
         def handle_received_data(self):
             recvd = self.pipe_blender.recv()
@@ -134,7 +140,8 @@ else:
             except KeyError:
                 self.log.error('Unable to handle received message %s', recvd)
                 # Maybe we shouldn't show this to the user?
-                self.report({'WARNING'}, 'Unable to handle received message %s' % recvd)
+                self.report(
+                    {'WARNING'}, 'Unable to handle received message %s' % recvd)
                 return
 
             handler(recvd)
@@ -160,9 +167,9 @@ else:
         bl_options = {'REGISTER'}
 
         package_name = bpy.props.StringProperty(
-                name='package_name',
-                description='The name of the package to install'
-                )
+            name='package_name',
+            description='The name of the package to install'
+        )
 
         log = logging.getLogger(__name__ + '.PACKAGE_OT_install')
 
@@ -195,23 +202,26 @@ else:
 
             # TODO: We need other paths besides this one on subprocess end, so it might be better to pass them all at once.
             # For now, just pass this one.
-            install_path = pathlib.Path(bpy.utils.user_resource('SCRIPTS', 'addons', create=True))
+            install_path = pathlib.Path(
+                bpy.utils.user_resource('SCRIPTS', 'addons', create=True))
             self.log.debug("Using %s as install path", install_path)
 
             import addon_utils
             proc = mp_context.Process(target=subproc.download_and_install_package,
-                                           args=(self.pipe_subproc, package, install_path))
+                                      args=(self.pipe_subproc, package, install_path))
             return proc
 
         def _subproc_progress(self, progress: messages.Progress):
             self.log.info('Task progress at %i%%', progress.progress * 100)
 
         def _subproc_download_error(self, error: messages.DownloadError):
-            self.report({'ERROR'}, 'Unable to download package: %s' % error.message)
+            self.report({'ERROR'}, 'Unable to download package: %s' %
+                        error.message)
             self.quit()
 
         def _subproc_install_error(self, error: messages.InstallError):
-            self.report({'ERROR'}, 'Unable to install package: %s' % error.message)
+            self.report({'ERROR'}, 'Unable to install package: %s' %
+                        error.message)
             self.quit()
 
         def _subproc_success(self, success: messages.Success):
@@ -221,16 +231,21 @@ else:
             self.quit()
 
         def _subproc_aborted(self, aborted: messages.Aborted):
-            self.report({'ERROR'}, 'Package installation aborted per your request')
+            self.report(
+                {'ERROR'}, 'Package installation aborted per your request')
             self.quit()
 
         def report_process_died(self):
             if self.process.exitcode:
-                self.log.error('Process died without telling us! Exit code was %i', self.process.exitcode)
-                self.report({'ERROR'}, 'Error downloading package, exit code %i' % self.process.exitcode)
+                self.log.error(
+                    'Process died without telling us! Exit code was %i', self.process.exitcode)
+                self.report(
+                    {'ERROR'}, 'Error downloading package, exit code %i' % self.process.exitcode)
             else:
-                self.log.error('Process died without telling us! Exit code was 0 though')
-                self.report({'WARNING'}, 'Error downloading package, but process finished OK. This is weird.')
+                self.log.error(
+                    'Process died without telling us! Exit code was 0 though')
+                self.report(
+                    {'WARNING'}, 'Error downloading package, but process finished OK. This is weird.')
 
     class PACKAGE_OT_uninstall(SubprocMixin, Operator):
         bl_idname = 'package.uninstall'
@@ -238,7 +253,8 @@ else:
         bl_description = "Remove installed package files from filesystem"
         bl_options = {'REGISTER'}
 
-        package_name = bpy.props.StringProperty(name='package_name', description='The name of the package to uninstall')
+        package_name = bpy.props.StringProperty(
+            name='package_name', description='The name of the package to uninstall')
 
         log = logging.getLogger(__name__ + '.PACKAGE_OT_uninstall')
 
@@ -260,14 +276,14 @@ else:
             }
 
             import pathlib
-            install_path = pathlib.Path(bpy.utils.user_resource('SCRIPTS', 'addons', create=True))
+            install_path = pathlib.Path(
+                bpy.utils.user_resource('SCRIPTS', 'addons', create=True))
 
             package = bpkg.packages[self.package_name].get_latest_version()
 
             proc = mp_context.Process(target=subproc.uninstall_package,
-                                           args=(self.pipe_subproc, package, install_path))
+                                      args=(self.pipe_subproc, package, install_path))
             return proc
-
 
         def _subproc_uninstall_error(self, error: messages.InstallError):
             self.report({'ERROR'}, error.message)
@@ -281,12 +297,15 @@ else:
 
         def report_process_died(self):
             if self.process.exitcode:
-                self.log.error('Process died without telling us! Exit code was %i', self.process.exitcode)
-                self.report({'ERROR'}, 'Error downloading package, exit code %i' % self.process.exitcode)
+                self.log.error(
+                    'Process died without telling us! Exit code was %i', self.process.exitcode)
+                self.report(
+                    {'ERROR'}, 'Error downloading package, exit code %i' % self.process.exitcode)
             else:
-                self.log.error('Process died without telling us! Exit code was 0 though')
-                self.report({'WARNING'}, 'Error downloading package, but process finished OK. This is weird.')
-
+                self.log.error(
+                    'Process died without telling us! Exit code was 0 though')
+                self.report(
+                    {'WARNING'}, 'Error downloading package, but process finished OK. This is weird.')
 
     class PACKAGE_OT_refresh(SubprocMixin, Operator):
         bl_idname = "package.refresh"
@@ -335,23 +354,26 @@ else:
 
             import pathlib
 
-            storage_path = pathlib.Path(bpy.utils.user_resource('CONFIG', 'repositories', create=True))
+            storage_path = pathlib.Path(bpy.utils.user_resource(
+                'CONFIG', 'repositories', create=True))
             repository_urls = [repo.url for repo in self.repositories]
             self.log.debug("Repository urls %s", repository_urls)
 
             proc = mp_context.Process(target=subproc.refresh_repositories,
-                                           args=(self.pipe_subproc, storage_path, repository_urls))
+                                      args=(self.pipe_subproc, storage_path, repository_urls))
             return proc
 
         def _subproc_progress(self, progress: messages.Progress):
             self.log.info('Task progress at %i%%', progress.progress * 100)
 
         def _subproc_error(self, error: messages.SubprocError):
-            self.report({'ERROR'}, 'Unable to refresh package list: %s' % error.message)
+            self.report(
+                {'ERROR'}, 'Unable to refresh package list: %s' % error.message)
             self.quit()
 
         def _subproc_download_error(self, error: messages.DownloadError):
-            self.report({'ERROR'}, 'Unable to download package list: %s' % error.message)
+            self.report(
+                {'ERROR'}, 'Unable to download package list: %s' % error.message)
             self.quit()
 
         def _subproc_repository_error(self, error: messages.BadRepositoryError):
@@ -365,20 +387,25 @@ else:
             self.quit()
 
         def _subproc_aborted(self, aborted: messages.Aborted):
-            self.report({'ERROR'}, 'Package list retrieval aborted per your request')
+            self.report(
+                {'ERROR'}, 'Package list retrieval aborted per your request')
             self.quit()
 
         def report_process_died(self):
             if self.process.exitcode:
-                self.log.error('Refresh process died without telling us! Exit code was %i', self.process.exitcode)
-                self.report({'ERROR'}, 'Error refreshing package lists, exit code %i' % self.process.exitcode)
+                self.log.error(
+                    'Refresh process died without telling us! Exit code was %i', self.process.exitcode)
+                self.report(
+                    {'ERROR'}, 'Error refreshing package lists, exit code %i' % self.process.exitcode)
             else:
-                self.log.error('Refresh process died without telling us! Exit code was 0 though')
-                self.report({'WARNING'}, 'Error refreshing package lists, but process finished OK. This is weird.')
+                self.log.error(
+                    'Refresh process died without telling us! Exit code was 0 though')
+                self.report(
+                    {'WARNING'}, 'Error refreshing package lists, but process finished OK. This is weird.')
 
     class PACKAGE_UL_repositories(bpy.types.UIList):
         def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
-            layout.alignment='LEFT'
+            layout.alignment = 'LEFT'
             layout.prop(item, "enabled", text="")
             if len(item.name) == 0:
                 layout.label(item['url'])
@@ -458,11 +485,11 @@ else:
             wm = context.window_manager
 
             row = layout.row()
-            row.template_list("PACKAGE_UL_repositories", "", wm, "package_repositories", wm, "package_active_repository")
+            row.template_list("PACKAGE_UL_repositories", "", wm,
+                              "package_repositories", wm, "package_active_repository")
             col = row.column(align=True)
             col.operator("package.add_repository", text="", icon='ZOOMIN')
             col.operator("package.remove_repository", text="", icon='ZOOMOUT')
-
 
     class WM_OT_package_toggle_expand(Operator):
         bl_idname = "wm.package_toggle_expand"
@@ -473,9 +500,9 @@ else:
         log = logging.getLogger(__name__ + ".WM_OT_package_toggle_expand")
 
         package_name = bpy.props.StringProperty(
-                name="Package Name",
-                description="Name of package to expand/collapse",
-                )
+            name="Package Name",
+            description="Name of package to expand/collapse",
+        )
 
         def invoke(self, context, event):
             if event.shift:
@@ -494,9 +521,9 @@ else:
         bl_options = {'INTERNAL'}
 
         package_name = bpy.props.StringProperty(
-                name="Package Name",
-                description="Name of package whos preferences to display",
-                )
+            name="Package Name",
+            description="Name of package whos preferences to display",
+        )
 
         def invoke(self, context, event):
             if USERPREF_PT_packages.preference_package == self.package_name:
@@ -513,16 +540,17 @@ else:
         log = logging.getLogger(__name__ + ".PACKAGE_OT_toggle_enabled")
 
         package_name = bpy.props.StringProperty(
-                name="Package Name",
-                description="Name of package to enable",
-                )
+            name="Package Name",
+            description="Name of package to enable",
+        )
 
         def execute(self, context):
             import addon_utils
             metapkg = bpkg.packages[self.package_name]
 
             if not metapkg.installed:
-                self.report({'ERROR'}, "Can't enable package which isn't installed")
+                self.report(
+                    {'ERROR'}, "Can't enable package which isn't installed")
                 return {'CANCELLED'}
 
             pkg = metapkg.get_latest_installed_version()
@@ -541,9 +569,9 @@ else:
         log = logging.getLogger(__name__ + ".PACKAGE_OT_disable")
 
         package_name = bpy.props.StringProperty(
-                name="Package Name",
-                description="Name of package to disable",
-                )
+            name="Package Name",
+            description="Name of package to disable",
+        )
 
         def execute(self, context):
             package = bpkg.packages[self.package_name].get_display_version()
