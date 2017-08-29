@@ -25,13 +25,6 @@ else:
     mp_context = multiprocessing.get_context('spawn')
     mp_context.set_executable(bpy.app.binary_path_python)
 
-    # global list of all known packages, indexed by name
-    # _packages = OrderedDict()
-
-    # used for lazy loading
-    _main_has_run = False
-
-
     class SubprocMixin:
         """Mix-in class for things that need to be run in a subprocess."""
 
@@ -381,16 +374,6 @@ else:
             else:
                 self.log.error('Refresh process died without telling us! Exit code was 0 though')
                 self.report({'WARNING'}, 'Error refreshing package lists, but process finished OK. This is weird.')
-    #
-    # class RepositoryProperty(bpy.types.PropertyGroup):
-    #     name = bpy.props.StringProperty(name="Name")
-    #     url = bpy.props.StringProperty(name="URL")
-    #     status = bpy.props.EnumProperty(name="Status", items=[
-    #             ("OK",        "Okay",              "FILE_TICK"),
-    #             ("NOTFOUND",  "Not found",         "ERROR"),
-    #             ("NOCONNECT", "Could not connect", "QUESTION"),
-    #             ])
-    #     enabled = bpy.props.BoolProperty(name="Enabled")
 
     class PACKAGE_UL_repositories(bpy.types.UIList):
         def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
