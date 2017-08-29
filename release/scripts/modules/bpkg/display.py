@@ -1,4 +1,4 @@
-# A global storage space for display related stuff which needs to be accessible to operators
+"""A global storage space for display related stuff which needs to be accessible to operators"""
 
 # list of names of packages currently displayed (matching filters)
 displayed_packages = []
@@ -6,6 +6,7 @@ displayed_packages = []
 expanded_packages = []
 # name of package who's preferences are shown
 preference_package = None
+
 
 def repository_items(self, context) -> list:
     """Return displayed repository enum items"""
@@ -17,17 +18,13 @@ def repository_items(self, context) -> list:
     repolist = []
     for repo in repos:
         try:
-            repolist.append((repo['name'], repo['name'], "{} ({})".format(repo['name'], repo['url'])))
-        except KeyError: # name may not be set before refresh() finishes execution, in which case leave it out
+            repolist.append((repo['name'], repo['name'],
+                             "{} ({})".format(repo['name'], repo['url'])))
+        except KeyError:  # name may not be set before refresh() finishes execution, in which case leave it out
             pass
     return repolist
 
-#errors
+
+# List of error messages from errors encountered while handling packages
+# Used to display such errors in the UI
 pkg_errors = []
-# def pkg_error(msg: str):
-#     """Add a package related error message"""
-#     _pkg_errors.append(msg)
-#
-# def pkg_errors() -> str:
-#     """Return list of error messages related to packages"""
-#     return _pkg_errors
