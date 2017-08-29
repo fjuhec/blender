@@ -398,7 +398,7 @@ else:
         def execute(self, context):
             wm = context.window_manager
 
-            if len(self.url) == 0:
+            if not self.url:
                 self.report({'ERROR'}, "Repository URL not specified")
                 return {'CANCELLED'}
 
@@ -410,7 +410,6 @@ else:
             repo = wm.package_repositories.add()
             repo.url = bpkg.utils.sanitize_repository_url(self.url)
 
-            # bpy.ops.package.refresh()
             context.area.tag_redraw()
             return {'FINISHED'}
 
@@ -435,7 +434,6 @@ else:
                 filepath.unlink()
 
             wm.package_repositories.remove(wm.package_active_repository)
-            # bpy.ops.package.refresh()
             context.area.tag_redraw()
             return {'FINISHED'}
 
