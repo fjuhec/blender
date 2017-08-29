@@ -1432,7 +1432,7 @@ class USERPREF_PT_packages(Panel):
                         contains.append(pkgname)
                         continue
 
-            return startswith + contains# }}}
+            return sorted(startswith) + sorted(contains)# }}}
 
         def draw_package(metapkg: ConsolidatedPackage, layout: bpy.types.UILayout): #{{{
             """Draws the given package"""
