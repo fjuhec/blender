@@ -39,14 +39,6 @@ class RepositoryResult(SubprocMessage):
 class Aborted(SubprocMessage):
     """Sent as response to Abort message."""
 
-# subproc warnings
-
-class SubprocWarning(SubprocMessage):
-    """Superclass for all non-fatal warning messages sent from the subprocess."""
-
-    def __init__(self, message: str):
-        self.message = message
-
 # subproc errors
 
 class SubprocError(SubprocMessage):
@@ -64,7 +56,7 @@ class UninstallError(SubprocError):
 class BadRepositoryError(SubprocError):
     """Sent when a repository can't be used for some reason"""
 
-class DownloadError(SubprocMessage):
+class DownloadError(SubprocError):
     """Sent when there was an error downloading something."""
 
     def __init__(self, message: str, status_code: int = None):
