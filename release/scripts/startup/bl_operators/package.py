@@ -306,7 +306,7 @@ else:
             wm = context.window_manager
             self.repositories = wm.package_repositories
             if len(self.repositories) == 0:
-                self.report({'ERROR'}, "No repositories to refresh")
+                bpkg.tag_reindex()
                 return {'CANCELLED'}
 
             PACKAGE_OT_refresh._running = True
@@ -367,6 +367,7 @@ else:
         def _subproc_success(self, success: messages.Success):
             self.report({'INFO'}, 'Finished refreshing lists')
             bpkg.refresh_repository_props()
+            bpkg.tag_reindex()
             self.quit()
 
         def _subproc_aborted(self, aborted: messages.Aborted):
@@ -417,11 +418,15 @@ else:
                 self.report({'ERROR'}, "Repository URL not specified")
                 return {'CANCELLED'}
 
+            for repo in wm.package_repositories:
+                if repo['url'] == self.url:
+                    self.report({'ERROR'}, "Repository already added")
+                    return {'CANCELLED'}
+
             repo = wm.package_repositories.add()
             repo.url = bpkg.utils.sanitize_repository_url(self.url)
 
-            bpy.ops.package.refresh()
-
+            # bpy.ops.package.refresh()
             context.area.tag_redraw()
             return {'FINISHED'}
 
@@ -432,30 +437,39 @@ else:
         def execute(self, context):
             wm = context.window_manager
             try:
-                repo = wm['package_repositories'][wm.package_active_repository]
-            except IndexError:
+                repo = wm.package_repositories[wm.package_active_repository]
+            except AttributeError:
                 return {'CANCELLED'}
 
-            filename = bpkg.utils.format_filename(repo['name']) + ".json"
-            path = (bpkg.get_repo_storage_path() / filename)
-            wm.package_repositories.remove(wm.package_active_repository)
-            if not path.exists():
-                raise ValueError("Failed find repository file")
-            path.unlink()
-            bpkg.tag_reindex()
+            try:
+                filepath = Path(repo['filepath'])
+            except KeyError:
+                pass
+            else:
+                if not filepath.exists():
+                    raise ValueError("Failed find repository file")
+                filepath.unlink()
 
+            wm.package_repositories.remove(wm.package_active_repository)
+            # bpy.ops.package.refresh()
+            context.area.tag_redraw()
             return {'FINISHED'}
 
     class PACKAGE_OT_edit_repositories(Operator):
         bl_idname = "package.edit_repositories"
         bl_label = "Edit Repositories"
 
+        def check(self, context):
+            # TODO: always refresh settings for now
+            return True
+
         def execute(self, context):
+            bpy.ops.package.refresh()
             return {'FINISHED'}
 
         def invoke(self, context, event):
             wm = context.window_manager
-            return wm.invoke_props_dialog(self)
+            return wm.invoke_props_dialog(self, width=500, height=300)
 
         def draw(self, context):
             layout = self.layout

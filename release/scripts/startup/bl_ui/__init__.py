@@ -167,11 +167,6 @@ def register():
 
     WindowManager.package_active_repository = IntProperty()
 
-    WindowManager.package_repository_tab = EnumProperty(
-            items=[('REPOSITORIES', "Repositories", "Add, remove, and edit repositories")],
-            name="Repository tab",
-            )
-
     # done...
 
 

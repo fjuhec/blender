@@ -11,8 +11,8 @@ def repository_items(self, context) -> list:
     """Return displayed repository enum items"""
     import bpy
     try:
-        repos = context.window_manager.package_repositories
-    except AttributeError:
+        repos = context.window_manager['package_repositories']
+    except KeyError:
         return []
     repolist = []
     for repo in repos:

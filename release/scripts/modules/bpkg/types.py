@@ -406,7 +406,7 @@ class Repository:
         self.name = str()
         self.url = url if url is not None else str()
         self.packages = list()
-        self.file = Path()
+        self.filepath = Path()
         self._headers = dict()
 
     def refresh(self, storage_path: Path, progress_callback=None):# {{{
@@ -582,8 +582,8 @@ class Repository:
                 raise exceptions.BadRepositoryException(err) from err
             if repo.url is None or len(repo.url) == 0:
                 raise exceptions.BadRepositoryException("Repository missing URL")
-            repo.file = repo_file
 
+        repo.filepath = path
         cls.log.debug("Repository read from %s", path)
         return repo
 

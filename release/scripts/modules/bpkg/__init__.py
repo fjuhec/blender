@@ -41,7 +41,8 @@ def refresh_repository_props():
         repo_prop.name = repo.name
         repo_prop.enabled = True  
         repo_prop.url = repo.url
-        repo_prop.file = repo.file
+        print(str(repo.filepath))
+        repo_prop.filepath = str(repo.filepath)
 
 def get_installed_packages(refresh=False) -> list:
     """Get list of packages installed on disk"""

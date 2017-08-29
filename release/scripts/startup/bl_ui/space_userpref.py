@@ -1320,6 +1320,8 @@ class USERPREF_PT_packages(Panel):
     bl_region_type = 'WINDOW'
     bl_options = {'HIDE_HEADER'}
 
+    _started = False
+
     @classmethod
     def poll(cls, context):
         userpref = context.user_preferences
@@ -1339,16 +1341,16 @@ class USERPREF_PT_packages(Panel):
 
         sidebar.operator("package.refresh", text="Check for updates")
         sidebar.label("Repositories")
-        row = sidebar.row()
-        row.prop(wm, "package_repository_filter", expand=True)
+
+        col = sidebar.column(align=True)
+        col.prop(wm, "package_repository_filter")
         # row.template_list("PACKAGE_UL_repositories", "", wm, "package_repositories", wm, "package_active_repository")
         # col = row.column(align=True)
         # col.operator("package.add_repository", text="", icon='ZOOMIN')
         # col.operator("package.remove_repository", text="", icon='ZOOMOUT')
         # sidebar.separator()
 
-        row = sidebar.row()
-        row.operator("package.edit_repositories")
+        col.operator("package.edit_repositories")
 
         sidebar.separator()
         sidebar.label("Category")
@@ -1402,9 +1404,13 @@ class USERPREF_PT_packages(Panel):
 
             def match_repositories(metapkg) -> bool:
                 pkg = metapkg.get_display_version()
-                for repo in pkg.repositories:
-                    if repo.name in filters['repository']:
-                        return True
+                if pkg.installed:
+                    return True
+                if len(pkg.repositories) == 0:
+                    return True
+                pkg_reponames = set(repo.name for repo in pkg.repositories)
+                if len(pkg_reponames.intersection(filters['repository'])) > 0:
+                    return True
                 return False
 
             def match_category(pkg: Package) -> bool:
@@ -1426,7 +1432,7 @@ class USERPREF_PT_packages(Panel):
                 if match_repositories(metapkg)\
                 and match_category(pkg)\
                 and match_support(pkg)\
-                and match_installstate(pkg):
+                and match_installstate(metapkg):
                     if len(filters['search']) == 0:
                         startswith.append(pkgname)
                         continue
@@ -1649,6 +1655,12 @@ class USERPREF_PT_packages(Panel):
             row.alignment='CENTER'
             row.scale_y = 10
 
+
+        if not USERPREF_PT_packages._started:
+            USERPREF_PT_packages._started = True
+            bpkg.refresh_repository_props()
+            wm.package_repository_filter = set(repo['name'] for repo in wm.package_repositories)
+
         # TODO: read repositories and installed packages synchronously for now
         packages = bpkg.list_packages()
 
@@ -1669,7 +1681,7 @@ class USERPREF_PT_packages(Panel):
                 'category': wm.addon_filter,
                 'search': wm.package_search,
                 'support': wm.addon_support,
-                'repository': set([repo.name for repo in wm.package_repositories if repo.enabled]),
+                'repository': wm.package_repository_filter,
                 'installstate': wm.package_state_filter,
                 }
         bpkg.display.displayed_packages = filter_packages(filters, packages)
