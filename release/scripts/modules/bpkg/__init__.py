@@ -24,7 +24,6 @@ def get_repositories() -> list:
     """
     Get list of downloaded repositories and update wm.package_repositories
     """
-    log = logging.getLogger(__name__ + ".get_repositories")
     storage_path = get_repo_storage_path()
     repos = utils.load_repositories(storage_path)
     return repos
@@ -44,8 +43,7 @@ def refresh_repository_props():
         repo_prop.filepath = str(repo.filepath)
 
 def get_installed_packages(refresh=False) -> list:
-    """Get list of packages installed on disk"""
-    log = logging.getLogger(__name__ + ".get_installed_packages")
+    """Get list of packages installed on disk. If refresh == True, re-scan for new packages"""
     import addon_utils
     installed_pkgs = []
     #TODO: just use addon_utils for now
@@ -63,8 +61,6 @@ def get_installed_packages(refresh=False) -> list:
 def _build_packagelist() -> dict: # {{{
     """Return a dict of ConsolidatedPackages from known repositories and
     installed packages, keyed by package name"""
-
-    log = logging.getLogger(__name__ + "._build_packagelist")
 
     masterlist = {}
     display.pkg_errors.clear()
