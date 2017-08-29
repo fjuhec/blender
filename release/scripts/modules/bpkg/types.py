@@ -107,41 +107,42 @@ class Package:
                 'files': self.files,
                 }
 
-    # bl_info properties {{{
+    import typing
+    # bl_info properties 
     # required fields
     @property
-    def name(self) -> str:
+    def name(self) -> typing.Optional[str]:
         """Get name from bl_info"""
         return self._bl_info.get('name')
     @name.setter
-    def name(self, name:str) -> str:
+    def name(self, name:str) -> typing.Optional[str]:
         if type(name) != str:
-            raise exceptions.PackageException("refusing to set name to non str %s" % name)
+            raise exceptions.PackageException("refusing to set name to non str %r" % name)
         self._bl_info['name'] = name
 
     @property
-    def version(self) -> tuple:
+    def version(self) -> typing.Optional[tuple]:
         """Get version from bl_info"""
         return tuple(self._bl_info.get('version'))
     @version.setter
-    def version(self, version:tuple) -> tuple:
+    def version(self, version:tuple) -> typing.Optional[tuple]:
         if type(version) == str:
-            raise exceptions.PackageException("Refusing to set version to non tuple %s" % version)
+            raise exceptions.PackageException("Refusing to set version to non tuple %r" % version)
         self._bl_info['version'] = version
 
     @property
-    def blender(self) -> tuple:
+    def blender(self) -> typing.Optional[tuple]:
         """Get blender from bl_info"""
         return self._bl_info.get('blender')
     @blender.setter
     def blender(self, blender:tuple):
         if type(blender) == str:
-            raise exceptions.PackageException("Refusing to set blender to non tuple %s" % blender)
+            raise exceptions.PackageException("Refusing to set blender to non tuple %r" % blender)
         self._bl_info['blender'] = blender
 
     # optional fields
     @property
-    def description(self) -> str:
+    def description(self) -> typing.Optional[str]:
         """Get description from bl_info"""
         return self._bl_info.get('description')
     @description.setter
@@ -149,7 +150,7 @@ class Package:
         self._bl_info['description'] = description
 
     @property
-    def author(self) -> str:
+    def author(self) -> typing.Optional[str]:
         """Get author from bl_info"""
         return self._bl_info.get('author')
     @author.setter
@@ -157,7 +158,7 @@ class Package:
         self._bl_info['author'] = author
 
     @property
-    def category(self) -> str:
+    def category(self) -> typing.Optional[str]:
         """Get category from bl_info"""
         return self._bl_info.get('category')
     @category.setter
@@ -165,7 +166,7 @@ class Package:
         self._bl_info['category'] = category
 
     @property
-    def location(self) -> str:
+    def location(self) -> typing.Optional[str]:
         """Get location from bl_info"""
         return self._bl_info.get('location')
     @location.setter
@@ -173,7 +174,7 @@ class Package:
         self._bl_info['location'] = location
 
     @property
-    def support(self) -> str:
+    def support(self) -> typing.Optional[str]:
         """Get support from bl_info"""
         return self._bl_info.get('support')
     @support.setter
@@ -181,7 +182,7 @@ class Package:
         self._bl_info['support'] = support
 
     @property
-    def warning(self) -> str:
+    def warning(self) -> typing.Optional[str]:
         """Get warning from bl_info"""
         return self._bl_info.get('warning')
     @warning.setter
@@ -189,7 +190,7 @@ class Package:
         self._bl_info['warning'] = warning
 
     @property
-    def wiki_url(self) -> str:
+    def wiki_url(self) -> typing.Optional[str]:
         """Get wiki_url from bl_info"""
         return self._bl_info.get('wiki_url')
     @wiki_url.setter
@@ -197,13 +198,13 @@ class Package:
         self._bl_info['wiki_url'] = wiki_url
 
     @property
-    def tracker_url(self) -> str:
+    def tracker_url(self) -> typing.Optional[str]:
         """Get tracker_url from bl_info"""
         return self._bl_info.get('tracker_url')
     @tracker_url.setter
     def tracker_url(self, tracker_url:str):
         self._bl_info['tracker_url'] = tracker_url
-    # }}}
+    
 
     # useful for handling whole bl_info at once
     @property
@@ -440,7 +441,7 @@ class Repository:
         self.filepath = Path()
         self._headers = dict()
 
-    def refresh(self, storage_path: Path, progress_callback=None):# {{{
+    def refresh(self, storage_path: Path, progress_callback=None):
         """
         Requests repo.json from URL and embeds etag/last-modification headers
         """
@@ -516,7 +517,7 @@ class Repository:
         self.set_from_dict(repodict)
         self.to_file(storage_path / utils.format_filename(self.name, ".json"))
 
-        progress_callback(1.0)# }}}
+        progress_callback(1.0)
 
     def to_dict(self, sort=False, ids=False) -> dict:
         """
