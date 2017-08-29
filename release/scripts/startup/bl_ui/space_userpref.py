@@ -1459,10 +1459,13 @@ class USERPREF_PT_packages(Panel):
                                 "wm.package_toggle_preferences",
                                 text="Preferences",
                                 ).package_name=metapkg.name
-                    layout.operator(
+                    row = layout.row()
+                    row.alignment='RIGHT'
+                    row.operator(
                             "package.uninstall",
                             text="Uninstall",
                             ).package_name=metapkg.name
+                    row.enabled = pkg.is_user
                 else:
                     layout.operator(
                             "package.install",
