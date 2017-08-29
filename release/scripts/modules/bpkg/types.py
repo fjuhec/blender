@@ -37,12 +37,14 @@ class Package:
 
         ## package stuff which is not stored in repo ##
         self.installed = False
+        # contains Path() when not None
         self.installed_location = None
         self.is_user = False
         self.enabled = False
         self.repositories = set()
 
         ## other ##
+        # contains str() when not None
         self.module_name = None
 
     def set_from_dict(self, package_dict: dict):
