@@ -47,7 +47,7 @@ def uninstall_package(pipe_to_blender, package: Package, install_path: Path):
     for pkgfile in files_to_remove:
         if not pkgfile.exists():
             pipe_to_blender.send(messages.UninstallError("Could not find file owned by package: '%s'. Refusing to uninstall." % pkgfile))
-            return None
+            return
 
     try:
         for pkgfile in files_to_remove:
