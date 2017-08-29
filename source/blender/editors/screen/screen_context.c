@@ -554,23 +554,28 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 	else if (CTX_data_equals(member, "editable_gpencil_strokes")) {
 		/* XXX: see comment for gpencil_data case... */
 		bGPdata *gpd = ED_gpencil_data_get_active_direct((ID *)sc, scene, sa, obact);
-		
+		bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd);
+
 		if (gpd) {
 			bGPDlayer *gpl;
 			
 			for (gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 				if (gpencil_layer_is_editable(gpl) && (gpl->actframe)) {
-					bGPDframe *gpf = gpl->actframe;
+					bGPDframe *gpf;
 					bGPDstroke *gps;
-					
-					for (gps = gpf->strokes.first; gps; gps = gps->next) {
-						if (ED_gpencil_stroke_can_use_direct(sa, gps)) {
-							/* check if the color is editable */
-							if (ED_gpencil_stroke_color_use(gpl, gps) == false) {
-								continue;
-							}
 
-							CTX_data_list_add(result, &gpd->id, &RNA_GPencilStroke, gps);
+					for (gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+						if ((gpf == gpl->actframe) || ((gpf->flag & GP_FRAME_SELECT) && (is_multiedit))) {
+							for (gps = gpf->strokes.first; gps; gps = gps->next) {
+								if (ED_gpencil_stroke_can_use_direct(sa, gps)) {
+									/* check if the color is editable */
+									if (ED_gpencil_stroke_color_use(gpl, gps) == false) {
+										continue;
+									}
+
+									CTX_data_list_add(result, &gpd->id, &RNA_GPencilStroke, gps);
+								}
+							}
 						}
 					}
 				}
