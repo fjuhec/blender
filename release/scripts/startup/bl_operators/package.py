@@ -38,7 +38,7 @@ else:
         _state = 'INITIALIZING'
         _abort_timeout = 0  # time at which we stop waiting for an abort response and just terminate the process
 
-        # Mapping from message type (see bpkg_manager.subproc) to handler function.
+        # Mapping from message type (see bpkg.messages) to handler function.
         # Should be constructed before modal() gets called.
         msg_handlers = {}
 
