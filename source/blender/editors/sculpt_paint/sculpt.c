@@ -8928,7 +8928,6 @@ static void remove_verts_from_mesh(Mesh *me, int *v_to_rm, int num_v_to_rm){
 	/* MT: same as above
 	 * Calculate new loop positions + remap edge pointers */
 	l_rd_table = MEM_callocN(sizeof(int) * me->totloop, "Loop redirect table");
-	n_totloop = 0;
 	for (int i = 0; i < me->totloop; i++) {
 		l = me->mloop[i];
 		if(v_rd_table[l.v] == -1 || e_rd_table[l.e] == -1) {
@@ -8937,12 +8936,12 @@ static void remove_verts_from_mesh(Mesh *me, int *v_to_rm, int num_v_to_rm){
 			l.v = v_rd_table[l.v];
 			l.e = e_rd_table[l.e];
 			me->mloop[i] = l;
-			l_rd_table[i] = n_totloop;
-			n_totloop ++;
+			l_rd_table[i] = 1;
 		}
 	}
 
 	/* MT: same as above
+	 * Subtract unused loops
 	 * Calculate new poly positions + remap pointers */
 	p_rd_table = MEM_callocN(sizeof(int) * me->totpoly, "Poly redirect table");
 	n_totpoly = 0;
@@ -8951,14 +8950,34 @@ static void remove_verts_from_mesh(Mesh *me, int *v_to_rm, int num_v_to_rm){
 		for(int l = p.loopstart; l < p.loopstart + p.totloop; l++){
 			if(l_rd_table[l] == -1) {
 				p_rd_table[i] = -1;
+				/* Subtract unused loops */
+				for(int l2 = p.loopstart; l2 < p.loopstart + p.totloop; l2++){
+					l_rd_table[l2] = -1;
+				}
 				/* TODO: Bad practise? easily solved other way*/
 				goto skip_poly;
 			}
 		}
-		me->mpoly[i].loopstart = l_rd_table[me->mpoly[i].loopstart];
 		p_rd_table[i] = n_totpoly;
 		n_totpoly ++;
 		skip_poly:;
+	}
+
+	/* Scan/Prefix sum the valid loops */
+	n_totloop = 0;
+	for (int i = 0; i < me->totloop; i++) {
+		if(l_rd_table[i] != -1) {
+			l_rd_table[i] = n_totloop;
+			n_totloop ++;
+		}
+	}
+
+	/* Polys need to be iterated twice since loops depend on polys and vice versa. */
+	for (int i = 0; i < me->totpoly; i++) {
+		if (p_rd_table[i] != -1) {
+			p = me->mpoly[i];
+			me->mpoly[i].loopstart = l_rd_table[me->mpoly[i].loopstart];
+		}
 	}
 
 	/*Redirection tables are done. Continue to copy and allocate new Customdata blocks*/
@@ -9256,6 +9275,7 @@ static void sculpt_silhouette_calc_mesh(bContext *C, wmOperator *op)
 	SculptSession *ss = ob->sculpt;
 	PBVH *bvh = ss->pbvh;
 	SculptSearchBBData data;
+	Scene *scene = CTX_data_scene(C);
 	PBVHNode **nodes = NULL;
 
 	SilhouetteStroke *stroke = sil->current_stroke;
@@ -9292,6 +9312,20 @@ static void sculpt_silhouette_calc_mesh(bContext *C, wmOperator *op)
 	BKE_mesh_calc_normals(me);
 	DAG_id_tag_update(&me->id, 0);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, me);
+
+	/*bool test_out;
+	if(!BKE_mesh_validate_arrays(me,
+								  me->mvert, me->totvert,
+								  me->medge, me->totedge,
+								  me->mface, me->totface,
+								  me->mloop, me->totloop,
+								  me->mpoly, me->totpoly,
+								  me->dvert,
+								  true, false,
+								  &test_out))
+	{
+		printf("Mesh invalid.\n");
+	}*/
 
 	BKE_object_free_derived_caches(ob);
 }
