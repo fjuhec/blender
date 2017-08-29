@@ -22,7 +22,13 @@ else:
     from collections import OrderedDict
     import multiprocessing
 
-    mp_context = multiprocessing.get_context('spawn')
+    # Under windows, multiprocessing must start a new process entirely. It
+    # expects sys.executable to point to python, but in blender sys.executable
+    # points to blender's executable. We can override this with set_executable,
+    # but this acts globally unless we make a special context.
+    # Also see:
+    # https://docs.python.org/3.6/library/multiprocessing.html#multiprocessing.set_executable
+    mp_context = multiprocessing.get_context()
     mp_context.set_executable(bpy.app.binary_path_python)
 
     class SubprocMixin:
