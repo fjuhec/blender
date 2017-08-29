@@ -2414,7 +2414,7 @@ bool initTransform(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 					BM_lnorspace_update(em->bm);
 					t->flag |= T_CLNOR_REBUILD;
 				}
-				BM_lnorspace_invalidate(em->bm, false);
+				BM_lnorspace_invalidate(em->bm, true);
 			}
 		}
 	}

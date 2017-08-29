@@ -499,16 +499,16 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob, DerivedMesh *dm,
 	const bool use_invert_vgroup = (wnmd->flag & MOD_WEIGHTEDNORMAL_INVERT_VGROUP) != 0;
 	bool free_polynors = false;
 
-	float weight = ((float)wnmd->weight) / 10.0f;
+	float weight = ((float)wnmd->weight) / 50.0f;
 
-	if (wnmd->weight == 20) {
+	if (wnmd->weight == 100) {
 		weight = (float)SHRT_MAX;
 	}
 	else if (wnmd->weight == 1) {
 		weight = 1 / (float)SHRT_MAX;
 	}
-	else if (weight > 1) {
-		weight = (weight - 1) * 10;
+	else if ((weight - 1) * 25 > 1) {
+		weight = (weight - 1) * 25;
 	}
 
 	float (*polynors)[3] = dm->getPolyDataArray(dm, CD_NORMAL);
@@ -560,7 +560,7 @@ static void initData(ModifierData *md)
 {
 	WeightedNormalModifierData *wnmd = (WeightedNormalModifierData *)md;
 	wnmd->mode = MOD_WEIGHTEDNORMAL_MODE_FACE;
-	wnmd->weight = 10;
+	wnmd->weight = 50;
 	wnmd->thresh = 1e-2f;
 	wnmd->flag = 0;
 }
