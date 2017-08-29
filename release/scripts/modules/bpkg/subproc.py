@@ -53,7 +53,8 @@ def uninstall_package(pipe_to_blender, package: Package, install_path: Path):
         for pkgfile in files_to_remove:
             utils.rm(pkgfile)
     except Exception as err:
-        pipe_to_blender.send(messages.UninstallError(err))
+        msg = "Failed to remove file '%s', see console for details" % pkgfile
+        pipe_to_blender.send(messages.UninstallError(msg))
         log.exception(err)
         return
 
