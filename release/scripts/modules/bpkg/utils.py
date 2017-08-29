@@ -37,12 +37,11 @@ def add_repojson_to_url(url: str) -> str:
     return urlunsplit((parsed_url.scheme, parsed_url.netloc, new_path, parsed_url.query, parsed_url.fragment))
 
 def load_repositories(repo_storage_path: Path) -> list:
+    """Load all json files in repo storage path"""
     repositories = []
     from .types import Repository
     for repofile in repo_storage_path.glob('*.json'):
-        # try
         repo = Repository.from_file(repofile)
-        # except
         repositories.append(repo)
     return repositories
 
