@@ -58,15 +58,15 @@ def get_installed_packages(refresh=False) -> list:
             installed_pkgs.append(pkg)
     return installed_pkgs
 
-def refresh_packages(): # {{{
+def refresh_packages(): 
     """Update bpkg.packages, a dict of ConsolidatedPackages from known repositories and
     installed packages, keyed by package name"""
 
     global packages
     masterlist = {}
     display.pkg_errors.clear()
-    installed_packages = get_installed_packages(refresh=True)# {{{
-    known_repositories = get_repositories()# }}}
+    installed_packages = get_installed_packages(refresh=True)
+    known_repositories = get_repositories()
 
     for repo in known_repositories:
         for pkg in repo.packages:
@@ -83,4 +83,4 @@ def refresh_packages(): # {{{
             masterlist[pkg.name] = types.ConsolidatedPackage(pkg)
 
     packages = masterlist
-# }}}
+
