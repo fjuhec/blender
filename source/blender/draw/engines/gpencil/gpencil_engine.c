@@ -37,6 +37,7 @@
 #include "gpencil_engine.h"
 
 #include "ED_screen.h"
+#include "ED_gpencil.h"
 
 extern char datatoc_gpencil_fill_vert_glsl[];
 extern char datatoc_gpencil_fill_frag_glsl[];
@@ -327,6 +328,7 @@ static void GPENCIL_cache_finish(void *vedata)
 	Scene *scene = draw_ctx->scene;
 	ToolSettings *ts = scene->toolsettings;
 	tGPencilObjectCache *cache;
+	bool is_multiedit = false; 
 
 	/* Draw all pending objects */
 	if (stl->g_data->gp_cache_used > 0) {
@@ -336,7 +338,13 @@ static void GPENCIL_cache_finish(void *vedata)
 			stl->g_data->gp_object_cache[i].init_grp = stl->storage->shgroup_id;
 
 			/* fill shading groups */
-			DRW_gpencil_populate_datablock(&e_data, vedata, scene, ob, ts, ob->gpd);
+			is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(ob->gpd);
+			if (!is_multiedit) {
+				DRW_gpencil_populate_datablock(&e_data, vedata, scene, ob, ts, ob->gpd);
+			}
+			else {
+				DRW_gpencil_populate_multiedit(&e_data, vedata, scene, ob, ts, ob->gpd);
+			}
 
 			/* save end shading group */
 			stl->g_data->gp_object_cache[i].end_grp = stl->storage->shgroup_id - 1;
@@ -346,7 +354,7 @@ static void GPENCIL_cache_finish(void *vedata)
 			}
 			/* VFX pass */
 			cache = &stl->g_data->gp_object_cache[i];
-			if (ob->modifiers.first) {
+			if ((!is_multiedit) && (ob->modifiers.first)) {
 				DRW_gpencil_vfx_modifiers(i, &e_data, vedata, ob, cache);
 			}
 		}

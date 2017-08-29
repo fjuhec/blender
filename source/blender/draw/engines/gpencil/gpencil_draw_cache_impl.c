@@ -688,18 +688,19 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 	DRWShadingGroup *fillgrp;
 	DRWShadingGroup *strokegrp;
 	float viewmatrix[4][4];
+	bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd);
 
 	/* get parent matrix and save as static data */
 	ED_gpencil_parent_location(ob, gpd, gpl, viewmatrix);
 	copy_m4_m4(derived_gpf->viewmatrix, viewmatrix);
 
 	/* initialization steps */
-	if ((cache->is_dirty) && (ob->modifiers.first)) {
+	if ((cache->is_dirty) && (ob->modifiers.first) && (!is_multiedit)) {
 		BKE_gpencil_reset_modifiers(ob);
 	}
 
 	/* apply geometry modifiers */
-	if ((cache->is_dirty) && (ob->modifiers.first)) {
+	if ((cache->is_dirty) && (ob->modifiers.first) && (!is_multiedit)) {
 		if (BKE_gpencil_has_geometry_modifiers(ob)) {
 			BKE_gpencil_geometry_modifiers(ob, gpl, derived_gpf);
 		}
@@ -751,7 +752,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 		strokegrp = stl->shgroups[id].shgrps_stroke;
 
 		/* apply modifiers (only modify geometry, but not create ) */
-		if ((cache->is_dirty) && (ob->modifiers.first)) {
+		if ((cache->is_dirty) && (ob->modifiers.first) && (!is_multiedit)) {
 			BKE_gpencil_stroke_modifiers(ob, gpl, derived_gpf, gps);
 		}
 		/* fill */
@@ -921,6 +922,47 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 		cache->is_dirty = true;
 		gpencil_draw_onion_strokes(cache, e_data, vedata, ob, gpd, gpl, gf, color, gpl->flag & GP_LAYER_GHOST_NEXTCOL);
 	}
+}
+
+/* populate a datablock for multiedit (no onions, no modifiers) */
+void DRW_gpencil_populate_multiedit(GPENCIL_e_data *e_data, void *vedata, Scene *scene, Object *ob, ToolSettings *ts, bGPdata *gpd)
+{
+	ListBase tmp_frames = { NULL, NULL };
+	bGPDframe *gpf = NULL;
+
+	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
+	GpencilBatchCache *cache = gpencil_batch_cache_get(ob, CFRA);
+	cache->cache_idx = 0;
+
+	/* check if playing animation */
+	bool playing = (bool)stl->storage->playing;
+
+	/* draw strokes */
+	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+		/* don't draw layer if hidden */
+		if (gpl->flag & GP_LAYER_HIDE)
+			continue;
+
+		/* list of frames to draw */
+		if (!playing) {
+			for (gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+				if ((gpf == gpl->actframe) || (gpf->flag & GP_FRAME_SELECT)) {
+					gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gpf, gpf,
+						gpl->opacity, gpl->tintcolor, false);
+				}
+			}
+		}
+		else {
+			gpf = BKE_gpencil_layer_getframe(gpl, CFRA, 0);
+			if (gpf) {
+				gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gpf, gpf,
+					gpl->opacity, gpl->tintcolor, false);
+			}
+		}
+
+	}
+
+	cache->is_dirty = false;
 }
 
 /* helper for populate a complete grease pencil datablock */
