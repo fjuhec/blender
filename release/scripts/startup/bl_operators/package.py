@@ -70,11 +70,6 @@ else:
         def modal(self, context, event):
             import time
 
-            if event.type == 'ESC':
-                self.log.warning('Escape pressed, sending abort signal to subprocess')
-                self.abort()
-                return {'PASS_THROUGH'}
-
             if event.type != 'TIMER':
                 return {'PASS_THROUGH'}
 
