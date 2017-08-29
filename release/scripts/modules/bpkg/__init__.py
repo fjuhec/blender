@@ -70,8 +70,6 @@ def _build_packagelist() -> dict: # {{{
     for repo in known_repositories:
         for pkg in repo.packages:
             pkg.repositories.add(repo)
-            if pkg.name is None:
-                return {}
             if pkg.name in masterlist:
                 masterlist[pkg.name].add_version(pkg)
             else:
