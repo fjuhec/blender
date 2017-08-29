@@ -345,24 +345,27 @@ typedef enum ACTCONT_TYPES {
 {                                                                                       \
 	Object *obact_ = CTX_data_active_object(C);                                          \
 	bGPdata *gpd_ = CTX_data_gpencil_data(C);                                            \
+	bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd_);                       \
 	CTX_DATA_BEGIN(C, bGPDlayer*, gpl, editable_gpencil_layers)                         \
 	{                                                                                   \
-		if (gpl->actframe == NULL)                                                      \
-			continue;                                                                   \
-		/* calculate difference matrix */                                               \
-		float diff_mat[4][4];                                                           \
-		ED_gpencil_parent_location(obact_, gpd_, gpl, diff_mat);                          \
-		/* loop over strokes */                                                         \
-		for (bGPDstroke *gps = gpl->actframe->strokes.first; gps; gps = gps->next) {    \
-			/* skip strokes that are invalid for current view */                        \
-			if (ED_gpencil_stroke_can_use(C, gps) == false)                             \
-				continue;                                                               \
-			/* check if the color is editable */                                        \
-			if (ED_gpencil_stroke_color_use(gpl, gps) == false)                         \
-				continue;                                                               \
-			/* ... Do Stuff With Strokes ...  */
+		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {                        \
+			if ((gpf == gpl->actframe) || ((gpf->flag & GP_FRAME_SELECT) && (is_multiedit))) {  \
+				/* calculate difference matrix */                                               \
+				float diff_mat[4][4];                                                           \
+				ED_gpencil_parent_location(obact_, gpd_, gpl, diff_mat);                          \
+				/* loop over strokes */                                                         \
+				for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {    \
+					/* skip strokes that are invalid for current view */                        \
+					if (ED_gpencil_stroke_can_use(C, gps) == false)                             \
+						continue;                                                               \
+					/* check if the color is editable */                                        \
+					if (ED_gpencil_stroke_color_use(gpl, gps) == false)                         \
+						continue;                                                               \
+					/* ... Do Stuff With Strokes ...  */
 
 #define GP_EDITABLE_STROKES_END    \
+				}                  \
+			}                      \
 		}                          \
 	}                              \
 	CTX_DATA_END;                  \
