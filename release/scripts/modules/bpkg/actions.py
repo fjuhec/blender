@@ -7,8 +7,9 @@ import logging
 def download(url: str, destination: Path, progress_callback=None) -> Path:
     """
     Downloads file at the given url, and if progress_callback is specified,
-    repeatedly calls progress_callback with an argument between 0 and 1, or infinity.
-    Raises DownloadException if an error occurs with the download.
+    repeatedly calls progress_callback with an argument between 0 and 1, or
+    infinity if progress cannot be determined.  Raises DownloadException if an
+    error occurs with the download.
 
     :returns: path to the downloaded file, or None if not modified
     """
