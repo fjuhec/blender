@@ -521,7 +521,6 @@ else:
             import addon_utils
             metapkg = bpkg.packages[self.package_name]
 
-
             if not metapkg.installed:
                 self.report({'ERROR'}, "Can't enable package which isn't installed")
                 return {'CANCELLED'}
@@ -537,9 +536,7 @@ else:
                 if pkg.enabled:
                     addon_utils.disable(pkg.module_name, default_set=True)
                     pkg.enabled = False
-                    self.log.debug("Disabling")
                 else:
-                    self.log.debug("Enabling")
                     addon_utils.enable(pkg.module_name, default_set=True)
                     pkg.enabled = True
 
