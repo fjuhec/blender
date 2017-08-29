@@ -258,6 +258,24 @@ class Package:
             return (self.module_name in bpy.context.user_preferences.addons)
         else:
             return False
+    
+    def enable(self):
+        """Enable package"""
+        # TODO: just use addon_utils for now
+        if not self.module_name:
+            raise PackageException("Cannot enable package with unset module_name")
+        import addon_utils
+        addon_utils.enable(self.module_name, default_set=True)
+        self.enabled = True
+
+    def disable(self):
+        """Disable package"""
+        if not self.module_name:
+            raise PackageException("Cannot disable package with unset module_name")
+        import addon_utils
+        addon_utils.enable(self.module_name, default_set=True)
+        self.enabled = False
+
 
     def test_installed(self) -> bool:
         """Return true if package is installed"""

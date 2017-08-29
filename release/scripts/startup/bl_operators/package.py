@@ -525,20 +525,11 @@ else:
                 self.report({'ERROR'}, "Can't enable package which isn't installed")
                 return {'CANCELLED'}
 
-            # enable/disable all installed versions, just in case there are more than one
-            for pkg in metapkg.versions:
-                if not pkg.installed:
-                    continue
-                if not pkg.module_name:
-                    self.log.warning("Can't enable package `%s` without a module name", pkg.name)
-                    continue
-
-                if pkg.enabled:
-                    addon_utils.disable(pkg.module_name, default_set=True)
-                    pkg.enabled = False
-                else:
-                    addon_utils.enable(pkg.module_name, default_set=True)
-                    pkg.enabled = True
+            pkg = metapkg.get_latest_installed_version()
+            if pkg.enabled:
+                pkg.disable()
+            else:
+                pkg.enable()
 
             return {'FINISHED'}
 
