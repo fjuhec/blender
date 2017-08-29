@@ -116,7 +116,7 @@ class Package:
         return self._bl_info.get('name')
     @name.setter
     def name(self, name:str) -> typing.Optional[str]:
-        if type(name) != str:
+        if not isinstance(name, str):
             raise exceptions.PackageException("refusing to set name to non str %r" % name)
         self._bl_info['name'] = name
 
@@ -126,7 +126,7 @@ class Package:
         return tuple(self._bl_info.get('version'))
     @version.setter
     def version(self, version:tuple) -> typing.Optional[tuple]:
-        if type(version) == str:
+        if isinstance(version, str):
             raise exceptions.PackageException("Refusing to set version to non tuple %r" % version)
         self._bl_info['version'] = version
 
@@ -136,7 +136,7 @@ class Package:
         return self._bl_info.get('blender')
     @blender.setter
     def blender(self, blender:tuple):
-        if type(blender) == str:
+        if isinstance(blender, str):
             raise exceptions.PackageException("Refusing to set blender to non tuple %r" % blender)
         self._bl_info['blender'] = blender
 
