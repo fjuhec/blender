@@ -23,17 +23,7 @@ def download(url: str, destination: Path, progress_callback=None) -> Path:
 
     progress_callback(0)
 
-    # derive filename from url if `destination` is an existing directory, otherwise use `destination` directly
-    if destination.is_dir():
-        # TODO: get filename from Content-Disposition header, if available.
-        from urllib.parse import urlsplit, urlunsplit
-        parsed_url = urlsplit(url)
-        local_filename = Path(parsed_url.path).name or 'download.tmp'
-        local_fpath = destination / local_filename
-    else:
-        local_fpath = destination
-
-    log.info('Downloading %s -> %s', url, local_fpath)
+    log.info('Downloading %s ', url)
 
     # try:
     resp = requests.get(url, stream=True, verify=True)
@@ -48,6 +38,18 @@ def download(url: str, destination: Path, progress_callback=None) -> Path:
     if resp.status_code == requests.codes.not_modified:
         log.info("Server responded 'Not Modified', not downloading")
         return None
+
+    # determine destination filename from url, but only after we've determined it works as a real url
+    # derive filename from url if given `destination` is an existing directory,
+    # otherwise use `destination` directly
+    if destination.is_dir():
+        # TODO: get filename from Content-Disposition header, if available.
+        from urllib.parse import urlsplit, urlunsplit
+        parsed_url = urlsplit(url)
+        local_filename = Path(parsed_url.path).name or 'download.tmp'
+        local_fpath = destination / local_filename
+    else:
+        local_fpath = destination
 
     try:
         # Use float so that we can also use infinity
