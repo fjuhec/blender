@@ -318,7 +318,7 @@ class ConsolidatedPackage:
 
     def __init__(self, pkg=None):
         self.versions = []
-        self.updateable = False
+        # self.updateable = False
 
         if pkg is not None:
             self.add_version(pkg)
@@ -372,6 +372,14 @@ class ConsolidatedPackage:
             pkg = self.get_latest_version()
         return pkg
 
+    def test_updateable(self) -> bool:
+        """Return true if latest installed version of package is older than latest known version"""
+        latest = self.get_latest_version()
+        latest_installed = self.get_latest_installed_version()
+        if latest is None or latest_installed is None:
+            return False
+        return latest_installed.version < latest.version
+
     def add_version(self, newpkg: Package):
         """Adds a package to the collection of versions"""
 
@@ -387,6 +395,7 @@ class ConsolidatedPackage:
 
         self.versions.append(newpkg)
         self.versions.sort(key=lambda v: v.version, reverse=True)
+        # self.updateable = self.test_updateable()
 
 
     def __iter__(self):

@@ -2,6 +2,12 @@ from pathlib import Path
 import shutil
 import logging
 
+def fmt_version(version_number: tuple) -> str:
+    """Take version number as a tuple and format it as a string"""
+    vstr = str(version_number[0])
+    for component in version_number[1:]:
+        vstr += "." + str(component)
+    return vstr
 
 def format_filename(s: str, ext=None) -> str:
     """Take a string and turn it into a reasonable filename"""

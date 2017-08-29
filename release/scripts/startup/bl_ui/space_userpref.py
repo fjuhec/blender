@@ -1371,35 +1371,24 @@ class USERPREF_PT_packages(Panel):
 
             #TODO: using lower() for case-insensitive comparison doesn't work for some languages
             def match_contains(pkg: Package) -> bool:
-                if pkg.name.lower().__contains__(filters['search'].lower()):
-                    return True
-                return False
+                return pkg.name.lower().__contains__(filters['search'].lower())
 
             def match_startswith(pkg: Package) -> bool:
-                if pkg.name.lower().startswith(filters['search'].lower()):
-                    return True
-                return False
+                return pkg.name.lower().startswith(filters['search'].lower())
 
             def match_support(pkg: Package) -> bool:
-                if set((pkg.support,)).issubset(filters['support']):
-                    return True
-                # else:
-                #     if {'COMMUNITY'}.issubset(filters['support']):
-                #         return True
-                return False
+                return set((pkg.support,)).issubset(filters['support'])
 
             def match_installstate(metapkg: ConsolidatedPackage) -> bool:
                 if filters['installstate'] == 'AVAILABLE':
                     return True
 
                 if filters['installstate'] == 'INSTALLED':
-                    if metapkg.installed:
-                        return True
+                    return metapkg.installed
 
                 if filters['installstate'] == 'UPDATES':
-                    if metapkg.installed:
-                        if metapkg.get_latest_installed_version().version < metapkg.get_latest_version().version:
-                            return True
+                    return metapkg.installed and metapkg.test_updateable()
+
                 return False
 
             def match_repositories(metapkg) -> bool:
@@ -1457,10 +1446,10 @@ class USERPREF_PT_packages(Panel):
                 pkg = metapkg.get_display_version()
 
                 if metapkg.installed:
-                    if metapkg.updateable:
+                    if metapkg.test_updateable():
                         layout.operator(
                                 "package.install",
-                                text="Update to {}".format(utils.fmt_version(metapkg.get_latest_version().version)),
+                                text="Update to {}".format(bpkg.utils.fmt_version(metapkg.get_latest_version().version)),
                                 ).package_name=metapkg.name
                         layout.separator()
 
@@ -1480,14 +1469,6 @@ class USERPREF_PT_packages(Panel):
                             text="Install",
                             ).package_name=metapkg.name
                 # }}}
-
-            def fmt_version(version_number: tuple) -> str:
-                """Take version number as a tuple and format it as a string"""
-                vstr = str(version_number[0])
-                for component in version_number[1:]:
-                    vstr += "." + str(component)
-                return vstr
-
 
             def draw_preferences(pkg: Package, layout: bpy.types.UILayout):
                 """Draw the package's preferences in the given layout"""
@@ -1576,9 +1557,9 @@ class USERPREF_PT_packages(Panel):
                 if pkg.location:
                     draw_metadatum("Location", pkg.location, metacol)
                 if pkg.version:
-                    draw_metadatum("Version", fmt_version(pkg.version), metacol)
+                    draw_metadatum("Version", bpkg.utils.fmt_version(pkg.version), metacol)
                 if pkg.blender:
-                    draw_metadatum("Blender version", fmt_version(pkg.blender), metacol)
+                    draw_metadatum("Blender version", bpkg.utils.fmt_version(pkg.blender), metacol)
                 if pkg.category:
                     draw_metadatum("Category", pkg.category, metacol)
                 if pkg.author:
@@ -1610,7 +1591,7 @@ class USERPREF_PT_packages(Panel):
                     right = spl.column()
                     right.alignment = 'RIGHT'
 
-                    left.label(text=fmt_version(pkg.version))
+                    left.label(text=bpkg.utils.fmt_version(pkg.version))
 
                     for repo in pkg.repositories:
                         draw_metadatum("Repository", repo.name, left)
