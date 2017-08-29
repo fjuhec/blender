@@ -324,13 +324,11 @@ else:
             :rtype: multiprocessing.Process
             """
 
-            #TODO: make sure all possible messages are handled
             self.msg_handlers = {
                 messages.Progress: self._subproc_progress,
                 messages.SubprocError: self._subproc_error,
                 messages.DownloadError: self._subproc_download_error,
                 messages.Success: self._subproc_success,
-                # messages.RepositoryResult: self._subproc_repository_result,
                 messages.BadRepositoryError: self._subproc_repository_error,
                 messages.Aborted: self._subproc_aborted,
             }
