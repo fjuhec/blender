@@ -471,7 +471,7 @@ else:
             col.operator("package.remove_repository", text="", icon='ZOOMOUT')
 
 
-    class WM_OT_package_toggle_expand(Operator):# {{{
+    class WM_OT_package_toggle_expand(Operator):
         bl_idname = "wm.package_toggle_expand"
         bl_label = ""
         bl_description = "Toggle display of extended information for given package (hold shift to collapse all other packages)"
@@ -492,9 +492,9 @@ else:
             else:
                 bpkg.display.expanded_packages.append(self.package_name)
 
-            return {'FINISHED'}# }}}
+            return {'FINISHED'}
 
-    class WM_OT_package_toggle_preferences(Operator):# {{{
+    class WM_OT_package_toggle_preferences(Operator):
         bl_idname = "wm.package_toggle_preferences"
         bl_label = ""
         bl_description = "Toggle display of package preferences"
@@ -510,9 +510,9 @@ else:
                 USERPREF_PT_packages.preference_package = None
             else:
                 USERPREF_PT_packages.preference_package = self.package_name
-            return {'FINISHED'}# }}}
+            return {'FINISHED'}
 
-    class PACKAGE_OT_toggle_enabled(Operator):# {{{
+    class PACKAGE_OT_toggle_enabled(Operator):
         bl_idname = "package.toggle_enabled"
         bl_label = ""
         bl_description = "Enable given package if it's disabled, and vice versa if it's enabled"
@@ -550,9 +550,9 @@ else:
                     addon_utils.enable(pkg.module_name, default_set=True)
                     pkg.enabled = True
 
-            return {'FINISHED'}# }}}
+            return {'FINISHED'}
 
-    class PACKAGE_OT_disable(Operator):# {{{
+    class PACKAGE_OT_disable(Operator):
         bl_idname = "package.disable"
         bl_label = ""
         bl_description = "Disable given package"
@@ -574,7 +574,7 @@ else:
             ret = bpy.ops.wm.addon_disable(package.module_name)
             if ret == {'FINISHED'}:
                 bpkg.list_packages()[self.package_name].enabled = False
-            return ret# }}}
+            return ret
 
 classes = (
     PACKAGE_OT_install,
