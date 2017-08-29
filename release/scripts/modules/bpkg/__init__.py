@@ -8,7 +8,6 @@ from . import types
 from . import display
 from . import exceptions
 from pathlib import Path
-from collections import OrderedDict
 import logging
 
 # global package list, use refresh_packages() to refresh
@@ -72,7 +71,7 @@ def _build_packagelist() -> dict: # {{{
         for pkg in repo.packages:
             pkg.repositories.add(repo)
             if pkg.name is None:
-                return OrderedDict()
+                return {}
             if pkg.name in masterlist:
                 masterlist[pkg.name].add_version(pkg)
             else:
