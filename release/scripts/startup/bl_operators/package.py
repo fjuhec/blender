@@ -37,6 +37,7 @@ else:
         log = logging.getLogger(__name__ + '.SubprocMixin')
         _state = 'INITIALIZING'
         _abort_timeout = 0  # time at which we stop waiting for an abort response and just terminate the process
+        _abort_wait = 10 # how long to wait (in seconds) to forcibly terminate subprocess after quit
 
         # Mapping from message type (see bpkg.messages) to handler function.
         # Should be constructed before modal() gets called.
@@ -98,7 +99,7 @@ else:
             import time
 
             # Allow the subprocess 10 seconds to repsond to our abort message.
-            self._abort_timeout = time.time() + 10
+            self._abort_timeout = time.time() + self._abort_wait
             self._state = 'ABORTING'
 
             self.pipe_blender.send(messages.Abort())
@@ -117,7 +118,7 @@ else:
             if self.process and self.process.is_alive():
                 self.log.debug('Waiting for subprocess to quit')
                 try:
-                    self.process.join(timeout=10)
+                    self.process.join(timeout=self._abort_wait)
                 except multiprocessing.TimeoutError:
                     self.log.warning('Subprocess is hanging, terminating it forcefully.')
                     self.process.terminate()
