@@ -5279,8 +5279,8 @@ static SilhouetteData *silhouette_data_new(bContext *C)
 
 	/*Load RNA Data if present */
 	sil->smoothness = sd->silhouette_smoothness / 100.0f;
-	sil->depth = sd->silhouette_depth;
-	sil->resolution = sd->silhouette_resolution;;
+	sil->depth = fmax(sd->silhouette_depth, 0.05f);
+	sil->resolution = sd->silhouette_resolution;
 	sil->do_subtract = sd->silhouette_flags & SILHOUETTE_DO_SUBTRACT;
 
 	copy_v3_v3(sil->anchor, fp);
@@ -8649,7 +8649,7 @@ static void silhouette_create_shape_mesh(bContext *C, Mesh *me, SilhouetteData *
 	float z_vec[3] = {0.0f,0.0f,1.0f};
 	float inv_z_vec[3];
 	float depth = sil->depth;
-	int ss_level = sil->resolution;
+	int ss_level = fmax(sil->resolution, 1);
 	int v_steps = (1 << ss_level) + 2;
 	bool n_ori = false;
 	int e_start;
