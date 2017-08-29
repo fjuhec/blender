@@ -25,10 +25,7 @@ def download(url: str, destination: Path, progress_callback=None) -> Path:
 
     log.info('Downloading %s ', url)
 
-    # try:
     resp = requests.get(url, stream=True, verify=True)
-    # except requests.exceptions.RequestException as err:
-    #     raise exceptions.DownloadException(err) from err
 
     try:
         resp.raise_for_status()
