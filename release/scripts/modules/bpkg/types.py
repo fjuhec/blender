@@ -6,6 +6,7 @@ from . import utils
 from . import actions
 from . import display
 
+
 class Package:
     """
     Stores package methods and metadata
@@ -32,8 +33,8 @@ class Package:
         self.tracker_url = str()
 
         ## package stuff ##
-        self.url     = str()
-        self.files   = list()
+        self.url = str()
+        self.files = list()
 
         ## package stuff which is not stored in repo ##
         self.installed = False
@@ -53,9 +54,9 @@ class Package:
         """
         if package_dict is None:
             raise PackageException("Can't set package from None")
-        
-        self.files   = package_dict['files']
-        self.url     = package_dict['url']
+
+        self.files = package_dict['files']
+        self.url = package_dict['url']
         self.bl_info = package_dict['bl_info']
 
     @classmethod
@@ -93,7 +94,8 @@ class Package:
         try:
             pkg.bl_info = module.bl_info
         except AttributeError as err:
-            raise exceptions.PackageException("Module does not appear to be an addon; no bl_info attribute") from err
+            raise exceptions.PackageException(
+                "Module does not appear to be an addon; no bl_info attribute") from err
         return pkg
 
     def to_dict(self) -> dict:
@@ -102,42 +104,49 @@ class Package:
         Used to store the package in json format
         """
         return {
-                'bl_info': self.bl_info,
-                'url': self.url,
-                'files': self.files,
-                }
+            'bl_info': self.bl_info,
+            'url': self.url,
+            'files': self.files,
+        }
 
     import typing
-    # bl_info properties 
+    # bl_info properties
     # required fields
+
     @property
     def name(self) -> typing.Optional[str]:
         """Get name from bl_info"""
         return self._bl_info.get('name')
+
     @name.setter
-    def name(self, name:str) -> typing.Optional[str]:
+    def name(self, name: str) -> typing.Optional[str]:
         if not isinstance(name, str):
-            raise exceptions.PackageException("refusing to set name to non str %r" % name)
+            raise exceptions.PackageException(
+                "refusing to set name to non str %r" % name)
         self._bl_info['name'] = name
 
     @property
     def version(self) -> typing.Optional[tuple]:
         """Get version from bl_info"""
         return tuple(self._bl_info.get('version'))
+
     @version.setter
-    def version(self, version:tuple) -> typing.Optional[tuple]:
+    def version(self, version: tuple) -> typing.Optional[tuple]:
         if isinstance(version, str):
-            raise exceptions.PackageException("Refusing to set version to non tuple %r" % version)
+            raise exceptions.PackageException(
+                "Refusing to set version to non tuple %r" % version)
         self._bl_info['version'] = version
 
     @property
     def blender(self) -> typing.Optional[tuple]:
         """Get blender from bl_info"""
         return self._bl_info.get('blender')
+
     @blender.setter
-    def blender(self, blender:tuple):
+    def blender(self, blender: tuple):
         if isinstance(blender, str):
-            raise exceptions.PackageException("Refusing to set blender to non tuple %r" % blender)
+            raise exceptions.PackageException(
+                "Refusing to set blender to non tuple %r" % blender)
         self._bl_info['blender'] = blender
 
     # optional fields
@@ -145,66 +154,73 @@ class Package:
     def description(self) -> typing.Optional[str]:
         """Get description from bl_info"""
         return self._bl_info.get('description')
+
     @description.setter
-    def description(self, description:str):
+    def description(self, description: str):
         self._bl_info['description'] = description
 
     @property
     def author(self) -> typing.Optional[str]:
         """Get author from bl_info"""
         return self._bl_info.get('author')
+
     @author.setter
-    def author(self, author:str):
+    def author(self, author: str):
         self._bl_info['author'] = author
 
     @property
     def category(self) -> typing.Optional[str]:
         """Get category from bl_info"""
         return self._bl_info.get('category')
+
     @category.setter
-    def category(self, category:str):
+    def category(self, category: str):
         self._bl_info['category'] = category
 
     @property
     def location(self) -> typing.Optional[str]:
         """Get location from bl_info"""
         return self._bl_info.get('location')
+
     @location.setter
-    def location(self, location:str):
+    def location(self, location: str):
         self._bl_info['location'] = location
 
     @property
     def support(self) -> typing.Optional[str]:
         """Get support from bl_info"""
         return self._bl_info.get('support')
+
     @support.setter
-    def support(self, support:str):
+    def support(self, support: str):
         self._bl_info['support'] = support
 
     @property
     def warning(self) -> typing.Optional[str]:
         """Get warning from bl_info"""
         return self._bl_info.get('warning')
+
     @warning.setter
-    def warning(self, warning:str):
+    def warning(self, warning: str):
         self._bl_info['warning'] = warning
 
     @property
     def wiki_url(self) -> typing.Optional[str]:
         """Get wiki_url from bl_info"""
         return self._bl_info.get('wiki_url')
+
     @wiki_url.setter
-    def wiki_url(self, wiki_url:str):
+    def wiki_url(self, wiki_url: str):
         self._bl_info['wiki_url'] = wiki_url
 
     @property
     def tracker_url(self) -> typing.Optional[str]:
         """Get tracker_url from bl_info"""
         return self._bl_info.get('tracker_url')
+
     @tracker_url.setter
-    def tracker_url(self, tracker_url:str):
+    def tracker_url(self, tracker_url: str):
         self._bl_info['tracker_url'] = tracker_url
-    
 
     # useful for handling whole bl_info at once
     @property
@@ -223,19 +239,20 @@ class Package:
             "wiki_url": self.wiki_url,
             "tracker_url": self.tracker_url,
         }
+
     @bl_info.setter
     def bl_info(self, blinfo: dict):
-        self.name        = blinfo["name"]
-        self.version     = blinfo["version"]
-        self.blender     = blinfo["blender"]
+        self.name = blinfo["name"]
+        self.version = blinfo["version"]
+        self.blender = blinfo["blender"]
 
         self.description = blinfo.get("description", self.description)
-        self.author      = blinfo.get("author",      self.author)
-        self.category    = blinfo.get("category",    self.category)
-        self.location    = blinfo.get("location",    self.location)
-        self.support     = blinfo.get("support",     self.support)
-        self.warning     = blinfo.get("warning",     self.warning)
-        self.wiki_url    = blinfo.get("wiki_url",    self.wiki_url)
+        self.author = blinfo.get("author",      self.author)
+        self.category = blinfo.get("category",    self.category)
+        self.location = blinfo.get("location",    self.location)
+        self.support = blinfo.get("support",     self.support)
+        self.warning = blinfo.get("warning",     self.warning)
+        self.wiki_url = blinfo.get("wiki_url",    self.wiki_url)
         self.tracker_url = blinfo.get("tracker_url", self.tracker_url)
 
     def test_is_user(self) -> bool:
@@ -245,12 +262,14 @@ class Package:
         prefs_script_path = bpy.utils.script_path_pref()
 
         if user_script_path is not None:
-            in_user = Path(user_script_path) in Path(self.installed_location).parents
+            in_user = Path(user_script_path) in Path(
+                self.installed_location).parents
         else:
             in_user = False
 
         if prefs_script_path is not None:
-            in_prefs = Path(prefs_script_path) in Path(self.installed_location).parents
+            in_prefs = Path(prefs_script_path) in Path(
+                self.installed_location).parents
         else:
             in_prefs = False
 
@@ -263,12 +282,13 @@ class Package:
             return (self.module_name in bpy.context.user_preferences.addons)
         else:
             return False
-    
+
     def enable(self):
         """Enable package"""
         # TODO: just use addon_utils for now
         if not self.module_name:
-            raise PackageException("Cannot enable package with unset module_name")
+            raise PackageException(
+                "Cannot enable package with unset module_name")
         import addon_utils
         addon_utils.enable(self.module_name, default_set=True)
         self.enabled = True
@@ -276,18 +296,18 @@ class Package:
     def disable(self):
         """Disable package"""
         if not self.module_name:
-            raise PackageException("Cannot disable package with unset module_name")
+            raise PackageException(
+                "Cannot disable package with unset module_name")
         import addon_utils
         addon_utils.enable(self.module_name, default_set=True)
         self.enabled = False
-
 
     def test_installed(self) -> bool:
         """Return true if package is installed"""
         import addon_utils
         return len([Package.from_module(mod) for mod in addon_utils.modules(refresh=False) if
-                addon_utils.module_bl_info(mod)['name'] == self.name and
-                addon_utils.module_bl_info(mod)['version'] == self.version]) > 0
+                    addon_utils.module_bl_info(mod)['name'] == self.name and
+                    addon_utils.module_bl_info(mod)['version'] == self.version]) > 0
 
     def set_installed_metadata(self, installed_pkg):
         """Sets metadata specific to installed packages from the Package given as `installed_pkg`"""
@@ -302,7 +322,7 @@ class Package:
 
         if not self.url:
             raise ValueError("Cannot download package without a URL")
-        
+
         return actions.download(self.url, dest, progress_callback)
 
     def install(self, dest_dir: Path, cache_dir: Path, progress_callback=None):
@@ -331,6 +351,7 @@ class Package:
     def __repr__(self) -> str:
         # return self.name
         return "Package('name': {}, 'version': {})".format(self.name, self.version)
+
 
 class ConsolidatedPackage:
     """
@@ -372,16 +393,17 @@ class ConsolidatedPackage:
         Return the installed package with the highest version number.
         If no packages are installed, return None.
         """
-        #self.versions is always sorted newer -> older, so we can just grab the first we find
+        # self.versions is always sorted newer -> older, so we can just grab the first we find
         for pkg in self.versions:
             if pkg.installed:
-                return pkg 
+                return pkg
         return None
 
     def get_latest_version(self) -> Package:
         """Return package with highest version number, returns None if there are no versions"""
         try:
-            return self.versions[0] # this is always sorted with the highest on top
+            # this is always sorted with the highest on top
+            return self.versions[0]
         except IndexError:
             return None
 
@@ -407,7 +429,8 @@ class ConsolidatedPackage:
         """Adds a package to the collection of versions"""
 
         if self.name and newpkg.name != self.name:
-            raise exceptions.PackageException("Name mismatch, refusing to add %s to %s" % (newpkg, self))
+            raise exceptions.PackageException(
+                "Name mismatch, refusing to add %s to %s" % (newpkg, self))
 
         for pkg in self:
             if pkg == newpkg:
@@ -420,12 +443,12 @@ class ConsolidatedPackage:
         self.versions.sort(key=lambda v: v.version, reverse=True)
         # self.updateable = self.test_updateable()
 
-
     def __iter__(self):
         return (pkg for pkg in self.versions)
 
     def __repr__(self):
         return ("ConsolidatedPackage<name={}>".format(self.name))
+
 
 class Repository:
     """
@@ -448,7 +471,7 @@ class Repository:
         import requests
 
         if progress_callback is None:
-            progress_callback = lambda x: None
+            def progress_callback(x): return None
 
         progress_callback(0.0)
 
@@ -473,9 +496,11 @@ class Repository:
         try:
             resp = requests.get(url, headers=req_headers, timeout=60)
         except requests.exceptions.InvalidSchema as err:
-            raise exceptions.DownloadException("Invalid schema. Did you mean to use http://?") from err
+            raise exceptions.DownloadException(
+                "Invalid schema. Did you mean to use http://?") from err
         except requests.exceptions.ConnectionError as err:
-            raise exceptions.DownloadException("Failed to connect. Are you sure '%s' is the correct URL?" % url) from err
+            raise exceptions.DownloadException(
+                "Failed to connect. Are you sure '%s' is the correct URL?" % url) from err
         except requests.exceptions.RequestException as err:
             raise exceptions.DownloadException(err) from err
 
@@ -483,7 +508,8 @@ class Repository:
             resp.raise_for_status()
         except requests.HTTPError as err:
             self.log.error('Error downloading %s: %s', url, err)
-            raise exceptions.DownloadException(resp.status_code, resp.reason) from err
+            raise exceptions.DownloadException(
+                resp.status_code, resp.reason) from err
 
         if resp.status_code == requests.codes.not_modified:
             self.log.debug("Packagelist not modified")
@@ -503,14 +529,14 @@ class Repository:
         self.log.debug("Found headers: %s", resp_headers)
 
         progress_callback(0.7)
-        
+
         try:
             repodict = resp.json()
         except json.decoder.JSONDecodeError:
             self.log.exception("Failed to parse downloaded repository")
             raise exceptions.BadRepositoryException(
-                    "Could not parse repository downloaded from '%s'. Are you sure this is the correct URL?" % url
-                    )
+                "Could not parse repository downloaded from '%s'. Are you sure this is the correct URL?" % url
+            )
         repodict['_headers'] = resp_headers
         repodict['url'] = self.url
 
@@ -532,14 +558,15 @@ class Repository:
         if ids:
             for pkg in packages:
                 # hash may be too big for a C int
-                pkg['id'] = str(hash(pkg['url'] + pkg['bl_info']['name'] + self.name + self.url))
+                pkg['id'] = str(hash(pkg['url'] + pkg['bl_info']
+                                     ['name'] + self.name + self.url))
 
         return {
-                'name':     self.name,
-                'packages': packages,
-                'url':      self.url,
-                '_headers': self._headers,
-                }
+            'name':     self.name,
+            'packages': packages,
+            'url':      self.url,
+            '_headers': self._headers,
+        }
 
     def set_from_dict(self, repodict: dict):
         """
@@ -548,17 +575,20 @@ class Repository:
         """
 
         try:
-            name      = repodict['name']
+            name = repodict['name']
         except KeyError as err:
-            raise exceptions.BadRepositoryException("Cannot set repository from dict; missing name") from err
+            raise exceptions.BadRepositoryException(
+                "Cannot set repository from dict; missing name") from err
         try:
-            url       = repodict['url']
+            url = repodict['url']
         except KeyError as err:
-            raise exceptions.BadRepositoryException("Cannot set repository from dict; missing url") from err
+            raise exceptions.BadRepositoryException(
+                "Cannot set repository from dict; missing url") from err
         try:
             pkg_dicts = repodict['packages']
         except KeyError as err:
-            raise exceptions.BadRepositoryException("Cannot set repository from dict; missing packages") from err
+            raise exceptions.BadRepositoryException(
+                "Cannot set repository from dict; missing packages") from err
         headers = repodict.get('_headers', {})
 
         self.name = name
@@ -567,7 +597,8 @@ class Repository:
             try:
                 pkg = Package.from_dict(pkg_dict)
             except exceptions.PackageException as err:
-                msg = "Error parsing package {} in repository {}: {}".format(pkg_dict['bl_info'].get('name'), self.name, err)
+                msg = "Error parsing package {} in repository {}: {}".format(
+                    pkg_dict['bl_info'].get('name'), self.name, err)
                 display.pkg_errors.append(msg)
             else:
                 self.add_package(pkg)
@@ -608,15 +639,16 @@ class Repository:
             except json.JSONDecodeError as err:
                 raise exceptions.BadRepositoryException(err) from err
             if repo.url is None or len(repo.url) == 0:
-                raise exceptions.BadRepositoryException("Repository missing URL")
+                raise exceptions.BadRepositoryException(
+                    "Repository missing URL")
 
         repo.filepath = path
         cls.log.debug("Repository read from %s", path)
         return repo
 
-    def add_package(self, pkg:Package):
+    def add_package(self, pkg: Package):
         """Add package to repository instance"""
-        #TODO: check if package exists
+        # TODO: check if package exists
         self.packages.append(pkg)
 
     def __repr__(self):
