@@ -3,7 +3,7 @@
 from pathlib import Path
 from . import (
     messages,
-    exceptions, 
+    exceptions,
     utils,
 )
 from .types import (
@@ -11,6 +11,7 @@ from .types import (
     Repository,
 )
 import logging
+
 
 def download_and_install_package(pipe_to_blender, package: Package, install_path: Path):
     """Downloads and installs the given package."""
@@ -39,14 +40,15 @@ def download_and_install_package(pipe_to_blender, package: Package, install_path
 
 def uninstall_package(pipe_to_blender, package: Package, install_path: Path):
     """Deletes the given package's files from the install directory"""
-    #TODO: move package to cache and present an "undo" button to user, to give nicer UX on misclicks
+    # TODO: move package to cache and present an "undo" button to user, to give nicer UX on misclicks
 
     log = logging.getLogger(__name__ + ".uninstall_package")
     files_to_remove = [install_path / Path(p) for p in package.files]
 
     for pkgfile in files_to_remove:
         if not pkgfile.exists():
-            pipe_to_blender.send(messages.UninstallError("Could not find file owned by package: '%s'. Refusing to uninstall." % pkgfile))
+            pipe_to_blender.send(messages.UninstallError(
+                "Could not find file owned by package: '%s'. Refusing to uninstall." % pkgfile))
             return
 
     try:
@@ -74,7 +76,7 @@ def refresh_repositories(pipe_to_blender, repo_storage_path: Path, repository_ur
     repos = utils.load_repositories(repo_storage_path)
 
     def prog(p: float):
-        progress_callback(p/len(repos))
+        progress_callback(p / len(repos))
 
     known_repo_urls = [repo.url for repo in repos]
     for repo_url in repository_urls:
@@ -92,4 +94,3 @@ def refresh_repositories(pipe_to_blender, repo_storage_path: Path, repository_ur
             log.exception("Bad repository")
 
     pipe_to_blender.send(messages.Success())
-
