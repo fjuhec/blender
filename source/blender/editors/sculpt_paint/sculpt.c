@@ -6285,6 +6285,10 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 		branch->fs_bs_offset = me->totedge;
 	}
 
+	if (branch->tot_hull_points <= 0) {
+		return;
+	}
+
 	/* calc and sort hullpoints for the three sides */
 	qsort (branch->hull_points, branch->tot_hull_points, sizeof(int), cmpfunc);
 
@@ -6315,7 +6319,7 @@ static void add_ss_cap(SilhouetteData *sil, SpineBranch *branch, Mesh *me, float
 	float cap_pos = (totlength - cap_length) * 0.5f;
 	float a, b, f;
 	int u_pos_i = 0;
-	int v_start = me->totvert;
+	int v_start;
 	int u_steps;
 	int e_start_tube[8];
 	int totl = 0, totr = 0;
@@ -6661,6 +6665,10 @@ static void add_ss_tinter(SilhouetteData *sil, Spine *spine, SpineBranch *branch
 				cyclic_offset = 0;
 			}
 		}
+	}
+
+	if (branch->tot_hull_points <= 0) {
+		return;
 	}
 
 	b_start[0] = 0;
@@ -7205,15 +7213,17 @@ static void prep_float_shared_mem(float **mem, int *r_num, int *r_start, int len
 
 static void prep_int_shared_mem(int **mem, int *r_num, int *r_start, int len, const char *str)
 {
-	if (!mem) {
+	int *memory = *mem;
+	if (!memory) {
 		*r_start = 0;
-		*mem = MEM_callocN(sizeof(int) * len, str);
+		memory = MEM_callocN(sizeof(int) * len, str);
 		*r_num = len;
 	} else {
 		*r_start = *r_num;
 		*r_num = *r_num + len;
-		*mem = MEM_reallocN(*mem, sizeof(int) * (*r_num));
+		memory = MEM_reallocN(memory, sizeof(int) * (*r_num));
 	}
+	*mem = memory;
 }
 
 /*TODO: Maybe add real normal calc */
