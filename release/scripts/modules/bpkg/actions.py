@@ -4,6 +4,7 @@ from . import utils
 import shutil
 import logging
 
+
 def download(url: str, destination: Path, progress_callback=None) -> Path:
     """
     Downloads file at the given url, and if progress_callback is specified,
@@ -19,7 +20,7 @@ def download(url: str, destination: Path, progress_callback=None) -> Path:
 
     if progress_callback is None:
         # assign to do-nothing function
-        progress_callback = lambda x: None
+        def progress_callback(x): return None
 
     progress_callback(0)
 
@@ -52,11 +53,11 @@ def download(url: str, destination: Path, progress_callback=None) -> Path:
         # Use float so that we can also use infinity
         content_length = float(resp.headers['content-length'])
     except KeyError:
-        log.warning('Server did not send content length, cannot report progress.')
+        log.warning(
+            'Server did not send content length, cannot report progress.')
         content_length = float('inf')
 
     # TODO: check if there's enough disk space.
-
 
     downloaded_length = 0
     with local_fpath.open('wb') as outfile:
@@ -69,6 +70,7 @@ def download(url: str, destination: Path, progress_callback=None) -> Path:
             progress_callback(downloaded_length / content_length)
 
     return local_fpath
+
 
 def install(src_file: Path, dest_dir: Path):
     """Extracts/moves package at `src_file` to `dest_dir`"""
@@ -91,7 +93,8 @@ def install(src_file: Path, dest_dir: Path):
         try:
             file_to_extract = zipfile.ZipFile(str(src_zip), 'r')
         except Exception as err:
-            raise exceptions.InstallException("Failed to read zip file: %s" % err) from err
+            raise exceptions.InstallException(
+                "Failed to read zip file: %s" % err) from err
 
         def root_files(filelist: list) -> list:
             """Some string parsing to get a list of the root contents of a zip from its namelist"""
@@ -103,7 +106,8 @@ def install(src_file: Path, dest_dir: Path):
                     rootlist.append(f)
             return rootlist
 
-        conflicts = [dest_dir / f for f in root_files(file_to_extract.namelist()) if (dest_dir / f).exists()]
+        conflicts = [
+            dest_dir / f for f in root_files(file_to_extract.namelist()) if (dest_dir / f).exists()]
         backups = []
         for conflict in conflicts:
             log.debug("Creating backup of conflict %s", conflict)
@@ -114,7 +118,8 @@ def install(src_file: Path, dest_dir: Path):
         except Exception as err:
             for backup in backups:
                 backup.restore()
-            raise exceptions.InstallException("Failed to extract zip file to '%s': %s" % (dest_dir, err)) from err
+            raise exceptions.InstallException(
+                "Failed to extract zip file to '%s': %s" % (dest_dir, err)) from err
 
         for backup in backups:
             backup.remove()
@@ -131,7 +136,8 @@ def install(src_file: Path, dest_dir: Path):
             shutil.copyfile(str(src_file), str(dest_file))
         except Exception as err:
             backup.restore()
-            raise exceptions.InstallException("Failed to copy file to '%s': %s" % (dest_dir, err)) from err
+            raise exceptions.InstallException(
+                "Failed to copy file to '%s': %s" % (dest_dir, err)) from err
 
         if backup:
             backup.remove()
