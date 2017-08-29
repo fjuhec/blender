@@ -1,7 +1,8 @@
 # HACK:
 # due to lack of fork() on windows, multiprocessing will re-execute this module
-# in a new process. In such cases we only need subproc, everything else is only
-# used to spawn the subprocess in the first place.
+# in a new process and `import bpy` will fail. In such cases we only need
+# subproc, everything else is only used to spawn the subprocess in the first
+# place.
 try:
     import bpy
     from bpy.types import Operator
