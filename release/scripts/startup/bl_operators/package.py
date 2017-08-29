@@ -586,15 +586,15 @@ else:
                 bpkg.packages[self.package_name].enabled = False
             return ret
 
-classes = (
-    PACKAGE_OT_install,
-    PACKAGE_OT_uninstall,
-    PACKAGE_OT_toggle_enabled,
-    PACKAGE_OT_refresh,
-    WM_OT_package_toggle_expand,
-    WM_OT_package_toggle_preferences,
-    PACKAGE_OT_add_repository,
-    PACKAGE_OT_remove_repository,
-    PACKAGE_OT_edit_repositories,
-    PACKAGE_UL_repositories,
-)
+    classes = (
+        PACKAGE_OT_install,
+        PACKAGE_OT_uninstall,
+        PACKAGE_OT_toggle_enabled,
+        PACKAGE_OT_refresh,
+        WM_OT_package_toggle_expand,
+        WM_OT_package_toggle_preferences,
+        PACKAGE_OT_add_repository,
+        PACKAGE_OT_remove_repository,
+        PACKAGE_OT_edit_repositories,
+        PACKAGE_UL_repositories,
+    )
