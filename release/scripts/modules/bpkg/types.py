@@ -60,6 +60,7 @@ class Package:
     def from_dict(cls, package_dict: dict):
         """
         Return a Package with values from dict
+        Used to read the package from json format
         """
         pkg = cls()
         pkg.set_from_dict(package_dict)
@@ -96,6 +97,7 @@ class Package:
     def to_dict(self) -> dict:
         """
         Return a dict representation of the package
+        Used to store the package in json format
         """
         return {
                 'bl_info': self.bl_info,
@@ -517,6 +519,7 @@ class Repository:
     def to_dict(self, sort=False, ids=False) -> dict:
         """
         Return a dict representation of the repository
+        Used to store the repository in json format
         """
         packages = [p.to_dict() for p in self.packages]
 
@@ -538,6 +541,7 @@ class Repository:
     def set_from_dict(self, repodict: dict):
         """
         Get repository attributes from a dict such as produced by `to_dict`
+        Used to read the repository from json format
         """
 
         try:
