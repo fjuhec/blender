@@ -13,11 +13,13 @@ import logging
 # Global package dict, keyed by package name. Use refresh_packages() to update it
 packages = {}
 
+
 def get_repo_storage_path() -> Path:
     """Return Path to the directory in which downloaded repository indices are
     stored"""
     import bpy
     return Path(bpy.utils.user_resource('CONFIG', 'repositories'))
+
 
 def get_repositories() -> list:
     """
@@ -27,9 +29,10 @@ def get_repositories() -> list:
     repos = utils.load_repositories(storage_path)
     return repos
 
+
 def refresh_repository_props():
     """Create RepositoryProperty collection from repository files"""
-    #TODO: store repository props in .blend so enabled/disabled state can be remembered
+    # TODO: store repository props in .blend so enabled/disabled state can be remembered
     import bpy
     wm = bpy.context.window_manager
     repos = get_repositories()
@@ -37,9 +40,10 @@ def refresh_repository_props():
     for repo in repos:
         repo_prop = wm.package_repositories.add()
         repo_prop.name = repo.name
-        repo_prop.enabled = True  
+        repo_prop.enabled = True
         repo_prop.url = repo.url
         repo_prop.filepath = str(repo.filepath)
+
 
 def get_installed_packages(refresh=False) -> list:
     """Get list of packages installed on disk. If refresh == True, re-scan for new packages"""
@@ -51,14 +55,16 @@ def get_installed_packages(refresh=False) -> list:
         try:
             pkg = types.Package.from_module(mod)
         except exceptions.PackageException as err:
-            msg = "Error parsing package \"{}\" ({}): {}".format(mod.__name__, mod.__file__, err)
+            msg = "Error parsing package \"{}\" ({}): {}".format(
+                mod.__name__, mod.__file__, err)
             display.pkg_errors.append(msg)
         else:
             pkg.installed = True
             installed_pkgs.append(pkg)
     return installed_pkgs
 
-def refresh_packages(): 
+
+def refresh_packages():
     """Update bpkg.packages, a dict of ConsolidatedPackages from known repositories and
     installed packages, keyed by package name"""
 
@@ -83,4 +89,3 @@ def refresh_packages():
             masterlist[pkg.name] = types.ConsolidatedPackage(pkg)
 
     packages = masterlist
-
