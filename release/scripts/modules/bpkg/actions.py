@@ -35,6 +35,7 @@ def download(url: str, destination: Path, progress_callback=None) -> Path:
 
     if resp.status_code == requests.codes.not_modified:
         log.info("Server responded 'Not Modified', not downloading")
+        progress_callback(1)
         return None
 
     # determine destination filename from url, but only after we've determined it works as a real url
@@ -50,24 +51,31 @@ def download(url: str, destination: Path, progress_callback=None) -> Path:
         local_fpath = destination
 
     try:
-        # Use float so that we can also use infinity
-        content_length = float(resp.headers['content-length'])
+        content_length = int(resp.headers['content-length'])
     except KeyError:
         log.warning(
             'Server did not send content length, cannot report progress.')
-        content_length = float('inf')
+        content_length = 0
 
-    # TODO: check if there's enough disk space.
+    try:
+        downloaded_length = 0
+        with local_fpath.open('wb') as outfile:
+            for chunk in resp.iter_content(chunk_size=1024 ** 2):
+                if not chunk:  # filter out keep-alive new chunks
+                    continue
 
-    downloaded_length = 0
-    with local_fpath.open('wb') as outfile:
-        for chunk in resp.iter_content(chunk_size=1024 ** 2):
-            if not chunk:  # filter out keep-alive new chunks
-                continue
+                outfile.write(chunk)
+                downloaded_length += len(chunk)
+                try:
+                    progress_callback(downloaded_length / content_length)
+                except ZeroDivisionError:
+                    pass
+    except OSError as err:
+        raise exceptions.DownloadException("Encountered an error while writing file to '%s', are you sure there's enough space?" % local_fpath) from err
+    except PermissionError as err:
+        raise exceptions.DownloadException("No permissions to write to '%s'" % local_fpath)
 
-            outfile.write(chunk)
-            downloaded_length += len(chunk)
-            progress_callback(downloaded_length / content_length)
+    progress_callback(1)
 
     return local_fpath
 

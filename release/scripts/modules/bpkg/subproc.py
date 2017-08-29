@@ -19,11 +19,14 @@ def download_and_install_package(pipe_to_blender, package: Package, install_path
 
     log = logging.getLogger(__name__ + '.download_and_install')
 
+    def prog(p: float) -> float:
+        pipe_to_blender.send(messages.Progress(p))
+
     from . import cache
     cache_dir = cache.cache_directory('downloads')
 
     try:
-        package.install(install_path, cache_dir)
+        package.install(install_path, cache_dir, progress_callback=prog)
     except exceptions.DownloadException as err:
         pipe_to_blender.send(messages.DownloadError(err))
         log.exception(err)
@@ -58,27 +61,26 @@ def uninstall_package(pipe_to_blender, package: Package, install_path: Path):
     pipe_to_blender.send(messages.Success())
 
 
-def refresh_repositories(pipe_to_blender, repo_storage_path: Path, repository_urls: str, progress_callback=None):
+def refresh_repositories(pipe_to_blender, repo_storage_path: Path, repository_urls: str):
     """Downloads and stores the given repository"""
 
     log = logging.getLogger(__name__ + '.refresh_repository')
 
-    if progress_callback is None:
-        progress_callback = lambda x: None
-    progress_callback(0.0)
+    def progress_callback(p: float) -> float:
+        progress_callback._progress += p
+        pipe_to_blender.send(messages.Progress(progress_callback._progress))
+    progress_callback._progress = 0.0
 
     repos = utils.load_repositories(repo_storage_path)
 
-    def prog(progress: float):
-        progress_callback(progress/len(repos))
+    def prog(p: float):
+        progress_callback(p/len(repos))
 
     known_repo_urls = [repo.url for repo in repos]
     for repo_url in repository_urls:
         if repo_url not in known_repo_urls:
             repos.append(Repository(repo_url))
 
-    for repo in repos:
-        log.debug("repo name: %s, url: %s", repo.name, repo.url)
     for repo in repos:
         try:
             repo.refresh(repo_storage_path, progress_callback=prog)
@@ -89,6 +91,5 @@ def refresh_repositories(pipe_to_blender, repo_storage_path: Path, repository_ur
             pipe_to_blender.send(messages.BadRepositoryError(err))
             log.exception("Bad repository")
 
-    progress_callback(1.0)
     pipe_to_blender.send(messages.Success())
 

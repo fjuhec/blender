@@ -197,6 +197,9 @@ else:
                 messages.Aborted: self._subproc_aborted,
             }
 
+            wm = bpy.context.window_manager
+            wm.progress_begin(0, 1)
+
             package = bpkg.packages[self.package_name].get_latest_version()
 
             import pathlib
@@ -212,8 +215,9 @@ else:
                                       args=(self.pipe_subproc, package, install_path))
             return proc
 
-        def _subproc_progress(self, progress: messages.Progress):
-            self.log.info('Task progress at %i%%', progress.progress * 100)
+        def _subproc_progress(self, progmsg: messages.Progress):
+            wm = bpy.context.window_manager
+            wm.progress_update(progmsg.progress)
 
         def _subproc_download_error(self, error: messages.DownloadError):
             self.report({'ERROR'}, 'Unable to download package: %s' %
@@ -229,6 +233,8 @@ else:
             self.report({'INFO'}, 'Package installed successfully')
             bpkg.refresh_packages()
             bpy.context.area.tag_redraw()
+            wm = bpy.context.window_manager
+            wm.progress_end()
             self.quit()
 
         def _subproc_aborted(self, aborted: messages.Aborted):
@@ -344,6 +350,9 @@ else:
             :rtype: multiprocessing.Process
             """
 
+            wm = bpy.context.window_manager
+            wm.progress_begin(0, 1)
+
             self.msg_handlers = {
                 messages.Progress: self._subproc_progress,
                 messages.SubprocError: self._subproc_error,
@@ -364,8 +373,9 @@ else:
                                       args=(self.pipe_subproc, storage_path, repository_urls))
             return proc
 
-        def _subproc_progress(self, progress: messages.Progress):
-            self.log.info('Task progress at %i%%', progress.progress * 100)
+        def _subproc_progress(self, progmsg: messages.Progress):
+            wm = bpy.context.window_manager
+            wm.progress_update(progmsg.progress)
 
         def _subproc_error(self, error: messages.SubprocError):
             self.report(
@@ -385,6 +395,8 @@ else:
             self.report({'INFO'}, 'Finished refreshing lists')
             bpkg.refresh_repository_props()
             bpkg.refresh_packages()
+            wm = bpy.context.window_manager
+            wm.progress_end()
             self.quit()
 
         def _subproc_aborted(self, aborted: messages.Aborted):
@@ -527,10 +539,10 @@ else:
         )
 
         def invoke(self, context, event):
-            if USERPREF_PT_packages.preference_package == self.package_name:
-                USERPREF_PT_packages.preference_package = None
+            if bpkg.display.preference_package == self.package_name:
+                bpkg.display.preference_package = None
             else:
-                USERPREF_PT_packages.preference_package = self.package_name
+                bpkg.display.preference_package = self.package_name
             return {'FINISHED'}
 
     class PACKAGE_OT_toggle_enabled(Operator):

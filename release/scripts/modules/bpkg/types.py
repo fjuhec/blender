@@ -482,6 +482,7 @@ class Repository:
 
         if resp.status_code == requests.codes.not_modified:
             self.log.debug("Packagelist not modified")
+            progress_callback(1.0)
             return
 
         resp_headers = {}

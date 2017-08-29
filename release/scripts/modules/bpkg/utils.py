@@ -92,7 +92,6 @@ class InplaceBackup:
 
     def remove(self):
         """Remove 'path~'"""
-        print("removing")
         rm(self.backup_path)
 
 
