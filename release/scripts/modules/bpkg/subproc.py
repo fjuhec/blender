@@ -1,6 +1,4 @@
-"""
-All the stuff that needs to run in a subprocess.
-"""
+"""Functions to be executed in a subprocess"""
 
 from pathlib import Path
 from . import (
@@ -44,14 +42,15 @@ def uninstall_package(pipe_to_blender, package: Package, install_path: Path):
     #TODO: move package to cache and present an "undo" button to user, to give nicer UX on misclicks
 
     log = logging.getLogger(__name__ + ".uninstall_package")
+    files_to_remove = [install_path / Path(p) for p in package.files]
 
-    for pkgfile in [install_path / Path(p) for p in package.files]:
+    for pkgfile in files_to_remove:
         if not pkgfile.exists():
             pipe_to_blender.send(messages.UninstallError("Could not find file owned by package: '%s'. Refusing to uninstall." % pkgfile))
             return None
 
     try:
-        for pkgfile in [install_path / Path(p) for p in package.files]:
+        for pkgfile in files_to_remove:
             utils.rm(pkgfile)
     except Exception as err:
         pipe_to_blender.send(messages.UninstallError(err))
