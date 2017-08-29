@@ -10,7 +10,7 @@ from . import exceptions
 from pathlib import Path
 import logging
 
-# global package list, use refresh_packages() to refresh
+# Global package dict, keyed by package name. Use refresh_packages() to update it
 packages = {}
 
 def get_repo_storage_path() -> Path:
@@ -58,10 +58,11 @@ def get_installed_packages(refresh=False) -> list:
             installed_pkgs.append(pkg)
     return installed_pkgs
 
-def _build_packagelist() -> dict: # {{{
-    """Return a dict of ConsolidatedPackages from known repositories and
+def refresh_packages(): # {{{
+    """Update bpkg.packages, a dict of ConsolidatedPackages from known repositories and
     installed packages, keyed by package name"""
 
+    global packages
     masterlist = {}
     display.pkg_errors.clear()
     installed_packages = get_installed_packages(refresh=True)# {{{
@@ -81,11 +82,5 @@ def _build_packagelist() -> dict: # {{{
         else:
             masterlist[pkg.name] = types.ConsolidatedPackage(pkg)
 
-    return masterlist
+    packages = masterlist
 # }}}
-
-def refresh_packages():
-    """Update bpkg.packages"""
-    global packages
-    packages = _build_packagelist()
-    return packages
