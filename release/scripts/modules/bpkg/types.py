@@ -546,10 +546,16 @@ class Repository:
 
         try:
             name      = repodict['name']
+        except KeyError as err:
+            raise exceptions.BadRepositoryException("Cannot set repository from dict; missing name") from err
+        try:
             url       = repodict['url']
+        except KeyError as err:
+            raise exceptions.BadRepositoryException("Cannot set repository from dict; missing url") from err
+        try:
             pkg_dicts = repodict['packages']
         except KeyError as err:
-            raise exceptions.BadRepositoryException("Cannot set repository from incomplete dict") from err
+            raise exceptions.BadRepositoryException("Cannot set repository from dict; missing packages") from err
         headers = repodict.get('_headers', {})
 
         self.name = name
@@ -585,20 +591,6 @@ class Repository:
         with path.open('w', encoding='utf-8') as repo_file:
             json.dump(self.to_dict(), repo_file, indent=4, sort_keys=True)
         self.log.debug("Repository written to %s" % path)
-
-    # def set_from_file(self, path: Path):
-    #     """
-    #     Set the current instance's attributes from a json file
-    #     """
-    #     repo_file = path.open('r', encoding='utf-8')
-    #
-    #     with repo_file:
-    #         try:
-    #             self.set_from_dict(json.load(repo_file))
-    #         except Exception as err:
-    #             raise BadRepository from err
-    #
-    #     self.log.debug("Repository read from %s", path)
 
     @classmethod
     def from_file(cls, path: Path):
