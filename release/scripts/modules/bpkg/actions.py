@@ -86,13 +86,10 @@ def install(src_file: Path, dest_dir: Path):
 
     # TODO: check to make sure addon/package isn't already installed elsewhere
 
-    # The following is adapted from `addon_install` in bl_operators/wm.py
-
-    # check to see if the file is in compressed format (.zip)
-    if zipfile.is_zipfile(str(src_file)):
-        log.debug("Package is zipfile")
+    def install_zip(src_zip, dest_dir):
+        """Extract src_zip to dest_dir"""
         try:
-            file_to_extract = zipfile.ZipFile(str(src_file), 'r')
+            file_to_extract = zipfile.ZipFile(str(src_zip), 'r')
         except Exception as err:
             raise exceptions.InstallException("Failed to read zip file: %s" % err) from err
 
@@ -122,8 +119,8 @@ def install(src_file: Path, dest_dir: Path):
         for backup in backups:
             backup.remove()
 
-    else:
-        log.debug("Package is pyfile")
+    def install_py(src_file, dest_dir):
+        """Move src_file to dest_dir)"""
         dest_file = (dest_dir / src_file.name)
         backup = None
 
@@ -138,5 +135,10 @@ def install(src_file: Path, dest_dir: Path):
 
         if backup:
             backup.remove()
+
+    if zipfile.is_zipfile(str(src_file)):
+        install_zip(src_file, dest_dir)
+    else:
+        install_py(src_file, dest_dir)
 
     log.debug("Installation succeeded")
