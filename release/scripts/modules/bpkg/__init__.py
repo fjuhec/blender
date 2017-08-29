@@ -46,7 +46,8 @@ def get_installed_packages(refresh=False) -> list:
     """Get list of packages installed on disk. If refresh == True, re-scan for new packages"""
     import addon_utils
     installed_pkgs = []
-    #TODO: just use addon_utils for now
+    # TODO: Do recursive search for packages to allow for user-customized addon
+    # layout on filesystem. Just use addon_utils for now
     for mod in addon_utils.modules(refresh=refresh):
         try:
             pkg = types.Package.from_module(mod)
