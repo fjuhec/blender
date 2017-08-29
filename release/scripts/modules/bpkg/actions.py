@@ -121,7 +121,7 @@ def install(src_file: Path, dest_dir: Path):
 
     def install_py(src_file, dest_dir):
         """Move src_file to dest_dir)"""
-        dest_file = (dest_dir / src_file.name)
+        dest_file = dest_dir / src_file.name
         backup = None
 
         if dest_file.exists():
