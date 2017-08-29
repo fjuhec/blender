@@ -30,7 +30,7 @@ def download(url: str, destination: Path, progress_callback=None) -> Path:
     try:
         resp.raise_for_status()
     except requests.HTTPError as err:
-        raise exceptions.DownloadException(resp.status_code, str(err)) from err
+        raise exceptions.DownloadException(resp.status_code, str(err))
 
     if resp.status_code == requests.codes.not_modified:
         log.info("Server responded 'Not Modified', not downloading")
