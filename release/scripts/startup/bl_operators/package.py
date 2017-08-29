@@ -300,7 +300,7 @@ else:
         def invoke(self, context, event):
             wm = context.window_manager
             self.repositories = wm.package_repositories
-            if len(self.repositories) == 0:
+            if not self.repositories:
                 bpkg.refresh_packages()
                 return {'FINISHED'}
 
