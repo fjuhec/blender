@@ -732,35 +732,37 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 			stl->shgroups = p;
 		}
 #endif
-		int id = stl->storage->shgroup_id;
-		if ((gps->totpoints > 1) && ((gps->palcolor->flag & PAC_COLOR_DOT) == 0)) {
-			if (gps->totpoints > 2) {
-				stl->shgroups[id].shgrps_fill = DRW_gpencil_shgroup_fill_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_fill_sh, gpd, gps->palcolor, id);
+		if ((gpl->actframe->framenum == derived_gpf->framenum) || (!is_multiedit) || ((gpd->flag & GP_DATA_STROKE_MULTIEDIT_LINES) == 0)) {
+			int id = stl->storage->shgroup_id;
+			if ((gps->totpoints > 1) && ((gps->palcolor->flag & PAC_COLOR_DOT) == 0)) {
+				if (gps->totpoints > 2) {
+					stl->shgroups[id].shgrps_fill = DRW_gpencil_shgroup_fill_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_fill_sh, gpd, gps->palcolor, id);
+				}
+				else {
+					stl->shgroups[id].shgrps_fill = NULL;
+				}
+				stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_stroke_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_stroke_sh, ob, gpd, gps->palcolor, id);
 			}
 			else {
 				stl->shgroups[id].shgrps_fill = NULL;
+				stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_point_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_point_sh, ob, gpd, gps->palcolor, id);
 			}
-			stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_stroke_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_stroke_sh, ob, gpd, gps->palcolor, id);
-		}
-		else {
-			stl->shgroups[id].shgrps_fill = NULL;
-			stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_point_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_point_sh, ob, gpd, gps->palcolor, id);
-		}
-		++stl->storage->shgroup_id;
+			++stl->storage->shgroup_id;
 
-		fillgrp = stl->shgroups[id].shgrps_fill;
-		strokegrp = stl->shgroups[id].shgrps_stroke;
+			fillgrp = stl->shgroups[id].shgrps_fill;
+			strokegrp = stl->shgroups[id].shgrps_stroke;
 
-		/* apply modifiers (only modify geometry, but not create ) */
-		if ((cache->is_dirty) && (ob->modifiers.first) && (!is_multiedit)) {
-			BKE_gpencil_stroke_modifiers(ob, gpl, derived_gpf, gps);
+			/* apply modifiers (only modify geometry, but not create ) */
+			if ((cache->is_dirty) && (ob->modifiers.first) && (!is_multiedit)) {
+				BKE_gpencil_stroke_modifiers(ob, gpl, derived_gpf, gps);
+			}
+			/* fill */
+			if (fillgrp) {
+				gpencil_add_fill_shgroup(cache, fillgrp, ob, gpd, gpl, derived_gpf, gps, tintcolor, false, custonion);
+			}
+			/* stroke */
+			gpencil_add_stroke_shgroup(cache, strokegrp, ob, gpd, gpl, derived_gpf, gps, opacity, tintcolor, false, custonion);
 		}
-		/* fill */
-		if (fillgrp) {
-			gpencil_add_fill_shgroup(cache, fillgrp, ob, gpd, gpl, derived_gpf, gps, tintcolor, false, custonion);
-		}
-		/* stroke */
-		gpencil_add_stroke_shgroup(cache, strokegrp, ob, gpd, gpl, derived_gpf, gps, opacity, tintcolor, false, custonion);
 
 		/* edit points (only in edit mode) */
 		if (src_gps) {

@@ -1202,6 +1202,8 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
 	PropertyRNA *prop;
 	FunctionRNA *func;
 
+	static float default_1[4] = { 0.6f, 0.6f, 0.6f, 0.3f };
+
 	srna = RNA_def_struct(brna, "GreasePencil", "ID");
 	RNA_def_struct_sdna(srna, "bGPdata");
 	RNA_def_struct_ui_text(srna, "Grease Pencil", "Freehand annotation sketchbook");
@@ -1282,6 +1284,7 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
 	RNA_def_property_float_sdna(prop, NULL, "line_color");
 	RNA_def_property_array(prop, 4);
 	RNA_def_property_range(prop, 0.0f, 1.0f);
+	RNA_def_property_float_array_default(prop, default_1);
 	RNA_def_property_ui_text(prop, "Edit Line Color", "Color for editing line");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
