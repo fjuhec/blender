@@ -973,6 +973,7 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	bGPDframe *derived_gpf = NULL;
 	bool is_edit = (bool)(gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE));
+	bool no_onion = (bool)(gpd->flag & GP_DATA_STROKE_WEIGHTMODE);
 
 	if (G.debug_value == 668) {
 		printf("DRW_gpencil_populate_datablock: %s\n", gpd->id.name);
@@ -1017,7 +1018,7 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 			BLI_ghash_insert(gpl->derived_data, ob->id.name, derived_gpf);
 		}
 		/* draw onion skins */
-		if ((!is_edit) && (gpl->flag & GP_LAYER_ONIONSKIN) &&
+		if ((!no_onion) && (gpl->flag & GP_LAYER_ONIONSKIN) &&
 			((!playing) || (gpl->flag & GP_LAYER_GHOST_ALWAYS)))
 		{
 			gpencil_draw_onionskins(cache, e_data, vedata, ts, ob, gpd, gpl, gpf);
