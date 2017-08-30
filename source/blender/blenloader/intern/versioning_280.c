@@ -551,6 +551,12 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 				}
 			}
 		}
+		/* init grease pencil edit line color */
+		if (!DNA_struct_elem_find(fd->filesdna, "bGPdata", "float", "line_color[4]")) {
+			for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
+				ARRAY_SET_ITEMS(gpd->line_color, 0.6f, 0.6f, 0.6f, 0.3f);
+			}
+		}
 		/* init pixel size factor */
 		if (!DNA_struct_elem_find(fd->filesdna, "bGPDdata", "int", "pixfactor")) {
 			for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {

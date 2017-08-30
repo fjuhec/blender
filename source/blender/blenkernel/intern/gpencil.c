@@ -773,6 +773,7 @@ bGPdata *BKE_gpencil_data_addnew(const char name[])
 	gpd->xray_mode = GP_XRAY_3DSPACE;
 	gpd->batch_cache_data = NULL;
 	gpd->pixfactor = GP_DEFAULT_PIX_FACTOR;
+	ARRAY_SET_ITEMS(gpd->line_color, 0.6f, 0.6f, 0.6f, 0.3f);
 
 	return gpd;
 }

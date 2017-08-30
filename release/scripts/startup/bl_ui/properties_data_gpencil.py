@@ -123,6 +123,11 @@ class DATA_PT_gpencil_display(DataButtonsPanel, Panel):
         row = layout.row()
         row.prop(gpd, "pixfactor", text="Pixel Factor")
 
+        col = layout.column()
+        col.label("Edit")
+        col.prop(gpd, "edit_line_color", text="")
+        col.prop(gpd, "multiedit_line_only", text="Only Lines in MultiEdit")
+
 classes = (
     DATA_PT_gpencil,
     DATA_PT_gpencil_datapanel,

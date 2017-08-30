@@ -744,8 +744,7 @@ Gwn_Batch *DRW_gpencil_get_edlin_geom(bGPDstroke *gps, float alpha, short dflag)
 	UI_GetThemeColor3fv(TH_GP_VERTEX_SELECT, selectColor);
 	selectColor[3] = alpha;
 	float linecolor[4];
-	ARRAY_SET_ITEMS(linecolor, 0.6f, 0.6f, 0.6f, 0.3f);
-
+	copy_v4_v4(linecolor, gpd->line_color);
 
 	static Gwn_VertFormat format = { 0 };
 	static unsigned int pos_id, color_id, size_id;

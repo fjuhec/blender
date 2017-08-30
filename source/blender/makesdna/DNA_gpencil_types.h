@@ -349,6 +349,7 @@ typedef struct bGPdata {
 	char last_palette_name[66]; /* name of the last palette used */
 	char pad[6];
 	int pixfactor;              /* factor to define pixel size conversion */
+	float line_color[4];        /* color for edit line */
 	char pad1[4];
 } bGPdata;
 
@@ -399,6 +400,8 @@ typedef enum eGPdata_Flag {
 	GP_DATA_STROKE_KEEPTHICKNESS = (1 << 15),
 	/* Allow edit several frames at the same time */
 	GP_DATA_STROKE_MULTIEDIT = (1 << 16),
+	/* Only show edit lines */
+	GP_DATA_STROKE_MULTIEDIT_LINES = (1 << 17),
 } eGPdata_Flag;
 
 #endif /*  __DNA_GPENCIL_TYPES_H__ */
