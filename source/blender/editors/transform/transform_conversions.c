@@ -7857,7 +7857,12 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 		if (gpencil_layer_is_editable(gpl) && (gpl->actframe != NULL)) {
 			bGPDframe *gpf;
 			bGPDstroke *gps;
-			for (gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+			bGPDframe *init_gpf = gpl->actframe;
+			if (is_multiedit) {
+				init_gpf = gpl->frames.first;
+			}
+
+			for (gpf = init_gpf; gpf; gpf = gpf->next) {
 				if ((gpf == gpl->actframe) || ((gpf->flag & GP_FRAME_SELECT) && (is_multiedit))) {
 
 					for (gps = gpf->strokes.first; gps; gps = gps->next) {
@@ -7897,6 +7902,10 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 						}
 					}
 				}
+				/* if not multiedit out of loop */
+				if (!is_multiedit) {
+					break;
+				}
 			}
 		}
 	}
@@ -7922,6 +7931,11 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 			float diff_mat[4][4];
 			float inverse_diff_mat[4][4];
 
+			bGPDframe *init_gpf = gpl->actframe;
+			if (is_multiedit) {
+				init_gpf = gpl->frames.first;
+			}
+
 			/* calculate difference matrix */
 			ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);
 			/* undo matrix */
@@ -7941,7 +7955,7 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 			}
 
 			/* Loop over strokes, adding TransData for points as needed... */
-			for (gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+			for (gpf = init_gpf; gpf; gpf = gpf->next) {
 				if ((gpf == gpl->actframe) || ((gpf->flag & GP_FRAME_SELECT) && (is_multiedit))) {
 					for (gps = gpf->strokes.first; gps; gps = gps->next) {
 						TransData *head = td;
@@ -8056,6 +8070,10 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 							}
 						}
 					}
+				}
+				/* if not multiedit out of loop */
+				if (!is_multiedit) {
+					break;
 				}
 			}
 		}

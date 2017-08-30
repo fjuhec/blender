@@ -563,8 +563,12 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 				if (gpencil_layer_is_editable(gpl) && (gpl->actframe)) {
 					bGPDframe *gpf;
 					bGPDstroke *gps;
+					bGPDframe *init_gpf = gpl->actframe;
+					if (is_multiedit) {
+						init_gpf = gpl->frames.first;
+					}
 
-					for (gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+					for (gpf = init_gpf; gpf; gpf = gpf->next) {
 						if ((gpf == gpl->actframe) || ((gpf->flag & GP_FRAME_SELECT) && (is_multiedit))) {
 							for (gps = gpf->strokes.first; gps; gps = gps->next) {
 								if (ED_gpencil_stroke_can_use_direct(sa, gps)) {
@@ -576,6 +580,10 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 									CTX_data_list_add(result, &gpd->id, &RNA_GPencilStroke, gps);
 								}
 							}
+						}
+						/* if not multiedit out of loop */
+						if (!is_multiedit) {
+							break;
 						}
 					}
 				}

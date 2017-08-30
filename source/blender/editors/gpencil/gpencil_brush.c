@@ -1446,7 +1446,12 @@ static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 
 	CTX_DATA_BEGIN(C, bGPDlayer *, gpl, editable_gpencil_layers)
 	{
-		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+		bGPDframe *init_gpf = gpl->actframe;
+		if (is_multiedit) {
+			init_gpf = gpl->frames.first;
+		}
+
+		for (bGPDframe *gpf = init_gpf; gpf; gpf = gpf->next) {
 			if ((gpf == gpl->actframe) || ((gpf->flag & GP_FRAME_SELECT) && (is_multiedit))) {
 
 				/* calculate difference matrix */
@@ -1540,6 +1545,10 @@ static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 					}
 				}
 
+			}
+			/* if not multiedit out of loop */
+			if (!is_multiedit) {
+				break;
 			}
 		}
 	}

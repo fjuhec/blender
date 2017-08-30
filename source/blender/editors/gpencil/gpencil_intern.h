@@ -348,7 +348,11 @@ typedef enum ACTCONT_TYPES {
 	bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd_);                       \
 	CTX_DATA_BEGIN(C, bGPDlayer*, gpl, editable_gpencil_layers)                         \
 	{                                                                                   \
-		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {                        \
+		bGPDframe *init_gpf = gpl->actframe;                                                \
+		if (is_multiedit) {                                                                 \
+			init_gpf = gpl->frames.first;                                                   \
+		}                                                                                   \
+		for (bGPDframe *gpf = init_gpf; gpf; gpf = gpf->next) {                        \
 			if ((gpf == gpl->actframe) || ((gpf->flag & GP_FRAME_SELECT) && (is_multiedit))) {  \
 				/* calculate difference matrix */                                               \
 				float diff_mat[4][4];                                                           \
@@ -365,6 +369,9 @@ typedef enum ACTCONT_TYPES {
 
 #define GP_EDITABLE_STROKES_END    \
 				}                  \
+			}                      \
+			if (!is_multiedit) {   \
+				break;             \
 			}                      \
 		}                          \
 	}                              \
