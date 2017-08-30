@@ -344,7 +344,10 @@ static void ed_keymap_gpencil_editing(wmKeyConfig *keyconf)
 	RNA_boolean_set(kmi->ptr, "unselected", true);
 
 	WM_keymap_add_item(keymap, "GPENCIL_OT_selection_opacity_toggle", HKEY, KM_PRESS, KM_CTRL, 0);
-	
+
+	/* toogle multiedit support */
+	WM_keymap_add_item(keymap, "GPENCIL_OT_multiedit_toggle", QKEY, KM_PRESS, 0, 0);
+
 	/* Isolate Layer */
 	WM_keymap_add_item(keymap, "GPENCIL_OT_layer_isolate", PADASTERKEY, KM_PRESS, 0, 0);
 	
@@ -587,6 +590,7 @@ void ED_operatortypes_gpencil(void)
 	WM_operatortype_append(GPENCIL_OT_sculptmode_toggle);
 	WM_operatortype_append(GPENCIL_OT_weightmode_toggle);
 	WM_operatortype_append(GPENCIL_OT_selection_opacity_toggle);
+	WM_operatortype_append(GPENCIL_OT_multiedit_toggle);
 
 	WM_operatortype_append(GPENCIL_OT_select);
 	WM_operatortype_append(GPENCIL_OT_select_all);

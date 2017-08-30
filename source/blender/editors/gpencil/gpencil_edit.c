@@ -529,6 +529,38 @@ void GPENCIL_OT_selection_opacity_toggle(wmOperatorType *ot)
 	ot->flag = OPTYPE_UNDO | OPTYPE_REGISTER;
 }
 
+/* toggle multi edit strokes support */
+static int gpencil_multiedit_toggle_exec(bContext *C, wmOperator *UNUSED(op))
+{
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+
+	if (gpd == NULL)
+		return OPERATOR_CANCELLED;
+
+	/* Just toggle value */
+	gpd->flag ^= GP_DATA_STROKE_MULTIEDIT;
+
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | ND_GPENCIL_EDITMODE, NULL);
+	WM_event_add_notifier(C, NC_SCENE | ND_MODE, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void GPENCIL_OT_multiedit_toggle(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "MultiEdit Toggle";
+	ot->idname = "GPENCIL_OT_multiedit_toggle";
+	ot->description = "Enable/Disable multiedit strokes support";
+
+	/* callbacks */
+	ot->exec = gpencil_multiedit_toggle_exec;
+	ot->poll = gp_stroke_edit_poll;
+
+	/* flags */
+	ot->flag = OPTYPE_UNDO | OPTYPE_REGISTER;
+}
+
 /* ************** Duplicate Selected Strokes **************** */
 
 /* Make copies of selected point segments in a selected stroke */
