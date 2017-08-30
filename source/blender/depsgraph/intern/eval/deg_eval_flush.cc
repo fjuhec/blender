@@ -137,20 +137,21 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 				lib_id_recalc_tag(bmain, id_orig);
 				/* TODO(sergey): For until we've got proper data nodes in the graph. */
 				lib_id_recalc_data_tag(bmain, id_orig);
+			}
 
+			if (comp_node->done == 0) {
 #ifdef WITH_COPY_ON_WRITE
 				/* Currently this is needed to get ob->mesh to be replaced with
 				 * original mesh (rather than being evaluated_mesh).
 				 *
 				 * TODO(sergey): This is something we need to avoid.
 				 */
-				ComponentDepsNode *cow_comp =
-				        id_node->find_component(DEG_NODE_TYPE_COPY_ON_WRITE);
-				cow_comp->tag_update(graph);
+				if (comp_node->depends_on_cow()) {
+					ComponentDepsNode *cow_comp =
+					        id_node->find_component(DEG_NODE_TYPE_COPY_ON_WRITE);
+					cow_comp->tag_update(graph);
+				}
 #endif
-			}
-
-			if (comp_node->done == 0) {
 				Object *object = NULL;
 				if (GS(id_orig->name) == ID_OB) {
 					object = (Object *)id_orig;
@@ -201,6 +202,8 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 						case DEG_NODE_TYPE_CACHE:
 						case DEG_NODE_TYPE_PROXY:
 							object->recalc |= OB_RECALC_DATA;
+							break;
+						case DEG_NODE_TYPE_SHADING_PARAMETERS:
 							break;
 					}
 
