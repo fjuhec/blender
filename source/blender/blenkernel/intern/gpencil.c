@@ -521,7 +521,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	ARRAY_SET_ITEMS(curcolor, 1.0f, 1.0f, 1.0f);
 
 	/* Basic brush */
-	brush = BKE_gpencil_brush_addnew(ts, "Basic", true);
+	brush = BKE_gpencil_brush_addnew(ts, "Basic", false);
 	brush->thickness = 3.0f;
 	brush->flag &= ~GP_BRUSH_USE_RANDOM_PRESSURE;
 	brush->draw_sensitivity = 1.0f;
@@ -547,7 +547,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	copy_v3_v3(brush->curcolor, curcolor);
 
 	/* Pencil brush */
-	brush = BKE_gpencil_brush_addnew(ts, "Pencil", false);
+	brush = BKE_gpencil_brush_addnew(ts, "Pencil", true);
 	brush->thickness = 7.0f;
 	brush->flag &= ~GP_BRUSH_USE_RANDOM_PRESSURE;
 	brush->draw_sensitivity = 1.0f;
