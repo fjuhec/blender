@@ -51,6 +51,7 @@
 #include "BKE_fcurve.h"
 #include "BKE_nla.h"
 #include "BKE_context.h"
+#include "BKE_gpencil.h"
 
 #include "UI_view2d.h"
 
@@ -148,6 +149,15 @@ static void deselect_action_keys(bAnimContext *ac, short test, short sel)
 
 /* ------------------- */
 
+/* helper to update grease pencil related data */
+static void gpencil_action_redraw(bContext *C, bAnimContext *ac)
+{
+	if ((ac) && (ac->datatype == ANIMCONT_GPENCIL)) {
+		BKE_gpencil_batch_cache_alldirty();
+		WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
+	}
+}
+
 static int actkeys_deselectall_exec(bContext *C, wmOperator *op)
 {
 	bAnimContext ac;
@@ -162,6 +172,8 @@ static int actkeys_deselectall_exec(bContext *C, wmOperator *op)
 	else
 		deselect_action_keys(&ac, 1, SELECT_ADD);
 	
+	/* if grease pencil, redraw first */
+	gpencil_action_redraw(C, &ac);
 	/* set notifier that keyframe selection have changed */
 	WM_event_add_notifier(C, NC_ANIMATION | ND_KEYFRAME | NA_SELECTED, NULL);
 	
@@ -346,6 +358,8 @@ static int actkeys_borderselect_exec(bContext *C, wmOperator *op)
 	/* apply borderselect action */
 	borderselect_action(&ac, rect, mode, selectmode);
 	
+	/* if grease pencil, redraw first */
+	gpencil_action_redraw(C, &ac);
 	/* set notifier that keyframe selection have changed */
 	WM_event_add_notifier(C, NC_ANIMATION | ND_KEYFRAME | NA_SELECTED, NULL);
 	
@@ -546,6 +560,8 @@ static int actkeys_lassoselect_exec(bContext *C, wmOperator *op)
 	
 	MEM_freeN((void *)data_lasso.mcords);
 	
+	/* if grease pencil, redraw first */
+	gpencil_action_redraw(C, &ac);
 	/* send notifier that keyframe selection has changed */
 	WM_event_add_notifier(C, NC_ANIMATION | ND_KEYFRAME | NA_SELECTED, NULL);
 	
@@ -607,6 +623,8 @@ static int action_circle_select_exec(bContext *C, wmOperator *op)
 	/* apply region select action */
 	region_select_action_keys(&ac, &rect_fl, BEZT_OK_CHANNEL_CIRCLE, selectmode, &data);
 	
+	/* if grease pencil, redraw first */
+	gpencil_action_redraw(C, &ac);
 	/* send notifier that keyframe selection has changed */
 	WM_event_add_notifier(C, NC_ANIMATION | ND_KEYFRAME | NA_SELECTED, NULL);
 	
@@ -817,6 +835,8 @@ static int actkeys_columnselect_exec(bContext *C, wmOperator *op)
 	else
 		columnselect_action_keys(&ac, mode);
 	
+	/* if grease pencil, redraw first */
+	gpencil_action_redraw(C, &ac);
 	/* set notifier that keyframe selection have changed */
 	WM_event_add_notifier(C, NC_ANIMATION | ND_KEYFRAME | NA_SELECTED, NULL);
 	
@@ -875,6 +895,8 @@ static int actkeys_select_linked_exec(bContext *C, wmOperator *UNUSED(op))
 	/* Cleanup */
 	ANIM_animdata_freelist(&anim_data);
 	
+	/* if grease pencil, redraw first */
+	gpencil_action_redraw(C, &ac);
 	/* set notifier that keyframe selection has changed */
 	WM_event_add_notifier(C, NC_ANIMATION | ND_KEYFRAME | NA_SELECTED, NULL);
 	
@@ -952,6 +974,8 @@ static int actkeys_select_more_exec(bContext *C, wmOperator *UNUSED(op))
 	/* perform select changes */
 	select_moreless_action_keys(&ac, SELMAP_MORE);
 	
+	/* if grease pencil, redraw first */
+	gpencil_action_redraw(C, &ac);
 	/* set notifier that keyframe selection has changed */
 	WM_event_add_notifier(C, NC_ANIMATION | ND_KEYFRAME | NA_SELECTED, NULL);
 	
@@ -986,6 +1010,8 @@ static int actkeys_select_less_exec(bContext *C, wmOperator *UNUSED(op))
 	/* perform select changes */
 	select_moreless_action_keys(&ac, SELMAP_LESS);
 	
+	/* if grease pencil, redraw first */
+	gpencil_action_redraw(C, &ac);
 	/* set notifier that keyframe selection has changed */
 	WM_event_add_notifier(C, NC_ANIMATION | ND_KEYFRAME | NA_SELECTED, NULL);
 	
@@ -1127,6 +1153,8 @@ static int actkeys_select_leftright_exec(bContext *C, wmOperator *op)
 	/* do the selecting now */
 	actkeys_select_leftright(&ac, leftright, selectmode);
 	
+	/* if grease pencil, redraw first */
+	gpencil_action_redraw(C, &ac);
 	/* set notifier that keyframe selection (and channels too) have changed */
 	WM_event_add_notifier(C, NC_ANIMATION | ND_KEYFRAME | ND_ANIMCHAN | NA_SELECTED, NULL);
 	
@@ -1577,9 +1605,11 @@ static int actkeys_clickselect_invoke(bContext *C, wmOperator *op, const wmEvent
 	/* select keyframe(s) based upon mouse position*/
 	mouse_action_keys(&ac, event->mval, selectmode, column, channel);
 	
+	/* if grease pencil, redraw first */
+	gpencil_action_redraw(C, &ac);
 	/* set notifier that keyframe selection (and channels too) have changed */
 	WM_event_add_notifier(C, NC_ANIMATION | ND_KEYFRAME | ND_ANIMCHAN | NA_SELECTED, NULL);
-	
+
 	/* for tweak grab to work */
 	return OPERATOR_FINISHED | OPERATOR_PASS_THROUGH;
 }
