@@ -414,11 +414,6 @@ class GreasePencilBrushOptionsPanel:
             row.prop(brush, "pen_subdivision_steps")
             row.prop(brush, "random_subdiv", text='Randomness', slider=True)
 
-            row = layout.row(align=False)
-            col = row.column(align=True)
-            col.label(text="Eraser:")
-            col.prop(context.user_preferences.edit, "grease_pencil_eraser_radius", text="Radius")
-
 
 class GreasePencilStrokeSculptPanel:
     # subclass must set
@@ -537,6 +532,30 @@ class GreasePencilAppearancePanel:
             row.prop(brush, "cursor_color_add", text="Add")
             row = col.row(align=True)
             row.prop(brush, "cursor_color_sub", text="Subtract")
+
+
+class GreasePencilEraserPanel:
+    bl_label = "Eraser"
+    bl_category = "Options"
+    bl_region_type = 'TOOLS'
+    bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        if context.gpencil_data is None:
+            return False
+
+        is_paintmode = context.active_object and context.active_object.mode in ('GPENCIL_PAINT')
+        if context.active_object and is_paintmode:
+            return True
+        else:
+            return False
+
+    @staticmethod
+    def draw(self, context):
+        layout = self.layout
+        col = layout.column(align=True)
+        col.prop(context.user_preferences.edit, "grease_pencil_eraser_radius", text="Radius")
 
 
 class GreasePencilBrushCurvesPanel:
