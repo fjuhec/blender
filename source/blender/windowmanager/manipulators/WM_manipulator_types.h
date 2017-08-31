@@ -75,6 +75,11 @@ typedef enum eWM_ManipulatorFlag {
 	 * When set 'scale_final' value also scales the offset.
 	 * Use when offset is to avoid screen-space overlap instead of absolute positioning. */
 	WM_MANIPULATOR_DRAW_OFFSET_SCALE  = (1 << 4),
+	/**
+	 * User should still use 'scale_final' for any handles and UI elements.
+	 * This simply skips scale when calculating the final matrix.
+	 * Needed when the manipulator needs to align with the interface underneath it. */
+	WM_MANIPULATOR_DRAW_NO_SCALE  = (1 << 5),
 } eWM_ManipulatorFlag;
 
 /**
@@ -288,7 +293,7 @@ typedef struct wmManipulatorType {
 	 * - Scale isn't applied (wmManipulator.scale/user_scale).
 	 * - Offset isn't applied (wmManipulator.matrix_offset).
 	 */
-	wmManipulatorFnMatrixWorldGet matrix_basis_get;
+	wmManipulatorFnMatrixBasisGet matrix_basis_get;
 
 	/* activate a manipulator state when the user clicks on it */
 	wmManipulatorFnInvoke invoke;
