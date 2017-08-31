@@ -371,7 +371,7 @@ class GreasePencilBrushPanel:
 class GreasePencilBrushOptionsPanel:
     # subclass must set
     # bl_space_type = 'IMAGE_EDITOR'
-    bl_label = "Brush Options"
+    bl_label = "Strokes"
     bl_category = "Tools"
     bl_region_type = 'TOOLS'
     bl_options = {'DEFAULT_CLOSED'}
