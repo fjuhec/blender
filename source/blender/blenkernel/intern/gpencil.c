@@ -548,7 +548,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 
 	/* Pencil brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Pencil", true);
-	brush->thickness = 7.0f;
+	brush->thickness = 15.0f;
 	brush->flag &= ~GP_BRUSH_USE_RANDOM_PRESSURE;
 	brush->draw_sensitivity = 1.0f;
 	brush->flag |= GP_BRUSH_USE_PRESSURE;
@@ -566,9 +566,9 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_angle = 0.0f;
 	brush->draw_angle_factor = 0.0f;
 
-	brush->draw_smoothfac = 1.0f;
-	brush->draw_smoothlvl = 2;
-	brush->sublevel = 2;
+	brush->draw_smoothfac = 0.5f;
+	brush->draw_smoothlvl = 1;
+	brush->sublevel = 1;
 	brush->draw_random_sub = 0.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
 
