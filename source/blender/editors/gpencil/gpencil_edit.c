@@ -530,15 +530,21 @@ void GPENCIL_OT_selection_opacity_toggle(wmOperatorType *ot)
 }
 
 /* toggle multi edit strokes support */
-static int gpencil_multiedit_toggle_exec(bContext *C, wmOperator *UNUSED(op))
+static int gpencil_multiedit_toggle_exec(bContext *C, wmOperator *op)
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	const int lines = RNA_int_get(op->ptr, "lines");
 
 	if (gpd == NULL)
 		return OPERATOR_CANCELLED;
 
 	/* Just toggle value */
-	gpd->flag ^= GP_DATA_STROKE_MULTIEDIT;
+	if (lines == 0) {
+		gpd->flag ^= GP_DATA_STROKE_MULTIEDIT;
+	}
+	else {
+		gpd->flag ^= GP_DATA_STROKE_MULTIEDIT_LINES;
+	}
 
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | ND_GPENCIL_EDITMODE, NULL);
 	WM_event_add_notifier(C, NC_SCENE | ND_MODE, NULL);
@@ -559,6 +565,9 @@ void GPENCIL_OT_multiedit_toggle(wmOperatorType *ot)
 
 	/* flags */
 	ot->flag = OPTYPE_UNDO | OPTYPE_REGISTER;
+
+	/* properties */
+	RNA_def_int(ot->srna, "lines", 0, 0, 1, "lines", "1 to toggle display lines only", 0, 1);
 }
 
 /* ************** Duplicate Selected Strokes **************** */

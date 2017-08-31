@@ -165,8 +165,9 @@ class VIEW3D_HT_header(Header):
                 row.prop(context.tool_settings.gpencil_sculpt, "selection_alpha", slider=True)
 
                 gpd = context.gpencil_data
-                row = layout.row()
+                row = layout.row(align=True)
                 row.prop(gpd, "multiedit", text="Multi Edit", icon="FORCE_HARMONIC")
+                row.prop(gpd, "multiedit_line_only", text="", icon="GHOST")
 
 
 class VIEW3D_MT_editor_menus(Menu):
