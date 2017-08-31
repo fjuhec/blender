@@ -317,7 +317,7 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 		/* generate duplicated instances using array modifiers */		
 		gpencil_array_modifiers(stl, ob);
 		/* draw current painting strokes */
-		DRW_gpencil_populate_buffer_strokes(vedata, ts, ob->gpd);
+		DRW_gpencil_populate_buffer_strokes(vedata, ts, ob);
 	}
 }
 

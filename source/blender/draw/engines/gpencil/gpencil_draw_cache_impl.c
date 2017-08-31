@@ -778,11 +778,12 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 }
 
  /* draw stroke in drawing buffer */
-void DRW_gpencil_populate_buffer_strokes(void *vedata, ToolSettings *ts, bGPdata *gpd)
+void DRW_gpencil_populate_buffer_strokes(void *vedata, ToolSettings *ts, Object *ob)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	bGPDbrush *brush = BKE_gpencil_brush_getactive(ts);
-
+	bGPdata *gpd = ob->gpd;
+	float obscale = (ob->size[0] + ob->size[1] + ob->size[2]) / 3.0f;
 	/* drawing strokes */
 	/* Check if may need to draw the active stroke cache, only if this layer is the active layer
 	* that is being edited. (Stroke buffer is currently stored in gp-data)
@@ -793,7 +794,7 @@ void DRW_gpencil_populate_buffer_strokes(void *vedata, ToolSettings *ts, bGPdata
 			/* It should also be noted that sbuffer contains temporary point types
 			* i.e. tGPspoints NOT bGPDspoints
 			*/
-			short lthick = brush->thickness;
+			short lthick = brush->thickness * obscale;
 			/* if only one point, don't need to draw buffer because the user has no time to see it */
 			if (gpd->sbuffer_size > 1) {
 				/* use unit matrix because the buffer is in screen space and does not need conversion */
