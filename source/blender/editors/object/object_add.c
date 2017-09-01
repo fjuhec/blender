@@ -2322,6 +2322,11 @@ static Base *object_add_duplicate_internal(Main *bmain, Scene *scene, SceneLayer
 		if (didit) {
 			Key *key = BKE_key_from_object(obn);
 
+			Key *oldkey = BKE_key_from_object(ob);
+			if (oldkey != NULL) {
+				ID_NEW_SET(oldkey, key);
+			}
+
 			if (dupflag & USER_DUP_ACT) {
 				bActuator *act;
 
