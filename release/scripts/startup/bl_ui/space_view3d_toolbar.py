@@ -475,6 +475,14 @@ class VIEW3D_PT_tools_normal(View3DPanel, Panel):
 		col = layout.column(align=True)
 		col.operator("mesh.smoothen_custom_normals", text="Smoothen")
 
+		col = layout.column(align=True)
+		col.label(text="Face Strength")
+		row = col.row(align=True)
+		
+		row.prop(toolsettings, "face_strength", text="")
+		row.operator("mesh.mod_weighted_strength", text="", icon = "FACESEL").set=False
+		row.operator("mesh.mod_weighted_strength", text="", icon = "ZOOMIN").set=True	
+
 
 class VIEW3D_PT_tools_uvs(View3DPanel, Panel):
     bl_category = "Shading / UVs"

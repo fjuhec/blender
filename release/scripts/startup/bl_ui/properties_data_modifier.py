@@ -1543,7 +1543,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.active = has_vgroup
         row.prop(md, "invert_vertex_group", text="", icon='ARROW_LEFTRIGHT')
         layout.prop(md, "keep_sharp")
-        layout.prop(md, "binary_weights")
+        layout.prop(md, "face_influence")
 
 
 classes = (

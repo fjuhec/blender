@@ -6796,7 +6796,6 @@ static EnumPropertyItem normal_vector_tool_items[] = {
 
 static int edbm_custom_normal_tools_exec(bContext *C, wmOperator *op)
 {
-
 	Object *obedit = CTX_data_edit_object(C);
 	Scene *scene = CTX_data_scene(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -7101,4 +7100,70 @@ void MESH_OT_smoothen_custom_normals(struct wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
 	ot->prop = RNA_def_float(ot->srna, "factor", 0.5f, 0.0f, 1.0f, "Factor", "Specifies weight of smooth vs original normal", 0.0f, 1.0f);
+}
+
+/********************** Weighted Normal Modifier Face Strength **********************/
+
+static int edbm_mod_weighted_strength_exec(bContext *C, wmOperator *op)
+{
+	Scene *scene = CTX_data_scene(C);
+	Object *obedit = CTX_data_edit_object(C);
+	BMEditMesh *em = BKE_editmesh_from_object(obedit);
+	BMesh *bm = em->bm;
+	BMFace *f;
+	BMIter fiter;
+	
+	BM_select_history_clear(bm);
+
+	int cd_prop_int_offset = CustomData_get_offset(&bm->pdata, CD_PROP_INT);
+	if (cd_prop_int_offset == -1) {
+		BM_data_layer_add(bm, &bm->pdata, CD_PROP_INT);
+		cd_prop_int_offset = CustomData_get_offset(&bm->pdata, CD_PROP_INT);
+	}
+
+	const int face_strength = scene->toolsettings->face_strength;
+	const bool set = RNA_boolean_get(op->ptr, "set");
+	BM_mesh_elem_index_ensure(bm, BM_FACE);
+
+	if (set) {
+		BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
+			if (BM_elem_flag_test(f, BM_ELEM_SELECT)) {
+				int *strength = BM_ELEM_CD_GET_VOID_P(f, cd_prop_int_offset);
+				*strength = face_strength;
+			}
+		}
+	}
+	else {
+		BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
+			int *strength = BM_ELEM_CD_GET_VOID_P(f, cd_prop_int_offset);
+			if (*strength == face_strength) {
+				BM_face_select_set(bm, f, true);
+				BM_select_history_store(bm, f);
+			}
+			else {
+				BM_face_select_set(bm, f, false);
+			}
+		}
+	}
+
+	EDBM_update_generic(em, false, false);
+	return OPERATOR_FINISHED;
+}
+
+void MESH_OT_mod_weighted_strength(struct wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Face Strength";
+	ot->description = "Set/Get strength of face. Used in Weighted Normal Modifier";
+	ot->idname = "MESH_OT_mod_weighted_strength";
+
+	/* api callbacks */
+	ot->exec = edbm_mod_weighted_strength_exec;
+	ot->poll = ED_operator_editmesh_auto_smooth;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	ot->prop = RNA_def_boolean(ot->srna, "set", 0, "Set value", "Set Value of faces");
+	RNA_def_property_flag(ot->prop, PROP_HIDDEN);
 }
