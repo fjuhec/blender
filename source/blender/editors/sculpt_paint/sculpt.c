@@ -6961,6 +6961,7 @@ static void add_ss_tube(SilhouetteData *sil, SpineBranch *branch, Mesh *me, floa
 	bool f_swap = false;
 	int cyclic_offset = 0, n_i = 0;
 	int e_start = 0;
+	int t1, t2, t3, t4;
 	BLI_array_declare(left);
 	BLI_array_declare(right);
 
@@ -7056,6 +7057,32 @@ static void add_ss_tube(SilhouetteData *sil, SpineBranch *branch, Mesh *me, floa
 		branch->fs_bs_offset = me->totedge - branch->fs_bs_offset;
 	}
 
+	if (branch->hull_points[0] == 0 && flip_side) {
+		t1 = branch->e_start_arr[0];
+		t2 = branch->e_start_arr[1];
+		t3 = branch->e_start_arr[4];
+		t4 = branch->e_start_arr[5];
+
+		branch->e_start_arr[0] = branch->e_start_arr[2];
+		branch->e_start_arr[1] = branch->e_start_arr[3];
+		branch->e_start_arr[4] = branch->e_start_arr[6];
+		branch->e_start_arr[5] = branch->e_start_arr[7];
+
+		branch->e_start_arr[2] = t1;
+		branch->e_start_arr[3] = t2;
+		branch->e_start_arr[6] = t3;
+		branch->e_start_arr[7] = t4;
+
+		t1 = branch->e_flip_side_ends[0];
+		t2 = branch->e_flip_side_ends[1];
+
+		branch->e_flip_side_ends[0] = branch->e_flip_side_ends[2];
+		branch->e_flip_side_ends[1] = branch->e_flip_side_ends[3];
+
+		branch->e_flip_side_ends[2] = t1;
+		branch->e_flip_side_ends[3] = t2;
+	}
+
 	BLI_array_free(left);
 	BLI_array_free(right);
 }
@@ -7111,6 +7138,7 @@ static void bridge_all_parts_rec(Mesh *me, Spine *spine, SpineBranch *active_bra
 					comp_e_start = comp->e_start_arr[b_fork_off * 2];
 					comp_e_start_flip = comp->e_start_arr[b_fork_off_inv];
 				}
+
 				bridge_loops(me,
 							 active_branch->e_start_arr[a_fork_off * 2],
 							 comp_e_start,
@@ -7118,7 +7146,7 @@ static void bridge_all_parts_rec(Mesh *me, Spine *spine, SpineBranch *active_bra
 							 (dist_a > dist_b),
 							 active_branch->e_start_arr[a_fork_off * 2 + 1],
 							 comp->e_start_arr[b_fork_off * 2 + 1],
-							 !n_g_flip ^ (dist_a > dist_b));
+							 !n_g_flip ^ (dist_a > dist_b) ^ !comp->hull_points[0]);
 
 				bridge_loops(me,
 							 active_branch->e_start_arr[a_fork_off_inv],
@@ -7127,10 +7155,11 @@ static void bridge_all_parts_rec(Mesh *me, Spine *spine, SpineBranch *active_bra
 							 (dist_a > dist_b),
 							 active_branch->e_start_arr[a_fork_off_inv + 1],
 							 comp->e_start_arr[b_fork_off_inv + 1],
-							 n_g_flip ^ (dist_a > dist_b));
+							 n_g_flip ^ (dist_a > dist_b) ^ (!comp->hull_points[0]));
 
 				ED_mesh_loops_add(me, NULL, 8);
 				ED_mesh_polys_add(me, NULL, 2);
+
 				add_face(me,
 						 me->totedge - 1,
 						 active_branch->e_flip_side_ends[a_fork_off * 2 + 1],
@@ -7138,7 +7167,7 @@ static void bridge_all_parts_rec(Mesh *me, Spine *spine, SpineBranch *active_bra
 						 comp->e_flip_side_ends[b_fork_off * 2 + ((dist_a > dist_b) ? 0 : 1)],
 						 me->totloop - 8,
 						 me->totpoly - 2,
-						 n_g_flip ^ (dist_a > dist_b));
+						 n_g_flip ^ (dist_a > dist_b) ^ (!comp->hull_points[0]));
 
 				add_face(me,
 						 me->totedge - verts_per_loop + 2,
@@ -7147,7 +7176,7 @@ static void bridge_all_parts_rec(Mesh *me, Spine *spine, SpineBranch *active_bra
 						 comp->e_flip_side_ends[b_fork_off * 2 + ((dist_a > dist_b) ? 1 : 0)],
 						 me->totloop - 4,
 						 me->totpoly - 1,
-						 !n_g_flip ^ (dist_a > dist_b));
+						 !n_g_flip ^ (dist_a > dist_b) ^ (!comp->hull_points[0]));
 			}
 			bridge_all_parts_rec(me, spine, comp, active_branch, verts_per_loop, n_g_flip);
 		}
@@ -9310,7 +9339,7 @@ static void sculpt_silhouette_calc_mesh(bContext *C, wmOperator *op)
 	BKE_mesh_calc_edges(me, false, true);
 	BKE_mesh_tessface_clear(me);
 	BKE_mesh_calc_normals(me);
-	DAG_id_tag_update(&me->id, 0);
+	DAG_id_tag_update(&me->id, OB_RECALC_ALL);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, me);
 
 	/*bool test_out;
