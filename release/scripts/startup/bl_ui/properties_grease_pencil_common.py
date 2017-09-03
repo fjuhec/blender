@@ -41,7 +41,7 @@ def gpencil_stroke_placement_settings(context, layout):
         col.label(text="Stroke Placement:")
         row = col.row(align=True)
         row.prop_enum(ts, propname, 'VIEW')
-        row.prop_enum(ts, propname, 'CURSOR', text='Cursor')
+        row.prop_enum(ts, propname, 'CURSOR', text="Cursor")
 
 
 def gpencil_active_brush_settings_simple(context, layout):
@@ -354,7 +354,7 @@ class GreasePencilBrushPanel:
         # Brush details
         if brush is not None:
             row = layout.row()
-            row.prop(brush, "name", text='')
+            row.prop(brush, "name", text="")
             row = layout.row(align=True)
             row.prop(brush, "use_random_pressure", text="", icon='RNDCURVE')
             row.prop(brush, "line_width", text="Radius")
