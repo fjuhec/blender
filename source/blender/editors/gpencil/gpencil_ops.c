@@ -503,6 +503,13 @@ static void ed_keymap_gpencil_sculpting(wmKeyConfig *keyconf)
 	/* sculpt */
 	ed_keymap_gpencil_sculpt(keymap);
 
+	/* toogle multiedit support */
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_multiedit_toggle", QKEY, KM_PRESS, 0, 0);
+	RNA_int_set(kmi->ptr, "lines", 0);
+
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_multiedit_toggle", QKEY, KM_PRESS, KM_SHIFT, 0);
+	RNA_int_set(kmi->ptr, "lines", 1);
+
 	/* Select sculpt brush using index */
 	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_sculpt_select", ONEKEY, KM_PRESS, 0, 0);
 	RNA_int_set(kmi->ptr, "index", 0);
@@ -560,6 +567,13 @@ static void ed_keymap_gpencil_weightpainting(wmKeyConfig *keyconf)
 	/* FKEY = Sculpt Brush Size */
 	kmi = WM_keymap_add_item(keymap, "WM_OT_radial_control", FKEY, KM_PRESS, 0, 0);
 	RNA_string_set(kmi->ptr, "data_path_primary", "tool_settings.gpencil_sculpt.weight_brush.size");
+
+	/* toogle multiedit support */
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_multiedit_toggle", QKEY, KM_PRESS, 0, 0);
+	RNA_int_set(kmi->ptr, "lines", 0);
+
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_multiedit_toggle", QKEY, KM_PRESS, KM_SHIFT, 0);
+	RNA_int_set(kmi->ptr, "lines", 1);
 
 	/* Enter EditMode */
 	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_editmode_toggle", TABKEY, KM_PRESS, KM_SHIFT, 0);
