@@ -148,8 +148,9 @@ class VIEW3D_HT_header(Header):
                     row.separator()
                     row.prop(toolsettings.gpencil_sculpt, "lockaxis", text='')
 
-        if context.gpencil_data:
-            if context.gpencil_data.use_stroke_edit_mode:
+        gpd = context.gpencil_data
+        if gpd:
+            if gpd.use_stroke_edit_mode:
                 row = layout.row(align=True)
                 row.operator("gpencil.copy", text="", icon='COPYDOWN')
                 row.operator("gpencil.paste", text="", icon='PASTEDOWN')
@@ -159,12 +160,12 @@ class VIEW3D_HT_header(Header):
             if gpl:
                 layout.prop(gpl, "use_onion_skinning", text="Onion Skins", icon='PARTICLE_PATH')
 
-            if context.gpencil_data.use_stroke_edit_mode or context.gpencil_data.is_stroke_sculpt_mode:
+            if gpd.use_stroke_edit_mode or gpd.is_stroke_sculpt_mode:
                 row = layout.row(align=True)
                 row.prop(context.tool_settings.gpencil_sculpt, "use_select_mask")
                 row.prop(context.tool_settings.gpencil_sculpt, "selection_alpha", slider=True)
 
-                gpd = context.gpencil_data
+            if gpd.use_stroke_edit_mode or gpd.is_stroke_sculpt_mode or gpd.is_stroke_weight_mode:
                 row = layout.row(align=True)
                 row.prop(gpd, "multiedit", text="Multi Edit", icon="FORCE_HARMONIC")
                 row.prop(gpd, "multiedit_line_only", text="", icon="GHOST")
