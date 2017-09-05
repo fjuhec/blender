@@ -33,6 +33,8 @@ import struct
 AMBER_DB_NAME = "__amber_db.json"
 AMBER_DBK_VERSION = "version"
 
+AMBER_LIST_FILENAME = "amber_repos.json"
+
 
 ##########
 # Helpers.
@@ -92,20 +94,3 @@ def uuid_unpack(uuid_hexstr):
 
 def uuid_pack(uuid_iv4):
     return binascii.hexlify(struct.pack("!iiii", *uuid_iv4)).decode()
-
-
-# XXX Hack, once this becomes a real addon we'll just use addons' config system, for now store that in some own config.
-amber_repos_path = os.path.join(bpy.utils.user_resource('CONFIG', create=True), "amber_repos.json")
-amber_repos = None
-if not os.path.exists(amber_repos_path):
-    with open(amber_repos_path, 'w') as ar_f:
-        json.dump({}, ar_f)
-with open(amber_repos_path, 'r') as ar_f:
-    amber_repos = {uuid_unpack(uuid): name_path for uuid, name_path in json.load(ar_f).items()}
-assert(amber_repos != None)
-
-
-def save_amber_repos():
-    ar = {uuid_pack(uuid).decode(): name_path for uuid, name_path in amber_repos.items()}
-    with open(amber_repos_path, 'w') as ar_f:
-        json.dump(ar, ar_f)

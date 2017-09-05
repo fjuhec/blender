@@ -53,6 +53,20 @@ class AmberPanelEditing(AmberPanel):
 ##############
 # Engine stuff
 
+class AMBER_PT_repositories(Panel, AmberPanel):
+    bl_space_type = 'FILE_BROWSER'
+    bl_region_type = 'TOOLS'
+    bl_category = "Bookmarks"
+    bl_label = "Amber Repositories"
+
+    def draw(self, context):
+        ae = context.space_data.asset_engine
+
+        self.layout.template_list("FILEBROWSER_UL_dir", "amber_repositories",
+                                  ae.repositories_pg, "repositories", ae.repositories_pg, "repository_index_active",
+                                  item_dyntip_propname="path")
+
+
 class AMBER_UL_tags_filter(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         # assert(isinstance(item, bpy.types.AmberDataTagPG))
@@ -166,6 +180,8 @@ class AMBER_PT_assets(Panel, AmberPanel):
 
 
 classes = (
+    AMBER_PT_repositories,
+
     AMBER_UL_tags_filter,
     AMBER_PT_options,
     AMBER_PT_tags,

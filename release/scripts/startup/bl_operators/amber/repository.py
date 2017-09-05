@@ -180,6 +180,8 @@ class AmberDataAssetRevision():
             revision_pg.size = revision.size
             revision_pg.timestamp = revision.timestamp
             revision_pg.path = revision.path
+        for idx in range(len(pg), len(revisions), -1):
+            pg.remove(idx - 1)
 
 
 class AmberDataAssetVariantPG(PropertyGroup):
@@ -273,6 +275,8 @@ class AmberDataAssetVariant():
 
             AmberDataAssetRevision.to_pg(variant_pg.revisions, variant.revisions)
             variant_pg.revision_default = variant.revision_default.uuid
+        for idx in range(len(pg), len(variants), -1):
+            pg.remove(idx - 1)
 
 
 class AmberDataAssetPG(PropertyGroup):
@@ -446,7 +450,6 @@ class AmberDataRepository:
 
         if repository_pg is not None:
             self.to_pg(repository_pg)
-            print(repository_pg, len(repository_pg.assets))
 
     @classmethod
     def ls_repo(cls, db_path):
@@ -533,39 +536,84 @@ class AmberDataRepository:
         AmberDataAsset.to_pg(pg.assets, self.assets, self.tags)
 
 
+class AmberDataRepositoryListItemPG(PropertyGroup):
+    uuid = IntVectorProperty(name="UUID", description="Repository unique identifier", size=4)
+    name = StringProperty(name="Name")
+    path = StringProperty(name="Path", description="Path to this Amber repository", subtype='DIR_PATH')
+    is_valid = BoolProperty(name="Is Valid")
+
+
 class AmberDataRepositoryListPG(PropertyGroup):
-    def repositories_itemf(self, context):
-        if not hasattr(self, "repositories_items"):
-            self.repositories_items = [(utils.uuid_pack(uuid), name, path, idx) for idx, (uuid, (name, path)) in enumerate(utils.amber_repos.items())]
-        return self.repositories_items
     def repositories_update(self, context):
         space = context.space_data
         if space and space.type == 'FILE_BROWSER':
             ae = space.asset_engine
             if ae and space.asset_engine_type == "AssetEngineAmber":
-                uuid = utils.uuid_unpack(self.repositories)
-                space.params.directory = utils.amber_repos[uuid][1]
-    repositories = EnumProperty(items=repositories_itemf, update=repositories_update,
-                                name="Current Repository", description="Active Amber asset repository")
+                space.params.directory = self.repositories[self.repository_index_active].path
+
+    repositories = CollectionProperty(name="Repositories", type=AmberDataRepositoryListItemPG)
+    repository_index_active = IntProperty(name="Active Repository", options={'HIDDEN'}, update=repositories_update, default=-1)
 
 
 class AmberDataRepositoryList:
     """
-    Amber repository main class.
-
-    Note: Remember that in Amber, first 8 bytes of asset's UUID are same as first 8 bytes of repository UUID.
-          Repository UUID's last 8 bytes shall always be NULL.
-          This allows us to store repository identifier into all assets, and ensure we have uniqueness of
-          Amber assets UUIDs (which is mandatory from Blender point of view).
+    List of Amber repositories (singleton).
     """
-    pass
+    singleton = None
+
+    def __new__(cls, path=...):
+        if cls.singleton is None:
+            cls.singleton = super().__new__(cls)
+        return cls.singleton
+
+    def __init__(self, path=...):
+        if path is ...:
+            path = os.path.join(bpy.utils.user_resource('CONFIG', create=True), utils.AMBER_LIST_FILENAME)
+        self._path = ""
+        self.repositories = {}
+        self.path = path
+
+    def load(self):
+        if not os.path.exists(self.path):
+            with open(self.path, 'w') as ar_f:
+                json.dump({}, ar_f)
+        with open(self.path, 'r') as ar_f:
+            self.repositories = {utils.uuid_unpack(uuid): name_path for uuid, name_path in json.load(ar_f).items()}
+
+    def save(self):
+        ar = {utils.uuid_pack(uuid).decode(): name_path for uuid, name_path in self.repositories.items()}
+        with open(self.path, 'w') as ar_f:
+            json.dump(ar, ar_f)
+
+    def path_get(self):
+        return self._path
+    def path_set(self, path):
+        if self._path != path:
+            self._path = path
+            self.load()
+    path = property(path_get, path_set)
+
+    def to_pg(self, pg):
+        for idx, (uuid, (name, path)) in enumerate(self.repositories.items()):
+            if idx == len(pg.repositories):
+                pg.repositories.add()
+            repo_pg = pg.repositories[idx]
+            repo_pg.uuid = uuid
+            repo_pg.name = name
+            repo_pg.path = path
+            repo_pg.is_valid = os.path.exists(path)
+        for idx in range(len(pg.repositories), len(self.repositories), -1):
+            pg.repositories.remove(idx - 1)
 
 
 classes = (
     AmberDataTagPG,
+
     AmberDataAssetRevisionPG,
     AmberDataAssetVariantPG,
     AmberDataAssetPG,
     AmberDataRepositoryPG,
+
+    AmberDataRepositoryListItemPG,
     AmberDataRepositoryListPG,
 )
