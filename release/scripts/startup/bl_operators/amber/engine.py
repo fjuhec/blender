@@ -230,7 +230,7 @@ class AssetEngineAmber(AssetEngine):
         self.repo = {}
         self.dirs = []
 
-        self.repository.clear()
+        self.repository.clear(self.repository_pg)
 
         self.sortedfiltered = []
 
@@ -388,10 +388,10 @@ class AssetEngineAmber(AssetEngine):
                 utils.amber_repos[uuid_repo] = (self.repository.name, self.root)  # XXX Not resistant to uuids collisions (use a set instead)...
                 utils.save_amber_repos()
             self.repos[uuid_repo] = self.repo
-            entries.nbr_entries = len(self.repository.assets)
+            entries.nbr_entries = len(self.repository.assets) + 1  # Don't forget the 'up' entry!
         else:
             entries.nbr_entries = len(self.dirs)
-            self.repository.clear()
+            self.repository.clear(self.repository_pg)
         return job_id
 
     def update_check(self, job_id, uuids):

@@ -397,6 +397,8 @@ class AmberDataAsset():
 
             AmberDataAssetVariant.to_pg(asset_pg.variants, asset.variants)
             asset_pg.variant_default = asset.variant_default.uuid
+        for idx in range(len(pg), len(assets), -1):
+            pg.remove(idx - 1)
 
 
 class AmberDataRepositoryPG(PropertyGroup):
@@ -433,7 +435,7 @@ class AmberDataRepository:
 
         self.clear()
 
-    def clear(self):
+    def clear(self, repository_pg=None):
         self.path = ""
         self.version = "1.0.1"
         self.name = ""
@@ -441,6 +443,10 @@ class AmberDataRepository:
         self.uuid = (0, 0, 0, 0)
         self.tags.clear()
         self.assets.clear()
+
+        if repository_pg is not None:
+            self.to_pg(repository_pg)
+            print(repository_pg, len(repository_pg.assets))
 
     @classmethod
     def ls_repo(cls, db_path):
