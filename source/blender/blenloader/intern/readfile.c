@@ -9963,6 +9963,8 @@ void BLO_expand_main(void *fdhandle, Main *mainvar)
 					case ID_CF:
 						expand_cachefile(fd, mainvar, (CacheFile *)id);
 						break;
+					default:
+						break;
 					}
 					
 					do_it = true;
