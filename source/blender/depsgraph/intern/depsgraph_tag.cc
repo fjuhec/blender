@@ -95,6 +95,8 @@ void lib_id_recalc_data_tag(Main *bmain, ID *id)
 
 namespace {
 
+void deg_graph_id_tag_update(Main *bmain, Depsgraph *graph, ID *id, int flag);
+
 void lib_id_recalc_tag_flag(Main *bmain, ID *id, int flag)
 {
 	/* This bit of code ensures legacy object->recalc flags are still filled in
@@ -108,7 +110,7 @@ void lib_id_recalc_tag_flag(Main *bmain, ID *id, int flag)
 	 * after relations update and after layer visibility changes.
 	 */
 	if (flag) {
-		short id_type = GS(id->name);
+		ID_Type id_type = GS(id->name);
 		if (id_type == ID_OB) {
 			Object *object = (Object *)id;
 			object->recalc |= (flag & OB_RECALC_ALL);
@@ -151,7 +153,7 @@ void id_tag_update_object_transform(Depsgraph *graph, IDDepsNode *id_node)
 /* Tag corresponding to OB_RECALC_DATA. */
 void id_tag_update_object_data(Depsgraph *graph, IDDepsNode *id_node)
 {
-	const short id_type = GS(id_node->id_orig->name);
+	const ID_Type id_type = GS(id_node->id_orig->name);
 	ComponentDepsNode *data_comp = NULL;
 	switch (id_type) {
 		case ID_OB:
@@ -177,6 +179,8 @@ void id_tag_update_object_data(Depsgraph *graph, IDDepsNode *id_node)
 			break;
 		case ID_PA:
 			return;
+		default:
+			break;
 	}
 	if (data_comp == NULL) {
 #ifdef STRICT_COMPONENT_TAGGING
@@ -244,8 +248,13 @@ void id_tag_update_particle(Depsgraph *graph, IDDepsNode *id_node, int tag)
 
 void id_tag_update_shading(Depsgraph *graph, IDDepsNode *id_node)
 {
-	ComponentDepsNode *shading_comp =
-	        id_node->find_component(DEG_NODE_TYPE_SHADING);
+	ComponentDepsNode *shading_comp;
+	if (GS(id_node->id_orig->name) == ID_NT) {
+		shading_comp = id_node->find_component(DEG_NODE_TYPE_SHADING_PARAMETERS);
+	}
+	else {
+		shading_comp = id_node->find_component(DEG_NODE_TYPE_SHADING);
+	}
 	if (shading_comp == NULL) {
 #ifdef STRICT_COMPONENT_TAGGING
 		DEG_ERROR_PRINTF("ERROR: Unable to find shading component for %s\n",
@@ -268,6 +277,25 @@ void id_tag_update_copy_on_write(Depsgraph *graph, IDDepsNode *id_node)
 }
 #endif
 
+void id_tag_update_ntree_special(Main *bmain, Depsgraph *graph, ID *id, int flag)
+{
+	bNodeTree *ntree = NULL;
+	switch (GS(id->name)) {
+		case ID_MA:
+			ntree = ((Material *)id)->nodetree;
+			break;
+		default:
+			break;
+	}
+	if (ntree == NULL) {
+		return;
+	}
+	IDDepsNode *id_node = graph->find_id_node(&ntree->id);
+	if (id_node != NULL) {
+		deg_graph_id_tag_update(bmain, graph, id_node->id_orig, flag);
+	}
+}
+
 void deg_graph_id_tag_update(Main *bmain, Depsgraph *graph, ID *id, int flag)
 {
 	Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(graph);
@@ -281,6 +309,7 @@ void deg_graph_id_tag_update(Main *bmain, Depsgraph *graph, ID *id, int flag)
 	/* Tag components based on flags. */
 	if (flag == 0) {
 		id_tag_update_special_zero_flag(graph, id_node);
+		id_tag_update_ntree_special(bmain, graph, id, flag);
 		return;
 	}
 	if (flag & OB_RECALC_OB) {
@@ -290,7 +319,7 @@ void deg_graph_id_tag_update(Main *bmain, Depsgraph *graph, ID *id, int flag)
 		id_tag_update_object_data(graph, id_node);
 #ifdef WITH_COPY_ON_WRITE
 		if (flag & DEG_TAG_COPY_ON_WRITE) {
-			const short id_type = GS(id_node->id_orig->name);
+			const ID_Type id_type = GS(id_node->id_orig->name);
 			if (id_type == ID_OB) {
 				Object *object = (Object *)id_node->id_orig;
 				ID *ob_data = (ID *)object->data;
@@ -313,6 +342,7 @@ void deg_graph_id_tag_update(Main *bmain, Depsgraph *graph, ID *id, int flag)
 		id_tag_update_copy_on_write(graph, id_node);
 	}
 #endif
+	id_tag_update_ntree_special(bmain, graph, id, flag);
 }
 
 void deg_id_tag_update(Main *bmain, ID *id, int flag)
@@ -334,7 +364,7 @@ void deg_graph_on_visible_update(Main *bmain, Scene *scene, Depsgraph *graph)
 	/* Make sure objects are up to date. */
 	GHASH_FOREACH_BEGIN(DEG::IDDepsNode *, id_node, graph->id_hash)
 	{
-		const short id_type = GS(id_node->id_orig->name);
+		const ID_Type id_type = GS(id_node->id_orig->name);
 		if (id_type != ID_OB) {
 			/* Ignore non-object nodes on visibility changes. */
 			continue;

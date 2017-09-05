@@ -1095,33 +1095,30 @@ void DepsgraphNodeBuilder::build_lamp(Object *ob)
 
 void DepsgraphNodeBuilder::build_nodetree(bNodeTree *ntree)
 {
-	if (!ntree)
+	if (ntree == NULL) {
 		return;
-
+	}
 	/* nodetree itself */
 	ID *ntree_id = &ntree->id;
-	OperationDepsNode *op_node;
-
+	add_id_node(ntree_id);
+	bNodeTree *ntree_cow = get_cow_datablock(ntree);
+	/* Animation, */
 	build_animdata(ntree_id);
-
-	/* Parameters for drivers. */
-	op_node = add_operation_node(ntree_id,
-	                             DEG_NODE_TYPE_PARAMETERS,
-	                             NULL,
-	                             DEG_OPCODE_PARAMETERS_EVAL);
-	op_node->set_as_exit();
-
 	/* Shading update. */
 	add_operation_node(ntree_id,
 	                   DEG_NODE_TYPE_SHADING,
 	                   NULL,
 	                   DEG_OPCODE_MATERIAL_UPDATE);
-
+	add_operation_node(ntree_id,
+	                   DEG_NODE_TYPE_SHADING_PARAMETERS,
+	                   function_bind(BKE_nodetree_shading_params_eval,
+	                                 _1, ntree_cow, ntree),
+	                   DEG_OPCODE_MATERIAL_UPDATE);
 	/* nodetree's nodes... */
 	LINKLIST_FOREACH (bNode *, bnode, &ntree->nodes) {
 		ID *id = bnode->id;
 		if (id != NULL) {
-			short id_type = GS(id->name);
+			ID_Type id_type = GS(id->name);
 			if (id_type == ID_MA) {
 				build_material((Material *)id);
 			}
@@ -1144,30 +1141,27 @@ void DepsgraphNodeBuilder::build_nodetree(bNodeTree *ntree)
 }
 
 /* Recursively build graph for material */
-void DepsgraphNodeBuilder::build_material(Material *ma)
+void DepsgraphNodeBuilder::build_material(Material *material)
 {
-	ID *ma_id = &ma->id;
-	if (ma_id->tag & LIB_TAG_DOIT) {
+	ID *material_id = &material->id;
+	if (material_id->tag & LIB_TAG_DOIT) {
 		return;
 	}
-
-	/* material itself */
-	add_id_node(ma_id);
-
+	material_id->tag |= LIB_TAG_DOIT;
+	/* Material itself. */
+	add_id_node(material_id);
+	Material *material_cow = get_cow_datablock(material);
 	/* Shading update. */
-	add_operation_node(ma_id,
+	add_operation_node(material_id,
 	                   DEG_NODE_TYPE_SHADING,
-	                   function_bind(BKE_material_eval, _1, ma),
+	                   function_bind(BKE_material_eval, _1, material_cow),
 	                   DEG_OPCODE_MATERIAL_UPDATE);
-
-	/* material animation */
-	build_animdata(ma_id);
-
-	/* textures */
-	build_texture_stack(ma->mtex);
-
-	/* material's nodetree */
-	build_nodetree(ma->nodetree);
+	/* Material animation. */
+	build_animdata(material_id);
+	/* Textures. */
+	build_texture_stack(material->mtex);
+	/* Material's nodetree. */
+	build_nodetree(material->nodetree);
 }
 
 /* Texture-stack attached to some shading datablock */

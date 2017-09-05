@@ -39,6 +39,7 @@
 #include "BKE_context.h"
 
 #include "BLI_math.h"
+#include "BLI_dial.h"
 #include "BLI_rect.h"
 
 #include "ED_screen.h"
@@ -61,19 +62,27 @@
 /* own includes */
 #include "../manipulator_library_intern.h"
 
-/* wmManipulator->highlight_part */
-enum {
-	ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_TRANSLATE     = 0,
-	ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_LEFT   = 1,
-	ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_RIGHT  = 2,
-	ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_UP     = 3,
-	ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_DOWN   = 4,
-};
-
-#define MANIPULATOR_RECT_MIN_WIDTH 15.0f
 #define MANIPULATOR_RESIZER_WIDTH  20.0f
 
 /* -------------------------------------------------------------------- */
+
+static void manipulator_rect_pivot_from_scale_part(int part, float r_pt[2], bool r_constrain_axis[2])
+{
+	bool x = true, y = true;
+	switch (part) {
+		case ED_MANIPULATOR_CAGE2D_PART_SCALE_MIN_X: { ARRAY_SET_ITEMS(r_pt,  0.5,  0.0); x = false; break; }
+		case ED_MANIPULATOR_CAGE2D_PART_SCALE_MAX_X: { ARRAY_SET_ITEMS(r_pt, -0.5,  0.0); x = false; break; }
+		case ED_MANIPULATOR_CAGE2D_PART_SCALE_MIN_Y: { ARRAY_SET_ITEMS(r_pt,  0.0,  0.5); y = false; break; }
+		case ED_MANIPULATOR_CAGE2D_PART_SCALE_MAX_Y: { ARRAY_SET_ITEMS(r_pt,  0.0, -0.5); y = false; break; }
+		case ED_MANIPULATOR_CAGE2D_PART_SCALE_MIN_X_MIN_Y: { ARRAY_SET_ITEMS(r_pt,  0.5,  0.5); x = y = false; break; }
+		case ED_MANIPULATOR_CAGE2D_PART_SCALE_MIN_X_MAX_Y: { ARRAY_SET_ITEMS(r_pt,  0.5, -0.5); x = y = false; break; }
+		case ED_MANIPULATOR_CAGE2D_PART_SCALE_MAX_X_MIN_Y: { ARRAY_SET_ITEMS(r_pt, -0.5,  0.5); x = y = false; break; }
+		case ED_MANIPULATOR_CAGE2D_PART_SCALE_MAX_X_MAX_Y: { ARRAY_SET_ITEMS(r_pt, -0.5, -0.5); x = y = false; break; }
+		default: BLI_assert(0);
+	}
+	r_constrain_axis[0] = x;
+	r_constrain_axis[1] = y;
+}
 
 static void rect_transform_draw_corners(
         const rctf *r, const float offsetx, const float offsety, const float color[3])
@@ -112,72 +121,90 @@ static void rect_transform_draw_corners(
 
 static void rect_transform_draw_interaction(
         const float color[4], const int highlighted,
-        const float half_w, const float half_h,
-        const float w, const float h, const float line_width)
+        const float size[2], const float margin[2],
+        const float line_width)
 {
-	/* Why generate coordinates for 4 vertices, when we only use three? */
+	/* 4 verts for translate, otherwise only 3 are used. */
 	float verts[4][2];
+	uint verts_len = 0;
 
 	switch (highlighted) {
-		case ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_LEFT:
-			verts[0][0] = -half_w + w;
-			verts[0][1] = -half_h;
-			verts[1][0] = -half_w;
-			verts[1][1] = -half_h;
-			verts[2][0] = -half_w;
-			verts[2][1] = half_h;
-			verts[3][0] = -half_w + w;
-			verts[3][1] = half_h;
+		case ED_MANIPULATOR_CAGE2D_PART_SCALE_MIN_X:
+			ARRAY_SET_ITEMS(verts[0], -size[0] + margin[0], -size[1]);
+			ARRAY_SET_ITEMS(verts[1], -size[0],             -size[1]);
+			ARRAY_SET_ITEMS(verts[2], -size[0],              size[1]);
+			verts_len = 3;
+			break;
+		case ED_MANIPULATOR_CAGE2D_PART_SCALE_MAX_X:
+			ARRAY_SET_ITEMS(verts[0], size[0] - margin[0], -size[1]);
+			ARRAY_SET_ITEMS(verts[1], size[0],             -size[1]);
+			ARRAY_SET_ITEMS(verts[2], size[0],              size[1]);
+			verts_len = 3;
+			break;
+		case ED_MANIPULATOR_CAGE2D_PART_SCALE_MIN_Y:
+			ARRAY_SET_ITEMS(verts[0], -size[0], -size[1] + margin[1]);
+			ARRAY_SET_ITEMS(verts[1], -size[0], -size[1]);
+			ARRAY_SET_ITEMS(verts[2], size[0],  -size[1]);
+			verts_len = 3;
+			break;
+		case ED_MANIPULATOR_CAGE2D_PART_SCALE_MAX_Y:
+			ARRAY_SET_ITEMS(verts[0], -size[0], size[1] - margin[1]);
+			ARRAY_SET_ITEMS(verts[1], -size[0], size[1]);
+			ARRAY_SET_ITEMS(verts[2], size[0],  size[1]);
+			verts_len = 3;
 			break;
 
-		case ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_RIGHT:
-			verts[0][0] = half_w - w;
-			verts[0][1] = -half_h;
-			verts[1][0] = half_w;
-			verts[1][1] = -half_h;
-			verts[2][0] = half_w;
-			verts[2][1] = half_h;
-			verts[3][0] = half_w - w;
-			verts[3][1] = half_h;
+		case ED_MANIPULATOR_CAGE2D_PART_SCALE_MIN_X_MIN_Y:
+			ARRAY_SET_ITEMS(verts[0], -size[0] + margin[0], -size[1]);
+			ARRAY_SET_ITEMS(verts[1], -size[0] + margin[0], -size[1] + margin[1]);
+			ARRAY_SET_ITEMS(verts[2], -size[0],             -size[1] + margin[1]);
+			verts_len = 3;
+			break;
+		case ED_MANIPULATOR_CAGE2D_PART_SCALE_MIN_X_MAX_Y:
+			ARRAY_SET_ITEMS(verts[0], -size[0] + margin[0], size[1]);
+			ARRAY_SET_ITEMS(verts[1], -size[0] + margin[0], size[1] - margin[1]);
+			ARRAY_SET_ITEMS(verts[2], -size[0],             size[1] - margin[1]);
+			verts_len = 3;
+			break;
+		case ED_MANIPULATOR_CAGE2D_PART_SCALE_MAX_X_MIN_Y:
+			ARRAY_SET_ITEMS(verts[0], size[0] - margin[0], -size[1]);
+			ARRAY_SET_ITEMS(verts[1], size[0] - margin[0], -size[1] + margin[1]);
+			ARRAY_SET_ITEMS(verts[2], size[0],             -size[1] + margin[1]);
+			verts_len = 3;
+			break;
+		case ED_MANIPULATOR_CAGE2D_PART_SCALE_MAX_X_MAX_Y:
+			ARRAY_SET_ITEMS(verts[0], size[0] - margin[0], size[1]);
+			ARRAY_SET_ITEMS(verts[1], size[0] - margin[0], size[1] - margin[1]);
+			ARRAY_SET_ITEMS(verts[2], size[0],             size[1] - margin[1]);
+			verts_len = 3;
 			break;
 
-		case ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_DOWN:
-			verts[0][0] = -half_w;
-			verts[0][1] = -half_h + h;
-			verts[1][0] = -half_w;
-			verts[1][1] = -half_h;
-			verts[2][0] = half_w;
-			verts[2][1] = -half_h;
-			verts[3][0] = half_w;
-			verts[3][1] = -half_h + h;
-			break;
+		case ED_MANIPULATOR_CAGE2D_PART_ROTATE:
+		{
+			const float rotate_pt[2] = {0.0f, size[1] + margin[1]};
+			const rctf r_rotate = {
+				.xmin = rotate_pt[0] - margin[0] / 2.0f,
+				.xmax = rotate_pt[0] + margin[0] / 2.0f,
+				.ymin = rotate_pt[1] - margin[1] / 2.0f,
+				.ymax = rotate_pt[1] + margin[1] / 2.0f,
+			};
 
-		case ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_UP:
-			verts[0][0] = -half_w;
-			verts[0][1] = half_h - h;
-			verts[1][0] = -half_w;
-			verts[1][1] = half_h;
-			verts[2][0] = half_w;
-			verts[2][1] = half_h;
-			verts[3][0] = half_w;
-			verts[3][1] = half_h - h;
+			ARRAY_SET_ITEMS(verts[0], r_rotate.xmin, r_rotate.ymin);
+			ARRAY_SET_ITEMS(verts[1], r_rotate.xmin, r_rotate.ymax);
+			ARRAY_SET_ITEMS(verts[2], r_rotate.xmax, r_rotate.ymax);
+			ARRAY_SET_ITEMS(verts[3], r_rotate.xmax, r_rotate.ymin);
+			verts_len = 4;
 			break;
+		}
 
 		/* Only used for 3D view selection, never displayed to the user. */
-		case ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_TRANSLATE:
-			verts[0][0] = -half_w;
-			verts[0][1] = -half_h;
-
-			verts[1][0] = -half_w;
-			verts[1][1] =  half_h;
-
-			verts[2][0] =  half_w;
-			verts[2][1] =  half_h;
-
-			verts[3][0] =  half_w;
-			verts[3][1] = -half_h;
+		case ED_MANIPULATOR_CAGE2D_PART_TRANSLATE:
+			ARRAY_SET_ITEMS(verts[0], -size[0], -size[1]);
+			ARRAY_SET_ITEMS(verts[1], -size[0],  size[1]);
+			ARRAY_SET_ITEMS(verts[2], size[0],   size[1]);
+			ARRAY_SET_ITEMS(verts[3], size[0],  -size[1]);
+			verts_len = 4;
 			break;
-
 		default:
 			return;
 	}
@@ -191,32 +218,31 @@ static void rect_transform_draw_interaction(
 	};
 	immBindBuiltinProgram(GPU_SHADER_2D_FLAT_COLOR);
 
-	if (highlighted == ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_TRANSLATE) {
+	if (highlighted == ED_MANIPULATOR_CAGE2D_PART_TRANSLATE) {
 		immBegin(GWN_PRIM_TRI_FAN, 4);
 		immAttrib3f(attr_id.col, 0.0f, 0.0f, 0.0f);
-		immVertex2fv(attr_id.pos, verts[0]);
-		immVertex2fv(attr_id.pos, verts[1]);
-		immVertex2fv(attr_id.pos, verts[2]);
-		immVertex2fv(attr_id.pos, verts[3]);
+		for (uint i = 0; i < verts_len; i++) {
+			immVertex2fv(attr_id.pos, verts[i]);
+		}
 		immEnd();
 	}
 	else {
 		glLineWidth(line_width + 3.0f);
 
-		immBegin(GWN_PRIM_LINE_STRIP, 3);
+		immBegin(GWN_PRIM_LINE_STRIP, verts_len);
 		immAttrib3f(attr_id.col, 0.0f, 0.0f, 0.0f);
-		immVertex2fv(attr_id.pos, verts[0]);
-		immVertex2fv(attr_id.pos, verts[1]);
-		immVertex2fv(attr_id.pos, verts[2]);
+		for (uint i = 0; i < verts_len; i++) {
+			immVertex2fv(attr_id.pos, verts[i]);
+		}
 		immEnd();
 
 		glLineWidth(line_width);
 
-		immBegin(GWN_PRIM_LINE_STRIP, 3);
+		immBegin(GWN_PRIM_LINE_STRIP, verts_len);
 		immAttrib3fv(attr_id.col, color);
-		immVertex2fv(attr_id.pos, verts[0]);
-		immVertex2fv(attr_id.pos, verts[1]);
-		immVertex2fv(attr_id.pos, verts[2]);
+		for (uint i = 0; i < verts_len; i++) {
+			immVertex2fv(attr_id.pos, verts[i]);
+		}
 		immEnd();
 	}
 
@@ -227,28 +253,28 @@ static void rect_transform_draw_interaction(
 static void manipulator_rect_transform_draw_intern(
         wmManipulator *mpr, const bool select, const bool highlight, const int select_id)
 {
-	const bool use_clamp = (mpr->parent_mgroup->type->flag & WM_MANIPULATORGROUPTYPE_3D) == 0;
+	// const bool use_clamp = (mpr->parent_mgroup->type->flag & WM_MANIPULATORGROUPTYPE_3D) == 0;
 	float dims[2];
 	RNA_float_get_array(mpr->ptr, "dimensions", dims);
-	float w = dims[0];
-	float h = dims[1];
+	const float w = dims[0];
+	const float h = dims[1];
+	float matrix_final[4][4];
 
 	const int transform_flag = RNA_enum_get(mpr->ptr, "transform");
 
 	float aspx = 1.0f, aspy = 1.0f;
-	const float half_w = w / 2.0f;
-	const float half_h = h / 2.0f;
+	const float size[2] = {w / 2.0f, h / 2.0f};
 	const rctf r = {
-		.xmin = -half_w,
-		.ymin = -half_h,
-		.xmax = half_w,
-		.ymax = half_h,
+		.xmin = -size[0],
+		.ymin = -size[1],
+		.xmax = size[0],
+		.ymax = size[1],
 	};
 
+	WM_manipulator_calc_matrix_final(mpr, matrix_final);
+
 	gpuPushMatrix();
-	gpuMultMatrix(mpr->matrix_space);
-	gpuMultMatrix(mpr->matrix_basis);
-	gpuMultMatrix(mpr->matrix_offset);
+	gpuMultMatrix(matrix_final);
 
 	if (w > h) {
 		aspx = h / w;
@@ -257,57 +283,71 @@ static void manipulator_rect_transform_draw_intern(
 		aspy = w / h;
 	}
 
-	if (use_clamp) {
-		w = min_ff(aspx * w / MANIPULATOR_RESIZER_WIDTH, MANIPULATOR_RESIZER_WIDTH);
-		h = min_ff(aspy * h / MANIPULATOR_RESIZER_WIDTH, MANIPULATOR_RESIZER_WIDTH);
-	}
-	else {
-		/* Corner size. */
-		w = h = min_ff(w * aspx, h * aspy) / 10.0f;
-	}
+	const float margin[2] = {
+		aspx * w / MANIPULATOR_RESIZER_WIDTH,
+		aspy * h / MANIPULATOR_RESIZER_WIDTH,
+	};
 
 	/* corner manipulators */
 	glLineWidth(mpr->line_width + 3.0f);
+	rect_transform_draw_corners(&r, margin[0], margin[1], (const float[3]){0, 0, 0});
 
-	rect_transform_draw_corners(&r, w, h, (const float[3]){0, 0, 0});
+	/* Handy for quick testing draw (if it's outside bounds). */
+	if (false) {
+		glEnable(GL_BLEND);
+		uint pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
+		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+		immUniformColor4fv((const float[4]){1, 1, 1, 0.5f});
+		float s = 0.5f;
+		immRectf(pos, -s, -s, s, s);
+		immUnbindProgram();
+		glDisable(GL_BLEND);
+	}
 
 	/* corner manipulators */
 	{
 		float color[4];
 		manipulator_color_get(mpr, highlight, color);
 		glLineWidth(mpr->line_width);
-		rect_transform_draw_corners(&r, w, h, color);
+		rect_transform_draw_corners(&r, margin[0], margin[1], color);
 	}
 
 	if (select) {
-		if (transform_flag & ED_MANIPULATOR_RECT_TRANSFORM_FLAG_SCALE) {
+		if (transform_flag & ED_MANIPULATOR_CAGE2D_XFORM_FLAG_SCALE) {
 			int scale_parts[] = {
-				ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_LEFT,
-				ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_RIGHT,
-				ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_UP,
-				ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_DOWN,
+				ED_MANIPULATOR_CAGE2D_PART_SCALE_MIN_X,
+				ED_MANIPULATOR_CAGE2D_PART_SCALE_MAX_X,
+				ED_MANIPULATOR_CAGE2D_PART_SCALE_MIN_Y,
+				ED_MANIPULATOR_CAGE2D_PART_SCALE_MAX_Y,
+
+				ED_MANIPULATOR_CAGE2D_PART_SCALE_MIN_X_MIN_Y,
+				ED_MANIPULATOR_CAGE2D_PART_SCALE_MIN_X_MAX_Y,
+				ED_MANIPULATOR_CAGE2D_PART_SCALE_MAX_X_MIN_Y,
+				ED_MANIPULATOR_CAGE2D_PART_SCALE_MAX_X_MAX_Y,
 			};
 			for (int i = 0; i < ARRAY_SIZE(scale_parts); i++) {
 				GPU_select_load_id(select_id | scale_parts[i]);
-				rect_transform_draw_interaction(
-				        mpr->color, scale_parts[i], half_w, half_h,
-				        w, h, mpr->line_width);
+				rect_transform_draw_interaction(mpr->color, scale_parts[i], size, margin, mpr->line_width);
 			}
 		}
-		if (transform_flag & ED_MANIPULATOR_RECT_TRANSFORM_FLAG_TRANSLATE) {
-			const int transform_part = ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_TRANSLATE;
+		if (transform_flag & ED_MANIPULATOR_CAGE2D_XFORM_FLAG_TRANSLATE) {
+			const int transform_part = ED_MANIPULATOR_CAGE2D_PART_TRANSLATE;
 			GPU_select_load_id(select_id | transform_part);
+			rect_transform_draw_interaction(mpr->color, transform_part, size, margin, mpr->line_width);
+		}
+		if (transform_flag & ED_MANIPULATOR_CAGE2D_XFORM_FLAG_ROTATE) {
 			rect_transform_draw_interaction(
-			        mpr->color, transform_part, half_w, half_h,
-			        w, h, mpr->line_width);
+			        mpr->color, ED_MANIPULATOR_CAGE2D_PART_ROTATE, size, margin, mpr->line_width);
 		}
 	}
 	else {
 		/* Don't draw translate (only for selection). */
-		if (mpr->highlight_part != ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_TRANSLATE) {
+		if (mpr->highlight_part != ED_MANIPULATOR_CAGE2D_PART_TRANSLATE) {
+			rect_transform_draw_interaction(mpr->color, mpr->highlight_part, size, margin, mpr->line_width);
+		}
+		if (transform_flag & ED_MANIPULATOR_CAGE2D_XFORM_FLAG_ROTATE) {
 			rect_transform_draw_interaction(
-			        mpr->color, mpr->highlight_part, half_w, half_h,
-			        w, h, mpr->line_width);
+			        mpr->color, ED_MANIPULATOR_CAGE2D_PART_ROTATE, size, margin, mpr->line_width);
 		}
 	}
 
@@ -338,14 +378,24 @@ static int manipulator_rect_transform_get_cursor(wmManipulator *mpr)
 	}
 
 	switch (highlight_part) {
-		case ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_TRANSLATE:
+		case ED_MANIPULATOR_CAGE2D_PART_TRANSLATE:
 			return BC_HANDCURSOR;
-		case ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_LEFT:
-		case ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_RIGHT:
+		case ED_MANIPULATOR_CAGE2D_PART_SCALE_MIN_X:
+		case ED_MANIPULATOR_CAGE2D_PART_SCALE_MAX_X:
 			return CURSOR_X_MOVE;
-		case ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_DOWN:
-		case ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_UP:
+		case ED_MANIPULATOR_CAGE2D_PART_SCALE_MIN_Y:
+		case ED_MANIPULATOR_CAGE2D_PART_SCALE_MAX_Y:
 			return CURSOR_Y_MOVE;
+
+			/* TODO diagonal cursor */
+		case ED_MANIPULATOR_CAGE2D_PART_SCALE_MIN_X_MIN_Y:
+		case ED_MANIPULATOR_CAGE2D_PART_SCALE_MAX_X_MIN_Y:
+			return BC_NSEW_SCROLLCURSOR;
+		case ED_MANIPULATOR_CAGE2D_PART_SCALE_MIN_X_MAX_Y:
+		case ED_MANIPULATOR_CAGE2D_PART_SCALE_MAX_X_MAX_Y:
+			return BC_NSEW_SCROLLCURSOR;
+		case ED_MANIPULATOR_CAGE2D_PART_ROTATE:
+			return BC_CROSSCURSOR;
 		default:
 			return CURSOR_STD;
 	}
@@ -354,14 +404,12 @@ static int manipulator_rect_transform_get_cursor(wmManipulator *mpr)
 static int manipulator_rect_transform_test_select(
         bContext *C, wmManipulator *mpr, const wmEvent *event)
 {
-	//float matrot[2][2];
 	float point_local[2];
 	float dims[2];
 	RNA_float_get_array(mpr->ptr, "dimensions", dims);
-	float w = dims[0];
-	float h = dims[1];
-	float half_w = w / 2.0f;
-	float half_h = h / 2.0f;
+	const float w = dims[0];
+	const float h = dims[1];
+	const float size[2] = {w / 2.0f, h / 2.0f};
 	float aspx = 1.0f, aspy = 1.0f;
 
 	if (manipulator_window_project_2d(
@@ -377,65 +425,75 @@ static int manipulator_rect_transform_test_select(
 	else {
 		aspy = w / h;
 	}
-	w = min_ff(aspx * w / MANIPULATOR_RESIZER_WIDTH, MANIPULATOR_RESIZER_WIDTH);
-	h = min_ff(aspy * h / MANIPULATOR_RESIZER_WIDTH, MANIPULATOR_RESIZER_WIDTH);
 
+	const float margin[2] = {
+		aspx * w / MANIPULATOR_RESIZER_WIDTH,
+		aspy * h / MANIPULATOR_RESIZER_WIDTH,
+	};
 
-	rctf r;
-
-	r.xmin = -half_w + w;
-	r.ymin = -half_h + h;
-	r.xmax = half_w - w;
-	r.ymax = half_h - h;
-
-	bool isect = BLI_rctf_isect_pt_v(&r, point_local);
-
-	if (isect)
-		return ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_TRANSLATE;
+	if (transform_flag & ED_MANIPULATOR_CAGE2D_XFORM_FLAG_TRANSLATE) {
+		const rctf r = {
+			.xmin = -size[0] + margin[0],
+			.ymin = -size[1] + margin[1],
+			.xmax =  size[0] - margin[0],
+			.ymax =  size[1] - margin[1],
+		};
+		bool isect = BLI_rctf_isect_pt_v(&r, point_local);
+		if (isect) {
+			return ED_MANIPULATOR_CAGE2D_PART_TRANSLATE;
+		}
+	}
 
 	/* if manipulator does not have a scale intersection, don't do it */
-	if (transform_flag &
-	    (ED_MANIPULATOR_RECT_TRANSFORM_FLAG_SCALE | ED_MANIPULATOR_RECT_TRANSFORM_FLAG_SCALE_UNIFORM))
-	{
-		r.xmin = -half_w;
-		r.ymin = -half_h;
-		r.xmax = -half_w + w;
-		r.ymax = half_h;
+	if (transform_flag & (ED_MANIPULATOR_CAGE2D_XFORM_FLAG_SCALE | ED_MANIPULATOR_CAGE2D_XFORM_FLAG_SCALE_UNIFORM)) {
+		const rctf r_xmin = {.xmin = -size[0], .ymin = -size[1], .xmax = -size[0] + margin[0], .ymax = size[1]};
+		const rctf r_xmax = {.xmin = size[0] - margin[0], .ymin = -size[1], .xmax = size[0], .ymax = size[1]};
+		const rctf r_ymin = {.xmin = -size[0], .ymin = -size[1], .xmax = size[0], .ymax = -size[1] + margin[1]};
+		const rctf r_ymax = {.xmin = -size[0], .ymin = size[1] - margin[1], .xmax = size[0], .ymax = size[1]};
 
-		isect = BLI_rctf_isect_pt_v(&r, point_local);
+		if (BLI_rctf_isect_pt_v(&r_xmin, point_local)) {
+			if (BLI_rctf_isect_pt_v(&r_ymin, point_local)) {
+				return ED_MANIPULATOR_CAGE2D_PART_SCALE_MIN_X_MIN_Y;
+			}
+			if (BLI_rctf_isect_pt_v(&r_ymax, point_local)) {
+				return ED_MANIPULATOR_CAGE2D_PART_SCALE_MIN_X_MAX_Y;
+			}
+			return ED_MANIPULATOR_CAGE2D_PART_SCALE_MIN_X;
+		}
+		if (BLI_rctf_isect_pt_v(&r_xmax, point_local)) {
+			if (BLI_rctf_isect_pt_v(&r_ymin, point_local)) {
+				return ED_MANIPULATOR_CAGE2D_PART_SCALE_MAX_X_MIN_Y;
+			}
+			if (BLI_rctf_isect_pt_v(&r_ymax, point_local)) {
+				return ED_MANIPULATOR_CAGE2D_PART_SCALE_MAX_X_MAX_Y;
+			}
+			return ED_MANIPULATOR_CAGE2D_PART_SCALE_MAX_X;
+		}
+		if (BLI_rctf_isect_pt_v(&r_ymin, point_local)) {
+			return ED_MANIPULATOR_CAGE2D_PART_SCALE_MIN_Y;
+		}
+		if (BLI_rctf_isect_pt_v(&r_ymax, point_local)) {
+			return ED_MANIPULATOR_CAGE2D_PART_SCALE_MAX_Y;
+		}
+	}
 
-		if (isect)
-			return ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_LEFT;
+	if (transform_flag & ED_MANIPULATOR_CAGE2D_XFORM_FLAG_ROTATE) {
+		/* Rotate:
+		 *  (*) <-- hot spot is here!
+		 * +---+
+		 * |   |
+		 * +---+ */
+		const float r_rotate_pt[2] = {0.0f, size[1] + margin[1]};
+		const rctf r_rotate = {
+			.xmin = r_rotate_pt[0] - margin[0] / 2.0f,
+			.xmax = r_rotate_pt[0] + margin[0] / 2.0f,
+			.ymin = r_rotate_pt[1] - margin[1] / 2.0f,
+			.ymax = r_rotate_pt[1] + margin[1] / 2.0f,
+		};
 
-		r.xmin = half_w - w;
-		r.ymin = -half_h;
-		r.xmax = half_w;
-		r.ymax = half_h;
-
-		isect = BLI_rctf_isect_pt_v(&r, point_local);
-
-		if (isect)
-			return ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_RIGHT;
-
-		r.xmin = -half_w;
-		r.ymin = -half_h;
-		r.xmax = half_w;
-		r.ymax = -half_h + h;
-
-		isect = BLI_rctf_isect_pt_v(&r, point_local);
-
-		if (isect)
-			return ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_DOWN;
-
-		r.xmin = -half_w;
-		r.ymin = half_h - h;
-		r.xmax = half_w;
-		r.ymax = half_h;
-
-		isect = BLI_rctf_isect_pt_v(&r, point_local);
-
-		if (isect)
-			return ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_UP;
+		if (BLI_rctf_isect_pt_v(&r_rotate, point_local)) {
+			return ED_MANIPULATOR_CAGE2D_PART_ROTATE;
+		}
 	}
 
 	return -1;
@@ -444,39 +502,13 @@ static int manipulator_rect_transform_test_select(
 typedef struct RectTransformInteraction {
 	float orig_mouse[2];
 	float orig_matrix_offset[4][4];
+	float orig_matrix_final_no_offset[4][4];
+	Dial *dial;
 } RectTransformInteraction;
-
-static bool manipulator_rect_transform_get_prop_value(
-        wmManipulator *mpr, wmManipulatorProperty *mpr_prop, float *value)
-{
-	if (STREQ(mpr_prop->type->idname, "offset")) {
-		WM_manipulator_target_property_value_get_array(mpr, mpr_prop, value);
-	}
-	else if (STREQ(mpr_prop->type->idname, "scale")) {
-		const int transform_flag = RNA_enum_get(mpr->ptr, "transform");
-		if (transform_flag & ED_MANIPULATOR_RECT_TRANSFORM_FLAG_SCALE_UNIFORM) {
-			if (WM_manipulator_target_property_array_length(mpr, mpr_prop) == 2) {
-				WM_manipulator_target_property_value_get_array(mpr, mpr_prop, value);
-			}
-			else {
-				*value = WM_manipulator_target_property_value_get(mpr, mpr_prop);
-				value[1] = value[0];
-			}
-		}
-		else {
-			WM_manipulator_target_property_value_get_array(mpr, mpr_prop, value);
-		}
-	}
-	else {
-		BLI_assert(0);
-	}
-
-	return true;
-}
 
 static void manipulator_rect_transform_setup(wmManipulator *mpr)
 {
-	mpr->flag |= WM_MANIPULATOR_DRAW_MODAL;
+	mpr->flag |= WM_MANIPULATOR_DRAW_MODAL | WM_MANIPULATOR_DRAW_NO_SCALE;
 }
 
 static int manipulator_rect_transform_invoke(
@@ -485,6 +517,14 @@ static int manipulator_rect_transform_invoke(
 	RectTransformInteraction *data = MEM_callocN(sizeof(RectTransformInteraction), "cage_interaction");
 
 	copy_m4_m4(data->orig_matrix_offset, mpr->matrix_offset);
+
+	{
+		float mat_identity[4][4];
+		struct WM_ManipulatorMatrixParams params = {NULL};
+		unit_m4(mat_identity);
+		params.matrix_offset = mat_identity;
+		WM_manipulator_calc_matrix_final_params(mpr, &params, data->orig_matrix_final_no_offset);
+	}
 
 	if (manipulator_window_project_2d(
 	        C, mpr, (const float[2]){UNPACK2(event->mval)}, 2, false, data->orig_mouse) == 0)
@@ -501,157 +541,163 @@ static int manipulator_rect_transform_modal(
         bContext *C, wmManipulator *mpr, const wmEvent *event,
         eWM_ManipulatorTweak UNUSED(tweak_flag))
 {
-	const int transform_flag = RNA_enum_get(mpr->ptr, "transform");
-	const bool pivot_center = (transform_flag & ED_MANIPULATOR_RECT_TRANSFORM_FLAG_TRANSLATE) == 0;
+	/* For transform logic to be managable we operate in -0.5..0.5 2D space,
+	 * no matter the size of the rectangle, mouse coorts are scaled to unit space.
+	 * The mouse coords have been projected into the matrix so we don't need to worry about axis alignment.
+	 *
+	 * - The cursor offset are multiplied by 'dims'.
+	 * - Matrix translation is also multiplied by 'dims'.
+	 */
 	RectTransformInteraction *data = mpr->interaction_data;
-#if 0
-	/* needed here as well in case clamping occurs */
-	const bool use_clamp = (mpr->parent_mgroup->type->flag & WM_MANIPULATORGROUPTYPE_3D) == 0;
-	const float orig_ofx = mpr->matrix_offset[3][0];
-	const float orig_ofy = mpr->matrix_offset[3][1];
-#endif
-
 	float point_local[2];
-
-	if (manipulator_window_project_2d(
-	        C, mpr, (const float[2]){UNPACK2(event->mval)}, 2, false, point_local) == false)
-	{
-		return OPERATOR_RUNNING_MODAL;
-	}
-
-	float value_x = (point_local[0] - data->orig_mouse[0]);
-	float value_y = (point_local[1] - data->orig_mouse[1]);
 
 	float dims[2];
 	RNA_float_get_array(mpr->ptr, "dimensions", dims);
 
-	const float  orig_scale[2] = {data->orig_matrix_offset[0][0], data->orig_matrix_offset[1][1]};
-	const float *orig_offset = data->orig_matrix_offset[3];
-
-	float  scale[2] = {mpr->matrix_offset[0][0], mpr->matrix_offset[1][1]};
-	float *offset = mpr->matrix_offset[3];
-
-	if (mpr->highlight_part == ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_TRANSLATE) {
-		offset[0] = orig_offset[0] + value_x;
-		offset[1] = orig_offset[1] + value_y;
-	}
-	else if (mpr->highlight_part == ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_LEFT) {
-		value_x = min_ff(value_x, (dims[0] * orig_scale[0]) * (pivot_center ? 2 : 1));
-		if (pivot_center == false) {
-			offset[0] = orig_offset[0] + value_x / 2.0f;
-		}
-		scale[0] = (dims[0] * orig_scale[0] - value_x) / dims[0];
-	}
-	else if (mpr->highlight_part == ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_RIGHT) {
-		value_x = max_ff(value_x, (dims[0] * orig_scale[0]) * (pivot_center ? -2 : -1));
-		if (pivot_center == false) {
-			offset[0] = orig_offset[0] + value_x / 2.0f;
-		}
-		scale[0] = (dims[0] * orig_scale[0] + value_x) / dims[0];
-	}
-	else if (mpr->highlight_part == ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_DOWN) {
-		int a = (transform_flag & ED_MANIPULATOR_RECT_TRANSFORM_FLAG_SCALE_UNIFORM) ? 0 : 1;
-		value_y = min_ff(value_y, (dims[1] * orig_scale[a]) * (pivot_center ? 2 : 1));
-		if (pivot_center == false) {
-			offset[1] = orig_offset[1] + value_y / 2.0f;
-		}
-		scale[a] = (dims[1] * orig_scale[a] - value_y) / dims[1];
-	}
-	else if (mpr->highlight_part == ED_MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_UP) {
-		int a = (transform_flag & ED_MANIPULATOR_RECT_TRANSFORM_FLAG_SCALE_UNIFORM) ? 0 : 1;
-		value_y = max_ff(value_y, (dims[1] * orig_scale[a]) * (pivot_center ? -2 : -1));
-		if (pivot_center == false) {
-			offset[1] = orig_offset[1] + value_y / 2.0f;
-		}
-		scale[a] = (dims[1] * orig_scale[a] + value_y) / dims[1];
-	}
-	else {
-		BLI_assert(0);
-	}
-
-	/* TODO(campbell): Complicates things too much since not all scales are in the same space. */
-#if 0
-	/* clamping - make sure manipulator is at least 5 pixels wide */
-	if (use_clamp == false) {
-		/* pass */
-	}
-	else if (transform_flag & ED_MANIPULATOR_RECT_TRANSFORM_FLAG_SCALE_UNIFORM) {
-		if (scale[0] < MANIPULATOR_RECT_MIN_WIDTH / max_ff(dims[0], dims[1])) {
-			scale[0] = max_ff(MANIPULATOR_RECT_MIN_WIDTH / dims[1], MANIPULATOR_RECT_MIN_WIDTH / dims[0]);
-			offset[0] = orig_ofx;
-			offset[1] = orig_ofy;
-		}
-	}
-	else {
-		if (scale[0] < MANIPULATOR_RECT_MIN_WIDTH / dims[0]) {
-			scale[0] = MANIPULATOR_RECT_MIN_WIDTH / dims[0];
-			offset[0] = orig_ofx;
-		}
-		if (scale[1] < MANIPULATOR_RECT_MIN_WIDTH / dims[1]) {
-			scale[1] = MANIPULATOR_RECT_MIN_WIDTH / dims[1];
-			offset[1] = orig_ofy;
-		}
-	}
-#endif
-
 	{
-		wmManipulatorProperty *mpr_prop = WM_manipulator_target_property_find(mpr, "scale");
-		if (mpr_prop->type != NULL) {
-			float range[2];
-			if (WM_manipulator_target_property_range_get(mpr, mpr_prop, range)) {
-				CLAMP(scale[0], range[0], range[1]);
-				CLAMP(scale[1], range[0], range[1]);
-			}
+		float matrix_back[4][4];
+		copy_m4_m4(matrix_back, mpr->matrix_offset);
+		copy_m4_m4(mpr->matrix_offset, data->orig_matrix_offset);
+
+		bool ok = manipulator_window_project_2d(
+		        C, mpr, (const float[2]){UNPACK2(event->mval)}, 2, false, point_local);
+		copy_m4_m4(mpr->matrix_offset, matrix_back);
+		if (!ok) {
+			return OPERATOR_RUNNING_MODAL;
 		}
 	}
 
-	/* Needed for when we're uniform transforming a 2D vector and need to write both. */
-	if (transform_flag & ED_MANIPULATOR_RECT_TRANSFORM_FLAG_SCALE_UNIFORM) {
-		scale[1] = scale[0];
-	}
-
-	mpr->matrix_offset[0][0] = scale[0];
-	mpr->matrix_offset[1][1] = scale[1];
-
+	const int transform_flag = RNA_enum_get(mpr->ptr, "transform");
 	wmManipulatorProperty *mpr_prop;
 
-	mpr_prop = WM_manipulator_target_property_find(mpr, "scale");
+	mpr_prop = WM_manipulator_target_property_find(mpr, "matrix");
 	if (mpr_prop->type != NULL) {
-		if (transform_flag & ED_MANIPULATOR_RECT_TRANSFORM_FLAG_SCALE_UNIFORM) {
-			scale[1] = scale[0];
-			if (WM_manipulator_target_property_array_length(mpr, mpr_prop) == 2) {
-				WM_manipulator_target_property_value_set_array(C, mpr, mpr_prop, scale);
-			}
-			else {
-				WM_manipulator_target_property_value_set(C, mpr, mpr_prop, scale[0]);
-			}
-		}
-		else {
-			WM_manipulator_target_property_value_set_array(C, mpr, mpr_prop, scale);
-		}
+		WM_manipulator_target_property_value_get_array(mpr, mpr_prop, &mpr->matrix_offset[0][0]);
 	}
 
-	mpr_prop = WM_manipulator_target_property_find(mpr, "offset");
+	if (mpr->highlight_part == ED_MANIPULATOR_CAGE2D_PART_TRANSLATE) {
+		/* do this to prevent clamping from changing size */
+		copy_m4_m4(mpr->matrix_offset, data->orig_matrix_offset);
+		mpr->matrix_offset[3][0] = data->orig_matrix_offset[3][0] + (point_local[0] - data->orig_mouse[0]);
+		mpr->matrix_offset[3][1] = data->orig_matrix_offset[3][1] + (point_local[1] - data->orig_mouse[1]);
+	}
+	else if (mpr->highlight_part == ED_MANIPULATOR_CAGE2D_PART_ROTATE) {
+
+#define MUL_V2_V3_M4_FINAL(test_co, mouse_co) \
+		mul_v3_m4v3(test_co, data->orig_matrix_final_no_offset, ((const float[3]){UNPACK2(mouse_co), 0.0}))
+
+		float test_co[3];
+
+		if (data->dial == NULL) {
+			MUL_V2_V3_M4_FINAL(test_co, data->orig_matrix_offset[3]);
+
+			data->dial = BLI_dial_initialize(test_co, FLT_EPSILON);
+
+			MUL_V2_V3_M4_FINAL(test_co, data->orig_mouse);
+			BLI_dial_angle(data->dial, test_co);
+		}
+
+		/* rotate */
+		MUL_V2_V3_M4_FINAL(test_co, point_local);
+		const float angle =  BLI_dial_angle(data->dial, test_co);
+
+		float matrix_space_inv[4][4];
+		float matrix_rotate[4][4];
+		float pivot[3];
+
+		copy_v3_v3(pivot, data->orig_matrix_offset[3]);
+
+		invert_m4_m4(matrix_space_inv, mpr->matrix_space);
+
+		unit_m4(matrix_rotate);
+		mul_m4_m4m4(matrix_rotate, matrix_rotate, matrix_space_inv);
+		rotate_m4(matrix_rotate, 'Z', -angle);
+		mul_m4_m4m4(matrix_rotate, matrix_rotate, mpr->matrix_space);
+
+		zero_v3(matrix_rotate[3]);
+		transform_pivot_set_m4(matrix_rotate, pivot);
+
+		mul_m4_m4m4(mpr->matrix_offset, matrix_rotate, data->orig_matrix_offset);
+
+#undef MUL_V2_V3_M4_FINAL
+	}
+	else {
+		/* scale */
+		copy_m4_m4(mpr->matrix_offset, data->orig_matrix_offset);
+		float pivot[2];
+		bool constrain_axis[2] = {false};
+
+		if (transform_flag & ED_MANIPULATOR_CAGE2D_XFORM_FLAG_TRANSLATE) {
+			manipulator_rect_pivot_from_scale_part(mpr->highlight_part, pivot, constrain_axis);
+		}
+		else {
+			zero_v2(pivot);
+		}
+
+		/* Cursor deltas scaled to (-0.5..0.5). */
+		float delta_orig[2], delta_curr[2];
+		for (int i = 0; i < 2; i++) {
+			delta_orig[i] = (data->orig_mouse[i] / dims[i]) - pivot[i];
+			delta_curr[i] = (point_local[i] / dims[i]) - pivot[i];
+		}
+
+		float scale[2] = {1.0f, 1.0f};
+		for (int i = 0; i < 2; i++) {
+			if (constrain_axis[i] == false) {
+				if (delta_orig[i] < 0.0f) {
+					delta_orig[i] *= -1.0f;
+					delta_curr[i] *= -1.0f;
+				}
+				scale[i] = 1.0f + ((delta_curr[i] - delta_orig[i]) / len_v3(data->orig_matrix_offset[i]));
+			}
+		}
+
+		if (transform_flag & ED_MANIPULATOR_CAGE2D_XFORM_FLAG_SCALE_UNIFORM) {
+			if (constrain_axis[0] == false && constrain_axis[1] == false) {
+				scale[1] = scale[0] = (scale[1] + scale[0]) / 2.0f;
+			}
+			else if (constrain_axis[0] == false) {
+				scale[1] = scale[0];
+			}
+			else if (constrain_axis[1] == false) {
+				scale[0] = scale[1];
+			}
+			else {
+				BLI_assert(0);
+			}
+		}
+
+		/* scale around pivot */
+		float matrix_scale[4][4];
+		unit_m4(matrix_scale);
+
+		mul_v3_fl(matrix_scale[0], scale[0]);
+		mul_v3_fl(matrix_scale[1], scale[1]);
+
+		transform_pivot_set_m4(matrix_scale, (const float [3]){pivot[0] * dims[0], pivot[1] * dims[1], 0.0f});
+		mul_m4_m4m4(mpr->matrix_offset, data->orig_matrix_offset, matrix_scale);
+	}
+
 	if (mpr_prop->type != NULL) {
-		WM_manipulator_target_property_value_set_array(C, mpr, mpr_prop, offset);
+		WM_manipulator_target_property_value_set_array(C, mpr, mpr_prop, &mpr->matrix_offset[0][0]);
 	}
 
 	/* tag the region for redraw */
 	ED_region_tag_redraw(CTX_wm_region(C));
+	WM_event_add_mousemove(C);
 
 	return OPERATOR_RUNNING_MODAL;
 }
 
 static void manipulator_rect_transform_property_update(wmManipulator *mpr, wmManipulatorProperty *mpr_prop)
 {
-	if (STREQ(mpr_prop->type->idname, "scale")) {
-		float scale[2];
-		manipulator_rect_transform_get_prop_value(mpr, mpr_prop, scale);
-		mpr->matrix_offset[0][0] = scale[0];
-		mpr->matrix_offset[1][1] = scale[1];
-	}
-	else if (STREQ(mpr_prop->type->idname, "offset")) {
-		manipulator_rect_transform_get_prop_value(mpr, mpr_prop, mpr->matrix_offset[3]);
+	if (STREQ(mpr_prop->type->idname, "matrix")) {
+		if (WM_manipulator_target_property_array_length(mpr, mpr_prop) == 16) {
+			WM_manipulator_target_property_value_get_array(mpr, mpr_prop, &mpr->matrix_offset[0][0]);
+		}
+		else {
+			BLI_assert(0);
+		}
 	}
 	else {
 		BLI_assert(0);
@@ -662,32 +708,17 @@ static void manipulator_rect_transform_exit(bContext *C, wmManipulator *mpr, con
 {
 	RectTransformInteraction *data = mpr->interaction_data;
 
+	MEM_SAFE_FREE(data->dial);
+
 	if (!cancel)
 		return;
 
 	wmManipulatorProperty *mpr_prop;
 
 	/* reset properties */
-	mpr_prop = WM_manipulator_target_property_find(mpr, "scale");
+	mpr_prop = WM_manipulator_target_property_find(mpr, "matrix");
 	if (mpr_prop->type != NULL) {
-		const float orig_scale[2] = {data->orig_matrix_offset[0][0], data->orig_matrix_offset[1][1]};
-		const int transform_flag = RNA_enum_get(mpr->ptr, "transform");
-		if (transform_flag & ED_MANIPULATOR_RECT_TRANSFORM_FLAG_SCALE_UNIFORM) {
-			if (WM_manipulator_target_property_array_length(mpr, mpr_prop) == 2) {
-				WM_manipulator_target_property_value_set_array(C, mpr, mpr_prop, orig_scale);
-			}
-			else {
-				WM_manipulator_target_property_value_set(C, mpr, mpr_prop, orig_scale[0]);
-			}
-		}
-		else {
-			WM_manipulator_target_property_value_set_array(C, mpr, mpr_prop, orig_scale);
-		}
-	}
-
-	mpr_prop = WM_manipulator_target_property_find(mpr, "offset");
-	if (mpr_prop->type != NULL) {
-		WM_manipulator_target_property_value_set_array(C, mpr, mpr_prop, data->orig_matrix_offset[3]);
+		WM_manipulator_target_property_value_set_array(C, mpr, mpr_prop, &data->orig_matrix_offset[0][0]);
 	}
 
 	copy_m4_m4(mpr->matrix_offset, data->orig_matrix_offset);
@@ -719,18 +750,17 @@ static void MANIPULATOR_WT_cage_2d(wmManipulatorType *wt)
 
 	/* rna */
 	static EnumPropertyItem rna_enum_transform[] = {
-		{ED_MANIPULATOR_RECT_TRANSFORM_FLAG_TRANSLATE, "TRANSLATE", 0, "Translate", ""},
-		{ED_MANIPULATOR_RECT_TRANSFORM_FLAG_ROTATE, "ROTATE", 0, "Rotate", ""},
-		{ED_MANIPULATOR_RECT_TRANSFORM_FLAG_SCALE, "SCALE", 0, "Scale", ""},
-		{ED_MANIPULATOR_RECT_TRANSFORM_FLAG_SCALE_UNIFORM, "SCALE_UNIFORM", 0, "Scale Uniform", ""},
+		{ED_MANIPULATOR_CAGE2D_XFORM_FLAG_TRANSLATE, "TRANSLATE", 0, "Translate", ""},
+		{ED_MANIPULATOR_CAGE2D_XFORM_FLAG_ROTATE, "ROTATE", 0, "Rotate", ""},
+		{ED_MANIPULATOR_CAGE2D_XFORM_FLAG_SCALE, "SCALE", 0, "Scale", ""},
+		{ED_MANIPULATOR_CAGE2D_XFORM_FLAG_SCALE_UNIFORM, "SCALE_UNIFORM", 0, "Scale Uniform", ""},
 		{0, NULL, 0, NULL, NULL}
 	};
 	static float unit_v2[2] = {1.0f, 1.0f};
 	RNA_def_float_vector(wt->srna, "dimensions", 2, unit_v2, 0, FLT_MAX, "Dimensions", "", 0.0f, FLT_MAX);
 	RNA_def_enum_flag(wt->srna, "transform", rna_enum_transform, 0, "Transform Options", "");
 
-	WM_manipulatortype_target_property_def(wt, "offset", PROP_FLOAT, 2);
-	WM_manipulatortype_target_property_def(wt, "scale", PROP_FLOAT, 2);
+	WM_manipulatortype_target_property_def(wt, "matrix", PROP_FLOAT, 16);
 }
 
 void ED_manipulatortypes_cage_2d(void)

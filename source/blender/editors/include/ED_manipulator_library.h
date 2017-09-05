@@ -90,10 +90,26 @@ void ED_manipulator_arrow3d_set_range_fac(struct wmManipulator *mpr, const float
 /* Cage Manipulator */
 
 enum {
-	ED_MANIPULATOR_RECT_TRANSFORM_FLAG_TRANSLATE        = (1 << 0), /* Manipulator translates */
-	ED_MANIPULATOR_RECT_TRANSFORM_FLAG_ROTATE           = (1 << 1), /* Manipulator rotates */
-	ED_MANIPULATOR_RECT_TRANSFORM_FLAG_SCALE            = (1 << 2), /* Manipulator scales */
-	ED_MANIPULATOR_RECT_TRANSFORM_FLAG_SCALE_UNIFORM    = (1 << 3), /* Manipulator scales uniformly */
+	ED_MANIPULATOR_CAGE2D_XFORM_FLAG_TRANSLATE        = (1 << 0), /* Manipulator translates */
+	ED_MANIPULATOR_CAGE2D_XFORM_FLAG_ROTATE           = (1 << 1), /* Manipulator rotates */
+	ED_MANIPULATOR_CAGE2D_XFORM_FLAG_SCALE            = (1 << 2), /* Manipulator scales */
+	ED_MANIPULATOR_CAGE2D_XFORM_FLAG_SCALE_UNIFORM    = (1 << 3), /* Manipulator scales uniformly */
+};
+
+/** #wmManipulator.highlight_part */
+enum {
+	ED_MANIPULATOR_CAGE2D_PART_TRANSLATE     = 0,
+	ED_MANIPULATOR_CAGE2D_PART_SCALE_MIN_X   = 1,
+	ED_MANIPULATOR_CAGE2D_PART_SCALE_MAX_X   = 2,
+	ED_MANIPULATOR_CAGE2D_PART_SCALE_MIN_Y   = 3,
+	ED_MANIPULATOR_CAGE2D_PART_SCALE_MAX_Y   = 4,
+	/* Corners */
+	ED_MANIPULATOR_CAGE2D_PART_SCALE_MIN_X_MIN_Y = 5,
+	ED_MANIPULATOR_CAGE2D_PART_SCALE_MIN_X_MAX_Y = 6,
+	ED_MANIPULATOR_CAGE2D_PART_SCALE_MAX_X_MIN_Y = 7,
+	ED_MANIPULATOR_CAGE2D_PART_SCALE_MAX_X_MAX_Y = 8,
+
+	ED_MANIPULATOR_CAGE2D_PART_ROTATE = 9,
 };
 
 /* -------------------------------------------------------------------- */
