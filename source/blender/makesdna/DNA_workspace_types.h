@@ -77,7 +77,7 @@ typedef struct WorkSpace {
 	ListBase transform_orientations DNA_PRIVATE_WORKSPACE;
 
 	int object_mode DNA_PRIVATE_WORKSPACE; /* enum ObjectMode */
-	int pad;
+	int flags DNA_PRIVATE_WORKSPACE; /* enum WorkSpaceFlags */
 
 	struct SceneLayer *render_layer DNA_PRIVATE_WORKSPACE;
 } WorkSpace;
@@ -131,5 +131,9 @@ typedef struct WorkSpaceInstanceHook {
 	WorkSpace *temp_workspace_store;
 	struct WorkSpaceLayout *temp_layout_store;
 } WorkSpaceInstanceHook;
+
+typedef enum WorkSpaceFlags {
+	WORKSPACE_USE_SCENE_SETTINGS = (1 << 0),
+} WorkSpaceFlags;
 
 #endif /* __DNA_WORKSPACE_TYPES_H__ */

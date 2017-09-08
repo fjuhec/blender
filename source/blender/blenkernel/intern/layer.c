@@ -81,9 +81,14 @@ SceneLayer *BKE_scene_layer_from_scene_get(const Scene *scene)
 /**
  * Returns the SceneLayer to be used for drawing, outliner, and other context related areas.
  */
-SceneLayer *BKE_scene_layer_from_workspace_get(const struct WorkSpace *workspace)
+SceneLayer *BKE_scene_layer_from_workspace_get(const struct Scene *scene, const struct WorkSpace *workspace)
 {
-	return BKE_workspace_render_layer_get(workspace);
+	if (BKE_workspace_use_scene_settings_get(workspace)) {
+		return BKE_scene_layer_from_scene_get(scene);
+	}
+	else {
+		return BKE_workspace_render_layer_get(workspace);
+	}
 }
 
 /**

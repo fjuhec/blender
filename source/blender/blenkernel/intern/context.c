@@ -927,7 +927,7 @@ SceneLayer *CTX_data_scene_layer(const bContext *C)
 		return sl;
 	}
 	else {
-		return BKE_scene_layer_from_workspace_get(CTX_wm_workspace(C));
+		return BKE_scene_layer_from_workspace_get(CTX_data_scene(C), CTX_wm_workspace(C));
 	}
 }
 

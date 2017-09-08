@@ -57,7 +57,7 @@ struct WorkSpace;
 void BKE_layer_exit(void);
 
 struct SceneLayer *BKE_scene_layer_from_scene_get(const struct Scene *scene);
-struct SceneLayer *BKE_scene_layer_from_workspace_get(const struct WorkSpace *workspace);
+struct SceneLayer *BKE_scene_layer_from_workspace_get(const struct Scene *scene, const struct WorkSpace *workspace);
 struct SceneLayer *BKE_scene_layer_add(struct Scene *scene, const char *name);
 
 /* DEPRECATED */
