@@ -182,6 +182,7 @@ typedef enum eSpaceButtons_Context {
 	BCONTEXT_BONE_CONSTRAINT = 12,
 	BCONTEXT_RENDER_LAYER = 13,
 	BCONTEXT_COLLECTION = 14,
+	BCONTEXT_WORKSPACE = 15,
 
 	/* always as last... */
 	BCONTEXT_TOT
@@ -498,7 +499,7 @@ typedef struct SpaceSeq {
 	View2D v2d DNA_DEPRECATED;  /* deprecated, copied to region */
 	
 	float xof DNA_DEPRECATED, yof DNA_DEPRECATED;   /* deprecated: offset for drawing the image preview */
-	short mainb;    /* weird name for the sequencer subtype (seq, image, luma... etc) */
+	short pad;
 	short render_size;  /* eSpaceSeq_Proxy_RenderSize */
 	short chanshown;
 	short zebra;
@@ -507,7 +508,7 @@ typedef struct SpaceSeq {
 	int view; /* see SEQ_VIEW_* below */
 	int overlay_type;
 	int draw_flag; /* overlay an image of the editing on below the strips */
-	int pad;
+	int mainb;    /* weird name for the sequencer subtype (seq, image, luma... etc) */
 
 	struct bGPdata *gpd;        /* grease-pencil data */
 
