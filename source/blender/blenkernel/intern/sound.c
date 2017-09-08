@@ -818,7 +818,7 @@ void BKE_sound_update_scene(Main *bmain, struct Scene *scene)
 
 	/* cheap test to skip looping over all objects (no speakers is a common case) */
 	if (!BLI_listbase_is_empty(&bmain->speaker)) {
-		for (SETLOOPER(scene, sce_it, base)) {
+		for (SETLOOPER(scene, NULL, sce_it, base)) {
 			ob = base->object;
 			if ((ob->type != OB_SPEAKER) || !ob->adt) {
 				continue;

@@ -1879,30 +1879,33 @@ float get_render_aosss_error(const RenderData *r, float error)
   * It iterates over the bases of the active layer and then the bases
   * of the active layer of the background (set) scenes recursively.
   */
-Base *_setlooper_base_step(Scene **sce_iter, Base *base)
+Base *_setlooper_base_step(Scene **sce_iter, struct WorkSpace *workspace, Base *base)
 {
 	if (base && base->next) {
-		/* common case, step to the next */
+		/* Common case, step to the next. */
 		return base->next;
 	}
 	else if (base == NULL) {
-		/* first time looping, return the scenes first base */
+		/* First time looping, return the scenes first base. */
+		/* For the first loop we should get the layer from workspace when available. */
 
-		/* for the first loop we should get the layer from context */
-		SceneLayer *sl = BKE_scene_layer_context_active_PLACEHOLDER((*sce_iter));
-		/* TODO For first scene (non-background set), we should pass the render layer as argument.
-		 * In some cases we want it to be the workspace one, in other the scene one. */
-		TODO_LAYER;
+		SceneLayer *sl;
+		if (workspace == NULL) {
+			sl = BKE_scene_layer_from_scene_get((*sce_iter));
+		}
+		else {
+			sl = BKE_scene_layer_from_workspace_get((*sce_iter), workspace);
+		}
 
 		if (sl->object_bases.first) {
 			return (Base *)sl->object_bases.first;
 		}
-		/* no base on this scene layer */
+		/* No base on this scene layer. */
 		goto next_set;
 	}
 	else {
 next_set:
-		/* reached the end, get the next base in the set */
+		/* Reached the end, get the next base in the set. */
 		while ((*sce_iter = (*sce_iter)->set)) {
 			SceneLayer *sl = BKE_scene_layer_from_scene_get((*sce_iter));
 			base = (Base *)sl->object_bases.first;

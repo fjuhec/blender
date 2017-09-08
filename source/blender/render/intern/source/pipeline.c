@@ -2031,7 +2031,7 @@ static void tag_dependend_objects_for_render(Scene *scene, int UNUSED(renderlay)
 {
 	Scene *sce_iter;
 	Base *base;
-	for (SETLOOPER(scene, sce_iter, base)) {
+	for (SETLOOPER(scene, NULL, sce_iter, base)) {
 		Object *object = base->object;
 
 		if ((base->flag & BASE_VISIBLED) == 0) {

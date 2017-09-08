@@ -52,7 +52,7 @@ struct Scene;
 struct SceneCollection;
 struct SceneLayer;
 struct UnitSettings;
-struct Main;
+struct WorkSpace;
 
 typedef enum eSceneCopyMethod {
 	SCE_COPY_NEW       = 0,
@@ -63,12 +63,12 @@ typedef enum eSceneCopyMethod {
 } eSceneCopyMethod;
 
 /* Use as the contents of a 'for' loop: for (SETLOOPER(...)) { ... */
-#define SETLOOPER(_sce_basis, _sce_iter, _base)                               \
-	_sce_iter = _sce_basis, _base = _setlooper_base_step(&_sce_iter, NULL);   \
+#define SETLOOPER(_sce_basis, _workspace, _sce_iter, _base)                               \
+	_sce_iter = _sce_basis, _base = _setlooper_base_step(&_sce_iter, _workspace, NULL);   \
 	_base;                                                                    \
-	_base = _setlooper_base_step(&_sce_iter, _base)
+	_base = _setlooper_base_step(&_sce_iter, _workspace, _base)
 
-struct Base *_setlooper_base_step(struct Scene **sce_iter, struct Base *base);
+struct Base *_setlooper_base_step(struct Scene **sce_iter, struct WorkSpace *workspace, struct Base *base);
 
 void free_avicodecdata(struct AviCodecData *acd);
 void free_qtcodecdata(struct QuicktimeCodecData *acd);

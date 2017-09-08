@@ -3603,7 +3603,7 @@ void BKE_ptcache_bake(PTCacheBaker *baker)
 		}
 	}
 	else {
-		for (SETLOOPER(scene, sce_iter, base)) {
+		for (SETLOOPER(scene, NULL, sce_iter, base)) {
 			/* cache/bake everything in the scene */
 			BKE_ptcache_ids_from_object(&pidlist, base->object, scene, MAX_DUPLI_RECUR);
 
@@ -3714,7 +3714,7 @@ void BKE_ptcache_bake(PTCacheBaker *baker)
 		}
 	}
 	else {
-		for (SETLOOPER(scene, sce_iter, base)) {
+		for (SETLOOPER(scene, NULL, sce_iter, base)) {
 			BKE_ptcache_ids_from_object(&pidlist, base->object, scene, MAX_DUPLI_RECUR);
 
 			for (pid=pidlist.first; pid; pid=pid->next) {

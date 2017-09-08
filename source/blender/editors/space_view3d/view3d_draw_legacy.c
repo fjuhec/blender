@@ -1215,7 +1215,7 @@ void ED_view3d_draw_depth_loop(const EvaluationContext *eval_ctx, Scene *scene, 
 	/* draw set first */
 	if (scene->set) {
 		Scene *sce_iter;
-		for (SETLOOPER(scene->set, sce_iter, base)) {
+		for (SETLOOPER(scene->set, NULL, sce_iter, base)) {
 			if ((base->flag & BASE_VISIBLED) != 0) {
 				draw_object(eval_ctx, scene, sl, ar, v3d, base, 0);
 				if (base->object->transflag & OB_DUPLI) {
@@ -1391,7 +1391,7 @@ static void gpu_update_lamps_shadows_world(const EvaluationContext *eval_ctx, Sc
 	BLI_listbase_clear(&shadows);
 	
 	/* update lamp transform and gather shadow lamps */
-	for (SETLOOPER(scene, sce_iter, base)) {
+	for (SETLOOPER(scene, NULL, sce_iter, base)) {
 		Object *ob = base->object;
 		
 		if (ob->type == OB_LAMP)
@@ -1574,7 +1574,7 @@ static void view3d_draw_objects(
 	if (scene->set) {
 		const short dflag = DRAW_CONSTCOLOR | DRAW_SCENESET;
 		Scene *sce_iter;
-		for (SETLOOPER(scene->set, sce_iter, base)) {
+		for (SETLOOPER(scene->set, NULL, sce_iter, base)) {
 			if ((base->flag & BASE_VISIBLED) != 0) {
 				UI_ThemeColorBlend(TH_WIRE, TH_BACK, 0.6f);
 				draw_object(eval_ctx, scene, sl, ar, v3d, base, dflag);
@@ -1941,7 +1941,7 @@ static void update_lods(Scene *scene, float camera_pos[3])
 	Scene *sce_iter;
 	Base *base;
 
-	for (SETLOOPER(scene, sce_iter, base)) {
+	for (SETLOOPER(scene, NULL, sce_iter, base)) {
 		Object *ob = base->object;
 		BKE_object_lod_update(ob, camera_pos);
 	}

@@ -398,7 +398,7 @@ static void SetDefaultLightMode(Scene* scene)
 	Scene *sce_iter;
 	Base *base;
 
-	for (SETLOOPER(scene, sce_iter, base))
+	for (SETLOOPER(scene, NULL, sce_iter, base))
 	{
 		if (base->object->type == OB_LAMP)
 		{
@@ -1737,7 +1737,7 @@ static void blenderSceneSetBackground(Scene *blenderscene)
 	Scene *it;
 	Base *base;
 
-	for (SETLOOPER(blenderscene, it, base)) {
+	for (SETLOOPER(blenderscene, NULL, it, base)) {
 		base->object->lay = base->lay;
 		BKE_scene_base_flag_sync_from_base(base);
 	}
@@ -2002,7 +2002,7 @@ void BL_ConvertBlenderObjects(struct Main* maggie,
 	// Beware of name conflict in linked data, it will not crash but will create confusion
 	// in Python scripting and in certain actuators (replace mesh). Linked scene *should* have
 	// no conflicting name for Object, Object data and Action.
-	for (SETLOOPER(blenderscene, sce_iter, base))
+	for (SETLOOPER(blenderscene, NULL, sce_iter, base))
 	{
 		Object* blenderobject = base->object;
 		allblobj.insert(blenderobject);

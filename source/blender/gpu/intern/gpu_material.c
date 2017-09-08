@@ -998,7 +998,7 @@ static void material_lights(GPUShadeInput *shi, GPUShadeResult *shr)
 	Base *base;
 	Scene *sce_iter;
 	
-	for (SETLOOPER(shi->gpumat->scene, sce_iter, base)) {
+	for (SETLOOPER(shi->gpumat->scene, NULL, sce_iter, base)) {
 		Object *ob = base->object;
 
 		if (ob->type == OB_LAMP) {

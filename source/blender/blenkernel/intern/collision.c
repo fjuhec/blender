@@ -531,7 +531,7 @@ Object **get_collisionobjects_ext(Scene *scene, Object *self, Group *group, unsi
 	else {
 		Scene *sce_iter;
 		/* add objects in same layer in scene */
-		for (SETLOOPER(scene, sce_iter, base)) {
+		for (SETLOOPER(scene, NULL, sce_iter, base)) {
 			if ((base->flag & BASE_VISIBLED) != 0) {
 				add_collision_object(&objs, &numobj, &maxobj, base->object, self, level, modifier_type);
 			}
@@ -599,7 +599,7 @@ ListBase *get_collider_cache(Scene *scene, Object *self, Group *group)
 		Base *base;
 
 		/* add objects in same layer in scene */
-		for (SETLOOPER(scene, sce_iter, base)) {
+		for (SETLOOPER(scene, NULL, sce_iter, base)) {
 			if (!self || ((base->flag & BASE_VISIBLED) != 0))
 				add_collider_cache_object(&objs, base->object, self, 0);
 

@@ -462,6 +462,7 @@ EnumPropertyItem rna_enum_layer_collection_mode_settings_type_items[] = {
 #include "DNA_object_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_text_types.h"
+#include "DNA_workspace_types.h"
 
 #include "RNA_access.h"
 
@@ -1863,26 +1864,28 @@ static void object_simplify_update(Object *ob)
 	}
 }
 
-static void rna_Scene_use_simplify_update(Main *bmain, Scene *scene, PointerRNA *ptr)
+static void rna_Scene_use_simplify_update(bContext *C, PointerRNA *ptr)
 {
+	Main *bmain = CTX_data_main(C);
+	WorkSpace *workspace = CTX_wm_workspace(C);
 	Scene *sce = ptr->id.data;
 	Scene *sce_iter;
 	Base *base;
 
 	BKE_main_id_tag_listbase(&bmain->object, LIB_TAG_DOIT, true);
-	for (SETLOOPER(sce, sce_iter, base))
+	for (SETLOOPER(sce, workspace, sce_iter, base))
 		object_simplify_update(base->object);
 	
 	WM_main_add_notifier(NC_GEOM | ND_DATA, NULL);
-	DEG_id_tag_update(&scene->id, 0);
+	DEG_id_tag_update(&sce->id, 0);
 }
 
-static void rna_Scene_simplify_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *ptr)
+static void rna_Scene_simplify_update(bContext *C, PointerRNA *ptr)
 {
 	Scene *sce = ptr->id.data;
 
 	if (sce->r.mode & R_SIMPLIFY)
-		rna_Scene_use_simplify_update(bmain, sce, ptr);
+		rna_Scene_use_simplify_update(C, ptr);
 }
 
 static void rna_SceneRenderData_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
@@ -8841,39 +8844,46 @@ static void rna_def_scene_render_data(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "use_simplify", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "mode", R_SIMPLIFY);
 	RNA_def_property_ui_text(prop, "Use Simplify", "Enable simplification of scene for quicker preview renders");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, 0, "rna_Scene_use_simplify_update");
 
 	prop = RNA_def_property(srna, "simplify_subdivision", PROP_INT, PROP_UNSIGNED);
 	RNA_def_property_int_sdna(prop, NULL, "simplify_subsurf");
 	RNA_def_property_ui_range(prop, 0, 6, 1, -1);
 	RNA_def_property_ui_text(prop, "Simplify Subdivision", "Global maximum subdivision level");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, 0, "rna_Scene_simplify_update");
 
 	prop = RNA_def_property(srna, "simplify_child_particles", PROP_FLOAT, PROP_FACTOR);
 	RNA_def_property_float_sdna(prop, NULL, "simplify_particles");
 	RNA_def_property_ui_text(prop, "Simplify Child Particles", "Global child particles percentage");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, 0, "rna_Scene_simplify_update");
 
 	prop = RNA_def_property(srna, "simplify_subdivision_render", PROP_INT, PROP_UNSIGNED);
 	RNA_def_property_int_sdna(prop, NULL, "simplify_subsurf_render");
 	RNA_def_property_ui_range(prop, 0, 6, 1, -1);
 	RNA_def_property_ui_text(prop, "Simplify Subdivision", "Global maximum subdivision level during rendering");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, 0, "rna_Scene_simplify_update");
 
 	prop = RNA_def_property(srna, "simplify_child_particles_render", PROP_FLOAT, PROP_FACTOR);
 	RNA_def_property_float_sdna(prop, NULL, "simplify_particles_render");
 	RNA_def_property_ui_text(prop, "Simplify Child Particles", "Global child particles percentage during rendering");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, 0, "rna_Scene_simplify_update");
 
 	prop = RNA_def_property(srna, "simplify_shadow_samples", PROP_INT, PROP_UNSIGNED);
 	RNA_def_property_int_sdna(prop, NULL, "simplify_shadowsamples");
 	RNA_def_property_ui_range(prop, 1, 16, 1, -1);
 	RNA_def_property_ui_text(prop, "Simplify Shadow Samples", "Global maximum shadow samples");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, 0, "rna_Scene_simplify_update");
 
 	prop = RNA_def_property(srna, "simplify_ao_sss", PROP_FLOAT, PROP_FACTOR);
 	RNA_def_property_float_sdna(prop, NULL, "simplify_aosss");
 	RNA_def_property_ui_text(prop, "Simplify AO and SSS", "Global approximate AO and SSS quality factor");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, 0, "rna_Scene_simplify_update");
 
 	prop = RNA_def_property(srna, "use_simplify_triangulate", PROP_BOOLEAN, PROP_NONE);

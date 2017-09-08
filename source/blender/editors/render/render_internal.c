@@ -797,7 +797,7 @@ static void clean_viewport_memory(Main *bmain, Scene *scene)
 		object->id.tag |= LIB_TAG_DOIT;
 	}
 
-	for (SETLOOPER(scene, sce_iter, base)) {
+	for (SETLOOPER(scene, NULL, sce_iter, base)) {
 		if ((base->flag & BASE_VISIBLED) == 0) {
 			continue;
 		}
@@ -806,7 +806,7 @@ static void clean_viewport_memory(Main *bmain, Scene *scene)
 		}
 	}
 
-	for (SETLOOPER(scene, sce_iter, base)) {
+	for (SETLOOPER(scene, NULL, sce_iter, base)) {
 		object = base->object;
 		if ((object->id.tag & LIB_TAG_DOIT) == 0) {
 			continue;

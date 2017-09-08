@@ -5016,7 +5016,7 @@ static void database_init_objects(Render *re, unsigned int UNUSED(renderlay), in
 		ob->transflag &= ~OB_RENDER_DUPLI;
 	}
 
-	for (SETLOOPER(re->scene, sce_iter, base)) {
+	for (SETLOOPER(re->scene, NULL, sce_iter, base)) {
 		ob= base->object;
 
 #if 0
