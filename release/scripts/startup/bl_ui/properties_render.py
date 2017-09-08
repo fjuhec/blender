@@ -55,6 +55,27 @@ class RenderButtonsPanel:
         return scene and (scene.render.engine in cls.COMPAT_ENGINES)
 
 
+class RENDER_PT_context(Panel):
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = "render"
+    bl_options = {'HIDE_HEADER'}
+    bl_label = ""
+
+    @classmethod
+    def poll(cls, context):
+        return context.scene
+
+    def draw(self, context):
+        layout = self.layout
+
+        scene = context.scene
+        rd = scene.render
+
+        if rd.has_multiple_engines:
+            layout.prop(rd, "engine", text="")
+
+
 class RENDER_PT_render(RenderButtonsPanel, Panel):
     bl_label = "Render"
     COMPAT_ENGINES = {'BLENDER_RENDER'}
@@ -770,6 +791,7 @@ classes = (
     RENDER_MT_presets,
     RENDER_MT_ffmpeg_presets,
     RENDER_MT_framerate_presets,
+    RENDER_PT_context,
     RENDER_PT_render,
     RENDER_PT_dimensions,
     RENDER_PT_antialiasing,
