@@ -477,7 +477,8 @@ static void nla_channel_region_listener(
 }
 
 /* editor level listener */
-static void nla_listener(bScreen *UNUSED(sc), ScrArea *sa, wmNotifier *wmn, const Scene *UNUSED(scene))
+static void nla_listener(bScreen *UNUSED(sc), ScrArea *sa, wmNotifier *wmn, const Scene *UNUSED(scene),
+                         const WorkSpace *UNUSED(workspace))
 {
 	/* context changes */
 	switch (wmn->category) {
