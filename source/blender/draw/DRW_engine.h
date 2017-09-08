@@ -67,7 +67,7 @@ void DRW_engine_viewport_data_size_get(
 void DRW_draw_view(const struct bContext *C);
 
 void DRW_draw_render_loop_ex(
-        struct WorkSpace *workspace,
+        const struct WorkSpace *workspace,
         struct Depsgraph *graph,
         struct ARegion *ar, struct View3D *v3d,
         const struct bContext *evil_C);
@@ -75,6 +75,7 @@ void DRW_draw_render_loop(
         struct Depsgraph *graph,
         struct ARegion *ar, struct View3D *v3d);
 void DRW_draw_render_loop_offscreen(
+        const struct WorkSpace *workspace,
         struct Depsgraph *graph,
         struct ARegion *ar, struct View3D *v3d,
         struct GPUOffScreen *ofs);

@@ -46,8 +46,8 @@ struct SequenceModifierData;
 struct Stereo3dFormat;
 struct StripElem;
 struct bSound;
-
 struct SeqIndexBuildContext;
+struct WorkSpace;
 
 #define EARLY_NO_INPUT      -1
 #define EARLY_DO_EFFECT     0
@@ -422,7 +422,8 @@ struct Sequence *BKE_sequencer_add_movie_strip(struct bContext *C, ListBase *seq
 
 /* view3d draw callback, run when not in background view */
 typedef struct ImBuf *(*SequencerDrawView)(
-        const struct EvaluationContext *eval_ctx, struct Scene *, struct SceneLayer *sl, struct Object *, int, int,
+        const struct EvaluationContext *eval_ctx, struct Scene *, const struct WorkSpace *,
+        struct SceneLayer *sl, struct Object *, int, int,
         unsigned int, int, bool, bool, bool,
         int, int, bool, const char *,
         struct GPUFX *, struct GPUOffScreen *, char[256]);

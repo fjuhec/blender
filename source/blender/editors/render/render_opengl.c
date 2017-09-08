@@ -94,6 +94,7 @@ typedef struct OGLRender {
 	Main *bmain;
 	Render *re;
 	Scene *scene;
+	WorkSpace *workspace;
 	SceneLayer *scene_layer;
 
 	View3D *v3d;
@@ -267,6 +268,7 @@ static void screen_opengl_views_setup(OGLRender *oglrender)
 static void screen_opengl_render_doit(const bContext *C, OGLRender *oglrender, RenderResult *rr)
 {
 	Scene *scene = oglrender->scene;
+	WorkSpace *workspace = oglrender->workspace;
 	SceneLayer *sl = oglrender->scene_layer;
 	ARegion *ar = oglrender->ar;
 	View3D *v3d = oglrender->v3d;
@@ -352,7 +354,7 @@ static void screen_opengl_render_doit(const bContext *C, OGLRender *oglrender, R
 
 		if (view_context) {
 			ibuf_view = ED_view3d_draw_offscreen_imbuf(
-			       &eval_ctx, scene, sl, v3d, ar, sizex, sizey,
+			       &eval_ctx, scene, workspace, sl, v3d, ar, sizex, sizey,
 			       IB_rect, draw_bgpic,
 			       alpha_mode, oglrender->ofs_samples, oglrender->ofs_full_samples, viewname,
 			       oglrender->fx, oglrender->ofs, err_out);
@@ -364,7 +366,7 @@ static void screen_opengl_render_doit(const bContext *C, OGLRender *oglrender, R
 		}
 		else {
 			ibuf_view = ED_view3d_draw_offscreen_imbuf_simple(
-			        &eval_ctx, scene, sl, scene->camera, oglrender->sizex, oglrender->sizey,
+			        &eval_ctx, scene, workspace, sl, scene->camera, oglrender->sizex, oglrender->sizey,
 			        IB_rect, OB_SOLID, false, true, true,
 			        alpha_mode, oglrender->ofs_samples, oglrender->ofs_full_samples, viewname,
 			        oglrender->fx, oglrender->ofs, err_out);
@@ -662,6 +664,7 @@ static bool screen_opengl_render_init(bContext *C, wmOperator *op)
 	oglrender->sizey = sizey;
 	oglrender->bmain = CTX_data_main(C);
 	oglrender->scene = scene;
+	oglrender->workspace = CTX_wm_workspace(C);
 	oglrender->scene_layer = CTX_data_scene_layer(C);
 	oglrender->cfrao = scene->r.cfra;
 

@@ -3149,7 +3149,7 @@ void DRW_draw_view(const bContext *C)
  * Need to reset DST before calling this function
  */
 void DRW_draw_render_loop_ex(
-        struct WorkSpace *workspace,
+        const struct WorkSpace *workspace,
         struct Depsgraph *graph,
         ARegion *ar, View3D *v3d,
         const bContext *evil_C)
@@ -3260,6 +3260,7 @@ void DRW_draw_render_loop(
 }
 
 void DRW_draw_render_loop_offscreen(
+        const struct WorkSpace *workspace,
         struct Depsgraph *graph,
         ARegion *ar, View3D *v3d, GPUOffScreen *ofs)
 {
@@ -3275,7 +3276,7 @@ void DRW_draw_render_loop_offscreen(
 	/* Reset before using it. */
 	memset(&DST, 0x0, sizeof(DST));
 	DST.options.is_image_render = true;
-	DRW_draw_render_loop_ex(NULL, graph, ar, v3d, NULL);
+	DRW_draw_render_loop_ex(workspace, graph, ar, v3d, NULL);
 
 	/* restore */
 	{
