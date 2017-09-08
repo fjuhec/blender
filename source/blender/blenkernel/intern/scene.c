@@ -49,6 +49,7 @@
 #include "DNA_space_types.h"
 #include "DNA_view3d_types.h"
 #include "DNA_windowmanager_types.h"
+#include "DNA_workspace_types.h"
 #include "DNA_gpencil_types.h"
 
 #include "BLI_math.h"
@@ -2069,6 +2070,14 @@ int BKE_render_preview_pixel_size(const RenderData *r)
 		return (U.pixelsize > 1.5f)? 2 : 1;
 	}
 	return r->preview_pixel_size;
+}
+
+const char *BKE_render_engine_get(const Scene *scene, const WorkSpace *workspace)
+{
+	if (workspace == NULL || BKE_workspace_use_scene_settings_get(workspace)) {
+		return scene->r.engine;
+	}
+	return BKE_workspace_engine_get(workspace);
 }
 
 /* Apply the needed correction factor to value, based on unit_type (only length-related are affected currently)

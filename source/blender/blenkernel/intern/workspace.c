@@ -435,7 +435,7 @@ void BKE_workspace_hook_layout_for_workspace_set(
 /**
  * Get the render engine of a workspace, to be used in the viewport.
  */
-const char *BKE_workspace_engine_get(WorkSpace *workspace)
+const char *BKE_workspace_engine_get(const WorkSpace *workspace)
 {
 	return (const char *)workspace->engine;
 }

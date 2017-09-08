@@ -170,6 +170,7 @@ int BKE_scene_num_threads(const struct Scene *scene);
 int BKE_render_num_threads(const struct RenderData *r);
 
 int BKE_render_preview_pixel_size(const struct RenderData *r);
+const char *BKE_render_engine_get(const struct Scene *scene, const struct WorkSpace *workspace);
 
 double BKE_scene_unit_scale(const struct UnitSettings *unit, const int unit_type, double value);
 

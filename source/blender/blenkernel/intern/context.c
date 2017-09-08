@@ -931,6 +931,20 @@ SceneLayer *CTX_data_scene_layer(const bContext *C)
 	}
 }
 
+const char *CTX_data_engine(const bContext *C)
+{
+	const char *engine;
+
+	if (ctx_data_pointer_verify(C, "engine", (void *)&engine)) {
+		return engine;
+	}
+
+	Scene *scene = CTX_data_scene(C);
+	WorkSpace *workspace = CTX_wm_workspace(C);
+
+	return BKE_render_engine_get(scene, workspace);
+}
+
 /**
  * This is tricky. Sometimes the user overrides the render_layer
  * but not the scene_collection. In this case what to do?
