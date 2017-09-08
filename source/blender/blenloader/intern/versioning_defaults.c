@@ -103,6 +103,7 @@ static void update_defaults_startup_workspaces(Main *bmain)
 		if (STREQ(workspace->id.name + 2, "Default")) {
 			/* don't rename within iterator, renaming causes listbase to be re-sorted */
 			workspace_default = workspace;
+			BKE_workspace_engine_set(workspace, RE_engine_id_BLENDER_EEVEE);
 		}
 		else {
 			BKE_workspace_remove(bmain, workspace);

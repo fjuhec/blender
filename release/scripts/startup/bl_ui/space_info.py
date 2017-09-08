@@ -32,7 +32,6 @@ class INFO_HT_header(Header):
         screen = context.screen
         scene = context.scene
         layer = context.render_layer
-        rd = scene.render
 
         row = layout.row(align=True)
         row.template_header()
@@ -54,14 +53,16 @@ class INFO_HT_header(Header):
             act_mode_item = bpy.types.Object.bl_rna.properties['mode'].enum_items[layer.objects.active.mode]
         layout.operator_menu_enum("object.mode_set", "mode", text=act_mode_item.name, icon=act_mode_item.icon)
 
-        layout.template_search(workspace, "render_layer", scene, "render_layers")
+        row = layout.row()
+        row.active = not workspace.use_scene_settings
+        row.template_search(workspace, "render_layer", scene, "render_layers")
+
+        if workspace.has_multiple_engines:
+            row.prop(workspace, "engine", text="")
 
         layout.separator()
 
         layout.template_ID(window, "scene", new="scene.new", unlink="scene.delete")
-
-        if rd.has_multiple_engines:
-            layout.prop(rd, "engine", text="")
 
         layout.separator()
 

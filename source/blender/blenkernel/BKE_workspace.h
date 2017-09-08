@@ -115,6 +115,9 @@ struct WorkSpaceLayout *BKE_workspace_hook_layout_for_workspace_get(
 void             BKE_workspace_hook_layout_for_workspace_set(
         struct WorkSpaceInstanceHook *hook, struct WorkSpace *workspace, struct WorkSpaceLayout *layout) ATTR_NONNULL();
 
+const char *BKE_workspace_engine_get(struct WorkSpace *workspace) GETTER_ATTRS;
+void BKE_workspace_engine_set(struct WorkSpace *workspace, const char *engine) SETTER_ATTRS;
+
 /* flags */
 bool BKE_workspace_use_scene_settings_get(const struct WorkSpace *workspace) GETTER_ATTRS;
 void BKE_workspace_use_scene_settings_set(struct WorkSpace *workspace, bool value) SETTER_ATTRS;

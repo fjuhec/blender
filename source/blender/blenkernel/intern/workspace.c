@@ -29,6 +29,7 @@
 
 #include "BLI_utildefines.h"
 #include "BLI_string.h"
+#include "BLI_string_utf8.h"
 #include "BLI_string_utils.h"
 #include "BLI_listbase.h"
 
@@ -429,6 +430,22 @@ void BKE_workspace_hook_layout_for_workspace_set(
 {
 	hook->act_layout = layout;
 	workspace_relation_ensure_updated(&workspace->hook_layout_relations, hook, layout);
+}
+
+/**
+ * Get the render engine of a workspace, to be used in the viewport.
+ */
+const char *BKE_workspace_engine_get(WorkSpace *workspace)
+{
+	return (const char *)workspace->engine;
+}
+
+/**
+ * Set the render engine of a workspace, to be used in the viewport.
+ */
+void BKE_workspace_engine_set(WorkSpace *workspace, const char *engine)
+{
+	BLI_strncpy_utf8(workspace->engine, engine, sizeof(workspace->engine));
 }
 
 /* Flags */

@@ -65,8 +65,6 @@ struct SceneLayer *BKE_scene_layer_context_active_PLACEHOLDER(const struct Scene
 
 void BKE_scene_layer_free(struct SceneLayer *sl);
 
-void BKE_scene_layer_engine_set(struct SceneLayer *sl, const char *engine);
-
 void BKE_scene_layer_selected_objects_tag(struct SceneLayer *sl, const int tag);
 
 struct SceneLayer *BKE_scene_layer_find_from_collection(const struct Scene *scene, struct LayerCollection *lc);

@@ -68,7 +68,7 @@
  * \{ */
 
 WorkSpace *ED_workspace_add(
-        Main *bmain, const char *name, SceneLayer *act_render_layer)
+        Main *bmain, const char *name, SceneLayer *act_render_layer, const char *engine)
 {
 	WorkSpace *workspace = BKE_workspace_add(bmain, name);
 
@@ -77,6 +77,8 @@ WorkSpace *ED_workspace_add(
 #endif
 
 	BKE_workspace_render_layer_set(workspace, act_render_layer);
+
+	BKE_workspace_engine_set(workspace, engine);
 
 	return workspace;
 }
@@ -215,7 +217,8 @@ WorkSpace *ED_workspace_duplicate(
 	ListBase *layouts_old = BKE_workspace_layouts_get(workspace_old);
 	WorkSpace *workspace_new = ED_workspace_add(
 	        bmain, workspace_old->id.name + 2,
-	        BKE_workspace_render_layer_get(workspace_old));
+	        BKE_workspace_render_layer_get(workspace_old),
+	        BKE_workspace_engine_get(workspace_old));
 	ListBase *transform_orientations_old = BKE_workspace_transform_orientations_get(workspace_old);
 	ListBase *transform_orientations_new = BKE_workspace_transform_orientations_get(workspace_new);
 

@@ -175,14 +175,6 @@ void BKE_scene_layer_free(SceneLayer *sl)
 }
 
 /**
- * Set the render engine of a renderlayer
- */
-void BKE_scene_layer_engine_set(SceneLayer *sl, const char *engine)
-{
-	BLI_strncpy_utf8(sl->engine, engine, sizeof(sl->engine));
-}
-
-/**
  * Tag all the selected objects of a renderlayer
  */
 void BKE_scene_layer_selected_objects_tag(SceneLayer *sl, const int tag)

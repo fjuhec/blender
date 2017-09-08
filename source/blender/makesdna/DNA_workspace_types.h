@@ -80,6 +80,8 @@ typedef struct WorkSpace {
 	int flags DNA_PRIVATE_WORKSPACE; /* enum WorkSpaceFlags */
 
 	struct SceneLayer *render_layer DNA_PRIVATE_WORKSPACE;
+
+	char engine[32]; /* Render Engine. */
 } WorkSpace;
 
 /* internal struct, but exported for read/write */

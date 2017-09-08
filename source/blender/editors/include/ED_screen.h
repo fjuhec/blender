@@ -131,7 +131,8 @@ void    ED_screen_preview_render(const struct bScreen *screen, int size_x, int s
 struct WorkSpace *ED_workspace_add(
         struct Main *bmain,
         const char *name,
-        SceneLayer *act_render_layer) ATTR_NONNULL();
+        SceneLayer *act_render_layer,
+        const char *engine) ATTR_NONNULL();
 bool ED_workspace_change(
         struct WorkSpace *workspace_new,
         struct bContext *C,

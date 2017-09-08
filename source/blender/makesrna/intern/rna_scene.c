@@ -3036,59 +3036,6 @@ static void rna_LayerObjects_selected_begin(CollectionPropertyIterator *iter, Po
 	rna_iterator_listbase_begin(iter, &sl->object_bases, rna_SceneLayer_objects_selected_skip);
 }
 
-static void rna_SceneLayer_engine_set(PointerRNA *ptr, int value)
-{
-	SceneLayer *sl = (SceneLayer *)ptr->data;
-	RenderEngineType *type = BLI_findlink(&R_engines, value);
-
-	if (type)
-		BKE_scene_layer_engine_set(sl, type->idname);
-}
-
-static EnumPropertyItem *rna_SceneLayer_engine_itemf(
-        bContext *UNUSED(C), PointerRNA *UNUSED(ptr), PropertyRNA *UNUSED(prop), bool *r_free)
-{
-	RenderEngineType *type;
-	EnumPropertyItem *item = NULL;
-	EnumPropertyItem tmp = {0, "", 0, "", ""};
-	int a = 0, totitem = 0;
-
-	for (type = R_engines.first; type; type = type->next, a++) {
-		tmp.value = a;
-		tmp.identifier = type->idname;
-		tmp.name = type->name;
-		RNA_enum_item_add(&item, &totitem, &tmp);
-	}
-
-	RNA_enum_item_end(&item, &totitem);
-	*r_free = true;
-
-	return item;
-}
-
-static int rna_SceneLayer_engine_get(PointerRNA *ptr)
-{
-	SceneLayer *sl = (SceneLayer *)ptr->data;
-	RenderEngineType *type;
-	int a = 0;
-
-	for (type = R_engines.first; type; type = type->next, a++)
-		if (STREQ(type->idname, sl->engine))
-			return a;
-
-	return 0;
-}
-
-static void rna_SceneLayer_engine_update(Main *bmain, Scene *UNUSED(unused), PointerRNA *UNUSED(ptr))
-{
-	ED_render_engine_changed(bmain);
-}
-
-static int rna_SceneLayer_multiple_engines_get(PointerRNA *UNUSED(ptr))
-{
-	return (BLI_listbase_count(&R_engines) > 1);
-}
-
 static void rna_SceneLayer_update_tagged(SceneLayer *UNUSED(sl), bContext *C)
 {
 	Depsgraph *graph = CTX_data_depsgraph(C);
@@ -7089,11 +7036,6 @@ static void rna_def_scene_layer(BlenderRNA *brna)
 	StructRNA *srna;
 	PropertyRNA *prop;
 
-	static EnumPropertyItem engine_items[] = {
-	    {0, "BLENDER_RENDER", 0, "Blender Render", "Use the Blender internal rendering engine for rendering"},
-	    {0, NULL, 0, NULL, NULL}
-	};
-
 	srna = RNA_def_struct(brna, "SceneLayer", NULL);
 	RNA_def_struct_ui_text(srna, "Render Layer", "Render layer");
 	RNA_def_struct_ui_icon(srna, ICON_RENDERLAYERS);
@@ -7128,20 +7070,6 @@ static void rna_def_scene_layer(BlenderRNA *brna)
 	RNA_def_property_collection_sdna(prop, NULL, "properties->data.group", NULL);
 	RNA_def_property_struct_type(prop, "SceneLayerSettings");
 	RNA_def_property_ui_text(prop, "Layer Settings", "Override of engine specific render settings");
-
-	/* engine */
-	prop = RNA_def_property(srna, "engine", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_items(prop, engine_items);
-	RNA_def_property_enum_funcs(prop, "rna_SceneLayer_engine_get", "rna_SceneLayer_engine_set",
-	                            "rna_SceneLayer_engine_itemf");
-	RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-	RNA_def_property_ui_text(prop, "Engine", "Engine to use for rendering");
-	RNA_def_property_update(prop, NC_WINDOW, "rna_SceneLayer_engine_update");
-
-	prop = RNA_def_property(srna, "has_multiple_engines", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_funcs(prop, "rna_SceneLayer_multiple_engines_get", NULL);
-	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
-	RNA_def_property_ui_text(prop, "Multiple Engines", "More than one rendering engine is available");
 
 	/* debug update routine */
 	func = RNA_def_function(srna, "update", "rna_SceneLayer_update_tagged");
