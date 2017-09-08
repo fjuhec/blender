@@ -42,6 +42,7 @@ struct ViewportEngineData;
 struct View3D;
 struct rcti;
 struct GPUOffScreen;
+struct WorkSpace;
 
 #include "BLI_sys_types.h"  /* for bool */
 
@@ -66,6 +67,7 @@ void DRW_engine_viewport_data_size_get(
 void DRW_draw_view(const struct bContext *C);
 
 void DRW_draw_render_loop_ex(
+        struct WorkSpace *workspace,
         struct Depsgraph *graph,
         struct ARegion *ar, struct View3D *v3d,
         const struct bContext *evil_C);

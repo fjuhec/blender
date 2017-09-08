@@ -2885,10 +2885,10 @@ static void use_drw_engine(DrawEngineType *engine)
 /* TODO revisit this when proper layering is implemented */
 /* Gather all draw engines needed and store them in DST.enabled_engines
  * That also define the rendering order of engines */
-static void DRW_engines_enable_from_engine(const Scene *scene)
+static void DRW_engines_enable_from_engine(const char *engine)
 {
 	/* TODO layers */
-	RenderEngineType *type = RE_engines_find(scene->r.engine);
+	RenderEngineType *type = RE_engines_find(engine);
 	if (type->draw_engine != NULL) {
 		use_drw_engine(type->draw_engine);
 	}
@@ -2970,11 +2970,13 @@ static void DRW_engines_enable_external(void)
 	use_drw_engine(DRW_engine_viewport_external_type.draw_engine);
 }
 
-static void DRW_engines_enable(const Scene *scene, SceneLayer *sl)
+static void DRW_engines_enable(const Scene *scene, const WorkSpace *workspace, SceneLayer *sl)
 {
 	Object *obact = OBACT_NEW(sl);
 	const int mode = CTX_data_mode_enum_ex(scene->obedit, obact);
-	DRW_engines_enable_from_engine(scene);
+	const char *engine = BKE_render_engine_get(scene, workspace);
+
+	DRW_engines_enable_from_engine(engine);
 
 	if (DRW_state_draw_support()) {
 		DRW_engines_enable_from_object_mode();
@@ -3132,13 +3134,14 @@ static void DRW_debug_gpu_stats(void)
  * for each relevant engine / mode engine. */
 void DRW_draw_view(const bContext *C)
 {
+	WorkSpace *workspace = CTX_wm_workspace(C);
 	struct Depsgraph *graph = CTX_data_depsgraph(C);
 	ARegion *ar = CTX_wm_region(C);
 	View3D *v3d = CTX_wm_view3d(C);
 
 	/* Reset before using it. */
 	memset(&DST, 0x0, sizeof(DST));
-	DRW_draw_render_loop_ex(graph, ar, v3d, C);
+	DRW_draw_render_loop_ex(workspace, graph, ar, v3d, C);
 }
 
 /**
@@ -3146,6 +3149,7 @@ void DRW_draw_view(const bContext *C)
  * Need to reset DST before calling this function
  */
 void DRW_draw_render_loop_ex(
+        struct WorkSpace *workspace,
         struct Depsgraph *graph,
         ARegion *ar, View3D *v3d,
         const bContext *evil_C)
@@ -3172,7 +3176,7 @@ void DRW_draw_render_loop_ex(
 	DRW_viewport_var_init();
 
 	/* Get list of enabled engines */
-	DRW_engines_enable(scene, sl);
+	DRW_engines_enable(scene, workspace, sl);
 
 	/* Update ubos */
 	DRW_globals_update();
@@ -3252,7 +3256,7 @@ void DRW_draw_render_loop(
 {
 	/* Reset before using it. */
 	memset(&DST, 0x0, sizeof(DST));
-	DRW_draw_render_loop_ex(graph, ar, v3d, NULL);
+	DRW_draw_render_loop_ex(NULL, graph, ar, v3d, NULL);
 }
 
 void DRW_draw_render_loop_offscreen(
@@ -3271,7 +3275,7 @@ void DRW_draw_render_loop_offscreen(
 	/* Reset before using it. */
 	memset(&DST, 0x0, sizeof(DST));
 	DST.options.is_image_render = true;
-	DRW_draw_render_loop_ex(graph, ar, v3d, NULL);
+	DRW_draw_render_loop_ex(NULL, graph, ar, v3d, NULL);
 
 	/* restore */
 	{
