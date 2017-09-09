@@ -41,6 +41,8 @@
 #include "BKE_gpencil.h"
 #include "BKE_lattice.h"
 #include "BKE_library_query.h"
+#include "BKE_scene.h"
+#include "BKE_main.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -69,13 +71,14 @@ static void copyData(ModifierData *md, ModifierData *target)
 	modifier_copyData_generic(md, target);
 }
 
-static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx), Object *ob,
+static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationContext *eval_ctx, Object *ob,
 	DerivedMesh *UNUSED(dm),
 	ModifierApplyFlag UNUSED(flag))
 {
 	GpencilLatticeModifierData *mmd = (GpencilLatticeModifierData *)md;
 	LatticeDeformData *ldata = NULL;
 	Scene *scene = CTX_data_scene(mmd->C);
+	Main *bmain = CTX_data_main(mmd->C);
 	bGPdata *gpd;
 	Object *latob = NULL;
 	int oldframe = CFRA;
@@ -93,7 +96,7 @@ static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationConte
 		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 				CFRA = gpf->framenum;
-				DEG_id_tag_update(&latob->id, OB_RECALC_ALL);
+				BKE_scene_update_for_newframe(eval_ctx, bmain, scene);
 				/* recalculate lattice data */
 				BKE_gpencil_lattice_init(ob);
 
