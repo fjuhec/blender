@@ -464,9 +464,9 @@ class SCENE_PT_gp_simplify(SceneButtonsPanel, Panel):
         col = split.column()
         col.label(text="Viewport:")
         col.prop(ts, "gpencil_simplify_view_fill", text="Fill")
+        col.prop(ts, "gpencil_simplify_remove_lines", text="Remove Fill Lines")
         col.prop(ts, "gpencil_simplify_view_modifier", text="Modifiers")
         col.prop(ts, "gpencil_simplify_view_vfx", text="VFX")
-        col.prop(ts, "gpencil_simplify_remove_lines", text="Remove Fill Lines")
 
         col = split.column()
         # TODO: keep disable while render workflow is defined
