@@ -57,26 +57,54 @@ typedef struct HairGroup {
 	
 	char name[64]; /* MAX_NAME */
 	int type;
-	int pad;
+	int flag;
 	
 	struct HairFollicle *follicles;
 	int num_follicles;
+	int pad;
 	
-	/* NORMALS */
-	float normals_max_length;
-
-	/* STRANDS */
-	int (*strands_parent_index)[4];
-	float (*strands_parent_weight)[4];
+	struct HairGuideData *guide_data;
 	
 	void *draw_batch_cache;
 	void *draw_texture_cache;
+	
+	/* NORMALS */
+	float normals_max_length;
+	int pad2;
+	
+	/* STRANDS */
+	int (*strands_parent_index)[4];
+	float (*strands_parent_weight)[4];
 } HairGroup;
 
 typedef enum HairGroup_Type {
 	HAIR_GROUP_TYPE_NORMALS    = 1,
 	HAIR_GROUP_TYPE_STRANDS    = 2,
 } HairGroup_Type;
+
+typedef enum HairGroup_Flag {
+	HAIR_GROUP_FLAG_GUIDESDIRTY    = 1,
+} HairGroup_Flag;
+
+typedef struct HairGuide {
+	/* Sample on the scalp mesh for the root vertex */
+	MeshSample mesh_sample;
+	int vertstart;
+	int totvert;
+} HairGuide;
+
+typedef struct HairGuideVertex {
+	int flag;
+	float co[3];
+} HairGuideVertex;
+
+typedef struct HairGuideData {
+	struct HairGuide *guides;
+	int num_guides;
+	
+	struct HairGuideVertex *verts;
+	int totvert;
+} HairGuideData;
 
 #ifdef __cplusplus
 }
