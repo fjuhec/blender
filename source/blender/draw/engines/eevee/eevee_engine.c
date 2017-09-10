@@ -161,14 +161,14 @@ static void EEVEE_draw_scene(void *vedata)
 
 	while (loop_ct--) {
 
-		/* Refresh shadows */
-		DRW_stats_group_start("Shadows");
-		EEVEE_draw_shadows(sldata, psl);
-		DRW_stats_group_end();
-
 		/* Refresh Probes */
 		DRW_stats_group_start("Probes Refresh");
 		EEVEE_lightprobes_refresh(sldata, vedata);
+		DRW_stats_group_end();
+
+		/* Refresh shadows */
+		DRW_stats_group_start("Shadows");
+		EEVEE_draw_shadows(sldata, psl);
 		DRW_stats_group_end();
 
 		/* Attach depth to the hdr buffer and bind it */
@@ -309,6 +309,10 @@ static void EEVEE_scene_layer_settings_create(RenderEngine *UNUSED(engine), IDPr
 	BKE_collection_engine_property_add_bool(props, "motion_blur_enable", false);
 	BKE_collection_engine_property_add_int(props, "motion_blur_samples", 8);
 	BKE_collection_engine_property_add_float(props, "motion_blur_shutter", 1.0f);
+
+	BKE_collection_engine_property_add_int(props, "shadow_method", SHADOW_ESM);
+	BKE_collection_engine_property_add_int(props, "shadow_size", 512);
+	BKE_collection_engine_property_add_bool(props, "shadow_high_bitdepth", false);
 }
 
 static const DrawEngineDataSize EEVEE_data_size = DRW_VIEWPORT_DATA_SIZE(EEVEE_Data);

@@ -57,8 +57,8 @@
 	"#define MAX_GRID " STRINGIFY(MAX_GRID) "\n" \
 	"#define MAX_PLANAR " STRINGIFY(MAX_PLANAR) "\n" \
 	"#define MAX_LIGHT " STRINGIFY(MAX_LIGHT) "\n" \
+	"#define MAX_SHADOW " STRINGIFY(MAX_SHADOW) "\n" \
 	"#define MAX_SHADOW_CUBE " STRINGIFY(MAX_SHADOW_CUBE) "\n" \
-	"#define MAX_SHADOW_MAP " STRINGIFY(MAX_SHADOW_MAP) "\n" \
 	"#define MAX_SHADOW_CASCADE " STRINGIFY(MAX_SHADOW_CASCADE) "\n" \
 	"#define MAX_CASCADE_NUM " STRINGIFY(MAX_CASCADE_NUM) "\n" \
 	SHADER_IRRADIANCE
@@ -269,6 +269,19 @@ struct GPUTexture *EEVEE_materials_get_util_tex(void)
 	return e_data.util_tex;
 }
 
+static int eevee_material_shadow_option(int shadow_method)
+{
+	switch (shadow_method) {
+		case SHADOW_ESM: return VAR_MAT_ESM;
+		case SHADOW_VSM: return VAR_MAT_VSM;
+		default:
+			BLI_assert(!"Incorrect Shadow Method");
+			break;
+	}
+
+	return 0;
+}
+
 static char *eevee_get_defines(int options)
 {
 	char *str = NULL;
@@ -305,6 +318,12 @@ static char *eevee_get_defines(int options)
 	}
 	if ((options & VAR_MAT_REFRACT) != 0) {
 		BLI_dynstr_appendf(ds, "#define USE_REFRACTION\n");
+	}
+	if ((options & VAR_MAT_VSM) != 0) {
+		BLI_dynstr_appendf(ds, "#define SHADOW_VSM\n");
+	}
+	if ((options & VAR_MAT_ESM) != 0) {
+		BLI_dynstr_appendf(ds, "#define SHADOW_ESM\n");
 	}
 
 	str = BLI_dynstr_get_cstring(ds);
@@ -370,8 +389,7 @@ static void add_standard_uniforms(
 	DRW_shgroup_uniform_buffer(shgrp, "probeCubes", &sldata->probe_pool);
 	DRW_shgroup_uniform_buffer(shgrp, "probePlanars", &vedata->txl->planar_pool);
 	DRW_shgroup_uniform_buffer(shgrp, "irradianceGrid", &sldata->irradiance_pool);
-	DRW_shgroup_uniform_buffer(shgrp, "shadowCubes", &sldata->shadow_depth_cube_pool);
-	DRW_shgroup_uniform_buffer(shgrp, "shadowCascades", &sldata->shadow_depth_cascade_pool);
+	DRW_shgroup_uniform_buffer(shgrp, "shadowTexture", &sldata->shadow_pool);
 	DRW_shgroup_uniform_int(shgrp, "outputSsrId", ssr_id, 1);
 	DRW_shgroup_uniform_vec4(shgrp, "aoParameters[0]", &vedata->stl->effects->ao_dist, 2);
 	if (refract_depth != NULL) {
@@ -603,7 +621,7 @@ struct GPUMaterial *EEVEE_material_world_background_get(struct Scene *scene, Wor
 
 struct GPUMaterial *EEVEE_material_world_volume_get(
         struct Scene *scene, World *wo,
-        bool use_lights, bool use_volume_shadows, bool is_homogeneous, bool use_color_transmit)
+        bool use_lights, bool use_volume_shadows, bool is_homogeneous, bool use_color_transmit, int shadow_method)
 {
 	const void *engine = &DRW_engine_viewport_eevee_type;
 	int options = VAR_WORLD_VOLUME;
@@ -612,6 +630,8 @@ struct GPUMaterial *EEVEE_material_world_volume_get(
 	if (is_homogeneous) options |= VAR_VOLUME_HOMO;
 	if (use_volume_shadows) options |= VAR_VOLUME_SHADOW;
 	if (use_color_transmit) options |= VAR_VOLUME_COLOR;
+
+	options |= eevee_material_shadow_option(shadow_method);
 
 	GPUMaterial *mat = GPU_material_from_nodetree_find(&wo->gpumaterial, engine, options);
 	if (mat != NULL) {
@@ -632,7 +652,7 @@ struct GPUMaterial *EEVEE_material_world_volume_get(
 
 struct GPUMaterial *EEVEE_material_mesh_get(
         struct Scene *scene, Material *ma,
-        bool use_blend, bool use_multiply, bool use_refract)
+        bool use_blend, bool use_multiply, bool use_refract, int shadow_method)
 {
 	const void *engine = &DRW_engine_viewport_eevee_type;
 	int options = VAR_MAT_MESH;
@@ -640,6 +660,8 @@ struct GPUMaterial *EEVEE_material_mesh_get(
 	if (use_blend) options |= VAR_MAT_BLEND;
 	if (use_multiply) options |= VAR_MAT_MULT;
 	if (use_refract) options |= VAR_MAT_REFRACT;
+
+	options |= eevee_material_shadow_option(shadow_method);
 
 	GPUMaterial *mat = GPU_material_from_nodetree_find(&ma->gpumaterial, engine, options);
 	if (mat) {
@@ -702,10 +724,12 @@ struct GPUMaterial *EEVEE_material_mesh_depth_get(
 }
 
 struct GPUMaterial *EEVEE_material_hair_get(
-        struct Scene *scene, Material *ma)
+        struct Scene *scene, Material *ma, int shadow_method)
 {
 	const void *engine = &DRW_engine_viewport_eevee_type;
 	int options = VAR_MAT_MESH | VAR_MAT_HAIR;
+
+	options |= eevee_material_shadow_option(shadow_method);
 
 	GPUMaterial *mat = GPU_material_from_nodetree_find(&ma->gpumaterial, engine, options);
 	if (mat) {
@@ -729,7 +753,7 @@ struct GPUMaterial *EEVEE_material_hair_get(
  **/
 static struct DRWShadingGroup *EEVEE_default_shading_group_create(
         EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata, DRWPass *pass,
-        bool is_hair, bool is_flat_normal, bool use_blend, bool use_ssr)
+        bool is_hair, bool is_flat_normal, bool use_blend, bool use_ssr, int shadow_method)
 {
 	static int ssr_id;
 	ssr_id = (use_ssr) ? 0 : -1;
@@ -738,6 +762,8 @@ static struct DRWShadingGroup *EEVEE_default_shading_group_create(
 	if (is_hair) options |= VAR_MAT_HAIR;
 	if (is_flat_normal) options |= VAR_MAT_FLAT;
 	if (use_blend) options |= VAR_MAT_BLEND;
+
+	options |= eevee_material_shadow_option(shadow_method);
 
 	if (e_data.default_lit[options] == NULL) {
 		create_default_shader(options);
@@ -754,7 +780,7 @@ static struct DRWShadingGroup *EEVEE_default_shading_group_create(
  **/
 static struct DRWShadingGroup *EEVEE_default_shading_group_get(
         EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata,
-        bool is_hair, bool is_flat_normal, bool use_ssr)
+        bool is_hair, bool is_flat_normal, bool use_ssr, int shadow_method)
 {
 	static int ssr_id;
 	ssr_id = (use_ssr) ? 0 : -1;
@@ -762,6 +788,8 @@ static struct DRWShadingGroup *EEVEE_default_shading_group_get(
 
 	if (is_hair) options |= VAR_MAT_HAIR;
 	if (is_flat_normal) options |= VAR_MAT_FLAT;
+
+	options |= eevee_material_shadow_option(shadow_method);
 
 	if (e_data.default_lit[options] == NULL) {
 		create_default_shader(options);
@@ -922,6 +950,7 @@ static void material_opaque(
 	Scene *scene = draw_ctx->scene;
 	EEVEE_StorageList *stl = ((EEVEE_Data *)vedata)->stl;
 	EEVEE_PassList *psl = ((EEVEE_Data *)vedata)->psl;
+	EEVEE_LampsInfo *linfo = sldata->lamps;
 
 	float *color_p = &ma->r;
 	float *metal_p = &ma->ray_mirror;
@@ -940,7 +969,7 @@ static void material_opaque(
 
 		/* This will have been created already, just perform a lookup. */
 		*gpumat = (use_gpumat) ? EEVEE_material_mesh_get(
-		        scene, ma, false, false, use_refract) : NULL;
+		        scene, ma, false, false, use_refract, linfo->shadow_method) : NULL;
 		*gpumat_depth = (use_gpumat) ? EEVEE_material_mesh_depth_get(
 		        scene, ma, (ma->blend_method == MA_BM_HASHED), false) : NULL;
 		return;
@@ -948,7 +977,7 @@ static void material_opaque(
 
 	if (use_gpumat) {
 		/* Shading */
-		*gpumat = EEVEE_material_mesh_get(scene, ma, false, false, use_refract);
+		*gpumat = EEVEE_material_mesh_get(scene, ma, false, false, use_refract, linfo->shadow_method);
 
 		*shgrp = DRW_shgroup_material_create(*gpumat, use_refract ? psl->refract_pass : psl->material_pass);
 		if (*shgrp) {
@@ -992,7 +1021,7 @@ static void material_opaque(
 
 	/* Fallback to default shader */
 	if (*shgrp == NULL) {
-		*shgrp = EEVEE_default_shading_group_get(sldata, vedata, false, use_flat_nor, stl->effects->use_ssr);
+		*shgrp = EEVEE_default_shading_group_get(sldata, vedata, false, use_flat_nor, stl->effects->use_ssr, linfo->shadow_method);
 		DRW_shgroup_uniform_vec3(*shgrp, "basecol", color_p, 1);
 		DRW_shgroup_uniform_float(*shgrp, "metallic", metal_p, 1);
 		DRW_shgroup_uniform_float(*shgrp, "specular", spec_p, 1);
@@ -1026,6 +1055,7 @@ static void material_transparent(
 	Scene *scene = draw_ctx->scene;
 	EEVEE_StorageList *stl = ((EEVEE_Data *)vedata)->stl;
 	EEVEE_PassList *psl = ((EEVEE_Data *)vedata)->psl;
+	EEVEE_LampsInfo *linfo = sldata->lamps;
 
 	const bool use_refract = ((ma->blend_flag & MA_BL_SS_REFRACTION) != 0) && ((stl->effects->enabled_effects & EFFECT_REFRACT) != 0);
 
@@ -1036,7 +1066,7 @@ static void material_transparent(
 
 	if (ma->use_nodes && ma->nodetree) {
 		/* Shading */
-		*gpumat = EEVEE_material_mesh_get(scene, ma, true, (ma->blend_method == MA_BM_MULTIPLY), use_refract);
+		*gpumat = EEVEE_material_mesh_get(scene, ma, true, (ma->blend_method == MA_BM_MULTIPLY), use_refract, linfo->shadow_method);
 
 		*shgrp = DRW_shgroup_material_create(*gpumat, psl->transparent_pass);
 		if (*shgrp) {
@@ -1057,7 +1087,7 @@ static void material_transparent(
 	if (*shgrp == NULL) {
 		*shgrp = EEVEE_default_shading_group_create(
 		        sldata, vedata, psl->transparent_pass,
-		        false, use_flat_nor, true, false);
+		        false, use_flat_nor, true, false, linfo->shadow_method);
 		DRW_shgroup_uniform_vec3(*shgrp, "basecol", color_p, 1);
 		DRW_shgroup_uniform_float(*shgrp, "metallic", metal_p, 1);
 		DRW_shgroup_uniform_float(*shgrp, "specular", spec_p, 1);
@@ -1270,7 +1300,7 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_SceneLayerData *sl
 							}
 							else {
 								if (ma->use_nodes && ma->nodetree) {
-									struct GPUMaterial *gpumat = EEVEE_material_hair_get(scene, ma);
+									struct GPUMaterial *gpumat = EEVEE_material_hair_get(scene, ma, sldata->lamps->shadow_method);
 
 									shgrp = DRW_shgroup_material_create(gpumat, psl->material_pass);
 									if (shgrp) {
@@ -1292,7 +1322,7 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_SceneLayerData *sl
 
 								/* Fallback to default shader */
 								if (shgrp == NULL) {
-									shgrp = EEVEE_default_shading_group_get(sldata, vedata, true, false, stl->effects->use_ssr);
+									shgrp = EEVEE_default_shading_group_get(sldata, vedata, true, false, stl->effects->use_ssr, sldata->lamps->shadow_method);
 									DRW_shgroup_uniform_vec3(shgrp, "basecol", color_p, 1);
 									DRW_shgroup_uniform_float(shgrp, "metallic", metal_p, 1);
 									DRW_shgroup_uniform_float(shgrp, "specular", spec_p, 1);

@@ -804,14 +804,14 @@ void EEVEE_effects_cache_init(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata)
 
 		struct GPUMaterial *mat = EEVEE_material_world_volume_get(
 		        scene, wo, volumetrics->use_lights, volumetrics->use_volume_shadows,
-		        false, volumetrics->use_colored_transmit);
+		        false, volumetrics->use_colored_transmit, sldata->lamps->shadow_method);
 
 		psl->volumetric_integrate_ps = DRW_pass_create("Volumetric Integration", DRW_STATE_WRITE_COLOR);
 		DRWShadingGroup *grp = DRW_shgroup_material_create(mat, psl->volumetric_integrate_ps);
 
 		if (grp != NULL) {
 			DRW_shgroup_uniform_buffer(grp, "depthFull", &e_data.depth_src);
-			DRW_shgroup_uniform_buffer(grp, "shadowCubes", &sldata->shadow_depth_cube_pool);
+			DRW_shgroup_uniform_buffer(grp, "shadowTexture", &sldata->shadow_pool);
 			DRW_shgroup_uniform_buffer(grp, "irradianceGrid", &sldata->irradiance_pool);
 			DRW_shgroup_uniform_block(grp, "light_block", sldata->light_ubo);
 			DRW_shgroup_uniform_block(grp, "grid_block", sldata->grid_ubo);
