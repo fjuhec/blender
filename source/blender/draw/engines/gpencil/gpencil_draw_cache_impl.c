@@ -691,6 +691,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 	bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd);
 	bool playing = (bool)stl->storage->playing;
 
+
 	/* get parent matrix and save as static data */
 	ED_gpencil_parent_location(ob, gpd, gpl, viewmatrix);
 	copy_m4_m4(derived_gpf->viewmatrix, viewmatrix);
@@ -725,6 +726,15 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 		if (stl->storage->shgroup_id >= GPENCIL_MAX_SHGROUPS) {
 			continue;
 		}
+		/* if the fill has any value, it's considered a fill and is not drawn if simplify fill is enabled */
+		if ((GP_SIMPLIFY_FILL(ts, playing)) && (ts->gpencil_simplify & GP_TOOL_FLAG_SIMPLIFY_REMOVE_LINE)) {
+			if ((gps->palcolor->fill[3] > GPENCIL_ALPHA_OPACITY_THRESH) || 
+				(gps->palcolor->fill_style > FILL_STYLE_SOLID)) 
+			{
+				continue;
+			}
+		}
+
 #if 0   /* if we use the reallocate the shading group is doing weird thing, so disable while find a solution 
 		   and allocate the max size on cache_init */
 		   /* realloc memory */

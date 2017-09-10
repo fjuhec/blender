@@ -1516,10 +1516,13 @@ typedef struct ToolSettings {
 	char gpencil_v2d_align; /*                          : General 2D Editor */
 	char gpencil_seq_align; /*                          : Sequencer Preview */
 	char gpencil_ima_align; /*                          : Image Editor */
-	
+
+	short gpencil_simplify; /* simplify flags for grease pencil */
+	char pad6[6];
+
 	/* Grease Pencil Sculpt */
 	struct GP_BrushEdit_Settings gp_sculpt;
-	
+
 	/* Grease Pencil Interpolation Tool(s) */
 	struct GP_Interpolate_Settings gp_interpolate;
 	
@@ -2244,23 +2247,29 @@ typedef enum eGPencil_Flags {
 	GP_TOOL_FLAG_RETAIN_LAST            = (1 << 1),
 	/* Add the strokes below all strokes in the layer */
 	GP_TOOL_FLAG_PAINT_ONBACK = (1 << 2),
-	/* Simplify */
-	GP_TOOL_FLAG_SIMPLIFY = (1 << 3),
-	/* Simplify on play */
-	GP_TOOL_FLAG_SIMPLIFY_ON_PLAY = (1 << 4),
-	/* Simplify fill on viewport */
-	GP_TOOL_FLAG_SIMPLIFY_VIEW_FILL = (1 << 5),
-	/* Simplify modifier on viewport */
-	GP_TOOL_FLAG_SIMPLIFY_VIEW_MODIF = (1 << 6),
-	/* Simplify vfx modifier on viewport */
-	GP_TOOL_FLAG_SIMPLIFY_VIEW_VFX = (1 << 7),
-	/* Simplify fill on render */
-	GP_TOOL_FLAG_SIMPLIFY_RENDER_FILL = (1 << 8),
-	/* Simplify modifier on render */
-	GP_TOOL_FLAG_SIMPLIFY_RENDER_MODIF = (1 << 9),
-	/* Simplify vfx modifier on render */
-	GP_TOOL_FLAG_SIMPLIFY_RENDER_VFX = (1 << 10),
 } eGPencil_Flags;
+
+/* toolsettings->gpencil_simplify */
+typedef enum eGPencil_SimplifyFlags {
+	/* Simplify */
+	GP_TOOL_FLAG_SIMPLIFY = (1 << 0),
+	/* Simplify on play */
+	GP_TOOL_FLAG_SIMPLIFY_ON_PLAY = (1 << 1),
+	/* Simplify fill on viewport */
+	GP_TOOL_FLAG_SIMPLIFY_VIEW_FILL = (1 << 2),
+	/* Simplify modifier on viewport */
+	GP_TOOL_FLAG_SIMPLIFY_VIEW_MODIF = (1 << 3),
+	/* Simplify vfx modifier on viewport */
+	GP_TOOL_FLAG_SIMPLIFY_VIEW_VFX = (1 << 4),
+	/* Simplify fill on render */
+	GP_TOOL_FLAG_SIMPLIFY_RENDER_FILL = (1 << 5),
+	/* Simplify modifier on render */
+	GP_TOOL_FLAG_SIMPLIFY_RENDER_MODIF = (1 << 6),
+	/* Simplify vfx modifier on render */
+	GP_TOOL_FLAG_SIMPLIFY_RENDER_VFX = (1 << 7),
+	/* Remove fill external line */
+	GP_TOOL_FLAG_SIMPLIFY_REMOVE_LINE = (1 << 8),
+} eGPencil_SimplifyFlags;
 
 /* toolsettings->gpencil_src */
 typedef enum eGPencil_Source_3D {

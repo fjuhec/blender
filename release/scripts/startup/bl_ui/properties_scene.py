@@ -466,6 +466,7 @@ class SCENE_PT_gp_simplify(SceneButtonsPanel, Panel):
         col.prop(ts, "gpencil_simplify_view_fill", text="Fill")
         col.prop(ts, "gpencil_simplify_view_modifier", text="Modifiers")
         col.prop(ts, "gpencil_simplify_view_vfx", text="VFX")
+        col.prop(ts, "gpencil_simplify_remove_lines", text="Remove Fill Lines")
 
         col = split.column()
         # TODO: keep disable while render workflow is defined
@@ -474,6 +475,7 @@ class SCENE_PT_gp_simplify(SceneButtonsPanel, Panel):
         col.prop(ts, "gpencil_simplify_render_fill", text="Fill")
         col.prop(ts, "gpencil_simplify_render_modifier", text="Modifiers")
         col.prop(ts, "gpencil_simplify_render_vfx", text="VFX")
+
 
 class SCENE_PT_custom_props(SceneButtonsPanel, PropertyPanel, Panel):
     COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}

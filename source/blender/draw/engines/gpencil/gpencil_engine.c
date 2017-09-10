@@ -235,8 +235,8 @@ static void GPENCIL_cache_init(void *vedata)
 			else {
 				/* if animation was active and simplify on play was enabled, cache is dirty */
 				if ((oldsts == 1) && (stl->storage->playing == 0) && 
-					(ts->gpencil_flags & GP_TOOL_FLAG_SIMPLIFY) && 
-					(ts->gpencil_flags & GP_TOOL_FLAG_SIMPLIFY_ON_PLAY)) 
+					(ts->gpencil_simplify & GP_TOOL_FLAG_SIMPLIFY) && 
+					(ts->gpencil_simplify & GP_TOOL_FLAG_SIMPLIFY_ON_PLAY)) 
 				{
 					BKE_gpencil_batch_cache_alldirty();
 				}
