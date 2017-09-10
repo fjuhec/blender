@@ -2243,7 +2243,23 @@ typedef enum eGPencil_Flags {
 	/* When creating new frames, the last frame gets used as the basis for the new one */
 	GP_TOOL_FLAG_RETAIN_LAST            = (1 << 1),
 	/* Add the strokes below all strokes in the layer */
-	GP_TOOL_FLAG_PAINT_ONBACK = (1 << 2)
+	GP_TOOL_FLAG_PAINT_ONBACK = (1 << 2),
+	/* Simplify */
+	GP_TOOL_FLAG_SIMPLIFY = (1 << 3),
+	/* Simplify on play */
+	GP_TOOL_FLAG_SIMPLIFY_ON_PLAY = (1 << 4),
+	/* Simplify fill on viewport */
+	GP_TOOL_FLAG_SIMPLIFY_VIEW_FILL = (1 << 5),
+	/* Simplify modifier on viewport */
+	GP_TOOL_FLAG_SIMPLIFY_VIEW_MODIF = (1 << 6),
+	/* Simplify vfx modifier on viewport */
+	GP_TOOL_FLAG_SIMPLIFY_VIEW_VFX = (1 << 7),
+	/* Simplify fill on render */
+	GP_TOOL_FLAG_SIMPLIFY_RENDER_FILL = (1 << 8),
+	/* Simplify modifier on render */
+	GP_TOOL_FLAG_SIMPLIFY_RENDER_MODIF = (1 << 9),
+	/* Simplify vfx modifier on render */
+	GP_TOOL_FLAG_SIMPLIFY_RENDER_VFX = (1 << 10),
 } eGPencil_Flags;
 
 /* toolsettings->gpencil_src */

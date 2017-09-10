@@ -440,6 +440,41 @@ class SCENE_PT_simplify(SceneButtonsPanel, Panel):
         col.prop(rd, "simplify_ao_sss", text="AO and SSS")
         col.prop(rd, "use_simplify_triangulate")
 
+
+class SCENE_PT_gp_simplify(SceneButtonsPanel, Panel):
+    bl_label = "Simplify Grease Pencil"
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
+
+    def draw_header(self, context):
+        ts = context.tool_settings
+        self.layout.prop(ts, "gpencil_simplify", text="")
+
+    def draw(self, context):
+        layout = self.layout
+
+        ts = context.tool_settings
+
+        layout.active = ts.gpencil_simplify
+
+        row = layout.row()
+        row.prop(ts, "gpencil_simplify_onplay", text="Only on Play")
+
+        split = layout.split()
+
+        col = split.column()
+        col.label(text="Viewport:")
+        col.prop(ts, "gpencil_simplify_view_fill", text="Fill")
+        col.prop(ts, "gpencil_simplify_view_modifier", text="Modifiers")
+        col.prop(ts, "gpencil_simplify_view_vfx", text="VFX")
+
+        col = split.column()
+        # TODO: keep disable while render workflow is defined
+        col.active = False
+        col.label(text="Render:")
+        col.prop(ts, "gpencil_simplify_render_fill", text="Fill")
+        col.prop(ts, "gpencil_simplify_render_modifier", text="Modifiers")
+        col.prop(ts, "gpencil_simplify_render_vfx", text="VFX")
+
 class SCENE_PT_custom_props(SceneButtonsPanel, PropertyPanel, Panel):
     COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
     _context_path = "scene"
@@ -460,6 +495,7 @@ classes = (
     SCENE_PT_rigid_body_cache,
     SCENE_PT_rigid_body_field_weights,
     SCENE_PT_simplify,
+    SCENE_PT_gp_simplify,
     SCENE_PT_custom_props,
 )
 

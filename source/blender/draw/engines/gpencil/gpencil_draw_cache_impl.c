@@ -689,6 +689,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 	DRWShadingGroup *strokegrp;
 	float viewmatrix[4][4];
 	bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd);
+	bool playing = (bool)stl->storage->playing;
 
 	/* get parent matrix and save as static data */
 	ED_gpencil_parent_location(ob, gpd, gpl, viewmatrix);
@@ -701,8 +702,10 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 
 	/* apply geometry modifiers */
 	if ((cache->is_dirty) && (ob->modifiers.first) && (!is_multiedit)) {
-		if (BKE_gpencil_has_geometry_modifiers(ob)) {
-			BKE_gpencil_geometry_modifiers(ob, gpl, derived_gpf);
+		if (!GP_SIMPLIFY_MODIF(ts, playing)) {
+			if (BKE_gpencil_has_geometry_modifiers(ob)) {
+				BKE_gpencil_geometry_modifiers(ob, gpl, derived_gpf);
+			}
 		}
 	}
 
@@ -735,7 +738,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 		if ((gpl->actframe->framenum == derived_gpf->framenum) || (!is_multiedit) || ((gpd->flag & GP_DATA_STROKE_MULTIEDIT_LINES) == 0)) {
 			int id = stl->storage->shgroup_id;
 			if ((gps->totpoints > 1) && ((gps->palcolor->flag & PAC_COLOR_DOT) == 0)) {
-				if (gps->totpoints > 2) {
+				if ((gps->totpoints > 2) && (!GP_SIMPLIFY_FILL(ts, playing))) {
 					stl->shgroups[id].shgrps_fill = DRW_gpencil_shgroup_fill_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_fill_sh, gpd, gps->palcolor, id);
 				}
 				else {
@@ -754,10 +757,12 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 
 			/* apply modifiers (only modify geometry, but not create ) */
 			if ((cache->is_dirty) && (ob->modifiers.first) && (!is_multiedit)) {
-				BKE_gpencil_stroke_modifiers(ob, gpl, derived_gpf, gps);
+				if (!GP_SIMPLIFY_MODIF(ts, playing)) {
+					BKE_gpencil_stroke_modifiers(ob, gpl, derived_gpf, gps);
+				}
 			}
 			/* fill */
-			if (fillgrp) {
+			if ((fillgrp) && (!GP_SIMPLIFY_FILL(ts, playing))) {
 				gpencil_add_fill_shgroup(cache, fillgrp, ob, gpd, gpl, derived_gpf, gps, tintcolor, false, custonion);
 			}
 			/* stroke */
@@ -987,8 +992,10 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 	cache->cache_idx = 0;
 
 	/* init general modifiers data */
-	if ((cache->is_dirty) && (ob->modifiers.first)) {
-		BKE_gpencil_lattice_init(ob);
+	if (!GP_SIMPLIFY_MODIF(ts, playing)) {
+		if ((cache->is_dirty) && (ob->modifiers.first)) {
+			BKE_gpencil_lattice_init(ob);
+		}
 	}
 	/* draw normal strokes */
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {

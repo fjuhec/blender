@@ -28,6 +28,7 @@
 
 #include "BKE_global.h"
 #include "BKE_paint.h"
+#include "BKE_gpencil.h"
 
 #include "DNA_gpencil_types.h"
 #include "DNA_view3d_types.h"
@@ -168,6 +169,9 @@ static void GPENCIL_cache_init(void *vedata)
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	Object *ob = NULL;
 	bGPdata *gpd = NULL;
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	Scene *scene = draw_ctx->scene;
+	ToolSettings *ts = scene->toolsettings;
 
 	if (!stl->g_data) {
 		/* Alloc transient pointers */
@@ -222,10 +226,20 @@ static void GPENCIL_cache_init(void *vedata)
 		/* drawing buffer pass */
 		const DRWContextState *draw_ctx = DRW_context_state_get();
 		/* detect if playing animation */
+		int oldsts = stl->storage->playing;
 		stl->storage->playing = 0;
 		if (draw_ctx->evil_C) {
 			if (ED_screen_animation_playing(CTX_wm_manager(draw_ctx->evil_C))) {
 				stl->storage->playing = 1;
+			}
+			else {
+				/* if animation was active and simplify on play was enabled, cache is dirty */
+				if ((oldsts == 1) && (stl->storage->playing == 0) && 
+					(ts->gpencil_flags & GP_TOOL_FLAG_SIMPLIFY) && 
+					(ts->gpencil_flags & GP_TOOL_FLAG_SIMPLIFY_ON_PLAY)) 
+				{
+					BKE_gpencil_batch_cache_alldirty();
+				}
 			}
 		}
 		ob = draw_ctx->obact;
@@ -304,6 +318,7 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
 	ToolSettings *ts = scene->toolsettings;
+	bool playing = (bool)stl->storage->playing;
 
 	/* object datablock (this is not draw now) */
 	if (ob->type == OB_GPENCIL && ob->gpd) {
@@ -314,8 +329,10 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 		stl->g_data->gp_object_cache = gpencil_object_cache_allocate(stl->g_data->gp_object_cache, &stl->g_data->gp_cache_size, &stl->g_data->gp_cache_used);
 		/* add for drawing later */
 		gpencil_object_cache_add(stl->g_data->gp_object_cache, ob, &stl->g_data->gp_cache_used);
-		/* generate duplicated instances using array modifiers */		
-		gpencil_array_modifiers(stl, ob);
+		/* generate duplicated instances using array modifiers */
+		if (!GP_SIMPLIFY_MODIF(ts, playing)) {
+			gpencil_array_modifiers(stl, ob);
+		}
 		/* draw current painting strokes */
 		DRW_gpencil_populate_buffer_strokes(vedata, ts, ob);
 	}
@@ -329,6 +346,7 @@ static void GPENCIL_cache_finish(void *vedata)
 	ToolSettings *ts = scene->toolsettings;
 	tGPencilObjectCache *cache;
 	bool is_multiedit = false; 
+	bool playing = (bool)stl->storage->playing;
 
 	/* Draw all pending objects */
 	if (stl->g_data->gp_cache_used > 0) {
@@ -353,9 +371,11 @@ static void GPENCIL_cache_finish(void *vedata)
 					stl->g_data->gp_object_cache[i].init_grp, stl->g_data->gp_object_cache[i].end_grp);
 			}
 			/* VFX pass */
-			cache = &stl->g_data->gp_object_cache[i];
-			if ((!is_multiedit) && (ob->modifiers.first)) {
-				DRW_gpencil_vfx_modifiers(i, &e_data, vedata, ob, cache);
+			if (!GP_SIMPLIFY_VFX(ts, playing)) {
+				cache = &stl->g_data->gp_object_cache[i];
+				if ((!is_multiedit) && (ob->modifiers.first)) {
+					DRW_gpencil_vfx_modifiers(i, &e_data, vedata, ob, cache);
+				}
 			}
 		}
 	}
@@ -476,6 +496,11 @@ static void GPENCIL_draw_scene(void *vedata)
 	tGPencilObjectCache *cache;
 	float clearcol[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	Scene *scene = draw_ctx->scene;
+	ToolSettings *ts = scene->toolsettings;
+	bool playing = (bool)stl->storage->playing;
+
 	/* attach temp textures */
 	DRW_framebuffer_texture_attach(fbl->temp_color_fb, e_data.temp_fbcolor_depth_tx, 0, 0);
 	DRW_framebuffer_texture_attach(fbl->temp_color_fb, e_data.temp_fbcolor_color_tx, 0, 0);
@@ -522,7 +547,7 @@ static void GPENCIL_draw_scene(void *vedata)
 			/* vfx modifiers passes 
 			 * if any vfx modifier exist, the init_vfx_wave_sh will be not NULL.
 			 */
-			if ((cache->init_vfx_wave_sh) && (cache->end_vfx_wave_sh)) {
+			if ((cache->init_vfx_wave_sh) && (cache->end_vfx_wave_sh) && (!GP_SIMPLIFY_VFX(ts, playing))) {
 				/* add vfx and combine result with default framebuffer */
 				gpencil_vfx_passes(vedata, cache);
 			}
