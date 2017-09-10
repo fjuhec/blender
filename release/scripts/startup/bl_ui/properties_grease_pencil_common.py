@@ -1363,6 +1363,54 @@ class GreasePencilVertexGroupPanel:
             layout.prop(context.tool_settings, "vertex_group_weight", text="Weight")
 
 
+class GreasePencilInfoPanel:
+    bl_label = "Information"
+    bl_region_type = 'UI'
+    bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        ts = context.scene.tool_settings
+
+        if context.gpencil_data is None:
+            return False
+
+        if context.space_data.type in ('VIEW_3D', 'PROPERTIES'):
+            if ts.grease_pencil_source == 'OBJECT':
+                if context.space_data.context != 'DATA':
+                    return False
+
+            if context.space_data.context == 'DATA':
+                if context.object.type != 'GPENCIL':
+                    return False
+                else:
+                    if context.object.grease_pencil != context.gpencil_data:
+                        return False
+
+        return True
+
+    @staticmethod
+    def draw(self, context):
+        layout = self.layout
+        gpd = context.gpencil_data
+
+        split = layout.split(percentage=0.5)
+
+        col = split.column(align=True)
+        col.label("Layers:", icon="LAYER_ACTIVE")
+        col.label("Frames:", icon="LAYER_ACTIVE")
+        col.label("Strokes:", icon="LAYER_ACTIVE")
+        col.label("Points:", icon="LAYER_ACTIVE")
+        col.label("Palettes:", icon="LAYER_ACTIVE")
+
+        col = split.column(align=True)
+        col.label(str(gpd.info_total_layers))
+        col.label(str(gpd.info_total_frames))
+        col.label(str(gpd.info_total_strokes))
+        col.label(str(gpd.info_total_points))
+        col.label(str(gpd.info_total_palettes))
+
+
 class GreasePencilPaletteColorPanel:
     # subclass must set
     bl_label = "Grease Pencil Colors"

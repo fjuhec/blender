@@ -25,6 +25,7 @@ from bl_ui.properties_grease_pencil_common import (
         GreasePencilOnionPanel,
         GreasePencilParentLayerPanel,
         GreasePencilVertexGroupPanel,
+        GreasePencilInfoPanel,
         )
 
 
@@ -97,6 +98,14 @@ class DATA_PT_gpencilvertexpanel(GreasePencilVertexGroupPanel, Panel):
     bl_label = "Vertex Groups"
     bl_options = {'DEFAULT_CLOSED'}
 
+class DATA_PT_gpencil_infopanel(GreasePencilInfoPanel, Panel):
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = "data"
+    bl_label = "Information"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    # NOTE: this is just a wrapper around th
 class DATA_PT_gpencil_display(DataButtonsPanel, Panel):
     bl_label = "Display"
     bl_options = {'DEFAULT_CLOSED'}
@@ -136,6 +145,7 @@ classes = (
     DATA_PT_gpencilvertexpanel,
     DATA_PT_gpencilparentpanel,
     DATA_PT_gpencil_display,
+    DATA_PT_gpencil_infopanel,
 )
 
 if __name__ == "__main__":  # only for live edit.

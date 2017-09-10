@@ -73,6 +73,7 @@ static EnumPropertyItem rna_enum_gpencil_onion_modes_items[] = {
 #ifdef RNA_RUNTIME
 
 #include "BLI_math.h"
+#include "BLI_ghash.h"
 
 #include "WM_api.h"
 
@@ -614,6 +615,75 @@ static void rna_GPencil_clear(bGPdata *gpd)
 	BKE_gpencil_free_layers(&gpd->layers);
 
 	WM_main_add_notifier(NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
+}
+
+/* info functions */
+static int rna_GPencil_info_total_layers(PointerRNA *ptr)
+{
+	bGPdata *gpd = (bGPdata *)ptr->id.data;
+
+	return BLI_listbase_count(&gpd->layers);
+}
+
+static int rna_GPencil_info_total_frames(PointerRNA *ptr)
+{
+	bGPdata *gpd = (bGPdata *)ptr->id.data;
+	int tot = 0;
+	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+		tot += BLI_listbase_count(&gpl->frames);
+	}
+
+	return tot;
+}
+
+static int rna_GPencil_info_total_strokes(PointerRNA *ptr)
+{
+	bGPdata *gpd = (bGPdata *)ptr->id.data;
+	int tot = 0;
+	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+			tot += BLI_listbase_count(&gpf->strokes);
+		}
+	}
+
+	return tot;
+}
+
+static int rna_GPencil_info_total_points(PointerRNA *ptr)
+{
+	bGPdata *gpd = (bGPdata *)ptr->id.data;
+	int tot = 0;
+	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+				tot += gps->totpoints;
+			}
+		}
+	}
+
+	return tot;
+}
+
+static int rna_GPencil_info_total_palettes(PointerRNA *ptr)
+{
+	bGPdata *gpd = (bGPdata *)ptr->id.data;
+	GHash *data = BLI_ghash_str_new("GP count palettes");
+	int tot = 0;
+	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+				Palette *palette = (Palette *)BLI_ghash_lookup(data, gps->palette->id.name);
+				if (palette == NULL) {
+					tot += 1;
+					BLI_ghash_insert(data, gps->palette->id.name, gps->palette);
+				}
+			}
+		}
+	}
+	BLI_ghash_free(data, NULL, NULL);
+	data = NULL;
+
+	return tot;
 }
 
 #else
@@ -1292,6 +1362,32 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_DATA_STROKE_MULTIEDIT_LINES);
 	RNA_def_property_ui_text(prop, "Lines Only", "Show only edit lines for additional frames");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+	/* info properties */
+	prop = RNA_def_property(srna, "info_total_layers", PROP_INT, PROP_UNSIGNED);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_int_funcs(prop, "rna_GPencil_info_total_layers", NULL, NULL);
+	RNA_def_property_ui_text(prop, "Total Layers", "Number of Layers");
+
+	prop = RNA_def_property(srna, "info_total_frames", PROP_INT, PROP_UNSIGNED);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_int_funcs(prop, "rna_GPencil_info_total_frames", NULL, NULL);
+	RNA_def_property_ui_text(prop, "Total Frames", "Number of Frames");
+
+	prop = RNA_def_property(srna, "info_total_strokes", PROP_INT, PROP_UNSIGNED);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_int_funcs(prop, "rna_GPencil_info_total_strokes", NULL, NULL);
+	RNA_def_property_ui_text(prop, "Total Strokes", "Number of Strokes");
+
+	prop = RNA_def_property(srna, "info_total_points", PROP_INT, PROP_UNSIGNED);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_int_funcs(prop, "rna_GPencil_info_total_points", NULL, NULL);
+	RNA_def_property_ui_text(prop, "Total Points", "Number of Points");
+
+	prop = RNA_def_property(srna, "info_total_palettes", PROP_INT, PROP_UNSIGNED);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_int_funcs(prop, "rna_GPencil_info_total_palettes", NULL, NULL);
+	RNA_def_property_ui_text(prop, "Total Palettes", "Number of Palettes");
 
 	/* API Functions */
 	func = RNA_def_function(srna, "clear", "rna_GPencil_clear");
