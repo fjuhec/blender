@@ -44,10 +44,10 @@ struct GPENCIL_StorageList;
 #define GPENCIL_COLOR_PATTERN 2
 
 #define GP_SIMPLIFY(ts) ((ts->gpencil_simplify & GP_TOOL_FLAG_SIMPLIFY))
-#define GP_SIMPLIFY_ONPLAY(playing) ((playing == true) && (ts->gpencil_simplify & GP_TOOL_FLAG_SIMPLIFY_ON_PLAY)) || ((ts->gpencil_simplify & GP_TOOL_FLAG_SIMPLIFY_ON_PLAY) == 0)
-#define GP_SIMPLIFY_FILL(ts, playing) (GP_SIMPLIFY_ONPLAY(playing) && ((GP_SIMPLIFY(ts)) && (ts->gpencil_simplify & GP_TOOL_FLAG_SIMPLIFY_VIEW_FILL))) 
-#define GP_SIMPLIFY_MODIF(ts, playing) (GP_SIMPLIFY_ONPLAY(playing) && ((GP_SIMPLIFY(ts)) && (ts->gpencil_simplify & GP_TOOL_FLAG_SIMPLIFY_VIEW_MODIF))) 
-#define GP_SIMPLIFY_VFX(ts, playing) (GP_SIMPLIFY_ONPLAY(playing) && ((GP_SIMPLIFY(ts)) && (ts->gpencil_simplify & GP_TOOL_FLAG_SIMPLIFY_VIEW_VFX)))
+#define GP_SIMPLIFY_ONPLAY(playing) (((playing == true) && (ts->gpencil_simplify & GP_TOOL_FLAG_SIMPLIFY_ON_PLAY)) || ((ts->gpencil_simplify & GP_TOOL_FLAG_SIMPLIFY_ON_PLAY) == 0))
+#define GP_SIMPLIFY_FILL(ts, playing) ((GP_SIMPLIFY_ONPLAY(playing) && (GP_SIMPLIFY(ts)) && (ts->gpencil_simplify & GP_TOOL_FLAG_SIMPLIFY_VIEW_FILL))) 
+#define GP_SIMPLIFY_MODIF(ts, playing) ((GP_SIMPLIFY_ONPLAY(playing) && (GP_SIMPLIFY(ts)) && (ts->gpencil_simplify & GP_TOOL_FLAG_SIMPLIFY_VIEW_MODIF))) 
+#define GP_SIMPLIFY_VFX(ts, playing) ((GP_SIMPLIFY_ONPLAY(playing) && (GP_SIMPLIFY(ts)) && (ts->gpencil_simplify & GP_TOOL_FLAG_SIMPLIFY_VIEW_VFX)))
 
  /* *********** OBJECTS CACHE *********** */
 typedef struct GPencilVFXSwirl {
