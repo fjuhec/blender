@@ -56,14 +56,6 @@ typedef struct SplitParams {
 
 /* SPLIT_DATA_ENTRY(type, name, num) */
 
-#if defined(WITH_CYCLES_DEBUG) || defined(__KERNEL_DEBUG__)
-/* DebugData memory */
-#  define SPLIT_DATA_DEBUG_ENTRIES \
-	SPLIT_DATA_ENTRY(DebugData, debug_data, 1)
-#else
-#  define SPLIT_DATA_DEBUG_ENTRIES
-#endif  /* DEBUG */
-
 #ifdef __BRANCHED_PATH__
 
 typedef ccl_global struct SplitBranchedState {
@@ -95,6 +87,10 @@ typedef ccl_global struct SplitBranchedState {
 	VolumeStack volume_stack[VOLUME_STACK_SIZE];
 #  endif  /* __VOLUME__ */
 #endif  /*__SUBSURFACE__ */
+
+	int shared_sample_count; /* number of branched samples shared with other threads */
+	int original_ray; /* index of original ray when sharing branched samples */
+	bool waiting_on_shared_samples;
 } SplitBranchedState;
 
 #define SPLIT_DATA_BRANCHED_ENTRIES \
@@ -118,9 +114,7 @@ typedef ccl_global struct SplitBranchedState {
 #endif /* __VOLUME__ */
 
 #define SPLIT_DATA_ENTRIES \
-	SPLIT_DATA_ENTRY(ccl_global RNG, rng, 1) \
 	SPLIT_DATA_ENTRY(ccl_global float3, throughput, 1) \
-	SPLIT_DATA_ENTRY(ccl_global float, L_transparent, 1) \
 	SPLIT_DATA_ENTRY(PathRadiance, path_radiance, 1) \
 	SPLIT_DATA_ENTRY(ccl_global Ray, ray, 1) \
 	SPLIT_DATA_ENTRY(ccl_global PathState, path_state, 1) \
@@ -135,7 +129,22 @@ typedef ccl_global struct SplitBranchedState {
 	SPLIT_DATA_SUBSURFACE_ENTRIES \
 	SPLIT_DATA_VOLUME_ENTRIES \
 	SPLIT_DATA_BRANCHED_ENTRIES \
-	SPLIT_DATA_DEBUG_ENTRIES \
+
+/* entries to be copied to inactive rays when sharing branched samples (TODO: which are actually needed?) */
+#define SPLIT_DATA_ENTRIES_BRANCHED_SHARED \
+	SPLIT_DATA_ENTRY(ccl_global float3, throughput, 1) \
+	SPLIT_DATA_ENTRY(PathRadiance, path_radiance, 1) \
+	SPLIT_DATA_ENTRY(ccl_global Ray, ray, 1) \
+	SPLIT_DATA_ENTRY(ccl_global PathState, path_state, 1) \
+	SPLIT_DATA_ENTRY(ccl_global Intersection, isect, 1) \
+	SPLIT_DATA_ENTRY(ccl_global BsdfEval, bsdf_eval, 1) \
+	SPLIT_DATA_ENTRY(ccl_global int, is_lamp, 1) \
+	SPLIT_DATA_ENTRY(ccl_global Ray, light_ray, 1) \
+	SPLIT_DATA_ENTRY(ShaderData, sd, 1) \
+	SPLIT_DATA_ENTRY(ShaderData, sd_DL_shadow, 1) \
+	SPLIT_DATA_SUBSURFACE_ENTRIES \
+	SPLIT_DATA_VOLUME_ENTRIES \
+	SPLIT_DATA_BRANCHED_ENTRIES \
 
 /* struct that holds pointers to data in the shared state buffer */
 typedef struct SplitData {

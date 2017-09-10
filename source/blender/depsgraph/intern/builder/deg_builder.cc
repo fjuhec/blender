@@ -36,10 +36,7 @@
 
 #include "BLI_utildefines.h"
 #include "BLI_ghash.h"
-
-extern "C" {
 #include "BLI_stack.h"
-}
 
 #include "intern/depsgraph.h"
 #include "intern/depsgraph_types.h"
@@ -72,14 +69,14 @@ static bool check_object_needs_evaluation(Object *object)
 
 void deg_graph_build_flush_layers(Depsgraph *graph)
 {
-	BLI_Stack *stack = BLI_stack_new(sizeof(OperationDepsNode*),
+	BLI_Stack *stack = BLI_stack_new(sizeof(OperationDepsNode *),
 	                                 "DEG flush layers stack");
 	foreach (OperationDepsNode *node, graph->operations) {
 		IDDepsNode *id_node = node->owner->owner;
 		node->done = 0;
 		node->num_links_pending = 0;
 		foreach (DepsRelation *rel, node->outlinks) {
-			if ((rel->from->type == DEPSNODE_TYPE_OPERATION) &&
+			if ((rel->from->type == DEG_NODE_TYPE_OPERATION) &&
 			    (rel->flag & DEPSREL_FLAG_CYCLIC) == 0)
 			{
 				++node->num_links_pending;
@@ -97,14 +94,14 @@ void deg_graph_build_flush_layers(Depsgraph *graph)
 		BLI_stack_pop(stack, &node);
 		/* Flush layers to parents. */
 		foreach (DepsRelation *rel, node->inlinks) {
-			if (rel->from->type == DEPSNODE_TYPE_OPERATION) {
+			if (rel->from->type == DEG_NODE_TYPE_OPERATION) {
 				OperationDepsNode *from = (OperationDepsNode *)rel->from;
 				from->owner->layers |= node->owner->layers;
 			}
 		}
 		/* Schedule parent nodes. */
 		foreach (DepsRelation *rel, node->inlinks) {
-			if (rel->from->type == DEPSNODE_TYPE_OPERATION) {
+			if (rel->from->type == DEG_NODE_TYPE_OPERATION) {
 				OperationDepsNode *from = (OperationDepsNode *)rel->from;
 				if ((rel->flag & DEPSREL_FLAG_CYCLIC) == 0) {
 					BLI_assert(from->num_links_pending > 0);

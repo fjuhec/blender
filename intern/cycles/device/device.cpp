@@ -68,6 +68,8 @@ std::ostream& operator <<(std::ostream &os,
 	   << string_from_bool(requested_features.use_transparent) << std::endl;
 	os << "Use Principled BSDF: "
 	   << string_from_bool(requested_features.use_principled) << std::endl;
+	os << "Use Denoising: "
+	   << string_from_bool(requested_features.use_denoising) << std::endl;
 	return os;
 }
 
@@ -377,11 +379,9 @@ DeviceInfo Device::get_multi_device(vector<DeviceInfo> subdevices)
 	info.num = 0;
 
 	info.has_bindless_textures = true;
-	info.pack_images = false;
 	foreach(DeviceInfo &device, subdevices) {
 		assert(device.type == info.multi_devices[0].type);
 
-		info.pack_images |= device.pack_images;
 		info.has_bindless_textures &= device.has_bindless_textures;
 	}
 

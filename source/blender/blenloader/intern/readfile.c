@@ -638,7 +638,7 @@ static Main *blo_find_main(FileData *fd, const char *filepath, const char *relab
 	
 	/* Add library datablock itself to 'main' Main, since libraries are **never** linked data.
 	 * Fixes bug where you could end with all ID_LI datablocks having the same name... */
-	lib = BKE_libblock_alloc(mainlist->first, ID_LI, "Lib");
+	lib = BKE_libblock_alloc(mainlist->first, ID_LI, "Lib", 0);
 	lib->id.us = ID_FAKE_USERS(lib);  /* Important, consistency with main ID reading code from read_libblock(). */
 	BLI_strncpy(lib->name, filepath, sizeof(lib->name));
 	BLI_strncpy(lib->filepath, name1, sizeof(lib->filepath));
@@ -9912,6 +9912,8 @@ void BLO_expand_main(void *fdhandle, Main *mainvar)
 					case ID_CF:
 						expand_cachefile(fd, mainvar, (CacheFile *)id);
 						break;
+					default:
+						break;
 					}
 					
 					do_it = true;
@@ -10159,7 +10161,7 @@ void BLO_library_link_copypaste(Main *mainl, BlendHandle *bh)
 
 static ID *link_named_part_ex(
         Main *mainl, FileData *fd, const short idcode, const char *name, const short flag,
-		Scene *scene, View3D *v3d, const bool use_placeholders, const bool force_indirect)
+        Scene *scene, View3D *v3d, const bool use_placeholders, const bool force_indirect)
 {
 	ID *id = link_named_part(mainl, fd, idcode, name, use_placeholders, force_indirect);
 

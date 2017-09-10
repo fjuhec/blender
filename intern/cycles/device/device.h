@@ -53,7 +53,6 @@ public:
 	int num;
 	bool display_device;
 	bool advanced_shading;
-	bool pack_images;
 	bool has_bindless_textures; /* flag for GPU and Multi device */
 	bool use_split_kernel; /* Denotes if the device is going to run cycles using split-kernel */
 	vector<DeviceInfo> multi_devices;
@@ -65,7 +64,6 @@ public:
 		num = 0;
 		display_device = false;
 		advanced_shading = true;
-		pack_images = false;
 		has_bindless_textures = false;
 		use_split_kernel = false;
 	}
@@ -127,6 +125,9 @@ public:
 	/* Per-uber shader usage flags. */
 	bool use_principled;
 
+	/* Denoising features. */
+	bool use_denoising;
+
 	DeviceRequestedFeatures()
 	{
 		/* TODO(sergey): Find more meaningful defaults. */
@@ -145,6 +146,7 @@ public:
 		use_transparent = false;
 		use_shadow_tricks = false;
 		use_principled = false;
+		use_denoising = false;
 	}
 
 	bool modified(const DeviceRequestedFeatures& requested_features)
@@ -163,7 +165,8 @@ public:
 		         use_patch_evaluation == requested_features.use_patch_evaluation &&
 		         use_transparent == requested_features.use_transparent &&
 		         use_shadow_tricks == requested_features.use_shadow_tricks &&
-		         use_principled == requested_features.use_principled);
+		         use_principled == requested_features.use_principled &&
+		         use_denoising == requested_features.use_denoising);
 	}
 
 	/* Convert the requested features structure to a build options,
@@ -212,6 +215,9 @@ public:
 		}
 		if(!use_principled) {
 			build_options += " -D__NO_PRINCIPLED__";
+		}
+		if(!use_denoising) {
+			build_options += " -D__NO_DENOISING__";
 		}
 		return build_options;
 	}

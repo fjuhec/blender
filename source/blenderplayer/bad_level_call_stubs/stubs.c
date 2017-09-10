@@ -355,7 +355,7 @@ int WM_enum_search_invoke(struct bContext *C, struct wmOperator *op, const struc
 void WM_event_add_notifier(const struct bContext *C, unsigned int type, void *reference) RET_NONE
 void WM_main_add_notifier(unsigned int type, void *reference) RET_NONE
 void ED_armature_bone_rename(struct bArmature *arm, const char *oldnamep, const char *newnamep) RET_NONE
-void ED_armature_transform(struct bArmature *arm, float mat[4][4]) RET_NONE
+void ED_armature_transform(struct bArmature *arm, float mat[4][4], const bool do_props) RET_NONE
 struct wmEventHandler *WM_event_add_modal_handler(struct bContext *C, struct wmOperator *op) RET_NULL
 struct wmTimer *WM_event_add_timer(struct wmWindowManager *wm, struct wmWindow *win, int event_type, double timestep) RET_NULL
 void WM_event_remove_timer(struct wmWindowManager *wm, struct wmWindow *win, struct wmTimer *timer) RET_NONE
@@ -553,7 +553,6 @@ SnapObjectContext *ED_transform_snap_object_context_create_view3d(
 void ED_transform_snap_object_context_destroy(SnapObjectContext *sctx) RET_NONE
 bool ED_transform_snap_object_project_ray_ex(
         struct SnapObjectContext *sctx,
-        const unsigned short snap_to,
         const struct SnapObjectParams *params,
         const float ray_start[3], const float ray_normal[3], float *ray_depth,
         /* return args */
@@ -700,6 +699,7 @@ void WM_operatortype_append_ptr(void (*opfunc)(struct wmOperatorType *, void *),
 void WM_operatortype_append_macro_ptr(void (*opfunc)(struct wmOperatorType *, void *), void *userdata) RET_NONE
 void WM_operator_bl_idname(char *to, const char *from) RET_NONE
 void WM_operator_py_idname(char *to, const char *from) RET_NONE
+bool WM_operator_py_idname_ok_or_report(struct ReportList *reports, const char *classname, const char *idname) RET_ZERO
 int WM_operator_ui_popup(struct bContext *C, struct wmOperator *op, int width, int height) RET_ZERO
 void update_autoflags_fcurve(struct FCurve *fcu, struct bContext *C, struct ReportList *reports, struct PointerRNA *ptr) RET_NONE
 short insert_keyframe(struct ReportList *reports, struct ID *id, struct bAction *act, const char group[], const char rna_path[], int array_index, float cfra, char keytype, short flag) RET_ZERO
@@ -721,7 +721,9 @@ struct uiLayout *uiLayoutRadial(struct uiLayout *layout) RET_NULL
 int UI_pie_menu_invoke_from_operator_enum(struct bContext *C, const char *title, const char *opname,
                              const char *propname, const struct wmEvent *event) RET_ZERO
 
-/* RNA COLLADA dependency */
+/* RNA COLLADA dependency                                       */
+/* XXX (gaia) Why do we need this declaration here?             */
+/*     The collada header is included anyways further up...     */
 int collada_export(struct Scene *sce,
                    const char *filepath,
                    int apply_modifiers,
@@ -734,8 +736,7 @@ int collada_export(struct Scene *sce,
                    int deform_bones_only,
 
                    int active_uv_only,
-                   int include_uv_textures,
-                   int include_material_textures,
+                   BC_export_texture_type export_texture_type,
                    int use_texture_copies,
 
                    int triangulate,
@@ -750,7 +751,10 @@ int collada_export(struct Scene *sce,
 void ED_mesh_calc_tessface(struct Mesh *mesh, bool free_mpoly) RET_NONE
 
 /* bpy/python internal api */
-void operator_wrapper(struct wmOperatorType *ot, void *userdata) RET_NONE
+extern void BPY_RNA_operator_wrapper(struct wmOperatorType *ot, void *userdata);
+extern void BPY_RNA_operator_macro_wrapper(struct wmOperatorType *ot, void *userdata);
+void BPY_RNA_operator_wrapper(struct wmOperatorType *ot, void *userdata) RET_NONE
+void BPY_RNA_operator_macro_wrapper(struct wmOperatorType *ot, void *userdata) RET_NONE
 void BPY_text_free_code(struct Text *text) RET_NONE
 void BPY_id_release(struct ID *id) RET_NONE
 int BPY_context_member_get(struct bContext *C, const char *member, struct bContextDataResult *result) RET_ZERO
@@ -758,7 +762,6 @@ void BPY_pyconstraint_target(struct bPythonConstraint *con, struct bConstraintTa
 float BPY_driver_exec(PathResolvedRNA *anim_rna, struct ChannelDriver *driver, const float evaltime) RET_ZERO /* might need this one! */
 void BPY_DECREF(void *pyob_ptr) RET_NONE
 void BPY_pyconstraint_exec(struct bPythonConstraint *con, struct bConstraintOb *cob, struct ListBase *targets) RET_NONE
-void macro_wrapper(struct wmOperatorType *ot, void *userdata) RET_NONE
 bool pyrna_id_FromPyObject(struct PyObject *obj, struct ID **id) RET_ZERO
 struct PyObject *pyrna_id_CreatePyObject(struct ID *id) RET_NULL
 bool pyrna_id_CheckPyObject(struct PyObject *obj) RET_ZERO

@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#include "kernel/kernel_compat_opencl.h"  // PRECOMPILED
+#include "kernel/split/kernel_split_common.h"  // PRECOMPILED
+
 #include "kernel/kernels/opencl/kernel_state_buffer_size.cl"
 #include "kernel/kernels/opencl/kernel_data_init.cl"
 #include "kernel/kernels/opencl/kernel_path_init.cl"
@@ -31,6 +34,7 @@
 #include "kernel/kernels/opencl/kernel_direct_lighting.cl"
 #include "kernel/kernels/opencl/kernel_shadow_blocked_ao.cl"
 #include "kernel/kernels/opencl/kernel_shadow_blocked_dl.cl"
+#include "kernel/kernels/opencl/kernel_enqueue_inactive.cl"
 #include "kernel/kernels/opencl/kernel_next_iteration_setup.cl"
 #include "kernel/kernels/opencl/kernel_indirect_subsurface.cl"
 #include "kernel/kernels/opencl/kernel_buffer_update.cl"

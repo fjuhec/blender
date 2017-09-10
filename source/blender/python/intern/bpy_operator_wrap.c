@@ -48,10 +48,12 @@ static void operator_properties_init(wmOperatorType *ot)
 	PyTypeObject *py_class = ot->ext.data;
 	RNA_struct_blender_type_set(ot->ext.srna, ot);
 
-	/* only call this so pyrna_deferred_register_class gives a useful error
-	 * WM_operatortype_append_ptr will call RNA_def_struct_identifier
-	 * later */
-	RNA_def_struct_identifier(ot->srna, ot->idname);
+	/* Only call this so pyrna_deferred_register_class gives a useful error
+	 * WM_operatortype_append_ptr will call RNA_def_struct_identifier later.
+	 *
+	 * Note the 'no_struct_map' function is used since the actual struct name is already used by the operator.
+	 */
+	RNA_def_struct_identifier_no_struct_map(ot->srna, ot->idname);
 
 	if (pyrna_deferred_register_class(ot->srna, py_class) != 0) {
 		PyErr_Print(); /* failed to register operator props */
@@ -118,7 +120,7 @@ static void operator_properties_init(wmOperatorType *ot)
 
 }
 
-void operator_wrapper(wmOperatorType *ot, void *userdata)
+void BPY_RNA_operator_wrapper(wmOperatorType *ot, void *userdata)
 {
 	/* take care not to overwrite anything set in
 	 * WM_operatortype_append_ptr before opfunc() is called */
@@ -134,7 +136,7 @@ void operator_wrapper(wmOperatorType *ot, void *userdata)
 	operator_properties_init(ot);
 }
 
-void macro_wrapper(wmOperatorType *ot, void *userdata)
+void BPY_RNA_operator_macro_wrapper(wmOperatorType *ot, void *userdata)
 {
 	wmOperatorType *data = (wmOperatorType *)userdata;
 

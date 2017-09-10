@@ -25,7 +25,12 @@
 
 #include "clew.h"
 
+#include "device/opencl/memory_manager.h"
+
 CCL_NAMESPACE_BEGIN
+
+/* Disable workarounds, seems to be working fine on latest drivers. */
+#define CYCLES_DISABLE_DRIVER_WORKAROUNDS
 
 /* Define CYCLES_DISABLE_DRIVER_WORKAROUNDS to disable workaounds for testing */
 #ifndef CYCLES_DISABLE_DRIVER_WORKAROUNDS
@@ -84,7 +89,7 @@ public:
 	                                   string *error = NULL);
 	static bool device_version_check(cl_device_id device,
 	                                 string *error = NULL);
-	static string get_hardware_id(string platform_name,
+	static string get_hardware_id(const string& platform_name,
 	                              cl_device_id device_id);
 	static void get_usable_devices(vector<OpenCLPlatformDevice> *usable_devices,
 	                               bool force_all = false);
@@ -129,6 +134,11 @@ public:
 	                            cl_device_type *device_type,
 	                            cl_int* error = NULL);
 	static cl_device_type get_device_type(cl_device_id device_id);
+
+	static bool get_driver_version(cl_device_id device_id,
+	                               int *major,
+	                               int *minor,
+	                               cl_int* error = NULL);
 
 	static int mem_address_alignment(cl_device_id device_id);
 
@@ -216,6 +226,18 @@ public:
 	static string get_kernel_md5();
 };
 
+#define opencl_device_assert(device, stmt) \
+	{ \
+		cl_int err = stmt; \
+		\
+		if(err != CL_SUCCESS) { \
+			string message = string_printf("OpenCL error: %s in %s (%s:%d)", clewErrorString(err), #stmt, __FILE__, __LINE__); \
+			if((device)->error_message() == "") \
+				(device)->set_error(message); \
+			fprintf(stderr, "%s\n", message.c_str()); \
+		} \
+	} (void)0
+
 #define opencl_assert(stmt) \
 	{ \
 		cl_int err = stmt; \
@@ -242,17 +264,17 @@ public:
 	public:
 		OpenCLProgram() : loaded(false), device(NULL) {}
 		OpenCLProgram(OpenCLDeviceBase *device,
-		              string program_name,
-		              string kernel_name,
-		              string kernel_build_options,
+		              const string& program_name,
+		              const string& kernel_name,
+		              const string& kernel_build_options,
 		              bool use_stdout = true);
 		~OpenCLProgram();
 
 		void add_kernel(ustring name);
 		void load();
 
-		bool is_loaded()    { return loaded; }
-		string get_log()    { return log; }
+		bool is_loaded() const { return loaded; }
+		const string& get_log() const { return log; }
 		void report_error();
 
 		cl_kernel operator()();
@@ -266,8 +288,8 @@ public:
 		bool load_binary(const string& clbin, const string *debug_src = NULL);
 		bool save_binary(const string& clbin);
 
-		void add_log(string msg, bool is_debug);
-		void add_error(string msg);
+		void add_log(const string& msg, bool is_debug);
+		void add_error(const string& msg);
 
 		bool loaded;
 		cl_program program;
@@ -336,6 +358,7 @@ public:
 	size_t global_size_round_up(int group_size, int global_size);
 	void enqueue_kernel(cl_kernel kernel, size_t w, size_t h, size_t max_workgroup_size = -1);
 	void set_kernel_arg_mem(cl_kernel kernel, cl_uint *narg, const char *name);
+	void set_kernel_arg_buffers(cl_kernel kernel, cl_uint *narg);
 
 	void film_convert(DeviceTask& task, device_ptr buffer, device_ptr rgba_byte, device_ptr rgba_half);
 	void shader(DeviceTask& task);
@@ -390,8 +413,6 @@ protected:
 	bool denoising_construct_transform(DenoisingTask *task);
 	bool denoising_reconstruct(device_ptr color_ptr,
 	                           device_ptr color_variance_ptr,
-	                           device_ptr guide_ptr,
-	                           device_ptr guide_variance_ptr,
 	                           device_ptr output_ptr,
 	                           DenoisingTask *task);
 	bool denoising_combine_halves(device_ptr a_ptr,
@@ -519,6 +540,42 @@ protected:
 
 	virtual string build_options_for_base_program(
 	        const DeviceRequestedFeatures& /*requested_features*/);
+
+private:
+	MemoryManager memory_manager;
+	friend class MemoryManager;
+
+	struct tex_info_t {
+		uint buffer, padding;
+		cl_ulong offset;
+		uint width, height, depth, options;
+	};
+	static_assert_align(tex_info_t, 16);
+
+	vector<tex_info_t> texture_descriptors;
+	device_memory texture_descriptors_buffer;
+
+	struct Texture {
+		Texture() {}
+		Texture(device_memory* mem,
+		         InterpolationType interpolation,
+		         ExtensionType extension)
+		    : mem(mem),
+			  interpolation(interpolation),
+			  extension(extension) {
+		}
+		device_memory* mem;
+		InterpolationType interpolation;
+		ExtensionType extension;
+	};
+
+	typedef map<string, Texture> TexturesMap;
+	TexturesMap textures;
+
+	bool textures_need_update;
+
+protected:
+	void flush_texture_buffers();
 };
 
 Device *opencl_create_mega_device(DeviceInfo& info, Stats& stats, bool background);

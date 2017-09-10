@@ -64,9 +64,9 @@ enum {
 	MEMHEAD_ALIGN_FLAG = 2,
 };
 
-#define MEMHEAD_FROM_PTR(ptr) (((MemHead*) vmemh) - 1)
+#define MEMHEAD_FROM_PTR(ptr) (((MemHead*) ptr) - 1)
 #define PTR_FROM_MEMHEAD(memhead) (memhead + 1)
-#define MEMHEAD_ALIGNED_FROM_PTR(ptr) (((MemHeadAligned*) vmemh) - 1)
+#define MEMHEAD_ALIGNED_FROM_PTR(ptr) (((MemHeadAligned*) ptr) - 1)
 #define MEMHEAD_IS_MMAP(memhead) ((memhead)->len & (size_t) MEMHEAD_MMAP_FLAG)
 #define MEMHEAD_IS_ALIGNED(memhead) ((memhead)->len & (size_t) MEMHEAD_ALIGN_FLAG)
 
@@ -76,12 +76,7 @@ enum {
 MEM_INLINE void update_maximum(size_t *maximum_value, size_t value)
 {
 #ifdef USE_ATOMIC_MAX
-	size_t prev_value = *maximum_value;
-	while (prev_value < value) {
-		if (atomic_cas_z(maximum_value, prev_value, value) != prev_value) {
-			break;
-		}
-	}
+	atomic_fetch_and_update_max_z(maximum_value, value);
 #else
 	*maximum_value = value > *maximum_value ? value : *maximum_value;
 #endif

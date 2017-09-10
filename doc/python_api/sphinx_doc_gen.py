@@ -341,6 +341,8 @@ EXTRA_SOURCE_FILES = (
     "../examples/bge.texture.py",
     "../examples/bmesh.ops.1.py",
     "../examples/bpy.app.translations.py",
+    "../static/favicon.ico",
+    "../static/blender_logo.svg",
 )
 
 
@@ -362,8 +364,6 @@ INFO_DOCS = (
      "Blender/Python Quickstart: new to Blender/scripting and want to get your feet wet?"),
     ("info_overview.rst",
      "Blender/Python API Overview: a more complete explanation of Python integration"),
-    ("info_tutorial_addon.rst",
-     "Blender/Python Add-on Tutorial: a step by step guide on how to write an add-on from scratch"),
     ("info_api_reference.rst",
      "Blender/Python API Reference Usage: examples of how to use the API reference docs"),
     ("info_best_practice.rst",
@@ -1010,9 +1010,9 @@ def pymodule2sphinx(basepath, module_name, module, title):
 context_type_map = {
     "active_base": ("ObjectBase", False),
     "active_bone": ("EditBone", False),
+    "active_gpencil_brush": ("GPencilSculptBrush", False),
     "active_gpencil_frame": ("GreasePencilLayer", True),
     "active_gpencil_layer": ("GPencilLayer", True),
-    "active_gpencil_brush": ("GPencilSculptBrush", False),
     "active_gpencil_palette": ("GPencilPalette", True),
     "active_gpencil_palettecolor": ("GPencilPaletteColor", True),
     "active_node": ("Node", False),
@@ -1063,6 +1063,7 @@ context_type_map = {
     "selected_bones": ("EditBone", True),
     "selected_editable_bases": ("ObjectBase", True),
     "selected_editable_bones": ("EditBone", True),
+    "selected_editable_fcurves": ("FCurce", True),
     "selected_editable_objects": ("Object", True),
     "selected_editable_sequences": ("Sequence", True),
     "selected_nodes": ("Node", True),
@@ -1613,10 +1614,8 @@ def pyrna2sphinx(basepath):
                     else:
                         url_base = API_BASEURL
 
-                    fw("   :file: `%s <%s/%s>`_:%d\n\n" % (location[0],
-                                                           url_base,
-                                                           location[0],
-                                                           location[1]))
+                    fw("   :file: `%s\\:%d <%s/%s$%d>`_\n\n" %
+                       (location[0], location[1], url_base, location[0], location[1]))
 
             file.close()
 
@@ -1641,19 +1640,24 @@ def write_sphinx_conf_py(basepath):
     fw("version = '%s - API'\n" % BLENDER_VERSION_DOTS)
     fw("release = '%s - API'\n" % BLENDER_VERSION_DOTS)
 
+    # Quiet file not in table-of-contents warnings.
+    fw("exclude_patterns = [\n")
+    fw("    'include__bmesh.rst',\n")
+    fw("]\n\n")
+
     if ARGS.sphinx_theme != 'default':
         fw("html_theme = '%s'\n" % ARGS.sphinx_theme)
 
     if ARGS.sphinx_theme == "blender-org":
         fw("html_theme_path = ['../']\n")
-        # copied with the theme, exclude else we get an error [T28873]
-        fw("html_favicon = 'favicon.ico'\n")    # in <theme>/static/
 
     # not helpful since the source is generated, adds to upload size.
     fw("html_copy_source = False\n")
     fw("html_show_sphinx = False\n")
     fw("html_split_index = True\n")
-    fw("\n")
+    fw("html_extra_path = ['__/static/favicon.ico', '__/static/blender_logo.svg']\n")
+    fw("html_favicon = '__/static/favicon.ico'\n")
+    fw("html_logo = '__/static/blender_logo.svg'\n\n")
 
     # needed for latex, pdf gen
     fw("latex_elements = {\n")
@@ -1661,6 +1665,24 @@ def write_sphinx_conf_py(basepath):
     fw("}\n\n")
 
     fw("latex_documents = [ ('contents', 'contents.tex', 'Blender Index', 'Blender Foundation', 'manual'), ]\n")
+
+    # Workaround for useless links leading to compile errors
+    # See https://github.com/sphinx-doc/sphinx/issues/3866
+    fw(r"""
+from sphinx.domains.python import PythonDomain
+
+class PatchedPythonDomain(PythonDomain):
+    def resolve_xref(self, env, fromdocname, builder, typ, target, node, contnode):
+        if 'refspecific' in node:
+            del node['refspecific']
+        return super(PatchedPythonDomain, self).resolve_xref(
+            env, fromdocname, builder, typ, target, node, contnode)
+
+def setup(sphinx):
+    sphinx.override_domain(PatchedPythonDomain)
+""")
+    # end workaround
+
     file.close()
 
 
@@ -1715,8 +1737,6 @@ def write_rst_contents(basepath):
         "bpy.utils.previews",
         "bpy.path",
         "bpy.app",
-        "bpy.app.handlers",
-        "bpy.app.translations",
 
         # C modules
         "bpy.props",
@@ -1731,19 +1751,9 @@ def write_rst_contents(basepath):
     fw("   :maxdepth: 1\n\n")
 
     standalone_modules = (
-        # mathutils
-        "mathutils",
-        "mathutils.geometry",
-        "mathutils.bvhtree", "mathutils.kdtree",
-        "mathutils.interpolate",
-        "mathutils.noise",
-        # misc
-        "freestyle", "bgl", "blf",
-        "gpu", "gpu.offscreen",
-        "aud", "bpy_extras",
-        "idprop.types",
-        # bmesh, submodules are in own page
-        "bmesh",
+        # submodules are added in parent page
+        "mathutils", "freestyle", "bgl", "blf", "gpu",
+        "aud", "bpy_extras", "idprop.types", "bmesh",
     )
 
     for mod in standalone_modules:

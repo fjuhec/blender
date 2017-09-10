@@ -29,6 +29,14 @@ ccl_device void kernel_shadow_blocked_dl(KernelGlobals *kg)
 		                          kernel_split_state.queue_data, kernel_split_params.queue_size, 1);
 	}
 
+#ifdef __BRANCHED_PATH__
+	/* TODO(mai): move this somewhere else? */
+	if(thread_index == 0) {
+		/* Clear QUEUE_INACTIVE_RAYS before next kernel. */
+		kernel_split_params.queue_index[QUEUE_INACTIVE_RAYS] = 0;
+	}
+#endif  /* __BRANCHED_PATH__ */
+
 	if(ray_index == QUEUE_EMPTY_SLOT)
 		return;
 
@@ -37,7 +45,6 @@ ccl_device void kernel_shadow_blocked_dl(KernelGlobals *kg)
 	PathRadiance *L = &kernel_split_state.path_radiance[ray_index];
 	ShaderData *sd = &kernel_split_state.sd[ray_index];
 	float3 throughput = kernel_split_state.throughput[ray_index];
-	RNG rng = kernel_split_state.rng[ray_index];
 
 	BsdfEval L_light = kernel_split_state.bsdf_eval[ray_index];
 	ShaderData *emission_sd = &kernel_split_state.sd_DL_shadow[ray_index];
@@ -67,7 +74,6 @@ ccl_device void kernel_shadow_blocked_dl(KernelGlobals *kg)
 
 	if(use_branched) {
 		kernel_branched_path_surface_connect_light(kg,
-		                                           &rng,
 		                                           sd,
 		                                           emission_sd,
 		                                           state,
@@ -83,10 +89,11 @@ ccl_device void kernel_shadow_blocked_dl(KernelGlobals *kg)
 		float3 shadow;
 
 		if(!shadow_blocked(kg,
-			               emission_sd,
-			               state,
-			               &ray,
-			               &shadow))
+		                   sd,
+		                   emission_sd,
+		                   state,
+		                   &ray,
+		                   &shadow))
 		{
 			/* accumulate */
 			path_radiance_accum_light(L, state, throughput, &L_light, shadow, 1.0f, is_lamp);
@@ -95,8 +102,6 @@ ccl_device void kernel_shadow_blocked_dl(KernelGlobals *kg)
 			path_radiance_accum_total_light(L, state, throughput, &L_light);
 		}
 	}
-
-	kernel_split_state.rng[ray_index] = rng;
 }
 
 CCL_NAMESPACE_END

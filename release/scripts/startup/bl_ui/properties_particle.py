@@ -284,7 +284,7 @@ class PARTICLE_PT_emission(ParticleButtonsPanel, Panel):
             col.prop(part, "lifetime_random", slider=True)
 
         layout.label(text="Emit From:")
-        layout.prop(part, "emit_from", expand=True)
+        layout.row().prop(part, "emit_from", expand=True)
 
         row = layout.row()
         if part.emit_from == 'VERT':
@@ -297,7 +297,7 @@ class PARTICLE_PT_emission(ParticleButtonsPanel, Panel):
             row.prop(part, "use_even_distribution")
 
         if part.emit_from == 'FACE' or part.emit_from == 'VOLUME':
-            layout.prop(part, "distribution", expand=True)
+            layout.row().prop(part, "distribution", expand=True)
 
             row = layout.row()
             if part.distribution == 'JIT':
@@ -578,7 +578,7 @@ class PARTICLE_PT_physics(ParticleButtonsPanel, Panel):
 
         layout.enabled = particle_panel_enabled(context, psys)
 
-        layout.prop(part, "physics_type", expand=True)
+        layout.row().prop(part, "physics_type", expand=True)
 
         row = layout.row()
         col = row.column(align=True)
@@ -628,7 +628,7 @@ class PARTICLE_PT_physics(ParticleButtonsPanel, Panel):
                 split = layout.split()
 
                 col = split.column()
-                col.label(text="Fluid properties:")
+                col.label(text="Fluid Properties:")
                 col.prop(fluid, "stiffness", text="Stiffness")
                 col.prop(fluid, "linear_viscosity", text="Viscosity")
                 col.prop(fluid, "buoyancy", text="Buoyancy", slider=True)
@@ -749,7 +749,7 @@ class PARTICLE_PT_physics(ParticleButtonsPanel, Panel):
             if part.physics_type == 'BOIDS':
                 layout.label(text="Relations:")
             elif part.physics_type == 'FLUID':
-                layout.label(text="Fluid interaction:")
+                layout.label(text="Fluid Interaction:")
 
             row = layout.row()
             row.template_list("UI_UL_list", "particle_targets", psys, "targets",
@@ -785,7 +785,7 @@ class PARTICLE_PT_physics(ParticleButtonsPanel, Panel):
                     sub.prop(key, "object", text="")
                     sub.prop(key, "system", text="System")
 
-                    layout.prop(key, "alliance", expand=True)
+                    layout.row().prop(key, "alliance", expand=True)
                 elif part.physics_type == 'FLUID':
                     sub = row.row()
                     # doesn't work yet
@@ -933,7 +933,7 @@ class PARTICLE_PT_render(ParticleButtonsPanel, Panel):
         col.prop(part, "show_unborn")
         col.prop(part, "use_dead")
 
-        layout.prop(part, "render_type", expand=True)
+        layout.row().prop(part, "render_type", expand=True)
 
         split = layout.split()
 
@@ -1081,7 +1081,7 @@ class PARTICLE_PT_render(ParticleButtonsPanel, Panel):
             col = row.column()
             col.prop(part, "trail_count")
             if part.trail_count > 1:
-                col.prop(part, "use_absolute_path_time", text="Length in frames")
+                col.prop(part, "use_absolute_path_time", text="Length in Frames")
                 col = row.column()
                 col.prop(part, "path_end", text="Length", slider=not part.use_absolute_path_time)
                 col.prop(part, "length_random", text="Random", slider=True)

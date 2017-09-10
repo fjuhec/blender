@@ -39,6 +39,7 @@
 #include "kernel/split/kernel_direct_lighting.h"
 #include "kernel/split/kernel_shadow_blocked_ao.h"
 #include "kernel/split/kernel_shadow_blocked_dl.h"
+#include "kernel/split/kernel_enqueue_inactive.h"
 #include "kernel/split/kernel_next_iteration_setup.h"
 #include "kernel/split/kernel_indirect_subsurface.h"
 #include "kernel/split/kernel_buffer_update.h"
@@ -89,7 +90,7 @@ kernel_cuda_path_trace_data_init(
 
 #define DEFINE_SPLIT_KERNEL_FUNCTION(name) \
 	extern "C" __global__ void \
-	CUDA_LAUNCH_BOUNDS(CUDA_THREADS_BLOCK_WIDTH, CUDA_KERNEL_MAX_REGISTERS) \
+	CUDA_LAUNCH_BOUNDS(CUDA_THREADS_BLOCK_WIDTH, CUDA_KERNEL_SPLIT_MAX_REGISTERS) \
 	kernel_cuda_##name() \
 	{ \
 		kernel_##name(NULL); \
@@ -97,7 +98,7 @@ kernel_cuda_path_trace_data_init(
 
 #define DEFINE_SPLIT_KERNEL_FUNCTION_LOCALS(name, type) \
 	extern "C" __global__ void \
-	CUDA_LAUNCH_BOUNDS(CUDA_THREADS_BLOCK_WIDTH, CUDA_KERNEL_MAX_REGISTERS) \
+	CUDA_LAUNCH_BOUNDS(CUDA_THREADS_BLOCK_WIDTH, CUDA_KERNEL_SPLIT_MAX_REGISTERS) \
 	kernel_cuda_##name() \
 	{ \
 		ccl_local type locals; \
@@ -118,6 +119,7 @@ DEFINE_SPLIT_KERNEL_FUNCTION(subsurface_scatter)
 DEFINE_SPLIT_KERNEL_FUNCTION_LOCALS(direct_lighting, uint)
 DEFINE_SPLIT_KERNEL_FUNCTION(shadow_blocked_ao)
 DEFINE_SPLIT_KERNEL_FUNCTION(shadow_blocked_dl)
+DEFINE_SPLIT_KERNEL_FUNCTION_LOCALS(enqueue_inactive, uint)
 DEFINE_SPLIT_KERNEL_FUNCTION_LOCALS(next_iteration_setup, uint)
 DEFINE_SPLIT_KERNEL_FUNCTION(indirect_subsurface)
 DEFINE_SPLIT_KERNEL_FUNCTION_LOCALS(buffer_update, uint)
