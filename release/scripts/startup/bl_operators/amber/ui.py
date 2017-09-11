@@ -62,9 +62,13 @@ class AMBER_PT_repositories(Panel, AmberPanel):
     def draw(self, context):
         ae = context.space_data.asset_engine
 
-        self.layout.template_list("FILEBROWSER_UL_dir", "amber_repositories",
-                                  ae.repositories_pg, "repositories", ae.repositories_pg, "repository_index_active",
-                                  item_dyntip_propname="path")
+        row = self.layout.row()
+        row.template_list("FILEBROWSER_UL_dir", "amber_repositories",
+                          ae.repositories_pg, "repositories", ae.repositories_pg, "repository_index_active",
+                          item_dyntip_propname="path")
+
+        col = row.column()
+        col.operator("AMBER_OT_repository_add", text="", icon='ZOOMIN')
 
 
 class AMBER_UL_tags_filter(UIList):

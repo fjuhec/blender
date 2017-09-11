@@ -537,8 +537,17 @@ class AmberDataRepository:
 
 
 class AmberDataRepositoryListItemPG(PropertyGroup):
+    def repository_update(self, context):
+        space = context.space_data
+        if space and space.type == 'FILE_BROWSER':
+            ae = space.asset_engine
+            if ae and space.asset_engine_type == "AssetEngineAmber":
+                repos = AmberDataRepositoryList()
+                repos.from_pg(ae.repositories_pg)
+                repos.save()
+
     uuid = IntVectorProperty(name="UUID", description="Repository unique identifier", size=4)
-    name = StringProperty(name="Name")
+    name = StringProperty(name="Name", update=repository_update)
     path = StringProperty(name="Path", description="Path to this Amber repository", subtype='DIR_PATH')
     is_valid = BoolProperty(name="Is Valid")
 
@@ -581,7 +590,7 @@ class AmberDataRepositoryList:
             self.repositories = {utils.uuid_unpack(uuid): name_path for uuid, name_path in json.load(ar_f).items()}
 
     def save(self):
-        ar = {utils.uuid_pack(uuid).decode(): name_path for uuid, name_path in self.repositories.items()}
+        ar = {utils.uuid_pack(uuid): name_path for uuid, name_path in self.repositories.items()}
         with open(self.path, 'w') as ar_f:
             json.dump(ar, ar_f)
 
@@ -604,6 +613,9 @@ class AmberDataRepositoryList:
             repo_pg.is_valid = os.path.exists(path)
         for idx in range(len(pg.repositories), len(self.repositories), -1):
             pg.repositories.remove(idx - 1)
+
+    def from_pg(self, pg):
+        self.repositories = {pg_item.uuid[:]: (pg_item.name, pg_item.path) for pg_item in pg.repositories}
 
 
 classes = (

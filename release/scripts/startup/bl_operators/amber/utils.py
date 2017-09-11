@@ -45,43 +45,55 @@ AMBER_LIST_FILENAME = "amber_repos.json"
 #      Doubt this will be practical issue though.
 #    * We keep eight first bytes of 'clear' identifier, to (try to) keep some readable uuid.
 
-def _uuid_gen_single(used_uuids, uuid_root, h, str_arg):
+def _uuid_gen_single(used_uuids, pattern, uuid_root, h, str_arg):
     h.update(str_arg.encode())
-    uuid = uuid_root + h.digest()
-    uuid = uuid[:23].replace(b'\0', b'\1')  # No null chars, RNA 'bytes' use them as in regular strings... :/
+    hd = h.digest()
+    hd = hd[:32 - len(uuid_root)]
+    uuid_bytes = uuid_root + hd
+    assert(len(uuid_bytes) == 16)
+    uuid = uuid_unpack_bytes(uuid_bytes)
+    if pattern is not (0, 1, 2, 3):
+        uuid = tuple(0 if idx is ... else uuid[idx] for idx in pattern)
     if uuid not in used_uuids:  # *Very* likely, but...
         used_uuids.add(uuid)
         return uuid
     return None
 
 
-def _uuid_gen(used_uuids, uuid_root, bytes_seed, *str_args):
+def _uuid_gen(used_uuids, pattern=(0, 1, 2, 3), uuid_root=b"", bytes_seed=b"", *str_args):
     h = hashlib.md5(bytes_seed)
     for arg in str_args:
-        uuid = _uuid_gen_single(used_uuids, uuid_root, h, arg)
+        uuid = _uuid_gen_single(used_uuids, pattern, uuid_root, h, arg)
         if uuid is not None:
             return uuid
     # This is a fallback in case we'd get a collision... Should never be needed in real life!
     for i in range(100000):
-        uuid = _uuid_gen_single(used_uuids, uuid_root, h, i.to_bytes(4, 'little'))
+        uuid = _uuid_gen_single(used_uuids, pattern, uuid_root, h, str(i))
         if uuid is not None:
             return uuid
     return None  # If this happens...
 
 
-def uuid_asset_gen(used_uuids, path_db, name, tags):
-    uuid_root = name.encode()[:8] + b'|'
-    return _uuid_gen_single(used_uuids, uuid_root, path_db.encode(), name, *tags)
+def uuid_repo_gen(used_uuids, path, name):
+    uuid = _uuid_gen(used_uuids, (0, 1, ..., ...), b"", name.encode(), path)
+    assert(uuid is not None)
+    return uuid
+
+
+def uuid_asset_gen(used_uuids, path, name, tags):
+    uuid = _uuid_gen(used_uuids, (..., ..., 0, 1), b"", name.encode(), path, *tags)
+    assert(uuid is not None)
+    return uuid
 
 
 def uuid_variant_gen(used_uuids, asset_uuid, name):
     uuid_root = name.encode()[:8] + b'|'
-    return _uuid_gen_single(used_uuids, uuid_root, asset_uuid, name)
+    return _uuid_gen(used_uuids, (0, 1, 2, 3), uuid_root, str(asset_uuid), name)
 
 
 def uuid_revision_gen(used_uuids, variant_uuid, number, size, time):
     uuid_root = str(number).encode() + b'|'
-    return _uuid_gen_single(used_uuids, uuid_root, variant_uuid, str(number), str(size), str(timestamp))
+    return _uuid_gen(used_uuids, (0, 1, 2, 3), uuid_root, str(variant_uuid), str(number), str(size), str(timestamp))
 
 
 def uuid_unpack_bytes(uuid_bytes):

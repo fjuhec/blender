@@ -41,6 +41,7 @@ from . import (repository, utils)
 
 from .repository import (
         AmberDataRepository,
+        AmberDataRepositoryList,
         )
 
 
@@ -74,8 +75,13 @@ class AmberOpsRepositoryAdd(Operator, AmberOpsEditing):
 
     def execute(self, context):
         ae = context.space_data.asset_engine
+        path = context.space_data.params.directory
+
         if getattr(ae, "repo", None) is not None:
-            self.report({'INFO'}, "Current directory is already an Amber repository, '%s'" % ae.repository.name)
+            self.report({'INFO'}, "Current directory is already an Amber repository, '%s'" % ae.repo.name)
+            return {'CANCELLED'}
+        if os.path.exists(os.path.join(path, utils.AMBER_DB_NAME)):
+            self.report({'INFO'}, "Current directory is already an Amber repository")
             return {'CANCELLED'}
 
         repository = getattr(ae, "repository", None)
@@ -83,7 +89,9 @@ class AmberOpsRepositoryAdd(Operator, AmberOpsEditing):
             repository = ae.repository = AmberDataRepository()
         repository.clear()
 
-        repository.path = context.space_data.params.directory
+        repository.path = path
+        repository.name = "Amber " + os.path.split(repository.path)[0].split(os.path.sep)[-1]
+        repository.uuid = utils.uuid_repo_gen(set(AmberDataRepositoryList().repositories), repository.path, repository.name)
 
         # TODO more default settings, probably default set of basic tags...
 

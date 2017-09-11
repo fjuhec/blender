@@ -392,6 +392,7 @@ class AssetEngineAmber(AssetEngine):
             if self.repositories.repositories.get(uuid_repo, (None, None))[1] != self.root:
                 self.repositories.repositories[uuid_repo] = (self.repository.name, self.root)  # XXX Not resistant to uuids collisions (use a set instead)...
                 self.repositories.save()
+                self.repositories.to_pg(self.repositories_pg)
             self.repos[uuid_repo] = self.repo
             entries.nbr_entries = len(self.repository.assets) + 1  # Don't forget the 'up' entry!
         else:
