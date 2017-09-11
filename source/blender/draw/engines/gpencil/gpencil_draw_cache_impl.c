@@ -898,7 +898,6 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 		color[3] += gpl->onion_factor - 0.5f;
 
 		CLAMP(color[3], 0.3f, 1.0f);
-		cache->is_dirty = true;
 		gpencil_draw_onion_strokes(cache, e_data, vedata, ob, gpd, gpl, gf, color, gpl->flag & GP_LAYER_GHOST_PREVCOL);
 	}
 	/* -------------------------------
@@ -954,7 +953,6 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 		color[3] += gpl->onion_factor - 0.5f;
 
 		CLAMP(color[3], 0.3f, 1.0f);
-		cache->is_dirty = true;
 		gpencil_draw_onion_strokes(cache, e_data, vedata, ob, gpd, gpl, gf, color, gpl->flag & GP_LAYER_GHOST_NEXTCOL);
 	}
 }

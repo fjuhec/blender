@@ -231,13 +231,11 @@ static void GPENCIL_cache_init(void *vedata)
 		if (draw_ctx->evil_C) {
 			if (ED_screen_animation_playing(CTX_wm_manager(draw_ctx->evil_C))) {
 				stl->storage->playing = 1;
+				BKE_gpencil_batch_cache_alldirty();
 			}
 			else {
-				/* if animation was active and simplify on play was enabled, cache is dirty */
-				if ((oldsts == 1) && (stl->storage->playing == 0) && 
-					(ts->gpencil_simplify & GP_TOOL_FLAG_SIMPLIFY) && 
-					(ts->gpencil_simplify & GP_TOOL_FLAG_SIMPLIFY_ON_PLAY)) 
-				{
+				/* if change animation status, cache is dirty */
+				if (oldsts != stl->storage->playing) {
 					BKE_gpencil_batch_cache_alldirty();
 				}
 			}
