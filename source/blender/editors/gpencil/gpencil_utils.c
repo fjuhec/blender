@@ -1386,7 +1386,11 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *UNUSED(customda
 			if ((paintbrush->flag & GP_BRUSH_ENABLE_CURSOR) == 0) {
 				return;
 			}
-			radius = paintbrush->thickness;
+			/* after some testing, display the size of the brush is not practical because 
+			 * is too disruptive and the size of cursor does not change with zoom factor.
+			 * The decision was to use a fix size, instead of  paintbrush->thickness value. 
+			 */
+			radius = 3.0f;
 			copy_v3_v3(color, paintbrush->curcolor);
 		}
 	}
