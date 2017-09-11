@@ -83,8 +83,8 @@ static void ed_keymap_gpencil_general(wmKeyConfig *keyconf)
 	WM_keymap_add_item(keymap, "GPENCIL_OT_editmode_toggle", TABKEY, KM_PRESS, 0, DKEY);
 	
 	/* Pie Menu - For standard tools */
-	WM_keymap_add_menu_pie(keymap, "GPENCIL_PIE_tool_palette", QKEY, KM_PRESS, 0, DKEY);
-	WM_keymap_add_menu_pie(keymap, "GPENCIL_PIE_settings_palette", WKEY, KM_PRESS, 0, DKEY);
+	WM_keymap_add_menu_pie(keymap, "GPENCIL_MT_pie_tool_palette", QKEY, KM_PRESS, 0, DKEY);
+	WM_keymap_add_menu_pie(keymap, "GPENCIL_MT_pie_settings_palette", WKEY, KM_PRESS, 0, DKEY);
 	
 	/* Add Blank Frame */
 	/* XXX: BKEY or NKEY? BKEY is easier to reach from DKEY, so we'll use that for now */
