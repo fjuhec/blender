@@ -886,10 +886,18 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 			color[3] = alpha * fac * 0.66f;
 		}
 		else {
+			++idx;
+			fac = alpha - ((1.1f - (1.0f / (float)idx)) * 0.66f);
+			color[3] = fac;
+		}
+		/* if fade is disabled, opacity is equal in all frames */
+		if ((gpl->flag & GP_LAYER_ONION_FADE) == 0) {
 			color[3] = 0.66f;
 		}
-		CLAMP_MIN(color[3], 0.66f);
-		/* draw */
+		/* add override opacity factor */
+		color[3] += gpl->onion_factor - 0.5f;
+
+		CLAMP(color[3], 0.3f, 1.0f);
 		cache->is_dirty = true;
 		gpencil_draw_onion_strokes(cache, e_data, vedata, ob, gpd, gpl, gf, color, gpl->flag & GP_LAYER_GHOST_PREVCOL);
 	}
@@ -934,9 +942,18 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 			color[3] = alpha * fac * 0.66f;
 		}
 		else {
+			++idx;
+			fac = alpha - ((1.1f - (1.0f / (float)idx)) * 0.66f);
+			color[3] = fac;
+		}
+		/* if fade is disabled, opacity is equal in all frames */
+		if ((gpl->flag & GP_LAYER_ONION_FADE) == 0) {
 			color[3] = 0.66f;
 		}
-		CLAMP_MIN(color[3], 0.66f);
+		/* add override opacity factor */
+		color[3] += gpl->onion_factor - 0.5f;
+
+		CLAMP(color[3], 0.3f, 1.0f);
 		cache->is_dirty = true;
 		gpencil_draw_onion_strokes(cache, e_data, vedata, ob, gpd, gpl, gf, color, gpl->flag & GP_LAYER_GHOST_NEXTCOL);
 	}
@@ -1016,6 +1033,7 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 		bGPDframe *gpf = BKE_gpencil_layer_getframe(gpl, CFRA, 0);
 		if (gpf == NULL)
 			continue;
+
 		/* create GHash if need */
 		if (gpl->derived_data == NULL) {
 			gpl->derived_data = (GHash *)BLI_ghash_str_new(gpl->info);
@@ -1035,6 +1053,7 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 			derived_gpf = BKE_gpencil_frame_color_duplicate(gpf);
 			BLI_ghash_insert(gpl->derived_data, ob->id.name, derived_gpf);
 		}
+
 		/* draw onion skins */
 		if ((!no_onion) && (gpl->flag & GP_LAYER_ONIONSKIN) &&
 			((!playing) || (gpl->flag & GP_LAYER_GHOST_ALWAYS)))

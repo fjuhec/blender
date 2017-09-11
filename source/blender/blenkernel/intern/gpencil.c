@@ -461,10 +461,9 @@ bGPDlayer *BKE_gpencil_layer_addnew(bGPdata *gpd, const char *name, bool setacti
 	gpl->opacity = 1.0f;
 
 	/* onion-skinning settings */
-	if (gpd->flag & GP_DATA_SHOW_ONIONSKINS)
-		gpl->flag |= GP_LAYER_ONIONSKIN;
-	
 	gpl->flag |= (GP_LAYER_GHOST_PREVCOL | GP_LAYER_GHOST_NEXTCOL);
+	gpl->flag |= GP_LAYER_ONION_FADE;
+	gpl->onion_factor = 0.5f;
 	
 	ARRAY_SET_ITEMS(gpl->gcolor_prev, 0.145098f, 0.419608f, 0.137255f); /* green */
 	ARRAY_SET_ITEMS(gpl->gcolor_next, 0.125490f, 0.082353f, 0.529412f); /* blue */

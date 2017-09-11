@@ -1118,7 +1118,6 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Use Stroke Location",
 		"When draw new strokes in 3D view, use last stroke origin, as new stroke origin");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
 	
 	/* Flags */
 	prop = RNA_def_property(srna, "hide", PROP_BOOLEAN, PROP_NONE);
@@ -1215,6 +1214,19 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
 	RNA_def_property_enum_sdna(prop, NULL, "onion_mode");
 	RNA_def_property_enum_items(prop, rna_enum_gpencil_onion_modes_items);
 	RNA_def_property_ui_text(prop, "Mode", "Mode to display frames");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+	prop = RNA_def_property(srna, "use_onion_fade", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_LAYER_ONION_FADE);
+	RNA_def_property_ui_text(prop, "Fade",
+		"Display onion keyframes with a fade in color transparency");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+	prop = RNA_def_property(srna, "onion_factor", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "onion_factor");
+	RNA_def_property_float_default(prop, 0.5f);
+	RNA_def_property_range(prop, 0.0, 1.0f);
+	RNA_def_property_ui_text(prop, "Onion Opacity", "Change fade opacity of displayed onion frames");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
 	/* Layers API */

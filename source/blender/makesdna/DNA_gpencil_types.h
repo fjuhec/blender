@@ -269,7 +269,7 @@ typedef struct bGPDlayer {
 	float tintcolor[4];     /* Color used to tint layer, alpha value is used as factor */
 	float opacity;          /* Opacity of the layer */
 	int onion_mode;         /* onion mode */
-	char pad2[4];
+	float onion_factor;     /* onion alpha factor change */
 	struct GHash *derived_data;     /* runtime data created by modifiers */
 } bGPDlayer;
 
@@ -303,6 +303,8 @@ typedef enum eGPDlayer_Flag {
 	GP_LAYER_GHOST_ALWAYS	= (1 << 13),
 	/* draw new strokes using last stroke location (only in 3d view) */
 	GP_LAYER_USE_LOCATION = (1 << 14),
+	/* use fade color in onion skin */
+	GP_LAYER_ONION_FADE = (1 << 15),
 } eGPDlayer_Flag;
 
 /* xray modes */

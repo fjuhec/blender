@@ -1261,6 +1261,13 @@ class GreasePencilOnionPanel:
         sub = split.column(align=True)
         sub.prop(gpl, "ghost_after_range", text="After")
 
+        split = layout.split(percentage=0.5)
+        split.active = gpl.use_onion_skinning
+        sub = split.column(align=True)
+        sub.prop(gpl, "use_onion_fade", text="Fade")
+
+        sub = split.column(align=True)
+        sub.prop(gpl, "onion_factor", text="Opacity", slider=True)
 
 
 class GreasePencilParentLayerPanel:
