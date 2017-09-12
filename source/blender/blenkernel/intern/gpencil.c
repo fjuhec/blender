@@ -1662,6 +1662,22 @@ void BKE_gpencil_batch_cache_alldirty()
 	}
 }
 
+/* check if any datablock is painting now */
+bool BKE_gpencil_check_drawing_sessions()
+{
+	bGPdata *gpd;
+	Main *bmain = G.main;
+
+	/* loop to check if any datablock is painting */
+	for (gpd = bmain->gpencil.first; gpd; gpd = gpd->id.next) {
+		if (((gpd->sbuffer_sflag & GP_STROKE_ERASER) == 0) && (gpd->sbuffer_size > 0)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 /* get stroke min max values */
 void static gpencil_minmax(bGPdata *gpd, float min[3], float max[3])
 {

@@ -155,6 +155,7 @@ typedef struct GPENCIL_PassList {
 	struct DRWPass *vfx_blur_pass_4;
 	struct DRWPass *vfx_pixel_pass;
 	struct DRWPass *vfx_swirl_pass;
+	struct DRWPass *painting_pass;
 } GPENCIL_PassList;
 
 typedef struct GPENCIL_FramebufferList {
@@ -162,6 +163,7 @@ typedef struct GPENCIL_FramebufferList {
 	struct GPUFrameBuffer *temp_color_fb;
 	struct GPUFrameBuffer *vfx_color_fb_a;
 	struct GPUFrameBuffer *vfx_color_fb_b;
+	struct GPUFrameBuffer *painting_fb;
 } GPENCIL_FramebufferList;
 
 typedef struct GPENCIL_TextureList {
@@ -190,7 +192,16 @@ typedef struct g_data {
 	int gp_cache_used;
 	int gp_cache_size;
 	struct tGPencilObjectCache *gp_object_cache;
+
+	int session_flag;
 } g_data; /* Transient data */
+
+typedef enum eGPsession_Flag {
+	GP_DRW_PAINT_IDLE    = (1 << 0),
+	GP_DRW_PAINT_DIRTY   = (1 << 1),
+	GP_DRW_PAINT_FILLING = (1 << 2),
+	GP_DRW_PAINT_READY   = (1 << 3),
+} eGPsession_Flag;
 
 typedef struct GPENCIL_e_data {
 	struct GPUShader *gpencil_fill_sh;
@@ -204,6 +215,7 @@ typedef struct GPENCIL_e_data {
 	struct GPUShader *gpencil_vfx_wave_sh;
 	struct GPUShader *gpencil_vfx_pixel_sh;
 	struct GPUShader *gpencil_vfx_swirl_sh;
+	struct GPUShader *gpencil_painting_sh;
 	/* temp depth texture */
 	struct GPUTexture *temp_fbcolor_depth_tx;
 	struct GPUTexture *temp_fbcolor_color_tx;
@@ -212,6 +224,9 @@ typedef struct GPENCIL_e_data {
 	struct GPUTexture *vfx_fbcolor_color_tx_a;
 	struct GPUTexture *vfx_fbcolor_depth_tx_b;
 	struct GPUTexture *vfx_fbcolor_color_tx_b;
+
+	struct GPUTexture *painting_depth_tx;
+	struct GPUTexture *painting_color_tx;
 
 	struct GPUTexture *gpencil_blank_texture;
 } GPENCIL_e_data; /* Engine data */

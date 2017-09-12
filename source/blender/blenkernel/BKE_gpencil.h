@@ -107,6 +107,7 @@ void BKE_gpencil_move_animdata_to_palettes(struct bContext *C, struct bGPdata *g
 #define GPENCIL_STRENGTH_MIN 0.003f
 
 bool gpencil_layer_is_editable(const struct bGPDlayer *gpl);
+bool BKE_gpencil_check_drawing_sessions(void);
 
 /* How gpencil_layer_getframe() should behave when there
  * is no existing GP-Frame on the frame requested.
