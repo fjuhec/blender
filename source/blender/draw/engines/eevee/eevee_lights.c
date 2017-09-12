@@ -227,9 +227,9 @@ void EEVEE_lights_cache_add(EEVEE_SceneLayerData *sldata, Object *ob)
 	EEVEE_LampsInfo *linfo = sldata->lamps;
 
 	/* Step 1 find all lamps in the scene and setup them */
-	if (linfo->num_light > MAX_LIGHT) {
+	if (linfo->num_light >= MAX_LIGHT) {
 		printf("Too much lamps in the scene !!!\n");
-		linfo->num_light = MAX_LIGHT;
+		linfo->num_light = MAX_LIGHT - 1;
 	}
 	else {
 		Lamp *la = (Lamp *)ob->data;
@@ -320,9 +320,10 @@ void EEVEE_lights_cache_shcaster_add(EEVEE_SceneLayerData *sldata, EEVEE_PassLis
 }
 
 void EEVEE_lights_cache_shcaster_material_add(
-	EEVEE_SceneLayerData *sldata, EEVEE_PassList *psl, struct GPUMaterial *gpumat, struct Gwn_Batch *geom, float (*obmat)[4], float *alpha_threshold)
+	EEVEE_SceneLayerData *sldata, EEVEE_PassList *psl, struct GPUMaterial *gpumat,
+	struct Gwn_Batch *geom, struct Object *ob, float (*obmat)[4], float *alpha_threshold)
 {
-	DRWShadingGroup *grp = DRW_shgroup_material_instance_create(gpumat, psl->shadow_cube_pass, geom);
+	DRWShadingGroup *grp = DRW_shgroup_material_instance_create(gpumat, psl->shadow_cube_pass, geom, ob);
 
 	if (grp == NULL) return;
 
@@ -335,7 +336,7 @@ void EEVEE_lights_cache_shcaster_material_add(
 	for (int i = 0; i < 6; ++i)
 		DRW_shgroup_call_dynamic_add_empty(grp);
 
-	grp = DRW_shgroup_material_instance_create(gpumat, psl->shadow_cascade_pass, geom);
+	grp = DRW_shgroup_material_instance_create(gpumat, psl->shadow_cascade_pass, geom, ob);
 	DRW_shgroup_uniform_block(grp, "shadow_render_block", sldata->shadow_render_ubo);
 	DRW_shgroup_uniform_mat4(grp, "ShadowModelMatrix", (float *)obmat);
 
