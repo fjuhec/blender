@@ -746,7 +746,7 @@ class DATA_PT_shadow_game(DataButtonsPanel, Panel):
     def poll(cls, context):
         COMPAT_LIGHTS = {'SPOT', 'SUN'}
         lamp = context.lamp
-        engine = context.scene.render.engine
+        engine = context.engine
         return (lamp and lamp.type in COMPAT_LIGHTS) and (engine in cls.COMPAT_ENGINES)
 
     def draw_header(self, context):
@@ -815,7 +815,7 @@ class OBJECT_PT_levels_of_detail(ObjectButtonsPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.scene.render.engine in cls.COMPAT_ENGINES
+        return context.engine in cls.COMPAT_ENGINES
 
     def draw(self, context):
         layout = self.layout

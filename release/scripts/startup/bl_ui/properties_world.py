@@ -31,7 +31,7 @@ class WorldButtonsPanel:
 
     @classmethod
     def poll(cls, context):
-        return (context.world and context.scene.render.engine in cls.COMPAT_ENGINES)
+        return (context.world and context.engine in cls.COMPAT_ENGINES)
 
 
 class WORLD_PT_context_world(WorldButtonsPanel, Panel):
@@ -257,7 +257,7 @@ class EEVEE_WORLD_PT_surface(WorldButtonsPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        engine = context.scene.render.engine
+        engine = context.engine
         return context.world and (engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
