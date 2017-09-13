@@ -1922,42 +1922,37 @@ next_set:
 
 bool BKE_scene_use_new_shading_nodes(const Scene *scene)
 {
-	const RenderEngineType *type = RE_engines_find(scene->r.engine);
-	return (type && type->flag & RE_USE_SHADING_NODES);
+	return BKE_render_use_new_shading_nodes(scene, NULL);
 }
 
 bool BKE_scene_use_shading_nodes_custom(Scene *scene)
 {
-	RenderEngineType *type = RE_engines_find(scene->r.engine);
-	return (type && type->flag & RE_USE_SHADING_NODES_CUSTOM);
+	return BKE_render_use_shading_nodes_custom(scene, NULL);
 }
 
 bool BKE_scene_use_world_space_shading(Scene *scene)
 {
-	const RenderEngineType *type = RE_engines_find(scene->r.engine);
-	return ((scene->r.mode & R_USE_WS_SHADING) ||
-	        (type && (type->flag & RE_USE_SHADING_NODES)));
+	return BKE_render_use_world_space_shading(scene, NULL);
 }
 
 bool BKE_scene_use_spherical_stereo(Scene *scene)
 {
-	RenderEngineType *type = RE_engines_find(scene->r.engine);
-	return (type && type->flag & RE_USE_SPHERICAL_STEREO);
+	return BKE_render_use_spherical_stereo(scene, NULL);
 }
 
-bool BKE_scene_uses_blender_internal(const  Scene *scene)
+bool BKE_scene_uses_blender_internal(const Scene *scene)
 {
-	return STREQ(scene->r.engine, RE_engine_id_BLENDER_RENDER);
+	return BKE_render_uses_blender_internal(scene, NULL);
 }
 
 bool BKE_scene_uses_blender_game(const Scene *scene)
 {
-	return STREQ(scene->r.engine, RE_engine_id_BLENDER_GAME);
+	return BKE_render_uses_blender_game(scene, NULL);
 }
 
 bool BKE_scene_uses_blender_eevee(const Scene *scene)
 {
-	return STREQ(scene->r.engine, RE_engine_id_BLENDER_EEVEE);
+	return BKE_render_uses_blender_eevee(scene, NULL);
 }
 
 void BKE_scene_base_flag_to_objects(SceneLayer *sl)
@@ -2072,6 +2067,9 @@ int BKE_render_preview_pixel_size(const RenderData *r)
 	return r->preview_pixel_size;
 }
 
+/* ***************************************************** */
+/* render engine settings */
+
 const char *BKE_render_engine_get(const Scene *scene, const WorkSpace *workspace)
 {
 	if (workspace == NULL || BKE_workspace_use_scene_settings_get(workspace)) {
@@ -2079,6 +2077,55 @@ const char *BKE_render_engine_get(const Scene *scene, const WorkSpace *workspace
 	}
 	return BKE_workspace_engine_get(workspace);
 }
+
+bool BKE_render_use_new_shading_nodes(const Scene *scene, const WorkSpace *workspace)
+{
+	const char *engine = BKE_render_engine_get(scene, workspace);
+	const RenderEngineType *type = RE_engines_find(engine);
+	return (type && type->flag & RE_USE_SHADING_NODES);
+}
+
+bool BKE_render_use_shading_nodes_custom(const Scene *scene, const WorkSpace *workspace)
+{
+	const char *engine = BKE_render_engine_get(scene, workspace);
+	RenderEngineType *type = RE_engines_find(engine);
+	return (type && type->flag & RE_USE_SHADING_NODES_CUSTOM);
+}
+
+bool BKE_render_use_world_space_shading(const Scene *scene, const WorkSpace *workspace)
+{
+	const char *engine = BKE_render_engine_get(scene, workspace);
+	const RenderEngineType *type = RE_engines_find(engine);
+	return ((scene->r.mode & R_USE_WS_SHADING) ||
+	        (type && (type->flag & RE_USE_SHADING_NODES)));
+}
+
+bool BKE_render_use_spherical_stereo(const Scene *scene, const WorkSpace *workspace)
+{
+	const char *engine = BKE_render_engine_get(scene, workspace);
+	RenderEngineType *type = RE_engines_find(engine);
+	return (type && type->flag & RE_USE_SPHERICAL_STEREO);
+}
+
+bool BKE_render_uses_blender_internal(const Scene *scene, const WorkSpace *workspace)
+{
+	const char *engine = BKE_render_engine_get(scene, workspace);
+	return STREQ(engine, RE_engine_id_BLENDER_RENDER);
+}
+
+bool BKE_render_uses_blender_game(const Scene *scene, const WorkSpace *workspace)
+{
+	const char *engine = BKE_render_engine_get(scene, workspace);
+	return STREQ(engine, RE_engine_id_BLENDER_GAME);
+}
+
+bool BKE_render_uses_blender_eevee(const Scene *scene, const WorkSpace *workspace)
+{
+	const char *engine = BKE_render_engine_get(scene, workspace);
+	return STREQ(engine, RE_engine_id_BLENDER_EEVEE);
+}
+
+/* ***************************************************** */
 
 /* Apply the needed correction factor to value, based on unit_type (only length-related are affected currently)
  * and unit->scale_length.
