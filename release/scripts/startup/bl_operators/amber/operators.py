@@ -25,15 +25,10 @@ import bpy
 from bpy.types import (
         Operator,
         )
-#~ from bpy.props import (
-        #~ BoolProperty,
-        #~ CollectionProperty,
-        #~ EnumProperty,
-        #~ IntProperty,
-        #~ IntVectorProperty,
-        #~ PointerProperty,
-        #~ StringProperty,
-        #~ )
+from bpy.props import (
+        BoolProperty,
+        EnumProperty,
+        )
 
 import os
 
@@ -109,15 +104,72 @@ class AmberOpsAssetAdd(Operator, AmberOpsEditing):
     bl_label = "Add Asset"
     bl_options = set()
 
+    active_type = EnumProperty(items=(('OBJECT', "Object/Group", "Active Object or Group in Blender"),
+                                      ('MATERIAL', "Material", "Active material from active Object"),
+                                      # TODO More options?
+                                     ),
+                               name="Asset Type", description="Type of active datablock to create the asset from")
+
+    copy_local = BoolProperty(name="Copy Local",
+                              description="Copy selected datablock and its dependencies into a library .blend file "
+                                          "local to the repository (mandatory when current .blend file is not saved)")
+
+
     def execute(self, context):
+        import time
+
         ae = context.space_data.asset_engine
-        asset = ae.repository_pg.assets.add()
 
         repository = getattr(ae, "repository", None)
         if repository is None:
             repository = ae.repository = AmberDataRepository()
         repository.from_pg(ae.repository_pg)
 
+        datablock = None
+        if self.active_type == 'OBJECT':
+            datablock = context.active_object
+            if datablock.dupli_type == 'GROUP' and datablock.dupli_group is not None:
+                datablock = datablock.dupli_group
+        elif self.active_type == 'MATERIAL':
+            datablock = context.active_object.material_slots[context.active_object.active_material_index].material
+
+        if datablock is None:
+            self.report({'INFO'}, "No suitable active datablock found to create a new asset")
+            return {'CANCELLED'}
+
+        if bpy.data.is_dirty or not bpy.data.filepath:
+            self.report({'WARNING'}, "Current .blend file not saved on disk, enforcing copying data into local repository storage")
+            self.copy_local = True
+
+        path_sublib = os.path.join(utils.BLENDER_TYPES_TO_PATH[type(datablock)], datablock.name)
+        path_lib = bpy.data.filepath
+
+        asset = ae.repository_pg.assets.add()
+        asset.name = datablock.name
+        asset.file_type = 'BLENLIB'
+        asset.blender_type = utils.BLENDER_TYPES_TO_ENUMVAL[type(datablock)]
+        asset.uuid = utils.uuid_asset_gen(set(repository.assets.keys()), ae.repository_pg.uuid, path_sublib, asset.name, [])
+
+        if self.copy_local:
+            path_dir = os.path.join(repository.path, utils.AMBER_LOCAL_STORAGE)
+            if not os.path.exists(path_dir):
+                os.mkdir(path_dir)
+            path_lib = os.path.join(path_dir, asset.name + "_" + utils.uuid_pack(asset.uuid) + ".blend")
+            bpy.data.libraries.write(path_lib, {datablock}, relative_remap=True, fake_user=True, compress=True)
+
+        variant = asset.variants.add()
+        variant.name = "default"
+        variant.uuid = utils.uuid_variant_gen(set(), asset.uuid, variant.name)
+        asset.variant_default = variant.uuid
+
+        revision = variant.revisions.add()
+        revision.size = os.stat(path_lib).st_size
+        revision.timestamp = int(time.time())
+        revision.path = os.path.join(path_lib, path_sublib)
+        revision.uuid = utils.uuid_revision_gen(set(), variant.uuid, 0, revision.size, revision.timestamp)
+        variant.revision_default = revision.uuid
+
+        repository.from_pg(ae.repository_pg)
         repository.wrt_repo(os.path.join(ae.repository.path, utils.AMBER_DB_NAME), ae.repository.to_dict())
 
         bpy.ops.file.refresh()
@@ -149,5 +201,6 @@ class AmberOpsAssetDelete(Operator, AmberOpsEditing):
 
 classes = (
     AmberOpsRepositoryAdd,
+    AmberOpsAssetAdd,
     AmberOpsAssetDelete,
     )

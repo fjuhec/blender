@@ -35,6 +35,22 @@ AMBER_DBK_VERSION = "version"
 
 AMBER_LIST_FILENAME = "amber_repos.json"
 
+AMBER_LOCAL_STORAGE = "LOCAL_STORAGE"
+
+
+BLENDER_TYPES_TO_PATH = {
+    bpy.types.Object: "Object",
+    bpy.types.Group: "Group",
+    bpy.types.Material: "Material",
+    # TODO complete this!
+}
+
+BLENDER_TYPES_TO_ENUMVAL = {
+    bpy.types.Object: 'OBJECT',
+    bpy.types.Group: 'GROUP',
+    bpy.types.Material: 'MATERIAL',
+    # TODO complete this!
+}
 
 ##########
 # Helpers.
@@ -80,20 +96,18 @@ def uuid_repo_gen(used_uuids, path, name):
     return uuid
 
 
-def uuid_asset_gen(used_uuids, path, name, tags):
+def uuid_asset_gen(used_uuids, repo_uuid, path, name, tags):
     uuid = _uuid_gen(used_uuids, (..., ..., 0, 1), b"", name.encode(), path, *tags)
     assert(uuid is not None)
-    return uuid
+    return repo_uuid[:2] + uuid[2:]
 
 
 def uuid_variant_gen(used_uuids, asset_uuid, name):
-    uuid_root = name.encode()[:8] + b'|'
-    return _uuid_gen(used_uuids, (0, 1, 2, 3), uuid_root, str(asset_uuid), name)
+    return _uuid_gen(used_uuids, (0, 1, 2, 3), b"", str(asset_uuid).encode(), name)
 
 
 def uuid_revision_gen(used_uuids, variant_uuid, number, size, time):
-    uuid_root = str(number).encode() + b'|'
-    return _uuid_gen(used_uuids, (0, 1, 2, 3), uuid_root, str(variant_uuid), str(number), str(size), str(timestamp))
+    return _uuid_gen(used_uuids, (0, 1, 2, 3), b"", str(variant_uuid).encode(), str(number), str(size), str(time))
 
 
 def uuid_unpack_bytes(uuid_bytes):

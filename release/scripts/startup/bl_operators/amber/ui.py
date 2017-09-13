@@ -65,7 +65,7 @@ class AMBER_PT_repositories(Panel, AmberPanel):
         row = self.layout.row()
         row.template_list("FILEBROWSER_UL_dir", "amber_repositories",
                           ae.repositories_pg, "repositories", ae.repositories_pg, "repository_index_active",
-                          item_dyntip_propname="path")
+                          item_dyntip_propname="path", rows=1)
 
         col = row.column()
         col.operator("AMBER_OT_repository_add", text="", icon='ZOOMIN')
@@ -177,9 +177,12 @@ class AMBER_PT_assets(Panel, AmberPanel):
         ae = context.space_data.asset_engine
 
         row = self.layout.row()
-        row.template_list("AMBER_UL_assets", "", ae.repository_pg, "assets", ae.repository_pg, "asset_index_active")
+        row.template_list("AMBER_UL_assets", "", ae.repository_pg, "assets", ae.repository_pg, "asset_index_active",
+                          rows=3)
 
         col = row.column()
+        col.operator("AMBER_OT_asset_add", text="", icon='OBJECT_DATA').active_type = 'OBJECT'
+        col.operator("AMBER_OT_asset_add", text="", icon='MATERIAL_DATA').active_type = 'MATERIAL'
         col.operator("AMBER_OT_asset_delete", text="", icon='ZOOMOUT')
 
 
