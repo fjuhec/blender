@@ -197,10 +197,11 @@ typedef struct g_data {
 } g_data; /* Transient data */
 
 typedef enum eGPsession_Flag {
-	GP_DRW_PAINT_IDLE    = (1 << 0),
-	GP_DRW_PAINT_DIRTY   = (1 << 1),
-	GP_DRW_PAINT_FILLING = (1 << 2),
-	GP_DRW_PAINT_READY   = (1 << 3),
+	GP_DRW_PAINT_HOLD     = (1 << 0),
+	GP_DRW_PAINT_IDLE     = (1 << 1),
+	GP_DRW_PAINT_FILLING  = (1 << 2),
+	GP_DRW_PAINT_READY    = (1 << 3),
+	GP_DRW_PAINT_PAINTING = (1 << 4),
 } eGPsession_Flag;
 
 typedef struct GPENCIL_e_data {

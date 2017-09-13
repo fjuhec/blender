@@ -184,6 +184,7 @@ static void GPENCIL_cache_init(void *vedata)
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
 	ToolSettings *ts = scene->toolsettings;
+	Object *obact = draw_ctx->obact;
 
 	if (!stl->g_data) {
 		/* Alloc transient pointers */
@@ -255,15 +256,20 @@ static void GPENCIL_cache_init(void *vedata)
 				}
 			}
 		}
-		/* detect if painting session in any datablock */
-		if (BKE_gpencil_check_drawing_sessions()) {
-			if (stl->g_data->session_flag & GP_DRW_PAINT_IDLE) {
-				stl->g_data->session_flag = GP_DRW_PAINT_DIRTY;
+		/* detect if painting session */
+		if ((obact) && (obact->gpd) && (obact->gpd->flag & GP_DATA_STROKE_PAINTMODE) 
+			&& (stl->storage->playing == 0)) 
+		{
+			if (((obact->gpd->sbuffer_sflag & GP_STROKE_ERASER) == 0) && (obact->gpd->sbuffer_size > 0)) {
+				stl->g_data->session_flag = GP_DRW_PAINT_PAINTING;
+			}
+			else {
+				stl->g_data->session_flag = GP_DRW_PAINT_IDLE;
 			}
 		}
 		else {
-			/* if not drawing, the painting session is idle */
-			stl->g_data->session_flag = GP_DRW_PAINT_IDLE;
+			/* if not drawing mode */
+			stl->g_data->session_flag = GP_DRW_PAINT_HOLD;
 		}
 
 		ob = draw_ctx->obact;
@@ -519,6 +525,24 @@ static void gpencil_vfx_passes(void *vedata, tGPencilObjectCache *cache)
 	}
 }
 
+/* prepare a texture with full viewport for fast drawing */
+static void gpencil_prepare_fast_drawing(GPENCIL_StorageList *stl, DefaultFramebufferList *dfbl, GPENCIL_FramebufferList *fbl, DRWPass *pass, float clearcol[4])
+{
+	if (stl->g_data->session_flag & (GP_DRW_PAINT_IDLE | GP_DRW_PAINT_FILLING)) {
+		DRW_framebuffer_bind(fbl->painting_fb);
+		/* clean only in first loop cycle */
+		if (stl->g_data->session_flag & GP_DRW_PAINT_IDLE) {
+			DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
+			stl->g_data->session_flag = GP_DRW_PAINT_FILLING;
+		}
+		/* repeat pass to fill temp texture */
+		DRW_draw_pass(pass);
+		/* set default framebuffer again */
+		DRW_framebuffer_bind(dfbl->default_fb);
+	}
+}
+
+/* draw scene */
 static void GPENCIL_draw_scene(void *vedata)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
@@ -549,7 +573,7 @@ static void GPENCIL_draw_scene(void *vedata)
 	DRW_framebuffer_texture_attach(fbl->painting_fb, e_data.painting_color_tx, 0, 0);
 
 	/* if we have a painting session, we use fast viewport drawing method */
-	if (stl->g_data->session_flag & GP_DRW_PAINT_READY) {
+	if (stl->g_data->session_flag & GP_DRW_PAINT_PAINTING) {
 		DRW_framebuffer_bind(dfbl->default_fb);
 		DRW_draw_pass(psl->painting_pass);
 		DRW_draw_pass(psl->drawing_pass);
@@ -598,25 +622,16 @@ static void GPENCIL_draw_scene(void *vedata)
 					DRW_framebuffer_bind(dfbl->default_fb);
 					/* Mix VFX Pass */
 					DRW_draw_pass(psl->mix_vfx_pass);
+					/* prepare for fast drawing */	
+					gpencil_prepare_fast_drawing(stl, dfbl, fbl, psl->mix_vfx_pass, clearcol);
 				}
 				else {
 					/* Combine with scene buffer without more passes */
 					DRW_framebuffer_bind(dfbl->default_fb);
 					/* Mix Pass: DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS */
 					DRW_draw_pass(psl->mix_pass);
-					if (stl->g_data->session_flag & (GP_DRW_PAINT_DIRTY | GP_DRW_PAINT_FILLING)) {
-						DRW_framebuffer_bind(fbl->painting_fb);
-						/* clean only in first loop cycle */
-						if (stl->g_data->session_flag & GP_DRW_PAINT_DIRTY) {
-							DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
-							stl->g_data->session_flag = GP_DRW_PAINT_FILLING;
-						}
-						/* repeat pass to fill temp texture */
-						DRW_draw_pass(psl->mix_pass);
-						/* set default framebuffer again */
-						DRW_framebuffer_bind(dfbl->default_fb);
-					}
-
+					/* prepare for fast drawing */
+					gpencil_prepare_fast_drawing(stl, dfbl, fbl, psl->mix_pass, clearcol);
 				}
 			}
 			/* edit points */
