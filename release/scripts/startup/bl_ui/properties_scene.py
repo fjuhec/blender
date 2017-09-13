@@ -476,6 +476,9 @@ class SCENE_PT_gp_simplify(SceneButtonsPanel, Panel):
         col.prop(ts, "gpencil_simplify_render_modifier", text="Modifiers")
         col.prop(ts, "gpencil_simplify_render_vfx", text="VFX")
 
+        row = layout.row()
+        row.prop(ts, "gpencil_disable_fast_drawing")
+
 
 class SCENE_PT_custom_props(SceneButtonsPanel, PropertyPanel, Panel):
     COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}

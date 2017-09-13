@@ -3915,6 +3915,11 @@ static void rna_def_tool_settings(BlenderRNA  *brna)
 	RNA_def_property_ui_text(prop, "Fill", "Do not apply VFX modifiers on render");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
+	prop = RNA_def_property(srna, "gpencil_disable_fast_drawing", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "gpencil_simplify", GP_TOOL_FLAG_DISABLE_FAST_DRAWING);
+	RNA_def_property_ui_text(prop, "Disable Fast Drawing", "Disable fast drawing while painting");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
 	/* Auto Keying */
 	prop = RNA_def_property(srna, "use_keyframe_insert_auto", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "autokey_mode", AUTOKEY_ON);

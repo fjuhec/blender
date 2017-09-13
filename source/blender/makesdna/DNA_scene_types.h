@@ -2269,6 +2269,8 @@ typedef enum eGPencil_SimplifyFlags {
 	GP_TOOL_FLAG_SIMPLIFY_RENDER_VFX = (1 << 7),
 	/* Remove fill external line */
 	GP_TOOL_FLAG_SIMPLIFY_REMOVE_LINE = (1 << 8),
+	/* Disable fast drawing */
+	GP_TOOL_FLAG_DISABLE_FAST_DRAWING = (1 << 9),
 } eGPencil_SimplifyFlags;
 
 /* toolsettings->gpencil_src */
