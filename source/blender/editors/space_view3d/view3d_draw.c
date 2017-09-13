@@ -1882,10 +1882,12 @@ static void view3d_draw_view(const bContext *C, ARegion *ar)
 void view3d_main_region_draw(const bContext *C, ARegion *ar)
 {
 	Scene *scene = CTX_data_scene(C);
+	WorkSpace *workspace = CTX_wm_workspace(C);
 	View3D *v3d = CTX_wm_view3d(C);
 	RegionView3D *rv3d = ar->regiondata;
-	/* XXX: In the future we should get RE from Layers/Depsgraph */
-	RenderEngineType *type = RE_engines_find(scene->r.engine);
+
+	const char *engine = BKE_render_engine_get(scene, workspace);
+	RenderEngineType *type = RE_engines_find(engine);
 
 	/* Provisory Blender Internal drawing */
 	if (type->flag & RE_USE_LEGACY_PIPELINE) {
@@ -1931,9 +1933,11 @@ static void view3d_stereo3d_setup_offscreen(
 	}
 }
 
-void ED_view3d_draw_offscreen_init(const EvaluationContext *eval_ctx, Scene *scene, SceneLayer *sl, View3D *v3d)
+void ED_view3d_draw_offscreen_init(const EvaluationContext *eval_ctx, Scene *scene, const WorkSpace *workspace,
+                                   SceneLayer *sl, View3D *v3d)
 {
-	RenderEngineType *type = RE_engines_find(scene->r.engine);
+	const char *engine = BKE_render_engine_get(scene, workspace);
+	RenderEngineType *type = RE_engines_find(engine);
 	if (type->flag & RE_USE_LEGACY_PIPELINE) {
 		/* shadow buffers, before we setup matrices */
 		if (draw_glsl_material(scene, sl, NULL, v3d, v3d->drawtype)) {
@@ -2112,7 +2116,7 @@ ImBuf *ED_view3d_draw_offscreen_imbuf(
 		}
 	}
 
-	ED_view3d_draw_offscreen_init(eval_ctx, scene, sl, v3d);
+	ED_view3d_draw_offscreen_init(eval_ctx, scene, workspace, sl, v3d);
 
 	GPU_offscreen_bind(ofs, true);
 

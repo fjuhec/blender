@@ -631,12 +631,12 @@ void RE_FreePersistentData(void)
 /* ********* initialize state ******** */
 
 /* clear full sample and tile flags if needed */
-static int check_mode_full_sample(RenderData *rd)
+static int check_mode_full_sample(RenderData *rd, const char *engine)
 {
 	int scemode = rd->scemode;
 
-	if (!STREQ(rd->engine, RE_engine_id_BLENDER_RENDER) &&
-	    !STREQ(rd->engine, RE_engine_id_BLENDER_GAME))
+	if (!STREQ(engine, RE_engine_id_BLENDER_RENDER) &&
+	    !STREQ(engine, RE_engine_id_BLENDER_GAME))
 	{
 		scemode &= ~R_FULL_SAMPLE;
 	}
@@ -752,7 +752,7 @@ void RE_InitState(Render *re, Render *source, RenderData *rd,
 		return;
 	}
 
-	re->r.scemode = check_mode_full_sample(&re->r);
+	re->r.scemode = check_mode_full_sample(&re->r, re->engine_name);
 	
 	/* fullsample wants uniform osa levels */
 	if (source && (re->r.scemode & R_FULL_SAMPLE)) {
@@ -2846,7 +2846,7 @@ static void do_render_all_options(Render *re)
 
 bool RE_force_single_renderlayer(Scene *scene)
 {
-	int scemode = check_mode_full_sample(&scene->r);
+	int scemode = check_mode_full_sample(&scene->r, scene->r.engine);
 	if (scemode & R_SINGLE_LAYER) {
 		SceneRenderLayer *srl = BLI_findlink(&scene->r.layers, scene->r.actlay);
 		/* force layer to be enabled */
@@ -2993,7 +2993,7 @@ static int check_composite_output(Scene *scene)
 
 bool RE_is_rendering_allowed(Scene *scene, Object *camera_override, ReportList *reports)
 {
-	int scemode = check_mode_full_sample(&scene->r);
+	int scemode = check_mode_full_sample(&scene->r, scene->r.engine);
 	
 	if (scene->r.mode & R_BORDER) {
 		if (scene->r.border.xmax <= scene->r.border.xmin ||
@@ -3129,6 +3129,11 @@ void RE_SetActiveRenderView(Render *re, const char *viewname)
 const char *RE_GetActiveRenderView(Render *re)
 {
 	return re->viewname;
+}
+
+void RE_SetEngineName(Render *re, const char *engine_name)
+{
+	BLI_strncpy(re->engine_name, engine_name, sizeof(re->engine_name));
 }
 
 /* evaluating scene options for general Blender render */

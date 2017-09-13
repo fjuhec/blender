@@ -593,6 +593,7 @@ static bool screen_opengl_render_init(bContext *C, wmOperator *op)
 	/* new render clears all callbacks */
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *win = CTX_wm_window(C);
+	WorkSpace *workspace = CTX_wm_workspace(C);
 
 	Scene *scene = CTX_data_scene(C);
 	ScrArea *prevsa = CTX_wm_area(C);
@@ -664,7 +665,7 @@ static bool screen_opengl_render_init(bContext *C, wmOperator *op)
 	oglrender->sizey = sizey;
 	oglrender->bmain = CTX_data_main(C);
 	oglrender->scene = scene;
-	oglrender->workspace = CTX_wm_workspace(C);
+	oglrender->workspace = workspace;
 	oglrender->scene_layer = CTX_data_scene_layer(C);
 	oglrender->cfrao = scene->r.cfra;
 
@@ -701,6 +702,7 @@ static bool screen_opengl_render_init(bContext *C, wmOperator *op)
 
 	/* create render */
 	oglrender->re = RE_NewRender(scene->id.name);
+	RE_SetEngineName(oglrender->re, BKE_render_engine_get(scene, workspace));
 
 	/* create image and image user */
 	oglrender->ima = BKE_image_verify_viewer(IMA_TYPE_R_RESULT, "Render Result");

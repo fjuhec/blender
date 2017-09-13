@@ -300,6 +300,8 @@ void RE_RenderFreestyleExternal(struct Render *re);
 void RE_SetActiveRenderView(struct Render *re, const char *viewname);
 const char *RE_GetActiveRenderView(struct Render *re);
 
+void RE_SetEngineName(struct Render *re, const char *engine_name);
+
 /* error reporting */
 void RE_SetReports(struct Render *re, struct ReportList *reports);
 
