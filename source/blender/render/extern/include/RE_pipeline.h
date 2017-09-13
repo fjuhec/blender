@@ -304,7 +304,7 @@ const char *RE_GetActiveRenderView(struct Render *re);
 void RE_SetReports(struct Render *re, struct ReportList *reports);
 
 /* main preview render call */
-void RE_PreviewRender(struct Render *re, struct Main *bmain, struct Scene *scene);
+void RE_PreviewRender(struct Render *re, struct Main *bmain, struct Scene *scene, const char *engine);
 
 bool RE_ReadRenderResult(struct Scene *scene, struct Scene *scenode);
 bool RE_WriteRenderResult(

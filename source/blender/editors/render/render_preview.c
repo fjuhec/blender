@@ -173,6 +173,7 @@ typedef struct ShaderPreview {
 
 	Main *bmain;
 	Main *pr_main;
+	const char *engine;
 } ShaderPreview;
 
 typedef struct IconPreviewSize {
@@ -187,6 +188,7 @@ typedef struct IconPreview {
 	void *owner;
 	ID *id;
 	ListBase sizes;
+	const char *engine;
 } IconPreview;
 
 /* *************************** Preview for buttons *********************** */
@@ -855,7 +857,7 @@ static void shader_preview_render(ShaderPreview *sp, ID *id, int split, int firs
 		((Camera *)sce->camera->data)->lens *= (float)sp->sizey / (float)sizex;
 
 	/* entire cycle for render engine */
-	RE_PreviewRender(re, pr_main, sce);
+	RE_PreviewRender(re, pr_main, sce, sp->engine);
 
 	((Camera *)sce->camera->data)->lens = oldlens;
 
@@ -1182,6 +1184,7 @@ static void icon_preview_startjob_all_sizes(void *customdata, short *stop, short
 
 		/* construct shader preview from image size and previewcustomdata */
 		sp->scene = ip->scene;
+		sp->engine = ip->engine;
 		sp->owner = ip->owner;
 		sp->sizex = cur_size->sizex;
 		sp->sizey = cur_size->sizey;
@@ -1256,7 +1259,7 @@ static void icon_preview_free(void *customdata)
 	MEM_freeN(ip);
 }
 
-void ED_preview_icon_render(Main *bmain, Scene *scene, ID *id, unsigned int *rect, int sizex, int sizey)
+void ED_preview_icon_render(Main *bmain, Scene *scene, WorkSpace *workspace, ID *id, unsigned int *rect, int sizex, int sizey)
 {
 	IconPreview ip = {NULL};
 	short stop = false, update = false;
@@ -1266,6 +1269,7 @@ void ED_preview_icon_render(Main *bmain, Scene *scene, ID *id, unsigned int *rec
 
 	ip.bmain = bmain;
 	ip.scene = scene;
+	ip.engine = BKE_render_engine_get(scene, workspace);
 	ip.owner = BKE_previewimg_id_ensure(id);
 	ip.id = id;
 
@@ -1299,6 +1303,7 @@ void ED_preview_icon_job(const bContext *C, void *owner, ID *id, unsigned int *r
 	/* customdata for preview thread */
 	ip->bmain = CTX_data_main(C);
 	ip->scene = CTX_data_scene(C);
+	ip->engine = BKE_render_engine_get(ip->scene, CTX_wm_workspace(C));
 	ip->owner = owner;
 	ip->id = id;
 
@@ -1326,8 +1331,9 @@ void ED_preview_shader_job(const bContext *C, void *owner, ID *id, ID *parent, M
 	wmJob *wm_job;
 	ShaderPreview *sp;
 	Scene *scene = CTX_data_scene(C);
+	WorkSpace *workspace = CTX_wm_workspace(C);
 	short id_type = GS(id->name);
-	bool use_new_shading = BKE_scene_use_new_shading_nodes(scene);
+	bool use_new_shading = BKE_render_use_new_shading_nodes(scene, workspace);
 
 	/* Only texture node preview is supported with Cycles. */
 	if (use_new_shading && method == PR_NODE_RENDER && id_type != ID_TE) {
@@ -1342,6 +1348,7 @@ void ED_preview_shader_job(const bContext *C, void *owner, ID *id, ID *parent, M
 
 	/* customdata for preview thread */
 	sp->scene = scene;
+	sp->engine = BKE_render_engine_get(scene, workspace);
 	sp->owner = owner;
 	sp->sizex = sizex;
 	sp->sizey = sizey;

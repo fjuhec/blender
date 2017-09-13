@@ -200,6 +200,7 @@ struct Render {
 	
 	/* render engine */
 	struct RenderEngine *engine;
+	char engine_name[32];
 	
 	/* octree tables and variables for raytrace */
 	struct RayObject *raytree;

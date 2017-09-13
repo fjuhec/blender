@@ -521,6 +521,7 @@ void RE_bake_engine_set_engine_parameters(Render *re, Main *bmain, Depsgraph *gr
 	re->scene = scene;
 	re->main = bmain;
 	render_copy_renderdata(&re->r, &scene->r);
+	BLI_strncpy(re->engine_name, scene->r.engine, sizeof(re->engine_name));
 }
 
 bool RE_bake_has_engine(Render *re)
@@ -630,7 +631,7 @@ void RE_engine_frame_set(RenderEngine *engine, int frame, float subframe)
 
 int RE_engine_render(Render *re, int do_all)
 {
-	RenderEngineType *type = RE_engines_find(re->r.engine);
+	RenderEngineType *type = RE_engines_find(re->engine_name);
 	RenderEngine *engine;
 	bool persistent_data = (re->r.mode & R_PERSISTENT_DATA) != 0;
 

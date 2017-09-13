@@ -3132,8 +3132,9 @@ const char *RE_GetActiveRenderView(Render *re)
 }
 
 /* evaluating scene options for general Blender render */
-static int render_initialize_from_main(Render *re, RenderData *rd, Main *bmain, Scene *scene, SceneRenderLayer *srl,
-                                       Object *camera_override, unsigned int lay_override, int anim, int anim_init)
+static int render_initialize_from_main(Render *re, RenderData *rd, Main *bmain, Scene *scene, const char *engine_name,
+                                       SceneRenderLayer *srl, Object *camera_override, unsigned int lay_override,
+                                       int anim, int anim_init)
 {
 	int winx, winy;
 	rcti disprect;
@@ -3167,6 +3168,7 @@ static int render_initialize_from_main(Render *re, RenderData *rd, Main *bmain, 
 	re->layer_override = lay_override;
 	re->i.localview = (re->lay & 0xFF000000) != 0;
 	re->viewname[0] = '\0';
+	BLI_strncpy(re->engine_name, engine_name, sizeof(re->engine_name));
 
 	/* not too nice, but it survives anim-border render */
 	if (anim) {
@@ -3225,7 +3227,9 @@ void RE_BlenderFrame(Render *re, Main *bmain, Scene *scene, SceneRenderLayer *sr
 	
 	scene->r.cfra = frame;
 	
-	if (render_initialize_from_main(re, &scene->r, bmain, scene, srl, camera_override, lay_override, 0, 0)) {
+	if (render_initialize_from_main(re, &scene->r, bmain, scene, scene->r.engine, srl,
+	                                camera_override, lay_override, 0, 0))
+	{
 		MEM_reset_peak_memory();
 
 		BLI_callback_exec(re->main, (ID *)scene, BLI_CB_EVT_RENDER_PRE);
@@ -3264,7 +3268,7 @@ void RE_BlenderFrame(Render *re, Main *bmain, Scene *scene, SceneRenderLayer *sr
 void RE_RenderFreestyleStrokes(Render *re, Main *bmain, Scene *scene, int render)
 {
 	re->result_ok= 0;
-	if (render_initialize_from_main(re, &scene->r, bmain, scene, NULL, NULL, scene->lay, 0, 0)) {
+	if (render_initialize_from_main(re, &scene->r, bmain, scene, scene->r.engine, NULL, NULL, scene->lay, 0, 0)) {
 		if (render)
 			do_render_fields_blur_3d(re);
 	}
@@ -3562,7 +3566,7 @@ void RE_BlenderAnim(Render *re, Main *bmain, Scene *scene, Object *camera_overri
 	BLI_callback_exec(re->main, (ID *)scene, BLI_CB_EVT_RENDER_INIT);
 
 	/* do not fully call for each frame, it initializes & pops output window */
-	if (!render_initialize_from_main(re, &rd, bmain, scene, NULL, camera_override, lay_override, 0, 1))
+	if (!render_initialize_from_main(re, &rd, bmain, scene, scene->r.engine, NULL, camera_override, lay_override, 0, 1))
 		return;
 
 	/* MULTIVIEW_TODO:
@@ -3652,7 +3656,8 @@ void RE_BlenderAnim(Render *re, Main *bmain, Scene *scene, Object *camera_overri
 			}
 
 			/* only border now, todo: camera lens. (ton) */
-			render_initialize_from_main(re, &rd, bmain, scene, NULL, camera_override, lay_override, 1, 0);
+			render_initialize_from_main(re, &rd, bmain, scene, scene->r.engine,
+			                            NULL, camera_override, lay_override, 1, 0);
 
 			if (nfra != scene->r.cfra) {
 				/* Skip this frame, but update for physics and particles system. */
@@ -3802,7 +3807,7 @@ void RE_BlenderAnim(Render *re, Main *bmain, Scene *scene, Object *camera_overri
 	G.is_rendering = false;
 }
 
-void RE_PreviewRender(Render *re, Main *bmain, Scene *sce)
+void RE_PreviewRender(Render *re, Main *bmain, Scene *sce, const char *engine)
 {
 	Object *camera;
 	SceneLayer *scene_layer = BKE_scene_layer_from_scene_get(sce);
@@ -3821,6 +3826,7 @@ void RE_PreviewRender(Render *re, Main *bmain, Scene *sce)
 	re->lay = sce->lay;
 	re->depsgraph = BKE_scene_get_depsgraph(sce, scene_layer);
 	re->eval_ctx->scene_layer = scene_layer;
+	BLI_strncpy(re->engine_name, engine, sizeof(re->engine_name));
 
 	camera = RE_GetCamera(re);
 	RE_SetCamera(re, camera);

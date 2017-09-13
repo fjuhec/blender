@@ -5200,6 +5200,7 @@ void RE_Database_FromScene(Render *re, Main *bmain, Scene *scene, unsigned int l
 	re->i.infostr= "Preparing Scene data";
 	re->i.cfra= scene->r.cfra;
 	BLI_strncpy(re->i.scene_name, scene->id.name + 2, sizeof(re->i.scene_name));
+	BLI_strncpy(re->engine_name, scene->r.engine, sizeof(re->engine_name));
 	
 	/* XXX add test if dbase was filled already? */
 	
@@ -5909,6 +5910,7 @@ void RE_Database_Baking(Render *re, Main *bmain, Scene *scene, unsigned int lay,
 
 	/* renderdata setup and exceptions */
 	render_copy_renderdata(&re->r, &scene->r);
+	BLI_strncpy(re->engine_name, scene->r.engine, sizeof(re->engine_name));
 
 	RE_init_threadcount(re);
 	

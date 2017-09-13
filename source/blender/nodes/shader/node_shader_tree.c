@@ -39,6 +39,7 @@
 #include "DNA_space_types.h"
 #include "DNA_world_types.h"
 #include "DNA_linestyle_types.h"
+#include "DNA_workspace_types.h"
 
 #include "BLI_listbase.h"
 #include "BLI_threads.h"
@@ -67,12 +68,16 @@
 static int shader_tree_poll(const bContext *C, bNodeTreeType *UNUSED(treetype))
 {
 	Scene *scene = CTX_data_scene(C);
+	WorkSpace *workspace = CTX_wm_workspace(C);
+
+	const char *engine = BKE_render_engine_get(scene, workspace);
+
 	/* allow empty engine string too, this is from older versions that didn't have registerable engines yet */
-	return (scene->r.engine[0] == '\0' ||
-	        STREQ(scene->r.engine, RE_engine_id_BLENDER_RENDER) ||
-	        STREQ(scene->r.engine, RE_engine_id_BLENDER_GAME) ||
-	        STREQ(scene->r.engine, RE_engine_id_CYCLES) ||
-	        !BKE_scene_use_shading_nodes_custom(scene));
+	return (engine[0] == '\0' ||
+	        STREQ(engine, RE_engine_id_BLENDER_RENDER) ||
+	        STREQ(engine, RE_engine_id_BLENDER_GAME) ||
+	        STREQ(engine, RE_engine_id_CYCLES) ||
+	        !BKE_render_use_shading_nodes_custom(scene, workspace));
 }
 
 static void shader_get_from_context(const bContext *C, bNodeTreeType *UNUSED(treetype), bNodeTree **r_ntree, ID **r_id, ID **r_from)

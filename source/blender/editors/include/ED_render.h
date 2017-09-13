@@ -38,6 +38,7 @@ struct Render;
 struct Scene;
 struct ScrArea;
 struct wmWindowManager;
+struct WorkSpace;
 
 /* render_ops.c */
 
@@ -75,7 +76,7 @@ void ED_preview_ensure_dbase(void);
 void ED_preview_free_dbase(void);
 
 void ED_preview_shader_job(const struct bContext *C, void *owner, struct ID *id, struct ID *parent, struct MTex *slot, int sizex, int sizey, int method);
-void ED_preview_icon_render(struct Main *bmain, struct Scene *scene, struct ID *id, unsigned int *rect, int sizex, int sizey);
+void ED_preview_icon_render(struct Main *bmain, struct Scene *scene, struct WorkSpace *workspace, struct ID *id, unsigned int *rect, int sizex, int sizey);
 void ED_preview_icon_job(const struct bContext *C, void *owner, struct ID *id, unsigned int *rect, int sizex, int sizey);
 void ED_preview_kill_jobs(struct wmWindowManager *wm, struct Main *bmain);
 

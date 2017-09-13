@@ -157,6 +157,7 @@ static Render *envmap_render_copy(Render *re, EnvMap *env)
 	envre->scene = re->scene;    /* unsure about this... */
 	envre->scene_color_manage = re->scene_color_manage;
 	envre->lay = re->lay;
+	BLI_strncpy(envre->engine_name, re->engine_name, sizeof(envre->engine_name));
 
 	/* view stuff in env render */
 	viewscale = (env->type == ENV_PLANE) ? env->viewscale : 1.0f;
