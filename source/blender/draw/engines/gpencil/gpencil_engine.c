@@ -388,8 +388,8 @@ static void GPENCIL_cache_finish(void *vedata)
 	bool is_multiedit = false; 
 	bool playing = (bool)stl->storage->playing;
 
-	/* if painting session is ready, don't need to do more */
-	if (stl->g_data->session_flag & GP_DRW_PAINT_READY) {
+	/* if painting session, don't need to do more */
+	if (stl->g_data->session_flag & GP_DRW_PAINT_PAINTING) {
 		return;
 	}
 
