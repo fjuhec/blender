@@ -152,7 +152,7 @@ static void external_draw_scene(void *vedata)
 	/* Create render engine. */
 	if (!rv3d->render_engine) {
 		RenderEngine *engine;
-		type = RE_engines_find(scene->r.engine);
+		type = RE_engines_find(draw_ctx->engine);
 
 		if (!(type->view_update && type->render_to_view)) {
 			return;

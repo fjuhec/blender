@@ -37,6 +37,7 @@
 #include "BKE_object.h"
 #include "BKE_pbvh.h"
 #include "BKE_paint.h"
+#include "BKE_workspace.h"
 
 #include "BLT_translation.h"
 #include "BLF_api.h"
@@ -3145,6 +3146,22 @@ void DRW_draw_view(const bContext *C)
 }
 
 /**
+ * Return the render engine to use for render.
+ */
+static const char *render_engine_get(Scene *scene, const WorkSpace *workspace)
+{
+	if (DRW_state_is_scene_render() ||
+	    (workspace == NULL) || /* When writing file thumbnails, it's not scene render and we don't have UI. */
+	    BKE_workspace_use_scene_settings_get(workspace))
+	{
+		return scene->r.engine;
+	}
+	else {
+		return BKE_workspace_engine_get(workspace);
+	}
+}
+
+/**
  * Used for both regular and off-screen drawing.
  * Need to reset DST before calling this function
  */
@@ -3168,9 +3185,11 @@ void DRW_draw_render_loop_ex(
 	cache_is_dirty = GPU_viewport_cache_validate(DST.viewport, DRW_engines_get_hash());
 
 	DST.draw_ctx = (DRWContextState){
-		ar, rv3d, v3d, scene, sl, OBACT_NEW(sl),
-		/* reuse if caller sets */
-		DST.draw_ctx.evil_C,
+	    ar, rv3d, v3d, scene, sl, OBACT_NEW(sl),
+	    render_engine_get(scene, workspace),
+
+	    /* reuse if caller sets */
+	    DST.draw_ctx.evil_C,
 	};
 
 	DRW_viewport_var_init();
@@ -3353,7 +3372,7 @@ void DRW_draw_select_loop(
 
 	/* Instead of 'DRW_context_state_init(C, &DST.draw_ctx)', assign from args */
 	DST.draw_ctx = (DRWContextState){
-		ar, rv3d, v3d, scene, sl, OBACT_NEW(sl), (bContext *)NULL,
+		ar, rv3d, v3d, scene, sl, OBACT_NEW(sl), "", (bContext *)NULL,
 	};
 
 	DRW_viewport_var_init();
@@ -3449,7 +3468,7 @@ void DRW_draw_depth_loop(
 
 	/* Instead of 'DRW_context_state_init(C, &DST.draw_ctx)', assign from args */
 	DST.draw_ctx = (DRWContextState){
-		ar, rv3d, v3d, scene, sl, OBACT_NEW(sl), (bContext *)NULL,
+		ar, rv3d, v3d, scene, sl, OBACT_NEW(sl), "", (bContext *)NULL,
 	};
 
 	DRW_viewport_var_init();
