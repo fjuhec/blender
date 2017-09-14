@@ -644,7 +644,6 @@ static void gpencil_draw_onion_strokes(GpencilBatchCache *cache, GPENCIL_e_data 
 {
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
-	int id = stl->storage->shgroup_id;
 	float viewmatrix[4][4];
 
 	/* get parent matrix and save as static data */
@@ -652,6 +651,7 @@ static void gpencil_draw_onion_strokes(GpencilBatchCache *cache, GPENCIL_e_data 
 	copy_m4_m4(gpf->viewmatrix, viewmatrix);
 
 	for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+		int id = stl->storage->shgroup_id;
 		/* check if stroke can be drawn */
 		if (gpencil_can_draw_stroke(gps, true) == false) {
 			continue;
