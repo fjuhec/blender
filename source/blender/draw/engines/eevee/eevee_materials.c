@@ -336,8 +336,6 @@ static char *eevee_get_volume_defines(int options)
 {
 	char *str = NULL;
 
-	BLI_assert(options < VAR_MAT_MAX);
-
 	DynStr *ds = BLI_dynstr_new();
 	BLI_dynstr_appendf(ds, SHADER_DEFINES);
 	BLI_dynstr_appendf(ds, "#define VOLUMETRICS\n");
@@ -368,7 +366,7 @@ static void add_standard_uniforms(
         DRWShadingGroup *shgrp, EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata,
         int *ssr_id, float *refract_depth, bool use_ssrefraction)
 {
-	if (ssr_id == NULL) {
+	if (ssr_id == NULL || !vedata->stl->g_data->valid_double_buffer) {
 		static int no_ssr = -1.0f;
 		ssr_id = &no_ssr;
 	}

@@ -319,14 +319,10 @@ enum {
 	STENCIL_ACTIVE          = (1 << 1),
 };
 
-/* Render State */
+/** Render State: No persistent data between draw calls. */
 static struct DRWGlobalState {
 	/* Rendering state */
 	GPUShader *shader;
-	GPUTexture **bound_texs;
-	GPUUniformBuffer **bound_ubos;
-	int bind_tex_inc;
-	int bind_ubo_inc;
 
 	/* Managed by `DRW_state_set`, `DRW_state_reset` */
 	DRWState state;
@@ -362,6 +358,15 @@ static struct DRWGlobalState {
 	/* Profiling */
 	double cache_time;
 } DST = {NULL};
+
+/** GPU Resource State: Memory storage between drawing. */
+static struct DRWResourceState {
+	GPUTexture **bound_texs;
+	GPUUniformBuffer **bound_ubos;
+
+	int bind_tex_inc;
+	int bind_ubo_inc;
+} RST = {NULL};
 
 static struct DRWMatrixOveride {
 	float mat[6][4][4];
@@ -1830,35 +1835,33 @@ static void draw_geometry(DRWShadingGroup *shgroup, Gwn_Batch *geom, const float
 
 static void draw_bind_texture(GPUTexture *tex)
 {
-	int bind = GPU_texture_bound_number(tex);
-	if (bind == -1) {
-		if (DST.bind_tex_inc >= 0) {
-			if (DST.bound_texs[DST.bind_tex_inc] != NULL) {
-				GPU_texture_unbind(DST.bound_texs[DST.bind_tex_inc]);
+	if (RST.bound_texs[RST.bind_tex_inc] != tex) {
+		if (RST.bind_tex_inc >= 0) {
+			if (RST.bound_texs[RST.bind_tex_inc] != NULL) {
+				GPU_texture_unbind(RST.bound_texs[RST.bind_tex_inc]);
 			}
-			DST.bound_texs[DST.bind_tex_inc] = tex;
-			GPU_texture_bind(tex, DST.bind_tex_inc);
-
-			DST.bind_tex_inc--;
+			RST.bound_texs[RST.bind_tex_inc] = tex;
+			GPU_texture_bind(tex, RST.bind_tex_inc);
 		}
 		else {
 			printf("Not enough texture slots! Reduce number of textures used by your shader.\n");
 		}
 	}
+	RST.bind_tex_inc--;
 }
 
 static void draw_bind_ubo(GPUUniformBuffer *ubo)
 {
-	if (DST.bound_ubos[DST.bind_ubo_inc] != ubo) {
-		if (DST.bind_ubo_inc >= 0) {
-			DST.bound_ubos[DST.bind_ubo_inc] = ubo;
-			GPU_uniformbuffer_bind(ubo, DST.bind_ubo_inc);
+	if (RST.bound_ubos[RST.bind_ubo_inc] != ubo) {
+		if (RST.bind_ubo_inc >= 0) {
+			RST.bound_ubos[RST.bind_ubo_inc] = ubo;
+			GPU_uniformbuffer_bind(ubo, RST.bind_ubo_inc);
 		}
 		else {
 			printf("Not enough ubo slots!\n");
 		}
 	}
-	DST.bind_ubo_inc--;
+	RST.bind_ubo_inc--;
 }
 
 static void draw_shgroup(DRWShadingGroup *shgroup, DRWState pass_state)
@@ -1866,8 +1869,8 @@ static void draw_shgroup(DRWShadingGroup *shgroup, DRWState pass_state)
 	BLI_assert(shgroup->shader);
 	BLI_assert(shgroup->interface);
 
-	DST.bind_tex_inc = GPU_max_textures() - 1; /* Reset texture counter. */
-	DST.bind_ubo_inc = GPU_max_ubo_binds() - 1; /* Reset UBO counter. */
+	RST.bind_tex_inc = GPU_max_textures() - 1; /* Reset texture counter. */
+	RST.bind_ubo_inc = GPU_max_ubo_binds() - 1; /* Reset UBO counter. */
 	DRWInterface *interface = shgroup->interface;
 	GPUTexture *tex;
 	GPUUniformBuffer *ubo;
@@ -2043,10 +2046,15 @@ static void DRW_draw_pass_ex(DRWPass *pass, DRWShadingGroup *start_group, DRWSha
 
 	/* Clear Bound textures */
 	for (int i = 0; i < GPU_max_textures(); i++) {
-		if (DST.bound_texs[i] != NULL) {
-			GPU_texture_unbind(DST.bound_texs[i]);
-			DST.bound_texs[i] = NULL;
+		if (RST.bound_texs[i] != NULL) {
+			GPU_texture_unbind(RST.bound_texs[i]);
+			RST.bound_texs[i] = NULL;
 		}
+	}
+
+	/* Clear Bound Ubos */
+	for (int i = 0; i < GPU_max_ubo_binds(); i++) {
+		RST.bound_ubos[i] = NULL;
 	}
 
 	if (DST.shader) {
@@ -2516,13 +2524,13 @@ static void DRW_viewport_var_init(void)
 	glFrontFace(DST.frontface);
 
 	/* Alloc array of texture reference. */
-	if (DST.bound_texs == NULL) {
-		DST.bound_texs = MEM_callocN(sizeof(GPUTexture *) * GPU_max_textures(), "Bound GPUTexture refs");
+	if (RST.bound_texs == NULL) {
+		RST.bound_texs = MEM_callocN(sizeof(GPUTexture *) * GPU_max_textures(), "Bound GPUTexture refs");
 	}
 
 	/* Alloc array of ubos reference. */
-	if (DST.bound_ubos == NULL) {
-		DST.bound_ubos = MEM_callocN(sizeof(GPUUniformBuffer *) * GPU_max_ubo_binds(), "Bound GPUUniformBuffer refs");
+	if (RST.bound_ubos == NULL) {
+		RST.bound_ubos = MEM_callocN(sizeof(GPUUniformBuffer *) * GPU_max_ubo_binds(), "Bound GPUUniformBuffer refs");
 	}
 }
 
@@ -3242,8 +3250,6 @@ void DRW_draw_render_loop_ex(
 
 #ifdef DEBUG
 	/* Avoid accidental reuse. */
-	MEM_freeN(DST.bound_texs);
-	MEM_freeN(DST.bound_ubos);
 	memset(&DST, 0xFF, sizeof(DST));
 #endif
 }
@@ -3396,8 +3402,6 @@ void DRW_draw_select_loop(
 
 #ifdef DEBUG
 	/* Avoid accidental reuse. */
-	MEM_freeN(DST.bound_texs);
-	MEM_freeN(DST.bound_ubos);
 	memset(&DST, 0xFF, sizeof(DST));
 #endif
 
@@ -3486,8 +3490,6 @@ void DRW_draw_depth_loop(
 
 #ifdef DEBUG
 	/* Avoid accidental reuse. */
-	MEM_freeN(DST.bound_texs);
-	MEM_freeN(DST.bound_ubos);
 	memset(&DST, 0xFF, sizeof(DST));
 #endif
 
@@ -3681,6 +3683,9 @@ void DRW_engines_free(void)
 
 	if (globals_ramp)
 		GPU_texture_free(globals_ramp);
+
+	MEM_SAFE_FREE(RST.bound_texs);
+	MEM_SAFE_FREE(RST.bound_ubos);
 
 #ifdef WITH_CLAY_ENGINE
 	BLI_remlink(&R_engines, &DRW_engine_viewport_clay_type);
