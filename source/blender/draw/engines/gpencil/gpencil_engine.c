@@ -322,23 +322,23 @@ static void GPENCIL_cache_init(void *vedata)
 
 		/* vfx copy pass from txtb to txta */
 		vfxquad = DRW_cache_fullscreen_quad_get();
-		psl->vfx_copy_pass = DRW_pass_create("GPencil VFX Copy b to a Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+		psl->vfx_copy_pass = DRW_pass_create("GPencil VFX Copy b to a Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 		DRWShadingGroup *vfx_copy_shgrp = DRW_shgroup_create(e_data.gpencil_fullscreen_sh, psl->vfx_copy_pass);
 		DRW_shgroup_call_add(vfx_copy_shgrp, vfxquad, NULL);
 		DRW_shgroup_uniform_buffer(vfx_copy_shgrp, "strokeColor", &e_data.vfx_fbcolor_color_tx_b);
 		DRW_shgroup_uniform_buffer(vfx_copy_shgrp, "strokeDepth", &e_data.vfx_fbcolor_depth_tx_b);
 
 		/* VFX pass */
-		psl->vfx_wave_pass = DRW_pass_create("GPencil VFX Wave Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+		psl->vfx_wave_pass = DRW_pass_create("GPencil VFX Wave Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 
-		psl->vfx_blur_pass_1 = DRW_pass_create("GPencil VFX Blur Pass 1", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
-		psl->vfx_blur_pass_2 = DRW_pass_create("GPencil VFX Blur Pass 2", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
-		psl->vfx_blur_pass_3 = DRW_pass_create("GPencil VFX Blur Pass 3", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
-		psl->vfx_blur_pass_4 = DRW_pass_create("GPencil VFX Blur Pass 4", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+		psl->vfx_blur_pass_1 = DRW_pass_create("GPencil VFX Blur Pass 1", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+		psl->vfx_blur_pass_2 = DRW_pass_create("GPencil VFX Blur Pass 2", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+		psl->vfx_blur_pass_3 = DRW_pass_create("GPencil VFX Blur Pass 3", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+		psl->vfx_blur_pass_4 = DRW_pass_create("GPencil VFX Blur Pass 4", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 
-		psl->vfx_pixel_pass = DRW_pass_create("GPencil VFX Pixel Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+		psl->vfx_pixel_pass = DRW_pass_create("GPencil VFX Pixel Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 
-		psl->vfx_swirl_pass = DRW_pass_create("GPencil VFX Swirl Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+		psl->vfx_swirl_pass = DRW_pass_create("GPencil VFX Swirl Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 
 		/* Painting session pass (used only to speedup while the user is drawing ) */
 		struct Gwn_Batch *paintquad = DRW_cache_fullscreen_quad_get();
