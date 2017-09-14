@@ -1422,11 +1422,11 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *UNUSED(customda
 
 	/* Inner Ring: Color from UI panel */
 	immUniformColor4f(color[0], color[1], color[2], 0.8f);
-	imm_draw_circle_wire(pos, x, y, radius, 40);
+	imm_draw_circle_wire_2d(pos, x, y, radius, 40);
 	/* Outer Ring: Dark color for contrast on light backgrounds (e.g. gray on white) */
 	mul_v3_v3fl(darkcolor, color, 0.40f);
 	immUniformColor4f(darkcolor[0], darkcolor[1], darkcolor[2], 0.8f);
-	imm_draw_circle_wire(pos, x, y, radius + 1, 40);
+	imm_draw_circle_wire_2d(pos, x, y, radius + 1, 40);
 
 	immUnbindProgram();
 
