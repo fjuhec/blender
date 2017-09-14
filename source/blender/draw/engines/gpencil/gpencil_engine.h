@@ -147,6 +147,8 @@ typedef struct GPENCIL_PassList {
 	struct DRWPass *drawing_pass;
 	struct DRWPass *mix_pass;
 	struct DRWPass *mix_vfx_pass;
+	struct DRWPass *mix_pass_noblend;
+	struct DRWPass *mix_vfx_pass_noblend;
 	struct DRWPass *vfx_copy_pass;
 	struct DRWPass *vfx_wave_pass;
 	struct DRWPass *vfx_blur_pass_1;

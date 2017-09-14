@@ -320,6 +320,22 @@ static void GPENCIL_cache_init(void *vedata)
 		DRW_shgroup_uniform_buffer(mix_vfx_shgrp, "strokeColor", &e_data.vfx_fbcolor_color_tx_a);
 		DRW_shgroup_uniform_buffer(mix_vfx_shgrp, "strokeDepth", &e_data.vfx_fbcolor_depth_tx_a);
 
+		/* mix pass no blend */
+		struct Gwn_Batch *quad_noblend = DRW_cache_fullscreen_quad_get();
+		psl->mix_pass_noblend = DRW_pass_create("GPencil Mix Pass no blend", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+		DRWShadingGroup *mix_shgrp_noblend = DRW_shgroup_create(e_data.gpencil_fullscreen_sh, psl->mix_pass_noblend);
+		DRW_shgroup_call_add(mix_shgrp_noblend, quad_noblend, NULL);
+		DRW_shgroup_uniform_buffer(mix_shgrp_noblend, "strokeColor", &e_data.temp_fbcolor_color_tx);
+		DRW_shgroup_uniform_buffer(mix_shgrp_noblend, "strokeDepth", &e_data.temp_fbcolor_depth_tx);
+
+		/* mix vfx pass no blend */
+		struct Gwn_Batch *vfxquad_noblend = DRW_cache_fullscreen_quad_get();
+		psl->mix_vfx_pass_noblend = DRW_pass_create("GPencil Mix VFX Pass no blend", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+		DRWShadingGroup *mix_vfx_shgrp_noblend = DRW_shgroup_create(e_data.gpencil_fullscreen_sh, psl->mix_vfx_pass_noblend);
+		DRW_shgroup_call_add(mix_vfx_shgrp_noblend, vfxquad_noblend, NULL);
+		DRW_shgroup_uniform_buffer(mix_vfx_shgrp_noblend, "strokeColor", &e_data.vfx_fbcolor_color_tx_a);
+		DRW_shgroup_uniform_buffer(mix_vfx_shgrp_noblend, "strokeDepth", &e_data.vfx_fbcolor_depth_tx_a);
+
 		/* vfx copy pass from txtb to txta */
 		vfxquad = DRW_cache_fullscreen_quad_get();
 		psl->vfx_copy_pass = DRW_pass_create("GPencil VFX Copy b to a Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
@@ -624,7 +640,7 @@ static void GPENCIL_draw_scene(void *vedata)
 					/* Mix VFX Pass */
 					DRW_draw_pass(psl->mix_vfx_pass);
 					/* prepare for fast drawing */	
-					gpencil_prepare_fast_drawing(stl, dfbl, fbl, psl->mix_vfx_pass, clearcol);
+					gpencil_prepare_fast_drawing(stl, dfbl, fbl, psl->mix_vfx_pass_noblend, clearcol);
 				}
 				else {
 					/* Combine with scene buffer without more passes */
@@ -632,7 +648,7 @@ static void GPENCIL_draw_scene(void *vedata)
 					/* Mix Pass: DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS */
 					DRW_draw_pass(psl->mix_pass);
 					/* prepare for fast drawing */
-					gpencil_prepare_fast_drawing(stl, dfbl, fbl, psl->mix_pass, clearcol);
+					gpencil_prepare_fast_drawing(stl, dfbl, fbl, psl->mix_pass_noblend, clearcol);
 				}
 			}
 			/* edit points */
