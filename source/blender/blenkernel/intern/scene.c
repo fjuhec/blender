@@ -1579,9 +1579,11 @@ static bool check_rendered_viewport_visible(Main *bmain)
 	wmWindow *window;
 	for (window = wm->windows.first; window != NULL; window = window->next) {
 		const bScreen *screen = BKE_workspace_active_screen_get(window->workspace_hook);
+		WorkSpace *workspace = BKE_workspace_active_get(window->workspace_hook);
 		Scene *scene = window->scene;
+		const char *engine = BKE_render_engine_get(scene, workspace);
 		ScrArea *area;
-		RenderEngineType *type = RE_engines_find(scene->r.engine);
+		RenderEngineType *type = RE_engines_find(engine);
 		if ((type->draw_engine != NULL) || (type->render_to_view == NULL)) {
 			continue;
 		}
