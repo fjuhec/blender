@@ -1497,7 +1497,7 @@ static void gp_draw_data_layers(
 		 *   - The per-layer "always show" flag however overrides the playback/render restriction,
 		 *     allowing artists to selectively turn onionskins on/off during playback
 		 */
-		if ((gpl->flag & GP_LAYER_ONIONSKIN) && 
+		if ((gpl->onion_flag & GP_LAYER_ONIONSKIN) &&
 		    ((dflag & GP_DRAWDATA_NO_ONIONS) == 0 || (gpd->onion_flag & GP_ONION_GHOST_ALWAYS)))
 		{
 			/* Drawing method - only immediately surrounding (gstep = 0),

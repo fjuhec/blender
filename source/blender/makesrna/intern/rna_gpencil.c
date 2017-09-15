@@ -109,7 +109,7 @@ static void rna_GPencil_onion_skinning_update(Main *bmain, Scene *scene, Pointer
 	 * stays in sync with the status of the actual layers
 	 */
 	for (gpl = gpd->layers.first; gpl; gpl = gpl->next) {
-		if (gpl->flag & GP_LAYER_ONIONSKIN) {
+		if (gpl->onion_flag & GP_LAYER_ONIONSKIN) {
 			enabled = true;
 		}
 	}
@@ -978,7 +978,9 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
 	PropertyRNA *prop;
 
 	FunctionRNA *func;
-	
+	static float onion_dft1[3] = { 0.145098f, 0.419608f, 0.137255f }; /* green */
+	static float onion_dft2[3] = { 0.125490f, 0.082353f, 0.529412f }; /* blue */
+
 	srna = RNA_def_struct(brna, "GPencilLayer", NULL);
 	RNA_def_struct_sdna(srna, "bGPDlayer");
 	RNA_def_struct_ui_text(srna, "Grease Pencil Layer", "Collection of related sketches");
@@ -1043,9 +1045,52 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
 	
 	/* Onion-Skinning */
 	prop = RNA_def_property(srna, "use_onion_skinning", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_LAYER_ONIONSKIN);
+	RNA_def_property_boolean_sdna(prop, NULL, "onion_flag", GP_LAYER_ONIONSKIN);
 	RNA_def_property_ui_text(prop, "Onion Skinning", "Ghost frames on either side of frame");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_onion_skinning_update");
+
+	prop = RNA_def_property(srna, "ghost_before_range", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "gstep");
+	RNA_def_property_range(prop, 0, 120);
+	RNA_def_property_ui_text(prop, "Frames Before",
+		"Maximum number of frames to show before current frame "
+		"(0 = don't show any frames before current)");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+	prop = RNA_def_property(srna, "ghost_after_range", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "gstep_next");
+	RNA_def_property_range(prop, 0, 120);
+	RNA_def_property_ui_text(prop, "Frames After",
+		"Maximum number of frames to show after current frame "
+		"(0 = don't show any frames after current)");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+	prop = RNA_def_property(srna, "use_ghost_custom_colors", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "onion_flag", GP_LAYER_GHOST_PREVCOL | GP_LAYER_GHOST_NEXTCOL);
+	RNA_def_property_ui_text(prop, "Use Custom Ghost Colors", "Use custom colors for ghost frames");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+	prop = RNA_def_property(srna, "before_color", PROP_FLOAT, PROP_COLOR_GAMMA);
+	RNA_def_property_float_sdna(prop, NULL, "gcolor_prev");
+	RNA_def_property_array(prop, 3);
+	RNA_def_property_range(prop, 0.0f, 1.0f);
+	RNA_def_property_float_array_default(prop, onion_dft1);
+	RNA_def_property_ui_text(prop, "Before Color", "Base color for ghosts before the active frame");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+	prop = RNA_def_property(srna, "after_color", PROP_FLOAT, PROP_COLOR_GAMMA);
+	RNA_def_property_float_sdna(prop, NULL, "gcolor_next");
+	RNA_def_property_array(prop, 3);
+	RNA_def_property_range(prop, 0.0f, 1.0f);
+	RNA_def_property_float_array_default(prop, onion_dft2);
+	RNA_def_property_ui_text(prop, "After Color", "Base color for ghosts after the active frame");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+	prop = RNA_def_property(srna, "use_ghosts_always", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "onion_flag", GP_LAYER_GHOST_ALWAYS);
+	RNA_def_property_ui_text(prop, "Always Show Ghosts",
+		"Ghosts are shown in renders and animation playback. Useful for special effects (e.g. motion blur)");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
 	prop = RNA_def_property(srna, "use_stroke_location", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_LAYER_USE_LOCATION);
@@ -1142,6 +1187,32 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
 	RNA_def_property_boolean_funcs(prop, "rna_GPencilLayer_is_parented_get", NULL);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_ui_text(prop, "Is Parented", "True when the layer parent object is set");
+
+	/* onion modes */
+	prop = RNA_def_property(srna, "onion_mode", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "onion_mode");
+	RNA_def_property_enum_items(prop, rna_enum_gpencil_onion_modes_items);
+	RNA_def_property_ui_text(prop, "Mode", "Mode to display frames");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+	prop = RNA_def_property(srna, "use_onion_fade", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "onion_flag", GP_LAYER_ONION_FADE);
+	RNA_def_property_ui_text(prop, "Fade",
+		"Display onion keyframes with a fade in color transparency");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+	prop = RNA_def_property(srna, "override_onion", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "onion_flag", GP_LAYER_ONION_OVERRIDE);
+	RNA_def_property_ui_text(prop, "Override",
+		"Override onion settings with layer settings");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+	prop = RNA_def_property(srna, "onion_factor", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "onion_factor");
+	RNA_def_property_float_default(prop, 0.5f);
+	RNA_def_property_range(prop, 0.0, 1.0f);
+	RNA_def_property_ui_text(prop, "Onion Opacity", "Change fade opacity of displayed onion frames");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update"); 
 
 	/* Layers API */
 	func = RNA_def_function(srna, "clear", "rna_GPencil_layer_clear");

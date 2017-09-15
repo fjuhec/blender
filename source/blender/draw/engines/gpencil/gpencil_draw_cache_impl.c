@@ -844,44 +844,62 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 	float color[4];
 	int idx;
 	float fac = 1.0f;
+	int step = 0;
+	int mode = 0;
 
 	/* -------------------------------
 	 * 1) Draw Previous Frames First
 	 * ------------------------------- */
-	if (gpd->onion_flag & GP_ONION_GHOST_PREVCOL) {
-		copy_v3_v3(color, gpd->gcolor_prev);
+	if (gpl->onion_flag & GP_LAYER_ONION_OVERRIDE) {
+		step = gpl->gstep;
+		mode = gpl->onion_mode;
+
+		if (gpl->onion_flag & GP_LAYER_GHOST_PREVCOL) {
+			copy_v3_v3(color, gpl->gcolor_prev);
+		}
+		else {
+			copy_v3_v3(color, default_color);
+		}
 	}
 	else {
-		copy_v3_v3(color, default_color);
+		step = gpd->gstep;
+		mode = gpd->onion_mode;
+
+		if (gpd->onion_flag & GP_ONION_GHOST_PREVCOL) {
+			copy_v3_v3(color, gpd->gcolor_prev);
+		}
+		else {
+			copy_v3_v3(color, default_color);
+		}
 	}
 
 	idx = 0;
 	for (bGPDframe *gf = gpf->prev; gf; gf = gf->prev) {
 		/* only selected frames */
-		if ((gpd->onion_mode == GP_ONION_MODE_SELECTED) && ((gf->flag & GP_FRAME_SELECT) == 0)) {
+		if ((mode == GP_ONION_MODE_SELECTED) && ((gf->flag & GP_FRAME_SELECT) == 0)) {
 			continue;
 		}
 		/* absolute range */
-		if (gpd->onion_mode == GP_ONION_MODE_ABSOLUTE) {
-			if ((gpf->framenum - gf->framenum) > gpd->gstep) {
+		if (mode == GP_ONION_MODE_ABSOLUTE) {
+			if ((gpf->framenum - gf->framenum) > step) {
 				break;
 			}
 		}
 		/* relative range */
-		if (gpd->onion_mode == GP_ONION_MODE_RELATIVE) {
+		if (mode == GP_ONION_MODE_RELATIVE) {
 			++idx;
-			if (idx > gpd->gstep) {
+			if (idx > step) {
 				break;
 			}
 
 		}
 		/* alpha decreases with distance from curframe index */
-		if (gpd->onion_mode != GP_ONION_MODE_SELECTED) {
-			if (gpd->onion_mode == GP_ONION_MODE_ABSOLUTE) {
-				fac = 1.0f - ((float)(gpf->framenum - gf->framenum) / (float)(gpd->gstep + 1));
+		if (mode != GP_ONION_MODE_SELECTED) {
+			if (mode == GP_ONION_MODE_ABSOLUTE) {
+				fac = 1.0f - ((float)(gpf->framenum - gf->framenum) / (float)(step + 1));
 			}
 			else {
-				fac = 1.0f - ((float)idx / (float)(gpd->gstep + 1));
+				fac = 1.0f - ((float)idx / (float)(step + 1));
 			}
 			color[3] = alpha * fac * 0.66f;
 		}
@@ -891,11 +909,20 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 			color[3] = fac;
 		}
 		/* if fade is disabled, opacity is equal in all frames */
-		if ((gpd->onion_flag & GP_ONION_FADE) == 0) {
-			color[3] = 0.66f;
+		if (gpl->onion_flag & GP_LAYER_ONION_OVERRIDE) {
+			if ((gpl->onion_flag & GP_LAYER_ONION_FADE) == 0) {
+				color[3] = 0.66f;
+			}
+			/* add override opacity factor */
+			color[3] += gpl->onion_factor - 0.5f;
 		}
-		/* add override opacity factor */
-		color[3] += gpd->onion_factor - 0.5f;
+		else {
+			if ((gpd->onion_flag & GP_ONION_FADE) == 0) {
+				color[3] = 0.66f;
+			}
+			/* add override opacity factor */
+			color[3] += gpd->onion_factor - 0.5f;
+		}
 
 		CLAMP(color[3], 0.3f, 1.0f);
 		gpencil_draw_onion_strokes(cache, e_data, vedata, ob, gpd, gpl, gf, color, gpd->onion_flag & GP_ONION_GHOST_PREVCOL);
@@ -903,40 +930,56 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 	/* -------------------------------
 	 * 2) Now draw next frames
 	 * ------------------------------- */
-	if (gpd->onion_flag & GP_ONION_GHOST_NEXTCOL) {
-		copy_v3_v3(color, gpd->gcolor_next);
+	if (gpl->onion_flag & GP_LAYER_ONION_OVERRIDE) {
+		step = gpl->gstep_next;
+		mode = gpl->onion_mode;
+
+		if (gpl->onion_flag & GP_LAYER_GHOST_NEXTCOL) {
+			copy_v3_v3(color, gpl->gcolor_next);
+		}
+		else {
+			copy_v3_v3(color, default_color);
+		}
 	}
 	else {
-		copy_v3_v3(color, default_color);
+		step = gpd->gstep_next;
+		mode = gpd->onion_mode;
+
+		if (gpd->onion_flag & GP_ONION_GHOST_NEXTCOL) {
+			copy_v3_v3(color, gpd->gcolor_next);
+		}
+		else {
+			copy_v3_v3(color, default_color);
+		}
 	}
 
 	idx = 0;
 	for (bGPDframe *gf = gpf->next; gf; gf = gf->next) {
 		/* only selected frames */
-		if ((gpd->onion_mode == GP_ONION_MODE_SELECTED) && ((gf->flag & GP_FRAME_SELECT) == 0)) {
+		if ((mode == GP_ONION_MODE_SELECTED) && ((gf->flag & GP_FRAME_SELECT) == 0)) {
 			continue;
 		}
 		/* absolute range */
-		if (gpd->onion_mode == GP_ONION_MODE_ABSOLUTE) {
-			if ((gf->framenum - gpf->framenum) > gpd->gstep_next) {
+		if (mode == GP_ONION_MODE_ABSOLUTE) {
+			if ((gf->framenum - gpf->framenum) >step) {
 				break;
 			}
 		}
 		/* relative range */
-		if (gpd->onion_mode == GP_ONION_MODE_RELATIVE) {
+		if (mode == GP_ONION_MODE_RELATIVE) {
 			++idx;
-			if (idx > gpd->gstep_next) {
+			if (idx > step) {
 				break;
 			}
 
 		}
 		/* alpha decreases with distance from curframe index */
-		if (gpd->onion_mode != GP_ONION_MODE_SELECTED) {
-			if (gpd->onion_mode == GP_ONION_MODE_ABSOLUTE) {
-				fac = 1.0f - ((float)(gf->framenum - gpf->framenum) / (float)(gpd->gstep_next + 1));
+		if (mode != GP_ONION_MODE_SELECTED) {
+			if (mode == GP_ONION_MODE_ABSOLUTE) {
+				fac = 1.0f - ((float)(gf->framenum - gpf->framenum) / (float)(step + 1));
 			}
 			else {
-				fac = 1.0f - ((float)idx / (float)(gpd->gstep + 1));
+				fac = 1.0f - ((float)idx / (float)(step + 1));
 			}
 			color[3] = alpha * fac * 0.66f;
 		}
@@ -946,11 +989,20 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 			color[3] = fac;
 		}
 		/* if fade is disabled, opacity is equal in all frames */
-		if ((gpd->onion_flag & GP_ONION_FADE) == 0) {
-			color[3] = 0.66f;
+		if (gpl->onion_flag & GP_LAYER_ONION_OVERRIDE) {
+			if ((gpl->onion_flag & GP_ONION_FADE) == 0) {
+				color[3] = 0.66f;
+			}
+			/* add override opacity factor */
+			color[3] += gpl->onion_factor - 0.5f;
 		}
-		/* add override opacity factor */
-		color[3] += gpd->onion_factor - 0.5f;
+		else {
+			if ((gpd->onion_flag & GP_ONION_FADE) == 0) {
+				color[3] = 0.66f;
+			}
+			/* add override opacity factor */
+			color[3] += gpd->onion_factor - 0.5f;
+		}
 
 		CLAMP(color[3], 0.3f, 1.0f);
 		gpencil_draw_onion_strokes(cache, e_data, vedata, ob, gpd, gpl, gf, color, gpd->onion_flag & GP_ONION_GHOST_NEXTCOL);
@@ -1053,7 +1105,8 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 		}
 
 		/* draw onion skins */
-		if ((!no_onion) && (gpl->flag & GP_LAYER_ONIONSKIN) &&
+		if ((gpd->flag & GP_DATA_SHOW_ONIONSKINS) && (!no_onion) && 
+			(gpl->onion_flag & GP_LAYER_ONIONSKIN) &&
 			((!playing) || (gpd->onion_flag & GP_ONION_GHOST_ALWAYS)))
 		{
 			gpencil_draw_onionskins(cache, e_data, vedata, ts, ob, gpd, gpl, gpf);

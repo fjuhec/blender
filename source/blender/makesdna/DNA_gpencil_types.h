@@ -249,11 +249,11 @@ typedef struct bGPDlayer {
 	short flag;				/* settings for layer */
 	short thickness;		/* current thickness to apply to strokes */
 
-	short gstep DNA_DEPRECATED;
-	short gstep_next DNA_DEPRECATED;
+	short gstep;            /* Ghosts Before: max number of ghost frames to show between active frame and the one before it (0 = only the ghost itself) */
+	short gstep_next;       /* Ghosts After:  max number of ghost frames to show after active frame and the following it    (0 = only the ghost itself) */
 
-	float gcolor_prev[3] DNA_DEPRECATED;
-	float gcolor_next[3] DNA_DEPRECATED;
+	float gcolor_prev[3];   /* optional color for ghosts before the active frame */
+	float gcolor_next[3];   /* optional color for ghosts after the active frame */
 
 	float color[4];			/* Color for strokes in layers (replaced by palettecolor). Only used for ruler (which uses GPencil internally) */
 	float fill[4];			/* Fill color for strokes in layers.  Not used and replaced by palettecolor fill */
@@ -264,10 +264,13 @@ typedef struct bGPDlayer {
 	struct Object *parent;  /* parent object */
 	float inverse[4][4];    /* inverse matrix (only used if parented) */
 	char parsubstr[64];     /* String describing subobject info, MAX_ID_NAME-2 */
-	short partype, pad;
+	short partype;
+	short onion_flag;
 	
 	float tintcolor[4];     /* Color used to tint layer, alpha value is used as factor */
 	float opacity;          /* Opacity of the layer */
+	int onion_mode;         /* onion mode */
+	float onion_factor;     /* onion alpha factor change */
 	struct GHash *derived_data;     /* runtime data created by modifiers */
 } bGPDlayer;
 
@@ -281,8 +284,6 @@ typedef enum eGPDlayer_Flag {
 	GP_LAYER_ACTIVE			= (1 << 2),
 	/* draw points of stroke for debugging purposes */
 	GP_LAYER_DRAWDEBUG 		= (1 << 3),
-	/* do onion skinning */
-	GP_LAYER_ONIONSKIN		= (1 << 4),
 	/* for editing in Action Editor */
 	GP_LAYER_SELECT			= (1 << 5),
 	/* current frame for layer can't be changed */
@@ -296,6 +297,21 @@ typedef enum eGPDlayer_Flag {
 	/* draw new strokes using last stroke location (only in 3d view) */
 	GP_LAYER_USE_LOCATION = (1 << 14),
 } eGPDlayer_Flag;
+
+typedef enum eGPDlayer_Onion_Flag {
+	/* do onion skinning */
+	GP_LAYER_ONIONSKIN = (1 << 0),
+	/* use custom color for ghosts before current frame */
+	GP_LAYER_GHOST_PREVCOL = (1 << 1),
+	/* use custom color for ghosts after current frame */
+	GP_LAYER_GHOST_NEXTCOL = (1 << 2),
+	/* always show onion skins (i.e. even during renders/animation playback) */
+	GP_LAYER_GHOST_ALWAYS = (1 << 3),
+	/* use fade color in onion skin */
+	GP_LAYER_ONION_FADE = (1 << 4),
+	/* use fade color in onion skin */
+	GP_LAYER_ONION_OVERRIDE = (1 << 5),
+} eGPDlayer_Onion_Flag;
 
 /* xray modes */
 typedef enum eGP_Xraymodes_Types {

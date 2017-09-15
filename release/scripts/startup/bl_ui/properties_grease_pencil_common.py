@@ -1228,6 +1228,7 @@ class GreasePencilOnionPanel:
     def draw(self, context):
         layout = self.layout
         gpd = context.gpencil_data
+        gpl = context.active_gpencil_layer
 
         col = layout.column(align=True)
 
@@ -1238,7 +1239,7 @@ class GreasePencilOnionPanel:
         sub.prop(gpd, "use_ghosts_always", text="", icon=icon)
         sub.prop(gpd, "use_ghost_custom_colors", text="", icon='COLOR')
 
-        split = col.split(percentage=0.5)
+        split = layout.split(percentage=0.5)
         split.active = gpd.use_onion_skinning
 
         # - Before Frames
@@ -1272,6 +1273,59 @@ class GreasePencilOnionPanel:
 
         sub = split.column(align=True)
         sub.prop(gpd, "onion_factor", text="Opacity", slider=True)
+
+        # -----------------
+        # layer override
+        # -----------------
+        ovr = gpd.use_onion_skinning and gpl.override_onion
+        layout.separator()
+        box = layout.box()
+        col = box.column(align=True)
+        col.active = gpd.use_onion_skinning
+
+        row = col.row()
+        row.prop(gpl, "override_onion", text="Override Layer")
+        if gpl.override_onion:
+            sub = row.row(align=True)
+            icon = 'RESTRICT_RENDER_OFF' if gpd.use_ghosts_always else 'RESTRICT_RENDER_ON'
+            sub.prop(gpl, "use_ghosts_always", text="", icon=icon)
+            sub.prop(gpl, "use_ghost_custom_colors", text="", icon='COLOR')
+
+
+            split = box.split(percentage=0.5)
+            split.active = ovr
+
+            # - Before Frames
+            sub = split.column(align=True)
+            row = sub.row(align=True)
+            row.active = gpl.use_ghost_custom_colors
+            row.prop(gpl, "before_color", text="")
+
+            # - After Frames
+            sub = split.column(align=True)
+            row = sub.row(align=True)
+            row.active = gpl.use_ghost_custom_colors
+            row.prop(gpl, "after_color", text="")
+
+            split = box.split(percentage=0.5)
+            split.active = gpl.onion_mode in ('ABSOLUTE', 'RELATIVE')
+            sub = split.column(align=True)
+            sub.prop(gpl, "ghost_before_range", text="Before")
+
+            sub = split.column(align=True)
+            sub.prop(gpl, "ghost_after_range", text="After")
+
+            row = box.row(align=True)
+            row.active = ovr
+            row.prop(gpl, "onion_mode", text="Mode")
+
+            split = box.split(percentage=0.5)
+            split.active = ovr
+            sub = split.column(align=True)
+            sub.prop(gpl, "use_onion_fade", text="Fade")
+
+            sub = split.column(align=True)
+            sub.prop(gpl, "onion_factor", text="Opacity", slider=True)
 
 
 class GreasePencilParentLayerPanel:
