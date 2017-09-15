@@ -1284,7 +1284,7 @@ class GreasePencilOnionPanel:
         col.active = gpd.use_onion_skinning
 
         row = col.row()
-        row.prop(gpl, "override_onion", text="Override Layer")
+        row.prop(gpl, "override_onion", text="Layer Override")
         if gpl.override_onion:
             sub = row.row(align=True)
             icon = 'RESTRICT_RENDER_OFF' if gpd.use_ghosts_always else 'RESTRICT_RENDER_ON'
