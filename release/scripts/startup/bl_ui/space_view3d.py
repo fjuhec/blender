@@ -156,9 +156,7 @@ class VIEW3D_HT_header(Header):
                 row.operator("gpencil.paste", text="", icon='PASTEDOWN')
 
             # XXX: icon
-            gpl = context.active_gpencil_layer
-            if gpl:
-                layout.prop(gpl, "use_onion_skinning", text="Onion Skins", icon='PARTICLE_PATH')
+            layout.prop(gpd, "use_onion_skinning", text="Onion Skins", icon='PARTICLE_PATH')
 
             if gpd.use_stroke_edit_mode or gpd.is_stroke_sculpt_mode:
                 row = layout.row(align=True)

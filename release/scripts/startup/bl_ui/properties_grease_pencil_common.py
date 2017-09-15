@@ -946,6 +946,11 @@ class GPENCIL_UL_layer(UIList):
             row.prop(gpl, "lock", text="", emboss=False)
             row.prop(gpl, "hide", text="", emboss=False)
             row.prop(gpl, "unlock_color", text="", emboss=False)
+            if gpl.use_onion_skinning is False:
+                icon = 'GHOST_DISABLED'
+            else:
+                icon = 'GHOST_ENABLED'
+            row.prop(gpl, "use_onion_skinning", text="", icon=icon, emboss=False)
         elif self.layout_type == 'GRID':
             layout.alignment = 'CENTER'
             layout.label(text="", icon_value=icon)
@@ -1222,52 +1227,51 @@ class GreasePencilOnionPanel:
     @staticmethod
     def draw(self, context):
         layout = self.layout
-        gpl = context.active_gpencil_layer
+        gpd = context.gpencil_data
 
         col = layout.column(align=True)
-        col.active = not gpl.lock
 
         row = col.row()
-        row.prop(gpl, "use_onion_skinning")
+        row.prop(gpd, "use_onion_skinning")
         sub = row.row(align=True)
-        icon = 'RESTRICT_RENDER_OFF' if gpl.use_ghosts_always else 'RESTRICT_RENDER_ON'
-        sub.prop(gpl, "use_ghosts_always", text="", icon=icon)
-        sub.prop(gpl, "use_ghost_custom_colors", text="", icon='COLOR')
+        icon = 'RESTRICT_RENDER_OFF' if gpd.use_ghosts_always else 'RESTRICT_RENDER_ON'
+        sub.prop(gpd, "use_ghosts_always", text="", icon=icon)
+        sub.prop(gpd, "use_ghost_custom_colors", text="", icon='COLOR')
 
         split = col.split(percentage=0.5)
-        split.active = gpl.use_onion_skinning
+        split.active = gpd.use_onion_skinning
 
         # - Before Frames
         sub = split.column(align=True)
         row = sub.row(align=True)
-        row.active = gpl.use_ghost_custom_colors
-        row.prop(gpl, "before_color", text="")
+        row.active = gpd.use_ghost_custom_colors
+        row.prop(gpd, "before_color", text="")
 
         # - After Frames
         sub = split.column(align=True)
         row = sub.row(align=True)
-        row.active = gpl.use_ghost_custom_colors
-        row.prop(gpl, "after_color", text="")
+        row.active = gpd.use_ghost_custom_colors
+        row.prop(gpd, "after_color", text="")
+
+        split = layout.split(percentage=0.5)
+        split.active = gpd.onion_mode in ('ABSOLUTE', 'RELATIVE')
+        sub = split.column(align=True)
+        sub.prop(gpd, "ghost_before_range", text="Before")
+
+        sub = split.column(align=True)
+        sub.prop(gpd, "ghost_after_range", text="After")
 
         row = layout.row(align=True)
-        row.active = gpl.use_onion_skinning
-        row.prop(gpl, "onion_mode", text="Mode")
+        row.active = gpd.use_onion_skinning
+        row.prop(gpd, "onion_mode", text="Mode")
 
         split = layout.split(percentage=0.5)
-        split.active = gpl.onion_mode in ('ABSOLUTE', 'RELATIVE')
+        split.active = gpd.use_onion_skinning
         sub = split.column(align=True)
-        sub.prop(gpl, "ghost_before_range", text="Before")
+        sub.prop(gpd, "use_onion_fade", text="Fade")
 
         sub = split.column(align=True)
-        sub.prop(gpl, "ghost_after_range", text="After")
-
-        split = layout.split(percentage=0.5)
-        split.active = gpl.use_onion_skinning
-        sub = split.column(align=True)
-        sub.prop(gpl, "use_onion_fade", text="Fade")
-
-        sub = split.column(align=True)
-        sub.prop(gpl, "onion_factor", text="Opacity", slider=True)
+        sub.prop(gpd, "onion_factor", text="Opacity", slider=True)
 
 
 class GreasePencilParentLayerPanel:

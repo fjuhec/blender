@@ -1343,7 +1343,7 @@ static void gp_draw_onionskins(
 	float color[4];
 
 	/* 1) Draw Previous Frames First */
-	if (gpl->flag & GP_LAYER_GHOST_PREVCOL) {
+	if (gpd->onion_flag & GP_ONION_GHOST_PREVCOL) {
 		copy_v3_v3(color, gpl->gcolor_prev);
 	}
 	else {
@@ -1359,7 +1359,7 @@ static void gp_draw_onionskins(
 				float fac = 1.0f - ((float)(gpf->framenum - gf->framenum) / (float)(gpl->gstep + 1));
 				color[3] = alpha * fac * 0.66f;
 				gp_draw_strokes(gpd, gf, offsx, offsy, winx, winy, dflag, debug, gpl->thickness, 1.0f, color,
-				                true, gpl->flag & GP_LAYER_GHOST_PREVCOL, diff_mat);
+				                true, gpd->onion_flag & GP_ONION_GHOST_PREVCOL, diff_mat);
 			}
 			else
 				break;
@@ -1370,7 +1370,7 @@ static void gp_draw_onionskins(
 		if (gpf->prev) {
 			color[3] = (alpha / 7);
 			gp_draw_strokes(gpd, gpf->prev, offsx, offsy, winx, winy, dflag, debug, gpl->thickness, 1.0f, color,
-			                true, gpl->flag & GP_LAYER_GHOST_PREVCOL, diff_mat);
+			                true, gpd->onion_flag & GP_ONION_GHOST_PREVCOL, diff_mat);
 		}
 	}
 	else {
@@ -1378,7 +1378,7 @@ static void gp_draw_onionskins(
 	}
 
 	/* 2) Now draw next frames */
-	if (gpl->flag & GP_LAYER_GHOST_NEXTCOL) {
+	if (gpd->onion_flag & GP_ONION_GHOST_NEXTCOL) {
 		copy_v3_v3(color, gpl->gcolor_next);
 	}
 	else {
@@ -1394,7 +1394,7 @@ static void gp_draw_onionskins(
 				float fac = 1.0f - ((float)(gf->framenum - gpf->framenum) / (float)(gpl->gstep_next + 1));
 				color[3] = alpha * fac * 0.66f;
 				gp_draw_strokes(gpd, gf, offsx, offsy, winx, winy, dflag, debug, gpl->thickness, 1.0f, color,
-				                true, gpl->flag & GP_LAYER_GHOST_NEXTCOL, diff_mat);
+				                true, gpd->onion_flag & GP_ONION_GHOST_NEXTCOL, diff_mat);
 			}
 			else
 				break;
@@ -1405,7 +1405,7 @@ static void gp_draw_onionskins(
 		if (gpf->next) {
 			color[3] = (alpha / 4);
 			gp_draw_strokes(gpd, gpf->next, offsx, offsy, winx, winy, dflag, debug, gpl->thickness, 1.0f, color,
-			                true, gpl->flag & GP_LAYER_GHOST_NEXTCOL, diff_mat);
+			                true, gpd->onion_flag & GP_ONION_GHOST_NEXTCOL, diff_mat);
 		}
 	}
 	else {
@@ -1498,7 +1498,7 @@ static void gp_draw_data_layers(
 		 *     allowing artists to selectively turn onionskins on/off during playback
 		 */
 		if ((gpl->flag & GP_LAYER_ONIONSKIN) && 
-		    ((dflag & GP_DRAWDATA_NO_ONIONS) == 0 || (gpl->flag & GP_LAYER_GHOST_ALWAYS))) 
+		    ((dflag & GP_DRAWDATA_NO_ONIONS) == 0 || (gpd->onion_flag & GP_ONION_GHOST_ALWAYS)))
 		{
 			/* Drawing method - only immediately surrounding (gstep = 0),
 			 * or within a frame range on either side (gstep > 0)

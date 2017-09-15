@@ -461,12 +461,7 @@ bGPDlayer *BKE_gpencil_layer_addnew(bGPdata *gpd, const char *name, bool setacti
 	gpl->opacity = 1.0f;
 
 	/* onion-skinning settings */
-	gpl->flag |= (GP_LAYER_GHOST_PREVCOL | GP_LAYER_GHOST_NEXTCOL);
-	gpl->flag |= GP_LAYER_ONION_FADE;
-	gpl->onion_factor = 0.5f;
-	
-	ARRAY_SET_ITEMS(gpl->gcolor_prev, 0.145098f, 0.419608f, 0.137255f); /* green */
-	ARRAY_SET_ITEMS(gpl->gcolor_next, 0.125490f, 0.082353f, 0.529412f); /* blue */
+	gpl->flag |= GP_LAYER_ONIONSKIN;
 	
 	/* auto-name */
 	BLI_strncpy(gpl->info, name, sizeof(gpl->info));
@@ -773,6 +768,12 @@ bGPdata *BKE_gpencil_data_addnew(const char name[])
 	gpd->batch_cache_data = NULL;
 	gpd->pixfactor = GP_DEFAULT_PIX_FACTOR;
 	ARRAY_SET_ITEMS(gpd->line_color, 0.6f, 0.6f, 0.6f, 0.3f);
+	/* onion-skinning settings */
+	gpd->onion_flag |= (GP_ONION_GHOST_PREVCOL | GP_ONION_GHOST_NEXTCOL);
+	gpd->onion_flag |= GP_ONION_FADE;
+	gpd->onion_factor = 0.5f;
+	ARRAY_SET_ITEMS(gpd->gcolor_prev, 0.145098f, 0.419608f, 0.137255f); /* green */
+	ARRAY_SET_ITEMS(gpd->gcolor_next, 0.125490f, 0.082353f, 0.529412f); /* blue */
 
 	return gpd;
 }
