@@ -640,7 +640,7 @@ static void gpencil_add_editpoints_shgroup(GPENCIL_StorageList *stl, GpencilBatc
 
 /* function to draw strokes for onion only */
 static void gpencil_draw_onion_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_data, void *vedata, Object *ob,
-	bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf, const float tintcolor[4], const bool custonion)
+	bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf, const float opacity, const float tintcolor[4], const bool custonion)
 {
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
@@ -670,7 +670,7 @@ static void gpencil_draw_onion_strokes(GpencilBatchCache *cache, GPENCIL_e_data 
 		}
 
 		/* stroke */
-		gpencil_add_stroke_shgroup(cache, stl->shgroups[id].shgrps_stroke, ob, gpd, gpl, gpf, gps, 1.0f, tintcolor, true, custonion);
+		gpencil_add_stroke_shgroup(cache, stl->shgroups[id].shgrps_stroke, ob, gpd, gpl, gpf, gps, opacity, tintcolor, true, custonion);
 
 		++stl->storage->shgroup_id;
 		++cache->cache_idx;
@@ -846,6 +846,16 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 	float fac = 1.0f;
 	int step = 0;
 	int mode = 0;
+	bool colflag = false;
+	
+	if (gpl->onion_flag & GP_LAYER_ONION_OVERRIDE) {
+		if (gpl->onion_flag & GP_LAYER_GHOST_PREVCOL) {
+			colflag = true;
+		}
+	}
+	else {
+		colflag = (bool)gpd->onion_flag & GP_ONION_GHOST_PREVCOL;
+	}
 
 	/* -------------------------------
 	 * 1) Draw Previous Frames First
@@ -925,7 +935,7 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 		}
 
 		CLAMP(color[3], 0.3f, 1.0f);
-		gpencil_draw_onion_strokes(cache, e_data, vedata, ob, gpd, gpl, gf, color, gpd->onion_flag & GP_ONION_GHOST_PREVCOL);
+		gpencil_draw_onion_strokes(cache, e_data, vedata, ob, gpd, gpl, gf, color[3], color, colflag);
 	}
 	/* -------------------------------
 	 * 2) Now draw next frames
@@ -1005,7 +1015,7 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 		}
 
 		CLAMP(color[3], 0.3f, 1.0f);
-		gpencil_draw_onion_strokes(cache, e_data, vedata, ob, gpd, gpl, gf, color, gpd->onion_flag & GP_ONION_GHOST_NEXTCOL);
+		gpencil_draw_onion_strokes(cache, e_data, vedata, ob, gpd, gpl, gf, color[3], color, colflag);
 	}
 }
 
