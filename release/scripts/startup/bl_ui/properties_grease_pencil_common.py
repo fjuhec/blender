@@ -928,6 +928,7 @@ class GPENCIL_UL_layer(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         # assert(isinstance(item, bpy.types.GPencilLayer)
         gpl = item
+        gpd = context.gpencil_data
 
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             if gpl.lock:
@@ -950,7 +951,9 @@ class GPENCIL_UL_layer(UIList):
                 icon = 'GHOST_DISABLED'
             else:
                 icon = 'GHOST_ENABLED'
-            row.prop(gpl, "use_onion_skinning", text="", icon=icon, emboss=False)
+            subrow = row.row(align=True)
+            subrow.prop(gpl, "use_onion_skinning", text="", icon=icon, emboss=False)
+            subrow.active = gpd.use_onion_skinning
         elif self.layout_type == 'GRID':
             layout.alignment = 'CENTER'
             layout.label(text="", icon_value=icon)
