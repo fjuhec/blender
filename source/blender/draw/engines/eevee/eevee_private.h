@@ -35,10 +35,10 @@ extern struct DrawEngineType draw_engine_eevee_type;
 #define MAX_GRID 64 /* TODO : find size by dividing UBO max size by grid data size */
 #define MAX_PLANAR 16 /* TODO : find size by dividing UBO max size by grid data size */
 #define MAX_LIGHT 128 /* TODO : find size by dividing UBO max size by light data size */
-#define MAX_SHADOW_CUBE 42 /* TODO : Make this depends on GL_MAX_ARRAY_TEXTURE_LAYERS */
-#define MAX_SHADOW_MAP 64
-#define MAX_SHADOW_CASCADE 8
 #define MAX_CASCADE_NUM 4
+#define MAX_SHADOW 256 /* TODO : Make this depends on GL_MAX_ARRAY_TEXTURE_LAYERS */
+#define MAX_SHADOW_CASCADE 8
+#define MAX_SHADOW_CUBE (MAX_SHADOW - MAX_CASCADE_NUM * MAX_SHADOW_CASCADE)
 #define MAX_BLOOM_STEP 16
 
 /* Only define one of these. */
@@ -65,10 +65,12 @@ enum {
 	VAR_MAT_HAIR     = (1 << 2),
 	VAR_MAT_FLAT     = (1 << 3),
 	VAR_MAT_BLEND    = (1 << 4),
+	VAR_MAT_VSM      = (1 << 5),
+	VAR_MAT_ESM      = (1 << 6),
 	/* Max number of variation */
 	/* IMPORTANT : Leave it last and set
 	 * it's value accordingly. */
-	VAR_MAT_MAX      = (1 << 5),
+	VAR_MAT_MAX      = (1 << 7),
 	/* These are options that are not counted in VAR_MAT_MAX
 	 * because they are not cumulative with the others above. */
 	VAR_MAT_CLIP     = (1 << 8),
@@ -78,12 +80,22 @@ enum {
 	VAR_MAT_REFRACT  = (1 << 12),
 };
 
+/* Shadow Technique */
+enum {
+	SHADOW_ESM = 1,
+	SHADOW_VSM = 2,
+	SHADOW_METHOD_MAX = 3,
+};
+
 typedef struct EEVEE_PassList {
 	/* Shadows */
 	struct DRWPass *shadow_pass;
 	struct DRWPass *shadow_cube_pass;
+	struct DRWPass *shadow_cube_copy_pass;
 	struct DRWPass *shadow_cube_store_pass;
 	struct DRWPass *shadow_cascade_pass;
+	struct DRWPass *shadow_cascade_copy_pass;
+	struct DRWPass *shadow_cascade_store_pass;
 
 	/* Probes */
 	struct DRWPass *probe_background;
@@ -202,28 +214,31 @@ typedef struct EEVEE_Light {
 	float forwardvec[3], lamptype;
 } EEVEE_Light;
 
-typedef struct EEVEE_ShadowCube {
+typedef struct EEVEE_Shadow {
 	float near, far, bias, exp;
-} EEVEE_ShadowCube;
+	float shadow_start, data_start, multi_shadow_count, pad;
+} EEVEE_Shadow;
 
-typedef struct EEVEE_ShadowMap {
-	float shadowmat[4][4]; /* World->Lamp->NDC->Tex : used for sampling the shadow map. */
-	float near, far, bias, pad;
-} EEVEE_ShadowMap;
+typedef struct EEVEE_ShadowCube {
+	float position[3], pad;
+} EEVEE_ShadowCube;
 
 typedef struct EEVEE_ShadowCascade {
 	float shadowmat[MAX_CASCADE_NUM][4][4]; /* World->Lamp->NDC->Tex : used for sampling the shadow map. */
-	float split[4];
-	float bias[4];
+	float split_start[4];
+	float split_end[4];
 } EEVEE_ShadowCascade;
 
 typedef struct EEVEE_ShadowRender {
-	float shadowmat[6][4][4]; /* World->Lamp->NDC : used to render the shadow map. 6 frustrum for cubemap shadow */
+	float shadowmat[6][4][4]; /* World->Lamp->NDC : used to render the shadow map. 6 frustum for cubemap shadow */
 	float viewmat[6][4][4]; /* World->Lamp : used to render the shadow map. 6 viewmat for cubemap shadow */
-	float position[3];
-	float pad;
-	int layer;
-	float exponent;
+	float position[3], pad;
+	float cube_texel_size;
+	float stored_texel_size;
+	float clip_near;
+	float clip_far;
+	int shadow_samples_ct;
+	float shadow_inv_samples_ct;
 } EEVEE_ShadowRender;
 
 /* ************ VOLUME DATA ************ */
@@ -236,21 +251,26 @@ typedef struct EEVEE_VolumetricsInfo {
 /* ************ LIGHT DATA ************* */
 typedef struct EEVEE_LampsInfo {
 	int num_light, cache_num_light;
-	int num_cube, cache_num_cube;
-	int num_map, cache_num_map;
-	int num_cascade, cache_num_cascade;
+	int num_layer, cache_num_layer;
+	int gpu_cube_ct, gpu_cascade_ct, gpu_shadow_ct;
+	int cpu_cube_ct, cpu_cascade_ct;
 	int update_flag;
+	int shadow_size, shadow_method;
+	bool shadow_high_bitdepth;
+	int shadow_cube_target_size;
+	int current_shadow_cascade;
+	int current_shadow_face;
+	float filter_size;
 	/* List of lights in the scene. */
 	/* XXX This is fragile, can get out of sync quickly. */
 	struct Object *light_ref[MAX_LIGHT];
 	struct Object *shadow_cube_ref[MAX_SHADOW_CUBE];
-	struct Object *shadow_map_ref[MAX_SHADOW_MAP];
 	struct Object *shadow_cascade_ref[MAX_SHADOW_CASCADE];
 	/* UBO Storage : data used by UBO */
 	struct EEVEE_Light         light_data[MAX_LIGHT];
 	struct EEVEE_ShadowRender  shadow_render_data;
+	struct EEVEE_Shadow        shadow_data[MAX_SHADOW];
 	struct EEVEE_ShadowCube    shadow_cube_data[MAX_SHADOW_CUBE];
-	struct EEVEE_ShadowMap     shadow_map_data[MAX_SHADOW_MAP];
 	struct EEVEE_ShadowCascade shadow_cascade_data[MAX_SHADOW_CASCADE];
 } EEVEE_LampsInfo;
 
@@ -401,17 +421,16 @@ typedef struct EEVEE_SceneLayerData {
 	struct GPUUniformBuffer *light_ubo;
 	struct GPUUniformBuffer *shadow_ubo;
 	struct GPUUniformBuffer *shadow_render_ubo;
+	struct GPUUniformBuffer *shadow_samples_ubo;
 
-	struct GPUFrameBuffer *shadow_cube_target_fb;
-	struct GPUFrameBuffer *shadow_cube_fb;
-	struct GPUFrameBuffer *shadow_map_fb;
-	struct GPUFrameBuffer *shadow_cascade_fb;
+	struct GPUFrameBuffer *shadow_target_fb;
+	struct GPUFrameBuffer *shadow_store_fb;
 
-	struct GPUTexture *shadow_depth_cube_target;
-	struct GPUTexture *shadow_color_cube_target;
-	struct GPUTexture *shadow_depth_cube_pool;
-	struct GPUTexture *shadow_depth_map_pool;
-	struct GPUTexture *shadow_depth_cascade_pool;
+	struct GPUTexture *shadow_cube_target;
+	struct GPUTexture *shadow_cube_blur;
+	struct GPUTexture *shadow_cascade_target;
+	struct GPUTexture *shadow_cascade_blur;
+	struct GPUTexture *shadow_pool;
 
 	struct ListBase shadow_casters; /* Shadow casters gathered during cache iteration */
 
@@ -515,11 +534,12 @@ void EEVEE_materials_cache_finish(EEVEE_Data *vedata);
 struct GPUMaterial *EEVEE_material_world_lightprobe_get(struct Scene *scene, struct World *wo);
 struct GPUMaterial *EEVEE_material_world_background_get(struct Scene *scene, struct World *wo);
 struct GPUMaterial *EEVEE_material_world_volume_get(
-        struct Scene *scene, struct World *wo, bool use_lights, bool use_volume_shadows, bool is_homogeneous, bool use_color_transmit);
+        struct Scene *scene, struct World *wo, bool use_lights, bool use_volume_shadows, bool is_homogeneous, bool use_color_transmit,
+        int shadow_method);
 struct GPUMaterial *EEVEE_material_mesh_get(
-        struct Scene *scene, Material *ma, bool use_blend, bool use_multiply, bool use_refract);
+        struct Scene *scene, Material *ma, bool use_blend, bool use_multiply, bool use_refract, int shadow_method);
 struct GPUMaterial *EEVEE_material_mesh_depth_get(struct Scene *scene, Material *ma, bool use_hashed_alpha, bool is_shadow);
-struct GPUMaterial *EEVEE_material_hair_get(struct Scene *scene, Material *ma);
+struct GPUMaterial *EEVEE_material_hair_get(struct Scene *scene, Material *ma, int shadow_method);
 void EEVEE_materials_free(void);
 void EEVEE_draw_default_passes(EEVEE_PassList *psl);
 void EEVEE_update_util_texture(float offset);
@@ -528,10 +548,12 @@ void EEVEE_update_util_texture(float offset);
 void EEVEE_lights_init(EEVEE_SceneLayerData *sldata);
 void EEVEE_lights_cache_init(EEVEE_SceneLayerData *sldata, EEVEE_PassList *psl);
 void EEVEE_lights_cache_add(EEVEE_SceneLayerData *sldata, struct Object *ob);
-void EEVEE_lights_cache_shcaster_add(EEVEE_SceneLayerData *sldata, EEVEE_PassList *psl, struct Gwn_Batch *geom, float (*obmat)[4]);
+void EEVEE_lights_cache_shcaster_add(
+        EEVEE_SceneLayerData *sldata, EEVEE_PassList *psl, struct Gwn_Batch *geom, float (*obmat)[4]);
 void EEVEE_lights_cache_shcaster_material_add(
-	EEVEE_SceneLayerData *sldata, EEVEE_PassList *psl,
-	struct GPUMaterial *gpumat, struct Gwn_Batch *geom, float (*obmat)[4], float *alpha_threshold);
+        EEVEE_SceneLayerData *sldata, EEVEE_PassList *psl,
+        struct GPUMaterial *gpumat, struct Gwn_Batch *geom, struct Object *ob,
+        float (*obmat)[4], float *alpha_threshold);
 void EEVEE_lights_cache_finish(EEVEE_SceneLayerData *sldata);
 void EEVEE_lights_update(EEVEE_SceneLayerData *sldata);
 void EEVEE_draw_shadows(EEVEE_SceneLayerData *sldata, EEVEE_PassList *psl);

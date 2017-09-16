@@ -706,8 +706,12 @@ void DepsgraphRelationBuilder::build_constraints(Scene *scene, ID *id,
 					depends_on_camera = true;
 				}
 				if (data->depth_ob) {
-					ComponentKey depth_key(&data->depth_ob->id, DEG_NODE_TYPE_TRANSFORM);
-					add_relation(depth_key, constraint_op_key, cti->name);
+					ComponentKey depth_transform_key(&data->depth_ob->id,
+					                                 DEG_NODE_TYPE_TRANSFORM);
+					ComponentKey depth_geometry_key(&data->depth_ob->id,
+					                                DEG_NODE_TYPE_GEOMETRY);
+					add_relation(depth_transform_key, constraint_op_key, cti->name);
+					add_relation(depth_geometry_key, constraint_op_key, cti->name);
 				}
 			}
 			else if (cti->type == CONSTRAINT_TYPE_OBJECTSOLVER) {
@@ -1749,18 +1753,21 @@ void DepsgraphRelationBuilder::build_camera(Object *ob)
 	}
 	camera_id->tag |= LIB_TAG_DOIT;
 
-	ComponentKey parameters_key(camera_id, DEG_NODE_TYPE_PARAMETERS);
+	ComponentKey object_parameters_key(&ob->id, DEG_NODE_TYPE_PARAMETERS);
+	ComponentKey camera_parameters_key(camera_id, DEG_NODE_TYPE_PARAMETERS);
+
+	add_relation(camera_parameters_key, object_parameters_key,
+	             "Camera -> Object");
 
 	if (needs_animdata_node(camera_id)) {
 		ComponentKey animation_key(camera_id, DEG_NODE_TYPE_ANIMATION);
-		add_relation(animation_key, parameters_key, "Camera Parameters");
+		add_relation(animation_key, camera_parameters_key, "Camera Parameters");
 	}
 
 	/* DOF */
-	if (cam->dof_ob) {
-		ComponentKey ob_param_key(&ob->id, DEG_NODE_TYPE_PARAMETERS);
+	if (cam->dof_ob != NULL) {
 		ComponentKey dof_ob_key(&cam->dof_ob->id, DEG_NODE_TYPE_TRANSFORM);
-		add_relation(dof_ob_key, ob_param_key, "Camera DOF");
+		add_relation(dof_ob_key, object_parameters_key, "Camera DOF");
 	}
 }
 
@@ -1774,18 +1781,22 @@ void DepsgraphRelationBuilder::build_lamp(Object *ob)
 	}
 	lamp_id->tag |= LIB_TAG_DOIT;
 
-	ComponentKey parameters_key(lamp_id, DEG_NODE_TYPE_PARAMETERS);
+	ComponentKey object_parameters_key(&ob->id, DEG_NODE_TYPE_PARAMETERS);
+	ComponentKey lamp_parameters_key(lamp_id, DEG_NODE_TYPE_PARAMETERS);
+
+	add_relation(lamp_parameters_key, object_parameters_key,
+	             "Lamp -> Object");
 
 	if (needs_animdata_node(lamp_id)) {
 		ComponentKey animation_key(lamp_id, DEG_NODE_TYPE_ANIMATION);
-		add_relation(animation_key, parameters_key, "Lamp Parameters");
+		add_relation(animation_key, lamp_parameters_key, "Lamp Parameters");
 	}
 
 	/* lamp's nodetree */
 	if (la->nodetree) {
 		build_nodetree(la->nodetree);
 		ComponentKey nodetree_key(&la->nodetree->id, DEG_NODE_TYPE_SHADING);
-		add_relation(nodetree_key, parameters_key, "NTree->Lamp Parameters");
+		add_relation(nodetree_key, lamp_parameters_key, "NTree->Lamp Parameters");
 	}
 
 	/* textures */
@@ -1801,9 +1812,7 @@ void DepsgraphRelationBuilder::build_lamp(Object *ob)
 	OperationKey lamp_copy_on_write_key(lamp_id,
 	                                    DEG_NODE_TYPE_COPY_ON_WRITE,
 	                                    DEG_OPCODE_COPY_ON_WRITE);
-	add_relation(lamp_copy_on_write_key,
-	             ob_copy_on_write_key,
-	             "Evaluation Order");
+	add_relation(lamp_copy_on_write_key, ob_copy_on_write_key, "Eval Order");
 #endif
 }
 
@@ -1938,8 +1947,18 @@ void DepsgraphRelationBuilder::build_cachefile(CacheFile *cache_file) {
 
 void DepsgraphRelationBuilder::build_mask(Mask *mask)
 {
-	/* Animation. */
-	build_animdata(&mask->id);
+	ID *mask_id = &mask->id;
+	/* F-Curve animation. */
+	build_animdata(mask_id);
+	/* Own mask animation. */
+	OperationKey mask_animation_key(mask_id,
+	                                DEG_NODE_TYPE_ANIMATION,
+	                                DEG_OPCODE_MASK_ANIMATION);
+	TimeSourceKey time_src_key;
+	add_relation(time_src_key, mask_animation_key, "TimeSrc -> Mask Animation");
+	/* Final mask evaluation. */
+	ComponentKey parameters_key(mask_id, DEG_NODE_TYPE_PARAMETERS);
+	add_relation(mask_animation_key, parameters_key, "Mask Animation -> Mask Eval");
 }
 
 void DepsgraphRelationBuilder::build_movieclip(MovieClip *clip)

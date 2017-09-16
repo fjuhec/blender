@@ -19,8 +19,12 @@ layout(std140) uniform shadow_render_block {
 	mat4 ShadowMatrix[6];
 	mat4 FaceViewMatrix[6];
 	vec4 lampPosition;
-	int layer;
-	float exponent;
+	float cubeTexelSize;
+	float storedTexelSize;
+	float nearClip;
+	float farClip;
+	int shadowSampleCount;
+	float shadowInvSampleCount;
 };
 
 flat in int shFace; /* Shadow layer we are rendering to. */
@@ -42,6 +46,8 @@ uniform sampler2DArray planarDepth;
 #define viewCameraVec  ((ProjectionMatrix[3][3] == 0.0) ? normalize(-viewPosition) : vec3(0.0, 0.0, 1.0))
 
 /* ------- Structures -------- */
+
+/* ------ Lights ----- */
 struct LightData {
 	vec4 position_influence;      /* w : InfluenceRadius */
 	vec4 color_spec;              /* w : Spec Intensity */
@@ -67,38 +73,35 @@ struct LightData {
 #define l_radius       spotdata_radius_shadow.z
 #define l_shadowid     spotdata_radius_shadow.w
 
-
-struct ShadowCubeData {
-	vec4 near_far_bias_exp;
-};
-
-/* convenience aliases */
-#define sh_cube_near   near_far_bias_exp.x
-#define sh_cube_far    near_far_bias_exp.y
-#define sh_cube_bias   near_far_bias_exp.z
-#define sh_cube_exp    near_far_bias_exp.w
-
-
-struct ShadowMapData {
-	mat4 shadowmat;
-	vec4 near_far_bias;
-};
-
-/* convenience aliases */
-#define sh_map_near   near_far_bias.x
-#define sh_map_far    near_far_bias.y
-#define sh_map_bias   near_far_bias.z
-
+/* ------ Shadows ----- */
 #ifndef MAX_CASCADE_NUM
 #define MAX_CASCADE_NUM 4
 #endif
 
+struct ShadowData {
+	vec4 near_far_bias_exp;
+	vec4 shadow_data_start_end;
+};
+
+struct ShadowCubeData {
+	vec4 position;
+};
+
 struct ShadowCascadeData {
 	mat4 shadowmat[MAX_CASCADE_NUM];
-	/* arrays of float are not aligned so use vec4 */
-	vec4 split_distances;
-	vec4 bias;
+	vec4 split_start_distances;
+	vec4 split_end_distances;
 };
+
+/* convenience aliases */
+#define sh_near   near_far_bias_exp.x
+#define sh_far    near_far_bias_exp.y
+#define sh_bias   near_far_bias_exp.z
+#define sh_exp    near_far_bias_exp.w
+#define sh_bleed  near_far_bias_exp.w
+#define sh_tex_start    shadow_data_start_end.x
+#define sh_data_start   shadow_data_start_end.y
+#define sh_multi_nbr    shadow_data_start_end.z
 
 /* ------- Convenience functions --------- */
 
@@ -114,6 +117,7 @@ vec3 project_point(mat4 m, vec3 v) {
 float min_v2(vec2 v) { return min(v.x, v.y); }
 float min_v3(vec3 v) { return min(v.x, min(v.y, v.z)); }
 float max_v2(vec2 v) { return max(v.x, v.y); }
+float max_v3(vec3 v) { return max(v.x, max(v.y, v.z)); }
 
 float saturate(float a) { return clamp(a, 0.0, 1.0); }
 vec2 saturate(vec2 a) { return clamp(a, 0.0, 1.0); }
@@ -564,6 +568,9 @@ struct Closure {
 	int ssr_id;
 };
 
+/* This is hacking ssr_id to tag transparent bsdf */
+#define TRANSPARENT_CLOSURE_FLAG -2
+
 #define CLOSURE_DEFAULT Closure(vec3(0.0), 1.0, vec4(0.0), vec2(0.0), -1)
 
 uniform int outputSsrId;
@@ -580,6 +587,12 @@ Closure closure_mix(Closure cl1, Closure cl2, float fac)
 		cl.ssr_data = mix(vec4(vec3(0.0), cl2.ssr_data.w), cl2.ssr_data.xyzw, fac); /* do not blend roughness */
 		cl.ssr_normal = cl2.ssr_normal;
 		cl.ssr_id = cl2.ssr_id;
+	}
+	if (cl1.ssr_id == TRANSPARENT_CLOSURE_FLAG) {
+		cl1.radiance = cl2.radiance;
+	}
+	if (cl2.ssr_id == TRANSPARENT_CLOSURE_FLAG) {
+		cl2.radiance = cl1.radiance;
 	}
 	cl.radiance = mix(cl1.radiance, cl2.radiance, fac);
 	cl.opacity = mix(cl1.opacity, cl2.opacity, fac);

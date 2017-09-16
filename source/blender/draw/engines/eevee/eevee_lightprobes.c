@@ -957,7 +957,7 @@ static void render_scene_to_probe(
 	EEVEE_StorageList *stl = vedata->stl;
 	EEVEE_LightProbesInfo *pinfo = sldata->probes;
 
-	float winmat[4][4], posmat[4][4], tmp_ao_dist, tmp_ao_samples;
+	float winmat[4][4], posmat[4][4], tmp_ao_dist, tmp_ao_samples, tmp_ao_settings;
 
 	unit_m4(posmat);
 
@@ -971,6 +971,7 @@ static void render_scene_to_probe(
 	/* Disable AO until we find a way to hide really bad discontinuities between cubefaces. */
 	tmp_ao_dist = stl->effects->ao_dist;
 	tmp_ao_samples = stl->effects->ao_samples;
+	tmp_ao_settings = stl->effects->ao_settings;
 	stl->effects->ao_settings = 0.0f; /* Disable AO */
 
 	/* 1 - Render to each cubeface individually.
@@ -996,11 +997,6 @@ static void render_scene_to_probe(
 		float viewmat[4][4], persmat[4][4];
 		float viewinv[4][4], persinv[4][4];
 
-		DRW_framebuffer_cubeface_attach(sldata->probe_fb, sldata->probe_rt, 0, i, 0);
-		DRW_framebuffer_viewport_size(sldata->probe_fb, 0, 0, PROBE_RT_SIZE, PROBE_RT_SIZE);
-
-		DRW_framebuffer_clear(false, true, false, NULL, 1.0);
-
 		/* Setup custom matrices */
 		mul_m4_m4m4(viewmat, cubefacemat[i], posmat);
 		mul_m4_m4m4(persmat, winmat, viewmat);
@@ -1012,6 +1008,14 @@ static void render_scene_to_probe(
 		DRW_viewport_matrix_override_set(viewmat, DRW_MAT_VIEW);
 		DRW_viewport_matrix_override_set(viewinv, DRW_MAT_VIEWINV);
 		DRW_viewport_matrix_override_set(winmat, DRW_MAT_WIN);
+
+		/* Be sure that cascaded shadow maps are updated. */
+		EEVEE_draw_shadows(sldata, psl);
+
+		DRW_framebuffer_cubeface_attach(sldata->probe_fb, sldata->probe_rt, 0, i, 0);
+		DRW_framebuffer_viewport_size(sldata->probe_fb, 0, 0, PROBE_RT_SIZE, PROBE_RT_SIZE);
+
+		DRW_framebuffer_clear(false, true, false, NULL, 1.0);
 
 		/* Depth prepass */
 		DRW_draw_pass(psl->depth_pass);
@@ -1041,11 +1045,13 @@ static void render_scene_to_probe(
 
 	/* Restore */
 	sldata->probes->specular_toggle = true;
+	sldata->probes->ssr_toggle = true;
 	txl->planar_pool = tmp_planar_pool;
 	stl->g_data->minzbuffer = tmp_minz;
 	txl->maxzbuffer = tmp_maxz;
 	stl->effects->ao_dist = tmp_ao_dist;
 	stl->effects->ao_samples = tmp_ao_samples;
+	stl->effects->ao_settings = tmp_ao_settings;
 }
 
 static void render_scene_to_planar(
@@ -1062,6 +1068,20 @@ static void render_scene_to_planar(
 
 	invert_m4_m4(viewinv, viewmat);
 	invert_m4_m4(persinv, persmat);
+
+	DRW_viewport_matrix_override_set(persmat, DRW_MAT_PERS);
+	DRW_viewport_matrix_override_set(persinv, DRW_MAT_PERSINV);
+	DRW_viewport_matrix_override_set(viewmat, DRW_MAT_VIEW);
+	DRW_viewport_matrix_override_set(viewinv, DRW_MAT_VIEWINV);
+
+	/* Since we are rendering with an inverted view matrix, we need
+	 * to invert the facing for backface culling to be the same. */
+	DRW_state_invert_facing();
+
+	/* Be sure that cascaded shadow maps are updated. */
+	EEVEE_draw_shadows(sldata, psl);
+
+	DRW_state_clip_planes_add(clip_plane);
 
 	/* Attach depth here since it's a DRW_TEX_TEMP */
 	DRW_framebuffer_texture_layer_attach(fbl->planarref_fb, txl->planar_depth, 0, layer, 0);
@@ -1080,16 +1100,6 @@ static void render_scene_to_planar(
 	GPUTexture *tmp_planar_depth = txl->planar_depth;
 	txl->planar_pool = e_data.planar_pool_placeholder;
 	txl->planar_depth = e_data.depth_array_placeholder;
-
-	DRW_viewport_matrix_override_set(persmat, DRW_MAT_PERS);
-	DRW_viewport_matrix_override_set(persinv, DRW_MAT_PERSINV);
-	DRW_viewport_matrix_override_set(viewmat, DRW_MAT_VIEW);
-	DRW_viewport_matrix_override_set(viewinv, DRW_MAT_VIEWINV);
-
-	/* Since we are rendering with an inverted view matrix, we need
-	 * to invert the facing for backface culling to be the same. */
-	DRW_state_invert_facing();
-	DRW_state_clip_planes_add(clip_plane);
 
 	/* Depth prepass */
 	DRW_draw_pass(psl->depth_pass_clip);
