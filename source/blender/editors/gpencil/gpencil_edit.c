@@ -97,13 +97,13 @@ static void gpencil_verify_brush_type(bContext *C, int newmode)
 	{
 	case OB_MODE_GPENCIL_SCULPT:
 		gset->flag &= ~GP_BRUSHEDIT_FLAG_WEIGHT_MODE;
-		if ((gset->brushtype < 0) && (gset->brushtype >= GP_EDITBRUSH_TYPE_WEIGHT)) {
+		if ((gset->brushtype < 0) || (gset->brushtype >= GP_EDITBRUSH_TYPE_WEIGHT)) {
 			gset->brushtype = 0;
 		}
 		break;
 	case OB_MODE_GPENCIL_WEIGHT:
 		gset->flag |= GP_BRUSHEDIT_FLAG_WEIGHT_MODE;
-		if ((gset->weighttype < GP_EDITBRUSH_TYPE_WEIGHT) && (gset->weighttype >= TOT_GP_EDITBRUSH_TYPES)) {
+		if ((gset->weighttype < GP_EDITBRUSH_TYPE_WEIGHT) || (gset->weighttype >= TOT_GP_EDITBRUSH_TYPES)) {
 			gset->weighttype = GP_EDITBRUSH_TYPE_WEIGHT;
 		}
 		break;
