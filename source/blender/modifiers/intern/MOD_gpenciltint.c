@@ -57,11 +57,6 @@ static void initData(ModifierData *md)
 
 static void copyData(ModifierData *md, ModifierData *target)
 {
-#if 0
-	GpencilTintModifierData *smd = (GpencilTintModifierData *)md;
-	GpencilTintModifierData *tsmd = (GpencilTintModifierData *)target;
-#endif
-
 	modifier_copyData_generic(md, target);
 }
 

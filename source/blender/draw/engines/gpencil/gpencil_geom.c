@@ -614,10 +614,6 @@ Gwn_Batch *DRW_gpencil_get_edit_geom(bGPDstroke *gps, float alpha, short dflag)
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Object *ob = draw_ctx->obact;
 	bGPdata *gpd = ob->gpd;
-#if 0
-	Scene *scene = draw_ctx->scene;
-	ToolSettings *ts = scene->toolsettings;
-#endif
 	bool is_weight_paint = (gpd) && (gpd->flag & GP_DATA_STROKE_WEIGHTMODE);
 
 	int vgindex = ob->actdef - 1;
@@ -712,9 +708,6 @@ Gwn_Batch *DRW_gpencil_get_edit_geom(bGPDstroke *gps, float alpha, short dflag)
 Gwn_Batch *DRW_gpencil_get_edlin_geom(bGPDstroke *gps, float alpha, short UNUSED(dflag))
 {
 	const DRWContextState *draw_ctx = DRW_context_state_get();
-#if 0
-	Scene *scene = draw_ctx->scene;
-#endif
 	Object *ob = draw_ctx->obact;
 	bGPdata *gpd = ob->gpd;
 	bool is_weight_paint = (gpd) && (gpd->flag & GP_DATA_STROKE_WEIGHTMODE);
@@ -723,27 +716,6 @@ Gwn_Batch *DRW_gpencil_get_edlin_geom(bGPDstroke *gps, float alpha, short UNUSED
 	if (!BLI_findlink(&ob->defbase, vgindex)) {
 		vgindex = -1;
 	}
-
-#if 0
-	/* Get size of verts:
-	* - The selected state needs to be larger than the unselected state so that
-	*   they stand out more.
-	* - We use the theme setting for size of the unselected verts
-	*/
-	float bsize = UI_GetThemeValuef(TH_GP_VERTEX_SIZE);
-	float vsize;
-	if ((int)bsize > 8) {
-		vsize = 10.0f;
-		bsize = 8.0f;
-	}
-	else {
-		vsize = bsize + 2;
-	}
-
-	/* for now, we assume that the base color of the points is not too close to the real color */
-	/* set color using palette */
-	PaletteColor *palcolor = gps->palcolor;
-#endif
 
 	float selectColor[4];
 	UI_GetThemeColor3fv(TH_GP_VERTEX_SELECT, selectColor);

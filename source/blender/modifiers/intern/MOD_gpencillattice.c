@@ -65,11 +65,6 @@ static void initData(ModifierData *md)
 
 static void copyData(ModifierData *md, ModifierData *target)
 {
-#if 0
-	GpencilLatticeModifierData *smd = (GpencilLatticeModifierData *)md;
-	GpencilLatticeModifierData *tsmd = (GpencilLatticeModifierData *)target;
-#endif
-
 	modifier_copyData_generic(md, target);
 }
 

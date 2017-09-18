@@ -148,10 +148,6 @@ static int rna_GPencilLayer_active_frame_editable(PointerRNA *ptr, const char **
 static void rna_GPencilLayer_line_width_range(PointerRNA *UNUSED(ptr), int *min, int *max,
 	int *softmin, int *softmax)
 {
-#if 0
-	bGPDlayer *gpl = ptr->data;
-#endif
-
 	*min = -300;
 	*max = 300;
 

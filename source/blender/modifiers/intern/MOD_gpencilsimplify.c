@@ -52,11 +52,6 @@ static void initData(ModifierData *md)
 
 static void copyData(ModifierData *md, ModifierData *target)
 {
-#if 0
-	GpencilSimplifyModifierData *smd = (GpencilSimplifyModifierData *)md;
-	GpencilSimplifyModifierData *tsmd = (GpencilSimplifyModifierData *)target;
-#endif
-
 	modifier_copyData_generic(md, target);
 }
 
@@ -65,9 +60,6 @@ static DerivedMesh *applyModifier(
         DerivedMesh *UNUSED(dm),
         ModifierApplyFlag UNUSED(flag))
 {
-#if 0
-	GpencilSimplifyModifierData *mmd = (GpencilSimplifyModifierData *)md;
-#endif
 	bGPdata *gpd;
 	if ((!ob) || (!ob->gpd)) {
 		return NULL;

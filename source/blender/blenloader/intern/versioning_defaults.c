@@ -144,10 +144,6 @@ void BLO_update_defaults_startup_blend(Main *bmain)
 				GP_BrushEdit_Settings *gset = &ts->gp_sculpt;
 				GP_EditBrush_Data *brush;
 				float curcolor_add[3], curcolor_sub[3];
-#if 0
-				float curcolor[3];
-				ARRAY_SET_ITEMS(curcolor, 1.0f, 1.0f, 1.0f);
-#endif
 				ARRAY_SET_ITEMS(curcolor_add, 1.0f, 0.6f, 0.6f);
 				ARRAY_SET_ITEMS(curcolor_sub, 0.6f, 0.6f, 1.0f);
 

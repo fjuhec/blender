@@ -368,9 +368,6 @@ static void GPENCIL_cache_init(void *vedata)
 static void GPENCIL_cache_populate(void *vedata, Object *ob)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
-#if 0
-	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
-#endif
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
 	ToolSettings *ts = scene->toolsettings;
@@ -466,14 +463,8 @@ static void gpencil_vfx_passes(void *vedata, tGPencilObjectCache *cache)
 {
 	float clearcol[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 
-#if 0
-	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
-#endif
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	GPENCIL_FramebufferList *fbl = ((GPENCIL_Data *)vedata)->fbl;
-#if 0
-	DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
-#endif
 
 	DRW_framebuffer_bind(fbl->vfx_color_fb_a);
 	DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
