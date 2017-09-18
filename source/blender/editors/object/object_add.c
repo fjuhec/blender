@@ -1019,7 +1019,6 @@ static int object_gpencil_add_exec(bContext *C, wmOperator *op)
 	/* if type is monkey, create a 2D Suzanne */
 	if (type == GP_MONKEY) {
 		BKE_gpencil_create_monkey(C, ob->gpd);
-		float rot[3];
 		ED_object_rotation_from_view(C, rot, 'Y');
 		copy_v3_v3(ob->rot, rot);
 	}

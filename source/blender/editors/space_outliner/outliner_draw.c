@@ -1020,6 +1020,21 @@ static void tselem_draw_icon(uiBlock *block, int xmax, float x, float y, TreeSto
 					/* Default */
 					case eModifierType_None:
 					case eModifierType_ShapeKey:
+					case eModifierType_GpencilNoise:
+					case eModifierType_GpencilSubdiv:
+					case eModifierType_GpencilThick:
+					case eModifierType_GpencilTint:
+					case eModifierType_GpencilArray:
+					case eModifierType_GpencilDupli:
+					case eModifierType_GpencilOpacity:
+					case eModifierType_GpencilColor:
+					case eModifierType_GpencilLattice:
+					case eModifierType_GpencilSimplify:
+					case eModifierType_GpencilBlur:
+					case eModifierType_GpencilWave:
+					case eModifierType_GpencilPixel:
+					case eModifierType_GpencilSwirl:
+
 					case NUM_MODIFIER_TYPES:
 						ICON_DRAW(ICON_DOT);
 						break;

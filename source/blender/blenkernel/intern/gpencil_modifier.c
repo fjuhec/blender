@@ -794,13 +794,12 @@ static void gpencil_stroke_project_2d(const bGPDspoint *points, int totpoints, t
 * Ramer - Douglas - Peucker algorithm
 * by http ://en.wikipedia.org/wiki/Ramer-Douglas-Peucker_algorithm
 * -------------------------------------------------------------------------- */
-void gpencil_rdp_stroke(bGPDstroke *gps, tbGPDspoint *points2d, float epsilon)
+static void gpencil_rdp_stroke(bGPDstroke *gps, tbGPDspoint *points2d, float epsilon)
 {
 	tbGPDspoint *old_points2d = points2d;
 	int totpoints = gps->totpoints;
 	char *marked = NULL;
 	char work;
-	int i;
 
 	int start = 1;
 	int end = gps->totpoints - 2;
@@ -835,7 +834,7 @@ void gpencil_rdp_stroke(bGPDstroke *gps, tbGPDspoint *points2d, float epsilon)
 			v1[1] = old_points2d[le].p2d[0] - old_points2d[ls].p2d[0];
 			v1[0] = old_points2d[ls].p2d[1] - old_points2d[le].p2d[1];
 
-			for (i = ls + 1; i < le; i++) {
+			for (int i = ls + 1; i < le; i++) {
 				float mul;
 				float dist;
 				float v2[2];
@@ -895,7 +894,7 @@ void gpencil_rdp_stroke(bGPDstroke *gps, tbGPDspoint *points2d, float epsilon)
 }
 
 /* (wrapper api) simplify stroke using Ramer-Douglas-Peucker algorithm */
-void BKE_gpencil_simplify_stroke(bGPDlayer *gpl, bGPDstroke *gps, float factor)
+void BKE_gpencil_simplify_stroke(bGPDlayer *UNUSED(gpl), bGPDstroke *gps, float factor)
 {
 	/* first create temp data and convert points to 2D */
 	tbGPDspoint *points2d = MEM_mallocN(sizeof(tbGPDspoint) * gps->totpoints, "GP Stroke temp 2d points");
@@ -955,7 +954,7 @@ bool BKE_gpencil_has_geometry_modifiers(Object *ob)
 }
 
 /* apply stroke modifiers */
-void BKE_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *gpf, bGPDstroke *gps)
+void BKE_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *UNUSED(gpf), bGPDstroke *gps)
 {
 	ModifierData *md;
 	bGPdata *gpd = ob->gpd;

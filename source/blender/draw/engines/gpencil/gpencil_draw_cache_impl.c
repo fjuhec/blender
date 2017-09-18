@@ -159,7 +159,7 @@ static void gpencil_batch_cache_resize(GpencilBatchCache *cache, int slots)
 }
 
 /* check size and increase if no free slots */
-static void gpencil_batch_cache_check_free_slots(Object *ob, bGPdata *gpd)
+static void gpencil_batch_cache_check_free_slots(Object *ob, bGPdata *UNUSED(gpd))
 {
 	GpencilBatchCache *cache = gpencil_batch_get_element(ob);
 
@@ -607,7 +607,6 @@ static void gpencil_add_editpoints_shgroup(GPENCIL_StorageList *stl, GpencilBatc
 	if ((gpl->flag & GP_LAYER_LOCKED) == 0 && (gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)))
 	{
 		const DRWContextState *draw_ctx = DRW_context_state_get();
-		Scene *scene = draw_ctx->scene;
 		Object *obact = draw_ctx->obact;
 		bool is_weight_paint = (gpd) && (gpd->flag & GP_DATA_STROKE_WEIGHTMODE);
 
@@ -836,8 +835,9 @@ void DRW_gpencil_populate_buffer_strokes(void *vedata, ToolSettings *ts, Object 
 }
 
 /* draw onion-skinning for a layer */
-static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_data, void *vedata,
-	ToolSettings *ts, Object *ob, bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf)
+static void gpencil_draw_onionskins(
+        GpencilBatchCache *cache, GPENCIL_e_data *e_data, void *vedata,
+        Object *ob, bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf)
 {
 	const float default_color[3] = { UNPACK3(U.gpencil_new_layer_col) };
 	const float alpha = 1.0f;
@@ -1022,7 +1022,6 @@ static void gpencil_draw_onionskins(GpencilBatchCache *cache, GPENCIL_e_data *e_
 /* populate a datablock for multiedit (no onions, no modifiers) */
 void DRW_gpencil_populate_multiedit(GPENCIL_e_data *e_data, void *vedata, Scene *scene, Object *ob, ToolSettings *ts, bGPdata *gpd)
 {
-	ListBase tmp_frames = { NULL, NULL };
 	bGPDframe *gpf = NULL;
 
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
@@ -1065,7 +1064,9 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	bGPDframe *derived_gpf = NULL;
+#if 0
 	bool is_edit = (bool)(gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE));
+#endif
 	bool no_onion = (bool)(gpd->flag & GP_DATA_STROKE_WEIGHTMODE);
 
 	if (G.debug_value == 668) {
@@ -1119,7 +1120,7 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 			(gpl->onion_flag & GP_LAYER_ONIONSKIN) &&
 			((!playing) || (gpd->onion_flag & GP_ONION_GHOST_ALWAYS)))
 		{
-			gpencil_draw_onionskins(cache, e_data, vedata, ts, ob, gpd, gpl, gpf);
+			gpencil_draw_onionskins(cache, e_data, vedata, ob, gpd, gpl, gpf);
 		}
 
 		/* draw normal strokes */

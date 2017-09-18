@@ -612,10 +612,12 @@ Gwn_Batch *DRW_gpencil_get_fill_geom(bGPDstroke *gps, const float color[4])
 Gwn_Batch *DRW_gpencil_get_edit_geom(bGPDstroke *gps, float alpha, short dflag)
 {
 	const DRWContextState *draw_ctx = DRW_context_state_get();
-	Scene *scene = draw_ctx->scene;
 	Object *ob = draw_ctx->obact;
 	bGPdata *gpd = ob->gpd;
+#if 0
+	Scene *scene = draw_ctx->scene;
 	ToolSettings *ts = scene->toolsettings;
+#endif
 	bool is_weight_paint = (gpd) && (gpd->flag & GP_DATA_STROKE_WEIGHTMODE);
 
 	int vgindex = ob->actdef - 1;
@@ -707,13 +709,14 @@ Gwn_Batch *DRW_gpencil_get_edit_geom(bGPDstroke *gps, float alpha, short dflag)
 }
 
 /* Draw lines for strokes being edited */
-Gwn_Batch *DRW_gpencil_get_edlin_geom(bGPDstroke *gps, float alpha, short dflag)
+Gwn_Batch *DRW_gpencil_get_edlin_geom(bGPDstroke *gps, float alpha, short UNUSED(dflag))
 {
 	const DRWContextState *draw_ctx = DRW_context_state_get();
+#if 0
 	Scene *scene = draw_ctx->scene;
+#endif
 	Object *ob = draw_ctx->obact;
 	bGPdata *gpd = ob->gpd;
-	ToolSettings *ts = scene->toolsettings;
 	bool is_weight_paint = (gpd) && (gpd->flag & GP_DATA_STROKE_WEIGHTMODE);
 
 	int vgindex = ob->actdef - 1;
@@ -721,6 +724,7 @@ Gwn_Batch *DRW_gpencil_get_edlin_geom(bGPDstroke *gps, float alpha, short dflag)
 		vgindex = -1;
 	}
 
+#if 0
 	/* Get size of verts:
 	* - The selected state needs to be larger than the unselected state so that
 	*   they stand out more.
@@ -739,6 +743,7 @@ Gwn_Batch *DRW_gpencil_get_edlin_geom(bGPDstroke *gps, float alpha, short dflag)
 	/* for now, we assume that the base color of the points is not too close to the real color */
 	/* set color using palette */
 	PaletteColor *palcolor = gps->palcolor;
+#endif
 
 	float selectColor[4];
 	UI_GetThemeColor3fv(TH_GP_VERTEX_SELECT, selectColor);
@@ -747,7 +752,7 @@ Gwn_Batch *DRW_gpencil_get_edlin_geom(bGPDstroke *gps, float alpha, short dflag)
 	copy_v4_v4(linecolor, gpd->line_color);
 
 	static Gwn_VertFormat format = { 0 };
-	static unsigned int pos_id, color_id, size_id;
+	static unsigned int pos_id, color_id;
 	if (format.attrib_ct == 0) {
 		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
 		color_id = GWN_vertformat_attr_add(&format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
@@ -760,7 +765,6 @@ Gwn_Batch *DRW_gpencil_get_edlin_geom(bGPDstroke *gps, float alpha, short dflag)
 	bGPDspoint *pt = gps->points;
 	int idx = 0;
 	float fcolor[4];
-	float fsize = 0;
 	for (int i = 0; i < gps->totpoints; i++, pt++) {
 		/* weight paint */
 		if (is_weight_paint) {

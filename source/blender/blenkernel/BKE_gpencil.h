@@ -31,11 +31,13 @@
  *  \author Joshua Leung
  */
 
+struct bContext;
 struct ToolSettings;
 struct ListBase;
 struct bGPdata;
 struct bGPDlayer;
 struct bGPDframe;
+struct bGPDspoint;
 struct bGPDstroke;
 struct bGPDpalette;
 struct bGPDpalettecolor;

@@ -99,7 +99,7 @@ static void rna_GPencil_editmode_update(Main *UNUSED(bmain), Scene *UNUSED(scene
 	WM_main_add_notifier(NC_SCENE | ND_MODE | NC_MOVIECLIP, NULL);
 }
 
-static void rna_GPencil_onion_skinning_update(Main *bmain, Scene *scene, PointerRNA *ptr)
+static void UNUSED_FUNCTION(rna_GPencil_onion_skinning_update)(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
 	bGPdata *gpd = (bGPdata *)ptr->id.data;
 	bGPDlayer *gpl;
@@ -145,10 +145,12 @@ static int rna_GPencilLayer_active_frame_editable(PointerRNA *ptr, const char **
 		return PROP_EDITABLE;
 }
 
-static void rna_GPencilLayer_line_width_range(PointerRNA *ptr, int *min, int *max,
+static void rna_GPencilLayer_line_width_range(PointerRNA *UNUSED(ptr), int *min, int *max,
 	int *softmin, int *softmax)
 {
+#if 0
 	bGPDlayer *gpl = ptr->data;
+#endif
 
 	*min = -300;
 	*max = 300;

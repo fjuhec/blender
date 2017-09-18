@@ -78,18 +78,22 @@ static void initData(ModifierData *md)
 
 static void copyData(ModifierData *md, ModifierData *target)
 {
+#if 0
 	GpencilArrayModifierData *smd = (GpencilArrayModifierData *)md;
 	GpencilArrayModifierData *tsmd = (GpencilArrayModifierData *)target;
+#endif
 
 	modifier_copyData_generic(md, target);
 }
 
 /* helper to create a new object */
-static Object *object_add_type(bContext *C,	int type, const char *name, Object *from_ob)
+static Object *object_add_type(bContext *C,	int UNUSED(type), const char *UNUSED(name), Object *from_ob)
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
+#if 0
 	SceneLayer *sl = CTX_data_scene_layer(C);
+#endif
 	Object *ob;
 	const float loc[3] = { 0, 0, 0 };
 	const float rot[3] = { 0, 0, 0 };
@@ -107,19 +111,22 @@ static Object *object_add_type(bContext *C,	int type, const char *name, Object *
 	return ob;
 }
 
-static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx), Object *ob,
-	DerivedMesh *UNUSED(dm),
-	ModifierApplyFlag UNUSED(flag))
+static DerivedMesh *applyModifier(
+        ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx), Object *ob,
+        DerivedMesh *UNUSED(dm),
+        ModifierApplyFlag UNUSED(flag))
 {
 	GpencilArrayModifierData *mmd = (GpencilArrayModifierData *)md;
 	ModifierData *fmd;
 	bContext *C = (bContext *)mmd->C;
 	Main *bmain = CTX_data_main(C);
+#if 0
 	Scene *scene = CTX_data_scene(C);
 	SceneLayer *sl = CTX_data_scene_layer(C);
 	SceneCollection *sc = CTX_data_scene_collection(C);
-	Object *newob = NULL;
 	Base *base_new = NULL;
+#endif
+	Object *newob = NULL;
 	int xyz[3], sh;
 	float mat[4][4], finalmat[4][4];
 	float rot[3];

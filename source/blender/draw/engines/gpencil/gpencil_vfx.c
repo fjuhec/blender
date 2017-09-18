@@ -90,7 +90,9 @@ static bool modifier_is_active(Object *ob, ModifierData *md)
 }
 
 /* Copy image as is to fill vfx texture */
-static void DRW_gpencil_vfx_copy(int ob_idx, GPENCIL_e_data *e_data, GPENCIL_Data *vedata, Object *ob, tGPencilObjectCache *cache)
+static void DRW_gpencil_vfx_copy(
+        int UNUSED(ob_idx), GPENCIL_e_data *e_data, GPENCIL_Data *vedata,
+        Object *UNUSED(ob), tGPencilObjectCache *cache)
 {
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 
@@ -110,7 +112,9 @@ static void DRW_gpencil_vfx_copy(int ob_idx, GPENCIL_e_data *e_data, GPENCIL_Dat
 }
 
 /* Wave Distorsion VFX */
-static void DRW_gpencil_vfx_wave(ModifierData *md, int ob_idx, GPENCIL_e_data *e_data, GPENCIL_Data *vedata, Object *ob, tGPencilObjectCache *cache)
+static void DRW_gpencil_vfx_wave(
+        ModifierData *md, int ob_idx, GPENCIL_e_data *e_data, GPENCIL_Data *vedata,
+        Object *UNUSED(ob), tGPencilObjectCache *cache)
 {
 	if (md == NULL) {
 		return;
@@ -154,7 +158,9 @@ static void DRW_gpencil_vfx_wave(ModifierData *md, int ob_idx, GPENCIL_e_data *e
  * The effect is done using two shading groups because is faster to apply horizontal
  * and vertical in different operations.
  */
-static void DRW_gpencil_vfx_blur(ModifierData *md, int ob_idx, GPENCIL_e_data *e_data, GPENCIL_Data *vedata, Object *ob, tGPencilObjectCache *cache)
+static void DRW_gpencil_vfx_blur(
+        ModifierData *md, int ob_idx, GPENCIL_e_data *e_data, GPENCIL_Data *vedata,
+        Object *UNUSED(ob), tGPencilObjectCache *cache)
 {
 	if (md == NULL) {
 		return;
@@ -236,7 +242,9 @@ static void DRW_gpencil_vfx_blur(ModifierData *md, int ob_idx, GPENCIL_e_data *e
 }
 
 /* Pixelate VFX */
-static void DRW_gpencil_vfx_pixel(ModifierData *md, int ob_idx, GPENCIL_e_data *e_data, GPENCIL_Data *vedata, Object *ob, tGPencilObjectCache *cache)
+static void DRW_gpencil_vfx_pixel(
+        ModifierData *md, int ob_idx, GPENCIL_e_data *e_data, GPENCIL_Data *vedata,
+        Object *UNUSED(ob), tGPencilObjectCache *cache)
 {
 	if (md == NULL) {
 		return;
@@ -271,7 +279,9 @@ static void DRW_gpencil_vfx_pixel(ModifierData *md, int ob_idx, GPENCIL_e_data *
 }
 
 /* Swirl VFX */
-static void DRW_gpencil_vfx_swirl(ModifierData *md, int ob_idx, GPENCIL_e_data *e_data, GPENCIL_Data *vedata, Object *ob, tGPencilObjectCache *cache)
+static void DRW_gpencil_vfx_swirl(
+        ModifierData *md, int ob_idx, GPENCIL_e_data *e_data, GPENCIL_Data *vedata,
+        Object *ob, tGPencilObjectCache *cache)
 {
 	if (md == NULL) {
 		return;
@@ -317,7 +327,9 @@ static void DRW_gpencil_vfx_swirl(ModifierData *md, int ob_idx, GPENCIL_e_data *
 	cache->end_vfx_swirl_sh = vfx_shgrp;
 }
 
-void DRW_gpencil_vfx_modifiers(int ob_idx, struct GPENCIL_e_data *e_data, struct GPENCIL_Data *vedata, struct Object *ob, struct tGPencilObjectCache *cache)
+void DRW_gpencil_vfx_modifiers(
+        int ob_idx, struct GPENCIL_e_data *e_data, struct GPENCIL_Data *vedata,
+        struct Object *ob, struct tGPencilObjectCache *cache)
 {
 	bool ready = false;
 	ModifierData *md_wave = modifier_available(ob, eModifierType_GpencilWave);

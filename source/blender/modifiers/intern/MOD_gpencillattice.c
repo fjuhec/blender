@@ -65,8 +65,10 @@ static void initData(ModifierData *md)
 
 static void copyData(ModifierData *md, ModifierData *target)
 {
+#if 0
 	GpencilLatticeModifierData *smd = (GpencilLatticeModifierData *)md;
 	GpencilLatticeModifierData *tsmd = (GpencilLatticeModifierData *)target;
+#endif
 
 	modifier_copyData_generic(md, target);
 }
@@ -92,11 +94,13 @@ static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationConte
 		return NULL;
 	}
 
+	struct EvaluationContext eval_ctx_copy = *eval_ctx;
+
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 				CFRA = gpf->framenum;
-				BKE_scene_update_for_newframe(eval_ctx, bmain, scene);
+				BKE_scene_update_for_newframe(&eval_ctx_copy, bmain, scene);
 				/* recalculate lattice data */
 				BKE_gpencil_lattice_init(ob);
 

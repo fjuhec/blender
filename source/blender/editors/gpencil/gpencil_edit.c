@@ -627,10 +627,10 @@ static void gp_duplicate_points(const bGPDstroke *gps, ListBase *new_strokes, co
 				gpsd->totpoints = len;
 				/* Copy weights */
 				int e = start_idx;
-				for (int i = 0; i < gpsd->totpoints; ++i) {
-					bGPDspoint *pt = &gps->points[e];
-					bGPDspoint *new_pt = &gpsd->points[i];
-					new_pt->weights = MEM_dupallocN(pt->weights);
+				for (int j = 0; j < gpsd->totpoints; ++j) {
+					bGPDspoint *pt_src = &gps->points[e];
+					bGPDspoint *pt_dst = &gpsd->points[j];
+					pt_dst->weights = MEM_dupallocN(pt_src->weights);
 					++e;
 				}
 
@@ -1668,11 +1668,10 @@ void gp_stroke_delete_tagged_points(bGPDframe *gpf, bGPDstroke *gps, bGPDstroke 
 	bool in_island  = false;
 	int num_islands = 0;
 	
-	bGPDspoint *pt;
-	int i;
 	
 	/* First Pass: Identify start/end of islands */
-	for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+	bGPDspoint *pt = gps->points;
+	for (int i = 0; i < gps->totpoints; i++, pt++) {
 		if (pt->flag & tag_flags) {
 			/* selected - stop accumulating to island */
 			in_island = false;
@@ -1721,9 +1720,9 @@ void gp_stroke_delete_tagged_points(bGPDframe *gpf, bGPDstroke *gps, bGPDstroke 
 			/* Copy weights */
 			int e = island->start_idx;
 			for (int i = 0; i < new_stroke->totpoints; ++i) {
-				bGPDspoint *pt = &gps->points[e];
-				bGPDspoint *new_pt = &new_stroke->points[i];
-				new_pt->weights = MEM_dupallocN(pt->weights);
+				bGPDspoint *pt_src = &gps->points[e];
+				bGPDspoint *pt_dst = &new_stroke->points[i];
+				pt_dst->weights = MEM_dupallocN(pt_src->weights);
 				++e;
 			}
 			

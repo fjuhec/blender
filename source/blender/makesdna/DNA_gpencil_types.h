@@ -344,7 +344,7 @@ typedef struct bGPdata {
 
 	short xray_mode;            /* xray mode for strokes */
 	/* saved palettes */
-	ListBase palettes DNA_DEPRECATED;
+	ListBase palettes;
 	/* drawing manager cache */
 	struct GHash *batch_cache_data;
 	char last_palette_name[66]; /* name of the last palette used */

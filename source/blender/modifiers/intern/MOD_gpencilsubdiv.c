@@ -53,17 +53,22 @@ static void initData(ModifierData *md)
 
 static void copyData(ModifierData *md, ModifierData *target)
 {
+#if 0
 	GpencilSubdivModifierData *smd = (GpencilSubdivModifierData *)md;
 	GpencilSubdivModifierData *tsmd = (GpencilSubdivModifierData *)target;
+#endif
 
 	modifier_copyData_generic(md, target);
 }
 
-static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx), Object *ob,
-	DerivedMesh *UNUSED(dm),
-	ModifierApplyFlag UNUSED(flag))
+static DerivedMesh *applyModifier(
+        ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx), Object *ob,
+        DerivedMesh *UNUSED(dm),
+        ModifierApplyFlag UNUSED(flag))
 {
+#if 0
 	GpencilSubdivModifierData *mmd = (GpencilSubdivModifierData *)md;
+#endif
 	bGPdata *gpd;
 	if ((!ob) || (!ob->gpd)) {
 		return NULL;

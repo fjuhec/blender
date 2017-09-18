@@ -56,8 +56,10 @@ static void initData(ModifierData *md)
 
 static void copyData(ModifierData *md, ModifierData *target)
 {
+#if 0
 	GpencilOpacityModifierData *smd = (GpencilOpacityModifierData *)md;
 	GpencilOpacityModifierData *tsmd = (GpencilOpacityModifierData *)target;
+#endif
 
 	modifier_copyData_generic(md, target);
 }
@@ -66,7 +68,9 @@ static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationConte
 	DerivedMesh *UNUSED(dm),
 	ModifierApplyFlag UNUSED(flag))
 {
+#if 0
 	GpencilOpacityModifierData *mmd = (GpencilOpacityModifierData *)md;
+#endif
 	bGPdata *gpd;
 
 	if ((!ob) || (!ob->gpd)) {

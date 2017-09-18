@@ -6528,12 +6528,11 @@ static void lib_link_gpencil(FileData *fd, Main *main)
 	int palette_count = BLI_listbase_count(&main->palettes);
 	GHash **gp_palettecolors_buffer = MEM_mallocN(sizeof(struct GHash *) * palette_count, "Hash Palettes Array");
 	int i = 0;
-	for (Palette *palette = main->palettes.first; palette; palette = palette->id.next) {
+	for (Palette *palette = main->palettes.first; palette; palette = palette->id.next, i++) {
 		gp_palettecolors_buffer[i] = BLI_ghash_str_new("GPencil Hash Colors");
 		for (PaletteColor *palcolor = palette->colors.first; palcolor; palcolor = palcolor->next) {
 			BLI_ghash_insert(gp_palettecolors_buffer[i], palcolor->info, palcolor);
 		}
-		++i;
 	}
 
 	for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
@@ -6567,7 +6566,7 @@ static void lib_link_gpencil(FileData *fd, Main *main)
 	}
 
 	/* free hash buffer */
-	for (int i = 0; i < palette_count; ++i) {
+	for (i = 0; i < palette_count; ++i) {
 		if (gp_palettecolors_buffer[i]) {
 			BLI_ghash_free(gp_palettecolors_buffer[i], NULL, NULL);
 			gp_palettecolors_buffer[i] = NULL;

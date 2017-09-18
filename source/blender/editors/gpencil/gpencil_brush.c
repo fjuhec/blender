@@ -147,7 +147,7 @@ typedef struct tGP_BrushEditData {
 
 
 /* Callback for performing some brush operation on a single point */
-typedef bool (*GP_BrushApplyCb)(tGP_BrushEditData *gso, bGPDstroke *gps, int i,
+typedef bool (*GP_BrushApplyCb)(tGP_BrushEditData *gso, bGPDstroke *gps, int pt_index,
                                 const int radius, const int co[2]);
 
 /* ************************************************ */
@@ -260,8 +260,9 @@ static float gp_brush_influence_calc(tGP_BrushEditData *gso, const int radius, c
 /* Smooth Brush */
 
 /* A simple (but slower + inaccurate) smooth-brush implementation to test the algorithm for stroke smoothing */
-static bool gp_brush_smooth_apply(tGP_BrushEditData *gso, bGPDstroke *gps, int i,
-                                  const int radius, const int co[2])
+static bool gp_brush_smooth_apply(
+        tGP_BrushEditData *gso, bGPDstroke *gps, int pt_index,
+        const int radius, const int co[2])
 {
 	GP_EditBrush_Data *brush = gso->brush;
 	float inf = gp_brush_influence_calc(gso, radius, co);
@@ -276,13 +277,13 @@ static bool gp_brush_smooth_apply(tGP_BrushEditData *gso, bGPDstroke *gps, int i
 
 	/* perform smoothing */
 	if (gso->settings->flag & GP_BRUSHEDIT_FLAG_APPLY_POSITION) {
-		gp_smooth_stroke(gps, i, inf, affect_pressure);
+		gp_smooth_stroke(gps, pt_index, inf, affect_pressure);
 	}
 	if (gso->settings->flag & GP_BRUSHEDIT_FLAG_APPLY_STRENGTH) {
-		gp_smooth_stroke_strength(gps, i, inf);
+		gp_smooth_stroke_strength(gps, pt_index, inf);
 	}
 	if (gso->settings->flag & GP_BRUSHEDIT_FLAG_APPLY_THICKNESS) {
-		gp_smooth_stroke_thickness(gps, i, inf);
+		gp_smooth_stroke_thickness(gps, pt_index, inf);
 	}
 	
 	return true;
@@ -292,10 +293,11 @@ static bool gp_brush_smooth_apply(tGP_BrushEditData *gso, bGPDstroke *gps, int i
 /* Line Thickness Brush */
 
 /* Make lines thicker or thinner by the specified amounts */
-static bool gp_brush_thickness_apply(tGP_BrushEditData *gso, bGPDstroke *gps, int i,
-                                     const int radius, const int co[2])
+static bool gp_brush_thickness_apply(
+        tGP_BrushEditData *gso, bGPDstroke *gps, int pt_index,
+        const int radius, const int co[2])
 {
-	bGPDspoint *pt = gps->points + i;
+	bGPDspoint *pt = gps->points + pt_index;
 	float inf;
 	
 	/* Compute strength of effect
@@ -332,10 +334,10 @@ static bool gp_brush_thickness_apply(tGP_BrushEditData *gso, bGPDstroke *gps, in
 
 /* Make color more or less transparent by the specified amounts */
 static bool gp_brush_strength_apply(
-        tGP_BrushEditData *gso, bGPDstroke *gps, int i,
+        tGP_BrushEditData *gso, bGPDstroke *gps, int pt_index,
         const int radius, const int co[2])
 {
-	bGPDspoint *pt = gps->points + i;
+	bGPDspoint *pt = gps->points + pt_index;
 	float inf;
 
 	/* Compute strength of effect
@@ -420,8 +422,9 @@ static void gp_brush_grab_stroke_init(tGP_BrushEditData *gso, bGPDstroke *gps)
 }
 
 /* store references to stroke points in the initial stage */
-static bool gp_brush_grab_store_points(tGP_BrushEditData *gso, bGPDstroke *gps, int i,
-                                       const int radius, const int co[2])
+static bool gp_brush_grab_store_points(
+        tGP_BrushEditData *gso, bGPDstroke *gps, int pt_index,
+        const int radius, const int co[2])
 {
 	tGPSB_Grab_StrokeData *data = BLI_ghash_lookup(gso->stroke_customdata, gps);
 	float inf = gp_brush_influence_calc(gso, radius, co);
@@ -430,7 +433,7 @@ static bool gp_brush_grab_store_points(tGP_BrushEditData *gso, bGPDstroke *gps, 
 	BLI_assert(data->size < data->capacity);
 	
 	/* insert this point into the set of affected points */
-	data->points[data->size]  = i;
+	data->points[data->size]  = pt_index;
 	data->weights[data->size] = inf;
 	data->size++;
 	
@@ -517,10 +520,11 @@ static void gp_brush_grab_stroke_free(void *ptr)
 /* Push Brush */
 /* NOTE: Depends on gp_brush_grab_calc_dvec() */
 
-static bool gp_brush_push_apply(tGP_BrushEditData *gso, bGPDstroke *gps, int i,
-                                const int radius, const int co[2])
+static bool gp_brush_push_apply(
+        tGP_BrushEditData *gso, bGPDstroke *gps, int pt_index,
+        const int radius, const int co[2])
 {
-	bGPDspoint *pt = gps->points + i;
+	bGPDspoint *pt = gps->points + pt_index;
 	float save_pt[3];
 	copy_v3_v3(save_pt, &pt->x);
 
@@ -579,10 +583,11 @@ static void gp_brush_calc_midpoint(tGP_BrushEditData *gso)
 }
 
 /* Shrink distance between midpoint and this point... */
-static bool gp_brush_pinch_apply(tGP_BrushEditData *gso, bGPDstroke *gps, int i,
-                                 const int radius, const int co[2])
+static bool gp_brush_pinch_apply(
+        tGP_BrushEditData *gso, bGPDstroke *gps, int pt_index,
+        const int radius, const int co[2])
 {
-	bGPDspoint *pt = gps->points + i;
+	bGPDspoint *pt = gps->points + pt_index;
 	float fac, inf;
 	float vec[3];
 	float save_pt[3];
@@ -630,10 +635,11 @@ static bool gp_brush_pinch_apply(tGP_BrushEditData *gso, bGPDstroke *gps, int i,
  * convert the rotated point and convert it into "data" space
  */
 
-static bool gp_brush_twist_apply(tGP_BrushEditData *gso, bGPDstroke *gps, int i,
-                                 const int radius, const int co[2])
+static bool gp_brush_twist_apply(
+        tGP_BrushEditData *gso, bGPDstroke *gps, int pt_index,
+        const int radius, const int co[2])
 {
-	bGPDspoint *pt = gps->points + i;
+	bGPDspoint *pt = gps->points + pt_index;
 	float angle, inf;
 	float save_pt[3];
 	copy_v3_v3(save_pt, &pt->x);
@@ -707,10 +713,11 @@ static bool gp_brush_twist_apply(tGP_BrushEditData *gso, bGPDstroke *gps, int i,
 /* Randomize Brush */
 
 /* Apply some random jitter to the point */
-static bool gp_brush_randomize_apply(tGP_BrushEditData *gso, bGPDstroke *gps, int i,
-                                     const int radius, const int co[2])
+static bool gp_brush_randomize_apply(
+        tGP_BrushEditData *gso, bGPDstroke *gps, int pt_index,
+        const int radius, const int co[2])
 {
-	bGPDspoint *pt = gps->points + i;
+	bGPDspoint *pt = gps->points + pt_index;
 	float save_pt[3];
 	copy_v3_v3(save_pt, &pt->x);
 
@@ -814,10 +821,11 @@ static bool gp_brush_randomize_apply(tGP_BrushEditData *gso, bGPDstroke *gps, in
 /* Weight Paint Brush */
 
 /* Change weight paint for vertex groups */
-static bool gp_brush_weight_apply(tGP_BrushEditData *gso, bGPDstroke *gps, int i,
-	const int radius, const int co[2])
+static bool gp_brush_weight_apply(
+        tGP_BrushEditData *gso, bGPDstroke *gps, int pt_index,
+        const int radius, const int co[2])
 {
-	bGPDspoint *pt = gps->points + i;
+	bGPDspoint *pt = gps->points + pt_index;
 	float inf;
 
 	/* Compute strength of effect

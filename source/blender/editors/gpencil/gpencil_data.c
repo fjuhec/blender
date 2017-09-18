@@ -89,7 +89,6 @@
 static int gp_data_add_exec(bContext *C, wmOperator *op)
 {
 	bGPdata **gpd_ptr = ED_gpencil_data_get_pointers(C, NULL);
-	ToolSettings *ts = CTX_data_tool_settings(C);
 
 	if (gpd_ptr == NULL) {
 		BKE_report(op->reports, RPT_ERROR, "Nowhere for grease pencil data to go");
@@ -183,7 +182,6 @@ void GPENCIL_OT_data_unlink(wmOperatorType *ot)
 static int gp_layer_add_exec(bContext *C, wmOperator *op)
 {
 	bGPdata **gpd_ptr = ED_gpencil_data_get_pointers(C, NULL);
-	ToolSettings *ts = CTX_data_tool_settings(C);
 
 	/* if there's no existing Grease-Pencil data there, add some */
 	if (gpd_ptr == NULL) {
@@ -1613,7 +1611,7 @@ void GPENCIL_OT_vertex_group_assign(wmOperatorType *ot)
 }
 
 /* remove point from vertex group */
-static int gpencil_vertex_group_remove_from_exec(bContext *C, wmOperator *op)
+static int gpencil_vertex_group_remove_from_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Object *ob = CTX_data_active_object(C);
 

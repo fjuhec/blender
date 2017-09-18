@@ -139,7 +139,7 @@ bool BKE_gpencil_free_strokes(bGPDframe *gpf)
 }
 
 /* Free strokes and colors belonging to a gp-frame */
-bool BKE_gpencil_free_layer_temp_data(bGPDlayer *gpl, bGPDframe *derived_gpf)
+bool BKE_gpencil_free_layer_temp_data(bGPDlayer *UNUSED(gpl), bGPDframe *derived_gpf)
 {
 	bGPDstroke *gps_next;
 	if (!derived_gpf) {
@@ -1670,7 +1670,7 @@ void BKE_gpencil_batch_cache_alldirty()
 }
 
 /* get stroke min max values */
-void static gpencil_minmax(bGPdata *gpd, float min[3], float max[3])
+static void gpencil_minmax(bGPdata *gpd, float min[3], float max[3])
 {
 	int i;
 	bGPDspoint *pt;
@@ -1859,8 +1859,9 @@ static void gpencil_add_points(bGPDstroke *gps, float *array, int totpoints)
 	}
 }
 
-static bGPDstroke *gpencil_add_stroke(bGPDframe *gpf, Palette *palette, PaletteColor *palcolor, int totpoints, 
-	char *colorname, short thickness)
+static bGPDstroke *gpencil_add_stroke(
+        bGPDframe *gpf, Palette *palette, PaletteColor *palcolor, int totpoints,
+        const char *colorname, short thickness)
 {
 	/* allocate memory for a new stroke */
 	bGPDstroke *gps = MEM_callocN(sizeof(bGPDstroke), "gp_stroke");
