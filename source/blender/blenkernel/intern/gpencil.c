@@ -465,6 +465,8 @@ bGPDlayer *BKE_gpencil_layer_addnew(bGPdata *gpd, const char *name, bool setacti
 	gpl->onion_flag |= (GP_LAYER_GHOST_PREVCOL | GP_LAYER_GHOST_NEXTCOL);
 	gpl->onion_flag |= GP_LAYER_ONION_FADE;
 	gpl->onion_factor = 0.5f;
+	gpl->gstep = 1;
+	gpl->gstep_next = 1;
 
 	ARRAY_SET_ITEMS(gpl->gcolor_prev, 0.145098f, 0.419608f, 0.137255f); /* green */
 	ARRAY_SET_ITEMS(gpl->gcolor_next, 0.125490f, 0.082353f, 0.529412f); /* blue */
@@ -780,6 +782,8 @@ bGPdata *BKE_gpencil_data_addnew(const char name[])
 	gpd->onion_factor = 0.5f;
 	ARRAY_SET_ITEMS(gpd->gcolor_prev, 0.145098f, 0.419608f, 0.137255f); /* green */
 	ARRAY_SET_ITEMS(gpd->gcolor_next, 0.125490f, 0.082353f, 0.529412f); /* blue */
+	gpd->gstep = 1;
+	gpd->gstep_next = 1;
 
 	return gpd;
 }
