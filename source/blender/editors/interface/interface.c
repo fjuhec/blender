@@ -1936,13 +1936,14 @@ void ui_but_value_set(uiBut *but, double value)
 	else {
 		/* first do rounding */
 		if (but->pointype == UI_BUT_POIN_CHAR) {
-			value = (char)floor(value + 0.5);
+			value = round_db_to_uchar_clamp(value);
 		}
 		else if (but->pointype == UI_BUT_POIN_SHORT) {
-			value = (short)floor(value + 0.5);
+			value = round_db_to_short_clamp(value);
 		}
-		else if (but->pointype == UI_BUT_POIN_INT)
-			value = (int)floor(value + 0.5);
+		else if (but->pointype == UI_BUT_POIN_INT) {
+			value = round_db_to_int_clamp(value);
+		}
 		else if (but->pointype == UI_BUT_POIN_FLOAT) {
 			float fval = (float)value;
 			if (fval >= -0.00001f && fval <= 0.00001f) fval = 0.0f;  /* prevent negative zero */
@@ -2485,7 +2486,9 @@ bool ui_but_string_set(bContext *C, uiBut *but, const char *str)
 			return false;
 		}
 
-		if (!ui_but_is_float(but)) value = (int)floor(value + 0.5);
+		if (!ui_but_is_float(but)) {
+			value = floor(value + 0.5);
+		}
 
 		/* not that we use hard limits here */
 		if (value < (double)but->hardmin) value = but->hardmin;
