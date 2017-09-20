@@ -413,6 +413,8 @@ typedef enum eGPdata_Flag {
 	GP_DATA_STROKE_MULTIEDIT = (1 << 16),
 	/* Only show edit lines */
 	GP_DATA_STROKE_MULTIEDIT_LINES = (1 << 17),
+	/* show edit lines */
+	GP_DATA_STROKE_SHOW_EDIT_LINES = (1 << 18),
 } eGPdata_Flag;
 
 /* Onion->flag */

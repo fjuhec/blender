@@ -144,7 +144,7 @@ class DATA_PT_gpencil_display(DataButtonsPanel, Panel):
         layout.separator()
 
         col = layout.column()
-        col.label("Edit Lines:") # TODO: Editline toggle here
+        col.prop(gpd, "show_edit_lines", text="Show Edit Lines")
         col.prop(gpd, "edit_line_color", text="")
         col.prop(gpd, "multiedit_line_only", text="Only Lines in MultiEdit")
 

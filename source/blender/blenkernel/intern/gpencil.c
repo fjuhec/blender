@@ -772,6 +772,7 @@ bGPdata *BKE_gpencil_data_addnew(const char name[])
 	 * since this is more useful...
 	 */
 	gpd->flag |= GP_DATA_VIEWALIGN;
+	gpd->flag |= GP_DATA_STROKE_SHOW_EDIT_LINES;
 	gpd->xray_mode = GP_XRAY_3DSPACE;
 	gpd->batch_cache_data = NULL;
 	gpd->pixfactor = GP_DEFAULT_PIX_FACTOR;
