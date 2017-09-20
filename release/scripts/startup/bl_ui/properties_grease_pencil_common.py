@@ -1242,6 +1242,10 @@ class GreasePencilOnionPanel:
         sub.prop(gpd, "use_ghosts_always", text="", icon=icon)
         sub.prop(gpd, "use_ghost_custom_colors", text="", icon='COLOR')
 
+        row = layout.row(align=True)
+        row.active = gpd.use_onion_skinning
+        row.prop(gpd, "onion_mode", expand=True)
+
         split = layout.split(percentage=0.5)
         split.active = gpd.use_onion_skinning
 
@@ -1251,24 +1255,21 @@ class GreasePencilOnionPanel:
         row.active = gpd.use_ghost_custom_colors
         row.prop(gpd, "before_color", text="")
 
+        row = sub.row(align=True)
+        row.active = gpd.onion_mode in ('ABSOLUTE', 'RELATIVE')
+        row.prop(gpd, "ghost_before_range", text="Before")
+
         # - After Frames
         sub = split.column(align=True)
         row = sub.row(align=True)
         row.active = gpd.use_ghost_custom_colors
         row.prop(gpd, "after_color", text="")
 
-        split = layout.split(percentage=0.5)
-        split.active = gpd.onion_mode in ('ABSOLUTE', 'RELATIVE')
-        sub = split.column(align=True)
-        sub.prop(gpd, "ghost_before_range", text="Before")
+        row = sub.row(align=True)
+        row.active = gpd.onion_mode in ('ABSOLUTE', 'RELATIVE')
+        row.prop(gpd, "ghost_after_range", text="After")
 
-        sub = split.column(align=True)
-        sub.prop(gpd, "ghost_after_range", text="After")
-
-        row = layout.row(align=True)
-        row.active = gpd.use_onion_skinning
-        row.prop(gpd, "onion_mode", text="Mode")
-
+        # - fade
         split = layout.split(percentage=0.5)
         split.active = gpd.use_onion_skinning
         sub = split.column(align=True)
@@ -1294,6 +1295,9 @@ class GreasePencilOnionPanel:
             sub.prop(gpl, "use_ghosts_always", text="", icon=icon)
             sub.prop(gpl, "use_ghost_custom_colors", text="", icon='COLOR')
 
+            row = box.row(align=True)
+            row.active = ovr
+            row.prop(gpl, "onion_mode", expand=True)
 
             split = box.split(percentage=0.5)
             split.active = ovr
@@ -1301,27 +1305,24 @@ class GreasePencilOnionPanel:
             # - Before Frames
             sub = split.column(align=True)
             row = sub.row(align=True)
-            row.active = gpl.use_ghost_custom_colors
+            row.active = gpl.use_ghost_custom_color
+            s
             row.prop(gpl, "before_color", text="")
+            row = sub.row(align=True)
+            row.active = gpl.onion_mode in ('ABSOLUTE', 'RELATIVE')
+            row.prop(gpl, "ghost_before_range", text="Before")
 
             # - After Frames
             sub = split.column(align=True)
             row = sub.row(align=True)
             row.active = gpl.use_ghost_custom_colors
             row.prop(gpl, "after_color", text="")
+            
+            row = sub.row(align=True)
+            row.active = gpl.onion_mode in ('ABSOLUTE', 'RELATIVE')
+            row.prop(gpl, "ghost_after_range", text="After")
 
-            split = box.split(percentage=0.5)
-            split.active = gpl.onion_mode in ('ABSOLUTE', 'RELATIVE')
-            sub = split.column(align=True)
-            sub.prop(gpl, "ghost_before_range", text="Before")
-
-            sub = split.column(align=True)
-            sub.prop(gpl, "ghost_after_range", text="After")
-
-            row = box.row(align=True)
-            row.active = ovr
-            row.prop(gpl, "onion_mode", text="Mode")
-
+            # - Fade
             split = box.split(percentage=0.5)
             split.active = ovr
             sub = split.column(align=True)

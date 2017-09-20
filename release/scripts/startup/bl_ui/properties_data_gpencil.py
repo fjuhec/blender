@@ -66,7 +66,7 @@ class DATA_PT_gpencil_layeroptionpanel(GreasePencilLayerOptionPanel, Panel):
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "data"
-    bl_label = "Options"
+    bl_label = "Layer Adjustments"
     bl_options = {'DEFAULT_CLOSED'}
 
     # NOTE: this is just a wrapper around the generic GP Panel
@@ -116,30 +116,38 @@ class DATA_PT_gpencil_display(DataButtonsPanel, Panel):
 
     def draw(self, context):
         layout = self.layout
+
         ob = context.object
-        layout.prop(ob, "empty_draw_size", text="Size")
 
         gpd = context.gpencil_data
-        row = layout.row()
-        row.prop(gpd, "xray_mode", text="Draw Mode")
-        row = layout.row()
-        row.prop(gpd, "keep_stroke_thickness")
-
-        row = layout.row()
-        row.prop(gpd, "show_stroke_direction", text="Show Stroke Directions")
-
         gpl = context.active_gpencil_layer
-        if gpl:
-            row = layout.row()
-            row.prop(gpl, "show_points")
 
-        row = layout.row()
-        row.prop(gpd, "pixfactor", text="Pixel Factor")
+
+        layout.prop(gpd, "xray_mode", text="Depth Ordering")
+        layout.prop(ob, "empty_draw_size", text="Marker Size")
+
+        layout.separator()
+
+        if gpl:
+            col = layout.column(align=True)
+            col.prop(gpl, "show_points")
+            col.prop(gpd, "show_stroke_direction", text="Show Stroke Directions")
+
+        layout.separator()
+
+        col = layout.column(align=True)
+        col.prop(gpd, "keep_stroke_thickness")
+        sub = col.column()
+        sub.active = not gpd.keep_stroke_thickness
+        sub.prop(gpd, "pixfactor", text="Pixel Factor")
+
+        layout.separator()
 
         col = layout.column()
-        col.label("Edit")
+        col.label("Edit Lines:") # TODO: Editline toggle here
         col.prop(gpd, "edit_line_color", text="")
         col.prop(gpd, "multiedit_line_only", text="Only Lines in MultiEdit")
+
 
 classes = (
     DATA_PT_gpencil,
