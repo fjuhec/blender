@@ -1305,8 +1305,8 @@ class GreasePencilOnionPanel:
             # - Before Frames
             sub = split.column(align=True)
             row = sub.row(align=True)
-            row.active = gpl.use_ghost_custom_color
-            s
+            row.active = gpl.use_ghost_custom_colors
+            
             row.prop(gpl, "before_color", text="")
             row = sub.row(align=True)
             row.active = gpl.onion_mode in ('ABSOLUTE', 'RELATIVE')
