@@ -91,12 +91,14 @@ class DATA_PT_gpencilparentpanel(GreasePencilParentLayerPanel, Panel):
 
     # NOTE: this is just a wrapper around the generic GP Panel
 
+
 class DATA_PT_gpencilvertexpanel(GreasePencilVertexGroupPanel, Panel):
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "data"
     bl_label = "Vertex Groups"
     bl_options = {'DEFAULT_CLOSED'}
+
 
 class DATA_PT_gpencil_infopanel(GreasePencilInfoPanel, Panel):
     bl_space_type = 'PROPERTIES'
@@ -105,7 +107,9 @@ class DATA_PT_gpencil_infopanel(GreasePencilInfoPanel, Panel):
     bl_label = "Information"
     bl_options = {'DEFAULT_CLOSED'}
 
-    # NOTE: this is just a wrapper around th
+    # NOTE: this is just a wrapper around the generic GP Panel
+
+
 class DATA_PT_gpencil_display(DataButtonsPanel, Panel):
     bl_label = "Display"
     bl_options = {'DEFAULT_CLOSED'}
