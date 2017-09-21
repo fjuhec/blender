@@ -364,6 +364,8 @@ static struct DRWResourceState {
 	GPUTexture **bound_texs;
 
 	bool *bound_tex_slots;
+
+	int bind_tex_inc;
 	int bind_ubo_inc;
 } RST = {NULL};
 
@@ -1837,10 +1839,14 @@ static void bind_texture(GPUTexture *tex)
 	int bind_num = GPU_texture_bound_number(tex);
 	if (bind_num == -1) {
 		for (int i = 0; i < GPU_max_textures(); ++i) {
-			if (RST.bound_tex_slots[i] == false) {
-				GPU_texture_bind(tex, i);
-				RST.bound_texs[i] = tex;
-				RST.bound_tex_slots[i] = true;
+			RST.bind_tex_inc = (RST.bind_tex_inc + 1) % GPU_max_textures();
+			if (RST.bound_tex_slots[RST.bind_tex_inc] == false) {
+				if (RST.bound_texs[RST.bind_tex_inc] != NULL) {
+					GPU_texture_unbind(RST.bound_texs[RST.bind_tex_inc]);
+				}
+				GPU_texture_bind(tex, RST.bind_tex_inc);
+				RST.bound_texs[RST.bind_tex_inc] = tex;
+				RST.bound_tex_slots[RST.bind_tex_inc] = true;
 				return;
 			}
 		}
