@@ -758,21 +758,35 @@ typedef enum eDirEntry_SelectFlag {
 
 /* ***** Related to file browser, but never saved in DNA, only here to help with RNA. ***** */
 
-/* Container for a revision, only relevant in asset context. */
-typedef struct FileDirEntryRevision {
-	struct FileDirEntryRevision *next, *prev;
-
-	char *comment;
-	void *pad;
+/* Container for a view, only relevant in asset context. */
+typedef struct FileDirEntryView {
+	struct FileDirEntryView *next, *prev;
 
 	int uuid[4];
+	char *name;
+	char *description;
 
 	uint64_t size;
-	int64_t time;
+	int64_t time;  /* Should be duplicate of revision's time (easier to have everything in sigle struct). */
 	/* Temp caching of UI-generated strings... */
 	char    size_str[16];
 	char    time_str[8];
 	char    date_str[16];
+} FileDirEntryView;
+
+/* Container for a revision, only relevant in asset context. */
+typedef struct FileDirEntryRevision {
+	struct FileDirEntryRevision *next, *prev;
+
+	int uuid[4];
+	char *comment;
+	void *pad;
+
+	int64_t time;
+
+	ListBase views;
+	int nbr_views;
+	int act_view;
 } FileDirEntryRevision;
 
 /* Container for a variant, only relevant in asset context.
@@ -793,14 +807,13 @@ typedef struct FileDirEntryVariant {
 typedef struct FileDirEntry {
 	struct FileDirEntry *next, *prev;
 
-	/* XXX This only copes for asset uuid itself,
-	 *     we'll likely want to extend that to variants/revisions too at some point? */
+	int uuid_repository[4];
 	int uuid[4];
 	char *name;
 	char *description;
 
 	/* Either point to active variant/revision if available, or own entry (in mere filebrowser case). */
-	FileDirEntryRevision *entry;
+	FileDirEntryView *entry;
 
 	int typeflag;  /* eFileSel_File_Types */
 	int blentype;  /* ID type, in case typeflag has FILE_TYPE_BLENDERLIB set. */

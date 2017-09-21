@@ -184,9 +184,11 @@ typedef struct IDOverride {
 
 /* Used to communicate with asset engines outside of 'import' context. */
 typedef struct AssetUUID {
+	int uuid_repository[4];
 	int uuid_asset[4];
 	int uuid_variant[4];
 	int uuid_revision[4];
+	int uuid_view[4];
 	short flag;  /* Saved. */
 	short tag;   /* Runtime. */
 

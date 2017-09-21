@@ -45,6 +45,7 @@ struct FileDirEntryArr;
 struct FileDirEntry;
 struct FileDirEntryVariant;
 struct FileDirEntryRevision;
+struct FileDirEntryView;
 struct ExtensionRNA;
 struct ID;
 struct IDProperty;
@@ -249,6 +250,8 @@ typedef enum FileCheckType {
 	CHECK_ALL   = CHECK_DIRS | CHECK_FILES,
 } FileCheckType;
 
+void BKE_filedir_view_free(struct FileDirEntryView *view);
+
 void BKE_filedir_revision_free(struct FileDirEntryRevision *rev);
 
 void BKE_filedir_variant_free(struct FileDirEntryVariant *var);
@@ -263,9 +266,11 @@ void BKE_filedir_entryarr_clear(struct FileDirEntryArr *array);
 	(memcmp((_uuida)->_member, (_uuidb)->_member, sizeof((_uuida)->_member)) == 0)
 
 #define ASSETUUID_COMPARE(_uuida, _uuidb) \
-	(ASSETUUID_SUB_COMPARE(_uuida, _uuidb, uuid_asset) && \
+	(ASSETUUID_SUB_COMPARE(_uuida, _uuidb, uuid_repository) && \
+	 ASSETUUID_SUB_COMPARE(_uuida, _uuidb, uuid_asset) && \
 	 ASSETUUID_SUB_COMPARE(_uuida, _uuidb, uuid_variant) && \
-	 ASSETUUID_SUB_COMPARE(_uuida, _uuidb, uuid_revision))
+	 ASSETUUID_SUB_COMPARE(_uuida, _uuidb, uuid_revision) && \
+	 ASSETUUID_SUB_COMPARE(_uuida, _uuidb, uuid_view))
 
 /* Various helpers */
 unsigned int BKE_asset_uuid_hash(const void *key);

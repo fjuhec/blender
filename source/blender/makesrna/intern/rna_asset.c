@@ -101,17 +101,132 @@ static void rna_AssetUUID_preview_pixels_set(PointerRNA *ptr, const int *values)
 
 /* Asset listing... */
 
-/* Revisions. */
-static int rna_AssetRevision_size_get(PointerRNA *ptr)
+/* Views. */
+static void rna_AssetView_name_get(struct PointerRNA *ptr, char *value)
 {
-	FileDirEntryRevision *revision = ptr->data;
-	return (int)revision->size;
+	FileDirEntryView *view = ptr->data;
+	if (view->name) {
+		strcpy(value, view->name);
+	}
+	else {
+		*value = '\0';
+	}
 }
 
-static void rna_AssetRevision_size_set(PointerRNA *ptr, const int val)
+static int rna_AssetView_name_length(struct PointerRNA *ptr)
+{
+	FileDirEntryView *view = ptr->data;
+	return view->name ? strlen(view->name) : 0;
+}
+
+static void rna_AssetView_name_set(struct PointerRNA *ptr, const char *value)
+{
+	FileDirEntryView *view = ptr->data;
+	MEM_SAFE_FREE(view->name);
+	if (value[0] != '\0') {
+		view->name = BLI_strdup(value);
+	}
+}
+
+static void rna_AssetView_description_get(struct PointerRNA *ptr, char *value)
+{
+	FileDirEntryView *view = ptr->data;
+	if (view->description) {
+		strcpy(value, view->description);
+	}
+	else {
+		*value = '\0';
+	}
+}
+
+static int rna_AssetView_description_length(struct PointerRNA *ptr)
+{
+	FileDirEntryView *view = ptr->data;
+	return view->description ? strlen(view->description) : 0;
+}
+
+static void rna_AssetView_description_set(struct PointerRNA *ptr, const char *value)
+{
+	FileDirEntryView *view = ptr->data;
+	MEM_SAFE_FREE(view->description);
+	if (value[0] != '\0') {
+		view->description = BLI_strdup(value);
+	}
+}
+
+static int rna_AssetView_size_get(PointerRNA *ptr)
+{
+	FileDirEntryView *view = ptr->data;
+	return (int)view->size;
+}
+
+static void rna_AssetView_size_set(PointerRNA *ptr, const int val)
+{
+	FileDirEntryView *view = ptr->data;
+	view->size = (int64_t)val;
+}
+
+static int rna_AssetView_timestamp_get(PointerRNA *ptr)
+{
+	FileDirEntryView *view = ptr->data;
+	return (int)view->time;
+}
+
+static void rna_AssetView_timestamp_set(PointerRNA *ptr, const int val)
+{
+	FileDirEntryView *view = ptr->data;
+	view->time = (int64_t)val;
+}
+
+/* Revisions. */
+static FileDirEntryView *rna_AssetRevision_views_add(FileDirEntryRevision *revision/*, ReportList *reports,*/)
+{
+	FileDirEntryView *view = MEM_callocN(sizeof(*view), __func__);
+
+	BLI_addtail(&revision->views, view);
+	revision->nbr_views++;
+
+	return view;
+}
+
+static PointerRNA rna_AssetRevision_active_view_get(PointerRNA *ptr)
 {
 	FileDirEntryRevision *revision = ptr->data;
-	revision->size = (int64_t)val;
+	return rna_pointer_inherit_refine(ptr, &RNA_AssetView, BLI_findlink(&revision->views, revision->act_view));
+}
+
+static void rna_AssetRevision_active_view_set(PointerRNA *ptr, PointerRNA value)
+{
+	FileDirEntryRevision *revision = ptr->data;
+	FileDirEntryView *view = value.data;
+
+	revision->act_view = BLI_findindex(&revision->views, view);
+}
+
+static void rna_AssetRevision_comment_get(struct PointerRNA *ptr, char *value)
+{
+	FileDirEntryRevision *revision = ptr->data;
+	if (revision->comment) {
+		strcpy(value, revision->comment);
+	}
+	else {
+		*value = '\0';
+	}
+}
+
+static int rna_AssetRevision_comment_length(struct PointerRNA *ptr)
+{
+	FileDirEntryRevision *revision = ptr->data;
+	return revision->comment ? strlen(revision->comment) : 0;
+}
+
+static void rna_AssetRevision_comment_set(struct PointerRNA *ptr, const char *value)
+{
+	FileDirEntryRevision *revision = ptr->data;
+	MEM_SAFE_FREE(revision->comment);
+	if (value[0] != '\0') {
+		revision->comment = BLI_strdup(value);
+	}
 }
 
 static int rna_AssetRevision_timestamp_get(PointerRNA *ptr)
@@ -875,6 +990,9 @@ static void rna_def_asset_uuid(BlenderRNA *brna)
 	RNA_def_struct_sdna(srna, "AssetUUID");
 	RNA_def_struct_ui_text(srna, "Asset UUID", "A unique identifier of an asset (asset engine dependent!)");
 
+	RNA_def_int_vector(srna, "uuid_repository", 4, null_uuid, INT_MIN, INT_MAX,
+	                   "Repository UUID", "Unique identifier of the repository of this asset", INT_MIN, INT_MAX);
+
 	RNA_def_int_vector(srna, "uuid_asset", 4, null_uuid, INT_MIN, INT_MAX,
 	                   "Asset UUID", "Unique identifier of this asset", INT_MIN, INT_MAX);
 
@@ -883,6 +1001,9 @@ static void rna_def_asset_uuid(BlenderRNA *brna)
 
 	RNA_def_int_vector(srna, "uuid_revision", 4, null_uuid, INT_MIN, INT_MAX,
 	                   "Revision UUID", "Unique identifier of this asset's revision", INT_MIN, INT_MAX);
+
+	RNA_def_int_vector(srna, "uuid_view", 4, null_uuid, INT_MIN, INT_MAX,
+	                   "View UUID", "Unique identifier of this asset's view", INT_MIN, INT_MAX);
 
 	prop = RNA_def_boolean(srna, "is_unknown_engine", false, "Unknown Asset Engine",
 	                       "This AssetUUID is referencing an unknown asset engine");
@@ -935,11 +1056,78 @@ static void rna_def_asset_uuid_list(BlenderRNA *brna)
 	rna_def_asset_uuid(brna);
 }
 
+static void rna_def_asset_view(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+
+	int null_uuid[4] = {0};
+
+	srna = RNA_def_struct(brna, "AssetView", NULL);
+	RNA_def_struct_sdna(srna, "FileDirEntryView");
+	RNA_def_struct_ui_text(srna, "Asset Entry View", "A view of a single asset item");
+//	RNA_def_struct_ui_icon(srna, ICON_NONE);  /* XXX TODO */
+
+	prop = RNA_def_int_vector(srna, "uuid", 4, null_uuid, INT_MIN, INT_MAX, "View UUID",
+	                          "Unique identifier of this view (actual content depends on asset engine)",
+	                          INT_MIN, INT_MAX);
+
+	prop = RNA_def_property(srna, "name", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_funcs(prop, "rna_AssetView_name_get", "rna_AssetView_name_length",
+	                              "rna_AssetView_name_set");
+	RNA_def_property_ui_text(prop, "Name", "");
+
+	prop = RNA_def_property(srna, "description", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_funcs(prop, "rna_AssetView_description_get", "rna_AssetView_description_length",
+	                              "rna_AssetView_description_set");
+	RNA_def_property_ui_text(prop, "Description", "");
+
+	prop = RNA_def_int(srna, "size", 0, -1, INT_MAX, "Size",
+	                   "Size (in bytes, special value '-1' means 'no size')", -1, INT_MAX);
+	RNA_def_property_int_funcs(prop, "rna_AssetView_size_get", "rna_AssetView_size_set", NULL);
+
+	prop = RNA_def_int(srna, "timestamp", 0, 0, INT_MAX, "Timestamp",
+	                   "In seconds since the epoch (should be copy of revision timestamp typically)", 0, INT_MAX);
+	RNA_def_property_int_funcs(prop, "rna_AssetView_timestamp_get", "rna_AssetView_timestamp_set", NULL);
+}
+
+/* assetvariantrevision.views */
+static void rna_def_asset_views(BlenderRNA *brna, PropertyRNA *cprop)
+{
+	StructRNA *srna;
+	FunctionRNA *func;
+	PropertyRNA *parm;
+	PropertyRNA *prop;
+
+	RNA_def_property_srna(cprop, "AssetViews");
+	srna = RNA_def_struct(brna, "AssetViews", NULL);
+	RNA_def_struct_sdna(srna, "FileDirEntryRevision");
+	RNA_def_struct_ui_text(srna, "Asset Entry Views", "Collection of asset entry's views");
+
+	prop = RNA_def_property(srna, "active", PROP_POINTER, PROP_NONE);
+	RNA_def_property_struct_type(prop, "AssetView");
+	RNA_def_property_flag(prop, PROP_EDITABLE);
+	RNA_def_property_pointer_funcs(prop, "rna_AssetRevision_active_view_get",
+	                               "rna_AssetRevision_active_view_set", NULL, NULL);
+	RNA_def_property_ui_text(prop, "Active View", "Active (selected) view of the asset");
+
+	prop = RNA_def_property(srna, "active_index", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "act_view");
+	RNA_def_property_ui_text(prop, "Active Index", "Index of asset's view curently active (selected)");
+
+	/* Add Revision */
+	func = RNA_def_function(srna, "add", "rna_AssetRevision_views_add");
+	RNA_def_function_ui_description(func, "Add a new view to the entry's revision");
+//	RNA_def_function_flag(func, FUNC_USE_REPORTS);
+	/* return arg */
+	parm = RNA_def_pointer(func, "view", "AssetView", "New View", "New asset entry variant revision view");
+	RNA_def_function_return(func, parm);
+}
+
 static void rna_def_asset_revision(BlenderRNA *brna)
 {
 	StructRNA *srna;
 	PropertyRNA *prop;
-//	FunctionRNA *func;
 
 	int null_uuid[4] = {0};
 
@@ -952,12 +1140,19 @@ static void rna_def_asset_revision(BlenderRNA *brna)
 	                          "Unique identifier of this revision (actual content depends on asset engine)",
 	                          INT_MIN, INT_MAX);
 
-	prop = RNA_def_int(srna, "size", 0, -1, INT_MAX, "Size",
-	                   "Size (in bytes, special value '-1' means 'no size')", -1, INT_MAX);
-	RNA_def_property_int_funcs(prop, "rna_AssetRevision_size_get", "rna_AssetRevision_size_set", NULL);
+	prop = RNA_def_property(srna, "comment", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_funcs(prop, "rna_AssetRevision_comment_get", "rna_AssetRevision_comment_length",
+	                              "rna_AssetRevision_comment_set");
+	RNA_def_property_ui_text(prop, "Comment", "");
 
 	prop = RNA_def_int(srna, "timestamp", 0, 0, INT_MAX, "Timestamp", "In seconds since the epoch", 0, INT_MAX);
 	RNA_def_property_int_funcs(prop, "rna_AssetRevision_timestamp_get", "rna_AssetRevision_timestamp_set", NULL);
+
+	prop = RNA_def_property(srna, "views", PROP_COLLECTION, PROP_NONE);
+	RNA_def_property_struct_type(prop, "AssetView");
+	RNA_def_property_ui_text(prop, "Views", "Collection of asset variant revision's views");
+	rna_def_asset_view(brna);
+	rna_def_asset_views(brna, prop);
 }
 
 /* assetvariant.revisions */
@@ -1094,9 +1289,13 @@ static void rna_def_asset_entry(BlenderRNA *brna)
 	RNA_def_struct_ui_text(srna, "Asset Entry", "A single asset item (quite similar to a file path)");
 //	RNA_def_struct_ui_icon(srna, ICON_NONE);  /* XXX TODO */
 
-	prop = RNA_def_int_vector(srna, "uuid", 4, null_uuid, INT_MIN, INT_MAX, "Variant UUID",
-	                          "Unique identifier of this entry (actual content depends on asset engine)",
-	                          INT_MIN, INT_MAX);
+	RNA_def_int_vector(srna, "uuid_repository", 4, null_uuid, INT_MIN, INT_MAX, "Repository UUID",
+	                   "Unique identifier of the repository of this entry (actual content depends on asset engine)",
+	                   INT_MIN, INT_MAX);
+
+	RNA_def_int_vector(srna, "uuid", 4, null_uuid, INT_MIN, INT_MAX, "Asset UUID",
+	                   "Unique identifier of this entry (actual content depends on asset engine)",
+	                   INT_MIN, INT_MAX);
 
 	prop = RNA_def_property(srna, "name", PROP_STRING, PROP_NONE);
 	RNA_def_property_string_funcs(prop, "rna_AssetEntry_name_get", "rna_AssetEntry_name_length",

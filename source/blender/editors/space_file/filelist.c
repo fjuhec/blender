@@ -1281,6 +1281,8 @@ static void filelist_cache_previews_push(FileList *filelist, FileDirEntry *entry
 				BLI_assert(uuids->nbr_uuids == 0);
 				uuids->uuids = MEM_callocN(++uuids->nbr_uuids * sizeof(*uuids->uuids), __func__);
 			}
+			memcpy(uuids->uuids[uuids->nbr_uuids - 1].uuid_repository, entry->uuid_repository,
+			       sizeof(uuids->uuids[uuids->nbr_uuids - 1].uuid_repository));
 			memcpy(uuids->uuids[uuids->nbr_uuids - 1].uuid_asset, entry->uuid,
 			       sizeof(uuids->uuids[uuids->nbr_uuids - 1].uuid_asset));
 			/* No real need to call ae->type->previews_get() here, update callback will do so anyway. */
@@ -1614,16 +1616,16 @@ static FileDirEntry *filelist_file_create_entry(FileList *filelist, const int in
 	}
 	else {
 		FileListInternEntry *entry = filelist->filelist_intern.filtered[index];
-		FileDirEntryRevision *rev;
+		FileDirEntryView *view;
 
 		ret = MEM_callocN(sizeof(*ret), __func__);
-		rev = MEM_callocN(sizeof(*rev), __func__);
+		view = MEM_callocN(sizeof(*view), __func__);
 
-		rev->size = (uint64_t)entry->st.st_size;
+		view->size = (uint64_t)entry->st.st_size;
 
-		rev->time = (int64_t)entry->st.st_mtime;
+		view->time = (int64_t)entry->st.st_mtime;
 
-		ret->entry = rev;
+		ret->entry = view;
 		ret->relpath = BLI_strdup(entry->relpath);
 		ret->name = BLI_strdup(entry->name);
 		ret->description = BLI_strdupcat(filelist->filelist.root, entry->relpath);
@@ -1670,7 +1672,12 @@ static FileDirEntry *filelist_file_create_entries_block(FileList *filelist, cons
 				FileDirEntryVariant *variant = BLI_findlink(&entry->variants, entry->act_variant);
 				BLI_assert(!BLI_listbase_is_empty(&variant->revisions) && variant->nbr_revisions);
 				BLI_assert(variant->act_revision < variant->nbr_revisions);
-				entry->entry = BLI_findlink(&variant->revisions, variant->act_revision);
+
+				FileDirEntryRevision *revision = BLI_findlink(&variant->revisions, variant->act_revision);
+				BLI_assert(!BLI_listbase_is_empty(&revision->views) && revision->nbr_views);
+				BLI_assert(revision->act_view < revision->nbr_views);
+
+				entry->entry = BLI_findlink(&revision->views, revision->act_view);
 				BLI_assert(entry->entry);
 			}
 		}

@@ -191,12 +191,14 @@ static void asset_engine_load_pre(AssetEngine *engine, AssetUUIDList *r_uuids, F
 		for (en = r_entries->entries.first, uuid = r_uuids->uuids; en; en = en->next, uuid++) {
 			FileDirEntryVariant *var = BLI_findlink(&en->variants, en->act_variant);
 
+			memcpy(uuid->uuid_repository, en->uuid_repository, sizeof(uuid->uuid_repository));
+
 			memcpy(uuid->uuid_asset, en->uuid, sizeof(uuid->uuid_asset));
 
 			BLI_assert(var);
 			memcpy(uuid->uuid_variant, var->uuid, sizeof(uuid->uuid_variant));
 
-			memcpy(uuid->uuid_revision, en->entry->uuid, sizeof(uuid->uuid_revision));
+			memcpy(uuid->uuid_view, en->entry->uuid, sizeof(uuid->uuid_view));
 		}
 	}
 
@@ -219,6 +221,9 @@ static void asset_engine_load_pre(AssetEngine *engine, AssetUUIDList *r_uuids, F
 	for (en = r_entries->entries.first, uuid = r_uuids->uuids; en; en = en->next, uuid++) {
 		FileDirEntryVariant *var;
 		FileDirEntryRevision *rev;
+		FileDirEntryView *view;
+
+		memcpy(uuid->uuid_repository, en->uuid_repository, sizeof(uuid->uuid_repository));
 
 		memcpy(uuid->uuid_asset, en->uuid, sizeof(uuid->uuid_asset));
 
@@ -229,6 +234,10 @@ static void asset_engine_load_pre(AssetEngine *engine, AssetUUIDList *r_uuids, F
 		rev = BLI_findlink(&var->revisions, var->act_revision);
 		BLI_assert(rev);
 		memcpy(uuid->uuid_revision, rev->uuid, sizeof(uuid->uuid_revision));
+
+		view = BLI_findlink(&rev->views, rev->act_view);
+		BLI_assert(view);
+		memcpy(uuid->uuid_view, view->uuid, sizeof(uuid->uuid_view));
 	}
 }
 
@@ -254,10 +263,32 @@ FileDirEntryArr *BKE_asset_engine_uuids_load_pre(AssetEngine *engine, AssetUUIDL
 
 /* FileDirxxx handling. */
 
+void BKE_filedir_view_free(FileDirEntryView *view)
+{
+	if (view->name) {
+		MEM_freeN(view->name);
+	}
+	if (view->description) {
+		MEM_freeN(view->description);
+	}
+	MEM_freeN(view);
+}
+
 void BKE_filedir_revision_free(FileDirEntryRevision *rev)
 {
 	if (rev->comment) {
 		MEM_freeN(rev->comment);
+	}
+
+	if (!BLI_listbase_is_empty(&rev->views)) {
+		FileDirEntryView *view, *view_next;
+
+		for (view = rev->views.first; view; view = view_next) {
+			view_next = view->next;
+			BKE_filedir_view_free(view);
+		}
+
+		BLI_listbase_clear(&rev->views);
 	}
 	MEM_freeN(rev);
 }
@@ -350,9 +381,7 @@ FileDirEntry *BKE_filedir_entry_copy(FileDirEntry *entry)
 		BLI_listbase_clear(&entry_new->variants);
 		for (act_var = 0, var = entry->variants.first; var; act_var++, var = var->next) {
 			FileDirEntryVariant *var_new = MEM_dupallocN(var);
-			FileDirEntryRevision *rev;
 			const bool is_act_var = (act_var == entry->act_variant);
-			int act_rev;
 
 			if (var->name) {
 				var_new->name = MEM_dupallocN(var->name);
@@ -362,6 +391,8 @@ FileDirEntry *BKE_filedir_entry_copy(FileDirEntry *entry)
 			}
 
 			BLI_listbase_clear(&var_new->revisions);
+			FileDirEntryRevision *rev;
+			int act_rev;
 			for (act_rev = 0, rev = var->revisions.first; rev; act_rev++, rev = rev->next) {
 				FileDirEntryRevision *rev_new = MEM_dupallocN(rev);
 				const bool is_act_rev = (act_rev == var->act_revision);
@@ -370,11 +401,28 @@ FileDirEntry *BKE_filedir_entry_copy(FileDirEntry *entry)
 					rev_new->comment = MEM_dupallocN(rev->comment);
 				}
 
-				BLI_addtail(&var_new->revisions, rev_new);
+				BLI_listbase_clear(&var_new->revisions);
+				FileDirEntryView *view;
+				int act_view;
+				for (act_view = 0, view = rev->views.first; view; act_view++, view = view->next) {
+					FileDirEntryView *view_new = MEM_dupallocN(view);
+					const bool is_act_view = (act_view == rev->act_view);
 
-				if (is_act_var && is_act_rev) {
-					entry_new->entry = rev_new;
+					if (view->name) {
+						view_new->name = MEM_dupallocN(view->name);
+					}
+					if (view->description) {
+						view_new->description = MEM_dupallocN(view->description);
+					}
+
+					BLI_addtail(&rev_new->views, view_new);
+
+					if (is_act_var && is_act_rev && is_act_view) {
+						entry_new->entry = view_new;
+					}
 				}
+
+				BLI_addtail(&var_new->revisions, rev_new);
 			}
 
 			BLI_addtail(&entry_new->variants, var_new);
@@ -401,14 +449,22 @@ void BKE_filedir_entryarr_clear(FileDirEntryArr *array)
 		BKE_filedir_entry_free(entry);
 	}
 	BLI_listbase_clear(&array->entries);
-    array->nbr_entries = 0;
+	array->nbr_entries = 0;
 	array->nbr_entries_filtered = 0;
 }
 
 /* Various helpers */
 unsigned int BKE_asset_uuid_hash(const void *key)
 {
-	return BLI_hash_mm2((const unsigned char *)key, sizeof(AssetUUID), 0);
+	BLI_HashMurmur2A mm2a;
+	const AssetUUID *uuid = key;
+	BLI_hash_mm2a_init(&mm2a, 0);
+	BLI_hash_mm2a_add(&mm2a, (const uchar *)uuid->uuid_repository, sizeof(uuid->uuid_repository));
+	BLI_hash_mm2a_add(&mm2a, (const uchar *)uuid->uuid_asset, sizeof(uuid->uuid_asset));
+	BLI_hash_mm2a_add(&mm2a, (const uchar *)uuid->uuid_variant, sizeof(uuid->uuid_variant));
+	BLI_hash_mm2a_add(&mm2a, (const uchar *)uuid->uuid_revision, sizeof(uuid->uuid_revision));
+	BLI_hash_mm2a_add(&mm2a, (const uchar *)uuid->uuid_view, sizeof(uuid->uuid_view));
+	return BLI_hash_mm2a_end(&mm2a);
 }
 
 bool BKE_asset_uuid_cmp(const void *a, const void *b)
@@ -421,8 +477,10 @@ bool BKE_asset_uuid_cmp(const void *a, const void *b)
 void BKE_asset_uuid_print(const AssetUUID *uuid)
 {
 	/* TODO print nicer (as 128bit hexadecimal...). */
-	printf("[%d,%d,%d,%d][%d,%d,%d,%d][%d,%d,%d,%d]\n",
+	printf("[%d,%d,%d,%d][%d,%d,%d,%d][%d,%d,%d,%d][%d,%d,%d,%d][%d,%d,%d,%d]\n",
+	       uuid->uuid_repository[0], uuid->uuid_repository[1], uuid->uuid_repository[2], uuid->uuid_repository[3],
 	       uuid->uuid_asset[0], uuid->uuid_asset[1], uuid->uuid_asset[2], uuid->uuid_asset[3],
 	       uuid->uuid_variant[0], uuid->uuid_variant[1], uuid->uuid_variant[2], uuid->uuid_variant[3],
-	       uuid->uuid_revision[0], uuid->uuid_revision[1], uuid->uuid_revision[2], uuid->uuid_revision[3]);
+	       uuid->uuid_revision[0], uuid->uuid_revision[1], uuid->uuid_revision[2], uuid->uuid_revision[3],
+	       uuid->uuid_view[0], uuid->uuid_view[1], uuid->uuid_view[2], uuid->uuid_view[3]);
 }

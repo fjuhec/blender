@@ -10265,7 +10265,7 @@ static ID *link_named_part_ex(
 			id->tag |= LIB_TAG_DOIT;
 	}
 
-	if (id && uuid) {
+	if (id && uuid && aet) {
 		BLI_assert(root);
 
 		id->uuid = MEM_mallocN(sizeof(*id->uuid), __func__);
