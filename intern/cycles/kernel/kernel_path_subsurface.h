@@ -32,11 +32,10 @@ bool kernel_path_subsurface_scatter(
         ccl_addr_space float3 *throughput,
         ccl_addr_space SubsurfaceIndirectRays *ss_indirect)
 {
-	float bssrdf_probability;
-	ShaderClosure *sc = subsurface_scatter_pick_closure(kg, sd, &bssrdf_probability);
+	float bssrdf_u, bssrdf_v;
+	path_state_rng_2D(kg, state, PRNG_BSDF_U, &bssrdf_u, &bssrdf_v);
 
-	/* modify throughput for picking bssrdf or bsdf */
-	*throughput *= bssrdf_probability;
+	const ShaderClosure *sc = shader_bssrdf_pick(sd, throughput, &bssrdf_u);
 
 	/* do bssrdf scatter step if we picked a bssrdf closure */
 	if(sc) {
@@ -49,8 +48,6 @@ bool kernel_path_subsurface_scatter(
 		uint lcg_state = lcg_state_init_addrspace(state, 0x68bc21eb);
 
 		SubsurfaceIntersection ss_isect;
-		float bssrdf_u, bssrdf_v;
-		path_state_rng_2D(kg, state, PRNG_BSDF_U, &bssrdf_u, &bssrdf_v);
 		int num_hits = subsurface_scatter_multi_intersect(kg,
 		                                                  &ss_isect,
 		                                                  sd,
@@ -124,7 +121,7 @@ bool kernel_path_subsurface_scatter(
 				ss_indirect->num_rays++;
 			}
 			else {
-				path_radiance_accum_sample(L, hit_L, 1);
+				path_radiance_accum_sample(L, hit_L);
 			}
 		}
 		return true;
@@ -145,7 +142,7 @@ ccl_device void kernel_path_subsurface_accum_indirect(
 {
 	if(ss_indirect->tracing) {
 		path_radiance_sum_indirect(L);
-		path_radiance_accum_sample(&ss_indirect->direct_L, L, 1);
+		path_radiance_accum_sample(&ss_indirect->direct_L, L);
 		if(ss_indirect->num_rays == 0) {
 			*L = ss_indirect->direct_L;
 		}
