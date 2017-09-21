@@ -946,11 +946,11 @@ static int gp_stroke_change_palette_exec(bContext *C, wmOperator *op)
 void GPENCIL_OT_stroke_change_palette(wmOperatorType *ot)
 {
 	static EnumPropertyItem palette_move_type[] = {
-		{ GP_MOVE_PALETTE_SELECT, "SELECTED", 0, "Change Selected", "Move to new palette any stroke selected in any frame" },
-		{ GP_MOVE_PALETTE_ALL, "ALL", 0, "Change All", "Move all strokes in all frames to new palette" },
-		{ GP_MOVE_PALETTE_BEFORE, "BEFORE", 0, "Change Before", "Move all strokes in frames before current frame to new palette" },
-		{ GP_MOVE_PALETTE_AFTER, "AFTER", 0, "Change After", "Move all strokes in frames greater or equal current frame to new palette" },
-		{ GP_MOVE_PALETTE_CURRENT, "CURRENT", 0, "Change Current", "Move all strokes in current frame to new palette" },
+		{ GP_MOVE_PALETTE_SELECT, "SELECTED", 0, "Change Strokes Selected", "Move to new palette any stroke selected in any frame" },
+		{ GP_MOVE_PALETTE_ALL, "ALL", 0, "Change All Frames", "Move all strokes in all frames to new palette" },
+		{ GP_MOVE_PALETTE_BEFORE, "BEFORE", 0, "Change Frames Before", "Move all strokes in frames before current frame to new palette" },
+		{ GP_MOVE_PALETTE_AFTER, "AFTER", 0, "Change Frames After", "Move all strokes in frames greater or equal current frame to new palette" },
+		{ GP_MOVE_PALETTE_CURRENT, "CURRENT", 0, "Change Current Frame", "Move all strokes in current frame to new palette" },
 		{ 0, NULL, 0, NULL, NULL }
 	};
 
