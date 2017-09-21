@@ -1379,6 +1379,7 @@ class GreasePencilParentLayerPanel:
         if parent and gpl.parent_type == 'BONE' and parent.type == 'ARMATURE':
             sub.prop_search(gpl, "parent_bone", parent.data, "bones", text="")
 
+
 class GPENCIL_UL_vgroups(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         # assert(isinstance(item, bpy.types.VertexGroup))
@@ -1390,6 +1391,7 @@ class GPENCIL_UL_vgroups(UIList):
         elif self.layout_type == 'GRID':
             layout.alignment = 'CENTER'
             layout.label(text="", icon_value=icon)
+
 
 class GreasePencilVertexGroupPanel:
     bl_label = "Vertex Groups"
@@ -1479,6 +1481,8 @@ class GreasePencilInfoPanel:
         col.label(str(gpd.info_total_points))
         col.label(str(gpd.info_total_palettes))
 
+
+###############################
 
 class GreasePencilPaletteColorPanel:
     # subclass must set
@@ -1724,6 +1728,8 @@ class GreasePencilPaletteFillPanel:
             subcol.prop(pcolor, "texture_opacity")
 
 
+###############################
+
 class GreasePencilToolsPanel:
     # For use in "2D" Editors without their own toolbar
     # subclass must set
@@ -1762,6 +1768,7 @@ class GreasePencilToolsPanel:
 
         gpencil_stroke_placement_settings(context, layout)
 
+###############################
 
 classes = (
     GPENCIL_MT_pie_tool_palette,
