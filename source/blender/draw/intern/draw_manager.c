@@ -364,8 +364,6 @@ static struct DRWResourceState {
 	GPUTexture **bound_texs;
 
 	bool *bound_tex_slots;
-
-	int bind_tex_inc;
 	int bind_ubo_inc;
 } RST = {NULL};
 
@@ -1839,11 +1837,10 @@ static void bind_texture(GPUTexture *tex)
 	int bind_num = GPU_texture_bound_number(tex);
 	if (bind_num == -1) {
 		for (int i = 0; i < GPU_max_textures(); ++i) {
-			RST.bind_tex_inc = (RST.bind_tex_inc + 1) % GPU_max_textures();
-			if (RST.bound_tex_slots[RST.bind_tex_inc] == false) {
-				GPU_texture_bind(tex, RST.bind_tex_inc);
-				RST.bound_texs[RST.bind_tex_inc] = tex;
-				RST.bound_tex_slots[RST.bind_tex_inc] = true;
+			if (RST.bound_tex_slots[i] == false) {
+				GPU_texture_bind(tex, i);
+				RST.bound_texs[i] = tex;
+				RST.bound_tex_slots[i] = true;
 				return;
 			}
 		}
@@ -2163,6 +2160,10 @@ bool DRW_object_is_renderable(Object *ob)
 {
 	Scene *scene = DST.draw_ctx.scene;
 	Object *obedit = scene->obedit;
+
+	if (!BKE_object_is_visible(ob)) {
+		return false;
+	}
 
 	if (ob->type == OB_MESH) {
 		if (ob == obedit) {
@@ -2540,7 +2541,7 @@ static void DRW_viewport_var_init(void)
 		RST.bound_texs = MEM_callocN(sizeof(GPUTexture *) * GPU_max_textures(), "Bound GPUTexture refs");
 	}
 	if (RST.bound_tex_slots == NULL) {
-		RST.bound_tex_slots = MEM_callocN(sizeof(GPUUniformBuffer *) * GPU_max_textures(), "Bound Texture Slots");
+		RST.bound_tex_slots = MEM_callocN(sizeof(bool) * GPU_max_textures(), "Bound Texture Slots");
 	}
 }
 

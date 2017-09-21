@@ -9229,7 +9229,7 @@ afterdraw:
 
 		/* help lines and so */
 		if (ob != scene->obedit && ob->parent) {
-			if ((ob->parent->base_flag & BASE_VISIBLED) != 0) {
+			if (BKE_object_is_visible(ob->parent)) {
 				setlinestyle(3);
 				immBegin(GWN_PRIM_LINES, 2);
 				immVertex3fv(pos, ob->obmat[3]);
