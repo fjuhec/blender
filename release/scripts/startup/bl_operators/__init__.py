@@ -50,9 +50,8 @@ _modules = [
     "wm",
     ]
 
-_modules.append("amber")
-_modules.append("amber_asyncio")
-_modules.append("claude")
+#_modules.append("amber")
+#_modules.append("claude")
 
 import bpy
 
