@@ -281,31 +281,21 @@ enum PathTraceDimension {
 	PRNG_FILTER_V = 1,
 	PRNG_LENS_U = 2,
 	PRNG_LENS_V = 3,
-#ifdef __CAMERA_MOTION__
 	PRNG_TIME = 4,
 	PRNG_UNUSED_0 = 5,
 	PRNG_UNUSED_1 = 6,	/* for some reason (6, 7) is a bad sobol pattern */
 	PRNG_UNUSED_2 = 7,  /* with a low number of samples (< 64) */
-#endif
-	PRNG_BASE_NUM = 8,
+	PRNG_BASE_NUM = 10,
 
 	PRNG_BSDF_U = 0,
 	PRNG_BSDF_V = 1,
-	PRNG_BSDF = 2,
-	PRNG_LIGHT = 3,
-	PRNG_LIGHT_U = 4,
-	PRNG_LIGHT_V = 5,
-	PRNG_LIGHT_TERMINATE = 6,
-	PRNG_TERMINATE = 7,
-
-#ifdef __VOLUME__
-	PRNG_PHASE_U = 8,
-	PRNG_PHASE_V = 9,
-	PRNG_PHASE = 10,
-	PRNG_SCATTER_DISTANCE = 11,
-#endif
-
-	PRNG_BOUNCE_NUM = 12,
+	PRNG_LIGHT_U = 2,
+	PRNG_LIGHT_V = 3,
+	PRNG_LIGHT_TERMINATE = 4,
+	PRNG_TERMINATE = 5,
+	PRNG_PHASE_CHANNEL = 6,
+	PRNG_SCATTER_DISTANCE = 7,
+	PRNG_BOUNCE_NUM = 8,
 };
 
 enum SamplingPattern {
@@ -535,11 +525,13 @@ typedef ccl_addr_space struct PathRadiance {
 	/* Path radiance sum and throughput at the moment when ray hits shadow
 	 * catcher object.
 	 */
-	float3 shadow_radiance_sum;
 	float shadow_throughput;
 
 	/* Accumulated transparency along the path after shadow catcher bounce. */
 	float shadow_transparency;
+
+	/* Indicate if any shadow catcher data is set. */
+	int has_shadow_catcher;
 #endif
 
 #ifdef __DENOISING_FEATURES__
@@ -1006,9 +998,10 @@ typedef struct PathState {
 
 	/* random number generator state */
 	uint rng_hash;          /* per pixel hash */
-	int rng_offset;    		/* dimension offset */
-	int sample;        		/* path sample number */
-	int num_samples;		/* total number of times this path will be sampled */
+	int rng_offset;         /* dimension offset */
+	int sample;             /* path sample number */
+	int num_samples;        /* total number of times this path will be sampled */
+	float branch_factor;    /* number of branches in indirect paths */
 
 	/* bounce counting */
 	int bounce;
