@@ -35,6 +35,7 @@ CCL_NAMESPACE_BEGIN
 bool Device::need_types_update = true;
 bool Device::need_devices_update = true;
 thread_mutex Device::device_mutex;
+string Device::last_servers = "";
 vector<DeviceType> Device::types;
 vector<DeviceInfo> Device::devices;
 
@@ -245,7 +246,7 @@ Device *Device::create(DeviceInfo& info, Stats &stats, bool background)
 #endif
 #ifdef WITH_NETWORK
 		case DEVICE_NETWORK:
-			device = device_network_create(info, stats, "127.0.0.1");
+			device = device_network_create(info, stats, background);
 			break;
 #endif
 #ifdef WITH_OPENCL
@@ -319,10 +320,10 @@ vector<DeviceType>& Device::available_types()
 	return types;
 }
 
-vector<DeviceInfo>& Device::available_devices()
+vector<DeviceInfo>& Device::available_devices(string servers)
 {
 	thread_scoped_lock lock(device_mutex);
-	if(need_devices_update) {
+	if(need_devices_update || (last_servers != servers)) {
 		devices.clear();
 #ifdef WITH_OPENCL
 		if(device_opencl_init()) {
@@ -336,9 +337,10 @@ vector<DeviceInfo>& Device::available_devices()
 #endif
 		device_cpu_info(devices);
 #ifdef WITH_NETWORK
-		device_network_info(devices);
+		device_network_info(devices, servers);
 #endif
 		need_devices_update = false;
+		last_servers = servers;
 	}
 	return devices;
 }

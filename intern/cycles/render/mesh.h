@@ -287,6 +287,7 @@ public:
 	void compute_bvh(DeviceScene *dscene,
 	                 SceneParams *params,
 	                 Progress *progress,
+	                 bool use_qbvh,
 	                 int n,
 	                 int total);
 

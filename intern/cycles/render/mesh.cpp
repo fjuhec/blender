@@ -1026,6 +1026,7 @@ void Mesh::pack_patches(uint *patch_data, uint vert_offset, uint face_offset, ui
 void Mesh::compute_bvh(DeviceScene *dscene,
                        SceneParams *params,
                        Progress *progress,
+                       bool use_qbvh,
                        int n,
                        int total)
 {
@@ -1057,7 +1058,7 @@ void Mesh::compute_bvh(DeviceScene *dscene,
 
 			BVHParams bparams;
 			bparams.use_spatial_split = params->use_bvh_spatial_split;
-			bparams.use_qbvh = params->use_qbvh;
+			bparams.use_qbvh = use_qbvh;
 			bparams.use_unaligned_nodes = dscene->data.bvh.have_curves &&
 			                              params->use_bvh_unaligned_nodes;
 			bparams.num_motion_triangle_steps = params->num_bvh_time_steps;
@@ -1821,12 +1822,13 @@ void MeshManager::device_update_bvh(Device *device, DeviceScene *dscene, Scene *
 	/* bvh build */
 	progress.set_status("Updating Scene BVH", "Building");
 
-	VLOG(1) << (scene->params.use_qbvh ? "Using QBVH optimization structure"
-	                                   : "Using regular BVH optimization structure");
+	bool use_qbvh = device->use_qbvh();
+	VLOG(1) << (use_qbvh ? "Using QBVH optimization structure"
+	                     : "Using regular BVH optimization structure");
 
 	BVHParams bparams;
 	bparams.top_level = true;
-	bparams.use_qbvh = scene->params.use_qbvh;
+	bparams.use_qbvh = use_qbvh;
 	bparams.use_spatial_split = scene->params.use_bvh_spatial_split;
 	bparams.use_unaligned_nodes = dscene->data.bvh.have_curves &&
 	                              scene->params.use_bvh_unaligned_nodes;
@@ -1886,7 +1888,7 @@ void MeshManager::device_update_bvh(Device *device, DeviceScene *dscene, Scene *
 	}
 
 	dscene->data.bvh.root = pack.root_index;
-	dscene->data.bvh.use_qbvh = scene->params.use_qbvh;
+	dscene->data.bvh.use_qbvh = use_qbvh;
 	dscene->data.bvh.use_bvh_steps = (scene->params.num_bvh_time_steps != 0);
 }
 
@@ -2095,6 +2097,7 @@ void MeshManager::device_update(Device *device, DeviceScene *dscene, Scene *scen
 
 	TaskPool pool;
 
+	bool use_qbvh = device->use_qbvh();
 	i = 0;
 	foreach(Mesh *mesh, scene->meshes) {
 		if(mesh->need_update) {
@@ -2103,6 +2106,7 @@ void MeshManager::device_update(Device *device, DeviceScene *dscene, Scene *scen
 			                        dscene,
 			                        &scene->params,
 			                        &progress,
+			                        use_qbvh,
 			                        i,
 			                        num_bvh));
 			if(mesh->need_build_bvh()) {
