@@ -88,7 +88,7 @@ endif()
 
 if(WITH_PYTHON)
 	# we use precompiled libraries for py 3.5 and up by default
-	set(PYTHON_VERSION 3.5)
+	set(PYTHON_VERSION 3.6)
 	if(NOT WITH_PYTHON_MODULE AND NOT WITH_PYTHON_FRAMEWORK)
 		# normally cached but not since we include them with blender
 		set(PYTHON_INCLUDE_DIR "${LIBDIR}/python/include/python${PYTHON_VERSION}m")
@@ -199,13 +199,6 @@ set(PLATFORM_CFLAGS "-pipe -funsigned-char")
 set(PLATFORM_LINKFLAGS
 	"-fexceptions -framework CoreServices -framework Foundation -framework IOKit -framework AppKit -framework Cocoa -framework Carbon -framework AudioUnit -framework AudioToolbox -framework CoreAudio"
 )
-if(WITH_CODEC_QUICKTIME)
-	set(PLATFORM_LINKFLAGS "${PLATFORM_LINKFLAGS} -framework QTKit")
-	if(CMAKE_OSX_ARCHITECTURES MATCHES i386)
-		set(PLATFORM_LINKFLAGS "${PLATFORM_LINKFLAGS} -framework QuickTime")
-		# libSDL still needs 32bit carbon quicktime
-	endif()
-endif()
 
 if(WITH_CXX11)
 	list(APPEND PLATFORM_LINKLIBS c++)
