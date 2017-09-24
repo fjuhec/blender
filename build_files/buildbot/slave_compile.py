@@ -75,8 +75,7 @@ if 'cmake' in builder:
             cmake_extra_options.append('-DCMAKE_OSX_ARCHITECTURES:STRING=x86_64')
         cmake_extra_options.append('-DWITH_CODEC_QUICKTIME=OFF')
         cmake_extra_options.append('-DCMAKE_OSX_DEPLOYMENT_TARGET=10.6')
-        cmake_extra_options.append('-DCUDA_HOST_COMPILER=/usr/local/cuda-hack/clang')
-        cmake_extra_options.append('-DCUDA_NVCC_EXECUTABLE=/usr/local/cuda-hack/nvcc')
+        cmake_extra_options.append('-DCUDA_NVCC_FLAGS=--compiler-bindir;/Library/Developer/CommandLineTools/usr/bin/clang')
 
 
 
@@ -87,8 +86,6 @@ if 'cmake' in builder:
             elif builder.startswith('win32'):
                 bits = 32
                 cmake_options.extend(['-G', 'Visual Studio 14 2015'])
-            cmake_extra_options.append('-DCUDA_NVCC_FLAGS=--cl-version;2013;' +
-                '--compiler-bindir;C:\\Program Files (x86)\\Microsoft Visual Studio 12.0\\VC\\bin')
         else:
             if builder.startswith('win64'):
                 cmake_options.extend(['-G', 'Visual Studio 12 2013 Win64'])
@@ -120,7 +117,7 @@ if 'cmake' in builder:
 
     # Prepare CMake options needed to configure cuda binaries compilation.
     cuda_cmake_options.append("-DWITH_CYCLES_CUDA_BINARIES=%s" % ('ON' if build_cubins else 'OFF'))
-    cuda_cmake_options.append("-DCYCLES_CUDA_BINARIES_ARCH=sm_20;sm_21;sm_30;sm_35;sm_37;sm_50;sm_52;sm_60;sm_61")
+    cuda_cmake_options.append("-DCYCLES_CUDA_BINARIES_ARCH=sm_30;sm_35;sm_37;sm_50;sm_52;sm_60;sm_61")
     if build_cubins or 'cuda' in targets:
         if bits == 32:
             cuda_cmake_options.append("-DCUDA_64_BIT_DEVICE_CODE=OFF")
