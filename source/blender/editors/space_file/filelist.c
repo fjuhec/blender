@@ -1808,7 +1808,7 @@ FileDirEntry *filelist_entry_find_uuid(struct FileList *filelist, const int uuid
 			uuids.asset_engine_version = engine->type->version;
 
 			memcpy(asset_uuid.uuid_asset, uuid, sizeof(asset_uuid.uuid_asset));
-			/* Variants and revision uuids remain NULL here. */
+			/* Variant, revision and view uuids remain NULL here. */
 
 			if (engine->type->entries_uuid_get(engine, &uuids, &r_entries)) {
 				en = r_entries.entries.first;

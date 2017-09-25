@@ -184,19 +184,22 @@ static void asset_engine_load_pre(AssetEngine *engine, AssetUUIDList *r_uuids, F
 
 	if (r_entries->nbr_entries) {
 		BLI_assert(r_uuids->uuids == NULL);
-		r_uuids->uuids = MEM_mallocN(sizeof(*r_uuids->uuids) * nbr_entries, __func__);
+		r_uuids->uuids = MEM_callocN(sizeof(*r_uuids->uuids) * nbr_entries, __func__);
 		r_uuids->nbr_uuids = nbr_entries;
 		r_uuids->asset_engine_version = engine->type->version;
 
 		for (en = r_entries->entries.first, uuid = r_uuids->uuids; en; en = en->next, uuid++) {
-			FileDirEntryVariant *var = BLI_findlink(&en->variants, en->act_variant);
-
 			memcpy(uuid->uuid_repository, en->uuid_repository, sizeof(uuid->uuid_repository));
 
 			memcpy(uuid->uuid_asset, en->uuid, sizeof(uuid->uuid_asset));
 
+			FileDirEntryVariant *var = BLI_findlink(&en->variants, en->act_variant);
 			BLI_assert(var);
 			memcpy(uuid->uuid_variant, var->uuid, sizeof(uuid->uuid_variant));
+
+			FileDirEntryRevision *rev = BLI_findlink(&var->revisions, var->act_revision);
+			BLI_assert(rev);
+			memcpy(uuid->uuid_revision, rev->uuid, sizeof(uuid->uuid_revision));
 
 			memcpy(uuid->uuid_view, en->entry->uuid, sizeof(uuid->uuid_view));
 		}
@@ -401,7 +404,7 @@ FileDirEntry *BKE_filedir_entry_copy(FileDirEntry *entry)
 					rev_new->comment = MEM_dupallocN(rev->comment);
 				}
 
-				BLI_listbase_clear(&var_new->revisions);
+				BLI_listbase_clear(&rev_new->views);
 				FileDirEntryView *view;
 				int act_view;
 				for (act_view = 0, view = rev->views.first; view; act_view++, view = view->next) {

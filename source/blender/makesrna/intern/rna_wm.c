@@ -1680,6 +1680,9 @@ static void rna_def_operator_filelist_element(BlenderRNA *brna)
 	RNA_def_property_flag(prop, PROP_IDPROPERTY);
 	RNA_def_property_ui_text(prop, "Name", "Name of a file or directory within a file list");
 
+	prop = RNA_def_int_vector(srna, "repository_uuid", 4, NULL, INT_MIN, INT_MAX,
+	                          "Repository UUID", "Identifier of this item's repository in current asset engine", INT_MIN, INT_MAX);
+	RNA_def_property_flag(prop, PROP_IDPROPERTY);
 	prop = RNA_def_int_vector(srna, "asset_uuid", 4, NULL, INT_MIN, INT_MAX,
 	                          "Asset UUID", "Identifier of this item in current asset engine", INT_MIN, INT_MAX);
 	RNA_def_property_flag(prop, PROP_IDPROPERTY);
@@ -1688,6 +1691,9 @@ static void rna_def_operator_filelist_element(BlenderRNA *brna)
 	RNA_def_property_flag(prop, PROP_IDPROPERTY);
 	prop = RNA_def_int_vector(srna, "revision_uuid", 4, NULL, INT_MIN, INT_MAX,
 	                          "Revision UUID", "Identifier of this item's revision in current asset engine", INT_MIN, INT_MAX);
+	RNA_def_property_flag(prop, PROP_IDPROPERTY);
+	prop = RNA_def_int_vector(srna, "view_uuid", 4, NULL, INT_MIN, INT_MAX,
+	                          "View UUID", "Identifier of this item's view in current asset engine", INT_MIN, INT_MAX);
 	RNA_def_property_flag(prop, PROP_IDPROPERTY);
 }
 	
