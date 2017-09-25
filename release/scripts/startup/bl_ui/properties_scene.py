@@ -80,6 +80,7 @@ class SCENE_PT_scene(SceneButtonsPanel, Panel):
         layout.prop(scene, "background_set", text="Background")
         if context.scene.render.engine != 'BLENDER_GAME':
             layout.prop(scene, "active_clip", text="Active Clip")
+        layout.prop(scene, "gpencil_object")
 
 
 class SCENE_PT_unit(SceneButtonsPanel, Panel):

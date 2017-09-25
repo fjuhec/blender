@@ -1681,6 +1681,11 @@ int rna_Lamp_object_poll(PointerRNA *UNUSED(ptr), PointerRNA value)
 	return ((Object *)value.id.data)->type == OB_LAMP;
 }
 
+int rna_GPencil_object_poll(PointerRNA *UNUSED(ptr), PointerRNA value)
+{
+	return ((Object *)value.id.data)->type == OB_GPENCIL;
+}
+
 int rna_DupliObject_index_get(PointerRNA *ptr)
 {
 	DupliObject *dob = (DupliObject *)ptr->data;

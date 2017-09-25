@@ -9716,6 +9716,13 @@ void RNA_def_scene(BlenderRNA *brna)
 	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_REFCOUNT);
 	RNA_def_property_ui_text(prop, "Grease Pencil Data", "Grease Pencil data-block");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
+	
+	prop = RNA_def_property(srna, "gpencil_object", PROP_POINTER, PROP_NONE);
+	RNA_def_property_pointer_sdna(prop, NULL, "gp_object");
+	RNA_def_property_flag(prop, PROP_EDITABLE);
+	RNA_def_property_pointer_funcs(prop, NULL, NULL, NULL, "rna_GPencil_object_poll");
+	RNA_def_property_ui_text(prop, "GPencil Object", "Grease Pencil object where scene annotations are stored by default");
+	RNA_def_property_update(prop, NC_GPENCIL | NA_EDITED, NULL);
 
 	/* active MovieClip */
 	prop = RNA_def_property(srna, "active_clip", PROP_POINTER, PROP_NONE);

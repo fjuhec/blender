@@ -46,17 +46,6 @@
 
 #include "PIL_time.h"
 
-#include "BKE_main.h"
-#include "BKE_paint.h"
-#include "BKE_gpencil.h"
-#include "BKE_context.h"
-#include "BKE_global.h"
-#include "BKE_report.h"
-#include "BKE_screen.h"
-#include "BKE_tracking.h"
-#include "BKE_colortools.h"
-#include "BKE_workspace.h"
-
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_gpencil_types.h"
@@ -64,10 +53,23 @@
 #include "DNA_windowmanager_types.h"
 #include "DNA_workspace_types.h"
 
+#include "BKE_main.h"
+#include "BKE_paint.h"
+#include "BKE_gpencil.h"
+#include "BKE_context.h"
+#include "BKE_global.h"
+#include "BKE_report.h"
+#include "BKE_layer.h"
+#include "BKE_screen.h"
+#include "BKE_tracking.h"
+#include "BKE_colortools.h"
+#include "BKE_workspace.h"
+
 #include "UI_view2d.h"
 
 #include "ED_gpencil.h"
 #include "ED_screen.h"
+#include "ED_object.h"
 #include "ED_view3d.h"
 #include "ED_clip.h"
 
@@ -173,6 +175,8 @@ typedef struct tGPsdata {
 	int lock_axis;       /* lock drawing to one axis */
 
 	short keymodifier;   /* key used for invoking the operator */
+	
+	ReportList *reports;
 } tGPsdata;
 
 /* ------ */
@@ -1405,11 +1409,40 @@ static bool gp_session_initdata(bContext *C, tGPsdata *p)
 					printf("Error: 3D-View active region doesn't have any region data, so cannot be drawable\n");
 				return 0;
 			}
-			/* if not active a OB_GPENCIL, create one */
+			
+			/* if active object doesn't exist or it's not a Grease Pencil object, 
+			 * use the scene's gp_object (), or create one if it doesn't exist
+			 */
 			float *cur = ED_view3d_cursor3d_get(p->scene, v3d);
 			if ((!obact) || (obact->type != OB_GPENCIL)) {
-				obact = ED_add_gpencil_object(C, p->scene, cur);
+				if (p->scene->gp_object) {
+					/* use existing default */
+					/* XXX: This will still lose whatever mode we were in before,
+					 *      making GP less convenient for annotations than it used to be
+					 */
+					obact = p->scene->gp_object;
+					
+					/* temporarily activate the object */
+					SceneLayer *sl = CTX_data_scene_layer(C);
+					Base *base = BKE_scene_layer_base_find(sl, obact);
+					if (base) {
+						if (CTX_data_edit_object(C)) 
+							ED_object_editmode_exit(C, EM_FREEDATA | EM_FREEUNDO | EM_WAITCURSOR | EM_DO_UNDO);  /* freedata, and undo */
+						
+						sl->basact = base;
+						ED_base_object_activate(C, base);
+					}
+					else {
+						printf("ERROR: Couldn't find base for active gp_object (sl = %p, obact = %s)\n", sl, obact->id.name);
+					}
+				}
+				else {
+					/* create new default */
+					obact = ED_add_gpencil_object(C, p->scene, cur);
+					p->scene->gp_object = obact;
+				}
 			}
+			
 			/* set grease pencil mode to object */
 			ts->gpencil_src = GP_TOOL_SOURCE_OBJECT;
 			break;
@@ -1992,6 +2025,8 @@ static int gpencil_draw_init(bContext *C, wmOperator *op, const wmEvent *event)
 	else {
 		p->keymodifier = -1;
 	}
+	
+	p->reports = op->reports;
 	
 	/* everything is now setup ok */
 	return 1;

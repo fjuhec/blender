@@ -247,6 +247,7 @@ void rna_TextureSlot_update(struct bContext *C, struct PointerRNA *ptr);
 int rna_Armature_object_poll(struct PointerRNA *ptr, struct PointerRNA value);
 int rna_Camera_object_poll(struct PointerRNA *ptr, struct PointerRNA value);
 int rna_Curve_object_poll(struct PointerRNA *ptr, struct PointerRNA value);
+int rna_GPencil_object_poll(struct PointerRNA *ptr, struct PointerRNA value);
 int rna_Lamp_object_poll(struct PointerRNA *ptr, struct PointerRNA value);
 int rna_Lattice_object_poll(struct PointerRNA *ptr, struct PointerRNA value);
 int rna_Mesh_object_poll(struct PointerRNA *ptr, struct PointerRNA value);

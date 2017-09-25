@@ -796,6 +796,7 @@ void BKE_gpencil_stroke_weights_duplicate(bGPDstroke *gps_src, bGPDstroke *gps_d
 	if (gps_src == NULL) {
 		return;
 	}
+	BLI_assert(gps_src->totpoints == gps_dst->totpoints);
 	for (int i = 0; i < gps_src->totpoints; ++i) {
 		bGPDspoint *pt_dst = &gps_dst->points[i];
 		bGPDspoint *pt_src = &gps_src->points[i];
