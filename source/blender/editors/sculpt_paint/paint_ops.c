@@ -725,8 +725,8 @@ static void PALETTE_OT_palettecolor_select(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-/* ***************** Copy Palette color ************************ */
-static int palettecolor_copy_exec(bContext *C, wmOperator *op)
+/* ***************** Duplicate Palette color ************************ */
+static int palettecolor_duplicate_exec(bContext *C, wmOperator *op)
 {
 	Palette *palette = BKE_palette_get_active_from_context(C);
 	PaletteColor *palcolor = BKE_palette_color_get_active(palette);
@@ -762,31 +762,31 @@ static int palettecolor_copy_exec(bContext *C, wmOperator *op)
 	return OPERATOR_FINISHED;
 }
 
-static void PALETTE_OT_palettecolor_copy(wmOperatorType *ot)
+static void PALETTE_OT_palettecolor_duplicate(wmOperatorType *ot)
 {
-	static EnumPropertyItem prop_palettecolor_copy_types[] = {
-		{ 0, "COPY", ICON_PASTEDOWN, "Copy Color", "Copy current palette color" },
-		{ 1, "COPY10", ICON_PASTEDOWN, "Copy Color 10%", "Copy an attenuate version of the selected color" },
-		{ 2, "COPY25", ICON_PASTEDOWN, "Copy Color 25%", "Copy an attenuate version of the selected color" },
-		{ 3, "COPY50", ICON_PASTEDOWN, "Copy Color 50%", "Copy an attenuate version of the selected color" },
-		{ 4, "COPY75", ICON_PASTEDOWN, "Copy Color 75%", "Copy an attenuate version of the selected color" },
+	static EnumPropertyItem prop_palettecolor_dup_types[] = {
+		{ 0, "DUP", ICON_PASTEDOWN, "Duplicate Color", "Duplicate current palette color" },
+		{ 1, "DUP10", ICON_PASTEDOWN, "Duplicate Attenuate 10%", "Duplicate an attenuate version of the selected color" },
+		{ 2, "DUP25", ICON_PASTEDOWN, "Duplicate Attenuate 25%", "Duplicate an attenuate version of the selected color" },
+		{ 3, "DUP50", ICON_PASTEDOWN, "Duplicate Attenuate 50%", "Duplicate an attenuate version of the selected color" },
+		{ 4, "DUP75", ICON_PASTEDOWN, "Duplicate Attenuate 75%", "Duplicate an attenuate version of the selected color" },
 		{ 0, NULL, 0, NULL, NULL }
 	};
 
 	/* identifiers */
-	ot->name = "Copy Color";
-	ot->idname = "PALETTE_OT_palettecolor_copy";
-	ot->description = "Copy current palette color";
+	ot->name = "Duplicate Color";
+	ot->idname = "PALETTE_OT_palettecolor_duplicate";
+	ot->description = "Duplicate current palette color";
 
 	/* callbacks */
-	ot->exec = palettecolor_copy_exec;
+	ot->exec = palettecolor_duplicate_exec;
 	ot->poll = palettecolor_active_poll;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
 	/* props */
-	ot->prop = RNA_def_enum(ot->srna, "type", prop_palettecolor_copy_types, 0, "Type", "Method used for copying colors");
+	ot->prop = RNA_def_enum(ot->srna, "type", prop_palettecolor_dup_types, 0, "Type", "Method used for duplicating colors");
 }
 
 
@@ -1830,7 +1830,7 @@ void ED_operatortypes_paint(void)
 	WM_operatortype_append(PALETTE_OT_palettecolor_unlock_all);
 	WM_operatortype_append(PALETTE_OT_palettecolor_move);
 	WM_operatortype_append(PALETTE_OT_palettecolor_select);
-	WM_operatortype_append(PALETTE_OT_palettecolor_copy);
+	WM_operatortype_append(PALETTE_OT_palettecolor_duplicate);
 
 	/* paint curve */
 	WM_operatortype_append(PAINTCURVE_OT_new);

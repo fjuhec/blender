@@ -991,13 +991,13 @@ class GPENCIL_MT_brush_specials(Menu):
         layout.operator("gpencil.brush_presets_create", icon='HELP', text="Create a Set of Predefined Brushes")
 
 
-class GPENCIL_MT_palettecolor_copy(Menu):
+class GPENCIL_MT_palettecolor_duplicate(Menu):
     bl_label = "Layer"
 
     def draw(self, context):
         layout = self.layout
 
-        layout.operator_enum("palette.palettecolor_copy", "type")
+        layout.operator_enum("palette.palettecolor_duplicate", "type")
 
 class GPENCIL_MT_palettecolor_specials(Menu):
     bl_label = "Layer"
@@ -1014,7 +1014,7 @@ class GPENCIL_MT_palettecolor_specials(Menu):
         layout.operator("palette.palettecolor_unlock_all", icon='UNLOCKED', text="UnLock All")
 
         layout.separator()
-        layout.menu("GPENCIL_MT_palettecolor_copy", icon='PASTEDOWN', text="Copy")
+        layout.menu("GPENCIL_MT_palettecolor_duplicate", icon='PASTEDOWN', text="Duplicate")
 
         layout.separator()
 
@@ -1776,7 +1776,7 @@ classes = (
     GPENCIL_MT_layer_specials,
     GPENCIL_MT_brush_specials,
     GPENCIL_MT_palettecolor_specials,
-    GPENCIL_MT_palettecolor_copy,
+    GPENCIL_MT_palettecolor_duplicate,
     GPENCIL_UL_vgroups
 )
 
