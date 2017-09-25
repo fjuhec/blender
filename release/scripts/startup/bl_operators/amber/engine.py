@@ -239,61 +239,76 @@ class AssetEngineAmber(AssetEngine):
 
         self.sortedfiltered = []
 
-    def entry_from_uuid(self, entries, euuid, vuuid, ruuid):
-        e = self.repository.assets[euuid]
-        entry = entries.entries.add()
-        entry.uuid = e.uuid
-        entry.name = e.name
-        entry.description = e.description
-        entry.type = {e.file_type}
-        entry.blender_type = e.blender_type
-        act_rev = None
-        if vuuid == (0, 0, 0, 0):
-            for v in e.variants.values():
+    def entry_from_uuid(self, entries, euuid, vuuid, ruuid, wuuid):
+        act_view = None
+
+        def views_gen(revision, e, v, r, wuuid, is_default):
+            nonlocal act_view
+            if wuuid == (0, 0, 0, 0):
+                wact = r.view_default
+                ws = r.views.values()
+            else:
+                wact = r.views[wuuid]
+                ws = (wact,)
+            for w in ws:
+                view = revision.views.add()
+                view.uuid = w.uuid
+                view.name = w.name
+                view.description = w.description
+                view.size = w.size
+                view.timestamp = w.timestamp
+                if w == wact:
+                    revision.views.active = view
+                    if is_default:
+                        act_view = w
+
+        def revisions_gen(variant, e, v, ruuid, wuuid, is_default):
+            if ruuid == (0, 0, 0, 0):
+                ract = v.revision_default
+                rvs = v.revisions.values()
+                wuuid = ruuid
+            else:
+                ract = v.revisions[ruuid]
+                rvs = (ract,)
+            for r in rvs:
+                revision = variant.revisions.add()
+                revision.uuid = r.uuid
+                revision.comment = r.comment
+                revision.timestamp = r.timestamp
+                if r == ract:
+                    variant.revisions.active = revision
+                views_gen(revision, e, v, r, wuuid, is_default and (r == ract))
+
+        def variants_gen(entry, e, vuuid, ruuid, wuuid):
+            if vuuid == (0, 0, 0, 0):
+                vact = e.variant_default
+                vrs = e.variants.values()
+                ruuid = vuuid
+            else:
+                vact = e.variants[vuuid]
+                vrs = (vact,)
+            for v in vrs:
                 variant = entry.variants.add()
                 variant.uuid = v.uuid
                 variant.name = v.name
                 variant.description = v.description
-                if v == e.variant_default:
+                if v == vact:
                     entry.variants.active = variant
-                for r in v.revisions.values():
-                    revision = variant.revisions.add()
-                    revision.uuid = r.uuid
-                    #~ revision.comment = r.comment
-                    revision.size = r.size
-                    revision.timestamp = r.timestamp
-                    if r == v.revision_default:
-                        variant.revisions.active = revision
-                        if v == e.variant_default:
-                            act_rev = r
-        else:
-            v = e.variants[vuuid]
-            variant = entry.variants.add()
-            variant.uuid = v.uuid
-            variant.name = v.name
-            variant.description = v.description
-            entry.variants.active = variant
-            if ruuid == (0, 0, 0, 0):
-                for r in v.revisions.values():
-                    revision = variant.revisions.add()
-                    revision.uuid = r.uuid
-                    #~ revision.comment = r.comment
-                    revision.size = r.size
-                    revision.timestamp = r.timestamp
-                    if r == v.revision_default:
-                        variant.revisions.active = revision
-                        act_rev = r
-            else:
-                r = v.revisions[ruuid]
-                revision = variant.revisions.add()
-                revision.uuid = r.uuid
-                #~ revision.comment = r.comment
-                revision.size = r.size
-                revision.timestamp = r.timestamp
-                variant.revisions.active = revision
-                act_rev = r
-        if act_rev:
-            entry.relpath = act_rev.path
+                revisions_gen(variant, e, v, ruuid, wuuid, v == vact)
+            
+        e = self.repository.assets[euuid]
+        entry = entries.entries.add()
+        entry.uuid = e.uuid
+        entry.uuid_repository = self.repository.uuid
+        entry.name = e.name
+        entry.description = e.description
+        entry.type = {e.file_type}
+        entry.blender_type = e.blender_type
+
+        variants_gen(entry, e, vuuid, ruuid, wuuid)
+
+        if act_view:
+            entry.relpath = act_view.path
 #        print("added entry for", entry.relpath)
 
     def pretty_version(self, v=None):
@@ -406,7 +421,7 @@ class AssetEngineAmber(AssetEngine):
             print("Updating asset uuids from Amber v.%s to amber v.%s" %
                   (self.pretty_version(uuids.asset_engine_version), self.pretty_version()))
         for uuid in uuids.uuids:
-            repo_uuid = uuid.uuid_asset[:2] + (0, 0)
+            repo_uuid = uuid.uuid_repository[:]
             if (repo_uuid not in self.repositories.repositories or
                 not os.path.exists(os.path.join(self.repositories.repositories[repo_uuid][1], utils.AMBER_DB_NAME))):
                 uuid.is_asset_missing = True
@@ -433,7 +448,7 @@ class AssetEngineAmber(AssetEngine):
                   (self.pretty_version(uuids.asset_engine_version), self.pretty_version()))
 #            print(entries.entries[:])
         for uuid in uuids.uuids:
-            repo_uuid = uuid.uuid_asset[:2] + (0, 0)
+            repo_uuid = uuid.uuid_repository[:]
             assert(repo_uuid in self.repositories.repositories)
             repo = self.repos.get(repo_uuid, None)
             if repo is None:
@@ -442,21 +457,27 @@ class AssetEngineAmber(AssetEngine):
             euuid = uuid.uuid_asset[:]
             vuuid = uuid.uuid_variant[:]
             ruuid = uuid.uuid_revision[:]
+            wuuid = uuid.uuid_view[:]
             e = self.repository.assets[euuid]
             v = e.variants[vuuid]
             r = v.revisions[ruuid]
+            w = r.views[wuuid]
 
             entry = entries.entries.add()
             entry.type = {e.file_type}
             entry.blender_type = e.blender_type
             # archive part not yet implemented!
-            entry.relpath = os.path.join(self.repositories.repositories[repo_uuid][1], r.path)
+            entry.relpath = os.path.join(self.repositories.repositories[repo_uuid][1], w.path)
 #                print("added entry for", entry.relpath)
+            entry.uuid_repository = repo_uuid
             entry.uuid = e.uuid
             var = entry.variants.add()
             var.uuid = v.uuid
             rev = var.revisions.add()
             rev.uuid = r.uuid
+            view = rev.views.add()
+            view.uuid = w.uuid
+            rev.views.active = view
             var.revisions.active = rev
             entry.variants.active = var
         entries.root_path = ""
@@ -555,12 +576,14 @@ class AssetEngineAmber(AssetEngine):
                 entry.variants.active = variant
                 rev = variant.revisions.add()
                 variant.revisions.active = rev
+                view = rev.views.add()
+                rev.views.active = view
             else:
                 start_index -= 1
             end_index -= 1
             #~ print("self repo", len(self.sortedfiltered), start_index, end_index)
             for euuid, e in self.sortedfiltered[start_index:end_index]:
-                self.entry_from_uuid(entries, euuid, (0, 0, 0, 0), (0, 0, 0, 0))
+                self.entry_from_uuid(entries, euuid, (0, 0, 0, 0), (0, 0, 0, 0), (0, 0, 0, 0))
         else:
             #~ print("self dirs", len(self.sortedfiltered), start_index, end_index)
             for path, size, timestamp, uuid in self.sortedfiltered[start_index:end_index]:
@@ -572,16 +595,19 @@ class AssetEngineAmber(AssetEngine):
                 variant = entry.variants.add()
                 entry.variants.active = variant
                 rev = variant.revisions.add()
-                rev.size = size
                 rev.timestamp = timestamp
                 variant.revisions.active = rev
+                view = rev.views.add()
+                view.size = size
+                view.timestamp = timestamp
+                rev.views.active = view
         return True
 
     def entries_uuid_get(self, uuids, entries):
 #        print(entries.entries[:])
         if self.repo:
             for uuid in uuids.uuids:
-                self.entry_from_uuid(entries, uuid.uuid_asset[:], uuid.uuid_variant[:], uuid.uuid_revision[:])
+                self.entry_from_uuid(entries, uuid.uuid_asset[:], uuid.uuid_variant[:], uuid.uuid_revision[:], uuid.uuid_view[:])
             return True
         return False
 

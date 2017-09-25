@@ -62,42 +62,6 @@ class AmberOpsEditing(AmberOps):
         return False
 
 
-class AmberOpsRepositoryAdd(Operator, AmberOpsEditing):
-    """Create a new, empty Amber repository in current directory (WARNING! No undo!)"""
-    bl_idname = "amber.repository_add"
-    bl_label = "Add Repository"
-    bl_options = set()
-
-    def execute(self, context):
-        ae = context.space_data.asset_engine
-        path = context.space_data.params.directory
-
-        if getattr(ae, "repo", None) is not None:
-            self.report({'INFO'}, "Current directory is already an Amber repository, '%s'" % ae.repo.name)
-            return {'CANCELLED'}
-        if os.path.exists(os.path.join(path, utils.AMBER_DB_NAME)):
-            self.report({'INFO'}, "Current directory is already an Amber repository")
-            return {'CANCELLED'}
-
-        repository = getattr(ae, "repository", None)
-        if repository is None:
-            repository = ae.repository = AmberDataRepository()
-        repository.clear()
-
-        repository.path = path
-        repository.name = "Amber " + os.path.split(repository.path)[0].split(os.path.sep)[-1]
-        repository.uuid = utils.uuid_repo_gen(set(AmberDataRepositoryList().repositories), repository.path, repository.name)
-
-        # TODO more default settings, probably default set of basic tags...
-
-        repository.to_pg(ae.repository_pg)
-        repository.wrt_repo(os.path.join(repository.path, utils.AMBER_DB_NAME), repository.to_dict())
-
-        bpy.ops.file.refresh()
-
-        return {'FINISHED'}
-
-
 class AmberOpsAssetAdd(Operator, AmberOpsEditing):
     """Add an Amber asset to the repository (WARNING! No undo!)"""
     bl_idname = "amber.asset_add"
@@ -163,14 +127,56 @@ class AmberOpsAssetAdd(Operator, AmberOpsEditing):
         asset.variant_default = variant.uuid
 
         revision = variant.revisions.add()
-        revision.size = os.stat(path_lib).st_size
         revision.timestamp = int(time.time())
-        revision.path = os.path.join(path_lib, path_sublib)
-        revision.uuid = utils.uuid_revision_gen(set(), variant.uuid, 0, revision.size, revision.timestamp)
+        revision.uuid = utils.uuid_revision_gen(set(), variant.uuid, 0, revision.timestamp)
         variant.revision_default = revision.uuid
+
+        view = revision.views.add()
+        view.name = "default"
+        view.size = os.stat(path_lib).st_size
+        view.timestamp = revision.timestamp
+        view.path = os.path.join(path_lib, path_sublib)
+        view.uuid = utils.uuid_view_gen(set(), revision.uuid, view.name, view.size, view.timestamp)
+        revision.view_default = view.uuid
 
         repository.from_pg(ae.repository_pg)
         repository.wrt_repo(os.path.join(ae.repository.path, utils.AMBER_DB_NAME), ae.repository.to_dict())
+
+        bpy.ops.file.refresh()
+
+        return {'FINISHED'}
+
+
+class AmberOpsRepositoryAdd(Operator, AmberOpsEditing):
+    """Create a new, empty Amber repository in current directory (WARNING! No undo!)"""
+    bl_idname = "amber.repository_add"
+    bl_label = "Add Repository"
+    bl_options = set()
+
+    def execute(self, context):
+        ae = context.space_data.asset_engine
+        path = context.space_data.params.directory
+
+        if getattr(ae, "repo", None) is not None:
+            self.report({'INFO'}, "Current directory is already an Amber repository, '%s'" % ae.repo.name)
+            return {'CANCELLED'}
+        if os.path.exists(os.path.join(path, utils.AMBER_DB_NAME)):
+            self.report({'INFO'}, "Current directory is already an Amber repository")
+            return {'CANCELLED'}
+
+        repository = getattr(ae, "repository", None)
+        if repository is None:
+            repository = ae.repository = AmberDataRepository()
+        repository.clear()
+
+        repository.path = path
+        repository.name = "Amber " + os.path.split(repository.path)[0].split(os.path.sep)[-1]
+        repository.uuid = utils.uuid_repo_gen(set(AmberDataRepositoryList().repositories), repository.path, repository.name)
+
+        # TODO more default settings, probably default set of basic tags...
+
+        repository.to_pg(ae.repository_pg)
+        repository.wrt_repo(os.path.join(repository.path, utils.AMBER_DB_NAME), repository.to_dict())
 
         bpy.ops.file.refresh()
 

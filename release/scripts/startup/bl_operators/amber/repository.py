@@ -105,9 +105,10 @@ class AmberDataTagPG(PropertyGroup):
                 tag_pg.priority = tags[tag_name]
 
 
-class AmberDataAssetRevisionPG(PropertyGroup):
-    comment = StringProperty(name="Comment", description="Asset/Variant revision comment")
-    uuid = IntVectorProperty(name="UUID", description="Revision unique identifier", size=4)
+class AmberDataAssetViewPG(PropertyGroup):
+    uuid = IntVectorProperty(name="UUID", description="View unique identifier", size=4)
+    name = StringProperty(name="Name", description="Asset/Variant/Revision view name")
+    description = StringProperty(name="Description", description="Asset/Variant/Revision view description")
 
     size = IntProperty(name="Size")
     timestamp = IntProperty(name="Timestamp")
@@ -115,13 +116,112 @@ class AmberDataAssetRevisionPG(PropertyGroup):
     path = StringProperty(name="Path", description="File path of this item", subtype='FILE_PATH')
 
 
+class AmberDataAssetView():
+    def __init__(self):
+        self.uuid = (0, 0, 0, 0)
+        self.name = ""
+        self.description = ""
+        self.size = 0
+        self.timestamp = 0
+        self.path = ""
+
+    @staticmethod
+    def from_dict(views, views_dict):
+        # For now, fully override revisions.
+        views.clear()
+        for uuid_hexstr, vw in views_dict.items():
+            uuid = utils.uuid_unpack(uuid_hexstr)
+            view = views[uuid] = AmberDataAssetView()
+
+            view.uuid = uuid
+            view.name = vw["name"]
+            view.description = vw["description"]
+
+            view.size = vw["size"]
+            view.timestamp = vw["timestamp"]
+            view.path = vw["path"]
+
+    @staticmethod
+    def to_dict(views):
+        views_dict = {
+            utils.uuid_pack(vw.uuid): {
+                "name": vw.name,
+                "description": vw.description,
+                "size": vw.size,
+                "timestamp": vw.timestamp,
+                "path": vw.path,
+            }
+            for vw in views.values()
+        }
+
+        return views_dict
+
+    @staticmethod
+    def from_pg(views, pg):
+        # For now, fully override variants.
+        views.clear()
+        for vw in pg:
+            uuid = vw.uuid[:]
+            view = views[uuid] = AmberDataAssetView()
+
+            view.uuid = uuid
+            view.name = vw.name
+            view.description = vw.description
+
+            view.size = vw.size
+            view.timestamp = vw.timestamp
+            view.path = vw.path
+
+    @staticmethod
+    def to_pg(pg, views):
+        for idx, view in enumerate(views.values()):
+            if idx == len(pg):
+                pg.add()
+            view_pg = pg[idx]
+            view_pg.uuid = view.uuid
+
+            view_pg.name = view.name
+            view_pg.description = view.description
+
+            view_pg.size = view.size
+            view_pg.timestamp = view.timestamp
+            view_pg.path = view.path
+        for idx in range(len(pg), len(views), -1):
+            pg.remove(idx - 1)
+
+
+class AmberDataAssetRevisionPG(PropertyGroup):
+    comment = StringProperty(name="Comment", description="Asset/Variant revision comment")
+    uuid = IntVectorProperty(name="UUID", description="Revision unique identifier", size=4)
+
+    timestamp = IntProperty(name="Timestamp")
+
+    views = CollectionProperty(name="Views", type=AmberDataAssetViewPG, description="Views of the revision")
+    view_index_active = IntProperty(name="Active View", options={'HIDDEN'})
+
+    view_default = IntVectorProperty(name="Default view", size=4,
+                                     description="Default view of the revision, to be used when nothing explicitly chosen")
+    def views_itemf(self, context):
+        if not hasattr(self, "views_items"):
+            self.views_items = [(utils.uuid_pack(v.uuid),) * 2 + (v.name[0], idx) for idx, v in enumerate(self.views)]
+            self.views_itemidx_to_uuid_map = [v.uuid for v in self.views]
+            self.views_uuid_to_itemidx_map = {v.uuid: idx for idx, v in enumerate(self.views)}
+        return self.views_items
+    def view_default_ui_get(self):
+        return self.views_uuid_to_itemidx_map[self.view_default]
+    def view_default_ui_set(self, val):
+        self.view_default = self.views_itemidx_to_uuid_map[val]
+    view_default_ui = EnumProperty(items=views_itemf, get=view_default_ui_get, set=view_default_ui_set, name="Default View",
+                                   description="Default view of the variant, to be used when nothing explicitly chosen")
+
+
 class AmberDataAssetRevision():
     def __init__(self):
         self.comment = ""
         self.uuid = (0, 0, 0, 0)
-        self.size = 0
         self.timestamp = 0
-        self.path = ''
+        self.views = {}
+        self.view_default = None
 
     @staticmethod
     def from_dict(revisions, revisions_dict):
@@ -134,18 +234,19 @@ class AmberDataAssetRevision():
             revision.comment = rev["comment"]
             revision.uuid = uuid
 
-            revision.size = rev["size"]
             revision.timestamp = rev["timestamp"]
-            revision.path = rev["path"]
+
+            AmberDataAssetView.from_dict(revision.views, rev["views"])
+            revision.view_default = revision.views[utils.uuid_unpack(rev["view_default"])]
 
     @staticmethod
     def to_dict(revisions):
         revisions_dict = {
             utils.uuid_pack(rev.uuid): {
                 "comment": rev.comment,
-                "size": rev.size,
                 "timestamp": rev.timestamp,
-                "path": rev.path,
+                "views": AmberDataAssetView.to_dict(rev.views),
+                "view_default": utils.uuid_pack(rev.view_default.uuid),
             }
             for rev in revisions.values()
         }
@@ -163,9 +264,10 @@ class AmberDataAssetRevision():
             revision.comment = rev.comment
             revision.uuid = uuid
 
-            revision.size = rev.size
             revision.timestamp = rev.timestamp
-            revision.path = rev.path
+
+            AmberDataAssetView.from_pg(revision.views, rev.views)
+            revision.view_default = revision.views[rev.view_default[:]]
 
     @staticmethod
     def to_pg(pg, revisions):
@@ -177,9 +279,10 @@ class AmberDataAssetRevision():
 
             revision_pg.comment = revision.comment
 
-            revision_pg.size = revision.size
             revision_pg.timestamp = revision.timestamp
-            revision_pg.path = revision.path
+
+            AmberDataAssetView.to_pg(revision_pg.views, revision.views)
+            revision_pg.view_default = revision.view_default.uuid
         for idx in range(len(pg), len(revisions), -1):
             pg.remove(idx - 1)
 
@@ -329,7 +432,6 @@ class AmberDataAsset():
         assets.clear()
         for uuid_hexstr, ent in entries_dict.items():
             uuid = utils.uuid_unpack(uuid_hexstr)
-            assert(uuid[:2] == repo_uuid[:2])
 
             asset = assets[uuid] = AmberDataAsset()
 
@@ -481,7 +583,6 @@ class AmberDataRepository:
             self.name = repo_dict["name"]
             self.description = repo_dict["description"]
             self.uuid = utils.uuid_unpack(repo_dict["uuid"])
-            assert(self.uuid[2:] == (0, 0))
 
             # We update tags instead of overriding them completely...
             AmberDataTagPG.from_dict(self.tags, repo_dict["tags"])
@@ -499,7 +600,6 @@ class AmberDataRepository:
         repo_dict["name"] = self.name
         repo_dict["description"] = self.description
 
-        assert(self.uuid[2:] == (0, 0))
         repo_dict["uuid"] = utils.uuid_pack(self.uuid)
 
         repo_dict["tags"] = AmberDataTagPG.to_dict(self.tags)
@@ -621,6 +721,7 @@ class AmberDataRepositoryList:
 classes = (
     AmberDataTagPG,
 
+    AmberDataAssetViewPG,
     AmberDataAssetRevisionPG,
     AmberDataAssetVariantPG,
     AmberDataAssetPG,

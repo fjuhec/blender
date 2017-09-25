@@ -91,23 +91,23 @@ def _uuid_gen(used_uuids, pattern=(0, 1, 2, 3), uuid_root=b"", bytes_seed=b"", *
 
 
 def uuid_repo_gen(used_uuids, path, name):
-    uuid = _uuid_gen(used_uuids, (0, 1, ..., ...), b"", name.encode(), path)
-    assert(uuid is not None)
-    return uuid
+    return _uuid_gen(used_uuids, (0, 1, 2, 3), b"", name.encode(), path)
 
 
 def uuid_asset_gen(used_uuids, repo_uuid, path, name, tags):
-    uuid = _uuid_gen(used_uuids, (..., ..., 0, 1), b"", name.encode(), path, *tags)
-    assert(uuid is not None)
-    return repo_uuid[:2] + uuid[2:]
+    return _uuid_gen(used_uuids, (0, 1, 2, 3), b"", name.encode(), path, *tags)
 
 
 def uuid_variant_gen(used_uuids, asset_uuid, name):
     return _uuid_gen(used_uuids, (0, 1, 2, 3), b"", str(asset_uuid).encode(), name)
 
 
-def uuid_revision_gen(used_uuids, variant_uuid, number, size, time):
-    return _uuid_gen(used_uuids, (0, 1, 2, 3), b"", str(variant_uuid).encode(), str(number), str(size), str(time))
+def uuid_revision_gen(used_uuids, variant_uuid, number, time):
+    return _uuid_gen(used_uuids, (0, 1, 2, 3), b"", str(variant_uuid).encode(), str(number), str(time))
+
+
+def uuid_view_gen(used_uuids, revision_uuid, name, size, time):
+    return _uuid_gen(used_uuids, (0, 1, 2, 3), b"", str(revision_uuid).encode(), name, str(size), str(time))
 
 
 def uuid_unpack_bytes(uuid_bytes):
