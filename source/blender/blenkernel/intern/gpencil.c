@@ -951,7 +951,7 @@ bGPDlayer *BKE_gpencil_layer_duplicate(const bGPDlayer *gpl_src)
 
 /**
  * Only copy internal data of GreasePencil ID from source to already allocated/initialized destination.
- * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ * You probably never want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
  *
  * WARNING! This function will not handle ID user count!
  *
@@ -987,8 +987,6 @@ bGPdata *BKE_gpencil_copy(Main *bmain, const bGPdata *gpd)
 // XXX: Should this be deprecated?
 bGPdata *BKE_gpencil_data_duplicate(Main *bmain, const bGPdata *gpd_src, bool internal_copy)
 {
-	const bGPDlayer *gpl_src;
-	bGPDlayer *gpl_dst;
 	bGPdata *gpd_dst;
 
 	/* Yuck and super-uber-hyper yuck!!!
@@ -1010,13 +1008,8 @@ bGPdata *BKE_gpencil_data_duplicate(Main *bmain, const bGPdata *gpd_src, bool in
 		gpd_dst->batch_cache_data = NULL;
 	}
 	
-	/* copy layers */
-	BLI_listbase_clear(&gpd_dst->layers);
-	for (gpl_src = gpd_src->layers.first; gpl_src; gpl_src = gpl_src->next) {
-		/* make a copy of source layer and its data */
-		gpl_dst = BKE_gpencil_layer_duplicate(gpl_src);
-		BLI_addtail(&gpd_dst->layers, gpl_dst);
-	}
+	/* Copy internal data (layers, etc.) */
+	BKE_gpencil_copy_data(bmain, gpd_dst, gpd_src, 0);
 	
 	/* return new */
 	return gpd_dst;
