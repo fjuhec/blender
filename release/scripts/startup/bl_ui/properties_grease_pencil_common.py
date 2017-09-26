@@ -1489,7 +1489,8 @@ class GreasePencilPaletteColorPanel:
     bl_label = "Grease Pencil Colors"
     bl_category = "Grease Pencil"
     bl_region_type = 'TOOLS'
-
+    bl_options = {'HIDE_HEADER'}
+    
     @staticmethod
     def paint_settings(context):
         toolsettings = context.tool_settings
