@@ -1844,14 +1844,19 @@ static void OBJECT_draw_scene(void *vedata)
 		DRW_stats_group_end();
 	}
 
+	MULTISAMPLE_SYNC_ENABLE(dfbl)
+
 	/* This needs to be drawn after the oultine */
 //	DRW_draw_pass(psl->bone_envelope);  /* Never drawn in Object mode currently. */
 	DRW_draw_pass(psl->bone_wire);
 	DRW_draw_pass(psl->bone_solid);
 	DRW_draw_pass(psl->non_meshes);
-	DRW_draw_pass(psl->ob_center);
 	DRW_draw_pass(psl->particle);
 	DRW_draw_pass(psl->reference_image);
+
+	MULTISAMPLE_SYNC_DISABLE(dfbl)
+
+	DRW_draw_pass(psl->ob_center);
 
 	if (!DRW_state_is_select()) {
 		if (e_data.draw_grid) {
@@ -1889,5 +1894,6 @@ DrawEngineType draw_engine_object_type = {
 	&OBJECT_cache_populate,
 	NULL,
 	NULL,
-	&OBJECT_draw_scene
+	&OBJECT_draw_scene,
+	NULL,
 };
