@@ -975,7 +975,16 @@ void BKE_gpencil_copy_data(Main *UNUSED(bmain), bGPdata *gpd_dst, const bGPdata 
 	}
 }
 
+/* Standard API to make a copy of GP datablock, separate from copying its data */
+bGPdata *BKE_gpencil_copy(Main *bmain, const bGPdata *gpd)
+{
+	bGPdata *gpd_copy;
+	BKE_id_copy_ex(bmain, &gpd->id, (ID **)&gpd_copy, 0, false);
+	return gpd_copy;
+}
+
 /* make a copy of a given gpencil datablock */
+// XXX: Should this be deprecated?
 bGPdata *BKE_gpencil_data_duplicate(Main *bmain, const bGPdata *gpd_src, bool internal_copy)
 {
 	const bGPDlayer *gpl_src;

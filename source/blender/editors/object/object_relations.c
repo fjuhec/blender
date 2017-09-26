@@ -70,6 +70,7 @@
 #include "BKE_DerivedMesh.h"
 #include "BKE_displist.h"
 #include "BKE_global.h"
+#include "BKE_gpencil.h"
 #include "BKE_group.h"
 #include "BKE_fcurve.h"
 #include "BKE_idprop.h"
@@ -1841,6 +1842,9 @@ static void single_obdata_users(Main *bmain, Scene *scene, SceneLayer *sl, const
 						break;
 					case OB_SPEAKER:
 						ob->data = ID_NEW_SET(ob->data, BKE_speaker_copy(bmain, ob->data));
+						break;
+					case OB_GPENCIL:
+						ob->data = ID_NEW_SET(ob->data, BKE_gpencil_copy(bmain, ob->data));
 						break;
 					default:
 						if (G.debug & G_DEBUG)

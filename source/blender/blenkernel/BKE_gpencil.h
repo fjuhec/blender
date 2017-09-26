@@ -86,7 +86,9 @@ void BKE_gpencil_create_monkey(struct bContext *C, struct bGPdata *gpd);
 struct bGPDframe *BKE_gpencil_frame_duplicate(const struct bGPDframe *gpf_src);
 struct bGPDframe *BKE_gpencil_frame_color_duplicate(const struct bGPDframe *gpf_src);
 struct bGPDlayer *BKE_gpencil_layer_duplicate(const struct bGPDlayer *gpl_src);
+
 void BKE_gpencil_copy_data(struct Main *bmain, struct bGPdata *gpd_dst, const struct bGPdata *gpd_src, const int flag);
+struct bGPdata   *BKE_gpencil_copy(struct Main *bmain, const struct bGPdata *gpd);
 struct bGPdata   *BKE_gpencil_data_duplicate(struct Main *bmain, const struct bGPdata *gpd, bool internal_copy);
 
 void BKE_gpencil_make_local(struct Main *bmain, struct bGPdata *gpd, const bool lib_local);
