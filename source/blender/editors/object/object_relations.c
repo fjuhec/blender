@@ -1727,8 +1727,12 @@ static void single_object_users(Main *bmain, Scene *scene, View3D *v3d, const in
 	/* group pointers in scene */
 	BKE_scene_groups_relink(scene);
 
+	/* active camera */
 	ID_NEW_REMAP(scene->camera);
 	if (v3d) ID_NEW_REMAP(v3d->camera);
+
+	/* gp_object */
+	ID_NEW_REMAP(scene->gp_object);
 
 	/* object and group pointers */
 	libblock_relink_scene_collection(msc);
