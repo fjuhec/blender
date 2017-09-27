@@ -190,38 +190,7 @@ void BKE_gpencil_free_frames(bGPDlayer *gpl)
 	gpl->actframe = NULL;
 }
 
-/* Free all of a gp-colors */
-static void free_gpencil_colors(bGPDpalette *palette)
-{
-	/* error checking */
-	if (palette == NULL) {
-		return;
-	}
 
-	/* free colors */
-	BLI_freelistN(&palette->colors);
-}
-
-/* Free all of the gp-palettes and colors */
-void BKE_gpencil_free_palettes(ListBase *list)
-{
-	bGPDpalette *palette_next;
-
-	/* error checking */
-	if (list == NULL) {
-		return;
-	}
-
-	/* delete palettes */
-	for (bGPDpalette *palette = list->first; palette; palette = palette_next) {
-		palette_next = palette->next;
-		/* free palette colors */
-		free_gpencil_colors(palette);
-
-		MEM_freeN(palette);
-	}
-	BLI_listbase_clear(list);
-}
 
 /* Free all of the gp-brushes for a viewport (list should be &gpd->brushes or so) */
 void BKE_gpencil_free_brushes(ListBase *list)
@@ -736,40 +705,6 @@ bGPDbrush *BKE_gpencil_brush_addnew(ToolSettings *ts, const char *name, bool set
 	return brush;
 }
 
-/* add a new gp-palettecolor and make it the active */
-bGPDpalettecolor *BKE_gpencil_palettecolor_addnew(bGPDpalette *palette, const char *name, bool setactive)
-{
-	bGPDpalettecolor *palcolor;
-
-	/* check that list is ok */
-	if (palette == NULL) {
-		return NULL;
-	}
-
-	/* allocate memory and add to end of list */
-	palcolor = MEM_callocN(sizeof(bGPDpalettecolor), "bGPDpalettecolor");
-
-	/* add to datablock */
-	BLI_addtail(&palette->colors, palcolor);
-
-	/* set basic settings */
-	copy_v4_v4(palcolor->color, U.gpencil_new_layer_col);
-	ARRAY_SET_ITEMS(palcolor->fill, 1.0f, 1.0f, 1.0f);
-
-	/* auto-name */
-	BLI_strncpy(palcolor->info, name, sizeof(palcolor->info));
-	BLI_uniquename(&palette->colors, palcolor, DATA_("Color"), '.', offsetof(bGPDpalettecolor, info),
-	               sizeof(palcolor->info));
-
-	/* make this one the active one */
-	if (setactive) {
-		BKE_gpencil_palettecolor_setactive(palette, palcolor);
-	}
-
-	/* return palette color */
-	return palcolor;
-}
-
 /* add a new gp-datablock */
 bGPdata *BKE_gpencil_data_addnew(const char name[])
 {
@@ -961,33 +896,7 @@ bGPDbrush *BKE_gpencil_brush_duplicate(const bGPDbrush *brush_src)
 	return brush_dst;
 }
 
-/* make a copy of a given gpencil palette */
-bGPDpalette *BKE_gpencil_palette_duplicate(const bGPDpalette *palette_src)
-{
-	bGPDpalette *palette_dst;
-	const bGPDpalettecolor *palcolor_src;
-	bGPDpalettecolor *palcolord_dst;
 
-	/* error checking */
-	if (palette_src == NULL) {
-		return NULL;
-	}
-
-	/* make a copy of source palette */
-	palette_dst = MEM_dupallocN(palette_src);
-	palette_dst->prev = palette_dst->next = NULL;
-
-	/* copy colors */
-	BLI_listbase_clear(&palette_dst->colors);
-	for (palcolor_src = palette_src->colors.first; palcolor_src; palcolor_src = palcolor_src->next) {
-		/* make a copy of source */
-		palcolord_dst = MEM_dupallocN(palcolor_src);
-		BLI_addtail(&palette_dst->colors, palcolord_dst);
-	}
-
-	/* return new palette */
-	return palette_dst;
-}
 /* make a copy of a given gpencil layer */
 bGPDlayer *BKE_gpencil_layer_duplicate(const bGPDlayer *gpl_src)
 {
@@ -1468,6 +1377,40 @@ void BKE_gpencil_brush_delete(ToolSettings *ts, bGPDbrush *brush)
 /* ************************************************** */
 /* GP Palettes API (Deprecated) */
 
+/* Free all of a gp-colors */
+static void free_gpencil_colors(bGPDpalette *palette)
+{
+	/* error checking */
+	if (palette == NULL) {
+		return;
+	}
+
+	/* free colors */
+	BLI_freelistN(&palette->colors);
+}
+
+/* Free all of the gp-palettes and colors */
+void BKE_gpencil_free_palettes(ListBase *list)
+{
+	bGPDpalette *palette_next;
+
+	/* error checking */
+	if (list == NULL) {
+		return;
+	}
+
+	/* delete palettes */
+	for (bGPDpalette *palette = list->first; palette; palette = palette_next) {
+		palette_next = palette->next;
+		/* free palette colors */
+		free_gpencil_colors(palette);
+
+		MEM_freeN(palette);
+	}
+	BLI_listbase_clear(list);
+}
+
+
 /* get the active gp-palette for editing */
 bGPDpalette *BKE_gpencil_palette_getactive(bGPdata *gpd)
 {
@@ -1524,6 +1467,34 @@ void BKE_gpencil_palette_delete(bGPdata *gpd, bGPDpalette *palette)
 	BKE_gpencil_palette_change_strokes(gpd);
 }
 
+/* make a copy of a given gpencil palette */
+bGPDpalette *BKE_gpencil_palette_duplicate(const bGPDpalette *palette_src)
+{
+	bGPDpalette *palette_dst;
+	const bGPDpalettecolor *palcolor_src;
+	bGPDpalettecolor *palcolord_dst;
+
+	/* error checking */
+	if (palette_src == NULL) {
+		return NULL;
+	}
+
+	/* make a copy of source palette */
+	palette_dst = MEM_dupallocN(palette_src);
+	palette_dst->prev = palette_dst->next = NULL;
+
+	/* copy colors */
+	BLI_listbase_clear(&palette_dst->colors);
+	for (palcolor_src = palette_src->colors.first; palcolor_src; palcolor_src = palcolor_src->next) {
+		/* make a copy of source */
+		palcolord_dst = MEM_dupallocN(palcolor_src);
+		BLI_addtail(&palette_dst->colors, palcolord_dst);
+	}
+
+	/* return new palette */
+	return palette_dst;
+}
+
 /* Set all strokes to recalc the palette color */
 void BKE_gpencil_palette_change_strokes(bGPdata *gpd)
 {
@@ -1538,6 +1509,41 @@ void BKE_gpencil_palette_change_strokes(bGPdata *gpd)
 			}
 		}
 	}
+}
+
+
+/* add a new gp-palettecolor and make it the active */
+bGPDpalettecolor *BKE_gpencil_palettecolor_addnew(bGPDpalette *palette, const char *name, bool setactive)
+{
+	bGPDpalettecolor *palcolor;
+
+	/* check that list is ok */
+	if (palette == NULL) {
+		return NULL;
+	}
+
+	/* allocate memory and add to end of list */
+	palcolor = MEM_callocN(sizeof(bGPDpalettecolor), "bGPDpalettecolor");
+
+	/* add to datablock */
+	BLI_addtail(&palette->colors, palcolor);
+
+	/* set basic settings */
+	copy_v4_v4(palcolor->color, U.gpencil_new_layer_col);
+	ARRAY_SET_ITEMS(palcolor->fill, 1.0f, 1.0f, 1.0f);
+
+	/* auto-name */
+	BLI_strncpy(palcolor->info, name, sizeof(palcolor->info));
+	BLI_uniquename(&palette->colors, palcolor, DATA_("Color"), '.', offsetof(bGPDpalettecolor, info),
+	               sizeof(palcolor->info));
+
+	/* make this one the active one */
+	if (setactive) {
+		BKE_gpencil_palettecolor_setactive(palette, palcolor);
+	}
+
+	/* return palette color */
+	return palcolor;
 }
 
 
