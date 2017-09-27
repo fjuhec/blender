@@ -588,9 +588,9 @@ BLI_INLINE uint mcol_blend(uint col1, uint col2, int fac)
 	int g2 = cp2[1] * cp2[1];
 	int b2 = cp2[2] * cp2[2];
 
-	cp[0] = iroundf(sqrtf(divide_round_i((mfac * r1 + fac * r2), 255)));
-	cp[1] = iroundf(sqrtf(divide_round_i((mfac * g1 + fac * g2), 255)));
-	cp[2] = iroundf(sqrtf(divide_round_i((mfac * b1 + fac * b2), 255)));
+	cp[0] = round_fl_to_uchar(sqrtf(divide_round_i((mfac * r1 + fac * r2), 255)));
+	cp[1] = round_fl_to_uchar(sqrtf(divide_round_i((mfac * g1 + fac * g2), 255)));
+	cp[2] = round_fl_to_uchar(sqrtf(divide_round_i((mfac * b1 + fac * b2), 255)));
 	cp[3] = 255;
 
 	return col;
@@ -3440,10 +3440,10 @@ static void do_vpaint_brush_blur_task_cb_ex(
 					if (total_hit_loops != 0) {
 						/* Use rgb^2 color averaging. */
 						char *col = (char *)(&color_final);
-						col[0] = iroundf(sqrtf(divide_round_i(blend[0], total_hit_loops)));
-						col[1] = iroundf(sqrtf(divide_round_i(blend[1], total_hit_loops)));
-						col[2] = iroundf(sqrtf(divide_round_i(blend[2], total_hit_loops)));
-						col[3] = iroundf(sqrtf(divide_round_i(blend[3], total_hit_loops)));
+						col[0] = round_fl_to_uchar(sqrtf(divide_round_i(blend[0], total_hit_loops)));
+						col[1] = round_fl_to_uchar(sqrtf(divide_round_i(blend[1], total_hit_loops)));
+						col[2] = round_fl_to_uchar(sqrtf(divide_round_i(blend[2], total_hit_loops)));
+						col[3] = round_fl_to_uchar(sqrtf(divide_round_i(blend[3], total_hit_loops)));
 
 						/* For each poly owning this vert, paint each loop belonging to this vert. */
 						for (int j = 0; j < ss->modes.vwpaint.vert_to_poly[v_index].count; j++) {
@@ -3600,9 +3600,9 @@ static void calculate_average_color(SculptThreadedTaskData *data, PBVHNode **UNU
 		total_color[2] += data->ob->sculpt->modes.vwpaint.total_color[i][2];
 	}
 	if (total_hit_loops != 0) {
-		blend[0] = iroundf(sqrtf(divide_round_i(total_color[0], total_hit_loops)));
-		blend[1] = iroundf(sqrtf(divide_round_i(total_color[1], total_hit_loops)));
-		blend[2] = iroundf(sqrtf(divide_round_i(total_color[2], total_hit_loops)));
+		blend[0] = round_fl_to_uchar(sqrtf(divide_round_i(total_color[0], total_hit_loops)));
+		blend[1] = round_fl_to_uchar(sqrtf(divide_round_i(total_color[1], total_hit_loops)));
+		blend[2] = round_fl_to_uchar(sqrtf(divide_round_i(total_color[2], total_hit_loops)));
 		blend[3] = 255;
 		data->vpd->paintcol = *((uint *)blend);
 	}
