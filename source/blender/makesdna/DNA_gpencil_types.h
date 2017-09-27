@@ -188,6 +188,28 @@ typedef enum eGPDpalette_Flag {
 } eGPDpalette_Flag;
 
 /* ***************************************** */
+/* GP Palette Slots - 2.8+ Replacement for bGPDpalette */
+
+/**
+ * Palette Slot
+ *
+ * This is equivalent to the "Material Slot" concept on normal geometry,
+ * but, instead of referencing a Material, we instead reference Blender
+ * Palette datablocks (since these are used to supply GP colours).
+ *
+ * GP datablocks can have several of these at a time - one for each palette
+ * used by a stroke in the datablock.
+ */
+typedef struct bGPDpaletteref {
+	/* the palette referenced in this slot */
+	Palette *palette;
+	
+	/* settings */
+	int flag;    /* (eGPDpalette_Flag) */
+	int pad;
+} bGPDpaletteref;
+
+/* ***************************************** */
 /* GP Strokes */
 
 /* Grease-Pencil Annotations - 'Stroke'
@@ -376,6 +398,7 @@ typedef struct bGPdata {
 	 
 	/* Palettes */
 	ListBase palettes;          /* list of bGPDpalette's   - Deprecated (2.78 - 2.79 only) */
+	ListBase palette_slots;     /* list of bGPDpaletteref's - (2.8+) */
 	
 	/* Runtime Only - Drawing Manager cache */
 	struct GHash *batch_cache_data;
