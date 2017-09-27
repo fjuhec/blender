@@ -181,6 +181,8 @@ typedef struct SculptThreadedTaskData {
 	struct WeightPaintInfo *wpi;
 	unsigned int *lcol;
 	struct Mesh *me;
+	/* For passing generic params. */
+	void *custom_data;
 
 
 	/* Data specific to some callbacks. */

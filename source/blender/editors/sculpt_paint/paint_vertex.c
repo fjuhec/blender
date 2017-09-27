@@ -83,6 +83,17 @@
 #include "sculpt_intern.h"
 #include "paint_intern.h"  /* own include */
 
+/* Use for 'blur' brush, align with PBVH nodes, created and freed on each update. */
+struct VPaintAverageAccum {
+	uint len;
+	uint value[3];
+};
+
+struct WPaintAverageAccum {
+	uint len;
+	double value;
+};
+
 static void defweight_prev_init(const MDeformWeight *dw, float *weight_prev)
 {
 	if (UNLIKELY(*weight_prev == -1.0f)) {
@@ -1724,7 +1735,7 @@ static void vertex_paint_init_session(Scene *scene, Object *ob)
 	}
 }
 
-static void vertex_paint_init_session_maps(Object *ob)
+static void vertex_paint_init_session_data(const ToolSettings *ts, Object *ob)
 {
 	/* Create maps */
 	struct SculptVertexPaintGeomMap *gmap = NULL;
@@ -1737,12 +1748,14 @@ static void vertex_paint_init_session_maps(Object *ob)
 		ob->sculpt->mode_type = OB_MODE_WEIGHT_PAINT;
 	}
 	else {
+		ob->sculpt->mode_type = 0;
 		BLI_assert(0);
 		return;
 	}
 
+	Mesh *me = ob->data;
+
 	if (gmap->vert_to_loop == NULL) {
-		Mesh *me = ob->data;
 		gmap->vert_map_mem = NULL;
 		gmap->vert_to_loop = NULL;
 		gmap->poly_map_mem = NULL;
@@ -1757,38 +1770,8 @@ static void vertex_paint_init_session_maps(Object *ob)
 		        me->mpoly, me->mloop, me->totvert, me->totpoly, me->totloop);
 	}
 
-	if (gmap->tot_loops_hit == NULL) {
-		/* I think the totNodes might include internal nodes, and we really only need the tot leaves. */
-		int nodes_len = BKE_pbvh_get_num_nodes(ob->sculpt->pbvh);
-
-		gmap->tot_loops_hit =
-		        MEM_callocN(nodes_len * sizeof(uint), "tot_loops_hit");
-	}
-}
-
-static void vertex_paint_init_session_average_arrays(const ToolSettings *ts, Object *ob)
-{
-	const Brush *brush = ob->sculpt->cache->brush;
-
-	/* Even though we only want 'PBVH_Leaf' nodes, align with 'pbvh->nodes'. */
-	const int nodes_len = BKE_pbvh_get_num_nodes(ob->sculpt->pbvh);
-	const Mesh *me = BKE_mesh_from_object(ob);
-
 	/* Create average brush arrays */
 	if (ob->mode == OB_MODE_VERTEX_PAINT) {
-		ob->sculpt->mode_type = OB_MODE_VERTEX_PAINT;
-
-
-		if (brush->vertexpaint_tool == PAINT_BLEND_AVERAGE) {
-			if (ob->sculpt->mode.vpaint.average_color == NULL) {
-				ob->sculpt->mode.vpaint.average_color =
-				        MEM_callocN(nodes_len * sizeof(uint[3]), "average_color");
-			}
-		}
-		else {
-			MEM_SAFE_FREE(ob->sculpt->mode.vpaint.average_color);
-		}
-
 		if ((ts->vpaint->flag & VP_SPRAY) == 0) {
 			if (ob->sculpt->mode.vpaint.previous_color == NULL) {
 				ob->sculpt->mode.vpaint.previous_color =
@@ -1800,16 +1783,6 @@ static void vertex_paint_init_session_average_arrays(const ToolSettings *ts, Obj
 		}
 	}
 	else if (ob->mode == OB_MODE_WEIGHT_PAINT) {
-		ob->sculpt->mode_type = OB_MODE_WEIGHT_PAINT;
-
-		if (brush->vertexpaint_tool == PAINT_BLEND_AVERAGE) {
-			ob->sculpt->mode.wpaint.average_weight =
-			        MEM_callocN(nodes_len * sizeof(double), "average_weight");
-		}
-		else {
-			MEM_SAFE_FREE(ob->sculpt->mode.wpaint.average_weight);
-		}
-
 		if ((ts->wpaint->flag & VP_SPRAY) == 0) {
 			if (ob->sculpt->mode.wpaint.alpha_weight == NULL) {
 				ob->sculpt->mode.wpaint.alpha_weight =
@@ -1825,6 +1798,7 @@ static void vertex_paint_init_session_average_arrays(const ToolSettings *ts, Obj
 			MEM_SAFE_FREE(ob->sculpt->mode.wpaint.previous_weight);
 		}
 	}
+
 }
 
 /* *************** set wpaint operator ****************** */
@@ -2285,8 +2259,7 @@ static bool wpaint_stroke_test_start(bContext *C, wmOperator *op, const float mo
 	/* If not previously created, create vertex/weight paint mode session data */
 	vertex_paint_init_session(scene, ob);
 	vwpaint_update_cache_invariants(C, vd, ss, op, mouse);
-	vertex_paint_init_session_maps(ob);
-	vertex_paint_init_session_average_arrays(ts, ob);
+	vertex_paint_init_session_data(ts, ob);
 
 	if (ss->mode.wpaint.previous_weight != NULL) {
 		copy_vn_fl(ss->mode.wpaint.previous_weight, me->totvert, -1.0f);
@@ -2611,7 +2584,6 @@ static void do_wpaint_brush_smear_task_cb_ex(
 	}
 }
 
-
 static void do_wpaint_brush_draw_task_cb_ex(
         void *userdata, void *UNUSED(userdata_chunk), const int n, const int UNUSED(thread_id))
 {
@@ -2688,14 +2660,13 @@ static void do_wpaint_brush_calc_average_weight_cb_ex(
 	SculptSession *ss = data->ob->sculpt;
 	StrokeCache *cache = ss->cache;
 	CCGDerivedMesh *ccgdm = BKE_pbvh_get_ccgdm(ss->pbvh);
-	const struct SculptVertexPaintGeomMap *gmap = &ss->mode.wpaint.gmap;
 
-	double weight = 0.0;
-
-	gmap->tot_loops_hit[n] = 0.0;
-	data->ob->sculpt->mode.wpaint.average_weight[n] = 0.0;
 	const bool use_face_sel = (data->me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
 	const bool use_vert_sel = (data->me->editflag & ME_EDIT_PAINT_VERT_SEL) != 0;
+
+	struct WPaintAverageAccum *accum = (struct WPaintAverageAccum *)data->custom_data + n;
+	accum->len = 0;
+	accum->value = 0.0;
 
 	SculptBrushTest test;
 	sculpt_brush_test_init(ss, &test);
@@ -2714,39 +2685,43 @@ static void do_wpaint_brush_calc_average_weight_cb_ex(
 
 				/* If the vertex is selected. */
 				if (!(use_face_sel || use_vert_sel) || v_flag & SELECT) {
-					gmap->tot_loops_hit[n] += 1;
 					const MDeformVert *dv = &data->me->dvert[v_index];
-					weight += defvert_find_weight(dv, data->wpi->active.index);
+					accum->len += 1;
+					accum->value += defvert_find_weight(dv, data->wpi->active.index);
 				}
 			}
 		}
 	}
 	BKE_pbvh_vertex_iter_end;
-	data->ob->sculpt->mode.wpaint.average_weight[n] = weight;
 }
 
 static void calculate_average_weight(SculptThreadedTaskData *data, PBVHNode **UNUSED(nodes), int totnode)
 {
 	Scene *scene = CTX_data_scene(data->C);
-	const struct SculptVertexPaintGeomMap *gmap = &data->ob->sculpt->mode.wpaint.gmap;
 	UnifiedPaintSettings *ups = &scene->toolsettings->unified_paint_settings;
+
+	struct WPaintAverageAccum *accum = MEM_mallocN(sizeof(*accum) * totnode, __func__);
+	data->custom_data = accum;
+
 	BLI_task_parallel_range_ex(
 	        0, totnode, data, NULL, 0, do_wpaint_brush_calc_average_weight_cb_ex,
 	        ((data->sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
 
-	uint total_hit_loops = 0;
-	double total_weight = 0.0;
+	uint accum_len = 0;
+	double accum_weight = 0.0;
 	for (int i = 0; i < totnode; i++) {
-		total_hit_loops += gmap->tot_loops_hit[i];
-		total_weight += data->ob->sculpt->mode.wpaint.average_weight[i];
+		accum_len += accum[i].len;
+		accum_weight += accum[i].value;
 	}
-	if (total_hit_loops != 0) {
-		total_weight /= total_hit_loops;
+	if (accum_len != 0) {
+		accum_weight /= accum_len;
 		if (ups->flag & UNIFIED_PAINT_WEIGHT)
-			ups->weight = (float)total_weight;
+			ups->weight = (float)accum_weight;
 		else
-			data->brush->weight = (float)total_weight;
+			data->brush->weight = (float)accum_weight;
 	}
+
+	MEM_SAFE_FREE(data->custom_data);  /* 'accum' */
 }
 
 
@@ -3307,8 +3282,7 @@ static bool vpaint_stroke_test_start(bContext *C, struct wmOperator *op, const f
 	/* If not previously created, create vertex/weight paint mode session data */
 	vertex_paint_init_session(scene, ob);
 	vwpaint_update_cache_invariants(C, vp, ss, op, mouse);
-	vertex_paint_init_session_maps(ob);
-	vertex_paint_init_session_average_arrays(ts, ob);
+	vertex_paint_init_session_data(ts, ob);
 
 	if (ob->sculpt->mode.vpaint.previous_color != NULL) {
 		memset(ob->sculpt->mode.vpaint.previous_color, 0, sizeof(uint) * me->totloop);
@@ -3327,10 +3301,13 @@ static void do_vpaint_brush_calc_average_color_cb_ex(
 
 	StrokeCache *cache = ss->cache;
 	uint *lcol = data->lcol;
-	uint blend[3] = {0};
 	char *col;
-	gmap->tot_loops_hit[n] = 0;
+
 	const bool use_face_sel = (data->me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
+
+	struct VPaintAverageAccum *accum = (struct VPaintAverageAccum *)data->custom_data + n;
+	accum->len = 0;
+	memset(accum->value, 0, sizeof(accum->value));
 
 	SculptBrushTest test;
 	sculpt_brush_test_init(ss, &test);
@@ -3346,25 +3323,21 @@ static void do_vpaint_brush_calc_average_color_cb_ex(
 				/* If the vertex is selected for painting. */
 				const MVert *mv = &data->me->mvert[v_index];
 				if (!use_face_sel || mv->flag & SELECT) {
-					gmap->tot_loops_hit[n] += gmap->vert_to_loop[v_index].count;
+					accum->len += gmap->vert_to_loop[v_index].count;
 					/* if a vertex is within the brush region, then add it's color to the blend. */
 					for (int j = 0; j < gmap->vert_to_loop[v_index].count; j++) {
 						const int l_index = gmap->vert_to_loop[v_index].indices[j];
 						col = (char *)(&lcol[l_index]);
 						/* Color is squared to compensate the sqrt color encoding. */
-						blend[0] += col[0] * col[0];
-						blend[1] += col[1] * col[1];
-						blend[2] += col[2] * col[2];
+						accum->value[0] += col[0] * col[0];
+						accum->value[1] += col[1] * col[1];
+						accum->value[2] += col[2] * col[2];
 					}
 				}
 			}
 		}
 	}
 	BKE_pbvh_vertex_iter_end;
-
-	data->ob->sculpt->mode.vpaint.average_color[n][0] = blend[0];
-	data->ob->sculpt->mode.vpaint.average_color[n][1] = blend[1];
-	data->ob->sculpt->mode.vpaint.average_color[n][2] = blend[2];
 }
 
 static void handle_texture_brush(
@@ -3681,27 +3654,31 @@ static void do_vpaint_brush_smear_task_cb_ex(
 
 static void calculate_average_color(SculptThreadedTaskData *data, PBVHNode **UNUSED(nodes), int totnode)
 {
+	struct VPaintAverageAccum *accum = MEM_mallocN(sizeof(*accum) * totnode, __func__);
+	data->custom_data = accum;
+
 	BLI_task_parallel_range_ex(
 	        0, totnode, data, NULL, 0, do_vpaint_brush_calc_average_color_cb_ex,
 	        true, false);
 
-	const struct SculptVertexPaintGeomMap *gmap = &data->ob->sculpt->mode.vpaint.gmap;
-	uint total_hit_loops = 0;
-	uint total_color[3] = {0};
+	uint accum_len = 0;
+	uint accum_value[3] = {0};
 	uchar blend[4] = {0};
 	for (int i = 0; i < totnode; i++) {
-		total_hit_loops += gmap->tot_loops_hit[i];
-		total_color[0] += data->ob->sculpt->mode.vpaint.average_color[i][0];
-		total_color[1] += data->ob->sculpt->mode.vpaint.average_color[i][1];
-		total_color[2] += data->ob->sculpt->mode.vpaint.average_color[i][2];
+		accum_len += accum[i].len;
+		accum_value[0] += accum[i].value[0];
+		accum_value[1] += accum[i].value[1];
+		accum_value[2] += accum[i].value[2];
 	}
-	if (total_hit_loops != 0) {
-		blend[0] = round_fl_to_uchar(sqrtf(divide_round_i(total_color[0], total_hit_loops)));
-		blend[1] = round_fl_to_uchar(sqrtf(divide_round_i(total_color[1], total_hit_loops)));
-		blend[2] = round_fl_to_uchar(sqrtf(divide_round_i(total_color[2], total_hit_loops)));
+	if (accum_len != 0) {
+		blend[0] = round_fl_to_uchar(sqrtf(divide_round_i(accum_value[0], accum_len)));
+		blend[1] = round_fl_to_uchar(sqrtf(divide_round_i(accum_value[1], accum_len)));
+		blend[2] = round_fl_to_uchar(sqrtf(divide_round_i(accum_value[2], accum_len)));
 		blend[3] = 255;
 		data->vpd->paintcol = *((uint *)blend);
 	}
+
+	MEM_SAFE_FREE(data->custom_data);  /* 'accum' */
 }
 
 static void vpaint_paint_leaves(

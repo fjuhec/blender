@@ -166,9 +166,6 @@ struct SculptVertexPaintGeomMap {
 	struct MeshElemMap *vert_to_loop;
 	int *poly_map_mem;
 	struct MeshElemMap *vert_to_poly;
-
-	/* Runtime. */
-	unsigned int *tot_loops_hit;
 };
 
 /* Session data (mode-specific) */
@@ -223,9 +220,6 @@ typedef struct SculptSession {
 
 			/* For non-airbrush painting to re-apply from the original (MLoop aligned). */
 			unsigned int *previous_color;
-
-			/* For blur only (PBVH Node aligned). */
-			unsigned int (*average_color)[3];
 		} vpaint;
 
 		struct {
@@ -236,9 +230,6 @@ typedef struct SculptSession {
 			float *previous_weight;
 			/* Keep track of how much each vertex has been painted (non-airbrush only). */
 			float *alpha_weight;
-
-			/* For blur only (PBVH Node aligned). */
-			double *average_weight;
 		} wpaint;
 
 		//struct {

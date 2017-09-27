@@ -682,14 +682,12 @@ void BKE_sculptsession_free_vwpaint_data(struct SculptSession *ss)
 		gmap = &ss->mode.vpaint.gmap;
 
 		/* Free average, blur, and spray brush arrays */
-		MEM_SAFE_FREE(ss->mode.vpaint.average_color);
 		MEM_SAFE_FREE(ss->mode.vpaint.previous_color);
 	}
 	else if (ss->mode_type == OB_MODE_WEIGHT_PAINT) {
 		gmap = &ss->mode.wpaint.gmap;
 
 		/* Free average, blur, and spray brush arrays */
-		MEM_SAFE_FREE(ss->mode.wpaint.average_weight);
 		MEM_SAFE_FREE(ss->mode.wpaint.alpha_weight);
 		MEM_SAFE_FREE(ss->mode.wpaint.previous_weight);
 	}
@@ -700,8 +698,6 @@ void BKE_sculptsession_free_vwpaint_data(struct SculptSession *ss)
 	MEM_SAFE_FREE(gmap->vert_map_mem);
 	MEM_SAFE_FREE(gmap->vert_to_poly);
 	MEM_SAFE_FREE(gmap->poly_map_mem);
-
-	MEM_SAFE_FREE(gmap->tot_loops_hit);
 }
 
 /* Write out the sculpt dynamic-topology BMesh to the Mesh */
