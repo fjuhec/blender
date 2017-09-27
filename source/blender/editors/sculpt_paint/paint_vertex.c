@@ -173,13 +173,13 @@ static VPaint *new_vpaint(int wpaint)
 	return vp;
 }
 
-unsigned int vpaint_get_current_col(Scene *scene, VPaint *vp)
+uint vpaint_get_current_col(Scene *scene, VPaint *vp)
 {
 	Brush *brush = BKE_paint_brush(&vp->paint);
-	unsigned char col[4];
+	uchar col[4];
 	rgb_float_to_uchar(col, BKE_brush_color_get(scene, brush));
 	col[3] = 255; /* alpha isn't used, could even be removed to speedup paint a little */
-	return *(unsigned int *)col;
+	return *(uint *)col;
 }
 
 static void do_shared_vertexcol(Mesh *me, bool *mlooptag)
@@ -307,7 +307,7 @@ static void copy_wpaint_prev(VPaint *wp, MDeformVert *dverts, int dcount)
 	}
 }
 
-bool ED_vpaint_fill(Object *ob, unsigned int paintcol)
+bool ED_vpaint_fill(Object *ob, uint paintcol)
 {
 	Mesh *me;
 	const MPoly *mp;
@@ -349,7 +349,7 @@ bool ED_wpaint_fill(VPaint *wp, Object *ob, float paintweight)
 	const MPoly *mp;
 	MDeformWeight *dw, *dw_prev;
 	int vgroup_active, vgroup_mirror = -1;
-	unsigned int index;
+	uint index;
 	const bool topology = (me->editflag & ME_EDIT_MIRROR_TOPO) != 0;
 
 	/* mutually exclusive, could be made into a */
@@ -369,14 +369,14 @@ bool ED_wpaint_fill(VPaint *wp, Object *ob, float paintweight)
 	copy_wpaint_prev(wp, me->dvert, me->totvert);
 	
 	for (index = 0, mp = me->mpoly; index < me->totpoly; index++, mp++) {
-		unsigned int fidx = mp->totloop - 1;
+		uint fidx = mp->totloop - 1;
 
 		if ((paint_selmode == SCE_SELECT_FACE) && !(mp->flag & ME_FACE_SEL)) {
 			continue;
 		}
 
 		do {
-			unsigned int vidx = me->mloop[mp->loopstart + fidx].v;
+			uint vidx = me->mloop[mp->loopstart + fidx].v;
 
 			if (!me->dvert[vidx].flag) {
 				if ((paint_selmode == SCE_SELECT_VERTEX) && !(me->mvert[vidx].flag & SELECT)) {
@@ -525,7 +525,7 @@ void vpaint_dogamma(Scene *scene)
 	Object *ob;
 	float igam, fac;
 	int a, temp;
-	unsigned char *cp, gamtab[256];
+	uchar *cp, gamtab[256];
 
 	ob = OBACT;
 	me = BKE_mesh_from_object(ob);
@@ -547,7 +547,7 @@ void vpaint_dogamma(Scene *scene)
 	}
 
 	a = 4 * me->totface;
-	cp = (unsigned char *)me->mcol;
+	cp = (uchar *)me->mcol;
 	while (a--) {
 
 		cp[1] = gamtab[cp[1]];
@@ -559,11 +559,11 @@ void vpaint_dogamma(Scene *scene)
 }
 #endif
 
-BLI_INLINE unsigned int mcol_blend(unsigned int col1, unsigned int col2, int fac)
+BLI_INLINE uint mcol_blend(uint col1, uint col2, int fac)
 {
-	unsigned char *cp1, *cp2, *cp;
+	uchar *cp1, *cp2, *cp;
 	int mfac;
-	unsigned int col = 0;
+	uint col = 0;
 
 	if (fac == 0) {
 		return col1;
@@ -575,9 +575,9 @@ BLI_INLINE unsigned int mcol_blend(unsigned int col1, unsigned int col2, int fac
 
 	mfac = 255 - fac;
 
-	cp1 = (unsigned char *)&col1;
-	cp2 = (unsigned char *)&col2;
-	cp  = (unsigned char *)&col;
+	cp1 = (uchar *)&col1;
+	cp2 = (uchar *)&col2;
+	cp  = (uchar *)&col;
 
 	/* Updated to use the rgb squared color model which blends nicer. */
 	int r1 = cp1[0] * cp1[0];
@@ -596,19 +596,19 @@ BLI_INLINE unsigned int mcol_blend(unsigned int col1, unsigned int col2, int fac
 	return col;
 }
 
-BLI_INLINE unsigned int mcol_add(unsigned int col1, unsigned int col2, int fac)
+BLI_INLINE uint mcol_add(uint col1, uint col2, int fac)
 {
-	unsigned char *cp1, *cp2, *cp;
+	uchar *cp1, *cp2, *cp;
 	int temp;
-	unsigned int col = 0;
+	uint col = 0;
 
 	if (fac == 0) {
 		return col1;
 	}
 
-	cp1 = (unsigned char *)&col1;
-	cp2 = (unsigned char *)&col2;
-	cp  = (unsigned char *)&col;
+	cp1 = (uchar *)&col1;
+	cp2 = (uchar *)&col2;
+	cp  = (uchar *)&col;
 
 	temp = cp1[0] + divide_round_i((fac * cp2[0]), 255);
 	cp[0] = (temp > 254) ? 255 : temp;
@@ -621,19 +621,19 @@ BLI_INLINE unsigned int mcol_add(unsigned int col1, unsigned int col2, int fac)
 	return col;
 }
 
-BLI_INLINE unsigned int mcol_sub(unsigned int col1, unsigned int col2, int fac)
+BLI_INLINE uint mcol_sub(uint col1, uint col2, int fac)
 {
-	unsigned char *cp1, *cp2, *cp;
+	uchar *cp1, *cp2, *cp;
 	int temp;
-	unsigned int col = 0;
+	uint col = 0;
 
 	if (fac == 0) {
 		return col1;
 	}
 
-	cp1 = (unsigned char *)&col1;
-	cp2 = (unsigned char *)&col2;
-	cp  = (unsigned char *)&col;
+	cp1 = (uchar *)&col1;
+	cp2 = (uchar *)&col2;
+	cp  = (uchar *)&col;
 
 	temp = cp1[0] - divide_round_i((fac * cp2[0]), 255);
 	cp[0] = (temp < 0) ? 0 : temp;
@@ -646,11 +646,11 @@ BLI_INLINE unsigned int mcol_sub(unsigned int col1, unsigned int col2, int fac)
 	return col;
 }
 
-BLI_INLINE unsigned int mcol_mul(unsigned int col1, unsigned int col2, int fac)
+BLI_INLINE uint mcol_mul(uint col1, uint col2, int fac)
 {
-	unsigned char *cp1, *cp2, *cp;
+	uchar *cp1, *cp2, *cp;
 	int mfac;
-	unsigned int col = 0;
+	uint col = 0;
 
 	if (fac == 0) {
 		return col1;
@@ -658,9 +658,9 @@ BLI_INLINE unsigned int mcol_mul(unsigned int col1, unsigned int col2, int fac)
 
 	mfac = 255 - fac;
 
-	cp1 = (unsigned char *)&col1;
-	cp2 = (unsigned char *)&col2;
-	cp  = (unsigned char *)&col;
+	cp1 = (uchar *)&col1;
+	cp2 = (uchar *)&col2;
+	cp  = (uchar *)&col;
 
 	/* first mul, then blend the fac */
 	cp[0] = divide_round_i(mfac * cp1[0] * 255 + fac * cp2[0] * cp1[0], 255 * 255);
@@ -671,11 +671,11 @@ BLI_INLINE unsigned int mcol_mul(unsigned int col1, unsigned int col2, int fac)
 	return col;
 }
 
-BLI_INLINE unsigned int mcol_lighten(unsigned int col1, unsigned int col2, int fac)
+BLI_INLINE uint mcol_lighten(uint col1, uint col2, int fac)
 {
-	unsigned char *cp1, *cp2, *cp;
+	uchar *cp1, *cp2, *cp;
 	int mfac;
-	unsigned int col = 0;
+	uint col = 0;
 
 	if (fac == 0) {
 		return col1;
@@ -686,9 +686,9 @@ BLI_INLINE unsigned int mcol_lighten(unsigned int col1, unsigned int col2, int f
 
 	mfac = 255 - fac;
 
-	cp1 = (unsigned char *)&col1;
-	cp2 = (unsigned char *)&col2;
-	cp  = (unsigned char *)&col;
+	cp1 = (uchar *)&col1;
+	cp2 = (uchar *)&col2;
+	cp  = (uchar *)&col;
 
 	/* See if are lighter, if so mix, else don't do anything.
 	 * if the paint col is darker then the original, then ignore */
@@ -704,11 +704,11 @@ BLI_INLINE unsigned int mcol_lighten(unsigned int col1, unsigned int col2, int f
 	return col;
 }
 
-BLI_INLINE unsigned int mcol_darken(unsigned int col1, unsigned int col2, int fac)
+BLI_INLINE uint mcol_darken(uint col1, uint col2, int fac)
 {
-	unsigned char *cp1, *cp2, *cp;
+	uchar *cp1, *cp2, *cp;
 	int mfac;
-	unsigned int col = 0;
+	uint col = 0;
 
 	if (fac == 0) {
 		return col1;
@@ -719,9 +719,9 @@ BLI_INLINE unsigned int mcol_darken(unsigned int col1, unsigned int col2, int fa
 
 	mfac = 255 - fac;
 
-	cp1 = (unsigned char *)&col1;
-	cp2 = (unsigned char *)&col2;
-	cp  = (unsigned char *)&col;
+	cp1 = (uchar *)&col1;
+	cp2 = (uchar *)&col2;
+	cp  = (uchar *)&col;
 
 	/* See if were darker, if so mix, else don't do anything.
 	 * if the paint col is brighter then the original, then ignore */
@@ -737,8 +737,8 @@ BLI_INLINE unsigned int mcol_darken(unsigned int col1, unsigned int col2, int fa
 }
 
 /* wpaint has 'wpaint_blend_tool' */
-static unsigned int vpaint_blend_tool(const int tool, const unsigned int col,
-                                      const unsigned int paintcol, const int alpha_i)
+static uint vpaint_blend_tool(const int tool, const uint col,
+                                      const uint paintcol, const int alpha_i)
 {
 	switch (tool) {
 		case PAINT_BLEND_MIX:
@@ -757,9 +757,9 @@ static unsigned int vpaint_blend_tool(const int tool, const unsigned int col,
 }
 
 /* wpaint has 'wpaint_blend' */
-static unsigned int vpaint_blend(
-        VPaint *vp, unsigned int col, unsigned int colorig,
-        const unsigned int paintcol, const int alpha_i,
+static uint vpaint_blend(
+        VPaint *vp, uint col, uint colorig,
+        const uint paintcol, const int alpha_i,
         /* pre scaled from [0-1] --> [0-255] */
         const int brush_alpha_value_i)
 {
@@ -770,7 +770,7 @@ static unsigned int vpaint_blend(
 
 	/* if no spray, clip color adding with colorig & orig alpha */
 	if ((vp->flag & VP_SPRAY) == 0) {
-		unsigned int testcol, a;
+		uint testcol, a;
 		char *cp, *ct, *co;
 		
 		testcol = vpaint_blend_tool(tool, colorig, paintcol, brush_alpha_value_i);
@@ -966,7 +966,7 @@ static int weight_sample_invoke(bContext *C, wmOperator *op, const wmEvent *even
 	if (me && me->dvert && vc.v3d && vc.rv3d && (vc.obact->actdef != 0)) {
 		const bool use_vert_sel = (me->editflag & ME_EDIT_PAINT_VERT_SEL) != 0;
 		int v_idx_best = -1;
-		unsigned int index;
+		uint index;
 
 		view3d_operator_needs_opengl(C);
 		ED_view3d_init_mats_rv3d(vc.obact, vc.rv3d);
@@ -1077,7 +1077,7 @@ static EnumPropertyItem *weight_paint_sample_enum_itemf(
 				const bool use_vert_sel = (me->editflag & ME_EDIT_PAINT_VERT_SEL) != 0;
 				int *groups = MEM_callocN(defbase_tot * sizeof(int), "groups");
 				bool found = false;
-				unsigned int index;
+				uint index;
 
 				const int mval[2] = {
 				    win->eventstate->x - vc.ar->winrct.xmin,
@@ -1096,7 +1096,7 @@ static EnumPropertyItem *weight_paint_sample_enum_itemf(
 				else {
 					if (ED_mesh_pick_face(C, vc.obact, mval, &index, ED_MESH_PICK_DEFAULT_FACE_SIZE)) {
 						const MPoly *mp = &me->mpoly[index];
-						unsigned int fidx = mp->totloop - 1;
+						uint fidx = mp->totloop - 1;
 
 						do {
 							MDeformVert *dvert = &me->dvert[me->mloop[mp->loopstart + fidx].v];
@@ -1176,7 +1176,7 @@ void PAINT_OT_weight_sample_group(wmOperatorType *ot)
 static void do_weight_paint_normalize_all(MDeformVert *dvert, const int defbase_tot, const bool *vgroup_validmap)
 {
 	float sum = 0.0f, fac;
-	unsigned int i, tot = 0;
+	uint i, tot = 0;
 	MDeformWeight *dw;
 
 	for (i = dvert->totweight, dw = dvert->dw; i != 0; i--, dw++) {
@@ -1222,7 +1222,7 @@ static bool do_weight_paint_normalize_all_locked(
 	float sum = 0.0f, fac;
 	float sum_unlock = 0.0f;
 	float lock_weight = 0.0f;
-	unsigned int i, tot = 0;
+	uint i, tot = 0;
 	MDeformWeight *dw;
 
 	if (lock_flags == NULL) {
@@ -1455,7 +1455,7 @@ static void do_weight_paint_vertex_single(
         /* vars which remain the same for every vert */
         VPaint *wp, Object *ob, const WeightPaintInfo *wpi,
         /* vars which change on each stroke */
-        const unsigned int index, float alpha, float paintweight
+        const uint index, float alpha, float paintweight
         )
 {
 	Mesh *me = ob->data;
@@ -1598,7 +1598,7 @@ static void do_weight_paint_vertex_multi(
         /* vars which remain the same for every vert */
         VPaint *wp, Object *ob, const WeightPaintInfo *wpi,
         /* vars which change on each stroke */
-        const unsigned int index, float alpha, float paintweight)
+        const uint index, float alpha, float paintweight)
 {
 	Mesh *me = ob->data;
 	MDeformVert *dv = &me->dvert[index];
@@ -1685,7 +1685,7 @@ static void do_weight_paint_vertex(
         /* vars which remain the same for every vert */
         VPaint *wp, Object *ob, const WeightPaintInfo *wpi,
         /* vars which change on each stroke */
-        const unsigned int index, float alpha, float paintweight)
+        const uint index, float alpha, float paintweight)
 {
 	if (wpi->do_multipaint) {
 		do_weight_paint_vertex_multi(wp, ob, wpi, index, alpha, paintweight);
@@ -1736,15 +1736,15 @@ static void vertex_paint_init_session_average_arrays(Object *ob)
 		Mesh *me = BKE_mesh_from_object(ob);
 
 		ob->sculpt->modes.vwpaint.total_color =
-		        MEM_callocN(totNode * 3 * sizeof(unsigned int), "total_color");
+		        MEM_callocN(totNode * 3 * sizeof(uint), "total_color");
 		ob->sculpt->modes.vwpaint.total_weight =
 		        MEM_callocN(totNode * sizeof(double), "total_weight");
 		ob->sculpt->modes.vwpaint.tot_loops_hit =
-		        MEM_callocN(totNode * sizeof(unsigned int), "tot_loops_hit");
+		        MEM_callocN(totNode * sizeof(uint), "tot_loops_hit");
 		ob->sculpt->modes.vwpaint.max_weight =
 		        MEM_callocN(me->totvert * sizeof(float), "max_weight");
 		ob->sculpt->modes.vwpaint.previous_color =
-		        MEM_callocN(me->totloop * sizeof(unsigned int), "previous_color");
+		        MEM_callocN(me->totloop * sizeof(uint), "previous_color");
 	}
 }
 
@@ -2490,9 +2490,9 @@ static void do_wpaint_brush_smear_task_cb_ex(
 							const int p_index = ss->modes.vwpaint.vert_to_poly[v_index].indices[j];
 							const MPoly *mp = &data->me->mpoly[p_index];
 							for (int k = 0; k < mp->totloop; k++) {
-								const unsigned int l_index = mp->loopstart + k;
+								const uint l_index = mp->loopstart + k;
 								const MLoop *ml = &data->me->mloop[l_index];
-								const unsigned int v_other_index = ml->v;
+								const uint v_other_index = ml->v;
 								const MVert *mv_other = &data->me->mvert[v_other_index];
 
 								/* Get the direction from the selected vert to the neighbor. */
@@ -2654,7 +2654,7 @@ static void calculate_average_weight(SculptThreadedTaskData *data, PBVHNode **UN
 	        0, totnode, data, NULL, 0, do_wpaint_brush_calc_ave_weight_cb_ex,
 	        ((data->sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
 
-	unsigned int total_hit_loops = 0;
+	uint total_hit_loops = 0;
 	double total_weight = 0.0;
 	for (int i = 0; i < totnode; i++) {
 		total_hit_loops += data->ob->sculpt->modes.vwpaint.tot_loops_hit[i];
@@ -3145,7 +3145,7 @@ typedef struct PolyFaceMap {
 
 struct VPaintData {
 	ViewContext vc;
-	unsigned int paintcol;
+	uint paintcol;
 
 	struct VertProjHandle *vp_handle;
 	struct DMCoNo *vertexcosnos;
@@ -3244,8 +3244,8 @@ static void do_vpaint_brush_calc_ave_color_cb_ex(
 	CCGDerivedMesh *ccgdm = BKE_pbvh_get_ccgdm(ss->pbvh);
 
 	StrokeCache *cache = ss->cache;
-	unsigned int *lcol = data->lcol;
-	unsigned int blend[3] = {0};
+	uint *lcol = data->lcol;
+	uint blend[3] = {0};
 	char *col;
 	data->ob->sculpt->modes.vwpaint.tot_loops_hit[n] = 0;
 	const bool use_face_sel = (data->me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
@@ -3287,7 +3287,7 @@ static void do_vpaint_brush_calc_ave_color_cb_ex(
 
 static void handle_texture_brush(
         SculptThreadedTaskData *data, PBVHVertexIter vd, float size_pressure, float alpha_pressure,
-        float *r_alpha, unsigned int *r_color)
+        float *r_alpha, uint *r_color)
 {
 	SculptSession *ss = data->ob->sculpt;
 	CCGDerivedMesh *ccgdm = BKE_pbvh_get_ccgdm(ss->pbvh);
@@ -3299,9 +3299,9 @@ static void handle_texture_brush(
 	*r_alpha = calc_vp_alpha_col_dl(
 	        data->vp, &data->vpd->vc, data->vpd->vpimat,
 	        &data->vpd->vertexcosnos[v_index], ss->cache->mouse, size_pressure, alpha_pressure, rgba);
-	rgb_uchar_to_float(rgba_br, (const unsigned char *)&data->vpd->paintcol);
+	rgb_uchar_to_float(rgba_br, (const uchar *)&data->vpd->paintcol);
 	mul_v3_v3(rgba_br, rgba);
-	rgb_float_to_uchar((unsigned char *)r_color, rgba_br);
+	rgb_float_to_uchar((uchar *)r_color, rgba_br);
 }
 
 static void do_vpaint_brush_draw_task_cb_ex(
@@ -3314,7 +3314,7 @@ static void do_vpaint_brush_draw_task_cb_ex(
 	Brush *brush = data->brush;
 	StrokeCache *cache = ss->cache;
 	const float brush_strength = cache->bstrength;
-	unsigned int *lcol = data->lcol;
+	uint *lcol = data->lcol;
 	Scene *scene = CTX_data_scene(data->C);
 	float brush_size_pressure, brush_alpha_value, brush_alpha_pressure;
 	get_brush_alpha_data(scene, ss, brush, &brush_size_pressure, &brush_alpha_value, &brush_alpha_pressure);
@@ -3343,7 +3343,7 @@ static void do_vpaint_brush_draw_task_cb_ex(
 				const float view_dot = (vd.no) ? dot_vf3vs3(cache->sculpt_normal_symm, vd.no) : 1.0;
 				if (view_dot > 0.0f) {
 					const float brush_fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
-					unsigned int color_final = data->vpd->paintcol;
+					uint color_final = data->vpd->paintcol;
 
 					/* If we're painting with a texture, sample the texture color and alpha. */
 					float tex_alpha = 1.0;
@@ -3390,7 +3390,7 @@ static void do_vpaint_brush_blur_task_cb_ex(
 	Brush *brush = data->brush;
 	StrokeCache *cache = ss->cache;
 	const float brush_strength = cache->bstrength;
-	unsigned int *lcol = data->lcol;
+	uint *lcol = data->lcol;
 	Scene *scene = CTX_data_scene(data->C);
 	float brush_size_pressure, brush_alpha_value, brush_alpha_pressure;
 	get_brush_alpha_data(scene, ss, brush, &brush_size_pressure, &brush_alpha_value, &brush_alpha_pressure);
@@ -3418,22 +3418,22 @@ static void do_vpaint_brush_blur_task_cb_ex(
 				/* If the vertex is selected for painting. */
 				if (!use_face_sel || mv->flag & SELECT) {
 					/* Get the average poly color */
-					unsigned int color_final = 0;
+					uint color_final = 0;
 					int total_hit_loops = 0;
-					unsigned int blend[4] = {0};
+					uint blend[4] = {0};
 					for (int j = 0; j < ss->modes.vwpaint.vert_to_poly[v_index].count; j++) {
 						int p_index = ss->modes.vwpaint.vert_to_poly[v_index].indices[j];
 						const MPoly *mp = &data->me->mpoly[p_index];
 						if (!use_face_sel || mp->flag & ME_FACE_SEL) {
 							total_hit_loops += mp->totloop;
 							for (int k = 0; k < mp->totloop; k++) {
-								const unsigned int l_index = mp->loopstart + k;
+								const uint l_index = mp->loopstart + k;
 								const char *col = (const char *)(&lcol[l_index]);
 								/* Color is squared to compensate the sqrt color encoding. */
-								blend[0] += (unsigned int)col[0] * (unsigned int)col[0];
-								blend[1] += (unsigned int)col[1] * (unsigned int)col[1];
-								blend[2] += (unsigned int)col[2] * (unsigned int)col[2];
-								blend[3] += (unsigned int)col[3] * (unsigned int)col[3];
+								blend[0] += (uint)col[0] * (uint)col[0];
+								blend[1] += (uint)col[1] * (uint)col[1];
+								blend[2] += (uint)col[2] * (uint)col[2];
+								blend[3] += (uint)col[3] * (uint)col[3];
 							}
 						}
 					}
@@ -3464,7 +3464,7 @@ static void do_vpaint_brush_blur_task_cb_ex(
 								lcol[l_index] = vpaint_blend(
 								        data->vp, lcol[l_index],
 								        ss->modes.vwpaint.previous_color[l_index],
-								        *((unsigned int *)col), final_alpha, 255 * brush_strength);
+								        *((uint *)col), final_alpha, 255 * brush_strength);
 							}
 						}
 					}
@@ -3485,7 +3485,7 @@ static void do_vpaint_brush_smear_task_cb_ex(
 	Brush *brush = data->brush;
 	StrokeCache *cache = ss->cache;
 	const float brush_strength = cache->bstrength;
-	unsigned int *lcol = data->lcol;
+	uint *lcol = data->lcol;
 	Scene *scene = CTX_data_scene(data->C);
 	float brush_size_pressure, brush_alpha_value, brush_alpha_pressure;
 	get_brush_alpha_data(scene, ss, brush, &brush_size_pressure, &brush_alpha_value, &brush_alpha_pressure);
@@ -3524,7 +3524,7 @@ static void do_vpaint_brush_smear_task_cb_ex(
 						float stroke_dot_max = 0.0f;
 
 						/* Get the color of the loop in the opposite direction of the brush movement */
-						unsigned int color_final = 0;
+						uint color_final = 0;
 						for (int j = 0; j < ss->modes.vwpaint.vert_to_poly[v_index].count; j++) {
 							const int p_index = ss->modes.vwpaint.vert_to_poly[v_index].indices[j];
 							const int l_index = ss->modes.vwpaint.vert_to_loop[v_index].indices[j];
@@ -3533,7 +3533,7 @@ static void do_vpaint_brush_smear_task_cb_ex(
 							if (!use_face_sel || mp->flag & ME_FACE_SEL) {
 								for (int k = 0; k < mp->totloop; k++) {
 									const MLoop *ml = &data->me->mloop[l_index];
-									const unsigned int v_other_index = ml->v;
+									const uint v_other_index = ml->v;
 									const MVert *mv_other = &data->me->mvert[v_other_index];
 
 									/* Get the direction from the selected vert to the neighbor. */
@@ -3590,9 +3590,9 @@ static void calculate_average_color(SculptThreadedTaskData *data, PBVHNode **UNU
 	        0, totnode, data, NULL, 0, do_vpaint_brush_calc_ave_color_cb_ex,
 	        true, false);
 
-	unsigned int total_hit_loops = 0;
-	unsigned int total_color[3] = {0};
-	unsigned char blend[4] = {0};
+	uint total_hit_loops = 0;
+	uint total_color[3] = {0};
+	uchar blend[4] = {0};
 	for (int i = 0; i < totnode; i++) {
 		total_hit_loops += data->ob->sculpt->modes.vwpaint.tot_loops_hit[i];
 		total_color[0] += data->ob->sculpt->modes.vwpaint.total_color[i][0];
@@ -3604,7 +3604,7 @@ static void calculate_average_color(SculptThreadedTaskData *data, PBVHNode **UNU
 		blend[1] = iroundf(sqrtf(divide_round_i(total_color[1], total_hit_loops)));
 		blend[2] = iroundf(sqrtf(divide_round_i(total_color[2], total_hit_loops)));
 		blend[3] = 255;
-		data->vpd->paintcol = *((unsigned int *)blend);
+		data->vpd->paintcol = *((uint *)blend);
 	}
 }
 
@@ -3616,7 +3616,7 @@ static void vpaint_paint_leaves(
 
 	SculptThreadedTaskData data = {
 		.sd = sd, .ob = ob, .brush = brush, .nodes = nodes, .vp = vp, .vpd = vpd,
-		.lcol = (unsigned int *)me->mloopcol, .me = me, .C = C,
+		.lcol = (uint *)me->mloopcol, .me = me, .C = C,
 	};
 	switch (brush->vertexpaint_tool) {
 		case PAINT_BLEND_AVERAGE:
