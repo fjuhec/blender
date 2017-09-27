@@ -2714,15 +2714,9 @@ static void do_wpaint_brush_calc_average_weight_cb_ex(
 
 				/* If the vertex is selected. */
 				if (!(use_face_sel || use_vert_sel) || v_flag & SELECT) {
-					gmap->tot_loops_hit[n] += gmap->vert_to_loop[v_index].count;
-					/* if a vertex is within the brush region, then add it's weight to the total weight. */
-					for (int j = 0; j < gmap->vert_to_loop[v_index].count; j++) {
-						const int l_index = gmap->vert_to_loop[v_index].indices[j];
-
-						const MLoop *ml = &data->me->mloop[l_index];
-						const MDeformVert *dv = &data->me->dvert[ml->v];
-						weight += defvert_find_weight(dv, data->wpi->active.index);
-					}
+					gmap->tot_loops_hit[n] += 1;
+					const MDeformVert *dv = &data->me->dvert[v_index];
+					weight += defvert_find_weight(dv, data->wpi->active.index);
 				}
 			}
 		}
