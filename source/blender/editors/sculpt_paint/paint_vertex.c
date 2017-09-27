@@ -293,25 +293,35 @@ static int wpaint_mirror_vgroup_ensure(Object *ob, const int vgroup_active)
 	return -1;
 }
 
-static void free_wpaint_prev(VPaint *vp)
+struct WPaintPrev {
+	struct MDeformVert *wpaint_prev;	/* previous vertex weights */
+	int tot;							/* allocation size of prev buffers */
+};
+
+static void wpaint_prev_init(struct WPaintPrev *wpp)
 {
-	if (vp->wpaint_prev) {
-		BKE_defvert_array_free(vp->wpaint_prev, vp->tot);
-		vp->wpaint_prev = NULL;
-		vp->tot = 0;
+	wpp->wpaint_prev = NULL;
+	wpp->tot = 0;
+}
+
+static void wpaint_prev_create(struct WPaintPrev *wpp, MDeformVert *dverts, int dcount)
+{
+	wpaint_prev_init(wpp);
+
+	if (dverts && dcount) {
+		wpp->wpaint_prev = MEM_mallocN(sizeof(MDeformVert) * dcount, "wpaint prev");
+		wpp->tot = dcount;
+		BKE_defvert_array_copy(wpp->wpaint_prev, dverts, dcount);
 	}
 }
 
-static void copy_wpaint_prev(VPaint *wp, MDeformVert *dverts, int dcount)
+static void wpaint_prev_destroy(struct WPaintPrev *wpp)
 {
-	free_wpaint_prev(wp);
-	
-	if (dverts && dcount) {
-		
-		wp->wpaint_prev = MEM_mallocN(sizeof(MDeformVert) * dcount, "wpaint prev");
-		wp->tot = dcount;
-		BKE_defvert_array_copy(wp->wpaint_prev, dverts, dcount);
+	if (wpp->wpaint_prev) {
+		BKE_defvert_array_free(wpp->wpaint_prev, wpp->tot);
 	}
+	wpp->wpaint_prev = NULL;
+	wpp->tot = 0;
 }
 
 bool ED_vpaint_fill(Object *ob, uint paintcol)
@@ -350,7 +360,7 @@ bool ED_vpaint_fill(Object *ob, uint paintcol)
 
 
 /* fills in the selected faces with the current weight and vertex group */
-bool ED_wpaint_fill(VPaint *wp, Object *ob, float paintweight)
+bool ED_wpaint_fill(Object *ob, float paintweight)
 {
 	Mesh *me = ob->data;
 	const MPoly *mp;
@@ -373,7 +383,8 @@ bool ED_wpaint_fill(VPaint *wp, Object *ob, float paintweight)
 		vgroup_mirror = wpaint_mirror_vgroup_ensure(ob, vgroup_active);
 	}
 	
-	copy_wpaint_prev(wp, me->dvert, me->totvert);
+	struct WPaintPrev wpp;
+	wpaint_prev_create(&wpp, me->dvert, me->totvert);
 	
 	for (index = 0, mp = me->mpoly; index < me->totpoly; index++, mp++) {
 		uint fidx = mp->totloop - 1;
@@ -392,7 +403,7 @@ bool ED_wpaint_fill(VPaint *wp, Object *ob, float paintweight)
 
 				dw = defvert_verify_index(&me->dvert[vidx], vgroup_active);
 				if (dw) {
-					dw_prev = defvert_verify_index(wp->wpaint_prev + vidx, vgroup_active);
+					dw_prev = defvert_verify_index(wpp.wpaint_prev + vidx, vgroup_active);
 					dw_prev->weight = dw->weight; /* set the undo weight */
 					dw->weight = paintweight;
 
@@ -402,11 +413,11 @@ bool ED_wpaint_fill(VPaint *wp, Object *ob, float paintweight)
 							/* copy, not paint again */
 							if (vgroup_mirror != -1) {
 								dw = defvert_verify_index(me->dvert + j, vgroup_mirror);
-								dw_prev = defvert_verify_index(wp->wpaint_prev + j, vgroup_mirror);
+								dw_prev = defvert_verify_index(wpp.wpaint_prev + j, vgroup_mirror);
 							}
 							else {
 								dw = defvert_verify_index(me->dvert + j, vgroup_active);
-								dw_prev = defvert_verify_index(wp->wpaint_prev + j, vgroup_active);
+								dw_prev = defvert_verify_index(wpp.wpaint_prev + j, vgroup_active);
 							}
 							dw_prev->weight = dw->weight; /* set the undo weight */
 							dw->weight = paintweight;
@@ -426,7 +437,7 @@ bool ED_wpaint_fill(VPaint *wp, Object *ob, float paintweight)
 		}
 	}
 
-	copy_wpaint_prev(wp, NULL, 0);
+	wpaint_prev_destroy(&wpp);
 
 	DAG_id_tag_update(&me->id, 0);
 
@@ -1716,44 +1727,103 @@ static void vertex_paint_init_session(Scene *scene, Object *ob)
 static void vertex_paint_init_session_maps(Object *ob)
 {
 	/* Create maps */
-	if (ob->sculpt->modes.vwpaint.vert_to_loop == NULL) {
+	struct SculptVertexPaintGeomMap *gmap = NULL;
+	if (ob->mode == OB_MODE_VERTEX_PAINT) {
+		gmap = &ob->sculpt->mode.vpaint.gmap;
+		ob->sculpt->mode_type = OB_MODE_VERTEX_PAINT;
+	}
+	else if (ob->mode == OB_MODE_WEIGHT_PAINT) {
+		gmap = &ob->sculpt->mode.wpaint.gmap;
+		ob->sculpt->mode_type = OB_MODE_WEIGHT_PAINT;
+	}
+	else {
+		BLI_assert(0);
+		return;
+	}
+
+	if (gmap->vert_to_loop == NULL) {
 		Mesh *me = ob->data;
-		ob->sculpt->modes.vwpaint.vert_map_mem = NULL;
-		ob->sculpt->modes.vwpaint.vert_to_loop = NULL;
-		ob->sculpt->modes.vwpaint.poly_map_mem = NULL;
-		ob->sculpt->modes.vwpaint.vert_to_poly = NULL;
+		gmap->vert_map_mem = NULL;
+		gmap->vert_to_loop = NULL;
+		gmap->poly_map_mem = NULL;
+		gmap->vert_to_poly = NULL;
 		BKE_mesh_vert_loop_map_create(
-		        &ob->sculpt->modes.vwpaint.vert_to_loop,
-		        &ob->sculpt->modes.vwpaint.vert_map_mem,
+		        &gmap->vert_to_loop,
+		        &gmap->vert_map_mem,
 		        me->mpoly, me->mloop, me->totvert, me->totpoly, me->totloop);
 		BKE_mesh_vert_poly_map_create(
-		        &ob->sculpt->modes.vwpaint.vert_to_poly,
-		        &ob->sculpt->modes.vwpaint.poly_map_mem,
+		        &gmap->vert_to_poly,
+		        &gmap->poly_map_mem,
 		        me->mpoly, me->mloop, me->totvert, me->totpoly, me->totloop);
+	}
+
+	if (gmap->tot_loops_hit == NULL) {
+		/* I think the totNodes might include internal nodes, and we really only need the tot leaves. */
+		int nodes_len = BKE_pbvh_get_num_nodes(ob->sculpt->pbvh);
+
+		gmap->tot_loops_hit =
+		        MEM_callocN(nodes_len * sizeof(uint), "tot_loops_hit");
 	}
 }
 
-static void vertex_paint_init_session_average_arrays(Object *ob)
+static void vertex_paint_init_session_average_arrays(const ToolSettings *ts, Object *ob)
 {
+	const Brush *brush = ob->sculpt->cache->brush;
+
+	/* Even though we only want 'PBVH_Leaf' nodes, align with 'pbvh->nodes'. */
+	const int nodes_len = BKE_pbvh_get_num_nodes(ob->sculpt->pbvh);
+	const Mesh *me = BKE_mesh_from_object(ob);
+
 	/* Create average brush arrays */
-	if (!ob->sculpt->modes.vwpaint.tot_loops_hit) {
-		/* I think the totNodes might include internal nodes, and we really only need the tot leaves. */
-		int totNode = BKE_pbvh_get_num_nodes(ob->sculpt->pbvh);
+	if (ob->mode == OB_MODE_VERTEX_PAINT) {
+		ob->sculpt->mode_type = OB_MODE_VERTEX_PAINT;
 
-		Mesh *me = BKE_mesh_from_object(ob);
 
-		ob->sculpt->modes.vwpaint.total_color =
-		        MEM_callocN(totNode * 3 * sizeof(uint), "total_color");
-		ob->sculpt->modes.vwpaint.total_weight =
-		        MEM_callocN(totNode * sizeof(double), "total_weight");
-		ob->sculpt->modes.vwpaint.tot_loops_hit =
-		        MEM_callocN(totNode * sizeof(uint), "tot_loops_hit");
-		ob->sculpt->modes.vwpaint.alpha_weight =
-		        MEM_callocN(me->totvert * sizeof(float), "alpha_weight");
-		ob->sculpt->modes.vwpaint.previous_weight =
-		        MEM_callocN(me->totvert * sizeof(float), "previous_weight");
-		ob->sculpt->modes.vwpaint.previous_color =
-		        MEM_callocN(me->totloop * sizeof(uint), "previous_color");
+		if (brush->vertexpaint_tool == PAINT_BLEND_AVERAGE) {
+			if (ob->sculpt->mode.vpaint.average_color == NULL) {
+				ob->sculpt->mode.vpaint.average_color =
+				        MEM_callocN(nodes_len * sizeof(uint[3]), "average_color");
+			}
+		}
+		else {
+			MEM_SAFE_FREE(ob->sculpt->mode.vpaint.average_color);
+		}
+
+		if ((ts->vpaint->flag & VP_SPRAY) == 0) {
+			if (ob->sculpt->mode.vpaint.previous_color == NULL) {
+				ob->sculpt->mode.vpaint.previous_color =
+				        MEM_callocN(me->totloop * sizeof(uint), "previous_color");
+			}
+		}
+		else {
+			MEM_SAFE_FREE(ob->sculpt->mode.vpaint.previous_color);
+		}
+	}
+	else if (ob->mode == OB_MODE_WEIGHT_PAINT) {
+		ob->sculpt->mode_type = OB_MODE_WEIGHT_PAINT;
+
+		if (brush->vertexpaint_tool == PAINT_BLEND_AVERAGE) {
+			ob->sculpt->mode.wpaint.average_weight =
+			        MEM_callocN(nodes_len * sizeof(double), "average_weight");
+		}
+		else {
+			MEM_SAFE_FREE(ob->sculpt->mode.wpaint.average_weight);
+		}
+
+		if ((ts->wpaint->flag & VP_SPRAY) == 0) {
+			if (ob->sculpt->mode.wpaint.alpha_weight == NULL) {
+				ob->sculpt->mode.wpaint.alpha_weight =
+				        MEM_callocN(me->totvert * sizeof(float), "alpha_weight");
+			}
+			if (ob->sculpt->mode.wpaint.previous_weight == NULL) {
+				ob->sculpt->mode.wpaint.previous_weight =
+				        MEM_mallocN(me->totvert * sizeof(float), "previous_weight");
+			}
+		}
+		else {
+			MEM_SAFE_FREE(ob->sculpt->mode.wpaint.alpha_weight);
+			MEM_SAFE_FREE(ob->sculpt->mode.wpaint.previous_weight);
+		}
 	}
 }
 
@@ -2203,9 +2273,9 @@ static bool wpaint_stroke_test_start(bContext *C, wmOperator *op, const float mo
 	}
 
 	/* painting on subsurfs should give correct points too, this returns me->totvert amount */
-	ob->sculpt->modes.vwpaint.building_vp_handle = true;
+	ob->sculpt->building_vp_handle = true;
 	wpd->vp_handle = ED_vpaint_proj_handle_create(scene, ob, &wpd->vertexcosnos);
-	ob->sculpt->modes.vwpaint.building_vp_handle = false;
+	ob->sculpt->building_vp_handle = false;
 
 	/* imat for normals */
 	mul_m4_m4m4(mat, wpd->vc.rv3d->viewmat, ob->obmat);
@@ -2216,11 +2286,10 @@ static bool wpaint_stroke_test_start(bContext *C, wmOperator *op, const float mo
 	vertex_paint_init_session(scene, ob);
 	vwpaint_update_cache_invariants(C, vd, ss, op, mouse);
 	vertex_paint_init_session_maps(ob);
-	vertex_paint_init_session_average_arrays(ob);
+	vertex_paint_init_session_average_arrays(ts, ob);
 
-	for (int i = 0; i < me->totvert; i++) {
-		ss->modes.vwpaint.alpha_weight[i] = 0.0f;
-		ss->modes.vwpaint.previous_weight[i] = -1.0f;
+	if (ss->mode.wpaint.previous_weight != NULL) {
+		copy_vn_fl(ss->mode.wpaint.previous_weight, me->totvert, -1.0f);
 	}
 
 	return true;
@@ -2384,10 +2453,12 @@ static void do_wpaint_brush_blur_task_cb_ex(
 	SculptThreadedTaskData *data = userdata;
 	SculptSession *ss = data->ob->sculpt;
 	CCGDerivedMesh *ccgdm = BKE_pbvh_get_ccgdm(ss->pbvh);
+	const struct SculptVertexPaintGeomMap *gmap = &ss->mode.wpaint.gmap;
 
 	Brush *brush = data->brush;
 	StrokeCache *cache = ss->cache;
 	Scene *scene = CTX_data_scene(data->C);
+
 	const float brush_strength = cache->bstrength;
 	float brush_size_pressure, brush_alpha_value, brush_alpha_pressure;
 	get_brush_alpha_data(scene, ss, brush, &brush_size_pressure, &brush_alpha_value, &brush_alpha_pressure);
@@ -2413,8 +2484,8 @@ static void do_wpaint_brush_blur_task_cb_ex(
 				/* Get the average poly weight */
 				int total_hit_loops = 0;
 				float weight_final = 0.0f;
-				for (int j = 0; j < ss->modes.vwpaint.vert_to_poly[v_index].count; j++) {
-					const int p_index = ss->modes.vwpaint.vert_to_poly[v_index].indices[j];
+				for (int j = 0; j < gmap->vert_to_poly[v_index].count; j++) {
+					const int p_index = gmap->vert_to_poly[v_index].indices[j];
 					const MPoly *mp = &data->me->mpoly[p_index];
 
 					total_hit_loops += mp->totloop;
@@ -2454,6 +2525,7 @@ static void do_wpaint_brush_smear_task_cb_ex(
 	SculptThreadedTaskData *data = userdata;
 	SculptSession *ss = data->ob->sculpt;
 	CCGDerivedMesh *ccgdm = BKE_pbvh_get_ccgdm(ss->pbvh);
+	const struct SculptVertexPaintGeomMap *gmap = &ss->mode.wpaint.gmap;
 
 	Brush *brush = data->brush;
 	Scene *scene = CTX_data_scene(data->C);
@@ -2497,8 +2569,8 @@ static void do_wpaint_brush_smear_task_cb_ex(
 						/* Get the color of the loop in the opposite direction of the brush movement
 						 * (this callback is specifically for smear.) */
 						float weight_final = 0.0;
-						for (int j = 0; j < ss->modes.vwpaint.vert_to_poly[v_index].count; j++) {
-							const int p_index = ss->modes.vwpaint.vert_to_poly[v_index].indices[j];
+						for (int j = 0; j < gmap->vert_to_poly[v_index].count; j++) {
+							const int p_index = gmap->vert_to_poly[v_index].indices[j];
 							const MPoly *mp = &data->me->mpoly[p_index];
 							for (int k = 0; k < mp->totloop; k++) {
 								const uint l_index = mp->loopstart + k;
@@ -2583,8 +2655,8 @@ static void do_wpaint_brush_draw_task_cb_ex(
 					/* Non-spray logic. */
 					if ((data->vp->flag & VP_SPRAY) == 0) {
 						/* Only paint if we have greater alpha. */
-						if (ss->modes.vwpaint.alpha_weight[v_index] < final_alpha) {
-							ss->modes.vwpaint.alpha_weight[v_index] = final_alpha;
+						if (ss->mode.wpaint.alpha_weight[v_index] < final_alpha) {
+							ss->mode.wpaint.alpha_weight[v_index] = final_alpha;
 						}
 						else {
 							continue;
@@ -2592,7 +2664,7 @@ static void do_wpaint_brush_draw_task_cb_ex(
 
 						MDeformVert *dv = &data->me->dvert[v_index];
 						MDeformWeight *dw = defvert_find_index(dv, data->wpi->active.index);
-						float *weight_prev = &ss->modes.vwpaint.previous_weight[v_index];
+						float *weight_prev = &ss->mode.wpaint.previous_weight[v_index];
 						defweight_prev_init(dw, weight_prev);
 						if (dw) {
 							dw->weight = *weight_prev;
@@ -2609,18 +2681,19 @@ static void do_wpaint_brush_draw_task_cb_ex(
 	BKE_pbvh_vertex_iter_end;
 }
 
-static void do_wpaint_brush_calc_ave_weight_cb_ex(
+static void do_wpaint_brush_calc_average_weight_cb_ex(
         void *userdata, void *UNUSED(userdata_chunk), const int n, const int UNUSED(thread_id))
 {
 	SculptThreadedTaskData *data = userdata;
 	SculptSession *ss = data->ob->sculpt;
 	StrokeCache *cache = ss->cache;
 	CCGDerivedMesh *ccgdm = BKE_pbvh_get_ccgdm(ss->pbvh);
+	const struct SculptVertexPaintGeomMap *gmap = &ss->mode.wpaint.gmap;
 
 	double weight = 0.0;
 
-	data->ob->sculpt->modes.vwpaint.tot_loops_hit[n] = 0.0;
-	data->ob->sculpt->modes.vwpaint.total_weight[n] = 0.0;
+	gmap->tot_loops_hit[n] = 0.0;
+	data->ob->sculpt->mode.wpaint.average_weight[n] = 0.0;
 	const bool use_face_sel = (data->me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
 	const bool use_vert_sel = (data->me->editflag & ME_EDIT_PAINT_VERT_SEL) != 0;
 
@@ -2641,10 +2714,10 @@ static void do_wpaint_brush_calc_ave_weight_cb_ex(
 
 				/* If the vertex is selected. */
 				if (!(use_face_sel || use_vert_sel) || v_flag & SELECT) {
-					ss->modes.vwpaint.tot_loops_hit[n] += ss->modes.vwpaint.vert_to_loop[v_index].count;
+					gmap->tot_loops_hit[n] += gmap->vert_to_loop[v_index].count;
 					/* if a vertex is within the brush region, then add it's weight to the total weight. */
-					for (int j = 0; j < ss->modes.vwpaint.vert_to_loop[v_index].count; j++) {
-						const int l_index = ss->modes.vwpaint.vert_to_loop[v_index].indices[j];
+					for (int j = 0; j < gmap->vert_to_loop[v_index].count; j++) {
+						const int l_index = gmap->vert_to_loop[v_index].indices[j];
 
 						const MLoop *ml = &data->me->mloop[l_index];
 						const MDeformVert *dv = &data->me->dvert[ml->v];
@@ -2655,22 +2728,23 @@ static void do_wpaint_brush_calc_ave_weight_cb_ex(
 		}
 	}
 	BKE_pbvh_vertex_iter_end;
-	data->ob->sculpt->modes.vwpaint.total_weight[n] = weight;
+	data->ob->sculpt->mode.wpaint.average_weight[n] = weight;
 }
 
 static void calculate_average_weight(SculptThreadedTaskData *data, PBVHNode **UNUSED(nodes), int totnode)
 {
 	Scene *scene = CTX_data_scene(data->C);
+	const struct SculptVertexPaintGeomMap *gmap = &data->ob->sculpt->mode.wpaint.gmap;
 	UnifiedPaintSettings *ups = &scene->toolsettings->unified_paint_settings;
 	BLI_task_parallel_range_ex(
-	        0, totnode, data, NULL, 0, do_wpaint_brush_calc_ave_weight_cb_ex,
+	        0, totnode, data, NULL, 0, do_wpaint_brush_calc_average_weight_cb_ex,
 	        ((data->sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
 
 	uint total_hit_loops = 0;
 	double total_weight = 0.0;
 	for (int i = 0; i < totnode; i++) {
-		total_hit_loops += data->ob->sculpt->modes.vwpaint.tot_loops_hit[i];
-		total_weight += data->ob->sculpt->modes.vwpaint.total_weight[i];
+		total_hit_loops += gmap->tot_loops_hit[i];
+		total_weight += data->ob->sculpt->mode.wpaint.average_weight[i];
 	}
 	if (total_hit_loops != 0) {
 		total_weight /= total_hit_loops;
@@ -3015,7 +3089,7 @@ static int weight_paint_set_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
-	if (ED_wpaint_fill(scene->toolsettings->wpaint, obact, vgroup_weight)) {
+	if (ED_wpaint_fill(obact, vgroup_weight)) {
 		ED_region_tag_redraw(CTX_wm_region(C)); /* XXX - should redraw all 3D views */
 		return OPERATOR_FINISHED;
 	}
@@ -3226,9 +3300,9 @@ static bool vpaint_stroke_test_start(bContext *C, struct wmOperator *op, const f
 
 	/* Create projection handle */
 	if (vpd->is_texbrush) {
-		ob->sculpt->modes.vwpaint.building_vp_handle = true;
+		ob->sculpt->building_vp_handle = true;
 		vpd->vp_handle = ED_vpaint_proj_handle_create(scene, ob, &vpd->vertexcosnos);
-		ob->sculpt->modes.vwpaint.building_vp_handle = false;
+		ob->sculpt->building_vp_handle = false;
 	}
 
 	/* some old cruft to sort out later */
@@ -3240,26 +3314,28 @@ static bool vpaint_stroke_test_start(bContext *C, struct wmOperator *op, const f
 	vertex_paint_init_session(scene, ob);
 	vwpaint_update_cache_invariants(C, vp, ss, op, mouse);
 	vertex_paint_init_session_maps(ob);
-	vertex_paint_init_session_average_arrays(ob);
+	vertex_paint_init_session_average_arrays(ts, ob);
 
-	for (int i = 0; i < me->totloop; i++) {
-		ob->sculpt->modes.vwpaint.previous_color[i] = 0;
+	if (ob->sculpt->mode.vpaint.previous_color != NULL) {
+		memset(ob->sculpt->mode.vpaint.previous_color, 0, sizeof(uint) * me->totloop);
 	}
 
 	return 1;
 }
 
-static void do_vpaint_brush_calc_ave_color_cb_ex(
-	void *userdata, void *UNUSED(userdata_chunk), const int n, const int UNUSED(thread_id)) {
+static void do_vpaint_brush_calc_average_color_cb_ex(
+        void *userdata, void *UNUSED(userdata_chunk), const int n, const int UNUSED(thread_id))
+{
 	SculptThreadedTaskData *data = userdata;
 	SculptSession *ss = data->ob->sculpt;
 	CCGDerivedMesh *ccgdm = BKE_pbvh_get_ccgdm(ss->pbvh);
+	const struct SculptVertexPaintGeomMap *gmap = &ss->mode.vpaint.gmap;
 
 	StrokeCache *cache = ss->cache;
 	uint *lcol = data->lcol;
 	uint blend[3] = {0};
 	char *col;
-	data->ob->sculpt->modes.vwpaint.tot_loops_hit[n] = 0;
+	gmap->tot_loops_hit[n] = 0;
 	const bool use_face_sel = (data->me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
 
 	SculptBrushTest test;
@@ -3276,10 +3352,10 @@ static void do_vpaint_brush_calc_ave_color_cb_ex(
 				/* If the vertex is selected for painting. */
 				const MVert *mv = &data->me->mvert[v_index];
 				if (!use_face_sel || mv->flag & SELECT) {
-					ss->modes.vwpaint.tot_loops_hit[n] += ss->modes.vwpaint.vert_to_loop[v_index].count;
+					gmap->tot_loops_hit[n] += gmap->vert_to_loop[v_index].count;
 					/* if a vertex is within the brush region, then add it's color to the blend. */
-					for (int j = 0; j < ss->modes.vwpaint.vert_to_loop[v_index].count; j++) {
-						const int l_index = ss->modes.vwpaint.vert_to_loop[v_index].indices[j];
+					for (int j = 0; j < gmap->vert_to_loop[v_index].count; j++) {
+						const int l_index = gmap->vert_to_loop[v_index].indices[j];
 						col = (char *)(&lcol[l_index]);
 						/* Color is squared to compensate the sqrt color encoding. */
 						blend[0] += col[0] * col[0];
@@ -3292,9 +3368,9 @@ static void do_vpaint_brush_calc_ave_color_cb_ex(
 	}
 	BKE_pbvh_vertex_iter_end;
 
-	data->ob->sculpt->modes.vwpaint.total_color[n][0] = blend[0];
-	data->ob->sculpt->modes.vwpaint.total_color[n][1] = blend[1];
-	data->ob->sculpt->modes.vwpaint.total_color[n][2] = blend[2];
+	data->ob->sculpt->mode.vpaint.average_color[n][0] = blend[0];
+	data->ob->sculpt->mode.vpaint.average_color[n][1] = blend[1];
+	data->ob->sculpt->mode.vpaint.average_color[n][2] = blend[2];
 }
 
 static void handle_texture_brush(
@@ -3322,6 +3398,7 @@ static void do_vpaint_brush_draw_task_cb_ex(
 	SculptThreadedTaskData *data = userdata;
 	SculptSession *ss = data->ob->sculpt;
 	CCGDerivedMesh *ccgdm = BKE_pbvh_get_ccgdm(ss->pbvh);
+	const struct SculptVertexPaintGeomMap *gmap = &ss->mode.vpaint.gmap;
 
 	Brush *brush = data->brush;
 	StrokeCache *cache = ss->cache;
@@ -3365,23 +3442,26 @@ static void do_vpaint_brush_draw_task_cb_ex(
 						        &tex_alpha, &color_final);
 					}
 					/* For each poly owning this vert, paint each loop belonging to this vert. */
-					for (int j = 0; j < ss->modes.vwpaint.vert_to_poly[v_index].count; j++) {
-						const int p_index = ss->modes.vwpaint.vert_to_poly[v_index].indices[j];
-						const int l_index = ss->modes.vwpaint.vert_to_loop[v_index].indices[j];
+					for (int j = 0; j < gmap->vert_to_poly[v_index].count; j++) {
+						const int p_index = gmap->vert_to_poly[v_index].indices[j];
+						const int l_index = gmap->vert_to_loop[v_index].indices[j];
 						BLI_assert(data->me->mloop[l_index].v == v_index);
 						const MPoly *mp = &data->me->mpoly[p_index];
 						if (!use_face_sel || mp->flag & ME_FACE_SEL) {
-							/* Get the previous loop color */
-							if (ss->modes.vwpaint.previous_color[l_index] == 0) {
-								ss->modes.vwpaint.previous_color[l_index] = lcol[l_index];
+							uint color_orig = 0;  /* unused when array is NULL */
+							if (ss->mode.vpaint.previous_color != NULL) {
+								/* Get the previous loop color */
+								if (ss->mode.vpaint.previous_color[l_index] == 0) {
+									ss->mode.vpaint.previous_color[l_index] = lcol[l_index];
+								}
+								color_orig = ss->mode.vpaint.previous_color[l_index];
 							}
 							const float final_alpha =
 							        255 * brush_fade * brush_strength * view_dot *
 							        tex_alpha * brush_alpha_pressure * grid_alpha;
 							/* Mix the new color with the original based on final_alpha. */
 							lcol[l_index] = vpaint_blend(
-							        data->vp, lcol[l_index],
-							        ss->modes.vwpaint.previous_color[l_index], color_final,
+							        data->vp, lcol[l_index], color_orig, color_final,
 							        final_alpha, 255 * brush_strength);
 						}
 					}
@@ -3399,11 +3479,12 @@ static void do_vpaint_brush_blur_task_cb_ex(
 	SculptSession *ss = data->ob->sculpt;
 	CCGDerivedMesh *ccgdm = BKE_pbvh_get_ccgdm(ss->pbvh);
 
+	Scene *scene = CTX_data_scene(data->C);
+	const struct SculptVertexPaintGeomMap *gmap = &ss->mode.vpaint.gmap;
 	Brush *brush = data->brush;
 	StrokeCache *cache = ss->cache;
 	const float brush_strength = cache->bstrength;
 	uint *lcol = data->lcol;
-	Scene *scene = CTX_data_scene(data->C);
 	float brush_size_pressure, brush_alpha_value, brush_alpha_pressure;
 	get_brush_alpha_data(scene, ss, brush, &brush_size_pressure, &brush_alpha_value, &brush_alpha_pressure);
 	const bool use_face_sel = (data->me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
@@ -3433,8 +3514,8 @@ static void do_vpaint_brush_blur_task_cb_ex(
 					uint color_final = 0;
 					int total_hit_loops = 0;
 					uint blend[4] = {0};
-					for (int j = 0; j < ss->modes.vwpaint.vert_to_poly[v_index].count; j++) {
-						int p_index = ss->modes.vwpaint.vert_to_poly[v_index].indices[j];
+					for (int j = 0; j < gmap->vert_to_poly[v_index].count; j++) {
+						int p_index = gmap->vert_to_poly[v_index].indices[j];
 						const MPoly *mp = &data->me->mpoly[p_index];
 						if (!use_face_sel || mp->flag & ME_FACE_SEL) {
 							total_hit_loops += mp->totloop;
@@ -3458,15 +3539,19 @@ static void do_vpaint_brush_blur_task_cb_ex(
 						col[3] = round_fl_to_uchar(sqrtf(divide_round_i(blend[3], total_hit_loops)));
 
 						/* For each poly owning this vert, paint each loop belonging to this vert. */
-						for (int j = 0; j < ss->modes.vwpaint.vert_to_poly[v_index].count; j++) {
-							const int p_index = ss->modes.vwpaint.vert_to_poly[v_index].indices[j];
-							const int l_index = ss->modes.vwpaint.vert_to_loop[v_index].indices[j];
+						for (int j = 0; j < gmap->vert_to_poly[v_index].count; j++) {
+							const int p_index = gmap->vert_to_poly[v_index].indices[j];
+							const int l_index = gmap->vert_to_loop[v_index].indices[j];
 							BLI_assert(data->me->mloop[l_index].v == v_index);
 							const MPoly *mp = &data->me->mpoly[p_index];
 							if (!use_face_sel || mp->flag & ME_FACE_SEL) {
-								/* Get the previous loop color */
-								if (ss->modes.vwpaint.previous_color[l_index] == 0) {
-									ss->modes.vwpaint.previous_color[l_index] = lcol[l_index];
+								uint color_orig = 0;  /* unused when array is NULL */
+								if (ss->mode.vpaint.previous_color != NULL) {
+									/* Get the previous loop color */
+									if (ss->mode.vpaint.previous_color[l_index] == 0) {
+										ss->mode.vpaint.previous_color[l_index] = lcol[l_index];
+									}
+									color_orig = ss->mode.vpaint.previous_color[l_index];
 								}
 								const float final_alpha =
 								        255 * brush_fade * brush_strength * view_dot *
@@ -3474,9 +3559,8 @@ static void do_vpaint_brush_blur_task_cb_ex(
 								/* Mix the new color with the original
 								 * based on the brush strength and the curve. */
 								lcol[l_index] = vpaint_blend(
-								        data->vp, lcol[l_index],
-								        ss->modes.vwpaint.previous_color[l_index],
-								        *((uint *)col), final_alpha, 255 * brush_strength);
+								        data->vp, lcol[l_index], color_orig, *((uint *)col),
+								        final_alpha, 255 * brush_strength);
 							}
 						}
 					}
@@ -3494,11 +3578,12 @@ static void do_vpaint_brush_smear_task_cb_ex(
 	SculptSession *ss = data->ob->sculpt;
 	CCGDerivedMesh *ccgdm = BKE_pbvh_get_ccgdm(ss->pbvh);
 
+	Scene *scene = CTX_data_scene(data->C);
+	const struct SculptVertexPaintGeomMap *gmap = &ss->mode.vpaint.gmap;
 	Brush *brush = data->brush;
 	StrokeCache *cache = ss->cache;
 	const float brush_strength = cache->bstrength;
 	uint *lcol = data->lcol;
-	Scene *scene = CTX_data_scene(data->C);
 	float brush_size_pressure, brush_alpha_value, brush_alpha_pressure;
 	get_brush_alpha_data(scene, ss, brush, &brush_size_pressure, &brush_alpha_value, &brush_alpha_pressure);
 	float brush_dir[3];
@@ -3537,9 +3622,9 @@ static void do_vpaint_brush_smear_task_cb_ex(
 
 						/* Get the color of the loop in the opposite direction of the brush movement */
 						uint color_final = 0;
-						for (int j = 0; j < ss->modes.vwpaint.vert_to_poly[v_index].count; j++) {
-							const int p_index = ss->modes.vwpaint.vert_to_poly[v_index].indices[j];
-							const int l_index = ss->modes.vwpaint.vert_to_loop[v_index].indices[j];
+						for (int j = 0; j < gmap->vert_to_poly[v_index].count; j++) {
+							const int p_index = gmap->vert_to_poly[v_index].indices[j];
+							const int l_index = gmap->vert_to_loop[v_index].indices[j];
 							BLI_assert(data->me->mloop[l_index].v == v_index);
 							const MPoly *mp = &data->me->mpoly[p_index];
 							if (!use_face_sel || mp->flag & ME_FACE_SEL) {
@@ -3566,15 +3651,20 @@ static void do_vpaint_brush_smear_task_cb_ex(
 
 						if (do_color) {
 							/* For each poly owning this vert, paint each loop belonging to this vert. */
-							for (int j = 0; j < ss->modes.vwpaint.vert_to_poly[v_index].count; j++) {
-								const int p_index = ss->modes.vwpaint.vert_to_poly[v_index].indices[j];
-								const int l_index = ss->modes.vwpaint.vert_to_loop[v_index].indices[j];
+							for (int j = 0; j < gmap->vert_to_poly[v_index].count; j++) {
+								const int p_index = gmap->vert_to_poly[v_index].indices[j];
+								const int l_index = gmap->vert_to_loop[v_index].indices[j];
 								BLI_assert(data->me->mloop[l_index].v == v_index);
 								const MPoly *mp = &data->me->mpoly[p_index];
 								if (!use_face_sel || mp->flag & ME_FACE_SEL) {
 									/* Get the previous loop color */
-									if (ss->modes.vwpaint.previous_color[l_index] == 0) {
-										ss->modes.vwpaint.previous_color[l_index] = lcol[l_index];
+									uint color_orig = 0;  /* unused when array is NULL */
+									if (ss->mode.vpaint.previous_color != NULL) {
+										/* Get the previous loop color */
+										if (ss->mode.vpaint.previous_color[l_index] == 0) {
+											ss->mode.vpaint.previous_color[l_index] = lcol[l_index];
+										}
+										color_orig = ss->mode.vpaint.previous_color[l_index];
 									}
 									const float final_alpha =
 									        255 * brush_fade * brush_strength *
@@ -3582,8 +3672,7 @@ static void do_vpaint_brush_smear_task_cb_ex(
 									/* Mix the new color with the original
 									 * based on the brush strength and the curve. */
 									lcol[l_index] = vpaint_blend(
-									        data->vp, lcol[l_index],
-									        ss->modes.vwpaint.previous_color[l_index], color_final,
+									        data->vp, lcol[l_index], color_orig, color_final,
 									        final_alpha, 255 * brush_strength);
 								}
 							}
@@ -3599,17 +3688,18 @@ static void do_vpaint_brush_smear_task_cb_ex(
 static void calculate_average_color(SculptThreadedTaskData *data, PBVHNode **UNUSED(nodes), int totnode)
 {
 	BLI_task_parallel_range_ex(
-	        0, totnode, data, NULL, 0, do_vpaint_brush_calc_ave_color_cb_ex,
+	        0, totnode, data, NULL, 0, do_vpaint_brush_calc_average_color_cb_ex,
 	        true, false);
 
+	const struct SculptVertexPaintGeomMap *gmap = &data->ob->sculpt->mode.vpaint.gmap;
 	uint total_hit_loops = 0;
 	uint total_color[3] = {0};
 	uchar blend[4] = {0};
 	for (int i = 0; i < totnode; i++) {
-		total_hit_loops += data->ob->sculpt->modes.vwpaint.tot_loops_hit[i];
-		total_color[0] += data->ob->sculpt->modes.vwpaint.total_color[i][0];
-		total_color[1] += data->ob->sculpt->modes.vwpaint.total_color[i][1];
-		total_color[2] += data->ob->sculpt->modes.vwpaint.total_color[i][2];
+		total_hit_loops += gmap->tot_loops_hit[i];
+		total_color[0] += data->ob->sculpt->mode.vpaint.average_color[i][0];
+		total_color[1] += data->ob->sculpt->mode.vpaint.average_color[i][1];
+		total_color[2] += data->ob->sculpt->mode.vpaint.average_color[i][2];
 	}
 	if (total_hit_loops != 0) {
 		blend[0] = round_fl_to_uchar(sqrtf(divide_round_i(total_color[0], total_hit_loops)));
@@ -3922,6 +4012,11 @@ typedef struct DMGradient_vertStore {
 	} flag;
 } DMGradient_vertStore;
 
+typedef struct DMGradient_vertStoreBase {
+	struct WPaintPrev wpp;
+	DMGradient_vertStore elem[0];
+} DMGradient_vertStoreBase;
+
 typedef struct DMGradient_userData {
 	struct ARegion *ar;
 	Scene *scene;
@@ -3932,7 +4027,7 @@ typedef struct DMGradient_userData {
 	float        sco_line_div;  /* store (1.0f / len_v2v2(sco_start, sco_end)) */
 	int def_nr;
 	bool is_init;
-	DMGradient_vertStore *vert_cache;
+	DMGradient_vertStoreBase *vert_cache;
 	/* only for init */
 	BLI_bitmap *vert_visit;
 
@@ -3945,7 +4040,7 @@ typedef struct DMGradient_userData {
 static void gradientVert_update(DMGradient_userData *grad_data, int index)
 {
 	Mesh *me = grad_data->me;
-	DMGradient_vertStore *vs = &grad_data->vert_cache[index];
+	DMGradient_vertStore *vs = &grad_data->vert_cache->elem[index];
 	float alpha;
 
 	if (grad_data->type == WPAINT_GRADIENT_TYPE_LINEAR) {
@@ -3996,7 +4091,7 @@ static void gradientVertUpdate__mapFunc(
 	DMGradient_userData *grad_data = userData;
 	Mesh *me = grad_data->me;
 	if ((grad_data->use_select == false) || (me->mvert[index].flag & SELECT)) {
-		DMGradient_vertStore *vs = &grad_data->vert_cache[index];
+		DMGradient_vertStore *vs = &grad_data->vert_cache->elem[index];
 		if (vs->sco[0] != FLT_MAX) {
 			gradientVert_update(grad_data, index);
 		}
@@ -4016,7 +4111,7 @@ static void gradientVertInit__mapFunc(
 		 * updating the mesh may move them about (entering feedback loop) */
 
 		if (BLI_BITMAP_TEST(grad_data->vert_visit, index) == 0) {
-			DMGradient_vertStore *vs = &grad_data->vert_cache[index];
+			DMGradient_vertStore *vs = &grad_data->vert_cache->elem[index];
 			if (ED_view3d_project_float_object(grad_data->ar,
 			                                   co, vs->sco,
 			                                   V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR) == V3D_PROJ_RET_OK)
@@ -4049,34 +4144,37 @@ static void gradientVertInit__mapFunc(
 static int paint_weight_gradient_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	int ret = WM_gesture_straightline_modal(C, op, event);
+	wmGesture *gesture = op->customdata;
+	DMGradient_vertStoreBase *vert_cache = gesture->userdata;
+	bool do_gesture_free = false;
 
 	if (ret & OPERATOR_RUNNING_MODAL) {
 		if (event->type == LEFTMOUSE && event->val == KM_RELEASE) {  /* XXX, hardcoded */
 			/* generally crap! redo! */
-			WM_gesture_straightline_cancel(C, op);
+			do_gesture_free = true;
 			ret &= ~OPERATOR_RUNNING_MODAL;
 			ret |= OPERATOR_FINISHED;
 		}
 	}
 
 	if (ret & OPERATOR_CANCELLED) {
-		ToolSettings *ts = CTX_data_tool_settings(C);
-		VPaint *wp = ts->wpaint;
 		Object *ob = CTX_data_active_object(C);
 		Mesh *me = ob->data;
-		if (wp->wpaint_prev) {
+		if (vert_cache->wpp.wpaint_prev) {
 			BKE_defvert_array_free_elems(me->dvert, me->totvert);
-			BKE_defvert_array_copy(me->dvert, wp->wpaint_prev, me->totvert);
-			free_wpaint_prev(wp);
+			BKE_defvert_array_copy(me->dvert, vert_cache->wpp.wpaint_prev, me->totvert);
+			wpaint_prev_destroy(&vert_cache->wpp);
 		}
 
 		DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 		WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 	}
 	else if (ret & OPERATOR_FINISHED) {
-		ToolSettings *ts = CTX_data_tool_settings(C);
-		VPaint *wp = ts->wpaint;
-		free_wpaint_prev(wp);
+		wpaint_prev_destroy(&vert_cache->wpp);
+	}
+
+	if (do_gesture_free) {
+		WM_gesture_straightline_cancel(C, op);
 	}
 
 	return ret;
@@ -4085,7 +4183,7 @@ static int paint_weight_gradient_modal(bContext *C, wmOperator *op, const wmEven
 static int paint_weight_gradient_exec(bContext *C, wmOperator *op)
 {
 	wmGesture *gesture = op->customdata;
-	DMGradient_vertStore *vert_cache;
+	DMGradient_vertStoreBase *vert_cache;
 	struct ARegion *ar = CTX_wm_region(C);
 	Scene *scene = CTX_data_scene(C);
 	Object *ob = CTX_data_active_object(C);
@@ -4103,12 +4201,13 @@ static int paint_weight_gradient_exec(bContext *C, wmOperator *op)
 
 	if (is_interactive) {
 		if (gesture->userdata == NULL) {
-			VPaint *wp = scene->toolsettings->wpaint;
-
-			gesture->userdata = MEM_mallocN(sizeof(DMGradient_vertStore) * me->totvert, __func__);
+			gesture->userdata = MEM_mallocN(
+			        sizeof(DMGradient_vertStoreBase) +
+			        (sizeof(DMGradient_vertStore) * me->totvert),
+			        __func__);
 			data.is_init = true;
 
-			copy_wpaint_prev(wp, me->dvert, me->totvert);
+			wpaint_prev_create(&((DMGradient_vertStoreBase *)gesture->userdata)->wpp, me->dvert, me->totvert);
 
 			/* on init only, convert face -> vert sel  */
 			if (me->editflag & ME_EDIT_PAINT_FACE_SEL) {
@@ -4124,7 +4223,10 @@ static int paint_weight_gradient_exec(bContext *C, wmOperator *op)
 		}
 
 		data.is_init = true;
-		vert_cache = MEM_mallocN(sizeof(DMGradient_vertStore) * me->totvert, __func__);
+		vert_cache = MEM_mallocN(
+		        sizeof(DMGradient_vertStoreBase) +
+		        (sizeof(DMGradient_vertStore) * me->totvert),
+		        __func__);
 	}
 
 	data.ar = ar;

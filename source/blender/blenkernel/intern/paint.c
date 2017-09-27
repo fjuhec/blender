@@ -676,18 +676,32 @@ void BKE_sculptsession_free_deformMats(SculptSession *ss)
 void BKE_sculptsession_free_vwpaint_data(struct SculptSession *ss)
 {
 	/* Free maps */
-	MEM_SAFE_FREE(ss->modes.vwpaint.vert_to_loop);
-	MEM_SAFE_FREE(ss->modes.vwpaint.vert_map_mem);
-	MEM_SAFE_FREE(ss->modes.vwpaint.vert_to_poly);
-	MEM_SAFE_FREE(ss->modes.vwpaint.poly_map_mem);
+	/* Create maps */
+	struct SculptVertexPaintGeomMap *gmap = NULL;
+	if (ss->mode_type == OB_MODE_VERTEX_PAINT) {
+		gmap = &ss->mode.vpaint.gmap;
 
-	/* Free average, blur, and spray brush arrays */
-	MEM_SAFE_FREE(ss->modes.vwpaint.tot_loops_hit);
-	MEM_SAFE_FREE(ss->modes.vwpaint.total_color);
-	MEM_SAFE_FREE(ss->modes.vwpaint.total_weight);
-	MEM_SAFE_FREE(ss->modes.vwpaint.alpha_weight);
-	MEM_SAFE_FREE(ss->modes.vwpaint.previous_weight);
-	MEM_SAFE_FREE(ss->modes.vwpaint.previous_color);
+		/* Free average, blur, and spray brush arrays */
+		MEM_SAFE_FREE(ss->mode.vpaint.average_color);
+		MEM_SAFE_FREE(ss->mode.vpaint.previous_color);
+	}
+	else if (ss->mode_type == OB_MODE_WEIGHT_PAINT) {
+		gmap = &ss->mode.wpaint.gmap;
+
+		/* Free average, blur, and spray brush arrays */
+		MEM_SAFE_FREE(ss->mode.wpaint.average_weight);
+		MEM_SAFE_FREE(ss->mode.wpaint.alpha_weight);
+		MEM_SAFE_FREE(ss->mode.wpaint.previous_weight);
+	}
+	else {
+		return;
+	}
+	MEM_SAFE_FREE(gmap->vert_to_loop);
+	MEM_SAFE_FREE(gmap->vert_map_mem);
+	MEM_SAFE_FREE(gmap->vert_to_poly);
+	MEM_SAFE_FREE(gmap->poly_map_mem);
+
+	MEM_SAFE_FREE(gmap->tot_loops_hit);
 }
 
 /* Write out the sculpt dynamic-topology BMesh to the Mesh */
@@ -864,8 +878,7 @@ void BKE_sculpt_update_mesh_elements(Scene *scene, Sculpt *sd, Object *ob,
 	ss->modifiers_active = sculpt_modifiers_active(scene, sd, ob);
 	ss->show_diffuse_color = (sd->flags & SCULPT_SHOW_DIFFUSE) != 0;
 
-	/* This flag prevents PBVH from being freed when creating the vp_handle for texture paint */
-	ss->modes.vwpaint.building_vp_handle = false;
+	ss->building_vp_handle = false;
 
 	if (need_mask) {
 		if (mmd == NULL) {
