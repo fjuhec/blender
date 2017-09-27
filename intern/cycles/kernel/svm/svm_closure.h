@@ -158,8 +158,8 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			}
 
 			/* diffuse */
-			if(fabsf(average(base_color)) > CLOSURE_WEIGHT_CUTOFF) {
-				if(subsurface < CLOSURE_WEIGHT_CUTOFF && diffuse_weight > CLOSURE_WEIGHT_CUTOFF) {
+			if(fabsf(average(mixed_ss_base_color)) > CLOSURE_WEIGHT_CUTOFF) {
+				if(subsurface <= CLOSURE_WEIGHT_CUTOFF && diffuse_weight > CLOSURE_WEIGHT_CUTOFF) {
 					float3 diff_weight = weight * base_color * diffuse_weight;
 
 					PrincipledDiffuseBsdf *bsdf = (PrincipledDiffuseBsdf*)bsdf_alloc(sd, sizeof(PrincipledDiffuseBsdf), diff_weight);
@@ -725,6 +725,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 				HairBsdf *bsdf = (HairBsdf*)bsdf_alloc(sd, sizeof(HairBsdf), weight);
 
 				if(bsdf) {
+					bsdf->N = N;
 					bsdf->roughness1 = param1;
 					bsdf->roughness2 = param2;
 					bsdf->offset = -stack_load_float(stack, data_node.z);
