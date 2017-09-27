@@ -43,7 +43,7 @@ extern "C" {
 
 #include "Exception.h"
 
-#if (defined(WIN32) || defined(WIN64)) && !defined(FREE_WINDOWS)
+#if (defined(WIN32) || defined(WIN64))
 #define strcasecmp	_stricmp
 #endif
 
@@ -427,6 +427,7 @@ void Image_dealloc(PyImage *self)
 			delete self->m_image;
 		self->m_image = NULL;
 	}
+	Py_TYPE((PyObject *)self)->tp_free((PyObject *)self);
 }
 
 // get image data

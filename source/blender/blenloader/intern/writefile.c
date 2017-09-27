@@ -1052,7 +1052,7 @@ static void write_nodetree_nolib(WriteData *wd, bNodeTree *ntree)
 				writestruct(wd, DATA, NodeImageMultiFileSocket, 1, sock->storage);
 			}
 		}
-		if (node->type == CMP_NODE_IMAGE) {
+		if (ELEM(node->type, CMP_NODE_IMAGE, CMP_NODE_R_LAYERS)) {
 			/* write extra socket info */
 			for (sock = node->outputs.first; sock; sock = sock->next) {
 				writestruct(wd, DATA, NodeImageLayer, 1, sock->storage);
@@ -2244,8 +2244,9 @@ static void write_mesh(WriteData *wd, Mesh *mesh)
 			 *     outside of save process itself.
 			 *     Maybe we can live with this, though?
 			 */
-			mesh->totface = BKE_mesh_mpoly_to_mface(&mesh->fdata, &old_mesh->ldata, &old_mesh->pdata,
-													mesh->totface, old_mesh->totloop, old_mesh->totpoly);
+			mesh->totface = BKE_mesh_mpoly_to_mface(
+			        &mesh->fdata, &old_mesh->ldata, &old_mesh->pdata,
+			        mesh->totface, old_mesh->totloop, old_mesh->totpoly);
 
 			BKE_mesh_update_customdata_pointers(mesh, false);
 
@@ -2687,13 +2688,6 @@ static void write_scene(WriteData *wd, Scene *sce)
 			writedata(wd, DATA, sce->r.avicodecdata->cbParms, sce->r.avicodecdata->lpParms);
 		}
 	}
-
-	if (sce->r.qtcodecdata) {
-		writestruct(wd, DATA, QuicktimeCodecData, 1, sce->r.qtcodecdata);
-		if (sce->r.qtcodecdata->cdParms) {
-			writedata(wd, DATA, sce->r.qtcodecdata->cdSize, sce->r.qtcodecdata->cdParms);
-		}
-	}
 	if (sce->r.ffcodecdata.properties) {
 		IDP_WriteProperty(sce->r.ffcodecdata.properties, wd);
 	}
@@ -2710,6 +2704,9 @@ static void write_scene(WriteData *wd, Scene *sce)
 
 	for (SceneRenderLayer *srl = sce->r.layers.first; srl; srl = srl->next) {
 		writestruct(wd, DATA, SceneRenderLayer, 1, srl);
+		if (srl->prop) {
+			IDP_WriteProperty(srl->prop, wd);
+		}
 		for (FreestyleModuleConfig *fmc = srl->freestyleConfig.modules.first; fmc; fmc = fmc->next) {
 			writestruct(wd, DATA, FreestyleModuleConfig, 1, fmc);
 		}
@@ -3837,6 +3834,9 @@ static bool write_file_handle(
 		}
 
 		for (; id; id = id->next) {
+			/* We should never attempt to write non-regular IDs (i.e. all kind of temp/runtime ones). */
+			BLI_assert((id->tag & (LIB_TAG_NO_MAIN | LIB_TAG_NO_USER_REFCOUNT | LIB_TAG_NOT_ALLOCATED)) == 0);
+
 			switch ((ID_Type)GS(id->name)) {
 				case ID_WM:
 					write_windowmanager(wd, (wmWindowManager *)id);

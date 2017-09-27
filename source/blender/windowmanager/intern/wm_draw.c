@@ -867,25 +867,13 @@ static bool wm_draw_update_test_window(wmWindow *win)
 
 static int wm_automatic_draw_method(wmWindow *win)
 {
-	/* Ideally all cards would work well with triple buffer, since if it works
-	 * well gives the least redraws and is considerably faster at partial redraw
-	 * for sculpting or drawing overlapping menus. For typically lower end cards
-	 * copy to texture is slow though and so we use overlap instead there. */
-
+	/* We assume all supported GPUs now support triple buffer well. */
 	if (win->drawmethod == USER_DRAW_AUTOMATIC) {
-		/* Windows software driver darkens color on each redraw */
-		if (GPU_type_matches(GPU_DEVICE_SOFTWARE, GPU_OS_WIN, GPU_DRIVER_SOFTWARE))
-			return USER_DRAW_OVERLAP_FLIP;
-		else if (GPU_type_matches(GPU_DEVICE_SOFTWARE, GPU_OS_UNIX, GPU_DRIVER_SOFTWARE))
-			return USER_DRAW_OVERLAP;
-		/* drawing lower color depth again degrades colors each time */
-		else if (GPU_color_depth() < 24)
-			return USER_DRAW_OVERLAP;
-		else
-			return USER_DRAW_TRIPLE;
+		return USER_DRAW_TRIPLE;
 	}
-	else
+	else {
 		return win->drawmethod;
+	}
 }
 
 bool WM_is_draw_triple(wmWindow *win)
@@ -926,15 +914,14 @@ void wm_draw_update(bContext *C)
 	
 	for (win = wm->windows.first; win; win = win->next) {
 #ifdef WIN32
-		if (GPU_type_matches(GPU_DEVICE_INTEL, GPU_OS_ANY, GPU_DRIVER_ANY)) {
-			GHOST_TWindowState state = GHOST_GetWindowState(win->ghostwin);
+		GHOST_TWindowState state = GHOST_GetWindowState(win->ghostwin);
 
-			if (state == GHOST_kWindowStateMinimized) {
-				/* do not update minimized windows, it gives issues on intel drivers (see [#33223])
-				 * anyway, it seems logical to skip update for invisible windows
-				 */
-				continue;
-			}
+		if (state == GHOST_kWindowStateMinimized) {
+			/* do not update minimized windows, gives issues on Intel (see T33223)
+			 * and AMD (see T50856). it seems logical to skip update for invisible
+			 * window anyway.
+			 */
+			continue;
 		}
 #endif
 		if (win->drawmethod != U.wmdrawmethod) {

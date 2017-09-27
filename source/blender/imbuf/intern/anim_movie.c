@@ -37,10 +37,7 @@
 #include <mmsystem.h>
 #include <memory.h>
 #include <commdlg.h>
-
-#ifndef FREE_WINDOWS
 #include <vfw.h>
-#endif
 
 #undef AVIIF_KEYFRAME /* redefined in AVI_avi.h */
 #undef AVIIF_LIST /* redefined in AVI_avi.h */
@@ -75,12 +72,6 @@
 #ifdef WITH_AVI
 #  include "AVI_avi.h"
 #endif
-
-#ifdef WITH_QUICKTIME
-#if defined(_WIN32) || defined(__APPLE__)
-#include "quicktime_import.h"
-#endif /* _WIN32 || __APPLE__ */
-#endif /* WITH_QUICKTIME */
 
 #include "IMB_imbuf_types.h"
 #include "IMB_imbuf.h"
@@ -173,7 +164,7 @@ static void an_stringenc(char *string, const char *head, const char *tail, unsig
 #ifdef WITH_AVI
 static void free_anim_avi(struct anim *anim)
 {
-#if defined(_WIN32) && !defined(FREE_WINDOWS)
+#if defined(_WIN32)
 	int i;
 #endif
 
@@ -184,7 +175,7 @@ static void free_anim_avi(struct anim *anim)
 	MEM_freeN(anim->avi);
 	anim->avi = NULL;
 
-#if defined(_WIN32) && !defined(FREE_WINDOWS)
+#if defined(_WIN32)
 
 	if (anim->pgf) {
 		AVIStreamGetFrameClose(anim->pgf);
@@ -224,9 +215,6 @@ void IMB_free_anim(struct anim *anim)
 	free_anim_avi(anim);
 #endif
 
-#ifdef WITH_QUICKTIME
-	free_anim_quicktime(anim);
-#endif
 #ifdef WITH_FFMPEG
 	free_anim_ffmpeg(anim);
 #endif
@@ -283,7 +271,7 @@ static int startavi(struct anim *anim)
 {
 
 	AviError avierror;
-#if defined(_WIN32) && !defined(FREE_WINDOWS)
+#if defined(_WIN32)
 	HRESULT hr;
 	int i, firstvideo = -1;
 	int streamcount;
@@ -304,7 +292,7 @@ static int startavi(struct anim *anim)
 
 	avierror = AVI_open_movie(anim->name, anim->avi);
 
-#if defined(_WIN32) && !defined(FREE_WINDOWS)
+#if defined(_WIN32)
 	if (avierror == AVI_ERROR_COMPRESSION) {
 		AVIFileInit();
 		hr = AVIFileOpen(&anim->pfile, anim->name, OF_READ, 0L);
@@ -401,7 +389,7 @@ static ImBuf *avi_fetchibuf(struct anim *anim, int position)
 		return NULL;
 	}
 
-#if defined(_WIN32) && !defined(FREE_WINDOWS)
+#if defined(_WIN32)
 	if (anim->avistreams) {
 		LPBITMAPINFOHEADER lpbi;
 
@@ -513,6 +501,11 @@ static int startffmpeg(struct anim *anim)
 	pCodecCtx->workaround_bugs = 1;
 
 	if (avcodec_open2(pCodecCtx, pCodec, NULL) < 0) {
+		avformat_close_input(&pFormatCtx);
+		return -1;
+	}
+	if (pCodecCtx->pix_fmt == AV_PIX_FMT_NONE) {
+		avcodec_close(anim->pCodecCtx);
 		avformat_close_input(&pFormatCtx);
 		return -1;
 	}
@@ -1217,9 +1210,6 @@ static ImBuf *anim_getnew(struct anim *anim)
 	free_anim_avi(anim);
 #endif
 
-#ifdef WITH_QUICKTIME
-	free_anim_quicktime(anim);
-#endif
 #ifdef WITH_FFMPEG
 	free_anim_ffmpeg(anim);
 #endif
@@ -1245,12 +1235,6 @@ static ImBuf *anim_getnew(struct anim *anim)
 				printf("couldnt start avi\n");
 				return (NULL);
 			}
-			ibuf = IMB_allocImBuf(anim->x, anim->y, 24, 0);
-			break;
-#endif
-#ifdef WITH_QUICKTIME
-		case ANIM_QTIME:
-			if (startquicktime(anim)) return (0);
 			ibuf = IMB_allocImBuf(anim->x, anim->y, 24, 0);
 			break;
 #endif
@@ -1341,21 +1325,6 @@ struct ImBuf *IMB_anim_absolute(struct anim *anim, int position,
 			ibuf = avi_fetchibuf(anim, position);
 			if (ibuf)
 				anim->curposition = position;
-			break;
-#endif
-#ifdef WITH_QUICKTIME
-		case ANIM_QTIME:
-			ibuf = qtime_fetchibuf(anim, position);
-			if (ibuf) {
-				if (ibuf->rect) {
-					/* OCIO_TODO: should happen in quicktime module, but it currently doesn't have access
-					 *            to color management's internals
-					 */
-					ibuf->rect_colorspace = colormanage_colorspace_get_named(anim->colorspace);
-				}
-
-				anim->curposition = position;
-			}
 			break;
 #endif
 #ifdef WITH_FFMPEG

@@ -43,7 +43,7 @@ extern "C" {
 #ifndef GHASH_INTERNAL_API
 #  ifdef __GNUC__
 #    undef  _GHASH_INTERNAL_ATTR
-#    define _GHASH_INTERNAL_ATTR __attribute__ ((deprecated))
+#    define _GHASH_INTERNAL_ATTR __attribute__ ((deprecated))  /* not deprecated, just private. */
 #  endif
 #endif
 
@@ -90,6 +90,7 @@ void   BLI_ghash_free(GHash *gh, GHashKeyFreeFP keyfreefp, GHashValFreeFP valfre
 void   BLI_ghash_reserve(GHash *gh, const unsigned int nentries_reserve);
 void   BLI_ghash_insert(GHash *gh, void *key, void *val);
 bool   BLI_ghash_reinsert(GHash *gh, void *key, void *val, GHashKeyFreeFP keyfreefp, GHashValFreeFP valfreefp);
+void  *BLI_ghash_replace_key(GHash *gh, void *key);
 void  *BLI_ghash_lookup(GHash *gh, const void *key) ATTR_WARN_UNUSED_RESULT;
 void  *BLI_ghash_lookup_default(GHash *gh, const void *key, void *val_default) ATTR_WARN_UNUSED_RESULT;
 void **BLI_ghash_lookup_p(GHash *gh, const void *key) ATTR_WARN_UNUSED_RESULT;
@@ -166,6 +167,8 @@ unsigned int    BLI_ghashutil_inthash_p(const void *ptr);
 unsigned int    BLI_ghashutil_inthash_p_murmur(const void *ptr);
 unsigned int    BLI_ghashutil_inthash_p_simple(const void *ptr);
 bool            BLI_ghashutil_intcmp(const void *a, const void *b);
+
+size_t          BLI_ghashutil_combine_hash(size_t hash_a, size_t hash_b);
 
 
 unsigned int    BLI_ghashutil_uinthash_v4(const unsigned int key[4]);
@@ -246,6 +249,7 @@ void   BLI_gset_insert(GSet *gh, void *key);
 bool   BLI_gset_add(GSet *gs, void *key);
 bool   BLI_gset_ensure_p_ex(GSet *gs, const void *key, void ***r_key);
 bool   BLI_gset_reinsert(GSet *gh, void *key, GSetKeyFreeFP keyfreefp);
+void  *BLI_gset_replace_key(GSet *gs, void *key);
 bool   BLI_gset_haskey(GSet *gs, const void *key) ATTR_WARN_UNUSED_RESULT;
 bool   BLI_gset_pop(GSet *gs, GSetIterState *state, void **r_key) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 bool   BLI_gset_remove(GSet *gs, const void *key, GSetKeyFreeFP keyfreefp);
@@ -294,6 +298,25 @@ double BLI_ghash_calc_quality(GHash *gh);
 double BLI_gset_calc_quality(GSet *gs);
 #endif  /* GHASH_INTERNAL_API */
 
+#define GHASH_FOREACH_BEGIN(type, var, what) \
+	do { \
+		GHashIterator gh_iter##var; \
+		GHASH_ITER(gh_iter##var, what) { \
+			type var = (type)(BLI_ghashIterator_getValue(&gh_iter##var)); \
+
+#define GHASH_FOREACH_END() \
+		} \
+	} while(0)
+
+#define GSET_FOREACH_BEGIN(type, var, what) \
+	do { \
+		GSetIterator gh_iter##var; \
+		GSET_ITER(gh_iter##var, what) { \
+			type var = (type)(BLI_gsetIterator_getKey(&gh_iter##var));
+
+#define GSET_FOREACH_END() \
+		} \
+	} while(0)
 
 #ifdef __cplusplus
 }

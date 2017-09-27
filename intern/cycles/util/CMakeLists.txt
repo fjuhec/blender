@@ -38,6 +38,7 @@ set(SRC_HEADERS
 	util_atomic.h
 	util_boundbox.h
 	util_debug.h
+	util_defines.h
 	util_guarded_allocator.cpp
 	util_foreach.h
 	util_function.h
@@ -59,6 +60,7 @@ set(SRC_HEADERS
 	util_math_int2.h
 	util_math_int3.h
 	util_math_int4.h
+	util_math_matrix.h
 	util_md5.h
 	util_opengl.h
 	util_optimization.h

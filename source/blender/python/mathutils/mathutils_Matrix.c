@@ -1709,10 +1709,10 @@ static PyObject *Matrix_lerp(MatrixObject *self, PyObject *args)
 
 	/* TODO, different sized matrix */
 	if (self->num_col == 4 && self->num_row == 4) {
-		blend_m4_m4m4((float (*)[4])mat, (float (*)[4])self->matrix, (float (*)[4])mat2->matrix, fac);
+		interp_m4_m4m4((float (*)[4])mat, (float (*)[4])self->matrix, (float (*)[4])mat2->matrix, fac);
 	}
 	else if (self->num_col == 3 && self->num_row == 3) {
-		blend_m3_m3m3((float (*)[3])mat, (float (*)[3])self->matrix, (float (*)[3])mat2->matrix, fac);
+		interp_m3_m3m3((float (*)[3])mat, (float (*)[3])self->matrix, (float (*)[3])mat2->matrix, fac);
 	}
 	else {
 		PyErr_SetString(PyExc_ValueError,
@@ -2034,7 +2034,7 @@ static PyObject *Matrix_richcmpr(PyObject *a, PyObject *b, int op)
 	switch (op) {
 		case Py_NE:
 			ok = !ok;
-			/* fall-through */
+			ATTR_FALLTHROUGH;
 		case Py_EQ:
 			res = ok ? Py_False : Py_True;
 			break;
@@ -2914,6 +2914,73 @@ PyObject *Matrix_CreatePyObject_cb(PyObject *cb_user,
 	return (PyObject *) self;
 }
 
+/**
+ * Use with PyArg_ParseTuple's "O&" formatting.
+ */
+static bool Matrix_ParseCheck(MatrixObject *pymat)
+{
+	if (!MatrixObject_Check(pymat)) {
+		PyErr_Format(PyExc_TypeError,
+		             "expected a mathutils.Matrix, not a %.200s",
+		             Py_TYPE(pymat)->tp_name);
+		return 0;
+	}
+	/* sets error */
+	if (BaseMath_ReadCallback(pymat) == -1) {
+		return 0;
+	}
+	return 1;
+}
+
+int Matrix_ParseAny(PyObject *o, void *p)
+{
+	MatrixObject **pymat_p = p;
+	MatrixObject  *pymat = (MatrixObject *)o;
+
+	if (!Matrix_ParseCheck(pymat)) {
+		return 0;
+	}
+	*pymat_p = pymat;
+	return 1;
+}
+
+int Matrix_Parse3x3(PyObject *o, void *p)
+{
+	MatrixObject **pymat_p = p;
+	MatrixObject  *pymat = (MatrixObject *)o;
+
+	if (!Matrix_ParseCheck(pymat)) {
+		return 0;
+	}
+	if ((pymat->num_col != 3) ||
+	    (pymat->num_row != 3))
+	{
+		PyErr_SetString(PyExc_ValueError, "matrix must be 3x3");
+		return 0;
+	}
+
+	*pymat_p = pymat;
+	return 1;
+}
+
+int Matrix_Parse4x4(PyObject *o, void *p)
+{
+	MatrixObject **pymat_p = p;
+	MatrixObject  *pymat = (MatrixObject *)o;
+
+	if (!Matrix_ParseCheck(pymat)) {
+		return 0;
+	}
+	if ((pymat->num_col != 4) ||
+	    (pymat->num_row != 4))
+	{
+		PyErr_SetString(PyExc_ValueError, "matrix must be 4x4");
+		return 0;
+	}
+
+	*pymat_p = pymat;
+	return 1;
+}
 
 /* ----------------------------------------------------------------------------
  * special type for alternate access */

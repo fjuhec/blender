@@ -172,7 +172,7 @@ static bool gather_objects_paths(const IObject &object, ListBase *object_paths)
 		void *abc_path_void = MEM_callocN(sizeof(AlembicObjectPath), "AlembicObjectPath");
 		AlembicObjectPath *abc_path = static_cast<AlembicObjectPath *>(abc_path_void);
 
-		BLI_strncpy(abc_path->path, object.getFullName().c_str(), PATH_MAX);
+		BLI_strncpy(abc_path->path, object.getFullName().c_str(), sizeof(abc_path->path));
 		BLI_addtail(object_paths, abc_path);
 	}
 
@@ -332,8 +332,8 @@ bool ABC_export(
 	job->settings.scene = job->scene;
 	job->settings.frame_start = params->frame_start;
 	job->settings.frame_end = params->frame_end;
-	job->settings.frame_step_xform = params->frame_step_xform;
-	job->settings.frame_step_shape = params->frame_step_shape;
+	job->settings.frame_samples_xform = params->frame_samples_xform;
+	job->settings.frame_samples_shape = params->frame_samples_shape;
 	job->settings.shutter_open = params->shutter_open;
 	job->settings.shutter_close = params->shutter_close;
 	job->settings.selected_only = params->selected_only;
@@ -359,6 +359,7 @@ bool ABC_export(
 		std::swap(job->settings.frame_start, job->settings.frame_end);
 	}
 
+	bool export_ok = false;
 	if (as_background_job) {
 		wmJob *wm_job = WM_jobs_get(CTX_wm_manager(C),
 		                            CTX_wm_window(C),
@@ -381,9 +382,12 @@ bool ABC_export(
 
 		export_startjob(job, &stop, &do_update, &progress);
 		export_endjob(job);
+		export_ok = job->export_ok;
+
+		MEM_freeN(job);
 	}
 
-	return job->export_ok;
+	return export_ok;
 }
 
 /* ********************** Import file ********************** */
@@ -448,7 +452,8 @@ static std::pair<bool, AbcObjectReader *> visit_object(
 		else {
 			if (child_claims_this_object) {
 				claiming_child_readers.push_back(child_reader);
-			} else {
+			}
+			else {
 				nonclaiming_child_readers.push_back(child_reader);
 			}
 		}
@@ -542,7 +547,7 @@ static std::pair<bool, AbcObjectReader *> visit_object(
 
 		AlembicObjectPath *abc_path = static_cast<AlembicObjectPath *>(
 		                                  MEM_callocN(sizeof(AlembicObjectPath), "AlembicObjectPath"));
-		BLI_strncpy(abc_path->path, full_name.c_str(), PATH_MAX);
+		BLI_strncpy(abc_path->path, full_name.c_str(), sizeof(abc_path->path));
 		BLI_addtail(&settings.cache_file->object_paths, abc_path);
 
 		/* We can now assign this reader as parent for our children. */
@@ -595,6 +600,7 @@ static std::pair<bool, AbcObjectReader *> visit_object(
 enum {
 	ABC_NO_ERROR = 0,
 	ABC_ARCHIVE_FAIL,
+	ABC_UNSUPPORTED_HDF5,
 };
 
 struct ImportJobData {
@@ -659,8 +665,12 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
 	ArchiveReader *archive = new ArchiveReader(data->filename);
 
 	if (!archive->valid()) {
-		delete archive;
+#ifndef WITH_ALEMBIC_HDF5
+		data->error_code = archive->is_hdf5() ? ABC_UNSUPPORTED_HDF5 : ABC_ARCHIVE_FAIL;
+#else
 		data->error_code = ABC_ARCHIVE_FAIL;
+#endif
+		delete archive;
 		return;
 	}
 
@@ -704,12 +714,13 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
 	chrono_t min_time = std::numeric_limits<chrono_t>::max();
 	chrono_t max_time = std::numeric_limits<chrono_t>::min();
 
+	ISampleSelector sample_sel(0.0f);
 	std::vector<AbcObjectReader *>::iterator iter;
 	for (iter = data->readers.begin(); iter != data->readers.end(); ++iter) {
 		AbcObjectReader *reader = *iter;
 
 		if (reader->valid()) {
-			reader->readObjectData(data->bmain, 0.0f);
+			reader->readObjectData(data->bmain, sample_sel);
 
 			min_time = std::min(min_time, reader->minTime());
 			max_time = std::max(max_time, reader->maxTime());
@@ -732,7 +743,7 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
 		Scene *scene = data->scene;
 
 		if (data->settings.is_sequence) {
-			SFRA = data->settings.offset;
+			SFRA = data->settings.sequence_offset;
 			EFRA = SFRA + (data->settings.sequence_len - 1);
 			CFRA = SFRA;
 		}
@@ -749,7 +760,7 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
 		const AbcObjectReader *parent_reader = reader->parent_reader;
 		Object *ob = reader->object();
 
-		if (parent_reader == NULL) {
+		if (parent_reader == NULL || !reader->inherits_xform()) {
 			ob->parent = NULL;
 		}
 		else {
@@ -829,6 +840,9 @@ static void import_endjob(void *user_data)
 		case ABC_ARCHIVE_FAIL:
 			WM_report(RPT_ERROR, "Could not open Alembic archive for reading! See console for detail.");
 			break;
+		case ABC_UNSUPPORTED_HDF5:
+			WM_report(RPT_ERROR, "Alembic archive in obsolete HDF5 format is not supported.");
+			break;
 	}
 
 	WM_main_add_notifier(NC_SCENE | ND_FRAME, data->scene);
@@ -856,20 +870,21 @@ bool ABC_import(bContext *C, const char *filepath, float scale, bool is_sequence
 	job->settings.is_sequence = is_sequence;
 	job->settings.set_frame_range = set_frame_range;
 	job->settings.sequence_len = sequence_len;
-	job->settings.offset = offset;
+	job->settings.sequence_offset = offset;
 	job->settings.validate_meshes = validate_meshes;
 	job->error_code = ABC_NO_ERROR;
 	job->was_cancelled = false;
 
 	G.is_break = false;
 
+	bool import_ok = false;
 	if (as_background_job) {
 		wmJob *wm_job = WM_jobs_get(CTX_wm_manager(C),
-									CTX_wm_window(C),
-									job->scene,
-									"Alembic Import",
-									WM_JOB_PROGRESS,
-									WM_JOB_TYPE_ALEMBIC);
+		                            CTX_wm_window(C),
+		                            job->scene,
+		                            "Alembic Import",
+		                            WM_JOB_PROGRESS,
+		                            WM_JOB_TYPE_ALEMBIC);
 
 		/* setup job */
 		WM_jobs_customdata_set(wm_job, job, import_freejob);
@@ -885,9 +900,12 @@ bool ABC_import(bContext *C, const char *filepath, float scale, bool is_sequence
 
 		import_startjob(job, &stop, &do_update, &progress);
 		import_endjob(job);
+		import_ok = job->import_ok;
+
+		import_freejob(job);
 	}
 
-	return job->import_ok;
+	return import_ok;
 }
 
 /* ************************************************************************** */
@@ -922,42 +940,15 @@ DerivedMesh *ABC_read_mesh(CacheReader *reader,
 	}
 
 	const ObjectHeader &header = iobject.getHeader();
-
-	if (IPolyMesh::matches(header)) {
-		if (ob->type != OB_MESH) {
-			*err_str = "Object type mismatch: object path points to a mesh!";
-			return NULL;
-		}
-
-		return abc_reader->read_derivedmesh(dm, time, read_flag, err_str);
-	}
-	else if (ISubD::matches(header)) {
-		if (ob->type != OB_MESH) {
-			*err_str = "Object type mismatch: object path points to a subdivision mesh!";
-			return NULL;
-		}
-
-		return abc_reader->read_derivedmesh(dm, time, read_flag, err_str);
-	}
-	else if (IPoints::matches(header)) {
-		if (ob->type != OB_MESH) {
-			*err_str = "Object type mismatch: object path points to a point cloud (requires a mesh object)!";
-			return NULL;
-		}
-
-		return abc_reader->read_derivedmesh(dm, time, read_flag, err_str);
-	}
-	else if (ICurves::matches(header)) {
-		if (ob->type != OB_CURVE) {
-			*err_str = "Object type mismatch: object path points to a curve!";
-			return NULL;
-		}
-
-		return abc_reader->read_derivedmesh(dm, time, read_flag, err_str);
+	if (!abc_reader->accepts_object_type(header, ob, err_str)) {
+		/* err_str is set by acceptsObjectType() */
+		return NULL;
 	}
 
-	*err_str = "Unsupported object type: verify object path"; // or poke developer
-	return NULL;
+	/* kFloorIndex is used to be compatible with non-interpolating
+	 * properties; they use the floor. */
+	ISampleSelector sample_sel(time, ISampleSelector::kFloorIndex);
+	return abc_reader->read_derivedmesh(dm, sample_sel, read_flag, err_str);
 }
 
 /* ************************************************************************** */
@@ -970,6 +961,12 @@ void CacheReader_free(CacheReader *reader)
 	if (abc_reader->refcount() == 0) {
 		delete abc_reader;
 	}
+}
+
+void CacheReader_incref(CacheReader *reader)
+{
+	AbcObjectReader *abc_reader = reinterpret_cast<AbcObjectReader *>(reader);
+	abc_reader->incref();
 }
 
 CacheReader *CacheReader_open_alembic_object(AbcArchiveHandle *handle, CacheReader *reader, Object *object, const char *object_path)
@@ -993,6 +990,10 @@ CacheReader *CacheReader_open_alembic_object(AbcArchiveHandle *handle, CacheRead
 
 	ImportSettings settings;
 	AbcObjectReader *abc_reader = create_reader(iobject, settings);
+	if (abc_reader == NULL) {
+		/* This object is not supported */
+		return NULL;
+	}
 	abc_reader->object(object);
 	abc_reader->incref();
 

@@ -32,6 +32,7 @@
  *  \ingroup bke
  */
 
+struct EvaluationContext;
 struct ImageUser;
 struct Image;
 struct ListBase;
@@ -77,14 +78,14 @@ void BKE_mask_layer_free(struct MaskLayer *masklay);
 void BKE_mask_layer_free_list(struct ListBase *masklayers);
 void BKE_mask_spline_free(struct MaskSpline *spline);
 void BKE_mask_spline_free_list(struct ListBase *splines);
-struct MaskSpline *BKE_mask_spline_copy(struct MaskSpline *spline);
+struct MaskSpline *BKE_mask_spline_copy(const struct MaskSpline *spline);
 void BKE_mask_point_free(struct MaskSplinePoint *point);
 
 void BKE_mask_layer_unique_name(struct Mask *mask, struct MaskLayer *masklay);
 void BKE_mask_layer_rename(struct Mask *mask, struct MaskLayer *masklay, char *oldname, char *newname);
 
-struct MaskLayer *BKE_mask_layer_copy(struct MaskLayer *layer);
-void BKE_mask_layer_copy_list(struct ListBase *masklayers_new, struct ListBase *masklayers);
+struct MaskLayer *BKE_mask_layer_copy(const struct MaskLayer *layer);
+void BKE_mask_layer_copy_list(struct ListBase *masklayers_new, const struct ListBase *masklayers);
 
 /* splines */
 struct MaskSpline *BKE_mask_spline_add(struct MaskLayer *masklay);
@@ -122,8 +123,9 @@ void BKE_mask_point_select_set_handle(struct MaskSplinePoint *point, const eMask
 
 /* general */
 struct Mask *BKE_mask_new(struct Main *bmain, const char *name);
+void BKE_mask_copy_data(struct Main *bmain, struct Mask *mask_dst, const struct Mask *mask_src, const int flag);
 struct Mask *BKE_mask_copy_nolib(struct Mask *mask);
-struct Mask *BKE_mask_copy(struct Main *bmain, struct Mask *mask);
+struct Mask *BKE_mask_copy(struct Main *bmain, const struct Mask *mask);
 
 void BKE_mask_make_local(struct Main *bmain, struct Mask *mask, const bool lib_local);
 
@@ -231,6 +233,12 @@ float *BKE_mask_point_segment_diff(struct MaskSpline *spline, struct MaskSplineP
 float *BKE_mask_point_segment_feather_diff(struct MaskSpline *spline, struct MaskSplinePoint *point,
                                            int width, int height,
                                            unsigned int *tot_feather_point);
+
+void BKE_mask_layer_evaluate_animation(struct MaskLayer *masklay, const float ctime);
+void BKE_mask_layer_evaluate_deform(struct MaskLayer *masklay, const float ctime);
+
+void BKE_mask_eval_animation(struct EvaluationContext *eval_ctx, struct Mask *mask);
+void BKE_mask_eval_update(struct EvaluationContext *eval_ctx, struct Mask *mask);
 
 /* mask_rasterize.c */
 struct MaskRasterHandle;

@@ -524,7 +524,7 @@ void BlenderStrokeRenderer::RenderStrokeRepBasic(StrokeRep *iStrokeRep) const
 
 				// We'll generate both with tips and without tips
 				// coordinates, on two different UV layers.
-				if (ma->mtex[a]->texflag & MTEX_TIPS)  {
+				if (ma->mtex[a]->texflag & MTEX_TIPS) {
 					BLI_strncpy(ma->mtex[a]->uvname, uvNames[1], sizeof(ma->mtex[a]->uvname));
 				}
 				else {
@@ -957,7 +957,7 @@ Render *BlenderStrokeRenderer::RenderScene(Render * /*re*/, bool render)
 	}
 #endif
 
-	Render *freestyle_render = RE_NewRender(freestyle_scene->id.name);
+	Render *freestyle_render = RE_NewSceneRender(freestyle_scene);
 
 	RE_RenderFreestyleStrokes(freestyle_render, freestyle_bmain, freestyle_scene,
 	                          render && get_stroke_count() > 0);

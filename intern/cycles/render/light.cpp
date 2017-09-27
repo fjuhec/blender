@@ -224,12 +224,12 @@ void LightManager::disable_ineffective_light(Device *device, Scene *scene)
 
 bool LightManager::object_usable_as_light(Object *object) {
 	Mesh *mesh = object->mesh;
-	/* Skip if we are not visible for BSDFs. */
-	if(!(object->visibility & (PATH_RAY_DIFFUSE|PATH_RAY_GLOSSY|PATH_RAY_TRANSMIT))) {
+	/* Skip objects with NaNs */
+	if(!object->bounds.valid()) {
 		return false;
 	}
-	/* Skip motion blurred deforming meshes, not supported yet. */
-	if(mesh->has_motion_blur()) {
+	/* Skip if we are not visible for BSDFs. */
+	if(!(object->visibility & (PATH_RAY_DIFFUSE|PATH_RAY_GLOSSY|PATH_RAY_TRANSMIT))) {
 		return false;
 	}
 	/* Skip if we have no emission shaders. */
@@ -486,18 +486,10 @@ static void background_cdf(int start,
                            float2 *cond_cdf)
 {
 	/* Conditional CDFs (rows, U direction). */
-	/* NOTE: It is possible to have some NaN pixels on background
-	 * which will ruin CDF causing wrong shading. We replace such
-	 * pixels with black.
-	 */
 	for(int i = start; i < end; i++) {
 		float sin_theta = sinf(M_PI_F * (i + 0.5f) / res);
 		float3 env_color = (*pixels)[i * res];
 		float ave_luminance = average(env_color);
-		/* TODO(sergey): Consider adding average_safe(). */
-		if(!isfinite(ave_luminance)) {
-			ave_luminance = 0.0f;
-		}
 
 		cond_cdf[i * cdf_count].x = ave_luminance * sin_theta;
 		cond_cdf[i * cdf_count].y = 0.0f;
@@ -505,9 +497,6 @@ static void background_cdf(int start,
 		for(int j = 1; j < res; j++) {
 			env_color = (*pixels)[i * res + j];
 			ave_luminance = average(env_color);
-			if(!isfinite(ave_luminance)) {
-				ave_luminance = 0.0f;
-			}
 
 			cond_cdf[i * cdf_count + j].x = ave_luminance * sin_theta;
 			cond_cdf[i * cdf_count + j].y = cond_cdf[i * cdf_count + j - 1].y + cond_cdf[i * cdf_count + j - 1].x / res;

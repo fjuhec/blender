@@ -335,8 +335,9 @@ struct bNodeTree *ntreeAddTree(struct Main *bmain, const char *name, const char 
 
 /* copy/free funcs, need to manage ID users */
 void              ntreeFreeTree(struct bNodeTree *ntree);
-struct bNodeTree *ntreeCopyTree_ex(struct bNodeTree *ntree, struct Main *bmain, const bool do_id_user);
-struct bNodeTree *ntreeCopyTree(struct Main *bmain, struct bNodeTree *ntree);
+void BKE_node_tree_copy_data(struct Main *bmain, struct bNodeTree *ntree_dst, const struct bNodeTree *ntree_src, const int flag);
+struct bNodeTree *ntreeCopyTree_ex(const struct bNodeTree *ntree, struct Main *bmain, const bool do_id_user);
+struct bNodeTree *ntreeCopyTree(struct Main *bmain, const struct bNodeTree *ntree);
 /* node->id user count */
 void              ntreeUserIncrefID(struct bNodeTree *ntree);
 void              ntreeUserDecrefID(struct bNodeTree *ntree);
@@ -452,6 +453,7 @@ void            nodeUnlinkNode(struct bNodeTree *ntree, struct bNode *node);
 void            nodeUniqueName(struct bNodeTree *ntree, struct bNode *node);
 
 void            nodeFreeNode(struct bNodeTree *ntree, struct bNode *node);
+struct bNode    *BKE_node_copy_ex(struct bNodeTree *ntree, struct bNode *node_src, const int flag);
 struct bNode	*nodeCopyNode(struct bNodeTree *ntree, struct bNode *node);
 
 struct bNodeLink *nodeAddLink(struct bNodeTree *ntree, struct bNode *fromnode, struct bNodeSocket *fromsock, struct bNode *tonode, struct bNodeSocket *tosock);
@@ -973,7 +975,8 @@ void ntreeCompositExecTree(struct Scene *scene, struct bNodeTree *ntree, struct 
 void ntreeCompositTagRender(struct Scene *sce);
 int ntreeCompositTagAnimated(struct bNodeTree *ntree);
 void ntreeCompositTagGenerators(struct bNodeTree *ntree);
-void ntreeCompositForceHidden(struct bNodeTree *ntree);
+void ntreeCompositUpdateRLayers(struct bNodeTree *ntree);
+void ntreeCompositRegisterPass(struct bNodeTree *ntree, struct Scene *scene, struct SceneRenderLayer *srl, const char *name, int type);
 void ntreeCompositClearTags(struct bNodeTree *ntree);
 
 struct bNodeSocket *ntreeCompositOutputFileAddSocket(struct bNodeTree *ntree, struct bNode *node,

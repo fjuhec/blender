@@ -1897,8 +1897,8 @@ static DerivedMesh *dynamicPaint_Modifier_apply(
 
 						/* apply weights into a vertex group, if doesnt exists add a new layer */
 						if (defgrp_index != -1 && !dvert && (surface->output_name[0] != '\0')) {
-							dvert = CustomData_add_layer_named(&result->vertData, CD_MDEFORMVERT, CD_CALLOC,
-							                                   NULL, sData->total_points, surface->output_name);
+							dvert = CustomData_add_layer(&result->vertData, CD_MDEFORMVERT, CD_CALLOC,
+							                             NULL, sData->total_points);
 						}
 						if (defgrp_index != -1 && dvert) {
 							int i;
@@ -2060,9 +2060,6 @@ DerivedMesh *dynamicPaint_Modifier_do(DynamicPaintModifierData *pmd, Scene *scen
 	if (pmd->canvas) {
 		DerivedMesh *ret;
 
-		/* For now generate looptris in every case */
-		DM_ensure_looptri(dm);
-
 		/* Update canvas data for a new frame */
 		dynamicPaint_frameUpdate(pmd, scene, ob, dm);
 
@@ -2072,9 +2069,6 @@ DerivedMesh *dynamicPaint_Modifier_do(DynamicPaintModifierData *pmd, Scene *scen
 		return ret;
 	}
 	else {
-		/* For now generate looptris in every case */
-		DM_ensure_looptri(dm);
-
 		/* Update canvas data for a new frame */
 		dynamicPaint_frameUpdate(pmd, scene, ob, dm);
 

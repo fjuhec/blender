@@ -67,10 +67,10 @@ bool BKE_animdata_set_action(struct ReportList *reports, struct ID *id, struct b
 void BKE_animdata_free(struct ID *id, const bool do_id_user);
 
 /* Copy AnimData */
-struct AnimData *BKE_animdata_copy(struct AnimData *adt, const bool do_action);
+struct AnimData *BKE_animdata_copy(struct Main *bmain, struct AnimData *adt, const bool do_action);
 
 /* Copy AnimData */
-bool BKE_animdata_copy_id(struct ID *id_to, struct ID *id_from, const bool do_action);
+bool BKE_animdata_copy_id(struct Main *bmain, struct ID *id_to, struct ID *id_from, const bool do_action);
 
 /* Copy AnimData Actions */
 void BKE_animdata_copy_id_action(struct ID *id, const bool set_newid);
@@ -89,12 +89,6 @@ typedef enum eAnimData_MergeCopy_Modes {
 
 void BKE_animdata_merge_copy(struct ID *dst_id, struct ID *src_id, eAnimData_MergeCopy_Modes action_mode, bool fix_drivers);
 
-/* Make Local */
-void BKE_animdata_make_local(struct AnimData *adt);
-
-/* Re-Assign ID's */
-void BKE_animdata_relink(struct AnimData *adt);
-
 /* ************************************* */
 /* KeyingSets API */
 
@@ -108,7 +102,7 @@ struct KS_Path *BKE_keyingset_add_path(struct KeyingSet *ks, struct ID *id, cons
 struct KS_Path *BKE_keyingset_find_path(struct KeyingSet *ks, struct ID *id, const char group_name[], const char rna_path[], int array_index, int group_mode);
 
 /* Copy all KeyingSets in the given list */
-void BKE_keyingsets_copy(struct ListBase *newlist, struct ListBase *list);
+void BKE_keyingsets_copy(struct ListBase *newlist, const struct ListBase *list);
 
 /* Free the given Keying Set path */
 void BKE_keyingset_free_path(struct KeyingSet *ks, struct KS_Path *ksp);

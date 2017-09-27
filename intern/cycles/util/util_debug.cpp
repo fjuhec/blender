@@ -118,17 +118,20 @@ void DebugFlags::OpenCL::reset()
 	}
 	/* Initialize other flags from environment variables. */
 	debug = (getenv("CYCLES_OPENCL_DEBUG") != NULL);
-	single_program = (getenv("CYCLES_OPENCL_SINGLE_PROGRAM") != NULL);
+	single_program = (getenv("CYCLES_OPENCL_MULTI_PROGRAM") == NULL);
 }
 
 DebugFlags::DebugFlags()
+: viewport_static_bvh(false)
 {
 	/* Nothing for now. */
 }
 
 void DebugFlags::reset()
 {
+	viewport_static_bvh = false;
 	cpu.reset();
+	cuda.reset();
 	opencl.reset();
 }
 
@@ -184,8 +187,8 @@ std::ostream& operator <<(std::ostream &os,
 	   << "  Device type    : " << opencl_device_type << "\n"
 	   << "  Kernel type    : " << opencl_kernel_type << "\n"
 	   << "  Debug          : " << string_from_bool(debug_flags.opencl.debug) << "\n"
-	   << "  Signle program : " << string_from_bool(debug_flags.opencl.single_program)
-	   << "\n";
+	   << "  Single program : " << string_from_bool(debug_flags.opencl.single_program) << "\n"
+	   << "  Memory limit   : " << string_human_readable_size(debug_flags.opencl.mem_limit) << "\n";
 	return os;
 }
 

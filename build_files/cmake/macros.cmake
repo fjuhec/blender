@@ -403,9 +403,6 @@ function(setup_liblinks
 	if(WITH_SDL AND NOT WITH_SDL_DYNLOAD)
 		target_link_libraries(${target} ${SDL_LIBRARY})
 	endif()
-	if(WITH_CODEC_QUICKTIME)
-		target_link_libraries(${target} ${QUICKTIME_LIBRARIES})
-	endif()
 	if(WITH_IMAGE_TIFF)
 		target_link_libraries(${target} ${TIFF_LIBRARY})
 	endif()
@@ -713,10 +710,6 @@ function(SETUP_BLENDER_SORTED_LIBS)
 
 	if(WITH_IK_ITASC)
 		list(APPEND BLENDER_SORTED_LIBS bf_intern_itasc)
-	endif()
-
-	if(WITH_CODEC_QUICKTIME)
-		list(APPEND BLENDER_SORTED_LIBS bf_quicktime)
 	endif()
 
 	if(WITH_MOD_BOOLEAN)
@@ -1247,17 +1240,6 @@ endfunction()
 # hacks to override initial project settings
 # these macros must be called directly before/after project(Blender)
 macro(blender_project_hack_pre)
-	# ----------------
-	# MINGW HACK START
-	# ignore system set flag, use our own
-	# must be before project(...)
-	# if the user wants to add their own its ok after first run.
-	if(DEFINED CMAKE_C_STANDARD_LIBRARIES)
-		set(_reset_standard_libraries OFF)
-	else()
-		set(_reset_standard_libraries ON)
-	endif()
-
 	# ------------------
 	# GCC -O3 HACK START
 	# needed because O3 can cause problems but
@@ -1276,25 +1258,6 @@ endmacro()
 
 
 macro(blender_project_hack_post)
-	# --------------
-	# MINGW HACK END
-	if(_reset_standard_libraries)
-		# Must come after projecINCt(...)
-		#
-		# MINGW workaround for -ladvapi32 being included which surprisingly causes
-		# string formatting of floats, eg: printf("%.*f", 3, value). to crash blender
-		# with a meaningless stack trace. by overriding this flag we ensure we only
-		# have libs we define.
-		set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "" FORCE)
-		set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "" FORCE)
-		mark_as_advanced(
-			CMAKE_C_STANDARD_LIBRARIES
-			CMAKE_CXX_STANDARD_LIBRARIES
-		)
-	endif()
-	unset(_reset_standard_libraries)
-
-
 	# ----------------
 	# GCC -O3 HACK END
 	if(_reset_standard_cflags_rel)

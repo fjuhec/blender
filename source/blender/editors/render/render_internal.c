@@ -116,6 +116,7 @@ typedef struct RenderJob {
 	ScrArea *sa;
 	ColorManagedViewSettings view_settings;
 	ColorManagedDisplaySettings display_settings;
+	bool supports_glsl_draw;
 	bool interface_locked;
 } RenderJob;
 
@@ -210,7 +211,7 @@ static void image_buffer_rect_update(RenderJob *rj, RenderResult *rr, ImBuf *ibu
 			}
 			else {
 				if (rr->renlay == NULL) return;
-				rectf = RE_RenderLayerGetPass(rr->renlay, SCE_PASS_COMBINED, viewname);
+				rectf = RE_RenderLayerGetPass(rr->renlay, RE_PASSNAME_COMBINED, viewname);
 			}
 		}
 		if (rectf == NULL) return;
@@ -304,7 +305,7 @@ static int screen_render_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
-	re = RE_NewRender(scene->id.name);
+	re = RE_NewSceneRender(scene);
 	lay_override = (v3d && v3d->lay != scene->lay) ? v3d->lay : 0;
 
 	G.is_break = false;
@@ -569,6 +570,7 @@ static void image_rect_update(void *rjv, RenderResult *rr, volatile rcti *renrec
 		 * operate with.
 		 */
 		if (rr->do_exr_tile ||
+		    !rj->supports_glsl_draw ||
 		    ibuf->channels == 1 ||
 		    U.image_draw_method != IMAGE_DRAW_METHOD_GLSL)
 		{
@@ -904,6 +906,7 @@ static int screen_render_invoke(bContext *C, wmOperator *op, const wmEvent *even
 	rj->orig_layer = 0;
 	rj->last_layer = 0;
 	rj->sa = sa;
+	rj->supports_glsl_draw = IMB_colormanagement_support_glsl_draw(&scene->view_settings);
 
 	BKE_color_managed_display_settings_copy(&rj->display_settings, &scene->display_settings);
 	BKE_color_managed_view_settings_copy(&rj->view_settings, &scene->view_settings);
@@ -961,7 +964,7 @@ static int screen_render_invoke(bContext *C, wmOperator *op, const wmEvent *even
 	rj->image = ima;
 
 	/* setup new render */
-	re = RE_NewRender(scene->id.name);
+	re = RE_NewSceneRender(scene);
 	RE_test_break_cb(re, rj, render_breakjob);
 	RE_draw_lock_cb(re, rj, render_drawlock);
 	RE_display_update_cb(re, rj, image_rect_update);
@@ -1168,7 +1171,7 @@ static void render_update_resolution(Render *re, const RenderPreview *rp,
 	}
 
 	if (rp->has_freestyle) {
-		if (rp->resolution_divider == 1) {
+		if (rp->resolution_divider == BKE_render_preview_pixel_size(&rp->scene->r)) {
 			RE_ChangeModeFlag(re, R_EDGE_FRS, false);
 		}
 		else {
@@ -1234,7 +1237,7 @@ static void render_view3d_startjob(void *customdata, short *stop, short *do_upda
 	use_border = render_view3d_disprect(rp->scene, rp->ar, rp->v3d,
 	                                    rp->rv3d, &cliprct);
 
-	if ((update_flag & (PR_UPDATE_RENDERSIZE | PR_UPDATE_DATABASE)) || rstats->convertdone == 0) {
+	if ((update_flag & (PR_UPDATE_RENDERSIZE | PR_UPDATE_DATABASE | PR_UPDATE_VIEW)) || rstats->convertdone == 0) {
 		RenderData rdata;
 
 		/* no osa, blur, seq, layers, savebuffer etc for preview render */
@@ -1309,11 +1312,12 @@ static void render_view3d_startjob(void *customdata, short *stop, short *do_upda
 		RE_updateRenderInstances(re, ob_inst_update_flag);
 
 		for (;;) {
+			int pixel_size = BKE_render_preview_pixel_size(&rp->scene->r);
 			if (first_time == false) {
 				if (restore)
 					RE_DataBase_IncrementalView(re, rp->viewmat, 1);
 
-				rp->resolution_divider /= 2;
+				rp->resolution_divider = MAX2(rp->resolution_divider/2, pixel_size);
 				*do_update = 1;
 
 				render_update_resolution(re, rp, use_border, &cliprct);
@@ -1330,7 +1334,7 @@ static void render_view3d_startjob(void *customdata, short *stop, short *do_upda
 
 			first_time = false;
 
-			if (*stop || rp->resolution_divider == 1) {
+			if (*stop || rp->resolution_divider == pixel_size) {
 				break;
 			}
 		}
@@ -1432,7 +1436,7 @@ static void render_view3d_do(RenderEngine *engine, const bContext *C)
 	Scene *scene = CTX_data_scene(C);
 	ARegion *ar = CTX_wm_region(C);
 	int width = ar->winx, height = ar->winy;
-	int divider = 1;
+	int divider = BKE_render_preview_pixel_size(&scene->r);
 	int resolution_threshold = scene->r.preview_start_resolution *
 	                           scene->r.preview_start_resolution;
 

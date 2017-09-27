@@ -83,8 +83,6 @@ typedef struct Global {
 	/* debug flag, G_DEBUG, G_DEBUG_PYTHON & friends, set python or command line args */
 	int debug;
 
-	bool have_quicktime;
-
 	/* this variable is written to / read from FileGlobal->fileflags */
 	int fileflags;
 
@@ -187,11 +185,6 @@ enum {
  * written had. */
 #if !defined(__BIG_ENDIAN__) && !defined(__LITTLE_ENDIAN__)
 #  error Either __BIG_ENDIAN__ or __LITTLE_ENDIAN__ must be defined.
-#endif
-
-/* there is really no good place for this */
-#if defined(FREE_WINDOWS) && ((__GNUC__ < 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ < 6)))
-#  error "Mingw requires GCC 4.6 minimum"
 #endif
 
 #define L_ENDIAN    1

@@ -36,8 +36,9 @@
 #include "DNA_movieclip_types.h"
 #include "DNA_object_types.h"   /* SELECT */
 
-#include "BLI_threads.h"
 #include "BLI_utildefines.h"
+#include "BLI_listbase.h"
+#include "BLI_threads.h"
 #include "BLI_math.h"
 
 #include "BKE_movieclip.h"
@@ -75,6 +76,9 @@ typedef struct AutoTrackContext {
 
 	int num_tracks;  /* Number of tracks being tracked. */
 	AutoTrackOptions *options;  /* Per-tracking track options. */
+
+	/* Array of all tracks, indexed by track_index. */
+	MovieTrackingTrack **tracks;
 
 	bool backwards;
 	bool sequence;
@@ -306,8 +310,15 @@ AutoTrackContext *BKE_autotrack_context_new(MovieClip *clip,
 
 	BLI_spin_init(&context->spin_lock);
 
+	int num_total_tracks = BLI_listbase_count(tracksbase);
+	context->tracks =
+		MEM_callocN(sizeof(MovieTrackingTrack *) * num_total_tracks,
+		            "auto track pointers");
+
 	context->image_accessor =
-		tracking_image_accessor_new(context->clips, 1, user->framenr);
+		tracking_image_accessor_new(context->clips, 1,
+		                            context->tracks, num_total_tracks,
+		                            user->framenr);
 	context->autotrack =
 		libmv_autoTrackNew(context->image_accessor->libmv_accessor);
 
@@ -361,6 +372,7 @@ AutoTrackContext *BKE_autotrack_context_new(MovieClip *clip,
 			options->use_keyframe_match =
 				track->pattern_match == TRACK_MATCH_KEYFRAME;
 		}
+		context->tracks[track_index] = track;
 		++track_index;
 	}
 
@@ -369,7 +381,7 @@ AutoTrackContext *BKE_autotrack_context_new(MovieClip *clip,
 
 bool BKE_autotrack_context_step(AutoTrackContext *context)
 {
-	int frame_delta = context->backwards ? -1 : 1;
+	const int frame_delta = context->backwards ? -1 : 1;
 	bool ok = false;
 	int track;
 
@@ -383,67 +395,64 @@ bool BKE_autotrack_context_step(AutoTrackContext *context)
 		             libmv_reference_marker,
 		             libmv_tracked_marker;
 		libmv_TrackRegionResult libmv_result;
-		int frame = BKE_movieclip_remap_scene_to_clip_frame(
-			context->clips[options->clip_index],
-			context->user.framenr);
-		bool has_marker;
-
+		const int frame = BKE_movieclip_remap_scene_to_clip_frame(
+		        context->clips[options->clip_index],
+		        context->user.framenr);
 		BLI_spin_lock(&context->spin_lock);
-		has_marker = libmv_autoTrackGetMarker(context->autotrack,
-		                                      options->clip_index,
-		                                      frame,
-		                                      options->track_index,
-		                                      &libmv_current_marker);
+		const bool has_marker = libmv_autoTrackGetMarker(context->autotrack,
+		                                                 options->clip_index,
+		                                                 frame,
+		                                                 options->track_index,
+		                                                 &libmv_current_marker);
 		BLI_spin_unlock(&context->spin_lock);
-
-		if (has_marker) {
-			if (!tracking_check_marker_margin(&libmv_current_marker,
-			                                  options->track->margin,
-			                                  context->frame_width,
-			                                  context->frame_height))
-			{
-				continue;
-			}
-
-			libmv_tracked_marker = libmv_current_marker;
-			libmv_tracked_marker.frame = frame + frame_delta;
-
-			if (options->use_keyframe_match) {
-				libmv_tracked_marker.reference_frame =
-					libmv_current_marker.reference_frame;
-				libmv_autoTrackGetMarker(context->autotrack,
-			                             options->clip_index,
-			                             libmv_tracked_marker.reference_frame,
-			                             options->track_index,
-			                             &libmv_reference_marker);
-			}
-			else {
-				libmv_tracked_marker.reference_frame = frame;
-				libmv_reference_marker = libmv_current_marker;
-			}
-
-			if (libmv_autoTrackMarker(context->autotrack,
-			                          &options->track_region_options,
-			                          &libmv_tracked_marker,
-			                          &libmv_result))
-			{
-				BLI_spin_lock(&context->spin_lock);
-				libmv_autoTrackAddMarker(context->autotrack,
-				                         &libmv_tracked_marker);
-				BLI_spin_unlock(&context->spin_lock);
-			}
-			else {
-				options->is_failed = true;
-				options->failed_frame = frame + frame_delta;
-			}
-			ok = true;
+		/* Check whether we've got marker to sync with. */
+		if (!has_marker) {
+			continue;
 		}
+		/* Check whether marker is going outside of allowed frame margin. */
+		if (!tracking_check_marker_margin(&libmv_current_marker,
+		                                  options->track->margin,
+		                                  context->frame_width,
+		                                  context->frame_height))
+		{
+			continue;
+		}
+		libmv_tracked_marker = libmv_current_marker;
+		libmv_tracked_marker.frame = frame + frame_delta;
+		/* Update reference frame. */
+		if (options->use_keyframe_match) {
+			libmv_tracked_marker.reference_frame =
+			        libmv_current_marker.reference_frame;
+			libmv_autoTrackGetMarker(context->autotrack,
+		                             options->clip_index,
+		                             libmv_tracked_marker.reference_frame,
+		                             options->track_index,
+		                             &libmv_reference_marker);
+		}
+		else {
+			libmv_tracked_marker.reference_frame = frame;
+			libmv_reference_marker = libmv_current_marker;
+		}
+		/* Perform actual tracking. */
+		if (libmv_autoTrackMarker(context->autotrack,
+		                          &options->track_region_options,
+		                          &libmv_tracked_marker,
+		                          &libmv_result))
+		{
+			BLI_spin_lock(&context->spin_lock);
+			libmv_autoTrackAddMarker(context->autotrack, &libmv_tracked_marker);
+			BLI_spin_unlock(&context->spin_lock);
+		}
+		else {
+			options->is_failed = true;
+			options->failed_frame = frame + frame_delta;
+		}
+		ok = true;
 	}
-
+	/* Advance the frame. */
 	BLI_spin_lock(&context->spin_lock);
 	context->user.framenr += frame_delta;
 	BLI_spin_unlock(&context->spin_lock);
-
 	return ok;
 }
 
@@ -565,6 +574,7 @@ void BKE_autotrack_context_free(AutoTrackContext *context)
 	libmv_autoTrackDestroy(context->autotrack);
 	tracking_image_accessor_destroy(context->image_accessor);
 	MEM_freeN(context->options);
+	MEM_freeN(context->tracks);
 	BLI_spin_end(&context->spin_lock);
 	MEM_freeN(context);
 }

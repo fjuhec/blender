@@ -32,7 +32,7 @@
 #include "BLI_memarena.h"
 #include "BLI_array.h"
 #include "BLI_alloca.h"
-#include "BLI_stackdefines.h"
+#include "BLI_utildefines_stack.h"
 #include "BLI_linklist_stack.h"
 #include "BLI_sort.h"
 #include "BLI_sort_utils.h"
@@ -62,15 +62,16 @@
 #define EDGE_NET   _FLAG_WALK
 /* tag verts we've visit */
 #define VERT_VISIT _FLAG_WALK
+#define VERT_IN_QUEUE _FLAG_WALK_ALT
 
 struct VertOrder {
 	float   angle;
 	BMVert *v;
 };
 
-static unsigned int bm_edge_flagged_radial_count(BMEdge *e)
+static uint bm_edge_flagged_radial_count(BMEdge *e)
 {
-	unsigned int count = 0;
+	uint count = 0;
 	BMLoop *l;
 
 	if ((l = e->l)) {
@@ -133,7 +134,7 @@ static bool bm_face_split_edgenet_find_loop_pair(
 		e = e_first = v_init->e;
 		do {
 			if (BM_ELEM_API_FLAG_TEST(e, EDGE_NET)) {
-				const unsigned int count = bm_edge_flagged_radial_count(e);
+				const uint count = bm_edge_flagged_radial_count(e);
 				if (count == 1) {
 					BLI_SMALLSTACK_PUSH(edges_boundary, e);
 					edges_boundary_len++;
@@ -238,7 +239,7 @@ static bool bm_face_split_edgenet_find_loop_pair_exists(
 		e = e_first = v_init->e;
 		do {
 			if (BM_ELEM_API_FLAG_TEST(e, EDGE_NET)) {
-				const unsigned int count = bm_edge_flagged_radial_count(e);
+				const uint count = bm_edge_flagged_radial_count(e);
 				if (count == 1) {
 					edges_boundary_len++;
 				}
@@ -274,7 +275,7 @@ static bool bm_face_split_edgenet_find_loop_pair_exists(
 static bool bm_face_split_edgenet_find_loop_walk(
         BMVert *v_init, const float face_normal[3],
         /* cache to avoid realloc every time */
-        struct VertOrder *edge_order, const unsigned int edge_order_len,
+        struct VertOrder *edge_order, const uint edge_order_len,
         BMEdge *e_pair[2])
 {
 	/* fast-path for the common case (avoid push-pop).
@@ -381,7 +382,7 @@ walk_nofork:
 
 		/* sort by angle if needed */
 		if (STACK_SIZE(edge_order) > 1) {
-			unsigned int j;
+			uint j;
 			BMVert *v_prev = BM_edge_other_vert(v->e, v);
 
 			for (j = 0; j < STACK_SIZE(edge_order); j++) {
@@ -420,7 +421,7 @@ finally:
 static bool bm_face_split_edgenet_find_loop(
         BMVert *v_init, const float face_normal[3], float face_normal_matrix[3][3],
         /* cache to avoid realloc every time */
-        struct VertOrder *edge_order, const unsigned int edge_order_len,
+        struct VertOrder *edge_order, const uint edge_order_len,
         BMVert **r_face_verts, int *r_face_verts_len)
 {
 	BMEdge *e_pair[2];
@@ -434,7 +435,7 @@ static bool bm_face_split_edgenet_find_loop(
 	           (bm_edge_flagged_radial_count(e_pair[1]) == 1));
 
 	if (bm_face_split_edgenet_find_loop_walk(v_init, face_normal, edge_order, edge_order_len, e_pair)) {
-		unsigned int i = 0;
+		uint i = 0;
 
 		r_face_verts[i++] = v_init;
 		v = BM_edge_other_vert(e_pair[1], v_init);
@@ -474,7 +475,7 @@ bool BM_face_split_edgenet(
 	int i;
 
 	struct VertOrder *edge_order;
-	const unsigned int edge_order_len = edge_net_len + 2;
+	const uint edge_order_len = edge_net_len + 2;
 
 	BMVert *v;
 
@@ -512,13 +513,21 @@ bool BM_face_split_edgenet(
 	} while ((l_iter = l_iter->next) != l_first);
 #endif
 
+	/* Note: 'VERT_IN_QUEUE' is often not needed at all,
+	 * however in rare cases verts are added multiple times to the queue,
+	 * that on it's own is harmless but in _very_ rare cases,
+	 * the queue will overflow its maximum size,
+	 * so we better be strict about this! see: T51539 */
 
 	for (i = 0; i < edge_net_len; i++) {
 		BM_ELEM_API_FLAG_ENABLE(edge_net[i], EDGE_NET);
+		BM_ELEM_API_FLAG_DISABLE(edge_net[i]->v1, VERT_IN_QUEUE);
+		BM_ELEM_API_FLAG_DISABLE(edge_net[i]->v2, VERT_IN_QUEUE);
 	}
 	l_iter = l_first = BM_FACE_FIRST_LOOP(f);
 	do {
 		BM_ELEM_API_FLAG_ENABLE(l_iter->e, EDGE_NET);
+		BM_ELEM_API_FLAG_DISABLE(l_iter->v, VERT_IN_QUEUE);
 	} while ((l_iter = l_iter->next) != l_first);
 
 	float face_normal_matrix[3][3];
@@ -527,8 +536,10 @@ bool BM_face_split_edgenet(
 
 	/* any vert can be used to begin with */
 	STACK_PUSH(vert_queue, l_first->v);
+	BM_ELEM_API_FLAG_ENABLE(l_first->v, VERT_IN_QUEUE);
 
 	while ((v = STACK_POP(vert_queue))) {
+		BM_ELEM_API_FLAG_DISABLE(v, VERT_IN_QUEUE);
 		if (bm_face_split_edgenet_find_loop(
 		        v, f->no, face_normal_matrix,
 		        edge_order, edge_order_len, face_verts, &face_verts_len))
@@ -558,8 +569,12 @@ bool BM_face_split_edgenet(
 				 * (verts between boundary and manifold edges) */
 				l_iter = l_first = BM_FACE_FIRST_LOOP(f_new);
 				do {
-					if (bm_face_split_edgenet_find_loop_pair_exists(l_iter->v)) {
+					/* Avoid adding to queue multiple times (not common but happens). */
+					if (!BM_ELEM_API_FLAG_TEST(l_iter->v, VERT_IN_QUEUE) &&
+					    bm_face_split_edgenet_find_loop_pair_exists(l_iter->v))
+					{
 						STACK_PUSH(vert_queue, l_iter->v);
+						BM_ELEM_API_FLAG_ENABLE(l_iter->v, VERT_IN_QUEUE);
 					}
 				} while ((l_iter = l_iter->next) != l_first);
 			}
@@ -710,8 +725,28 @@ BLI_INLINE bool edge_isect_verts_point_2d(
         const BMEdge *e, const BMVert *v_a, const BMVert *v_b,
         float r_isect[2])
 {
-	return ((isect_seg_seg_v2_point(v_a->co, v_b->co, e->v1->co, e->v2->co, r_isect) == 1) &&
+	/* This bias seems like it could be too large,
+	 * mostly its not needed, see T52329 for example where it is. */
+	const float endpoint_bias = 1e-4f;
+	return ((isect_seg_seg_v2_point_ex(v_a->co, v_b->co, e->v1->co, e->v2->co, endpoint_bias, r_isect) == 1) &&
 	        ((e->v1 != v_a) && (e->v2 != v_a) && (e->v1 != v_b)  && (e->v2 != v_b)));
+}
+
+BLI_INLINE int axis_pt_cmp(const float pt_a[2], const float pt_b[2])
+{
+	if (pt_a[0] < pt_b[0]) {
+		return -1;
+	}
+	if (pt_a[0] > pt_b[0]) {
+		return 1;
+	}
+	if (pt_a[1] < pt_b[1]) {
+		return -1;
+	}
+	if (pt_a[1] > pt_b[1]) {
+		return 1;
+	}
+	return 0;
 }
 
 /**
@@ -721,20 +756,21 @@ BLI_INLINE bool edge_isect_verts_point_2d(
  */
 struct EdgeGroupIsland {
 	LinkNode edge_links;  /* keep first */
-	unsigned int vert_len, edge_len;
+	uint vert_len, edge_len;
 
 	/* Set the following vars once we have >1 groups */
 
 	/* when when an edge in a previous group connects to this one,
 	 * so theres no need to create one pointing back. */
-	unsigned int has_prev_edge : 1;
+	uint has_prev_edge : 1;
 
 	/* verts in the group which has the lowest & highest values,
 	 * the lower vertex is connected to the first edge */
 	struct {
 		BMVert *min, *max;
 		/* used for sorting only */
-		float min_axis;
+		float min_axis[2];
+		float max_axis[2];
 	} vert_span;
 };
 
@@ -743,12 +779,11 @@ static int group_min_cmp_fn(const void *p1, const void *p2)
 	const struct EdgeGroupIsland *g1 = *(struct EdgeGroupIsland **)p1;
 	const struct EdgeGroupIsland *g2 = *(struct EdgeGroupIsland **)p2;
 	/* min->co[SORT_AXIS] hasn't been applied yet */
-	const float f1 = g1->vert_span.min_axis;
-	const float f2 = g2->vert_span.min_axis;
-
-	if (f1 < f2) return -1;
-	if (f1 > f2) return  1;
-	else         return  0;
+	int test = axis_pt_cmp(g1->vert_span.min_axis, g2->vert_span.min_axis);
+	if (UNLIKELY(test == 0)) {
+		test = axis_pt_cmp(g1->vert_span.max_axis, g2->vert_span.max_axis);
+	}
+	return test;
 }
 
 struct Edges_VertVert_BVHTreeTest {
@@ -758,7 +793,7 @@ struct Edges_VertVert_BVHTreeTest {
 	BMVert *v_origin;
 	BMVert *v_other;
 
-	const unsigned int *vert_range;
+	const uint *vert_range;
 };
 
 struct Edges_VertRay_BVHTreeTest {
@@ -766,7 +801,7 @@ struct Edges_VertRay_BVHTreeTest {
 
 	BMVert *v_origin;
 
-	const unsigned int *vert_range;
+	const uint *vert_range;
 };
 
 static void bvhtree_test_edges_isect_2d_vert_cb(
@@ -831,12 +866,12 @@ static void bvhtree_test_edges_isect_2d_ray_cb(
 struct EdgeGroup_FindConnection_Args {
 	BVHTree *bvhtree;
 	BMEdge **edge_arr;
-	unsigned int edge_arr_len;
+	uint edge_arr_len;
 
 	BMEdge **edge_arr_new;
-	unsigned int edge_arr_new_len;
+	uint edge_arr_new_len;
 
-	const unsigned int *vert_range;
+	const uint *vert_range;
 };
 
 static BMEdge *test_edges_isect_2d_vert(
@@ -869,7 +904,7 @@ static BMEdge *test_edges_isect_2d_vert(
 	/* check existing connections (no spatial optimization here since we're continually adding). */
 	if (LIKELY(index == -1)) {
 		float t_best = 1.0f;
-		for (unsigned int i = 0; i < args->edge_arr_new_len; i++) {
+		for (uint i = 0; i < args->edge_arr_new_len; i++) {
 			float co_isect[2];
 			if (UNLIKELY(edge_isect_verts_point_2d(args->edge_arr_new[i], v_origin, v_other, co_isect))) {
 				const float t_test = line_point_factor_v2(co_isect, v_origin->co, v_other->co);
@@ -914,7 +949,7 @@ static BMEdge *test_edges_isect_2d_ray(
 
 	/* check existing connections (no spatial optimization here since we're continually adding). */
 	if (LIKELY(index != -1)) {
-		for (unsigned int i = 0; i < args->edge_arr_new_len; i++) {
+		for (uint i = 0; i < args->edge_arr_new_len; i++) {
 			BMEdge *e = args->edge_arr_new[i];
 			float dist_new;
 			if (isect_ray_seg_v2(v_origin->co, dir, e->v1->co, e->v2->co, &dist_new, NULL)) {
@@ -978,8 +1013,8 @@ static int bm_face_split_edgenet_find_connection(
 			for (int j = 0; j < 2; j++) {
 				BMVert *v_iter = v_pair[j];
 				if (BM_elem_flag_test(v_iter, VERT_IS_VALID)) {
-					if (direction_sign ? (v_iter->co[SORT_AXIS] >= v_origin->co[SORT_AXIS]) :
-					                     (v_iter->co[SORT_AXIS] <= v_origin->co[SORT_AXIS]))
+					if (direction_sign ? (v_iter->co[SORT_AXIS] > v_origin->co[SORT_AXIS]) :
+					                     (v_iter->co[SORT_AXIS] < v_origin->co[SORT_AXIS]))
 					{
 						BLI_SMALLSTACK_PUSH(vert_search, v_iter);
 						BLI_SMALLSTACK_PUSH(vert_blacklist, v_iter);
@@ -1031,7 +1066,7 @@ static BMVert *bm_face_split_edgenet_partial_connect(BMesh *bm, BMVert *v_delimi
 	/* initial check - see if we have 3+ flagged edges attached to 'v_delimit'
 	 * if not, we can early exit */
 	LinkNode *e_delimit_list = NULL;
-	unsigned int e_delimit_list_len = 0;
+	uint e_delimit_list_len = 0;
 
 #define EDGE_NOT_IN_STACK  BM_ELEM_INTERNAL_TAG
 #define VERT_NOT_IN_STACK  BM_ELEM_INTERNAL_TAG
@@ -1169,10 +1204,10 @@ static bool bm_vert_partial_connect_check_overlap(
  */
 bool BM_face_split_edgenet_connect_islands(
         BMesh *bm,
-        BMFace *f, BMEdge **edge_net_init, const unsigned int edge_net_init_len,
+        BMFace *f, BMEdge **edge_net_init, const uint edge_net_init_len,
         bool use_partial_connect,
         MemArena *mem_arena,
-        BMEdge ***r_edge_net_new, unsigned int *r_edge_net_new_len)
+        BMEdge ***r_edge_net_new, uint *r_edge_net_new_len)
 {
 	/* -------------------------------------------------------------------- */
 	/* This function has 2 main parts.
@@ -1186,7 +1221,7 @@ bool BM_face_split_edgenet_connect_islands(
 	 * (avoid thrashing the area when the initial check isn't so intensive on the stack).
 	 */
 
-	const unsigned int edge_arr_len = (unsigned int)edge_net_init_len + (unsigned int)f->len;
+	const uint edge_arr_len = (uint)edge_net_init_len + (uint)f->len;
 	BMEdge **edge_arr = BLI_array_alloca(edge_arr, edge_arr_len);
 	bool ok = false;
 
@@ -1197,7 +1232,7 @@ bool BM_face_split_edgenet_connect_islands(
 #define VERT_NOT_IN_STACK  BM_ELEM_INTERNAL_TAG
 
 	{
-		unsigned int i = edge_net_init_len;
+		uint i = edge_net_init_len;
 		BMLoop *l_iter, *l_first;
 		l_iter = l_first = BM_FACE_FIRST_LOOP(f);
 		do {
@@ -1206,7 +1241,7 @@ bool BM_face_split_edgenet_connect_islands(
 		BLI_assert(i == edge_arr_len);
 	}
 
-	for (unsigned int i = 0; i < edge_arr_len; i++) {
+	for (uint i = 0; i < edge_arr_len; i++) {
 		BM_elem_flag_enable(edge_arr[i], EDGE_NOT_IN_STACK);
 		BM_elem_flag_enable(edge_arr[i]->v1, VERT_NOT_IN_STACK);
 		BM_elem_flag_enable(edge_arr[i]->v2, VERT_NOT_IN_STACK);
@@ -1224,12 +1259,12 @@ bool BM_face_split_edgenet_connect_islands(
 
 	struct {
 		struct TempVertPair *list;
-		unsigned int len;
+		uint len;
 		int *remap;  /* temp -> orig mapping */
 	} temp_vert_pairs = {NULL};
 
 	if (use_partial_connect) {
-		for (unsigned int i = 0; i < edge_net_init_len; i++) {
+		for (uint i = 0; i < edge_net_init_len; i++) {
 			for (unsigned j = 0; j < 2; j++) {
 				BMVert *v_delimit = (&edge_arr[i]->v1)[j];
 				BMVert *v_other;
@@ -1254,19 +1289,19 @@ bool BM_face_split_edgenet_connect_islands(
 
 
 
-	unsigned int group_arr_len = 0;
+	uint group_arr_len = 0;
 	LinkNode *group_head = NULL;
 	{
 		/* scan 'edge_arr' backwards so the outer face boundary is handled first
 		 * (since its likely to be the largest) */
-		unsigned int edge_index = (edge_arr_len - 1);
-		unsigned int edge_in_group_tot = 0;
+		uint edge_index = (edge_arr_len - 1);
+		uint edge_in_group_tot = 0;
 
 		BLI_SMALLSTACK_DECLARE(vstack, BMVert *);
 
 		while (true) {
 			LinkNode *edge_links = NULL;
-			unsigned int unique_verts_in_group = 0, unique_edges_in_group = 0;
+			uint unique_verts_in_group = 0, unique_edges_in_group = 0;
 
 			/* list of groups */
 			BLI_assert(BM_elem_flag_test(edge_arr[edge_index]->v1, VERT_NOT_IN_STACK));
@@ -1333,7 +1368,7 @@ bool BM_face_split_edgenet_connect_islands(
 #define VERT_IN_ARRAY BM_ELEM_INTERNAL_TAG
 
 	struct EdgeGroupIsland **group_arr = BLI_memarena_alloc(mem_arena, sizeof(*group_arr) * group_arr_len);
-	unsigned int vert_arr_len = 0;
+	uint vert_arr_len = 0;
 	/* sort groups by lowest value vertex */
 	{
 		/* fill 'groups_arr' in reverse order so the boundary face is first */
@@ -1345,8 +1380,8 @@ bool BM_face_split_edgenet_connect_islands(
 			/* init with *any* different verts */
 			g->vert_span.min = ((BMEdge *)edge_links->link)->v1;
 			g->vert_span.max = ((BMEdge *)edge_links->link)->v2;
-			float min_axis =  FLT_MAX;
-			float max_axis = -FLT_MAX;
+			float min_axis[2] =  {FLT_MAX, FLT_MAX};
+			float max_axis[2] = {-FLT_MAX, -FLT_MAX};
 
 			do {
 				BMEdge *e = edge_links->link;
@@ -1357,24 +1392,29 @@ bool BM_face_split_edgenet_connect_islands(
 					BLI_assert(v_iter->head.htype == BM_VERT);
 					/* ideally we could use 'v_iter->co[SORT_AXIS]' here,
 					 * but we need to sort the groups before setting the vertex array order */
+					const float axis_value[2] = {
 #if SORT_AXIS == 0
-					const float axis_value = dot_m3_v3_row_x(axis_mat, v_iter->co);
+					    dot_m3_v3_row_x(axis_mat, v_iter->co),
+					    dot_m3_v3_row_y(axis_mat, v_iter->co),
 #else
-					const float axis_value = dot_m3_v3_row_y(axis_mat, v_iter->co);
+					    dot_m3_v3_row_y(axis_mat, v_iter->co),
+					    dot_m3_v3_row_x(axis_mat, v_iter->co),
 #endif
+					};
 
-					if (axis_value < min_axis) {
+					if (axis_pt_cmp(axis_value, min_axis) == -1) {
 						g->vert_span.min = v_iter;
-						min_axis = axis_value;
+						copy_v2_v2(min_axis, axis_value);
 					}
-					if (axis_value > max_axis ) {
+					if (axis_pt_cmp(axis_value, max_axis) == 1) {
 						g->vert_span.max = v_iter;
-						max_axis  = axis_value;
+						copy_v2_v2(max_axis, axis_value);
 					}
 				}
 			} while ((edge_links = edge_links->next));
 
-			g->vert_span.min_axis = min_axis;
+			copy_v2_v2(g->vert_span.min_axis, min_axis);
+			copy_v2_v2(g->vert_span.max_axis, max_axis);
 
 			g->has_prev_edge = false;
 
@@ -1389,7 +1429,7 @@ bool BM_face_split_edgenet_connect_islands(
 	/* we don't know how many unique verts there are connecting the edges, so over-alloc */
 	BMVert **vert_arr = BLI_memarena_alloc(mem_arena, sizeof(*vert_arr) * vert_arr_len);
 	/* map vertex -> group index */
-	unsigned int *verts_group_table = BLI_memarena_alloc(mem_arena, sizeof(*verts_group_table) * vert_arr_len);
+	uint *verts_group_table = BLI_memarena_alloc(mem_arena, sizeof(*verts_group_table) * vert_arr_len);
 
 	float (*vert_coords_backup)[3] = BLI_memarena_alloc(mem_arena, sizeof(*vert_coords_backup) * vert_arr_len);
 
@@ -1398,7 +1438,7 @@ bool BM_face_split_edgenet_connect_islands(
 		const float f_co_ref[3] = {UNPACK3(BM_FACE_FIRST_LOOP(f)->v->co)};
 
 		int v_index = 0;  /* global vert index */
-		for (unsigned int g_index = 0; g_index < group_arr_len; g_index++) {
+		for (uint g_index = 0; g_index < group_arr_len; g_index++) {
 			LinkNode *edge_links = group_arr[g_index]->edge_links.link;
 			do {
 				BMEdge *e = edge_links->link;
@@ -1434,9 +1474,11 @@ bool BM_face_split_edgenet_connect_islands(
 
 	bm->elem_index_dirty |= BM_VERT;
 
-	/* Now create bvh tree*/
-	BVHTree *bvhtree = BLI_bvhtree_new(edge_arr_len, 0.0f, 8, 8);
-	for (unsigned int i = 0; i < edge_arr_len; i++) {
+	/* Now create bvh tree
+	 *
+	 * Note that a large epsilon is used because meshes with dimensions of around 100+ need it. see T52329. */
+	BVHTree *bvhtree = BLI_bvhtree_new(edge_arr_len, 1e-4f, 8, 8);
+	for (uint i = 0; i < edge_arr_len; i++) {
 		const float e_cos[2][3] = {
 		    {UNPACK2(edge_arr[i]->v1->co), 0.0f},
 		    {UNPACK2(edge_arr[i]->v2->co), 0.0f},
@@ -1465,15 +1507,15 @@ bool BM_face_split_edgenet_connect_islands(
 	/* Create connections between groups */
 
 	/* may be an over-alloc, but not by much */
-	unsigned int edge_net_new_len = (unsigned int)edge_net_init_len + ((group_arr_len - 1) * 2);
+	uint edge_net_new_len = (uint)edge_net_init_len + ((group_arr_len - 1) * 2);
 	BMEdge **edge_net_new = BLI_memarena_alloc(mem_arena, sizeof(*edge_net_new) * edge_net_new_len);
 	memcpy(edge_net_new, edge_net_init, sizeof(*edge_net_new) * (size_t)edge_net_init_len);
 
 	{
-		unsigned int edge_net_new_index = edge_net_init_len;
+		uint edge_net_new_index = edge_net_init_len;
 		/* start-end of the verts in the current group */
 
-		unsigned int vert_range[2];
+		uint vert_range[2];
 
 		vert_range[0] = 0;
 		vert_range[1] = group_arr[0]->vert_len;
@@ -1492,7 +1534,7 @@ bool BM_face_split_edgenet_connect_islands(
 			.vert_range = vert_range,
 		};
 
-		for (unsigned int g_index = 1; g_index < group_arr_len; g_index++) {
+		for (uint g_index = 1; g_index < group_arr_len; g_index++) {
 			struct EdgeGroupIsland *g = group_arr[g_index];
 
 			/* the range of verts this group uses in 'verts_arr' (not uncluding the last index) */
@@ -1551,7 +1593,7 @@ bool BM_face_split_edgenet_connect_islands(
 					}
 
 					/* tell the 'next' group it doesn't need to create its own back-link */
-					unsigned int g_index_other = verts_group_table[index_other];
+					uint g_index_other = verts_group_table[index_other];
 					group_arr[g_index_other]->has_prev_edge = true;
 				}
 			}
@@ -1567,7 +1609,7 @@ bool BM_face_split_edgenet_connect_islands(
 	*r_edge_net_new_len = edge_net_new_len;
 	ok = true;
 
-	for (unsigned int i = 0; i < vert_arr_len; i++) {
+	for (uint i = 0; i < vert_arr_len; i++) {
 		copy_v3_v3(vert_arr[i]->co, vert_coords_backup[i]);
 	}
 
@@ -1600,7 +1642,7 @@ finally:
 
 		/* Remove edges which have become doubles since splicing vertices together,
 		 * its less trouble then detecting future-doubles on edge-creation. */
-		for (unsigned int i = edge_net_init_len; i < edge_net_new_len; i++) {
+		for (uint i = edge_net_init_len; i < edge_net_new_len; i++) {
 			while (BM_edge_find_double(edge_net_new[i])) {
 				BM_edge_kill(bm, edge_net_new[i]);
 				edge_net_new_len--;
@@ -1616,7 +1658,7 @@ finally:
 #endif
 
 
-	for (unsigned int i = 0; i < edge_arr_len; i++) {
+	for (uint i = 0; i < edge_arr_len; i++) {
 		BM_elem_flag_disable(edge_arr[i], EDGE_NOT_IN_STACK);
 		BM_elem_flag_disable(edge_arr[i]->v1, VERT_NOT_IN_STACK);
 		BM_elem_flag_disable(edge_arr[i]->v2, VERT_NOT_IN_STACK);

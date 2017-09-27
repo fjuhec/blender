@@ -828,10 +828,10 @@ static void layerInterp_mloopcol(
 	 * although weights should also not cause this situation */
 
 	/* also delay writing to the destination incase dest is in sources */
-	mc->r = CLAMPIS(iroundf(col.r), 0, 255);
-	mc->g = CLAMPIS(iroundf(col.g), 0, 255);
-	mc->b = CLAMPIS(iroundf(col.b), 0, 255);
-	mc->a = CLAMPIS(iroundf(col.a), 0, 255);
+	mc->r = round_fl_to_uchar_clamp(col.r);
+	mc->g = round_fl_to_uchar_clamp(col.g);
+	mc->b = round_fl_to_uchar_clamp(col.b);
+	mc->a = round_fl_to_uchar_clamp(col.a);
 }
 
 static int layerMaxNum_mloopcol(void)
@@ -1054,10 +1054,10 @@ static void layerInterp_mcol(
 		
 		/* Subdivide smooth or fractal can cause problems without clamping
 		 * although weights should also not cause this situation */
-		mc[j].a = CLAMPIS(iroundf(col[j].a), 0, 255);
-		mc[j].r = CLAMPIS(iroundf(col[j].r), 0, 255);
-		mc[j].g = CLAMPIS(iroundf(col[j].g), 0, 255);
-		mc[j].b = CLAMPIS(iroundf(col[j].b), 0, 255);
+		mc[j].a = round_fl_to_uchar_clamp(col[j].a);
+		mc[j].r = round_fl_to_uchar_clamp(col[j].r);
+		mc[j].g = round_fl_to_uchar_clamp(col[j].g);
+		mc[j].b = round_fl_to_uchar_clamp(col[j].b);
 	}
 }
 
@@ -1944,11 +1944,15 @@ void *CustomData_add_layer_named(CustomData *data, int type, int alloctype,
 
 bool CustomData_free_layer(CustomData *data, int type, int totelem, int index)
 {
-	const int n = index - CustomData_get_layer_index(data, type);
+	const int index_first = CustomData_get_layer_index(data, type);
+	const int n = index - index_first;
 	int i;
-	
-	if (index < 0)
+
+	BLI_assert(index >= index_first);
+	if ((index_first == -1) || (n < 0)) {
 		return false;
+	}
+	BLI_assert(data->layers[index].type == type);
 
 	customData_free_layer__internal(&data->layers[index], totelem);
 
@@ -1993,8 +1997,10 @@ bool CustomData_free_layer_active(CustomData *data, int type, int totelem)
 
 void CustomData_free_layers(CustomData *data, int type, int totelem)
 {
-	while (CustomData_has_layer(data, type))
-		CustomData_free_layer_active(data, type, totelem);
+	const int index = CustomData_get_layer_index(data, type);
+	while (CustomData_free_layer(data, type, totelem, index)) {
+		/* pass */
+	}
 }
 
 bool CustomData_has_layer(const CustomData *data, int type)

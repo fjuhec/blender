@@ -342,10 +342,12 @@ static uiTooltipData *ui_tooltip_data_from_button(bContext *C, uiBut *but)
 
 	/* Tip */
 	if (but_tip.strinfo) {
-		BLI_strncpy(data->header, but_tip.strinfo, sizeof(data->lines[0]));
 		if (enum_label.strinfo) {
 			BLI_snprintf(data->header, sizeof(data->header), "%s:  ", but_tip.strinfo);
 			BLI_strncpy(data->active_info, enum_label.strinfo, sizeof(data->lines[0]));
+		}
+		else {
+			BLI_snprintf(data->header, sizeof(data->header), "%s.", but_tip.strinfo);
 		}
 		data->format[data->totline].style = UI_TIP_STYLE_HEADER;
 		data->totline++;
@@ -811,11 +813,11 @@ int UI_searchbox_size_x(void)
 	return 12 * UI_UNIT_X;
 }
 
-int UI_search_items_find_index(uiSearchItems *items, const char *name, const size_t offset)
+int UI_search_items_find_index(uiSearchItems *items, const char *name)
 {
 	int i;
 	for (i = 0; i < items->totitem; i++) {
-		if (STREQ(name, items->names[i] + offset)) {
+		if (STREQ(name, items->names[i])) {
 			return i;
 		}
 	}
@@ -894,7 +896,7 @@ static void ui_searchbox_butrect(rcti *r_rect, uiSearchboxData *data, int itemnr
 int ui_searchbox_find_index(ARegion *ar, const char *name)
 {
 	uiSearchboxData *data = ar->regiondata;
-	return UI_search_items_find_index(&data->items, name, 0);
+	return UI_search_items_find_index(&data->items, name);
 }
 
 /* x and y in screencoords */
@@ -1420,14 +1422,14 @@ void ui_searchbox_free(bContext *C, ARegion *ar)
 
 /* sets red alert if button holds a string it can't find */
 /* XXX weak: search_func adds all partial matches... */
-void ui_but_search_refresh(uiBut *but, const bool is_template_ID)
+void ui_but_search_refresh(uiBut *but)
 {
 	uiSearchItems *items;
 	int x1;
 
-	/* possibly very large lists (such as ID datablocks),
-	 * only validate string and pointer RNA buts */
-	if (but->rnaprop && !ELEM(RNA_property_type(but->rnaprop), PROP_STRING, PROP_POINTER)) {
+	/* possibly very large lists (such as ID datablocks) only
+	 * only validate string RNA buts (not pointers) */
+	if (but->rnaprop && RNA_property_type(but->rnaprop) != PROP_STRING) {
 		return;
 	}
 
@@ -1447,8 +1449,7 @@ void ui_but_search_refresh(uiBut *but, const bool is_template_ID)
 		UI_but_flag_enable(but, UI_BUT_REDALERT);
 	}
 	else if (items->more == 0) {
-		const size_t offset = is_template_ID ? 3 : 0;
-		if (UI_search_items_find_index(items, but->drawstr, offset) == -1) {
+		if (UI_search_items_find_index(items, but->drawstr) == -1) {
 			UI_but_flag_enable(but, UI_BUT_REDALERT);
 		}
 	}
@@ -2100,9 +2101,11 @@ static void ui_update_color_picker_buts_rgb(uiBlock *block, ColorPicker *cpicker
 			continue;
 
 		if (bt->rnaprop) {
-			
 			ui_but_v3_set(bt, rgb);
 			
+			/* original button that created the color picker already does undo
+			 * push, so disable it on RNA buttons in the color picker block */
+			UI_but_flag_disable(bt, UI_BUT_UNDO);
 		}
 		else if (STREQ(bt->str, "Hex: ")) {
 			float rgb_gamma[3];
@@ -2439,7 +2442,7 @@ static void ui_block_colorpicker(uiBlock *block, float rgba[4], PointerRNA *ptr,
 	BLI_snprintf(hexcol, sizeof(hexcol), "%02X%02X%02X", UNPACK3_EX((unsigned int), rgb_gamma_uchar, ));
 
 	yco = -3.0f * UI_UNIT_Y;
-	bt = uiDefBut(block, UI_BTYPE_TEXT, 0, IFACE_("Hex: "), 0, yco, butwidth, UI_UNIT_Y, hexcol, 0, 7, 0, 0, TIP_("Hex triplet for color (#RRGGBB)"));
+	bt = uiDefBut(block, UI_BTYPE_TEXT, 0, IFACE_("Hex: "), 0, yco, butwidth, UI_UNIT_Y, hexcol, 0, 8, 0, 0, TIP_("Hex triplet for color (#RRGGBB)"));
 	UI_but_func_set(bt, ui_colorpicker_hex_rna_cb, bt, hexcol);
 	bt->custom_data = cpicker;
 	uiDefBut(block, UI_BTYPE_LABEL, 0, IFACE_("(Gamma Corrected)"), 0, yco - UI_UNIT_Y, butwidth, UI_UNIT_Y, NULL, 0.0, 0.0, 0, 0, "");
@@ -2951,8 +2954,8 @@ uiPieMenu *UI_pie_menu_begin(struct bContext *C, const char *title, int icon, co
 	pie->block_radial->puphash = ui_popup_menu_hash(title);
 	pie->block_radial->flag |= UI_BLOCK_RADIAL;
 
-	/* if pie is spawned by a left click, it is always assumed to be click style */
-	if (event->type == LEFTMOUSE) {
+	/* if pie is spawned by a left click, release or click event, it is always assumed to be click style */
+	if (event->type == LEFTMOUSE || ELEM(event->val, KM_RELEASE, KM_CLICK)) {
 		pie->block_radial->pie_data.flags |= UI_PIE_CLICK_STYLE;
 		pie->block_radial->pie_data.event = EVENT_NONE;
 		win->lock_pie_event = EVENT_NONE;

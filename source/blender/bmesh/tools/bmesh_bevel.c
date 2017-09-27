@@ -205,6 +205,38 @@ static int bev_debug_flags = 0;
 #define DEBUG_OLD_PROJ_TO_PERP_PLANE (bev_debug_flags & 2)
 #define DEBUG_OLD_FLAT_MID (bev_debug_flags & 4)
 
+/* this flag values will get set on geom we want to return in 'out' slots for edges and verts */
+#define EDGE_OUT 4
+#define VERT_OUT 8
+
+/* If we're called from the modifier, tool flags aren't available, but don't need output geometry */
+static void flag_out_edge(BMesh *bm, BMEdge *bme)
+{
+	if (bm->use_toolflags)
+		BMO_edge_flag_enable(bm, bme, EDGE_OUT);
+}
+
+static void flag_out_vert(BMesh *bm, BMVert *bmv)
+{
+	if (bm->use_toolflags)
+		BMO_vert_flag_enable(bm, bmv, VERT_OUT);
+}
+
+static void disable_flag_out_edge(BMesh *bm, BMEdge *bme)
+{
+	if (bm->use_toolflags)
+		BMO_edge_flag_disable(bm, bme, EDGE_OUT);
+}
+
+/* Are d1 and d2 parallel or nearly so? */
+static bool nearly_parallel(const float d1[3], const float d2[3])
+{
+	float ang;
+
+	ang = angle_v3v3(d1, d2);
+	return (fabsf(ang) < BEVEL_EPSILON_ANG) || (fabsf(ang - (float)M_PI) < BEVEL_EPSILON_ANG);
+}
+
 /* Make a new BoundVert of the given kind, insert it at the end of the circular linked
  * list with entry point bv->boundstart, and return it. */
 static BoundVert *add_new_bound_vert(MemArena *mem_arena, VMesh *vm, const float co[3])
@@ -253,6 +285,7 @@ static void create_mesh_bmvert(BMesh *bm, VMesh *vm, int i, int j, int k, BMVert
 	NewVert *nv = mesh_vert(vm, i, j, k);
 	nv->v = BM_vert_create(bm, nv->co, eg, BM_CREATE_NOP);
 	BM_elem_flag_disable(nv->v, BM_ELEM_TAG);
+	flag_out_vert(bm, nv->v);
 }
 
 static void copy_mesh_vert(
@@ -495,9 +528,12 @@ static BMFace *bev_create_ngon(
 	}
 
 	/* not essential for bevels own internal logic,
-	 * this is done so the operator can select newly created faces */
+	 * this is done so the operator can select newly created geometry */
 	if (f) {
 		BM_elem_flag_enable(f, BM_ELEM_TAG);
+		BM_ITER_ELEM(bme, &iter, f, BM_EDGES_OF_FACE) {
+			flag_out_edge(bm, bme);
+		}
 	}
 
 	if (mat_nr >= 0)
@@ -916,8 +952,12 @@ static bool offset_meet_edge(EdgeHalf *e1, EdgeHalf *e2, BMVert *v,  float meetc
 		return false;
 	}
 	cross_v3_v3v3(fno, dir1, dir2);
-	if (dot_v3v3(fno, v->no) < 0.0f)
+	if (dot_v3v3(fno, v->no) < 0.0f) {
 		ang = 2.0f * (float)M_PI - ang;  /* angle is reflex */
+		if (r_angle)
+			*r_angle = ang;
+		return false;
+	}
 	if (r_angle)
 		*r_angle = ang;
 
@@ -1055,7 +1095,7 @@ static void set_profile_params(BevelParams *bp, BevVert *bv, BoundVert *bndv)
 {
 	EdgeHalf *e;
 	Profile *pro;
-	float co1[3], co2[3], co3[3], d1[3], d2[3], l;
+	float co1[3], co2[3], co3[3], d1[3], d2[3];
 	bool do_linear_interp;
 
 	copy_v3_v3(co1, bndv->nv.co);
@@ -1093,8 +1133,8 @@ static void set_profile_params(BevelParams *bp, BevVert *bv, BoundVert *bndv)
 		normalize_v3(d1);
 		normalize_v3(d2);
 		cross_v3_v3v3(pro->plane_no, d1, d2);
-		l = normalize_v3(pro->plane_no);
-		if (l  <= BEVEL_EPSILON_BIG) {
+		normalize_v3(pro->plane_no);
+		if (nearly_parallel(d1, d2)) {
 			/* co1 - midco -co2 are collinear.
 			 * Should be case that beveled edge is coplanar with two boundary verts.
 			 * We want to move the profile to that common plane, if possible.
@@ -1126,16 +1166,23 @@ static void set_profile_params(BevelParams *bp, BevVert *bv, BoundVert *bndv)
 						sub_v3_v3v3(d4, e->next->e->v1->co, e->next->e->v2->co);
 						normalize_v3(d3);
 						normalize_v3(d4);
-						add_v3_v3v3(co3, co1, d3);
-						add_v3_v3v3(co4, co2, d4);
-						isect_kind = isect_line_line_v3(co1, co3, co2, co4, meetco, isect2);
-						if (isect_kind != 0) {
-							copy_v3_v3(pro->midco, meetco);
-						}
-						else {
+						if (nearly_parallel(d3, d4)) {
 							/* offset lines are collinear - want linear interpolation */
 							mid_v3_v3v3(pro->midco, co1, co2);
 							do_linear_interp = true;
+						}
+						else {
+							add_v3_v3v3(co3, co1, d3);
+							add_v3_v3v3(co4, co2, d4);
+							isect_kind = isect_line_line_v3(co1, co3, co2, co4, meetco, isect2);
+							if (isect_kind != 0) {
+								copy_v3_v3(pro->midco, meetco);
+							}
+							else {
+								/* offset lines don't intersect - want linear interpolation */
+								mid_v3_v3v3(pro->midco, co1, co2);
+								do_linear_interp = true;
+							}
 						}
 					}
 				}
@@ -1145,8 +1192,8 @@ static void set_profile_params(BevelParams *bp, BevVert *bv, BoundVert *bndv)
 				sub_v3_v3v3(d2, pro->midco, co2);
 				normalize_v3(d2);
 				cross_v3_v3v3(pro->plane_no, d1, d2);
-				l = normalize_v3(pro->plane_no);
-				if (l <= BEVEL_EPSILON_BIG) {
+				normalize_v3(pro->plane_no);
+				if (nearly_parallel(d1, d2)) {
 					/* whole profile is collinear with edge: just interpolate */
 					do_linear_interp = true;
 				}
@@ -2295,7 +2342,7 @@ static int interp_range(const float *frac, int n, const float f, float *r_rest)
 /* Interpolate given vmesh to make one with target nseg border vertices on the profiles */
 static VMesh *interp_vmesh(BevelParams *bp, VMesh *vm0, int nseg)
 {
-	int n, ns0, nseg2, odd, i, j, k, j0, k0, k0prev;
+	int n, ns0, nseg2, odd, i, j, k, j0, k0, k0prev, j0inc, k0inc;
 	float *prev_frac, *frac, *new_frac, *prev_new_frac;
 	float f, restj, restk, restkprev;
 	float quad[4][3], co[3], center[3];
@@ -2339,10 +2386,12 @@ static VMesh *interp_vmesh(BevelParams *bp, VMesh *vm0, int nseg)
 					copy_v3_v3(co, mesh_vert_canon(vm0, i, j0, k0)->co);
 				}
 				else {
+					j0inc = (restj < BEVEL_EPSILON || j0 == ns0) ? 0 : 1;
+					k0inc = (restk < BEVEL_EPSILON || k0 == ns0) ? 0 : 1;
 					copy_v3_v3(quad[0], mesh_vert_canon(vm0, i, j0, k0)->co);
-					copy_v3_v3(quad[1], mesh_vert_canon(vm0, i, j0, k0 + 1)->co);
-					copy_v3_v3(quad[2], mesh_vert_canon(vm0, i, j0 + 1, k0 + 1)->co);
-					copy_v3_v3(quad[3], mesh_vert_canon(vm0, i, j0 + 1, k0)->co);
+					copy_v3_v3(quad[1], mesh_vert_canon(vm0, i, j0, k0 + k0inc)->co);
+					copy_v3_v3(quad[2], mesh_vert_canon(vm0, i, j0 + j0inc, k0 + k0inc)->co);
+					copy_v3_v3(quad[3], mesh_vert_canon(vm0, i, j0 + j0inc, k0)->co);
 					interp_bilinear_quad_v3(quad, restk, restj, co);
 				}
 				copy_v3_v3(mesh_vert(vm1, i, j, k)->co, co);
@@ -3191,6 +3240,7 @@ static void bevel_build_trifan(BevelParams *bp, BMesh *bm, BevVert *bv)
 			BMFace *f_new;
 			BLI_assert(v_fan == l_fan->v);
 			f_new = BM_face_split(bm, f, l_fan, l_fan->next->next, &l_new, NULL, false);
+			flag_out_edge(bm, l_new->e);
 
 			if (f_new->len > f->len) {
 				f = f_new;
@@ -3237,6 +3287,7 @@ static void bevel_build_quadstrip(BevelParams *bp, BMesh *bm, BevVert *bv)
 			else {
 				BM_face_split(bm, f, l_a, l_b, &l_new, NULL, false);
 				f = l_new->f;
+				flag_out_edge(bm, l_new->e);
 
 				/* walk around the new face to get the next verts to split */
 				l_a = l_new->prev;
@@ -3256,7 +3307,7 @@ static void bevel_vert_two_edges(BevelParams *bp, BMesh *bm, BevVert *bv)
 {
 	VMesh *vm = bv->vmesh;
 	BMVert *v1, *v2;
-	BMEdge *e_eg;
+	BMEdge *e_eg, *bme;
 	Profile *pro;
 	float co[3];
 	BoundVert *bndv;
@@ -3298,7 +3349,9 @@ static void bevel_vert_two_edges(BevelParams *bp, BMesh *bm, BevVert *bv)
 			v1 = mesh_vert(vm, 0, 0, k)->v;
 			v2 = mesh_vert(vm, 0, 0, k + 1)->v;
 			BLI_assert(v1 != NULL && v2 != NULL);
-			BM_edge_create(bm, v1, v2, e_eg, BM_CREATE_NO_DOUBLE);
+			bme = BM_edge_create(bm, v1, v2, e_eg, BM_CREATE_NO_DOUBLE);
+			if (bme)
+				flag_out_edge(bm, bme);
 		}
 	}
 }
@@ -3879,7 +3932,7 @@ static BevVert *bevel_vert_construct(BMesh *bm, BevelParams *bp, BMVert *v)
 /* Face f has at least one beveled vertex.  Rebuild f */
 static bool bev_rebuild_polygon(BMesh *bm, BevelParams *bp, BMFace *f)
 {
-	BMIter liter;
+	BMIter liter, eiter, fiter;
 	BMLoop *l, *lprev;
 	BevVert *bv;
 	BoundVert *v, *vstart, *vend;
@@ -3887,10 +3940,10 @@ static bool bev_rebuild_polygon(BMesh *bm, BevelParams *bp, BMFace *f)
 	VMesh *vm;
 	int i, k, n;
 	bool do_rebuild = false;
-	bool go_ccw, corner3special;
+	bool go_ccw, corner3special, keep;
 	BMVert *bmv;
 	BMEdge *bme, *bme_new, *bme_prev;
-	BMFace *f_new;
+	BMFace *f_new, *f_other;
 	BMVert **vv = NULL;
 	BMVert **vv_fix = NULL;
 	BMEdge **ee = NULL;
@@ -4028,9 +4081,21 @@ static bool bev_rebuild_polygon(BMesh *bm, BevelParams *bp, BMFace *f)
 			}
 		}
 
-		/* don't select newly created boundary faces... */
+		/* don't select newly or return created boundary faces... */
 		if (f_new) {
 			BM_elem_flag_disable(f_new, BM_ELEM_TAG);
+			/* Also don't want new edges that aren't part of a new bevel face */
+			BM_ITER_ELEM(bme, &eiter, f_new, BM_EDGES_OF_FACE) {
+				keep = false;
+				BM_ITER_ELEM(f_other, &fiter, bme, BM_FACES_OF_EDGE) {
+					if (BM_elem_flag_test(f_other, BM_ELEM_TAG)) {
+						keep = true;
+						break;
+					}
+				}
+				if (!keep)
+					disable_flag_out_edge(bm, bme);
+			}
 		}
 	}
 
@@ -4112,8 +4177,9 @@ static void bevel_reattach_wires(BMesh *bm, BevelParams *bp, BMVert *v)
 				}
 			}
 		} while ((bndv = bndv->next) != bv->vmesh->boundstart);
-		if (vclosest)
+		if (vclosest) {
 			BM_edge_create(bm, vclosest, votherclosest, e, BM_CREATE_NO_DOUBLE);
+		}
 	}
 }
 
@@ -4465,61 +4531,206 @@ static void set_profile_spacing(BevelParams *bp)
 }
 
 /*
- * Calculate and return an offset that is the lesser of the current
+ * Assume we have a situation like:
+ *
+ * a                 d
+ *  \               /
+ * A \             / C
+ *    \ th1    th2/
+ *     b---------c
+ *          B
+ *
+ * where edges are A, B, and C,
+ * following a face around vertices a, b, c, d;
+ * th1 is angle abc and th2 is angle bcd;
+ * and the argument EdgeHalf eb is B, going from b to c.
+ * In general case, edge offset specs for A, B, C have
+ * the form ka*t, kb*t, kc*t where ka, kb, kc are some factors
+ * (may be 0) and t is the current bp->offset.
+ * We want to calculate t at which the clone of B parallel
+ * to it collapses. This can be calculated using trig.
+ * Another case of geometry collision that can happen is
+ * When B slides along A because A is unbeveled.
+ * Then it might collide with a.  Similarly for B sliding along C.
+ */
+static float geometry_collide_offset(BevelParams *bp, EdgeHalf *eb)
+{
+	EdgeHalf *ea, *ec, *ebother;
+	BevVert *bvc;
+	BMLoop *lb;
+	BMVert *va, *vb, *vc, *vd;
+	float ka, kb, kc, g, h, t, den, no_collide_offset, th1, th2, sin1, sin2, tan1, tan2, limit;
+
+	limit = no_collide_offset = bp->offset + 1e6;
+	if (bp->offset == 0.0f)
+		return no_collide_offset;
+	kb = eb->offset_l_spec;
+	ea = eb->next;  /* note: this is in direction b --> a */
+	ka = ea->offset_r_spec;
+	if (eb->is_rev) {
+		vc = eb->e->v1;
+		vb = eb->e->v2;
+	}
+	else {
+		vb = eb->e->v1;
+		vc = eb->e->v2;
+	}
+	va = ea->is_rev ? ea->e->v1 : ea->e->v2;
+	bvc = NULL;
+	ebother = find_other_end_edge_half(bp, eb, &bvc);
+	if (ebother != NULL) {
+		ec = ebother->prev;  /* note: this is in direction c --> d*/
+		vc = bvc->v;
+		kc = ec->offset_l_spec;
+		vd = ec->is_rev ? ec->e->v1 : ec->e->v2;
+	}
+	else {
+		/* No bevvert for w, so C can't be beveled */
+		kc = 0.0f;
+		ec = NULL;
+		/* Find an edge from c that has same face */
+		lb = BM_face_edge_share_loop(eb->fnext, eb->e);
+		if (!lb) {
+			return no_collide_offset;
+		}
+		if (lb->next->v == vc)
+			vd = lb->next->next->v;
+		else if (lb->v == vc)
+			vd = lb->prev->v;
+		else {
+			return no_collide_offset;
+		}
+	}
+	if (ea->e == eb->e || (ec && ec->e == eb->e))
+		return no_collide_offset;
+	ka = ka / bp->offset;
+	kb = kb / bp->offset;
+	kc = kc / bp->offset;
+	th1 = angle_v3v3v3(va->co, vb->co, vc->co);
+	th2 = angle_v3v3v3(vb->co, vc->co, vd->co);
+	
+	/* First calculate offset at which edge B collapses, which happens
+	 * when advancing clones of A, B, C all meet at a point.
+	 * This only happens if at least two of those three edges have non-zero k's */
+	sin1 = sinf(th1);
+	sin2 = sinf(th2);
+	if ((ka > 0.0f) + (kb > 0.0f) + (kc > 0.0f) >= 2) {
+		tan1 = tanf(th1);
+		tan2 = tanf(th2);
+		g = tan1 * tan2;
+		h = sin1 * sin2;
+		den = g * (ka * sin2 + kc * sin1) + kb * h * (tan1 + tan2);
+		if (den != 0.0f) {
+			t = BM_edge_calc_length(eb->e);
+			t *= g * h / den;
+			if (t >= 0.0f)
+				limit = t;
+		}
+	}
+
+	/* Now check edge slide cases */
+	if (kb > 0.0f && ka == 0.0f /*&& bvb->selcount == 1 && bvb->edgecount > 2*/) {
+		t = BM_edge_calc_length(ea->e);
+		t *= sin1 / kb;
+		if (t >= 0.0f && t < limit)
+			limit = t;
+	}
+	if (kb > 0.0f && kc == 0.0f /* && bvc && ec && bvc->selcount == 1 && bvc->edgecount > 2 */) {
+		t = BM_edge_calc_length(ec->e);
+		t *= sin2 / kb;
+		if (t >= 0.0f && t < limit)
+			limit = t;
+	}
+	return limit;
+}
+
+/*
+ * We have an edge A between vertices a and b,
+ * where EdgeHalf ea is the half of A that starts at a.
+ * For vertex-only bevels, the new vertices slide from a at a rate ka*t
+ * and from b at a rate kb*t.
+ * We want to calculate the t at which the two meet.
+ */
+static float vertex_collide_offset(BevelParams *bp, EdgeHalf *ea)
+{
+	float limit, ka, kb, no_collide_offset, la, kab;
+	EdgeHalf *eb;
+
+	limit = no_collide_offset = bp->offset + 1e6;
+	if (bp->offset == 0.0f)
+		return no_collide_offset;
+	ka = ea->offset_l_spec / bp->offset;
+	eb = find_other_end_edge_half(bp, ea, NULL);
+	kb = eb ? eb->offset_l_spec / bp->offset : 0.0f;
+	kab = ka + kb;
+	la = BM_edge_calc_length(ea->e);
+	if (kab <= 0.0f)
+		return no_collide_offset;
+	limit = la / kab;
+	return limit;
+}
+
+/*
+ * Calculate an offset that is the lesser of the current
  * bp.offset and the maximum possible offset before geometry
  * collisions happen.
- * Currently this is a quick and dirty estimate of the max
- * possible: half the minimum edge length of any vertex involved
- * in a bevel. This is usually conservative.
- * The correct calculation is quite complicated.
- * TODO: implement this correctly.
+ * If the offset changes as a result of this, adjust the
+ * current edge offset specs to reflect this clamping,
+ * and store the new offset in bp.offset.
  */
-static float bevel_limit_offset(BMesh *bm, BevelParams *bp)
+static void bevel_limit_offset(BevelParams *bp)
 {
-	BMVert *v;
-	BMEdge *e;
-	BMIter v_iter, e_iter;
-	float limited_offset, half_elen;
-	bool vbeveled;
+	BevVert *bv;
+	EdgeHalf *eh;
+	GHashIterator giter;
+	float limited_offset, offset_factor, collision_offset;
+	int i;
 
 	limited_offset = bp->offset;
-	if (bp->offset_type == BEVEL_AMT_PERCENT) {
-		if (limited_offset > 50.0f)
-			limited_offset = 50.0f;
-		return limited_offset;
-	}
-	BM_ITER_MESH (v, &v_iter, bm, BM_VERTS_OF_MESH) {
-		if (BM_elem_flag_test(v, BM_ELEM_TAG)) {
+	GHASH_ITER(giter, bp->vert_hash) {
+		bv = BLI_ghashIterator_getValue(&giter);
+		for (i = 0; i < bv->edgecount; i++) {
+			eh = &bv->edges[i];
 			if (bp->vertex_only) {
-				vbeveled = true;
+				collision_offset = vertex_collide_offset(bp, eh);
+				if (collision_offset < limited_offset)
+					limited_offset = collision_offset;
 			}
 			else {
-				vbeveled = false;
-				BM_ITER_ELEM (e, &e_iter, v, BM_EDGES_OF_VERT) {
-					if (BM_elem_flag_test(BM_edge_other_vert(e, v), BM_ELEM_TAG)) {
-						vbeveled = true;
-						break;
-					}
-				}
-			}
-			if (vbeveled) {
-				BM_ITER_ELEM (e, &e_iter, v, BM_EDGES_OF_VERT) {
-					half_elen = 0.5f * BM_edge_calc_length(e);
-					if (half_elen < limited_offset)
-						limited_offset = half_elen;
-				}
+				collision_offset = geometry_collide_offset(bp, eh);
+				if (collision_offset < limited_offset)
+					limited_offset = collision_offset;
 			}
 		}
 	}
-	return limited_offset;
+
+	if (limited_offset < bp->offset) {
+		/* All current offset specs have some number times bp->offset,
+		 * so we can just multiply them all by the reduction factor
+		 * of the offset to have the effect of recalculating the specs
+		 * with the new limited_offset.
+		*/
+		offset_factor = limited_offset / bp->offset;
+		GHASH_ITER(giter, bp->vert_hash) {
+			bv = BLI_ghashIterator_getValue(&giter);
+			for (i = 0; i < bv->edgecount; i++) {
+				eh = &bv->edges[i];
+				eh->offset_l_spec *= offset_factor;
+				eh->offset_r_spec *= offset_factor;
+				eh->offset_l *= offset_factor;
+				eh->offset_r *= offset_factor;
+			}
+		}
+		bp->offset = limited_offset;
+	}
 }
 
 /**
  * - Currently only bevels BM_ELEM_TAG'd verts and edges.
  *
- * - Newly created faces are BM_ELEM_TAG'd too,
- *   the caller needs to ensure this is cleared before calling
- *   if its going to use this face tag.
+ * - Newly created faces, edges, and verts are BM_ELEM_TAG'd too,
+ *   the caller needs to ensure these are cleared before calling
+ *   if its going to use this tag.
  *
  * - If limit_offset is set, adjusts offset down if necessary
  *   to avoid geometry collisions.
@@ -4538,6 +4749,7 @@ void BM_mesh_bevel(
 	BMEdge *e;
 	BevVert *bv;
 	BevelParams bp = {NULL};
+	GHashIterator giter;
 
 	bp.offset = offset;
 	bp.offset_type = offset_type;
@@ -4561,15 +4773,23 @@ void BM_mesh_bevel(
 		BLI_memarena_use_calloc(bp.mem_arena);
 		set_profile_spacing(&bp);
 
-		if (limit_offset)
-			bp.offset = bevel_limit_offset(bm, &bp);
-
 		/* Analyze input vertices, sorting edges and assigning initial new vertex positions */
 		BM_ITER_MESH (v, &iter, bm, BM_VERTS_OF_MESH) {
 			if (BM_elem_flag_test(v, BM_ELEM_TAG)) {
 				bv = bevel_vert_construct(bm, &bp, v);
-				if (bv)
+				if (!limit_offset && bv)
 					build_boundary(&bp, bv, true);
+			}
+		}
+
+		/* Perhaps clamp offset to avoid geometry colliisions */
+		if (limit_offset) {
+			bevel_limit_offset(&bp);
+
+			/* Assign initial new vertex positions */
+			GHASH_ITER(giter, bp.vert_hash) {
+				bv = BLI_ghashIterator_getValue(&giter);
+				build_boundary(&bp, bv, true);
 			}
 		}
 
@@ -4579,6 +4799,7 @@ void BM_mesh_bevel(
 		}
 
 		/* Build the meshes around vertices, now that positions are final */
+		/* Note: could use GHASH_ITER over bp.vert_hash when backward compatibility no longer matters */
 		BM_ITER_MESH (v, &iter, bm, BM_VERTS_OF_MESH) {
 			if (BM_elem_flag_test(v, BM_ELEM_TAG)) {
 				bv = find_bevvert(&bp, v);
@@ -4608,6 +4829,20 @@ void BM_mesh_bevel(
 			if (BM_elem_flag_test(v, BM_ELEM_TAG)) {
 				BLI_assert(find_bevvert(&bp, v) != NULL);
 				BM_vert_kill(bm, v);
+			}
+		}
+
+		/* When called from operator (as opposed to modifier), bm->use_toolflags
+		 * will be set, and we to transfer the oflags to BM_ELEM_TAGs */
+		if (bm->use_toolflags) {
+			BM_ITER_MESH (v, &iter, bm, BM_VERTS_OF_MESH) {
+				if (BMO_vert_flag_test(bm, v, VERT_OUT))
+					BM_elem_flag_enable(v, BM_ELEM_TAG);
+			}
+			BM_ITER_MESH (e, &iter, bm, BM_EDGES_OF_MESH) {
+				if (BMO_edge_flag_test(bm, e, EDGE_OUT)) {
+					BM_elem_flag_enable(e, BM_ELEM_TAG);
+				}
 			}
 		}
 

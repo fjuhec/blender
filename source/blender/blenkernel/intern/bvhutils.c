@@ -917,10 +917,10 @@ BVHTree *bvhtree_from_mesh_faces(
 
 /**
  * Builds a bvh tree where nodes are the given tessellated faces (note: does not copy given mfaces!).
- * \param vert_allocated if true, vert freeing will be done when freeing data.
- * \param face_allocated if true, face freeing will be done when freeing data.
+ * \param vert_allocated: if true, vert freeing will be done when freeing data.
+ * \param face_allocated: if true, face freeing will be done when freeing data.
  * \param faces_mask: if not null, true elements give which faces to add to BVH tree.
- * \param numFaces_active if >= 0, number of active faces to add to BVH tree (else will be computed from mask).
+ * \param faces_num_active: if >= 0, number of active faces to add to BVH tree (else will be computed from mask).
  */
 BVHTree *bvhtree_from_mesh_faces_ex(
         BVHTreeFromMesh *data, const MVert *vert, const bool vert_allocated,
@@ -1137,7 +1137,6 @@ BVHTree *bvhtree_from_mesh_looptri(
 	const MLoopTri *looptri = NULL;
 	bool vert_allocated = false;
 	bool loop_allocated = false;
-	bool looptri_allocated = false;
 
 	BLI_rw_mutex_lock(&cache_rwlock, THREAD_LOCK_READ);
 	tree = bvhcache_find(dm->bvhCache, BVHTREE_FROM_LOOPTRI);
@@ -1150,12 +1149,7 @@ BVHTree *bvhtree_from_mesh_looptri(
 	mpoly = DM_get_poly_array(dm, &poly_allocated);
 
 	mloop = DM_get_loop_array(dm, &loop_allocated);
-	looptri = DM_get_looptri_array(
-	        dm,
-	        mvert,
-	        mpoly, dm->getNumPolys(dm),
-	        mloop, dm->getNumLoops(dm),
-	        &looptri_allocated);
+	looptri = dm->getLoopTriArray(dm);
 
 	if (poly_allocated) {
 		MEM_freeN(mpoly);
@@ -1193,7 +1187,7 @@ BVHTree *bvhtree_from_mesh_looptri(
 		        data, tree, true, epsilon,
 		        mvert, vert_allocated,
 		        mloop, loop_allocated,
-		        looptri, looptri_allocated);
+		        looptri, false);
 	}
 	else {
 		if (vert_allocated) {
@@ -1201,9 +1195,6 @@ BVHTree *bvhtree_from_mesh_looptri(
 		}
 		if (loop_allocated) {
 			MEM_freeN(mloop);
-		}
-		if (looptri_allocated) {
-			MEM_freeN((void *)looptri);
 		}
 		memset(data, 0, sizeof(*data));
 	}

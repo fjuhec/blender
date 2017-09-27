@@ -90,11 +90,11 @@ class PHYSICS_PT_game_physics(PhysicsButtonsPanel, Panel):
             split = layout.split()
 
             col = split.column()
-            col.label(text="Linear velocity:")
+            col.label(text="Linear Velocity:")
             sub = col.column(align=True)
             sub.prop(game, "velocity_min", text="Minimum")
             sub.prop(game, "velocity_max", text="Maximum")
-            col.label(text="Angular velocity:")
+            col.label(text="Angular Velocity:")
             sub = col.column(align=True)
             sub.prop(game, "angular_velocity_min", text="Minimum")
             sub.prop(game, "angular_velocity_max", text="Maximum")
@@ -343,7 +343,7 @@ class RENDER_PT_game_stereo(RenderButtonsPanel, Panel):
         stereo_mode = gs.stereo
 
         # stereo options:
-        layout.prop(gs, "stereo", expand=True)
+        layout.row().prop(gs, "stereo", expand=True)
 
         # stereo:
         if stereo_mode == 'STEREO':
@@ -392,7 +392,7 @@ class RENDER_PT_game_shading(RenderButtonsPanel, Panel):
 
         gs = context.scene.game_settings
 
-        layout.prop(gs, "material_mode", expand=True)
+        layout.row().prop(gs, "material_mode", expand=True)
 
         if gs.material_mode == 'GLSL':
             split = layout.split()

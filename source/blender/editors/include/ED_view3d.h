@@ -106,7 +106,14 @@ void ED_view3d_lastview_store(struct RegionView3D *rv3d);
 
 /* Depth buffer */
 void  ED_view3d_depth_update(struct ARegion *ar);
-float ED_view3d_depth_read_cached(const struct ViewContext *vc, int x, int y);
+float ED_view3d_depth_read_cached(const struct ViewContext *vc, const int mval[2]);
+bool  ED_view3d_depth_read_cached_normal(
+        const ViewContext *vc, const struct bglMats *mats, const int mval[2],
+        float r_normal[3]);
+bool ED_view3d_depth_unproject(
+        const struct ARegion *ar, const struct bglMats *mats,
+        const int mval[2], const double depth,
+        float r_location_world[3]);
 void  ED_view3d_depth_tag_update(struct RegionView3D *rv3d);
 
 /* Projection */
@@ -356,6 +363,9 @@ void ED_view3d_draw_offscreen(
         float winmat[4][4], bool do_bgpic, bool do_sky, bool is_persp, const char *viewname,
         struct GPUFX *fx, struct GPUFXSettings *fx_settings,
         struct GPUOffScreen *ofs);
+void ED_view3d_draw_setup_view(
+        struct wmWindow *win, struct Scene *scene, struct ARegion *ar, struct View3D *v3d,
+        float viewmat[4][4], float winmat[4][4], const struct rcti *rect);
 
 struct ImBuf *ED_view3d_draw_offscreen_imbuf(
         struct Scene *scene, struct View3D *v3d, struct ARegion *ar, int sizex, int sizey,
@@ -370,7 +380,9 @@ struct ImBuf *ED_view3d_draw_offscreen_imbuf_simple(
 
 struct Base *ED_view3d_give_base_under_cursor(struct bContext *C, const int mval[2]);
 void ED_view3d_quadview_update(struct ScrArea *sa, struct ARegion *ar, bool do_clip);
-void ED_view3d_update_viewmat(struct Scene *scene, struct View3D *v3d, struct ARegion *ar, float viewmat[4][4], float winmat[4][4]);
+void ED_view3d_update_viewmat(
+        struct Scene *scene, struct View3D *v3d, struct ARegion *ar,
+        float viewmat[4][4], float winmat[4][4], const struct rcti *rect);
 bool ED_view3d_quat_from_axis_view(const char view, float quat[4]);
 char ED_view3d_quat_to_axis_view(const float quat[4], const float epsilon);
 char ED_view3d_lock_view_from_index(int index);

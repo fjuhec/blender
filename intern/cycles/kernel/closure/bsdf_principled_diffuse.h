@@ -28,7 +28,6 @@ typedef ccl_addr_space struct PrincipledDiffuseBsdf {
 	SHADER_CLOSURE_BASE;
 
 	float roughness;
-	float3 N;
 } PrincipledDiffuseBsdf;
 
 ccl_device float3 calculate_principled_diffuse_brdf(const PrincipledDiffuseBsdf *bsdf,
@@ -57,6 +56,14 @@ ccl_device int bsdf_principled_diffuse_setup(PrincipledDiffuseBsdf *bsdf)
 {
 	bsdf->type = CLOSURE_BSDF_PRINCIPLED_DIFFUSE_ID;
 	return SD_BSDF|SD_BSDF_HAS_EVAL;
+}
+
+ccl_device bool bsdf_principled_diffuse_merge(const ShaderClosure *a, const ShaderClosure *b)
+{
+	const PrincipledDiffuseBsdf *bsdf_a = (const PrincipledDiffuseBsdf*)a;
+	const PrincipledDiffuseBsdf *bsdf_b = (const PrincipledDiffuseBsdf*)b;
+
+	return (isequal_float3(bsdf_a->N, bsdf_b->N) && bsdf_a->roughness == bsdf_b->roughness);
 }
 
 ccl_device float3 bsdf_principled_diffuse_eval_reflect(const ShaderClosure *sc, const float3 I,

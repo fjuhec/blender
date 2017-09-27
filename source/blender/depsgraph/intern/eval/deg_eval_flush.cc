@@ -35,15 +35,15 @@
 // TODO(sergey): Use some sort of wrapper.
 #include <deque>
 
-extern "C" {
-#include "DNA_object_types.h"
-
 #include "BLI_utildefines.h"
 #include "BLI_task.h"
 #include "BLI_ghash.h"
 
-#include "DEG_depsgraph.h"
+extern "C" {
+#include "DNA_object_types.h"
 } /* extern "C" */
+
+#include "DEG_depsgraph.h"
 
 #include "intern/nodes/deg_node.h"
 #include "intern/nodes/deg_node_component.h"
@@ -53,6 +53,12 @@ extern "C" {
 #include "util/deg_util_foreach.h"
 
 namespace DEG {
+
+enum {
+	COMPONENT_STATE_NONE      = 0,
+	COMPONENT_STATE_SCHEDULED = 1,
+	COMPONENT_STATE_DONE      = 2,
+};
 
 namespace {
 
@@ -83,7 +89,7 @@ static void flush_init_func(void *data_v, int i)
 	ComponentDepsNode *comp_node = node->owner;
 	IDDepsNode *id_node = comp_node->owner;
 	id_node->done = 0;
-	comp_node->done = 0;
+	comp_node->done = COMPONENT_STATE_NONE;
 	node->scheduled = false;
 }
 
@@ -139,18 +145,18 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 			IDDepsNode *id_node = comp_node->owner;
 
 			ID *id = id_node->id;
-			if(id_node->done == 0) {
+			if (id_node->done == 0) {
 				deg_editors_id_update(bmain, id);
 				lib_id_recalc_tag(bmain, id);
 				/* TODO(sergey): For until we've got proper data nodes in the graph. */
 				lib_id_recalc_data_tag(bmain, id);
 			}
 
-			if(comp_node->done == 0) {
+			if (comp_node->done != COMPONENT_STATE_DONE) {
 				Object *object = NULL;
 				if (GS(id->name) == ID_OB) {
 					object = (Object *)id;
-					if(id_node->done == 0) {
+					if (id_node->done == 0) {
 						++num_flushed_objects;
 					}
 				}
@@ -164,20 +170,48 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 					 * Plus it ensures visibility changes and relations and
 					 * layers visibility update has proper flags to work with.
 					 */
-					if (comp_node->type == DEPSNODE_TYPE_ANIMATION) {
-						object->recalc |= OB_RECALC_TIME;
+					switch (comp_node->type) {
+						case DEG_NODE_TYPE_UNDEFINED:
+						case DEG_NODE_TYPE_OPERATION:
+						case DEG_NODE_TYPE_TIMESOURCE:
+						case DEG_NODE_TYPE_ID_REF:
+						case DEG_NODE_TYPE_PARAMETERS:
+						case DEG_NODE_TYPE_SEQUENCER:
+							/* Ignore, does not translate to object component. */
+							break;
+						case DEG_NODE_TYPE_ANIMATION:
+							object->recalc |= OB_RECALC_TIME;
+							break;
+						case DEG_NODE_TYPE_TRANSFORM:
+							object->recalc |= OB_RECALC_OB;
+							break;
+						case DEG_NODE_TYPE_GEOMETRY:
+						case DEG_NODE_TYPE_EVAL_POSE:
+						case DEG_NODE_TYPE_BONE:
+						case DEG_NODE_TYPE_EVAL_PARTICLES:
+						case DEG_NODE_TYPE_SHADING:
+						case DEG_NODE_TYPE_CACHE:
+						case DEG_NODE_TYPE_PROXY:
+							object->recalc |= OB_RECALC_DATA;
+							break;
 					}
-					else if (comp_node->type == DEPSNODE_TYPE_TRANSFORM) {
-						object->recalc |= OB_RECALC_OB;
-					}
-					else {
-						object->recalc |= OB_RECALC_DATA;
+				}
+				/* When some target changes bone, we might need to re-run the
+				 * whole IK solver, otherwise result might be unpredictable.
+				 */
+				if (comp_node->type == DEG_NODE_TYPE_BONE) {
+					ComponentDepsNode *pose_comp =
+					        id_node->find_component(DEG_NODE_TYPE_EVAL_POSE);
+					BLI_assert(pose_comp != NULL);
+					if (pose_comp->done == COMPONENT_STATE_NONE) {
+						queue.push_front(pose_comp->get_entry_operation());
+						pose_comp->done = COMPONENT_STATE_SCHEDULED;
 					}
 				}
 			}
 
 			id_node->done = 1;
-			comp_node->done = 1;
+			comp_node->done = COMPONENT_STATE_DONE;
 
 			/* Flush to nodes along links... */
 			/* TODO(sergey): This is mainly giving speedup due ot less queue pushes, which

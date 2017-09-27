@@ -99,42 +99,6 @@ typedef struct AviCodecData {
 	char			avicodecname[128];
 } AviCodecData;
 
-typedef struct QuicktimeCodecData {
-	/*Old quicktime implementation compatibility fields, read only in 2.5 - deprecated*/
-	void			*cdParms;   /* codec/compressor options */
-	void			*pad;	    /* padding */
-
-	unsigned int	cdSize;		    /* size of cdParms buffer */
-	unsigned int	pad2;		    /* padding */
-
-	char			qtcodecname[128];
-} QuicktimeCodecData;
-	
-typedef struct QuicktimeCodecSettings {
-	/* Codec settings detailed for 2.5 implementation*/
-	int codecType; /* Types defined in quicktime_export.h */
-	int	codecSpatialQuality; /* in 0-100 scale, to be translated in 0-1024 for qt use */
-
-	/* Settings not available in current QTKit API */
-	int	codec;
-	int	codecFlags;
-	int	colorDepth;
-	int	codecTemporalQuality; /* in 0-100 scale, to be translated in 0-1024 for qt use */
-	int	minSpatialQuality; /* in 0-100 scale, to be translated in 0-1024 for qt use */
-	int	minTemporalQuality; /* in 0-100 scale, to be translated in 0-1024 for qt use */
-	int	keyFrameRate;
-	int	bitRate;	/* bitrate in bps */
-	
-	/* Audio Codec settings */
-	int audiocodecType;
-	int audioSampleRate;
-	short audioBitDepth;
-	short audioChannels;
-	int audioCodecFlags;
-	int audioBitRate;
-	int pad1;
-} QuicktimeCodecSettings;
-
 typedef enum FFMpegPreset {
 	FFM_PRESET_NONE,
 	FFM_PRESET_ULTRAFAST,
@@ -229,7 +193,9 @@ typedef struct SceneRenderLayer {
 
 	int samples;
 	float pass_alpha_threshold;
-	
+
+	IDProperty *prop;
+
 	struct FreestyleConfig freestyleConfig;
 } SceneRenderLayer;
 
@@ -283,8 +249,42 @@ typedef enum ScenePassType {
 	SCE_PASS_SUBSURFACE_DIRECT        = (1 << 28),
 	SCE_PASS_SUBSURFACE_INDIRECT      = (1 << 29),
 	SCE_PASS_SUBSURFACE_COLOR         = (1 << 30),
-	SCE_PASS_DEBUG                    = (1 << 31),  /* This is a virtual pass. */
 } ScenePassType;
+
+#define RE_PASSNAME_COMBINED "Combined"
+#define RE_PASSNAME_Z "Depth"
+#define RE_PASSNAME_VECTOR "Vector"
+#define RE_PASSNAME_NORMAL "Normal"
+#define RE_PASSNAME_UV "UV"
+#define RE_PASSNAME_RGBA "Color"
+#define RE_PASSNAME_EMIT "Emit"
+#define RE_PASSNAME_DIFFUSE "Diffuse"
+#define RE_PASSNAME_SPEC "Spec"
+#define RE_PASSNAME_SHADOW "Shadow"
+
+#define RE_PASSNAME_AO "AO"
+#define RE_PASSNAME_ENVIRONMENT "Env"
+#define RE_PASSNAME_INDIRECT "Indirect"
+#define RE_PASSNAME_REFLECT "Reflect"
+#define RE_PASSNAME_REFRACT "Refract"
+#define RE_PASSNAME_INDEXOB "IndexOB"
+#define RE_PASSNAME_INDEXMA "IndexMA"
+#define RE_PASSNAME_MIST "Mist"
+
+#define RE_PASSNAME_RAYHITS "RayHits"
+#define RE_PASSNAME_DIFFUSE_DIRECT "DiffDir"
+#define RE_PASSNAME_DIFFUSE_INDIRECT "DiffInd"
+#define RE_PASSNAME_DIFFUSE_COLOR "DiffCol"
+#define RE_PASSNAME_GLOSSY_DIRECT "GlossDir"
+#define RE_PASSNAME_GLOSSY_INDIRECT "GlossInd"
+#define RE_PASSNAME_GLOSSY_COLOR "GlossCol"
+#define RE_PASSNAME_TRANSM_DIRECT "TransDir"
+#define RE_PASSNAME_TRANSM_INDIRECT "TransInd"
+#define RE_PASSNAME_TRANSM_COLOR "TransCol"
+
+#define RE_PASSNAME_SUBSURFACE_DIRECT "SubsurfaceDir"
+#define RE_PASSNAME_SUBSURFACE_INDIRECT "SubsurfaceInd"
+#define RE_PASSNAME_SUBSURFACE_COLOR "SubsurfaceCol"
 
 /* note, srl->passflag is treestore element 'nr' in outliner, short still... */
 
@@ -420,7 +420,7 @@ typedef struct ImageFormatData {
 #define R_IMF_IMTYPE_AVIJPEG        16
 #define R_IMF_IMTYPE_PNG            17
 /* #define R_IMF_IMTYPE_AVICODEC    18 */ /* avicodec is nomore */
-#define R_IMF_IMTYPE_QUICKTIME      19
+/* #define R_IMF_IMTYPE_QUICKTIME   19 */ /* quicktime is nomore */
 #define R_IMF_IMTYPE_BMP            20
 #define R_IMF_IMTYPE_RADHDR         21
 #define R_IMF_IMTYPE_TIFF           22
@@ -549,8 +549,6 @@ typedef struct RenderData {
 	struct ImageFormatData im_format;
 	
 	struct AviCodecData *avicodecdata;
-	struct QuicktimeCodecData *qtcodecdata;
-	struct QuicktimeCodecSettings qtcodecsettings;
 	struct FFMpegCodecData ffcodecdata;
 
 	int cfra, sfra, efra;	/* frames as in 'images' */
@@ -715,7 +713,7 @@ typedef struct RenderData {
 
 	/* sequencer options */
 	char seq_prev_type;
-	char seq_rend_type;
+	char seq_rend_type;  /* UNUSED! */
 	char seq_flag; /* flag use for sequence render/draw */
 	char pad5[5];
 
@@ -754,13 +752,12 @@ typedef struct RenderData {
 	struct BakeData bake;
 
 	int preview_start_resolution;
+	short preview_pixel_size;
 
 	/* Type of the debug pass to use.
 	 * Only used when built with debug passes support.
 	 */
 	short debug_pass_type;
-
-	short pad;
 
 	/* MultiView */
 	ListBase views;  /* SceneRenderView */
@@ -1635,8 +1632,7 @@ typedef struct Scene {
 	struct Object *obedit;		/* name replaces old G.obedit */
 	
 	float cursor[3];			/* 3d cursor location */
-	float twcent[3];			/* center for transform widget */
-	float twmin[3], twmax[3];	/* boundbox of selection for transform widget */
+	char _pad[4];
 	
 	unsigned int lay;			/* bitflags for layer visibility */
 	int layact;		/* active layer */
@@ -1697,6 +1693,8 @@ typedef struct Scene {
 	/* Movie Tracking */
 	struct MovieClip *clip;			/* active movie clip */
 
+	void *pad4;
+
 	uint64_t customdata_mask;	/* XXX. runtime flag for drawing, actually belongs in the window, only used by BKE_object_handle_update() */
 	uint64_t customdata_mask_modal; /* XXX. same as above but for temp operator use (gl renders) */
 
@@ -1717,8 +1715,7 @@ typedef struct Scene {
 	/* use preview range */
 #define SCER_PRV_RANGE	(1<<0)
 #define SCER_LOCK_FRAME_SELECTION	(1<<1)
-	/* timeline/keyframe jumping - only selected items (on by default) */
-#define SCE_KEYS_NO_SELONLY	(1<<2)
+	/* show/use subframes (for checking motion blur) */
 #define SCER_SHOW_SUBFRAME	(1<<3)
 
 /* mode (int now) */
@@ -1758,7 +1755,7 @@ typedef struct Scene {
 #define R_USE_WS_SHADING	0x8000000 /* use world space interpretation of lighting data */
 
 /* seq_flag */
-#define R_SEQ_GL_PREV 1
+// #define R_SEQ_GL_PREV 1  // UNUSED, we just use setting from seq_prev_type now.
 // #define R_SEQ_GL_REND 2  // UNUSED, opengl render has its own operator now.
 #define R_SEQ_SOLID_TEX 4
 
@@ -1903,16 +1900,18 @@ extern const char *RE_engine_id_CYCLES;
 /* **************** SCENE ********************* */
 
 /* note that much higher maxframes give imprecise sub-frames, see: T46859 */
+/* Current precision is 16 for the sub-frames closer to MAXFRAME. */
+
 /* for general use */
-#define MAXFRAME	500000
-#define MAXFRAMEF	500000.0f
+#define MAXFRAME	1048574
+#define MAXFRAMEF	1048574.0f
 
 #define MINFRAME	0
 #define MINFRAMEF	0.0f
 
 /* (minimum frame number for current-frame) */
-#define MINAFRAME	-500000
-#define MINAFRAMEF	-500000.0f
+#define MINAFRAME	-1048574
+#define MINAFRAMEF	-1048574.0f
 
 /* depricate this! */
 #define TESTBASE(v3d, base)  (                                                \
@@ -2052,6 +2051,7 @@ typedef enum eVGroupSelect {
 #define SCE_DS_COLLAPSED		(1<<1)
 #define SCE_NLA_EDIT_ON			(1<<2)
 #define SCE_FRAME_DROP			(1<<3)
+#define SCE_KEYS_NO_SELONLY	    (1<<4)
 
 
 	/* return flag BKE_scene_base_iter_next functions */

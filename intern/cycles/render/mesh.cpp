@@ -903,7 +903,7 @@ void Mesh::pack_normals(Scene *scene, uint *tri_shader, float4 *vnormal)
 		float3 vNi = vN[i];
 
 		if(do_transform)
-			vNi = normalize(transform_direction(&ntfm, vNi));
+			vNi = safe_normalize(transform_direction(&ntfm, vNi));
 
 		vnormal[i] = make_float4(vNi.x, vNi.y, vNi.z, 0.0f);
 	}
@@ -1925,16 +1925,7 @@ void MeshManager::device_update_displacement_images(Device *device,
 					if(node->special_type != SHADER_SPECIAL_TYPE_IMAGE_SLOT) {
 						continue;
 					}
-					if(device->info.pack_images) {
-						/* If device requires packed images we need to update all
-						 * images now, even if they're not used for displacement.
-						 */
-						image_manager->device_update(device,
-						                             dscene,
-						                             scene,
-						                             progress);
-						return;
-					}
+
 					ImageSlotTextureNode *image_node = static_cast<ImageSlotTextureNode*>(node);
 					int slot = image_node->slot;
 					if(slot != -1) {
@@ -1944,6 +1935,7 @@ void MeshManager::device_update_displacement_images(Device *device,
 			}
 		}
 	}
+	image_manager->device_prepare_update(dscene);
 	foreach(int slot, bump_images) {
 		pool.push(function_bind(&ImageManager::device_update_slot,
 		                        image_manager,

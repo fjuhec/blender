@@ -15,29 +15,42 @@
  */
 
 
-/* For OpenCL all images are packed in a single array, and we do manual lookup
- * and interpolation. */
+/* For OpenCL we do manual lookup and interpolation. */
+
+ccl_device_inline ccl_global tex_info_t* kernel_tex_info(KernelGlobals *kg, uint id) {
+	const uint tex_offset = id
+#define KERNEL_TEX(type, ttype, name) + 1
+#include "kernel/kernel_textures.h"
+	;
+
+	return &((ccl_global tex_info_t*)kg->buffers[0])[tex_offset];
+}
+
+#define tex_fetch(type, info, index) ((ccl_global type*)(kg->buffers[info->buffer] + info->offset))[(index)]
 
 ccl_device_inline float4 svm_image_texture_read(KernelGlobals *kg, int id, int offset)
 {
+	const ccl_global tex_info_t *info = kernel_tex_info(kg, id);
+	const int texture_type = kernel_tex_type(id);
+
 	/* Float4 */
-	if(id < TEX_START_BYTE4_OPENCL) {
-		return kernel_tex_fetch(__tex_image_float4_packed, offset);
+	if(texture_type == IMAGE_DATA_TYPE_FLOAT4) {
+		return tex_fetch(float4, info, offset);
 	}
 	/* Byte4 */
-	else if(id < TEX_START_FLOAT_OPENCL) {
-		uchar4 r = kernel_tex_fetch(__tex_image_byte4_packed, offset);
+	else if(texture_type == IMAGE_DATA_TYPE_BYTE4) {
+		uchar4 r = tex_fetch(uchar4, info, offset);
 		float f = 1.0f/255.0f;
 		return make_float4(r.x*f, r.y*f, r.z*f, r.w*f);
 	}
 	/* Float */
-	else if(id < TEX_START_BYTE_OPENCL) {
-		float f = kernel_tex_fetch(__tex_image_float_packed, offset);
+	else if(texture_type == IMAGE_DATA_TYPE_FLOAT) {
+		float f = tex_fetch(float, info, offset);
 		return make_float4(f, f, f, 1.0f);
 	}
 	/* Byte */
 	else {
-		uchar r = kernel_tex_fetch(__tex_image_byte_packed, offset);
+		uchar r = tex_fetch(uchar, info, offset);
 		float f = r * (1.0f/255.0f);
 		return make_float4(f, f, f, 1.0f);
 	}
@@ -63,23 +76,37 @@ ccl_device_inline float svm_image_texture_frac(float x, int *ix)
 	return x - (float)i;
 }
 
+ccl_device_inline uint kernel_decode_image_interpolation(uint info)
+{
+	return (info & (1 << 0)) ? INTERPOLATION_CLOSEST : INTERPOLATION_LINEAR;
+}
+
+ccl_device_inline uint kernel_decode_image_extension(uint info)
+{
+	if(info & (1 << 1)) {
+		return EXTENSION_REPEAT;
+	}
+	else if(info & (1 << 2)) {
+		return EXTENSION_EXTEND;
+	}
+	else {
+		return EXTENSION_CLIP;
+	}
+}
+
 ccl_device float4 kernel_tex_image_interp(KernelGlobals *kg, int id, float x, float y)
 {
-	uint4 info = kernel_tex_fetch(__tex_image_packed_info, id*2);
-	uint width = info.x;
-	uint height = info.y;
-	uint offset = info.z;
+	const ccl_global tex_info_t *info = kernel_tex_info(kg, id);
 
-	/* Image Options */
-	uint interpolation = (info.w & (1 << 0)) ? INTERPOLATION_CLOSEST : INTERPOLATION_LINEAR;
-	uint extension;
-	if(info.w & (1 << 1))
-		extension = EXTENSION_REPEAT;
-	else if(info.w & (1 << 2))
-		extension = EXTENSION_EXTEND;
-	else
-		extension = EXTENSION_CLIP;
+	uint width = info->width;
+	uint height = info->height;
+	uint offset = 0;
 
+	/* Decode image options. */
+	uint interpolation = kernel_decode_image_interpolation(info->options);
+	uint extension = kernel_decode_image_extension(info->options);
+
+	/* Actual sampling. */
 	float4 r;
 	int ix, iy, nix, niy;
 	if(interpolation == INTERPOLATION_CLOSEST) {
@@ -132,29 +159,24 @@ ccl_device float4 kernel_tex_image_interp(KernelGlobals *kg, int id, float x, fl
 		r += ty*(1.0f - tx)*svm_image_texture_read(kg, id, offset + ix + niy*width);
 		r += ty*tx*svm_image_texture_read(kg, id, offset + nix + niy*width);
 	}
-
 	return r;
 }
 
 
 ccl_device float4 kernel_tex_image_interp_3d(KernelGlobals *kg, int id, float x, float y, float z)
 {
-	uint4 info = kernel_tex_fetch(__tex_image_packed_info, id*2);
-	uint width = info.x;
-	uint height = info.y;
-	uint offset = info.z;
-	uint depth = kernel_tex_fetch(__tex_image_packed_info, id*2+1).x;
+	const ccl_global tex_info_t *info = kernel_tex_info(kg, id);
 
-	/* Image Options */
-	uint interpolation = (info.w & (1 << 0)) ? INTERPOLATION_CLOSEST : INTERPOLATION_LINEAR;
-	uint extension;
-	if(info.w & (1 << 1))
-		extension = EXTENSION_REPEAT;
-	else if(info.w & (1 << 2))
-		extension = EXTENSION_EXTEND;
-	else
-		extension = EXTENSION_CLIP;
+	uint width = info->width;
+	uint height = info->height;
+	uint offset = 0;
+	uint depth = info->depth;
 
+	/* Decode image options. */
+	uint interpolation = kernel_decode_image_interpolation(info->options);
+	uint extension = kernel_decode_image_extension(info->options);
+
+	/* Actual sampling. */
 	float4 r;
 	int ix, iy, iz, nix, niy, niz;
 	if(interpolation == INTERPOLATION_CLOSEST) {
@@ -171,7 +193,7 @@ ccl_device float4 kernel_tex_image_interp_3d(KernelGlobals *kg, int id, float x,
 			if(extension == EXTENSION_CLIP) {
 				if(x < 0.0f || y < 0.0f || z < 0.0f ||
 				   x > 1.0f || y > 1.0f || z > 1.0f)
-				 {
+				{
 					return make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 				}
 			}
@@ -198,12 +220,13 @@ ccl_device float4 kernel_tex_image_interp_3d(KernelGlobals *kg, int id, float x,
 			niz = svm_image_texture_wrap_periodic(iz+1, depth);
 		}
 		else {
-			if(extension == EXTENSION_CLIP)
+			if(extension == EXTENSION_CLIP) {
 				if(x < 0.0f || y < 0.0f || z < 0.0f ||
 				   x > 1.0f || y > 1.0f || z > 1.0f)
 				{
 					return make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 				}
+			}
 			/* Fall through. */
 			/*  EXTENSION_EXTEND */
 			nix = svm_image_texture_wrap_clamp(ix+1, width);
@@ -224,8 +247,6 @@ ccl_device float4 kernel_tex_image_interp_3d(KernelGlobals *kg, int id, float x,
 		r += tz*(1.0f - ty)*tx*svm_image_texture_read(kg, id, offset + nix + iy*width + niz*width*height);
 		r += tz*ty*(1.0f - tx)*svm_image_texture_read(kg, id, offset + ix + niy*width + niz*width*height);
 		r += tz*ty*tx*svm_image_texture_read(kg, id, offset + nix + niy*width + niz*width*height);
-
 	}
-
 	return r;
 }

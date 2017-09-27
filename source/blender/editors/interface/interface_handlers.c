@@ -1440,87 +1440,82 @@ static bool ui_selectcontext_begin(
 		const bool is_array = RNA_property_array_check(prop);
 		const int rna_type = RNA_property_type(prop);
 
-		if (!UI_context_copy_to_selected_list(C, &ptr, prop, &lb, &use_path_from_id, &path)) {
-			goto finally;
-		}
+		if (UI_context_copy_to_selected_list(C, &ptr, prop, &lb, &use_path_from_id, &path) &&
+		    !BLI_listbase_is_empty(&lb))
+		{
+			selctx_data->elems_len = BLI_listbase_count(&lb);
+			selctx_data->elems = MEM_mallocN(sizeof(uiSelectContextElem) * selctx_data->elems_len, __func__);
 
-		selctx_data->elems_len = BLI_listbase_count(&lb);
-		if (selctx_data->elems_len == 0) {
-			goto finally;
-		}
-
-		selctx_data->elems = MEM_mallocN(sizeof(uiSelectContextElem) * selctx_data->elems_len, __func__);
-
-		for (i = 0, link = lb.first; i < selctx_data->elems_len; i++, link = link->next) {
-			uiSelectContextElem *other = &selctx_data->elems[i];
-			/* TODO,. de-duplicate copy_to_selected_button */
-			if (link->ptr.data != ptr.data) {
-				if (use_path_from_id) {
-					/* Path relative to ID. */
-					lprop = NULL;
-					RNA_id_pointer_create(link->ptr.id.data, &idptr);
-					RNA_path_resolve_property(&idptr, path, &lptr, &lprop);
-				}
-				else if (path) {
-					/* Path relative to elements from list. */
-					lprop = NULL;
-					RNA_path_resolve_property(&link->ptr, path, &lptr, &lprop);
-				}
-				else {
-					lptr = link->ptr;
-					lprop = prop;
-				}
-
-				/* lptr might not be the same as link->ptr! */
-				if ((lptr.data != ptr.data) &&
-				    (lprop == prop) &&
-				    RNA_property_editable(&lptr, lprop))
-				{
-					other->ptr = lptr;
-					if (is_array) {
-						if (rna_type == PROP_FLOAT) {
-							other->val_f = RNA_property_float_get_index(&lptr, lprop, index);
-						}
-						else if (rna_type == PROP_INT) {
-							other->val_i = RNA_property_int_get_index(&lptr, lprop, index);
-						}
-						/* ignored for now */
-#if 0
-						else if (rna_type == PROP_BOOLEAN) {
-							other->val_b = RNA_property_boolean_get_index(&lptr, lprop, index);
-						}
-#endif
+			for (i = 0, link = lb.first; i < selctx_data->elems_len; i++, link = link->next) {
+				uiSelectContextElem *other = &selctx_data->elems[i];
+				/* TODO,. de-duplicate copy_to_selected_button */
+				if (link->ptr.data != ptr.data) {
+					if (use_path_from_id) {
+						/* Path relative to ID. */
+						lprop = NULL;
+						RNA_id_pointer_create(link->ptr.id.data, &idptr);
+						RNA_path_resolve_property(&idptr, path, &lptr, &lprop);
+					}
+					else if (path) {
+						/* Path relative to elements from list. */
+						lprop = NULL;
+						RNA_path_resolve_property(&link->ptr, path, &lptr, &lprop);
 					}
 					else {
-						if (rna_type == PROP_FLOAT) {
-							other->val_f = RNA_property_float_get(&lptr, lprop);
-						}
-						else if (rna_type == PROP_INT) {
-							other->val_i = RNA_property_int_get(&lptr, lprop);
-						}
-						/* ignored for now */
-#if 0
-						else if (rna_type == PROP_BOOLEAN) {
-							other->val_b = RNA_property_boolean_get(&lptr, lprop);
-						}
-						else if (rna_type == PROP_ENUM) {
-							other->val_i = RNA_property_enum_get(&lptr, lprop);
-						}
-#endif
+						lptr = link->ptr;
+						lprop = prop;
 					}
 
-					continue;
+					/* lptr might not be the same as link->ptr! */
+					if ((lptr.data != ptr.data) &&
+					    (lprop == prop) &&
+					    RNA_property_editable(&lptr, lprop))
+					{
+						other->ptr = lptr;
+						if (is_array) {
+							if (rna_type == PROP_FLOAT) {
+								other->val_f = RNA_property_float_get_index(&lptr, lprop, index);
+							}
+							else if (rna_type == PROP_INT) {
+								other->val_i = RNA_property_int_get_index(&lptr, lprop, index);
+							}
+							/* ignored for now */
+#if 0
+							else if (rna_type == PROP_BOOLEAN) {
+								other->val_b = RNA_property_boolean_get_index(&lptr, lprop, index);
+							}
+#endif
+						}
+						else {
+							if (rna_type == PROP_FLOAT) {
+								other->val_f = RNA_property_float_get(&lptr, lprop);
+							}
+							else if (rna_type == PROP_INT) {
+								other->val_i = RNA_property_int_get(&lptr, lprop);
+							}
+							/* ignored for now */
+#if 0
+							else if (rna_type == PROP_BOOLEAN) {
+								other->val_b = RNA_property_boolean_get(&lptr, lprop);
+							}
+							else if (rna_type == PROP_ENUM) {
+								other->val_i = RNA_property_enum_get(&lptr, lprop);
+							}
+#endif
+						}
+
+						continue;
+					}
 				}
+
+				selctx_data->elems_len -= 1;
+				i -= 1;
 			}
 
-			selctx_data->elems_len -= 1;
-			i -= 1;
+			success = (selctx_data->elems_len != 0);
 		}
 	}
 
-	success = (selctx_data->elems_len != 0);
-
-finally:
 	if (selctx_data->elems_len == 0) {
 		MEM_SAFE_FREE(selctx_data->elems);
 	}
@@ -2319,7 +2314,7 @@ static void ui_but_copy_paste(bContext *C, uiBut *but, uiHandleButtonData *data,
 			/* Get many decimal places, then strip trailing zeros.
 			 * note: too high values start to give strange results */
 			char buf_copy[UI_MAX_DRAW_STR];
-			ui_but_string_get_ex(but, buf_copy, sizeof(buf_copy), UI_PRECISION_FLOAT_MAX);
+			ui_but_string_get_ex(but, buf_copy, sizeof(buf_copy), UI_PRECISION_FLOAT_MAX, false, NULL);
 			BLI_str_rstrip_float_zero(buf_copy, '\0');
 
 			WM_clipboard_text_set(buf_copy, 0);
@@ -3060,6 +3055,7 @@ static void ui_textedit_begin(bContext *C, uiBut *but, uiHandleButtonData *data)
 	wmWindow *win = CTX_wm_window(C);
 	int len;
 	const bool is_num_but = ELEM(but->type, UI_BTYPE_NUM, UI_BTYPE_NUM_SLIDER);
+	bool no_zero_strip = false;
 
 	if (data->str) {
 		MEM_freeN(data->str);
@@ -3092,14 +3088,16 @@ static void ui_textedit_begin(bContext *C, uiBut *but, uiHandleButtonData *data)
 	data->maxlen = ui_but_string_get_max_length(but);
 	if (data->maxlen != 0) {
 		data->str = MEM_callocN(sizeof(char) * data->maxlen, "textedit str");
-		ui_but_string_get(but, data->str, data->maxlen);
+		/* We do not want to truncate precision to default here, it's nice to show value,
+		 * not to edit it - way too much precision is lost then. */
+		ui_but_string_get_ex(but, data->str, data->maxlen, UI_PRECISION_FLOAT_MAX, true, &no_zero_strip);
 	}
 	else {
 		data->is_str_dynamic = true;
 		data->str = ui_but_string_get_dynamic(but, &data->maxlen);
 	}
 
-	if (ui_but_is_float(but) && !ui_but_is_unit(but) && !ui_but_anim_expression_get(but, NULL, 0)) {
+	if (ui_but_is_float(but) && !ui_but_is_unit(but) && !ui_but_anim_expression_get(but, NULL, 0) && !no_zero_strip) {
 		BLI_str_rstrip_float_zero(data->str, '\0');
 	}
 
@@ -3378,7 +3376,7 @@ static void ui_do_but_textedit(
 				if (event->type == WHEELDOWNMOUSE) {
 					break;
 				}
-				/* fall-through */
+				ATTR_FALLTHROUGH;
 			case ENDKEY:
 				ui_textedit_move(but, data, STRCUR_DIR_NEXT,
 				                 event->shift != 0, STRCUR_JUMP_ALL);
@@ -3396,7 +3394,7 @@ static void ui_do_but_textedit(
 				if (event->type == WHEELUPMOUSE) {
 					break;
 				}
-				/* fall-through */
+				ATTR_FALLTHROUGH;
 			case HOMEKEY:
 				ui_textedit_move(but, data, STRCUR_DIR_PREV,
 				                 event->shift != 0, STRCUR_JUMP_ALL);
@@ -6757,6 +6755,7 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 {
 	uiPopupMenu *pup;
 	uiLayout *layout;
+	MenuType *mt = WM_menutype_find("WM_MT_button_context", true);
 	bool is_array, is_array_component;
 	uiStringInfo label = {BUT_GET_LABEL, NULL};
 
@@ -6787,6 +6786,12 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 		bool is_editable = RNA_property_editable(ptr, prop);
 		/*bool is_idprop = RNA_property_is_idprop(prop);*/ /* XXX does not work as expected, not strictly needed */
 		bool is_set = RNA_property_is_set(ptr, prop);
+
+		/* set the prop and pointer data for python access to the hovered ui element; TODO, index could be supported as well*/
+		PointerRNA temp_ptr;
+		RNA_pointer_create(NULL, &RNA_Property, but->rnaprop, &temp_ptr);
+		uiLayoutSetContextPointer(layout, "button_prop", &temp_ptr);
+		uiLayoutSetContextPointer(layout, "button_pointer", ptr);
 
 		/* second slower test, saved people finding keyframe items in menus when its not possible */
 		if (is_anim)
@@ -7003,7 +7008,12 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 			                        0, 0, w, UI_UNIT_Y, NULL, 0, 0, 0, 0, "");
 			UI_but_func_set(but2, popup_add_shortcut_func, but, NULL);
 		}
-		
+
+		/* Set the operator pointer for python access */
+		if (but->opptr) {
+			uiLayoutSetContextPointer(layout, "button_operator", but->opptr);
+		}
+
 		uiItemS(layout);
 	}
 
@@ -7049,6 +7059,14 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 		uiItemFullO(layout, "UI_OT_editsource", NULL, ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, 0);
 	}
 	uiItemFullO(layout, "UI_OT_edittranslation_init", NULL, ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, 0);
+
+	mt = WM_menutype_find("WM_MT_button_context", true);
+	if (mt) {
+		Menu menu = {NULL};
+		menu.layout = uiLayoutColumn(layout, false);
+		menu.type = mt;
+		mt->draw(C, &menu);
+	}
 
 	UI_popup_menu_end(C, pup);
 
@@ -8389,7 +8407,7 @@ static int ui_handle_button_event(bContext *C, const wmEvent *event, uiBut *but)
 			case MIDDLEMOUSE:
 			case MOUSEPAN:
 				UI_but_tooltip_timer_remove(C, but);
-				/* fall-through */
+				ATTR_FALLTHROUGH;
 			default:
 				/* handle button type specific events */
 				retval = ui_do_button(C, block, but, event);
@@ -9183,23 +9201,23 @@ static int ui_handle_menu_event(
 					break;
 
 				case ONEKEY:    case PAD1:
-					act = 1;
+					act = 1; ATTR_FALLTHROUGH;
 				case TWOKEY:    case PAD2:
-					if (act == 0) act = 2;
+					if (act == 0) act = 2; ATTR_FALLTHROUGH;
 				case THREEKEY:  case PAD3:
-					if (act == 0) act = 3;
+					if (act == 0) act = 3; ATTR_FALLTHROUGH;
 				case FOURKEY:   case PAD4:
-					if (act == 0) act = 4;
+					if (act == 0) act = 4; ATTR_FALLTHROUGH;
 				case FIVEKEY:   case PAD5:
-					if (act == 0) act = 5;
+					if (act == 0) act = 5; ATTR_FALLTHROUGH;
 				case SIXKEY:    case PAD6:
-					if (act == 0) act = 6;
+					if (act == 0) act = 6; ATTR_FALLTHROUGH;
 				case SEVENKEY:  case PAD7:
-					if (act == 0) act = 7;
+					if (act == 0) act = 7; ATTR_FALLTHROUGH;
 				case EIGHTKEY:  case PAD8:
-					if (act == 0) act = 8;
+					if (act == 0) act = 8; ATTR_FALLTHROUGH;
 				case NINEKEY:   case PAD9:
-					if (act == 0) act = 9;
+					if (act == 0) act = 9; ATTR_FALLTHROUGH;
 				case ZEROKEY:   case PAD0:
 					if (act == 0) act = 10;
 
@@ -9794,13 +9812,13 @@ static int ui_pie_handler(bContext *C, const wmEvent *event, uiPopupBlockHandle 
 			case (ZEROKEY + n): case (PAD0 + n): \
 				{ if (num_dir == UI_RADIAL_NONE) num_dir = d; } (void)0
 
-				CASE_NUM_TO_DIR(1, UI_RADIAL_SW);
-				CASE_NUM_TO_DIR(2, UI_RADIAL_S);
-				CASE_NUM_TO_DIR(3, UI_RADIAL_SE);
-				CASE_NUM_TO_DIR(4, UI_RADIAL_W);
-				CASE_NUM_TO_DIR(6, UI_RADIAL_E);
-				CASE_NUM_TO_DIR(7, UI_RADIAL_NW);
-				CASE_NUM_TO_DIR(8, UI_RADIAL_N);
+				CASE_NUM_TO_DIR(1, UI_RADIAL_SW); ATTR_FALLTHROUGH;
+				CASE_NUM_TO_DIR(2, UI_RADIAL_S);  ATTR_FALLTHROUGH;
+				CASE_NUM_TO_DIR(3, UI_RADIAL_SE); ATTR_FALLTHROUGH;
+				CASE_NUM_TO_DIR(4, UI_RADIAL_W);  ATTR_FALLTHROUGH;
+				CASE_NUM_TO_DIR(6, UI_RADIAL_E);  ATTR_FALLTHROUGH;
+				CASE_NUM_TO_DIR(7, UI_RADIAL_NW); ATTR_FALLTHROUGH;
+				CASE_NUM_TO_DIR(8, UI_RADIAL_N);  ATTR_FALLTHROUGH;
 				CASE_NUM_TO_DIR(9, UI_RADIAL_NE);
 				{
 					but = ui_block_pie_dir_activate(block, event, num_dir);

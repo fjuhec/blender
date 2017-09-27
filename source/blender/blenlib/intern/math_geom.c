@@ -572,8 +572,8 @@ float dist_squared_to_ray_v3(
 }
 /**
  * Find the closest point in a seg to a ray and return the distance squared.
- * \param r_point : Is the point on segment closest to ray (or to ray_origin if the ray and the segment are parallel).
- * \param depth: the distance of r_point projection on ray to the ray_origin.
+ * \param r_point: Is the point on segment closest to ray (or to ray_origin if the ray and the segment are parallel).
+ * \param r_depth: the distance of r_point projection on ray to the ray_origin.
  */
 float dist_squared_ray_to_seg_v3(
         const float ray_origin[3], const float ray_direction[3],
@@ -765,18 +765,29 @@ int isect_seg_seg_v2(const float v1[2], const float v2[2], const float v3[2], co
 	return ISECT_LINE_LINE_NONE;
 }
 
-/* get intersection point of two 2D segments and return intersection type:
- *  -1: collinear
- *   1: intersection
+/**
+ * Get intersection point of two 2D segments.
+ *
+ * \param endpoint_bias: Bias to use when testing for end-point overlap.
+ * A positive value considers intersections that extend past the endpoints,
+ * negative values contract the endpoints.
+ * Note the bias is applied to a 0-1 factor, not scaled to the length of segments.
+ *
+ * \returns intersection type:
+ * - -1: collinear.
+ * -  1: intersection.
+ * -  0: no intersection.
  */
-int isect_seg_seg_v2_point(
+int isect_seg_seg_v2_point_ex(
         const float v0[2], const float v1[2],
         const float v2[2], const float v3[2],
+        const float endpoint_bias,
         float r_vi[2])
 {
 	float s10[2], s32[2], s30[2], d;
 	const float eps = 1e-6f;
-	const float eps_sq = eps * eps;
+	const float endpoint_min = -endpoint_bias;
+	const float endpoint_max =  endpoint_bias + 1.0f;
 
 	sub_v2_v2v2(s10, v1, v0);
 	sub_v2_v2v2(s32, v3, v2);
@@ -790,8 +801,8 @@ int isect_seg_seg_v2_point(
 		u = cross_v2v2(s30, s32) / d;
 		v = cross_v2v2(s10, s30) / d;
 
-		if ((u >= -eps && u <= 1.0f + eps) &&
-		    (v >= -eps && v <= 1.0f + eps))
+		if ((u >= endpoint_min && u <= endpoint_max) &&
+		    (v >= endpoint_min && v <= endpoint_max))
 		{
 			/* intersection */
 			float vi_test[2];
@@ -810,7 +821,7 @@ int isect_seg_seg_v2_point(
 			sub_v2_v2v2(s_vi_v2, vi_test, v2);
 			v = (dot_v2v2(s32, s_vi_v2) / dot_v2v2(s32, s32));
 #endif
-			if (v >= -eps && v <= 1.0f + eps) {
+			if (v >= endpoint_min && v <= endpoint_max) {
 				copy_v2_v2(r_vi, vi_test);
 				return 1;
 			}
@@ -828,7 +839,7 @@ int isect_seg_seg_v2_point(
 			float u_a, u_b;
 
 			if (equals_v2v2(v0, v1)) {
-				if (len_squared_v2v2(v2, v3) > eps_sq) {
+				if (len_squared_v2v2(v2, v3) > SQUARE(eps)) {
 					/* use non-point segment as basis */
 					SWAP(const float *, v0, v2);
 					SWAP(const float *, v1, v3);
@@ -855,7 +866,7 @@ int isect_seg_seg_v2_point(
 			if (u_a > u_b)
 				SWAP(float, u_a, u_b);
 
-			if (u_a > 1.0f + eps || u_b < -eps) {
+			if (u_a > endpoint_max || u_b < endpoint_min) {
 				/* non-overlapping segments */
 				return -1;
 			}
@@ -869,6 +880,15 @@ int isect_seg_seg_v2_point(
 		/* lines are collinear */
 		return -1;
 	}
+}
+
+int isect_seg_seg_v2_point(
+        const float v0[2], const float v1[2],
+        const float v2[2], const float v3[2],
+        float r_vi[2])
+{
+	const float endpoint_bias = 1e-6f;
+	return isect_seg_seg_v2_point_ex(v0, v1, v2, v3, endpoint_bias, r_vi);
 }
 
 bool isect_seg_seg_v2_simple(const float v1[2], const float v2[2], const float v3[2], const float v4[2])
@@ -1828,7 +1848,7 @@ bool isect_tri_tri_epsilon_v3(
 		     (range[0].max < range[1].min)) == 0)
 		{
 			if (r_i1 && r_i2) {
-				project_plane_v3_v3v3(plane_co, plane_co, plane_no);
+				project_plane_normalized_v3_v3v3(plane_co, plane_co, plane_no);
 				madd_v3_v3v3fl(r_i1, plane_co, plane_no, max_ff(range[0].min, range[1].min));
 				madd_v3_v3v3fl(r_i2, plane_co, plane_no, min_ff(range[0].max, range[1].max));
 			}

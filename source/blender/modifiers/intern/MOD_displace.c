@@ -75,14 +75,10 @@ static void copyData(ModifierData *md, ModifierData *target)
 {
 #if 0
 	DisplaceModifierData *dmd = (DisplaceModifierData *) md;
-#endif
 	DisplaceModifierData *tdmd = (DisplaceModifierData *) target;
+#endif
 
 	modifier_copyData_generic(md, target);
-
-	if (tdmd->texture) {
-		id_us_plus(&tdmd->texture->id);
-	}
 }
 
 static void freeData(ModifierData *md)
@@ -384,6 +380,7 @@ static void displaceModifier_do(
 	data.vert_clnors = vert_clnors;
 	if (dmd->texture != NULL) {
 		data.pool = BKE_image_pool_new();
+		BKE_texture_fetch_images_for_pool(dmd->texture, data.pool);
 	}
 	BLI_task_parallel_range(0, numVerts, &data, displaceModifier_do_task, numVerts > 512);
 

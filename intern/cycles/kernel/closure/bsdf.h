@@ -423,6 +423,11 @@ ccl_device bool bsdf_merge(ShaderClosure *a, ShaderClosure *b)
 		case CLOSURE_BSDF_HAIR_REFLECTION_ID:
 		case CLOSURE_BSDF_HAIR_TRANSMISSION_ID:
 			return bsdf_hair_merge(a, b);
+#ifdef __PRINCIPLED__
+		case CLOSURE_BSDF_PRINCIPLED_DIFFUSE_ID:
+		case CLOSURE_BSDF_BSSRDF_PRINCIPLED_ID:
+			return bsdf_principled_diffuse_merge(a, b);
+#endif
 #ifdef __VOLUME__
 		case CLOSURE_VOLUME_HENYEY_GREENSTEIN_ID:
 			return volume_henyey_greenstein_merge(a, b);
@@ -433,6 +438,24 @@ ccl_device bool bsdf_merge(ShaderClosure *a, ShaderClosure *b)
 #else
 	return false;
 #endif
+}
+
+/* Classifies a closure as diffuse-like or specular-like.
+ * This is needed for the denoising feature pass generation,
+ * which are written on the first bounce where more than 25%
+ * of the sampling weight belongs to diffuse-line closures. */
+ccl_device_inline bool bsdf_is_specular_like(ShaderClosure *sc)
+{
+	if(CLOSURE_IS_BSDF_TRANSPARENT(sc->type)) {
+		return true;
+	}
+
+	if(CLOSURE_IS_BSDF_MICROFACET(sc->type)) {
+		MicrofacetBsdf *bsdf = (MicrofacetBsdf*) sc;
+		return (bsdf->alpha_x*bsdf->alpha_y <= 0.075f*0.075f);
+	}
+
+	return false;
 }
 
 CCL_NAMESPACE_END

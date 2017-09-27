@@ -62,6 +62,7 @@
 
 #include "BLI_blenlib.h"
 #include "BLI_math_vector.h"
+#include "BLI_mempool.h"
 #include "BLI_threads.h"
 #include "BLI_timecode.h"  /* for stamp timecode format */
 #include "BLI_utildefines.h"
@@ -302,8 +303,11 @@ static void image_free_anims(Image *ima)
  * Simply free the image data from memory,
  * on display the image can load again (except for render buffers).
  */
-void BKE_image_free_buffers(Image *ima)
+void BKE_image_free_buffers_ex(Image *ima, bool do_lock)
 {
+	if (do_lock) {
+		BLI_spin_lock(&image_spin);
+	}
 	image_free_cached_frames(ima);
 
 	image_free_anims(ima);
@@ -322,6 +326,15 @@ void BKE_image_free_buffers(Image *ima)
 	}
 
 	ima->ok = IMA_OK;
+
+	if (do_lock) {
+		BLI_spin_unlock(&image_spin);
+	}
+}
+
+void BKE_image_free_buffers(Image *ima)
+{
+	BKE_image_free_buffers_ex(ima, false);
 }
 
 /** Free (or release) any data used by this image (does not free the image itself). */
@@ -381,7 +394,7 @@ static Image *image_alloc(Main *bmain, const char *name, short source, short typ
 {
 	Image *ima;
 
-	ima = BKE_libblock_alloc(bmain, ID_IM, name);
+	ima = BKE_libblock_alloc(bmain, ID_IM, name, 0);
 	if (ima) {
 		image_init(ima, source, type);
 	}
@@ -432,39 +445,53 @@ static void copy_image_packedfiles(ListBase *lb_dst, const ListBase *lb_src)
 	}
 }
 
-/* empty image block, of similar type and filename */
-Image *BKE_image_copy(Main *bmain, Image *ima)
+/**
+ * Only copy internal data of Image ID from source to already allocated/initialized destination.
+ * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ *
+ * WARNING! This function will not handle ID user count!
+ *
+ * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
+ */
+void BKE_image_copy_data(Main *UNUSED(bmain), Image *ima_dst, const Image *ima_src, const int flag)
 {
-	Image *nima = image_alloc(bmain, ima->id.name + 2, ima->source, ima->type);
+	BKE_color_managed_colorspace_settings_copy(&ima_dst->colorspace_settings, &ima_src->colorspace_settings);
 
-	BLI_strncpy(nima->name, ima->name, sizeof(ima->name));
+	copy_image_packedfiles(&ima_dst->packedfiles, &ima_src->packedfiles);
 
-	nima->flag = ima->flag;
-	nima->tpageflag = ima->tpageflag;
+	ima_dst->stereo3d_format = MEM_dupallocN(ima_src->stereo3d_format);
+	BLI_duplicatelist(&ima_dst->views, &ima_src->views);
 
-	nima->gen_x = ima->gen_x;
-	nima->gen_y = ima->gen_y;
-	nima->gen_type = ima->gen_type;
-	copy_v4_v4(nima->gen_color, ima->gen_color);
+	/* Cleanup stuff that cannot be copied. */
+	ima_dst->cache = NULL;
+	ima_dst->rr = NULL;
+	for (int i = 0; i < IMA_MAX_RENDER_SLOT; i++) {
+		ima_dst->renders[i] = NULL;
+	}
 
-	nima->animspeed = ima->animspeed;
+	BLI_listbase_clear(&ima_dst->anims);
 
-	nima->aspx = ima->aspx;
-	nima->aspy = ima->aspy;
+	ima_dst->totbind = 0;
+	for (int i = 0; i < TEXTARGET_COUNT; i++) {
+		ima_dst->bindcode[i] = 0;
+		ima_dst->gputexture[i] = NULL;
+	}
+	ima_dst->repbind = NULL;
 
-	BKE_color_managed_colorspace_settings_copy(&nima->colorspace_settings, &ima->colorspace_settings);
+	if ((flag & LIB_ID_COPY_NO_PREVIEW) == 0) {
+		BKE_previewimg_id_copy(&ima_dst->id, &ima_src->id);
+	}
+	else {
+		ima_dst->preview = NULL;
+	}
+}
 
-	copy_image_packedfiles(&nima->packedfiles, &ima->packedfiles);
-
-	/* nima->stere3d_format is already allocated by image_alloc... */
-	*nima->stereo3d_format = *ima->stereo3d_format;
-	BLI_duplicatelist(&nima->views, &ima->views);
-
-	BKE_previewimg_id_copy(&nima->id, &ima->id);
-
-	BKE_id_copy_ensure_local(bmain, &ima->id, &nima->id);
-
-	return nima;
+/* empty image block, of similar type and filename */
+Image *BKE_image_copy(Main *bmain, const Image *ima)
+{
+	Image *ima_copy;
+	BKE_id_copy_ex(bmain, &ima->id, (ID **)&ima_copy, 0, false);
+	return ima_copy;
 }
 
 void BKE_image_make_local(Main *bmain, Image *ima, const bool lib_local)
@@ -1176,7 +1203,6 @@ bool BKE_imtype_is_movie(const char imtype)
 	switch (imtype) {
 		case R_IMF_IMTYPE_AVIRAW:
 		case R_IMF_IMTYPE_AVIJPEG:
-		case R_IMF_IMTYPE_QUICKTIME:
 		case R_IMF_IMTYPE_FFMPEG:
 		case R_IMF_IMTYPE_H264:
 		case R_IMF_IMTYPE_THEORA:
@@ -1238,7 +1264,7 @@ char BKE_imtype_valid_channels(const char imtype, bool write_file)
 	switch (imtype) {
 		case R_IMF_IMTYPE_BMP:
 			if (write_file) break;
-			/* fall-through */
+			ATTR_FALLTHROUGH;
 		case R_IMF_IMTYPE_TARGA:
 		case R_IMF_IMTYPE_RAWTGA:
 		case R_IMF_IMTYPE_IRIS:
@@ -1248,7 +1274,6 @@ char BKE_imtype_valid_channels(const char imtype, bool write_file)
 		case R_IMF_IMTYPE_MULTILAYER:
 		case R_IMF_IMTYPE_DDS:
 		case R_IMF_IMTYPE_JP2:
-		case R_IMF_IMTYPE_QUICKTIME:
 		case R_IMF_IMTYPE_DPX:
 			chan_flag |= IMA_CHAN_FLAG_ALPHA;
 			break;
@@ -1311,7 +1336,6 @@ char BKE_imtype_from_arg(const char *imtype_arg)
 	else if (STREQ(imtype_arg, "AVIRAW")) return R_IMF_IMTYPE_AVIRAW;
 	else if (STREQ(imtype_arg, "AVIJPEG")) return R_IMF_IMTYPE_AVIJPEG;
 	else if (STREQ(imtype_arg, "PNG")) return R_IMF_IMTYPE_PNG;
-	else if (STREQ(imtype_arg, "QUICKTIME")) return R_IMF_IMTYPE_QUICKTIME;
 	else if (STREQ(imtype_arg, "BMP")) return R_IMF_IMTYPE_BMP;
 #ifdef WITH_HDR
 	else if (STREQ(imtype_arg, "HDR")) return R_IMF_IMTYPE_RADHDR;
@@ -1422,7 +1446,7 @@ static bool do_add_image_extension(char *string, const char imtype, const ImageF
 		}
 	}
 #endif
-	else { //   R_IMF_IMTYPE_AVIRAW, R_IMF_IMTYPE_AVIJPEG, R_IMF_IMTYPE_JPEG90, R_IMF_IMTYPE_QUICKTIME etc
+	else { //   R_IMF_IMTYPE_AVIRAW, R_IMF_IMTYPE_AVIJPEG, R_IMF_IMTYPE_JPEG90 etc
 		if (!(BLI_testextensie_n(string, extension_test = ".jpg", ".jpeg", NULL)))
 			extension = extension_test;
 	}
@@ -1430,8 +1454,7 @@ static bool do_add_image_extension(char *string, const char imtype, const ImageF
 	if (extension) {
 		/* prefer this in many cases to avoid .png.tga, but in certain cases it breaks */
 		/* remove any other known image extension */
-		if (BLI_testextensie_array(string, imb_ext_image) ||
-		    (G.have_quicktime && BLI_testextensie_array(string, imb_ext_image_qt)))
+		if (BLI_testextensie_array(string, imb_ext_image))
 		{
 			return BLI_replace_extension(string, FILE_MAX, extension);
 		}
@@ -1708,7 +1731,7 @@ static void stampdata(Scene *scene, Object *camera, StampData *stamp_data, int d
 	}
 
 	{
-		Render *re = RE_GetRender(scene->id.name);
+		Render *re = RE_GetSceneRender(scene);
 		RenderStats *stats = re ? RE_GetStats(re) : NULL;
 
 		if (stats && (scene->r.stamp & R_STAMP_RENDERTIME)) {
@@ -2739,7 +2762,6 @@ void BKE_image_signal(Image *ima, ImageUser *iuser, int signal)
 	}
 }
 
-#define PASSTYPE_UNSET -1
 /* return renderpass for a given pass index and active view */
 /* fallback to available if there are missing passes for active view */
 static RenderPass *image_render_pass_get(RenderLayer *rl, const int pass, const int view, int *r_passindex)
@@ -2748,7 +2770,7 @@ static RenderPass *image_render_pass_get(RenderLayer *rl, const int pass, const 
 	RenderPass *rpass;
 
 	int rp_index = 0;
-	int rp_passtype = PASSTYPE_UNSET;
+	const char *rp_name = "";
 
 	for (rpass = rl->passes.first; rpass; rpass = rpass->next, rp_index++) {
 		if (rp_index == pass) {
@@ -2758,12 +2780,12 @@ static RenderPass *image_render_pass_get(RenderLayer *rl, const int pass, const 
 				break;
 			}
 			else {
-				rp_passtype = rpass->passtype;
+				rp_name = rpass->name;
 			}
 		}
 		/* multiview */
-		else if ((rp_passtype != PASSTYPE_UNSET) &&
-		         (rpass->passtype == rp_passtype) &&
+		else if (rp_name[0] &&
+		         STREQ(rpass->name, rp_name) &&
 		         (rpass->view_id == view))
 		{
 			rpass_ret = rpass;
@@ -2783,7 +2805,6 @@ static RenderPass *image_render_pass_get(RenderLayer *rl, const int pass, const 
 
 	return rpass_ret;
 }
-#undef PASSTYPE_UNSET
 
 /* if layer or pass changes, we need an index for the imbufs list */
 /* note it is called for rendered results, but it doesnt use the index! */
@@ -2864,7 +2885,7 @@ bool BKE_image_is_stereo(Image *ima)
 {
 	return BKE_image_is_multiview(ima) &&
 	       (BLI_findstring(&ima->views, STEREO_LEFT_NAME, offsetof(ImageView, name)) &&
-            BLI_findstring(&ima->views, STEREO_RIGHT_NAME, offsetof(ImageView, name)));
+	        BLI_findstring(&ima->views, STEREO_RIGHT_NAME, offsetof(ImageView, name)));
 }
 
 static void image_init_multilayer_multiview(Image *ima, RenderResult *rr)
@@ -2904,7 +2925,7 @@ RenderResult *BKE_image_acquire_renderresult(Scene *scene, Image *ima)
 	}
 	else if (ima->type == IMA_TYPE_R_RESULT) {
 		if (ima->render_slot == ima->last_render_slot)
-			rr = RE_AcquireResultRead(RE_GetRender(scene->id.name));
+			rr = RE_AcquireResultRead(RE_GetSceneRender(scene));
 		else
 			rr = ima->renders[ima->render_slot];
 
@@ -2922,7 +2943,7 @@ void BKE_image_release_renderresult(Scene *scene, Image *ima)
 	}
 	else if (ima->type == IMA_TYPE_R_RESULT) {
 		if (ima->render_slot == ima->last_render_slot)
-			RE_ReleaseResult(RE_GetRender(scene->id.name));
+			RE_ReleaseResult(RE_GetSceneRender(scene));
 	}
 }
 
@@ -2942,7 +2963,7 @@ void BKE_image_backup_render(Scene *scene, Image *ima, bool free_current_slot)
 {
 	/* called right before rendering, ima->renders contains render
 	 * result pointers for everything but the current render */
-	Render *re = RE_GetRender(scene->id.name);
+	Render *re = RE_GetSceneRender(scene);
 	int slot = ima->render_slot, last = ima->last_render_slot;
 
 	if (slot != last) {
@@ -3667,7 +3688,7 @@ static ImBuf *image_get_render_result(Image *ima, ImageUser *iuser, void **r_loc
 	if (!r_lock)
 		return NULL;
 
-	re = RE_GetRender(iuser->scene->id.name);
+	re = RE_GetSceneRender(iuser->scene);
 
 	channels = 4;
 	layer = iuser->layer;
@@ -3753,7 +3774,7 @@ static ImBuf *image_get_render_result(Image *ima, ImageUser *iuser, void **r_loc
 			}
 
 			for (rpass = rl->passes.first; rpass; rpass = rpass->next)
-				if (rpass->passtype == SCE_PASS_Z)
+				if (STREQ(rpass->name, RE_PASSNAME_Z) && rpass->view_id == actview)
 					rectz = rpass->rect;
 		}
 	}
@@ -4134,33 +4155,32 @@ typedef struct ImagePoolEntry {
 
 typedef struct ImagePool {
 	ListBase image_buffers;
+	BLI_mempool *memory_pool;
 } ImagePool;
 
 ImagePool *BKE_image_pool_new(void)
 {
 	ImagePool *pool = MEM_callocN(sizeof(ImagePool), "Image Pool");
+	pool->memory_pool = BLI_mempool_create(sizeof(ImagePoolEntry), 0, 128, BLI_MEMPOOL_NOP);
 
 	return pool;
 }
 
 void BKE_image_pool_free(ImagePool *pool)
 {
-	ImagePoolEntry *entry, *next_entry;
-
-	/* use single lock to dereference all the image buffers */
+	/* Use single lock to dereference all the image buffers. */
 	BLI_spin_lock(&image_spin);
-
-	for (entry = pool->image_buffers.first; entry; entry = next_entry) {
-		next_entry = entry->next;
-
-		if (entry->ibuf)
+	for (ImagePoolEntry *entry = pool->image_buffers.first;
+	     entry != NULL;
+	     entry = entry->next)
+	{
+		if (entry->ibuf) {
 			IMB_freeImBuf(entry->ibuf);
-
-		MEM_freeN(entry);
+		}
 	}
-
 	BLI_spin_unlock(&image_spin);
 
+	BLI_mempool_destroy(pool->memory_pool);
 	MEM_freeN(pool);
 }
 
@@ -4212,7 +4232,7 @@ ImBuf *BKE_image_pool_acquire_ibuf(Image *ima, ImageUser *iuser, ImagePool *pool
 
 		ibuf = image_acquire_ibuf(ima, iuser, NULL);
 
-		entry = MEM_callocN(sizeof(ImagePoolEntry), "Image Pool Entry");
+		entry = BLI_mempool_alloc(pool->memory_pool);
 		entry->image = ima;
 		entry->frame = frame;
 		entry->index = index;
