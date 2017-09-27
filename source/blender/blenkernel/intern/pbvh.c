@@ -1345,12 +1345,6 @@ BMesh *BKE_pbvh_get_bmesh(PBVH *bvh)
 	return bvh->bm;
 }
 
-
-int BKE_pbvh_get_num_nodes(const PBVH *bvh)
-{
-	return bvh->totnode;
-}
-
 /***************************** Node Access ***********************************/
 
 void BKE_pbvh_node_mark_update(PBVHNode *node)

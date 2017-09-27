@@ -148,7 +148,6 @@ struct CCGDerivedMesh *BKE_pbvh_get_ccgdm(const PBVH *bvh);
 /* Only valid for type == PBVH_BMESH */
 struct BMesh *BKE_pbvh_get_bmesh(PBVH *pbvh);
 void BKE_pbvh_bmesh_detail_size_set(PBVH *pbvh, float detail_size);
-int BKE_pbvh_get_num_nodes(const PBVH *bvh);
 
 typedef enum {
 	PBVH_Subdivide = 1,
