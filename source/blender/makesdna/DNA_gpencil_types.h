@@ -42,11 +42,17 @@ struct GHash;
 #define GP_OBGPENCIL_DEFAULT_SIZE  0.2f 
 #define GP_DEFAULT_PIX_FACTOR 500 
 
-/* information of vertex group weight */
+/* ***************************************** */
+/* GP Point Weights */
+
+/* Vertex weight info for one GP point, in one group */
 typedef struct bGPDweight {
-	int index;              /* vertex group index */
-	float factor;      /* weight factor */
+	int index;            /* vertex group index */
+	float factor;         /* weight factor */
 } bGPDweight;
+
+/* ***************************************** */
+/* GP Stroke Points */
 
 /* Grease-Pencil Annotations - 'Stroke Point'
  *	-> Coordinates may either be 2d or 3d depending on settings at the time
@@ -73,6 +79,9 @@ typedef enum eGPDspoint_Flag {
 	GP_SPOINT_TAG       = (1 << 1),
 } eGPSPoint_Flag;
 
+/* ***************************************** */
+/* GP Fill - Triangle Tesselation Data */
+
 /* Grease-Pencil Annotations - 'Triangle'
  * 	-> A triangle contains the index of three vertices for filling the stroke
  *	   This is only used if high quality fill is enabled
@@ -84,17 +93,20 @@ typedef struct bGPDtriangle {
 	float uv3[2];           /* texture coordinates for v3 */
 } bGPDtriangle;
 
+/* ***************************************** */
+/* GP Drawing Brush */
+
 /* GP brush (used for new strokes) */
 typedef struct bGPDbrush {
 	struct bGPDbrush *next, *prev;
-
+	
 	char info[64];            /* Brush name. Must be unique. */
 	short thickness;          /* thickness to apply to strokes */
 	short flag;
 	float draw_smoothfac;     /* amount of smoothing to apply to newly created strokes */
 	short draw_smoothlvl;     /* number of times to apply smooth factor to new strokes */
 	short sublevel;           /* number of times to subdivide new strokes */
-
+	
 	float draw_sensitivity;   /* amount of sensivity to apply to newly created strokes */
 	float draw_strength;      /* amount of alpha strength to apply to newly created strokes */
 	float draw_jitter;        /* amount of jitter to apply to newly created strokes */
@@ -102,9 +114,11 @@ typedef struct bGPDbrush {
 	float draw_angle_factor;  /* factor to apply when angle change (only 90 degrees) */
 	float draw_random_press;  /* factor of randomness for sensitivity and strength */
 	float draw_random_sub;    /* factor of randomness for subdivision */
+	
 	struct CurveMapping *cur_sensitivity;
 	struct CurveMapping *cur_strength;
 	struct CurveMapping *cur_jitter;
+	
 	float curcolor[3];
 	char pad[4];
 } bGPDbrush;
@@ -126,6 +140,9 @@ typedef enum eGPDbrush_Flag {
 	/* enable screen cursor */
 	GP_BRUSH_ENABLE_CURSOR = (1 << 6)
 } eGPDbrush_Flag;
+
+/* ***************************************** */
+/* GP Palettes (Deprecated - 2.78 - 2.79 only) */
 
 /* color of palettes */
 typedef struct bGPDpalettecolor {
@@ -151,6 +168,7 @@ typedef enum eGPDpalettecolor_Flag {
 	PC_COLOR_VOLUMETRIC = (1 << 4)
 } eGPDpalettecolor_Flag;
 
+
 /* palette of colors */
 typedef struct bGPDpalette {
 	struct bGPDpalette *next, *prev;
@@ -169,29 +187,35 @@ typedef enum eGPDpalette_Flag {
 	PL_PALETTE_ACTIVE = (1 << 0)
 } eGPDpalette_Flag;
 
+/* ***************************************** */
+/* GP Strokes */
+
 /* Grease-Pencil Annotations - 'Stroke'
  * 	-> A stroke represents a (simplified version) of the curve
  *	   drawn by the user in one 'mousedown'->'mouseup' operation
  */
 typedef struct bGPDstroke {
 	struct bGPDstroke *next, *prev;
-
+	
 	bGPDspoint *points;		/* array of data-points for stroke */
 	bGPDtriangle *triangles;/* tesselated triangles for GP Fill */
 	int totpoints;          /* number of data-points in array */
 	int tot_triangles;      /* number of triangles in array */
-
+	
 	short thickness;        /* thickness of stroke */
 	short flag, pad[2];     /* various settings about this stroke */
-
+	
 	double inittime;		/* Init time of stroke */
+	
 	/* The pointer to color is only used during drawing, but not saved 
 	 * colorname is the join with the palette, but when draw, the pointer is update if the value is NULL
 	 * to speed up the drawing
 	 */
 	char colorname[128];    /* color name */
+	
 	Palette      *palette;  /* current palette */
 	PaletteColor *palcolor; /* current palette color */
+	
 	/* temporary layer name only used during copy/paste to put the stroke in the original layer */
 	char tmp_layerinfo[128];
 } bGPDstroke;
@@ -216,6 +240,9 @@ typedef enum eGPDstroke_Flag {
 	GP_STROKE_ERASER		= (1 << 15)
 } eGPDstroke_Flag;
 
+/* ***************************************** */
+/* GP Frame */
+
 /* Grease-Pencil Annotations - 'Frame'
  *	-> Acts as storage for the 'image' formed by strokes
  */
@@ -238,6 +265,9 @@ typedef enum eGPDframe_Flag {
 	/* for editing in Action Editor */
 	GP_FRAME_SELECT		= (1 << 1)
 } eGPDframe_Flag;
+
+/* ***************************************** */
+/* GP Layer */
 
 /* Grease-Pencil Annotations - 'Layer' */
 typedef struct bGPDlayer {
@@ -265,14 +295,17 @@ typedef struct bGPDlayer {
 	float inverse[4][4];    /* inverse matrix (only used if parented) */
 	char parsubstr[64];     /* String describing subobject info, MAX_ID_NAME-2 */
 	short partype;
-	short onion_flag;
 	
+	short onion_mode;       /* onion skinning mode (eGP_OnionModes) */
 	float tintcolor[4];     /* Color used to tint layer, alpha value is used as factor */
 	float opacity;          /* Opacity of the layer */
-	int onion_mode;         /* onion mode */
+	int onion_flag;         /* Per-layer onion-skinning flags, to overide datablock settings (eGPDlayer_OnionFlag) */
 	float onion_factor;     /* onion alpha factor change */
+	
+	
 	struct GHash *derived_data;     /* runtime data created by modifiers */
 } bGPDlayer;
+
 
 /* bGPDlayer->flag */
 typedef enum eGPDlayer_Flag {
@@ -298,7 +331,8 @@ typedef enum eGPDlayer_Flag {
 	GP_LAYER_USE_LOCATION = (1 << 14),
 } eGPDlayer_Flag;
 
-typedef enum eGPDlayer_Onion_Flag {
+/* bGPDlayer->onion_flag */
+typedef enum eGPDlayer_OnionFlag {
 	/* do onion skinning */
 	GP_LAYER_ONIONSKIN = (1 << 0),
 	/* use custom color for ghosts before current frame */
@@ -309,27 +343,24 @@ typedef enum eGPDlayer_Onion_Flag {
 	GP_LAYER_GHOST_ALWAYS = (1 << 3),
 	/* use fade color in onion skin */
 	GP_LAYER_ONION_FADE = (1 << 4),
-	/* use fade color in onion skin */
-	GP_LAYER_ONION_OVERRIDE = (1 << 5),
-} eGPDlayer_Onion_Flag;
+	
+	/* override datablock onion skinning settings   */
+	GP_LAYER_ONION_OVERRIDE = (1 << 15),
+} eGPDlayer_OnionFlag;
 
-/* xray modes */
-typedef enum eGP_Xraymodes_Types {
-	GP_XRAY_FRONT = 0,
-	GP_XRAY_3DSPACE = 1,
-	GP_XRAY_BACK  = 2
-} eGP_Xraymodes_Types;
+/* ***************************************** */
+/* GP Datablock */
 
 /* Grease-Pencil Annotations - 'DataBlock' */
 typedef struct bGPdata {
 	ID id;					/* Grease Pencil data is a datablock */
 	struct AnimData *adt;   /* animation data - for animating draw settings */
 	
-	/* saved Grease-Pencil data */
+	/* Grease-Pencil data */
 	ListBase layers;		/* bGPDlayers */
 	int flag;				/* settings for this datablock */
 
-	/* not-saved stroke buffer data (only used during paint-session) 
+	/* Runtime Only - Stroke Buffer data (only used during paint-session)
 	 * 	- buffer must be initialized before use, but freed after 
 	 *	  whole paint operation is over
 	 */
@@ -341,21 +372,26 @@ typedef struct bGPdata {
 	short sflag;                /* settings for palette color */
 	short bstroke_style;        /* buffer style for drawing strokes (used to select shader type) */
 	short bfill_style;          /* buffer style for filling areas (used to select shader type) */
-
-	short xray_mode;            /* xray mode for strokes */
-	/* saved palettes */
-	ListBase palettes;
-	/* drawing manager cache */
+	char pad3[2];
+	 
+	/* Palettes */
+	ListBase palettes;          /* list of bGPDpalette's   - Deprecated (2.78 - 2.79 only) */
+	
+	/* Runtime Only - Drawing Manager cache */
 	struct GHash *batch_cache_data;
+	
 	char last_palette_name[66]; /* name of the last palette used */
-	char pad[6];
+	char pad[4];
+	
+	/* 3D Viewport/Appearance Settings */
+	short xray_mode;            /* xray mode for strokes (eGP_DepthOrdering) */
 	int pixfactor;              /* factor to define pixel size conversion */
 	float line_color[4];        /* color for edit line */
 
-	/* onion skinning */
+	/* Onion skinning */
 	float onion_factor;         /* onion alpha factor change */
-	int onion_mode;             /* onion mode */
-	int onion_flag;             /* onion flag */
+	int onion_mode;             /* onion skinning range (eGP_OnionModes) */
+	int onion_flag;             /* onion skinning flags (eGPD_OnionFlag) */
 	short gstep;			    /* Ghosts Before: max number of ghost frames to show between active frame and the one before it (0 = only the ghost itself) */
 	short gstep_next;		    /* Ghosts After:  max number of ghost frames to show after active frame and the following it    (0 = only the ghost itself) */
 
@@ -363,6 +399,7 @@ typedef struct bGPdata {
 	float gcolor_next[3];	    /* optional color for ghosts after the active frame */
 	char pad2[4];
 } bGPdata;
+
 
 /* bGPdata->flag */
 /* NOTE: A few flags have been deprecated since early 2.5,
@@ -399,16 +436,20 @@ typedef enum eGPdata_Flag {
 	GP_DATA_SHOW_ONIONSKINS = (1 << 9),
 	/* Draw a green and red point to indicate start and end of the stroke */
 	GP_DATA_SHOW_DIRECTION = (1 << 10),
+	
 	/* Batch drawing cache need to be recalculated */
 	GP_DATA_CACHE_IS_DIRTY = (1 << 11),
+	
 	/* Stroke Paint Mode - Toggle paint mode */
 	GP_DATA_STROKE_PAINTMODE = (1 << 12),
 	/* Stroke Editing Mode - Toggle sculpt mode */
 	GP_DATA_STROKE_SCULPTMODE = (1 << 13),
 	/* Stroke Editing Mode - Toggle weight paint mode */
 	GP_DATA_STROKE_WEIGHTMODE = (1 << 14),
+	
 	/* keep stroke thickness unchanged when zoom change */
 	GP_DATA_STROKE_KEEPTHICKNESS = (1 << 15),
+	
 	/* Allow edit several frames at the same time */
 	GP_DATA_STROKE_MULTIEDIT = (1 << 16),
 	/* Only show edit lines */
@@ -417,8 +458,9 @@ typedef enum eGPdata_Flag {
 	GP_DATA_STROKE_SHOW_EDIT_LINES = (1 << 18),
 } eGPdata_Flag;
 
-/* Onion->flag */
-typedef enum eGP_onion_Flag {
+
+/* gpd->onion_flag */
+typedef enum eGPD_OnionFlag {
 	/* use custom color for ghosts before current frame */
 	GP_ONION_GHOST_PREVCOL = (1 << 0),
 	/* use custom color for ghosts after current frame */
@@ -427,12 +469,23 @@ typedef enum eGP_onion_Flag {
 	GP_ONION_GHOST_ALWAYS = (1 << 2),
 	/* use fade color in onion skin */
 	GP_ONION_FADE = (1 << 3),
-} eGP_onion_Flag;
+} eGPD_OnionFlag;
 
-/* onion modes */
-typedef enum eGP_onion_modes_Types {
+
+/* gpd->onion_mode */
+typedef enum eGP_OnionModes {
 	GP_ONION_MODE_ABSOLUTE = 0,
 	GP_ONION_MODE_RELATIVE = 1,
 	GP_ONION_MODE_SELECTED = 2,
-} eGP_onion_modes_Types;
+} eGP_OnionModes;
+
+
+/* xray modes (Depth Ordering) */
+typedef enum eGP_DepthOrdering {
+	GP_XRAY_FRONT = 0,
+	GP_XRAY_3DSPACE = 1,
+	GP_XRAY_BACK  = 2
+} eGP_DepthOrdering;
+
+
 #endif /*  __DNA_GPENCIL_TYPES_H__ */
