@@ -63,7 +63,9 @@
 #include "BKE_object.h"
 #include "BKE_paint.h"
 
+/* ************************************************** */
 /* Draw Engine */
+
 void(*BKE_gpencil_batch_cache_dirty_cb)(bGPdata *gpd) = NULL;
 void(*BKE_gpencil_batch_cache_free_cb)(bGPdata *gpd) = NULL;
 
@@ -81,10 +83,20 @@ void BKE_gpencil_batch_cache_free(bGPdata *gpd)
 	}
 }
 
-/* ************************************************** */
-/* GENERAL STUFF */
+/* Change draw manager status in all gpd datablocks */
+void BKE_gpencil_batch_cache_alldirty()
+{
+	bGPdata *gpd;
+	Main *bmain = G.main; /* XXX: supply as arg? */
 
-/* --------- Memory Management ------------ */
+	for (gpd = bmain->gpencil.first; gpd; gpd = gpd->id.next) {
+		BKE_gpencil_batch_cache_dirty(gpd);
+	}
+}
+
+/* ************************************************** */
+/* Memory Management */
+
 /* clean vertex groups weights */
 void BKE_gpencil_free_point_weights(bGPDspoint *pt)
 {
@@ -261,18 +273,18 @@ void BKE_gpencil_free_layers(ListBase *list)
 /* clear all runtime derived data */
 static void BKE_gpencil_clear_derived(bGPDlayer *gpl)
 {
+	GHashIterator gh_iter;
+	
 	if (gpl->derived_data == NULL) {
 		return;
 	}
-	GHashIterator *ihash = BLI_ghashIterator_new(gpl->derived_data);
-	while (!BLI_ghashIterator_done(ihash)) {
-		bGPDframe *gpf = (bGPDframe *) BLI_ghashIterator_getValue(ihash);
+	
+  	GHASH_ITER(gh_iter, gpl->derived_data) {
+  		bGPDframe *gpf = (bGPDframe *)BLI_ghashIterator_getValue(&gh_iter);
 		if (gpf) {
 			BKE_gpencil_free_layer_temp_data(gpl, gpf);
 		}
-		BLI_ghashIterator_step(ihash);
 	}
-	BLI_ghashIterator_free(ihash);
 }
 
 /* Free all of the gp-layers temp data*/
@@ -329,7 +341,8 @@ void BKE_gpencil_free(bGPdata *gpd, bool free_all)
 	}
 }
 
-/* -------- Container Creation ---------- */
+/* ************************************************** */
+/* Container Creation */
 
 /* add a new gp-frame to the given layer */
 bGPDframe *BKE_gpencil_frame_addnew(bGPDlayer *gpl, int cframe)
@@ -790,7 +803,8 @@ bGPdata *BKE_gpencil_data_addnew(const char name[])
 }
 
 
-/* -------- Primitive Creation -------- */
+/* ************************************************** */
+/* Primitive Creation */
 /* Utilities for easier bulk-creation of geometry */
 
 /** 
@@ -845,7 +859,8 @@ bGPDstroke *BKE_gpencil_add_stroke(
 }
 
 
-/* -------- Data Duplication ---------- */
+/* ************************************************** */
+/* Data Duplication */
 
 /* make a copy of a given gpencil point weights */
 void BKE_gpencil_stroke_weights_duplicate(bGPDstroke *gps_src, bGPDstroke *gps_dst)
@@ -1077,7 +1092,8 @@ void BKE_gpencil_make_local(Main *bmain, bGPdata *gpd, const bool lib_local)
 	BKE_id_make_local_generic(bmain, &gpd->id, true, lib_local);
 }
 
-/* -------- GP-Stroke API --------- */
+/* ************************************************** */
+/* GP Stroke API */
 
 /* ensure selection status of stroke is in sync with its points */
 void BKE_gpencil_stroke_sync_selection(bGPDstroke *gps)
@@ -1102,7 +1118,8 @@ void BKE_gpencil_stroke_sync_selection(bGPDstroke *gps)
 	}
 }
 
-/* -------- GP-Frame API ---------- */
+/* ************************************************** */
+/* GP Frame API */
 
 /* delete the last stroke of the given frame */
 void BKE_gpencil_frame_delete_laststroke(bGPDlayer *gpl, bGPDframe *gpf)
@@ -1129,7 +1146,8 @@ void BKE_gpencil_frame_delete_laststroke(bGPDlayer *gpl, bGPDframe *gpf)
 	}
 }
 
-/* -------- GP-Layer API ---------- */
+/* ************************************************** */
+/* GP Layer API */
 
 /* Check if the given layer is able to be edited or not */
 bool gpencil_layer_is_editable(const bGPDlayer *gpl)
@@ -1382,6 +1400,8 @@ void BKE_gpencil_layer_delete(bGPdata *gpd, bGPDlayer *gpl)
 }
 
 /* ************************************************** */
+/* GP Brush API */
+
 /* get the active gp-brush for editing */
 bGPDbrush *BKE_gpencil_brush_getactive(ToolSettings *ts)
 {
@@ -1446,6 +1466,8 @@ void BKE_gpencil_brush_delete(ToolSettings *ts, bGPDbrush *brush)
 }
 
 /* ************************************************** */
+/* GP Palettes API (Deprecated) */
+
 /* get the active gp-palette for editing */
 bGPDpalette *BKE_gpencil_palette_getactive(bGPdata *gpd)
 {
@@ -1539,6 +1561,8 @@ bGPDpalettecolor *BKE_gpencil_palettecolor_getactive(bGPDpalette *palette)
 	/* no active color found */
 	return NULL;
 }
+
+
 /* get the gp-palettecolor looking for name */
 bGPDpalettecolor *BKE_gpencil_palettecolor_getbyname(bGPDpalette *palette, char *name)
 {
@@ -1646,18 +1670,8 @@ void BKE_gpencil_palettecolor_delete(bGPDpalette *palette, bGPDpalettecolor *pal
 	BLI_freelinkN(&palette->colors, palcolor);
 }
 
-/**
-* Helper heuristic for determining if a path is compatible with the basepath
-*
-* \param path Full RNA-path from some data (usually an F-Curve) to compare
-* \param basepath Shorter path fragment to look for
-* \return Whether there is a match
-*/
-static bool UNUSED_FUNCTION(gp_animpath_matches_basepath)(const char path[], const char basepath[])
-{
-	/* we need start of path to be basepath */
-	return (path && basepath) && STRPREFIX(path, basepath);
-}
+/* ************************************************** */
+/* Palette Data Conversion */
 
 /* Transfer the animation data from bGPDpalette to Palette */
 void BKE_gpencil_move_animdata_to_palettes(bContext *C, bGPdata *gpd)
@@ -1723,16 +1737,8 @@ void BKE_gpencil_move_animdata_to_palettes(bContext *C, bGPdata *gpd)
 	}
 }
 
-/* Change draw manager status in all gpd datablocks */
-void BKE_gpencil_batch_cache_alldirty()
-{
-	bGPdata *gpd;
-	Main *bmain = G.main;
-
-	for (gpd = bmain->gpencil.first; gpd; gpd = gpd->id.next) {
-		BKE_gpencil_batch_cache_dirty(gpd);
-	}
-}
+/* ************************************************** */
+/* GP Object - Boundbox Support */
 
 /* get stroke min max values */
 static void gpencil_minmax(bGPdata *gpd, float min[3], float max[3])
@@ -1755,13 +1761,17 @@ static void gpencil_minmax(bGPdata *gpd, float min[3], float max[3])
 	}
 }
 
+/* compute center of bounding box */
 void BKE_gpencil_centroid_3D(bGPdata *gpd, float r_centroid[3])
 {
 	float min[3], max[3], tot[3];
+	
 	gpencil_minmax(gpd, min, max);
+	
 	add_v3_v3v3(tot, min, max);
 	mul_v3_v3fl(r_centroid, tot, 0.5f);
 }
+
 
 /* create bounding box values */
 static void boundbox_gpencil(Object *ob)
@@ -1774,8 +1784,8 @@ static void boundbox_gpencil(Object *ob)
 		ob->bb = MEM_callocN(sizeof(BoundBox), "GPencil boundbox");
 	}
 
-	bb = ob->bb;
-	gpd= ob->gpd;
+	bb  = ob->bb;
+	gpd = ob->gpd;
 
 	gpencil_minmax(gpd, min, max);
 	BKE_boundbox_init_from_minmax(bb, min, max);
@@ -1796,7 +1806,10 @@ BoundBox *BKE_gpencil_boundbox_get(Object *ob)
 
 	return ob->bb;
 }
-/********************  Vertex Groups **********************************/
+
+/* ************************************************** */
+/* GP Object - Vertex Groups */
+
 /* remove a vertex group */
 void BKE_gpencil_vgroup_remove(Object *ob, bDeformGroup *defgroup)
 {
@@ -1890,7 +1903,7 @@ bool BKE_gpencil_vgroup_remove_point_weight(bGPDspoint *pt, int index)
 		return true;
 	}
 
-	// realloc weights 
+	/* realloc weights */
 	bGPDweight *tmp = MEM_dupallocN(pt->weights);
 	MEM_SAFE_FREE(pt->weights);
 	pt->weights = MEM_callocN(sizeof(bGPDweight) * pt->totweight - 1, "gp_weights");
@@ -1910,3 +1923,5 @@ bool BKE_gpencil_vgroup_remove_point_weight(bGPDspoint *pt, int index)
 	return true;
 }
 
+
+/* ************************************************** */
