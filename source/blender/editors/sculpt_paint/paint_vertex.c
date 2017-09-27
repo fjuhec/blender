@@ -83,6 +83,13 @@
 #include "sculpt_intern.h"
 #include "paint_intern.h"  /* own include */
 
+static void defweight_prev_init(const MDeformWeight *dw, float *weight_prev)
+{
+	if (UNLIKELY(*weight_prev == -1.0f)) {
+		*weight_prev = dw ? dw->weight : 0.0f;
+	}
+}
+
 /* check if we can do partial updates and have them draw realtime
  * (without rebuilding the 'derivedFinal') */
 static bool vertex_paint_use_fast_update_check(Object *ob)
@@ -1741,8 +1748,10 @@ static void vertex_paint_init_session_average_arrays(Object *ob)
 		        MEM_callocN(totNode * sizeof(double), "total_weight");
 		ob->sculpt->modes.vwpaint.tot_loops_hit =
 		        MEM_callocN(totNode * sizeof(uint), "tot_loops_hit");
-		ob->sculpt->modes.vwpaint.max_weight =
-		        MEM_callocN(me->totvert * sizeof(float), "max_weight");
+		ob->sculpt->modes.vwpaint.alpha_weight =
+		        MEM_callocN(me->totvert * sizeof(float), "alpha_weight");
+		ob->sculpt->modes.vwpaint.previous_weight =
+		        MEM_callocN(me->totvert * sizeof(float), "previous_weight");
 		ob->sculpt->modes.vwpaint.previous_color =
 		        MEM_callocN(me->totloop * sizeof(uint), "previous_color");
 	}
@@ -2209,8 +2218,10 @@ static bool wpaint_stroke_test_start(bContext *C, wmOperator *op, const float mo
 	vertex_paint_init_session_maps(ob);
 	vertex_paint_init_session_average_arrays(ob);
 
-	for (int i = 0; i < me->totvert; i++)
-		ss->modes.vwpaint.max_weight[i] = -1.0;
+	for (int i = 0; i < me->totvert; i++) {
+		ss->modes.vwpaint.alpha_weight[i] = 0.0f;
+		ss->modes.vwpaint.previous_weight[i] = -1.0f;
+	}
 
 	return true;
 }
@@ -2569,21 +2580,22 @@ static void do_wpaint_brush_draw_task_cb_ex(
 					const float brush_fade = BKE_brush_curve_strength(brush, sqrtf(test.dist), cache->radius);
 					float final_alpha = view_dot * brush_fade * brush_strength * grid_alpha * brush_alpha_pressure;
 
-					/* Spray logic */
+					/* Non-spray logic. */
 					if ((data->vp->flag & VP_SPRAY) == 0) {
-						MDeformVert *dv = &data->me->dvert[v_index];
-						const MDeformWeight *dw;
-						dw = (data->vp->flag & VP_ONLYVGROUP) ?
-						        defvert_find_index(dv, data->wpi->active.index) :
-						        defvert_verify_index(dv, data->wpi->active.index);
-						const float weight_curr = dw->weight;
-						if (ss->modes.vwpaint.max_weight[v_index] < 0) {
-							ss->modes.vwpaint.max_weight[v_index] = min_ff(brush_strength + weight_curr, 1.0f);
+						/* Only paint if we have greater alpha. */
+						if (ss->modes.vwpaint.alpha_weight[v_index] < final_alpha) {
+							ss->modes.vwpaint.alpha_weight[v_index] = final_alpha;
 						}
-						CLAMP(final_alpha, 0.0, ss->modes.vwpaint.max_weight[v_index] - weight_curr);
-
-						if (weight_curr >= ss->modes.vwpaint.max_weight[v_index]) {
+						else {
 							continue;
+						}
+
+						MDeformVert *dv = &data->me->dvert[v_index];
+						MDeformWeight *dw = defvert_find_index(dv, data->wpi->active.index);
+						float *weight_prev = &ss->modes.vwpaint.previous_weight[v_index];
+						defweight_prev_init(dw, weight_prev);
+						if (dw) {
+							dw->weight = *weight_prev;
 						}
 					}
 

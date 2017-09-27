@@ -685,7 +685,8 @@ void BKE_sculptsession_free_vwpaint_data(struct SculptSession *ss)
 	MEM_SAFE_FREE(ss->modes.vwpaint.tot_loops_hit);
 	MEM_SAFE_FREE(ss->modes.vwpaint.total_color);
 	MEM_SAFE_FREE(ss->modes.vwpaint.total_weight);
-	MEM_SAFE_FREE(ss->modes.vwpaint.max_weight);
+	MEM_SAFE_FREE(ss->modes.vwpaint.alpha_weight);
+	MEM_SAFE_FREE(ss->modes.vwpaint.previous_weight);
 	MEM_SAFE_FREE(ss->modes.vwpaint.previous_color);
 }
 
