@@ -81,7 +81,6 @@ struct bGPDframe *BKE_gpencil_frame_addnew(struct bGPDlayer *gpl, int cframe);
 struct bGPDframe *BKE_gpencil_frame_addcopy(struct bGPDlayer *gpl, int cframe);
 struct bGPDlayer *BKE_gpencil_layer_addnew(struct bGPdata *gpd, const char *name, bool setactive);
 struct bGPdata   *BKE_gpencil_data_addnew(const char name[]);
-void BKE_gpencil_create_monkey(struct bContext *C, struct bGPdata *gpd);
 
 struct bGPDframe *BKE_gpencil_frame_duplicate(const struct bGPDframe *gpf_src);
 struct bGPDframe *BKE_gpencil_frame_color_duplicate(const struct bGPDframe *gpf_src);
@@ -102,6 +101,20 @@ struct bGPDpalettecolor *BKE_gpencil_palettecolor_addnew(struct bGPDpalette *pal
 struct bGPDbrush *BKE_gpencil_brush_addnew(struct ToolSettings *ts, const char *name, bool setactive);
 struct bGPDbrush *BKE_gpencil_brush_duplicate(const struct bGPDbrush *brush_src);
 void BKE_gpencil_brush_init_presets(struct ToolSettings *ts);
+
+
+/* Utilities for creating and populating GP strokes */
+/* - Number of values defining each point in the built-in data 
+ *   buffers for primitives (e.g. 2D Monkey) 
+ */
+#define GP_PRIM_DATABUF_SIZE  5
+
+void BKE_gpencil_stroke_add_points(struct bGPDstroke *gps, float *array, int totpoints);
+
+struct bGPDstroke *BKE_gpencil_add_stroke(
+        struct bGPDframe *gpf, struct Palette *palette, struct PaletteColor *palcolor, int totpoints,
+        const char *colorname, short thickness);
+
 
 /* conversion of animation data from bGPDpalette to Palette */
 void BKE_gpencil_move_animdata_to_palettes(struct bContext *C, struct bGPdata *gpd);

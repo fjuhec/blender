@@ -202,6 +202,10 @@ void ED_gpencil_parent_location(struct Object *obact, struct bGPdata *gpd, struc
 /* reset parent matrix for all layers */
 void ED_gpencil_reset_layers_parent(struct Object *obact, struct bGPdata *gpd);
 
+/* ----------- Add Primitive Utilities -------------- */
+
+void ED_gpencil_create_monkey(struct bContext *C, struct bGPdata *gpd);
+
 /* ------------ Object Utilities ------------ */
 struct Object *ED_add_gpencil_object(struct bContext *C, struct Scene *scene, const float loc[3]);
 void ED_gpencil_add_defaults(struct bContext *C);

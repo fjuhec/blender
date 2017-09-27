@@ -107,6 +107,7 @@
 
 #include "ED_armature.h"
 #include "ED_curve.h"
+#include "ED_gpencil.h"
 #include "ED_mball.h"
 #include "ED_mesh.h"
 #include "ED_node.h"
@@ -116,7 +117,6 @@
 #include "ED_screen.h"
 #include "ED_transform.h"
 #include "ED_view3d.h"
-#include "ED_gpencil.h"
 
 #include "UI_resources.h"
 
@@ -996,6 +996,7 @@ void OBJECT_OT_drop_named_image(wmOperatorType *ot)
 }
 
 /********************* Add Gpencil Operator ********************/
+
 static int object_gpencil_add_exec(bContext *C, wmOperator *op)
 {
 	Object *ob;
@@ -1017,10 +1018,23 @@ static int object_gpencil_add_exec(bContext *C, wmOperator *op)
 	ob->gpd = BKE_gpencil_data_addnew("GPencil");
 	ED_gpencil_add_defaults(C);
 	/* if type is monkey, create a 2D Suzanne */
-	if (type == GP_MONKEY) {
-		BKE_gpencil_create_monkey(C, ob->gpd);
-		ED_object_rotation_from_view(C, rot, 'Y');
-		copy_v3_v3(ob->rot, rot);
+	// TODO: create with offset to cursor?
+	switch (type) {
+		case GP_MONKEY:
+		{
+			ED_gpencil_create_monkey(C, ob->gpd);
+			ED_object_rotation_from_view(C, rot, 'Y');
+			copy_v3_v3(ob->rot, rot);
+			break;
+		}
+		
+		case GP_EMPTY:
+			/* do nothing */
+			break;
+		
+		default:
+			BKE_report(op->reports, RPT_WARNING, "Not implemented");
+			break;
 	}
 
 	return OPERATOR_FINISHED;
