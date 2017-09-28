@@ -6544,6 +6544,11 @@ static void lib_link_gpencil(FileData *fd, Main *main)
 					}
 				}
 			}
+			
+			/* Palette Slots */
+			for (bGPDpaletteref *gpref = gpd->palette_slots.first; gpref; gpref = gpref->next) {
+				gpref->palette = newlibadr_us(fd, gpd->id.lib, gpref->palette);
+			}
 
 			IDP_LibLinkProperty(gpd->id.properties, fd);
 			lib_link_animdata(fd, &gpd->id, gpd->adt);
@@ -6587,6 +6592,9 @@ static void direct_link_gpencil(FileData *fd, bGPdata *gpd)
 	for (palette = gpd->palettes.first; palette; palette = palette->next) {
 		link_list(fd, &palette->colors);
 	}
+	
+	/* relink palette slots */
+	link_list(fd, &gpd->palette_slots);
 
 	/* relink layers */
 	link_list(fd, &gpd->layers);
@@ -10075,6 +10083,10 @@ static void expand_gpencil(FileData *fd, Main *mainvar, bGPdata *gpd)
 				expand_doit(fd, mainvar, gps->palette);
 			}
 		}
+	}
+	
+	for (bGPDpaletteref *gpref = gpd->palette_slots.first; gpref; gpref = gpref->next) {
+		expand_doit(fd, mainvar, gpref->palette);
 	}
 }
 

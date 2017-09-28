@@ -124,6 +124,34 @@ static void UNUSED_FUNCTION(rna_GPencil_onion_skinning_update)(Main *bmain, Scen
 	rna_GPencil_update(bmain, scene, ptr);
 }
 
+static char *rna_GPencilPaletteSlot_path(PointerRNA *ptr)
+{
+	bGPdata *gpd = (bGPdata *)ptr->id.data;
+	int index = BLI_findindex(&gpd->palette_slots, ptr->data);
+	
+	return BLI_sprintfN("palette_slots[%d]", index);
+}
+
+static int rna_GPencilPaletteSlot_name_length(PointerRNA *ptr)
+{
+	bGPDpaletteref *gpref = ptr->data;
+	
+	if (gpref->palette)
+		return strlen(gpref->palette->id.name + 2);
+	
+	return 0;
+}
+
+static void rna_GPencilPaletteSlot_name_get(PointerRNA *ptr, char *str)
+{
+	bGPDpaletteref *gpref = ptr->data;
+	
+	if (gpref->palette)
+		strcpy(str, gpref->palette->id.name + 2);
+	else
+		str[0] = '\0';
+}
+
 static char *rna_GPencilLayer_path(PointerRNA *ptr)
 {
 	bGPDlayer *gpl = (bGPDlayer *)ptr->data;
@@ -660,6 +688,45 @@ static int rna_GPencil_info_total_palettes(PointerRNA *ptr)
 }
 
 #else
+
+static void rna_def_gpencil_palette_slot(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+	
+	srna = RNA_def_struct(brna, "GPencilPaletteSlot", NULL);
+	RNA_def_struct_sdna(srna, "bGPDpaletteref");
+	RNA_def_struct_path_func(srna, "rna_GPencilPaletteSlot_path");
+	RNA_def_struct_ui_text(srna, "Grease Pencil Palette Slot", "Reference for a Palette used in Grease Pencil datablock");
+	
+	prop = RNA_def_property(srna, "name", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_funcs(prop, "rna_GPencilPaletteSlot_name_get", "rna_GPencilPaletteSlot_name_length", NULL);
+	RNA_def_property_ui_text(prop, "Name", "Palette slot name");
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_struct_name_property(srna, prop);
+	
+	prop = RNA_def_property(srna, "palette", PROP_POINTER, PROP_NONE);
+	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_REFCOUNT);
+	//RNA_def_property_pointer_funcs(prop, NULL, NULL, NULL, "rna_GPencilPalette_id_poll");
+	RNA_def_property_ui_text(prop, "Palette", "Palette data-block used by this palette slot");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+}
+
+static void rna_def_gpencil_palette_slots_api(BlenderRNA *brna, PropertyRNA *cprop)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+
+	FunctionRNA *func;
+	PropertyRNA *parm;
+
+	RNA_def_property_srna(cprop, "GreasePencilPaletteSlots");
+	srna = RNA_def_struct(brna, "GreasePencilPaletteSlots", NULL);
+	RNA_def_struct_sdna(srna, "bGPdata");
+	RNA_def_struct_ui_text(srna, "Grease Pencil Palette Slots", "Collection of grease pencil palette slots");
+
+	/* TODO: API methods... new/remove/active */
+}
 
 /* information of vertex groups by point */
 static void rna_def_gpencil_point_weight(BlenderRNA *brna)
@@ -1285,6 +1352,13 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Layers", "");
 	rna_def_gpencil_layers_api(brna, prop);
 	
+	/* Palette Slots */
+	prop = RNA_def_property(srna, "palette_slots", PROP_COLLECTION, PROP_NONE);
+	RNA_def_property_collection_sdna(prop, NULL, "palette_slots", NULL);
+	RNA_def_property_struct_type(prop, "GPencilPaletteSlot");
+	RNA_def_property_ui_text(prop, "Palette Slots", "");
+	rna_def_gpencil_palette_slots_api(brna, prop);
+	
 	/* Animation Data */
 	rna_def_animdata_common(srna);
 	
@@ -1472,6 +1546,8 @@ void RNA_def_gpencil(BlenderRNA *brna)
 	rna_def_gpencil_stroke(brna);
 	rna_def_gpencil_stroke_point(brna);
 	rna_def_gpencil_point_weight(brna);
+	
+	rna_def_gpencil_palette_slot(brna);
 }
 
 #endif

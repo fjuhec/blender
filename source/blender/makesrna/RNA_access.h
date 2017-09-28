@@ -269,6 +269,7 @@ extern StructRNA RNA_GPencilPalette;
 extern StructRNA RNA_GPencilPaletteColor;
 extern StructRNA RNA_GPencilBrush;
 extern StructRNA RNA_GPencilInterpolateSettings;
+extern StructRNA RNA_GPencilPaletteSlot;
 extern StructRNA RNA_GPencilStroke;
 extern StructRNA RNA_GPencilStrokePoint;
 extern StructRNA RNA_GPencilSculptSettings;
