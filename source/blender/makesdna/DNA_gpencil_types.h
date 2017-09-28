@@ -201,12 +201,10 @@ typedef enum eGPDpalette_Flag {
  * used by a stroke in the datablock.
  */
 typedef struct bGPDpaletteref {
+	struct bGPDpaletteref *next, *prev;
+	
 	/* the palette referenced in this slot */
 	Palette *palette;
-	
-	/* settings */
-	int flag;    /* (eGPDpalette_Flag) */
-	int pad;
 } bGPDpaletteref;
 
 /* ***************************************** */
@@ -398,7 +396,6 @@ typedef struct bGPdata {
 	 
 	/* Palettes */
 	ListBase palettes;          /* list of bGPDpalette's   - Deprecated (2.78 - 2.79 only) */
-	ListBase palette_slots;     /* list of bGPDpaletteref's - (2.8+) */
 	
 	/* Runtime Only - Drawing Manager cache */
 	struct GHash *batch_cache_data;
@@ -420,7 +417,11 @@ typedef struct bGPdata {
 
 	float gcolor_prev[3];	    /* optional color for ghosts before the active frame */
 	float gcolor_next[3];	    /* optional color for ghosts after the active frame */
-	char pad2[4];
+	
+	/* Palette Slots */
+	int active_palette_slot;    /* index of active palette slot */
+	
+	ListBase palette_slots;     /* list of bGPDpaletteref's - (2.8+) */
 } bGPdata;
 
 
