@@ -4569,7 +4569,7 @@ static EnumPropertyItem *rna_id_itemf(bContext *UNUSED(C), PointerRNA *UNUSED(pt
 	int i = 0;
 
 	for (; id; id = id->next) {
-		if (local == false || !ID_IS_LINKED_DATABLOCK(id)) {
+		if (local == false || !ID_IS_LINKED(id)) {
 			item_tmp.identifier = item_tmp.name = id->name + 2;
 			item_tmp.value = i++;
 			RNA_enum_item_add(&item, &totitem, &item_tmp);

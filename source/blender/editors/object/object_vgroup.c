@@ -2458,8 +2458,8 @@ static int vertex_group_poll(bContext *C)
 	Object *ob = ED_object_context(C);
 	ID *data = (ob) ? ob->data : NULL;
 
-	return (ob && !ID_IS_LINKED_DATABLOCK(ob) &&
-	        data && !ID_IS_LINKED_DATABLOCK(data) &&
+	return (ob && !ID_IS_LINKED(ob) &&
+	        data && !ID_IS_LINKED(data) &&
 	        OB_TYPE_SUPPORT_VGROUP(ob->type) &&
 	        ob->defbase.first);
 }
@@ -2468,8 +2468,8 @@ static int vertex_group_supported_poll(bContext *C)
 {
 	Object *ob = ED_object_context(C);
 	ID *data = (ob) ? ob->data : NULL;
-	return (ob && !ID_IS_LINKED_DATABLOCK(ob) && OB_TYPE_SUPPORT_VGROUP(ob->type) &&
-	        data && !ID_IS_LINKED_DATABLOCK(data));
+	return (ob && !ID_IS_LINKED(ob) && OB_TYPE_SUPPORT_VGROUP(ob->type) &&
+	        data && !ID_IS_LINKED(data));
 }
 
 static int vertex_group_mesh_poll(bContext *C)
@@ -2477,8 +2477,8 @@ static int vertex_group_mesh_poll(bContext *C)
 	Object *ob = ED_object_context(C);
 	ID *data = (ob) ? ob->data : NULL;
 
-	return (ob && !ID_IS_LINKED_DATABLOCK(ob) &&
-	        data && !ID_IS_LINKED_DATABLOCK(data) &&
+	return (ob && !ID_IS_LINKED(ob) &&
+	        data && !ID_IS_LINKED(data) &&
 	        ob->type == OB_MESH &&
 	        ob->defbase.first);
 }
@@ -2487,7 +2487,7 @@ static int UNUSED_FUNCTION(vertex_group_mesh_supported_poll)(bContext *C)
 {
 	Object *ob = ED_object_context(C);
 	ID *data = (ob) ? ob->data : NULL;
-	return (ob && !ID_IS_LINKED_DATABLOCK(ob) && ob->type == OB_MESH && data && !ID_IS_LINKED_DATABLOCK(data));
+	return (ob && !ID_IS_LINKED(ob) && ob->type == OB_MESH && data && !ID_IS_LINKED(data));
 }
 
 
@@ -2496,7 +2496,7 @@ static int UNUSED_FUNCTION(vertex_group_poll_edit) (bContext *C)
 	Object *ob = ED_object_context(C);
 	ID *data = (ob) ? ob->data : NULL;
 
-	if (!(ob && !ID_IS_LINKED_DATABLOCK(ob) && data && !ID_IS_LINKED_DATABLOCK(data)))
+	if (!(ob && !ID_IS_LINKED(ob) && data && !ID_IS_LINKED(data)))
 		return 0;
 
 	return BKE_object_is_in_editmode_vgroup(ob);
@@ -2508,7 +2508,7 @@ static int vertex_group_vert_poll_ex(bContext *C, const bool needs_select, const
 	Object *ob = ED_object_context(C);
 	ID *data = (ob) ? ob->data : NULL;
 
-	if (!(ob && !ID_IS_LINKED_DATABLOCK(ob) && data && !ID_IS_LINKED_DATABLOCK(data)))
+	if (!(ob && !ID_IS_LINKED(ob) && data && !ID_IS_LINKED(data)))
 		return false;
 
 	if (ob_type_flag && (((1 << ob->type) & ob_type_flag)) == 0) {
@@ -2569,7 +2569,7 @@ static int vertex_group_vert_select_unlocked_poll(bContext *C)
 	Object *ob = ED_object_context(C);
 	ID *data = (ob) ? ob->data : NULL;
 
-	if (!(ob && !ID_IS_LINKED_DATABLOCK(ob) && data && !ID_IS_LINKED_DATABLOCK(data)))
+	if (!(ob && !ID_IS_LINKED(ob) && data && !ID_IS_LINKED(data)))
 		return 0;
 
 	if (!(BKE_object_is_in_editmode_vgroup(ob) ||
@@ -2592,7 +2592,7 @@ static int vertex_group_vert_select_mesh_poll(bContext *C)
 	Object *ob = ED_object_context(C);
 	ID *data = (ob) ? ob->data : NULL;
 
-	if (!(ob && !ID_IS_LINKED_DATABLOCK(ob) && data && !ID_IS_LINKED_DATABLOCK(data)))
+	if (!(ob && !ID_IS_LINKED(ob) && data && !ID_IS_LINKED(data)))
 		return 0;
 
 	/* only difference to #vertex_group_vert_select_poll */
@@ -2784,7 +2784,7 @@ static int vertex_group_select_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Object *ob = ED_object_context(C);
 
-	if (!ob || ID_IS_LINKED_DATABLOCK(ob))
+	if (!ob || ID_IS_LINKED(ob))
 		return OPERATOR_CANCELLED;
 
 	vgroup_select_verts(ob, 1);

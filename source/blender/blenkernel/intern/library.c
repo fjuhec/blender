@@ -1700,8 +1700,10 @@ static ID *is_dupid(ListBase *lb, ID *id, const char *name)
 	ID *idtest = NULL;
 	
 	for (idtest = lb->first; idtest; idtest = idtest->next) {
-		/* if idtest is not a lib */ 
-		if (id != idtest && !ID_IS_LINKED_DATABLOCK(idtest)) {  /* Virtual lib IDs are considered as local ones here. */
+		/* if idtest is not a lib */
+		/* Virtual lib IDs are considered as local ones here, since we bulk-add them to virtual library datablocks,
+		 * we need to ensure ourselves there is no name collision there. */
+		if (id != idtest && !ID_IS_LINKED_DATABLOCK(idtest)) {
 			/* do not test alphabetic! */
 			/* optimized */
 			if (idtest->name[2] == name[0]) {
@@ -1847,7 +1849,7 @@ bool new_id(ListBase *lb, ID *id, const char *tname)
 	bool result;
 	char name[MAX_ID_NAME - 2];
 
-	/* if real library, don't rename */
+	/* if real library, don't rename, in virtual lib case we need to check though. */
 	if (ID_IS_LINKED_DATABLOCK(id))
 		return false;
 
