@@ -5832,6 +5832,7 @@ static void lib_link_scene(FileData *fd, Main *main)
 			sce->world = newlibadr_us(fd, sce->id.lib, sce->world);
 			sce->set = newlibadr(fd, sce->id.lib, sce->set);
 			sce->gpd = newlibadr_us(fd, sce->id.lib, sce->gpd);
+			sce->gp_object = newlibadr(fd, sce->id.lib, sce->gp_object);
 			
 			link_paint(fd, sce, &sce->toolsettings->sculpt->paint);
 			link_paint(fd, sce, &sce->toolsettings->vpaint->paint);
@@ -6513,10 +6514,11 @@ static void lib_link_windowmanager(FileData *fd, Main *main)
 /* relink's grease pencil data's refs */
 static void lib_link_gpencil(FileData *fd, Main *main)
 {
-	/* Build up hash of colors to assign later to strokes */
+	/* Build up hash of colors to assign later to strokes, for faster lookups */
 	int palette_count = BLI_listbase_count(&main->palettes);
 	GHash **gp_palettecolors_buffer = MEM_mallocN(sizeof(struct GHash *) * palette_count, "Hash Palettes Array");
 	int i = 0;
+	
 	for (Palette *palette = main->palettes.first; palette; palette = palette->id.next, i++) {
 		gp_palettecolors_buffer[i] = BLI_ghash_str_new("GPencil Hash Colors");
 		for (PaletteColor *palcolor = palette->colors.first; palcolor; palcolor = palcolor->next) {
@@ -6524,15 +6526,27 @@ static void lib_link_gpencil(FileData *fd, Main *main)
 		}
 	}
 
+	/* Relink all datablock linked by GP datablock */
 	for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
 		if (gpd->id.tag & LIB_TAG_NEED_LINK) {
+			/* Layers */
 			for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+				/* Layer -> Parent References */
+				gpl->parent = newlibadr(fd, gpd->id.lib, gpl->parent);
+				
+				/* Layer -> Frame data */
 				for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+					/* Strokes -> Palette References */
 					for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-						gps->palette = newlibadr(fd, NULL, gps->palette);
+						gps->palette = newlibadr(fd, gpd->id.lib, gps->palette);
+						
 						/* Relink color
-						 * The Pallete colors are pointers to a listbase inside the Pallete datablock.
-						 * So the pointers have to be re-assigned on file open
+						 * The Palette colors are pointers to a listbase inside the Palette datablock.
+						 * The pointers have to be re-assigned on file open. We use a hash to do this faster.
+						 */
+						/* XXX: Usually, we'd relink the actual colours in direct_link_*() instead, but since
+						 * these pointers actually come from the Palette datablock (which we only resolve here),
+						 * it's probably better to do this here 
 						 */
 						i = BLI_findindex(&main->palettes, gps->palette);
 						if (i > -1) {
@@ -6559,7 +6573,7 @@ static void lib_link_gpencil(FileData *fd, Main *main)
 		}
 	}
 
-	/* free hash buffer */
+	/* Free palette-color hash buffer */
 	for (i = 0; i < palette_count; ++i) {
 		if (gp_palettecolors_buffer[i]) {
 			BLI_ghash_free(gp_palettecolors_buffer[i], NULL, NULL);
@@ -6602,10 +6616,9 @@ static void direct_link_gpencil(FileData *fd, bGPdata *gpd)
 	link_list(fd, &gpd->layers);
 	
 	for (gpl = gpd->layers.first; gpl; gpl = gpl->next) {
-		/* parent */
-		gpl->parent = newlibadr(fd, gpd->id.lib, gpl->parent);
 		/* relink frames */
 		link_list(fd, &gpl->frames);
+		
 		gpl->actframe = newdataadr(fd, gpl->actframe);
 		gpl->derived_data = NULL;
 		
@@ -6614,13 +6627,17 @@ static void direct_link_gpencil(FileData *fd, bGPdata *gpd)
 			link_list(fd, &gpf->strokes);
 			
 			for (gps = gpf->strokes.first; gps; gps = gps->next) {
+				/* relink stroke points array */
 				gps->points = newdataadr(fd, gps->points);
+				
+				/* relink point weight data */
 				for (int i = 0; i < gps->totpoints; ++i) {
 					pt = &gps->points[i];
 					if (pt->totweight > 0) {
 						pt->weights = newdataadr(fd, pt->weights);
 					}
 				}
+				
 				/* the triangulation is not saved, so need to be recalculated */
 				gps->triangles = NULL;
 				gps->tot_triangles = 0;
@@ -9939,6 +9956,8 @@ static void expand_scene(FileData *fd, Main *mainvar, Scene *sce)
 	
 	if (sce->gpd)
 		expand_doit(fd, mainvar, sce->gpd);
+	
+	expand_doit(fd, mainvar, sce->gp_object);
 		
 	if (sce->ed) {
 		Sequence *seq;
@@ -10080,6 +10099,8 @@ static void expand_gpencil(FileData *fd, Main *mainvar, bGPdata *gpd)
 	}
 
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+		expand_doit(fd, mainvar, gpl->parent);
+		
 		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 				expand_doit(fd, mainvar, gps->palette);
