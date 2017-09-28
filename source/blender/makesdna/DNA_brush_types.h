@@ -164,6 +164,7 @@ typedef struct PaletteColor {
 	float t_opacity;         /* texture opacity */
 	char pad[4];
 } PaletteColor;
+
 /* PaletteColor->flag (mainly used by grease pencil) */
 typedef enum ePaletteColor_Flag {
 	/* don't display color */

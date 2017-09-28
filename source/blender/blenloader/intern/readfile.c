@@ -2244,6 +2244,7 @@ static void direct_link_curvemapping(FileData *fd, CurveMapping *cumap)
 }
 
 /* ************ READ Brush *************** */
+
 /* library brush linking after fileread */
 static void lib_link_brush(FileData *fd, Main *main)
 {
@@ -2282,6 +2283,7 @@ static void direct_link_brush(FileData *fd, Brush *brush)
 }
 
 /* ************ READ Palette *************** */
+
 static void lib_link_palette(FileData *fd, Main *main)
 {
 	/* only link ID pointers */

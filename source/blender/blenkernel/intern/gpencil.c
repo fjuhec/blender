@@ -465,38 +465,6 @@ bGPDlayer *BKE_gpencil_layer_addnew(bGPdata *gpd, const char *name, bool setacti
 	return gpl;
 }
 
-/* add a new gp-palette and make it the active */
-bGPDpalette *BKE_gpencil_palette_addnew(bGPdata *gpd, const char *name, bool setactive)
-{
-	bGPDpalette *palette;
-
-	/* check that list is ok */
-	if (gpd == NULL) {
-		return NULL;
-	}
-
-	/* allocate memory and add to end of list */
-	palette = MEM_callocN(sizeof(bGPDpalette), "bGPDpalette");
-
-	/* add to datablock */
-	BLI_addtail(&gpd->palettes, palette);
-
-	/* set basic settings */
-	/* auto-name */
-	BLI_strncpy(palette->info, name, sizeof(palette->info));
-	BLI_uniquename(&gpd->palettes, palette, DATA_("GP_Palette"), '.', offsetof(bGPDpalette, info),
-	               sizeof(palette->info));
-
-	/* make this one the active one */
-	/* NOTE: Always make this active if there's nothing else yet (T50123) */
-	if ((setactive) || (gpd->palettes.first == gpd->palettes.last)) {
-		BKE_gpencil_palette_setactive(gpd, palette);
-	}
-
-	/* return palette */
-	return palette;
-}
-
 /* create a set of default drawing brushes with predefined presets */
 void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 {
@@ -1408,6 +1376,39 @@ void BKE_gpencil_free_palettes(ListBase *list)
 		MEM_freeN(palette);
 	}
 	BLI_listbase_clear(list);
+}
+
+
+/* add a new gp-palette and make it the active */
+bGPDpalette *BKE_gpencil_palette_addnew(bGPdata *gpd, const char *name, bool setactive)
+{
+	bGPDpalette *palette;
+
+	/* check that list is ok */
+	if (gpd == NULL) {
+		return NULL;
+	}
+
+	/* allocate memory and add to end of list */
+	palette = MEM_callocN(sizeof(bGPDpalette), "bGPDpalette");
+
+	/* add to datablock */
+	BLI_addtail(&gpd->palettes, palette);
+
+	/* set basic settings */
+	/* auto-name */
+	BLI_strncpy(palette->info, name, sizeof(palette->info));
+	BLI_uniquename(&gpd->palettes, palette, DATA_("GP_Palette"), '.', offsetof(bGPDpalette, info),
+	               sizeof(palette->info));
+
+	/* make this one the active one */
+	/* NOTE: Always make this active if there's nothing else yet (T50123) */
+	if ((setactive) || (gpd->palettes.first == gpd->palettes.last)) {
+		BKE_gpencil_palette_setactive(gpd, palette);
+	}
+
+	/* return palette */
+	return palette;
 }
 
 

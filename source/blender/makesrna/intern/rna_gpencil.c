@@ -1542,9 +1542,11 @@ void RNA_def_gpencil(BlenderRNA *brna)
 
 	rna_def_gpencil_layer(brna);
 	rna_def_gpencil_frame(brna);
-	rna_def_gpencil_triangle(brna);
+	
 	rna_def_gpencil_stroke(brna);
 	rna_def_gpencil_stroke_point(brna);
+	rna_def_gpencil_triangle(brna);
+	
 	rna_def_gpencil_point_weight(brna);
 	
 	rna_def_gpencil_palette_slot(brna);

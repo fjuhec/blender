@@ -68,7 +68,6 @@ void BKE_gpencil_free_frames(struct bGPDlayer *gpl);
 void BKE_gpencil_free_layers(struct ListBase *list);
 void BKE_gpencil_free_derived_frames(struct bGPdata *gpd);
 void BKE_gpencil_free_brushes(struct ListBase *list);
-void BKE_gpencil_free_palettes(struct ListBase *list);
 void BKE_gpencil_free(struct bGPdata *gpd, bool free_all);
 
 void BKE_gpencil_batch_cache_dirty(struct bGPdata *gpd);
@@ -93,10 +92,6 @@ struct bGPdata   *BKE_gpencil_data_duplicate(struct Main *bmain, const struct bG
 void BKE_gpencil_make_local(struct Main *bmain, struct bGPdata *gpd, const bool lib_local);
 
 void BKE_gpencil_frame_delete_laststroke(struct bGPDlayer *gpl, struct bGPDframe *gpf);
-
-struct bGPDpalette *BKE_gpencil_palette_addnew(struct bGPdata *gpd, const char *name, bool setactive);
-struct bGPDpalette *BKE_gpencil_palette_duplicate(const struct bGPDpalette *palette_src);
-struct bGPDpalettecolor *BKE_gpencil_palettecolor_addnew(struct bGPDpalette *palette, const char *name, bool setactive);
 
 struct bGPDbrush *BKE_gpencil_brush_addnew(struct ToolSettings *ts, const char *name, bool setactive);
 struct bGPDbrush *BKE_gpencil_brush_duplicate(const struct bGPDbrush *brush_src);
@@ -149,6 +144,17 @@ void BKE_gpencil_layer_delete(struct bGPdata *gpd, struct bGPDlayer *gpl);
 struct bGPDbrush *BKE_gpencil_brush_getactive(struct ToolSettings *ts);
 void BKE_gpencil_brush_setactive(struct ToolSettings *ts, struct bGPDbrush *active);
 void BKE_gpencil_brush_delete(struct ToolSettings *ts, struct bGPDbrush *brush);
+
+/* Palette Slots */
+
+
+
+/* Palettes - Deprecated (2.78-2.79) */
+void BKE_gpencil_free_palettes(struct ListBase *list);
+
+struct bGPDpalette *BKE_gpencil_palette_addnew(struct bGPdata *gpd, const char *name, bool setactive);
+struct bGPDpalette *BKE_gpencil_palette_duplicate(const struct bGPDpalette *palette_src);
+struct bGPDpalettecolor *BKE_gpencil_palettecolor_addnew(struct bGPDpalette *palette, const char *name, bool setactive);
 
 struct bGPDpalette *BKE_gpencil_palette_getactive(struct bGPdata *gpd);
 void BKE_gpencil_palette_setactive(struct bGPdata *gpd, struct bGPDpalette *active);
