@@ -66,6 +66,7 @@
 #include "BKE_context.h"
 #include "BKE_depsgraph.h"
 #include "BKE_library.h"
+#include "BKE_library_override.h"
 #include "BKE_library_remap.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
@@ -243,7 +244,8 @@ static int path_to_idcode(const char *path)
 	}
 }
 
-static void wm_link_virtual_lib(WMLinkAppendData *lapp_data, Main *bmain, AssetEngineType *aet, const int lib_idx)
+static void wm_link_virtual_lib(
+        WMLinkAppendData *lapp_data, Main *bmain, AssetEngineType *aet, const int lib_idx, const bool generate_overrides)
 {
 	LinkNode *itemlink;
 	int item_idx;
@@ -287,6 +289,13 @@ static void wm_link_virtual_lib(WMLinkAppendData *lapp_data, Main *bmain, AssetE
 				*new_id->uuid = *item->uuid;
 			}
 
+			if (generate_overrides) {
+				/* Create local override of virtually linked datablock, since we nearly always want to be able
+				 * to edit pretty much everything about it. */
+				new_id = BKE_override_create_from(bmain, new_id);
+				/* TODO: will need to protect some fields on type-by-type case (path field). */
+			}
+
 			/* If the link is sucessful, clear item's libs 'todo' flags.
 			 * This avoids trying to link same item with other libraries to come. */
 			BLI_BITMAP_SET_ALL(item->libraries, false, lapp_data->num_libraries);
@@ -298,7 +307,7 @@ static void wm_link_virtual_lib(WMLinkAppendData *lapp_data, Main *bmain, AssetE
 
 static void wm_link_do(
         WMLinkAppendData *lapp_data, ReportList *reports, Main *bmain, AssetEngineType *aet, Scene *scene, View3D *v3d,
-        const bool use_placeholders, const bool force_indirect)
+        const bool use_placeholders, const bool force_indirect, const bool generate_overrides)
 {
 	Main *mainl;
 	BlendHandle *bh;
@@ -316,7 +325,7 @@ static void wm_link_do(
 
 		if (libname[0] == '\0') {
 			/* Special 'virtual lib' cases. */
-			wm_link_virtual_lib(lapp_data, bmain, aet, lib_idx);
+			wm_link_virtual_lib(lapp_data, bmain, aet, lib_idx, generate_overrides);
 			continue;
 		}
 
@@ -540,7 +549,7 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 	/* XXX We'd need re-entrant locking on Main for this to work... */
 	/* BKE_main_lock(bmain); */
 
-	wm_link_do(lapp_data, op->reports, bmain, aet, scene, CTX_wm_view3d(C), false, false);
+	wm_link_do(lapp_data, op->reports, bmain, aet, scene, CTX_wm_view3d(C), false, false, (flag & FILE_LINK) != 0);
 
 	/* BKE_main_unlock(bmain); */
 
@@ -741,8 +750,8 @@ static void lib_relocate_do(
 
 	BKE_main_id_tag_all(bmain, LIB_TAG_PRE_EXISTING, true);
 
-	/* We do not want any instanciation here! */
-	wm_link_do(lapp_data, reports, bmain, aet, NULL, NULL, do_reload, do_reload);
+	/* We do not want any instanciation here, nor do we want re-generating overrides. */
+	wm_link_do(lapp_data, reports, bmain, aet, NULL, NULL, do_reload, do_reload, false);
 
 	BKE_main_lock(bmain);
 
@@ -786,7 +795,7 @@ static void lib_relocate_do(
 #endif
 
 			/* In some cases, new_id might become direct link, remove parent of library in this case. */
-			if (new_id->lib->parent && (new_id->tag & LIB_TAG_INDIRECT) == 0) {
+			if (new_id->lib && new_id->lib->parent && (new_id->tag & LIB_TAG_INDIRECT) == 0) {
 				if (do_reload) {
 					BLI_assert(0);  /* Should not happen in 'pure' reload case... */
 				}
