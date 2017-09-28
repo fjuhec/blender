@@ -163,7 +163,7 @@ EnumPropertyItem rna_enum_object_type_items[] = {
 	{OB_ARMATURE, "ARMATURE", 0, "Armature", ""},
 	{OB_LATTICE, "LATTICE", 0, "Lattice", ""},
 	{OB_EMPTY, "EMPTY", 0, "Empty", ""},
-	{ OB_GPENCIL, "GPENCIL", 0, "Gpencil", "" },
+	{OB_GPENCIL, "GPENCIL", 0, "GPencil", ""},
 	{0, "", 0, NULL, NULL},
 	{OB_CAMERA, "CAMERA", 0, "Camera", ""},
 	{OB_LAMP, "LAMP", 0, "Lamp", ""},
@@ -440,6 +440,7 @@ static StructRNA *rna_Object_data_typef(PointerRNA *ptr)
 		case OB_ARMATURE: return &RNA_Armature;
 		case OB_SPEAKER: return &RNA_Speaker;
 		case OB_LIGHTPROBE: return &RNA_LightProbe;
+		case OB_GPENCIL: return &RNA_GreasePencil;
 		default: return &RNA_ID;
 	}
 }
@@ -1071,7 +1072,6 @@ static char *rna_MaterialSlot_path(PointerRNA *ptr)
 	Object *ob = (Object *)ptr->id.data;
 	int index = (Material **)ptr->data - ob->mat;
 
-	/* from armature... */
 	return BLI_sprintfN("material_slots[%d]", index);
 }
 

@@ -820,7 +820,7 @@ static void rna_def_gpencil_triangle(BlenderRNA *brna)
 
 	srna = RNA_def_struct(brna, "GPencilTriangle", NULL);
 	RNA_def_struct_sdna(srna, "bGPDtriangle");
-	RNA_def_struct_ui_text(srna, "Triangle", "Triangulation data for HQ fill");
+	RNA_def_struct_ui_text(srna, "Triangle", "Triangulation data for Grease Pencil fills");
 
 	/* point v1 */
 	prop = RNA_def_property(srna, "v1", PROP_INT, PROP_NONE);
@@ -896,21 +896,21 @@ static void rna_def_gpencil_stroke(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "palette", PROP_POINTER, PROP_NONE);
 	RNA_def_property_struct_type(prop, "Palette");
 	RNA_def_property_pointer_sdna(prop, NULL, "palette");
-	RNA_def_property_ui_text(prop, "Palette", "Palette");
+	RNA_def_property_ui_text(prop, "Palette", "Palette that stroke's color comes from");
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 
 	/* Color */
 	prop = RNA_def_property(srna, "color", PROP_POINTER, PROP_NONE);
 	RNA_def_property_struct_type(prop, "PaletteColor");
 	RNA_def_property_pointer_sdna(prop, NULL, "palcolor");
-	RNA_def_property_ui_text(prop, "Palette Color", "Color from palette used in Stroke");
+	RNA_def_property_ui_text(prop, "Palette Color", "Color from palette used in stroke");
 	RNA_def_property_update(prop, 0, "rna_GPencil_update");
 
 	/* Settings */
 	prop = RNA_def_property(srna, "draw_mode", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_bitflag_sdna(prop, NULL, "flag");
 	RNA_def_property_enum_items(prop, stroke_draw_mode_items);
-	RNA_def_property_ui_text(prop, "Draw Mode", "");
+	RNA_def_property_ui_text(prop, "Draw Mode", "Coordinate space that stroke is in");
 	RNA_def_property_update(prop, 0, "rna_GPencil_update");
 	
 	prop = RNA_def_property(srna, "select", PROP_BOOLEAN, PROP_NONE);
