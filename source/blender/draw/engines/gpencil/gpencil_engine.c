@@ -555,6 +555,19 @@ static void gpencil_prepare_fast_drawing(GPENCIL_StorageList *stl, DefaultFrameb
 	}
 }
 
+static void gpencil_free_obj_list(GPENCIL_StorageList *stl)
+{
+	/* free memory */
+	/* clear temp objects created for display only */
+	for (int i = 0; i < stl->g_data->gp_cache_used; ++i) {
+		Object *ob = stl->g_data->gp_object_cache[i].ob;
+		if (ob->mode == -1) {
+			MEM_SAFE_FREE(ob);
+		}
+	}
+	MEM_SAFE_FREE(stl->g_data->gp_object_cache);
+}
+
 /* draw scene */
 static void GPENCIL_draw_scene(void *vedata)
 {
@@ -572,6 +585,16 @@ static void GPENCIL_draw_scene(void *vedata)
 	ToolSettings *ts = scene->toolsettings;
 	bool playing = (bool)stl->storage->playing;
 
+	/* if we have a painting session, we use fast viewport drawing method */
+	if (stl->g_data->session_flag & GP_DRW_PAINT_PAINTING) {
+		DRW_framebuffer_bind(dfbl->default_fb);
+		DRW_draw_pass(psl->painting_pass);
+		DRW_draw_pass(psl->drawing_pass);
+		/* free memory */
+		gpencil_free_obj_list(stl);
+		return;
+	}
+
 	if (DRW_state_is_fbo()) {
 		/* attach temp textures */
 		DRW_framebuffer_texture_attach(fbl->temp_color_fb, e_data.temp_fbcolor_depth_tx, 0, 0);
@@ -586,83 +609,67 @@ static void GPENCIL_draw_scene(void *vedata)
 		DRW_framebuffer_texture_attach(fbl->painting_fb, e_data.painting_depth_tx, 0, 0);
 		DRW_framebuffer_texture_attach(fbl->painting_fb, e_data.painting_color_tx, 0, 0);
 
-		/* if we have a painting session, we use fast viewport drawing method */
-		if (stl->g_data->session_flag & GP_DRW_PAINT_PAINTING) {
-			DRW_framebuffer_bind(dfbl->default_fb);
-			DRW_draw_pass(psl->painting_pass);
-			DRW_draw_pass(psl->drawing_pass);
-		}
-		else {
-			/* Draw all pending objects */
-			if (stl->g_data->gp_cache_used > 0) {
+		/* Draw all pending objects */
+		if (stl->g_data->gp_cache_used > 0) {
 
-				/* sort by zdepth */
-				qsort(stl->g_data->gp_object_cache, stl->g_data->gp_cache_used,
-					sizeof(tGPencilObjectCache), gpencil_object_cache_compare_zdepth);
+			/* sort by zdepth */
+			qsort(stl->g_data->gp_object_cache, stl->g_data->gp_cache_used,
+				sizeof(tGPencilObjectCache), gpencil_object_cache_compare_zdepth);
 
-				for (int i = 0; i < stl->g_data->gp_cache_used; ++i) {
-					cache = &stl->g_data->gp_object_cache[i];
-					Object *ob = cache->ob;
-					init_grp = cache->init_grp;
-					end_grp = cache->end_grp;
-					/* Render stroke in separated framebuffer */
-					DRW_framebuffer_bind(fbl->temp_color_fb);
-					DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
+			for (int i = 0; i < stl->g_data->gp_cache_used; ++i) {
+				cache = &stl->g_data->gp_object_cache[i];
+				Object *ob = cache->ob;
+				init_grp = cache->init_grp;
+				end_grp = cache->end_grp;
+				/* Render stroke in separated framebuffer */
+				DRW_framebuffer_bind(fbl->temp_color_fb);
+				DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
 
-					/* Stroke Pass: DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH
-					 * draw only a subset that usually start with a fill and end with stroke because the
-					 * shading groups are created by pairs */
-					if (G.debug_value == 668) {
-						printf("GPENCIL_draw_scene: %s %d->%d\n", ob->id.name, init_grp, end_grp);
-					}
-
-					if (end_grp >= init_grp) {
-						DRW_draw_pass_subset(psl->stroke_pass,
-							stl->shgroups[init_grp].shgrps_fill != NULL ? stl->shgroups[init_grp].shgrps_fill : stl->shgroups[init_grp].shgrps_stroke,
-							stl->shgroups[end_grp].shgrps_stroke);
-					}
-					/* Current buffer drawing */
-					if (ob->gpd->sbuffer_size > 0) {
-						DRW_draw_pass(psl->drawing_pass);
-					}
-
-					/* vfx modifiers passes
-					 * if any vfx modifier exist, the init_vfx_wave_sh will be not NULL.
-					 */
-					if ((cache->init_vfx_wave_sh) && (cache->end_vfx_wave_sh) && (!GP_SIMPLIFY_VFX(ts, playing))) {
-						/* add vfx and combine result with default framebuffer */
-						gpencil_vfx_passes(vedata, cache);
-						/* Combine with default scene buffer always using tx_a as source texture */
-						DRW_framebuffer_bind(dfbl->default_fb);
-						/* Mix VFX Pass */
-						DRW_draw_pass(psl->mix_vfx_pass);
-						/* prepare for fast drawing */
-						gpencil_prepare_fast_drawing(stl, dfbl, fbl, psl->mix_vfx_pass_noblend, clearcol);
-					}
-					else {
-						/* Combine with scene buffer without more passes */
-						DRW_framebuffer_bind(dfbl->default_fb);
-						/* Mix Pass: DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS */
-						DRW_draw_pass(psl->mix_pass);
-						/* prepare for fast drawing */
-						gpencil_prepare_fast_drawing(stl, dfbl, fbl, psl->mix_pass_noblend, clearcol);
-					}
+				/* Stroke Pass: DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH
+				 * draw only a subset that usually start with a fill and end with stroke because the
+				 * shading groups are created by pairs */
+				if (G.debug_value == 668) {
+					printf("GPENCIL_draw_scene: %s %d->%d\n", ob->id.name, init_grp, end_grp);
 				}
-				/* edit points */
-				DRW_draw_pass(psl->edit_pass);
+
+				if (end_grp >= init_grp) {
+					DRW_draw_pass_subset(psl->stroke_pass,
+						stl->shgroups[init_grp].shgrps_fill != NULL ? stl->shgroups[init_grp].shgrps_fill : stl->shgroups[init_grp].shgrps_stroke,
+						stl->shgroups[end_grp].shgrps_stroke);
+				}
+				/* Current buffer drawing */
+				if (ob->gpd->sbuffer_size > 0) {
+					DRW_draw_pass(psl->drawing_pass);
+				}
+
+				/* vfx modifiers passes
+				 * if any vfx modifier exist, the init_vfx_wave_sh will be not NULL.
+				 */
+				if ((cache->init_vfx_wave_sh) && (cache->end_vfx_wave_sh) && (!GP_SIMPLIFY_VFX(ts, playing))) {
+					/* add vfx and combine result with default framebuffer */
+					gpencil_vfx_passes(vedata, cache);
+					/* Combine with default scene buffer always using tx_a as source texture */
+					DRW_framebuffer_bind(dfbl->default_fb);
+					/* Mix VFX Pass */
+					DRW_draw_pass(psl->mix_vfx_pass);
+					/* prepare for fast drawing */
+					gpencil_prepare_fast_drawing(stl, dfbl, fbl, psl->mix_vfx_pass_noblend, clearcol);
+				}
+				else {
+					/* Combine with scene buffer without more passes */
+					DRW_framebuffer_bind(dfbl->default_fb);
+					/* Mix Pass: DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS */
+					DRW_draw_pass(psl->mix_pass);
+					/* prepare for fast drawing */
+					gpencil_prepare_fast_drawing(stl, dfbl, fbl, psl->mix_pass_noblend, clearcol);
+				}
 			}
+			/* edit points */
+			DRW_draw_pass(psl->edit_pass);
 		}
 	}
 	/* free memory */
-	/* clear temp objects created for display only */
-	for (int i = 0; i < stl->g_data->gp_cache_used; ++i) {
-		Object *ob = stl->g_data->gp_object_cache[i].ob;
-		if (ob->mode == -1) {
-			MEM_SAFE_FREE(ob);
-		}
-	}
-
-	MEM_SAFE_FREE(stl->g_data->gp_object_cache);
+	gpencil_free_obj_list(stl);
 
 	/* detach temp textures */
 	if (DRW_state_is_fbo()) {
