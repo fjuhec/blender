@@ -4440,8 +4440,9 @@ static struct PBVH *ccgDM_getPBVH(Object *ob, DerivedMesh *dm)
 
 	if (ccgdm->pbvh) {
 		/* For vertex paint, keep track of ccgdm */
-		if (!(ob->mode & OB_MODE_SCULPT))
-			BKE_pbvh_add_ccgdm(ccgdm->pbvh, ccgdm);
+		if (!(ob->mode & OB_MODE_SCULPT)) {
+			BKE_pbvh_set_ccgdm(ccgdm->pbvh, ccgdm);
+		}
 		return ccgdm->pbvh;
 	}
 
@@ -4480,9 +4481,9 @@ static struct PBVH *ccgDM_getPBVH(Object *ob, DerivedMesh *dm)
 		pbvh_show_diffuse_color_set(ccgdm->pbvh, ob->sculpt->show_diffuse_color);
 
 	/* For vertex paint, keep track of ccgdm */
-	if (!(ob->mode & OB_MODE_SCULPT) && ccgdm->pbvh)
-		BKE_pbvh_add_ccgdm(ccgdm->pbvh, ccgdm);
-
+	if (!(ob->mode & OB_MODE_SCULPT) && ccgdm->pbvh) {
+		BKE_pbvh_set_ccgdm(ccgdm->pbvh, ccgdm);
+	}
 	return ccgdm->pbvh;
 }
 

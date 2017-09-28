@@ -46,6 +46,7 @@ struct bContext;
 struct KeyBlock;
 struct Object;
 struct SculptUndoNode;
+struct SculptOrigVertData;
 
 int sculpt_mode_poll(struct bContext *C);
 int sculpt_mode_poll_view3d(struct bContext *C);
@@ -117,32 +118,6 @@ typedef struct SculptUndoNode {
 	char shapeName[sizeof(((KeyBlock *)0))->name];
 } SculptUndoNode;
 
-/************** Access to original unmodified vertex data *************/
-
-typedef struct SculptOrigVertData {
-	struct BMLog *bm_log;
-
-	SculptUndoNode *unode;
-	float(*coords)[3];
-	short(*normals)[3];
-	const float *vmasks;
-
-	/* Original coordinate, normal, and mask */
-	const float *co;
-	const short *no;
-	float mask;
-} SculptOrigVertData;
-
-
-void sculpt_orig_vert_data_unode_init(SculptOrigVertData *data,
-	Object *ob,
-	SculptUndoNode *unode);
-void sculpt_orig_vert_data_init(SculptOrigVertData *data,
-	Object *ob,
-	PBVHNode *node);
-void sculpt_orig_vert_data_update(SculptOrigVertData *orig_data,
-	PBVHVertexIter *iter);
-
 /* Factor of brush to have rake point following behind
 * (could be configurable but this is reasonable default). */
 #define SCULPT_RAKE_BRUSH_FACTOR 0.25f
@@ -151,20 +126,6 @@ struct SculptRakeData {
 	float follow_dist;
 	float follow_co[3];
 };
-
-/** \name SculptProjectVector
-*
-* Fast-path for #project_plane_v3_v3v3
-*
-* \{ */
-
-typedef struct SculptProjectVector {
-	float plane[3];
-	float len_sq;
-	float len_sq_inv_neg;
-	bool  is_valid;
-
-} SculptProjectVector;
 
 /* Single struct used by all BLI_task threaded callbacks, let's avoid adding 10's of those... */
 typedef struct SculptThreadedTaskData {
@@ -194,7 +155,7 @@ typedef struct SculptThreadedTaskData {
 	bool smooth_mask;
 	bool has_bm_orco;
 
-	SculptProjectVector *spvc;
+	struct SculptProjectVector *spvc;
 	float *offset;
 	float *grab_delta;
 	float *cono;

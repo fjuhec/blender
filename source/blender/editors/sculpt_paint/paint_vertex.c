@@ -1725,8 +1725,7 @@ static void do_weight_paint_vertex(
 }
 
 
-/**** Toggle operator for turning vertex paint mode on or off     /
-/       copied from sculpt.c                                  ****/
+/* Toggle operator for turning vertex paint mode on or off (copied from sculpt.c) */
 static void vertex_paint_init_session(Scene *scene, Object *ob)
 {
 	if (ob->sculpt == NULL) {
@@ -1862,9 +1861,9 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 		ED_vgroup_sync_from_pose(ob);
 
 		/* Create vertex/weight paint mode session data */
-		if (ob->sculpt)
+		if (ob->sculpt) {
 			BKE_sculptsession_free(ob);
-
+		}
 		vertex_paint_init_session(scene, ob);
 	}
 	
@@ -1939,12 +1938,6 @@ struct WPaintData {
 	const bool *defbase_sel;      /* set of selected groups */
 	int defbase_tot_sel;          /* number of selected groups */
 	bool do_multipaint;           /* true if multipaint enabled and multiple groups selected */
-
-	/* variables for blur */
-	struct {
-		MeshElemMap *vmap;
-		int *vmap_mem;
-	} blur_data;
 
 	int defbase_tot;
 };
@@ -2091,8 +2084,8 @@ static void vwpaint_update_cache_variants(bContext *C, VPaint *vd, Object *ob, P
 	StrokeCache *cache = ss->cache;
 	Brush *brush = BKE_paint_brush(&vd->paint);
 
-	/* This effects the actual brush radius, so things farther away */
-	/*  are compared with a larger radius and vise versa. */
+	/* This effects the actual brush radius, so things farther away
+	 * are compared with a larger radius and vise versa. */
 	if (cache->first_time) {
 		RNA_float_get_array(ptr, "location", cache->true_location);
 	}
@@ -2100,10 +2093,10 @@ static void vwpaint_update_cache_variants(bContext *C, VPaint *vd, Object *ob, P
 	RNA_float_get_array(ptr, "mouse", cache->mouse);
 
 	/* XXX: Use pressure value from first brush step for brushes which don't
-	*      support strokes (grab, thumb). They depends on initial state and
-	*      brush coord/pressure/etc.
-	*      It's more an events design issue, which doesn't split coordinate/pressure/angle
-	*      changing events. We should avoid this after events system re-design */
+	 * support strokes (grab, thumb). They depends on initial state and
+	 * brush coord/pressure/etc.
+	 * It's more an events design issue, which doesn't split coordinate/pressure/angle
+	 * changing events. We should avoid this after events system re-design */
 	if (paint_supports_dynamic_size(brush, ePaintSculpt) || cache->first_time) {
 		cache->pressure = RNA_float_get(ptr, "pressure");
 	}

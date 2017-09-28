@@ -54,7 +54,6 @@ struct wmOperator;
 struct wmOperatorType;
 struct wmWindowManager;
 struct DMCoNo;
-struct MeshElemMap;
 enum PaintMode;
 
 /* paint_stroke.c */

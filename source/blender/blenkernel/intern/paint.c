@@ -675,19 +675,15 @@ void BKE_sculptsession_free_deformMats(SculptSession *ss)
 
 void BKE_sculptsession_free_vwpaint_data(struct SculptSession *ss)
 {
-	/* Free maps */
-	/* Create maps */
 	struct SculptVertexPaintGeomMap *gmap = NULL;
 	if (ss->mode_type == OB_MODE_VERTEX_PAINT) {
 		gmap = &ss->mode.vpaint.gmap;
 
-		/* Free average, blur, and spray brush arrays */
 		MEM_SAFE_FREE(ss->mode.vpaint.previous_color);
 	}
 	else if (ss->mode_type == OB_MODE_WEIGHT_PAINT) {
 		gmap = &ss->mode.wpaint.gmap;
 
-		/* Free average, blur, and spray brush arrays */
 		MEM_SAFE_FREE(ss->mode.wpaint.alpha_weight);
 		MEM_SAFE_FREE(ss->mode.wpaint.previous_weight);
 	}

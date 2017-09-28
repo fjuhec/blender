@@ -607,7 +607,7 @@ void BKE_pbvh_build_grids(PBVH *bvh, CCGElem **grids,
 	MEM_freeN(prim_bbc);
 }
 
-void BKE_pbvh_add_ccgdm(PBVH *bvh, CCGDerivedMesh *ccgdm) {
+void BKE_pbvh_set_ccgdm(PBVH *bvh, CCGDerivedMesh *ccgdm) {
 	bvh->ccgdm = ccgdm;
 }
 

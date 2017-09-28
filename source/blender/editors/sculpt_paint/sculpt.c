@@ -172,9 +172,24 @@ typedef enum StrokeFlags {
 
 /************** Access to original unmodified vertex data *************/
 
+typedef struct {
+	BMLog *bm_log;
+
+	SculptUndoNode *unode;
+	float (*coords)[3];
+	short (*normals)[3];
+	const float *vmasks;
+
+	/* Original coordinate, normal, and mask */
+	const float *co;
+	const short *no;
+	float mask;
+} SculptOrigVertData;
+
+
 /* Initialize a SculptOrigVertData for accessing original vertex data;
  * handles BMesh, mesh, and multires */
-void sculpt_orig_vert_data_unode_init(SculptOrigVertData *data,
+static void sculpt_orig_vert_data_unode_init(SculptOrigVertData *data,
                                              Object *ob,
                                              SculptUndoNode *unode)
 {
@@ -196,7 +211,7 @@ void sculpt_orig_vert_data_unode_init(SculptOrigVertData *data,
 
 /* Initialize a SculptOrigVertData for accessing original vertex data;
  * handles BMesh, mesh, and multires */
-void sculpt_orig_vert_data_init(SculptOrigVertData *data,
+static void sculpt_orig_vert_data_init(SculptOrigVertData *data,
                                        Object *ob,
                                        PBVHNode *node)
 {
@@ -207,7 +222,7 @@ void sculpt_orig_vert_data_init(SculptOrigVertData *data,
 
 /* Update a SculptOrigVertData for a particular vertex from the PBVH
  * iterator */
-void sculpt_orig_vert_data_update(SculptOrigVertData *orig_data,
+static void sculpt_orig_vert_data_update(SculptOrigVertData *orig_data,
                                          PBVHVertexIter *iter)
 {
 	if (orig_data->unode->type == SCULPT_UNDO_COORDS) {
@@ -290,6 +305,21 @@ static void sculpt_project_v3_normal_align(SculptSession *ss, const float normal
 	mul_v3_fl(grab_delta, 1.0f - normal_weight);
 	madd_v3_v3fl(grab_delta, ss->cache->sculpt_normal_symm, (len_signed * normal_weight) * len_view_scale);
 }
+
+
+/** \name SculptProjectVector
+ *
+ * Fast-path for #project_plane_v3_v3v3
+ *
+ * \{ */
+
+typedef struct SculptProjectVector {
+	float plane[3];
+	float len_sq;
+	float len_sq_inv_neg;
+	bool  is_valid;
+
+} SculptProjectVector;
 
 /**
  * \param plane  Direction, can be any length.
