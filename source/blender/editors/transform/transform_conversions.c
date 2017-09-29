@@ -807,7 +807,6 @@ static bool pchan_autoik_adjust(bPoseChannel *pchan, short chainlen)
 /* change the chain-length of auto-ik */
 void transform_autoik_update(TransInfo *t, short mode)
 {
-	const short old_len = t->settings->autoik_chainlen;
 	short *chainlen = &t->settings->autoik_chainlen;
 	bPoseChannel *pchan;
 
@@ -818,12 +817,13 @@ void transform_autoik_update(TransInfo *t, short mode)
 	}
 	else if (mode == -1) {
 		/* mode==-1 is from WHEELMOUSEUP... decreases len */
-		if (*chainlen > 0) (*chainlen)--;
-	}
-
-	/* IK length did not change, skip any updates. */
-	if (old_len == *chainlen) {
-		return;
+		if (*chainlen > 0) {
+			(*chainlen)--;
+		}
+		else {
+			/* IK length did not change, skip updates. */
+			return;
+		}
 	}
 
 	/* sanity checks (don't assume t->poseobj is set, or that it is an armature) */
@@ -2801,7 +2801,7 @@ void flushTransSeq(TransInfo *t)
 		tdsq = (TransDataSeq *)td->extra;
 		seq = tdsq->seq;
 		old_start = seq->start;
-		new_frame = iroundf(td2d->loc[0]);
+		new_frame = round_fl_to_int(td2d->loc[0]);
 
 		switch (tdsq->sel_flag) {
 			case SELECT:
@@ -2813,7 +2813,7 @@ void flushTransSeq(TransInfo *t)
 					seq->start = new_frame - tdsq->start_offset;
 #endif
 				if (seq->depth == 0) {
-					seq->machine = iroundf(td2d->loc[1]);
+					seq->machine = round_fl_to_int(td2d->loc[1]);
 					CLAMP(seq->machine, 1, MAXSEQ);
 				}
 				break;
@@ -3761,7 +3761,7 @@ void flushTransIntFrameActionData(TransInfo *t)
 
 	/* flush data! */
 	for (i = 0; i < t->total; i++, tfd++) {
-		*(tfd->sdata) = iroundf(tfd->val);
+		*(tfd->sdata) = round_fl_to_int(tfd->val);
 	}
 }
 
@@ -4789,7 +4789,7 @@ void flushTransGraphData(TransInfo *t)
 		
 		/* if int-values only, truncate to integers */
 		if (td->flag & TD_INTVALUES)
-			td2d->loc2d[1] = floorf(td2d->loc[1] + 0.5f);
+			td2d->loc2d[1] = floorf(td2d->loc[1] * inv_unit_scale - tdg->offset + 0.5f);
 		else
 			td2d->loc2d[1] = td2d->loc[1] * inv_unit_scale - tdg->offset;
 		
@@ -5606,9 +5606,7 @@ static void set_trans_object_base_flags(TransInfo *t)
 	}
 
 	/* all recalc flags get flushed to all layers, so a layer flip later on works fine */
-#ifdef WITH_LEGACY_DEPSGRAPH
 	DAG_scene_flush_update(G.main, t->scene, -1, 0);
-#endif
 
 	/* and we store them temporal in base (only used for transform code) */
 	/* this because after doing updates, the object->recalc is cleared */
@@ -5687,9 +5685,7 @@ static int count_proportional_objects(TransInfo *t)
 
 	/* all recalc flags get flushed to all layers, so a layer flip later on works fine */
 	DAG_scene_relations_update(G.main, t->scene);
-#ifdef WITH_LEGACY_DEPSGRAPH
 	DAG_scene_flush_update(G.main, t->scene, -1, 0);
-#endif
 
 	/* and we store them temporal in base (only used for transform code) */
 	/* this because after doing updates, the object->recalc is cleared */
@@ -5976,27 +5972,23 @@ static void special_aftertrans_update__movieclip(bContext *C, TransInfo *t)
 {
 	SpaceClip *sc = t->sa->spacedata.first;
 	MovieClip *clip = ED_space_clip_get_clip(sc);
-	MovieTrackingPlaneTrack *plane_track;
 	ListBase *plane_tracks_base = BKE_tracking_get_active_plane_tracks(&clip->tracking);
-	int framenr = ED_space_clip_get_clip_frame_number(sc);
-
-	for (plane_track = plane_tracks_base->first;
+	const int framenr = ED_space_clip_get_clip_frame_number(sc);
+	/* Update coordinates of modified plane tracks. */
+	for (MovieTrackingPlaneTrack *plane_track = plane_tracks_base->first;
 	     plane_track;
 	     plane_track = plane_track->next)
 	{
 		bool do_update = false;
-
 		if (plane_track->flag & PLANE_TRACK_HIDDEN) {
 			continue;
 		}
-
 		do_update |= PLANE_TRACK_VIEW_SELECTED(plane_track) != 0;
 		if (do_update == false) {
 			if ((plane_track->flag & PLANE_TRACK_AUTOKEY) == 0) {
 				int i;
 				for (i = 0; i < plane_track->point_tracksnr; i++) {
 					MovieTrackingTrack *track = plane_track->point_tracks[i];
-
 					if (TRACK_VIEW_SELECTED(sc, track)) {
 						do_update = true;
 						break;
@@ -6004,15 +5996,14 @@ static void special_aftertrans_update__movieclip(bContext *C, TransInfo *t)
 				}
 			}
 		}
-
 		if (do_update) {
 			BKE_tracking_track_plane_from_existing_motion(plane_track, framenr);
 		}
 	}
-
-	if (t->scene->nodetree) {
-		/* tracks can be used for stabilization nodes,
-		 * flush update for such nodes */
+	if (t->scene->nodetree != NULL) {
+		/* Tracks can be used for stabilization nodes,
+		 * flush update for such nodes.
+		 */
 		nodeUpdateID(t->scene->nodetree, &clip->id);
 		WM_event_add_notifier(C, NC_SCENE | ND_NODES, NULL);
 	}
@@ -7840,7 +7831,7 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 	float mtx[3][3], smtx[3][3];
 	
 	const Scene *scene = CTX_data_scene(C);
-	const int cfra = CFRA;
+	const int cfra_scene = CFRA;
 	
 	const bool is_prop_edit = (t->flag & T_PROP_EDIT) != 0;
 	const bool is_prop_edit_connected = (t->flag & T_PROP_CONNECTED) != 0;
@@ -7865,7 +7856,7 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 		if (gpencil_layer_is_editable(gpl) && (gpl->actframe != NULL)) {
 			bGPDframe *gpf = gpl->actframe;
 			bGPDstroke *gps;
-			
+
 			for (gps = gpf->strokes.first; gps; gps = gps->next) {
 				/* skip strokes that are invalid for current view */
 				if (ED_gpencil_stroke_can_use(C, gps) == false) {
@@ -7921,6 +7912,7 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 	for (gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		/* only editable and visible layers are considered */
 		if (gpencil_layer_is_editable(gpl) && (gpl->actframe != NULL)) {
+			const int cfra = (gpl->flag & GP_LAYER_FRAMELOCK) ? gpl->actframe->framenum : cfra_scene;
 			bGPDframe *gpf = gpl->actframe;
 			bGPDstroke *gps;
 			float diff_mat[4][4];
@@ -7937,7 +7929,6 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 			 * - This is useful when animating as it saves that "uh-oh" moment when you realize you've
 			 *   spent too much time editing the wrong frame...
 			 */
-			// XXX: should this be allowed when framelock is enabled?
 			if (gpf->framenum != cfra) {
 				gpf = BKE_gpencil_frame_addcopy(gpl, cfra);
 				/* in some weird situations (framelock enabled) return NULL */

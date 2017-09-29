@@ -289,7 +289,7 @@ if(WITH_X11)
 endif()
 
 if(UNIX AND NOT APPLE)
-	option(WITH_SYSTEM_GLEW "Use GLEW OpenGL wrapper library provided by the operating system" ON)
+	option(WITH_SYSTEM_GLEW "Use GLEW OpenGL wrapper library provided by the operating system" OFF)
 	option(WITH_SYSTEM_GLES "Use OpenGL ES library provided by the operating system"           ON)
 else()
 	# not an option for other OS's
@@ -333,10 +333,6 @@ option(WITH_CODEC_SNDFILE       "Enable libsndfile Support (http://www.mega-nerd
 # Alembic support
 option(WITH_ALEMBIC             "Enable Alembic Support" OFF)
 option(WITH_ALEMBIC_HDF5        "Enable Legacy Alembic Support (not officially supported)" OFF)
-
-if(APPLE)
-	option(WITH_CODEC_QUICKTIME     "Enable Quicktime Support" OFF)
-endif()
 
 # 3D format support
 # Disable opencollada when we don't have precompiled libs
@@ -504,7 +500,12 @@ endif()
 # Experimental support of C11 and C++11
 #
 # We default options to whatever default standard in the current compiler.
-if(CMAKE_COMPILER_IS_GNUCC AND (NOT "${CMAKE_C_COMPILER_VERSION}" VERSION_LESS "6.0") AND (NOT WITH_CXX11))
+if(APPLE)
+	set(_c11_init ON)
+	set(_cxx11_init ON)
+	set(WITH_C11 ON)
+	set(WITH_CXX11 ON)
+elseif(CMAKE_COMPILER_IS_GNUCC AND (NOT "${CMAKE_C_COMPILER_VERSION}" VERSION_LESS "6.0") AND (NOT WITH_CXX11))
 	set(_c11_init ON)
 	set(_cxx11_init ON)
 else()
@@ -736,10 +737,6 @@ if(WITH_AUDASPACE)
 			"-DAUD_TYPES_H=<AUD_Space.h>"
 		)
 	endif()
-endif()
-
-if(APPLE)
-	apple_check_quicktime()
 endif()
 
 #-----------------------------------------------------------------------------
@@ -1480,6 +1477,7 @@ elseif(CMAKE_C_COMPILER_ID MATCHES "MSVC")
 		"/wd4800"  # forcing value to bool 'true' or 'false'
 		# errors:
 		"/we4013"  # 'function' undefined; assuming extern returning int
+		"/we4133"  # incompatible pointer types
 		"/we4431"  # missing type specifier - int assumed
 	)
 
@@ -1759,4 +1757,3 @@ endif()
 if(0)
 	print_all_vars()
 endif()
-

@@ -488,7 +488,6 @@ extern StructRNA RNA_PropertyGroupItem;
 extern StructRNA RNA_PropertySensor;
 extern StructRNA RNA_PythonConstraint;
 extern StructRNA RNA_PythonController;
-extern StructRNA RNA_QuickTimeSettings;
 extern StructRNA RNA_RadarSensor;
 extern StructRNA RNA_RandomSensor;
 extern StructRNA RNA_RaySensor;
@@ -782,6 +781,9 @@ FunctionRNA *RNA_struct_find_function(StructRNA *srna, const char *identifier);
 const struct ListBase *RNA_struct_type_functions(StructRNA *srna);
 
 char *RNA_struct_name_get_alloc(PointerRNA *ptr, char *fixedbuf, int fixedlen, int *r_len);
+
+bool RNA_struct_available_or_report(struct ReportList *reports, const char *identifier);
+bool RNA_struct_bl_idname_ok_or_report(struct ReportList *reports, const char *identifier, const char *sep);
 
 /* Properties
  *
@@ -1197,7 +1199,7 @@ StructRNA *ID_code_to_RNA_type(short idcode);
 } (void)0
 
 /* macro which inserts the function name */
-#if defined __GNUC__ || defined __sun
+#if defined __GNUC__
 #  define RNA_warning(format, args ...) _RNA_warning("%s: " format "\n", __func__, ##args)
 #else
 #  define RNA_warning(format, ...) _RNA_warning("%s: " format "\n", __FUNCTION__, __VA_ARGS__)

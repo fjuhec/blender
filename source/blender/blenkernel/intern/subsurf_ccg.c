@@ -42,6 +42,8 @@
 #include <math.h>
 #include <float.h>
 
+#include "atomic_ops.h"
+
 #include "MEM_guardedalloc.h"
 
 #include "DNA_mesh_types.h"
@@ -3681,6 +3683,11 @@ static void ccgDM_drawMappedFaces(DerivedMesh *dm,
 	int gridFaces = gridSize - 1, totface;
 	int prev_mat_nr = -1;
 
+	if (ccgdm->pbvh) {
+		if (G.debug_value == 14)
+			BKE_pbvh_draw_BB(ccgdm->pbvh);
+	}
+
 #ifdef WITH_OPENSUBDIV
 	if (ccgdm->useGpuBackend) {
 		int new_matnr;
@@ -4414,7 +4421,8 @@ static struct PBVH *ccgDM_getPBVH(Object *ob, DerivedMesh *dm)
 	if (!ob->sculpt)
 		return NULL;
 
-	grid_pbvh = ccgDM_use_grid_pbvh(ccgdm);
+	/* In vwpaint, we always use a grid_pbvh for multires/subsurf */
+	grid_pbvh = (!(ob->mode & OB_MODE_SCULPT) || ccgDM_use_grid_pbvh(ccgdm));
 
 	if (ob->sculpt->pbvh) {
 		if (grid_pbvh) {
@@ -4430,12 +4438,18 @@ static struct PBVH *ccgDM_getPBVH(Object *ob, DerivedMesh *dm)
 		ccgdm->pbvh = ob->sculpt->pbvh;
 	}
 
-	if (ccgdm->pbvh)
+	if (ccgdm->pbvh) {
+		/* For vertex paint, keep track of ccgdm */
+		if (!(ob->mode & OB_MODE_SCULPT)) {
+			BKE_pbvh_set_ccgdm(ccgdm->pbvh, ccgdm);
+		}
 		return ccgdm->pbvh;
+	}
 
 	/* no pbvh exists yet, we need to create one. only in case of multires
 	 * we build a pbvh over the modified mesh, in other cases the base mesh
 	 * is being sculpted, so we build a pbvh from that. */
+	/* Note: vwpaint always builds a pbvh over the modified mesh. */
 	if (grid_pbvh) {
 		ccgdm_create_grids(dm);
 
@@ -4466,6 +4480,10 @@ static struct PBVH *ccgDM_getPBVH(Object *ob, DerivedMesh *dm)
 	if (ccgdm->pbvh)
 		pbvh_show_diffuse_color_set(ccgdm->pbvh, ob->sculpt->show_diffuse_color);
 
+	/* For vertex paint, keep track of ccgdm */
+	if (!(ob->mode & OB_MODE_SCULPT) && ccgdm->pbvh) {
+		BKE_pbvh_set_ccgdm(ccgdm->pbvh, ccgdm);
+	}
 	return ccgdm->pbvh;
 }
 
@@ -4474,16 +4492,17 @@ static void ccgDM_recalcTessellation(DerivedMesh *UNUSED(dm))
 	/* Nothing to do: CCG handles creating its own tessfaces */
 }
 
+/* WARNING! *MUST* be called in an 'loops_cache_rwlock' protected thread context! */
 static void ccgDM_recalcLoopTri(DerivedMesh *dm)
 {
-	BLI_rw_mutex_lock(&loops_cache_rwlock, THREAD_LOCK_WRITE);
-	MLoopTri *mlooptri;
+	MLoopTri *mlooptri = dm->looptris.array;
 	const int tottri = dm->numPolyData * 2;
 	int i, poly_index;
 
 	DM_ensure_looptri_data(dm);
-	mlooptri = dm->looptris.array;
+	mlooptri = dm->looptris.array_wip;
 
+	BLI_assert(tottri == 0 || mlooptri != NULL);
 	BLI_assert(poly_to_tri_count(dm->numPolyData, dm->numLoopData) == dm->looptris.num);
 	BLI_assert(tottri == dm->looptris.num);
 
@@ -4502,19 +4521,10 @@ static void ccgDM_recalcLoopTri(DerivedMesh *dm)
 		lt->tri[2] = (poly_index * 4) + 2;
 		lt->poly = poly_index;
 	}
-	BLI_rw_mutex_unlock(&loops_cache_rwlock);
-}
 
-static const MLoopTri *ccgDM_getLoopTriArray(DerivedMesh *dm)
-{
-	if (dm->looptris.array) {
-		BLI_assert(poly_to_tri_count(dm->numPolyData, dm->numLoopData) == dm->looptris.num);
-	}
-	else {
-		dm->recalcLoopTri(dm);
-	}
-
-	return dm->looptris.array;
+	BLI_assert(dm->looptris.array == NULL);
+	atomic_cas_ptr((void **)&dm->looptris.array, dm->looptris.array, dm->looptris.array_wip);
+	dm->looptris.array_wip = NULL;
 }
 
 static void ccgDM_calcNormals(DerivedMesh *dm)
@@ -4532,8 +4542,6 @@ static void set_default_ccgdm_callbacks(CCGDerivedMesh *ccgdm)
 	/* reuse of ccgDM_getNumTessFaces is intentional here: subsurf polys are just created from tessfaces */
 	ccgdm->dm.getNumPolys = ccgDM_getNumPolys;
 	ccgdm->dm.getNumTessFaces = ccgDM_getNumTessFaces;
-
-	ccgdm->dm.getLoopTriArray = ccgDM_getLoopTriArray;
 
 	ccgdm->dm.getVert = ccgDM_getFinalVert;
 	ccgdm->dm.getEdge = ccgDM_getFinalEdge;

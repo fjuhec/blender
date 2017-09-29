@@ -41,6 +41,8 @@
  * is likely to be a little slow.
  */
 
+#include "atomic_ops.h"
+
 #include "BLI_math.h"
 #include "BLI_jitter.h"
 #include "BLI_bitmap.h"
@@ -641,8 +643,9 @@ static void emDM_recalcLoopTri(DerivedMesh *dm)
 	int i;
 
 	DM_ensure_looptri_data(dm);
-	mlooptri = dm->looptris.array;
+	mlooptri = dm->looptris.array_wip;
 
+	BLI_assert(tottri == 0 || mlooptri != NULL);
 	BLI_assert(poly_to_tri_count(dm->numPolyData, dm->numLoopData) == dm->looptris.num);
 	BLI_assert(tottri == dm->looptris.num);
 
@@ -659,18 +662,10 @@ static void emDM_recalcLoopTri(DerivedMesh *dm)
 		        BM_elem_index_get(ltri[2]));
 		lt->poly = BM_elem_index_get(ltri[0]->f);
 	}
-}
 
-static const MLoopTri *emDM_getLoopTriArray(DerivedMesh *dm)
-{
-	if (dm->looptris.array) {
-		BLI_assert(poly_to_tri_count(dm->numPolyData, dm->numLoopData) == dm->looptris.num);
-	}
-	else {
-		dm->recalcLoopTri(dm);
-	}
-
-	return dm->looptris.array;
+	BLI_assert(dm->looptris.array == NULL);
+	atomic_cas_ptr((void **)&dm->looptris.array, dm->looptris.array, dm->looptris.array_wip);
+	dm->looptris.array_wip = NULL;
 }
 
 static void emDM_foreachMappedVert(
@@ -2258,8 +2253,6 @@ DerivedMesh *getEditDerivedBMesh(
 	bmdm->dm.getNumTessFaces = emDM_getNumTessFaces;
 	bmdm->dm.getNumLoops = emDM_getNumLoops;
 	bmdm->dm.getNumPolys = emDM_getNumPolys;
-
-	bmdm->dm.getLoopTriArray = emDM_getLoopTriArray;
 
 	bmdm->dm.getVert = emDM_getVert;
 	bmdm->dm.getVertCo = emDM_getVertCo;

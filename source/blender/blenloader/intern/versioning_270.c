@@ -60,6 +60,7 @@
 #include "DNA_genfile.h"
 
 #include "BKE_animsys.h"
+#include "BKE_brush.h"
 #include "BKE_colortools.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
@@ -1652,6 +1653,23 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 			}
 		}
 
+		{
+			Brush *br;
+			br = (Brush *)BKE_libblock_find_name_ex(main, ID_BR, "Average");
+			if (!br) {
+				br = BKE_brush_add(main, "Average", OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT);
+				br->vertexpaint_tool = PAINT_BLEND_AVERAGE;
+				br->ob_mode = OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT;
+			}
+
+			br = (Brush *)BKE_libblock_find_name_ex(main, ID_BR, "Smear");
+			if (!br) {
+				br = BKE_brush_add(main, "Smear", OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT);
+				br->vertexpaint_tool = PAINT_BLEND_SMEAR;
+				br->ob_mode = OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT;
+			}
+		}
+
 		FOREACH_NODETREE(main, ntree, id) {
 			if (ntree->type == NTREE_COMPOSIT) {
 				do_versions_compositor_render_passes(ntree);
@@ -1659,7 +1677,7 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 		} FOREACH_NODETREE_END
 	}
 
-	{
+	if (!MAIN_VERSION_ATLEAST(main, 279, 0)) {
 		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
 			if (scene->r.im_format.exr_codec == R_IMF_EXR_CODEC_DWAB) {
 				scene->r.im_format.exr_codec = R_IMF_EXR_CODEC_DWAA;
@@ -1671,12 +1689,23 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 			CustomData_set_layer_name(&me->vdata, CD_MDEFORMVERT, 0, "");
 		}
 	}
+
+	{
+		/* Fix for invalid state of screen due to bug in older versions. */
+		for (bScreen *sc = main->screen.first; sc; sc = sc->id.next) {
+			for (ScrArea *sa = sc->areabase.first; sa; sa = sa->next) {
+				if(sa->full && sc->state == SCREENNORMAL) {
+					sa->full = NULL;
+				}
+			}
+		}
+	}
 }
 
 void do_versions_after_linking_270(Main *main)
 {
 	/* To be added to next subversion bump! */
-	{
+	if (!MAIN_VERSION_ATLEAST(main, 279, 0)) {
 		FOREACH_NODETREE(main, ntree, id) {
 			if (ntree->type == NTREE_COMPOSIT) {
 				ntreeSetTypes(NULL, ntree);

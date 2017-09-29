@@ -1169,6 +1169,7 @@ static int image_sequence_get_len(ListBase *frames, int *ofs)
 		}
 		return frame_curr - (*ofs);
 	}
+	*ofs = 0;
 	return 0;
 }
 
@@ -3525,7 +3526,7 @@ static int frame_from_event(bContext *C, const wmEvent *event)
 
 		UI_view2d_region_to_view(&ar->v2d, event->mval[0], event->mval[1], &viewx, &viewy);
 
-		framenr = iroundf(viewx);
+		framenr = round_fl_to_int(viewx);
 	}
 
 	return framenr;
@@ -3631,7 +3632,7 @@ static int render_border_exec(bContext *C, wmOperator *op)
 {
 	ARegion *ar = CTX_wm_region(C);
 	Scene *scene = CTX_data_scene(C);
-	Render *re = RE_GetRender(scene->id.name);
+	Render *re = RE_GetSceneRender(scene);
 	RenderData *rd;
 	rctf border;
 

@@ -28,6 +28,7 @@
 #include <stdlib.h>
 
 #include "RNA_define.h"
+#include "RNA_enum_types.h"
 
 #include "rna_internal.h"
 
@@ -75,13 +76,15 @@ EnumPropertyItem rna_enum_gpencil_sculpt_brush_items[] = {
 	{ 0, NULL, 0, NULL, NULL }
 };
 
-EnumPropertyItem rna_enum_gpencil_lockaxis_items[] = {
+#ifndef RNA_RUNTIME
+static EnumPropertyItem rna_enum_gpencil_lockaxis_items[] = {
 	{ GP_LOCKAXIS_NONE, "GP_LOCKAXIS_NONE", 0, "None", "" },
 	{ GP_LOCKAXIS_X, "GP_LOCKAXIS_X", 0, "X", "Project strokes to plane locked to X" },
 	{ GP_LOCKAXIS_Y, "GP_LOCKAXIS_Y", 0, "Y", "Project strokes to plane locked to Y" },
 	{ GP_LOCKAXIS_Z, "GP_LOCKAXIS_Z", 0, "Z", "Project strokes to plane locked to Z" },
 	{ 0, NULL, 0, NULL, NULL }
 };
+#endif
 
 EnumPropertyItem rna_enum_symmetrize_direction_items[] = {
 	{BMO_SYMMETRIZE_NEGATIVE_X, "NEGATIVE_X", 0, "-X to +X", ""},
@@ -684,6 +687,15 @@ static void rna_def_vertex_paint(BlenderRNA *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", VP_ONLYVGROUP);
 	RNA_def_property_ui_text(prop, "Restrict", "Restrict painting to vertices in the group");
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
+
+	/* Mirroring */
+	prop = RNA_def_property(srna, "radial_symmetry", PROP_INT, PROP_XYZ);
+	RNA_def_property_int_sdna(prop, NULL, "radial_symm");
+	RNA_def_property_int_default(prop, 1);
+	RNA_def_property_range(prop, 1, 64);
+	RNA_def_property_ui_range(prop, 1, 32, 1, 1);
+	RNA_def_property_ui_text(prop, "Radial Symmetry Count X Axis",
+	                         "Number of times to copy strokes across the surface");
 }
 
 static void rna_def_image_paint(BlenderRNA *brna)

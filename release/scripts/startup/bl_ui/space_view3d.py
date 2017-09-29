@@ -55,7 +55,7 @@ class VIEW3D_HT_header(Header):
 
             # Occlude geometry
             if ((view.viewport_shade not in {'BOUNDBOX', 'WIREFRAME'} and (mode == 'PARTICLE_EDIT' or (mode == 'EDIT' and obj.type == 'MESH'))) or
-                    (mode == 'WEIGHT_PAINT')):
+                    (mode in {'WEIGHT_PAINT', 'VERTEX_PAINT'})):
                 row.prop(view, "use_occlude_geometry", text="")
 
             # Proportional editing
@@ -170,7 +170,7 @@ class VIEW3D_MT_editor_menus(Menu):
             mesh = obj.data
             if mesh.use_paint_mask:
                 layout.menu("VIEW3D_MT_select_paint_mask")
-            elif mesh.use_paint_mask_vertex and mode_string == 'PAINT_WEIGHT':
+            elif mesh.use_paint_mask_vertex and mode_string in {'PAINT_WEIGHT', 'PAINT_VERTEX'}:
                 layout.menu("VIEW3D_MT_select_paint_mask_vertex")
         elif mode_string != 'SCULPT':
             layout.menu("VIEW3D_MT_select_%s" % mode_string.lower())
@@ -294,7 +294,8 @@ class VIEW3D_MT_transform_object(VIEW3D_MT_transform_base):
         layout.operator("object.origin_set", text="Geometry to Origin").type = 'GEOMETRY_ORIGIN'
         layout.operator("object.origin_set", text="Origin to Geometry").type = 'ORIGIN_GEOMETRY'
         layout.operator("object.origin_set", text="Origin to 3D Cursor").type = 'ORIGIN_CURSOR'
-        layout.operator("object.origin_set", text="Origin to Center of Mass").type = 'ORIGIN_CENTER_OF_MASS'
+        layout.operator("object.origin_set", text="Origin to Center of Mass (Surface)").type = 'ORIGIN_CENTER_OF_MASS'
+        layout.operator("object.origin_set", text="Origin to Center of Mass (Volume)").type = 'ORIGIN_CENTER_OF_VOLUME'
         layout.separator()
 
         layout.operator("object.randomize_transform")
@@ -1710,7 +1711,7 @@ class VIEW3D_MT_brush(Menu):
 
         # skip if no active brush
         if not brush:
-            layout.label(text="No Brushes currently available", icon="INFO")
+            layout.label(text="No Brushes currently available", icon='INFO')
             return
 
         # brush paint modes
@@ -1779,6 +1780,7 @@ class VIEW3D_MT_paint_vertex(Menu):
         layout.operator("paint.vertex_color_set")
         layout.operator("paint.vertex_color_smooth")
         layout.operator("paint.vertex_color_dirt")
+        layout.operator("paint.vertex_color_from_weight")
 
         layout.separator()
 
@@ -2113,7 +2115,7 @@ class VIEW3D_MT_pose_transform(Menu):
 
         layout.separator()
 
-        layout.operator("pose.user_transforms_clear", text="Reset unkeyed")
+        layout.operator("pose.user_transforms_clear", text="Reset Unkeyed")
 
 
 class VIEW3D_MT_pose_slide(Menu):
