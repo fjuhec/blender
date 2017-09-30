@@ -1198,7 +1198,7 @@ class VIEW3D_PT_tools_brush(Panel, View3DPaintPanel):
 
             col.prop(brush, "vertex_tool", text="Blend")
 
-            if brush.vertex_tool == 'BLUR':
+            if brush.vertex_tool != 'SMEAR':
                 col.prop(brush, "use_accumulate")
                 col.separator()
 
@@ -1233,6 +1233,8 @@ class VIEW3D_PT_tools_brush(Panel, View3DPaintPanel):
             # row.prop(brush, "use_pressure_jitter", toggle=True, text="")
             col.separator()
             col.prop(brush, "vertex_tool", text="Blend")
+            col.prop(brush, "use_accumulate")
+            col.prop(brush, "use_alpha")
 
             col.separator()
             col.template_ID(settings, "palette", new="palette.new")

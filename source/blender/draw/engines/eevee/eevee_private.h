@@ -101,6 +101,7 @@ typedef struct EEVEE_PassList {
 	struct DRWPass *probe_background;
 	struct DRWPass *probe_glossy_compute;
 	struct DRWPass *probe_diffuse_compute;
+	struct DRWPass *probe_grid_fill;
 	struct DRWPass *probe_display;
 	struct DRWPass *probe_planar_downsample_ps;
 
@@ -297,7 +298,7 @@ typedef struct EEVEE_LightGrid {
 	int resolution[3], offset;
 	float corner[3], attenuation_scale;
 	float increment_x[3], attenuation_bias; /* world space vector between 2 opposite cells */
-	float increment_y[3], pad3;
+	float increment_y[3], level_bias;
 	float increment_z[3], pad4;
 } EEVEE_LightGrid;
 
@@ -318,6 +319,7 @@ typedef struct EEVEE_LightProbesInfo {
 	int num_planar, cache_num_planar;
 	int update_flag;
 	int updated_bounce;
+	int grid_initialized;
 	/* Actual number of probes that have datas. */
 	int num_render_cube;
 	int num_render_grid;
@@ -480,7 +482,9 @@ typedef struct EEVEE_LightProbeEngineData {
 	bool need_update;
 	bool ready_to_shade;
 	int updated_cells;
+	int updated_lvl;
 	int num_cell;
+	int max_lvl;
 	int probe_id; /* Only used for display data */
 	/* For planar reflection rendering */
 	float viewmat[4][4];
