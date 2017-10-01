@@ -1686,12 +1686,14 @@ typedef struct GpencilThickModifierData {
 	int flag;                    /* flags */
 	int thickness;               /* Thickness change */
 	char pad[4];
+	struct CurveMapping *cur_thickness;
 } GpencilThickModifierData;
 
 typedef enum eGpencilThick_Flag {
 	GP_THICK_INVERSE_LAYER  = (1 << 0),
 	GP_THICK_INVERSE_PASS   = (1 << 1),
 	GP_THICK_INVERSE_VGROUP = (1 << 2),
+	GP_THICK_CUSTOM_CURVE   = (1 << 3),
 } eGpencilThick_Flag;
 
 typedef struct GpencilTintModifierData {

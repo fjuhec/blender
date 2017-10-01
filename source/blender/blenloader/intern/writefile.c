@@ -1731,6 +1731,13 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
 
 			writedata(wd, DATA, sizeof(int) * hmd->totindex, hmd->indexar);
 		}
+		else if (md->type == eModifierType_GpencilThick) {
+			GpencilThickModifierData *gpmd = (GpencilThickModifierData *)md;
+
+			if (gpmd->cur_thickness) {
+				write_curvemapping(wd, gpmd->cur_thickness);
+			}
+		}
 		else if (md->type == eModifierType_Cloth) {
 			ClothModifierData *clmd = (ClothModifierData *)md;
 

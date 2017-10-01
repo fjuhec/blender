@@ -35,8 +35,10 @@
 #include "DNA_gpencil_types.h"
 
 #include "BLI_utildefines.h"
+
 #include "BKE_DerivedMesh.h"
 #include "BKE_gpencil.h"
+#include "BKE_colortools.h"
 
 #include "MOD_modifiertypes.h"
 
@@ -47,13 +49,35 @@ static void initData(ModifierData *md)
 	gpmd->thickness = 0;
 	gpmd->layername[0] = '\0';
 	gpmd->vgname[0] = '\0';
+	gpmd->cur_thickness = curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
+	if (gpmd->cur_thickness) {
+		curvemapping_initialize(gpmd->cur_thickness);
+	}
 
 	BKE_gpencil_batch_cache_alldirty();
 }
 
+static void freeData(ModifierData *md)
+{
+	GpencilThickModifierData *gpmd = (GpencilThickModifierData *)md;
+
+	if (gpmd->cur_thickness) {
+		curvemapping_free(gpmd->cur_thickness);
+	}
+}
+
 static void copyData(ModifierData *md, ModifierData *target)
 {
+	GpencilThickModifierData *gmd = (GpencilThickModifierData *)md;
+	GpencilThickModifierData *tgmd = (GpencilThickModifierData *)target;
+
+	if (tgmd->cur_thickness != NULL) {
+		curvemapping_free(tgmd->cur_thickness);
+	}
+
 	modifier_copyData_generic(md, target);
+
+	tgmd->cur_thickness = curvemapping_copy(gmd->cur_thickness);
 }
 
 static DerivedMesh *applyModifier(
@@ -94,7 +118,7 @@ ModifierTypeInfo modifierType_GpencilThick = {
 	/* applyModifierEM */   NULL,
 	/* initData */          initData,
 	/* requiredDataMask */  NULL,
-	/* freeData */          NULL,
+	/* freeData */          freeData,
 	/* isDisabled */        NULL,
 	/* updateDepsgraph */   NULL,
 	/* dependsOnTime */     NULL,

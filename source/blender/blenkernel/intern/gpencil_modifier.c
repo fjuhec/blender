@@ -48,6 +48,7 @@
 #include "BKE_lattice.h"
 #include "BKE_gpencil.h"
 #include "BKE_modifier.h"
+#include "BKE_colortools.h"
 
 /* used to save temp strokes */
 typedef struct tGPencilStrokeCache {
@@ -387,6 +388,7 @@ void BKE_gpencil_thick_modifier(int UNUSED(id), GpencilThickModifierData *mmd, O
 	bGPDspoint *pt;
 	int vindex = get_vertex_group_index(ob, mmd->vgname);
 	float weight = 1.0f;
+	float curvef = 1.0;
 
 	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
 		(bool)mmd->flag & GP_THICK_INVERSE_LAYER, (bool)mmd->flag & GP_THICK_INVERSE_PASS)) {
@@ -394,6 +396,7 @@ void BKE_gpencil_thick_modifier(int UNUSED(id), GpencilThickModifierData *mmd, O
 	}
 
 	for (int i = 0; i < gps->totpoints; ++i) {
+		curvef = 1.0;
 		pt = &gps->points[i];
 		/* verify vertex group */
 		weight = is_point_affected_by_modifier(pt, (int)(!(mmd->flag & GP_THICK_INVERSE_VGROUP) == 0), vindex);
@@ -401,7 +404,13 @@ void BKE_gpencil_thick_modifier(int UNUSED(id), GpencilThickModifierData *mmd, O
 			continue;
 		}
 
-		pt->pressure += mmd->thickness * weight;
+		if ((mmd->flag & GP_THICK_CUSTOM_CURVE) && (mmd->cur_thickness)) {
+			/* nomalize value */
+			float value = (float)i / (gps->totpoints - 1);
+			curvef = curvemapping_evaluateF(mmd->cur_thickness, 0, value);
+		}
+
+		pt->pressure += mmd->thickness * weight * curvef;
 		CLAMP(pt->strength, 0.0f, 1.0f);
 	}
 

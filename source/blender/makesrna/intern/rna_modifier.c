@@ -5074,6 +5074,16 @@ static void rna_def_modifier_gpencilthick(BlenderRNA *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_THICK_INVERSE_VGROUP);
 	RNA_def_property_ui_text(prop, "Inverse VertexGroup", "Inverse filter");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "use_custom_curve", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_THICK_CUSTOM_CURVE);
+	RNA_def_property_ui_text(prop, "Custom Curve", "Use a custom curve to define thickness changes");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "curve", PROP_POINTER, PROP_NONE);
+	RNA_def_property_pointer_sdna(prop, NULL, "cur_thickness");
+	RNA_def_property_ui_text(prop, "Curve", "Custom Thickness Curve");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
 static void rna_def_modifier_gpenciltint(BlenderRNA *brna)

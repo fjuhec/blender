@@ -1635,6 +1635,13 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop_search(md, "vertex_group", ob, "vertex_groups", text="")
         row.prop(md, "inverse_vertex", text="", icon="ARROW_LEFTRIGHT")
 
+        split = layout.split()
+        col = split.column()
+        col.prop(md, "use_custom_curve")
+
+        if md.use_custom_curve:
+            col.template_curve_mapping(md, "curve")
+
     def GP_TINT(self, layout, ob, md):
         gpd = ob.grease_pencil
         split = layout.split()
