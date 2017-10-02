@@ -239,6 +239,39 @@ void BKE_gpencil_free_layers(ListBase *list)
 	}
 }
 
+/* Free palette slot
+ * NOTE: This doesn't unlink the palette from any strokes that may be using it
+ */
+void BKE_gpencil_palette_slot_free(bGPdata *gpd, bGPDpaletteref *gpref)
+{
+	if (ELEM(NULL, gpd, gpref))
+		return;
+	
+	/* unlink palette */
+	if (gpref->palette) {
+		id_us_min(&gpref->palette->id);
+	}
+	
+	/* free slot */
+	BLI_freelinkN(&gpd->palette_slots, gpref);
+}
+
+/* Free palette slots */
+static void BKE_gpencil_free_paletteslots(bGPdata *gpd)
+{
+	bGPDpaletteref *gpref, *gpr_next;
+	
+	/* error checking */
+	if (gpd == NULL) return;
+	
+	/* delete palette slots */
+	for (gpref = gpd->palette_slots.first; gpref; gpref = gpr_next) {
+		gpr_next = gpref->next;
+		
+		BKE_gpencil_palette_slot_free(gpd, gpref);
+	}
+}
+
 /* clear all runtime derived data */
 static void BKE_gpencil_clear_derived(bGPDlayer *gpl)
 {
@@ -306,6 +339,11 @@ void BKE_gpencil_free(bGPdata *gpd, bool free_all)
 	if (free_all) {
 		/* clear cache */
 		BKE_gpencil_batch_cache_free(gpd);
+		
+		/* free palette slots */
+		BKE_gpencil_free_paletteslots(gpd);
+		
+		/* free palettes (deprecated) */
 		BKE_gpencil_free_palettes(&gpd->palettes);
 	}
 }
@@ -1368,6 +1406,89 @@ void BKE_gpencil_brush_delete(ToolSettings *ts, bGPDbrush *brush)
 
 	/* free */
 	BLI_freelinkN(&ts->gp_brushes, brush);
+}
+
+/* ************************************************** */
+/* GP Palette Slots API */
+
+/* Get active palette slot */
+bGPDpaletteref *BKE_gpencil_paletteslot_get_active(const bGPdata *gpd)
+{
+	/* sanity checks */
+	if (ELEM(NULL, gpd, gpd->palette_slots.first))
+		return NULL;
+	
+	/* use active_index value to find the relevant slot */
+	return BLI_findlink(&gpd->palette_slots, gpd->active_palette_slot);
+}
+
+/* Set active palette slot */
+void BKE_gpencil_paletteslot_set_active(bGPdata *gpd, const bGPDpaletteref *gpref)
+{
+	/* sanity checks */
+	if (ELEM(NULL, gpd, gpref))
+		return;
+	
+	/* try to find index of this item, assuming it exists in the list */
+	gpd->active_palette_slot = BLI_findindex(&gpd->palette_slots, gpref);
+}
+
+/* Make the slot using this palette active */
+void BKE_gpencil_paletteslot_set_active_palette(bGPdata *gpd, const Palette *palette)
+{
+	bGPDpaletteref *gpref = BKE_gpencil_paletteslot_find(gpd, palette);
+	BKE_gpencil_paletteslot_set_active(gpd, gpref);
+}
+
+/* Get palette slot that uses this Palette */
+bGPDpaletteref *BKE_gpencil_paletteslot_find(bGPdata *gpd, const Palette *palette)
+{
+	bGPDpaletteref *gpref;
+	
+	/* sanity checks */
+	if (ELEM(NULL, gpd, palette))
+		return NULL;
+	
+	/* search for the palette */
+	for (gpref = gpd->palette_slots.first; gpref; gpref = gpref->next) {
+		if (gpref->palette == palette)
+			return gpref;
+	}
+	
+	/* not found */
+	return NULL;
+}
+
+/* Create a new palette slot (and optionally assign a palette to it) */
+bGPDpaletteref *BKE_gpencil_paletteslot_addnew(bGPdata *gpd, Palette *palette)
+{
+	bGPDpaletteref *gpref;
+	
+	/* sanity checks */
+	if (gpd == NULL) {
+		return NULL;
+	}
+	if (palette) {
+		/* check if it's used already - don't allow for duplicates */
+		gpref = BKE_gpencil_paletteslot_find(gpd, palette);
+		if (gpref) {
+			/* just return existing? */
+			return gpref;
+		}
+	}
+	
+	/* allocate a new slot, and assigned palette as user */
+	gpref = MEM_callocN(sizeof(bGPDpaletteref), "bGPDpaletteref");
+	BLI_addtail(&gpd->palette_slots, gpref);
+	
+	/* assign palette */
+	if (palette) {
+		gpref->palette = palette;
+		id_us_plus(&palette->id);
+	}
+	
+	/* return new slot */
+	return gpref;
 }
 
 /* ************************************************** */
