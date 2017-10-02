@@ -352,6 +352,8 @@ typedef struct EEVEE_LightProbesInfo {
 /* EEVEE_LightProbesInfo->update_flag */
 enum {
 	PROBE_UPDATE_CUBE = (1 << 0),
+	PROBE_UPDATE_GRID = (1 << 1),
+	PROBE_UPDATE_ALL  = 0xFFFFFF,
 };
 
 /* ************ EFFECTS DATA ************* */
@@ -374,6 +376,7 @@ typedef struct EEVEE_EffectsInfo {
 	int taa_current_sample;
 	int taa_total_sample;
 	float taa_alpha;
+	bool prev_drw_support;
 	float prev_drw_persmat[4][4];
 	float overide_persmat[4][4];
 	float overide_persinv[4][4];
