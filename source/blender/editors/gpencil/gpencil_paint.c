@@ -1330,10 +1330,9 @@ static void gp_init_drawing_brush(ToolSettings *ts, tGPsdata *p)
 /* initialize a paint palette brush and a default color if not exist */
 static void gp_init_palette(tGPsdata *p)
 {
-	Palette *palette;
+	Palette *palette = p->palette;
 	PaletteColor *palcolor = NULL;
-
-	palette = p->palette;
+	bGPdata *pdata = p->gpd;
 
 	if (palette) {
 		/* palette needs one color */
@@ -1352,8 +1351,15 @@ static void gp_init_palette(tGPsdata *p)
 		BLI_strncpy(p->gpd->last_palette_name, palette->id.name, sizeof(p->gpd->last_palette_name));
 	}
 
-	/* asign to temp tGPsdata */
+	/* assign to temp tGPsdata */
 	p->palettecolor = palcolor;
+	
+	/* set palette colors */
+	copy_v4_v4(pdata->scolor, palcolor->rgb);
+	copy_v4_v4(pdata->sfill, palcolor->fill);
+	pdata->sflag = palcolor->flag;
+	pdata->bstroke_style = palcolor->stroke_style;
+	pdata->bfill_style = palcolor->fill_style;
 }
 
 /* (re)init new painting data */
@@ -1565,18 +1571,12 @@ static bool gp_session_initdata(bContext *C, tGPsdata *p)
 	
 	/* clear out buffer (stored in gp-data), in case something contaminated it */
 	gp_session_validatebuffer(p);
+	
 	/* set brush and create a new one if null */
 	gp_init_drawing_brush(ts, p);
+	
 	/* set palette info and create a new one if null */
 	gp_init_palette(p);
-	/* set palette colors */
-	PaletteColor *palcolor = p->palettecolor;
-	bGPdata *pdata = p->gpd;
-	copy_v4_v4(pdata->scolor, palcolor->rgb);
-	copy_v4_v4(pdata->sfill, palcolor->fill);
-	pdata->sflag = palcolor->flag;
-	pdata->bstroke_style = palcolor->stroke_style;
-	pdata->bfill_style = palcolor->fill_style;
 
 	/* lock axis */
 	p->lock_axis = ts->gp_sculpt.lock_axis;
