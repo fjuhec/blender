@@ -870,23 +870,25 @@ void GPENCIL_OT_stroke_arrange(wmOperatorType *ot)
 
 	ot->prop = RNA_def_enum(ot->srna, "direction", slot_move, GP_STROKE_MOVE_UP, "Direction", "");
 }
+
 /* ******************* Move Stroke to new palette ************************** */
 
 static int gp_stroke_change_palette_exec(bContext *C, wmOperator *op)
 {
-	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	Scene *scene = CTX_data_scene(C);
 	const int type = RNA_enum_get(op->ptr, "type");
 
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	bGPDpaletteref *palslot = BKE_gpencil_paletteslot_get_active(gpd);
 	Palette *palette;
 	PaletteColor *palcolor;
 
 	/* sanity checks */
-	if (ELEM(NULL, gpd)) {
+	if (ELEM(NULL, gpd, palslot)) {
 		return OPERATOR_CANCELLED;
 	}
 
-	palette = BKE_palette_get_active_from_context(C);
+	palette = palslot->palette;
 	if (ELEM(NULL, palette)) {
 		return OPERATOR_CANCELLED;
 	}
@@ -972,16 +974,17 @@ void GPENCIL_OT_stroke_change_palette(wmOperatorType *ot)
 static int gp_stroke_change_color_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	bGPDpaletteref *palslot = BKE_gpencil_paletteslot_get_active(gpd);
 	Palette *palette;
 	PaletteColor *color;
 
 	/* sanity checks */
-	if (ELEM(NULL, gpd)) {
+	if (ELEM(NULL, gpd, palslot)) {
 		return OPERATOR_CANCELLED;
 	}
 
-	palette = BKE_palette_get_active_from_context(C);
-	color = BKE_palette_color_get_active_from_context(C);
+	palette = palslot->palette;
+	color = BKE_palette_color_get_active(palette);
 	if (ELEM(NULL, color)) {
 		return OPERATOR_CANCELLED;
 	}
@@ -1034,13 +1037,14 @@ void GPENCIL_OT_stroke_change_color(wmOperatorType *ot)
 static int gp_stroke_lock_color_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	bGPDpaletteref *palslot = BKE_gpencil_paletteslot_get_active(gpd);
 	Palette *palette;
 
 	/* sanity checks */
-	if (ELEM(NULL, gpd))
+	if (ELEM(NULL, gpd, palslot))
 		return OPERATOR_CANCELLED;
 
-	palette = BKE_palette_get_active_from_context(C);
+	palette = palslot->palette;
 	if (ELEM(NULL, palette))
 		return OPERATOR_CANCELLED;
 	
@@ -1489,6 +1493,7 @@ void GPENCIL_OT_sculpt_select(wmOperatorType *ot)
 }
 
 /* ******************* Convert animation data ************************ */
+
 static int gp_convert_old_palettes_poll(bContext *C)
 {
 	/* TODO: need better poll*/
@@ -1529,6 +1534,7 @@ void GPENCIL_OT_convert_old_palettes(wmOperatorType *ot)
 }
 
 /* ******************* Convert scene gp data to gp object ************************ */
+
 static int gp_convert_scene_to_object_poll(bContext *C)
 {
 	Scene *scene = CTX_data_scene(C);
@@ -1576,7 +1582,8 @@ void GPENCIL_OT_convert_scene_to_object(wmOperatorType *ot)
 	ot->poll = gp_convert_scene_to_object_poll;
 }
 
-/**** Vertex Groups ****/
+/*********************** Vertex Groups ***********************************/
+
 static int gpencil_vertex_group_poll(bContext *C)
 {
 	Object *ob = CTX_data_active_object(C);
