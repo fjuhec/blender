@@ -242,33 +242,33 @@ void BKE_gpencil_free_layers(ListBase *list)
 /* Free palette slot
  * NOTE: This doesn't unlink the palette from any strokes that may be using it
  */
-void BKE_gpencil_palette_slot_free(bGPdata *gpd, bGPDpaletteref *gpref)
+void BKE_gpencil_palette_slot_free(bGPdata *gpd, bGPDpaletteref *palslot)
 {
-	if (ELEM(NULL, gpd, gpref))
+	if (ELEM(NULL, gpd, palslot))
 		return;
 	
 	/* unlink palette */
-	if (gpref->palette) {
-		id_us_min(&gpref->palette->id);
+	if (palslot->palette) {
+		id_us_min(&palslot->palette->id);
 	}
 	
 	/* free slot */
-	BLI_freelinkN(&gpd->palette_slots, gpref);
+	BLI_freelinkN(&gpd->palette_slots, palslot);
 }
 
 /* Free palette slots */
 static void BKE_gpencil_free_paletteslots(bGPdata *gpd)
 {
-	bGPDpaletteref *gpref, *gpr_next;
+	bGPDpaletteref *palslot, *gpr_next;
 	
 	/* error checking */
 	if (gpd == NULL) return;
 	
 	/* delete palette slots */
-	for (gpref = gpd->palette_slots.first; gpref; gpref = gpr_next) {
-		gpr_next = gpref->next;
+	for (palslot = gpd->palette_slots.first; palslot; palslot = gpr_next) {
+		gpr_next = palslot->next;
 		
-		BKE_gpencil_palette_slot_free(gpd, gpref);
+		BKE_gpencil_palette_slot_free(gpd, palslot);
 	}
 }
 
@@ -1423,36 +1423,36 @@ bGPDpaletteref *BKE_gpencil_paletteslot_get_active(const bGPdata *gpd)
 }
 
 /* Set active palette slot */
-void BKE_gpencil_paletteslot_set_active(bGPdata *gpd, const bGPDpaletteref *gpref)
+void BKE_gpencil_paletteslot_set_active(bGPdata *gpd, const bGPDpaletteref *palslot)
 {
 	/* sanity checks */
-	if (ELEM(NULL, gpd, gpref))
+	if (ELEM(NULL, gpd, palslot))
 		return;
 	
 	/* try to find index of this item, assuming it exists in the list */
-	gpd->active_palette_slot = BLI_findindex(&gpd->palette_slots, gpref);
+	gpd->active_palette_slot = BLI_findindex(&gpd->palette_slots, palslot);
 }
 
 /* Make the slot using this palette active */
 void BKE_gpencil_paletteslot_set_active_palette(bGPdata *gpd, const Palette *palette)
 {
-	bGPDpaletteref *gpref = BKE_gpencil_paletteslot_find(gpd, palette);
-	BKE_gpencil_paletteslot_set_active(gpd, gpref);
+	bGPDpaletteref *palslot = BKE_gpencil_paletteslot_find(gpd, palette);
+	BKE_gpencil_paletteslot_set_active(gpd, palslot);
 }
 
 /* Get palette slot that uses this Palette */
 bGPDpaletteref *BKE_gpencil_paletteslot_find(bGPdata *gpd, const Palette *palette)
 {
-	bGPDpaletteref *gpref;
+	bGPDpaletteref *palslot;
 	
 	/* sanity checks */
 	if (ELEM(NULL, gpd, palette))
 		return NULL;
 	
 	/* search for the palette */
-	for (gpref = gpd->palette_slots.first; gpref; gpref = gpref->next) {
-		if (gpref->palette == palette)
-			return gpref;
+	for (palslot = gpd->palette_slots.first; palslot; palslot = palslot->next) {
+		if (palslot->palette == palette)
+			return palslot;
 	}
 	
 	/* not found */
@@ -1462,7 +1462,7 @@ bGPDpaletteref *BKE_gpencil_paletteslot_find(bGPdata *gpd, const Palette *palett
 /* Create a new palette slot (and optionally assign a palette to it) */
 bGPDpaletteref *BKE_gpencil_paletteslot_addnew(bGPdata *gpd, Palette *palette)
 {
-	bGPDpaletteref *gpref;
+	bGPDpaletteref *palslot;
 	
 	/* sanity checks */
 	if (gpd == NULL) {
@@ -1470,25 +1470,25 @@ bGPDpaletteref *BKE_gpencil_paletteslot_addnew(bGPdata *gpd, Palette *palette)
 	}
 	if (palette) {
 		/* check if it's used already - don't allow for duplicates */
-		gpref = BKE_gpencil_paletteslot_find(gpd, palette);
-		if (gpref) {
+		palslot = BKE_gpencil_paletteslot_find(gpd, palette);
+		if (palslot) {
 			/* just return existing? */
-			return gpref;
+			return palslot;
 		}
 	}
 	
 	/* allocate a new slot, and assigned palette as user */
-	gpref = MEM_callocN(sizeof(bGPDpaletteref), "bGPDpaletteref");
-	BLI_addtail(&gpd->palette_slots, gpref);
+	palslot = MEM_callocN(sizeof(bGPDpaletteref), "bGPDpaletteref");
+	BLI_addtail(&gpd->palette_slots, palslot);
 	
 	/* assign palette */
 	if (palette) {
-		gpref->palette = palette;
+		palslot->palette = palette;
 		id_us_plus(&palette->id);
 	}
 	
 	/* return new slot */
-	return gpref;
+	return palslot;
 }
 
 /* ************************************************** */

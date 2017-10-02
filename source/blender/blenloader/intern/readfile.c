@@ -6571,8 +6571,8 @@ static void lib_link_gpencil(FileData *fd, Main *main)
 			}
 			
 			/* Palette Slots */
-			for (bGPDpaletteref *gpref = gpd->palette_slots.first; gpref; gpref = gpref->next) {
-				gpref->palette = newlibadr_us(fd, gpd->id.lib, gpref->palette);
+			for (bGPDpaletteref *palslot = gpd->palette_slots.first; palslot; palslot = palslot->next) {
+				palslot->palette = newlibadr_us(fd, gpd->id.lib, palslot->palette);
 			}
 
 			IDP_LibLinkProperty(gpd->id.properties, fd);
@@ -10117,8 +10117,8 @@ static void expand_gpencil(FileData *fd, Main *mainvar, bGPdata *gpd)
 		}
 	}
 	
-	for (bGPDpaletteref *gpref = gpd->palette_slots.first; gpref; gpref = gpref->next) {
-		expand_doit(fd, mainvar, gpref->palette);
+	for (bGPDpaletteref *palslot = gpd->palette_slots.first; palslot; palslot = palslot->next) {
+		expand_doit(fd, mainvar, palslot->palette);
 	}
 }
 
