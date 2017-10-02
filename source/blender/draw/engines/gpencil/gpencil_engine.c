@@ -664,7 +664,7 @@ static void GPENCIL_draw_scene(void *vedata)
 					DRW_framebuffer_bind(dfbl->default_fb);
 
 					MULTISAMPLE_SYNC_ENABLE(dfbl)
-						/* Mix Pass: DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS */
+					/* Mix Pass: DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS */
 					DRW_draw_pass(psl->mix_pass);
 					/* prepare for fast drawing */
 					gpencil_prepare_fast_drawing(stl, dfbl, fbl, psl->mix_pass_noblend, clearcol);
