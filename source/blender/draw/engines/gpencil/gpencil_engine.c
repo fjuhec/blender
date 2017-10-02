@@ -650,18 +650,26 @@ static void GPENCIL_draw_scene(void *vedata)
 					gpencil_vfx_passes(vedata, cache);
 					/* Combine with default scene buffer always using tx_a as source texture */
 					DRW_framebuffer_bind(dfbl->default_fb);
+					
+					MULTISAMPLE_SYNC_ENABLE(dfbl)
 					/* Mix VFX Pass */
 					DRW_draw_pass(psl->mix_vfx_pass);
 					/* prepare for fast drawing */
 					gpencil_prepare_fast_drawing(stl, dfbl, fbl, psl->mix_vfx_pass_noblend, clearcol);
+
+					MULTISAMPLE_SYNC_DISABLE(dfbl)
 				}
 				else {
 					/* Combine with scene buffer without more passes */
 					DRW_framebuffer_bind(dfbl->default_fb);
-					/* Mix Pass: DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS */
+
+					MULTISAMPLE_SYNC_ENABLE(dfbl)
+						/* Mix Pass: DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS */
 					DRW_draw_pass(psl->mix_pass);
 					/* prepare for fast drawing */
 					gpencil_prepare_fast_drawing(stl, dfbl, fbl, psl->mix_pass_noblend, clearcol);
+
+					MULTISAMPLE_SYNC_DISABLE(dfbl)
 				}
 			}
 			/* edit points */
