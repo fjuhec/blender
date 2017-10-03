@@ -790,11 +790,13 @@ GHash *gp_copybuf_validate_colormap(bContext *C)
 	GHash *new_colors = BLI_ghash_str_new("GPencil Paste Dst Colors");
 	GHashIterator gh_iter;
 	
+	bGPdata *gpd = CTX_data_gpencil_data(C);
+	bGPDpaletteref *palslot;
+	Palette *palette;
+	
 	/* If there's no active palette yet (i.e. new datablock), add one */
-	Palette *palette = BKE_palette_get_active_from_context(C);
-	if (palette == NULL) {
-		palette = BKE_palette_add_gpencil(C);
-	}
+	palslot = BKE_gpencil_paletteslot_validate(CTX_data_main(C), gpd);
+	palette = palslot->palette;
 	
 	/* For each color, figure out what to map to... */
 	GHASH_ITER(gh_iter, gp_strokes_copypastebuf_colors) {

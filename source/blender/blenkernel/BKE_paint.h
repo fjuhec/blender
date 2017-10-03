@@ -101,7 +101,6 @@ void BKE_paint_set_overlay_override(enum OverlayFlags flag);
 /* palettes */
 void                 BKE_palette_free(struct Palette *palette);
 struct Palette      *BKE_palette_add(struct Main *bmain, const char *name);
-struct Palette      *BKE_palette_add_gpencil(const struct bContext *C);
 void BKE_palette_copy_data(
         struct Main *bmain, struct Palette *palette_dst, const struct Palette *palette_src, const int flag);
 struct Palette      *BKE_palette_copy(struct Main *bmain, const struct Palette *palette);

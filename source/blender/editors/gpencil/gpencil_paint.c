@@ -121,6 +121,8 @@ typedef enum eGPencil_PaintFlags {
  */
 typedef struct tGPsdata {
 	EvaluationContext eval_ctx;
+	
+	Main *bmain;        /* main database pointer */
 	Scene *scene;       /* current scene from context */
 	struct Depsgraph *graph;
 	
@@ -130,7 +132,6 @@ typedef struct tGPsdata {
 	View2D *v2d;        /* needed for GP_STROKE_2DSPACE */
 	rctf *subrect;      /* for using the camera rect within the 3d view */
 	rctf subrect_data;
-	Palette *palette;   /* current palette */
 
 	GP_SpaceConversion gsc; /* settings to pass to gp_points_to_xy() */
 	
@@ -169,8 +170,11 @@ typedef struct tGPsdata {
 	
 	void *erasercursor; /* radial cursor data for drawing eraser */
 
+	/* Palette settings are only used for 3D view */
+	Palette *palette;   /* current palette */
 	PaletteColor *palettecolor; /* current palette color */
-	bGPDbrush *brush; /* current drawing brush */
+	
+	bGPDbrush *brush;    /* current drawing brush */
 	short straight[2];   /* 1: line horizontal, 2: line vertical, other: not defined, second element position */
 	int lock_axis;       /* lock drawing to one axis */
 
@@ -1001,10 +1005,12 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 		if (depth_arr)
 			MEM_freeN(depth_arr);
 	}
+	
 	/* Save palette color */
 	gps->palette = p->palette;
 	gps->palcolor = p->palettecolor;
-	BLI_strncpy(gps->colorname, p->palettecolor->info, sizeof(gps->colorname));
+	if (p->palettecolor)
+		BLI_strncpy(gps->colorname, p->palettecolor->info, sizeof(gps->colorname));
 
 	/* add stroke to frame, usually on tail of the listbase, but if on back is enabled the stroke is added on listbase head 
 	 * because the drawing order is inverse and the head stroke is the first to draw. This is very useful for artist
@@ -1330,36 +1336,35 @@ static void gp_init_drawing_brush(ToolSettings *ts, tGPsdata *p)
 /* initialize a paint palette brush and a default color if not exist */
 static void gp_init_palette(tGPsdata *p)
 {
-	Palette *palette = p->palette;
-	PaletteColor *palcolor = NULL;
-	bGPdata *pdata = p->gpd;
-
-	if (palette) {
-		/* palette needs one color */
-		if (BKE_palette_is_empty(palette)) {
-			palcolor = BKE_palette_color_add_name(palette, DATA_("Color"));
-		}
-		else {
-			palcolor = BKE_palette_color_get_active(palette);
-		}
-		/* in some situations can be null, so use first */
-		if (palcolor == NULL) {
-			palette->active_color = 0;
-			palcolor = palette->colors.first;
-		}
-		/* save last used palette */
-		BLI_strncpy(p->gpd->last_palette_name, palette->id.name, sizeof(p->gpd->last_palette_name));
-	}
-
-	/* assign to temp tGPsdata */
-	p->palettecolor = palcolor;
+	bGPdata *gpd = p->gpd;
 	
-	/* set palette colors */
-	copy_v4_v4(pdata->scolor, palcolor->rgb);
-	copy_v4_v4(pdata->sfill, palcolor->fill);
-	pdata->sflag = palcolor->flag;
-	pdata->bstroke_style = palcolor->stroke_style;
-	pdata->bfill_style = palcolor->fill_style;
+	bGPDpaletteref *palslot;
+	Palette *palette = NULL;
+	PaletteColor *palcolor = NULL;
+	
+	/* get palette and color info
+	 * NOTE: _validate() ensures that everything we need will exist...
+	 */
+	palslot  = BKE_gpencil_paletteslot_validate(p->bmain, gpd);
+	palette  = palslot->palette;
+	palcolor = BKE_palette_color_get_active(palette);
+	
+	/* save last used palette */
+	// XXX: WHY???
+	BLI_strncpy(gpd->last_palette_name, palette->id.name, sizeof(gpd->last_palette_name));
+	
+	/* assign color to temp tGPsdata */
+	if (palcolor) {
+		p->palette = palette;
+		p->palettecolor = palcolor;
+		
+		/* set palette colors */
+		copy_v4_v4(gpd->scolor, palcolor->rgb);
+		copy_v4_v4(gpd->sfill, palcolor->fill);
+		gpd->sflag = palcolor->flag;
+		gpd->bstroke_style = palcolor->stroke_style;
+		gpd->bfill_style = palcolor->fill_style;
+	}
 }
 
 /* (re)init new painting data */
@@ -1382,14 +1387,10 @@ static bool gp_session_initdata(bContext *C, tGPsdata *p)
 	
 	/* pass on current scene and window */
 	CTX_data_eval_ctx(C, &p->eval_ctx);
+	p->bmain = CTX_data_main(C);
 	p->scene = CTX_data_scene(C);
 	p->graph = CTX_data_depsgraph(C);
 	p->win = CTX_wm_window(C);
-	p->palette = BKE_palette_get_active_from_context(C);
-	/* if not exist palette, create a new one */
-	if (!p->palette) {
-		p->palette = BKE_palette_add_gpencil(C);
-	}
 	
 	unit_m4(p->imat);
 	unit_m4(p->mat);
@@ -1574,9 +1575,14 @@ static bool gp_session_initdata(bContext *C, tGPsdata *p)
 	
 	/* set brush and create a new one if null */
 	gp_init_drawing_brush(ts, p);
-	
-	/* set palette info and create a new one if null */
-	gp_init_palette(p);
+
+	/* setup active palette */
+	if (curarea->spacetype == SPACE_VIEW3D) {
+		/* NOTE: This is only done for 3D view, as Palettes aren't used for
+		 *       annotations in 2D editors
+		 */
+		gp_init_palette(p);
+	}
 
 	/* lock axis */
 	p->lock_axis = ts->gp_sculpt.lock_axis;

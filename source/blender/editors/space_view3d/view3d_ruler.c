@@ -301,6 +301,7 @@ static bool view3d_ruler_to_gpencil(bContext *C, RulerInfo *ruler_info)
 	bGPDlayer *gpl;
 	bGPDframe *gpf;
 	bGPDstroke *gps;
+	bGPDpaletteref *palslot;
 	Palette *palette;
 	PaletteColor *palcolor;
 	RulerItem *ruler_item;
@@ -319,13 +320,9 @@ static bool view3d_ruler_to_gpencil(bContext *C, RulerInfo *ruler_info)
 	}
 
 	/* try to get active palette or create a new one */
-	palette = BKE_palette_get_active_from_context(C);
-
-	if (palette == NULL) {
-		palette = BKE_palette_add_gpencil(C);
-		/* now create a default color */
-		palcolor = BKE_palette_color_add(palette);
-	}
+	palslot  = BKE_gpencil_paletteslot_validate(CTX_data_main(C), scene->gpd);
+	palette  = palslot->palette;
+	
 	/* try to get color with the ruler name or create a new one */
 	palcolor = BKE_palette_color_getbyname(palette, (char *)ruler_name);
 	if (palcolor == NULL) {

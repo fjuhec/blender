@@ -149,13 +149,16 @@ void BKE_gpencil_brush_delete(struct ToolSettings *ts, struct bGPDbrush *brush);
 /* Palette Slots */
 void BKE_gpencil_palette_slot_free(struct bGPdata *gpd, struct bGPDpaletteref *palslot);
 
+struct bGPDpaletteref *BKE_gpencil_paletteslot_find(struct bGPdata *gpd, const struct Palette *palette);
+
 struct bGPDpaletteref *BKE_gpencil_paletteslot_get_active(const struct bGPdata *gpd);
 void BKE_gpencil_paletteslot_set_active(struct bGPdata *gpd, const struct bGPDpaletteref *palslot);
 void BKE_gpencil_paletteslot_set_active_palette(struct bGPdata *gpd, const struct Palette *palette);
-struct bGPDpaletteref *BKE_gpencil_paletteslot_find(struct bGPdata *gpd, const struct Palette *palette);
 
-struct bGPDpaletteref *BKE_gpencil_paletteslot_addnew(struct bGPdata *gpd, struct Palette *palette);
+void BKE_gpencil_paletteslot_set_palette(struct bGPdata *gpd, struct bGPDpaletteref *palslot, struct Palette *palette);
 
+struct bGPDpaletteref *BKE_gpencil_paletteslot_add(struct bGPdata *gpd, struct Palette *palette);
+struct bGPDpaletteref *BKE_gpencil_paletteslot_validate(struct Main *bmain, struct bGPdata *gpd);
 
 /* Palettes - Deprecated (2.78-2.79) */
 void BKE_gpencil_free_palettes(struct ListBase *list);

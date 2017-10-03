@@ -1411,6 +1411,8 @@ void BKE_gpencil_brush_delete(ToolSettings *ts, bGPDbrush *brush)
 /* ************************************************** */
 /* GP Palette Slots API */
 
+/* Active Palette Slot ------------------------------ */
+
 /* Get active palette slot */
 bGPDpaletteref *BKE_gpencil_paletteslot_get_active(const bGPdata *gpd)
 {
@@ -1440,6 +1442,8 @@ void BKE_gpencil_paletteslot_set_active_palette(bGPdata *gpd, const Palette *pal
 	BKE_gpencil_paletteslot_set_active(gpd, palslot);
 }
 
+/* Slot Lookup ------------------------------------- */
+
 /* Get palette slot that uses this Palette */
 bGPDpaletteref *BKE_gpencil_paletteslot_find(bGPdata *gpd, const Palette *palette)
 {
@@ -1459,8 +1463,10 @@ bGPDpaletteref *BKE_gpencil_paletteslot_find(bGPdata *gpd, const Palette *palett
 	return NULL;
 }
 
+/* Add Slots --------------------------------------- */
+
 /* Create a new palette slot (and optionally assign a palette to it) */
-bGPDpaletteref *BKE_gpencil_paletteslot_addnew(bGPdata *gpd, Palette *palette)
+bGPDpaletteref *BKE_gpencil_paletteslot_add(bGPdata *gpd, Palette *palette)
 {
 	bGPDpaletteref *palslot;
 	
@@ -1489,6 +1495,111 @@ bGPDpaletteref *BKE_gpencil_paletteslot_addnew(bGPdata *gpd, Palette *palette)
 	
 	/* return new slot */
 	return palslot;
+}
+
+/* Get active palette slot, and add all default settings if we don't find anything */
+bGPDpaletteref *BKE_gpencil_paletteslot_validate(Main *bmain, bGPdata *gpd)
+{
+	bGPDpaletteref *palslot;
+	Palette *palette;
+	
+	/* sanity checks */
+	if (ELEM(NULL, bmain, gpd))
+		return NULL;
+	
+	/* ensure a palette slot exists */
+	palslot = BKE_gpencil_paletteslot_get_active(gpd);
+	if (palslot == NULL) {
+		palslot = BKE_gpencil_paletteslot_add(gpd, NULL);
+	}
+	
+	/* ensure a palette exists */
+	/* XXX: use "active palette" instead of making a new one each time? */
+	if (palslot->palette == NULL) {
+		palslot->palette = BKE_palette_add(bmain, "Palette");
+		id_us_plus(&palslot->palette->id);
+	}
+	
+	/* ensure the palette has colors, and that the active one is usable */
+	palette = palslot->palette;
+	if (BKE_palette_is_empty(palette)) {
+		/* init the default set if none exist */
+		BKE_palette_color_add_default_set(palette);
+	}
+	else if (BKE_palette_color_get_active(palette) == NULL) {
+		/* sometimes the "active" color is unreachable
+		 * (e.g. after deleting the previously active one)
+		 */
+		palette->active_color = 0;
+	}
+	
+	/* return the slot (this is more useful, as we can still get the palette from it) */
+	return palslot;
+}
+
+/* Palette Assignment ------------------------------- */
+
+/**
+ * Helper for BKE_gpencil_paletteslot_set_palette()
+ *
+ * Change all strokes using 'old_palette' to use 'new_palette' instead.
+ */
+/* XXX: This overlaps with the operators, but this one just does bulk replacement */
+/* TODO: Optimise with hash lookups? */
+static void gpencil_strokes_palette_change_all(bGPdata *gpd, Palette *old_palette, Palette *new_palette)
+{
+	if (BKE_palette_is_empty(old_palette))
+		return;
+	
+	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+				/* check if this stroke uses the old palette */
+				if (gps->palette == old_palette) {
+					/* change palette */
+					gps->palette = new_palette;
+					
+					/* find new matching color */
+					// XXX: optimise?
+					// XXX: what to do if not set?
+					gps->palcolor = BKE_palette_color_getbyname(new_palette, gps->colorname);
+				}
+			}
+		}
+	}
+}
+
+/* Set the palette used by this slot */
+void BKE_gpencil_paletteslot_set_palette(bGPdata *gpd, bGPDpaletteref *palslot, Palette *palette)
+{
+	/* sanity checks */
+	if (ELEM(NULL, gpd, palslot))
+		return;
+	
+	/* Save effort if nothing changes... */
+	/* XXX: This does mean that "flushing" the property to fix any errors won't work... */
+	if (palslot->palette == palette)
+		return;
+	
+	/* Unset existing palette */
+	if (palslot->palette) {
+		/* Unbind all strokes using this, as the slots *must*
+		 * reflect all the palettes used by the strokes
+		 *
+		 * XXX: What happens if the new Palette doesn't support this new color?
+		 */
+		gpencil_strokes_palette_change_all(gpd, palslot->palette, palette);
+		
+		/* Now clear the old user... */
+		id_us_min(&palslot->palette->id);
+		palslot->palette = NULL;
+	}
+	
+	/* Set new palette */
+	palslot->palette = palette;
+	if (palette) {
+		id_us_plus(&palette->id);
+	}
 }
 
 /* ************************************************** */

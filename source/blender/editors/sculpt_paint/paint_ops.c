@@ -224,16 +224,29 @@ static int palette_poll(bContext *C)
 
 static int palette_new_gpencil_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	BKE_palette_add_gpencil(C);
-
+	bGPdata *gpd = CTX_data_gpencil_data(C);
+	Main *bmain = CTX_data_main(C);
+	
+	/* add new palette for use with active paletteslot */
+	bGPDpaletteref *palslot = BKE_gpencil_paletteslot_get_active(gpd);
+	if (palslot && palslot->palette) {
+		/* we need to replace the existing palette with a new one */
+		Palette *palette = BKE_palette_add(bmain, "Palette");
+		BKE_gpencil_paletteslot_set_palette(gpd, palslot, palette);
+	}
+	else {
+		/* just create everything that doesn't exist already */
+		palslot = BKE_gpencil_paletteslot_validate(bmain, gpd);
+	}
+	
 	return OPERATOR_FINISHED;
 }
 
 static void PALETTE_OT_new_gpencil(wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name = "Add New Palette for grease pencil";
-	ot->description = "Add new palette for using with grease pencil";
+	ot->name = "Add New GPencil Palette";
+	ot->description = "Add new palette for use with Grease Pencil";
 	ot->idname = "PALETTE_OT_new_gpencil";
 
 	/* api callbacks */
@@ -244,6 +257,7 @@ static void PALETTE_OT_new_gpencil(wmOperatorType *ot)
 }
 
 /* ******************* Lock and hide any color non used in current layer ************************** */
+
 static int palette_lock_layer_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
