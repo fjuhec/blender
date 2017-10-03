@@ -1016,7 +1016,7 @@ static int object_gpencil_add_exec(bContext *C, wmOperator *op)
 	ts->gpencil_src = GP_TOOL_SOURCE_OBJECT;
 	/* add a grease pencil datablock */	
 	ob->gpd = BKE_gpencil_data_addnew("GPencil");
-	ED_gpencil_add_defaults(C);
+	
 	/* if type is monkey, create a 2D Suzanne */
 	// TODO: create with offset to cursor?
 	switch (type) {
@@ -1025,11 +1025,14 @@ static int object_gpencil_add_exec(bContext *C, wmOperator *op)
 			ED_gpencil_create_monkey(C, ob->gpd);
 			ED_object_rotation_from_view(C, rot, 'Y');
 			copy_v3_v3(ob->rot, rot);
+			
+			ED_gpencil_add_defaults(C);
 			break;
 		}
 		
 		case GP_EMPTY:
 			/* do nothing */
+			ED_gpencil_add_defaults(C);
 			break;
 		
 		default:
