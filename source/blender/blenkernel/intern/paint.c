@@ -41,6 +41,7 @@
 #include "DNA_scene_types.h"
 #include "DNA_brush_types.h"
 #include "DNA_space_types.h"
+#include "DNA_gpencil_types.h"
 
 #include "BLI_bitmap.h"
 #include "BLI_blenlib.h"
@@ -59,6 +60,7 @@
 #include "BKE_context.h"
 #include "BKE_crazyspace.h"
 #include "BKE_global.h"
+#include "BKE_gpencil.h"
 #include "BKE_image.h"
 #include "BKE_key.h"
 #include "BKE_library.h"
@@ -366,11 +368,21 @@ void BKE_paint_palette_set(Paint *p, Palette *palette)
 
 Palette *BKE_palette_get_active_from_context(const bContext *C)
 {
-	Paint *paint = BKE_paint_get_active_from_context(C);
+	Object *ob = CTX_data_active_object(C);
 	Palette *palette = NULL;
 
-	if (paint && paint->palette) {
-		palette = paint->palette;
+	if ((ob) && (ob->type == OB_GPENCIL)) {
+		bGPdata *gpd = CTX_data_gpencil_data(C);
+		bGPDpaletteref *palslot = BKE_gpencil_paletteslot_get_active(gpd);
+		if (palslot) {
+			palette = palslot->palette;
+		}
+	}
+	else {
+		Paint *paint = BKE_paint_get_active_from_context(C);
+		if (paint && paint->palette) {
+			palette = paint->palette;
+		}
 	}
 
 	return palette;
