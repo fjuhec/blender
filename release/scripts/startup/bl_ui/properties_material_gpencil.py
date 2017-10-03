@@ -18,7 +18,23 @@
 
 # <pep8 compliant>
 import bpy
-from bpy.types import Panel
+from bpy.types import Panel, UIList
+
+
+class GPENCIL_UL_paletteslots(UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        # assert(isinstance(item, bpy.types.GPencilPaletteSlot)
+        # ob = data
+        slot = item
+        palette = slot.palette
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            if palette:
+                layout.prop(palette, "name", text="", emboss=False, icon_value=icon)
+            else:
+                layout.label(text="", icon_value=icon)
+        elif self.layout_type == 'GRID':
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon_value=icon)
 
 
 class MaterialButtonsPanel:
@@ -31,43 +47,63 @@ class MaterialButtonsPanel:
         return context.object and context.object.type == 'GPENCIL'
 
 
-class MATERIAL_PT_gpencil_palettecolor(Panel):
-    bl_label = "Grease Pencil Colors"
+class MATERIAL_PT_gpencil_palette_slots(Panel):
+    bl_label = "Palette Slots"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "material"
-    #bl_options = {'HIDE_HEADER'}
+    bl_options = {'HIDE_HEADER'}
 
     @classmethod
     def poll(cls, context):
         return context.object and context.object.type == 'GPENCIL'
-        
-    @staticmethod
-    def paint_settings(context):
-        toolsettings = context.tool_settings
-
-        if context.sculpt_object:
-            return toolsettings.sculpt
-        elif context.vertex_paint_object:
-            return toolsettings.vertex_paint
-        elif context.weight_paint_object:
-            return toolsettings.weight_paint
-        elif context.image_paint_object:
-            if (toolsettings.image_paint and toolsettings.image_paint.detect_data()):
-                return toolsettings.image_paint
-
-            return toolsettings.image_paint
-
-        return toolsettings.image_paint
 
     @staticmethod
     def draw(self, context):
         layout = self.layout
-        palette = context.active_palette
-        paint = self.paint_settings(context)
+        gpd = context.gpencil_data
 
         row = layout.row()
-        row.template_ID(paint, "palette", new="palette.new_gpencil")
+        col = row.column()
+        if len(gpd.palette_slots) >= 2:
+            slot_rows = 5
+        else:
+            slot_rows = 2
+        col.template_list("GPENCIL_UL_paletteslots", "", gpd, "palette_slots", gpd, "active_palette_index",
+                          rows=slot_rows)
+
+        col = row.column()
+
+        sub = col.column(align=True)
+        sub.operator("palette.color_add", icon='ZOOMIN', text="").grease_pencil = True
+        sub.operator("palette.color_delete", icon='ZOOMOUT', text="")
+
+        sub = col.column(align=True)
+        sub.operator_menu_enum("gpencil.stroke_change_palette", text="", icon='ARROW_LEFTRIGHT', property="type")
+
+
+class MATERIAL_PT_gpencil_palette_colors(Panel):
+    bl_label = "Active Palette"
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = "material"
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.object.type == 'GPENCIL'
+    
+    @staticmethod
+    def draw(self, context):
+        layout = self.layout
+        
+        gpd = context.gpencil_data
+        slot = gpd.palette_slots[gpd.active_palette_index] # XXX
+        
+        #palette = context.active_palette
+        palette = slot.palette if slot else None
+
+        row = layout.row()
+        row.template_ID(slot, "palette", new="palette.new_gpencil")
 
         if palette:
             row = layout.row()
@@ -101,9 +137,6 @@ class MATERIAL_PT_gpencil_palettecolor(Panel):
                 sub = col.column(align=True)
                 sub.operator("palette.palettecolor_isolate", icon='LOCKED', text="").affect_visibility = False
                 sub.operator("palette.palettecolor_isolate", icon='RESTRICT_VIEW_OFF', text="").affect_visibility = True
-
-            row = layout.row()
-            row.operator_menu_enum("gpencil.stroke_change_palette", text="Change Palette...", property="type")
 
 
 class MATERIAL_PT_gpencil_palette_strokecolor(Panel):
@@ -227,7 +260,9 @@ class MATERIAL_PT_gpencil_palette_fillcolor(Panel):
 
 
 classes = (
-    MATERIAL_PT_gpencil_palettecolor,
+    GPENCIL_UL_paletteslots,
+    MATERIAL_PT_gpencil_palette_slots,
+    MATERIAL_PT_gpencil_palette_colors,
     MATERIAL_PT_gpencil_palette_strokecolor,
     MATERIAL_PT_gpencil_palette_fillcolor,
 )
