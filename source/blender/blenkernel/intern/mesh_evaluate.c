@@ -651,7 +651,7 @@ typedef struct LoopSplitTaskDataCommon {
 /* See comment about edge_to_loops below. */
 #define IS_EDGE_SHARP(_e2l) (ELEM((_e2l)[1], INDEX_UNSET, INDEX_INVALID))
 
-static void loop_manifold_fan_around_vert_next(
+void loop_manifold_fan_around_vert_next(
         const MLoop *mloops, const MPoly *mpolys,
         const int *loop_to_poly, const int *e2lfan_curr, const uint mv_pivot_index,
         const MLoop **r_mlfan_curr, int *r_mlfan_curr_index, int *r_mlfan_vert_index, int *r_mpfan_curr_index)

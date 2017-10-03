@@ -195,6 +195,10 @@ void BKE_mesh_loop_tangents_ex(
         struct ReportList *reports);
 void BKE_mesh_loop_tangents(
         struct Mesh *mesh, const char *uvmap, float (*r_looptangents)[4], struct ReportList *reports);
+void loop_manifold_fan_around_vert_next(
+		const struct MLoop *mloops, const struct MPoly *mpolys,
+		const int *loop_to_poly, const int *e2lfan_curr, const uint mv_pivot_index,
+		const struct MLoop **r_mlfan_curr, int *r_mlfan_curr_index, int *r_mlfan_vert_index, int *r_mpfan_curr_index);
 
 /**
  * References a contiguous loop-fan with normal offset vars.

@@ -92,39 +92,6 @@ static bool check_strength(int strength, int *cur_strength, float *cur_val, int 
 	return true;
 }
 
-/* Copied function used to fan around the current vertex */
-static void loop_manifold_fan_around_vert_next(
-	const MLoop *mloops, const MPoly *mpolys,
-	const int *loop_to_poly, const int *e2lfan_curr, const uint mv_pivot_index,
-	const MLoop **r_mlfan_curr, int *r_mlfan_curr_index, int *r_mlfan_vert_index, int *r_mpfan_curr_index)
-{
-	const MLoop *mlfan_next;
-	const MPoly *mpfan_next;
-	*r_mlfan_curr_index = (e2lfan_curr[0] == *r_mlfan_curr_index) ? e2lfan_curr[1] : e2lfan_curr[0];
-	*r_mpfan_curr_index = loop_to_poly[*r_mlfan_curr_index];
-
-	BLI_assert(*r_mlfan_curr_index >= 0);
-	BLI_assert(*r_mpfan_curr_index >= 0);
-
-	mlfan_next = &mloops[*r_mlfan_curr_index];
-	mpfan_next = &mpolys[*r_mpfan_curr_index];
-	if (((*r_mlfan_curr)->v == mlfan_next->v && (*r_mlfan_curr)->v == mv_pivot_index) ||
-		((*r_mlfan_curr)->v != mlfan_next->v && (*r_mlfan_curr)->v != mv_pivot_index))
-	{
-		*r_mlfan_vert_index = *r_mlfan_curr_index;
-		if (--(*r_mlfan_curr_index) < mpfan_next->loopstart) {
-			*r_mlfan_curr_index = mpfan_next->loopstart + mpfan_next->totloop - 1;
-		}
-	}
-	else {
-		if (++(*r_mlfan_curr_index) >= mpfan_next->loopstart + mpfan_next->totloop) {
-			*r_mlfan_curr_index = mpfan_next->loopstart;
-		}
-		*r_mlfan_vert_index = *r_mlfan_curr_index;
-	}
-	*r_mlfan_curr = &mloops[*r_mlfan_curr_index];
-}
-
 static void apply_weights_sharp_loops(WeightedNormalModifierData *wnmd, int *loop_index, int size, pair *mode_pair,
 	float(*loop_normal)[3], int *loops_to_poly, float(*polynors)[3], int weight, int *strength)
 {
@@ -384,6 +351,9 @@ static void apply_weights_vertex_normal(WeightedNormalModifierData *wnmd, Object
 						else {
 							e2l[1] = ml_curr_index;
 						}
+					}
+					else if (!IS_EDGE_SHARP(e2l)) {
+						e2l[1] = INDEX_INVALID;
 					}
 				}
 			}
