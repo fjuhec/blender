@@ -277,8 +277,8 @@ static void GPENCIL_cache_init(void *vedata)
 		if (ob) {
 			gpd = ob->gpd;
 		}
-		Palette *palette = BKE_palette_get_active_from_context(draw_ctx->evil_C);
-		PaletteColor *palcolor = BKE_palette_color_get_active(palette);
+		bGPDpaletteref *palslot = BKE_gpencil_paletteslot_get_active(gpd);
+		PaletteColor *palcolor = BKE_palette_color_get_active((palslot) ? palslot->palette : NULL);
 		if (palcolor) {
 			stl->storage->stroke_style = palcolor->stroke_style;
 			stl->storage->color_type = GPENCIL_COLOR_SOLID;
