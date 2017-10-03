@@ -279,6 +279,7 @@ typedef struct MirrorModifierData {
 	short flag;
 	float tolerance;
 	float uv_offset[2];
+	float uv_offset_copy[2];
 	struct Object *mirror_ob;
 } MirrorModifierData;
 

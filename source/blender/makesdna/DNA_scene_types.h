@@ -1117,23 +1117,25 @@ typedef struct UvSculpt {
 /* Vertex Paint */
 typedef struct VPaint {
 	Paint paint;
-
-	short flag, pad;
-	int tot;							/* allocation size of prev buffers */
-	unsigned int *vpaint_prev;			/* previous mesh colors */
-	struct MDeformVert *wpaint_prev;	/* previous vertex weights */
-	
-	void *paintcursor;					/* wm handle */
+	short flag;
+	char falloff_shape, normal_angle;
+	int radial_symm[3]; /* For mirrored painting */
 } VPaint;
 
 /* VPaint.flag */
 enum {
-	// VP_COLINDEX  = (1 << 0),  /* only paint onto active material*/  /* deprecated since before 2.49 */
-	// VP_AREA      = (1 << 1),  /* deprecated since 2.70 */
-	VP_NORMALS      = (1 << 3),
-	VP_SPRAY        = (1 << 4),
-	// VP_MIRROR_X  = (1 << 5),  /* deprecated in 2.5x use (me->editflag & ME_EDIT_MIRROR_X) */
-	VP_ONLYVGROUP   = (1 << 7)   /* weight paint only */
+	VP_FLAG_PROJECT_BACKFACE    = (1 << 0),
+	/* TODO */
+	// VP_FLAG_PROJECT_XRAY        = (1 << 1),
+	VP_FLAG_PROJECT_FLAT        = (1 << 3),
+	/* weight paint only */
+	VP_FLAG_VGROUP_RESTRICT     = (1 << 7)
+};
+
+/* VPaint.falloff_shape */
+enum {
+	VP_FALLOFF_SHAPE_SPHERE = 0,
+	VP_FALLOFF_SHAPE_TUBE = 1,
 };
 
 /* ------------------------------------------- */
@@ -1633,8 +1635,7 @@ typedef struct Scene {
 	struct Object *obedit;		/* name replaces old G.obedit */
 	
 	float cursor[3];			/* 3d cursor location */
-	float twcent[3];			/* center for transform widget */
-	float twmin[3], twmax[3];	/* boundbox of selection for transform widget */
+	char _pad[4];
 	
 	unsigned int lay;			/* bitflags for layer visibility */
 	int layact;		/* active layer */
