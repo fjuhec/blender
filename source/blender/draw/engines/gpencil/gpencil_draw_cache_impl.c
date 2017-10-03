@@ -1063,6 +1063,8 @@ void DRW_gpencil_populate_multiedit(GPENCIL_e_data *e_data, void *vedata, Scene 
 void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene *scene, Object *ob, ToolSettings *ts, bGPdata *gpd)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	const bContext *C = draw_ctx->evil_C;
 	bGPDframe *derived_gpf = NULL;
 	bool no_onion = (bool)(gpd->flag & GP_DATA_STROKE_WEIGHTMODE);
 
@@ -1108,7 +1110,7 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 				BLI_ghash_remove(gpl->derived_data, ob->id.name, NULL, NULL);
 			}
 			/* create new data */
-			derived_gpf = BKE_gpencil_frame_color_duplicate(gpf);
+			derived_gpf = BKE_gpencil_frame_color_duplicate(C, gpf, ts);
 			BLI_ghash_insert(gpl->derived_data, ob->id.name, derived_gpf);
 		}
 
