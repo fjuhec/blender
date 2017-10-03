@@ -152,6 +152,16 @@ static void rna_GPencilPaletteSlot_name_get(PointerRNA *ptr, char *str)
 		str[0] = '\0';
 }
 
+static void rna_GPencilPaletteSlot_palette_set(PointerRNA *ptr, PointerRNA value)
+{
+	bGPdata *gpd = ptr->id.data;
+	bGPDpaletteref *palslot = ptr->data;
+	
+	Palette *palette = value.data;
+	
+	BKE_gpencil_paletteslot_set_palette(gpd, palslot, palette);
+}
+
 static char *rna_GPencilLayer_path(PointerRNA *ptr)
 {
 	bGPDlayer *gpl = (bGPDlayer *)ptr->data;
@@ -707,7 +717,11 @@ static void rna_def_gpencil_palette_slot(BlenderRNA *brna)
 	
 	prop = RNA_def_property(srna, "palette", PROP_POINTER, PROP_NONE);
 	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_REFCOUNT);
-	//RNA_def_property_pointer_funcs(prop, NULL, NULL, NULL, "rna_GPencilPalette_id_poll");
+	RNA_def_property_pointer_funcs(prop, 
+	                               NULL, 
+	                               "rna_GPencilPaletteSlot_palette_set", 
+	                               NULL, 
+	                               NULL /*"rna_GPencilPalette_id_poll"*/);
 	RNA_def_property_ui_text(prop, "Palette", "Palette data-block used by this palette slot");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 }
@@ -715,10 +729,10 @@ static void rna_def_gpencil_palette_slot(BlenderRNA *brna)
 static void rna_def_gpencil_palette_slots_api(BlenderRNA *brna, PropertyRNA *cprop)
 {
 	StructRNA *srna;
-	PropertyRNA *prop;
+	//PropertyRNA *prop;
 
-	FunctionRNA *func;
-	PropertyRNA *parm;
+	//FunctionRNA *func;
+	//PropertyRNA *parm;
 
 	RNA_def_property_srna(cprop, "GreasePencilPaletteSlots");
 	srna = RNA_def_struct(brna, "GreasePencilPaletteSlots", NULL);
